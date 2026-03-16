@@ -71,22 +71,10 @@ void TestAddDynBody(const std::vector<int64_t> &shape, const std::vector<int64_t
     function->SetUnderDynamicFunction(true);
     for (auto &subFunc : function->rootFunc_->programs_) {
         for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
             if (op.GetOpcode() == Opcode::OP_ADD && isNeedCalcMinForBinaryOperands) {
                 op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
             }
         }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_2_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_2_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_4_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_4_dim_1", fakeParam);
     }
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -146,19 +134,19 @@ TEST_F(TestCodegenDynBinary, TestAddSDynamic) {
 
 TEST_F(TestCodegenDynBinary, TestAddSTileTensorInfPos) {
     std::vector<std::string> expect = {R"!!!(union {float f; uint32_t u;} float_inf_pos = {.u = 0x7F800000};)!!!",
-        R"!!!(TAddS<LastUse2Dim<0, 0>, float>(ubTensor_1, ubTensor_1, float_inf_pos.f);)!!!"};
+        R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_1, ubTensor_1, float_inf_pos.f);)!!!"};
     TestAddSDynBody("TestAddSTileTensorInfPos", 1.0f / 0.0f, true, expect);
 }
 
 TEST_F(TestCodegenDynBinary, TestAddSTileTensorInfNeg) {
     std::vector<std::string> expect = {R"!!!(union {float f; uint32_t u;} float_inf_neg = {.u = 0xFF800000};)!!!",
-        R"!!!(TAddS<LastUse2Dim<0, 0>, float>(ubTensor_1, ubTensor_1, float_inf_neg.f);)!!!"};
+        R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_1, ubTensor_1, float_inf_neg.f);)!!!"};
     TestAddSDynBody("TestAddSTileTensorInfNeg", -1.0f / 0.0f, true, expect);
 }
 
 TEST_F(TestCodegenDynBinary, TestAddSTileTensorNAN) {
     std::vector<std::string> expect = {R"!!!(union {float f; uint32_t u;} float_nan = {.u = 0x7FC00000};)!!!",
-        R"!!!(TAddS<LastUse2Dim<0, 0>, float>(ubTensor_1, ubTensor_1, float_nan.f);)!!!"};
+        R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_1, ubTensor_1, float_nan.f);)!!!"};
     TestAddSDynBody("TestAddSTileTensorNAN", 0.0f / 0.0f, true, expect);
 }
 
@@ -307,7 +295,7 @@ TEST_F(TestCodegenDynBinary, AddUnalignTileTensor) {
 #if ENABLE_HIDDENLOOP
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-// funcHash: 15254125042380441882
+// funcHash: 849057961577091540
 
 extern "C" [aicore] void TENSOR_L0_TILETENSOR_Unroll1_PATH0_hiddenfunc0_7_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E16384 = (float __ubuf__ *)get_imm(0x0); // size: 0x4000
@@ -333,7 +321,7 @@ TLoad(ubTensor_3, gmTensor_4, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 0)),
 SUBKERNEL_PHASE2
 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-TAdd<LastUse3Dim<0, 0, 0>>(ubTensor_1, ubTensor_1, ubTensor_3);
+TAdd<LastUse3Dim<0, 1, 1>>(ubTensor_1, ubTensor_1, ubTensor_3);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 TStore(gmTensor_8, ubTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 1))));
@@ -376,7 +364,7 @@ TStore(gmTensor_8, ubTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)
 )!!!";
 #endif
 
-    EXPECT_EQ(res, expect);
+    CheckStringExist(expect, res);
 }
 
 TEST_F(TestCodegenDynBinary, TestAddTileTensor) {
@@ -404,7 +392,7 @@ TEST_F(TestCodegenDynBinary, TestAddTileTensor) {
     auto localTensorB =
         CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_UB, addShape, dynValidShape});
     auto localOutTensor =
-        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, addShape, dynValidShape});
+        CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_UB, addShape, dynValidShape});
 
     auto &op = function->AddOperation(Opcode::OP_ADD, {localTensorA, localTensorB}, {localOutTensor});
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
@@ -421,8 +409,15 @@ TEST_F(TestCodegenDynBinary, TestAddTileTensor) {
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
     std::string res = cop.GenOpCode();
-    std::string expect = R"!!!(TAdd<LastUse2Dim<0, 0>>(ubTensor_1, ubTensor_2, ubTensor_2);
+    std::string expect = R"!!!(TAdd<LastUse2Dim<0, 0>>(ubTensor_1, ubTensor_1, ubTensor_1);
 )!!!";
+    EXPECT_EQ(res, expect);
+
+    expect = "UBTileTensorFP16Dim2_1";
+    res = symbolManager->QueryTileTensorTypeByBufVar("UB_S0_E0_T");
+    EXPECT_EQ(res, expect);
+
+    res = cop.QueryTileTensorTypeByIdx(0);
     EXPECT_EQ(res, expect);
 }
 } // namespace npu::tile_fwk

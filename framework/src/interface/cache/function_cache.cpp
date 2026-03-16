@@ -71,7 +71,7 @@ void FunctionCache::UpdateTopoCache(const Function &func, CacheValue &value) {
         for (auto &ele : func.topoInfo_.topology_[i].outGraph) {
             tempPtr->depIds[j] = ele;
             j++;
-            MACHINE_LOGD("[function cache]depend %u", ele);
+            MACHINE_LOGD("[function cache]depend %d", ele);
         }
         for (auto &ele : func.topoInfo_.topology_[i].extParams) {
             tempPtr->depIds[j++] = static_cast<uint64_t>(ele);

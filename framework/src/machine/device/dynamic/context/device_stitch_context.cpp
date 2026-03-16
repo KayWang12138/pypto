@@ -17,11 +17,9 @@
 
 namespace npu::tile_fwk::dynamic {
 void DeviceStitchContext::Init(DevAscendProgram *devProg, DeviceWorkspaceAllocator &workspace) {
-    workspace.SetupVector(stitchedList_);
     workspace_ = &workspace;
-
-    workspace_->SetupVector(slotInfosInDecidingSlotMem_);
-    slotInfosInDecidingSlotMem_.resize(devProg->slotSize); // need pre alloc , left memory for slab allocator
+    workspace_->SetupVector(stitchedList_);
+    devProg_ = devProg;
 
     Reset();
 }
@@ -79,7 +77,7 @@ uint64_t DeviceStitchContext::Stitch(DeviceSlotContext &slotContext, DevAscendFu
     if (stitchedList_.capacity() == 0) {
         /* This stitchedList_ vector can only allocate sufficient space once,
             during a single device task construction process.*/
-        stitchedList_.reserve(MAX_CACHED_FUNC_NUM);
+        stitchedList_.reserve(devProg_->stitchMaxFunctionNum);
     }
     Append(nextDup);
     stitchedCallOpSize_ += (nextDup.GetSource()->GetOperationSize() - nextDup.GetSource()->hubOpCount_);
@@ -169,18 +167,30 @@ int DeviceStitchContext::MoveTo(DynDeviceTask *dynTask) {
     dynTask->devTask.coreFunctionCnt = stitchedCallOpSize_;
     stitchedCallOpSize_ = 0;
 
-    if (dynTask->stitchedList.size() > MAX_CACHED_FUNC_NUM) {
-        DEV_ERROR("Stitch list size:%u exceeds maximum allowed cached function number:%zu.", dynTask->stitchedList.size(), MAX_CACHED_FUNC_NUM);
+    if (dynTask->stitchedList.size() > MAX_STITCH_FUNC_NUM) {
+        DEV_ERROR("Stitch list size:%u exceeds maximum allowed cached function number:%zu.", dynTask->stitchedList.size(), MAX_STITCH_FUNC_NUM);
         return DEVICE_MACHINE_ERROR;
     }
-    DEV_ASSERT(dynTask->stitchedList.size() <= MAX_CACHED_FUNC_NUM);
+    DEV_ASSERT(dynTask->stitchedList.size() <= MAX_STITCH_FUNC_NUM);
+    uint64_t *opWrapArray = nullptr;
+    uint64_t *opWrapTaskNumArray = nullptr;
+    if (dynTask->devTask.mixTaskData.opWrapListPtr != 0) {
+        opWrapArray = reinterpret_cast<uint64_t *>(dynTask->devTask.mixTaskData.opWrapListPtr);
+    }
+    if (dynTask->devTask.mixTaskData.opWrapTaskNumListPtr != 0) {
+        opWrapTaskNumArray = reinterpret_cast<uint64_t *>(dynTask->devTask.mixTaskData.opWrapTaskNumListPtr);
+    }
     int size = static_cast<int>(dynTask->stitchedList.size());
     for (int i = 0; i < size; ++i) {
         auto &funcDup = dynTask->stitchedList[i];
         dynTask->dynFuncDataCacheList[i] = {
             funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0), funcDup.GetSource()->GetCalleeIndexAddr(), funcDup.DupDataForDynFuncData()};
-        dynTask->devTask.mixTaskData.opWrapList[i] = PtrToValue(funcDup.GetSource()->GetOpWrapListAddr());
-        dynTask->devTask.mixTaskData.opWrapTaskNumList[i] = PtrToValue(funcDup.GetSource()->GetOpWrapTaskNumListAddr());
+        if (opWrapArray != nullptr) {
+            opWrapArray[i] = PtrToValue(funcDup.GetSource()->GetOpWrapListAddr());
+        }
+        if (opWrapTaskNumArray != nullptr) {
+            opWrapTaskNumArray[i] = PtrToValue(funcDup.GetSource()->GetOpWrapTaskNumListAddr());
+        }
     }
     dynTask->dynFuncDataCacheListSize = size;
     return DEVICE_MACHINE_OK;

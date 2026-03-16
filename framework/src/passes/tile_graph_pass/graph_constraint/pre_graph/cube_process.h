@@ -54,10 +54,10 @@ const std::map<std::pair<DataType, DataType>, DataType> supportDtypeMap = {
     {{DataType::DT_INT16, DataType::DT_INT16}, DataType::DT_INT32},
     {{DataType::DT_FP8E5M2, DataType::DT_FP8E5M2}, DataType::DT_FP32},
     {{DataType::DT_FP8E4M3, DataType::DT_FP8E4M3}, DataType::DT_FP32},
-    {{DataType::DT_FP8E5M2, DataType::DT_FP8E5M2}, DataType::DT_FP16},
-    {{DataType::DT_FP8E4M3, DataType::DT_FP8E4M3}, DataType::DT_FP16},
-    {{DataType::DT_FP8E5M2, DataType::DT_FP8E5M2}, DataType::DT_BF16},
-    {{DataType::DT_FP8E4M3, DataType::DT_FP8E4M3}, DataType::DT_BF16},
+    {{DataType::DT_FP8E5M2, DataType::DT_FP8E4M3}, DataType::DT_FP32},
+    {{DataType::DT_FP8E4M3, DataType::DT_FP8E5M2}, DataType::DT_FP32},
+    {{DataType::DT_FP4_E2M1X2, DataType::DT_FP4_E2M1X2}, DataType::DT_FP32},
+    {{DataType::DT_FP4_E1M2X2, DataType::DT_FP4_E1M2X2}, DataType::DT_FP32},
 };
 
 class CubeProcess {

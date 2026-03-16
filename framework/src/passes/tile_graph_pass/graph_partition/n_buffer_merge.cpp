@@ -371,7 +371,7 @@ void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors,
                                      size_t &numDBmerge) {
     int pingColor = -1;
     for (auto &input2Color : sortedColors) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "NBuffer %d Number of subgraphs %d SubGraphIDs %s", numDBmerge, input2Color.size(), IntVecToStr(input2Color).c_str());
+        APASS_LOG_DEBUG_F(Elements::Operation, "NBuffer %zu Number of subgraphs %zu SubGraphIDs %s", numDBmerge, input2Color.size(), IntVecToStr(input2Color).c_str());
         if (vecNBuffermode_ == autoMulityInOutMerge || vecNBuffermode_ == manualMulityInOutMerge) {
             std::sort(input2Color.begin(), input2Color.end(), [&](int x, int y) { return dfsColorOrder_[x] < dfsColorOrder_[y]; });
         }
@@ -393,7 +393,7 @@ void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors,
             colorCycles_[pongColor] = 0;
             colorNode_[pongColor].clear();
             hashColor[pongColor] = 0;
-            APASS_LOG_DEBUG_F(Elements::Operation, "SubGraph Merge: %lu, %lu.", pingColor, pongColor);
+            APASS_LOG_DEBUG_F(Elements::Operation, "SubGraph Merge: %d, %d.", pingColor, pongColor);
         }
     }
 }
@@ -486,6 +486,12 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
     std::map<uint64_t, std::vector<int>> hashMap;
     hashOrder_.clear();
     GetColorHash(opOriList, hashColor, hashMap);
+    // print hashorder
+    APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview.", func.GetRawName().c_str());
+    for (auto &entry : hashMap) {
+        APASS_LOG_INFO_F(Elements::Operation, "Hash order: %d, Subgraph hash: %lu, Subgraph IDs: %s.", hashOrder_[entry.first], entry.first, IntVecToStr(entry.second).c_str());
+    }
+    APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview end.", func.GetRawName().c_str());
     std::map<uint64_t, size_t> hashMergeNum;
     if (vecNBuffermode_ == autoMerge || vecNBuffermode_ == autoMulityInOutMerge) {
         APASS_LOG_INFO_F(Elements::Config, "Manually set mode to %d, automatically calculate mergeNum.", vecNBuffermode_);
@@ -527,8 +533,9 @@ Status NBufferMerge::CheckVecNBufferSettingForManualMerge() {
     }
     for (const auto& pair : vecNBufferSetting_) {
         if (pair.first < VEC_NBUFFER_SETTING_DEFAULT_MERGE_NUM_KEY || pair.first > static_cast<int64_t>(hashOrder_.size()) - 1) {
-            APASS_LOG_ERROR_F(Elements::Config, "The VEC_NBUFFER_SETTING key %ld is incorrect; Please set keys of VEC_NBUFFER_SETTING between -1 and max hashOrder %ld.", pair.first, static_cast<int64_t>(hashOrder_.size()) - 1);
-            return FAILED;
+            APASS_LOG_WARN_F(Elements::Config,
+                "The VEC_NBUFFER_SETTING key %ld is invalid; For the current graph, valid keys should be between -2 and max hashOrder %ld.",
+                pair.first, static_cast<int64_t>(hashOrder_.size()) - 1);
         }
         if (pair.second <= 0 || pair.second > static_cast<int64_t>(INT_MAX)) {
             APASS_LOG_ERROR_F(Elements::Config, "The value %ld of the key %ld in VEC_NBUFFER_SETTING is incorrect; Please set values of VEC_NBUFFER_SETTING more than 0 and not exceeding the INT_MAX %d.", pair.second, pair.first, INT_MAX);

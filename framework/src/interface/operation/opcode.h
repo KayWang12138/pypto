@@ -35,6 +35,7 @@ enum class Opcode {
     OP_RSQRT,
     OP_RELU,
     OP_LOG1P,
+    OP_PAD,
     OP_SQRT,
     OP_CEIL,
     OP_FLOOR,
@@ -168,6 +169,10 @@ enum class Opcode {
     OP_L1_TO_L0A,
     OP_L1_TO_L0B,
     OP_L1_TO_BT,
+    OP_L1_COPY_IN_CONV,
+    OP_LOAD3D_CONV,
+    OP_LOAD2D_CONV,
+    OP_L0C_COPY_OUT_CONV,
     // ANY
     OP_DUPLICATE,
     // View
@@ -253,7 +258,6 @@ enum class Opcode {
     OP_BAR_V,
     OP_BAR_M,
     OP_BAR_ALL,
-    OP_PAD,
 
     // Distributed
     OP_SEND_TO_ROUTING_EXPERT,
@@ -450,7 +454,8 @@ public:
                opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN ||
                opCode == Opcode::OP_L1_TO_FIX_QUANT_PRE || opCode == Opcode::OP_L1_TO_BT ||
                opCode == Opcode::OP_SHMEM_GET_GM2UB ||
-               opCode == Opcode::OP_L1_COPY_IN_A_SCALE || opCode == Opcode::OP_L1_COPY_IN_B_SCALE;
+               opCode == Opcode::OP_L1_COPY_IN_A_SCALE || opCode == Opcode::OP_L1_COPY_IN_B_SCALE ||
+               opCode == Opcode::OP_L1_COPY_IN_CONV;
     }
 
     inline bool IsCopyOut(Opcode opCode) const {
@@ -465,7 +470,7 @@ public:
                opCode == Opcode::OP_SHMEM_REDUCE || opCode == Opcode::OP_RESHAPE_COPY_OUT ||
                opCode == Opcode::OP_SHMEM_PUT_UB2GM  ||
                opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
-               opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE;
+               opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE || opCode == Opcode::OP_L0C_COPY_OUT_CONV;
     }
 
     inline bool IsCopyInOrOut(Opcode opCode) const { return IsCopyIn(opCode) || IsCopyOut(opCode); }
@@ -564,7 +569,7 @@ const std::unordered_set<Opcode> BINARY_WITH_BRC_OPS{
 };
 
 const std::unordered_set<Opcode> UNARY_OPS{Opcode::OP_EXP, Opcode::OP_EXP2, Opcode::OP_EXPM1, Opcode::OP_NEG, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_RELU,
-    Opcode::OP_CEIL, Opcode::OP_FLOOR, Opcode::OP_TRUNC, Opcode::OP_EXPAND, Opcode::OP_RECIPROCAL, Opcode::OP_ROWSUM,
+    Opcode::OP_CEIL, Opcode::OP_FLOOR, Opcode::OP_TRUNC, Opcode::OP_EXPAND, Opcode::OP_RECIPROCAL, Opcode::OP_PAD, Opcode::OP_ROWSUM,
     Opcode::OP_ROWMAX, Opcode::OP_ROWEXPSUM, Opcode::OP_ROWEXPMAX, Opcode::OP_L1_TO_L1, Opcode::OP_COPY_UB_TO_UB,
     Opcode::OP_ROUND, Opcode::OP_ROWSUMLINE, Opcode::OP_ABS, Opcode::OP_LN, Opcode::OP_ISFINITE, Opcode::OP_HUB, Opcode::OP_BITWISENOT,
     Opcode::OP_SIGN, Opcode::OP_ROWPRODLINE, Opcode::OP_SIGNBIT};
@@ -604,7 +609,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_MUL, Opcode::OP_DIV, Opcode::OP_EXP, Opcode::OP_EXP2, Opcode::OP_EXPM1, Opcode::OP_NEG, Opcode::OP_LN, Opcode::OP_HUB,
     Opcode::OP_ABS, Opcode::OP_RSQRT, Opcode::OP_RELU, Opcode::OP_LOG1P, Opcode::OP_CEIL, Opcode::OP_FLOOR,
     Opcode::OP_TRUNC, Opcode::OP_SQRT, Opcode::OP_RECIPROCAL, Opcode::OP_CAST, Opcode::OP_ISFINITE, Opcode::OP_ADDS,
-    Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_PAIRMAX,
+    Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_PAD, Opcode::OP_PAIRMAX,
     Opcode::OP_PAIRSUM, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_EXPAND, Opcode::OP_VEC_DUP,
     Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_L1_TO_L0A, Opcode::OP_LOGICALNOT, Opcode::OP_LOGICALAND,
     Opcode::OP_ONEHOT, Opcode::OP_POW, Opcode::OP_INDEX_PUT, Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0B,
@@ -627,6 +632,8 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_SORT_UB, Opcode::OP_GATHER_MASK, Opcode::OP_GATHER_MASK_BUILDIN, Opcode::OP_PAIRPROD, Opcode::OP_ROWPROD_SINGLE, 
     Opcode::OP_ROWPRODLINE};
 
+const std::unordered_set<Opcode> UNSUPPORT_FP16_OPS{Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_REMRS, Opcode::OP_REMS, Opcode::OP_REM};
+
 const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_RELU,
     Opcode::OP_RECIPROCAL, Opcode::OP_ABS, Opcode::OP_LN, Opcode::OP_LOGICALNOT, Opcode::OP_TRIUL, Opcode::OP_REMRS,
     Opcode::OP_LOGICALAND, Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_REM, Opcode::OP_REMS,
@@ -645,10 +652,10 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_R
     Opcode::OP_ROWPRODLINE};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_ARCH35_OPS{Opcode::OP_EXP, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_RELU,
-    Opcode::OP_ABS, Opcode::OP_LOGICALNOT,Opcode::OP_LOGICALAND, Opcode::OP_DIVS, Opcode::OP_DIV, Opcode::OP_EXPANDEXPDIF,
-    Opcode::OP_ROWSUMLINE, Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE, Opcode::OP_ROWMAX_SINGLE,
+    Opcode::OP_ABS, Opcode::OP_LOGICALNOT, Opcode::OP_LOGICALAND, Opcode::OP_DIVS, Opcode::OP_DIV, Opcode::OP_EXPANDEXPDIF,
+    Opcode::OP_ROWSUMLINE, Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_REMRS, Opcode::OP_REM,
     Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_PRELU, Opcode::OP_ROWPROD_SINGLE, 
-    Opcode::OP_ROWPRODLINE};
+    Opcode::OP_ROWPRODLINE, Opcode::OP_REMS};
 
 const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_L1_TO_FIX, Opcode::OP_L1_TO_FIX_QUANT_PRE,
     Opcode::OP_L1_TO_FIX_RELU_PRE, Opcode::OP_L1_TO_FIX_RELU_POST, Opcode::OP_L1_TO_FIX_QUANT_POST,
