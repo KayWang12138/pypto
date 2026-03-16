@@ -1478,9 +1478,10 @@ private:
         UpdateAiCoreBlockIndexSection();
         if constexpr (IsDeviceMode()) {
             aicoreHal_.MapRegistersForAllCores(aicNum_);
-            aicoreProf_.ProfInit(reinterpret_cast<int64_t *>(deviceArgs->corePmuRegAddr),
-               reinterpret_cast<int64_t *>(deviceArgs->pmuEventAddr),
-               deviceArgs->toSubMachineConfig.profConfig, deviceArgs->archInfo);
+            // aicoreProf_.ProfInit(reinterpret_cast<int64_t *>(deviceArgs->corePmuRegAddr),
+            //    reinterpret_cast<int64_t *>(deviceArgs->pmuEventAddr),
+            //    deviceArgs->toSubMachineConfig.profConfig, deviceArgs->archInfo);
+            aicoreProf_.ProfInit(deviceArgs);
         } else {
             aicoreHal_.SetTaskTimeCost([this](uint64_t coreIdx, uint64_t taskId, uint64_t time)
                 {return GetCostModelTaskTime(coreIdx, taskId, time); });
@@ -1750,7 +1751,7 @@ private:
         volatile TaskStat *stat = aicoreHal_.GetTaskStat(coreIdx, 0);
 
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
-        aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
+        // aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
 #endif
 
 #if ENABLE_TENSOR_DUMP
