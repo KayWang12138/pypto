@@ -377,8 +377,8 @@ std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
     const std::shared_ptr<SymbolManager> &symbolMgr, const std::shared_ptr<LogicalTensor> &tensor) const {
     auto memType = tensor->GetMemoryTypeOriginal();
     if (OPERAND_TYPE_TO_MEMORY_TYPE.find(memType) == OPERAND_TYPE_TO_MEMORY_TYPE.end()) {
-        CODEGEN_LOGE("%s: memory type(%zu) of tensor from PASS is invalid, tensor is: %s", __FUNCTION__,
-            static_cast<size_t>(memType), tensor->Dump().c_str());
+        CODEGEN_LOGE("memory type(%zu) of tensor from PASS is invalid, tensor is: %s", static_cast<size_t>(memType),
+            tensor->Dump().c_str());
         return std::nullopt;
     }
 
@@ -419,7 +419,7 @@ std::string CodeGenCloudNPU::GenAlloc(
         return "";
     }
 
-    CODEGEN_LOGI("%s: bind key to name: %s->%s", __FUNCTION__, sm->FormatAllocKey(key).c_str(), allocVarName.c_str());
+    CODEGEN_LOGI("bind key to name: %s->%s", sm->FormatAllocKey(key).c_str(), allocVarName.c_str());
 
     std::string dataTypeStr = DataType2CCEStr(dataType);
 

@@ -73,7 +73,7 @@ void CodeGenOp::CombineAxis(const Operation &oper, int operandIdx, bool isInput,
         CombineLastTwoAxis(originShape[operandIdx], dim);
         CombineLastTwoAxis(dynamicValidShape[operandIdx], dim);
         CODEGEN_LOGI("op code %s, operandIdx: %d, after CombineAxis shape is %s, raw shape is %s, originShape is %s, "
-                    "dynamicValidShape is %s",
+                     "dynamicValidShape is %s",
             oper.GetOpcodeStr().c_str(), operandIdx, IntVecToStr(shape[operandIdx]).c_str(),
             IntVecToStr(rawShape[operandIdx]).c_str(), IntVecToStr(originShape[operandIdx]).c_str(),
             IntVecToStr(dynamicValidShape[operandIdx]).c_str());
@@ -206,8 +206,8 @@ void CodeGenOp::Init(const Operation &ops) {
 
     isDynamicFunction = functionType == FunctionType::DYNAMIC_LOOP_PATH;
     isSupportDynamicAligned = isDynamicAligned || config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
-    CODEGEN_LOGI("%s: init CodeGenOp from Operation, isDynamicFunction is %d, isSupportDynamicAligned is %d",
-        __FUNCTION__, isDynamicFunction, isSupportDynamicAligned);
+    CODEGEN_LOGI("init CodeGenOp from Operation, isDynamicFunction is %d, isSupportDynamicAligned is %d",
+        isDynamicFunction, isSupportDynamicAligned);
 
     UpdateTileOpInfo(ops);
     ASSERT(!tileOpName.empty()) << "empty tileOpName for ops: " << ops.Dump();
@@ -448,8 +448,8 @@ void CodeGenOp::GetGmParamIdx(const Operation &oper) {
         ASSERT(outParamLocSize <= oper.oOperand.size())
             << "size of Op.outParamLocation_ is larger than output operands, Op is " << oper.Dump();
 
-        CODEGEN_LOGI("%s: inParamLocation = %s", __FUNCTION__, IntVecToStr(oper.inParamLocation_).c_str());
-        CODEGEN_LOGI("%s: outParamLocation = %s", __FUNCTION__, IntVecToStr(oper.outParamLocation_).c_str());
+        CODEGEN_LOGI("inParamLocation = %s", IntVecToStr(oper.inParamLocation_).c_str());
+        CODEGEN_LOGI("outParamLocation = %s", IntVecToStr(oper.outParamLocation_).c_str());
 
         std::copy(oper.outParamLocation_.begin(), oper.outParamLocation_.end(), paramLocation);
         std::copy(oper.inParamLocation_.begin(), oper.inParamLocation_.end(), paramLocation + oper.oOperand.size());
@@ -502,7 +502,7 @@ void CodeGenOp::GetGmParamIdx(const Operation &oper) {
         paramLocation[1] = oper.GetIOpAttrOffset(0);
         CODEGEN_LOGI("Gm Param Index of Copy In Op %s is %d", tileOpName.c_str(), paramLocation[1]);
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        CODEGEN_LOGI("%s GmTensorParamIdxInCallFunc: %d", __FUNCTION__, GmTensorParamIdxInCallFunc);
+        CODEGEN_LOGI("GmTensorParamIdxInCallFunc: %d", GmTensorParamIdxInCallFunc);
         return;
     }
 
@@ -513,7 +513,7 @@ void CodeGenOp::GetGmParamIdx(const Operation &oper) {
         paramLocation[0] = oper.GetOOpAttrOffset(0);
         CODEGEN_LOGI("Gm Param Index of Copy Out Op %s is %d", tileOpName.c_str(), paramLocation[0]);
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        CODEGEN_LOGI("%s GmTensorParamIdxInCallFunc: %d", __FUNCTION__, GmTensorParamIdxInCallFunc);
+        CODEGEN_LOGI("GmTensorParamIdxInCallFunc: %d", GmTensorParamIdxInCallFunc);
         return;
     }
 }

@@ -95,9 +95,6 @@ std::string TestL0COutBody(bool isDynamicAligned) {
     CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
-
-    cop.originShape[0] = shape;
-    cop.originShape[1] = shape;
     return cop.GenOpCode();
 }
 
@@ -218,10 +215,6 @@ std::string TestL1CopyInBody(
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
-
-    cop.originShape[0] = shape;
-    cop.originShape[1] = shape;
-
     return cop.GenOpCode();
 }
 
@@ -564,10 +557,6 @@ void TestUBCopyInBody(const std::string funcName, const std::string &expect) {
     CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
-
-    cop.originShape[0] = shape;
-    cop.originShape[1] = shape;
-
     std::string res = cop.GenOpCode();
     EXPECT_EQ(res, expect);
 }

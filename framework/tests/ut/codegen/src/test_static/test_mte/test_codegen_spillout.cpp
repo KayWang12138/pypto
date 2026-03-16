@@ -82,9 +82,6 @@ TEST_F(TestCodegenSpillOut, UBSpillOut) {
     CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
 
-    cop.originShape[0] = shape;
-    cop.originShape[1] = shape;
-
     std::string res = cop.GenOpCode();
     std::string expect =
         R"!!!(TileOp::UBCopyOut<float, 1, 1, 1, 64, 64, /*dst stride*/ 1, 1, 64, 64,/*src stride*/ 1, 1, 64, 64 >((__gm__ float*)GMStackBase, (__ubuf__ float*)UB_S0_E0);
@@ -129,8 +126,6 @@ TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor) {
     CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
 
-    cop.originShape[0] = shape;
-    cop.originShape[1] = shape;
     cop.UpdateTileTensorInfo();
 
     std::string res = symbolManager->GenTileTensorDefList();
@@ -176,9 +171,6 @@ TEST_F(TestCodegenSpillOut, L1SpillOut) {
     CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
     CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[l1Tensor->GetMagic()] = l1Tensor;
-
-    cop.originShape[0] = shape;
-    cop.originShape[1] = shape;
 
     cop.GenOpCode();
 }
