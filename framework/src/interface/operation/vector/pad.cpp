@@ -31,7 +31,7 @@ void TiledPadImpl(Function &function, const TileShape &tileShape, size_t cur, In
             auto lastResultShape = result->shape[0];
             auto lastShape = input.tileInfo.shape[0];
             auto lastOffset = input.tileInfo.offset[0];
-            if (lastShape <= 0) {
+            if (lastShape <= 0) { // 输入tile大小为0，完全在填充区域
                 auto &op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
                 op.SetAttribute(OpAttributeKey::scalar, padValue);
                 op.SetAttribute(OP_ATTR_PREFIX + "shape", resultTileInfo.shape);
