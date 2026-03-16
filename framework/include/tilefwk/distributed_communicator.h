@@ -156,6 +156,116 @@ private:
     DataType inputDtype_;
 };
 
+// OneShotCommunicatorV3: grouped-signal communicator with tunable chunk-to-signal ratio.
+// Three-phase API:
+//   1) Put(..., chunkId)  -> write one chunk and signal its group counter
+//   2) WaitGroup(groupId) -> wait until all contributors complete this group
+//   3) PullChunk(chunkId) -> read one reduced chunk after wait
+class OneShotCommunicatorV3 : public CommunicatorBase {
+public:
+    OneShotCommunicatorV3(const std::string& group, uint32_t worldSize, Tensor& shmemSignal,
+        uint32_t payloadChunkCount, uint32_t chunksPerSignal)
+        : CommunicatorBase(group, worldSize, shmemSignal)
+        , row_(shmemSignal.GetShape()[3])
+        , col_(shmemSignal.GetShape()[4])
+        , payloadChunkCount_(payloadChunkCount)
+        , chunksPerSignal_(chunksPerSignal)
+        , inputDtype_(DT_BOTTOM)
+    {
+        ASSERT(payloadChunkCount_ > 0) << "payloadChunkCount must be > 0";
+        ASSERT(chunksPerSignal_ > 0) << "chunksPerSignal must be > 0";
+        ASSERT(static_cast<int64_t>(payloadChunkCount_) <= row_)
+            << "payloadChunkCount must be <= row dimension (" << row_ << "), but got " << payloadChunkCount_;
+        ASSERT(static_cast<int64_t>(SignalGroupCount()) <= row_)
+            << "SignalGroupCount must be <= row dimension (" << row_ << "), but got " << SignalGroupCount();
+    }
+
+    uint32_t PayloadChunkCount() const { return payloadChunkCount_; }
+    uint32_t ChunksPerSignal() const { return chunksPerSignal_; }
+    uint32_t SignalGroupCount() const { return (payloadChunkCount_ + chunksPerSignal_ - 1) / chunksPerSignal_; }
+
+    uint32_t GroupIndex(uint32_t chunkId) const
+    {
+        ASSERT(chunkId < payloadChunkCount_) << "chunkId out of range: " << chunkId;
+        return chunkId / chunksPerSignal_;
+    }
+
+    uint32_t GroupBeginChunk(uint32_t groupId) const
+    {
+        ASSERT(groupId < SignalGroupCount()) << "groupId out of range: " << groupId;
+        return groupId * chunksPerSignal_;
+    }
+
+    uint32_t GroupSize(uint32_t groupId) const
+    {
+        uint32_t begin = GroupBeginChunk(groupId);
+        uint32_t remaining = payloadChunkCount_ - begin;
+        return remaining < chunksPerSignal_ ? remaining : chunksPerSignal_;
+    }
+
+    int32_t ExpectedCount(uint32_t groupId) const
+    {
+        return static_cast<int32_t>(worldSize_ * GroupSize(groupId));
+    }
+
+    int32_t ChunkStartRow(uint32_t chunkId) const
+    {
+        ASSERT(chunkId < payloadChunkCount_) << "chunkId out of range: " << chunkId;
+        return static_cast<int32_t>((static_cast<int64_t>(chunkId) * row_) / payloadChunkCount_);
+    }
+
+    int32_t ChunkRows(uint32_t chunkId) const
+    {
+        ASSERT(chunkId < payloadChunkCount_) << "chunkId out of range: " << chunkId;
+        int32_t start = ChunkStartRow(chunkId);
+        int32_t end = static_cast<int32_t>((static_cast<int64_t>(chunkId + 1) * row_) / payloadChunkCount_);
+        ASSERT(end > start) << "Empty chunk detected for chunkId " << chunkId;
+        return end - start;
+    }
+
+    Tensor Put(const Tensor& pred, const Tensor& input, const Tensor& dataView,
+        uint32_t targetRank, uint32_t chunkId, AtomicType atomicType)
+    {
+        if (inputDtype_ == DT_BOTTOM) {
+            inputDtype_ = input.GetDataType();
+        } else {
+            ASSERT(inputDtype_ == input.GetDataType())
+                << "All Put() calls must use the same dtype, expected " << inputDtype_
+                << " but got " << input.GetDataType();
+        }
+        uint32_t groupId = GroupIndex(chunkId);
+        auto signalView = View(shmemSignal_, {1, 1, 1, 1, 1},
+            std::vector<SymbolicScalar>{targetRank, targetRank, 0, static_cast<int64_t>(groupId), 0});
+        auto putOut = ShmemPut(pred, input, dataView, atomicType);
+        return ShmemSignal(putOut, signalView, AtomicType::ADD);
+    }
+
+    Tensor WaitGroup(const Tensor& depToken, uint32_t groupId) const
+    {
+        ASSERT(groupId < SignalGroupCount()) << "groupId out of range: " << groupId;
+        auto signalView = View(shmemSignal_, {1, 1, 1, 1, 1},
+            std::vector<SymbolicScalar>{thisRank_, thisRank_, 0, static_cast<int64_t>(groupId), 0});
+        return WaitUntil(depToken, signalView, ExpectedCount(groupId));
+    }
+
+    Tensor PullChunk(const Tensor& waitToken, const Tensor& shmemData, uint32_t chunkId) const
+    {
+        ASSERT(inputDtype_ != DT_BOTTOM) << "PullChunk() requires at least one prior Put() call";
+        int32_t chunkRow = ChunkStartRow(chunkId);
+        int32_t chunkRows = ChunkRows(chunkId);
+        auto dataLocal = View(shmemData, {1, 1, chunkRows, col_},
+            std::vector<SymbolicScalar>{thisRank_, 0, chunkRow, 0});
+        return ShmemGet(waitToken, dataLocal, inputDtype_);
+    }
+
+private:
+    int32_t row_;
+    int32_t col_;
+    uint32_t payloadChunkCount_;
+    uint32_t chunksPerSignal_;
+    DataType inputDtype_;
+};
+
 // TwoShotCommunicator: Encapsulates shmem data/signal buffers for TwoShot.
 //
 // Hides the TwoShot symmetric memory layout so that it works

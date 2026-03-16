@@ -69,17 +69,18 @@ endif ()
 #  10  AllreduceV5MultiRank  test_1      (2 ranks) ── oneshot multirank
 #  11  AllreduceV5MultiRank  test_2      (8 ranks) ── oneshot multirank
 #  12  AllreduceV6                       (1 case)  ── oneshot, scatter-only API
-#  13  MoeDispatch                       (1 case)
-#  14  MoeDistributedCombine  test_1    ─┐
-#  15  MoeDistributedCombine  test_2     ─┘ 2 cases
-#  16  Reducescatter  test_1             ─┐
-#  17  Reducescatter  test_2              │
-#  18  Reducescatter  test_3             ─┘ 3 cases
-#  19  TwoShotAllReduceIRCheck           (1 case)  ── twoshot
-#  20  TwoShotAllReduceV2               (1 case)  ── twoshot
-#  21  TwoShotAllReduceV3               (1 case)  ── twoshot
-#  22  TwoShotAllReduceV4               (1 case)  ── twoshot
-#  23  TwoShotAllReduceV5               (1 case)  ── twoshot
+#  13  AllreduceV7                       (1 case)  ── oneshot, grouped signaling
+#  14  MoeDispatch                       (1 case)
+#  15  MoeDistributedCombine  test_1    ─┐
+#  16  MoeDistributedCombine  test_2     ─┘ 2 cases
+#  17  Reducescatter  test_1             ─┐
+#  18  Reducescatter  test_2              │
+#  19  Reducescatter  test_3             ─┘ 3 cases
+#  20  TwoShotAllReduceIRCheck           (1 case)  ── twoshot
+#  21  TwoShotAllReduceV2               (1 case)  ── twoshot
+#  22  TwoShotAllReduceV3               (1 case)  ── twoshot
+#  23  TwoShotAllReduceV4               (1 case)  ── twoshot
+#  24  TwoShotAllReduceV5               (1 case)  ── twoshot
 #
 # Note: sort order is case-insensitive (see GetOpMetaDataFromDir in test_distributed.h).
 # '_' (95) sorts before lowercase letters (97+), so AllreduceV5_ < AllreduceV5MultiRank.
@@ -93,7 +94,7 @@ endif ()
 #   python3 build_ci.py --stest_distributed=twoshotir     # TwoShot IR equivalence check only
 #
 set(_num_ranks "4")
-set(_num_cases "23")
+set(_num_cases "24")
 
 # Per-index rank-count overrides for multi-rank tests
 set(_rank_override_10 "2")
@@ -122,24 +123,24 @@ _distributed_filter_config(_DistributedGTestCaseFilterConfig ${_all_indices})
 
 # Subset filtering: override filter config when a subset keyword is requested
 if ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "oneshot")
-    message(STATUS "Distributed subset: oneshot AllReduce variants (indices 5-12)")
-    _distributed_filter_config(_DistributedGTestCaseFilterConfig 5 6 7 8 9 10 11 12)
+    message(STATUS "Distributed subset: oneshot AllReduce variants (indices 5-13)")
+    _distributed_filter_config(_DistributedGTestCaseFilterConfig 5 6 7 8 9 10 11 12 13)
     set(ENABLE_STEST_DISTRIBUTED "ON")
 elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "twoshot")
-    message(STATUS "Distributed subset: twoshot AllReduce variants (indices 19-23)")
-    _distributed_filter_config(_DistributedGTestCaseFilterConfig 19 20 21 22 23)
+    message(STATUS "Distributed subset: twoshot AllReduce variants (indices 20-24)")
+    _distributed_filter_config(_DistributedGTestCaseFilterConfig 20 21 22 23 24)
     set(ENABLE_STEST_DISTRIBUTED "ON")
 elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "multirank")
     message(STATUS "Distributed subset: multi-rank AllReduceV5 (indices 10-11)")
     _distributed_filter_config(_DistributedGTestCaseFilterConfig 10 11)
     set(ENABLE_STEST_DISTRIBUTED "ON")
 elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "ircheck")
-    message(STATUS "Distributed subset: IR equivalence checks (indices 5, 19)")
-    _distributed_filter_config(_DistributedGTestCaseFilterConfig 5 19)
+    message(STATUS "Distributed subset: IR equivalence checks (indices 5, 20)")
+    _distributed_filter_config(_DistributedGTestCaseFilterConfig 5 20)
     set(ENABLE_STEST_DISTRIBUTED "ON")
 elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "twoshotir")
-    message(STATUS "Distributed subset: TwoShot IR equivalence check (index 19)")
-    _distributed_filter_config(_DistributedGTestCaseFilterConfig 19)
+    message(STATUS "Distributed subset: TwoShot IR equivalence check (index 20)")
+    _distributed_filter_config(_DistributedGTestCaseFilterConfig 20)
     set(ENABLE_STEST_DISTRIBUTED "ON")
 endif()
 
