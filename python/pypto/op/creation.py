@@ -213,7 +213,7 @@ def full(
     ----------
     size : List[int]
         target shape; must be non-negative integers
-    fill_value : int | float | SymbolicScalar | pypto.element
+    fill_value : int | float | SymbolicScalar | pyptoElement
         scalar value to replicate
     dtype : pypto.DataType
         desired data type; only int/float are supported (DT_FP32, DT_INT32).

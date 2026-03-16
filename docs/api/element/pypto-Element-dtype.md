@@ -32,7 +32,7 @@ NA
 ## 调用示例
 
 ```python
-t = pypto.element(pypto.DT_FP32, 3)
+t = pyptoElement(pypto.DT_FP32, 3)
 t.dtype
 ```
 

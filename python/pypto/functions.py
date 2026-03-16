@@ -32,7 +32,7 @@ class Function:
         >>> # Create a simple function
         >>> @pypto.frontend.jit
         ... def add_func(a: pypto.Tensor((128, 128), pypto.DT_FP32)) -> pypto.Tensor:
-        ...     return pypto.add_s(a, pypto.element(pypto.DT_FP32, 1.0))
+        ...     return pypto.add_s(a, pyptoElement(pypto.DT_FP32, 1.0))
         >>>
         >>> # Get the last compiled function
         >>> func = pypto.GetLastFunction()
@@ -264,7 +264,7 @@ def get_last_function() -> Optional[Function]:
         >>>
         >>> @pypto.frontend.jit
         ... def my_func(a: pypto.Tensor((128, 128), pypto.DT_FP32)) -> pypto.Tensor:
-        ...     return a + pypto.element(pypto.DT_FP32, 1.0)
+        ...     return a + pyptoElement(pypto.DT_FP32, 1.0)
         >>>
         >>> func = pypto.get_last_function()
         >>> print(func.raw_name)
