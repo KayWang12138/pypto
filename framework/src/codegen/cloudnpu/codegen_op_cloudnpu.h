@@ -164,6 +164,10 @@ public:
 
     std::string GenAicpuCallOp() const;
 
+    std::string GenQuantizeOp() const;
+    std::string PrintQuantizeOp(const PrintQuantizeParam &param) const;
+    // TODO: DeQuantize
+
     std::string GenWhereOp() const;
 
     std::string GenOpCode() const override;
