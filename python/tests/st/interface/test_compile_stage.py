@@ -28,6 +28,19 @@ def compile_stage(comp_stage):
 
     return compile_func
 
+def compile_stage_global_set():
+    @pypto.frontend.jit(
+        runtime_options={"run_mode": 0}
+    )
+    def compile_func(
+        a: pypto.Tensor((4, 4), pypto.DT_FP32),
+        b: pypto.Tensor((4, 4), pypto.DT_FP32),
+        c: pypto.Tensor((4, 4), pypto.DT_FP32),
+    ) -> None:
+        pypto.set_vec_tile_shapes(4, 4)
+        c[:] = a + b
+
+    return compile_func
 
 def test_all_compile_stages():
     device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
@@ -40,8 +53,17 @@ def test_all_compile_stages():
     compile_stage(pypto.CompStage.EXECUTE_GRAPH)(a, b, c)
     compile_stage(pypto.CompStage.CODEGEN_INSTRUCTION)(a, b, c)
     compile_stage(pypto.CompStage.CODEGEN_BINARY)(a, b, c)
+    pypto.set_host_options(compile_stage=pypto.CompStage.TENSOR_GRAPH)
+    compile_stage_global_set()(a, b, c)
+    pypto.set_host_options(compile_stage=pypto.CompStage.TILE_GRAPH)
+    compile_stage_global_set()(a, b, c)
+    pypto.set_host_options(compile_stage=pypto.CompStage.EXECUTE_GRAPH)
+    compile_stage_global_set()(a, b, c)
+    pypto.set_host_options(compile_stage=pypto.CompStage.CODEGEN_INSTRUCTION)
+    compile_stage_global_set()(a, b, c)
+    pypto.set_host_options(compile_stage=pypto.CompStage.CODEGEN_BINARY)
+    compile_stage_global_set()(a, b, c)
     assert True
-
 
 if __name__ == "__main__":
     test_all_compile_stages()
