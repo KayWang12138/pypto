@@ -322,6 +322,9 @@ struct DynMachineManager {
     {
         ReleaseRuntimeDataRingBuffer(devProg);
         DEV_INFO("All schedule exited, destroy the machine.");
+#ifdef __DEVICE__
+        AiCoreProf::StopCtrCpu();
+#endif
 #if ENABLE_PERF_TRACE
         PerfMtTrace(PERF_TRACE_EXIT, LastFinishThreadIdx_);
         DEV_INFO("Begin dump machine perf trace:");
