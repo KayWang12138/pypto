@@ -18,7 +18,7 @@
 #include <memory>
 
 #include "core/dtype.h"
-#include "ir/scalar_expr.h"
+#include "ir/scalar_expr_ops.h"
 
 namespace pypto {
 namespace ir {
