@@ -568,6 +568,9 @@ void TensorScatterElementS(Function &function, const ScatterElementSPara &scatte
 
 static void CheckScatterElementSParamsInvalid(
     const Tensor &self, const Tensor &indices, int axis, const ScatterMode reduce) {
+    DataType idx_dtype = indices.GetDataType();
+    ASSERT(idx_dtype == DataType::DT_INT32 || idx_dtype == DataType::DT_INT64)
+        << "Scatter: 'indices' must be of integer type (int32 or int64)";
     ASSERT(self.GetShape().size() == indices.GetShape().size()) << "The shape size of self and indices should be equal";
     ASSERT(axis < static_cast<int>(self.GetShape().size())) << "The axis should be less than size of self shape";
     ASSERT(reduce <= ScatterMode::UNKNOWN) << "The ScatterMode of reduce should be less than UNKNOWN";
@@ -715,6 +718,9 @@ void TensorScatter(Function &function, const ScatterPara &scatterPara) {
 
 static void CheckScatterParamsInvalid(
     const Tensor &self, const Tensor &indices, const Tensor &src, int axis, const ScatterMode reduce) {
+    DataType idx_dtype = indices.GetDataType();
+    ASSERT(idx_dtype == DataType::DT_INT32 || idx_dtype == DataType::DT_INT64)
+        << "Scatter: 'indices' must be of integer type (int32 or int64)";
     ASSERT(self.GetShape().size() == indices.GetShape().size()) << "The shape size of self and indices should be equal";
     ASSERT(src.GetShape().size() == indices.GetShape().size()) << "The shape size of src and indices should be equal";
     ASSERT(axis < static_cast<int>(self.GetShape().size())) << "The axis should be less than size of self shape";
