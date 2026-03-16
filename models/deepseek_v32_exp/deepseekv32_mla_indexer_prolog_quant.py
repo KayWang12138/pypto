@@ -853,14 +853,6 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
         outputs["idx_k_scale_cache_out"],
         outputs["weights"]
     ]
-    h = params["h"]
-    n_q = params["n1"]
-    q_lora_rank = params["q_lora_rank"]
-    kv_lora_rank = params["kv_lora_rank"]
-    qk_nope_head_dim = params["qk_nope_head_dim"]
-    qk_rope_head_dim = params["qk_rope_head_dim"]
-    idx_n_heads = params["idx_n_heads"]
-    idx_head_dim = params["idx_head_dim"]
 
     import mla_indexer_prolog_quant_impl as mla_lp_quant
     if is_prefill:
@@ -868,9 +860,8 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
     else:
         fun = mla_lp_quant.mla_indexer_prolog_quant_d
 
-    fun(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_dim, qk_rope_head_dim, idx_n_heads, idx_head_dim, 
-        mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, 
-        ip_attrs, ip_configs, rope_tile_shape)(*pto_inputs, *pto_outputs)
+    fun(*pto_inputs, *pto_outputs, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config,
+        ip_attrs, ip_configs, rope_tile_shape)
     torch_npu.npu.synchronize()
     check(case_name, outputs, goldens)
 
