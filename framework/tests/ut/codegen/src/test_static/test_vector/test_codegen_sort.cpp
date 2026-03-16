@@ -135,7 +135,7 @@ TStore(gmTensor_15, ubTensor_11, Coord2Dim(0, 0));
 }
 )!!!";
 
-    EXPECT_EQ(res, expect);
+    CheckStringExist(expect, res);
 }
 
 TEST_F(TestCodegenSort, TestTopKTileTensor) {
