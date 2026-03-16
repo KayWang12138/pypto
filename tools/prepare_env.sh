@@ -171,8 +171,8 @@ parse_arguments() {
     
     if [ -z "$TYPE" ]; then
         missing_params+=("--type")
-    elif [[ ! "$TYPE" =~ ^("deps"|"cann"|"third_party"|"all")$ ]]; then
-        log_print "error" "Invalid value for --type: $TYPE (must be 'deps' or 'cann' or third_party or 'all')"
+    elif [[ ! "$TYPE" =~ ^("deps"|"cann"|"third_party"|"all"|"only_download")$ ]]; then
+        log_print "error" "Invalid value for --type: $TYPE (must be 'deps' or 'cann' or third_party or 'all' or 'only_download')"
         return 1
     fi
     
@@ -920,6 +920,11 @@ main() {
     if [[ "$TYPE" == "cann" || "$TYPE" == "all" ]]; then
         download_cann_packages
         install_cann_packages
+    fi
+
+    if [[ "$TYPE" == "only_download" ]]; then
+        download_third_party_packages
+        download_cann_packages
     fi
 }
 
