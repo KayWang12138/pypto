@@ -29,7 +29,7 @@ namespace npu::tile_fwk {
 
 #define DEBUG_SWITCH 0
 
-#define ENABLE_AICORE_PRINT 0
+#define ENABLE_AICORE_PRINT 1
 
 /* The DFX swimlane performance statistics use host pre-allocated memory mode, which avoids data collection during
    AICPU scheduling to minimize scheduling interference. However, each AICore only supports tracking up to
@@ -385,7 +385,9 @@ INLINE void KernelEntry(int64_t ffts_addr, int64_t inputs,
     uint32_t curTaskIdx;
     uint32_t lastTaskIdx;
     int64_t coreFuncData = 0;
-    ExecuteContext ctx = {.args = args, .blockIdx = blockIdx };
+    ExecuteContext ctx = {};
+    ctx.args = args;
+    ctx.blockIdx = blockIdx;
     //get core task data
     uint64_t t0 = get_sys_cnt();
     uint64_t loop_count = 0;
