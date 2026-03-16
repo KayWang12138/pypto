@@ -73,23 +73,39 @@ inline std::string AtomicTypeToString(AtomicType type)
     }
 }
 
-struct DistOpAttr {
-public:
-    AtomicType atomicType = AtomicType::SET;
-    int64_t signalValue;
-    int64_t signalStride;
-    int64_t setType;
-    std::vector<int64_t> aicpuOpParams;
-    bool fp32Mode;
-    int64_t topK;
+struct ShmemPutGetAttr {
     Shape copyBufferShape;
+    AtomicType atomicType = AtomicType::SET;
+};
+
+struct ShmemSignalAttr {
+    int64_t signalValue = 1;
+    int64_t signalStride = SHMEM_SIGNAL_STRIDE;
+    int64_t tileRowShape = 0;
+    int64_t tileColShape = 0;
+    AtomicType atomicType = AtomicType::SET;
+};
+
+struct ShmemWaitUntilAttr {
+    std::vector<int64_t> aicpuOpParams;
+};
+
+struct ShmemSetAttr {
+    int64_t setType = 0;
     Shape setBufferShape;
+};
+
+struct MoeDispatchAttr {
     std::string extraTemplateParam{};
-    int64_t paddedColShape;
+    int64_t topK = 0;
+};
+
+struct MoeCombineAttr {
+    int64_t setType = 0;
+    int64_t topK = 0;
+    int64_t paddedColShape{0};
     int64_t rowOffset{-1};
     int64_t rowShape{-1};
-    int64_t tileRowShape;
-    int64_t tileColShape;
 };
 
 inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE> &tile)
