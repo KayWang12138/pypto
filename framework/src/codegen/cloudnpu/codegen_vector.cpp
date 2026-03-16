@@ -1656,6 +1656,10 @@ std::string CodeGenOpCloudNPU::GenPadOp() const {
     return PrintPadTileTensor();
 }
 
+std::string CodeGenOpCloudNPU::GenFillPadOp() const {
+    return PrintPadTileTensor();
+}
+
 std::string CodeGenOpCloudNPU::GenPreluOp() const {
     ASSERT(isSupportLayout) << "PReLU only support tile tensor";
     return PrintPreluTileTensor();
