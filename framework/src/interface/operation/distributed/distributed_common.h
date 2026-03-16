@@ -85,14 +85,22 @@ struct ShmemGetAttr {
 
 struct ShmemSignalAttr {
     int64_t signalValue = 1;
-    int64_t signalStride = SHMEM_SIGNAL_STRIDE;
+    int32_t signalStride = SHMEM_SIGNAL_STRIDE;
     int64_t tileRowShape = 0;
     int64_t tileColShape = 0;
     AtomicType atomicType = AtomicType::SET;
 };
 
 struct ShmemWaitUntilAttr {
-    std::vector<int64_t> aicpuOpParams;
+    int32_t expectedSum = 0;
+    int32_t signalStride = SHMEM_SIGNAL_STRIDE;
+    bool resetSignal =  false;
+    int64_t tileRowShape = 0;
+    int64_t tileColShape = 0;
+
+    static int64_t GetFieldCount() {
+        return 5;
+    }
 };
 
 struct ShmemSetAttr {

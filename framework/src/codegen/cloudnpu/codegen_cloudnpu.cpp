@@ -579,14 +579,14 @@ void EncodeWaitUntilInfo(const Operation &op, std::vector<int32_t> &code) {
     // 编码waitUntil的attr属性
     std::map<std::string, Any> map = op.GetAllAttribute();
     auto it = map.find(OpAttributeKey::distOpAttr);
-    std::vector<int64_t> attrs;
     if (it != map.end()) {
         Distributed::ShmemWaitUntilAttr distAttr = AnyCast<Distributed::ShmemWaitUntilAttr>(it->second);
-        attrs = distAttr.aicpuOpParams;
-    }
-    if (attrs.size() != 0) {
-        code.push_back(static_cast<int32_t>(attrs.size()));
-        code.insert(code.end(), attrs.begin(), attrs.end());
+        code.push_back(static_cast<int32_t>(distAttr.GetFieldCount()));
+        code.push_back(static_cast<int32_t>(distAttr.expectedSum));
+        code.push_back(static_cast<int32_t>(distAttr.signalStride));
+        code.push_back(static_cast<int32_t>(distAttr.resetSignal));
+        code.push_back(static_cast<int32_t>(distAttr.tileRowShape));
+        code.push_back(static_cast<int32_t>(distAttr.tileColShape));
     }
 }
 

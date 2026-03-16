@@ -280,8 +280,8 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
     auto shmemSignal = iOperand[1];
     auto out = oOperand[0];
 
-    int32_t tileRowShape = tileShape.GetVecTile()[0];
-    int32_t tileColShape = tileShape.GetVecTile()[1];
+    int64_t tileRowShape = tileShape.GetVecTile()[0];
+    int64_t tileColShape = tileShape.GetVecTile()[1];
 
     DummyTileFunc predTokenTileFunc = GetDummyTileFunc(predToken, shmemSignal, tileShape.GetVecTile(), function);
     DummyTileFunc outTileFunc = GetDummyTileFunc(out, shmemSignal, tileShape.GetVecTile(), function);
@@ -298,8 +298,8 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
             "WaitUntil tile count exceeds the maximum allowed value: " << MAX_TILE_NUM;
         ShmemWaitUntilAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-        distOpAttr.aicpuOpParams.push_back(tileRowShape);
-        distOpAttr.aicpuOpParams.push_back(tileColShape);
+        distOpAttr.tileRowShape = tileRowShape;
+        distOpAttr.tileColShape = tileColShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     });
 }

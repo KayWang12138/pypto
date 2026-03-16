@@ -239,7 +239,9 @@ Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t exp
     std::vector<int64_t> param = {static_cast<int64_t>(expectedSum),
         static_cast<int64_t>(SHMEM_SIGNAL_STRIDE), static_cast<int64_t>(resetSignal)};
     ShmemWaitUntilAttr distOpAttr;
-    distOpAttr.aicpuOpParams = param;
+    distOpAttr.expectedSum = expectedSum;
+    distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
+    distOpAttr.resetSignal = resetSignal;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
 }
