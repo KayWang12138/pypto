@@ -169,27 +169,27 @@ license: 完整条款见 LICENSE.txt
 | **L1CopyInReuseMerge** | L1拷贝输入重用合并 | 重用分析失败、L1缓存策略失败、依赖关系错误 | 缓存容量限制、访问模式不规律、数据依赖复杂 |
 | **IntraSubgraphAdapter** | 处理边界tensor，插入view/assemble打通子图间数据通路 | 内存类型冲突、无效内存类型、生产者类型错误、生产者输入错误、跨核move操作错误 | 边界tensor的original和tobe内存类型不一致、内存类型不在[UB, L1, DDR, L0C]范围内、tensor有多个生产者但不是OP_ASSEMBLE/OP_COPY_OUT、OP_ASSEMBLE输入操作数不为1、跨核move操作出现在子图开头 |
 | **GenerateMoveOp** | 将view/assemble/convert/duplicate操作转换为具体的移动操作 | 内存路径查找失败、UB2L1转换失败、L0C2L1属性设置失败 | 内存路径不支持、ND到NZ格式转换失败、内存层次结构复杂 |
-| **CommonOperationEliminate** | 通用操作消除 | 公共操作检测失败、消除策略失败、图一致性错误 | 操作等价判断错误、副作用分析不完整、依赖关系遗漏 |
-| **AxisCombine** | 轴组合 | 轴组合轴组合失败、Shape变换失败、内存布局错误 | 轴依赖关系复杂、stride不连续、内存对齐要求 |
-| **PadLocalBuffer** | 填充本地缓冲区 | 填充计算失败、缓冲区重分配失败、对齐验证失败 | 对齐要求复杂、缓冲区大小限制、填充策略冲突 |
-| **RemoveUnalignedReshape** | 删除未对齐的reshape | 对齐检测失败、Reshape优化失败、边界处理错误 | 对齐要求不满足、边界条件复杂、内存布局冲突 |
-| **ReplaceTensor** | 替换tensor | Tensor替换失败、引用更新失败、内存一致性错误 | Tensor类型不匹配、引用链断裂、内存类型冲突 |
-| **PreGraphProcess** | 预图处理 | 预处理初始化失败、状态设置失败、依赖分析错误 | 初始化顺序错误、状态冲突、依赖关系不完整 |
-| **InferDynShape** | 推断动态shape | 动态shape推断失败、符号表达式错误、约束求解失败 | 动态维度关系复杂、符号计算溢出、约束不一致 |
-| **SubgraphToFunction** | 子图转函数 | 子图转换失败、函数创建失败、接口映射错误 | 子图结构复杂、接口不匹配、调用约定错误 |
-| **InferParamIndex** | 推断参数索引 | 参数索引推断失败、访问模式分析失败、边界检查错误 | 参数数量不匹配、索引越界、访问模式不规则 |
-| **SrcDstBufferMerge** | 源目标缓冲区合并 | 缓冲区分析失败、合并策略失败、传输优化错误 | 缓冲区大小不匹配、传输方向冲突、内存重叠 |
-| **AddAlloc** | 添加分配操作 | 分配操作插入失败、内存大小计算失败、生命周期分析失败 | 内存不足、分配策略错误、生命周期管理复杂 |
-| **OoOSchedule** | OOO调度 | 调度分析失败、依赖关系处理失败、资源分配冲突 | 依赖关系复杂、资源约束严格、调度窗口限制 |
-| **TuneTileOpSeqForVF** | 为VF调整tile操作序列 | 序列分析失败、调整策略失败、性能预测错误 | 操作依赖复杂、向量资源限制、性能模型不准确 |
-| **RemoveAlloc** | 删除分配操作 | 分配操作分析失败、冗余检测失败、生命周期验证错误 | 分配操作链复杂、生命周期重叠、使用分析不完整 |
-| **CopyOutResolve** | Copy输出解析 | Copy-out分析失败、传输路径优化失败、输出处理错误 | 输出依赖复杂、传输路径阻塞、内存类型转换 |
-| **InsertSync** | 插入同步操作 | 同步点分析失败、同步操作插入失败、一致性验证失败 | 同步依赖复杂、一致性要求严格、性能开销过大 |
-| **TuneSyncForVF** | 为VF调整同步 | 同步分析失败、优化策略失败、正确性验证失败 | 同步粒度不当、依赖关系遗漏、性能-正确性权衡 |
-| **MixSubgraphSplit** | 混合子图拆分 | 子图拆分失败、混合模式分析失败、资源分配错误 | 子图耦合紧密、资源竞争、拆分边界不当 |
-| **GlobalMemoryReuse** | 全局内存重用 | 内存使用分析失败、重用策略失败、生命周期冲突 | 内存访问模式复杂、生命周期重叠、重用机会识别困难 |
-| **LoopaxesProc** | 循环轴处理 | 循环分析失败、轴处理失败、边界条件错误 | 循环结构复杂、边界条件不规则、依赖关系嵌套 |
-| **CodegenPreproc** | 代码生成预处理 | 预处理验证失败、代码生成准备失败、最终一致性检查失败 | 图状态不一致、资源分配冲突、生成约束不约足 |
+| **CommonOperationEliminate** | 通用操作消除（通过hash检测等价操作并消除冗余操作） | 操作等价判断错误、hash计算失败、图连接更新失败、死操作消除失败 | 操作属性不一致、输入输出tensor不匹配、shape或dtype不匹配、tensor生产者或消费者为空、OUTCAST节点不支持消除、View操作不支持消除、dontTouch属性操作不支持消除、操作序列排序失败、消费者连接更新失败、offset计算失败（view/copy操作） |
+| **AxisCombine** | 轴组合（处理广播对齐，对尾轴做对齐处理，插入BRCB/EXPAND操作） | 广播对齐失败、轴组合失败、Shape变换失败、内存布局错误 | 广播操作输入shape不匹配、尾轴对齐值计算失败、BRCB/EXPAND操作插入失败、轴组合标记器运行失败、配置未启用combineAxis |
+| **PadLocalBuffer** | 填充本地缓冲区（对尾轴做32B/16B/64B对齐，处理matmul、vector、broadcast、transpose等场景） | 填充计算失败、缓冲区重分配失败、对齐验证失败、数据类型检查失败、offset计算失败、属性设置失败 | 对齐要求复杂、缓冲区大小限制、填充策略冲突、matmul输入shape维度不足、L1转换场景处理失败、B8/B4数据类型对齐失败、broadcast轴处理失败、transpose处理失败、Cube/Vector类型判断错误、内存类型不匹配 |
+| **RemoveUnalignedReshape** | 删除未对齐的reshape（移除尾轴非对齐的reshape，插入copy_out/copy_in操作） | 对齐检测失败、Reshape优化失败、边界处理错误、动态reshape替换失败、copy操作插入失败、offset计算错误、tensor插入失败、消费者更新失败、动态状态复制失败、shape检查失败 | 对齐要求不满足、边界条件复杂、内存布局冲突、输入输出shape维度不匹配、rawshape与shape不一致、内存类型不是UB、动态shape变化轴不支持、offset维度不一致 |
+| **ReplaceTensor** | 替换tensor（处理inplace操作，替换tensor引用，更新offset和连接） | Tensor替换失败、引用更新失败、内存一致性错误、地址冲突检查失败、assemble冲突检查失败、index_outcast冲突检查失败、reshape冲突检查失败、a_mulacc_b冲突检查失败、inplace检查失败、前向/后向处理失败、offset调整失败、copy操作插入失败 | Tensor类型不匹配、引用链断裂、内存类型冲突、输入输出tensor地址冲突、rawmagic/memoryId不匹配、index_outcast输入输出冲突、reshape shape首轴外不一致、a_mulacc_b inplace关系不匹配、tensor生产者消费者为空、offset计算失败 |
+| **PreGraphProcess** | 预图处理（包括颜色图预处理、设置tensor边界、设置copy属性、删除冗余assemble、更新cube属性、合并view/assemble） | 预处理初始化失败、状态设置失败、依赖分析错误、颜色图预处理失败、tensor颜色初始化失败、copy操作cube属性更新失败、边界设置失败、特殊copy操作处理失败、冗余assemble删除失败、cube操作更新失败、view/assemble合并失败 | 初始化顺序错误、状态冲突、依赖关系不完整、subgraphID设置失败、cube属性获取失败、copy操作类型判断错误 |
+| **InferDynShape** | 推断动态shape（按照入度解依赖顺序遍历每个op调用对应的infershape函数） | 动态shape推断失败、符号表达式错误、约束求解失败、拓扑排序失败、有效shape重置失败、参数索引更新失败 | 动态维度关系复杂、符号计算溢出、约束不一致、操作序列构建失败、输入输出图构建失败、view/assemble/reshape有效shape重置失败、地址到有效shape映射更新失败 |
+| **SubgraphToFunction** | 子图转函数（将子图转换为独立函数，构建incast/outcast连接，处理参数映射和符号化） | 子图转换失败、函数创建失败、接口映射错误、view转copy_in失败、数据依赖插入失败、数据依赖清除失败、copy_in转view恢复失败、图构建失败、incast/outcast记录失败、参数映射构建失败、island转换失败、nList构造失败、参数插入失败、符号化失败、符号名称查找失败 | 子图结构复杂、接口不匹配、调用约定错误、静态流程处理器设置失败、函数类型不支持、subgraphID设置失败、tensor数据依赖记录失败、producer连接记录失败、inplace语义处理失败、子图边界判断失败、内存类型不匹配、producer为空 |
+| **InferParamIndex** | 推断参数索引（推断参数索引和更新有效shape，处理view/assemble/reshape的动态有效shape） | 参数索引推断失败、访问模式分析失败、边界检查错误、有效shape重置失败、参数索引更新失败、shape推断失败、dump失败 | 参数数量不匹配、索引越界、访问模式不规则、操作序列构建失败、输入输出图构建失败、view/assemble/reshape有效shape重置失败、地址到有效shape映射更新失败、子函数有效shape设置失败 |
+| **SrcDstBufferMerge** | 源目标缓冲区合并（处理inplace重用、L0内存重用，合并源目标缓冲区） | 缓冲区分析失败、合并策略失败、传输优化错误、初始化失败、tensor最大大小初始化失败、操作有效性检查失败、inplace检查失败、可重用查找失败、L0内存重用处理失败、inplace重用处理失败 | 缓冲区大小不匹配、传输方向冲突、内存重叠、操作为空、输入输出数量不匹配、inplaceInfo属性获取失败、输入输出索引越界、L0到L0C/L0C到L1传输判断失败、assemble重用检查、内存类型不匹配、consumer集合插入失败、tensor大小计算失败、opList为空、memoryrange初始化失败、excludeBufferReuse属性存在 |
+| **AddAlloc** | 添加分配操作（按color判断是否需要插入alloc，生成各类alloc节点：L0A_ALLOC/UB_ALLOC/REG_ALLOC/L0B_ALLOC/L0C_ALLOC/L1_ALLOC/BT_ALLOC/FIX_ALLOC） | 分配操作插入失败、内存大小计算失败、生命周期分析失败、alloc操作生成失败、tensor分配消息更新失败、分配消息查找失败、alloc操作码生成失败、tensor分配消息映射生成失败、分配消息设置失败 | 内存不足、分配策略错误、生命周期管理复杂、内存类型不支持、opcode映射失败、program为空、alloc节点创建失败、属性设置失败 |
+| **OoOSchedule** | OOO调度（执行乱序调度，支持非混合图和混合图调度，处理依赖关系和资源分配） | 调度分析失败、依赖关系处理失败、资源分配冲突、调度失败、任务列表排序失败、延迟估计失败、核心调度失败、任务合并失败、边界顺序修改失败、advance alloc失败、AICPU程序检测失败、workspace大小设置失败、tensor消费者生产者更新失败、死操作消除失败 | 依赖关系复杂、资源约束严格、调度窗口限制、混合图判断错误、任务图构建失败、任务节点处理失败、目标核心类型映射错误、边界操作判断错误、alloc操作查找失败、操作旋转失败 |
+| **TuneTileOpSeqForVF** | 为VF调整tile操作序列（DAV_3510平台专用，优化向量融合场景的操作序列） | 序列分析失败、调整策略失败、性能预测错误、操作序列调整失败、pipe vector索引查找失败、操作合并性判断失败、操作移动失败 | 操作依赖复杂、向量资源限制、性能模型不准确、不支持的平台、group合并判断失败、set_flag/wait_flag调整失败、pipe操作映射构建失败 |
+| **RemoveAlloc** | 删除分配操作（删除alloc节点） | 分配操作分析失败、冗余检测失败、生命周期验证错误 | 分配操作链复杂、生命周期重叠、使用分析不完整 |
+| **CopyOutResolve** | Copy输出解析（解析copy_out操作，处理outcast后的copy_out合并） | Copy-out分析失败、传输路径优化失败、输出处理错误、copy_out resolve插入失败、outcast最后copy_out查找失败、outcast生产者检查失败 | 输出依赖复杂、传输路径阻塞、内存类型转换、leaf函数处理失败、copy_out resolve coalescing参数错误 |
+| **InsertSync** | 插入同步操作（插入set_flag/wait_flag同步操作，处理数据依赖和管道依赖） | 同步点分析失败、同步操作插入失败、一致性验证失败、管道同步失败、操作序列调整失败、view/assemble顺序处理失败、同步操作生成失败、依赖关系添加失败、事件ID获取失败、数据依赖搜索失败、死锁检测失败、同步操作发射失败、oplog生成失败、依赖信息获取失败、假数据依赖松弛失败、数据依赖检查失败、范围搜索树插入失败、区间树操作失败、tensor范围构建失败 | 同步依赖复杂、一致性要求严格、性能开销过大、管道类型判断错误、依赖操作dump失败、管道调度失败、issue队列处理失败、事件ID用尽、内存缓冲区重叠检查、WAW/WAR/RAW依赖检查失败、issue op检查失败、管道阶段映射失败、set_flag/wait_flag生成失败、同步源日志索引获取失败、最大事件ID获取失败、view/assemble重排序失败、管道依赖map更新失败 |
+| **TuneSyncForVF** | 为VF调整同步（DAV_3510平台专用，优化向量融合场景的同步操作） | 同步分析失败、优化策略失败、正确性验证失败、操作序列调整失败、set_flag/wait_flag调整失败、pipe操作映射生成失败、pipe vector索引查找失败、操作合并性判断失败、操作移动失败、pipe vector时间更新失败、set pipe时间更新失败、wait pipe时间更新失败、maxMoveBackDist计算失败 | 同步粒度不当、依赖关系遗漏、性能-正确性权衡、不支持的平台、group数量计算错误、vector tileop索引越界、set_flag/wait_flag列表处理失败、mergedOps为空、pipe操作map构建失败 |
+| **MixSubgraphSplit** | 混合子图拆分（将Mix子图拆分为多个独立的Cube和Vector子图，重新分配subgraphID） | 子图拆分失败、混合模式分析失败、资源分配错误、子图信息收集失败、拆分计算失败、拆分执行失败、新函数生成失败、拆分结果应用失败、原始Mix callOp删除失败、leaf函数处理失败、组件信息记录失败、最终依赖应用失败、incast依赖应用失败、outcast依赖应用失败 | 子图耦合紧密、资源竞争、拆分边界不当、Mix子图判断失败、资源类型获取失败、programID映射更新失败、mix子图新ID记录失败、callOp删除失败、incast/outcast参数记录失败、producer连接记录失败、tensor到函数映射失败、有效shape设置失败、子函数invoke信息记录失败、静态处理器设置失败、split结果记录失败、split记录验证失败、组件信息为空、split函数数量与组件数量不匹配 |
+| **GlobalMemoryReuse** | 全局内存重用（处理root casts初始化、操作处理、tensor收集、连接矩阵构建、存储分配、leaf函数全局内存重用） | 内存使用分析失败、重用策略失败、生命周期冲突、tensor bucket更新失败、tensor group添加失败、topology依赖检查失败、raw tensor资格检查失败、leaf函数输出输入重用映射获取失败、parent op扫描失败、重用op检查失败、可重用输入查找失败、raw shape计算失败、stride存储offset计算失败、存储offset获取失败、存储更新失败、best fit bucket查找失败、新bucket处理失败、tensor magic到bucket索引更新失败、bucket size到索引更新失败、bucket索引到size更新失败、tensor consumer无重叠标记失败、tensor bucket获取失败、可复用L0 tensor查找失败、L0内存重用处理失败、存储需要分配预处理失败、存储ID更新失败、非重叠consumer tensor标记失败、leaf函数全局内存重用初始化失败、输出tensor收集失败、输入tensor收集失败、leaf函数全局内存重用处理失败、输出全局内存重用处理失败、incast outcast更新失败 | 内存访问模式复杂、生命周期重叠、重用机会识别困难、tensor组为空、tensor大小计算失败、raw data size不匹配、数据类型不匹配、维度数量不匹配、非最高维度值不匹配、leaf函数未找到、copy_in操作判断失败、candidate未找到、count/size/usage/rawReuseCompatible检查失败、copy_in输入为空、parent op遍历失败、tensor已访问、producer为空、storage offset计算失败、raw shape/offset/valid shape计算失败、tensor size为0、bucket大小不足、consumer op检查失败、bucket map为空、tensor magic不存在 |
+| **LoopaxesProc** | 循环轴处理（DAV_3510平台专用，处理循环轴分组和标记，支持向量融合） | 循环分析失败、轴处理失败、边界条件错误、函数循环轴更新失败、操作循环轴更新失败、状态清除失败、循环轴一致性检查失败、属性设置失败、循环组结束标记失败 | 循环结构复杂、边界条件不规则、依赖关系嵌套、不支持的平台、VF未启用、VF mark for未启用、rootFunc为空、subProgram为空、shape维度小于等于2、EXPAND轴判断失败、loopAxes属性获取失败、groupIdx递增溢出、previousOutputMagic与input magic不匹配、lastOpInLoop为空、属性获取失败、输入输出为空、符号表达式构建失败、动态参数表查找失败、参数信息replacedSymbol为空、符号表达式不相等 |
+| **CodegenPreproc** | 代码生成预处理（更新alloc节点operand、强制轴组合、处理axis combine、设置needAlloc属性、修复expand dim） | 预处理验证失败、代码生成准备失败、最终一致性检查失败、GM tensor参数索引保存失败、强制轴组合失败、轴组合处理失败、属性设置失败、轴组合失败、尾轴处理失败、last轴处理失败、操作轴处理失败、needAlloc属性设置失败、expand dim修复失败、op list dump失败 | 图状态不一致、资源分配冲突、生成约束不足、非动态函数、copy in/out操作判断失败、gather/load操作处理、op属性获取失败、属性大小与操作数不匹配、shape size不足、shape处理失败、combine axis配置未启用、forceCombineAxis配置未启用、input/output_combine_axis属性获取失败、process axis失败、copy in/out属性设置失败、rawshape处理失败、UB copy判断失败、reduce操作判断失败、reduce axis属性获取失败、expand dim属性获取失败、expand dim调整失败、DAV_3510平台判断、skip操作判断、input/output shape判断、rawshape尾轴判断、reduce轴判断失败、memoryrange.memId获取失败、needAlloc属性获取失败、appearedMemId查找失败、opCode转换失败 |
 
 ### 步骤 6：错误严重程度评估
 
