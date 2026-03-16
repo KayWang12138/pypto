@@ -73,7 +73,12 @@ inline std::string AtomicTypeToString(AtomicType type)
     }
 }
 
-struct ShmemPutGetAttr {
+struct ShmemPutAttr {
+    Shape copyBufferShape;
+    AtomicType atomicType = AtomicType::SET;
+};
+
+struct ShmemGetAttr {
     Shape copyBufferShape;
     AtomicType atomicType = AtomicType::SET;
 };
