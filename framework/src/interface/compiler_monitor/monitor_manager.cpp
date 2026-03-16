@@ -284,35 +284,14 @@ bool MonitorManager::GetStageTimeoutFlag(const std::string &name) {
 }
 
 int MonitorManager::GetIntervalSec() const {
-    const char *v = std::getenv("PYPTO_COMPILER_MONITOR_INTERVAL_SEC");
-    if (v != nullptr) {
-        int env_val = std::atoi(v);
-        if (env_val > 0) {
-            return env_val;
-        }
-    }
     return interval_sec_;
 }
 
 int MonitorManager::GetTimeoutSec() const {
-    const char *v = std::getenv("PYPTO_COMPILER_MONITOR_TIMEOUT_SEC");
-    if (v != nullptr) {
-        int env_val = std::atoi(v);
-        if (env_val > 0) {
-            return env_val;
-        }
-    }
     return timeout_sec_;
 }
 
 int MonitorManager::GetTotalTimeoutSec() const {
-    const char *v = std::getenv("PYPTO_COMPILER_MONITOR_TOTAL_TIMEOUT_SEC");
-    if (v != nullptr) {
-        int env_val = std::atoi(v);
-        if (env_val > 0) {
-            return env_val;
-        }
-    }
     return total_timeout_sec_;
 }
 
@@ -350,13 +329,6 @@ int MonitorManager::GetTotalFunctionCount() const {
 }
 
 int MonitorManager::GetCurrentFunctionIndex() const {
-    const char *v = std::getenv("PYPTO_COMPILER_MONITOR_CURRENT");
-    if (v != nullptr) {
-        int env_val = std::atoi(v);
-        if (env_val >= 0) {
-            return env_val;
-        }
-    }
     std::lock_guard<std::mutex> lock(mutex_);
     return current_function_index_;
 }
@@ -384,7 +356,7 @@ void MonitorManager::EndStage(const std::string &name) {
     if (!initialized_ || !impl_ || !enable_) {
         return;
     }
-    if (this->GetTimeoutSec() != 0) {
+    if (timeout_sec_ != 0) {
         stage_timeout_flag_["Prepare"] = false;
         stage_timeout_flag_["Pass"] = false;
         stage_timeout_flag_["CodeGen"] = false;
@@ -404,7 +376,7 @@ void MonitorManager::EndStage(const std::string &name) {
                            "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
                            " | Total elapsed: " + FormatElapsed(total_elapsed);
     } else {
-        stage_finish_msg = "[Compiler Monitor] Function: " + std::to_string(this->GetCurrentFunctionIndex()) + "/" +
+        stage_finish_msg = "[Compiler Monitor] Function: " + std::to_string(current_function_index_) + "/" +
                            std::to_string(total_function_count_) + " | Stage: " + name +
                            "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
                            " | Total elapsed: " + FormatElapsed(total_elapsed) + " | Func:[" + current_function_ + "]";
