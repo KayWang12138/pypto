@@ -50,5 +50,14 @@ pypto.set_host_options(compile_stage=pypto.CompStage.EXECUTE_GRAPH,
                        compile_timeout_stage=30,
                        compile_monitor_print_interval=20
                        )
+或者
+@pypto.frontend.jit(
+    host_options={
+        "compile_stage": pypto.CompStage.EXECUTE_GRAPH,
+        "compile_monitor_enable": True,
+        "compile_timeout": 120,
+        "compile_timeout_stage": 30,
+        "compile_monitor_print_interval": 20}
+)
 ```
 
