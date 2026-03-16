@@ -43,6 +43,7 @@ static const uint32_t kExpEight = 256u;
 static const size_t kSizeZero = 0UL;
 static const size_t kSizeOne = 1UL;
 static const size_t kSizeTwo = 2UL;
+static const size_t kSizeThree = 3UL;
 static const size_t kSizeFour = 4UL;
 
 class TestSplitReshapePass : public ::testing::Test {
@@ -151,11 +152,11 @@ TEST_F(TestSplitReshapePass, TestCollectCopyOut) {
     EXPECT_EQ(pass.assembleOutToInput_.size(), kSizeOne);
     auto it3 = pass.assembleOutToInput_.find(ubTensor->tensor->rawmagic);
     EXPECT_NE(it3, pass.assembleOutToInput_.end());
-    EXPECT_EQ(it3->second.size(), kNumTwo);
+    EXPECT_EQ(it3->second.size(), kNumThree);
     EXPECT_EQ(it3->second.count(input1), kNumOne);
     EXPECT_EQ(it3->second.count(input2), kNumOne);
 
-    EXPECT_EQ(pass.mapOffset_.size(), kSizeTwo);
+    EXPECT_EQ(pass.mapOffset_.size(), kSizeThree);
     EXPECT_EQ(pass.mapOffset_[std::make_pair(input1->magic, ubTensor->magic)], offset1);
     EXPECT_EQ(pass.mapOffset_[std::make_pair(input2->magic, ubTensor->magic)], offset2);
 }
