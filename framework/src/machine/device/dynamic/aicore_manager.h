@@ -423,16 +423,14 @@ private:
         if (ready == 0 ) {
             return 0;
         }
+
         ReadyQueueLock(readyQue);
-        uint32_t head = __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED);
-        uint32_t tail = __atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED);
-        uint32_t taskCount = std::min(ready, tail - head);
-        if (taskCount == 0) {
-            ReadyQueueUnLock(readyQue);
-            return 0;
-        }
-        __atomic_fetch_add(&readyQue->head, taskCount, std::memory_order_release);
-        ReadyQueueUnLock((readyQue));
+        uint32_t head = readyQue->head;
+        const uint32_t availableTasks = readyQue->Size();
+        uint32_t taskCount = std::min(ready, availableTasks);
+        readyQue->head += taskCount;
+        ReadyQueueUnLock(readyQue);
+        
         BatchSendTask(type, &readyQue->elem[head], taskCount, coreIdxStart, coreIdxEnd, false);
         return taskCount;
     }
@@ -493,9 +491,8 @@ private:
 
     inline void PushReadyQue(ReadyCoreFunctionQueue *readyQue, void *idList, uint32_t idCnt) const {
         ReadyQueueLock(readyQue);
-        memcpy_s(
-            &readyQue->elem[readyQue->tail], idCnt * sizeof(uint32_t), (uint8_t *)idList, idCnt * sizeof(uint32_t));
-         __atomic_fetch_add(&readyQue->tail, idCnt, std::memory_order_release);
+        memcpy_s(&readyQue->elem[readyQue->tail], idCnt * sizeof(uint32_t), (uint8_t *)idList, idCnt * sizeof(uint32_t));
+        readyQue->tail += idCnt;
         ReadyQueueUnLock(readyQue);
     }
     
