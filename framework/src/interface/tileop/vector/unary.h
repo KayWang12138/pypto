@@ -69,30 +69,51 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
     }
 }
 
-template<typename T, typename HalfTileDefineSrc, typename TileDefineDst, typename B16TileDefineSrc>
+template<typename T, typename HalfTileDefineSrc, bool CombineAxis, typename TileDefineDst, typename B16TileDefineSrc>
 TILEOP void IsFiniteComputeImpl(TileDefineDst dst, B16TileDefineSrc src, HalfTileDefineSrc buffer) {
-    HalfTileDefineSrc bufferFP16(src.GetValidRow(), src.GetValidCol());
-    pto::TASSIGN(bufferFP16, reinterpret_cast<std::uintptr_t>(buffer.data()));
-
-    B16TileDefineSrc bufferB16(src.GetValidRow(), src.GetValidCol());
-    pto::TASSIGN(bufferB16, reinterpret_cast<std::uintptr_t>(buffer.data()));
-
-    int16_t mask = 0;
-    if constexpr (std::is_same_v<T, bfloat16_t>) {
-        mask = 0x7F80;
-    } else if constexpr (std::is_same_v<T, half> || std::is_same_v<T, float>) {
-        mask = 0x7C00;
+    if constexpr (!CombineAxis) {
+        HalfTileDefineSrc bufferFP16(src.GetValidRow(), src.GetValidCol());
+        pto::TASSIGN(bufferFP16, reinterpret_cast<std::uintptr_t>(buffer.data()));
+        B16TileDefineSrc bufferB16(src.GetValidRow(), src.GetValidCol());
+        pto::TASSIGN(bufferB16, reinterpret_cast<std::uintptr_t>(buffer.data()));
+        int16_t mask = 0;
+        if constexpr (std::is_same_v<T, bfloat16_t>) {
+            mask = 0x7F80;
+        } else if constexpr (std::is_same_v<T, half> || std::is_same_v<T, float>) {
+            mask = 0x7C00;
+        }
+        pto::TANDS(bufferB16, src, mask);
+        SyncV();
+        pto::TSUBS(bufferB16, bufferB16, mask);
+        SyncV();
+        pto::TMAXS(bufferB16, bufferB16, (int16_t) -1);
+        SyncV();
+        pto::TMULS(bufferB16, bufferB16, (int16_t) -1);
+        SyncV();
+        pto::TCVT(dst, bufferFP16, pto::RoundMode::CAST_CEIL);
+        SyncV();
+    } else {
+        HalfTileDefineSrc bufferFP16;
+        pto::TASSIGN(bufferFP16, reinterpret_cast<std::uintptr_t>(buffer.data()));
+        B16TileDefineSrc bufferB16;
+        pto::TASSIGN(bufferB16, reinterpret_cast<std::uintptr_t>(buffer.data()));
+        int16_t mask = 0;
+        if constexpr (std::is_same_v<T, bfloat16_t>) {
+            mask = 0x7F80;
+        } else if constexpr (std::is_same_v<T, half> || std::is_same_v<T, float>) {
+            mask = 0x7C00;
+        }
+        pto::TANDS(bufferB16, src, mask);
+        SyncV();
+        pto::TSUBS(bufferB16, bufferB16, mask);
+        SyncV();
+        pto::TMAXS(bufferB16, bufferB16, (int16_t) -1);
+        SyncV();
+        pto::TMULS(bufferB16, bufferB16, (int16_t) -1);
+        SyncV();
+        pto::TCVT(dst, bufferFP16, pto::RoundMode::CAST_CEIL);
+        SyncV();
     }
-    pto::TANDS(bufferB16, src, mask);
-    SyncV();
-    pto::TSUBS(bufferB16, bufferB16, mask);
-    SyncV();
-    pto::TMAXS(bufferB16, bufferB16, (int16_t) -1);
-    SyncV();
-    pto::TMULS(bufferB16, bufferB16, (int16_t) -1);
-    SyncV();
-    pto::TCVT(dst, bufferFP16, pto::RoundMode::CAST_CEIL);
-    SyncV();
 }
 
 template <UnaryOp op, typename LastUse, typename T0, typename T1>
@@ -214,7 +235,7 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
         SyncV();
     }
 
-    IsFiniteComputeImpl<typename SrcTileTensor::Type, HalfTileDefineSrc>(dstTile, srcTile, bufferTile);
+    IsFiniteComputeImpl<typename SrcTileTensor::Type, HalfTileDefineSrc, true>(dstTile, srcTile, bufferTile);
 }
 
 #define OP_TILE_OP_ISFINITE TIsFinite
@@ -263,7 +284,7 @@ TILEOP void TIsFinite(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buf
                     pto::TCVT(srcFP16, srcFP32, pto::RoundMode::CAST_NONE);
                     SyncV();
                 }
-                IsFiniteComputeImpl<typename SrcTileTensor::Type, HalfTileDefineSrc>(dstTile, srcTile, bufferTile);
+                IsFiniteComputeImpl<typename SrcTileTensor::Type, HalfTileDefineSrc, false>(dstTile, srcTile, bufferTile);
             }
         }
     }
