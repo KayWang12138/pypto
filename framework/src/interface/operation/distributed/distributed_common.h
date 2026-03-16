@@ -97,10 +97,6 @@ struct ShmemWaitUntilAttr {
     bool resetSignal =  false;
     int64_t tileRowShape = 0;
     int64_t tileColShape = 0;
-
-    static int64_t GetFieldCount() {
-        return 5;
-    }
 };
 
 struct ShmemSetAttr {
