@@ -346,32 +346,22 @@ public:
     }
 
 private:
-    static void DumpTask(int64_t taskId, DeviceTask *devTask, bool isDyn) {
-        DEV_DEBUG("devTask %ld %p.", taskId, devTask);
-        if (devTask == nullptr) {
-            return;
-        }
-
-        DEV_DEBUG("devtask { %lu, %lx, %lx, %lx, %lx, %lu, %lu}.", devTask->coreFunctionCnt,
-            devTask->coreFunctionReadyStateAddr, devTask->readyAicCoreFunctionQue, devTask->readyAivCoreFunctionQue,
-            devTask->coreFuncData.coreFunctionWsAddr, devTask->coreFuncData.stackWorkSpaceAddr,
-            devTask->coreFuncData.stackWorkSpaceSize);
-
+    static void DumpTaskDetail(DeviceTask *devTask, bool isDyn) {
         DEV_DEBUG("===== ready aic func =====");
         ReadyCoreFunctionQueue* readyFunc = reinterpret_cast<ReadyCoreFunctionQueue*>(devTask->readyAicCoreFunctionQue);
         for (uint64_t i = readyFunc->head; i < readyFunc->tail; i++) {
-            DEV_DEBUG( "taskId %u.", readyFunc->elem[i]);
+            DEV_DEBUG("aic taskId[%lu]=%u.", i, readyFunc->elem[i]);
         }
 
         DEV_DEBUG("===== ready aiv func =====");
         readyFunc = reinterpret_cast<ReadyCoreFunctionQueue *>(devTask->readyAivCoreFunctionQue);
         for (uint64_t i = readyFunc->head; i < readyFunc->tail; i++) {
-            DEV_DEBUG( "taskId %u.", readyFunc->elem[i]);
+            DEV_DEBUG("aiv taskId[%lu]=%u.", i, readyFunc->elem[i]);
         }
         DEV_DEBUG("===== ready aicpu func =====");
         readyFunc = reinterpret_cast<ReadyCoreFunctionQueue *>(devTask->readyAicpuFunctionQue);
         for (uint64_t i = readyFunc->head; i < readyFunc->tail; i++) {
-            DEV_DEBUG( "taskId %u.", readyFunc->elem[i]);
+            DEV_DEBUG("aicpu taskId[%lu]=%u.", i, readyFunc->elem[i]);
         }
 
         if (isDyn) {
@@ -387,22 +377,43 @@ private:
             auto coreFunc = reinterpret_cast<CoreFunctionWsAddr *>(devTask->coreFuncData.coreFunctionWsAddr);
             DEV_DEBUG("===== core func =====");
             for (uint64_t i = 0; i < devTask->coreFunctionCnt; i++) {
-                DEV_DEBUG("taskId %lu binAddr %lx invokeEntry %lx topo %lx.", i, coreFunc[i].functionBinAddr,
-                    coreFunc[i].invokeEntryAddr, coreFunc[i].topoAddr);
+                DEV_DEBUG("taskId[%lu]: binAddr=%#lx, invokeEntry=%#lx, topo=%#lx.",
+                    i, coreFunc[i].functionBinAddr, coreFunc[i].invokeEntryAddr, coreFunc[i].topoAddr);
                 auto topo = reinterpret_cast<CoreFunctionTopo *>(coreFunc[i].topoAddr);
-                DEV_DEBUG("coreType %lu pstId %lu readyCount %ld depNum %lu .", topo->coreType, topo->psgId,
-                    topo->readyCount, topo->depNum);
+                DEV_DEBUG("  topo: coreType=%lu, psgId=%lu, readyCount=%ld, depNum=%lu.",
+                    topo->coreType, topo->psgId, topo->readyCount, topo->depNum);
                 (void)topo;
             }
             DEV_DEBUG("===== ready state =====");
             auto readyState = reinterpret_cast<CoreFunctionReadyState *>(devTask->coreFunctionReadyStateAddr);
             for (uint64_t i = 0; i < devTask->coreFunctionCnt; i++) {
-                DEV_DEBUG("taskId %lu readyCount %ld coreType %lu.", i, readyState[i].readyCount, readyState[i].coreType);
+                DEV_DEBUG("taskId[%lu]: readyCount=%ld, coreType=%lu.",
+                    i, readyState[i].readyCount, readyState[i].coreType);
             }
             (void)(readyState);
         }
-        (void)taskId;
         DEV_DEBUG("===== dev task end =====");
+    }
+
+    static void DumpTask(int64_t taskId, DeviceTask *devTask, bool isDyn) {
+        DEV_DEBUG("taskId=%ld, devTask=%p, isDyn=%d.", taskId, devTask, static_cast<int>(isDyn));
+        if (devTask == nullptr) {
+            return;
+        }
+
+        DEV_DEBUG("devtask { coreFunctionCnt=%lu, readyStateAddr=%#lx, "
+                  "readyAicQue=%#lx, readyAivQue=%#lx, readyAicpuQue=%#lx, "
+                  "coreFuncWsAddr=%#lx, stackWsAddr=%#lx, stackWsSize=%lu }.",
+            devTask->coreFunctionCnt,
+            devTask->coreFunctionReadyStateAddr,
+            devTask->readyAicCoreFunctionQue,
+            devTask->readyAivCoreFunctionQue,
+            devTask->readyAicpuFunctionQue,
+            devTask->coreFuncData.coreFunctionWsAddr,
+            devTask->coreFuncData.stackWorkSpaceAddr,
+            devTask->coreFuncData.stackWorkSpaceSize);
+
+        DumpTaskDetail(devTask, isDyn);
     }
 private:
     DeviceTaskCtrl &GetTaskCtrlInPool(int index) {
