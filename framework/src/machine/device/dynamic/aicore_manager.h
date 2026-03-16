@@ -189,7 +189,7 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
         for (int i = aicStart_; i < aicEnd_; i++) availableCoreQueue_[(int)CoreType::AIC]->push(i);
     }
 
-    void CountSendTask(uint64_t &sentAic, uint64_t &sentAiv) {
+    inline void CountSendTask(uint64_t &sentAic, uint64_t &sentAiv) {
         sentAic = context_->sendCnt_[static_cast<int>(CoreType::AIC)];
         sentAiv = context_->sendCnt_[static_cast<int>(CoreType::AIV)];
         context_->waitTaskCnt_[static_cast<int>(CoreType::AIC)] += sentAic;
@@ -615,7 +615,7 @@ private:
         }
     }
 
-    static uint64_t RuntimeCopyOutResolveCounterDecode(uint64_t aicpuCallCode) {
+    static inline uint64_t RuntimeCopyOutResolveCounterDecode(uint64_t aicpuCallCode) {
         return aicpuCallCode & 0xffff;
     }
 
