@@ -1,7 +1,7 @@
 ---
-name: pypto-pass-error-analyzer
+name: pypto-pass-error-locator
 description: PyPTO Pass 模块问题定位技能。用于解析 PyPTO 运行日志，提取错误信息、堆栈跟踪等关键信息，识别错误是哪个 pass 模块导致的，分析错误产生的可能原因，为用户自行修复和通过skill自动修复提供参考。当需要分析 PyPTO pass 模块错误时使用此技能。
-tag: [PyPTO, Pass分析, 错误诊断, 日志解析]
+license: 完整条款见 LICENSE.txt
 ---
 
 # PyPTO Pass Error locator Skill
@@ -27,9 +27,8 @@ tag: [PyPTO, Pass分析, 错误诊断, 日志解析]
 
 当用户输入包含以下关键字时，自动触发此技能：
 
-- **执行xx用例异常，分析某pass失败原因**：根据用例执行日志信息，分析在指定pass执行失败的错误原因
-- **根据xx日志信息，分析某pass失败原因**：根据用户提供的错误日志信息，分析在指定pass执行失败的错误原因
-
+- **执行xx用例异常，分析pass失败原因**：根据用例执行日志信息，识别错误是哪个 pass 模块导致的，分析错误产生的可能原因
+- **根据xx日志信息，分析pass失败原因**：根据用户提供的错误日志信息，识别错误是哪个 pass 模块导致的，分析错误产生的可能原因
 ## 工作流程
 
 ### 步骤 1：获取日志
