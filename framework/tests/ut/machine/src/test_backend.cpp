@@ -17,6 +17,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
+#include "machine/host/backend.h"
 
 using namespace npu::tile_fwk;
 
@@ -37,4 +38,12 @@ TEST_F(TestSuite_Backend, SimulationBackend_Err1) {
         config::Reset();
     } catch (std::runtime_error&) {
     }
+}
+
+extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache);
+
+TEST_F(TestSuite_Backend, Execute_NullTask) {
+    FunctionCache cache;
+    int32_t ret = Execute(nullptr, cache);
+    EXPECT_EQ(ret, 0);
 }

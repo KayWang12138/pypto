@@ -53,7 +53,7 @@ static inline void matmul_snprintf(char* buf, size_t bufSize, const char* fmt, .
 #define MATMUL_CHECK(error_code, cond, fmt, ...) \
     do { \
         if (!(cond)) { \
-            MATMUL_LOGE("[ERR-FC%d] " fmt, static_cast<int>(error_code), ##__VA_ARGS__); \
+            MATMUL_LOGE(ERROR_CODE_UNDEFINED, "[ERR-FC%d] " fmt, static_cast<int>(error_code), ##__VA_ARGS__); \
             return FAILED; \
         } \
     } while (0)
@@ -62,10 +62,10 @@ static inline void matmul_snprintf(char* buf, size_t bufSize, const char* fmt, .
 #define MATMUL_ASSERT(error_code, cond, fmt, ...) \
     do { \
         if (!(cond)) { \
-            MATMUL_LOGE("[FC%d] " fmt, static_cast<int>(error_code), ##__VA_ARGS__); \
+            MATMUL_LOGE(ERROR_CODE_UNDEFINED, "[FC%d] " fmt, static_cast<int>(error_code), ##__VA_ARGS__); \
             char err_msg[1024] = {0}; \
             matmul_snprintf(err_msg, sizeof(err_msg), fmt, ##__VA_ARGS__); \
-            ASSERT(false) << "[FC" << static_cast<int>(error_code) << "] " << err_msg; \
+            ASSERT(ERROR_CODE_UNDEFINED, false) << "[FC" << static_cast<int>(error_code) << "] " << err_msg; \
         } \
     } while (0)
 

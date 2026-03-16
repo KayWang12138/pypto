@@ -77,7 +77,7 @@ void CompileTestCCE(const std::string &cceFileName) {
     std::string outputFilePath = outputDirPath + "/" + cceFileName + ".o";
 
     int ret = CompileCCEForSingleOpTest(cceFilePath, outputFilePath, false);
-    ASSERT(ret == 0) << "CompileCCEForSingleOpTest failed!!";
+    ASSERT(ERROR_CODE_UNDEFINED, ret == 0) << "CompileCCEForSingleOpTest failed!!";
 }
 
 TEST_F(TestTileOpAdd, TestAddDim2) {
