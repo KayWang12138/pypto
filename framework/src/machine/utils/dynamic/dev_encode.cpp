@@ -33,7 +33,7 @@
 #include <unordered_map>
 #include <utility>
 #include <queue>
-
+#include <sstream>
 using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 namespace dynamic {
@@ -221,6 +221,20 @@ static int64_t GetShapeSizeSafe(const std::vector<int64_t> &shape) {
     return nelm;
 }
 
+static std::string FormatShape(const std::vector<int64_t> &shape) {
+    std::ostringstream oss;
+    oss << "[";
+    for (size_t i = 0; i < shape.size(); i++) {
+        if (i > 0) {
+            oss << ", ";
+        }
+        oss << shape[i];
+    }
+    oss << "]";
+    return oss.str();
+}
+
+
 static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAscendRawTensor *encoded,
         std::shared_ptr<RawTensor> rawTensor, bool needIndependentlyAlloc, const std::string rootName = "") {
     std::vector<SymInt> shape;
@@ -393,10 +407,29 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                            << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize();
                     continue;
                 }
+
                 ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize()) << "Shape size mismatch:"
-                       << rawTensor->GetRawShapeSize() << "!=" << actualRaw->GetRawShapeSize();
+                       << rawTensor->GetRawShapeSize() << "!=" << actualRaw->GetRawShapeSize()
+                       << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize()
+ 	                   << ", rootName=" << param.devRoot->GetRawName()
+ 	                   << ", rootMagic="<< param.devRoot->GetMagicName()
+ 	                   << ", rootHash="<< param.devRoot->GetFunctionHash().GetHash()
+                       <<" ,rawShape="<< FormatShape(rawTensor->GetRawShape()).c_str()
+                       <<",actualrawShape="<< FormatShape(actualRaw->GetRawShape()).c_str()
+ 	                   << ", rawTensor->rawMagic=" << rawTensor->GetRawMagic()
+ 	                   << ", rawTensor->actualRawmagic=" << rawTensor->actualRawmagic
+ 	                   << ", actualRaw->rawMagic=" << actualRaw->rawmagic;
                 ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize()) << "Data size mismatch:"
-                       << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize();
+                       << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize()
+                       << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize()
+ 	                   << ", rootName=" << param.devRoot->GetRawName()
+ 	                   << ", rootMagic="<< param.devRoot->GetMagicName()
+ 	                   << ", rootHash="<< param.devRoot->GetFunctionHash().GetHash()
+                       <<" ,rawShape="<< FormatShape(rawTensor->GetRawShape()).c_str()
+                       <<",actualrawShape="<< FormatShape(actualRaw->GetRawShape()).c_str()
+ 	                   << ", rawTensor->rawMagic=" << rawTensor->GetRawMagic()
+ 	                   << ", rawTensor->actualRawmagic=" << rawTensor->actualRawmagic
+ 	                   << ", actualRaw->rawMagic=" << actualRaw->rawmagic;
             }
         }
 
@@ -1946,6 +1979,7 @@ static uint32_t ExpectedMaxCachedNum() {
         return 1;
     }
     expectedMaxCachedNum = (expectedMaxCachedNum > (int)MAX_STITCH_FUNC_NUM_LOWER) ? expectedMaxCachedNum : MAX_STITCH_FUNC_NUM_LOWER;
+    MACHINE_LOGD("max stitch function num  user expected is %d", expectedMaxCachedNum);
     return std::min(static_cast<uint32_t>(expectedMaxCachedNum), static_cast<uint32_t>(MAX_STITCH_FUNC_NUM));
 }
 
@@ -1971,6 +2005,7 @@ struct EncodeDevAscendProgramInfo {
             int unroll = ParseUnrollTimes(devRoot->GetRawName());
             MAX_UNROLL_TIMES = std::max(MAX_UNROLL_TIMES, (uint32_t)unroll);
         }
+        MACHINE_LOGD("MAX_UNROLL_TIMES user set is %u", MAX_UNROLL_TIMES);
     }
 
     void Init(DevAscendProgram *devProg, bool fillContent) {
@@ -2212,7 +2247,9 @@ static void ProcessDevFunctionOutcasts(Function *func, DevAscendFunction *devFun
         devFunc->rootInnerTensorWsMemoryRequirement, unroll, WorkspaceRecyclePeriod());
     uint64_t funcDevTaskInnerExclusiveOutcastMem = CalcUnrolledRootBudget(
         devFunc->exclusiveOutcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
-
+    MACHINE_LOGD("rootInnerTensorWsMemoryRequirement is %lu, funcDevTaskInnerExclusiveOutcastMem is %lu", 
+                  devFunc->rootInnerTensorWsMemoryRequirement, devFunc->exclusiveOutcastWsMemoryRequirement);
+    
     maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
     maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
     maxPerCoreSpilledMem = std::max(maxPerCoreSpilledMem, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
@@ -2282,7 +2319,6 @@ static uint64_t CalcGeneralMetadataSlotWorkspace(DevAscendProgram *devProg) {
     MACHINE_LOGD("workspace of generalMetadataSlotSize is %lu, ", generalMetadataSlotSize);
     return generalMetadataSlotSize;
 }
-/**wraplist**/
 static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
     DeviceWorkspaceAllocator workspace(devProg);
     uint64_t generalMetadataSlabSize = 0;
@@ -2295,8 +2331,6 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
         1,// DynDevTask
         READY_QUEUE_SIZE, //ReadyQue
         DIE_READY_QUEUE_SIZE * DIE_NUM, // DieReadyQue
-        1,
-        1,
         1,
         1,
     };
