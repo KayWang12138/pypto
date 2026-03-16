@@ -21,12 +21,16 @@
 namespace npu {
 namespace tile_fwk {
 using GetSocVerFunc = int (*)(char *, const uint32_t);
+using GetSocSpecFunc = int (*)(const char *, const char *, char *, const uint32_t);
+using GetAiCpuCntFunc = int (*)(uint32_t *);
 
 class CannHostRuntime {
 public:
     static CannHostRuntime& Instance();
     bool GetSocVersion(std::string& socVersion);
-    std::string GetPlatformFile(const std::string &socVersion);
+    bool GetSocSpec(const std::string& column, const std::string& key, std::string& val);
+    bool GetAICPUCnt(size_t &aiCpuCnt);
+
     CannHostRuntime(const CannHostRuntime&) = delete;
     CannHostRuntime& operator=(const CannHostRuntime&) = delete;
 private:
@@ -34,7 +38,9 @@ private:
     ~CannHostRuntime();
     void *GetSymbol(const std::string &sym);
 
-    GetSocVerFunc socVerFunc_;
+    GetSocVerFunc socVerFunc_ = nullptr;
+    GetSocSpecFunc socSpecFunc_ = nullptr;
+    GetAiCpuCntFunc aiCpuCntFunc_ = nullptr;
     void *handleDep_ = nullptr;	 
     void *handle_ = nullptr;
 };

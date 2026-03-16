@@ -547,5 +547,49 @@ TEST_F(InferShapeTest, TestSHMEM_GET_GM2UB) {
     EXPECT_NE(shmemGetGm2UBOut1->GetDynValidShape().size(), 0);
     EXPECT_EQ(inferShapeTest.PostCheck(*currFunctionPtr), SUCCESS);
 }
+
+TEST_F(InferShapeTest, TestPad) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestPadInferShape",
+                                                      "TestPadInferShape",
+                                                      nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph
+    std::vector<int64_t> inshape = {2, 2};
+    std::vector<int64_t> outshape = {3, 4};
+    auto shapeImme = OpImmediate::Specified(inshape);
+    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
+    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape);
+    auto inTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
+    auto outTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape);
+
+    auto &copyin_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {inTensor});
+    auto copyin_Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
+                                                         MEM_UB,
+                                                         shapeImme,
+                                                         shapeImme,
+                                                         std::vector<OpImmediate>());
+    std::vector<OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")),
+                                             OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
+    copyin_Attr->SetToDynValidShape(toValidShape);
+    copyin_op.SetOpAttribute(copyin_Attr);
+
+    auto &pad_op = currFunctionPtr->AddOperation(Opcode::OP_PAD, {inTensor}, {outTensor});
+    pad_op.SetAttribute(OP_ATTR_PREFIX + "pad_right", 2);
+    pad_op.SetAttribute(OP_ATTR_PREFIX + "pad_bottom", 1);
+    pad_op.SetAttribute(OpAttributeKey::scalar, Element(DT_FP32, 0.0f));
+
+    auto &copyout_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {outTensor}, {outcast});
+    (void) copyout_op;
+
+    currFunctionPtr->inCasts_.push_back(incast);
+    currFunctionPtr->outCasts_.push_back(outcast);
+
+    InferDynShape inferShapeTest;
+    inferShapeTest.RunOnFunction(*currFunctionPtr);
+    std::cout << currFunctionPtr->Dump() << std::endl;
+    EXPECT_EQ(inferShapeTest.PostCheck(*currFunctionPtr), SUCCESS);
+}
 }
 }

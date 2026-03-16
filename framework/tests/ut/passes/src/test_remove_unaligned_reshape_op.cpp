@@ -364,3 +364,102 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub_gm_last_dim_1) {
         }
     }
 }
+
+// in - COPYIN - COPYOUT - RESHAPE - COPYIN - COPYOUT - out
+//                                 - COPYIN - COPYOUT - out
+
+// in - COPYIN - COPYOUT - COPYIN - RESHAPECOPYOUT - RESHAPE - RESHAPECOPYIN - COPYOUT - COPYIN - COPYOUT - out
+//                                                           - RESHAPECOPYIN - COPYOUT - COPYIN - COPYOUT - out
+TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopyOnL1) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopy", "TestCopyToReshapeCopy", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph
+    std::vector<int64_t> inshape = {4, 4};
+    std::vector<int64_t> reshapeShape = {2, 8};
+    std::vector<int64_t> outshape = {4, 8};
+    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
+    auto copyinTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
+    copyinTensor1->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    auto copyoutTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
+    copyoutTensor1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    std::vector<SymbolicScalar> validShape1 = {SymbolicScalar("Input_0_Dim_0"), SymbolicScalar("Input_0_Dim_1")};
+    copyoutTensor1->UpdateDynValidShape(validShape1);                                
+    auto reshapeTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
+    reshapeTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    std::vector<SymbolicScalar> validShape2 = {SymbolicScalar("Input_1_Dim_0"), SymbolicScalar("Input_1_Dim_1")};
+    reshapeTensor->UpdateDynValidShape(validShape2);                                
+    auto copyinTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
+    copyinTensor2->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    auto copyinTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
+    copyinTensor3->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape);
+    outcast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copyinTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyinTensor1}, {copyoutTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {copyoutTensor1}, {reshapeTensor});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {reshapeTensor}, {copyinTensor2});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {reshapeTensor}, {copyinTensor3});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyinTensor2}, {outcast});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyinTensor3}, {outcast});
+
+    currFunctionPtr->inCasts_.push_back(incast);
+    currFunctionPtr->outCasts_.push_back(outcast);
+
+    RemoveUnalignedReshape removeUnalignedReshapeOpTest;
+    int curSize = currFunctionPtr->Operations().size();
+    EXPECT_EQ(removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(currFunctionPtr->Operations().size(), curSize + 6);
+}
+
+// in - COPYIN - COPYOUT - RESHAPE - COPYIN - COPYOUT - out
+//                                 - COPYIN - COPYOUT - out
+
+// in - COPYIN - RESHAPECOPYOUT - RESHAPE - RESHAPECOPYIN - COPYOUT - out
+//                                        - RESHAPECOPYIN - COPYOUT - out
+TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopyOnUB) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopy", "TestCopyToReshapeCopy", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph
+    std::vector<int64_t> inshape = {4, 4};
+    std::vector<int64_t> reshapeShape = {2, 8};
+    std::vector<int64_t> outshape = {4, 8};
+    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
+    auto copyin_Tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
+    copyin_Tensor1->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto copyout_Tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
+    copyout_Tensor1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    std::vector<SymbolicScalar> validShape1 = {SymbolicScalar("Input_00_Dim_0"), SymbolicScalar("Input_00_Dim_1")};
+    copyout_Tensor1->UpdateDynValidShape(validShape1);                                
+    auto reshape_Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
+    reshape_Tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    std::vector<SymbolicScalar> validShape2 = {SymbolicScalar("Input_01_Dim_0"), SymbolicScalar("Input_01_Dim_1")};
+    reshape_Tensor->UpdateDynValidShape(validShape2);                                
+    auto copyin_Tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
+    copyin_Tensor2->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto copyin_Tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
+    copyin_Tensor3->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape);
+    outcast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copyin_Tensor1});
+    auto &copyoutOp = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyin_Tensor1}, {copyout_Tensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {copyout_Tensor1}, {reshape_Tensor});
+    auto &copyinOp1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {reshape_Tensor}, {copyin_Tensor2});
+    auto &copyinOp2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {reshape_Tensor}, {copyin_Tensor3});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyin_Tensor2}, {outcast});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyin_Tensor3}, {outcast});
+
+    currFunctionPtr->inCasts_.push_back(incast);
+    currFunctionPtr->outCasts_.push_back(outcast);
+
+    RemoveUnalignedReshape removeUnalignedReshapeOpTest;
+    int curOpSize = currFunctionPtr->Operations().size();
+    EXPECT_EQ(removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(copyoutOp.GetOpcode() == Opcode::OP_RESHAPE_COPY_OUT, true);
+    EXPECT_EQ(copyinOp1.GetOpcode() == Opcode::OP_RESHAPE_COPY_IN, true);
+    EXPECT_EQ(copyinOp2.GetOpcode() == Opcode::OP_RESHAPE_COPY_IN, true);
+    EXPECT_EQ(currFunctionPtr->Operations().size(), curOpSize);
+}

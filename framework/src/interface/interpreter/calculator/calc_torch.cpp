@@ -238,6 +238,32 @@ static void Relu(const TensorData &out, const TensorData &self) {
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static void Pad(const TensorData &out, const TensorData &input, const Element &padValue) {
+    auto tinput = From(input);
+    auto tout = From(out);
+    
+    std::vector<int64_t> in_shape = tinput.second.sizes().vec();
+    std::vector<int64_t> out_shape = tout.second.sizes().vec();
+    size_t ndim = out_shape.size();
+    int64_t pad_right = 0;
+    int64_t pad_bottom = 0;
+    
+    if (ndim >= 2) {
+        pad_right = std::max(static_cast<int64_t>(0), out_shape[ndim - 1] - in_shape[ndim - 1]);
+        pad_bottom = std::max(static_cast<int64_t>(0), out_shape[ndim - 2] - in_shape[ndim - 2]);
+    } else if (ndim == 1) {
+        pad_right = std::max(static_cast<int64_t>(0), out_shape[0] - in_shape[0]);
+    }
+    std::vector<int64_t> pad_vec = {0, pad_right, 0, pad_bottom};
+    double pad_val_double = padValue.Cast<double>();
+    namespace F = torch::nn::functional;
+    F::PadFuncOptions options(pad_vec);
+    options.mode(torch::kConstant).value(pad_val_double);
+    auto result = F::pad(tinput.second, options);
+    tout.second.copy_(result);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 static void BitwiseNot(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     auto tself = From(self);
@@ -1151,20 +1177,14 @@ void GatherINUBGolden(torch::Tensor &out, const torch::Tensor &params, const tor
     // 写到 out（不要求 out contiguous；copy_ 会处理）
     out.copy_(selected);
 }
-static torch::Tensor From4GatherINUB(const TensorData &data) {
-    auto tensor = torch::from_blob(data.dataPtr, data.rawShape, FromDataType(data.dtype));
-    auto view = tensor.as_strided({data.shape[0], data.shape[1]}, data.stride, data.storageOffset);
-    if (data.isAxisCombine)
-        view = view.transpose_(-1, AXIS_TO_LAST);
-    return view;
-}
+
 void GatherINUB(const TensorData &out, const TensorData &params, const TensorData &indices,
     const TensorData &pageTable, int64_t blockSize, int64_t axis) {
     auto tout = From(out);
-    auto tparams = From4GatherINUB(params);
+    auto tparams = From(params);
     auto tindices = From(indices);
     auto tpageTable = From(pageTable);
-    GatherINUBGolden(tout.second, tparams, tindices.second, tpageTable.second, blockSize, axis);
+    GatherINUBGolden(tout.second, tparams.second, tindices.second, tpageTable.second, blockSize, axis);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -1276,7 +1296,7 @@ void CumSum(const TensorData &out, const TensorData &in, int axis) {
 
 void IndexPut(const TensorData &out, const TensorData &self, const std::vector<TensorData> &indices, const TensorData &values, bool accumulate) {
     c10::List<c10::optional<at::Tensor>> indicesList;
-    for (const auto idx : indices) {
+    for (auto idx : indices) {
         indicesList.push_back(From(idx).second);
     }
     auto tout = From(out);
@@ -1467,9 +1487,8 @@ static void BitSort(const TensorData &out, const TensorData &self, int64_t axis,
     }
 
     auto tres = sortedGroups.reshape(torch::IntArrayRef(dstShape));
-    torch::Tensor expanded = torch::cat({tres, torch::zeros_like(tself.second)}, axis);
-    torch::Tensor dstSubview = View(tout.second, expanded.sizes().vec(), viewOffset);
-    dstSubview.copy_(expanded);
+    torch::Tensor dstSubview = View(tout.second, tres.sizes().vec(), viewOffset);
+    dstSubview.copy_(tres);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -1529,15 +1548,14 @@ static void Extract(const TensorData &out, const TensorData &self, int mod, bool
  * @param descending Indicate whether the obtained k values are the maximum or minimum k values,
  *                   and true returns the maximum k values
  */
-static void Topk(const TensorData &out, const TensorData &self, int64_t axis, int64_t k, bool descending) {
+static void MrgSort(const TensorData &out, const TensorData &self, int64_t axis, int64_t k) {
     auto tself = From(self);
     auto tout = From(out);
     constexpr int DIM_SIZE_TWO = 2;
     constexpr int ACTUAL_VALID_RATIO = 2;
-    (void)descending;
     axis = axis < 0 ? (axis + tself.second.dim()) : axis;
-    int actShape = tself.second.size(axis) - (tself.second.size(axis) + 31) / 32 * 32 / 3 * 2;
-    auto sliceIndices = torch::arange(actShape * 2, torch::dtype(torch::kLong));
+    int actShape = tself.second.size(axis);
+    auto sliceIndices = torch::arange(actShape, torch::dtype(torch::kLong));
     auto tselfHalf = tself.second.index_select(axis, sliceIndices);
 
     ASSERT(axis >= 0 && axis < tselfHalf.dim()) <<
@@ -1578,7 +1596,7 @@ static void Topk(const TensorData &out, const TensorData &self, int64_t axis, in
             dstShape.push_back(topkGroups.size(i));
         }
     }
-    torch::Tensor dstSubview = View(tout.second, dstShape, {0, 0});
+    torch::Tensor dstSubview = View(tout.second, dstShape, viewOffset);
     dstSubview.copy_(topkGroups.reshape(torch::IntArrayRef(dstShape)));
     ToOperand(tout.second, tout.first, out.dtype);
 }
@@ -1976,6 +1994,7 @@ static struct CalcOps calcOps = {
     .Reciprocal = Reciprocal,
     .Relu = Relu,
     .Log1p = Log1p,
+    .Pad = Pad,
     .BitwiseNot = BitwiseNot,
     .Abs = Abs,
     .Brcb = Brcb,
@@ -2060,7 +2079,7 @@ static struct CalcOps calcOps = {
     .BitSort = BitSort,
     .TiledMrgSort = TiledMrgSort,
     .Extract = Extract,
-    .Topk = Topk,
+    .MrgSort = MrgSort,
     .TopK = TopK,
     .TopkSort = TopkSort,
     .TopkMerge = TopkMerge,

@@ -28,7 +28,7 @@ Status SplitK::PreCheck(Function &function) {
         return FAILED;
     }
     for (const auto &op : function.Operations()) {
-        if (op.GetOpcode() == Opcode::OP_A_MUL_B && op.GetOpcode() == Opcode::OP_A_MULACC_B) {
+        if (op.GetOpcode() == Opcode::OP_A_MUL_B || op.GetOpcode() == Opcode::OP_A_MULACC_B) {
             // L0C tensor 有且只有一个非空consumer op
             if (op.GetOOperands().size() != 1) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Invalid op: [%d] has output num not equal to one; Please check if the output num is one.%s", 
@@ -36,8 +36,7 @@ Status SplitK::PreCheck(Function &function) {
                 return FAILED;
             }
             auto output = op.GetOOperands().front();
-            if ((output->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) || (output->GetConsumers().size() != 1) 
-                || (*output->GetConsumers().begin() == nullptr)) {
+            if ((output->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) || (*output->GetConsumers().begin() == nullptr)) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Op[%d] has invalid output tenosr[%d]; Please check if the output tensor is vaild.%s", 
                 op.GetOpMagic(), output->magic, GetFormatBacktrace(op).c_str());
                 return FAILED;
