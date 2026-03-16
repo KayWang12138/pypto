@@ -553,7 +553,7 @@ std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
     return {ret, ccecCmd};
 }
 
-void EncodeWaitUntilInfo(const Operation &op, std::vector<int32_t> &code) {
+void EncodeWaitUntilInfo(const Operation &op, std::vector<int64_t> &code) {
     constexpr int32_t paramSizePerOperand = 2; // waitUntil编码每个operand的2个属性：dim和coaIndex
     code.push_back(op.GetOOperands().size() * paramSizePerOperand);
     for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
@@ -579,14 +579,14 @@ void EncodeWaitUntilInfo(const Operation &op, std::vector<int32_t> &code) {
     // 编码waitUntil的attr属性
     std::map<std::string, Any> map = op.GetAllAttribute();
     auto it = map.find(OpAttributeKey::distOpAttr);
-    std::vector<int64_t> attrs;
     if (it != map.end()) {
         Distributed::ShmemWaitUntilAttr distAttr = AnyCast<Distributed::ShmemWaitUntilAttr>(it->second);
-        attrs = distAttr.aicpuOpParams;
-    }
-    if (attrs.size() != 0) {
-        code.push_back(static_cast<int32_t>(attrs.size()));
-        code.insert(code.end(), attrs.begin(), attrs.end());
+        code.push_back(static_cast<int64_t>(distAttr.GetFieldCount()));
+        code.push_back(static_cast<int64_t>(distAttr.expectedSum));
+        code.push_back(static_cast<int64_t>(distAttr.signalStride));
+        code.push_back(static_cast<int64_t>(distAttr.resetSignal));
+        code.push_back(static_cast<int64_t>(distAttr.tileRowShape));
+        code.push_back(static_cast<int64_t>(distAttr.tileColShape));
     }
 }
 
@@ -594,14 +594,14 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
     if (!subFunc.IsAicpuSubFunction().first) {
         return false;
     }
-    std::vector<int32_t> code;
+    std::vector<int64_t> code;
 
     auto operationList = subFunc.Operations(false);
     for (const auto &op : operationList) {
         if (op.GetCoreType() != CoreType::AICPU) {
             continue;
         }
-        code.push_back(static_cast<int32_t>(op.GetOpcode()));
+        code.push_back(static_cast<int64_t>(op.GetOpcode()));
 
         if (op.GetOpcode() == Opcode::OP_SHMEM_WAIT_UNTIL) {
             EncodeWaitUntilInfo(op, code);

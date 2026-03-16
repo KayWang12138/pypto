@@ -85,14 +85,34 @@ struct ShmemGetAttr {
 
 struct ShmemSignalAttr {
     int64_t signalValue = 1;
-    int64_t signalStride = SHMEM_SIGNAL_STRIDE;
+    int32_t signalStride = SHMEM_SIGNAL_STRIDE;
     int64_t tileRowShape = 0;
     int64_t tileColShape = 0;
     AtomicType atomicType = AtomicType::SET;
 };
 
 struct ShmemWaitUntilAttr {
-    std::vector<int64_t> aicpuOpParams;
+    int32_t expectedSum = 0;
+    int32_t signalStride = SHMEM_SIGNAL_STRIDE;
+    bool resetSignal =  false;
+    int64_t tileRowShape = 0;
+    int64_t tileColShape = 0;
+
+    std::string Serialize() const {
+        return std::to_string(signalStride) + "," + std::to_string(expectedSum) + "," +
+               std::to_string(resetSignal) + "," + std::to_string(tileRowShape) + "," +
+               std::to_string(tileColShape);
+    }
+
+    static int64_t GetFieldCount() {
+        ShmemWaitUntilAttr attr;
+        std::string serialized = attr.Serialize();
+        int64_t count = 1;
+        for (char c : serialized) {
+            if (c == ',') count++;
+        }
+        return count;
+    }
 };
 
 struct ShmemSetAttr {
