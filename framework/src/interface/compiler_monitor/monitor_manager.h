@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <map>
 #include <unordered_map>
@@ -74,9 +75,9 @@ private:
 
     bool enable_{true};
     bool stage_doing_{false};
-    int interval_sec_{60};
-    int timeout_sec_{-1};
-    int total_timeout_sec_{600};
+    std::atomic<int> interval_sec_{60};
+    std::atomic<int> timeout_sec_{-1};
+    std::atomic<int> total_timeout_sec_{600};
 
     std::string current_function_;
     std::string current_stage_;
