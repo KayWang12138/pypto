@@ -356,7 +356,7 @@ void GatherInL1Execute(const Shape &srcShapes, const Shape &offsetsShapes, const
     auto offsetsData = make_topk_indices<Config>(cfg, /*seed=*/123);
     auto pageTableData = make_page_table<Config>(cfg, /*seed=*/42);
     std::vector<float16> unitData(TotalSize(unit.GetShape()));
-    ASSERT(unit.GetShape()[0] == unit.GetShape()[1]);
+    ASSERT(ERROR_CODE_UNDEFINED, unit.GetShape()[0] == unit.GetShape()[1]);
     for (int64_t i=0; i < unit.GetShape()[0]; i++) {
         unitData[i * unit.GetShape()[1] + i] = 1;
     }

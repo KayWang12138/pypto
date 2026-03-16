@@ -648,7 +648,7 @@ TEST_P(GatherOperationTest, TestGather) {
 
     if ((func.find(params_rank) == func.end()) || (func[params_rank].find(indices_rank) == func[params_rank].end())) {
         std::cerr << "测试不支持这个形状" << std::endl;
-        ASSERT(false);
+        ASSERT(ERROR_CODE_UNDEFINED, false);
     }
     testCase.opFunc = func[params_rank][indices_rank];
     TestExecutor::runTest(testCase);

@@ -121,11 +121,11 @@ struct Parser {
                     break;
                 } else {
                     // invalid format
-                    ASSERT(false);
+                    ASSERT(ERROR_CODE_UNDEFINED, false);
                 }
             }
         } else {
-            ASSERT(Current().Kind() == Token::id);
+            ASSERT(ERROR_CODE_UNDEFINED, Current().Kind() == Token::id);
             curr = std::make_shared<SchemaNode>(Current().Text());
             MoveNext();
             if (Current().Kind() == '{') {
@@ -140,14 +140,14 @@ struct Parser {
                         break;
                     } else {
                         // invalid format
-                        ASSERT(false);
+                        ASSERT(ERROR_CODE_UNDEFINED, false);
                     }
                 }
             } else if (Current().Kind() == ',' || Current().Kind() == ']' || Current().Kind() == '}') {
                 // only id
             } else {
                 // invalid format
-                ASSERT(false);
+                ASSERT(ERROR_CODE_UNDEFINED, false);
             }
         }
         return curr;
@@ -164,7 +164,7 @@ struct Parser {
             if (!Accessible()) {
                 break;
             }
-            ASSERT(Current().Kind() == '#');
+            ASSERT(ERROR_CODE_UNDEFINED, Current().Kind() == '#');
             MoveNext();
             nodeList.push_back(ParseNode());
         }

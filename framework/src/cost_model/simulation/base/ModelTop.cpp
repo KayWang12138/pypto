@@ -178,7 +178,7 @@ void SimSys::CalendarDispatchTasksToCore(int key, std::shared_ptr<CoreMachine> c
         TaskPack packet;
         packet.taskId = task.first;
         packet.task.taskPtr = calendarTaskMap[task.first];
-        ASSERT(packet.task.taskPtr != nullptr) << "[SIMULATION]: " << "task does not exist. taskId=" << packet.taskId;
+        ASSERT(ERROR_CODE_UNDEFINED, packet.task.taskPtr != nullptr) << "[SIMULATION]: " << "task does not exist. taskId=" << packet.taskId;
         packet.task.functionHash = task.second;
         coreMachine->SubmitTask(packet);
     }
@@ -253,7 +253,7 @@ void SimSys::BuildAICPU(DevicePtr device, uint64_t idInDevice)
     uint64_t aicNum = config.cubeMachineNumberPerAICPU;
     uint64_t aivNum = config.vecMachineNumberPerAICPU;
     uint64_t mixedCoreNum = 0;
-    ASSERT(config.coreMachineNumberPerAICPU == (aicNum + aivNum)) << "[SIMULATION]: " 
+    ASSERT(ERROR_CODE_UNDEFINED, config.coreMachineNumberPerAICPU == (aicNum + aivNum)) << "[SIMULATION]: " 
         << "The number of cores must be equal to the sum of the aic and aiv. Please reconfigure them.";
     if (config.cubeVecMixMode) {
         mixedCoreNum = config.coreMachineNumberPerAICPU;
@@ -446,7 +446,7 @@ bool SimSys::IsTerminate() const
 void SimSys::ReportDeadlock(size_t machineId)
 {
     deadlock = true;
-    SIMULATION_LOGE("[ReportDeadlock] Machine %zu is deadlock at cycle %lu", machineId, static_cast<unsigned long>(globalCycles));
+    SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "[ReportDeadlock] Machine %zu is deadlock at cycle %lu", machineId, static_cast<unsigned long>(globalCycles));
 }
 
 bool SimSys::IsDeadlock() const
@@ -588,7 +588,7 @@ void SimSys::OutputLogForPipeSwimLane(std::string prefix)
     std::string cmd = "python3 " + drawScriptPath + " " + pipeDetailPath;
     int ret = system(cmd.c_str());
     if (ret != 0) {
-        SIMULATION_LOGE("cmd error: %s", cmd.c_str());
+        SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "cmd error: %s", cmd.c_str());
     }
 }
 
@@ -619,7 +619,7 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
     std::string cmd = "python3 " + drawScriptPath + " " + outSwimPath + " -t";
     int result1 = system(cmd.c_str());
     if (result1 != 0) {
-        SIMULATION_LOGE("cmd error: %s", cmd.c_str());
+        SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "cmd error: %s", cmd.c_str());
     }
 
     std::string mergeScriptPath =  GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
@@ -640,7 +640,7 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
     SIMULATION_LOGI("cmd: %s", cmd.c_str());
     int result2 = system(cmd.c_str());
     if (result2 != 0) {
-        SIMULATION_LOGE("cmd error: %s", cmd.c_str());
+        SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "cmd error: %s", cmd.c_str());
     }
 }
 
@@ -811,7 +811,7 @@ uint64_t SimSys::GetCycles() const
 }
 
 void SimSys::UpdateNextCycles(uint64_t nextCycle) {
-    ASSERT(nextCycle > globalCycles) << "[SIMULATION]: " 
+    ASSERT(ERROR_CODE_UNDEFINED, nextCycle > globalCycles) << "[SIMULATION]: " 
         << "nextCycle is less than or equels to globalCycles. nextCycles=" << nextCycle << ", globalCycles=" << globalCycles;
     nextSimulationCycles = std::min(nextSimulationCycles, nextCycle);
 }

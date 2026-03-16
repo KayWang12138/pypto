@@ -146,7 +146,7 @@ std::string CodeGenOpCloudNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam 
         srcOriginShape[ID3], dstRawShape[ID1], dstRawShape[ID2], dstRawShape[ID3], srcRawShape[ID1], srcRawShape[ID2],
         srcRawShape[ID3], tmpRawShape[ID3], dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(), s0Var.c_str(),
         tmpDtypeStr.c_str(), tmpVar.c_str());
-    ASSERT(ret >= 0) << "PrintReduceLastAxis" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed "
+    ASSERT(ERROR_CODE_UNDEFINED, ret >= 0) << "PrintReduceLastAxis" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed "
                      << ret;
     return buffer;
 }
@@ -299,7 +299,7 @@ std::string CodeGenOpCloudNPU::PrintExp2Layout() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintExp2() const {
-    ASSERT(isSupportLayout) << "Exp2 only support tile tensor";
+    ASSERT(ERROR_CODE_UNDEFINED, isSupportLayout) << "Exp2 only support tile tensor";
     return PrintExp2Layout();
 }
 
@@ -317,7 +317,7 @@ std::string CodeGenOpCloudNPU::PrintRoundLayout() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintRound() const {
-    ASSERT(isSupportLayout) << "Round only support tile tensor";
+    ASSERT(ERROR_CODE_UNDEFINED, isSupportLayout) << "Round only support tile tensor";
     return PrintRoundLayout();
 }
 
@@ -334,7 +334,7 @@ std::string CodeGenOpCloudNPU::PrintExpm1Layout() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintExpm1() const {
-    ASSERT(isSupportLayout) << "Expm1 only support tile tensor";
+    ASSERT(ERROR_CODE_UNDEFINED, isSupportLayout) << "Expm1 only support tile tensor";
     return PrintExpm1Layout();
 }
 
@@ -344,7 +344,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryTmpBuffPara
     if (axis.HasValue()) {
         reduceAxis = AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[ID2].size()) - 1))))
+    ASSERT(ERROR_CODE_UNDEFINED, ((reduceAxis >= 0) && (reduceAxis < (int(rawShape[ID2].size()) - 1))))
         << "unsupported reduce axis" << reduceAxis;
 
     reduceAxis += SHAPE_DIM4 - rawShape[0].size();
@@ -381,7 +381,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineDynamicUnaligned(const PrintUnaryT
     if (axis.HasValue()) {
         reduceAxis = AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[ID2].size()) - 1))))
+    ASSERT(ERROR_CODE_UNDEFINED, ((reduceAxis >= 0) && (reduceAxis < (int(rawShape[ID2].size()) - 1))))
         << "unsupported reduce axis" << reduceAxis;
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &srcDtypeStr = param.srcDtypeStr;
@@ -440,7 +440,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineTileTensor() const {
     if (axis.HasValue()) {
         reduceAxis = AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[ID2].size()) - 1)))) << "unsupported reduce axis";
+    ASSERT(ERROR_CODE_UNDEFINED, ((reduceAxis >= 0) && (reduceAxis < (int(rawShape[ID2].size()) - 1)))) << "unsupported reduce axis";
     reduceAxis += SHAPE_DIM5 - rawShape[0].size();
     std::ostringstream oss;
     oss << tileOpName;
@@ -461,7 +461,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumline(const PrintUnaryTmpBuffParam &par
 }
 
 std::string CodeGenOpCloudNPU::PrintIsFinite([[maybe_unused]] const PrintUnaryTmpBuffParam &param) const {
-    ASSERT(isSupportLayout) << "`IsFinite` only supports `codegen_support_tile_tensor`==true! Please modify `tile_fwk_config.json`!";
+    ASSERT(ERROR_CODE_UNDEFINED, isSupportLayout) << "`IsFinite` only supports `codegen_support_tile_tensor`==true! Please modify `tile_fwk_config.json`!";
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
     std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));

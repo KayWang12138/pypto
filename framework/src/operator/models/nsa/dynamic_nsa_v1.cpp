@@ -134,7 +134,7 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
     const Tensor &mlpWk2, const Tensor &mlpCos, const Tensor &mlpSin, Tensor &cmpAttnOut, Tensor &cmpSoftmax,
     Tensor &fullK, Tensor &cmpK, Tensor &firstRope, Tensor &firstRopeInput, Tensor &topkRes, Tensor &topkInput,
     const int cmpBlockSize, const int cmpStride, CmpAttnTile &tileConfig_v2,bool debug) {
-    ASSERT(gateMode == standard); // 当前仅支持standard模式
+    ASSERT(ERROR_CODE_UNDEFINED, gateMode == standard); // 当前仅支持standard模式
 
     FUNCTION("main",
         {

@@ -81,7 +81,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineStatic(const PrintUnaryParam &para
     if (axis.HasValue()) {
         reduceAxis = AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1))))
+    ASSERT(ERROR_CODE_UNDEFINED, ((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1))))
         << "unsupported reduce axis: " << reduceAxis;
 
     reduceAxis += SHAPE_DIM4 - rawShape[0].size();
@@ -115,7 +115,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineDynamicUnaligned(const PrintUnaryP
     if (axis.HasValue()) {
         reduceAxis = AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1))))
+    ASSERT(ERROR_CODE_UNDEFINED, ((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1))))
         << "unsupported reduce axis" << reduceAxis;
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &srcDtypeStr = param.srcDtypeStr;
@@ -165,7 +165,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineTileTensor() const {
     if (axis.HasValue()) {
         reduceAxis = AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1)))) << "unsupported reduce axis";
+    ASSERT(ERROR_CODE_UNDEFINED, ((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1)))) << "unsupported reduce axis";
     reduceAxis += SHAPE_DIM5 - rawShape[0].size();
     std::ostringstream oss;
     oss << tileOpName;
@@ -348,7 +348,7 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
     if (axis.HasValue()) {
         expandAxis = AnyCast<int64_t>(axis);
     }
-    ASSERT((expandAxis >= 0) && (expandAxis <= (static_cast<int>(rawShape[1].size() - 1))))
+    ASSERT(ERROR_CODE_UNDEFINED, (expandAxis >= 0) && (expandAxis <= (static_cast<int>(rawShape[1].size() - 1))))
         << "unsupported expand axis";
     // modify expandAxis for SHAPE_DIM4
     expandAxis += SHAPE_DIM4 - rawShape[1].size();
@@ -366,7 +366,7 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
         tileOpName.c_str(), dstDtypeStr.c_str(), dos[ID0], dos[ID1], dos[ID2], dos[ID3], os[ID0], os[ID1], os[ID2],
         os[ID3], ds[ID1], ds[ID2], ds[ID3], ss[ID1], ss[ID2], ss[ID3], expandAxis, dstDtypeStr.c_str(), dVar.c_str(),
         srcDtypeStr.c_str(), s0Var.c_str());
-    ASSERT(ret >= 0) << "GenUnaryOp" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed " << ret;
+    ASSERT(ERROR_CODE_UNDEFINED, ret >= 0) << "GenUnaryOp" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed " << ret;
     return buffer;
 }
 

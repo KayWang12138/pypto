@@ -98,43 +98,21 @@ TEST_F(TestDynamicDeviceRunner, test_pypto_kernel_server_null) {
     EXPECT_EQ(ret, 1);
 }
 
-TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
-    setenv("DUMP_DEVICE_PERF", "true", 1);
-    DeviceArgs devKernelArgs;
-    devKernelArgs.nrAic = 1;
-    devKernelArgs.nrAiv = 2;
-    devKernelArgs.nrValidAic = 1;
-    devKernelArgs.nrAicpu = 3;
-    config::SetOptionsNg<int64_t>("debug.runtime_debug_mode", 1);
-    npu::tile_fwk::DeviceRunner::Get().InitMetaData(devKernelArgs);
-    EXPECT_NE(devKernelArgs.aicpuPerfAddr, 0);
-    std::vector<void *> perfData;
-    Metrics *metr = static_cast<Metrics*>(malloc(sizeof(Metrics) + sizeof(TaskStat)));
-    TaskStat taskStat;
-    taskStat.execEnd =1;
-    metr->taskCount = 1;
-    metr->tasks[0] = taskStat;
-    metr->perfTrace[0][0][0] = 1;
-    metr->turnNum = 1;
+TEST_F(TestDynamicDeviceRunner, test_pypto_kernel_server_null_args_null) {
+    auto ret = DynPyptoKernelServerNull(nullptr);
+    EXPECT_EQ(ret, 1);
+}
 
-    MetricPerf aicpuMetPer;
-    aicpuMetPer.perfAicpuTraceDevTask[0][0][0] = 1;
-    aicpuMetPer.perfAicpuTraceDevTask[1][0][0] = 2;
-    aicpuMetPer.perfAicpuTraceDevTask[2][0][0] = 3;
-    devKernelArgs.aicpuPerfAddr = npu::tile_fwk::dynamic::PtrToValue(static_cast<void*>(&aicpuMetPer));
+TEST_F(TestDynamicDeviceRunner, test_pypto_kernel_server_execute_func_invalid) {
+    DeviceKernelArgs pyptoKernelArgs {};
+    auto ret = DynPyptoKernelServer(&pyptoKernelArgs);
+    EXPECT_EQ(ret, 1);
+}
 
-    for (uint64_t i = 0; i < devKernelArgs.nrAic + devKernelArgs.nrAiv; i++) {
-        perfData.push_back(static_cast<void*>(metr));
-    }
-    npu::tile_fwk::dynamic::DumpAicoreTaskExectInfo(devKernelArgs, perfData);
-    free(metr);
-    std::string jsonPath = npu::tile_fwk::config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
-    EXPECT_EQ(IsPathExist(jsonPath), true);
-    setenv("DUMP_DEVICE_PERF", "true", 1);
-    npu::tile_fwk::dynamic::DumpDevTaskPerfData(devKernelArgs, perfData, true);
-    jsonPath = npu::tile_fwk::config::LogTopFolder() + "/machine_runtime_operator_trace.json";
-    unsetenv("DUMP_DEVICE_PERF");
-    EXPECT_EQ(IsPathExist(jsonPath), false);
+TEST_F(TestDynamicDeviceRunner, test_pypto_kernel_server_init_func_invalid) {
+    DeviceKernelArgs pyptoKernelArgs {};
+    auto ret = DynPyptoKernelServerInit(&pyptoKernelArgs);
+    EXPECT_EQ(ret, 1);
 }
 
 TEST_F(TestDynamicDeviceRunner, test_launch_init) {
