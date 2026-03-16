@@ -21,13 +21,9 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
-#include "machine/host/device_agent_task.h"
 #include "machine/device/dynamic/costmodel_utils.h"
-#include "machine/runtime/machine_agent.h"
 #include "machine/runtime/device_launcher.h"
 #include "cost_model/simulation/backend.h"
-#include "machine/runtime/host_prof.h"
-#include "machine/runtime/distributed/distributed_context.h"
 
 using namespace npu::tile_fwk::dynamic;
 
@@ -128,7 +124,6 @@ public:
         auto runner = DevFuncRunner(function, config);
         DeviceRunner::Get().GetHostProfInstance().SetProfFunction(function);
         runner.RunDynamic(inputs, outputs);
-        RunStatic();
     }
 
     // Run with incast/outcast from ProgramData
@@ -138,7 +133,6 @@ public:
         auto runner = DevFuncRunner(function, config);
         DeviceRunner::Get().GetHostProfInstance().SetProfFunction(function);
         runner.RunDynamic(inputs, outputs);
-        RunStatic();
     }
 
 private:
@@ -174,14 +168,6 @@ private:
         if (config_.onBoard) {
             RunOnBoard(inputs, outputs);
         }
-    }
-    static void RunStatic() {
-        if (gDeviceAgentTaskPtr == nullptr) {
-            return;
-        }
-        MachineAgent::AgentProc(gDeviceAgentTaskPtr.get());
-        CheckDeviceId();
-        MachinePipe::PipeProc(gDeviceAgentTaskPtr.get());
     }
 
     void RunModel(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {

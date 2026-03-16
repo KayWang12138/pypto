@@ -193,8 +193,8 @@ void ConfigManager::PassConfigsDebugInfo(
     const std::string &strategy, const std::vector<std::string> &identifiers) const {
     auto *node = GetJsonNode(json_, {"global", "pass_strategies", strategy});
     if (!node) {
-        FUNCTION_LOGI("[ConfigManager] Missing custom pass strategy < %s > configs. ",
-                    "You may add your own custom strategy configs in 'tile_fwk_config.json'.", strategy.c_str());
+        FUNCTION_LOGI("[ConfigManager] Missing custom pass strategy < %s > configs. %s", strategy.c_str(),
+                    "You may add your own custom strategy configs in 'tile_fwk_config.json'.");
         return;
     }
 

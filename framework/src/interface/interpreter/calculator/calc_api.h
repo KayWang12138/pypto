@@ -75,6 +75,7 @@ struct CalcOps {
     void (*Reciprocal)(const TensorData &, const TensorData &);
     void (*Relu)(const TensorData &, const TensorData &);
     void (*Log1p)(const TensorData &, const TensorData &);
+    void (*Pad)(const TensorData &, const TensorData &, const Element&);
     void (*BitwiseNot)(const TensorData &, const TensorData &);
     void (*Abs)(const TensorData &, const TensorData &);
     void (*Brcb)(const TensorData &, const TensorData &);
@@ -171,7 +172,7 @@ struct CalcOps {
     void (*BitSort)(const TensorData &, const TensorData &, int64_t, bool, int64_t);
     void (*TiledMrgSort)(const TensorData &, const TensorData &, const TensorData &, const TensorData &, const TensorData &, int, int);
     void (*Extract)(const TensorData &, const TensorData &, int, bool);
-    void (*Topk)(const TensorData &, const TensorData &, int64_t, int64_t, bool);
+    void (*MrgSort)(const TensorData &, const TensorData &, int64_t, int64_t);
     void (*TopK)(const TensorData &, const TensorData &, const TensorData &, int, int, bool);
     void (*TopkSort)(const TensorData &, const TensorData &, const TensorData &, int);
     void (*TopkMerge)(const TensorData &, const TensorData &, int);

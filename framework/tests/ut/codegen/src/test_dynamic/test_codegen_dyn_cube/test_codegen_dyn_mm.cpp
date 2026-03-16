@@ -92,7 +92,7 @@ TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
 
     std::string res = cop.GenOpCode();
     std::string expect =
-        R"!!!(TMatmul(l0cTensor_10, l0aTensor_11, l0bTensor_12, btTensor_13);
+        R"!!!(TMatmul<TransMode::CAST_NONE>(l0cTensor_10, l0aTensor_11, l0bTensor_12, btTensor_13);
 )!!!";
     EXPECT_EQ(res, expect);
 }
