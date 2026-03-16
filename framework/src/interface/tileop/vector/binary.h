@@ -128,10 +128,7 @@ TILEOP void BinaryBrcDispatch(T0 dst, T1 src0, T2 src1) {
     } else if constexpr (mode == BrcMode::TAIL_LEFT || mode == BrcMode::TAIL_RIGHT) {
         BinaryRowExpandComputeImpl<op, LastUse>(dst, src0, src1);
         return;
-    } else if constexpr (mode == BrcMode::PENU_LEFT) {
-        BinaryColExpandComputeImpl<op, LastUse>(dst, src1, src0);
-        return;
-    } else if constexpr (mode == BrcMode::PENU_RIGHT) {
+    } else if constexpr (mode == BrcMode::PENU_LEFT || mode == BrcMode::PENU_RIGHT) {
         BinaryColExpandComputeImpl<op, LastUse>(dst, src0, src1);
         return;
     } else if constexpr (mode == BrcMode::MIX_LEFT_TAIL) {

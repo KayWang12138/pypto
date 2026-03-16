@@ -111,8 +111,8 @@ TILEOP void BinaryLeftScalarComputeImpl(T0 dst, T1 src1, Scalar src0) {
     }
 
     if constexpr (op == BinaryOp::DIV) {
-        PTO_WITH_LAST_USE(pto::TDIVS(dst, src1, src0), n1, n2, n3);   
-        // 存在问题，scalar/tensor不支持，如果要用TRECIP 不允许 dst 和 src 指向同一块内存，这里地址一定会复用的
+        PTO_WITH_LAST_USE(pto::TDIVS(dst, src0, src1), n1, n2, n3);   
+        // 存在问题，scalar/tensor支持，但是pto实现会调用vector_dup 让scalar填充到dst，这里src和dst是一定会复用的，src会被覆盖
         return;
     }
 
