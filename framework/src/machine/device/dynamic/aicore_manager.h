@@ -592,9 +592,8 @@ private:
         auto &pendingResolveIndexBaseRef = pendingResolveIndexList_[coreIdx];
         auto &runningIdRef = runningIds_[coreIdx];
         auto &runningResolveIndexBaseRef = runningResolveIndexList_[coreIdx];
-        bool isWrapCoreAvailable = wrapManager_.GetWrapCoreAvailable(coreIdx);
         
-        if (likely(finTaskId == pendingIdRef && finTaskState == TASK_FIN_STATE)) {
+        if (finTaskId == pendingIdRef && finTaskState == TASK_FIN_STATE) {
             // pending task is finished, resolve both running and pending task.
             uint32_t runningIdValue = runningIdRef;
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
@@ -604,13 +603,11 @@ private:
             runningResolveIndexBaseRef = 0;
             pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
             pendingResolveIndexBaseRef = 0;
-            if (isWrapCoreAvailable) { // wrapcore doesnt support pending & running yet
-                context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
-                context_->corePendReadyCnt_[static_cast<int>(type)]++;
-            }
-            if (runningIdValue != AICORE_TASK_INIT) {
-                ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
-            }
+
+            context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
+            context_->corePendReadyCnt_[static_cast<int>(type)]++;
+
+            if (runningIdValue != AICORE_TASK_INIT) ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
             ResolveDepWithDfx(type, coreIdx, pendingIdValue, pendingResolveIndexBaseValue);
         }
         
@@ -623,12 +620,10 @@ private:
             runningResolveIndexBaseRef = pendingResolveIndexBaseRef;
             pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
             pendingResolveIndexBaseRef = 0;
-            if (isWrapCoreAvailable) {
-                context_->corePendReadyCnt_[static_cast<int>(type)]++;
-            }
-            if (runningIdValueAck != AICORE_TASK_INIT) {
-                ResolveDepWithDfx(type, coreIdx, runningIdValueAck, runningResolveIndexBaseValueAck);
-            }
+             
+            context_->corePendReadyCnt_[static_cast<int>(type)]++;
+
+            if (runningIdValueAck != AICORE_TASK_INIT) ResolveDepWithDfx(type, coreIdx, runningIdValueAck, runningResolveIndexBaseValueAck);
         }
         
         if (finTaskId == runningIdRef && finTaskState == TASK_FIN_STATE) {
@@ -637,9 +632,8 @@ private:
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
             runningIdRef = AICORE_TASK_INIT;
             runningResolveIndexBaseRef = 0;
-            if (isWrapCoreAvailable && pendingIdRef == AICORE_TASK_INIT) {
-                context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
-            }
+
+            if (pendingIdRef == AICORE_TASK_INIT) context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
             ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
         }
     }
@@ -892,16 +886,6 @@ private:
         f(AIV_NUM_PER_AI_CORE * aicValidNum_, schedIdx_, aicpuNum_, aivStart_, aivEnd_);
         aivStart_ += aicValidNum_;
         aivEnd_ += aicValidNum_;
-
-        DEV_IF_NONDEVICE {
-            context_->corePendReadyCnt_[static_cast<int>(CoreType::AIC)] = aicEnd_ - aicStart_;
-            context_->corePendReadyCnt_[static_cast<int>(CoreType::AIV)] = aivEnd_ - aivStart_;
-            ForEachManageAicoreReverse(
-                [this](int coreIdx) {
-                int coreType = static_cast<int>(AicoreType(coreIdx));
-                context_->runReadyCoreIdx_[coreType][context_->coreRunReadyCnt_[coreType]++] = coreIdx;
-                });
-        }
 
         context_->lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIV)] = static_cast<uint32_t>(aivStart_);
         context_->lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIC)] = static_cast<uint32_t>(aicStart_);
