@@ -26,7 +26,6 @@ target_include_directories(Dist_GTest_Inc
             ${GTest_Gtest_Inc}
 )
 
-tracr_enable(${_Target})
 add_library(${_Target} SHARED)
 target_sources(${_Target}
         PRIVATE

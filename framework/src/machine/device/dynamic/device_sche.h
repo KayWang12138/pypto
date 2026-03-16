@@ -18,7 +18,9 @@
 #include <signal.h>
 #include <sys/ucontext.h>
 
-#include <tracr/tracr.hpp>
+#ifdef ENABLE_TRACR
+    #include <tracr/tracr.hpp>
+#endif
 
 #include "device_common.h"
 #include "aicore_manager.h"
