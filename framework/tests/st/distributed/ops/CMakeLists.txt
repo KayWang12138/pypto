@@ -10,6 +10,8 @@
 
 set(_Target ${PTO_Fwk_STestNamePrefix}_distributed_ops)
 
+tracr_enable(${_Target})
+
 file(GLOB_RECURSE _Sources src/*.cpp)
 file(GLOB_RECURSE _Device_Srcs ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/*.cpp)
 list(APPEND _Sources ${_Device_Srcs})
