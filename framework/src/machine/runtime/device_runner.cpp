@@ -175,6 +175,7 @@ void DeviceRunner::InitMetaData(DeviceArgs &devArgs) {
     devArgs.corePmuAddr = args_.corePmuAddr;
     devArgs.taskWastTime = args_.taskWastTime;
     devArgs.pmuEventAddr = args_.pmuEventAddr;
+    devArgs.leadSchedulerId = AICPU_LEAD_SCHEDULER_NULL;
     if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
         args_.aicpuPerfAddr = npu::tile_fwk::dynamic::PtrToValue(DevAlloc(sizeof(MetricPerf)));
         if (args_.aicpuPerfAddr == 0) {

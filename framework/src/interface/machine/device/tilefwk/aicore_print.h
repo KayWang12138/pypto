@@ -21,8 +21,8 @@
 
 #include "aikernel_data.h"
 
-#ifndef CACHE_LINE_SIZE
-#define CACHE_LINE_SIZE 64
+#ifndef AICORE_CACHE_LINE_SIZE
+#define AICORE_CACHE_LINE_SIZE 64
 #endif
 
 #ifdef __TILE_FWK_HOST__
@@ -166,11 +166,11 @@ struct AicoreLogger {
 
     __aicore__ void Sync() {
 #ifndef __TILE_FWK_HOST__
-        int64_t delta = (int64_t)(&data_[remote_->head_ % size_]) & (CACHE_LINE_SIZE -1);
+        int64_t delta = (int64_t)(&data_[remote_->head_ % size_]) & (AICORE_CACHE_LINE_SIZE -1);
         int64_t off = remote_->head_ - delta;
         while (off < head_) {
             dcci(&data_[off % size_], SINGLE_CACHE_LINE, CACHELINE_OUT);
-            off += CACHE_LINE_SIZE;
+            off += AICORE_CACHE_LINE_SIZE;
         }
         remote_->head_ = head_;
         remote_->tail_ = tail_;

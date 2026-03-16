@@ -54,6 +54,8 @@ constexpr const int DEV_SHAPE_DIM_NUM_3 = 3;
 constexpr const int DEV_SHAPE_DIM_NUM_4 = 4;
 constexpr const int DEV_SHAPE_DIM_NUM_5 = 5;
 
+constexpr uint32_t AICPU_LEAD_SCHEDULER_NULL = 0xFFFFFFFFU;
+
 enum class ArchInfo {
     DAV_1001 = 1001,
     DAV_2201 = 2201,
@@ -173,6 +175,8 @@ struct DeviceArgs {
     uint64_t aicpuPerfAddr{0};    // aicpuPer Gm addr
     uint64_t devDfxArgAddr{0};   // devDfx
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
+    uint32_t leadSchedulerId{AICPU_LEAD_SCHEDULER_NULL}; // Indicates the  lead aicpu scheduler id
+    volatile bool isDeviceInitialized; // A flag to indicate the device has been properly initialized by the lead AICPU scheduler
     int maxAicpuNum{0};
     ArchInfo archInfo{ArchInfo::DAV_2201};
     ToSubMachineConfig toSubMachineConfig;

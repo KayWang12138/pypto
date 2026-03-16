@@ -32,6 +32,7 @@ struct ReadyCoreFunctionQueue {
   size_t lock;
 
   uint64_t Size() { return tail - head;}
+  uint32_t* GetBuffer() { return &elem[head]; }
 };
 
 struct StaticReadyCoreFunctionQueue {
