@@ -53,8 +53,8 @@ private:
         int &latency);
     void OoOHealthCheck(OoOScheduler &oooSchedule, Function &function, std::pair<uint64_t, Function*> &program);
     Status RecordLastUseMemory(Function &function);
-    Status NonMixSchedule(std::vector<Operation*> &opList, Function &function, std::pair<uint64_t, Function*> &program, int &maxWorkeSpaceSize);
-    Status MixSchedule(std::vector<Operation*> &opList, Function &function, std::pair<uint64_t, Function*> &program, int &maxWorkeSpaceSize);
+    Status NonMixSchedule(std::vector<Operation*> &opList, Function &function, std::pair<uint64_t, Function*> &program, int64_t &maxWorkeSpaceSize);
+    Status MixSchedule(std::vector<Operation*> &opList, Function &function, std::pair<uint64_t, Function*> &program, int64_t &maxWorkeSpaceSize);
     Status AdvanceAlloc(std::vector<Operation*> &opList, Operation* op, size_t &index);
     Status ModifyBoundaryOrder(std::vector<Operation*> &opList);
     bool IsBoundary(Operation* op);

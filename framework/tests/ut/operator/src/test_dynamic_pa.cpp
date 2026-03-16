@@ -209,8 +209,8 @@ TEST_F_WITH_COST(DynamicPATest, dynamic_pa_low_lantency_manual_unroll, 96) {
     Tensor paOut(DT_FP32, {b * nq * sq, dn}, "paOut");
 
     int maxUnrollTimes = 16;
-    PageAttentionWithManualUnroll(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
-        tileConfig, maxUnrollTimes);
+    PageAttentionWithManualUnroll(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize,
+        softmaxScale, paOut, tileConfig, maxUnrollTimes);
 
     auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_main_2");
     EXPECT_NE(mainFunc, nullptr);
@@ -247,7 +247,7 @@ TEST_F_WITH_COST(DynamicPATest, dynamic_pa_low_lantency_manual_unroll, 96) {
         EXPECT_NE(loopAttr, nullptr);
         EXPECT_EQ(loopAttr->unrollTimes, maxUnrollTimes);
         maxUnrollTimes /= 2;
-        ALOG_ERROR("unrollTimes: ", loopAttr->unrollTimes, " range: ",loopAttr->loopRange.Dump());
+        ALOG_ERROR("unrollTimes: ", loopAttr->unrollTimes, " range: ", loopAttr->loopRange.Dump());
         EXPECT_EQ(loopAttr->pathList.size(), 4);
     }
 #else
@@ -259,7 +259,7 @@ TEST_F_WITH_COST(DynamicPATest, dynamic_pa_low_lantency_manual_unroll, 96) {
         EXPECT_NE(loopAttr, nullptr);
         EXPECT_EQ(loopAttr->unrollTimes, maxUnrollTimes);
         maxUnrollTimes /= 2;
-        ALOG_ERROR("unrollTimes: ", loopAttr->unrollTimes, " range: ",loopAttr->loopRange.Dump());
+        ALOG_ERROR("unrollTimes: ", loopAttr->unrollTimes, " range: ", loopAttr->loopRange.Dump());
         EXPECT_EQ(loopAttr->pathList.size(), 4);
     }
 #endif

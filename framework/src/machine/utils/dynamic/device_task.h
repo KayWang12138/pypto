@@ -88,7 +88,7 @@ struct DynDeviceTask : DynDeviceTaskBase {
         for (size_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
             auto lines = stitchedList[funcIdx].DumpLeafs(GetDynFuncDataList()->seqNo, funcIdx);
             for (auto &&line : lines) {
-                DEV_ERROR("[DumpLeafs] %s", line.c_str());
+                DEV_DEBUG("[DumpLeafs] %s", line.c_str());
             }
         }
     }

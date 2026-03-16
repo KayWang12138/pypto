@@ -18,6 +18,7 @@
 
 #include "interface/tensor/logical_tensor.h"
 #include "interface/operation/operation.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 const constexpr int DummyFuncMagic = 1;
@@ -62,6 +63,11 @@ std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info
 std::string GetResultFromCpp(const Function &function);
 
 void CheckStringExist(const std::string &expect, const std::string &result);
+
+Function *GenMockFuncDyn(const std::string &funcName, const std::vector<int64_t> &shape = {64, 64});
+
+std::shared_ptr<LogicalTensor> CreateConvTensor(Function &function, const DataType &dtype,
+    const std::vector<int64_t> &shape, const MemoryType &memType, const bool &isCopyIn = true);
 
 } // namespace npu::tile_fwk
 

@@ -167,7 +167,7 @@ namespace CostModel
 
         auto it = tileopLatencyCacheMp.find(buf);
         if (it != tileopLatencyCacheMp.end()) {
-            SIMULATION_LOGI("sim: %s latency: %llu\n", it->first.c_str(), it->second);
+            SIMULATION_LOGI("sim: %s latency: %lu\n", it->first.c_str(), it->second);
             return it->second;
         }
 
@@ -208,7 +208,7 @@ namespace CostModel
 
         tileopLatencyCacheMp[buf] = sm.Run(np) + gmLatency;
         it = tileopLatencyCacheMp.find(buf);
-        SIMULATION_LOGI("sim: %s latency: %llu", it->first.c_str(), it->second);
+        SIMULATION_LOGI("sim: %s latency: %lu", it->first.c_str(), it->second);
         return it->second;
     }
 

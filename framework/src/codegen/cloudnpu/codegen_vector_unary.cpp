@@ -60,9 +60,6 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam &
 }
 
 std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
-    // std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
-    // std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
-    // std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));    
     auto mode = opAttrs.at(OP_ATTR_PREFIX + "mode");
@@ -90,7 +87,6 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
                             "pto::SaturationMode::OFF";
     templateParamList.emplace_back(satModeStr);
     oss << WrapParamByAngleBrackets(templateParamList);
-    // oss << WrapParamByParentheses({dstTensor, srcTensor, tmpTensor});
     oss << WrapParamByParentheses({dstTensor, srcTensor});
     oss << ";\n";
     return oss.str();
