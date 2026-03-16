@@ -1969,7 +1969,7 @@ private:
         volatile TaskStat* stat = aicoreHal_.GetTaskStat(coreIdx, 0);
 
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
-        aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
+        // aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
 #endif
 
 #if ENABLE_TENSOR_DUMP
