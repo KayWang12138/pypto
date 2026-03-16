@@ -21,10 +21,9 @@ namespace npu::tile_fwk {
 
 enum class ConvOperationError : uint32_t {
     // FC61xx: Operation非法拦截类报错 
-    FMAP_PARMS_INVALID     = 6101U,
-    Weight_PARMS_INVALID     = 6102U,
-    BIAS_PARMS_INVALID     = 6103U,
-    OUTPUT_PARMS_INVALID    = 6104U,
+    ATTR_SPEC_INVALID     = 6101U,
+    L1_TILING_INVALID     = 6102U,
+    L0_TILING_INVALID     = 6103U,
     UNKNOWN                   = 6199U
 };
 

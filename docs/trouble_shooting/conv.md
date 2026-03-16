@@ -16,10 +16,9 @@
 
 | 场景枚举 | 错误码 | 报错阶段 | 场景说明 |
 |---------|------|----------------------------------|----------|
-| `FMAP_PARMS_INVALID` | **F6101** | `conv.operation.checkfmap` | Operation校验输入Fmap参数不合法（维度，shape，数据类型等）。 |
-| `Weight_PARMS_INVALID` | **F6102** | `conv.operation.checkweight` | Operation校验输入Weight参数不合法（维度，shape，数据类型等）。 |
-| `BIAS_PARMS_INVALID` | **F6103** | `conv.operation.checkbias` | Operation校验输入Bias参数不合法（维度，shape，数据类型等）。 |
-| `OUTPUT_PARMS_INVALID` | **F6104** | `conv.operation.checkoutput` | Operation校验输入Output参数不合法（维度，shape，数据类型等）。 |
+| `ATTR_SPEC_INVALID` | **F6101** | `conv.operation.checkfmap` | Operation校验输入规格参数不合法（input,weight,output的维度，shape，数据类型等）。 |
+| `L1_TILING_INVALID` | **F6102** | `conv.operation.checkweight` | Operation校验输入Tiling参数不合法（L1层级Tiling不合法）。 |
+| `L0_TILING_INVALID` | **F6103** | `conv.operation.checkbias` | Operation校验输入Tiling参数不合法（L0层级Tiling不合法）。 |
 | `UNKNOWN` | **F6199** | `conv.operation.reserved` | Operation阶段未知报错预留错误码。 |
 
 ### 2. Tile切分（Tile图切分，`ConvError::ExpandFunction`，F62xxx）
