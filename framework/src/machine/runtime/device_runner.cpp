@@ -562,8 +562,8 @@ int DeviceRunner::DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlS
         MACHINE_LOGE("launch aicpu failed %d\n", rc);
         return rc;
     }
+    
     ReportHostProfInfo(startTime, blockdim, MSPROF_GE_TASK_TYPE_AI_CPU, true);
-
     rc = RunPreSync(ctrlStream, aicoreStream);
     if (rc < 0) {
         MACHINE_LOGE("prepare failed %d\n", rc);
