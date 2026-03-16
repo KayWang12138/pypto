@@ -539,14 +539,14 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr) {
           attr->disableL2List.emplace_back(0);
           continue;
         }
-        if (tensor.GetStorage()->GetCachePolicy(CachePolicy::PREFETCH)) {
+        if (true) {
           attr->l2InfoList.emplace_back(L2Info(tensor.GetStorage()->MemorySize(), idx));
         }
-        if (tensor.GetStorage()->GetCachePolicy(CachePolicy::NONE_CACHEABLE)) {
-          attr->disableL2List.emplace_back(1);
-        } else {
-          attr->disableL2List.emplace_back(0);
-        }
+        // if (tensor.GetStorage()->GetCachePolicy(CachePolicy::NONE_CACHEABLE)) {
+        //   attr->disableL2List.emplace_back(1);
+        // } else {
+        //   attr->disableL2List.emplace_back(0);
+        // }
         idx++;
     }
     for (auto &param : attr->startArgsOutputTensorList) {

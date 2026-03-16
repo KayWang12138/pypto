@@ -54,6 +54,7 @@ constexpr const int DEV_SHAPE_DIM_NUM_3 = 3;
 constexpr const int DEV_SHAPE_DIM_NUM_4 = 4;
 constexpr const int DEV_SHAPE_DIM_NUM_5 = 5;
 
+inline constexpr uint32_t MAX_PREFETCH_NUM = 4;
 constexpr const uint32_t MAX_TURN_NUM = 200;
 
 enum class ArchInfo {
@@ -144,6 +145,12 @@ struct DeviceRuntimeOffset {
     uint64_t stitchPoolOffset{0};
     uint64_t size{0};
     uint64_t count{0};
+};
+
+struct PrefetchInfo {
+    uint64_t prefetchNum{0};
+    uint64_t prefetchSize[MAX_PREFETCH_NUM];
+    uint64_t prefetchIdx[MAX_PREFETCH_NUM];
 };
 
 struct DeviceArgs {

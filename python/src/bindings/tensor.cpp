@@ -105,10 +105,12 @@ void BindTensor(py::module &m) {
             py::arg("other"), py::return_value_policy::reference_internal)
         .def("SetCachePolicy",
             [](Tensor &t, CachePolicy policy, bool value) {
+                t.SetCachePolicy(CachePolicy::PREFETCH, value);
                 if (t.IsEmpty()) {
                     throw py::value_error("Empty tensor.");
                 }
                 t.SetCachePolicy(policy, value);
+                t.SetCachePolicy(CachePolicy::PREFETCH, value);
             },
             py::arg("policy"), py::arg("value"))
         .def("GetCachePolicy",

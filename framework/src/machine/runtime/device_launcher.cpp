@@ -85,6 +85,7 @@ DeviceLauncherContext &DeviceLauncherContext::Get() {
 
 std::vector<uint8_t> DeviceLauncher::tensorInfo_(kDefaultTensorinfoSize);
 bool DeviceLauncher::captureMode_ = false;
+L2TensorInfo l2prefetch_ = {};
 
 #ifdef BUILD_WITH_CANN
 static const std::unordered_map<int, std::function<void(bool&)>> captureStatusHandlers = {
@@ -222,7 +223,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     HOST_PERF_TRACE(TracePhase::RunDevInitTiling);
 
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
-    DeviceInitKernelInOuts(devMemoryUtilis, kArgs, inputList, outputList, dynAttr->disableL2List);
+    DeviceInitKernelInOuts(devMemoryUtilis, kArgs, inputList, outputList, dynAttr->disableL2List, function);
 
     HOST_PERF_TRACE(TracePhase::RunDevInitInOutTensor);
 
@@ -764,6 +765,22 @@ int DeviceLauncher::LaunchAicoreKernel(
     (void)rtArgs;
     (void)rtTaskCfg;
     (void)debugEnable;
+    return 0;
+#endif
+}
+
+int DeviceLauncher::LaunchCmoKernel(aclrtStream cmoStream) {
+#ifdef BUILD_WITH_CANN
+    int ret = 0;
+    printf("****************LaunchCmoKernel************* prefetchNum[%lu].\n", l2prefetch_.prefetchNum)
+    for (uint64_t i = 0; i < l2prefetch_.prefetchNum; ++i) {
+        ret = aclrtCmoAsync((void*)l2prefetch_.prefetchAddr[i], l2prefetch_.prefetchSize[i], ACL_RT_CMO_TYPE_PREFETCH,
+                            cmoStream);
+        printf("Prefetch addr[%lx] with size[%lu] ret[%d].\n", l2prefetch_.prefetchAddr[i], l2prefetch_.prefetchSize[i], ret);
+    }
+    return ret;
+#else
+    (void)cmoStream;
     return 0;
 #endif
 }
