@@ -28,7 +28,7 @@
 #include "lazy.h"
 
 #ifndef ERROR_CODE_UNDEFINED
-#define ERROR_CODE_UNDEFINED 00000U
+#define ERROR_CODE_UNDEFINED FFFFFU
 #endif
 
 namespace npu::tile_fwk {
