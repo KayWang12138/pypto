@@ -1636,6 +1636,132 @@ std::string CodeGenOpCloudNPU::GenGatherOp() const {
     return "";
 }
 
+
+std::string CodeGenOpCloudNPU::PrintScatterLayout() const {
+    // Scatter: dst = scatter(self, indices, src)
+    // Operand mapping:
+    //   ID0: dst (GM)
+    //   ID1: tmp (UB)
+    //   ID2: self (UB) - not loaded, skip
+    //   ID3: indices (UB)
+    //   ID4: src (UB)
+
+    auto dstRawShapes = rawShape[ID0];
+    auto tmpRawShapes = rawShape[ID1];
+    auto indicesRawShapes = rawShape[ID3];
+    auto srcRawShapes = rawShape[ID4];
+
+    auto dstValidShapes = dynamicValidShape[ID0];
+    auto tmpValidShapes = dynamicValidShape[ID1];
+    auto indicesValidShapes = dynamicValidShape[ID3];
+    auto srcValidShapes = dynamicValidShape[ID4];
+
+    size_t indicesRawShapeDim = indicesRawShapes.size();
+    size_t dstDim = dstValidShapes.size();
+    
+    const int64_t axis = AnyCast<int64_t>(opAttrs.at("op_attr_axis")) +  SHAPE_DIM5 - indicesRawShapeDim;
+    const int64_t scatterMode = AnyCast<int64_t>(opAttrs.at("op_attr_scatter_mode"));
+    // Generate coordinate for dst (GM tensor)
+    auto dstOffsetSymbol = GenGetParamMacroPacked(ID0, dstDim, PREFIX_STR_OFFSET);
+    std::string coordCpDstOffset = WrapParamByParentheses(dstOffsetSymbol);
+    std::string coord4Dst = PrintCoord(dstDim, coordCpDstOffset);
+
+    // Get tensor names (skip ID2/self)
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));     // ID0, GM
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));     // ID1, UB
+    std::string indicesTensor = QueryTileTensorNameByIdx(ID3); // ID3, UB
+    std::string srcTensor = QueryTileTensorNameByIdx(ID4);     // ID4, UB
+    std::vector<std::string> paramList;
+    paramList.emplace_back(std::to_string((axis)));
+    paramList.emplace_back(std::to_string((scatterMode)));
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+
+    std::vector<std::string> tileOpParamList = {dstTensor, tmpTensor, indicesTensor, srcTensor, coord4Dst};
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParam << ">" << WrapParamByParentheses(tileOpParamList) << STMT_END;
+    return oss.str();
+
+}
+
+// std::string CodeGenOpCloudNPU::PrintScatterDynamicUnaligned() const {
+//     // Scatter: dst = scatter(self, indices, src)
+//     // Operand mapping:
+//     //   ID0: dst (GM)
+//     //   ID1: tmp (UB)
+//     //   ID2: self (UB) - not loaded, skip
+//     //   ID3: indices (UB)
+//     //   ID4: src (UB)
+
+//     std::vector dstShape = this->rawShape[ID0];
+//     std::vector indicesShape = this->rawShape[ID3];
+//     std::vector srcShape = this->rawShape[ID4];
+
+//     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+//     std::string indicesDtypeStr = DataType2CCEStr(operandDtype[ID3]);
+//     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID4]);
+
+//     const int64_t axis = AnyCast<int64_t>(opAttrs.at("op_attr_axis"));
+//     const int64_t scatterMode = AnyCast<int64_t>(opAttrs.at("op_attr_scatter_mode"));
+
+//     auto dstRawShapes = rawShape[ID0];
+//     auto indicesRawShapes = rawShape[ID3];
+//     auto srcRawShapes = rawShape[ID4];
+
+//     auto dstValidShapes = dynamicValidShape[ID0];
+//     auto indicesValidShapes = dynamicValidShape[ID3];
+//     auto srcValidShapes = dynamicValidShape[ID4];
+
+//     const int dstDim = dstRawShapes.size();
+//     const int indicesDim = indicesRawShapes.size();
+
+//     std::ostringstream os;
+//     std::vector<std::string> paramList;
+
+//     // Template parameters: <axis, scatterMode, dstType, indicesType, srcType, tmpType>
+//     int normalizedAxis = NormalizeAxis(axis, dstDim);
+//     paramList.emplace_back(std::to_string(normalizedAxis));
+//     paramList.emplace_back(std::to_string(scatterMode));
+//     paramList.emplace_back(dstDtypeStr);
+//     paramList.emplace_back(indicesDtypeStr);
+//     paramList.emplace_back(srcDtypeStr);
+//     paramList.emplace_back(dstDtypeStr); // tmp type is same as dst type
+
+//     std::string templateParam = JoinString(paramList, ", ");
+//     paramList.clear();
+
+//     // Function arguments (skip ID2/self)
+//     std::string dstVar = GenGmParamVar(ID0);
+//     std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+//     std::string indicesVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
+//     std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID4]);
+
+//     paramList.emplace_back("(__gm__ " + dstDtypeStr + "*)" + dstVar);
+//     paramList.emplace_back("(__ubuf__ " + indicesDtypeStr + "*)" + indicesVar);
+//     paramList.emplace_back("(__ubuf__ " + srcDtypeStr + "*)" + srcVar);
+//     paramList.emplace_back("(__ubuf__ " + dstDtypeStr + "*)" + tmpVar);
+
+//     // Add dynamic shapes
+//     std::transform(indicesValidShapes.begin(), indicesValidShapes.end(), back_inserter(paramList),
+//         [](SymbolicScalar x) { return SymbolicExpressionTable::BuildExpression(x); });
+
+//     std::string tiloOpCallParam = JoinString(paramList, ", ");
+//     os << tileOpName.c_str() << "<" << templateParam << ">"
+//        << "(" << tiloOpCallParam << ");\n";
+
+//     return os.str();
+// }
+
+std::string CodeGenOpCloudNPU::GenScatterOp() const {
+    if (isSupportLayout) {
+        return PrintScatterLayout();
+    }
+    // if (isDynamicFunction) {
+    //     return PrintScatterDynamicUnaligned();
+    // }
+    ASSERT(GenCodeErr::PRINT_MODE_ERROR, false) << "Scatter operator does not support static graph";
+    return "";
+}
+
 std::string CodeGenOpCloudNPU::PrintGatherInUBLayout() const {
     constexpr int paramIndex = 1;
     constexpr int indicesIndex = 2;
