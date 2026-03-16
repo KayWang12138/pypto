@@ -16,7 +16,6 @@
 #include "machine/runtime/pmu_common.h"
 #include <string>
 #include "interface/utils/common.h"
-#include "interface/utils/log.h"
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk {
