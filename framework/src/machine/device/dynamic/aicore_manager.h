@@ -134,18 +134,10 @@ public:
         context_->sendCnt_[static_cast<int>(CoreType::AIV)] = 0;
     }
 
-    inline int32_t RunCoreTask(DeviceTaskCtrl *taskCtrl, uint64_t& sent) {
-        int32_t ret = DEVICE_MACHINE_OK;
-        (void)taskCtrl;
+    inline void RunCoreTask(uint64_t& sent) {
         wrapManager_.DispatchMixCoreTask();
-        ret = DispatchAiCoreTask(CoreType::AIC, readyAicCoreFunctionQue_, aicStart_, aicEnd_);
-        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-            return ret;
-        }
-        ret = DispatchAiCoreTask(CoreType::AIV, readyAivCoreFunctionQue_, aivStart_, aivEnd_);
-        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-            return ret;
-        }
+        DispatchAiCoreTask(CoreType::AIC, readyAicCoreFunctionQue_, aicStart_, aicEnd_);
+        DispatchAiCoreTask(CoreType::AIV, readyAivCoreFunctionQue_, aivStart_, aivEnd_);
 
         uint64_t sentAic = 0;
         uint64_t sentAiv = 0;
@@ -153,69 +145,42 @@ public:
 
         sent = 0UL;
         sent += (sentAic + sentAiv);
-        return ret;
     }
 
-    inline int RunTask(DeviceTaskCtrl *taskCtrl) {
+    inline void RunTask(DeviceTaskCtrl *taskCtrl) {
         const auto t0 = std::chrono::high_resolution_clock::now();
 
-        auto ret = ExecuteTask(taskCtrl);
+        ExecuteTask(taskCtrl);
         wrapManager_.Deinit();
-        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-            DEV_ERROR("Aicpu %d proc finish %lu %lu %lu, but timeout !.", aicpuIdx_,
-                taskCtrl->finishedFunctionCnt.load(), curDevTask_->coreFunctionCnt, taskCtrl->taskId);
-        }
 
         const auto tf = std::chrono::high_resolution_clock::now();
         const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(tf - t0).count();
         DEV_ERROR("[AICPU %d] Running Time: %ldns", aicpuIdx_, ns);
-
-        return ret;
     }
 
-    inline int32_t ExecuteTask(DeviceTaskCtrl *taskCtrl) {
-        int32_t ret = ProcessTask(taskCtrl);
-        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-            return ret;
-        }
-        ret = ProcessTaskLoop(taskCtrl);
-        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-            return ret;
-        }
-        int32_t rc = SyncTaskFinish();
-        if (rc != DEVICE_MACHINE_OK) {
-            ret = rc;
-        }
-        return ret;
+    inline void ExecuteTask(DeviceTaskCtrl *taskCtrl) {
+        ProcessTask(taskCtrl);
+        ProcessTaskLoop(taskCtrl);
+        SyncTaskFinish();
     }
 
-    inline int32_t ProcessTask(DeviceTaskCtrl *taskCtrl) {
-        int32_t ret = DEVICE_MACHINE_OK;
+    inline void ProcessTask(DeviceTaskCtrl *taskCtrl) {
         seq = taskCtrl->taskId;
         InitDevTask(taskCtrl);
 
         uint64_t curSent = 0UL;
         if (!taskCtrl->isFirstDevTask) {
-            ret = RunCoreTask(taskCtrl, curSent);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
+            RunCoreTask(curSent);
             taskCtrl->finishedFunctionCnt.fetch_add(curSent, std::memory_order_relaxed);
         }
-
-        return DEVICE_MACHINE_OK;
     }
 
-    inline int ProcessTaskLoop(DeviceTaskCtrl *taskCtrl) {
+    inline void ProcessTaskLoop(DeviceTaskCtrl *taskCtrl) {
         uint32_t lastSent = 0;
-        uint64_t start = GetCycles();
         uint32_t allSentCnt = taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed);
         while (allSentCnt < curDevTask_->coreFunctionCnt) {
             uint64_t curSent = 0;
-            int32_t ret = RunCoreTask(taskCtrl, curSent);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
+            RunCoreTask(curSent);
             if (likely(curSent == 0)) {
                 if (lastSent > 0) {
                     taskCtrl->finishedFunctionCnt.fetch_add(lastSent, std::memory_order_relaxed);
@@ -225,19 +190,14 @@ public:
                 lastSent += curSent;
             }
 
-            if (GetCycles() - start > TIMEOUT_CYCLES) {
-                return DEVICE_MACHINE_TIMEOUT_CORETASK;
-            }
-
             // To prevent an unnecessary execution of RunCoreTask after the final batch of tasks is sent.
             allSentCnt = taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed) + lastSent;
         }
+
         if (lastSent > 0) {
             // Other SCH-AICPU are still waiting for the taskCtrl->finishedFunctionCnt actual value.
             taskCtrl->finishedFunctionCnt.fetch_add(lastSent, std::memory_order_relaxed);
         }
-
-        return DEVICE_MACHINE_OK;
     }
 
     void ResetRegAll() {
@@ -252,24 +212,15 @@ public:
     }
 
 
-    inline int RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
-        int ret = DEVICE_MACHINE_OK;
+    inline void RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         Init(threadIdx, deviceArgs, schedIdx);
         DeviceTaskCtrl *taskCtrl = nullptr;
         taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
         if constexpr (IsDeviceMode()) {
-            ret = HandShake();
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                DEV_ERROR("hand shake timeout.");
-                AbnormalStop();
-                while ((taskCtrl = taskQueue_->Dequeue())) {
-                    taskCtrl->PutTask(ret);
-                }
-                return ret;
-            }
+            HandShake();
             devStartArgs->syncFlag = 1;
         }
-        while (ret == 0) {
+        while (true) {
             taskCtrl = preFetchSuccess_ ? preFetchNextDevTaskCtrl_ : taskQueue_->Dequeue();
             if (taskCtrl == nullptr) {
                 if (!isSendStop) {
@@ -277,12 +228,9 @@ public:
                 }
                 break;
             }
-            ret = RunTask(taskCtrl);
-            if (ret != 0)
-                break;
-            taskCtrl->PutTask(ret);
+            RunTask(taskCtrl);
+            taskCtrl->PutTask(0);
         }
-        return ret;
     }
 
 private:
@@ -398,7 +346,7 @@ private:
         return;
     }
 
-    inline int SyncTaskFinish(bool forceStop = false) {
+    inline void SyncTaskFinish(bool forceStop = false) {
         int finishStopNum = 0;
         int aicNum = aicEnd_ - aicStart_;
         int aivNum = aivEnd_ - aivStart_;
@@ -429,8 +377,6 @@ private:
 
         PreSendStopToIdleCore(isLastDevTask, coreStatus, finishStopNum);
 
-        uint64_t start_cycles = GetCycles();
-
         while (finishStopNum < mngCoreNum) {
             bool curIterAicAllStop = true;
             bool curIterAivAllStop = true;
@@ -457,13 +403,7 @@ private:
                 }
             }
             aivAllStop = curIterAivAllStop;
-
-            if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
-                DEV_ERROR("SyncAicoreDevTaskFinish timeout notstopNum=%d.", mngCoreNum - finishStopNum);
-                return DEVICE_MACHINE_TIMEOUT_SYNC_CORE_FINISH;
-            }
         }
-        return DEVICE_MACHINE_OK;
     }
 
     inline uint32_t GetReadyCoreNum(CoreType type) {
@@ -528,14 +468,10 @@ private:
         return sendCnt;
     }
 
-    inline int32_t DispatchAiCoreTask(CoreType type, ReadyCoreFunctionQueue* readyQue,
+    inline void DispatchAiCoreTask(CoreType type, ReadyCoreFunctionQueue* readyQue,
                                        int coreIdxStart, int coreIdxEnd) {
-        int32_t ret = DEVICE_MACHINE_OK;
         if (context_->waitTaskCnt_[static_cast<int>(type)] > 0) {
-            ret = ResolveDepForAllAiCore(type, coreIdxStart, coreIdxEnd);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
+            ResolveDepForAllAiCore(type, coreIdxStart, coreIdxEnd);
             wrapManager_.DispatchMixCoreTask();
         }
         TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
@@ -546,7 +482,6 @@ private:
                 AicpuIsBusy(type);
             }
         }
-        return ret;
     }
 
     inline void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask) {
@@ -556,43 +491,31 @@ private:
         context_->sendCnt_[static_cast<int>(type)]++;
     }
 
-    inline int32_t PushReadyQue(ReadyCoreFunctionQueue *readyQue, void *idList, uint32_t idCnt) const {
+    inline void PushReadyQue(ReadyCoreFunctionQueue *readyQue, void *idList, uint32_t idCnt) const {
         ReadyQueueLock(readyQue);
         memcpy_s(
             &readyQue->elem[readyQue->tail], idCnt * sizeof(uint32_t), (uint8_t *)idList, idCnt * sizeof(uint32_t));
          __atomic_fetch_add(&readyQue->tail, idCnt, std::memory_order_release);
         ReadyQueueUnLock(readyQue);
-        return DEVICE_MACHINE_OK;
     }
-    inline int32_t ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd) {
-        int32_t ret = DEVICE_MACHINE_OK;
+    
+    inline void ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd) {
         for (int i = coreIdxStart; i < coreIdxEnd; i++) {
             if ((runningIds_[i] != AICORE_TASK_INIT || pendingIds_[i] != AICORE_TASK_INIT)) {
-                ret = ResolveByRegVal(type, i);
-                if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                    return ret;
-                }
+                ResolveByRegVal(type, i);
                 if (enableFairSch_) {
                     if (readyAicCoreFunctionQue_->tail - readyAicCoreFunctionQue_->head == 0 ||
                         readyAivCoreFunctionQue_->tail - readyAivCoreFunctionQue_->head == 0) {
-                        ret = BatchPushReadyQueue();
-                        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                            return ret;
-                        }
+                        BatchPushReadyQueue();
                     }
                 }
             }
         }
 
-        ret = BatchPushReadyQueue();
-        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-            return ret;
-        }
-        return ret;
+        BatchPushReadyQueue();
     }
 
-    inline int32_t BatchPushReadyQueue() {
-        int32_t ret = DEVICE_MACHINE_OK;
+    inline void BatchPushReadyQueue() {
         uint32_t aicIndex = static_cast<uint32_t>(CoreType::AIC);
         uint32_t aivIndex = static_cast<uint32_t>(CoreType::AIV);
         if (context_->readyCount[aicIndex] > 0) {
@@ -602,10 +525,7 @@ private:
                     needSendCnt, aicStart_, aicEnd_, true);
             }
             if (context_->readyCount[aicIndex] > 0) {
-                ret = PushReadyQue(readyAicCoreFunctionQue_, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
-                if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                    return ret;
-                }
+                PushReadyQue(readyAicCoreFunctionQue_, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
             }
             context_->readyCount[aicIndex] = 0;
         }
@@ -617,37 +537,27 @@ private:
                     needSendCnt, aivStart_, aivEnd_, true);
             }
             if (context_->readyCount[aivIndex] > 0) {
-                ret = PushReadyQue(readyAivCoreFunctionQue_, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
-                if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                    return ret;
-                }
+                PushReadyQue(readyAivCoreFunctionQue_, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
             }
             context_->readyCount[aivIndex] = 0;
         }
-        return ret;
     }
 
-    inline int32_t ResolveWhenSyncMode(CoreType type, uint32_t finTaskId, uint32_t finTaskState, int coreIdx)  {
-        int32_t ret = DEVICE_MACHINE_OK;
+    inline void ResolveWhenSyncMode(CoreType type, uint32_t finTaskId, uint32_t finTaskState, int coreIdx)  {
         if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
-            ret = ResolveDepWithDfx(type, coreIdx, finTaskId);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
+            ResolveDepWithDfx(type, coreIdx, finTaskId);
             pendingIds_[coreIdx] = AICORE_TASK_INIT;
             pendingResolveIndexList_[coreIdx] = 0;
             context_->corePendReadyCnt_[static_cast<int>(type)]++;
             context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
         }
-        return ret;
     }
 
     static uint64_t RuntimeCopyOutResolveCounterDecode(uint64_t aicpuCallCode) {
         return aicpuCallCode & 0xffff;
     }
 
-    inline int32_t ResolveByRegVal(CoreType type, int coreIdx) {
-        int32_t ret = DEVICE_MACHINE_OK;
+    inline void ResolveByRegVal(CoreType type, int coreIdx) {
         uint64_t finTaskRegVal = aicoreHal_.GetFinishedTask(coreIdx);
         [[maybe_unused]] uint32_t aicpuCallCode = finTaskRegVal >> 32;
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
@@ -673,15 +583,9 @@ private:
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
             if (runningIdValue != AICORE_TASK_INIT) {
-                ret = ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
-                if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                    return ret;
-                }
+                ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
             }
-            ret = ResolveDepWithDfx(type, coreIdx, pendingIdValue, pendingResolveIndexBaseValue);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
+            ResolveDepWithDfx(type, coreIdx, pendingIdValue, pendingResolveIndexBaseValue);
         } else if (unlikely(finTaskId == pendingIdRef && aicpuCallCode != 0)) {
             // pending task is copyout, reolve both running and pending task.
             uint32_t copyOutResolveCounter = RuntimeCopyOutResolveCounterDecode(aicpuCallCode);
@@ -697,15 +601,9 @@ private:
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
             if (runningIdValueCopyout != AICORE_TASK_INIT) {
-                ret = ResolveDepWithDfx(type, coreIdx, runningIdValueCopyout, runningResolveIndexBaseValueCopyout);
-                if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                    return ret;
-                }
+                ResolveDepWithDfx(type, coreIdx, runningIdValueCopyout, runningResolveIndexBaseValueCopyout);
             }
-            ret = ResolveCopyOutDepDyn(copyOutResolveCounter, pendingIdValue, pendingResolveIndexBaseValue);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
+            ResolveCopyOutDepDyn(copyOutResolveCounter, pendingIdValue, pendingResolveIndexBaseValue);
         } else if (finTaskId == pendingIdRef && finTaskState == TASK_ACK_STATE) {
             // pending task is acknowledged, resolve running task. And move pending to running
             uint32_t runningIdValueAck = runningIdRef;
@@ -718,10 +616,7 @@ private:
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
             if (runningIdValueAck != AICORE_TASK_INIT) {
-                ret = ResolveDepWithDfx(type, coreIdx, runningIdValueAck, runningResolveIndexBaseValueAck);
-                if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                    return ret;
-                }
+                ResolveDepWithDfx(type, coreIdx, runningIdValueAck, runningResolveIndexBaseValueAck);
             }
         } else if (finTaskId == runningIdRef && finTaskState == TASK_FIN_STATE) {
             // running task is finished, resolve running task. Pending task is unmodified
@@ -732,28 +627,18 @@ private:
             if (isWrapCoreAvailable && pendingIdRef == AICORE_TASK_INIT) {
                 context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
             }
-            ret = ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
+            ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
         } else if (unlikely(finTaskId == runningIdRef && aicpuCallCode != 0)) {
             // running task is copyout, resolve running task. Pending task is unmodified
             uint32_t copyOutResolveCounter = RuntimeCopyOutResolveCounterDecode(aicpuCallCode);
             uint32_t runningIdValue = runningIdRef;
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
             runningResolveIndexBaseRef = copyOutResolveCounter + 1;
-            ret = ResolveCopyOutDepDyn(copyOutResolveCounter, runningIdValue, runningResolveIndexBaseValue);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
+            ResolveCopyOutDepDyn(copyOutResolveCounter, runningIdValue, runningResolveIndexBaseValue);
         } 
 #else
-        ret = ResolveWhenSyncMode(type, finTaskId, finTaskState, coreIdx);
-        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-            return ret;
-        }
+        ResolveWhenSyncMode(type, finTaskId, finTaskState, coreIdx);
 #endif
-        return ret;
     }
 
     inline bool TrySendTaskDirectly(int coreType, uint32_t taskId) {
@@ -791,27 +676,19 @@ private:
         return true;
     }
 
-    inline int32_t PushReadyTask(int coreType, uint64_t taskId) {
-        int32_t ret = DEVICE_MACHINE_OK;
-        if (enableL2CacheSch_ && TrySendTaskDirectly(coreType, taskId)) {
-            return DEVICE_MACHINE_OK;
-        }
+    inline void PushReadyTask(int coreType, uint64_t taskId) {
+        if (enableL2CacheSch_ && TrySendTaskDirectly(coreType, taskId))  return;
 
         if (unlikely(context_->readyCount[coreType] == READY_ID_FIX_CACHE_NUM)) {
             ReadyCoreFunctionQueue* readyQue =
                 coreType == static_cast<int>(CoreType::AIC) ?  readyAicCoreFunctionQue_ : readyAivCoreFunctionQue_;
-            ret = PushReadyQue(readyQue, context_->readyIds[coreType], context_->readyCount[coreType]);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
+            PushReadyQue(readyQue, context_->readyIds[coreType], context_->readyCount[coreType]);
             context_->readyCount[coreType] = 0;
         }
         context_->readyIds[coreType][context_->readyCount[coreType]++] = taskId;
-        return ret;
     }
 
-    inline int32_t ResolveDynStitched(DynDeviceTask *dyntask, int origfunc, int origop, int coreIdx = 0) {
-        int32_t ret = DEVICE_MACHINE_OK;
+    inline void ResolveDynStitched(DynDeviceTask *dyntask, int origfunc, int origop, int coreIdx = 0) {
         auto &duppedData = dyntask->GetDynFuncDataCacheList()[origfunc].duppedData;
         auto &stitchList = duppedData->GetOperationStitch(origop);
         auto cceBinary = dyntask->cceBinary;
@@ -832,22 +709,15 @@ private:
                 auto callList = dyntask->dynFuncDataCacheList[funcId].calleeList;
                 auto coreType = cceBinary[callList[opIndex]].coreType;
                 if (unlikely(coreType == static_cast<int>(CoreType::HUB))) {
-                    ret = ResolveDepDyn(id, 0, coreIdx);
-                    if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                        return ret;
-                    }
+                    ResolveDepDyn(id, 0, coreIdx);
                     context_->resolveHubCnt_++;
                 } else if (wrapManager_.IsBindedWrapId(id)) {
                     wrapManager_.ResolveDepForMixCore(id);
                 } else {
-                    ret = PushReadyTask(static_cast<int>(coreType), id);
-                    if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                        return ret;
-                    }
+                    PushReadyTask(static_cast<int>(coreType), id);
                 }
             }
         }
-        return ret;
     }
 
     inline int GetRootIndex(uint32_t taskId) const {
@@ -871,8 +741,7 @@ private:
         return dyntask->dynFuncDataCacheList[funcId].duppedData;
     }
 
-    inline int32_t ResolveDepDyn(uint64_t finishId, size_t resolveIndexBase = 0, int coreIdx = 0) {
-        int32_t ret = DEVICE_MACHINE_OK;
+    inline void ResolveDepDyn(uint64_t finishId, size_t resolveIndexBase = 0, int coreIdx = 0) {
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(finishId);
         auto opIndex = TaskID(finishId);
@@ -894,26 +763,20 @@ private:
                 auto id = MakeTaskID(funcId, succIdx);
                 auto coreType = cceBinary[callList[succIdx]].coreType;
                 if (unlikely(coreType == static_cast<int>(CoreType::HUB))) {
-                    ret = ResolveDepDyn(id, resolveIndexBase, coreIdx);
-                    if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                        return ret;
-                    }
+                    ResolveDepDyn(id, resolveIndexBase, coreIdx);
                     context_->resolveHubCnt_++;
                 } else if (wrapManager_.IsBindedWrapId(id)) {
                     wrapManager_.ResolveDepForMixCore(id);
                 } else {
-                    ret = PushReadyTask(static_cast<int>(coreType), id);
-                    if (unlikely(ret != DEVICE_MACHINE_OK)) {return ret;}
+                    PushReadyTask(static_cast<int>(coreType), id);
                 }
             }
         }
 
-        ret = ResolveDynStitched(dyntask, funcId, opIndex, coreIdx);
-        return ret;
+        ResolveDynStitched(dyntask, funcId, opIndex, coreIdx);
     }
 
-    inline int32_t ResolveCopyOutDepDyn(uint32_t currResolveIndex, uint64_t taskId, uint32_t resolveIndexBase) {
-        int32_t ret = DEVICE_MACHINE_OK;
+    inline void ResolveCopyOutDepDyn(uint32_t currResolveIndex, uint64_t taskId, uint32_t resolveIndexBase) {
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(taskId);
         auto opIndex = TaskID(taskId);
@@ -935,30 +798,20 @@ private:
                 auto id = MakeTaskID(funcId, succIdx);
                 auto coreType = cceBinary[callList[succIdx]].coreType;
                 if (unlikely(coreType == static_cast<int>(CoreType::HUB))) {
-                    ret = ResolveDepDyn(id);
-                    if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                        return ret;
-                    }
+                    ResolveDepDyn(id);
                     context_->resolveHubCnt_++;
                 } else if (wrapManager_.IsBindedWrapId(id)) {
                     wrapManager_.ResolveDepForMixCore(id);
                 } else {
-                    ret = PushReadyTask(static_cast<int>(coreType), id);
-                    if (unlikely(ret != DEVICE_MACHINE_OK)) {return ret;}
+                    PushReadyTask(static_cast<int>(coreType), id);
                 }
             }
         }
-        return ret;
     }
 
-    inline int32_t ResolveDepWithDfx(CoreType type, int coreIdx, uint64_t finishId, size_t resolveIndexBase = 0) {
-        int32_t ret = DEVICE_MACHINE_OK;
-        ret = ResolveDepDyn(finishId, resolveIndexBase, coreIdx);
-        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-            return ret;
-        }
+    inline void ResolveDepWithDfx(CoreType type, int coreIdx, uint64_t finishId, size_t resolveIndexBase = 0) {
+        ResolveDepDyn(finishId, resolveIndexBase, coreIdx);
         context_->waitTaskCnt_[static_cast<int>(type)]--;
-        return ret;
     }
 
     inline bool IsExistOtherAicpuIdle(CoreType type) {
@@ -1043,29 +896,10 @@ private:
             if (sentAic + sentAiv > 0) {
                 preFetchNextDevTaskCtrl_->finishedFunctionCnt.fetch_add(sentAic + sentAiv, std::memory_order_relaxed);
             }
-            DEV_DEBUG("hand shake presend task cnt : aic %lu, aiv %lu", sentAic, sentAiv);
         }
     }
 
-    inline void DumpAicoreStatusWhenTimeout(bool *handFlag) {
-        for (int i = aicStart_; i < aicEnd_; i++) {
-            if (handFlag[i]) {
-                DEV_ERROR("Aic core %d hand shake success.phyid %d ", i, aicoreHal_.GetPhyIdByBlockId(i));
-            } else {
-                DEV_ERROR("Aic core %d hand shake timeout status=%lu",  i, aicoreHal_.GetAicoreStatus(i));
-            }
-        }
-
-        for (int i = aivStart_; i < aivEnd_; i++) {
-            if (handFlag[i]) {
-                DEV_ERROR("Aiv core %d hand shake success.phyid %d ", i,  aicoreHal_.GetPhyIdByBlockId(i));
-            } else {
-                DEV_ERROR("Aiv core %d hand shake timeout status=%lu", i, aicoreHal_.GetAicoreStatus(i));
-            }
-        }
-    }
-
-    inline int HandShakeByGmWithPreSendTask() {
+    inline void HandShakeByGmWithPreSendTask() {
         int handShakeNum = 0;
         int mngAicoreNum = aicEnd_ - aicStart_ + aivEnd_ - aivStart_;
         bool handFlag[MAX_AICORE_NUM] = {false};
@@ -1128,26 +962,16 @@ private:
             }
 
             if (GetCycles() - start_cycles > HAND_SHAKE_TIMEOUT) {
-                DumpAicoreStatusWhenTimeout(handFlag);
                 DEV_ERROR("HandShakeByGmWithPreSendTask timeout notHandshakeNum=%d.", mngAicoreNum - handShakeNum);
-                return DEVICE_MACHINE_ERROR;
+                return;
             }
         }
 
         HandShakePostProc(needSendAic, needSendAiv);
-        return DEVICE_MACHINE_OK;
     }
 
-    inline int HandShake() {
-        DEV_INFO("aicpu %d handshake start.", aicpuIdx_);
-        int rc = HandShakeByGmWithPreSendTask();
-        if (rc != DEVICE_MACHINE_OK) {
-            DEV_ERROR("Aicpu %d handshake failed end.", aicpuIdx_);
-            return rc;
-        }
-
-        DEV_INFO("Aicpu %d handshake sucess end.", aicpuIdx_);
-        return 0;
+    inline void HandShake() {
+        HandShakeByGmWithPreSendTask();
     }
 
     /* assign aic and aiv core index section for this aicpu */
@@ -1177,8 +1001,6 @@ private:
         context_->lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIV)] = static_cast<uint32_t>(aivStart_);
         context_->lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIC)] = static_cast<uint32_t>(aicStart_);
         aicoreHal_.SetMngCoreBlockId(aicStart_, aicEnd_, aivStart_, aivEnd_);
-        DEV_DEBUG("assign core aic coreindex section: start %d end %d .", aicStart_, aicEnd_);
-        DEV_DEBUG("assign core aiv coreindex section: start %d end %d .", aivStart_, aivEnd_);
     }
 
     inline int GetPhyIdByBlockId(int coreIdx) {
@@ -1201,25 +1023,6 @@ private:
         for (int i = aivEnd_ -1; i >= aivStart_ ; --i) {
             func(i);
         }
-    }
-
-    inline int ForEachManageAicoreWithRet(std::function<int(int coreIdx)> func) const {
-        int ret = DEVICE_MACHINE_OK;
-        for (int i = aicStart_; i < aicEnd_; ++i) {
-            ret = func(i);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                DEV_ERROR("proc aicore aic %d failed.", i);
-                return ret;
-            }
-        }
-        for (int i = aivStart_; i < aivEnd_; ++i) {
-            ret = func(i);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                DEV_ERROR("proc aicore aiv %d failed.", i);
-                return ret;
-            }
-        }
-        return ret;
     }
 
     inline void AbnormalStop() {

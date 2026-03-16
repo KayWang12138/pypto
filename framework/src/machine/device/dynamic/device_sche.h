@@ -79,7 +79,7 @@ public:
 #if ENABLE_AICORE_PRINT
         aicoreManager_[schedIdx]->InitLogger(logManager.logger);
 #endif
-        ret = aicoreManager_[schedIdx]->RunManager(threadIdx, devStartArgs, args, schedIdx);
+        aicoreManager_[schedIdx]->RunManager(threadIdx, devStartArgs, args, schedIdx);
         DEV_INFO("thread  %d end , ret = %d", threadIdx, ret);
         return ret;
     }
