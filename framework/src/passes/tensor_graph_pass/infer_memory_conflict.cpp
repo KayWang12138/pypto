@@ -14,6 +14,7 @@
  */
 
 #include "infer_memory_conflict.h"
+#include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "InferMemoryConflict"
@@ -59,38 +60,11 @@ Status InferMemoryConflict::RunOnFunction(Function &function) {
         APASS_LOG_ERROR_F(Elements::Operation, "InsertCopys failed.");
         return FAILED;
     }
-    for (auto &op : function.Operations()) {
-        if (op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
-            auto output = op.GetOOperands()[0];
-            auto outOp = *output->GetConsumers().begin();
-            if (outOp == nullptr || outOp->GetOpcode() != Opcode::OP_REGISTER_COPY) {
-                continue;
-            }
-            TileShape viewTypeTile;
-            auto vecTypeTile = op.GetTileShape().GetVecTile();
-            auto viewTypeIn = op.GetIOperands()[0];
-            auto viewTypeOut = op.GetOOperands()[0];
-            auto inType = viewTypeIn->tensor->datatype;
-            auto outType = viewTypeOut->tensor->datatype;
-            auto inEntry = viewTypeTable.find(inType);
-            auto outEntry = viewTypeTable.find(outType);
-            if (inEntry == viewTypeTable.end() || outEntry == viewTypeTable.end()) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
-                return FAILED;
-            }
-            if (inEntry->second < outEntry->second) {
-                if (vecTypeTile.tile[vecTypeTile.tile.size()-1] % (outEntry->second / inEntry->second) != 0) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "vecTypeTile tile dim n is not even.");
-                    return FAILED;
-                }
-                vecTypeTile.tile[vecTypeTile.tile.size()-1] /= (outEntry->second / inEntry->second);
-            } else {
-                vecTypeTile.tile[vecTypeTile.tile.size()-1] *= (inEntry->second / outEntry->second);
-            }
-            viewTypeTile.SetVecTile(vecTypeTile);
-            outOp->UpdateTileShape(viewTypeTile);
-        }
-    }
+    if (ProcessViewType(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "ProcessViewType failed.");
+        return FAILED;
+    }    
+    DeadOperationEliminator::EliminateDeadOperation(function);
     APASS_LOG_INFO_F(Elements::Operation, "End InferMemoryConflict for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
@@ -516,6 +490,72 @@ Status InferMemoryConflict::InsertCopys(Function &function) {
         APASS_LOG_ERROR_F(Elements::Operation, "InsertPostCopys failed.");
         return FAILED;
     }
+    return SUCCESS;
+}
+
+Status InferMemoryConflict::ProcessViewType(Function &function) {
+    for (auto &op : function.Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
+            auto output = op.GetOOperands()[0];
+            auto outOp = *output->GetConsumers().begin();
+            if (outOp == nullptr || outOp->GetOpcode() != Opcode::OP_REGISTER_COPY) {
+                continue;
+            }
+            TileShape viewTypeTile;
+            auto vecTypeTile = op.GetTileShape().GetVecTile();
+            auto viewTypeIn = op.GetIOperands()[0];
+            auto viewTypeOut = op.GetOOperands()[0];
+            auto inType = viewTypeIn->tensor->datatype;
+            auto outType = viewTypeOut->tensor->datatype;
+            auto inEntry = viewTypeTable.find(inType);
+            auto outEntry = viewTypeTable.find(outType);
+            if (inEntry == viewTypeTable.end() || outEntry == viewTypeTable.end()) {
+                APASS_LOG_ERROR_F(Elements::Operation, "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
+                return FAILED;
+            }
+            if (inEntry->second < outEntry->second) {
+                if (vecTypeTile.tile[vecTypeTile.tile.size()-1] % (outEntry->second / inEntry->second) != 0) {
+                    APASS_LOG_ERROR_F(Elements::Operation, "vecTypeTile tile dim n is not even.");
+                    return FAILED;
+                }
+                vecTypeTile.tile[vecTypeTile.tile.size()-1] /= (outEntry->second / inEntry->second);
+            } else {
+                vecTypeTile.tile[vecTypeTile.tile.size()-1] *= (inEntry->second / outEntry->second);
+            }
+            viewTypeTile.SetVecTile(vecTypeTile);
+            outOp->UpdateTileShape(viewTypeTile);
+        }
+    }
+    return SUCCESS;
+}
+
+Status InferMemoryConflict::InsertCopysForViewAssemble(Function &function) {
+    for (auto &op : function.Operations()) {
+ 	    auto opcode = op.GetOpcode();
+ 	    if(opcode != Opcode::OP_VIEW) {
+ 	        //跳过非view的op
+ 	        continue;
+ 	    }
+        TileShape viewTypeTile;
+ 	    auto consumers = op.oOperand.front()->GetConsumers();
+        auto vecTypeTile = op.GetTileShape().GetVecTile();
+ 	        //获取view级联的assemble消费者
+        for (const auto &consumer : consumers) {
+            if (consumer->GetOpcode() != Opcode::OP_ASSEMBLE) {
+                //跳过不是assemble的消费者
+                continue;
+            }
+            LogicalTensorPtr inputTensor = consumer->GetIOperands().front();
+            std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(inputTensor->Datatype(), inputTensor->GetShape());
+            Offset newOffset(inputTensor->GetShape().size(), 0);
+            LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset, inputTensor->GetShape(), inputTensor->GetDynValidShape());
+            inputTensor->RemoveConsumer(consumer);
+            auto &regCopy = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
+            consumer->ReplaceInput(newTensor, inputTensor);
+            viewTypeTile.SetVecTile(vecTypeTile);
+            regCopy.UpdateTileShape(viewTypeTile);
+        }
+ 	}
     return SUCCESS;
 }
 
