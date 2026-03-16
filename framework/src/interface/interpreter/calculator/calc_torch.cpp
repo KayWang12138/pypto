@@ -1271,7 +1271,50 @@ void IndexAdd(const TensorData &out, const TensorData &self, const TensorData &s
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
-// TODO: Quantize/DeQuantize
+static void Quantize(const TensorData &out, const TensorData &input, const TensorData *scale,
+                     uint64_t otype, int axis, const TensorData *zeroPoints) {
+    auto tout = From(out);
+    auto tinput = From(input);
+    auto tscale = From(*scale);
+
+    // Broadcast scale to match input shape if needed
+    auto scaleTensor = tscale.second;
+    if (tscale.second.sizes() != tinput.second.sizes()) {
+        scaleTensor = tscale.second.expand_as(tinput.second);
+    }
+
+    // Perform scaling
+    auto scaled = tinput.second * scaleTensor;
+
+    // Apply zero_points for asymmetric quantization
+    if (zeroPoints != nullptr) {
+        auto tzeroPoints = From(*zeroPoints);
+        auto zeroPointsTensor = tzeroPoints.second;
+        if (tzeroPoints.second.sizes() != tinput.second.sizes()) {
+            zeroPointsTensor = tzeroPoints.second.expand_as(tinput.second);
+        }
+        scaled = scaled + zeroPointsTensor;
+    }
+
+    // Round to nearest integer
+    auto rounded = torch::round(scaled);
+
+    // Convert to output dtype
+    DataType outputType = static_cast<DataType>(otype);
+    auto toutType = FromDataType(outputType);
+
+    // For asymmetric quantization (UINT8), clamp to [0, 255]
+    // For symmetric quantization (INT8), clamp to [-128, 127]
+    if (outputType == DT_UINT8) {
+        rounded = torch::clamp(rounded, 0, 255);
+    } else if (outputType == DT_INT8) {
+        rounded = torch::clamp(rounded, -128, 127);
+    }
+
+    // Convert to target type
+    auto result = rounded.to(toutType);
+    ToOperand(result, tout.first, out.dtype);
+}
 
 void TriU(const TensorData &out, const TensorData &in, int diagonal) {
     auto output = From(out);
@@ -2079,6 +2122,7 @@ static struct CalcOps calcOps = {
     .FormatND2NZ = FormatND2NZ,
     .FormatNZ2ND = FormatNZ2ND,
     .QuantPreCompute = QuantPreCompute,
+    .Quantize = Quantize,
     .MatMul = MatMul,
     .BitSort = BitSort,
     .TiledMrgSort = TiledMrgSort,
