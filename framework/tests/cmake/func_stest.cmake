@@ -40,6 +40,7 @@ function(PTO_Fwk_STest_AddLib)
             ${ARGN}
     )
     add_Library(${ARG_TARGET} STATIC)
+    tracr_enable(${ARG_TARGET})
     target_sources(${ARG_TARGET} PRIVATE ${ARG_SOURCES})
     target_link_libraries(${ARG_TARGET}
             PRIVATE
