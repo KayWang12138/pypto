@@ -148,14 +148,48 @@ license: 完整条款见 LICENSE.txt
 
 | Pass 模块 | 功能 | 常见错误 | 可能原因 |
 |----------|------|---------|---------|
-| **ShapeInference** | 形状推断 | Shape mismatch, Invalid shape | 输入shape不匹配、动态shape处理不当 |
-| **TypeInference** | 类型推断 | Type mismatch, Invalid dtype | dtype不兼容、类型转换失败 |
-| **ConstantFolding** | 常量折叠 | Folding failed, Invalid constant | 常量超出范围、不支持的操作 |
-| **Lowering** | 算子下沉 | Lowering failed, Unsupported op | 算子不支持、缺少实现 |
-| **MemoryPlanning** | 内存规划 | Out of memory, Allocation failed | 内存不足、内存碎片严重 |
-| **ScheduleOptimization** | 调度优化 | Schedule invalid, Loop unroll failed | 循环边界错误、依赖关系错误 |
-| **FuseOps** | 算子融合 | Fusion failed, Pattern not matched | 融合模式不匹配、算子属性冲突 |
-| **LayoutTransform** | 布局转换 | Layout mismatch, Transform failed | 布局不兼容、转换规则缺失 |
+| **RemoveRedundantReshape** | 删除冗余的reshape操作 | 输入输出操作数无效、消费者为空指针、操作已删除标记错误 | 图结构不一致、操作已被其他pass删除、消费者链断裂 |
+| **AutoCast** | 自动插入类型转换操作 | CAST插入失败、类型转换链优化失败、内存类型不匹配错误 | 架构不支持的数据类型、类型转换链过长、内存类型冲突 |
+| **InferMemoryConflict** | 推断内存冲突并插入register copy | 内存冲突检测失败、Copy操作插入失败、Tile shape推断失败 | 内存重叠、tile shape不匹配、动态shape处理错误 |
+| **RemoveUndrivenView** | 删除无驱动的view操作 | 缺少INPLACE_IDX属性错误、生产者数量无效错误、生产者类型错误 | SSA形式转换不完整、属性缺失、图结构损坏 |
+| **ExpandFunction** | 将tensor graph扩展为tile graph | 操作验证失败、操作展开失败、Scope混合错误 | 操作不支持展开、scope配置错误、Cube和Vector操作混合 |
+| **MergeViewAssemble** | 合并view/assemble操作 | 合并操作失败、图连接更新失败 | 操作属性不兼容、内存类型不匹配、offset计算错误 |
+| **SplitReshape** | 拆分reshape操作 | Reshape拆分失败、动态shape处理失败、Tile对齐计算失败 | Shape不可分、动态轴处理复杂、tile size不匹配 |
+| **SplitRawTensor** | 拆分原始tensor | Tensor拆分失败、内存分配失败、Offset计算错误 | Tensor size过大、内存不足、offset边界错误 |
+| **SplitLargeFanoutTensor** | 拆分大扇出tensor | LCM shape计算失败、Offset生成失败、操作创建失败 | Shape维度不匹配、GCD/LCM计算溢出、内存类型冲突 |
+| **DuplicateOp** | 复制操作 | 操作复制失败、Tensor克隆失败、消费者替换失败 | 内存不足、属性复制不完整、消费者链断裂 |
+| **AssignMemoryType** | 分配内存类型 | 内存类型分配失败、Convert操作插入失败、内存类型推断失败 | 内存类型不兼容、内存大小超限、对齐要求不满足 |
+| **InferDiscontinuousInput** | 推断不连续输入 | 不连续输入检测失败、Copy操作插入失败、内存类型处理失败 | 内存访问模式复杂、动态shape处理、内存类型转换错误 |
+| **RemoveRedundantOp** | 删除冗余操作 | 冗余操作检测失败、图重连失败、死操作消除失败 | 操作属性不匹配、shape比较错误、消费者链复杂 |
+| **InsertOpForViewAssemble** | 为view-assemble插入操作 | 操作插入失败、属性设置失败、图连接更新失败 | 内存类型不匹配、offset计算错误、操作顺序依赖 |
+| **SplitK** | 拆分K维度 | K拆分失败、Reduce_Acc消除失败、操作验证失败 | 矩阵维度不匹配、内存类型错误、累加操作不支持 |
+| **GraphPartition** | 图切分 | 图切分失败、子图创建失败、依赖关系分析失败 | 图结构复杂、循环依赖、资源约束冲突 |
+| **ReduceCopyMerge** | 减少copy合并 | Copy操作分析失败、合并策略应用失败、图优化失败 | Copy操作链过长、内存类型转换复杂、依赖关系冲突 |
+| **NBufferMerge** | 向量子图合并 | 合并策略失败 | 缓冲区大小不匹配、访问模式冲突、子图成环 |
+| **L1CopyInReuseMerge** | L1拷贝输入重用合并 | 重用分析失败、L1缓存策略失败、依赖关系错误 | 缓存容量限制、访问模式不规律、数据依赖复杂 |
+| **IntraSubgraphAdapter** | 子图内适配器 | 子图适配失败、接口处理失败、通信插入失败 | 子图接口不匹配、通信协议错误、内存类型冲突 |
+| **GenerateMoveOp** | 生成移动操作 | Move操作生成失败、内存路径分析失败、传输策略错误 | 内存层次复杂、传输路径阻塞、带宽限制 |
+| **CommonOperationEliminate** | 通用操作消除 | 公共操作检测失败、消除策略失败、图一致性错误 | 操作等价判断错误、副作用分析不完整、依赖关系遗漏 |
+| **AxisCombine** | 轴组合 | 轴组合轴组合失败、Shape变换失败、内存布局错误 | 轴依赖关系复杂、stride不连续、内存对齐要求 |
+| **PadLocalBuffer** | 填充本地缓冲区 | 填充计算失败、缓冲区重分配失败、对齐验证失败 | 对齐要求复杂、缓冲区大小限制、填充策略冲突 |
+| **RemoveUnalignedReshape** | 删除未对齐的reshape | 对齐检测失败、Reshape优化失败、边界处理错误 | 对齐要求不满足、边界条件复杂、内存布局冲突 |
+| **ReplaceTensor** | 替换tensor | Tensor替换失败、引用更新失败、内存一致性错误 | Tensor类型不匹配、引用链断裂、内存类型冲突 |
+| **PreGraphProcess** | 预图处理 | 预处理初始化失败、状态设置失败、依赖分析错误 | 初始化顺序错误、状态冲突、依赖关系不完整 |
+| **InferDynShape** | 推断动态shape | 动态shape推断失败、符号表达式错误、约束求解失败 | 动态维度关系复杂、符号计算溢出、约束不一致 |
+| **SubgraphToFunction** | 子图转函数 | 子图转换失败、函数创建失败、接口映射错误 | 子图结构复杂、接口不匹配、调用约定错误 |
+| **InferParamIndex** | 推断参数索引 | 参数索引推断失败、访问模式分析失败、边界检查错误 | 参数数量不匹配、索引越界、访问模式不规则 |
+| **SrcDstBufferMerge** | 源目标缓冲区合并 | 缓冲区分析失败、合并策略失败、传输优化错误 | 缓冲区大小不匹配、传输方向冲突、内存重叠 |
+| **AddAlloc** | 添加分配操作 | 分配操作插入失败、内存大小计算失败、生命周期分析失败 | 内存不足、分配策略错误、生命周期管理复杂 |
+| **OoOSchedule** | OOO调度 | 调度分析失败、依赖关系处理失败、资源分配冲突 | 依赖关系复杂、资源约束严格、调度窗口限制 |
+| **TuneTileOpSeqForVF** | 为VF调整tile操作序列 | 序列分析失败、调整策略失败、性能预测错误 | 操作依赖复杂、向量资源限制、性能模型不准确 |
+| **RemoveAlloc** | 删除分配操作 | 分配操作分析失败、冗余检测失败、生命周期验证错误 | 分配操作链复杂、生命周期重叠、使用分析不完整 |
+| **CopyOutResolve** | Copy输出解析 | Copy-out分析失败、传输路径优化失败、输出处理错误 | 输出依赖复杂、传输路径阻塞、内存类型转换 |
+| **InsertSync** | 插入同步操作 | 同步点分析失败、同步操作插入失败、一致性验证失败 | 同步依赖复杂、一致性要求严格、性能开销过大 |
+| **TuneSyncForVF** | 为VF调整同步 | 同步分析失败、优化策略失败、正确性验证失败 | 同步粒度不当、依赖关系遗漏、性能-正确性权衡 |
+| **MixSubgraphSplit** | 混合子图拆分 | 子图拆分失败、混合模式分析失败、资源分配错误 | 子图耦合紧密、资源竞争、拆分边界不当 |
+| **GlobalMemoryReuse** | 全局内存重用 | 内存使用分析失败、重用策略失败、生命周期冲突 | 内存访问模式复杂、生命周期重叠、重用机会识别困难 |
+| **LoopaxesProc** | 循环轴处理 | 循环分析失败、轴处理失败、边界条件错误 | 循环结构复杂、边界条件不规则、依赖关系嵌套 |
+| **CodegenPreproc** | 代码生成预处理 | 预处理验证失败、代码生成准备失败、最终一致性检查失败 | 图状态不一致、资源分配冲突、生成约束不约足 |
 
 ### 步骤 6：错误严重程度评估
 
