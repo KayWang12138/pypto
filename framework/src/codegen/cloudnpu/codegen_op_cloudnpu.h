@@ -283,6 +283,7 @@ private:
     std::string GenHypotOp() const;
     std::string GenPreluOp() const;
     std::string GenPadOp() const;
+    std::string GenFillPadOp() const;
 
     std::string PrintDupOp(const PrintDupOpParam &param) const;
     std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
