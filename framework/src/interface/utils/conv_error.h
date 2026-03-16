@@ -24,7 +24,7 @@ enum class ConvOperationError : uint32_t {
     ATTR_SPEC_INVALID     = 6101U,
     L1_TILING_INVALID     = 6102U,
     L0_TILING_INVALID     = 6103U,
-    UNKNOWN                   = 6199U
+    UNKNOWN               = 6199U
 };
 
 enum class ConvExpandFuncError : uint32_t {
