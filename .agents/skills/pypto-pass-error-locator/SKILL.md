@@ -26,9 +26,9 @@ license: 完整条款见 LICENSE.txt
 ## 触发机制
 
 当用户输入包含以下关键字时，自动触发此技能：
-
-- **执行xx用例异常，分析pass失败原因**：根据用例执行日志信息，识别错误是哪个 pass 模块导致的，分析错误产生的可能原因
+- **执行xx用例失败，分析pass失败原因**：根据用例执行日志信息，识别错误是哪个 pass 模块导致的，分析错误产生的可能原因
 - **根据xx日志信息，分析pass失败原因**：根据用户提供的错误日志信息，识别错误是哪个 pass 模块导致的，分析错误产生的可能原因
+
 ## 工作流程
 
 ### 步骤 1：获取日志
@@ -107,10 +107,12 @@ license: 完整条款见 LICENSE.txt
    - 检查函数名：`run_pass`, `apply_pass`, `execute`
 
 3. **错误模式匹配**：根据错误特征推断 pass 模块
-   - Shape 相关 → ShapeInference
-   - 类型相关 → TypeInference
-   - 常量折叠 → ConstantFolding
-   - 内存分配 → MemoryPlanning
+   - 冗余消除 → RemoveUndrivenView、RemoveRedundantOp、CommonOperationEliminate
+   - 切图合图 → GraphPartition、ReduceCopyMerge、NBufferMerge、L1CopyInReuseMerge
+   - 数据通路 → IntraSubgraphAdapter、GenerateMoveOp
+   - 动态推导 → InferDynShape、InferParamIndex
+   - 内存管理 → InferMemoryConflict、SrcDstBufferMerge、AddAlloc、OoOSchedule、RemoveAlloc、GlobalMemoryReuse
+   - 调度优化 → OoOSchedule
 
 ### 步骤 4：错误原因分析
 
