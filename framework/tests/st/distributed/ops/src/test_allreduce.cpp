@@ -35,12 +35,16 @@ void TestAllReduce(OpTestParam &testParam, std::string &goldenDir)
     Shape shape{row, col};
     Tensor in(dType, shape, "in");
     Tensor out(dType, shape, "out");
+    std::vector<uint64_t> hcclContexts = DistributedContext::GetCommContextToHost(std::vector<std::string>{testParam.group});
+    auto contextSize = DistributedContext::GetCommContextSize(hcclContexts);
+    Tensor commTensor(DT_INT8, Shape{1, contextSize[0]}, "commTensor");
 
     std::vector<T> inPtr = ReadToVector<T>(
         goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<T>(in, inPtr),
+        RawTensorData::CreateTensor(DT_INT8, Shape{1, contextSize[0]}, (uint8_t *)(hcclContexts[0]))
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateTensorZero(out),
@@ -52,7 +56,7 @@ void TestAllReduce(OpTestParam &testParam, std::string &goldenDir)
         rowPerRank /= testParam.rankSize;
         shmemDataShape = {testParam.rankSize, rowPerRank, col};
     }
-    FUNCTION("ALLREDUCE", {in}, {out}) {
+    FUNCTION("ALLREDUCE", {in, commTensor}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
         Tensor shmemData;
         Tensor shmemSignal;
@@ -62,13 +66,13 @@ void TestAllReduce(OpTestParam &testParam, std::string &goldenDir)
         }
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+            CreateShmemData(commTensor, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignal(commTensor, shmemData, shmemSignal);
         }
         if (useTwoShot) {
-            TwoShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
+            TwoShotAllReduce(in, in, commTensor, shmemData, shmemSignal, out);
         } else {
-            OneShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
+            OneShotAllReduce(in, in, commTensor, shmemData, shmemSignal, out);
         }
     }
     RunTest();

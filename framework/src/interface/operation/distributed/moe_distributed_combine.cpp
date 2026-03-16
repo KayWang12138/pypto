@@ -327,7 +327,7 @@ Tensor MoeDistributedCombineReceive(
 }
 
 void MoeDistributedCombineValidate(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
-    const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
+    const Tensor& expertScales, uint32_t epWorldSize, uint32_t moeExpertNum,
     uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out)
 {
     (void)sharedExpertNum;
@@ -338,7 +338,7 @@ void MoeDistributedCombineValidate(const Tensor& expandX, const Tensor& assistIn
     MoeDistributedCombineValidateRecvCounts(recvCounts);
     MoeDistributedCombineValidateExpertScales(expertScales);
     MoeDistributedCombineValidateOut(out, expertScales, expandX);
-    MoeDistributedCombineValidateGroup(group);
+    //MoeDistributedCombineValidateGroup(group);
     MoeDistributedCombineValidateMoeEpWorldSize(epWorldSize);
     MoeDistributedCombineValidateMoeExpertNum(moeExpertNum);
 }
@@ -347,7 +347,7 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
     const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
     uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out)
 {
-    MoeDistributedCombineValidate(expandX, assistInfoForCombine, recvCounts, expertScales, group, epWorldSize,
+    MoeDistributedCombineValidate(expandX, assistInfoForCombine, recvCounts, expertScales, epWorldSize,
         moeExpertNum, sharedExpertNum, sharedExpertRankNum, out);
 
     int32_t batchSize = expertScales.GetShape(0);
@@ -393,10 +393,10 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
 }
 
 void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
-    const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
+    const Tensor& expertScales, const Tensor& commTensor, uint32_t epWorldSize, uint32_t moeExpertNum,
     uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out)
 {
-    MoeDistributedCombineValidate(expandX, assistInfoForCombine, recvCounts, expertScales, group, epWorldSize,
+    MoeDistributedCombineValidate(expandX, assistInfoForCombine, recvCounts, expertScales, epWorldSize,
         moeExpertNum, sharedExpertNum, sharedExpertRankNum, out);
 
     int32_t batchSize = expertScales.GetShape(0);
@@ -407,8 +407,8 @@ void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForC
     Tensor shmemSignal;
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
-        CreateShmemData(group, epWorldSize, expandX.GetDataType(), {1, batchSize * topK, hiddenSize}, shmemData);
-        CreateShmemSignal(group, shmemData, shmemSignal);
+        CreateShmemData(commTensor, epWorldSize, expandX.GetDataType(), {1, batchSize * topK, hiddenSize}, shmemData);
+        CreateShmemSignal(commTensor, shmemData, shmemSignal);
     }
 
     SymbolicScalar recvCountsScalar = GetTensorData(recvCounts, {0});
@@ -428,7 +428,7 @@ void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForC
         ShmemSignal(shmemPutOut, shmemSignalTile, AtomicType::ADD);
     }
 
-    SymbolicScalar thisRank = GetHcclRankId(group);
+    SymbolicScalar thisRank = GetHcclRankIdV2(commTensor);
     LOOP("MoeDistributedCombineReceive", FunctionType::DYNAMIC_LOOP, tokenId, LoopRange(batchSize)) {
         Tensor shmemSignalTile = View(shmemSignal, {1, 1, 1, 1, hiddenSize}, {thisRank, 0, 0, tokenId, 0});
         TileShape::Current().SetVecTile({1, hiddenSize});

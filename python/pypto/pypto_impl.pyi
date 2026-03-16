@@ -645,6 +645,7 @@ class AtomicType(enum.Enum):
 
 
 def CreateShmemData(
+    comm_tensor: Tensor,
     group: str, 
     world_size: int, 
     dtype: DataType, 
@@ -654,10 +655,10 @@ def CreateShmemData(
 ) -> None:
 
 
-def CreateShmemSignal(group: str, shmem_data: Tensor, shmem_signal: Tensor) -> None:
+def CreateShmemSignal(comm_tensor: Tensor, group: str, shmem_data: Tensor, shmem_signal: Tensor) -> None:
 
 
-def ShmemBarrier(pred_token: Tensor, shmem_signal: Tensor, group: str, world_size: int) -> Tensor: ...
+def ShmemBarrier(pred_token: Tensor, shmem_signal: Tensor, comm_tensor: Tensor, world_size: int) -> Tensor: ...
 
 
 def ShmemDataSet(pred_token: Tensor, shmem_data: Tensor) -> None:
@@ -694,7 +695,7 @@ def ShmemSignal(pred_token: Tensor, shmem_signal: Tensor, atomic_type: AtomicTyp
 def WaitUntil(pred_token: Tensor, shmem_signal: Tensor, cmp_value: int, reset_signal: bool = False) -> Tensor: ...
 
 
-def GetSymbolicScalarPeId(group: str) -> SymbolicScalar: ...
+def GetSymbolicScalarPeId(comm_tensor: Tensor) -> SymbolicScalar: ...
 
 
 def Nop(in_tensors: List[Tensor]) -> Tensor: ...

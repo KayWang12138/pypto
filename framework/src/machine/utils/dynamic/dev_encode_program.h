@@ -114,6 +114,7 @@ struct DevAscendProgram {
     DevRelocVector<uint64_t> cellMatchRuntimePartialUpdateTableList;
     DevRelocVector<PrefetchInfo> prefetchInfoList;
     DevRelocVector<uint8_t> disableL2List;
+    DevRelocVector<DevShmemAddrDesc> shmemDescList;
     DevControlFlowCache *ctrlFlowCacheAnchor{nullptr};
     DevControlFlowCache controlFlowCache;
 #define programLastField                              controlFlowCache.cacheData
@@ -247,6 +248,7 @@ struct DevAscendProgram {
     const DevCceBinary *GetCceBinary(int index) const { return &cceCodeList[index]; }
     const DevAicpuLeafBinary *GetAicpuLeafBinary(int index) const { return &aicpuLeafCodeList[index]; }
 
+    DevShmemAddrDesc *GetShmemDesc(int index) { return &shmemDescList[index]; }
     DevControlFlowCache *GetControlFlowCache() { return ctrlFlowCacheAnchor; }
 
     template<typename Ty>
@@ -299,6 +301,7 @@ struct DevAscendProgram {
 
         RelocOffset(shift, offset, prefetchInfoList);
         RelocOffset(shift, offset, disableL2List);
+        RelocOffset(shift, offset, shmemDescList);
         if (relocFunc) {
             for (int i = 0; i < static_cast<int>(GetFunctionSize()); i++) {
                 DevAscendFunction *func = GetFunction(i);
@@ -395,6 +398,7 @@ struct DevAscendProgram {
             cellMatchRuntimePartialUpdateTableList, // 15
             prefetchInfoList,
             disableL2List,
+            shmemDescList,
             controlFlowCache.inputTensorDataList,
             controlFlowCache.outputTensorDataList,
             controlFlowCache.runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList, // 20
@@ -457,6 +461,7 @@ private:
     void InitPrefetchInfoList(
             uintdevptr_t &initOffset, const std::vector<L2Info> &l2InfoList, bool fillContent);
     void InitDisableL2List(uintdevptr_t &initOffset, const std::vector<uint8_t> &disableL2, bool fillContent);
+    void InitShmemDescList(uintdevptr_t &initOffset, const IncastOutcastLink &inoutLink);
     void InitStartArgsABIParamList(uintdevptr_t &initOffset, const std::vector<int> &tStartArgsInputTensorSlotIndexList,
         const std::vector<int> &tStartArgsOutputTensorSlotIndexList,
         const std::vector<int> &tStartArgsInputSymbolIndexList,
