@@ -205,7 +205,7 @@ def shmem_store(
     out = pypto.experimental.shmem_store(
         result,
         [0, 0],
-        sym_buffer,
+        shmem_data,
         2,
         pred=pred_token,
     )
