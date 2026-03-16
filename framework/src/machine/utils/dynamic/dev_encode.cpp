@@ -33,7 +33,7 @@
 #include <unordered_map>
 #include <utility>
 #include <queue>
-
+#include <sstream>
 using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 namespace dynamic {
@@ -221,6 +221,54 @@ static int64_t GetShapeSizeSafe(const std::vector<int64_t> &shape) {
     return nelm;
 }
 
+static std::string FormatShape(const std::vector<int64_t> &shape) {
+    std::ostringstream oss;
+    oss << "[";
+    for (size_t i = 0; i < shape.size(); i++) {
+        if (i > 0) {
+            oss << ", ";
+        }
+        oss << shape[i];
+    }
+    oss << "]";
+    return oss.str();
+}
+
+static void LogRawTensor(const std::shared_ptr<RawTensor> &rawTensor,
+    const std::shared_ptr<RawTensor> &actualRaw,
+    const EncodeDevAscendFunctionParam &param)
+{
+    if (rawTensor == nullptr || actualRaw == nullptr || param.devRoot == nullptr) {
+        MACHINE_LOGE(" rawTensor/actualRaw/devRoot is null, cannot dump detail");
+        return;
+    }
+
+    const auto rawDataSize = rawTensor->GetRawDataSize();
+    const auto actualDataSize = actualRaw->GetRawDataSize();
+
+    // datasize + root info
+    MACHINE_LOGE("Data mismatch: rawTensor->GetRawDataSize()=%lld, actualRaw->GetRawDataSize()=%lld, "
+        "rootName=%s,roothash=%lu",
+        static_cast<long long>(rawDataSize),
+        static_cast<long long>(actualDataSize),
+        param.devRoot->GetRawName().c_str(),
+        param.devRoot->GetFunctionHash().GetHash());
+
+
+    //  magic & symbol
+    MACHINE_LOGE("Data mismatch: rawTensor->rawMagic=%d, rawTensor->actualRawmagic=%d, "
+        "actualRaw->rawMagic=%d, rawTensor->symbol=%s",
+        rawTensor->rawmagic,
+        rawTensor->actualRawmagic,
+        actualRaw->rawmagic,
+        rawTensor->symbol.empty() ? "(empty)" : rawTensor->symbol.c_str());
+
+    // shape info
+    MACHINE_LOGE("Data mismatch: rawTensor->shape=%s, actualRaw->shape=%s",
+        FormatShape(rawTensor->GetRawShape()).c_str(),
+        FormatShape(actualRaw->GetRawShape()).c_str());
+}
+
 static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAscendRawTensor *encoded,
         std::shared_ptr<RawTensor> rawTensor, bool needIndependentlyAlloc, const std::string rootName = "") {
     std::vector<SymInt> shape;
@@ -383,15 +431,37 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                     if (inSize > outSize) {
                         ASSERT((rawTensor->GetRawShapeSize() * (inSize / outSize)) == actualRaw->GetRawShapeSize())
                                << "Shape size mismatch: expected " << rawTensor->GetRawShapeSize() * (inSize / outSize)
-                               << ", got: " << actualRaw->GetRawShapeSize();
+                               << ", got: " << actualRaw->GetRawShapeSize()
+                               << ", rootName=" << param.devRoot->GetRawName()
+                               << ", rootMagic="<< param.devRoot->GetMagicName()
+                               << ", rootHash="<< param.devRoot->GetFunctionHash().GetHash()
+                               << ", rawTensor->rawMagic=" << rawTensor->GetRawMagic()
+                               << ", rawTensor->actualRawmagic=" << rawTensor->actualRawmagic
+                               << ", actualRaw->rawMagic=" << actualRaw->rawmagic;
                     } else {
                         ASSERT(rawTensor->GetRawShapeSize() == (actualRaw->GetRawShapeSize() * (outSize / inSize)))
                                << "Shape size mismatch: expected " << actualRaw->GetRawShapeSize() * (outSize / inSize)
-                               << ", got " << rawTensor->GetRawShapeSize();
+                               << ", got " << rawTensor->GetRawShapeSize()
+                               << ", rootName=" << param.devRoot->GetRawName()
+                               << ", rootMagic="<< param.devRoot->GetMagicName()
+                               << ", rootHash="<< param.devRoot->GetFunctionHash().GetHash()
+                               << ", rawTensor->rawMagic=" << rawTensor->GetRawMagic()
+                               << ", rawTensor->actualRawmagic=" << rawTensor->actualRawmagic
+                               << ", actualRaw->rawMagic=" << actualRaw->rawmagic;
                     }
                     ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize()) << "Data size mismatch:"
-                           << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize();
+                           << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize()
+                           << ", rootName=" << param.devRoot->GetRawName()
+                           << ", rootMagic="<< param.devRoot->GetMagicName()
+                           << ", rootHash="<< param.devRoot->GetFunctionHash().GetHash()
+                           << ", rawTensor->rawMagic=" << rawTensor->GetRawMagic()
+                           << ", rawTensor->actualRawmagic=" << rawTensor->actualRawmagic
+                           << ", actualRaw->rawMagic=" << actualRaw->rawmagic;
                     continue;
+                }
+                if(rawTensor->GetRawShapeSize() != actualRaw->GetRawShapeSize()||
+                   rawTensor->GetRawDataSize() != actualRaw->GetRawDataSize()) {
+                    LogRawTensor(rawTensor, actualRaw, param);
                 }
                 ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize()) << "Shape size mismatch:"
                        << rawTensor->GetRawShapeSize() << "!=" << actualRaw->GetRawShapeSize();
@@ -2282,7 +2352,6 @@ static uint64_t CalcGeneralMetadataSlotWorkspace(DevAscendProgram *devProg) {
     MACHINE_LOGD("workspace of generalMetadataSlotSize is %lu, ", generalMetadataSlotSize);
     return generalMetadataSlotSize;
 }
-/**wraplist**/
 static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
     DeviceWorkspaceAllocator workspace(devProg);
     uint64_t generalMetadataSlabSize = 0;
@@ -2295,8 +2364,6 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
         1,// DynDevTask
         READY_QUEUE_SIZE, //ReadyQue
         DIE_READY_QUEUE_SIZE * DIE_NUM, // DieReadyQue
-        1,
-        1,
         1,
         1,
     };
