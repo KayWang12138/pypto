@@ -497,34 +497,39 @@ private:
 
     inline uint32_t BatchSendTask(CoreType type, uint32_t *newTask, uint32_t taskCount, int coreIdxStart, int coreIdxEnd) {
         uint32_t sendCnt = 0;
-        uint32_t coreRunReadyCnt = context_->coreRunReadyCnt_[static_cast<int>(type)];
-        while (sendCnt < static_cast<uint64_t>(coreRunReadyCnt) && sendCnt < taskCount) {
-            SendTaskToAiCore(type, context_->runReadyCoreIdx_[static_cast<int>(type)][--context_->coreRunReadyCnt_[static_cast<int>(type)]], *newTask++);
+        const int typeIdx = (int)type;
+        uint32_t coreRunReadyCnt = context_->coreRunReadyCnt_[typeIdx];
+        
+        while (sendCnt < coreRunReadyCnt && sendCnt < taskCount)
+        {
+            uint32_t coreIdx = context_->coreRunReadyCnt_[typeIdx] - 1;
+            uint32_t coreId = context_->runReadyCoreIdx_[typeIdx][coreIdx];
+            SendTaskToAiCore(type, coreId, newTask[sendCnt]);
+            context_->coreRunReadyCnt_[typeIdx]--;
             sendCnt++;
         }
-        context_->corePendReadyCnt_[static_cast<int>(type)] -= sendCnt;
+        context_->corePendReadyCnt_[typeIdx] -= sendCnt;
 
-        uint32_t idx = context_->lastPendReadyCoreIdx_[static_cast<int>(type)];
+        uint32_t idx = context_->lastPendReadyCoreIdx_[typeIdx];
         uint32_t coreNum = coreIdxEnd - coreIdxStart;
         uint32_t lastProcCore = idx;
-        while (context_->corePendReadyCnt_[static_cast<int>(type)] > 0 && sendCnt < taskCount) {
+        while (context_->corePendReadyCnt_[typeIdx] > 0 && sendCnt < taskCount) {
             if (pendingIds_[idx] == AICORE_TASK_INIT) {
-                SendTaskToAiCore(type, idx, *newTask++);
+                SendTaskToAiCore(type, idx, newTask[sendCnt]);
                 sendCnt++;
-                context_->corePendReadyCnt_[static_cast<int>(type)]--;
+                context_->corePendReadyCnt_[typeIdx]--;
                 lastProcCore = idx;
             }
             idx = coreIdxStart + (idx - coreIdxStart + 1) % coreNum;
         }
 
-        if (lastProcCore != context_->lastPendReadyCoreIdx_[static_cast<int>(type)]) {
-            context_->lastPendReadyCoreIdx_[static_cast<int>(type)] = coreIdxStart + (lastProcCore - coreIdxStart + 1) % coreNum;
+        if (lastProcCore != context_->lastPendReadyCoreIdx_[typeIdx]) {
+            context_->lastPendReadyCoreIdx_[typeIdx] = coreIdxStart + (lastProcCore - coreIdxStart + 1) % coreNum;
         }
         return sendCnt;
     }
 
-    inline void DispatchAiCoreTask(CoreType type, ReadyCoreFunctionQueue* readyQue,
-                                       int coreIdxStart, int coreIdxEnd) {
+    inline void DispatchAiCoreTask(CoreType type, ReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd) {
         if (context_->waitTaskCnt_[static_cast<int>(type)] > 0) {
             ResolveDepForAllAiCore(type, coreIdxStart, coreIdxEnd);
             wrapManager_.DispatchMixCoreTask();
@@ -532,8 +537,8 @@ private:
         TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
     }
 
-    inline void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask) {
-        aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF);
+    inline void SendTaskToAiCore(CoreType type, int coreIdx, uint32_t newTask) {
+        aicoreHal_.SetReadyQueue(coreIdx, newTask + 1);
         pendingIds_[coreIdx] = newTask;
         pendingResolveIndexList_[coreIdx] = 0;
         context_->sendCnt_[static_cast<int>(type)]++;
@@ -674,37 +679,6 @@ private:
 #else
         ResolveWhenSyncMode(type, finTaskId, finTaskState, coreIdx);
 #endif
-    }
-
-    inline bool TrySendTaskDirectly(int coreType, uint32_t taskId) {
-        if (context_->coreRunReadyCnt_[coreType] > 0) {
-            context_->corePendReadyCnt_[coreType]--;
-            SendTaskToAiCore(static_cast<CoreType>(coreType),
-                context_->runReadyCoreIdx_[coreType][--context_->coreRunReadyCnt_[coreType]], taskId);
-            return true;
-        }
-
-        if (context_->corePendReadyCnt_[coreType] == 0) {
-            return false;
-        }
-
-        int startIdx;
-        int coreNum;
-        int idx = static_cast<int>(context_->lastPendReadyCoreIdx_[coreType]);
-        if (coreType == static_cast<int>(CoreType::AIC)) {
-            startIdx = aicStart_;
-            coreNum = aicEnd_ - aicStart_;
-        } else {
-            startIdx = aivStart_;
-            coreNum = aivEnd_ - aivStart_;
-        }
-        while (pendingIds_[idx] != AICORE_TASK_INIT) {
-            idx = startIdx + (idx - startIdx + 1) % (coreNum);
-        }
-        context_->lastPendReadyCoreIdx_[coreType] = static_cast<uint32_t>(startIdx + (idx - startIdx + 1) % (coreNum));
-        context_->corePendReadyCnt_[coreType]--;
-        SendTaskToAiCore(static_cast<CoreType>(coreType), idx, taskId);
-        return true;
     }
 
     inline void PushReadyTask(int coreType, uint64_t taskId) {
