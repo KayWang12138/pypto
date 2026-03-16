@@ -34,7 +34,6 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <execinfo.h>
-#include "interface/utils/log.h"
 #include "interface/utils/common.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/data_type.h"
