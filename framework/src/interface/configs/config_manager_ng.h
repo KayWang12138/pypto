@@ -396,9 +396,23 @@ private:
 
 namespace config {
 
-void Restore(std::shared_ptr<ConfigScope> config);
 
 std::shared_ptr<ConfigScope> Duplicate();
+
+/**
+ * @brief RAII guard: PushScope on construction, EndScope on destruction.
+ * Use instead of manual Restore + EndScope pair for exception safety.
+ */
+class ScopedRestore {
+public:
+    explicit ScopedRestore(std::shared_ptr<ConfigScope> scope);
+    ~ScopedRestore();
+    ScopedRestore(const ScopedRestore&) = delete;
+    ScopedRestore& operator=(const ScopedRestore&) = delete;
+
+private:
+    // RAII: ctor does PushScope, dtor does EndScope
+};
 
 /**
  * @brief Get code generation configuration option

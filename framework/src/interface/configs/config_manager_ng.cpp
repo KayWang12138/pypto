@@ -535,12 +535,16 @@ template void SetOptionsNg<std::vector<std::string>>(const std::string &key, con
 template void SetOptionsNg<std::vector<double>>(const std::string &key, const std::vector<double> &value);
 
 
-void Restore(std::shared_ptr<ConfigScope> config) {
-    ConfigManagerNg::GetInstance().PushScope(config);
-}
-
 std::shared_ptr<ConfigScope> Duplicate() {
     return ConfigManagerNg::CurrentScope();
+}
+
+ScopedRestore::ScopedRestore(std::shared_ptr<ConfigScope> scope) {
+    ConfigManagerNg::GetInstance().PushScope(std::move(scope));
+}
+
+ScopedRestore::~ScopedRestore() {
+    ConfigManagerNg::GetInstance().EndScope();
 }
 
 }
