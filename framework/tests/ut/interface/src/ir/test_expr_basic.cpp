@@ -190,13 +190,18 @@ TEST(ExprBasicTest, TestGlobalVarWithAttrs) {
 // ============================================================================
 
 TEST(ExprBasicTest, TestGlobalVarPtrLess) {
-    // Test GlobalVarPtrLess comparator
-    auto var1 = std::make_shared<GlobalVar>("aaa");
-    auto var2 = std::make_shared<GlobalVar>("bbb");
+    // Test GlobalVarPtrLess defines a strict weak ordering (required by std::map)
+    auto varA = std::make_shared<GlobalVar>("alpha");
+    auto varB = std::make_shared<GlobalVar>("beta");
 
     GlobalVarPtrLess less;
-    ASSERT_TRUE(less(var1, var2));
-    ASSERT_FALSE(less(var2, var1));
+    // Irreflexivity: !(a < a)
+    ASSERT_FALSE(less(varA, varA));
+    ASSERT_FALSE(less(varB, varB));
+    // Asymmetry: if a < b then !(b < a)
+    bool aLessB = less(varA, varB);
+    bool bLessA = less(varB, varA);
+    ASSERT_TRUE(aLessB != bLessA) << "Different names must be ordered";
 }
 
 TEST(ExprBasicTest, TestGlobalVarPtrLessEqual) {
