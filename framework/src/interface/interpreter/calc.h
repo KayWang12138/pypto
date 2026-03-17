@@ -455,14 +455,14 @@ inline void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
     MatMulParam param = {false, false, 0, 0, 0, nullptr, nullptr}) {
     CalcOps *ops = GetCalcOps();
-    ASSERT(ops != nullptr);
+    ASSERT(ExecuteOperationScene::INVALID_OP_CONTEXT, ops != nullptr);
     ops->MatMul(Trans(out), Trans(self), Trans(other), nullptr, param);
 }
 
 inline void AccMatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
     LogicalTensorDataPtr acc = nullptr, MatMulParam param = {false, false, 0, 0, 0, nullptr, nullptr}) {
     CalcOps *ops = GetCalcOps();
-    ASSERT(ops != nullptr);
+    ASSERT(ExecuteOperationScene::INVALID_OP_CONTEXT, ops != nullptr);
     if (acc == nullptr) {
         ops->MatMul(Trans(out), Trans(self), Trans(other), nullptr, param);
     } else {
