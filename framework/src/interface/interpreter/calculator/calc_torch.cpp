@@ -787,9 +787,10 @@ static void Range(const TensorData &out, const Element &start, const Element &en
     for (int64_t dim : out.shape) {
         expected_numel *= dim;
     }
-    ASSERT(calc_error::CalculatorErrorScene::INVALID_TENSOR_SIZE,
+    ASSERT(calc_error::CalculatorErrorScene::RANGE_NUMEL_MISMATCH,
            tmp.numel() == expected_numel)
-        << "Range numel mismatch: generated " << tmp.numel() << ", expected " << expected_numel;
+        << "Range numel mismatch: generated " << tmp.numel()
+        << ", expected " << expected_numel;
     auto tout = From(out);
     tout.second.copy_(tmp);
     ToOperand(tout.second, tout.first, out.dtype);
@@ -820,7 +821,7 @@ static void CompareImpl(const TensorData &out, const torch::Tensor& tself, const
             tmp_result = torch::ge(tself, other_op);
             break;
         default:
-            ASSERT(calc_error::CalculatorErrorScene::UNSUPPORTED_OPCODE, false)
+            ASSERT(calc_error::CalculatorErrorScene::COMPARE_UNSUPPORTED_TYPE, false)
                 << "Unsupported compare type";
             break;
     }
@@ -828,7 +829,7 @@ static void CompareImpl(const TensorData &out, const torch::Tensor& tself, const
     if (mode == CmpModeType::BIT) {
         if (tmp_result.dim() > 0) {
             int64_t last_dim = tmp_result.size(-1);
-            ASSERT(calc_error::CalculatorErrorScene::INVALID_TENSOR_SHAPE,
+            ASSERT(calc_error::CalculatorErrorScene::BITMODE_LAST_DIM_INVALID,
                    last_dim % NUM_VALUE_8 == 0)
                 << "Last dimension must be divisible by 8 in BIT mode";
 
@@ -906,7 +907,7 @@ static inline int64_t alignup(int64_t x, int64_t align) {
 
 static void FormatND2NZ(const TensorData &out, const TensorData &self) {
     auto &shape = self.shape;
-    ASSERT(calc_error::CalculatorErrorScene::INVALID_TENSOR_SHAPE,
+    ASSERT(calc_error::CalculatorErrorScene::FORMAT_ND2NZ_RANK_LT_2,
            shape.size() >= 0x2)
         << "Input tensor must have at least 2 dimensions";
 
@@ -938,7 +939,7 @@ static void FormatND2NZ(const TensorData &out, const TensorData &self) {
 
 static void FormatNZ2ND(const TensorData &out, const TensorData &self) {
     auto &shape = self.shape;
-    ASSERT(calc_error::CalculatorErrorScene::INVALID_TENSOR_SHAPE,
+    ASSERT(calc_error::CalculatorErrorScene::FORMAT_NZ2ND_RANK_LT_2,
            shape.size() >= 0x2)
         << "Input tensor must have at least 2 dimensions";
 
@@ -1006,9 +1007,9 @@ static void QuantExecute(torch::Tensor &tout, const TensorData *scalePtr, uint64
 }
 
 static void QuantPreCompute(const TensorData &out, const TensorData &self, const TensorData *scalePtr, uint64_t scale, int relu) {
-    ASSERT(calc_error::CalculatorErrorScene::INVALID_OP_CONTEXT,
+    ASSERT(calc_error::CalculatorErrorScene::QUANTPRECOMPUTE_NULL_DATAPTR,
            out.dataPtr != nullptr && self.dataPtr != nullptr);
-    ASSERT(calc_error::CalculatorErrorScene::INVALID_TENSOR_DTYPE,
+    ASSERT(calc_error::CalculatorErrorScene::QUANTPRECOMPUTE_DTYPE_MISMATCH,
            out.dtype == DataType::DT_FP16 && self.dtype == DataType::DT_INT32);
     auto tself = From(self);
     auto tout = From(out);
@@ -1267,7 +1268,7 @@ void GatherMask(const TensorData &out, const TensorData &self, int patternMode) 
             selected_indices = torch::arange(3, last_dim, 4);
             break;
             default:
-            ASSERT(calc_error::CalculatorErrorScene::INVALID_OP_CONTEXT,
+            ASSERT(calc_error::CalculatorErrorScene::GATHERMASK_PATTERNMODE_INVALID,
                    patternMode >= 1 && patternMode <= 7)
                 << "Invalid patternMode";
         }
@@ -1572,7 +1573,7 @@ static void MrgSort(const TensorData &out, const TensorData &self, int64_t axis,
     auto sliceIndices = torch::arange(actShape, torch::dtype(torch::kLong));
     auto tselfHalf = tself.second.index_select(axis, sliceIndices);
 
-    ASSERT(calc_error::CalculatorErrorScene::INVALID_TENSOR_SHAPE,
+    ASSERT(calc_error::CalculatorErrorScene::MRGSORT_AXIS_OUT_OF_RANGE,
            axis >= 0 && axis < tselfHalf.dim())
         << "axis" << axis << " is out of bounds for tensor of dimension " << tselfHalf.dim();
 
@@ -1887,7 +1888,7 @@ bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, to
     int64_t j = loopIdx[1];
     int64_t dataIdx = indices.index({i, j}).item<int64_t>();
 
-    ASSERT(calc_error::CalculatorErrorScene::INVALID_TENSOR_SHAPE, blockSize != 0);
+    ASSERT(calc_error::CalculatorErrorScene::SCATTER_BLOCKSIZE_ZERO, blockSize != 0);
     if (ret.dim() == 2) { // 2 dim
         int64_t srcIdx = i * s + j;
         if ((dataIdx < 0 || dataIdx >= ret.size(0)) || (srcIdx < 0 || srcIdx >= src.size(0))) {
@@ -1919,13 +1920,13 @@ static void ScatterUpdate(const TensorData &out, const TensorData &self, const T
     auto src = From(self);
     auto indices = From(index);
 
-    ASSERT(calc_error::CalculatorErrorScene::INVALID_TENSOR_SHAPE,
+    ASSERT(calc_error::CalculatorErrorScene::SCATTER_INDICES_DIM_INVALID,
            indices.second.dim() == 2);                   // indices should be 2 dim
-    ASSERT(calc_error::CalculatorErrorScene::INVALID_TENSOR_SHAPE,
+    ASSERT(calc_error::CalculatorErrorScene::SCATTER_SRC_RET_DIM_UNSUPPORTED,
            (src.second.dim() == 2) || (src.second.dim() == 4)); // only 2, 4 dim support
-    ASSERT(calc_error::CalculatorErrorScene::INVALID_TENSOR_SHAPE,
+    ASSERT(calc_error::CalculatorErrorScene::SCATTER_SRC_RET_DIM_UNSUPPORTED,
            (ret.second.dim() == 2) || (ret.second.dim() == 4)); // only 2, 4 dim support
-    ASSERT(calc_error::CalculatorErrorScene::INVALID_TENSOR_SHAPE,
+    ASSERT(calc_error::CalculatorErrorScene::SCATTER_SRC_RET_DIM_MISMATCH,
            src.second.dim() == ret.second.dim());
 
     int64_t b = indices.second.size(0);
