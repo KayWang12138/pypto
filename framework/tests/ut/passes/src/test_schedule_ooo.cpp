@@ -2255,6 +2255,7 @@ TEST_F(ScheduleOoOTest, TestMixGraphAndDAV_3510) {
     EXPECT_EQ(oooSchedule.RunOnFunction(*rootFuncPtr), SUCCESS);
     Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
 }
+
 TEST_F(ScheduleOoOTest, TestCreateSpillCopyout) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"L0A", "L0C", "L1"};
@@ -2276,6 +2277,8 @@ TEST_F(ScheduleOoOTest, TestCreateSpillCopyout) {
     oooSchedule.Init(sort.operations);
     IssueEntryPtr l0cCopyL1 = GetIssueEntry("L0C_L1", subGraph, oooSchedule);
     IssueEntryPtr copyIn = GetIssueEntry("copy_in", subGraph, oooSchedule);
+    Element scaleValue = Element(DataType::DT_UINT64, 0);
+    l0cCopyL1->tileOp.SetAttribute(OpAttributeKey::scaleValue, scaleValue);
     SpillInfo spillInfo;
     InitSpillInfo(spillInfo, 0, l0cCopyL1);
     IssueEntryPtr spillCopyout = nullptr;
@@ -2284,4 +2287,14 @@ TEST_F(ScheduleOoOTest, TestCreateSpillCopyout) {
     EXPECT_EQ(res, SUCCESS);
 }
 
+TEST_F(ScheduleOoOTest, TestCopyModeFailed) {
+    ComputationalGraphBuilder subGraph;
+    Function *function = subGraph.GetFunction();
+    OoOScheduler ooOSchedule(*function);
+    auto copyInOp = std::make_shared<Operation>(*function, Opcode::OP_COPY_IN);
+    Status res = ooOSchedule.UpdateCopyOutMode(*copyInOp);
+    EXPECT_EQ(res, FAILED);
+    res = ooOSchedule.UpdateCopyInMode(*copyInOp);
+    EXPECT_EQ(res, FAILED);
+}
 } // namespace npu::tile_fwk

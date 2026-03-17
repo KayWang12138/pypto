@@ -389,7 +389,7 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, IssueEntry
     reshapeOp.UpdateLatency(1);
     auto spillReshapeIssue = UpdateIssueAttr(reshapeOp, {reshapeTensor->memoryrange.memId, reshapeTensor->memoryrange.memId}, allocIssue, bufNextUseOrder, isGenSpill);
     APASS_LOG_DEBUG_F(Elements::Operation, "Add SPILL_ALLOC: %s.", spillAllocIssue->GetOpInfo().c_str());
-    APASS_LOG_DEBUG_F(Elements::Operation, "Add SPILL_COPY_IN: %s.", spillCopyInIssue->GetOpInfo().c_str());
+    APASS_LOG_DEBUG_F(Elements::Operation, "Add SPILL_IN: %s.", spillCopyInIssue->GetOpInfo().c_str());
     APASS_LOG_DEBUG_F(Elements::Operation, "Add SPILL_RESHAPE: %s.", spillReshapeIssue->GetOpInfo().c_str());
     return SUCCESS;
 }
@@ -525,36 +525,45 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
 }
 
 Status OoOScheduler::UpdateCopyOutMode(Operation &copyOutOp) {
-    // A5 上 L0C_COPY_OUT 设置为 NZ_NZ, A2/A3 上 L1_COPY_OUT 设置为 ND_ND
+    // A5 上 L0C_COPY_OUT 设置为 NZ_ND, A2/A3 上 L1_COPY_OUT 设置为 ND_ND
     auto input = copyOutOp.GetInputOperand(0);
     if (!input) {
         APASS_LOG_ERROR_F(Elements::Operation, "CopyOutOp %s[%d] does not have inputOperand", copyOutOp.GetOpcodeStr().c_str(), copyOutOp.GetOpMagic());
         return FAILED;
     }
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && copyOutOp.GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
-        copyOutOp.SetAttribute(OpAttributeKey::copyIsNZ, 1);
-    } else if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && copyOutOp.GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-        copyOutOp.SetAttribute(OpAttributeKey::copyOutMode, static_cast<int64_t>(Matrix::CopyOutMode::ND2ND));
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        if (copyOutOp.GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
+            copyOutOp.SetAttribute(OpAttributeKey::copyIsNZ, 0);
+        }
+    } else {
+        if (copyOutOp.GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+            copyOutOp.SetAttribute(OpAttributeKey::copyOutMode, static_cast<int64_t>(Matrix::CopyOutMode::ND2ND));
+        }
     }
     return SUCCESS;
 }
 
 Status OoOScheduler::UpdateCopyInMode(Operation &copyInOp) {
-    // A5 上 L1_COPY_IN 设置为 NZ_NZ, A2/A3 上 L1_COPY_IN 设置为 ND_ND
+    // A5 上 L1_COPY_IN 设置为 ND_NZ, A2/A3 上 L1_COPY_IN 设置为 ND_ND
     auto output = copyInOp.GetOutputOperand(0);
     if (!output) {
         APASS_LOG_ERROR_F(Elements::Operation, "CopyInOp %s[%d] does not have outputOperand", copyInOp.GetOpcodeStr().c_str(), copyInOp.GetOpMagic());
         return FAILED;
     }
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && copyInOp.GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-        copyInOp.SetAttribute(OpAttributeKey::copyInMode, static_cast<int64_t>(Matrix::CopyInMode::NZ2NZ));
-    } else if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && copyInOp.GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-        copyInOp.SetAttribute(OpAttributeKey::copyInMode, static_cast<int64_t>(Matrix::CopyInMode::ND2ND));
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        if (copyInOp.GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+            copyInOp.SetAttribute(OpAttributeKey::copyInMode, static_cast<int64_t>(Matrix::CopyInMode::ND2NZ));
+        }
+    } else {
+        if (copyInOp.GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+            copyInOp.SetAttribute(OpAttributeKey::copyInMode, static_cast<int64_t>(Matrix::CopyInMode::ND2ND));
+        }
     }
     return SUCCESS;
 }
 
 Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr &spillCopyout, int &bufLastUseOrder, bool &isFinish) {
+    APASS_LOG_DEBUG_F(Elements::Operation, "Start to spill special L1 in A5.");
     auto spillIssue = spillInfo.spillIssue_;
     auto preTensor = spillIssue->tileOp.GetInputOperand(0);
     if (spillIssue->tileOp.GetOpcode() != Opcode::OP_RESHAPE && preTensor->GetMemoryTypeOriginal() != MemoryType::MEM_UB && preTensor->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
@@ -904,7 +913,7 @@ Status OoOScheduler::GetSpillInfo(IssueEntryPtr allocIssue, int spillMemId, bool
         APASS_LOG_ERROR_F(Elements::Operation, "%s GetSpillTensor failed! %s", spillIssue->GetOpInfo().c_str(), GetFormatBacktrace(spillIssue->tileOp).c_str());
         return FAILED;
     }
-    APASS_LOG_DEBUG_F(Elements::Operation, "Begin spill %s tensor[%d].", spillIssue->GetOpInfo().c_str(), spillMemId);
+    APASS_LOG_DEBUG_F(Elements::Operation, "Begin spill %s tensor[%d]!", spillIssue->GetOpInfo().c_str(), spillMemId);
     LogicalTensorPtr ddrTensor = nullptr;
     spillInfo.ddrTensor_ = ddrTensor;
     spillInfo.spillTensor_ = spillTensor;
@@ -1241,7 +1250,7 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
 }
 
 Status OoOScheduler::GenSpillOp(size_t &pcIdx) {
-    APASS_LOG_DEBUG_F(Elements::Operation, "START: SPILL tensor.");
+    APASS_LOG_DEBUG_F(Elements::Operation, "START: SPILL tensor!");
     LocalBufferPtr allocBuffer = localBufferMap[issueEntries[pcIdx]->reqMemIds[0]];
     if (allocBuffer->memType != MemoryType::MEM_L1 && allocBuffer->memType != MemoryType::MEM_UB) {
         if (PrintSpillFailedInfo(issueEntries[pcIdx], true) != SUCCESS) {
@@ -1262,7 +1271,7 @@ Status OoOScheduler::GenSpillOp(size_t &pcIdx) {
             return FAILED;
         }
     }	
-    APASS_LOG_DEBUG_F(Elements::Operation, "END: SPILL tensor.");	
+    APASS_LOG_DEBUG_F(Elements::Operation, "END: SPILL tensor!");
     return SUCCESS;	
 }
 
