@@ -39,12 +39,12 @@ TupleGetItemExpr::TupleGetItemExpr(ExprPtr tuple, int index, Span span)
     // Type checking: tuple must have TupleType
     auto tupleType = As<TupleType>(tuple_->GetType());
     INTERNAL_CHECK(tupleType) << "TupleGetItemExpr requires tuple to have TupleType, got "
-                              << tuple_->GetType()->TypeName();
+                              << tuple_->GetType()->TypeName() << " at " << span_.ToString();
 
     // Bounds checking
     INTERNAL_CHECK(index >= 0 && index < static_cast<int>(tupleType->types_.size()))
         << "TupleGetItemExpr index " << index << " out of bounds for tuple with " << tupleType->types_.size()
-        << " elements";
+        << " elements at " << span_.ToString();
 
     // Set result type to the accessed element's type
     type_ = tupleType->types_[index];
