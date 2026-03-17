@@ -216,11 +216,11 @@ private:
         DeviceInitDistributedContext(memoryHelper, dynAttr->commGroupNames, kArgs);
         DeviceInitTilingData(memoryHelper, kArgs, dynAttr->devProgBinary, nullptr, config_, nullptr);
         InitKernelInOuts(kArgs, inputs, outputs, true);
-        RunCostModel(&kArgs);
-        SIMULATION_LOGI("Run TestModel");
-        RunTestMode(&kArgs, DEVICE_MAX_AICPU_NUM);
-        SIMULATION_LOGI("Run DynCostModel");
-        RunDynCostModel();
+        // RunCostModel(&kArgs);
+        // SIMULATION_LOGI("Run TestModel");
+        // RunTestMode(&kArgs, DEVICE_MAX_AICPU_NUM);
+        // SIMULATION_LOGI("Run DynCostModel");
+        // RunDynCostModel();
         SIMULATION_LOGI("Run PvModel");
 #ifdef BUILD_WITH_CANN
         RunPvModel(kArgs, inputs, outputs);
