@@ -26,6 +26,8 @@ namespace CostModel
         virtual ~PipeMachineImpl() = default;
         virtual uint64_t Simulate(const TileOpPtr &tileOp) = 0;
         virtual uint64_t PostSimulate(const TileOpPtr &tileOp) = 0;
+        virtual uint64_t SimulateForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype) = 0;
+        virtual uint64_t PostSimulateForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype) = 0;
     };
 
     struct UnifiedDeleter {

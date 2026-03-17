@@ -34,6 +34,18 @@ namespace CostModel
             }
             return 1;
         }
+        uint64_t SimulateForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype) override {
+            if (op == "" || !shape.size() || !dtype) {
+                return 0;
+            }
+            return 0;
+        };
+        uint64_t PostSimulateForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype) override {
+            if (op == "" || !shape.size() || !dtype) {
+                return 0;
+            }
+            return 0;
+        };
     };
 
     inline UnifiedPipeMachinePtr CreateCallPipeImpl() {
