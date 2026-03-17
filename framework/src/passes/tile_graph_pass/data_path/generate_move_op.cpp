@@ -400,6 +400,13 @@ void GenerateMoveOp::InsertCopyDDROp(Function &function, Operation *needInsertCo
 
     LogicalTensor copyInOutput(function, input->Datatype(), copyShape);
     copyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB));
+    auto memType = copyInOutput->GetMemoryTypeOriginal();
+    if ((memType == MemoryType::MEM_UB) && (copyInOutput->GetDataSize() > UB_SIZE_THRESHOLD)) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Tensor %d exceeds the UB size limit.", assembleOut->magic);
+        return;
+    }
+}
     auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
     auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {input}, {copyInOutputPtr});
     copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
@@ -461,13 +468,16 @@ void GenerateMoveOp::FindNeedToCopyAssemble(std::unordered_set<Operation*> &need
  */
 void GenerateMoveOp::InsertAssembleCopy(Function &function) {
     std::unordered_set<int> visitedAssOps;
-    std::unordered_set<Operation*> needInsertCopyAssOps;
+    std::unordered_set<Operation *> needInsertCopyAssOps;
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
             FindNeedToCopyAssemble(needInsertCopyAssOps, visitedAssOps, op);
         }
     }
-    for (auto &needInsertCopyAssOp : needInsertCopyAssOps) {
+    std::vector<Operation *> sortedOps(needInsertCopyAssOps.begin(), needInsertCopyAssOps.end());
+    std::sort(sortedOps.begin(), sortedOps.end(),
+        [](const Operation *a, const Operation *b) { return a->GetOpMagic() < b->GetOpMagic(); });
+    for (auto &needInsertCopyAssOp : sortedOps) {
         auto input = needInsertCopyAssOp->GetIOperands()[0];
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
             InsertCopyUBOp(function, needInsertCopyAssOp, input);
