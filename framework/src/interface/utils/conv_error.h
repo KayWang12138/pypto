@@ -39,8 +39,14 @@ enum class ConvExpandFuncError : uint32_t {
 enum class CodenGenError : uint32_t {
 };
 
+enum class ConvTileOpError : uint32_t {
+    TILE_OP_TENSOR_FORMAT_INVALID       = 6401U,
+    TILE_OP_SHAPE_SIZE_INVALID          = 6402U,
+    TILE_OP_STATIC_SHAPE_INVALID        = 6402U,
+    TILE_OP_SHAPE_STRIDE_INDEX_INVALID  = 6402U,
+    UNKNOWN                             = 6499U
+};
 
-// 临时，框架会提供公共的ASSERT，CHECK，xxx_LOGE 宏
 static inline void conv_snprintf(char* buf, size_t bufSize, const char* fmt, ...) {
     if (buf == nullptr || bufSize == 0 || fmt == nullptr) {
         return;
@@ -57,7 +63,7 @@ static inline void conv_snprintf(char* buf, size_t bufSize, const char* fmt, ...
 #define CONV_CHECK(error_code, cond, fmt, ...) \
     do { \
         if (!(cond)) { \
-            CONV_LOGE("[ERR-FC%d] " fmt, static_cast<int>(error_code), ##__VA_ARGS__); \
+            CONV_LOGE_E(error_code, fmt, ##__VA_ARGS__); \
             return FAILED; \
         } \
     } while (0)
@@ -66,10 +72,10 @@ static inline void conv_snprintf(char* buf, size_t bufSize, const char* fmt, ...
 #define CONV_ASSERT(error_code, cond, fmt, ...) \
     do { \
         if (!(cond)) { \
-            CONV_LOGE("[FC%d] " fmt, static_cast<int>(error_code), ##__VA_ARGS__); \
+            CONV_LOGE_E(error_code, fmt, ##__VA_ARGS__); \
             char err_msg[1024] = {0}; \
             conv_snprintf(err_msg, sizeof(err_msg), fmt, ##__VA_ARGS__); \
-            ASSERT(false) << "[FC" << static_cast<int>(error_code) << "] " << err_msg; \
+            ASSERT(error_code, false) << err_msg; \
         } \
     } while (0)
 

@@ -197,5 +197,6 @@ private:
 #define CONV_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO,  CONV, __VA_ARGS__)
 #define CONV_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN,  CONV, __VA_ARGS__)
 #define CONV_LOGE(...) PYPTO_HOST_LOG(DLOG_ERROR, CONV, __VA_ARGS__)
+#define CONV_LOGE_E(errCode, fmt, ...) PYPTO_HOST_LOGE(CONV, errCode, fmt, ##__VA_ARGS__)
 
 #endif
