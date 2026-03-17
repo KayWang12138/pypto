@@ -15,6 +15,7 @@
 
 #include "derivation_tile_shape.h"
 #include <queue>
+#include "passes/pass_utils/pass_utils.h"
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "DerivationTileShape"
