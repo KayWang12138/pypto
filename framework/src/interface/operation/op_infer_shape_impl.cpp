@@ -206,6 +206,21 @@ void IndexOutCastInferFunc(Operation* op,
     for (auto output : op->GetOOperands()) {
         outValidShapes.push_back(outValidShape);
     }
+    
+    auto input = op->GetIOperands()[2];
+    auto indexOutCastOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+    if (indexOutCastOpAttribute == nullptr) {
+        indexOutCastOpAttribute = std::make_shared<CopyOpAttribute>(
+            input->GetMemoryTypeOriginal(),
+            OpImmediate::Specified(input->GetOffset()),
+            OpImmediate::Specified(input->GetShape()),
+            OpImmediate::Specified(input->tensor->GetDynRawShape()),
+            OpImmediate::Specified(input->GetDynValidShape())
+        );
+    } else {
+        indexOutCastOpAttribute->SetFromDynValidShape(OpImmediate::Specified(input->GetDynValidShape()));
+    }
+    op->SetOpAttribute(indexOutCastOpAttribute);
 }
 REGISTER_INFER_SHAPE_FUNC(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, IndexOutCastInferFunc);
 
