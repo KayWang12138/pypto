@@ -67,12 +67,16 @@ void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTenso
 void BroadcastOperandTensor(LogicalTensorPtr &operand, LogicalTensorPtr &other, LogicalTensorPtr result,
                                       Function& function, const TileShape& tileShape, bool withBrc) {
     auto dstShape = result->shape;
+    size_t shapeSize = result->shape.size();
     if (operand->shape == dstShape) {
         return;
     }
     if (withBrc) {
+        if (operand->shape[shapeSize - 1] == dstShape[shapeSize - 1]) {
+            return;
+        }
         dstShape = operand->shape;
-        dstShape[operand->shape.size() - 1] = result->shape[operand->shape.size() - 1];
+        dstShape[shapeSize - 1] = result->shape[shapeSize - 1];
     }
     auto expanded = std::make_shared<LogicalTensor>(function, operand->Datatype(), dstShape);
     Expand(function, tileShape, operand, {other}, expanded);
