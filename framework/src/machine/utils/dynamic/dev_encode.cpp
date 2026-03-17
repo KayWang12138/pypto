@@ -2674,6 +2674,7 @@ void EncodeDevAscendProgram(Function* func, uint64_t& offset, DevAscendProgram* 
         base->memBudget.debug.leafDump = LeafDumpWorkspace();
         MACHINE_LOGD("base->memBudget.metadata.stitchPool is %lu.", base->memBudget.metadata.stitchPool);
         MACHINE_LOGD("base->memBudget.aicoreSpilled is %lu.", base->memBudget.aicoreSpilled);
+        base->SetParallelism(func->GetDyndevAttribute()->supportParallel ? SCH_DEVTASK_MAX_PARALLELISM : 1);
         func->GetDyndevAttribute()->maxDynamicAssembleOutcastMem = tensorWsRes.maxDynamicAssembleOutcastMem;
     }
 }
@@ -2690,7 +2691,9 @@ void DevControlFlowCache::Init(
     uint64_t slottedCount =
         dyndevAttr->inoutLink.totalSlot *
         (std::min((uint32_t)EstimatedStitchingCount(), stitchMaxFunctionNum) + SLOTS_NEED_ALLOC_SIZE);
-    runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.HostInitDataSizeOffset(initOffset, slottedCount);
+    for (uint32_t i = 0; i < SCH_DEVTASK_MAX_PARALLELISM; i++) {
+        runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList[i].HostInitDataSizeOffset(initOffset, slottedCount);
+    }
 
     runtimeBackup.slotContext.slotList.HostInitDataSizeOffset(initOffset, dyndevAttr->inoutLink.totalSlot);
     runtimeBackup.workspace.runtimeOutcastTensorPool.HostInitDataSizeOffset(initOffset, runtimeOutcastPoolSize);
