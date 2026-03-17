@@ -276,16 +276,9 @@ void RecordLoopFunc::BeginLoopFunction() {
     if (!Program::GetInstance().GetLoopStack().empty()) {
         funcParallelAttr = Program::GetInstance().GetLoopStack()[Program::GetInstance().GetLoopStack().size() - 2].get().GetParallelFor() ? Parallel_Mode::CHILD : funcParallelAttr;
     }
-    std::cout << "funcParallelAttr value is! " << funcParallelAttr << " raw name is " << currentLoopFunc_->GetRawName() << std::endl;
     auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, funcParallelAttr);
     currentLoopFunc_->SetDynloopAttribute(attr);
     currentLoopFunc_->SetSourceLocation(location_);
-    for (auto item : Program::GetInstance().GetLoopStack()) {
-        auto loopFunc = item.get().GetLoopUnrollFunctions();
-        for (auto func : loopFunc) {
-            std::cout << "func parallelFor attr is! " << func->GetDynloopAttribute()->parallelFor << " raw name is " << func->GetRawName() << std::endl;
-        }
-    }
 }
 
 void RecordLoopFunc::EndLoopFunction() {
