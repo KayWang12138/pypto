@@ -1,0 +1,23 @@
+{
+    "build_folder": "pypto-tune_tool",
+    "test_name": "models/glm_v4_5/glm_moe_fusion.py",
+    "results_folder": "measurements",
+    "save_best_k": 100,
+    "repeats": 5, 
+
+    "files": [
+        {
+            "models/glm_v4_5/glm_moe_fusion.py": [
+                {
+                    "line": 119,
+                    "string": "\"cube_l1_reuse_setting\" : {{ {l1_reuse_118[0]}: {l1_reuse_118[1]} }}",
+                    "l1_reuse_118": [
+                        [-1, 2],
+                        [-1, 8],
+                        [-1, 16]
+                    ]
+                }
+            ]
+        }
+    ]
+}
