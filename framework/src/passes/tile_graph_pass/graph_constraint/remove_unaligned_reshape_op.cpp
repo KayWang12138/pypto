@@ -204,8 +204,6 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &funct
     bool hasNonImmediate = false;
     auto changedDims = FindChangedDims(output->shape, input->shape);
     for (const auto &dim : changedDims) {
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Reshape[%d] Input[%ld] %s dyn[]", op.GetOpMagic(), dim, inDynValidShape[dim].IsImmediate() ? "is" : "is not");
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Reshape[%d] Output[%ld] %s dyn[]", op.GetOpMagic(), dim, outDynValidShape[dim].IsImmediate() ? "is" : "is not");
         if ((size_t)dim >= outDynValidShape.size()) {
             APASS_LOG_WARN_F(Elements::Operation, "The dynValidShape of output[%d] of op[%d] has no [%ld] index.", output->GetMagic(), op.GetOpMagic(), static_cast<long>(dim));
             break;
@@ -233,10 +231,10 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &funct
         bool hasViewOrAssemble = false;
         FindAllConsumerCopyIns(output, copyInOps, hasViewOrAssemble);
         if (hasViewOrAssemble) {
-            APASS_LOG_WARN_F(Elements::Operation, "Reshape op %d is has view or assemble between reshape and copy in, not supported now.", op.GetOpMagic());
+            APASS_LOG_WARN_F(Elements::Operation, "Reshape op %d has view or assemble between reshape and copy in, not supported now.", op.GetOpMagic());
             return;
         }
-         if (copyInOps.empty()) {
+        if (copyInOps.empty()) {
             APASS_LOG_WARN_F(Elements::Operation, "Cannot find copy_in consumers for reshape op %d.", op.GetOpMagic());
             return;
         }
@@ -386,9 +384,6 @@ void RemoveUnalignedReshape::FindAllConsumerCopyIns(
             copyInOps.push_back(consumerOp);
         } else if (opcode == Opcode::OP_VIEW || opcode == Opcode::OP_ASSEMBLE || opcode == Opcode::OP_ASSEMBLE_SSA) {
             hasViewOrAssemble = true;
-            APASS_LOG_ERROR_F(Elements::Operation,
-                "Found OP_VIEW or OP_ASSEMBLE between reshape and copy_in, op %d, not supported.",
-                consumerOp->GetOpMagic());
         }
     }
 }
