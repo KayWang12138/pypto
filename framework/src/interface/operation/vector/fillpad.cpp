@@ -25,7 +25,7 @@ void TiledFillPadOperation(
     if (cur == input.tensor.GetShape().size()) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        auto &op = function.AddOperation(OP_FILLPAD, {tile}, {resultTile});
+        auto &op = function.AddOperation(Opcode::OP_FILLPAD, {tile}, {resultTile});
         op.SetAttribute(OpAttributeKey::scalar, padValue);
         return;
     }
@@ -33,7 +33,7 @@ void TiledFillPadOperation(
     for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
         input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
-        TiledFillPadOperation(function, tileShape, cur + 1, input, result);
+        TiledFillPadOperation(function, tileShape, cur + 1, input, result, padValue);
     }
 }
 
@@ -43,7 +43,7 @@ void TiledFillPadOperation(
 
     TileInfo tileInfo(result->shape.size(), result->offset.size());
     auto input = Input{operand, tileInfo};
-    TiledFillPadOperation(function, tileShape, 0, input, result);
+    TiledFillPadOperation(function, tileShape, 0, input, result, padValue);
 }
 
 LogicalTensorPtr TensorFillPadOperation(
