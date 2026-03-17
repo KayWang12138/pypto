@@ -1745,11 +1745,18 @@ void DevAscendProgram::InitCceCodeList(uintdevptr_t &initOffset, const std::vect
     aicpuLeafCodeDataList.HostInitDataSizeOffset(initOffset, offset);
 }
 
-void DevAscendProgram::InitPrefetchInfoList(uintdevptr_t &initOffset, const std::vector<L2Info> &l2InfoList,
-    bool fillContent) {
-    prefetchInfoList.HostInitDataSizeOffset(initOffset, l2InfoList.size());
-    for (size_t index = 0; index < l2InfoList.size(); index++) {
-        ONFILLCONTENT { memcpy_s(&prefetchInfoList[index], sizeof(PrefetchInfo), &l2InfoList[index], sizeof(L2Info)); };
+void DevAscendProgram::InitPrefetchInfoList(const std::vector<L2Info> &l2InfoList, bool fillContent) {
+    l2Info.prefetchNum = 0;
+    for (size_t i = 0; i < l2InfoList.size(); i++) {
+        ONFILLCONTENT {
+        if (l2Info.prefetchNum == MAX_PREFETCH_NUM) {
+            break;
+        }
+        l2Info.prefetchSize[l2Info.prefetchNum] = l2InfoList[i].tensorSize;
+        l2Info.prefetchIdx[l2Info.prefetchNum] = l2InfoList[i].tensorIdx;
+        ALOG_DEBUG_F("Add prefetch tensor idx:%lu with size:%lu.", l2InfoList[i].tensorIdx, l2InfoList[i].tensorSize);
+        l2Info.prefetchNum++;
+        };
     }
     return;
 }
@@ -2015,7 +2022,7 @@ struct EncodeDevAscendProgramInfo {
                 dyndevAttr->slotRootOutcastDict,
                 dyndevAttr->inoutLink.partialUpdateSlotIdexList,
                 fillContent);
-        devProg->InitPrefetchInfoList(initOffset, dyndevAttr->l2InfoList, fillContent);
+        devProg->InitPrefetchInfoList(dyndevAttr->l2InfoList, fillContent);
         devProg->InitDisableL2List(initOffset, dyndevAttr->disableL2List, fillContent);
 
         // control flow cache is always at the back of the program. So it should be the last.

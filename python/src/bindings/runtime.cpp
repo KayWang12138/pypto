@@ -623,6 +623,12 @@ public:
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         ret = DeviceLauncher::LaunchAicoreKernel(aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
+
+        auto cmoStream = (aclrtStream)machine::GetRA()->GetCmoStream();
+        if (cmoStream != nullptr) {
+            ret = DeviceLauncher::LaunchCmoKernel(cmoStream);
+            ASSERT(ret == RT_ERROR_NONE) << "launch cmoStream failed: " << ret;
+        }
     }
 
     void EmulationLaunch(KernelBinary *kernel, std::vector<DeviceTensorData> &tensors) {
