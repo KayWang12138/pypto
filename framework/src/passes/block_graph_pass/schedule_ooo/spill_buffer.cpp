@@ -23,6 +23,13 @@ namespace npu::tile_fwk {
 constexpr int32_t TWO_ISSUE = 2;
 constexpr int32_t DEFAULT_LATENCY = 511;
 
+namespace {
+bool IsSupportedPartialWriteProducer(const Operation &op)
+{
+    return op.GetOpcode() == Opcode::OP_ASSEMBLE || op.GetOpcode() == Opcode::OP_L0C_TO_L1;
+}
+} // namespace
+
 OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(MemoryType bufferType, int memId,
     LocalBufferPtr allocBuffer, LogicalTensorPtr spillOutTensor, bool needCopyOut) {
     OoOSchedulerCheck::SpillInfo spillInfo;
@@ -702,9 +709,9 @@ Status OoOScheduler::SpillBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue,
 
 Status OoOScheduler::FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vector<IssueEntryPtr> &assembleList) {
     for (auto producer : spillInfo.spillTensor_->GetProducers()) {
-        if (producer->GetOpcode() != Opcode::OP_ASSEMBLE) {
+        if (!IsSupportedPartialWriteProducer(*producer)) {
             APASS_LOG_ERROR_F(Elements::Operation, 
-                "All producer of Tensor[%d] must be assemble, now has %s[%d].",
+                "All producer of Tensor[%d] must be supported partial-write op, now has %s[%d].",
                 spillInfo.spillTensor_->GetMagic(), producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
             return FAILED;
         }
@@ -748,7 +755,7 @@ void OoOScheduler::GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t &b
 }
 
 LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
-    SpillInfo &spillInfo, std::shared_ptr<AssembleOpAttribute> assembleAttr) {
+    SpillInfo &spillInfo, const std::vector<int64_t> &toOffset) {
     LogicalTensorPtr localTensor = std::make_shared<LogicalTensor>(
         function_, iOperand->Datatype(), iOperand->shape, iOperand->Format());
     localTensor->SetMemoryTypeToBe(assembleTensor->GetMemoryTypeToBe());
@@ -757,7 +764,7 @@ LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperan
     localTensor->tensor = assembleTensor->tensor;
     localTensor->memoryrange.memId = assembleTensor->memoryrange.memId;
     localTensor->UpdateDynValidShape(spillInfo.spillTensor_->GetDynValidShape());
-    localTensor->offset = assembleAttr->GetToOffset();
+    localTensor->offset = toOffset;
     tensorAllocCoreMap[localTensor->memoryrange.memId] = tensorAllocCoreMap[iOperand->memoryrange.memId];
     return localTensor;
 }
@@ -777,11 +784,53 @@ IssueEntryPtr OoOScheduler::UpdateIssueAttr(Operation &newOp, std::vector<int> m
     return newIssue;
 }
 
-Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr assemble, 
+Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr producerIssue,
     LogicalTensorPtr assembleTensor, bool &isFirst, bool isGenSpill) {
-    auto iOperand = assemble->tileOp.GetInputOperand(0);
-    auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(assemble->tileOp.GetOpAttribute());
-    LogicalTensorPtr localTensor = CreateAssemblePartTensor(iOperand, assembleTensor, spillInfo, assembleAttr);
+    auto &producerOp = producerIssue->tileOp;
+    auto iOperand = producerOp.GetInputOperand(0);
+    MemoryType from = MemoryType::MEM_UNKNOWN;
+    std::vector<int64_t> toOffset;
+    std::vector<SymbolicScalar> toDynOffset;
+    std::vector<SymbolicScalar> fromDynValidShape;
+    if (producerOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
+        auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(producerOp.GetOpAttribute());
+        if (assembleAttr == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Invalid AssembleOpAttribute. %s",
+                GetFormatBacktrace(producerOp).c_str());
+            return FAILED;
+        }
+        from = assembleAttr->GetFrom();
+        toOffset = assembleAttr->GetToOffset();
+        toDynOffset = assembleAttr->GetToDynOffset();
+        fromDynValidShape = assembleAttr->GetFromDynValidShape();
+    } else if (producerOp.GetOpcode() == Opcode::OP_L0C_TO_L1) {
+        auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(producerOp.GetOpAttribute());
+        if (copyAttr == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Invalid CopyOpAttribute. %s",
+                GetFormatBacktrace(producerOp).c_str());
+            return FAILED;
+        }
+        toOffset.reserve(copyAttr->GetToOffset().size());
+        for (const auto &offsetImm : copyAttr->GetToOffset()) {
+            if (!offsetImm.IsSpecified() || !offsetImm.GetSpecifiedValue().ConcreteValid()) {
+                APASS_LOG_ERROR_F(Elements::Operation,
+                    "L0C_TO_L1 replay only supports static concrete toOffset. %s",
+                    GetFormatBacktrace(producerOp).c_str());
+                return FAILED;
+            }
+            toOffset.push_back(static_cast<int64_t>(offsetImm.GetSpecifiedValue()));
+        }
+        from = iOperand->GetMemoryTypeOriginal();
+        fromDynValidShape = iOperand->GetDynValidShape();
+        if (fromDynValidShape.empty() && !copyAttr->GetToDynValidShape().empty()) {
+            fromDynValidShape = OpImmediate::ToSpecified(copyAttr->GetToDynValidShape());
+        }
+    } else {
+        APASS_LOG_ERROR_F(Elements::Operation, "Unsupported producer in SpillParticalBuffer. %s",
+            GetFormatBacktrace(producerOp).c_str());
+        return FAILED;
+    }
+    LogicalTensorPtr localTensor = CreateAssemblePartTensor(iOperand, assembleTensor, spillInfo, toOffset);
     int bufNextUseOrder = GetBufNextUseOrder(allocIssue, spillInfo.spillMemId_);
     if (bufNextUseOrder == -1) {
         APASS_LOG_ERROR_F(Elements::Operation, "Get Tensor[%d] next use order failed.", spillInfo.spillMemId_);
@@ -797,8 +846,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         numTotalIssues++;
     }
     // copyin
-    std::vector<int64_t> offset = assembleAttr->GetToOffset();
-    int64_t gmRelatOffset = CalcWorkspaceOffset(assembleTensor->GetShape(), assembleAttr->GetToOffset());
+    int64_t gmRelatOffset = CalcWorkspaceOffset(assembleTensor->GetShape(), toOffset);
     if (gmRelatOffset == -1) {
         APASS_LOG_ERROR_F(Elements::Operation, "CalcWorkspaceOffset failed.");
         return FAILED;
@@ -807,7 +855,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
     int64_t base = 0;
     GetWorkspaceBaseOffset(spillInfo.ddrTensor_, base);
     spillCopyInOp.SetAttr(OpAttributeKey::workspaceBaseOffset, gmRelatOffset + base);
-    spillCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
+    spillCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(toOffset),
                 iOperand->GetMemoryTypeOriginal(), OpImmediate::Specified(iOperand->GetShape()),
                 OpImmediate::Specified(assembleTensor->tensor->GetDynRawShape())));
     spillCopyInOp.UpdateLatency(DEFAULT_LATENCY);
@@ -818,8 +866,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
     UpdateIssueAttr(spillCopyInOp, {assembleTensor->memoryrange.memId}, allocIssue, bufNextUseOrder, isGenSpill);
     // assemble
     auto &assembleOp = function_.AddRawOperation(Opcode::OP_ASSEMBLE, {localTensor}, {assembleTensor});
-    assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(assembleAttr->GetFrom(), 
-        assembleAttr->GetToOffset(), assembleAttr->GetToDynOffset(), assembleAttr->GetFromDynValidShape()));
+    assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(from, toOffset, toDynOffset, fromDynValidShape));
     assembleOp.UpdateLatency(1);
     UpdateIssueAttr(assembleOp, {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId}, allocIssue, bufNextUseOrder, isGenSpill);
     numTotalIssues += TWO_ISSUE;
@@ -877,24 +924,40 @@ Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         }
     }
     std::vector<IssueEntryPtr> assembleList;
-    FindAssembleWithSpillTensor(spillInfo, assembleList);
+    if (FindAssembleWithSpillTensor(spillInfo, assembleList) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "FindAssembleWithSpillTensor failed.");
+        return FAILED;
+    }
     Operation *memIdAlloc = nullptr;
     for (auto assemble : assembleList) {
+        if (assemble->tileOp.GetOpcode() != Opcode::OP_ASSEMBLE) {
+            continue;
+        }
         for (auto producer : assemble->tileOp.ProducerOps()) {
             if (producer->GetOpcodeStr().find("ALLOC") != std::string::npos) {
                 memIdAlloc = producer;
+                break;
             }
         }
+        if (memIdAlloc != nullptr) {
+            break;
+        }
     }
+    bool isAllocHandoffDone = false;
     bool isFirst = true;
-    for (auto assemble : assembleList) {
-        if (assemble->isRetired) {
-            if (isFirst) {
-                memIdAlloc->UpdateOutputOperand(0, assemble->tileOp.GetInputOperand(0));
+    for (auto producerIssue : assembleList) {
+        if (producerIssue->isRetired) {
+            if (!isAllocHandoffDone && memIdAlloc != nullptr && producerIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
+                memIdAlloc->UpdateOutputOperand(0, producerIssue->tileOp.GetInputOperand(0));
+                isAllocHandoffDone = true;
             }
-            SpillParticalBuffer(spillInfo, allocIssue, assemble, assembleTensor, isFirst, isGenSpill);
+            if (SpillParticalBuffer(spillInfo, allocIssue, producerIssue, assembleTensor, isFirst, isGenSpill) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "SpillParticalBuffer failed. %s",
+                    GetFormatBacktrace(producerIssue->tileOp).c_str());
+                return FAILED;
+            }
         } else {
-            assemble->tileOp.ReplaceOutput(assembleTensor, spillInfo.spillTensor_);
+            producerIssue->tileOp.ReplaceOutput(assembleTensor, spillInfo.spillTensor_);
         }
     }
     if (UpdateAssembleBuffer(spillInfo, allocBuffer, assembleTensor) != SUCCESS) {
@@ -936,7 +999,8 @@ Status OoOScheduler::SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int>
             APASS_LOG_ERROR_F(Elements::Operation, "GetSpillInfo failed. %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
             return FAILED;
         }
-        if (spillInfo.spillIssue_->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
+        if (spillInfo.spillIssue_->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE ||
+            spillInfo.spillIssue_->tileOp.GetOpcode() == Opcode::OP_L0C_TO_L1) {
             if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocIssue->tileOp.GetOpcodeStr().find("L1_ALLOC") != std::string::npos) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Failed to spill %d in L1 spill. SpillIssue is assemble op.", spillMemId);
                 return FAILED;
