@@ -51,11 +51,14 @@ def ceildiv(a: SymInt, b: SymInt) -> SymInt:
 _source_location_depth = 0
 
 
-def set_source_location(level: int = 1):
+def set_source_location(level: int = 1, filename=None, lineno=None):
     global _source_location_depth
     if _source_location_depth == 0:
-        frame = sys._getframe(level + 1)
-        pypto_impl.SetLocation(frame.f_code.co_filename, frame.f_lineno, "")
+        if filename is None:
+            frame = sys._getframe(level + 1)
+            filename = frame.f_code.co_filename
+            lineno = frame.f_lineno
+        pypto_impl.SetLocation(filename, lineno, "")
     _source_location_depth += 1
 
 
