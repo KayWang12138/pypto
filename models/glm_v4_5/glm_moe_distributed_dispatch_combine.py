@@ -919,7 +919,7 @@ def moe_distributed_dispatch_combine(
 
 
 @pytest.mark.soc("950", "910")
-@pytest.mark.world_size(4)
+@pytest.mark.world_size(2)
 def test_moe_distributed_dispatch_combine() -> None:
     config = DistributedConfig(world_size=4)
     mp.set_start_method('spawn', force=True)
