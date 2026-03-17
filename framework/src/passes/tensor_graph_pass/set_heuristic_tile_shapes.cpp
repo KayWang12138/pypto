@@ -1272,6 +1272,40 @@ void DefaultTileSetting(Operation *op, const std::vector<int64_t>& vectorTilesOl
     std::cout<<"same tiles as old \n";
 }
 
+void ExpandTileSetting(Operation *op, const std::vector<int64_t>& vectorTilesOld, std::vector<int64_t>& vectorTilesNew) {
+    DataType inputType = op->GetIOperands()[0]->tensor->GetDataType();
+    int64_t inputTypeSize = BytesOf(inputType);
+    vectorTilesNew.resize(vectorTilesOld.size());
+    vectorTilesNew = op->GetOOperands()[0]->shape;
+
+    std::cout<<"Vec default set1 : "; 
+    for(auto v: vectorTilesNew) {
+        std::cout<<v<<"  ";
+    }
+    std::cout<<"\n"; 
+
+    uint32_t typedBlock  = BLOCK_SIZE / inputTypeSize;
+    if (vectorTilesNew[vectorTilesNew.size() - 1]  %  typedBlock != 0) {
+        vectorTilesNew[vectorTilesNew.size() - 1] = (vectorTilesNew[vectorTilesNew.size() - 1] + typedBlock - 1) / typedBlock * typedBlock;
+    }
+
+    std::cout<<"Vec default set2 : ";
+    for(auto v: vectorTilesNew) {
+        std::cout<<v<<"  ";
+    }
+    std::cout<<"\n";
+
+    AdjustTileToUB(op, vectorTilesNew);
+
+    std::cout<<"Vec default set3 : ";
+    for(auto v: vectorTilesNew) {
+        std::cout<<v<<"  ";
+    }
+    std::cout<<"\n";
+
+    std::cout<<"same tiles as old \n";
+}
+
 void ReduceTileSetting(Operation *op, std::vector<int64_t>& vectorTilesNew) {
     size_t inputsNum = op->GetIOperands().size();
     size_t outputsNum = op->GetOOperands().size();
@@ -1569,6 +1603,9 @@ void BackPropagate(Operation *producerOp, Operation *op) {
     } else if(wholeLastDimOps.find(producerOp->GetOpcode()) != wholeLastDimOps.end()) {
         std::cout<<"transpose as consumer process";
         TransposeTileSetting(producerOp, vectorTilesOld, vectorTilesNew);
+    } else if (producerOp->GetOpcode() == Opcode::OP_EXPAND) {
+        std::cout << "ExpandTileSetting" << std::endl;
+        ExpandTileSetting(producerOp, vectorTilesOld, vectorTilesNew);
     } else {
         DefaultTileSetting(producerOp, vectorTilesOld, vectorTilesNew);
     }
@@ -1634,6 +1671,9 @@ void Propagate(Operation *consumerOp, Operation *op) {
     } else if (consumerOp->GetOpcode() == Opcode::OP_RESHAPE) {
         std::cout << "ReshapeTileSetting" << std::endl;
         ReshapeTileSetting(consumerOp, vectorTilesOld, vectorTilesNew);
+    } else if (consumerOp->GetOpcode() == Opcode::OP_EXPAND) {
+        std::cout << "ExpandTileSetting" << std::endl;
+        ExpandTileSetting(consumerOp, vectorTilesOld, vectorTilesNew);
     } else {
         std::cout << "DefaultTileSetting" << std::endl;
         DefaultTileSetting(consumerOp, vectorTilesOld, vectorTilesNew);
@@ -1645,7 +1685,8 @@ void Propagate(Operation *consumerOp, Operation *op) {
     }
     std::cout<<"\n";
     
-    if (gatherVectorOps.find(consumerOp->GetOpcode()) == gatherVectorOps.end()) { // No need to adapt tiles for Gather OPs 
+    if (gatherVectorOps.find(consumerOp->GetOpcode()) == gatherVectorOps.end() &&
+        consumerOp->GetOpcode() != Opcode::OP_EXPAND) { // No need to adapt tiles for Gather OPs and Expand
         AdaptTileToRealInputShape(consumerOp, vectorTilesNew);
     }
 
@@ -1736,7 +1777,7 @@ void SetHeuristicCubeTiles(Function &function, std::unordered_set<Operation *> c
         n = std::get<2>(resultCubeTilesAndInfo[curShapeAndType]);
         
         // Set new tiles for each operation (M = m, N = n, K = k, enableMultiDataLoad = true, enableSplitK = false)
-        op->GetTileShapeForSetting().SetCubeTile(m, k, n, true, false); 
+        op->GetTileShapeForSetting().SetCubeTile(m, k, n, false);  
         std::cout<<op->GetOpcodeStr()<<"  "<<op->GetOpMagic()<<"  "<<op->GetTileShape().ToString()<<"\n";
     }
 }
