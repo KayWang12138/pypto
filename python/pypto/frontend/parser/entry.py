@@ -545,14 +545,14 @@ class JitCallableWrapper:
         self._setup_verify_data(args)
 
         # Set options AFTER OperatorBegin() to match @pypto.jit behavior
-        with pypto.options("jit_scope"):
-            self._set_config_option()
+        
+        self._set_config_option()
 
-            # Bind dynamic dimensions from concrete inputs
-            self._parser.bind_dynamic_dims_to_input_tensors()
+        # Bind dynamic dimensions from concrete inputs
+        self._parser.bind_dynamic_dims_to_input_tensors()
 
-            # Execute the deferred parsing (happens on first __call__)
-            self._pto_function = self._parser.execute()
+        # Execute the deferred parsing (happens on first __call__)
+        self._pto_function = self._parser.execute()
 
         # Reset golden data after compilation, similar to pypto.jit
         _pto_verify_datas.reset()
