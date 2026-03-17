@@ -1,12 +1,11 @@
 /**
- * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full language governing permissions and
- * limitations under the License.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 /*!
@@ -35,48 +34,52 @@ struct FillPadOpMetaData {
     nlohmann::json test_data_;
 };
 
+// 辅助函数：从 JSON 读取 valid_shape 并设置到 input tensor
+static void SetInputValidShape(nlohmann::json &test_data, std::vector<Tensor> &inputs) {
+    if (test_data.contains("input_tensors") && !test_data.at("input_tensors").empty()) {
+        auto &input_tensor = test_data.at("input_tensors").at(0);
+        if (input_tensor.contains("valid_shape")) {
+            auto validShape = input_tensor.at("valid_shape").get<std::vector<int64_t>>();
+            std::vector<SymbolicScalar> validShapeSymbolic(validShape.begin(), validShape.end());
+            // 使用 UpdateDynValidShape 设置 validShape
+            inputs[0]->UpdateDynValidShape(validShapeSymbolic);
+            std::cout << "FillPad: Set validShape to [";
+            for (size_t i = 0; i < validShape.size(); i++) {
+                std::cout << validShape[i];
+                if (i < validShape.size() - 1) std::cout << ", ";
+            }
+            std::cout << "]" << std::endl;
+        }
+    }
+}
+
 static void FillPadOperationExeFunc1Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0].GetShape()[0];
         const struct FillPadOpFuncArgs *args = static_cast<const FillPadOpFuncArgs *>(opArgs);
         
-        const int firstViewShape = inputs[0].GetShape()[0];
-        const int bloop = CeilDiv(firstDim, firstViewShape);
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            auto tileTensor = View(inputs[0], {firstViewShape},
-                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)}, {bIdx * firstViewShape});
-            TileShape::Current().SetVecTile(args->tileShape_);
-            auto res = FillPad(tileTensor, "constant", args->padValue_);
-            Assemble(res, {bIdx * firstViewShape}, outputs[0]);
-        }
+        // 直接使用输入 tensor 的实际 shape，忽略 JSON 中的 view_shape 配置
+        // 例如：输入 shape[4]，即使 view_shape 配置为 [2]，也直接处理整个 [4]
+        auto inputShape = inputs[0].GetShape();
+        auto tileTensor = View(inputs[0], inputShape);
+        TileShape::Current().SetVecTile(args->tileShape_);
+        auto res = FillPad(tileTensor, "constant", args->padValue_);
+        Assemble(res, {0}, outputs[0]);
     }
 }
 
 static void FillPadOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0].GetShape()[0];
-        SymbolicScalar secondDim = inputs[0].GetShape()[1];
         const struct FillPadOpFuncArgs *args = static_cast<const FillPadOpFuncArgs *>(opArgs);
         
-        const int firstViewShape = inputs[0].GetShape()[0];
-        const int secondViewShape = inputs[0].GetShape()[1];
-        const int bloop = CeilDiv(firstDim, firstViewShape);
-        const int sloop = CeilDiv(secondDim, secondViewShape);
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor = View(inputs[0], {firstViewShape, secondViewShape},
-                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                    {bIdx * firstViewShape, sIdx * secondViewShape});
-                TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = FillPad(tileTensor, "constant", args->padValue_);
-                Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
-            }
-        }
+        // 直接使用输入 tensor 的实际 shape，忽略 JSON 中的 view_shape 配置
+        // 例如：输入 shape[4,4]，即使 view_shape 配置为 [2,2]，也直接处理整个 [4,4]
+        auto inputShape = inputs[0].GetShape();
+        auto tileTensor = View(inputs[0], inputShape);
+        TileShape::Current().SetVecTile(args->tileShape_);
+        auto res = FillPad(tileTensor, "constant", args->padValue_);
+        Assemble(res, {0, 0}, outputs[0]);
     }
 }
 
@@ -98,6 +101,8 @@ TEST_P(FillPadOperationTest, TestFillPad) {
     }
     auto args = FillPadOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), padValue);
     auto testCase = CreateTestCaseDesc<FillPadOpMetaData>(GetParam(), &args);
+    // 在运行测试前，设置 input tensor 的 validShape
+    SetInputValidShape(test_data, testCase.inputTensors);
     TestExecutor::runTest(testCase);
 }
 } // namespace
