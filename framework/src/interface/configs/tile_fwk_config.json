@@ -23,7 +23,8 @@
         "stitch_function_size": 20000,
         "triple_stream_sched": false,
         "run_mode": 0,
-        "valid_shape_optimize": 0
+        "valid_shape_optimize": 0,
+        "ready_on_host_tensors": []
     },
     "host": {
         "compile_stage": 0,
@@ -87,7 +88,7 @@
             ]
         },
         "codegen": {
-            "parallel_compile" : 8,
+            "parallel_compile" : 128,
             "support_dynamic_aligned": false,
             "fixed_output_path": false,
             "force_overwrite": true,

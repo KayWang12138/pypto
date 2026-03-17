@@ -195,7 +195,6 @@ public:
             devProg->devArgs.validGetPgMask = DeviceRunner::Get().GetValidGetPgMask();
         }
 #endif
-        devProg->devArgs.disableSync = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND ? 1 : 0;
         MACHINE_LOGD("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
 
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu

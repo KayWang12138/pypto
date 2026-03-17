@@ -248,15 +248,6 @@ int DeviceExecuteContext::GELaunchPartialCache(DevStartArgs *startArgs, PushTask
         DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCachePartRunCache(devProg->ctrlFlowCacheAnchor->deviceTaskCount, devProg->ctrlFlowCacheAnchor->rootTaskCount)));
         GELaunchRunCached(startArgs, tPushTask);
     }
-    DEV_IF_DEVICE {
-        uint64_t start = GetCycles();
-        while ((startArgs->devProg->devArgs.disableSync == 0) && startArgs->syncFlag != 1) {
-            if (GetCycles() - start > HAND_SHAKE_TIMEOUT) {
-                DEV_ERROR("Wait sync flag timeout.");
-                break;
-            }
-        }
-    }
     DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCacheFullRunControl()));
     ret = RunInit(startArgs, tPushTask);
     if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -402,7 +393,9 @@ void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
     DEV_DEBUG("Slloc one func %lu %p %s.", rootKey, devRoot, devRoot->GetRawName());
     if (stitchContext.Size() == stitchTaskLoopNumThreshold ||
         stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > devProg->stitchFunctionsize) {
-        DEV_INFO("[Stitch Finish] Stitch Limit Exceeded. #task=%zu+1 (limit=%u), #callop=%u+%zu (limit=%u).",
+        DEV_INFO("[Stitch Finish] Stitch Limit Exceeded. rootKey=%lu, func=%s, "
+                 "#task=%zu+1 (limit=%u), #callop=%u+%zu (limit=%u).",
+            rootKey, devRoot->GetRawName(),
             stitchContext.Size(), stitchTaskLoopNumThreshold,
             stitchContext.stitchedCallOpSize(), devRoot->GetOperationSize(), devProg->stitchFunctionsize);
         ret = SubmitToAicoreAndRecycleMemory(false);
