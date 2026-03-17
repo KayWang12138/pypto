@@ -27,18 +27,6 @@ namespace CostModel
     public:
         uint64_t Simulate(const TileOpPtr& tileOp) override;
         uint64_t PostSimulate(const TileOpPtr &tileOp) override;
-        uint64_t SimulateForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype) override {
-            if (op == "" || !shape.size() || !dtype) {
-                return 0;
-            }
-            return 0;
-        };
-        uint64_t PostSimulateForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype) override {
-            if (op == "" || !shape.size() || !dtype) {
-                return 0;
-            }
-            return 0;
-        };
     private:
         std::unordered_map<std::string, uint64_t> tileopLatencyCacheMp;
     };
