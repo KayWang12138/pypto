@@ -24,9 +24,9 @@ using namespace npu::tile_fwk::calc;
 namespace npu::tile_fwk {
 
 void ExecuteOpAMulB(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::INVALID_OP_CONTEXT,
-           ctx != nullptr && ctx->op != nullptr);
-    ASSERT(ExecuteOperationScene::INVALID_OP_CONTEXT,
+    ASSERT(ExecuteOperationScene::CTX_NULL, ctx != nullptr);
+    ASSERT(ExecuteOperationScene::CTX_OP_NULL, ctx->op != nullptr);
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
            ctx->ooperandInplaceDataViewList->size() == 1);
     auto ret = ctx->ooperandInplaceDataViewList->at(0);
     auto lhs = ctx->ioperandDataViewList->at(0);
@@ -65,13 +65,13 @@ void ExecuteOpAMulB(ExecuteOperationContext *ctx) {
         } break;
         case Opcode::OP_A_MULACC_B: {
             auto acc = ctx->ioperandDataViewList->at(2);
-            ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
+            ASSERT(ExecuteOperationScene::AMULACC_ACC_DTYPE_UNSUPPORTED,
                    lhs->GetDataType() != DataType::DT_INT8 || acc->GetDataType() != DataType::DT_FP32)
                 << "pass customized part, cannot restore the computation logic.";
             calc::AccMatMul(ret, lhs, rhs, acc, param);
         } break;
         default:
-            ASSERT(ExecuteOperationScene::INVALID_OP_CONTEXT, false);
+            ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false);
             break;
     }
 }
@@ -84,9 +84,9 @@ REGISTER_CALC_OP(OP_AT_MUL_B, Opcode::OP_AT_MUL_B, ExecuteOpAMulB);
 REGISTER_CALC_OP(OP_AT_MUL_BT, Opcode::OP_AT_MUL_BT, ExecuteOpAMulB);
 
 void ExecuteOpAlloc(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::INVALID_OP_CONTEXT,
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
            ctx->ooperandInplaceDataViewList->size() <= 1);
-    ASSERT(ExecuteOperationScene::INVALID_OP_CONTEXT,
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
            ctx->ioperandDataViewList->size() == 0);
 }
 
@@ -99,7 +99,7 @@ REGISTER_CALC_OP(OP_FIX_ALLOC, Opcode::OP_FIX_ALLOC, ExecuteOpAlloc);
 REGISTER_CALC_OP(OP_BT_ALLOC, Opcode::OP_BT_ALLOC, ExecuteOpAlloc);
 
 void ExecuteL1ToL0(ExecuteOperationContext *ctx){
-    ASSERT(ExecuteOperationScene::INVALID_OP_CONTEXT,
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
            ctx->ooperandInplaceDataViewList->size() == 1);
     auto &ret = ctx->ooperandInplaceDataViewList->at(0);
     auto &oper = ctx->ioperandDataViewList->at(0);
@@ -127,13 +127,14 @@ REGISTER_CALC_OP(OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_AT, ExecuteL1ToL0);
 REGISTER_CALC_OP(OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0_BT, ExecuteL1ToL0);
 
 void ExecuteL0CToL1(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::INVALID_OP_CONTEXT,
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
            ctx->ooperandInplaceDataViewList->size() == 1);
     auto &ret = ctx->ooperandInplaceDataViewList->at(0);
     auto &oper = ctx->ioperandDataViewList->at(0);
     auto copyin = std::static_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute()); // 获取attr
-    ASSERT(ExecuteOperationScene::INVALID_OP_CONTEXT, oper != nullptr && ret != nullptr);
-    ASSERT(ExecuteOperationScene::INVALID_TENSOR_SHAPE,
+    ASSERT(ExecuteOperationScene::CTX_INPUT_VIEW_NULL,  oper != nullptr);
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_VIEW_NULL, ret != nullptr);
+    ASSERT(ExecuteOperationScene::L0C_TO_L1_SHAPE_NOT_2D,
            oper->GetShape().size() == SHAPE_DIM2 && ret->GetShape().size() == SHAPE_DIM2);
     bool quantFlag = oper->GetDataType() == DataType::DT_INT32 && ret->GetDataType() == DataType::DT_FP16;
     uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ? ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;
@@ -175,7 +176,7 @@ void ExecuteL0CToL1(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_L0C_TO_L1, Opcode::OP_L0C_TO_L1, ExecuteL0CToL1);
 
 void ExecuteDuplicate(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::INVALID_OP_CONTEXT,
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
            ctx->ooperandInplaceDataViewList->size() == 1);
     auto &ret = ctx->ooperandInplaceDataViewList->at(0);
     auto &oper = ctx->ioperandDataViewList->at(0);
@@ -191,11 +192,11 @@ REGISTER_CALC_OP(OP_L0C_COPY_UB, Opcode::OP_L0C_COPY_UB, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_UB_COPY_L1_ND, Opcode::OP_UB_COPY_L1_ND, ExecuteDuplicate);
 
 void ExecuteOpGatherInL1(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::INVALID_OP_CONTEXT,
-           ctx != nullptr && ctx->op != nullptr);
-    ASSERT(ExecuteOperationScene::INVALID_OP_CONTEXT,
+    ASSERT(ExecuteOperationScene::CTX_NULL, ctx != nullptr);
+    ASSERT(ExecuteOperationScene::CTX_OP_NULL, ctx->op != nullptr);
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
            ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::INVALID_OP_CONTEXT,
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
            ctx->ioperandDataViewList->size() == SIZE_THREE);
     auto output = ctx->ooperandInplaceDataViewList->at(0);
     auto params = ctx->ioperandDataViewList->at(0);
