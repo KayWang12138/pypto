@@ -176,24 +176,25 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
     auto &convTile = TileShape::Current().GetConvTile();
     int64_t tileHout = convTile.tileL1Info.tileHout;
     int64_t tileWout = convTile.tileL1Info.tileWout;
-    int64_t hOut = ConvComputeHo(inputTensor, weightTensor, attrParam);
-    int64_t wOut = ConvComputeWo(inputTensor, weightTensor, attrParam);
-    if (wOut % 16 != 0) {
+    int64_t tileW = convTile.tileL0Info.tileW;
+    int64_t hout = ConvComputeHo(inputTensor, weightTensor, attrParam);
+    int64_t wout = ConvComputeWo(inputTensor, weightTensor, attrParam);
+    if (wout % 16 != 0) {
         OP_CHECK(true, {
             ASSERT(tileHout == 1)
-                << "When wOut is not a multiple of 16, tileHout should be 1." << std::endl;
+                << "When wout is not a multiple of 16, tileHout should be 1." << std::endl;
         });
     }
-    CheckValueRange(tileHout, "tileHout" , NUM1, hOut);
+    CheckValueRange(tileHout, "tileHout" , NUM1, hout);
     if (tileHout > 1) {
         OP_CHECK(true, {
-            ASSERT(tileWout == wOut)
-                << "When tileHout > 1, tileWout must be equal to wOut.Now tileHout=" << tileHout
-                << ", tileWout=" << tileWout
-                << ", wOut=" << wOut << std::endl;
+            ASSERT(tileWout == wout && tileW == wout)
+                << "When tileHout > 1, tileWout and tileW must be equal to wout. Now tileHout=" << tileHout
+                << ", tileWout=" << tileWout << ", tileW=" << tileW
+                << ", wout=" << wout << std::endl;
         });
     }
-    CheckValueRange(tileWout, "tileWout" , NUM1, ConvAlignB(wOut, NUM16));
+    CheckValueRange(tileWout, "tileWout" , NUM1, ConvAlignB(wout, NUM16));
     CheckAlignment(tileWout, NUM16, "tileWout");
 }
 
