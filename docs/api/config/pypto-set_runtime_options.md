@@ -19,6 +19,7 @@ set_runtime_options(*,
                     stitch_function_max_num : int = None,
                     run_mode : int = None,
                     valid_shape_optimize : int = None,
+                    ready_on_host_tensors : List[str] = None,
                     ) -> None
 ```
 
@@ -48,14 +49,18 @@ pypto.set_runtime_options(device_sched_mode=1,
                           stitch_function_inner_memory=128,
                           stitch_function_outcast_memory=128,
                           stitch_function_num_initial=128,
-                          stitch_function_num_step=20)
+                          stitch_function_num_step=20,
+                          ready_on_host_tensors=["x", "y"])
 @pypto.frontend.jit(
         runtime_options={
         "stitch_function_inner_memory": 128,
         "stitch_function_outcast_memory": 128,
         "stitch_function_num_initial": 128,
-        "device_sched_mode": 1
+        "device_sched_mode": 1,
+        "ready_on_host_tensors": ["x", "y"]
         }
 )
+def kernel(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor) -> pypto.Tensor:
+    return x + y + z
 ```
 
