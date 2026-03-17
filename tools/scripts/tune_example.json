@@ -1,0 +1,30 @@
+{
+    "build_folder": "pypto-tune_tool",
+    "device_number": "6",
+    "test_name": "models/glm_v4_5/glm_moe_fusion.py",
+    "results_folder": "measurements",
+    "save_best_k": 100,
+
+    "files": [
+        {
+            "models/glm_v4_5/glm_moe_fusion.py": [
+                {
+                    "line": 190,
+                    "string": "pypto.set_vec_tile_shapes({amax1[0]}, {amax1[1]}, {amax1[2]})",
+                    "amax1": [
+                        [1, 1, 160],
+                        [1, 1, 180],
+                        [1, 1, 200]
+                    ]
+                },
+                {
+                    "line": 164,
+                    "string": "pypto.set_cube_tile_shapes([{mm1[0]}, {mm1[1]}], [{mm1[2]}, {mm1[3]}], [{mm1[4]}, {mm1[5]}])",
+                    "mm1": [
+                        [1, 1, 512, 1024, 16, 16]
+                    ]
+                }
+            ]
+        }
+    ]
+}
