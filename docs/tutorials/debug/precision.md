@@ -168,6 +168,23 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 
         output_data = add(input_data0, input_data1)
     ```
+
+    **set_verify_golden_data 接口说明**
+
+    **函数原型**：
+    ```python
+    set_verify_golden_data(in_out_tensors=None, goldens=None)
+    ```
+
+    **参数说明**：
+
+    | 参数名 | 类型 | 说明 |
+    |--------|------|------|
+    | `in_out_tensors` | List[Union(pypto.Tensor, torch.Tensor)] | 将用户（可选）执行算子时实际的输入、输出列表按照相同位置对应地设置到检测工具。jit 调用模式下，该选项不需设置 |
+    | `goldens` | List[Union(pypto.Tensor, torch.Tensor)] | 将用户已有的计算基准数据（golden）输出设置到工具中做对比检测。该列表与算子输入、输出参数列表的长度一致、位置对应。若相应位置设置为 None，表示跳过该位置的数据对比。**注意：torch.Tensor 的 device 属性需为 CPU，不支持 NPU** |
+
+    **约束说明**：
+    - 该函数需设置 `pypto.set_verify_options(enable_pass_verify=True)` 后生效
 3.  执行修改后用例。
 
     ```bash
