@@ -134,10 +134,10 @@ public:
             *readyRegQueues_[GetPhyIdByBlockId(coreIdx)] = value;
         } else {
             DEV_VERBOSE_DEBUG("set coreidx %d value %lx.", coreIdx, value);
-            auto taskId = value - 1;
+            auto taskId = (value & 0xFFFFFFFF) - 1;
             if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP)
                 return;
-            CostModelSendTask(coreIdx, taskId);
+            CostModelSendTask(coreIdx, taskId & 0xFFFFFFFF);
         }
     }
 
@@ -438,17 +438,16 @@ public:
 
     void DumpAicoreStatus(int coreIdx) const
     {
-        volatile KernelArgs* arg = reinterpret_cast<KernelArgs*>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        DEV_VERBOSE_DEBUG("!!***********************aicore %d last status **************************!!", coreIdx);
-        DEV_VERBOSE_DEBUG("hello status %ld.", arg->shakeBuffer[0]);
-        DEV_VERBOSE_DEBUG(
-            "last_taskId %ld task status [%ld, %ld, %ld, %ld].", arg->shakeBuffer[NUM_ONE], arg->shakeBuffer[NUM_TWO],
-            arg->shakeBuffer[NUM_THREE], arg->shakeBuffer[NUM_FOUR], arg->shakeBuffer[NUM_FIVE]);
+        volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+        DEV_ERROR("!!***********************aicore %d last status **************************!!", coreIdx);
+        DEV_ERROR("hello status %ld.", arg->shakeBuffer[0]);
+        DEV_ERROR("last_taskId %ld task status [%ld, %ld, %ld, %ld].", arg->shakeBuffer[NUM_ONE],
+            arg->shakeBuffer[NUM_TWO], arg->shakeBuffer[NUM_THREE], arg->shakeBuffer[NUM_FOUR], arg->shakeBuffer[NUM_FIVE]);
 
         for (size_t i = 0; i < sizeof(arg->taskStat) / sizeof(TaskStat); i++) {
-            DEV_VERBOSE_DEBUG(
-                "task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.", i, arg->taskStat[i].taskId,
-                arg->taskStat[i].subGraphId, arg->taskStat[i].execStart, arg->taskStat[i].execEnd);
+            DEV_ERROR("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.", i,
+                arg->taskStat[i].taskId, arg->taskStat[i].subGraphId,
+                arg->taskStat[i].execStart, arg->taskStat[i].execEnd);
         }
     }
 
@@ -459,25 +458,11 @@ public:
         return arg->shakeBuffer[aicoreStatusIndex];
     }
 
-    inline void InitTaskData(int coreIdx, int64_t funcdata, int64_t buffer)
+    uint64_t GetAicoreStatusBackup(int coreIdx) const
     {
-        (void)buffer;
-        if constexpr (IsDeviceMode()) {
-            if (args_[coreIdx] == nullptr) {
-                args_[coreIdx] = reinterpret_cast<KernelArgs*>(
-                    (static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
-            }
-            volatile KernelArgs* arg = args_[coreIdx];
-#if ENABLE_AICORE_PRINT
-            arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
-            __sync_synchronize();
-#endif
-            arg->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = funcdata;
-        } else {
-            if (costModel_) {
-                costModel_->InitData(coreIdx, funcdata);
-            }
-        }
+        int aicoreStatusIndex = 3;
+        volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
+        return arg->shakeBuffer[aicoreStatusIndex];
     }
 
     bool TryHandShakeByGm(int coreIdx, int64_t dotStatus)
@@ -512,6 +497,7 @@ public:
         args_[coreIdx]->shakeBuffer[0] = 0;
         args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
         args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = AICORE_SAY_GOODBYE;
+        ResetParallelDevTask(coreIdx);
         return;
     }
 
@@ -519,6 +505,56 @@ public:
     {
         volatile TaskStat* stat = &args_[coreIdx]->taskStat[pos];
         return stat;
+    }
+
+    inline void InitKernelArgs(int coreIdx, int64_t buffer) {
+        (void)buffer;
+        if constexpr (IsDeviceMode()) {
+            if (args_[coreIdx] == nullptr) {
+                args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+            }
+#if ENABLE_AICORE_PRINT
+            volatile KernelArgs *arg = args_[coreIdx];
+            arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
+            __sync_synchronize();
+#endif
+        }
+    }
+
+    volatile ParallelDevTask* GetGetParallelDevTask(int coreIdx) {
+        volatile KernelArgs *arg = args_[coreIdx];
+        return &arg->parallelDevTask;
+    }
+
+    inline uint32_t ParallelDevTaskCtxVersion(int coreIdx) {
+        return parallelDevTaskCtxVersion[coreIdx];
+    }
+
+    inline void SetParallelDevTaskCtxVersion(int coreIdx, uint32_t version) {
+        parallelDevTaskCtxVersion[coreIdx] = version;
+        DEV_IF_DEVICE {
+            volatile KernelArgs *arg = args_[coreIdx];
+            arg->parallelDevTask.version = version;
+        }
+
+        DEV_INFO("Refresh core %d parall version %u", coreIdx, version);
+    }
+
+    void ResetParallelDevTask(int coreIdx) {
+        args_[coreIdx]->parallelDevTask.version = 0;
+        args_[coreIdx]->parallelDevTask.front = 0;
+        args_[coreIdx]->parallelDevTask.rear = 0;
+        for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
+            args_[coreIdx]->parallelDevTask.elements[i] = 0;
+        }
+    }
+
+    inline void InitCostModelDevTaskData(int coreIdx, int64_t funcData) {
+        if constexpr (!IsDeviceMode()) {
+            if (costModel_) {
+                costModel_->InitData(coreIdx, funcData);
+            }
+        }
     }
 
 private:
@@ -542,6 +578,7 @@ private:
     std::array<std::deque<uint64_t>, MAX_AICORE_NUM> taskTimes;
 
     std::array<int, MAX_AICORE_NUM> blockIdToPhyCoreId_;
+    std::array<uint32_t, MAX_AICORE_NUM> parallelDevTaskCtxVersion;
 
     uint32_t regSprDataMainBase_{DAV_2201::REG_SPR_DATA_MAIN_BASE};
     uint32_t regSprCond_{DAV_2201::REG_SPR_COND};

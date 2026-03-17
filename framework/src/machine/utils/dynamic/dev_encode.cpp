@@ -2603,14 +2603,14 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram* devProg)
     }
     MACHINE_LOGI("[workspaceSize] General->MetadataSlabSize is %lu.", static_cast<unsigned long>(generalMetadataSlabSize));
     generalMetadataSlabSize = (generalMetadataSlabSize < GENERAL_METADATA_SIZE_MIN) ? GENERAL_METADATA_SIZE_MIN : generalMetadataSlabSize;
-    return generalMetadataSlabSize;
+    return generalMetadataSlabSize * devProg->GetParallelism();
 }
 
 static uint64_t CalcStitchWorkspace(DevAscendProgram& devProg)
 {
     (void)devProg;
     static constexpr uint64_t AICPU_STITCH_SIZE = 2 * MEBI;
-    return AICPU_STITCH_SIZE;
+    return AICPU_STITCH_SIZE * devProg.GetParallelism();
 }
 
 static uint64_t DumpTensorWorkspace()
@@ -2647,7 +2647,7 @@ void EncodeDevAscendProgram(Function* func, uint64_t& offset, DevAscendProgram* 
 
         // Calc workspace size
         TensorWorkspaceResult tensorWsRes = CalcTensorWorkspace(func, *base);
-
+        base->SetParallelism(func->GetDyndevAttribute()->supportParallel ? SCH_DEVTASK_MAX_PARALLELISM : 1);
         base->slottableOutcastSlotSize = tensorWsRes.totalExclusiveOutcastSlot + tensorWsRes.totalAssembleOutcastSlot;
 
         base->memBudget.tensor.rootInner = tensorWsRes.rootInnerMem;
@@ -2690,7 +2690,9 @@ void DevControlFlowCache::Init(
     uint64_t slottedCount =
         dyndevAttr->inoutLink.totalSlot *
         (std::min((uint32_t)EstimatedStitchingCount(), stitchMaxFunctionNum) + SLOTS_NEED_ALLOC_SIZE);
-    runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.HostInitDataSizeOffset(initOffset, slottedCount);
+    for (uint32_t i = 0; i < SCH_DEVTASK_MAX_PARALLELISM; i++) {
+        runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList[i].HostInitDataSizeOffset(initOffset, slottedCount);
+    }
 
     runtimeBackup.slotContext.slotList.HostInitDataSizeOffset(initOffset, dyndevAttr->inoutLink.totalSlot);
     runtimeBackup.workspace.runtimeOutcastTensorPool.HostInitDataSizeOffset(initOffset, runtimeOutcastPoolSize);
