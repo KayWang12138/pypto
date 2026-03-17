@@ -154,7 +154,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForUB(Function &functi
     auto outDynValidShape = output->GetDynValidShape();
 
     for (const auto &dim : changedDims) {
-        if ((size_t)dim > outDynValidShape.size() - 1) {
+        if ((size_t)dim >= outDynValidShape.size()) {
             APASS_LOG_WARN_F(Elements::Operation, "The dynValidShape of output[%d] of op[%d] has no [%ld] index.",
             output->GetMagic(), op.GetOpMagic(), static_cast<long>(dim));
             break;
@@ -204,7 +204,9 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &funct
     bool hasNonImmediate = false;
     auto changedDims = FindChangedDims(output->shape, input->shape);
     for (const auto &dim : changedDims) {
-        if ((size_t)dim > outDynValidShape.size() - 1) {
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Reshape[%d] Input[%d] %s dyn[]", op.GetOpMagic(), dim, inDynValidShape[dim].IsImmediate() ? "is" : "is not");
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Reshape[%d] Output[%d] %s dyn[]", op.GetOpMagic(), dim, outDynValidShape[dim].IsImmediate() ? "is" : "is not");
+        if ((size_t)dim >= outDynValidShape.size()) {
             APASS_LOG_WARN_F(Elements::Operation, "The dynValidShape of output[%d] of op[%d] has no [%ld] index.", output->GetMagic(), op.GetOpMagic(), static_cast<long>(dim));
             break;
         } else if (!outDynValidShape[dim].IsImmediate()) {
@@ -214,10 +216,11 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &funct
     }
     
     if (hasNonImmediate) {
-        bool hasiOtherBranch = false;
-        std::vector<Operation *> copyOutOps = FindAllProducerCopyOuts(input, hasiOtherBranch);
-        if (hasiOtherBranch) {
-            APASS_LOG_WARN_F(Elements::Operation, "There are more one op-tensor branch between Reshape[%d] and CopyOut.", op.GetOpMagic());
+        bool hasOtherBranch = false;
+        std::vector<Operation *> copyOutOps = FindAllProducerCopyOuts(input, hasOtherBranch);
+        if (hasOtherBranch) {
+            APASS_LOG_WARN_F(Elements::Operation, "Do not follow reshape[%d] after multiple copyouts which move tensors to DDR.
+                This scenario may have accuracy issues.", op.GetOpMagic());
             return;
         }
         if (copyOutOps.size() != 1) {
