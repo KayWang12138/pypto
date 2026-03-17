@@ -17,9 +17,19 @@ import shutil
 import os 
 import subprocess
 import csv
+import sys
 import argparse
 import datetime
 from scipy.stats import gmean
+from pathlib import Path
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+base_path = Path(script_dir).parents[1]
+target_dir = os.path.join(base_path, '.agents', 'skills', 'pypto-operator-perf-analyzer', 'scripts')
+sys.path.insert(0, target_dir)
+
+import analyze_perf
+
 
 #region generate_tiles
 L1_SIZE = 524288
@@ -244,31 +254,37 @@ def save_run_params(name, run_params, file_name):
 
 
 def replace_line(file_path, line_num, new_content):
-    result_line = ""
     with open(file_path, 'r') as file:
         lines = file.readlines()
-        lines.insert(line_num + 1, new_content + "\n")
+        prev_line = lines[line_num-1].rstrip()
+        
+        leading_spaces = re.match(r'^\s*', prev_line).group(0) 
+        if prev_line.endswith(":"):
+            leading_spaces += "\t"
+
+        new_content = leading_spaces+new_content
+        lines.insert(line_num, new_content + "\n")
         
     with open(file_path, "w") as file:
         file.writelines(lines)
 
 
 def run_test(json_config, result_folder):
+    # ret_code = build_python(json_config["test_name"], json_config["device_number"])
+    device = json_config["device_number"]
     test = json_config["test_name"]
+    run_command = f"python3 build_ci.py -j 80 -d {device} -f python3 -s {test}"
+    print(run_command)
+    log_path = f"{result_folder}/tiling.log"
+    print(f"Build logs: {log_path}")
 
-    device_number = json_config["device_number"]  
-    
-    run_command = f"python build_ci.py -j=32 -s={test} --frontend=cpp -d={device_number} tools profiling" \
-                f" --prof_try_cnt={json_config['prof_try_cnt']} --prof_max_cnt={json_config['max_cnt']}" \
-                f" --prof_warn_up_cnt={json_config['warn_up_cnt']}"
-
-    print(f"{result_folder}/result.log")
     env = dict(os.environ)
-
-    with open(f"{result_folder}/result.log", "w") as f:
+    with open(log_path, "w") as f:
         test = subprocess.run(run_command.split(), stdout=f, stderr=subprocess.STDOUT, env=env)
     return test.returncode
-    
+
+    return ret_code 
+
 
 def make_backup(original_file_path):
     shutil.copy(original_file_path, original_file_path + ".backup")
@@ -293,16 +309,13 @@ def get_oldest_folder(root_dir):
     return oldest_folder
 
 
-def get_execution_time(build_folder):
-    output_tools = build_folder + "/output_tools"
-    newest_folder = get_newest_folder(output_tools)
-    path_to_csv = f"{newest_folder}/profiling/prof_statistic_result.csv"
-    with open(path_to_csv) as f:
-        reader = csv.DictReader(f)
-        time = None
-        for row in reader:
-            time = float(row["Us"])
-            return time
+def get_execution_time():
+    dirs = list(filter(os.path.isdir, [os.path.join("output", f) for f in os.listdir("output")]))
+    newest_folder = max(dirs, key=os.path.getmtime)
+    bubble_log_path = os.path.join(newest_folder, 'bubble_analysis.log')
+    cores = analyze_perf.parse_bubble_analysis(bubble_log_path)
+    metrics = analyze_perf.calculate_performance_metrics(cores)
+    return metrics['max_work_time']
 
 
 def measure_perf(json_config, run_params, result_folder):
@@ -311,7 +324,7 @@ def measure_perf(json_config, run_params, result_folder):
 
         sorted_by_lines = dict(sorted(item["lines"].items(), reverse=True))
         for line_num, text in sorted_by_lines.items():
-            replace_line(item["file"], line_num - 1, text)
+            replace_line(item["file"], line_num, text)
 
     test_result = run_test(json_config, result_folder)
 
@@ -321,7 +334,9 @@ def measure_perf(json_config, run_params, result_folder):
     if test_result != 0:
         return None
     
-    time = get_execution_time(json_config["build_folder"])
+    #json_config["build_folder"]
+
+    time = get_execution_time()
     return time
 
 
@@ -390,18 +405,18 @@ def enable_heuristic_pass():
     src = "framework/src/passes/pass_interface/pass_type.h"
     make_backup(src)
     line = getline_with_text(src, "NOT_DEFINED")
-    replace_line(src, line - 2, "SET_HEURISTIC_TILE_SHAPES,")
+    replace_line(src, line - 1, "SET_HEURISTIC_TILE_SHAPES,")
     line = getline_with_text(src, "switch (name)")
-    replace_line(src, line - 1, "case PassName::SET_HEURISTIC_TILE_SHAPES: return \"SetHeuristicTileShapes\";")
+    replace_line(src, line, "case PassName::SET_HEURISTIC_TILE_SHAPES: return \"SetHeuristicTileShapes\";")
 
     src = "framework/src/passes/pass_mgr/pass_manager.cpp"
     make_backup(src)
     line = getline_with_text(src, "#include \"passes/tensor_graph_pass/loop_unroll.h\"")
     replace_line(src, line - 1, "#include \"passes/tensor_graph_pass/set_heuristic_tile_shapes.h\"")
     line = getline_with_text(src, "void RegPass()")
-    replace_line(src, line - 1, "REG_PASS(SetHeuristicTileShapes);")
+    replace_line(src, line, "REG_PASS(SetHeuristicTileShapes);")
     line = getline_with_text(src, "PassName::AUTO_CAST")
-    replace_line(src, line - 1, "{   \"SetHeuristicTileShapes\",    PassName::SET_HEURISTIC_TILE_SHAPES},")
+    replace_line(src, line, "{   \"SetHeuristicTileShapes\",    PassName::SET_HEURISTIC_TILE_SHAPES},")
 
 
 def disable_heuristic_pass():
@@ -513,44 +528,37 @@ def generate_json_by_semantic_label(test_name, device_number):
     if not is_pass_enabled():
         enable_heuristic_pass()
 
-    run_command = f"python3 build_ci.py --frontend=cpp -j=32 -s={test_name} -d={device_number}"
-    print(run_command)
-    env = dict(os.environ)
-
-    log_path = f"{os.getcwd()}/tiling.log"
-    print(f"Run build: {log_path}")
-
-    with open(log_path, "w") as f:
-        test = subprocess.run(run_command.split(), stdout=f, stderr=subprocess.STDOUT, env=env)
-
-    generated_json_by_pass = get_newest_folder("build/output/bin/output") + "/semantic_labels_tiles.json"
+    # build_python(test_name, device_number)
+    generated_json_by_pass = get_newest_folder("output") + "/semantic_labels_tiles.json"
 
     with open(generated_json_by_pass, "r") as f:
         tiles_json = json.load(f)
     
     files = dict()
-    for label, info in tiles_json.items():
-        filename = info["filename"]
-    
-        line_conf = dict()
 
-        format_string = "TileShape::Current().SetVecTile({{ {var[0]}, {var[1]} }}, " \
-        "{{ {var[2]}, {var[3]} }}, {{ {var[4]}, {var[5]} }}, true);"
+    for variable_name, info in tiles_json.items():
+        format_string = "pypto.set_vec_tile_shapes("
 
         if info["type"] == "CubeTile":
-            format_string = "TileShape::Current().SetCubeTile({{ {var[0]}, {var[1]} }}," \
-            "{{ {var[2]}, {var[3]} }}, {{ {var[4]}, {var[5]} }}, true);"
+            format_string = "pypto.set_cube_tile_shapes("
+            for i in range(0, len(info["tile"]), 2):
+                format_string += f"[{{{variable_name}[" + str(i) + f"]}}, {{{variable_name}[" + str(i + 1) + "]}], "
+        else:
+            for i in range(len(info["tile"])):
+                format_string += f"{{{variable_name}[" + str(i) + "]}, "
+        format_string = format_string[:-2] + ")"
+        
+        line_conf = dict()
+        line_conf["line"] = info["line_num"] 
+        line_conf["string"] = format_string
+        line_conf[variable_name] = [info["tile"]]
 
-        line_conf["string"] = format_string.replace("var", label)
-        line_conf["line"] = info["line_num"] + 1 
-        line_conf[label] = [info["tile"]]
-
-        if info["filename"] not in files.keys():
+        filename = info["filename"]
+        if filename not in files.keys():
             files[filename] = [line_conf]
         else:
             files[filename].append(line_conf)
     
-
     return files 
 
 
@@ -571,8 +579,7 @@ def generate_json_cpp(test_name, device_number):
     files = None
 
     if choice == "g":
-        files = generate_json_by_coverage(test_name, device_number)
-            
+        files = generate_json_by_coverage(test_name, device_number)   
     elif choice == "s":
         files = generate_json_by_semantic_label(test_name, device_number)
 
@@ -606,6 +613,7 @@ def build_python(test_name, device_number):
     env = dict(os.environ)
     with open(log_path, "w") as f:
         test = subprocess.run(run_command.split(), stdout=f, stderr=subprocess.STDOUT, env=env)
+    return test.returncode
 
 
 def generate_json_python(test_name, device_number):
@@ -619,37 +627,7 @@ def generate_json_python(test_name, device_number):
     with open(generated_json_by_pass, "r") as f:
         tiles_json = json.load(f)
 
-    files = dict()
-
-    vec_tile_id = 0
-    cube_tile_id = 0
-
-    for _, info in tiles_json.items():
-        variable_name = "vectile_" + str(vec_tile_id)
-        format_string = "Tileshape::Current().SetVecTile({{"
-
-        if info["type"] == "CubeTile":
-            format_string = "TileShape::Current().SetCubeTile({{ "
-            variable_name = "cubtile_" + str(cube_tile_id)
-            cube_tile_id += 1
-            for i in range(0, len(info["tile"]), 2):
-                format_string += f"{{ {variable_name}[" + str(i) + f"], {variable_name}[" + str(i + 1) + "] }, "
-        else:
-            vec_tile_id += 1
-            for i in range(len(info["tile"])):
-                format_string += f" {{{variable_name}[" + str(i) + "]},"
-            format_string = format_string[:-2] + " }}, true);"
-        
-        line_conf = dict()
-        line_conf["line"] = info["line"]
-        line_conf["string"] = format_string
-        line_conf[variable_name] = [info["tile"]]
-
-        filename = info["file"]
-        if filename not in files.keys():
-            files[filename] = [line_conf]
-        else:
-            files[filename].append(line_conf)
+    # files = generate_json_by_semantic_label(test_name, device_number)
 
     files_conf = []
     for filename in files.keys():
@@ -660,9 +638,6 @@ def generate_json_python(test_name, device_number):
         "device_number": device_number,
         "test_name": test_name,
         "results_folder": "measurements",
-        "warn_up_cnt": 1,
-        "max_cnt": 5,
-        "prof_try_cnt": 5,
         "save_best_k": 100,
         "files": files_conf
     }
@@ -671,6 +646,7 @@ def generate_json_python(test_name, device_number):
         json.dump(json_config, f, ensure_ascii=False, indent=4)
     
     print(f"Config saved: {os.path.abspath('config.json')}")
+
 
 
 def main():
@@ -732,6 +708,9 @@ def main():
         shutil.copy(args.json_path, result_folder_path) # copy config.json to folder with results 
 
         for run_params, param_values in generate_combinations(json_config):
+            print(run_params)
+            print("-------")
+            quit()
             name = f"combination_{comb_id}"
             combination_folder = result_folder_path + f"/{name}"
 
@@ -748,11 +727,7 @@ def main():
             for d in param_values:
                 param_val_flat.update(d)
             res_params.append(param_val_flat)
-
-            if run_result != "Error":
-                copy_prof_logs(json_config["build_folder"], json_config["test_name"], combination_folder)
-                save_kernel_meta(json_config["build_folder"], combination_folder)
-          
+         
             if comb_id >= json_config["save_best_k"]:
                 remove_worst_combination(result_folder_path, results)
 
@@ -761,7 +736,5 @@ def main():
             save_to_csv(result_folder_path + "/config_perf.csv", res_params)
 
             comb_id += 1
-
-
 
 main()
