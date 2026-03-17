@@ -77,10 +77,10 @@ struct FunctionIODataPair {
             }
         }
         for (size_t k = 0; k < dst.incastDataViewList.size(); k++) {
-            ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC, dst.incastDataViewList[k] != nullptr);
+            ASSERT(ControlFlowScene::FUNC_IO_DATAVIEW_NULL, dst.incastDataViewList[k] != nullptr);
         }
         for (size_t k = 0; k < dst.outcastDataViewList.size(); k++) {
-            ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC, dst.outcastDataViewList[k] != nullptr);
+            ASSERT(ControlFlowScene::FUNC_IO_DATAVIEW_NULL, dst.outcastDataViewList[k] != nullptr);
         }
     }
 };
@@ -185,12 +185,12 @@ struct FunctionFrame {
         }
         InitInplaceDataViewList();
         if (inoutDataPair != nullptr) {
-            ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC,
+            ASSERT(ControlFlowScene::FUNC_INCAST_COUNT_MISMATCH,
                    func->GetIncast().size() == inoutDataPair->incastDataViewList.size());
             for (size_t i = 0; i < inoutDataPair->incastDataViewList.size(); i++) {
                 AddDataView(func->GetIncast()[i], inoutDataPair->incastDataViewList[i]);
             }
-            ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC,
+            ASSERT(ControlFlowScene::FUNC_OUTCAST_COUNT_MISMATCH,
                    func->GetOutcast().size() == inoutDataPair->outcastDataViewList.size());
             for (size_t i = 0; i < inoutDataPair->outcastDataViewList.size(); i++) {
                 AddDataView(func->GetOutcast()[i], inoutDataPair->outcastDataViewList[i]);
@@ -221,7 +221,7 @@ struct FunctionFrame {
     void AddDataView(
         const std::shared_ptr<LogicalTensor> &tensor, const std::shared_ptr<LogicalTensorData> &dataView) {
         if (tensorDataViewDict.count(tensor)) {
-            ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC,
+            ASSERT(ControlFlowScene::FUNC_TENSOR_DATAVIEW_MISMATCH,
                    tensorDataViewDict[tensor] == dataView);
         } else {
             DoAddTensorDataView(tensor, dataView);
@@ -230,7 +230,7 @@ struct FunctionFrame {
     }
     void AddDataViewList(const std::vector<std::shared_ptr<LogicalTensor>> &tensorList,
         const std::vector<std::shared_ptr<LogicalTensorData>> &dataViewList) {
-        ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC,
+        ASSERT(ControlFlowScene::FUNC_TENSOR_DATAVIEW_LIST_SIZE_MISMATCH,
                tensorList.size() == dataViewList.size());
         for (size_t i = 0; i < tensorList.size(); i++) {
             AddDataView(tensorList[i], dataViewList[i]);
@@ -264,7 +264,7 @@ struct FunctionFrame {
         if (rawTensorDataDict.count(raw)) {
             rawData = rawTensorDataDict[raw];
         } else {
-            ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC, inplaceTensor == nullptr);
+            ASSERT(ControlFlowScene::FUNC_INPLACE_ALLOC_CONFLICT, inplaceTensor == nullptr);
             rawData = std::make_shared<RawTensorData>(dtype, rawShape);
             rawData->resize(rawData->GetElementSize() * rawData->GetSize());
         }
@@ -375,7 +375,7 @@ private:
     void DoAddTensorDataView(
             const std::shared_ptr<LogicalTensor> &tensor,
             const std::shared_ptr<LogicalTensorData> &dataView) {
-        ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC, !tensorDataViewDict.count(tensor));
+        ASSERT(ControlFlowScene::FUNC_TENSOR_DATAVIEW_DUP, !tensorDataViewDict.count(tensor));
         tensorDataViewDict[tensor] = dataView;
     }
     void DoAddRawTensorDataView(
@@ -384,7 +384,7 @@ private:
     }
     void DoAddSpillRawTensor(
         const std::shared_ptr<LogicalTensor> &tensor, const std::shared_ptr<RawTensor> &rawtensor) {
-        ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC, !spillRawTensorDict.count(tensor));
+        ASSERT(ControlFlowScene::FUNC_SPILL_RAW_TENSOR_DUP, !spillRawTensorDict.count(tensor));
         spillRawTensorDict[tensor] = rawtensor;
     }
     void DoAddCallopInOutDataView() {
@@ -752,7 +752,7 @@ struct FunctionInterpreter {
                     iOpDataList[index] = mixGlobalTensorDict[{iop, callopAttr->wrapId}];
                     if (iOpDataList[index] != nullptr) {continue;}
                 }
-                ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC,
+                ASSERT(ControlFlowScene::INVALID_INPLACE_CHAIN,
                        op->GetOpcode() == Opcode::OP_CALL);
                 iOpDataList[index] = AllocateDataView(frame, iop);
             }
@@ -903,7 +903,7 @@ struct FunctionInterpreter {
 
             // If this group has neither incast nor outcast belonging to current function IO,
             // it indicates that inplaceTensorSetList is inconsistent with function IO spec.
-            ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC,
+            ASSERT(ControlFlowScene::FUNC_INPLACE_GROUP_NO_FUNC_IO,
                    hasIncastFromFunc || hasOutcastFromFunc);
 
             auto incastView = frame->GetDataView(incastTensor);
@@ -1043,17 +1043,17 @@ struct FunctionInterpreter {
 
                 auto inoutDataPair = std::make_shared<FunctionIODataPair>();
 
-                ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC,
+                ASSERT(ControlFlowScene::FUNC_SLOT_IO_COUNT_MISMATCH,
                        func->GetIncast().size() == incastSlot.size());
                 for (size_t i = 0; i < func->GetIncast().size(); i++) {
                     int slot = incastSlot[i][0];
-                    ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC,
+                    ASSERT(ControlFlowScene::FUNC_SLOT_MISSING,
                            slotDataViewDict_.count(slot));
                     auto incastDataView = slotDataViewDict_[slot];
                     inoutDataPair->incastDataViewList.push_back(incastDataView);
                 }
 
-                ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC,
+                ASSERT(ControlFlowScene::FUNC_SLOT_IO_COUNT_MISMATCH,
                        func->GetOutcast().size() == outcastSlot.size());
                 for (size_t i = 0; i < func->GetOutcast().size(); i++) {
                     int outputSlot = getOutputSlot(outcastSlot[i]);
@@ -1085,7 +1085,7 @@ struct FunctionInterpreter {
                 controlFlowExecution.executionListDict[func].emplace_back(capture);
             }
         } else {
-            ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC, false);
+            ASSERT(ControlFlowScene::FUNC_UNKNOWN_IO_TYPE, false);
         }
     }
 
@@ -1304,7 +1304,7 @@ public:
         outputSlotSet_ = outputSlotSet;
         for (auto &[slot, tileOpFormat]: slotTileOpFormatDict) {
             if (tileOpFormat == TileOpFormat::TILEOP_NZ) {
-                ASSERT(ControlFlowScene::INVALID_FUNC_IO_SPEC,
+                ASSERT(ControlFlowScene::FUNC_SLOT_MISSING,
                        slotDataViewDict_.count(slot));
                 auto dataView = slotDataViewDict_[slot];
                 auto inputIndex = findInputIndex(dataView);
