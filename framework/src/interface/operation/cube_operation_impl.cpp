@@ -60,14 +60,13 @@ template <typename T1, typename T2 = T1>
 LogicalTensorPtr AddOpView(Function &function, const LogicalTensorPtr &srcTensorPtr,
     const MatmulTensorInfo &dstTensorInfo, const std::map<std::string, T1> opAttr = {},
     const std::map<std::string, T2> extraOpAttr = {}) {
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, srcTensorPtr != nullptr,
-        "Original tensor for OpView operation is nullptr.");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, srcTensorPtr != nullptr)
+        << "Original tensor for OpView operation is nullptr.";
     auto dstShape = dstTensorInfo.shape;
     if (dstTensorInfo.transFlag) {
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-            dstShape.size() == SHAPE_DIM2 || dstShape.size() == SHAPE_DIM3,
-            "destination shape dimension is invalid: Expected dimensions == %d or %d, actual dimensions: %zu",
-            SHAPE_DIM2, SHAPE_DIM3, dstShape.size());
+        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, dstShape.size() == SHAPE_DIM2 || dstShape.size() == SHAPE_DIM3)
+            << "destination shape dimension is invalid: Expected dimensions == " << SHAPE_DIM2 << " or " << SHAPE_DIM3
+            << ", actual dimensions: " << dstShape.size();
         std::swap(dstShape[0], dstShape[1]);
     }
     LogicalTensorPtr dstTensorPtr = std::make_shared<LogicalTensor>(function, dstTensorInfo.dtype, dstShape,
@@ -76,10 +75,10 @@ LogicalTensorPtr AddOpView(Function &function, const LogicalTensorPtr &srcTensor
         GetViewValidShape(srcTensorPtr->GetDynValidShape(), dstTensorInfo.offset, {}, dstTensorInfo.shape));
     if (dstTensorInfo.transFlag) {
         auto &dstValidShape = dstTensorPtr->GetDynValidShape();
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-            dstValidShape.size() == SHAPE_DIM2 || dstValidShape.size() == SHAPE_DIM3,
-            "dstValidShape dimension is invalid: Expected dimensions == %d or %d, actual dimensions: %zu", SHAPE_DIM2,
-            SHAPE_DIM3, dstValidShape.size());
+        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
+            dstValidShape.size() == SHAPE_DIM2 || dstValidShape.size() == SHAPE_DIM3)
+            << "dstValidShape dimension is invalid: Expected dimensions == " << SHAPE_DIM2 << " or " << SHAPE_DIM3
+            << ", actual dimensions: " << dstValidShape.size();
         std::swap(dstValidShape[0], dstValidShape[1]);
     }
     auto &viewOp = function.AddOperation(Opcode::OP_VIEW, {srcTensorPtr}, {dstTensorPtr});
@@ -103,14 +102,14 @@ LogicalTensorPtr AddOpView(Function &function, const LogicalTensorPtr &srcTensor
 }
 
 void SetAMulBAttr(const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrParam &attrParam, Operation &op) {
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.aTensorPtr != nullptr,
-        "aTensorPtr is nullptr, check input tensor A.");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.aTensorPtr != nullptr)
+        << "aTensorPtr is nullptr, check input tensor A.";
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.bTensorPtr != nullptr,
-        "bTensorPtr is nullptr, check input tensor B.");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.bTensorPtr != nullptr)
+        << "bTensorPtr is nullptr, check input tensor B.";
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.outTensorPtr != nullptr,
-        "outTensorPtr is nullptr, check output tensor C.");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.outTensorPtr != nullptr)
+        << "outTensorPtr is nullptr, check output tensor C.";
 
     int64_t nzAttr = (static_cast<int64_t>(tensorGraphNodes.aTensorPtr->Format())) |
                      (static_cast<int64_t>(tensorGraphNodes.bTensorPtr->Format()) << 1) |
@@ -196,18 +195,17 @@ void SetTensorGraphNodes(const std::vector<LogicalTensorPtr> &operandVec, const 
     size_t mxScaleSize = static_cast<size_t>(param.hasMXScale) * SHAPE_DIM2;
     size_t operandVecSize =
         SHAPE_DIM2 + static_cast<size_t>(param.hasScale + param.hasBias + param.gmAccumulationFlag) + mxScaleSize;
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, operandVec.size() == operandVecSize,
-        "Operand vector size mismatch: Expected size: %zu, actual size: %zu, SHAPE_DIM2: %d, hasScale: %d, hasBias: "
-        "%d, gmAccumulationFlag: %d, hasMXScale: %d",
-        operandVecSize, operandVec.size(), SHAPE_DIM2, param.hasScale, param.hasBias, param.gmAccumulationFlag,
-        param.hasMXScale);
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, operandVec.size() == operandVecSize)
+        << "Operand vector size mismatch: Expected size: " << operandVecSize << ", actual size: " << operandVec.size()
+        << ", SHAPE_DIM2: " << SHAPE_DIM2 << ", hasScale: " << param.hasScale << ", hasBias: " << param.hasBias
+        << ", gmAccumulationFlag: " << param.gmAccumulationFlag << ", hasMXScale: " << param.hasMXScale;
     tensorGraphNodes.aTensorPtr = operandVec[0];
     tensorGraphNodes.bTensorPtr = operandVec[1];
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.aTensorPtr != nullptr,
-        "aTensorPtr is nullptr, check input tensor A.");
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.bTensorPtr != nullptr,
-        "bTensorPtr is nullptr, check input tensor B.");
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, cTensorPtr != nullptr, "cTensorPtr is nullptr.");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.aTensorPtr != nullptr)
+        << "aTensorPtr is nullptr, check input tensor A.";
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.bTensorPtr != nullptr)
+        << "bTensorPtr is nullptr, check input tensor B.";
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, cTensorPtr != nullptr) << "cTensorPtr is nullptr.";
     tensorGraphNodes.outTensorPtr = cTensorPtr;
     size_t extraDim = static_cast<size_t>(param.hasScale) | (static_cast<size_t>(param.hasBias) << 1) |
                       (static_cast<size_t>(param.gmAccumulationFlag) << 2) |
@@ -237,42 +235,47 @@ void SetTensorGraphNodes(const std::vector<LogicalTensorPtr> &operandVec, const 
             tensorGraphNodes.bScaleTensorPtr = operandVec[SHAPE_DIM3];
             tensorGraphNodes.biasTensorPtr = operandVec[SHAPE_DIM4];
             break;
-        default: MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, false, "Invalid tensor graph");
+        default: ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, false) << "Invalid tensor graph";
     }
 }
 
 Status CheckOperandShape(const Tensor &operand1, const Tensor &operand2) {
     // 检查 shape 维度一致性
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, operand1.GetShape().size() == operand2.GetShape().size(),
-        "Shape dimension mismatch: operand1=%zu, operand2=%zu", operand1.GetShape().size(), operand2.GetShape().size());
+    const Shape shape1 = operand1.GetShape();
+    const Shape shape2 = operand2.GetShape();
+    size_t operand1Dim = shape1.size();
+    size_t operand2Dim = shape2.size();
+    size_t offsetSize1 = operand1.GetStorage()->offset.size();
+    size_t offsetSize2 = operand2.GetStorage()->offset.size();
+
+    // 检查输入维度的一致性
+    const bool isDimSame = (operand1Dim == operand2Dim);
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, isDimSame)
+        << "Shape dimension mismatch: operand1=" << operand1Dim << ", operand2=" << operand2Dim;
 
     // 检查 shape 与 offset 的一致性
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH,
-        operand1.GetShape().size() == operand1.GetStorage()->offset.size(),
-        "operand1 shape size(%zu) != offset size(%zu)", operand1.GetShape().size(),
-        operand1.GetStorage()->offset.size());
-
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH,
-        operand2.GetShape().size() == operand2.GetStorage()->offset.size(),
-        "operand2 shape size(%zu) != offset size(%zu)", operand2.GetShape().size(),
-        operand2.GetStorage()->offset.size());
+    const bool isOperand1OffsetMatch = (operand1Dim == offsetSize1);
+    const bool isOperand2OffsetMatch = (operand2Dim == offsetSize2);
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, isOperand1OffsetMatch)
+        << "operand1 shape size(" << operand1Dim << ") != offset size(" << offsetSize1 << ")";
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, isOperand2OffsetMatch)
+        << "operand2 shape size(" << operand2Dim << ") != offset size(" << offsetSize2 << ")";
 
     // 检查最小维度
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, operand1.GetShape().size() >= SHAPE_DIM2,
-        "operand1 dimension(%zu) must be >= 2", operand1.GetShape().size());
-
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, operand2.GetShape().size() >= SHAPE_DIM2,
-        "operand2 dimension(%zu) must be >= 2", operand2.GetShape().size());
+    const bool Op1DimValid = (operand1Dim >= SHAPE_DIM2);
+    const bool Op2DimValid = (operand2Dim >= SHAPE_DIM2);
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, Op1DimValid) << "operand1 dimension(" << operand1Dim << ") must be >= 2";
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, Op2DimValid) << "operand2 dimension(" << operand2Dim << ") must be >= 2";
 
     // 检查每个维度的值
-    for (size_t i = 0; i < operand1.GetShape().size(); ++i) {
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, operand1.GetShape()[i] > 0,
-            "operand1 dim[%zu] = %ld, must be > 0", i, operand1.GetShape()[i]);
+    for (size_t i = 0; i < operand1Dim; ++i) {
+        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, shape1[i] > 0)
+            << "operand1 dim[" << i << "] = " << shape1[i] << ", must be > 0";
     }
 
-    for (size_t i = 0; i < operand2.GetShape().size(); ++i) {
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, operand2.GetShape()[i] > 0,
-            "operand2 dim[%zu] = %ld, must be > 0", i, operand2.GetShape()[i]);
+    for (size_t i = 0; i < operand2Dim; ++i) {
+        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, shape2[i] > 0)
+            << "operand2 dim[" << i << "] = " << shape2[i] << ", must be > 0";
     }
 
     MATMUL_LOGD("CheckOperandShape: PASS");
@@ -281,12 +284,11 @@ Status CheckOperandShape(const Tensor &operand1, const Tensor &operand2) {
 
 Status CheckL1L0Tile(
     const int64_t L0Tile, const int64_t L1Tile, const std::string &L0TileName, const std::string &L1TileName) {
-    MATMUL_ASSERT(
-        MatmulErrorCode::ERR_CONFIG_TILE, L0Tile != 0, "%s cannot be zero, got %ld", L0TileName.c_str(), L0Tile);
+    ASSERT(MatmulErrorCode::ERR_CONFIG_TILE, L0Tile != 0) << L0TileName << " cannot be zero, got " << L0Tile;
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_TILE, L0Tile <= L1Tile && L1Tile % L0Tile == 0,
-        "Invalid L1/L0 relation: %s=%ld, %s=%ld, require %s <= %s && %s %% %s == 0", L0TileName.c_str(), L0Tile,
-        L1TileName.c_str(), L1Tile, L0TileName.c_str(), L1TileName.c_str(), L1TileName.c_str(), L0TileName.c_str());
+    ASSERT(MatmulErrorCode::ERR_CONFIG_TILE, L0Tile <= L1Tile && L1Tile % L0Tile == 0)
+        << "Invalid L1/L0 relation: " << L0TileName << "=" << L0Tile << ", " << L1TileName << "=" << L1Tile
+        << ", require " << L0TileName << " <= " << L1TileName << " && " << L1TileName << " % " << L0TileName << " == 0";
 
     return SUCCESS;
 }
@@ -301,12 +303,13 @@ Status CheckCubeTiling(const Tensor &operand1, const Tensor &operand2, const Mat
     const int64_t mL1 = cubeTile.m[1];
     const int64_t nL0 = cubeTile.n[0];
     const int64_t nL1 = cubeTile.n[1];
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_TILE,
-        kL0 > 0 && kL1a > 0 && kL1b > 0 && mL0 > 0 && mL1 > 0 && nL0 > 0 && nL1 > 0,
-        "Invalid tile values: kL0=%ld, kL1a=%ld, kL1b=%ld, mL0=%ld, mL1=%ld, nL0=%ld, nL1=%ld", kL0, kL1a, kL1b, mL0,
-        mL1, nL0, nL1);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, kL0 % ALIGN_SIZE_16 == 0 && nL0 % ALIGN_SIZE_16 == 0,
-        "kL0(%ld) and nL0(%ld) must be aligned to 16 elements", kL0, nL0);
+    ASSERT(
+        MatmulErrorCode::ERR_CONFIG_TILE, kL0 > 0 && kL1a > 0 && kL1b > 0 && mL0 > 0 && mL1 > 0 && nL0 > 0 && nL1 > 0)
+        << "Invalid tile values: kL0=" << kL0 << ", kL1a=" << kL1a << ", kL1b=" << kL1b << ", mL0=" << mL0
+        << ", mL1=" << mL1 << ", nL0=" << nL0 << ", nL1=" << nL1;
+
+    ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, kL0 % ALIGN_SIZE_16 == 0 && nL0 % ALIGN_SIZE_16 == 0)
+        << "kL0(" << kL0 << ") and nL0(" << nL0 << ") must be aligned to 16 elements";
     // 检查 L1/L0 tile 关系
     if (CheckL1L0Tile(kL0, kL1a, "kL0", "kL1a") != SUCCESS) {
         return FAILED;
@@ -322,18 +325,19 @@ Status CheckCubeTiling(const Tensor &operand1, const Tensor &operand2, const Mat
     }
     size_t alignSizeA = GetAlignSize(operand1.GetDataType());
     size_t alignSizeB = GetAlignSize(operand2.GetDataType());
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, alignSizeA != 0 && alignSizeB != 0,
-        "The alignSize is zero, please check!! alignSizeA=%zu, alignSizeB=%zu", alignSizeA, alignSizeB);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, kL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0,
-        "kL0 * sizeof(dtype) = %zu bytes, must be 32-byte aligned", kL0 * BytesOf(operand1.GetDataType()));
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, nL0 * BytesOf(operand2.GetDataType()) % ALIGN_SIZE_32 == 0,
-        "nL0 * sizeof(dtype) = %zu bytes, must be 32-byte aligned", nL0 * BytesOf(operand2.GetDataType()));
+    ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, alignSizeA != 0 && alignSizeB != 0)
+        << "The alignSize is zero, please check!! alignSizeA=" << alignSizeA << ", alignSizeB=" << alignSizeB;
+
+    ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, kL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
+        << "kL0 * sizeof(dtype) = " << kL0 * BytesOf(operand1.GetDataType()) << " bytes, must be 32-byte aligned";
+
+    ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, nL0 * BytesOf(operand2.GetDataType()) % ALIGN_SIZE_32 == 0)
+        << "nL0 * sizeof(dtype) = " << nL0 * BytesOf(operand2.GetDataType()) << " bytes, must be 32-byte aligned";
     if (operand1.Format() == TileOpFormat::TILEOP_ND) {
         if (attrParam.transA) { // For ND A transpose, mL0 must be 32B aligned
-            MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT,
-                mL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0,
-                "mL0 memory not aligned when transA=true: %zu bytes, must be 32-byte aligned",
-                mL0 * BytesOf(operand1.GetDataType()));
+            ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, mL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
+                << "mL0 memory not aligned when transA=true: " << mL0 * BytesOf(operand1.GetDataType())
+                << " bytes, must be 32-byte aligned";
         }
     }
     return SUCCESS;
@@ -342,45 +346,51 @@ Status CheckCubeTiling(const Tensor &operand1, const Tensor &operand2, const Mat
 void CheckOperandShapeBound(const Tensor &operand) {
     auto opFormat = operand.Format();
     size_t alignSize = GetAlignSize(operand.GetDataType());
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, alignSize != 0, "The alignSize is zero, please check!!");
+    ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, alignSize != 0)
+        << "The alignSize is zero, please check!!";
     if (opFormat == TileOpFormat::TILEOP_ND) {
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, operand.GetShape().back() <= SHAPE_INNER_AXIS_MAX_SIZE,
-            "Current inner axis: %ld, when input is ND format, inner axis must be less than 65535",
-            operand.GetShape().back());
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-            operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2] <= std::numeric_limits<int32_t>::max(),
-            "Current outer axis: %ld, when input is ND format, outer axis must be less than 2^31 - 1",
-            operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2]);
+        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, operand.GetShape().back() <= SHAPE_INNER_AXIS_MAX_SIZE)
+            << "Current inner axis: " << operand.GetShape().back()
+            << ", when input is ND format, inner axis must be less than 65535";
+
+        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
+            operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2] <= std::numeric_limits<int32_t>::max())
+            << "Current outer axis: " << operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2]
+            << ", when input is ND format, outer axis must be less than 2^31 - 1";
+
         if (operand.GetDataType() == DataType::DT_FP4_E2M1X2 || operand.GetDataType() == DataType::DT_FP4_E1M2X2) {
-            MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, (operand.GetShape().back() & 1) == 0,
-                "Current inner axis: %zd, when input is ND format and 4bit dtype, inner axis must be even number",
-                operand.GetShape().back());
+            ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, (operand.GetShape().back() & 1) == 0)
+                << "Current inner axis: " << operand.GetShape().back()
+                << ", when input is ND format and 4bit dtype, inner axis must be even number";
         }
     } else {
-        MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT,
-            operand.GetShape().back() * BytesOf(operand.GetDataType()) % ALIGN_SIZE_32 == 0,
-            "Current inner axis: %ld, when input is NZ format, inner axis shape must be 32-byte aligned",
-            operand.GetShape().back());
-        MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT,
-            operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2] % ALIGN_SIZE_16 == 0,
-            "Current outer axis: %ld, when input is NZ format, outer axis shape must be 16-element aligned",
-            operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2]);
+        ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT,
+            operand.GetShape().back() * BytesOf(operand.GetDataType()) % ALIGN_SIZE_32 == 0)
+            << "Current inner axis: " << operand.GetShape().back()
+            << ", when input is NZ format, inner axis shape must be 32-byte aligned";
+
+        ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT,
+            operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2] % ALIGN_SIZE_16 == 0)
+            << "Current outer axis: " << operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2]
+            << ", when input is NZ format, outer axis shape must be 16-element aligned";
     }
 }
 
 void CheckByteAlign(const Tensor &operand, const std::string &tileName, int64_t tileVal) {
     size_t alignSize = GetAlignSize(operand.GetDataType());
     int64_t totalBytes = tileVal * BytesOf(operand.GetDataType());
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, alignSize != 0, "The alignSize is zero, please check!!");
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, tileVal * BytesOf(operand.GetDataType()) % alignSize == 0,
-        "Current length of %s: %zu bytes, the length must be aligned to 32 bytes(4bit dtype must be aligned to 64)",
-        tileName.c_str(), (size_t)totalBytes);
+    ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, alignSize != 0)
+        << "The alignSize is zero, please check!!";
+
+    ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, tileVal * BytesOf(operand.GetDataType()) % alignSize == 0)
+        << "Current length of " << tileName << ": " << (size_t)totalBytes
+        << " bytes, the length must be aligned to 32 bytes(4bit dtype must be aligned to 64)";
 }
 
 void CheckElementAlign(const std::string &tileName, int64_t tileVal) {
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, tileVal % ALIGN_SIZE_16 == 0,
-        "Current length of %s: %zu elements, the length must be aligned to 16 elements", tileName.c_str(),
-        (size_t)tileVal);
+    ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, tileVal % ALIGN_SIZE_16 == 0)
+        << "Current length of " << tileName << ": " << (size_t)tileVal
+        << " elements, the length must be aligned to 16 elements";
 }
 
 void CheckNZFormatAligned(const Tensor &operand1, const Tensor &operand2, const MatmulAttrParam &attrParam) {
@@ -416,19 +426,19 @@ void CheckCMatrixNZFormatAligned(const DataType &outType, const Tensor &operand,
     if (attrParam.isCMatrixNZ) {
         int64_t nView = attrParam.transB ? operand.GetShape()[0] : operand.GetShape()[1];
         if (outType == DataType::DT_INT32) {
-            MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, nView % ALIGN_SIZE_16 == 0,
-                "Current nView: %ld elements, nView must be aligned to 16 elements when CMatrix is NZ and outType is "
-                "int32",
-                nView);
-            MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, nL0 % ALIGN_SIZE_16 == 0,
-                "Current nL0: %ld elements, nL0 must be aligned to 16 elements when CMatrix is NZ and outType is int32",
-                nL0);
+            ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, nView % ALIGN_SIZE_16 == 0)
+                << "Current nView: " << nView
+                << " elements, nView must be aligned to 16 elements when CMatrix is NZ and outType is int32";
+            ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, nL0 % ALIGN_SIZE_16 == 0)
+                << "Current nL0: " << nL0
+                << " elements, nL0 must be aligned to 16 elements when CMatrix is NZ and outType is int32";
         } else {
-            MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, nView * BytesOf(outType) % ALIGN_SIZE_32 == 0,
-                "Current nView: %zu bytes, nView must be aligned to 32 bytes when CMatrix is NZ",
-                nView * BytesOf(outType));
-            MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, nL0 * BytesOf(outType) % ALIGN_SIZE_32 == 0,
-                "Current nL0: %zu bytes, nL0 must be aligned to 32 bytes when CMatrix is NZ", nL0 * BytesOf(outType));
+            const bool nViewIsAlign = ((nView * BytesOf(outType)) % ALIGN_SIZE_32) == 0;
+            const bool nL0IsAlign = ((nL0 * BytesOf(outType)) % ALIGN_SIZE_32) == 0;
+            ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, nViewIsAlign) << "Current nView: " << nView * BytesOf(outType)
+                << " bytes, nView must be aligned to 32 bytes when CMatrix is NZ";
+            ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, nL0IsAlign) << "Current nL0: " << nL0 * BytesOf(outType)
+                << " bytes, nL0 must be aligned to 32 bytes when CMatrix is NZ";
         }
     }
 }
@@ -437,64 +447,59 @@ void CheckBiasParam(DataType inDtype, const MatmulExtendParam &param = {}) {
     if (param.biasTensor.GetStorage() == nullptr) {
         return;
     }
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, param.biasTensor.Format() == TileOpFormat::TILEOP_ND,
-        "Only support TILEOP_ND.");
-
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, param.biasTensor.Format() == TileOpFormat::TILEOP_ND)
+        << "Only support TILEOP_ND.";
     if (inDtype == DataType::DT_BF16 || inDtype == DataType::DT_FP32) {
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, param.biasTensor.GetDataType() == DataType::DT_FP32,
-            "When input tensor is DT_BF16 or DT_FP32, bias must be DT_FP32.");
+        ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, param.biasTensor.GetDataType() == DataType::DT_FP32)
+            << "When input tensor is DT_BF16 or DT_FP32, bias must be DT_FP32.";
     } else if (inDtype == DataType::DT_FP16) {
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH,
-            param.biasTensor.GetDataType() == DataType::DT_FP32 || param.biasTensor.GetDataType() == DataType::DT_FP16,
-            "When input tensor is DT_FP16, bias must be DT_FP32 or DT_FP16.");
+        ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH,
+            param.biasTensor.GetDataType() == DataType::DT_FP32 || param.biasTensor.GetDataType() == DataType::DT_FP16)
+            << "When input tensor is DT_FP16, bias must be DT_FP32 or DT_FP16.";
     } else if (inDtype == DataType::DT_INT8) {
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, param.biasTensor.GetDataType() == DataType::DT_INT32,
-            "When input tensor is DT_INT8, bias must be DT_INT32.");
+        ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, param.biasTensor.GetDataType() == DataType::DT_INT32)
+            << "When input tensor is DT_INT8, bias must be DT_INT32.";
     }
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, param.biasTensor.GetShape().size() == SHAPE_DIM2,
-        "Bias tensor shape dimension mismatch: Expected %d dimensions, got %zu", SHAPE_DIM2,
-        param.biasTensor.GetShape().size());
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, param.biasTensor.GetShape()[0] == 1,
-        "Bias tensor first dimension mismatch: Expected first dimension to be 1, got %ld",
-        param.biasTensor.GetShape()[0]);
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, param.biasTensor.GetShape().size() == SHAPE_DIM2)
+        << "Bias tensor shape dimension mismatch: Expected " << SHAPE_DIM2 << " dimensions, got "
+        << param.biasTensor.GetShape().size();
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, param.biasTensor.GetShape()[0] == 1)
+        << "Bias tensor first dimension mismatch: Expected first dimension to be 1, got "
+        << param.biasTensor.GetShape()[0];
 }
 
 void CheckFixpipeParam(DataType inDtype, DataType outDtype, const MatmulExtendParam &param = {}) {
     if (param.scaleTensor.GetStorage() != nullptr) {
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, param.scaleTensor.Format() == TileOpFormat::TILEOP_ND,
-            "Only support TILEOP_ND.");
+        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, param.scaleTensor.Format() == TileOpFormat::TILEOP_ND)
+            << "Only support TILEOP_ND.";
 
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH,
-            param.scaleTensor.GetDataType() == DataType::DT_INT64 ||
-                param.scaleTensor.GetDataType() == DataType::DT_UINT64,
-            "scaleTensor dataType: %s. scaleTensor only support int64 and uint64 dtype currently.",
-            DataType2String(param.scaleTensor.GetDataType()).c_str());
+        ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, param.scaleTensor.GetDataType() == DataType::DT_INT64 ||
+                                                        param.scaleTensor.GetDataType() == DataType::DT_UINT64)
+            << "scaleTensor dataType: " << DataType2String(param.scaleTensor.GetDataType())
+            << ". scaleTensor only support int64 and uint64 dtype currently.";
 
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH,
-            outDtype == DataType::DT_FP16 && inDtype == DataType::DT_INT8,
-            "Data type mismatch in fixpipe scenario. Expected inDtype to be DT_INT8 and outDtype to be DT_FP16.");
+        ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, outDtype == DataType::DT_FP16 && inDtype == DataType::DT_INT8)
+            << "Data type mismatch in fixpipe scenario. Expected inDtype to be DT_INT8 and outDtype to be DT_FP16.";
 
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, param.scaleTensor.GetShape()[0] == 1,
-            "Scale tensor first dimension mismatch. Expected first dimension to be 1, got %ld",
-            param.scaleTensor.GetShape()[0]);
+        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, param.scaleTensor.GetShape()[0] == 1)
+            << "Scale tensor first dimension mismatch. Expected first dimension to be 1, got "
+            << param.scaleTensor.GetShape()[0];
     }
     if (fabs(param.scaleValue - 0) > EPSILON) {
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH,
-            outDtype == DataType::DT_FP16 && inDtype == DataType::DT_INT8,
-            "Data type mismatch in pertensor scenario. Expected inDtype to be DT_INT8 and outDtype to be DT_FP16.");
+        ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, outDtype == DataType::DT_FP16 && inDtype == DataType::DT_INT8)
+            << "Data type mismatch in pertensor scenario. Expected inDtype to be DT_INT8 and outDtype to be DT_FP16.";
     }
     if (inDtype == DataType::DT_INT8 && outDtype == DataType::DT_FP16) {
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-            fabs(param.scaleValue - 0) > EPSILON || param.scaleTensor.GetStorage() != nullptr,
-            "Quantization error in INT8→FP16 path: scaleValue must not be 0.0f, OR scaleTensor must not be null.");
+        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
+            fabs(param.scaleValue - 0) > EPSILON || param.scaleTensor.GetStorage() != nullptr)
+            << "Quantization error in INT8→FP16 path: scaleValue must not be 0.0f, OR scaleTensor must not be null.";
     }
 }
 
 void CheckTransModeParam(DataType inDtype, const MatmulExtendParam &param = {}) {
-    if(param.transMode != TransMode::CAST_NONE) {
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_UNSUPPORTED,
-                      inDtype == DataType::DT_FP32,
-                      "The param of transMode is only supported when input data type is DT_FP32.");
+    if (param.transMode != TransMode::CAST_NONE) {
+        ASSERT(MatmulErrorCode::ERR_PARAM_UNSUPPORTED, inDtype == DataType::DT_FP32)
+            << "The param of transMode is only supported when input data type is DT_FP32.";
     }
 }
 
@@ -504,57 +509,64 @@ void CheckGmAccumulationParam(DataType outType, const Tensor &aMatrix, const Ten
     if (!cubeTile.enableSplitK) {
         return;
     }
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_UNSUPPORTED, !attrParam.isCMatrixNZ,
-        "Gm accumulation with output NZ format is not supported.");
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        param.scaleTensor.GetStorage() == nullptr && param.biasTensor.GetStorage() == nullptr &&
-            fabs(param.scaleValue - 0) < EPSILON,
-        "Fixpipe and bias cannot be used simultaneously with GM ACC");
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, outType != DT_FP16 && outType != DT_BF16,
-        "Output data type only support FP32 and INT32 when using GM accumulated");
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR,
-        aMatrix.GetStorage() != nullptr && bMatrix.GetStorage() != nullptr,
-        "Both aMatrix and bMatrix cannot get storage");
+    ASSERT(MatmulErrorCode::ERR_CONFIG_UNSUPPORTED, !attrParam.isCMatrixNZ)
+        << "Gm accumulation with output NZ format is not supported.";
+
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, param.scaleTensor.GetStorage() == nullptr &&
+                                                   param.biasTensor.GetStorage() == nullptr &&
+                                                   fabs(param.scaleValue - 0) < EPSILON)
+        << "Fixpipe and bias cannot be used simultaneously with GM ACC";
+
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, outType == DataType::DT_FP32 || outType == DataType::DT_INT32)
+        << "Output data type only support FP32 and INT32 when using GM accumulated";
+
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, aMatrix.GetStorage() != nullptr && bMatrix.GetStorage() != nullptr)
+        << "Both aMatrix and bMatrix cannot get storage";
+
     auto aMatrixValidShape = aMatrix.GetStorage()->GetDynValidShape();
     auto bMatrixValidShape = bMatrix.GetStorage()->GetDynValidShape();
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        aMatrixValidShape.size() == SHAPE_DIM2 && bMatrixValidShape.size() == SHAPE_DIM2 &&
-            cubeTile.k.size() == MAX_K_DIM_SIZE,
-        "The validShapes of aMatrix and bMatrix must be 2 Dim. Additionally, the K TileShape must be 3 Dim");
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        aMatrix.GetShape().size() == SHAPE_DIM2 && bMatrix.GetShape().size() == SHAPE_DIM2,
-        "The shapes of aMatrix and bMatrix must be 2 Dim");
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, aMatrixValidShape.size() == SHAPE_DIM2 &&
+                                                   bMatrixValidShape.size() == SHAPE_DIM2 &&
+                                                   cubeTile.k.size() == MAX_K_DIM_SIZE)
+        << "The validShapes of aMatrix and bMatrix must be 2 Dim. Additionally, the K TileShape must be 3 Dim";
+
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
+        aMatrix.GetShape().size() == SHAPE_DIM2 && bMatrix.GetShape().size() == SHAPE_DIM2)
+        << "The shapes of aMatrix and bMatrix must be 2 Dim";
     int64_t kSizeA = attrParam.transA ? aMatrix.GetShape()[0] : aMatrix.GetShape()[1];
     int64_t kSizeB = attrParam.transB ? bMatrix.GetShape()[1] : bMatrix.GetShape()[0];
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, kSizeA == kSizeB,
-        "Matrix K dimension mismatch, kSizeA: %ld, kSizeB: %ld", kSizeA, kSizeB);
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, kSizeA == kSizeB)
+        << "Matrix K dimension mismatch, kSizeA: " << kSizeA << ", kSizeB: " << kSizeB;
 }
 
 void CheckOperandDtype(DataType outType, const Tensor &operand1, const Tensor &operand2) {
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_UNSUPPORTED,
-        outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16 ||
-            outType == DataType::DT_INT32,
-        "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16, DT_INT32 are supported.");
+    ASSERT(MatmulErrorCode::ERR_PARAM_UNSUPPORTED, outType == DataType::DT_FP32 || outType == DataType::DT_FP16 ||
+                                                       outType == DataType::DT_BF16 || outType == DataType::DT_INT32)
+        << "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16, DT_INT32 are supported.";
     const DataType operand1Dtype = operand1.GetDataType();
     const DataType operand2Dtype = operand2.GetDataType();
     const bool isOperand1Fp8 = (operand1Dtype == DataType::DT_FP8E5M2 || operand1Dtype == DataType::DT_FP8E4M3);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH,
-        !isOperand1Fp8 || (operand2Dtype == DataType::DT_FP8E5M2 || operand2Dtype == DataType::DT_FP8E4M3),
-        "When operand1 is of type DT_FP8E4M3 or DT_FP8E5M2, operand2 must be DT_FP8E4M3 or DT_FP8E5M2. operand1 "
-        "dataType: %s, operand2 dataType: %s",
-        DataType2String(operand1Dtype).c_str(), DataType2String(operand2Dtype).c_str());
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        (isOperand1Fp8 == false) || (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510),
-        "When operand1 data type is DT_FP8E5M2, only DAV_3510 architecture is supported.");
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        operand1Dtype != DataType::DT_FP8E5M2 || operand1.Format() == TileOpFormat::TILEOP_ND,
-        "When operand1 data type is DT_FP8E5M2, format must be ND.");
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        operand2Dtype != DataType::DT_FP8E5M2 || operand2.Format() == TileOpFormat::TILEOP_ND,
-        "When operand2 data type is DT_FP8E5M2, format must be ND.");
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, isOperand1Fp8 || (operand1Dtype == operand2Dtype),
-        "input dataType must be consistent. operand1 dataType: %s, operand2 dataType: %s",
-        DataType2String(operand1Dtype).c_str(), DataType2String(operand2Dtype).c_str());
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH,
+        !isOperand1Fp8 || (operand2Dtype == DataType::DT_FP8E5M2 || operand2Dtype == DataType::DT_FP8E4M3))
+        << "When operand1 is of type DT_FP8E4M3 or DT_FP8E5M2, operand2 must be DT_FP8E4M3 or DT_FP8E5M2. operand1 "
+           "dataType: "
+        << DataType2String(operand1Dtype) << ", operand2 dataType: " << DataType2String(operand2Dtype);
+
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
+        (isOperand1Fp8 == false) || (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510))
+        << "When operand1 data type is DT_FP8E5M2, only DAV_3510 architecture is supported.";
+
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
+        operand1Dtype != DataType::DT_FP8E5M2 || operand1.Format() == TileOpFormat::TILEOP_ND)
+        << "When operand1 data type is DT_FP8E5M2, format must be ND.";
+
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
+        operand2Dtype != DataType::DT_FP8E5M2 || operand2.Format() == TileOpFormat::TILEOP_ND)
+        << "When operand2 data type is DT_FP8E5M2, format must be ND.";
+
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, isOperand1Fp8 || (operand1Dtype == operand2Dtype))
+        << "input dataType must be consistent. operand1 dataType: " << DataType2String(operand1Dtype)
+        << ", operand2 dataType: " << DataType2String(operand2Dtype);
 }
 
  Status CheckMatmulOperands(DataType outType, const Tensor &operand1, const Tensor &operand2,
@@ -586,11 +598,11 @@ void CheckOperandDtype(DataType outType, const Tensor &operand1, const Tensor &o
 
 void CheckMXMatmulShape(const Tensor &aTensor, const Tensor &aScaleTensor, const Tensor &bTensor,
     const Tensor &bScaleTensor, const MatmulAttrParam &attrParam) {
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        aScaleTensor.GetShape().size() == SHAPE_DIM3 && bScaleTensor.GetShape().size() == SHAPE_DIM3,
-        "The dimension of scaleTensor for mxmatmul must be equal to 3! The dimension of ascaleTensor: %zu, The "
-        "dimension of bscaleTensor: %zu",
-        aScaleTensor.GetShape().size(), bScaleTensor.GetShape().size());
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
+        aScaleTensor.GetShape().size() == SHAPE_DIM3 && bScaleTensor.GetShape().size() == SHAPE_DIM3)
+        << "The dimension of scaleTensor for mxmatmul must be equal to 3! The dimension of ascaleTensor: "
+        << aScaleTensor.GetShape().size() << ", The dimension of bscaleTensor: " << bScaleTensor.GetShape().size();
+
     int64_t mSize = attrParam.transA ? aTensor.GetShape()[1] : aTensor.GetShape()[0];
     int64_t nSize = attrParam.transB ? bTensor.GetShape()[0] : bTensor.GetShape()[1];
     int64_t kSize = attrParam.transA ? aTensor.GetShape()[0] : aTensor.GetShape()[1];
@@ -602,38 +614,43 @@ void CheckMXMatmulShape(const Tensor &aTensor, const Tensor &aScaleTensor, const
     int64_t kBScaleSize1 = bScaleTensor.GetShape()[SHAPE_DIM2];
     int64_t nScaleSize = attrParam.transBScale ? bScaleTensor.GetShape()[0] : bScaleTensor.GetShape()[1];
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, kAScaleSize0 == kBScaleSize0,
-        "Scale Matrix K dimension mismatch, kAScaleSize: %ld, kBScaleSize: %ld", kAScaleSize0, kBScaleSize0);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, kAScaleSize1 == NUM2 && kBScaleSize1 == NUM2,
-        "Scale Matrix Inner axis must be equal to 2, AScale Inner axis: %ld, BScale Inner axis: %ld", kAScaleSize1,
-        kBScaleSize1);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, mSize == mScaleSize,
-        "Scale Matrix M dimension mismatch, mScaleSize: %ld, mSize: %ld", mScaleSize, mSize);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, nSize == nScaleSize,
-        "Scale Matrix N dimension mismatch, nScaleSize: %ld, nSize: %ld", nScaleSize, nSize);
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, kAScaleSize0 == kBScaleSize0)
+        << "Scale Matrix K dimension mismatch, kAScaleSize: " << kAScaleSize0 << ", kBScaleSize: " << kBScaleSize0;
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, kSize % ALIGN_SIZE_64 == 0,
-        "Current kSize: %ld, kSize must be aligned to 64 element when using MX Matmul", kSize);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, kAScaleSize0 == kSize / ALIGN_SIZE_64,
-        "Matrix K dimension is not a multiple of 64. Expected: ksize / 64 = %ld, but got ksize / 64: %ld", kAScaleSize0,
-        kSize / ALIGN_SIZE_64);
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, kAScaleSize1 == NUM2 && kBScaleSize1 == NUM2)
+        << "Scale Matrix Inner axis must be equal to 2, AScale Inner axis: " << kAScaleSize1
+        << ", BScale Inner axis: " << kBScaleSize1;
+
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, mSize == mScaleSize)
+        << "Scale Matrix M dimension mismatch, mScaleSize: " << mScaleSize << ", mSize: " << mSize;
+
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, nSize == nScaleSize)
+        << "Scale Matrix N dimension mismatch, nScaleSize: " << nScaleSize << ", nSize: " << nSize;
+
+    ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, kSize % ALIGN_SIZE_64 == 0)
+        << "Current kSize: " << kSize << ", kSize must be aligned to 64 element when using MX Matmul";
+
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, kAScaleSize0 == kSize / ALIGN_SIZE_64)
+        << "Matrix K dimension is not a multiple of 64. Expected: ksize / 64 = " << kAScaleSize0
+        << ", but got ksize / 64: " << kSize / ALIGN_SIZE_64;
 }
 
 Status CheckMXMatmulOperands(const Tensor &aTensor, const Tensor &aScaleTensor, const Tensor &bTensor,
     const Tensor &bScaleTensor, const MatmulAttrParam &attrParam) {
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH,
-        aScaleTensor.GetDataType() == DataType::DT_FP8E8M0 && bScaleTensor.GetDataType() == DataType::DT_FP8E8M0,
-        "input scale dataType must be DT_FP8E8M0. aScaleTensor dataType: %s, bScaleTensor dataType: %s",
-        DataType2String(aScaleTensor.GetDataType()).c_str(), DataType2String(bScaleTensor.GetDataType()).c_str());
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH,
+        aScaleTensor.GetDataType() == DataType::DT_FP8E8M0 && bScaleTensor.GetDataType() == DataType::DT_FP8E8M0)
+        << "input scale dataType must be DT_FP8E8M0. aScaleTensor dataType: "
+        << DataType2String(aScaleTensor.GetDataType())
+        << ", bScaleTensor dataType: " << DataType2String(bScaleTensor.GetDataType());
     DataType inDType = aTensor.GetDataType();
     static const std::unordered_set<DataType> supportedTypes = {
         DataType::DT_FP8E4M3, DataType::DT_FP8E5M2, DataType::DT_FP4_E2M1X2, DataType::DT_FP4_E1M2X2};
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_UNSUPPORTED, supportedTypes.find(inDType) != supportedTypes.end(),
-        "Unsupported input data type. Only support DT_FP8E4M3, DT_FP8E5M2, DT_FP4_E2M1X2, DT_FP4_E1M2X2.");
+    ASSERT(MatmulErrorCode::ERR_PARAM_UNSUPPORTED, supportedTypes.find(inDType) != supportedTypes.end())
+        << "Unsupported input data type. Only support DT_FP8E4M3, DT_FP8E5M2, DT_FP4_E2M1X2, DT_FP4_E1M2X2.";
     auto cubeTile = TileShape::Current().GetCubeTile();
     const int64_t kL0 = cubeTile.k[0];
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, kL0 % ALIGN_SIZE_64 == 0,
-        "Current length of kL0: %ld, the length of kL0 for mx matmul must be aligned to 64 elements", kL0);
+    ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, kL0 % ALIGN_SIZE_64 == 0)
+        << "Current length of kL0: " << kL0 << ", the length of kL0 for mx matmul must be aligned to 64 elements";
     CheckOperandShape(aScaleTensor, bScaleTensor);
     CheckMXMatmulShape(aTensor, aScaleTensor, bTensor, bScaleTensor, attrParam);
     return SUCCESS;
@@ -641,24 +658,23 @@ Status CheckMXMatmulOperands(const Tensor &aTensor, const Tensor &aScaleTensor, 
 
 void SetMatmulTileInfo(const TileShape &tileShape, const MatmulAttrParam &attrParam,
     const MatmulGraphNodes &tensorGraphNodes, MatmulTileInfo &tileInfo) {
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR,
-        tensorGraphNodes.aTensorPtr != nullptr && tensorGraphNodes.bTensorPtr != nullptr,
-        "Both inputs must be non-nullptr.");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR,
+        tensorGraphNodes.aTensorPtr != nullptr && tensorGraphNodes.bTensorPtr != nullptr)
+        << "Both inputs must be non-nullptr.";
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        tensorGraphNodes.aTensorPtr->GetShape().size() == SHAPE_DIM2 &&
-            tensorGraphNodes.bTensorPtr->GetShape().size() == SHAPE_DIM2,
-        "Invalid tensor shape dimension, expected both tensors to have exactly %d dimensions. aTensorPtr shape dim: "
-        "%zu, bTensorPtr shape dim: %zu",
-        SHAPE_DIM2, tensorGraphNodes.aTensorPtr->GetShape().size(), tensorGraphNodes.bTensorPtr->GetShape().size());
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, tensorGraphNodes.aTensorPtr->GetShape().size() == SHAPE_DIM2 &&
+                                                   tensorGraphNodes.bTensorPtr->GetShape().size() == SHAPE_DIM2)
+        << "Invalid tensor shape dimension, expected both tensors to have exactly " << SHAPE_DIM2
+        << " dimensions. aTensorPtr shape dim: " << tensorGraphNodes.aTensorPtr->GetShape().size()
+        << ", bTensorPtr shape dim: " << tensorGraphNodes.bTensorPtr->GetShape().size();
 
     tileInfo.mView = attrParam.transA ? tensorGraphNodes.aTensorPtr->shape[1] : tensorGraphNodes.aTensorPtr->shape[0];
     tileInfo.nView = attrParam.transB ? tensorGraphNodes.bTensorPtr->shape[0] : tensorGraphNodes.bTensorPtr->shape[1];
     int64_t kViewA = attrParam.transA ? tensorGraphNodes.aTensorPtr->shape[0] : tensorGraphNodes.aTensorPtr->shape[1];
     int64_t kViewB = attrParam.transB ? tensorGraphNodes.bTensorPtr->shape[1] : tensorGraphNodes.bTensorPtr->shape[0];
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, kViewA == kViewB,
-        "Matrix K dimension mismatch, kViewA: %ld, kViewB: %ld", kViewA, kViewB);
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, kViewA == kViewB)
+        << "Matrix K dimension mismatch, kViewA: " << kViewA << ", kViewB: " << kViewB;
     tileInfo.kView = kViewA;
 
     auto &cubeTile = tileShape.GetCubeTile();
@@ -672,15 +688,15 @@ void SetMatmulTileInfo(const TileShape &tileShape, const MatmulAttrParam &attrPa
     int64_t tileKL1Min = std::min(tileInfo.tileKAL1, tileInfo.tileKBL1);
     int64_t tileKL1Max = std::max(tileInfo.tileKAL1, tileInfo.tileKBL1);
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_TILE,
-        tileKL1Max >= kViewA || (tileKL1Max > 0 && tileKL1Min > 0 && tileKL1Max % tileKL1Min == 0),
-        "Invalid tileKL1 configuration: tileKL1Max: %ld, kViewA: %ld, tileKL1Min: %ld. Must satisfy: tileKL1Max >= "
-        "kViewA OR (all values > 0 and tileKL1Max is divisible by tileKL1Min).",
-        tileKL1Max, kViewA, tileKL1Min);
+    ASSERT(MatmulErrorCode::ERR_CONFIG_TILE,
+        tileKL1Max >= kViewA || (tileKL1Max > 0 && tileKL1Min > 0 && tileKL1Max % tileKL1Min == 0))
+        << "Invalid tileKL1 configuration: tileKL1Max: " << tileKL1Max << ", kViewA: " << kViewA
+        << ", tileKL1Min: " << tileKL1Min
+        << ". Must satisfy: tileKL1Max >= kViewA OR (all values > 0 and tileKL1Max is divisible by tileKL1Min).";
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_TILE, tileInfo.tileKL0 > 0 && tileKL1Min % tileInfo.tileKL0 == 0,
-        "tileKL0: %ld, tileKL1Min: %ld. Must have: tileKL0 > 0 AND tileKL1Min is divisible by tileKL0.",
-        tileInfo.tileKL0, tileKL1Min);
+    ASSERT(MatmulErrorCode::ERR_CONFIG_TILE, tileInfo.tileKL0 > 0 && tileKL1Min % tileInfo.tileKL0 == 0)
+        << "tileKL0: " << tileInfo.tileKL0 << ", tileKL1Min: " << tileKL1Min
+        << ". Must have: tileKL0 > 0 AND tileKL1Min is divisible by tileKL0.";
 }
 
 LogicalTensorPtr LinkBias(Function &function, const MatmulGraphNodes &tensorGraphNodes, const TileInfo &tileInfoL1,
@@ -885,10 +901,10 @@ LogicalTensorPtr LinkTensorBScale(Function &function, const MatmulGraphNodes &te
 
 void LinkAMulB(Function &function, const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrParam &attrParam,
     const MatmulIterInfo &iterInfo, MatmulGraphNodes &tileGraphNodes) {
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR,
-        tileGraphNodes.aTensorPtr != nullptr && tileGraphNodes.bTensorPtr != nullptr &&
-            tileGraphNodes.outTensorPtr != nullptr,
-        "Inputs must be non-nullptr.");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, tileGraphNodes.aTensorPtr != nullptr &&
+                                                     tileGraphNodes.bTensorPtr != nullptr &&
+                                                     tileGraphNodes.outTensorPtr != nullptr)
+        << "Inputs must be non-nullptr.";
     std::vector<LogicalTensorPtr> aMulBInputs;
     std::vector<LogicalTensorPtr> aMulBOutputs;
     const std::string matmulOpStr = iterInfo.isFirstK ? "TILE_A_MUL_B" : "TILE_A_MULACC_B";
@@ -904,10 +920,9 @@ void LinkAMulB(Function &function, const MatmulGraphNodes &tensorGraphNodes, con
     }
     if (attrParam.gmAccumulationFlag) {
         // GM 累加场景
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-            tensorGraphNodes.gmAccumulationTensorPtr != nullptr && attrParam.hasBias == false &&
-                attrParam.hasScale == false,
-            "In GM accumulation mode, neither bias nor scale is allowed.");
+        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, tensorGraphNodes.gmAccumulationTensorPtr != nullptr &&
+                                                       attrParam.hasBias == false && attrParam.hasScale == false)
+            << "In GM accumulation mode, neither bias nor scale is allowed.";
         tileGraphNodes.gmAccumulationTensorPtr = tensorGraphNodes.gmAccumulationTensorPtr->View(
             function, {iterInfo.mL0Size, iterInfo.nL0Size}, {iterInfo.mOffset, iterInfo.nOffset});
         aMulBInputs.push_back(tileGraphNodes.gmAccumulationTensorPtr);
@@ -944,9 +959,9 @@ void UpdateIterInfo(const MatmulTileInfo &tileInfo, MatmulIterInfo &iterInfo) {
     iterInfo.isFirstK = (iterInfo.kOffset == 0);
     iterInfo.isLastK = (iterInfo.kOffset + tileInfo.tileKL0 >= tileInfo.kView);
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_TILE, tileInfo.tileKAL1 > 0 && tileInfo.tileKBL1 > 0,
-        "Both tileKAL1 and tileKBL1 must be positive: tileKAL1: %ld, tileKBL1: %ld", tileInfo.tileKAL1,
-        tileInfo.tileKBL1);
+    ASSERT(MatmulErrorCode::ERR_CONFIG_TILE, tileInfo.tileKAL1 > 0 && tileInfo.tileKBL1 > 0)
+        << "Both tileKAL1 and tileKBL1 must be positive: tileKAL1: " << tileInfo.tileKAL1
+        << ", tileKBL1: " << tileInfo.tileKBL1;
 }
 
 void ConstructTileGraph(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
@@ -1008,8 +1023,8 @@ void AddAMulBNode(const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrPara
                                                      tensorGraphNodes.aTensorPtr->GetDynValidShape()[1];
         SymbolicScalar nSizeDyn = attrParam.transB ? tensorGraphNodes.bTensorPtr->GetDynValidShape()[0] :
                                                      tensorGraphNodes.bTensorPtr->GetDynValidShape()[1];
-        MATMUL_ASSERT(
-            MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.outTensorPtr != nullptr, "cTensorPtr is nullptr.");
+        ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.outTensorPtr != nullptr)
+            << "cTensorPtr is nullptr.";
         tensorGraphNodes.outTensorPtr->UpdateDynValidShape({mSizeDyn, nSizeDyn});
     }
 
@@ -1031,7 +1046,7 @@ void AddAMulBNode(const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrPara
     }
     Function *functionPtr = Program::GetInstance().GetCurrentFunction();
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, functionPtr != nullptr, "functionPtr is nullptr.");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, functionPtr != nullptr) << "functionPtr is nullptr.";
     auto &op = functionPtr->AddOperation(Opcode::OP_A_MUL_B, operandVec, {tensorGraphNodes.outTensorPtr});
     SetTensorGraphAttr(op, extendParam, gmAccumulationFlag, attrParam);
 }
@@ -1039,16 +1054,14 @@ void AddAMulBNode(const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrPara
 Tensor ConstructTensorGraph(DataType dataType, MatmulGraphNodes &tensorGraphNodes, const MatmulAttrParam &attrParam,
     const MatmulExtendParam &param = {}) {
     MATMUL_LOGD("ConstructTensorGraph: Start.");
-    MATMUL_ASSERT(
-        MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.aTensorPtr != nullptr, "aTensorPtr is nullptr.");
-    MATMUL_ASSERT(
-        MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.bTensorPtr != nullptr, "bTensorPtr is nullptr.");
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, tensorGraphNodes.aTensorPtr->GetShape().size() >= SHAPE_DIM2,
-        "The dimension of aTensor must be >= 2! The dimension of aTensor: %zu",
-        tensorGraphNodes.aTensorPtr->GetShape().size());
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, tensorGraphNodes.bTensorPtr->GetShape().size() >= SHAPE_DIM2,
-        "The dimension of bTensor must be >= 2! The dimension of bTensor: %zu",
-        tensorGraphNodes.bTensorPtr->GetShape().size());
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.aTensorPtr != nullptr) << "aTensorPtr is nullptr.";
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, tensorGraphNodes.bTensorPtr != nullptr) << "bTensorPtr is nullptr.";
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, tensorGraphNodes.aTensorPtr->GetShape().size() >= SHAPE_DIM2)
+        << "The dimension of aTensor must be >= 2! The dimension of aTensor: "
+        << tensorGraphNodes.aTensorPtr->GetShape().size();
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, tensorGraphNodes.bTensorPtr->GetShape().size() >= SHAPE_DIM2)
+        << "The dimension of bTensor must be >= 2! The dimension of bTensor: "
+        << tensorGraphNodes.bTensorPtr->GetShape().size();
     int64_t mSize =
         attrParam.transA ? tensorGraphNodes.aTensorPtr->GetShape()[1] : tensorGraphNodes.aTensorPtr->GetShape()[0];
     int64_t kSizeA =
@@ -1058,12 +1071,12 @@ Tensor ConstructTensorGraph(DataType dataType, MatmulGraphNodes &tensorGraphNode
     int64_t nSize =
         attrParam.transB ? tensorGraphNodes.bTensorPtr->GetShape()[0] : tensorGraphNodes.bTensorPtr->GetShape()[1];
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, kSizeA == kSizeB,
-        "Matrix K dimension mismatch, kSizeA: %ld, kSizeB: %ld", kSizeA, kSizeB);
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, kSizeA == kSizeB)
+        << "Matrix K dimension mismatch, kSizeA: " << kSizeA << ", kSizeB: " << kSizeB;
     Tensor cMatrix(dataType, {mSize, nSize}, "TensorC");
     if (attrParam.isCMatrixNZ) {
-        MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, BytesOf(dataType) > 0,
-            "BytesOf(dataType): %zu. Must be positive.", BytesOf(dataType));
+        ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, BytesOf(dataType) > 0)
+            << "BytesOf(dataType): " << BytesOf(dataType) << ". Must be positive.";
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
         cMatrix = Tensor(dataType, {mSize, CeilAlign(nSize, c0Size)}, "TensorC", TileOpFormat::TILEOP_NZ);
     }
@@ -1085,19 +1098,17 @@ static void SetVecTileBasedOnUbSize(DataType outType, const CubeTile &cubeTile) 
 
 static Tensor AssembleGmAccumulationTensor(DataType outType, const Tensor gmAccumulationTensor,
     std::vector<int64_t> outSize, std::vector<SymbolicScalar> validShape, bool isCMatrixNZ) {
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        outSize.size() == SHAPE_DIM2 && validShape.size() == SHAPE_DIM2,
-        "Both outSize and validShape must be 2-element vectors");
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, outSize.size() == SHAPE_DIM2 && validShape.size() == SHAPE_DIM2)
+        << "Both outSize and validShape must be 2-element vectors";
 
-    MATMUL_ASSERT(
-        MatmulErrorCode::ERR_PARAM_MISMATCH, outSize[0] != 0 && outSize[1] != 0, "Matrix size cannot be 0");
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, outSize[0] != 0 && outSize[1] != 0) << "Matrix size cannot be 0";
     Tensor assembleTensor(
         outType, {outSize[0], outSize[1]}, "", isCMatrixNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, assembleTensor.GetStorage() != nullptr,
-        "Can not get assembleTensor's storage");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, assembleTensor.GetStorage() != nullptr)
+        << "Can not get assembleTensor's storage";
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, gmAccumulationTensor.GetStorage() != nullptr,
-        "Can not get gmAccumulationTensor's storage");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, gmAccumulationTensor.GetStorage() != nullptr)
+        << "Can not get gmAccumulationTensor's storage";
     gmAccumulationTensor.GetStorage()->UpdateDynValidShape({validShape[0], validShape[1]});
     assembleTensor.GetStorage()->UpdateDynValidShape({validShape[0], validShape[1]});
     Assemble(gmAccumulationTensor, {0, 0}, assembleTensor);
@@ -1105,8 +1116,8 @@ static Tensor AssembleGmAccumulationTensor(DataType outType, const Tensor gmAccu
 }
 
 static Tensor GetGmDeterministicAccumulationTensor(std::vector<Tensor> gmPartialSums, int64_t kLoop) {
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, gmPartialSums.size() == static_cast<uint64_t>(kLoop),
-        "GmPartialSums' size mismatch kLoop.");
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, gmPartialSums.size() == static_cast<uint64_t>(kLoop))
+        << "GmPartialSums' size mismatch kLoop.";
     for (int64_t kIdx = 1; kIdx < kLoop; ++kIdx) {
         gmPartialSums[0] = npu::tile_fwk::Add(gmPartialSums[0], gmPartialSums[kIdx]);
     }
@@ -1120,13 +1131,11 @@ static Tensor GetGmAtomicAccumulationTensor(DataType outType, Tensor gmAccumulat
     return AssembleGmAccumulationTensor(outType, gmAccumulationTensor, outSize, validShape, isCMatrixNZ);
 }
 
-static Tensor ConstructGmAccumulationTensorGraph(
-    DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulAttrParam &attrParam,
-    const MatmulExtendParam &extendParam = {}) {
+static Tensor ConstructGmAccumulationTensorGraph(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix,
+    const MatmulAttrParam &attrParam, const MatmulExtendParam &extendParam = {}) {
     auto &cubeTile = TileShape::Current().GetCubeTile();
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR,
-                  aMatrix.GetStorage() != nullptr && bMatrix.GetStorage() != nullptr,
-                  "Both aMatrix and bMatrix cannot get storage");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, aMatrix.GetStorage() != nullptr && bMatrix.GetStorage() != nullptr)
+        << "Both aMatrix and bMatrix cannot get storage";
     auto aMatrixValidShape = aMatrix.GetStorage()->GetDynValidShape();
     auto bMatrixValidShape = bMatrix.GetStorage()->GetDynValidShape();
     SymbolicScalar mValidShape = attrParam.transA ? aMatrixValidShape[1] : aMatrixValidShape[0];
@@ -1141,9 +1150,7 @@ static Tensor ConstructGmAccumulationTensorGraph(
                                                               {mSize, nSize}, {mValidShape, nValidShape}) :
                                                           Tensor();
     std::vector<Tensor> gmPartialSums;
-    MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_TILE,
-                  kL1TileShape != 0,
-                  "kL1TileShape can not be 0");
+    ASSERT(MatmulErrorCode::ERR_CONFIG_TILE, kL1TileShape != 0) << "kL1TileShape can not be 0";
     const int64_t kLoop = (kSize + kL1TileShape - 1) / kL1TileShape;
     const int64_t kL1Size = std::min(kSize, kL1TileShape);
     for (int64_t kIdx = 0; kIdx < kLoop; ++kIdx) {
@@ -1178,7 +1185,7 @@ Tensor Matmul(
     MatmulAttrParam attrParam(isATrans, isBTrans, isCMatrixNZ);
     MATMUL_LOGD("Matmul[Basic]: Start.");
     Status checkStatus = CheckMatmulOperands(outType, aMatrix, bMatrix, attrParam);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS, "Matmul operands check failed");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS) << "Matmul operands check failed";
     MatmulGraphNodes tensorGraphNodes(aMatrix.GetStorage(), bMatrix.GetStorage());
     auto &cubeTile = TileShape::Current().GetCubeTile();
     if (cubeTile.enableSplitK) {
@@ -1193,7 +1200,7 @@ Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, co
     MATMUL_LOGD("Matmul[Extend]: Start.");
     MatmulAttrParam attrParam(isATrans, isBTrans, isCMatrixNZ);
     Status checkStatus = CheckMatmulOperands(outType, aMatrix, bMatrix, attrParam, param);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS, "Matmul operands check failed");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS) << "Matmul operands check failed";
     MatmulGraphNodes tensorGraphNodes(aMatrix.GetStorage(), bMatrix.GetStorage());
     auto &cubeTile = TileShape::Current().GetCubeTile();
     if (cubeTile.enableSplitK) {
@@ -1209,9 +1216,9 @@ Tensor MatmulMX(DataType outType, const Tensor &aMatrix, const Tensor &aScale, c
     MatmulAttrParam attrParam(isATrans, isAScaleTrans, isBTrans, isBScaleTrans, isCMatrixNZ);
     CheckMatmulOperands(outType, aMatrix, bMatrix, attrParam);
     Status checkStatus = CheckMatmulOperands(outType, aMatrix, bMatrix, attrParam);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS, "Matmul operands check failed");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS) << "Matmul operands check failed";
     Status checkMXStatus = CheckMXMatmulOperands(aMatrix, aScale, bMatrix, bScale, attrParam);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkMXStatus == SUCCESS, "MXMatmul operands check failed");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkMXStatus == SUCCESS) << "MXMatmul operands check failed";
     MatmulGraphNodes tensorGraphNodes(
         aMatrix.GetStorage(), aScale.GetStorage(), bMatrix.GetStorage(), bScale.GetStorage());
     return ConstructTensorGraph(outType, tensorGraphNodes, attrParam);
@@ -1223,9 +1230,9 @@ Tensor MatmulMX(DataType outType, const Tensor &aMatrix, const Tensor &aScale, c
     MATMUL_LOGD("MatmulMX[Extend]: Start.");
     MatmulAttrParam attrParam(isATrans, isAScaleTrans, isBTrans, isBScaleTrans, isCMatrixNZ);
     Status checkStatus = CheckMatmulOperands(outType, aMatrix, bMatrix, attrParam, param);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS, "Matmul operands check failed");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS) << "Matmul operands check failed";
     Status checkMXStatus = CheckMXMatmulOperands(aMatrix, aScale, bMatrix, bScale, attrParam);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkMXStatus == SUCCESS, "MXMatmul operands check failed");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkMXStatus == SUCCESS) << "MXMatmul operands check failed";
     MatmulGraphNodes tensorGraphNodes(
         aMatrix.GetStorage(), aScale.GetStorage(), bMatrix.GetStorage(), bScale.GetStorage());
     return ConstructTensorGraph(outType, tensorGraphNodes, attrParam, param);
@@ -1233,21 +1240,21 @@ Tensor MatmulMX(DataType outType, const Tensor &aMatrix, const Tensor &aScale, c
 
 Tensor ABatchMulB3D(
     DataType dataType, const Tensor &operand1, const Tensor &operand2, const MatmulAttrParam &attrParam) {
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        operand1.GetShape().size() == operand2.GetShape().size() && operand1.GetShape().size() == SHAPE_DIM3,
-        "Shape dimension mismatch, expected exactly %d dimension for both operands. operand1: %zu, operand2: %zu",
-        SHAPE_DIM3, operand1.GetShape().size(), operand2.GetShape().size());
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
+        operand1.GetShape().size() == operand2.GetShape().size() && operand1.GetShape().size() == SHAPE_DIM3)
+        << "Shape dimension mismatch, expected exactly " << SHAPE_DIM3
+        << " dimension for both operands. operand1: " << operand1.GetShape().size()
+        << ", operand2: " << operand2.GetShape().size();
     const int64_t batchSizeA = operand1.GetShape()[0];
     const int64_t batchSizeB = operand2.GetShape()[0];
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, batchSizeA == batchSizeB || batchSizeB == 1 || batchSizeA == 1,
-        "batchSize invalid, only allowed batchSizeA = batchSizeB, batchSizeA = 1, or batchSizeB = 1: batchSizeA = %ld, "
-        "batchSizeB: %ld",
-        batchSizeA, batchSizeB);
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, batchSizeA == batchSizeB || batchSizeB == 1 || batchSizeA == 1)
+        << "batchSize invalid, only allowed batchSizeA = batchSizeB, batchSizeA = 1, or batchSizeB = 1: batchSizeA = "
+        << batchSizeA << ", batchSizeB: " << batchSizeB;
     const int64_t orgM = attrParam.transA ? operand1.GetShape()[SHAPE_DIM2] : operand1.GetShape()[1];
     const int64_t orgKa = attrParam.transA ? operand1.GetShape()[1] : operand1.GetShape()[SHAPE_DIM2];
     const int64_t orgKb = attrParam.transB ? operand2.GetShape()[2] : operand2.GetShape()[1];
     const int64_t orgN = attrParam.transB ? operand2.GetShape()[1] : operand2.GetShape()[SHAPE_DIM2];
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, orgKa == orgKb, "orgK mismatch: Ka: %ld, Kb: %ld", orgKa, orgKb);
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, orgKa == orgKb) << "orgK mismatch: Ka: " << orgKa << ", Kb: " << orgKb;
     int64_t firstDimA = attrParam.transA ? orgKa : orgM;
     int64_t secondDimA = attrParam.transA ? orgM : orgKa;
     int64_t firstDimB = attrParam.transB ? orgN : orgKb;
@@ -1260,7 +1267,7 @@ Tensor ABatchMulB3D(
         result = Tensor(dataType, {batchSize * orgM, orgN}, "BatchMatmulOutputNz", TileOpFormat::TILEOP_NZ);
     }
     Status checkStatus = CheckMatmulOperands(dataType, operand2D1, operand2D2, attrParam);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS, "BatchMatmul 3D operands check failed");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS) << "BatchMatmul 3D operands check failed";
     auto &curFunc = *Program::GetInstance().GetCurrentFunction();
     for (int64_t i = 0; i < batchSize; i++) {
         int64_t offsetA = batchSizeA == 1 ? 0 : i * firstDimA;
@@ -1277,30 +1284,28 @@ Tensor ABatchMulB3D(
 };
 
 Status CheckABatchMulB4D(const Tensor &operand1, const Tensor &operand2) {
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        operand1.GetShape().size() == SHAPE_DIM4 && operand2.GetShape().size() == SHAPE_DIM4,
-        "Expected 4D tensor, but got: op1Size: %zu, op2Size: %zu", operand1.GetShape().size(),
-        operand2.GetShape().size());
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
+        operand1.GetShape().size() == SHAPE_DIM4 && operand2.GetShape().size() == SHAPE_DIM4)
+        << "Expected 4D tensor, but got: op1Size: " << operand1.GetShape().size()
+        << ", op2Size: " << operand2.GetShape().size();
     const int64_t batchSizeA1 = operand1.GetShape()[0];
     const int64_t batchSizeA2 = operand1.GetShape()[1];
     const int64_t batchSizeB1 = operand2.GetShape()[0];
     const int64_t batchSizeB2 = operand2.GetShape()[1];
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        batchSizeA1 == batchSizeB1 || batchSizeB1 == 1 || batchSizeA1 == 1,
-        "batchSize invalid: A1=B1 or 1 allowed. A1: %ld, B1: %ld", batchSizeA1, batchSizeB1);
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, batchSizeA1 == batchSizeB1 || batchSizeB1 == 1 || batchSizeA1 == 1)
+        << "batchSize invalid: A1=B1 or 1 allowed. A1: " << batchSizeA1 << ", B1: " << batchSizeB1;
 
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        batchSizeA2 == batchSizeB2 || batchSizeB2 == 1 || batchSizeA2 == 1,
-        "batchSize invalid: A2=B2 or 1 allowed. A2: %ld, B2: %ld", batchSizeA2, batchSizeB2);
-    
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, batchSizeA2 == batchSizeB2 || batchSizeB2 == 1 || batchSizeA2 == 1)
+        << "batchSize invalid: A2=B2 or 1 allowed. A2: " << batchSizeA2 << ", B2: " << batchSizeB2;
+
     return SUCCESS;
 }
 
 Tensor ABatchMulB4D(
     DataType dataType, const Tensor &operand1, const Tensor &operand2, const MatmulAttrParam &attrParam) {
     Status checkStatus = CheckABatchMulB4D(operand1, operand2);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS, "BatchMatmul 4D operands check failed");
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS) << "BatchMatmul 4D operands check failed";
     const int64_t batchSizeA1 = operand1.GetShape()[0];
     const int64_t batchSizeA2 = operand1.GetShape()[1];
     const int64_t batchSizeB1 = operand2.GetShape()[0];
@@ -1310,7 +1315,7 @@ Tensor ABatchMulB4D(
     const int64_t orgKa = attrParam.transA ? operand1.GetShape()[SHAPE_DIM2] : operand1.GetShape()[SHAPE_DIM3];
     const int64_t orgKb = attrParam.transB ? operand2.GetShape()[SHAPE_DIM3] : operand2.GetShape()[SHAPE_DIM2];
     const int64_t orgN = attrParam.transB ? operand2.GetShape()[SHAPE_DIM2] : operand2.GetShape()[SHAPE_DIM3];
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, orgKa == orgKb, "orgK mismatch: Ka: %ld, Kb: %ld", orgKa, orgKb);
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, orgKa == orgKb) << "orgK mismatch: Ka: " << orgKa << ", Kb: " << orgKb;
     int64_t firstDimA = attrParam.transA ? orgKa : orgM;
     int64_t secondDimA = attrParam.transA ? orgM : orgKa;
     int64_t firstDimB = attrParam.transB ? orgN : orgKb;
@@ -1357,8 +1362,8 @@ Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatr
         TileShape::Current().SetVecTile({vecTileShape, vecTileShape});
     }
     DECLARE_TRACER();
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, aMatrix.GetShape().size() == bMatrix.GetShape().size(),
-        "Matrix dimension mismatch: a: %zu, b: %zu", aMatrix.GetShape().size(), bMatrix.GetShape().size());
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, aMatrix.GetShape().size() == bMatrix.GetShape().size())
+        << "Matrix dimension mismatch: a: " << aMatrix.GetShape().size() << ", b: " << bMatrix.GetShape().size();
     Tensor res;
     if (aMatrix.GetShape().size() == SHAPE_DIM4) {
         MATMUL_LOGD("BatchMatmul 4D: Start.");
@@ -1373,21 +1378,23 @@ Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatr
 // 定制接口：用于Transpose + BMM + Transpose融合场景
 // 当前仅支持：(M, B, K) @ (B, K, N) -> (M, B, N)
 Tensor TransposedBatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix) {
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        aMatrix.GetShape().size() == SHAPE_DIM3 && bMatrix.GetShape().size() == SHAPE_DIM3,
-        "TransposedBatchMatmul only support 3-dim inputs, aMatrix dim: %zu, bMatrix dim: %zu",
-        aMatrix.GetShape().size(), bMatrix.GetShape().size());
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
+        aMatrix.GetShape().size() == SHAPE_DIM3 && bMatrix.GetShape().size() == SHAPE_DIM3)
+        << "TransposedBatchMatmul only support 3-dim inputs, aMatrix dim: " << aMatrix.GetShape().size()
+        << ", bMatrix dim: " << bMatrix.GetShape().size();
     const int64_t mSize = aMatrix.GetShape()[0];
     const int64_t batchSizeA = aMatrix.GetShape()[1];
     const int64_t kaSize = aMatrix.GetShape()[SHAPE_DIM2];
     const int64_t batchSizeB = bMatrix.GetShape()[0];
     const int64_t kbSize = bMatrix.GetShape()[1];
     const int64_t nSize = bMatrix.GetShape()[SHAPE_DIM2];
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, batchSizeA == batchSizeB,
-        "batchSize invalid, expect batchSizeA = batchSizeB, given batchSizeA: %ld, batchSizeB: %ld", batchSizeA,
-        batchSizeB);
-    MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, kaSize == kbSize,
-        "kSize invalid, expect kaSize = kbSize, given kaSize: %ld, kbSize: %ld", kaSize, kbSize);
+    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, batchSizeA == batchSizeB)
+        << "batchSize invalid, expect batchSizeA = batchSizeB, given batchSizeA: " << batchSizeA
+        << ", batchSizeB: " << batchSizeB;
+
+    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, kaSize == kbSize)
+        << "kSize invalid, expect kaSize = kbSize, given kaSize: " << kaSize << ", kbSize: " << kbSize;
+
     // 128: custom tile shape size
     TileShape::Current().SetVecTile({1, 128, 128});
     Tensor aMatrixFused = Reshape(aMatrix, {mSize, batchSizeA * kaSize});

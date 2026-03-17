@@ -36,37 +36,4 @@ enum class MatmulErrorCode : uint32_t {
     ERR_RUNTIME_STATE       = 0xC5001U,  // 内部状态错误
     ERR_RUNTIME_LOGIC       = 0xC5002U,  // 逻辑不变量错误
 };
-
-static inline void matmul_snprintf(char* buf, size_t bufSize, const char* fmt, ...) {
-    if (buf == nullptr || bufSize == 0 || fmt == nullptr) {
-        return;
-    }
-    va_list ap;
-    va_start(ap, fmt);
-    int ret = vsnprintf_s(buf, bufSize, bufSize - 1, fmt, ap);
-    va_end(ap);
-    if (ret < 0) {
-        buf[0] = '\0';
-    }
-}
-
-#define MATMUL_CHECK(error_code, cond, fmt, ...) \
-    do { \
-        if (!(cond)) { \
-            MATMUL_LOGE_E(error_code, fmt, ##__VA_ARGS__); \
-            return FAILED; \
-        } \
-    } while (0)
-
-
-#define MATMUL_ASSERT(error_code, cond, fmt, ...) \
-    do { \
-        if (!(cond)) { \
-            MATMUL_LOGE_E(error_code, fmt, ##__VA_ARGS__); \
-            char err_msg[1024] = {0}; \
-            matmul_snprintf(err_msg, sizeof(err_msg), fmt, ##__VA_ARGS__); \
-            ASSERT(error_code, false) << err_msg; \
-        } \
-    } while (0)
-
 }  // namespace npu::tile_fwk
