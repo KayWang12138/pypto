@@ -24,7 +24,7 @@
 #include "interface/function/function.h"
 #include "tilefwk/platform.h"
 #include "tilefwk/data_type.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_utils/subfunc_pass_utils.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "passes/statistics/execute_graph_statistic.h"
 
