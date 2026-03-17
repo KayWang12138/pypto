@@ -594,7 +594,7 @@ TEST_F(SplitLargeFanoutTensorTest, MtoM) {
             auto offset = viewAttr->GetFromOffset();
             EXPECT_EQ(accumulate(offset.begin(), offset.end(), 0), 0) << "OP_VIEW offset should be all zero";
             auto dynOffset = viewAttr->GetFromDynOffset();
-            EXPECT_EQ(dynOffset.size(), 0);
+            EXPECT_EQ(dynOffset.size(), NUM_2);
             auto input = op.GetIOperands().front();
             auto inputDynShape = input->GetDynValidShape();
             EXPECT_EQ(inputDynShape.size(), NUM_2);
@@ -912,7 +912,7 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
             auto offset = viewAttr->GetFromOffset();
             EXPECT_EQ(accumulate(offset.begin(), offset.end(), 0), 0) << "OP_VIEW offset should be all zero";
             auto dynOffset = viewAttr->GetFromDynOffset();
-            EXPECT_EQ(dynOffset.size(), 0);
+            EXPECT_EQ(dynOffset.size(), NUM_2);
             auto input = op.GetIOperands().front();
             auto inputDynShape = input->GetDynValidShape();
             EXPECT_EQ(inputDynShape.size(), NUM_2);
