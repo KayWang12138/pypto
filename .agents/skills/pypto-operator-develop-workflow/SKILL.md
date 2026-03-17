@@ -34,7 +34,7 @@ tag: [PyPTO，算子开发]
 
 ## 常见问题与解决方案
 
-### 最常见错误 TOP 5
+### 最常见错误 TOP 6
 
 1. **BFloat16 转 NumPy 失败**：必须先 `.float()` 再 `.numpy()`
 2. **环境变量未设置**：第一步就要 `export TILE_FWK_DEVICE_ID=0`
@@ -43,7 +43,11 @@ tag: [PyPTO，算子开发]
 5. **精度标准不合理**：bfloat16 使用 atol=0.0001, rtol=0.0078125
 6. **使用 PyTorch 作为 Golden 函数**：使用 NumPy 实现 golden 函数时，bfloat16 数据类型转换不够准确
 
-详细的错误示例、正确做法和经验教训请查看：**[common_issues.md](./common_issues.md)**
+### 注意点 ###
+1. **动态数据范围使用 valid_shape**：最后一块数据量可能会小于固定块大小时，view函数中一定要指定valid_shape
+2. **动态循环边界使用 unroll_list**：当循环次数是动态的，需要使用 unroll_list，多层循环嵌套时，最内层使用 `unroll_list`。
+3. **pypto tensor初始化**：torch用zeros函数定义变量，pypto不需要，创建tensor即可，后续会有写入整个覆盖这个tensor
+4. **op准确度**：禁止无中生有op，确保使用的op是pypto支持的
 
 ## 开发阶段
 
@@ -112,6 +116,7 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
    - 创建custom/my_operator/
 2. 编写 golden 及测试用例
    - 创建my_operator.py
+   - 测试用例涉及随机数生成时，设置随机数种子
 3. 编写 operator 实现代码
    - 创建my_operator_impl.py
    - 使用@pypto.frontend.jit的方式实现
@@ -127,6 +132,7 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 2. 执行算子进行验证
    **检查到存在npu卡的时候，直接使用run_mode=npu执行**
    python3 custom/my_operator/my_operator.py
+3. 验证如果失败，不要跳过问题或者简化算子，正向排查问题
 
 测试类型：
 - 单元测试：基本功能验证
