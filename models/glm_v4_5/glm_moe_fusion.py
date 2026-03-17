@@ -112,6 +112,7 @@ def gen_quan_per_channel_weight_nz(x):
         "compile_timeout": 10,
         "compile_timeout_stage": 5,
         "compile_monitor_print_interval": 2},
+    debug_options={"runtime_debug_mode": 1},
     runtime_options={"device_sched_mode": 1,
                     "stitch_function_max_num": 128,
                     "stitch_cfgcache_size": 7700000},
