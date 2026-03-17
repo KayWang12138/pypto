@@ -682,15 +682,18 @@ TEST_F(CostModelTest, TestGetCyclesForPassSo) {
     config::SetSimConfig(KEY_ACCURACY_LEVEL, 1);
     std::string soPath = "libtile_fwk_simulation.so";
     void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
-    if (!handle) {
-        throw std::runtime_error("can not load library: " + std::string(dlerror()));
-    }
-    std::cout << "handle: "  << std::endl;
+    EXPECT_NO_THROW(
+        if (!handle) {
+            throw std::runtime_error("can not load library: " + std::string(dlerror()));
+        }
+    );
 
     GetCyclesForPassFunc get_cycles_func = (GetCyclesForPassFunc) dlsym(handle, "GetCyclesForPass");
-    if (!get_cycles_func) {
-        throw std::runtime_error("Failed to find symbol GetCyclesForPass: " + std::string(dlerror()));
-    }
+    EXPECT_NO_THROW(
+        if (!get_cycles_func) {
+            throw std::runtime_error("Failed to find symbol GetCyclesForPass: " + std::string(dlerror()));
+        }
+    );
     int64_t cycle = get_cycles_func(opCode, shape, dtype);
-    std::cout << "cycle: " << cycle << std::endl;
+    EXPECT_GT(cycle, 0);
 }

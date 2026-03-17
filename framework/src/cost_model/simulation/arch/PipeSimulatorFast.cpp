@@ -393,6 +393,7 @@ namespace CostModel
         }
         return latency;
     }
+
     template <typename PostSimulator>
     uint64_t PipeSimulatorFast<PostSimulator>::SimulateForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype)
     {
@@ -432,10 +433,7 @@ namespace CostModel
     extern "C" __attribute__((visibility("default"))) int64_t GetCyclesForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype) {
         std::string platForm = config::GetPlatformConfig("device_platform", "ASCEND_950PR_9579") == "ASCEND_950PR_9579" ? "A5" : "A2A3";
         std::string archType = platForm;
-        std::cout << "archType: " << archType << std::endl;
         int accLevel = config::GetSimConfig(KEY_ACCURACY_LEVEL, 2);
-        std::cout << "archType: " << accLevel << std::endl;
-
         auto simPtr = CreateSimulator(archType, accLevel);
         return simPtr->PostSimulateForPass(op, shape, dtype);
     }
