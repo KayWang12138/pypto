@@ -2792,6 +2792,13 @@ def quantize_params_func(params: dict):
     """
     Parameter handler for Quantize operation.
     Converts parameter types from JSON strings to appropriate Python types.
+
+    For Quantize operation with multiple input tensors, the CSV format uses '|'
+    as a delimiter between different tensor shapes to avoid parsing issues with
+    nested lists. For example:
+        - Single tensor: "[32, 64]"
+        - Multiple tensors: "[32, 64]|[32, 1]|[64, 1]"
+    This handler splits and parses each tensor shape separately.
     """
     params["otype"] = int(params.get("otype", "3"))  # Default to DT_INT8
     params["axis"] = int(params.get("axis", "-1"))
@@ -2801,6 +2808,35 @@ def quantize_params_func(params: dict):
         params["use_zero_points"] = use_zero_points_str
     else:
         params["use_zero_points"] = str_to_bool(use_zero_points_str)
+
+    # Fix input_shape and input_datarange parsing: handle '|' delimiter for multiple input tensors
+    # CSV format uses '|' to separate different input tensor shapes and data ranges
+    from test_case_tools import parse_list_str, parse_dict_str
+
+    # Handle input_shape
+    if "input_shape" in params:
+        input_shape = params["input_shape"]
+        if isinstance(input_shape, str) and "|" in input_shape:
+            # Split by '|' and parse each shape separately
+            shapes_str = input_shape.split("|")
+            params["input_shape"] = [parse_list_str(s.strip()) for s in shapes_str]
+        elif isinstance(input_shape, list) and len(input_shape) > 0:
+            # If already parsed but contains string elements, parse each element
+            if all(isinstance(item, str) for item in input_shape):
+                params["input_shape"] = [parse_list_str(item) for item in input_shape]
+
+    # Handle input_datarange - convert from string to dict format
+    if "input_datarange" in params:
+        data_range = params["input_datarange"]
+        if isinstance(data_range, str) and "|" in data_range:
+            # Split by '|' and parse each data range
+            ranges_str = data_range.split("|")
+            params["input_datarange"] = [parse_list_str(r.strip()) for r in ranges_str]
+        elif isinstance(data_range, list) and len(data_range) > 0:
+            # If already parsed but contains string elements, parse each element
+            if all(isinstance(item, str) for item in data_range):
+                params["input_datarange"] = [parse_list_str(item) for item in data_range]
+
     return params
 
 
