@@ -439,6 +439,8 @@ struct DyndevFunctionAttribute {
 
     // for costmodel
     std::map<int, uint64_t> devLeafIndex2Hash;
+
+    bool supportParallel{false}; // loop parallel_for flag
 };
 
 enum class DynParamInfoType { VALID_SHAPE, OFFSET, END };
