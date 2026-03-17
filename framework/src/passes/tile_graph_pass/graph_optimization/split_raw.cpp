@@ -95,7 +95,7 @@ void SplitRawTensor::UpdateProducerAssemble(
             // Assemble操作的offset要相应被修改, 要减去被拆分LogicalTensor的offset
             auto &toOffset = assembleOpAttribute->GetToOffset();
             toOffset = UpdateOffset(toOffset, tensorOffset.GetOffset());
-            if ( && !assembleOpAttribute->GetToDynOffset().empty()) {
+            if (!assembleOpAttribute->GetToDynOffset().empty()) {
                 auto &toDynOffset = assembleOpAttribute->GetToDynOffset();
                 if (!tensorOffset.GetDynOffset().empty()) {
                     toDynOffset = UpdateDynOffset(toDynOffset, tensorOffset.GetDynOffset());
