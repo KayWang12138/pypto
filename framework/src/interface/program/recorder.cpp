@@ -201,32 +201,32 @@ bool RecordFunc::Iterator::operator!=(const IteratorEnd &rhs) {
     return result;
 }
 
-void RecordLoopFunc::SetLoopUnrollFuncParalellAttr(int paralellForValue) {
+void RecordLoopFunc::SetLoopUnrollFuncParallelAttr(int parallelForValue) {
     for (auto item : loopUnrollFunctions_) {
-        // auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, paralellForValue);
-        item->GetDynloopAttribute()->paralellFor = static_cast<Paralell_Mode>(paralellForValue);
+        // auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, parallelForValue);
+        item->GetDynloopAttribute()->parallelFor = static_cast<Parallel_Mode>(parallelForValue);
     }
 }
 
 RecordLoopFunc::RecordLoopFunc(const std::string &name, FunctionType funcType, const std::string &iterName,
-    const LoopRange &range, const std::set<int> &unrollList, bool submitBeforeLoop, bool paralellFor)
+    const LoopRange &range, const std::set<int> &unrollList, bool submitBeforeLoop, bool parallelFor)
     : name_(FUNCTION_PREFIX + name),
         iterName_(iterName),
         loopRange_(std::make_shared<LoopRange>(range)),
         submitBeforeLoop_(submitBeforeLoop),
-        paralellFor_(paralellFor),
+        parallelFor_(parallelFor),
         funcType_(funcType) {
     CHECK(funcType == FunctionType::STATIC || funcType == FunctionType::DYNAMIC_LOOP)
         << "funcType: " << GetFunctionTypeNameDict().Find(funcType);
-    if (paralellFor_) {
+    if (parallelFor_) {
         for (auto &rlf : Program::GetInstance().GetLoopStack()) {
-            if (rlf.get().GetParalellFor()) {
-                ASSERT(!rlf.get().GetParalellFor()) << "The parallel attribute value does not allow nesting";
+            if (rlf.get().GetparallelFor()) {
+                ASSERT(!rlf.get().GetparallelFor()) << "The parallel attribute value does not allow nesting";
             }
         }
 
         if (!Program::GetInstance().GetLoopStack().empty()) {
-            Program::GetInstance().GetLoopStack().back().get().SetLoopUnrollFuncParalellAttr(Paralell_Mode::PARENT);
+            Program::GetInstance().GetLoopStack().back().get().SetLoopUnrollFuncParallelAttr(Parallel_Mode::PARENT);
         }
     }
     Program::GetInstance().GetLoopStack().emplace_back(*this);
@@ -272,18 +272,18 @@ void RecordLoopFunc::BeginLoopFunction() {
     range->End().AsIntermediateVariable();
     
     // 如果是paralell for配置在的loop，则paralell for的值为
-    auto funcParalellAttr = paralellFor_ ? Paralell_Mode::PARALELL : Paralell_Mode::DEFAULT;
+    auto funcParallelAttr = parallelFor_ ? Parallel_Mode::PARALLEL : Parallel_Mode::DEFAULT;
     if (!Program::GetInstance().GetLoopStack().empty()) {
-        funcParalellAttr = Program::GetInstance().GetLoopStack()[Program::GetInstance().GetLoopStack().size() - 2].get().GetParalellFor() ? Paralell_Mode::CHILD : funcParalellAttr;
+        funcParallelAttr = Program::GetInstance().GetLoopStack()[Program::GetInstance().GetLoopStack().size() - 2].get().GetparallelFor() ? Parallel_Mode::CHILD : funcParallelAttr;
     }
-    std::cout << "funcParalellAttr value is! " << funcParalellAttr << " raw name is " << currentLoopFunc_->GetRawName() << std::endl;
-    auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, funcParalellAttr);
+    std::cout << "funcParallelAttr value is! " << funcParallelAttr << " raw name is " << currentLoopFunc_->GetRawName() << std::endl;
+    auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, funcParallelAttr);
     currentLoopFunc_->SetDynloopAttribute(attr);
     currentLoopFunc_->SetSourceLocation(location_);
     for (auto item : Program::GetInstance().GetLoopStack()) {
         auto loopFunc = item.get().GetLoopUnrollFunctions();
         for (auto func : loopFunc) {
-            std::cout << "func paralellFor attr is! " << func->GetDynloopAttribute()->paralellFor << " raw name is " << func->GetRawName() << std::endl;
+            std::cout << "func parallelFor attr is! " << func->GetDynloopAttribute()->parallelFor << " raw name is " << func->GetRawName() << std::endl;
         }
     }
 }

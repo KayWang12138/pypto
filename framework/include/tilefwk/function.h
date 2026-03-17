@@ -157,7 +157,7 @@ public:
 
     explicit RecordLoopFunc(const std::string &name, FunctionType funcType, const std::string &iterName,
         const LoopRange &range, const std::set<int> &unrollList = {}, bool submitBeforeLoop = false,
-        bool paralellFor = false);
+        bool parallelFor = false);
     ~RecordLoopFunc();
 
     void BeginLoopFunction();
@@ -185,7 +185,7 @@ public:
     size_t UnrollTimesSize() const { return unrollTimes_.size(); }
     int CurUnrollTimes() const;
     void NextUnrollTimes();
-    bool GetParalellFor() const {return paralellFor_;}
+    bool GetParallelFor() const {return parallelFor_;}
     std::string GetName() const {return name_;}
     void AddLoopUnrollFunctions(Function* func) {
         loopUnrollFunctions_.push_back(func);
@@ -195,7 +195,7 @@ public:
         return loopUnrollFunctions_;
     }
 
-    void SetLoopUnrollFuncParalellAttr(int paralellForValue);
+    void SetLoopUnrollFuncParallelAttr(int parallelForValue);
 
     bool CustomUnrollTimesMatched() const { return customUnrollTimes_.count(CurUnrollTimes()) > 0; }
     static bool MatchUnrollTimes(int unrollTimes);
@@ -207,7 +207,7 @@ private:
     std::string curPathFuncName_;
     std::shared_ptr<LoopRange> loopRange_;
     bool submitBeforeLoop_;
-    bool paralellFor_;
+    bool parallelFor_;
     FunctionType funcType_{FunctionType::STATIC};
     Function *currentLoopFunc_{nullptr};
     bool dryRun_{false};
