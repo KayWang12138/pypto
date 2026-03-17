@@ -137,12 +137,11 @@ TEST_F(TestExprBatchGenerator, BatchFileGeneration) {
         RawSymbolicScalarPtr expr = RawSymbolicImmediate::Create(i);
         expressions.Insert(expr);
     }
-
-    std::unordered_map<std::string, bool> tensorNameToDependCore;
+    ValDependTensorMeta valDependTensorMeta;
 
     // Generate batch files
     generator.GenerateBatchFile(&exprTable, controlFlowOss, exprHeaderOss, "test_exp.h", expressions,
-        exprSrcFiles, 1, 1, tensorNameToDependCore);
+        exprSrcFiles, 1, 1, valDependTensorMeta);
 
     // Check if batch files were created
     ASSERT_EQ(exprSrcFiles.size(), 2);
