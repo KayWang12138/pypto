@@ -45,7 +45,6 @@ license: 完整条款见 LICENSE.txt
 
 - **执行xx用例失败，分析并修复pass失败**：根据用例执行日志信息，识别错误是哪个 pass 模块导致的，分析错误产生的可能原因，并尝试自动修复
 - **pass报错**：分析Pass执行过程中的错误信息
-- **日志解析**：解析PyPTO运行日志中的错误信息
 - **定位pass错误**：定位导致失败的Pass模块及具体原因
 - **修复pass问题**：修复Pass模块中的错误
 - **诊断pass异常**：诊断Pass模块的异常行为
@@ -56,9 +55,6 @@ license: 完整条款见 LICENSE.txt
 ### 步骤 1：问题复现
 
 根据用户提供的用例名称或者执行命令，尝试复现用户问题
-
-**工具调用**：
-- 使用 `Bash` 工具执行测试命令
 
 **执行示例**：
 
@@ -80,12 +76,6 @@ python3 build_ci.py -s=python/tests/st/test_adds_onboard.py::test_adds_onboard
 ### 步骤 2：获取日志内容
 
 按如下优先级查找日志文件，获取日志内容信息
-
-**工具调用**：
-- 使用 `Glob` 工具搜索日志文件
-- 使用 `Read` 工具读取日志内容
-
-
 
 **日志查找优先级**：
 ```
@@ -109,10 +99,6 @@ python3 build_ci.py -s=python/tests/st/test_adds_onboard.py::test_adds_onboard
 - [ ] 日志内容包含错误信息
 
 ### 步骤 3：解析日志关键信息
-
-**工具调用**：
-- 使用 `Grep` 工具搜索日志中的ERROR/WARNING信息
-- 使用正则表达式解析日志格式
 
 **日志格式示例**：
 
@@ -152,15 +138,9 @@ python3 build_ci.py -s=python/tests/st/test_adds_onboard.py::test_adds_onboard
 
 #### 4.1 分析流程
 
-**工具调用**：
-- 使用 `Read` 工具读取相关代码文件
-- 使用 `Grep` 工具搜索相关函数和类定义
-- 调用 `pypto-pass-workflow-analyzer` 技能分析业务流程
-
 **分析步骤**：
 
 1. **分析用例代码，识别业务场景**
-   - 使用 `pypto-pass-workflow-analyzer` 技能
    - 了解涉及的各个 pass 模块在当前场景中的职责
    - 理解执行顺序依赖关系及数据流转过程
 
@@ -290,11 +270,6 @@ python3 build_ci.py -s=python/tests/st/test_adds_onboard.py::test_adds_onboard
 
 根据上一步分析的错误原因及相关修改建议，执行对应的修复操作
 
-**工具调用**：
-- 使用 `Read` 工具读取需要修复的代码文件
-- 使用 `Edit` 工具修改代码
-- 使用 `Bash` 工具执行修复脚本
-
 **修复策略分类**：
 
 1. **可自动修复的问题**
@@ -345,10 +320,6 @@ python3 build_ci.py -s=python/tests/st/test_adds_onboard.py::test_adds_onboard
 - [ ] 代码质量检查通过
 
 ### 步骤 6：修复验证
-
-**工具调用**：
-- 使用 `Bash` 工具执行测试命令
-- 使用 `Grep` 工具检查日志中的错误信息
 
 #### 6.1 执行测试
 
