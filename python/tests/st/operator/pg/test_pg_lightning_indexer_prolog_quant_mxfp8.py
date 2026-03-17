@@ -424,10 +424,10 @@ def lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm, q_norm_scale, w_qb, w_qb
         pg_scale_cache_index = k_scale_cache_index // block_size * k_scale_cache.shape[-1] \
             * block_size + k_scale_cache_index % block_size + k_scale_storage_offset
 
-    k_cache=k_cache.view(block_num, block_size * (k_cache.shape[-1] // head_dim), n_kv, head_dim)
-    k_scale_cache=k_scale_cache.view(block_num, block_size * k_scale_cache.shape[-1], n_kv, 1)
-    k_cache_index=pg_cache_index.reshape(t, 1)
-    k_scale_cache_index=pg_scale_cache_index.reshape(t, 1)
+    k_cache = k_cache.view(block_num, block_size * (k_cache.shape[-1] // head_dim), n_kv, head_dim)
+    k_scale_cache = k_scale_cache.view(block_num, block_size * k_scale_cache.shape[-1], n_kv, 1)
+    k_cache_index = pg_cache_index.reshape(t, 1)
+    k_scale_cache_index = pg_scale_cache_index.reshape(t, 1)
 
     device = x.device
     q_fp8e4m3 = torch.empty((t * head_num, head_dim), device=device, dtype=torch.float8_e4m3fn)
@@ -493,22 +493,22 @@ def do_test_lightning_indexer_prolog_quant(case_name, is_acl=False):
 
     torch_npu.npu.config.allow_internal_format = True
 
-    x=inputs_data["token_x"].npu().reshape(t, h)
-    q_norm=inputs_data["q_norm"].npu().reshape(t, q_lora_rank)
-    q_norm_scale=inputs_data["q_norm_scale"].npu().reshape(t, q_lora_rank // 64, 2)
-    w_qb=inputs_data["w_idx_qb"].npu()
-    w_qb_scale=inputs_data["w_idx_qb_scale"].npu().reshape(q_lora_rank // 64, head_num * idx_head_dim, 2)
-    wk=inputs_data["w_idx_k"].npu()
-    w_proj=inputs_data["w_idx_proj"].npu()
-    gamma_k=inputs_data["rms_norm_gamma"].npu().reshape(1, idx_head_dim)
-    cos_idx_rope=inputs_data["cos_idx_rope"].npu().reshape(t, rope_head_dim)
-    sin_idx_rope=inputs_data["sin_idx_rope"].npu().reshape(t, rope_head_dim)
-    hadamard_q=inputs_data["hadamard_q"].npu()
-    hadamard_k=inputs_data["hadamard_k"].npu()
-    k_cache=inputs_data["idx_k_cache"]
-    k_scale_cache=inputs_data["idx_k_scale_cache"]
-    k_cache_index=inputs_data["idx_k_cache_index"]
-    k_scale_cache_index=inputs_data["idx_k_cache_index"]
+    x = inputs_data["token_x"].npu().reshape(t, h)
+    q_norm = inputs_data["q_norm"].npu().reshape(t, q_lora_rank)
+    q_norm_scale = inputs_data["q_norm_scale"].npu().reshape(t, q_lora_rank // 64, 2)
+    w_qb = inputs_data["w_idx_qb"].npu()
+    w_qb_scale = inputs_data["w_idx_qb_scale"].npu().reshape(q_lora_rank // 64, head_num * idx_head_dim, 2)
+    wk = inputs_data["w_idx_k"].npu()
+    w_proj = inputs_data["w_idx_proj"].npu()
+    gamma_k = inputs_data["rms_norm_gamma"].npu().reshape(1, idx_head_dim)
+    cos_idx_rope = inputs_data["cos_idx_rope"].npu().reshape(t, rope_head_dim)
+    sin_idx_rope = inputs_data["sin_idx_rope"].npu().reshape(t, rope_head_dim)
+    hadamard_q = inputs_data["hadamard_q"].npu()
+    hadamard_k = inputs_data["hadamard_k"].npu()
+    k_cache = inputs_data["idx_k_cache"]
+    k_scale_cache = inputs_data["idx_k_scale_cache"]
+    k_cache_index = inputs_data["idx_k_cache_index"]
+    k_scale_cache_index = inputs_data["idx_k_cache_index"]
 
     q_fp8e4m3_golden = golden_data["query"].reshape(t * head_num, idx_head_dim)
     q_scale_golden = golden_data["query_scale"].reshape(t * head_num, 1)
@@ -524,8 +524,8 @@ def do_test_lightning_indexer_prolog_quant(case_name, is_acl=False):
 
     logging.info("==================finish torch==================")
 
+    model = Model()
     if is_acl:
-        model = Model()
         compile_forward = torch.compile(model, fullgraph=True, backend="npugraph_ex", dynamic=False)
         q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights = compile_forward(x, q_norm, q_norm_scale,
             w_qb, w_qb_scale, wk, w_proj, gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q, hadamard_k, k_cache,
