@@ -5,8 +5,7 @@
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full language governing permissions and
- * limitations under the License.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 /*!
@@ -38,45 +37,27 @@ struct FillPadOpMetaData {
 static void FillPadOperationExeFunc1Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0].GetShape()[0];
         const struct FillPadOpFuncArgs *args = static_cast<const FillPadOpFuncArgs *>(opArgs);
         
-        const int firstViewShape = inputs[0].GetShape()[0];
-        const int bloop = CeilDiv(firstDim, firstViewShape);
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            auto tileTensor = View(inputs[0], {firstViewShape},
-                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)}, {bIdx * firstViewShape});
-            TileShape::Current().SetVecTile(args->tileShape_);
-            auto res = FillPad(tileTensor, "constant", args->padValue_);
-            Assemble(res, {bIdx * firstViewShape}, outputs[0]);
-        }
+        // 直接使用输入 tensor 的实际 shape，忽略  view_shape 
+        auto inputShape = inputs[0].GetShape();
+        auto tileTensor = View(inputs[0], inputShape);
+        TileShape::Current().SetVecTile(args->tileShape_);
+        auto res = FillPad(tileTensor, "constant", args->padValue_);
+        Assemble(res, {0}, outputs[0]);
     }
 }
 
 static void FillPadOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0].GetShape()[0];
-        SymbolicScalar secondDim = inputs[0].GetShape()[1];
         const struct FillPadOpFuncArgs *args = static_cast<const FillPadOpFuncArgs *>(opArgs);
         
-        const int firstViewShape = inputs[0].GetShape()[0];
-        const int secondViewShape = inputs[0].GetShape()[1];
-        const int bloop = CeilDiv(firstDim, firstViewShape);
-        const int sloop = CeilDiv(secondDim, secondViewShape);
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor = View(inputs[0], {firstViewShape, secondViewShape},
-                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                    {bIdx * firstViewShape, sIdx * secondViewShape});
-                TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = FillPad(tileTensor, "constant", args->padValue_);
-                Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
-            }
-        }
+        auto inputShape = inputs[0].GetShape();
+        auto tileTensor = View(inputs[0], inputShape);
+        TileShape::Current().SetVecTile(args->tileShape_);
+        auto res = FillPad(tileTensor, "constant", args->padValue_);
+        Assemble(res, {0, 0}, outputs[0]);
     }
 }
 
