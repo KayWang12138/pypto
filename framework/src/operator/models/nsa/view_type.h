@@ -24,7 +24,6 @@
 
 namespace npu::tile_fwk {
 void ViewTypeFunc(const Tensor &x, Tensor &result, DataType dstDtype);
-void ViewTypeCastFunc(const Tensor &x, Tensor &result, DataType dstDtype, DataType castDtype);
 std::tuple<Tensor, Tensor> MyPrologQuant(const Tensor &input);
 void ViewTypeQuantTestFunc(const Tensor &x, Tensor &result);
 void ViewTypeDequantTestFunc(const Tensor &x, Tensor &result);

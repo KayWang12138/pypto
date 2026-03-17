@@ -74,42 +74,6 @@ void ViewTypeEntry(const std::vector<int64_t>& mkn) {
 #endif
 }
 
-template<typename InputT, typename OutputT, typename CastT = float>
-void ViewTypeCastEntry(const std::vector<int64_t>& mkn) {
-
-    int64_t m = mkn[0];
-    int64_t k = mkn[1];
-    int64_t n = mkn[2];
-
-    DataType originDtype = GetAstDtype<InputT>();
-    DataType dstDtype = GetAstDtype<OutputT>();
-    DataType castDtype = GetAstDtype<CastT>();
-
-    float factor = (float)BytesOf(originDtype) / (float)BytesOf(dstDtype);
-
-    std::vector<int64_t> xShape = {m, k, n};
-    std::vector<int64_t> resultShape = {m, k, int(n * factor)};
-
-    Tensor x(originDtype, xShape, "x");
-    Tensor result(castDtype, resultShape, "result");
-
-    auto goldenData = GetGoldenVec<CastT>(resultShape, "/result.bin");
-    auto xData = CreateTensorData<InputT>(x, "/x.bin");
-
-    auto resultData = RawTensorData::CreateConstantTensor<CastT>(result, 0.0);
-
-    std::vector<RawTensorDataPtr> inputDataList = {xData};
-    std::vector<RawTensorDataPtr> outputDataList = {resultData};
-
-    ViewTypeCastFunc(x, result, dstDtype, castDtype);  
-
-#ifdef BUILD_WITH_CANN
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
-    std::cout << "====== result ======" << std::endl;
-    EXPECT_TRUE(resultCmp<CastT>(goldenData, (CastT *)resultData->data(), 0.005f));
-#endif
-}
-
 template<typename InputT, typename OutputT>
 void ViewTypeQuantTestEntry(const std::vector<int64_t>& mkn) {
 
