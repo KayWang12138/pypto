@@ -16,9 +16,8 @@
 
 | 场景枚举 | 错误码 | 报错阶段 | 场景说明 |
 |---------|------|----------------------------------|----------|
-| `PARAM_SPEC_INVALID` | **FC6101** | `conv.operation.checkfmap` | Operation校验输入规格参数不合法（input,weight,output的维度，shape，数据类型等）。 |
-| `L1_TILING_INVALID` | **FC6102** | `conv.operation.checkweight` | Operation校验输入Tiling参数不合法（L1层级Tiling不合法）。 |
-| `L0_TILING_INVALID` | **FC6103** | `conv.operation.checkbias` | Operation校验输入Tiling参数不合法（L0层级Tiling不合法）。 |
+| `INPUT_INVALID` | **FC6101** | `conv.operation.checkinput` | Operation校验输入参数不合法（维度，shape，数据类型等）。 |
+| `OVER_BUFFER_LIMIT` | **FC6102** | `conv.operation.checkweight` | Operation校验超出空间限制不合法。 |
 | `UNKNOWN` | **FC6199** | `conv.operation.reserved` | Operation阶段未知报错预留错误码。 |
 
 ### 2. Tile切分（Tile图切分，`ConvError::ExpandFunction`，F62xxx）

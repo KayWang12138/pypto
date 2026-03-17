@@ -74,7 +74,7 @@ void CheckValueRange(int64_t value, const std::string& name, int64_t min, int64_
             oss << "Formula: " << formula;
         }
         oss << std::endl;
-        CONV_ASSERT(ConvOperationError::ATTR_SPEC_INVALID, value >= min && value <= max, oss.str());
+        CONV_ASSERT(ConvOperationError::INPUT_INVALID, value >= min && value <= max, oss.str());
     });
 }
 
@@ -157,9 +157,9 @@ void CheckOutputShape(const Tensor &inputTensor, const Tensor &weightTensor, con
 void CheckAlignment(int64_t value, int64_t alignment, const std::string& valueName)
 {
     OP_CHECK(true, {
-        CONV_ASSERT(ConvOperationError::ATTR_SPEC_INVALID, alignment != 0, 
+        CONV_ASSERT(ConvOperationError::INPUT_INVALID, alignment != 0, 
             "Error in alignment check for "<< valueName << ".");
-        CONV_ASSERT(ConvOperationError::ATTR_SPEC_INVALID, value % alignment == 0, 
+        CONV_ASSERT(ConvOperationError::INPUT_INVALID, value % alignment == 0, 
             "Invalid " << valueName << ":" << value
             << ", requires " << alignment << "-element alignment." << std::endl);
     });
@@ -182,14 +182,14 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
     int64_t wOut = ConvComputeWo(inputTensor, weightTensor, attrParam);
     if (wOut % 16 != 0) {
         OP_CHECK(true, {
-            CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, tileHout == 1, 
+            CONV_ASSERT(ConvTileOpError::INPUT_INVALID, tileHout == 1, 
                 "When wOut is not a multiple of 16, tileHout should be 1." << std::endl);
         });
     }
     CheckValueRange(tileHout, "tileHout" , NUM1, hOut);
     if (tileHout > 1) {
         OP_CHECK(true, {
-            CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, tileWout == wOut, 
+            CONV_ASSERT(ConvTileOpError::INPUT_INVALID, tileWout == wOut, 
                 "When tileHout > 1, tileWout must be equal to wOut.Now tileHout=" << tileHout
                 << ", tileWout=" << tileWout
                 << ", wOut=" << wOut << std::endl);
@@ -203,7 +203,7 @@ void ValidateL0Constraint(int64_t tile1, int64_t tile2, int64_t tile3, size_t dt
     const std::string& dim1Name, const std::string& dim2Name, const std::string& dim3Name)
 {
     OP_CHECK(true, {
-        CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, 
+        CONV_ASSERT(ConvTileOpError::OVER_BUFFER_LIMIT, 
                 tile1 * tile2 * tile3 * dtypeSize <= cacheSize, 
                 "Shape does not satisfy " << cacheName 
                 << " load constraints, " << dim1Name << ":" << tile1
@@ -247,7 +247,7 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
     CheckAlignment(tileW, NUM16, "tileW");
     CheckValueRange(tileN, "tileL0Info.tileN" , NUM1, ConvAlignB(tileCout, NUM16));
     OP_CHECK(true, {
-        CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, kAL1 % tileK == 0 && kBL1 % tileK == 0, 
+        CONV_ASSERT(ConvTileOpError::INPUT_INVALID, kAL1 % tileK == 0 && kBL1 % tileK == 0, 
                 "Invalid tileK: " << tileK
                 << ", must be a factor of both kAL1:" << kAL1
                 << " and kBL1:" << kBL1 << std::endl);
@@ -264,9 +264,9 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
 void CheckDivisible(int64_t value, int64_t divisor, const std::string& valueName, const std::string& divisorName)
 {
     OP_CHECK(true, {
-        CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, divisor != 0, 
+        CONV_ASSERT(ConvTileOpError::INPUT_INVALID, divisor != 0, 
                 divisorName << " cannot be zero.");
-        CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, value % divisor == 0, 
+        CONV_ASSERT(ConvTileOpError::INPUT_INVALID, value % divisor == 0, 
                 "The value of " << divisorName << " (" << divisor
                 << ") does not divide "<< valueName
                 << "(" << value << "). Adjusting " << divisorName 
@@ -360,7 +360,7 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     inputL1Size = ConvAlignB(hiAL1 * wiAL1 * kAL1 * BytesOf(outType), ALIGN_SIZE_32);
     uint64_t minL1LoadSize = biasL1Size + inputL1Size + weightL1Size;
     OP_CHECK(true, {
-        CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, minL1LoadSize <= l1Size, 
+        CONV_ASSERT(ConvTileOpError::OVER_BUFFER_LIMIT, minL1LoadSize <= l1Size, 
                 "MinL1LoadSize > L1size, current MinL1LoadSize: " << minL1LoadSize
                 << ", L1size: " << l1Size
                 << "." << std::endl);
@@ -375,7 +375,7 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
     CheckDivisible(cOut, groups, "Cout", "groups");
 
     OP_CHECK(true, {
-        CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, cinFmap == cinWeight * groups, 
+        CONV_ASSERT(ConvTileOpError::INPUT_INVALID, cinFmap == cinWeight * groups, 
                 << "Fmap Cin (" << cinFmap
                 << ") != weight Cin (" << cinWeight
                 << ") * groups (" << groups
@@ -386,7 +386,7 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
 void CheckDimParam(const std::vector<int64_t>& vec, const std::string& name, int expectedDim)
 {
     OP_CHECK(true, {
-        CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, vec.size() == static_cast<size_t>(expectedDim), 
+        CONV_ASSERT(ConvTileOpError::INPUT_INVALID, vec.size() == static_cast<size_t>(expectedDim), 
                 "Input attr " << name << " dim: " << vec.size()
                 << " != " << expectedDim << "." << std::endl);
     });
@@ -396,7 +396,7 @@ void CheckDimensionRange(const std::vector<int64_t>& vec, const std::string& nam
 {
     for (size_t i = 0; i < vec.size(); ++i) {
         OP_CHECK(true, {
-            CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, vec[i] >= minVal && vec[i] <= maxVal, 
+            CONV_ASSERT(ConvTileOpError::INPUT_INVALID, vec[i] >= minVal && vec[i] <= maxVal, 
                 "The value of the " << i
                 << "-th dimension of " << name
                 << " must be in the range [" << minVal
@@ -425,7 +425,7 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
     int64_t kw = weightTensor.GetShape()[indexW];
     int64_t kh = attrParam.isConv1D ? 1 : weightTensor.GetShape()[indexH];
     OP_CHECK(true, {
-        CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, kh <= MAX_PAD_KERNEL && kw  <= MAX_PAD_KERNEL, 
+        CONV_ASSERT(ConvTileOpError::INPUT_INVALID, kh <= MAX_PAD_KERNEL && kw  <= MAX_PAD_KERNEL, 
                 "Weight shapes do not satisfy Load3D's"
                 << (attrParam.isConv1D ? " limit: kw=" : " limits: kh=")
                 << (attrParam.isConv1D ? kw : kh)
@@ -435,7 +435,7 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
 
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
     OP_CHECK(true, {
-        CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, kh * kw * k0 <= SHAPE_INNER_AXIS_MAX_SIZE, 
+        CONV_ASSERT(ConvTileOpError::INPUT_INVALID, kh * kw * k0 <= SHAPE_INNER_AXIS_MAX_SIZE, 
                 "Weight shapes do not satisfy Load3D's limits: kh*kw*k0=" << kh * kw * k0
                 << "(k0 = 32 bytes / dtypesize), which must <=" << SHAPE_INNER_AXIS_MAX_SIZE
                 << "." << std::endl);
@@ -466,7 +466,7 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
         int paddingLeft = paddings[i * 2];
         int paddingRight = paddings[i * 2 + 1];
         OP_CHECK(true, {
-            CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, 
+            CONV_ASSERT(ConvTileOpError::INPUT_INVALID, 
                 paddingLeft < weightVal && paddingRight < weightVal, 
                 "The value of the " << dimNames[i]
                 << " dimension of weight must be >= padding.Current weight value:" << weightVal
@@ -489,7 +489,7 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
     }
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     OP_CHECK(true, {
-        CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, 
+        CONV_ASSERT(ConvTileOpError::INPUT_INVALID, 
                 biasTensor.GetShape()[0] == cOut, 
                 "Input illegal bias shape:" << biasTensor.GetShape()[0]
                 << ", which must equal to Cout:" << cOut
@@ -499,7 +499,7 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
 void CheckConvOperands(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor, ConvAttrParam &attrParam)
 {
     OP_CHECK(true, {
-        CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, 
+        CONV_ASSERT(ConvTileOpError::INPUT_INVALID, 
                 outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16, 
                 "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16 are supported.");
     });
