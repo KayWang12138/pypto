@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -18,8 +18,7 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct FillPadOpFuncArgs : public OpFuncArgs {
-    FillPadOpFuncArgs(const std::vector<int64_t> &viewShape,
-        const std::vector<int64_t> tileShape, float padValue)
+    FillPadOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape, float padValue)
         : viewShape_(viewShape), tileShape_(tileShape), padValue_(padValue) {}
 
     std::vector<int64_t> viewShape_;
@@ -43,7 +42,8 @@ static void FillPadOperationExeFunc1Dims(
         const int firstViewShape = inputs[0].GetShape()[0];
         const int bloop = CeilDiv(firstDim, firstViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            auto tileTensor = View(inputs[0], {firstViewShape}, SymbolicScalar::FromConcrete(args->viewShape_), {bIdx * firstViewShape});
+            auto tileTensor = View(
+                inputs[0], {firstViewShape}, SymbolicScalar::FromConcrete(args->viewShape_), {bIdx * firstViewShape});
             TileShape::Current().SetVecTile(args->tileShape_);
             auto res = FillPad(tileTensor, "constant", args->padValue_);
             Assemble(res, {bIdx * firstViewShape}, outputs[0]);
@@ -63,8 +63,8 @@ static void FillPadOperationExeFunc2Dims(
         const int sloop = CeilDiv(secondDim, secondViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor = View(inputs[0], {firstViewShape, secondViewShape}, SymbolicScalar::FromConcrete(args->viewShape_),
-                    {bIdx * firstViewShape, sIdx * secondViewShape});
+                auto tileTensor = View(inputs[0], {firstViewShape, secondViewShape},
+                    SymbolicScalar::FromConcrete(args->viewShape_), {bIdx * firstViewShape, sIdx * secondViewShape});
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = FillPad(tileTensor, "constant", args->padValue_);
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
