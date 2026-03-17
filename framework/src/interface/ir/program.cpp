@@ -32,11 +32,12 @@ Program::Program(const std::vector<FunctionPtr> &functions, std::string name, Sp
     // The map automatically sorts by GlobalVar name via the GlobalVarPtrLess comparator
     std::set<std::string> functionNames;
     for (const auto &func : functions) {
-        INTERNAL_CHECK(func) << "Program constructor encountered null function";
+        INTERNAL_CHECK(func) << "Program constructor encountered null function at " << span_.ToString();
         auto funcName = func->name_;
-        INTERNAL_CHECK(!funcName.empty()) << "Program constructor encountered empty function name";
+        INTERNAL_CHECK(!funcName.empty()) << "Program constructor encountered empty function name at "
+                                          << span_.ToString();
         INTERNAL_CHECK(functionNames.find(funcName) == functionNames.end())
-            << "Duplicate function name \"" << funcName << "\"";
+            << "Duplicate function name \"" << funcName << "\" at " << span_.ToString();
         functionNames.insert(funcName);
         auto globalVar = std::make_shared<const GlobalVar>(funcName);
         functions_.emplace(globalVar, func);
