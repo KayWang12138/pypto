@@ -591,5 +591,39 @@ TEST_F(InferShapeTest, TestPad) {
     std::cout << currFunctionPtr->Dump() << std::endl;
     EXPECT_EQ(inferShapeTest.PostCheck(*currFunctionPtr), SUCCESS);
 }
+
+TEST_F(InferShapeTest, TestIndexOutCast) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestIndexOutCast", "TestIndexOutCast", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    std::vector<int64_t> inshape0 = {1, 1};
+    std::vector<int64_t> inshape1 = {2, 2};
+    std::vector<int64_t> inshape2 = {4, 4};
+    std::vector<int64_t> outshape = {4, 4};
+    auto shapeImme = OpImmediate::Specified(outshape);
+
+    auto incast0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape0);
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape1);
+    auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape2);
+    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape);
+
+    auto &indexoutcast_op = currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {incast0, incast1, incast2}, {outcast});
+
+    std::vector<SymbolicScalar> validShape = {SymbolicScalar("Input_0_Dim_0"), SymbolicScalar("Input_0_Dim_1")};
+    incast2->UpdateDynValidShape(validShape);
+    
+    currFunctionPtr->inCasts_.push_back(incast0);
+    currFunctionPtr->inCasts_.push_back(incast1);
+    currFunctionPtr->inCasts_.push_back(incast2);
+    currFunctionPtr->outCasts_.push_back(outcast);
+
+    InferDynShape inferShapeTest;
+    inferShapeTest.RunOnFunction(*currFunctionPtr);
+    std::cout << currFunctionPtr->Dump() << std::endl;
+    EXPECT_NE(outcast->GetDynValidShape().size(), 0);
+    EXPECT_EQ(inferShapeTest.PostCheck(*currFunctionPtr), SUCCESS);
+    auto indexOutCastOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(indexoutcast_op.GetOpAttribute());
+    EXPECT_EQ(indexOutCastOpAttribute != nullptr, true);
+}
 }
 }
