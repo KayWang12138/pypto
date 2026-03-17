@@ -25,7 +25,7 @@ void TiledFillPadOperation(
     if (cur == input.tensor.GetShape().size()) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        function.AddOperation(OP_FILLPAD, {tile}, {resultTile});
+        auto &op = function.AddOperation(OP_FILLPAD, {tile}, {resultTile});
         op.SetAttribute(OpAttributeKey::scalar, padValue);
         return;
     }
@@ -33,17 +33,17 @@ void TiledFillPadOperation(
     for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
         input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
-        TiledFillPadOperation<T>(function, tileShape, cur + 1, input, result);
+        TiledFillPadOperation(function, tileShape, cur + 1, input, result);
     }
 }
 
 void TiledFillPadOperation(
-    Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
+    Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand, const LogicalTensorPtr &result, const Element &padValue) {
     ASSERT(operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset must be equal";
 
     TileInfo tileInfo(result->shape.size(), result->offset.size());
     auto input = Input{operand, tileInfo};
-    TiledFillPadOperation<T>(function, tileShape, 0, input, result);
+    TiledFillPadOperation(function, tileShape, 0, input, result);
 }
 
 LogicalTensorPtr TensorFillPadOperation(

@@ -987,7 +987,7 @@ def gen_pad_op_golden(case_name: str, output: Path, case_index: int = None) -> b
 def gen_fillpad_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     def golden_func(inputs: list, config: dict):
         input_shape = config["input_tensors"][0]["shape"]
-        valid_shape = config["input_tensors"][0].get("valid_shape", input_shape)
+        valid_shape = config["view_shape"]
         output_shape = config["output_tensors"][0]["shape"]
         pad_value_type = config.get("params", {}).get("pad_value_type", "zero")
         

@@ -18,11 +18,10 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct FillPadOpFuncArgs : public OpFuncArgs {
-    FillPadOpFuncArgs(const std::vector<int64_t> &validShape, const std::vector<int64_t> &viewShape,
+    FillPadOpFuncArgs(const std::vector<int64_t> &viewShape,
         const std::vector<int64_t> tileShape, float padValue)
-        : validShape_(validShape), viewShape_(viewShape), tileShape_(tileShape), padValue_(padValue) {}
+        : viewShape_(viewShape), tileShape_(tileShape), padValue_(padValue) {}
 
-    std::vector<int64_t> validShape_;
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
     float padValue_;
@@ -44,7 +43,7 @@ static void FillPadOperationExeFunc1Dims(
         const int firstViewShape = inputs[0].GetShape()[0];
         const int bloop = CeilDiv(firstDim, firstViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            auto tileTensor = View(inputs[0], {firstViewShape}, args->validShape_, {bIdx * firstViewShape});
+            auto tileTensor = View(inputs[0], {firstViewShape}, SymbolicScalar::FromConcrete(args->viewShape_), {bIdx * firstViewShape});
             TileShape::Current().SetVecTile(args->tileShape_);
             auto res = FillPad(tileTensor, "constant", args->padValue_);
             Assemble(res, {bIdx * firstViewShape}, outputs[0]);
@@ -64,7 +63,7 @@ static void FillPadOperationExeFunc2Dims(
         const int sloop = CeilDiv(secondDim, secondViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor = View(inputs[0], {firstViewShape, secondViewShape}, args->validShape_,
+                auto tileTensor = View(inputs[0], {firstViewShape, secondViewShape}, SymbolicScalar::FromConcrete(args->viewShape_),
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = FillPad(tileTensor, "constant", args->padValue_);
