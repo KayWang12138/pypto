@@ -210,8 +210,6 @@ python3 build_ci.py -s=python/tests/st/test_adds_onboard.py::test_adds_onboard
    - 配置参数超出有效范围
    - 未按算子规范使用算子
 
-各pass模块常见错误及修复建议可参考：[常见错误及修复建议](references/pass-modules-knowledge-base.md)
-
 #### 4.3 分析技巧
 
 1. **错误信息中的处理建议**
@@ -228,7 +226,7 @@ python3 build_ci.py -s=python/tests/st/test_adds_onboard.py::test_adds_onboard
    - 通过文档了解各算子的用法和约束
    - 算子文档通常位于 `docs/api/operation` 目录下
 
-4. **用例配置错误分析** ⭐ 重要
+4. **用例错误分析** ⭐ 重要
    - **对比类似用例**：查找同一测试文件中功能相似的用例，对比配置差异
    - **验证期望值合理性**：分析用例逻辑，判断期望值是否符合预期
    - **检查配置参数范围**：确认配置参数（如子图ID、buffer数量）是否在有效范围内
@@ -415,13 +413,6 @@ The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETT
 2. 优先搜索ERROR级别日志，减少处理范围
 3. 使用多线程并行处理多个日志文件
 4. 缓存已解析的日志信息，避免重复解析
-
-## 参考文档
-
-- [Pass常见错误及修复建议](references/pass-modules-knowledge-base.md) — 各Pass模块常见错误原因及对应修复建议
-- [错误分析常见问题](references/pass-error-locating-faq.md) - 问题定位过程中可能遇到的场景问题
-- [PyPTO Pass Workflow Analyzer](.agents/skills/pypto-pass-workflow-analyzer/SKILL.md) - 业务流程分析技能
-- [PyPTO Environment Setup](.agents/skills/pypto-environment-setup/SKILL.md) - 环境检查技能
 
 ## 常见问题
 
