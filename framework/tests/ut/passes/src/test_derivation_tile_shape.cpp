@@ -20,6 +20,7 @@
 #include "tilefwk/tilefwk.h"
 #include "ut_json/ut_json_tool.h"
 #include "passes/pass_mgr/pass_manager.h"
+#include "passes/pass_utils/pass_utils.h"
 #include "interface/configs/config_manager.h"
 
 #include "interface/operation/operation.h"
