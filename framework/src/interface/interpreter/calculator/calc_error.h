@@ -19,15 +19,37 @@
 
 namespace npu::tile_fwk::calc_error {
 
-// Calculator 层错误码从 0xB5000U 开始，按语义分类。
+// Calculator 层错误码从 0xB5000U 开始，只在 calculator/ 目录内部使用，
 
 enum class CalculatorErrorScene : uint32_t {
-    INVALID_TENSOR_SIZE   = 0xB5000U, // 张量元素个数/尺寸不匹配（如 Range 生成 numel 与 out.shape 不一致）
-    INVALID_TENSOR_SHAPE  = 0xB5001U, // 维度数量/axis 等 shape 相关约束不满足
-    INVALID_TENSOR_DTYPE  = 0xB5002U, // dtype 组合不合法（如 QuantPreCompute 的 out/self 类型约束）
-    INVALID_OP_CONTEXT    = 0xB5003U, // 运算上下文不合法（如 patternMode 范围、前置状态检查等）
-    UNSUPPORTED_OPCODE    = 0xB5004U, // 不支持的比较类型或其它操作类型
+    // Range / 生成相关
+    RANGE_NUMEL_MISMATCH            = 0xB5000U, // torch::arange 生成的 numel 与 out.shape 展开后的元素个数不一致
+
+    // 比较运算相关
+    COMPARE_UNSUPPORTED_TYPE        = 0xB5001U, // CompareImpl 收到未支持的 CmpOperationType
+    BITMODE_LAST_DIM_INVALID        = 0xB5002U, // CmpModeType::BIT 模式下，最后一维尺寸不是 NUM_VALUE_8 的倍数
+
+    // 形状约束 / 格式转换
+    FORMAT_ND2NZ_RANK_LT_2          = 0xB5003U, // FormatND2NZ 要求 rank >= 2，实际小于 2
+    FORMAT_NZ2ND_RANK_LT_2          = 0xB5004U, // FormatNZ2ND 要求 rank >= 2，实际小于 2
+
+    // 量化预处理相关
+    QUANTPRECOMPUTE_NULL_DATAPTR    = 0xB5005U, // QuantPreCompute 中 out/self 的 dataPtr 为空
+    QUANTPRECOMPUTE_DTYPE_MISMATCH  = 0xB5006U, // QuantPreCompute 要求 out=FP16/self=INT32 的 dtype 组合不满足
+
+    // GatherMask / pattern 模式
+    GATHERMASK_PATTERNMODE_INVALID  = 0xB5007U, // GatherMask 中 patternMode 不在 [1,7] 合法范围内
+
+    // TopK/MrgSort 轴约束
+    MRGSORT_AXIS_OUT_OF_RANGE       = 0xB5008U, // MrgSort/TiledMrgSort 等中 axis 超出张量维度范围
+
+    // Scatter/ScatterUpdate 相关
+    SCATTER_BLOCKSIZE_ZERO          = 0xB5009U, // ScatterUpdate 中 blockSize 为 0
+    SCATTER_INDICES_DIM_INVALID     = 0xB500AU, // indices 维度不是期望的 2 维
+    SCATTER_SRC_RET_DIM_UNSUPPORTED = 0xB500BU, // src/ret 的维度不是 2 或 4，当前实现不支持
+    SCATTER_SRC_RET_DIM_MISMATCH    = 0xB500CU, // src 与 ret 的维度数量不一致
 };
 
 } // namespace npu::tile_fwk::calc_error
+
 
