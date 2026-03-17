@@ -35,14 +35,18 @@ enum class ConvExpandFuncError : uint32_t {
     UNKNOWN                               = 6299U
 };
 
-enum class CodenGenError : uint32_t {
+enum class ConvCodenGenError : uint32_t {
+    CODEGEN_GET_ATTR_FAILED               = 6301U,
+    CODEGEN_CHECK_ATTR_INVALID            = 6302U,
+    CODEGEN_CHECK_DIM_INVALID             = 6303U,
+    UNKNOWN                               = 6399U
 };
 
 enum class ConvTileOpError : uint32_t {
-    TILE_OP_TENSOR_FORMAT_INVALID       = 6401U,
-    TILE_OP_SHAPE_SIZE_INVALID          = 6402U,
-    TILE_OP_STATIC_SHAPE_INVALID        = 6402U,
-    TILE_OP_SHAPE_STRIDE_INDEX_INVALID  = 6402U,
+    TILEOP_TENSOR_FORMAT_FAILED         = 6401U,
+    TILEOP_SHAPE_SIZE_FAILED            = 6402U,
+    TILEOP_STC_SHAPE_INVALID            = 6403U,
+    TILEOP_INDEX_INVALID                = 6404U,
     UNKNOWN                             = 6499U
 };
 

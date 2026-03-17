@@ -32,7 +32,23 @@
 | `UNKNOWN` | **F6299** | `conv.operation.reserved` | ExpandFunc Tile图切分阶段未知报错预留错误码。 |
 
 ### 3. CodenGen
+
+| 场景枚举 | 错误码 | 报错阶段 | 场景说明 |
+|---------|------|----------|------|
+| `CODEGEN_GET_ATTR_FAILED` | **FC6301** | `conv.codegen.get_attr` | Codegen代码生成，tensor图节点属性获取失败。 |
+| `CODEGEN_CHECK_ATTR_INVALID` | **FC6302** | `conv.codegen.check_attr` | Codegen代码生成，tensor图节点属性校验非法。 |
+| `CODEGEN_CHECK_DIM_INVALID` | **FC6303** | `conv.codegen.check_dim` | TCodegen代码生成，shape/offset校验dim非法。 |
+| `UNKNOWN` | **FC6399** | `conv.operation.reserved` | Codegen代码生成阶段未知报错预留错误码。 |
+
 ### 4. TileOp
+
+| 场景枚举 | 错误码 | 报错阶段 | 场景说明 |
+|---------|------|----------|------|
+| `TILEOP_TENSOR_FORMAT_FAILED` | **FC6401** | `conv.tileop.check_tensor_format` | TileOp，tensor硬件FORMAT校验失败。 |
+| `TILEOP_SHAPE_SIZE_FAILED` | **FC6402** | `conv.tileop.check_shape_size` | TileOp，shape size校验失败。 |
+| `TILEOP_STC_SHAPE_INVALID` | **FC6403** | `conv.tileop.check_stc_shape` | TileOp，static shape非法。 |
+| `TILEOP_INDEX_INVALID` | **FC6404** | `conv.tileop.check_index` | TileOp，获取shape/stride的index校验非法。 |
+| `UNKNOWN` | **FC6499** | `conv.operation.reserved` | TileOp未知报错预留错误码。 |
 
 ---
 
