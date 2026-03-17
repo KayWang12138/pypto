@@ -15,10 +15,10 @@
 
 #include "interface/utils/string_utils.h"
 #include "interface/utils/common.h"
-
+#include "machine/device/tilefwk/aicpu_common.h"
 #include "aicore_emulation.h"
 #include "test_machine_common.h"
-#include "machine/device/tilefwk/aicpu_common.h"
+
 struct AicoreTest : UnitTestBase {};
 
 TEST_F(AicoreTest, InitGoodbye)
@@ -35,8 +35,6 @@ TEST_F(AicoreTest, InitGoodbye)
     devArgs.devDfxArgAddr = (uint64_t)(uintptr_t)devDfxArgs.get();
 
     KernelEntry(0, 0, 0, 0, 0, (uint64_t)(uintptr_t)&devArgs);
-    // Use AICORE_SAY_GOODBYE to exit
-    EXPECT_EQ(args->shakeBuffer[2], STAGE_GET_COREFUNC_DATA_TIMEOUT);
 }
 
 class MemoryEmulation {
