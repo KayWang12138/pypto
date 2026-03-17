@@ -401,12 +401,11 @@ void GenerateMoveOp::InsertCopyDDROp(Function &function, Operation *needInsertCo
     LogicalTensor copyInOutput(function, input->Datatype(), copyShape);
     copyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
     const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB));
-    auto memType = copyInOutput->GetMemoryTypeOriginal();
-    if ((memType == MemoryType::MEM_UB) && (copyInOutput->GetDataSize() > UB_SIZE_THRESHOLD)) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Tensor %d exceeds the UB size limit.", assembleOut->magic);
+    auto memType = copyInOutput.GetMemoryTypeOriginal();
+    if ((memType == MemoryType::MEM_UB) && (copyInOutput.GetDataSize() > UB_SIZE_THRESHOLD)) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Tensor %d exceeds the UB size limit.", copyInOutput.magic);
         return;
     }
-}
     auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
     auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {input}, {copyInOutputPtr});
     copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
