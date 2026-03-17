@@ -13,6 +13,7 @@
 import json
 import re
 import argparse
+import os
 from typing import Dict, List, Any
 
 
@@ -105,6 +106,17 @@ def save_json(data, output_file_path):
 def convert_to_perfetto_format(input_json: List[Dict]) -> List[Dict]:
     trace_events = []
     thread_id = 0
+    trace_events_head = {
+        "args": {
+            "name": "AICPU View",
+            "type": "aicpu"
+        },
+        "cat": "__metadata",
+        "name": "process_name",
+        "ph": "M",
+        "pid": 0
+    }
+    trace_events.append(trace_events_head)
     for block in input_json:
         block_idx = block.get("blockIdx", 0)
         core_type = block.get("coreType", "UNKNOWN")
@@ -173,11 +185,25 @@ def parse_log_command(input_file, output_file):
     print(f"Parsing completed, result saved to: {output_file}")
 
 
-def gen_perfetto_command(input_file, output_file):
+def merge_aicpu_aicore_swim_lane(aicpu_perfetto_data, input_kernel_file):
+    if input_kernel_file is not None and os.path.exists(input_kernel_file):
+        with open(input_kernel_file, 'r', encoding='utf-8') as f:
+            aicore_perfetto_data = json.load(f)
+            # kernel swim lane + aicpu swim lane
+            merged_trace_events = aicpu_perfetto_data["traceEvents"] + aicore_perfetto_data["traceEvents"]
+            merged_data = {
+                'traceEvents': merged_trace_events
+            }
+        with open(input_kernel_file, 'w', encoding='utf-8') as fw:
+            json.dump(merged_data, fw, indent=2)
+
+
+def gen_perfetto_command(input_file, output_file, input_kernel_file=None):
     try:
         with open(input_file, 'r', encoding='utf-8') as f:
             input_data = json.load(f)
         perfetto_data = convert_to_perfetto_format(input_data)
+        merge_aicpu_aicore_swim_lane(perfetto_data, input_kernel_file)       
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(perfetto_data, f, ensure_ascii=False, indent=2)
         print(f"Success to generate perfetto file: {output_file}")
@@ -238,6 +264,7 @@ def main():
     perfetto_parser = subparsers.add_parser('gen_perfetto', help='Convert performance JSON to Perfetto format')
     perfetto_parser.add_argument('input_file', help='Input JSON file path')
     perfetto_parser.add_argument('output_file', help='Output Perfetto JSON file path')
+    perfetto_parser.add_argument('kernel_file', help='aicore kernel Perfetto JSON file path', default="", nargs='?')
 
     # gen_perfetto_example 子命令
     example_parser = subparsers.add_parser('gen_perfetto_example', help='Generate example Perfetto data')
@@ -247,7 +274,7 @@ def main():
     if args.command == 'parse_log':
         parse_log_command(args.input_file, args.output_file)
     elif args.command == 'gen_perfetto':
-        gen_perfetto_command(args.input_file, args.output_file)
+        gen_perfetto_command(args.input_file, args.output_file, args.kernel_file)
     elif args.command == 'gen_perfetto_example':
         gen_perfetto_example()
     else:

@@ -39,8 +39,14 @@ Usage Examples
 --------------
 Basic JIT compilation:
     >>> @pypto.frontend.jit()
-    ... def my_kernel(x: pypto.Tensor((16,), pypto.DT_FP32)):
+    ... def my_kernel(x: pypto.Tensor([16,], pypto.DT_FP32)):
     ...     return pypto.add(x, x)
+
+Dynamic dimensions:
+    >>> N = pypto.DYNAMIC
+    >>> @pypto.frontend.jit()
+    ... def dynamic_kernel(x: pypto.Tensor([N, 128], pypto.DT_FP32)):
+    ...     return x
 
 Nested functions:
     >>> @pypto.frontend.function
@@ -59,3 +65,55 @@ parser.parser : Main parser implementation
 """
 from . import parser
 from .parser import jit, function
+from ..symbolic_scalar import SymbolicScalar
+
+
+def dynamic(name: str) -> SymbolicScalar:
+    """Create a dynamic (symbolic) dimension for tensor shapes.
+
+    This function creates a symbolic scalar that can be used to define
+    dynamic dimensions in tensor shapes. The symbolic scalar represents
+    a runtime value that is not known at compile time and will be bound
+    to concrete values when the kernel is first invoked.
+
+    Dynamic dimensions enable writing kernels that work with variable-sized
+    inputs without recompilation. The parser validates that all uses of a
+    symbolic dimension are consistent within a kernel.
+
+    Parameters
+    ----------
+    name : str
+        The name of the dynamic dimension. This name is used for binding
+        concrete values and in error messages.
+
+    Returns
+    -------
+    SymbolicScalar
+        A symbolic scalar representing the dynamic dimension.
+
+    Examples
+    --------
+    Create a batch-size dimension:
+    >>> BS = pypto.DYNAMIC
+    >>> @pypto.frontend.jit()
+    ... def batch_kernel(x: pypto.Tensor((BS, 128), pypto.DT_FP16)):
+    ...     return x
+
+    Multiple dynamic dimensions:
+    >>> N = pypto.DYNAMIC
+    >>> M = pypto.DYNAMIC
+    >>> @pypto.frontend.jit()
+    ... def matmul_kernel(
+    ...     a: pypto.Tensor((N, M), pypto.DT_FP32),
+    ...     b: pypto.Tensor((M, N), pypto.DT_FP32),
+    ... ):
+    ...     # Kernel implementation
+    ...     pass
+
+    Notes
+    -----
+    - Symbolic dimensions are resolved on first kernel invocation
+    - All uses of the same symbolic dimension must have consistent values
+    - Symbolic dimensions can be used in shape calculations within kernels
+    """
+    return SymbolicScalar(name)

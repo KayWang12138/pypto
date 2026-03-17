@@ -30,8 +30,7 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("ERROR: Environment variable TILE_FWK_DEVICE_ID is not set.")
-        print("Please set it before running this example:")
+        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
     
@@ -57,24 +56,14 @@ def add_core(input0: pypto.Tensor, input1: pypto.Tensor, add1_flag: bool = False
     return out
 
 
-def create_add_kernel(run_mode: str = "npu", add1_flag: bool = True):
-    
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def add_kernel(
-        input0: pypto.Tensor(SHAPE, pypto.DT_FP32),
-        input1: pypto.Tensor(SHAPE, pypto.DT_FP32),
-    ) -> pypto.Tensor(SHAPE, pypto.DT_FP32):
-        out = add_core(input0, input1, add1_flag)
-        return out
-    
-    return add_kernel
+@pypto.frontend.jit
+def add_kernel(
+    input0: pypto.Tensor(SHAPE, pypto.DT_FP32),
+    input1: pypto.Tensor(SHAPE, pypto.DT_FP32),
+    out: pypto.Tensor(SHAPE, pypto.DT_FP32),
+    add1_flag: bool = True,
+):
+    out[:] = add_core(input0, input1, add1_flag)
 
 
 def test_add_scalar_loop_multi_jit(device_id=None, run_mode: str = "npu") -> None:
@@ -90,7 +79,8 @@ def test_add_scalar_loop_multi_jit(device_id=None, run_mode: str = "npu") -> Non
     print(f"Input1 shape: {input_data1.shape}")
     golden = torch.add(input_data0, input_data1)
 
-    output_data = create_add_kernel(run_mode, False)(input_data0, input_data1)
+    output_data = torch.empty(shape, dtype=torch.float, device=device)
+    add_kernel(input_data0, input_data1, output_data, False)
     max_diff = np.abs(output_data.cpu().numpy() - golden.cpu().numpy()).max()
     print(f"Output shape: {output_data.shape}")
     print(f"Max difference: {max_diff:.6f}")
@@ -98,7 +88,8 @@ def test_add_scalar_loop_multi_jit(device_id=None, run_mode: str = "npu") -> Non
         assert_allclose(np.array(output_data.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)
 
     golden2 = torch.add(input_data0, input_data1) + val
-    output_data2 = create_add_kernel(run_mode, True)(input_data0, input_data1)
+    output_data2 = torch.empty(shape, dtype=torch.float, device=device)
+    add_kernel(input_data0, input_data1, output_data2, True)
     max_diff = np.abs(output_data2.cpu().numpy() - golden2.cpu().numpy()).max()
     print(f"Output shape: {output_data2.shape}")
     print(f"Max difference: {max_diff:.6f}")
@@ -141,9 +132,9 @@ Examples:
         '--run_mode',
         type=str,
         nargs='?',
-        default="npu",
-        choices=["npu", "sim"],
-        help='Run mode, such as npu/sim etc.'
+        default='npu',
+        choices=["npu"],
+        help='Run mode, currently only support npu.'
     )
     
     args = parser.parse_args()
