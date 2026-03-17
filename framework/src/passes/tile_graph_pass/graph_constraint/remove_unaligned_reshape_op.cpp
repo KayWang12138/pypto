@@ -204,8 +204,8 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &funct
     bool hasNonImmediate = false;
     auto changedDims = FindChangedDims(output->shape, input->shape);
     for (const auto &dim : changedDims) {
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Reshape[%d] Input[%d] %s dyn[]", op.GetOpMagic(), dim, inDynValidShape[dim].IsImmediate() ? "is" : "is not");
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Reshape[%d] Output[%d] %s dyn[]", op.GetOpMagic(), dim, outDynValidShape[dim].IsImmediate() ? "is" : "is not");
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Reshape[%d] Input[%ld] %s dyn[]", op.GetOpMagic(), dim, inDynValidShape[dim].IsImmediate() ? "is" : "is not");
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Reshape[%d] Output[%ld] %s dyn[]", op.GetOpMagic(), dim, outDynValidShape[dim].IsImmediate() ? "is" : "is not");
         if ((size_t)dim >= outDynValidShape.size()) {
             APASS_LOG_WARN_F(Elements::Operation, "The dynValidShape of output[%d] of op[%d] has no [%ld] index.", output->GetMagic(), op.GetOpMagic(), static_cast<long>(dim));
             break;
@@ -219,8 +219,8 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &funct
         bool hasOtherBranch = false;
         std::vector<Operation *> copyOutOps = FindAllProducerCopyOuts(input, hasOtherBranch);
         if (hasOtherBranch) {
-            APASS_LOG_WARN_F(Elements::Operation, "Do not follow reshape[%d] after multiple copyouts which move tensors to DDR.
-                This scenario may have accuracy issues.", op.GetOpMagic());
+            APASS_LOG_WARN_F(Elements::Operation, "Do not follow reshape[%d] after multiple copyouts which move tensors to DDR."
+                "This scenario may have accuracy issues.", op.GetOpMagic());
             return;
         }
         if (copyOutOps.size() != 1) {
