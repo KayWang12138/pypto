@@ -23,8 +23,8 @@ namespace npu::tile_fwk {
 void CheckQuantize(const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
                    DataType otype, int axis, const LogicalTensorPtr &zeroPoints) {
     // 1. Input must be FP32
-    ASSERT(input->datatype == DataType::DT_FP32)
-        << "Quantize input must be DT_FP32, but got " << DataType2String(input->datatype);
+    ASSERT(input->Datatype == DataType::DT_FP32)
+        << "Quantize input must be DT_FP32, but got " << DataType2String(input->Datatype);
 
     // 2. Dimension check: 2-4 dimensions
     auto shapeSize = input->shape.size();
@@ -41,8 +41,8 @@ void CheckQuantize(const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
         << "Input size " << totalSize << " exceeds INT32_MAX " << INT32_MAX;
 
     // 4. Scale type check
-    ASSERT(scale->datatype == DataType::DT_FP32)
-        << "Scale must be DT_FP32, but got " << DataType2String(scale->datatype);
+    ASSERT(scale->Datatype == DataType::DT_FP32)
+        << "Scale must be DT_FP32, but got " << DataType2String(scale->Datatype);
 
     // 5. Axis check: -1, -2, or relative dimensions
     int normalizedAxis = axis;
@@ -61,8 +61,8 @@ void CheckQuantize(const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
     if (otype == DataType::DT_UINT8) {
         ASSERT(zeroPoints != nullptr)
             << "Asymmetric quantization (DT_UINT8) requires zero_points";
-        ASSERT(zeroPoints->datatype == DataType::DT_FP32)
-            << "zero_points must be DT_FP32, but got " << DataType2String(zeroPoints->datatype);
+        ASSERT(zeroPoints->Datatype == DataType::DT_FP32)
+            << "zero_points must be DT_FP32, but got " << DataType2String(zeroPoints->Datatype);
     }
 }
 
@@ -71,13 +71,13 @@ void QuantizeOperation(Function &function, const TileShape &tileShape, size_t cu
                        const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
                        const LogicalTensorPtr &result, const LogicalTensorPtr &zeroPoints) {
     if (cur == input->shape.size()) {
-        auto inputTile = input->View(function, input->GetViewShape(), input->offset);
-        auto scaleTile = scale->View(function, scale->GetViewShape(), scale->offset);
-        auto resultTile = result->View(function, result->GetViewShape(), result->offset);
+        auto inputTile = input->View(function, input->tileShape, input->offset);
+        auto scaleTile = scale->View(function, scale->tileShape, scale->offset);
+        auto resultTile = result->View(function, result->tileShape, result->offset);
 
         std::vector<LogicalTensorPtr> inputs = {inputTile, scaleTile};
         if (quantType == QuantizeType::INT8_ASYM && zeroPoints != nullptr) {
-            auto zeroTile = zeroPoints->View(function, zeroPoints->GetViewShape(), zeroPoints->offset);
+            auto zeroTile = zeroPoints->View(function, zeroPoints->tileShape, zeroPoints->offset);
             inputs.push_back(zeroTile);
         }
 
