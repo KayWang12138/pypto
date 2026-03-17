@@ -460,7 +460,7 @@ struct DevControlFlowCache {
             WrapInfo* srcWrapInfo = &wrapInfoQueue->elem[i];
             WrapInfo* dstWrapInfo = &mixTaskDataBackup->queue.elem[i];
             dstWrapInfo->tasklist.elem = tasklistAddr + tasklistOffset;
-            uint32_t tasklistSize = srcWrapInfo->tasklist.capacity;
+            uint32_t tasklistSize = srcWrapInfo->tasklist.capacity * sizeof(uint32_t);
             tasklistOffset += tasklistSize;
             memcpy_s(dstWrapInfo->tasklist.elem, tasklistSize, srcWrapInfo->tasklist.elem, tasklistSize);
         }
@@ -483,7 +483,6 @@ struct DevControlFlowCache {
         wrapInfoQueue->head = mixTaskDataBackup->queue.head;
         wrapInfoQueue->tail = mixTaskDataBackup->queue.tail;
         wrapInfoQueue->capacity = mixTaskDataBackup->queue.capacity;
-        wrapInfoQueue->elem = mixTaskDataBackup->queue.elem;
 
         size_t wrapInfoBackupSize = sizeof(WrapInfo) * wrapInfoQueue->capacity;
         memcpy_s(wrapInfoQueue->elem, wrapInfoBackupSize, mixTaskDataBackup->queue.elem, wrapInfoBackupSize);
@@ -493,7 +492,7 @@ struct DevControlFlowCache {
             WrapInfo* srcWrapInfo = &mixTaskDataBackup->queue.elem[i];
             WrapInfo* dstWrapInfo = &wrapInfoQueue->elem[i];
             dstWrapInfo->tasklist.elem = mixTaskDataBackup->wrapTasklist + tasklistOffset;
-            uint32_t tasklistSize = srcWrapInfo->tasklist.capacity;
+            uint32_t tasklistSize = srcWrapInfo->tasklist.capacity * sizeof(uint32_t);
             tasklistOffset += tasklistSize;
             memcpy_s(dstWrapInfo->tasklist.elem, tasklistSize, srcWrapInfo->tasklist.elem, tasklistSize);
         }
