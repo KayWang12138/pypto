@@ -94,6 +94,10 @@ public:
     static const std::string blockSize;
     static const std::string transMode;
     static const std::string workspaceBaseOffset;
+    static const std::string copyInMode;
+    static const std::string copyOutMode;
+    static const std::string copyIsNZ;
+    static const std::string scaleValue;
 };
 
 
