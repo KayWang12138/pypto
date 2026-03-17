@@ -17,6 +17,7 @@
 #include <sys/mman.h>
 #include <thread>
 #include <sstream>
+#include "interface/utils/function_error.h"
 #include "interface/utils/file_utils.h"
 #include "tilefwk/pypto_fwk_log.h"
 
@@ -106,7 +107,7 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
 
     FILE *fbin = fopen(binaryFilePath.c_str(), "rb");
     if (fbin == nullptr) {
-        FUNCTION_LOGE("open binary file name failed");
+        FUNCTION_LOGE_E(FileErr::FILE_OPEN_FAILED, "open binary file name failed");
         return {};
     }
 

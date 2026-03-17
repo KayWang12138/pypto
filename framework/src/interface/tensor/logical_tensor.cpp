@@ -21,6 +21,7 @@
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/utils/function_error.h"
 #include "interface/program/program.h"
 #include "interface/utils/id_gen.h"
 #include "interface/function/function.h"
@@ -74,7 +75,8 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
       function_(&function) {
     // Initialize other members if necessary
     isSubGraphBoundary = false;
-    ASSERT(shape.size() == offset.size()) << "shape.size(): " << shape.size() << ", offset.size(): " << offset.size();
+    ASSERT(TensorErr::DIMS_INCONSISTENT, shape.size() == offset.size())
+        << "shape.size(): " << shape.size() << ", offset.size(): " << offset.size();
 }
 
 LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
@@ -92,7 +94,8 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
     // Initialize other members if necessary
     isSubGraphBoundary = false;
 
-    ASSERT(shape.size() == offset.size()) << "shape.size(): " << shape.size() << ", offset.size(): " << offset.size();
+    ASSERT(TensorErr::DIMS_INCONSISTENT, shape.size() == offset.size())
+        << "shape.size(): " << shape.size() << ", offset.size(): " << offset.size();
 }
 
 std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool create) const {
@@ -204,7 +207,7 @@ Json LogicalTensor::DumpJson(bool dumpRawTensor) const {
 }
 
 std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
-            const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict, const Json &tensorDump) {
+    const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict, const Json &tensorDump) {
     ASSERT(tensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_TENSOR))
         << "[tensorDump]json field<" << T_FIELD_KIND << "> doesn't match T_KIND_TENSOR.";
 
@@ -215,7 +218,8 @@ std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
     std::shared_ptr<RawTensor> rawTensor;
     if (tensorDump[T_FIELD_RAWTENSOR].is_number()) {
         int rawTensorMagic = tensorDump[T_FIELD_RAWTENSOR].get<int>();
-        ASSERT(rawTensorDict.count(rawTensorMagic)) << "rawTensorDict doesn't have magic " << rawTensorMagic;
+        ASSERT(TensorErr::MAGIC_NOT_FOUND, rawTensorDict.count(rawTensorMagic))
+            << "rawTensorDict doesn't have magic " << rawTensorMagic;
         rawTensor = rawTensorDict.find(rawTensorMagic)->second;
     } else {
         rawTensor = RawTensor::LoadJson(tensorDump[T_FIELD_RAWTENSOR]);
@@ -344,15 +348,17 @@ std::string LogicalTensor::Dump(bool showFrom, bool showMem) const {
 
 std::shared_ptr<LogicalTensor> LogicalTensor::View(
     Function &function, const Shape &newShape, const Offset &newOffset) const {
-    ASSERT(shape.size() == newShape.size()) << "Tensor.view, shape must be the same dimension";
-    ASSERT(offset.size() == newOffset.size()) << "Tensor.view, offset must be the same dimension";
+    ASSERT(TensorErr::VIEW_DIMENSION_MISMATCH, shape.size() == newShape.size())
+        << "Tensor.view, shape must be the same dimension";
+    ASSERT(TensorErr::VIEW_OFFSET_MISMATCH, offset.size() == newOffset.size())
+        << "Tensor.view, offset must be the same dimension";
 
     auto view = std::make_shared<LogicalTensor>(
         function, this->tensor, this->offset, this->shape, this->nodetype);
     for (size_t i = 0; i < shape.size(); i++) {
-        ASSERT(shape[i] >= (newShape[i] + newOffset[i]))
-            << "i: " << i << ", shape[i]: " << shape[i]
-            << ", newShape[i]: " << newShape[i] << ", newOffset[i]: " << newOffset[i];
+        ASSERT(TensorErr::SHAPE_OUT_OF_BOUNDS, shape[i] >= (newShape[i] + newOffset[i]))
+            << "i: " << i << ", shape[i]: " << shape[i] << ", newShape[i]: " << newShape[i]
+            << ", newOffset[i]: " << newOffset[i];
     }
 
     view->shape = newShape;
@@ -523,7 +529,7 @@ std::vector<SymbolicScalar> npu::tile_fwk::GetViewValidShape(const std::vector<S
     if (validShape.size() == 0) {
         return {};
     }
-    ASSERT(validShape.size() == viewShape.size())
+    ASSERT(TensorErr::DIMS_INCONSISTENT, validShape.size() == viewShape.size())
         << "Their size actually are " << validShape.size() << "and " << viewShape.size();
 
     std::vector<SymbolicScalar> result;
@@ -582,7 +588,7 @@ void GetTensorDataSetCoaIndex(Operation *op, int index) {
 }
 
 Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offset) {
-    ASSERT(src.GetShape().size() == offset.size())
+    ASSERT(TensorErr::DIMS_INCONSISTENT, src.GetShape().size() == offset.size())
         << "src.GetShape().size(): " << src.GetShape().size() << ", offset.size(): " << offset.size();
     auto currFunc = Program::GetInstance().GetCurrentFunction();
 
@@ -610,11 +616,12 @@ Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offse
 }
 
 void TensorInsert(const Tensor &src, const std::vector<SymbolicScalar> &offset, Tensor &dst) {
-    ASSERT(src.GetShape() == Shape(src.GetShape().size(), 1))
-        << "src.GetShape(): " << src.GetShape() << ", Shape(src.GetShape().size(), 1): " << Shape(src.GetShape().size(), 1);
-    ASSERT(src.GetShape().size() == dst.GetShape().size())
+    ASSERT(TensorErr::DIMS_INCONSISTENT, src.GetShape() == Shape(src.GetShape().size(), 1))
+        << "src.GetShape(): " << src.GetShape()
+        << ", Shape(src.GetShape().size(), 1): " << Shape(src.GetShape().size(), 1);
+    ASSERT(TensorErr::DIMS_INCONSISTENT, src.GetShape().size() == dst.GetShape().size())
         << "src.GetShape().size(): " << src.GetShape().size() << ", dst.GetShape().size(): " << dst.GetShape().size();
-    ASSERT(src.GetShape().size() == offset.size())
+    ASSERT(TensorErr::DIMS_INCONSISTENT, src.GetShape().size() == offset.size())
         << "src.GetShape().size(): " << src.GetShape().size() << ", offset.size(): " << offset.size();
 
     // Force to UB
@@ -639,18 +646,18 @@ RawSymbolicScalarPtr ReplaceExpression(const RawSymbolicScalarPtr &expr, const R
             result = expr;
             break;
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
-                std::vector<RawSymbolicScalarPtr> subexprList;
-                bool allreuse = true;
-                for (auto &subexpr : expr->GetExpressionOperandList()) {
-                    RawSymbolicScalarPtr sub = ReplaceExpression(subexpr, src, dst);
-                    subexprList.push_back(sub);
-                    allreuse = allreuse && (sub == subexpr);
-                }
-                if (allreuse) {
-                    result = expr;
-                } else {
-                    result = std::make_shared<RawSymbolicExpression>(expr->GetExpressionOpcode(), subexprList);
-                }
+            std::vector<RawSymbolicScalarPtr> subexprList;
+            bool allreuse = true;
+            for (auto &subexpr : expr->GetExpressionOperandList()) {
+                RawSymbolicScalarPtr sub = ReplaceExpression(subexpr, src, dst);
+                subexprList.push_back(sub);
+                allreuse = allreuse && (sub == subexpr);
+            }
+            if (allreuse) {
+                result = expr;
+            } else {
+                result = std::make_shared<RawSymbolicExpression>(expr->GetExpressionOpcode(), subexprList);
+            }
             }
             break;
         default:
@@ -802,4 +809,4 @@ SymbolicScalar GetTensorDataFillIO(const GetTensorDataIODescDict &iodescDict, co
     return SymbolicScalar(curr);
 }
 
-}
+} // namespace npu::tile_fwk

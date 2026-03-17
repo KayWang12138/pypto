@@ -72,7 +72,7 @@ Status ConfigManager::Initialize() {
     config::SetRunDataOption(KEY_RUNTYPE, "npu");
     FUNCTION_LOGI("Start to parse op_json_file %s", jsonFilePath.c_str());
     if (!ReadJsonFile(jsonFilePath, json_)) {
-        FUNCTION_LOGE("ReadJsonFile failed.");
+        FUNCTION_LOGE_E(ConfErr::READ_FAILED, "ReadJsonFile failed.");
         return FAILED;
     }
 
