@@ -462,10 +462,10 @@ inline void Quantize(LogicalTensorDataPtr out, LogicalTensorDataPtr input, Logic
     if (zeroPoints == nullptr) {
         // Symmetric quantization (no zero_points)
         TensorData emptyZeroPoints = {nullptr, {}, {}, {}, 0, DataType::DT_FP32, false};
-        ops->Quantize(Trans(out), Trans(input), &scaleData, otypeValue, axis, emptyZeroPoints);
+        ops->Quantize(Trans(out), Trans(input), scaleData, otypeValue, axis, emptyZeroPoints);
     } else {
         // Asymmetric quantization (with zero_points)
-        ops->Quantize(Trans(out), Trans(input), &scaleData, otypeValue, axis, Trans(zeroPoints));
+        ops->Quantize(Trans(out), Trans(input), scaleData, otypeValue, axis, Trans(zeroPoints));
     }
 }
 // TODO: Dequantize
