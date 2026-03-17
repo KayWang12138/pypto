@@ -23,8 +23,8 @@ namespace npu::tile_fwk {
 void CheckQuantize(const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
                    DataType otype, int axis, const LogicalTensorPtr &zeroPoints) {
     // 1. Input must be FP32
-    ASSERT(input->Datatype == DataType::DT_FP32)
-        << "Quantize input must be DT_FP32, but got " << DataType2String(input->Datatype);
+    ASSERT(input->Datatype() == DataType::DT_FP32)
+        << "Quantize input must be DT_FP32, but got " << DataType2String(input->Datatype());
 
     // 2. Dimension check: 2-4 dimensions
     auto shapeSize = input->shape.size();
@@ -41,8 +41,8 @@ void CheckQuantize(const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
         << "Input size " << totalSize << " exceeds INT32_MAX " << INT32_MAX;
 
     // 4. Scale type check
-    ASSERT(scale->Datatype == DataType::DT_FP32)
-        << "Scale must be DT_FP32, but got " << DataType2String(scale->Datatype);
+    ASSERT(scale->Datatype() == DataType::DT_FP32)
+        << "Scale must be DT_FP32, but got " << DataType2String(scale->Datatype());
 
     // 5. Axis check: -1, -2, or relative dimensions
     int normalizedAxis = axis;
@@ -61,51 +61,15 @@ void CheckQuantize(const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
     if (otype == DataType::DT_UINT8) {
         ASSERT(zeroPoints != nullptr)
             << "Asymmetric quantization (DT_UINT8) requires zero_points";
-        ASSERT(zeroPoints->Datatype == DataType::DT_FP32)
-            << "zero_points must be DT_FP32, but got " << DataType2String(zeroPoints->Datatype);
+        ASSERT(zeroPoints->Datatype() == DataType::DT_FP32)
+            << "zero_points must be DT_FP32, but got " << DataType2String(zeroPoints->Datatype());
     }
 }
 
-template <QuantizeType quantType>
-void QuantizeOperation(Function &function, const TileShape &tileShape, size_t cur,
-                       const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
-                       const LogicalTensorPtr &result, const LogicalTensorPtr &zeroPoints) {
-    if (cur == input->shape.size()) {
-        auto inputTile = input->View(function, input->tileShape, input->offset);
-        auto scaleTile = scale->View(function, scale->tileShape, scale->offset);
-        auto resultTile = result->View(function, result->tileShape, result->offset);
-
-        std::vector<LogicalTensorPtr> inputs = {inputTile, scaleTile};
-        if (quantType == QuantizeType::INT8_ASYM && zeroPoints != nullptr) {
-            auto zeroTile = zeroPoints->View(function, zeroPoints->tileShape, zeroPoints->offset);
-            inputs.push_back(zeroTile);
-        }
-
-        function.AddOperation(GetQuantizeOpCode<quantType>(), inputs, {resultTile});
-        return;
-    }
-
-    auto &vecTile = tileShape.GetVecTile();
-    for (int i = 0; i < input->shape[cur]; i += vecTile[cur]) {
-        input->tileShape[cur] = std::min(input->shape[cur] - i, static_cast<int64_t>(vecTile[cur]));
-        input->offset[cur] = i;
-        scale->tileShape[cur] = std::min(scale->shape[cur] - i, static_cast<int64_t>(vecTile[cur]));
-        scale->offset[cur] = (scale->shape[cur] == 1) ? 0 : i;
-        result->tileShape[cur] = input->tileShape[cur];
-        result->offset[cur] = i;
-
-        if (zeroPoints != nullptr) {
-            zeroPoints->tileShape[cur] = std::min(zeroPoints->shape[cur] - i, static_cast<int64_t>(vecTile[cur]));
-            zeroPoints->offset[cur] = (zeroPoints->shape[cur] == 1) ? 0 : i;
-        }
-
-        QuantizeOperation<quantType>(function, tileShape, cur + 1, input, scale, result, zeroPoints);
-    }
-}
-
-LogicalTensorPtr QuantizeOperation(Function &function, const LogicalTensorPtr &input,
-                                   const LogicalTensorPtr &scale, DataType otype,
-                                   int axis, const LogicalTensorPtr &zeroPoints) {
+// Logical tensor operation (non-tiled)
+LogicalTensorPtr TensorQuantizeOperation(Function &function, const LogicalTensorPtr &input,
+                                         const LogicalTensorPtr &scale, DataType otype,
+                                         int axis, const LogicalTensorPtr &zeroPoints) {
     DECLARE_TRACER();
 
     // Parameter validation
@@ -114,27 +78,86 @@ LogicalTensorPtr QuantizeOperation(Function &function, const LogicalTensorPtr &i
     // Create result tensor
     auto result = std::make_shared<LogicalTensor>(function, otype, input->shape, input->GetDynValidShape());
 
-    // Determine quantize type
-    QuantizeType quantType = (otype == DataType::DT_INT8) ? QuantizeType::INT8_SYM : QuantizeType::INT8_ASYM;
-
-    // Call tiled operation based on graph type
-    if (function.GetGraphType() == GraphType::TILE_GRAPH) {
-        auto tileShape = function.GetTileShape();
-        if (quantType == QuantizeType::INT8_SYM) {
-            QuantizeOperation<QuantizeType::INT8_SYM>(function, tileShape, 0, input, scale, result, nullptr);
-        } else {
-            QuantizeOperation<QuantizeType::INT8_ASYM>(function, tileShape, 0, input, scale, result, zeroPoints);
-        }
-    } else {
-        // Logical graph: add operation directly
-        std::vector<LogicalTensorPtr> inputs = {input, scale};
-        if (quantType == QuantizeType::INT8_ASYM && zeroPoints != nullptr) {
-            inputs.push_back(zeroPoints);
-        }
-        function.AddOperation(GetQuantizeOpCode<quantType>(), inputs, {result});
+    // Prepare inputs
+    std::vector<LogicalTensorPtr> inputs = {input, scale};
+    if (otype == DataType::DT_UINT8 && zeroPoints != nullptr) {
+        inputs.push_back(zeroPoints);
     }
 
+    // Add operation
+    function.AddOperation(Opcode::OP_QUANTIZE, inputs, {result});
+
     return result;
+}
+
+// Tile operation implementation (for TILE_GRAPH)
+template <QuantizeType quantType>
+void TiledQuantizeOperation(Function &function, const TileShape &tileShape, size_t cur,
+                            Input &input, Input &scale, const LogicalTensorPtr &result,
+                            const LogicalTensorPtr &zeroPoints, int axis) {
+    if (cur == input.tensor.GetShape().size()) {
+        auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto scaleTile = scale.tensor.GetStorage()->View(function, scale.tileInfo.shape, scale.tileInfo.offset);
+        auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
+
+        std::vector<LogicalTensorPtr> inputs = {inputTile, scaleTile};
+        if (quantType == QuantizeType::INT8_ASYM && zeroPoints != nullptr) {
+            TileInfo zeroTileInfo(zeroPoints->shape.size(), zeroPoints->offset.size());
+            // Calculate zero tile info based on scale
+            for (size_t i = 0; i < zeroTileInfo.shape.size(); ++i) {
+                zeroTileInfo.offset[i] = (zeroPoints->shape[i] == 1) ? 0 : input.tileInfo.offset[i];
+                zeroTileInfo.shape[i] = (zeroPoints->shape[i] == 1) ? 1 : input.tileInfo.shape[i];
+            }
+            auto zeroTile = zeroPoints->View(function, zeroTileInfo.shape, zeroTileInfo.offset);
+            inputs.push_back(zeroTile);
+        }
+
+        function.AddOperation(GetQuantizeOpCode<quantType>(), inputs, {resultTile});
+        return;
+    }
+
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        scale.tileInfo.shape[cur] = std::min(scale.tensor.GetShape()[cur] - i, vecTile[cur]);
+        scale.tileInfo.offset[cur] = (scale.tensor.GetShape()[cur] == 1) ? 0 : i;
+        TiledQuantizeOperation<quantType>(function, tileShape, cur + 1, input, scale, result, zeroPoints, axis);
+    }
+}
+
+// Wrapper function for tiled operation
+template <QuantizeType quantType>
+void TiledQuantizeOperation(Function &function, const TileShape &tileShape,
+                            const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
+                            const LogicalTensorPtr &result, const LogicalTensorPtr &zeroPoints, int axis) {
+    ASSERT(input->shape.size() == input->offset.size()) << "The shape size of input and offset must be equal";
+
+    TileInfo inputTileInfo(result->shape.size(), result->offset.size());
+    TileInfo scaleTileInfo(result->shape.size(), result->offset.size());
+    auto inputWrap = Input{input, inputTileInfo};
+    auto scaleWrap = Input{scale, scaleTileInfo};
+    TiledQuantizeOperation<quantType>(function, tileShape, 0, inputWrap, scaleWrap, result, zeroPoints, axis);
+}
+
+// Tile func wrapper for registration (symmetric)
+void QuantizeSymOperationTileFunc(Function &function, const TileShape &tileShape,
+                                  const std::vector<LogicalTensorPtr> &iOperand,
+                                  const std::vector<LogicalTensorPtr> &oOperand,
+                                  [[maybe_unused]] const Operation &op) {
+    ASSERT(iOperand.size() == 2) << "Quantize symmetric operation requires 2 inputs (input, scale)";
+    ASSERT(oOperand.size() == 1) << "Quantize operation requires 1 output";
+    TiledQuantizeOperation<QuantizeType::INT8_SYM>(function, tileShape, iOperand[0], iOperand[1], oOperand[0], nullptr, -1);
+}
+
+// Tile func wrapper for registration (asymmetric)
+void QuantizeAsymOperationTileFunc(Function &function, const TileShape &tileShape,
+                                   const std::vector<LogicalTensorPtr> &iOperand,
+                                   const std::vector<LogicalTensorPtr> &oOperand,
+                                   [[maybe_unused]] const Operation &op) {
+    ASSERT(iOperand.size() == 3) << "Quantize asymmetric operation requires 3 inputs (input, scale, zero_points)";
+    ASSERT(oOperand.size() == 1) << "Quantize operation requires 1 output";
+    TiledQuantizeOperation<QuantizeType::INT8_ASYM>(function, tileShape, iOperand[0], iOperand[1], oOperand[0], iOperand[2], -1);
 }
 
 Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints) {

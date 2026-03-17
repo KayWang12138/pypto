@@ -51,15 +51,26 @@ Opcode GetQuantizeOpCode() {
 void CheckQuantize(const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
                    DataType otype, int axis, const LogicalTensorPtr &zeroPoints);
 
-// Tile operation implementation
-template <QuantizeType quantType>
-void QuantizeOperation(Function &function, const TileShape &tileShape,
-                       const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
-                       const LogicalTensorPtr &result, const LogicalTensorPtr &zeroPoints = nullptr);
-
 // Logical tensor operation (non-tiled)
-LogicalTensorPtr QuantizeOperation(Function &function, const LogicalTensorPtr &input,
-                                   const LogicalTensorPtr &scale, DataType otype,
-                                   int axis, const LogicalTensorPtr &zeroPoints);
+LogicalTensorPtr TensorQuantizeOperation(Function &function, const LogicalTensorPtr &input,
+                                        const LogicalTensorPtr &scale, DataType otype,
+                                        int axis, const LogicalTensorPtr &zeroPoints);
+
+// Tile operation implementation (for TILE_GRAPH)
+template <QuantizeType quantType>
+void TiledQuantizeOperation(Function &function, const TileShape &tileShape,
+                            const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
+                            const LogicalTensorPtr &result, const LogicalTensorPtr &zeroPoints = nullptr, int axis = -1);
+
+// Tile func wrappers for registration
+void QuantizeSymOperationTileFunc(Function &function, const TileShape &tileShape,
+                                  const std::vector<LogicalTensorPtr> &iOperand,
+                                  const std::vector<LogicalTensorPtr> &oOperand,
+                                  const Operation &op);
+
+void QuantizeAsymOperationTileFunc(Function &function, const TileShape &tileShape,
+                                   const std::vector<LogicalTensorPtr> &iOperand,
+                                   const std::vector<LogicalTensorPtr> &oOperand,
+                                   const Operation &op);
 
 } // namespace npu::tile_fwk
