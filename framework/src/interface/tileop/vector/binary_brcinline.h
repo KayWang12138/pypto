@@ -18,6 +18,7 @@
 #include "pto_tile.h"
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
+#include "binary.h"
 
 enum class BrcMode : uint8_t {
     NONE,
@@ -25,8 +26,8 @@ enum class BrcMode : uint8_t {
     TAIL_RIGHT,     // [m, n] [m, 1]
     PENU_LEFT,      // [1, n] [m, n]
     PENU_RIGHT,     // [m, n] [1, n]
-    SCALAR_LEFT,    // [1, 1] [m ,n]
-    SCALAR_RIGHT,   // [m, n] [1, 1]
+    ALL_LEFT,    // [1, 1] [m ,n]
+    ALL_RIGHT,   // [m, n] [1, 1]
     MIX_LEFT_TAIL,  // [m, 1] [1, n]
     MIX_RIGHT_TAIL  // [1, n] [m, 1]
 };
@@ -47,10 +48,10 @@ TILEOP constexpr BrcMode GetBrcMode() {
         return BrcMode::PENU_RIGHT;
     } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND &&
                   penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
-        return BrcMode::SCALAR_LEFT;
+        return BrcMode::ALL_LEFT;
     } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND &&
                   penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
-        return BrcMode::SCALAR_RIGHT;
+        return BrcMode::ALL_RIGHT;
     } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND &&
                   penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
         return BrcMode::MIX_LEFT_TAIL;
@@ -82,47 +83,10 @@ TILEOP constexpr BrcMode GetBrcMode() {
         PTO_WITH_LAST_USE(pto::T##PREFIX##MIN(dst, src0, src1), n1, n2, n3); return;    \
     }
 
-#define BINARY_SCALAR_EXPAND_DISPATCH(dst, tensor, scalar)                              \
-    if constexpr (op == BinaryOp::ADD) {                                                \
-        PTO_WITH_LAST_USE(pto::TADDS(dst, tensor, scalar), n1, n2, n3); return;         \
-    } else if constexpr (op == BinaryOp::SUB) {                                         \
-        PTO_WITH_LAST_USE(pto::TSUBS(dst, tensor, scalar), n1, n2, n3); return;         \
-    } else if constexpr (op == BinaryOp::MUL) {                                         \
-        PTO_WITH_LAST_USE(pto::TMULS(dst, tensor, scalar), n1, n2, n3); return;         \
-    } else if constexpr (op == BinaryOp::DIV) {                                         \
-        PTO_WITH_LAST_USE(pto::TDIVS(dst, tensor, scalar), n1, n2, n3); return;         \
-    } else if constexpr (op == BinaryOp::MAX) {                                         \
-        PTO_WITH_LAST_USE(pto::TMAXS(dst, tensor, scalar), n1, n2, n3); return;         \
-    } else if constexpr (op == BinaryOp::MIN) {                                         \
-        PTO_WITH_LAST_USE(pto::TMINS(dst, tensor, scalar), n1, n2, n3); return;         \
-    }
-
 template <BinaryOp op, typename LastUse, typename T0, typename T1, typename Scalar>
 TILEOP void BinaryLeftScalarComputeImpl(T0 dst, T1 src1, Scalar src0) {
     EXTRACT_LAST_USE_3DIM(LastUse)
 
-    if constexpr (op == BinaryOp::SUB) {
-        PTO_WITH_LAST_USE(pto::TNEG(dst, src1), n1, n2, n3);
-        #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-        #endif
-        PTO_WITH_LAST_USE(pto::TADDS(dst, dst, src0), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::DIV) {
-        PTO_WITH_LAST_USE(pto::TDIVS(dst, src0, src1), n1, n2, n3);   
-        // 存在问题，scalar/tensor支持，但是pto实现会调用vector_dup 让scalar填充到dst，这里src和dst是一定会复用的，src会被覆盖
-        return;
-    }
-
-    BINARY_SCALAR_EXPAND_DISPATCH(dst, src1, src0)
-}
-
-template <BinaryOp op, typename LastUse, typename T0, typename T1, typename Scalar>
-TILEOP void BinaryRightScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
-    EXTRACT_LAST_USE_3DIM(LastUse)
-    BINARY_SCALAR_EXPAND_DISPATCH(dst, src0, src1)
 }
 
 template <BinaryOp op, typename LastUse, typename T0, typename T1, typename T2>
