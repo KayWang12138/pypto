@@ -337,6 +337,18 @@ public:
     int scopeId_{-1};
     void SetScopeId(int scopeId) {scopeId_ = scopeId; };
     int GetScopeId() const { return scopeId_; };
+    int GetScopeIdLower() const { 
+        const int ReduceCopyScopeBase = 10000; 
+        return scopeId_ < ReduceCopyScopeBase ? scopeId_ : -1; 
+    };
+    int GetScopeIdUpper() const { 
+        if (scopeId_ < 5000) {
+            return -1;
+        } else if (scopeId_ < 10000) {
+            return scopeId_ / 10;
+        }
+        return scopeId_;
+    };
 
     void AddInCtrlOperation(Operation &operation);
 
