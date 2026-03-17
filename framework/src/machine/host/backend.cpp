@@ -450,7 +450,7 @@ static void BuildControlFlow(
     std::unordered_map<int, int>& slotIdxMapping, DyndevFunctionAttribute::FunctionGroup& group,
     std::unordered_map<Function*, Function*>& rootTileDict, std::ostringstream& controlFlowOss,
     std::ostringstream& expressionOss, std::ostringstream& exprHeaderOss, int indent, const std::string& expName,
-    std::vector<std::string>& exprSrcFiles, ValDependTensorMeta& valDependTensorMeta)
+    std::vector<std::string>& exprSrcFiles, ValDependTensorMeta& valDependTensorMeta, bool &supportParallel)
 {
     auto funcType = func->GetFunctionType();
     if (funcType == FunctionType::DYNAMIC) {
@@ -499,7 +499,7 @@ static void BuildControlFlow(
         for (auto& callee : GetCalleeList(cache, func)) {
             BuildControlFlow(
                 cache, linker, sectionName, callee, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss,
-                exprHeaderOss, indent + 1, expName, exprSrcFiles, valDependTensorMeta);
+                exprHeaderOss, indent + 1, expName, exprSrcFiles, valDependTensorMeta, supportParallel);
         }
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' '
                        << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_FINISH); // Notify finish \n";
@@ -515,7 +515,7 @@ static void BuildControlFlow(
                 if (!node->cond.IsValid()) {
                     BuildControlFlow(
                         cache, linker, sectionName, node->root, slotIdxMapping, group, rootTileDict, controlFlowOss,
-                        expressionOss, exprHeaderOss, condIndent, expName, exprSrcFiles, valDependTensorMeta);
+                        expressionOss, exprHeaderOss, condIndent, expName, exprSrcFiles, valDependTensorMeta, supportParallel);
                 } else {
                     std::string cond = SymbolicExpressionTable::BuildExpression(node->cond);
                     if (node->branchNodeList[1] != nullptr) {
@@ -567,6 +567,11 @@ static void BuildControlFlow(
                        << iterEnd << ", " << iterStep << ") {\n";
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "VALUE_" << attr->iterSymbolName << " = "
                        << iterVar << ";\n";
+        if (attr->parallelFor == PARALLEL) {
+            supportParallel = true;
+            controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' '
+                           << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_PARALLEL_FOR_BEGIN); // entry parallel for loop \n";
+        }
         if (NeedCrossDie(func, true)) {
             controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_CalcLoopDieId("
                            << attr->iterSymbolName << ", " << iterVar << ", " << iterEnd << ", " << iterStep << ","
@@ -588,6 +593,9 @@ static void BuildControlFlow(
         if (NeedCrossDie(func, true)) {
             controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_ClearLoopDieId("
                            << attr->iterSymbolName << ");\n";
+        if (attr->parallelFor == PARALLEL) {
+            controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' '
+                           << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_PARALLEL_FOR_END); // leave parallel for loop \n";
         }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "}\n";
     } else if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH)) {
@@ -603,7 +611,7 @@ static void BuildControlFlow(
         for (auto& callee : GetCalleeList(cache, func)) {
             BuildControlFlow(
                 cache, linker, sectionName, callee, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss,
-                exprHeaderOss, indent + 1, expName, exprSrcFiles, valDependTensorMeta);
+                exprHeaderOss, indent + 1, expName, exprSrcFiles, valDependTensorMeta, supportParallel);
         }
     } else if (func->GetGraphType() == GraphType::TILE_GRAPH) {
         controlFlowOss << BuildControlFlowCallee(func, indent * TABSIZE);
@@ -611,7 +619,7 @@ static void BuildControlFlow(
         rootTileDict[root] = func;
         BuildControlFlow(
             cache, linker, sectionName, root, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss,
-            exprHeaderOss, indent, expName, exprSrcFiles, valDependTensorMeta);
+            exprHeaderOss, indent, expName, exprSrcFiles, valDependTensorMeta, supportParallel);
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
         if (group.devRootList.count(func) <= 0) {
             return;
@@ -698,13 +706,14 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr)
     return;
 }
 
-static void SetDyndevProgBinary(Function* function)
+static void SetDyndevProgBinary(Function* function, bool supportParallelLoop)
 {
     if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
         return;
     }
     std::shared_ptr<DyndevFunctionAttribute> dynAttrPtr = function->GetDyndevAttribute();
     uint64_t size = 0;
+    dynAttrPtr->supportParallel = supportParallelLoop;
     dynamic::EncodeDevAscendProgram(function, size, nullptr);
     dynAttrPtr->devProgBinary.resize(size);
 
@@ -940,9 +949,10 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     std::vector<std::string> exprSrcFiles;
     std::ostringstream exprHeaderOss;
     ValDependTensorMeta valDependTensorMeta;
+    bool supportParallelLoop = false;
     BuildControlFlow(
         cache, linker, ".pypto", function, slotIdxMapping, attr->funcGroup, attr->rootTileDict, controlFlowOss,
-        expressionOss, exprHeaderOss, 0, expName, exprSrcFiles, valDependTensorMeta);
+        expressionOss, exprHeaderOss, 0, expName, exprSrcFiles, valDependTensorMeta, supportParallelLoop);
     expressionOss << "#endif/*TILE_FWK_EXPRESSION_H*/"
                   << "\n";
     std::string controlFlowSource = controlFlowOss.str();
@@ -1084,7 +1094,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         }
     }
     // save dev prog binary
-    SetDyndevProgBinary(function);
+    SetDyndevProgBinary(function, supportParallelLoop);
 }
 
 MachineTask* GenCode(MachineTask* task, FunctionCache& cache)

@@ -154,7 +154,7 @@ int DeviceStitchContext::DecideIncastOutcast(uint64_t taskId)
             auto& desc = dup.GetIncastAddress(i);
             DEV_ASSERT(CtrlErr::DEVICE_TASK_BUILD_FAILED, desc.IsRtOutcast());
             ItemPoolIter iter = desc.GetRtOutcastIter();
-            uintdevptr_t addr = workspace_->GetRuntimeOutcastTensor(iter).addr;
+            uintdevptr_t addr = workspace_->GetRuntimeOutcastTensor(iter).allocation.ptr;
             workspace_->RuntimeOutcastTensorDeref(iter);
             desc = AddressDescriptor::MakeFromAddress(addr);
         }
@@ -165,7 +165,7 @@ int DeviceStitchContext::DecideIncastOutcast(uint64_t taskId)
             auto& desc = dup.GetOutcastAddress(i);
             DEV_ASSERT(CtrlErr::DEVICE_TASK_BUILD_FAILED, desc.IsRtOutcast());
             ItemPoolIter iter = desc.GetRtOutcastIter();
-            uintdevptr_t addr = workspace_->GetRuntimeOutcastTensor(iter).addr;
+            uintdevptr_t addr = workspace_->GetRuntimeOutcastTensor(iter).Addr();
             workspace_->RuntimeOutcastTensorDeref(iter);
             desc = AddressDescriptor::MakeFromAddress(addr);
         }
