@@ -487,7 +487,8 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
         MemoryType toType = operation.oOperand.front()->GetMemoryTypeOriginal();
         // 当view的offset不对齐，需要插DDR时，不能将view前tensor的MemoryTypeOriginal向view后的tensor传递
         // 避免插DDR后出现original—>DDR->original而DDR->original不存在通路的场景（如original为L0C时）
-        if(!unaligned && toType == MemoryType::MEM_UNKNOWN && tensor->GetMemoryTypeOriginal() != MemoryType::MEM_UNKNOWN) {
+        if(!unaligned && toType == MemoryType::MEM_UNKNOWN && tensor->GetMemoryTypeOriginal() != MemoryType::MEM_UNKNOWN
+            && tensor->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
             //view输出的消费者是assemble或者reshape
             operation.oOperand.front()->SetMemoryTypeOriginal(tensor->GetMemoryTypeOriginal());
             viewOpAttribute->SetToType(tensor->GetMemoryTypeOriginal());
@@ -585,8 +586,13 @@ void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
                     break;
                 }
             }
-            if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()) || !isConsumerOutputMultiple){
-                oOperand->SetMemoryTypeOriginal(MEM_DEVICE_DDR, true);
+            if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()) || !isConsumerOutputMultiple){                oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+                const auto &tensorToBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
+                for (const auto &[consumerOp, memoryType] : tensorToBeMap) {
+                    if (memoryType == MemoryType::MEM_L0C) {
+                        inserter.UpdateTensorTobeMap(oOperand, *consumerOp, MemoryType::MEM_DEVICE_DDR);
+                    }
+                }
                 APASS_LOG_DEBUG_F(Elements::Tensor, "Set tensor %d original memory type "
                     "to DDR since not towards L1 or not multipule dimensions.", oOperand->magic);
             }
