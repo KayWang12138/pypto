@@ -491,13 +491,13 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
     });
 }
 
-void CheckTilingWarning(const Tensor &inputTensor, const Tensor &weightTensor, ConvAttrParam &attrParam)
+void CheckTilingWarning(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, ConvAttrParam &attrParam)
 {
     int64_t loopCount = 0;
-    int64_t hOut = ConvComputeHo(inputTensor, weightTensor, attrParam);
-    int64_t wOut = ConvComputeWo(inputTensor, weightTensor, attrParam);
+    int64_t hout = ConvComputeHo(inputTensor, weightTensor, attrParam);
+    int64_t wout = ConvComputeWo(inputTensor, weightTensor, attrParam);
     int64_t cin = inputTensor.GetShape()[NCHW_C_IDX];
-    int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
+    int64_t cout = weightTensor.GetShape()[NCHW_N_IDX];
     int64_t batch = inputTensor.GetShape()[NCHW_N_IDX];
     auto convTile = TileShape::Current().GetConvTile();
     uint64_t tileHout = convTile.tileL1Info.tileHout;
@@ -506,24 +506,23 @@ void CheckTilingWarning(const Tensor &inputTensor, const Tensor &weightTensor, C
     int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
     int64_t tileCout = convTile.tileL1Info.tileN;
     int64_t tileBatch = convTile.tileL1Info.tileBatch;
+    int64_t tileH = convTile.tileL0Info.tileH;
+    int64_t tileW = convTile.tileL0Info.tileW;
+    int64_t tileN = convTile.tileL0Info.tileN;
+    int64_t tileK = convTile.tileL0Info.tileK;
 
     uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
     uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
     uint64_t kh = attrParam.isConv1D ? 1 : weightTensor.GetShape()[indexH];
     uint64_t kw = weightTensor.GetShape()[indexW];
     uint64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
-
     uint64_t kAL1 = ConvAlignB(tileCinFmap * kh * kw, k0);
     uint64_t kBL1 = ConvAlignB(tileCinWeight * kh * kw, k0);
 
-    int64_t tileH = convTile.tileL0Info.tileH;
-    int64_t tileW = convTile.tileL0Info.tileW;
-    int64_t tileN = convTile.tileL0Info.tileN;
-    int64_t tileK = convTile.tileL0Info.tileK;
-    int64_t numTileL1 = ConvAlignB(hOut, tileHout) * ConvAlignB(wOut, tileWout) * ConvAlignB(cin, tileCinFmap) * ConvAlignB(cin, tileCinWeight) 
-            * ConvAlignB(cOut, tileCout) * ConvAlignB(batch, tileBatch);
-    int64_t numTileL0 = ConvAlignB(tileHout, tileH) * ConvAlignB(tileWout, tileW) * ConvAlignB(tileCout, tileN) * ConvAlignB(kAL1, tileK) 
-            * ConvAlignB(kBL1, tileK);
+    int64_t numTileL1 = CeilDiv(hout, tileHout) * CeilDiv(wout, tileWout) * CeilDiv(cin, tileCinFmap) * CeilDiv(cin, tileCinWeight)
+            * CeilDiv(cout, tileCout) * CeilDiv(batch, tileBatch);
+    int64_t numTileL0 = CeilDiv(tileHout, tileH) * CeilDiv(tileWout, tileW) * CeilDiv(tileCout, tileN) * CeilDiv(kAL1, tileK) 
+            * CeilDiv(kBL1, tileK);
     loopCount = numTileL1 * numTileL0;
     if (loopCount > MAX_LOOP) {
         ALOG_WARN_F("Suggestion: Consider increasing tile size to reduce compilation time.");
@@ -546,7 +545,7 @@ void CheckConvOperands(DataType outType, const Tensor &inputTensor, const Tensor
     CheckAttrShape(outType, inputTensor, weightTensor, attrParam);
     CheckTileTiling(outType, inputTensor, weightTensor, attrParam);
     CheckL1SizeTiling(outType, inputTensor, weightTensor, biasTensor, attrParam);
-    CheckTilingWarning(inputTensor, weightTensor, attrParam);
+    CheckTilingWarning(outType, inputTensor, weightTensor, attrParam);
 }
 
 void SetTensorOpAttr(Operation &op, const LogicalTensorPtr &inputTensor, const LogicalTensorPtr &weightTensor,
