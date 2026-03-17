@@ -902,7 +902,7 @@ void ExecuteOpBitwiseShift(ExecuteOperationContext *ctx) {
     switch (opcode) {
         case Opcode::OP_BITWISERIGHTSHIFT: calc::BitwiseRightShift(ret, lhs, rhs); break;
         case Opcode::OP_BITWISELEFTSHIFT: calc::BitwiseLeftShift(ret, lhs, rhs); break;
-        default: ASSERT(false);
+        default: ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false);
     }
 }
 
