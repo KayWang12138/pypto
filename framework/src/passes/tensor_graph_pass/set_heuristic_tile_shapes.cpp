@@ -1085,6 +1085,20 @@ void GenerateJsonForSemanticLabels(Function &function){
                     }
                 }
                 semanticJson[sem_label]["operation"] = op.GetOpcodeStr();
+            }else{
+                if(op.GetCoreTypeStr() == "AIC"){
+                    auto cubeShape = op.GetTileShape();
+                    auto tile = cubeShape.GetCubeTile();
+                    semanticJson["noname"]["type"] = "CubeTile";
+                    semanticJson["noname"]["tile"] = {tile.m[0], tile.m[1], tile.k[0], tile.k[1], tile.n[0], tile.n[1]};
+                }else{
+                    auto vecShape = op.GetTileShape();
+                    auto tile = vecShape.GetVecTile();
+                    semanticJson["noname"]["type"] = "VecTile";
+                    for(size_t i = 0; i < tile.size(); ++i){
+                        semanticJson["noname"]["tile"].push_back(tile[i]);
+                    }
+                }
             }
             operIdx += 1;
         }
