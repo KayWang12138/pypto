@@ -41,6 +41,9 @@ license: 完整条款见 LICENSE.txt
 
 ## 工作流程
 
+### 尝试复现
+根据用户提供的复现命令，尝试复现相关用户问题
+
 ### 步骤 1：获取日志内容
 
 1. 如果用户提供了具体的错误信息，直接使用用户提供的日志内容
@@ -71,12 +74,12 @@ license: 完整条款见 LICENSE.txt
 #### 3.1 分析流程
 
 1. 分析用例代码，识别用例涉及的业务场景，使用 `pypto-pass-workflow-analyzer` 技能，了解涉及的各个 pass 模块在当前场景中的职责、执行顺序依赖关系及数据流转过程
-2. 根据错误日志信息中获取的相关数据，反向分析 错误行 -> 所属函数 -> 所属pass模块，
-3. 结合错误日志内容，模块的代码、功能和设计，异常方法在该pass中的作用推断可能的失败原因
-
-如果能分析出具体原因，如果不能分析出具体原因详细分析 更高的日志级别、打印分析计算图、IR、打开precheck、postcheck、涉及外部调用的，如果是文档的找文档约束，python的用例找到涉及的算子的文档约束
+2. 根据错误日志信息中获取的相关数据，定位错误 所属代码行 -> 所属函数 -> 所属pass模块，分析相关代码理解上下文
+3. 根据错误日志内容，及对应代码上下文逻辑，初步分析错误类型确定排查方向
+4. 综合分析日志上下文相关信息，结合用例代码及业务逻辑代码，推断可能的错误原因，列举出可能的错误原因，对应的代码位置及相关问题的修复建议
 
 #### 3.2 分析维度
+
 错误原因的分析可从以下维度入手，但不仅限于这些维度
 
 1. 输入数据问题：Shape 不对齐、Dtype 不匹配、数据范围异常、空张量/零维度等
@@ -87,129 +90,34 @@ license: 完整条款见 LICENSE.txt
 各pass模块常见错误及修复建议可参考：[常见错误及修复建议](references/pass-modules-knowledge-base.md)
 
 #### 3.3 分析技巧
-1. 错误信息中通常带有处理建议
-2. 参数配置类错误可以参数文档中参数的约束和作用判断参数是否合法
-3. 用例中涉及的算子，可以通过文档了解各算子的用法和约束
-4. 打开precheck/postcheck可以校验图是否符合约束
-5. 要了解是用户代码的哪一行异常，可以反向推到，错误日志中op的magic -> 计算图 -> 前段代码行
-6. 环境问题可以通过环境setup技能来检查
-### 步骤 4：代码修复
 
-问题修复从以下两个维度进行
+1. 错误信息中通常带有处理建议，可根据错误内容推断可能的错误类型和原因
+2. 参数配置类错误可以参数文档中参数的约束和作用判断参数是否合法，配置参数文档通常位于 `docs/api/config` 目录下
+3. python用例中涉及的算子，可以通过文档了解各算子的用法和约束，算子结束文档通常位于 `docs/api/operation` 目录下
+4. 打开precheck/postcheck可以校验图是否符合约束，可以帮助定位错误位置
+5. 要了解是用户代码的哪一行异常，可以反向推到，错误日志中op的magic -> 计算图 -> 前端代码行
+6. 环境问题可以通过 `pypto-environment-setup` 技能来检查环境状态
+7. 日志上下文信息不足，可通过调整日志级别打印更多辅助信息，日志相关配置可参考 `references/pass-error-locating-faq.md` 中的Q7、Q8
+
+### 步骤 4：问题修复
+
+根据上一步分析的错误原因及相关修改建议，执行对应的修复操作
 - 可自动修复（参数配置错误、类型转换错误、数据类型不匹配等）→ 直接修复
 - 需人工判断（算子实现错误、边界条件处理不当等）→ 生成修复建议
 
 
-分析错误原因，简单问题自动修复并验证，复杂问题给出修复建议
-
-根据上一步分析的错误原因及相关修改建议，执行对应的修复操作
-
-**修复操作类型**：
-
-1. **参数修复**
-```python
-# 修复前
-result = pypto.matmul(x, y)
-
-# 修复后
-result = pypto.matmul(x, y, transpose_b=True)
-```
-
-2. **类型转换修复**
-```python
-# 修复前
-result = pypto.add(x, y)
-
-# 修复后
-x = x.to(pypto.float32)
-y = y.to(pypto.float32)
-result = pypto.add(x, y)
-```
-
-3. **Shape 调整修复**
-```python
-# 修复前
-result = pypto.reshape(x, [batch, -1])
-
-# 修复后
-x = x.reshape([batch, seq_len, hidden_dim])
-result = pypto.reshape(x, [batch, -1])
-```
-
-4. **内存优化修复**
-```python
-# 修复前
-x = pypto.zeros([10000, 10000])
-
-# 修复后
-x = pypto.zeros([batch_size, seq_len, hidden_dim])
-```
-
 ### 步骤 6：修复验证
 
-**验证步骤**：
+执行用户提供的用例执行命令进行验证，检查运行结果是否符合预期
 
-1. **语法验证**
-```bash
-python3 -m py_compile file.py
+UT执行命令示例
+```
+python3 build_ci.py -c -f=cpp -u=NBufferMergeTest.TestNBufferMerge
 ```
 
-2. **编译验证**
-```bash
-python3 build_ci.py -f python3 --disable_auto_execute
+ST执行命令示例
 ```
-
-3. **运行验证**
-```bash
-python3 custom/operator/operator.py --run_mode npu
-```
-
-4. **精度验证**
-```bash
-python3 custom/operator/operator.py --verify
-```
-
-## 使用方法
-
-### 方式 1：自动诊断和修复单个错误
-
-```python
-from pypto_error_diagnosis_fixer import auto_diagnosis_fix
-
-# 从错误日志得到的结果
-log_content = """
-[ERROR] PYPTO(592314):2026-03-13 14:26:38.123 [shape_inference.cpp:123][ERROR]:[ShapeInference]:Shape mismatch at dim 2.
-"""
-
-fix_result = auto_diagnosis_fix(log_content)
-print(fix_result)
-```
-
-### 方式 2：交互式诊断和修复
-
-```python
-from pypto_error_diagnosis_fixer import interactive_diagnosis_fix
-
-# 显示诊断和修复建议，等待用户确认
-fix_result = interactive_diagnosis_fix(log_content)
-```
-
-### 方式 3：批量诊断和修复
-
-```python
-from pypto_error_diagnosis_fixer import batch_diagnosis_fix
-
-logs = [log1, log2, log3]
-fix_results = batch_diagnosis_fix(logs)
-```
-
-### 方式 4：回滚修复
-
-```python
-from pypto_error_diagnosis_fixer import rollback_fix
-
-# 回滚指定的修复
-rollback_fix(fix_id)
+python3 build_ci.py -s=python/tests/st/test_adds_onboard.py::test_adds_onboard
 ```
 
 ## 输出验证
@@ -226,6 +134,6 @@ rollback_fix(fix_id)
 
 ## 参考文档
 
-- [常见错误及修复建议](references/pass-modules-knowledge-base.md) — 各Pass模块常见错误原因及对应修复建议
-
+- [Pass常见错误及修复建议](references/pass-modules-knowledge-base.md) — 各Pass模块常见错误原因及对应修复建议
+- [错误分析常见问题](references/pass-error-locating-faq.md) - 问题定位过程中可能遇到的场景问题
 
