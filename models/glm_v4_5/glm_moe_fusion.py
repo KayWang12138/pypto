@@ -114,7 +114,10 @@ NZ = pypto.TileOpFormat.TILEOP_NZ
     runtime_options={"device_sched_mode": 1,
                     "stitch_function_max_num": 128,
                     "stitch_cfgcache_size": 7700000},
-    pass_options={"cube_l1_reuse_setting": {-1: 2}}
+    pass_options={
+        "cube_l1_reuse_setting": {-1: 2},
+    }
+    debug_options={"runtime_debug_mode": 1}
 )
 def moe_fusion_kernel(
     hidden_states: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16, format=ND),
