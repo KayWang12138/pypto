@@ -175,7 +175,7 @@ void OoOScheduler::ReplaceTensorMemId(IssueEntryPtr& issue, int oldMemId, int ne
 Status OoOScheduler::UpdateRemainOpBufId(int oldMemId, int newMemId)
 {
     if (bufRefCount_.find(oldMemId) == bufRefCount_.end()) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "bufRefCount cannot find Tensor[%d].", oldMemId);
+        APASS_LOG_ERROR_F(Elements::Tensor, "bufRefCount cannot find Tensor[%d]. ", oldMemId);
         return FAILED;
     }
     bufRefCount_[newMemId] = bufRefCount_[oldMemId] + TWO_ISSUE;
