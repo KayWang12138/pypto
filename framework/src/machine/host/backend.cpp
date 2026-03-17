@@ -450,8 +450,9 @@ static void BuildControlFlow(
     std::unordered_map<int, int>& slotIdxMapping, DyndevFunctionAttribute::FunctionGroup& group,
     std::unordered_map<Function*, Function*>& rootTileDict, std::ostringstream& controlFlowOss,
     std::ostringstream& expressionOss, std::ostringstream& exprHeaderOss, int indent, const std::string& expName,
-    std::vector<std::string>& exprSrcFiles, ValDependTensorMeta& valDependTensorMeta)
+    std::vector<std::string>& exprSrcFiles, ValDependTensorMeta& valDependTensorMeta, bool &supportParallel)
 {
+    bool supportParallelLoop = true; // enable by the parallism option
     auto funcType = func->GetFunctionType();
     if (funcType == FunctionType::DYNAMIC) {
         controlFlowOss << "#define __TILE_FWK_AICPU__ 1\n"
@@ -567,6 +568,11 @@ static void BuildControlFlow(
                        << iterEnd << ", " << iterStep << ") {\n";
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "VALUE_" << attr->iterSymbolName << " = "
                        << iterVar << ";\n";
+        if (attr->parallelFor == PARALLEL && supportParallelLoop) {
+            supportParallel = true;
+            controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' '
+                           << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_PARALLEL_FOR_BEGIN); // entry parallel for loop \n";
+        }
         if (NeedCrossDie(func, true)) {
             controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_CalcLoopDieId("
                            << attr->iterSymbolName << ", " << iterVar << ", " << iterEnd << ", " << iterStep << ","
@@ -588,6 +594,9 @@ static void BuildControlFlow(
         if (NeedCrossDie(func, true)) {
             controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_ClearLoopDieId("
                            << attr->iterSymbolName << ");\n";
+        if (attr->parallelFor == PARALLEL && supportParallelLoop) {
+            controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' '
+                           << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_PARALLEL_FOR_END); // leave parallel for loop \n";
         }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "}\n";
     } else if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH)) {
