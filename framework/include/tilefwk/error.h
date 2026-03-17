@@ -73,7 +73,7 @@ public:
     Error(const char *func, const char *file, size_t line, const std::string &msg, Backtrace backtrace)
         : func_(func), file_(file), line_(line), msg_(msg), backtrace_(backtrace) {}
 
-    Error(const char *func, const char *file, size_t line, Backtrace backtrace)
+    Error(const char *func, const char *file, size_t line, Backtrace backtrace = nullptr)
         : func_(func), file_(file), line_(line), backtrace_(backtrace) {}
 
     const char *what() const noexcept override;
@@ -92,7 +92,6 @@ private:
     const char *file_;
     size_t line_;
     std::string msg_;
-    std::string umsg_;
     Backtrace backtrace_;
     mutable LazyShared<std::string> what_;
 };

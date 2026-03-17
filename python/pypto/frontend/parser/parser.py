@@ -398,7 +398,7 @@ class Parser(ast.NodeVisitor):
             if _is_enum_dyn(tensor_input_args):
                 tensor_input_args_def = self._visit_arguments(function_node.args)
                 tensor_input_args = self.input_pto_tensor[:len(tensor_input_args_def)]  # ensure len equal
-                
+
                 for in_obj, def_obj in zip(tensor_input_args, tensor_input_args_def):
                     in_obj.name = def_obj.name
 
@@ -862,7 +862,9 @@ class Parser(ast.NodeVisitor):
                 # For nested functions, we don't create a pypto.Function; body will be inlined on call.
                 return None
             else:
+                pypto._utils.set_source_location(filename=self.source_name, lineno=node.lineno)
                 with pypto.function(node.name, *tensor_input_args, *output_args):
+                    pypto._utils.clear_source_location()
                     for _ in pypto.loop(1):
                         self._visit_body(node.body)
 
@@ -1382,7 +1384,7 @@ class Parser(ast.NodeVisitor):
         for item in iter_expr:
             self._assign_loop_variable(node.target, item, is_tuple_unpack, loop_var_name, target_names)
             self._visit_body(node.body)
-        
+
         # Clean up variables after loop based on liveness analysis
         self._auto_cleanup_after_stmt(node)
 
@@ -1393,10 +1395,12 @@ class Parser(ast.NodeVisitor):
 
         # Use Python function-level scoping semantics, do not create a new frame
         # Variable lifetime is controlled by liveness analysis
+        pypto._utils.set_source_location(filename=self.source_name, lineno=node.lineno)
         for loop_var in iterator:
+            pypto._utils.clear_source_location()
             self._assign_loop_variable(node.target, loop_var, is_tuple_unpack, loop_var_name, target_names)
             self._visit_body(node.body)
-        
+
         # Clean up variables after loop based on liveness analysis
         self._auto_cleanup_after_stmt(node)
 
@@ -1654,7 +1658,7 @@ class Parser(ast.NodeVisitor):
 
         if isinstance(test_expr, pypto.SymbolicScalar):
             cond = pypto.cond(
-                test_expr, file=self.diag.source.source_name, lineno=node.lineno
+                test_expr, file=self.source_name, lineno=node.lineno
             )
         elif isinstance(test_expr, bool):
             cond = test_expr
@@ -1786,3 +1790,6 @@ class Parser(ast.NodeVisitor):
                 ),
             ) from e
 
+    @property
+    def source_name(self):
+        return self.diag.source.source_name
