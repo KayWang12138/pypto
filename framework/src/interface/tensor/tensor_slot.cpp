@@ -17,6 +17,7 @@
 
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/utils/function_error.h"
 #include "interface/program/program.h"
 
 namespace npu::tile_fwk {
@@ -134,7 +135,7 @@ void TensorSlotScope::BuildSlotSet() {
     }
     for (size_t idx = 0; idx < tensorFunc->GetIncast().size(); idx++) {
         auto &i = tensorFunc->GetIncast()[idx];
-        ASSERT(incastToInArgumentDict.count(i))
+        ASSERT(SlotErr::LOGICAL_TENSOR_NOT_FOUND_IN_INPUT, incastToInArgumentDict.count(i))
             << "LogicalTensor[" << i->GetMagic() << "] not found in incastToInArgumentDict.";
         auto iarg = incastToInArgumentDict[i];
         auto slot = LookupIncastReadFrom(iarg);
@@ -142,7 +143,7 @@ void TensorSlotScope::BuildSlotSet() {
     }
     for (size_t idx = 0; idx < tensorFunc->GetOutcast().size(); idx++) {
         auto &o = tensorFunc->GetOutcast()[idx];
-        ASSERT(outcastToOutArgumentDict.count(o))
+        ASSERT(SlotErr::LOGICAL_TENSOR_NOT_FOUND_IN_OUTPUT, outcastToOutArgumentDict.count(o))
             << "LogicalTensor[" << o->GetMagic() << "] not found in outcastToOutArgumentDict.";
         auto oarg = outcastToOutArgumentDict[o];
         auto slot = LookupOutcastWriteTo(oarg);
@@ -154,7 +155,7 @@ void TensorSlotScope::BuildIncastOutcastSlot(const std::unordered_map<TensorSlot
     ioslot.incastSlot.resize(tensorFunc->GetIncast().size());
     for (size_t idx = 0; idx < tensorFunc->GetIncast().size(); idx++) {
         for (auto &h : incastReadSlotSet[idx]) {
-            ASSERT(slotIndexDict.count(h) != 0)
+            ASSERT(SlotErr::NOT_FOUND_IN_INDEX_DICT, slotIndexDict.count(h) != 0)
                 << "TensorSlot[" << h.GetSymbolName() << "] not found in slotIndexDict.";
             ioslot.incastSlot[idx].push_back(slotIndexDict.find(h)->second);
         }
@@ -164,7 +165,7 @@ void TensorSlotScope::BuildIncastOutcastSlot(const std::unordered_map<TensorSlot
     ioslot.outcastSlot.resize(tensorFunc->GetOutcast().size());
     for (size_t idx = 0; idx < tensorFunc->GetOutcast().size(); idx++) {
         for (auto &h : outcastWriteSlotSet[idx]) {
-            ASSERT(slotIndexDict.count(h) != 0)
+            ASSERT(SlotErr::NOT_FOUND_IN_INDEX_DICT, slotIndexDict.count(h) != 0)
                 << "TensorSlot[" << h.GetSymbolName() << "] not found in slotIndexDict.";
             ioslot.outcastSlot[idx].push_back(slotIndexDict.find(h)->second);
         }
@@ -226,7 +227,7 @@ void TensorSlotManager::InsertLiveSlot(const TensorSlot &slot) {
 }
 
 TensorSlotUsage &TensorSlotManager::GetTensorSlotUsage(const TensorSlot &slot) {
-    ASSERT(slotIndexDict.count(slot) != 0)
+    ASSERT(SlotErr::NOT_FOUND_IN_INDEX_DICT, slotIndexDict.count(slot) != 0)
         << "TensorSlot[" << slot.GetSymbolName() << "] not found in slotIndexDict.";
     int index = slotIndexDict[slot];
     ASSERT(index >= 0 && index < static_cast<int>(slotUsageList.size()))
@@ -237,7 +238,8 @@ TensorSlotUsage &TensorSlotManager::GetTensorSlotUsage(const TensorSlot &slot) {
 static Function *GetCurrentNonHiddenFunction() {
     Function *currNonHiddenFunction = Program::GetInstance().GetCurrentFunction();
     while (currNonHiddenFunction && currNonHiddenFunction->IsHiddenFunction()) {
-        ASSERT(currNonHiddenFunction->HasParent()) << "currNonHiddenFunction doesn't have parent func.";
+        ASSERT(currNonHiddenFunction->HasParent())
+            << "currNonHiddenFunction doesn't have parent func.";
         currNonHiddenFunction = &currNonHiddenFunction->Parent();
     }
     ASSERT(currNonHiddenFunction != nullptr);
