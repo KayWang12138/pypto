@@ -69,7 +69,7 @@ static void QuantizeSymmetricOperationExeFunc(
                     {bIdx * firstViewShape, 0});
 
                 TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = Quantize(tileTensorInput, tileTensorScale, otype, axis);
+                auto res = Quantize(tileTensorInput, tileTensorScale, otype, axis, Tensor());
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
@@ -151,7 +151,7 @@ static void Quantize3DOperationExeFunc(
                         {bIdx * firstViewShape, 0, 0});
 
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = Quantize(tileTensorInput, tileTensorScale, otype, axis);
+                    auto res = Quantize(tileTensorInput, tileTensorScale, otype, axis, Tensor());
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
@@ -170,7 +170,7 @@ TEST_P(QuantizeOperationTest, TestQuantize) {
     auto test_data = GetParam().test_data_;
     auto otype = static_cast<DataType>(GetValueByName<int>(test_data, "otype"));
     auto axis = GetValueByName<int>(test_data, "axis");
-    auto useZeroPoints = GetValueByName<bool>(test_data, "use_zero_points", false);
+    auto useZeroPoints = GetValueByName<bool>(test_data, "use_zero_points");
 
     auto args = QuantizeOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), otype, axis, useZeroPoints);
     auto testCase = CreateTestCaseDesc<QuantizeOpMetaData>(GetParam(), &args);
