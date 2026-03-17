@@ -50,7 +50,7 @@ static inline void matmul_snprintf(char* buf, size_t bufSize, const char* fmt, .
     }
 }
 
-#define MATMUL_CHECK(error_code, cond, fmt, ...) \
+#define CHECK(error_code, cond, fmt, ...) \
     do { \
         if (!(cond)) { \
             MATMUL_LOGE_E(error_code, fmt, ##__VA_ARGS__); \
@@ -59,7 +59,7 @@ static inline void matmul_snprintf(char* buf, size_t bufSize, const char* fmt, .
     } while (0)
 
 
-#define MATMUL_ASSERT(error_code, cond, fmt, ...) \
+#define ASSERT(error_code, cond, fmt, ...) \
     do { \
         if (!(cond)) { \
             MATMUL_LOGE_E(error_code, fmt, ##__VA_ARGS__); \
