@@ -18,9 +18,11 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct FillPadOpFuncArgs : public OpFuncArgs {
-    FillPadOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape, float padValue)
-        : viewShape_(viewShape), tileShape_(tileShape), padValue_(padValue) {}
+    FillPadOpFuncArgs(const std::vector<int64_t> &validShape, const std::vector<int64_t> &viewShape,
+        const std::vector<int64_t> tileShape, float padValue)
+        : validShape_(validShape), viewShape_(viewShape), tileShape_(tileShape), padValue_(padValue) {}
 
+    std::vector<int64_t> validShape_;
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
     float padValue_;
@@ -34,37 +36,15 @@ struct FillPadOpMetaData {
     nlohmann::json test_data_;
 };
 
-// 辅助函数：从 JSON 读取 valid_shape 并设置到 input tensor
-static void SetInputValidShape(nlohmann::json &test_data, std::vector<Tensor> &inputs) {
-    if (test_data.contains("input_tensors") && !test_data.at("input_tensors").empty()) {
-        auto &input_tensor = test_data.at("input_tensors").at(0);
-        if (input_tensor.contains("valid_shape")) {
-            auto validShape = input_tensor.at("valid_shape").get<std::vector<int64_t>>();
-            std::vector<SymbolicScalar> validShapeSymbolic(validShape.begin(), validShape.end());
-            // 使用 UpdateDynValidShape 设置 validShape
-            inputs[0].GetStorage()->UpdateDynValidShape(validShapeSymbolic);
-            std::cout << "FillPad: Set validShape to [";
-            for (size_t i = 0; i < validShape.size(); i++) {
-                std::cout << validShape[i];
-                if (i < validShape.size() - 1) std::cout << ", ";
-            }
-            std::cout << "]" << std::endl;
-        }
-    }
-}
-
 static void FillPadOperationExeFunc1Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         const struct FillPadOpFuncArgs *args = static_cast<const FillPadOpFuncArgs *>(opArgs);
-        
-        const int firstViewShape = args->viewShape_[0];
+        const int firstViewShape = inputs[0].GetShape()[0];
         const int bloop = CeilDiv(firstDim, firstViewShape);
-
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            auto tileTensor = View(inputs[0], {firstViewShape},
-                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)}, {bIdx * firstViewShape});
+            auto tileTensor = View(inputs[0], {firstViewShape}, args->validShape_, {bIdx * firstViewShape});
             TileShape::Current().SetVecTile(args->tileShape_);
             auto res = FillPad(tileTensor, "constant", args->padValue_);
             Assemble(res, {bIdx * firstViewShape}, outputs[0]);
@@ -78,17 +58,13 @@ static void FillPadOperationExeFunc2Dims(
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         const struct FillPadOpFuncArgs *args = static_cast<const FillPadOpFuncArgs *>(opArgs);
-        
-        const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[1];
+        const int firstViewShape = inputs[0].GetShape()[0];
+        const int secondViewShape = inputs[0].GetShape()[1];
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
-
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor = View(inputs[0], {firstViewShape, secondViewShape},
-                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                auto tileTensor = View(inputs[0], {firstViewShape, secondViewShape}, args->validShape_,
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = FillPad(tileTensor, "constant", args->padValue_);
@@ -101,9 +77,8 @@ static void FillPadOperationExeFunc2Dims(
 class FillPadOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<FillPadOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestFillPad, FillPadOperationTest,
-    ::testing::ValuesIn(GetOpMetaData<FillPadOpMetaData>(
-        {FillPadOperationExeFunc1Dims, FillPadOperationExeFunc2Dims},
-        "FillPad")));
+    ::testing::ValuesIn(
+        GetOpMetaData<FillPadOpMetaData>({FillPadOperationExeFunc2Dims, FillPadOperationExeFunc1Dims}, "FillPad")));
 
 TEST_P(FillPadOperationTest, TestFillPad) {
     auto test_data = GetParam().test_data_;
@@ -114,10 +89,8 @@ TEST_P(FillPadOperationTest, TestFillPad) {
     } else if (padValueType == "max") {
         padValue = std::numeric_limits<float>::infinity();
     }
-    auto args = FillPadOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), padValue);
+    auto args = FillPadOpFuncArgs(GetValidShape(test_data), GetViewShape(test_data), GetTileShape(test_data), padValue);
     auto testCase = CreateTestCaseDesc<FillPadOpMetaData>(GetParam(), &args);
-    // 在运行测试前，设置 input tensor 的 validShape
-    SetInputValidShape(test_data, testCase.inputTensors);
     TestExecutor::runTest(testCase);
 }
 } // namespace

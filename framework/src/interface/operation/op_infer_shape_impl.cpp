@@ -195,12 +195,10 @@ REGISTER_INFER_SHAPE_FUNC(OP_PAD, Opcode::OP_PAD, PadInferShapeFunc);
 
 void FillPadInferShapeFunc(Operation* op,
                        std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
-    auto outputValidShape = op->GetIOperands()[0]->GetDynValidShape();
-    if (outputValidShape.empty()) {
-        return;
+    std::vector<SymbolicScalar> outValidShape;
+    for (auto c : op->GetOOperands()[0]->GetShape()) {
+        outValidShape.push_back(SymbolicScalar(c));
     }
-    std::vector<SymbolicScalar> outValidShape = outputValidShape;
-    
     for (auto output : op->GetOOperands()) {
         outValidShapes.push_back(outValidShape);
     }

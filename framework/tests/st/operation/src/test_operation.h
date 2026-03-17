@@ -445,6 +445,10 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
     return T2(0);
 }
 
+[[maybe_unused]] static std::vector<int64_t> GetValidShape(const nlohmann::json &json_data) {
+    return GetValueByName<std::vector<int64_t>>(json_data, "valid_shape");
+}
+
 [[maybe_unused]] static std::vector<int64_t> GetViewShape(const nlohmann::json &json_data) {
     return GetValueByName<std::vector<int64_t>>(json_data, "view_shape");
 }
