@@ -412,7 +412,9 @@ public:
     {
         if (dynAttr->maxDynamicAssembleOutcastMem.IsValid()) {
             Evaluator eval{dynAttr->inputSymbolDict, tensors, {}};
-            return workspaceSize + eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+            devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+            workspaceSize = devProg->memBudget.Total();
+            return workspaceSize;
         }
         return workspaceSize;
     }
@@ -897,15 +899,15 @@ static void DoLaunch(
     kmodule->EmulationLaunch(kbinary, tensors);
     HOST_PERF_TRACE(TracePhase::LaunchGetKernel);
 
-#if ENABALE_VERBOSE_LOG
-    COMPILER_LOGE("alloc workspace");
-#endif
     int64_t* wsAddr = nullptr;
     int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
     if (wsSize) {
         auto pyalloc = py::getattr(module, "alloc");
         wsAddr = (int64_t*)pyalloc(wsSize).cast<int64_t>();
     }
+#if ENABALE_VERBOSE_LOG
+    COMPILER_LOGE("alloc workspace %ld", wsSize);
+#endif
     HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
 
     DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
