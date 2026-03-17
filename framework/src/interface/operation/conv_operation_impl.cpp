@@ -525,7 +525,7 @@ void CheckTilingWarning(DataType outType, const Tensor &inputTensor, const Tenso
             * CeilDiv(kBL1, tileK);
     loopCount = numTileL1 * numTileL0;
     if (loopCount > MAX_LOOP) {
-        ALOG_WARN_F("Suggestion: Consider increasing tile size to reduce compilation time.");
+        MATMUL_LOGD("Suggestion: Consider increasing tile size to reduce compilation time.");
     }
 }
 
