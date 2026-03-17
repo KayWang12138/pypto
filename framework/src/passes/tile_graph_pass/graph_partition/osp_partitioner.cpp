@@ -159,12 +159,16 @@ Status OspPartitioner::RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, 
     osp::ComboScheduler<ConstrGraphType> childrenKl(children, kl);
 
     osp::GreedyMetaScheduler<ConstrGraphType> scheduler;
-    scheduler.AddScheduler(growlocalKl);
+    if (!useCVMixPartition_) {
+        scheduler.AddScheduler(growlocalKl);
+    }
+
     scheduler.AddScheduler(childrenKl);
     scheduler.AddSerialScheduler();
 
     osp::MerkleHashComputer<GraphType, osp::PrecomBwdMerkleNodeHashFunc<GraphType>> hashComputer(bspInst.GetComputationalDag(), bspInst.GetComputationalDag(), this->superNodeInfo_->nodeHashList_);
     osp::IsomorphicSubgraphScheduler<GraphType, ConstrGraphType> isoScheduler(scheduler, hashComputer);
+    isoScheduler.SetMergeDifferentTypes(useCVMixPartition_);
     isoScheduler.SetWorkThreshold(200);
     isoScheduler.SetCriticalPathThreshold(500);
     vertexContractionMap = isoScheduler.ComputePartition(bspInst);  
