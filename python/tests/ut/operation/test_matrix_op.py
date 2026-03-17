@@ -108,3 +108,21 @@ def test_matrix_matmul_with_trans_mode_cast_rint():
 
     assert isinstance(c, pypto.tensor)
     assert c.shape == [64, 64]
+
+
+def test_matmulmx_with_fp4_e2m1x2():
+    input_dtype = pypto.DT_FP4_E2M1X2
+    out_dtype = pypto.DT_FP32
+    scale_dtype = pypto.DT_FP8E8M0
+    a = pypto.tensor((128, 256), input_dtype, "A")
+    b = pypto.tensor((256, 128), input_dtype, "B")
+    scale_a = pypto.tensor((128, 4, 2), scale_dtype, "scale_a")
+    scale_b = pypto.tensor((4, 128, 2), scale_dtype, "scale_b")
+    c = None
+
+    with pypto.function("MXMATMUL", a, b, scale_a, scale_b):
+        pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
+        c = pypto.scaled_mm(a, b, out_dtype, scale_a, scale_b)
+
+    assert isinstance(c, pypto.tensor)
+    assert c.shape == [128, 128]
