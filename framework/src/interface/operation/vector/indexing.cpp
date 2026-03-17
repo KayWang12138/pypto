@@ -52,7 +52,8 @@ Shape GetTempShape(Shape shape, size_t axis) {
     return newShape;
 }
 
-void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, IndexAddTileInfoPara &indexaddTileInfo) {
+// IndexAdd in UB , will be delated
+void IndexAddUBExpandFunc(Function &function, const IndexAddPara indexaddPara, IndexAddTileInfoPara &indexaddTileInfo) {
     const LogicalTensorPtr &selfInput = indexaddPara.selfInput;
     const LogicalTensorPtr &srcInput = indexaddPara.srcInput;
     const LogicalTensorPtr &indicesInput = indexaddPara.indicesInput;
@@ -121,6 +122,81 @@ void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, Ind
     }
 }
 
+void InnerTiledIndexAddUB(size_t cur, Function &function, const TileShape &tileShape, const IndexAddPara indexaddPara,
+    IndexAddTileInfoPara &indexaddTileInfo) {
+    if (cur == indexaddPara.dstTensor->shape.size()) {
+        IndexAddUBExpandFunc(function, indexaddPara, indexaddTileInfo);
+        return;
+    }
+    auto &vecTile = tileShape.GetVecTile();
+    int64_t tmpTile = vecTile[cur];
+    // axis所在轴按照dstShape[axis]进行切分
+    if (static_cast<int>(cur) == indexaddPara.axis) {
+        tmpTile = indexaddPara.dstTensor->GetShape()[cur];
+    }
+    // selfInput.shape[axis]!=srcInput.shape[axis]
+    for (int i = 0; i < indexaddPara.srcInput->GetShape()[cur]; i += tmpTile) {
+        if (static_cast<int>(cur) == indexaddPara.axis) {
+            // self和dst不切
+            indexaddTileInfo.dstTileInfo.offset[cur] = 0;
+            indexaddTileInfo.dstTileInfo.shape[cur] = indexaddPara.dstTensor->shape[cur];
+            indexaddTileInfo.selfTileInfo.offset[cur] = 0;
+            indexaddTileInfo.selfTileInfo.shape[cur] = indexaddPara.selfInput->shape[cur];
+        } else {
+            indexaddTileInfo.dstTileInfo.offset[cur] = i;
+            indexaddTileInfo.dstTileInfo.shape[cur] = std::min(indexaddPara.dstTensor->shape[cur] - i, tmpTile);
+            indexaddTileInfo.selfTileInfo.offset[cur] = i;
+            indexaddTileInfo.selfTileInfo.shape[cur] = std::min(indexaddPara.selfInput->shape[cur] - i, tmpTile);
+        }
+        indexaddTileInfo.srcTileInfo.offset[cur] = i;
+        indexaddTileInfo.srcTileInfo.shape[cur] = std::min(indexaddPara.srcInput->GetShape()[cur] - i, tmpTile);
+        InnerTiledIndexAddUB(cur + 1, function, tileShape, indexaddPara, indexaddTileInfo);
+    }
+}
+
+void TiledIndexAddUB(Function &function, const TileShape &tileShape, const IndexAddPara indexaddPara) {
+    // Check Operands Valid
+    ASSERT(indexaddPara.selfInput->GetShape().size() == indexaddPara.selfInput->GetOffset().size())
+        << "The size of indexaddPara selfinput shape and selfinput offset should be equal";
+    ASSERT(indexaddPara.srcInput->GetShape().size() == indexaddPara.srcInput->GetOffset().size())
+        << "The size of indexaddPara srcInput shape and srcInput offset should be equal";
+    ASSERT(indexaddPara.indicesInput->GetShape().size() == indexaddPara.indicesInput->GetOffset().size())
+        << "The size of indexaddPara indicesInput shape and indicesInput offset should be equal";
+
+    IndexAddTileInfoPara indexaddTileInfo{
+        TileInfo(indexaddPara.selfInput->GetShape().size(), indexaddPara.selfInput->GetOffset().size()),
+        TileInfo(indexaddPara.srcInput->GetShape().size(), indexaddPara.srcInput->GetOffset().size()),
+        TileInfo(indexaddPara.indicesInput->GetShape().size(), indexaddPara.indicesInput->GetOffset().size()),
+        TileInfo(indexaddPara.dstTensor->GetShape().size(), indexaddPara.dstTensor->GetOffset().size())};
+    InnerTiledIndexAddUB(0, function, tileShape, indexaddPara, indexaddTileInfo);
+}
+
+// IndexAdd in GM
+void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, IndexAddTileInfoPara &indexaddTileInfo) {
+    const LogicalTensorPtr &selfInput = indexaddPara.selfInput;
+    const LogicalTensorPtr &srcInput = indexaddPara.srcInput;
+    const LogicalTensorPtr &indicesInput = indexaddPara.indicesInput;
+    const LogicalTensorPtr &dstTensor = indexaddPara.dstTensor;
+    const int axis = indexaddPara.axis;
+
+    auto dstTile = dstTensor->View(function, indexaddTileInfo.dstTileInfo.shape, indexaddTileInfo.dstTileInfo.offset);
+    auto selfTile =
+        selfInput->View(function, indexaddTileInfo.selfTileInfo.shape, indexaddTileInfo.selfTileInfo.offset);
+    auto srcTile = srcInput->View(function, indexaddTileInfo.srcTileInfo.shape, indexaddTileInfo.srcTileInfo.offset);
+    indexaddTileInfo.indicesTileInfo.offset = {indexaddTileInfo.srcTileInfo.offset[axis]};
+    indexaddTileInfo.indicesTileInfo.shape = {indexaddTileInfo.srcTileInfo.shape[axis]};
+    auto indexTile =
+        indicesInput->View(function, indexaddTileInfo.indicesTileInfo.shape, indexaddTileInfo.indicesTileInfo.offset);
+    Shape tmpShape(2, 1);
+    auto alignSize = BLOCK_SIZE / BytesOf(DT_FP32);
+    tmpShape[1] = AlignUp(srcTile->GetShape()[srcTile->GetShape().size() - 1], alignSize);
+    auto tmpTile = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape);
+
+    auto &op = function.AddOperation(Opcode::OP_INDEX_ADD, {selfTile, srcTile, indexTile}, {dstTile, tmpTile});
+    op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+    op.SetAttribute(OpAttributeKey::scalar, indexaddPara.alpha);
+}
+
 void InnerTiledIndexAdd(size_t cur, Function &function, const TileShape &tileShape, const IndexAddPara indexaddPara,
     IndexAddTileInfoPara &indexaddTileInfo) {
     if (cur == indexaddPara.dstTensor->shape.size()) {
@@ -164,13 +240,6 @@ void TiledIndexAdd(Function &function, const TileShape &tileShape, const IndexAd
         TileInfo(indexaddPara.indicesInput->GetShape().size(), indexaddPara.indicesInput->GetOffset().size()),
         TileInfo(indexaddPara.dstTensor->GetShape().size(), indexaddPara.dstTensor->GetOffset().size())};
     InnerTiledIndexAdd(0, function, tileShape, indexaddPara, indexaddTileInfo);
-}
-
-void TensorIndexAdd(Function &function, const IndexAddPara indexaddPara) {
-    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_INDEX_ADD_UB,
-        {indexaddPara.selfInput, indexaddPara.srcInput, indexaddPara.indicesInput}, {indexaddPara.dstTensor});
-    op.SetAttribute(OP_ATTR_PREFIX + "axis", indexaddPara.axis);
-    op.SetAttribute(OpAttributeKey::scalar, indexaddPara.alpha);
 }
 
 bool CheckAlphaOverflow(Element alpha, DataType dtype) {
@@ -217,30 +286,56 @@ void CheckIndexAddParamsInvalid(
     }
 }
 
-Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
+Tensor IndexAddUB(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
     DECLARE_TRACER();
     CheckIndexAddParamsInvalid(self, src, indices, axis, alpha);
     CheckAxisRange(self, axis);
     DataType selfDataType = self.GetDataType();
     Element alpha_ = Element(selfDataType, alpha.Cast<float>());
     Tensor result(selfDataType, self.GetShape());
-    CALL(IndexAdd, *Program::GetInstance().GetCurrentFunction(),
-        {self.GetStorage(), src.GetStorage(), indices.GetStorage(), result.GetStorage(), axis, alpha_});
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_INDEX_ADD_UB,
+        {self.GetStorage(), src.GetStorage(), indices.GetStorage()}, {result.GetStorage()});
+    op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+    op.SetAttribute(OpAttributeKey::scalar, alpha_);
     return result;
 }
 
-Tensor IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
+void IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
     DECLARE_TRACER();
     CheckIndexAddParamsInvalid(self, src, indices, axis, alpha);
     CheckAxisRange(self, axis);
     DataType selfDataType = self.GetDataType();
     Element castedAlpha = Element(selfDataType, alpha.Cast<float>());
     Tensor result(selfDataType, self.GetShape());
-    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_INDEX_ADD,
-        {self.GetStorage(), src.GetStorage(), indices.GetStorage()}, {result.GetStorage()});
-    op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
-    op.SetAttribute(OpAttributeKey::scalar, castedAlpha);
     Program::GetInstance().GetCurrentFunction()->SetSameMemId(self.GetStorage(), result.GetStorage());
+    // alpha=1,且index类型为int64时, FP16/BF16需升精度
+    if ((selfDataType == DT_FP16 || selfDataType == DT_BF16) && indices.GetDataType() == DT_INT64 &&
+        (std::abs(alpha.Cast<float>() - 1) < 1e-6f)) {
+        Tensor castedSelf = Cast(self, DT_FP32);
+        Tensor castedSrc = Cast(src, DT_FP32);
+        Tensor castedResult(DT_FP32, self.GetShape());
+        auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_INDEX_ADD,
+            {castedSelf.GetStorage(), castedSrc.GetStorage(), indices.GetStorage()}, {castedResult.GetStorage()});
+        Program::GetInstance().GetCurrentFunction()->SetSameMemId(castedSelf.GetStorage(), castedResult.GetStorage());
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        op.SetAttribute(OpAttributeKey::scalar, castedAlpha);
+        result = Cast(castedResult, selfDataType, CastMode::CAST_RINT);
+    } else if (selfDataType == DT_INT8) { // int8 需要转成 fp16 计算
+        Tensor castedSelf = Cast(self, DT_FP16);
+        Tensor castedSrc = Cast(src, DT_FP16);
+        Tensor castedResult(DT_FP16, self.GetShape());
+        auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_INDEX_ADD,
+            {castedSelf.GetStorage(), castedSrc.GetStorage(), indices.GetStorage()}, {castedResult.GetStorage()});
+        Program::GetInstance().GetCurrentFunction()->SetSameMemId(castedSelf.GetStorage(), castedResult.GetStorage());
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        op.SetAttribute(OpAttributeKey::scalar, castedAlpha);
+        result = Cast(castedResult, selfDataType, CastMode::CAST_TRUNC);
+    } else {
+        auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_INDEX_ADD,
+            {self.GetStorage(), src.GetStorage(), indices.GetStorage()}, {result.GetStorage()});
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        op.SetAttribute(OpAttributeKey::scalar, castedAlpha);
+    }
     self = result;
 }
 
@@ -1445,6 +1540,13 @@ void TiledGatherMaskBuildIn(Function &function, const TileShape &tileShape, cons
     TiledGatherMaskBuildIn(function, tileShape, 0, input, resOperand, resultTileInfo, patternMode);
 }
 
+void IndexAddUBOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
+    Element alpha = op.GetElementAttribute(OpAttributeKey::scalar);
+    TiledIndexAddUB(function, tileShape, {iOperand[0], iOperand[1], iOperand[2], oOperand[0], axis, alpha});
+}
+
 void IndexAddOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
     int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
@@ -1512,6 +1614,7 @@ void GatherMaskBuildInOperationTileFunc(Function &function, const TileShape &til
     TiledGatherMaskBuildIn(function, tileShape, iOperand[0], oOperand[0], patternMode);
 }
 
+REGISTER_OPERATION_TILED_FUNC(OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD_UB, IndexAddUBOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, IndexAddOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_GATHER, Opcode::OP_GATHER, GatherOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_GATHER_ELEMENT, Opcode::OP_GATHER_ELEMENT, GatherElementOperationTileFunc);

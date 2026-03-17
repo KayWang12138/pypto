@@ -851,15 +851,15 @@ std::string CodeGenOpCloudNPU::PrintIndexAddUBDynamicUnaligned(const PrintIndexA
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintIndexAddUBTileTensor(const PrintIndexAddParam &param) const {
+std::string CodeGenOpCloudNPU::PrintIndexAddUBTileTensor(const int axis) const {
     std::string dstTensor = QueryTileTensorNameByIdx(ID0);
     std::string tmpTensor = QueryTileTensorNameByIdx(ID1);
     std::string src0Tensor = QueryTileTensorNameByIdx(ID2);
     std::string src1Tensor = QueryTileTensorNameByIdx(ID3);
     std::string idxTensor = QueryTileTensorNameByIdx(ID4);
     std::vector<std::string> paramList;
-    int axis = param.axis + SHAPE_DIM5 - param.srcRawShape.size();
-    paramList.emplace_back(std::to_string(axis));
+    int axis_ = axis + SHAPE_DIM5 - rawShape[ID0].size();
+    paramList.emplace_back(std::to_string(axis_));
     std::string templateParam = JoinString(paramList, CONN_COMMA);
 
     paramList.clear();
@@ -909,9 +909,11 @@ std::string CodeGenOpCloudNPU::GenIndexAddOp() const {
     std::string src0Tensor = QueryTileTensorNameByIdx(ID2);
     std::string src1Tensor = QueryTileTensorNameByIdx(ID3);
     std::string idxTensor = QueryTileTensorNameByIdx(ID4);
-
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(ID0);
+    std::string coord = PrintCoord(rawShape[ID0].size(), WrapParamByParentheses(gmOffsetExpr));
+    
     std::vector<std::string> templateParamList{std::to_string(axis)};
-    std::vector<std::string> tileOpParamList = {dstTensor, src0Tensor, src1Tensor, idxTensor, tmpTensor};
+    std::vector<std::string> tileOpParamList = {dstTensor, src0Tensor, src1Tensor, idxTensor, tmpTensor, coord};
     const Element &alpha = extOperandVal;
     std::string scalarTmpBuffer = FormatFloat(alpha.Cast<float>());
     tileOpParamList.emplace_back("(" + DataType2CCEStr(alpha.GetDataType()) + ")" + scalarTmpBuffer);

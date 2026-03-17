@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_IndexAddUB_operation.cpp
+ * \file test_indexadd__operation.cpp
  * \brief
  */
 
@@ -17,8 +17,8 @@
 
 using namespace tile_fwk::test_operation;
 namespace {
-struct IndexAddUBOpFuncArgs : public OpFuncArgs {
-    IndexAddUBOpFuncArgs(
+struct IndexAddOpFuncArgs : public OpFuncArgs {
+    IndexAddOpFuncArgs(
         const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape, int axis, Element &alpha)
         : viewShape_(viewShape), tileShape_(tileShape), axis_(axis), alpha_(alpha) {}
 
@@ -28,18 +28,17 @@ struct IndexAddUBOpFuncArgs : public OpFuncArgs {
     Element alpha_;
 };
 
-struct IndexAddUBOpMetaData {
-    explicit IndexAddUBOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
+struct IndexAddOpMetaData {
+    explicit IndexAddOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
         : opFunc_(opFunc), test_data_(test_data) {}
 
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
-// Tensor IndexAddUB(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha)
-static void IndexAddUBOperationExeFunc2Dims(
+// Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha)
+static void IndexAddOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         SymbolicScalar self_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar self_secondDim = inputs[0].GetShape()[1];
@@ -47,20 +46,20 @@ static void IndexAddUBOperationExeFunc2Dims(
         SymbolicScalar src_secondDim = inputs[1].GetShape()[1];
         SymbolicScalar idxDim = inputs[2].GetShape()[0];
 
-        auto args = static_cast<const IndexAddUBOpFuncArgs *>(opArgs);
+        auto args = static_cast<const IndexAddOpFuncArgs *>(opArgs);
         int axis = args->axis_;
         axis = axis >= 0 ? axis : axis + inputs[0].GetShape().size();
         std::vector<int64_t> viewShape = args->viewShape_;
 
         ASSERT(idxDim == inputs[1].GetShape()[axis]);
-        ASSERT(viewShape[axis] >= std::max(inputs[0].GetShape()[axis], idxDim)); // 确保viewshape按最大的切
+        ASSERT(viewShape[axis] >= outputs[0].GetShape()[axis]); // 确保viewshape按输出shape切
 
         const int64_t firstViewShape = viewShape[0];
         const int64_t secondViewShape = viewShape[1];
         const int64_t bloop = CeilDiv(src_firstDim, firstViewShape);
         const int64_t sloop = CeilDiv(src_secondDim, secondViewShape);
 
-        // selfshape和srcshape的axis轴都不切
+        // selfshape的axis轴都不切
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 std::vector<SymbolicScalar> offset = {bIdx * firstViewShape, sIdx * secondViewShape};
@@ -74,18 +73,16 @@ static void IndexAddUBOperationExeFunc2Dims(
                 auto srcTensor = View(inputs[1], viewShape, srcValidShape, offset);
                 auto idxTensor = View(
                     inputs[2], {viewShape[axis]}, {srcValidShape[axis]}, {offset[axis]}); // idxshape只有在axis轴才切
-
                 TileShape::Current().SetVecTile(args->tileShape_);
-                auto dst = IndexAddUB(selfTensor, srcTensor, idxTensor, args->axis_, args->alpha_);
-                Assemble(dst, offset, outputs[0]); // offset[axis]=0
+                IndexAdd_(selfTensor, srcTensor, idxTensor, args->axis_, args->alpha_);
+                Assemble(selfTensor, offset, outputs[0]); // offset[axis]=0
             }
         }
     }
 }
 
-static void IndexAddUBOperationExeFunc3Dims(
+static void IndexAddOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         SymbolicScalar self_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar self_secondDim = inputs[0].GetShape()[1];
@@ -94,13 +91,13 @@ static void IndexAddUBOperationExeFunc3Dims(
         SymbolicScalar src_secondDim = inputs[1].GetShape()[1];
         SymbolicScalar src_thirdDim = inputs[1].GetShape()[2];
         SymbolicScalar idxDim = inputs[2].GetShape()[0];
-        auto args = static_cast<const IndexAddUBOpFuncArgs *>(opArgs);
+        auto args = static_cast<const IndexAddOpFuncArgs *>(opArgs);
         int axis = args->axis_;
         axis = axis >= 0 ? axis : axis + inputs[0].GetShape().size();
         std::vector<int64_t> viewShape = args->viewShape_;
 
         ASSERT(idxDim == inputs[1].GetShape()[axis]);
-        ASSERT(viewShape[axis] >= std::max(inputs[0].GetShape()[axis], idxDim)); // 确保viewshape按最大的切
+        ASSERT(viewShape[axis] >= outputs[0].GetShape()[axis]); // 确保viewshape按输出shape切
 
         const int64_t firstViewShape = viewShape[0];
         const int64_t secondViewShape = viewShape[1];
@@ -128,19 +125,17 @@ static void IndexAddUBOperationExeFunc3Dims(
                     auto srcTensor = View(inputs[1], viewShape, srcValidShape, offset);
                     auto idxTensor = View(inputs[2], {viewShape[axis]}, {srcValidShape[axis]},
                         {offset[axis]}); // idxshape只有在axis轴才切
-
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto dst = IndexAddUB(selfTensor, srcTensor, idxTensor, args->axis_, args->alpha_);
-                    Assemble(dst, offset, outputs[0]); // offset[axis]=0
+                    IndexAdd_(selfTensor, srcTensor, idxTensor, args->axis_, args->alpha_);
+                    Assemble(selfTensor, offset, outputs[0]); // offset[axis]=0
                 }
             }
         }
     }
 }
 
-static void IndexAddUBOperationExeFunc4Dims(
+static void IndexAddOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         SymbolicScalar self_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar self_secondDim = inputs[0].GetShape()[1];
@@ -151,13 +146,13 @@ static void IndexAddUBOperationExeFunc4Dims(
         SymbolicScalar src_thirdDim = inputs[1].GetShape()[2];
         SymbolicScalar src_forthDim = inputs[1].GetShape()[3];
         SymbolicScalar idxDim = inputs[2].GetShape()[0];
-        auto args = static_cast<const IndexAddUBOpFuncArgs *>(opArgs);
+        auto args = static_cast<const IndexAddOpFuncArgs *>(opArgs);
         int axis = args->axis_;
         axis = axis >= 0 ? axis : axis + inputs[0].GetShape().size();
         std::vector<int64_t> viewShape = args->viewShape_;
 
         ASSERT(idxDim == inputs[1].GetShape()[axis]);
-        ASSERT(viewShape[axis] >= std::max(inputs[0].GetShape()[axis], idxDim)); // 确保viewshape按最大的切
+        ASSERT(viewShape[axis] >= outputs[0].GetShape()[axis]); // 确保viewshape按输出shape切
 
         const int64_t firstViewShape = viewShape[0];
         const int64_t secondViewShape = viewShape[1];
@@ -190,10 +185,9 @@ static void IndexAddUBOperationExeFunc4Dims(
                         auto srcTensor = View(inputs[1], viewShape, srcValidShape, offset);
                         auto idxTensor = View(inputs[2], {viewShape[axis]}, {srcValidShape[axis]},
                             {offset[axis]}); // idxshape只有在axis轴才切
-
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto dst = IndexAddUB(selfTensor, srcTensor, idxTensor, args->axis_, args->alpha_);
-                        Assemble(dst, offset, outputs[0]); // offset[axis]=0
+                        IndexAdd_(selfTensor, srcTensor, idxTensor, args->axis_, args->alpha_);
+                        Assemble(selfTensor, offset, outputs[0]); // offset[axis]=0
                     }
                 }
             }
@@ -201,7 +195,7 @@ static void IndexAddUBOperationExeFunc4Dims(
     }
 }
 
-static void IndexAddUBOperationExeFunc5Dims(
+static void IndexAddOperationExeFunc5Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         SymbolicScalar self_firstDim = inputs[0].GetShape()[0];
@@ -215,12 +209,12 @@ static void IndexAddUBOperationExeFunc5Dims(
         SymbolicScalar src_forthDim = inputs[1].GetShape()[3];
         SymbolicScalar src_fifthDim = inputs[1].GetShape()[4];
         SymbolicScalar idxDim = inputs[2].GetShape()[0];
-        auto args = static_cast<const IndexAddUBOpFuncArgs *>(opArgs);
+        auto args = static_cast<const IndexAddOpFuncArgs *>(opArgs);
         int axis = args->axis_;
         axis = axis >= 0 ? axis : axis + inputs[0].GetShape().size();
         std::vector<int64_t> viewShape = args->viewShape_;
         ASSERT(idxDim == inputs[1].GetShape()[axis]);
-        ASSERT(viewShape[axis] >= std::max(inputs[0].GetShape()[axis], idxDim)); // 确保viewshape按最大的切
+        ASSERT(viewShape[axis] >= outputs[0].GetShape()[axis]); // 确保viewshape按输出shape切
         const int64_t firstViewShape = viewShape[0];
         const int64_t secondViewShape = viewShape[1];
         const int64_t thirdViewShape = viewShape[2];
@@ -254,8 +248,8 @@ static void IndexAddUBOperationExeFunc5Dims(
                             auto idxTensor = View(inputs[2], {viewShape[axis]}, {srcValidShape[axis]},
                                 {offset[axis]}); // idxshape只有在axis轴才切
                             TileShape::Current().SetVecTile(args->tileShape_);
-                            auto dst = IndexAddUB(selfTensor, srcTensor, idxTensor, args->axis_, args->alpha_);
-                            Assemble(dst, offset, outputs[0]); // offset[axis]=0
+                            IndexAdd_(selfTensor, srcTensor, idxTensor, args->axis_, args->alpha_);
+                            Assemble(selfTensor, offset, outputs[0]); // offset[axis]=0
                         }
                     }
                 }
@@ -264,14 +258,15 @@ static void IndexAddUBOperationExeFunc5Dims(
     }
 }
 
-class IndexAddUBOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<IndexAddUBOpMetaData> {};
+class IndexAddOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<IndexAddOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(TestIndexAddUB, IndexAddUBOperationTest,
-    ::testing::ValuesIn(GetOpMetaData<IndexAddUBOpMetaData>(
-        {IndexAddUBOperationExeFunc2Dims, IndexAddUBOperationExeFunc3Dims, IndexAddUBOperationExeFunc4Dims,
-         IndexAddUBOperationExeFunc5Dims}, "IndexAddUB")));
+INSTANTIATE_TEST_SUITE_P(TestIndexAdd, IndexAddOperationTest,
+    ::testing::ValuesIn(
+        GetOpMetaData<IndexAddOpMetaData>({IndexAddOperationExeFunc2Dims, IndexAddOperationExeFunc3Dims,
+                                              IndexAddOperationExeFunc4Dims, IndexAddOperationExeFunc5Dims},
+            "IndexAdd_")));
 
-TEST_P(IndexAddUBOperationTest, TestIndexAddUB) {
+TEST_P(IndexAddOperationTest, TestIndexAdd) {
     auto test_data = GetParam().test_data_;
     auto axis = static_cast<CastMode>(GetValueByName<int>(test_data, "axis"));
     nlohmann::json data = test_data;
@@ -292,10 +287,10 @@ TEST_P(IndexAddUBOperationTest, TestIndexAddUB) {
         }
     }
     Element alp(npu::tile_fwk::DT_FP32, value);
-    auto args = IndexAddUBOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), axis, alp);
-    auto testCase = CreateTestCaseDesc<IndexAddUBOpMetaData>(GetParam(), &args);
-    std::vector<OpFunc> opFuncs = {IndexAddUBOperationExeFunc2Dims, IndexAddUBOperationExeFunc3Dims,
-        IndexAddUBOperationExeFunc4Dims, IndexAddUBOperationExeFunc5Dims};
+    auto args = IndexAddOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), axis, alp);
+    auto testCase = CreateTestCaseDesc<IndexAddOpMetaData>(GetParam(), &args);
+    std::vector<OpFunc> opFuncs = {IndexAddOperationExeFunc2Dims, IndexAddOperationExeFunc3Dims,
+        IndexAddOperationExeFunc4Dims, IndexAddOperationExeFunc5Dims};
     testCase.opFunc = opFuncs[GetViewShape(test_data).size() - 2];
     TestExecutor::runTest(testCase);
 }
