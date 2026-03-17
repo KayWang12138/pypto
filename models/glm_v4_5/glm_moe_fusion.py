@@ -110,6 +110,7 @@ def gen_quan_per_channel_weight_nz(x):
     runtime_options={"device_sched_mode": 1,
                     "stitch_function_max_num": 128,
                     "stitch_cfgcache_size": 7700000},
+    debug_options={"runtime_debug_mode": 1},
     pass_options={"cube_l1_reuse_setting": {-1: 2}}
 )
 def moe_fusion_kernel(
