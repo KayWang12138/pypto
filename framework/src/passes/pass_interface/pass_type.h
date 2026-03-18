@@ -41,6 +41,7 @@ enum class PassName {
     INFER_DISCONTINUOUS_INPUT,
     REMOVE_REDUNDANT_OP,
     INSERT_OP_FOR_VIEWASSEMBLE,
+    ARITHMETIC_REORDERING,
     SPLIT_K,
     GRAPH_PARTITION,
     REDUCE_COPY_MERGE,
@@ -70,7 +71,7 @@ enum class PassName {
     LOOPAXES_PROC,
     TUNE_TILEOP_SEQ_FOR_VF,
     TUNE_SYNC_FOR_VF,
-    NOT_DEFINED
+    NOT_DEFINED,
 };
 
 inline constexpr const char *PassNameStr(PassName name){
@@ -90,6 +91,7 @@ inline constexpr const char *PassNameStr(PassName name){
         case PassName::INFER_DISCONTINUOUS_INPUT: return "InferDiscontinuousInput";
         case PassName::REMOVE_REDUNDANT_OP: return "RemoveRedundantOp";
         case PassName::INSERT_OP_FOR_VIEWASSEMBLE: return "InsertOpForViewAssemble";
+        case PassName::ARITHMETIC_REORDERING: return "ArithmeticReordering";
         case PassName::SPLIT_K: return "SplitK";
         case PassName::GRAPH_PARTITION: return "GraphPartition";
         case PassName::REDUCE_COPY_MERGE: return "ReduceCopyMerge";

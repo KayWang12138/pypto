@@ -20,7 +20,6 @@
 #include "interface/configs/config_manager.h"
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_interface/pass_type.h"
-#include "passes/pass_utils/pass_log_util.h"
 #include "pass_registry.h"
 #include "interface/tensor/expected_value.h"
 #include "tilefwk/error.h"
@@ -30,6 +29,7 @@
 #include "passes/tensor_graph_pass/remove_redundant_reshape.h"
 #include "passes/tensor_graph_pass/auto_cast.h"
 #include "passes/tensor_graph_pass/infer_memory_conflict.h"
+#include "passes/tensor_graph_pass/arithmetic_reordering.h"
 #include "passes/tensor_graph_pass/remove_undriven_view.h"
 #include "passes/tensor_graph_pass/expand_function.h"
 #include "passes/tensor_graph_pass/loop_unroll.h"
@@ -51,10 +51,6 @@
 #include "passes/block_graph_pass/loopaxes_proc.h"
 #include "passes/block_graph_pass/tune_tileopseq_for_vf.h"
 #include "passes/block_graph_pass/tune_sync_for_vf.h"
-#include "passes/pass_log/pass_log.h"
-
-#undef MODULE_NAME
-#define MODULE_NAME "PassManager"
 
 namespace npu::tile_fwk {
 PassManager &PassManager::Instance() {
@@ -107,6 +103,7 @@ void RegPass() {
     REG_PASS(LoopaxesProc);
     REG_PASS(TuneTileOpSeqForVF);
     REG_PASS(TuneSyncForVF);
+    REG_PASS(ArithmeticReordering);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -115,6 +112,7 @@ void PassManager::RegDefaultStrategy() {
             {   "RemoveRedundantReshape",      PassName::REMOVE_REDUNDANT_RESHAPE},
             {                 "AutoCast",                     PassName::AUTO_CAST},
             {      "InferMemoryConflict",         PassName::INFER_MEMORY_CONFLICT},
+            {     "ArithmeticReordering",         PassName::ARITHMETIC_REORDERING},
             {       "RemoveUndrivenView",          PassName::REMOVE_UNDRIVEN_VIEW},
             {           "ExpandFunction",               PassName::EXPAND_FUNCTION},
             {        "MergeViewAssemble",           PassName::MERGE_VIEW_ASSEMBLE},
@@ -146,13 +144,13 @@ void PassManager::RegDefaultStrategy() {
             {                 "AddAlloc",                     PassName::ADD_ALLOC},
             {              "OoOSchedule",                  PassName::OOO_SCHEDULE},
             {       "TuneTileOpSeqForVF",        PassName::TUNE_TILEOP_SEQ_FOR_VF},
+            {        "GlobalMemoryReuse",           PassName::GLOBAL_MEMORY_REUSE},
             {              "RemoveAlloc",                  PassName::REMOVE_ALLOC},
             {           "CopyOutResolve",              PassName::COPY_OUT_RESOLVE},
             {               "InsertSync",                   PassName::INSERT_SYNC},
             {            "TuneSyncForVF",              PassName::TUNE_SYNC_FOR_VF},
             {         "MixSubgraphSplit",            PassName::MIX_SUBGRAPH_SPLIT},
-            {        "GlobalMemoryReuse",           PassName::GLOBAL_MEMORY_REUSE},
-            {             "LoopaxesProc",                 PassName::LOOPAXES_PROC},
+            {             "LoopaxesProc",               PassName::LOOPAXES_PROC},
             {           "CodegenPreproc",               PassName::CODEGEN_PREPROC},
     });
     RegisterStrategy(
@@ -184,7 +182,7 @@ void PassManager::RegisterStrategy(const std::string &strategy, const std::vecto
     std::set<std::string> identifiers;
     for (auto &pass : passEntries) {
         if (!(identifiers.insert(pass.identifier).second)) {
-            APASS_LOG_WARN_F(Elements::Function, "Duplicated identifier: %s.", pass.identifier.c_str());
+            ALOG_WARN_F("Duplicated identifier: %s.", pass.identifier.c_str());
             continue;
         }
         newPassEntries.push_back(pass);
@@ -195,13 +193,13 @@ void PassManager::RegisterStrategy(const std::string &strategy, const std::vecto
         return;
     }
     strategyPasses->second = newPassEntries;
-    APASS_LOG_WARN_F(Elements::Function, "Strategy %s has been changed.", strategy.c_str());
+    ALOG_WARN_F("Strategy %s has been changed.", strategy.c_str());
 }
 
 std::vector<PassManager::PassEntry> PassManager::GetStrategyPasses(const std::string &strategy) const {
     auto it = strategies_.find(strategy);
     if (it == strategies_.end()) {
-        APASS_LOG_WARN_F(Elements::Function, "Strategy %s does not exist.", strategy.c_str());
+        ALOG_WARN_F("Strategy %s does not exist.", strategy.c_str());
         auto emptyPass = std::vector<PassManager::PassEntry>();
         return emptyPass;
     }
@@ -211,7 +209,7 @@ std::vector<PassManager::PassEntry> PassManager::GetStrategyPasses(const std::st
  	    const auto &passName = PassNameStr(currPassEntry.passName);
  	    auto pass = PassRegistry::GetInstance().CreatePass(passName);
  	    if (pass == nullptr) {
-            APASS_LOG_WARN_F(Elements::Function, "Pass %s does not exist.", passName);
+            ALOG_WARN_F("Pass %s does not exist.", passName);
  	        continue;
  	    }
  	    std::vector<NPUArch> &arches = pass->GetSupportedArches();
@@ -246,7 +244,7 @@ static bool ShouldTerminateAtStage(const std::string &identifier) {
     };
     auto it = kPassToStageMap.find(identifier);
     if (it != kPassToStageMap.end() && it->second == config::GetHostOption<int64_t>(COMPILE_STAGE)) {
-        APASS_LOG_INFO_F(Elements::Function, "Compile stage terminates after %s.", identifier.c_str());
+        ALOG_INFO_F("Compile stage terminates after %s.", identifier.c_str());
         return true;
     }
     return false;
@@ -256,11 +254,12 @@ static void LogPassRuntime(const std::string &identifier, Program &program, Func
     const std::chrono::time_point<std::chrono::high_resolution_clock> &start) {
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    APASS_LOG_INFO_F(Elements::Function, "The Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(),
+    ALOG_INFO_F("Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(),
         program.Name().c_str(), function.GetMagicName().c_str(), duration.count());
 }
 
 Status PassManager::RunPass(Program &program, Function &function, const std::string &strategy) const {
+    Platform::Instance().ObtainPlatformInfo();
     auto strategyPasses = GetStrategyPasses(strategy);
     std::vector<std::string> identifiers;
     std::transform(strategyPasses.begin(), strategyPasses.end(), std::back_inserter(identifiers),
@@ -274,20 +273,26 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
         const auto &passName = strategyPasses[i].passName;
         auto pass = PassRegistry::GetInstance().CreatePass(PassNameStr(passName));
         if (pass == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Function, "Pass [%s] does not exist.", PassNameStr(passName));
+            ALOG_ERROR_F("Pass [%s] does not exist.", PassNameStr(passName));
             return FAILED;
         }
-        PassLogUtil logUtil(*pass, function, i);
+        std::string originLogOutPath = config::LogFile();
+        std::string logFolder = pass->LogFolder(config::LogTopFolder(), i);
+        std::string logfilePath = logFolder + "/" + (pass->GetName() + function.GetMagicName() + ".log");
+        LoggerManager::FileLoggerReplace(originLogOutPath, logfilePath, true);
+        Defer rollback([logfilePath, originLogOutPath]() {
+            LoggerManager::FileLoggerReplace(logfilePath, originLogOutPath, true);
+        });
         auto passDfxCfg = ConfigManager::Instance().GetPassConfigs(strategy, identifier);
         if (config::GetDebugOption<int64_t>(CFG_COMPILE_DBEUG_MODE) == CFG_DEBUG_ALL) {
             passDfxCfg.printGraph = true;
             passDfxCfg.dumpGraph = true;
         }
         pass->SetPassConfigs(passDfxCfg);
-        APASS_LOG_INFO_F(Elements::Function, "Apply pass <%s> on function: %s.", identifier.c_str(), function.GetMagicName().c_str());
+        ALOG_INFO_F("[PassManager] Apply pass <%s> on function: %s.", identifier.c_str(), function.GetMagicName().c_str());
         auto start = std::chrono::high_resolution_clock::now();
         if (pass->Run(function, strategy, identifier, i) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "Run pass <%s> failed.", identifier.c_str());
+            ALOG_ERROR_F("Run pass <%s> failed.", identifier.c_str());
             return FAILED;
         }
         if (passDfxCfg.dumpPassTimeCost) {
