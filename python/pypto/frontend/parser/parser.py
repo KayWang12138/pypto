@@ -18,6 +18,7 @@ import re
 from typing import Any, List, Optional, Union, Callable
 
 import pypto
+from pypto.tensor import TensorAnnotation
 from pypto._utils import set_source_location, clear_source_location
 from pypto.symbolic_scalar import SymbolicScalar, SymInt
 from .context import Context
@@ -904,6 +905,10 @@ class Parser(ast.NodeVisitor):
         if isinstance(anno, pypto.Tensor):
             anno.name = name
             return anno
+        elif isinstance(anno, TensorAnnotation):
+            # Convert TensorAnnotation to actual Tensor instance
+            tensor = anno.to_tensor(name)
+            return tensor
         else:
             # Non-tensor parameter (annotation is not pypto.Tensor)
             return (name, default_value)

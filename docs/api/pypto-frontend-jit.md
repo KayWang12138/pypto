@@ -69,13 +69,17 @@ def add_kernel(
 ):
     pypto.set_vec_tile_shapes(2, 8)
     out[:] = pypto.add(a, b)
-    
+
 
 # 直接传入 torch 张量调用
 x = torch.randn(3, dtype=torch.float32, device='npu:0')
 y = torch.randn(3, dtype=torch.float32, device='npu:0')
 result = add_kernel(x, y)
 ```
+
+**说明**：
+- kernel函数里申明推荐使用 `pypto.Tensor[[shape], dtype]` 方括号语法，符合 Python 类型注解规范
+- 也兼容旧的小括号语法 `pypto.Tensor([shape], dtype)`
 
 ### 示例2: 指定运行模式
 

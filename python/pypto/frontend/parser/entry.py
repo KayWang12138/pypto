@@ -23,6 +23,7 @@ from enum import IntEnum
 import pypto
 import torch
 from pypto import pypto_impl
+from pypto.tensor import TensorAnnotation
 from pypto.converter import _torch_dtype_from, _gen_pto_tensor
 from pypto.cost_model import _cost_model_run_once_data_from_host
 from pypto.frontend.parser.diagnostics import Source
@@ -398,14 +399,19 @@ class JitCallableWrapper:
             if param_name == "return":
                 continue
             ann = annotations.get(param_name)
-            if ann is not None and isinstance(ann, pypto.Tensor):
+            if ann is not None and (isinstance(ann, pypto.Tensor) or isinstance(ann, TensorAnnotation)):
                 if seen_non_tensor:
                     raise ValueError(
                         "Non-tensor parameters must come after all tensor parameters. "
                         f"Found tensor parameter '{param_name}' after non-tensor "
                         "parameter(s)."
                     )
-                input_tensor_list.append(ann)
+                # Convert TensorAnnotation to Tensor if needed
+                if isinstance(ann, TensorAnnotation):
+                    tensor = ann.to_tensor(param_name)
+                    input_tensor_list.append(tensor)
+                else:
+                    input_tensor_list.append(ann)
             else:
                 seen_non_tensor = True
                 non_tensor_param_names.append(param_name)
