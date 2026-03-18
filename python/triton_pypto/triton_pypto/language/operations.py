@@ -193,6 +193,12 @@ class TensorWrapper(pypto_wrap.BaseWrapper[pypto.tensor]):
     def __sub__(self, other) -> Self:
         return tensor_binary_op(self, other, pypto_wrap.sub, "sub")
 
+    # TODO: Check implementation in pypto operations
+    def __mod__(self, other) -> Self:
+        res1 = self / other
+        res2 = self - res1 * other
+        return res2
+
     def __rsub__(self, other) -> Self:
         return tensor_binary_op(other, self, pypto_wrap.sub, "rsub")
 
@@ -607,6 +613,10 @@ class AffineTensorLayout(SingleTensorLayout, StaticDynamic):
     def __add__(self, other: Union[int, pypto.symbolic_scalar, Self]) -> Self:
         if isinstance(other, (int, pypto.symbolic_scalar)):
             return self.clone(offset=self.offset + other)
+        if isinstance(other, tuple):
+            strides = self.strides
+            add_offset = builtins.sum(s * o for s, o in zip(strides, other))
+            return self.clone(offset=self.offset + add_offset)
         if isinstance(other, self.__class__):
             return self.clone(
                 base=self.select_base(other),
@@ -1018,9 +1028,10 @@ def make_block_ptr(base: Any, shape: Tuple[int, ...], strides: Tuple[int, ...], 
     rank = len(shape)
     if not all(len(t) == rank for t in (strides, offsets, block_shape, order)):
         raise RuntimeError(f"rank {rank} is not consistent among descriptors")
-    offset = builtins.sum(s * o for s, o in zip(shape, offsets))
+    offset = builtins.sum(s * o for s, o in zip(strides, offsets))
     order = None  # TODO: respect the order
-    return AffineTensorLayout(base=layout.base, offset=offset, sizes=block_shape, strides=strides, order=order)
+    return AffineTensorLayout(base=layout.base, offset=layout.offset + offset, sizes=block_shape, strides=strides,
+                              order=order)
 
 
 # TODO: implement tensor method
@@ -1260,7 +1271,7 @@ def permute(input: TensorWrapper, *dims: Union[int, Iterable[int]]) -> TensorWra
     if len(pto_dims) != 2:
         raise RuntimeError(f"more than two dimensions are different: {dims} vs. {canon_dims}")
     pto_dims.sort()
-    input.auto_vec_tile(buf_num=4)
+    input.auto_vec_tile()  # TODO: Need check buf num
     input = pypto_wrap.transpose(input, *pto_dims)
     return TensorWrapper(input)
 
@@ -1401,3 +1412,20 @@ def static_print(*values, sep: str = ' ', end: str = '\n', file: Optional[Any] =
 @log_call
 def static_assert(cond: bool, msg: str = '') -> None:
     assert cond, msg
+
+
+@log_call
+def advance(block_ptr: AffineTensorLayout, offset):
+    return block_ptr + offset
+
+
+@bind_tensor_method
+@log_call
+def exp2(x: TensorWrapper) -> TensorWrapper:
+    x.auto_vec_tile()
+    return TensorWrapper(pypto_wrap.exp(x * 0.693147))  # TODO: Need check
+
+
+@log_call
+def debug_barrier():
+    pass

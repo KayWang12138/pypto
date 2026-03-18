@@ -5,6 +5,7 @@ def mock():
     import triton.language as tl
     mocks = (
         l.abs,
+        l.advance,
         l.arange,
         l.assume,
         l.broadcast,
@@ -15,9 +16,11 @@ def mock():
         l.clamp,
         l.cos,
         l.cumsum,
+        l.debug_barrier,
         l.div_rn,
         l.dot,
         l.exp,
+        l.exp2,
         l.expand_dims,
         l.fdiv,
         l.fma,
