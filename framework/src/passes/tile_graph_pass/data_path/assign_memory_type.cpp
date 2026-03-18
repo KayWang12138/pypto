@@ -569,33 +569,35 @@ void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
         }
         auto oOperand = op.GetOOperands().front();
         auto iOperand = op.GetIOperands().front();
-        if(iOperand->GetMemoryTypeOriginal() == MEM_L0C) {
-            bool isToL1 = true;
-            auto toBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
-            for (const auto &pair : toBeMap) {
-                const auto &toBeType = pair.second;
-                if (toBeType != MemoryType::MEM_L1) {
-                    isToL1 = false;
-                    break;
+        if(iOperand->GetMemoryTypeOriginal() != MEM_L0C) {
+            continue;
+        }
+        bool isToL1 = true;
+        auto toBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
+        for (const auto &pair : toBeMap) {
+            const auto &toBeType = pair.second;
+            if (toBeType != MemoryType::MEM_L1) {
+                isToL1 = false;
+                break;
+            }
+        }
+        bool isConsumerOutputMultiple = true;
+        for (auto &consumerOp : oOperand->GetConsumers()) {
+            if (consumerOp->GetOpcode() == Opcode::OP_VIEW && !IsDimMultiple(consumerOp->GetOOperands().front()->GetShape(), iOperand->GetShape())) {
+                isConsumerOutputMultiple = false;
+                break;
+            }
+        }
+        if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()) || !isConsumerOutputMultiple){
+            oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+            const auto &tensorToBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
+            for (const auto &[consumerOp, memoryType] : tensorToBeMap) {
+                if (memoryType == MemoryType::MEM_L0C) {
+                    inserter.UpdateTensorTobeMap(oOperand, *consumerOp, MemoryType::MEM_DEVICE_DDR);
                 }
             }
-            bool isConsumerOutputMultiple = true;
-            for (auto &consumerOp : oOperand->GetConsumers()) {
-                if (consumerOp->GetOpcode() == Opcode::OP_VIEW && !IsDimMultiple(consumerOp->GetOOperands().front()->GetShape(), iOperand->GetShape())) {
-                    isConsumerOutputMultiple = false;
-                    break;
-                }
-            }
-            if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()) || !isConsumerOutputMultiple){                oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
-                const auto &tensorToBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
-                for (const auto &[consumerOp, memoryType] : tensorToBeMap) {
-                    if (memoryType == MemoryType::MEM_L0C) {
-                        inserter.UpdateTensorTobeMap(oOperand, *consumerOp, MemoryType::MEM_DEVICE_DDR);
-                    }
-                }
-                APASS_LOG_DEBUG_F(Elements::Tensor, "Set tensor %d original memory type "
-                    "to DDR since not towards L1 or not multipule dimensions.", oOperand->magic);
-            }
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Set tensor %d original memory type "
+                "to DDR since not towards L1 or not multipule dimensions.", oOperand->magic);
         }
     }
 }
