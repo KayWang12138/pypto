@@ -673,6 +673,36 @@ TEST_F(CostModelTest, TestGetCyclesForPassA5) {
     EXPECT_GT(cycle, 0);
 }
 
+TEST_F(CostModelTest, TestGetCyclesForPassCopyIn) {
+    const std::string opCode = "COPY_IN";
+    std::vector<std::vector<int>> shape = {{1, 1, 1, 1}};
+    DataType dtype = DataType::DT_INT4;
+    config::SetPlatformConfig("device_platform", "ASCEND_950PR_9579");
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, 1);
+    int64_t cycle = CostModel::GetCyclesForPass(opCode, shape, dtype);
+    EXPECT_GT(cycle, 0);
+}
+
+TEST_F(CostModelTest, TestGetCyclesForPassCopyOut) {
+    const std::string opCode = "COPY_OUT";
+    std::vector<std::vector<int>> shape = {{1, 1, 1, 1}};
+    DataType dtype = DataType::DT_INT4;
+    config::SetPlatformConfig("device_platform", "ASCEND_950PR_9579");
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, 1);
+    int64_t cycle = CostModel::GetCyclesForPass(opCode, shape, dtype);
+    EXPECT_GT(cycle, 0);
+}
+
+TEST_F(CostModelTest, TestGetCyclesForPassSimulate) {
+    const std::string opCode = "WHERE_TT";
+    std::vector<std::vector<int>> shape = {{1, 1, 1, 1}};
+    DataType dtype = DataType::DT_INT4;
+    config::SetPlatformConfig("device_platform", "ASCEND_950PR_9579");
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, 1);
+    int64_t cycle = CostModel::GetCyclesForPass(opCode, shape, dtype);
+    EXPECT_GT(cycle, 0);
+}
+
 TEST_F(CostModelTest, TestGetCyclesForPassSo) {
     typedef int64_t (*GetCyclesForPassFunc)(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype);
     const std::string opCode = "L1_TO_L0A";
