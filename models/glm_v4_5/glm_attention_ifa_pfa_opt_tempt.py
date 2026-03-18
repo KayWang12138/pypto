@@ -277,9 +277,19 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
             "stitch_function_outcast_memory": 1024,
             "stitch_function_inner_memory": 1024
         },
+        # pass_options={
+        #     "pg_upper_bound": 1536,
+        #     "cube_l1_reuse_setting": {0: 4}
+        # },
         pass_options={
-            "pg_upper_bound": 1536,
-            "cube_l1_reuse_setting": {0: 4}
+            "cube_l1_reuse_setting": {-1:16}, 
+            "cube_nbuffer_setting":{-1:16}, 
+            "vec_nbuffer_mode":2, 
+            "vec_nbuffer_setting":{-1:8}
+        },
+        verify_options = {
+            "enable_pass_verify": True,
+            "pass_verify_save_tensor": True
         },
         debug_options={"runtime_debug_mode":1}
     )
