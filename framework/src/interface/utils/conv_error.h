@@ -11,11 +11,12 @@
 /*!
  * \file conv_error.h
  * \brief CONV 组件错误分类、场景枚举与错误码常量。
- *        - F6XXXX-F8XXX：CONV 内部已梳理报错。
+ *        - FC6XXXX-FC8XXX：CONV 内部已梳理报错。
  */
 
 #pragma once
 #include <cstdint>
+#include "tilefwk/error.h"
 
 namespace npu::tile_fwk {
 

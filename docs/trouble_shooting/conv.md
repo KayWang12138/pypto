@@ -12,7 +12,7 @@
 
 ## 错误码定义和场景说明
 
-### 1. Operation（Operation非法拦截类报错，`ConvError::Operation`，F61xxx）
+### 1. Operation（Operation非法拦截类报错，`ConvError::Operation`，FC61xxx）
 
 | 场景枚举 | 错误码 | 报错阶段 | 场景说明 |
 |---------|------|----------------------------------|----------|
@@ -20,16 +20,16 @@
 | `OVER_BUFFER_LIMIT` | **FC6102** | `conv.operation.checkweight` | Operation校验超出空间限制不合法。 |
 | `UNKNOWN` | **FC6199** | `conv.operation.reserved` | Operation阶段未知报错预留错误码。 |
 
-### 2. Tile切分（Tile图切分，`ConvError::ExpandFunction`，F62xxx）
+### 2. Tile切分（Tile图切分，`ConvError::ExpandFunction`，FC62xxx）
 
 | 场景枚举 | 错误码 | 报错阶段 | 场景说明 |
 |---------|------|----------|------|
-| `EXPANDFUNC_TENSOR_OP_NULLPTR` | **F6201** | `conv.expandfunc.tensor_nullptr` | Tile图切分，tensor图处理节点空指针报错。 |
-| `EXPANDFUNC_TENSOR_ATTR_GET_FAILED` | **F6202** | `conv.expandfunc.get_attr` | Tile图切分，tensor图节点属性获取失败。 |
-| `EXPANDFUNC_TILE_OP_NULLPTR` | **F6203** | `conv.expandfunc.tile_nullptr` | Tile图切分，tile图新生成节点空指针报错。 |
-| `EXPANDFUNC_PARAMS_INVALID` | **F6204** | `conv.expandfunc.params_check` | Tile图切分，参数不匹配错误（维度，类型，Tile块配置）。 |
-| `EXPANDFUNC_INNER_STATUS_FAILED` | **F6205** | `conv.expandfunc.check_status` | Tile图切分，内部功能函数返回值异常错误。 |
-| `UNKNOWN` | **F6299** | `conv.operation.reserved` | ExpandFunc Tile图切分阶段未知报错预留错误码。 |
+| `EXPANDFUNC_TENSOR_OP_NULLPTR` | **FC6201** | `conv.expandfunc.tensor_nullptr` | Tile图切分，tensor图处理节点空指针报错。 |
+| `EXPANDFUNC_TENSOR_ATTR_GET_FAILED` | **FC6202** | `conv.expandfunc.get_attr` | Tile图切分，tensor图节点属性获取失败。 |
+| `EXPANDFUNC_TILE_OP_NULLPTR` | **FC6203** | `conv.expandfunc.tile_nullptr` | Tile图切分，tile图新生成节点空指针报错。 |
+| `EXPANDFUNC_PARAMS_INVALID` | **FC6204** | `conv.expandfunc.params_check` | Tile图切分，参数不匹配错误（维度，类型，Tile块配置）。 |
+| `EXPANDFUNC_INNER_STATUS_FAILED` | **FC6205** | `conv.expandfunc.check_status` | Tile图切分，内部功能函数返回值异常错误。 |
+| `UNKNOWN` | **FC6299** | `conv.operation.reserved` | ExpandFunc Tile图切分阶段未知报错预留错误码。 |
 
 ### 3. CodenGen
 
