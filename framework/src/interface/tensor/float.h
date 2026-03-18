@@ -51,6 +51,8 @@ class Float {
         return *static_cast<float *>(p);
     }
 
+    TBase RawBits() const { return value; }
+
     static bool isNaN(TBase v) {
         uint32_t exp = (v >> fracBit) & BitOf(expBit);
         uint32_t frac = v & BitOf(fracBit);
