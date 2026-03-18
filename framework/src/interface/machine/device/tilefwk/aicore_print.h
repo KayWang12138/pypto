@@ -31,11 +31,25 @@
 #include <securec.h>
 #endif
 
-enum NodeTy { END, NORMAL, FLOAT, INT, CHAR, STRING, POINTER };
+enum NodeTy { END, NORMAL, FLOAT, INT, CHAR, STRING, POINTER, FLOAT16, BFLOAT16 };
+
+/** 用于 AiCoreLogF 打印 float16。device: Float16PrintArg{*reinterpret_cast<const uint16_t*>(&half_val)}；
+ *  host(含 interface/tensor/float.h 时): Float16PrintArg{float16_val.RawBits()} */
+struct Float16PrintArg {
+    uint16_t bits;
+};
+
+/** 用于 AiCoreLogF 打印 bfloat16。device: Bfloat16PrintArg{*reinterpret_cast<const uint16_t*>(&bf16_val)}；
+ *  host(含 interface/tensor/float.h 时): Bfloat16PrintArg{bfloat16_val.RawBits()} */
+struct Bfloat16PrintArg {
+    uint16_t bits;
+};
 
 struct LogContext {
     void (*PrintInt)(LogContext *ctx, __gm__ const char **fmt, int64_t val);
     void (*PrintFloat)(LogContext *ctx, __gm__ const char **fmt, float val);
+    void (*PrintFloat16)(LogContext *ctx, __gm__ const char **fmt, uint16_t val);
+    void (*PrintBfloat16)(LogContext *ctx, __gm__ const char **fmt, uint16_t val);
     void (*Print)(LogContext *ctx, __gm__ const char *fmt);
 };
 
@@ -47,6 +61,14 @@ INLINE void __AiCorePrint(LogContext *ctx, __gm__ const char **fmt, T val) {
         ctx->PrintFloat(ctx, fmt, static_cast<float>(val));
     } else if constexpr (std::is_pointer_v<T>) {
         ctx->PrintInt(ctx, fmt, reinterpret_cast<int64_t>(val));
+    } else if constexpr (std::is_same_v<T, Float16PrintArg>) {
+        if (ctx->PrintFloat16) {
+            ctx->PrintFloat16(ctx, fmt, val.bits);
+        }
+    } else if constexpr (std::is_same_v<T, Bfloat16PrintArg>) {
+        if (ctx->PrintBfloat16) {
+            ctx->PrintBfloat16(ctx, fmt, val.bits);
+        }
     }
 }
 
@@ -78,6 +100,20 @@ struct AicoreLogger {
         }
     }
 
+    static __aicore__ void __PrintFloat16(LogContext *ctx, __gm__ const char **fmt, uint16_t val) {
+        auto self = reinterpret_cast<AicoreLogger *>(ctx);
+        if (self) {
+            self->PrintFloat16(fmt, val);
+        }
+    }
+
+    static __aicore__ void __PrintBfloat16(LogContext *ctx, __gm__ const char **fmt, uint16_t val) {
+        auto self = reinterpret_cast<AicoreLogger *>(ctx);
+        if (self) {
+            self->PrintBfloat16(fmt, val);
+        }
+    }
+
     static __aicore__ void __Print(LogContext *ctx, __gm__ const char *fmt) {
         auto self = reinterpret_cast<AicoreLogger *>(ctx);
         if (self) {
@@ -93,6 +129,8 @@ struct AicoreLogger {
         data_ = buf + sizeof(Remote);
         ctx.PrintInt = __PrintInt;
         ctx.PrintFloat = __PrintFloat;
+        ctx.PrintFloat16 = __PrintFloat16;
+        ctx.PrintBfloat16 = __PrintBfloat16;
         ctx.Print = __Print;
     }
 
@@ -155,6 +193,46 @@ struct AicoreLogger {
         *fmt = *fmt + idx;
     }
 
+    __aicore__ void PrintFloat16(__gm__ const char **fmt, uint16_t val) {
+        auto curFmt = *fmt;
+        auto idx = ParseNextFormat(*fmt);
+        if (idx == -1) {
+            return;
+        }
+        switch (curFmt[idx++]) {
+            case 'f':
+            case 'e':
+            case 'E':
+            case 'g':
+            case 'G': {
+                Encode(FLOAT16, reinterpret_cast<uint8_t *>(&val), sizeof(val), *fmt, idx);
+                break;
+            }
+            default: Encode(NORMAL, static_cast<uint8_t *>(nullptr), 0, *fmt, idx); break;
+        }
+        *fmt = *fmt + idx;
+    }
+
+    __aicore__ void PrintBfloat16(__gm__ const char **fmt, uint16_t val) {
+        auto curFmt = *fmt;
+        auto idx = ParseNextFormat(*fmt);
+        if (idx == -1) {
+            return;
+        }
+        switch (curFmt[idx++]) {
+            case 'f':
+            case 'e':
+            case 'E':
+            case 'g':
+            case 'G': {
+                Encode(BFLOAT16, reinterpret_cast<uint8_t *>(&val), sizeof(val), *fmt, idx);
+                break;
+            }
+            default: Encode(NORMAL, static_cast<uint8_t *>(nullptr), 0, *fmt, idx); break;
+        }
+        *fmt = *fmt + idx;
+    }
+
     __aicore__ void Print(__gm__ const char *str) {
         auto n = Length(str);
         if (n) {
@@ -184,6 +262,32 @@ struct AicoreLogger {
     INLINE LogContext *context() { return &ctx; }
 
 #ifdef __TILE_FWK_HOST__
+    static float Fp16BitsToFloat(uint16_t bits) {
+        if ((bits & 0x7FFFU) == 0) {
+            return (bits & 0x8000U) ? -0.0f : 0.0f;
+        }
+        uint32_t sign = (bits & 0x8000U) << 16;
+        uint32_t exp = (bits >> 10) & 0x1FU;
+        uint32_t frac = bits & 0x3FFU;
+        if (exp == 0) {
+            while ((frac & 0x400U) == 0) {
+                frac += frac;
+                exp--;
+            }
+            exp++;
+            frac &= 0x3FFU;
+        } else if (exp == 0x1FU) {
+            return (frac == 0) ? (sign ? -1.0f / 0.0f : 1.0f / 0.0f) : (0.0f / 0.0f);
+        }
+        uint32_t fp32 = sign | ((exp - 15 + 127) << 23) | (frac << 13);
+        return *reinterpret_cast<float *>(&fp32);
+    }
+
+    static float Bf16BitsToFloat(uint16_t bits) {
+        uint32_t fp32 = static_cast<uint32_t>(bits) << 16;
+        return *reinterpret_cast<float *>(&fp32);
+    }
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
     int Read(char *buf, size_t maxSize) {
@@ -213,6 +317,8 @@ struct AicoreLogger {
             switch (type) {
                 case NORMAL: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), 0); break;
                 case FLOAT: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<float>(valOff)); break;
+                case FLOAT16: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Fp16BitsToFloat(Read<uint16_t>(valOff))); break;
+                case BFLOAT16: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Bf16BitsToFloat(Read<uint16_t>(valOff))); break;
                 case INT: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<int64_t>(valOff)); break;
                 case CHAR: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<char>(valOff)); break;
                 case STRING: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), ReadString(valOff).c_str()); break;
