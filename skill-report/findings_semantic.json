@@ -1,0 +1,245 @@
+[
+  {
+    "rule_id": "R07",
+    "status": "PASS",
+    "severity": "S1",
+    "dimension": "D1",
+    "message": "description 清晰回答了做什么（利用精度工具通过二分查找方法快速定位算子精度问题）和何时使用（当需要调试 PyPTO 算子精度、定位精度差异来源或进行中间结果对比时使用此技能）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "PyPTO 算子二分查找调试技能。利用精度工具通过二分查找方法快速定位算子精度问题。当需要调试 PyPTO 算子精度、定位精度差异来源或进行中间结果对比时使用此技能。"
+    }
+  },
+  {
+    "rule_id": "R08",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D1",
+    "message": "description 包含自然触发短语，如调试 PyPTO 算子精度、定位精度差异、中间结果对比等用户可能自然说出的短语",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "当需要调试 PyPTO 算子精度、定位精度差异来源或进行中间结果对比时使用此技能"
+    }
+  },
+  {
+    "rule_id": "R09",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D1",
+    "message": "description 以结果为导向，明确指出技能的产出是快速定位算子精度问题，而非仅罗列功能特性",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "利用精度工具通过二分查找方法快速定位算子精度问题"
+    }
+  },
+  {
+    "rule_id": "R14",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D2",
+    "message": "各章节之间未发现明显冗余重复内容，每个章节都有明确的职责边界"
+  },
+  {
+    "rule_id": "R19",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D3",
+    "message": "被引用文件 scripts/verify_binary_search.py 在通用对比工具章节中说明了用途（自动完成检查点扫描和对比）和加载时机（需要对比时运行该脚本）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 23,
+      "snippet": "本技能提供了通用对比脚本 scripts/verify_binary_search.py，自动完成检查点扫描和对比"
+    }
+  },
+  {
+    "rule_id": "R20",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D4",
+    "message": "指令主要使用祈使语气，如运行测试、插入检查点、使用通用工具对比等，符合规范要求",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 137,
+      "snippet": "运行测试，判断是否需要二分查找"
+    }
+  },
+  {
+    "rule_id": "R21",
+    "status": "PASS",
+    "severity": "S3",
+    "dimension": "D4",
+    "message": "指令中未发现明显的模糊语言或弱化词，指令表述清晰明确"
+  },
+  {
+    "rule_id": "R23",
+    "status": "FAIL",
+    "severity": "S2",
+    "dimension": "D4",
+    "message": "部分指令缺少原因解释。例如必须设置 verify_options={enable_pass_verify: True} 仅说明要做什么，未解释为何必须设置此选项",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 96,
+      "snippet": "必须设置 verify_options"
+    },
+    "suggested_fix": "补充原因说明，例如：必须设置 verify_options={enable_pass_verify: True}，因为 pass_verify_save 功能默认是关闭的，需要显式启用才能输出中间结果"
+  },
+  {
+    "rule_id": "R24",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D5",
+    "message": "工作流步骤具备可验证的成功标准，如步骤0中定义了 is_match 变量来判断是否继续二分，步骤3中工具会输出对比结果",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 152,
+      "snippet": "if is_match:"
+    }
+  },
+  {
+    "rule_id": "R25",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D5",
+    "message": "命令和路径具体明确，如 python3 test_operator.py 等都是可执行的具体命令",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 166,
+      "snippet": "python3 test_operator.py"
+    }
+  },
+  {
+    "rule_id": "R26",
+    "status": "PASS",
+    "severity": "S1",
+    "dimension": "D5",
+    "message": "所有提及的操作都提供了具体实现方法，包括代码示例和命令行调用方式"
+  },
+  {
+    "rule_id": "R27",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D5",
+    "message": "完成标准明确定义：定位到第一个计算结果不同的 op 并修复问题后重新验证，清理调试代码",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 354,
+      "snippet": "定位到具体的 op"
+    }
+  },
+  {
+    "rule_id": "R28",
+    "status": "PASS",
+    "severity": "S1",
+    "dimension": "D6",
+    "message": "定义了清晰的分步工作流，包含步骤0-5共6个有序步骤，每个步骤都有明确的任务",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 134,
+      "snippet": "完整工作流程"
+    }
+  },
+  {
+    "rule_id": "R29",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D6",
+    "message": "工作流步骤之间衔接顺畅：步骤1输出检查点数据，步骤2运行测试生成数据文件，步骤3使用工具对比数据，步骤4根据建议继续二分，形成完整的数据流"
+  },
+  {
+    "rule_id": "R30",
+    "status": "FAIL",
+    "severity": "S2",
+    "dimension": "D6",
+    "message": "缺少错误处理说明。例如：如果找不到 output 目录怎么办？如果 golden 文件不存在怎么处理？工具返回错误时应该如何排查？",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 339,
+      "snippet": "常见问题"
+    },
+    "suggested_fix": "在完整工作流程章节中增加错误处理子章节，说明常见错误场景及处理方法，如：output 目录不存在时检查是否正确运行了测试；golden 文件不存在时检查是否正确插入了保存代码"
+  },
+  {
+    "rule_id": "R31",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D6",
+    "message": "条件分支描述完整，如原则1中明确说明了两种情况的处理方式：整体结果匹配则结束调试，不匹配则继续二分查找",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 71,
+      "snippet": "如果整体结果匹配"
+    }
+  },
+  {
+    "rule_id": "R32",
+    "status": "PASS",
+    "severity": "S3",
+    "dimension": "D7",
+    "message": "采用渐进披露模式：开头的标题和简介作为入口摘要，核心原理和完整工作流程作为正文细节，参考资料指向外部文档"
+  },
+  {
+    "rule_id": "R33",
+    "status": "PASS",
+    "severity": "S3",
+    "dimension": "D7",
+    "message": "验证任务使用确定性脚本 scripts/verify_binary_search.py 进行数据对比，而非完全依赖 LLM 判断",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 23,
+      "snippet": "通用对比脚本"
+    }
+  },
+  {
+    "rule_id": "R42",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D9",
+    "message": "脚本 verify_binary_search.py 包含基础错误处理：使用 sys.exit(1) 返回非零退出码，对文件不存在等错误情况有日志输出",
+    "evidence": {
+      "file": "scripts/verify_binary_search.py",
+      "line": 173,
+      "snippet": "sys.exit(1)"
+    }
+  },
+  {
+    "rule_id": "R46",
+    "status": "FAIL",
+    "severity": "S3",
+    "dimension": "D4",
+    "message": "第123行、第180行、第249行的代码块缺少语言标注",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 123,
+      "snippet": "输入 [op1] [op2]"
+    },
+    "suggested_fix": "为这三个代码块添加语言标注。第123行和第180行可使用 text 标注（为纯文本图表），第249行可使用 text 标注（为流程说明）"
+  },
+  {
+    "rule_id": "R47",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D7",
+    "message": "多选场景有默认推荐：命令行参数中标注了默认值（如 --rtol FLOAT 默认 1e-3、--atol FLOAT 默认 1e-3、-w, --work-dir 默认当前目录）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 51,
+      "snippet": "相对误差容忍度（默认 1e-3）"
+    }
+  },
+  {
+    "rule_id": "R48",
+    "status": "WARN",
+    "severity": "S3",
+    "dimension": "D1",
+    "message": "description 仅列出显式触发关键词（调试 PyPTO 算子精度、定位精度差异、中间结果对比），缺少扩展触发短语如 whenever、including 等，可能导致在相关场景下未能主动使用该技能",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "当需要调试 PyPTO 算子精度"
+    },
+    "suggested_fix": "在 description 中添加扩展触发短语，例如：Whenever encountering precision issues in PyPTO operators, including but not limited to accuracy mismatches, numerical differences, or any intermediate result comparison needs, use this skill for systematic binary search debugging."
+  }
+]

@@ -1,0 +1,437 @@
+[
+  {
+    "rule_id": "R01",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "SKILL.md 以有效的 frontmatter 块开头",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R02",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "name 字段 'pypto-aicore-error-locator' 符合 kebab-case 格式",
+    "evidence": {"file": "SKILL.md", "line": 2, "snippet": "name: pypto-aicore-error-locator"}
+  },
+  {
+    "rule_id": "R03",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "description 字段存在且长度充足",
+    "evidence": {"file": "SKILL.md", "line": 3, "snippet": "description: 定位测试案例中出现 aicore error 时的问题 CCE 文件。"}
+  },
+  {
+    "rule_id": "R04",
+    "severity": "S1",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "name 值与 skill 目录名一致",
+    "evidence": {"file": "SKILL.md", "line": 2, "snippet": "name: pypto-aicore-error-locator"}
+  },
+  {
+    "rule_id": "R05",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "description 长度未超过 1024 字符",
+    "evidence": {"file": "SKILL.md", "line": 3, "snippet": "description: 定位测试案例中出现 aicore error 时的问题 CCE 文件。"}
+  },
+  {
+    "rule_id": "R06",
+    "severity": "S3",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "frontmatter 仅包含已知字段",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R07",
+    "severity": "S1",
+    "dimension": "D1",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "description 回答了'做什么'（定位测试案例中出现 aicore error 时的问题 CCE 文件）和'何时使用'（当需要分析 aicore 错误并找到导致错误的 CCE 文件时使用此技能）",
+    "evidence": {"file": "SKILL.md", "line": 3, "snippet": "description: 定位测试案例中出现 aicore error 时的问题 CCE 文件。当需要分析 aicore 错误并找到导致错误的 CCE 文件时使用此技能。"}
+  },
+  {
+    "rule_id": "R08",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "semantic",
+    "status": "FAIL",
+    "message": "description 缺少用户自然会说出的触发短语。当前描述较为技术化，缺少如'定位 aicore 错误'、'找 CCE 文件'、'分析 aicore error' 等用户口语化表达",
+    "evidence": {"file": "SKILL.md", "line": 3, "snippet": "description: 定位测试案例中出现 aicore error 时的问题 CCE 文件。当需要分析 aicore 错误并找到导致错误的 CCE 文件时使用此技能。"},
+    "suggested_fix": "在 description 中添加更自然的触发短语，例如：'当用户说\"aicore error 定位\"、\"找 CCE 文件\"、\"aicore 错误分析\"时使用此技能'"
+  },
+  {
+    "rule_id": "R09",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "description 以结果为导向，明确说明了产出：定位问题 CCE 文件",
+    "evidence": {"file": "SKILL.md", "line": 3, "snippet": "定位测试案例中出现 aicore error 时的问题 CCE 文件"}
+  },
+  {
+    "rule_id": "R10",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在 allowed-tools 字段，无需检查",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R11",
+    "severity": "S1",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "SKILL.md 共 119 行，未超过 600 行限制",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R12",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "正文词数未超过 6000 词限制",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R13",
+    "severity": "S1",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现 TODO/FIXME/HACK 占位符",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R14",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "各章节之间未发现明显的冗余重复内容",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R15",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "skill 目录名 'pypto-aicore-error-locator' 符合 kebab-case 格式",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R16",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在超过 100 行的大型参考内容块",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R17",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现绝对路径引用",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R18",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在被引用的外部文件路径需要检查",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R19",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "skill 没有引用外部文件（如 references/、scripts/、templates/），因此此规则不适用",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R20",
+    "severity": "S2",
+    "dimension": "D4",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "指令主要使用祈使语气，如'使用 question 工具'、'修改以下配置'、'进入用户提供的 pypto 目录'等",
+    "evidence": {"file": "SKILL.md", "line": 15, "snippet": "首先使用 `question` 工具向用户收集以下必要信息"}
+  },
+  {
+    "rule_id": "R21",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "指令中使用明确的祈使语气，未发现模糊语言如'考虑'、'你可以'、'也许'等",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R22",
+    "severity": "S2",
+    "dimension": "D4",
+    "type": "static",
+    "status": "PASS",
+    "message": "所有代码块都正确闭合",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R23",
+    "severity": "S2",
+    "dimension": "D4",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "关键指令包含了解释原因，如'每次运行前必须清理，避免日志混淆'、'一定要进入运行目录，同时配置日志路径和设置日志级别'",
+    "evidence": {"file": "SKILL.md", "line": 65, "snippet": "**重要**: 每次运行前必须清理，避免日志混淆。"}
+  },
+  {
+    "rule_id": "R24",
+    "severity": "S2",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "工作流步骤具有可验证的成功标准，如'打屏日志中必须出现aicore error'、'从Uid对应的LEvent提取出<CCE_ID>'",
+    "evidence": {"file": "SKILL.md", "line": 77, "snippet": "**重要**: 运行测试的打屏日志中必须出现aicore error，如果未出现，则不适用于该SKILL，请停止运行"}
+  },
+  {
+    "rule_id": "R25",
+    "severity": "S2",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "命令和路径具体明确，如具体的 grep 命令、export 命令、配置文件名称等",
+    "evidence": {"file": "SKILL.md", "line": 84, "snippet": "grep -rn \"trace\" <log-file> | grep \"LActStart\""}
+  },
+  {
+    "rule_id": "R26",
+    "severity": "S1",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "所有操作都提供了具体方法，包括使用 question 工具、修改配置文件、运行 grep 命令等",
+    "evidence": {"file": "SKILL.md", "line": 15, "snippet": "首先使用 `question` 工具向用户收集以下必要信息"}
+  },
+  {
+    "rule_id": "R27",
+    "severity": "S2",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "完成标准明确定义：'输出找到的 CPP 文件路径'",
+    "evidence": {"file": "SKILL.md", "line": 107, "snippet": "## 8. 输出结果\n\n输出找到的 CPP 文件路径。"}
+  },
+  {
+    "rule_id": "R28",
+    "severity": "S1",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "定义了清晰的分步工作流，包含 8 个编号步骤",
+    "evidence": {"file": "SKILL.md", "line": 11, "snippet": "## 工作流程\n\n### 1. 收集必要信息"}
+  },
+  {
+    "rule_id": "R29",
+    "severity": "S2",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "工作流步骤衔接顺畅，上一步输出（如用户提供的路径）连接到下一步输入（使用该路径进行操作）",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R30",
+    "severity": "S2",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "包含错误处理说明：'如果未出现[aicore error]，则不适用于该SKILL，请停止运行'",
+    "evidence": {"file": "SKILL.md", "line": 77, "snippet": "运行测试的打屏日志中必须出现aicore error，如果未出现，则不适用于该SKILL，请停止运行"}
+  },
+  {
+    "rule_id": "R31",
+    "severity": "S2",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "条件分支描述完整，如'若路径不存在则创建该目录'、'如果未出现，则不适用于该SKILL'",
+    "evidence": {"file": "SKILL.md", "line": 73, "snippet": "若路径不存在则创建该目录"}
+  },
+  {
+    "rule_id": "R32",
+    "severity": "S3",
+    "dimension": "D7",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "采用渐进披露模式：标题概述功能，正文详细描述工作流步骤，关键点总结注意事项",
+    "evidence": {"file": "SKILL.md", "line": 7, "snippet": "# AICore Error 定位器\n\n此技能帮助定位测试案例中出现 aicore error 时的问题 CCE 文件。"}
+  },
+  {
+    "rule_id": "R33",
+    "severity": "S3",
+    "dimension": "D7",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "此 skill 不涉及验证任务需要确定性脚本，工作流主要是执行操作而非验证",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R34",
+    "severity": "S0",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现密钥、凭据或敏感数据",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R35",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现硬编码的用户目录绝对路径",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R36",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在超过 50 行的大型数据块",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R37",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "frontmatter 中未发现 XML 标签",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R38",
+    "severity": "S2",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现 Windows 风格路径",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R39",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在 scripts/ 目录，无需检查脚本语法",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R40",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在 scripts/ 目录，无需检查 shebang",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R41",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在 scripts/ 目录，无需检查脚本路径可移植性",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R42",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "semantic",
+    "status": "SKIP",
+    "message": "不存在 scripts/ 目录，R42 规则不适用",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R43",
+    "severity": "S3",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在非标准命名的子目录",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R44",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "description 中未发现尖括号占位符",
+    "evidence": {"file": "SKILL.md", "line": 3, "snippet": "description: 定位测试案例中出现 aicore error 时的问题 CCE 文件。"}
+  },
+  {
+    "rule_id": "R45",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现重复的章节标题",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R46",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "semantic",
+    "status": "FAIL",
+    "message": "代码块缺少语言标注。第 22-37 行的 YAML 配置示例代码块没有指定语言标识符 'yaml'，第 84-90 行的 bash 命令代码块没有指定 'bash'，第 102-103 行的格式说明没有标注",
+    "evidence": {"file": "SKILL.md", "line": 22, "snippet": "```\nquestion: \n  - header: \"PyPTO配置\""},
+    "suggested_fix": "为代码块添加语言标注：将第 22 行的 '```' 改为 '```yaml'，将第 84 行的 '```' 改为 '```bash'"
+  },
+  {
+    "rule_id": "R47",
+    "severity": "S2",
+    "dimension": "D7",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "skill 没有提供多个选项供用户/AI 选择的场景，工作流是线性的",
+    "evidence": {"file": "SKILL.md", "line": 0, "snippet": ""}
+  },
+  {
+    "rule_id": "R48",
+    "severity": "S3",
+    "dimension": "D1",
+    "type": "semantic",
+    "status": "WARN",
+    "message": "description 仅列出显式触发关键词，缺少扩展触发范围的短语如 'whenever'、'including'、'or any related to'，可能导致在相关场景下不使用该技能",
+    "evidence": {"file": "SKILL.md", "line": 3, "snippet": "description: 定位测试案例中出现 aicore error 时的问题 CCE 文件。当需要分析 aicore 错误并找到导致错误的 CCE 文件时使用此技能。"},
+    "suggested_fix": "扩展 description 的触发范围，添加类似 'whenever aicore error occurs' 或 'including any aicore-related failures' 的短语"
+  }
+]
