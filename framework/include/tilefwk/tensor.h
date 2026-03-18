@@ -18,6 +18,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <optional>
 #include <initializer_list>
 #include "tilefwk/data_type.h"
 #include "tilefwk/symbolic_scalar.h"
