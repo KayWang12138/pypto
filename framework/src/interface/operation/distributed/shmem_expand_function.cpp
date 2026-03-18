@@ -215,6 +215,13 @@ void TiledShmemPut(Function& function, const TileShape& tileShape,
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        tileOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+            MemoryType::MEM_DEVICE_DDR,
+            OpImmediate::Specified(nonShmemDataTileOffset),
+            OpImmediate::Specified(nonShmemDataTileShape),
+            OpImmediate::Specified(in->shape),
+            OpImmediate::Specified(inTile->dynValidShape_)
+        ));
     });
 }
 
@@ -342,6 +349,13 @@ void TiledShmemGet(Function& function, const TileShape& tileShape,
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        tileOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+            MemoryType::MEM_DEVICE_DDR,
+            OpImmediate::Specified(nonShmemDataTileOffset),
+            OpImmediate::Specified(nonShmemDataTileShape),
+            OpImmediate::Specified(out->shape),
+            OpImmediate::Specified(std::vector<SymbolicScalar>{shmemDataTile->dynValidShape_[2], shmemDataTile->dynValidShape_[3]})
+        ));
     });
 }
 

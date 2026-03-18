@@ -251,23 +251,69 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes(int32_t operandIndex) cons
     return GenOffsets(operandIndex) + ", " + GenRawShapes(operandIndex);
 }
 
-std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemPut() const {
+RawSymbolicScalarPtr FormatSymbol(const RawSymbolicScalarPtr &rawScalar)
+{
+    if (rawScalar->IsSymbol()) {
+        if (std::islower(static_cast<unsigned char>(rawScalar->Dump().front()))) {
+            SymbolicScalar updateIndexScalar("RUNTIME_GetSymbol(INDEX_" + rawScalar->Dump() + ")");
+            auto formatedScalar = updateIndexScalar.Raw();
+            return formatedScalar;
+        }
+        return rawScalar;
+    } else if (rawScalar->IsExpression()) {
+        auto rawExpresssion = std::dynamic_pointer_cast<RawSymbolicExpression>(rawScalar);
+        std::vector<RawSymbolicScalarPtr> newOperands;
+        newOperands.reserve(rawExpresssion->OperandList().size());
+        for (const auto &operand : rawExpresssion->OperandList()) {
+            newOperands.push_back(FormatSymbol(operand));
+        }
+        auto formatedExpression = std::make_shared<RawSymbolicExpression>(rawExpresssion->GetExpressionOpcode(), newOperands);
+        return formatedExpression;
+    }
+    return rawScalar;
+}
+
+std::string CodeGenOpCloudNPU::GenDynOffset(int32_t operandIndex, int32_t dim) const
+{
+    std::ostringstream oss;
+    int32_t dim = originShape[operandIndex].size();
+    for (int32_t index = 0; index < dim; ++index) {
+        auto offsetScalar = offsetFromAttr[operandIndex][index];
+        if (offsetScalar.IsValid()) {
+            RawSymbolicScalarPtr rawScalar = offsetScalar.Raw();
+            rawScalar = FormatSymbol(rawScalar);
+            oss << rawScalar->Dump();
+        } else {
+            oss << offsetScalar.Dump();
+        }
+        if (index != dim - 1) {
+            oss << ", ";
+        }
+    }
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenDynValidShape(int32_t operandIndex, int32_t dim) const
+{
+    std::ostringstream oss;
+    int32_t dim = originShape[operandIndex].size();
+    for (int32_t index = 0; index < dim; ++index) {
+        oss << dynamicValidShape[operandIndex][index];
+        if (index != dim - 1) {
+            oss << ", ";
+        }
+    }
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemPut() const
+{
     std::ostringstream oss;
     int32_t nonShmemDataIndex = 3;
     int32_t shmemDataIndex = 4;
-    size_t shmemTensorDim = dynamicValidShape[shmemDataIndex].size();
-    ASSERT(shmemTensorDim >= 2) << "shmem tensor dim = " << shmemTensorDim << ", should >= 2.";
-    std::string viewOffsetStr = dynamicValidShape[shmemDataIndex][shmemTensorDim - 2].Dump();
-    size_t firstComma = viewOffsetStr.find(",");
-    size_t lastComma = viewOffsetStr.rfind(",");
-    std::string viewOffset = viewOffsetStr.substr(firstComma + 1, lastComma - firstComma - 1);
-    if (viewOffset.find("RUNTIME_GetTensorDataInt32Dim2") != std::string::npos) {
-        oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex) << ", "
-            << GenOffsetsAndRawShapes(shmemDataIndex) << ", " << viewOffset;
-    } else {
-        oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex) << ", "
-            << GenOffsetsAndRawShapes(shmemDataIndex) << ", " << -1;
-    }
+    int32_t validShapeIndex = 0;
+    oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex) << ", " << GenDynValidShape(validShapeIndex) <<
+        ", " << GenDynOffset(shmemDataIndex) << ", " << GenRawShapes(shmemDataIndex);
     return oss.str();
 }
 
@@ -275,8 +321,8 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemGet() const {
     std::ostringstream oss;
     int32_t nonShmemDataIndex = 0;
     int32_t shmemDataIndex = 3;
-    oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex) << ", "
-        << GenOffsetsAndRawShapes(shmemDataIndex);
+    oss << ", " << GenDynOffset(nonShmemDataIndex) << ", " << GenRawShapes(nonShmemDataIndex) <<
+        ", " << GenOffsetsAndRawShapes(shmemDataIndex) << ", " << GenDynValidShape(nonShmemDataIndex);
     return oss.str();
 }
 

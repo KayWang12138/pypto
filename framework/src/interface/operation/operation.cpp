@@ -1023,6 +1023,9 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                 }
             }
         } break;
+        case Opcode::OP_SHMEM_PUT:
+        case Opcode::OP_SHMEM_PUT_UB2GM:
+        case Opcode::OP_SHMEM_GET:
         case Opcode::OP_SHMEM_GET_GM2UB:
             {
             auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(GetOpAttribute());
@@ -1034,6 +1037,30 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                     continue;
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+            }
+            for (auto &shape : copyAttr->GetFromToValidShape()) {
+                if (!shape.IsSpecified()) {
+                    continue;
+                }
+                dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+            }
+            for (auto &shape : copyAttr->GetFromDynValidShape()) {
+                if (!shape.IsSpecified()) {
+                    continue;
+                }
+                dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+            }
+            for (auto &offset : copyAttr->GetToOffset()) {
+                if (!offset.IsSpecified()) {
+                    continue;
+                }
+                dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
+            }
+            for (auto &offset : copyAttr->GetFromOffset()) {
+                if (!offset.IsSpecified()) {
+                    continue;
+                }
+                dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
             }
         } break;
         default:
