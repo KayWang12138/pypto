@@ -33,6 +33,7 @@
 #include "passes/tensor_graph_pass/remove_undriven_view.h"
 #include "passes/tensor_graph_pass/expand_function.h"
 #include "passes/tensor_graph_pass/loop_unroll.h"
+#include "passes/tensor_graph_pass/arithmetic_reordering.h"
 //  tile graph pass
 #include "passes/tile_graph_pass/graph_partition/graph_partition.h"
 #include "passes/tile_graph_pass/graph_optimization/graph_optimization.h"
@@ -107,6 +108,7 @@ void RegPass() {
     REG_PASS(LoopaxesProc);
     REG_PASS(TuneTileOpSeqForVF);
     REG_PASS(TuneSyncForVF);
+    REG_PASS(ArithmeticReordering);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -114,6 +116,7 @@ void PassManager::RegDefaultStrategy() {
         "PVC2_OOO", {
             {   "RemoveRedundantReshape",      PassName::REMOVE_REDUNDANT_RESHAPE},
             {                 "AutoCast",                     PassName::AUTO_CAST},
+            {     "ArithmeticReordering",         PassName::ARITHMETIC_REORDERING},
             {      "InferMemoryConflict",         PassName::INFER_MEMORY_CONFLICT},
             {       "RemoveUndrivenView",          PassName::REMOVE_UNDRIVEN_VIEW},
             {           "ExpandFunction",               PassName::EXPAND_FUNCTION},
@@ -300,4 +303,4 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
     return SUCCESS;
 }
 
-} // namespace npu::tile_fwk
+} // namespace npu::tile_fwksssssss
