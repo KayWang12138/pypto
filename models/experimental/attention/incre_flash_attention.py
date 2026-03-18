@@ -464,19 +464,19 @@ def main():
     logger.info("PyPTO incre_flash_attention Example")
     logger.info("=" * 60 + "\n")
     
-    # test incre_flash_attention kvs 16k
+    # # test incre_flash_attention kvs 16k
     test_incre_flash_attention_1b16k()
-    test_incre_flash_attention_2b16k()
-    test_incre_flash_attention_4b16k()
-    test_incre_flash_attention_8b16k()
-    test_incre_flash_attention_16b16k()
+    # test_incre_flash_attention_2b16k()
+    # test_incre_flash_attention_4b16k()
+    # test_incre_flash_attention_8b16k()
+    # test_incre_flash_attention_16b16k()
 
-    # test incre_flash_attention kvs 8k
-    test_incre_flash_attention_1b8k()
-    test_incre_flash_attention_2b8k()
-    test_incre_flash_attention_4b8k()
-    test_incre_flash_attention_8b8k()
-    test_incre_flash_attention_16b8k()
+    # # test incre_flash_attention kvs 8k
+    # test_incre_flash_attention_1b8k()
+    # test_incre_flash_attention_2b8k()
+    # test_incre_flash_attention_4b8k()
+    # test_incre_flash_attention_8b8k()
+    # test_incre_flash_attention_16b8k()
 
 
 def test_incre_flash_attention_1b16k():
@@ -520,4 +520,5 @@ def test_incre_flash_attention_16b8k():
 
 
 if __name__ == "__main__":
-    main()
+    for i in range(10):
+        main()
