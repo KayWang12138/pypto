@@ -26,7 +26,7 @@ namespace npu::tile_fwk {
 
 constexpr float FP16_MAX = 65504.0f;
 
-struct IndexAddPara {
+struct IndexAddUBPara {
     const LogicalTensorPtr &selfInput;
     const LogicalTensorPtr &srcInput;
     const LogicalTensorPtr &indicesInput;
@@ -35,7 +35,7 @@ struct IndexAddPara {
     const Element &alpha;
 };
 
-struct IndexAddTileInfoPara {
+struct IndexAddUBTileInfoPara {
     TileInfo selfTileInfo;
     TileInfo srcTileInfo;
     TileInfo indicesTileInfo;
@@ -52,7 +52,7 @@ Shape GetTempShape(Shape shape, size_t axis) {
     return newShape;
 }
 
-void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, IndexAddTileInfoPara &indexaddTileInfo) {
+void IndexAddUBExpandFunc(Function &function, const IndexAddUBPara indexaddPara, IndexAddUBTileInfoPara &indexaddTileInfo) {
     const LogicalTensorPtr &selfInput = indexaddPara.selfInput;
     const LogicalTensorPtr &srcInput = indexaddPara.srcInput;
     const LogicalTensorPtr &indicesInput = indexaddPara.indicesInput;
@@ -87,7 +87,7 @@ void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, Ind
         LogicalTensorPtr dstConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP16, dstTile->GetShape());
 
         auto &op = function.AddOperation(
-            Opcode::OP_INDEX_ADD, {selfConvertedTile, srcConvertedTile, indexTile}, {dstConvertedTile, tempBuffer});
+            Opcode::OP_INDEX_ADD_UB, {selfConvertedTile, srcConvertedTile, indexTile}, {dstConvertedTile, tempBuffer});
         dstConvertedTile->UpdateDynValidShape(dstTile->GetDynValidShape());
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
         op.SetAttribute(OpAttributeKey::scalar, alpha);
@@ -108,23 +108,23 @@ void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, Ind
         LogicalTensorPtr dstConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP32, dstTile->GetShape());
         tempBuffer = std::make_shared<LogicalTensor>(function, DT_BF16, GetTempShape(dstTile->GetShape(), axis));
         auto &op = function.AddOperation(
-            Opcode::OP_INDEX_ADD, {selfConvertedTile, srcConvertedTile, indexTile}, {dstConvertedTile, tempBuffer});
+            Opcode::OP_INDEX_ADD_UB, {selfConvertedTile, srcConvertedTile, indexTile}, {dstConvertedTile, tempBuffer});
         dstConvertedTile->UpdateDynValidShape(dstTile->GetDynValidShape());
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
         op.SetAttribute(OpAttributeKey::scalar, alpha);
         Operation &castDstOp = function.AddOperation(Opcode::OP_CAST, {dstConvertedTile}, {dstTile});
         castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_RINT);
     } else {
-        auto &op = function.AddOperation(Opcode::OP_INDEX_ADD, {selfTile, srcTile, indexTile}, {dstTile, tempBuffer});
+        auto &op = function.AddOperation(Opcode::OP_INDEX_ADD_UB, {selfTile, srcTile, indexTile}, {dstTile, tempBuffer});
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
         op.SetAttribute(OpAttributeKey::scalar, alpha);
     }
 }
 
-void InnerTiledIndexAdd(size_t cur, Function &function, const TileShape &tileShape, const IndexAddPara indexaddPara,
-    IndexAddTileInfoPara &indexaddTileInfo) {
+void InnerTiledIndexAddUB(size_t cur, Function &function, const TileShape &tileShape, const IndexAddUBPara indexaddPara,
+    IndexAddUBTileInfoPara &indexaddTileInfo) {
     if (cur == indexaddPara.dstTensor->shape.size()) {
-        IndexAddExpandFunc(function, indexaddPara, indexaddTileInfo);
+        IndexAddUBExpandFunc(function, indexaddPara, indexaddTileInfo);
         return;
     }
 
@@ -150,11 +150,11 @@ void InnerTiledIndexAdd(size_t cur, Function &function, const TileShape &tileSha
         }
         indexaddTileInfo.srcTileInfo.offset[cur] = i;
         indexaddTileInfo.srcTileInfo.shape[cur] = std::min(indexaddPara.srcInput->GetShape()[cur] - i, tmpTile);
-        InnerTiledIndexAdd(cur + 1, function, tileShape, indexaddPara, indexaddTileInfo);
+        InnerTiledIndexAddUB(cur + 1, function, tileShape, indexaddPara, indexaddTileInfo);
     }
 }
 
-void TiledIndexAdd(Function &function, const TileShape &tileShape, const IndexAddPara indexaddPara) {
+void TiledIndexAddUB(Function &function, const TileShape &tileShape, const IndexAddUBPara indexaddPara) {
     // Check Operands Valid
     ASSERT(indexaddPara.selfInput->GetShape().size() == indexaddPara.selfInput->GetOffset().size())
         << "The size of indexaddPara selfinput shape and selfinput offset should be equal";
@@ -163,16 +163,16 @@ void TiledIndexAdd(Function &function, const TileShape &tileShape, const IndexAd
     ASSERT(indexaddPara.indicesInput->GetShape().size() == indexaddPara.indicesInput->GetOffset().size())
         << "The size of indexaddPara indicesInput shape and indicesInput offset should be equal";
 
-    IndexAddTileInfoPara indexaddTileInfo{
+    IndexAddUBTileInfoPara indexaddTileInfo{
         TileInfo(indexaddPara.selfInput->GetShape().size(), indexaddPara.selfInput->GetOffset().size()),
         TileInfo(indexaddPara.srcInput->GetShape().size(), indexaddPara.srcInput->GetOffset().size()),
         TileInfo(indexaddPara.indicesInput->GetShape().size(), indexaddPara.indicesInput->GetOffset().size()),
         TileInfo(indexaddPara.dstTensor->GetShape().size(), indexaddPara.dstTensor->GetOffset().size())};
-    InnerTiledIndexAdd(0, function, tileShape, indexaddPara, indexaddTileInfo);
+    InnerTiledIndexAddUB(0, function, tileShape, indexaddPara, indexaddTileInfo);
 }
 
-void TensorIndexAdd(Function &function, const IndexAddPara indexaddPara) {
-    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_INDEX_ADD,
+void TensorIndexAddUB(Function &function, const IndexAddUBPara indexaddPara) {
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_INDEX_ADD_UB,
         {indexaddPara.selfInput, indexaddPara.srcInput, indexaddPara.indicesInput}, {indexaddPara.dstTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", indexaddPara.axis);
     op.SetAttribute(OpAttributeKey::scalar, indexaddPara.alpha);
@@ -195,7 +195,7 @@ bool CheckAlphaOverflow(Element alpha, DataType dtype) {
     }
 }
 
-void CheckIndexAddParamsInvalid(
+void CheckIndexAddUBParamsInvalid(
     const Tensor &self, const Tensor &src, const Tensor &indices, const int axis, const Element &alpha) {
     ASSERT(axis < static_cast<int>(self.GetShape().size()) && axis >= -static_cast<int>(self.GetShape().size()))
         << "axis out of range of shape size";
@@ -222,14 +222,14 @@ void CheckIndexAddParamsInvalid(
     }
 }
 
-Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
+Tensor IndexAddUB(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
     DECLARE_TRACER();
-    CheckIndexAddParamsInvalid(self, src, indices, axis, alpha);
-    axis = axis < 0 ? self.GetShape().size() + axis : axis;
+    CheckIndexAddUBParamsInvalid(self, src, indices, axis, alpha);
+    CheckAxisRange(self, axis);
     DataType selfDataType = self.GetDataType();
     Element alpha_ = Element(selfDataType, alpha.Cast<float>());
     Tensor result(selfDataType, self.GetShape());
-    CALL(IndexAdd, *Program::GetInstance().GetCurrentFunction(),
+    CALL(IndexAddUB, *Program::GetInstance().GetCurrentFunction(),
         {self.GetStorage(), src.GetStorage(), indices.GetStorage(), result.GetStorage(), axis, alpha_});
     return result;
 }
@@ -395,20 +395,14 @@ void TiledGatherElementOperation(Function &function, const TileShape &tileShape,
             // params[axis]不切
             paramsInput.tileInfo.offset[cur] = 0;
             paramsInput.tileInfo.shape[cur] = paramsInput.tensor.GetShape()[cur];
-            // 处理indices的tileInfo
-            indicesInput.tileInfo.offset[cur] = i % indicesInput.tensor.GetShape()[cur];
-            indicesInput.tileInfo.shape[cur] =
-                std::min(indicesInput.tensor.GetShape()[cur] - indicesInput.tileInfo.offset[cur], tmpTile);
         } else {
             paramsInput.tileInfo.offset[cur] = i % paramsInput.tensor.GetShape()[cur];
             paramsInput.tileInfo.shape[cur] =
                 std::min(paramsInput.tensor.GetShape()[cur] - paramsInput.tileInfo.offset[cur], tmpTile);
-            // 处理indices的tileInfo
-            indicesInput.tileInfo.offset[cur] = i % indicesInput.tensor.GetShape()[cur];
-            indicesInput.tileInfo.shape[cur] =
-                std::min(indicesInput.tensor.GetShape()[cur] - indicesInput.tileInfo.offset[cur], tmpTile);
         }
-
+        indicesInput.tileInfo.offset[cur] = i;
+        indicesInput.tileInfo.shape[cur] =
+                std::min(indicesInput.tensor.GetShape()[cur] - indicesInput.tileInfo.offset[cur], tmpTile);
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], tmpTile);
         TiledGatherElementOperation(
@@ -449,7 +443,7 @@ Tensor GatherElements(const Tensor &params, const Tensor &indices, int axis) {
         << "The shape size of params and indices should be equal";
     ASSERT(axis < static_cast<int>(params.GetShape().size()) && axis >= -static_cast<int>(params.GetShape().size()))
         << "The axis out of range of params shape size";
-    axis = axis < 0 ? params.GetShape().size() + axis : axis; // 支持负轴
+    CheckAxisRange(params, axis); // 支持负轴
     for (size_t i = 0; i < params.GetShape().size(); ++i) {
         if (static_cast<int>(i) == axis) {
             continue;
@@ -1441,11 +1435,11 @@ void TiledGatherMaskBuildIn(Function &function, const TileShape &tileShape, cons
     TiledGatherMaskBuildIn(function, tileShape, 0, input, resOperand, resultTileInfo, patternMode);
 }
 
-void IndexAddOperationTileFunc(Function &function, const TileShape &tileShape,
+void IndexAddUBOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
     int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
     Element alpha = op.GetElementAttribute(OpAttributeKey::scalar);
-    TiledIndexAdd(function, tileShape, {iOperand[0], iOperand[1], iOperand[2], oOperand[0], axis, alpha});
+    TiledIndexAddUB(function, tileShape, {iOperand[0], iOperand[1], iOperand[2], oOperand[0], axis, alpha});
 }
 
 void GatherOperationTileFunc(Function &function, const TileShape &tileShape,
@@ -1508,7 +1502,7 @@ void GatherMaskBuildInOperationTileFunc(Function &function, const TileShape &til
     TiledGatherMaskBuildIn(function, tileShape, iOperand[0], oOperand[0], patternMode);
 }
 
-REGISTER_OPERATION_TILED_FUNC(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, IndexAddOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD_UB, IndexAddUBOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_GATHER, Opcode::OP_GATHER, GatherOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_GATHER_ELEMENT, Opcode::OP_GATHER_ELEMENT, GatherElementOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ScatterElementSOperationTileFunc);

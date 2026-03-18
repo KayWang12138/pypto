@@ -810,7 +810,7 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const {
+std::string CodeGenOpCloudNPU::PrintIndexAddUBDynamicUnaligned(const PrintIndexAddUBParam &param) const {
     // support 2-4 dims
     const std::string &dstVar = param.dstVar;
     const std::string &srcVar = param.srcVar;
@@ -856,7 +856,7 @@ std::string CodeGenOpCloudNPU::PrintIndexAddDynamicUnaligned(const PrintIndexAdd
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintIndexAddTileTensor(const PrintIndexAddParam &param) const {
+std::string CodeGenOpCloudNPU::PrintIndexAddUBTileTensor(const PrintIndexAddUBParam &param) const {
     std::string dstTensor = QueryTileTensorNameByIdx(ID0);
     std::string tmpTensor = QueryTileTensorNameByIdx(ID1);
     std::string src0Tensor = QueryTileTensorNameByIdx(ID2);
@@ -880,7 +880,7 @@ std::string CodeGenOpCloudNPU::PrintIndexAddTileTensor(const PrintIndexAddParam 
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenIndexAddOp() const {
+std::string CodeGenOpCloudNPU::GenIndexAddUBOp() const {
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     std::string selfVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
     std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
@@ -899,9 +899,9 @@ std::string CodeGenOpCloudNPU::GenIndexAddOp() const {
     ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
     int axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
     if (isSupportLayout) {
-        return PrintIndexAddTileTensor({axis, dstVar, srcVar, indicesVar, dstRawShape, srcRawShape, dataTypeExpr});
+        return PrintIndexAddUBTileTensor({axis, dstVar, srcVar, indicesVar, dstRawShape, srcRawShape, dataTypeExpr});
     }
-    return PrintIndexAddDynamicUnaligned({axis, dstVar, srcVar, indicesVar, dstRawShape, srcRawShape, dataTypeExpr});
+    return PrintIndexAddUBDynamicUnaligned({axis, dstVar, srcVar, indicesVar, dstRawShape, srcRawShape, dataTypeExpr});
 }
 
 std::string CodeGenOpCloudNPU::PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const {

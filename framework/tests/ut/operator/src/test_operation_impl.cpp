@@ -252,7 +252,7 @@ TEST_F(OperationImplTest, test_PReLU_FP16) {
     }
 }
 
-TEST_F(OperationImplTest, Test_IndexAdd_BF16) {
+TEST_F(OperationImplTest, Test_IndexAddUB_BF16) {
     float scalar = 1.2f;
     int axis = 0;
 
@@ -263,11 +263,11 @@ TEST_F(OperationImplTest, Test_IndexAdd_BF16) {
     Element alpha(DT_BF16, scalar);
     Tensor result;
     FUNCTION("TestIndxAdd") {
-        result = IndexAdd(self, src, index, axis, alpha);
+        result = IndexAddUB(self, src, index, axis, alpha);
     }
 }
 
-TEST_F(OperationImplTest, Test_IndexAdd_INT8) {
+TEST_F(OperationImplTest, Test_IndexAddUB_INT8) {
     int scalar = 2;
     int axis = 1;
 
@@ -278,11 +278,11 @@ TEST_F(OperationImplTest, Test_IndexAdd_INT8) {
     Element alpha(DT_INT8, scalar);
     Tensor result;
     FUNCTION("TestIndxAdd") {
-        result = IndexAdd(self, src, index, axis, alpha);
+        result = IndexAddUB(self, src, index, axis, alpha);
     }
 }
 
-TEST_F(OperationImplTest, Test_IndexAdd_INT16) {
+TEST_F(OperationImplTest, Test_IndexAddUB_INT16) {
     int scalar = 2;
     int axis = 1;
 
@@ -293,11 +293,11 @@ TEST_F(OperationImplTest, Test_IndexAdd_INT16) {
     Element alpha(DT_INT16, scalar);
     Tensor result;
     FUNCTION("TestIndxAdd") {
-        result = IndexAdd(self, src, index, axis, alpha);
+        result = IndexAddUB(self, src, index, axis, alpha);
     }
 }
 
-TEST_F(OperationImplTest, Test_IndexAdd_FP32) {
+TEST_F(OperationImplTest, Test_IndexAddUB_FP32) {
     float scalar = 1.2f;
     int axis = 0;
 
@@ -308,11 +308,11 @@ TEST_F(OperationImplTest, Test_IndexAdd_FP32) {
     Element alpha(DT_FP32, scalar);
     Tensor result;
     FUNCTION("TestIndxAdd") {
-        result = IndexAdd(self, src, index, axis, alpha);
+        result = IndexAddUB(self, src, index, axis, alpha);
     }
 }
 
-TEST_F(OperationImplTest, Test_IndexAdd_FP16) {
+TEST_F(OperationImplTest, Test_IndexAddUB_FP16) {
     float scalar = 1.0f;
     int axis = 0;
 
@@ -323,7 +323,7 @@ TEST_F(OperationImplTest, Test_IndexAdd_FP16) {
     Element alpha(DT_FP16, scalar);
     Tensor result;
     FUNCTION("TestIndxAdd") {
-        result = IndexAdd(self, src, index, axis, alpha);
+        result = IndexAddUB(self, src, index, axis, alpha);
     }
 }
 

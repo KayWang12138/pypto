@@ -528,7 +528,7 @@ void OpcodeManager::RegisterVector() {
     RegisterInfo(Opcode::OP_UB_COPY_OUT, OpCoreType::AIV, "UB_COPY_OUT", {MemoryType::MEM_UB},
         {MemoryType::MEM_DEVICE_DDR}, {"TileOp::UBCopyOut", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT,
         {OpAttributeKey::excludeBufferReuse});
-    RegisterInfo(Opcode::OP_INDEX_ADD, OpCoreType::AIV, "INDEX_ADD",
+    RegisterInfo(Opcode::OP_INDEX_ADD_UB, OpCoreType::AIV, "INDEX_ADD",
         {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::TindexAdd", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis", OpAttributeKey::scalar}, TileShapeVerifier::Verify);
@@ -913,7 +913,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {                Opcode::OP_REM,     "TRemainder"},
     {               Opcode::OP_REMS,    "TRemainderS"},
     {             Opcode::OP_REMRS,    "TRemainderRS"},
-    {          Opcode::OP_INDEX_ADD,      "TIndexAdd"},
+    {          Opcode::OP_INDEX_ADD_UB,      "TIndexAddUB"},
     {     Opcode::OP_GATHER_ELEMENT, "TgatherElement"},
     {             Opcode::OP_GATHER,        "Tgather"},
     {       Opcode::OP_GATHER_IN_UB,    "TgatherInUB"},

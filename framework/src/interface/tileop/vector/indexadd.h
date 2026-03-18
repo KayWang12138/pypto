@@ -19,7 +19,7 @@
 
 template <typename T0, typename T2, typename T3, typename dstTileDefine, typename tempTileDefine,
     typename src1TileDefine, typename Scalar>
-TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstTile, tempTileDefine tempTile, src1TileDefine src1Tile,
+TILEOP void IndexAddUBNotLastAxisCompute(dstTileDefine dstTile, tempTileDefine tempTile, src1TileDefine src1Tile,
     Scalar alpha, __ubuf__ typename T0::Type *dstAddr, __ubuf__ bfloat16_t *tempAddr,
     __ubuf__ typename T2::Type *src1Addr, size_t dstOffset, size_t src1Offset) {
     pto::TASSIGN(dstTile, (uint64_t)(dstAddr + dstOffset));
@@ -69,7 +69,7 @@ TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstTile, tempTileDefine tem
 }
 
 template <typename T0, typename T2, typename T3, typename Scalar>
-TILEOP void IndexAddLastAxisCompute(T0 dst, T2 src1, T3 src2, Scalar alpha, size_t src1Shape0, size_t src1Shape1,
+TILEOP void IndexAddUBLastAxisCompute(T0 dst, T2 src1, T3 src2, Scalar alpha, size_t src1Shape0, size_t src1Shape1,
     size_t src1Shape2, size_t src1Shape3, size_t src1Shape4, size_t dstStride0, size_t dstStride1, size_t dstStride2,
     size_t dstStride3, size_t src1Stride0, size_t src1Stride1, size_t src1Stride2, size_t src1Stride3) {
     auto dstAddr = (__ubuf__ typename T0::Type *)((uint64_t)(dst.GetAddr()));
@@ -154,7 +154,7 @@ src2:index
 axis是泛化成5维后的值，实际值为 axis + shapeSize - 5
 */
 template <int axis, typename T0, typename T1, typename T2, typename T3, typename T4, typename Scalar>
-TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tempTensor, Scalar alpha) { // T0: tileTensor
+TILEOP void TIndexAddUB(T0 dst, T1 src0, T2 src1, T3 src2, T4 tempTensor, Scalar alpha) { // T0: tileTensor
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;              // support 2-5
     const auto dstLayout = dst.GetLayout();
     auto dstShape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>(); // validShape
@@ -187,7 +187,7 @@ TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tempTensor, Scalar a
         return;
     }
     if constexpr (axis == 4) { // 尾轴
-        IndexAddLastAxisCompute(dst, src1, src2, alpha, src1Shape0, src1Shape1, src1Shape2, src1Shape3, src1Shape4,
+        IndexAddUBLastAxisCompute(dst, src1, src2, alpha, src1Shape0, src1Shape1, src1Shape2, src1Shape3, src1Shape4,
             dstStride0, dstStride1, dstStride2, dstStride3, src1Stride0, src1Stride1, src1Stride2, src1Stride3);
     } else {
         constexpr auto dstTileW =
@@ -209,7 +209,7 @@ TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tempTensor, Scalar a
                 auto index = *(idxAddr + i);
                 auto dstOffset = index * dstStride0;
                 auto src1Offset = i * src1Stride0;
-                IndexAddNotLastAxisCompute<T0, T2, T3>(
+                IndexAddUBNotLastAxisCompute<T0, T2, T3>(
                     dstTile, tempTile, src1Tile, alpha, dstAddr, tempAddr, src1Addr, dstOffset, src1Offset);
             }
         } else if constexpr (axis == 1) { // 从第3轴开始合轴
@@ -220,7 +220,7 @@ TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tempTensor, Scalar a
                     auto index = *(idxAddr + j);
                     auto dstOffset = i * dstStride0 + index * dstStride1;
                     auto src1Offset = i * src1Stride0 + j * src1Stride1;
-                    IndexAddNotLastAxisCompute<T0, T2, T3>(
+                    IndexAddUBNotLastAxisCompute<T0, T2, T3>(
                         dstTile, tempTile, src1Tile, alpha, dstAddr, tempAddr, src1Addr, dstOffset, src1Offset);
                 }
             }
@@ -233,7 +233,7 @@ TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tempTensor, Scalar a
                         auto index = *(idxAddr + k);
                         auto dstOffset = i * dstStride0 + j * dstStride1 + index * dstStride2;
                         auto src1Offset = i * src1Stride0 + j * src1Stride1 + k * src1Stride2;
-                        IndexAddNotLastAxisCompute<T0, T2, T3>(
+                        IndexAddUBNotLastAxisCompute<T0, T2, T3>(
                             dstTile, tempTile, src1Tile, alpha, dstAddr, tempAddr, src1Addr, dstOffset, src1Offset);
                     }
                 }
@@ -248,7 +248,7 @@ TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tempTensor, Scalar a
                             auto index = *(idxAddr + l);
                             auto dstOffset = i * dstStride0 + j * dstStride1 + k * dstStride2 + index * dstStride3;
                             auto src1Offset = i * src1Stride0 + j * src1Stride1 + k * src1Stride2 + l * src1Stride3;
-                            IndexAddNotLastAxisCompute<T0, T2, T3>(
+                            IndexAddUBNotLastAxisCompute<T0, T2, T3>(
                                 dstTile, tempTile, src1Tile, alpha, dstAddr, tempAddr, src1Addr, dstOffset, src1Offset);
                         }
                     }

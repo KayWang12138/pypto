@@ -26,7 +26,7 @@ TORCH_TO_PTO_TYPES = {
 }
 
 
-class IndexAddArgs:
+class IndexAddUBArgs:
     def __init__(self, axis: int, alpha, view_shape, tile_shape):
         self.view_shape = view_shape
         self.tile_shape = tile_shape
@@ -34,7 +34,7 @@ class IndexAddArgs:
         self.axis = axis
 
 
-def indexadd_2dim_build(inputs: List[pypto.Tensor], outputs: List[pypto.Tensor], args: IndexAddArgs):
+def indexadd_2dim_build(inputs: List[pypto.Tensor], outputs: List[pypto.Tensor], args: IndexAddUBArgs):
     self_shape = inputs[0].shape
     src_shape = inputs[1].shape
     view_shape = args.view_shape
@@ -63,7 +63,7 @@ def indexadd_2dim_build(inputs: List[pypto.Tensor], outputs: List[pypto.Tensor],
                 del view_self, view_src, view_index
 
 
-def run_indexadd(inputs: List[torch.Tensor], outputs: List[torch.Tensor], args: IndexAddArgs) -> None:
+def run_indexadd(inputs: List[torch.Tensor], outputs: List[torch.Tensor], args: IndexAddUBArgs) -> None:
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 3))
     torch.npu.set_device(device_id)
     pypto.runtime._device_init()
@@ -89,7 +89,7 @@ def test_indexadd__onboard():
     index_shape = [src_shape[axis]]
     view_shape = [8, 16]
     tile_shape = [8, 32]
-    args = IndexAddArgs(axis, alpha, view_shape, tile_shape)
+    args = IndexAddUBArgs(axis, alpha, view_shape, tile_shape)
 
     inputs = [torch.rand(self_shape, dtype=torch.float32) * 200 - 100,
             torch.rand(src_shape, dtype=torch.float32) * 200 - 100,

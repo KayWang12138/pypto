@@ -2243,7 +2243,7 @@ TILEOP void DynTgatherElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *sr
 }
 
 template <typename T, typename T2>
-TILEOP void IndexAddPublicTool(
+TILEOP void IndexAddUBPublicTool(
     __ubuf__ T *dst, __ubuf__ T *src, T2 alpha, unsigned TShape3, uint64_t dstOffset, uint64_t srcOffset) {
     uint32_t rptElm = REPEAT_BYTE / sizeof(T);
     uint32_t repeatTime = TShape3 / rptElm;
@@ -2297,7 +2297,7 @@ TILEOP void IndexAddPublicTool(
 }
 
 template <typename T, typename T1, typename T2>
-TILEOP void IndexAddAxis0(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices, T2 alpha,
+TILEOP void IndexAddUBAxis0(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices, T2 alpha,
     unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, uint64_t dstBlock1, uint64_t dstBlock2,
     uint64_t dstBlock3, uint64_t srcBlock1, uint64_t srcBlock2, uint64_t srcBlock3) {
     uint64_t dstOffset = 0;
@@ -2308,14 +2308,14 @@ TILEOP void IndexAddAxis0(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices
             for (uint32_t j = 0; j < TShape2; ++j) {
                 dstOffset = index * dstBlock1 + i * dstBlock2 + j * dstBlock3;
                 srcOffset = idx * srcBlock1 + i * srcBlock2 + j * srcBlock3;
-                IndexAddPublicTool<T, T2>(dst, src, alpha, TShape3, dstOffset, srcOffset);
+                IndexAddUBPublicTool<T, T2>(dst, src, alpha, TShape3, dstOffset, srcOffset);
             }
         }
     }
 }
 
 template <typename T, typename T1, typename T2>
-TILEOP void IndexAddAxis1(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices, T2 alpha,
+TILEOP void IndexAddUBAxis1(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices, T2 alpha,
     unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, uint64_t dstBlock1, uint64_t dstBlock2,
     uint64_t dstBlock3, uint64_t srcBlock1, uint64_t srcBlock2, uint64_t srcBlock3) {
     uint64_t dstOffset = 0;
@@ -2326,14 +2326,14 @@ TILEOP void IndexAddAxis1(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices
             for (uint32_t j = 0; j < TShape2; ++j) {
                 dstOffset = i * dstBlock1 + index * dstBlock2 + j * dstBlock3;
                 srcOffset = i * srcBlock1 + idx * srcBlock2 + j * srcBlock3;
-                IndexAddPublicTool<T, T2>(dst, src, alpha, TShape3, dstOffset, srcOffset);
+                IndexAddUBPublicTool<T, T2>(dst, src, alpha, TShape3, dstOffset, srcOffset);
             }
         }
     }
 }
 
 template <typename T, typename T1, typename T2>
-TILEOP void IndexAddAxis2(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices, T2 alpha,
+TILEOP void IndexAddUBAxis2(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices, T2 alpha,
     unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, uint64_t dstBlock1, uint64_t dstBlock2,
     uint64_t dstBlock3, uint64_t srcBlock1, uint64_t srcBlock2, uint64_t srcBlock3) {
     uint64_t dstOffset = 0;
@@ -2344,14 +2344,14 @@ TILEOP void IndexAddAxis2(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices
                 T1 index = *(indices + idx);
                 dstOffset = i * dstBlock1 + j * dstBlock2 + index * dstBlock3;
                 srcOffset = i * srcBlock1 + j * srcBlock2 + idx * srcBlock3;
-                IndexAddPublicTool<T, T2>(dst, src, alpha, TShape3, dstOffset, srcOffset);
+                IndexAddUBPublicTool<T, T2>(dst, src, alpha, TShape3, dstOffset, srcOffset);
             }
         }
     }
 }
 
 template <typename T, typename T1, typename T2>
-TILEOP void IndexAddAxis3(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices, T2 alpha, unsigned TShape0,
+TILEOP void IndexAddUBAxis3(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices, T2 alpha, unsigned TShape0,
     unsigned TShape1, unsigned TShape2, unsigned TShape3, uint64_t dstBlock1, uint64_t dstBlock2, uint64_t dstBlock3,
     uint64_t srcBlock1, uint64_t srcBlock2, uint64_t srcBlock3) {
     uint64_t dstOffset = 0;
@@ -2421,16 +2421,16 @@ TILEOP void DynTindexAdd(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices,
     uint64_t srcBlock3 = srcRawShape3;
 
     if constexpr (axis == 0) {
-        IndexAddAxis0<T, T1, T2>(dst, src, indices, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
+        IndexAddUBAxis0<T, T1, T2>(dst, src, indices, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
             dstBlock3, srcBlock1, srcBlock2, srcBlock3);
     } else if constexpr (axis == 1) {
-        IndexAddAxis1<T, T1, T2>(dst, src, indices, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
+        IndexAddUBAxis1<T, T1, T2>(dst, src, indices, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
             dstBlock3, srcBlock1, srcBlock2, srcBlock3);
     } else if constexpr (axis == 2) {
-        IndexAddAxis2<T, T1, T2>(dst, src, indices, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
+        IndexAddUBAxis2<T, T1, T2>(dst, src, indices, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
             dstBlock3, srcBlock1, srcBlock2, srcBlock3);
     } else {
-        IndexAddAxis3<T, T1, T2>(dst, src, indices, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
+        IndexAddUBAxis3<T, T1, T2>(dst, src, indices, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
             dstBlock3, srcBlock1, srcBlock2, srcBlock3);
     }
     set_flag(PIPE_S, PIPE_V, EVENT_ID7);
