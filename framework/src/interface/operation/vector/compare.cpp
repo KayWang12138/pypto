@@ -60,7 +60,7 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
 
         auto &op = function.AddOperation(Opcode::OP_CMP, {convertedTile1, convertedTile2}, {resultTile, tmp_tensor});
         std::vector<bool> dimMap({true, true});
-        op.SetAttribute(OP_ATTR_PREFIX + "RowPad", dimMap);
+        op.SetAttr(OpAttributeKey::rowPad, dimMap);
 
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", static_cast<int64_t>(operation));
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", static_cast<int64_t>(mode));
@@ -257,6 +257,8 @@ void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size
         auto tmp_tensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmp_shape);
 
         auto &op = function.AddOperation(Opcode::OP_CMPS, {convertedTile}, {resultTile, tmp_tensor});
+        std::vector<bool> dimMap({true});
+        op.SetAttr(OpAttributeKey::rowPad, dimMap);
 
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", static_cast<int64_t>(operation));
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", static_cast<int64_t>(mode));
