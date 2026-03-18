@@ -51,22 +51,49 @@ void ValidateTilingSize(const Opcode& opCode, const VecTile& vecTile, const int3
         ", but got " << static_cast<int32_t>(vecTile.size());
 }
 
-void ValidateDataType(const Tensor& tensor, const std::string& tensorDesc, const std::unordered_set<DataType>& allowedTypes)
+template <typename Container, typename F>
+std::string ToString(const Container& c, F func)
 {
-    auto dataType = tensor.GetDataType();
     std::ostringstream oss;
     oss << "[";
     bool first = true;
-    for (const auto& dtype : allowedTypes) {
+    for (const auto& item : c) {
         if (!first) {
             oss << ", ";
         }
-        oss << DataType2String(dtype);
+        oss << func(item);
         first = false;
     }
     oss << "]";
-    CHECK(allowedTypes.count(dataType)) << "Invalid data type: " << tensorDesc << " data type only support "
-        << oss.str() << ", but got:" << DataType2String(dataType);
+    return oss.str();
+}
+
+void ValidateTiling(const Opcode& opCode, const Tensor &target, const std::string& tensorDesc)
+{
+    const auto vecTile = TileShape::Current().GetVecTile();
+    CHECK(vecTile.valid()) << OpcodeManager::Inst().GetOpcodeStr(opCode) <<
+        ": vecTile every shape and dim should > 0, but got:" << ToString(vecTile.tile, [](auto v){ return std::to_string(v);});
+    CHECK(target.Dim() == vecTile.size()) << OpcodeManager::Inst().GetOpcodeStr(opCode) <<
+        " dim of vectile shape must be equal to " << std::to_string(target.Dim()) <<
+        ", which is same as " << tensorDesc << ", but got " << vecTile.size();
+}
+
+void ValidateDataType(const Tensor& tensor, const std::string& tensorDesc, const std::unordered_set<DataType>& allowedTypes)
+{
+    auto dataType = tensor.GetDataType();
+    CHECK(allowedTypes.empty() || allowedTypes.count(dataType)) << "Invalid data type: " << tensorDesc <<
+        " data type only support " << ToString(allowedTypes, DataType2String) << ", but got:" <<
+        DataType2String(dataType);
+}
+
+void ValidateDim(const Tensor& tensor, const std::string& tensorDesc, const std::unordered_set<size_t>& allowedDims) {
+    const auto& shape = tensor.GetShape();
+    CHECK(allowedDims.empty() || allowedDims.count(shape.size())) << "Invalid dimensional: " << tensorDesc <<
+        " dimensional must be " << ToString(allowedDims, [](auto v){ return std::to_string(v);}) << ", but got dimensional=" << shape.size();
+    for (size_t i = 0; i < shape.size(); ++i) {
+        CHECK(shape[i] > 0) << "Invaild dimemsion value: " << tensorDesc << " dimension " << i
+            << " must be greater than 0, but got " << shape[i];
+    }
 }
 
 void ValidateShape(const Tensor& tensor, const std::string& tensorDesc, uint32_t supportedDim) {
@@ -79,9 +106,19 @@ void ValidateShape(const Tensor& tensor, const std::string& tensorDesc, uint32_t
     }
 }
 
-void ValidateFormat(const Tensor& tensor, const std::string& tensorDesc) {
-    CHECK(tensor.Format() == TileOpFormat::TILEOP_ND) << "Invalid format: " << tensorDesc
+void ValidateFormat(const Tensor& tensor, const std::string& tensorDesc,
+    const std::unordered_set<TileOpFormat>& allowedFormats = {TileOpFormat::TILEOP_ND}) {
+    CHECK(allowedFormats.empty() || allowedFormats.count(tensor.Format())) << "Invalid format: " << tensorDesc
         << " only support ND format, but got format: " << std::to_string(tensor.Format());
+}
+
+void ValidateTensor(const Tensor& tensor, const std::string& tensorDesc,
+    const std::unordered_set<size_t>& allowedDims = {},
+    const std::unordered_set<DataType>& allowedTypes = {},
+    const std::unordered_set<TileOpFormat>& allowedFormats = {}) {
+    ValidateDim(tensor, tensorDesc, allowedDims);
+    ValidateDataType(tensor, tensorDesc, allowedTypes);
+    ValidateFormat(tensor, tensorDesc, allowedFormats);
 }
 
 void ValidateWorldSize(const char* group, int64_t worldSize) {
@@ -133,319 +170,435 @@ void ValidateParams(const Tensor& predToken, const Tensor& in, const Tensor& out
     CHECK(shmemSize < winSize) << "Exceeds winSize limit. Maximum allowed: " << winSize << ", got: " << shmemSize;
 }
 
-Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemData, AtomicType atomicType)
+ShmemTensor CreateShmemData(const char* group, int64_t worldSize, DataType dataType, const Shape& shape)
+{
+    ValidateGroup(group);
+    ValidateWorldSize(group, worldSize);
+    ShmemTensor t;
+    t.group = std::string(group);
+    t.worldSize = worldSize;
+    // static uint64_t s_index = 0;
+    // LOOP("CreateShmemData" + std::to_string(s_index++), FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+    //     (void)index;
+        auto &function = *Program::GetInstance().GetCurrentFunction();
+        int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
+        Shape dataShape = shape;
+        auto dataInner = std::make_shared<LogicalTensor>(function, dataType, dataShape);
+        t.data = dataInner;
+        Program::GetInstance().GetTensorSlotManager()->TensorWrite(t.data, SlotProperty::SHMEM_TENSOR);
+        auto &dataOp = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {dataInner});
+        dataOp.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 0,
+            AlignUp(BytesOf(dataType) * std::accumulate(dataShape.begin(), dataShape.end(), 1, std::multiplies<int64_t>()), 512)));
+
+        Shape signalShape{worldSize};
+        signalShape.insert(signalShape.end(), shape.begin(), shape.end());
+        auto signalInner = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, signalShape);
+        t.signal = signalInner;
+        Program::GetInstance().GetTensorSlotManager()->TensorWrite(t.signal, SlotProperty::SHMEM_TENSOR);
+        auto &signalOp = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {signalInner});
+        signalOp.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 1,
+            BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
+    // }
+    return t;
+}
+
+void CreateShmemData(const char* group, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor &t)
+{
+    ValidateGroup(group);
+    ValidateWorldSize(group, worldSize);
+    // ShmemTensor t;
+    t.group = std::string(group);
+    t.worldSize = worldSize;
+    // static uint64_t s_index = 0;
+    // LOOP("CreateShmemData" + std::to_string(s_index++), FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+    //     (void)index;
+        auto &function = *Program::GetInstance().GetCurrentFunction();
+        int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
+        Shape dataShape = shape;
+        auto dataInner = std::make_shared<LogicalTensor>(function, dataType, dataShape);
+        t.data = dataInner;
+        Program::GetInstance().GetTensorSlotManager()->TensorWrite(t.data, SlotProperty::SHMEM_TENSOR);
+        auto &dataOp = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {dataInner});
+        dataOp.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 0,
+            AlignUp(BytesOf(dataType) * std::accumulate(dataShape.begin(), dataShape.end(), 1, std::multiplies<int64_t>()), 512)));
+
+        Shape signalShape{worldSize};
+        signalShape.insert(signalShape.end(), shape.begin(), shape.end());
+        auto signalInner = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, signalShape);
+        t.signal = signalInner;
+        Program::GetInstance().GetTensorSlotManager()->TensorWrite(t.signal, SlotProperty::SHMEM_TENSOR);
+        auto &signalOp = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {signalInner});
+        signalOp.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 1,
+            BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
+    // }
+    // return t;
+}
+
+ShmemTensor CreateShmemSignal(const char* group, int64_t worldSize)
+{
+    ValidateGroup(group);
+    ValidateWorldSize(group, worldSize);
+    ShmemTensor t;
+    t.group = std::string(group);
+    t.worldSize = worldSize;
+    static uint64_t s_index = 0;
+    LOOP("CreateShmemSignal" + std::to_string(s_index++), FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+        (void)index;
+        auto &function = *Program::GetInstance().GetCurrentFunction();
+        int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
+        Shape signalShape{worldSize, 1, 1, 8};
+        auto signalInner = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, signalShape);
+        t.signal = signalInner;
+        Program::GetInstance().GetTensorSlotManager()->TensorWrite(t.signal, SlotProperty::SHMEM_TENSOR);
+        auto &signalOp = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {signalInner});
+        signalOp.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 1,
+            BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
+    }
+    return t;
+}
+
+void CreateShmemSignal(const char* group, int64_t worldSize, ShmemTensor &t)
+{
+    ValidateGroup(group);
+    ValidateWorldSize(group, worldSize);
+    // ShmemTensor t;
+    t.group = std::string(group);
+    t.worldSize = worldSize;
+    // static uint64_t s_index = 0;
+    // LOOP("CreateShmemSignal" + std::to_string(s_index++), FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+    //     (void)index;
+        auto &function = *Program::GetInstance().GetCurrentFunction();
+        int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
+        Shape signalShape{worldSize, 1, 1, 8};
+        auto signalInner = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, signalShape);
+        t.signal = signalInner;
+        Program::GetInstance().GetTensorSlotManager()->TensorWrite(t.signal, SlotProperty::SHMEM_TENSOR);
+        auto &signalOp = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {signalInner});
+        signalOp.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 1,
+            BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
+    // }
+    // return t;
+}
+
+template<typename OffsetType>
+ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::vector<OffsetType> &offsets)
+{
+    auto data = View(operand.data, shapes, offsets);
+    Shape signalShape = operand.signal.GetShape();
+    std::copy(shapes.begin(), shapes.end(), signalShape.end() - shapes.size());
+    std::vector<OffsetType> signalOffset(operand.signal.GetShape().size() - offsets.size(), 0);
+    signalOffset.insert(signalOffset.end(), offsets.begin(), offsets.end());
+    auto signal = View(operand.signal, signalShape, signalOffset);
+    return ShmemTensor{operand.group, operand.worldSize, data, signal};
+}
+
+ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets)
+{
+    return ShmemView<int64_t>(operand, shapes, offsets);
+}
+
+ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &offsets)
+{
+    return ShmemView<SymbolicScalar>(operand, shapes, offsets);
+}
+
+ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets)
+{
+    auto data = View(operand.data, shapes, newValidShapes, newOffsets);
+    Shape signalShape = operand.signal.GetShape();
+    std::copy(shapes.begin(), shapes.end(), signalShape.end() - shapes.size());
+    std::vector<SymbolicScalar> signalValidShape;
+    if (operand.signal.GetValidShape().size() != 0) {
+        signalValidShape = operand.signal.GetValidShape();
+    } else {
+        signalValidShape.insert(signalValidShape.end(), operand.signal.GetShape().begin(), operand.signal.GetShape().end());
+    }
+    std::copy(newValidShapes.begin(), newValidShapes.end(), signalValidShape.end() - newValidShapes.size());
+    std::vector<SymbolicScalar> signalOffset(operand.signal.GetShape().size() - newOffsets.size(), 0);
+    signalOffset.insert(signalOffset.end(), newOffsets.begin(), newOffsets.end());
+    auto signal = View(operand.signal, signalShape, signalValidShape, signalOffset);
+    return ShmemTensor{operand.group, operand.worldSize, data, signal};
+}
+
+ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::initializer_list<SymbolicScalar> &newOffsets)
+{
+    return ShmemView(operand, shapes, std::vector<SymbolicScalar>(newOffsets));
+}
+
+Tensor ShmemPut(const Tensor &src, const ShmemTensor &dst, const SymbolicScalar &dstRank, AtomicType putOp, const Tensor& pred)
 {
     std::unordered_set<DataType> allowedTypes = {DT_INT32, DT_FP32, DT_FP16, DT_BF16};
-    ValidateDataType(in, "Input tensor", allowedTypes);
-    ValidateDataType(shmemData, "Shmem data", allowedTypes);
-    ValidateShape(predToken, "PredToken", 2);
-    ValidateShape(in, "Input tensor", 2);
-    ValidateShape(shmemData, "Shmem data", 4);
-    ValidateFormat(in, "Input tensor");
-    ValidateFormat(shmemData, "Shmem data");
-    ValidateTilingSize(Opcode::OP_SHMEM_PUT, TileShape::Current().GetVecTile(), 2);
+    ValidateTensor(src, "src", {2}, allowedTypes, {TileOpFormat::TILEOP_ND});
+    ValidateTensor(dst.data, "dst", {3}, allowedTypes, {TileOpFormat::TILEOP_ND});
+    ValidateTensor(pred, "pred", {2});
+    ValidateTiling(Opcode::OP_SHMEM_PUT, src, "src");
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
+    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, pred.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT,
-        {predToken.GetStorage(), in.GetStorage(), shmemData.GetStorage()}, {out});
+        {pred.GetStorage(), src.GetStorage(), dst.data.GetStorage()}, {out});
     ShmemPutAttr distOpAttr;
-    distOpAttr.atomicType = atomicType;
+    distOpAttr.atomicType = putOp;
+    distOpAttr.targetRank = dstRank;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
 }
 
-Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
-    AtomicType atomicType)
+Tensor ShmemStore(const Tensor &src, const ShmemTensor &dst, const SymbolicScalar &dstRank, AtomicType putOp, const Tensor &pred)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, barrierDummy.GetShape());
+    auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, pred.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT_UB2GM,
-        {in.GetStorage(), shmemDataTile.GetStorage(), barrierDummy.GetStorage()}, {dummy});
+        {src.GetStorage(), dst.data.GetStorage(), pred.GetStorage()}, {dummy});
     ShmemPutAttr distOpAttr;
-    distOpAttr.atomicType = atomicType;
+    distOpAttr.atomicType = putOp;
+    distOpAttr.targetRank = dstRank;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return dummy;
 }
 
-Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicType atomicType)
+Tensor ShmemGet(const ShmemTensor &src, const SymbolicScalar &srcRank, const Tensor& pred, DataType targetDataType)
 {
-    ValidateShape(predToken, "PredToken", 2);
-    ValidateShape(shmemSignal, "Shmem signal", 5);
-    ValidateTilingSize(Opcode::OP_SHMEM_SIGNAL, TileShape::Current().GetVecTile(), 2);
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
-    auto &op = function.AddOperation(Opcode::OP_SHMEM_SIGNAL, {predToken.GetStorage(), shmemSignal.GetStorage()},
-        {out});
-    ShmemSignalAttr distOpAttr;
-    distOpAttr.atomicType = atomicType;
-    distOpAttr.signalValue = 1;
-    distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
-    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-    return out;
-}
-
-Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonShmemDataType, AtomicType atomicType)
-{
-    ValidateDataType(shmemData, "Shmem data", {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
-    ValidateShape(predToken, "PredToken", 2);
-    ValidateShape(shmemData, "Shmem data", 4);
-    ValidateFormat(shmemData, "Shmem data");
-    ValidateTilingSize(Opcode::OP_SHMEM_GET, TileShape::Current().GetVecTile(), 2);
-    if (nonShmemDataType == DT_BOTTOM) {
-        nonShmemDataType = shmemData.GetDataType();
+    ValidateTensor(src.data, "src", {3}, {DT_INT32, DT_FP32, DT_FP16, DT_BF16}, {TileOpFormat::TILEOP_ND});
+    ValidateTensor(pred, "pred", {2});
+    ValidateTiling(Opcode::OP_SHMEM_GET, pred, "pred");
+    if (targetDataType == DT_BOTTOM) {
+        targetDataType = src.data.GetDataType();
     }
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    Shape shape = {shmemData.GetShape()[2], shmemData.GetShape()[3]};
-    auto out = std::make_shared<LogicalTensor>(function, nonShmemDataType, shape, shmemData.Format());
-    auto &op = function.AddOperation(Opcode::OP_SHMEM_GET, {predToken.GetStorage(), shmemData.GetStorage()},
+    Shape shape = {src.data.GetShape(1), src.data.GetShape(2)};
+    auto out = std::make_shared<LogicalTensor>(function, targetDataType, shape, src.data.Format());
+    auto &op = function.AddOperation(Opcode::OP_SHMEM_GET, {pred.GetStorage(), src.data.GetStorage()},
         {out});
     ShmemGetAttr distOpAttr;
-    distOpAttr.atomicType = atomicType;
+    distOpAttr.targetRank = srcRank;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
 }
 
-Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType, AtomicType atomicType)
+Tensor ShmemLoad(const ShmemTensor &src, const SymbolicScalar &srcRank, const Tensor& pred, DataType nonShmemDataType)
 {
-    ValidateTilingSize(Opcode::OP_SHMEM_GET_GM2UB, TileShape::Current().GetVecTile(), 2);
+    ValidateTiling(Opcode::OP_SHMEM_GET_GM2UB, pred, "pred");
     if (nonShmemDataType == DT_BOTTOM) {
-        nonShmemDataType = shmemDataTile.GetDataType();
+        nonShmemDataType = src.data.GetDataType();
     }
+    Shape shape = {src.data.GetShape(1), src.data.GetShape(2)};
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    Shape shape = {shmemDataTile.GetShape()[2], shmemDataTile.GetShape()[3]};
-    auto tempOutTile = std::make_shared<LogicalTensor>(function, nonShmemDataType, shape);
-    auto &op = function.AddOperation(Opcode::OP_SHMEM_GET_GM2UB, {dummy.GetStorage(), shmemDataTile.GetStorage()},
-        {tempOutTile});
+    auto out = std::make_shared<LogicalTensor>(function, nonShmemDataType, shape);
+    auto &op = function.AddOperation(Opcode::OP_SHMEM_GET_GM2UB, {pred.GetStorage(), src.data.GetStorage()},
+        {out});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB,
-        OpImmediate::Specified({shmemDataTile.GetShape()[2], shmemDataTile.GetShape()[3]}),
-        OpImmediate::Specified({tempOutTile->shape[0], tempOutTile->shape[1]}),
-        OpImmediate::Specified(std::vector<SymbolicScalar>{shmemDataTile.GetValidShape()[2], shmemDataTile.GetValidShape()[3]})));
+        OpImmediate::Specified({src.data.GetShape(1), src.data.GetShape(2)}),
+        OpImmediate::Specified({out->shape[0], out->shape[1]}),
+        OpImmediate::Specified(std::vector<SymbolicScalar>{src.data.GetValidShape()[1], src.data.GetValidShape()[2]})));
     function.UpdateTensorDataUsage(op);
     ShmemGetAttr distOpAttr;
-    distOpAttr.atomicType = atomicType;
-    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-    return tempOutTile;
-}
-
-Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t expectedSum, bool resetSignal)
-{
-    ValidateShape(predToken, "PredToken", 2);
-    ValidateShape(shmemSignal, "Shmem signal", 5);
-    ValidateTilingSize(Opcode::OP_SHMEM_WAIT_UNTIL, TileShape::Current().GetVecTile(), 2);
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
-    auto &op = function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {predToken.GetStorage(), shmemSignal.GetStorage()},
-        {out});
-    std::vector<int64_t> param = {static_cast<int64_t>(expectedSum),
-        static_cast<int64_t>(SHMEM_SIGNAL_STRIDE), static_cast<int64_t>(resetSignal)};
-    ShmemWaitUntilAttr distOpAttr;
-    distOpAttr.expectedSum = expectedSum;
-    distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
-    distOpAttr.resetSignal = resetSignal;
+    distOpAttr.targetRank = srcRank;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
 }
 
-void CreateShmemData(const char* group, int64_t worldSize, DataType dataType,
-    const Shape &shape, Tensor &shmemTensor, uint64_t memType)
+Tensor ShmemSignal(const ShmemTensor& dst, const SymbolicScalar &dstRank, const SymbolicScalar &notifyRank, int32_t signal, AtomicType sigOp, const Tensor& pred)
 {
-    ValidateGroup(group);
-    ValidateWorldSize(group, worldSize);
+    ValidateTensor(pred, "pred", {2});
+    ValidateTensor(dst.signal, "dst", {4});
+    ValidateTiling(Opcode::OP_SHMEM_SIGNAL, pred, "pred");
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
-    Shape shmemShape{worldSize};
-    shmemShape.insert(shmemShape.end(), shape.begin(), shape.end());
-    auto shmemTensorInner = std::make_shared<LogicalTensor>(function, dataType, shmemShape);
-    shmemTensor = shmemTensorInner;
-    Program::GetInstance().GetTensorSlotManager()->TensorWrite(shmemTensor, SlotProperty::SHMEM_TENSOR);
-    auto &op = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {shmemTensorInner});
-    op.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, memType,
-        AlignUp(BytesOf(dataType) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int64_t>()), 512)));
+    Shape signalShape = dst.signal.GetShape();
+    signalShape[0] = 1;
+    std::vector<SymbolicScalar> signalOffset(signalShape.size(), 0);
+    signalOffset[0] = dstRank;
+    auto signalTensor = View(dst.signal, signalShape, signalOffset);
+    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, pred.GetShape());
+    auto &op = function.AddOperation(Opcode::OP_SHMEM_SIGNAL, {pred.GetStorage(), signalTensor.GetStorage()}, {out});
+    ShmemSignalAttr distOpAttr;
+    distOpAttr.signalValue = signal;
+    distOpAttr.atomicType = sigOp;
+    distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
+    distOpAttr.targetRank = notifyRank;
+    distOpAttr.worldSize = dst.worldSize;
+    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+    return out;
 }
 
-void CreateShmemSignal(const char* group, Tensor& shmemData, Tensor& shmemSignal)
+Tensor ShmemSignal(const ShmemTensor& dst, const SymbolicScalar &dstRank, int32_t signal, AtomicType sigOp, const Tensor& pred)
 {
-    ValidateGroup(group);
+    return ShmemSignal(dst, dstRank, dstRank, signal, sigOp, pred);
+}
+
+Tensor ShmemSignalAll(const ShmemTensor& dst, const SymbolicScalar &dstRank, int32_t signal, AtomicType sigOp, const Tensor& pred)
+{
+    ValidateTensor(pred, "pred", {2});
+    ValidateTensor(dst.signal, "dst", {4});
+    ValidateTiling(Opcode::OP_SHMEM_SIGNAL, pred, "pred");
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
-    int64_t worldSize = shmemData.GetShape(0);
-    Shape shmemShape{worldSize, worldSize};
-    Shape shmemDataShape;
-    shmemDataShape.assign(shmemData.GetShape().begin() + 1, shmemData.GetShape().end());
-    shmemShape.insert(shmemShape.end(), shmemDataShape.begin(), shmemDataShape.end());
-    auto shmemTensorInner = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, shmemShape);
-    shmemSignal = shmemTensorInner;
-    Program::GetInstance().GetTensorSlotManager()->TensorWrite(shmemSignal, SlotProperty::SHMEM_TENSOR);
-    auto &op = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {shmemTensorInner});
-    op.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 1,
-        BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
+    Shape signalShape = dst.signal.GetShape();
+    signalShape[0] = 1;
+    std::vector<SymbolicScalar> signalOffset(signalShape.size(), 0);
+    signalOffset[0] = dstRank;
+    auto signalTensor = View(dst.signal, signalShape, signalOffset);
+    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, pred.GetShape());
+    auto &op = function.AddOperation(Opcode::OP_SHMEM_SIGNAL, {pred.GetStorage(), signalTensor.GetStorage()},
+        {out});
+    ShmemSignalAttr distOpAttr;
+    distOpAttr.signalValue = signal;
+    distOpAttr.atomicType = sigOp;
+    distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
+    distOpAttr.notifyAll = true;
+    distOpAttr.worldSize = dst.worldSize;
+    distOpAttr.targetRank = 0;
+    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+    return out;
 }
 
-Tensor ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize)
+Tensor ShmemWaitUntil(const ShmemTensor& src, const SymbolicScalar &srcRank, OpType cmp, int32_t cmpValue, bool clearSignal, const Tensor &pred)
 {
-    ValidateGroup(group);
-    SymbolicScalar thisRank = GetHcclRankId(group);
-    auto shmemSignalTile = View(shmemSignal, {worldSize, 1, 1, shmemSignal.GetShape(3), shmemSignal.GetShape(4)},
-        std::vector<SymbolicScalar>{0, 0, 0, 0, 0});
-    auto shmemSignalOut = ShmemSignal(predToken, shmemSignalTile, AtomicType::ADD);
-    auto shmemSignalLocal = View(shmemSignal, {1, 1, 1, shmemSignal.GetShape(3), shmemSignal.GetShape(4)},
-        std::vector<SymbolicScalar>{thisRank, 0, 0, 0, 0});
-    return WaitUntil(shmemSignalOut, shmemSignalLocal, worldSize, true);
+    ValidateTensor(pred, "pred", {2});
+    ValidateTensor(src.signal, "src.signal", {4});
+    ValidateTiling(Opcode::OP_SHMEM_WAIT_UNTIL, pred, "pred");
+    (void)cmp;
+    auto &function = *Program::GetInstance().GetCurrentFunction();
+    Shape signalShape = src.signal.GetShape();
+    signalShape[0] = 1;
+    std::vector<SymbolicScalar> signalOffset(signalShape.size(), 0);
+    signalOffset[0] = srcRank;
+    auto signalTensor = View(src.signal, signalShape, signalOffset);
+    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, pred.GetShape());
+    auto &op = function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {pred.GetStorage(), signalTensor.GetStorage()},
+        {out});
+    std::vector<int64_t> param = {static_cast<int64_t>(cmpValue),
+        static_cast<int64_t>(SHMEM_SIGNAL_STRIDE), static_cast<int64_t>(clearSignal)};
+    ShmemWaitUntilAttr distOpAttr;
+    distOpAttr.expectedSum = cmpValue;
+    distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
+    distOpAttr.resetSignal = clearSignal;
+    distOpAttr.targetRank = GetHcclRankId(src.group);
+    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+    return out;
 }
 
-Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData)
+Tensor ShmemClearData(const ShmemTensor& src, Tensor &pred)
 {
-    constexpr int32_t supportedDim = 4;
-    CHECK(shmemData.GetShape().size() == supportedDim) << "The dim of \"shmemData\" only supports " << supportedDim
-        << ", but got " << shmemData.GetShape().size();
-
+    ValidateTensor(src.data, "src", {3});
     auto& function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, Shape{1, 1});
-    auto& op = function.AddOperation(Opcode::OP_SHMEM_SET, {predToken.GetStorage(), shmemData.GetStorage()}, {out});
+    auto& op = function.AddOperation(Opcode::OP_SHMEM_SET, {pred.GetStorage(), src.data.GetStorage()}, {out});
     ShmemSetAttr distOpAttr;
     distOpAttr.setType = 0;
+    distOpAttr.targetRank = GetHcclRankId(src.group);
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
 }
 
-Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal)
+Tensor ShmemClearSignal(const ShmemTensor& src, Tensor &pred)
 {
-    constexpr int32_t supportedDim = 5;
-    CHECK(shmemSignal.GetShape().size() == supportedDim) << "The dim of \"shmemSignal\" only supports " << supportedDim
-        << ", but got " << shmemSignal.GetShape().size();
-
+    ValidateTensor(src.signal, "src", {4});
     auto& function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, Shape{1, 1});
-    auto& op = function.AddOperation(Opcode::OP_SHMEM_SET, {predToken.GetStorage(), shmemSignal.GetStorage()}, {out});
+    auto& op = function.AddOperation(Opcode::OP_SHMEM_SET, {pred.GetStorage(), src.signal.GetStorage()}, {out});
     ShmemSetAttr distOpAttr;
     distOpAttr.setType = 1;
+    distOpAttr.targetRank = GetHcclRankId(src.group);
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
 }
 
-void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData, Tensor& shmemSignal,
-    Tensor& out)
+Tensor ShmemBarrier(const ShmemTensor &src, const Tensor &pred)
 {
-    uint32_t worldSize = shmemData.GetShape()[0];
+    ShmemSignalAll(src, 0, 1, AtomicType::ADD, pred);
+    return ShmemWaitUntil(src, 0, OpType::EQ, src.worldSize, true, pred);
+}
+
+void AllGather(const Tensor& predToken, const Tensor& in, ShmemTensor &shmemTensor, Tensor& out)
+{
+    uint32_t worldSize = shmemTensor.worldSize;
     CHECK(worldSize > 0) << "worldSize should be more than 0.";
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
-    SymbolicScalar thisRank = GetHcclRankId(group);
-    ValidateGroup(group);
-    ValidateParams(predToken, in, out, shmemData.GetShape(), in.GetDataType());
-    ValidateTypeAndShape(shmemData, out.GetDataType(), {worldSize, worldSize, row, col});
-    ValidateTypeAndShape(shmemSignal, DataType::DT_INT32, {worldSize, worldSize, worldSize, row, col});
+    SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
+    ValidateParams(predToken, in, out, shmemTensor.data.GetShape(), in.GetDataType());
+    ValidateTypeAndShape(shmemTensor.data, out.GetDataType(), {worldSize, row, col});
+    ValidateTypeAndShape(shmemTensor.signal, DataType::DT_INT32, {worldSize, worldSize, row, col});
     ValidateTypeAndShape(out, in.GetDataType(), {row * worldSize, col});
     for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
-        auto shmemDataTile = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, thisRank, 0, 0});
-        auto shmemSignalTile = View(shmemSignal, {1, 1, 1, row, col},
-            std::vector<SymbolicScalar>{dynRankId, dynRankId, thisRank, 0, 0});
-        auto shmemPutOut = ShmemPut(predToken, in, shmemDataTile);
-        auto shmemSignalOut = ShmemSignal(shmemPutOut, shmemSignalTile, AtomicType::SET);
-        auto shmemDataLocal = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, dynRankId, 0, 0});
-        auto shmemSignalLocal = View(shmemSignal, {1, 1, 1, row, col},
-            std::vector<SymbolicScalar>{thisRank, thisRank, dynRankId, 0, 0});
-        auto waitUntilOut= WaitUntil(shmemSignalOut, shmemSignalLocal, 1);
-        auto shmemGetOut= ShmemGet(waitUntilOut, shmemDataLocal);
+        auto shmemDataTile = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{thisRank, 0, 0});
+        auto shmemPutOut = ShmemPut(in, shmemDataTile, dynRankId, AtomicType::SET, predToken);
+        auto shmemSignalOut = ShmemSignal(shmemDataTile, dynRankId, 1, AtomicType::SET, shmemPutOut);
+        auto shmemDataLocal = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{dynRankId, 0, 0});
+        auto waitUntilOut= ShmemWaitUntil(shmemDataLocal, thisRank, OpType::EQ, 1, true, shmemSignalOut);
+        auto shmemGetOut= ShmemGet(shmemDataLocal, thisRank, waitUntilOut);
         Assemble(shmemGetOut, {dynRankId * row, 0}, out);
     }
 }
 
-void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData, Tensor& shmemSignal,
+void ReduceScatter(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor,
     DistReduceType reduceType, Tensor& out)
 {
     (void)reduceType;
+    uint32_t worldSize = shmemTensor.worldSize;
+    CHECK(worldSize > 0) << "worldSize should be more than 0.";
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
-    uint32_t worldSize = shmemData.GetShape()[0];
-    CHECK(worldSize > 0) << "worldSize should be more than 0.";
-    CHECK((row % worldSize) == 0) << "ReduceScatter constraint: row must be divisible by worldSize, but row: " << row
-        << ", worldSize: " << worldSize;
-    const int32_t rowOut = row / worldSize;
-    SymbolicScalar thisRank = GetHcclRankId(group);
-    ValidateGroup(group);
-    ValidateParams(predToken, in, out, shmemData.GetShape(), shmemData.GetDataType(),
+    int32_t rowOut = row / worldSize;
+    SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
+    ValidateParams(predToken, in, out, shmemTensor.data.GetShape(), shmemTensor.data.GetDataType(),
         false, true, {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
-    ValidateTypeAndShape(shmemData, ((in.GetDataType() == DT_BF16) || (in.GetDataType() == DT_FP16) ? DT_FP32 :
-        out.GetDataType()), {worldSize, 1, rowOut, col});
-    ValidateTypeAndShape(shmemSignal, DataType::DT_INT32, {worldSize, worldSize, 1, rowOut, col});
+    ValidateTypeAndShape(shmemTensor.data, ((in.GetDataType() == DT_BF16) || (in.GetDataType() == DT_FP16) ? DT_FP32 :
+        out.GetDataType()), {1, rowOut, col});
+    ValidateTypeAndShape(shmemTensor.signal, DataType::DT_INT32, {worldSize, 1, rowOut, col});
     ValidateTypeAndShape(out, in.GetDataType(), {rowOut, col});
     for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
-        auto shmemDataTile = View(shmemData, {1, 1, rowOut, col}, std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
-        auto shmemSignalTile =
-            View(shmemSignal, {1, 1, 1, rowOut, col}, std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0, 0});
+        auto shmemDataTile = ShmemView(shmemTensor, {1, rowOut, col}, std::vector<SymbolicScalar>{0, 0, 0});
         auto inTile = View(in, {rowOut, col}, std::vector<SymbolicScalar>{dynRankId * rowOut, 0});
-        auto shmemPutOut = ShmemPut(predToken, inTile, shmemDataTile, AtomicType::ADD);
-        ShmemSignal(shmemPutOut, shmemSignalTile, AtomicType::ADD);
+        auto shmemPutOut = ShmemPut(inTile, shmemDataTile, dynRankId, AtomicType::ADD, predToken);
+        ShmemSignal(shmemDataTile, dynRankId, 1, AtomicType::ADD, shmemPutOut);
     }
-    auto shmemDataLocal = View(shmemData, {1, 1, rowOut, col}, std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
-    auto shmemSignalLocal =
-        View(shmemSignal, {1, 1, 1, rowOut, col}, std::vector<SymbolicScalar>{thisRank, thisRank, 0, 0, 0});
-    auto waitUntilOut = WaitUntil(in, shmemSignalLocal, worldSize);
-    out = ShmemGet(waitUntilOut, shmemDataLocal, in.GetDataType());
+    auto shmemDataLocal = ShmemView(shmemTensor, {1, rowOut, col}, std::vector<SymbolicScalar>{0, 0, 0});
+    auto waitUntilOut = ShmemWaitUntil(shmemDataLocal, thisRank, OpType::EQ, worldSize, true, in);
+    out = ShmemGet(shmemDataLocal, thisRank, waitUntilOut, in.GetDataType());
 }
 
-void AllReduceValidate(const Tensor& predToken, const Tensor& in, const Tensor& shmemData, const char* group,
-    const Tensor& out)
+void OneShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out)
 {
-    ValidateGroup(group);
-    ValidateParams(predToken, in, out, shmemData.GetShape(), shmemData.GetDataType(), true, true,
-        {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
-}
-
-void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out)
-{
-    int32_t row = in.GetShape(0);
-    int32_t col = in.GetShape(1);
-    SymbolicScalar thisRank = GetHcclRankId(group);
-    uint32_t worldSize = shmemData.GetShape()[0];
-    AllReduceValidate(predToken, in, shmemData, group, out);
-    ValidateTypeAndShape(shmemData, ((in.GetDataType() == DT_BF16) || (in.GetDataType() == DT_FP16) ? DT_FP32 :
-        out.GetDataType()), {worldSize, 1, row, col});
-    ValidateTypeAndShape(shmemSignal, DataType::DT_INT32, {worldSize, worldSize, 1, row, col});
+    uint32_t worldSize = shmemTensor.worldSize;
     CHECK(worldSize > 0) << "worldSize should be more than 0.";
-    for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
-        auto shmemDataTile = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
-        auto shmemSignalTile = View(shmemSignal, {1, 1, 1, row, col},
-            std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0, 0});
-        auto shmemPutOut = ShmemPut(predToken, in, shmemDataTile, AtomicType::ADD);
-        ShmemSignal(shmemPutOut, shmemSignalTile, AtomicType::ADD);
-    }
-    auto shmemDataTile = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
-    auto shmemSignalTile = View(shmemSignal, {1, 1, 1, row, col},
-        std::vector<SymbolicScalar>{thisRank, thisRank, 0, 0, 0});
-    auto waitUntilout = WaitUntil(in, shmemSignalTile, worldSize);
-    out = ShmemGet(waitUntilout, shmemDataTile, in.GetDataType());
-}
-
-void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out)
-{
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
-    uint32_t worldSize = shmemData.GetShape()[0];
-    CHECK(worldSize > 0) << "AllReduce worldSize should be more than 0.";
-    CHECK(row % worldSize == 0) << "Two_Shot_AllReduce constraint: row must be divisible by worldSize but row: " << row
-        << ", worldSize: " << worldSize;
-    int32_t rowPerRank = row / worldSize;
-    AllReduceValidate(predToken, in, shmemData, group, out);
-    ValidateTypeAndShape(shmemData, ((in.GetDataType() == DT_BF16) || (in.GetDataType() == DT_FP16) ? DT_FP32 :
-        out.GetDataType()), {worldSize, worldSize, rowPerRank, col});
-    ValidateTypeAndShape(shmemSignal, DataType::DT_INT32, {worldSize, worldSize, worldSize, rowPerRank, col});
-    SymbolicScalar thisRank = GetHcclRankId(group);
+    SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
+    ValidateParams(predToken, in, out, shmemTensor.data.GetShape(), shmemTensor.data.GetDataType(), true, true,
+        {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
+    ValidateTypeAndShape(shmemTensor.data, ((in.GetDataType() == DT_BF16) || (in.GetDataType() == DT_FP16) ? DT_FP32 :
+        out.GetDataType()), {1, row, col});
+    ValidateTypeAndShape(shmemTensor.signal, DataType::DT_INT32, {worldSize, 1, row, col});
     for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
-        auto shmemDataTile = View(shmemData, {1, 1, rowPerRank, col},
-            std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0});
-        auto shmemSignalTile = View(shmemSignal, {worldSize, 1, 1, rowPerRank, col},
-            std::vector<SymbolicScalar>{0, dynRankId, dynRankId, 0, 0});
-        auto inTile = View(in, {rowPerRank, col}, std::vector<SymbolicScalar>{rowPerRank * dynRankId, 0});
-        auto shmemPutOut = ShmemPut(predToken, inTile, shmemDataTile, AtomicType::ADD);
-        auto shmemSignalOut = ShmemSignal(shmemPutOut, shmemSignalTile, AtomicType::ADD);
-        auto waitSignalTile = View(shmemSignal, {1, 1, 1, rowPerRank, col},
-            std::vector<SymbolicScalar>{thisRank, dynRankId, dynRankId, 0, 0});
-        auto waitUntilOut = WaitUntil(shmemSignalOut, waitSignalTile, worldSize);
-        auto tmp = ShmemGet(waitUntilOut, shmemDataTile, in.GetDataType());
+        auto shmemDataTile = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
+        auto shmemPutOut = ShmemPut(in, shmemDataTile, dynRankId, AtomicType::ADD, predToken);
+        ShmemSignal(shmemDataTile, dynRankId, 1, AtomicType::ADD, shmemPutOut);
+    }
+    auto shmemDataLocal = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
+    auto waitUntilOut = ShmemWaitUntil(shmemDataLocal, thisRank, OpType::EQ, worldSize, true, in);
+    out = ShmemGet(shmemDataLocal, thisRank, waitUntilOut, in.GetDataType());
+}
+
+void TwoShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out)
+{
+    uint32_t worldSize = shmemTensor.worldSize;
+    CHECK(worldSize > 0) << "worldSize should be more than 0.";
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    int32_t rowPerRank = row / worldSize;
+    SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
+    ValidateParams(predToken, in, out, shmemTensor.data.GetShape(), shmemTensor.data.GetDataType(), true, true,
+        {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
+    ValidateTypeAndShape(shmemTensor.data, ((in.GetDataType() == DT_BF16) || (in.GetDataType() == DT_FP16) ? DT_FP32 :
+        out.GetDataType()), {worldSize, rowPerRank, col});
+    ValidateTypeAndShape(shmemTensor.data, DataType::DT_INT32, {worldSize, worldSize, rowPerRank, col});
+    for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
+        auto shmemDataTile = ShmemView(shmemTensor, {1, rowPerRank, col}, std::vector<SymbolicScalar>{0, 0, 0});
+        auto inTile = View(in, {rowPerRank, col}, std::vector<SymbolicScalar>{dynRankId * rowPerRank, 0});
+        auto shmemPutOut = ShmemPut(inTile, shmemDataTile, dynRankId, AtomicType::ADD, predToken);
+        ShmemSignalAll(shmemDataTile, dynRankId, 1, AtomicType::ADD, shmemPutOut);
+        auto waitUntilOut = ShmemWaitUntil(shmemDataTile, dynRankId, OpType::EQ, worldSize, true, in);
+        auto tmp = ShmemGet(shmemDataTile, dynRankId, waitUntilOut, in.GetDataType());
         Assemble(tmp, {rowPerRank * dynRankId, 0}, out);
     }
 }
