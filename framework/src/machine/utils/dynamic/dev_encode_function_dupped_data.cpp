@@ -19,9 +19,10 @@ namespace npu::tile_fwk::dynamic {
 constexpr const uint8_t MAIN_BLOCK_SIZE = 2;
 std::string DevAscendFunctionDuppedData::Dump(int indent) const {
     if (GetSource()->GetOperationSize() != GetOperationSize()) {
-        DEV_ERROR("GetOperationSize mismatch: source=%zu, self=%u", GetSource()->GetOperationSize(), GetOperationSize());
+        DEV_ERROR(DataStructErr::UNKNOWN, "GetOperationSize mismatch: source=%zu, self=%u",
+            GetSource()->GetOperationSize(), GetOperationSize());
     }
-    DEV_ASSERT(GetSource()->GetOperationSize() == GetOperationSize());
+    DEV_ASSERT(ProgEncodeErr::UNKNOWN, GetSource()->GetOperationSize() == GetOperationSize());
     std::string INDENT(indent, ' ');
     std::string INDENTINNER(indent + IDENT_SIZE, ' ');
 
@@ -56,7 +57,8 @@ std::string DevAscendFunctionDuppedData::Dump(int indent) const {
     return oss.str();
 }
 
-void DevAscendFunctionDupped::DumpTopo(std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary, bool enableVFFusion) const {
+void DevAscendFunctionDupped::DumpTopo(
+    std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary, bool enableVFFusion) const {
     auto func = GetSource();
     for (size_t opIdx = 0; opIdx < DupData()->GetSource()->GetOperationSize(); opIdx++) {
         int cceIndex = func->GetOperationAttrCalleeIndex(opIdx);
@@ -65,16 +67,14 @@ void DevAscendFunctionDupped::DumpTopo(std::ofstream &os, int seqNo, int funcIdx
         }
         auto &cceInfo = cceBinary[cceIndex];
         os << seqNo << "," << MakeTaskID(funcIdx, opIdx) << "," << func->funcKey << "," << func->rootHash << ","
-            <<func->GetOperationDebugOpmagic(opIdx) << "," << cceIndex << ","
-            << cceInfo.funcHash << "," << cceInfo.coreType << "," << cceInfo.psgId << ",";
+           << func->GetOperationDebugOpmagic(opIdx) << "," << cceIndex << "," << cceInfo.funcHash << ","
+           << cceInfo.coreType << "," << cceInfo.psgId << ",";
         auto &succList = func->GetOperationDepGraphSuccList(opIdx);
         for (size_t j = 0; j < succList.size(); j++) {
             os << "," << MakeTaskID(funcIdx, func->At(succList, j));
         }
         auto &stitch = GetOperationStitch(opIdx);
-        stitch.ForEach([&os](uint32_t id) {
-            os << "," << id;
-        });
+        stitch.ForEach([&os](uint32_t id) { os << "," << id; });
         os << "\n";
     }
 }
@@ -88,11 +88,9 @@ void DevAscendFunctionDupped::DumpTensorAddrInfo(std::vector<std::string> &infos
         std::stringstream os;
         uint64_t rawIdx = srcFunc->GetTensor(operandInfo.tensorIndex)->rawIndex;
         auto *rawTensor = srcFunc->GetRawTensor(rawIdx);
-        os << seqNo << "," << MakeTaskID(funcIdx, opIdx) << "," <<
-            rawTensor->rawMagic << "," <<
-            GetRawTensorAddrEx(rawIdx) << "," <<
-            BriefDataType2String(rawTensor->dataType) << "," <<
-            BytesOf(rawTensor->dataType);
+        os << seqNo << "," << MakeTaskID(funcIdx, opIdx) << "," << rawTensor->rawMagic << ","
+           << GetRawTensorAddrEx(rawIdx) << "," << BriefDataType2String(rawTensor->dataType) << ","
+           << BytesOf(rawTensor->dataType);
 
         uint32_t dimSize = rawTensor->GetDim();
         os << ",(";
@@ -131,7 +129,7 @@ static void FlushStream(std::vector<std::string> &lines, std::stringstream &oss)
 }
 
 void DevAscendFunctionDupped::DumpRawShape(const DevAscendRawTensor *rawTensor, uint32_t dimSize,
-                                           std::vector<std::string> &lines, std::stringstream &oss) const {
+    std::vector<std::string> &lines, std::stringstream &oss) const {
     oss << "        rawShape=[";
     bool isFirstDim = true;
     for (uint32_t i = 0; i < dimSize; i++) {
@@ -147,7 +145,7 @@ void DevAscendFunctionDupped::DumpRawShape(const DevAscendRawTensor *rawTensor, 
 }
 
 void DevAscendFunctionDupped::DumpOperandShape(uint32_t dimSize, size_t opIdx, size_t operandIdx, bool isIn,
-                                               std::vector<std::string> &lines, std::stringstream &oss) const {
+    std::vector<std::string> &lines, std::stringstream &oss) const {
     uint64_t offset[DEV_SHAPE_DIM_MAX];
     uint64_t shape[DEV_SHAPE_DIM_MAX];
     GetFuncTensorOffsetAndShape(offset, shape, dimSize, opIdx, operandIdx, isIn);
@@ -192,7 +190,8 @@ std::vector<std::string> DevAscendFunctionDupped::DumpLeafs(uint32_t seqNo, uint
     for (size_t opIdx = 0; opIdx < srcFunc->GetOperationSize(); opIdx++) {
         size_t iopNum = srcFunc->GetOperationIOperandSize(opIdx);
         size_t oopNum = srcFunc->GetOperationOOperandSize(opIdx);
-        oss << "> taskId = " << MakeTaskID(funcIdx, opIdx) << ", opIdx=" << opIdx << ", #iop=" << iopNum << ", #oop=" << oopNum;
+        oss << "> taskId = " << MakeTaskID(funcIdx, opIdx) << ", opIdx=" << opIdx << ", #iop=" << iopNum
+            << ", #oop=" << oopNum;
         FlushStream(lines, oss);
 
         for (size_t iopIdx = 0; iopIdx < iopNum; iopIdx++) {
@@ -224,4 +223,4 @@ std::vector<std::string> DevAscendFunctionDupped::DumpLeafs(uint32_t seqNo, uint
 
     return lines;
 }
-}
+} // namespace npu::tile_fwk::dynamic

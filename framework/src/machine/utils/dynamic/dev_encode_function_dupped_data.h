@@ -46,28 +46,42 @@ struct DevAscendFunctionDuppedData {
      */
 #define GET_DATA(type, data, base, index) ((reinterpret_cast<type *>(const_cast<uint8_t *>((data) + (base)))[index]))
     uint32_t GetOperationSize() const { return operationList_.size; }
-    const predcount_t &GetOperationCurrPredCount(int index) const { return GET_DATA(predcount_t, data_, operationList_.predCountBase, index); }
-    predcount_t &GetOperationCurrPredCount(int index) { return GET_DATA(predcount_t, data_, operationList_.predCountBase, index); }
+    const predcount_t &GetOperationCurrPredCount(int index) const {
+        return GET_DATA(predcount_t, data_, operationList_.predCountBase, index);
+    }
+    predcount_t &GetOperationCurrPredCount(int index) {
+        return GET_DATA(predcount_t, data_, operationList_.predCountBase, index);
+    }
 
     uint32_t GetStitchSize() const { return operationList_.stitchCount; }
-    const DevAscendFunctionDuppedStitchList &GetStitch(int index) const { return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, index); }
-    DevAscendFunctionDuppedStitchList &GetStitch(int index) { return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, index); }
+    const DevAscendFunctionDuppedStitchList &GetStitch(int index) const {
+        return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, index);
+    }
+    DevAscendFunctionDuppedStitchList &GetStitch(int index) {
+        return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, index);
+    }
 
     uint64_t GetExpressionSize() const { return expressionList_.size; }
     const uint64_t &GetExpression(int index) const { return GET_DATA(uint64_t, data_, expressionList_.base, index); }
     uint64_t &GetExpression(int index) { return GET_DATA(uint64_t, data_, expressionList_.base, index); }
 
-    uint64_t *GetExpressionAddr() const {
-        return &GET_DATA(uint64_t, data_, expressionList_.base, 0);
-    }
+    uint64_t *GetExpressionAddr() const { return &GET_DATA(uint64_t, data_, expressionList_.base, 0); }
 
     uint64_t GetIncastSize() const { return incastList_.size; }
-    AddressDescriptor GetIncastAddress(int index) const { return GET_DATA(AddressDescriptor, data_, incastList_.base, index); }
-    AddressDescriptor &GetIncastAddress(int index) { return GET_DATA(AddressDescriptor, data_, incastList_.base, index); }
+    AddressDescriptor GetIncastAddress(int index) const {
+        return GET_DATA(AddressDescriptor, data_, incastList_.base, index);
+    }
+    AddressDescriptor &GetIncastAddress(int index) {
+        return GET_DATA(AddressDescriptor, data_, incastList_.base, index);
+    }
 
     uint64_t GetOutcastSize() const { return outcastList_.size; }
-    AddressDescriptor GetOutcastAddress(int index) const { return GET_DATA(AddressDescriptor, data_, outcastList_.base, index); }
-    AddressDescriptor &GetOutcastAddress(int index) { return GET_DATA(AddressDescriptor, data_, outcastList_.base, index); }
+    AddressDescriptor GetOutcastAddress(int index) const {
+        return GET_DATA(AddressDescriptor, data_, outcastList_.base, index);
+    }
+    AddressDescriptor &GetOutcastAddress(int index) {
+        return GET_DATA(AddressDescriptor, data_, outcastList_.base, index);
+    }
 
     RuntimeReuseInfo GetRuntimeReuseInfo() const { return runtimeWsReuseInfo_; }
     RuntimeReuseInfo &GetRuntimeReuseInfo() { return runtimeWsReuseInfo_; }
@@ -85,9 +99,9 @@ struct DevAscendFunctionDuppedData {
         int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
         DEV_IF_NONDEVICE {
             if (!maybeNull && outcastStitchIndex == 0) {
-                DEV_ERROR("GetOperationStitch: operation %d has invalid outcast stitch index 0", operationIndex);
+                DEV_ERROR(ProgEncodeErr::UNKNOWN, "GetOperationStitch: operation %d has invalid outcast stitch index 0", operationIndex);
             }
-            DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
+            DEV_ASSERT(ProgEncodeErr::UNKNOWN, maybeNull || outcastStitchIndex != 0);
         }
         return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, outcastStitchIndex);
     }
@@ -95,9 +109,9 @@ struct DevAscendFunctionDuppedData {
         int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
         DEV_IF_NONDEVICE {
             if (!maybeNull && outcastStitchIndex == 0) {
-                DEV_ERROR("GetOperationStitch: operation %d has invalid outcast stitch index 0", operationIndex);
+                DEV_ERROR(ProgEncodeErr::UNKNOWN, "GetOperationStitch: operation %d has invalid outcast stitch index 0", operationIndex);
             }
-            DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
+            DEV_ASSERT(ProgEncodeErr::UNKNOWN, maybeNull || outcastStitchIndex != 0);
         }
         return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, outcastStitchIndex);
     }
@@ -144,7 +158,7 @@ struct DevAscendFunctionDuppedData {
             expressionList.push_back(schema::Int64Type(GetExpression(i)));
         }
         return schema::ExpressionTable(expressionList);
-    }    
+    }
     std::string Dump(int indent = 0) const;
 };
 
@@ -155,13 +169,10 @@ struct DevAscendFunctionDupped {
     static DevAscendFunctionDupped DuplicateRoot(DevAscendFunction *func, WsAllocation tinyAlloc) {
         DevAscendFunctionDuppedData *dupData = tinyAlloc.As<DevAscendFunctionDuppedData>();
         DevAscendFunctionDuppedData *sourceData = func->GetDuppedData();
-        (void)memcpy_s(reinterpret_cast<uint8_t *>(dupData),
-            func->GetDuppedDataCopySize(),
-            sourceData,
+        (void)memcpy_s(reinterpret_cast<uint8_t *>(dupData), func->GetDuppedDataCopySize(), sourceData,
             func->GetDuppedDataCopySize());
         (void)memset_s(reinterpret_cast<uint8_t *>(dupData) + func->GetDuppedDataCopySize(),
-            func->GetDuppedDataAllocSize() - func->GetDuppedDataCopySize(),
-            0,
+            func->GetDuppedDataAllocSize() - func->GetDuppedDataCopySize(), 0,
             func->GetDuppedDataAllocSize() - func->GetDuppedDataCopySize());
         dupData->GetSource() = func;
 
@@ -169,9 +180,7 @@ struct DevAscendFunctionDupped {
         return dup;
     }
 
-    void ReleaseDuppedMemory(WsMetadataAllocator &allocator) {
-        (void)allocator;
-    }
+    void ReleaseDuppedMemory(WsMetadataAllocator &allocator) { (void)allocator; }
 
     RuntimeReuseInfo GetRuntimeReuseInfo() const { return DupData()->GetRuntimeReuseInfo(); }
     RuntimeReuseInfo &GetRuntimeReuseInfo() { return DupData()->GetRuntimeReuseInfo(); }
@@ -191,10 +200,16 @@ struct DevAscendFunctionDupped {
     inline uint64_t *GetExpressionAddr() const { return DupData()->GetExpressionAddr(); }
 
     inline auto GetOperationSize() const { return DupData()->GetOperationSize(); }
-    inline const predcount_t &GetOperationCurrPredCount(int arg) const { return DupData()->GetOperationCurrPredCount(arg); };
+    inline const predcount_t &GetOperationCurrPredCount(int arg) const {
+        return DupData()->GetOperationCurrPredCount(arg);
+    };
     inline predcount_t &GetOperationCurrPredCount(int arg) { return DupData()->GetOperationCurrPredCount(arg); };
-    inline const auto &GetOperationStitch(int arg, bool maybeNull = true) const { return DupData()->GetOperationStitch(arg, maybeNull); };
-    inline auto &GetOperationStitch(int arg, bool maybeNull = true) { return DupData()->GetOperationStitch(arg, maybeNull); };
+    inline const auto &GetOperationStitch(int arg, bool maybeNull = true) const {
+        return DupData()->GetOperationStitch(arg, maybeNull);
+    };
+    inline auto &GetOperationStitch(int arg, bool maybeNull = true) {
+        return DupData()->GetOperationStitch(arg, maybeNull);
+    };
 
     inline AddressDescriptor GetIncastAddress(int arg) const { return DupData()->GetIncastAddress(arg); };
     inline AddressDescriptor &GetIncastAddress(int arg) { return DupData()->GetIncastAddress(arg); };
@@ -217,19 +232,18 @@ struct DevAscendFunctionDupped {
         const DevAscendRawTensor *rawTensor = GetSource()->GetRawTensor(rawIndex);
         if (rawTensor->ioProperty == DevIOProperty::ROOT_INCAST) {
             AddressDescriptor incast = GetIncastAddress(rawTensor->ioIndex);
-            DEV_ASSERT_MSG(!incast.IsNullAddress(),
-                "Null incast: root [%s], rawIndex [%d], ioIndex [%d]",
-                GetSource()->GetRawName(), rawIndex, rawTensor->ioIndex);
+            DEV_ASSERT_MSG(ProgEncodeErr::CELL_MATCH_PARAM_INVALID, !incast.IsNullAddress(),
+                "Null incast: root [%s], rawIndex [%d], ioIndex [%d]", GetSource()->GetRawName(), rawIndex,
+                rawTensor->ioIndex);
             addr = incast.addr;
         } else if (rawTensor->ioProperty == DevIOProperty::ROOT_OUTCAST) {
             AddressDescriptor outcast = GetOutcastAddress(rawTensor->ioIndex);
-            DEV_ASSERT_MSG(!outcast.IsNullAddress(),
-                "Null outcast: root [%s], rawIndex [%d], ioIndex [%d]",
+            DEV_ASSERT_MSG(ProgEncodeErr::UNKNOWN, !outcast.IsNullAddress(), "Null outcast: root [%s], rawIndex [%d], ioIndex [%d]",
                 GetSource()->GetRawName(), rawIndex, rawTensor->ioIndex);
             addr = outcast.addr;
         } else {
             uintdevptr_t runtimeWorkspace = RuntimeWorkspace();
-            DEV_ASSERT_MSG(runtimeWorkspace != 0,
+            DEV_ASSERT_MSG(WsErr::SLAB_ALLOC_NULL, runtimeWorkspace != 0,
                 "Trying to access inner tensor addr with zero runtime workspace: root [%s], rawIndex [%d]",
                 GetSource()->GetRawName(), rawIndex);
             addr = runtimeWorkspace + rawTensor->addrOffset;
@@ -243,8 +257,10 @@ struct DevAscendFunctionDupped {
         auto &operandInfo = func->GetOperationIOperandInfo(operationIndex, operandIndex);
 
         const SymInt *offsetSymList = &func->GetOperationAttr(operationIndex, operandInfo.staticOffsetAttrBeginIndex);
-        offset[0] = offsetSymList[0].IsExpression() ? GetExpression(offsetSymList[0].Value()) : offsetSymList[0].Value();
-        offset[1] = offsetSymList[1].IsExpression() ? GetExpression(offsetSymList[1].Value()) : offsetSymList[1].Value();
+        offset[0] =
+            offsetSymList[0].IsExpression() ? GetExpression(offsetSymList[0].Value()) : offsetSymList[0].Value();
+        offset[1] =
+            offsetSymList[1].IsExpression() ? GetExpression(offsetSymList[1].Value()) : offsetSymList[1].Value();
     }
 
     inline void GetOutTensorOffset(int32v8 &offset, int operationIndex, int operandIndex) const {
@@ -252,19 +268,20 @@ struct DevAscendFunctionDupped {
         auto &operandInfo = func->GetOperationOOperandInfo(operationIndex, operandIndex);
 
         const SymInt *offsetSymList = &func->GetOperationAttr(operationIndex, operandInfo.staticOffsetAttrBeginIndex);
-        offset[0] = offsetSymList[0].IsExpression() ? GetExpression(offsetSymList[0].Value()) : offsetSymList[0].Value();
-        offset[1] = offsetSymList[1].IsExpression() ? GetExpression(offsetSymList[1].Value()) : offsetSymList[1].Value();
+        offset[0] =
+            offsetSymList[0].IsExpression() ? GetExpression(offsetSymList[0].Value()) : offsetSymList[0].Value();
+        offset[1] =
+            offsetSymList[1].IsExpression() ? GetExpression(offsetSymList[1].Value()) : offsetSymList[1].Value();
     }
 
-    inline void GetFuncTensorOffsetAndShape(uint64_t offset[DEV_SHAPE_DIM_MAX], uint64_t shape[DEV_SHAPE_DIM_MAX], int dims,
-        int operationIndex, int operandIndex, bool isIOperand = true) const {
+    inline void GetFuncTensorOffsetAndShape(uint64_t offset[DEV_SHAPE_DIM_MAX], uint64_t shape[DEV_SHAPE_DIM_MAX],
+        int dims, int operationIndex, int operandIndex, bool isIOperand = true) const {
         auto func = GetSource();
-        GetTensorOffsetAndShape<false>(func, offset, shape, &GetExpression(0), dims, operationIndex, operandIndex, isIOperand);
+        GetTensorOffsetAndShape<false>(
+            func, offset, shape, &GetExpression(0), dims, operationIndex, operandIndex, isIOperand);
     }
 
-    std::string Dump(int indent = 0) const {
-        return DupData()->Dump(indent);
-    }
+    std::string Dump(int indent = 0) const { return DupData()->Dump(indent); }
 
     inline int64_t GetValue(const SymInt *attrs, int idx) const {
         return attrs[idx].IsExpression() ? funcData->exprTbl[attrs[idx].Value()] : attrs[idx].Value();
@@ -286,8 +303,7 @@ struct DevAscendFunctionDupped {
         auto funcIndex = attrBase[0].Value();
         oss << std::hex << " #funcKey " << func->funcKey << " #operIndex " << operIdx
             << " #funcHash: " << std::to_string(cceBinary[funcIndex].funcHash)
-            << " #coreType: " << cceBinary[funcIndex].coreType
-            << " #taskID:" << MakeTaskID(funcIdx, operIdx) << "\n";
+            << " #coreType: " << cceBinary[funcIndex].coreType << " #taskID:" << MakeTaskID(funcIdx, operIdx) << "\n";
 
         auto dumpAttr = [this, &oss](auto attrs, auto &info) {
             int attrIndex = info.staticOffsetAttrBeginIndex;
@@ -323,15 +339,15 @@ struct DevAscendFunctionDupped {
 #endif // DEBUG_INFINITE_LIFETIME
 
     void DumpRawShape(const DevAscendRawTensor *rawTensor, uint32_t dimSize, std::vector<std::string> &lines,
-                      std::stringstream &oss) const;
+        std::stringstream &oss) const;
 
     void DumpOperandShape(uint32_t dimSize, size_t opIdx, size_t operandIdx, bool isIn, std::vector<std::string> &lines,
-                          std::stringstream &oss) const;
+        std::stringstream &oss) const;
 
     std::vector<std::string> DumpLeafs(uint32_t seqNo, uint32_t funcIdx) const;
 
     void DumpAttr(const DevAscendFunction *func, const SymInt *attrs, const DevAscendOperationOperandInfo &info,
-                  std::stringstream &oss) const {
+        std::stringstream &oss) const {
         int attrOffset = info.staticOffsetAttrBeginIndex;
         auto rawIndex = attrs[attrOffset - 1].Value();
         oss << "@(rawidx:" << rawIndex << " attridx:" << (attrOffset - 1) << ")" << ", ";
@@ -339,40 +355,41 @@ struct DevAscendFunctionDupped {
         int dim = info.GetDim();
         auto rawTensor = func->GetRawTensor(rawIndex);
         if (rawIndex >= func->GetRawTensorSize()) {
-            DEV_ERROR("Invalid rawIndex=%lu, exceeds raw tensor size=%lu", rawIndex, func->GetRawTensorSize());
+            DEV_ERROR(ProgEncodeErr::UNKNOWN, "Invalid rawIndex=%lu, exceeds raw tensor size=%lu", rawIndex, func->GetRawTensorSize());
         }
         if (dim != rawTensor->GetDim()) {
-            DEV_ERROR("Dimension mismatch: info.dim=%d, rawTensor->dim=%d", dim, rawTensor->GetDim());
+            DEV_ERROR(ProgEncodeErr::UNKNOWN, "Dimension mismatch: info.dim=%d, rawTensor->dim=%d", dim, rawTensor->GetDim());
         }
-        DEV_ASSERT(rawIndex < func->GetRawTensorSize());
-        DEV_ASSERT(dim == rawTensor->GetDim());
+        DEV_ASSERT(ProgEncodeErr::UNKNOWN, rawIndex < func->GetRawTensorSize());
+        DEV_ASSERT(ProgEncodeErr::UNKNOWN, dim == rawTensor->GetDim());
 
         for (int d = 0; d < rawTensor->GetDim(); d++) {
             auto shapeIdx = attrOffset + d + rawTensor->GetDim() * 2;
             auto shape = static_cast<int64_t>(rawTensor->shape.At(d, funcData->exprTbl));
             auto actualShape = GetValue(attrs, shapeIdx);
             if (actualShape != shape) {
-                DEV_ERROR("Shape mismatch at dim %d: expacted=%ld, got=%ld", d, shape, actualShape);
+                DEV_ERROR(ProgEncodeErr::UNKNOWN, "Shape mismatch at dim %d: expacted=%ld, got=%ld", d, shape, actualShape);
             }
-            DEV_ASSERT(actualShape == shape);
+            DEV_ASSERT(ProgEncodeErr::UNKNOWN, actualShape == shape);
         }
         if (dim != rawTensor->GetDim()) {
-            DEV_ERROR("Final dimension mismatch after shape validation: info.dim=%d, rawTensor->dim=%d", dim, rawTensor->GetDim());
+            DEV_ERROR(ProgEncodeErr::UNKNOWN, "Final dimension mismatch after shape validation: info.dim=%d, rawTensor->dim=%d", dim,
+                rawTensor->GetDim());
         }
-        DEV_ASSERT(dim == rawTensor->GetDim());
+        DEV_ASSERT(ProgEncodeErr::UNKNOWN, dim == rawTensor->GetDim());
         for (int i = 0; i < dim * ARG_ATTR_TYPE; i++) {
             oss << GetValue(attrs, attrOffset + i) << ", ";
         }
     };
 
-    void DumpFuncData(const DevAscendFunction *func, int funcIdx, const DevCceBinary *cceBinary,
-                      std::stringstream &oss) const {
+    void DumpFuncData(
+        const DevAscendFunction *func, int funcIdx, const DevCceBinary *cceBinary, std::stringstream &oss) const {
         oss << "#funcData: [\n" << std::dec;
         for (size_t operIdx = 0; operIdx < func->GetOperationSize(); operIdx++) {
             auto attrBase = &func->GetOperationAttr(operIdx, 0);
             auto funcIndex = attrBase[0].Value();
             oss << "  [" << operIdx << "]  #funcHash: " << std::to_string(cceBinary[funcIndex].funcHash)
-                << " #funcIndex: " << funcIndex << " #taskID:" << MakeTaskID(funcIdx, operIdx) 
+                << " #funcIndex: " << funcIndex << " #taskID:" << MakeTaskID(funcIdx, operIdx)
                 << " #opMagic: " << func->GetOperationDebugOpmagic(operIdx) << "\n";
             oss << "  #invokeAttrs : ";
             int offset = 0;
@@ -396,8 +413,7 @@ struct DevAscendFunctionDupped {
         }
     }
 
-    std::string DumpMainBlockFlag()
-    {
+    std::string DumpMainBlockFlag() {
         std::stringstream oss;
         oss << "isMainBlock: [" << funcData->exprTbl[0] << "]";
         return oss.str();
@@ -432,11 +448,13 @@ struct DevAscendFunctionDupped {
             if (i % RAW_TENSOR_DESC_PRE_SIZE == 0)
                 oss << "\n   ";
             if (GetRawTensorAddrEx(i) != GetRawTensorAddr(i)) {
-                DEV_ERROR("Tensor address mismatch at index %lu: addr=%lu, addrEx=%lu.", i, GetRawTensorAddr(i), GetRawTensorAddrEx(i));
+                DEV_ERROR(ProgEncodeErr::UNKNOWN, "Tensor address mismatch at index %lu: addr=%lu, addrEx=%lu.", i, GetRawTensorAddr(i),
+                    GetRawTensorAddrEx(i));
             }
-            DEV_ASSERT(GetRawTensorAddrEx(i) == GetRawTensorAddr(i));
+            DEV_ASSERT(ProgEncodeErr::UNKNOWN, GetRawTensorAddrEx(i) == GetRawTensorAddr(i));
             auto desc = funcData->rawTensorDesc[i];
-            oss << GetRawTensorAddrEx(i) << "(location:" << desc.location << " offsetOrIdex: " << desc.offsetOrIndex << ")" << ", ";
+            oss << GetRawTensorAddrEx(i) << "(location:" << desc.location << " offsetOrIdex: " << desc.offsetOrIndex
+                << ")" << ", ";
         }
         oss << "\n]";
         return oss.str();
@@ -457,4 +475,4 @@ private:
     DynFuncData *funcData{nullptr}; // used by aicore
     WsAllocation dupTiny_;
 };
-}
+} // namespace npu::tile_fwk::dynamic

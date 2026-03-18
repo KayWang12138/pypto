@@ -40,9 +40,9 @@ public:
 
     inline void resize(size_t size) {
         if (size > N) {
-            DEV_ERROR("resize %zu exceeds maximum allowed value %zu\n", size, N);
+            DEV_ERROR(DataStructErr::UNKNOWN, "resize %zu exceeds maximum allowed value %zu\n", size, N);
         }
-        DEV_ASSERT(size <= N);
+        DEV_ASSERT(DataStructErr::UNKNOWN, size <= N);
         size_ = size;
     }
 

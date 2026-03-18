@@ -145,16 +145,16 @@ struct DevRelocVector {
 
     T &operator[](size_t idx) {
         if (idx >= size_) {
-            DEV_ERROR("Index out of bounds: idx=%zu, size=%zu", idx, size_);
+            DEV_ERROR(TensorMetaErr::UNKNOWN, "Index out of bounds: idx=%zu, size=%zu", idx, size_);
         }
-        DEV_ASSERT(idx < size_);
+        DEV_ASSERT(TensorMetaErr::UNKNOWN, idx < size_);
         return data_[idx];
     }
     const T &operator[](size_t idx) const {
         if (idx >= size_) {
-            DEV_ERROR("Index out of bounds: idx=%zu, size=%zu", idx, size_);
+            DEV_ERROR(TensorMetaErr::UNKNOWN, "Index out of bounds: idx=%zu, size=%zu", idx, size_);
         }
-        DEV_ASSERT(idx < size_);
+        DEV_ASSERT(TensorMetaErr::UNKNOWN, idx < size_);
         return data_[idx];
     }
 
@@ -323,8 +323,7 @@ struct AddressDescriptor {
     }
 
     static AddressDescriptor MakeFromRtOutcast(ItemPoolIter iter) {
-        DEV_ASSERT_MSG((iter & (1ULL << 63)) == 0,
-            "RtOutcast iterator %" PRId64 " exceeds maximum allowed value", iter);
+        DEV_ASSERT_MSG(TensorMetaErr::UNKNOWN, (iter & (1ULL << 63)) == 0, "RtOutcast iterator %" PRId64 " exceeds maximum allowed value", iter);
         AddressDescriptor desc;
         desc.rtOutcastIter = iter;
         desc.isRtOutcast = 1;
@@ -340,8 +339,7 @@ struct AddressDescriptor {
 
     bool IsAddress() const { return !isRtOutcast; }
     uint64_t GetAddress() const {
-        DEV_ASSERT_MSG(IsAddress(),
-            "Attempt to get address from a non-address AddressDescriptor.");
+        DEV_ASSERT_MSG(TensorMetaErr::UNKNOWN, IsAddress(), "Attempt to get address from a non-address AddressDescriptor.");
         return addr;
     }
     uint64_t GetAddressValue() const { return addr; }
@@ -349,8 +347,7 @@ struct AddressDescriptor {
 
     bool IsRtOutcast() const { return isRtOutcast; }
     ItemPoolIter GetRtOutcastIter() const {
-        DEV_ASSERT_MSG(IsRtOutcast(),
-            "Attempt to get runtime outcast iterator from a non-iterator AddressDescriptor.");
+        DEV_ASSERT_MSG(TensorMetaErr::UNKNOWN, IsRtOutcast(), "Attempt to get runtime outcast iterator from a non-iterator AddressDescriptor.");
         return rtOutcastIter;
     }
 
