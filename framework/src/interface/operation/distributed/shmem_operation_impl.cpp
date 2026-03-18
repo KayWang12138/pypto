@@ -148,6 +148,16 @@ Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemDa
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT,
         {predToken.GetStorage(), in.GetStorage(), shmemData.GetStorage()}, {out});
+    if (in.GetStorage()->GetDynValidShape().size() == 0) {
+        in.GetStorage()->UpdateDynValidShape(SymbolicScalar::FromConcrete(in.GetShape()));
+    }
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MemoryType::MEM_DEVICE_DDR,
+        OpImmediate::Specified({0, 0}),
+        OpImmediate::Specified({in.GetShape()}),
+        OpImmediate::Specified({in.GetShape()}),
+        OpImmediate::Specified(in.GetStorage()->GetDynValidShape())));
+    function.UpdateTensorDataUsage(op);
     ShmemPutAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
@@ -197,8 +207,19 @@ Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonSh
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape shape = {shmemData.GetShape()[2], shmemData.GetShape()[3]};
     auto out = std::make_shared<LogicalTensor>(function, nonShmemDataType, shape, shmemData.Format());
-    auto &op = function.AddOperation(Opcode::OP_SHMEM_GET, {predToken.GetStorage(), shmemData.GetStorage()},
-        {out});
+    auto &op = function.AddOperation(Opcode::OP_SHMEM_GET, {predToken.GetStorage(), shmemData.GetStorage()}, {out});
+    if (shmemData.GetStorage()->GetDynValidShape().size() == 0) {
+        shmemData.GetStorage()->UpdateDynValidShape(SymbolicScalar::FromConcrete(shmemData.GetShape()));
+    }
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MemoryType::MEM_DEVICE_DDR,
+        OpImmediate::Specified({0, 0}),
+        OpImmediate::Specified({shmemData.GetShape()[2], shmemData.GetShape()[3]}),
+        OpImmediate::Specified({shmemData.GetShape()[2], shmemData.GetShape()[3]}),
+        OpImmediate::Specified(std::vector<SymbolicScalar>{shmemData.GetStorage()->GetDynValidShape()[2],
+            shmemData.GetStorage()->GetDynValidShape()[3]})
+    ));
+    function.UpdateTensorDataUsage(op);
     ShmemGetAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
