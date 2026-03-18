@@ -206,22 +206,42 @@ size_t GetPaddingValue(LogicalTensorPtr &in) {
     return paddingIter->second;
 }
 
+bool IsLastDim32BAligned(const LogicalTensorPtr& tensor) {
+    if (tensor->shape.empty()) {
+        return false;
+    }
+
+    size_t lastIdx = tensor->shape.size() - 1;
+    size_t lastDim = tensor->shape[lastIdx];
+    size_t bytes = BytesOf(tensor->Datatype());
+    
+    size_t totalByte = lastDim * bytes;
+
+    return (totalByte % 32 == 0);
+}
+
+int64_t Pad256(int64_t dim, int64_t padValue) {
+    return dim + padValue - 1;
+}
+
 /* 1. 对于非BroadcastOp，默认做到Block对齐；
    2. 如果已经对齐到Block粒度，不做对齐---这里存在一个问题就是f16和fp32混用场景，可能对齐到一个block是不够的
    3. 对于broadcast op，如果shape小于一个Block的大小对齐到Block，否则做到两个输入之间的较大者的Block对齐。 */
 void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unordered_set<std::shared_ptr<RawTensor>> &visitedRaw,
-    bool noPadding) {
+    bool noPadding, bool rowPad) {
+    std::cout << "PadVector 231" << std::endl;
     if (in->shape.empty()) {
         APASS_LOG_ERROR_F(Elements::Operation, "Vector Op %d %s input %d shape size is less than 2; Please check the input size. %s", op.opmagic, op.GetOpcodeStr().c_str(), in->magic, GetFormatBacktrace(op).c_str());
         return;
     }
     OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
-    size_t paddingValue = GetPaddingValue(in);
+    size_t paddingValue = GetPaddingValue(in); // 根据数据类型，判断需要pad到几个元素
     size_t lastIdx = in->shape.size() - 1;
     if (noPadding) {
         in->oriShape = in->shape;
         in->tensor->UpdateRawShape(in->shape);
         in->tensor->oriRawshape = in->tensor->rawshape;
+        // 开启了强制合轴，倒数第2轴不是对齐的
         if (forceCombineAxis && paddingValue > 0 && in->tensor->rawshape[lastIdx - 1] % paddingValue != 0) {
             int64_t shapeAfterPad = Pad(in->tensor->rawshape[lastIdx - 1], paddingValue);
             in->tensor->rawshape[lastIdx - 1] = shapeAfterPad;
@@ -246,6 +266,17 @@ void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unorder
         // BROADCAST_LAST_AXIS来对齐，当前这样处理是有问题的
         in->tensor->rawshape[lastIdx] = Pad(in->tensor->oriRawshape[lastIdx], in->shape[lastIdx]);
         visitedRaw.emplace(in->tensor);
+    }
+    std::cout << "PadVector 269" << " op.GetOpcode() " << rowPad << op.GetOpcodeStr() << " op.GetOpmagic()" << op.GetOpMagic() << "in.GetMagic()" << in->magic << std::endl;
+    // 针对OP_CMP和OP_PRELU特殊OP做倒数第二轴的256B扩充
+    if (rowPad && IsLastDim32BAligned(in)) {
+    // if (op.GetOpcode() == Opcode::OP_PRELU && IsLastDim32BAligned(in)) {
+        in->oriShape = in->shape;
+        in->shape[lastIdx - 1] = Pad256(in->shape[lastIdx - 1], 8);
+        in->tensor->oriRawshape = in->tensor->rawshape;
+        in->tensor->rawshape[lastIdx - 1] = Pad256(in->tensor->oriRawshape[lastIdx - 1], 8);
+        std::cout << "PadVector 275" << std::endl;
+        APASS_LOG_INFO_F(Elements::Operation, "op %d %s input shape and rawshape has been changed\n", op.opmagic, op.GetOpcodeStr().c_str());
     }
 }
 
@@ -440,7 +471,10 @@ void PadLocalBuffer::DoPadding(Function &function) {
     std::unordered_set<std::shared_ptr<RawTensor>> visitedRaw;
     for (auto &op : function.Operations()) {
         std::vector<bool> inputAxis;
+        std::vector<int64_t> inputRowPad;
         op.GetAttr(OpAttributeKey::inputCombineAxis, inputAxis);
+        op.GetAttr(OP_ATTR_PREFIX + "RowPad", inputRowPad);
+        std::cout << "inputRowPad----" << inputRowPad.size() << std::endl;
         if(op.GetBoolAttribute("isConv")) {
             // Conv operation not need to pad
             continue;
@@ -458,7 +492,10 @@ void PadLocalBuffer::DoPadding(Function &function) {
                 PadVectorForAxisCombine(op, in, visitedRaw);
             } else {
                 bool noPadding = ((inputAxis.size() > i) && inputAxis[i]);
-                PadVector(op, in, visitedRaw, noPadding);
+                std::cout << op.GetOpcodeStr() << " inputRowPad size is " << inputRowPad.size() << std::endl;
+
+                bool rowPad = ((inputRowPad.size() > i) && inputRowPad[i]);
+                PadVector(op, in, visitedRaw, noPadding, rowPad);
             }
         }
     }
@@ -482,7 +519,7 @@ void PadLocalBuffer::DoPadding(Function &function) {
                 PadVectorForAxisCombine(op, out, visitedRaw);
             } else {
                 bool noPadding = (out->GetMemoryTypeOriginal() == MEM_DEVICE_DDR || ((outputAxis.size() > i) && outputAxis[i]));
-                PadVector(op, out, visitedRaw, noPadding);
+                PadVector(op, out, visitedRaw, noPadding, false);
             }
         }
     }
