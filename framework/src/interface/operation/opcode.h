@@ -191,7 +191,6 @@ enum class Opcode {
     OP_COPY_OUT,
     OP_GATHER_IN_L1,
     OP_GATHER_IN_UB,
-    OP_LOAD,
     // Special
     OP_CALL,
     OP_BLOCK_CALL,
