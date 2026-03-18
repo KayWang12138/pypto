@@ -351,9 +351,7 @@ void DeviceRunner::DumpAiCorePmuData() {
 }
 
 void DeviceRunner::SynchronizeDeviceToHostProfData() {
-    if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
-        DumpAiCoreExecutionTimeData();
-    }
+    DumpAiCoreExecutionTimeData();
 }
 
 int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream) {

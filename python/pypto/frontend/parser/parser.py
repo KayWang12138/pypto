@@ -1151,7 +1151,7 @@ class Parser(ast.NodeVisitor):
                 return None
             else:
                 with pypto.function(node.name, *tensor_input_args, *output_args):
-                    for _ in pypto.loop(1):
+                    for _ in pypto.loop(1, name="default_loop_1"):
                         self._visit_body(node.body)
 
         return pypto.functions.get_last_function()
