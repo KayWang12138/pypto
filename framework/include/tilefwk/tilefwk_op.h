@@ -126,6 +126,7 @@ Tensor Full(const Element &src, DataType dtype, const std::vector<int64_t> &dstS
 Tensor Full(const SymbolicScalar &src, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape = {});
 Tensor Transpose(const Tensor &self, std::vector<int> perm);
+Tensor Permute(const Tensor &self, std::vector<int> perm);
 Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE, SaturationMode satmode = SaturationMode::OFF);
 
 Tensor Exp(const Tensor &self);

@@ -667,6 +667,51 @@ def test_transpose(device_id: int = None):
 
 
 # ============================================================================
+# Permute Examples
+# ============================================================================
+
+@pypto.frontend.jit
+def permute_kernel(
+    x: pypto.Tensor([], pypto.DT_FP32),
+    out: pypto.Tensor([], pypto.DT_FP32),
+    dims: List[int],
+):
+    vec_tile_shapes = [8 for _ in range(len(x.shape))]
+    pypto.set_vec_tile_shapes(*vec_tile_shapes)
+    out[:] = pypto.permute(x, dims)  # 替换为permute操作
+
+
+def test_permute(device_id: int = None, run_mode: str = "npu"):
+    """Test basic usage of permute function"""
+    print("=" * 60)
+    print("Test: Basic Usage of permute Function")
+    print("=" * 60)
+    
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+    
+    dtype = torch.float32
+    x = torch.tensor([[1.0028, -0.9893, 0.5809],
+                        [-0.1669, 0.7299, 0.4942]], dtype=dtype, device=device)
+
+    permute_dims = (1, 0)
+    out_shape = tuple(x.shape[d] for d in permute_dims)
+    out = torch.empty(out_shape, dtype=torch.float32, device=device)
+    permute_kernel(x, out, permute_dims)
+    y = out.cpu()
+    golden = torch.tensor([[ 1.0028, -0.1669],
+                        [-0.9893, 0.7299],
+                        [ 0.5809, 0.4942]], dtype=dtype, device=f'cpu')
+
+    max_diff = np.abs(y.numpy() - golden.numpy()).max()
+    print(f"Output: {y}")
+    print(f"Expected: {golden}")
+    print(f"Max difference: {max_diff:.6f}")
+    if run_mode == "npu":
+        assert_allclose(np.array(y), np.array(golden), rtol=1e-3, atol=1e-3)
+    print("✓ Basic usage of permute function completed successfully")
+
+
+# ============================================================================
 # Cast Examples
 # ============================================================================
 data_type = {

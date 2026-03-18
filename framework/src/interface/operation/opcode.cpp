@@ -447,6 +447,10 @@ void OpcodeManager::RegisterVector() {
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Ttranspose_vnchwconv", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::MOVE_LOCAL, {OP_ATTR_PREFIX + "shape", OpAttributeKey::excludeBufferReuse},
         TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_PERMUTE, OpCoreType::ANY, "PERMUTE", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tpermute", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::MOVE_LOCAL, {OP_ATTR_PREFIX + "shape", OpAttributeKey::excludeBufferReuse},
+        TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_EXPAND, OpCoreType::AIV, "EXPAND", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Texpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OP_ATTR_PREFIX + "EXPANDDIM"},
         TileShapeVerifier::Verify);
@@ -973,6 +977,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {         Opcode::OP_RECIPROCAL,    "TReciprocal"},
     {                Opcode::OP_EXP,           "TExp"},
     {               Opcode::OP_EXP2,          "TExp2"},
+    {               Opcode::OP_PERMUTE,    "TPermute"},
     {              Opcode::OP_EXPM1,         "TExpm1"},
     {                Opcode::OP_ABS,           "TAbs"},
     {         Opcode::OP_LOGICALNOT,    "TLogicalNot"},

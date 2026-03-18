@@ -378,6 +378,9 @@ private:
     std::string PrintBinaryBrcDynamicUnaligned(const PrintBinaryBrcParam &param) const;
     std::string PrintBinaryBrc(const PrintBinaryBrcParam &param) const;
 
+    std::string PrintPermute(const PrintPermuteParam &param) const;
+    std::string PrintpermuteLayout(const PrintPermuteParam &param) const;
+
     std::string PrintTransposeDataMove(const PrintTransposeDataMoveParam &param) const;
     std::string PrintTransposeDataMoveLayout(const PrintTransposeDataMoveParam &param) const;
     std::string PrintTransposeDataMoveStatic(const PrintTransposeDataMoveParam &param) const;

@@ -840,6 +840,10 @@ class Tensor:
         return pypto.transpose(self, dim0, dim1)
 
     @source_location
+    def permute(self, dims: List[int]) -> 'Tensor':
+        return pypto.permute(self, dims)
+
+    @source_location
     def gather(self, dim: int, index: 'Tensor') -> 'Tensor':
         return pypto.gather(self, dim, index)
 
