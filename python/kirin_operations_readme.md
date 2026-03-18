@@ -558,41 +558,286 @@
 
 ### 8.1. pypto.matmul
 
+参考：pypto/docs/api/operation/pypto-matmul.md
+
 #### 8.1.1. 算子计算原理
+
+实现input 、mat2矩阵的矩阵乘运算，计算公式为：out = input @ mat2
+
+-   input 、mat2为源操作数，input 为左矩阵；mat2为右矩阵
+-   out 为目的操作数，存放矩阵乘结果的矩阵
 
 #### 8.1.2. pypto前段接口（python）以及支持范围
 
+## 函数原型
+
+```python
+matmul(input, mat2, out_dtype, *, a_trans = False, b_trans = False, c_matrix_nz = False, extend_params=None) -> Tensor
+```
+
+参数说明
+
+
+| 参数名            | 输入/输出 | 说明                                                                 |
+|-------------------|-----------|----------------------------------------------------------------------|
+| input             | 输入      | 表示输入左矩阵。不支持输入空Tensor。 <br> 支持的数据类型为：DT_INT8, DT_FP16, DT_FP32。需保证左右矩阵一致。 <br> 支持的矩阵维度：2维、3维、4维，且左右矩阵维度需保持一致。 <br> 输入矩阵支持的Format为：TILEOP_ND, TILEOP_NZ。 <br> 当Format为TILEOP_ND（ND格式）时，外轴范围为[1, 2^31 - 1]，内轴范围为[1, 65535]。 <br> 当Format为TILEOP_NZ（NZ格式）时，其Shape维度需满足内轴32字节对齐（当输出矩阵数据类型为DT_INT32时，内轴为16元素对齐），外轴16元素对齐。 <br> 内轴外轴：当输入矩阵input非转置时，对应数据排布为[M, K]，此时外轴为M，内轴为K；当输入矩阵input转置时，对应数据排布为[K, M]，此时外轴为K，内轴为M； <br> 在使用pypto.view接口的场景，应保证传入View的Shape维度也满足内轴32字节对齐（当输出矩阵数据类型为DT_INT32时，内轴为16元素对齐），外轴16元素对齐 <br> 当矩阵维度为3维或者4维时，不支持pypto.view场景。 |
+| mat2              | 输入      | 表示输入右矩阵。不支持输入空Tensor。 <br> 支持的数据类型为：DT_INT8, DT_FP16。 <br> 支持的矩阵维度：2维、3维、4维，且左右矩阵维度需保持一致。 <br> 输入矩阵支持的Format为：TILEOP_ND, TILEOP_NZ。 <br> 当Format为TILEOP_ND（ND格式）时，外轴范围为[1, 2^31 - 1]，内轴范围为[1, 65535]。 <br> 当Format为TILEOP_NZ（NZ格式）时，其Shape维度需满足内轴32字节对齐（当输出矩阵数据类型为DT_INT32时，内轴为16元素对齐），外轴16元素对齐。 <br> 内轴外轴：当输入矩阵mat2非转置时，对应数据排布为[K, N]，此时外轴为K，内轴为N；当输入矩阵mat2转置时，对应数据排布为[N, K]，此时外轴为N，内轴为K； <br> 在使用pypto.view接口的场景，应保证传入View的Shape维度也满足内轴32字节对齐（其中当输出矩阵数据类型为DT_INT32时，内轴为16元素对齐），外轴16元素对齐。 <br> 当矩阵维度为3维或者4维时，不支持pypto.view场景。 |
+| out_dtype         | 输出      | 表示输出矩阵数据类型，支持DT_FP16，DT_INT32。 <br> - 输入矩阵数据类型为DT_FP16时，out_dtype可选DT_FP32, DT_FP16。 <br> - 输入矩阵数据类型为DT_INT8时，out_dtype可选DT_INT32。 |
+| a_trans           | 输入      | 参数a_trans表示输入左矩阵是否转置，端侧不支持，必须是False。 |
+| b_trans           | 输入      | 参数b_trans表示输入右矩阵是否转置，默认为False。 |
+| c_matrix_nz       | 输入      | 参数c_matrix_nz表示输出矩阵的Format是否采用NZ格式，默认为False，当前仅支持设置False，即输出矩阵仅支持ND格式。 |
+| extend_params     | 输入      | 支持bias、fixpipe反量化及TF32舍入模式TransMode功能，数据类型为字典格式。 <br> 参数：bias_tensor <br> 类型：Tensor <br> 功能说明： <br> - 输入左右矩阵数据类型为DT_FP16时，Bias矩阵数据类型可选DT_FP16和DT_FP32。 <br> - 输入左右矩阵数据类型为DT_INT8时，Bias矩阵数据类型只能为DT_INT32。<br> - bias_tensor只支持ND格式。 <br> - bias_tensor的第一维度应置1，且N维度需要与mat2矩阵的N维度相等。 <br> - Bias不支持多核切K功能。 <br> - 仅支持矩阵维度为2维场景。 <br> 参数：scale <br> 类型：float <br> 功能说明： <br> - 输入为float类型，取1为符号位 + 8位指数位 + 10位尾数位参与运算。 <br> 参数：scale_tensor <br> 类型：Tensor <br> 功能说明： <br> - scale_tensor输入固定为uint64_t 的Tensor。计算时会转换uint64_t为float类型的低32位bit后，取1为符号位 + 8位指数位 + 10位尾数位参与运算。 <br> - scale_tensor的第一维度必须置1，且N维度需要与mat2矩阵的N维度相等。 <br> - scale_tensor只支持ND格式。 <br> - 仅支持矩阵维度为2维场景。 <br> 参数：relu_type <br> 类型：[ReLuType](../datatype/ReLuType.md) <br> 功能说明： <br> - 支持RELU和NO_RELU两种模式。 <br> - 仅支持矩阵维度为2维场景。 <br> 参数：trans_mode <br> 类型：[TransMode](../datatype/TransMode.md) <br> 功能说明： <br> - CAST_NONE：不使能float数据类型转换为TF32数据类型。 <br> - CAST_RINT：使能float数据类型转换为TF32数据类型，舍入规则：舍入到最近整数，中间值时舍入到偶数。 <br> - CAST_ROUND：使能float数据类型转换为TF32数据类型，舍入规则：舍入到最近整数，中间值时远离零舍入。  <br> - 仅支持输入左右矩阵和输出矩阵数据类型均为DT_FP32时设置。 <br> - 仅支持矩阵维度为2维场景。 |
+
+返回值说明
+
+返回值为out 矩阵（Tensor）。
+
+约束说明
+
+-   调用matmul接口前需要通过pypto.set\_cube\_tile\_shapes设置M、N、K轴上的切分大小
+-   当矩阵维度为3维或者4维时，需要调用pypto.set\_vec\_tile\_shapes接口设置vector的TileShape切分，如未设置，接口内部会设置2维的vec\_tile\_shape，其值为128，128。
+-   调用matmul接口的输入为调用pypto.reshape后的NZ格式时，需要调用pypto.set\_matrix\_size接口设置pypto.reshape前的输入到matmul的原始Shape的m,k,n值。
+-   调用matmul接口的输入矩阵维度为3维/4维并且数据格式为NZ格式时，需要调用pypto.set\_matrix\_size接口设置输入到matmul的原始Shape的m,k,n值。
+
 #### 8.1.3. c++ tensor graph接口
+
+pypto/framework/src/interface/operation/cube_operation_impl.cpp
+
+```
+Tensor Matmul(
+    DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, bool isATrans, bool isBTrans, bool isCMatrixNZ);
+
+Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulExtendParam &param,
+    bool isATrans, bool isBTrans, bool isCMatrixNZ);（新增MatmulExtendParam参数，包括量化、bias等信息）
+
+Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix, const bool isTransA,
+    const bool isTransB, const bool isCMatrixNZ);
+```
 
 #### 8.1.4. c++ tile graph接口
 
+pypto/framework/src/interface/operation/cube_operation_impl.cpp
+
+```
+void ConstructTileGraph(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
+                        const LogicalTensorPtr &cTensorPtr, const Operation &op)
+```
+
 #### 8.1.5. 算子npu计算使用的pto instruction
+
+TLoad<ND2NZ>：gm到l1的搬运，做nd2nz转换（n,d -> d1,n1,n0,d0；其中n0、d0为32B对齐单位）
+
+TExtract：l1到l0a/l0b的搬运
+
+TMatmul_：矩阵乘计算
+
+TStore<NZ2ND>：l1到gm的搬运，做nz2nd转换（d1,n1,n0,d0 -> n,d；其中n0、d0为32B对齐单位）
 
 #### 8.1.6. 算子kernel的计算过程（搬运+计算）
 
+（云侧计算流程）
+
+```
+// 搬运a矩阵从gm到l1，使用nd2nz模式，转换为硬件对齐格式
+TLoad<ND2NZ>(a_l1, a_gm)
+
+// 搬运a矩阵从l1到l0a
+TExtract(a_l0a, a_l1)
+
+// 搬运b矩阵从gm到l1，使用nd2nz模式，转换为硬件对齐格式
+TLoad<ND2NZ>(b_l1, b_gm)
+
+// 搬运b矩阵从l1到l0b
+TExtract(b_l0b, b_l1)
+
+// 计算a_l0a和b_l0b的矩阵乘，将输出放在c_loc l0c buffer上，当前c_l0c格式是nz
+TMatmul_(c_l0c, a_l0a, b_l0b)
+
+// 搬运c矩阵从l0c到gm，使用nz2nd模式，转换为原始格式
+TStore<NZ2ND>(c_gm, c_loc)
+```
+
+（端侧计算流程）
+
+主要差别：TMatmul在云侧实现是 l0a，l0b -> l0c；TMatmul在端侧实现是 l1, l0b -> l1。
+
+```
+// 搬运a矩阵从gm到l1，使用nd2nz模式，转换为硬件对齐格式 **注意，这里没有l0a buffer，TMatmul的a输入直接从l1读**
+TLoad<ND2NZ>(a_l1, a_gm)
+
+// 搬运b矩阵从gm到l1，使用nd2nz模式，转换为硬件对齐格式
+TLoad<ND2NZ>(b_l1, b_gm)
+
+// 搬运b矩阵从l1到l0b
+TExtract(b_l0b, b_l1)
+
+// 计算a_l1和b_l0b的矩阵乘，将输出放在c_l1 l1 buffer上，当前c_l1格式是nz **注意，这里输出在l1 buffer，不是l0c buffer**
+TMatmul_(c_l1, a_l1, b_l0b)
+
+// 搬运c矩阵从l1到gm，使用nz2nd模式，转换为原始格式
+TStore<NZ2ND>(c_gm, c_l1)
+```
+
 #### 8.1.7. tile shape设置约束
 
+m1,m0,k1,k0,n1,n0
+分别m,k,n代表矩阵乘的m,k@k,n；1切分代表l1 buffer的切分，l0代表l0b buffer的切分（m1=m0，m0没有用）
+
+buffer大小约束：
+* m1\*k1\*a_dtype_bytes + k1\*n1\*b_dtype_bytes + m1\*n1\*int32_bytes\*contains_partial_sum + m1\*n1\*c_dtype_bytes + elewise_size\*eltwise_dtype_bytes\*contains_eltwise <= L1_size
+* k0\*n0\*b_dtype_bytes <= L0B_size
+* n*int32_bytes <= BT_size
+* n*uint64_bytes <= fixpipe_quant_pre_size
+* n*uint32_bytes <= fixpipe_quant_pre_act_size
+* n*uint64_bytes <= fixpipe_quant_post_size
+* 1*uint64_bytes <= fixpipe_quant_post_eltwise_antiquant_size（肯定满足）
+
+算子约束：
+tile m是16的整数倍，tile k和tile n是32B的整数倍。
+
 #### 8.1.8. 用例设计
+
+TODO：确认matmul支持范围
 
 ## 9. 芯片能力增强
 
 ### 9.1. pypto.index_put_
 
+参考：pypto/docs/api/operations/pypto-indexput_.md
+主要用于实现onnx scatter nd。
+
 #### 9.1.1. 算子计算原理
+
+根据索引indices将values的多个或多块数据更新到self中。如果accumulate参数为True，则表示在更新时，values和原本存储在相应位置的值进行累加；如果accumulate为False，则会直接覆盖原本的值。
+
+结果示例如下：
+
+```python
+输入数据 x:      [[1 1 1],
+                 [1 1 1],
+                 [0 0 0]]
+      indices:   ([1 2], )
+      values:    [[0 1 0],
+                  [0 2 0]]
+原地更新后的 x:   [[1 1 1],
+                 [1 2 1],
+                 [0 2 0]]               # accumulate is True
+                 [[1 1 1],
+                 [0 1 0],
+                 [0 2 0]]               # accumulate is False
+```
+
+计算过程：
+```
+indices=[1,2] 代表在row 1、2实现替换。
+
+1. 当accumulate=True
+Row 1（indices[0] = 1）= x[indices[0]][:] + values[0][:] = x[1][:] + values[0][:] = [1,1,1] + [0,1,0] = [1,2,1]
+Row 2（indices[1] = 2）= x[indices[1]][:] + values[1][:] = x[2][:] + values[1][:] = [0,0,0] + [0,2,0] = [0,2,0]
+Result = [[1,1,1],[1,2,1],[0,2,0]]
+
+2. 当accumulate=False
+Row 1（indices[0] = 1）= values[0][:] = [0,1,0]
+Row 2（indices[1] = 2）= values[1][:] = [0,2,0]
+Result = [[1,1,1],[0,1,0],[0,2,0]]
+```
 
 #### 9.1.2. pypto前段接口（python）以及支持范围
 
+函数原型
+
+```python
+index_put_(input: Tensor, indices: tuple, values: Tensor, accumulate: bool = False) -> None
+```
+
+参数说明
+
+|   参数名   | 输入/输出 | 说明                                                                  |
+|------------|-----------|----------------------------------------------------------------------|
+|   input    |    输入   | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32。 <br> 不支持空Tensor，Shape仅支持1-4维，Shape Size不大于2147483647（即INT32_MAX）。 |
+|  indices   |   输入    | Tensor类型的元组，每个Tensor表示一个维度的索引。 <br> 支持的类型为：tuple\[Tensor\], 每个Tensor均为一维，且维度相同。 <br> Tensor支持的数据类型为：DT_INT8，DT_UINT8，DT_INT16，DT_UINT16，DT_INT32，DT_UINT32，DT_INT64，DT_UINT64。 <br> 不支持空Tensor，tuple中Tensor的个数不大于input的维数。 |
+|   values   |   输入    | 待更新到input中的值。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32。 <br> 不支持空Tensor，维数不大于input的维数。 |
+| accumulate |   输入    | 累加参数，默认为False。 <br> 支持的类型为：bool。 |
+
+返回值说明
+
+对input进行原地操作，无返回值
+
+约束说明
+
+1. indices中的一维Tensor维度相同，不支持broadcast。indices中第i个Tensor中的值须小于input中第i-1维的Shape大小。当indices的选取会对同一个位置进行重复更新时，结果是未确定的。
+
+2. values不支持broadcast，其第0维的shape须和indices中一维Tensor的shape相同。
+
+3. input的维度、indices中Tensor的个数和values的维度之间需满足：（input.shape.size） + 1 = (indices.size) + (values.shape.size)。
+
+4. input和values的数据类型须相同。
+
+5. viewshape为一维，针对indices中的每个一维Tensor和values的第0维进行切分，values的其它维度不做切分。
+
 #### 9.1.3. c++ tensor graph接口
+
+pypto/framework/src/interface/operation/vector/indexing.cpp
+
+```
+void IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate = false)
+```
 
 #### 9.1.4. c++ tile graph接口
 
+pypto/framework/src/interface/operation/vector/indexing.cpp
+
+```
+void IndexPutOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op)
+```
+
 #### 9.1.5. 算子npu计算使用的pto instruction
+
+TLoad：搬运buffer从gm到ub
+
+TIndexPut：搬运ub_input到gm_output，并且在ub_indices，搬运ub_values到对应的gm_output，实现accumulate功能如果开关有打开。
 
 #### 9.1.6. 算子kernel的计算过程（搬运+计算）
 
+```
+// 搬运input从gm到ub
+TLoad(ub_input, gm_input)
+
+// 搬运indices从gm到ub
+TLoad(ub_indices, gm_indices)
+
+// 搬运values从gm到ub
+TLoad(ub_values, gm_values)
+
+// 实现IndexPut并且输出到gm
+TIndexPut(gm_output, ub_input, ub_indices, ub_values)
+```
+
 #### 9.1.7. tile shape设置约束
 
+TileShape为一维，针对indices中的每个一维Tensor和values的第0维进行切分，values的其它维度不做切分。indices和values的TileShape大小总和不能超过UB内存的大小。
+
 #### 9.1.8. 用例设计
+
+测试因子
+* 输入维度：1~4维
+* 切分：基于indices中的每一个维Tensor和values的第0维切分，1d
+* 数据类型：input/indices：FP16/FP32，values：INT8，UINT8，INT16，UINT16，INT32，UINT32，INT64，UINT64
+
+| 用例名称  | input维度 | indices维度 | values维度 | input/values dtype | indices dtype | 切分 | 说明 |
+|----------|-----------|------------|------------|--------------------|---------------|------|------|
+| index_put_001 | (3,3) | (2,) | (2,3) | FP16 | INT32 | 3 | 2d输入，indices包含2个索引，替换2行数据 |
+| index_put_002 | (5,) | (3,) | (3,) | FP32 | INT8 | 3 | 1d输入，基础索引操作，values为INT8 |
+| index_put_003 | (2,4,4) | (2,) | (2,4,4) | FP32 | UINT8 | 2 | 3d输入，切分第一维，values为UINT8 |
+| index_put_004 | (2,2,3,3) | (2,) | (2,2,3,3) | FP16 | INT16 | 2 | 4d输入，高维张量索引更新，values为INT16 |
+| index_put_005 | (8,8) | (4,) | (4,8) | FP32 | UINT16 | 4 | 2d输入，较大范围切分，values为UINT16 |
+| index_put_006 | (4,5,6) | (2,) | (2,5,6) | FP16 | INT32 | 2 | 3d输入，验证FP16下INT32 values的转换 |
+| index_put_007 | (3,3,3,3) | (3,) | (3,3,3,3) | FP32 | UINT32 | 3| 4d输入，边界维度测试，values为UINT32 |
+| index_put_008 | (10,) | (5,) | (5,) | FP16 | INT64 | 5 | 1d输入，长整型values测试 |
+| index_put_009 | (2,2) | (2,) | (2,2) | FP32 | INT32 | 2 | 最小维度组合，验证最高精度整数values |
+| index_put_010 | (3,4,5) | (4,) | (4,4,5) | FP16 | UINT64 | 3 | 3d输入，验证indices长度与values第0维一致性 |
 
 ## 10. 激活类型
 
