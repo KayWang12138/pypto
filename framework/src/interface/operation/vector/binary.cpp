@@ -193,7 +193,7 @@ void TiledPReLUOperation(
         size_t dimSize = input.tensor.GetShape().size();
         if (dimSize == 2) {
             std::vector<bool> dimMap({true, false});
-            op.SetAttribute(OP_ATTR_PREFIX + "RowPad", dimMap);
+            op.SetAttr(OpAttributeKey::rowPad, dimMap);
         }
         return;
     }
