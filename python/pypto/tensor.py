@@ -20,6 +20,44 @@ from .symbolic_scalar import SymbolicScalar, SymInt
 from ._element import Element
 
 
+class TensorAnnotation:
+    """Type annotation for Tensor parameters.
+
+    This class is used to represent tensor type annotations in function signatures,
+    supporting the Python-standard syntax: pypto.Tensor[shape, dtype]
+
+    Attributes
+    ----------
+    shape : list
+        The shape of the tensor.
+    dtype : DataType
+        The data type of the tensor.
+    format : TileOpFormat
+        The format of the tensor.
+    """
+
+    def __init__(self, shape, dtype=None, format=TileOpFormat.TILEOP_ND):
+        self.shape = shape if shape is not None else []
+        self.dtype = dtype if dtype is not None else pypto.DT_FP32
+        self.format = format
+        self.name = ""
+
+    def to_tensor(self, name: str = ""):
+        """Convert annotation to an actual Tensor instance.
+
+        Parameters
+        ----------
+        name : str
+            The name for the tensor.
+
+        Returns
+        -------
+        Tensor
+            A Tensor instance with the annotated shape and dtype.
+        """
+        return Tensor(self.shape, self.dtype, name, self.format)
+
+
 class Tensor:
 
     def __init__(self, shape=None, dtype: Union[DataType, None] = None,
@@ -47,6 +85,51 @@ class Tensor:
             self._base = pypto_impl.Tensor(ndtype, sym_shape, name, format)
         self.data_ptr = data_ptr
         self.device = device
+
+    @classmethod
+    def __class_getitem__(cls, params):
+        """Enable Tensor[shape, dtype] syntax for type annotations.
+
+        This method allows using Python-standard subscript syntax for tensor type
+        annotations in function signatures, making the code more idiomatic.
+
+        Supports:
+        - Tensor[shape, dtype]
+        - Tensor[[dim1, dim2], dtype]
+        - Tensor[shape] (defaults to DT_FP32)
+
+        Parameters
+        ----------
+        params : tuple or single value
+            Either a tuple of (shape, dtype) or just shape.
+
+        Returns
+        -------
+        TensorAnnotation
+            A tensor annotation object that can be used in type hints.
+
+        Examples
+        --------
+        >>> def kernel(a: pypto.Tensor[[16, 16], pypto.DT_FP32]):
+        ...     pass
+        >>> def kernel(b: pypto.Tensor[pypto.DT_FP32]):
+        ...     pass
+        """
+        # pypto.Tensor[]
+        shape, dtype = None, None
+        if isinstance(params, tuple):
+            # pypto.Tensor[shape, dtype]
+            if len(params) == 2:
+                shape, dtype = params
+            # pypto.Tensor(shape) or pypto.Tensor(dtype)
+            elif len(params) == 1:
+                param = params[0]
+                if isinstance(param, (list, tuple)):
+                    shape, dtype = param, None
+                else:
+                    shape, dtype = None, param
+
+        return TensorAnnotation(shape, dtype)
 
     @source_location
     def __setitem__(self, key, value):
@@ -531,7 +614,7 @@ class Tensor:
     @source_location
     def mul(self, other: 'Tensor | int | float') -> 'Tensor':
         return pypto.mul(self, other)
-    
+
     @source_location
     def hypot(self, other: 'Tensor') -> 'Tensor':
         return pypto.hypot(self, other)
@@ -651,7 +734,7 @@ class Tensor:
     @source_location
     def topk(self, k: int, dim: Optional[int] = None, largest: bool = True) -> Tuple['Tensor', 'Tensor']:
         return pypto.topk(self, k, dim, largest)
-    
+
     @source_location
     def sort32(self, index: Optional[int] = None) -> 'Tensor':
         return pypto.sort32(self, index)
@@ -663,7 +746,7 @@ class Tensor:
     @source_location
     def exp(self) -> 'Tensor':
         return pypto.exp(self)
-    
+
     @source_location
     def sign(self) -> 'Tensor':
         return pypto.sign(self)
@@ -691,7 +774,7 @@ class Tensor:
     @source_location
     def log10(self) -> 'Tensor':
         return pypto.log10(self)
-        
+
     @source_location
     def log2(self) -> 'Tensor':
         return pypto.log2(self)

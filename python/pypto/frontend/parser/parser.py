@@ -18,6 +18,7 @@ import re
 from typing import Any, List, Optional, Union, Callable
 
 import pypto
+from pypto.tensor import TensorAnnotation
 from pypto.symbolic_scalar import SymbolicScalar, SymInt
 from .context import Context
 from .diagnostics import DiagnosticLevel, Diagnostics, Source
@@ -398,7 +399,7 @@ class Parser(ast.NodeVisitor):
             if _is_enum_dyn(tensor_input_args):
                 tensor_input_args_def = self._visit_arguments(function_node.args)
                 tensor_input_args = self.input_pto_tensor[:len(tensor_input_args_def)]  # ensure len equal
-                
+
                 for in_obj, def_obj in zip(tensor_input_args, tensor_input_args_def):
                     in_obj.name = def_obj.name
 
@@ -732,10 +733,16 @@ class Parser(ast.NodeVisitor):
             return []
         if isinstance(output_expr, pypto.Tensor):
             return [output_expr]
+        if isinstance(output_expr, TensorAnnotation):
+            return [output_expr.to_tensor()]
         if isinstance(output_expr, (list, tuple)):
             tensors: list[pypto.Tensor] = []
             for idx, item in enumerate(output_expr):
-                if not isinstance(item, pypto.Tensor):
+                if isinstance(item, pypto.Tensor):
+                    tensors.append(item)
+                elif isinstance(item, TensorAnnotation):
+                    tensors.append(item.to_tensor())
+                else:
                     raise ParserError(
                         node,
                         TypeError(
@@ -743,7 +750,6 @@ class Parser(ast.NodeVisitor):
                             f"but got {type(item).__name__}."
                         ),
                     )
-                tensors.append(item)
             return tensors
 
         raise ParserError(
@@ -1187,6 +1193,10 @@ class Parser(ast.NodeVisitor):
         if isinstance(anno, pypto.Tensor):
             anno.name = name
             return anno
+        elif isinstance(anno, TensorAnnotation):
+            # Convert TensorAnnotation to actual Tensor instance
+            tensor = anno.to_tensor(name)
+            return tensor
         else:
             # Non-tensor parameter (annotation is not pypto.Tensor)
             return (name, default_value)
@@ -1686,7 +1696,7 @@ class Parser(ast.NodeVisitor):
         for item in iter_expr:
             self._assign_loop_variable(node.target, item, is_tuple_unpack, loop_var_name, target_names)
             self._visit_body(node.body)
-        
+
         # Clean up variables after loop based on liveness analysis
         self._auto_cleanup_after_stmt(node)
 
@@ -1700,7 +1710,7 @@ class Parser(ast.NodeVisitor):
         for loop_var in iterator:
             self._assign_loop_variable(node.target, loop_var, is_tuple_unpack, loop_var_name, target_names)
             self._visit_body(node.body)
-        
+
         # Clean up variables after loop based on liveness analysis
         self._auto_cleanup_after_stmt(node)
 
