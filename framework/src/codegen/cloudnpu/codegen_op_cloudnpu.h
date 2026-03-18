@@ -163,6 +163,7 @@ public:
 
     std::string GenQuantizeOp() const;
     std::string PrintQuantizeOp(const PrintQuantizeParam &param) const;
+    std::string PrintQuantizeTileTensor() const;
     // TODO: DeQuantize
 
     std::string GenWhereOp() const;

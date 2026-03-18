@@ -1753,6 +1753,10 @@ std::string CodeGenOpCloudNPU::GenLogicalAndOp() const {
 }
 
 std::string CodeGenOpCloudNPU::GenQuantizeOp() const {
+    if (isSupportLayout) {
+        return PrintQuantizeTileTensor();
+    }
+
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string scaleVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
@@ -1790,5 +1794,31 @@ std::string CodeGenOpCloudNPU::PrintQuantizeOp(const PrintQuantizeParam &param) 
     os << ");\n";
 
     return os.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
+    std::string srcTensor = QueryTileTensorNameByIdx(ID1);
+    std::string scaleTensor = QueryTileTensorNameByIdx(ID2);
+
+    bool isAsymmetric = (operandDtype[ID0] == DataType::DT_UINT8);
+
+    std::vector<std::string> tileOpCallParamList = {dstTensor, srcTensor, scaleTensor};
+
+    if (isAsymmetric) {
+        std::string offsetTensor = QueryTileTensorNameByIdx(ID3);
+        tileOpCallParamList.emplace_back(offsetTensor);
+    }
+
+    // Determine quantize type string for template parameter
+    std::string quantTypeStr = isAsymmetric ?
+        QuantizeTypeToISAString(QuantizeType::INT8_ASYM) :
+        QuantizeTypeToISAString(QuantizeType::INT8_SYM);
+
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets({quantTypeStr});
+    oss << WrapParamByParentheses(tileOpCallParamList) << STMT_END;
+    return oss.str();
 }
 } // namespace npu::tile_fwk
