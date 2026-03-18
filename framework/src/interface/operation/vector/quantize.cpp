@@ -163,7 +163,7 @@ void TiledQuantize2DAxisLast(Function &function, const TileShape &tileShape,
     for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
         input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
-        scale.tileInfo.shape[cur] = std::min(scale.tensor.GetShape()[cur] - i, vecTile[cur]);
+        scale.tileInfo.shape[cur] = (scale.tensor.GetShape()[cur] == 1) ? 1 : std::min(scale.tensor.GetShape()[cur] - i, vecTile[cur]);
         scale.tileInfo.offset[cur] = (scale.tensor.GetShape()[cur] == 1) ? 0 : i;
         TiledQuantize2DAxisLast<quantType>(function, tileShape, cur + 1, input, scale, result, zeroPoints);
     }
