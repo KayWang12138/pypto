@@ -68,17 +68,18 @@ class NestedFunctionMarker:
         idx = 0
         for (param_name, is_tensor, annotation), arg_value in zip(param_specs, call_args):
             idx += 1
-            if is_tensor:
-                if not isinstance(arg_value, pypto.Tensor):
-                    continue
+            if not is_tensor:
+                continue
 
-                input_tensor_def = annotation
-                if not isinstance(input_tensor_def, pypto.Tensor):
-                    continue
+            if not isinstance(arg_value, pypto.Tensor):
+                continue
 
-                # Skip checking if the input tensor definition is a placeholder (e.g. *args)
-                if len(input_tensor_def.shape) == 0 and input_tensor_def.status_shape is None:
-                    continue
+            input_tensor_def = annotation
+            if not isinstance(input_tensor_def, pypto.Tensor):
+                continue
+
+            # Skip checking if the input tensor definition is None or（shape len is 0 && shape object is not list）
+            if len(input_tensor_def.shape) != 0 or input_tensor_def.status_shape is not None:
 
                 # 根据属性input_tensor_def.status_shape做判断, def的shape len 小于等于 tensor的shape len
                 is_diff_shape = len(arg_value.shape) != len(input_tensor_def.shape) \
@@ -93,7 +94,6 @@ class NestedFunctionMarker:
                         f"({len(arg_value.shape)}) does not match "
                         f"number of dimensions of parameter definition ({len(input_tensor_def.shape)})."
                     )
-
                 for i, dim in enumerate(input_tensor_def.shape):
                     if isinstance(dim, int) and arg_value.shape[i] != dim:
                         raise ValueError(
@@ -102,12 +102,13 @@ class NestedFunctionMarker:
                             f"does not match the shape of parameter definition {input_tensor_def.shape}."
                         )
 
-                if arg_value.dtype != input_tensor_def.dtype:
-                    raise ValueError(
-                        f"In nested function '{self._func_name}': "
-                        f"The dtype of {ordinal(idx)} parameter '{param_name}' ({arg_value.dtype}) "
-                        f"does not match the dtype of parameter definition ({input_tensor_def.dtype})."
-                    )
+            # Check the dtype of input tensors and input tensor definitions
+            if input_tensor_def.status_dtype is not None and arg_value.dtype != input_tensor_def.dtype:
+                raise ValueError(
+                    f"In nested function '{self._func_name}': "
+                    f"The dtype of {ordinal(idx)} parameter '{param_name}' ({arg_value.dtype}) "
+                    f"does not match the dtype of parameter definition ({input_tensor_def.dtype})."
+                )
 
 
 DEFAULT_VISIT = {
@@ -1680,20 +1681,28 @@ class Parser(ast.NodeVisitor):
             )
 
         # Unroll the loop at compile time
-        with self.context.with_frame():
-            for item in iter_expr:
-                self._assign_loop_variable(node.target, item, is_tuple_unpack, loop_var_name, target_names)
-                self._visit_body(node.body)
+        # Use Python function-level scoping semantics, do not create a new frame
+        # Variable lifetime is controlled by liveness analysis
+        for item in iter_expr:
+            self._assign_loop_variable(node.target, item, is_tuple_unpack, loop_var_name, target_names)
+            self._visit_body(node.body)
+        
+        # Clean up variables after loop based on liveness analysis
+        self._auto_cleanup_after_stmt(node)
 
     def _handle_pto_iterator(self, node: ast.For, iterator: Iterator,
                             loop_vars: tuple[bool, str, list[str]]) -> None:
         """Handle PTO iterators with traditional loop processing."""
         is_tuple_unpack, loop_var_name, target_names = loop_vars
 
-        with self.context.with_frame():
-            for loop_var in iterator:
-                self._assign_loop_variable(node.target, loop_var, is_tuple_unpack, loop_var_name, target_names)
-                self._visit_body(node.body)
+        # Use Python function-level scoping semantics, do not create a new frame
+        # Variable lifetime is controlled by liveness analysis
+        for loop_var in iterator:
+            self._assign_loop_variable(node.target, loop_var, is_tuple_unpack, loop_var_name, target_names)
+            self._visit_body(node.body)
+        
+        # Clean up variables after loop based on liveness analysis
+        self._auto_cleanup_after_stmt(node)
 
     def _assign_loop_variable(self, target: ast.expr, value: Any, is_tuple_unpack: bool,
                              loop_var_name: str, target_names: list[str]) -> None:

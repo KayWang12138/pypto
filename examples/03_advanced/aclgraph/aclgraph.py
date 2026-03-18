@@ -39,9 +39,7 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        print("Please set it before running this example:")
+        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
 
@@ -73,31 +71,36 @@ def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
     esum = pypto.sum(exp, dim=-1, keepdim=True)
     return exp / esum
 
-B = pypto.frontend.dynamic("B")
+B = pypto.DYNAMIC
 N1, N2, DIM = 32, 1, 256
 
 
 @pypto.frontend.jit()
 def softmax_kernel(
-    input_tensor: pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32),
-) -> pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32):
-    output_tensor = pypto.tensor((B, N1, N2, DIM), pypto.DT_FP32)
+    input_tensor: pypto.Tensor([B, N1, N2, DIM], pypto.DT_FP32),
+    output_tensor: pypto.Tensor([B, N1, N2, DIM], pypto.DT_FP32),
+):
+    """
+    Softmax kernel with return value. Use return pattern for aclgraph compatibility.
+    See docs/tutorials/network_integration/pytorch_integration.md
+    """
+
+    bs = input_tensor.shape[0]
     tile_b = 1  # Process one batch at a time
-    b_loop = B // tile_b
+    b_loop = bs // tile_b
 
     # Tiling shape setting for efficient execution
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
     for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
         b_offset = idx * tile_b
-        b_offset_end = pypto.min((idx + 1) * tile_b, B)
+        b_offset_end = pypto.min((idx + 1) * tile_b, bs)
         input_view = pypto.view(input_tensor, 
                                 [tile_b, N1, N2, DIM], 
                                 [b_offset, 0, 0, 0], 
                                 valid_shape=[b_offset_end - b_offset, N1, N2, DIM])
         softmax_out = softmax_core(input_view)
         output_tensor[b_offset:, ...] = softmax_out
-    return output_tensor
 
 
 @allow_in_graph
@@ -105,10 +108,10 @@ def softmax(x: torch.Tensor, dynamic: bool = True) -> torch.Tensor:
     if isinstance(x, FakeTensor):
         return torch.zeros(x.shape, dtype=x.dtype, device=f'{x.device}')
 
-    # launch the kernel
-    out = softmax_kernel(x)
-
-    return out
+    # launch the kernel - use return pattern for aclgraph compatibility
+    output_tensor = torch.empty(x.shape, dtype=x.dtype, device=f'{x.device}')
+    softmax_kernel(x, output_tensor)
+    return output_tensor
 
 
 class MM(torch.nn.Module):

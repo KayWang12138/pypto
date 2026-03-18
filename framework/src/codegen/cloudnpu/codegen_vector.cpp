@@ -48,11 +48,12 @@ std::string CodeGenOpCloudNPU::GenCastOp() const {
     if (isDynamicFunction) {
         return PrintCastDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     }
-
+    int64_t modeEnum = 0;
+    GetAttr(OP_ATTR_PREFIX + "mode", modeEnum );
     ret = sprintf_s(buffer, sizeof(buffer),
-        "%s_<%s, %s, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u %s>((__ubuf__ %s *)%s,  (__ubuf__ %s *)%s);\n",
+        "%s_<%s, %s, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %lld>((__ubuf__ %s *)%s,  (__ubuf__ %s *)%s);\n",
         tileOpName.c_str(), dstDtypeStr.c_str(), srcDtypeStr.c_str(), os[0], os[1], os[2], os[3], ds[1], ds[2], ds[3],
-        ss[1], ss[2], ss[3], GenOpAttr().c_str(), dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(),
+        ss[1], ss[2], ss[3], modeEnum, dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(),
         s0Var.c_str());
     ASSERT(ret >= 0) << "GenCastOp sprintf_s failed " << ret;
     std::string ostring(buffer);
@@ -686,9 +687,12 @@ std::string CodeGenOpCloudNPU::PrintIndexPut(const PrintIndexPutParam &param) co
 
 std::string CodeGenOpCloudNPU::PrintIndexPutLayout(size_t indicesSize, bool accumulate) const {
     std::string gmVarName = GenGmParamVar(ID0);
-    std::string dstTensor = sm->QueryTileTensorByBufVarName(gmVarName);
+    std::string dstTensor = sm->QueryTileTensorNameByBufVar(gmVarName);
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(ID0);
+    std::string coordCp = WrapParamByParentheses(gmOffsetExpr);
+    std::string coord = PrintCoord(rawShape[ID0].size(), coordCp);
     std::string valuesTensor = QueryTileTensorNameByIdx(ID2);
-    std::vector<std::string> paramList = {dstTensor, valuesTensor};
+    std::vector<std::string> paramList = {dstTensor, coord, valuesTensor};
     for (size_t i = 0; i < SHAPE_DIM4; ++i) {
         if (i < indicesSize) {
             std::string indices = QueryTileTensorNameByIdx(ID3 + i);

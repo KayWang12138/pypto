@@ -37,12 +37,9 @@ struct CodeGenOpCloudNPUCtx : public CodeGenOpCtx {
     std::shared_ptr<ForBlockManager> forBlockManager{nullptr};
 
     CodeGenOpCloudNPUCtx(std::shared_ptr<SymbolManager> sm, Function &tf, Function &sf, const Operation &op,
-        const std::map<int, int> &lto = {}, bool isMainBlk = false)
-        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk) {}
-
-    CodeGenOpCloudNPUCtx(std::shared_ptr<SymbolManager> sm, std::shared_ptr<ForBlockManager> fbm, Function &tf,
-        Function &sf, const Operation &op, const std::map<int, int> &lto = {}, bool isMainBlk = false)
-        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk), forBlockManager(std::move(fbm)) {}
+        const std::map<int, int> &lto = {}, bool isMainBlk = false, bool isDynAligned = false,
+        std::shared_ptr<ForBlockManager> fbm = nullptr)
+        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk, isDynAligned), forBlockManager(std::move(fbm)) {}
 };
 
 class CodeGenOpCloudNPU : public CodeGenOp {
@@ -60,6 +57,7 @@ public:
     std::string GenMemL1CopyIn() const;
     std::string GenMemL1CopyOut() const;
     std::string GetConvCopyInMode() const;
+    std::string GetConvCopyOutMode() const;
     std::string GenMemL1CopyInConv() const;
     std::string GenMemL1CopyOutConv() const;
     std::string GenMemL1ToFB() const;
@@ -167,8 +165,11 @@ public:
 
     std::string GenOpCode() const override;
 
-private:
     std::string QueryTileTensorNameByIdx(int paramIdx) const;
+    std::string QueryTileTensorTypeByIdx(int paramIdx) const;
+
+private:
+    TileTensor QueryTileTensorByIdx(int paramIdx) const;
 
     std::string GenTemplateParamsForPutAndGet() const;
     std::string GenTemplateParamsForSignal() const;

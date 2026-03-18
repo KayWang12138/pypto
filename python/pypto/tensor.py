@@ -27,24 +27,24 @@ class Tensor:
                  data_ptr: Optional[int] = None, device=None, ori_shape=None):
         self.ori_shape = None
         self.status_shape = None
-        if shape is None or dtype is None:
-            # init default
-            nshape = shape if shape is not None else []
-            ndtype = dtype if dtype is not None else pypto.DT_FP32
+        self.status_dtype = dtype
+        ndtype = dtype if dtype is not None else pypto.DT_FP32
+        if shape is None:
+            nshape = []
             self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
         elif shape and all([isinstance(s, int) for s in shape]):
             nshape = typing.cast(List[int], shape)
-            self._base = pypto_impl.Tensor(dtype, nshape, name, format)
+            self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
             self.ori_shape = ori_shape
         elif isinstance(shape, list) and self._validate_status_shape(shape):
             nshape = []
             self.status_shape = shape
-            self._base = pypto_impl.Tensor(dtype, nshape, name, format)
+            self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
         else:
             sym_shape = to_syms(shape)
             assert isinstance(
                 sym_shape, list), "shape must be a list of int or SymbolicScalar"
-            self._base = pypto_impl.Tensor(dtype, sym_shape, name, format)
+            self._base = pypto_impl.Tensor(ndtype, sym_shape, name, format)
         self.data_ptr = data_ptr
         self.device = device
 
@@ -277,6 +277,58 @@ class Tensor:
         else:
             raise RuntimeError("unsupported dtype")
         return pypto.matmul(self, other, out_dtype)
+
+    @source_location
+    def __neg__(self) -> 'Tensor':
+        return pypto.neg(self)
+
+    @source_location
+    def __pos__(self) -> 'Tensor':
+        return self
+
+    @source_location
+    def __rsub__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.neg(self.sub(other))
+
+    @source_location
+    def __rmul__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.mul(self, other)
+
+    @source_location
+    def __rtruediv__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.mul(pypto.reciprocal(self), other)
+
+    @source_location
+    def __floordiv__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.floor(pypto.div(self, other))
+
+    @source_location
+    def __mod__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.remainder(self, other)
+
+    @source_location
+    def __pow__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.pow(self, other)
+
+    @source_location
+    def __lt__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.lt(self, other)
+
+    @source_location
+    def __le__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.le(self, other)
+
+    @source_location
+    def __ge__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.ge(self, other)
+
+    @source_location
+    def __eq__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.eq(self, other)
+
+    @source_location
+    def __ne__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.ne(self, other)
 
     @property
     def dtype(self) -> DataType:

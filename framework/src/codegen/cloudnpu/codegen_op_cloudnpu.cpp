@@ -280,7 +280,6 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
           {Opcode::OP_SHMEM_SIGNAL, [this]() { return GenDistOp(); }},
           {Opcode::OP_SHMEM_GET, [this]() { return GenDistOp(); }},
           {Opcode::OP_SHMEM_GET_GM2UB, [this]() { return GenDistOp(); }},
-          {Opcode::OP_SHMEM_REDUCE, [this]() { return GenDistOp(); }},
           {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, [this]() { return GenDistOp(); }},
           {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, [this]() { return GenDistOp(); }},
       }),
@@ -687,7 +686,7 @@ std::string CodeGenOpCloudNPU::PrintCoord(size_t dim, const std::string &coord) 
     return ret;
 }
 
-std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {
+TileTensor CodeGenOpCloudNPU::QueryTileTensorByIdx(int paramIdx) const {
     std::vector<TileTensor> res;
     bool isInLoop = forBlkMgr_ != nullptr && forBlkMgr_->IsInLoop();
     if (isInLoop) {
@@ -701,8 +700,8 @@ std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {
     }
 
     if (res.size() == 1) {
-        CODEGEN_LOGI("QueryTileTensorNameByIdx found: %s", res[0].tensorName.c_str());
-        return res[0].tensorName;
+        CODEGEN_LOGI("QueryTileTensorByIdx found: %s", res[0].tensorName.c_str());
+        return res[0];
     }
     CODEGEN_LOGI("isInLoop: %d, paramIdx is %d, tensor magic is %d, res size is %zu", isInLoop, paramIdx,
         operandWithMagic[paramIdx], res.size());
@@ -718,13 +717,24 @@ std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {
         // Currently only support additional comparison of rawShape
         if (tileTensor.rawShape == targetRawShape) {
             CODEGEN_LOGI("QueryTileTensorNameByIdx found: %s", tileTensor.tensorName.c_str());
-            return tileTensor.tensorName;
+            return tileTensor;
         }
     }
 
-    ASSERT(false) << "paramIdx " << paramIdx << ", tensor magic " << operandWithMagic[paramIdx]
+    ASSERT(false) << "TileTensor: paramIdx " << paramIdx << ", tensor magic " << operandWithMagic[paramIdx]
                   << " is not found !!! res size is " << res.size();
-    return "";
+    static TileTensor emptyTileTensor;
+    return emptyTileTensor;
+}
+
+std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {
+    const TileTensor &tileTensor = QueryTileTensorByIdx(paramIdx);
+    return tileTensor.tensorName;
+}
+
+std::string CodeGenOpCloudNPU::QueryTileTensorTypeByIdx(int paramIdx) const {
+    const TileTensor &tileTensor = QueryTileTensorByIdx(paramIdx);
+    return tileTensor.usingType;
 }
 
 std::string CodeGenOpCloudNPU::GenOpCode() const {
