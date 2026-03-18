@@ -92,7 +92,9 @@ const char *Error::what() const noexcept {
         .Ensure([this]() -> std::string {
             std::stringstream ss;
             ss << msg_ << ", func " << func_ << ", file " << StringUtils::BaseName(file_) << ", line " << line_ << "\n";
-            ss << backtrace_->Get();
+            if (backtrace_) {
+                ss << backtrace_->Get();
+            }
             return ss.str();
         })
         .c_str();

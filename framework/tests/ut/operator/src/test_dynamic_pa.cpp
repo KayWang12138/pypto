@@ -71,7 +71,6 @@ TEST_F(DynamicPATest, TestDD) {
     TestLoopViewAssemble(t0, t1, blockTable, out, s);
 
     auto funcMap = Program::GetInstance().GetFunctionMap();
-    ALOG_INFO(funcMap.size());
 }
 
 TEST_F(DynamicPATest, dynamic_pa_low_lantency_unroll) {
@@ -247,7 +246,6 @@ TEST_F_WITH_COST(DynamicPATest, dynamic_pa_low_lantency_manual_unroll, 96) {
         EXPECT_NE(loopAttr, nullptr);
         EXPECT_EQ(loopAttr->unrollTimes, maxUnrollTimes);
         maxUnrollTimes /= 2;
-        ALOG_ERROR("unrollTimes: ", loopAttr->unrollTimes, " range: ", loopAttr->loopRange.Dump());
         EXPECT_EQ(loopAttr->pathList.size(), 4);
     }
 #else
@@ -259,7 +257,6 @@ TEST_F_WITH_COST(DynamicPATest, dynamic_pa_low_lantency_manual_unroll, 96) {
         EXPECT_NE(loopAttr, nullptr);
         EXPECT_EQ(loopAttr->unrollTimes, maxUnrollTimes);
         maxUnrollTimes /= 2;
-        ALOG_ERROR("unrollTimes: ", loopAttr->unrollTimes, " range: ", loopAttr->loopRange.Dump());
         EXPECT_EQ(loopAttr->pathList.size(), 4);
     }
 #endif

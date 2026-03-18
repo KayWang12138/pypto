@@ -34,16 +34,21 @@ tag: [PyPTO，算子开发]
 
 ## 常见问题与解决方案
 
-### 最常见错误 TOP 5
+### 最常见错误 TOP 6
 
 1. **BFloat16 转 NumPy 失败**：必须先 `.float()` 再 `.numpy()`
-2. **环境变量未设置**：第一步就要 `export TILE_FWK_DEVICE_ID=0`
+2. **环境变量未设置**：先运行 `npu-smi info | grep "No running processes found"` 确认空闲卡，再设置 `export TILE_FWK_DEVICE_ID=<空闲卡号>`
 3. **动态轴定义位置错误**：必须在 jit 函数外部定义
 4. **Tile Shape 未设置**：matmul 前必须调用 `set_cube_tile_shapes`
 5. **精度标准不合理**：bfloat16 使用 atol=0.0001, rtol=0.0078125
 6. **使用 PyTorch 作为 Golden 函数**：使用 NumPy 实现 golden 函数时，bfloat16 数据类型转换不够准确
 
-详细的错误示例、正确做法和经验教训请查看：**[common_issues.md](./common_issues.md)**
+### 注意点
+1. **动态数据范围使用 valid_shape**：最后一块数据量可能会小于固定块大小时，view函数中一定要指定valid_shape
+2. **动态循环边界使用 unroll_list**：当循环次数是动态的，需要使用 unroll_list，多层循环嵌套时，最内层使用 `unroll_list`。
+3. **pypto tensor初始化**：torch用zeros函数定义变量，pypto不需要，创建tensor即可，后续会有写入整个覆盖这个tensor
+4. **op准确度**：禁止无中生有op，确保使用的op是pypto支持的
+5. **装饰器jit的使用**：选择最新的不用wrapper的pypto.frontend.jit前端写法，参考`docs/api/pypto-frontend-jit.md`
 
 ## 开发阶段
 
@@ -80,16 +85,16 @@ ls examples/            # 示例代码
 ```
 4. 设置device_id
 ```bash
-export TILE_FWK_DEVICE_ID=0
+# 查找空闲卡
+npu-smi info | grep "No running processes found"
+
+# 根据空闲卡设置环境变量（假设卡1空闲）
+export TILE_FWK_DEVICE_ID=1
 export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 ```
 
-**⚠️ 重要提示**：
-- **先设置 `export TILE_FWK_DEVICE_ID=0`**
-- 如果设置TILE_FWK_DEVICE_ID=0执行失败了，报错为`Invalid Device`时，再检查npu设备
-- 运行 `npu-smi info` 查看可用的NPU chip，进行设置`export TILE_FWK_DEVICE_ID=x`
-- 未设置此环境变量会导致运行时提示："If no NPU environment is available"
-- 处理动态轴时，遇到计算loop次数时，可以参考pypto/models/glm_v4_5/glm_attention_pre_quant.py的实现
+-**⚠️ 重要提示**：
+-- 未设置TILE_FWK_DEVICE_ID会导致运行时提示："If no NPU environment is available"
 
 如果以上信息未检查通过或者有疑问，请参考`docs/install`中的参考资料进行环境准备。
 
@@ -112,6 +117,7 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
    - 创建custom/my_operator/
 2. 编写 golden 及测试用例
    - 创建my_operator.py
+   - 测试用例涉及随机数生成时，设置随机数种子
 3. 编写 operator 实现代码
    - 创建my_operator_impl.py
    - 使用@pypto.frontend.jit的方式实现
@@ -127,6 +133,7 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 2. 执行算子进行验证
    **检查到存在npu卡的时候，直接使用run_mode=npu执行**
    python3 custom/my_operator/my_operator.py
+3. 验证如果失败，不要跳过问题或者简化算子，正向排查问题
 
 测试类型：
 - 单元测试：基本功能验证
