@@ -894,6 +894,47 @@ static auto Random(DataType t, const std::vector<int64_t> &shape) {
     calc::Random(data);
     return data;
 }
+TEST_F(DynamicOpsTest, ViewTypeInt8ToFp32) {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+
+    // 输入 shape: [1, 1, 1024]，dtype=int8
+    int64_t m = 1;
+    int64_t k = 1;
+    int64_t n = 1024;
+    Tensor x(DT_INT8, {m, k, n}, "x");
+    TileShape::Current().SetVecTile(1, 1, 1024);
+    // ViewType 后，最后一维按 bytes 比例缩放：int8(1B) -> fp32(4B)，n 变为 256
+    DataType dstDtype = DT_FP32;
+    float factor = static_cast<float>(BytesOf(DT_INT8)) / static_cast<float>(BytesOf(dstDtype));
+    std::vector<int64_t> outShape = {m, k, static_cast<int64_t>(n * factor)};
+    Tensor out(dstDtype, outShape, "out");
+
+    auto xRaw = RawTensorData::CreateConstantTensor<int8_t>(x, 1);
+    auto outRaw = RawTensorData::CreateConstantTensor<float>(out, 0.0f);
+    auto goldenRaw = std::make_shared<RawTensorData>(dstDtype, outShape);
+    // golden 直接拷贝 raw bytes，再按 FP32 视图解释
+    {
+        int64_t inBytes = xRaw->GetDataSize();
+        int64_t outBytes = goldenRaw->GetDataSize();
+        ASSERT(inBytes == outBytes);
+        StringUtils::DataCopy(goldenRaw->data(), outBytes, xRaw->data(), inBytes);
+    }
+
+    ProgramData::GetInstance().PrepareData({xRaw}, {outRaw}, {goldenRaw});
+
+    FUNCTION("main", {x}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            // 整个张量上做 ViewType
+            out = View(x, dstDtype);
+        }
+    }
+    });
+    EXPECT_NO_VERIFY_FAILED(logOutput);
+}
+
 
 static void TestMatmul(DataType inType, DataType outType) {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);

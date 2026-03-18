@@ -67,7 +67,6 @@ def test_verify_dyn():
     b = torch.rand(shape, dtype=torch.float16, device=device)
     output_data = torch.zeros(shape, dtype=torch.float16, device=device)
     golden = ((a * (a + b)) - b) * b
-    golden_cpu = golden.cpu()
-    pypto.set_verify_golden_data(goldens=[None, None, golden_cpu])
+    pypto.set_verify_golden_data(goldens=[None, None, golden.cpu()])
     add_dyn_kernel(a, b, output_data)
     assert torch.allclose(output_data, golden)

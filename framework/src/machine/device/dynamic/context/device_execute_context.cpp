@@ -95,7 +95,7 @@ int DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTa
 
     workspace.Init(startArgs);
     if (devProg->stitchFunctionNumInitial > 0) {
-        stitchTaskLoopNumThreshold = std::min<uint16_t>(devProg->stitchFunctionNumInitial, MAX_CACHED_FUNC_NUM);
+        stitchTaskLoopNumThreshold = std::min<uint16_t>(devProg->stitchFunctionNumInitial, devProg->stitchMaxFunctionNum);
         DEV_INFO("First stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
     }
 
@@ -177,8 +177,8 @@ void DeviceExecuteContext::GELaunchRunCached(DevStartArgs *startArgs, PushTaskEn
 
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
         DumpDeviceTask(taskId, dynTask);
-        PushTask(dynTask);
         PerfMtTrace(PERF_TRACE_DEV_TASK_BUILD, CTRL_CPU_THREAD_IDX);
+        PushTask(dynTask);
         PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
     }
     PerfEnd(PERF_EVT_CONTROL_FLOW);
@@ -247,15 +247,6 @@ int DeviceExecuteContext::GELaunchPartialCache(DevStartArgs *startArgs, PushTask
         controlFlowCacheActivated = true;
         DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCachePartRunCache(devProg->ctrlFlowCacheAnchor->deviceTaskCount, devProg->ctrlFlowCacheAnchor->rootTaskCount)));
         GELaunchRunCached(startArgs, tPushTask);
-    }
-    DEV_IF_DEVICE {
-        uint64_t start = GetCycles();
-        while ((startArgs->devProg->devArgs.disableSync == 0) && startArgs->syncFlag != 1) {
-            if (GetCycles() - start > HAND_SHAKE_TIMEOUT) {
-                DEV_ERROR("Wait sync flag timeout.");
-                break;
-            }
-        }
     }
     DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCacheFullRunControl()));
     ret = RunInit(startArgs, tPushTask);
@@ -370,9 +361,9 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
 
     PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
     DumpDeviceTask(taskId, dynTask);
+    PerfMtTrace(PERF_TRACE_DEV_TASK_BUILD, CTRL_CPU_THREAD_IDX);
     PushTask(dynTask);
     PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
-    PerfMtTrace(PERF_TRACE_DEV_TASK_BUILD, CTRL_CPU_THREAD_IDX);
     return ret;
 }
 
@@ -402,7 +393,9 @@ void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
     DEV_DEBUG("Slloc one func %lu %p %s.", rootKey, devRoot, devRoot->GetRawName());
     if (stitchContext.Size() == stitchTaskLoopNumThreshold ||
         stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > devProg->stitchFunctionsize) {
-        DEV_INFO("[Stitch Finish] Stitch Limit Exceeded. #task=%zu+1 (limit=%u), #callop=%u+%zu (limit=%u).",
+        DEV_INFO("[Stitch Finish] Stitch Limit Exceeded. rootKey=%lu, func=%s, "
+                 "#task=%zu+1 (limit=%u), #callop=%u+%zu (limit=%u).",
+            rootKey, devRoot->GetRawName(),
             stitchContext.Size(), stitchTaskLoopNumThreshold,
             stitchContext.stitchedCallOpSize(), devRoot->GetOperationSize(), devProg->stitchFunctionsize);
         ret = SubmitToAicoreAndRecycleMemory(false);
@@ -410,7 +403,7 @@ void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
             return RUNTIME_FUNCKEY_ERROR;
         }
         auto nextThreshold =
-            std::min<uint16_t>(stitchTaskLoopNumThreshold + devProg->stitchFunctionNumStep, MAX_CACHED_FUNC_NUM);
+            std::min<uint16_t>(stitchTaskLoopNumThreshold + devProg->stitchFunctionNumStep, devProg->stitchMaxFunctionNum);
         stitchTaskLoopNumThreshold = nextThreshold;
     }
     DEV_TRACE_DEBUG(REvent(GetRuid(rootKey), RActDup(devRoot->GetRawName())));

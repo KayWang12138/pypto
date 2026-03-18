@@ -37,9 +37,7 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        print("Please set it before running this example:")
+        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
     
@@ -56,28 +54,14 @@ def get_device_id():
 # ============================================================================
 
 
-def matmul_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch.Tensor:
-    a_shape, b_shape = a.shape, b.shape
-    out_shape = (a_shape[0], b_shape[1])
-    
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def matmul_kernel(
-        a: pypto.Tensor(a_shape, pypto.DT_FP32),
-        b: pypto.Tensor(b_shape, pypto.DT_FP32),
-    ) -> pypto.Tensor(out_shape, pypto.DT_FP32):
-        pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-        out = pypto.matmul(a, b, a.dtype)
-        return out
-
-    out = matmul_kernel(a, b)
-    return out
+@pypto.frontend.jit
+def matmul_kernel(
+    a: pypto.Tensor([], pypto.DT_FP32),
+    b: pypto.Tensor([], pypto.DT_FP32),
+    out: pypto.Tensor([], pypto.DT_FP32),
+):
+    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
+    out[:] = pypto.matmul(a, b, pypto.DT_FP32)
 
 
 def test_matmul_basic(device_id: int = None, run_mode: str = "npu"):
@@ -93,7 +77,8 @@ def test_matmul_basic(device_id: int = None, run_mode: str = "npu"):
     b = torch.tensor([[5, 6], [7, 8]], dtype=dtype, device=device)
     expected = torch.tensor([[19, 22], [43, 50]], dtype=dtype, device=device)
 
-    out = matmul_op(a, b, run_mode)
+    out = torch.empty((a.shape[0], b.shape[1]), dtype=dtype, device=device)
+    matmul_kernel(a, b, out)
     if run_mode == "npu":
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
@@ -101,27 +86,14 @@ def test_matmul_basic(device_id: int = None, run_mode: str = "npu"):
     print("✓ Basic matrix multiplication completed successfully")
 
 
-def matmul_batch_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    a_shape, b_shape = a.shape, b.shape
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-        
-    @pypto.frontend.jit(
-    runtime_options={"run_mode": mode}
-    )
-    def matmul_batch_kernel(
-        a: pypto.Tensor(a_shape, pypto.DT_FP32),
-        b: pypto.Tensor(b_shape, pypto.DT_FP32),
-    ) -> pypto.Tensor(a_shape, pypto.DT_FP32):
-        pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-        out = pypto.matmul(a, b, a.dtype)
-        return out
-    out = matmul_batch_kernel(a, b)
-    return out
+@pypto.frontend.jit
+def matmul_batch_kernel(
+    a: pypto.Tensor([], pypto.DT_FP32),
+    b: pypto.Tensor([], pypto.DT_FP32),
+    out: pypto.Tensor([], pypto.DT_FP32),
+):
+    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
+    out[:] = pypto.matmul(a, b, pypto.DT_FP32)
 
 
 def test_matmul_batch(device_id: int = None, run_mode: str = "npu"):
@@ -137,7 +109,8 @@ def test_matmul_batch(device_id: int = None, run_mode: str = "npu"):
     b = torch.tensor([[[5, 6], [7, 8]], [[1, 2], [3, 4]]], dtype=dtype, device=device)
     expected = torch.tensor([[[19, 22], [43, 50]], [[23, 34], [31, 46]]], dtype=dtype, device=device)
 
-    out = matmul_batch_op(a, b, run_mode)
+    out = torch.empty(a.shape, dtype=dtype, device=device)
+    matmul_batch_kernel(a, b, out)
     if run_mode == "npu":
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
@@ -146,28 +119,14 @@ def test_matmul_batch(device_id: int = None, run_mode: str = "npu"):
 
 
 
-def matmul_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    a_shape, b_shape = a.shape, b.shape
-
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    @pypto.frontend.jit(
-    runtime_options={"run_mode": mode}
-    )
-    def matmul_broadcast_kernel(
-        a: pypto.Tensor(a.shape, pypto.DT_FP32),
-        b: pypto.Tensor(b.shape, pypto.DT_FP32),
-    ) -> pypto.Tensor(b.shape, pypto.DT_FP32):
-        pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-        out = pypto.matmul(a, b, pypto.DT_FP32)
-        return out
-    out = matmul_broadcast_kernel(a, b)
-    return out
+@pypto.frontend.jit
+def matmul_broadcast_kernel(
+    a: pypto.Tensor([], pypto.DT_FP32),
+    b: pypto.Tensor([], pypto.DT_FP32),
+    out: pypto.Tensor([], pypto.DT_FP32),
+):
+    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
+    out[:] = pypto.matmul(a, b, pypto.DT_FP32)
 
 
 def test_matmul_broadcast(device_id: int = None, run_mode: str = "npu"):
@@ -183,7 +142,8 @@ def test_matmul_broadcast(device_id: int = None, run_mode: str = "npu"):
     b = torch.tensor([[[5, 6], [7, 8]], [[1, 2], [3, 4]]], dtype=dtype, device=device)
     expected = torch.tensor([[[19, 22], [43, 50]], [[7, 10], [15, 22]]], dtype=dtype, device=device)
 
-    out = matmul_broadcast_op(a, b, run_mode)
+    out = torch.empty(b.shape, dtype=dtype, device=device)
+    matmul_broadcast_kernel(a, b, out)
     if run_mode == "npu":
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
@@ -191,55 +151,24 @@ def test_matmul_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("✓ Batch matrix multiplication with broadcasting completed successfully")
 
 
-def matmul_trans_right_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    a_shape, b_shape = a.shape, b.shape
-    out_shape = (a_shape[0], b_shape[0])
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-
-    @pypto.frontend.jit(
-    runtime_options={"run_mode": mode}
-    )
-    def matmul_trans_right_kernel(
-        a: pypto.Tensor(a_shape, pypto.DT_FP32),
-        b: pypto.Tensor(b_shape, pypto.DT_FP32),
-    ) -> (pypto.Tensor(out_shape, pypto.DT_FP32),):
-        pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-        out = pypto.matmul(a, b, a.dtype, b_trans=True)
-        return out
-
-    out = matmul_trans_right_kernel(a, b)
-    return out
+@pypto.frontend.jit
+def matmul_trans_right_kernel(
+    a: pypto.Tensor([], pypto.DT_FP32),
+    b: pypto.Tensor([], pypto.DT_FP32),
+    out: pypto.Tensor([], pypto.DT_FP32),
+):
+    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
+    out[:] = pypto.matmul(a, b, pypto.DT_FP32, b_trans=True)
 
 
-def matmul_trans_left_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    a_shape, b_shape = a.shape, b.shape
-    out_shape = (a_shape[1], b_shape[1])
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-
-    @pypto.frontend.jit(
-    runtime_options={"run_mode": mode}
-    )
-    def matmul_trans_left_kernel(
-        a: pypto.Tensor(a_shape, pypto.DT_FP32),
-        b: pypto.Tensor(b_shape, pypto.DT_FP32),
-    ) -> pypto.Tensor(out_shape, pypto.DT_FP32):
-        pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-        out = pypto.matmul(a, b, a.dtype, a_trans=True)
-        return out
-    
-    out = matmul_trans_left_kernel(a, b)
-
-    return out
+@pypto.frontend.jit
+def matmul_trans_left_kernel(
+    a: pypto.Tensor([], pypto.DT_FP32),
+    b: pypto.Tensor([], pypto.DT_FP32),
+    out: pypto.Tensor([], pypto.DT_FP32),
+):
+    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
+    out[:] = pypto.matmul(a, b, pypto.DT_FP32, a_trans=True)
 
 
 def test_matmul_trans(device_id: int = None, run_mode: str = "npu"):
@@ -260,7 +189,8 @@ def test_matmul_trans(device_id: int = None, run_mode: str = "npu"):
     expected = torch.tensor([[58, 64],
                             [139, 154]], dtype=dtype, device=device)
 
-    out = matmul_op(a, b, run_mode)
+    out = torch.empty((a.shape[0], b.shape[1]), dtype=dtype, device=device)
+    matmul_kernel(a, b, out)
     if run_mode == "npu":
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output basic: {out}")
@@ -275,7 +205,8 @@ def test_matmul_trans(device_id: int = None, run_mode: str = "npu"):
     expected = torch.tensor([[58, 64],
                             [139, 154]], dtype=dtype, device=device)
 
-    out = matmul_trans_right_op(a, b, run_mode)
+    out = torch.empty((a.shape[0], b.shape[0]), dtype=dtype, device=device)
+    matmul_trans_right_kernel(a, b, out)
     if run_mode == "npu":
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output trans right: {out}")
@@ -292,7 +223,8 @@ def test_matmul_trans(device_id: int = None, run_mode: str = "npu"):
     expected = torch.tensor([[58, 64],
                             [139, 154]], dtype=dtype, device=device)
 
-    out = matmul_trans_left_op(a, b, run_mode)
+    out = torch.empty((a.shape[1], b.shape[1]), dtype=dtype, device=device)
+    matmul_trans_left_kernel(a, b, out)
     if run_mode == "npu":
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output trans left: {out}")
@@ -302,32 +234,16 @@ def test_matmul_trans(device_id: int = None, run_mode: str = "npu"):
 
 
 
-def matmul_bias_op(a: torch.Tensor, b: torch.Tensor, bias: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    a_shape, b_shape, bias_shape = a.shape, b.shape, bias.shape
-
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    @pypto.frontend.jit(
-        runtime_options={"run_mode": mode}
-    )
-    def matmul_bias_kernel(
-        a: pypto.Tensor(a_shape, pypto.DT_FP32),
-        b: pypto.Tensor(b_shape, pypto.DT_FP32),
-        bias: pypto.Tensor(bias_shape, pypto.DT_FP32),
-    ) -> pypto.Tensor(b_shape, pypto.DT_FP32):
-        
-        extend_params = {"bias_tensor": bias}
-        pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-        out = pypto.matmul(a, b, a.dtype, extend_params=extend_params)
-        return out
-
-    out = matmul_bias_kernel(a, b, bias)
-    return out
+@pypto.frontend.jit
+def matmul_bias_kernel(
+    a: pypto.Tensor([], pypto.DT_FP32),
+    b: pypto.Tensor([], pypto.DT_FP32),
+    bias: pypto.Tensor([], pypto.DT_FP32),
+    out: pypto.Tensor([], pypto.DT_FP32),
+):
+    extend_params = {"bias_tensor": bias}
+    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
+    out[:] = pypto.matmul(a, b, pypto.DT_FP32, extend_params=extend_params)
 
 
 def test_matmul_bias(device_id: int = None, run_mode: str = "npu"):
@@ -344,7 +260,8 @@ def test_matmul_bias(device_id: int = None, run_mode: str = "npu"):
     bias = torch.tensor([[1, 2]], dtype=dtype, device=device)
     expected = torch.tensor([[20, 24], [44, 52]], dtype=dtype, device=device)
 
-    out = matmul_bias_op(a, b, bias, run_mode)
+    out = torch.empty(b.shape, dtype=dtype, device=device)
+    matmul_bias_kernel(a, b, bias, out)
     if run_mode == "npu":
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
@@ -387,8 +304,8 @@ Examples:
     )
     parser.add_argument(
         "--run_mode", "--run-mode",
-        nargs="?", type=str, default="npu", choices=["npu", "sim"],
-        help="run mode, such as npu/sim etc."
+        nargs="?", type=str, default="npu", choices=["npu"],
+        help="Run mode, currently only support npu."
     )
     
     args = parser.parse_args()

@@ -24,7 +24,11 @@
 #include "machine/runtime/pmu_common.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/platform/platform_manager.h"
+#define private public
 #include "machine/device/dynamic/aicore_prof.h"
+#ifdef private
+#undef private
+#endif
 #include "machine/device/dynamic/aicpu_task_manager.h"
 #include "machine/device/dynamic/aicore_manager.h"
 #include "machine/device/tilefwk/aicpu_common.h"
@@ -122,6 +126,7 @@ TEST_F(TestDeviceRunner, test_ini_proflevel) {
     prof.ProGetHandShake(threadIdx, &handShakeSta);
     prof.ProfStopHandShake();
     prof.ProfStopAiCpuTaskStat();
+    prof.profLevel_ = npu::tile_fwk::dynamic::PROF_LEVEL_FUNC_LOG_PMU;
     prof.ProfStop();
     prof.GetAiCpuTaskStat(taskId);
     delete aiCpuStat;

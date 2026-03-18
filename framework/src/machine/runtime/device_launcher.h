@@ -195,7 +195,6 @@ public:
             devProg->devArgs.validGetPgMask = DeviceRunner::Get().GetValidGetPgMask();
         }
 #endif
-        devProg->devArgs.disableSync = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND ? 1 : 0;
         MACHINE_LOGD("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
 
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
@@ -442,7 +441,7 @@ public:
     static bool IsCaptureMode();
     static void GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI &rtModel);
     static void AddAicpuStream(aclmdlRI &rtModel, bool tripleStream);
-    static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, bool debugEnable, [[maybe_unused]]Function *function);
+    static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, [[maybe_unused]]bool debugEnable, [[maybe_unused]]Function *function);
     static int LaunchAicoreKernel(
         aclrtStream aicoreStream, void *kernel, rtArgsEx_t &rtArgs, rtTaskCfgInfo_t &rtTaskCfg, bool debugEnable);
     static int DeviceRunOnce(Function *function, DevControlFlowCache* hostCtrlCache = nullptr,
@@ -453,6 +452,7 @@ public:
     static void DeviceRunCacheKernelSet(Function *func, uint8_t *devProg);
     static uint8_t *DeviceRunCacheKernelGet(Function *func);
     static CachedOperator* DeviceRunCacheOperatorGet(Function *func);
+    static void SetDevPerfAddr([[maybe_unused]]const bool &debugEnable, [[maybe_unused]]const bool &isCaptureMode);
  public:
     static std::vector<uint8_t> tensorInfo_;
 private:
