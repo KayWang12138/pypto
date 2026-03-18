@@ -40,6 +40,11 @@ enum class OutType {
     BIT,
 };
 
+enum class SaturationMode : uint8_t {
+    ON = 0,
+    OFF = 1,
+};
+
 namespace experimental {
 struct PrintHelper {
     SymbolicScalar cond;
@@ -123,7 +128,7 @@ Tensor Full(const Element &src, DataType dtype, const std::vector<int64_t> &dstS
 Tensor Full(const SymbolicScalar &src, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape = {});
 Tensor Transpose(const Tensor &self, std::vector<int> perm);
-Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE);
+Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE, SaturationMode satmode = SaturationMode::OFF);
 
 Tensor Exp(const Tensor &self);
 Tensor Exp2(const Tensor &self);
@@ -174,8 +179,8 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
 Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int axis,
     ScatterMode reduce = ScatterMode::NONE);
 void IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate = false);
-Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element(DT_FP32, 1.0f));
 Tensor IndexAddUB(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element(DT_FP32, 1.0f));
+void IndexAdd_(Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element(DT_FP32, 1.0f));
 Tensor RowSumExpand(const Tensor &operand);
 Tensor RowMaxExpand(const Tensor &operand);
 

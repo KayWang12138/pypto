@@ -14,6 +14,7 @@
 
 #include "gtest/gtest.h"
 
+#include "codegen/utils/codegen_error.h"
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
@@ -55,7 +56,7 @@ std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info
 std::string GetResultFromCpp(const Function &function) {
     const auto &subFunc = function.rootFunc_->programs_[0];
     auto leafFuncAttr = subFunc->GetLeafFuncAttribute();
-    ASSERT(leafFuncAttr != nullptr);
+    ASSERT(FwkErr::INVALID_FUNCTION, leafFuncAttr != nullptr) << "can not find leaf func attribute";
     std::string binPath = leafFuncAttr->binPath;
     std::string cppFile = binPath.substr(0, binPath.rfind('.')) + ".cpp";
     std::ifstream ifs(cppFile);
@@ -94,10 +95,10 @@ std::shared_ptr<LogicalTensor> CreateConvTensor(Function &function, const DataTy
     if (isCopyIn) {
         if (memType == MemoryType::MEM_DEVICE_DDR) {
             tensorPtr = std::make_shared<LogicalTensor>(function, dtype, shape, SymbolicScalar::FromConcrete(shape),
-                                                        TileOpFormat::TILEOP_ND, "GmTensor", NodeType::INCAST);
+                TileOpFormat::TILEOP_ND, "GmTensor", NodeType::INCAST);
         } else {
             tensorPtr = std::make_shared<LogicalTensor>(function, dtype, shape, SymbolicScalar::FromConcrete(shape),
-                                                        TileOpFormat::TILEOP_NZ, "L1Tensor", NodeType::LOCAL);
+                TileOpFormat::TILEOP_NZ, "L1Tensor", NodeType::LOCAL);
             tensorPtr->UpdateSubgraphID(0);
             tensorPtr->SetAttr(OpAttributeKey::needAlloc, true);
             tensorPtr->memoryrange.memId = 0;
@@ -107,10 +108,10 @@ std::shared_ptr<LogicalTensor> CreateConvTensor(Function &function, const DataTy
     } else {
         if (memType == MemoryType::MEM_DEVICE_DDR) {
             tensorPtr = std::make_shared<LogicalTensor>(function, dtype, shape, SymbolicScalar::FromConcrete(shape),
-                                                        TileOpFormat::TILEOP_ND, "GmTensor", NodeType::OUTCAST);
+                TileOpFormat::TILEOP_ND, "GmTensor", NodeType::OUTCAST);
         } else {
             tensorPtr = std::make_shared<LogicalTensor>(function, dtype, shape, SymbolicScalar::FromConcrete(shape),
-                                                        TileOpFormat::TILEOP_NZ, "L0CTensor", NodeType::LOCAL);
+                TileOpFormat::TILEOP_NZ, "L0CTensor", NodeType::LOCAL);
             tensorPtr->UpdateSubgraphID(0);
             tensorPtr->SetAttr(OpAttributeKey::needAlloc, true);
             tensorPtr->memoryrange.memId = 0;

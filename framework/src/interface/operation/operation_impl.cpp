@@ -1063,6 +1063,7 @@ void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset
     ASSERT(dest.GetStorage(false)->Format() == tensor.GetStorage(false)->Format())<<"Assemble: src and dest requires same format";
     ASSERT(dest.GetShape().size() == tensor.GetShape().size())<<"Assemble: src and dest requires same shape";
     ASSERT(dest.GetShape().size() == dynOffset.size())<<"Assemble: dynOffset and dest requires same shape";
+    ASSERT(dest.GetDataType() == tensor.GetDataType()) << "Assemble: src and dest requires same dtype";
     DInnerAssemble(*Program::GetInstance().GetCurrentFunction(), tensor.GetStorage(), dest.GetStorage(), dynOffset);
 
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(dest, SlotProperty::ASSEMBLE_DST);
@@ -1129,6 +1130,7 @@ void Assemble(const std::vector<AssembleItem> &items, Tensor &src, bool parallel
         ASSERT(src.GetShape().size() == item.tensor.GetShape().size())
             << "Assemble: src and dest requires same shape size";
         ASSERT(src.GetShape().size() == item.offsets.size()) << "Assemble: offsets and dest requires same shape size";
+        ASSERT(src.GetDataType() == item.tensor.GetDataType()) << "Assemble: src and dest requires same dtype";
     }
 
     if (parallelInAssemble) {
@@ -1611,10 +1613,6 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
         }
         case Opcode::OP_SHMEM_WAIT_UNTIL: {
             npu::tile_fwk::Distributed::TiledShmemWaitUntil(function, tileShape, iOperand, oOperand, op);
-            break;
-        }
-        case Opcode::OP_SHMEM_REDUCE: {
-            npu::tile_fwk::Distributed::TiledShmemReduce(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_BIND_TENSOR: {

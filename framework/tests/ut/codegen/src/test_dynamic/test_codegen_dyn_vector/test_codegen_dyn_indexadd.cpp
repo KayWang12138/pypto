@@ -24,7 +24,7 @@
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynIndexAdd : public ::testing::Test {
+class TestCodegenDynIndexAddUB : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
@@ -40,7 +40,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynIndexAdd, TestIndexAdd) {
+TEST_F(TestCodegenDynIndexAddUB, TestIndexAddUB) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     constexpr const int S1 = 32;
     constexpr const int D = 64;
@@ -58,11 +58,11 @@ TEST_F(TestCodegenDynIndexAdd, TestIndexAdd) {
     Tensor output(DT_FP32, shape0, "output");
     Element alphaVal(DataType::DT_FP32, 1.0);
 
-    std::string funcName = "TestIndexAdd";
+    std::string funcName = "TestIndexAddUB";
     FUNCTION(funcName, {inputSrc0, inputSrc1, inputIndex}, {output}) {
         LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            output = IndexAdd(inputSrc0, inputSrc1, inputIndex, axis, alphaVal);
+            output = IndexAddUB(inputSrc0, inputSrc1, inputIndex, axis, alphaVal);
         }
     }
     auto function =
@@ -72,7 +72,7 @@ TEST_F(TestCodegenDynIndexAdd, TestIndexAdd) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynIndexAdd, TestIndexAddLayout) {
+TEST_F(TestCodegenDynIndexAddUB, TestIndexAddUBLayout) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     constexpr const int S1 = 16;
     constexpr const int D = 32;
@@ -91,11 +91,11 @@ TEST_F(TestCodegenDynIndexAdd, TestIndexAddLayout) {
     Element alphaVal(DataType::DT_FP32, 1.0);
 
     ConfigManager::Instance();
-    std::string funcName = "IndexAddLayout";
+    std::string funcName = "IndexAddUBLayout";
     FUNCTION(funcName, {inputSrc0, inputSrc1, inputIndex}, {output}) {
         LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            output = IndexAdd(inputSrc0, inputSrc1, inputIndex, axis, alphaVal);
+            output = IndexAddUB(inputSrc0, inputSrc1, inputIndex, axis, alphaVal);
         }
     }
     auto function =

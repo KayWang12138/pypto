@@ -174,7 +174,6 @@ void TensorSlotScope::BuildIncastOutcastSlot(const std::unordered_map<TensorSlot
         auto itor = partialUpdateOutcastDict.find(outcast);
         if (itor != partialUpdateOutcastDict.end()) {
             ioslot.partialUpdateOutcastList.push_back(idx);
-            ioslot.partialUpdateCount.push_back(itor->second);
         }
     }
 }

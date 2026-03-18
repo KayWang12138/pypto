@@ -161,8 +161,9 @@ REGISTER_CALC_OP(OP_WHERE_ST, Opcode::OP_WHERE_ST, ExecuteOpWhereST);
 void ExecuteOpWhereSS(ExecuteOperationContext *ctx) {
     auto result = ctx->ooperandInplaceDataViewList->at(0);
     auto condition = ctx->ioperandDataViewList->at(0);
-    auto input = ctx->op->GetElementAttribute(OpAttributeKey::scalar);
-    auto other = ctx->op->GetElementAttribute(OpAttributeKey::dynScalar);
+    auto scalars = ctx->op->GetVectorElementAttribute(OpAttributeKey::vectorScalar);
+    auto input = scalars[0];
+    auto other = scalars[1];
     calc::WhereSS(result, condition, input, other);
 }
 REGISTER_CALC_OP(OP_WHERE_SS, Opcode::OP_WHERE_SS, ExecuteOpWhereSS);
@@ -509,7 +510,6 @@ void ExecuteOpCompare(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_CMP, Opcode::OP_CMP, ExecuteOpCompare);
 
 void ExecuteOpCmps(ExecuteOperationContext *ctx) {
-    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop_self = ctx->ioperandDataViewList->at(0);
@@ -634,8 +634,7 @@ void ExecuteOpMrgSort(ExecuteOperationContext *ctx) {
     auto src = ctx->ioperandDataViewList->at(0);
     auto topk_axis = ctx->op->GetIntAttribute("op_attr_axis");
     auto kValue = ctx->op->GetIntAttribute("op_attr_kvalue");
-    int descending = ctx->op->GetIntAttribute("op_attr_order");
-    calc::Topk(oop, src, topk_axis, kValue, descending);
+    calc::MrgSort(oop, src, topk_axis, kValue);
 }
 REGISTER_CALC_OP(OP_MRGSORT, Opcode::OP_MRGSORT, ExecuteOpMrgSort);
 

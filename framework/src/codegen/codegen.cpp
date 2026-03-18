@@ -15,10 +15,11 @@
 
 #include "codegen.h"
 #include "codegen_factory.h"
+#include "utils/codegen_error.h"
 
 namespace npu::tile_fwk {
 void CodeGen::GenCode(Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
-    ASSERT(topFunc.rootFunc_ != nullptr) << "rootFunc can not be nullptr";
+    ASSERT(FwkErr::INVALID_FUNCTION, topFunc.rootFunc_ != nullptr) << "rootFunc can not be nullptr";
 
     auto cg = CodeGenFactory::GetCodeGenCCE(ctx_);
     cg->GenCode(topFunc, invokeParaOffset);

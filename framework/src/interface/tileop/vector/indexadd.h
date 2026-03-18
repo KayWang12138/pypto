@@ -19,8 +19,8 @@
 
 template <typename T0, typename T2, typename T3, typename dstTileDefine, typename tmpTileDefine,
     typename src1TileDefine, typename Scalar>
-TILEOP void IndexAddUBNotLastAxisCompute(dstTileDefine dstTile, tmpTileDefine tmpTile, src1TileDefine src1Tile,
-    Scalar alpha, __ubuf__ typename T0::Type *dstAddr, __ubuf__ bfloat16_t *tmpAddr,
+TILEOP void IndexAddUBNotLastAxisCompute(dstTileDefine dstTile, tempTileDefine tempTile, src1TileDefine src1Tile,
+    Scalar alpha, __ubuf__ typename T0::Type *dstAddr, __ubuf__ bfloat16_t *tempAddr,
     __ubuf__ typename T2::Type *src1Addr, size_t dstOffset, size_t src1Offset) {
     pto::TASSIGN(dstTile, (uint64_t)(dstAddr + dstOffset));
     pto::TASSIGN(src1Tile, (uint64_t)(src1Addr + src1Offset));
@@ -152,8 +152,8 @@ src2:index
 axis是泛化成5维后的值，实际值为 axis + shapeSize - 5
 */
 template <int axis, typename T0, typename T1, typename T2, typename T3, typename T4, typename Scalar>
-TILEOP void TIndexAddUB(T0 dst, T1 src0, T2 src1, T3 src2, T4 tmpTensor, Scalar alpha) { // T0: tileTensor
-    constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value; // support 2-5
+TILEOP void TIndexAddUB(T0 dst, T1 src0, T2 src1, T3 src2, T4 tempTensor, Scalar alpha) { // T0: tileTensor
+    constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;              // support 2-5
     const auto dstLayout = dst.GetLayout();
     auto dstShape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>(); // validShape
     auto dstShape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
@@ -208,7 +208,7 @@ TILEOP void TIndexAddUB(T0 dst, T1 src0, T2 src1, T3 src2, T4 tmpTensor, Scalar 
                 auto dstOffset = index * dstStride0;
                 auto src1Offset = i * src1Stride0;
                 IndexAddUBNotLastAxisCompute<T0, T2, T3>(
-                    dstTile, tmpTile, src1Tile, alpha, dstAddr, tmpAddr, src1Addr, dstOffset, src1Offset);
+                    dstTile, tempTile, src1Tile, alpha, dstAddr, tempAddr, src1Addr, dstOffset, src1Offset);
             }
         } else if constexpr (axis == 1) { // 从第3轴开始合轴
             for (LoopVar i = 0; i < src1Shape0; ++i) {
@@ -219,7 +219,7 @@ TILEOP void TIndexAddUB(T0 dst, T1 src0, T2 src1, T3 src2, T4 tmpTensor, Scalar 
                     auto dstOffset = i * dstStride0 + index * dstStride1;
                     auto src1Offset = i * src1Stride0 + j * src1Stride1;
                     IndexAddUBNotLastAxisCompute<T0, T2, T3>(
-                        dstTile, tmpTile, src1Tile, alpha, dstAddr, tmpAddr, src1Addr, dstOffset, src1Offset);
+                        dstTile, tempTile, src1Tile, alpha, dstAddr, tempAddr, src1Addr, dstOffset, src1Offset);
                 }
             }
         } else if constexpr (axis == 2) { // 从第4轴开始合轴
@@ -232,7 +232,7 @@ TILEOP void TIndexAddUB(T0 dst, T1 src0, T2 src1, T3 src2, T4 tmpTensor, Scalar 
                         auto dstOffset = i * dstStride0 + j * dstStride1 + index * dstStride2;
                         auto src1Offset = i * src1Stride0 + j * src1Stride1 + k * src1Stride2;
                         IndexAddUBNotLastAxisCompute<T0, T2, T3>(
-                            dstTile, tmpTile, src1Tile, alpha, dstAddr, tmpAddr, src1Addr, dstOffset, src1Offset);
+                            dstTile, tempTile, src1Tile, alpha, dstAddr, tempAddr, src1Addr, dstOffset, src1Offset);
                     }
                 }
             }
@@ -247,7 +247,7 @@ TILEOP void TIndexAddUB(T0 dst, T1 src0, T2 src1, T3 src2, T4 tmpTensor, Scalar 
                             auto dstOffset = i * dstStride0 + j * dstStride1 + k * dstStride2 + index * dstStride3;
                             auto src1Offset = i * src1Stride0 + j * src1Stride1 + k * src1Stride2 + l * src1Stride3;
                             IndexAddUBNotLastAxisCompute<T0, T2, T3>(
-                                dstTile, tmpTile, src1Tile, alpha, dstAddr, tmpAddr, src1Addr, dstOffset, src1Offset);
+                                dstTile, tempTile, src1Tile, alpha, dstAddr, tempAddr, src1Addr, dstOffset, src1Offset);
                         }
                     }
                 }

@@ -49,7 +49,7 @@ struct PrintScatterParam {
     const std::vector<std::string> &dataTypeExpr;
 };
 
-struct PrintIndexAddParam {
+struct PrintIndexAddUBParam {
     const int axis;
     const std::string &dstVar;
     const std::string &srcVar;
