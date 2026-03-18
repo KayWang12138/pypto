@@ -46,8 +46,8 @@ def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, stride_am, stride_ak, stride_bk,
 def test_matmul(dynamic: bool, unroll_factor: int):
     matmul_kernel.set_options(dynamic=dynamic, unroll_factor=unroll_factor)
     torch.manual_seed(0)
-    M, N, K = 16, 16, 16
-    BLOCK_SIZE = 8
+    M, N, K = 32, 32, 32
+    BLOCK_SIZE = 16
 
     a = torch.randn((M, K), dtype=torch.float32)
     b = torch.randn((K, N), dtype=torch.float32)
