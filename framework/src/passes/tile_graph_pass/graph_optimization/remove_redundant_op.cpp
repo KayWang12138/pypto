@@ -17,6 +17,7 @@
 #include "passes/pass_check/remove_redundant_op_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_utils/merge_view_assemble_utils.h"
+#include "passes/pass_utils/pass_utils.h"
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "RemoveRedundantOp"
@@ -395,7 +396,7 @@ Status RemoveRedundantOp::ProcessReshape(Function &function) {
         auto in = op.GetIOperands().front();
         auto out = op.GetOOperands().front();
         canRemove = false;
-        if (in->shape == out->shape) {
+        if (in->shape == out->shape && !CommonUtils::ContainsNegativeOne(in->GetShape()) && !CommonUtils::ContainsNegativeOne(out->GetShape())) {
             APASS_LOG_DEBUG_F(Elements::Operation, "op[%d]'s in->shape == out->shape.", op.GetOpMagic());
             canRemove = true;
         } else if (!op.ConsumerOps().empty()) {
