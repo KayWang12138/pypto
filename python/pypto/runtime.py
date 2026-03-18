@@ -193,9 +193,6 @@ class _JIT:
         if isinstance(self._pass_options, dict):
             pypto.set_pass_options(**self._pass_options)
 
-        if isinstance(self._runtime_options, dict):
-            pypto.set_runtime_options(**self._runtime_options)
-
         if isinstance(self._verify_options, dict):
             pypto.set_verify_options(**self._verify_options)
 

@@ -903,8 +903,6 @@ class JitCallableWrapper:
             pypto.set_host_options(**self._host_options)
         if self._pass_options:
             pypto.set_pass_options(**self._pass_options)
-        if self._runtime_options:
-            pypto.set_runtime_options(**self._runtime_options)
         if self._verify_options:
             pypto.set_verify_options(**self._verify_options)
         if self._debug_options:
@@ -1073,7 +1071,7 @@ class JitCallableWrapper:
             If NPU mode is selected but CANN environment is not configured.
         """
         cann_is_configed = bool(os.environ.get("ASCEND_HOME_PATH"))
-        run_mode = pypto.get_runtime_options().get("run_mode", 0)
+        run_mode = self._runtime_options.get("run_mode", 0)
         if run_mode == 0:  # NPU mode
             if not cann_is_configed:
                 raise RuntimeError(
