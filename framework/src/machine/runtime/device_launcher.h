@@ -135,6 +135,7 @@ public:
         if (devConfig.aicpuNum == 0 || devConfig.aicpuNum > maxAicpuNum) {
             devConfig.aicpuNum = maxAicpuNum;
         }
+        devConfig.isTripleStream = config::GetRuntimeOption<bool>(CFG_TRIPLE_STREAM_SCHED);
     }
 
     template<typename DeviceMemoryTy>
@@ -155,15 +156,18 @@ public:
         return;
     }
 
-    static uint32_t GetAiCpuNumForDav3510(uint32_t aiCpuNum, uint32_t scheCpuNum) {
+    static uint32_t GetAiCpuNumForDav3510(uint32_t aiCpuNum, uint32_t scheCpuNum, DeviceLauncherConfig &config) {
         if (scheCpuNum == 1) {
-            return scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
+            return config.isTripleStream ? scheCpuNum : scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
         }
 
         uint32_t oneDieMinCpuNum = aiCpuNum >> 1;
         uint32_t oneDieMaxCpuNum = oneDieMinCpuNum + (aiCpuNum - (oneDieMinCpuNum << 1));
         uint32_t oneDieMinScheCpuNum = scheCpuNum >> 1;
         uint32_t lunchMinCpuNum = oneDieMaxCpuNum + oneDieMinScheCpuNum;
+        if (!config.isTripleStream) {
+            lunchMinCpuNum += dynamic::MAX_OTHER_AICPU_NUM;
+        }
 
         return lunchMinCpuNum < aiCpuNum ? lunchMinCpuNum : aiCpuNum;
     }
@@ -183,7 +187,7 @@ public:
         devProg->devArgs.maxAicpuNum = aiCpuNum;
         config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
         if (devProg->devArgs.archInfo == ArchInfo::DAV_3510) {
-            devProg->devArgs.nrAicpu = GetAiCpuNumForDav3510(static_cast<uint32_t>(aiCpuNum), devProg->devArgs.scheCpuNum);
+            devProg->devArgs.nrAicpu = GetAiCpuNumForDav3510(static_cast<uint32_t>(aiCpuNum), devProg->devArgs.scheCpuNum, config);
         } else {
             devProg->devArgs.nrAicpu = config.aicpuNum;
         }
