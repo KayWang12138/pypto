@@ -1268,6 +1268,19 @@ TEST_F(TorchAdaptorTest, Pad) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
+TEST_F(TorchAdaptorTest, FillPad1D) {
+    {
+        std::vector<float> sdata = {1.0f, 2.0f, 3.0f, 4.0f};
+        auto self = makeTensorData(DT_FP32, {4}, sdata);
+        self->UpdateValidShape({2});
+        auto out = makeTensorData(DT_FP32, {4}, 0.0f);
+        std::vector<float> gdata = {1.0f, 2.0f, 0.0f, 0.0f};
+        auto golden = makeTensorData(DT_FP32, {4}, gdata);
+        calc::FillPad(out, self, Element(DT_FP32, 0.0f));
+        ASSERT_ALLCLOSE(out, golden);
+    }
+}
+
 TEST_F(TorchAdaptorTest, BitSortDescending) {
     // 降序
     std::vector<float> sdata = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
