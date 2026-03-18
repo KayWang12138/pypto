@@ -98,6 +98,7 @@ public:
     static const std::string copyOutMode;
     static const std::string copyIsNZ;
     static const std::string scaleValue;
+    static const std::string rowPad;
 };
 
 
@@ -249,7 +250,7 @@ public:
             SetAttr(key, value);
         } else {
             std::vector<int64_t> nvalue;
-            for (const auto &x : value) {
+            for (auto &x : value) {
                 nvalue.emplace_back(static_cast<int64_t>(x));
             }
             SetAttr(key, nvalue);
