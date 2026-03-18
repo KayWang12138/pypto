@@ -1029,6 +1029,32 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                     dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
                 }
             } break;
+        case Opcode::OP_SHMEM_PUT:
+        case Opcode::OP_SHMEM_GET:
+            {
+                auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(GetOpAttribute());
+                if (copyAttr == nullptr) {
+                    break;
+                }
+                for (auto &shape : copyAttr->GetFromDynValidShape()) {
+                    if (!shape.IsSpecified()) {
+                        continue;
+                    }
+                    dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+                }
+                for (auto &offset : copyAttr->GetToOffset()) {
+                    if (!offset.IsSpecified()) {
+                        continue;
+                    }
+                    dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
+                }
+                for (auto &offset : copyAttr->GetFromOffset()) {
+                    if (!offset.IsSpecified()) {
+                        continue;
+                    }
+                    dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
+                }
+            } break;
         default:
             break;
     }
