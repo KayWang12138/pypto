@@ -936,5 +936,5 @@ if __name__ == "__main__":
     print()
     print("=" * 60)
     
-    # test_ifa()
-    test_pfa()
+    test_ifa()
+    # test_pfa()

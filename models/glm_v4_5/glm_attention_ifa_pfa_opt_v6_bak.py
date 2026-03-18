@@ -86,6 +86,7 @@ def check_args(query, key_cache, value_cache, block_tables, causal_table, actual
     assert get_format(attn_res) == 'ND'
     assert attn_res.dtype == torch.bfloat16
 
+
 # ============================================================================
 # 配置数据结构
 # ============================================================================
@@ -108,6 +109,8 @@ class AttentionConfig:
     n2: int
     q_d: int
     kv_d: int
+    causal_table_step: int
+    s2_tile: int = 128
     block_size: int = 128
     max_num_blocks_per_query: int = 0
     softmax_scale: float = 1.0
@@ -121,11 +124,11 @@ class AttentionConfig:
 # 配置生成函数
 # ============================================================================
 
-def get_pfa_config(device="cpu"):
+def get_pfa_config_v1(device="cpu"):
     """PFA (Prefill) 配置 - s1 >= 1"""
     b = 8
     s1 = 128       # PFA: query 长度可以大于 1
-    s2 = s1        # PFA: KV 长度等于 query 长度
+    s2 = 256        # PFA: KV 长度等于 query 长度
     q_d = 128
     nq = 12
     nkv = 1
@@ -133,22 +136,24 @@ def get_pfa_config(device="cpu"):
     softmax_scale = q_d ** -0.5
     block_table_batch = b
     block_size = 128
-    kv_num_blocks = b * ((s1 + block_size - 1) // block_size)
+    kv_num_blocks = b * ((s2 + block_size - 1) // block_size)
+    causal_table_step = 64 # 32
+    s2_tile = 256 #128  小于等于s2
 
     actual_seq_values = [s1] * b  # 配置实例为长度为b的tensor，每个b代表一次任务中的token数即s1,实际任务b可能小于s1，代表传入矩阵中的有效序列长度，其余内容会padding，s1决定内存分配
     # s1负责内存对齐和批处理需求，actual_seq_values实现计算效率优化
     actual_seq_tensor = torch.tensor(actual_seq_values, dtype=torch.int32, device=device)
 
+    cube_tile = 128
+    m_tile = 128
     atten_cfg = AttentionConfig(
         b=b, s1=s1, s2=s2, n1=nq, n2=nkv, softmax_scale=softmax_scale, kv_layout=kv_layout,
         q_d=q_d, kv_d=q_d, block_size=block_size, block_table_batch=block_table_batch,
-        kv_num_blocks=kv_num_blocks, actual_seq=actual_seq_tensor
+        kv_num_blocks=kv_num_blocks, actual_seq=actual_seq_tensor,
+        causal_table_step=causal_table_step, s2_tile=s2_tile
     )
-    atten_cfg.max_num_blocks_per_query = (max(s1,s2) + block_size - 1) // block_size
+    atten_cfg.max_num_blocks_per_query = (s2 + block_size - 1) // block_size
     
-    cube_tile = 128
-    m_tile = 128
-    s2_tile = 128
     tile_cfg = AttentionTileConfig(
         nq,
         s2_tile,
@@ -159,10 +164,10 @@ def get_pfa_config(device="cpu"):
     return atten_cfg, tile_cfg
 
 
-def get_pfa_config_v2(device="cpu"):
+def get_pfa_config(device="cpu"):
     """PFA (Prefill) 配置 - s1 >= 1"""
-    b = 16
-    s1 = 512       # PFA: query 长度可以大于 1
+    b = 8
+    s1 = 4        # PFA: query 长度可以大于 1
     s2 = 1024      # PFA: KV 长度等于 query 长度
     q_d = 128
     nq = 12
@@ -171,28 +176,32 @@ def get_pfa_config_v2(device="cpu"):
     softmax_scale = q_d ** -0.5
     block_table_batch = b
     block_size = 128
-    kv_num_blocks = b * ((s1 + block_size - 1) // block_size)
+    kv_num_blocks = b * ((s2 + block_size - 1) // block_size)
+    causal_table_step = min(s1//2, 32)
+    s1 = ((s1+causal_table_step-1)//causal_table_step)*causal_table_step  #确保S1是causal_table_step的整数倍
+    s2_tile = 256 # 128
 
     actual_seq_values = [s1] * b
     actual_seq_tensor = torch.tensor(actual_seq_values, dtype=torch.int32, device=device)
 
+    cube_tile = 128
+    m_tile = 128
     atten_cfg = AttentionConfig(
         b=b, s1=s1, s2=s2, n1=nq, n2=nkv, softmax_scale=softmax_scale, kv_layout=kv_layout,
         q_d=q_d, kv_d=q_d, block_size=block_size, block_table_batch=block_table_batch,
-        kv_num_blocks=kv_num_blocks, actual_seq=actual_seq_tensor
+        kv_num_blocks=kv_num_blocks, actual_seq=actual_seq_tensor,
+        causal_table_step=causal_table_step, s2_tile=s2_tile
     )
-    atten_cfg.max_num_blocks_per_query = (s1 + block_size - 1) // block_size
+    atten_cfg.max_num_blocks_per_query = (s2 + block_size - 1) // block_size
     
-    cube_tile = 128
-    m_tile = 128
-    s2_tile = 128
     tile_cfg = AttentionTileConfig(
         nq,
         s2_tile,
-        [[cube_tile, cube_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]], # 建议128，中间64 256
-        [m_tile, s2_tile],
-        [[cube_tile, cube_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]], 
-        [m_tile, s2_tile],)
+        # [[cube_tile, cube_tile], [64, 64], [256, 256]],    # cube--shape 分tile, vector tile, 尾轴不切，tile一致 [cube_tile, cube_tile], [cube_tile, cube_tile]
+        [[64, 64], [64, 64], [256, 256]],    # cube--shape 分tile, vector tile, 尾轴不切，tile一致 [cube_tile, cube_tile], [cube_tile, cube_tile]
+        [256, 256],
+        [[64, 64], [64, 64], [256, 256]], # [[cube_tile, cube_tile], [64, 64], [256, 256]], 
+        [256, 256],)
     return atten_cfg, tile_cfg
 
 # ============================================================================
@@ -291,24 +300,7 @@ def softmax(x, is_fp16=False):
     return ans, x_max, x_sum
 
 
-def create_causal_mask_bak(s1_len, s2_len):
-    """
-    生成形状为 (s1_len, s2_len) 的因果掩码
-    - s1_len: Query 序列长度
-    - s2_len: Key/Value 序列长度
-    """
-    mask = torch.zeros((s1_len, s2_len))
-    
-    # 2. 生成因果布尔矩阵：j > i 的位置为 True（需要遮挡） i 是 Query 位置，j 是 Key 位置
-    causal_bool = torch.arange(s2_len) > torch.arange(s1_len)[:, None]
-    
-    # 3. 将需要遮挡的位置设为 -inf
-    mask.masked_fill_(causal_bool, float('-inf'))
-    print(mask)
-    return mask
-
-
-def create_causal_mask(s1_len, s2_len, step):
+def create_causal_mask(s1_len, s2_len, s1_step, s2_step):
     """
     生成形状为 (s1_len, s2_len) 的阶梯状因果掩码
     - s1_len: Query 序列长度
@@ -324,8 +316,9 @@ def create_causal_mask(s1_len, s2_len, step):
     
     # 2. 生成Query/Key的块索引（每个位置属于哪个step块）
     #    例：step=4 → 位置0-3→0，4-7→1，8-11→2...
-    q_block_idx = torch.arange(s1_len) // step  # shape: (s1_len,)
-    k_block_idx = torch.arange(s2_len) // step  # shape: (s2_len,)
+    q_block_idx = torch.arange(s1_len) // s1_step  # shape: (s1_len,)
+    k_block_idx = torch.arange(s2_len) // s2_step  # shape: (s2_len,)
+    print(f'q_block_idx:{q_block_idx},k_block_idx:{k_block_idx}')
     
     # 3. 生成阶梯状因果布尔矩阵：Key块索引 > Query块索引 时遮挡
     #    广播为 (s1_len, s2_len) 的布尔矩阵
@@ -334,7 +327,7 @@ def create_causal_mask(s1_len, s2_len, step):
     # 4. 将需要遮挡的位置设为 -inf
     mask.masked_fill_(causal_bool, float('-inf'))
     
-    print(f"阶梯因果掩码 (s1_len={s1_len}, s2_len={s2_len}, step={step}):")
+    print(f"阶梯因果掩码 (s1_len={s1_len}, s2_len={s2_len}, step1={s1_step}, step2={s2_step}):")
     print(mask)
     return mask
 
@@ -364,13 +357,16 @@ def pfa_func(q_shape, kv_shape, block_table_shape, causal_table_shape):
 
     @pypto.frontend.jit(
         runtime_options={
-            "stitch_function_max_num": 128
+            "stitch_function_inner_memory": 2048,
+            "stitch_function_outcast_memory":2048, 
+            "stitch_function_num_initial":128,
+            "triple_stream_sched":True
         }, 
         pass_options={
-            "pg_upper_bound": 20000, #15360,
-            "cube_l1_reuse_setting": {}, # {-1: 16},
-            "cube_nbuffer_setting":{}, # {-1: 16},
-            "vec_nbuffer_setting":{}
+            "cube_l1_reuse_setting": {-1:16}, # {-1: 16},
+            "cube_nbuffer_setting":{-1:16}, # {-1: 16},
+            "vec_nbuffer_mode":2, 
+            "vec_nbuffer_setting":{-1:8}
         },
         debug_options={"runtime_debug_mode":1,
                         "compile_debug_mode":0}
@@ -380,7 +376,7 @@ def pfa_func(q_shape, kv_shape, block_table_shape, causal_table_shape):
         k: pypto.Tensor(kv_shape, pypto.DT_BF16),
         v: pypto.Tensor(kv_shape, pypto.DT_BF16),
         block_table: pypto.Tensor(block_table_shape, pypto.DT_INT32),
-        causal_table: pypto.Tensor(causal_table_shape,  pypto.DT_FP32),
+        causal_table: pypto.Tensor(causal_table_shape, pypto.DT_FP32),
         query_act_seqs: pypto.Tensor((bs,), pypto.DT_INT32),
         atten_out: pypto.Tensor(out_shape, pypto.DT_BF16)
     ):
@@ -395,14 +391,13 @@ def pfa_func(q_shape, kv_shape, block_table_shape, causal_table_shape):
         nq = shape_q[1]        #n1
         block_num_scalar = shape_k[0] #dynamic b
         block_size = shape_k[1]  # s2动态轴，blocksize也会变，需要调整
-        s2_scalar = shape_k[1]
+        s2_scalar = causal_table.shape[1]  # 修复: 从causal_table获取实际的s2长度
         nkv = shape_k[2]         # n2
         dn = shape_k[3]          # d
         b_scalar = query_act_seqs.shape[0] #dymnamic  序列代表每个b实际有效s1，第一维度即b
         
         g_tile = tile_cfg.g_tile
         s2_tile = tile_cfg.s2_tile
-        # 为什么没有s1_tile
         c1_tile = tile_cfg.c1_tile_shape
         v1_tile = tile_cfg.v1_tile_shape
         c2_tile = tile_cfg.c2_tile_shape
@@ -414,8 +409,12 @@ def pfa_func(q_shape, kv_shape, block_table_shape, causal_table_shape):
         n2_sym = nkv
         g = nq // nkv
         g_loop = g // g_tile  # 12个group，分块策略全量12
+        g_loop_merged = g_loop * n2_sym  # 静态轴合并后的总循环次数
         block_num = s2_tile // block_size
         s2_loop = (s2_scalar + s2_tile - 1) // s2_tile # 显式因果掩码矩阵替代迭代中仅使用当前sq寻找对应kv的因果逻辑，转而遍历所有kv分块
+        
+        step = atten_cfg.causal_table_step # 阶梯因果掩码步长
+        s1_block_num = (s1_scalar + step - 1) // step  # s1方向的块数
         
         k_2d_shape = (block_num_scalar * block_size, n2_sym * dn)
         q_2d_shape = (b_scalar * s1_scalar * nq, dn)
@@ -424,105 +423,108 @@ def pfa_func(q_shape, kv_shape, block_table_shape, causal_table_shape):
         v_2d = pypto.reshape(v, k_2d_shape, inplace=True)
         q_2d = pypto.reshape(q, q_2d_shape, inplace=True)
         
-        for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx"): # b=8 , unroll_list=[8,4]
-            for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"): # s1=128 , unroll_list=[64,16] , unroll_list=[64,16,8]
-                bs_ofs = b_idx * s1_scalar + s1_idx
-                
-                for n2_idx in pypto.loop(n2_sym, name="LOOP_n2", idx_name="n2_idx"): # n2=1
-                # for n2_idx in range(n2_sym): #性能劣化100us
-                #     for g_idx in range(g_loop):
-                    for g_idx in pypto.loop(g_loop, name="LOOP_g", idx_name="g_idx"): # g_loop=1-->(nq/nkv)/g_tile
-                        oi_update = pypto.tensor([g_tile, dn], pypto.DT_FP32, "oi_update")  # (12,128)
-                        sum_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "sum_update")
-                        max_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "max_update")
+        for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx", unroll_list=[8]): #dynamic , unroll_list=[8]
+            for s1_block_idx in pypto.loop(s1_block_num, name="LOOP_s1_block", idx_name="s1_block_idx"): #dynamic
+                s1_start = s1_block_idx * step
+                s1_end = (s1_block_idx + 1) * step
+                s2_max_for_block = pypto.min((s1_block_idx + 1) * step, s2_scalar)  # 只遍历下三角, 使用pypto.min限制不超过实际s2长度
+                s2_loop_for_block = (s2_max_for_block + s2_tile - 1) // s2_tile
 
-                        n1g_ofs = n2_idx * group + g_idx * g_tile
-                        oi_ofs = [bs_ofs, n1g_ofs, 0]
+                for s1_offset in pypto.loop(step, name="LOOP_s1_offset", idx_name="s1_offset"):  # , unroll_list=[step]
+                    s1_idx = s1_start + s1_offset
+                    bs_ofs = b_idx * s1_scalar + s1_idx
+                    actual_seq_len = query_act_seqs[b_idx]
+                    if s1_idx < actual_seq_len:   # 只读取有效数据
+                        for g_idx_merged in pypto.loop(g_loop_merged, name="LOOP_g_merged", idx_name="g_idx_merged"): # , unroll_list=[12]
+                            pypto.set_pass_options(sg_set_scope=1)
+                            n2_idx = g_idx_merged // g_loop
+                            g_idx = g_idx_merged % g_loop
+                            n1g_ofs = n2_idx * group + g_idx * g_tile
+                            oi_ofs = [bs_ofs, n1g_ofs, 0]
                         
-                        for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx"):  # 动态
-                            idx = s2_idx * block_num
-                            actual_s2_tile = (s2_scalar - s2_idx * s2_tile).min(s2_tile)
-
-                            pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                            qi = pypto.view(q_2d, [g_tile, dn], [bs_ofs * nq + n1g_ofs, 0])
-                            
-                            # 从 block_table 组装 K、V
-                            pypto.set_pass_options(sg_set_scope=4)
-                            kj_assemble = pypto.tensor([s2_tile, dn], k_2d.dtype, "kj_assemble")
-                            vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
-                            for i in range(block_num):
-                                block_idx = block_table[b_idx, idx + i]  # idx没法提前
-                                block_idx_valid = block_idx.max(0)
-                                kj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                                    pypto.view(k_2d, [block_size, dn], [block_idx_valid * block_size, 0])
-                                vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                                    pypto.view(v_2d, [block_size, dn], [block_idx_valid * block_size, 0])
-                            kj_assemble = pypto.view(kj_assemble, [s2_tile, dn], [0, 0], valid_shape=[actual_s2_tile, dn])
-                            vj_assemble = pypto.view(vj_assemble, [s2_tile, dn], [0, 0], valid_shape=[actual_s2_tile, dn])
+                            oi_update = pypto.tensor([g_tile, dn], pypto.DT_FP32, "oi_update")  
+                            sum_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "sum_update")
+                            max_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "max_update")
                             pypto.set_pass_options(sg_set_scope=-1)
 
-                            # QK^T 计算
-                            pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2], enable_multi_data_load=True)
-                            sij = pypto.matmul(qi, kj_assemble, pypto.DT_FP32, a_trans=False, b_trans=True)
-                            sij = pypto.view(sij, [g_tile, s2_tile], [0, 0], valid_shape=[g_tile, actual_s2_tile])
-                            # Softmax 计算
-                            pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                            if pypto.is_loop_begin(s2_idx):
+                            for s2_idx in pypto.loop(s2_loop_for_block, name="LOOP_s2", idx_name="s2_idx"):  # 优化：只遍历可见的KV块 # dynamic , unroll_list=[8,4,1]
                                 pypto.set_pass_options(sg_set_scope=2)
-                                # sij_scale = pypto.mul(sij, softmax_scale)
-                                print(f'Sij_shape is {sij.shape}') # （12,128）--if+else共执行4次-->(g_tile, actual_s2_tile)
-                                # pypto.set_vec_tile_shapes(g_tile, s2_tile) # 因果掩码处理
-                                causal_mask_row = pypto.view(causal_table, [1, s2_tile], [s1_idx, s2_idx * s2_tile], valid_shape=[1, actual_s2_tile])
-                                causal_mask_broadcast = pypto.expand_clone(causal_mask_row, [g_tile, s2_tile], valid_shape=[g_tile, actual_s2_tile])
-                                causal_mask_fp32 = pypto.cast(causal_mask_broadcast, pypto.DT_FP32)
+                                idx = s2_idx * block_num
+                                s2_max_for_query = s1_idx + 1
+                                actual_s2_tile = (s2_max_for_query - s2_idx * s2_tile).min(s2_tile).max(0) 
 
-                                sij_scale = pypto.add(pypto.mul(sij, softmax_scale), causal_mask_fp32)
-                                tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
-                                tsub = pypto.sub(sij_scale, tilda_mij)
-                                tilda_pij = pypto.exp(tsub)
-                                tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
-                                sum_update[:] = pypto.sum(tilda_pij, dim=-1, keepdim=True)
-                                max_update[:] = tilda_mij
+                                pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])  # 256 256
+                                qi = pypto.view(q_2d, [g_tile, dn], [bs_ofs * nq + n1g_ofs, 0]) 
+                                
+                                # 从 block_table 组装 K、V
+                                kj_assemble = pypto.tensor([s2_tile, dn], k_2d.dtype, "kj_assemble")
+                                vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
+                                for i in range(block_num):
+                                    block_idx = block_table[b_idx, idx + i]  # idx没法提前
+                                    block_idx_valid = block_idx.max(0)
+                                    kj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
+                                        pypto.view(k_2d, [block_size, dn], [block_idx_valid * block_size, 0])
+                                    vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
+                                        pypto.view(v_2d, [block_size, dn], [block_idx_valid * block_size, 0])
+                                kj_assemble = pypto.view(kj_assemble, [s2_tile, dn], [0, 0], valid_shape=[actual_s2_tile, dn])
+                                vj_assemble = pypto.view(vj_assemble, [s2_tile, dn], [0, 0], valid_shape=[actual_s2_tile, dn])
                                 pypto.set_pass_options(sg_set_scope=-1)
-                                
-                                pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2], enable_multi_data_load=True)
-                                oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
-                                
-                                pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                                oi_update[:] = oi_tmp
-                            else:
-                                pypto.set_pass_options(sg_set_scope=1)
-                                # sij_scale = pypto.mul(sij, softmax_scale)
-                                print(f'Sij_shape is {sij.shape}')
-                                # pypto.set_vec_tile_shapes(g_tile, s2_tile) # 因果掩码处理
-                                causal_mask_row = pypto.view(causal_table, [1, s2_tile], [s1_idx, s2_idx * s2_tile], valid_shape=[1, actual_s2_tile])
-                                causal_mask_broadcast = pypto.expand_clone(causal_mask_row, [g_tile, s2_tile], valid_shape=[g_tile, actual_s2_tile])
-                                causal_mask_fp32 = pypto.cast(causal_mask_broadcast, pypto.DT_FP32)
 
-                                sij_scale = pypto.add(pypto.mul(sij, softmax_scale), causal_mask_fp32)
-                                tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
-                                max_new = pypto.maximum(max_update, tilda_mij)
-                                tsub = pypto.sub(sij_scale, max_new)
-                                tilda_pij = pypto.exp(tsub)
-                                tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
-                                sum_local = pypto.sum(tilda_pij, dim=-1, keepdim=True)
-                                tsub2 = pypto.sub(max_update, max_new)
-                                max_update[:] = max_new
-                                update_mul = pypto.exp(tsub2)
-                                sum_update[:] = sum_update * update_mul + sum_local
-                                pypto.set_pass_options(sg_set_scope=-1)
+                                # QK^T 计算
+                                pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2], enable_multi_data_load=True) #  [128, 128], [64, 64], [256, 256]
+                                sij = pypto.matmul(qi, kj_assemble, pypto.DT_FP32, a_trans=False, b_trans=True)  # [12, 128] [128,256] [12,256]
+                                sij = pypto.view(sij, [g_tile, s2_tile], [0, 0], valid_shape=[g_tile, actual_s2_tile])
+
+                                # Softmax 计算
+                                pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+                                if pypto.is_loop_begin(s2_idx):
+                                    pypto.set_pass_options(sg_set_scope=3)
+                                    causal_mask_row = pypto.view(causal_table, [1, s2_tile], [s1_idx, s2_idx * s2_tile], valid_shape=[1, actual_s2_tile])
+                                    causal_mask_broadcast = pypto.expand_clone(causal_mask_row, [g_tile, s2_tile], valid_shape=[g_tile, actual_s2_tile])
+
+                                    sij_scale = pypto.add(pypto.mul(sij, softmax_scale), causal_mask_broadcast)
+                                    tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
+                                    tsub = pypto.sub(sij_scale, tilda_mij)
+                                    tilda_pij = pypto.exp(tsub)
+                                    tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
+                                    sum_update[:] = pypto.sum(tilda_pij, dim=-1, keepdim=True)
+                                    max_update[:] = tilda_mij
+                                    pypto.set_pass_options(sg_set_scope=-1)
+                                    
+                                    pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2], enable_multi_data_load=True)
+                                    oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
+                                    
+                                    pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
+                                    oi_update[:] = oi_tmp
+                                else:
+                                    pypto.set_pass_options(sg_set_scope=4)
+                                    causal_mask_row = pypto.view(causal_table, [1, s2_tile], [s1_idx, s2_idx * s2_tile], valid_shape=[1, actual_s2_tile])
+                                    causal_mask_broadcast = pypto.expand_clone(causal_mask_row, [g_tile, s2_tile], valid_shape=[g_tile, actual_s2_tile])
+
+                                    sij_scale = pypto.add(pypto.mul(sij, softmax_scale), causal_mask_broadcast)
+                                    tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
+                                    max_new = pypto.maximum(max_update, tilda_mij)  # shape检查
+                                    tsub = pypto.sub(sij_scale, max_new)
+                                    tilda_pij = pypto.exp(tsub)
+                                    tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
+                                    sum_local = pypto.sum(tilda_pij, dim=-1, keepdim=True)
+                                    tsub2 = pypto.sub(max_update, max_new)
+                                    max_update[:] = max_new
+                                    update_mul = pypto.exp(tsub2)
+                                    sum_update[:] = sum_update * update_mul + sum_local
+                                    pypto.set_pass_options(sg_set_scope=-1)
+                                    
+                                    pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2], enable_multi_data_load=True)
+                                    oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
+                                    
+                                    pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
+                                    oi_update[:] = oi_update * update_mul + oi_tmp
                                 
-                                pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2], enable_multi_data_load=True)
-                                oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
-                                
-                                pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                                oi_update[:] = oi_update * update_mul + oi_tmp
-                            
-                            if pypto.is_loop_end(s2_idx):
-                                oi_final = pypto.div(oi_update, sum_update)
-                                pypto.set_vec_tile_shapes(16, v2_tile[0], v2_tile[1])
-                                oi_final_3d = pypto.cast(pypto.reshape(oi_final, [1, g_tile, dn]), dtype)
-                                pypto.assemble(oi_final_3d, oi_ofs, atten_out)
+                                if pypto.is_loop_end(s2_idx):
+                                    oi_final = pypto.div(oi_update, sum_update)
+                                    pypto.set_vec_tile_shapes(16, v2_tile[0], v2_tile[1])
+                                    oi_final_3d = pypto.cast(pypto.reshape(oi_final, [1, g_tile, dn]), dtype)
+                                    pypto.assemble(oi_final_3d, oi_ofs, atten_out)
     
     return pfa_func_kernel
 
@@ -581,6 +583,8 @@ def run_pfa_test(atten_cfg):
     block_size = atten_cfg.block_size
     max_num_blocks_per_query = atten_cfg.max_num_blocks_per_query
     query_seq_len = atten_cfg.actual_seq
+
+    print(f'--------------block_table_batch:{atten_cfg.block_table_batch}, max_num_blocks_per_query:{max_num_blocks_per_query}')
     
     debug_print("PFA_TEST", f"Config: b={b}, s1={s1}, nq={nq}, nkv={nkv}, d={d}")
     debug_print("PFA_TEST", f"block_size={block_size}, max_blocks={max_num_blocks_per_query}")
@@ -591,9 +595,9 @@ def run_pfa_test(atten_cfg):
     
     # PFA: 生成因果注意力掩码
     debug_print("PFA_TEST", "create_causal_mask...")
-    s2_tile = 128
-    step = 16
-    causal_table = create_causal_mask(s1, ((s2 + s2_tile -1)//s2_tile)* s2_tile, step) # 对齐到s2_tile防止访问越界
+    s2_tile = atten_cfg.s2_tile
+    step = atten_cfg.causal_table_step # 阶梯因果掩码步长
+    causal_table = create_causal_mask(s1, ((s2 + s2_tile -1)//s2_tile)* s2_tile, 1, 1) # 对齐到s2_tile防止访问越界
 
     device = f'npu:{device_id}'
     q = torch.empty(q_shape, dtype=torch_dtype).uniform_(-1, 1).to(device=device)
@@ -613,7 +617,6 @@ def run_pfa_test(atten_cfg):
     
     # ========== PFA 关键: 阶梯因果注意力的 PyTorch 参考实现 ==========
     debug_print("PFA_TEST", "Running PyTorch reference (step=16 causal attention)...")
-    step = 16  # 阶梯掩码步长，与kernel一致
     for i in range(b):
         seq_len = query_seq_len[i].item()
         for j in range(s1):
@@ -694,4 +697,5 @@ if __name__ == "__main__":
     print()
     print("=" * 60)
     
-    test_pfa()
+    for i in range(3):
+        test_pfa()
