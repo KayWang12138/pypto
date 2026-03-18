@@ -273,7 +273,7 @@ void RecordLoopFunc::BeginLoopFunction() {
     
     // 如果是paralell for配置在的loop，则paralell for的值为
     auto funcParallelAttr = parallelFor_ ? Parallel_Mode::PARALLEL : Parallel_Mode::DEFAULT;
-    if (!Program::GetInstance().GetLoopStack().empty()) {
+    if (Program::GetInstance().GetLoopStack().size() >= 2) {
         funcParallelAttr = Program::GetInstance().GetLoopStack()[Program::GetInstance().GetLoopStack().size() - 2].get().GetParallelFor() ? Parallel_Mode::CHILD : funcParallelAttr;
     }
     auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, funcParallelAttr);
