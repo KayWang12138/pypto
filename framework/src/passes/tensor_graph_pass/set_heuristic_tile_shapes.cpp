@@ -53,7 +53,7 @@ const std::set<Opcode> uniqueOps = { // Ops with possible InputShape != OutputSh
     // Unary ops
     Opcode::OP_INDEX_PUT, Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_VNCHWCONV,
     Opcode::OP_ROWMAX, Opcode::OP_ROWSUM, Opcode::OP_ROWEXPMAX, Opcode::OP_ROWEXPSUM, Opcode::OP_ROWSUMLINE,
-    Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE,
+    Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE, Opcode::OP_INDEX_ADD,
     // Binary ops
     Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWMAX_SINGLE,
     Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE,
@@ -66,7 +66,7 @@ const std::set<Opcode> wholeLastDimOps = { // Ops with Tile[lastDim] = Shape[las
     // Unary ops
     Opcode::OP_ROWMAX, Opcode::OP_ROWSUM, Opcode::OP_ROWEXPMAX, Opcode::OP_ROWEXPSUM, Opcode::OP_ROWSUMLINE,
     Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE, Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEOUT,
-    Opcode::OP_TRANSPOSE_VNCHWCONV, Opcode::OP_INDEX_PUT,
+    Opcode::OP_TRANSPOSE_VNCHWCONV, Opcode::OP_INDEX_PUT, Opcode::OP_INDEX_ADD,
     // Binary ops
     Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWMAX_SINGLE,
     Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE,

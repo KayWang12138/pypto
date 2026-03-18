@@ -128,7 +128,8 @@ enum class Opcode {
     OP_SCATTER_ELEMENT,
     OP_SCATTER,
     OP_INDEX_PUT,
-    OP_INDEX_ADD,
+    OP_INDEX_ADD_UB,
+    OP_INDEX_ADD,    
     OP_CONCAT,
     OP_CUM_SUM,
     OP_CUM_PROD,
@@ -488,7 +489,7 @@ public:
         return opCode == Opcode::OP_COPY_OUT || opCode == Opcode::OP_UB_COPY_OUT || opCode == Opcode::OP_L0C_COPY_OUT ||
                opCode == Opcode::OP_L1_COPY_OUT || opCode == Opcode::OP_TRANSPOSE_MOVEOUT ||
                opCode == Opcode::OP_INDEX_OUTCAST || opCode == Opcode::OP_INDEX_PUT || opCode == Opcode::OP_FFN_SCHED ||
-               opCode == Opcode::OP_FFN_BATCHING || opCode == Opcode::OP_FFN_COMBINEINFO ||
+               opCode == Opcode::OP_FFN_BATCHING || opCode == Opcode::OP_FFN_COMBINEINFO || opCode == Opcode::OP_INDEX_ADD ||
                opCode == Opcode::OP_FFN_VALIDCNT || opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
                opCode == Opcode::OP_SHMEM_PUT || opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
                opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_RESHAPE_COPY_OUT ||
@@ -644,7 +645,7 @@ const std::unordered_set<Opcode> GATHER_ELEMENT_OPS{Opcode::OP_GATHER_ELEMENT};
 const std::unordered_set<Opcode> GATHER_MASK_OPS{Opcode::OP_GATHER_MASK};
 const std::unordered_set<Opcode> SCATTER_ELEMENT_OPS{Opcode::OP_SCATTER_ELEMENT};
 const std::unordered_set<Opcode> SCATTER_OPS{Opcode::OP_SCATTER};
-const std::unordered_set<Opcode> INDEX_ADD_OPS{Opcode::OP_INDEX_ADD};
+const std::unordered_set<Opcode> INDEX_ADD_OPS{Opcode::OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD};
 const std::unordered_set<Opcode> INDEX_PUT_OPS{Opcode::OP_INDEX_PUT};
 const std::unordered_set<Opcode> CUM_SUM_OPS{Opcode::OP_CUM_SUM};
 
@@ -730,6 +731,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_MAX_BRC,
     Opcode::OP_MIN_BRC,
     Opcode::OP_GATHER,
+    Opcode::OP_INDEX_ADD_UB,
     Opcode::OP_ROWARGMIN_SINGLE,
     Opcode::OP_ROWARGMINLINE,
     Opcode::OP_HYPOT,
@@ -990,7 +992,7 @@ inline bool IsCopyOut(const Opcode& op)
         op == Opcode::OP_COPY_TO_LOCAL_EXPERT || op == Opcode::OP_SHMEM_PUT || op == Opcode::OP_SHMEM_SIGNAL ||
         op == Opcode::OP_SHMEM_GET || op == Opcode::OP_SHMEM_SET || op == Opcode::OP_RESHAPE_COPY_OUT ||
         op == Opcode::OP_SHMEM_PUT_UB2GM || op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE ||
-        op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND);
+        op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND || op == Opcode::OP_INDEX_ADD);
 }
 
 inline bool IsOpCodeSupportMultiProducers(Opcode opCode)
