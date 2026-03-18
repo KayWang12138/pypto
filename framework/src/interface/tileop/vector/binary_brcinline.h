@@ -18,7 +18,58 @@
 #include "pto_tile.h"
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
-#include "binary.h"
+
+struct BinaryLayoutInfo {
+    size_t shape0, shape1, shape2, shape3, shape4;
+    size_t dstStride0, dstStride1, dstStride2, dstStride3;
+    size_t src0Stride0, src0Stride1, src0Stride2, src0Stride3;
+    size_t src1Stride0, src1Stride1, src1Stride2, src1Stride3;
+};
+
+template <typename T0, typename T1, typename T2>
+TILEOP BinaryLayoutInfo ExtractLayoutInfo(const T0& dst, const T1& src0, const T2& src1) {
+    const auto dstLayout = dst.GetLayout();
+    const auto src0Layout = src0.GetLayout();
+    const auto src1Layout = src1.GetLayout();
+
+    BinaryLayoutInfo info;
+    info.shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    info.shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    info.shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    info.shape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    info.shape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+    
+    info.dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    info.dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    info.dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+    info.dstStride3 = dstLayout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
+
+    info.src0Stride0 = src0Layout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    info.src0Stride1 = src0Layout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    info.src0Stride2 = src0Layout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+    info.src0Stride3 = src0Layout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
+
+    info.src1Stride0 = src1Layout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    info.src1Stride1 = src1Layout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    info.src1Stride2 = src1Layout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+    info.src1Stride3 = src1Layout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
+
+    return info;
+}
+
+template <typename T>
+struct TensorTileInfo {
+    static constexpr auto tile0 = TileOp::GetTensorTileShapeDim<T, DIM_1ST, MAX_DIMS>();
+    static constexpr auto tile1 = TileOp::GetTensorTileShapeDim<T, DIM_2ND, MAX_DIMS>();
+    static constexpr auto tile2 = TileOp::GetTensorTileShapeDim<T, DIM_3RD, MAX_DIMS>();
+    static constexpr auto tileH = TileOp::GetTensorTileShapeDim<T, DIM_4TH, MAX_DIMS>();
+    static constexpr auto tileW = TileOp::GetTensorTileShapeDim<T, DIM_5TH, MAX_DIMS>();
+};
+
+#define EXTRACT_LAST_USE_3DIM(LastUse)                                           \
+    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;       \
+    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;       \
+    constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
 
 #define BINARY_EXPAND_DISPATCH(PREFIX)                                                  \
     if constexpr (op == BinaryOp::ADD) {                                                \
@@ -47,14 +98,14 @@ TILEOP void BinaryColExpandComputeImpl(T0 dst, T1 src0, T2 src1) {
     BINARY_EXPAND_DISPATCH(COLEXPAND)
 }
 
-template <BinaryOp op, TileOp::BroadcastOperand tailBrcSide, BinaryLayoutInfo info, 
-          TensorTileInfo src0TileInfo, TensorTileInfo src1TileInfo,
+template <BinaryOp op, TileOp::BroadcastOperand tailBrcSide, 
+          typename Src0TileInfo, typename Src1TileInfo,
           typename LastUse, typename T0, typename T1, typename T2>
-TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1) {
-    using Src0PtoTile = typename std::conditional<(Src0TileInfo::tileW == 1 && tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND), 
-        PtoTile<T1, pto::BLayout::ColMajor>, PtoTile<T1>>::type;
-    using Src1PtoTile = typename std::conditional<(Src1TileInfo::tileW == 1 && tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND), 
-        PtoTile<T2, pto::BLayout::ColMajor>, PtoTile<T2>>::type;
+TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1, const BinaryLayoutInfo &info) {
+    constexpr bool src0IsColMajor = (Src0TileInfo::tileW == 1 && tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND);
+    constexpr bool src1IsColMajor = (Src1TileInfo::tileW == 1 && tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND);
+    using Src0PtoTile = typename std::conditional<src0IsColMajor, PtoTile<T1, pto::BLayout::ColMajor>, PtoTile<T1>>::type;
+    using Src1PtoTile = typename std::conditional<src1IsColMajor, PtoTile<T2, pto::BLayout::ColMajor>, PtoTile<T2>>::type;
     auto dstTile = PtoTile<T0>(1, info.shape4).Data();
     auto src0Tile = Src0PtoTile(1, tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND ? 1 : info.shape4).Data();
     auto src1Tile = Src1PtoTile(1, tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND ? 1 : info.shape4).Data();
