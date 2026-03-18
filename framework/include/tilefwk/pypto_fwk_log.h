@@ -43,7 +43,8 @@ enum class LogModule {
     COMPILER_MONITOR,
     PLATFORM,
     BOTTOM,
-    MATMUL
+    MATMUL,
+    CONV
 };
 
 class LogFuncInfo {
