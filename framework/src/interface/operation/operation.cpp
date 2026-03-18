@@ -556,6 +556,9 @@ std::shared_ptr<Operation> Operation::LoadJson(
             case Opcode::OP_INDEX_PUT:
                 opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
                 break;
+            case Opcode::OP_INDEX_ADD:
+                opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
+                break;
             case Opcode::OP_INDEX_OUTCAST:
                 opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
                 break;
