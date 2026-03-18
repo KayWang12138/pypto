@@ -995,8 +995,35 @@ void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
             OpImmediate::NormalizeValue(inputValidShape, 0, shapeImm, 0, false);
         }
 
-        auto newDynValidShape = GetViewValidShape(inputValidShape, viewOpAttribute->GetFromOffset(),
-                                                    viewOpAttribute->GetFromDynOffset(), op->GetOOperands()[0]->oriShape);
+        Offset inOffset = op->GetIOperands()[0]->GetOffset();
+        Offset viewOpAttributeFromOffset = viewOpAttribute->GetFromOffset();
+        Offset subOffset(viewOpAttributeFromOffset.size(), 0);
+        if (!inOffset.empty() && !viewOpAttributeFromOffset.empty()) {
+            for (size_t i = 0; i < inOffset.size(); i++) {
+                subOffset[i] = viewOpAttributeFromOffset[i] - inOffset[i];
+            }
+        } else {
+            for (size_t i = 0; i < viewOpAttributeFromOffset.size(); i++) {
+                subOffset[i] = viewOpAttributeFromOffset[i];
+            }
+        
+        }
+        
+        std::vector<SymbolicScalar> inDynOffset = op->GetIOperands()[0]->GetDynOffset();
+        std::vector<SymbolicScalar> viewOpAttributeFromDynOffset = viewOpAttribute->GetFromDynOffset();
+        std::vector<SymbolicScalar> subDynOffset(viewOpAttributeFromDynOffset.size());
+        if (!inDynOffset.empty() && !viewOpAttributeFromDynOffset.empty()) {
+            for (size_t i = 0; i < inDynOffset.size(); i++) {
+                subDynOffset[i] = viewOpAttributeFromDynOffset[i] - inDynOffset[i];
+            }
+        } else {
+            for (size_t i = 0; i < viewOpAttributeFromDynOffset.size(); i++) {
+                subDynOffset[i] = viewOpAttributeFromDynOffset[i];
+            }
+        }
+
+        auto newDynValidShape = GetViewValidShape(inputValidShape, subOffset,
+                                                    subDynOffset, op->GetOOperands()[0]->oriShape);
 
         for (auto output : op->GetOOperands()) {
             outValidShapes.push_back(newDynValidShape);
