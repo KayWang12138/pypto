@@ -148,6 +148,16 @@ Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemDa
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT,
         {predToken.GetStorage(), in.GetStorage(), shmemData.GetStorage()}, {out});
+    if (in.GetStorage()->GetDynValidShape().size() == 0) {
+        in.GetStorage()->UpdateDynValidShape(SymbolicScalar::FromConcrete(in.GetShape()));
+    }
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MemoryType::MEM_DEVICE_DDR,
+        OpImmediate::Specified({0, 0}),
+        OpImmediate::Specified({in.GetShape()}),
+        OpImmediate::Specified({in.GetShape()}),
+        OpImmediate::Specified(in.GetStorage()->GetDynValidShape())));
+    function.UpdateTensorDataUsage(op);
     ShmemPutAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
@@ -162,6 +172,16 @@ Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor
     auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, barrierDummy.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT_UB2GM,
         {in.GetStorage(), shmemDataTile.GetStorage(), barrierDummy.GetStorage()}, {dummy});
+    if (in.GetStorage()->GetDynValidShape().size() == 0) {
+        in.GetStorage()->UpdateDynValidShape(SymbolicScalar::FromConcrete(in.GetShape()));
+    }
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MemoryType::MEM_UB,
+        OpImmediate::Specified({0, 0}),
+        OpImmediate::Specified({in.GetShape()}),
+        OpImmediate::Specified({in.GetShape()}),
+        OpImmediate::Specified(in.GetStorage()->GetDynValidShape())));
+    function.UpdateTensorDataUsage(op);
     ShmemPutAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
@@ -198,8 +218,19 @@ Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonSh
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape shape = {shmemData.GetShape()[2], shmemData.GetShape()[3]};
     auto out = std::make_shared<LogicalTensor>(function, nonShmemDataType, shape, shmemData.Format());
-    auto &op = function.AddOperation(Opcode::OP_SHMEM_GET, {predToken.GetStorage(), shmemData.GetStorage()},
-        {out});
+    auto &op = function.AddOperation(Opcode::OP_SHMEM_GET, {predToken.GetStorage(), shmemData.GetStorage()}, {out});
+    if (shmemData.GetStorage()->GetDynValidShape().size() == 0) {
+        shmemData.GetStorage()->UpdateDynValidShape(SymbolicScalar::FromConcrete(shmemData.GetShape()));
+    }
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MemoryType::MEM_DEVICE_DDR,
+        OpImmediate::Specified({0, 0}),
+        OpImmediate::Specified({shmemData.GetShape()[2], shmemData.GetShape()[3]}),
+        OpImmediate::Specified({shmemData.GetShape()[2], shmemData.GetShape()[3]}),
+        OpImmediate::Specified(std::vector<SymbolicScalar>{shmemData.GetStorage()->GetDynValidShape()[2],
+            shmemData.GetStorage()->GetDynValidShape()[3]})
+    ));
+    function.UpdateTensorDataUsage(op);
     ShmemGetAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
@@ -217,10 +248,14 @@ Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType 
     auto tempOutTile = std::make_shared<LogicalTensor>(function, nonShmemDataType, shape);
     auto &op = function.AddOperation(Opcode::OP_SHMEM_GET_GM2UB, {dummy.GetStorage(), shmemDataTile.GetStorage()},
         {tempOutTile});
+    if (shmemDataTile.GetStorage()->GetDynValidShape().size() == 0) {
+        shmemDataTile.GetStorage()->UpdateDynValidShape(SymbolicScalar::FromConcrete(shmemDataTile.GetShape()));
+    }
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB,
         OpImmediate::Specified({shmemDataTile.GetShape()[2], shmemDataTile.GetShape()[3]}),
         OpImmediate::Specified({tempOutTile->shape[0], tempOutTile->shape[1]}),
-        OpImmediate::Specified(std::vector<SymbolicScalar>{shmemDataTile.GetValidShape()[2], shmemDataTile.GetValidShape()[3]})));
+        OpImmediate::Specified(std::vector<SymbolicScalar>{
+            shmemDataTile.GetStorage()->GetDynValidShape()[2], shmemDataTile.GetStorage()->GetDynValidShape()[3]})));
     function.UpdateTensorDataUsage(op);
     ShmemGetAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
@@ -331,6 +366,8 @@ void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Ten
     CHECK(worldSize > 0) << "worldSize should be more than 0.";
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
+    SymbolicScalar validRow = in.GetStorage()->GetDynValidShape()[0];
+    SymbolicScalar validCol = in.GetStorage()->GetDynValidShape()[1];
     SymbolicScalar thisRank = GetHcclRankId(group);
     ValidateGroup(group);
     ValidateParams(predToken, in, out, shmemData.GetShape(), in.GetDataType());
@@ -343,12 +380,13 @@ void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Ten
             std::vector<SymbolicScalar>{dynRankId, dynRankId, thisRank, 0, 0});
         auto shmemPutOut = ShmemPut(predToken, in, shmemDataTile);
         auto shmemSignalOut = ShmemSignal(shmemPutOut, shmemSignalTile, AtomicType::SET);
-        auto shmemDataLocal = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, dynRankId, 0, 0});
+        auto shmemDataLocal = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{1, 1, validRow, validCol},
+            std::vector<SymbolicScalar>{thisRank, dynRankId, 0, 0});
         auto shmemSignalLocal = View(shmemSignal, {1, 1, 1, row, col},
             std::vector<SymbolicScalar>{thisRank, thisRank, dynRankId, 0, 0});
         auto waitUntilOut= WaitUntil(shmemSignalOut, shmemSignalLocal, 1);
         auto shmemGetOut= ShmemGet(waitUntilOut, shmemDataLocal);
-        Assemble(shmemGetOut, {dynRankId * row, 0}, out);
+        Assemble(shmemGetOut, {dynRankId * validRow, 0}, out);
     }
 }
 
