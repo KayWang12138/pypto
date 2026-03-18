@@ -777,7 +777,7 @@ def mla_prolog_quant_p(
 
 @pypto.frontend.jit(
     pass_options={
-        "cube_l1_reuse_setting": {-1: 4, -1: 1, 1: 1},
+        "cube_l1_reuse_setting": {-1: 4, 0: 1, 1: 1},
     },
 )
 def mla_prolog_quant_d(
