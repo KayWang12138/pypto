@@ -1,6 +1,6 @@
 ---
 name: pypto-environment-setup
-description: "PyPTO 环境安装与环境问题修复，包括CANN、torch_npu、编译工具链、第三方依赖和PyPTO编译运行等。Triggers: PyPTO environment setup, CANN install, torch_npu, NPU environment, Ascend toolkit, compile PyPTO, build PyPTO, NPU driver, prepare_env, diagnose environment, fix import error, torch_npu import fail, DT_FP8E8M0, pto-isa, ASCEND_HOME_PATH, npu-smi, softmax verify, pip dependency conflict"
+description: "PyPTO 环境安装与环境问题修复，包括CANN、torch_npu、编译工具链、第三方依赖和PyPTO编译运行等。当用户遇到任何与 Ascend NPU 环境相关的问题时触发，including but not limited to: PyPTO environment setup, CANN install, torch_npu, NPU environment, Ascend toolkit, compile PyPTO, build PyPTO, NPU driver, prepare_env, diagnose environment, fix import error, torch_npu import fail, DT_FP8E8M0, pto-isa, ASCEND_HOME_PATH, npu-smi, softmax verify, pip dependency conflict, or any related to 华为昇腾环境配置"
 ---
 
 # PyPTO Environment Setup
@@ -203,6 +203,8 @@ pypto:      ✅ 已安装
   - <问题> -> <解决方案>
 
 ⚠️ `TILE_FWK_DEVICE_ID` 需根据 `npu-smi info` 输出修改。
+```
+
 ## 📚 参考文件
 
 | 文件 | 内容 |
