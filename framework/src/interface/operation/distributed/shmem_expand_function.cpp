@@ -294,7 +294,7 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
 
         auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {predTokenTile, shmemSignalTile}, {outTile});
         tileNumOfWaitUntil++;
-        ASSERT(tileNumOfWaitUntil <= MAX_TILE_NUM) <<
+        ASSERT(tileNumOfWaitUntil < MAX_TILE_NUM || tileNumOfWaitUntil == MAX_TILE_NUM) <<
             "WaitUntil tile count exceeds the maximum allowed value: " << MAX_TILE_NUM;
         ShmemWaitUntilAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
