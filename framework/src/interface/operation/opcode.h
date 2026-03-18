@@ -281,7 +281,8 @@ enum class Opcode {
     OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
 
     // Quantization
-    OP_QUANTIZE,
+    OP_QUANTIZE_SYM,   // Symmetric quantization: FP32 -> INT8
+    OP_QUANTIZE_ASYM,  // Asymmetric quantization: FP32 -> UINT8
     // TODO:Dequantize
 
     // Begin: add for TOPK and ArgSort
@@ -627,7 +628,8 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_S_SUBS, Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS, Opcode::OP_S_MINS, Opcode::OP_ROUND,
     Opcode::OP_BITSORT, Opcode::OP_MRGSORT, Opcode::OP_CMP, Opcode::OP_CMPS, Opcode::OP_EXTRACT, Opcode::OP_PRELU,
     Opcode::OP_TILEDMRGSORT, Opcode::OP_ROWMAXLINE, Opcode::OP_PAIRMIN, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWMINLINE,
-    Opcode::OP_QUANTIZE, 
+    Opcode::OP_QUANTIZE_SYM,
+    Opcode::OP_QUANTIZE_ASYM,
     // TODO:Dequantize
     Opcode::OP_TOPK_SORT, Opcode::OP_TOPK_MERGE, Opcode::OP_TOPK_EXTRACT, Opcode::OP_SCATTER_ELEMENT, Opcode::OP_SIGN, Opcode::OP_SIGNBIT,
     Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_SORT, Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE, Opcode::OP_L0C_TO_L1,

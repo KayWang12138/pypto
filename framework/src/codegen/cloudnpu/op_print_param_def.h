@@ -260,10 +260,6 @@ struct PrintQuantizeParam {
     const std::string &srcVar;
     const std::string &scaleVar;
     const std::string &offsetVar;
-    const std::string &dstDtypeStr;
-    const std::string &srcDtypeStr;
-    const int64_t validRows;
-    const int64_t validCols;
     const bool isAsymmetric;
 };
 } // namespace npu::tile_fwk

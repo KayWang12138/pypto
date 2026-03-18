@@ -1752,77 +1752,41 @@ std::string CodeGenOpCloudNPU::GenLogicalAndOp() const {
 }
 
 std::string CodeGenOpCloudNPU::GenQuantizeOp() const {
-    // Get variable names for operands
-    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);  // output
-    std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);  // input
-    std::string scaleVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]); // scale
-
-    // Get data types
-    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);  // int8 or uint8
-    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);  // float
-
-    // Get shapes
-    std::vector<int64_t> srcShape = this->rawShape[ID1];
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string scaleVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
 
     AppendLocalBufVarOffsetInOrder(dstVar, srcVar, scaleVar);
 
-    // Determine quantize type based on output dtype
     bool isAsymmetric = (operandDtype[ID0] == DataType::DT_UINT8);
 
-    // Get zero_points variable for asymmetric quantization
     std::string offsetVar;
     if (isAsymmetric) {
         offsetVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
         AppendLocalBufVarOffsetInOrder(offsetVar);
     }
 
-    // Calculate valid rows and cols
-    int64_t validRows = srcShape.size() >= 2 ? srcShape[srcShape.size() - 2] : 1;
-    int64_t validCols = srcShape.size() >= 1 ? srcShape[srcShape.size() - 1] : 1;
-
-    // Call Print function with prepared parameters
-    return PrintQuantizeOp({dstVar, srcVar, scaleVar, offsetVar, dstDtypeStr, srcDtypeStr,
-                           validRows, validCols, isAsymmetric});
+    // Call PrintQuantizeOp (simplified parameters)
+    return PrintQuantizeOp({dstVar, srcVar, scaleVar, offsetVar, isAsymmetric});
 }
 
 std::string CodeGenOpCloudNPU::PrintQuantizeOp(const PrintQuantizeParam &param) const {
     std::ostringstream os;
 
-    // Get address type
-    std::string addrType = GetAddrTypeByOperandType(BUF_UB);
+    // Determine quantize type string
+    std::string quantTypeStr = param.isAsymmetric ?
+        QuantizeTypeToISAString(QuantizeType::INT8_ASYM) :
+        QuantizeTypeToISAString(QuantizeType::INT8_SYM);
 
-    // Build template parameters
-    // TQuant interface: template<QuantType quantType, typename TileDataOut, typename TileDataSrc, typename TileDataPara>
-    std::vector<std::string> templateParams;
-    templateParams.emplace_back(param.dstDtypeStr);
-    templateParams.emplace_back(param.srcDtypeStr);
-    templateParams.emplace_back("float");  // scale dtype
+    // Generate TQUANT call - correct single-layer call form
+    os << "TQUANT<" << quantTypeStr << ">("
+       << param.dstVar << ", " << param.srcVar << ", " << param.scaleVar;
 
-    // Add valid row and col
-    templateParams.emplace_back(std::to_string(param.validRows));
-    templateParams.emplace_back(std::to_string(param.validCols));
-
-    std::string templateParam = JoinString(templateParams, ",");
-
-    // Build call parameters
-    std::vector<std::string> callParams;
-    callParams.emplace_back("(" + addrType + " " + param.dstDtypeStr + "*)" + param.dstVar);
-    callParams.emplace_back("(" + addrType + " " + param.srcDtypeStr + "*)" + param.srcVar);
-    callParams.emplace_back("(" + addrType + " float*)" + param.scaleVar);
-
-    // Add offset parameter for asymmetric quantization
     if (param.isAsymmetric) {
-        callParams.emplace_back("(" + addrType + " float*)" + param.offsetVar);
+        os << ", &" << param.offsetVar;
     }
 
-    std::string callParam = JoinString(callParams, ", ");
-
-    // Determine quantize type string
-    std::string quantTypeStr = param.isAsymmetric ? "pto::QuantType::INT8_ASYM" : "pto::QuantType::INT8_SYM";
-
-    // Generate TQuant call
-    os << "TQUANT<" << quantTypeStr << ">("
-       << templateParam << ")(" << callParam << ");\n";
+    os << ");\n";
 
     return os.str();
 }

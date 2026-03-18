@@ -29,6 +29,15 @@ enum class QuantizeType {
     INT8_ASYM   // Asymmetric quantization: FP32 -> UINT8
 };
 
+// Type conversion: Framework layer QuantizeType -> ISA layer pto::QuantType string
+inline const char* QuantizeTypeToISAString(QuantizeType type) {
+    switch (type) {
+        case QuantizeType::INT8_SYM: return "pto::QuantType::INT8_SYM";
+        case QuantizeType::INT8_ASYM: return "pto::QuantType::INT8_ASYM";
+        default: ASSERT(false && "unknown quantize type"); return "";
+    }
+}
+
 template <QuantizeType T>
 std::string GetQuantizeOpName() {
     switch (T) {
@@ -41,9 +50,9 @@ std::string GetQuantizeOpName() {
 template <QuantizeType T>
 Opcode GetQuantizeOpCode() {
     switch (T) {
-        case QuantizeType::INT8_SYM:
-        case QuantizeType::INT8_ASYM: return Opcode::OP_QUANTIZE;
-        default: ASSERT(false && "unknown quantize type"); return Opcode::OP_QUANTIZE;
+        case QuantizeType::INT8_SYM: return Opcode::OP_QUANTIZE_SYM;
+        case QuantizeType::INT8_ASYM: return Opcode::OP_QUANTIZE_ASYM;
+        default: ASSERT(false && "unknown quantize type"); return Opcode::OP_QUANTIZE_SYM;
     }
 }
 
