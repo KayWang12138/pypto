@@ -31,6 +31,14 @@
 namespace npu {
 namespace tile_fwk {
 namespace Matrix {
+
+namespace Deprecate {
+bool IsSFANonDB(
+    const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec, const MatmulAttrParam &params);
+void TiledInnerAMulB(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
+    const LogicalTensorPtr &cTensorPtr, const MatmulAttrParam &params);
+} // namespace Deprecate
+
 const float EPSILON = 1e-6f;
 
 template <typename T>
@@ -963,6 +971,11 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape, const st
     MatmulIterInfo iterInfo;
     // tile graph中的数据节点
     MatmulGraphNodes tileGraphNodes;
+
+    if (npu::tile_fwk::Matrix::Deprecate::IsSFANonDB(tileShape, operandVec, attrParam)){
+        npu::tile_fwk::Matrix::Deprecate::TiledInnerAMulB(function, tileShape, operandVec, cTensorPtr, attrParam);
+        return;
+    };
 
     for (iterInfo.nOffset = 0; iterInfo.nOffset < tileInfo.nView; iterInfo.nOffset += tileInfo.tileNL0) {
         iterInfo.nL0Size = std::min(tileInfo.nView - iterInfo.nOffset, tileInfo.tileNL0);
