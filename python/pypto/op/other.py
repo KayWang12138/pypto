@@ -192,17 +192,17 @@ def fillpad(input: Tensor, mode: str = "constant", value: float = 0.0) -> Tensor
     # Create a tensor with valid_shape smaller than actual shape
     a = pypto.tensor([4, 4], pypto.DT_FP32)
     # Assume valid_shape is [2, 2], the rest [2:4, 2:4] is padding region
-    out = pypto.fillpad(a, "constant", 0.0)
+    out = pypto.fillpad(a, "constant", "-inf")
 
     Input a: [[1.0, 2.0, 0.0, 0.0],
               [3.0, 4.0, 0.0, 0.0],
               [0.0, 0.0, 0.0, 0.0],
               [0.0, 0.0, 0.0, 0.0]]
     
-    Output out: [[1.0, 2.0, 0.0, 0.0],
-                 [3.0, 4.0, 0.0, 0.0],
-                 [0.0, 0.0, 0.0, 0.0],
-                 [0.0, 0.0, 0.0, 0.0]]
+    Output out: [[1.0, 2.0, -inf, -inf],
+                 [3.0, 4.0, -inf, -inf],
+                 [-inf, -inf, -inf, -inf],
+                 [-inf, -inf, -inf, -inf]]
 
     """
 
