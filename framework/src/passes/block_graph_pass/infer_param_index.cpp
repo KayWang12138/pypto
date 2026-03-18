@@ -147,6 +147,11 @@ Status InferParamIndex::UpdateValidShape(Function &subFunc, std::map<int, std::v
                 if (attr->GetToDynValidShape().size() != 0 && attr->GetToDynValidShape()[0].IsSpecified()) {
                     addr2ValidShapeSpecified[tensorBaseAddrCoaIndex] = OpImmediate::ToSpecified(attr->GetToDynValidShape());
                 }
+            } if (op.GetOpcode() == Opcode::OP_SHMEM_GET || op.GetOpcode() == Opcode::OP_SHMEM_PUT) {
+                auto attr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+                if (attr->GetFromDynValidShape().size() != 0) {
+                    addr2ValidShapeSpecified[tensorBaseAddrCoaIndex] = OpImmediate::ToSpecified(attr->GetFromDynValidShape());
+                }
             }
         }
     }
