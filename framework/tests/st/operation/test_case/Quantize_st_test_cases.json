@@ -37,7 +37,7 @@
             "view_shape": [32, 64],
             "tile_shape": [32, 64],
             "params": {
-                "otype": 3,
+                "otype": 1,
                 "axis": -1,
                 "use_zero_points": false,
                 "func_id": -1
@@ -80,7 +80,7 @@
             "view_shape": [128, 256],
             "tile_shape": [64, 128],
             "params": {
-                "otype": 3,
+                "otype": 1,
                 "axis": -1,
                 "use_zero_points": false,
                 "func_id": -1
@@ -133,7 +133,7 @@
             "view_shape": [64, 128],
             "tile_shape": [32, 64],
             "params": {
-                "otype": 5,
+                "otype": 11,
                 "axis": -1,
                 "use_zero_points": true,
                 "func_id": -1
@@ -176,7 +176,7 @@
             "view_shape": [4, 32, 64],
             "tile_shape": [32, 32, 64],
             "params": {
-                "otype": 3,
+                "otype": 1,
                 "axis": -1,
                 "use_zero_points": false,
                 "func_id": -1
@@ -219,7 +219,7 @@
             "view_shape": [64, 128],
             "tile_shape": [32, 64],
             "params": {
-                "otype": 3,
+                "otype": 1,
                 "axis": -2,
                 "use_zero_points": false,
                 "func_id": -1
@@ -262,7 +262,7 @@
             "view_shape": [16, 32],
             "tile_shape": [16, 32],
             "params": {
-                "otype": 3,
+                "otype": 1,
                 "axis": -1,
                 "use_zero_points": false,
                 "func_id": -1
@@ -315,7 +315,7 @@
             "view_shape": [2, 64, 128],
             "tile_shape": [16, 32, 64],
             "params": {
-                "otype": 5,
+                "otype": 11,
                 "axis": -1,
                 "use_zero_points": true,
                 "func_id": -1
@@ -358,7 +358,7 @@
             "view_shape": [256, 512],
             "tile_shape": [64, 128],
             "params": {
-                "otype": 3,
+                "otype": 1,
                 "axis": -1,
                 "use_zero_points": false,
                 "func_id": -1

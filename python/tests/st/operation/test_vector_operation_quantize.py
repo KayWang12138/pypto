@@ -219,6 +219,88 @@ def test_quantize_3d_symmetric():
     test_case.exec(True)
 
 
+def test_quantize_3d_axis2_symmetric():
+    """Test symmetric quantization with 3D input and axis=-2"""
+    original_shape = (4, 32, 64)
+    input_tensors = [
+        {
+            "name": "input",
+            "shape": original_shape,
+            "dtype": "fp32",
+            "data_range": [-127, 127],
+        },
+        {
+            "name": "scale",
+            "shape": (4, 1, 64),
+            "dtype": "fp32",
+            "data_range": [0.1, 2.0],
+        }
+    ]
+    output_tensors = [
+        {
+            "name": "output",
+            "shape": original_shape,
+            "dtype": "int8",
+        }
+    ]
+    view_shape = (4, 32, 64)
+    tile_shape = (4, 16)
+    test_case = QuantizeTestCase(
+        "6",
+        "Quantize_3d_axis2_symmetric",
+        input_tensors,
+        output_tensors,
+        view_shape,
+        tile_shape,
+        {"otype": "int8", "axis": -2, "is_asymmetric": False},
+    )
+    test_case.exec(True)
+
+
+def test_quantize_3d_axis2_asymmetric():
+    """Test asymmetric quantization with 3D input and axis=-2"""
+    original_shape = (4, 32, 64)
+    input_tensors = [
+        {
+            "name": "input",
+            "shape": original_shape,
+            "dtype": "fp32",
+            "data_range": [0, 255],
+        },
+        {
+            "name": "scale",
+            "shape": (4, 1, 64),
+            "dtype": "fp32",
+            "data_range": [0.1, 2.0],
+        },
+        {
+            "name": "zero_points",
+            "shape": (4, 1, 64),
+            "dtype": "fp32",
+            "data_range": [-128, 127],
+        }
+    ]
+    output_tensors = [
+        {
+            "name": "output",
+            "shape": original_shape,
+            "dtype": "uint8",
+        }
+    ]
+    view_shape = (4, 32, 64)
+    tile_shape = (4, 16)
+    test_case = QuantizeTestCase(
+        "7",
+        "Quantize_3d_axis2_asymmetric",
+        input_tensors,
+        output_tensors,
+        view_shape,
+        tile_shape,
+        {"otype": "uint8", "axis": -2, "is_asymmetric": True},
+    )
+    test_case.exec(True)
+
+
 def test_quantize_4d_symmetric():
     """Test symmetric quantization with 4D input"""
     original_shape = (2, 2, 32, 64)
@@ -253,5 +335,169 @@ def test_quantize_4d_symmetric():
         view_shape,
         tile_shape,
         {"otype": "int8", "axis": -1, "is_asymmetric": False},
+    )
+    test_case.exec(True)
+
+
+def test_quantize_3d_axis2_symmetric():
+    """Test symmetric quantization with 3D input and axis=-2"""
+    original_shape = (4, 32, 64)
+    input_tensors = [
+        {
+            "name": "input",
+            "shape": original_shape,
+            "dtype": "fp32",
+            "data_range": [-127, 127],
+        },
+        {
+            "name": "scale",
+            "shape": (4, 1, 64),
+            "dtype": "fp32",
+            "data_range": [0.1, 2.0],
+        }
+    ]
+    output_tensors = [
+        {
+            "name": "output",
+            "shape": original_shape,
+            "dtype": "int8",
+        }
+    ]
+    view_shape = (4, 32, 64)
+    tile_shape = (4, 16)
+    test_case = QuantizeTestCase(
+        "6",
+        "Quantize_3d_axis2_symmetric",
+        input_tensors,
+        output_tensors,
+        view_shape,
+        tile_shape,
+        {"otype": "int8", "axis": -2, "is_asymmetric": False},
+    )
+    test_case.exec(True)
+
+
+def test_quantize_3d_axis2_asymmetric():
+    """Test asymmetric quantization with 3D input and axis=-2"""
+    original_shape = (4, 32, 64)
+    input_tensors = [
+        {
+            "name": "input",
+            "shape": original_shape,
+            "dtype": "fp32",
+            "data_range": [0, 255],
+        },
+        {
+            "name": "scale",
+            "shape": (4, 1, 64),
+            "dtype": "fp32",
+            "data_range": [0.1, 2.0],
+        },
+        {
+            "name": "zero_points",
+            "shape": (4, 1, 64),
+            "dtype": "fp32",
+            "data_range": [-128, 127],
+        }
+    ]
+    output_tensors = [
+        {
+            "name": "output",
+            "shape": original_shape,
+            "dtype": "uint8",
+        }
+    ]
+    view_shape = (4, 32, 64)
+    tile_shape = (4, 16)
+    test_case = QuantizeTestCase(
+        "7",
+        "Quantize_3d_axis2_asymmetric",
+        input_tensors,
+        output_tensors,
+        view_shape,
+        tile_shape,
+        {"otype": "uint8", "axis": -2, "is_asymmetric": True},
+    )
+    test_case.exec(True)
+
+
+def test_quantize_4d_axis2_symmetric():
+    """Test symmetric quantization with 4D input and axis=-2"""
+    original_shape = (2, 2, 32, 64)
+    input_tensors = [
+        {
+            "name": "input",
+            "shape": original_shape,
+            "dtype": "fp32",
+            "data_range": [-127, 127],
+        },
+        {
+            "name": "scale",
+            "shape": (2, 2, 1, 64),
+            "dtype": "fp32",
+            "data_range": [0.1, 2.0],
+        }
+    ]
+    output_tensors = [
+        {
+            "name": "output",
+            "shape": original_shape,
+            "dtype": "int8",
+        }
+    ]
+    view_shape = (2, 2, 32, 64)
+    tile_shape = (4, 16)
+    test_case = QuantizeTestCase(
+        "8",
+        "Quantize_4d_axis2_symmetric",
+        input_tensors,
+        output_tensors,
+        view_shape,
+        tile_shape,
+        {"otype": "int8", "axis": -2, "is_asymmetric": False},
+    )
+    test_case.exec(True)
+
+
+def test_quantize_4d_axis2_asymmetric():
+    """Test asymmetric quantization with 4D input and axis=-2"""
+    original_shape = (2, 2, 32, 64)
+    input_tensors = [
+        {
+            "name": "input",
+            "shape": original_shape,
+            "dtype": "fp32",
+            "data_range": [0, 255],
+        },
+        {
+            "name": "scale",
+            "shape": (2, 2, 1, 64),
+            "dtype": "fp32",
+            "data_range": [0.1, 2.0],
+        },
+        {
+            "name": "zero_points",
+            "shape": (2, 2, 1, 64),
+            "dtype": "fp32",
+            "data_range": [-128, 127],
+        }
+    ]
+    output_tensors = [
+        {
+            "name": "output",
+            "shape": original_shape,
+            "dtype": "uint8",
+        }
+    ]
+    view_shape = (2, 2, 32, 64)
+    tile_shape = (4, 16)
+    test_case = QuantizeTestCase(
+        "9",
+        "Quantize_4d_axis2_asymmetric",
+        input_tensors,
+        output_tensors,
+        view_shape,
+        tile_shape,
+        {"otype": "uint8", "axis": -2, "is_asymmetric": True},
     )
     test_case.exec(True)
