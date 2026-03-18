@@ -27,6 +27,7 @@ import torch.nn.functional as F
 import torch._prims as prims
 import copy
 from typing import List, Dict, Any
+np.random.seed(42)
 
 g_src_root: Path = Path(Path(__file__).parent, "../../../../../").resolve()
 g_ctrl_path: Path = Path(g_src_root, "cmake/scripts")
@@ -2194,14 +2195,25 @@ def indexadd_golden_func(inputs: list, config: dict):
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "TestIndexAdd/IndexAddOperationTest.TestIndexAdd",
+        "TestIndexAddUB/IndexAddUBOperationTest.TestIndexAddUB",
     ]
 )
 def gen_indexadd_op_golden(
     case_name: str, output: Path, case_index: int = None
 ) -> bool:
     logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("IndexAdd", indexadd_golden_func, output, case_index)
+    return gen_op_golden("IndexAddUB", indexadd_golden_func, output, case_index)
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestIndexAdd_/IndexAdd_OperationTest.TestIndexAdd_",
+    ]
+)
+def gen_indexadd__op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("IndexAdd_", indexadd_golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(

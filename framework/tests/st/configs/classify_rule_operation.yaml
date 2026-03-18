@@ -235,8 +235,8 @@ stest:
       - TestRemainder/RemainderOperationTest.TestRemainder/5
       - TestRemainderS/RemainderSOperationTest.TestRemainderS/3
       - TestRemainderRS/RemainderRSOperationTest.TestRemainderRS/9
-      - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/20
-      - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/21
+      - TestIndexAdd_/IndexAdd_OperationTest.TestIndexAdd_/2
+      - TestIndexAdd_/IndexAdd_OperationTest.TestIndexAdd_/17
       - TestLogicalAnd/LogicalAndOperationTest.TestLogicalAnd/0
       - TestBitwiseRightShift/BitwiseRightShiftOperationTest.TestBitwiseRightShift/0
       - TestBitwiseLeftShift/BitwiseLeftShiftOperationTest.TestBitwiseLeftShift/0
