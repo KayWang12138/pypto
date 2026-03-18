@@ -61,4 +61,5 @@ pypto-Tensor-unsqueeze
 pypto-Tensor-view
 pypto-Tensor-where
 pypto-Tensor-getitem
+pypto-Tensor-permute
 ```

@@ -102,6 +102,9 @@ void bind_operation(py::module &m) {
         "Transpose",
         [](const Tensor &self, const std::vector<int> &perm) { return npu::tile_fwk::Transpose(self, perm); },
         "Tensor transpose.");
+    m.def(
+        "Permute", [](const Tensor &self, const std::vector<int> &perm) { return npu::tile_fwk::Permute(self, perm); },
+        "Tensor permute.");
     m.def("Abs", [](const Tensor &self) { return npu::tile_fwk::Abs(self); }, "Tensor abs.");
     m.def("Reciprocal", [](const Tensor &operand) { return npu::tile_fwk::Reciprocal(operand); }, "Tensor reciprocal.");
     m.def("Relu", [](const Tensor &operand) { return npu::tile_fwk::Relu(operand); }, "Tensor relu.");

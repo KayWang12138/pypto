@@ -77,6 +77,7 @@ enum class Opcode {
     OP_S_DIVS,
     OP_S_MAXS,
     OP_S_MINS,
+    OP_PERMUTE,
     OP_TRANSPOSE_MOVEIN,
     OP_TRANSPOSE_MOVEOUT,
     OP_TRANSPOSE_VNCHWCONV,
@@ -572,7 +573,7 @@ const std::unordered_set<Opcode> UNARY_OPS{Opcode::OP_EXP, Opcode::OP_EXP2, Opco
     Opcode::OP_SIGN, Opcode::OP_ROWPRODLINE, Opcode::OP_SIGNBIT};
 
 const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{Opcode::OP_COMPACT, Opcode::OP_ROWSUM_SINGLE,
-    Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV,
+    Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV, Opcode::OP_PERMUTE,
     Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWPROD_SINGLE};
 
 const std::unordered_set<Opcode> VECTOR_SCALAR_OPS{
@@ -604,7 +605,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_UB_COPY_IN, Opcode::OP_L1_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_UB_COPY_OUT, Opcode::OP_L1_COPY_OUT,
     Opcode::OP_L0C_COPY_OUT, Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_INDEX_OUTCAST, Opcode::OP_ADD, Opcode::OP_SUB,
     Opcode::OP_MUL, Opcode::OP_DIV, Opcode::OP_EXP, Opcode::OP_EXP2, Opcode::OP_EXPM1, Opcode::OP_NEG, Opcode::OP_LN, Opcode::OP_HUB,
-    Opcode::OP_ABS, Opcode::OP_RSQRT, Opcode::OP_RELU, Opcode::OP_LOG1P, Opcode::OP_CEIL, Opcode::OP_FLOOR,
+    Opcode::OP_ABS, Opcode::OP_RSQRT, Opcode::OP_RELU, Opcode::OP_LOG1P, Opcode::OP_CEIL, Opcode::OP_FLOOR, Opcode::OP_PERMUTE,
     Opcode::OP_TRUNC, Opcode::OP_SQRT, Opcode::OP_RECIPROCAL, Opcode::OP_CAST, Opcode::OP_ISFINITE, Opcode::OP_ADDS,
     Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_PAD, Opcode::OP_FILLPAD, Opcode::OP_PAIRMAX,
     Opcode::OP_PAIRSUM, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_EXPAND, Opcode::OP_VEC_DUP,

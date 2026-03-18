@@ -1220,6 +1220,16 @@ TEST_F(TorchAdaptorTest, Misc) {
         ASSERT_ALLCLOSE(out, golden);
     }
     {
+        // permute
+        std::vector<float> sdata = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+        std::vector<float> gdata = {1.0, 4.0, 2.0, 5.0, 3.0, 6.0};
+        auto self = makeTensorData(DT_FP32, {2, 3}, sdata);
+        auto out = makeTensorData(DT_FP32, {3, 2}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {3, 2}, gdata);
+        calc::Permute(out, self, {1, 0});
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
         // copy
         std::vector<float> gdata = {1.0, 4.0, 2.0, 5.0, 3.0, 6.0};
         auto self = makeTensorData(DT_FP32, {3, 2}, gdata);

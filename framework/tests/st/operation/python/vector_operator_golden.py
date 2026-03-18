@@ -1645,6 +1645,32 @@ def gen_transpose_op_golden(
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "TestPermute/PermuteOperationTest.TestPermute",
+    ]
+)
+def gen_permute_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        x = safe_tensor_conversion(inputs[0])
+        input_dtype = inputs[0].dtype
+        tensor_dtype = get_dtype_by_name(input_dtype, True)
+        perm = tuple(params["perm"])
+        y = torch.permute(x, dims=perm)
+        if input_dtype == bfloat16:
+            y = y.to(torch.float32).numpy().astype(bfloat16)
+        else:
+            y = y.to(tensor_dtype).numpy()
+        return [np.array(y)]
+        
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Permute", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
         "TestWhere/WhereOperationTest.TestWhere",
     ]
 )
