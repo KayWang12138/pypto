@@ -338,9 +338,9 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
         }
 
         // 判断是否需要进行调整（所有的SYNC_SRC和SYNC_DST中，只要有一个是有收益的，就进行融合）
-        if (!NeedAdjustOpSeq(subGraphFunc, setFlagList, waitFlagList, left, right)) {
-            continue;
-        }
+        // if (!NeedAdjustOpSeq(subGraphFunc, setFlagList, waitFlagList, left, right)) {
+        //     continue;
+        // }
         APASS_LOG_DEBUG_F(Elements::Operation, "Need merge.");
 
         // vecTileop1和vecTileop2需要融合，将其加入mergedOps中
