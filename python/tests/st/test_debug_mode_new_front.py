@@ -24,9 +24,9 @@ import pytest
     debug_options={"compile_debug_mode": 1, "runtime_debug_mode": 1}
 )
 def add_kernel(
-    a: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT32),
-    b: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT32),
-    c: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT32),
+    a: pypto.Tensor[[pypto.STATIC, pypto.STATIC], pypto.DT_INT32],
+ 	b: pypto.Tensor[[], pypto.DT_INT32],
+ 	c: pypto.Tensor[],
     tiling=32
 ):
     pypto.set_vec_tile_shapes(tiling, tiling)
