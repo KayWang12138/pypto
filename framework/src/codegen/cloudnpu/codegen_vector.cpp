@@ -1755,7 +1755,7 @@ std::string CodeGenOpCloudNPU::GenLogicalAndOp() const {
 std::string CodeGenOpCloudNPU::GenQuantizeOp() const {
     if (isSupportLayout) {
         return PrintQuantizeTileTensor();
-    // }
+    }
 
     // std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     // std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
@@ -1788,6 +1788,7 @@ std::string CodeGenOpCloudNPU::GenQuantizeOp() const {
     // os << ");\n";
 
     // return os.str();
+    return "";
 }
 
 std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const {
