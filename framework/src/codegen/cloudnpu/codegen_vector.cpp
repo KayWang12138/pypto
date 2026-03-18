@@ -49,13 +49,12 @@ std::string CodeGenOpCloudNPU::GenCastOp() const {
         return PrintCastDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     }
     int64_t modeEnum = 0;
-    GetAttr(OP_ATTR_PREFIX + "mode", modeEnum );
+    GetAttr(OP_ATTR_PREFIX + "mode", modeEnum);
     ret = sprintf_s(buffer, sizeof(buffer),
         "%s_<%s, %s, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %lld>((__ubuf__ %s *)%s,  (__ubuf__ %s *)%s);\n",
         tileOpName.c_str(), dstDtypeStr.c_str(), srcDtypeStr.c_str(), os[0], os[1], os[2], os[3], ds[1], ds[2], ds[3],
-        ss[1], ss[2], ss[3], modeEnum, dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(),
-        s0Var.c_str());
-    ASSERT(ret >= 0) << "GenCastOp sprintf_s failed " << ret;
+        ss[1], ss[2], ss[3], modeEnum, dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(), s0Var.c_str());
+    ASSERT(GenCodeErr::PRINT_FAILED, ret >= 0) << "GenCastOp sprintf_s failed " << ret;
     std::string ostring(buffer);
     return ostring;
 }
@@ -156,22 +155,22 @@ std::string CodeGenOpCloudNPU::GenDupOp() const {
     std::string dupV;
     if (opAttrs.count(OpAttributeKey::dynScalar)) {
         auto scalar = opAttrs.at(OpAttributeKey::dynScalar);
-        ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(SymbolicScalar)))
-            << AnyCast<SymbolicScalar>(scalar).IsValid() << "SCALAR attribute has to have symbolic value.";
+        ASSERT(OperErr::ATTRIBUTE_INVALID, (scalar.HasValue()) && (scalar.Type() == typeid(SymbolicScalar)))
+            << "SCALAR attribute has to be symbolic value: " << AnyCast<SymbolicScalar>(scalar).IsValid();
         auto scalarExpr = AnyCast<SymbolicScalar>(scalar);
         dupV = SymbolicExpressionTable::BuildExpression(scalarExpr);
     } else if (dstDtypeStr == "float" || dstDtypeStr == "half" || dstDtypeStr == "bfloat16_t") {
         auto scalar = opAttrs.at(OpAttributeKey::scalar);
-        ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(Element)))
-            << AnyCast<Element>(scalar).IsFloat() << "SCALAR attribute has to have float value.";
+        ASSERT(OperErr::ATTRIBUTE_INVALID, (scalar.HasValue()) && (scalar.Type() == typeid(Element)))
+            << "SCALAR attribute must be float value: " << AnyCast<Element>(scalar).IsFloat();
         dupV = FormatFloat(AnyCast<Element>(scalar).Cast<float>(), operandDtype[ToUnderlying(MISOIdx::DST_IDX)]);
     } else if (dstDtypeStr == "int32_t") {
         auto scalar = opAttrs.at(OpAttributeKey::scalar);
-        ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(Element)))
-            << AnyCast<Element>(scalar).IsSigned() << "SCALAR attribute has to have int value.";
+        ASSERT(OperErr::ATTRIBUTE_INVALID, (scalar.HasValue()) && (scalar.Type() == typeid(Element)))
+            << "SCALAR attribute has to be int value: " << AnyCast<Element>(scalar).IsSigned();
         dupV = std::to_string(AnyCast<Element>(scalar).Cast<int>());
     } else {
-        ASSERT(false) << "unsupported type";
+        ASSERT(OperErr::ATTRIBUTE_INVALID, false) << "unsupported type, dstDtypeStr: " << dstDtypeStr;
     }
     return PrintDupOp({dVar, dstDtypeStr, dupV});
 }
@@ -489,16 +488,18 @@ std::string CodeGenOpCloudNPU::GenGatherFromUBOp() const {
     std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
-    ASSERT(opAttrs.find("op_attr_axis") != opAttrs.end()) << "GenGatherOp: There is nop axis attribute here";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.find("op_attr_axis") != opAttrs.end())
+        << "GenGatherOp: There is nop axis attribute here";
     const int64_t axis = AnyCast<int64_t>(opAttrs.at("op_attr_axis"));
     // shape: dst, src0, src1
     int src0Rank = shape[ID1].size();
-    ASSERT(src0Rank <= RANK4) << "GenGatherOp: src0 shape rank is not supported!";
+    ASSERT(GenCodeErr::TENSOR_SHAPE_INVALID, src0Rank <= RANK4) << "GenGatherOp: src0 shape rank is not supported!";
 
     std::vector dstShape = this->rawShape[0];
 
     std::vector src0Shape = this->rawShape[1];
-    CODEGEN_LOGI("GenGatherOp, src0 Shape is [%ld,%ld]", static_cast<long>(src0Shape[0]), static_cast<long>(src0Shape[1]));
+    CODEGEN_LOGI(
+        "GenGatherOp, src0 Shape is [%ld,%ld]", static_cast<long>(src0Shape[0]), static_cast<long>(src0Shape[1]));
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
@@ -681,7 +682,7 @@ std::string CodeGenOpCloudNPU::PrintIndexPutDynamicUnaligned(const PrintIndexPut
 }
 
 std::string CodeGenOpCloudNPU::PrintIndexPut(const PrintIndexPutParam &param) const {
-    ASSERT(isDynamicFunction) << "Only Support the DynamicUnaligned tileOp";
+    ASSERT(GenCodeErr::PRINT_MODE_ERROR, isDynamicFunction) << "Only Support the DynamicUnaligned tileOp";
     return PrintIndexPutDynamicUnaligned(param);
 }
 
@@ -708,8 +709,8 @@ std::string CodeGenOpCloudNPU::PrintIndexPutLayout(size_t indicesSize, bool accu
 }
 
 std::string CodeGenOpCloudNPU::GenIndexPutOp() const {
-    ASSERT(opAttrs.count(OpAttributeKey::accumulate)) << "cannot get accumulate attr";
-    ASSERT(opAttrs.count(OpAttributeKey::indicesSize)) << "cannot get indicesSize attr";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OpAttributeKey::accumulate)) << "cannot get accumulate attr";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OpAttributeKey::indicesSize)) << "cannot get indicesSize attr";
     bool accumulate = AnyCast<bool>(opAttrs.at(OpAttributeKey::accumulate));
     int64_t indicesSize = AnyCast<int64_t>(opAttrs.at(OpAttributeKey::indicesSize));
     if (isSupportLayout) {
@@ -758,7 +759,7 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const {
     auto start = opAttrs.at(OP_ATTR_PREFIX + "START");
     auto step = opAttrs.at(OP_ATTR_PREFIX + "STEP");
     std::string startVal, stepVal, tileIdxExpr;
-    ASSERT(start.HasValue() && step.HasValue()) << "GenRangeOp failed ";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, start.HasValue() && step.HasValue()) << "GenRangeOp failed ";
 
     switch (operandDtype[ID0]) {
         case DataType::DT_FP32:
@@ -773,11 +774,14 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const {
             startVal = std::to_string(AnyCast<Element>(start).Cast<int64_t>());
             stepVal = std::to_string(AnyCast<Element>(step).Cast<int64_t>());
             break;
-        default: CODEGEN_LOGE("RangeOp from PASS occured unsupport DataType: %d", operandDtype[ID0]); return "CG_ERROR";
+        default:
+            CODEGEN_LOGE_E(GenCodeErr::DATA_TYPE_UNSUPPORTED, "RangeOp from PASS occured unsupport DataType: %d",
+                operandDtype[ID0]);
+            return "CG_ERROR";
     }
     if (opAttrs.count(OpAttributeKey::dynScalar)) {
         auto scalarAny = opAttrs.at(OpAttributeKey::dynScalar);
-        ASSERT((scalarAny.HasValue()) && (scalarAny.Type() == typeid(SymbolicScalar)))
+        ASSERT(OperErr::ATTRIBUTE_INVALID, scalarAny.HasValue() && (scalarAny.Type() == typeid(SymbolicScalar)))
             << AnyCast<SymbolicScalar>(scalarAny).IsValid() << "SCALAR attribute has to have symbolic value.";
         auto scalarExpr = AnyCast<SymbolicScalar>(scalarAny);
         tileIdxExpr = "((int64_t)(" + SymbolicExpressionTable::BuildExpression(scalarExpr) + "))";
@@ -892,7 +896,7 @@ std::string CodeGenOpCloudNPU::GenIndexAddOp() const {
 
     AppendLocalBufVarOffsetInOrder(dstVar, selfVar, srcVar, indicesVar);
 
-    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
     int axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
     if (isSupportLayout) {
         return PrintIndexAddTileTensor({axis, dstVar, srcVar, indicesVar, dstRawShape, srcRawShape, dataTypeExpr});
@@ -963,11 +967,11 @@ std::string CodeGenOpCloudNPU::GenCumSumOp() const {
     std::string dataTypeExpr[NumOperands] = {dstDtypeStr, inputDtypeStr};
     AppendLocalBufVarOffsetInOrder(dstVar, inputVar);
 
-    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
     int axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
     axis = axis + SHAPE_DIM4 - inputRawShape.size(); // 调用4维tileop需要切换axis
 
-    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "flag")) << "cannot get flag attr";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "flag")) << "cannot get flag attr";
     bool flag = AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "flag"));
 
     if (isSupportLayout) {
@@ -988,17 +992,17 @@ std::string CodeGenOpCloudNPU::PrintTriULTileTensor(const std::string &diagonal,
 }
 
 std::string CodeGenOpCloudNPU::GenTriULOp() const {
-    ASSERT(opAttrs.count(OpAttributeKey::dynScalar)) << "cannot get diagonal attr";
-    ASSERT(opAttrs.count(OpAttributeKey::isUpper)) << "cannot get isUpper attr";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OpAttributeKey::dynScalar)) << "cannot get diagonal attr";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OpAttributeKey::isUpper)) << "cannot get isUpper attr";
     auto scalarAny = opAttrs.at(OpAttributeKey::dynScalar);
-    ASSERT((scalarAny.HasValue()) && (scalarAny.Type() == typeid(SymbolicScalar)))
+    ASSERT(OperErr::ATTRIBUTE_INVALID, scalarAny.HasValue() && (scalarAny.Type() == typeid(SymbolicScalar)))
         << AnyCast<SymbolicScalar>(scalarAny).IsValid() << "diagonal must have symbolic value.";
     auto scalarExpr = AnyCast<SymbolicScalar>(scalarAny);
 
     std::string diagonal = "(int)(" + SymbolicExpressionTable::BuildExpression(scalarExpr) + ")";
     bool isUpper = AnyCast<bool>(opAttrs.at(OpAttributeKey::isUpper));
 
-    ASSERT(isSupportLayout) << "TriU or TriL only support TileTensor mode";
+    ASSERT(GenCodeErr::PRINT_MODE_ERROR, isSupportLayout) << "TriU or TriL only support TileTensor mode";
     return PrintTriULTileTensor(diagonal, isUpper);
 }
 
@@ -1006,8 +1010,10 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterEl
     // Static only support 2Dim
     int dstRank = shape[ToUnderlying(MISOIdx::DST_IDX)].size();
     int src1Rank = shape[ToUnderlying(MISOIdx::SRC1_IDX)].size();
-    ASSERT(src1Rank == RANK2) << "GenScatterElementSOp: src1 shape rank is not supported!";
-    ASSERT(dstRank == RANK2) << "GenScatterElementSOp: dst shape rank is not supported!";
+    ASSERT(GenCodeErr::TENSOR_SHAPE_INVALID, src1Rank == RANK2)
+        << "GenScatterElementSOp: src1 shape rank is not supported!";
+    ASSERT(GenCodeErr::TENSOR_SHAPE_INVALID, dstRank == RANK2)
+        << "GenScatterElementSOp: dst shape rank is not supported!";
 
     const std::string &dstVar = param.dVar;
     const std::string &src0Var = param.s0Var;
@@ -1106,8 +1112,9 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSTileTensor(const PrintScatter
 }
 
 std::string CodeGenOpCloudNPU::GenScatterElementSOp() const {
-    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "scatter_mode")) << "cannot get scatter mode attr";
-    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "scatter_mode"))
+        << "cannot get scatter mode attr";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
     int axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
     int scatterMode = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "scatter_mode"));
     const DataType dstDtype = operandDtype[ToUnderlying(MISOIdx::DST_IDX)];
@@ -1201,8 +1208,9 @@ std::string CodeGenOpCloudNPU::PrintScatterTileTensor(const PrintScatterParam &p
 }
 
 std::string CodeGenOpCloudNPU::GenScatterOp() const {
-    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "scatter_mode")) << "cannot get scatter mode attr";
-    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "scatter_mode"))
+        << "cannot get scatter mode attr";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
     int axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
     int scatterMode = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "scatter_mode"));
     const DataType dstDtype = operandDtype[ID0];
@@ -1613,7 +1621,7 @@ std::string CodeGenOpCloudNPU::PrintHypotTileTensor() const {
 }
 
 std::string CodeGenOpCloudNPU::GenHypotOp() const {
-    ASSERT(isSupportLayout) << "Hypot only support tile tensor";
+    ASSERT(GenCodeErr::PRINT_MODE_ERROR, isSupportLayout) << "Hypot only support tile tensor";
     return PrintHypotTileTensor();
 }
 
@@ -1644,14 +1652,11 @@ std::string CodeGenOpCloudNPU::PrintPadTileTensor() const {
     } else if (c > 0) {
         padValue = "pto::PadValue::Max";
     }
-    std::vector<std::string> tileOpParamList = {
-        dstTensor,
-        srcTensor
-    };
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor};
 
     std::ostringstream oss;
     oss << tileOpName << "<" << padValue << ">";
-    oss << WrapParamByParentheses(tileOpParamList); 
+    oss << WrapParamByParentheses(tileOpParamList);
     oss << STMT_END;
     return oss.str();
 }
@@ -1661,7 +1666,7 @@ std::string CodeGenOpCloudNPU::GenPadOp() const {
 }
 
 std::string CodeGenOpCloudNPU::GenPreluOp() const {
-    ASSERT(isSupportLayout) << "PReLU only support tile tensor";
+    ASSERT(GenCodeErr::PRINT_MODE_ERROR, isSupportLayout) << "PReLU only support tile tensor";
     return PrintPreluTileTensor();
 }
 

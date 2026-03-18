@@ -72,15 +72,14 @@ void CheckShapeValid(DataType &dataType, const Shape &shape, TileOpFormat &forma
     bool isB4 = dataType == DataType::DT_FP4_E2M1X2 || dataType == DataType::DT_FP4_E1M2X2;
     if (format == TileOpFormat::TILEOP_NZ) {
         size_t alignSize = isB4 ? ALIGN_SIZE_64 : ALIGN_SIZE_32;
-        MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, shape.back() * BytesOf(dataType) % alignSize == 0,
-            "Current inner axis: %zu, when input is NZ format, inner axis shape must be 32-byte aligned(4bit dtype "
-            "must be aligned to 64)",
-            (size_t)shape.back());
+        const bool dataBytesAlign = ((shape.back() * BytesOf(dataType)) % alignSize == 0);
+        ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, dataBytesAlign) << "Current inner axis: " << (size_t)shape.back()
+            << ", when input is NZ format, inner axis shape must be 32-byte aligned(4bit dtype must be aligned to 64)";
     }
     if (format == TileOpFormat::TILEOP_ND && isB4) {
-        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, (shape.back() & 1) == 0,
-            "Current inner axis: %zu, when input is ND format and 4bit dtype, inner axis must be even number",
-            (size_t)shape.back());
+        const bool inputIsEven = ((shape.back() & 1) == 0);
+        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, inputIsEven) << "Current inner axis: " << (size_t)shape.back()
+            << ", when input is ND format and 4bit dtype, inner axis must be even number";
     }
 }
 

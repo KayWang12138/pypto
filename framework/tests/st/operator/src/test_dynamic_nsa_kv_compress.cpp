@@ -75,28 +75,6 @@ void TestCmpKv(CmpAttnTile &tileConfig) {
     }
     DataType kType = dType;
 
-    ALOG_EVENT_F(R"(
-KVCompress params:
-    blockSize=%d
-    b=%d
-    s1=%d
-    dN=%d
-    dQ=%d
-    dR=%d
-    n2=%d
-    blockNum=%d
-    cmpBlockNum=%d
-    maxBlockNum=%d
-    cmpBlockSize=%d
-    slcBlockSize=%d
-    stride=%d
-    rs=%d
-    rc=%d
-    auxVecLen=%d
-)",
-        blockSize, b, s1, dN, dQ, dR, n2, blockNum, cmpBlockNum, maxBlockNum, cmpBlockSize, slcBlockSize, stride, rs,
-        rc, auxVecLen);
-
     // Construct input tensors
     Tensor kvCache(kType, {blockNum * blockSize, n2 * dN}, "kvCache");
     Tensor krCache(kType, {blockNum * blockSize, n2 * dR}, "krCache");
@@ -215,8 +193,6 @@ void TestAuxTensor() {
     const int rs = slcBlockSize / stride;
     const int rc = cmpBlockSize / stride;
     const int auxVecLen = 128;
-    ALOG_EVENT_F("AuxTensor params: \ncmpBlockSize=%d\nslcBlockSize=%d\nstride=%d\nrs=%d\nrc=%d\nauxVecLen=%d",
-        cmpBlockSize, slcBlockSize, stride, rs, rc, auxVecLen);
 
     DataType dType = DT_FP32;
     ASSERT((std::is_same<T, float>::value)) << "We only support FP32 for auxTensor now";
