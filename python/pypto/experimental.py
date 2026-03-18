@@ -13,7 +13,7 @@ from typing import List, Union, Dict, Optional
 from . import pypto_impl
 from ._op_wrapper import op_wrapper
 from ._utils import to_syms
-from .tensor import Tensor
+from .tensor import Tensor, ShmemTensor
 from .config import get_current_scope, set_options
 from .symbolic_scalar import SymbolicScalar
 from .enum import AtomicType
@@ -212,10 +212,9 @@ def shmem_store(
     dst_tile = pypto_impl.View(dst, [1, 1] + src.shape, [dst_pe] + offsets)
     return pypto_impl.ShmemPutUb2Gm(src, dst_tile, dummy, AtomicType.SET)
 
-
 @op_wrapper
 def shmem_load(
-    src: Tensor,
+    src: ShmemTensor,
     src_pe: Union[int, SymbolicScalar],
     shape: List[int] = None,
     offset: List[Union[int, SymbolicScalar]] = None,
@@ -228,7 +227,7 @@ def shmem_load(
 
     Parameters
     ----------
-    src : Tensor
+    src : ShmemTensor
         The source tensor on the remote device (symmetric memory).
     src_pe : int
         The pe of the source device.
@@ -275,7 +274,7 @@ def shmem_load(
     else:
         dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
     if valid_shape is None:
-        src_tile = pypto_impl.View(src, [1] + shape, [src_pe] + offset)
+        src_tile = pypto_impl.ShmemView(src, shape, offset)
     else:
-        src_tile = pypto_impl.View(src, [1] + shape, to_syms(valid_shape), to_syms([src_pe] + offset))
-    return pypto_impl.ShmemGetGm2Ub(dummy, src_tile)
+        src_tile = pypto_impl.ShmemView(src, shape, to_syms(valid_shape), to_syms(offset))
+    return pypto_impl.ShmemLoad(src_tile, src_pe, dummy)
