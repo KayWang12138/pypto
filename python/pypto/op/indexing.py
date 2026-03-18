@@ -86,7 +86,7 @@ def index_add_(
                 [1 1 1]]               # shape (2, 3)
     """
 
-    input.Move(pypto_impl.IndexAdd(input, source, index, dim, pypto_impl.Element(input.dtype, alpha)))
+    pypto_impl.IndexAdd_(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
     return input
 
 
@@ -97,8 +97,9 @@ def index_add(
     """
     The out-of-place version of index_add_()
     """
-
-    return pypto_impl.IndexAdd(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
+    input0 = input
+    pypto_impl.IndexAdd_(input0, source, index, dim, pypto_impl.Element(input.dtype, alpha))
+    return input0
 
 
 @op_wrapper

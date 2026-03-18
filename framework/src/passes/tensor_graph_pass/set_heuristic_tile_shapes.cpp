@@ -52,6 +52,7 @@ const std::unordered_map<DataType, int64_t> Parallelism{
 const std::set<Opcode> uniqueOps = { // Ops with possible InputShape != OutputShape
     // Unary ops
     Opcode::OP_INDEX_PUT,
+    Opcode::OP_INDEX_ADD,
     Opcode::OP_TRANSPOSE_MOVEIN,
     Opcode::OP_TRANSPOSE_MOVEOUT,
     Opcode::OP_TRANSPOSE_VNCHWCONV,
@@ -89,6 +90,7 @@ const std::set<Opcode> wholeLastDimOps = { // Ops with Tile[lastDim] = Shape[las
     Opcode::OP_TRANSPOSE_MOVEOUT,
     Opcode::OP_TRANSPOSE_VNCHWCONV,
     Opcode::OP_INDEX_PUT,
+    Opcode::OP_INDEX_ADD,
     // Binary ops
     Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE,
     Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE,
