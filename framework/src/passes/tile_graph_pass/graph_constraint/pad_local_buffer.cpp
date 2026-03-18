@@ -471,9 +471,9 @@ void PadLocalBuffer::DoPadding(Function &function) {
     std::unordered_set<std::shared_ptr<RawTensor>> visitedRaw;
     for (auto &op : function.Operations()) {
         std::vector<bool> inputAxis;
-        std::vector<int64_t> inputRowPad;
+        std::vector<bool> inputRowPad;
         op.GetAttr(OpAttributeKey::inputCombineAxis, inputAxis);
-        op.GetAttr(OP_ATTR_PREFIX + "RowPad", inputRowPad);
+        op.GetAttr(OpAttributeKey::rowPad, inputRowPad);
         std::cout << "inputRowPad----" << inputRowPad.size() << std::endl;
         if(op.GetBoolAttribute("isConv")) {
             // Conv operation not need to pad
