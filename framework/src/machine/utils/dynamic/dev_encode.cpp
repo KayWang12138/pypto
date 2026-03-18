@@ -158,7 +158,7 @@ void HandleActualRaw(const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList
     auto iter = rawMagicToRawTensor.find(rawTensor->actualRawmagic);
     if (iter != rawMagicToRawTensor.end()) {
         if (iter->second->addrOffset == UINT64_MAX) {
-            MACHINE_LOGE("addrOffset is invalid actual raw magic %d, original raw magic %d",
+            MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "addrOffset is invalid actual raw magic %d, original raw magic %d",
                 rawTensor->actualRawmagic, rawTensor->rawmagic);
             encoded.addrOffset = 0;
         } else {
@@ -626,7 +626,7 @@ void DevAscendFunction::InitOperation(
             ASSERT(At(operationList_, idx).depGraphPredCount == callOpPredDict.find(op)->second) << "depGraphPredCount mismatch: expected " <<
                    callOpPredDict.find(op)->second << ", got " << At(operationList_, idx).depGraphPredCount;
             if(dupData->GetOperationCurrPredCount(idx) != callOpPredDict.find(op)->second) {
-                MACHINE_LOGE("OperationCurrPredCount: %d Callopsize is %u exceeds the maximum allowed value of 65535.",
+                MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "OperationCurrPredCount: %d Callopsize is %u exceeds the maximum allowed value of 65535.",
                 dupData->GetOperationCurrPredCount(idx), dupData ->GetOperationSize());
             }
             ASSERT(dupData->GetOperationCurrPredCount(idx) == callOpPredDict.find(op)->second) << "GetOperationCurrPredCount mismatch: expected " <<
@@ -974,9 +974,9 @@ struct EncodeDevAscendFunctionInfo {
             if (cellMatchShape.dim[index] > dimValue) {
                 cellMatchShape.dim[index] = dimValue;
                 if (cellMatchShape.dim[index] == 0) {
-                    MACHINE_LOGE("cellMatchShape.dim[%zu] is zero after assignment", index);
+                    MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "cellMatchShape.dim[%zu] is zero after assignment", index);
                 }
-                DEV_ASSERT(cellMatchShape.dim[index]);
+                DEV_ASSERT(ERROR_CODE_UNDEFINED, cellMatchShape.dim[index]);
             }
         }
     }
@@ -1005,7 +1005,7 @@ struct EncodeDevAscendFunctionInfo {
             IntVecToStr(ShapeToVector(cellMatchShape)).c_str(),
             IntVecToStr(StrideToVector(cellMatchStride)).c_str());
         if (cellMatchStride[0] > MAX_CELLMATCHSSTRIDE) {
- 	  	    MACHINE_LOGE("Assemble out-cast %d raw %d stitch results in excessive memory consumption "
+ 	  	    MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "Assemble out-cast %d raw %d stitch results in excessive memory consumption "
  	  	                 "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape ",
  	  	                 tensor->magic, tensor->GetRawMagic());
  	  	}
@@ -1473,7 +1473,7 @@ struct EncodeDevAscendFunctionInfo {
             std::shared_ptr<LeafFuncAttribute> leafAttr = devLeafFunc->GetLeafFuncAttribute();
 
             if (leafAttr == nullptr) {
-                MACHINE_LOGE("Leaf Attr of leaf function %s is nullptr.", callop->GetCalleeMagicName().c_str());
+                MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "Leaf Attr of leaf function %s is nullptr.", callop->GetCalleeMagicName().c_str());
                 continue;
             }
             if (leafAttr->outcastCopyOutResolveCounterList.size() == 0) {
