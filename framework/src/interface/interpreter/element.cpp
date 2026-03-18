@@ -32,7 +32,7 @@ constexpr double D_EPSILON = 1e-9;
         } else if (IsFloat()) {                      \
             result = static_cast<type>(data_.fData); \
         } else {                                     \
-            ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false); \
+            ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, false); \
         }                                            \
         return result;                               \
     }
@@ -47,7 +47,7 @@ bool Element::Cast<bool>() const {
     } else if (IsFloat()) {
         return std::abs(data_.fData) > D_EPSILON;
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
+        ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, false);
     }
     return false;
 }
@@ -122,7 +122,7 @@ double Element::Abs(double value1, double value2) const {
 }
 
 Element Element::operator+(const Element &rhs) const {
-    ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
            GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return Element(GetDataType(), CALC_ADD(GetSignedData(), rhs.GetSignedData()));
@@ -131,13 +131,13 @@ Element Element::operator+(const Element &rhs) const {
     } else if (IsFloat()) {
         return Element(GetDataType(), CALC_ADD(GetFloatData(), rhs.GetFloatData()));
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
+        ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, false);
     }
     return Element();
 }
 
 Element Element::operator-(const Element &rhs) const {
-    ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
            GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return Element(GetDataType(), CALC_SUB(GetSignedData(), rhs.GetSignedData()));
@@ -146,13 +146,13 @@ Element Element::operator-(const Element &rhs) const {
     } else if (IsFloat()) {
         return Element(GetDataType(), CALC_SUB(GetFloatData(), rhs.GetFloatData()));
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
+        ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, false);
     }
     return Element();
 }
 
 Element Element::operator*(const Element &rhs) const {
-    ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
            GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return Element(GetDataType(), CALC_MUL(GetSignedData(), rhs.GetSignedData()));
@@ -161,13 +161,13 @@ Element Element::operator*(const Element &rhs) const {
     } else if (IsFloat()) {
         return Element(GetDataType(), CALC_MUL(GetFloatData(), rhs.GetFloatData()));
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
+        ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, false);
     }
     return Element();
 }
 
 Element Element::operator/(const Element &rhs) const {
-    ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
            GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return Element(GetDataType(), CALC_DIV(GetSignedData(), rhs.GetSignedData()));
@@ -176,26 +176,26 @@ Element Element::operator/(const Element &rhs) const {
     } else if (IsFloat()) {
         return Element(GetDataType(), CALC_DIV(GetFloatData(), rhs.GetFloatData()));
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
+        ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, false);
     }
     return Element();
 }
 
 Element Element::operator%(const Element &rhs) const {
-    ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
            GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return Element(GetDataType(), CALC_MOD(GetSignedData(), rhs.GetSignedData()));
     } else if (IsUnsigned()) {
         return Element(GetDataType(), CALC_MOD(GetUnsignedData(), rhs.GetUnsignedData()));
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
+        ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, false);
     }
     return Element();
 }
 
 bool Element::operator==(const Element &rhs) const {
-    ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
            GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return CALC_EQ(GetSignedData(), rhs.GetSignedData());
@@ -204,13 +204,13 @@ bool Element::operator==(const Element &rhs) const {
     } else if (IsFloat()) {
         return CALC_EQ(GetFloatData(), rhs.GetFloatData());
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
+        ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, false);
     }
     return false;
 }
 
 bool Element::operator!=(const Element &rhs) const {
-    ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
            GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return CALC_NE(GetSignedData(), rhs.GetSignedData());
@@ -219,13 +219,13 @@ bool Element::operator!=(const Element &rhs) const {
     } else if (IsFloat()) {
         return CALC_NE(GetFloatData(), rhs.GetFloatData());
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
+        ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, false);
     }
     return false;
 }
 
 bool Element::operator<(const Element &rhs) const {
-    ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
            GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return CALC_LT(GetSignedData(), rhs.GetSignedData());
@@ -234,13 +234,13 @@ bool Element::operator<(const Element &rhs) const {
     } else if (IsFloat()) {
         return CALC_LT(GetFloatData(), rhs.GetFloatData());
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
+        ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, false);
     }
     return false;
 }
 
 bool Element::operator<=(const Element &rhs) const {
-    ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
            GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return CALC_LE(GetSignedData(), rhs.GetSignedData());
@@ -249,13 +249,13 @@ bool Element::operator<=(const Element &rhs) const {
     } else if (IsFloat()) {
         return CALC_LE(GetFloatData(), rhs.GetFloatData());
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
+        ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, false);
     }
     return false;
 }
 
 bool Element::operator>(const Element &rhs) const {
-    ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
            GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return CALC_GT(GetSignedData(), rhs.GetSignedData());
@@ -264,13 +264,13 @@ bool Element::operator>(const Element &rhs) const {
     } else if (IsFloat()) {
         return CALC_GT(GetFloatData(), rhs.GetFloatData());
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
+        ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, false);
     }
     return false;
 }
 
 bool Element::operator>=(const Element &rhs) const {
-    ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
            GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return CALC_GE(GetSignedData(), rhs.GetSignedData());
@@ -279,7 +279,7 @@ bool Element::operator>=(const Element &rhs) const {
     } else if (IsFloat()) {
         return CALC_GE(GetFloatData(), rhs.GetFloatData());
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
+        ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, false);
     }
     return false;
 }
