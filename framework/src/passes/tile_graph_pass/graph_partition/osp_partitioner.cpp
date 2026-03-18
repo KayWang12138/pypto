@@ -51,7 +51,7 @@ Status OspPartitioner::BuildSuperNodeGraph()
         APASS_LOG_ERROR_F(Elements::Function, "Osp: Create SuperNodeInfo failed.");
         return FAILED;
     }
-    if (superNodeInfo_->Build(operationInfo_, mergePair, !useCVMixPartition_) != SUCCESS) {
+    if (superNodeInfo_->Build(operationInfo_, mergePair, true) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Osp: Build SuperNodeInfo Failed.");
         return FAILED;
     }
