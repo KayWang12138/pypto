@@ -156,7 +156,7 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 
 2. 设置 golden 数据（可选）
 
-    如果需要进行粗检模式（TENSOR_GRAPH 模式）验证，需要设置 golden 数据：
+    如果需要进行tensor_graph验证，需要设置 golden 数据：
 
     ```python
     ...
@@ -165,6 +165,7 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
         input_data0 = torch.rand(shape, dtype=torch.float)
         input_data1 = torch.rand(shape, dtype=torch.float)
         torch_add = torch.add(input_data0, input_data1)
+        # 设置golden数据
         pypto.set_verify_golden_data(goldens=[None, None, torch_add])
 
         input_data0 = input_data0.to('npu')
@@ -332,7 +333,7 @@ def kernel(...):
 ### 3. Dump 数据输出路径
 
 ```
-output/dump_tensor_{hostPid}/device_{deviceId}/
+output/dump_tensor/device_{deviceId}/
 └── {taskId}_{seqNo}_{callopMagic}_{rootHash}_{funcHash}_{rawMagic}_{timeStamp}_{dataType}_{input/output}{index}.tdump
 ```
 
