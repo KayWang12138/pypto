@@ -161,7 +161,7 @@ std::string CodeGenCloudNPU::GenAllocForLocalBuffer(
     std::string allocSourceCode;
     auto genExtraAllocForTensor = [this, &symbolMgr](const std::shared_ptr<LogicalTensor> &operand) -> std::string {
         if (HasAllocAttr(operand)) {
-            CODEGEN_LOGI("operand has an alloc attr, need to gen extra alloc\n%s", operand->Dump().c_str());
+            CODEGEN_LOGI("operand has an alloc attr, need to gen extra alloc, operand is: %s", operand->Dump().c_str());
             std::optional<std::string> allocCodeMaybe = GenExtraAlloc(symbolMgr, operand);
             if (allocCodeMaybe.has_value()) {
                 return allocCodeMaybe.value();
