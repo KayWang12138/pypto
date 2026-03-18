@@ -287,6 +287,53 @@ static void Quantize3DAxis2OperationExeFunc(
     }
 }
 
+// 3D tensor asymmetric quantization with axis=-1
+static void Quantize3DAsymmetricOperationExeFunc(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
+        auto args = static_cast<const QuantizeOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int nloop = CeilDiv(thirdDim, thirdViewShape);
+
+        DataType otype = args->otype_;
+        int axis = args->axis_;
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                    auto tileTensorInput = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
+
+                    // Scale shape: [..., 1, 1, 1] for axis=-1 on 3D tensor
+                    auto tileTensorScale = View(inputs[1], {firstViewShape, 1, 1},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1, 1},
+                        {bIdx * firstViewShape, 0, 0});
+
+                    // Zero_points shape: [..., 1, 1, 1] for axis=-1 on 3D tensor
+                    auto tileTensorZeroPoints = View(inputs[2], {firstViewShape, 1, 1},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1, 1},
+                        {bIdx * firstViewShape, 0, 0});
+
+                    TileShape::Current().SetVecTile(args->tileShape_);
+                    auto res = Quantize(tileTensorInput, tileTensorScale, otype, axis, tileTensorZeroPoints);
+                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                }
+            }
+        }
+    }
+}
+
 // ============================================================
 // 4D Tensor Tests
 // ============================================================
@@ -392,23 +439,65 @@ static void Quantize4DAxis2OperationExeFunc(
     }
 }
 
+// Helper function to select the appropriate execution function based on test parameters
+OpFunc SelectQuantizeOpFunc(int ndim, int axis, bool useZeroPoints) {
+    // Normalize axis to negative indexing
+    int normalizedAxis = (axis >= 0) ? axis - ndim : axis;
+
+    if (ndim == 2) {
+        if (normalizedAxis == -1) {
+            return useZeroPoints ? QuantizeAsymmetricOperationExeFunc : QuantizeSymmetricOperationExeFunc;
+        } else {  // axis == -2
+            return useZeroPoints ? Quantize2DAxis2AsymmetricOperationExeFunc : Quantize2DAxis2OperationExeFunc;
+        }
+    } else if (ndim == 3) {
+        if (normalizedAxis == -1) {
+            return useZeroPoints ? Quantize3DAsymmetricOperationExeFunc : Quantize3DOperationExeFunc;
+        } else {  // axis == -2
+            // 3D axis=-2 asymmetric not implemented yet, use symmetric for now
+            return Quantize3DAxis2OperationExeFunc;
+        }
+    } else if (ndim == 4) {
+        // 4D asymmetric not implemented yet, use symmetric functions
+        return (normalizedAxis == -1) ? Quantize4DOperationExeFunc : Quantize4DAxis2OperationExeFunc;
+    }
+
+    // Default to 2D symmetric
+    return QuantizeSymmetricOperationExeFunc;
+}
+
 class QuantizeOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<QuantizeOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestQuantize, QuantizeOperationTest,
     ::testing::ValuesIn(GetOpMetaData<QuantizeOpMetaData>(
-        {QuantizeSymmetricOperationExeFunc, Quantize2DAxis2OperationExeFunc,
-         QuantizeAsymmetricOperationExeFunc, Quantize2DAxis2AsymmetricOperationExeFunc,
-         Quantize3DOperationExeFunc, Quantize3DAxis2OperationExeFunc,
-         Quantize4DOperationExeFunc, Quantize4DAxis2OperationExeFunc}, "Quantize")));
+        {QuantizeSymmetricOperationExeFunc}, "Quantize")));
 
 TEST_P(QuantizeOperationTest, TestQuantize) {
     auto test_data = GetParam().test_data_;
     auto otype = static_cast<DataType>(GetValueByName<int>(test_data, "otype"));
     auto axis = GetValueByName<int>(test_data, "axis");
     auto useZeroPoints = GetValueByName<bool>(test_data, "use_zero_points");
+    auto viewShape = GetViewShape(test_data);
+    int ndim = static_cast<int>(viewShape.size());
 
-    auto args = QuantizeOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), otype, axis, useZeroPoints);
-    auto testCase = CreateTestCaseDesc<QuantizeOpMetaData>(GetParam(), &args);
+    // Dynamically select the appropriate execution function
+    auto selectedOpFunc = SelectQuantizeOpFunc(ndim, axis, useZeroPoints);
+
+    auto args = QuantizeOpFuncArgs(viewShape, GetTileShape(test_data), otype, axis, useZeroPoints);
+
+    TestCaseDesc testCase;
+    testCase.inputTensors = GetInputTensors(test_data);
+    testCase.outputTensors = GetOutputTensors(test_data);
+    testCase.args = &args;
+    testCase.opFunc = selectedOpFunc;
+    std::transform(testCase.inputTensors.begin(), testCase.inputTensors.end(), std::back_inserter(testCase.inputPaths),
+        [](const auto &tensor) { return GetGoldenDir() + "/" + tensor.GetStorage()->Symbol() + ".bin"; });
+    std::transform(testCase.outputTensors.begin(), testCase.outputTensors.end(),
+        std::back_inserter(testCase.goldenPaths),
+        [](const auto &tensor) { return GetGoldenDir() + "/" + tensor.GetStorage()->Symbol() + ".bin"; });
+    auto params_dict = test_data.at("params");
+    testCase.onBoard = params_dict.find("on_board") == params_dict.end() || GetValueByName<bool>(test_data, "on_board");
+
     TestExecutor::runTest(testCase);
 }
 
