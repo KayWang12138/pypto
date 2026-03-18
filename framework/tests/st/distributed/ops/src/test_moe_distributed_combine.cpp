@@ -55,7 +55,7 @@ void TestMoeDistributedCombine(OpTestParam& testParam, std::string& goldenDir)
 
     using CombineFunc = std::function<void(const Tensor&, const Tensor&, const Tensor&, const Tensor&, const char*,
         uint32_t, uint32_t, uint32_t, uint32_t, Tensor&)>;
-    CombineFunc func = (useV2 == 1) ? MoeDistributedCombineV2 : MoeDistributedCombine;
+    CombineFunc func = (useV2 == 1) ? MoeDistributedCombineV3 : MoeDistributedCombine;
 
     FUNCTION("MoeDistributedCombineMain", {expandX, assistInfoForCombine, recvCounts, expertScales}, {out}) {
         func(expandX, assistInfoForCombine, recvCounts, expertScales, testParam.group,

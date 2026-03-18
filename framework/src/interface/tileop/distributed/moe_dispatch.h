@@ -190,7 +190,7 @@ TILEOP void ConstructOutRecvTokenCnt(__gm__ T *out, __ubuf__ uint32_t *src0, __u
 }
 
 template <typename T>
-TILEOP void MoeRankWaitFlag(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ uint32_t *src1, __ubuf__ uint32_t *dst,
+TILEOP void MoeRankWaitFlag(CoreFuncParam* param, __gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ uint32_t *src1, __ubuf__ uint32_t *dst,
     __gm__ int64_t *hcclContext, uint32_t processRankSize, __gm__ int32_t *shmemFlagBaseAddr, DispatchInfo &dispatchInfo)
 {
     uint32_t cnt = processRankSize; // 计算次数，根据处理的expert数, 每个op需要去等
@@ -207,7 +207,7 @@ TILEOP void MoeRankWaitFlag(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ uin
 }
  
 template <typename T>
-TILEOP void ShareRankWaitFlag(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ uint32_t *src1, __ubuf__ uint32_t *dst,
+TILEOP void ShareRankWaitFlag(CoreFuncParam* param, __gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ uint32_t *src1, __ubuf__ uint32_t *dst,
     __gm__ int64_t *hcclContext, uint32_t processRankSize, __gm__ int32_t *shmemFlagBaseAddr, DispatchInfo &dispatchInfo)
 {
     // 当前 share rank 接收的起始的 moe rank id
@@ -478,7 +478,7 @@ TILEOP void ShareRankWinCopyOut(__gm__ T *expandX, __ubuf__ uint8_t *buffer, uin
 
 // 对于共享专家卡，其收到的 token 个数是固定的，直接切分搬出即可，不需要 cumsum 计算
 template<typename T>
-TILEOP void ShareRankCopyOut(__gm__ T *expandX, __ubuf__ uint8_t *buffer, DispatchInfo &dispatchInfo,
+TILEOP void ShareRankCopyOut(CoreFuncParam* param, __gm__ T *expandX, __ubuf__ uint8_t *buffer, DispatchInfo &dispatchInfo,
     __gm__ int64_t *hcclContext, __gm__ T*shmemDataBaseAddr, uint32_t shmemDataRawShape2, uint32_t shmemDataRawShape3)
 {
     __gm__ CommContext *winContext = (__gm__ CommContext *)(hcclContext[dispatchInfo.groupIndex]);

@@ -18,6 +18,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <optional>
 #include <initializer_list>
 #include "tilefwk/data_type.h"
 #include "tilefwk/symbolic_scalar.h"
@@ -319,4 +320,11 @@ SymbolicScalar IsLoopBegin(const SymbolicScalar &symbol, const SymbolicScalar &b
 SymbolicScalar IsLoopEnd(const SymbolicScalar &symbol, const SymbolicScalar &end);
 
 void SetTensorData(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &dst);
+
+struct ShmemTensor {
+    std::string group;
+    int64_t worldSize{0};
+    Tensor data;
+    Tensor signal;
+};
 } // namespace npu::tile_fwk

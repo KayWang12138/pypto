@@ -167,7 +167,7 @@ private:
     uint16_t rear_{0};
 };
 
-class ShmemWaitUntil {
+class ShmemWaitUntilImpl {
 public:
     inline void Init(npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask) {
         dynDeviceTask_ = dynDeviceTask;
@@ -193,7 +193,7 @@ public:
 
     inline int32_t PrepareTask(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode) {
         paramInfo_ = DecodeAicpuCode(aicpuCode);
-        TensorInfo info = ShmemWaitUntil::GetTensorInfo(taskId, aicpuCode);
+        TensorInfo info = ShmemWaitUntilImpl::GetTensorInfo(taskId, aicpuCode);
         const int32_t expectedSum = info.expectedSum;
         const bool resetSignal = info.resetSignal;
         int32_t stride = aicpuCode[paramInfo_.attrIndex + ATTR_STRIDE_OFFSET];
@@ -207,8 +207,8 @@ public:
         int32_t tileIndex = tileRow * tileCols + tileCol;
         int32_t totalTileNum = tileRows * tileCols;
 
-        // info.offset[1]代表src的rankId=offset[1]的shmemSignal版图, info.offset[2]代表srcRankId, info.offset[3]代表row offset, info.offset[4]代表col offset
-        DEV_DEBUG("ShmemWaitUntil::EnqueueOp offset1=%u, offset2=%u, offset3=%u,  offset4=%u, shape3=%u, shape4=%u, rawShape3=%u, rawShape4=%u, tileIndex=%d, totalTileNum=%d",
+        // info.offset[0]代表src的rankId=offset[0]的shmemSignal版图, info.offset[1]代表srcRankId, info.offset[2]代表row offset, info.offset[3]代表col offset
+        DEV_DEBUG("ShmemWaitUntilImpl::EnqueueOp offset0=%u, offset1=%u, offset2=%u,  offset3=%u, shape2=%u, shape3=%u, rawShape2=%u, rawShape3=%u, tileIndex=%d, totalTileNum=%d",
             info.offset[SRC_SHMEM_SIGNAL_ID], info.offset[SRC_RANK_ID], info.offset[SHMEM_DIM_ROW], info.offset[SHMEM_DIM_COL],
             paramInfo_.tileShapeRow, paramInfo_.tileShapeCol, paramInfo_.rawShapeRow, paramInfo_.rawShapeCol, tileIndex, totalTileNum);
 

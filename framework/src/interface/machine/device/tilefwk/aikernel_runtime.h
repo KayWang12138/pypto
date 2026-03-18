@@ -84,5 +84,4 @@ void WaitAicoreStart([[maybe_unused]]npu::tile_fwk::DevStartArgsBase *startArgs)
     RuntimeGetInputDataInt32Dim4(&(RuntimeGetStartArgs())->devTensorList[(inputIndex)], (off0), (off1), (off2), (off3))
 #define RUNTIME_GetSymbol(idx) \
     RuntimeGetSymbol(idx)
-
 #endif

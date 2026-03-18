@@ -60,15 +60,11 @@ void TestAllReduce(OpTestParam &testParam, std::string &goldenDir)
         if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
             shmemDataType = DT_FP32;
         }
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
-        }
+        auto shmemTensor = CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape);
         if (useTwoShot) {
-            TwoShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
+            TwoShotAllReduce(in, in, shmemTensor, out);
         } else {
-            OneShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
+            OneShotAllReduce(in, in, shmemTensor, out);
         }
     }
     RunTest();

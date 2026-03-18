@@ -140,7 +140,7 @@ auto InitializeTestEnvironment() {
 
     auto allocator = std::make_unique<npu::tile_fwk::dynamic::DeviceWorkspaceAllocator>();
     auto task = std::make_unique<npu::tile_fwk::dynamic::DynDeviceTask>(*allocator);
-    auto shmemWaitUntil = std::make_unique<npu::tile_fwk::Distributed::ShmemWaitUntil>();
+    auto shmemWaitUntil = std::make_unique<npu::tile_fwk::Distributed::ShmemWaitUntilImpl>();
 
     auto [buffer, funcData] = InitializeTaskData(task.get());
 
@@ -153,7 +153,7 @@ auto InitializeTestEnvironment() {
                           std::move(aicpuCode), funcData);
 }
 
-void PrepareTasks(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntil* shmemWaitUntil,
+void PrepareTasks(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntilImpl* shmemWaitUntil,
     const npu::tile_fwk::dynamic::DevRelocVector<int32_t>& aicpuCode, npu::tile_fwk::DynFuncData* funcData,
     uint64_t* opAttrsPtr) {
     constexpr size_t opAttrsLength = 17;
@@ -177,7 +177,7 @@ void PrepareTasks(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUnt
     }
 }
 
-void RunTests(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntil* shmemWaitUntil) {
+void RunTests(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntilImpl* shmemWaitUntil) {
     TaskStat* taskStat{nullptr};
     for (uint32_t taskId = 0; taskId < tileOpCount; ++taskId) {
         shmemWaitUntil->EnqueueOp(taskId, taskStat);
