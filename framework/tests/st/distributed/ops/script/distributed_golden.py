@@ -67,6 +67,7 @@ class BaseCase:
     dtype: torch.dtype
     shape: Tuple[int, ...]
     world_size: int
+    valid_shape: Tuple[int, ...]
     tile_shape: Tuple[int, ...]
     value_range: ValueRange
 
@@ -144,11 +145,12 @@ def parse_base_case(config: dict) -> BaseCase:
     world_size = params['world_size']
     input_tensor = config['input_tensors'][0]
     shape = tuple(input_tensor['shape'])
+    valid_shape = tuple(config['view_shape'])
     dtype = get_dtype(input_tensor['dtype'])
     min_val, max_val = input_tensor['data_range']['min'], input_tensor['data_range']['max']
     tile_shape = tuple(config['tile_shape'])
     value_range = ValueRange(min_val=min_val, max_val=max_val)
-    case = BaseCase(dtype=dtype, shape=shape, world_size=world_size, tile_shape=tile_shape, 
+    case = BaseCase(dtype=dtype, shape=shape, valid_shape=valid_shape, world_size=world_size, tile_shape=tile_shape, 
         value_range=value_range)
     return case
 
@@ -232,10 +234,17 @@ def load_test_cases_from_json(json_file: str) -> list:
 
 
 def all_gather_and_save(
-    inputs: List[torch.Tensor], world_size: int, save_dir: Path, filename_prefix: str,
+    inputs: List[torch.Tensor], world_size: int, shape: Tuple[int, ...],
+    valid_shape: Tuple[int, ...], save_dir: Path, filename_prefix: str,
 ) -> torch.Tensor:
-    gathered_output = torch.cat(inputs, dim=0)
-    outputs = [gathered_output] * world_size
+    row, col = shape
+    valid_row, valid_col = valid_shape
+    dtype = inputs[0].dtype
+    valid_inputs = [inp[:valid_row, :valid_col] for inp in inputs]
+    gathered_valid = torch.cat(valid_inputs, dim=0)
+    output = torch.full((row * world_size, col), 0, dtype=dtype)
+    output[:valid_row * world_size, :valid_col] = gathered_valid
+    outputs = [output] * world_size
     save_tensor_list(outputs, save_dir, filename_prefix)
     return outputs
 
@@ -252,10 +261,20 @@ def reduce_scatter_and_save(
 
 
 def all_reduce_and_save(
-    inputs: List[torch.Tensor], world_size: int, save_dir: Path, filename_prefix: str,
+    inputs: List[torch.Tensor],
+    world_size: int,
+    shape: Tuple[int, int],
+    valid_shape: Tuple[int, int],
+    save_dir: Path,
+    filename_prefix: str,
 ) -> torch.Tensor:
-    stacked_output = torch.stack(inputs, dim=0)
-    reduced_output = torch.sum(stacked_output, dim=0).to(inputs[0].dtype)
+    row, col = shape
+    valid_row, valid_col = valid_shape
+    dtype = inputs[0].dtype
+    valid_parts = [inp[:valid_row, :valid_col] for inp in inputs]
+    reduced_valid = torch.sum(torch.stack(valid_parts, dim=0), dim=0).to(dtype)
+    reduced_output = torch.zeros((row, col), dtype=dtype, device=inputs[0].device)
+    reduced_output[:valid_row, :valid_col] = reduced_valid
     outputs = [reduced_output for _ in range(world_size)]
     save_tensor_list(outputs, save_dir, filename_prefix)
     return outputs
@@ -544,13 +563,13 @@ def generate_allgather_attn_post_reducescatter_case(config: dict) -> AllGatherAt
 def generate_all_gather_golden(config: dict, output: Path) -> bool:
     case = parse_base_case(config)
     validate_world_size(case.world_size)
-    params = (*case.shape, get_dtype_num(case.dtype), *case.tile_shape)
+    params = (*case.shape, *cast.valid_shape, get_dtype_num(case.dtype), *case.tile_shape)
     save_params(params, output)
     gen_tensor_case = GenTensorCase(
         dtype=case.dtype, shape=case.shape, world_size=case.world_size, value_range=case.value_range
     )
     inputs = generate_random_tensor_list_and_save(gen_tensor_case, output, 'input')
-    all_gather_and_save(inputs, case.world_size, output, 'output')
+    all_gather_and_save(inputs, case.world_size, case.shape, case.valid_shape, output, 'output')
 
 
 def generate_reduce_scatter_golden(config: dict, output: Path) -> bool:
@@ -582,13 +601,13 @@ def generate_all_reduce_golden(config: dict, output: Path) -> bool:
         )
     params = config['params']
     use_two_shot = params['use_two_shot']
-    params = (*case.shape, get_dtype_num(case.dtype), *case.tile_shape, use_two_shot)
+    params = (*case.shape, *case.valid_shape, get_dtype_num(case.dtype), *case.tile_shape, use_two_shot)
     save_params(params, output)
     gen_tensor_case = GenTensorCase(
         dtype=case.dtype, shape=case.shape, world_size=case.world_size, value_range=case.value_range
     )
     inputs = generate_random_tensor_list_and_save(gen_tensor_case, output, 'input')
-    all_reduce_and_save(inputs, case.world_size, output, 'output')
+    all_reduce_and_save(inputs, case.world_size, case.shape, case.valid_shape, output, 'output')
 
 
 def generate_allreduce_add_allreduce_golden(config: dict, output: Path) -> bool:
