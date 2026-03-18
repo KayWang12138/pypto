@@ -47,7 +47,7 @@ void TestShmemMoeDispatch(OpTestParam& testParam, std::string& goldenDir)
     std::string expertIdsPath = goldenDir + "/expert_ids_rank_" + std::to_string(testParam.rankId) + ".bin";
     std::vector<int32_t> tokenExpertTablePtr = ReadToVector<int32_t>(expertIdsPath, tokenExpertTableShape);
     FUNCTION("MoeDispatch", {tokenTensor, tokenExpertTable}, {expandX, expertTokenNums, combineInfo, recvCounts}) {
-        Distributed::MoeDistributedDispatchV2(tokenTensor, tokenExpertTable, testParam.group,
+        Distributed::MoeDistributedDispatchV3(tokenTensor, tokenExpertTable, testParam.group,
             static_cast<uint32_t>(testParam.rankSize), routedNum, 0, 0, expandX, combineInfo, expertTokenNums, recvCounts);
     }
     ProgramData::GetInstance().AppendInputs({
