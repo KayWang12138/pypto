@@ -282,7 +282,6 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
 
     int64_t tileRowShape = tileShape.GetVecTile()[0];
     int64_t tileColShape = tileShape.GetVecTile()[1];
-
     DummyTileFunc predTokenTileFunc = GetDummyTileFunc(predToken, shmemSignal, tileShape.GetVecTile(), function);
     DummyTileFunc outTileFunc = GetDummyTileFunc(out, shmemSignal, tileShape.GetVecTile(), function);
     DfsTiling(tileShape.GetVecTile(), shmemSignal, [&](uint32_t tileIndex, Input& input) {
@@ -295,7 +294,7 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
         auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {predTokenTile, shmemSignalTile}, {outTile});
         tileNumOfWaitUntil++;
         ASSERT(tileNumOfWaitUntil <= MAX_TILE_NUM) <<
-            "WaitUntil tile count exceeds the maximum allowed value: " << MAX_TILE_NUM;
+            "WaitUntil tile count exceeds the maximum allowed value: " << std::to_string(MAX_TILE_NUM);
         ShmemWaitUntilAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         distOpAttr.tileRowShape = tileRowShape;
