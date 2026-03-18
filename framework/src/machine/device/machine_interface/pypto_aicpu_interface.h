@@ -99,7 +99,7 @@ private:
         } else if (kernelName == dynServerKernelFun){
             funcKey = dyExecFuncKey;
         }
-        DEV_DEBUG("Current to open kernel func %s funcKey %lu.", kernelName.c_str(), funcKey);
+        DEV_DEBUG("Current to open kernel func: name=%s, funcKey=%lu.", kernelName.c_str(), funcKey);
         auto iter = kernelKey2FuncHandle_.find(funcKey);
         if (iter != kernelKey2FuncHandle_.end()) {
             return;
@@ -112,7 +112,7 @@ private:
             (void)dlclose(soHandle_);
             return;
         }
-        DEV_INFO("kernelName %s has been loaded", kernelName.c_str());
+        DEV_INFO("kernelName=%s has been loaded", kernelName.c_str());
         kernelKey2FuncHandle_[funcKey] = tileFwkServrFuncEnty;
         return;
     }

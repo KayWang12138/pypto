@@ -181,7 +181,7 @@ static void CellMatchHandle(const uint64_t offset[DEV_SHAPE_DIM_MAX], const uint
             rangeBegin[i] = offset[i] / cellMatchShapeDim;
             rangeEnd[i] = (offset[i] + shape[i] - 1) / cellMatchShapeDim;
         } else {
-            DEV_ERROR("CellMatchGetIndexRange: cellMatchShapeDim is zero for dimension %d", i);
+            DEV_ERROR("CellMatchGetIndexRange: cellMatchShapeDim is zero for dimension=%d", i);
             DEV_ASSERT(0);
         }
     }
@@ -224,7 +224,7 @@ static void CellMatchHandle(const uint64_t offset[DEV_SHAPE_DIM_MAX], const uint
         }
         break;
     default:
-        DEV_ERROR("[Stitch] Too many dimension: %d\n", (int)cellMatchTableDesc.GetDimensionSize());
+        DEV_ERROR("[Stitch] Too many dimensions: dimSize=%d\n", (int)cellMatchTableDesc.GetDimensionSize());
         break;
     }
 }
