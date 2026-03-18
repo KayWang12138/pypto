@@ -31,7 +31,7 @@ namespace npu::tile_fwk {
 namespace osp {
 template <typename GraphT> class BspArchitecture;
 template <typename GraphT> class BspInstance;
-}
+}  // namespace osp
 
 template<typename WorkType>
 struct ArchParameters {
@@ -48,7 +48,7 @@ enum class OspMode {
 };
 
 class OspPartitioner : public SuperNodeGraphBuilder {
-public:    
+public:
     OspPartitioner(OspMode mode) : SuperNodeGraphBuilder(GraphUtils::IsCVMixPlatform()), ospMode_(mode) { };
     OspPartitioner(OspMode mode, bool useCVMixPartition) : SuperNodeGraphBuilder(useCVMixPartition), ospMode_(mode) { };
     ~OspPartitioner() = default;
@@ -56,7 +56,7 @@ public:
     Status SetParameter(const Function &function);
     Status PartitionGraph(Function &function);
 
-private:    
+private:
     using VertType = int32_t;
     using WorkType = int32_t;
     using VTypeType = unsigned;
@@ -112,7 +112,7 @@ private:
     Status RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, std::vector<VertType> &vertexContractionMap);
 
     // Helpers
-    uint64_t CombineHash(const uint64_t h1, const uint64_t h2) const override ;
+    uint64_t CombineHash(const uint64_t h1, const uint64_t h2) const override;
     uint64_t CombineNeighborHashes(uint64_t baseHash, const std::vector<int32_t> &neighbors,
                                    const std::vector<uint64_t> &hashSource);
     void BuildNodeHashValues(const std::vector<uint64_t> &opHashList);
