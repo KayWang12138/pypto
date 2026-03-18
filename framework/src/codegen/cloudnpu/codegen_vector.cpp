@@ -1755,69 +1755,80 @@ std::string CodeGenOpCloudNPU::GenLogicalAndOp() const {
 std::string CodeGenOpCloudNPU::GenQuantizeOp() const {
     if (isSupportLayout) {
         return PrintQuantizeTileTensor();
-    }
+    // }
 
-    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
-    std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
-    std::string scaleVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+    // std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    // std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    // std::string scaleVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
 
-    AppendLocalBufVarOffsetInOrder(dstVar, srcVar, scaleVar);
+    // AppendLocalBufVarOffsetInOrder(dstVar, srcVar, scaleVar);
 
-    bool isAsymmetric = (operandDtype[ID0] == DataType::DT_UINT8);
+    // bool isAsymmetric = (operandDtype[ID0] == DataType::DT_UINT8);
 
-    std::string offsetVar;
-    if (isAsymmetric) {
-        offsetVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
-        AppendLocalBufVarOffsetInOrder(offsetVar);
-    }
+    // std::string offsetVar;
+    // if (isAsymmetric) {
+    //     offsetVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
+    //     AppendLocalBufVarOffsetInOrder(offsetVar);
+    // }
 
-    // Call PrintQuantizeOp (simplified parameters)
-    return PrintQuantizeOp({dstVar, srcVar, scaleVar, offsetVar, isAsymmetric});
-}
+    // // Determine quantize type string
+    // std::string quantTypeStr = isAsymmetric ?
+    //     QuantizeTypeToISAString(QuantizeType::INT8_ASYM) :
+    //     QuantizeTypeToISAString(QuantizeType::INT8_SYM);
 
-std::string CodeGenOpCloudNPU::PrintQuantizeOp(const PrintQuantizeParam &param) const {
-    std::ostringstream os;
+    // // Generate TQUANT call
+    // std::ostringstream os;
+    // os << "TQUANT<" << quantTypeStr << ">("
+    //    << dstVar << ", " << srcVar << ", " << scaleVar;
 
-    // Determine quantize type string
-    std::string quantTypeStr = param.isAsymmetric ?
-        QuantizeTypeToISAString(QuantizeType::INT8_ASYM) :
-        QuantizeTypeToISAString(QuantizeType::INT8_SYM);
+    // if (isAsymmetric) {
+    //     os << ", " << offsetVar;
+    // }
 
-    // Generate TQUANT call - correct single-layer call form
-    os << "TQUANT<" << quantTypeStr << ">("
-       << param.dstVar << ", " << param.srcVar << ", " << param.scaleVar;
+    // os << ");\n";
 
-    if (param.isAsymmetric) {
-        os << ", &" << param.offsetVar;
-    }
-
-    os << ");\n";
-
-    return os.str();
+    // return os.str();
 }
 
 std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const {
-    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
-    std::string srcTensor = QueryTileTensorNameByIdx(ID1);
-    std::string scaleTensor = QueryTileTensorNameByIdx(ID2);
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string scaleTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
 
-    bool isAsymmetric = (operandDtype[ID0] == DataType::DT_UINT8);
+    // Get Tile type strings for template parameters
+    std::string dstType = QueryTileTensorTypeByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcType = QueryTileTensorTypeByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string scaleType = QueryTileTensorTypeByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
+
+    bool isAsymmetric = (operandDtype[ToUnderlying(MISOIdx::DST_IDX)] == DataType::DT_UINT8);
 
     std::vector<std::string> tileOpCallParamList = {dstTensor, srcTensor, scaleTensor};
 
     if (isAsymmetric) {
-        std::string offsetTensor = QueryTileTensorNameByIdx(ID3);
+        std::string offsetTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC2_IDX));
         tileOpCallParamList.emplace_back(offsetTensor);
     }
 
-    // Determine quantize type string for template parameter
+    // Build template parameters in correct order:
+    // ISA template: <quant_type, TileDataOut, TileDataSrc, TileDataPara, ...WaitEvents>
+    std::vector<std::string> templateParamList;
+
     std::string quantTypeStr = isAsymmetric ?
         QuantizeTypeToISAString(QuantizeType::INT8_ASYM) :
         QuantizeTypeToISAString(QuantizeType::INT8_SYM);
+    templateParamList.emplace_back(quantTypeStr);      // quant_type
+    templateParamList.emplace_back(dstType);            // TileDataOut
+    templateParamList.emplace_back(srcType);            // TileDataSrc
+    templateParamList.emplace_back(scaleType);          // TileDataPara
+
+    std::string lastUse = GetLastUse();
+    if (!lastUse.empty()) {
+        templateParamList.emplace_back(lastUse);
+    }
 
     std::ostringstream oss;
     oss << tileOpName;
-    oss << WrapParamByAngleBrackets({quantTypeStr});
+    oss << WrapParamByAngleBrackets(templateParamList);
     oss << WrapParamByParentheses(tileOpCallParamList) << STMT_END;
     return oss.str();
 }

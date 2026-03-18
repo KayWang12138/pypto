@@ -162,7 +162,6 @@ public:
     std::string GenAicpuCallOp() const;
 
     std::string GenQuantizeOp() const;
-    std::string PrintQuantizeOp(const PrintQuantizeParam &param) const;
     std::string PrintQuantizeTileTensor() const;
     // TODO: DeQuantize
 
