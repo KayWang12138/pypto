@@ -249,7 +249,7 @@ public:
             SetAttr(key, value);
         } else {
             std::vector<int64_t> nvalue;
-            for (auto &x : value) {
+            for (const auto &x : value) {
                 nvalue.emplace_back(static_cast<int64_t>(x));
             }
             SetAttr(key, nvalue);
