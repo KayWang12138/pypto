@@ -440,6 +440,7 @@ Status HandleDynOffsetForReshape(
         copyAttr->SetRawShape(OpImmediate::Specified(newRawShape));
         copyAttr->SetToOffset(newOffset);
     }
+    producer->GetIOperands()[0]->shape = newRawShape;
     producer->GetIOperands()[0]->tensor->UpdateRawShape(newRawShape);
     return SUCCESS;
 }
