@@ -326,4 +326,7 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int ax
         input.GetStorage(), scale.GetStorage(), otype, axis, zeroPointsPtr);
 }
 
+REGISTER_OPERATION_TILED_FUNC(OP_QUANTIZE_SYM, Opcode::OP_QUANTIZE_SYM, QuantizeSymOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_QUANTIZE_ASYM, Opcode::OP_QUANTIZE_ASYM, QuantizeAsymOperationTileFunc);
+
 } // namespace npu::tile_fwk
