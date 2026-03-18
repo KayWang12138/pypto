@@ -132,7 +132,8 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForSignal() const {
         AnyCast<Distributed::ShmemSignalAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
     oss << "<" << std::to_string(distOpAttr.signalValue) << ", " << std::to_string(distOpAttr.signalStride) << ", "
         << std::to_string(distOpAttr.tileRowShape) << ", " << std::to_string(distOpAttr.tileColShape) << ", "
-        << Distributed::AtomicTypeToString(distOpAttr.atomicType) << ">";
+        << Distributed::AtomicTypeToString(distOpAttr.atomicType) << ", "
+        << (distOpAttr.notifyAll ? "true" : "false") << ", " << std::to_string(distOpAttr.worldSize) << ">";
     return oss.str();
 }
 
@@ -402,6 +403,19 @@ std::string CodeGenOpCloudNPU::GenExtraParamsStr() const {
     }
 }
 
+std::string CodeGenOpCloudNPU::GenTargetRankStr() const
+{
+    if (opAttrs.count(OpAttributeKey::targetRank) == 0) {
+        return "";
+    }
+    std::ostringstream oss;
+    auto targetRank = AnyCast<SymbolicScalar>(opAttrs.at(OpAttributeKey::targetRank));
+    if (targetRank.IsValid()) {
+        oss << ", " << SymbolicExpressionTable::BuildExpression(targetRank);
+    }
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenDistOp() const {
     std::ostringstream oss;
     std::unordered_set<int32_t> skipOperands = {};
@@ -420,7 +434,7 @@ std::string CodeGenOpCloudNPU::GenDistOp() const {
         skipOperands = it->second;
     }
     oss << tileOpName << GenTemplateParams() << "(param, " << GenParamsStr(skipOperands) << GenExtraParamsStr()
-        << ", hcclContext);\n";
+        << GenTargetRankStr() << ", hcclContext);\n";
     return oss.str();
 }
 
