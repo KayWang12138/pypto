@@ -1810,21 +1810,33 @@ std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const {
         tileOpCallParamList.emplace_back(offsetTensor);
     }
 
+    // Get axis from operation attribute (defaults to -1 if not set)
+    int axis = -1;
+    GetAttr(OP_ATTR_PREFIX + "AXIS", axis);
+
     // Build template parameters in correct order:
-    // ISA template: <quant_type, TileDataOut, TileDataSrc, TileDataPara, ...WaitEvents>
+    // TileOp template: <pto::QuantType, axis, LastUse, T0, T1, T2, T3>
+    // which calls: TQuant<quantType, axis, LastUse>(dst, src, scale, [offset])
     std::vector<std::string> templateParamList;
 
     std::string quantTypeStr = isAsymmetric ?
         QuantizeTypeToISAString(QuantizeType::INT8_ASYM) :
         QuantizeTypeToISAString(QuantizeType::INT8_SYM);
-    templateParamList.emplace_back(quantTypeStr);      // quant_type
-    templateParamList.emplace_back(dstType);            // TileDataOut
-    templateParamList.emplace_back(srcType);            // TileDataSrc
-    templateParamList.emplace_back(scaleType);          // TileDataPara
+    templateParamList.emplace_back(quantTypeStr);      // quant_type (pto::QuantType::INT8_SYM or INT8_ASYM)
+    templateParamList.emplace_back(std::to_string(axis)); // axis parameter
 
     std::string lastUse = GetLastUse();
     if (!lastUse.empty()) {
-        templateParamList.emplace_back(lastUse);
+        templateParamList.emplace_back(lastUse);       // LastUse parameter
+    }
+
+    templateParamList.emplace_back(dstType);            // T0: TileDataOut
+    templateParamList.emplace_back(srcType);            // T1: TileDataSrc
+    templateParamList.emplace_back(scaleType);          // T2: TileDataPara (scale)
+
+    if (isAsymmetric) {
+        std::string offsetType = QueryTileTensorTypeByIdx(ToUnderlying(MISOIdx::SRC2_IDX));
+        templateParamList.emplace_back(offsetType);     // T3: TileDataPara (offset) for asymmetric
     }
 
     std::ostringstream oss;

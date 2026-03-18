@@ -421,10 +421,10 @@ void OpcodeManager::RegisterVectorReduction() {
 
 void OpcodeManager::RegisterVectorQuant() {
     RegisterInfo(Opcode::OP_QUANTIZE_SYM, OpCoreType::AIV, "QUANTIZE_SYM", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
-        {"TileOp::Quantize", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+        {"TileOp::TQuant", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis"}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_QUANTIZE_ASYM, OpCoreType::AIV, "QUANTIZE_ASYM", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
-        {"TileOp::Quantize", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+        {"TileOp::TQuant",PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis"}, TileShapeVerifier::Verify);
     // TODO: DeQauntize
 }
