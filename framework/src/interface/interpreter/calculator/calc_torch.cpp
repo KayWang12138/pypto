@@ -265,6 +265,42 @@ static void Pad(const TensorData &out, const TensorData &input, const Element &p
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static void FillPad(const TensorData &out, const TensorData &input, const Element &padValue) {
+    auto tinput = From(input);
+    auto tout = From(out);
+    
+    tout.second.copy_(tinput.second);
+    
+    std::vector<int64_t> shape = tout.second.sizes().vec();
+    std::vector<int64_t> validShape = input.validShape;
+    size_t ndim = shape.size();
+    
+    if (validShape.empty() || validShape == shape) {
+        return;
+    }
+    
+    double pad_val_double = padValue.Cast<double>();
+    
+    if (ndim == 1) {
+        int64_t valid_len = validShape[0];
+        if (valid_len < shape[0]) {
+            tout.second.slice(0, valid_len, shape[0]).fill_(pad_val_double);
+        }
+    } else if (ndim == 2) {
+        int64_t valid_h = validShape[0];
+        int64_t valid_w = validShape[1];
+        
+        if (valid_w < shape[1]) {
+            tout.second.slice(1, valid_w, shape[1]).fill_(pad_val_double);
+        }
+        if (valid_h < shape[0]) {
+            tout.second.slice(0, valid_h, shape[0]).fill_(pad_val_double);
+        }
+    }
+    
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 static void BitwiseNot(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     auto tself = From(self);
@@ -2015,6 +2051,7 @@ static struct CalcOps calcOps = {
     .Relu = Relu,
     .Log1p = Log1p,
     .Pad = Pad,
+    .FillPad = FillPad,
     .BitwiseNot = BitwiseNot,
     .Abs = Abs,
     .Brcb = Brcb,
