@@ -402,11 +402,11 @@ Status HandleDynOffsetForReshape(
     std::vector<int64_t> newRawShape;
     auto opAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(assembleOp.GetOpAttribute());
     if (opAttr == nullptr) return FAILED;
-    auto &dynOffset = opAttr->GetToDynOffset();
+    auto dynOffset = opAttr->GetToDynOffset();
     if (dynOffset.empty()) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] does not have DynOffset attributes", 
             assembleOp.GetOpcodeStr().c_str(), assembleOp.GetOpMagic());
-        return SUCCESS;
+        dynOffset = OpImmediate::ToSpecified(OpImmediate::Specified(opAttr->GetToOffset()));
     }
     if (producers.size() != 1) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] has multiple producer operations, size: %zu", 
