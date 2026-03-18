@@ -559,6 +559,38 @@ Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonSh
     AtomicType atomicType = AtomicType::SET);
 Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
     AtomicType atomicType = AtomicType::SET);
+
+// new api
+ShmemTensor CreateShmemData(const char* group, int64_t worldSize, DataType dataType, const Shape& shape);
+void CreateShmemData(const char* group, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor &t);
+ShmemTensor CreateShmemSignal(const char* group, int64_t worldSize);
+void CreateShmemSignal(const char* group, int64_t worldSize, ShmemTensor &t);
+ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets);
+ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &offsets);
+ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets);
+ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::initializer_list<SymbolicScalar> &newOffsets);
+Tensor ShmemPut(const Tensor &src, const ShmemTensor &dst, const SymbolicScalar &dstRank, AtomicType putOp, const Tensor& pred);
+Tensor ShmemGet(const ShmemTensor &src, const SymbolicScalar &srcRank, const Tensor& pred, DataType targetDataType = DataType::DT_BOTTOM);
+Tensor ShmemSignal(const ShmemTensor& dst, const SymbolicScalar &dstRank, int32_t signal, AtomicType sigOp, const Tensor& pred);
+Tensor ShmemSignal(const ShmemTensor& dst, const SymbolicScalar &dstRank, const SymbolicScalar &consumerRank, int32_t signal, AtomicType sigOp, const Tensor& pred);
+Tensor ShmemSignalAll(const ShmemTensor& dst, const SymbolicScalar &dstRank, int32_t signal, AtomicType sigOp, const Tensor& pred);
+Tensor ShmemWaitUntil(const ShmemTensor& src, const SymbolicScalar &srcRank, OpType cmp, int32_t cmpValue, bool clearSignal, const Tensor &pred);
+Tensor ShmemClearData(const ShmemTensor& src, Tensor &pred);
+Tensor ShmemClearSignal(const ShmemTensor& src, Tensor &pred);
+Tensor ShmemBarrier(const ShmemTensor &src, const Tensor &pred);
+Tensor ShmemLoad(const ShmemTensor &src, const SymbolicScalar &srcRank, const Tensor& pred, DataType nonShmemDataType = DataType::DT_BOTTOM);
+
+void AllGather(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
+void ReduceScatter(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor,
+    DistReduceType reduceType, Tensor& out);
+void OneShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out);
+void TwoShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out);
+void MoeDistributedCombineV3(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
+    const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
+    uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out);
+void MoeDistributedDispatchV3(const Tensor& x, const Tensor& expertIds, const char* group,
+    uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& expandX,
+    Tensor& assistInfoForCombine, Tensor& expertTokenNums, Tensor& recvCounts);
 } // namespace Distributed
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart);
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart);

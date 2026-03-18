@@ -13,7 +13,7 @@ from typing import List, Union, Dict, Optional
 from . import pypto_impl
 from ._op_wrapper import op_wrapper
 from ._utils import to_syms
-from .tensor import Tensor
+from .tensor import Tensor, ShmemTensor
 from .config import get_current_scope, set_options
 from .symbolic_scalar import SymbolicScalar
 from .enum import AtomicType
@@ -279,3 +279,36 @@ def shmem_load(
     else:
         src_tile = pypto_impl.View(src, [1] + shape, to_syms(valid_shape), to_syms([src_pe] + offset))
     return pypto_impl.ShmemGetGm2Ub(dummy, src_tile)
+
+@op_wrapper
+def shmem_load_v1(
+    src: ShmemTensor,
+    src_pe: Union[int, SymbolicScalar],
+    *,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        dummy = Tensor([1, 1], DataType.DT_INT32).base()
+    else:
+        dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
+    return pypto_impl.ShmemLoad(src, src_pe, dummy)
+
+@op_wrapper
+def shmem_load_v2(
+    src: Tensor,
+    src_pe: Union[int, SymbolicScalar],
+    shape: List[int] = None,
+    offset: List[Union[int, SymbolicScalar]] = None,
+    *,
+    pred: List[Tensor] = None,
+    valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None,
+) -> Tensor:
+    if pred is None:
+        dummy = Tensor([1, 1], DataType.DT_INT32).base()
+    else:
+        dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
+    if valid_shape is None:
+        src_tile = pypto_impl.ShmemView(src, shape, offset)
+    else:
+        src_tile = pypto_impl.ShmemView(src, shape, to_syms(valid_shape), to_syms(offset))
+    return pypto_impl.ShmemLoad(src_tile, src_pe, dummy)

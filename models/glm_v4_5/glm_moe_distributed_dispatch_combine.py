@@ -447,11 +447,11 @@ def moe_distributed_dispatch_kernel(
         this_rank = pypto.distributed.my_symbolic_pe(group_name)
 
         # 创建通信共享区域
-        shmem_data, shmem_data_signal = pypto.distributed.create_shmem_tensor(
+        shmem_data = pypto.distributed.create_shmem_tensor_v1(
             group_name, ep_world_size, x.dtype, [moe_expert_num, batch_size, hidden_size])
-        shmem_info, _ = pypto.distributed.create_shmem_tensor(
+        shmem_info= pypto.distributed.create_shmem_tensor_v1(
             group_name, ep_world_size, pypto.DT_INT32, [moe_expert_num, batch_size, info_size])
-        shmem_count, shmem_count_signal = pypto.distributed.create_shmem_tensor(
+        shmem_count = pypto.distributed.create_shmem_tensor_v1(
             group_name, ep_world_size, pypto.DT_INT32, [1, cum_sum_row_size, count_size])
 
         # 根据专家表计算发送偏移
@@ -483,7 +483,7 @@ def moe_distributed_dispatch_kernel(
                 remote_expert_offset = remote_expert_id % expert_num_per_rank
                 token_offset = offset_table[row_index, col_index]
                 pypto.set_vec_tile_shapes(1, hidden_size)
-                shmem_data_out_put = pypto.distributed.shmem_put(
+                shmem_data_out_put = pypto.distributed.shmem_put_v2(
                     tensor_tile,
                     [remote_expert_offset * ep_world_size + this_rank, token_offset, 0],
                     shmem_data,
@@ -491,7 +491,7 @@ def moe_distributed_dispatch_kernel(
                     pred=[offset_table],
                 )
                 pypto.set_vec_tile_shapes(1, info_size)
-                shmem_info_out_put = pypto.distributed.shmem_put(
+                shmem_info_out_put = pypto.distributed.shmem_put_v2(
                     moe_info,
                     [remote_expert_offset * ep_world_size + this_rank, token_offset, 0],
                     shmem_info,
@@ -499,12 +499,12 @@ def moe_distributed_dispatch_kernel(
                     pred=[offset_table],
                 )
                 pypto.set_vec_tile_shapes(1, hidden_size)
-                pypto.distributed.shmem_signal(
-                    shmem_data_signal,
-                    ep_world_size,
+                pypto.distributed.shmem_signal_all(
+                    shmem_data,
+                    0,
                     1,
-                    [ep_world_size, 1, 1, 1, hidden_size],
-                    [0, 0, 0, 0, 0],
+                    [1, 1, hidden_size],
+                    [0, 0, 0],
                     sig_op=pypto.AtomicType.ADD,
                     pred=[shmem_data_out_put, shmem_info_out_put],
                 )
@@ -516,7 +516,7 @@ def moe_distributed_dispatch_kernel(
             remote_expert_offset = expert_id % expert_num_per_rank
             total_offset_tile = expert_offset[:, -1:]
             pypto.set_vec_tile_shapes(1, 1)
-            shmem_put_out = pypto.distributed.shmem_put(
+            shmem_put_out = pypto.distributed.shmem_put_v2(
                 total_offset_tile,
                 [0, remote_expert_offset * ep_world_size + this_rank + 1, 0],
                 shmem_count,
@@ -524,12 +524,13 @@ def moe_distributed_dispatch_kernel(
                 pred=[total_offset_tile],
             )
             pypto.set_vec_tile_shapes(1, count_size)
-            pypto.distributed.shmem_signal(
-                shmem_count_signal,
+            pypto.distributed.shmem_signal_v3(
+                shmem_count,
+                0,
                 remote_rank_id,
                 1,
-                [1, 1, 1, 1, count_size],
-                [remote_rank_id, 0, 0, 0, 0],
+                [1, 1, count_size],
+                [0, 0, 0],
                 sig_op=pypto.AtomicType.ADD, pred=[shmem_put_out],
             )
 
@@ -538,27 +539,29 @@ def moe_distributed_dispatch_kernel(
         local_expert_recv_count = pypto.tensor([cum_sum_row_size, count_size], pypto.DT_INT32, 'localExpertRecvCount')
         for _ in pypto.loop(1, name='MOE_DISTRIBUTED_DISPATCH_CUM_SUM', idx_name='_'):
             pypto.set_vec_tile_shapes(1, hidden_size)
-            shmem_data_wait_out = pypto.distributed.shmem_wait_until(
-                shmem_data_signal,
+            shmem_data_wait_out = pypto.distributed.shmem_wait_until_v2(
+                shmem_data,
+                0,
                 pypto.OpType.EQ,
                 batch_size * topk * ep_world_size,
-                [1, 1, 1, 1, hidden_size],
-                [this_rank, 0, 0, 0, 0],
+                [1, 1, hidden_size],
+                [0, 0, 0],
                 clear_signal=True,
                 pred=[cum_sum_result],
             )
             pypto.set_vec_tile_shapes(1, count_size)
-            shmem_count_wait_out = pypto.distributed.shmem_wait_until(
-                shmem_count_signal,
+            shmem_count_wait_out = pypto.distributed.shmem_wait_until_v2(
+                shmem_count,
+                0,
                 pypto.OpType.EQ,
                 moe_expert_num,
-                [1, 1, 1, 1, count_size],
-                [this_rank, 0, 0, 0, 0],
+                [1, 1, count_size],
+                [0, 0, 0],
                 clear_signal=True,
                 pred=[cum_sum_result],
             )
             pypto.set_vec_tile_shapes(cum_sum_row_size, count_size)
-            local_expert_recv_count = pypto.distributed.shmem_get(
+            local_expert_recv_count = pypto.distributed.shmem_get_v2(
                 shmem_count,
                 this_rank,
                 [1, cum_sum_row_size, count_size],
@@ -566,7 +569,7 @@ def moe_distributed_dispatch_kernel(
                 pred=[shmem_data_wait_out, shmem_count_wait_out],
             )
             pypto.set_vec_tile_shapes(cum_sum_row_size, count_size)
-            cum_sum_input = pypto.distributed.shmem_get(
+            cum_sum_input = pypto.distributed.shmem_get_v2(
                 shmem_count,
                 this_rank,
                 [1, cum_sum_row_size, count_size],
@@ -593,23 +596,23 @@ def moe_distributed_dispatch_kernel(
                 cur_count = local_expert_recv_count[index + 1, 0]
                 offset = cum_sum_result[index, 0]
                 pypto.set_vec_tile_shapes(batch_size, hidden_size)
-                local_data_recv_count = pypto.experimental.shmem_load(
+                local_data_recv_count = pypto.experimental.shmem_load_v2(
                     shmem_data,
                     this_rank,
                     [1, batch_size, hidden_size],
                     [index, 0, 0],
                     pred=[cum_sum_result],
-                    valid_shape=[1, 1, cur_count, hidden_size],
+                    valid_shape=[1, cur_count, hidden_size],
                 )
                 expand_x[offset:offset + cur_count, ...] = local_data_recv_count
                 pypto.set_vec_tile_shapes(batch_size, info_size)
-                local_info_recv_count = pypto.experimental.shmem_load(
+                local_info_recv_count = pypto.experimental.shmem_load_v2(
                     shmem_info,
                     this_rank,
                     [1, batch_size, info_size],
                     [index, 0, 0],
                     pred=[cum_sum_result],
-                    valid_shape=[1, 1, cur_count, info_size],
+                    valid_shape=[1, cur_count, info_size],
                 )
                 assist_info_for_combine[offset:offset + cur_count, :info_size] = local_info_recv_count
 
@@ -740,7 +743,7 @@ def moe_distributed_combine_kernel(
         out: pypto.Tensor([batch_size, hidden_size], data_type, format=pypto.TileOpFormat.TILEOP_ND),
     ):
         # 创建 shmem_data 和 shmem_signal
-        shmem_data, shmem_signal = pypto.distributed.create_shmem_tensor(
+        shmem_data = pypto.distributed.create_shmem_tensor_v1(
             group_name,
             ep_world_size,
             expand_x.dtype,
@@ -756,19 +759,20 @@ def moe_distributed_combine_kernel(
 
             pypto.set_vec_tile_shapes(1, hidden_size)
             expand_x_tile = expand_x[row_index:row_index + 1, ...]
-            shmem_put_out = pypto.distributed.shmem_put(
+            shmem_put_out = pypto.distributed.shmem_put_v2(
                 expand_x_tile,
                 [0, topk * token_id + k_offset, 0],
                 shmem_data,
                 logical_rank_id,
             )
 
-            pypto.distributed.shmem_signal(
-                shmem_signal,
+            pypto.distributed.shmem_signal_v3(
+                shmem_data,
                 0,
+                logical_rank_id,
                 1,
-                [1, 1, 1, 1, hidden_size],
-                [logical_rank_id, 0, 0, token_id, 0],
+                [1, 1, hidden_size],
+                [0, token_id, 0],
                 sig_op=pypto.AtomicType.ADD,
                 pred=[shmem_put_out],
             )
@@ -777,16 +781,17 @@ def moe_distributed_combine_kernel(
         my_pe = pypto.distributed.my_symbolic_pe(group_name)
         for token_id in range(batch_size):
             pypto.set_vec_tile_shapes(1, hidden_size)
-            wait_until_out = pypto.distributed.shmem_wait_until(
-                shmem_signal,
+            wait_until_out = pypto.distributed.shmem_wait_until_v2(
+                shmem_data,
+                0,
                 pypto.OpType.EQ,
                 topk,
-                [1, 1, 1, 1, hidden_size],
-                [my_pe, 0, 0, token_id, 0],
+                [1, 1, hidden_size],
+                [0, token_id, 0],
             )
 
             pypto.set_vec_tile_shapes(topk, hidden_size)
-            shmem_get_out = pypto.distributed.shmem_get(
+            shmem_get_out = pypto.distributed.shmem_get_v2(
                 shmem_data,
                 my_pe,
                 [1, topk, hidden_size],
