@@ -85,7 +85,10 @@ LogicalTensorPtr TensorQuantizeOperation(Function &function, const LogicalTensor
     }
 
     // Add operation
-    function.AddOperation(Opcode::OP_QUANTIZE, inputs, {result});
+    Opcode opCode = (otype == DataType::DT_UINT8)
+        ? Opcode::OP_QUANTIZE_ASYM
+        : Opcode::OP_QUANTIZE_SYM;
+    function.AddOperation(opCode, inputs, {result});
 
     return result;
 }

@@ -19,6 +19,7 @@
 #include "securec.h"
 #include "codegen/utils/codegen_utils.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
+#include "interface/operation/vector/quantize.h"
 #include <string>
 
 namespace npu::tile_fwk {
