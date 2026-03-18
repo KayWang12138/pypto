@@ -1262,6 +1262,7 @@ Tensor ConstructBatchMatmulTensorGraph3D(
     Tensor result = attrParam.isCMatrixNZ ?
                         Tensor(dataType, {batchSize, mView, nView}, "BatchMatmulOutputNz", TileOpFormat::TILEOP_NZ) :
                         Tensor(dataType, {batchSize, mView, nView});
+    auto oldVecTileShapes = TileShape::Current().GetVecTile();
     TileShape::Current().SetVecTile({1, 128, 128});
     for (int64_t bIdx = 0; bIdx < batchSize; bIdx++) {
         int64_t offsetBatchA = batchSizeA == 1 ? 0 : bIdx;
@@ -1288,6 +1289,7 @@ Tensor ConstructBatchMatmulTensorGraph3D(
             std::vector<SymbolicScalar>({1, cValidShape2D[0], cValidShape2D[1]}));
         Assemble(cTensor3D, {bIdx, 0, 0}, result);
     }
+    TileShape::Current().SetVecTile(oldVecTileShapes);
     return result;
 }
 
@@ -1304,6 +1306,7 @@ Tensor ConstructBatchMatmulTensorGraph4D(
     Tensor result = attrParam.isCMatrixNZ ? Tensor(dataType, {batchSize1, batchSize2, mView, nView}, "BatchMatmulOutputNz",
                                       TileOpFormat::TILEOP_NZ) :
                                   Tensor(dataType, {batchSize1, batchSize2, mView, nView});
+    auto oldVecTileShapes = TileShape::Current().GetVecTile();
     TileShape::Current().SetVecTile({1, 1, 128, 128});
     for (int64_t bIdx1 = 0; bIdx1 < batchSize1; bIdx1++) {
         int64_t offsetBatchA1 = batchSizeA1 == 1 ? 0 : bIdx1;
@@ -1339,6 +1342,7 @@ Tensor ConstructBatchMatmulTensorGraph4D(
             Assemble(cTensor4D, {bIdx1, bIdx2, 0, 0}, result);
         }
     }
+    TileShape::Current().SetVecTile(oldVecTileShapes);
     return result;
 }
 
