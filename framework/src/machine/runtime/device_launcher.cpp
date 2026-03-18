@@ -103,7 +103,7 @@ int DeviceLauncher::GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtMo
         MACHINE_LOGW("Stream capture not support");
         return 0;
     } else if (ret != ACL_SUCCESS) {
-        MACHINE_LOGE("aclmdlRICaptureGetInfo failed, return[%d]", ret);
+        MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "aclmdlRICaptureGetInfo failed, return[%d]", ret);
         return -1;
     }
 
@@ -111,7 +111,7 @@ int DeviceLauncher::GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtMo
     if (it != captureStatusHandlers.end()) {
         it->second(isCapture);
     } else {
-        MACHINE_LOGE("GetStreamCaptureInfo get unsupport capture status");
+        MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "GetStreamCaptureInfo get unsupport capture status");
         return -1;
     }
     MACHINE_LOGI("capture mode[%d]", isCapture);
@@ -140,12 +140,12 @@ int DeviceLauncher::SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuSt
 
     if (isCapture) {
         if (rtModel ==  nullptr) {
-            MACHINE_LOGE("rtModel is null!");
+            MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "rtModel is null!");
             return -1;;
         }
         rtError_t ret = rtStreamAddToModel(aicpuStream, rtModel);
         if (ret != 0) {
-            MACHINE_LOGE("rtStreamAddToModel failed, return[%d]", ret);
+            MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "rtStreamAddToModel failed, return[%d]", ret);
             return -1;
         }
     }
@@ -229,7 +229,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     rc = DeviceRunner::Get().RegisterKernelBin(&(*reinterpret_cast<rtBinHandle *>(CachedOperator::GetBinHandleHolder(cachedOperator))),
             cachedOperator == nullptr ? nullptr : &(function->GetDyndevAttribute()->kernelBinary));
     if (rc < 0) {
-        MACHINE_LOGE("Register kernel bin failed.");
+        MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "Register kernel bin failed.");
         return rc;
     }
 
@@ -430,13 +430,13 @@ void ExportedOperatorEnd(ExportedOperator *op) {
 void DataDumpInit() {
     if (IsPtoDataDumpEnabled()) {
         if (!AdxDataDumpServerInit) {
-            MACHINE_LOGE("AdxDataDumpServerInit function not found.");
+            MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "AdxDataDumpServerInit function not found.");
             return;
         }
         MACHINE_LOGD("DataDumpServerInit is called \n");
         int sf = AdxDataDumpServerInit();
         if (sf != 0) {
-            MACHINE_LOGE("ERROR AdxDataDumpServerInit failed \n");
+            MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "ERROR AdxDataDumpServerInit failed \n");
         }
     }
 }
@@ -444,13 +444,13 @@ void DataDumpInit() {
 void DataDumpUnInit() {
     if (IsPtoDataDumpEnabled()) {
         if (!AdxDataDumpServerUnInit) {
-            MACHINE_LOGE("AdxDataDumpServerUnInit function not found.");
+            MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "AdxDataDumpServerUnInit function not found.");
             return;
         }
         MACHINE_LOGD("DataDumpServerUnInit is called \n");
         int sf = AdxDataDumpServerUnInit();
         if (sf != 0) {
-            MACHINE_LOGE("AdxDataDumpServerUnInit is failed %d \n", sf);
+            MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "AdxDataDumpServerUnInit is failed %d \n", sf);
         }
     }
 }
@@ -566,14 +566,14 @@ uint8_t *DeviceLauncher::CopyControlFlowCache(DevControlFlowCache *ctrlCache) {
 
     int ret = rtMalloc((void **)&devCache, cacheSize * bufNum, RT_MEMORY_HBM, 0);
     if (devCache == nullptr) {
-        MACHINE_LOGE("control flow cache malloc failed");
+        MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "control flow cache malloc failed");
         return nullptr;
     }
 
     for (int i = 0; i < bufNum; ++i) {
         ret = rtMemcpy(devCache + i * cacheSize, cacheSize, ctrlCache, cacheSize, RT_MEMCPY_HOST_TO_DEVICE);
         if (ret != 0) {
-            MACHINE_LOGE("control flow cache memcpy failed, ret: %d", ret);
+            MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "control flow cache memcpy failed, ret: %d", ret);
             rtFree(devCache);
             return nullptr;
         }
@@ -621,7 +621,7 @@ void DeviceLauncher::GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI &rtModel)
     if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
         return;
     } else if (ret != ACL_SUCCESS) {
-        MACHINE_LOGE("get capture info failed: %d", ret);
+        MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "get capture info failed: %d", ret);
         return;
     }
     if (status == aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE) {
@@ -655,7 +655,7 @@ void *DeviceLauncher::RegisterKernelBin(const std::vector<uint8_t> &kernelBinary
 
     int ret = rtRegisterAllKernel(&binary, &hdl);
     if (ret != RT_ERROR_NONE) {
-        MACHINE_LOGE("register kernel failed, ret: %d", ret);
+        MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "register kernel failed, ret: %d", ret);
     }
     return hdl;
 #else
@@ -668,7 +668,7 @@ void DeviceLauncher::UnregisterKernelBin(void *hdl) {
 #ifdef BUILD_WITH_CANN
     int ret = rtDevBinaryUnRegister(hdl);
     if (ret != RT_ERROR_NONE) {
-        MACHINE_LOGE("unregister kernel failed, ret: %d", ret);
+        MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "unregister kernel failed, ret: %d", ret);
     }
 #else
     (void)hdl;
@@ -715,7 +715,7 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
         if (scheCpuNum == 1) {
             nrAicpu = 1;   // sche num is 1, no need lauch more aicpu in tripleStream
             DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu = 1;
-            MACHINE_LOGE("sche num is 1, no need lauch more aicpu in tripleStream, nrAicpu changed to %u",
+            MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "sche num is 1, no need lauch more aicpu in tripleStream, nrAicpu changed to %u",
                 DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
         }
         ret = rtAicpuKernelLaunchExWithArgs(
@@ -751,7 +751,7 @@ int DeviceLauncher::LaunchAicoreKernel(
         auto scheStream = (aclrtStream)machine::GetRA()->GetScheStream();
         int rc = DeviceRunner::Get().DynamicLaunchSynchronize(scheStream, nullptr, aicoreStream);
         if (rc != 0) {
-            MACHINE_LOGE("sync failed");
+            MACHINE_LOGE_E(ERROR_CODE_UNDEFINED, "sync failed");
             return rc;
         }
         devRunner.DumpAiCoreExecutionTimeData();

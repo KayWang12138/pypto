@@ -30,6 +30,11 @@
 #include "securec.h"
 #include "tilefwk/aikernel_define.h"
 #include "machine/utils/device_switch.h"
+#include "machine/utils/machine_error.h"
+ 	 
+#ifndef ERROR_CODE_UNDEFINED
+#define ERROR_CODE_UNDEFINED 0xFFFFFU
+#endif
 
 #ifdef __DEVICE__
 #include "dlog_pub.h"
@@ -134,10 +139,11 @@ inline void DeviceLogSplitDebug([[maybe_unused]] const std::string& mode_name,
       }                                                                               \
   } while(false)
 
-#define D_DEV_LOGE(MODE_NAME, fmt, ...)                                               \
+#define D_DEV_LOGE(MODE_NAME, errCode, fmt, ...)                                               \
   do {                                                                                \
     if (IsLogEnableError()) {                                                         \
-        dlog_error(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
+        dlog_error(AICPU, "%lu %s\nErrCode: F%05X! " #fmt, GET_TID(), __FUNCTION__,   \
+ 	                 static_cast<uint32_t>(errCode) & 0xFFFFF, ##__VA_ARGS__);        \
       }                                                                               \
   } while(false)
 
@@ -157,21 +163,21 @@ inline void DeviceLogSplitDebug([[maybe_unused]] const std::string& mode_name,
 #define DEV_DEBUG(fmt, args...) D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_INFO(fmt, args...) D_DEV_LOGI(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_WARN(fmt, args...) D_DEV_LOGW(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
-#define DEV_ERROR(fmt, args...) D_DEV_LOGE(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_ERROR(errCode, fmt, args...) D_DEV_LOGE(TILE_FWK_DEVICE_MACHINE, errCode, fmt, ##args)
 #define DEV_DEBUG_SPLIT(fmt, args...) D_DEV_LOGD_SPLIT(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 
-#define DEV_ASSERT_MSG(expr, fmt, args...)                              \
+#define DEV_ASSERT_MSG(errCode, expr, fmt, args...)                              \
     do {                                                                \
         if (!(expr)) {                                                  \
-            DEV_ERROR("Assertion failed (%s): " fmt, #expr, ##args);    \
+            DEV_ERROR(errCode, "Assertion failed (%s): " fmt, #expr, ##args);    \
             assert(0);                                                  \
         }                                                               \
     } while (0)
 
-#define DEV_ASSERT(expr)                                                \
+#define DEV_ASSERT(errCode, expr)                                                \
     do {                                                                \
         if (!(expr)) {                                                  \
-            DEV_ERROR("Assertion failed (%s)", #expr);                  \
+            DEV_ERROR(errCode, "Assertion failed (%s)", #expr);                  \
             assert(0);                                                  \
         }                                                               \
     } while (0)
@@ -183,12 +189,12 @@ inline bool IsDebugMode() {
     return true;
 }
 
-#define DEV_VERBOSE_DEBUG(fmt, args...) PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
-#define DEV_DEBUG_SPLIT(fmt, args...)   PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
-#define DEV_DEBUG(fmt, args...)         PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
-#define DEV_INFO(fmt, args...)          PYPTO_SIM_LOG(DLOG_INFO, MACHINE, fmt, ##args)
-#define DEV_WARN(fmt, args...)          PYPTO_SIM_LOG(DLOG_WARN, MACHINE, fmt, ##args)
-#define DEV_ERROR(fmt, args...)         PYPTO_SIM_LOG(DLOG_ERROR, MACHINE, fmt, ##args)
+#define DEV_VERBOSE_DEBUG(fmt, args...)     PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
+#define DEV_DEBUG_SPLIT(fmt, args...)       PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
+#define DEV_DEBUG(fmt, args...)             PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
+#define DEV_INFO(fmt, args...)              PYPTO_SIM_LOG(DLOG_INFO, MACHINE, fmt, ##args)
+#define DEV_WARN(fmt, args...)              PYPTO_SIM_LOG(DLOG_WARN, MACHINE, fmt, ##args)
+#define DEV_ERROR(errCode, fmt, args...)    PYPTO_SIM_LOGE(MACHINE, errCode, fmt, ##args)
 
 #if DEBUG_MEM_DUMP_LEVEL != DEBUG_MEM_DUMP_DISABLE
 #define DEV_MEM_DUMP(fmt, args...) MACHINE_LOGD("[WsMem Statistics] " fmt, ##args)
@@ -196,18 +202,18 @@ inline bool IsDebugMode() {
 #define DEV_MEM_DUMP(fmt, args...)
 #endif // DEBUG_MEM_DUMP_LEVEL != DEBUG_MEM_DUMP_DISABLE
 
-#define DEV_ASSERT_MSG(expr, fmt, args...)           \
+#define DEV_ASSERT_MSG(errCode, expr, fmt, args...)           \
     do {                                             \
         if (!(expr)) {                               \
-            MACHINE_LOGE("%s :" fmt, #expr, ##args); \
+            MACHINE_LOGE_E(errCode, "%s :" fmt, #expr, ##args); \
             assert(0);                               \
         }                                            \
     } while (0)
 
-#define DEV_ASSERT(expr)               \
+#define DEV_ASSERT(errCode, expr)               \
     do {                               \
         if (!(expr)) {                 \
-            MACHINE_LOGE("%s", #expr); \
+            MACHINE_LOGE_E(errCode, "%s", #expr); \
             assert(0);                 \
         }                              \
     } while (0)
@@ -219,10 +225,10 @@ inline bool IsDebugMode() {
 static inline void PrintBacktrace(const std::string &prefix = "", int count = BACKTRACE_STACK_COUNT) {
     std::vector<void *> backtraceStack(count);
     int backtraceStackCount = backtrace(backtraceStack.data(), static_cast<int>(backtraceStack.size()));
-    DEV_ERROR("backtrace %s count:%d", prefix.c_str(), backtraceStackCount);
+    DEV_ERROR(ERROR_CODE_UNDEFINED, "backtrace %s count:%d", prefix.c_str(), backtraceStackCount);
     char **backtraceSymbolList = backtrace_symbols(backtraceStack.data(), backtraceStackCount);
     for (int i = 0; i < backtraceStackCount; i++) {
-        DEV_ERROR("backtrace %s frame[%d]: %s", prefix.c_str(), i, backtraceSymbolList[i]);
+        DEV_ERROR(ERROR_CODE_UNDEFINED, "backtrace %s frame[%d]: %s", prefix.c_str(), i, backtraceSymbolList[i]);
     }
     free(backtraceSymbolList);
 }
