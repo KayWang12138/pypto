@@ -488,9 +488,9 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
         // 尝试在view的输出original未知而输入original已知时进行内存复用，将输出的original刷为与输入相同
         // 当出现内存未对齐时，需要插搬运到DDR则不进行复用；当出现输入为L0C时，L0C到L0C无意义，也不进行复用，同时避免出现DDR->L0C
         auto originalMemType = tensor->GetMemoryTypeOriginal();
-        auto canReuseMemoryType = !unaligned && toType == MemoryType::MEM_UNKNOWN && 
-            originalMemType != MemoryType::MEM_UNKNOWN && originalMemType != MemoryType::MEM_L0C;
-        if(canReuseMemoryType) {
+        auto memTypeSupportReuse = toType == MemoryType::MEM_UNKNOWN && originalMemType != MemoryType::MEM_UNKNOWN &&
+            originalMemType != MemoryType::MEM_L0C;
+        if(!unaligned && memTypeSupportReuse) {
             //view输出的消费者是assemble或者reshape
             operation.oOperand.front()->SetMemoryTypeOriginal(tensor->GetMemoryTypeOriginal());
             viewOpAttribute->SetToType(tensor->GetMemoryTypeOriginal());
