@@ -71,8 +71,8 @@ void CheckQuantize(const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
     }
 
     // 8. Scale shape validation
-    // For axis=-1 (per-row): scale shape should be broadcastable to [..., 1]
-    // For axis=-2 (per-col): scale shape should be broadcastable to [..., 1, :] where last dim matches input
+    // For axis=-1: scale shape should be [..., row, 1] (last dim is 1)
+    // For axis=-2: scale shape should be [..., 1, col] (second last dim is 1)
     ASSERT(scale->shape.size() == shapeSize)
         << "Scale must have same rank as input, got scale rank " << scale->shape.size()
         << " vs input rank " << shapeSize;
@@ -80,14 +80,14 @@ void CheckQuantize(const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
     for (size_t i = 0; i < shapeSize; ++i) {
         int normalizedIdx = static_cast<int>(i) - static_cast<int>(shapeSize);
         if (normalizedIdx == normalizedAxis) {
-            // Scale axis: can be any size (1 for broadcast, or match input)
+            // Scale axis: must be 1 (this is the dimension being quantized/compressed)
+            ASSERT(scale->shape[i] == 1)
+                << "Scale shape[" << i << "] must be 1 on scale axis, got " << scale->shape[i];
+        } else {
+            // Non-scale axis: can broadcast (be 1) or match input shape
             ASSERT(scale->shape[i] == 1 || scale->shape[i] == input->shape[i])
                 << "Scale shape[" << i << "] must be 1 or match input shape[" << i << "] ("
                 << input->shape[i] << "), got " << scale->shape[i];
-        } else {
-            // Non-scale axis: must broadcast (be 1)
-            ASSERT(scale->shape[i] == 1)
-                << "Scale shape[" << i << "] must be 1 for broadcasting on non-scale axis, got " << scale->shape[i];
         }
     }
 
