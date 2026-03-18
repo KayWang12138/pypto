@@ -39,6 +39,7 @@
 #include "tilefwk/platform.h"
 #include "machine/runtime/distributed/distributed_context.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include <filesystem>
 
 #ifndef BUILD_WITH_CANN
 enum aclmdlRICaptureMode {};
