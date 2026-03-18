@@ -10,7 +10,7 @@
 # -----------------------------------------------------------------------------------------------------------
 """PyPTO"""
 from enum import Enum
-from typing import Optional, Union
+from typing import Optional, Union, List, overload, Sequence, Tuple
 
 from pypto import pypto_impl
 from pypto._controller import loop
@@ -18,7 +18,7 @@ from pypto._op_wrapper import op_wrapper
 from pypto._utils import to_syms
 from pypto.enum import AtomicType, DataType, OpType
 from pypto.symbolic_scalar import SymbolicScalar
-from pypto.tensor import Tensor
+from pypto.tensor import Tensor, ShmemTensor
 
 
 class ShmemMemType(Enum):
@@ -88,6 +88,18 @@ def create_shmem_tensor(
     
     return data, signal
 
+@op_wrapper
+def create_shmem_tensor_v1(
+    group_name: str, 
+    n_pes: int,
+    dtype: DataType,
+    shape: list[int], 
+) -> ShmemTensor:
+    t = ShmemTensor()
+    for _ in loop(1, name="CREATE_SHMEM_TENSOR", idx_name="_"):
+        pypto_impl.CreateShmemData(group_name, n_pes, dtype, shape, t.base())
+    return t
+
 
 @op_wrapper
 def create_shmem_signal(group_name: str, n_pes: int) -> Tensor:
@@ -124,6 +136,25 @@ def create_shmem_signal(group_name: str, n_pes: int) -> Tensor:
         
     return signal
 
+@op_wrapper
+def create_shmem_signal_v1(group_name: str, n_pes: int) -> ShmemTensor:
+    t = ShmemTensor()
+    for _ in loop(1, name="CREATE_SHMEM_SIGNAL", idx_name="_"):
+        pypto_impl.CreateShmemSignal(group_name, n_pes, t.base())
+    return t
+
+@op_wrapper
+def shmem_view(
+        input: ShmemTensor,
+        shape: list[int],
+        offsets: list[Union[int, SymbolicScalar]],
+        *,
+        valid_shape: Optional[list[Union[int, SymbolicScalar]]] = None,
+) -> ShmemTensor:
+    if valid_shape is None:
+        return pypto_impl.ShmemView(input, shape, offsets)
+    else:
+        return pypto_impl.ShmemView(input, shape, to_syms(valid_shape), to_syms(offsets))
 
 @op_wrapper
 def shmem_put(
@@ -175,6 +206,35 @@ def shmem_put(
     dst_tile = pypto_impl.View(dst, [1, 1] + src.shape, [dst_pe] + offsets)
     return pypto_impl.ShmemPut(dummy, src, dst_tile, put_op)
 
+@op_wrapper
+def shmem_put_v1(
+    src: Tensor,
+    dst: ShmemTensor,
+    dst_pe: Union[int, SymbolicScalar],
+    *,
+    put_op: AtomicType = AtomicType.SET,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    return pypto_impl.ShmemPut(src, dst, dst_pe, put_op, dummy)
+
+@op_wrapper
+def shmem_put_v2(
+    src: Tensor,
+    offsets: list[Union[int, SymbolicScalar]],
+    dst: ShmemTensor,
+    dst_pe: Union[int, SymbolicScalar],
+    *,
+    put_op: AtomicType = AtomicType.SET,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    dst_tile = pypto_impl.ShmemView(dst, [1] + src.shape, offsets)
+    return pypto_impl.ShmemPut(src, dst_tile, dst_pe, put_op, dummy)
 
 @op_wrapper
 def shmem_get(
@@ -231,6 +291,33 @@ def shmem_get(
         src_tile = pypto_impl.View(src, [1] + shape, to_syms(valid_shape), to_syms([src_pe] + offset))
     return pypto_impl.ShmemGet(dummy, src_tile)
 
+@op_wrapper
+def shmem_get_v1(
+    src: ShmemTensor,
+    src_pe: Union[int, SymbolicScalar],
+    *,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    return pypto_impl.ShmemGet(src, src_pe, dummy)
+
+@op_wrapper
+def shmem_get_v2(
+    src: ShmemTensor,
+    src_pe: Union[int, SymbolicScalar],
+    shape: list[int] = None,
+    offset: list[Union[int, SymbolicScalar]] = None,
+    *,
+    valid_shape: Optional[list[Union[int, SymbolicScalar]]] = None,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    src_tile = pypto_impl.ShmemView(src, shape, offset)
+    return pypto_impl.ShmemGet(src_tile, src_pe, dummy)
 
 @op_wrapper
 def shmem_signal(
@@ -285,6 +372,72 @@ def shmem_signal(
     dummy = __normalize_pred(pred)
     dst_tile = pypto_impl.View(dst, shape, offset)
     return pypto_impl.ShmemSignal(dummy, dst_tile, sig_op)
+
+@op_wrapper
+def shmem_signal_v1(
+    dst: ShmemTensor,
+    dst_pe: Union[int, SymbolicScalar],
+    signal: int,
+    *,
+    sig_op: AtomicType = AtomicType.SET,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    return pypto_impl.ShmemSignal(dst, dst_pe, signal, sig_op, dummy)
+
+@op_wrapper
+def shmem_signal_v2(
+    dst: ShmemTensor,
+    dst_pe: Union[int, SymbolicScalar],
+    signal: int,
+    shape: list[int] = None,
+    offset: list[Union[int, SymbolicScalar]] = None,
+    *,
+    sig_op: AtomicType = AtomicType.SET,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    dst_tile = pypto_impl.ShmemView(dst, shape, offset)
+    return pypto_impl.ShmemSignal(dst_tile, dst_pe, signal, sig_op, dummy)
+
+@op_wrapper
+def shmem_signal_v3(
+    dst: ShmemTensor,
+    dst_pe: Union[int, SymbolicScalar],
+    consumerRank: Union[int, SymbolicScalar],
+    signal: int,
+    shape: list[int] = None,
+    offset: list[Union[int, SymbolicScalar]] = None,
+    *,
+    sig_op: AtomicType = AtomicType.SET,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    dst_tile = pypto_impl.ShmemView(dst, shape, offset)
+    return pypto_impl.ShmemSignalV3(dst_tile, dst_pe, consumerRank, signal, sig_op, dummy)
+
+@op_wrapper
+def shmem_signal_all(
+    dst: ShmemTensor,
+    dst_pe: Union[int, SymbolicScalar],
+    signal: int,
+    shape: list[int] = None,
+    offset: list[Union[int, SymbolicScalar]] = None,
+    *,
+    sig_op: AtomicType = AtomicType.SET,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    dst_tile = pypto_impl.ShmemView(dst, shape, offset)
+    return pypto_impl.ShmemSignalAll(dst_tile, dst_pe, signal, sig_op, dummy)
 
 
 @op_wrapper
@@ -344,6 +497,38 @@ def shmem_wait_until(
     out_dummy = pypto_impl.WaitUntil(dummy, src_tile, cmp_value, clear_signal)
     return out_dummy
 
+@op_wrapper
+def shmem_wait_until_v1(
+    src: ShmemTensor,
+    src_pe: Union[int, SymbolicScalar],
+    cmp: OpType = OpType.EQ,
+    cmp_value: int = 0,
+    *,
+    clear_signal: bool = False,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    return pypto_impl.ShmemWaitUntil(src, src_pe, cmp, cmp_value, clear_signal, dummy)
+
+@op_wrapper
+def shmem_wait_until_v2(
+    src: ShmemTensor,
+    src_pe: Union[int, SymbolicScalar],
+    cmp: OpType = OpType.EQ,
+    cmp_value: int = 0,
+    shape: list[int] = None,
+    offset: list[Union[int, SymbolicScalar]] = None,
+    *,
+    clear_signal: bool = False,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    src_tile = pypto_impl.ShmemView(src, shape, offset)
+    return pypto_impl.ShmemWaitUntil(src_tile, src_pe, cmp, cmp_value, clear_signal, dummy)
 
 @op_wrapper
 def shmem_barrier_all(
@@ -375,6 +560,26 @@ def shmem_barrier_all(
     comm_config = comm_configs[group_name]
     dummy = __normalize_pred(pred)
     return pypto_impl.ShmemBarrier(dummy, src, group_name, comm_config.n_pes)
+
+@op_wrapper
+def shmem_barrier_all_v1(
+    src: ShmemTensor,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    return pypto_impl.ShmemBarrier(src, dummy)
+
+@op_wrapper
+def shmem_barrier_all_v2(
+    src: ShmemTensor,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    return pypto_impl.ShmemBarrier(src, dummy)
 
 
 @op_wrapper
@@ -436,7 +641,45 @@ def shmem_clear(
         out = pypto_impl.ShmemDataSet(dummy, src_tile)
     return out
 
+@op_wrapper
+def shmem_clear_data_v1(
+    src: ShmemTensor,
+    *,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    return pypto_impl.ShmemClearData(src, dummy)
 
+@op_wrapper
+def shmem_clear_v2(
+    src: ShmemTensor,
+    shape: list[int] = None,
+    offset: list[Union[int, SymbolicScalar]] = None,
+    *,
+    pred: list[Tensor] = None,
+    is_signal: bool = False,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    src_tile = pypto_impl.ShmemView(src, shape, offset)
+    if is_signal:
+        return pypto_impl.ShmemClearSignal(src_tile, dummy)
+    else:
+        return pypto_impl.ShmemClearData(src_tile, dummy)
+
+@op_wrapper
+def shmem_clear_signal_v1(
+    src: ShmemTensor,
+    *,
+    pred: list[Tensor] = None,
+) -> Tensor:
+    if pred is None:
+        pred = [src]
+    dummy = __normalize_pred(pred)
+    return pypto_impl.ShmemClearSignal(src, dummy)
 
 @op_wrapper
 def my_symbolic_pe(group_name: str) -> SymbolicScalar:
