@@ -20,6 +20,14 @@
 
 namespace npu::tile_fwk {
 
+// Normalize axis to negative indexing (-1 for last dim, -2 for second last, etc.)
+static int NormalizeAxis(int axis, int ndim) {
+    if (axis >= 0) {
+        return axis - ndim;
+    }
+    return axis;
+}
+
 void CheckQuantize(const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
                    DataType otype, int axis, const LogicalTensorPtr &zeroPoints) {
     // 1. Input must be FP32
@@ -45,10 +53,7 @@ void CheckQuantize(const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
         << "Scale must be DT_FP32, but got " << DataType2String(scale->Datatype());
 
     // 5. Axis check: -1, -2, or relative dimensions
-    int normalizedAxis = axis;
-    if (axis >= 0) {
-        normalizedAxis = axis - static_cast<int>(shapeSize);
-    }
+    int normalizedAxis = NormalizeAxis(axis, static_cast<int>(shapeSize));
     ASSERT(normalizedAxis == -1 || normalizedAxis == -2)
         << "Quantize axis must be -1 or -2 (last two dimensions), but got " << axis
         << " (normalized to " << normalizedAxis << ")";
@@ -63,6 +68,37 @@ void CheckQuantize(const LogicalTensorPtr &input, const LogicalTensorPtr &scale,
             << "Asymmetric quantization (DT_UINT8) requires zero_points";
         ASSERT(zeroPoints->Datatype() == DataType::DT_FP32)
             << "zero_points must be DT_FP32, but got " << DataType2String(zeroPoints->Datatype());
+    }
+
+    // 8. Scale shape validation
+    // For axis=-1 (per-row): scale shape should be broadcastable to [..., 1]
+    // For axis=-2 (per-col): scale shape should be broadcastable to [..., 1, :] where last dim matches input
+    ASSERT(scale->shape.size() == shapeSize)
+        << "Scale must have same rank as input, got scale rank " << scale->shape.size()
+        << " vs input rank " << shapeSize;
+
+    for (size_t i = 0; i < shapeSize; ++i) {
+        int normalizedIdx = static_cast<int>(i) - static_cast<int>(shapeSize);
+        if (normalizedIdx == normalizedAxis) {
+            // Scale axis: can be any size (1 for broadcast, or match input)
+            ASSERT(scale->shape[i] == 1 || scale->shape[i] == input->shape[i])
+                << "Scale shape[" << i << "] must be 1 or match input shape[" << i << "] ("
+                << input->shape[i] << "), got " << scale->shape[i];
+        } else {
+            // Non-scale axis: must broadcast (be 1)
+            ASSERT(scale->shape[i] == 1)
+                << "Scale shape[" << i << "] must be 1 for broadcasting on non-scale axis, got " << scale->shape[i];
+        }
+    }
+
+    // 9. Zero points shape validation (if provided)
+    if (zeroPoints != nullptr) {
+        ASSERT(zeroPoints->shape.size() == shapeSize)
+            << "Zero points must have same rank as input";
+        for (size_t i = 0; i < shapeSize; ++i) {
+            ASSERT(zeroPoints->shape[i] == 1 || zeroPoints->shape[i] == input->shape[i])
+                << "Zero points shape[" << i << "] must be 1 or match input";
+        }
     }
 }
 
@@ -84,20 +120,25 @@ LogicalTensorPtr TensorQuantizeOperation(Function &function, const LogicalTensor
         inputs.push_back(zeroPoints);
     }
 
-    // Add operation
+    // Add operation with axis attribute
     Opcode opCode = (otype == DataType::DT_UINT8)
         ? Opcode::OP_QUANTIZE_ASYM
         : Opcode::OP_QUANTIZE_SYM;
-    function.AddOperation(opCode, inputs, {result});
+    auto &op = function.AddOperation(opCode, inputs, {result});
+
+    // Store axis as operation attribute for TileFunc to retrieve
+    int normalizedAxis = NormalizeAxis(axis, static_cast<int>(input->shape.size()));
+    op.SetAttribute(OP_ATTR_PREFIX + "AXIS", static_cast<int64_t>(normalizedAxis));
 
     return result;
 }
 
-// Tile operation implementation (for TILE_GRAPH)
+// Tile operation implementation for 2D tensors with axis=-1 (native TQuant support)
 template <QuantizeType quantType>
-void TiledQuantizeOperation(Function &function, const TileShape &tileShape, size_t cur,
-                            Input &input, Input &scale, const LogicalTensorPtr &result,
-                            const LogicalTensorPtr &zeroPoints, int axis) {
+void TiledQuantize2DAxisLast(Function &function, const TileShape &tileShape,
+                             size_t cur, Input &input, Input &scale,
+                             const LogicalTensorPtr &result,
+                             const LogicalTensorPtr &zeroPoints) {
     if (cur == input.tensor.GetShape().size()) {
         auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto scaleTile = scale.tensor.GetStorage()->View(function, scale.tileInfo.shape, scale.tileInfo.offset);
@@ -106,7 +147,6 @@ void TiledQuantizeOperation(Function &function, const TileShape &tileShape, size
         std::vector<LogicalTensorPtr> inputs = {inputTile, scaleTile};
         if (quantType == QuantizeType::INT8_ASYM && zeroPoints != nullptr) {
             TileInfo zeroTileInfo(zeroPoints->shape.size(), zeroPoints->offset.size());
-            // Calculate zero tile info based on scale
             for (size_t i = 0; i < zeroTileInfo.shape.size(); ++i) {
                 zeroTileInfo.offset[i] = (zeroPoints->shape[i] == 1) ? 0 : input.tileInfo.offset[i];
                 zeroTileInfo.shape[i] = (zeroPoints->shape[i] == 1) ? 1 : input.tileInfo.shape[i];
@@ -125,6 +165,98 @@ void TiledQuantizeOperation(Function &function, const TileShape &tileShape, size
         input.tileInfo.offset[cur] = i;
         scale.tileInfo.shape[cur] = std::min(scale.tensor.GetShape()[cur] - i, vecTile[cur]);
         scale.tileInfo.offset[cur] = (scale.tensor.GetShape()[cur] == 1) ? 0 : i;
+        TiledQuantize2DAxisLast<quantType>(function, tileShape, cur + 1, input, scale, result, zeroPoints);
+    }
+}
+
+// Main tiled quantize operation dispatcher
+template <QuantizeType quantType>
+void TiledQuantizeOperation(Function &function, const TileShape &tileShape, size_t cur,
+                            Input &input, Input &scale, const LogicalTensorPtr &result,
+                            const LogicalTensorPtr &zeroPoints, int axis) {
+    int ndim = static_cast<int>(input.tensor.GetShape().size());
+    int normalizedAxis = NormalizeAxis(axis, ndim);
+
+    // For 2D tensor with axis=-1, use native TQuant path
+    if (ndim == 2 && normalizedAxis == -1) {
+        TiledQuantize2DAxisLast<quantType>(function, tileShape, cur, input, scale, result, zeroPoints);
+        return;
+    }
+
+    // For other cases (3D/4D or axis=-2), we handle by treating as 2D logically
+    // The key insight: TQuant operates on tiles, and we need to ensure scale tiles
+    // align correctly with input tiles based on the axis.
+
+    // For axis=-1 on N-D tensor:
+    // - Scale shape is [..., 1] broadcastable
+    // - We iterate through all dimensions, with scale broadcast on all but last
+
+    // For axis=-2 on N-D tensor:
+    // - Scale shape is [..., 1, N] where N matches input's second-last dim
+    // - We need special handling for the second-last dimension
+
+    if (cur == input.tensor.GetShape().size()) {
+        auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
+
+        // Calculate scale tile info based on axis
+        TileInfo scaleTileInfo(scale.tensor.GetShape().size(), scale.tileInfo.offset.size());
+        for (size_t i = 0; i < scaleTileInfo.shape.size(); ++i) {
+            int normalizedIdx = static_cast<int>(i) - static_cast<int>(scale.tensor.GetShape().size());
+
+            if (normalizedAxis == -1) {
+                // axis=-1: scale broadcasts on all dims except last
+                scaleTileInfo.shape[i] = (scale.tensor.GetShape()[i] == 1) ? 1 : input.tileInfo.shape[i];
+                scaleTileInfo.offset[i] = (scale.tensor.GetShape()[i] == 1) ? 0 : input.tileInfo.offset[i];
+            } else {
+                // axis=-2: scale broadcasts except on second-last dim
+                if (normalizedIdx == -2) {
+                    // This is the scale dimension
+                    scaleTileInfo.shape[i] = (scale.tensor.GetShape()[i] == 1) ? 1 : input.tileInfo.shape[i];
+                    scaleTileInfo.offset[i] = (scale.tensor.GetShape()[i] == 1) ? 0 : input.tileInfo.offset[i];
+                } else {
+                    // Broadcast dimension
+                    scaleTileInfo.shape[i] = 1;
+                    scaleTileInfo.offset[i] = 0;
+                }
+            }
+        }
+        auto scaleTile = scale.tensor.GetStorage()->View(function, scaleTileInfo.shape, scaleTileInfo.offset);
+
+        std::vector<LogicalTensorPtr> inputs = {inputTile, scaleTile};
+        if (quantType == QuantizeType::INT8_ASYM && zeroPoints != nullptr) {
+            TileInfo zeroTileInfo(zeroPoints->shape.size(), zeroPoints->offset.size());
+            for (size_t i = 0; i < zeroTileInfo.shape.size(); ++i) {
+                int normalizedIdx = static_cast<int>(i) - static_cast<int>(zeroPoints->shape.size());
+
+                if (normalizedAxis == -1) {
+                    zeroTileInfo.offset[i] = (zeroPoints->shape[i] == 1) ? 0 : input.tileInfo.offset[i];
+                    zeroTileInfo.shape[i] = (zeroPoints->shape[i] == 1) ? 1 : input.tileInfo.shape[i];
+                } else {
+                    // For axis=-2, zero_points should follow similar pattern to scale
+                    if (normalizedIdx == -2) {
+                        zeroTileInfo.offset[i] = (zeroPoints->shape[i] == 1) ? 0 : input.tileInfo.offset[i];
+                        zeroTileInfo.shape[i] = (zeroPoints->shape[i] == 1) ? 1 : input.tileInfo.shape[i];
+                    } else {
+                        zeroTileInfo.offset[i] = 0;
+                        zeroTileInfo.shape[i] = 1;
+                    }
+                }
+            }
+            auto zeroTile = zeroPoints->View(function, zeroTileInfo.shape, zeroTileInfo.offset);
+            inputs.push_back(zeroTile);
+        }
+
+        // Add attribute for axis in the tile operation
+        auto &op = function.AddOperation(GetQuantizeOpCode<quantType>(), inputs, {resultTile});
+        op.SetAttribute(OP_ATTR_PREFIX + "AXIS", static_cast<int64_t>(normalizedAxis));
+        return;
+    }
+
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
         TiledQuantizeOperation<quantType>(function, tileShape, cur + 1, input, scale, result, zeroPoints, axis);
     }
 }
@@ -147,20 +279,36 @@ void TiledQuantizeOperation(Function &function, const TileShape &tileShape,
 void QuantizeSymOperationTileFunc(Function &function, const TileShape &tileShape,
                                   const std::vector<LogicalTensorPtr> &iOperand,
                                   const std::vector<LogicalTensorPtr> &oOperand,
-                                  [[maybe_unused]] const Operation &op) {
+                                  const Operation &op) {
     ASSERT(iOperand.size() == 2) << "Quantize symmetric operation requires 2 inputs (input, scale)";
     ASSERT(oOperand.size() == 1) << "Quantize operation requires 1 output";
-    TiledQuantizeOperation<QuantizeType::INT8_SYM>(function, tileShape, iOperand[0], iOperand[1], oOperand[0], nullptr, -1);
+
+    // Get axis from operation attribute (defaults to -1 if not set)
+    int axis = -1;
+    if (op.HasAttribute(OP_ATTR_PREFIX + "AXIS")) {
+        axis = static_cast<int>(op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS"));
+    }
+
+    TiledQuantizeOperation<QuantizeType::INT8_SYM>(function, tileShape,
+        iOperand[0], iOperand[1], oOperand[0], nullptr, axis);
 }
 
 // Tile func wrapper for registration (asymmetric)
 void QuantizeAsymOperationTileFunc(Function &function, const TileShape &tileShape,
                                    const std::vector<LogicalTensorPtr> &iOperand,
                                    const std::vector<LogicalTensorPtr> &oOperand,
-                                   [[maybe_unused]] const Operation &op) {
+                                   const Operation &op) {
     ASSERT(iOperand.size() == 3) << "Quantize asymmetric operation requires 3 inputs (input, scale, zero_points)";
     ASSERT(oOperand.size() == 1) << "Quantize operation requires 1 output";
-    TiledQuantizeOperation<QuantizeType::INT8_ASYM>(function, tileShape, iOperand[0], iOperand[1], oOperand[0], iOperand[2], -1);
+
+    // Get axis from operation attribute (defaults to -1 if not set)
+    int axis = -1;
+    if (op.HasAttribute(OP_ATTR_PREFIX + "AXIS")) {
+        axis = static_cast<int>(op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS"));
+    }
+
+    TiledQuantizeOperation<QuantizeType::INT8_ASYM>(function, tileShape,
+        iOperand[0], iOperand[1], oOperand[0], iOperand[2], axis);
 }
 
 Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints) {
