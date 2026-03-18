@@ -309,6 +309,11 @@ enum class Opcode {
     OP_COMPARE_SWAP,
     OP_MERGE,
     // End: parallel sort
+    // Begin: permute operation
+    OP_PERMUTE,
+    OP_PERMUTE_COMPUTE_IDX,
+    OP_PERMUTE_GATHER,
+    // End: permute operation
     OP_UNKNOWN
 };
 
