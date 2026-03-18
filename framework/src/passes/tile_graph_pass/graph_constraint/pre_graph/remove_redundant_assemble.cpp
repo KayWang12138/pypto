@@ -143,11 +143,11 @@ bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTens
     return removeAllOnes(inputShape) == removeAllOnes(outputShape);
 }
 
-void RemoveRedundantAssemble::UpdateReshapeShape(Operation &reshapeOp, const Shape &newRawShape) const {
-    reshapeOp.GetOOperands().front()->dynValidShape_ = SymbolicScalar::FromConcrete(newRawShape);
-    reshapeOp.SetAttr(OP_ATTR_PREFIX + "validShape", reshapeOp.GetOOperands().front()->dynValidShape_);
-    reshapeOp.GetOOperands().front()->shape = newRawShape;
-    reshapeOp.GetOOperands().front()->tensor->UpdateRawShape(newRawShape);
+void RemoveRedundantAssemble::UpdateReshapeShape(Operation &reshapeOp, LogicalTensorPtr tensorPtr, const Shape &newRawShape) const {
+    tensorPtr->dynValidShape_ = SymbolicScalar::FromConcrete(newRawShape);
+    reshapeOp.SetAttr(OP_ATTR_PREFIX + "validShape", tensorPtr->dynValidShape_);
+    tensorPtr->shape = newRawShape;
+    tensorPtr->tensor->UpdateRawShape(newRawShape);
 }
 
 Status RemoveRedundantAssemble::ProcessView(Function &function) const {
@@ -219,7 +219,7 @@ Status RemoveRedundantAssemble::RemoveViewSingleReshape(Function &function) cons
             copyAttr->SetFromOffset(newOffset);
             copyAttr->SetRawShape(OpImmediate::Specified(newRawShape));
         }
-        UpdateReshapeShape(reshapeOp, newRawShape);
+        UpdateReshapeShape(reshapeOp, reshapeOp.GetOOperands().front(), newRawShape);
         reshapeOp.ReplaceIOperand(0, viewInput);
         producerOp->SetAsDeleted();
     }
@@ -397,7 +397,7 @@ Copy_Out --> tensor(GM) --> Reshape --> oriBackUp [16, 16] --> Assemble(offset, 
 因此需要: 重新计算Reshape输入的RawShape, offset, dynOffset
 */
 Status HandleDynOffsetForReshape(
-    Operation &assembleOp, const std::set<Operation *, LogicalTensor::CompareOp> &producers) {
+    Operation &assembleOp, const std::set<Operation *, LogicalTensor::CompareOp> &producers) const {
     std::vector<SymbolicScalar> newDynOffset;
     std::vector<int64_t> newRawShape;
     auto opAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(assembleOp.GetOpAttribute());
@@ -440,8 +440,7 @@ Status HandleDynOffsetForReshape(
         copyAttr->SetRawShape(OpImmediate::Specified(newRawShape));
         copyAttr->SetToOffset(newOffset);
     }
-    producer->GetIOperands()[0]->shape = newRawShape;
-    producer->GetIOperands()[0]->tensor->UpdateRawShape(newRawShape);
+    UpdateReshapeShape(*producer, producer->GetIOperands().front(), newRawShape);
     return SUCCESS;
 }
 
