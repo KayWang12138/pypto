@@ -298,7 +298,7 @@ void ScatterInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& o
 REGISTER_INFER_SHAPE_FUNC(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ScatterInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_SCATTER, Opcode::OP_SCATTER, ScatterInferFunc);
 
-void IndexAddInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
+void IndexAddUBInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
     std::vector<SymbolicScalar> outValidShape;
     auto inValidShape = op->GetIOperands()[0]->GetDynValidShape();
@@ -311,7 +311,12 @@ void IndexAddInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& 
         outValidShapes.push_back(outValidShape);
     }
 }
-REGISTER_INFER_SHAPE_FUNC(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, IndexAddInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD_UB, IndexAddUBInferFunc);
+
+void IndexAddInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    outValidShapes.push_back(op->GetIOperands()[0]->GetDynValidShape());
+}
+// REGISTER_INFER_SHAPE_FUNC(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, IndexAddInferFunc);
 
 void LogicalNotInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
