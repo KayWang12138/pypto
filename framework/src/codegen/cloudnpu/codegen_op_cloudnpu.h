@@ -158,7 +158,8 @@ public:
     std::string GenRawShapes(int32_t operandIndex, int32_t dim) const;
     std::string GenExtraParamsStr() const;
     std::string GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const;
-
+    std::string GenDynOffset(int32_t operandIndex, int32_t dim) const;
+    std::string GenDynValidShape(int32_t operandIndex, int32_t dim) const;
     std::string GenAicpuCallOp() const;
 
     std::string GenWhereOp() const;
