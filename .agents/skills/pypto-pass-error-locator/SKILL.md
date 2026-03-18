@@ -1,6 +1,6 @@
 ---
 name: pypto-pass-error-locator
-description: PyPTO Pass 模块错误诊断与修复技能。包含错误定位、原因分析和问题修复功能，提供从问题发现到修复验证的完整工作流程。当遇到 PyPTO Pass 模块抛出错误时使用此技能。
+description: PyPTO Pass 模块错误诊断与修复技能。包含错误定位、原因分析和问题修复功能，提供从问题定位到修复验证的完整工作流程。当遇到 PyPTO Pass 模块抛出错误时使用此技能。
 license: 完整条款见 LICENSE.txt
 ---
 
@@ -31,14 +31,17 @@ license: 完整条款见 LICENSE.txt
    - 可访问 PyPTO 源代码目录
    - 具有日志文件读取权限
 
-2. **依赖技能**
+2. **输入要求**
+   - 用户必须提供复现问题的执行命令
+
+3. **依赖技能**
    - `pypto-environment-setup`：用于检查环境状态
 
 ## 触发机制
 
 当用户输入包含以下关键字时，自动触发此技能：
 
-- **执行xx用例失败，分析并修复pass失败**：定位导致失败的Pass模块及具体原因，并提供修复方案
+- **执行xx失败，从pass侧分析**：定位导致失败的Pass模块及具体原因，并提供修复方案
 - **pass报错**：分析Pass执行过程中的错误信息
 - **定位pass错误**：定位导致失败的Pass模块及具体原因
 - **诊断pass异常**：诊断Pass模块的异常行为
@@ -47,21 +50,9 @@ license: 完整条款见 LICENSE.txt
 
 ### 步骤 1：问题复现
 
-根据用户提供的用例名称或者执行命令，尝试复现用户问题
-- 仅提供了用例名称：参考如下执行示例拼接出正确的执行命令
-- 提供了完整的执行命令：使用用户提供的命令进行复现
-
-**执行示例**：
-
-1. UT执行命令示例
-```bash
-python3 build_ci.py -c -f=cpp -u=NBufferMergeTest.TestNBufferMerge
-```
-
-2. ST执行命令示例
-```bash
-python3 build_ci.py -s=python/tests/st/test_adds_onboard.py::test_adds_onboard
-```
+1. 设置日志输出目录：`export ASCEND_PROCESS_LOG_PATH=$(pwd)/logs `   
+2. 设置日志输出级别：`export ASCEND_GLOBAL_LOG_LEVEL=0 `
+3. 根据用户提供的执行命令，复现用户问题
 
 **验证检查点**：
 - [ ] 问题成功复现
@@ -71,16 +62,10 @@ python3 build_ci.py -s=python/tests/st/test_adds_onboard.py::test_adds_onboard
 ### 步骤 2：获取日志内容
 
 按如下优先级查找日志文件，获取日志内容信息
-
-**日志查找优先级**：
 ```
-1. 从用户指定路径获取日志文件（如有提供）
+1. 从 `$ASCEND_PROCESS_LOG_PATH/` 目录下获取
    ↓
-2. 从 `$ASCEND_PROCESS_LOG_PATH/` 目录获取（如果设置了该环境变量）
-   ↓
-3. 从 `$ASCEND_WORK_PATH/` 目录获取（如果设置且未设置 ASCEND_PROCESS_LOG_PATH）
-   ↓
-4. 从 `$HOME/ascend/log/` 目录获取（默认，上面都没有设置时从默认目录查找）
+2. 从 `$HOME/ascend/log/` 目录下获取（如果上面目录没找到的话）
 ```
 
 **日志文件匹配模式**：
@@ -206,7 +191,7 @@ python3 build_ci.py -s=python/tests/st/test_adds_onboard.py::test_adds_onboard
    - 泛型约束违反
    - 类型不匹配
 
-5. **精度问题**
+9. **精度问题**
    - 无执行异常，但计算结果与预期不符
 
 #### 4.3 分析技巧
@@ -320,15 +305,6 @@ python3 build_ci.py -s=python/tests/st/test_adds_onboard.py::test_adds_onboard
    - 根据用户提供的用例，执行命令验证相关用例
    - 检查运行结果是否符合预期
    - 检查日志中是否还有ERROR级别的日志
-
-2. **测试命令示例**
-```bash
-# UT测试
-python3 build_ci.py -c -f=cpp -u=NBufferMergeTest.TestNBufferMerge
-
-# ST测试
-python3 build_ci.py -s=python/tests/st/test_adds_onboard.py::test_adds_onboard
-```
 
 #### 6.2 回归检查
 
