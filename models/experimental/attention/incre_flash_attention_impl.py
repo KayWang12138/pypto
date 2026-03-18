@@ -623,7 +623,7 @@ def finalize_output(out_ofs, dtype, ctx_params):
     pypto.assemble(oi_final_3d, out_ofs, atten_out)
 
 
-def init_kernel_params(q, k, block_table_shape):
+def init_kernel_params(q, k, block_table):
     """
     Initialize kernel parameters from input tensors.
     
@@ -633,13 +633,14 @@ def init_kernel_params(q, k, block_table_shape):
     Args:
         q: Query tensor
         k: Key cache tensor
-        block_table_shape: Shape of the block table
+        block_table: Block table
     
     Returns:
         IFAKernelParams: Initialized kernel parameters
     """
     bs, n1, d = q.shape
     block_num, n2, block_size, _ = k.shape
+    block_table_shape = block_table.shape
     b = block_table_shape[0]
     s1 = bs // b
     group = n1 // n2
@@ -682,74 +683,50 @@ def reshape_qkv_to_2d(q, k, v, kernel_params):
     return q_2d, k_2d, v_2d
 
 
-def ifa_func(q_shape, kv_shape, block_table_shape):
-    """
-    Create the IFA (Incremental Flash Attention) kernel function.
-    
-    This function defines and returns a JIT-compiled kernel that performs
-    incremental flash attention using PyPTO.
-    
-    Args:
-        q_shape: Shape of query tensor
-        kv_shape: Shape of KV cache tensors
-        block_table_shape: Shape of block table
-    
-    Returns:
-        function: JIT-compiled IFA kernel function
-    """
-    out_shape = q_shape
+@pypto.frontend.jit(
+    runtime_options={
+        "stitch_function_max_num": 128,
+    },
+    pass_options={
+        "cube_l1_reuse_setting": {0: 8}
+    },
+    debug_options={"runtime_debug_mode": 1}
+)
+def ifa_func_kernel(
+    q: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
+    k: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
+    v: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
+    block_table: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_INT32),
+    kv_act_seqs: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT32),
+    atten_out: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16)
+):
+    # Step 1: Initialize kernel parameters
+    dtype = q.dtype
+    kernel_params = init_kernel_params(q, k, block_table)
 
-    # Mark dimensions as dynamic for flexible input sizes
-    q_shape = (pypto.frontend.dynamic("qshape"), q_shape[1], q_shape[2])
-    kv_shape = (pypto.frontend.dynamic("kvshape"), kv_shape[1], kv_shape[2], kv_shape[3])
-    bs = pypto.frontend.dynamic("bs")
-    b = block_table_shape[0]
+    # Step 2: Get tile configuration
+    tile_cfg = get_ifa_tile_cfg()
 
-    @pypto.frontend.jit(
-        runtime_options={
-            "stitch_function_max_num": 128,
-        },
-        pass_options={
-            "cube_l1_reuse_setting": {0: 8}
-        },
-        debug_options={"runtime_debug_mode": 1}
+    # Step 3: Reshape Q, K, V to 2D
+    q_2d, k_2d, v_2d = reshape_qkv_to_2d(q, k, v, kernel_params)
+    loop_tensors = LoopTensor(q_2d, k_2d, v_2d, block_table, kv_act_seqs, atten_out)
+
+    # Calculate number of groups to iterate
+    group_loop = kernel_params.group // tile_cfg.g_tile
+    loop_size = LoopSize(group_loop=group_loop)
+
+    # Create context parameters
+    ctx_params = ContextParams(
+        kernel_params=kernel_params, tile_cfg=tile_cfg, loop_tensors=loop_tensors,
+        loop_size=loop_size
     )
-    def ifa_func_kernel(
-        q: pypto.Tensor(q_shape, pypto.DT_BF16),
-        k: pypto.Tensor(kv_shape, pypto.DT_BF16),
-        v: pypto.Tensor(kv_shape, pypto.DT_BF16),
-        block_table: pypto.Tensor(block_table_shape, pypto.DT_INT32),
-        kv_act_seqs: pypto.Tensor((b, ), pypto.DT_INT32),
-        atten_out: pypto.Tensor(out_shape, pypto.DT_BF16)
-    ):
-        # Step 1: Initialize kernel parameters
-        dtype = q.dtype
-        kernel_params = init_kernel_params(q, k, block_table_shape)
 
-        # Step 2: Get tile configuration
-        tile_cfg = get_ifa_tile_cfg()
-
-        # Step 3: Reshape Q, K, V to 2D
-        q_2d, k_2d, v_2d = reshape_qkv_to_2d(q, k, v, kernel_params)
-        loop_tensors = LoopTensor(q_2d, k_2d, v_2d, block_table, kv_act_seqs, atten_out)
-
-        # Calculate number of groups to iterate
-        group_loop = kernel_params.group // tile_cfg.g_tile
-        loop_size = LoopSize(group_loop=group_loop)
-
-        # Create context parameters
-        ctx_params = ContextParams(
-            kernel_params=kernel_params, tile_cfg=tile_cfg, loop_tensors=loop_tensors,
-            loop_size=loop_size
-        )
-
-        # Step 4: Implement kernel logic with nested loops
-        # Loop over batch dimension
-        for b_idx in pypto.loop(kernel_params.b, name="LOOP_b", idx_name="b_idx"):
-            loop_index = LoopIndex(b_idx=b_idx)
-            ctx_params = replace(ctx_params, loop_index=loop_index)
-            compute_loop_b(dtype, ctx_params)
-    return ifa_func_kernel
+    # Step 4: Implement kernel logic with nested loops
+    # Loop over batch dimension
+    for b_idx in pypto.loop(kernel_params.b, name="LOOP_b", idx_name="b_idx"):
+        loop_index = LoopIndex(b_idx=b_idx)
+        ctx_params = replace(ctx_params, loop_index=loop_index)
+        compute_loop_b(dtype, ctx_params)
 
 
 @allow_in_graph
@@ -761,7 +738,6 @@ def incre_flash_attention(
     block_table: torch.Tensor,
 ):
     atten_out = torch.zeros_like(query)
-    input_shapes = [query.shape, key.shape, block_table.shape]
-    input_values = [query, key, value, block_table, actual_seq_lengths, atten_out]
-    ifa_func(*input_shapes)(*input_values)
+    inputs = [query, key, value, block_table, actual_seq_lengths, atten_out]
+    ifa_func_kernel(*inputs)
     return atten_out
