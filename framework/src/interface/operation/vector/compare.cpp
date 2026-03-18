@@ -59,8 +59,7 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
         auto tmp_tensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmp_shape);
 
         auto &op = function.AddOperation(Opcode::OP_CMP, {convertedTile1, convertedTile2}, {resultTile, tmp_tensor});
-        std::vector<bool> dimMap(dimSize, false);
-        dimMap = {true, false};
+        std::vector<bool> dimMap({true, true});
         op.SetAttribute(OP_ATTR_PREFIX + "RowPad", dimMap);
 
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", static_cast<int64_t>(operation));
@@ -197,9 +196,7 @@ LogicalTensorPtr TensorCompareOperationScalar(
     }
     auto result = std::make_shared<LogicalTensor>(function, resultType, resultShape, resultValidShape);
     auto &op = function.AddOperation(Opcode::OP_CMPS, {operandT1}, {result});
-    size_t dimSize = result->shape.size();
-    std::vector<bool> dimMap(dimSize, false);
-    dimMap = {true};
+    std::vector<bool> dimMap({true});
     op.SetAttribute(OP_ATTR_PREFIX + "RowPad", dimMap);
     
     op.SetAttribute(OpAttributeKey::scalar, value);
