@@ -9,21 +9,26 @@
 
 ## 功能说明
 
-设置runtime的选项。
+**已废弃**：runtime_options 不支持全局配置，只能在 JIT 装饰器内通过 `runtime_options` 参数配置生效。
+
+请使用 `@pypto.frontend.jit(runtime_options={...})` 或 `@pypto.jit(runtime_options={...})` 来配置 runtime 选项。
 
 ## 函数原型
 
 ```python
-set_runtime_options(*,
-                    device_sched_mode : int = None,
-                    stitch_function_max_num : int = None,
-                    run_mode : int = None,
-                    valid_shape_optimize : int = None,
-                    ) -> None
+@pypto.frontend.jit(
+    runtime_options={
+        "device_sched_mode": 1,
+        "stitch_function_max_num": 128,
+        "run_mode": 0,
+        "valid_shape_optimize": 1
+    }
+)
+def kernel(...):
+    ...
 ```
 
 ## 参数说明
-
 
 | 参数名                         | 输入/输出 | 说明                                                         |
 | ------------------------------ | --------- | ------------------------------------------------------------ |
@@ -35,27 +40,25 @@ set_runtime_options(*,
 
 ## 返回值说明
 
-void：Set方法无返回值。设置操作成功即生效。
+无。
 
 ## 约束说明
 
-无。
+runtime_options 必须在 JIT 装饰器内配置，不支持全局配置。
 
 ## 调用示例
 
 ```python
-pypto.set_runtime_options(device_sched_mode=1,
-                          stitch_function_inner_memory=128,
-                          stitch_function_outcast_memory=128,
-                          stitch_function_num_initial=128,
-                          stitch_function_num_step=20)
 @pypto.frontend.jit(
-        runtime_options={
+    runtime_options={
+        "device_sched_mode": 1,
         "stitch_function_inner_memory": 128,
         "stitch_function_outcast_memory": 128,
         "stitch_function_num_initial": 128,
-        "device_sched_mode": 1
-        }
+        "stitch_function_num_step": 20
+    }
 )
+def kernel(a: pypto.Tensor((8,), pypto.DT_FP32)):
+    return pypto.add(a, a)
 ```
 
