@@ -414,47 +414,6 @@ Tensor NewCompact(const Tensor &operand)
     return result;
 }
 
-void TiledLoad(Function &function, const TileShape &tileShape, size_t cur, TileInfo &tileInfo,
-    const LogicalTensorPtr &src, const LogicalTensorPtr &offsets, const LogicalTensorPtr &output) {
-    if (cur == offsets->GetShape().size()) {
-        auto offsetsTile = offsets->View(function, tileInfo.shape, tileInfo.offset);
-        auto outputTile = output->View(function, tileInfo.shape, tileInfo.offset);
-        function.AddOperation(Opcode::OP_LOAD, {src, offsetsTile}, {outputTile});
-        return;
-    }
-    const auto &vecTile = tileShape.GetVecTile();
-    for (int i = 0; i < offsets->GetShape()[cur]; i += vecTile[cur]) {
-        tileInfo.shape[cur] = std::min(offsets->GetShape()[cur] - i, vecTile[cur]);
-        tileInfo.offset[cur] = i;
-        TiledLoad(function, tileShape, cur + 1, tileInfo, src, offsets, output);
-    }
-}
-
-void TiledLoad(Function &function, const TileShape &tileShape, const LogicalTensorPtr &src,
-    const LogicalTensorPtr &offsets, const LogicalTensorPtr &output) {
-    CHECK_OP(offsets->GetShape() == output->GetShape());
-    CHECK_OP(src->Datatype() == output->Datatype());
-    TileInfo tileInfo(offsets->GetShape().size(), offsets->GetOffset().size());
-    TiledLoad(function, tileShape, 0, tileInfo, src, offsets, output);
-}
-
-void TensorLoad(
-    Function &function, const LogicalTensorPtr &src, const LogicalTensorPtr &offsets, const LogicalTensorPtr &output) {
-    CHECK_OP(offsets->GetShape() == output->GetShape());
-    CHECK_OP(src->Datatype() == output->Datatype());
-    function.AddOperation(Opcode::OP_LOAD, {src, offsets}, {output});
-}
-
-Tensor Load(const Tensor &src, const Tensor &offsets) {
-    Tensor result(src.GetDataType(), offsets.GetShape());
-    if (!offsets.GetStorage()->GetDynValidShape().empty()) {
-        result.GetStorage()->UpdateDynValidShape(offsets.GetStorage()->GetDynValidShape());
-    }
-    CALL(Load, *Program::GetInstance().GetCurrentFunction(), src.GetStorage(), offsets.GetStorage(),
-        result.GetStorage());
-    return result;
-}
-
 /* Begin: Start for Reduce*/
 
 Tensor Reduce(const std::vector<Tensor> &aggregation, const ReduceMode reduceMode) {
@@ -1478,10 +1437,6 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
         case Opcode::OP_GATHER_IN_UB: {
             int blocksize = op.GetIntAttribute(OpAttributeKey::blockSize);
             TiledGatherInUB(function, tileShape, iOperand[0], iOperand[1], iOperand[2], oOperand[0], blocksize);
-            break;
-        }
-        case Opcode::OP_LOAD: {
-            TiledLoad(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
             break;
         }
         case Opcode::OP_REGISTER_COPY: {
