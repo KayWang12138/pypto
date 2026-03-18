@@ -221,6 +221,12 @@ void TiledShmemPut(
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+        tileOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+            MemoryType::MEM_DEVICE_DDR,
+            OpImmediate::Specified(nonShmemDataTileOffset),
+            OpImmediate::Specified(nonShmemDataTileShape),
+            OpImmediate::Specified(in->shape),
+            OpImmediate::Specified(inTile->dynValidShape_)));
     });
 }
 
@@ -254,6 +260,13 @@ void TiledShmemPutUB2GM(
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+        tileOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+            MemoryType::MEM_UB,
+            OpImmediate::Specified(inTile->offset),
+            OpImmediate::Specified(inTile->shape),
+            OpImmediate::Specified(in->shape),
+            OpImmediate::Specified(inTile->dynValidShape_)
+        ));
     });
 }
 
@@ -358,6 +371,12 @@ void TiledShmemGet(
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+        tileOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+            MemoryType::MEM_DEVICE_DDR,
+            OpImmediate::Specified(nonShmemDataTileOffset),
+            OpImmediate::Specified(nonShmemDataTileShape),
+            OpImmediate::Specified(out->shape),
+            OpImmediate::Specified(shmemDataTile->dynValidShape_)));
     });
 }
 
@@ -398,9 +417,10 @@ void TiledShmemGetGM2UB(
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
         tileOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            OpImmediate::Specified(Shape(outUb->shape.size(), 0)), MEM_UB, OpImmediate::Specified(shmemDataTile->shape),
-            OpImmediate::Specified(outUb->shape), OpImmediate::Specified(shmemDataTile->dynValidShape_)));
-    });
+            OpImmediate::Specified(nonShmemDataTileOffset), MEM_UB,
+            OpImmediate::Specified(shmemDataTile->shape),
+            OpImmediate::Specified(outUb->shape),
+            OpImmediate::Specified(shmemDataTile->dynValidShape_))));
 }
 
 void TiledShmemSet(
