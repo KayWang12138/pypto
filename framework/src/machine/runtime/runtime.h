@@ -108,7 +108,7 @@ inline int32_t GetLogDeviceId() {
     int32_t userDeviceId = GetUserDeviceId();
     ASSERT(rtGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_ERROR_NONE) << "Trans usrDeviceId: " <<
            userDeviceId << " to logDevId not success";
-    MACHINE_LOGD("Current userDeviceId is %d, logic Deviceid is %d", userDeviceId, logicDeviceId);
+    MACHINE_LOGD("Current userDeviceId=%d, logicDeviceId=%d", userDeviceId, logicDeviceId);
     return logicDeviceId;
 }
 
@@ -143,7 +143,7 @@ public:
 
     static void CopyToDev(uint8_t *devDstAddr, uint8_t *hostSrcAddr, uint64_t size) {
         rtMemcpy(devDstAddr, size, hostSrcAddr, size, RT_MEMCPY_HOST_TO_DEVICE);
-        MACHINE_LOGD("RuntimeAgent::CopyToDev for src %lx to dst %lx with size %lu", reinterpret_cast<uint64_t>(hostSrcAddr),
+        MACHINE_LOGD("RuntimeAgent::CopyToDev src=%#lx, dst=%#lx, size=%lu", reinterpret_cast<uint64_t>(hostSrcAddr),
             reinterpret_cast<uint64_t>(devDstAddr), size);
     }
 
@@ -223,7 +223,7 @@ public:
         uint64_t offset = 0;
         int32_t userDeviceId = GetUserDeviceId();
         rtGetL2CacheOffset(userDeviceId, &offset);
-        MACHINE_LOGD("rtGetL2CacheOffset %lu", offset);
+        MACHINE_LOGD("rtGetL2CacheOffset=%lu", offset);
         return offset;
     }
 

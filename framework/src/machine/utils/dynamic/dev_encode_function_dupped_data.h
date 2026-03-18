@@ -85,7 +85,7 @@ struct DevAscendFunctionDuppedData {
         int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
         DEV_IF_NONDEVICE {
             if (!maybeNull && outcastStitchIndex == 0) {
-                DEV_ERROR("GetOperationStitch: operation %d has invalid outcast stitch index 0", operationIndex);
+                DEV_ERROR("GetOperationStitch: operationIndex=%d has invalid outcast stitch index 0", operationIndex);
             }
             DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
         }
@@ -95,7 +95,7 @@ struct DevAscendFunctionDuppedData {
         int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
         DEV_IF_NONDEVICE {
             if (!maybeNull && outcastStitchIndex == 0) {
-                DEV_ERROR("GetOperationStitch: operation %d has invalid outcast stitch index 0", operationIndex);
+                DEV_ERROR("GetOperationStitch: operationIndex=%d has invalid outcast stitch index 0", operationIndex);
             }
             DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
         }

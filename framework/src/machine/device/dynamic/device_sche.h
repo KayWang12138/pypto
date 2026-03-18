@@ -67,7 +67,7 @@ public:
     int RunThread(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *args, int schedIdx) {
         int ret = 0;
         if (args->nrAic == 0 || args->nrValidAic == 0 || args->nrAicpu < args->scheCpuNum) {
-            DEV_ERROR("Device machinr run invalid args aicnum:%u, blockdim:%u, launchAicpu num:%u, launchScheAicpu num:%u",
+            DEV_ERROR("Device machine run invalid args: aicNum=%u, blockdim=%u, launchAicpuNum=%u, launchScheAicpuNum=%u",
                 args->nrAic, args->nrValidAic, args->nrAicpu, args->scheCpuNum);
             return DEVICE_MACHINE_ERROR;
         }
@@ -80,7 +80,7 @@ public:
         aicoreManager_[schedIdx]->InitLogger(logManager.logger);
 #endif
         ret = aicoreManager_[schedIdx]->RunManager(threadIdx, devStartArgs, args, schedIdx);
-        DEV_INFO("thread  %d end , ret = %d", threadIdx, ret);
+        DEV_INFO("threadIdx=%d end, ret=%d", threadIdx, ret);
         return ret;
     }
 
@@ -178,13 +178,13 @@ struct DynMachineManager {
         uint64_t start = GetCycles();
         while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
             if (GetCycles() - start > TIMEOUT_CYCLES) {
-                DEV_ERROR("ThreadIdx %d, physical cpu %d alloc timeout.", curThreadIdx, cpu);
+                DEV_ERROR("Thread alloc timeout: threadIdx=%d, physicalCpu=%d.", curThreadIdx, cpu);
                 return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
             }
             sched_yield();
         }
 
-        DEV_INFO("Physical cpu %d alloc threadIdx %d success.", cpu, curThreadIdx);
+        DEV_INFO("Thread alloc success: physicalCpu=%d, threadIdx=%d.", cpu, curThreadIdx);
         threadIdx = curThreadIdx;
         return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
     }
@@ -270,10 +270,10 @@ struct DynMachineManager {
         DeviceArgs *devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
         DEV_INFO("ThreadScheEnter idx=%d", threadIdx);
 
-        DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",
+        DEV_INFO("TaskType=%d, threadIdx=%d, aicNum=%u, aivNum=%u, aicpuNum=%u, validAicNum=%u.",
             static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic,
             devArgs->nrAiv, devArgs->nrAicpu, devArgs->nrValidAic);
-        DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,
+        DEV_INFO("devQueueAddr=%#lx, sharedBuffer=%#lx, coreRegAddr=%#lx, corePmuAdr=%#lx.", devArgs->devQueueAddr,
             devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
         DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
 
@@ -311,7 +311,7 @@ struct DynMachineManager {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         DeviceArgs *devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
         if (devArgs->scheCpuNum > devArgs->nrAicpu - 1) {
-            DEV_ERROR("Aicpu num[%u] less than sche num[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
+            DEV_ERROR("Aicpu num[%u] less than scheNum[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
         int threadIdx = -1;
@@ -326,7 +326,7 @@ struct DynMachineManager {
             ret = RunSche(kargs, entry, threadIdx);
         } else {
             threadIdx = ctrlcpuIdx_.fetch_add(1);
-            DEV_INFO("TaskType %d.",  static_cast<int>(devArgs->taskType));
+            DEV_INFO("TaskType=%d.",  static_cast<int>(devArgs->taskType));
             if (devArgs->enableCtrl == 1 && threadIdx == CTRL_CPU_THREAD_IDX) {
                 ret = RunCtrl(kargs, entry, threadIdx);
             } else {
