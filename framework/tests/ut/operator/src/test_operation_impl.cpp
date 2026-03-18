@@ -1341,3 +1341,21 @@ TEST_F(OperationImplTest, test_Pad_2D) {
         result = Pad(input, {0, 12, 0, 12}, "constant", 0.0f);
     }
 }
+
+TEST_F(OperationImplTest, test_FillPad_1D) {
+    TileShape::Current().SetVecTile(8);
+    Tensor input(DT_FP32, {10}, "input");
+    Tensor result;
+    FUNCTION("TestFillPad1D") {
+        result = FillPad(input, "constant", 0.0f);
+    }
+}
+
+TEST_F(OperationImplTest, test_FillPad_2D) {
+    TileShape::Current().SetVecTile(4, 4);
+    Tensor input(DT_FP32, {6, 6}, "input");
+    Tensor result;
+    FUNCTION("TestFillPad2D") {
+        result = FillPad(input, "constant", 0.0f);
+    }
+}
