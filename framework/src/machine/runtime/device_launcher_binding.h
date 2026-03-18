@@ -68,6 +68,7 @@ struct DeviceLauncherConfig {
     std::vector<uint64_t> hcclContext;
     bool controlFlowCache{false};
     bool cpuSeparate{false};
+    bool isTripleStream{true};
     uint64_t workspaceAddr{0};
     bool isCacheOriginShape{true}; // infer cache shape or origin shape
 
