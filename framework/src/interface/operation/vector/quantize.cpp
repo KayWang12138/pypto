@@ -262,7 +262,6 @@ void TiledQuantizeOperation(Function &function, const TileShape &tileShape, size
         TiledQuantizeOperation<quantType>(function, tileShape, cur + 1, input, scale, result, zeroPoints, axis);
     }
 }
-}
 
 // Wrapper function for tiled operation
 template <QuantizeType quantType>
