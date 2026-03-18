@@ -65,6 +65,7 @@ class JITFunction(Generic[P, T]):
         logger.info("Kwds %s", kwds)
         logger.info("Options %s", self.options)
         Context.dynamic = self.options.dynamic
+        pypto.set_vec_tile_shapes(8) # NOTE: Need for load store
         with pypto.function(self.fn.__name__, *in_out_tensors):
             loop_range = None
             if self.options.dynamic:
