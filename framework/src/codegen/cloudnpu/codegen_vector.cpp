@@ -904,6 +904,30 @@ std::string CodeGenOpCloudNPU::GenIndexAddUBOp() const {
     return PrintIndexAddUBDynamicUnaligned({axis, dstVar, srcVar, indicesVar, dstRawShape, srcRawShape, dataTypeExpr});
 }
 
+std::string CodeGenOpCloudNPU::GenIndexAddOp() const {
+    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
+    ASSERT(isSupportLayout) << "IndexAdd operator only support TileTensor";
+    int axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
+    axis += SHAPE_DIM5 - rawShape[ID0].size();
+    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
+    std::string tmpTensor = QueryTileTensorNameByIdx(ID1);
+    std::string src0Tensor = QueryTileTensorNameByIdx(ID2);
+    std::string src1Tensor = QueryTileTensorNameByIdx(ID3);
+    std::string idxTensor = QueryTileTensorNameByIdx(ID4);
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(ID0);
+    std::string coord = PrintCoord(rawShape[ID0].size(), WrapParamByParentheses(gmOffsetExpr));
+
+    std::vector<std::string> templateParamList{std::to_string(axis)};
+    std::vector<std::string> tileOpParamList = {dstTensor, src0Tensor, src1Tensor, idxTensor, tmpTensor, coord};
+    const Element &alpha = extOperandVal;
+    std::string scalarTmpBuffer = FormatFloat(alpha.Cast<float>());
+    tileOpParamList.emplace_back("(" + DataType2CCEStr(alpha.GetDataType()) + ")" + scalarTmpBuffer);
+    std::ostringstream oss;
+    oss << tileOpName << WrapParamByAngleBrackets(templateParamList) << WrapParamByParentheses(tileOpParamList)
+        << STMT_END;
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const {
     // support 2-4 dims
     const std::string &dstVar = param.dVar;

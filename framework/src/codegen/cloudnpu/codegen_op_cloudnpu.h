@@ -114,6 +114,7 @@ public:
     std::string GenScatterOp() const;
 
     std::string GenIndexAddUBOp() const;
+    std::string GenIndexAddOp() const;
 
     std::string GenIndexPutOp() const;
 
