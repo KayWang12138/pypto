@@ -257,8 +257,11 @@ void TiledQuantizeOperation(Function &function, const TileShape &tileShape, size
     for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
         input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
+        scale.tileInfo.shape[cur] = (scale.tensor.GetShape()[cur] == 1) ? 1 : std::min(scale.tensor.GetShape()[cur] - i, vecTile[cur]);
+        scale.tileInfo.offset[cur] = (scale.tensor.GetShape()[cur] == 1) ? 0 : i;
         TiledQuantizeOperation<quantType>(function, tileShape, cur + 1, input, scale, result, zeroPoints, axis);
     }
+}
 }
 
 // Wrapper function for tiled operation
