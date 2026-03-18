@@ -1316,7 +1316,7 @@ void GatherMask(const TensorData &out, const TensorData &self, int patternMode) 
     ToOperand(ret.second, ret.first, out.dtype);
 }
 
-void IndexAdd(const TensorData &out, const TensorData &self, const TensorData &src, const TensorData &indices, int axis, const Element &alpha) {
+void IndexAddUB(const TensorData &out, const TensorData &self, const TensorData &src, const TensorData &indices, int axis, const Element &alpha) {
     auto tout = From(out);
     auto inputSelf = From(self);
     auto inputSrc = From(src);
@@ -2119,7 +2119,7 @@ static struct CalcOps calcOps = {
     .Expand = Expand,
     .GatherElements = GatherElements,
     .GatherMask = GatherMask,
-    .IndexAdd = IndexAdd,
+    .IndexAddUB = IndexAddUB,
     .TriU = TriU,
     .TriL = TriL,
     .CumSum = CumSum,
