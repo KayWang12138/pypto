@@ -140,7 +140,6 @@ TEST_F(TestCodegenDynRange, RangeTileTensor) {
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
 
-    cop.UpdateTileTensorInfo();
     cop.GenOpCode();
 }
 } // namespace npu::tile_fwk
