@@ -153,11 +153,11 @@ public:
     std::string GetTemplateDType() const;
     std::string GenTemplateParams() const;
     std::string GenExtraTemplateParamsForMoeDistributedCombine(int32_t operandIndex) const;
-    std::string GenOffsets(int32_t operandIndex, int32_t dim) const;
-    std::string GenShapes(int32_t operandIndex, int32_t dim) const;
-    std::string GenRawShapes(int32_t operandIndex, int32_t dim) const;
+    std::string GenOffsets(int32_t operandIndex) const;
+    std::string GenShapes(int32_t operandIndex) const;
+    std::string GenRawShapes(int32_t operandIndex) const;
     std::string GenExtraParamsStr() const;
-    std::string GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const;
+    std::string GenOffsetsAndRawShapes(int32_t operandIndex) const;
 
     std::string GenAicpuCallOp() const;
 
