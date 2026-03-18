@@ -1372,12 +1372,13 @@ TEST_F(TestPadLocalBuffer, padCmpInputTo256){
     EXPECT_EQ(graphBuilder.AddOp(Opcode::OP_ADD, {"t6", "t5"}, {"t7"}, "add1", true), true);
     EXPECT_EQ(graphBuilder.AddTensor(DataType::DT_FP32, {3, 7}, MemoryType::MEM_DEVICE_DDR, "out1"), true);
     EXPECT_EQ(graphBuilder.AddOp(Opcode::OP_COPY_OUT, {"t7"}, {"out1"}, "copyout2", true), true);
-
+    std::vector<bool> dimMap({true, false});
+ 	graphBuilder.GetOp("cmp1")->SetAttr(OpAttributeKey::rowPad, dimMap);
     auto *functionPtr = graphBuilder.GetFunction();
     PadLocalBuffer padLocalBufferTest;
-    functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padCmpInputTo256_brfore.json");
+    // functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padCmpInputTo256_brfore.json");
     EXPECT_EQ(padLocalBufferTest.RunOnFunction(*functionPtr), SUCCESS);
-    functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padCmpInputTo256_after.json");
+    // functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padCmpInputTo256_after.json");
 }
 
 TEST_F(TestPadLocalBuffer, padPreluInputTo256){
@@ -1400,15 +1401,11 @@ TEST_F(TestPadLocalBuffer, padPreluInputTo256){
     EXPECT_EQ(graphBuilder.AddOp(Opcode::OP_ADD, {"t6", "t5"}, {"t7"}, "add1", true), true);
     EXPECT_EQ(graphBuilder.AddTensor(DataType::DT_FP32, {3, 7}, MemoryType::MEM_DEVICE_DDR, "out1"), true);
     EXPECT_EQ(graphBuilder.AddOp(Opcode::OP_COPY_OUT, {"t7"}, {"out1"}, "copyout2", true), true);
-    // std::vector<char> dimMap(2, 0);
- 	// dimMap = {1, 0};
-    // graphBuilder.GetOp("prelu1")->SetAttribute(OP_ATTR_PREFIX + "RowPad", dimMap);
-    // std::vector<bool> inputRowPad;
-    // graphBuilder.GetOp("prelu1")->GetAttr(OP_ATTR_PREFIX + "RowPad", inputRowPad);
-    // std::cout << "inputRowPad----" << inputRowPad.size() << std::endl;
+    std::vector<bool> dimMap({true, false});
+ 	graphBuilder.GetOp("prelu1")->SetAttr(OpAttributeKey::rowPad, dimMap);
     auto *functionPtr = graphBuilder.GetFunction();
     PadLocalBuffer padLocalBufferTest;
-    functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padPreluInputTo256_brfore2.json");
+    // functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padPreluInputTo256_brfore.json");
     EXPECT_EQ(padLocalBufferTest.RunOnFunction(*functionPtr), SUCCESS);
-    functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padPreluInputTo256_after2.json");
+    // functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padPreluInputTo256_after.json");
 }
