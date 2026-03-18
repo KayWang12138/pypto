@@ -20,6 +20,11 @@
 #include "utils/tile_tensor.h"
 #include "binary.h"
 
+#define EXTRACT_LAST_USE_3DIM(LastUse)                                           \
+    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;       \
+    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;       \
+    constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
+
 #define BINARY_EXPAND_DISPATCH(PREFIX)                                                  \
     if constexpr (op == BinaryOp::ADD) {                                                \
         PTO_WITH_LAST_USE(pto::T##PREFIX##ADD(dst, src0, src1), n1, n2, n3); return;    \

@@ -20,11 +20,6 @@
 #include "utils/tile_tensor.h"
 #include "binary_scalar.h"
 #include "binary_brcinline.h"
-
-#define EXTRACT_LAST_USE_3DIM(LastUse)                                           \
-    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;       \
-    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;       \
-    constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
 struct BinaryLayoutInfo {
     size_t shape0, shape1, shape2, shape3, shape4;
     size_t dstStride0, dstStride1, dstStride2, dstStride3;
@@ -74,7 +69,9 @@ struct TensorTileInfo {
 
 template <BinaryOp op, TileOp::BroadcastOperand tailBrcSide, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
-    EXTRACT_LAST_USE_3DIM(LastUse);
+    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
+    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
+    constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
     if constexpr (op == BinaryOp::ADD) {
         PTO_WITH_LAST_USE(pto::TADD(dst, src0, src1), n1, n2, n3);
         return;
@@ -154,7 +151,6 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
 template <BinaryOp op, TileOp::BroadcastOperand tailBrcSide, TileOp::PenuBroadcastOperand penuBrcSide, 
           typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryBrcDispatch(T0 dst, T1 src0, T2 src1) {
-    EXTRACT_LAST_USE_3DIM(LastUse)
     if constexpr (tailBrcSide != TileOp::BroadcastOperand::None && penuBrcSide == TileOp::PenuBroadcastOperand::None) {
         BinaryRowExpandComputeImpl<op, LastUse>(dst, src0, src1);
     } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::None && penuBrcSide != TileOp::PenuBroadcastOperand::Non) {
