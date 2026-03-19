@@ -211,7 +211,33 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
     inline void ExecuteTask(DeviceTaskCtrl *taskCtrl) {
         ProcessTask(taskCtrl);
         ProcessTaskLoop(taskCtrl);
-        SyncTaskFinish();
+        WaitAllAicoreFinish();
+    }
+
+
+    inline bool checkCoreFinished(const int coreIdx)
+    {
+        uint64_t finTaskVal = aicoreHal_.GetFinishedTask(coreIdx);
+        uint32_t regLFinTaskState = REG_LOW_TASK_STATE(finTaskVal);
+        if (regLFinTaskState == TASK_FIN_STATE) return true;
+        return false;
+    }
+
+    inline int WaitAllAicoreFinish()
+    {
+        for (auto i = aicStart_; i < aicEnd_; i++) {
+            while (checkCoreFinished(i) == false) { /* busy wait */}
+            NormalStopSingleCore(i);
+        }
+
+        for (auto i = aivStart_; i < aivEnd_; i++) {
+            while (checkCoreFinished(i) == false) { /* busy wait */}
+            NormalStopSingleCore(i);
+        }
+
+        __sync_synchronize();
+
+        return 0;
     }
 
     inline void ProcessTask(DeviceTaskCtrl *taskCtrl) {
@@ -270,9 +296,6 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
         while (true) {
             taskCtrl = preFetchSuccess_ ? preFetchNextDevTaskCtrl_ : taskQueue_->Dequeue();
             if (taskCtrl == nullptr) {
-                if (!isSendStop) {
-                    SyncTaskFinish(true);
-                }
                 break;
             }
             RunTask(taskCtrl);
@@ -282,174 +305,24 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
 
 private:
 
-    inline bool CheckStopTaskCanBeSent(int coreIdx) {
-        if (pendingIds_[coreIdx] == AICORE_TASK_INIT && runningIds_[coreIdx] == AICORE_TASK_INIT) {
-            return true;
-        }
-
-        uint64_t finTaskVal = aicoreHal_.GetFinishedTask(coreIdx);
-        uint32_t regLFinTaskId = REG_LOW_TASK_ID(finTaskVal);
-        uint32_t regLFinTaskState = REG_LOW_TASK_STATE(finTaskVal);
-        bool bMatch = false;
-
-        int type =static_cast<int>(AicoreType(coreIdx));
-        if (likely(regLFinTaskState == TASK_FIN_STATE)) {
-            if (pendingIds_[coreIdx] == regLFinTaskId) {
-                bMatch = true;
-                context_->runReadyCoreIdx_[type][context_->coreRunReadyCnt_[type]++] = coreIdx;
-                context_->corePendReadyCnt_[type]++;
-            } else if (runningIds_[coreIdx] == regLFinTaskId && pendingIds_[coreIdx] == AICORE_TASK_INIT) {
-                bMatch = true;
-                context_->runReadyCoreIdx_[type][context_->coreRunReadyCnt_[type]++] = coreIdx;
-            }
-        } else if (regLFinTaskState == TASK_ACK_STATE && pendingIds_[coreIdx] == regLFinTaskId) {
-           // The core stop task can be sent once the last task ACK is received, without waiting for finish rsp.
-           // The execution of the final task and the sending of the final core stop task can be parallelized.
-            bMatch = true;
-            context_->runReadyCoreIdx_[type][context_->coreRunReadyCnt_[type]++] = coreIdx;
-            context_->corePendReadyCnt_[type]++;
-        }
-
-        if (bMatch) {
-            pendingIds_[coreIdx] = AICORE_TASK_INIT;
-            pendingResolveIndexList_[coreIdx] = 0;
-            runningIds_[coreIdx] = AICORE_TASK_INIT;
-            runningResolveIndexList_[coreIdx] = 0;
-            return true;
-        }
-
-        return false;
-    }
-
     inline bool PreFetchNextDevTask() {
         preFetchNextDevTaskCtrl_ = nullptr;
         preFetchSuccess_ = taskQueue_->TryDequeue(preFetchNextDevTaskCtrl_);
         return preFetchSuccess_;
     }
 
-    inline void SendPreFetchNextDevTaskDataToCore(int coreIdx) {
-        if (preFetchNextDevTaskCtrl_ == nullptr) {
-            return;
-        }
-
-        int64_t funcdata;
-        auto dyntask = reinterpret_cast<DynDeviceTask *>(preFetchNextDevTaskCtrl_->devTask);
-        funcdata = static_cast<int64_t>(PtrToValue(dyntask->GetDynFuncDataList()));
-        aicoreHal_.InitTaskData(coreIdx, funcdata, (uint64_t)nullptr);
-        return;
+    inline void NormalStopSingleCore(int coreIdx) {
+        aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1);
+        aicoreHal_.ResetShakeBuf(coreIdx);
     }
+	
+	
 
     enum class AicoreStatus {
         CORE_TASK_WAIT_FINISH = 0,
         CORE_SEND_STOP,
         CORE_FINISH_STOP,
     };
-
-    void SendStopToCore(int coreIdx, bool isLastDevTask, AicoreStatus *coreStatus, int &finishStopNum) {
-        if (isLastDevTask) {
-            NormalStopSingleCore(coreIdx);
-            coreStatus[coreIdx] = AicoreStatus::CORE_FINISH_STOP;
-            finishStopNum++;
-        } else {
-            uint64_t stopFlag = (static_cast<uint64_t>(curTaskId_) << REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP + 1);
-            aicoreHal_.SetReadyQueue(coreIdx, stopFlag);
-            coreStatus[coreIdx] = AicoreStatus::CORE_SEND_STOP;
-        }
-    }
-
-    inline void PreSendStopToIdleCore(bool isLastDevTask, AicoreStatus *coreStatus, int &finishStopNum) {
-        uint32_t aicIdleNum = context_->coreRunReadyCnt_[static_cast<int>(CoreType::AIC)];
-        uint32_t aivIdleNum = context_->coreRunReadyCnt_[static_cast<int>(CoreType::AIV)];
-
-        for (uint32_t i = 0; i < aicIdleNum; i++) {
-            SendStopToCore(context_->runReadyCoreIdx_[static_cast<int>(CoreType::AIC)][i],
-                isLastDevTask, coreStatus, finishStopNum);
-        }
-
-        for (uint32_t i = 0; i < aivIdleNum; i++) {
-            SendStopToCore(context_->runReadyCoreIdx_[static_cast<int>(CoreType::AIV)][i],
-                isLastDevTask, coreStatus, finishStopNum);
-        }
-    }
-
-    inline void AicoreDevTaskFinishProc(int coreIdx,  bool isLastDevTask,
-                AicoreStatus *coreStatus, int &finishStopNum) {
-        if ((coreStatus[coreIdx] == AicoreStatus::CORE_TASK_WAIT_FINISH) && CheckStopTaskCanBeSent(coreIdx)) {
-            SendStopToCore(coreIdx, isLastDevTask, coreStatus, finishStopNum);
-        }
-
-        if (!isLastDevTask) {
-            if ((coreStatus[coreIdx] == AicoreStatus::CORE_SEND_STOP) &&
-                (aicoreHal_.GetFinishedTask(coreIdx) == ((static_cast<uint64_t>(curTaskId_) <<
-                    REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP | AICORE_FIN_MASK)))) {
-                SendPreFetchNextDevTaskDataToCore(coreIdx);
-                coreStatus[coreIdx] = AicoreStatus::CORE_FINISH_STOP;
-                finishStopNum++;
-            }
-        }
-
-        return;
-    }
-
-    inline void SyncTaskFinish(bool forceStop = false) {
-        int finishStopNum = 0;
-        int aicNum = aicEnd_ - aicStart_;
-        int aivNum = aivEnd_ - aivStart_;
-        int mngCoreNum = aicNum + aivNum;
-        AicoreStatus coreStatus[MAX_AICORE_NUM] = {AicoreStatus::CORE_TASK_WAIT_FINISH};
-        bool aicAllStop = false;
-        bool aivAllStop = false;
-        bool isLastDevTask = false;
-        if (!forceStop) {
-            isLastDevTask = reinterpret_cast<DynDeviceTask *>(curDevTask_)->IsLastTask();
-            if (!isLastDevTask) {
-                if (PreFetchNextDevTask() && preFetchNextDevTaskCtrl_ == nullptr) {
-                    isLastDevTask = true;
-                }
-            } else {
-                preFetchNextDevTaskCtrl_ = nullptr;
-                preFetchSuccess_ = false;
-            }
-        } else {
-            isLastDevTask = true;
-        }
-
-        if (isLastDevTask) {
-            aicAllStop = (context_->coreRunReadyCnt_[static_cast<int>(CoreType::AIC)] == static_cast<uint32_t>(aicNum));
-            aivAllStop = (context_->coreRunReadyCnt_[static_cast<int>(CoreType::AIV)] == static_cast<uint32_t>(aivNum));
-            isSendStop = true;
-        }
-
-        PreSendStopToIdleCore(isLastDevTask, coreStatus, finishStopNum);
-
-        while (finishStopNum < mngCoreNum) {
-            bool curIterAicAllStop = true;
-            bool curIterAivAllStop = true;
-            for (int i = aicStart_; (!aicAllStop) && i < aicEnd_; i++) {
-                if (coreStatus[i] == AicoreStatus::CORE_FINISH_STOP) {
-                    continue;
-                }
-
-                AicoreDevTaskFinishProc(i, isLastDevTask, coreStatus, finishStopNum);
-                if (coreStatus[i] != AicoreStatus::CORE_FINISH_STOP) {
-                    curIterAicAllStop = false;
-                }
-            }
-            aicAllStop = curIterAicAllStop;
-
-            for (int i = aivStart_; (!aivAllStop) && i < aivEnd_; i++) {
-                if (coreStatus[i] == AicoreStatus::CORE_FINISH_STOP) {
-                    continue;
-                }
-
-                AicoreDevTaskFinishProc(i, isLastDevTask, coreStatus, finishStopNum);
-                if (coreStatus[i] != AicoreStatus::CORE_FINISH_STOP) {
-                    curIterAivAllStop = false;
-                }
-            }
-            aivAllStop = curIterAivAllStop;
-        }
-    }
 
     inline uint32_t GetReadyCoreNum(CoreType type) {
         return context_->corePendReadyCnt_[static_cast<int>(type)];
@@ -861,12 +734,6 @@ private:
     inline void AbnormalStop() {
         ResetRegAll();
         CheckAndResetReg();
-    }
-
-    inline void NormalStopSingleCore(int coreIdx) {
-        aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1);
-        __sync_synchronize();
-        aicoreHal_.ResetShakeBuf(coreIdx);
     }
 
     inline int GetAllAiCoreNum() { return aicNum_ + aivNum_; }
