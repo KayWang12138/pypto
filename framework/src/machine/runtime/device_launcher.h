@@ -122,7 +122,7 @@ public:
         DeviceLauncherConfig &devConfig = const_cast<DeviceLauncherConfig &>(config);
 #ifdef BUILD_WITH_CANN
         int maxBlockDim = GetCfgBlockdim();
-        int maxAicpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum() - 1);
+        int maxAicpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum());
 #else
         int maxBlockDim = 25; // 25:maxblockDim
         int maxAicpuNum = 5; // 5:maxaicpuNUm
@@ -177,7 +177,7 @@ public:
         devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
 
-        int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
+        int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum());
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
         devProg->devArgs.maxAicpuNum = aiCpuNum;
         config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
@@ -442,7 +442,7 @@ public:
     static bool IsCaptureMode();
     static void GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI &rtModel);
     static void AddAicpuStream(aclmdlRI &rtModel, bool tripleStream);
-    static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, bool debugEnable, [[maybe_unused]]Function *function);
+    static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, [[maybe_unused]]bool debugEnable, [[maybe_unused]]Function *function);
     static int LaunchAicoreKernel(
         aclrtStream aicoreStream, void *kernel, rtArgsEx_t &rtArgs, rtTaskCfgInfo_t &rtTaskCfg, bool debugEnable);
     static int DeviceRunOnce(Function *function, DevControlFlowCache* hostCtrlCache = nullptr,
@@ -453,6 +453,7 @@ public:
     static void DeviceRunCacheKernelSet(Function *func, uint8_t *devProg);
     static uint8_t *DeviceRunCacheKernelGet(Function *func);
     static CachedOperator* DeviceRunCacheOperatorGet(Function *func);
+    static void SetDevPerfAddr([[maybe_unused]]const bool &debugEnable, [[maybe_unused]]const bool &isCaptureMode);
  public:
     static std::vector<uint8_t> tensorInfo_;
 private:

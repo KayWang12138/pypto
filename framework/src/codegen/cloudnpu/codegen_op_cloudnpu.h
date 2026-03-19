@@ -60,6 +60,7 @@ public:
     std::string GenMemL1CopyIn() const;
     std::string GenMemL1CopyOut() const;
     std::string GetConvCopyInMode() const;
+    std::string GetConvCopyOutMode() const;
     std::string GenMemL1CopyInConv() const;
     std::string GenMemL1CopyOutConv() const;
     std::string GenMemL1ToFB() const;
@@ -167,8 +168,11 @@ public:
 
     std::string GenOpCode() const override;
 
-private:
     std::string QueryTileTensorNameByIdx(int paramIdx) const;
+    std::string QueryTileTensorTypeByIdx(int paramIdx) const;
+
+private:
+    TileTensor QueryTileTensorByIdx(int paramIdx) const;
 
     std::string GenTemplateParamsForPutAndGet() const;
     std::string GenTemplateParamsForSignal() const;

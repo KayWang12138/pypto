@@ -387,19 +387,9 @@ def do_test_lighting_indexer_prolog_quant(case_name, configs):
         layerout_key="PA_BSND",
     )
 
-    shapes = [tensor.shape for _, tensor in vars(inputs).items()] + \
-             [tensor.shape for _, tensor in vars(outputs).items()]
     tensors = [tensor for _, tensor in vars(inputs).items()] + \
               [tensor for _, tensor in vars(outputs).items()]
-    lightning_indexer_prolog_quant(*shapes, configs, attrs)(*tensors)
-
-    outputs = IndexerPrologQuantOutput(
-        q_int8=tensors[16],
-        q_scale=tensors[17],
-        k_int8=tensors[18],
-        k_scale=tensors[19],
-        weights=tensors[20]
-    )
+    lightning_indexer_prolog_quant(*tensors, configs, attrs)
     
     compare(outputs.q_int8.cpu(), q_int8_golden, "q_int8", 1, 0, 0)
     compare(outputs.q_scale.cpu(), q_scale_golden, "q_scale", 0.000025, 0, 0.005)

@@ -19,8 +19,6 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
-namespace TileOp {
-
 constexpr int16_t SHAPE_DIM5 = 5;
 constexpr int16_t CONV_IDX_0 = 0;
 constexpr int16_t CONV_IDX_1 = 1;
@@ -504,5 +502,4 @@ TILEOP void TLoad2D(T &dst, U &src, const int64_t &indexRow, const int64_t &inde
     pto::TASSIGN(l0, static_cast<uint64_t>(dst.GetAddr()));
     pto::TEXTRACT<dstTensor, srcTensor>(l0, l1, indexRow, indexCol);
 }
-} // namespace TileOp
 #endif // TILEOP_TILE_OPERATOR_CONV_PTO__H

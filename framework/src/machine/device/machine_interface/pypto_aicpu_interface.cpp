@@ -21,36 +21,11 @@
 #include "machine/device/tilefwk/aicpu_common.h"
 #include "machine/utils/machine_ws_intf.h"
 
-
 namespace {
   npu::tile_fwk::BackendServerHandleManager g_handleManager;
 }
 using namespace npu::tile_fwk;
 extern "C" {
-__attribute__((visibility("default"))) uint32_t StaticPyptoKernelServer(void *args) {
-    DEV_DEBUG("Start to exect static server");
-    if (args == nullptr) {
-        DEV_ERROR("Args is invalid");
-        return 1;
-    }
-    auto devArgs = (DeviceArgs*)args;
-    auto data = reinterpret_cast<char *>(devArgs->aicpuSoBin);
-    if (!g_handleManager.SaveSoFile(data, devArgs->aicpuSoLen)) {
-        DEV_ERROR("create so failed");
-        return 1;
-    }
-    g_handleManager.SetTileFwkKernelMap();
-    DEV_DEBUG("Begin to exe static tileFwk Server");
-    auto ret = g_handleManager.ExecuteFunc(args, staticFuncKey);
-    DEV_DEBUG("After Get kernel func [%s], with ret[%d]",
-                        staticServerKernelkFun.c_str(), static_cast<int>(ret));
-    if (ret != 0) {
-        DEV_ERROR("TileFwk kernelFunc [%s] exec not Success", staticServerKernelkFun.c_str());
-        return 1;
-    }
-    return 0;
-}
-
 __attribute__((visibility("default"))) uint32_t DynPyptoKernelServerNull(void *args) {
 #ifdef __DEVICE__
     InitLogSwitch();

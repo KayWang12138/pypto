@@ -33,7 +33,8 @@ const std::map<std::string, LogModule> kLogModuleMap = {
     {"DISTRIBUTED", LogModule::DISTRIBUTED},
     {"SIMULATION", LogModule::SIMULATION},
     {"VERIFY", LogModule::VERIFY},
-    {"COMPILER_MONITOR", LogModule::COMPILER_MONITOR}
+    {"COMPILER_MONITOR", LogModule::COMPILER_MONITOR},
+    {"PLATFORM", LogModule::PLATFORM}
 };
 
 inline bool IsLogLevelValid(const int32_t logLevel) {

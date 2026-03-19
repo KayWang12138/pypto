@@ -112,7 +112,6 @@ TEST_F(TestPlatform, TestObtainPlatformInfo) {
     EXPECT_EQ(Platform::Instance().GetSoc().GetNPUArch(), NPUArch::DAV_2201);
     EXPECT_EQ(Platform::Instance().GetSoc().GetCCECVersion(aic), "dav-c220-cube");
     EXPECT_EQ(Platform::Instance().GetSoc().GetCCECVersion(aiv), "dav-c220-vec");
-    EXPECT_EQ(Platform::Instance().GetSoc().GetCoreVersion(aic), "AIC-C-220");
     EXPECT_EQ(Platform::Instance().GetSoc().GetAICoreNum(), expectAICoreCnt);
     EXPECT_EQ(Platform::Instance().GetSoc().GetAICCoreNum(), expectCubeCoreCnt);
     EXPECT_EQ(Platform::Instance().GetSoc().GetAIVCoreNum(), expectVectorCoreCnt);
@@ -135,8 +134,7 @@ TEST_F(TestPlatform, AbnormalTest) {
 
     std::unordered_map<std::string, std::string> ccecVersion;
     EXPECT_FALSE(parser->GetCCECVersion(ccecVersion));
-    EXPECT_FALSE(parser->GetCoreVersion(ccecVersion));
-
+    
     std::string iniPath = RealPath(GetCurrentSharedLibPath() + INI_PATH);
     EXPECT_TRUE(parser->Initialize(iniPath));
 

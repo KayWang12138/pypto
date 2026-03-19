@@ -21,8 +21,6 @@ const std::string platformConfigEnv = "PLATFORM_CONFIG_PATH";
 const std::string version = "version";
 const std::string aic = "AIC";
 const std::string aiv = "AIV";
-const std::string aicVersion = "AIC_version";
-const std::string aivVersion = "AIV_version";
 const std::string ccecAicVersion = "CCEC_AIC_version";
 const std::string ccecAivVersion = "CCEC_AIV_version";
 const std::string ccecCubeVersion = "CCEC_CUBE_version";
@@ -80,44 +78,32 @@ bool PlatformParser::GetCCECVersion(std::unordered_map<std::string, std::string>
     return !ccecVersion.empty();
 }
 
-bool PlatformParser::GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const {
-    curVersion.clear();
-    std::string versionVal;
-    if (GetStringVal(version, aicVersion, versionVal)) {
-        curVersion[aic] = versionVal;
-    }
-    if (GetStringVal(version, aivVersion, versionVal)) {
-        curVersion[aiv] = versionVal;
-    }
-    return !curVersion.empty();
-}
-
 INIParser::INIParser() {
     std::string srcPath;
     SimulationPlatform simulationPlatform;
     simulationPlatform.GetCostModelPlatformRealPath(srcPath);
-    FUNCTION_LOGD("Try to initiate the ini parser.");
+    PLATFORM_LOGD("Try to initiate the ini parser.");
     if (!Initialize(srcPath)) {
         throw std::runtime_error("can not open simulation file: " + srcPath);
     }
 }
 
 bool INIParser::Initialize(const std::string& iniFilePath) {
-    FUNCTION_LOGI("Start to parse ini_file %s.", iniFilePath.c_str());
+    PLATFORM_LOGI("Start to parse ini_file %s.", iniFilePath.c_str());
     if (!ReadINIFile(iniFilePath)) {
-        FUNCTION_LOGE("ReadINIFile failed.");
+        PLATFORM_LOGE("ReadINIFile failed.");
         return false;
     }
-    FUNCTION_LOGD("Parse ini_file %s successfully.", iniFilePath.c_str());
+    PLATFORM_LOGD("Parse ini_file %s successfully.", iniFilePath.c_str());
     return true;
 }
 
 bool INIParser::ReadINIFile(const std::string& filepath) {
     data_.clear();
     std::ifstream file(filepath);
-    FUNCTION_LOGD("Try to open ini file: %s.", filepath.c_str());
+    PLATFORM_LOGD("Try to open ini file: %s.", filepath.c_str());
     if (!file.is_open()) {
-        FUNCTION_LOGE("Failed to open ini file: %s.", filepath.c_str());
+        PLATFORM_LOGE("Failed to open ini file: %s.", filepath.c_str());
         return false;
     }
     std::string line;
@@ -138,13 +124,13 @@ bool INIParser::ReadINIFile(const std::string& filepath) {
         }
         size_t equalPos = line.find('=');
         if (equalPos == std::string::npos) {
-            FUNCTION_LOGW("Illegal ini format[%s].", line.c_str());
+            PLATFORM_LOGW("Illegal ini format[%s].", line.c_str());
             continue;
         }
         std::string key = line.substr(0, equalPos);
         std::string value = line.substr(equalPos + 1);
         if (key.empty()) {
-            FUNCTION_LOGW("Empty attribute[%s].", line.c_str());
+            PLATFORM_LOGW("Empty attribute[%s].", line.c_str());
             continue;
         }
         data_[section][key] = value;
@@ -154,28 +140,28 @@ bool INIParser::ReadINIFile(const std::string& filepath) {
 }
 
 bool INIParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
-    FUNCTION_LOGD("Try to obtain value from column[%s] and key[%s] throughs ini file.", column.c_str(), key.c_str());
+    PLATFORM_LOGD("Try to obtain value from column[%s] and key[%s] throughs ini file.", column.c_str(), key.c_str());
     val.clear();
     auto iter = data_.find(column);
     if (iter == data_.end()) {
-        FUNCTION_LOGE("Cannot find attr '%s' from the ini file.", column.c_str());
+        PLATFORM_LOGE("Cannot find attr '%s' from the ini file.", column.c_str());
         return false;
     }
     auto value = iter->second;
     auto iter2 = value.find(key);
     if (iter2 == value.end()) {
-        FUNCTION_LOGE("Cannot find attr '%s' from the [%s] tab.", key.c_str(), column.c_str());
+        PLATFORM_LOGE("Cannot find attr '%s' from the [%s] tab.", key.c_str(), column.c_str());
         return false;
     }
     val = iter2->second;
-    FUNCTION_LOGD("Value[%s][%s] = %s.", column.c_str(), key.c_str(), val.c_str());
+    PLATFORM_LOGD("Value[%s][%s] = %s.", column.c_str(), key.c_str(), val.c_str());
     return true;
 }
 
 bool CmdParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
     val.clear();
     if (!CannHostRuntime::Instance().GetSocSpec(column, key, val)) {
-        FUNCTION_LOGE("Cannot find soc spec '%s' from the [%s] column.", key.c_str(), column.c_str());
+        PLATFORM_LOGE("Cannot find soc spec '%s' from the [%s] column.", key.c_str(), column.c_str());
         return false;
     }
     return true;

@@ -19,6 +19,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
+#include "interface/utils/matmul_error.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
 #include "interface/utils/id_gen.h"
@@ -71,14 +72,15 @@ void CheckShapeValid(DataType &dataType, const Shape &shape, TileOpFormat &forma
     bool isB4 = dataType == DataType::DT_FP4_E2M1X2 || dataType == DataType::DT_FP4_E1M2X2;
     if (format == TileOpFormat::TILEOP_NZ) {
         size_t alignSize = isB4 ? ALIGN_SIZE_64 : ALIGN_SIZE_32;
-        ASSERT(shape.back() * BytesOf(dataType) % alignSize == 0)
-            << "Current inner axis: " << shape.back() << ", when input "
-            << "is NZ format, inner axis shape must be 32-byte aligned(4bit dtype must be aligned to 64)\n";
+        MATMUL_ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, shape.back() * BytesOf(dataType) % alignSize == 0,
+            "Current inner axis: %zu, when input is NZ format, inner axis shape must be 32-byte aligned(4bit dtype "
+            "must be aligned to 64)",
+            (size_t)shape.back());
     }
     if (format == TileOpFormat::TILEOP_ND && isB4) {
-        ASSERT((shape.back() & 1) == 0)
-            << "Current inner axis: " << shape.back() << ", when input "
-            << "is ND format and 4bit dtype, inner axis must be even number\n";
+        MATMUL_ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, (shape.back() & 1) == 0,
+            "Current inner axis: %zu, when input is ND format and 4bit dtype, inner axis must be even number",
+            (size_t)shape.back());
     }
 }
 
