@@ -394,11 +394,11 @@ class _LoopFunction:
             setattr(scalar, "_loop_end", self._end)
             return scalar
 
-    def __init__(self, name, loop_name, loop_range, unroll_list, submit_before_loop):
+    def __init__(self, name, loop_name, loop_range, unroll_list, submit_before_loop, parallel_for):
         loop_range = loop_range.base()
         self._base = pypto_impl.RecordLoopFunc(name, pypto_impl.FunctionType.DYNAMIC_LOOP,
                                              loop_name, loop_range,
-                                             unroll_list, submit_before_loop)
+                                             unroll_list, submit_before_loop, parallel_for)
         self._begin = loop_range.Begin()
         self._end = loop_range.End()
 
@@ -413,6 +413,7 @@ def _loop_function(
     loop_range: LoopRange,
     unroll_list: Optional[List[int]] = None,
     submit_before_loop: bool = False,
+    parallel_for: bool = False,
 ):
     if unroll_list is None:
         unroll_set = set()
@@ -424,7 +425,7 @@ def _loop_function(
         frame = sys._getframe(3)
         pypto_impl.BeginScope(name, {}, frame.f_code.co_filename, frame.f_lineno)
         rlf = _LoopFunction(name, loop_name, loop_range,
-                            unroll_set, submit_before_loop)
+                            unroll_set, submit_before_loop, parallel_for)
         clear_source_location()
         yield rlf
     except Exception as e:
@@ -538,9 +539,10 @@ def loop(
     idx_name = kwargs.get("idx_name", f"loop_idx_{loop_idx}")
     unroll_list = kwargs.get("unroll_list", None)
     submit_before_loop = kwargs.get("submit_before_loop", False)
+    parallel_for = kwargs.get("parallel_for", False)
     with _loop_function(
         name, idx_name, _loop_range(
-            start, stop, step), unroll_list, submit_before_loop
+            start, stop, step), unroll_list, submit_before_loop, parallel_for
     ) as rlf:
         for k in rlf:
             yield k
