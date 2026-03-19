@@ -211,7 +211,7 @@ void ValidateL0Constraint(int64_t tile1, int64_t tile2, int64_t tile3, size_t dt
     });
 }
 
-void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const Tensor &weightTensor)
+void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const Tensor &weightTensor, const Tensor &inputTensor)
 {
     auto &convTile = TileShape::Current().GetConvTile();
     int64_t tileH = convTile.tileL0Info.tileH;
@@ -308,7 +308,7 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     CheckAlignment(tileCinFmap, k0, "tileCinFmap");
     CheckAlignment(tileCinWeight, k0, "tileCinWeight");
     if (convTile.setL0Tile){
-        CheckL0TileTiling(outType, attrParam, weightTensor);
+        CheckL0TileTiling(outType, attrParam, weightTensor, inputTensor);
     }
 }
 
