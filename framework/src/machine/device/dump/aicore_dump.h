@@ -76,7 +76,7 @@ struct DumpTensorData {
             auto ret = memcpy_s(reinterpret_cast<uint8_t *>(data) + dataOffset, shape[idx] * dataByte,
                         reinterpret_cast<const uint8_t *>(tensorAddr) + offset[idx] * dataByte, shape[idx] * dataByte);
             if (ret != 0) {
-                DEV_ERROR("memcpy_s failed, ret is %d.", ret);
+                DEV_ERROR("memcpy_s failed, ret=%d.", ret);
             }
             dataOffset = dataOffset + shape[idx] * dataByte;
         }
@@ -104,7 +104,7 @@ struct DumpTensorData {
     }
 
     int GetDumpSize() const {
-        DEV_DEBUG("Tensorinfo size is %zu, Tensor data size %lu.", sizeof(DumpTensorInfo), datasize);
+        DEV_DEBUG("TensorInfoSize=%zu, TensorDataSize=%lu.", sizeof(DumpTensorInfo), datasize);
         return datasize;
     }
 
@@ -125,7 +125,7 @@ public:
             baseAddr += devProg->memBudget.aicoreSpilled + devProg->memBudget.tensor.Total() + devProg->memBudget.debug.dumpTensor;
 
             dataAddr = baseAddr + schedIdx * DEV_DUMP_DATA_SIZE;
-            DEV_DEBUG("dataAddr is %lu.", dataAddr);
+            DEV_DEBUG("dataAddr=%#lx.", dataAddr);
         }
     }
 
@@ -146,7 +146,7 @@ public:
 
     void SetHostPid(uint32_t hostPid) {
         hostPid_ = hostPid;
-        DEV_DEBUG("hostPid is %u.", hostPid_);
+        DEV_DEBUG("hostPid=%u.", hostPid_);
         enableDump_ = (hostPid_ != 0);
     }
     bool IsEnableDump() const { return enableDump_; }
@@ -164,7 +164,7 @@ public:
 
         DEV_DEBUG("Start to ideDump tensor data.");
         const int ideState = IdeDumpData(ideSession, &ideDumpChunk);
-        DEV_DEBUG("Finish ideDump with ideState is %d.", ideState);
+        DEV_DEBUG("Finish ideDump, ideState=%d.", ideState);
         return ideState == 0;
     }
 
@@ -173,7 +173,7 @@ public:
         DumpTensorData dumpTensorData(dumpTensorInfo, dataAddr);
         dataSize_ = dumpTensorData.GetDumpSize();
         if (dataSize_ > DEV_DUMP_DATA_SIZE) {
-            DEV_WARN("Tensor data size %lu is larger than dump size %lu.", dataSize_, DEV_DUMP_DATA_SIZE);
+            DEV_WARN("Tensor dataSize=%lu is larger than dumpSize=%lu.", dataSize_, DEV_DUMP_DATA_SIZE);
             return;
         }
         bool ret = DumpData(ideSession, fileName, reinterpret_cast<uint8_t *>(&dumpTensorInfo),
@@ -270,7 +270,7 @@ public:
         const std::string privateInfo =
             "127.0.0.1:22118;" + std::to_string(deviceId_) + ";" + std::to_string(hostPid_);
         const IDE_SESSION ideSession = IdeDumpStart(privateInfo.c_str()); // 建立通道过程 device
-        DEV_DEBUG("Current pid is %d, deviceId is %u, privateInfo is %s.", (int)hostPid_, deviceId_, privateInfo.c_str());
+        DEV_DEBUG("pid=%d, deviceId=%u, privateInfo=%s.", (int)hostPid_, deviceId_, privateInfo.c_str());
 
         if (ideSession == nullptr) {
             DEV_WARN("Created ideSession failed.");
@@ -290,7 +290,7 @@ public:
         DEV_DEBUG("Now to close the tensor dump.");
         int m = IdeDumpEnd(ideSession);
         if (m != 0) {
-            DEV_WARN("Close ideSession failed with state %d.", m);
+            DEV_WARN("Close ideSession failed, state=%d.", m);
         }
     }
 
