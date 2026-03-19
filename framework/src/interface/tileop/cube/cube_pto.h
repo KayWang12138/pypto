@@ -104,7 +104,7 @@ INLINE void TLoadND2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &of
     if constexpr (isB4) {
         gmOffset = gmOffset >> 1;
     }
-    globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset), shapeDim2(staticL1H, staticL1W),
+    globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset), shapeDim2(dstShape0, dstShape1),
         strideDim2(srcStride0, srcStride1));
     tileData dstL1(dstShape0, dstShape1);
     pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());

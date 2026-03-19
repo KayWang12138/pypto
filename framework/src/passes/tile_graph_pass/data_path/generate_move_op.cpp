@@ -221,6 +221,7 @@ void GenerateMoveOp::SetL0C2L1CopyAttr(Operation &op, const Shape &realShape,
     );
     copyAttr->SetToOffset(toOffset);
     op.SetOpAttribute(copyAttr);
+    op.SetAttr(OpAttributeKey::copyIsNZ, static_cast<int64_t>(1));
 }
 
 Status GenerateMoveOp::SetOpcodeByMemPath(Operation &op,MemoryType from,MemoryType to) const {
