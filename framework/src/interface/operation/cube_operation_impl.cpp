@@ -1335,8 +1335,8 @@ bool IsSFANonDB(
     auto &cubeTile = tileShape.GetCubeTile();
     const int64_t aMatrixM = params.transA ? operandVec[0]->shape[1] : operandVec[0]->shape[0];
     const int64_t aMatrixK = params.transA ? operandVec[0]->shape[0] : operandVec[0]->shape[1];
-    const int64_t bMatrixK = params.transB ? operandVec[1]->shape[1] : operandVec[0]->shape[0];
-    const int64_t bMatrixN = params.transB ? operandVec[1]->shape[0] : operandVec[0]->shape[1];
+    const int64_t bMatrixK = params.transB ? operandVec[1]->shape[1] : operandVec[1]->shape[0];
+    const int64_t bMatrixN = params.transB ? operandVec[1]->shape[0] : operandVec[1]->shape[1];
 
     const bool kTileValid = (cubeTile.k[0] == tileSize) && (cubeTile.k[1] == tileSize);
     const bool mTileValid = (cubeTile.m[0] == tileSize) && (cubeTile.m[1] == tileSize);
@@ -1348,8 +1348,9 @@ bool IsSFANonDB(
     const bool IsInputValid = aMatrixValid && bMatrixValid;
 
     const bool dataTypeValid = (operandVec[0]->Datatype() == DataType::DT_BF16);
+    const bool platformIsValid = (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_2201);
 
-    return (tileValid && IsInputValid && dataTypeValid);
+    return (tileValid && IsInputValid && dataTypeValid && platformIsValid);
 }
 
 void ConstructTileGraph(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
