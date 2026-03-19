@@ -1762,7 +1762,7 @@ std::string CodeGenOpCloudNPU::GetConvCopyInMode() const {
     int64_t copyInMode = -1;
     std::string copyInModeStr = "";
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyInMode, copyInMode);
-    CONV_ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret, ": GenMemL1CopyInConv get CopyInMode failed.");
+    ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret) << ": GenMemL1CopyInConv get CopyInMode failed.";
 
     if (copyInMode == ToUnderlying(CopyInMode::COPY_MOD_ND2NZ)) {
         copyInModeStr = "CopyInMode::ND2NZ";
@@ -1771,8 +1771,8 @@ std::string CodeGenOpCloudNPU::GetConvCopyInMode() const {
     } else if (copyInMode == ToUnderlying(CopyInMode::COPY_MOD_DN2NZ)) {
         copyInModeStr = "CopyInMode::DN2NZ";
     } else {
-        CONV_ASSERT(ConvCodenGenError::CODEGEN_CHECK_ATTR_INVALID, false,
-            ": GenMemL1CopyInConv check CopyInMode failed.");
+        ASSERT(ConvCodenGenError::CODEGEN_CHECK_ATTR_INVALID, false) <<
+            ": GenMemL1CopyInConv check CopyInMode failed.";
     }
     return copyInModeStr;
 }
@@ -1791,10 +1791,10 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
     auto dynOffset = offsetFromAttr[ToUnderlying(MISOIdx::SRC0_IDX)];
     auto srcShape = shape[ToUnderlying(MISOIdx::SRC0_IDX)];
     if (isConv3D) {
-        CONV_ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, dynOffset.size() == SHAPE_DIM5,
-            ": GenMemL1CopyInConv offset should be 5-dim!");
-        CONV_ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, srcShape.size() == SHAPE_DIM5,
-            ": GenMemL1CopyInConv shape should be 5-dim!");
+        ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, dynOffset.size() == SHAPE_DIM5) <<
+            ": GenMemL1CopyInConv offset should be 5-dim!";
+        ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, srcShape.size() == SHAPE_DIM5) <<
+            ": GenMemL1CopyInConv shape should be 5-dim!";
         offsetN = dynOffset[ID0].Concrete();
         offsetC = dynOffset[ID1].Concrete();
         offsetD = dynOffset[ID2].Concrete();
@@ -1806,10 +1806,10 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
         srcShapeH = srcShape[ID3];
         srcShapeW = srcShape[ID4];
     } else {
-        CONV_ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, dynOffset.size() == SHAPE_DIM4,
-            ": GenMemL1CopyInConv offset should be 4-dim!");
-        CONV_ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, srcShape.size() == SHAPE_DIM4,
-            ": GenMemL1CopyInConv shape should be 4-dim!");
+        ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, dynOffset.size() == SHAPE_DIM4) <<
+            ": GenMemL1CopyInConv offset should be 4-dim!";
+        ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, srcShape.size() == SHAPE_DIM4) <<
+            ": GenMemL1CopyInConv shape should be 4-dim!";
         offsetN = dynOffset[ID0].Concrete();
         offsetC = dynOffset[ID1].Concrete();
         offsetH = dynOffset[ID2].Concrete();
@@ -1834,7 +1834,7 @@ std::string CodeGenOpCloudNPU::GetConvCopyOutMode() const {
     int64_t copyOutMode = -1;
     std::string copyOutModeStr = "";
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyOutMode, copyOutMode);
-    CONV_ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret, ": GenMemL1CopyOutConv get CopyOutMode failed");
+    ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret) << ": GenMemL1CopyOutConv get CopyOutMode failed";
     if (copyOutMode == ToUnderlying(CopyOutMode::COPY_MOD_NZ2ND)) {
         copyOutModeStr = "CopyOutMode::NZ2ND";
     } else if (copyOutMode == ToUnderlying(CopyOutMode::COPY_MOD_NZ2NZ)) {
@@ -1842,8 +1842,8 @@ std::string CodeGenOpCloudNPU::GetConvCopyOutMode() const {
     } else if (copyOutMode == ToUnderlying(CopyOutMode::COPY_MOD_NZ2DN)) {
         copyOutModeStr = "CopyOutMode::NZ2DN";
     } else {
-        CONV_ASSERT(ConvCodenGenError::CODEGEN_CHECK_ATTR_INVALID, false,
-            ": GenMemL1CopyOutConv check CopyOutMode failed");
+        ASSERT(ConvCodenGenError::CODEGEN_CHECK_ATTR_INVALID, false) <<
+            ": GenMemL1CopyOutConv check CopyOutMode failed";
     }
     return copyOutModeStr;
 }
@@ -1859,22 +1859,22 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
     int64_t offsetN = 0, offsetC = 0, offsetD = 0, offsetH = 0, offsetW = 0;
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
     auto realShape = shape[ToUnderlying(MISOIdx::DST_IDX)];
-    CONV_ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, realShape.size() == SHAPE_DIM2,
-        ": GenMemL1CopyOutConv valid shape should be 2-dim!");
+    ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, realShape.size() == SHAPE_DIM2) <<
+        ": GenMemL1CopyOutConv valid shape should be 2-dim!";
     realM = realShape[ID0];
     realN = realShape[ID1];
     auto dynOffset = offsetFromAttr[ToUnderlying(MISOIdx::DST_IDX)];
     if (isConv3D) {
-        CONV_ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, dynOffset.size() == SHAPE_DIM5,
-            ": GenMemL1CopyOutConv offset should be 5-dim!");
+        ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, dynOffset.size() == SHAPE_DIM5) <<
+            ": GenMemL1CopyOutConv offset should be 5-dim!";
         offsetN = dynOffset[ID0].Concrete();
         offsetC = dynOffset[ID1].Concrete();
         offsetD = dynOffset[ID2].Concrete();
         offsetH = dynOffset[ID3].Concrete();
         offsetW = dynOffset[ID4].Concrete();
     } else {
-        CONV_ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, dynOffset.size() == SHAPE_DIM4,
-            ": GenMemL1CopyOutConv offset should be 4-dim!");
+        ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, dynOffset.size() == SHAPE_DIM4) <<
+            ": GenMemL1CopyOutConv offset should be 4-dim!";
         offsetN = dynOffset[ID0].Concrete();
         offsetC = dynOffset[ID1].Concrete();
         offsetH = dynOffset[ID2].Concrete();
@@ -1939,7 +1939,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
 
     std::vector<int64_t> fmapL0Shape = this->rawShape[ID0];
     ALOG_INFO_F("GenMemL1ToL0Load3D %s, fmapL0Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL0Shape).c_str());
-    CONV_ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, fmapL0Shape.size() == SHAPE_DIM2) << "GenMemL1ToL0Load3D L0 fmap only support 2-dim!";
+    ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, fmapL0Shape.size() == SHAPE_DIM2) << "GenMemL1ToL0Load3D L0 fmap only support 2-dim!";
 
     bool isConv3D = false;
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
@@ -1969,7 +1969,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
 
     std::vector<int64_t> weightL0Shape = this->rawShape[ID0];
     ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL0Shape is %s", tileOpName.c_str(), IntVecToStr(weightL0Shape).c_str());
-    CONV_ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, weightL0Shape.size() == SHAPE_DIM2) << "GenMemL1ToL0Load2D L0 weight only support 2-dim!";
+    ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, weightL0Shape.size() == SHAPE_DIM2) << "GenMemL1ToL0Load2D L0 weight only support 2-dim!";
 
     std::ostringstream oss;
     oss << tileOpName.c_str() << WrapParamByParentheses(paramList) << STMT_END;

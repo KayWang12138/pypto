@@ -21,7 +21,7 @@
 namespace npu::tile_fwk {
 
 enum class ConvOperationError : uint32_t {
-    // FC61xx: Operation非法拦截类报错 
+    // FC61xx: Operation非法拦截类报错
     INPUT_INVALID         = 6101U,
     OVER_BUFFER_LIMIT     = 6102U,
     UNKNOWN               = 6199U
@@ -50,37 +50,5 @@ enum class ConvTileOpError : uint32_t {
     TILEOP_INDEX_INVALID                = 6404U,
     UNKNOWN                             = 6499U
 };
-
-static inline void conv_snprintf(char* buf, size_t bufSize, const char* fmt, ...) {
-    if (buf == nullptr || bufSize == 0 || fmt == nullptr) {
-        return;
-    }
-    va_list ap;
-    va_start(ap, fmt);
-    int ret = vsnprintf_s(buf, bufSize, bufSize - 1, fmt, ap);
-    va_end(ap);
-    if (ret < 0) {
-        buf[0] = '\0';
-    }
-}
-
-#define CONV_CHECK(error_code, cond, fmt, ...) \
-    do { \
-        if (!(cond)) { \
-            CONV_LOGE_E(error_code, fmt, ##__VA_ARGS__); \
-            return FAILED; \
-        } \
-    } while (0)
-
-
-#define CONV_ASSERT(error_code, cond, fmt, ...) \
-    do { \
-        if (!(cond)) { \
-            CONV_LOGE_E(error_code, fmt, ##__VA_ARGS__); \
-            char err_msg[1024] = {0}; \
-            conv_snprintf(err_msg, sizeof(err_msg), fmt, ##__VA_ARGS__); \
-            ASSERT(error_code, false) << err_msg; \
-        } \
-    } while (0)
 
 }  // namespace npu::tile_fwk
