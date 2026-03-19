@@ -433,7 +433,7 @@ class CMakeBuild(build_ext, CMakeUserOption, EditModeHelper):
         return installed_files
 
     def initialize_options(self):
-        """初始化构建选项
+        """初始化构建
 
         通过控制命令行选项初始化顺序, 实现实际命令行选项优先生效.
 

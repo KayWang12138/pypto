@@ -34,7 +34,7 @@ const std::vector<std::string> kFileNameFilter = {
     "nanobind",     // Python binding layer
     "__libc_",      // C library internals
     "include/c++/", // C++ standard library
-    "object.h",     // Python object.h
+    "object.h",     // Pyth
     "error.h"       // exception throwing infrastructure
 };
 
