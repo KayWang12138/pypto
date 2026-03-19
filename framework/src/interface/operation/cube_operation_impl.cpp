@@ -1485,7 +1485,7 @@ Tensor ConstructTensorGraph(DataType dataType, MatmulGraphNodes &tensorGraphNode
 static void SetVecTileBasedOnUbSize(DataType outType, const CubeTile &cubeTile) {
     uint64_t ubSize = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB);
     // Add的两个输入矩阵总大小不能超过UB大小限制
-    if (cubeTile.m[0] * cubeTile.n[0] * BytesOf(outType) * 2 <= ubSize) {
+    if (cubeTile.m[0] * cubeTile.n[0] * BytesOf(outType) * 2 <= ubSize || outType == DT_INT32) {
         TileShape::Current().SetVecTile({cubeTile.m[0], cubeTile.n[0]});
     } else {
         TileShape::Current().SetVecTile({128, 128});
@@ -1530,6 +1530,7 @@ static Tensor GetGmAtomicAccumulationTensor(DataType outType, Tensor gmAccumulat
 static Tensor ConstructGmAccumulationTensorGraph(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix,
     const MatmulAttrParam &attrParam, const MatmulExtendParam &extendParam = {}) {
     auto &cubeTile = TileShape::Current().GetCubeTile();
+    auto orivecTile = TileShape::Current().GetVecTile();
     ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, aMatrix.GetStorage() != nullptr && bMatrix.GetStorage() != nullptr)
         << "Both aMatrix and bMatrix cannot get storage";
     auto aMatrixValidShape = aMatrix.GetStorage()->GetDynValidShape();
@@ -1568,12 +1569,12 @@ static Tensor ConstructGmAccumulationTensorGraph(DataType outType, const Tensor 
         Tensor gmPartialSum = ConstructTensorGraph(outType, tensorGraphNodes, attrParam, extendParam);
         gmPartialSums.emplace_back(gmPartialSum);
     }
-    if (outType == DT_INT32) {
-        return GetGmAtomicAccumulationTensor(outType, gmAccumulationTensor, gmPartialSums, {mSize, nSize},
-            {mValidShape, nValidShape}, attrParam.isCMatrixNZ);
-    } else {
-        return GetGmDeterministicAccumulationTensor(gmPartialSums, kLoop);
-    }
+    Tensor tensorOutput = outType == DT_INT32 ?
+                              GetGmAtomicAccumulationTensor(outType, gmAccumulationTensor, gmPartialSums,
+                                  {mSize, nSize}, {mValidShape, nValidShape}, attrParam.isCMatrixNZ) :
+                              GetGmDeterministicAccumulationTensor(gmPartialSums, kLoop);
+    TileShape::Current().SetVecTile(orivecTile);
+    return tensorOutput;
 }
 
 Tensor Matmul(
