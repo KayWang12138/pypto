@@ -70,11 +70,9 @@ typedef uint64_t aicorePair_t;
 constexpr aicoreFunction_t aicoreNullFunction = 0xFFFFFFFFFFFFFFFFUL;
 constexpr aicoreTask_t aicoreNullTask = 0xFFFFFFFFUL;
 constexpr aicoreCore_t aicoreNullCore = 0xFFFFFFFFUL;
-constexpr aicorePair_t aicoreNullPair = 0xFFFFFFFFFFFFFFFFUL;
 
 typedef pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask> taskQueue_t;
 typedef pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore> coreQueue_t;
-typedef pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair> pairQueue_t;
 
 struct TaskInfo {
     int coreIdx;
@@ -162,18 +160,12 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
         //     for (uint32_t i = AIC_CORE_COUNT; i < AIC_CORE_COUNT + AIV_CORE_COUNT; i++) availableVectorCoreQueue->push(i);
         //     for (uint32_t i = 0; i < AIC_CORE_COUNT; i++) availableCubeCoreQueue->push(i);
 
-        //     // Allocating pairing queue
-        //     curDevTask_->runningPairQueue = (uint64_t) new pairQueue_t(TOTAL_CORE_COUNT);
-
             // Setting task as initialized, allowing others to continue
             curDevTask_->isTaskInitialized = true;
         }
         
         // If I am not a lead AICPU scheduler, wait until initialization is ready
         if (isLeaderScheduler_ == false) while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
-
-        // Getting queue pointers
-        runningPairQueue_                       = (pairQueue_t*)curDevTask_->runningPairQueue;
 
         availableCoreQueue_[(int)CoreType::AIV] = new coreQueue_t(AIV_CORE_COUNT);
         availableCoreQueue_[(int)CoreType::AIC] = new coreQueue_t(AIC_CORE_COUNT);
@@ -554,21 +546,16 @@ private:
     inline void BatchPushReadyQueue() {
         uint32_t aicIndex = static_cast<uint32_t>(CoreType::AIC);
         uint32_t aivIndex = static_cast<uint32_t>(CoreType::AIV);
+
         if (context_->readyCount[aicIndex] > 0) {
-            uint32_t needSendCnt = std::min(GetReadyCoreNum(CoreType::AIC), context_->readyCount[aicIndex]);
-            if (needSendCnt > 0) context_->readyCount[aicIndex] -= BatchSendTask(CoreType::AIC, &context_->readyIds[aicIndex][context_->readyCount[aicIndex] - needSendCnt], needSendCnt, aicStart_, aicEnd_);
-            if (context_->readyCount[aicIndex] > 0) {
-                PushReadyQue(readyAicCoreFunctionQue_, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
-            }
+            PushReadyQue(readyAicCoreFunctionQue_, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
+            TryBatchSendTask(CoreType::AIC, readyAicCoreFunctionQue_, aicStart_, aicEnd_);
             context_->readyCount[aicIndex] = 0;
         }
 
         if (context_->readyCount[aivIndex] > 0) {
-            uint32_t needSendCnt = std::min(GetReadyCoreNum(CoreType::AIV), context_->readyCount[aivIndex]);
-            if (needSendCnt > 0) context_->readyCount[aivIndex] -= BatchSendTask(CoreType::AIV, &context_->readyIds[aivIndex][context_->readyCount[aivIndex] - needSendCnt], needSendCnt, aivStart_, aivEnd_);
-            if (context_->readyCount[aivIndex] > 0) {
-                PushReadyQue(readyAivCoreFunctionQue_, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
-            }
+            PushReadyQue(readyAivCoreFunctionQue_, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
+            TryBatchSendTask(CoreType::AIV, readyAivCoreFunctionQue_, aivStart_, aivEnd_);
             context_->readyCount[aivIndex] = 0;
         }
     }
@@ -927,7 +914,10 @@ private:
 
     // Queues for managing tasks, cores and their pairing
     pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* availableCoreQueue_[AICORE_TYPE_NUM];
-    pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>* runningPairQueue_; 
+    pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* pendingCoreQueue_[AICORE_TYPE_NUM];
+    pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* runningCoreQueue_[AICORE_TYPE_NUM];
+    std::array<aicoreTask_t, TOTAL_CORE_COUNT> aicoreRunningTaskId_;
+    std::array<aicoreTask_t, TOTAL_CORE_COUNT> aicorePendingTaskId_;
 
     // Variable to scheduler lead and whether or not I am the lead
     bool isLeaderScheduler_;
