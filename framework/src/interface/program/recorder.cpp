@@ -275,7 +275,6 @@ void RecordLoopFunc::BeginLoopFunction() {
         funcParallelAttr = Program::GetInstance().GetLoopStack()[Program::GetInstance().GetLoopStack().size() - 2].get().GetParallelFor() ? Parallel_Mode::CHILD : funcParallelAttr;
     }
     auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, funcParallelAttr);
-    auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_);
     currentLoopFunc_->SetDynloopAttribute(attr);
     currentLoopFunc_->SetSourceLocation(location_);
 }

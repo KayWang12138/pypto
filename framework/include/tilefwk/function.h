@@ -207,8 +207,8 @@ private:
     std::string curPathFuncName_;
     std::shared_ptr<LoopRange> loopRange_;
     bool submitBeforeLoop_;
-    FunctionType funcType_{FunctionType::STATIC};
     bool parallelFor_;
+    FunctionType funcType_{FunctionType::STATIC};
     Function *currentLoopFunc_{nullptr};
     bool dryRun_{false};
     bool hasManualUnroll_{false};
