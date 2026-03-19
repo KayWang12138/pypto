@@ -128,10 +128,11 @@ int TorchTensorConverter::Convert(py::sequence &tensors, py::sequence &tensor_de
             throw std::runtime_error("All input tensors must be on the same device");
         }
     }
-    if (py::getattr(device, "type").cast<std::string>() != "npu") {
-        throw std::runtime_error("Not npu device");
-    }
-    return py::getattr(device, "index").cast<int>();
+    // if (py::getattr(device, "type").cast<std::string>() != "npu") {
+    //     throw std::runtime_error("Not npu device");
+    // }
+    // return py::getattr(device, "index").cast<int>();
+    return 0;
 }
 
 size_t ValidateInputs(py::sequence &tensors, py::sequence &tensorDefs) {

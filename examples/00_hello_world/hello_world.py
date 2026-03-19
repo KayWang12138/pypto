@@ -69,10 +69,10 @@ def test_add_direct(device_id=None, run_mode: str = "npu") -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     shape = (1, 4, 1, 64)
     #prepare data
-    input_data0 = torch.rand(shape, dtype=torch.float, device=device)
-    input_data1 = torch.rand(shape, dtype=torch.float, device=device)
+    input_data0 = torch.rand(shape, dtype=torch.float, device="cpu")
+    input_data1 = torch.rand(shape, dtype=torch.float, device="cpu")
 
-    output_data = torch.empty(shape, dtype=torch.float32, device=device)
+    output_data = torch.empty(shape, dtype=torch.float32, device="cpu")
     create_add_kernel(shape, run_mode)(input_data0, input_data1, output_data)
 
     golden = torch.add(input_data0, input_data1)

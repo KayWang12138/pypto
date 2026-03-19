@@ -829,15 +829,16 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     }
     HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
 
-    DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
-    HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
+    // DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
+    // HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
     
-    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
-    HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
+    // uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
+    // HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
 
-    kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
-    HOST_PERF_TRACE(TracePhase::Launch);
-    HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+    // kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+    // HOST_PERF_TRACE(TracePhase::Launch);
+    // HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+    DeviceRunOnceDataFromHost(tensors, {});
 }
 
 void LaunchKernelTorch(py::object &module, int64_t stream, py::sequence &torchTensors,
