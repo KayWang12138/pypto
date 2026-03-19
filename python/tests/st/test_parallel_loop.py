@@ -170,6 +170,5 @@ def test_parallel_add_single_parallel():
 
 
 if __name__ == "__main__":
-    test_parallel_add_nested_parallel()
     test_parallel_add_single_parallel()
     test_parallel_add_double_parallel()
