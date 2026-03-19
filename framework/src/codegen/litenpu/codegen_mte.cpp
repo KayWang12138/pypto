@@ -1,24 +1,24 @@
-// /**
-//  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
-//  * This file is a part of the CANN Open Software.
-//  * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
-//  * Please refer to the License for details. You may not use this file except in compliance with the License.
-//  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-//  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
-//  * See LICENSE in the root of the software repository for the full text of the License.
-//  */
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
-// /*!
-//  * \file codegen_mte.cpp
-//  * \brief
-//  */
+/*!
+ * \file codegen_mte.cpp
+ * \brief
+ */
 
-// #include "codegen_op_litenpu.h"
-// #include "codegen/symbol_mgr/codegen_symbol.h"
-// #include "codegen/utils/codegen_utils.h"
-// #include "securec.h"
+#include "codegen_op_litenpu.h"
+#include "codegen/symbol_mgr/codegen_symbol.h"
+#include "codegen/utils/codegen_utils.h"
+#include "securec.h"
 
-// namespace npu::tile_fwk {
+namespace npu::tile_fwk {
 // template <typename T>
 // bool CodeGenOpLiteNPU::GetAttr(const std::string &key, T &value) const {
 //     auto it = opAttrs.find(key);
@@ -40,8 +40,8 @@
 //     FillIntVecWithDummyInHead<std::string>(pack.gmShapeExpr, ShapeDim - dim, "1");
 //     ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(pack.gmShapeExpr).c_str());
 
-//     if (offsetGmSymbolic[dynShapeIdx][0].IsValid()) {
-//         pack.gmOffsetExpr = GenSymbolicArgument(offsetGmSymbolic[dynShapeIdx]);
+//     if (offsetFromAttr[dynShapeIdx][0].IsValid()) {
+//         pack.gmOffsetExpr = GenSymbolicArgument(offsetFromAttr[dynShapeIdx]);
 //     } else {
 //         pack.gmOffsetExpr = GenGetParamMacroPacked(dynShapeIdx, dim, PREFIX_STR_OFFSET);
 //     } 
@@ -224,69 +224,69 @@
 //     return GenMemUBSpillIntoGM(isCopyUBToGM);
 // }
 
-// std::string CodeGenOpLiteNPU::GenUBCopyIn() const {
-//     std::string paramStr = GenParamsStr();
-//     std::string templateParam;
-//     templateParam += DataType2CCEStr(operandDtype[ID0]) + ", "; // dst dtype
-//     templateParam += DataType2CCEStr(operandDtype[ID1]);        // src dtype (gm)
-//     templateParam += ", /*Tile*/";
-//     for (int s: originShape[ID0]) {
-//         templateParam += std::to_string(s);
-//         templateParam += ", ";
-//     }
-//     templateParam += "/*Offset*/";
-//     for (int o: offsetGmSymbolic[ID1]) {
-//         templateParam += std::to_string(o);
-//         templateParam += ", ";
-//     }
-//     templateParam += "/*Src*/";
-//     for (size_t i = 0; i < rawShape[ID1].size(); ++i) { // copy tensor original shape in gm
-//         templateParam += std::to_string(rawShape[ID1][i]);
-//         if (i < rawShape[ID1].size() - 1) {
-//             templateParam += ", ";
-//         }
-//     }
-//     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-//     int ret = sprintf_s(buffer, BUFFER_SIZE_1024,
-//                         "%s<%s>(%s);\n",
-//                         tileOpName.c_str(),
-//                         templateParam.c_str(),
-//                         paramStr.c_str());
-//     ASSERT(ret >= 0) << "sprintf_s failed in CodeGenOpLiteNPU::GenUBCopyIn, return value:" << ret;
-//     return buffer;
-// }
+std::string CodeGenOpLiteNPU::GenUBCopyIn() const {
+    std::string paramStr = GenParamsStr();
+    std::string templateParam;
+    templateParam += DataType2CCEStr(operandDtype[ID0]) + ", "; // dst dtype
+    templateParam += DataType2CCEStr(operandDtype[ID1]);        // src dtype (gm)
+    templateParam += ", /*Tile*/";
+    for (int s: originShape[ID0]) {
+        templateParam += std::to_string(s);
+        templateParam += ", ";
+    }
+    templateParam += "/*Offset*/";
+    for (int o: offsetFromAttr[ID1]) {
+        templateParam += std::to_string(o);
+        templateParam += ", ";
+    }
+    templateParam += "/*Src*/";
+    for (size_t i = 0; i < rawShape[ID1].size(); ++i) { // copy tensor original shape in gm
+        templateParam += std::to_string(rawShape[ID1][i]);
+        if (i < rawShape[ID1].size() - 1) {
+            templateParam += ", ";
+        }
+    }
+    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    int ret = sprintf_s(buffer, BUFFER_SIZE_1024,
+                        "%s<%s>(%s);\n",
+                        tileOpName.c_str(),
+                        templateParam.c_str(),
+                        paramStr.c_str());
+    ASSERT(ret >= 0) << "sprintf_s failed in CodeGenOpLiteNPU::GenUBCopyIn, return value:" << ret;
+    return buffer;
+}
 
-// std::string CodeGenOpLiteNPU::GenUBCopyOut() const {
-//     std::string paramStr = GenParamsStr();
-//     std::string templateParam;
-//     templateParam += DataType2CCEStr(operandDtype[ID0]) + ", "; // dst dtype (gm)
-//     templateParam += DataType2CCEStr(operandDtype[ID1]);        // src dtype
-//     templateParam += ", /*Tile*/";
-//     for (int s: originShape[ID1]) {
-//         templateParam += std::to_string(s);
-//         templateParam += ", ";
-//     }
-//     templateParam += "/*Offset*/";
-//     for (int o: offsetGmSymbolic[ID0]) {
-//         templateParam += std::to_string(o);
-//         templateParam += ", ";
-//     }
-//     templateParam += "/*Dst*/";
-//     for (size_t i = 0; i < rawShape[ID0].size(); ++i) { // copy tensor original shape in gm
-//         templateParam += std::to_string(rawShape[ID0][i]);
-//         if (i < rawShape[ID0].size() - 1) {
-//             templateParam += ", ";
-//         }
-//     }
-//     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-//     int ret = sprintf_s(buffer, BUFFER_SIZE_1024,
-//                         "%s<%s>(%s);\n",
-//                         tileOpName.c_str(),
-//                         templateParam.c_str(),
-//                         paramStr.c_str());
-//     ASSERT(ret >= 0) << "sprintf_s failed in CodeGenOpLiteNPU::GenUBCopyOut, return value:" << ret;
-//     return buffer;
-// }
+std::string CodeGenOpLiteNPU::GenUBCopyOut() const {
+    std::string paramStr = GenParamsStr();
+    std::string templateParam;
+    templateParam += DataType2CCEStr(operandDtype[ID0]) + ", "; // dst dtype (gm)
+    templateParam += DataType2CCEStr(operandDtype[ID1]);        // src dtype
+    templateParam += ", /*Tile*/";
+    for (int s: originShape[ID1]) {
+        templateParam += std::to_string(s);
+        templateParam += ", ";
+    }
+    templateParam += "/*Offset*/";
+    for (int o: offsetFromAttr[ID0]) {
+        templateParam += std::to_string(o);
+        templateParam += ", ";
+    }
+    templateParam += "/*Dst*/";
+    for (size_t i = 0; i < rawShape[ID0].size(); ++i) { // copy tensor original shape in gm
+        templateParam += std::to_string(rawShape[ID0][i]);
+        if (i < rawShape[ID0].size() - 1) {
+            templateParam += ", ";
+        }
+    }
+    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    int ret = sprintf_s(buffer, BUFFER_SIZE_1024,
+                        "%s<%s>(%s);\n",
+                        tileOpName.c_str(),
+                        templateParam.c_str(),
+                        paramStr.c_str());
+    ASSERT(ret >= 0) << "sprintf_s failed in CodeGenOpLiteNPU::GenUBCopyOut, return value:" << ret;
+    return buffer;
+}
 
 // std::string CodeGenOpLiteNPU::GenIndexOutCastOp() const {
 //     ASSERT(opAttrs.count(OpAttributeKey::cacheMode)) << "cannot get cacheMode attr";
@@ -444,7 +444,7 @@
 //     std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 
 //     auto src0ValidShape = dynamicValidShape[1];
-//     FillIntVecWithDummyInHead<SymbolicScalar>(src0ValidShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
+//     FillIntVecWithDummyInHead<offsetFromAttr>(src0ValidShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
 //     auto src1ValidShape = dynamicValidShape[2];
 
 //     std::ostringstream os;
@@ -841,8 +841,8 @@
 //     const std::string *addrExpr = param.addrExpr;
 //     const std::string *dataTypeExpr = param.dataTypeExpr;
 
-//     std::vector<SymbolicScalar> newDynamicShape = dynamicValidShape[localIdx];
-//     FillIntVecWithDummyInHead<SymbolicScalar>(newDynamicShape, MAX_DIM - dynamicValidShape[localIdx].size(), 1);
+//     std::vector<offsetFromAttr> newDynamicShape = dynamicValidShape[localIdx];
+//     FillIntVecWithDummyInHead<offsetFromAttr>(newDynamicShape, MAX_DIM - dynamicValidShape[localIdx].size(), 1);
 //     const std::vector<int64_t> &localRawShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
 
 //     auto paramPack = PrepareDynamicShapeInfo(gmIdx, MAX_DIM, !param.isSpillIntoGM);
@@ -879,7 +879,7 @@
 //     int printRet;
 
 //     // gm offset of spilling workspace is calculated by pass, the value is saved in dim 0.
-//     SymbolicScalar gmOffset = this->offsetGmSymbolic[gmIdx][0];
+//     offsetFromAttr gmOffset = this->offsetFromAttr[gmIdx][0];
 //     bool isZero = gmOffset.IsValid() && gmOffset.ConcreteValid() && static_cast<int>(gmOffset.Concrete()) == 0;
 //     if (isZero) {
 //         printRet = sprintf_s(buf, sizeof(buf), "%s", addrExpr.c_str());
@@ -906,4 +906,4 @@
 //     std::string expr(buf);
 //     return expr;
 // }
-// } // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

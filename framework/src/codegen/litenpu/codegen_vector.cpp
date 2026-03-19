@@ -1,27 +1,27 @@
-// /**
-//  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
-//  * This file is a part of the CANN Open Software.
-//  * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
-//  * Please refer to the License for details. You may not use this file except in compliance with the License.
-//  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-//  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
-//  * See LICENSE in the root of the software repository for the full text of the License.
-//  */
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
-// /*!
-//  * \file codegen_vector.cpp
-//  * \brief
-//  */
+/*!
+ * \file codegen_vector.cpp
+ * \brief
+ */
 
-// #include "interface/utils/log.h"
-// #include "interface/tensor/logical_tensor.h"
-// #include "codegen_op_litenpu.h"
-// #include "securec.h"
-// #include "codegen/utils/codegen_utils.h"
-// #include "codegen/symbol_mgr/codegen_symbol.h"
-// #include "interface/configs/config_manager.h"
+#include "interface/utils/log.h"
+#include "interface/tensor/logical_tensor.h"
+#include "codegen_op_litenpu.h"
+#include "securec.h"
+#include "codegen/utils/codegen_utils.h"
+#include "codegen/symbol_mgr/codegen_symbol.h"
+#include "interface/configs/config_manager.h"
 
-// namespace npu::tile_fwk {
+namespace npu::tile_fwk {
 // std::string CodeGenOpLiteNPU::GenCastOp() const {
 //     auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
 //     auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
@@ -2316,4 +2316,4 @@
 //     ASSERT(ret >= 0) << "GenPoolOpS sprintf_s failed ";
 //     return buffer;
 // }
-// } // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

@@ -1,24 +1,24 @@
-// /**
-//  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
-//  * This file is a part of the CANN Open Software.
-//  * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
-//  * Please refer to the License for details. You may not use this file except in compliance with the License.
-//  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-//  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
-//  * See LICENSE in the root of the software repository for the full text of the License.
-//  */
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
-// /*!
-//  * \file codegen_cube.cpp
-//  * \brief
-//  */
+/*!
+ * \file codegen_cube.cpp
+ * \brief
+ */
 
-// #include "codegen_op_litenpu.h"
-// #include "codegen/utils/codegen_utils.h"
-// #include "codegen/symbol_mgr/codegen_symbol.h"
-// #include "securec.h"
+#include "codegen_op_litenpu.h"
+#include "codegen/utils/codegen_utils.h"
+#include "codegen/symbol_mgr/codegen_symbol.h"
+#include "securec.h"
 
-// namespace npu::tile_fwk {
+namespace npu::tile_fwk {
 // std::string CodeGenOpLiteNPU::GenCubeOp(bool zeroC) const {
 //     // shape: dst, src0, src1
 //     bool isOffsetValid =
@@ -85,50 +85,45 @@
 //     return GenCubeOp(false);
 // }
 
-// std::string CodeGenOpLiteNPU::GenParamsStr() const {
-//     std::vector<std::string> params;
-//     for (int i = 0; i < MAX_OPERANDS; i++) {
-//         if (operand[i] == NULL_OPERAND) {
-//             continue;
-//         }
+std::string CodeGenOpLiteNPU::GenParamsStr() const {
+    std::vector<std::string> params;
+    for (int i = 0; i < MAX_OPERANDS; i++) {
+        if (operand[i] == NULL_OPERAND) {
+            continue;
+        }
 
-//         if (operandType[i] == BUF_DDR) {
-//             std::string var = GenGmParamVar(i);
-//             std::string dtypeStr = DataType2CCEStr(operandDtype[i]);
-//             std::string prefix = GetAddrTypeByOperandType(BUF_DDR);
-//             char paramBuffer[256] = "CG_ERROR";
-//             int ret = sprintf_s(
-//                 paramBuffer, sizeof(paramBuffer), "(%s %s *)%s", prefix.c_str(), dtypeStr.c_str(), var.c_str());
-//             ASSERT(ret >= 0) << "GenParamsStr sprintf_s failed ";
-//             params.emplace_back(paramBuffer);
-//         } else {
-//             auto localAllocKey = sm->CreateAllocKey(operandWithMagic[i]);
-//             std::string var = sm->QueryVariableName(localAllocKey);
-//             std::string dtypeStr = DataType2CCEStr(operandDtype[i]);
-//             std::string prefix = GetAddrTypeByOperandType(operandType[i]);
-//             char paramBuffer[512] = "CG_ERROR";
-//             int ret = 0;
-//             if (opCode != Opcode::OP_L1_TO_L0A && opCode != Opcode::OP_L1_TO_L0B && opCode != Opcode::OP_L1_TO_L0_BT) {
-//                 // 大包搬运场景下，L1搬运至L0不需要计算L1地址偏移
-//                 // 非大包搬运场景下，L1与L0数据大小一致，也不需要地址偏移
-//                 // 偏移计算仅用于L1_Copy_In 和 L1_Copy_Out
-//                 AppendLocalBufferVarOffset({&var}, {static_cast<unsigned>(i)});
-//             }
-//             if (this->addrOffset[i] == 0) {
-//                 ALOG_DEBUG_F("GenParamsStr var: %s", var.c_str());
-//                 ret = sprintf_s(
-//                     paramBuffer, sizeof(paramBuffer), "(%s %s *)%s", prefix.c_str(), dtypeStr.c_str(), var.c_str());
-//             } else {
-//                 std::stringstream offsetSs;
-//                 offsetSs << "0x" << std::hex << this->addrOffset[i];
-//                 ret = sprintf_s(paramBuffer, sizeof(paramBuffer), "(%s %s *)((%s uint8_t *)%s + %s)", prefix.c_str(),
-//                     dtypeStr.c_str(), prefix.c_str(), var.c_str(), offsetSs.str().c_str());
-//             }
-//             ASSERT(ret >= 0) << "GenParamsStr sprintf_s failed ";
-//             params.emplace_back(paramBuffer);
-//         }
-//     }
-//     return JoinString(params, ", ");
-// }
+        std::string dtypeStr = DataType2CCEStr(operandDtype[i]);
+        std::string prefix = GetAddrTypeByOperandType(operandType[i]);
 
-// } // namespace npu::tile_fwk
+        // if (skipOperands.find(i) != skipOperands.end()) {
+        //     continue;
+        // }
+
+        if (operandType[i] == BUF_DDR) {
+            std::string var = GenGmParamVar(i);
+            std::ostringstream oss;
+            oss << "(" << prefix << " " << dtypeStr << "*)" << var;
+            params.emplace_back(oss.str());
+        } else {
+            std::string var = sm->QueryVarNameByTensorMagic(operandWithMagic[i]);
+
+            if (opCode != Opcode::OP_L1_TO_L0A && opCode != Opcode::OP_L1_TO_L0B && opCode != Opcode::OP_L1_TO_L0_BT &&
+                opCode != Opcode::OP_L1_TO_L0_AT) {
+                // 大包搬运场景下，L1搬运至L0不需要计算L1地址偏移
+                // 非大包搬运场景下，L1与L0数据大小一致，也不需要地址偏移
+                // 偏移计算仅用于L1_Copy_In 和 L1_Copy_Out
+                AppendLocalBufferVarOffset({
+                    {static_cast<unsigned>(i), std::ref(var)}
+                });
+            }
+
+            std::ostringstream oss;
+            CODEGEN_LOGD("GenParamsStr var: %s", var.c_str());
+            oss << "(" << prefix << " " << dtypeStr << "*)" << var;
+            params.emplace_back(oss.str());
+        }
+    }
+    return JoinString(params, ", ");
+}
+
+} // namespace npu::tile_fwk

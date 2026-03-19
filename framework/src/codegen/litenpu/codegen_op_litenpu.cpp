@@ -1,208 +1,215 @@
-// /**
-//  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
-//  * This file is a part of the CANN Open Software.
-//  * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
-//  * Please refer to the License for details. You may not use this file except in compliance with the License.
-//  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-//  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
-//  * See LICENSE in the root of the software repository for the full text of the License.
-//  */
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
-// /*!
-//  * \file codegen_op.cpp
-//  * \brief
-//  */
+/*!
+ * \file codegen_op.cpp
+ * \brief
+ */
 
-// #include "codegen_op_litenpu.h"
+#include "codegen_op_litenpu.h"
 
-// #include <algorithm>
+#include <algorithm>
 
-// #include "codegen/codegen_common.h"
-// #include "securec.h"
+#include "codegen/codegen_common.h"
+#include "securec.h"
 
-// namespace npu::tile_fwk {
-// void CodeGenOpLiteNPU::AppendLocalBufferVarOffset(
-//     const std::vector<std::string *> &vars, const std::vector<unsigned> &operandIdxes) const {
-//     ASSERT(vars.size() == operandIdxes.size())
-//         << "vars size vs operandIdxes is not equal" << vars.size() << " vs. " << operandIdxes.size();
+namespace npu::tile_fwk {
+CodeGenOpLiteNPU::CodeGenOpLiteNPU(const CodeGenOpCtx &ctx)
+    : CodeGenOpLiteNPU(ctx.symbolManager, ctx.topFunc.GetFunctionType(), ctx.locToOffset,
+          ctx.topFunc.IsUnderDynamicFunction(), ctx.isMainBlock) {
+    UpdateTileTensorInfo();
+}
 
-//     for (size_t i = 0; i < vars.size(); ++i) {
-//         int resOffset{0};
+void CodeGenOpLiteNPU::AppendLocalBufferVarOffset(
+    const std::map<unsigned, std::reference_wrapper<std::string>> &vars) const {
+    for (auto &kv : vars) {
+        auto operandIdx = kv.first;
+        int64_t resOffset{0};
 
-//         std::vector varOffset = offset[operandIdxes[i]];
-//         if (varOffset.empty()) {
-//             continue;
-//         }
+        std::vector<int64_t> varOffset = offset[operandIdx];
+        if (varOffset.empty()) {
+            continue;
+        }
 
-//         std::vector varRawShape = rawShape[operandIdxes[i]];
-//         ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
-//         ASSERT(varOffset.size() == varRawShape.size())
-//             << "varOffset " << IntVecToStr(varOffset) << ", size " << varOffset.size() << " vs varRawShape "
-//             << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
+        std::vector<int64_t> varRawShape = rawShape[operandIdx];
+        ASSERT(!varRawShape.empty()) << "varRawShape is empty!! operandIdx: " << operandIdx;
+        ASSERT(varOffset.size() == varRawShape.size())
+            << "varOffset " << IntVecToStr(varOffset) << ", size " << varOffset.size() << " vs varRawShape "
+            << IntVecToStr(varRawShape) << ", size " << varRawShape.size()
+            << " is not equal!! operandIdx: " << operandIdx;
 
-//         int base = 1;
-//         for (int j = varOffset.size() - 1; j >= 0; j--) {
-//             resOffset += varOffset[j] * base;
-//             base *= varRawShape[j];
-//         }
+        resOffset = CalcLinearOffset(varRawShape, varOffset);
+        if (resOffset == 0) {
+            continue;
+        }
 
-//         if (resOffset == 0) {
-//             continue;
-//         }
+        std::string &var = kv.second.get();
 
-//         ALOG_DEBUG_F(" vars[%d]: %s", i, (*vars[i]).c_str());
-//         ALOG_DEBUG_F(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
-//         ALOG_DEBUG_F(" varOffset: %s", IntVecToStr(varOffset).c_str());
-//         ALOG_DEBUG_F(" resOffset: %d", resOffset);
-//         ASSERT(vars[i]) << "var[" << i << "] is null!!";
-//         *vars[i] += " + " + std::to_string(resOffset);
-//     }
-// }
+        ASSERT(!var.empty()) << "operandIdx: " << operandIdx << ", var is empty !!";
+        CODEGEN_LOGI("var: %s, varRawShape: %s, varOffset: %s, resOffset: %ld", var.c_str(),
+            IntVecToStr(varRawShape).c_str(), IntVecToStr(varOffset).c_str(), static_cast<long>(resOffset));
 
-// std::string CodeGenOpLiteNPU::GenGmParamVar(unsigned gmParamIdx) const {
-//     return std::string("RealizedGM") + std::to_string(paramLocation[gmParamIdx]) + ".Addr";
-// }
+        var.append(" + ").append(std::to_string(resOffset));
+    }
+}
 
-// // Used for parameter of GM shape and offset, e.g.
-// // GET_PARAM_RAWSHAPE_2(param, 19, 9), GET_PARAM_OFFSET_2(param, 19, 9)
-// // If dim is 2, the macro would be expanded into "shape0, shape1" which is implemented in aicore_runtime.h
-// std::vector<std::string> CodeGenOpLiteNPU::GenGetParamMacroPacked(
-//     unsigned gmParamIdx, int dim, const std::string &prefix) const {
-//     std::vector<std::string> paramExpr;
-//     std::ostringstream os;
-//     os << "GET_PARAM_" << prefix << "_" << dim << "(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc
-//        << ", " << paramLocation[gmParamIdx] << ")";
-//     paramExpr.emplace_back(os.str());
-//     return paramExpr;
-// };
+std::string CodeGenOpLiteNPU::GenGmParamVar(unsigned gmParamIdx) const {
+    return std::string("RealizedGM") + std::to_string(paramLocation[gmParamIdx]) + ".Addr";
+}
 
-// std::vector<std::string> CodeGenOpLiteNPU::GenParamIdxExprByIndex(
-//     unsigned gmParamIdx, int dim, const std::string &prefix) const {
-//     std::vector<std::string> paramExpr;
-//     std::ostringstream os;
-//     for (int index = 0; index < dim; ++index) {
-//         os << "GET_PARAM_" << prefix << "_BY_IDX(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
-//            << paramLocation[gmParamIdx] << ", " << dim << ", " << index << ")";
-//         paramExpr.emplace_back(os.str());
-//         os.str("");
-//     }
-//     return paramExpr;
-// }
+// Used for parameter of GM shape and offset, e.g.
+// GET_PARAM_RAWSHAPE_2(param, 19, 9), GET_PARAM_OFFSET_2(param, 19, 9)
+// If dim is 2, the macro would be expanded into "shape0, shape1" which is implemented in aicore_runtime.h
+std::vector<std::string> CodeGenOpLiteNPU::GenGetParamMacroPacked(
+    unsigned gmParamIdx, int dim, const std::string &prefix) const {
+    std::vector<std::string> paramExpr;
+    std::ostringstream os;
+    os << "GET_PARAM_" << prefix << "_" << dim << "(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc
+       << ", " << paramLocation[gmParamIdx] << ")";
+    paramExpr.emplace_back(os.str());
+    return paramExpr;
+};
 
-// std::vector<std::string> CodeGenOpLiteNPU::GenSymbolicArgument(const std::vector<SymbolicScalar> &exprList) const {
-//     std::vector<std::string> argList;
-//     for (auto &expr : exprList) {
-//         std::string exprStr = SymbolicExpressionTable::BuildExpression(expr);
-//         argList.push_back(exprStr);
-//     }
-//     return argList;
-// }
+std::vector<std::string> CodeGenOpLiteNPU::GenParamIdxExprByIndex(
+    unsigned gmParamIdx, int dim, const std::string &prefix) const {
+    std::vector<std::string> paramExpr;
+    std::ostringstream os;
+    for (int index = 0; index < dim; ++index) {
+        os << "GET_PARAM_" << prefix << "_BY_IDX(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
+           << paramLocation[gmParamIdx] << ", " << dim << ", " << index << ")";
+        paramExpr.emplace_back(os.str());
+        os.str("");
+    }
+    return paramExpr;
+}
 
-// bool CodeGenOpLiteNPU::CombineAxis(std::vector<std::vector<int64_t> *> &shapes, bool secondLastAxis) const {
-//     size_t num;
-//     {
-//         auto iter = shapes.begin();
-//         num = (*iter)->size();
-//         for (; iter != shapes.end(); ++iter) {
-//             ASSERT(num == (*iter)->size()) << "shapes have to be the same!";
-//         }
-//     }
+std::vector<std::string> CodeGenOpLiteNPU::GenSymbolicArgument(const std::vector<SymbolicScalar> &exprList) const {
+    std::vector<std::string> argList;
+    for (auto &expr : exprList) {
+        std::string exprStr = SymbolicExpressionTable::BuildExpression(expr);
+        argList.push_back(exprStr);
+    }
+    return argList;
+}
 
-//     if (secondLastAxis) {
-//         num--;
-//     }
+bool CodeGenOpLiteNPU::CombineAxis(std::vector<std::vector<int64_t> *> &shapes, bool secondLastAxis) const {
+    size_t num;
+    {
+        auto iter = shapes.begin();
+        num = (*iter)->size();
+        for (; iter != shapes.end(); ++iter) {
+            ASSERT(num == (*iter)->size()) << "shapes have to be the same!";
+        }
+    }
 
-//     int64_t i = num - 1;
-//     for (; i >= 0; i--) {
-//         bool match = true;
-//         auto iter = shapes.begin();
-//         int s = (*iter)->at(i);
-//         for (; iter != shapes.end(); ++iter) {
-//             if (s != (*iter)->at(i)) {
-//                 match = false;
-//                 break;
-//             }
-//         }
-//         if (!match) {
-//             if (i >= static_cast<int64_t>(num - NUM2)) {
-//                 return false;
-//             }
-//             break;
-//         }
-//     }
+    if (secondLastAxis) {
+        num--;
+    }
 
-//     i = std::max(i, static_cast<int64_t>(0));
-//     size_t numVec = shapes.size();
-//     std::vector<int> acc(numVec, 1);
-//     for (size_t j = i; j < num - 1; j++) {
-//         for (size_t k = 0; k < numVec; k++) {
-//             acc[k] *= shapes[k]->at(j);
-//             shapes[k]->at(j) = 1;
-//         }
-//     }
-//     for (size_t k = 0; k < numVec; k++) {
-//         shapes[k]->at(num - 1) = acc[k] * shapes[k]->at(num - 1);
-//     }
+    int64_t i = num - 1;
+    for (; i >= 0; i--) {
+        bool match = true;
+        auto iter = shapes.begin();
+        int s = (*iter)->at(i);
+        for (; iter != shapes.end(); ++iter) {
+            if (s != (*iter)->at(i)) {
+                match = false;
+                break;
+            }
+        }
+        if (!match) {
+            if (i >= static_cast<int64_t>(num - NUM2)) {
+                return false;
+            }
+            break;
+        }
+    }
 
-//     for (size_t k = 0; k < numVec; k++) {
-//         // remove redundant ones so better chance for repeat
-//         shapes[k]->erase(shapes[k]->begin() + i, shapes[k]->begin() + (num - 1));
-//         // pad ones to preserve shape length
-//         shapes[k]->insert(shapes[k]->begin(), (num - 1) - i, 1);
-//     }
+    i = std::max(i, static_cast<int64_t>(0));
+    size_t numVec = shapes.size();
+    std::vector<int> acc(numVec, 1);
+    for (size_t j = i; j < num - 1; j++) {
+        for (size_t k = 0; k < numVec; k++) {
+            acc[k] *= shapes[k]->at(j);
+            shapes[k]->at(j) = 1;
+        }
+    }
+    for (size_t k = 0; k < numVec; k++) {
+        shapes[k]->at(num - 1) = acc[k] * shapes[k]->at(num - 1);
+    }
 
-//     return true;
-// }
+    for (size_t k = 0; k < numVec; k++) {
+        // remove redundant ones so better chance for repeat
+        shapes[k]->erase(shapes[k]->begin() + i, shapes[k]->begin() + (num - 1));
+        // pad ones to preserve shape length
+        shapes[k]->insert(shapes[k]->begin(), (num - 1) - i, 1);
+    }
 
-// TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string &usingType) {
-//     TileTensor tileTensor;
-//     tileTensor.magic = operandWithMagic[paramIdx];
-//     tileTensor.dim = dynamicValidShape[paramIdx].size();
-//     tileTensor.dtype = operandDtype[paramIdx];
-//     tileTensor.bufType = operandType[paramIdx];
-//     if (tileTensor.bufType == OperandType::BUF_DDR) {
-//         tileTensor.bufVar = GenGmParamVar(paramIdx);
-//     } else {
-//         tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic);
-//     }
-//     tileTensor.usingType = usingType;
-//     tileTensor.tensorName = BUFFER_TYPE_TO_PREFIX_LC.at(tileTensor.bufType) + "Tensor_" + std::to_string(tileTensor.magic);
+    return true;
+}
 
-//     if (tileTensor.bufType == OperandType::BUF_DDR) {
-//         tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
-//         tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
-//     } else {
-//         for (const auto &s : dynamicValidShape[paramIdx]) {
-//             tileTensor.shape.emplace_back(s.Dump());
-//         }
-//         for (int i = 1; i < tileTensor.dim; ++i) {
-//             tileTensor.stride.emplace_back(std::to_string(rawShape[paramIdx][i]));
-//         }
-//     }
+TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string &usingType) {
+    TileTensor tileTensor;
+    tileTensor.magic = operandWithMagic[paramIdx];
+    tileTensor.dim = dynamicValidShape[paramIdx].size();
+    tileTensor.dtype = operandDtype[paramIdx];
+    tileTensor.bufType = operandType[paramIdx];
+    if (tileTensor.bufType == OperandType::BUF_DDR) {
+        tileTensor.bufVar = GenGmParamVar(paramIdx);
+    } else {
+        tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic);
+    }
+    tileTensor.usingType = usingType;
+    tileTensor.tensorName = BUFFER_TYPE_TO_PREFIX_LC.at(tileTensor.bufType) + "Tensor_" + std::to_string(tileTensor.magic);
 
-//     // default last axis stride is 1, which means data is consecutive in memory
-//     tileTensor.stride.emplace_back("1");
+    if (tileTensor.bufType == OperandType::BUF_DDR) {
+        tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
+        tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
+    } else {
+        for (const auto &s : dynamicValidShape[paramIdx]) {
+            tileTensor.shape.emplace_back(s.Dump());
+        }
+        for (int i = 1; i < tileTensor.dim; ++i) {
+            tileTensor.stride.emplace_back(std::to_string(rawShape[paramIdx][i]));
+        }
+    }
 
-//     return tileTensor;
-// }
+    // default last axis stride is 1, which means data is consecutive in memory
+    tileTensor.stride.emplace_back("1");
 
-// void CodeGenOpLiteNPU::UpdateTileTensorInfo() {
-//     if (!isSupportLayout) {
-//         return;
-//     }
+    return tileTensor;
+}
 
-//     auto iter = SUPPORT_TILETENSOR_OPS.find(opCode);
-//     if (iter == SUPPORT_TILETENSOR_OPS.end()) {
-//         return;
-//     }
+void CodeGenOpLiteNPU::UpdateTileTensorInfo() {
+    if (!isSupportLayout) {
+        return;
+    }
 
-//     tileOpName = iter->second;
-//     for (int i = 0; i < operandCnt; ++i) {
-//         TileTensorUsing tileTensorUsing{operandDtype[i], operandType[i], static_cast<int>(rawShape[i].size())};
-//         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
-//         TileTensor tileTensor = BuildTileTensor(i, usingType);
-//         sm->AddTileTensor(tileTensor);
-//     }
-// }
+    auto iter = SUPPORT_TILETENSOR_OPS.find(opCode);
+    if (iter == SUPPORT_TILETENSOR_OPS.end()) {
+        ASSERT(iter != SUPPORT_TILETENSOR_OPS.end()) << "opCode: " << opCodeStr << " not support tile tensor!";
+        return;
+    }
 
-// } // namespace npu::tile_fwk
+    tileOpName = iter->second; // update tileOpName from SUPPORT_TILETENSOR_OPS
+
+    for (int i = 0; i < operandCnt; ++i) {
+        TileTensorUsing tileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],
+            operandType[i], static_cast<int>(rawShape[i].size()), originShape[i], rawShape[i]};
+        std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
+        TileTensor tileTensor = BuildTileTensor(i, usingType);
+        std::string tensorName = sm->AddTileTensor(tileTensor);
+        // tensorNames_[i] = tensorName; // TODO: needed?
+        CODEGEN_LOGI(
+            "AddTileTensor op idx: %d, result usingType: %s, tensorName: %s", i, usingType.c_str(), tensorName.c_str());
+    }
+}
+
+} // namespace npu::tile_fwk
