@@ -2078,6 +2078,7 @@ Json Function::DumpJson(bool useTable) {
     funcJson["_funcid"] = IdGen<IdType::FUNCTION>::Inst().CurId();
     funcJson["_sg_pg_upperbound"] = paramConfigs_.sgPgUpperBound;
     funcJson["_sg_pg_lowerbound"] = paramConfigs_.sgPgLowerBound;
+    funcDump["_sg_partition_algorithm"] = paramConfigs_.sgPartitionAlgorithm;
     funcJson["_sg_parallel_num"] = paramConfigs_.sgParallelNum;
     funcJson["_sg_mg_copyin_upper_bound"] = paramConfigs_.sgMgCopyInUpperBound;
     funcJson["_mg_vec_parallel_lb"] = paramConfigs_.mgVecParallelLb;
@@ -2395,6 +2396,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     IdGen<IdType::FUNCTION>::Inst().SetId(funcid);
     func->paramConfigs_.sgPgUpperBound = funcJson["_sg_pg_upperbound"].get<int>();
     func->paramConfigs_.sgPgLowerBound = funcJson["_sg_pg_lowerbound"].get<int>();
+    func->paramConfigs_.sgPartitionAlgorithm = funcDump["_sg_partition_algorithm"].get<std::string>();
     func->paramConfigs_.sgParallelNum = funcJson["_sg_parallel_num"].get<int>();
     func->paramConfigs_.sgMgCopyInUpperBound = funcJson["_sg_mg_copyin_upper_bound"].get<int>();
     func->paramConfigs_.mgVecParallelLb = funcJson["_mg_vec_parallel_lb"].get<int>();
