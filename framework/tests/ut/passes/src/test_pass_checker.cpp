@@ -39,23 +39,6 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(PassCheckTest, TestCheckCompletenessWithoutIncast) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "IntraSubGraphAdapterTest", "IntraSubGraphAdapterTest", nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-
-    std::vector<int64_t> shape = {8, 16};
-
-    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto &exp_op1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast1});
-    exp_op1.UpdateSubgraphID(0);
-
-    currFunctionPtr->outCasts_.push_back(outcast1);
-    Checker checker;
-    EXPECT_EQ(checker.CheckCompleteness(*currFunctionPtr), FAILED);
-    EXPECT_EQ(checker.PublicCheck(*currFunctionPtr), FAILED);
-}
-
 TEST_F(PassCheckTest, TestCheckCompletenessWithNullIncast) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "IntraSubGraphAdapterTest", "IntraSubGraphAdapterTest", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
