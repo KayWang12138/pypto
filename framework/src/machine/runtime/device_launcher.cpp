@@ -62,10 +62,10 @@ int GetMaxBlockdim() {
     // 若不满足AIC和AIV的比例，手动处理成为符合AIC和AIV的比例最大值
     if (vectorBlockDim != cubeBlockDim * AICAIVRATIO) {
         auto rtsMaxBlockDim = std::min(cubeBlockDim, vectorBlockDim / AICAIVRATIO);
-        ALOG_WARN_F(
-            "The cubeBlockDim[%d] and vectorBlockDim[%d] do not conform to the 1: %d ratio of AIC and AIV, "
+        MACHINE_LOGW(
+            "The cubeBlockDim[%u] and vectorBlockDim[%u] do not conform to the 1: %u ratio of AIC and AIV, "
             "and will be set to values that conform to the ratio of AIC and AIV. "
-            "The cubeBlockDim and vectorBlockDim are set at %d and %d", 
+            "The cubeBlockDim and vectorBlockDim are set at %u and %u",
             cubeBlockDim, vectorBlockDim, AICAIVRATIO, rtsMaxBlockDim, rtsMaxBlockDim * AICAIVRATIO);
         return rtsMaxBlockDim;
     } else {
@@ -461,16 +461,16 @@ uint32_t GetProcessId() {
         process_sign processSign;
         auto ret = drvGetProcessSign(&processSign);
         if (ret == 0) {
-            ALOG_DEBUG_F("Got process sign from drv: tgid=%d", processSign.tgid);
+            MACHINE_LOGD("Got process sign from drv: tgid=%d", processSign.tgid);
             return static_cast<uint32_t>(processSign.tgid);
         }
-        ALOG_WARN_F("drvGetProcessSign failed, ret=%d, falling back to getpid()", ret);
+        MACHINE_LOGW("drvGetProcessSign failed, ret=%d, falling back to getpid()", ret);
     } else {
-        ALOG_WARN_F("drvGetProcessSign is nullptr, falling back to getpid()");
+        MACHINE_LOGW("drvGetProcessSign is nullptr, falling back to getpid()");
     }
     
     uint32_t pid = static_cast<uint32_t>(getpid());
-    ALOG_DEBUG_F("Using getpid(): pid=%d", pid);
+    MACHINE_LOGD("Using getpid(): pid=%u", pid);
     return pid;
 #else
     return 0;
@@ -675,16 +675,28 @@ void DeviceLauncher::UnregisterKernelBin(void *hdl) {
 #endif
 }
 
+void DeviceLauncher::SetDevPerfAddr([[maybe_unused]]const bool &debugEnable, [[maybe_unused]]const bool &isCaptureMode) {
+#ifdef BUILD_WITH_CANN
+        auto &devRunner = DeviceRunner::Get();
+        if (debugEnable || devRunner.GetEnableDumpDevPref()) {
+            if (isCaptureMode) {
+                ChangeCaptureModeRelax();
+            }
+            devRunner.SetDebugEnable();
+            if (isCaptureMode) {
+                ChangeCaptureModeGlobal();
+            }
+        }
+#endif
+}
+
 int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream,
-                                      bool debugEnable, [[maybe_unused]]Function *function) {
+                                      [[maybe_unused]]bool debugEnable, [[maybe_unused]]Function *function) {
 #ifdef BUILD_WITH_CANN
     auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
     auto schedStream = (aclrtStream)machine::GetRA()->GetScheStream();
     auto &devRunner = DeviceRunner::Get();
     devRunner.GetHostProfInstance().SetProfFunction(function);
-    if (debugEnable) {
-        devRunner.SetDebugEnable();
-    }
     int ret = 0;
     auto args = (AiCpuArgs *)rtArgs.args;
     int nrAicpu = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
@@ -742,7 +754,7 @@ int DeviceLauncher::LaunchAicoreKernel(
             MACHINE_LOGE("sync failed");
             return rc;
         }
-        devRunner.SynchronizeDeviceToHostProfData();
+        devRunner.DumpAiCoreExecutionTimeData();
         ASSERT(machine::GetRA()->CheckAllSentinels());
     }
     return ret;

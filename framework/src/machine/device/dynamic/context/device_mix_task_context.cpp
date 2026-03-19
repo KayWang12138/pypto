@@ -30,7 +30,6 @@ void DeviceTaskContext::ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId
             return;
         }
     }
-
     auto opWrapTaskNumList = reinterpret_cast<int32_t*>(dyntask->devTask.mixTaskData.opWrapTaskNumList[funcIndex]);
     auto cceBinary = dyntask->cceBinary;
     auto callList = dyntask->dynFuncDataCacheList[funcIndex].calleeList;

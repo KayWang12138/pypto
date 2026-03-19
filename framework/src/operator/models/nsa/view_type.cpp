@@ -43,31 +43,6 @@ void ViewTypeFunc(const Tensor &x, Tensor &result, DataType dstDtype) {
     }
 }
 
-void ViewTypeCastFunc(const Tensor &x, Tensor &result, DataType dstDtype, DataType castDtype) {
-    FUNCTION("ViewTypeCastFunc", {x}, {result}) {
-        int m = x.GetShape()[0];
-        int k = x.GetShape()[1];
-        int n = x.GetShape()[2];
-        int tileM = m / 4;
-        SymbolicScalar mLoop = m / tileM;
-
-        LOOP("LOOP_L0_nIdx_view_type_cast", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1)) {
-            SymbolicScalar mOffset = mIdx * tileM;
-            TileShape::Current().SetVecTile({tileM, k, n});
-            auto xView = View(x, {tileM, k, n}, {mOffset, 0, 0});
-            TileShape::Current().SetVecTile({tileM, k, n});
-            auto resultView = View(xView, dstDtype);
-            auto resultCast = Cast(resultView, castDtype);
-            auto resultRes = resultCast;
-
-            if(castDtype == DT_FP32) {
-                resultRes = Add(resultCast, Element(castDtype, float(0)));
-            }
-            Assemble(resultRes, {mOffset, 0, 0}, result);
-        }
-    }
-}
-
 std::tuple<Tensor, Tensor> MyPrologQuant(const Tensor &input) {
     config::SetSemanticLabel("Prolog-Quant");
     constexpr const float s8_max_value = 127.0f;

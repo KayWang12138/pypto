@@ -116,6 +116,12 @@ std::string SoC::GetCCECVersion(std::string CoreType) {
 }
 
 size_t SoC::GetAICPUNum() const {
+    size_t aiCpuNum = 0;
+    PLATFORM_LOGD("Try to obtain real time aicpu count through rtGetAiCpuCount.");
+    if (CannHostRuntime::Instance().GetAICPUCnt(aiCpuNum)) {
+        return aiCpuNum;
+    }
+    PLATFORM_LOGD("Cannot obtain real time aicpu count, using the initialized value.");
     return ai_cpu_cnt_;
 }
 

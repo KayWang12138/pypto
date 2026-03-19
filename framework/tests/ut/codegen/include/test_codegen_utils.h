@@ -66,6 +66,9 @@ void CheckStringExist(const std::string &expect, const std::string &result);
 
 Function *GenMockFuncDyn(const std::string &funcName, const std::vector<int64_t> &shape = {64, 64});
 
+std::shared_ptr<LogicalTensor> CreateConvTensor(Function &function, const DataType &dtype,
+    const std::vector<int64_t> &shape, const MemoryType &memType, const bool &isCopyIn = true);
+
 } // namespace npu::tile_fwk
 
 #endif // TEST_CODEGEN_UTILS_H

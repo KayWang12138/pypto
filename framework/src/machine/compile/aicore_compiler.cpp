@@ -18,7 +18,6 @@
 #include <iostream>
 #include <sstream>
 #include <sys/stat.h>
-#include "interface/utils/log.h"
 #include "codegen/utils/parallel_execute.h"
 #include "interface/utils/file_utils.h"
 #include "interface/utils/op_info_manager.h"

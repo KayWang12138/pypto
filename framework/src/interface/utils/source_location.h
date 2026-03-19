@@ -44,6 +44,13 @@ public:
     static void SetLocation(const std::string &fname, int lineno, const std::string &backtrace) { callStack.push(std::make_shared<SourceLocation>(fname, lineno, backtrace)); }
     static void ClearLocation() { callStack.pop(); }
     static auto GetLocation() { return callStack.size() > 0 ? callStack.top() : nullptr; }
+    static std::string GetLocationString() {
+        auto loc = GetLocation();
+        if (loc) {
+            return loc->ToString();
+        }
+        return "??:0:0";
+    }
 
     static void SetCppMode(bool val) { isCppMode_ = val; }
     static bool IsCppMode() { return isCppMode_; }

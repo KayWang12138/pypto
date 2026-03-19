@@ -22,7 +22,6 @@
 #include "ws_allocator_basics.h"
 
 namespace npu::tile_fwk::dynamic {
-
 enum class WsAicpuSlabMemType : uint8_t {
     DUPPED_FUNC_DATA = 0,
     DYN_FUNC_DATA,

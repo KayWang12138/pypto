@@ -278,6 +278,58 @@ class Tensor:
             raise RuntimeError("unsupported dtype")
         return pypto.matmul(self, other, out_dtype)
 
+    @source_location
+    def __neg__(self) -> 'Tensor':
+        return pypto.neg(self)
+
+    @source_location
+    def __pos__(self) -> 'Tensor':
+        return self
+
+    @source_location
+    def __rsub__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.neg(self.sub(other))
+
+    @source_location
+    def __rmul__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.mul(self, other)
+
+    @source_location
+    def __rtruediv__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.mul(pypto.reciprocal(self), other)
+
+    @source_location
+    def __floordiv__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.floor(pypto.div(self, other))
+
+    @source_location
+    def __mod__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.remainder(self, other)
+
+    @source_location
+    def __pow__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.pow(self, other)
+
+    @source_location
+    def __lt__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.lt(self, other)
+
+    @source_location
+    def __le__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.le(self, other)
+
+    @source_location
+    def __ge__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.ge(self, other)
+
+    @source_location
+    def __eq__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.eq(self, other)
+
+    @source_location
+    def __ne__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.ne(self, other)
+
     @property
     def dtype(self) -> DataType:
         return self._base.GetDataType()
@@ -750,6 +802,10 @@ class Tensor:
     @source_location
     def pad(self, pad: Sequence[int], mode: str = "constant", value: float = 0.0) -> 'Tensor':
         return pypto.pad(self, pad, mode, value)
+        
+    @source_location
+    def fillpad(self, mode: str = "constant", value: float = 0.0) -> 'Tensor':
+        return pypto.fillpad(self, mode, value)
 
     @source_location
     def scatter_update(self, dim: int, index: 'Tensor', src: 'Tensor') -> 'Tensor':
