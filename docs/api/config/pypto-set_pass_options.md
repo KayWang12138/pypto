@@ -19,6 +19,7 @@ set_pass_options(*,
                      cube_l1_reuse_setting: Optional[Dict[int, int]] = None,
                      cube_nbuffer_setting: Optional[Dict[int, int]] = None,
                      sg_set_scope: Optional[int] = None,
+                     pg_partition_algorithm: Optional[str] = None,
                      )
 ```
 
@@ -30,6 +31,15 @@ set_pass_options(*,
 | cube_l1_reuse_setting | 输入 | 含义：合图参数，用于配置重复搬运同一GM数据的子图合并数量。<br> 说明：该参数适用于含有CUBE计算的子图合并。 <br> 类型： dict[int, int] <br> 取值：<br>{-1: 1}：跳过L1Reuse合并 <br> {} （空字典）：自动合并，根据AIC核心数自动计算合并粒度<br> {-1: N, 0: N1, ...}：手动合并，默认合并粒度为N。 <br> 默认值：{} 空字典 <br> 影响Pass范围：L1ReuseMerge |
 | cube_nbuffer_setting    | 输入      | 含义：合图参数，用于配置相同结构AIC子图的合并数量。 <br> 说明：该参数适用于结构相同的AIC子图合并。 <br> 类型：dict[int, int] <br> 取值：<br>{-1: 1}：跳过AIC子图合并 <br> {} （空字典）：自动合并，根据AIC核心数自动计算合并粒度<br> {-1: N, 0: N1, ...}：手动合并，默认合并粒度为N <br>默认值：{-1: 1} <br> 影响Pass范围： L1ReuseMerge |
 | sg_set_scope            | 输入      | 含义：手动控制合图参数。 <br> 说明：将operation赋予特定的scopeId，若相邻的operation具有相同的非-1的scopeId，则会被强制合并在一个子图之中，并且这个子图不会与其他子图合并。该参数仅对存在上下游连接通路的operation生效，例如operation A的输出作为operation B的输入即构成此类连接通路。 <br> 类型：int <br> 取值范围：-1~2147483647 <br> 默认值：-1 <br> 影响Pass范围：GraphPartition <br> 配置建议：1）视图类Operation与其对应的计算类Operation应配置相同的scopeId。2）Reshape Operation较为特殊，部分场景会单独成子图，手动控制合图行为可能失效。|
+| pg_partition_algorithm  | 输入      | 含义：指定切分算法。<br> 说明：配置GraphPartition环节进行子图切分所采用的算法。当同时配置了 `sg_set_scope` 时，无论选择哪种切分算法，都会优先尊重 `sg_set_scope` 的强制合图约束。<br> 类型：str <br> 取值范围："Iso", "OspSarkar", "OspBsp" <br> 影响Pass范围：GraphPartition <br> 算法选择指导：请参考下文。|
+
+### 算法选择指导 (Algorithm Selection Guidance)
+
+| 参数值 (Value) | 适用场景 (Applicable Scenario) |
+| :--- | :--- |
+| **"Iso"** | 基于同构的切分算法 (Isomorphism-based partitioning)；适用于常规通用场景 (suitable for general-purpose use)。 |
+| **"OspSarkar"** | 基于关键路径缩减的瓦片内核融合。 (Fuses tile kernels based on critical path reduction.) |
+| **"OspBsp"** | 基于 BSP 模型融合瓦片内核，用于并行计算和同构检测。 (Fuses tile kernels based on the BSP model for parallel computation and isomorphism detection.) |
 
 ## 返回值说明
 
@@ -51,18 +61,24 @@ set_pass_options(*,
 ```
 
 ### dict类型配置说明
+
 #### 键值对含义
+
 Key (hashorder): 同构子图组id。<br>
 - 值 M: 匹配 hashorder 为 M 的特定子图组。<br>
 - 值 -1: 匹配所有未显式指定的子图组。<br>
 
 Value (N): 表示合并粒度。即：同构子图组内每N个子图合并为一个新子图执行。<br>
+
 #### 配置行为
+
 Pass 在处理子图合并时，遵循 “精确匹配 > 默认配置 > 自动处理” 的逻辑：<br>
 - 精确匹配: 若 hashorder 命中字典中的特定 Key，则按其对应的 Value N 进行合并。<br>
 - 默认配置: 若未精确命中，但字典中存在 -1，则按 -1 对应的 Value 执行合并。<br>
 - 自动处理: 若既未精确命中也无 -1 配置，则自动计算合并粒度进行合并优化。<br>
+
 #### 配置示例
+
 | 配置                  | 说明                                                                 |
 |---------------------- |----------------------------------------------------------------------|
 |{-1: 1}|跳过子图合并。合并粒度为1，即所有同构子图组内的子图不进行合并。|
