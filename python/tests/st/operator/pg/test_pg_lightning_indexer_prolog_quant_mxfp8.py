@@ -18,7 +18,11 @@ import torch_npu
 import pytest
 import pypto
 from torch._subclasses.fake_tensor import FakeTensor
-from torch._dynamo import allow_in_graph
+try:
+    from torch._dynamo import allow_in_graph
+except Exception:
+    def allow_in_graph(fn):
+        return fn
 
 from lightning_indexer_prolog_quant_mxfp8_impl import lightning_indexer_prolog_quant
 from utils.compare_2_1 import precision_compare_triple
@@ -397,8 +401,6 @@ def lightning_indexer_prolog_quant_mxfp8_meta(x, q_norm, q_norm_scale, w_qb, w_q
     return q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights
 
 
-@torch.library.impl(pyptolib, "lightning_indexer_prolog_quant_mxfp8", "NPU")
-@allow_in_graph
 def lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj,
                                             gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q, hadamard_k,
                                             k_cache, k_scale_cache, k_cache_index, k_scale_cache_index):
@@ -424,10 +426,10 @@ def lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm, q_norm_scale, w_qb, w_qb
         pg_scale_cache_index = k_scale_cache_index // block_size * k_scale_cache.shape[-1] \
             * block_size + k_scale_cache_index % block_size + k_scale_storage_offset
 
-    k_cache=k_cache.view(block_num, block_size * (k_cache.shape[-1] // head_dim), n_kv, head_dim)
-    k_scale_cache=k_scale_cache.view(block_num, block_size * k_scale_cache.shape[-1], n_kv, 1)
-    k_cache_index=pg_cache_index.reshape(t, 1)
-    k_scale_cache_index=pg_scale_cache_index.reshape(t, 1)
+    k_cache = k_cache.view(block_num, block_size * (k_cache.shape[-1] // head_dim), n_kv, head_dim)
+    k_scale_cache = k_scale_cache.view(block_num, block_size * k_scale_cache.shape[-1], n_kv, 1)
+    k_cache_index = pg_cache_index.reshape(t, 1)
+    k_scale_cache_index = pg_scale_cache_index.reshape(t, 1)
 
     device = x.device
     q_fp8e4m3 = torch.empty((t * head_num, head_dim), device=device, dtype=torch.float8_e4m3fn)
@@ -473,7 +475,19 @@ def lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm, q_norm_scale, w_qb, w_qb
     k_scale = k_scale.view(block_num, -1)[:, k_scale_storage_offset: 
         k_scale_storage_offset + block_size * n_kv * 1].view(block_num, block_size, n_kv, 1)
 
+    q_fp8e4m3 = q_fp8e4m3.view(t, head_num, head_dim)
+    q_scale = q_scale.view(t, head_num, 1)
+
     return q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights
+
+
+try:
+    lightning_indexer_prolog_quant_mxfp8_npu = allow_in_graph(lightning_indexer_prolog_quant_mxfp8_npu)
+    @torch.library.impl(pyptolib, "lightning_indexer_prolog_quant_mxfp8", "NPU")(
+        lightning_indexer_prolog_quant_mxfp8_npu
+    )
+except Exception as e:
+    logging.warning(f"Skip: {e}")
 
 
 def do_test_lightning_indexer_prolog_quant(case_name, is_acl=False):
@@ -493,39 +507,39 @@ def do_test_lightning_indexer_prolog_quant(case_name, is_acl=False):
 
     torch_npu.npu.config.allow_internal_format = True
 
-    x=inputs_data["token_x"].npu().reshape(t, h)
-    q_norm=inputs_data["q_norm"].npu().reshape(t, q_lora_rank)
-    q_norm_scale=inputs_data["q_norm_scale"].npu().reshape(t, q_lora_rank // 64, 2)
-    w_qb=inputs_data["w_idx_qb"].npu()
-    w_qb_scale=inputs_data["w_idx_qb_scale"].npu().reshape(q_lora_rank // 64, head_num * idx_head_dim, 2)
-    wk=inputs_data["w_idx_k"].npu()
-    w_proj=inputs_data["w_idx_proj"].npu()
-    gamma_k=inputs_data["rms_norm_gamma"].npu().reshape(1, idx_head_dim)
-    cos_idx_rope=inputs_data["cos_idx_rope"].npu().reshape(t, rope_head_dim)
-    sin_idx_rope=inputs_data["sin_idx_rope"].npu().reshape(t, rope_head_dim)
-    hadamard_q=inputs_data["hadamard_q"].npu()
-    hadamard_k=inputs_data["hadamard_k"].npu()
-    k_cache=inputs_data["idx_k_cache"]
-    k_scale_cache=inputs_data["idx_k_scale_cache"]
-    k_cache_index=inputs_data["idx_k_cache_index"]
-    k_scale_cache_index=inputs_data["idx_k_cache_index"]
+    x = inputs_data["token_x"].npu().reshape(t, h)
+    q_norm = inputs_data["q_norm"].npu().reshape(t, q_lora_rank)
+    q_norm_scale = inputs_data["q_norm_scale"].npu().reshape(t, q_lora_rank // 64, 2)
+    w_qb = inputs_data["w_idx_qb"].npu()
+    w_qb_scale = inputs_data["w_idx_qb_scale"].npu().reshape(q_lora_rank // 64, head_num * idx_head_dim, 2)
+    wk = inputs_data["w_idx_k"].npu()
+    w_proj = inputs_data["w_idx_proj"].npu()
+    gamma_k = inputs_data["rms_norm_gamma"].npu().reshape(1, idx_head_dim)
+    cos_idx_rope = inputs_data["cos_idx_rope"].npu().reshape(t, rope_head_dim)
+    sin_idx_rope = inputs_data["sin_idx_rope"].npu().reshape(t, rope_head_dim)
+    hadamard_q = inputs_data["hadamard_q"].npu()
+    hadamard_k = inputs_data["hadamard_k"].npu()
+    k_cache = inputs_data["idx_k_cache"]
+    k_scale_cache = inputs_data["idx_k_scale_cache"]
+    k_cache_index = inputs_data["idx_k_cache_index"]
+    k_scale_cache_index = inputs_data["idx_k_cache_index"]
 
-    q_fp8e4m3_golden = golden_data["query"].reshape(t * head_num, idx_head_dim)
-    q_scale_golden = golden_data["query_scale"].reshape(t * head_num, 1)
+    q_fp8e4m3_golden = golden_data["query"].reshape(t, head_num, idx_head_dim)
+    q_scale_golden = golden_data["query_scale"].reshape(t, head_num, 1)
     k_cache_golden = golden_data["idx_k_cache_out"]
     k_scale_cache_golden = golden_data["idx_k_scale_cache_out"]
     weights_golden = golden_data["weights"].reshape(t, head_num)
 
-    q_fp8e4m3_npu = npu_data["query"].reshape(t * head_num, idx_head_dim)
-    q_scale_npu = npu_data["query_scale"].reshape(t * head_num, 1)
+    q_fp8e4m3_npu = npu_data["query"].reshape(t, head_num, idx_head_dim)
+    q_scale_npu = npu_data["query_scale"].reshape(t, head_num, 1)
     k_cache_npu = npu_data["idx_k_cache_out"]
     k_scale_cache_npu = npu_data["idx_k_scale_cache_out"]
     weights_npu = npu_data["weights"].reshape(t, head_num)
 
     logging.info("==================finish torch==================")
 
+    model = Model()
     if is_acl:
-        model = Model()
         compile_forward = torch.compile(model, fullgraph=True, backend="npugraph_ex", dynamic=False)
         q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights = compile_forward(x, q_norm, q_norm_scale,
             w_qb, w_qb_scale, wk, w_proj, gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q, hadamard_k, k_cache,
