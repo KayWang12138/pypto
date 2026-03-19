@@ -29,6 +29,7 @@ class JITOptions:
     dynamic: bool = False
     partition: bool = True
     unroll_factor: int = 1
+    stitch_num : int = 128
 
 
 class JITFunction(Generic[P, T]):
@@ -67,10 +68,17 @@ class JITFunction(Generic[P, T]):
         Context.dynamic = self.options.dynamic
         pypto.set_vec_tile_shapes(8) # NOTE: Need for load store
         pypto.set_debug_options(runtime_debug_mode=1)
+        stitch_num = self.options.stitch_num
+        if stitch_num < 1 or stitch_num > 1024:
+            raise ValueError(f"stitch_num must be 1-1024, but current value {stitch_num}")
+        pypto.set_runtime_options(stitch_function_max_num=self.options.stitch_num)
+        unroll_factor = self.options.unroll_factor
+        if unroll_factor < 1:
+            raise ValueError(f"unroll_factor must be >= 1, but current value {unroll_factor}")
         with pypto.function(self.fn.__name__, *in_out_tensors):
             loop_range = None
             if self.options.dynamic:
-                loop_range = self.dynamic_grid_loop(grid, unroll_factor=self.options.unroll_factor)
+                loop_range = self.dynamic_grid_loop(grid, unroll_factor=unroll_factor)
             else:
                 loop_range = self.static_grid_loop(grid)
             pypto.set_pass_options(pg_skip_partition=(not self.options.partition))
