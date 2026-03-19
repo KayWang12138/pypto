@@ -26,7 +26,8 @@ constexpr int32_t DEFAULT_LATENCY = 511;
 namespace {
 bool IsSupportedPartialWriteProducer(const Operation &op)
 {
-    return op.GetOpcode() == Opcode::OP_ASSEMBLE || op.GetOpcode() == Opcode::OP_L0C_TO_L1;
+    return op.GetOpcode() == Opcode::OP_ASSEMBLE || op.GetOpcode() == Opcode::OP_L0C_TO_L1 ||
+        IsAllocOpCode(op.GetOpcode());
 }
 } // namespace
 
@@ -715,6 +716,9 @@ Status OoOScheduler::FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vect
                 spillInfo.spillTensor_->GetMagic(), producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
             return FAILED;
         }
+        if (IsAllocOpCode(producer->GetOpcode())) {
+            continue;
+        }
         for (auto issue : issueEntries) {
             if (&(issue->tileOp) == producer) {
                 assembleList.push_back(issue);
@@ -756,6 +760,7 @@ void OoOScheduler::GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t &b
 
 LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
     SpillInfo &spillInfo, const std::vector<int64_t> &toOffset) {
+    (void)spillInfo;
     LogicalTensorPtr localTensor = std::make_shared<LogicalTensor>(
         function_, iOperand->Datatype(), iOperand->shape, iOperand->Format());
     localTensor->SetMemoryTypeToBe(assembleTensor->GetMemoryTypeToBe());
@@ -763,9 +768,9 @@ LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperan
     localTensor->oriShape = iOperand->shape;
     localTensor->tensor = assembleTensor->tensor;
     localTensor->memoryrange.memId = assembleTensor->memoryrange.memId;
-    localTensor->UpdateDynValidShape(spillInfo.spillTensor_->GetDynValidShape());
+    localTensor->UpdateDynValidShape(iOperand->GetDynValidShape());
     localTensor->offset = toOffset;
-    tensorAllocCoreMap[localTensor->memoryrange.memId] = tensorAllocCoreMap[iOperand->memoryrange.memId];
+    tensorAllocCoreMap[localTensor->memoryrange.memId] = tensorAllocCoreMap[assembleTensor->memoryrange.memId];
     return localTensor;
 }
 
@@ -846,7 +851,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         numTotalIssues++;
     }
     // copyin
-    int64_t gmRelatOffset = CalcWorkspaceOffset(assembleTensor->GetShape(), toOffset);
+    int64_t gmRelatOffset = CalcWorkspaceOffset(assembleTensor->GetShape(), toOffset) * BytesOf(localTensor->Datatype());
     if (gmRelatOffset == -1) {
         APASS_LOG_ERROR_F(Elements::Operation, "CalcWorkspaceOffset failed.");
         return FAILED;
@@ -854,7 +859,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
     auto &spillCopyInOp = function_.AddRawOperation(Opcode::OP_COPY_IN, {spillInfo.ddrTensor_}, {localTensor});
     int64_t base = 0;
     GetWorkspaceBaseOffset(spillInfo.ddrTensor_, base);
-    spillCopyInOp.SetAttr(OpAttributeKey::workspaceBaseOffset, gmRelatOffset + base);
+    spillCopyInOp.SetAttr(OpAttributeKey::workspaceBaseOffset, base + gmRelatOffset);
     spillCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(toOffset),
                 iOperand->GetMemoryTypeOriginal(), OpImmediate::Specified(iOperand->GetShape()),
                 OpImmediate::Specified(assembleTensor->tensor->GetDynRawShape())));
