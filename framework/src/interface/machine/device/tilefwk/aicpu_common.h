@@ -197,7 +197,6 @@ struct DeviceArgs {
 
 const uint64_t AICORE_REG_SAY_HELLO = 0xF000000080000000;
 constexpr uint32_t REG_HIGH_DTASKID_SHIFT = 32;
-enum class TASK_POS : size_t { LOW_REG = 0, HIGH_REG = 1, ALL_REG = 2, REG_POS_BUTT = 3 };
 
 struct TaskStat {
     int16_t seqNo;
