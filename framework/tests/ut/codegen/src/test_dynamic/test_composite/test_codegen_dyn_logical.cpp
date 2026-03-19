@@ -180,7 +180,6 @@ std::string TestLogicalBody(Opcode opcode) {
     function->GetTensorMap().inverseMap_[logicalInTensor->GetMagic()] = logicalInTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
 
-    cop.UpdateTileTensorInfo();
     return cop.GenOpCode();
 }
 

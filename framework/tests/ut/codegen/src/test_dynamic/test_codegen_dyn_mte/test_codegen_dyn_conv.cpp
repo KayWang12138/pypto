@@ -114,8 +114,6 @@ std::string TestConvL1CopyInBody(const std::string &funcName, const std::vector<
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPU cgop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
-    cgop.originShape[0] = gmShape;
-    cgop.originShape[1] = gmShape;
     return cgop.GenOpCode();
 }
 

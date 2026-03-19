@@ -113,9 +113,6 @@ void TestWhereBody(
     function->GetTensorMap().inverseMap_[localTensorResult->GetMagic()] = localTensorResult;
     function->GetTensorMap().inverseMap_[localTensorTmp->GetMagic()] = localTensorTmp;
 
-    if (isSupportTileTensor) {
-        cop.UpdateTileTensorInfo();
-    }
     std::string res = cop.GenOpCode();
     EXPECT_EQ(res, expect);
 }

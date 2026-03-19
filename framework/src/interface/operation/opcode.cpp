@@ -265,6 +265,10 @@ void OpcodeManager::RegisterVectorUnary() {
         {OpAttributeKey::scalar, OP_ATTR_PREFIX + "pad_right", OP_ATTR_PREFIX + "pad_bottom",
             OpAttributeKey::excludeBufferReuse},
         TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_FILLPAD, OpCoreType::AIV, "FILLPAD", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::TFillPad", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OpAttributeKey::excludeBufferReuse},
+        TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_SQRT, OpCoreType::AIV, "SQRT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tsqrt", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
@@ -475,11 +479,11 @@ void OpcodeManager::RegisterVector() {
         {OP_ATTR_PREFIX + "patternMode", OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_CMP, OpCoreType::AIV, "CMP", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Compare", PIPE_V, PIPE_V, CoreType::AIV},
-        OpCalcType::BROADCAST, {OP_ATTR_PREFIX + "cmp_operation", OP_ATTR_PREFIX + "cmp_mode"},
+        OpCalcType::BROADCAST, {OP_ATTR_PREFIX + "cmp_operation", OpAttributeKey::rowPad, OP_ATTR_PREFIX + "cmp_mode"},
         TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_CMPS, OpCoreType::AIV, "CMPS", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Cmps", PIPE_V, PIPE_V, CoreType::AIV},
-        OpCalcType::BROADCAST, {OP_ATTR_PREFIX + "cmp_operation", OP_ATTR_PREFIX + "cmp_mode", OpAttributeKey::scalar});
+        OpCalcType::BROADCAST, {OP_ATTR_PREFIX + "cmp_operation", OpAttributeKey::rowPad, OP_ATTR_PREFIX + "cmp_mode", OpAttributeKey::scalar});
     RegisterInfo(Opcode::OP_HYPOT, OpCoreType::AIV, "HYPOT", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Hypot", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::BROADCAST);
@@ -488,7 +492,7 @@ void OpcodeManager::RegisterVector() {
         OpCalcType::BROADCAST);
     RegisterInfo(Opcode::OP_PRELU, OpCoreType::AIV, "PRELU", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::PReLU", PIPE_V, PIPE_V, CoreType::AIV},
-        OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
+        OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OpAttributeKey::rowPad, OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_SCATTER_ELEMENT, OpCoreType::AIV, "SCATTER_ELEMENT",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::TscatterElementS", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER,
@@ -552,8 +556,6 @@ void OpcodeManager::RegisterVector() {
     RegisterInfo(Opcode::OP_GATHER_IN_UB, OpCoreType::ANY, "GATHER_IN_UB",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_UB},
         {"TileOp::GatherInUB", PIPE_MTE2, PIPE_MTE2, CoreType::AIV}, OpCalcType::OTHER);
-    RegisterInfo(Opcode::OP_LOAD, OpCoreType::AIV, "LOAD", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
-        {MemoryType::MEM_UB}, {"TileOp::Load", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER);
     RegisterInfo(Opcode::OP_MAX_POOL, OpCoreType::AIV, "MAX_POOL", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tmaxpool", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OpAttributeKey::excludeBufferReuse});
     RegisterInfo(Opcode::OP_REDUCE_ACC, OpCoreType::GMATOMIC, "REDUCE_ACC", {MEM_DEVICE_DDR, MEM_DEVICE_DDR},
@@ -958,6 +960,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {              Opcode::OP_RELU,           "TRelu"},
     {              Opcode::OP_LOG1P,         "TLog1p"},
     {              Opcode::OP_PAD,             "TPad"},
+    {              Opcode::OP_FILLPAD,     "TFillPad"},
     {               Opcode::OP_SQRT,          "TSqrt"},
     {               Opcode::OP_SIGN,          "TSign"},
     {            Opcode::OP_SIGNBIT,       "TSignbit"},

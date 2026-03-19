@@ -253,14 +253,14 @@ void MonitorManager::PrintCompilationFinished() {
 
 void MonitorManager::SetCompilerMonitorOptions(bool enable, int interval_sec, int timeout_sec, int total_timeout_sec) {
     enable_ = enable;
-    interval_sec_ = (interval_sec > 0) ? interval_sec : 60;
-    std::string interval_str = std::to_string(interval_sec_);
+    interval_sec_.store((interval_sec > 0) ? interval_sec : 60);
+    std::string interval_str = std::to_string(interval_sec_.load());
     (void)setenv("PYPTO_COMPILER_MONITOR_INTERVAL_SEC", interval_str.c_str(), 1);
-    timeout_sec_ = (timeout_sec >= -1) ? timeout_sec : 0;
-    std::string timeout_str = std::to_string(timeout_sec_);
+    timeout_sec_.store((timeout_sec >= -1) ? timeout_sec : 0);
+    std::string timeout_str = std::to_string(timeout_sec_.load());
     (void)setenv("PYPTO_COMPILER_MONITOR_TIMEOUT_SEC", timeout_str.c_str(), 1);
-    total_timeout_sec_ = (total_timeout_sec >= 0) ? total_timeout_sec : 600;
-    std::string total_timeout_str = std::to_string(total_timeout_sec_);
+    total_timeout_sec_.store((total_timeout_sec >= 0) ? total_timeout_sec : 600);
+    std::string total_timeout_str = std::to_string(total_timeout_sec_.load());
     (void)setenv("PYPTO_COMPILER_MONITOR_TOTAL_TIMEOUT_SEC", total_timeout_str.c_str(), 1);
 }
 
@@ -284,36 +284,15 @@ bool MonitorManager::GetStageTimeoutFlag(const std::string &name) {
 }
 
 int MonitorManager::GetIntervalSec() const {
-    const char *v = std::getenv("PYPTO_COMPILER_MONITOR_INTERVAL_SEC");
-    if (v != nullptr) {
-        int env_val = std::atoi(v);
-        if (env_val > 0) {
-            return env_val;
-        }
-    }
-    return interval_sec_;
+    return interval_sec_.load();
 }
 
 int MonitorManager::GetTimeoutSec() const {
-    const char *v = std::getenv("PYPTO_COMPILER_MONITOR_TIMEOUT_SEC");
-    if (v != nullptr) {
-        int env_val = std::atoi(v);
-        if (env_val > 0) {
-            return env_val;
-        }
-    }
-    return timeout_sec_;
+    return timeout_sec_.load();
 }
 
 int MonitorManager::GetTotalTimeoutSec() const {
-    const char *v = std::getenv("PYPTO_COMPILER_MONITOR_TOTAL_TIMEOUT_SEC");
-    if (v != nullptr) {
-        int env_val = std::atoi(v);
-        if (env_val > 0) {
-            return env_val;
-        }
-    }
-    return total_timeout_sec_;
+    return total_timeout_sec_.load();
 }
 
 std::string MonitorManager::GetCurrentStageName() const {
@@ -350,13 +329,6 @@ int MonitorManager::GetTotalFunctionCount() const {
 }
 
 int MonitorManager::GetCurrentFunctionIndex() const {
-    const char *v = std::getenv("PYPTO_COMPILER_MONITOR_CURRENT");
-    if (v != nullptr) {
-        int env_val = std::atoi(v);
-        if (env_val >= 0) {
-            return env_val;
-        }
-    }
     std::lock_guard<std::mutex> lock(mutex_);
     return current_function_index_;
 }
@@ -384,7 +356,7 @@ void MonitorManager::EndStage(const std::string &name) {
     if (!initialized_ || !impl_ || !enable_) {
         return;
     }
-    if (this->GetTimeoutSec() != 0) {
+    if (timeout_sec_.load() != 0) {
         stage_timeout_flag_["Prepare"] = false;
         stage_timeout_flag_["Pass"] = false;
         stage_timeout_flag_["CodeGen"] = false;
@@ -404,7 +376,7 @@ void MonitorManager::EndStage(const std::string &name) {
                            "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
                            " | Total elapsed: " + FormatElapsed(total_elapsed);
     } else {
-        stage_finish_msg = "[Compiler Monitor] Function: " + std::to_string(this->GetCurrentFunctionIndex()) + "/" +
+        stage_finish_msg = "[Compiler Monitor] Function: " + std::to_string(current_function_index_) + "/" +
                            std::to_string(total_function_count_) + " | Stage: " + name +
                            "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
                            " | Total elapsed: " + FormatElapsed(total_elapsed) + " | Func:[" + current_function_ + "]";

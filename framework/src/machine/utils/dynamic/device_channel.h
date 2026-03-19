@@ -64,7 +64,7 @@ public:
         nrSlot_ = size / sizeof(struct Slot);
         slots_ = reinterpret_cast<Slot*>(naddr + CACHE_LINE_SIZE);
         ASSERT(nrSlot_ > 0 && "size too small")<<"nrSlot_= "<<nrSlot_<<", expected >0";
-        DEV_DEBUG("nrSlot addr %p %ld \n", nextSlot_, nrSlot_);
+        DEV_DEBUG("nrSlot addr: nextSlot=%p, nrSlot=%ld\n", nextSlot_, nrSlot_);
 
         reset();
     }
@@ -93,7 +93,7 @@ public:
 
         slot = slotAlloc();
         if (slot != -1) {
-            DEV_DEBUG("req taskId %ld, slot %d\n", taskId, slot);
+            DEV_DEBUG("req: taskId=%ld, slot=%d\n", taskId, slot);
             sendTask(slot, taskId, taskData);
             return true;
         }
@@ -123,7 +123,7 @@ private:
         std::lock_guard<SpinLock> lock(lock_);
         for (int i = 0; i < nrSlot_; i++) {
             if (status_[i] == 0) {
-                DEV_DEBUG("alloc slot %d\n", i);
+                DEV_DEBUG("alloc slot=%d\n", i);
                 status_[i] = 1;
                 return i;
             }
@@ -160,13 +160,13 @@ public:
         nrSlot_ = size / sizeof(struct Slot);
         slots_ = reinterpret_cast<Slot*>(naddr + CACHE_LINE_SIZE);
         ASSERT(nrSlot_ > 0 && "size too small")<<", nrSlot_="<<nrSlot_<<", expected >0";
-        DEV_DEBUG("nrSlot addr %p %ld\n", nextSlot_, nrSlot_);
+        DEV_DEBUG("nrSlot addr: nextSlot=%p, nrSlot=%ld\n", nextSlot_, nrSlot_);
     }
 
     void Finish(int64_t slot) {
         ASSERT(slot < nrSlot_)<<"slot="<<slot<<" >= nrSlot_="<<nrSlot_;
 
-        DEV_DEBUG("fin taskId %lx slot %ld\n", slots_[slot].taskId, slot);
+        DEV_DEBUG("fin: taskId=%lx, slot=%ld\n", slots_[slot].taskId, slot);
         std::lock_guard<SpinLock> lock(lock_);
         slots_[slot].status = FIN;
     }
@@ -189,7 +189,7 @@ public:
         if (slots_[slot].status == START) {
             taskId = static_cast<int64_t>(slots_[slot].taskId);
             taskData = static_cast<int64_t>(slots_[slot].taskData);
-            DEV_DEBUG("ack taskId %ld, slot %d\n", taskId, slot);
+            DEV_DEBUG("ack: taskId=%ld, slot=%d\n", taskId, slot);
             slots_[slot].status = ACKED; // next slot will be updated after acked
             return true;
         }

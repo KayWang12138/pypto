@@ -64,7 +64,7 @@ struct MemoryHelper {
 
             uint8_t * rawPtr = (uint8_t*)malloc(totalSize);
             if (rawPtr == nullptr) {
-                ALOG_ERROR_F("[AllocDev] malloc totalSize %zu failed", totalSize);
+                MACHINE_LOGE("[AllocDev] malloc totalSize %zu failed", totalSize);
                 return nullptr;
             }
             std::shared_ptr<uint8_t> ptr(rawPtr, free);
@@ -232,7 +232,7 @@ private:
         uint8_t *dumpTensorWsPtr = reinterpret_cast<uint8_t *>(kArgs.workspace) + devProg->memBudget.Total() - devProg->memBudget.debug.dumpTensor;
         uint64_t dumpTensorWsUsed = 0;
         rtMemcpy(&dumpTensorWsUsed, sizeof(uint64_t), dumpTensorWsPtr, sizeof(uint64_t), RT_MEMCPY_DEVICE_TO_HOST);
-        ALOG_ERROR_F("[DumpTensor] dumpTensorWsPtr=%p, memory used=%lu\n", dumpTensorWsPtr, dumpTensorWsUsed);
+        MACHINE_LOGE("[DumpTensor] dumpTensorWsPtr=%p, memory used=%lu\n", dumpTensorWsPtr, dumpTensorWsUsed);
 
         std::string path = config::LogTopFolder() + "/dump_tensor.txt";
         std::ofstream fout(path, std::ios::out | std::ios::binary);
@@ -243,15 +243,15 @@ private:
             int idx = 0;
             for (auto &ptr : ptrs) {
                 uint64_t devPtr = ptr ? reinterpret_cast<uint64_t>(ptr->GetDevPtr()) : 0;
-                ALOG_ERROR_F("[DumpTensor] devPtr %d = %lu\n", idx++, devPtr);
+                MACHINE_LOGE("[DumpTensor] devPtr %d = %lu\n", idx++, devPtr);
                 fout.write(reinterpret_cast<const char *>(&devPtr), sizeof(devPtr));
             }
         };
 
         // write input/output devAddr list
-        ALOG_ERROR_F("[DumpTensor] #inputs=%zu\n", inputs.size());
+        MACHINE_LOGE("[DumpTensor] #inputs=%zu\n", inputs.size());
         printIODevAddrs(inputs);
-        ALOG_ERROR_F("[DumpTensor] #outputs=%zu\n", outputs.size());
+        MACHINE_LOGE("[DumpTensor] #outputs=%zu\n", outputs.size());
         printIODevAddrs(outputs);
 
         DumpDevDataBinary(fout, nullptr, dumpTensorWsUsed, dumpTensorWsPtr);
@@ -272,7 +272,7 @@ private:
         std::cout << "!!! Kernel Launch " << "\n";
         int rc = aclInit(nullptr);
         if (rc != 0 && rc != ACL_ERROR_REPEAT_INITIALIZE) {
-            ALOG_ERROR_F("Acl init failed!!!");
+            MACHINE_LOGE("Acl init failed!!!");
             return;
         }
         CheckDeviceId();
@@ -337,7 +337,7 @@ private:
         costModelAgent.SubmitLeafFunctionsToCostModel();
         costModelAgent.RunCostModel();
         costModelAgent.TerminateCostModel();
-        ALOG_DEBUG_F("Finish Run DynCostMode which topo path is: %s", path.c_str());
+        MACHINE_LOGD("Finish Run DynCostMode which topo path is: %s", path.c_str());
     }
 
     void RunTestMode(DeviceKernelArgs *kArgs) {
@@ -384,7 +384,7 @@ private:
         std::vector<DeviceTensorData> outputList;
         std::tie(inputList, outputList) = BuildInputOutputFromHost(memoryHelper, inputTensors, outputTensors);
         DeviceInitKernelInOuts(memoryHelper, kArgs, inputList, outputList, disableL2List);
-        ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
+        MACHINE_LOGI("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
         return;
     }

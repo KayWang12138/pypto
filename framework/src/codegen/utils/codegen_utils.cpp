@@ -73,6 +73,35 @@ std::string GetAddrTypeByOperandType(OperandType type) {
     return "";
 }
 
+std::string CopyInModeToString(Matrix::CopyInMode copyMode) {
+    switch (copyMode) {
+        case Matrix::CopyInMode::ND2ND: return "CopyInMode::ND2ND";
+        case Matrix::CopyInMode::DN2NZ: return "CopyInMode::DN2NZ";
+        case Matrix::CopyInMode::NZ2NZ: return "CopyInMode::NZ2NZ";
+        case Matrix::CopyInMode::ND2NZ: return "CopyInMode::ND2NZ";
+        default: return "CopyInMode::ND2NZ";
+    }
+}
+
+std::string CopyOutModeToString(Matrix::CopyOutMode copyMode) {
+    switch (copyMode) {
+        case Matrix::CopyOutMode::NZ2ND: return "CopyOutMode::NZ2ND";
+        case Matrix::CopyOutMode::NZ2NZ: return "CopyOutMode::NZ2NZ";
+        case Matrix::CopyOutMode::ND2ND: return "CopyOutMode::ND2ND";
+        case Matrix::CopyOutMode::NZ2DN: return "CopyOutMode::NZ2DN";
+        default: return "CopyOutMode::NZ2ND";
+    }
+}
+
+std::string PaddingModeToString(Matrix::PaddingMode paddingMode) {
+    switch (paddingMode) {
+        case Matrix::PaddingMode::NO_PADDING: return "PaddingMode::NO_PADDING";
+        case Matrix::PaddingMode::PADDING_OUTER: return "PaddingMode::PADDING_OUTER";
+        case Matrix::PaddingMode::PADDING_INNER: return "PaddingMode::PADDING_INNER";
+        default: return "PaddingMode::NO_PADDING";
+    }
+}
+
 int64_t CalcLinearOffset(const std::vector<int64_t> &shape, const std::vector<int64_t> &offset) {
     if (shape.empty() || offset.empty() || shape.size() != offset.size()) {
         CODEGEN_LOGE_E(GenCodeErr::TENSOR_SHAPE_INVALID, "Invalid Input! shape: %s, offset: %s",

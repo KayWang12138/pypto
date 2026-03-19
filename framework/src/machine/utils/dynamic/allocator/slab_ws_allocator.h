@@ -22,7 +22,6 @@
 #include "ws_allocator_basics.h"
 
 namespace npu::tile_fwk::dynamic {
-/**wraplist**/
 enum class WsAicpuSlabMemType : uint8_t {
     DUPPED_FUNC_DATA = 0,
     DYN_FUNC_DATA,
@@ -32,8 +31,6 @@ enum class WsAicpuSlabMemType : uint8_t {
     DIE_READY_QUE,
     WRAP_QUEUE,
     WRAP_TASKLIST,
-    WRAP_OPWRAPLIST,
-    WRAP_OPWRAPTASKNUMLIST,
     COHERENT_SLAB_MEM_TYPE_BUTT, //add new slabmemtype should be above this type
 
     DUPPED_STITCH, // stitch pool memory
@@ -103,16 +100,16 @@ public:
         
         if (caches_[type].objSize != 0) {
             if (caches_[type].objSize >= objSize) {
-                DEV_DEBUG("[SlabWsAllocator]Slab cache exists : objsize = %u, cacheType = %u.\n", objSize, type);
+                DEV_DEBUG("[SlabWsAllocator]Slab cache exists: objsize=%u, cacheType=%u.\n", objSize, type);
                 return true;
             }
-            DEV_ERROR("[SlabWsAllocator]Add cache failed type = %u, objsize = %u", type, objSize);
+            DEV_ERROR("[SlabWsAllocator]Add cache failed: type=%u, objsize=%u", type, objSize);
             return false;
         }
         uint32_t realObjSize = (((objSize) + (sizeof(uint64_t)) - 1) & ~((sizeof(uint64_t)) - 1));
         caches_[type] = SlabCache(realObjSize, this);
         numCaches_++;
-        DEV_DEBUG("[SlabWsAllocator]Add slab cache : objsize = %u, realobjsize = %u, type = %u.\n", objSize, realObjSize, type);
+        DEV_DEBUG("[SlabWsAllocator]Add slab cache: objsize=%u, realObjsize=%u, type=%u.\n", objSize, realObjSize, type);
         return true;
     }
 
@@ -174,7 +171,7 @@ public:
                     DumpMemoryStatusWhenAbnormal("alloc null:");
                 }
 
-                DEV_DEBUG("[SlabWsAllocator]Alloc memory(%u) not enough : objsize = %u .\n", cacheType, objSize);
+                DEV_DEBUG("[SlabWsAllocator]Alloc memory cacheType=%u not enough: objsize=%u.\n", cacheType, objSize);
                 return nullptr; // memory not enough
             }
 
@@ -220,14 +217,14 @@ public:
             } else {
                 void* temp = caches_[i].stageAllocHead;
                 if (temp == nullptr) {
-                    DEV_ERROR("stageAllocHead is null for cache index %u\n", i);
+                    DEV_ERROR("stageAllocHead is null for cacheIndex=%u\n", i);
                 }
                 DEV_ASSERT(temp != nullptr);
                 while (*static_cast<void**>(temp) != caches_[i].stageAllocTail) {
                     temp = *static_cast<void**>(temp);
                 }
                 if (temp == nullptr) {
-                    DEV_ERROR("stageAllocHead is null after loop for cache index %u, stageAllocTail: %p, \n", i, caches_[i].stageAllocTail);
+                    DEV_ERROR("stageAllocHead is null after loop for cacheIndex=%u, stageAllocTail=%p\n", i, caches_[i].stageAllocTail);
                 }
                 DEV_ASSERT(temp != nullptr);
                 *static_cast<void**>(temp) = nullptr;

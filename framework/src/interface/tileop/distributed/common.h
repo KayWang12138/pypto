@@ -193,14 +193,6 @@ TILEOP __gm__ T* MapVirtualAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, ui
     }
 }
 
-template<typename T>
-TILEOP __gm__ T* MapAndOffsetShmem(__gm__ int64_t* hcclContext, __gm__ T* shmemBase, uint32_t rankOffset,
-    uint32_t offset1, uint32_t offset2, uint32_t offset3, uint32_t rawShape2, uint32_t rawShape3)
-{
-    uint32_t linearOffset = TileOp::CalcLinearOffset(rawShape2, rawShape3, offset1, offset2, offset3);
-    return MapVirtualAddr<T>(hcclContext, shmemBase, rankOffset) + linearOffset;
-}
-
 /* UB 清 0 */
 TILEOP void ClearFlagBuf(__ubuf__ int32_t *flagBuf)
 {

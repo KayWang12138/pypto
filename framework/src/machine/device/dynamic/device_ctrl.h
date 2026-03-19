@@ -155,7 +155,7 @@ public:
             }
         }
 
-        DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devCtrlFlowCache->deviceTaskCount, (int)firstInit);
+        DEV_INFO("ControlFlowCache: deviceTaskCount=%d, firstInit=%d.", (int)devCtrlFlowCache->deviceTaskCount, (int)firstInit);
 
         /* Currently, sche does not use ctrlFlowCacheAnchor, so that we could record it in devProgram.
          * However, it should be moved into the execute context. */
@@ -238,7 +238,7 @@ public:
         uint64_t inputSize = *kargs->inputs;
         uint64_t outputSize = *(kargs->inputs + 1);
         auto inputPtr = PtrToPtr<int64_t, DevTensorData>(kargs->inputs + TENSOR_INFO_OFFSET);
-        DEV_INFO("Input/output size [%lu][%lu] tensor list ptr[%p].", inputSize, outputSize, inputPtr);
+        DEV_INFO("inputSize=%lu, outputSize=%lu, tensorListPtr=%p.", inputSize, outputSize, inputPtr);
         devStartArgs->devTensorList = inputPtr;
         devStartArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
         devStartArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
@@ -312,7 +312,7 @@ public:
         if (devArgs->devDfxArgAddr != 0) {
             DevDfxArgs *devDfxArgs = reinterpret_cast<DevDfxArgs*>(devArgs->devDfxArgAddr);
             if (devDfxArgs->logLevel != -1 && dlog_setlevel != nullptr) {
-                (void)dlog_setlevel(PYPTO, devDfxArgs->logLevel, 1);
+                (void)dlog_setlevel(LOG_MOD_ID, devDfxArgs->logLevel, 1);
             }
         }
 #endif
@@ -369,7 +369,7 @@ private:
             auto dyntask = PtrToPtr<DeviceTask, DynDeviceTask>(devTask);
             int funcIdx = 0;
             for (auto &func : dyntask->stitchedList) {
-                DEV_DEBUG("func %d %s.", funcIdx, func.DumpDyn(funcIdx, dyntask->cceBinary).c_str());
+                DEV_DEBUG("funcIdx=%d, %s.", funcIdx, func.DumpDyn(funcIdx, dyntask->cceBinary).c_str());
                 funcIdx++;
                 (void)func;
             }

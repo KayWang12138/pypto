@@ -187,7 +187,6 @@ TEST_F(TestCodegenDynCmp, CmpTileTensor) {
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
 
-    cop.UpdateTileTensorInfo();
     std::string res = cop.GenOpCode();
     std::string expect =
         R"!!!(TCompare<0, 0>(ubTensor_9, ubTensor_9, ubTensor_9, ubTensor_9);

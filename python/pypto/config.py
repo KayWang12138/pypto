@@ -67,9 +67,15 @@ def set_pass_options(*,
     Parameters
     ---------
     pg_skip_partition : bool
+        .. deprecated::
+            This parameter is deprecated and will be removed in a future version.
+            Please remove this parameter from your configuration.
         Whether to skip the subgraph partitioning process.
 
     pg_upper_bound : int
+        .. deprecated::
+            This parameter is deprecated and will be removed in a future version.
+            Please remove this parameter from your configuration.
         Merged graph parameter, used to configure
         the upper bound of subgraph size.
 
@@ -85,6 +91,9 @@ def set_pass_options(*,
     cube_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIC subgraphs with the same structure.
+    
+    sg_set_scope : int
+        Merged graph parameter, used to manually control graph merging.
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(pass_options=options_dict)
@@ -100,7 +109,14 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
         All pass options
     """
     scope = get_current_scope()
-    return scope.get_pass_options()
+    rst = scope.get_pass_options()
+    allowed_keys = {
+        'vec_nbuffer_setting',
+        'cube_l1_reuse_setting',
+        'cube_nbuffer_setting',
+        'sg_set_scope',
+    }
+    return {k: v for k, v in rst.items() if k in allowed_keys}
 
 
 
@@ -173,76 +189,7 @@ def get_codegen_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]
     return scope.get_codegen_options()
 
 
-def set_runtime_options(*,
-                        device_sched_mode: Optional[int] = None,
-                        stitch_function_inner_memory: Optional[int] = None,
-                        stitch_function_outcast_memory: Optional[int] = None,
-                        stitch_function_num_initial: Optional[int] = None,
-                        stitch_function_max_num: Optional[int] = None,
-                        stitch_function_num_step: Optional[int] = None,
-                        stitch_function_size: int = None,
-                        stitch_cfgcache_size: Optional[int] = None,
-                        triple_stream_sched: Optional[bool] = None,
-                        ready_on_host_tensors: Optional[List[str]] = None,
-                        run_mode: Optional[int] = None,
-                        valid_shape_optimize: Optional[int] = None
-                        ) -> None:
-    """
-    Set runtime options.
 
-    Parameters
-    ---------
-    device_sched_mode : int
-        Set the scheduling mode of the computation subgraph.
-
-    stitch_function_inner_memory : int
-        Parameter for controlling the size of the non-outcast memory pool
-        allocated to the root function, where the memory pool size is
-        max_root_nonoutcast_workspace *.
-
-    stitch_function_outcast_memory : int
-        Used to evaluate the size of workspace memory required by
-        an operator during runtime when compiling the operator.
-
-    stitch_function_num_initial : int
-        The amount of computation tasks for the first stitch task submitted to
-        the scheduling AICPU for processing, controlled in the ctrlflow AICPU
-        during machine runtime.
-
-    stitch_function_max_num : int
-        The amount of computation tasks for the stitch task submitted to
-        the scheduling AICPU for processing, controlled in the ctrlflow AICPU
-        during machine runtime.
-
-    stitch_function_num_step : int
-        The computation amount of the processing loop for non-initial
-        stitch tasks, controlled in the ctrlflow AICPU during machine runtime.
-
-    stitch_function_size: int
-        The maximum Callop computation amount per loop for stitch tasks,
-        controlled in the ctrlflow AICPU during machine runtime.
-
-    stitch_cfgcache_size: int
-        The size of the control flow cache, in bytes.
-
-    valid_shape_optimize: int
-        Dynamic validShape compilation optimization option.
-    """
-    options_dict = {k: v for k, v in locals().items() if v is not None}
-    set_options(runtime_options=options_dict)
-
-
-def get_runtime_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
-    """
-    Get runtime options.
-
-    Returns
-    -------
-    Dict[str, Union[str, int, List[int], Dict[int, int]]]
-        All runtime options
-    """
-    scope = get_current_scope()
-    return scope.get_runtime_options()
 
 
 def set_verify_options(*,
@@ -681,9 +628,6 @@ class ConfigScope:
 
     def get_debug_options(self):
         return self.get_options("debug")
-
-    def get_runtime_options(self):
-        return self.get_options("runtime")
 
     def get_verify_options(self):
         return self.get_options("verify")

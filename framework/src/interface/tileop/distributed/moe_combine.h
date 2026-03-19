@@ -22,6 +22,7 @@
 namespace TileOp::Distributed {
 template <typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape>
 TILEOP void MoeDistributedCombineSend(
+    CoreFuncParam* param,
     __ubuf__ T* dataBuffer,
     __ubuf__ int32_t* assistInfoForCombineBuffer,
     __ubuf__ int32_t* signalBuffer,
@@ -113,6 +114,7 @@ TILEOP void MoeDistributedCombineCompute(
 
 template <typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape>
 TILEOP void MoeDistributedCombineReceive(
+    CoreFuncParam* param,
     __gm__ T* out,
     __ubuf__ float* mulFp32Buffer,
     __ubuf__ float* sumFp32Buffer,

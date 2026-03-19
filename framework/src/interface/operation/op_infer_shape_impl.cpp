@@ -193,6 +193,19 @@ void PadInferShapeFunc(Operation* op,
 }
 REGISTER_INFER_SHAPE_FUNC(OP_PAD, Opcode::OP_PAD, PadInferShapeFunc);
 
+void FillPadInferShapeFunc(Operation* op,
+                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    std::vector<SymbolicScalar> outValidShape;
+    for (auto c : op->GetOOperands()[0]->oriShape) {
+        outValidShape.push_back(SymbolicScalar(c));
+    }
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outValidShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_FILLPAD, Opcode::OP_FILLPAD, FillPadInferShapeFunc);
+
+
 void IndexOutCastInferFunc(Operation* op,
                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;
@@ -329,8 +342,7 @@ void PairReduceInferFunc(Operation* op,
     auto dimSize = op->GetIOperands()[0]->GetDynValidShape().size();
     std::vector<SymbolicScalar> outValidShape;
     for (size_t i = 0; i < dimSize; i++) {
-        outValidShape.push_back(std::max(op->GetIOperands()[0]->GetDynValidShape()[i],
-            op->GetIOperands()[1]->GetDynValidShape()[i]));
+        outValidShape.push_back(op->GetIOperands()[0]->GetDynValidShape()[i]);
     }
     for (auto output : op->GetOOperands()) {
         outValidShapes.push_back(outValidShape);
@@ -410,16 +422,6 @@ void RangeInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &out
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_RANGE, Opcode::OP_RANGE, RangeInferFunc);
-
-void LoadInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
-    auto iOperands = op->GetIOperands();
-    assert(iOperands.size() == NUM2);
-    auto offsetValidShape = iOperands[1]->GetDynValidShape();
-    for (auto output : op->GetOOperands()) {
-        outValidShapes.push_back(offsetValidShape);
-    }
-}
-REGISTER_INFER_SHAPE_FUNC(OP_LOAD, Opcode::OP_LOAD, LoadInferFunc);
 
 // reduce infer shape func
 void ReduceInferFunc(Operation* op,
@@ -1180,14 +1182,14 @@ REGISTER_INFER_SHAPE_FUNC(OP_EXTRACT_SINGLE, Opcode::OP_EXTRACT_SINGLE, ExtractS
 void PReLUInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     ASSERT(op->GetIOperands().size() == 2) << "PReLU input operand size should be 2";
     ASSERT(op->GetOOperands().size() == 2) << "PReLU output operand size should be 2";
-    
+
     auto input0 = op->GetIOperands()[0];
-    
+
     std::vector<SymbolicScalar> output0ValidShape = input0->GetDynValidShape();
-    
+
     std::vector<SymbolicScalar> output1ValidShape;
     auto input0ShapeDim = input0->GetDynValidShape().size();
-    
+
     if (input0ShapeDim == 2) {
         output1ValidShape.emplace_back(input0->GetDynValidShape().back());
     } else {
@@ -1195,7 +1197,7 @@ void PReLUInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& out
         int64_t elementCount = ALIGN_SIZE / BytesOf(input0->Datatype());
         output1ValidShape.emplace_back(elementCount);
     }
-    
+
     outValidShapes.emplace_back(std::move(output0ValidShape));
     outValidShapes.emplace_back(std::move(output1ValidShape));
 }

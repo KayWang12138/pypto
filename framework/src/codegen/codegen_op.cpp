@@ -472,12 +472,6 @@ void CodeGenOp::GetGmParamIdx(const Operation &oper) {
         return;
     }
 
-    if (oper.GetOpcode() == Opcode::OP_LOAD) {
-        paramLocation[0] = oper.GetIOpAttrOffset(0);
-        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        return;
-    }
-
     if (oper.GetOpcode() == Opcode::OP_GATHER_IN_L1 || oper.GetOpcode() == Opcode::OP_GATHER_IN_UB) {
         int ioAttrOffset = 0;
         for (int i = 0; i < operandCnt; i++) {

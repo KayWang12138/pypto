@@ -66,9 +66,6 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
           {        Opcode::OP_LOAD3D_CONV,       [this]() { return GenMemL1ToL0Load3D(); }},
           {        Opcode::OP_LOAD2D_CONV,       [this]() { return GenMemL1ToL0Load2D(); }},
 
-          // load op
-          {               Opcode::OP_LOAD,                [this]() { return GenLoadOp(); }},
-
           // transpose with gm
           {  Opcode::OP_TRANSPOSE_MOVEOUT,     [this]() { return GenTransposeDataMove(); }},
           {   Opcode::OP_TRANSPOSE_MOVEIN,     [this]() { return GenTransposeDataMove(); }},
@@ -227,6 +224,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
           // hypot op
           {Opcode::OP_HYPOT, [this]() { return GenHypotOp(); }},
           {Opcode::OP_PAD, [this]() { return GenPadOp(); }},
+          {Opcode::OP_FILLPAD, [this]() { return GenPadOp(); }},          
       }),
       sortOps_({
           // sort
