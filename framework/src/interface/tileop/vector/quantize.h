@@ -187,35 +187,30 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
         for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
                 for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
-                    for (LoopVar n3Index = 0; n3Index < dstShape3; ++n3Index) {
-                        // 创建Tile对象，指定当前Tile要处理的数据形状
-                        // dstTile和srcTile: 处理整个 [H, W] 块
-                        // scaleTile: 只有一列 [H, 1]，每个H对应一个scale值
-                        DstTileDefine dstTile(dstShape3, dstShape4);
-                        SrcTileDefine srcTile(srcShape3, srcShape4);
-                        ScaleTileDefine scaleTile(srcShape3, 1);
+                    // 创建Tile对象，指定当前Tile要处理的数据形状
+                    // dstTile和srcTile: 处理整个 [H, W] 块
+                    // scaleTile: 只有一列 [H, 1]，每个H对应一个scale值
+                    DstTileDefine dstTile(dstShape3, dstShape4);
+                    SrcTileDefine srcTile(srcShape3, srcShape4);
+                    ScaleTileDefine scaleTile(srcShape3, 1);
 
-                        // 计算各张量在当前Tile的内存偏移量
-                        // 偏移量 = 各维度索引 * 对应维度的步长 之和
-                        auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 +
-                                        n2Index * dstStride2 + n3Index * dstStride3;
-                        auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 +
-                                        n2Index * srcStride2 + n3Index * srcStride3;
-                        auto scaleOffset = n0Index * scaleStride0 + n1Index * scaleStride1 +
-                                          n2Index * scaleStride2 + n3Index * scaleStride3;
+                    // 计算各张量在当前Tile的内存偏移量
+                    // 偏移量 = 各维度索引 * 对应维度的步长 之和
+                    auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
+                    auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
+                    auto scaleOffset = n0Index * scaleStride0 + n1Index * scaleStride1 + n2Index * scaleStride2;
 
-                        // 将Tile绑定到实际内存地址
-                        // TASSIGN: Tile Address ASSIGNment，建立Tile与内存地址的映射
-                        // 注意: 地址需要转换为字节地址（乘以sizeof(类型)）
-                        pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * sizeof(DstDtype)));
-                        pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * sizeof(SrcDtype)));
-                        pto::TASSIGN(scaleTile, (uint64_t)(scale.GetAddr() + scaleOffset * sizeof(ScaleDtype)));
-                        
-                        // 执行INT8对称量化操作
-                        // PTO_WITH_LAST_USE: 宏，结合LastUse优化信息执行底层算子
-                        // TQUANT<INT8_SYM>: 底层量化算子，执行 FP32 -> INT8 转换
-                        PTO_WITH_LAST_USE(pto::TQUANT<pto::QuantType::INT8_SYM>(dstTile, srcTile, scaleTile), n1, n2, n3);
-                    }
+                    // 将Tile绑定到实际内存地址
+                    // TASSIGN: Tile Address ASSIGNment，建立Tile与内存地址的映射
+                    // 注意: 地址需要转换为字节地址（乘以sizeof(类型)）
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * sizeof(DstDtype)));
+                    pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * sizeof(SrcDtype)));
+                    pto::TASSIGN(scaleTile, (uint64_t)(scale.GetAddr() + scaleOffset * sizeof(ScaleDtype)));
+                    
+                    // 执行INT8对称量化操作
+                    // PTO_WITH_LAST_USE: 宏，结合LastUse优化信息执行底层算子
+                    // TQUANT<INT8_SYM>: 底层量化算子，执行 FP32 -> INT8 转换
+                    pto::TQUANT<pto::QuantType::INT8_SYM>(dstTile, srcTile, scaleTile);
                 }
             }
         }
