@@ -177,6 +177,7 @@ void SetParamConfig(Function* currentFuncPtr)
     currentFuncPtr->paramConfigs_.sgPgUpperBound = currentScope->GetPassConfig<int>(SG_PG_UPPER_BOUND);
     currentFuncPtr->paramConfigs_.sgPgLowerBound = currentScope->GetPassConfig<int>(SG_PG_LOWER_BOUND);
     currentFuncPtr->paramConfigs_.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);
+    currentFuncPtr->paramConfigs_.sgPartitionAlgorithm = currentScope->GetPassConfig<std::string>(SG_PARTITION_ALGORITHM);
     currentFuncPtr->paramConfigs_.sgMgCopyInUpperBound = currentScope->GetPassConfig<int>(MG_COPYIN_UPPER_BOUND);
     currentFuncPtr->paramConfigs_.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(DEVICE_SCHED_MODE);
     currentFuncPtr->paramConfigs_.stitchFunctionNumInitial_ =
