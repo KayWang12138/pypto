@@ -7,6 +7,8 @@ import zipfile
 from pathlib import Path
 from typing import Optional
 
+__all__: tuple[str, ...] = ()
+
 
 def _zip_file_to_b64(file_path: str):
     """Zip a single file and return its base64-encoded contents."""

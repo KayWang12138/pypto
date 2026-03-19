@@ -89,3 +89,8 @@ packages.find.include = [
 include-package-data = true
 package-data = { "pypto" = ["lib/**/*", "include/**/*"] }
 zip-safe = false
+
+[tool.pytest.ini_options]
+markers = [
+    "cpp_codegen: optional tests that compile generated C++ (compiler; infer_shape also needs pybind11 + Python dev)",
+]
