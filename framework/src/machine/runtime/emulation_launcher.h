@@ -41,7 +41,7 @@ struct EmulationMemoryUtils {
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
         if (size == 0 || size > 0x7FFFFFFF) {
-            MACHINE_LOGE("AllocDev failed size %zu", size);
+            MACHINE_LOGE("AllocDev failed: size=%zu", size);
             return nullptr;
         }
         uint8_t *rawPtr = (uint8_t *)malloc(size);

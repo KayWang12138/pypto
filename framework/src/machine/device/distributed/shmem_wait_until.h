@@ -58,7 +58,7 @@ public:
 
     SignalTileOp* CreateTaskData(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
         if (taskCount >= AICPU_TASK_ARRAY_SIZE) {
-            DEV_ERROR("taskCount : %u >= AICPU_TASK_ARRAY_SIZE : %lu", taskCount, AICPU_TASK_ARRAY_SIZE);
+            DEV_ERROR("taskCount=%u >= AICPU_TASK_ARRAY_SIZE=%lu", taskCount, AICPU_TASK_ARRAY_SIZE);
             return nullptr;
         }
         SignalTileOp* newTask = &taskArray[taskCount];
@@ -106,7 +106,7 @@ public:
         queue_[rear_] = task;
         rear_ = (rear_ + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
         if (rear_ == front_) {
-            DEV_ERROR("SignalTileOp* queue_ is Full, Need resize queue_, front_ = %u, rear_ = %u", front_, rear_);
+            DEV_ERROR("SignalTileOp queue_ is full, front=%u, rear=%u", front_, rear_);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         return dynamic::DEVICE_MACHINE_OK;
@@ -180,7 +180,7 @@ public:
     inline int32_t EnqueueOp(uint64_t taskId, TaskStat* taskStat) {
         SignalTileOp* task = hashMap_.FindTask(taskId);
         if (task == nullptr) {
-            DEV_ERROR("There is no this taskId: %lu", taskId);
+            DEV_ERROR("taskId=%lu not found", taskId);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         if (taskStat != nullptr) {
@@ -208,7 +208,8 @@ public:
         int32_t totalTileNum = tileRows * tileCols;
 
         // info.offset[1]代表src的rankId=offset[1]的shmemSignal版图, info.offset[2]代表srcRankId, info.offset[3]代表row offset, info.offset[4]代表col offset
-        DEV_DEBUG("ShmemWaitUntil::EnqueueOp offset1=%u, offset2=%u, offset3=%u,  offset4=%u, shape3=%u, shape4=%u, rawShape3=%u, rawShape4=%u, tileIndex=%d, totalTileNum=%d",
+        DEV_DEBUG("ShmemWaitUntil::EnqueueOp srcShmemSignalId=%u, srcRankId=%u, dimRow=%u, dimCol=%u, "
+            "tileShapeRow=%u, tileShapeCol=%u, rawShapeRow=%u, rawShapeCol=%u, tileIndex=%d, totalTileNum=%d",
             info.offset[SRC_SHMEM_SIGNAL_ID], info.offset[SRC_RANK_ID], info.offset[SHMEM_DIM_ROW], info.offset[SHMEM_DIM_COL],
             paramInfo_.tileShapeRow, paramInfo_.tileShapeCol, paramInfo_.rawShapeRow, paramInfo_.rawShapeCol, tileIndex, totalTileNum);
 
