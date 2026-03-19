@@ -234,9 +234,6 @@ void PadLocalBuffer::PadVector256(Operation &op, LogicalTensorPtr &in, bool need
             APASS_LOG_ERROR_F(Elements::Tensor, "The last Dim is not 32B align.");
             return;
         }
-        // 保存原始的shape和rawshape
-        // in->oriShape = in->shape;
-        // in->tensor->oriRawshape = in->tensor->rawshape;
 
         // 修改shape和rawshape，256B/96B非整除场景需要向上取整
         size_t lastIdx = in->shape.size() - 1;
@@ -522,6 +519,9 @@ void PadLocalBuffer::DoPadding(Function &function) {
             }
         }
     }
+}
+
+void PadLocalBuffer::DoPadding256(Function &function) {
     // pad256
     for (auto &op : function.Operations()) {
         std::vector<bool> inputRowPad;
@@ -735,6 +735,7 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
         axisCombineMarker.Run(function);
         APASS_LOG_INFO_F(Elements::Operation, "======> Start PadLocalBuffer in COMBINE_AXIS mode.");
         DoPadding(function);
+        DoPadding256(function);
         APASS_LOG_INFO_F(Elements::Operation, "======> End PadLocalBuffer in COMBINE_AXIS mode.");
         return SUCCESS;
     }
@@ -761,6 +762,7 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
         }
     }
     DoPadding(function);
+    DoPadding256(function);
     if (processTranspose_) {
         if (ProcessTranspose(function) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "ProcessTranspose failed.");
