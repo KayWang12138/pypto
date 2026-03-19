@@ -18,19 +18,35 @@ import torch_npu
 import pytest
 import pypto
 from torch._subclasses.fake_tensor import FakeTensor
-from torch._dynamo import allow_in_graph
+try:
+    from torch._dynamo import allow_in_graph
+except Exception:
+    def allow_in_graph(fn):
+        return fn
 
-from lightning_indexer_prolog_quant_mxfp8_impl import (
-    IndexerPrologQuantInput, IndexerPrologQuantOutput, lightning_indexer_prolog_quant)
+from lightning_indexer_prolog_quant_mxfp8_impl import lightning_indexer_prolog_quant
 from utils.compare_2_1 import precision_compare_triple
 
 
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
 pyptolib.define("lightning_indexer_prolog_quant_mxfp8(Tensor x, Tensor q_norm, Tensor q_norm_scale, \
-    Tensor w_qb, Tensor w_qb_scale, Tensor wk, Tensor w_proj, Tensor ln_gamma_k, \
+    Tensor w_qb, Tensor w_qb_scale, Tensor wk, Tensor w_proj, Tensor gamma_k, \
     Tensor cos_idx_rope, Tensor sin_idx_rope, Tensor hadamard_q, Tensor hadamard_k, Tensor k_cache, \
     Tensor k_scale_cache, Tensor k_cache_index, Tensor k_scale_cache_index) -> \
     (Tensor q_fp8e4m3, Tensor q_scale, Tensor k_fp8e4m3, Tensor k_scale, Tensor weights)")
+
+
+class Model(torch.nn.Module):
+    def __init__(self):
+        super(Model, self).__init__()
+
+    def forward(self, *args):
+        x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj, gamma_k, cos_idx_rope, \
+        sin_idx_rope, hadamard_q, hadamard_k, k_cache, k_scale_cache, k_cache_index, k_scale_cache_index = args
+        q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights = torch.ops.pypto.lightning_indexer_prolog_quant_mxfp8(
+            x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj, gamma_k, cos_idx_rope,
+            sin_idx_rope, hadamard_q, hadamard_k, k_cache, k_scale_cache, k_cache_index, k_scale_cache_index)
+        return q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights
 
 
 def gen_dims(params):
@@ -324,7 +340,9 @@ def indexer_prolog(inputs_initial: dict, dims: dict, platform: str = "cpu"):
 
 
 def gen_data(case_name):
-    if case_name.startswith("QuantLightningIndexerPrologSTest.b1_s1_8k_s2_8k"):
+    if case_name.startswith("QuantLightningIndexerPrologSTest.b1_s1_8k_s2_8k_acl"):
+        params = {"b": 1, "s1": 1024 * 8, "s2": 1024 * 8}
+    elif case_name.startswith("QuantLightningIndexerPrologSTest.b1_s1_8k_s2_8k"):
         params = {"b": 1, "s1": 1024 * 8, "s2": 1024 * 8}
     elif case_name.startswith("QuantLightningIndexerPrologSTest.b2_s1_8k_s2_8k"):
         params = {"b": 2, "s1": 1024 * 8, "s2": 1024 * 8}
@@ -359,10 +377,6 @@ def gen_data(case_name):
     return dims, inputs, outputs_cpu, outputs_npu
 
 
-def gen_zero_tensor(t):
-    return torch.zeros_like(t).npu()
-
-
 def ascend_operator_accuracy_standard_version_2_1(pypto_out, npu_out, golden_out, out_name):
     result, mare, mere, rmse, small_err = precision_compare_triple(pypto_out, npu_out, golden_out)
     assert result != "FAILED", f"{out_name} FAILED: result={result}, \
@@ -373,34 +387,55 @@ def ascend_operator_accuracy_standard_version_2_1(pypto_out, npu_out, golden_out
 
 @torch.library.impl(pyptolib, "lightning_indexer_prolog_quant_mxfp8", "Meta")
 def lightning_indexer_prolog_quant_mxfp8_meta(x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj,
-                                            ln_gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q, hadamard_k,
+                                            gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q, hadamard_k,
                                             k_cache, k_scale_cache, k_cache_index, k_scale_cache_index):
     t = x.shape[0]
     head_num = w_proj.shape[1]
     block_num, block_size, n_kv, head_dim = k_cache.shape
     q_fp8e4m3 = torch.empty((t, head_num, head_dim), device="meta", dtype=torch.float8_e4m3fn)
     q_scale = torch.empty((t, head_num, 1), device="meta", dtype=torch.float32)
-    k_fp8e4m3 = torch.empty((block_num, block_size, n_kv, head_dim), device="meta", dtype=torch.float8_e4m3fn)
-    k_scale = torch.empty((block_num, block_size, n_kv, 1), device="meta", dtype=torch.float32)
+    k_fp8e4m3 = k_cache
+    k_scale = k_scale_cache
     weights = torch.empty((t, head_num), device="meta", dtype=torch.bfloat16)
 
     return q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights
 
 
-# @torch.library.impl(pyptolib, "lightning_indexer_prolog_quant_mxfp8", "NPU")
-@allow_in_graph
 def lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj,
-                                            ln_gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q, hadamard_k,
+                                            gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q, hadamard_k,
                                             k_cache, k_scale_cache, k_cache_index, k_scale_cache_index):
     t = x.shape[0]
     head_num = w_proj.shape[1]
     block_num, block_size, n_kv, head_dim = k_cache.shape
 
+    k_storage_offset = k_cache.storage_offset()
+    k_scale_storage_offset = k_scale_cache.storage_offset()
+
+    if not k_cache.is_contiguous():
+        page_size = k_cache.stride()[0] // (n_kv * block_size)
+        pg_cache = torch.as_strided(
+            k_cache,
+            size=(block_num, block_size, n_kv, page_size),
+            stride=(block_size * n_kv * page_size, n_kv * page_size, page_size, 1),
+            storage_offset=0
+        )
+        k_cache = pg_cache.view(torch.float8_e4m3fn)
+        k_scale_cache = pg_cache.view(torch.float32)
+        pg_cache_index = k_cache_index // block_size * (k_cache.shape[-1] // head_dim) \
+            * block_size + k_cache_index % block_size + k_storage_offset // head_dim
+        pg_scale_cache_index = k_scale_cache_index // block_size * k_scale_cache.shape[-1] \
+            * block_size + k_scale_cache_index % block_size + k_scale_storage_offset
+
+    k_cache = k_cache.view(block_num, block_size * (k_cache.shape[-1] // head_dim), n_kv, head_dim)
+    k_scale_cache = k_scale_cache.view(block_num, block_size * k_scale_cache.shape[-1], n_kv, 1)
+    k_cache_index = pg_cache_index.reshape(t, 1)
+    k_scale_cache_index = pg_scale_cache_index.reshape(t, 1)
+
     device = x.device
-    q_fp8e4m3 = torch.empty((t, head_num, head_dim), device=device, dtype=torch.float8_e4m3fn)
-    q_scale = torch.empty((t, head_num, 1), device=device, dtype=torch.float32)
-    k_fp8e4m3 = torch.empty((block_num, block_size, n_kv, head_dim), device=device, dtype=torch.float8_e4m3fn)
-    k_scale = torch.empty((block_num, block_size, n_kv, 1), device=device, dtype=torch.float32)
+    q_fp8e4m3 = torch.empty((t * head_num, head_dim), device=device, dtype=torch.float8_e4m3fn)
+    q_scale = torch.empty((t * head_num, 1), device=device, dtype=torch.float32)
+    k_fp8e4m3 = k_cache
+    k_scale = k_scale_cache
     weights = torch.empty((t, head_num), device=device, dtype=torch.bfloat16)
 
     if isinstance(x, FakeTensor):
@@ -414,7 +449,7 @@ def lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm, q_norm_scale, w_qb, w_qb
         w_qb_scale: [],
         wk: [],
         w_proj: [],
-        ln_gamma_k: [],
+        gamma_k: [],
         cos_idx_rope: [0],
         sin_idx_rope: [0],
         hadamard_q: [],
@@ -435,50 +470,27 @@ def lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm, q_norm_scale, w_qb, w_qb
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in output_tensors.items()]
     lightning_indexer_prolog_quant(*pto_inputs, *pto_outputs)
 
+    k_fp8e4m3 = k_fp8e4m3.view(block_num, -1)[:, k_storage_offset: 
+        k_storage_offset + block_size * n_kv * head_dim].view(block_num, block_size, n_kv, head_dim)
+    k_scale = k_scale.view(block_num, -1)[:, k_scale_storage_offset: 
+        k_scale_storage_offset + block_size * n_kv * 1].view(block_num, block_size, n_kv, 1)
+
+    q_fp8e4m3 = q_fp8e4m3.view(t, head_num, head_dim)
+    q_scale = q_scale.view(t, head_num, 1)
+
     return q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights
 
 
-def pypto_lightning_indexer_prolog_quant_mxfp8(x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj,
-                                        ln_gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q,
-                                        hadamard_k, k_cache, k_scale_cache, k_cache_index):
-    
-    return torch.ops.pypto.lightning_indexer_prolog_quant_mxfp8(x, q_norm, q_norm_scale, w_qb, w_qb_scale,
-        wk, w_proj, ln_gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q, hadamard_k, k_cache,
-        k_scale_cache, k_cache_index)
+try:
+    lightning_indexer_prolog_quant_mxfp8_npu = allow_in_graph(lightning_indexer_prolog_quant_mxfp8_npu)
+    torch.library.impl(pyptolib, "lightning_indexer_prolog_quant_mxfp8", "NPU")(
+        lightning_indexer_prolog_quant_mxfp8_npu
+    )
+except Exception as e:
+    logging.warning(f"Skip: {e}")
 
 
-def lightning_indexer_prolog_quant_dyn(inputs: IndexerPrologQuantInput, outputs: IndexerPrologQuantOutput):
-    input_tensors = {
-        inputs.x: [0],
-        inputs.q_norm: [0],
-        inputs.q_norm_scale: [0],
-        inputs.w_qb: [],
-        inputs.w_qb_scale: [],
-        inputs.wk: [],
-        inputs.w_proj: [],
-        inputs.ln_gamma_k: [],
-        inputs.cos_idx_rope: [0],
-        inputs.sin_idx_rope: [0],
-        inputs.hadamard_q: [],
-        inputs.hadamard_k: [],
-        inputs.k_cache: [0],
-        inputs.k_scale_cache: [0],
-        inputs.k_cache_index: [0],
-        inputs.k_scale_cache_index: [0],
-    }
-    output_tensors = {
-        outputs.q_fp8e4m3: [0],
-        outputs.q_scale: [0],
-        outputs.k_fp8e4m3: [0],
-        outputs.k_scale: [0],
-        outputs.weights: [0],
-    }
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_tensors.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in output_tensors.items()]
-    lightning_indexer_prolog_quant(*pto_inputs, *pto_outputs)
-
-
-def do_test_lightning_indexer_prolog_quant(case_name):
+def do_test_lightning_indexer_prolog_quant(case_name, is_acl=False):
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch_npu.npu.set_device(device_id)
 
@@ -492,174 +504,25 @@ def do_test_lightning_indexer_prolog_quant(case_name):
     idx_head_dim = dims["idx_head_dim"]
     head_num = dims["idx_n_heads"]
     rope_head_dim = dims["rope_head_dim"]
-    block_num, block_size, n_kv, _ = inputs_data["idx_k_cache"].shape
 
     torch_npu.npu.config.allow_internal_format = True
 
+    x = inputs_data["token_x"].npu().reshape(t, h)
+    q_norm = inputs_data["q_norm"].npu().reshape(t, q_lora_rank)
+    q_norm_scale = inputs_data["q_norm_scale"].npu().reshape(t, q_lora_rank // 64, 2)
+    w_qb = inputs_data["w_idx_qb"].npu()
+    w_qb_scale = inputs_data["w_idx_qb_scale"].npu().reshape(q_lora_rank // 64, head_num * idx_head_dim, 2)
+    wk = inputs_data["w_idx_k"].npu()
+    w_proj = inputs_data["w_idx_proj"].npu()
+    gamma_k = inputs_data["rms_norm_gamma"].npu().reshape(1, idx_head_dim)
+    cos_idx_rope = inputs_data["cos_idx_rope"].npu().reshape(t, rope_head_dim)
+    sin_idx_rope = inputs_data["sin_idx_rope"].npu().reshape(t, rope_head_dim)
+    hadamard_q = inputs_data["hadamard_q"].npu()
+    hadamard_k = inputs_data["hadamard_k"].npu()
     k_cache = inputs_data["idx_k_cache"]
-    k_cache_index = inputs_data["idx_k_cache_index"]
     k_scale_cache = inputs_data["idx_k_scale_cache"]
+    k_cache_index = inputs_data["idx_k_cache_index"]
     k_scale_cache_index = inputs_data["idx_k_cache_index"]
-
-    k_storage_offset = k_cache.storage_offset()
-    k_scale_storage_offset = k_scale_cache.storage_offset()
-
-    if not k_cache.is_contiguous():
-        page_size = k_cache.stride()[0] // (n_kv * block_size)
-        pg_cache = torch.as_strided(
-            k_cache,
-            size=(block_num, block_size, n_kv, page_size),
-            stride=(block_size * n_kv * page_size, n_kv * page_size, page_size, 1),
-            storage_offset=0
-        )
-        k_cache = pg_cache.view(torch.float8_e4m3fn)
-        k_scale_cache = pg_cache.view(torch.float32)
-        pg_cache_index = k_cache_index // block_size * (k_cache.shape[-1] // idx_head_dim) \
-            * block_size + k_cache_index % block_size + k_storage_offset // idx_head_dim
-        pg_scale_cache_index = k_scale_cache_index // block_size * k_scale_cache.shape[-1] \
-            * block_size + k_scale_cache_index % block_size + k_scale_storage_offset
-
-    inputs = IndexerPrologQuantInput(
-        x=inputs_data["token_x"].npu().reshape(t, h),
-        q_norm=inputs_data["q_norm"].npu().reshape(t, q_lora_rank),
-        q_norm_scale=inputs_data["q_norm_scale"].npu().reshape(t, q_lora_rank // 64, 2),
-        w_qb=inputs_data["w_idx_qb"].npu(),
-        w_qb_scale=inputs_data["w_idx_qb_scale"].npu() \
-            .reshape(q_lora_rank // 64, head_num * idx_head_dim, 2),
-        wk=inputs_data["w_idx_k"].npu(),
-        w_proj=inputs_data["w_idx_proj"].npu(),
-        ln_gamma_k=inputs_data["rms_norm_gamma"].npu(),
-        cos_idx_rope=inputs_data["cos_idx_rope"].npu().reshape(t, rope_head_dim),
-        sin_idx_rope=inputs_data["sin_idx_rope"].npu().reshape(t, rope_head_dim),
-        hadamard_q=inputs_data["hadamard_q"].npu(),
-        hadamard_k=inputs_data["hadamard_k"].npu(),
-        k_cache=k_cache.view(block_num, block_size * (k_cache.shape[-1] // idx_head_dim), n_kv, idx_head_dim),
-        k_scale_cache=k_scale_cache.view(block_num, block_size * k_scale_cache.shape[-1], n_kv, 1),
-        k_cache_index=pg_cache_index,
-        k_scale_cache_index=pg_scale_cache_index
-    )
-
-    q_fp8e4m3_golden = golden_data["query"].reshape(t * head_num, idx_head_dim)
-    q_scale_golden = golden_data["query_scale"].reshape(t * head_num, 1)
-    k_cache_golden = golden_data["idx_k_cache_out"]
-    k_scale_cache_golden = golden_data["idx_k_scale_cache_out"]
-    weights_golden = golden_data["weights"].reshape(t, head_num)
-
-    q_fp8e4m3_npu = npu_data["query"].reshape(t * head_num, idx_head_dim)
-    q_scale_npu = npu_data["query_scale"].reshape(t * head_num, 1)
-    k_cache_npu = npu_data["idx_k_cache_out"]
-    k_scale_cache_npu = npu_data["idx_k_scale_cache_out"]
-    weights_npu = npu_data["weights"].reshape(t, head_num)
-
-    outputs = IndexerPrologQuantOutput(
-        q_fp8e4m3=gen_zero_tensor(q_fp8e4m3_npu),
-        q_scale=gen_zero_tensor(q_scale_npu),
-        k_fp8e4m3=inputs.k_cache,
-        k_scale=inputs.k_scale_cache,
-        weights=gen_zero_tensor(weights_npu),
-    )
-
-    logging.info("==================finish torch==================")
-    lightning_indexer_prolog_quant_dyn(inputs, outputs)
-
-    outputs.k_fp8e4m3 = outputs.k_fp8e4m3.view(block_num, -1)[:, k_storage_offset: 
-        k_storage_offset + block_size * n_kv * idx_head_dim].view(block_num, block_size, n_kv, idx_head_dim)
-    outputs.k_scale = outputs.k_scale.view(block_num, -1)[:, k_scale_storage_offset: 
-        k_scale_storage_offset + block_size * n_kv * 1].view(block_num, block_size, n_kv, 1)
-
-    logging.info("==================finish pypto==================")
-    ascend_operator_accuracy_standard_version_2_1(outputs.q_fp8e4m3, q_fp8e4m3_npu, q_fp8e4m3_golden, "q_fp8e4m3")
-    ascend_operator_accuracy_standard_version_2_1(outputs.q_scale, q_scale_npu, q_scale_golden, "q_scale")
-    ascend_operator_accuracy_standard_version_2_1(outputs.k_fp8e4m3, k_cache_npu, k_cache_golden, "k_fp8e4m3")
-    ascend_operator_accuracy_standard_version_2_1(outputs.k_scale, k_scale_cache_npu, k_scale_cache_golden, "k_scale")
-    ascend_operator_accuracy_standard_version_2_1(outputs.weights, weights_npu, weights_golden, "weights")
-
-    logging.info(f"=== {case_name}: PASS ===")
-
-
-@pytest.mark.soc("950")
-def test_b1_s1_8k_s2_8k():
-    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_8k_s2_8k")
-
-
-@pytest.mark.skip(reason="large test case")
-def test_b2_s1_8k_s2_8k():
-    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b2_s1_8k_s2_8k")
-
-
-@pytest.mark.skip(reason="large test case")
-def test_b4_s1_8k_s2_8k():
-    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_8k_s2_8k")
-
-
-@pytest.mark.soc("950")
-def test_b1_s1_4_s2_8k():
-    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_4_s2_8k")
-
-
-@pytest.mark.skip(reason="small test case")
-def test_b64_s1_2_s2_8k():
-    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b64_s1_2_s2_8k")
-
-
-@pytest.mark.skip(reason="small test case")
-def test_b192_s1_1_s2_8k():
-    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b192_s1_1_s2_8k")
-
-
-@pytest.mark.skip(reason="large test case")
-def test_b4_s1_32k_s2_32k():
-    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_32k_s2_32k")
-
-
-@pytest.mark.skip(reason="large test case")
-def test_b4_s1_64k_s2_64k():
-    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_64k_s2_64k")
-
-
-@pytest.mark.skip(reason="large test case")
-def test_b4_s1_128k_s2_128k():
-    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_128k_s2_128k")
-
-
-@pytest.mark.skip(reason="accuracy issues")
-def test_b1_s1_8k_333_s2_8k_333():
-    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_8k_333_s2_8k_333")
-
-
-@pytest.mark.skip(reason="accuracy issues")
-def test_b111_s1_1_s2_8k():
-    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b111_s1_1_s2_8k")
-
-
-class Model(torch.nn.Module):
-    def __init__(self):
-        super(Model, self).__init__()
-
-    def forward(self, *args):
-        x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj, ln_gamma_k, cos_idx_rope, \
-        sin_idx_rope, hadamard_q, hadamard_k, k_cache, k_scale_cache, k_cache_index = args
-        q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights = torch.ops.pypto.lightning_indexer_prolog_quant_mxfp8(
-            x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj, ln_gamma_k, cos_idx_rope,
-            sin_idx_rope, hadamard_q, hadamard_k, k_cache, k_scale_cache, k_cache_index)
-        return q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights
-
-
-@pytest.mark.skip(reason="accuracy issues")
-def test_acl():
-    params = {"b": 1, "s1": 1024 * 8, "s2": 1024 * 8}
-    dims = gen_dims(params)
-    inputs = gen_inputs(dims, torch.bfloat16)
-    golden_data = indexer_prolog(inputs, dims, "cpu")
-    npu_data = indexer_prolog(inputs, dims, "npu")
-    logging.info("==================finish torch==================")
-
-    t = dims["t"]
-    h = dims["h"]
-    q_lora_rank = dims["q_lora_rank"]
-    idx_head_dim = dims["idx_head_dim"]
-    head_num = dims["idx_n_heads"]
-    rope_head_dim = dims["rope_head_dim"]
 
     q_fp8e4m3_golden = golden_data["query"].reshape(t, head_num, idx_head_dim)
     q_scale_golden = golden_data["query_scale"].reshape(t, head_num, 1)
@@ -673,15 +536,18 @@ def test_acl():
     k_scale_cache_npu = npu_data["idx_k_scale_cache_out"]
     weights_npu = npu_data["weights"].reshape(t, head_num)
 
+    logging.info("==================finish torch==================")
+
     model = Model()
-    compile_forward = torch.compile(model, fullgraph=True, backend="npugraph_ex", dynamic=False)
-    q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights = compile_forward(inputs["token_x"].npu().reshape(t, h),
-        inputs["q_norm"].npu().reshape(t, q_lora_rank), inputs["q_norm_scale"].npu().reshape(t, q_lora_rank // 64, 2),
-        inputs["w_idx_qb"].npu(), inputs["w_idx_qb_scale"].npu().reshape(head_num * idx_head_dim, q_lora_rank // 64, 2),
-        inputs["w_idx_k"].npu(), inputs["w_idx_proj"].npu(), inputs["rms_norm_gamma"].npu(),
-        inputs["cos_idx_rope"].npu().reshape(t, rope_head_dim),
-        inputs["sin_idx_rope"].npu().reshape(t, rope_head_dim), inputs["hadamard_q"].npu(), inputs["hadamard_k"].npu(),
-        inputs["idx_k_cache"].npu(), inputs["idx_k_scale_cache"].npu(), inputs["idx_k_cache_index"].npu().reshape(t))
+    if is_acl:
+        compile_forward = torch.compile(model, fullgraph=True, backend="npugraph_ex", dynamic=False)
+        q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights = compile_forward(x, q_norm, q_norm_scale,
+            w_qb, w_qb_scale, wk, w_proj, gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q, hadamard_k, k_cache,
+            k_scale_cache, k_cache_index, k_scale_cache_index)
+    else:
+        q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights = lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm,
+            q_norm_scale, w_qb, w_qb_scale, wk, w_proj, gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q, hadamard_k,
+            k_cache, k_scale_cache, k_cache_index, k_scale_cache_index)
 
     logging.info("==================finish pypto==================")
     ascend_operator_accuracy_standard_version_2_1(q_fp8e4m3, q_fp8e4m3_npu, q_fp8e4m3_golden, "q_fp8e4m3")
@@ -689,6 +555,68 @@ def test_acl():
     ascend_operator_accuracy_standard_version_2_1(k_fp8e4m3, k_cache_npu, k_cache_golden, "k_fp8e4m3")
     ascend_operator_accuracy_standard_version_2_1(k_scale, k_scale_cache_npu, k_scale_cache_golden, "k_scale")
     ascend_operator_accuracy_standard_version_2_1(weights, weights_npu, weights_golden, "weights")
+
+    logging.info(f"=== {case_name}: PASS ===")
+
+
+@pytest.mark.soc("950")
+def test_b1_s1_8k_s2_8k():
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_8k_s2_8k", is_acl=False)
+
+
+@pytest.mark.skip(reason="large test case")
+def test_b2_s1_8k_s2_8k():
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b2_s1_8k_s2_8k", is_acl=False)
+
+
+@pytest.mark.skip(reason="large test case")
+def test_b4_s1_8k_s2_8k():
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_8k_s2_8k", is_acl=False)
+
+
+@pytest.mark.soc("950")
+def test_b1_s1_4_s2_8k():
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_4_s2_8k", is_acl=False)
+
+
+@pytest.mark.skip(reason="small test case")
+def test_b64_s1_2_s2_8k():
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b64_s1_2_s2_8k", is_acl=False)
+
+
+@pytest.mark.skip(reason="small test case")
+def test_b192_s1_1_s2_8k():
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b192_s1_1_s2_8k", is_acl=False)
+
+
+@pytest.mark.skip(reason="large test case")
+def test_b4_s1_32k_s2_32k():
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_32k_s2_32k", is_acl=False)
+
+
+@pytest.mark.skip(reason="large test case")
+def test_b4_s1_64k_s2_64k():
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_64k_s2_64k", is_acl=False)
+
+
+@pytest.mark.skip(reason="large test case")
+def test_b4_s1_128k_s2_128k():
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_128k_s2_128k", is_acl=False)
+
+
+@pytest.mark.soc("950")
+def test_b1_s1_8k_333_s2_8k_333():
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_8k_333_s2_8k_333", is_acl=False)
+
+
+@pytest.mark.soc("950")
+def test_b111_s1_1_s2_8k():
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b111_s1_1_s2_8k", is_acl=False)
+
+
+@pytest.mark.soc("950")
+def test_acl():
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_8k_s2_8k_acl", is_acl=True)
 
 
 if __name__ == "__main__":
