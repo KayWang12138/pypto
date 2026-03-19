@@ -971,6 +971,9 @@ class BuildCtrl(CMakeParam):
         self.pip_support_config_setting = self.check_pip_dependencies(deps=self.pip_dependence_desc,
                                                                       raise_err=False, log_err=False)
 
+        # Set environment variable
+        os.environ['PROJECT_SOURCE_DIR_OVERRIDE'] = os.path.dirname(os.path.abspath(__file__))
+
     def __str__(self) -> str:
         """返回构建控制参数的字符串表示
 
