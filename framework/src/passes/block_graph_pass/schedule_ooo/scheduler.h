@@ -363,7 +363,6 @@ private:
     Status UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr allocBuffer, LogicalTensorPtr assembleTensor);
     LogicalTensorPtr CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
         SpillInfo &spillInfo, const std::vector<int64_t> &toOffset);
-    int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset);
     void GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t &base);
     Status UpdateCopyOutMode(Operation &copyOutOp);
     Status UpdateCopyInMode(Operation &copyInOp);
