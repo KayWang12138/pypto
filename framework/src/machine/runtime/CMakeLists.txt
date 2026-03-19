@@ -10,7 +10,14 @@
 
 file(GLOB_RECURSE _Runtime_Srcs *.cpp)
 file(GLOB_RECURSE _Device_Srcs ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/*.cpp)
+
 add_library(tile_fwk_runtime SHARED)
+
+### Including TraCR if enabled
+message(STATUS "building TraCR? '${BUILD_TRACR}' for tile_fwk_runtime")
+tracr_enable(tile_fwk_runtime)
+###
+
 target_sources(tile_fwk_runtime PRIVATE ${_Runtime_Srcs} ${_Device_Srcs})
 target_include_directories(tile_fwk_runtime
         PUBLIC
@@ -65,6 +72,7 @@ PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_runtime)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_runtime)
 
 add_library(tile_fwk_runtime_stub SHARED)
+tracr_enable(tile_fwk_runtime_stub)
 target_sources(tile_fwk_runtime_stub PRIVATE ${_Runtime_Srcs} ${_Device_Srcs})
 target_include_directories(tile_fwk_runtime_stub
         PRIVATE

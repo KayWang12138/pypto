@@ -67,6 +67,16 @@ include(cmake/third_party/nlohmann_json/nlohmann_json.cmake)
 include(cmake/third_party/libboundscheck/libboundscheck.cmake)
 include(cmake/third_party/googletest/googletest.cmake)
 
+########################################################################################################################
+# TraCR: Instrumentation Library
+########################################################################################################################
+
+set(BUILD_TRACR OFF CACHE BOOL "Enable TraCR")
+
+include(framework/src/machine/tracr/tracr.cmake)
+if (BUILD_TRACR)
+    include(tools/tracr/tracr.cmake)
+endif()
 
 ########################################################################################################################
 # 编译流程
@@ -74,7 +84,6 @@ include(cmake/third_party/googletest/googletest.cmake)
 
 add_subdirectory(framework)
 add_subdirectory(python)
-
 
 ########################################################################################################################
 # 安装流程
@@ -99,6 +108,15 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
             tile_fwk_simulation_ca
             tile_fwk_simulation_pv
     )
+
+    ### Including TraCR
+    foreach(tgt IN LISTS InstallTargets)
+        if(NOT tgt STREQUAL "tile_fwk_runtime" AND NOT tgt STREQUAL "tile_fwk_runtime_stub")
+            tracr_enable(${tgt})
+        endif()
+    endforeach()
+    ###
+
     if (BUILD_WITH_CANN)
         install(TARGETS tile_fwk_server LIBRARY DESTINATION "${PyPTO_WhlName}/lib")
         install(TARGETS pypto_ctrl_server ARCHIVE DESTINATION "${PyPTO_WhlName}/lib")

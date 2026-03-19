@@ -21,6 +21,9 @@
 #include <atomic>
 #include <array>
 #include <semaphore.h>
+
+#include <tracr/tracr.hpp>
+
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "securec.h"
 #include "device_common.h"
@@ -210,9 +213,12 @@ public:
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
+
+        INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_DEV_TASK_SCHED_EXEC, 0);
         PerfMtTrace(PERF_TRACE_DEV_TASK_SCHED_EXEC, aicpuIdx_);
         PerfMtBegin(PERF_EVT_SYNC_AICORE, aicpuIdx_);
         int32_t rc = SyncTaskFinish();
+        INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_DEV_TASK_SYNC_CORE_STOP, 0);
         PerfMtTrace(PERF_TRACE_DEV_TASK_SYNC_CORE_STOP, aicpuIdx_);
         if (rc != DEVICE_MACHINE_OK) {
             ret = rc;
@@ -322,6 +328,7 @@ public:
         }
 
         if constexpr (IsDeviceMode()) {
+            INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_WAIT_CORE_EXIT, 0);
             PerfMtTrace(PERF_TRACE_WAIT_CORE_EXIT, aicpuIdx_);
             ProfStop();
         }
@@ -331,17 +338,16 @@ public:
 
     inline int RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         int ret = DEVICE_MACHINE_OK;
-        DEV_DEBUG("schedule run threadIdx=%d", threadIdx);
         Init(threadIdx, devStartArgs, deviceArgs, schedIdx);
+        INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_INIT, 0);
         PerfMtTrace(PERF_TRACE_INIT, threadIdx);
-        DEV_DEBUG("Schedule run init succ");
         DeviceTaskCtrl *taskCtrl = nullptr;
         taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
+            INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_CORE_HAND_SHAKE, 0);
             PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                DEV_ERROR("hand shake timeout.");
                 AbnormalStop();
                 while ((taskCtrl = taskQueue_->Dequeue())) {
                     taskCtrl->PutTask(ret);
@@ -351,19 +357,18 @@ public:
             devStartArgs->syncFlag = 1;
             aicoreProf_.ProfStart();
         }
-        DEV_DEBUG("Schedule run start succ");
         uint64_t lastDevTaskFinCycle = 0;
         while (ret == 0) {
-            DEV_DEBUG("Schedule task wait");
             taskCtrl = preFetchSuccess_ ? preFetchNextDevTaskCtrl_ : taskQueue_->Dequeue();
-            DEV_DEBUG("Schedule task recv");
             if (taskCtrl == nullptr) {
+                INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, 0);
                 PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, aicpuIdx_, lastDevTaskFinCycle);
                 if (!isSendStop) {
                     SyncTaskFinish(true);
                 }
                 break;
             }
+            INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_DEV_TASK_RCV, 0);
             PerfMtTrace(PERF_TRACE_DEV_TASK_RCV, aicpuIdx_);
             PROF_STAGE_BEGIN_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.before\n");
             PerfMtBegin(PERF_EVT_RUN_TASK, threadIdx);
@@ -374,10 +379,12 @@ public:
             if (ret != 0)
                 break;
             taskCtrl->PutTask(ret);
+            INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_DEV_TASK_RSP, 0);
             PerfMtTrace(PERF_TRACE_DEV_TASK_RSP, threadIdx);
             PROF_STAGE_END_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.after\n");
         }
         PostRun(ret, taskCtrl);
+
         return ret;
     }
 
@@ -464,6 +471,7 @@ private:
 
         int type =static_cast<int>(AicoreType(coreIdx));
         if (likely(regLFinTaskState == TASK_FIN_STATE)) {
+            INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, (CoreType)type));
             if (pendingIds_[coreIdx] == regLFinTaskId) {
                 bMatch = true;
                 context_->runReadyCoreIdx_[type][context_->coreRunReadyCnt_[type]++] = coreIdx;
@@ -904,7 +912,9 @@ private:
         pendingResolveIndexList_[coreIdx] = 0;
         context_->sendCnt_[static_cast<int>(type)]++;
 
+        INSTRUMENTATION_MARK_SET(coreIdx2tracrIdx(coreIdx, type), 5+aicpuIdx_, (uint32_t)newTask);  // 0 = "running task"
         if (isFirstTaskSend_) {
+            INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, (uint32_t)newTask);
             PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, aicpuIdx_);
             isFirstTaskSend_ = false;
         }
@@ -1030,6 +1040,8 @@ private:
     inline int32_t ResolveWhenSyncMode(CoreType type, uint32_t finTaskId, uint32_t finTaskState, int coreIdx)  {
         int32_t ret = DEVICE_MACHINE_OK;
         if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
+            INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, type));
+
             DEV_VERBOSE_DEBUG("core index: %d, PendingTask Finished."
                 " pending: %x.", coreIdx, pendingIds_[coreIdx]);
             ret = ResolveDepWithDfx(type, coreIdx, finTaskId);
@@ -1057,7 +1069,7 @@ private:
         [[maybe_unused]] uint32_t aicpuCallCode = finTaskRegVal >> 32;
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
-        DEV_VERBOSE_DEBUG("reslove task core index: %d, finishtaskid:%x, finishstate: %u.", coreIdx, finTaskId, finTaskState);
+
 #if SCHEDULE_USE_PENDING_AND_RUNING_SWITCH
         auto &pendingIdRef = pendingIds_[coreIdx];
         auto &pendingResolveIndexBaseRef = pendingResolveIndexList_[coreIdx];
@@ -1065,7 +1077,7 @@ private:
         auto &runningResolveIndexBaseRef = runningResolveIndexList_[coreIdx];
         if (likely(finTaskId == pendingIdRef && finTaskState == TASK_FIN_STATE)) {
             // pending task is finished, resolve both running and pending task.
-            DEV_VERBOSE_DEBUG("Pending Finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
+            INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, type));
             uint32_t runningIdValue = runningIdRef;
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
             uint32_t pendingIdValue = pendingIdRef;
@@ -1137,6 +1149,7 @@ private:
             }
         } else if (finTaskId == runningIdRef && finTaskState == TASK_FIN_STATE) {
             // running task is finished, resolve running task. Pending task is unmodified
+            INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, type));
             DEV_VERBOSE_DEBUG("Running finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
             uint32_t runningIdValue = runningIdRef;
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
@@ -1782,6 +1795,26 @@ private:
         return aicpuIdx_ == 2;
     }
 
+    /**
+     * A method for transforming the coreIdx into tracrIdx
+     */
+    inline uint16_t coreIdx2tracrIdx(const int &coreIdx, const CoreType &type) {
+        switch(type) {
+            case CoreType::AIV:
+            {
+                return aicpuSchedNum_ + coreIdx + (aicNum_ - aicValidNum_);
+            }
+            case CoreType::AIC:
+            {
+                return aicpuSchedNum_ + coreIdx;
+            }
+            default:
+            {
+                return aicpuSchedNum_ + aivNum_ + aicNum_;
+            }
+        }
+    }
+
 private:
     uint64_t seq;
     AicoreHAL aicoreHal_;
@@ -1793,6 +1826,7 @@ private:
     int aicpuIdx_{0};
     int schedIdx_{0};
     int aicpuNum_{MAX_SCHEDULE_AICPU_NUM};
+    int aicpuSchedNum_{MAX_SCHEDULE_AICPU_NUM - MAX_OTHER_AICPU_NUM};
     int aicStart_{0};
     int aicEnd_{0};
     int aivStart_{0};

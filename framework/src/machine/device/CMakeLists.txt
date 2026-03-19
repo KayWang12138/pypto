@@ -40,6 +40,12 @@ file(GLOB_RECURSE _Stub_Srcs stub/*.cpp)
 list(REMOVE_ITEM _Device_Srcs ${_Stub_Srcs})
 
 add_library(tile_fwk_server SHARED)
+
+### Including TraCR if enabled
+message(STATUS "building TraCR? '${BUILD_TRACR}' for tile_fwk_server")
+tracr_enable(tile_fwk_server)
+###
+
 target_sources(tile_fwk_server PRIVATE ${_Device_Srcs} ${_Device_Utils_Srcs})
 target_compile_options(tile_fwk_server
         PRIVATE

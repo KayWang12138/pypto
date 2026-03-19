@@ -108,6 +108,8 @@ private:
     int DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
     int DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
     int ConstrutDeviceArgs(DeviceArgs &args, const std::vector<int64_t> &regs, const std::vector<int64_t> &regsPmu);
+    int StoreTracrData();
+    int StoreTracrMetaData();
     void MachinePerfTraceDumpThread();
 private:
     int devId_;
@@ -117,6 +119,7 @@ private:
     DeviceArgs args_;
     ToSubMachineConfig lastLaunchToSubMachineConfig_;
     DeviceArgs *devArgs_;
+    bool tracrDataStored_{false};
     std::vector<void *> perfData_;
     std::once_flag once_;
     rtBinHandle binHdl_;

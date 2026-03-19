@@ -33,7 +33,7 @@
 #include "machine/device/dynamic/aicore_manager.h"
 #include "machine/device/tilefwk/aicpu_common.h"
 
- using namespace npu::tile_fwk;
+using namespace npu::tile_fwk;
 class TestDeviceRunner : public testing::Test {
 public:
     static void SetUpTestCase() {

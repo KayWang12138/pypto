@@ -18,6 +18,8 @@
 #include <signal.h>
 #include <sys/ucontext.h>
 
+#include <tracr/tracr.hpp>
+
 #include "device_common.h"
 #include "aicore_manager.h"
 #include "aicore_constants.h"
@@ -26,9 +28,57 @@
 #include "tilefwk/aicore_print.h"
 #include "machine/device/dynamic/aicore_prof.h"
 
-constexpr uint32_t LAUNCH_AICPU_NUM = 5;
-
 namespace npu::tile_fwk::dynamic {
+
+/**
+ * launching tracr profiler
+ */
+inline void tracr_start(const int threadIdx) {
+    if (threadIdx == 1) {
+        INSTRUMENTATION_START();
+    } else {
+        INSTRUMENTATION_THREAD_INIT();
+    }
+}
+
+/**
+ * finalizing tracr function
+ * 
+ * NOTE: threadIdx starts at 1 and goes up to 3. Why? idk
+ */
+inline void tracr_finalize(const int threadIdx, const DeviceArgs *devArgs) {
+    void(devArgs->tracrData);
+
+#ifdef ENABLE_TRACR
+    if constexpr (IsDeviceMode()) {
+        DEV_ERROR("[TraCR] thread[%d] dumping the #traces: %lu", threadIdx, tracrThread->_traceIdx);
+
+        // Copy the tracr payloads on the shared memory space
+        TraCR::Payload* tracrData_ = reinterpret_cast<TraCR::Payload*>(devArgs->tracrData);
+        size_t* tracrDataSizes_ = reinterpret_cast<size_t*>(devArgs->tracrDataSizes);
+
+        if (tracrThread->_traceIdx > 0) {
+            const size_t payload_size = tracrThread->_traceIdx * sizeof(TraCR::Payload);
+
+            memcpy_s(
+                &tracrData_[(threadIdx-1) * TraCR::CAPACITY], 
+                payload_size,
+                tracrThread->_traces.data(),
+                payload_size
+            );
+        }
+            
+        tracrDataSizes_[threadIdx-1] = tracrThread->_traceIdx;
+    }
+#endif
+
+    if (threadIdx == 1) {
+        INSTRUMENTATION_END();
+    } else {
+        INSTRUMENTATION_THREAD_FINALIZE();
+    }
+}
+
 struct AicoreLogManager {
     AicoreLogManager() {
         data_ = aligned_alloc(PAGE_SIZE, MAX_AICORE_NUM * PRINT_BUFFER_SIZE);
@@ -86,7 +136,6 @@ public:
 
     void ResetRegAll() {
       sleep(1);
-      DEV_ERROR("ResetRegAll");
       for (uint32_t i = 0; i < schAicpuNum_; ++i) {
         aicoreManager_[i]->ResetRegAll();
       }
@@ -268,7 +317,6 @@ struct DynMachineManager {
         UNUSED(entry);
 
         DeviceArgs *devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
-        DEV_INFO("ThreadScheEnter idx=%d", threadIdx);
 
         DEV_INFO("TaskType=%d, threadIdx=%d, aicNum=%u, aivNum=%u, aicpuNum=%u, validAicNum=%u.",
             static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic,
@@ -321,9 +369,14 @@ struct DynMachineManager {
         }
 
         uint64_t allocThreadCycle = GetCycles();
+        if ((threadIdx != -1) && threadIdx <= static_cast<int>(devArgs->scheCpuNum)) {	
 
-        if ((threadIdx != -1) && threadIdx <= static_cast<int>(devArgs->scheCpuNum)) {
+            tracr_start(threadIdx);
+
             ret = RunSche(kargs, entry, threadIdx);
+
+            tracr_finalize(threadIdx, devArgs);
+
         } else {
             threadIdx = ctrlcpuIdx_.fetch_add(1);
             DEV_INFO("TaskType=%d.",  static_cast<int>(devArgs->taskType));

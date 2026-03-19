@@ -32,6 +32,9 @@ constexpr uint32_t FREQ_DAV_3510 = 1000;
     X(CORE_HAND_SHAKE)                          \
     XDEVTASK(DEV_TASK_BUILD)                    \
     XDEVTASK(DEV_TASK_RCV)                      \
+    XDEVTASK(DEV_TASK_RUN_BY_SCHED1)            \
+    XDEVTASK(DEV_TASK_RUN_BY_SCHED2)            \
+    XDEVTASK(DEV_TASK_RUN_BY_SCHED3)            \
     XDEVTASK(DEV_TASK_SEND_FIRST_CALLOP_TASK)   \
     XDEVTASK(DEV_TASK_SCHED_EXEC)               \
     XDEVTASK(DEV_TASK_SYNC_CORE_STOP)           \

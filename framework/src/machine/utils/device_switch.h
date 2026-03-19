@@ -39,7 +39,7 @@ namespace npu::tile_fwk {
 #endif
 
 // When enabled, logs will be written to the /tmp directory.
-#define ENABLE_TMP_LOG 0
+#define ENABLE_TMP_LOG 1
 
 // If enabled, performance evt statistics are recorded in the log.
 #define ENABLE_PERF_EVT 0

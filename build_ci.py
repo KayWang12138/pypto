@@ -46,6 +46,7 @@
     python build_ci.py -c --build_type Debug
 """
 import abc
+import ast
 import argparse
 import dataclasses
 import logging
@@ -64,6 +65,23 @@ from pathlib import Path
 from typing import Optional, List, Dict, Tuple, Any
 from importlib import metadata
 from packaging import requirements
+
+
+def parse_int_or_expr(value):
+    """
+    Parse intergers or bitshifts expressions like '1<<24'.
+    Uses ast.literal_eval for safety.
+    """
+    try:
+        return ast.literal_eval(value)
+    except Exception as e:
+        raise argparse.ArgumentTypeError(
+            f"Invalid expression: {value}"
+        ) from e
+
+
+if str(Path(Path(__file__).parent, "tools")) not in sys.path:
+    sys.path.append(str(Path(Path(__file__).parent, "tools")))
 
 
 class CMakeParam(abc.ABC):
@@ -183,6 +201,7 @@ class FeatureParam(CMakeParam):
         self.whl_plat_name = f"{args.plat_name}_{CMakeParam.get_system_processor()}" if args.plat_name else ""
         self.whl_isolation = args.isolation
         self.whl_editable = args.editable
+        self.tracr = args.tracr # TraCR instrumentation
 
     def __str__(self) -> str:
         """返回特性参数的字符串表示
@@ -234,6 +253,19 @@ class FeatureParam(CMakeParam):
         parser.add_argument("-b", "--backend", nargs="?", type=str, default="npu",
                             choices=["npu", "cost_model"],
                             help="backend, such as npu/cost_model etc.")
+        
+        ### TraCR: Internal Profiler
+        parser.add_argument("--tracr", action="store_true", help="Enable TraCR insturentation")
+
+        # Optional TraCR buffer method
+        parser.add_argument("--tracr-policy", choices=["periodic", "ignore_if_full"], 
+                            default=None, 
+                            help="TraCR buffer methods (default: abort if buffer is full)")
+
+        # Optional TraCR buffer capacity per thread
+        parser.add_argument("--tracr-capacity", type=parse_int_or_expr, 
+                            default=None, help="TraCR buffer capacity per thread (default: 1<<20 traces)")
+        ###
 
     def get_cfg_cmd(self, ext: Optional[Any] = None) -> str:
         """生成 CMake Configure 命令
@@ -287,6 +319,9 @@ class BuildParam(CMakeParam):
         self.gcov_incr = args.gcov_increment
         self.clang_install_path = self._get_clang_install_path(opt=args.clang)
         self.compile_dependency_check = args.compile_dependency_check
+        self.tracr = args.tracr
+        self.tracr_policy = args.tracr_policy
+        self.tracr_capacity = args.tracr_capacity
 
     def __str__(self) -> str:
         """返回构建参数的字符串表示
@@ -417,6 +452,24 @@ class BuildParam(CMakeParam):
         cmd += self._cfg_require(opt="ENABLE_ASAN", ctr=self.asan)
         cmd += self._cfg_require(opt="ENABLE_UBSAN", ctr=self.ubsan)
         cmd += self._cfg_require(opt="ENABLE_GCOV", ctr=self.gcov)
+
+        ### TraCR Instrumentation (for the cpp Frontend?)
+        logging.info("CMake TraCR enabled in get_cfg_cmd? %d", self.tracr)
+        cmd += self._cfg_require(opt="BUILD_TRACR", ctr=self.tracr)
+
+        if self.tracr_policy == "ignore_if_full":
+            if not self.tracr:
+                raise RuntimeError("TraCR policy requires tracr to be enabled.")
+            cmd += " -DTRACR_POLICY=TRACR_POLICY_IGNORE_IF_FULL"
+        elif self.tracr_policy == "periodic":
+            if not self.tracr:
+                raise RuntimeError("TraCR policy requires tracr to be enabled.")
+            cmd += " -DTRACR_POLICY=TRACR_POLICY_PERIODIC"
+
+        if self.tracr_capacity is not None:
+            cmd += f" -DTRACR_CAPACITY={self.tracr_capacity}"
+
+        ###
 
         def _check_clang_toolchain(_opt: str, _b: str) -> Tuple[bool, str]:
             """检查 Clang 工具链是否存在并生成配置命令"""
@@ -918,6 +971,9 @@ class BuildCtrl(CMakeParam):
         self.pip_support_config_setting = self.check_pip_dependencies(deps=self.pip_dependence_desc,
                                                                       raise_err=False, log_err=False)
 
+        # Set environment variable
+        os.environ['PROJECT_SOURCE_DIR_OVERRIDE'] = os.path.dirname(os.path.abspath(__file__))
+
     def __str__(self) -> str:
         """返回构建控制参数的字符串表示
 
@@ -1313,6 +1369,7 @@ class BuildCtrl(CMakeParam):
         cmd += self.feature.get_cfg_cmd()
         cmd += self.build.get_cfg_cmd()
         cmd += self.tests.get_cfg_cmd()
+
         # 执行
         update_env = self.get_cfg_update_env()
         update_env["CCACHE_BASEDIR"] = str(self.src_root)

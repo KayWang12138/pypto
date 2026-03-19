@@ -178,6 +178,8 @@ struct DeviceArgs {
     bool enableVFFusion = false;
     ArchInfo archInfo{ArchInfo::DAV_2201};
     ToSubMachineConfig toSubMachineConfig;
+    uint64_t tracrData;              // TraCR Data handler to pass back to the host
+    uint64_t tracrDataSizes;         // A list of all the different sizes of payloads of each TraCR threads
 };
 
 #define TO_ENTRY_IMPL(name, line, key, type) (name##line##key##type)
@@ -195,7 +197,6 @@ struct DeviceArgs {
 
 const uint64_t AICORE_REG_SAY_HELLO = 0xF000000080000000;
 constexpr uint32_t REG_HIGH_DTASKID_SHIFT = 32;
-enum class TASK_POS : size_t { LOW_REG = 0, HIGH_REG = 1, ALL_REG = 2, REG_POS_BUTT = 3 };
 
 struct TaskStat {
     int16_t seqNo;

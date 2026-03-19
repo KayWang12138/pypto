@@ -22,10 +22,14 @@ PTO_Fwk_UTest_AddCaseLib(
         PRIVATE_INCLUDE_DIRECTORIES ${_Include}
         LINK_LIBRARIES tile_fwk_runtime tile_fwk_operator dl
 )
+
 target_compile_definitions(${_Target}
         PRIVATE
             NO_NEON_SUPPORT
 )
+
+tracr_enable(${_Target})
+
 # 可执行程序运行依赖的配置, 脚本配置
 add_custom_command(
         TARGET ${_Target} PRE_BUILD

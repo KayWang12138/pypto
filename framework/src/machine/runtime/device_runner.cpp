@@ -19,6 +19,11 @@
 #include <cstdlib>
 #include <mutex>
 #include <limits.h>
+
+#include <experimental/filesystem>  // For storing the TraCR data
+#include <fstream>                  // For storing the TraCR data
+#include <tracr/tracr.hpp>
+
 #include "securec.h"
 #include "machine/runtime/runtime.h"
 #include "machine/runtime/device_launcher.h"
@@ -45,6 +50,7 @@
 #include "tilefwk/pypto_fwk_log.h"
 #include "interface/machine/host/host_machine.h"
 
+namespace fs = std::experimental::filesystem;
 using json = nlohmann::json;
 
 constexpr int32_t AICORE_ADDR_TYPE = 2; // nocache Addr type for aicore/aicpu map
@@ -64,6 +70,227 @@ extern "C"{
     __attribute__((weak)) int dlog_getlevel(int32_t moduled, int32_t *enableEvent);
 }
 namespace npu::tile_fwk {
+
+/**
+ * A function for defining the path of the TraCR traces in home
+ */
+fs::path expand_user_path(const std::string& path)
+{
+    if (!path.empty() && path[0] == '~') {
+        const char* home = std::getenv("HOME");
+        if (!home)
+            throw std::runtime_error("HOME not set");
+
+        std::string sub = path.substr(1); // remove ~
+        if (!sub.empty() && sub[0] == '/')
+            sub = sub.substr(1); // remove leading slash
+
+        return fs::path(home) / sub;
+    }
+    return fs::path(path);
+}
+
+/**
+ * 
+ */
+inline int TracrData2BTS(const TraCR::Payload* tracrData, const size_t* tracrDataSizes, const size_t num_threads) {
+    fs::path base_dir = expand_user_path("~/ascend/tracr/proc.1");
+
+    fs::create_directories(base_dir);
+
+    for (uint32_t t = 0; t < num_threads; ++t) {
+        size_t num_traces = tracrDataSizes[t];
+        if (num_traces == 0)
+            continue;
+
+        if (num_traces > TraCR::CAPACITY) {
+            ALOG_INFO_F("Thread %u exceeds CAPACITY", t);
+            return -1;
+        }
+
+        fs::path thread_dir =
+            base_dir / ("thread." + std::to_string(t + 1));
+
+        fs::create_directories(thread_dir);
+
+        fs::path file_path = thread_dir / "traces.bts";
+
+        std::ofstream out(file_path, std::ios::binary);
+        if (!out) {
+            ALOG_INFO_F("Cannot open %s", file_path);
+            return -1;
+        }
+
+        const TraCR::Payload* thread_ptr =
+            tracrData + t * TraCR::CAPACITY;
+
+        out.write(
+            reinterpret_cast<const char*>(thread_ptr),
+            num_traces * sizeof(TraCR::Payload)
+        );
+
+        if (!out) {
+            ALOG_INFO_F("Write failed for %s", file_path);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+/**
+ * 
+ */
+inline int checkPtrExists(const uint64_t& args_ptr) {
+    if (args_ptr != 0) {
+        void *ptr = reinterpret_cast<void *>(args_ptr);
+        if (ptr == nullptr) {
+            ALOG_INFO_F("args_ ptr doesn't exist anymore.\n");
+            return 1;
+        }
+    } else {
+        ALOG_INFO_F("args_ ptr not initialized.\n");
+        return 1;
+    }
+    return 0;
+} 
+
+/**
+ * 
+ */
+inline int cpyD2H(void** host, void* dev, const size_t size) {
+    int rc = rtMallocHost(host, size, 0);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMallocHost failed");
+        return rc;
+    }
+
+    rc = rtMemcpy(*host, size, dev, size, RT_MEMCPY_DEVICE_TO_HOST);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMemcpy failed");
+        return rc;
+    }
+
+    return 0;
+}
+
+/**
+ * A function for extracting the TraCR data from the Device to Host
+ */
+int DeviceRunner::StoreTracrData() {
+    static_assert(std::is_trivially_copyable_v<TraCR::Payload>,
+              "TraCR::Payload must be trivially copyable for raw binary dump");
+
+    if (checkPtrExists(args_.tracrData) != 0) {
+        return 1;
+    }
+
+    if (checkPtrExists(args_.tracrDataSizes) != 0) {
+        return 1;
+    }
+
+    TraCR::Payload* tracrData = nullptr;
+    size_t* tracrDataSizes = nullptr;
+
+    size_t size = sizeof(TraCR::Payload) * TraCR::CAPACITY * args_.scheCpuNum;
+    int rc = cpyD2H(reinterpret_cast<void**>(&tracrData), 
+                    reinterpret_cast<void*>(args_.tracrData), size);
+    if (rc != 0) {
+        return rc;
+    }
+
+    size = sizeof(size_t) * args_.scheCpuNum;
+    rc = cpyD2H(reinterpret_cast<void**>(&tracrDataSizes), 
+                reinterpret_cast<void*>(args_.tracrDataSizes), size);
+    if (rc != 0) {
+        return rc;
+    }
+
+    // Now, store the traces into '~/ascend/tracr/'
+    rc = TracrData2BTS(tracrData, tracrDataSizes, args_.scheCpuNum);
+    if (rc != 0) {
+        ALOG_INFO_F("TracrData2BTS() failed");
+        return rc;
+    }
+
+    rc = rtFreeHost(reinterpret_cast<void *>(tracrData));
+    if (rc != 0) {
+        ALOG_INFO_F("rtFreeHost tracrData sync failed");
+        return rc;
+    }
+    rc = rtFreeHost(reinterpret_cast<void *>(tracrDataSizes));
+    if (rc != 0) {
+        ALOG_INFO_F("rtFreeHost tracrDataSizes sync failed");
+        return rc;
+    }
+
+    rc = rtFree(reinterpret_cast<void *>(args_.tracrData));
+    if (rc != 0) {
+        ALOG_INFO_F("rtFree args_.tracrData sync failed");
+        return rc;
+    }
+    rc = rtFree(reinterpret_cast<void *>(args_.tracrDataSizes));
+    if (rc != 0) {
+        ALOG_INFO_F("rtFree args_.tracrDataSizes sync failed");
+        return rc;
+    }
+
+    return 0;
+}
+
+/**
+ * A method for storing the TraCR metadata.json
+ */
+int DeviceRunner::StoreTracrMetaData() {
+    fs::path base_dir = expand_user_path("~/ascend/tracr/proc.1");
+
+    // Add the metadata.json
+    nlohmann::json metadata;    
+
+    // channel_names
+    nlohmann::json channel_names = nlohmann::json::array();
+    for(uint32_t i = 0; i < args_.scheCpuNum; ++i) {
+        channel_names.push_back("AICPU_" + std::to_string(i));
+    }
+    for(uint32_t i = 0; i < args_.nrAic; ++i) {
+        channel_names.push_back("AICube_" + std::to_string(i));
+    }
+    for(uint32_t i = 0; i < args_.nrAiv; ++i) {
+        channel_names.push_back("AIVector_" + std::to_string(i));
+    }
+    channel_names.push_back("INVALID");
+
+    metadata["channel_names"] = channel_names;
+    metadata["num_channels"] = channel_names.size();
+
+    // markerTypes
+    metadata["markerTypes"] = nlohmann::json::object();
+
+    for (int i = 0; i < npu::tile_fwk::dynamic::PERF_TRACE_MAX; i++) {
+        std::ostringstream oss;
+        oss << std::setw(2) << std::setfill('0') << (i + 1);
+        metadata["markerTypes"][oss.str()] = npu::tile_fwk::dynamic::PerfTraceName[i];
+    }
+
+    metadata["pid"] = 1;
+    metadata["start_time"] = 0;
+    metadata["tid"] = 0;
+
+    fs::path metadata_dir = base_dir / ("metadata.json");
+
+    std::ofstream file(metadata_dir);
+    if (!file.is_open()) {
+        ALOG_INFO_F("Failed to open file for writing.\n");
+        return -1;
+    }
+
+    // Dump JSON into file
+    file << metadata.dump(4);
+
+    // Close the file
+    file.close();
+
+    return 0;
+}
 
 namespace {
 
@@ -192,6 +419,8 @@ void DeviceRunner::InitMetaData(DeviceArgs &devArgs) {
     devArgs.nrAiv = args_.nrAiv;
     devArgs.corePmuRegAddr = args_.corePmuRegAddr;
     devArgs.corePmuAddr = args_.corePmuAddr;
+    devArgs.tracrData = args_.tracrData;
+    devArgs.tracrDataSizes = args_.tracrDataSizes;
     devArgs.taskWastTime = args_.taskWastTime;
     devArgs.pmuEventAddr = args_.pmuEventAddr;
     devArgs.aicpuPerfAddr = args_.aicpuPerfAddr;
@@ -213,6 +442,19 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     args.coreRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * PMU_BUFFER_SIZE));
+#ifdef ENABLE_TRACR
+    size_t size = sizeof(TraCR::Payload) * args.scheCpuNum * TraCR::CAPACITY;
+    args.tracrData = reinterpret_cast<uint64_t>(DevAlloc(size));
+
+    int rc = rtMemset(reinterpret_cast<void *>(args.tracrData), size, 0, size);
+
+    args.tracrDataSizes = reinterpret_cast<uint64_t>(DevAlloc(args.scheCpuNum * sizeof(size_t)));
+
+    if (args.tracrData == 0 || args.tracrDataSizes == 0 || rc != 0) {
+        ALOG_ERROR_F("TraCR enabled allocating device memory failed");
+        return -1;
+    }
+#endif
     args.taskWastTime = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(sizeof(uint64_t))));
     size_t shmSize = sizeof(dynamic::RuntimeDataRingBufferHead) + dynamic::DEVICE_SHM_SIZE + dynamic::DEVICE_TASK_QUEUE_SIZE * aicpuNum_;
     uint64_t shmAddr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(shmSize)));
@@ -229,11 +471,9 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     if (args.sharedBuffer == 0 || args.coreRegAddr == 0 || args.corePmuAddr == 0 || args.corePmuRegAddr == 0) {
         return -1;
     }
-    size_t size = nrCore * sizeof(uint64_t);
-    rtMemcpy(reinterpret_cast<void *>(args.coreRegAddr), size, regs.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
-    rtMemcpy(reinterpret_cast<void *>(args.corePmuRegAddr), size, regsPmu.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
-    size = pmuEvtType_.size() * sizeof(int64_t);
-    rtMemcpy(reinterpret_cast<void *>(args.pmuEventAddr), size, pmuEvtType_.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
+    rtMemcpy(reinterpret_cast<void *>(args.coreRegAddr), nrCore * sizeof(uint64_t), regs.data(), nrCore * sizeof(uint64_t), RT_MEMCPY_HOST_TO_DEVICE);
+    rtMemcpy(reinterpret_cast<void *>(args.corePmuRegAddr), nrCore * sizeof(uint64_t), regsPmu.data(), nrCore * sizeof(uint64_t), RT_MEMCPY_HOST_TO_DEVICE);
+    rtMemcpy(reinterpret_cast<void *>(args.pmuEventAddr), pmuEvtType_.size() * sizeof(int64_t), pmuEvtType_.data(), pmuEvtType_.size() * sizeof(int64_t), RT_MEMCPY_HOST_TO_DEVICE);
     MACHINE_LOGI("aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic,
         args.nrAiv, blockDim_, args.sharedBuffer, args.coreRegAddr, args.corePmuRegAddr);
     InitDynamicArgs(args);
@@ -656,7 +896,27 @@ int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtSt
     if (isCapture_) {
         return 0;
     }
-    return DynamicLaunchSynchronize(aicpuStream, ctrlStream, aicoreStream);
+    rc = DynamicLaunchSynchronize(aicpuStream, ctrlStream, aicoreStream);
+    if (rc < 0) {
+        return rc;
+    }
+
+    // load TraCR payloads
+#ifdef ENABLE_TRACR
+    rc = StoreTracrData();
+    if (rc != 0) {
+        ALOG_INFO_F("StoreTracrData() for the static scheduler failed");
+    }   
+
+    rc = StoreTracrMetaData();
+    if (rc != 0) {
+        ALOG_INFO_F("StoreTracrMetaData() for the static scheduler failed");
+    }
+
+    tracrDataStored_ = true;
+#endif
+
+    return rc;
 }
 
 /**************************** DynamicFunction *****************************/
@@ -769,6 +1029,21 @@ void DeviceRunner::MachinePerfTraceDumpThread() {
 }
 
 DeviceRunner::~DeviceRunner() {
+    // Store TraCR payloads for Python applications
+#ifdef ENABLE_TRACR
+    if (!tracrDataStored_) {
+        int rc = StoreTracrData();
+        if (rc != 0) {
+            ALOG_INFO_F("StoreTracrData() for the static scheduler failed");
+        }   
+    
+        rc = StoreTracrMetaData();
+        if (rc != 0) {
+            ALOG_INFO_F("StoreTracrMetaData() for the static scheduler failed");
+        }
+    }
+#endif
+
     MACHINE_LOGD("Start to cleanup perfData");
     StopMachinePerfTraceDumpThread();
 }
