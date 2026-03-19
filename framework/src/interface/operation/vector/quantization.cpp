@@ -173,41 +173,42 @@ LogicalTensorPtr TensorQuantizeAsymmetricOperation(Function &function,
 // Public Quantize API
 // =============================================================================
 
-Tensor Quantize(const Tensor &src, const Tensor &scale, DataType otype, int64_t axis, const Tensor &offset) {
+Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints) {
     DECLARE_TRACER();
 
     // Validate input shapes
-    ASSERT(src.GetShape().size() >= SHAPE_DIM2 && src.GetShape().size() <= SHAPE_DIM5)
+    ASSERT(input.GetShape().size() >= SHAPE_DIM2 && input.GetShape().size() <= SHAPE_DIM5)
         << "The shape.size() only support 2~5";
 
     // Validate data types
-    std::vector<DataType> SUPPORT_SRC_DATATYPES = {DataType::DT_FP32, DataType::DT_FP16, DataType::DT_BF16};
-    ASSERT(std::find(SUPPORT_SRC_DATATYPES.begin(), SUPPORT_SRC_DATATYPES.end(), src.GetDataType()) !=
-           SUPPORT_SRC_DATATYPES.end())
-        << "The source datatype is not supported";
+    std::vector<DataType> SUPPORT_INPUT_DATATYPES = {DataType::DT_FP32, DataType::DT_FP16, DataType::DT_BF16};
+    ASSERT(std::find(SUPPORT_INPUT_DATATYPES.begin(), SUPPORT_INPUT_DATATYPES.end(), input.GetDataType()) !=
+           SUPPORT_INPUT_DATATYPES.end())
+        << "The input datatype is not supported";
 
     // Normalize axis to negative indexing
-    int64_t ndim = static_cast<int64_t>(src.GetShape().size());
+    int ndim = static_cast<int>(input.GetShape().size());
+    int normalizedAxis = axis;
     if (axis >= 0) {
-        axis = axis - ndim;
+        normalizedAxis = axis - ndim;
     }
-    ASSERT(axis == -1 || axis == -2) << "Only axis=-1 (per-row) and axis=-2 (per-column) are supported";
+    ASSERT(normalizedAxis == -1 || normalizedAxis == -2) << "Only axis=-1 (per-row) and axis=-2 (per-column) are supported";
 
-    // Determine quantization type based on offset presence
-    bool isAsymmetric = (offset.GetStorage() != nullptr);
+    // Determine quantization type based on zeroPoints presence
+    bool isAsymmetric = (zeroPoints.GetStorage() != nullptr);
 
     if (isAsymmetric) {
         // Asymmetric quantization: FP32 -> UINT8
         ASSERT(otype == DataType::DT_UINT8 || otype == DataType::DT_INT8)
             << "Asymmetric quantization output type should be UINT8 or INT8";
         RETURN_CALL(QuantizeAsymmetricOperation, *Program::GetInstance().GetCurrentFunction(),
-            src.GetStorage(), scale.GetStorage(), offset.GetStorage(), axis);
+            input.GetStorage(), scale.GetStorage(), zeroPoints.GetStorage(), normalizedAxis);
     } else {
         // Symmetric quantization: FP32 -> INT8
         ASSERT(otype == DataType::DT_INT8)
             << "Symmetric quantization output type should be INT8";
         RETURN_CALL(QuantizeSymmetricOperation, *Program::GetInstance().GetCurrentFunction(),
-            src.GetStorage(), scale.GetStorage(), axis);
+            input.GetStorage(), scale.GetStorage(), normalizedAxis);
     }
 }
 
