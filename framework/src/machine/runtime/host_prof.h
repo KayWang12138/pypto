@@ -14,8 +14,20 @@
 #include "interface/function/function.h"
 #ifdef BUILD_WITH_CANN
 #include "toolchain/prof_api.h"
+#include "profiling/aprof_pub.h"
 
 namespace npu::tile_fwk{
+struct CacheTaskInfo {
+    uint32_t taskType;
+    uint32_t numBlocks;
+    uint64_t nodeId;
+    uint64_t opType;
+    uint64_t attrId{0};
+    uint64_t reserve2{0};
+    uint32_t opFlag;
+    uint32_t tensorNum;
+    MsrofTensorData tensorData[0];
+};
 class HostProf
 {
 public:
@@ -24,6 +36,7 @@ public:
   bool HostProfReportApi(const uint64_t &startTime, const uint64_t &endTime) const;
   void HostProfReportNodeInfo(const uint64_t &endTime, const uint32_t blockDim, const uint16_t taskType) const;
   void HostProfReportContextInfo(const uint64_t &endTime) const;
+  void HostProfReportCacheTaskInfo(const rtStream_t stream, const uint32_t numBlocks, const uint32_t taskType) const;
   void SetProfFunction(Function *function);
   static uint64_t GetProfSwitch();
   static uint32_t GetProfType();

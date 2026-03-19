@@ -791,5 +791,4 @@ bool DeviceRunner::GetValidGetPgMask() const {
     return true;
 }
 }
-
 #endif // BUILD_WITH_CANN

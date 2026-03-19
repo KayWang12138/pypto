@@ -12,6 +12,7 @@
 #include <fstream>
 #include <unistd.h>
 #include <sys/syscall.h>
+#include "tilefwk/pypto_fwk_log.h"
 #include "machine/runtime/host_prof.h"
 #include "interface/tensor/logical_tensor.h"
 #ifdef BUILD_WITH_CANN
@@ -19,8 +20,6 @@
 #include "toolchain/prof_api.h"
 #include "log_types.h"
 #include "prof_common.h"
-#include "tilefwk/pypto_fwk_log.h"
-
 
 namespace npu::tile_fwk {
 const std::string OpType = "PyPTO";
@@ -189,6 +188,114 @@ void HostProf::PackTensorInfo(MsprofTensorInfo *profTensorData, const uint32_t g
   }
   iOtensorInfo << "\n";
   MACHINE_LOGD("tensorInfo %s", iOtensorInfo.str().c_str());
+}
+
+void BuildTensor(const MsprofGeTensorType tensor_type, const NnopbaseTensors &tensors,
+                                const size_t idx, MsrofTensorData &tensorData)
+{
+    tensorData.tensorType = tensor_type;
+    if (!tensors.extTensors[idx].isNull) {
+        const auto &tensor = tensors.extTensors[idx].rt2Tensor;
+        tensorData.format = tensor.GetStorageFormat();
+        tensorData.dataType = tensor.GetDataType();
+        size_t index = 0U;
+        const auto &shape = tensor.GetStorageShape();
+        for (; (index < MSPROF_GE_TENSOR_DATA_SHAPE_LEN) && (index < shape.GetDimNum()); ++index) {
+            tensorData.shape[index] = static_cast<uint32_t>(shape[index]);
+        }
+        if (index < MSPROF_GE_TENSOR_DATA_SHAPE_LEN) {
+            tensorData.shape[index] = 0U;
+        }
+    } else {
+        tensorData.format = ge::FORMAT_NULL;
+        tensorData.dataType = ge::DT_UNDEFINED;
+        tensorData.shape[0U] = 0U;
+    }
+}
+
+void BuildCacheTensorInfo(const NnopbaseExecutor *const executor, op::internal::CacheOpInfoBasic *opInfo)
+{
+    for (uint32_t i = 0U; i < executor->args->inputs.num; ++i) {
+        BuildTensor(MSPROF_GE_TENSOR_TYPE_INPUT, executor->args->inputs, i, opInfo->tensorData[i]);
+    }
+    for (uint32_t i = 0U; i < executor->args->outputs.num; ++i) {
+        BuildTensor(MSPROF_GE_TENSOR_TYPE_OUTPUT, executor->args->outputs, i, opInfo->tensorData[i + executor->args->inputs.num]);
+    }
+}
+
+std::string GetAttrVal(const NnopbaseAttrs &attrs)
+{
+    std::string attrStr;
+    for (size_t i = 0U; i < attrs.num; i++) {
+        attrStr += "attr_" + std::to_string(i) + ":";
+        attrStr += nnopbase::ToStr(attrs.attrs[i]);
+        if (i + 1 < attrs.num) {
+            attrStr += "|";
+        }
+    }
+    return attrStr;
+}
+
+void BuildCacheAttrInfo(NnopbaseExecutor *const executor, op::internal::CacheOpInfoBasic *opInfo)
+{
+    size_t offset = 0U;
+    for (size_t i = 0U; i < executor->attrs.num; ++i) {
+        executor->attrs.attrs[i].addr.addr = op::internal::PtrCastTo<void>(executor->args->attrsData.data() + offset);
+        offset += executor->attrs.attrs[i].addr.size;
+    }
+    const std::string attrStr = GetAttrVal(executor->attrs);
+    if (!attrStr.empty()) {
+        OP_LOGI("Report op [%s] attr info cache: %s.", executor->opType, attrStr.c_str());
+        opInfo->attrId = MsprofGetHashId(attrStr.c_str(), attrStr.size());
+    }
+}
+
+void HostProf::HostProfReportCacheTaskInfo(const rtStream_t stream, const uint32_t numBlocks, const uint32_t taskType) const {
+    if (stream == nullptr) {
+        return;
+    }
+    aclrtStreamAttrValue value = {};
+    value.cacheOpInfoSwitch = 0;
+    aclError ret = aclrtGetStreamAttribute(stream, ACL_STREAM_ATTR_CACHE_OP_INFO, &value);
+    if (ret != ACL_SUCCESS) {
+        MACHINE_LOGW("Get stream attribute failed, ret is [%d]", ret);
+        return;
+    }
+    if (!static_cast<bool>(value.cacheOpInfoSwitch)) {
+        MACHINE_LOGD("Op cache for AclGraph is disabled.");
+        return;
+    }
+    uint32_t totalNum = executor->args->inputs.num + executor->args->outputs.num;
+    uint64_t itemId = executor->itemId;
+    if (taskType == MSPROF_GE_TASK_TYPE_AI_CPU) {
+        totalNum = 0U;
+        itemId = executor->aicpuItemId;
+    }
+    size_t totalSize = sizeof(CacheTaskInfo) + sizeof(MsrofTensorData) * totalNum;
+    void *buffer = malloc(totalSize);
+    OP_CHECK(buffer != nullptr, OP_LOGE(ACLNN_ERR_INNER, "malloc buffer failed, strerr[%s]", strerror(errno)), return);
+    (void)memset_s(buffer, totalSize, 0, totalSize);
+    op::internal::CacheOpInfoBasic *opInfo = static_cast<op::internal::CacheOpInfoBasic*>(buffer);
+
+    opInfo->taskType = taskType;
+    opInfo->numBlocks = numBlocks;
+    opInfo->nodeId = itemId;
+    opInfo->opType = itemId;
+    opInfo->attrId = 0;
+    opInfo->opFlag = 0;
+    opInfo->tensorNum = totalNum;
+
+    if (taskType != MSPROF_GE_TASK_TYPE_AI_CPU) {
+        BuildCacheTensorInfo(executor, opInfo);
+        BuildCacheAttrInfo(executor, opInfo);
+    }
+
+    if (aclrtCacheLastTaskOpInfo(buffer, totalSize) != ACL_SUCCESS) {
+        MACHINE_LOGW("Report op info cache failed");
+    }
+    MACHINE_LOGI("Report op [%s] info cache, task type[%u], numBlocks[%u], attrId[%llu] size[%zu]",
+        executor->opType, taskType, numBlocks, opInfo->attrId, totalSize);
+    free(buffer);
 }
 
 void HostProf::SetProfFunction(Function *function)

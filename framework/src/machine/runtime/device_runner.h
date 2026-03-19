@@ -56,6 +56,7 @@ struct FileLock {
 
     int fd;
 };
+
 class DeviceRunner {
 public:
     static DeviceRunner &Get();
@@ -85,7 +86,6 @@ public:
     bool GetEnableDumpDevPref() const;
     void StartMachinePerfTraceDumpThread();
     void StopMachinePerfTraceDumpThread();
-
 private:
     DeviceRunner() = default;
     ~DeviceRunner();
