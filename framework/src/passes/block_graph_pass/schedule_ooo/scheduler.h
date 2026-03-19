@@ -316,7 +316,6 @@ private:
         std::vector<int> &groupNextUseTime, std::unordered_map<int, size_t> &nextUseTimeCache, bool isGenSpill);
     IssueEntryPtr GetSpillIssue(IssueEntryPtr allocIssue, int memId, bool isGenSpill);
     bool CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue);
-    bool CheckParallelL0C2L1(IssueEntryPtr spillIssue);
     bool IsBelongSpillBlackList(IssueEntryPtr spillIssue, IssueEntryPtr issue);
     void FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntryPtr> &filterLtags);
     Status SpillAllBuffer(IssueEntryPtr allocIssue, size_t &pcIdx, bool isGenSpill, LocalBufferPtr allocBuffer);
@@ -363,7 +362,6 @@ private:
     Status UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr allocBuffer, LogicalTensorPtr assembleTensor);
     LogicalTensorPtr CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
         SpillInfo &spillInfo, const std::vector<int64_t> &toOffset);
-    int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset);
     void GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t &base);
     Status UpdateCopyOutMode(Operation &copyOutOp);
     Status UpdateCopyInMode(Operation &copyInOp);
