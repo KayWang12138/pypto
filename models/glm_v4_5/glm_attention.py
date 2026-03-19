@@ -248,6 +248,7 @@ def softmax(x, is_fp16=False):
 
 @pypto.frontend.jit(
     runtime_options={"stitch_function_max_num": 128},
+    debug_options={"runtime_debug_mode": 1},
     # 当子图大小达到上界不允许与其他子图合并
     pass_options={"pg_upper_bound": 1536,
     # Q常驻，0代表第一组mmad，4代表4次matmul合并
