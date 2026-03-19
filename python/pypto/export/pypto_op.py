@@ -4,12 +4,12 @@ import json
 import os
 from pathlib import Path
 import random
-
 import torchair
 import pypto_ir
 
-from .cpp import _generate_pybind_wrapper, _generate_op_kernel_info, _generate_op_compile, _generate_op_execute
-from .helpers import _get_renamed_func_source
+from . import cpp
+from . import cpp_layout
+from .helpers import _camel_case_to_snake_case, _get_renamed_func_source, _snake_case_to_camel_case
 from .kernel_utils import _find_kernel_binary_path, _find_kernel_pto_path
 from . import meta_schema
 from .meta_schema import _is_hidden, _is_user_defined
@@ -29,6 +29,23 @@ _FUNC_NAME__CALC_WORKSPACE = "calc_workspace"
 
 _OPTIONS_KEY__INCL_BINARY = "incl_binary"
 _OPTIONS_KEY__INCL_IR = "incl_ir"
+
+_FRAMEWORK_TYPE__ONNX = "ONNX"
+
+# TODO(TorchAir): replace with real GE ``FrameworkType`` token when defined.
+_FRAMEWORK_TYPE__TORCHAIR_GE_STUB = "TORCHAIR_GE_STUB"
+
+__all__ = (
+    "KERNEL_FORMAT__SOURCE",
+    "KERNEL_FORMAT__BINARY",
+    "KERNEL_FORMAT__IR",
+    "KERNEL_FORMAT__MULTI",
+    "pypto_op_kernel",
+    "pypto_op_infer_shape",
+    "pypto_op_calc_workspace",
+    "pypto_op_onnx_symbolic",
+    "pypto_op_torchair_fx_node_ge_converter",
+)
 
 
 def _json_dumps_user_meta(meta: dict, *args, **kwargs) -> dict:
@@ -82,24 +99,35 @@ def pypto_op_infer_shape(*, pypto_op_kernel):
         pypto_op_kernel.__pypto_meta__[meta_schema._META_KEY__INFER_SHAPE_SOURCE] = \
             _get_renamed_func_source(fn, _FUNC_NAME__INFER_SHAPE)
         pypto_op_kernel.__pypto_meta__[meta_schema._META_KEY__INFER_SHAPE_SOURCE_CPP] = \
-            _generate_pybind_wrapper(fn, _FUNC_NAME__INFER_SHAPE)
+            cpp._generate_pybind_wrapper(fn, _snake_case_to_camel_case(_FUNC_NAME__INFER_SHAPE))
+        pypto_op_kernel.__pypto_infer_shape_fn__ = fn
         return fn
     return decorator
 
 
 def pypto_op_calc_workspace(*, pypto_op_kernel):
-    """Decorator to register calc_workspace source and C++ wrapper on a kernel."""
+    """Decorator to register calc_workspace Python source and generated C++ wrapper on kernel meta.
+
+    These meta keys are kept for graph tooling and future use; they are not bundled into
+    ``cpp_sources_zip`` (no ``calc_workspace`` TU in the exported cpp tree).
+    """
     def decorator(fn):
         # can pass func names as separate attributes instead of renaming if needed later
         pypto_op_kernel.__pypto_meta__[meta_schema._META_KEY__CALC_WORKSPACE_SOURCE] = \
             _get_renamed_func_source(fn, _FUNC_NAME__CALC_WORKSPACE)
         pypto_op_kernel.__pypto_meta__[meta_schema._META_KEY__CALC_WORKSPACE_SOURCE_CPP] = \
-            _generate_pybind_wrapper(fn, _FUNC_NAME__CALC_WORKSPACE)
+            cpp._generate_pybind_wrapper(fn, _snake_case_to_camel_case(_FUNC_NAME__CALC_WORKSPACE))
         return fn
     return decorator
 
 
-def _create_pypto_op_kernel_export(*, pypto_op_kernel, dump_meta, extract_input_shapes_dtype):
+def _create_pypto_op_kernel_export(
+    *,
+    pypto_op_kernel,
+    dump_meta,
+    extract_input_shapes_dtype,
+    framework_type: str,
+):
     """Build the kernel export callable that runs the pipeline and returns op_context."""
     def _export_ir(*input_nodes, _kernel_name, _kernel_fn, _tile_shapes, _extract_input_shapes_dtype):
         """Convert kernel to tile IR, compile to PTO, and return path to .pto file."""
@@ -127,8 +155,12 @@ def _create_pypto_op_kernel_export(*, pypto_op_kernel, dump_meta, extract_input_
         return _find_kernel_pto_path(_kernel_name)
 
     # TODO refactor when requirements are finalized
-    def _generate_cpp_sources(kernel_name, extra_sources: dict[str, str] = {}):
-        """Write op_kernel_info, op_compile, op_execute and optional sources to a temp dir; return path."""
+    def _generate_cpp_sources(
+        kernel_name,
+        op_type: str,
+        framework_type: str,
+    ):
+        """Write GE OpDef TU, executor, domi plugin, and cpp_layout.json; return path."""
         def _create_cpp_sources_dir(kernel_name):
             """Create a timestamped output dir for C++ sources."""
             now_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -137,29 +169,61 @@ def _create_pypto_op_kernel_export(*, pypto_op_kernel, dump_meta, extract_input_
             os.makedirs(path, exist_ok=True)
             return path
 
+        def _write_recursively(dict_of_files, path):
+            for fname, content in dict_of_files.items():
+                if isinstance(content, dict):
+                    os.makedirs(path / fname, exist_ok=True)
+                    _write_recursively(content, path / fname)
+                else:
+                    with open(path / f"{fname}.cpp", "w") as f:
+                        f.write(content)
+
+        infer_shape_fn = getattr(pypto_op_kernel, "__pypto_infer_shape_fn__", None)
+        stem = _camel_case_to_snake_case(op_type)
         cpp_sources = {
-            "op_kernel_info": _generate_op_kernel_info(),
-            "op_compile": _generate_op_compile(),
-            "op_execute": _generate_op_execute(),
-            **extra_sources,
+            "framework": {
+                "onnx_plugin": {
+                    f"{stem}_plugin": cpp._generate_op_custom_plugin_cpp(
+                        op_type=op_type, framework_type=framework_type,
+                    ),
+                },
+            },
+            "op_host": {
+                "src": {
+                    f"{stem}_executor": cpp._generate_custom_executor_cpp(op_type),
+                },
+                f"{stem}_def": cpp._generate_op_custom_def_cpp(
+                    infer_shape_fn, op_type=op_type
+                ),
+            },
         }
         cpp_sources_dir = _create_cpp_sources_dir(kernel_name)
-        for fname, content in cpp_sources.items():
-            with open(cpp_sources_dir / f"{fname}.cpp", "w") as f:
-                f.write(content)
+        _write_recursively(cpp_sources, cpp_sources_dir)
+        manifest = cpp_layout._build_cpp_layout_manifest(op_type=op_type)
+        layout_path = cpp_sources_dir / cpp_layout._CPP_LAYOUT_FILENAME
+        with open(layout_path, "w", encoding="utf-8") as f:
+            json.dump(manifest, f, indent=2)
         return cpp_sources_dir
 
-    def pypto_op_kernel_export(*input_nodes):
-        """Run export pipeline (cpp, optional binary/IR zips) and return op_context from dump_meta."""
+    def pypto_op_kernel_export(*input_nodes, op_type: str):
+        """Run export pipeline (cpp, optional binary/IR zips) and return op_context from dump_meta.
+
+        op_type
+            C++ identifier used everywhere generated code named the op: plugin
+            ``ParseParam*``, ``REGISTER_CUSTOM_OP`` / ``OriginOpType``, ``OpDef`` / ``OP_ADD``,
+            sinkable executor class, and ``REG_AUTO_MAPPING_OP`` (must match your ONNX / GE op type
+            string without domain, e.g. ``AddPyptoCustomOp``).
+        """
+        cpp._validate_op_type_identifier(op_type)
         meta = getattr(pypto_op_kernel, "__pypto_meta__", {})
         kernel_name = str(meta.get(meta_schema._META_KEY__KERNEL_NAME))
 
+        # infer_shape C++ is embedded in op_host/<op_type_snake>_def.cpp (not a separate infer_shape.cpp).
+        # calc_workspace stays on meta only (see pypto_op_calc_workspace); not emitted into cpp_sources_zip.
         cpp_sources_dir = _generate_cpp_sources(
             kernel_name,
-            extra_sources = {
-                _FUNC_NAME__INFER_SHAPE: meta.get(meta_schema._META_KEY__INFER_SHAPE_SOURCE_CPP),
-                _FUNC_NAME__CALC_WORKSPACE: meta.get(meta_schema._META_KEY__CALC_WORKSPACE_SOURCE_CPP),
-            }
+            op_type=op_type,
+            framework_type=framework_type,
         )
         meta[meta_schema._META_KEY__CPP_SOURCES_ZIP] = _zip_cpp_sources_dir_to_b64(cpp_sources_dir)
         print(f"cpp sources path ::: {cpp_sources_dir}")
@@ -189,14 +253,24 @@ def _create_pypto_op_kernel_export(*, pypto_op_kernel, dump_meta, extract_input_
     return pypto_op_kernel_export
 
 
-def _with_pypto_op_kernel_export(pypto_op_kernel, dump_meta, extract_input_shapes_dtype=None):
-    """Decorator that injects pypto_op_kernel_export into the wrapped function."""
+def _with_pypto_op_kernel_export(
+    pypto_op_kernel,
+    dump_meta,
+    extract_input_shapes_dtype,
+    framework_type: str,
+):
+    """Decorator that injects pypto_op_kernel_export into the wrapped function.
+
+    *framework_type* is bound into generated domi plugin C++ (``FrameworkType``), e.g.
+    ``_FRAMEWORK_TYPE__ONNX`` or ``_FRAMEWORK_TYPE__TORCHAIR_GE_STUB``.
+    """
     def decorator(fn):
         def wrapper(*args, **kwargs):
-            pypto_op_kernel_export=_create_pypto_op_kernel_export(
+            pypto_op_kernel_export = _create_pypto_op_kernel_export(
                 pypto_op_kernel=pypto_op_kernel,
                 dump_meta=dump_meta,
                 extract_input_shapes_dtype=extract_input_shapes_dtype,
+                framework_type=framework_type,
             )
             return fn(*args, **kwargs, pypto_op_kernel_export=pypto_op_kernel_export)
         return wrapper
@@ -232,7 +306,12 @@ def pypto_op_onnx_symbolic(*, pypto_op_kernel):
             dtype = input_nodes[0].type().dtype()  # TODO check a scenario with multiple dtypes
             return (shapes, dtype)
 
-        return _with_pypto_op_kernel_export(pypto_op_kernel, _dump_meta, _extract_input_shapes_dtype)(fn)
+        return _with_pypto_op_kernel_export(
+            pypto_op_kernel,
+            _dump_meta,
+            _extract_input_shapes_dtype,
+            framework_type=_FRAMEWORK_TYPE__ONNX,
+        )(fn)
     return decorator
 
 
@@ -282,5 +361,10 @@ def pypto_op_torchair_fx_node_ge_converter(*, pypto_op_kernel):
             dtype = input_nodes[0].meta.dtype  # TODO check a scenario with multiple dtypes
             return (shapes, dtype)
 
-        return _with_pypto_op_kernel_export(pypto_op_kernel, _dump_meta, _extract_input_shapes_dtype)(fn)
+        return _with_pypto_op_kernel_export(
+            pypto_op_kernel,
+            _dump_meta,
+            _extract_input_shapes_dtype,
+            framework_type=_FRAMEWORK_TYPE__TORCHAIR_GE_STUB,
+        )(fn)
     return decorator

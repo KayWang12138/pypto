@@ -14,9 +14,7 @@ from typing import Optional, Callable
 
 import pypto
 
-DOMAIN = "ai.onnx.contrib"
 OP_TYPE__ADD = "AddPyptoCustomOp"
-DOMAIN_OP_TYPE__ADD = f"{DOMAIN}::{OP_TYPE__ADD}"
 SHAPE = (32, 32, 1, 64)
 TILE_SHAPES = (1, 16, 1, 64)
 
@@ -63,9 +61,9 @@ def add_pypto_calc_workspace(x0_shape: tuple[int, int], x1_shape: tuple[int, int
 @pypto.export.pypto_op_torchair_fx_node_ge_converter(pypto_op_kernel=add_kernel_body)
 def converter_add_pypto(x: torchair_tensor, y: torchair_tensor, z: torchair_tensor = None,
         meta_outputs: any = None, pypto_op_kernel_export: Callable[..., dict]=None):
-    op_context = pypto_op_kernel_export(x, y)
+    op_context = pypto_op_kernel_export(x, y, op_type=OP_TYPE__ADD)
     return torchair.ge.custom_op(
-        op_type=DOMAIN_OP_TYPE__ADD,
+        op_type=OP_TYPE__ADD,
         inputs={
             "x": x,
             "y": y,

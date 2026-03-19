@@ -196,3 +196,32 @@ for _field in _extractable_zip_meta_fields():
 def extract_pypto_meta(node):
     """Parse meta_json from node and return as dict."""
     return json.loads(_extract_meta_json(node))
+
+
+def _export_all_extractors() -> tuple[str, ...]:
+    """Names exported by this module (including schema-driven extract_* / _extract_*)."""
+    names = [
+        "extract_node_from_onnx",
+        "extract_node_from_ge_graph",
+        "extract_pypto_meta",
+    ]
+    for _field in _extractable_string_meta_fields():
+        spec = _get_meta_key_spec(_field)
+        attr_name = (
+            f"_extract_{_field}"
+            if (spec and spec.extraction and not spec.extraction.public_extractor)
+            else f"extract_{_field}"
+        )
+        names.append(attr_name)
+    for _field in _extractable_zip_meta_fields():
+        spec = _get_meta_key_spec(_field + "_zip")
+        attr_name = (
+            f"_extract_{_field}"
+            if (spec and spec.extraction and not spec.extraction.public_extractor)
+            else f"extract_{_field}"
+        )
+        names.append(attr_name)
+    return tuple(names)
+
+
+__all__ = _export_all_extractors()
