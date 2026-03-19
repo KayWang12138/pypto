@@ -485,9 +485,12 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
     for (size_t i = 0; i < operation.iOperand.size(); ++i) {
         auto &tensor = operation.iOperand[i];
         MemoryType toType = operation.oOperand.front()->GetMemoryTypeOriginal();
-        // 当view的offset不对齐，需要插DDR时，不能将view前tensor的MemoryTypeOriginal向view后的tensor传递
-        // 避免插DDR后出现original—>DDR->original而DDR->original不存在通路的场景（如original为L0C时）
-        if(!unaligned && toType == MemoryType::MEM_UNKNOWN && tensor->GetMemoryTypeOriginal() != MemoryType::MEM_UNKNOWN) {
+        // 尝试在view的输出original未知而输入original已知时进行内存复用，将输出的original刷为与输入相同
+        // 当出现内存未对齐时，需要插搬运到DDR则不进行复用；当出现输入为L0C时，L0C到L0C无意义，也不进行复用，同时避免出现DDR->L0C
+        auto originalMemType = tensor->GetMemoryTypeOriginal();
+        auto memTypeSupportReuse = toType == MemoryType::MEM_UNKNOWN && originalMemType != MemoryType::MEM_UNKNOWN &&
+            originalMemType != MemoryType::MEM_L0C;
+        if(!unaligned && memTypeSupportReuse) {
             //view输出的消费者是assemble或者reshape
             operation.oOperand.front()->SetMemoryTypeOriginal(tensor->GetMemoryTypeOriginal());
             viewOpAttribute->SetToType(tensor->GetMemoryTypeOriginal());
@@ -568,28 +571,35 @@ void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
         }
         auto oOperand = op.GetOOperands().front();
         auto iOperand = op.GetIOperands().front();
-        if(iOperand->GetMemoryTypeOriginal() == MEM_L0C) {
-            bool isToL1 = true;
-            auto toBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
-            for (const auto &pair : toBeMap) {
-                const auto &toBeType = pair.second;
-                if (toBeType != MemoryType::MEM_L1) {
-                    isToL1 = false;
-                    break;
+        if(iOperand->GetMemoryTypeOriginal() != MEM_L0C) {
+            continue;
+        }
+        bool isToL1 = true;
+        auto toBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
+        for (const auto &pair : toBeMap) {
+            const auto &toBeType = pair.second;
+            if (toBeType != MemoryType::MEM_L1) {
+                isToL1 = false;
+                break;
+            }
+        }
+        bool isConsumerOutputMultiple = true;
+        for (auto &consumerOp : oOperand->GetConsumers()) {
+            if (consumerOp->GetOpcode() == Opcode::OP_VIEW && !IsDimMultiple(consumerOp->GetOOperands().front()->GetShape(), iOperand->GetShape())) {
+                isConsumerOutputMultiple = false;
+                break;
+            }
+        }
+        if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()) || !isConsumerOutputMultiple){
+            oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+            const auto &tensorToBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
+            for (const auto &[consumerOp, memoryType] : tensorToBeMap) {
+                if (memoryType == MemoryType::MEM_L0C) {
+                    inserter.UpdateTensorTobeMap(oOperand, *consumerOp, MemoryType::MEM_DEVICE_DDR);
                 }
             }
-            bool isConsumerOutputMultiple = true;
-            for (auto &consumerOp : oOperand->GetConsumers()) {
-                if (consumerOp->GetOpcode() == Opcode::OP_VIEW && !IsDimMultiple(consumerOp->GetOOperands().front()->GetShape(), iOperand->GetShape())) {
-                    isConsumerOutputMultiple = false;
-                    break;
-                }
-            }
-            if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()) || !isConsumerOutputMultiple){
-                oOperand->SetMemoryTypeOriginal(MEM_DEVICE_DDR, true);
-                APASS_LOG_DEBUG_F(Elements::Tensor, "Set tensor %d original memory type "
-                    "to DDR since not towards L1 or not multipule dimensions.", oOperand->magic);
-            }
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Set tensor %d original memory type "
+                "to DDR since not towards L1 or not multipule dimensions.", oOperand->magic);
         }
     }
 }

@@ -276,6 +276,16 @@
                             }
                         }
                     ]
+                },
+                "ready_on_host_tensors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "zh": "标记在Host端准备好的Tensor名称列表",
+                        "en": "Specify the list of Tensor names that are ready on Host"
+                    }
                 }
             }
         },
@@ -297,7 +307,7 @@
                 },
                 "compile_monitor_enable": {
                     "type": "boolean",
-                    "default": true,
+                    "default": false,
                     "label": {
                         "zh": "控制编译阶段是否开启编译过程进度打印",
                         "en": "Control whether to enable compilation progress printing during the compilation phase."

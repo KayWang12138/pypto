@@ -67,9 +67,15 @@ def set_pass_options(*,
     Parameters
     ---------
     pg_skip_partition : bool
+        .. deprecated::
+            This parameter is deprecated and will be removed in a future version.
+            Please remove this parameter from your configuration.
         Whether to skip the subgraph partitioning process.
 
     pg_upper_bound : int
+        .. deprecated::
+            This parameter is deprecated and will be removed in a future version.
+            Please remove this parameter from your configuration.
         Merged graph parameter, used to configure
         the upper bound of subgraph size.
 
@@ -85,6 +91,9 @@ def set_pass_options(*,
     cube_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIC subgraphs with the same structure.
+    
+    sg_set_scope : int
+        Merged graph parameter, used to manually control graph merging.
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(pass_options=options_dict)
@@ -100,7 +109,14 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
         All pass options
     """
     scope = get_current_scope()
-    return scope.get_pass_options()
+    rst = scope.get_pass_options()
+    allowed_keys = {
+        'vec_nbuffer_setting',
+        'cube_l1_reuse_setting',
+        'cube_nbuffer_setting',
+        'sg_set_scope',
+    }
+    return {k: v for k, v in rst.items() if k in allowed_keys}
 
 
 
@@ -183,6 +199,7 @@ def set_runtime_options(*,
                         stitch_function_size: int = None,
                         stitch_cfgcache_size: Optional[int] = None,
                         triple_stream_sched: Optional[bool] = None,
+                        ready_on_host_tensors: Optional[List[str]] = None,
                         run_mode: Optional[int] = None,
                         valid_shape_optimize: Optional[int] = None
                         ) -> None:

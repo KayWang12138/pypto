@@ -895,6 +895,8 @@ struct SymbolicExpressionTable {
     static std::string BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
     static std::string BuildExpression(const SymbolicScalar &ss);
     static std::string BuildExpression(const RawSymbolicScalarPtr &ss);
+    static bool CheckExprDependCore(const RawSymbolicScalarPtr &ss, const std::unordered_map<std::string, bool> &tensorNameToDependCore,
+        std::unordered_map<RawSymbolicScalarPtr, bool> &valDependMap);
 private:
     static void BuildExtremaExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict, std::ostringstream &oss);
     static std::string BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
