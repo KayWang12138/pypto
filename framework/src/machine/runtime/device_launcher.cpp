@@ -220,8 +220,6 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
  	     DeviceMemoryUtils devMemory;
  	 #endif
  	     DeviceInitDistributedContext(devMemory, dynAttr->commGroupNames, kArgs);
- 	 
-    DeviceInitDistributedContext(devMemoryUtilis, dynAttr->commGroupNames, kArgs);
 
     HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
     DeviceInitTilingData(devMemory, kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
@@ -274,6 +272,7 @@ int DeviceLauncher::DeviceRunOnce(Function *function, DevControlFlowCache* hostC
     auto aicpuStream = machine::GetRA()->GetScheStream();
     auto aicoreStream = machine::GetRA()->GetStream();
     std::vector<DeviceTensorData> inputDeviceDataList;
+    std::vector<DeviceTensorData> outputDeviceDataList;
     #ifdef __ESL_SIMULATION__
         EslModelMemoryUtils devMemoryHugePage(true);
         EslModelMemoryUtils devMemoryNotHugePage(false); 
@@ -291,9 +290,9 @@ int DeviceLauncher::DeviceRunOnce(Function *function, DevControlFlowCache* hostC
 
     int rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList,
         aicpuStream, aicoreStream, true, nullptr, reinterpret_cast<DevControlFlowCache*>(devCtrlCache), config);
-    CopyFromDev(devMemoryHugePage(), outputDataList);
+    CopyFromDev(devMemoryHugePage, outputDataList);
     if (HasInplaceArgs(function) || outputDataList.size() == 0) {
-        CopyFromDev(devMemoryHugePage(), inputDataList);
+        CopyFromDev(devMemoryHugePage, inputDataList);
     }
     devMemoryHugePage.Free(devCtrlCache);
     return rc;
