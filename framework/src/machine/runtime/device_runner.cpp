@@ -404,9 +404,10 @@ int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs *k
     hostInputInfo.addrOffset = reinterpret_cast<int8_t*>(&args->kArgs.inputs) - reinterpret_cast<int8_t*>(args);
     hostInputInfo.dataOffset = sizeof(dynamic::AiCpuArgs);
     rtArgs.hostInputInfoPtr = &hostInputInfo;
+    rtArgs.timeout = AICPU_EXECUTE_TIMEOUT;
     MACHINE_LOGI("Copy flow addrOffset %u argsSize %u", hostInputInfo.addrOffset, hostInputInfo.dataOffset);
-    return rtAicpuKernelLaunchExWithArgs(
-        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, aicpuStream, 0);
+    return rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_,
+        &rtArgs, nullptr, aicpuStream, RT_KERNEL_USE_SPECIAL_TIMEOUT);
 }
 
 void DeviceRunner::InitAiCpuSoBin(DeviceArgs &devArgs) {
