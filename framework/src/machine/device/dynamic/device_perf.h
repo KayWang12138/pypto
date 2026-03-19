@@ -154,7 +154,7 @@ struct PerfEvtMgr {
         if (ctrlTurn_ >= MAX_TURN_NUM) {
             aicpuPerf_ = 0;
             isOpenProf_ = false;
-            DEV_WARN("Aicpu pref info more than: %u, some info would lost", MAX_TURN_NUM);
+            DEV_WARN("Aicpu perf info more than maxTurnNum=%u, some info would be lost", MAX_TURN_NUM);
             return;
         }
         ResetPerfTrace();

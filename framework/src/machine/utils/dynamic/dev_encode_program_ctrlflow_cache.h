@@ -250,7 +250,7 @@ struct DevControlFlowCache {
             deviceTaskCacheList[deviceTaskCount].dynTaskBase = base;
             deviceTaskCount += 1;
             rootTaskCount += base->dynFuncDataList->Size();
-            DEV_DEBUG("deviceTaskCount is: %lu", deviceTaskCount);
+            DEV_DEBUG("deviceTaskCount=%lu", deviceTaskCount);
             return true;
         } else {
             deviceTaskSkippedCount += 1;
