@@ -92,7 +92,7 @@ inline void CheckDeviceId() {
     int32_t devId = 0;
     int32_t getDeviceResult = rtGetDevice(&devId);
     if (getDeviceResult != RT_ERROR_NONE) {
-        MACHINE_LOGE("fail get device id, check if set device id");
+        MACHINE_LOGE_E(HostLauncherErr::GET_DEVICE_ID_FAILED, "fail get device id, check if set device id");
         return;
     }
 }
@@ -117,7 +117,8 @@ public:
     void AllocDevAddr(uint8_t **devAddr, uint64_t size) {
         bool success = memPool_.AllocDevAddrInPool(devAddr, size);
         if (!success) {
-            MACHINE_LOGE("RuntimeAgent::AllocDevAddrInPool failed for size %lu", size);
+            MACHINE_LOGE_E(HostLauncherErr::ALLOC_DEV_ADDR_IN_POOL_FAILED,
+                           "RuntimeAgent::AllocDevAddrInPool failed for size %lu", size);
             devAddr = nullptr;
         } else {
             MACHINE_LOGI("RuntimeAgentMemory: Alloc success %p", *devAddr);

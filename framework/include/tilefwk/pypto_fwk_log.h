@@ -19,6 +19,8 @@
 #include <cstring>
 #include <cmath>
 
+#include "machine/utils/machine_error.h"
+
 #define DLOG_DEBUG 0x0
 #define DLOG_INFO  0x1
 #define DLOG_WARN  0x2

@@ -118,7 +118,7 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     DevAscendProgram *devProg = DeviceLauncher::GetDevProg(function);
     DevControlFlowCache* hostCtrlFlowCache = CreateHostCtrlFlowCache(devProg, function, memUtils);
     if (hostCtrlFlowCache == nullptr) {
-        MACHINE_LOGE("Failed to allocate control flow cache");
+        MACHINE_LOGE_E(MachineSimulationErr::SIM_ALLOC_CTRL_FLOW_CACHE_FAILED, "Failed to allocate control flow cache");
         return -1;
     }
     hostCtrlFlowCache->isRecording = true;
