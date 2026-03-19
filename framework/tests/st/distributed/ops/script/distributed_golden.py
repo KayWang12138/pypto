@@ -730,7 +730,9 @@ OPERATOR_DISPATCHERS = {
     'AllReduceV4': generate_all_reduce_golden,    # Same algorithm as AllReduce (oneshot)
     'AllReduceV5': generate_all_reduce_golden,    # Same algorithm as AllReduce (oneshot)
     'AllReduceV6': generate_all_reduce_golden,    # Same algorithm as AllReduce (oneshot, scatter-only API)
+    'AllReduceV6Light': generate_all_reduce_golden, # Same algorithm as AllReduce (oneshot, compact signal domain)
     'AllReduceV7': generate_all_reduce_golden,    # Same algorithm as AllReduce (oneshot, grouped signaling)
+    'AllReduceV8': generate_all_reduce_golden,    # Same algorithm as AllReduce (oneshot, policy-driven grouping)
     'AllReduceIRCheck': generate_all_reduce_golden, # IR equivalence test — reuses AllReduce golden data
     'TwoShotAllReduceV2': generate_all_reduce_golden,
     'TwoShotAllReduceV3': generate_all_reduce_golden,
