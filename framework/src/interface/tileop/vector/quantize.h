@@ -450,7 +450,7 @@ TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset) {
     // 输入形状: [..., H, W]
     // scale/offset形状: [..., 1, W]
     // 输出形状: [..., H, W]
-    else if constexpr (axisIn5D == 3) {
+    } else if constexpr (axisIn5D == 3) {
         // 定义Tile类型
         // 所有Tile都使用行主序布局
         using DstTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
@@ -460,29 +460,27 @@ TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset) {
         using OffsetTileDefine = pto::Tile<pto::TileType::Vec, OffsetDtype, 1, offsetTileW, pto::BLayout::RowMajor, -1, -1>;
 
         for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
-        for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
-            for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
-                for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
-                    // scaleTile和offsetTile只有一行 [1, W]
-                    DstTileDefine dstTile(dstShape3, dstShape4);
-                    DstTileDefine dstTile(dstShape3, dstShape4);
-                    SrcTileDefine srcTile(dstShape3, dstShape4);
-                    ScaleTileDefine scaleTile(1, dstShape4);
-                    OffsetTileDefine offsetTile(1, dstShape4);
+            for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
+                for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
+                    for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
+                        // scaleTile和offsetTile只有一行 [1, W]
+                        DstTileDefine dstTile(dstShape3, dstShape4);
+                        SrcTileDefine srcTile(dstShape3, dstShape4);
+                        ScaleTileDefine scaleTile(1, dstShape4);
+                        OffsetTileDefine offsetTile(1, dstShape4);
 
-                    auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
-                    auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
-                    auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                    auto scaleOffset = n0Index * scaleStride0 + n1Index * scaleStride1 + n2Index * scaleStride2;
-                    auto offsetOffset = n0Index * offsetStride0 + n1Index * offsetStride1 + n2Index * offsetStride2;
+                        auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
+                        auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
+                        auto scaleOffset = n0Index * scaleStride0 + n1Index * scaleStride1 + n2Index * scaleStride2;
+                        auto offsetOffset = n0Index * offsetStride0 + n1Index * offsetStride1 + n2Index * offsetStride2;
 
-                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * sizeof(DstDtype)));
-                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * sizeof(DstDtype)));
-                    pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * sizeof(SrcDtype)));
-                    pto::TASSIGN(scaleTile, (uint64_t)(scale.GetAddr() + scaleOffset * sizeof(ScaleDtype)));
-                    pto::TASSIGN(offsetTile, (uint64_t)(offset.GetAddr() + offsetOffset * sizeof(OffsetDtype)));
+                        pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * sizeof(DstDtype)));
+                        pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * sizeof(SrcDtype)));
+                        pto::TASSIGN(scaleTile, (uint64_t)(scale.GetAddr() + scaleOffset * sizeof(ScaleDtype)));
+                        pto::TASSIGN(offsetTile, (uint64_t)(offset.GetAddr() + offsetOffset * sizeof(OffsetDtype)));
 
-                    PTO_WITH_LAST_USE(pto::TQUANT<pto::QuantType::INT8_ASYM>(dstTile, srcTile, scaleTile, &offsetTile), n1, n2, n3);
+                        PTO_WITH_LAST_USE(pto::TQUANT<pto::QuantType::INT8_ASYM>(dstTile, srcTile, scaleTile, &offsetTile), n1, n2, n3);
+                    }
                 }
             }
         }
@@ -517,7 +515,6 @@ TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset) {
 // INT8_SYM: 3参数版本（对称量化，不需要offset）
 // ---------------------------------------------------------------------------
 template <pto::QuantType quantType, int axis = -1, typename LastUse = LastUse3Dim<0, 0, 0>,
-template <pto::QuantType quantType, int axis = -1, typename LastUse = LastUse3Dim<0, 0, 0>,
           typename T0, typename T1, typename T2>
 TILEOP void TQuant(T0 dst, T1 src, T2 scale) {
     // 如果用户传入INT8_ASYM但只提供3个参数，会在编译时报错
@@ -528,7 +525,6 @@ TILEOP void TQuant(T0 dst, T1 src, T2 scale) {
 
 // INT8_ASYM: 4参数版本（非对称量化，需要offset）
 // ---------------------------------------------------------------------------
-template <pto::QuantType quantType, int axis = -1, typename LastUse = LastUse3Dim<0, 0, 0>,
 template <pto::QuantType quantType, int axis = -1, typename LastUse = LastUse3Dim<0, 0, 0>,
           typename T0, typename T1, typename T2, typename T3>
 TILEOP void TQuant(T0 dst, T1 src, T2 scale, T3 offset) {
