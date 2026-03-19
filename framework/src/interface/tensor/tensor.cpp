@@ -19,6 +19,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
+#include "interface/utils/matmul_error.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
 #include "interface/utils/id_gen.h"
@@ -64,12 +65,21 @@ static std::vector<SymbolicScalar> ToDynShape(const std::string &tname, const Sh
     return dynShape;
 }
 
-template <typename T>
-void CheckShapeValid(DataType &dataType, T &shape, TileOpFormat &format) {
-    if (format == TileOpFormat::TILEOP_NZ && shape.back() != -1) {
-        ASSERT(shape.back() * BytesOf(dataType) % ALIGN_SIZE_32 == 0)
-            << "Current inner axis: " << shape.back() << ", when input "
-            << "is NZ format, inner axis shape must be 32-byte aligned\n";
+void CheckShapeValid(DataType &dataType, const Shape &shape, TileOpFormat &format) {
+    if (shape.empty() || shape.back() == -1) {
+        return;
+    }
+    bool isB4 = dataType == DataType::DT_FP4_E2M1X2 || dataType == DataType::DT_FP4_E1M2X2;
+    if (format == TileOpFormat::TILEOP_NZ) {
+        size_t alignSize = isB4 ? ALIGN_SIZE_64 : ALIGN_SIZE_32;
+        const bool dataBytesAlign = ((shape.back() * BytesOf(dataType)) % alignSize == 0);
+        ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, dataBytesAlign) << "Current inner axis: " << (size_t)shape.back()
+            << ", when input is NZ format, inner axis shape must be 32-byte aligned(4bit dtype must be aligned to 64)";
+    }
+    if (format == TileOpFormat::TILEOP_ND && isB4) {
+        const bool inputIsEven = ((shape.back() & 1) == 0);
+        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, inputIsEven) << "Current inner axis: " << (size_t)shape.back()
+            << ", when input is ND format and 4bit dtype, inner axis must be even number";
     }
 }
 
@@ -89,7 +99,6 @@ Tensor::Tensor(DataType dataType, const Shape &shape, std::string name, TileOpFo
 
 Tensor::Tensor(DataType dataType, std::vector<SymbolicScalar> shape, std::string name, TileOpFormat format)
     : Tensor(dataType, SymbolicScalar::Concrete(shape, -1), name, format) {
-    CheckShapeValid(dataType, shape, format);
     auto rawTensor = storage_->GetRawTensor();
     for (size_t axis = 0; axis < shape.size(); axis++) {
         if (shape[axis].ConcreteValid() && shape[axis].Concrete() == -1) {

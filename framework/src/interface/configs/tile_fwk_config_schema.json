@@ -189,7 +189,7 @@
                         "en": "Set the number of rootfunction generated for the first device task in ctrlflow AICPU, thereby controlling the startup overhead of device machine"
                     },
                     "minimum": 1,
-                    "maximum": 128
+                    "maximum": 1024
                 },
                 "stitch_function_max_num": {
                     "type": "integer",
@@ -198,7 +198,7 @@
                         "en": "Set the number of rootfunction generated for device task in ctrlflow AICPU"
                     },
                     "minimum": 1,
-                    "maximum": 128
+                    "maximum": 1024
                 },
                 "stitch_function_num_step": {
                     "type": "integer",
@@ -207,7 +207,7 @@
                         "en": "Set the number of rootfunction generated for subsequent (non-initial) device task in ctrlflow AICPU"
                     },
                     "minimum": 0,
-                    "maximum": 128
+                    "maximum": 1024
                 },
                 "stitch_cfgcache_size": {
                     "type": "integer",
@@ -276,6 +276,16 @@
                             }
                         }
                     ]
+                },
+                "ready_on_host_tensors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "zh": "标记在Host端准备好的Tensor名称列表",
+                        "en": "Specify the list of Tensor names that are ready on Host"
+                    }
                 }
             }
         },
@@ -293,6 +303,44 @@
                     "label": {
                         "zh": "控制编译执行的阶段",
                         "en": "Set the stage of compile."
+                    }
+                },
+                "compile_monitor_enable": {
+                    "type": "boolean",
+                    "default": false,
+                    "label": {
+                        "zh": "控制编译阶段是否开启编译过程进度打印",
+                        "en": "Control whether to enable compilation progress printing during the compilation phase."
+                    }
+                },
+                "compile_monitor_print_interval": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647,
+                    "default": 60,
+                    "label": {
+                        "zh": "控制某个阶段编译过程进度打印的频率",
+                        "en": "Control the frequency of printing the compilation progress for a certain stage."
+                    }
+                },
+                "compile_timeout_stage": {
+                    "type": "integer",
+                    "minimum": -1,
+                    "maximum": 2147483647,
+                    "default": -1,
+                    "label": {
+                        "zh": "控制某个阶段编译过程超时的时间",
+                        "en": "Control the timeout duration of a certain stage of the compilation process."
+                    }
+                },
+                "compile_timeout": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647,
+                    "default": 600,
+                    "label": {
+                        "zh": "控制整个编译过程超时的时间",
+                        "en": "Control the timeout duration for the entire compilation process."
                     }
                 }
             }

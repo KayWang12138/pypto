@@ -34,38 +34,16 @@
 using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
-namespace {
-bool CheckAssembleNeedCopy(Function &function, const std::shared_ptr<Operation> &op) {
-    if (op->GetOpcode() != Opcode::OP_ASSEMBLE) {
-        return false;
-    }
-    if (op->oOperand.empty() || op->iOperand.empty()) {
-        return false;
-    }
-    std::shared_ptr<AssembleOpAttribute> assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(op->GetOpAttribute());
-    if (assembleOpAttribute == nullptr) {
-        return false;
-    }
-    if (assembleOpAttribute->GetToDynOffset().empty()) {
-        return false;
-    }
-    auto producers = function.FindProducers(*op);
-    if (producers.size() != 1) {
-        return false;
-    }
-    if (((*producers.begin()) == nullptr) || ((*producers.begin())->GetOpcode() != Opcode::OP_RESHAPE)) {
-        return false;
-    }
-    for (size_t i = 1; i < op->oOperand[0]->shape.size(); i++) {
-        if (op->oOperand[0]->shape[i] != op->iOperand[0]->shape[i]) {
-            APASS_LOG_INFO_F(Elements::Operation, "Assemble op [%d] need to check expansion.",  op->GetOpMagic());
-            return true;
-        }
-    }
-    return false;
-}
 
-Status UpdateIOOperand(const std::vector<OperationPtr> &tensorOperations) {
+// 不需要展开的操作码集合
+// 这些操作在展开过程中保持原样，不进行 tile-level 展开
+const std::unordered_set<Opcode> ExpandFunction::kNotNeedExpandOps = {
+    Opcode::OP_VIEW,
+    Opcode::OP_ASSEMBLE,
+    Opcode::OP_NOP
+};
+
+Status ExpandFunction::ClearIOOperand(const std::vector<OperationPtr> &tensorOperations) const {
     for (auto &op : tensorOperations) {
         // clear consumers and producers
         for (auto &iOperand : op->GetIOperands()) {
@@ -88,19 +66,13 @@ Status UpdateIOOperand(const std::vector<OperationPtr> &tensorOperations) {
     return SUCCESS;
 }
 
-bool NotNeedExpand(Opcode opcode, bool needCopy) {
-    return opcode == Opcode::OP_VIEW || (opcode == Opcode::OP_ASSEMBLE && !needCopy) || opcode == Opcode::OP_PAD ||
-           opcode == Opcode::OP_NOP;
-}
-
-void ProcessForNotExpandOp(Function &function, Operation &op) {
+void ExpandFunction::ProcessForNotExpandOp(Function &function, Operation &op) const {
     auto &newOp = function.AddOperation(op.GetOpcode(), op.GetIOperands(), op.GetOOperands());
     newOp.SetOpAttribute(op.GetOpAttribute());
     newOp.CopyAttrFrom(op, OP_EMUOP_PREFIX);
     if (op.HasAttribute(OpAttributeKey::inplaceIdx)) {
         newOp.SetAttribute(OpAttributeKey::inplaceIdx, op.GetIntAttribute(OpAttributeKey::inplaceIdx));
     }
-}
 }
 
 Status ExpandFunction::PreCheck(Function &function) {
@@ -114,13 +86,6 @@ Status ExpandFunction::PostCheck(Function &function) {
 }
 
 Status ExpandFunction::RunOnFunction(Function &function) {
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-        if (function.paramConfigs_.combineAxis || function.paramConfigs_.forceCombineAxis) {
-            APASS_LOG_INFO_F(Elements::Function, "Current platform does not support combine axis");
-        }
-        function.paramConfigs_.combineAxis = false;
-        function.paramConfigs_.forceCombineAxis = false;
-    }
     APASS_LOG_INFO_F(Elements::Function, "Start ExpandFunction function [%s].", function.GetRawName().c_str());
     std::ostringstream oss;
     scopeMap_.clear();
@@ -159,8 +124,8 @@ Status ExpandFunction::Expandfunction(Function &function) const {
     }
 
     function.ResetOperations();
-    if (UpdateIOOperand(tensorOperations) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "UpdateIOOperand failed.");
+    if (ClearIOOperand(tensorOperations) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "ClearIOOperand failed.");
         return FAILED;
     }
 
@@ -173,9 +138,7 @@ Status ExpandFunction::Expandfunction(Function &function) const {
             continue;
         }
         SourceLocation::SetLocation(op->GetLocation());
-        bool needCopy = CheckAssembleNeedCopy(function, op);
-        APASS_LOG_DEBUG_F(Elements::Operation, "Op %s[%d] is needCopy: %d", op->GetOpcodeStr().c_str(), op->GetOpMagic(), needCopy);
-        if (NotNeedExpand(op->GetOpcode(), needCopy)) {
+        if (kNotNeedExpandOps.count(op->GetOpcode())) {
             ProcessForNotExpandOp(function, *op);
             continue;
         }

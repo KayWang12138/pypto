@@ -21,6 +21,8 @@
 #include "PvModelImpl.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "cost_model/simulation/utils/simulation_error.h"
+#include "cost_model/simulation/common/CommonTools.h"
 
 using namespace npu::tile_fwk;
 
@@ -54,7 +56,8 @@ void PvModelBinHelper::ReadBin(std::string path, std::vector<uint8_t> &bytes)
     std::ifstream inFile(path, std::ios::binary);
 
     if (!inFile.is_open()) {
-        SIMULATION_LOGE("open bin file error: %s", path.c_str());
+        SIMULATION_LOGE("ErrCode: F%u, open bin file error: %s",
+                        static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_OPEN_FAILED), path.c_str());
         return;
     }
 
@@ -73,7 +76,8 @@ void PvModelBinHelper::ReadBin(std::string path, std::vector<uint8_t> &bytes)
 uint64_t PvModelBinHelper::GetBinSize(std::string path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file) {
-        SIMULATION_LOGE("open file error: %s", path.c_str());
+        SIMULATION_LOGE("ErrCode: F%u, open file error: %s",
+                        static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_OPEN_FAILED), path.c_str());
         return 0;
     }
 
@@ -278,7 +282,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::CodeGen(npu::tile_fwk::Function *fun
             *func, ctx, subFuncPair, isCube, subFuncPair.second->IsUnderDynamicFunction());
         compileInfo.SetCCEAbsPath(srcPath);
         compileInfo.SetBinAbsPath(binPath);
-        cga.CompileCCE(compileInfo, "");
+        cga.CompileCode(cga.PrepareCmd(compileInfo, ""));
     }
 }
 
@@ -464,6 +468,8 @@ template <typename SystemConfig, typename CaseConfig>
 void DynPvModelImpl<SystemConfig, CaseConfig>::Run(DynFuncData *funcdata, int coreId, int funcId, int taskId)
 {
     SIMULATION_LOGI("[AICORE] core  %d, func %d, task %d", coreId, funcId, taskId);
+    CostModel::OutputSilencer silencer;
+    silencer.silence();
     auto data = &funcdata[funcId];
     auto opAttrs = &data->opAttrs[data->opAtrrOffsets[taskId]];
     auto psgId = opAttrs[0];
@@ -482,6 +488,7 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::Run(DynFuncData *funcdata, int co
     SetUp(cce, data, static_cast<uint64_t>(data->opAtrrOffsets[taskId]), dir, &dupData);
     RunModel();
     TearDown();
+    silencer.restore();
 }
 
 template <typename SystemConfig, typename CaseConfig>
@@ -532,9 +539,6 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncData(DynFuncData *funcda
     for (size_t i = 0; i < funcdata->rawTensorAddrSize; i++) {
         auto addr = reinterpret_cast<uint64_t>(funcdata->rawTensorAddr[i]) & ((1UL << RAW_TENSOR_OFFSET_SIZE) - 1);
         tensorAddr[i] = LookupData(addr);
-        if (!tensorAddr[i]) {
-            throw std::runtime_error(std::string("bad incast tensor addr: ") + std::to_string(addr));
-        }
     }
     auto err = memcpy_s(ref.data() + offset, rawTensorSize, tensorAddr.data(), rawTensorSize);
     ASSERT(err == 0) << "[SIMULATION]: tensorAddr copy failed. error=" << err;
@@ -560,8 +564,7 @@ template <typename SystemConfig, typename CaseConfig>
 void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncDataWorkSpace(DynFuncData *funcdata, DynFuncData *dupData)
 {
     if (funcdata->workspaceAddr) {
-        constexpr int workspaceSize = 10 * 1024 * 1024;
-        dupData->workspaceAddr = allocator_->AllocWorkspace(workspaceSize);
+        dupData->workspaceAddr = LookupWorkspace(funcdata->workspaceAddr);
         if (!dupData->workspaceAddr) {
             throw std::runtime_error(std::string("bad workspace addr: ") + std::to_string(funcdata->workspaceAddr));
         }
@@ -577,7 +580,6 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncDataWorkSpace(DynFuncDat
     } else {
         dupData->stackWorkSpaceAddr = 0;
     }
-    dupData->workspaceAddr = workspace_.devPtr;
     dupData->stackWorkSpaceSize = funcdata->stackWorkSpaceSize;
 }
 
@@ -663,7 +665,7 @@ template <typename SystemConfig, typename CaseConfig>
 void DynPvModelImpl<SystemConfig, CaseConfig>::RunModel()
 {
     step_status_t step_status;
-    SIMULATION_LOGI("subcoreId: %d , coreId: %d ", subcoreId_, coreId_);
+    SIMULATION_LOGI("subcoreId: %lu , coreId: %lu ", subcoreId_, coreId_);
     do {
         step_status = static_cast<step_status_t>(pv_step_(PV_STEP_PIPE_ID, subcoreId_, coreId_, 0));
     } while (step_status != step_status_t::END && step_status != step_status_t::TIME_OUT);
@@ -697,15 +699,21 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::TearDown()
     }
 }
 
-template class PvModelImpl<PvModelSystemConfig, PvModelCaseConfig>;
+template class PvModelImpl<PvModelSystemA2A3Config, PvModelCaseConfig>;
 
 extern "C" std::shared_ptr<PvModel> CreatePvModelImplA2A3() {
-    return std::make_shared<PvModelImpl<PvModelSystemConfig, PvModelCaseConfig>>("A2A3");
+    return std::make_shared<PvModelImpl<PvModelSystemA2A3Config, PvModelCaseConfig>>("A2A3");
 }
 
-template class DynPvModelImpl<PvModelSystemConfig, PvModelCaseConfig>;
+template class DynPvModelImpl<PvModelSystemA2A3Config, PvModelCaseConfig>;
 
-extern "C" std::shared_ptr<DynPvModel> CreateDynPvModelImpl() {
-    return std::make_shared<DynPvModelImpl<PvModelSystemConfig, PvModelCaseConfig>>();
+extern "C" std::shared_ptr<DynPvModel> CreateDynPvModelImplA2A3() {
+    return std::make_shared<DynPvModelImpl<PvModelSystemA2A3Config, PvModelCaseConfig>>();
+}
+
+template class DynPvModelImpl<PvModelSystemA5Config, PvModelCaseConfig>;
+
+extern "C" std::shared_ptr<DynPvModel> CreateDynPvModelImplA5() {
+    return std::make_shared<DynPvModelImpl<PvModelSystemA5Config, PvModelCaseConfig>>();
 }
 } // namespace CostModel

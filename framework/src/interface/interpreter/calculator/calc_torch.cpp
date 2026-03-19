@@ -19,6 +19,7 @@
 #include "fp8_convert.h"
 #include "tilefwk/error.h"
 #include "securec.h"
+#include "calc_error.h"
 
 namespace npu::tile_fwk {
 
@@ -235,6 +236,32 @@ static void Relu(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     auto tself = From(self);
     torch::relu_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void Pad(const TensorData &out, const TensorData &input, const Element &padValue) {
+    auto tinput = From(input);
+    auto tout = From(out);
+    
+    std::vector<int64_t> in_shape = tinput.second.sizes().vec();
+    std::vector<int64_t> out_shape = tout.second.sizes().vec();
+    size_t ndim = out_shape.size();
+    int64_t pad_right = 0;
+    int64_t pad_bottom = 0;
+    
+    if (ndim >= 2) {
+        pad_right = std::max(static_cast<int64_t>(0), out_shape[ndim - 1] - in_shape[ndim - 1]);
+        pad_bottom = std::max(static_cast<int64_t>(0), out_shape[ndim - 2] - in_shape[ndim - 2]);
+    } else if (ndim == 1) {
+        pad_right = std::max(static_cast<int64_t>(0), out_shape[0] - in_shape[0]);
+    }
+    std::vector<int64_t> pad_vec = {0, pad_right, 0, pad_bottom};
+    double pad_val_double = padValue.Cast<double>();
+    namespace F = torch::nn::functional;
+    F::PadFuncOptions options(pad_vec);
+    options.mode(torch::kConstant).value(pad_val_double);
+    auto result = F::pad(tinput.second, options);
+    tout.second.copy_(result);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -760,7 +787,10 @@ static void Range(const TensorData &out, const Element &start, const Element &en
     for (int64_t dim : out.shape) {
         expected_numel *= dim;
     }
-    ASSERT(tmp.numel() == expected_numel) << "Range numel mismatch: generated " << tmp.numel() << ", expected " << expected_numel;
+    ASSERT(calc_error::CalculatorErrorScene::RANGE_NUMEL_MISMATCH,
+           tmp.numel() == expected_numel)
+        << "Range numel mismatch: generated " << tmp.numel()
+        << ", expected " << expected_numel;
     auto tout = From(out);
     tout.second.copy_(tmp);
     ToOperand(tout.second, tout.first, out.dtype);
@@ -791,14 +821,17 @@ static void CompareImpl(const TensorData &out, const torch::Tensor& tself, const
             tmp_result = torch::ge(tself, other_op);
             break;
         default:
-            ASSERT(false) << "Unsupported compare type";
+            ASSERT(calc_error::CalculatorErrorScene::COMPARE_UNSUPPORTED_TYPE, false)
+                << "Unsupported compare type";
             break;
     }
 
     if (mode == CmpModeType::BIT) {
         if (tmp_result.dim() > 0) {
             int64_t last_dim = tmp_result.size(-1);
-            ASSERT(last_dim % NUM_VALUE_8 == 0) << "Last dimension must be divisible by 8 in BIT mode";
+            ASSERT(calc_error::CalculatorErrorScene::BITMODE_LAST_DIM_INVALID,
+                   last_dim % NUM_VALUE_8 == 0)
+                << "Last dimension must be divisible by 8 in BIT mode";
 
             auto shape = tmp_result.sizes().vec();
             shape.back() = last_dim / NUM_VALUE_8;
@@ -874,7 +907,9 @@ static inline int64_t alignup(int64_t x, int64_t align) {
 
 static void FormatND2NZ(const TensorData &out, const TensorData &self) {
     auto &shape = self.shape;
-    ASSERT(shape.size() >= 0x2) << "Input tensor must have at least 2 dimensions";
+    ASSERT(calc_error::CalculatorErrorScene::FORMAT_ND2NZ_RANK_LT_2,
+           shape.size() >= 0x2)
+        << "Input tensor must have at least 2 dimensions";
 
     int64_t ndim = shape.size();
     int64_t m = shape[ndim - 0x2];
@@ -904,7 +939,9 @@ static void FormatND2NZ(const TensorData &out, const TensorData &self) {
 
 static void FormatNZ2ND(const TensorData &out, const TensorData &self) {
     auto &shape = self.shape;
-    ASSERT(shape.size() >= 0x2) << "Input tensor must have at least 2 dimensions";
+    ASSERT(calc_error::CalculatorErrorScene::FORMAT_NZ2ND_RANK_LT_2,
+           shape.size() >= 0x2)
+        << "Input tensor must have at least 2 dimensions";
 
     auto tself_pair = From(self);
     auto tself = tself_pair.second; // [b, m1*m0, n1*n0]
@@ -970,8 +1007,10 @@ static void QuantExecute(torch::Tensor &tout, const TensorData *scalePtr, uint64
 }
 
 static void QuantPreCompute(const TensorData &out, const TensorData &self, const TensorData *scalePtr, uint64_t scale, int relu) {
-    ASSERT(out.dataPtr != nullptr && self.dataPtr != nullptr);
-    ASSERT(out.dtype == DataType::DT_FP16 && self.dtype == DataType::DT_INT32);
+    ASSERT(calc_error::CalculatorErrorScene::QUANTPRECOMPUTE_NULL_DATAPTR,
+           out.dataPtr != nullptr && self.dataPtr != nullptr);
+    ASSERT(calc_error::CalculatorErrorScene::QUANTPRECOMPUTE_DTYPE_MISMATCH,
+           out.dtype == DataType::DT_FP16 && self.dtype == DataType::DT_INT32);
     auto tself = From(self);
     auto tout = From(out);
     auto dtype = tout.second.scalar_type();
@@ -1151,20 +1190,14 @@ void GatherINUBGolden(torch::Tensor &out, const torch::Tensor &params, const tor
     // 写到 out（不要求 out contiguous；copy_ 会处理）
     out.copy_(selected);
 }
-static torch::Tensor From4GatherINUB(const TensorData &data) {
-    auto tensor = torch::from_blob(data.dataPtr, data.rawShape, FromDataType(data.dtype));
-    auto view = tensor.as_strided({data.shape[0], data.shape[1]}, data.stride, data.storageOffset);
-    if (data.isAxisCombine)
-        view = view.transpose_(-1, AXIS_TO_LAST);
-    return view;
-}
+
 void GatherINUB(const TensorData &out, const TensorData &params, const TensorData &indices,
     const TensorData &pageTable, int64_t blockSize, int64_t axis) {
     auto tout = From(out);
-    auto tparams = From4GatherINUB(params);
+    auto tparams = From(params);
     auto tindices = From(indices);
     auto tpageTable = From(pageTable);
-    GatherINUBGolden(tout.second, tparams, tindices.second, tpageTable.second, blockSize, axis);
+    GatherINUBGolden(tout.second, tparams.second, tindices.second, tpageTable.second, blockSize, axis);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -1235,7 +1268,9 @@ void GatherMask(const TensorData &out, const TensorData &self, int patternMode) 
             selected_indices = torch::arange(3, last_dim, 4);
             break;
             default:
-            ASSERT(patternMode >= 1 && patternMode <= 7) << "Invalid patternMode";
+            ASSERT(calc_error::CalculatorErrorScene::GATHERMASK_PATTERNMODE_INVALID,
+                   patternMode >= 1 && patternMode <= 7)
+                << "Invalid patternMode";
         }
         ret.second = src.second.index_select(-1, selected_indices);
     }
@@ -1276,7 +1311,7 @@ void CumSum(const TensorData &out, const TensorData &in, int axis) {
 
 void IndexPut(const TensorData &out, const TensorData &self, const std::vector<TensorData> &indices, const TensorData &values, bool accumulate) {
     c10::List<c10::optional<at::Tensor>> indicesList;
-    for (const auto idx : indices) {
+    for (auto idx : indices) {
         indicesList.push_back(From(idx).second);
     }
     auto tout = From(out);
@@ -1467,9 +1502,8 @@ static void BitSort(const TensorData &out, const TensorData &self, int64_t axis,
     }
 
     auto tres = sortedGroups.reshape(torch::IntArrayRef(dstShape));
-    torch::Tensor expanded = torch::cat({tres, torch::zeros_like(tself.second)}, axis);
-    torch::Tensor dstSubview = View(tout.second, expanded.sizes().vec(), viewOffset);
-    dstSubview.copy_(expanded);
+    torch::Tensor dstSubview = View(tout.second, tres.sizes().vec(), viewOffset);
+    dstSubview.copy_(tres);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -1529,19 +1563,19 @@ static void Extract(const TensorData &out, const TensorData &self, int mod, bool
  * @param descending Indicate whether the obtained k values are the maximum or minimum k values,
  *                   and true returns the maximum k values
  */
-static void Topk(const TensorData &out, const TensorData &self, int64_t axis, int64_t k, bool descending) {
+static void MrgSort(const TensorData &out, const TensorData &self, int64_t axis, int64_t k) {
     auto tself = From(self);
     auto tout = From(out);
     constexpr int DIM_SIZE_TWO = 2;
     constexpr int ACTUAL_VALID_RATIO = 2;
-    (void)descending;
     axis = axis < 0 ? (axis + tself.second.dim()) : axis;
-    int actShape = tself.second.size(axis) - (tself.second.size(axis) + 31) / 32 * 32 / 3 * 2;
-    auto sliceIndices = torch::arange(actShape * 2, torch::dtype(torch::kLong));
+    int actShape = tself.second.size(axis);
+    auto sliceIndices = torch::arange(actShape, torch::dtype(torch::kLong));
     auto tselfHalf = tself.second.index_select(axis, sliceIndices);
 
-    ASSERT(axis >= 0 && axis < tselfHalf.dim()) <<
-        "axis" << axis << " is out of bounds for tensor of dimension " << tselfHalf.dim();
+    ASSERT(calc_error::CalculatorErrorScene::MRGSORT_AXIS_OUT_OF_RANGE,
+           axis >= 0 && axis < tselfHalf.dim())
+        << "axis" << axis << " is out of bounds for tensor of dimension " << tselfHalf.dim();
 
     std::vector<int64_t> viewOffset(tself.second.dim(), 0);
 
@@ -1578,7 +1612,7 @@ static void Topk(const TensorData &out, const TensorData &self, int64_t axis, in
             dstShape.push_back(topkGroups.size(i));
         }
     }
-    torch::Tensor dstSubview = View(tout.second, dstShape, {0, 0});
+    torch::Tensor dstSubview = View(tout.second, dstShape, viewOffset);
     dstSubview.copy_(topkGroups.reshape(torch::IntArrayRef(dstShape)));
     ToOperand(tout.second, tout.first, out.dtype);
 }
@@ -1854,7 +1888,7 @@ bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, to
     int64_t j = loopIdx[1];
     int64_t dataIdx = indices.index({i, j}).item<int64_t>();
 
-    ASSERT(blockSize != 0);
+    ASSERT(calc_error::CalculatorErrorScene::SCATTER_BLOCKSIZE_ZERO, blockSize != 0);
     if (ret.dim() == 2) { // 2 dim
         int64_t srcIdx = i * s + j;
         if ((dataIdx < 0 || dataIdx >= ret.size(0)) || (srcIdx < 0 || srcIdx >= src.size(0))) {
@@ -1886,10 +1920,14 @@ static void ScatterUpdate(const TensorData &out, const TensorData &self, const T
     auto src = From(self);
     auto indices = From(index);
 
-    ASSERT(indices.second.dim() == 2);                   // indices should be 2 dim
-    ASSERT((src.second.dim() == 2) || (src.second.dim() == 4)); // only 2, 4 dim support
-    ASSERT((ret.second.dim() == 2) || (ret.second.dim() == 4)); // only 2, 4 dim support
-    ASSERT(src.second.dim() == ret.second.dim());
+    ASSERT(calc_error::CalculatorErrorScene::SCATTER_INDICES_DIM_INVALID,
+           indices.second.dim() == 2);                   // indices should be 2 dim
+    ASSERT(calc_error::CalculatorErrorScene::SCATTER_SRC_RET_DIM_UNSUPPORTED,
+           (src.second.dim() == 2) || (src.second.dim() == 4)); // only 2, 4 dim support
+    ASSERT(calc_error::CalculatorErrorScene::SCATTER_SRC_RET_DIM_UNSUPPORTED,
+           (ret.second.dim() == 2) || (ret.second.dim() == 4)); // only 2, 4 dim support
+    ASSERT(calc_error::CalculatorErrorScene::SCATTER_SRC_RET_DIM_MISMATCH,
+           src.second.dim() == ret.second.dim());
 
     int64_t b = indices.second.size(0);
     int64_t s = indices.second.size(1);
@@ -1976,6 +2014,7 @@ static struct CalcOps calcOps = {
     .Reciprocal = Reciprocal,
     .Relu = Relu,
     .Log1p = Log1p,
+    .Pad = Pad,
     .BitwiseNot = BitwiseNot,
     .Abs = Abs,
     .Brcb = Brcb,
@@ -2060,7 +2099,7 @@ static struct CalcOps calcOps = {
     .BitSort = BitSort,
     .TiledMrgSort = TiledMrgSort,
     .Extract = Extract,
-    .Topk = Topk,
+    .MrgSort = MrgSort,
     .TopK = TopK,
     .TopkSort = TopkSort,
     .TopkMerge = TopkMerge,

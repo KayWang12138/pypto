@@ -306,7 +306,7 @@ std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const 
         auto ret = HcclAllocComResourceByTiling(commHandle, machine::GetRA()->GetStream(),
             tilingStruct->GetMc2CommConfig(), reinterpret_cast<void **>(&commContext[groupIndex]));
         ASSERT((ret == 0) && (commContext[groupIndex] != 0UL)) << "Hccl alloc resource failed";
-        DISTRIBUTED_LOGI("groupIndex=%u, groupName=%s, commContext=%lu", groupIndex, groupName.c_str(),
+        DISTRIBUTED_LOGI("groupIndex=%zu, groupName=%s, commContext=%lu", groupIndex, groupName.c_str(),
             commContext[groupIndex]);
         if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
             commContext[groupIndex] = AllocCommContext<ResType::MESH_A5>(commContext[groupIndex], groupName);

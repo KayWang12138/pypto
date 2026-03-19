@@ -23,6 +23,7 @@
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
+#include "interface/operation/operation_impl.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -33,23 +34,17 @@
 
 namespace npu::tile_fwk {
 struct CodeGenOpCloudNPUCtx : public CodeGenOpCtx {
-    const Operation &operation;
     std::shared_ptr<ForBlockManager> forBlockManager{nullptr};
 
     CodeGenOpCloudNPUCtx(std::shared_ptr<SymbolManager> sm, Function &tf, Function &sf, const Operation &op,
-        const std::map<int, int> &lto = {}, bool isMainBlk = false)
-        : CodeGenOpCtx(std::move(sm), tf, sf, lto, isMainBlk), operation(op) {}
-
-    CodeGenOpCloudNPUCtx(std::shared_ptr<SymbolManager> sm, std::shared_ptr<ForBlockManager> fbm, Function &tf,
-        Function &sf, const Operation &op, const std::map<int, int> &lto = {}, bool isMainBlk = false)
-        : CodeGenOpCtx(std::move(sm), tf, sf, lto, isMainBlk), operation(op), forBlockManager(std::move(fbm)) {}
+        const std::map<int, int> &lto = {}, bool isMainBlk = false, bool isDynAligned = false,
+        std::shared_ptr<ForBlockManager> fbm = nullptr)
+        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk, isDynAligned), forBlockManager(std::move(fbm)) {}
 };
 
 class CodeGenOpCloudNPU : public CodeGenOp {
 public:
     explicit CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx);
-    CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
-        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false, bool isMainBlk = false);
 
     ~CodeGenOpCloudNPU() override = default;
 
@@ -61,9 +56,15 @@ public:
     std::string GenMemL1ToBt() const;
     std::string GenMemL1CopyIn() const;
     std::string GenMemL1CopyOut() const;
+    std::string GetConvCopyInMode() const;
+    std::string GetConvCopyOutMode() const;
+    std::string GenMemL1CopyInConv() const;
+    std::string GenMemL1CopyOutConv() const;
     std::string GenMemL1ToFB() const;
     std::string GenMemL0CCopyOut() const;
     std::string GenMemL0CToL1() const;
+    std::string GenMemL1ToL0Load3D() const;
+    std::string GenMemL1ToL0Load2D() const;
 
     std::string GenMemL1ToL0() const;
 
@@ -152,11 +153,11 @@ public:
     std::string GetTemplateDType() const;
     std::string GenTemplateParams() const;
     std::string GenExtraTemplateParamsForMoeDistributedCombine(int32_t operandIndex) const;
-    std::string GenOffsets(int32_t operandIndex, int32_t dim) const;
-    std::string GenShapes(int32_t operandIndex, int32_t dim) const;
-    std::string GenRawShapes(int32_t operandIndex, int32_t dim) const;
+    std::string GenOffsets(int32_t operandIndex) const;
+    std::string GenShapes(int32_t operandIndex) const;
+    std::string GenRawShapes(int32_t operandIndex) const;
     std::string GenExtraParamsStr() const;
-    std::string GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const;
+    std::string GenOffsetsAndRawShapes(int32_t operandIndex) const;
 
     std::string GenAicpuCallOp() const;
 
@@ -164,8 +165,11 @@ public:
 
     std::string GenOpCode() const override;
 
-private:
     std::string QueryTileTensorNameByIdx(int paramIdx) const;
+    std::string QueryTileTensorTypeByIdx(int paramIdx) const;
+
+private:
+    TileTensor QueryTileTensorByIdx(int paramIdx) const;
 
     std::string GenTemplateParamsForPutAndGet() const;
     std::string GenTemplateParamsForSignal() const;
@@ -190,19 +194,16 @@ private:
     std::string GenOffsetsAndRawShapesDefault() const;
 
     void UpdateTileTensorInfo();
-    bool NeedUpdateLoopInfo();
     void UpdateLoopInfo();
     std::vector<SymbolicScalar> GetLoopAxes();
     ShapeInLoop BuildShapeInLoop(int paramIdx, size_t loopDepth);
     bool ShouldSkipProcInLoop(int paramIdx);
 
     template <typename T = int64_t>
-    std::vector<T> GetShapeInLoop(const std::vector<T> &input, size_t loopDepth) {
-        ASSERT(loopDepth < input.size()) << "loopDepth " << loopDepth << " must be small than dim size" << input.size();
-        std::vector<T> reservedShapeExceptLoopAxes;
-        for (size_t i = loopDepth; i < input.size(); ++i) {
-            reservedShapeExceptLoopAxes.emplace_back(input[i]);
-        }
+    std::vector<T> GetShapeInLoop(const std::vector<T> &input) {
+        ASSERT(OperErr::TENSOR_DIM_EXCEEDED, input.size() > SHAPE_DIM2)
+            << "input size " << input.size() << " is less than 2";
+        std::vector<T> reservedShapeExceptLoopAxes = {*(input.rbegin() + 1), input.back()};
         return reservedShapeExceptLoopAxes;
     }
 
@@ -219,14 +220,14 @@ private:
             value = AnyCast<T>(it->second);
             return true;
         }
-        CODEGEN_LOGE("Type of attribute %s from PASS is mismatch: %s != %s", key.c_str(), it->second.Type().name(),
-            typeid(T).name());
+        CODEGEN_LOGE_E(GenCodeErr::DATA_TYPE_MISMATCHED, "Type of attribute %s from PASS is mismatch: %s != %s",
+            key.c_str(), it->second.Type().name(), typeid(T).name());
         return false;
     }
 
     template <typename T = int64_t>
     std::vector<T> GetVectorIntAttribute(const std::string &key) const {
-        static_assert(std::is_integral_v<T>);
+        ASSERT(GenCodeErr::DATA_TYPE_UNSUPPORTED, std::is_integral_v<T>) << "T must be integral type";
         std::vector<int64_t> val;
         GetAttr(key, val);
         if constexpr (std::is_same_v<T, int64_t>) {
@@ -248,7 +249,7 @@ private:
 
     std::string GenMemCopyVar(bool isCopyLocalToGM, bool isSpillToGm = false, unsigned uf = 0) const;
 
-    std::string GenGMAddrExprWithOffset(const std::string &addrExpr, unsigned gmIdx) const;
+    std::string GenGMAddrExprWithOffset(const std::string &addrExpr) const;
 
     // Add offset of local buffer variable when the variable is generated by spliting from "view" operation.
     template <typename T = std::string, typename... Args>
@@ -279,6 +280,7 @@ private:
     std::string GenCmpOp() const;
     std::string GenHypotOp() const;
     std::string GenPreluOp() const;
+    std::string GenPadOp() const;
 
     std::string PrintDupOp(const PrintDupOpParam &param) const;
     std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
@@ -365,9 +367,6 @@ private:
     std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const;
     std::string PrintBinaryTileTensor() const;
     std::string PrintBinary(const PrintBinaryParam &param) const;
-
-    std::string PrintBinaryTmpTileTensor() const;
-    std::string PrintBinaryTmp(const PrintBinaryTmpParam &param) const;
 
     std::string PrintBinaryBrcStatic(const PrintBinaryBrcParam &param) const;
     std::string PrintBinaryBrcDynamicUnaligned(const PrintBinaryBrcParam &param) const;
@@ -457,6 +456,7 @@ private:
     std::string PrintCmpTileTensor() const;
     std::string PrintHypotTileTensor() const;
     std::string PrintPreluTileTensor() const;
+    std::string PrintPadTileTensor() const;
     std::string PrintLogicalAndTileTensor() const;
     std::string PrintLogicalNotTileTensor() const;
 
@@ -524,8 +524,8 @@ private:
 
     template <typename T, typename FirstArg, typename... RestArgs>
     void AppendLocalBufVarOffsetInOrderImpl(FirstArg &first_arg, RestArgs &...rest_args) const {
-        static_assert(
-            std::is_same_v<std::remove_reference_t<FirstArg>, T>, "All arguments must be T (default: std::string)!");
+        bool isValidDType = std::is_same_v<std::remove_reference_t<FirstArg>, T>;
+        ASSERT(GenCodeErr::DATA_TYPE_UNSUPPORTED, isValidDType) << "All arguments must be T (default: std::string)!";
         tempVarsMap.emplace(tempKey++, std::ref(first_arg));
         AppendLocalBufVarOffsetInOrderImpl<T>(rest_args...);
     }

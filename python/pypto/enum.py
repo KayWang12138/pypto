@@ -10,6 +10,7 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
+import enum
 
 from . import pypto_impl
 
@@ -26,6 +27,7 @@ CastMode = pypto_impl.CastMode
 OpType = pypto_impl.OpType
 OutType = pypto_impl.OutType
 ReLuType = pypto_impl.ReLuType
+TransMode = pypto_impl.TransMode
 ScatterMode = pypto_impl.ScatterMode
 SaturationMode = pypto_impl.SaturationMode
 AtomicType = pypto_impl.AtomicType
@@ -53,6 +55,8 @@ DT_HF8 = pypto_impl.DataType.DT_HF8
 DT_FP8E4M3 = pypto_impl.DataType.DT_FP8E4M3
 DT_FP8E5M2 = pypto_impl.DataType.DT_FP8E5M2
 DT_FP8E8M0 = pypto_impl.DataType.DT_FP8E8M0
+DT_FP4_E2M1X2 = pypto_impl.DataType.DT_FP4_E2M1X2
+DT_FP4_E1M2X2 = pypto_impl.DataType.DT_FP4_E1M2X2
 DT_UINT8 = pypto_impl.DataType.DT_UINT8
 DT_UINT16 = pypto_impl.DataType.DT_UINT16
 DT_UINT32 = pypto_impl.DataType.DT_UINT32
@@ -60,3 +64,14 @@ DT_UINT64 = pypto_impl.DataType.DT_UINT64
 DT_BOOL = pypto_impl.DataType.DT_BOOL
 DT_DOUBLE = pypto_impl.DataType.DT_DOUBLE
 DT_BOTTOM = pypto_impl.DataType.DT_BOTTOM
+
+
+class StatusType(enum.Enum):
+    DYN = "DYN"
+    DYNAMIC = "DYNAMIC"
+    STATIC = "STATIC"
+
+
+DYN = StatusType.DYN
+DYNAMIC = StatusType.DYNAMIC
+STATIC = StatusType.STATIC

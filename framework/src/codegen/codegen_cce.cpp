@@ -51,11 +51,11 @@ std::map<int, int> GenRealizeIdMap(const SubfuncParam &subFuncParam) {
 
     std::map<int, int> idMap;
     auto f = [&idMap](size_t offset, auto &invokeArgs) {
-        CODEGEN_LOGI("start offset is %d, arg size is %d", offset, invokeArgs.size());
+        CODEGEN_LOGI("start offset is %zu, arg size is %zu", offset, invokeArgs.size());
         for (size_t i = 0; i < invokeArgs.size(); i++) {
             size_t paramOff = (offset + i);
             uint32_t paramLoc = invokeArgs[i].paramLoc;
-            CODEGEN_LOGI(" paramLoc is %d, paramOff is %d, SymDDRId is %d, SymName is %s", paramLoc, paramOff,
+            CODEGEN_LOGI(" paramLoc is %u, paramOff is %zu, SymDDRId is %d, SymName is %s", paramLoc, paramOff,
                 invokeArgs[i].symDDRId, invokeArgs[i].symName.c_str());
             idMap.insert({paramLoc, paramOff});
         }

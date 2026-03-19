@@ -32,8 +32,8 @@ public:
     Status RunOnFunction(Function &function) override;
 private:
     Status UpdateFuncLoopAxes(Function &function);
-    Status UpdateOpLoopAxes(Operation &op);
-    bool SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes);
+    Status UpdateOpLoopAxes(Operation &op, Function &subFunc);
+    bool SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes, const Function &subFunc);
     void ClearStatus();
 
     int64_t groupIdx{INVALID_LOOP_GROUPID};

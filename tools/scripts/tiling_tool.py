@@ -30,8 +30,8 @@ OUTPUT_DT_BYTES = 4
 
 
 def is_good_tiling(tile, input_dt_bytes):
-    m, M, k, K, n, N = tile
-    r1 = K % k == 0 and N >= n
+    m, m_big, k, k_big, n, n_big = tile
+    r1 = k_big % k == 0 and n_big >= n
     r2 = m * n * OUTPUT_DT_BYTES <= L0C_SIZE
     r3 = n * k * input_dt_bytes <= L0B_SIZE
     r4 = m * k * input_dt_bytes <= L0A_SIZE
@@ -48,33 +48,33 @@ def greatest_bit(x):
 
 
 def generate_tiles(shape, input_dt_bytes):
-    shape_M, shape_K, shape_N = shape
+    shape_m, shape_k, shape_n = shape
     num_of_variants = 0
 
-    min_M = min(3, max(greatest_bit(shape_M), 4))
-    min_K = min(3, max(greatest_bit(shape_K), 4))
-    min_N = min(3, max(greatest_bit(shape_N), 4))
+    min_m = min(3, max(greatest_bit(shape_m), 4))
+    min_k = min(3, max(greatest_bit(shape_k), 4))
+    min_n = min(3, max(greatest_bit(shape_n), 4))
 
-    values_m = [2**i for i in range(min_M, greatest_bit(shape_M) + 1)]
-    values_k = [2**i for i in range(min_K, greatest_bit(shape_K) + 1)]
-    values_n = [2**i for i in range(min_N, greatest_bit(shape_N) + 1)]
+    values_m = [2**i for i in range(min_m, greatest_bit(shape_m) + 1)]
+    values_k = [2**i for i in range(min_k, greatest_bit(shape_k) + 1)]
+    values_n = [2**i for i in range(min_n, greatest_bit(shape_n) + 1)]
 
     for m, k, n in product(values_m, values_k, values_n):
-        M = m
-        K = k
-        N = n
+        m_big = m
+        k_big = k
+        n_big = n
 
-        if is_good_tiling([m, M, k, K, n, N], input_dt_bytes):
+        if is_good_tiling([m, m_big, k, k_big, n, n_big], input_dt_bytes):
             num_of_variants += 1
-            yield [m, M, k, K, n, N]
+            yield [m, m_big, k, k_big, n, n_big]
 
-        if is_good_tiling([m, M, k, 2 * K, n, N], input_dt_bytes):
+        if is_good_tiling([m, m_big, k, 2 * k_big, n, n_big], input_dt_bytes):
             num_of_variants += 1
-            yield [m, M, k, 2 * K, n, N]
+            yield [m, m_big, k, 2 * k_big, n, n_big]
         
-        if is_good_tiling([m, M, k, K, n, 2 * N], input_dt_bytes):
+        if is_good_tiling([m, m_big, k, k_big, n, 2 * n_big], input_dt_bytes):
             num_of_variants += 1
-            yield [m, M, k, K, n, 2 * N]
+            yield [m, m_big, k, k_big, n, 2 * n_big]
 #endregion
 
 
@@ -82,35 +82,35 @@ def get_score_for_tiling(tile, mx_shape, input_type_size):
     """
     Estimate score for tiling. The higher the score, the better it is.
     """
-    M_DIM = 0
-    K_DIM = 2
-    N_DIM = 4
+    m_dim = 0
+    k_dim = 2
+    n_dim = 4
     
-    m = tile[M_DIM]
-    k = tile[K_DIM]
-    n = tile[N_DIM]
+    m = tile[m_dim]
+    k = tile[k_dim]
+    n = tile[n_dim]
 
-    MIN_TILE = 16
-    WEIGHT_L0 = 200
+    min_tile = 16
+    min_tile = 200
 
-    BALANCE_WEIGHT = 1
+    balance_weight = 1
 
-    WHOLE_M_SCORE = 2
-    WHOLE_K_SCORE = 2
-    WHOLE_N_SCORE = 2
+    whole_m_score = 2
+    whole_k_score = 2
+    whole_n_score = 2
 
     score = 0
     
     #If the tiling size = shape size -> the preferred option
-    score = (score + WHOLE_M_SCORE) if tile[M_DIM] == max(m, MIN_TILE) else score
-    score = (score + WHOLE_K_SCORE) if tile[K_DIM] == max(k, MIN_TILE) else score
-    score = (score + WHOLE_N_SCORE) if tile[N_DIM] == max(n, MIN_TILE) else score
+    score = (score + whole_m_score) if tile[m_dim] == max(m, min_tile) else score
+    score = (score + whole_k_score) if tile[k_dim] == max(k, min_tile) else score
+    score = (score + whole_n_score) if tile[n_dim] == max(n, min_tile) else score
 
     #The more filled L0A, L0B, L0C is better
-    utilization_l0a = (tile[M_DIM] * tile[K_DIM] * input_type_size) / L0A_SIZE
-    utilization_l0b = (tile[K_DIM] * tile[N_DIM] * input_type_size) / L0B_SIZE 
-    utilization_l0c = (tile[M_DIM] * tile[N_DIM] * OUTPUT_DT_BYTES) / L0C_SIZE
-    score += WEIGHT_L0 * gmean([utilization_l0a, utilization_l0b, utilization_l0c])
+    utilization_l0a = (tile[m_dim] * tile[k_dim] * input_type_size) / L0A_SIZE
+    utilization_l0b = (tile[k_dim] * tile[n_dim] * input_type_size) / L0B_SIZE 
+    utilization_l0c = (tile[m_dim] * tile[n_dim] * OUTPUT_DT_BYTES) / L0C_SIZE
+    score += min_tile * gmean([utilization_l0a, utilization_l0b, utilization_l0c])
 
     #The closer the ratio's is to 1, the better
     ratio_mk = (m / k) if (m > k) else (k / m)
@@ -118,7 +118,7 @@ def get_score_for_tiling(tile, mx_shape, input_type_size):
     ratio_mn = (m / n) if (m > n) else (n / m)
 
     #Penalty for bad balance
-    score -= BALANCE_WEIGHT * gmean([ratio_mk, ratio_kn, ratio_mn])
+    score -= balance_weight * gmean([ratio_mk, ratio_kn, ratio_mn])
     return score
 
 
@@ -169,7 +169,7 @@ def check_json(json_config):
             for name in line_param_names:
                 if name in param_names:
                     raise NameError(f"Name \"{name}\" in json config are same " \
-                                    f"for lines {param_names[name]} and {line_conf["line"]}")
+                                    f"for lines {param_names['name']} and {line_conf['line']}")
                 param_names[name] = line_conf["line"] 
 
 
@@ -246,8 +246,8 @@ def save_run_params(name, run_params, file_name):
 def replace_line(file_path, line_num, new_content):
     result_line = ""
     with open(file_path, 'r') as file:
-       lines = file.readlines()
-       lines.insert(line_num + 1, new_content + "\n")
+        lines = file.readlines()
+        lines.insert(line_num + 1, new_content + "\n")
         
     with open(file_path, "w") as file:
         file.writelines(lines)
@@ -258,7 +258,7 @@ def run_test(json_config, result_folder):
 
     device_number = json_config["device_number"]  
     
-    run_command = f"python build_ci.py -j=32 -s={test} -d={device_number} tools profiling" \
+    run_command = f"python build_ci.py -j=32 -s={test} --frontend=cpp -d={device_number} tools profiling" \
                 f" --prof_try_cnt={json_config['prof_try_cnt']} --prof_max_cnt={json_config['max_cnt']}" \
                 f" --prof_warn_up_cnt={json_config['warn_up_cnt']}"
 
@@ -309,7 +309,7 @@ def measure_perf(json_config, run_params, result_folder):
     for item in run_params:
         make_backup(item["file"])
 
-        sorted_by_lines = dict(sorted(item["lines"].items(), reverse = True))
+        sorted_by_lines = dict(sorted(item["lines"].items(), reverse=True))
         for line_num, text in sorted_by_lines.items():
             replace_line(item["file"], line_num - 1, text)
 
@@ -326,7 +326,9 @@ def measure_perf(json_config, run_params, result_folder):
 
 
 def sort_results(results):
-    def compare_function(x): return 1e6 if x[1] == "Error"  else x[1] # set configs of error will be at the end
+    def compare_function(x): 
+        return 1e6 if x[1] == "Error" else x[1] # set configs of error will be at the end
+        
     results_sorted_by_time = dict(sorted(results.items(), key=compare_function))
     return results_sorted_by_time
 
@@ -334,9 +336,9 @@ def sort_results(results):
 def display_results(results):
     results_sorted_by_time = sort_results(results)
     table_width = 100
-    print("-"*(table_width))
+    print("-" * (table_width))
     print(f"{'combination_name':<20} | {'time(us)':<10}")
-    print("-"*(table_width))
+    print("-" * (table_width))
 
     for name, time in results_sorted_by_time.items():
         print(f"{name:<20} | {time:<10}")
@@ -374,61 +376,347 @@ def remove_worst_combination(result_folder_path, results):
     shutil.rmtree(result_folder_path + f"/{worst_comb_name}", ignore_errors=True)
 
 
-def generate_coverage(json_config, pattern="TileShape::Current().SetCubeTile("):
-    test = json_config["test_name"]
-    device_number = json_config["device_number"]
-    build_folder = json_config["build_folder"]
+def getline_with_text(file, pattern):
+    with open(file, "r") as f:
+        line_num = 1
+        for line in f.readlines():
+            if pattern in line:
+                return line_num 
+            line_num += 1
+    return None
 
-    run_command = f"python build_ci.py -j=32 -s={test} -d={device_number} --clean --gcov"
+
+def enable_heuristic_pass():
+    src = "framework/src/passes/pass_interface/pass_type.h"
+    make_backup(src)
+    line = getline_with_text(src, "NOT_DEFINED")
+    replace_line(src, line - 2, "SET_HEURISTIC_TILE_SHAPES,")
+    line = getline_with_text(src, "switch (name)")
+    replace_line(src, line - 1, "case PassName::SET_HEURISTIC_TILE_SHAPES: return \"SetHeuristicTileShapes\";")
+
+    src = "framework/src/passes/pass_mgr/pass_manager.cpp"
+    make_backup(src)
+    line = getline_with_text(src, "#include \"passes/tensor_graph_pass/loop_unroll.h\"")
+    replace_line(src, line - 1, "#include \"passes/tensor_graph_pass/set_heuristic_tile_shapes.h\"")
+    line = getline_with_text(src, "void RegPass()")
+    replace_line(src, line - 1, "REG_PASS(SetHeuristicTileShapes);")
+    line = getline_with_text(src, "PassName::AUTO_CAST")
+    replace_line(src, line - 1, "{   \"SetHeuristicTileShapes\",    PassName::SET_HEURISTIC_TILE_SHAPES},")
+
+
+def disable_heuristic_pass():
+    restore_backup("framework/src/passes/pass_interface/pass_type.h")
+    restore_backup("framework/src/passes/pass_mgr/pass_manager.cpp")
+
+
+def is_pass_enabled():
+    bakcup1_exist = os.path.isfile("framework/src/passes/pass_interface/pass_type.h.backup")
+    backup2_exist = os.path.isfile("framework/src/passes/pass_mgr/pass_manager.cpp")
+    return bakcup1_exist and backup2_exist
+
+
+def parse_coverage(pattern):
+    print(f"Search {pattern} inside coverage files ... ")
+    with open("full_coverage.txt", "r") as f:
+        answer = set()
+        path_to_source = ""
+        for line in f.readlines():
+            gcov_line = line.split(":")
+            not_sys_string = len(gcov_line) >= 3
+            if not_sys_string and gcov_line[2] == "Source":
+                path_to_source = gcov_line[3]
+            if not_sys_string and pattern in line and gcov_line[0].strip().isnumeric():
+                answer.add((gcov_line[1], path_to_source.strip()))
+
+    coverage_info = []
+    for line, path in answer:
+        coverage_info.append({"line": line, "file": path})
+
+    return coverage_info 
+
+
+def generate_json_by_coverage(test_name, device_number):
+    run_command = f"python3 build_ci.py --frontend=cpp -j=32 -s={test_name} -d={device_number} --gcov --clean"
+    print(run_command)
     env = dict(os.environ)
 
-    print("Run build for coverage...")
-    test = subprocess.run(run_command.split(), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    print("Build finished!")
+    log_path = f"{os.getcwd()}/tiling.log"
+    print(f"Run build: {log_path}")
 
-    cmd = ['find', build_folder, '-name', '*.gcda']
+    with open(log_path, "w") as f:
+        test = subprocess.run(run_command.split(), stdout=f, stderr=subprocess.STDOUT, env=env)
+    
+    cmd = ["find", "build", "-name", "*.gcda"]
     result = subprocess.run(cmd, capture_output=True, text=True)
 
-    number_of_parameters = 0 
-    print("Start processing coverage files...")
-
-    answer = set()
+    if not result.stdout.splitlines():
+        raise RuntimeError(f".gcda files not generated! Please check logs: {log_path}")
+    
+    cover_log = f"{os.getcwd()}/full_coverage.txt"
     for gcda_file in result.stdout.splitlines():
-        coverage = subprocess.run(["gcov", gcda_file, "-t"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        path_to_source = ""
-        for line in coverage.stdout.splitlines():
-            gcov_line = line.split(":")
-            if len(gcov_line) >= 3: # is not a system string in coverage file
-                if gcov_line[2] == "Source":
-                    path_to_source = gcov_line[3]
-                if pattern in line and gcov_line[0].strip().isnumeric():
-                    answer.add((gcov_line[1], path_to_source.strip()))
-                    number_of_parameters += 1
+        with open(cover_log, "a+") as f:
+            coverage = subprocess.run(["/usr/bin/gcov", gcda_file, "-t"],
+                                    stdout=f, stderr=f, text=True)
+    print(f"Coverage results: {cover_log}\n Build coverage finished!!!")
 
-    for line, file in answer:
-        print(f"line: {line} file: {file}")
-    print("Number of parameters:", len(answer))    
+    cube_coverage = parse_coverage(pattern="TileShape::Current().SetCubeTile(")
+    cube_coverage.sort(key=lambda x: x["line"])
+
+    vec_coverage = parse_coverage(pattern="TileShape::Current().SetVecTile(")
+    vec_coverage.sort(key=lambda x: x["line"])
+
+    files = dict()
+
+    for i, _ in enumerate(cube_coverage):
+        line_conf = dict()
+        variable_name = "cubtile_" + str(i)
+        format_string = "TileShape::Current().SetCubeTile({{ {var[0]}, {var[1]} }}," \
+        "{{ {var[2]}, {var[3]} }}, {{ {var[4]}, {var[5]} }}, true);"
+
+        line_conf["line"] = int(cube_coverage[i]["line"])
+        line_conf["string"] = format_string.replace("var", variable_name)
+        line_conf[variable_name] = "Please set list of your tiles [[128, 128, 128, 128, 128, 128]]" \
+                            "or matmul shape (Matmul_fp16_32_7168_576)"
+
+        filename = cube_coverage[i]["file"]
+
+        if filename not in files.keys():
+            files[filename] = [line_conf]
+        else:
+            files[filename].append(line_conf)
+    
+    for i, _ in enumerate(vec_coverage):
+        line_conf = dict()
+        variable_name = "vectile_" + str(i)
+        format_string = "TileShape::Current().SetVecTile({{ {var[0]}, {var[1]} }}, " \
+        "{{ {var[2]}, {var[3]} }}, {{ {var[4]}, {var[5]} }}, true);"
+
+        line_conf["line"] = int(vec_coverage[i]["line"])
+        line_conf["string"] = format_string.replace("var", variable_name)
+        line_conf[variable_name] = "Please set list of your tiles [[128, 128, 128, 128, 128, 128]]"
+
+        filename = vec_coverage[i]["file"]
+
+        if filename not in files.keys():
+            files[filename] = [line_conf]
+        else:
+            files[filename].append(line_conf)
+
+    if os.path.exists("full_coverage.txt"):
+        os.remove("full_coverage.txt")
+        
+    return files
+    
+
+def generate_json_by_semantic_label(test_name, device_number):
+    print("WARNING!: SemanticLabels must be setted in source code in line after SetCubeTile/SetVecTile")
+    if not is_pass_enabled():
+        enable_heuristic_pass()
+
+    run_command = f"python3 build_ci.py --frontend=cpp -j=32 -s={test_name} -d={device_number}"
+    print(run_command)
+    env = dict(os.environ)
+
+    log_path = f"{os.getcwd()}/tiling.log"
+    print(f"Run build: {log_path}")
+
+    with open(log_path, "w") as f:
+        test = subprocess.run(run_command.split(), stdout=f, stderr=subprocess.STDOUT, env=env)
+
+    generated_json_by_pass = get_newest_folder("build/output/bin/output") + "/semantic_labels_tiles.json"
+
+    with open(generated_json_by_pass, "r") as f:
+        tiles_json = json.load(f)
+    
+    files = dict()
+    for label, info in tiles_json.items():
+        filename = info["filename"]
+    
+        line_conf = dict()
+
+        format_string = "TileShape::Current().SetVecTile({{ {var[0]}, {var[1]} }}, " \
+        "{{ {var[2]}, {var[3]} }}, {{ {var[4]}, {var[5]} }}, true);"
+
+        if info["type"] == "CubeTile":
+            format_string = "TileShape::Current().SetCubeTile({{ {var[0]}, {var[1]} }}," \
+            "{{ {var[2]}, {var[3]} }}, {{ {var[4]}, {var[5]} }}, true);"
+
+        line_conf["string"] = format_string.replace("var", label)
+        line_conf["line"] = info["line_num"] + 1 
+        line_conf[label] = [info["tile"]]
+
+        if info["filename"] not in files.keys():
+            files[filename] = [line_conf]
+        else:
+            files[filename].append(line_conf)
+    
+
+    return files 
+
+
+def generate_json_cpp(test_name, device_number):
+    choice = None 
+    while choice not in ("g", "s"):
+        choice = input("Parse tiles from test with gcov or semantic labels? (g/s/help): ")
+        if choice == "help":
+            print("If you select extract tiles from gcov, we run test and found all lines \n" \
+            "SetCubeTile and SetVecTile in source code which was executed during test run." \
+            "As result you achive config.json with correct lines and format strings\n")
+
+            print("If you select from semantic labels, we parse only tiles \n" \
+            "which have SemanticLabels inside test source code, and also you" \
+            "recieve possible initial values in config.json\n" \
+            "WARNING!: SemanticLabels must be setted in line after SetCubeTile/SetVecTile")
+
+    files = None
+
+    if choice == "g":
+        files = generate_json_by_coverage(test_name, device_number)
+            
+    elif choice == "s":
+        files = generate_json_by_semantic_label(test_name, device_number)
+
+    files_conf = []
+    for filename in files.keys():
+        files_conf.append({filename: files[filename]})
+
+    json_config = {
+        "build_folder": os.getcwd(),
+        "device_number": device_number,
+        "test_name": test_name,
+        "results_folder": "tune_results",
+        "warn_up_cnt": 1,
+        "max_cnt": 5,
+        "prof_try_cnt": 5,
+        "save_best_k": 100,
+        "files": files_conf
+    }
+
+    with open("config.json", "w") as f:
+        json.dump(json_config, f, ensure_ascii=False, indent=4)
+    print(f"Config saved: {os.path.abspath('config.json')}")
+
+
+def build_python(test_name, device_number):
+    run_command = f"python3 build_ci.py -j 80 -d {device_number} -f python3 -s {test_name}"
+    print(run_command)
+    log_path = f"{os.getcwd()}/tiling.log"
+    print(f"Build logs: {log_path}")
+
+    env = dict(os.environ)
+    with open(log_path, "w") as f:
+        test = subprocess.run(run_command.split(), stdout=f, stderr=subprocess.STDOUT, env=env)
+
+
+def generate_json_python(test_name, device_number):
+    if not is_pass_enabled():
+        enable_heuristic_pass()
+
+    build_python(test_name, device_number)
+    disable_heuristic_pass()
+    generated_json_by_pass = get_newest_folder("output") + "/python_tiles.json"
+
+    with open(generated_json_by_pass, "r") as f:
+        tiles_json = json.load(f)
+
+    files = dict()
+
+    vec_tile_id = 0
+    cube_tile_id = 0
+
+    for _, info in tiles_json.items():
+        variable_name = "vectile_" + str(vec_tile_id)
+        format_string = "Tileshape::Current().SetVecTile({{"
+
+        if info["type"] == "CubeTile":
+            format_string = "TileShape::Current().SetCubeTile({{ "
+            variable_name = "cubtile_" + str(cube_tile_id)
+            cube_tile_id += 1
+            for i in range(0, len(info["tile"]), 2):
+                format_string += f"{{ {variable_name}[" + str(i) + f"], {variable_name}[" + str(i + 1) + "] }, "
+        else:
+            vec_tile_id += 1
+            for i in range(len(info["tile"])):
+                format_string += f" {{{variable_name}[" + str(i) + "]},"
+            format_string = format_string[:-2] + " }}, true);"
+        
+        line_conf = dict()
+        line_conf["line"] = info["line"]
+        line_conf["string"] = format_string
+        line_conf[variable_name] = [info["tile"]]
+
+        filename = info["file"]
+        if filename not in files.keys():
+            files[filename] = [line_conf]
+        else:
+            files[filename].append(line_conf)
+
+    files_conf = []
+    for filename in files.keys():
+        files_conf.append({filename: files[filename]})
+
+    json_config = {
+        "build_folder": os.getcwd(),
+        "device_number": device_number,
+        "test_name": test_name,
+        "results_folder": "measurements",
+        "warn_up_cnt": 1,
+        "max_cnt": 5,
+        "prof_try_cnt": 5,
+        "save_best_k": 100,
+        "files": files_conf
+    }
+
+    with open("config.json", "w") as f:
+        json.dump(json_config, f, ensure_ascii=False, indent=4)
+    
+    print(f"Config saved: {os.path.abspath('config.json')}")
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Iterate through the vector and cube tiles ' \
+        'in the specified test and measure performance \n' \
+        'To specify which tiles and tile values to iterate through, use config.json \n' \
+        'Generate config.json by command: \n\n' \
+        'python tools/scripts/tiling_tool.py --test TESTCASE_NAME --frontend {cpp, python} -d DEVICE_NUMBER \n\n' \
+        'To start the iteration: \n\n' \
+        'python tools/scripts/tiling_tool.py --json_path /path/to/config.json', 
+        formatter_class=argparse.RawTextHelpFormatter)
 
-    parser.add_argument("json_path", 
+    parser.add_argument("-d",
+                        default=0,
+                        help="device number for generating inintal config.json")
+
+    parser.add_argument("--test",
+                        help="testcase name",
+                        type=str)
+
+    parser.add_argument("--frontend", 
+                        help="Test frontend",
+                        choices=["python", "cpp"])
+
+    parser.add_argument("--json_path", 
                         help="path to config.json where described tiling configs", 
                         type=str)
     
-    parser.add_argument("--coverage",
-                        action="store_true",
-                        help="display lines in the files that match SetCubeTile, and were executed when the test was run")
     args = parser.parse_args()
+
+    if args.json_path is None:
+        if args.test is None:
+            raise RuntimeError("Parameter --test not specified")
+        
+        if args.frontend is None:
+            raise RuntimeError("Parameter --frontend not specified")
+        
+        if args.frontend == "cpp":
+            generate_json_cpp(args.test, args.d)
+        if args.frontend == "python":
+            generate_json_python(args.test, args.d)
+   
+        quit()
 
     with open(args.json_path) as f:
         json_config = json.load(f)
-
-        if args.coverage:
-            generate_coverage(json_config)
-            quit()
-
         preproc_json(json_config)
 
         comb_id = 0

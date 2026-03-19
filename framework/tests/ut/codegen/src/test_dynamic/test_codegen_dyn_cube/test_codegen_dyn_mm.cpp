@@ -18,9 +18,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
-#include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
-#include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
@@ -92,7 +90,7 @@ TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
 
     std::string res = cop.GenOpCode();
     std::string expect =
-        R"!!!(TMatmul(l0cTensor_10, l0aTensor_11, l0bTensor_12, btTensor_13);
+        R"!!!(TMatmul<TransMode::CAST_NONE>(l0cTensor_10, l0aTensor_11, l0bTensor_12, btTensor_13);
 )!!!";
     EXPECT_EQ(res, expect);
 }

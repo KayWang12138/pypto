@@ -39,14 +39,10 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam &
     for (int i = ID1; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(ss[i]));
     }
-    std::string templateParam = JoinString(paramList, CONN_COMMA);
     int64_t mode = 0;
-    auto modeIter = opAttrs.find(OP_ATTR_PREFIX + "mode");
-    if (modeIter != opAttrs.end() && modeIter->second.HasValue()) {
-        mode = AnyCast<int64_t>(modeIter->second);
-    }
-    templateParam += ", " + std::to_string(mode);
-    
+    GetAttr(OP_ATTR_PREFIX + "mode", mode);
+    paramList.emplace_back(std::to_string(mode));
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
     paramList.clear();
     std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
     std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
@@ -60,20 +56,16 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam &
 }
 
 std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
-    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));    
     auto mode = opAttrs.at(OP_ATTR_PREFIX + "mode");
     int64_t modeEnum{0};
     if (mode.HasValue()) {
         modeEnum = AnyCast<int64_t>(mode);
     }
 
-    int64_t satModeEnum = 1; // 默认值 1 对应 SaturationMode::OFF
-    auto satModeIter = opAttrs.find(OP_ATTR_PREFIX + "satmode");
-    if (satModeIter != opAttrs.end() && satModeIter->second.HasValue()) {
-        satModeEnum = AnyCast<int64_t>(satModeIter->second);
-    }
+    int64_t satModeEnum = 0;
+    GetAttr(OP_ATTR_PREFIX + "mode", satModeEnum);
 
     std::ostringstream oss;
     std::vector<std::string> templateParamList;
@@ -99,8 +91,8 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineStatic(const PrintUnaryParam &para
     if (axis.HasValue()) {
         reduceAxis = AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1))))
-        << "unsupported reduce axis: " << reduceAxis;
+    bool isValidAxis = ((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1)));
+    ASSERT(OperErr::ATTRIBUTE_INVALID, isValidAxis) << "unsupported reduce axis: " << reduceAxis;
 
     reduceAxis += SHAPE_DIM4 - rawShape[0].size();
     std::vector<int64_t> srcShape = NormalizeShape(rawShape[1], SHAPE_DIM4);
@@ -133,8 +125,8 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineDynamicUnaligned(const PrintUnaryP
     if (axis.HasValue()) {
         reduceAxis = AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1))))
-        << "unsupported reduce axis" << reduceAxis;
+    bool isValidAxis = ((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1)));
+    ASSERT(OperErr::ATTRIBUTE_INVALID, isValidAxis) << "unsupported reduce axis: " << reduceAxis;
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &srcDtypeStr = param.srcDtypeStr;
     const std::string &dVar = param.dVar;
@@ -183,7 +175,9 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineTileTensor() const {
     if (axis.HasValue()) {
         reduceAxis = AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1)))) << "unsupported reduce axis";
+
+    bool isValidAxis = ((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1)));
+    ASSERT(OperErr::ATTRIBUTE_INVALID, isValidAxis) << "unsupported reduce axis: " << reduceAxis;
     reduceAxis += SHAPE_DIM5 - rawShape[0].size();
     std::ostringstream oss;
     oss << tileOpName;
@@ -366,8 +360,9 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
     if (axis.HasValue()) {
         expandAxis = AnyCast<int64_t>(axis);
     }
-    ASSERT((expandAxis >= 0) && (expandAxis <= (static_cast<int>(rawShape[1].size() - 1))))
-        << "unsupported expand axis";
+
+    bool isValidAxis = ((expandAxis >= 0) && (expandAxis <= (static_cast<int>(rawShape[1].size() - 1))));
+    ASSERT(OperErr::ATTRIBUTE_INVALID, isValidAxis) << "unsupported expand axis: " << expandAxis;
     // modify expandAxis for SHAPE_DIM4
     expandAxis += SHAPE_DIM4 - rawShape[1].size();
 
@@ -384,13 +379,14 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
         tileOpName.c_str(), dstDtypeStr.c_str(), dos[ID0], dos[ID1], dos[ID2], dos[ID3], os[ID0], os[ID1], os[ID2],
         os[ID3], ds[ID1], ds[ID2], ds[ID3], ss[ID1], ss[ID2], ss[ID3], expandAxis, dstDtypeStr.c_str(), dVar.c_str(),
         srcDtypeStr.c_str(), s0Var.c_str());
-    ASSERT(ret >= 0) << "GenUnaryOp" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed " << ret;
+    ASSERT(GenCodeErr::PRINT_FAILED, ret >= 0)
+        << "GenUnaryOp" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed " << ret;
     return buffer;
 }
 
 std::string CodeGenOpCloudNPU::PrintOneHotLayout() const {
-    std::string dstTensor =QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
-    std::string srcTensor =QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::ostringstream oss;
     oss << tileOpName << WrapParamByParentheses({dstTensor, srcTensor}) << STMT_END;
     return oss.str();
@@ -573,13 +569,13 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
         return PrintOneHot({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_ROWMAX || opCode == Opcode::OP_ROWEXPMAX || opCode == Opcode::OP_ROWEXPSUM) {
         return PrintReduceEx({s0Var, dVar, srcDtypeStr, dstDtypeStr});
-    } else if (opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE || 
-               opCode == Opcode::OP_ROWPRODLINE) {
+    } else if (opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE || opCode == Opcode::OP_ROWPRODLINE) {
         return PrintRowMaxline({s0Var, dVar, srcDtypeStr, dstDtypeStr});
-    } else if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS || opCode == Opcode::OP_RELU ||
-               opCode == Opcode::OP_RECIPROCAL || opCode == Opcode::OP_NEG || opCode == Opcode::OP_RSQRT ||
-               opCode == Opcode::OP_LN || opCode == Opcode::OP_LOGICALNOT || opCode == Opcode::OP_BRCB ||
-               opCode == Opcode::OP_CEIL|| opCode == Opcode::OP_FLOOR|| opCode == Opcode::OP_TRUNC || opCode == Opcode::OP_ISFINITE) {
+    } else if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS ||
+               opCode == Opcode::OP_RELU || opCode == Opcode::OP_RECIPROCAL || opCode == Opcode::OP_NEG ||
+               opCode == Opcode::OP_RSQRT || opCode == Opcode::OP_LN || opCode == Opcode::OP_LOGICALNOT ||
+               opCode == Opcode::OP_BRCB || opCode == Opcode::OP_CEIL || opCode == Opcode::OP_FLOOR ||
+               opCode == Opcode::OP_TRUNC || opCode == Opcode::OP_ISFINITE) {
         return PrintUnary({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_COPY_UB_TO_UB) {
         return PrintVcopy({s0Var, dVar, srcDtypeStr, dstDtypeStr});

@@ -68,7 +68,9 @@ pypto-minimum
 pypto-mul
 pypto-ne
 pypto-neg
+pypto-ones
 pypto-one_hot
+pypto-pad
 pypto-pow
 pypto-prelu
 pypto-prod
@@ -100,4 +102,5 @@ pypto-unsqueeze
 pypto-var
 pypto-view
 pypto-where
+ptpto-zeros
 ```

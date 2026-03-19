@@ -20,8 +20,13 @@
 #include "utils/tile_tensor.h"
 
 #define OP_TILE_OP_CAST TCast
+<<<<<<< HEAD
 template <typename LastUse = LastUse2Dim<0, 0>, unsigned Mode, pto::SaturationMode satmode = pto::SaturationMode::OFF, typename T0, typename T1, typename T2>
 TILEOP void TCast(T0 dst, T1 src, T2 tmp) {
+=======
+template <typename LastUse = LastUse2Dim<0, 0>, unsigned Mode, pto::SaturationMode satmode = pto::SaturationMode::OFF, typename T0, typename T1>
+TILEOP void TCast(T0 dst, T1 src) {
+>>>>>>> upstream/master
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
@@ -38,7 +43,6 @@ TILEOP void TCast(T0 dst, T1 src, T2 tmp) {
     auto srcStride0 = srcLayout.template GetStrideDim<0, expectSize>();
     auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
     auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
-
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, 5>();
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>();
     constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, 5>();
@@ -69,7 +73,11 @@ TILEOP void TCast(T0 dst, T1 src, T2 tmp) {
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
+<<<<<<< HEAD
                 PTO_WITH_LAST_USE(pto::TCVT(dstTile, srcTile, static_cast<pto::RoundMode>(Mode), satmode, tmpTile), n1, n2);
+=======
+                PTO_WITH_LAST_USE(pto::TCVT(dstTile, srcTile, static_cast<pto::RoundMode>(Mode), satmode), n1, n2);
+>>>>>>> upstream/master
             }
         }
     }

@@ -21,7 +21,8 @@ namespace npu::tile_fwk {
 AllocKey SymbolManager::CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const {
     auto memType = tensor->GetMemoryTypeOriginal();
     if (OPERAND_TYPE_TO_MEMORY_TYPE.count(memType) == 0) {
-        ASSERT(false) << "invalid memory type: " << static_cast<size_t>(memType) << ", tensor is " << tensor->Dump();
+        ASSERT(OperErr::OPERAND_TYPE_UNSUPPORTED, false)
+            << "invalid memory type: " << static_cast<size_t>(memType) << ", tensor is " << tensor->Dump();
         return {};
     }
 
@@ -34,7 +35,8 @@ AllocKey SymbolManager::CreateAllocKey(const std::shared_ptr<LogicalTensor> &ten
 AllocKey SymbolManager::CreateAllocKey(int tensorMagicNum) const {
     std::shared_ptr<LogicalTensor> tensor = SymbolManager::GetTensorByMagic(tensorMagicNum);
     if (!tensor) {
-        CODEGEN_LOGE("%s: can not query tensor object from tensor magicnum: %d", __FUNCTION__, tensorMagicNum);
+        CODEGEN_LOGE_E(
+            GenCodeErr::TENSOR_NOT_FOUND, "can not query tensor object from tensor magicnum: %d", tensorMagicNum);
         return {};
     }
 
@@ -58,7 +60,7 @@ std::shared_ptr<LogicalTensor> SymbolManager::GetTensorByMagic(int magicNum) con
     if (iter != tensorMap_.end()) {
         return iter->second;
     } else {
-        ASSERT(false) << "can not find tensor by magicNum:" << magicNum;
+        ASSERT(GenCodeErr::TENSOR_NOT_FOUND, false) << "can not find tensor by magicNum:" << magicNum;
         return nullptr;
     }
 }
@@ -75,7 +77,7 @@ std::string SymbolManager::FormatAllocKey(const AllocKey &key) {
 std::string SymbolManager::QueryVariableName(const AllocKey &key) {
     CODEGEN_LOGI("%s: query varname by identifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
     auto iter = key2VariableName_.find(key);
-    ASSERT(iter != key2VariableName_.end())
+    ASSERT(GenCodeErr::SYMBOL_NOT_FOUND, iter != key2VariableName_.end())
         << "QueryVariableName Failed: UNDEFINED_VAR !!! AllocKey: " << FormatAllocKey(key);
     return iter->second;
 }
@@ -88,14 +90,15 @@ std::string SymbolManager::QueryVariableNameTileTensor(const AllocKey &key) {
         return iter->second;
     }
 
-    CODEGEN_LOGE("%s: failed to query by identifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
-    ASSERT(false) << "QueryVariableNameTileTensor Failed: UNDEFINED_VAR !!! AllocKey: " << FormatAllocKey(key);
+    CODEGEN_LOGE_E(GenCodeErr::SYMBOL_NOT_FOUND, "failed to query by identifier: %s", FormatAllocKey(key).c_str());
+    ASSERT(GenCodeErr::SYMBOL_NOT_FOUND, false)
+        << "QueryVariableNameTileTensor Failed: UNDEFINED_VAR !!! AllocKey: " << FormatAllocKey(key);
     return "UNDEFINED_VAR";
 }
 
 // NEXTNEXT: after TileTensor Mode is applied to all tensor, just retain TileTensor Mode
 std::string SymbolManager::QueryVarNameByTensorMagic(int magic, bool isTileTensor) {
-    CODEGEN_LOGI("QueryVarNameByTensorMagic: magic is %d", magic);
+    CODEGEN_LOGI("QueryVarNameByTensorMagic: magic is %d, isTileTensor is %d", magic, isTileTensor);
     AllocKey key = CreateAllocKey(magic);
     std::string varName = isTileTensor ? QueryVariableNameTileTensor(key) : QueryVariableName(key);
     return varName;
@@ -159,7 +162,7 @@ std::vector<TileTensor> SymbolManager::QueryTileTensorByMagic(int magic) {
         res.emplace_back(it->second);
     }
 
-    ASSERT(!res.empty()) << "tensor magic " << magic << " is not found !!! ";
+    ASSERT(GenCodeErr::TENSOR_NOT_FOUND, !res.empty()) << "tensor magic " << magic << " is not found !!! ";
     return res;
 }
 
@@ -170,7 +173,6 @@ std::vector<TileTensor> SymbolManager::QueryTileTensorInLoopByMagic(int magic) {
     for (auto it = start; it != end; ++it) {
         res.emplace_back(it->second);
     }
-    CODEGEN_LOGI("TileTensor magic %d not found in loop", magic);
     return res;
 }
 
@@ -190,21 +192,32 @@ std::string SymbolManager::QueryTileTensorFullDimByTensorInLoop(const std::strin
         fullDimTensorName = iter->second;
     }
 
-    ASSERT(!fullDimTensorName.empty()) << "tensor in loop " << tensorName
-                                       << " is not found in tensorNameInLoopToFullDim_!!!";
+    ASSERT(GenCodeErr::SYMBOL_NOT_FOUND, !fullDimTensorName.empty())
+        << "tensor in loop: " << tensorName << " is not found in tensorNameInLoopToFullDim_!!!";
     return fullDimTensorName;
 }
 
-std::string SymbolManager::QueryTileTensorByBufVarName(const std::string &bufVarName) {
+const TileTensor &SymbolManager::QueryTileTensorByBufVar(const std::string &bufVarName) {
     for (const auto &tileTensorPair : tileTensor_) {
         const TileTensor &tileTensor = tileTensorPair.first;
         if (tileTensor.bufVar == bufVarName) {
-            return tileTensor.tensorName;
+            return tileTensor;
         }
     }
 
-    ASSERT(false) << "bufVarName " << bufVarName << " is not found !!! ";
-    return "";
+    ASSERT(GenCodeErr::SYMBOL_NOT_FOUND, false) << "bufVarName " << bufVarName << " is not found !!! ";
+    static TileTensor emptyTileTensor;
+    return emptyTileTensor;
+}
+
+std::string SymbolManager::QueryTileTensorNameByBufVar(const std::string &bufVarName) {
+    const TileTensor &tileTensor = QueryTileTensorByBufVar(bufVarName);
+    return tileTensor.tensorName;
+}
+
+std::string SymbolManager::QueryTileTensorTypeByBufVar(const std::string &bufVarName) {
+    const TileTensor &tileTensor = QueryTileTensorByBufVar(bufVarName);
+    return tileTensor.usingType;
 }
 
 std::string SymbolManager::GenUsingList() {

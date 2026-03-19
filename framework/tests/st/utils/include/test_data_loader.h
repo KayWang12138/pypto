@@ -52,15 +52,15 @@ void PrintTableRow(int index, const Tensor &tensor) {
     std::string shapeStr = ShapeToString(tensor.GetShape());
     std::string typeStr = DataType2String(tensor.GetDataType());
     std::string formatStr = tensor.GetStorage()->Format() == TileOpFormat::TILEOP_ND ? "TILEOP_ND" : "TILEOP_NZ";
-    ALOG_INFO << "| " << std::setw(COLUMN_WIDTH / 2) << std::left << index
+    std::cout << "| " << std::setw(COLUMN_WIDTH / 2) << std::left << index
               << " | " << std::setw(COLUMN_WIDTH) << std::left << name
               << " | " << std::setw(COLUMN_WIDTH) << std::left << shapeStr
               << " | " << std::setw(COLUMN_WIDTH / 2) << std::left << typeStr
-              << " | " << std::setw(COLUMN_WIDTH / 2) << std::left << formatStr << " |";
+              << " | " << std::setw(COLUMN_WIDTH / 2) << std::left << formatStr << " |" << std::endl;
 }
 
 void PrintTableDivider() {
-    ALOG_INFO << "+------------+----------------------+----------------------+------------+------------+";
+    std::cout << "+------------+----------------------+----------------------+------------+------------+" << std::endl;
 }
 
 Scalar ConvertJsonToScalar(const nlohmann::json &value) {
@@ -226,14 +226,14 @@ public:
         LoggerManager::GetManager().ResetLevel(LoggerLevel::INFO);
 
         int index = 0;
-        ALOG_INFO << "Input tensors: ";
+        std::cout << "Input tensors: ";
         PrintTableDivider();
-        ALOG_INFO << "| " <<std::setw(COLUMN_WIDTH / 2) <<std::left << "Index"
+        std::cout << "| " <<std::setw(COLUMN_WIDTH / 2) <<std::left << "Index"
                   << " | " <<std::setw(COLUMN_WIDTH) <<std::left << "Name"
                   << " | " <<std::setw(COLUMN_WIDTH) <<std::left << "Shape"
                   << " | " <<std::setw(COLUMN_WIDTH / 2) <<std::left << "Datatype"
                   << " | " <<std::setw(COLUMN_WIDTH / 2) <<std::left << "OpFormat"
-                  << " |";
+                  << " |" << std::endl;;
         PrintTableDivider();
         for (const auto &tensor : inputTensorList) {
             PrintTableRow(index, tensor);
@@ -242,14 +242,14 @@ public:
         PrintTableDivider();
 
         index = 0;
-        ALOG_INFO << "Output tensors: ";
+        std::cout << "Output tensors: ";
         PrintTableDivider();
-        ALOG_INFO << "| " <<std::setw(COLUMN_WIDTH / 2) <<std::left << "Index"
+        std::cout << "| " <<std::setw(COLUMN_WIDTH / 2) <<std::left << "Index"
                   << " | " <<std::setw(COLUMN_WIDTH) <<std::left << "Name"
                   << " | " <<std::setw(COLUMN_WIDTH) <<std::left << "Shape"
                   << " | " <<std::setw(COLUMN_WIDTH / 2) <<std::left << "Datatype"
                   << " | " <<std::setw(COLUMN_WIDTH / 2) <<std::left << "OpFormat"
-                  << " |";
+                  << " |" << std::endl;
         PrintTableDivider();
         for (const auto &tensor : outputTensorList) {
             PrintTableRow(index, tensor);

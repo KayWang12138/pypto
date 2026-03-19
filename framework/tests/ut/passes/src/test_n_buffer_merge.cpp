@@ -39,9 +39,7 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-
         config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
-        Platform::Instance().ObtainPlatformInfo();
     }
 
     void TearDown() override {}
@@ -201,8 +199,8 @@ TEST_F(NBufferMergeTest, TestInvalidMode) {
     EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{-2, 4}, {1, 2}}), FAILED);
 }
 
-TEST_F(NBufferMergeTest, TestMode2AndVecNBufferSettingKeyMoreThanMaxValue) {
-    EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{-1, 4}, {100, 2}}), FAILED);
+TEST_F(NBufferMergeTest, TestMode2AndVecNBufferSettingKeyMoreThanMaxValue_Tolerated) {
+    EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{-1, 4}, {100, 2}}), SUCCESS);
 }
 
 TEST_F(NBufferMergeTest, TestMode2AndVecNBufferSettingValueLessThanMinValue) {

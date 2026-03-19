@@ -69,14 +69,8 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
     }
 }
 
-template<typename T, typename HalfTileDefineSrc, typename TileDefineDst, typename B16TileDefineSrc>
-TILEOP void IsFiniteComputeImpl(TileDefineDst dst, B16TileDefineSrc src, HalfTileDefineSrc buffer) {
-    HalfTileDefineSrc bufferFP16(src.GetValidRow(), src.GetValidCol());
-    pto::TASSIGN(bufferFP16, reinterpret_cast<std::uintptr_t>(buffer.data()));
-
-    B16TileDefineSrc bufferB16(src.GetValidRow(), src.GetValidCol());
-    pto::TASSIGN(bufferB16, reinterpret_cast<std::uintptr_t>(buffer.data()));
-
+template <typename T, typename HalfTileDefineSrc, typename TileDefineDst, typename B16TileDefineSrc>
+TILEOP void IsFiniteCalcImpl(TileDefineDst dst, B16TileDefineSrc src, B16TileDefineSrc bufferB16, HalfTileDefineSrc bufferFP16) {
     int16_t mask = 0;
     if constexpr (std::is_same_v<T, bfloat16_t>) {
         mask = 0x7F80;
@@ -87,12 +81,29 @@ TILEOP void IsFiniteComputeImpl(TileDefineDst dst, B16TileDefineSrc src, HalfTil
     SyncV();
     pto::TSUBS(bufferB16, bufferB16, mask);
     SyncV();
-    pto::TMAXS(bufferB16, bufferB16, (int16_t) -1);
+    pto::TMAXS(bufferB16, bufferB16, (int16_t)-1);
     SyncV();
-    pto::TMULS(bufferB16, bufferB16, (int16_t) -1);
+    pto::TMULS(bufferB16, bufferB16, (int16_t)-1);
     SyncV();
     pto::TCVT(dst, bufferFP16, pto::RoundMode::CAST_CEIL);
     SyncV();
+}
+
+template<typename T, typename HalfTileDefineSrc, bool CombineAxis, typename TileDefineDst, typename B16TileDefineSrc>
+TILEOP void IsFiniteComputeImpl(TileDefineDst dst, B16TileDefineSrc src, HalfTileDefineSrc buffer) {
+    if constexpr (!CombineAxis) {
+        HalfTileDefineSrc bufferFP16(src.GetValidRow(), src.GetValidCol());
+        pto::TASSIGN(bufferFP16, reinterpret_cast<std::uintptr_t>(buffer.data()));
+        B16TileDefineSrc bufferB16(src.GetValidRow(), src.GetValidCol());
+        pto::TASSIGN(bufferB16, reinterpret_cast<std::uintptr_t>(buffer.data()));
+        IsFiniteCalcImpl<T>(dst, src, bufferB16, bufferFP16);
+    } else {
+        HalfTileDefineSrc bufferFP16;
+        pto::TASSIGN(bufferFP16, reinterpret_cast<std::uintptr_t>(buffer.data()));
+        B16TileDefineSrc bufferB16;
+        pto::TASSIGN(bufferB16, reinterpret_cast<std::uintptr_t>(buffer.data()));
+        IsFiniteCalcImpl<T>(dst, src, bufferB16, bufferFP16);
+    }
 }
 
 template <UnaryOp op, typename LastUse, typename T0, typename T1>
@@ -214,7 +225,7 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
         SyncV();
     }
 
-    IsFiniteComputeImpl<typename SrcTileTensor::Type, HalfTileDefineSrc>(dstTile, srcTile, bufferTile);
+    IsFiniteComputeImpl<typename SrcTileTensor::Type, HalfTileDefineSrc, true>(dstTile, srcTile, bufferTile);
 }
 
 #define OP_TILE_OP_ISFINITE TIsFinite
@@ -263,7 +274,7 @@ TILEOP void TIsFinite(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buf
                     pto::TCVT(srcFP16, srcFP32, pto::RoundMode::CAST_NONE);
                     SyncV();
                 }
-                IsFiniteComputeImpl<typename SrcTileTensor::Type, HalfTileDefineSrc>(dstTile, srcTile, bufferTile);
+                IsFiniteComputeImpl<typename SrcTileTensor::Type, HalfTileDefineSrc, false>(dstTile, srcTile, bufferTile);
             }
         }
     }
@@ -301,8 +312,8 @@ TILEOP void CeilComputeImpl(T0 dst, T1 src) {
 template <typename T0, typename T1>
 TILEOP void TCeil(T0 dst, T1 src) {
     if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
-        auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data;
-        auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data;
+        auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
+        auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
         CeilComputeImpl<float>(dstTile, srcTile);
@@ -337,8 +348,8 @@ TILEOP void FloorComputeImpl(T0 dst, T1 src) {
 template <typename T0, typename T1>
 TILEOP void TFloor(T0 dst, T1 src) {
     if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
-        auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data;
-        auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data;
+        auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
+        auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
         FloorComputeImpl<float>(dstTile, srcTile);
@@ -373,8 +384,8 @@ TILEOP void TruncComputeImpl(T0 dst, T1 src) {
 template <typename T0, typename T1>
 TILEOP void TTrunc(T0 dst, T1 src) {
     if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
-        auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data;
-        auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data;
+        auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
+        auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
         TruncComputeImpl<float>(dstTile, srcTile);

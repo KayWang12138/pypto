@@ -19,7 +19,6 @@
 #ifdef BUILD_WITH_CANN
 #include "load_aicpu_op.h"
 #include "runtime/mem.h"
-#include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
 #include "interface/utils/op_info_manager.h"
 #include "runtime.h"

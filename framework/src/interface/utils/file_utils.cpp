@@ -337,11 +337,11 @@ FILE* LockAndOpenFile(const std::string &lockFilePath) {
     }
     (void)chmod(lockFilePath.c_str(), FILE_AUTHORITY);
     if (!FcntlLockFile(fileno(fp), F_WRLCK)) {
-        FUNCTION_LOGW("Fail to lock file:", lockFilePath.c_str());
+        FUNCTION_LOGW("Fail to lock file: %s", lockFilePath.c_str());
         fclose(fp);
         return nullptr;
     }
-    FUNCTION_LOGI("Lock file successfully.", lockFilePath.c_str());
+    FUNCTION_LOGI("Lock file successfully. %s", lockFilePath.c_str());
     return fp;
 }
 
@@ -359,7 +359,7 @@ bool CopyFile(const std::string &srcPath, const std::string &dstPath) {
     std::ofstream dst(dstPath, std::ios::binary);
 
     if (!src.is_open() || !dst.is_open()) {
-        FUNCTION_LOGW("Fail to open file:", srcPath.c_str(), ", ", dstPath.c_str());
+        FUNCTION_LOGW("Fail to open file: %s, %s", srcPath.c_str(), dstPath.c_str());
         return false;
     }
 
