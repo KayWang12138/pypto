@@ -170,20 +170,38 @@ TILEOP void TPermute(DST dst, SRC src, const size_t perm[], size_t n, C coordina
     uint64_t ubAddrB = ubAddr + totalBytes;
     uint64_t tmpUbAddr = ubAddr + 2 * totalBytes;
 
-    using LoadTileDefine = pto::Tile<pto::TileType::Vec, ActualType, tileShape3, tileShape4, pto::BLayout::RowMajor, -1, -1>;
-    using LoadGlobalDefine = pto::GlobalTensor<ActualType, pto::Shape<-1, -1, -1, -1, -1>, pto::Stride<-1, -1, -1, -1, -1>>;
-    LoadTileDefine loadTile;
-    LoadGlobalDefine loadGlobal;
+    size_t ubShape[5];
+    size_t ubStride[5];
+    for (unsigned d = 0; d < 5; ++d) {
+        ubShape[d] = srcShape[d];
+    }
+    ubStride[4] = 1;
+    for (int d = 3; d >= 0; --d) {
+        ubStride[d] = ubStride[d + 1] * ubShape[d + 1];
+    }
 
-    size_t tileElemsPerBlock = actualTileH * actualTileW;
+    using UBType = TileTensor<ActualType, 
+        Layout<Shape<size_t, size_t, size_t, size_t, size_t>,
+               Stride<size_t, size_t, size_t, size_t, size_t>,
+               TileShape<tileShape3, tileShape4>>,
+        Hardware::UB>;
+    
+    UBType ubTensor(ubAddrA, UBType::LayoutType(
+        Shape<size_t, size_t, size_t, size_t, size_t>(ubShape[0], ubShape[1], ubShape[2], ubShape[3], ubShape[4]),
+        Stride<size_t, size_t, size_t, size_t, size_t>(ubStride[0], ubStride[1], ubStride[2], ubStride[3], ubStride[4]),
+        TileShape<tileShape3, tileShape4>()));
 
+    auto loadTile = PtoTile<UBType>(ubTensor);
+    auto loadGlobal = PtoGlobal<UBType, typename UBType::Shape, typename SRC::Stride, true>(
+        ubTensor.GetShape(), src.GetStride());
+    
     for (LoopVar index0 = 0; index0 < srcShape0; ++index0) {
         for (LoopVar index1 = 0; index1 < srcShape1; ++index1) {
             for (LoopVar index2 = 0; index2 < srcShape2; ++index2) {
-                auto offset = gmOffset + index0 * srcStride0 + index1 * srcStride1 + index2 * srcStride2;
-                auto ubOffset = (index0 * srcShape1 * srcShape2 + index1 * srcShape2 + index2) * tileElemsPerBlock;
-                loadGlobal.Assign(src.GetAddr() + offset);
-                loadTile.Assign(ubAddrA + ubOffset * elemSize);
+                loadGlobal.Assign(
+                    src.GetAddr() + gmOffset + index0 * srcStride0 + index1 * srcStride1 + index2 * srcStride2);
+                auto tileOffsets = TileOffset(index0, index1, index2);
+                loadTile.Assign(ubTensor, tileOffsets);
                 pto::TLOAD(loadTile.Data(), loadGlobal.Data());
             }
         }
@@ -196,8 +214,8 @@ TILEOP void TPermute(DST dst, SRC src, const size_t perm[], size_t n, C coordina
     size_t currentShape[5];
     size_t currentStride[5];
     for (unsigned d = 0; d < 5; ++d) {
-        currentShape[d] = srcShape[d];
-        currentStride[d] = srcStride[d];
+        currentShape[d] = ubShape[d];
+        currentStride[d] = ubStride[d];
     }
 
     size_t inv[5];
@@ -231,32 +249,33 @@ TILEOP void TPermute(DST dst, SRC src, const size_t perm[], size_t n, C coordina
     set_flag(PIPE_V, PIPE_MTE3, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID7);
 
-    auto dstShape0 = currentShape[0];
-    auto dstShape1 = currentShape[1];
-    auto dstShape2 = currentShape[2];
-    auto dstStride0 = currentStride[0];
-    auto dstStride1 = currentStride[1];
-    auto dstStride2 = currentStride[2];
-
-    auto dstActualTileH = (n >= 4) ? currentShape[3] : 1;
-    auto dstActualTileW = (n >= 5) ? currentShape[4] : 1;
-    size_t dstTileElemsPerBlock = dstActualTileH * dstActualTileW;
-
     const auto dstLayout = dst.GetLayout();
     auto dstGmOffset = dstLayout.template GetGmOffset<C, expectSize>(coordinate);
 
-    using StoreTileDefine = pto::Tile<pto::TileType::Vec, ActualType, tileShape3, tileShape4, pto::BLayout::RowMajor, -1, -1>;
-    using StoreGlobalDefine = pto::GlobalTensor<ActualType, pto::Shape<-1, -1, -1, -1, -1>, pto::Stride<-1, -1, -1, -1, -1>>;
-    StoreTileDefine storeTile;
-    StoreGlobalDefine storeGlobal;
+    using StoreUBType = TileTensor<ActualType,
+        Layout<Shape<size_t, size_t, size_t, size_t, size_t>,
+               Stride<size_t, size_t, size_t, size_t, size_t>,
+               TileShape<tileShape3, tileShape4>>,
+        Hardware::UB>;
+    
+    StoreUBType storeUbTensor(activeUbAddr, StoreUBType::LayoutType(
+        Shape<size_t, size_t, size_t, size_t, size_t>(currentShape[0], currentShape[1], currentShape[2], currentShape[3], currentShape[4]),
+        Stride<size_t, size_t, size_t, size_t, size_t>(currentStride[0], currentStride[1], currentStride[2], currentStride[3], currentStride[4]),
+        TileShape<tileShape3, tileShape4>()));
 
-    for (LoopVar index0 = 0; index0 < dstShape0; ++index0) {
-        for (LoopVar index1 = 0; index1 < dstShape1; ++index1) {
-            for (LoopVar index2 = 0; index2 < dstShape2; ++index2) {
-                auto offset = dstGmOffset + index0 * dstStride0 + index1 * dstStride1 + index2 * dstStride2;
-                auto ubOffset = (index0 * dstShape1 * dstShape2 + index1 * dstShape2 + index2) * dstTileElemsPerBlock;
-                storeGlobal.Assign(dst.GetAddr() + offset);
-                storeTile.Assign(activeUbAddr + ubOffset * elemSize);
+    auto storeTile = PtoTile<StoreUBType>(storeUbTensor);
+    auto storeGlobal = PtoGlobal<DST, typename StoreUBType::Shape, typename DST::Stride, true>(
+        storeUbTensor.GetShape(), dst.GetStride());
+    
+    for (LoopVar index0 = 0; index0 < currentShape[0]; ++index0) {
+        for (LoopVar index1 = 0; index1 < currentShape[1]; ++index1) {
+            for (LoopVar index2 = 0; index2 < currentShape[2]; ++index2) {
+                storeGlobal.Assign(
+                    dst.GetAddr() + dstGmOffset + index0 * dstLayout.template GetStrideDim<DIM_1ST, expectSize>() 
+                    + index1 * dstLayout.template GetStrideDim<DIM_2ND, expectSize>() 
+                    + index2 * dstLayout.template GetStrideDim<DIM_3RD, expectSize>());
+                auto tileOffsets = TileOffset(index0, index1, index2);
+                storeTile.Assign(storeUbTensor, tileOffsets);
                 pto::TSTORE(storeGlobal.Data(), storeTile.Data());
             }
         }
