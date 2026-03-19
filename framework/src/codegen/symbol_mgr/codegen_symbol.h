@@ -26,6 +26,7 @@
 #include "interface/utils/common.h"
 #include "interface/tensor/logical_tensor.h"
 #include "codegen/utils/codegen_utils.h"
+#include "codegen/utils/codegen_error.h"
 
 namespace npu::tile_fwk {
 const std::string TILE_TENSOR = "TileTensor";
@@ -227,7 +228,7 @@ public:
     void AddToTensorMap(int magicNum, const std::shared_ptr<LogicalTensor> &tensor) {
         auto res = tensorMap_.insert({magicNum, tensor});
         if (!res.second) {
-            ASSERT(tensor == tensorMap_[magicNum])
+            ASSERT(GenCodeErr::TENSOR_MAGIC_CONFLICT, tensor == tensorMap_[magicNum])
                 << "!!! ERROR !!! tensor magic : " << magicNum
                 << " is conflicted!!!\ninsert tensor key: " << FormatAllocKey(CreateAllocKey(tensor))
                 << "\ntensor dump info -- " << tensor->Dump()
@@ -246,7 +247,7 @@ public:
     std::string QueryTileTensorFullDimByTensorInLoop(const std::string &tensorName);
     // To be compatible with GM Tensor in Static Function Type like same ddr magic number with different parmaIdx &
     // 'GMStackBase' e.g. ((__gm__ GMTensorInfo*)param + 1), ((__gm__ GMTensorInfo*)param + 2)
-    const TileTensor& QueryTileTensorByBufVar(const std::string &bufVarName);
+    const TileTensor &QueryTileTensorByBufVar(const std::string &bufVarName);
     std::string QueryTileTensorNameByBufVar(const std::string &bufVarName);
     std::string QueryTileTensorTypeByBufVar(const std::string &bufVarName);
 

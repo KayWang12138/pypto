@@ -44,13 +44,15 @@ python3 attention.py --list
 ## 核心算法实现
 
 ### 缩放点积注意力
+
 ```python
 @pypto.frontend.jit
 def scaled_dot_product_attention(
     q: pypto.tensor((S1, DQK), pypto.DT_FP32),
     k: pypto.tensor((S2, DQK), pypto.DT_FP32),
-    v: pypto.tensor((S2, DV), pypto.DT_FP32)
-) -> pypto.tensor((S1, DV), pypto.DT_FP32):
+    v: pypto.tensor((S2, DV), pypto.DT_FP32),
+    output: pypto.tensor((S1, DV), pypto.DT_FP32)
+):
     # 1. 计算 Q @ K^T
     k_t = pypto.transpose(k, [0, 1, 3, 2])
     scores = pypto.matmul(q, k_t)
@@ -60,8 +62,7 @@ def scaled_dot_product_attention(
     attn_weights = pypto.softmax(scores_scaled, dim=-1)
 
     # 3. 施加到 V 上
-    output = pypto.matmul(attn_weights, v)
-    return output
+    output[:] = pypto.matmul(attn_weights, v)
 ```
 
 ## 关键技术点
@@ -71,10 +72,12 @@ def scaled_dot_product_attention(
 - **动态轴标记**: 使用 `dynamic_axis=[0, 2]`（Batch 和 SeqLen）来应对推理时波动的输入长度。
 
 ## 最佳实践
+
 - **数值稳定性**: 在计算 Softmax 之前进行缩放，防止指数爆炸。
 - **内存布局**: 尽量保持 K 和 V 在内存中的连续性，以优化读取速度。
 - **数据类型**: 在处理大模型注意力时，推荐使用 BF16 精度。
 
 ## 注意事项
+
 - 注意力机制的内存复杂度为 O(N^2)，对于极长序列，请注意显存占用。
 - 所有的实现均通过精度验证，确保与 PyTorch 的 `scaled_dot_product_attention` 结果一致。

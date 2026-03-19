@@ -365,13 +365,15 @@ def lightning_indexer(case_name: str) -> bool:
     act_seq_key_npu = input_data_map["act_seq"].npu()
     block_table_npu = input_data_map["block_table"].npu()
 
-    unroll_list = [128, 64, 32, 16, 8, 4, 1]
+    topk_res_out = torch.zeros([b * s1, 1, selected_count], dtype=torch.int32)
+    topk_res_npu = topk_res_out.npu()
 
+    unroll_list = [128, 64, 32, 16, 8, 4, 1]
     configs = LightningIndexerConfigs()
 
-    topk_res_npu = lightning_indexer_decode(n1, d, block_size, block_num, unroll_list, configs, selected_count
-                    )(idx_query_npu, idx_query_scale_npu, idx_key_cache_npu, idx_key_scale_npu, idx_weight_npu, 
-                    act_seq_key_npu, block_table_npu)
+    lightning_indexer_decode(idx_query_npu, idx_query_scale_npu, idx_key_cache_npu, idx_key_scale_npu,
+                         idx_weight_npu, act_seq_key_npu, block_table_npu, topk_res_npu,
+                         unroll_list, configs, selected_count)
 
     torch_npu.npu.synchronize()
 

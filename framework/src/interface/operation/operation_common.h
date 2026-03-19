@@ -26,6 +26,14 @@ namespace npu::tile_fwk {
 #define CALL(n, ...) Tensor##n(__VA_ARGS__)
 #define RETURN_CALL(n, ...) return Tensor##n(__VA_ARGS__)
 
+#define CHECK_OP(cond)                                            \
+    (cond) ? 0 :                                                  \
+             npu::tile_fwk::Error(__func__, __FILE__, __LINE__) = \
+                 npu::tile_fwk::ErrorMessage()                    \
+                 << "CHECK FAILED: " #cond << "\n"                \
+                 << "location: " << npu::tile_fwk::SourceLocation::GetLocationString() << "\n"
+
+
 constexpr int32_t NUM_VALUE_0 = 0;
 constexpr int32_t NUM_VALUE_1 = 1;
 constexpr int32_t NUM_VALUE_2 = 2;

@@ -41,8 +41,6 @@ def test_pass_config():
 
 def test_pass_option():
     test_params = {
-        "pg_skip_partition": True,
-        "pg_upper_bound": 2,
         "sg_set_scope": 5,
         "vec_nbuffer_setting": {1: 2},
         "cube_l1_reuse_setting": {-1: 6, 2: 3},
@@ -50,5 +48,6 @@ def test_pass_option():
     }
     pypto.set_pass_options(**test_params)
     option = pypto.get_pass_options()
+    assert len(option) == len(test_params)
     for key, expect_valuie in test_params.items():
         assert option[key] == expect_valuie

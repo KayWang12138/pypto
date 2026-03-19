@@ -22,7 +22,6 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
-#include "interface/utils/log.h"
 #include "interface/configs/config_manager.h"
 
 #ifdef BUILD_WITH_CANN
@@ -248,7 +247,7 @@ public:
         std::ostringstream oss;
         uint8_t* byte_ptr = reinterpret_cast<uint8_t*>(sentinelVal.data());
         oss << "Print Sentinel val in hex with ori val[" << std::hex << "0x" << SENTINEL_VALUE << "]" << std::endl;
-        ALOG_ERROR_F("%s", oss.str().c_str());
+        MACHINE_LOGE("%s", oss.str().c_str());
         oss.str("");
         for (uint32_t i = 0; i < SENTINEL_MEM_SIZE; ++i) {
             oss << std::hex << std::setw(2) << std::setfill('0') << (int)byte_ptr[i];

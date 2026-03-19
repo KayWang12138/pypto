@@ -399,9 +399,11 @@ private:
             root->AddValue(prefix, jData.get<bool>());
         } else if (typeInfo.Type(prefix) == typeid(std::map<int64_t, int64_t>)) {
             std::map<int64_t, int64_t> mapJson;
-            auto arr = jData.get<std::vector<int64_t>>();
-            for (size_t i = 0; i + 1 < arr.size(); i += 2) {
-                mapJson[arr[i]] = arr[i + 1];
+            for (const auto &pair : jData) {
+                auto arr = pair.get<std::vector<int64_t>>();
+                if (arr.size() >= 2) {
+                    mapJson[arr[0]] = arr[1];
+                }
             }
             root->AddValue(prefix, mapJson);
         } else if (jData.is_array()) {
@@ -454,6 +456,14 @@ void ConfigManagerNg::BeginScope(
 
 void ConfigManagerNg::EndScope(const char *file, int lino) {
     impl_->EndScope(file, lino);
+}
+
+ConfigManagerNg::ScopedRestore::ScopedRestore(std::shared_ptr<ConfigScope> scope) {
+    ConfigManagerNg::GetInstance().PushScope(std::move(scope));
+}
+
+ConfigManagerNg::ScopedRestore::~ScopedRestore() {
+    ConfigManagerNg::GetInstance().EndScope();
 }
 
 void ConfigManagerNg::SetScope(std::map<std::string, Any> &&values, const char *file, int lino) {
@@ -533,13 +543,9 @@ template void SetOptionsNg<std::vector<std::string>>(const std::string &key, con
 template void SetOptionsNg<std::vector<double>>(const std::string &key, const std::vector<double> &value);
 
 
-void Restore(std::shared_ptr<ConfigScope> config) {
-    ConfigManagerNg::GetInstance().PushScope(config);
-}
-
 std::shared_ptr<ConfigScope> Duplicate() {
     return ConfigManagerNg::CurrentScope();
 }
 
-}
+}  // namespace config
 } // namespace npu::tile_fwk

@@ -45,12 +45,15 @@ class _CachedVerifyData:
 
     def __init__(self):
         self._data = []
+        self._ori_data = []
 
     def reset(self):
         self._data = []
+        self._ori_data = []
 
-    def set_data(self, goldens):
+    def set_data(self, goldens, ori_goldens):
         self._data = goldens
+        self._ori_data = ori_goldens
 
     def get_data(self):
         return self._data
@@ -334,7 +337,7 @@ def set_verify_golden_data(in_out_tensors=None, goldens=None):
                 list(t.ori_shape),
             )
             pto_goldens.append(data)
-        _pto_verify_datas.set_data(pto_goldens)
+        _pto_verify_datas.set_data(pto_goldens, goldens)
 
     if in_out_tensors:
         pto_in_out = []

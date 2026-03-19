@@ -75,12 +75,13 @@ python3 basic_ops.py --list
 def elementwise_kernel(
     a: pypto.Tensor(shape, pypto.DT_FP16),
     b: pypto.Tensor(shape, pypto.DT_FP16),
-) -> pypto.Tensor(shape, pypto.DT_FP16):
+    out: pypto.Tensor(shape, pypto.DT_FP16)
+):
     # 设置向量计算的分块形状
     pypto.set_vec_tile_shapes(8, 8)
     # 算子组合
-    out = pypto.mul(pypto.add(a, b), 2.0)
-    return out
+    out[:] = pypto.mul(pypto.add(a, b), 2.0)
+    
 ```
 
 ### 2. 执行JIT函数

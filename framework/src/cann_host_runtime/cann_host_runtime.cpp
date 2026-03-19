@@ -21,6 +21,7 @@ namespace tile_fwk {
 const uint32_t kMaxLength = 50;
 const std::string socVerFuncName = "rtGetSocVersion";
 const std::string socSpecFuncName = "rtGetSocSpec";
+const std::string aiCpuCntFuncName = "rtGetAiCpuCount";
 
 void *CannHostRuntime::GetSymbol(const std::string &sym) {
 #ifdef BUILD_WITH_CANN
@@ -44,6 +45,7 @@ CannHostRuntime::CannHostRuntime() {
     if (handleDep_ != nullptr && handle_ != nullptr) {
         socVerFunc_ = (GetSocVerFunc)GetSymbol(socVerFuncName);
         socSpecFunc_ = (GetSocSpecFunc)GetSymbol(socSpecFuncName);
+        aiCpuCntFunc_ = (GetAiCpuCntFunc)GetSymbol(aiCpuCntFuncName);
     }
 #endif
     if (handleDep_ == nullptr || handle_ == nullptr) {
@@ -98,6 +100,22 @@ bool CannHostRuntime::GetSocSpec(const std::string& column, const std::string& k
     (void)column;
     (void)key;
     (void)val;
+    return false;
+}
+
+bool CannHostRuntime::GetAICPUCnt(size_t &aiCpuCnt) {
+#ifdef BUILD_WITH_CANN
+    int ret = 1;
+    uint32_t cpuNum = 0;
+    if (aiCpuCntFunc_ != nullptr) {
+        ret = aiCpuCntFunc_(&cpuNum);
+    }
+    if (ret == 0) {
+        aiCpuCnt = static_cast<size_t>(cpuNum);
+        return true;
+    }
+#endif
+    (void)aiCpuCnt;
     return false;
 }
 }  // namespace tile_fwk
