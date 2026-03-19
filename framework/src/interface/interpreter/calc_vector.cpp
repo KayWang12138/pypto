@@ -571,7 +571,7 @@ void ExecuteOpGatherINUB(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_UB, ExecuteOpGatherINUB);
 
-void ExecuteOpIndexAddUB(ExecuteOperationContext *ctx) {
+void ExecuteOpIndexAdd(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
     auto &ret = ctx->ooperandInplaceDataViewList->at(0);
@@ -585,7 +585,7 @@ void ExecuteOpIndexAddUB(ExecuteOperationContext *ctx) {
     int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
     calc::IndexAddUB(ret, self, src, indices, axis, alpha);
 }
-REGISTER_CALC_OP(OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD_UB, ExecuteOpIndexAddUB);
+REGISTER_CALC_OP(OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD_UB, ExecuteOpIndexAdd);
 
 void ExecuteOpTri(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);

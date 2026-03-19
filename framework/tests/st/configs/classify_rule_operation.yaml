@@ -227,8 +227,8 @@ stest:
       - TestRemainder/RemainderOperationTest.TestRemainder/4
       - TestRemainderS/RemainderSOperationTest.TestRemainderS/0
       - TestRemainderRS/RemainderRSOperationTest.TestRemainderRS/10
-      - TestIndexAddUB/IndexAddUBOperationTest.TestIndexAddUB/20
-      - TestIndexAddUB/IndexAddUBOperationTest.TestIndexAddUB/21
+      - TestIndexAdd_/IndexAdd_OperationTest.TestIndexAdd_/2
+      - TestIndexAdd_/IndexAdd_OperationTest.TestIndexAdd_/17
       - TestLogicalAnd/LogicalAndOperationTest.TestLogicalAnd/0
       - TestBitwiseRightShift/BitwiseRightShiftOperationTest.TestBitwiseRightShift/0
       - TestBitwiseLeftShift/BitwiseLeftShiftOperationTest.TestBitwiseLeftShift/0

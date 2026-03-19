@@ -758,8 +758,9 @@ class Tensor:
 
     @source_location
     def index_add_(self, dim: int, index: 'Tensor', source: 'Tensor', *,
-                    alpha: Union[int, float] = 1):
+                    alpha: Union[int, float] = 1) -> 'Tensor':
         pypto.index_add_(self, dim, index, source, alpha=alpha)
+        return self
 
     @source_location
     def index_add(self, dim: int, index: 'Tensor', source: 'Tensor', *,
