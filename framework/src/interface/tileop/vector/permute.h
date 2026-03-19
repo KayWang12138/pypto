@@ -156,6 +156,9 @@ TILEOP void TPermute(DST dst, SRC src, const size_t perm[], size_t n, C coordina
 
     constexpr size_t tmpTileW = (sizeof(ActualType) == 1) ? 32 : 16;
 
+    auto actualTileH = (srcShapeSize >= 4) ? srcShape[3] : 1;
+    auto actualTileW = (srcShapeSize >= 5) ? srcShape[4] : 1;
+
     size_t totalElems = 1;
     for (unsigned d = 0; d < n; ++d) {
         totalElems *= srcShape[d];
@@ -172,11 +175,13 @@ TILEOP void TPermute(DST dst, SRC src, const size_t perm[], size_t n, C coordina
     LoadTileDefine loadTile;
     LoadGlobalDefine loadGlobal;
 
+    size_t tileElemsPerBlock = actualTileH * actualTileW;
+
     for (LoopVar index0 = 0; index0 < srcShape0; ++index0) {
         for (LoopVar index1 = 0; index1 < srcShape1; ++index1) {
             for (LoopVar index2 = 0; index2 < srcShape2; ++index2) {
                 auto offset = gmOffset + index0 * srcStride0 + index1 * srcStride1 + index2 * srcStride2;
-                auto ubOffset = index0 * tileShape3 * tileShape4 + index1 * tileShape3 * tileShape4 + index2 * tileShape3 * tileShape4;
+                auto ubOffset = (index0 * srcShape1 * srcShape2 + index1 * srcShape2 + index2) * tileElemsPerBlock;
                 loadGlobal.Assign(src.GetAddr() + offset);
                 loadTile.Assign(ubAddrA + ubOffset * elemSize);
                 pto::TLOAD(loadTile.Data(), loadGlobal.Data());
@@ -233,6 +238,10 @@ TILEOP void TPermute(DST dst, SRC src, const size_t perm[], size_t n, C coordina
     auto dstStride1 = currentStride[1];
     auto dstStride2 = currentStride[2];
 
+    auto dstActualTileH = (n >= 4) ? currentShape[3] : 1;
+    auto dstActualTileW = (n >= 5) ? currentShape[4] : 1;
+    size_t dstTileElemsPerBlock = dstActualTileH * dstActualTileW;
+
     const auto dstLayout = dst.GetLayout();
     auto dstGmOffset = dstLayout.template GetGmOffset<C, expectSize>(coordinate);
 
@@ -245,7 +254,7 @@ TILEOP void TPermute(DST dst, SRC src, const size_t perm[], size_t n, C coordina
         for (LoopVar index1 = 0; index1 < dstShape1; ++index1) {
             for (LoopVar index2 = 0; index2 < dstShape2; ++index2) {
                 auto offset = dstGmOffset + index0 * dstStride0 + index1 * dstStride1 + index2 * dstStride2;
-                auto ubOffset = index0 * tileShape3 * tileShape4 + index1 * tileShape3 * tileShape4 + index2 * tileShape3 * tileShape4;
+                auto ubOffset = (index0 * dstShape1 * dstShape2 + index1 * dstShape2 + index2) * dstTileElemsPerBlock;
                 storeGlobal.Assign(dst.GetAddr() + offset);
                 storeTile.Assign(activeUbAddr + ubOffset * elemSize);
                 pto::TSTORE(storeGlobal.Data(), storeTile.Data());
