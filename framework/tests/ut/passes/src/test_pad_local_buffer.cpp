@@ -1376,9 +1376,9 @@ TEST_F(TestPadLocalBuffer, padCmpInputTo256){
  	graphBuilder.GetOp("cmp1")->SetAttr(OpAttributeKey::rowPad, dimMap);
     auto *functionPtr = graphBuilder.GetFunction();
     PadLocalBuffer padLocalBufferTest;
-    // functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padCmpInputTo256_brfore.json");
     EXPECT_EQ(padLocalBufferTest.RunOnFunction(*functionPtr), SUCCESS);
-    // functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padCmpInputTo256_after.json");
+    EXPECT_EQ(graphBuilder.GetTensor("t1")->GetRawTensor()->GetRawShape()[0], 10);
+    EXPECT_EQ(graphBuilder.GetTensor("t2")->GetRawTensor()->GetRawShape()[0], 3);
 }
 
 TEST_F(TestPadLocalBuffer, padCmpsInputTo256){
@@ -1401,13 +1401,13 @@ TEST_F(TestPadLocalBuffer, padCmpsInputTo256){
     EXPECT_EQ(graphBuilder.AddOp(Opcode::OP_ADD, {"t6", "t5"}, {"t7"}, "add1", true), true);
     EXPECT_EQ(graphBuilder.AddTensor(DataType::DT_FP32, {3, 7}, MemoryType::MEM_DEVICE_DDR, "out1"), true);
     EXPECT_EQ(graphBuilder.AddOp(Opcode::OP_COPY_OUT, {"t7"}, {"out1"}, "copyout2", true), true);
-    std::vector<bool> dimMap({true, false});
+    std::vector<bool> dimMap({false, true});
  	graphBuilder.GetOp("cmps1")->SetAttr(OpAttributeKey::rowPad, dimMap);
     auto *functionPtr = graphBuilder.GetFunction();
     PadLocalBuffer padLocalBufferTest;
-    // functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padCmpInputTo256_brfore.json");
     EXPECT_EQ(padLocalBufferTest.RunOnFunction(*functionPtr), SUCCESS);
-    // functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padCmpInputTo256_after.json");
+    EXPECT_EQ(graphBuilder.GetTensor("t1")->GetRawTensor()->GetRawShape()[0], 3);
+    EXPECT_EQ(graphBuilder.GetTensor("t2")->GetRawTensor()->GetRawShape()[0], 10);
 }
 
 TEST_F(TestPadLocalBuffer, padPreluInputTo256){
@@ -1434,7 +1434,7 @@ TEST_F(TestPadLocalBuffer, padPreluInputTo256){
  	graphBuilder.GetOp("prelu1")->SetAttr(OpAttributeKey::rowPad, dimMap);
     auto *functionPtr = graphBuilder.GetFunction();
     PadLocalBuffer padLocalBufferTest;
-    // functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padPreluInputTo256_brfore.json");
     EXPECT_EQ(padLocalBufferTest.RunOnFunction(*functionPtr), SUCCESS);
-    // functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padPreluInputTo256_after.json");
+    EXPECT_EQ(graphBuilder.GetTensor("t1")->GetRawTensor()->GetRawShape()[0], 10);
+    EXPECT_EQ(graphBuilder.GetTensor("t2")->GetRawTensor()->GetRawShape()[0], 3);
 }
