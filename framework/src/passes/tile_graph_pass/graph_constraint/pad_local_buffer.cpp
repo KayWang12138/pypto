@@ -206,7 +206,7 @@ size_t GetPaddingValue(LogicalTensorPtr &in) {
     return paddingIter->second;
 }
 
-bool IsLastDim32BAligned(const LogicalTensorPtr& tensor) {
+size_t GetLastDimBytes(const LogicalTensorPtr& tensor) {
     if (tensor->shape.empty()) {
         return false;
     }
@@ -217,7 +217,7 @@ bool IsLastDim32BAligned(const LogicalTensorPtr& tensor) {
     
     size_t totalByte = lastDim * bytes;
 
-    return (totalByte % 32 == 0);
+    return totalByte;
 }
 
 int64_t Pad256(int64_t dim, int64_t padValue) {
@@ -266,11 +266,21 @@ void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unorder
         in->tensor->rawshape[lastIdx] = Pad(in->tensor->oriRawshape[lastIdx], in->shape[lastIdx]);
         visitedRaw.emplace(in->tensor);
     }
-    // 针对OP_CMP和OP_PRELU特殊OP做倒数第二轴的256B扩充
-    if (needRowPad && IsLastDim32BAligned(in)) {
+    // 针对OP_CMP OP_CMPS OP_PRELU特殊OP做倒数第二轴的256B扩充
+    size_t lastDimBytes = GetLastDimBytes(in);
+    if (needRowPad && (lastDimBytes % 32 == 0)) {
+
+        auto dim32Count = lastDimBytes / 32;
+        if (dim32Count == 0) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "The last Dim is not 32B align.");
+            return;
+        }
+        // 保存原始的shape和rawshape
         in->oriShape = in->shape;
-        in->shape[lastIdx - 1] = Pad256(in->shape[lastIdx - 1], 8);
         in->tensor->oriRawshape = in->tensor->rawshape;
+
+        // 修改shape和rawshape
+        in->shape[lastIdx - 1] = Pad256(in->shape[lastIdx - 1], (8 / dim32Count));
         in->tensor->rawshape[lastIdx - 1] = Pad256(in->tensor->oriRawshape[lastIdx - 1], 8);
         APASS_LOG_INFO_F(Elements::Operation, "op %d %s input shape and rawshape has been changed\n", op.opmagic, op.GetOpcodeStr().c_str());
     }
