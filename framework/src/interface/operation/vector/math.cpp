@@ -968,56 +968,75 @@ static Tensor VarResSqueeze(const Tensor &res, const std::vector<int> &dim, cons
     return Squeeze(res, dim);
 }
 
+/**
+ * @brief 计算输入Tensor在指定维度上的方差
+ * @param input 输入Tensor
+ * @param dim 要求方差的维度列表
+ * @param correction 修正参数，用于计算样本方差时调整自由度（通常为0或1）
+ * @param keepDim 是否保持输出维度与输入一致
+ * @return 返回计算后的方差Tensor
+ * @note 方差计算公式: var = 1/max(0, N-correction) * sum((x_i - mean)^2)
+ *       其中 mean = sum(x_i) / N
+ */
 Tensor Var(const Tensor &input, const std::vector<int> &dim, float correction, bool keepDim)
 {
-    std::vector<int> innerDim(dim.begin(), dim.end());
-    VarParamVaildCheck(input, innerDim);
+    std::vector<int> innerDim(dim.begin(), dim.end()); // 将输入维度复制到innerDim向量中
+    VarParamVaildCheck(input, innerDim); // 校验Var参数有效性
 
-    DataType dtype = input.GetDataType();
-    Shape shape = input.GetShape();
-    auto castInput = Tensor(DT_FP32, shape);
+    DataType dtype = input.GetDataType(); // 获取输入数据类型
+    Shape shape = input.GetShape(); // 获取输入Tensor的形状
+
+    auto castInput = Tensor(DT_FP32, shape); // 创建FP32类型的Tensor用于计算
     if (dtype == DT_FP16 || dtype == DT_BF16) {
-        castInput = Cast(input, DT_FP32, CAST_NONE);
+        castInput = Cast(input, DT_FP32, CAST_NONE); // FP16/BF16类型需要先转换为FP32进行计算
     } else {
-        castInput = input;
+        castInput = input; // 其他类型直接使用
     }
 
-    int calcN = 1;
-    auto res = castInput;
+    int calcN = 1; // 初始化要计算的元素总数N
+    auto res = castInput; // 将转换后的输入赋值给res
     for (size_t i = 0; i < innerDim.size(); i++) {
-        calcN *= static_cast<int>(shape[innerDim[i]]);
-    }
-    res = Mul(res, Element(DT_FP32, 1 / static_cast<float>(calcN)));
-    for (size_t i = 0; i < innerDim.size(); i++) {
-        res = Sum(res, innerDim[i], true);
+        calcN *= static_cast<int>(shape[innerDim[i]]); // 计算指定维度的元素总数
     }
 
-    Shape dstShape = res.GetShape();
+    // 平均值 sum--div N
     for (size_t i = 0; i < innerDim.size(); i++) {
+        res = Sum(res, innerDim[i], true); // 在指定维度上求和，得到均值mean
+    }
+    res = Mul(res, Element(DT_FP32, 1 / static_cast<float>(calcN))); // 将输入乘以1/N
+
+
+    for (size_t i = 0; i < innerDim.size(); i++) {
+        Shape dstShape = res.GetShape();
         dstShape[innerDim[i]] = shape[innerDim[i]];
         res = Expand(res, dstShape);
     }
 
-    res = Sub(castInput, res);
-    res = Mul(res, res);
-    float count = 1.0f / std::max(0.0f, static_cast<float>(calcN) - correction);
-    res = Mul(res, Element(DT_FP32, count));
+    res = Sub(castInput, res); // 计算x - mean，得到偏差
+    res = Mul(res, res); // 计算(x - mean)^2，得到平方偏差
+    // 方差 sum--div N
     for (size_t i = 0; i < innerDim.size(); i++) {
-        res = Sum(res, innerDim[i], true);
+        res = Sum(res, innerDim[i], true); // 在指定维度上求和，得到方差
     }
-    auto oriVecTile = TileShape::Current().GetVecTile();
+    // =============test == sum((x_i - mean)^2)========================
+    // 1/max(0, N-correction) * sum((x_i - mean)^2)
+    float count = 1.0f / std::max(0.0f, static_cast<float>(calcN) - correction); // 计算修正因子：1/(N-correction)
+    res = Mul(res, Element(DT_FP32, count)); // 将平方偏差乘以修正因子
+
+
+    auto oriVecTile = TileShape::Current().GetVecTile(); // 保存当前的tile配置
     if (!keepDim) {
-        res = VarResSqueeze(res, innerDim, oriVecTile.tile, dtype);
+        res = VarResSqueeze(res, innerDim, oriVecTile.tile, dtype); // 如果不保持维度，进行维度压缩
     }
 
     if (dtype == DT_FP16 || dtype == DT_BF16) {
-        res = Cast(res, dtype, CAST_NONE);
+        res = Cast(res, dtype, CAST_NONE); // 将结果转换回原始数据类型
     }
     if (!keepDim) {
-        TileShape::Current().SetVecTile(oriVecTile.tile);
+        TileShape::Current().SetVecTile(oriVecTile.tile); // 恢复原始tile配置
     }
 
-    return res;
+    return res; // 返回计算得到的方差Tensor
 }
 
 Tensor TensorExp2(Function &function, const LogicalTensorPtr &self) {
