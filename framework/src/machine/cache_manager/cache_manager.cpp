@@ -48,14 +48,14 @@ bool CacheManager::Initialize() {
     // create cache dir
     const char *envPath = std::getenv("HOME");
     if (envPath == nullptr) {
-        MACHINE_LOGE("Env[HOME] is not existed or empty.");
+        MACHINE_LOGE_E(HostBackEndErr::ENV_HOME_MISSING_OR_EMPTY, "Env[HOME] is not existed or empty.");
         return false;
     }
     std::string homeEnvPath(envPath);
     cacheDirPath_ = homeEnvPath + "/ast_data/" + Platform::Instance().GetSoc().GetShortSocVersion();
     MACHINE_LOGD("Begin to initialize cache manager, cache dir path is [%s].", cacheDirPath_.c_str());
     if (RealPath(cacheDirPath_).empty() && !CreateMultiLevelDir(cacheDirPath_)) {
-        MACHINE_LOGE("Failed to create cache dir[%s].", cacheDirPath_.c_str());
+        MACHINE_LOGE_E(HostBackEndErr::CACHE_DIR_CREATE_FAILED, "Failed to create cache dir[%s].", cacheDirPath_.c_str());
         return false;
     }
     MACHINE_LOGI("Cache manager has been initialized at cache dir path[%s].", cacheDirPath_.c_str());
