@@ -222,7 +222,7 @@ void IndexOutCastInferFunc(Operation* op,
     }
     
     auto indexOutCastOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
-    if (indexOutCastOpAttribute == null) {
+    if (indexOutCastOpAttribute == nullptr) {
         ALOG_WARN_F("IndexOutCast [%d] has no  copyOpAttr.", op->GetOpMagic());
         return;
     }
