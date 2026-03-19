@@ -681,7 +681,7 @@ def pypto_slice_chunk_inputs(
     A_cache, w_cache, S_before_cache, v_new_cache,
     L, D, b_idx, s_idx, rev_idx, nv_idx, nqk_idx, actual_L, H, NT
     ):
-    pypto.set_vec_tile_shapes(16, 128, 128, 128)
+    pypto.set_vec_tile_shapes(16, 16, 128, 128)
     query_used_view = pypto.view(q_norm_cache, [1, 1, L, D], [b_idx, nqk_idx, s_idx, 0], valid_shape =[1, 1, actual_L, D])  #bnsd
     key_used_view = pypto.view(k_norm_cache, [1, 1, L, D], [b_idx, nqk_idx, s_idx, 0], valid_shape =[1, 1, actual_L, D])  #bnsd
     value_view = pypto.view(v_in, [1, 1, L, D], [b_idx, nv_idx, s_idx, 0], valid_shape =[1, 1, actual_L, D]) #bnsd
@@ -714,7 +714,7 @@ def pypto_slice_chunk_inputs(
 # ------------------------------------------------------
 def pypto_g_and_decay_kernel(gc_raw_3d, C_cum_3d):
     pypto.set_vec_tile_shapes(256, 128)
-    pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
+    pypto.set_cube_tile_shapes([256, 256], [64, 256], [128, 128])
     g_cum_col_3d = pypto.matmul(C_cum_3d, gc_raw_3d, pypto.DT_FP32, b_trans=True)
     g_cum_2d = g_cum_col_3d[0]
     diff = g_cum_2d - g_cum_col_3d[:,:,0]
@@ -731,7 +731,7 @@ def pypto_fused_34_local_attn_and_recurrence_backprop(
     dS_in, g_cum_2d, w_view_2d, dim
 ):
     pypto.set_vec_tile_shapes(256, 128)
-    pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
+    pypto.set_cube_tile_shapes([256, 256], [64, 256], [128, 128])
     qk_4d = pypto.matmul(query_used_4d, key_used_4d, pypto.DT_FP32, a_trans=False, b_trans=True)
     kkt_4d = pypto.matmul(key_used_4d, key_used_4d, pypto.DT_FP32, a_trans=False, b_trans=True)
     qk = qk_4d[0, 0]
@@ -764,7 +764,7 @@ def pypto_fused_56_qkg_and_wy_repr(
     vc, betac, A_view_2d, M_lt_in, decay_2d, kkt, ones_1l, ones_1d, C_rcum
 ):
     pypto.set_vec_tile_shapes(256, 128)
-    pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
+    pypto.set_cube_tile_shapes([256, 256], [64, 256], [128, 128])
     L = qc_in.shape[0]
     v_scaled = v_new_in * s_tok_in
     dq_c_tmp = pypto.matmul(doc_in, S_before_in, pypto.DT_FP32, a_trans=False, b_trans=True)
@@ -827,7 +827,7 @@ def pypto_finalize_chunk_grads(
     q_used, k_used, q_rstd, k_rstd, dq_c, dk_c, use_qk_l2norm_in_kernel_cache
 ):  
     pypto.set_vec_tile_shapes(256, 128)
-    pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
+    pypto.set_cube_tile_shapes([256, 256], [64, 256], [128, 128])
     use_l2norm_sym = pypto.SymbolicScalar(use_qk_l2norm_in_kernel_cache[0])
     if pypto.cond(use_l2norm_sym == 1):
         dq_raw_c = pypto_l2norm_bwd(q_used, q_rstd, dq_c)
@@ -876,7 +876,6 @@ def pypto_bsnd_gated_delta_rule_bwd(
         "stitch_function_num_initial": 128,
         "stitch_function_outcast_memory": 128 * 8,
         "device_sched_mode": 1,
-        "stitch_function_max_num": 128
         },
         debug_options={"runtime_debug_mode": 1}
     )
@@ -927,7 +926,7 @@ def pypto_bsnd_gated_delta_rule_bwd(
         dh0_out = pypto.tensor((batch, nv, dim, dim), pypto.DT_FP32)
 
         # F5: single pre-allocated recurrence buffer (no full-tensor copy to avoid DDR error).
-        dS_buffer = pypto.tensor((batch, nv, dim, dim), pypto.DT_FP32)
+        dS_2d = pypto.tensor([dim, dim], pypto.DT_FP32)
 
         # -------------------------------------------------------------
         # main loop (V9: submit_before_loop + unified tile per chunk)
@@ -936,15 +935,15 @@ def pypto_bsnd_gated_delta_rule_bwd(
             for nv_idx in pypto.loop(nv, name="LOOP_Nv_BSND", idx_name="nv_idx"):
                 nqk_idx = nv_idx // group
                 pypto.set_vec_tile_shapes(16, 128, 128, 128)
-                dS_2d = pypto.reshape(pypto.view(dS_buffer, [1, 1, dim, dim], [b_idx, nv_idx, 0, 0]), [dim, dim])
-                dht_slice = pypto.reshape(pypto.view(dht_in, [1, 1, dim, dim], [b_idx, nv_idx, 0, 0]), [dim, dim])
-                dS_2d[:] = dht_slice
-                for inv_s_idx in pypto.loop(0, dyn_seq, l, name="LOOP_S_REVERSE_BSND", idx_name="i_idx", unroll_list=[32, 16, 8, 4, 2, 1]):
+                # dS_2d = pypto.reshape(pypto.view(dS_buffer, [1, 1, dim, dim], [b_idx, nv_idx, 0, 0]), [dim, dim])
+                # dht_slice = pypto.reshape(pypto.view(dht_in, [1, 1, dim, dim], [b_idx, nv_idx, 0, 0]), [dim, dim])
+                # dS_2d[:] = dht_slice
+                dS_2d = dht_in[b_idx, nv_idx]
+                for inv_s_idx in pypto.loop(0, dyn_seq, l, name="LOOP_S_REVERSE_BSND", idx_name="i_idx", unroll_list=[64, 32, 16, 8, 4, 2, 1]):
                     s_idx = dyn_seq - inv_s_idx - l
                     rev_idx = s_idx // l
                     actual_L = (dyn_seq - s_idx).min(l)
-                    pypto.set_vec_tile_shapes(256, 128)
-                    pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
+                    pypto.set_cube_tile_shapes([256, 256], [64, 256], [128, 128])
                     # -----------------------------------------
                     # Preprocess
                     # -----------------------------------------
@@ -993,14 +992,14 @@ def pypto_bsnd_gated_delta_rule_bwd(
                     dS_2d[:] = dS_final
 
                     # Assemble
-                    pypto.set_vec_tile_shapes(16, 128, 16, 128)
-                    dq_out[b_idx:b_idx+1, s_idx:s_idx+l, nqk_idx:nqk_idx+1, 0:] = dq_raw_c.reshape([1, l, 1, dim])
-                    dk_out[b_idx:b_idx+1, s_idx:s_idx+l, nqk_idx:nqk_idx+1, 0:] = dk_raw_c.reshape([1, l, 1, dim])
-                    dv_out[b_idx:b_idx+1, s_idx:s_idx+l, nv_idx:nv_idx+1, 0:] = dv_c.reshape([1, l, 1, dim])
-                    db_out[b_idx:b_idx+1, s_idx:s_idx+l, nv_idx:nv_idx+1] = db_c.unsqueeze(0)
-                    dg_raw_out[b_idx:b_idx+1, s_idx:s_idx+l, nv_idx:nv_idx+1] = dg_raw_c.unsqueeze(0)
+                    pypto.set_vec_tile_shapes(16, 128, 128, 128)
+                    dq_out[b_idx, s_idx:s_idx+l, nqk_idx] = dq_raw_c
+                    dk_out[b_idx, s_idx:s_idx+l, nqk_idx] = dk_raw_c
+                    dv_out[b_idx, s_idx:s_idx+l, nv_idx] = dv_c
+                    db_out[b_idx, s_idx:s_idx+l, nv_idx:nv_idx+1] = db_c
+                    dg_raw_out[b_idx, s_idx:s_idx+l, nv_idx:nv_idx+1] = dg_raw_c
 
-                dh0_out[b_idx:b_idx+1, nv_idx:nv_idx+1, 0:, 0:] = dS_2d.unsqueeze(0).unsqueeze(0)
+                dh0_out[b_idx, nv_idx] = dS_2d
             
 
         return dq_out, dk_out, dv_out, db_out, dg_raw_out, dh0_out
