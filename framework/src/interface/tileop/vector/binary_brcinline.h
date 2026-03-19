@@ -109,10 +109,12 @@ TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1, const BinaryLayoutInfo
     auto dstTile = PtoTile<T0>(1, info.shape4).Data();
     auto src0Tile = Src0PtoTile(1, tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND ? 1 : info.shape4).Data();
     auto src1Tile = Src1PtoTile(1, tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND ? 1 : info.shape4).Data();
-    for (LoopVar n0Index = 0; n0Index < info.shape0; ++n0Index) {
-        for (LoopVar n1Index = 0; n1Index < info.shape1; ++n1Index) {
-            for (LoopVar n2Index = info.shape2; n2Index > 0;) {
-                --n2Index;
+    for (LoopVar n2Index = info.shape2; n2Index > 0;) {
+        --n2Index;
+        for (LoopVar n1Index = info.shape1; n1Index > 0;) {
+            --n1Index;
+            for (LoopVar n0Index = info.shape0; n0Index > 0;) {
+                --n0Index;
                 for (LoopVar n3Index = 0; n3Index < info.shape3; ++n3Index) {
                     auto dsttileOffsets = n0Index * info.dstStride0 + n1Index * info.dstStride1
                                             + n2Index * info.dstStride2 + n3Index * info.dstStride3;
