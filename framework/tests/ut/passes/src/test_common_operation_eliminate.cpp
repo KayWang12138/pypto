@@ -358,8 +358,8 @@ TEST_F(CommonOperationEliminateTest, InsertAssembleCopy) {
     currFunctionPtr->outCasts_.push_back(output3);
 
     // 调用InsertAssembleCopy
-    CommonOperationEliminate coe;
-    coe.InsertAssembleCopy(*currFunctionPtr);
+    CommonOperationEliminate commonOperation;
+    commonOperation.InsertAssembleCopy(*currFunctionPtr);
 
     // 验证插入的拷贝序列
     int copyInNum = 0;
@@ -410,8 +410,8 @@ TEST_F(CommonOperationEliminateTest, InsertAssembleCopyDDR) {
     currFunctionPtr->outCasts_.push_back(output2);
 
     // 调用InsertAssembleCopy
-    CommonOperationEliminate coe;
-    coe.InsertAssembleCopy(*currFunctionPtr);
+    CommonOperationEliminate commonOperationEliminate;
+    commonOperationEliminate.InsertAssembleCopy(*currFunctionPtr);
 
     // 验证插入的拷贝序列
     int copyInNum = 0;
@@ -457,8 +457,8 @@ TEST_F(CommonOperationEliminateTest, InsertAssembleCopySingleAssemble) {
     currFunctionPtr->outCasts_.push_back(output);
 
     // 调用InsertAssembleCopy
-    CommonOperationEliminate coe;
-    coe.InsertAssembleCopy(*currFunctionPtr);
+    CommonOperationEliminate commonOperationEliminateTest;
+    commonOperationEliminateTest.InsertAssembleCopy(*currFunctionPtr);
 
     // 验证没有插入拷贝序列
     int copyInNum = 0;
