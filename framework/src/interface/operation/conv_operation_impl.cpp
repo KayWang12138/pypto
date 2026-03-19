@@ -214,10 +214,10 @@ void ValidateL0Constraint(int64_t tile1, int64_t tile2, int64_t tile3, size_t dt
 void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const Tensor &weightTensor, const Tensor &inputTensor)
 {
     auto &convTile = TileShape::Current().GetConvTile();
-    int64_t tileH = convTile.tileL0Info.tileH, int64_t tileW = convTile.tileL0Info.tileW;
-    int64_t tileN = convTile.tileL0Info.tileN, int64_t tileK = convTile.tileL0Info.tileK;
-    int64_t tileHout = convTile.tileL1Info.tileHout, int64_t tileWout = convTile.tileL1Info.tileWout;
-    int64_t tileCout = convTile.tileL1Info.tileN, int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
+    int64_t tileH = convTile.tileL0Info.tileH, tileW = convTile.tileL0Info.tileW;
+    int64_t tileN = convTile.tileL0Info.tileN, tileK = convTile.tileL0Info.tileK;
+    int64_t tileHout = convTile.tileL1Info.tileHout, tileWout = convTile.tileL1Info.tileWout;
+    int64_t tileCout = convTile.tileL1Info.tileN, k0 = ALIGN_SIZE_32 / BytesOf(outType);
     int64_t tileCinFmap = convTile.tileL1Info.tileCinFmap;
     int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
     uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
