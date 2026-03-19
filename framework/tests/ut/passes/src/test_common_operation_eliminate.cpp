@@ -362,16 +362,16 @@ TEST_F(CommonOperationEliminateTest, InsertAssembleCopy) {
     commonOperation.InsertAssembleCopy(*currFunctionPtr);
 
     // 验证插入的拷贝序列
-    int copyInNum = 0;
-    int copyOutNum = 0;
-    int assembleNum = 0;
+    int copyInCount = 0;
+    int copyOutCount = 0;
+    int assembleCount = 0;
     for (const auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_COPY_IN) {
-            copyInNum++;
+            copyInCount++;
         } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
-            copyOutNum++;
+            copyOutCount++;
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            assembleNum++;
+            assembleCount++;
         }
     }
 
@@ -420,10 +420,10 @@ TEST_F(CommonOperationEliminateTest, InsertAssembleCopyDDR) {
     for (const auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_COPY_IN) {
             copyInNum++;
-        } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
-            copyOutNum++;
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             assembleNum++;
+        } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+            copyOutNum++;
         }
     }
 
@@ -461,16 +461,16 @@ TEST_F(CommonOperationEliminateTest, InsertAssembleCopySingleAssemble) {
     commonOperationEliminateTest.InsertAssembleCopy(*currFunctionPtr);
 
     // 验证没有插入拷贝序列
-    int copyInNum = 0;
-    int copyOutNum = 0;
-    int assembleNum = 0;
+    int copyInNumBer = 0;
+    int copyOutInNumBer = 0;
+    int assembleInNumBer = 0;
     for (const auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_COPY_IN) {
-            copyInNum++;
+            copyOutInNumBer++;
         } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
             copyOutNum++;
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            assembleNum++;
+            assembleInNumBer++;
         }
     }
 
