@@ -118,9 +118,10 @@ public:
      * \return type_index of the expected type
      * \throws ValueError if kwarg is not registered
      */
-    [[nodiscard]] std::type_index GetAttrType(const std::string &key) const {
+    [[nodiscard]] std::type_index GetAttrType(const std::string &key, const Span &span = Span::Unknown()) const {
         auto it = attrs_.find(key);
-        CHECK(it != attrs_.end()) << "Attribute '" << key << "' not found in operator '" << name_ << "'";
+        CHECK(it != attrs_.end()) << "Attribute '" << key << "' not found in operator '" << name_ << "'"
+                                  << " at " << span.ToString();
         return it->second;
     }
 
