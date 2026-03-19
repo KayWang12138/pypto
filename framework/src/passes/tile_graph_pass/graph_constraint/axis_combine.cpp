@@ -136,8 +136,8 @@ Status AxisCombine::Process(Function& function)
     return SUCCESS;
 }
 
-Status AxisCombine::RunOnFunction(Function& function)
-{
+Status AxisCombine::RunOnFunction(Function &function) {
+    std::cout << "****************************AxisCombine::RunOnFunction**********************************" << std::endl;
     APASS_LOG_INFO_F(Elements::Function, "===> Start AxisCombine.");
     if (!function.paramConfigs_.combineAxis) {
         APASS_LOG_INFO_F(Elements::Operation, "AxisCombine is skipped.");
