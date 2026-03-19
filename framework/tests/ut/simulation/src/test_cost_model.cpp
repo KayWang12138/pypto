@@ -17,7 +17,6 @@
 #include <dlfcn.h>
 
 #include "cost_model/simulation/backend.h"
-#include "cost_model/simulation_platform/platform.h"
 #include "operator/models/llama/llama_def.h"
 #include "cost_model/simulation/common/CommonType.h"
 #include "tilefwk/tilefwk.h"
@@ -247,7 +246,6 @@ TEST_F(CostModelTest, TestAttentionPostL2Cache)
 
 TEST_F(CostModelTest, TestBuildBasedOnConfigs)
 {
-    ALOG_INFO("Init CostModel Simulation.");
     std::string configPath("./config/test_config.conf");
     std::vector<std::string> configs;
     configs.push_back("--conf");
@@ -641,5 +639,16 @@ TEST_F(CostModelTest, TestParseInputFile) {
     parser.ParseTopoJson(path, deque);
     parser.ParseReplayInfoJson(path, map);
     parser.ParseJson(nullptr, path);
+
+}
+
+TEST_F(CostModelTest, TestJsonFileErrorFormat) {
+    using namespace CostModel;
+    const std::string path = "./config/test_config.conf";
+    CostModelAgent agent;
+    try {
+        agent.GetFunctionFromJson(path);
+    } catch (const std::exception& e) {
+    }
 
 }

@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/tensor/tensor_slot.h"
 #include "interface/operation/attribute.h"
@@ -92,9 +93,11 @@ public:
             return errorCount_ <= errorCountThreshold_ && failNum_ == 0;
         }
 
-        std::vector<std::string> Dump(int indent = 2, size_t maxPrint = 50) const {
+        std::vector<std::string> Dump(int indent = 2, size_t maxPrint = 5) const {
             float maxAbsDiff = 0;
             float maxRelDiff = 0;
+            float totalAbsDiff = 0;
+            float totalRelDiff = 0;
             CompareElement maxAbsElement;
             CompareElement maxRelElement;
             std::ostringstream oss;
@@ -117,6 +120,8 @@ public:
                 }
                 maxAbsDiff = std::max(maxAbsDiff, absDiff);
                 maxRelDiff = std::max(maxRelDiff, relDiff);
+                totalAbsDiff += absDiff;
+                totalRelDiff += relDiff;
 
                 std::string info = "";
                 if (isError) {
@@ -133,6 +138,8 @@ public:
                 << " failNum:" << failNum_
                 << " maxAbsDiff:" << maxAbsDiff
                 << " maxRelDiff:" << maxRelDiff
+                << "averageAbsDiff:" << totalAbsDiff / size_
+                << "averageRelDiff:" << totalRelDiff / size_
                 << " errorCount:" << errorCount_
                 << " errorRatio:" << errorCount_ * 1.0 / size_
                 << " zeroCount:" << zeroCount_
@@ -141,9 +148,10 @@ public:
                 oss << space << "maxAbs-> " << maxAbsElement.Dump() << "\n"
                     << space << "maxRel-> " << maxRelElement.Dump() << "\n";
             }
-            if (!Check()) {ALOG_EVENT(oss.str());}
-            return {std::to_string(maxAbsDiff), std::to_string(maxRelDiff),std::to_string(errorCount_),
-                    std::to_string(errorCount_ * 1.0 / size_)};
+            if (!Check()) { VERIFY_EVENT("%s", oss.str().c_str()); }
+            return {std::to_string(maxAbsDiff), std::to_string(maxRelDiff), std::to_string(totalAbsDiff / size_),
+                    std::to_string(totalRelDiff / size_), std::to_string(errorCount_), std::to_string(errorCount_ * 1.0 / size_),
+                    std::to_string(zeroCount_), std::to_string(zeroCount_ * 1.0 / size_)};
         }
 
         float GetRtol() const { return rtol_; }
@@ -196,8 +204,8 @@ public:
                 &outputDataView->Get<DataType>(outputOffset));
         } else {
             for (int i = 0; i < validShape[axis]; i++) {
-                int nGoldenOffset = goldenOffset + goldenDataView->GetStride(axis) * i;
-                int nOutputOffset = outputOffset + outputDataView->GetStride(axis) * i;
+                int nGoldenOffset = goldenOffset + goldenDataView->GetData()->GetStride()[axis] * i;
+ 	            int nOutputOffset = outputOffset + outputDataView->GetData()->GetStride()[axis] * i;
                 CompareDataRecursive<DataType, T>(
                     compareResult, axis + 1, nGoldenOffset, nOutputOffset, goldenDataView, outputDataView);
             }
@@ -219,12 +227,11 @@ public:
     static CompareResult VerifyResult(
             const std::shared_ptr<LogicalTensorData> &goldenDataView,
             const std::shared_ptr<LogicalTensorData> &outputDataView, float rtol, float atol);
-    static bool VerifyResult(const std::string &key,
-        const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
-        const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList, float rtol, float atol);
     bool VerifyResult(const std::string &key, const std::string tensorNameList,
         const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
         const std::vector<std::shared_ptr<LogicalTensorData>> &tensorDataViewList, float rtol, float atol);
+    
+    std::string ParseErrorMsg(std::string errorMsg);
 
 private:
     void UpdateInterpreterCache();

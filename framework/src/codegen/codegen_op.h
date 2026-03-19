@@ -40,30 +40,36 @@ struct CodeGenOpCtx {
     std::shared_ptr<SymbolManager> symbolManager;
     Function &topFunc;
     Function &subFunc;
+    const Operation &operation;
     const std::map<int, int> &locToOffset = {};
     bool isMainBlock{false};
+    bool isDynamicAligned{false};
 
-    CodeGenOpCtx(std::shared_ptr<SymbolManager> sm, Function &tf, Function &sf, const std::map<int, int> &lto = {},
-        bool isMainBlk = false)
-        : symbolManager(std::move(sm)), topFunc(tf), subFunc(sf), locToOffset(lto), isMainBlock(isMainBlk) {}
+    CodeGenOpCtx(std::shared_ptr<SymbolManager> sm, Function &tf, Function &sf, const Operation &op,
+        const std::map<int, int> &lto = {}, bool isMainBlk = false, bool isDynAligned = false)
+        : symbolManager(std::move(sm)),
+          topFunc(tf),
+          subFunc(sf),
+          operation(op),
+          locToOffset(lto),
+          isMainBlock(isMainBlk),
+          isDynamicAligned(isDynAligned) {}
 };
 
 class CodeGenOp {
 public:
-    CodeGenOp(const CodeGenOpCtx &ctx)
-        : CodeGenOp(ctx.symbolManager, ctx.topFunc.GetFunctionType(), ctx.locToOffset,
-              ctx.topFunc.IsUnderDynamicFunction(), ctx.isMainBlock) {}
-    CodeGenOp(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
-        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false, bool isMainBlk = false)
-        : functionType(funcType),
-          paramLocToParamListOffset(locToOffset),
-          isUnderDynamicFunction(isUnderDynamicFunc),
-          isMainBlock(isMainBlk) {
+    explicit CodeGenOp(const CodeGenOpCtx &ctx)
+        : originalOp(ctx.operation),
+          functionType(ctx.topFunc.GetFunctionType()),
+          paramLocToParamListOffset(ctx.locToOffset),
+          isUnderDynamicFunction(ctx.topFunc.IsUnderDynamicFunction()),
+          isMainBlock(ctx.isMainBlock),
+          isDynamicAligned(ctx.isDynamicAligned) {
         for (size_t i = 0; i < MAX_OPERANDS; i++) {
             operand[i] = NULL_OPERAND;
             operandType[i] = BUF_UNKNOWN;
         }
-        sm = symbolManager;
+        sm = ctx.symbolManager;
     }
     virtual ~CodeGenOp() = default;
 
@@ -71,12 +77,10 @@ public:
 
     virtual std::string GenOpCode() const = 0;
 
-    bool hasNan{false};
-    bool hasInf{false};
-
 protected:
     std::string GenOpAttr(bool hasExistingParam = true) const;
 
+    const Operation &originalOp;
     std::string opCodeStr;
     Opcode opCode{Opcode::OP_UNKNOWN};
     std::string aliasOp; // alias op name
@@ -125,6 +129,7 @@ protected:
     bool isUnderDynamicFunction{false};
     int operandCnt{0};
     bool isMainBlock{false};
+    bool isDynamicAligned{false};
 
 private:
     void UpdateCodegenOpInfoByTensor(const Operation &ops, bool isInput, const std::shared_ptr<LogicalTensor> &tensor,

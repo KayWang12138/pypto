@@ -18,7 +18,6 @@
 
 #include <vector>
 #include <cstdint>
-#include "interface/utils/log.h"
 #include "machine/utils/machine_ws_intf.h"
 
 namespace npu::tile_fwk {

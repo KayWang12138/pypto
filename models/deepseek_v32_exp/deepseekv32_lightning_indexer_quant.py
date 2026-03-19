@@ -19,11 +19,14 @@ import torch
 import torch_npu
 import numpy as np
 import pypto
+from utils.compare import compare
 
 
 @dataclass
 class LightningIndexerConfigs:
     # graph optimization params
+    # used for copy in merge graph
+    mg_copy_in_upper_bound = 2 * 1024 * 1024
     # used for graph partition
     pg_upper_bound = 16 * 8192
     # l1 reuse merge params
@@ -37,7 +40,7 @@ class LightningIndexerConfigs:
     }
     # tile params
     s1_tile = 2
-    topk_tile = 16384
+    topk_tile = 8192
     # set the tileshape size in cube computation
     c1_tile = [64, 64, 128, 128, 128, 128] # (m, M), (k, K), (n, N)
     c2_tile = [128, 128, 64, 64, 128, 128] # (m, M), (k, K), (n, N)
@@ -271,7 +274,7 @@ def topk_idx_compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, error_cou
     err_msg = None
 
     # 按元素遍历比较
-    for idx, (exp, act) in enumerate(zip(t.flatten().tolist(), t_ref.flatten().tolist())):
+    for idx, (act, exp) in enumerate(zip(t.flatten().tolist(), t_ref.flatten().tolist())):
         # 按误差阈值分组（每组包含error_count_threshold个元素）
         part_index = idx // error_count_threshold
         # 记录不匹配的索引
@@ -325,7 +328,7 @@ def lightning_indexer(case_name: str) -> bool:
     # 根据测试用例名称配置参数
     if case_name == "LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2":
         b, s1 = 4, 2  # batch size和query序列长度
-        act_seq = [64 * 1024] * b  # 每个样本的实际序列长度
+        act_seq = [64 * 1024, 971, 32 * 1024 + 101, 16 * 1024 - 1] # 每个样本的实际序列长度
     else:
         logging.error("Fail to gen golden for Case(%s)", case_name)
         return False
@@ -362,21 +365,19 @@ def lightning_indexer(case_name: str) -> bool:
     act_seq_key_npu = input_data_map["act_seq"].npu()
     block_table_npu = input_data_map["block_table"].npu()
 
-    unroll_list = [128, 64, 32, 16, 8, 4, 1]
+    topk_res_out = torch.zeros([b * s1, 1, selected_count], dtype=torch.int32)
+    topk_res_npu = topk_res_out.npu()
 
+    unroll_list = [128, 64, 32, 16, 8, 4, 1]
     configs = LightningIndexerConfigs()
 
-    topk_res_npu = lightning_indexer_decode(n1, d, block_size, block_num, unroll_list, configs, selected_count
-                    )(idx_query_npu, idx_query_scale_npu, idx_key_cache_npu, idx_key_scale_npu, idx_weight_npu, 
-                    act_seq_key_npu, block_table_npu)
+    lightning_indexer_decode(idx_query_npu, idx_query_scale_npu, idx_key_cache_npu, idx_key_scale_npu,
+                         idx_weight_npu, act_seq_key_npu, block_table_npu, topk_res_npu,
+                         unroll_list, configs, selected_count)
 
     torch_npu.npu.synchronize()
 
     topk_res_golden = lightning_indexer_compute(input_data_map, params)
-
-    topk_res_golden = topk_res_golden.reshape(b * s1, 1, selected_count)
-
-    # 执行结果比较
     topk_idx_compare(topk_res_npu.cpu(), topk_res_golden.cpu(), "topk_res", 5e-3, selected_count)
 
     return True

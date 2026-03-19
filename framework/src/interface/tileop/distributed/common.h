@@ -161,21 +161,21 @@ TILEOP uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end)
 TILEOP uint64_t GetVirtualAddrOffset(uint64_t val)
 {
     constexpr uint64_t offsetStart = 0UL; 
-    constexpr uint64_t offsetEnd = 57UL; 
+    constexpr uint64_t offsetEnd = 53UL; 
     return GetVirtualAddrBist(val, offsetStart, offsetEnd);
 }
 
 TILEOP uint64_t GetVirtualAddrGroupIndex(uint64_t val)
 {
-    constexpr uint64_t groupIndexStart = 58UL; 
-    constexpr uint64_t groupIndexEnd = 59UL; 
+    constexpr uint64_t groupIndexStart = 54UL; 
+    constexpr uint64_t groupIndexEnd = 55UL; 
     return GetVirtualAddrBist(val, groupIndexStart, groupIndexEnd);
 }
 
 TILEOP uint64_t GetVirtualAddrMemType(uint64_t val)
 {
-    constexpr uint64_t memTypeStart = 60UL; 
-    constexpr uint64_t memTypeEnd = 61UL; 
+    constexpr uint64_t memTypeStart = 56UL; 
+    constexpr uint64_t memTypeEnd = 57UL; 
     return GetVirtualAddrBist(val, memTypeStart, memTypeEnd);
 }
 
@@ -191,14 +191,6 @@ TILEOP __gm__ T* MapVirtualAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, ui
     } else {
         return (__gm__ T*)(commCtxParam->winAddr[commCtxParam->statusIndex + dstRankId] + offset);
     }
-}
-
-template<typename T>
-TILEOP __gm__ T* MapAndOffsetShmem(__gm__ int64_t* hcclContext, __gm__ T* shmemBase, uint32_t rankOffset,
-    uint32_t offset1, uint32_t offset2, uint32_t offset3, uint32_t rawShape2, uint32_t rawShape3)
-{
-    uint32_t linearOffset = TileOp::CalcLinearOffset(rawShape2, rawShape3, offset1, offset2, offset3);
-    return MapVirtualAddr<T>(hcclContext, shmemBase, rankOffset) + linearOffset;
 }
 
 /* UB 清 0 */

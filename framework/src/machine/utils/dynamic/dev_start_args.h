@@ -57,7 +57,6 @@ struct DevStartArgs : DevStartArgsBase {
     DevInputSymbol *inputSymbolList;
     uint64_t inputSymbolSize;
     const void *controlFlowEntry;
-    std::atomic<uint64_t> syncFlag{0}; // sche and ctrl soft sync flag
 
     DeviceRuntimeDataDesc deviceRuntimeDataDesc;
     DevCtrlState devCtrlState;

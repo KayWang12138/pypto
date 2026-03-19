@@ -25,7 +25,7 @@ function(PTO_Fwk_GTest_GenerateCoverage)
             ""
             ${ARGN}
     )
-    if (ENABLE_TESTS_EXECUTE AND ENABLE_GCOV AND BUILD_OPEN_PROJECT)
+    if (ENABLE_TESTS_EXECUTE AND ENABLE_GCOV)
         # 获取 gcc 默认头文件搜索路径
         execute_process(
                 COMMAND ${CMAKE_C_COMPILER} --print-sysroot
@@ -130,9 +130,6 @@ function(PTO_Fwk_GTest_RunExe_GetPreExecSetup PY_CMD_SETUP PY_ENV_LINES BASH_CMD
     endif ()
     list(APPEND EnvLines ${LD_LIBRARY_PATH})
     # 处理环境变量 PATH
-    if ((NOT BUILD_OPEN_PROJECT) AND ENABLE_UTEST)
-        list(APPEND EnvLines "PATH=$ENV{PATH}:${CCEC_PATH}")
-    endif()
     # 处理变量 ENV_SETUP_EXT
     list(REMOVE_ITEM ARG_ENV_LINES_EXT export)
     list(REMOVE_ITEM ARG_ENV_LINES_EXT &)
@@ -243,7 +240,8 @@ function(PTO_Fwk_GTest_AddExe)
             COMMAND ${CMAKE_COMMAND} -E make_directory ${InstallConfigsDir}
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/interface/configs/*.json"                         "${InstallConfigsDir}/"
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/passes/pass_config/tile_fwk_platform_info.json"   "${InstallConfigsDir}/"
-            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation_platform/platform_config/A2A3.ini"   "${InstallConfigsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/platform/parser/platforminfo.ini"   "${InstallConfigsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/platform/parser/simulation_platform/platform_config/A2A3.ini"   "${InstallConfigsDir}/"
             COMMENT "Soft link of configs(*.json) has been created at ${InstallConfigsDir}"
     )
     # 模拟脚本文件 Install 流程, 为便于调试, 使用创建软连接方式模拟安装

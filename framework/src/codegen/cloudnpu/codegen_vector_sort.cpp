@@ -30,8 +30,8 @@ std::string CodeGenOpCloudNPU::PrintSortDynamicUnaligned(const SortParam &param)
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &tmpDtypeStr = param.tmpDtypeStr;
 
-    auto dynSrcShape = dynamicValidShape[1];
-    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
+    auto dynSrcShape = dynamicValidShape[ID2];
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[ID2].size(), 1);
 
     std::vector<std::string> paramList;
     paramList.emplace_back(srcDtypeStr);
@@ -217,8 +217,7 @@ SortParam CodeGenOpCloudNPU::PrepareSortParam() const {
         {ds[ID0], ds[ID1], ds[ID2], ds[ID3]},
         {ts[ID0], ts[ID1], ts[ID2], ts[ID3]},
         {ss[ID0], ss[ID1], ss[ID2], ss[ID3]},
-        src0Var, dstVar, tmpVar, src0DtypeStr,
-        dstDtypeStr, tmpDtypeStr
+        src0Var, dstVar, tmpVar, src0DtypeStr, dstDtypeStr, tmpDtypeStr
     };
 }
 
@@ -367,8 +366,7 @@ std::string CodeGenOpCloudNPU::PrintTileSortTileTensor() const {
     std::string src4Tensor = QueryTileTensorNameByIdx(ID5);
     std::ostringstream oss;
     oss << tileOpName << WrapParamByAngleBrackets({GenOpAttr(false)});
-    oss << WrapParamByParentheses({dstTensor, src1Tensor, src2Tensor, src3Tensor, src4Tensor, tmpTensor})
-        << STMT_END;
+    oss << WrapParamByParentheses({dstTensor, src1Tensor, src2Tensor, src3Tensor, src4Tensor, tmpTensor}) << STMT_END;
     return oss.str();
 }
 
@@ -509,9 +507,8 @@ std::string CodeGenOpCloudNPU::GenTopKSortOp() const {
     std::string startIdx;
     if (opAttrs.count(OpAttributeKey::dynScalar)) {
         auto scalar = opAttrs.at(OpAttributeKey::dynScalar);
-        ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(SymbolicScalar)))
-            << AnyCast<SymbolicScalar>(scalar).IsValid()
-            << "SCALAR attribute has to have symbolic value.";
+        ASSERT(OperErr::ATTRIBUTE_INVALID, (scalar.HasValue()) && (scalar.Type() == typeid(SymbolicScalar)))
+            << AnyCast<SymbolicScalar>(scalar).IsValid() << "SCALAR attribute has to have symbolic value.";
         auto scalarExpr = AnyCast<SymbolicScalar>(scalar);
         startIdx = SymbolicExpressionTable::BuildExpression(scalarExpr);
     }
@@ -606,11 +603,13 @@ std::string CodeGenOpCloudNPU::GenTopKExtractOp() const {
 }
 
 std::string CodeGenOpCloudNPU::GenTwoTileMrgSort() const {
+    if (isSupportLayout) {
+        return PrintExtractTileTensor();
+    }
     return PrintSortUBDynamicUnaligned(false);
 }
 
 std::string CodeGenOpCloudNPU::PrintSortUBDynamicUnaligned(bool containDstType) const {
-    
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     AppendLocalBufVarOffsetInOrder(dstVar, srcVar);
@@ -640,10 +639,10 @@ std::string CodeGenOpCloudNPU::PrintSortUBDynamicUnaligned(bool containDstType) 
     std::string dstParam = "(__ubuf__ " + dstDtypeStr + "*)" + dstVar;
 
     paramList.insert(paramList.end(), {dstParam, srcParam});
-    for (int i = 0; i < SHAPE_DIM4; i ++ ) {
+    for (int i = 0; i < SHAPE_DIM4; i++) {
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynSrcShape[i]));
     }
-    
+
     std::string tileOpParam = JoinString(paramList, CONN_COMMA);
 
     std::ostringstream oss;
@@ -652,6 +651,9 @@ std::string CodeGenOpCloudNPU::PrintSortUBDynamicUnaligned(bool containDstType) 
 }
 
 std::string CodeGenOpCloudNPU::GenExtractSingleOp() const {
+    if (isSupportLayout) {
+        return PrintExtractTileTensor();
+    }
     return PrintSortUBDynamicUnaligned(true);
 }
 } // namespace npu::tile_fwk

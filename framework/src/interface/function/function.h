@@ -458,9 +458,6 @@ struct ParamConfigs {
     std::map<int64_t, int64_t> cubeL1ReuseSetting;
     std::map<int64_t, int64_t> cubeNBufferSetting;
     std::string OoOPreScheduleMethod{"PriorDFS"};
-    int vecNBuffermode{1};
-    int L1ReuseMode{0};
-    int cubeNBufferMode{0};
     int mgVecParallelLb{48};
     bool pgSkipPartition{false};
     std::map<int64_t, int64_t> vecNBufferSetting;
@@ -618,8 +615,8 @@ public:
     int GetFuncMagic() const { return functionMagic_; }
     const TensorMap &GetTensorMap() const { return tensorMap_; }
     TensorMap &GetTensorMap() { return tensorMap_; }
-    int GetStackWorkespaceSize() const { return stackWorkespaceSize_; }
-    void SetStackWorkespaceSize(int size) { stackWorkespaceSize_ = size; }
+    int64_t GetStackWorkespaceSize() const { return stackWorkespaceSize_; }
+    void SetStackWorkespaceSize(int64_t size) { stackWorkespaceSize_ = size; }
 
     size_t GetTotalSubGraphCount() const { return totalSubGraphCount_; }
 
@@ -769,6 +766,16 @@ public:
         outCasts_.erase(outCasts_.begin() + idx);
         auto &outcastSlot = slotScope_->ioslot.outcastSlot;
         outcastSlot.erase(outcastSlot.begin() + idx);
+
+        // rebuild partial outcast list
+        auto &partialList = slotScope_->ioslot.partialUpdateOutcastList;
+        auto &partialDict = slotScope_->partialUpdateOutcastDict;
+        partialList.clear();
+        for (size_t i = 0; i < outCasts_.size(); i++) {
+            if (partialDict.find(outCasts_[i]) != partialDict.end()) {
+                partialList.push_back(i);
+            }
+        }
     }
 
     const SubfuncParam &GetParameter() const { return parameter_; }
@@ -853,7 +860,7 @@ private:
     size_t totalAicSubGraphCount_ = 0;
     size_t totalAivSubGraphCount_ = 0;
     size_t totalSubGraphCount_ = 0;
-    int stackWorkespaceSize_ = 0;
+    int64_t stackWorkespaceSize_ = 0;
     FunctionHash functionHash_{0};
     std::vector<std::string> calleeMagicNameList_;
     std::unordered_set<std::string> loopIdxNameList_;

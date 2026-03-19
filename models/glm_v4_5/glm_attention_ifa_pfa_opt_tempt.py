@@ -123,10 +123,10 @@ class AttentionConfig:
 # ============================================================================
 
 def get_pfa_config(device="cpu"):
-    """PFA (Decode) 配置 - s1 = 1"""
+    """PFA (Decode) 配置"""
     b = 2
-    s1 = 2
-    s2 = 4096 # 4096边界 16374
+    s1 = 1
+    s2 = 128 #4096 # 4096边界 16374
     q_d = 128
     nq = 12
     nkv = 1
@@ -279,10 +279,10 @@ def pfa_func(q_shape, kv_shape, block_table_shape):
             "vec_nbuffer_mode":2, 
             "vec_nbuffer_setting":{-1:8}
         },
-        verify_options = {
-            "enable_pass_verify": True,
-            "pass_verify_save_tensor": True
-        },
+        # verify_options = {
+        #     "enable_pass_verify": True,
+        #     "pass_verify_save_tensor": True
+        # },
         debug_options={"runtime_debug_mode":1}
     )
     def pfa_func_kernel(
@@ -334,7 +334,7 @@ def pfa_func(q_shape, kv_shape, block_table_shape):
             for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
                 # IFA: KV长度 = 历史KV + 当前位置
                 cur_seq = kv_act_seqs[b_idx] - (s1_scalar - 1 - s1_idx)
-                # cur_seq = s1_idx + 1  # # 修改点1
+                # cur_seq = s1_idx + 1  # # 修改点1 - 暂时恢复原始方式
                 print(f'compare values: cur_seq_org:{kv_act_seqs[b_idx] - (s1_scalar - 1 - s1_idx)}, cur_seq_new:{s1_idx + 1}')
                 s2_loop = (cur_seq + s2_tile - 1) // s2_tile
                   
@@ -371,6 +371,9 @@ def pfa_func(q_shape, kv_shape, block_table_shape):
                             sij = pypto.matmul(qi, kj_assemble, pypto.DT_FP32, a_trans=False, b_trans=True)
                             sij = pypto.view(sij, [g_tile, s2_tile], [0, 0], valid_shape=[g_tile, actual_s2_tile])
                             
+                            # 检查点1：保存 QK matmul 结果
+                            pypto.pass_verify_save(sij, f"sij_b{b_idx}_s1{s1_idx}_s2{s2_idx}", cond=(s2_idx == 0))
+                            
                             pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                             
                             if pypto.is_loop_begin(s2_idx):
@@ -380,6 +383,10 @@ def pfa_func(q_shape, kv_shape, block_table_shape):
                                 tsub = pypto.sub(sij_scale, tilda_mij)
                                 tilda_pij = pypto.exp(tsub)
                                 tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
+                                
+                                # 检查点2：保存 softmax 结果
+                                pypto.pass_verify_save(tilda_pij, f"softmax_b{b_idx}_s1{s1_idx}_s2{s2_idx}", cond=(s2_idx == 0))
+                                
                                 sum_update[:] = pypto.sum(tilda_pij, dim=-1, keepdim=True)
                                 max_update[:] = tilda_mij
                                 pypto.set_pass_options(sg_set_scope=-1)
@@ -412,6 +419,10 @@ def pfa_func(q_shape, kv_shape, block_table_shape):
                             
                             if pypto.is_loop_end(s2_idx):
                                 oi_final = pypto.div(oi_update, sum_update)
+                                
+                                # 检查点3：保存最终输出（除法后）
+                                pypto.pass_verify_save(oi_final, f"oi_final_b{b_idx}_s1{s1_idx}_s2{s2_idx}", cond=(s2_idx == 0))
+                                
                                 pypto.set_vec_tile_shapes(16, v2_tile[0], v2_tile[1])
                                 oi_final_3d = pypto.cast(pypto.reshape(oi_final, [1, g_tile, dn]), dtype)
                                 pypto.assemble(oi_final_3d, oi_ofs, atten_out)
@@ -490,10 +501,10 @@ def run_pfa_test(atten_cfg):
     for i in range(b):
         for j in range(s1):
             for n2_idx in range(nkv):
-                # seq_len = j + 1 # 修改4 PFA 因果注意力: 位置 j 只能看到位置 0 到 j 的 KV
+                seq_len = j + 1 # 修改4 PFA 因果注意力: 位置 j 只能看到位置 0 到 j 的 KV - 启用新的计算方式
 
                 kv_seq_len = kv_cache_actual_seq[i].item()
-                seq_len = kv_seq_len - s1 + 1 + j
+                # seq_len = kv_seq_len - s1 + 1 + j
                 print(f'torch_compare values: cur_seq_org:{kv_seq_len - s1 + 1 + j}, cur_seq_new:{j + 1}')
 
                 q_bs = q[i * s1 + j]
@@ -501,9 +512,23 @@ def run_pfa_test(atten_cfg):
                 v_bs = v_cache_bsnd[i, :seq_len, n2_idx:n2_idx + 1].reshape(seq_len, d)
                 
                 qk_bmm_res = torch.matmul(q_bs, k_bs.transpose(1, 0))
+                
+                # 检查点1：保存 QK matmul 结果 (对应 kernel 的 sij)
+                if i == 0 and j == 0:
+                    qk_bmm_res.cpu().float().numpy().tofile(f"golden_sij_b{i}_s1{j}_s20.bin")
+                
                 qk_ele_res = qk_bmm_res * atten_cfg.softmax_scale
                 softmax_res, _, _ = softmax(qk_ele_res, True)
+                
+                # 检查点2：保存 softmax 结果 (对应 kernel 的 tilda_pij)
+                if i == 0 and j == 0:
+                    softmax_res.cpu().float().numpy().tofile(f"golden_softmax_b{i}_s1{j}_s20.bin")
+                
                 bmm2_res = torch.matmul(softmax_res, v_bs)
+                
+                # 检查点3：保存最终输出 (对应 kernel 的 oi_final)
+                if i == 0 and j == 0:
+                    bmm2_res.cpu().float().numpy().tofile(f"golden_oi_final_b{i}_s1{j}_s20.bin")
                 
                 attention_output[i * s1 + j] = bmm2_res
                 print(f'PFA batch={i},token_pos={j}, head={n2_idx}, seq_len={seq_len}')         

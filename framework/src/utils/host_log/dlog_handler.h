@@ -21,8 +21,10 @@ namespace npu::tile_fwk {
 class DLogHandler {
 public:
     static DLogHandler &Instance();
+    int32_t CheckLogLevel(int32_t moduleId, int32_t logLevel) const;
+    int32_t GetLogLevel(int32_t moduleId, int32_t *enableEvent) const;
+    int32_t SetLogLevel(int32_t moduleId, int32_t logLevel, int32_t enableEvent) const;
     bool IsAvailable() const { return checkLevelFunc_ != nullptr && logRecordFunc_ != nullptr; }
-    int32_t(*checkLevelFunc_)(int32_t, int32_t);
     void(*logRecordFunc_)(int32_t, int32_t, const char *, ...);
 
 private:
@@ -30,5 +32,8 @@ private:
     ~DLogHandler();
     void CloseHandle();
     void *handle_{nullptr};
+    int32_t(*checkLevelFunc_)(int32_t, int32_t);
+    int32_t(*getLevelFunc_)(int32_t, int32_t*);
+    int32_t(*setLevelFunc_)(int32_t, int32_t, int32_t);
 };
 }

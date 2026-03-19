@@ -350,7 +350,7 @@ static DataType GetDataType(const std::string &name) {
         {"fp8e5m2", DataType::DT_FP8E5M2},
     };
     if (name_to_dtype.find(name) == name_to_dtype.end()) {
-        ALOG_ERROR << "Not support type " << name << " yet, return fp32 as default.";
+        MATMUL_LOGE("Not support type %s yet, return fp32 as default.", name.c_str());
         return DataType::DT_FP32;
     }
     return name_to_dtype.at(name);
@@ -509,12 +509,12 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
     return param;
 }
 
-template <typename T>
+template <typename T, size_t func_offset = 2>
 std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::string &op) {
     auto case_file = "../../../framework/tests/st/operation/test_case/" + op + "_st_test_cases.json";
     std::ifstream json_file(case_file);
     if (!json_file.is_open()) {
-        ALOG_INFO << "Not find any input data for " << case_file << ".";
+        MATMUL_LOGI("Not find any input data for %s.", case_file.c_str());
         return {};
     }
     nlohmann::json json_data = nlohmann::json::parse(json_file);
@@ -528,7 +528,7 @@ std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::stri
             if (GetViewShape(test_case).size() < 2) { // cut function start from 2 dim
                 func_id = 0;
             } else {
-                func_id = GetViewShape(test_case).size() - 2;
+                func_id = GetViewShape(test_case).size() - func_offset;
             }
         }
         test_case_list.push_back(T(opFuncs[func_id], test_case));

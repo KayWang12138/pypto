@@ -151,6 +151,7 @@ void StaticSubgraphProcessor::PrintColorGraph(const Function &function) {
 
 inline void findAllReachableNodes(int start_node, std::vector<std::vector<int>>& outGraph,	 
                                          std::vector<std::unordered_set<int>>& reachable, std::vector<int>& visited) {	 
+     visited[start_node] = 1; 
      reachable[start_node].insert(start_node);	 
      for (int v : outGraph[start_node]) { 	 
          if (visited[v] == 0) {	 
@@ -158,7 +159,6 @@ inline void findAllReachableNodes(int start_node, std::vector<std::vector<int>>&
          }	 
          reachable[start_node].insert(reachable[v].begin(), reachable[v].end());
      }	 
-     visited[start_node] = 1; 
  }
 
 void StaticSubgraphProcessor::FindRedundantEdges(int colorNum, std::vector<std::vector<int>>& redundantColorInGraph,
@@ -198,7 +198,7 @@ void StaticSubgraphProcessor::EraseRedundantColorEdges(const Function &function)
     // Erase redundant edges
     for (size_t i = 0; i < colorNum; i++) {
         std::sort(redundantColorOutGraph[i].begin(), redundantColorOutGraph[i].end());
-        APASS_LOG_INFO_F(Elements::Operation, "Redundant outgraph of %d is %s.", i, IntVecToStr(redundantColorOutGraph[i]).c_str());
+        APASS_LOG_INFO_F(Elements::Operation, "Redundant outgraph of %zu is %s.", i, IntVecToStr(redundantColorOutGraph[i]).c_str());
         std::vector<int> newGraph;
         // update color_in_graph
         size_t j = 0U;

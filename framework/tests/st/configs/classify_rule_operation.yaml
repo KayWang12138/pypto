@@ -1,11 +1,11 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
-# This file is a part of the CANN Open Software.
-# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
-# ======================================================================================================================
+# -----------------------------------------------------------------------------------------------------------
 
 # 说明:
 #   本文件用于 Tests 用例分类分组定义
@@ -79,15 +79,6 @@ stest:
       # - MatmulOnBoardTest.test_mm_float32_32_128_128
       # - MatmulOnBoardTest.test_mm_unalign_float32_2_128_128
       # - MatmulOnBoardTest.test_mm_unalign_float32_16_35_32
-      # - OnBoardTest.test_BMM_Simple
-      # - OnBoardTest.test_BMM_3D_Brc
-      # - OnBoardTest.test_BMM_3D_Brc_Transpose
-      # - OnBoardTest.test_BMM_4D_Brc_Transpose
-      # - OnBoardTest.test_BMM_UNALIGN_2_1024_32
-      # - OnBoardTest.test_BMM_post
-      # - OnBoardTest.test_BMM_NZ_1_32_32_32
-      # - OnBoardTest.test_BMM_NZ_1_32_32_320
-      # - OnBoardTest.test_BMM_NZ_1_64_32_16
       # - MatmulOnBoardTest.test_mm_float32_32_128_64
       # - MatmulOnBoardTest.test_mm_float32_32_192_64
       # - MatmulOnBoardTest.test_mm_int8_32_128_64
@@ -138,6 +129,8 @@ stest:
       - TestExpm1/Expm1OperationTest.TestExpm1/21
       - TestExpm1/Expm1OperationTest.TestExpm1/22
       - TestExpm1/Expm1OperationTest.TestExpm1/23
+      - TestExpandExpDif/ExpandExpDifOperationTest.TestExpandExpDif/12
+      - TestExpandExpDif/ExpandExpDifOperationTest.TestExpandExpDif/13
       - TestMul/MulOperationTest.TestMul/21
       - TestMul/MulOperationTest.TestMul/22
       - TestMul/MulOperationTest.TestMul/25
@@ -218,8 +211,8 @@ stest:
       - TestLogicalNot/LogicalNotOperationTest.TestLogicalNot/4
       - TestCompare/CompareOperationTest.TestCompare/1
       - TestCompare/CompareOperationTest.TestCompare/13
-      - TestIndexPut_/IndexPut_OperationTest.TestIndexPut_/6
-      - TestIndexPut_/IndexPut_OperationTest.TestIndexPut_/12
+      - TestIndexPut_/IndexPut_OperationTest.TestIndexPut_/37
+      - TestIndexPut_/IndexPut_OperationTest.TestIndexPut_/42
       - TestExpand/ExpandOperationTest.TestExpand/4
       - TestExpand/ExpandOperationTest.TestExpand/20
       - TestMinimum/MinimumOperationTest.TestMinimum/12
@@ -253,6 +246,8 @@ stest:
       - TestCopySign/CopySignOperationTest.TestCopySign/1
       - TestCopySign/CopySignOperationTest.TestCopySign/4
       - TestCopySign/CopySignOperationTest.TestCopySign/5
+      - TestProd/ProdOperationTest.TestProd/1
+      - TestProd/ProdOperationTest.TestProd/9
       - TestRelu/ReluOperationTest.TestRelu/0
       - TestRelu/ReluOperationTest.TestRelu/3
       - TestHypot/HypotOperationTest.TestHypot/0
@@ -289,15 +284,6 @@ stest:
       # - AbsOnBoardTest.test_abs_8_4608
       # - AbsOnBoardTest.test_abs_8_4609
       # - AbsOnBoardTest.test_abs_1_16384
-      # - OnBoardTest.test_operation_tensor_16_16_64_65_tileop_add_unalign
-      # - OnBoardTest.test_operation_tensor_16_16_39_65_tileop_add_unalign
-      # - OnBoardTest.test_operation_tensor_32_1_tileop_sub_unalign
-      # - OnBoardTest.test_operation_tensor_32_1_tileop_mul_unalign
-      # - OnBoardTest.test_operation_tensor_32_1_tileop_add_unalign
-      # - OnBoardTest.test_operation_add_vs_dim2_unalign
-      # - OnBoardTest.test_operation_mul_vs_dim3_unalign
-      # - OnBoardTest.test_operation_sub_vs_dim4_unalign
-      # - OnBoardTest.test_operation_div_vs_dim1_unalign
       # - OnBoardIFATest.test_32_1_sub_32_1
       # - OnBoardIFATest.test_32_1_mul_32_1
       # - OnBoardIFATest.test_32_1_maximum
@@ -305,53 +291,6 @@ stest:
       # - OnBoardIFATest.test_32_1_reciprocal
       # - OnBoardIFATest.test_page_attention_static_low_latency
       #
-      # - OnBoardTest.test_operation_tensor_dim2_add
-      # - OnBoardTest.test_operation_scalar_dim2_add_FP16
-      # - OnBoardTest.test_operation_tensor_dim4_add
-      # - OnBoardTest.test_operation_tensor_16_16_64_64_tileop_add
-      # - OnBoardTest.test_operation_tensor_16_16_64_64_tileop_sub
-      # - OnBoardTest.test_operation_tensor_16_16_64_64_tileop_mul
-      # - OnBoardTest.test_operation_tensor_16_16_64_64_tileop_div
-      # - OnBoardTest.test_operation_tensor_8_80_80_tileop_add
-      # - OnBoardTest.test_operation_tensor_8_80_80_tileop_sub
-      # - OnBoardTest.test_operation_tensor_8_80_80_tileop_mul
-      # - OnBoardTest.test_operation_tensor_8_80_80_tileop_div
-      # - OnBoardTest.test_operation_tensor_64_128_tileop_add
-      # - OnBoardTest.test_operation_tensor_1_n_to_m_n_mul
-      # - OnBoardTest.test_operation_tensor_64_128_tileop_sub
-      # - OnBoardTest.test_operation_tensor_64_128_tileop_mul
-      # - OnBoardTest.test_operation_tensor_64_128_tileop_div
-      # - OnBoardTest.test_operation_scalar_dim2_add
-      # - OnBoardTest.test_operation_scalar_dim3_add
-      # - OnBoardTest.test_operation_scalar_dim4_add
-      # - OnBoardTest.test_operation_scalar_dim2_sub
-      # - OnBoardTest.test_operation_scalar_dim3_sub
-      # - OnBoardTest.test_operation_scalar_dim4_sub
-      # - OnBoardTest.test_operation_scalar_dim2_mul
-      # - OnBoardTest.test_operation_scalar_dim3_mul
-      # - OnBoardTest.test_operation_scalar_dim4_mul
-      # - OnBoardTest.test_operation_scalar_dim2_div
-      # - OnBoardTest.test_operation_scalar_dim1_div
-      # - OnBoardTest.test_operation_scalar_dim3_div
-      # - OnBoardTest.test_operation_scalar_dim4_div
-      # - OnBoardTest.test_operation_scalar_dim1_div
-      # - OnBoardTest.test_operation_scalar_32_32_1_256_mul
-      # - OnBoardTest.test_operation_tensor_2_2_8_8_expand_add
-      # - OnBoardTest.test_operation_tensor_4_4_16_16_expand_add
-      # - OnBoardTest.test_operation_tensor_1_1_32_to_16_32_32_expand_add
-      # - OnBoardTest.test_operation_tensor_8_16_1_to_8_16_16_expand_add
-      # - OnBoardTest.test_operation_tensor_8_8_1_to_8_8_7168_expand_Mul_moe
-      # - OnBoardTest.test_operation_tensor_8_1_16_to_8_16_16_expand_add
-      # - OnBoardTest.test_operation_tensor_1_16_16_to_8_16_16_expand_add
-      # - OnBoardTest.test_operation_tensor_8_1_1_to_8_16_16_expand_add
-      # - OnBoardTest.test_operation_tensor_16_32_32_to_16_32_1_tileop_mul
-      # - OnBoardTest.test_operation_tensor_8_8_1_1_to_8_8_1_256_tileop_sub
-      # - OnBoardTest.test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul01
-      # - OnBoardTest.test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_add
-      # - OnBoardTest.test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_div
-      # - OnBoardTest.test_operation_tensor_8_8_1_to_8_8_7168_expand_mul
-      # - OnBoardTest.test_operation_tensor_8_8_1_to_8_8_7168_expand_sub
-      # - OnBoardTest.test_mul_large_row
       # - CastOnBoard.test_cast_fp32toint32rint_1_4608
       # - CastOnBoard.test_cast_int32tofp16none_1_4608
       # - CastOnBoard.test_cast_fp16toint8trunc_1_4608
@@ -385,9 +324,4 @@ stest:
       # - TopkOnBoardTest.test_operation_tensor_4_32_8_topk
       # - TopkOnBoardTest.test_operation_tensor_2_288_15_topk
       # - TopkOnBoardTest.test_operation_tensor_2_288_15_topk_reverse
-      # - ArgsortOnBoardTest.test_operation_tensor_128_32_argsort
-      # - ArgsortOnBoardTest.test_operation_tensor_4_32_argsort
-      # - ArgsortOnBoardTest.test_operation_tensor_2_16_argsort
-      # - ArgsortOnBoardTest.test_operation_tensor_64_argsort
-      # - ArgsortOnBoardTest.test_operation_tensor_4_32__argsort
       # - VecdupTest.TestVecDup

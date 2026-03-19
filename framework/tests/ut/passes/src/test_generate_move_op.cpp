@@ -184,8 +184,8 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
 
         // ================== Verify Pass Effect ==================
         auto updatedOperations = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD")->Operations();
-        constexpr int expectedOperations = 4;
-        EXPECT_EQ(updatedOperations.size(), expectedOperations) << "8 operations should remain View + Convert + Add + Assemble";
+        constexpr int expectedOperations = 6;
+        EXPECT_EQ(updatedOperations.size(), expectedOperations) << "6 operations should remain View + Convert + Add + Assemble";
         int assemble_num = 0;
         int view_num = 0;
         int copy_in_num = 0;
@@ -211,11 +211,11 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
                 default: break;
             }
         }
-        constexpr int expectedView = 0;
+        constexpr int expectedView = 2;
         constexpr int expectedAssemble = 0;
         constexpr int expectedCopyIn = 2;
         constexpr int expectedCopyOut = 1;
-        EXPECT_EQ(view_num, expectedView) << "0 operations should be OP_VIEW";
+        EXPECT_EQ(view_num, expectedView) << "2 operations should be OP_VIEW";
         EXPECT_EQ(assemble_num, expectedAssemble) << "0 operations should be OP_ASSEMBLE";
         EXPECT_EQ(copy_in_num, expectedCopyIn) << "4 operations should be OP_COPY_IN";
         EXPECT_EQ(copy_out_num, expectedCopyOut) << "3 operations should be OP_COPY_OUT";
@@ -833,6 +833,244 @@ TEST_F(GenerateMoveOpPassTest, ProcessUB2L1NonNDFormat) {
         EXPECT_EQ(ub2ubNum, 0) << "No OP_UB_COPY_ND2NZ should be inserted for NZ format";
         EXPECT_EQ(ubCopyL1Op->iOperand.front()->Format(), TileOpFormat::TILEOP_NZ);
     }
+}
+
+TEST_F(GenerateMoveOpPassTest, ProcessDefault_L0C_UB_SetIsCube) {
+    PROGRAM("ProcessDefault_L0C_UB_SetIsCube") {
+        std::vector<int64_t> shape{16, 16};
+        Tensor a(DT_FP32, shape, "a");
+        Tensor b(DT_FP32, shape, "b");
+
+        Function* func = nullptr;
+        FUNCTION("ProcessDefault_L0C_UB_Func") {
+            func = Program::GetInstance().GetCurrentFunction();
+            b = View(a, shape, {0, 0});
+        }
+
+        // 创建输入tensor（L0C）
+        auto l0cRawTensor = std::make_shared<RawTensor>(DT_FP32, shape, TileOpFormat::TILEOP_ND);
+        std::vector<int64_t> l0cOffset(shape.size(), 0);
+        auto l0cTensor = std::make_shared<LogicalTensor>(*func, l0cRawTensor, l0cOffset, shape);
+        l0cTensor->SetMemoryTypeOriginal(MEM_L0C);
+        l0cTensor->SetMemoryTypeToBe(MEM_L0C);
+
+        // 创建输出tensor（UB）
+        auto ubRawTensor = std::make_shared<RawTensor>(DT_FP32, shape, TileOpFormat::TILEOP_ND);
+        std::vector<int64_t> ubOffset(shape.size(), 0);
+        auto ubTensor = std::make_shared<LogicalTensor>(*func, ubRawTensor, ubOffset, shape);
+        ubTensor->SetMemoryTypeOriginal(MEM_UB);
+        ubTensor->SetMemoryTypeToBe(MEM_UB);
+
+        // 使用AddRawOperation将OP_VIEW添加到func中
+        auto& viewOp = func->AddRawOperation(Opcode::OP_VIEW, {l0cTensor}, {ubTensor});
+
+        // 验证输入输出内存类型不同
+        ASSERT_EQ(viewOp.iOperand.front()->GetMemoryTypeOriginal(), MEM_L0C)
+            << "Input memory type should be L0C";
+        ASSERT_EQ(viewOp.oOperand.front()->GetMemoryTypeOriginal(), MEM_UB)
+            << "Output memory type should be UB";
+
+        // 设置ViewOpAttribute
+        auto viewAttr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, MemoryType::MEM_UB);
+        viewOp.SetOpAttribute(viewAttr);
+
+        // 直接调用ProcessDefault函数
+        GenerateMoveOp generateMoveOp;
+        Status status = generateMoveOp.ProcessDefault(*func, viewOp, viewAttr.get());
+        ASSERT_EQ(status, SUCCESS);
+
+        // 验证OP_VIEW已被转换为OP_L0C_COPY_UB
+        EXPECT_EQ(viewOp.GetOpcode(), Opcode::OP_L0C_COPY_UB)
+            << "VIEW should convert to OP_L0C_COPY_UB";
+
+        // 验证isCube属性已设置为true
+        ASSERT_TRUE(viewOp.HasAttribute(OpAttributeKey::isCube))
+            << "OP_L0C_COPY_UB should have isCube attribute";
+        EXPECT_TRUE(viewOp.GetBoolAttribute(OpAttributeKey::isCube))
+            << "isCube should be true for OP_L0C_COPY_UB";
+    }
+}
+
+TEST_F(GenerateMoveOpPassTest, SetOpcodeByMemPath) {
+    GenerateMoveOp generateMoveOp;
+    Program& program = Program::GetInstance();
+    std::shared_ptr<Function> testFunc = std::make_shared<Function>(
+        program,
+        "test_func_magic",
+        "test_func_raw",
+        nullptr
+    );
+
+    LogicalTensors emptyIOperands;
+    LogicalTensors emptyOOperands;
+    Operation& testOp = testFunc->AddRawOperation(
+        Opcode::OP_VIEW,
+        emptyIOperands,
+        emptyOOperands,
+        false
+    );
+    Status ret = generateMoveOp.SetOpcodeByMemPath(
+        testOp, 
+        MemoryType::MEM_L0AMX, 
+        MemoryType::MEM_L0BMX
+    );
+    EXPECT_EQ(ret, FAILED);
+}
+
+// ========== 测试用例：InsertAssembleCopy - 整体插入拷贝序列流程 ==========
+TEST_F(GenerateMoveOpPassTest, InsertAssembleCopy) {
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "InsertAssembleCopy", "InsertAssembleCopy", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("InsertAssembleCopy", currFunctionPtr);
+
+    // 创建共享输入tensor (UB内存类型)
+    std::vector<int64_t> shape = {32, 64};
+    auto sharedInput = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    sharedInput->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+
+    // 创建多个输出tensor
+    auto output1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    output1->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    output2->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto output3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    output3->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+
+    // 创建多个ASSEMBLE操作，共享同一个输入
+    auto &assemble1 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {sharedInput}, {output1});
+    assemble1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+    auto &assemble2 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {sharedInput}, {output2});
+    assemble2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+    auto &assemble3 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {sharedInput}, {output3});
+    assemble3.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+
+    currFunctionPtr->inCasts_.push_back(sharedInput);
+    currFunctionPtr->outCasts_.push_back(output1);
+    currFunctionPtr->outCasts_.push_back(output2);
+    currFunctionPtr->outCasts_.push_back(output3);
+
+    // 调用InsertAssembleCopy
+    GenerateMoveOp generateMoveOp;
+    generateMoveOp.InsertAssembleCopy(*currFunctionPtr);
+
+    // 验证插入的拷贝序列
+    int copyInNum = 0;
+    int copyOutNum = 0;
+    int assembleNum = 0;
+    for (const auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+            copyInNum++;
+        } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+            copyOutNum++;
+        } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assembleNum++;
+        }
+    }
+
+    // 应该为2个ASSEMBLE操作插入拷贝序列（每个需要2个COPY操作）
+    EXPECT_EQ(assembleNum, 3) << "Should have 3 ASSEMBLE operations";
+    EXPECT_EQ(copyInNum, 2) << "Should insert 2 COPY_IN operations";
+    EXPECT_EQ(copyOutNum, 2) << "Should insert 2 COPY_OUT operations";
+}
+
+// ========== 测试用例：InsertAssembleCopy - DDR内存类型场景 ==========
+TEST_F(GenerateMoveOpPassTest, InsertAssembleCopyDDR) {
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "InsertAssembleCopyDDR", "InsertAssembleCopyDDR", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("InsertAssembleCopyDDR", currFunctionPtr);
+
+    // 创建共享输入tensor (DDR内存类型)
+    std::vector<int64_t> shape = {32, 64};
+    auto sharedInput = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    sharedInput->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    // 创建多个输出tensor
+    auto output1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    output1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    output2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    // 创建多个ASSEMBLE操作，共享同一个输入
+    auto &assemble1 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {sharedInput}, {output1});
+    assemble1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+    auto &assemble2 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {sharedInput}, {output2});
+    assemble2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+
+    currFunctionPtr->inCasts_.push_back(sharedInput);
+    currFunctionPtr->outCasts_.push_back(output1);
+    currFunctionPtr->outCasts_.push_back(output2);
+
+    // 调用InsertAssembleCopy
+    GenerateMoveOp generateMoveOp;
+    generateMoveOp.InsertAssembleCopy(*currFunctionPtr);
+
+    // 验证插入的拷贝序列
+    int copyInNum = 0;
+    int copyOutNum = 0;
+    int assembleNum = 0;
+    for (const auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+            copyInNum++;
+        } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+            copyOutNum++;
+        } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assembleNum++;
+        }
+    }
+
+    // 应该为1个ASSEMBLE操作插入拷贝序列（DDR→UB→DDR）
+    EXPECT_EQ(assembleNum, 2) << "Should have 2 ASSEMBLE operations";
+    EXPECT_EQ(copyInNum, 1) << "Should insert 1 COPY_IN operation";
+    EXPECT_EQ(copyOutNum, 1) << "Should insert 1 COPY_OUT operation";
+}
+
+// ========== 测试用例：InsertAssembleCopy - 单个ASSEMBLE不插入拷贝 ==========
+TEST_F(GenerateMoveOpPassTest, InsertAssembleCopySingleAssemble) {
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "InsertAssembleCopySingleAssemble", "InsertAssembleCopySingleAssemble", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("InsertAssembleCopySingleAssemble", currFunctionPtr);
+
+    // 创建输入tensor
+    std::vector<int64_t> shape = {32, 64};
+    auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    input->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+
+    // 创建输出tensor
+    auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    output->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+
+    // 创建单个ASSEMBLE操作
+    auto &assemble = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {input}, {output});
+    assemble.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+
+    currFunctionPtr->inCasts_.push_back(input);
+    currFunctionPtr->outCasts_.push_back(output);
+
+    // 调用InsertAssembleCopy
+    GenerateMoveOp generateMoveOp;
+    generateMoveOp.InsertAssembleCopy(*currFunctionPtr);
+
+    // 验证没有插入拷贝序列
+    int copyInNum = 0;
+    int copyOutNum = 0;
+    int assembleNum = 0;
+    for (const auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+            copyInNum++;
+        } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+            copyOutNum++;
+        } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assembleNum++;
+        }
+    }
+
+    // 单个ASSEMBLE不应该插入拷贝序列
+    EXPECT_EQ(assembleNum, 1) << "Should have 1 ASSEMBLE operation";
+    EXPECT_EQ(copyInNum, 0) << "Should not insert COPY_IN operation";
+    EXPECT_EQ(copyOutNum, 0) << "Should not insert COPY_OUT operation";
 }
 }
 } // namespace npu::tile_fwk

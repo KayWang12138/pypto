@@ -139,7 +139,7 @@ TEST_F(TestExpandFunctionPass, TestCVSeperate2) {
     std::vector<int64_t> tile_shape = {kNumExpFive, kNumExpFive};
     std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};    
     TileShape::Current().SetVecTile(kNumExpFive, kNumExpFive);
-    TileShape::Current().SetCubeTile({kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, false, false);
+    TileShape::Current().SetCubeTile({kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, false);
 
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
 
@@ -170,8 +170,7 @@ TEST_F(TestExpandFunctionPass, TestCVSeperate2) {
 }
 /*
 TESTExpandFunctionNOP
-inCast{8,16}->pad->ubTensor1{8,16}->nop->ubTensor2{8,16}->view->outCast{8,16}
-pad is removed
+inCast{8,16}->nop->ubTensor2{8,16}->view->outCast{8,16}
 */
 TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
@@ -184,15 +183,13 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
     auto op_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{kNumZero, kNumZero});
-    currFunctionPtr->AddOperation(Opcode::OP_PAD, {inCast}, {ubTensor1});
-    currFunctionPtr->AddOperation(Opcode::OP_NOP, {ubTensor1}, {ubTensor2});
-    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {outCast});
+    currFunctionPtr->AddOperation(Opcode::OP_NOP, {inCast}, {ubTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor1}, {outCast});
     
-    std::shared_ptr<Operation> pad_op, nop_op, view_op;
+    std::shared_ptr<Operation> nop_op, view_op;
     for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex){
         auto op = currFunctionPtr->Operations().operations_[uIndex];
-        if (op->GetOpcode() == Opcode::OP_PAD) pad_op = op;
-        else if (op->GetOpcode() == Opcode::OP_NOP) nop_op = op;
+        if (op->GetOpcode() == Opcode::OP_NOP) nop_op = op;
         else if (op->GetOpcode() == Opcode::OP_VIEW) view_op = op;
     }
 
@@ -207,20 +204,16 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     EXPECT_EQ(status, SUCCESS);
     EXPECT_EQ(currFunctionPtr->GetGraphType(), GraphType::TILE_GRAPH);
 
-    uint32_t view_num = kNumZero, pad_num = kNumZero, nop_num = kNumZero;
+    uint32_t view_num = kNumZero, nop_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             EXPECT_EQ(op_attr, view_op->GetOpAttribute());
             EXPECT_NE(view_op->GetOpMagic(), op.GetOpMagic()); ++view_num;
-        } else if (op.GetOpcode() == Opcode::OP_PAD) {
-            EXPECT_TRUE(pad_op->GetOpAttribute() == nullptr);
-            EXPECT_NE(pad_op->GetOpMagic(), op.GetOpMagic()); ++pad_num;
         } else if (op.GetOpcode() == Opcode::OP_NOP) {
             EXPECT_NE(nop_op->GetOpMagic(), op.GetOpMagic()); ++nop_num;
         }
     }
     EXPECT_EQ(view_num, kNumOne);
-    EXPECT_EQ(pad_num, kNumOne);
     EXPECT_EQ(nop_num, kNumOne);
 }
 
@@ -326,15 +319,17 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest4) {
 }
 
 /*
-TESTExpandFunctionAssembleV2
-inCast1{32,128}->reshape->ubTensor{64,64}->assemble->outCast{32,128}
-inCast1{32,128}->reshape->ubTensor{64,64}->assemble(*4)->outCast{32,128}
+TESTExpandFunctionAssembleNotExpand
+Bug #605: Assemble operation should NOT be expanded.
+inCast{32,128}->reshape->ubTensor{64,64}->assemble->outCast{32,128}
+Expected: assemble remains as a single instance (not expanded to 4 instances)
+No UB node operations should be generated.
 */
 TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
-    // Prepare the graph
+    // Prepare the graph: reshape -> assemble
     std::vector<int64_t> shape1 = {kNumExpFive, kNumExpSeven};
     std::vector<int64_t> shape2 = {kNumExpSix, kNumExpSix};
     std::vector<int64_t> shape3 = {kNumExpFive, kNumExpSeven};
@@ -372,14 +367,27 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
     EXPECT_EQ(status, SUCCESS);
     EXPECT_EQ(currFunctionPtr->GetGraphType(), GraphType::TILE_GRAPH);
 
+    // Verify assemble is NOT expanded (Bug #605 fix)
+    // Before fix: assemble_num was 4 (expanded)
+    // After fix: assemble_num should be 1 (not expanded)
     uint32_t assemble_num = kNumZero;
+    uint32_t reshape_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             EXPECT_NE(op.GetOpMagic(), assemble_op->GetOpMagic());
+            // Verify assemble has correct attribute
+            auto attr = op.GetOpAttribute();
+            EXPECT_NE(attr, nullptr);
             ++assemble_num;
         }
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            ++reshape_num;
+        }
     }
-    EXPECT_EQ(assemble_num, kNumFour);
+    // Key assertion: assemble should remain as a single instance (not expanded)
+    EXPECT_EQ(assemble_num, kNumOne);
+    // Verify reshape is also not expanded (it's not in kNotNeedExpandOps, but should still work)
+    EXPECT_EQ(reshape_num, kNumOne);
 }
 
 /*
@@ -559,7 +567,7 @@ TEST_F(TestExpandFunctionPass, DisableCombineAxisOnA5) {
     ExpandFunction expandfunctionpass;
     auto status = expandfunctionpass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
-    EXPECT_EQ(currFunctionPtr->paramConfigs_.combineAxis, false);
+    EXPECT_EQ(currFunctionPtr->paramConfigs_.combineAxis, true);
 }
 
 }

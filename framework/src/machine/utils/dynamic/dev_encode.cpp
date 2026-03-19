@@ -33,7 +33,7 @@
 #include <unordered_map>
 #include <utility>
 #include <queue>
-
+#include <sstream>
 using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 namespace dynamic {
@@ -54,7 +54,6 @@ constexpr int32_t MAX_CELLMATCHSSTRIDE = 20000000;
 static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
 constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是2个u64
 static uint32_t MAX_UNROLL_TIMES = 1; // the max num of unroll_list
-
 void DevAscendFunction::InitIncastOutcastAttr(
         uintdevptr_t &initOffset,
         const std::vector<std::shared_ptr<LogicalTensor>> &iList,
@@ -90,8 +89,8 @@ void DevAscendFunction::InitOperationDynamicField(
     duppedDataCopySize_ = sizeof(DevAscendFunctionDuppedData) + predCountListDataSize;
     duppedData_.HostInitDataSizeOffset(initOffset, duppedDataAllocSize_);
     predInfo_ = predInfo;
-    MACHINE_LOGI("Pred: zero= %llu aiv= %llu aic= %llu hub= %llu aicpu=%llu",
-        predInfo.totalZeroPred, predInfo.totalZeroPredAIV, predInfo.totalZeroPredAIC, predInfo.totalZeroPredHub, predInfo.totalZeroPredAicpu);
+    MACHINE_LOGI("Pred: zero= %lu aiv= %lu aic= %lu hub= %lu aicpu=%lu",
+        static_cast<unsigned long>(predInfo.totalZeroPred), static_cast<unsigned long>(predInfo.totalZeroPredAIV), static_cast<unsigned long>(predInfo.totalZeroPredAIC), static_cast<unsigned long>(predInfo.totalZeroPredHub), static_cast<unsigned long>(predInfo.totalZeroPredAicpu));
 
     ONFILLCONTENT {
         DevAscendFunctionDuppedData *dupData = reinterpret_cast<DevAscendFunctionDuppedData *>(&At(duppedData_, 0));
@@ -221,6 +220,20 @@ static int64_t GetShapeSizeSafe(const std::vector<int64_t> &shape) {
     }
     return nelm;
 }
+
+static std::string FormatShape(const std::vector<int64_t> &shape) {
+    std::ostringstream oss;
+    oss << "[";
+    for (size_t i = 0; i < shape.size(); i++) {
+        if (i > 0) {
+            oss << ", ";
+        }
+        oss << shape[i];
+    }
+    oss << "]";
+    return oss.str();
+}
+
 
 static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAscendRawTensor *encoded,
         std::shared_ptr<RawTensor> rawTensor, bool needIndependentlyAlloc, const std::string rootName = "") {
@@ -364,11 +377,13 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
 
         for (size_t i = 0; i < rawList.size(); i++) {
             const auto &rawTensor = rawList[i];
+            std::string rawShape = FormatShape(rawTensor->GetRawShape()).c_str();
             if (rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic) {
                 auto it = rawMagicToRawTensor.find(rawTensor->actualRawmagic);
                 ASSERT(it != rawMagicToRawTensor.end()) << "rawMagic is not found in rawMagicToRawTensor: " <<
                        rawTensor->actualRawmagic;
                 auto &actualRaw = it->second;
+                std::string actualrawShape = FormatShape(actualRaw->GetRawShape()).c_str();
                 const auto &rawTensorRawShape = rawTensor->GetRawShape();
                 bool isDynamicShape = std::find_if(rawTensorRawShape.begin(), rawTensorRawShape.end(),
                     [](int64_t dimShape) { return dimShape < 0; }) != rawTensorRawShape.end();
@@ -395,15 +410,29 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                     continue;
                 }
                 ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize()) << "Shape size mismatch:"
-                       << rawTensor->GetRawShapeSize() << "!=" << actualRaw->GetRawShapeSize();
+                       << rawTensor->GetRawShapeSize() << "!=" << actualRaw->GetRawShapeSize()
+ 	                   << ", rootMagic="<< param.devRoot->GetMagicName()
+ 	                   << ", rootHash="<< param.devRoot->GetFunctionHash().GetHash()
+                       <<" ,rawShape="<< rawShape
+                       <<",actualrawShape="<< actualrawShape
+ 	                   << ", rawTensor->rawMagic=" << rawTensor->GetRawMagic()
+ 	                   << ", rawTensor->actualRawmagic=" << rawTensor->actualRawmagic
+ 	                   << ", actualRaw->rawMagic=" << actualRaw->rawmagic;
                 ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize()) << "Data size mismatch:"
-                       << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize();
+                       << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize()
+ 	                   << ", rootMagic="<< param.devRoot->GetMagicName()
+ 	                   << ", rootHash="<< param.devRoot->GetFunctionHash().GetHash()
+                       <<" ,rawShape="<< rawShape
+                       <<",actualrawShape="<< actualrawShape
+ 	                   << ", rawTensor->rawMagic=" << rawTensor->GetRawMagic()
+ 	                   << ", rawTensor->actualRawmagic=" << rawTensor->actualRawmagic
+ 	                   << ", actualRaw->rawMagic=" << actualRaw->rawmagic;
             }
         }
 
         // file linkedIncastId
         auto outIncastLinkMap = param.devRoot->outIncastLinkMap;
-        MACHINE_LOGD("devRoot is %s", param.devRoot->GetRawName().c_str());
+        MACHINE_LOGD("rootName is %s", param.devRoot->GetRawName().c_str());
         for (size_t i = 0; i < rawList.size(); i++) {
             auto &encoded = *GetRawTensor(i);
             if (outIncastLinkMap.find(rawList[i]) != outIncastLinkMap.end()) {
@@ -419,7 +448,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 }
             } else {
                 encoded.linkedIncastId = -1;
-                MACHINE_LOGD("linkedIncastId is %d", encoded.linkedIncastId);
+                MACHINE_LOGD("raw tensor linkedIncastId is %d", encoded.linkedIncastId);
             }
         }
     }; // ONFILLCONTENT
@@ -441,7 +470,9 @@ static int GetCceIndex(const std::unordered_map<uint64_t, int> &calleeHashIndexD
     const std::shared_ptr<CallOpAttribute> &callop)
 {
     int cceIndex = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
-    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1) {
+    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+    enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVF) {
         cceIndex = std::max(0, cceIndex * MAIN_BLOCK_SIZE - 1);
     }
     return cceIndex;
@@ -968,12 +999,17 @@ struct EncodeDevAscendFunctionInfo {
             cellMatchSize *= tile;
             cellMatchStride[r] = cellMatchSize;
         }
-        MACHINE_LOGD("Outcast is %d raw %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
+        MACHINE_LOGD("Outcast is %d rawtensor magic %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
             IntVecToStr(tensor->shape).c_str(),
             cellMatchSize,
             IntVecToStr(ShapeToVector(cellMatchShape)).c_str(),
             IntVecToStr(StrideToVector(cellMatchStride)).c_str());
-        ASSERT(cellMatchStride[0] < MAX_CELLMATCHSSTRIDE) << " Assemble outcast " << tensor->magic << "raw" << tensor->GetRawMagic()
+        if (cellMatchStride[0] > MAX_CELLMATCHSSTRIDE) {
+ 	  	    MACHINE_LOGE("Assemble out-cast %d raw %d stitch results in excessive memory consumption "
+ 	  	                 "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape ",
+ 	  	                 tensor->magic, tensor->GetRawMagic());
+ 	  	}
+        ASSERT(cellMatchStride[0] < MAX_CELLMATCHSSTRIDE) << " Assemble outcast " << tensor->magic << " raw " << tensor->GetRawMagic()
  	         <<"stitch results in excessive memory consumption," 
  	         << "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape."; 
     }
@@ -1009,7 +1045,7 @@ struct EncodeDevAscendFunctionInfo {
                 } else {
                     useList.emplace_back(i, j, coaIndex, coaIndex + dimSize);
                 }
-                MACHINE_LOGD("Outcast oOperandIdx for outcast %d %d is %d", o->magic, o->GetRawMagic(), j);
+                MACHINE_LOGD("Outcast oOperandIdx for outcast %d rawtensor maigic %d is %zu", o->magic, o->GetRawMagic(), j);
                 outcastUseOpSet.insert(i);
                 auto expr = callAttr->GetOutcastSymbolicExpr(j);
                 outcastOpAttr.bindTensorExprIndex = -1;
@@ -1028,7 +1064,7 @@ struct EncodeDevAscendFunctionInfo {
                     UNUSED(offsetAttrIdx);
                     auto shape = callAttr->GetLinearImmediateArgList(shapeAttrIdx, shapeAttrIdx + dimSize, false);
                     UpdateCellMatchShape(outcastOpAttr.cellMatchTableDesc, shape);
-                    MACHINE_LOGD("minimal shape for outcast %d raw %d op %d %d is %s\n", o->magic, o->GetRawMagic(), i,
+                    MACHINE_LOGD("minimal shape for outcast %d rawtensor magic %d op %zu %d is %s\n", o->magic, o->GetRawMagic(), i,
                         op.GetOpMagic(), IntVecToStr(ShapeToVector(outcastOpAttr.cellMatchTableDesc.cellShape)).c_str());
                 }
             }
@@ -1124,7 +1160,7 @@ struct EncodeDevAscendFunctionInfo {
                         }
                         incastOpAttr.useList.emplace_back(j, k, coaIndex, coaIndex + dimSize);
                         UpdateCellMatchShape(incastOpAttr.cellMatchTableDesc, shape);
-                        MACHINE_LOGD("minimal shape for incast %d raw %d op %d %d is %s\n", index->magic, index->GetRawMagic(), j,
+                        MACHINE_LOGD("minimal shape for incast %d rawtensor magic %d op %zu %d is %s\n", index->magic, index->GetRawMagic(), j,
                             op.GetOpMagic(), IntVecToStr(ShapeToVector(incastOpAttr.cellMatchTableDesc.cellShape)).c_str());
                         incastUseOpSet.insert(j);
                     }
@@ -1172,17 +1208,29 @@ struct EncodeDevAscendFunctionInfo {
         return cceCodeInfoList[leafIndex].coreType;
     }
 
-    void RemoveDeadHubCall(std::vector<Operation *> &/* callOpList */) {
+    void RemoveDeadHubCall(Function *tdevRoot, std::vector<Operation *> &/* callOpList */) {
         std::vector<Operation *> deadCallOps;
         for (auto &[callOp, succOps] : callOpSuccDict) {
-            if (GetCoreType(callOp) == static_cast<int>(CoreType::HUB) && succOps.size() == 0) {
-                /*  Find all hub callop that has no successors, mark it is no need to schedule:
-                 *  1. mark pred to be zero
-                 *  2. remove it from the successor of all callop
-                 */
-                callOpPredDict[callOp] = 0;
-                deadCallOps.push_back(callOp);
+            if (GetCoreType(callOp) != static_cast<int>(CoreType::HUB) || (succOps.size() != 0)) {
+                continue;
             }
+            /* When HUB's oOperands have rootFunc outcast, do not remove it. (eg. Reshape as rootFunc output) */
+            bool needSave = false;
+            for (const auto &out : callOp->oOperand) {
+                if (tdevRoot->IsFromOutCast(out)) {
+                    needSave = true;
+                    break;
+                }
+            }
+            if (needSave) {
+                continue;
+            }
+            /*  Find all hub callop that has no successors, mark it is no need to schedule:
+                *  1. mark pred to be zero
+                *  2. remove it from the successor of all callop
+                */
+            callOpPredDict[callOp] = 0;
+            deadCallOps.push_back(callOp);
         }
 
         for (auto &[callOp, succOps] : callOpSuccDict) {
@@ -1224,7 +1272,7 @@ struct EncodeDevAscendFunctionInfo {
     void PrintColorGraph(int colorNum) {
         MACHINE_LOGI("*********** Call OP Graph ***********\n");
         for (int index = 0; index < colorNum; index++) {
-            MACHINE_LOGI("%zu: %zu", index, colorOutGraph[index].size());
+            MACHINE_LOGI("%d: %zu", index, colorOutGraph[index].size());
             MACHINE_LOGI("%s", IntVecToStr(colorOutGraph[index]).c_str());
         }
         int outCount = 0;
@@ -1236,6 +1284,7 @@ struct EncodeDevAscendFunctionInfo {
 
     inline void FindAllReachableNodes(int start_node, std::unordered_map<int, std::vector<int>>& outGraph,
                                         std::vector<std::unordered_set<int>>& reachable, std::vector<int>& visited) {
+        visited[start_node] = 1;
         reachable[start_node].insert(start_node);
         for (int v : outGraph[start_node]) {
             if (visited[v] == 0) {
@@ -1243,7 +1292,6 @@ struct EncodeDevAscendFunctionInfo {
             }
             reachable[start_node].insert(reachable[v].begin(), reachable[v].end());
         }
-        visited[start_node] = 1;
     }
 
     void FindRedundantEdges(int colorNum, std::vector<std::vector<int>>& redundantColorOutGraph) {
@@ -1350,22 +1398,10 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
-     void AddDependOperandsToColorGraph(std::vector<Operation *> &callopList, std::unordered_map<Operation *, int> &callopIndexDict) {
-        std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>> producerDict;
-        for (auto &op : callopList) {
-            for (auto &i : op->GetOOperands()) {
-                producerDict[i].Insert(op);
-            }
-        }
-
-        for (auto &op : callopList) {
-            for (auto &o : op->GetDependOperands()) {
-                for (auto &producer : producerDict[o]) {
-                    if (op == producer) {
-                        // Consumer and producer can not be the same.
-                        continue;
-                    }
-                    // Index for callop from its depend operand's producer callop index list
+    void AddDependOperandsToColorGraphForMix(std::vector<Operation *> &callopListVec, std::unordered_map<Operation *, int> &callopIndexDict) {
+        for (auto &op : callopListVec) {
+            for (auto &depend : op->GetDependOperands()) {
+                for (auto &producer : depend->GetProducers()) {
                     colorOutGraph[callopIndexDict[producer]].push_back(callopIndexDict[op]);
                 }
             }
@@ -1531,7 +1567,7 @@ struct EncodeDevAscendFunctionInfo {
                 }
             }
         }
-        AddDependOperandsToColorGraph(callopList, callopIndexDict);
+        AddDependOperandsToColorGraphForMix(callopList, callopIndexDict);
         for (size_t idx = 0; idx < callopList.size(); idx++) {
             std::sort(colorOutGraph[idx].begin(), colorOutGraph[idx].end());
             // remove repeated idx in ooperand's consumer callop idx list
@@ -1599,7 +1635,7 @@ struct EncodeDevAscendFunctionInfo {
         EraseRedundantColorEdges(callopList);
         PrintColorGraph(callopList.size());
 
-        RemoveDeadHubCall(callopList);
+        RemoveDeadHubCall(tdevRoot, callopList);
         ReplaceSuccessorWithHub(callopList, 10); // add dummp op at least 10 depends can be reduced
 
         AddDummyCallsAtBeginningAndEnding(callopList);
@@ -1899,6 +1935,22 @@ struct ControlFlowCacheFactor {
       : name(name_), deviceElementFactor(device), rootElementFactor(root), leafElementFactor(leaf) {}
 };
 
+static int ParseUnrollTimes(const std::string &rawName) {
+    const static std::string UNROLL_MARKS[2] = {"_LoopUnroll", "_Unroll"};
+    int unrollTimes = 1;
+    for (auto& unrollMask : UNROLL_MARKS) {
+        auto unrollPos = rawName.rfind(unrollMask);
+        if (unrollPos == std::string::npos) {
+            continue;
+        }
+        std::string suffix = rawName.substr(unrollPos + unrollMask.length());
+        if (std::isdigit(suffix.front())) {
+            unrollTimes *= std::stoi(suffix);
+        }
+    }
+    return unrollTimes;
+}
+
 static int EstimatedStitchingCount() {
     uint16_t stitchNum = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
     if (stitchNum > 0) {
@@ -1919,6 +1971,27 @@ static int WorkspaceRecyclePeriod() {
     return value;
 }
 
+static uint32_t ExpectedMaxCachedNum() {
+    int innerMemAllowedNum = (WorkspaceRecyclePeriod() + MAX_UNROLL_TIMES - 1) / MAX_UNROLL_TIMES;
+    int outcastMemAllowedNum = (EstimatedStitchingCount() + MAX_UNROLL_TIMES - 1) / MAX_UNROLL_TIMES;
+    int numInitial = config::GetRuntimeOption<int>(STITCH_FUNCTION_NUM_INITIAL);
+    int numStep = config::GetRuntimeOption<int>(STITCH_FUNCTION_NUM_STEP);
+    uint16_t stitchFunctionMaxNum = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
+ 	if (stitchFunctionMaxNum > 0) {
+        return std::min(static_cast<uint32_t>(stitchFunctionMaxNum), static_cast<uint32_t>(MAX_STITCH_FUNC_NUM));
+ 	}
+    if (numStep != 0) {
+        return static_cast<uint32_t>(MAX_STITCH_FUNC_NUM);
+    }
+    int expectedMaxCachedNum = std::min(numInitial, std::min(innerMemAllowedNum, outcastMemAllowedNum));
+    if (expectedMaxCachedNum <= 0) {
+        return 1;
+    }
+    expectedMaxCachedNum = (expectedMaxCachedNum > (int)MAX_STITCH_FUNC_NUM_LOWER) ? expectedMaxCachedNum : MAX_STITCH_FUNC_NUM_LOWER;
+    MACHINE_LOGD("max stitch function num  user expected is %d", expectedMaxCachedNum);
+    return std::min(static_cast<uint32_t>(expectedMaxCachedNum), static_cast<uint32_t>(MAX_STITCH_FUNC_NUM));
+}
+
 void DevAscendProgram::InitControlFlowCache(
         uintdevptr_t &initOffset,
         const std::shared_ptr<DyndevFunctionAttribute> &dyndevAttr,
@@ -1926,25 +1999,8 @@ void DevAscendProgram::InitControlFlowCache(
     (void)fillContent;
 
     ctrlFlowCacheSize = config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE);
-    controlFlowCache.Init(dyndevAttr.get(), ctrlFlowCacheSize, runtimeOutcastPoolSize, initOffset);
+    controlFlowCache.Init(dyndevAttr.get(), ctrlFlowCacheSize, runtimeOutcastPoolSize, initOffset, ExpectedMaxCachedNum());
 }
-
-static int ParseUnrollTimes(const std::string &rawName) {
-    const static std::string UNROLL_MARKS[2] = {"_LoopUnroll", "_Unroll"};
-    int unrollTimes = 1;
-    for (auto& unrollMask : UNROLL_MARKS) {
-        auto unrollPos = rawName.rfind(unrollMask);
-        if (unrollPos == std::string::npos) {
-            continue;
-        }
-        std::string suffix = rawName.substr(unrollPos + unrollMask.length());
-        if (std::isdigit(suffix.front())) {
-            unrollTimes *= std::stoi(suffix);
-        }
-    }
-    return unrollTimes;
-}
-
 struct EncodeDevAscendProgramInfo {
     Function *func;
     std::shared_ptr<DyndevFunctionAttribute> dyndevAttr;
@@ -1958,13 +2014,21 @@ struct EncodeDevAscendProgramInfo {
             int unroll = ParseUnrollTimes(devRoot->GetRawName());
             MAX_UNROLL_TIMES = std::max(MAX_UNROLL_TIMES, (uint32_t)unroll);
         }
+        MACHINE_LOGD("MAX_UNROLL_TIMES user set is %u", MAX_UNROLL_TIMES);
     }
+
+    bool GetEnableVFFusion() {
+        bool enableVFFusion = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+        enableVFFusion = enableVFFusion && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+        return (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVFFusion);
+    };
 
     void Init(DevAscendProgram *devProg, bool fillContent) {
         uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(devProg->data);
         devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
+        devProg->devArgs.enableVFFusion = GetEnableVFFusion();
         devProg->slotSize = dyndevAttr->inoutLink.totalSlot;
-        devProg->runtimeOutcastPoolSize = dyndevAttr->inoutLink.totalSlot * (MAX_CACHED_FUNC_NUM + 1);
+        devProg->runtimeOutcastPoolSize = dyndevAttr->inoutLink.totalSlot * (ExpectedMaxCachedNum() + 1);
         devProg->assembleSlotSize = dyndevAttr->inoutLink.assembleSlotIndexList.size();
         devProg->InitSymbolTable(initOffset, &dyndevAttr->symbolTable, fillContent);
         devProg->InitExpressionTableBinary(initOffset, dyndevAttr->expressionTableBinaryList, fillContent);
@@ -2110,6 +2174,10 @@ static uint64_t CalcUnrolledRootBudget(uint64_t budget, int unrollTimes, int con
     if (unrollTimes >= configMultiplier) {
         return budget;
     }
+    uint32_t expectedConfigMultiplier = ExpectedMaxCachedNum() * MAX_UNROLL_TIMES;
+    if (static_cast<uint32_t>(configMultiplier) > expectedConfigMultiplier) {
+        configMultiplier = expectedConfigMultiplier;
+    }
     return AlignUp((budget + unrollTimes - 1) / unrollTimes, TENSOR_ADDR_ALIGNMENT) * configMultiplier;
 }
 
@@ -2195,9 +2263,13 @@ static void ProcessDevFunctionOutcasts(Function *func, DevAscendFunction *devFun
         devFunc->rootInnerTensorWsMemoryRequirement, unroll, WorkspaceRecyclePeriod());
     uint64_t funcDevTaskInnerExclusiveOutcastMem = CalcUnrolledRootBudget(
         devFunc->exclusiveOutcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
-
+    MACHINE_LOGD("rootInnerTensorWsMemoryRequirement is %lu, funcDevTaskInnerExclusiveOutcastMem is %lu", 
+                  devFunc->rootInnerTensorWsMemoryRequirement, devFunc->exclusiveOutcastWsMemoryRequirement);
+    
     maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
     maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
+    MACHINE_LOGD("maxRootInnerMem is %lu, maxDevTaskInnerExclusiveOutcastMem is %lu", 
+                  maxRootInnerMem, maxDevTaskInnerExclusiveOutcastMem);
     maxPerCoreSpilledMem = std::max(maxPerCoreSpilledMem, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
 }
 
@@ -2245,7 +2317,7 @@ static TensorWorkspaceResult CalcTensorWorkspace(Function *func, DevAscendProgra
         return slot.kindSet.Count(RuntimeSlotKind::ASSEMBLE_OUTCAST);
     });
     res.devTaskBoundaryOutcastNum = res.totalExclusiveOutcastSlot * SLOTS_NEED_ALLOC_SIZE +
-        res.totalAssembleOutcastSlot * std::min(EstimatedStitchingCount(), (int)MAX_CACHED_FUNC_NUM);
+        res.totalAssembleOutcastSlot * std::min((uint32_t)EstimatedStitchingCount(), ExpectedMaxCachedNum());
 
     res.perCoreSpilledMem = AlignUp(maxPerCoreSpilledMem, TENSOR_ADDR_ALIGNMENT);
 
@@ -2265,18 +2337,18 @@ static uint64_t CalcGeneralMetadataSlotWorkspace(DevAscendProgram *devProg) {
     MACHINE_LOGD("workspace of generalMetadataSlotSize is %lu, ", generalMetadataSlotSize);
     return generalMetadataSlotSize;
 }
-
 static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
     DeviceWorkspaceAllocator workspace(devProg);
     uint64_t generalMetadataSlabSize = 0;
     uint32_t slabSize = workspace.CalcSlabMemObjmaxSize() * ALLOC_NUM_ONE_SLAB;
     uint32_t slabCapacity[ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)];
     size_t objUsedNum [ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)] {
-        MAX_CACHED_FUNC_NUM, //DevFunctionDupped
+        ExpectedMaxCachedNum(), //DevFunctionDupped
         1,// DynFuncData
         1,// VecStitchList
         1,// DynDevTask
         READY_QUEUE_SIZE, //ReadyQue
+        DIE_READY_QUEUE_SIZE * DIE_NUM, // DieReadyQue
         1,
         1,
     };
@@ -2295,7 +2367,7 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
         MACHINE_LOGD("requiredSlabNum[%d] is %u", i, requiredSlabNum);
         generalMetadataSlabSize += static_cast<uint64_t>(requiredSlabNum) * slabSize;
     }
-    MACHINE_LOGD("generalMetadataSlabSize is %u", generalMetadataSlabSize);
+    MACHINE_LOGD("generalMetadataSlabSize is %lu", static_cast<unsigned long>(generalMetadataSlabSize));
     generalMetadataSlabSize = (generalMetadataSlabSize < GENERAL_METADATA_SIZE_MIN) ? GENERAL_METADATA_SIZE_MIN : generalMetadataSlabSize;
     return generalMetadataSlabSize;
 }
@@ -2316,7 +2388,7 @@ static uint64_t DumpTensorWorkspace() {
 }
 
 static uint64_t LeafDumpWorkspace() {
-    if (IsPtoDataDumpEnabled()){
+    if (IsPtoDataDumpEnabled()) {
         static constexpr uint64_t LEAFDUMP_WORKSPACE = 12 * MEBI;
         return LEAFDUMP_WORKSPACE;
     } else {
@@ -2354,25 +2426,27 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
             base->stitchFunctionNumInitial = value;
         }
         base->stitchFunctionNumStep = func->paramConfigs_.stitchFunctionNumStep_;
+        base->stitchMaxFunctionNum = ExpectedMaxCachedNum();
         base->stitchFunctionsize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
         base->memBudget.metadata.general = CalcGeneralMetadataSlotWorkspace(base);
         base->memBudget.metadata.general += CalcGeneralMetadataSlabWorkspace(base);
         base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);
         base->memBudget.debug.dumpTensor = DumpTensorWorkspace();
         base->memBudget.debug.leafDump = LeafDumpWorkspace();
-
+        MACHINE_LOGD("base->memBudget.metadata.stitchPool is %lu",base->memBudget.metadata.stitchPool);
+        MACHINE_LOGD("base->memBudget.aicoreSpilled is %lu",base->memBudget.aicoreSpilled);
         func->GetDyndevAttribute()->maxDynamicAssembleOutcastMem = tensorWsRes.maxDynamicAssembleOutcastMem;
     }
 }
 
 void DevControlFlowCache::Init(void *dyndevAttrPtr,
-            uint64_t cacheSize, uint64_t runtimeOutcastPoolSize, uint64_t &initOffset) {
+            uint64_t cacheSize, uint64_t runtimeOutcastPoolSize, uint64_t &initOffset, uint32_t stitchMaxFunctionNum) {
     DyndevFunctionAttribute* dyndevAttr =  reinterpret_cast<DyndevFunctionAttribute*>(dyndevAttrPtr);
     initOffset = AlignUp(initOffset, alignof(DevTensorData));
     inputTensorDataList.HostInitDataSizeOffset(initOffset, dyndevAttr->startArgsInputTensorList.size());
     outputTensorDataList.HostInitDataSizeOffset(initOffset, dyndevAttr->startArgsOutputTensorList.size());
 
-    uint64_t slottedCount = dyndevAttr->inoutLink.totalSlot * (std::min(EstimatedStitchingCount(), (int)MAX_CACHED_FUNC_NUM) + SLOTS_NEED_ALLOC_SIZE);
+    uint64_t slottedCount = dyndevAttr->inoutLink.totalSlot * (std::min((uint32_t)EstimatedStitchingCount(), stitchMaxFunctionNum) + SLOTS_NEED_ALLOC_SIZE);
     runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.HostInitDataSizeOffset(initOffset, slottedCount);
 
     runtimeBackup.slotContext.slotList.HostInitDataSizeOffset(initOffset, dyndevAttr->inoutLink.totalSlot);
@@ -2388,7 +2462,7 @@ void DevControlFlowCache::Init(void *dyndevAttrPtr,
     deviceTaskSkippedCount = 0;
     cacheDataOffset = 0;
     workspaceAddr = 0;
-
+    stitchMaxFunctionNum_ = stitchMaxFunctionNum;
     dataSize = initOffset - reinterpret_cast<uintdevptr_t>(data);
 }
 

@@ -57,10 +57,10 @@ def create_add_kernel(shape: tuple, run_mode: str = "npu"):
     def add_kernel(
         x: pypto.Tensor(shape, pypto.DT_FP32),
         y: pypto.Tensor(shape, pypto.DT_FP32),
-    ) -> pypto.Tensor(shape, pypto.DT_FP32):
+        out: pypto.Tensor(shape, pypto.DT_FP32),
+    ):
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
-        out = x + y
-        return out
+        out[:] = x + y
 
     return add_kernel
 
@@ -72,7 +72,8 @@ def test_add_direct(device_id=None, run_mode: str = "npu") -> None:
     input_data0 = torch.rand(shape, dtype=torch.float, device=device)
     input_data1 = torch.rand(shape, dtype=torch.float, device=device)
 
-    output_data = create_add_kernel(shape, run_mode)(input_data0, input_data1)
+    output_data = torch.empty(shape, dtype=torch.float32, device=device)
+    create_add_kernel(shape, run_mode)(input_data0, input_data1, output_data)
 
     golden = torch.add(input_data0, input_data1)
 

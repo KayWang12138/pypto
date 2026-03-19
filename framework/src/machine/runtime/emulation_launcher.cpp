@@ -96,7 +96,7 @@ DevControlFlowCache* EmulationLauncher::CreateHostCtrlFlowCache(DevAscendProgram
     DevControlFlowCache encodeCtrlCache;
     uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(encodeCtrlCache.data);
     encodeCtrlCache.Init(function->GetDyndevAttribute().get(),
-        devProg->ctrlFlowCacheSize, devProg->runtimeOutcastPoolSize, initOffset);
+        devProg->ctrlFlowCacheSize, devProg->runtimeOutcastPoolSize, initOffset, devProg->stitchMaxFunctionNum);
     uint32_t ctrlCacheAllocSize = encodeCtrlCache.GetSize();
     DevControlFlowCache* hostCtrlFlowCache = reinterpret_cast<DevControlFlowCache*>(memUtils.AllocZero(ctrlCacheAllocSize, nullptr));
     if (hostCtrlFlowCache == nullptr) {
@@ -105,7 +105,7 @@ DevControlFlowCache* EmulationLauncher::CreateHostCtrlFlowCache(DevAscendProgram
     hostCtrlFlowCache->allCacheSize = ctrlCacheAllocSize;
     initOffset = reinterpret_cast<uintdevptr_t>(hostCtrlFlowCache->data);
     hostCtrlFlowCache->Init(function->GetDyndevAttribute().get(),
-        devProg->ctrlFlowCacheSize, devProg->runtimeOutcastPoolSize, initOffset);
+        devProg->ctrlFlowCacheSize, devProg->runtimeOutcastPoolSize, initOffset, devProg->stitchMaxFunctionNum);
     return hostCtrlFlowCache;
 }
 
@@ -118,7 +118,7 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     DevAscendProgram *devProg = DeviceLauncher::GetDevProg(function);
     DevControlFlowCache* hostCtrlFlowCache = CreateHostCtrlFlowCache(devProg, function, memUtils);
     if (hostCtrlFlowCache == nullptr) {
-        ALOG_ERROR_F("Failed to allocate control flow cache");
+        MACHINE_LOGE("Failed to allocate control flow cache");
         return -1;
     }
     hostCtrlFlowCache->isRecording = true;

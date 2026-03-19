@@ -10,11 +10,11 @@
 
 #include <mutex>
 #include <dlfcn.h>
-#include <iostream>
 
 #include "tilefwk/error.h"
-
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/utils/file_utils.h"
+#include "interface/interpreter/verify_error.h"
 
 namespace npu::tile_fwk::calc {
 
@@ -25,15 +25,25 @@ struct CalcOps *GetCalcOps() {
     static struct CalcOps *calcOps = nullptr;
 
     std::call_once(once_, []() {
+        /* whl 包场景在 whl 包 init 时即完成 so 加载, 故可直接从当前进程加载符号 */
+#ifndef ENABLE_TESTS
+        auto handle = dlopen(nullptr, RTLD_LAZY | RTLD_NOLOAD);
+        if (handle == nullptr) {
+            VERIFY_LOGE_FULL_E(VerifyEnableScene::VERIFY_LOAD_CALC_OPS_FAILED,
+                               "Can't get program handle");
+            return;
+        }
+#else
         std::string path = GetCurrentSharedLibPath() + "/libtile_fwk_calculator.so";
         if (!FileExist(path)) {
             return;
         }
         auto handle = dlopen(path.c_str(), RTLD_LAZY);
         if (handle == nullptr) {
-            std::cout << "torch not found please check the library path or import torch first" << std::endl;
+            VERIFY_LOGI("torch not found please check the library path or import torch first");
             return;
         }
+#endif
         auto func = dlsym(handle, "GetCalcOps");
         calcOps = reinterpret_cast<GetCalcOpsFunc>(func)();
     });

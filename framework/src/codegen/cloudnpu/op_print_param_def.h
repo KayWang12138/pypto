@@ -136,10 +136,10 @@ struct PrintMemCopyWithL1Param {
 struct PrintMemCopyWithUBParam {
     const unsigned gmIdx;
     const unsigned localIdx;
+    const bool isSpillingToGM;
     const std::vector<std::string> &addrTypeHead;
     std::vector<std::string> &addrExpr;
     std::vector<std::string> &dataTypeExpr;
-    const bool isSpillingToGM;
 };
 
 struct PrintGatherParam {
@@ -167,17 +167,6 @@ struct PrintBinaryParam {
     const std::string &src0DtypeStr;
     const std::string &src1DtypeStr;
     const std::string &dstDtypeStr;
-};
-
-struct PrintBinaryTmpParam {
-    const std::string &s0Var;
-    const std::string &s1Var;
-    const std::string &dVar;
-    const std::string &tmpVar;
-    const std::string &src0DtypeStr;
-    const std::string &src1DtypeStr;
-    const std::string &dstDtypeStr;
-    const std::string &tmpDtypeStr;
 };
 
 struct PrintBinaryBrcParam {
@@ -241,6 +230,30 @@ struct DynamicParamPackMTE {
     std::vector<std::string> paramList;
 };
 
+struct SortParam {
+    std::vector<int64_t> dstShape{4, 1};
+    std::vector<int64_t> tmpShape{4, 1};
+    std::vector<int64_t> srcShape{4, 1};
+    const std::string s0Var;
+    const std::string dVar;
+    const std::string tVar;
+    const std::string srcDtypeStr;
+    const std::string dstDtypeStr;
+    const std::string tmpDtypeStr;
+};
+
+struct TiledSortParam {
+    std::vector<int64_t> dstShape{4, 1};
+    std::vector<int64_t> srcShape{5, 1};
+    const std::string s0Var;
+    const std::string s1Var;
+    const std::string s2Var;
+    const std::string s3Var;
+    const std::string tmpVar;
+    const std::string dVar;
+    const std::string srcDtypeStr;
+    const std::string dstDtypeStr;
+};
 } // namespace npu::tile_fwk
 
 #endif // OP_PRINT_PARAM_DEF_H

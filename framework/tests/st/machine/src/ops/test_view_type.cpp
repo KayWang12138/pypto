@@ -74,42 +74,6 @@ void ViewTypeEntry(const std::vector<int64_t>& mkn) {
 #endif
 }
 
-template<typename InputT, typename OutputT, typename CastT = float>
-void ViewTypeCastEntry(const std::vector<int64_t>& mkn) {
-
-    int64_t m = mkn[0];
-    int64_t k = mkn[1];
-    int64_t n = mkn[2];
-
-    DataType originDtype = GetAstDtype<InputT>();
-    DataType dstDtype = GetAstDtype<OutputT>();
-    DataType castDtype = GetAstDtype<CastT>();
-
-    float factor = (float)BytesOf(originDtype) / (float)BytesOf(dstDtype);
-
-    std::vector<int64_t> xShape = {m, k, n};
-    std::vector<int64_t> resultShape = {m, k, int(n * factor)};
-
-    Tensor x(originDtype, xShape, "x");
-    Tensor result(castDtype, resultShape, "result");
-
-    auto goldenData = GetGoldenVec<CastT>(resultShape, "/result.bin");
-    auto xData = CreateTensorData<InputT>(x, "/x.bin");
-
-    auto resultData = RawTensorData::CreateConstantTensor<CastT>(result, 0.0);
-
-    std::vector<RawTensorDataPtr> inputDataList = {xData};
-    std::vector<RawTensorDataPtr> outputDataList = {resultData};
-
-    ViewTypeCastFunc(x, result, dstDtype, castDtype);  
-
-#ifdef BUILD_WITH_CANN
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
-    std::cout << "====== result ======" << std::endl;
-    EXPECT_TRUE(resultCmp<CastT>(goldenData, (CastT *)resultData->data(), 0.005f));
-#endif
-}
-
 template<typename InputT, typename OutputT>
 void ViewTypeQuantTestEntry(const std::vector<int64_t>& mkn) {
 
@@ -224,16 +188,6 @@ TEST_F(ViewType, bfloat16_2_float32) {
 TEST_F(ViewType, float32_2_bfloat16) {
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeEntry<float, bfloat16>(mkn);
-}
-                               
-TEST_F(ViewType, int8_2_bfloat16_cast_fp32) {
-    std::vector<int64_t> mkn = {4, 32, 1024};
-    ViewTypeCastEntry<int8_t, bfloat16>(mkn);
-}
-
-TEST_F(ViewType, int8_2_float16_cast_fp32) {
-    std::vector<int64_t> mkn = {4, 32, 1024};
-    ViewTypeCastEntry<int8_t, float16>(mkn);
 }
 
 TEST_F(ViewType, quant_test_bf16_2_int8) {

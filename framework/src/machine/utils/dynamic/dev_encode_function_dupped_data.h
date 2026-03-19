@@ -114,6 +114,12 @@ struct DevAscendFunctionDuppedData {
         return size;
     }
 
+    inline uint64_t GetRawTensorDataSize(int rawIndex) {
+        auto rawTensor = GetSource()->GetRawTensor(rawIndex);
+        auto size = rawTensor->GetMemoryRequirement(GetExpressionAddr());
+        return size;
+    }
+
     schema::range SchemaGetIncastRange(int arg) const {
         auto base = GetIncastAddress(arg).GetAddress();
         auto size = GetIncastDataSize(arg);
@@ -131,6 +137,14 @@ struct DevAscendFunctionDuppedData {
         return schema::RActWorkspace(schema::Range(workspaceBegin, workspaceEnd));
     }
 
+    schema::ExpressionTable SchemaGetExpressionList() const {
+        size_t expressionSize = GetExpressionSize();
+        std::vector<schema::Int64Type> expressionList;
+        for (size_t i = 0; i < expressionSize; i++) {
+            expressionList.push_back(schema::Int64Type(GetExpression(i)));
+        }
+        return schema::ExpressionTable(expressionList);
+    }    
     std::string Dump(int indent = 0) const;
 };
 
@@ -302,7 +316,7 @@ struct DevAscendFunctionDupped {
         return oss.str();
     }
 
-    void DumpTopo(std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary) const;
+    void DumpTopo(std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary, bool enableVFFusion) const;
 
 #if DEBUG_INFINITE_LIFETIME
     void DumpTensorAddrInfo(std::vector<std::string> &infos, uint32_t seqNo, uint32_t funcIdx);

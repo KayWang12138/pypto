@@ -21,7 +21,7 @@
 
 namespace npu::tile_fwk {
 std::string GetBrcOprandIdxStr(int64_t brcbOperandIdx) {
-    CODEGEN_LOGI("input brcbOperandIdx is %d", brcbOperandIdx);
+    CODEGEN_LOGI("input brcbOperandIdx is %ld", static_cast<long>(brcbOperandIdx));
     std::string ret = "TileOp::";
     switch (brcbOperandIdx) {
         case ToUnderlying(BroadcastOperand::NONE): ret.append("BroadcastOperand::NONE"); break;
@@ -153,7 +153,7 @@ std::string CodeGenOpCloudNPU::PrintBinaryTileTensor() const {
     std::vector<std::string> templateParamList;
     int64_t brcOperandIdx = 0;
     std::string lastUse = GetLastUse();
-    if(!lastUse.empty()){
+    if (!lastUse.empty()) {
         templateParamList.emplace_back(lastUse);
     }
     if (GetAttr(OpAttributeKey::brcbIdx, brcOperandIdx)) {
@@ -226,9 +226,9 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpWithTmp() const {
     std::string srcScalar;
     if (extOperandVal.IsFloat()) {
         srcScalar = FormatFloat(extOperandVal.Cast<float>());
-    } else if (extOperandVal.IsUnsigned()||extOperandVal.IsSigned()) {
-        srcScalar = std::visit([](const auto& val) -> std::string {
-            return std::to_string(val);},extOperandVal.GetVariantData());
+    } else if (extOperandVal.IsUnsigned() || extOperandVal.IsSigned()) {
+        srcScalar = std::visit(
+            [](const auto &val) -> std::string { return std::to_string(val); }, extOperandVal.GetVariantData());
     }
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, srcScalar, tmpTensor};
 
@@ -383,13 +383,13 @@ std::string CodeGenOpCloudNPU::GenBinaryWithBrc() const {
         opCode == Opcode::OP_DIV_BRC || opCode == Opcode::OP_MAX_BRC) {
         return PrintBinaryBrc({s0Var, s1Var, dVar, tmpVar, src0DtypeStr, src1DtypeStr, dstDtypeStr, tmpDtypeStr});
     }
-    ASSERT(ret >= 0) << "GenBinaryWithBrc sprintf_s failed ";
+    ASSERT(GenCodeErr::PRINT_FAILED, ret >= 0) << "GenBinaryWithBrc sprintf_s failed ";
     return buffer;
 }
 
 std::string CodeGenOpCloudNPU::GenVectorScalarOp() const {
     return GenVectorScalarOpByMode(VecScalMode::VEC_MODE);
-} 
+}
 
 std::string CodeGenOpCloudNPU::GenVectorScalarOpScalarMode() const {
     return GenVectorScalarOpByMode(VecScalMode::SCALAR_MODE);
@@ -521,8 +521,8 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarOpDynamicUnalign(const PrintUnar
     std::vector<int64_t> s0 = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
     char scalarTmp[BUFFER_SIZE_256] = "CG_ERROR";
-    int ret = sprintf_s(scalarTmp, sizeof(scalarTmp), "%.9g", extOperandVal.Cast<float>());
-    ASSERT(ret >= 0) << "GenVectorScalarOpByMode sprintf_s failed ";
+    int ret = sprintf_s(scalarTmp, sizeof(scalarTmp), "%s", FormatFloat(extOperandVal.Cast<float>()).c_str());
+    ASSERT(GenCodeErr::PRINT_FAILED, ret >= 0) << "GenVectorScalarOpByMode sprintf_s failed ";
 
     std::ostringstream oss;
     std::vector<std::string> paramList;
@@ -595,8 +595,7 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
             int ret = sprintf_s(buffer, sizeof(buffer),
                 "RUNTIME_TensorExtract(/*type=*/%s, /*mem=*/__ubuf__, /*dst*/%s, /*src*/%s);\n", dstDtypeStr.c_str(),
                 dVar.c_str(), s0Var.c_str());
-            ASSERT(ret >= 0) << "GenVectorScalarOpByMode " << OpcodeManager::Inst().GetOpcodeStr(opCode) << " failed "
-                             << ret;
+            ASSERT(GenCodeErr::PRINT_FAILED, ret >= 0) << "Gen " << opCodeStr << ":EMUOP_TENSOR_EXTRACT failed " << ret;
             return buffer;
         }
     }
@@ -616,8 +615,7 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
         tileOpName.c_str(), dstDtypeStr.c_str(), os0[ID0], os0[ID1], os0[ID2], os0[ID3], ds[ID1], ds[ID2], ds[ID3],
         s0[ID1], s0[ID2], s0[ID3], dstDtypeStr.c_str(), dVar.c_str(), dstDtypeStr.c_str(), s0Var.c_str(),
         dstDtypeStr.c_str(), scalarTmpBuffer.c_str());
-    ASSERT(ret >= 0) << "GenVectorScalarOpByMode" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed "
-                     << ret;
+    ASSERT(GenCodeErr::PRINT_FAILED, ret >= 0) << "sprintf_s " << opCodeStr << "  failed " << ret;
     return buffer;
 }
 

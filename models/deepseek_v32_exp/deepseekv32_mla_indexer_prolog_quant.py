@@ -433,9 +433,7 @@ def mla_prolog_quant_v32_compute(inputs):
         q_a_proj = q_a_proj_fp32_dequant * w_qa_scale
     else:
         q_a_proj = torch.matmul(x_2d.to(torch.float32), w_dq.to(torch.float32))  # [b * s, q_lora_rank]
-
-    q_a_proj = q_a_proj.to(dtype)
-
+    q_a_proj = q_a_proj.to(torch.bfloat16)
     q_a_layernorm = rms_norm(q_a_proj, gamma_cq)
 
     # shape is: [b * s, q_lora_rank] @ [q_lora_rank, n * q_head_dim] -> [b * s, n * q_head_dim]
@@ -855,14 +853,6 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
         outputs["idx_k_scale_cache_out"],
         outputs["weights"]
     ]
-    h = params["h"]
-    n_q = params["n1"]
-    q_lora_rank = params["q_lora_rank"]
-    kv_lora_rank = params["kv_lora_rank"]
-    qk_nope_head_dim = params["qk_nope_head_dim"]
-    qk_rope_head_dim = params["qk_rope_head_dim"]
-    idx_n_heads = params["idx_n_heads"]
-    idx_head_dim = params["idx_head_dim"]
 
     import mla_indexer_prolog_quant_impl as mla_lp_quant
     if is_prefill:
@@ -870,9 +860,8 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
     else:
         fun = mla_lp_quant.mla_indexer_prolog_quant_d
 
-    fun(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_dim, qk_rope_head_dim, idx_n_heads, idx_head_dim, 
-        mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, 
-        ip_attrs, ip_configs, rope_tile_shape)(*pto_inputs, *pto_outputs)
+    fun(*pto_inputs, *pto_outputs, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config,
+        ip_attrs, ip_configs, rope_tile_shape)
     torch_npu.npu.synchronize()
     check(case_name, outputs, goldens)
 
@@ -894,7 +883,7 @@ params_base = {
 }
 
 
-@pytest.mark.skip(reason="prefill test cast")
+@pytest.mark.soc("950", "910")
 def test_b_4_s1_2_tilebs_8_d():
     '''
     mlaLp decode测试函数
@@ -956,7 +945,7 @@ def test_b_4_s1_2_tilebs_8_d():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
 
     do_test("mla_prolog_indexer_prolog_quant.test_b_4_s1_2_tilebs_8",
@@ -969,8 +958,8 @@ def test_t_32_tilebs_16_p():
     '''
     mlaLp prefill测试函数
     '''
-    seed = 5
-    torch.manual_seed(5)
+    seed = 7
+    torch.manual_seed(seed)
     b = 16
     s1 = 2
     s2 = 1024
@@ -1029,7 +1018,7 @@ def test_t_32_tilebs_16_p():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
 
     do_test("mla_prolog_indexer_prolog_prefill.test_t_32_tilebs_16",
@@ -1042,8 +1031,8 @@ def test_t_512_tilebs_128_p():
     '''
     mlaLp prefill测试函数
     '''
-    seed = 5
-    torch.manual_seed(5)
+    seed = 15
+    torch.manual_seed(seed)
     b = 128
     s1 = 4
     s2 = 1024
@@ -1101,7 +1090,7 @@ def test_t_512_tilebs_128_p():
         block_size=128,
         t_sub_tile=2,
         chunk_size=1,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
 
     do_test("mla_prolog_indexer_prolog_prefill.test_t_512_tilebs_128", params, mla_epsilon_cq, mla_epsilon_ckv,

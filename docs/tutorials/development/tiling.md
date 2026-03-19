@@ -25,22 +25,20 @@ pypto.set\_vec\_tile\_shapes\(1, 1, 8, 8\) 表示该向量有四个维度，每�
 实际用例如下：
 
 ```python
-@pypto.jit
-def compute_with_vec_tile_shapes_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor, set_shapes: tuple) -> None:
+@pypto.frontend.jit
+def compute_with_vec_tile_shapes_kernel(
+    a: pypto.Tensor((32, 32), pypto.DT_FP32),
+    b: pypto.Tensor((32, 32), pypto.DT_FP32),
+    out: pypto.Tensor((32, 32), pypto.DT_FP32),
+    set_shapes: tuple
+):
     pypto.set_vec_tile_shapes(*set_shapes)
     out[:] = pypto.add(a, b)
 
 def compute_with_vec_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, set_shapes: tuple, dynamic: bool = False) -> torch.Tensor:
-    out = torch.zeros_like(a)
-    if dynamic:
-        a_pto = pypto.from_torch(a, dynamic_axis=[0])
-        b_pto = pypto.from_torch(b, dynamic_axis=[0])
-        out_pto = pypto.from_torch(out, dynamic_axis=[0])
-    else:
-        a_pto = pypto.from_torch(a)
-        b_pto = pypto.from_torch(b)
-        out_pto = pypto.from_torch(out)
-    compute_with_vec_tile_shapes_kernel(a_pto, b_pto, out_pto, set_shapes)
+    # 直接传入 torch tensor 调用
+    out = torch.empty_like(a)
+    compute_with_vec_tile_shapes_kernel(a, b, out, set_shapes)
     return out
 
 def test_set_vec_tile_shapes_basic():
@@ -61,24 +59,32 @@ def test_set_vec_tile_shapes_basic():
 需要说明的是，通常设置不同的TileShape不影响向量的计算结果，但是会影响向量计算的运行时间，如下述用例所示：
 
 ```python
-@pypto.jit
-def compute_with_vec_specific_tile_shapes_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+@pypto.frontend.jit
+def compute_with_vec_specific_tile_shapes_kernel(
+    a: pypto.Tensor((4, 32, 64, 256), pypto.DT_FP32),
+    b: pypto.Tensor((4, 32, 64, 256), pypto.DT_FP32),
+    out: pypto.Tensor((4, 32, 64, 256), pypto.DT_FP32),
+):
     pypto.set_vec_tile_shapes(1, 2, 4, 128)
     out[:] = pypto.add(a, b)
 
-@pypto.jit
-def compute_with_vec_another_tile_shapes_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+@pypto.frontend.jit
+def compute_with_vec_another_tile_shapes_kernel(
+    a: pypto.Tensor((4, 32, 64, 256), pypto.DT_FP32),
+    b: pypto.Tensor((4, 32, 64, 256), pypto.DT_FP32),
+    out: pypto.Tensor((4, 32, 64, 256), pypto.DT_FP32),
+):
     pypto.set_vec_tile_shapes(2, 4, 8, 256)
     out[:] = pypto.add(a, b)
 
 def compute_with_vec_specific_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
-    ...
-    compute_with_vec_specific_tile_shapes_kernel(a_pto, b_pto, out_pto)
+    out = torch.empty_like(a)
+    compute_with_vec_specific_tile_shapes_kernel(a, b, out)
     return out
 
 def compute_with_vec_another_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
-    ...
-    compute_with_vec_another_tile_shapes_kernel(a_pto, b_pto, out_pto)
+    out = torch.empty_like(a)
+    compute_with_vec_another_tile_shapes_kernel(a, b, out)
     return out
 
 def test_set_vec_different_tile_shapes_runtime():
@@ -118,22 +124,20 @@ pypto.set\_cube\_tile\_shapes\(\[16, 16\], \[256, 512\], \[128, 128\]\)：将矩
 实际用例如下：
 
 ```python
-@pypto.jit
-def compute_with_cube_tile_shapes_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor, set_shapes: list) -> None:
+@pypto.frontend.jit
+def compute_with_cube_tile_shapes_kernel(
+    a: pypto.Tensor((64, 64), pypto.DT_FP32),
+    b: pypto.Tensor((64, 64), pypto.DT_FP32),
+    out: pypto.Tensor((64, 64), pypto.DT_FP32),
+    set_shapes: list
+):
     pypto.set_cube_tile_shapes(*set_shapes)
     out[:] = pypto.matmul(a, b, a.dtype)
 
 def compute_with_cube_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, set_shapes: list, dynamic: bool = False) -> torch.Tensor:
-    out = torch.zeros(a.shape[0], b.shape[1], dtype=a.dtype, device=a.device)
-    if dynamic:
-        a_pto = pypto.from_torch(a, dynamic_axis=[0])
-        b_pto = pypto.from_torch(b, dynamic_axis=[0])
-        out_pto = pypto.from_torch(out, dynamic_axis=[0])
-    else:
-        a_pto = pypto.from_torch(a)
-        b_pto = pypto.from_torch(b)
-        out_pto = pypto.from_torch(out)
-    compute_with_cube_tile_shapes_kernel(a_pto, b_pto, out_pto, set_shapes)
+    # 直接传入 torch tensor 调用
+    out = torch.empty((64, 64), dtype=a.dtype, device=a.device)
+    compute_with_cube_tile_shapes_kernel(a, b, out, set_shapes)
     return out
 
 def test_set_cube_tile_shapes_basic():
@@ -155,24 +159,32 @@ import pypto
 import torch
 import time
 
-@pypto.jit
-def compute_with_cube_specific_tile_shapes_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+@pypto.frontend.jit
+def compute_with_cube_specific_tile_shapes_kernel(
+    a: pypto.Tensor((4, 64, 512), pypto.DT_FP32),
+    b: pypto.Tensor((4, 128, 512), pypto.DT_FP32),
+    out: pypto.Tensor((4, 64, 128), pypto.DT_FP32),
+):
     pypto.set_cube_tile_shapes([32, 32], [32, 32], [32, 32])
     out[:] = pypto.matmul(a, b, a.dtype, b_trans=True)
 
-@pypto.jit
-def compute_with_cube_another_tile_shapes_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+@pypto.frontend.jit
+def compute_with_cube_another_tile_shapes_kernel(
+    a: pypto.Tensor((4, 64, 512), pypto.DT_FP32),
+    b: pypto.Tensor((4, 128, 512), pypto.DT_FP32),
+    out: pypto.Tensor((4, 64, 128), pypto.DT_FP32),
+):
     pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128])
     out[:] = pypto.matmul(a, b, a.dtype, b_trans=True)
 
 def compute_with_cube_specific_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
-    ...
-    compute_with_cube_specific_tile_shapes_kernel(a_pto, b_pto, out_pto)
+    out = torch.empty((4, 64, 128), dtype=a.dtype, device=a.device)
+    compute_with_cube_specific_tile_shapes_kernel(a, b, out)
     return out
 
 def compute_with_cube_another_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
-    ...
-    compute_with_cube_another_tile_shapes_kernel(a_pto, b_pto, out_pto)
+    out = torch.empty((4, 64, 128), dtype=a.dtype, device=a.device)
+    compute_with_cube_another_tile_shapes_kernel(a, b, out)
     return out
 
 def test_set_cube_different_tile_shapes_runtime():

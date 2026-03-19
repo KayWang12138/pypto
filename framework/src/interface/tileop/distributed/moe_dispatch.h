@@ -21,7 +21,7 @@
 
 namespace TileOp::Distributed {
 template <typename T, int32_t axisH, int32_t tRowOffset, int32_t tColOffset, int32_t tRowShape, int32_t tColShape, int32_t groupIndex>
-TILEOP void SendToRoutingExpert(__gm__ int32_t *syncTensor, __ubuf__ T *tokenBuffer, __ubuf__ int32_t *expertTableUb,
+TILEOP void SendToRoutingExpert(CoreFuncParam* param, __gm__ int32_t *syncTensor, __ubuf__ T *tokenBuffer, __ubuf__ int32_t *expertTableUb,
     __ubuf__ int32_t *expertBuffer, __gm__ T *token, __gm__ T *shmemDataBaseAddr, __gm__ int32_t *expertTable,
     uint32_t tableOffset0, uint32_t tableOffset1, uint32_t tableRawShape0, uint32_t tableRawShape1,
     uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, uint32_t shmemDataOffset2, uint32_t shmemDataOffset3,
@@ -71,7 +71,7 @@ TILEOP void SendToRoutingExpert(__gm__ int32_t *syncTensor, __ubuf__ T *tokenBuf
 }
 
 template <typename T, int32_t bs, int32_t axisH, int32_t tileRowShape, int32_t groupIndex>
-TILEOP void SendToSharedExpert(__gm__ int32_t *syncTensor, __ubuf__ T *tokenBuffer, __gm__ T *token, __gm__ T *shmemDataBaseAddr,
+TILEOP void SendToSharedExpert(CoreFuncParam* param, __gm__ int32_t *syncTensor, __ubuf__ T *tokenBuffer, __gm__ T *token, __gm__ T *shmemDataBaseAddr,
     uint32_t tokenOffset0, uint32_t tokenOffset1, uint32_t tokenShape0, uint32_t tokenShape1,
     uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, uint32_t shmemDataOffset2, uint32_t shmemDataOffset3,
     uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t shmemDataRawShape2, uint32_t shmemDataRawShape3,
@@ -110,7 +110,7 @@ TILEOP void SendToSharedExpert(__gm__ int32_t *syncTensor, __ubuf__ T *tokenBuff
 }
 
 template <typename T, int32_t bs, int32_t axisH, int32_t tileRowShape>
-TILEOP void CopyToLocalExpert(__gm__ T *expandX, __gm__ int32_t *syncTensor, __ubuf__ T *tokenBuffer, __gm__ T *token,
+TILEOP void CopyToLocalExpert(CoreFuncParam* param, __gm__ T *expandX, __gm__ int32_t *syncTensor, __ubuf__ T *tokenBuffer, __gm__ T *token,
     uint32_t tokenOffset0, uint32_t tokenOffset1, uint32_t tokenShape0, uint32_t tokenShape1, __gm__ int64_t *hcclContext)
 {
     constexpr int32_t hOutSize = axisH * sizeof(T);
@@ -127,7 +127,7 @@ TILEOP void CopyToLocalExpert(__gm__ T *expandX, __gm__ int32_t *syncTensor, __u
 }
 
 template <typename T, int32_t bs, int32_t topK, int32_t groupIndex, int32_t expertShape, int32_t rankShape>
-TILEOP void DispatchSetFlag(__gm__ int32_t *syncDummy, __ubuf__ int32_t *statusTensor, __ubuf__ int32_t *expertTableUb,
+TILEOP void DispatchSetFlag(CoreFuncParam* param, __gm__ int32_t *syncDummy, __ubuf__ int32_t *statusTensor, __ubuf__ int32_t *expertTableUb,
     __ubuf__ int32_t *expertBuffer, __gm__ T *expertTable, __gm__ int32_t *shmemFlagBaseAddr, __gm__ int32_t *syncTensor,
     uint32_t shmemFlagOffset0, uint32_t shmemFlagOffset1, uint32_t shmemFlagOffset2, uint32_t shmemFlagOffset3,
     uint32_t shmemFlagRawShape0, uint32_t shmemFlagRawShape1, uint32_t shmemFlagRawShape2, uint32_t shmemFlagRawShape3,
@@ -229,7 +229,7 @@ TILEOP void ShareRankWaitFlag(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ u
  
 // tileIndex 覆写为了 tileOpIndex 计数
 template<typename T, uint32_t tileIndex, uint32_t groupIndex, uint32_t shareRankCnt, uint32_t totalTileNum, int32_t rankShape, int32_t expertNum>
-TILEOP void FFNSched(__gm__ T *out, __ubuf__ int32_t *buffer, __gm__ int32_t *dummy, __gm__ int32_t *shmemFlagBaseAddr,
+TILEOP void FFNSched(CoreFuncParam* param, __gm__ T *out, __ubuf__ int32_t *buffer, __gm__ int32_t *dummy, __gm__ int32_t *shmemFlagBaseAddr,
     uint32_t flagShmemOffset0, uint32_t flagShmemOffset1, uint32_t flagShmemOffset2, uint32_t flagShmemOffset3,
     uint32_t flagShmemShape0, uint32_t flagShmemShape1, uint32_t flagShmemShape2, uint32_t flagShmemShape3, __gm__ int64_t *hcclContext)
 {
@@ -274,7 +274,7 @@ TILEOP void ReadRecvTokenCnt(__ubuf__ uint32_t *recvTokenCnt, __gm__ uint32_t *s
 }
 
 template<typename T, int32_t expertShape>
-TILEOP void FFNValidCnt(__gm__ int32_t *validCnt, __ubuf__ int32_t *buffer, __gm__ int32_t *gmRecvTokenCnt, __gm__ int32_t *shmemFlagBaseAddr,
+TILEOP void FFNValidCnt(CoreFuncParam* param, __gm__ int32_t *validCnt, __ubuf__ int32_t *buffer, __gm__ int32_t *gmRecvTokenCnt, __gm__ int32_t *shmemFlagBaseAddr,
     uint32_t shmemFlagOffset0, uint32_t shmemFlagOffset1, uint32_t shmemFlagOffset2, uint32_t shmemFlagOffset3,
     uint32_t shmemFlagRawShape0, uint32_t shmemFlagRawShape1, uint32_t shmemFlagRawShape2, uint32_t shmemFlagRawShape3, __gm__ int64_t *hcclContext)
 {
@@ -509,7 +509,7 @@ TILEOP void ShareRankCopyOut(__gm__ T *expandX, __ubuf__ uint8_t *buffer, Dispat
 }
 
 template<typename T, uint32_t tileIndex, uint32_t groupIndex, uint32_t shareRankCnt, uint32_t totalTileNum, uint32_t rankShape, uint32_t axisH, uint32_t bs, uint32_t expandXRow>
-TILEOP void FFNBatching(__gm__ T *expandX, __gm__ int32_t *validCnt, __ubuf__ int32_t *buffer,
+TILEOP void FFNBatching(CoreFuncParam* param, __gm__ T *expandX, __gm__ int32_t *validCnt, __ubuf__ int32_t *buffer,
     __gm__ T *shmemDataBaseAddr, __gm__ int32_t *shmemFlagBaseAddr, __gm__ int32_t *gmRecvTokenCnt,
     uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, uint32_t shmemDataOffset2, uint32_t shmemDataOffset3,
     uint32_t shmemDataShape0, uint32_t shmemDataShape1, uint32_t shmemDataShape2, uint32_t shmemDataShape3, __gm__ int64_t *hcclContext)
@@ -526,7 +526,7 @@ TILEOP void FFNBatching(__gm__ T *expandX, __gm__ int32_t *validCnt, __ubuf__ in
 }
 
 template<typename T, uint32_t tileIndex, uint32_t groupIndex, uint32_t shareRankCnt, uint32_t totalTileNum, uint32_t rankShape, uint32_t axisH, uint32_t bs, uint32_t expandXRow>
-TILEOP void FFNCombineInfo(__gm__ int32_t *combineInfo, __ubuf__ int32_t *buffer, __gm__ T *shmemDataBaseAddr, 
+TILEOP void FFNCombineInfo(CoreFuncParam* param, __gm__ int32_t *combineInfo, __ubuf__ int32_t *buffer, __gm__ T *shmemDataBaseAddr, 
     __gm__ int32_t *shmemFlagBaseAddr, __gm__ int32_t *gmRecvTokenCnt, uint32_t shmemDataOffset0,
     uint32_t shmemDataOffset1, uint32_t shmemDataOffset2, uint32_t shmemDataOffset3, uint32_t shmemDataShape0,
     uint32_t shmemDataShape1, uint32_t shmemDataShape2, uint32_t shmemDataShape3, __gm__ int64_t *hcclContext)

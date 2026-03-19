@@ -74,14 +74,7 @@ def kernel_func(device_id):
                              device=f'npu:{device_id}')
         d_data_list.append(d_data)
 
-        # def inputs and outputs
-        inputs = [a_data, b_data, c_data]
-        outputs = [d_data]
-        pto_inputs = [pypto.from_torch(
-            tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-        pto_outputs = [pypto.from_torch(
-            tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-        matmul_add(pto_inputs[0], pto_inputs[1], pto_inputs[2], pto_outputs[0])
+        matmul_add(a_data, b_data, c_data, d_data)
 
     torch_npu.npu.synchronize()
 
@@ -95,14 +88,14 @@ def kernel_func(device_id):
     return aic_count, aiv_count
 
 
-@pytest.mark.forked
+@pytest.mark.soc("910")
 def test_not_control_cores():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     kernel_func(device_id)
 
 
-@pytest.mark.forked
+@pytest.mark.soc("910")
 def test_rts_stream_control_cores():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
@@ -112,7 +105,7 @@ def test_rts_stream_control_cores():
     aic_count, aiv_count = kernel_func(device_id)
 
 
-@pytest.mark.forked
+@pytest.mark.soc("910")
 def test_rts_device_control_cores():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
@@ -121,7 +114,7 @@ def test_rts_device_control_cores():
     aic_count, aiv_count = kernel_func(device_id)
 
 
-@pytest.mark.forked
+@pytest.mark.soc("910")
 def test_rts_device_stream_control_cores():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)

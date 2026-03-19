@@ -160,7 +160,7 @@ Function &TestFullBody(
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, shape, "C");
-    Element value(DataType::DT_FP32, 2.0);
+    Element value(DataType::DT_FP32, 2.0f);
     config::SetBuildStatic(true);
     FUNCTION(name, {input_a, output}) {
         output = Full(value, DT_FP32, shape, {});
@@ -175,8 +175,7 @@ Function &TestFullBody(
 TEST_F(TestCodegenUnary, FullDim2TileTensor) {
     Function &func = TestFullBody({32, 32}, {16, 16}, "FULL_DIM2_TILETENSOR", true);
     std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(TVecDup<float>(ubTensor_1, 2.000000);
-)!!!";
+    std::string expect = R"!!!(TVecDup<float>(ubTensor_1, 2);)!!!";
     CheckStringExist(expect, res);
 }
 
@@ -205,7 +204,7 @@ TEST_F(TestCodegenUnary, CastDim1) {
 TEST_F(TestCodegenUnary, CastDim1TileTensor) {
     Function &func = TestCastBody({128}, {128}, {64}, "CastDim1TileTensor", true);
     std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(TCast<LastUse2Dim<0, 0>, 0>(ubTensor_3, ubTensor_1);
+    std::string expect = R"!!!(TCast<LastUse2Dim<0, 1>, 0, pto::SaturationMode::ON>(ubTensor_3, ubTensor_1);
 )!!!";
     CheckStringExist(expect, res);
 }
@@ -234,7 +233,7 @@ Function &TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outSha
 TEST_F(TestCodegenUnary, ExpandDim2Axis0TileTensor) {
     Function &func = TestExpandBody({1, 22}, {22, 22}, {2, 2}, "ExpandDim2Axis0TileTensor", true);
     std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(TExpand<LastUse2Dim<0, 0>, 2>(ubTensor_3, ubTensor_1);
+    std::string expect = R"!!!(TExpand<LastUse2Dim<0, 1>, 2>(ubTensor_3, ubTensor_1);
 )!!!";
     CheckStringExist(expect, res);
 }
@@ -340,15 +339,15 @@ TEST_F(TestCodegenUnary, TestRowMaxLine) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, function->GetFunctionType());
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[localTensorSrc->GetMagic()] = localTensorSrc;
     function->GetTensorMap().inverseMap_[localTensorDst->GetMagic()] = localTensorDst;
-
-    cop.Init(op);
     std::string res = cop.GenOpCode();
     std::string expect =
         R"!!!(TileOp::Trowmaxline_<float, 1, 2, 2, 64, 2, 2, 64, 2, 2, 64, 2>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0);
 )!!!";
     EXPECT_EQ(res, expect);
 }
+
 } // namespace npu::tile_fwk

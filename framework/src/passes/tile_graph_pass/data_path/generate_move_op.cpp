@@ -22,6 +22,9 @@
 #include "interface/program/program.h"
 #include "passes/pass_check/generate_move_op_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "GenerateMoveOp"
 
 namespace npu::tile_fwk {
 constexpr int64_t INNER_PAD_VALUE = 32;
@@ -34,10 +37,11 @@ int64_t GenerateMoveOp::PadUB(int64_t dim, int64_t padValue) {
 }
 
 Status GenerateMoveOp::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start GenerateMoveOp");
+    APASS_LOG_INFO_F(Elements::Operation, "===> Start GenerateMoveOp");
     Status status = CreateMoveOp(function);
     if(status != SUCCESS) {return status;}
-    ALOG_INFO_F("===> End GenerateMoveOp");
+    InsertAssembleCopy(function);
+    APASS_LOG_INFO_F(Elements::Operation, "===> End GenerateMoveOp");
     return SUCCESS;
 }
 
@@ -158,6 +162,8 @@ Status GenerateMoveOp::ProcessDefault(Function &function, Operation &op, ViewOpA
     }
     if(op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
         SetL0C2L1CopyAttr(op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()), OpImmediate::Specified(ZERO_OFFSET));
+    } else if (op.GetOpcode() == Opcode::OP_L0C_COPY_UB) {
+        op.SetAttribute(OpAttributeKey::isCube, true);
     } else {
         SetCopyAttr(op,viewOpAttribute);
     }
@@ -222,7 +228,7 @@ Status GenerateMoveOp::SetOpcodeByMemPath(Operation &op,MemoryType from,MemoryTy
     std::pair<MemoryType,MemoryType> memPathPair = {from,to};
     auto it = platformPathMap.find(memPathPair);
     if (it == platformPathMap.end()) {
-        ALOG_ERROR_F("No memory path found from %s to %s for operation %s[%d].",
+        APASS_LOG_ERROR_F(Elements::Operation, "No memory path found from %s to %s for operation %s[%d].",
             BriefMemoryTypeToString(from).c_str(),
             BriefMemoryTypeToString(to).c_str(),
             op.GetOpcodeStr().c_str(),
@@ -238,7 +244,7 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
     auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
     auto ASSEMBLE_in = op.iOperand.front();
     auto parentOp = *ASSEMBLE_in->GetProducers().begin();
-    auto inputMemtype = op.iOperand.front()->GetMemoryTypeOriginal();
+    auto inputMemtype = ASSEMBLE_in->GetMemoryTypeOriginal();
     auto outputMemtype = op.oOperand.front()->GetMemoryTypeOriginal();
     if (inputMemtype == MemoryType::MEM_L0C && outputMemtype == MemoryType::MEM_L1) {
         SetOpcodeByMemPath(op, inputMemtype, outputMemtype);
@@ -251,7 +257,7 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
     }
     op.SetOpCode(Opcode::OP_COPY_OUT);
     if (assembleOpAttribute->GetFrom() != ASSEMBLE_in->GetMemoryTypeOriginal()) {
-        ALOG_WARN_F(" Assemble op from Attr is different from iOperand, opmagic: %d, do force setting.", op.opmagic);
+        APASS_LOG_WARN_F(Elements::Operation, "Assemble op from Attr is different from iOperand, opmagic: %d, do force setting.", op.opmagic);
     }
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(ASSEMBLE_in->GetMemoryTypeOriginal(),
         OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()),
@@ -263,8 +269,8 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
 Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op) const {
     auto convertOpAttribute = dynamic_cast<ConvertOpAttribute *>(op.GetOpAttribute().get());
     auto [from, to] = convertOpAttribute->GetConvertPath();
-    Status status = SetOpcodeByMemPath(op,from,to);
-    if(op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
+    Status status = SetOpcodeByMemPath(op, from, to);	 
+    if (op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
         ProcessUB2L1(function, op);
     }
     if (op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
@@ -275,9 +281,11 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op)
     op.UpdateSubgraphID(childOp->GetSubgraphID());
     return SUCCESS;
 }
+
 void GenerateMoveOp::ProcessUB2L1(Function &function, Operation &op) const {
     //插入UB2L1节点（NZ2NZ)，并设置UBcopyL1的NZ属性
     op.SetAttribute(OP_ATTR_PREFIX + "is_nz", 1);
+    op.SetAttribute(OpAttributeKey::isCube, false);
     auto inputTensor = op.iOperand.front();
     if(inputTensor->Format() == TileOpFormat::TILEOP_ND) {
         //新建一块logcialtensor
@@ -344,5 +352,137 @@ Status GenerateMoveOp::CreateMoveOp(Function &function) const {
         }
     }
     return SUCCESS;
+}
+
+/**
+ * @brief 为 UB 内存类型的输入插入拷贝序列 (UB → DDR → UB)
+ */
+void GenerateMoveOp::InsertCopyUBOp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input) {
+    auto copyShape = input->GetShape();
+    auto copyDynShape = input->GetDynValidShape();
+    Offset offset(copyShape.size(), 0);
+
+    LogicalTensor copyOutOutput(function, input->Datatype(), copyShape);
+    copyOutOutput.SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto copyOutOutputPtr = std::make_shared<LogicalTensor>(std::move(copyOutOutput));
+    auto &copyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {input}, {copyOutOutputPtr});
+
+    copyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        input->GetMemoryTypeOriginal(),
+        OpImmediate::Specified(offset),
+        OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyDynShape)
+    ));
+    copyOutOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
+
+    LogicalTensor copyInOutput(function, input->Datatype(), copyShape);
+    copyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
+    auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {copyOutOutputPtr}, {copyInOutputPtr});
+    copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified(offset),
+        input->GetMemoryTypeOriginal(),
+        OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyDynShape)
+    ));
+    copyInOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
+
+    needInsertCopyAssOp->ReplaceInput(copyInOutputPtr, input);
+}
+
+/**
+ * @brief 为 DDR 内存类型的输入插入拷贝序列 (DDR → UB → DDR)
+ */
+void GenerateMoveOp::InsertCopyDDROp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input) {
+    auto copyShape = input->GetShape();
+    auto copyDynShape = input->GetDynValidShape();
+    Offset offset(copyShape.size(), 0);
+
+    LogicalTensor copyInOutput(function, input->Datatype(), copyShape);
+    copyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB));
+    auto memType = copyInOutput.GetMemoryTypeOriginal();
+    if ((memType == MemoryType::MEM_UB) && (copyInOutput.GetDataSize() > UB_SIZE_THRESHOLD)) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Tensor %d exceeds the UB size limit.", copyInOutput.magic);
+        return;
+    }
+    auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
+    auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {input}, {copyInOutputPtr});
+    copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified(input->GetOffset()),
+        MemoryType::MEM_UB,
+        OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyDynShape)
+    ));
+    copyInOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
+
+    LogicalTensor copyOutOutput(function, input->Datatype(), copyShape);
+    copyOutOutput.SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto copyOutOutputPtr = std::make_shared<LogicalTensor>(std::move(copyOutOutput));
+    auto &copyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {copyInOutputPtr}, {copyOutOutputPtr});
+    copyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MemoryType::MEM_UB,
+        OpImmediate::Specified(offset),
+        OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyDynShape)
+    ));
+    copyOutOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
+
+    needInsertCopyAssOp->ReplaceInput(copyOutOutputPtr, input);
+}
+
+/**
+ * @brief 递归查找需要插入拷贝的 ASSEMBLE 操作
+ */
+void GenerateMoveOp::FindNeedToCopyAssemble(std::unordered_set<Operation*> &needInsertCopyAssOps, std::unordered_set<int> &visitedAssOps, Operation &op) {
+    visitedAssOps.insert(op.GetOpMagic());
+    auto assembleIn = op.GetIOperands()[0];
+    auto producers = assembleIn->GetProducers();
+    if ((!producers.empty()) && (*producers.begin())->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
+        return;
+    }
+    auto consumers = assembleIn->GetConsumers();
+    bool sameAssembleOut = true;
+    for (const auto &con : consumers) {
+        if (con->GetOOperands()[0]->GetMagic() != op.GetOOperands()[0]->GetMagic()) {
+            sameAssembleOut = false;
+            break;
+        }
+    }
+    if (!sameAssembleOut) {
+        for (const auto &con : consumers) {
+            if (con->GetOpMagic() != op.GetOpMagic() && con->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                visitedAssOps.insert(con->GetOpMagic());
+                needInsertCopyAssOps.insert(con);
+            }
+        }
+    }
+}
+
+/**
+ * @brief 遍历所有 ASSEMBLE 操作，为需要拷贝的操作插入拷贝序列，避免多个 ASSEMBLE 操作共享同一个输入导致的内存冲突
+ * Tensor1 ---> Assemble ---> Tensor2
+ *         ---> Assemble ---> Tensor3
+ *         ---> Assemble ---> Tensor4
+ */
+void GenerateMoveOp::InsertAssembleCopy(Function &function) {
+    std::unordered_set<int> visitedAssOps;
+    std::unordered_set<Operation *> needInsertCopyAssOps;
+    for (auto &op : function.Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
+            FindNeedToCopyAssemble(needInsertCopyAssOps, visitedAssOps, op);
+        }
+    }
+    std::vector<Operation *> sortedOps(needInsertCopyAssOps.begin(), needInsertCopyAssOps.end());
+    std::sort(sortedOps.begin(), sortedOps.end(),
+        [](const Operation *a, const Operation *b) { return a->GetOpMagic() < b->GetOpMagic(); });
+    for (auto &needInsertCopyAssOp : sortedOps) {
+        auto input = needInsertCopyAssOp->GetIOperands()[0];
+        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+            InsertCopyUBOp(function, needInsertCopyAssOp, input);
+        } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            InsertCopyDDROp(function, needInsertCopyAssOp, input);
+        }
+    }
 }
 } // namespace npu::tile_fwk

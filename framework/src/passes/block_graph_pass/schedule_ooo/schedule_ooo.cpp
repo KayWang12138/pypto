@@ -15,6 +15,7 @@
 
 #include "schedule_ooo.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/dead_operation_eliminate.h"
 
 #ifndef MODULE_NAME
 #define MODULE_NAME "OoOSchedule"
@@ -67,7 +68,7 @@ void OoOSchedule::OoOHealthCheck(OoOScheduler &oooSchedule, Function &function, 
 }
 
 Status OoOSchedule::NonMixSchedule(std::vector<Operation*> &opList, Function &function,
-    std::pair<uint64_t, Function*> &program, int &maxWorkeSpaceSize) {
+    std::pair<uint64_t, Function*> &program, int64_t &maxWorkeSpaceSize) {
     // 直接对oplist进行GenSpill和mainLoop
     APASS_LOG_INFO_F(Elements::Operation, "=============== START NonMixSchedule ===============");
     OoOScheduler oooSchedule(*program.second);
@@ -76,7 +77,7 @@ Status OoOSchedule::NonMixSchedule(std::vector<Operation*> &opList, Function &fu
         APASS_LOG_ERROR_F(Elements::Operation, "Non-mixGraph schedule failed.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%d] OOOSchedule end.", program.first);
+    APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%zu] OOOSchedule end.", program.first);
     program.second->ScheduleBy(oooSchedule.GetNewOperations());
     program.second->RecordOOOSeq();
     RescheduleUtils::UpdateTensorConsProd(program.second);
@@ -104,7 +105,7 @@ Status OoOSchedule::AdvanceAlloc(std::vector<Operation*> &opList, Operation* op,
             }
             size_t allocIndex = std::distance(opList.begin(), it);
             if (allocIndex > index) {
-                APASS_LOG_DEBUG_F(Elements::Operation, "alloc index: %d, op index: %d", allocIndex, index);
+                APASS_LOG_DEBUG_F(Elements::Operation, "alloc index: %zu, op index: %zu", allocIndex, index);
                 std::rotate(opList.begin() + index, opList.begin() + allocIndex, opList.begin() + allocIndex + 1);
                 index++;
                 return SUCCESS;
@@ -129,7 +130,7 @@ Status OoOSchedule::ModifyBoundaryOrder(std::vector<Operation*> &opList) {
 }
 
 Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &function,
-    std::pair<uint64_t, Function*> &program, int &maxWorkeSpaceSize) {
+    std::pair<uint64_t, Function*> &program, int64_t &maxWorkeSpaceSize) {
     APASS_LOG_INFO_F(Elements::Operation, "=============== START MixSchedule ===============");
     std::unordered_map<TargetCoreType, std::string>  targetToString{{TargetCoreType::AIC, "AIC"}, {TargetCoreType::AIV0, "AIV0"}, {TargetCoreType::AIV1, "AIV1"}, {TargetCoreType::UNKNOWN, "UNKNOWN"}};
     TaskSpliter spliter;
@@ -172,7 +173,7 @@ Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &funct
         return FAILED;
     }
     OoOHealthCheck(oooSchedule, function, program);
-    APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%d] OOOSchedule end.", program.first);
+    APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%zu] OOOSchedule end.", program.first);
     program.second->ScheduleBy(oooSchedule.GetNewOperations());
     program.second->RecordOOOSeq();
     RescheduleUtils::UpdateTensorConsProd(program.second);
@@ -212,13 +213,11 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
         auto opList = program.second->Operations(false);
         for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
             Operation *op = &opList[opIdx];
-            if (LASTUSE_OPS.find(op->GetOpcode()) == LASTUSE_OPS.end()) {
-                APASS_LOG_INFO_F(Elements::Operation, "Op %s[%d] is not in LASTUSE_OPS, skip record last_use Attribute.", op->GetOpcodeStr().c_str(), op->GetOpMagic());
-                continue;
+            if (LASTUSE_OPS.find(op->GetOpcode()) != LASTUSE_OPS.end()) {
+                int tensorSize = op->GetIOperands().size() + op->GetOOperands().size();
+                std::vector<int> initVec(tensorSize, false);
+                op->SetAttribute(OpAttributeKey::lastUse, initVec);
             }
-            int tensorSize = op->GetIOperands().size() + op->GetOOperands().size();
-            std::vector<int> initVec(tensorSize, false);
-            op->SetAttribute(OpAttributeKey::lastUse, initVec);
             for (size_t inputIdx = 0; inputIdx < op->GetIOperands().size(); inputIdx++) {
                 auto inTensor = op->GetInputOperand(inputIdx);
                 lastUseMap_[inTensor] = op;
@@ -230,6 +229,9 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
     for (auto &entry : lastUseMap_) {
         auto lastUseOp = entry.second;
         auto lastUseTensor = entry.first;
+        if (LASTUSE_OPS.find(lastUseOp->GetOpcode()) == LASTUSE_OPS.end()) {
+            continue; //针对非LASTUSE_OPS中的op不做处理，仅处理LASTUSE_OPS中的op
+        }
         if (opInputIdxMap.find(lastUseOp) == opInputIdxMap.end()) {
             int tensorSize = lastUseOp->GetIOperands().size() + lastUseOp->GetOOperands().size();
             std::vector<int> tensorIdxVec(tensorSize, false);
@@ -247,7 +249,6 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
     }
     for (auto &entry : opInputIdxMap) {
         auto op = entry.first;
-        std::fill(opInputIdxMap[op].begin(), opInputIdxMap[op].end(), 0); // disable LastUse
         op->SetAttribute(OpAttributeKey::lastUse, opInputIdxMap[op]);
     }
     APASS_LOG_INFO_F(Elements::Function, "===> End RecordLastUseMemory.");
@@ -256,7 +257,7 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
 
 Status OoOSchedule::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "=============== START 2CoreSplit ===============");
-    int maxWorkeSpaceSize = 0;
+    int64_t maxWorkeSpaceSize = 0;
     for (auto &program : function.rootFunc_->programs_) {
         auto opList = program.second->Operations(false).DuplicatedOpList();
         oriFunctions.emplace_back(program.second);
@@ -279,6 +280,8 @@ Status OoOSchedule::RunOnFunction(Function &function) {
                 APASS_LOG_ERROR_F(Elements::Operation, "NonMix OoO schedule failed.");
                 return FAILED;
             }
+            DeadOperationEliminator eliminator;
+            eliminator.EliminateOperationAndNotSortAfterErase(*program.second);
             programRef.second = program.second;
             continue;
         }
@@ -286,6 +289,8 @@ Status OoOSchedule::RunOnFunction(Function &function) {
             APASS_LOG_ERROR_F(Elements::Operation, "Mix OoO schedule failed.");
             return FAILED;
         }
+        DeadOperationEliminator eliminator;
+        eliminator.EliminateOperationAndNotSortAfterErase(*program.second);
         programRef.second = program.second;
     }
     if (RecordLastUseMemory(function) == FAILED) {

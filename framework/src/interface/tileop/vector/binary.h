@@ -72,12 +72,12 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
             PTO_WITH_LAST_USE(pto::TROWEXPANDMIN(dst, src0, src1), n1, n2, n3);
         }
     }
-        
+
     if constexpr (op == BinaryOp::BITWISEAND) {
         pto::TAND(dst, src0, src1);
         return;
     }
-  
+
     if constexpr (op == BinaryOp::BITWISEOR) {
         pto::TOR(dst, src0, src1);
         return;
@@ -87,6 +87,14 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
         pto::TREM(dst, src0, src1);
         return;
     }  
+
+    if constexpr (op == BinaryOp::EXPANDEXPDIF) {
+        if constexpr (operand == TileOp::BroadcastOperand::NONE) {
+            pto::TCOLEXPANDEXPDIF(dst, src0, src1);
+        } else {
+            pto::TROWEXPANDEXPDIF(dst, src0, src1);
+        }
+    }
 
     if constexpr (op == BinaryOp::MOD) {
         if constexpr (operand == TileOp::BroadcastOperand::NONE) {
@@ -113,10 +121,16 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
 template <BinaryOp op, TileOp::BroadcastOperand operand, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
+    constexpr auto src0TileW = TileOp::GetTensorTileShapeDim<T1, DIM_5TH, MAX_DIMS>();
+    constexpr auto src1TileW = TileOp::GetTensorTileShapeDim<T2, DIM_5TH, MAX_DIMS>();
     if constexpr (TileOp::IsConstContinous<T0, T1, T2>() == true) {
         auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
-        auto src0Tile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
-        auto src1Tile = PtoTile<T2, pto::BLayout::RowMajor, true>().Data();
+        using Src0PtoTile = typename std::conditional<(src0TileW == 1 && operand == TileOp::BroadcastOperand::LEFT_OPERAND),
+            PtoTile<T1, pto::BLayout::ColMajor, true>, PtoTile<T1, pto::BLayout::RowMajor, true>>::type;
+        using Src1PtoTile = typename std::conditional<(src1TileW == 1 && operand == TileOp::BroadcastOperand::RIGHT_OPERAND),
+            PtoTile<T2, pto::BLayout::ColMajor, true>, PtoTile<T2, pto::BLayout::RowMajor, true>>::type;
+        auto src0Tile = Src0PtoTile().Data();
+        auto src1Tile = Src1PtoTile().Data();
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(src0Tile, (uint64_t)src0.GetAddr());
         pto::TASSIGN(src1Tile, (uint64_t)src1.GetAddr());
@@ -128,11 +142,9 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
     auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
     auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
 
-    constexpr auto src0TileW = TileOp::GetTensorTileShapeDim<T1, DIM_5TH, MAX_DIMS>();
-    constexpr auto src1TileW = TileOp::GetTensorTileShapeDim<T2, DIM_5TH, MAX_DIMS>();
-    using Src0PtoTile = typename std::conditional<(src0TileW == 1 && operand == TileOp::BroadcastOperand::LEFT_OPERAND), 
+    using Src0PtoTile = typename std::conditional<(src0TileW == 1 && operand == TileOp::BroadcastOperand::LEFT_OPERAND),
         PtoTile<T1, pto::BLayout::ColMajor>, PtoTile<T1>>::type;
-    using Src1PtoTile = typename std::conditional<(src1TileW == 1 && operand == TileOp::BroadcastOperand::RIGHT_OPERAND), 
+    using Src1PtoTile = typename std::conditional<(src1TileW == 1 && operand == TileOp::BroadcastOperand::RIGHT_OPERAND),
         PtoTile<T2, pto::BLayout::ColMajor>, PtoTile<T2>>::type;
 
     auto dstTile = PtoTile<T0>(dst);
@@ -203,6 +215,26 @@ TILEOP void TBitwiseAnd(T0 dst, T1 src0, T2 src1) {
 template <typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TBitwiseOr(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::BITWISEOR, operand, LastUse>(dst, src0, src1);
+}
+
+#define OP_TILE_OP_EXPANDEXPDIF TExpandExpDif
+template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
+TILEOP void TExpandExpDif(T0 dst, T1 src0, T2 src1) {
+    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
+        const auto src0Layout = src0.GetLayout();
+        auto src0Shape3 = src0Layout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+        auto src0Shape4 = src0Layout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+        const auto src1Layout = src1.GetLayout();
+        auto src1Shape3 = src1Layout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+        auto src1Shape4 = src1Layout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+        // (1024, 1) & (1024, 1) -> (1024, 1) use TROWEXPANDEXPDIF
+        if ((src0Shape3 == src1Shape3) && (src0Shape4 == src1Shape4) && (src1Shape4 == 1)) {
+            BinaryCompute<BinaryOp::EXPANDEXPDIF, TileOp::BroadcastOperand::RIGHT_OPERAND, LastUse3Dim<0, 0, 0>>(
+                dst, src0, src1);
+            return;
+        }
+    }
+    BinaryCompute<BinaryOp::EXPANDEXPDIF, operand, LastUse3Dim<0, 0, 0>>(dst, src0, src1);
 }
 
 TILEOP int gcd(int a, int b) {

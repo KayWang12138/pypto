@@ -305,8 +305,14 @@ public:
     }
 
     void InitPv() {
-        auto socVersion = npu::tile_fwk::Platform::Instance().GetSoc().GetSocVersion();
-        std::string soPath = std::string(std::getenv("ASCEND_HOME_PATH")) + "/toolkit/tools/simulator/" + npu::tile_fwk::SocVersionToString(socVersion) + "/lib/libpem_davinci.so";
+        auto archType = npu::tile_fwk::Platform::Instance().GetSoc().GetNPUArch();
+        const char* ascendHome = std::getenv("ASCEND_HOME_PATH");
+        if (ascendHome == nullptr) {
+            throw std::runtime_error("ASCEND_HOME_PATH environment variable not set");
+        }
+        std::string archTypeStr = NPUArchToString(archType);
+        std::transform(archTypeStr.begin(), archTypeStr.end(), archTypeStr.begin(), ::tolower);
+        std::string soPath = std::string(ascendHome) + "/toolkit/tools/simulator/" + archTypeStr + "/lib/libpem_davinci.so";
         void *handle = dlopen((soPath.c_str()), RTLD_LAZY);
         if (!handle) {
             throw std::runtime_error("can not load library: " + soPath);
@@ -371,7 +377,7 @@ public:
                     *func, ctx, {leaf->GetProgramId(), leaf}, isCube, leaf->IsUnderDynamicFunction());
                 compileInfo.SetCCEAbsPath(srcPath);
                 compileInfo.SetBinAbsPath(objPath);
-                cga.CompileCCE(compileInfo, "");
+                cga.CompileCode(cga.PrepareCmd(compileInfo, ""));
 
                 binPath = srcPath.substr(0, srcPath.length() - Len3) + "bin";
                 constexpr int cmdLen = 2048;

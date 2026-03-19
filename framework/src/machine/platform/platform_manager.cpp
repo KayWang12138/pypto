@@ -15,7 +15,6 @@
 
 #include "machine/platform/platform_manager.h"
 #include <fstream>
-#include "interface/utils/log.h"
 #include "interface/utils/string_utils.h"
 #include "interface/utils/file_utils.h"
 #include "tilefwk/pypto_fwk_log.h"
@@ -187,8 +186,8 @@ void PlatformManager::ParseStrItem(const std::map<std::string, std::map<std::str
             continue;
         }
         pmStrItemArray_[static_cast<size_t>(item.first)] = iterSecondLayer->second;
-        MACHINE_LOGI("[%s] [%s] is [%lld]", std::get<0>(item.second).c_str(), std::get<1>(item.second).c_str(),
-                     pmStrItemArray_[static_cast<size_t>(item.first)]);
+        MACHINE_LOGI("[%s] [%s] is [%s]", std::get<0>(item.second).c_str(), std::get<1>(item.second).c_str(),
+                     pmStrItemArray_[static_cast<size_t>(item.first)].c_str());
     }
 }
 
@@ -204,8 +203,8 @@ void PlatformManager::ParseIntItem(const std::map<std::string, std::map<std::str
             continue;
         }
         pmIntItemArray_[static_cast<size_t>(item.first)] = std::get<FUNC_POS>(item.second)(iterSecondLayer->second);
-        MACHINE_LOGI("[%s] [%s] is [%lld]", std::get<0>(item.second).c_str(), std::get<1>(item.second).c_str(),
-                     pmIntItemArray_[static_cast<size_t>(item.first)]);
+        MACHINE_LOGI("[%s] [%s] is [%ld]", std::get<0>(item.second).c_str(), std::get<1>(item.second).c_str(),
+                     static_cast<long>(pmIntItemArray_[static_cast<size_t>(item.first)]));
     }
 }
 
