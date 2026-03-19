@@ -691,8 +691,8 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
     if (tripleStream) {
         auto startTime = MsprofSysCycleTime();
         args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
-        ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 2, &rtArgs, nullptr, ctrlStream, 0);
+        ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 2, &rtArgs,
+            nullptr, ctrlStream, RT_KERNEL_USE_SPECIAL_TIMEOUT);
         devRunner.ReportHostProfInfo(startTime, 2, MSPROF_GE_TASK_TYPE_AI_CPU, false);
         if (ret != RT_ERROR_NONE) {
             return ret;
@@ -706,15 +706,15 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
             MACHINE_LOGE("sche num is 1, no need lauch more aicpu in tripleStream, nrAicpu changed to %u",
                 DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
         }
-        ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs, nullptr, schedStream, 0);
+        ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs,
+            nullptr, schedStream, RT_KERNEL_USE_SPECIAL_TIMEOUT);
         devRunner.ReportHostProfInfo(startTime, scheCpuNum, MSPROF_GE_TASK_TYPE_AI_CPU, false);
         return ret;
     } else {
         args->kArgs.parameter.runMode = RUN_UNIFIED_STREAM;
         auto startTime = MsprofSysCycleTime();
-        ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs, nullptr, schedStream, 0);
+        ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs,
+            nullptr, schedStream, RT_KERNEL_USE_SPECIAL_TIMEOUT);
         devRunner.ReportHostProfInfo(startTime, nrAicpu, MSPROF_GE_TASK_TYPE_AI_CPU, false);
         return ret;
     }
