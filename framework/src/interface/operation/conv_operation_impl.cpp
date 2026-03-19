@@ -214,14 +214,10 @@ void ValidateL0Constraint(int64_t tile1, int64_t tile2, int64_t tile3, size_t dt
 void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const Tensor &weightTensor, const Tensor &inputTensor)
 {
     auto &convTile = TileShape::Current().GetConvTile();
-    int64_t tileH = convTile.tileL0Info.tileH;
-    int64_t tileW = convTile.tileL0Info.tileW;
-    int64_t tileN = convTile.tileL0Info.tileN;
-    int64_t tileK = convTile.tileL0Info.tileK;
-    int64_t tileHout = convTile.tileL1Info.tileHout;
-    int64_t tileWout = convTile.tileL1Info.tileWout;
-    int64_t tileCout = convTile.tileL1Info.tileN;
-    int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
+    int64_t tileH = convTile.tileL0Info.tileH, int64_t tileW = convTile.tileL0Info.tileW;
+    int64_t tileN = convTile.tileL0Info.tileN, int64_t tileK = convTile.tileL0Info.tileK;
+    int64_t tileHout = convTile.tileL1Info.tileHout, int64_t tileWout = convTile.tileL1Info.tileWout;
+    int64_t tileCout = convTile.tileL1Info.tileN, int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
     int64_t tileCinFmap = convTile.tileL1Info.tileCinFmap;
     int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
     uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
@@ -237,9 +233,7 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
     if (attrParam.isConv3D) {
         int64_t kd = weightTensor.GetShape()[NCDHW_D_IDX];
         int64_t dout = ConvComputeDo(inputTensor, weightTensor, attrParam);
-        numTileL0 *= dout;
-        kAL1 *= kd;
-        kBL1 *= kd;
+        numTileL0 *= dout; kAL1 *= kd; kBL1 *= kd;
     }
     if (numTileL0 > MAX_LOOP) {
         CONV_LOGW("Suggestion: Consider increasing tile size to reduce compilation time.");
