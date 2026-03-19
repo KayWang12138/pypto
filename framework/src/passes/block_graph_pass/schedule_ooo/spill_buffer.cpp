@@ -26,7 +26,8 @@ constexpr int32_t DEFAULT_LATENCY = 511;
 namespace {
 bool IsSupportedPartialWriteProducer(const Operation &op)
 {
-    return op.GetOpcode() == Opcode::OP_ASSEMBLE || op.GetOpcode() == Opcode::OP_L0C_TO_L1;
+    return op.GetOpcode() == Opcode::OP_ASSEMBLE || op.GetOpcode() == Opcode::OP_L0C_TO_L1 ||
+        IsAllocOpCode(op.GetOpcode());
 }
 } // namespace
 
@@ -714,6 +715,9 @@ Status OoOScheduler::FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vect
                 "All producer of Tensor[%d] must be supported partial-write op, now has %s[%d].",
                 spillInfo.spillTensor_->GetMagic(), producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
             return FAILED;
+        }
+        if (IsAllocOpCode(producer->GetOpcode())) {
+            continue;
         }
         for (auto issue : issueEntries) {
             if (&(issue->tileOp) == producer) {
