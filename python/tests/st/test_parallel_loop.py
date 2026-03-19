@@ -64,9 +64,9 @@ def test_parallel_add_double_parallel():
 
     @pypto.frontend.jit
     def parallel_add(
-        left: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
-        right: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
-        res: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+        left: pypto.Tensor([2, 4, 4], pypto.DT_FP32),
+        right: pypto.Tensor([2, 4, 4], pypto.DT_FP32),
+        res: pypto.Tensor([2, 4, 4], pypto.DT_FP32),
     ):
         """
         JIT-compiled MLA Prolog quantization for decode phase.
@@ -122,9 +122,9 @@ def test_parallel_add_single_parallel():
 
     @pypto.frontend.jit
     def parallel_add(
-        left: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
-        right: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
-        res: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+        left: pypto.Tensor([2, 4, 4], pypto.DT_FP32),
+        right: pypto.Tensor([2, 4, 4], pypto.DT_FP32),
+        res: pypto.Tensor([2, 4, 4], pypto.DT_FP32),
     ):
         """
         JIT-compiled MLA Prolog quantization for decode phase.
