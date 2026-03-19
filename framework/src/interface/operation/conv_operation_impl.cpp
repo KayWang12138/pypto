@@ -211,7 +211,7 @@ void ValidateL0Constraint(int64_t tile1, int64_t tile2, int64_t tile3, size_t dt
     });
 }
 
-int CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const Tensor &weightTensor)
+void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const Tensor &weightTensor)
 {
     auto &convTile = TileShape::Current().GetConvTile();
     int64_t tileH = convTile.tileL0Info.tileH;
@@ -230,10 +230,19 @@ int CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const Te
     int64_t kw = weightTensor.GetShape()[indexW];
     int64_t kAL1 = ConvAlignB(tileCinFmap, k0) * kh * kw;
     int64_t kBL1 = ConvAlignB(tileCinWeight, k0) * kh * kw;
+    int64_t batch = inputTensor.GetShape()[NCHW_N_IDX];
+    int64_t groups = attrParam.groups;
+    int64_t cout = weightTensor.GetShape()[NCHW_N_IDX];
+    int64_t numTileL0 = batch * groups * CeilDiv(cout/groups, tileN) * CeilDiv(tileHout, tileH) * CeilDiv(tileWout, tileW);
     if (attrParam.isConv3D) {
         int64_t kd = weightTensor.GetShape()[NCDHW_D_IDX];
+        int64_t dout = ConvComputeDo(inputTensor, weightTensor, attrParam);
+        numTileL0 *= dout;
         kAL1 *= kd;
         kBL1 *= kd;
+    }
+    if (numTileL0 > MAX_LOOP) {
+        CONV_LOGW("Suggestion: Consider increasing tile size to reduce compilation time.");
     }
     int64_t minKL1 = std::min(kAL1, kBL1);
     CheckAlignment(tileK , k0, "tileK");
@@ -256,9 +265,6 @@ int CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const Te
     ValidateL0Constraint(tileH, tileW, tileK, BytesOf(outType), l0aSize, "L0A", "tileH", "tileW", "tileK");
     ValidateL0Constraint(tileK, tileN, 1, BytesOf(outType), l0bSize, "L0B", "tileK", "tileN", "");
     ValidateL0Constraint(tileH, tileW, tileN, BytesOf(DataType::DT_FP32), l0cSize, "L0C", "tileH", "tileW", "tileN");
-    int64_t numTileL0 = CeilDiv(tileHout, tileH) * CeilDiv(tileWout, tileW) * CeilDiv(tileCout, tileN) * CeilDiv(kAL1, tileK) 
-            * CeilDiv(kBL1, tileK);
-    return numTileL0;
 }
 
 void CheckDivisible(int64_t value, int64_t divisor, const std::string& valueName, const std::string& divisorName)
@@ -290,12 +296,6 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     int64_t hin = attrParam.isConv1D ? 1 : inputTensor.GetShape()[indexH];
     int64_t win = inputTensor.GetShape()[indexW];
-    int64_t hout = ConvComputeHo(inputTensor, weightTensor, attrParam);
-    int64_t wout = ConvComputeWo(inputTensor, weightTensor, attrParam);
-    int64_t cin = inputTensor.GetShape()[NCHW_C_IDX];
-    int64_t tileHout = convTile.tileL1Info.tileHout;
-    int64_t tileWout = convTile.tileL1Info.tileWout;
-    int64_t batch = inputTensor.GetShape()[NCHW_N_IDX];
 
     CheckValueRange(tileHin, "tileHin", NUM1, hin);
     CheckValueRange(tileBatch, "tileBatch", NUM1, NUM1);
@@ -307,15 +307,8 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
     CheckAlignment(tileCinFmap, k0, "tileCinFmap");
     CheckAlignment(tileCinWeight, k0, "tileCinWeight");
-    int64_t numTileL1 = CeilDiv(hout, tileHout) * CeilDiv(wout, tileWout) * CeilDiv(cin, tileCinFmap) * CeilDiv(cin, tileCinWeight)
-            * CeilDiv(cOut, tileN) * CeilDiv(batch, tileBatch);
-    int64_t numTileL0 = 1;
     if (convTile.setL0Tile){
-        numTileL0 = CheckL0TileTiling(outType, attrParam, weightTensor);
-    }
-    int64_t loopCount = numTileL0 * numTileL1;
-    if (loopCount > MAX_LOOP) {
-        CONV_LOGW("Suggestion: Consider increasing tile size to reduce compilation time.");
+        CheckL0TileTiling(outType, attrParam, weightTensor);
     }
 }
 
