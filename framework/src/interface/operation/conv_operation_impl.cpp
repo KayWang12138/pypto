@@ -186,11 +186,11 @@ void ValidateL0Constraint(int64_t tile1, int64_t tile2, int64_t tile3, size_t dt
     const std::string& dim1Name, const std::string& dim2Name, const std::string& dim3Name)
 {
     CONV_ASSERT(ConvTileOpError::OVER_BUFFER_LIMIT, tile1 * tile2 * tile3 * dtypeSize <= cacheSize,
-        "Shape does not satisfy " << cacheName 
+        "Shape does not satisfy " << cacheName
         << " load constraints, " << dim1Name << ":" << tile1
         << ", " << dim2Name << ":" << tile2 << ", " << dim3Name << ":" << tile3
         << ", which must satisfy " << dim1Name << " × " << dim2Name << " × "
-        << dim3Name << " × dtypesize ≤ " << cacheName << "Size(" << cacheSize << ")." 
+        << dim3Name << " × dtypesize ≤ " << cacheName << "Size(" << cacheSize << ")."
         << std::endl);
 }
 
@@ -243,8 +243,8 @@ void CheckDivisible(int64_t value, int64_t divisor, const std::string& valueName
     CONV_ASSERT(ConvTileOpError::INPUT_INVALID, value % divisor == 0,
         "The value of " << divisorName << " (" << divisor
         << ") does not divide "<< valueName
-        << "(" << value << "). Adjusting " << divisorName 
-        << " to the nearest value such that "<< valueName 
+        << "(" << value << "). Adjusting " << divisorName
+        << " to the nearest value such that "<< valueName
         << " % " << divisorName << " == 0." << std::endl);
 }
 
@@ -345,7 +345,7 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
     CheckDivisible(cOut, groups, "Cout", "groups");
 
     CONV_ASSERT(ConvTileOpError::INPUT_INVALID, cinFmap == cinWeight * groups,
-        << "Fmap Cin (" << cinFmap << ") != weight Cin (" << cinWeight << ") * groups (" << groups 
+        << "Fmap Cin (" << cinFmap << ") != weight Cin (" << cinWeight << ") * groups (" << groups
         << ")." << std::endl);
 }
 
@@ -411,7 +411,7 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
     if (attrParam.isConv3D) {
         paddings = rotateVector(paddings, 4);
     }
-    const std::vector<std::string> dimNames = 
+    const std::vector<std::string> dimNames =
         attrParam.isConv1D ? std::vector<std::string>{"L"} :
         attrParam.isConv3D ? std::vector<std::string>{"D", "H", "W"} :
         std::vector<std::string>{"H", "W"};
@@ -538,9 +538,9 @@ void SetConvAttrParam(const Operation &op, ConvAttrParam &convAttrParam)
     convAttrParam.groups = (op.HasAttr(CONV_GROUPS_ATTR)) ? op.GetIntAttribute(CONV_GROUPS_ATTR) : 1;
     convAttrParam.hasBias = (op.HasAttr(CONV_BIAS_ATTR)) ? op.GetBoolAttribute(CONV_BIAS_ATTR) : false;
     convAttrParam.isInOutTensorNZ = false;
-    CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, op.HasAttr(CONV_ORI_FMAP_SHAPE_ATTR),
+    CONV_ASSERT(ConvExpandFuncError::EXPANDFUNC_TENSOR_ATTR_GET_FAILED, op.HasAttr(CONV_ORI_FMAP_SHAPE_ATTR),
         "Conv ori fmapshape should be set when InOut Tensor NZ mode." << std::endl);
-    CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID, op.HasAttr(CONV_ORI_WEIGHT_SHAPE_ATTR),
+    CONV_ASSERT(ConvExpandFuncError::EXPANDFUNC_TENSOR_ATTR_GET_FAILED, op.HasAttr(CONV_ORI_WEIGHT_SHAPE_ATTR),
         "Conv ori weightshape should be set when InOut Tensor NZ mode." << std::endl);
     convAttrParam.oriFmapShape = op.GetVectorIntAttribute(CONV_ORI_FMAP_SHAPE_ATTR);
     convAttrParam.oriWeightShape = op.GetVectorIntAttribute(CONV_ORI_WEIGHT_SHAPE_ATTR);
@@ -552,7 +552,7 @@ void SetTensorGraphNodes(const std::vector<LogicalTensorPtr> &operandVec, const 
 {
     // set tensor GraphNodes
     size_t operandVecSize = SHAPE_DIM2 + static_cast<size_t>(convAttrParam.hasBias);
-    CONV_ASSERT(ConvTileOpError::TILE_OP_SHAPE_SIZE_INVALID,  operandVec.size() == operandVecSize),
+    CONV_ASSERT(ConvExpandFuncError::EXPANDFUNC_PARAMS_INVALID,  operandVec.size() == operandVecSize),
         "Operand vector size mismatch: "
         << "Expected size: " << operandVecSize << ", actual size: " << operandVec.size()
         << ", Conv Common Input: " << SHAPE_DIM2 << ", hasBias: " << convAttrParam.hasBias
@@ -754,7 +754,7 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
             (iterInfo.kL0Offset % convTileInfo.kPerGroup) / (convTileInfo.orgKh * convTileInfo.orgKw);
         int64_t srcGmCin = std::min(convTileInfo.orgCin / convAttrParam.groups - srcCinOffset,
                                     convTileInfo.kAL1 / (convTileInfo.orgKh * convTileInfo.orgKw));
-        std::vector<int64_t> srcGmValidShape = 
+        std::vector<int64_t> srcGmValidShape =
             std::vector<int64_t>{1, srcGmCin, iterInfo.hinL1Size, iterInfo.winL1Size};
         if (convAttrParam.isConv3D) {
             iterInfo.dkAL1Size = 1;
@@ -926,7 +926,7 @@ LogicalTensorPtr DoMmad(Function &function, const ConvAttrParam &convAttrParam, 
     } else {
         std::vector<int64_t> cL0PartialSumShape =
             {ConvAlignB(iterInfo.mL0Size, MKN_M_VALUE), ConvAlignB(iterInfo.nL0Size, MKN_N_VALUE)};
-        tileGraphNodes.cL0PartialSumPtr = 
+        tileGraphNodes.cL0PartialSumPtr =
             std::make_shared<LogicalTensor>(function, DataType::DT_FP32, cL0PartialSumShape,
                                             SymbolicScalar::FromConcrete({iterInfo.mL0Size, iterInfo.nL0Size}),
                                             TileOpFormat::TILEOP_NZ, "cL0PartialSumTensor", NodeType::LOCAL);
