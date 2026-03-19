@@ -122,11 +122,11 @@ class AttentionConfig:
 # 配置生成函数
 # ============================================================================
 
-def get_ifa_config(device="cpu"):
-    """IFA (Decode) 配置 - s1 = 1"""
-    b = 8
+def get_pfa_config(device="cpu"):
+    """PFA (Decode) 配置 - s1 = 1"""
+    b = 2
     s1 = 2
-    s2 = 2048
+    s2 = 4096 # 4096边界 16374
     q_d = 128
     nq = 12
     nkv = 1
@@ -148,7 +148,7 @@ def get_ifa_config(device="cpu"):
     
     cube_tile = 128
     m_tile = 128
-    s2_tile = 512
+    s2_tile = 512 # 1024
     tile_cfg = AttentionTileConfig(
         nq,
         s2_tile,
@@ -255,16 +255,8 @@ def softmax(x, is_fp16=False):
     return ans, x_max, x_sum
 
 
-# ============================================================================
-# IFA (Incremental Flash Attention) - Decode 阶段
-# ============================================================================
-
-def ifa_func(q_shape, kv_shape, block_table_shape):
-    """
-    IFA Kernel - Decode 阶段
-    特点: s1=1, 从block_table读取已有KV cache
-    """
-    debug_print("IFA_FUNC", f"Creating IFA kernel with q_shape={q_shape}, kv_shape={kv_shape}")
+def pfa_func(q_shape, kv_shape, block_table_shape):
+    debug_print("PFA_FUNC", f"Creating PFA kernel with q_shape={q_shape}, kv_shape={kv_shape}")
     
     out_shape = q_shape
     q_shape = (pypto.frontend.dynamic("qshape"), q_shape[1], q_shape[2])
@@ -277,13 +269,23 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
             "stitch_function_outcast_memory": 1024,
             "stitch_function_inner_memory": 1024
         },
+        # pass_options={
+        #     "pg_upper_bound": 1536,
+        #     "cube_l1_reuse_setting": {0: 4}
+        # },
         pass_options={
-            "pg_upper_bound": 1536,
-            "cube_l1_reuse_setting": {0: 4}
+            "cube_l1_reuse_setting": {-1:16}, 
+            "cube_nbuffer_setting":{-1:16}, 
+            "vec_nbuffer_mode":2, 
+            "vec_nbuffer_setting":{-1:8}
+        },
+        verify_options = {
+            "enable_pass_verify": True,
+            "pass_verify_save_tensor": True
         },
         debug_options={"runtime_debug_mode":1}
     )
-    def ifa_func_kernel(
+    def pfa_func_kernel(
         q: pypto.Tensor(q_shape, pypto.DT_BF16),
         k: pypto.Tensor(kv_shape, pypto.DT_BF16),
         v: pypto.Tensor(kv_shape, pypto.DT_BF16),
@@ -293,7 +295,7 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
     ):
         pypto.experimental.set_operation_options(combine_axis=True)
         
-        atten_cfg, tile_cfg = get_ifa_config()
+        atten_cfg, tile_cfg = get_pfa_config()
         softmax_scale = atten_cfg.softmax_scale
         
         shape_q = q.shape
@@ -332,8 +334,10 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
             for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
                 # IFA: KV长度 = 历史KV + 当前位置
                 cur_seq = kv_act_seqs[b_idx] - (s1_scalar - 1 - s1_idx)
+                # cur_seq = s1_idx + 1  # # 修改点1
+                print(f'compare values: cur_seq_org:{kv_act_seqs[b_idx] - (s1_scalar - 1 - s1_idx)}, cur_seq_new:{s1_idx + 1}')
                 s2_loop = (cur_seq + s2_tile - 1) // s2_tile
-                
+                  
                 for n2_idx in pypto.loop(n2_sym, name="LOOP_n2", idx_name="n2_idx"):
                     for g_idx in pypto.loop(g_loop, name="LOOP_g", idx_name="g_idx"):
                         oi_update = pypto.tensor([g_tile, dn], pypto.DT_FP32, "oi_update")
@@ -352,12 +356,16 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
                             qi = pypto.view(q_2d, [g_tile, dn], [bs_ofs * nq + n1g_ofs, 0])
                             
                             kj_assemble = pypto.tensor([s2_tile, dn], k_2d.dtype, "kj_assemble")
+                            vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
                             for i in range(block_num):
                                 block_idx = block_table[b_idx, idx + i]
                                 block_idx_valid = block_idx.max(0)
                                 kj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
                                     pypto.view(k_2d, [block_size, dn], [block_idx_valid * block_size, 0])
+                                vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
+                                    pypto.view(v_2d, [block_size, dn], [block_idx_valid * block_size, 0])
                             kj_assemble = pypto.view(kj_assemble, [s2_tile, dn], [0, 0], valid_shape=[s2_tile, dn])
+                            vj_assemble = pypto.view(vj_assemble, [s2_tile, dn], [0, 0], valid_shape=[actual_s2_tile, dn])
                             
                             pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
                             sij = pypto.matmul(qi, kj_assemble, pypto.DT_FP32, a_trans=False, b_trans=True)
@@ -366,6 +374,7 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
                             pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                             
                             if pypto.is_loop_begin(s2_idx):
+                                pypto.set_pass_options(sg_set_scope=1)
                                 sij_scale = pypto.mul(sij, softmax_scale)
                                 tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
                                 tsub = pypto.sub(sij_scale, tilda_mij)
@@ -373,14 +382,7 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
                                 tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
                                 sum_update[:] = pypto.sum(tilda_pij, dim=-1, keepdim=True)
                                 max_update[:] = tilda_mij
-                                
-                                vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
-                                for i in range(block_num):
-                                    block_idx = block_table[b_idx, idx + i]
-                                    block_idx_valid = block_idx.max(0)
-                                    vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                                        pypto.view(v_2d, [block_size, dn], [block_idx_valid * block_size, 0])
-                                vj_assemble = pypto.view(vj_assemble, [s2_tile, dn], [0, 0], valid_shape=[actual_s2_tile, dn])
+                                pypto.set_pass_options(sg_set_scope=-1)
                                 
                                 pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
                                 oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
@@ -388,7 +390,7 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
                                 pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                                 oi_update[:] = oi_tmp
                             else:
-                                pypto.set_pass_options(sg_set_scope=1)
+                                pypto.set_pass_options(sg_set_scope=2)
                                 sij_scale = pypto.mul(sij, softmax_scale)
                                 tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
                                 max_new = pypto.maximum(max_update, tilda_mij)
@@ -396,22 +398,11 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
                                 tilda_pij = pypto.exp(tsub)
                                 tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
                                 sum_local = pypto.sum(tilda_pij, dim=-1, keepdim=True)
-                                pypto.set_pass_options(sg_set_scope=-1)
-                                
-                                pypto.set_pass_options(sg_set_scope=2)
                                 tsub2 = pypto.sub(max_update, max_new)
                                 max_update[:] = max_new
                                 update_mul = pypto.exp(tsub2)
                                 sum_update[:] = sum_update * update_mul + sum_local
                                 pypto.set_pass_options(sg_set_scope=-1)
-                                
-                                vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
-                                for i in range(block_num):
-                                    block_idx = block_table[b_idx, idx + i]
-                                    block_idx_valid = block_idx.max(0)
-                                    vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                                        pypto.view(v_2d, [block_size, dn], [block_idx_valid * block_size, 0])
-                                vj_assemble = pypto.view(vj_assemble, [s2_tile, dn], [0, 0], valid_shape=[actual_s2_tile, dn])
                                 
                                 pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
                                 oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
@@ -425,7 +416,7 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
                                 oi_final_3d = pypto.cast(pypto.reshape(oi_final, [1, g_tile, dn]), dtype)
                                 pypto.assemble(oi_final_3d, oi_ofs, atten_out)
     
-    return ifa_func_kernel
+    return pfa_func_kernel
 
 
 # ============================================================================
@@ -433,7 +424,7 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
 # ============================================================================
 
 @allow_in_graph
-def attention_ifa(
+def attention_pfa(
     query: torch.Tensor,
     key_cache: torch.Tensor,
     value_cache: torch.Tensor,
@@ -441,8 +432,7 @@ def attention_ifa(
     actual_seqs: torch.Tensor,
     attn_res: torch.Tensor
 ) -> None:
-    """IFA - Decode 阶段接口"""
-    debug_print("ATTENTION_IFA", f"Input query shape: {query.shape}")
+    debug_print("ATTENTION_PFA", f"Input query shape: {query.shape}")
     
     if isinstance(query, FakeTensor):
         return
@@ -453,17 +443,16 @@ def attention_ifa(
     block_table_shape = block_tables.shape
     shapes = [q_shape, kv_shape, block_table_shape]
     inputs = [query, key_cache, value_cache, block_tables, actual_seqs, attn_res]
-    ifa_func(*shapes)(*inputs)
+    pfa_func(*shapes)(*inputs)
     
-    debug_print("ATTENTION_IFA", "IFA kernel execution completed")
+    debug_print("ATTENTION_PFA", "PFA kernel execution completed")
 
 
 # ============================================================================
 # 测试函数
 # ============================================================================
-def run_ifa_test(atten_cfg):
-    """运行 IFA 测试"""
-    debug_print("IFA_TEST", "Starting IFA test...")
+def run_pfa_test(atten_cfg):
+    debug_print("PFA_TEST", "Starting PFA test...")
     
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     torch_dtype = torch.bfloat16
@@ -478,7 +467,7 @@ def run_ifa_test(atten_cfg):
     max_num_blocks_per_query = atten_cfg.max_num_blocks_per_query
     kv_cache_actual_seq = atten_cfg.actual_seq
     
-    debug_print("IFA_TEST", f"Config: b={b}, s1={s1}, nq={nq}, nkv={nkv}, d={d}")
+    debug_print("PFA_TEST", f"Config: b={b}, s1={s1}, nq={nq}, nkv={nkv}, d={d}")
     
     q_shape = [b * s1, nq, d]
     kv_shape = [atten_cfg.kv_num_blocks, block_size, nkv, d]
@@ -490,19 +479,23 @@ def run_ifa_test(atten_cfg):
     v = torch.empty(kv_shape, dtype=torch_dtype).uniform_(-1, 1).to(device=device)
     attention_output = torch.zeros(q_shape, dtype=torch_dtype).to(device=device)
     
-    debug_print("IFA_TEST", f"Created tensors: q={q.shape}, k={k.shape}, v={v.shape}")
+    debug_print("PFA_TEST", f"Created tensors: q={q.shape}, k={k.shape}, v={v.shape}")
     
     block_table = gen_block_table(kv_cache_actual_seq, block_size, block_table_shape)
-    debug_print("IFA_TEST", f"Generated block_table: shape={block_table.shape}")
+    debug_print("PFA_TEST", f"Generated block_table: shape={block_table.shape}")
     k_cache_bsnd, v_cache_bsnd = kv_cache_concat_bsnd(k, v, block_table, atten_cfg)
-    debug_print("IFA_TEST", f"Created tensors: k_cache_bsnd={k_cache_bsnd.shape}, v_cache_bsnd={v_cache_bsnd.shape}")
+    debug_print("PFA_TEST", f"Created tensors: k_cache_bsnd={k_cache_bsnd.shape}, v_cache_bsnd={v_cache_bsnd.shape}")
     
-    debug_print("IFA_TEST", "Running PyTorch reference implementation...")
+    debug_print("PFA_TEST", "Running PyTorch reference implementation...")
     for i in range(b):
         for j in range(s1):
             for n2_idx in range(nkv):
+                # seq_len = j + 1 # 修改4 PFA 因果注意力: 位置 j 只能看到位置 0 到 j 的 KV
+
                 kv_seq_len = kv_cache_actual_seq[i].item()
                 seq_len = kv_seq_len - s1 + 1 + j
+                print(f'torch_compare values: cur_seq_org:{kv_seq_len - s1 + 1 + j}, cur_seq_new:{j + 1}')
+
                 q_bs = q[i * s1 + j]
                 k_bs = k_cache_bsnd[i, :seq_len, n2_idx:n2_idx + 1].reshape(seq_len, d)
                 v_bs = v_cache_bsnd[i, :seq_len, n2_idx:n2_idx + 1].reshape(seq_len, d)
@@ -513,6 +506,7 @@ def run_ifa_test(atten_cfg):
                 bmm2_res = torch.matmul(softmax_res, v_bs)
                 
                 attention_output[i * s1 + j] = bmm2_res
+                print(f'PFA batch={i},token_pos={j}, head={n2_idx}, seq_len={seq_len}')         
     
     block_table_torch = block_table.to(dtype=torch.int32, device=device)
     act_seq_torch = kv_cache_actual_seq.to(dtype=torch.int32, device=device)
@@ -520,24 +514,24 @@ def run_ifa_test(atten_cfg):
     
     inputs = [q, k, v, block_table_torch, act_seq_torch, out_torch]
     
-    debug_print("IFA_TEST", "Running IFA kernel...")
-    attention_ifa(*inputs)
+    debug_print("PFA_TEST", "Running PFA kernel...")
+    attention_pfa(*inputs)
     
-    debug_print("IFA_TEST", "Comparing results...")
+    debug_print("PFA_TEST", "Comparing results...")
     assert_allclose(
         np.array(attention_output.cpu().flatten().tolist()),
         np.array(out_torch.cpu().flatten().tolist()),
         rtol=0.0078125, atol=0.0001
     )
     
-    debug_print("IFA_TEST", "IFA test PASSED!")
+    debug_print("PFA_TEST", "PFA test PASSED!")
 
 
 @pytest.mark.skip(reason="large test case")
-def test_ifa():
+def test_pfa():
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     device = f'npu:{device_id}'
-    atten_cfg, _ = get_ifa_config(device=device)
+    atten_cfg, _ = get_pfa_config(device=device)
     
     if atten_cfg.actual_seq.device.type != 'cpu':
         actual_seq_cpu = atten_cfg.actual_seq.cpu()
@@ -548,7 +542,7 @@ def test_ifa():
         f'B={atten_cfg.b} must equal actual_seq length={len(atten_cfg.actual_seq)}'
     assert all(x <= atten_cfg.s2 for x in actual_seq_cpu), "All values must be <= s2"
     
-    run_ifa_test(atten_cfg)
+    run_pfa_test(atten_cfg)
 
 
 if __name__ == "__main__":
@@ -556,14 +550,10 @@ if __name__ == "__main__":
     print("GLM-4.5 Attention Module - IFA & PFA")
     print("=" * 60)
     print()
-    print("IFA (Incremental Flash Attention):")
-    print("  - For decode phase, s1=1")
-    print("  - Reads KV cache from block_table")
-    print()
     print("PFA (Prompt Flash Attention):")
     print("  - For prefill phase, s1>=1")
     print("  - Causal attention (Q[i] sees K[0:i+1])")
     print()
     print("=" * 60)
     
-    test_ifa()
+    test_pfa()
