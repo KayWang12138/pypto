@@ -156,7 +156,8 @@ public:
     };
 
     explicit RecordLoopFunc(const std::string &name, FunctionType funcType, const std::string &iterName,
-        const LoopRange &range, const std::set<int> &unrollList = {}, bool submitBeforeLoop = false);
+        const LoopRange &range, const std::set<int> &unrollList = {}, bool submitBeforeLoop = false,
+        bool parallelFor = false);
     ~RecordLoopFunc();
 
     void BeginLoopFunction();
@@ -184,6 +185,17 @@ public:
     size_t UnrollTimesSize() const { return unrollTimes_.size(); }
     int CurUnrollTimes() const;
     void NextUnrollTimes();
+    bool GetParallelFor() const {return parallelFor_;}
+    std::string GetName() const {return name_;}
+    void AddLoopUnrollFunctions(Function* func) {
+        loopUnrollFunctions_.push_back(func);
+    }
+
+    std::vector<npu::tile_fwk::Function *>& GetLoopUnrollFunctions() {
+        return loopUnrollFunctions_;
+    }
+
+    void SetLoopUnrollFuncParallelAttr(int parallelForValue);
 
     bool CustomUnrollTimesMatched() const { return customUnrollTimes_.count(CurUnrollTimes()) > 0; }
     static bool MatchUnrollTimes(int unrollTimes);
@@ -196,6 +208,7 @@ private:
     std::shared_ptr<LoopRange> loopRange_;
     bool submitBeforeLoop_;
     FunctionType funcType_{FunctionType::STATIC};
+    bool parallelFor_;
     Function *currentLoopFunc_{nullptr};
     bool dryRun_{false};
     bool hasManualUnroll_{false};
@@ -206,6 +219,7 @@ private:
     std::unordered_set<int> visited_;
     std::unordered_set<int> customUnrollTimes_;
     std::shared_ptr<SourceLocation> location_;
+    std::vector<npu::tile_fwk::Function *> loopUnrollFunctions_;
 
     void GenDefaultUnrollTimes(const std::set<int> &unrollList);
 };

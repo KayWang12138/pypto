@@ -200,15 +200,33 @@ bool RecordFunc::Iterator::operator!=(const IteratorEnd &rhs) {
     return result;
 }
 
+void RecordLoopFunc::SetLoopUnrollFuncParallelAttr(int parallelForValue) {
+    for (auto item : loopUnrollFunctions_) {
+        item->GetDynloopAttribute()->parallelFor = static_cast<Parallel_Mode>(parallelForValue);
+    }
+}
+
 RecordLoopFunc::RecordLoopFunc(const std::string &name, FunctionType funcType, const std::string &iterName,
-    const LoopRange &range, const std::set<int> &unrollList, bool submitBeforeLoop)
+    const LoopRange &range, const std::set<int> &unrollList, bool submitBeforeLoop, bool parallelFor)
     : name_(FUNCTION_PREFIX + name),
         iterName_(iterName),
         loopRange_(std::make_shared<LoopRange>(range)),
         submitBeforeLoop_(submitBeforeLoop),
+        parallelFor_(parallelFor),
         funcType_(funcType) {
     CHECK(funcType == FunctionType::STATIC || funcType == FunctionType::DYNAMIC_LOOP)
         << "funcType: " << GetFunctionTypeNameDict().Find(funcType);
+    if (parallelFor_) {
+        for (auto &rlf : Program::GetInstance().GetLoopStack()) {
+            if (rlf.get().GetParallelFor()) {
+                ASSERT(!rlf.get().GetParallelFor()) << "The parallel attribute value does not allow nesting";
+            }
+        }
+
+        if (!Program::GetInstance().GetLoopStack().empty()) {
+            Program::GetInstance().GetLoopStack().back().get().SetLoopUnrollFuncParallelAttr(Parallel_Mode::PARENT);
+        }
+    }
     Program::GetInstance().GetLoopStack().emplace_back(*this);
 
     GenDefaultUnrollTimes(unrollList);
@@ -235,6 +253,7 @@ void RecordLoopFunc::BeginLoopFunction() {
     auto loopFuncName = name_ + "_Unroll" + std::to_string(CurUnrollTimes());
     Program::GetInstance().BeginFunction(loopFuncName, FunctionType::DYNAMIC_LOOP);
     currentLoopFunc_ = Program::GetInstance().GetCurrentFunction();
+    AddLoopUnrollFunctions(currentLoopFunc_);
     CHECK(currentLoopFunc_->InsertLoopIdxNameList(iterName_)) << "Forbid duplicate name of loop idx. It names " << iterName_;
     auto currentStep = CurUnrollTimes() == 1 ? loopRange_->Step() : loopRange_->Step() * CurUnrollTimes();
     if (rangeOfEaceUnroll_.empty()) {
@@ -249,6 +268,13 @@ void RecordLoopFunc::BeginLoopFunction() {
     }
     auto range = rangeOfEaceUnroll_.back();
     range->End().AsIntermediateVariable();
+    // 如果是paralell for配置在的loop，则paralell for的值为Parallel_Mode::PARALLEL；
+    // 如果是parallel loop的子loop，设为Parallel_Mode::DEFAULT
+    auto funcParallelAttr = parallelFor_ ? Parallel_Mode::PARALLEL : Parallel_Mode::DEFAULT;
+    if (Program::GetInstance().GetLoopStack().size() >= 2) {
+        funcParallelAttr = Program::GetInstance().GetLoopStack()[Program::GetInstance().GetLoopStack().size() - 2].get().GetParallelFor() ? Parallel_Mode::CHILD : funcParallelAttr;
+    }
+    auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, funcParallelAttr);
     auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_);
     currentLoopFunc_->SetDynloopAttribute(attr);
     currentLoopFunc_->SetSourceLocation(location_);
