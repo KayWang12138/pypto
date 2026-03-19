@@ -191,6 +191,10 @@ public:
     }
 
     inline int RunTask(DeviceTaskCtrl *taskCtrl) {
+        InitDevTask(taskCtrl);
+
+        const auto t0 = std::chrono::high_resolution_clock::now();
+
         auto ret = ExecuteTask(taskCtrl);
         wrapManager_.Deinit();
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -198,6 +202,12 @@ public:
                 taskCtrl->finishedFunctionCnt.load(), curDevTask_->coreFunctionCnt, taskCtrl->taskId);
             DumpAiCoreStatus();
         }
+
+
+        const auto tf = std::chrono::high_resolution_clock::now();
+        const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(tf - t0).count();
+        DEV_ERROR("[AICPU %d] Running Time: %ldns", aicpuIdx_, ns);
+
         return ret;
     }
 
@@ -243,9 +253,6 @@ public:
         
         #if ENABLE_AICPU_PRINT == 1
         DEV_INFO("receive new task %lu.", taskCtrl->taskId);
-        #endif
-
-        InitDevTask(taskCtrl);
 
         uint64_t curSent = 0UL;
         if (!taskCtrl->isFirstDevTask) {
