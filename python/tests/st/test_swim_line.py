@@ -102,3 +102,11 @@ def test_swim():
     swim_lane_json_path = pref_path + "/merged_swimlane.json"
     assert os.path.exists(swim_lane_json_path), "Could not Get swim lane"
     assert os.path.getsize(swim_lane_json_path) > 0, "Get swim lane is null"
+
+    tilefwk_l1_prof_data_path = pref_path + "/tilefwk_L1_prof_data.json"
+    assert os.path.exists(tilefwk_l1_prof_data_path), "Could not Get tilefwk_L1_prof_data"
+    
+    # can not be empty list, need to have data
+    with open(tilefwk_l1_prof_data_path, 'r', encoding='utf-8') as f:
+        tilefwk_L1_prof_data: List[Dict] = json.load(f)
+        assert len(tilefwk_L1_prof_data) > 0, "tilefwk_L1_prof_data is empty"
