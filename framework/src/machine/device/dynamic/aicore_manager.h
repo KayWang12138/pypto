@@ -131,9 +131,6 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
 
         readyAicCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
-        wrapManager_.Init(curDevTask_, context_->coreRunReadyCnt_, context_->runReadyCoreIdx_[CORE_IDX_AIV],
-            context_->runReadyCoreIdx_[CORE_IDX_AIC], context_->corePendReadyCnt_, pendingIds_.data(),
-            runningIds_.data(), aicValidNum_, [&](CoreType coreType, int arg1, uint64_t arg2) {SendTaskToAiCore(coreType, arg1, arg2);});
 
         // If I am the lead AICPU scheduler, perform initailization steps
         if (isLeaderScheduler_ == true)
@@ -183,7 +180,6 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
     }
 
     inline void RunCoreTask(uint64_t& sent) {
-        wrapManager_.DispatchMixCoreTask();
         DispatchAiCoreTask(CoreType::AIC, readyAicCoreFunctionQue_, aicStart_, aicEnd_);
         DispatchAiCoreTask(CoreType::AIV, readyAivCoreFunctionQue_, aivStart_, aivEnd_);
 
@@ -201,7 +197,6 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
         const auto t0 = std::chrono::high_resolution_clock::now();
 
         ExecuteTask(taskCtrl);
-        wrapManager_.Deinit();
 
         const auto tf = std::chrono::high_resolution_clock::now();
         const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(tf - t0).count();
@@ -387,7 +382,6 @@ private:
     inline void DispatchAiCoreTask(CoreType type, ReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd) {
         if (context_->waitTaskCnt_[static_cast<int>(type)] > 0) {
             ResolveDepForAllAiCore(type, coreIdxStart, coreIdxEnd);
-            wrapManager_.DispatchMixCoreTask();
         }
         TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
     }
@@ -515,8 +509,6 @@ private:
                 if (unlikely(coreType == static_cast<int>(CoreType::HUB))) {
                     ResolveDepDyn(id, 0, coreIdx);
                     context_->resolveHubCnt_++;
-                } else if (wrapManager_.IsBindedWrapId(id)) {
-                    wrapManager_.ResolveDepForMixCore(id);
                 } else {
                     PushReadyTask(static_cast<int>(coreType), id);
                 }
@@ -529,7 +521,6 @@ private:
         auto funcId = FuncID(finishId);
         auto opIndex = TaskID(finishId);
 
-        wrapManager_.UpdateFinishIdForMixCore(finishId, coreIdx);
         auto cceBinary = dyntask->cceBinary;
         auto func = dyntask->dynFuncDataCacheList[funcId].devFunc;
         auto predCounts =  dyntask->dynFuncDataCacheList[funcId].predCount;
@@ -548,8 +539,6 @@ private:
                 if (unlikely(coreType == static_cast<int>(CoreType::HUB))) {
                     ResolveDepDyn(id, resolveIndexBase, coreIdx);
                     context_->resolveHubCnt_++;
-                } else if (wrapManager_.IsBindedWrapId(id)) {
-                    wrapManager_.ResolveDepForMixCore(id);
                 } else {
                     PushReadyTask(static_cast<int>(coreType), id);
                 }
@@ -586,7 +575,6 @@ private:
         uint32_t expectedValue = AICPU_LEAD_SCHEDULER_NULL;
         isLeaderScheduler_ = leadSchedulerId->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
 
-        wrapManager_.InitDeviceInfo(deviceArgs);
         UpdateAiCoreBlockIndexSection();
         aicoreHal_.MapRegistersForAllCores(aicNum_);
         preFetchSuccess_ = false;
@@ -767,7 +755,6 @@ private:
     ReadyCoreFunctionQueue* readyAicCoreFunctionQue_{nullptr};
     ReadyCoreFunctionQueue* readyAivCoreFunctionQue_{nullptr};
     ReadyCoreFunctionQueue* readyAicpuFunctionQue_{nullptr};
-    WrapManager wrapManager_;
     SchduleContext * context_{nullptr};
 
     bool preFetchSuccess_{false};
