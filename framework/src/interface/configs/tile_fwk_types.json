@@ -20,7 +20,9 @@
         "DT_DOUBLE": 16,
         "DT_FP8E5M2": 17,
         "DT_FP8E4M3": 18,
-        "DT_FP8E8M0": 19
+        "DT_FP8E8M0": 19,
+        "DT_FP4_E2M1X2": 20,
+        "DT_FP4_E1M2X2": 21
     },
     "FunctionType": {
         "EAGER": 0,

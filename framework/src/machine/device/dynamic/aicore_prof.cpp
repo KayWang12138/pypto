@@ -236,6 +236,9 @@ inline void AiCoreProf::ProfInitLog() {
 }
 
 inline void AiCoreProf::ProfStopLog() {
+    if (!ProfCheckLevel(PROF_TASK_TIME_L2)) {
+        return;
+    }
     hostAicoreMng_.ForEachManageAicore([&](int coreIdx) {
         if (logHead_[coreIdx]->cnt != 0) {
             int32_t ret = profReportAdditionalInfoFunc_(1, &logMsg_[coreIdx], sizeof(PyPtoMsprofAdditionalInfo));
@@ -250,6 +253,9 @@ inline void AiCoreProf::ProfStopLog() {
 inline void AiCoreProf::ProfGetLog(int32_t coreIdx, const struct TaskStat *taskStat) {
     MsprofAicpuPyPtoLogHead *logHead = logHead_[coreIdx];
     PyPtoMsprofAdditionalInfo &logMsg = logMsg_[coreIdx];
+    if (!ProfCheckLevel(PROF_TASK_TIME_L2)) {
+        return;
+    }
     if (logHead->cnt < logDataMaxNum_ - 1) {
         memcpy_s(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(logData_[coreIdx]) + logDataSize_ * logHead->cnt),
             logDataSize_, taskStat, logDataSize_);
@@ -429,6 +435,9 @@ void AiCoreProf::ProfStartPmu() {
 }
 
 void AiCoreProf::ProfStopPmu() {
+    if (!ProfCheckLevel(PROF_TASK_TIME_L2)) {
+        return;
+    }
     hostAicoreMng_.ForEachManageAicore([&](int coreIdx) {
         if (pmuHead_[coreIdx]->cnt != 0) {
             int32_t ret = profReportAdditionalInfoFunc_(1, &pmuMsg_[coreIdx], sizeof(PyPtoMsprofAdditionalInfo));
@@ -531,6 +540,9 @@ void AiCoreProf::FillPmuData(MsprofAicpuPyPtoPmuData &data, int32_t &coreIdx, ui
 
 void AiCoreProf::ProfGetPmu(
     int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat) {
+    if (!ProfCheckLevel(PROF_TASK_TIME_L2)) {
+        return;
+    }
     MsprofAicpuPyPtoPmuData data = {0};
     FillPmuData(data, coreIdx, subGraphId, taskId, taskStat);
     DEV_DEBUG("aicore profiling pmu info, core id: %d: (%u, %u | %lu | %p=%u, %p=%u, %p=%u, %p=%u, "

@@ -1257,6 +1257,17 @@ TEST_F(TorchAdaptorTest, Misc) {
     }
 }
 
+TEST_F(TorchAdaptorTest, Pad) {
+    // Test 2D pad with constant value 0.0
+    std::vector<float> sdata = {1.0, 2.0, 3.0, 4.0};
+    std::vector<float> gdata = {1.0, 2.0, 0.0, 0.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    auto self = makeTensorData(DT_FP32, {2, 2}, sdata);
+    auto out = makeTensorData(DT_FP32, {3, 4}, 0.0f);
+    auto golden = makeTensorData(DT_FP32, {3, 4}, gdata);
+    calc::Pad(out, self, Element(DT_FP32, 0.0f));
+    ASSERT_ALLCLOSE(out, golden);
+}
+
 TEST_F(TorchAdaptorTest, BitSortDescending) {
     // 降序
     std::vector<float> sdata = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
@@ -1284,7 +1295,7 @@ TEST_F(TorchAdaptorTest, BitSortDescending) {
                                 70.0, 7.0, 60.0, 6.0, 50.0, 5.0, 40.0, 4.0,
                                 30.0, 3.0, 20.0, 2.0, 10.0, 1.0, 0.0, 0.0};
     auto self = makeTensorData(DT_FP32, {2, 32}, sdata);
-    auto out = makeTensorData(DT_FP32, {2, 128}, 0.0f);
+    auto out = makeTensorData(DT_FP32, {2, 64}, 0.0f);
     auto golden = makeTensorData(DT_FP32, {2, 64}, gdata);
     calc::BitSort(out, self, -1, true, 0);
     ASSERT_ALLCLOSE(out->View({2, 64}, {0, 0}), golden);
@@ -1317,7 +1328,7 @@ TEST_F(TorchAdaptorTest, BitSortAscending) {
                                 -240.0, 24.0, -250.0, 25.0, -260.0, 26.0, -270.0, 27.0,
                                 -280.0, 28.0, -290.0, 29.0, -300.0, 30.0, -310.0, 31.0};
     auto self = makeTensorData(DT_FP32, {2, 32}, sdata);
-    auto out = makeTensorData(DT_FP32, {2, 128}, 0.0f);
+    auto out = makeTensorData(DT_FP32, {2, 64}, 0.0f);
     auto golden = makeTensorData(DT_FP32, {2, 64}, gdata);
     calc::BitSort(out, self, -1, false, 0);
     ASSERT_ALLCLOSE(out->View({2, 64}, {0, 0}), golden);
@@ -1341,55 +1352,19 @@ TEST_F(TorchAdaptorTest, TopkDescending) {
                                     110.0, 11.0, 100.0, 10.0, 90.0, 9.0, 80.0, 8.0,
                                     70.0, 7.0, 60.0, 6.0, 50.0, 5.0, 40.0, 4.0,
                                     30.0, 3.0, 20.0, 2.0, 10.0, 1.0, 0.0, 0.0};
-    const int64_t OUTPUT_AXIS_SIZE = 32;
     const int64_t TOPK_VAL = 32;
     std::vector<float> gdata = sdata1;
     gdata.insert(gdata.end(), sdata2.begin(), sdata2.end());
     auto golden = makeTensorData(DT_FP32, {2, 64}, gdata);
     std::vector<float> sdata = sdata1;
-    sdata.insert(sdata.end(), OUTPUT_AXIS_SIZE, 0.0f);
     sdata.insert(sdata.end(), sdata2.begin(), sdata2.end());
-    sdata.insert(sdata.end(), OUTPUT_AXIS_SIZE, 0.0f);
-    auto self = makeTensorData(DT_FP32, {2, 96}, sdata);
+    auto self = makeTensorData(DT_FP32, {2, 64}, sdata);
     auto out = makeTensorData(DT_FP32, {2, 64}, 0.0f);
 
-    calc::Topk(out, self, -1, TOPK_VAL, true);
+    calc::MrgSort(out, self, -1, TOPK_VAL);
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, TopkAscending) {
-    // 升序
-    std::vector<float> sdata1 = {0.0, 0.0, -1.0, 1.0, -2.0, 2.0, -3.0, 3.0,
-                                    -4.0, 4.0, -5.0, 5.0, -6.0, 6.0, -7.0, 7.0,
-                                    -8.0, 8.0, -9.0, 9.0, -10.0, 10.0, -11.0, 11.0,
-                                    -12.0, 12.0, -13.0, 13.0, -14.0, 14.0, -15.0, 15.0,
-                                    -16.0, 16.0, -17.0, 17.0, -18.0, 18.0, -19.0, 19.0,
-                                    -20.0, 20.0, -21.0, 21.0, -22.0, 22.0, -23.0, 23.0,
-                                    -24.0, 24.0, -25.0, 25.0, -26.0, 26.0, -27.0, 27.0,
-                                    -28.0, 28.0, -29.0, 29.0, -30.0, 30.0, -31.0, 31.0};
-    std::vector<float> sdata2 = {0.0, 0.0, -10.0, 1.0, -20.0, 2.0, -30.0, 3.0,
-                                    -40.0, 4.0, -50.0, 5.0, -60.0, 6.0, -70.0, 7.0,
-                                    -80.0, 8.0, -90.0, 9.0, -100.0, 10.0, -110.0, 11.0,
-                                    -120.0, 12.0, -130.0, 13.0, -140.0, 14.0, -150.0, 15.0,
-                                    -160.0, 16.0, -170.0, 17.0, -180.0, 18.0, -190.0, 19.0,
-                                    -200.0, 20.0, -210.0, 21.0, -220.0, 22.0, -230.0, 23.0,
-                                    -240.0, 24.0, -250.0, 25.0, -260.0, 26.0, -270.0, 27.0,
-                                    -280.0, 28.0, -290.0, 29.0, -300.0, 30.0, -310.0, 31.0};
-    const int64_t OUTPUT_AXIS_SIZE = 32;
-    std::vector<float> gdata = sdata1;
-    gdata.insert(gdata.end(), sdata2.begin(), sdata2.end());
-    auto golden = makeTensorData(DT_FP32, {2, 64}, gdata);
-    std::vector<float> sdata = sdata1;
-    sdata.insert(sdata.end(), OUTPUT_AXIS_SIZE, -10000.0f);
-    sdata.insert(sdata.end(), sdata2.begin(), sdata2.end());
-    sdata.insert(sdata.end(), OUTPUT_AXIS_SIZE, -10000.0f);
-    auto self = makeTensorData(DT_FP32, {2, 96}, sdata);
-    auto out = makeTensorData(DT_FP32, {2, 64}, 0.0f);
-    const int64_t TOPK_VAL = 32;
-
-    calc::Topk(out, self, -1, TOPK_VAL, false);
-    ASSERT_ALLCLOSE(out, golden);
-}
 
 TEST_F(TorchAdaptorTest, TiledMrgSortOp) {
     std::vector<float> sdata1 = {0.0, 0.0, -1.0, 1.0, -2.0, 2.0, -3.0, 3.0,
@@ -1656,6 +1631,40 @@ TEST_F(TorchAdaptorTest, TopkExtractIndices) {
     std::vector<int> expectedIndices = {5, 12, 3, 18, 7, 21, 1, 14};
     auto golden = makeTensorData(DT_INT32, {1, 8}, expectedIndices);
 
+    ASSERT_ALLCLOSE(out, golden);
+}
+
+TEST_F(TorchAdaptorTest, GatherINUB) {
+    // params shape: [num_buffer_tokens, hidden_dim] = [8, 4]
+    std::vector<float> paramsData = {
+        0.0f, 1.0f, 2.0f, 3.0f,      // row 0
+        10.0f, 11.0f, 12.0f, 13.0f,  // row 1
+        20.0f, 21.0f, 22.0f, 23.0f,  // row 2
+        30.0f, 31.0f, 32.0f, 33.0f,  // row 3
+        40.0f, 41.0f, 42.0f, 43.0f,  // row 4
+        50.0f, 51.0f, 52.0f, 53.0f,  // row 5
+        60.0f, 61.0f, 62.0f, 63.0f,  // row 6
+        70.0f, 71.0f, 72.0f, 73.0f   // row 7
+    };
+    // logical indices [0, 2, 5, 3], blockSize=2:
+    // pageTable=[2,0,1] => logical->physical mapping:
+    // 0->4, 2->0, 5->3, 3->1
+    std::vector<int64_t> indicesData = {0, 2, 5, 3};
+    std::vector<int64_t> pageTableData = {2, 0, 1};
+    std::vector<float> goldenData = {
+        40.0f, 41.0f, 42.0f, 43.0f,  // row 4
+        0.0f, 1.0f, 2.0f, 3.0f,      // row 0
+        30.0f, 31.0f, 32.0f, 33.0f,  // row 3
+        10.0f, 11.0f, 12.0f, 13.0f   // row 1
+    };
+
+    auto params = makeTensorData(DT_FP32, {8, 4}, paramsData);
+    auto indices = makeTensorData(DT_INT64, {1, 4}, indicesData);
+    auto pageTable = makeTensorData(DT_INT64, {1, 3}, pageTableData);
+    auto out = makeTensorData(DT_FP32, {4, 4}, 0.0f);
+    auto golden = makeTensorData(DT_FP32, {4, 4}, goldenData);
+
+    calc::GatherINUB(out, params, indices, pageTable, 2, 0);
     ASSERT_ALLCLOSE(out, golden);
 }
 

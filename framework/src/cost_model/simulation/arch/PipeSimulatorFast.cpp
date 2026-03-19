@@ -20,7 +20,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
-
+#include "PipeFactory.h"
 #include "cost_model/simulation/arch/A2A3/PostSimulatorA2A3.h"
 #include "cost_model/simulation/arch/A5/PostSimulatorA5.h"
 
@@ -232,6 +232,7 @@ namespace CostModel
          }}
     };
 
+    constexpr const int DEFAULT_SHAPE = 256;
     constexpr const int BYTES_PER_REPEAT = 256;
     constexpr const int DEFAULT_LATENCY = 10;
     constexpr const int CORNER_DIM_VAL = 2;
@@ -262,7 +263,7 @@ namespace CostModel
             unsigned int beginVal = shapeVal.size() - CORNER_DIM_VAL;
             for (unsigned int j = beginVal; j < shapeVal.size(); j++)
             {
-                totalSize *= shapeVal[j];
+                totalSize *= shapeVal[j] > 0 ? shapeVal[j] : DEFAULT_SHAPE;
             }
             minTotalSize = std::min(minTotalSize, totalSize);
         }
@@ -277,7 +278,7 @@ namespace CostModel
             if (shapeVal.size() > CORNER_DIM_VAL) {
                 for (unsigned int j = 0; j < shapeVal.size() - CORNER_DIM_VAL; j++)
                 {
-                    totalSize *= shapeVal[j];
+                    totalSize *= shapeVal[j] > 0 ? shapeVal[j] : DEFAULT_SHAPE;
                 }
             }
             minTotalSize = std::min(minTotalSize, totalSize);
@@ -391,5 +392,49 @@ namespace CostModel
             latency += wGmLatency;
         }
         return latency;
+    }
+
+    template <typename PostSimulator>
+    uint64_t PipeSimulatorFast<PostSimulator>::SimulateForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype)
+    {
+        ASSERT(!shape.empty() && !shape[0].empty()) << "[SIMULATION]: " << "shape is invalid";
+        int shapeSize = GetMinShapeSize(shape);
+        int shapeCnt = GetShapeCntSize(shape);
+        int cycle = CalcCyclesCommon(op, shapeSize * shapeCnt, dtype);
+        return cycle;
+    }
+
+    template <typename PostSimulator>
+    uint64_t PipeSimulatorFast<PostSimulator>::PostSimulateForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype)
+    {
+        PostSimulator psm;
+        auto opLatency = psm.GetOpLatency();
+        if (opLatency.find(op) == opLatency.end()) {
+            return SimulateForPass(op, shape, dtype);
+        }
+        int shapeSize = GetMinShapeSize(shape);
+        int shapeCnt = GetShapeCntSize(shape);
+        uint64_t size = BytesOf(dtype) * shapeSize;
+        uint64_t parallelRatio = GetParrelRatio(dtype, op);
+        auto r = opLatency.at(op);
+        const int rGmLatency = 1400;
+        const int wGmLatency = 300;
+        int freqTrans = 2000;
+        int latency =  shapeCnt * (uint64_t((r[0] * size * parallelRatio * 1E-6 + r[1]) * freqTrans) + 1);
+        if (op == "COPY_IN") {
+            latency += rGmLatency;
+        }
+        else if (op == "COPY_OUT") {
+            latency += wGmLatency;
+        }
+        return latency;
+    }
+
+    extern "C" __attribute__((visibility("default"))) int64_t GetCyclesForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype) {
+        std::string platForm = config::GetPlatformConfig("device_platform", "ASCEND_950PR_9579") == "ASCEND_950PR_9579" ? "A5" : "A2A3";
+        std::string archType = platForm;
+        int accLevel = config::GetSimConfig(KEY_ACCURACY_LEVEL, 2);
+        auto simPtr = CreateSimulator(archType, accLevel);
+        return simPtr->PostSimulateForPass(op, shape, dtype);
     }
 } // namespace CostModel

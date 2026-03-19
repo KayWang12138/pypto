@@ -130,7 +130,7 @@ TEST_F(DynamicMatmulUTest, mm_A_NZ_B_NZ_int8_C_NZ) {
 }
 
 TEST_F(DynamicMatmulUTest, mm_A_B_ND_KSplit_bf16) {
-    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128}, true, true);
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128}, true);
     int m = 128;
     int k = 256;
     int n = 512;
@@ -192,6 +192,38 @@ TEST_F(DynamicMatmulUTest, transposed_batchmatmul_test) {
             tensor_c = Matrix::TransposedBatchMatmul(DataType::DT_BF16, tensor_a, tensor_b);
         }
     }
+}
+
+TEST_F(DynamicMatmulUTest, mm_A_B_ND_tf32_round) {
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    int m = 128;
+    int k = 256;
+    int n = 512;
+    using TestMatmulType = MatmulImpl<float, float, MatrixInputs<false, false, false, false, true>>;
+    Matrix::MatmulExtendParam param;
+    param.transMode = Matrix::TransMode::CAST_ROUND;
+    TestDynMatmul<TestMatmulType>(m, k, n, param);
+}
+
+TEST_F(DynamicMatmulUTest, mm_A_B_ND_tf32_rint) {
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    int m = 128;
+    int k = 256;
+    int n = 512;
+    using TestMatmulType = MatmulImpl<float, float, MatrixInputs<false, false, false, false, true>>;
+    Matrix::MatmulExtendParam param;
+    param.transMode = Matrix::TransMode::CAST_RINT;
+    TestDynMatmul<TestMatmulType>(m, k, n, param);
+}
+
+TEST_F(DynamicMatmulUTest, mm_A_B_ND_KSplit_int8) {
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128}, true);
+    int m = 128;
+    int k = 256;
+    int n = 512;
+    using TestMatmulType = MatmulImpl<int8_t, int32_t, MatrixInputs<false, false, false, false, false>>;
+    Matrix::MatmulExtendParam param;
+    TestDynMatmul<TestMatmulType> (m, k, n, param);
 }
 
 } // namespace

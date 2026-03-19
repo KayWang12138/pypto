@@ -36,9 +36,7 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        print("Please set it before running this example:")
+        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
     
@@ -53,38 +51,25 @@ def get_device_id():
 SHAPE = (32, 32, 1, 256)
 
 
-def add_scalar_loop_view_assemble(run_mode: str = "npu"):
-    
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-        
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def add_scalar_loop_view_assemble_kernel(
-        input0: pypto.Tensor(SHAPE, pypto.DT_FP32),
-        input1: pypto.Tensor(SHAPE, pypto.DT_FP32),
-    ) -> pypto.Tensor(SHAPE, pypto.DT_FP32):
-        pypto.set_vec_tile_shapes(1, 4, 1, 64)
+@pypto.frontend.jit
+def add_scalar_loop_view_assemble_kernel(
+    input0: pypto.Tensor(SHAPE, pypto.DT_FP32),
+    input1: pypto.Tensor(SHAPE, pypto.DT_FP32),
+    output: pypto.Tensor(SHAPE, pypto.DT_FP32),
+):
+    pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-        # Calculate the loop parameters
-        b, n, s, d = SHAPE
-        tile_b = 1
-        b_loop = b // tile_b
+    # Calculate the loop parameters
+    b, n, s, d = SHAPE
+    tile_b = 1
+    b_loop = b // tile_b
 
-        output = pypto.tensor(SHAPE, pypto.DT_FP32)
-        for idx in pypto.loop(b_loop):
-            b_offset = idx * tile_b
-            t0_sub = pypto.view(input0, [tile_b, n, s, d], [b_offset, 0, 0, 0])
-            t1_sub = pypto.view(input1, [tile_b, n, s, d], [b_offset, 0, 0, 0])
-            t3_sub = t0_sub + t1_sub
-            pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)
-
-        return output
-    
-    return add_scalar_loop_view_assemble_kernel
+    for idx in pypto.loop(b_loop):
+        b_offset = idx * tile_b
+        t0_sub = pypto.view(input0, [tile_b, n, s, d], [b_offset, 0, 0, 0])
+        t1_sub = pypto.view(input1, [tile_b, n, s, d], [b_offset, 0, 0, 0])
+        t3_sub = t0_sub + t1_sub
+        pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)
 
 
 def test_add_scalar_loop_view_assemble(device_id=None, run_mode: str = "npu", dynamic: bool = True) -> None:
@@ -94,8 +79,8 @@ def test_add_scalar_loop_view_assemble(device_id=None, run_mode: str = "npu", dy
     #prepare data
     x = torch.rand(shape, dtype=torch.float, device=device)
     y = torch.rand(shape, dtype=torch.float, device=device)
-
-    out = add_scalar_loop_view_assemble(run_mode)(x, y)
+    out = torch.empty(shape, dtype=torch.float, device=device)
+    add_scalar_loop_view_assemble_kernel(x, y, out)
     golden = torch.add(x, y)
 
     max_diff = np.abs(out.cpu().numpy() - golden.cpu().numpy()).max()
@@ -142,8 +127,8 @@ Examples:
         type=str,
         nargs='?',
         default="npu",
-        choices=["npu", "sim"],
-        help='Run mode, such as npu/sim etc.'
+        choices=["npu"],
+        help='Run mode, currently only support npu.'
     )
     
     args = parser.parse_args()

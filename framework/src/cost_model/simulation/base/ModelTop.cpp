@@ -101,7 +101,7 @@ void SimSys::BuildCaches()
 {
     functionCache.SetSim(GetShared());
     functionCache.SetMaxCacheSize(config.functionCacheSize);
-    SIMULATION_LOGI("[ModelTop][BuildCache] FunctionCache max size: %llu", functionCache.GetMaxCacheSize());
+    SIMULATION_LOGI("[ModelTop][BuildCache] FunctionCache max size: %lu", static_cast<unsigned long>(functionCache.GetMaxCacheSize()));
 
     // Create the L2 cache.
     auto l2BankId = 0;
@@ -253,8 +253,9 @@ void SimSys::BuildAICPU(DevicePtr device, uint64_t idInDevice)
     uint64_t aicNum = config.cubeMachineNumberPerAICPU;
     uint64_t aivNum = config.vecMachineNumberPerAICPU;
     uint64_t mixedCoreNum = 0;
-    ASSERT(config.coreMachineNumberPerAICPU == (aicNum + aivNum)) << "[SIMULATION]: " 
-        << "The number of cores must be equal to the sum of the aic and aiv. Please reconfigure them.";
+    ASSERT(config.coreMachineNumberPerAICPU == (aicNum + aivNum)) 
+            << "ErrCode: F" <<  static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG) 
+            << ",[SIMULATION]: " << "The number of cores must be equal to the sum of the aic and aiv. Please reconfigure them.";
     if (config.cubeVecMixMode) {
         mixedCoreNum = config.coreMachineNumberPerAICPU;
         aicNum = 0;
@@ -406,7 +407,7 @@ void SimSys::AddMachine(std::shared_ptr<Machine> m)
 
 void SimSys::Step()
 {
-    SIMULATION_LOGI("[ModelTop][Step] ========== %llu ========== [ModelTop][Step]", globalCycles);
+    SIMULATION_LOGI("[ModelTop][Step] ========== %lu ========== [ModelTop][Step]", static_cast<unsigned long>(globalCycles));
     for (const auto &machine : machines) {
         machine->Step();
     }
@@ -446,7 +447,9 @@ bool SimSys::IsTerminate() const
 void SimSys::ReportDeadlock(size_t machineId)
 {
     deadlock = true;
-    SIMULATION_LOGE("[ReportDeadlock] Machine %d is deadlock at cycle %llu", machineId, globalCycles);
+    SIMULATION_LOGE("ErrCode: F%u, [ReportDeadlock] Machine %zu is deadlock at cycle %lu",
+                    static_cast<unsigned>(CostModel::ForwardSimErrorScene::DEAD_LOCK), machineId, static_cast<unsigned long>(globalCycles));
+
 }
 
 bool SimSys::IsDeadlock() const
@@ -801,8 +804,6 @@ void SimSys::PrintStat()
     if (config.statisticReportToFile) {
         reporter.ReportResetOutStreamCout(coutBuf);
     }
-    // Reset the output format of floating point numbers to avoid affecting subsequent output.
-    std::cout << std::defaultfloat;
 }
 
 uint64_t SimSys::GetCycles() const

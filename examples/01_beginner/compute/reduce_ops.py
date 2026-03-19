@@ -37,9 +37,7 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        print("Please set it before running this example:")
+        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
     
@@ -77,12 +75,13 @@ def sum_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = Fal
         out_shape = tuple(out_shape)
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def sum_kernel(a: pypto.Tensor(shape, dtype)) -> pypto.Tensor(out_shape, dtype):
+    def sum_kernel(a: pypto.Tensor([], dtype),
+                    out: pypto.Tensor([], dtype)):
         tile_shapes = [8 for _ in range(len(a.shape))]
         pypto.set_vec_tile_shapes(*tile_shapes)
-        out = pypto.sum(a, dim=dim, keepdim=keepdim)
-        return out
-    out = sum_kernel(a)
+        out[:] = pypto.sum(a, dim=dim, keepdim=keepdim)
+    out = torch.empty(out_shape, dtype=torch.float32, device=a.device)
+    sum_kernel(a, out)
     return out
     
     
@@ -198,16 +197,14 @@ def amax_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = Fa
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
-    @pypto.frontend.jit(
-        runtime_options={"run_mode": mode}
-        )
-    def amax_kernel(a: pypto.Tensor(shape, dtype)) -> pypto.Tensor(out_shape, dtype):
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
+    def amax_kernel(a: pypto.Tensor([], dtype),
+                    out: pypto.Tensor([], dtype)):
         tile_shapes = [8 for _ in range(len(a.shape))]
         pypto.set_vec_tile_shapes(*tile_shapes)
-        out = pypto.amax(a, dim=dim, keepdim=keepdim)
-        return out
-    out = amax_kernel(a)
-    
+        out[:] = pypto.amax(a, dim=dim, keepdim=keepdim)
+    out = torch.empty(out_shape, dtype=torch.float32, device=a.device)
+    amax_kernel(a, out)
     return out
 
 
@@ -327,16 +324,14 @@ def amin_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = Fa
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
-    @pypto.frontend.jit(
-        runtime_options={"run_mode": mode}
-    )
-    def amin_kernel(a: pypto.Tensor(shape, dtype)) -> pypto.Tensor(out_shape, dtype):
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
+    def amin_kernel(a: pypto.Tensor([], dtype),
+                    out: pypto.Tensor([], dtype)):
         tile_shapes = [8 for _ in range(len(a.shape))]
         pypto.set_vec_tile_shapes(*tile_shapes)
-        out = pypto.amin(a, dim=dim, keepdim=keepdim)
-        return out
-    out = amin_kernel(a)
-
+        out[:] = pypto.amin(a, dim=dim, keepdim=keepdim)
+    out = torch.empty(out_shape, dtype=torch.float32, device=a.device)
+    amin_kernel(a, out)
     return out
 
 
@@ -456,12 +451,12 @@ def maximum_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def maximum_kernel(a: pypto.Tensor(shape1, dtype), b: pypto.Tensor(shape2, dtype)) -> pypto.Tensor(shape1, dtype):
+    def maximum_kernel(a: pypto.Tensor([], dtype), b: pypto.Tensor([], dtype), out: pypto.Tensor([], dtype)):
         tile_shapes = [8 for _ in range(len(a.shape))]
         pypto.set_vec_tile_shapes(*tile_shapes)
-        out = pypto.maximum(a, b)
-        return out
-    out = maximum_kernel(a, b)
+        out[:] = pypto.maximum(a, b)
+    out = torch.empty(shape1, dtype=torch.float32, device=a.device)
+    maximum_kernel(a, b, out)
     return out
 
 
@@ -520,12 +515,12 @@ def minimum_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def minimum_kernel(a: pypto.Tensor(shape, dtype), b: pypto.Tensor(shape, dtype)) -> pypto.Tensor(shape, dtype):
+    def minimum_kernel(a: pypto.Tensor([], dtype), b: pypto.Tensor([], dtype), out: pypto.Tensor([], dtype)):
         tile_shapes = [8 for _ in range(len(a.shape))]
         pypto.set_vec_tile_shapes(*tile_shapes)
-        out = pypto.minimum(a, b)
-        return out
-    out = minimum_kernel(a, b)
+        out[:] = pypto.minimum(a, b)
+    out = torch.empty(shape, dtype=torch.float32, device=a.device)
+    minimum_kernel(a, b, out)
     return out
 
 
@@ -606,8 +601,8 @@ Examples:
         type=str,
         nargs='?',
         default='npu',
-        choices=["npu", "sim"],
-        help='Run mode, such as npu/sim etc.'
+        choices=["npu"],
+        help='Run mode, currently only support npu.'
     )
     
     args = parser.parse_args()

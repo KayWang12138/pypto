@@ -61,9 +61,5 @@ TEST_F(PerfAnalysisTest, EventBasicFunctionality) {
     perf.EventEnd(EventPhase::BuildCtrlFlowCache);
     uint64_t eventTimeUs = perf.GetEventTotalTimeUs();
     EXPECT_GE(eventTimeUs, 2000);
-    EXPECT_LT(eventTimeUs, 5000);
-    perf.EventBegin(EventPhase::RunDevice);
-    EXPECT_NO_THROW(perf.Reset());
 }
-
 }

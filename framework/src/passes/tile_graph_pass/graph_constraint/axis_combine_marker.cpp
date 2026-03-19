@@ -146,6 +146,7 @@ void UpdateReduceStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axis
     }
     if (axis == dimSize - 2) {
         // reduce倒数第二轴，当前不支持合轴优化
+        tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;
         tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
         return;
     }
@@ -201,7 +202,8 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
         return;
     }
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
-        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST) {
+        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST ||
+        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::CAST) {
         UpdateElewiseStatus(op, tensorStatus_);
         return;
     }

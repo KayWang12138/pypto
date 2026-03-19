@@ -72,6 +72,11 @@ def matmul(
             For dequantization with a per-channel scale: C = DEQF16(ReLU(A @ B)) * scale_tensor.
         - 'relu_type': ReLuType
             Type of ReLU activation to apply before dequantization (e.g., ReLuType.RELU).
+        - 'trans_mode': TransMode
+            The rounding mode for converting float to TF32 (e.g., TransMode.CAST_RINT):
+            CAST_NONE: Disables the conversion of float data types to TF32.
+            CAST_RINT: float will be rounded to TF32 by rounding to the nearest tie to even.
+            CAST_ROUND: float will be rounded to TF32 by rounding to the nearest tie away from zero.
 
     Returns
     -------
@@ -125,6 +130,12 @@ def matmul(
     scale_tensor = pypto.tensor((1, 64), pypto.DT_UINT64, "tensor_scale")
     extend_params = {'scale_tensor': scale_tensor, 'relu_type': pypto.ReLuType.RELU}
     pypto.matmul(a, b, pypto.DT_BF16, extend_params=extend_params)
+
+    # TF32 matrix multiplication
+    a = pypto.tensor((16, 32), pypto.DT_FP32, "tensor_a")
+    b = pypto.tensor((32, 64), pypto.DT_FP32, "tensor_b")
+    extend_params = {'trans_mode': pypto.TransMode.CAST_ROUND}
+    pypto.matmul(a, b, pypto.DT_FP32, extend_params=extend_params)
     """
     __validate_inputs(input, mat2, out_dtype, [a_trans, b_trans, c_matrix_nz, extend_params])
     if input.Dim() == 2:
@@ -293,17 +304,29 @@ def __validate_inputs(input_tensor1, input_tensor2, out_dtype, optional_param) -
     __validate_type(is_out_nz, bool, "is_out_nz")
     __validate_type(extend_params, dict, "extend_params")
     __validate_shape(input_tensor1, input_tensor2, a_trans, b_trans)
+    __validate_trans_mode(input_tensor1, input_tensor2, extend_params)
 
+    input1_dtype = input_tensor1.GetDataType()
+    input2_dtype = input_tensor2.GetDataType()
+    input1_format = input_tensor1.Format()
+    input2_format = input_tensor2.Format()
+    fp8_dtype = (pypto_impl.DataType.DT_FP8E5M2, pypto_impl.DataType.DT_FP8E4M3)
     if is_out_nz:
         raise ValueError("Output tensor do not support NZ currently.")
-    input1_valid = input_tensor1.GetDataType() == pypto_impl.DataType.DT_FP32 \
-        and input_tensor1.Format() == pypto_impl.TileOpFormat.TILEOP_NZ
-    input2_valid = input_tensor2.GetDataType() == pypto_impl.DataType.DT_FP32 \
-        and input_tensor2.Format() == pypto_impl.TileOpFormat.TILEOP_NZ
-    if input1_valid or input2_valid:
+    input1_fp32_valid = input1_dtype == pypto_impl.DataType.DT_FP32 \
+        and input1_format == pypto_impl.TileOpFormat.TILEOP_NZ
+    input2_fp32_valid = input2_dtype == pypto_impl.DataType.DT_FP32 \
+        and input2_format == pypto_impl.TileOpFormat.TILEOP_NZ
+    input1_fp8_valid = input1_dtype == pypto_impl.DataType.DT_FP8E5M2 \
+        and input1_format == pypto_impl.TileOpFormat.TILEOP_NZ
+    input2_fp8_valid = input2_dtype == pypto_impl.DataType.DT_FP8E5M2 \
+        and input2_format == pypto_impl.TileOpFormat.TILEOP_NZ
+    if (input1_fp32_valid or input2_fp32_valid):
         raise ValueError("Input tensor with DT_FP32 must use ND format, NZ format is not support currently.")
-    if input_tensor1.GetDataType() != input_tensor2.GetDataType():
-        raise ValueError("All input tensors must have the same data type")
+    if (input1_fp8_valid or input2_fp8_valid):
+        raise ValueError("Input tensor with DT_FP8E5M2 must use ND format, NZ format is not support currently.")
+    if not ((input1_dtype in fp8_dtype and input2_dtype in fp8_dtype) or (input1_dtype == input2_dtype)):
+        raise ValueError("Non-FP8 inputs require identical dtypes.")
     if input_tensor1.Dim() != 2 and extend_params is not None:
         raise RuntimeError(
             "extend_params is not supported for batched matrix multiplication."
@@ -402,9 +425,21 @@ def __validate_scale_k_alignment(ka_dim, k_a_scale0_dim, align_64):
         )
 
 
+def __validate_trans_mode(mat_a, mat_b, extend_params):
+    if extend_params is not None:
+        if (extend_params.get('trans_mode', pypto_impl.TransMode.CAST_NONE) !=
+            pypto_impl.TransMode.CAST_NONE and 
+            mat_a.GetDataType() != pypto_impl.DataType.DT_FP32 and 
+            mat_b.GetDataType() != pypto_impl.DataType.DT_FP32):
+            raise RuntimeError(
+                "The param of trans_mode is only supported when input data type is DT_FP32."
+            )
+
+
 def __convert_matmul_extend_params(extend_params) -> dict:
     extend_params.setdefault('bias_tensor', pypto_impl.Tensor())
     extend_params.setdefault('scale_tensor', pypto_impl.Tensor())
     extend_params.setdefault('relu_type', pypto_impl.ReLuType.NO_RELU)
     extend_params.setdefault('scale', 0.0)
+    extend_params.setdefault('trans_mode', pypto_impl.TransMode.CAST_NONE)
     return extend_params

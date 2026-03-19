@@ -29,7 +29,11 @@ using namespace npu::tile_fwk;
 
 namespace npu{
 namespace tile_fwk {
+const int NUM_1 = 1;
+const int NUM_8 = 8;
+const int NUM_16 = 16;
 const int NUM_32 = 32;
+const int NUM_48 = 48;
 const int NUM_64 = 64;
 const int NUM_128 = 128;
 const int NUM_256 = 256;
@@ -48,7 +52,6 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetPlatformConfig(KEY_TEST_IS_TIG, true);
-        Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
 
@@ -70,6 +73,24 @@ public:
             {   "InferMemoryConflict",    PassName::INFER_MEMORY_CONFLICT},
             {        "ExpandFunction",          PassName::EXPAND_FUNCTION},
             {      "AssignMemoryType",       PassName::ASSIGN_MEMORY_TYPE},
+        });
+        ConfigManager::Instance();
+    }
+
+    void SetFullTestStrategy() {
+        PassManager &passManager = PassManager::Instance();
+        passManager.RegisterStrategy("AssignMemoryTypeTestStrategy", {
+            {   "RemoveRedundantReshape",      PassName::REMOVE_REDUNDANT_RESHAPE},
+            {                 "AutoCast",                     PassName::AUTO_CAST},
+            {      "InferMemoryConflict",         PassName::INFER_MEMORY_CONFLICT},
+            {       "RemoveUndrivenView",          PassName::REMOVE_UNDRIVEN_VIEW},
+            {           "ExpandFunction",               PassName::EXPAND_FUNCTION},
+            {        "MergeViewAssemble",           PassName::MERGE_VIEW_ASSEMBLE},
+            {             "SplitReshape",                 PassName::SPLIT_RESHAPE},
+            {           "SplitRawTensor",              PassName::SPLIT_RAW_TENSOR},
+            {   "SplitLargeFanoutTensor",     PassName::SPLIT_LARGE_FANOUT_TENSOR},
+            {              "DuplicateOp",                  PassName::DUPLICATE_OP},
+            {         "AssignMemoryType",            PassName::ASSIGN_MEMORY_TYPE},
         });
         ConfigManager::Instance();
     }
@@ -272,8 +293,8 @@ TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
                 CheckConvertOp(op, true);
             }
         }
-        constexpr int expextedConvertNum = 12;
-        EXPECT_EQ(convertNum, expextedConvertNum) << "12 operations should be Convert";
+        constexpr int expextedConvertNum = 4;
+        EXPECT_EQ(convertNum, expextedConvertNum) << "4 operations should be Convert";
     }
 }
 
@@ -389,8 +410,8 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
             CheckConvertOp(op, true);
             convertNum++;
         }
-        constexpr int expextedConvertNum = 32;
-        EXPECT_EQ(convertNum, expextedConvertNum) << "32 operations should be Convert";
+        constexpr int expextedConvertNum = 16;
+        EXPECT_EQ(convertNum, expextedConvertNum) << "16 operations should be Convert";
     }
 }
 
@@ -439,7 +460,9 @@ TEST_F(AssignMemoryTypeTest, TestCubeToVec) {
             if (op.GetOpcode() == Opcode::OP_VIEW) {
                 ++afterViewNum;
                 auto viewOpAttr = std::dynamic_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
-                EXPECT_TRUE(viewOpAttr->GetTo() == MemoryType::MEM_L1 || viewOpAttr->GetTo() == MemoryType::MEM_UB) << "View to either l1 or ub";
+                EXPECT_TRUE(viewOpAttr->GetTo() == MemoryType::MEM_L1 || viewOpAttr->GetTo() == MemoryType::MEM_UB
+                 || viewOpAttr->GetTo() == MemoryType::MEM_L0A || viewOpAttr->GetTo() == MemoryType::MEM_L0B) << 
+                    "View to either l1, ub, l0a or l0b";
             }
         }
         EXPECT_EQ(afterViewNum, beforeViewNum + 1) << "Should insert one view after assemble and transfter data to DDR before to UB";
@@ -900,6 +923,336 @@ TEST_F(AssignMemoryTypeTest, AssembleAndReshapeAfterAssemble) {
             }
         }
     }
+}
+
+int CountL0c2l1Num(Function* originFunction) {
+    int l0c2l1Count = 0;
+    for (auto &op : originFunction->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE || op.GetOpcode() == Opcode::OP_CONVERT || op.GetOpcode() == Opcode::OP_VIEW) {
+            if (op.GetIOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+                op.GetOOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+                l0c2l1Count++;
+                EXPECT_TRUE((*op.ProducerOps().begin())->GetOpcode() == Opcode::OP_A_MUL_B ||
+                    (*op.ProducerOps().begin())->GetOpcode() == Opcode::OP_A_MULACC_B);
+            }
+        }
+    }
+    return l0c2l1Count;
+}
+
+TEST_F(AssignMemoryTypeTest, TestL0C2L1EqualShape) {
+    config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
+    std::vector<int64_t> shapeA1 = {NUM_64, NUM_32};
+    std::vector<int64_t> shapeA2 = {NUM_128, NUM_64};
+    std::vector<int64_t> shapeB1 = {NUM_32, NUM_16};
+    std::vector<int64_t> shapeC2 = {NUM_128, NUM_16};
+    PROGRAM("AssignMemoryTest") {
+        Tensor inputA1(DataType::DT_FP16, shapeA1, "A1");
+        Tensor inputA2(DataType::DT_FP16, shapeA2, "A2");
+        Tensor inputB1(DataType::DT_FP16, shapeB1, "B1");
+        Tensor outC2(DataType::DT_FP16, shapeC2, "C2");
+        SetFullTestStrategy();
+        Function* originFunction = nullptr;
+
+        config::SetBuildStatic(true);
+        FUNCTION("TestL0C2L1EqualShape", {inputA1, inputB1, inputA2, outC2}) {
+            TileShape::Current().SetCubeTile({NUM_32, NUM_32}, {NUM_16, NUM_16}, {NUM_16, NUM_16});
+            Tensor inputB2 = Matrix::Matmul(outC2.GetDataType(), inputA1, inputB1); // (64 * 32) @ (32 * 16) = (64 * 16)
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_32, NUM_32}, {NUM_16, NUM_16});
+            outC2 = Matrix::Matmul(outC2.GetDataType(), inputA2, inputB2); // (128 * 64) @ (64 * 16) = (128 * 16)
+        }
+
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestL0C2L1EqualShape"); // Tensor_{Function名字}
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        EXPECT_EQ(CountL0c2l1Num(originFunction), 2);
+    }
+}
+
+TEST_F(AssignMemoryTypeTest, TestL0C2L1LargeToSmall) {
+    config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
+    std::vector<int64_t> shapeA1 = {NUM_64, NUM_32};
+    std::vector<int64_t> shapeB1 = {NUM_32, NUM_16};
+    std::vector<int64_t> shapeA2 = {NUM_128, NUM_64};
+    std::vector<int64_t> shapeC2 = {NUM_128, NUM_16};
+    PROGRAM("AssignMemoryTest") {
+        Tensor inputA1(DataType::DT_FP16, shapeA1, "A1");
+        Tensor inputB1(DataType::DT_FP16, shapeB1, "B1");
+        Tensor inputA2(DataType::DT_FP16, shapeA2, "A2");
+        Tensor outC2(DataType::DT_FP16, shapeC2, "C2");
+        SetFullTestStrategy();
+        Function* originFunction = nullptr;
+
+        config::SetBuildStatic(true);
+        FUNCTION("TestL0C2L1LargeToSmall", {inputA1, inputB1, inputA2, outC2}) {
+            TileShape::Current().SetCubeTile({NUM_32, NUM_32}, {NUM_16, NUM_16}, {NUM_16, NUM_16});
+            Tensor inputB2 = Matrix::Matmul(outC2.GetDataType(), inputA1, inputB1); // (64 * 32) @ (32 * 16) = (64 * 16)
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_16, NUM_16}, {NUM_16, NUM_16});
+            outC2 = Matrix::Matmul(outC2.GetDataType(), inputA2, inputB2); // (128 * 64) @ (64 * 16) = (128 * 16)
+        }
+
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestL0C2L1LargeToSmall"); // Tensor_{Function名字}
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        EXPECT_EQ(CountL0c2l1Num(originFunction), 4);
+    }
+}
+
+TEST_F(AssignMemoryTypeTest, TestL0C2L1SmallToLarge) {
+    config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
+    std::vector<int64_t> shapeB1 = {NUM_32, NUM_16};
+    std::vector<int64_t> shapeA1 = {NUM_64, NUM_32};
+    std::vector<int64_t> shapeA2 = {NUM_128, NUM_64};
+    std::vector<int64_t> shapeC2 = {NUM_128, NUM_16};
+    PROGRAM("AssignMemoryTest") {
+        Tensor inputB1(DataType::DT_FP16, shapeB1, "B1");
+        Tensor inputA1(DataType::DT_FP16, shapeA1, "A1");
+        Tensor inputA2(DataType::DT_FP16, shapeA2, "A2");
+        Tensor outC2(DataType::DT_FP16, shapeC2, "C2");
+        SetFullTestStrategy();
+        Function* originFunction = nullptr;
+
+        config::SetBuildStatic(true);
+        FUNCTION("TestL0C2L1SmallToLarge", {inputA1, inputB1, inputA2, outC2}) {
+            TileShape::Current().SetCubeTile({NUM_32, NUM_32}, {NUM_16, NUM_16}, {NUM_16, NUM_16});
+            Tensor inputB2 = Matrix::Matmul(outC2.GetDataType(), inputA1, inputB1); // (64 * 32) @ (32 * 16) = (64 * 16)
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_16, NUM_16});
+            outC2 = Matrix::Matmul(outC2.GetDataType(), inputA2, inputB2); // (128 * 64) @ (64 * 16) = (128 * 16)
+        }
+
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestL0C2L1SmallToLarge"); // Tensor_{Function名字}
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        EXPECT_EQ(CountL0c2l1Num(originFunction), 2);
+    }
+}
+
+TEST_F(AssignMemoryTypeTest, TestL0C2L1UnsupportDataType) {
+    config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
+    std::vector<int64_t> shapeA1 = {NUM_64, NUM_32};
+    std::vector<int64_t> shapeA2 = {NUM_128, NUM_64};
+    std::vector<int64_t> shapeB1 = {NUM_32, NUM_16};
+    std::vector<int64_t> shapeC2 = {NUM_128, NUM_16};
+    PROGRAM("AssignMemoryTest") {
+        SetFullTestStrategy();
+        Function* originFunction = nullptr;
+        Tensor inputA1(DataType::DT_FP32, shapeA1, "A1");
+        Tensor inputA2(DataType::DT_FP32, shapeA2, "A2");
+        Tensor inputB1(DataType::DT_FP32, shapeB1, "B1");
+        Tensor outC2(DataType::DT_FP32, shapeC2, "C2");
+
+        config::SetBuildStatic(true);
+        FUNCTION("TestL0C2L1UnsupportDataType", {inputA1, inputB1, inputA2, outC2}) {
+            TileShape::Current().SetCubeTile({NUM_32, NUM_32}, {NUM_16, NUM_16}, {NUM_16, NUM_16});
+            Tensor inputB2 = Matrix::Matmul(outC2.GetDataType(), inputA1, inputB1); // (64 * 32) @ (32 * 16) = (64 * 16)
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_16, NUM_16});
+            outC2 = Matrix::Matmul(outC2.GetDataType(), inputA2, inputB2); // (128 * 64) @ (64 * 16) = (128 * 16)
+        }
+
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestL0C2L1UnsupportDataType"); // Tensor_{Function名字}
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        EXPECT_EQ(CountL0c2l1Num(originFunction), 0);
+    }
+}
+
+TEST_F(AssignMemoryTypeTest, TestL0C2L1UnsupportDataShape) {
+    config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
+    std::vector<int64_t> shapeB1 = {NUM_32, NUM_16};
+    std::vector<int64_t> shapeA1 = {NUM_64, NUM_32};
+    std::vector<int64_t> shapeA2 = {NUM_128, NUM_64};
+    std::vector<int64_t> shapeC2 = {NUM_128, NUM_16};
+    PROGRAM("AssignMemoryTest") {
+        SetFullTestStrategy();
+        Function* originFunction = nullptr;
+        Tensor inputB1(DataType::DT_FP16, shapeB1, "B1");
+        Tensor inputA1(DataType::DT_FP16, shapeA1, "A1");
+        Tensor inputA2(DataType::DT_FP16, shapeA2, "A2");
+        Tensor outC2(DataType::DT_FP16, shapeC2, "C2");
+
+        config::SetBuildStatic(true);
+        FUNCTION("TestL0C2L1UnsupportDataShape", {inputA1, inputB1, inputA2, outC2}) {
+            TileShape::Current().SetCubeTile({NUM_8, NUM_8}, {NUM_16, NUM_16}, {NUM_16, NUM_16});
+            Tensor inputB2 = Matrix::Matmul(outC2.GetDataType(), inputA1, inputB1); // (64 * 32) @ (32 * 16) = (64 * 16)
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_16, NUM_16});
+            outC2 = Matrix::Matmul(outC2.GetDataType(), inputA2, inputB2); // (128 * 64) @ (64 * 16) = (128 * 16)
+        }
+
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestL0C2L1UnsupportDataShape"); // Tensor_{Function名字}
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        EXPECT_EQ(CountL0c2l1Num(originFunction), 0);
+    }
+}
+
+TEST_F(AssignMemoryTypeTest, TestL0C2L1NoSupportNotMultipleCase) {
+    config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
+    std::vector<int64_t> shapeA1 = {NUM_64, NUM_32};
+    std::vector<int64_t> shapeB1 = {NUM_32, NUM_16};
+    std::vector<int64_t> shapeA2 = {NUM_128, NUM_64};
+    std::vector<int64_t> shapeC2 = {NUM_128, NUM_16};
+    PROGRAM("AssignMemoryTest") {
+        SetFullTestStrategy();
+        Function* originFunction = nullptr;
+        Tensor inputA1(DataType::DT_FP16, shapeA1, "A1");
+        Tensor inputB1(DataType::DT_FP16, shapeB1, "B1");
+        Tensor inputA2(DataType::DT_FP16, shapeA2, "A2");
+        Tensor outC2(DataType::DT_FP16, shapeC2, "C2");
+
+        config::SetBuildStatic(true);
+        FUNCTION("TestL0C2L1NoSupportNotMultipleCase", {inputA1, inputB1, inputA2, outC2}) {
+            TileShape::Current().SetCubeTile({NUM_48, NUM_48}, {NUM_16, NUM_16}, {NUM_16, NUM_16});
+            Tensor inputB2 = Matrix::Matmul(outC2.GetDataType(), inputA1, inputB1); // (64 * 32) @ (32 * 16) = (64 * 16)
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_16, NUM_16});
+            outC2 = Matrix::Matmul(outC2.GetDataType(), inputA2, inputB2); // (128 * 64) @ (64 * 16) = (128 * 16)
+        }
+
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestL0C2L1NoSupportNotMultipleCase"); // Tensor_{Function名字}
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        EXPECT_EQ(CountL0c2l1Num(originFunction), 0);
+    }
+}
+
+TEST_F(AssignMemoryTypeTest, TestCascadingAssembleViewNoDDR2L0C) {
+    config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
+    std::vector<int64_t> shapeA1 = {NUM_16, NUM_32};
+    std::vector<int64_t> shapeB1 = {NUM_32, NUM_64};
+    std::vector<int64_t> shapeC1 = {NUM_16, NUM_64};
+    std::vector<int64_t> shapeT1 = {NUM_32, NUM_64};
+    std::vector<int64_t> shapeT2 = {NUM_32, NUM_32};
+    std::vector<int64_t> shapeA2 = {NUM_64, NUM_32};
+    std::vector<int64_t> shapeB2 = {NUM_32, NUM_16};
+    std::vector<int64_t> shapeC2 = {NUM_64, NUM_16};
+    PROGRAM("AssignMemoryTest") {
+        Tensor inputA11(DataType::DT_FP16, shapeA1, "A11");
+        Tensor inputB11(DataType::DT_FP16, shapeB1, "B11");
+        Tensor inputA12(DataType::DT_FP16, shapeA1, "A12");
+        Tensor inputB12(DataType::DT_FP16, shapeB1, "B12");
+        Tensor inputA13(DataType::DT_FP16, shapeA1, "A13");
+        Tensor inputB13(DataType::DT_FP16, shapeB1, "B13");
+        Tensor inputA14(DataType::DT_FP16, shapeA1, "A14");
+        Tensor inputB14(DataType::DT_FP16, shapeB1, "B14");
+        Tensor inputB2(DataType::DT_FP16, shapeB2, "B2");
+        Tensor outC2(DataType::DT_FP16, shapeC2, "C2");
+        SetFullTestStrategy();
+        Function* originFunction = nullptr;
+
+        config::SetBuildStatic(true);
+        FUNCTION("TestCascadingAssembleViewNoDDR2L0C", {inputA11, inputB11, inputA12, inputB12, inputA13, inputB13, inputA14, inputB14, inputB2, outC2}) {
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_128, NUM_128});
+            Tensor C11 = Matrix::Matmul(outC2.GetDataType(), inputA11, inputB11); // (16, 32) @ (32, 64) = (16, 64)
+            Tensor C12 = Matrix::Matmul(outC2.GetDataType(), inputA12, inputB12); // (16, 32) @ (32, 64) = (16, 64)
+            Tensor C13 = Matrix::Matmul(outC2.GetDataType(), inputA13, inputB13); // (16, 32) @ (32, 64) = (16, 64)
+            Tensor C14 = Matrix::Matmul(outC2.GetDataType(), inputA14, inputB14); // (16, 32) @ (32, 64) = (16, 64)
+            Tensor T11(DT_FP16, shapeT1, "T11"); // (32, 64)
+            Tensor T12(DT_FP16, shapeT1, "T12"); // (32, 64)
+            Assemble(C11, {0, 0}, T11);
+            Assemble(C12, {16, 0}, T11);
+            Assemble(C13, {0, 0}, T12);
+            Assemble(C14, {16, 0}, T12);
+            Tensor T21 = View(T11, shapeT2, {0, 0}); // (32, 32)
+            Tensor T22 = View(T12, shapeT2, {0, 0}); // (32, 32)
+            Tensor A2(DT_FP16, shapeA2, "A2"); // (64, 32)
+            Assemble(T21, {0, 0}, A2);
+            Assemble(T22, {32, 0}, A2);
+            outC2 = Matrix::Matmul(outC2.GetDataType(), A2, inputB2); // (64, 32) @ (32, 16) = (64, 16)
+        }
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestCascadingAssembleViewNoDDR2L0C"); // Tensor_{Function名字}
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        AssignMemoryType assignMemoryType;
+        EXPECT_EQ(assignMemoryType.PostCheck(*originFunction), SUCCESS); // postcheck中包含对DDR到L0C的不合理通路校验，直接调用
+    }
+}
+
+void ConstructMultiDataLoadGraphBranch(ComputationalGraphBuilder &G, std::string name) {
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_1, NUM_128}, MemoryType::MEM_UNKNOWN, "in" + name);
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_1, NUM_128}, MemoryType::MEM_UNKNOWN, "t1" + name);
+    G.AddOp(Opcode::OP_VIEW, {"in" + name}, {"t1" + name}, "v1" + name);
+    G.GetOp("v1" + name)
+        ->SetOpAttribute(
+            std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_128, NUM_1, NUM_128}, MemoryType::MEM_UNKNOWN));
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t2" + name);
+    G.AddOp(Opcode::OP_RESHAPE, {"t1" + name}, {"t2" + name}, "r" + name);
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t4" + name);
+    G.AddOp(Opcode::OP_VIEW, {"t2" + name}, {"t4" + name}, "v2" + name);
+    G.GetOp("v2" + name)
+        ->SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_128, NUM_128}, MemoryType::MEM_L1));
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t5" + name);
+    G.AddOp(Opcode::OP_VIEW, {"t4" + name}, {"t5" + name}, "v3" + name);
+}
+
+void ConstructMultiDataLoadGraph(ComputationalGraphBuilder &G) {
+    ConstructMultiDataLoadGraphBranch(G, "a");
+    ConstructMultiDataLoadGraphBranch(G, "b");
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t6");
+    G.AddOp(Opcode::OP_A_MUL_B, {"t5a", "t5b"}, {"t6"}, "amulb");
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t3b");
+    G.AddOp(Opcode::OP_MUL, {"t2b", "t2b"}, {"t3b"}, "mulb");
+    G.GetOp("v3a")->SetOpAttribute(
+        std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_128, NUM_128}, MemoryType::MEM_L0A));
+    G.GetOp("v3b")->SetOpAttribute(
+        std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_128, NUM_128}, MemoryType::MEM_L0B));
+}
+
+void MultiDataLoadCheck(Function *func) {
+    for (const auto &op : func->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            EXPECT_TRUE(op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR);
+        }
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            EXPECT_FALSE(op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
+                         op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L1);
+        }
+    }
+}
+TEST_F(AssignMemoryTypeTest, TestMultiDataLoad) {
+    ComputationalGraphBuilder G;
+    ConstructMultiDataLoadGraph(G);
+    Function *func = G.GetFunction();
+    AssignMemoryType assignMemoryType;
+    EXPECT_EQ(assignMemoryType.PostCheck(*func), FAILED);
+    EXPECT_EQ(assignMemoryType.RunOnFunction(*func), SUCCESS);
+    EXPECT_EQ(assignMemoryType.PostCheck(*func), SUCCESS);
+    MultiDataLoadCheck(func);
+}
+TEST_F(AssignMemoryTypeTest, TestMultiDataLoad1) {
+    ComputationalGraphBuilder G;
+    ConstructMultiDataLoadGraph(G);
+    G.GetOp("rb")->SetOpCode(Opcode::OP_ADDS);
+    Function *func = G.GetFunction();
+    AssignMemoryType assignMemoryType;
+    EXPECT_EQ(assignMemoryType.PostCheck(*func), FAILED);
+    EXPECT_EQ(assignMemoryType.RunOnFunction(*func), SUCCESS);
+    EXPECT_EQ(assignMemoryType.PostCheck(*func), SUCCESS);
+    MultiDataLoadCheck(func);
+}
+TEST_F(AssignMemoryTypeTest, TestMultiDataLoad2) {
+    ComputationalGraphBuilder G;
+    ConstructMultiDataLoadGraph(G);
+    Shape s{NUM_128, NUM_128};
+    G.GetOp("rb")->SetOpCode(Opcode::OP_A_MUL_B);
+    G.AddTensor(DataType::DT_FP32, s, MemoryType::MEM_UNKNOWN, "inb2");
+    G.AddTensor(DataType::DT_FP32, s, MemoryType::MEM_UNKNOWN, "t1b2");
+    G.AddOp(Opcode::OP_VIEW, {"inb2"}, {"t1b2"}, "v1b2");
+    G.GetOp("v1b2")->SetOpAttribute(std::make_shared<ViewOpAttribute>(s, MemoryType::MEM_L1));
+    G.AddTensor(DataType::DT_FP32, s, MemoryType::MEM_UNKNOWN, "t2b2");
+    G.AddOp(Opcode::OP_VIEW, {"t1b2"}, {"t2b2"}, "v2b2");
+    G.GetOp("v2b2")->SetOpAttribute(std::make_shared<ViewOpAttribute>(s, MemoryType::MEM_L0A));
+    G.GetTensor("t2b2")->AddConsumer(G.GetOp("rb"));
+    G.GetOp("rb")->iOperand = {G.GetTensor("t1b"), G.GetTensor("t2b2")};
+    // rb b
+    G.GetTensor("inb")->shape = s;
+    G.GetTensor("inb")->tensor->rawshape = s;
+    G.GetTensor("t1b")->shape = s;
+    G.GetTensor("t1b")->tensor->rawshape = s;
+    G.AddTensor(DataType::DT_FP32, s, MemoryType::MEM_UNKNOWN, "t2b22");
+    G.GetOp("v1b")->ReplaceInput(G.GetTensor("t2b22"), G.GetTensor("inb"));
+    G.GetTensor("inb")->RemoveConsumer(G.GetOp("v1b"));
+    G.AddOp(Opcode::OP_VIEW, {"inb"}, {"t2b22"}, "v2b22");
+    G.GetOp("v2b22")->SetOpAttribute(std::make_shared<ViewOpAttribute>(s, MemoryType::MEM_L1));
+    G.GetOp("v1b")->SetOpAttribute(std::make_shared<ViewOpAttribute>(s, MemoryType::MEM_L0B));
+
+    Function *func = G.GetFunction();
+    AssignMemoryType assignMemoryType;
+    EXPECT_EQ(assignMemoryType.PostCheck(*func), FAILED);
+    EXPECT_EQ(assignMemoryType.RunOnFunction(*func), SUCCESS);
+    EXPECT_EQ(assignMemoryType.PostCheck(*func), SUCCESS);
+    MultiDataLoadCheck(func);
 }
 }
 } // namespace npu::tile_fwk

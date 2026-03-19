@@ -9,6 +9,11 @@
 # -----------------------------------------------------------------------------------------------------------
 
 file(GLOB _Interface_Srcs
+        # Compiler monitor
+        compiler_monitor/*.cpp
+        # Core infrastructure
+        core/*.cpp
+        ir/*.cpp
         # 前端框架
         schema/*.cpp
         configs/*.cpp
@@ -36,8 +41,7 @@ add_library(tile_fwk_interface SHARED)
 target_sources(tile_fwk_interface PRIVATE ${_Interface_Srcs})
 target_compile_definitions(tile_fwk_interface
         PRIVATE
-            $<$<BOOL:${ENABLE_TESTS}>:SRCPATH="${PTO_FWK_SRC_ROOT}">
-            $<$<BOOL:${ENABLE_FEATURE_PYTHON_FRONT_END}>:ENABLE_FEATURE_PYTHON_FRONT_END>
+            $<$<BOOL:${ENABLE_TESTS}>:ENABLE_TESTS>
 )
 target_include_directories(tile_fwk_interface
         PUBLIC
@@ -53,8 +57,7 @@ target_link_libraries(tile_fwk_interface
             tile_fwk_intf_pub
             dl
             Threads::Threads
-            tile_fwk_cann_host_runtime
-            tile_fwk_simulation_platform
+            tile_fwk_platform
 )
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_interface)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_interface)

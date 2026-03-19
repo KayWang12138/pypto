@@ -36,6 +36,12 @@ public:
 
 private:
     void UpdateReshapeShape(Operation &reshapeOp, const Shape &newRawShape) const;
+    Status SplitMultiConsumerReshape(
+        Function &function, std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const;
+    Status ProcessReshape(Function &function, Operation *&operation,
+        std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const;
+    Status RemoveViewMultiReshape(const std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const;
+    Status RemoveViewSingleReshape(Function &function) const;
 };
 } // namespace npu::tile_fwk
 #endif // PASS_REMOVE_REDUNDANT_ASSEMBLE_H
