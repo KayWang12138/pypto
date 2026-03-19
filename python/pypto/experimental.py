@@ -33,7 +33,7 @@ def gather_in_ub(param: Tensor, indices: Tensor, block_table: Tensor,
     """gather_in_ub."""
     """
     Custom Operator for Sparse Attention Mechanism:
-    Extracts selected key-value (KV) vectors from the PagedAttention KV cache based on token indices.
+    Extracts selected key-value (KV) vectors from the PagedAttention KV cache indices.
 
     This operator assumes that the KV cache is stored in GM (Global Memory),
     and the extracted results are written to UB (Unified Buffer).
