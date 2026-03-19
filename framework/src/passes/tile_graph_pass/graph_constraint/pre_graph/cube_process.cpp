@@ -57,6 +57,7 @@ Status CubeProcess::AddL1CopyInAttr(
     }
     /*L0C copy L1*/
     if (L1CopyInOp->GetOpcode() == Opcode::OP_L0C_TO_L1) {
+        L1CopyInOp->SetAttribute(COPY_IS_NZ, nzValue);
         return SUCCESS;
     }
     L1CopyInOp->SetAttribute(COPY_IS_NZ, nzValue);
