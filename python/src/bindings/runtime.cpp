@@ -645,7 +645,7 @@ private:
         hostInfo.addrOffset = offsetof(dynamic::AiCpuArgs, kArgs.inputs);
         hostInfo.dataOffset = sizeof(dynamic::AiCpuArgs);
         rtAicpuArgs.hostInputInfoPtr = &hostInfo;
-
+        rtAicpuArgs.timeout = AICPU_EXECUTE_TIMEOUT;
         memset_s(&rtAicoreArgs, sizeof(rtArgsEx_t), 0, sizeof(rtArgsEx_t));
         kernelArgs.resize(7, nullptr); // see aicore.ascpp
         rtAicoreArgs.args = kernelArgs.data();
