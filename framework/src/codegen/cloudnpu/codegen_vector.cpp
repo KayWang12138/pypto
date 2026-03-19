@@ -26,16 +26,16 @@ std::string CodeGenOpCloudNPU::GenCastOp() const {
     if (isSupportLayout) {
         return PrintCastTileTensor();
     }
-    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
-    std::vector srcShape = rawShape[ID1];
+    std::vector srcShape = rawShape[ID2];
     CODEGEN_LOGI("genCastOp %s, srcShape is %s", tileOpName.c_str(), IntVecToStr(srcShape).c_str());
 
     std::vector dstShape = rawShape[ID0];
     CODEGEN_LOGI("genCastOp %s, dstShape is %s", tileOpName.c_str(), IntVecToStr(dstShape).c_str());
 
-    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID2]);
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
     AppendLocalBufVarOffsetInOrder(dVar, s0Var);
