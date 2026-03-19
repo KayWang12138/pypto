@@ -220,9 +220,8 @@ void IndexOutCastInferFunc(Operation* op,
         outValidShapes.push_back(outValidShape);
     }
     
-    auto input = op->GetIOperands()[2];
     auto indexOutCastOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
-    indexOutCastOpAttribute->SetFromDynValidShape(OpImmediate::Specified(input->GetDynValidShape()));
+    indexOutCastOpAttribute->SetFromDynValidShape(OpImmediate::Specified(op->GetIOperands()[2]->GetDynValidShape()));
     op->SetOpAttribute(indexOutCastOpAttribute);
 }
 REGISTER_INFER_SHAPE_FUNC(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, IndexOutCastInferFunc);
