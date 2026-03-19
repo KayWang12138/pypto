@@ -15,12 +15,18 @@ Incremental Flash Attention (IFA) Implementation
 This module implements the Incremental Flash Attention algorithm using PyPTO
 """
 
+import enum
 from dataclasses import dataclass, replace
 
 import torch
 from torch._dynamo import allow_in_graph
 
 import pypto
+
+
+class TileOpFormat(enum.Enum):
+    ND = "ND"
+    NZ = "NZ"
 
 
 @dataclass
@@ -187,6 +193,167 @@ class ContextParams:
     loop_size: TempUpdateTensor = None
     loop_ofs: LoopOfs = None
     temp_update_tensors: TempUpdateTensor = None
+
+
+def get_format(tensor):
+    if not isinstance(tensor, torch.Tensor):
+        raise TypeError("input type error")
+    if not tensor.is_contiguous():
+        raise TypeError("input type error")
+
+    tile_op_format = TileOpFormat.ND.value
+    if tensor.device.type == "npu":
+        import torch_npu
+        if torch_npu.get_npu_format(tensor) == 29:
+            tile_op_format = TileOpFormat.NZ.value
+    return tile_op_format
+
+
+def check_equal(param_name, param_value, expect):
+    if param_value != expect:
+        raise ValueError(f"{param_name} must be equal to {expect}, but got {param_value}.")
+
+
+def check_min_max(param_name, param_value, min_max):
+    """
+    Args:
+        min_max: [min, max]
+    """
+    min_value = min_max[0]
+    max_value = min_max[1]
+
+    if param_value < min_value or param_value > max_value:
+        raise ValueError(
+            f"{param_name} must be greater than or equal to {min_value} "
+            f"and less than or equal to {max_value}, but got {param_value}."
+        )
+
+
+def check_query(inputs):
+    # query shape is [T, n1, d]
+    query = inputs.get("query")
+
+    # Check query dim
+    check_equal("query dim", query.dim(), 3)
+
+    # Check query bs
+    bs = query.shape[0]
+    check_min_max("query dim 0", bs, [1, 16])
+
+    # Check query s: [s1]
+    block_table = inputs.get("block_table")
+    b = block_table.shape[0]
+    s1 = bs // b
+    check_equal("s1", s1, 1)
+
+    # Check query head num: [n1]
+    n1 = query.shape[1]
+    check_equal("query dim 1", n1, 12)
+
+    # Check query head dim: [d]
+    d = query.shape[2]
+    check_equal("query dim 2", d, 128)
+
+    # Check query dtype
+    check_equal("query dtype", query.dtype, torch.bfloat16)
+
+    # Check query format
+    check_equal("query format", get_format(query), "ND")
+    
+
+def check_key(key):
+    # key shape is [block_num, n2, block_size, d]
+    # Check key dim
+    check_equal(f"key dim", key.dim(), 4)
+
+    # Check key head num: [n2]
+    n2 = key.shape[1]
+    check_equal("key dim 1", n2, 1)
+
+    # Check block size.
+    block_size = key.shape[2]
+    check_equal("key dim 2", block_size, 128)
+
+    # Check key head dim: [d]
+    d = key.shape[3]
+    check_equal("key dim 3", d, 128)
+
+    # Check key dtype
+    check_equal("key dtype", key.dtype, torch.bfloat16)
+
+    # Check key format
+    check_equal("key format", get_format(key), "ND")
+
+
+def check_value(value):
+    # value shape is [block_num, n2, block_size, d]
+    # Check value dim
+    check_equal(f"value dim", value.dim(), 4)
+
+    # Check value head num: [n2]
+    n2 = value.shape[1]
+    check_equal("value dim 1", n2, 1)
+
+    # Check block size.
+    block_size = value.shape[2]
+    check_equal("value dim 2", block_size, 128)
+
+    # Check value head dim: [d]
+    d = value.shape[3]
+    check_equal("value dim 3", d, 128)
+
+    # Check value dtype
+    check_equal("value dtype", value.dtype, torch.bfloat16)
+
+    # Check value format
+    check_equal("value format", get_format(value), "ND")
+
+
+def check_key_value_shape(inputs):
+    key = inputs.get("key")
+    value = inputs.get("value")
+    
+    key_shape = key.shape
+    value_shape = value.shape
+
+    if key_shape != value_shape:
+        raise ValueError(
+            f"key and value shape must be equal, "
+            f"but got key shape is {key_shape} and value shape is {value_shape}"
+        )
+        
+
+def check_block_table(block_table):
+    # block_table shape is [b, max_block_num_per_query]
+    # Check block_table dim
+    check_equal(f"block table dim", block_table.dim(), 2)
+
+    # Check block_table dtype
+    check_equal("block table dtype", block_table.dtype, torch.int32)
+
+    # Check block_table format
+    check_equal("block table format", get_format(block_table), "ND")
+
+
+def check_actual_seq_lengths(actual_seq_lengths):
+    # actual_seq_lengths shape is [b]
+    # Check actual_seq_lengths dim
+    check_equal(f"actual_seq_lengths dim", actual_seq_lengths.dim(), 1)
+
+    # Check actual_seq_lengths dtype
+    check_equal("actual_seq_lengths dtype", actual_seq_lengths.dtype, torch.int32)
+
+    # Check actual_seq_lengths format
+    check_equal("actual_seq_lengths format", get_format(actual_seq_lengths), "ND")
+
+
+def check_inputs(inputs):
+    check_query(inputs)
+    check_key(inputs.get("key"))
+    check_value(inputs.get("value"))
+    check_key_value_shape(inputs)
+    check_block_table(inputs.get("block_table"))
+    check_actual_seq_lengths(inputs.get("actual_seq_lengths"))
 
 
 def get_ifa_tile_cfg():
@@ -737,7 +904,15 @@ def incre_flash_attention(
     actual_seq_lengths: torch.Tensor,
     block_table: torch.Tensor,
 ):
+    inputs = dict(
+        query=query,
+        key=key,
+        value=value,
+        block_table=block_table,
+        actual_seq_lengths=actual_seq_lengths
+    )
+    check_inputs(inputs)
     atten_out = torch.zeros_like(query)
-    inputs = [query, key, value, block_table, actual_seq_lengths, atten_out]
-    ifa_func_kernel(*inputs)
+    input_values = [query, key, value, block_table, actual_seq_lengths, atten_out]
+    ifa_func_kernel(*input_values)
     return atten_out
