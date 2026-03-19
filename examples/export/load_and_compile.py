@@ -10,11 +10,12 @@ import onnx
 import pypto
 from torchair.ge._ge_graph import GeGraph
 
-
 DOMAIN = "ai.onnx.contrib"
 OP_TYPE__ADD = "AddPyptoCustomOp"
 DOMAIN_OP_TYPE__ADD = f"{DOMAIN}::{OP_TYPE__ADD}"
 
+// TODO: derive OP_TYPE from layout json
+// FIXME: support ASC lib in makefile for "register/op_def_registry.h" and etc.
 
 def run_cmd(cmd, cwd=None, env=None):
     print(f"\n[RUN] {' '.join(map(str, cmd))}")
@@ -99,82 +100,100 @@ def patch_generated_cpp_if_needed(cpp_path: Path):
         print(f"[PATCH] Updated {cpp_path}")
 
 
+def _cpp_uses_pybind_embed_style(text: str) -> bool:
+    """True if *text* looks like generated code that needs :func:`patch_generated_cpp_if_needed`."""
+    return (
+        "#include <pybind11/embed.h>" in text
+        or "py::scoped_interpreter guard{};" in text
+    )
+
+
+def patch_pybind_wrapper_cpp_files_under(root: Path) -> None:
+    """Run :func:`patch_generated_cpp_if_needed` on every ``*.cpp`` under *root* that embeds pybind that way."""
+    for cpp_path in sorted(root.rglob("*.cpp")):
+        try:
+            text = cpp_path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if _cpp_uses_pybind_embed_style(text):
+            patch_generated_cpp_if_needed(cpp_path)
+
+
+def _op_def_cpp_relpath_from_layout(layout: dict) -> str:
+    """Pick the manifest path for ``op_host/<stem>_def.cpp`` (not under ``op_host/src``)."""
+    candidates: list[str] = []
+    for v in layout.values():
+        if not isinstance(v, str) or not v.endswith(".cpp"):
+            continue
+        parts = Path(v).parts
+        if len(parts) >= 2 and parts[0] == "op_host" and parts[1] != "src":
+            candidates.append(v)
+    if len(candidates) != 1:
+        raise ValueError(
+            "Expected exactly one cpp path in layout under op_host/ but not op_host/src/ "
+            f"(OpDef TU), got {candidates!r}"
+        )
+    return candidates[0]
+
+
 def collect_required_cpp_files(extracted_dir: Path, final_src_dir: Path):
     """
-    Find extracted cpp files and copy them into final_src_dir with expected names.
-    Assumes files are already named:
-      - infer_shape.cpp
-      - calc_workspace.cpp
-      - op_kernel_info.cpp
-      - op_compile.cpp
-      - op_execute.cpp
+    Resolve cpp paths from ``cpp_layout.json`` (written with cpp_sources zip) and copy into
+    *final_src_dir* with the basenames expected by ``CMakeLists.txt`` / ``bindings.cpp``.
     """
     final_src_dir.mkdir(parents=True, exist_ok=True)
 
-    required = {
-        "infer_shape.cpp": None,
-        "calc_workspace.cpp": None,
-        "op_kernel_info.cpp": None,
-        "op_compile.cpp": None,
-        "op_execute.cpp": None,
-    }
+    layout, base = pypto.export.load_cpp_layout(extracted_dir)
 
-    for cpp in extracted_dir.rglob("*.cpp"):
-        name = cpp.name
-        if name in required and required[name] is None:
-            required[name] = cpp
+    copied_paths: list[Path] = []
 
-    missing = [name for name, path in required.items() if path is None]
-    if missing:
-        available = [str(p) for p in extracted_dir.rglob("*.cpp")]
-        raise FileNotFoundError(
-            f"Missing required cpp files: {missing}\n"
-            f"Available cpp files:\n" + "\n".join(available)
-        )
+    def_rel = _op_def_cpp_relpath_from_layout(layout)
+    def_src = base / def_rel
+    infer_cpp_name = def_src.name
+    dst_def = final_src_dir / infer_cpp_name
+    shutil.copy2(def_src, dst_def)
+    copied_paths.append(dst_def)
+    print(f"[COPY] {def_src} -> {dst_def}")
 
-    copied_paths = []
-    for name, src_path in required.items():
-        dst_path = final_src_dir / name
-        shutil.copy2(src_path, dst_path)
-        patch_generated_cpp_if_needed(dst_path)
-        copied_paths.append(dst_path)
-        print(f"[COPY] {src_path} -> {dst_path}")
+    patch_pybind_wrapper_cpp_files_under(final_src_dir)
 
-    return copied_paths
+    # Canonical export always embeds inferShape in the GE OpDef TU under op_host/.
+    use_ge_host_infer = True
+    return copied_paths, use_ge_host_infer, infer_cpp_name
 
 
-def generate_bindings_cpp(dst: Path, module_name: str):
-    content = f'''#include <pybind11/pybind11.h>
+def generate_bindings_cpp(dst: Path, module_name: str, *, infer_from_ge_host: bool):
+    if infer_from_ge_host:
+        infer_decl = """std::tuple<int64_t, int64_t> inferShape(std::tuple<int64_t, int64_t> x0_shape,
+                                 std::tuple<int64_t, int64_t> x1_shape);"""
+        infer_def = '    m.def("infer_shape", &inferShape, "Infer output shape");'
+    else:
+        infer_decl = """std::tuple<int64_t, int64_t> infer_shape(std::tuple<int64_t, int64_t> x0_shape,
+                                 std::tuple<int64_t, int64_t> x1_shape);"""
+        infer_def = '    m.def("infer_shape", &infer_shape, "Infer output shape");'
+
+    content = f'''#include <cstdint>
+#include <tuple>
+#include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
 namespace py = pybind11;
 
 // Forward declarations
-std::tuple<int, int> infer_shape(std::tuple<int, int> x0_shape,
-                                 std::tuple<int, int> x1_shape);
-
-int calc_workspace(std::tuple<int, int> x0_shape,
-                   std::tuple<int, int> x1_shape);
-
-std::tuple<int, int> op_kernel_info(int inputs_num, int outputs_num);
-int op_compile(int flags);
-int op_execute(int flags);
+{infer_decl}
 
 PYBIND11_MODULE({module_name}, m) {{
     m.doc() = "Generated PyPTO operator runtime module";
 
-    m.def("infer_shape", &infer_shape, "Infer output shape");
-    m.def("calc_workspace", &calc_workspace, "Calculate workspace size");
-    m.def("op_kernel_info", &op_kernel_info, "Get kernel info");
-    m.def("op_compile", &op_compile, "Compile op");
-    m.def("op_execute", &op_execute, "Execute op");
+{infer_def}
 }}
 '''
     dst.write_text(content, encoding="utf-8")
     print(f"[GEN] {dst}")
 
 
-def generate_cmakelists(dst: Path, module_name: str):
+def generate_cmakelists(dst: Path, module_name: str, *, infer_cpp_name: str):
+    infer_src = f"    src/{infer_cpp_name}\n"
     content = f'''cmake_minimum_required(VERSION 3.15)
 project({module_name} LANGUAGES CXX)
 
@@ -186,12 +205,7 @@ find_package(pybind11 CONFIG REQUIRED)
 
 pybind11_add_module({module_name}
     src/bindings.cpp
-    src/infer_shape.cpp
-    src/calc_workspace.cpp
-    src/op_kernel_info.cpp
-    src/op_compile.cpp
-    src/op_execute.cpp
-)
+{infer_src})
 '''
     dst.write_text(content, encoding="utf-8")
     print(f"[GEN] {dst}")
@@ -279,10 +293,14 @@ def main():
     print("----------------\n")
 
     extract_cpp_sources(node, project_dir)
-    collect_required_cpp_files(extracted_dir, src_dir)
+    _, infer_from_ge_host, infer_cpp_name = collect_required_cpp_files(extracted_dir, src_dir)
 
-    generate_bindings_cpp(src_dir / "bindings.cpp", module_name)
-    generate_cmakelists(project_dir / "CMakeLists.txt", module_name)
+    generate_bindings_cpp(
+        src_dir / "bindings.cpp", module_name, infer_from_ge_host=infer_from_ge_host
+    )
+    generate_cmakelists(
+        project_dir / "CMakeLists.txt", module_name, infer_cpp_name=infer_cpp_name
+    )
 
     so_files = build_shared_object(project_dir, module_name)
 

@@ -58,7 +58,7 @@ def add_pypto_calc_workspace(x0_shape: tuple[int, int], x1_shape: tuple[int, int
 
 @pypto.export.pypto_op_onnx_symbolic(pypto_op_kernel=add_kernel_body)
 def add_pypto_onnx_symbolic(g, x0, x1, run_mode=0, pypto_op_kernel_export=None):
-    op_context = pypto_op_kernel_export(x0, x1)
+    op_context = pypto_op_kernel_export(x0, x1, op_type=OP_TYPE__ADD)
     node = g.op(DOMAIN_OP_TYPE__ADD, x0, x1, run_mode, **op_context)
     node.setType(x0.type())
     return node
