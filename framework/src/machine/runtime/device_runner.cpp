@@ -535,6 +535,7 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
         return rc;
     }
     ReportHostProfInfo(startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU);
+    GetHostProfInstance().HostProfReportCacheTaskInfo(aicpuStream, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU);
 
     HOST_PERF_TRACE(TracePhase::RunDevKernelLaunchAicpuRun);
 
@@ -545,6 +546,7 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
         return rc;
     }
     ReportHostProfInfo(startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+    GetHostProfInstance().HostProfReportCacheTaskInfo(aicoreStream, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC);
 
     HOST_PERF_TRACE(TracePhase::RunDevKernelLaunchAIcore);
     return rc;
@@ -584,6 +586,7 @@ int DeviceRunner::DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlS
         return rc;
     }
     ReportHostProfInfo(startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU);
+    GetHostProfInstance().HostProfReportCacheTaskInfo(aicpuStream, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU);
 
     startTime = MsprofSysCycleTime();
     rc = launchDynamicAiCore(aicoreStream, kernelArgs);
@@ -592,6 +595,7 @@ int DeviceRunner::DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlS
         return rc;
     }
     ReportHostProfInfo(startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+    GetHostProfInstance().HostProfReportCacheTaskInfo(aicoreStream, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC);
 
     rc = RunPost(ctrlStream, aicoreStream);
     return rc;
