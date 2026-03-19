@@ -1,5 +1,7 @@
 from .pypto_op import _FUNC_NAME__INFER_SHAPE, _FUNC_NAME__CALC_WORKSPACE
 
+__all__ = ("register_infer_shape_fn", "register_calc_workspace_fn")
+
 _infer_funcs = {}
 
 
