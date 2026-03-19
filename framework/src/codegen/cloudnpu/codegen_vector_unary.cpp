@@ -80,7 +80,7 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
                             "pto::SaturationMode::OFF";
     templateParamList.emplace_back(satModeStr);
     oss << WrapParamByAngleBrackets(templateParamList);
-    oss << WrapParamByParentheses({dstTensor, srcTensor});
+    oss << WrapParamByParentheses({dstTensor, srcTensor, tmpTensor});
     oss << ";\n";
     return oss.str();
 }
