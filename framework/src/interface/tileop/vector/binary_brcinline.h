@@ -19,6 +19,36 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
+enum class BrcMode : uint8_t {
+    NONE,
+    BRC_W,      // [m, 1] [m, n] / [m, n] [m, 1]
+    BRC_H,      // [1, n] [m, n] / [m, n] [1, n]
+    BRC_HW,     // [1, 1] [m ,n] / [m, n] [1, 1]
+    BRC_W0_H1,  // [m, 1] [1, n]
+    BRC_H0_W1   // [1, n] [m, 1]
+};
+
+template <TileOp::BroadcastOperand WBrcSide, TileOp::PenuBroadcastOperand HBrcSide>
+TILEOP constexpr BrcMode GetBrcMode() {
+    if constexpr (WBrcSide != TileOp::BroadcastOperand::NONE &&
+                  HBrcSide == TileOp::PenuBroadcastOperand::NONE) {
+        return BrcMode::BRC_W;
+    } else if constexpr (WBrcSide == TileOp::BroadcastOperand::NONE &&
+                  HBrcSide != TileOp::PenuBroadcastOperand::NONE) {
+        return BrcMode::BRC_H;
+    } else if constexpr ((WBrcSide = TileOp::BroadcastOperand::LEFT_OPERAND && HBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) 
+                    || (WBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND && HBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND)) {
+        return BrcMode::BRC_HW;
+    } else if constexpr (WBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND &&
+                  HBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
+        return BrcMode::BRC_W0_H1;
+    } else if constexpr (WBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND &&
+                  HBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
+        return BrcMode::BRC_H0_W1;
+    } else {
+        return BrcMode::NONE;
+    }
+}
 struct BinaryLayoutInfo {
     size_t shape0, shape1, shape2, shape3, shape4;
     size_t dstStride0, dstStride1, dstStride2, dstStride3;
@@ -98,17 +128,17 @@ TILEOP void BinaryColExpandComputeImpl(T0 dst, T1 src0, T2 src1) {
     BINARY_EXPAND_DISPATCH(COLEXPAND)
 }
 
-template <BinaryOp op, TileOp::BroadcastOperand tailBrcSide, 
+template <BinaryOp op, TileOp::BroadcastOperand WBrcSide, 
           typename Src0TileInfo, typename Src1TileInfo,
           typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1, const BinaryLayoutInfo &info) {
-    constexpr bool src0IsColMajor = (Src0TileInfo::tileW == 1 && tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND);
-    constexpr bool src1IsColMajor = (Src1TileInfo::tileW == 1 && tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND);
+    constexpr bool src0IsColMajor = (Src0TileInfo::tileW == 1 && WBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND);
+    constexpr bool src1IsColMajor = (Src1TileInfo::tileW == 1 && WBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND);
     using Src0PtoTile = typename std::conditional<src0IsColMajor, PtoTile<T1, pto::BLayout::ColMajor>, PtoTile<T1>>::type;
     using Src1PtoTile = typename std::conditional<src1IsColMajor, PtoTile<T2, pto::BLayout::ColMajor>, PtoTile<T2>>::type;
     auto dstTile = PtoTile<T0>(1, info.shape4).Data();
-    auto src0Tile = Src0PtoTile(1, tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND ? 1 : info.shape4).Data();
-    auto src1Tile = Src1PtoTile(1, tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND ? 1 : info.shape4).Data();
+    auto src0Tile = Src0PtoTile(1, WBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND ? 1 : info.shape4).Data();
+    auto src1Tile = Src1PtoTile(1, WBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND ? 1 : info.shape4).Data();
     for (LoopVar n0Index = 0; n0Index < info.shape0; ++n0Index) {
         for (LoopVar n1Index = 0; n1Index < info.shape1; ++n1Index) {
             for (LoopVar n2Index = 0; n2Index < info.shape2; ++n2Index) {
