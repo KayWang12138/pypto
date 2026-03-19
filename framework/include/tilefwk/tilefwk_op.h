@@ -444,13 +444,18 @@ void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
 // Forward declarations — full definitions in tilefwk/distributed_communicator.h
 class OneShotCommunicatorV2;
 class OneShotCommunicatorV3;
+class OneShotCommunicatorV4;
 class TwoShotCommunicatorV2;
 Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
     OneShotCommunicatorV2& comm);
 void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
     OneShotCommunicatorV2& comm);
+void OneShotAllReduce_v6_light(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
+    OneShotCommunicatorV2& comm);
 void OneShotAllReduce_v7(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
     OneShotCommunicatorV3& comm);
+void OneShotAllReduce_v8(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
+    OneShotCommunicatorV4& comm);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out);
@@ -469,6 +474,7 @@ void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForC
 void CreateShmemData(const char* group, int64_t worldSize, DataType dataType,
     const Shape& shape, Tensor& shmemTensor, uint64_t memType = 0);
 void CreateShmemSignal(const char* group, Tensor& shmemData, Tensor& shmemSignal);
+void CreateShmemSignalLight(const char* group, int64_t worldSize, Tensor& shmemSignal);
 Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemData,
     AtomicType atomicType = AtomicType::SET);
 Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,

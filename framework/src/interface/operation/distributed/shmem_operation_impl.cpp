@@ -255,6 +255,19 @@ void CreateShmemSignal(const char* group, Tensor& shmemData, Tensor& shmemSignal
         BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
 }
 
+void CreateShmemSignalLight(const char* group, int64_t worldSize, Tensor& shmemSignal)
+{
+    auto &function = *Program::GetInstance().GetCurrentFunction();
+    int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
+    Shape shmemShape{worldSize, worldSize, 1, 1, 1};
+    auto shmemTensorInner = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, shmemShape);
+    shmemSignal = shmemTensorInner;
+    Program::GetInstance().GetTensorSlotManager()->TensorWrite(shmemSignal, SlotProperty::SHMEM_TENSOR);
+    auto &op = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {shmemTensorInner});
+    op.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 0,
+        BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
+}
+
 Tensor ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize)
 {
     ValidateGroup(group);
@@ -655,6 +668,20 @@ void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, Tensor& shme
     }
 }
 
+// OneShotAllReduce_v6_light: same coarse scatter cadence as v6.
+// Uses compact signal domains via CreateShmemSignalLight at setup time.
+void OneShotAllReduce_v6_light(const Tensor& predToken, const Tensor& in, Tensor& shmemData, OneShotCommunicatorV2& comm)
+{
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+
+    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
+        auto dynRankView = View(shmemData, {1, 1, row, col},
+            std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
+        comm.Put(predToken, in, dynRankView, dynRankId, AtomicType::ADD);
+    }
+}
+
 // OneShotAllReduce_v7: scatter-only with grouped signaling.
 // Communicator controls chunking and chunk->signal-group mapping.
 void OneShotAllReduce_v7(const Tensor& predToken, const Tensor& in, Tensor& shmemData, OneShotCommunicatorV3& comm)
@@ -668,6 +695,23 @@ void OneShotAllReduce_v7(const Tensor& predToken, const Tensor& in, Tensor& shme
             auto dynRankView = View(shmemData, {1, 1, chunkRows, col},
                 std::vector<SymbolicScalar>{dynRankId, 0, chunkRow, 0});
             comm.Put(predToken, inChunk, dynRankView, dynRankId, chunkId, AtomicType::ADD);
+        }
+    }
+}
+
+// OneShotAllReduce_v8: scatter-only with policy-driven signal plan (v8).
+// The communicator owns chunk->group mapping and thresholds.
+void OneShotAllReduce_v8(const Tensor& predToken, const Tensor& in, Tensor& shmemData, OneShotCommunicatorV4& comm)
+{
+    int32_t col = in.GetShape(1);
+    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
+        for (uint32_t chunkId = 0; chunkId < comm.PayloadChunkCount(); ++chunkId) {
+            int32_t chunkRow = comm.ChunkStartRow(chunkId);
+            int32_t chunkRows = comm.ChunkRows(chunkId);
+            auto inChunk = View(in, {chunkRows, col}, std::vector<SymbolicScalar>{chunkRow, 0});
+            auto dynRankView = View(shmemData, {1, 1, chunkRows, col},
+                std::vector<SymbolicScalar>{dynRankId, 0, chunkRow, 0});
+            comm.PutWithSignal(predToken, inChunk, dynRankView, dynRankId, chunkId, AtomicType::ADD);
         }
     }
 }
