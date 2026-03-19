@@ -22,6 +22,7 @@
 #include "topo_processor.h"
 #include "interface/utils/log.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "machine/utils/machine_error.h"
 
 namespace npu::tile_fwk {
 std::optional<CacheValue> FunctionCache::Get(HashKey key) {
