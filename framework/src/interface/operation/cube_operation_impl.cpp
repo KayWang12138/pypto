@@ -1348,8 +1348,9 @@ bool IsSFANonDB(
     const bool IsInputValid = aMatrixValid && bMatrixValid;
 
     const bool dataTypeValid = (operandVec[0]->Datatype() == DataType::DT_BF16);
+    const bool platformIsValid = (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_2201);
 
-    return (tileValid && IsInputValid && dataTypeValid);
+    return (tileValid && IsInputValid && dataTypeValid && platformIsValid);
 }
 
 void ConstructTileGraph(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
