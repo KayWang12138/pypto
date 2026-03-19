@@ -2083,6 +2083,7 @@ Json Function::DumpJson(bool useTable) {
     funcJson["_sg_pg_upperbound"] = paramConfigs_.sgPgUpperBound;
     funcJson["_sg_pg_lowerbound"] = paramConfigs_.sgPgLowerBound;
     funcJson["_sg_parallel_num"] = paramConfigs_.sgParallelNum;
+    funcJson["_sg_partition_algorithm"] = paramConfigs_.sgPartitionAlgorithm;
     funcJson["_sg_mg_copyin_upper_bound"] = paramConfigs_.sgMgCopyInUpperBound;
     funcJson["_mg_vec_parallel_lb"] = paramConfigs_.mgVecParallelLb;
     funcJson["_pg_skip_partition"] = paramConfigs_.pgSkipPartition;
@@ -2401,6 +2402,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     func->paramConfigs_.sgPgUpperBound = funcJson["_sg_pg_upperbound"].get<int>();
     func->paramConfigs_.sgPgLowerBound = funcJson["_sg_pg_lowerbound"].get<int>();
     func->paramConfigs_.sgParallelNum = funcJson["_sg_parallel_num"].get<int>();
+    func->paramConfigs_.sgPartitionAlgorithm = funcJson["_sg_partition_algorithm"].get<std::string>();
     func->paramConfigs_.sgMgCopyInUpperBound = funcJson["_sg_mg_copyin_upper_bound"].get<int>();
     func->paramConfigs_.mgVecParallelLb = funcJson["_mg_vec_parallel_lb"].get<int>();
     func->paramConfigs_.pgSkipPartition = funcJson["_pg_skip_partition"].get<bool>();
