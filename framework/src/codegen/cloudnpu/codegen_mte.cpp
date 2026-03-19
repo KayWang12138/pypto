@@ -1764,11 +1764,11 @@ std::string CodeGenOpCloudNPU::GetConvCopyInMode() const {
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyInMode, copyInMode);
     ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret) << ": GenMemL1CopyInConv get CopyInMode failed.";
 
-    if (copyInMode == ToUnderlying(CopyInMode::COPY_MOD_ND2NZ)) {
+    if (copyInMode == ToUnderlying(Matrix::CopyInMode::ND2NZ)) {
         copyInModeStr = "CopyInMode::ND2NZ";
-    } else if (copyInMode == ToUnderlying(CopyInMode::COPY_MOD_NZ2NZ)) {
+    } else if (copyInMode == ToUnderlying(Matrix::CopyInMode::NZ2NZ)) {
         copyInModeStr = "CopyInMode::NZ2NZ";
-    } else if (copyInMode == ToUnderlying(CopyInMode::COPY_MOD_DN2NZ)) {
+    } else if (copyInMode == ToUnderlying(Matrix::CopyInMode::DN2NZ)) {
         copyInModeStr = "CopyInMode::DN2NZ";
     } else {
         ASSERT(ConvCodenGenError::CODEGEN_CHECK_ATTR_INVALID, false) <<
@@ -1835,11 +1835,11 @@ std::string CodeGenOpCloudNPU::GetConvCopyOutMode() const {
     std::string copyOutModeStr = "";
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyOutMode, copyOutMode);
     ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret) << ": GenMemL1CopyOutConv get CopyOutMode failed";
-    if (copyOutMode == ToUnderlying(CopyOutMode::COPY_MOD_NZ2ND)) {
+    if (copyOutMode == ToUnderlying(Matrix::CopyOutMode::NZ2ND)) {
         copyOutModeStr = "CopyOutMode::NZ2ND";
-    } else if (copyOutMode == ToUnderlying(CopyOutMode::COPY_MOD_NZ2NZ)) {
+    } else if (copyOutMode == ToUnderlying(Matrix::CopyOutMode::NZ2NZ)) {
         copyOutModeStr = "CopyOutMode::NZ2NZ";
-    } else if (copyOutMode == ToUnderlying(CopyOutMode::COPY_MOD_NZ2DN)) {
+    } else if (copyOutMode == ToUnderlying(Matrix::CopyOutMode::NZ2DN)) {
         copyOutModeStr = "CopyOutMode::NZ2DN";
     } else {
         ASSERT(ConvCodenGenError::CODEGEN_CHECK_ATTR_INVALID, false) <<

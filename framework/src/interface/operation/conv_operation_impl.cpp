@@ -341,20 +341,20 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
     CheckDivisible(cinFmap, groups, "Cin", "groups");
     CheckDivisible(cOut, groups, "Cout", "groups");
 
-    ASSERT(ConvOperationErrorr::INPUT_INVALID, cinFmap == cinWeight * groups) <<
-        << "Fmap Cin (" << cinFmap << ") != weight Cin (" << cinWeight << ") * groups (" << groups << ").";
+    ASSERT(ConvOperationError::INPUT_INVALID, cinFmap == cinWeight * groups) <<
+        "Fmap Cin (" << cinFmap << ") != weight Cin (" << cinWeight << ") * groups (" << groups << ").";
 }
 
 void CheckDimParam(const std::vector<int64_t>& vec, const std::string& name, int expectedDim)
 {
-    ASSERT(ConvOperationErrorr::INPUT_INVALID, vec.size() == static_cast<size_t>(expectedDim)) <<
+    ASSERT(ConvOperationError::INPUT_INVALID, vec.size() == static_cast<size_t>(expectedDim)) <<
         "Input attr " << name << " dim: " << vec.size() << " != " << expectedDim << ".";
 }
 
 void CheckDimensionRange(const std::vector<int64_t>& vec, const std::string& name, int minVal, int maxVal)
 {
     for (size_t i = 0; i < vec.size(); ++i) {
-        ASSERT(ConvOperationErrorr::INPUT_INVALID, vec[i] >= minVal && vec[i] <= maxVal) <<
+        ASSERT(ConvOperationError::INPUT_INVALID, vec[i] >= minVal && vec[i] <= maxVal) <<
             "The value of the " << i << "-th dimension of " << name << " must be in the range [" << minVal
             << "," << maxVal << "].Current value:" << vec[i] << ".";
     }
@@ -378,7 +378,7 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
     uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
     int64_t kw = weightTensor.GetShape()[indexW];
     int64_t kh = attrParam.isConv1D ? 1 : weightTensor.GetShape()[indexH];
-    ASSERT(ConvOperationErrorr::INPUT_INVALID, kh <= MAX_PAD_KERNEL && kw  <= MAX_PAD_KERNEL) <<
+    ASSERT(ConvOperationError::INPUT_INVALID, kh <= MAX_PAD_KERNEL && kw  <= MAX_PAD_KERNEL) <<
         "Weight shapes do not satisfy Load3D's"
         << (attrParam.isConv1D ? " limit: kw=" : " limits: kh=")
         << (attrParam.isConv1D ? kw : kh)
@@ -386,7 +386,7 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
         << ", which must <= " << MAX_PAD_KERNEL << ".";
 
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
-    ASSERT(ConvOperationErrorr::INPUT_INVALID, kh * kw * k0 <= SHAPE_INNER_AXIS_MAX_SIZE) <<
+    ASSERT(ConvOperationError::INPUT_INVALID, kh * kw * k0 <= SHAPE_INNER_AXIS_MAX_SIZE) <<
         "Weight shapes do not satisfy Load3D's limits: kh*kw*k0=" << kh * kw * k0
         << "(k0 = 32 bytes / dtypesize), which must <=" << SHAPE_INNER_AXIS_MAX_SIZE << ".";
 }
@@ -414,7 +414,7 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
         int weightVal = weightTensor.GetShape()[i + 2];
         int paddingLeft = paddings[i * 2];
         int paddingRight = paddings[i * 2 + 1];
-        ASSERT(ConvOperationErrorr::INPUT_INVALID, paddingLeft < weightVal && paddingRight < weightVal) <<
+        ASSERT(ConvOperationError::INPUT_INVALID, paddingLeft < weightVal && paddingRight < weightVal) <<
             "The value of the " << dimNames[i]
             << " dimension of weight must be >= padding.Current weight value:" << weightVal
             << ",padding value:" << paddingLeft
@@ -434,12 +434,12 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
         return;
     }
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
-    ASSERT(ConvOperationErrorr::INPUT_INVALID, biasTensor.GetShape()[0] == cOut) <<
+    ASSERT(ConvOperationError::INPUT_INVALID, biasTensor.GetShape()[0] == cOut) <<
         "Input illegal bias shape:" << biasTensor.GetShape()[0] << ", which must equal to Cout:" << cOut << ".";
 }
 void CheckConvOperands(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor, ConvAttrParam &attrParam)
 {
-    ASSERT(ConvOperationErrorr::INPUT_INVALID,
+    ASSERT(ConvOperationError::INPUT_INVALID,
         outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16) <<
         "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16 are supported.";
     if (inputTensor.Dim() == CONV1D_INPUT_DIM && weightTensor.Dim() == CONV1D_INPUT_DIM) {
@@ -534,7 +534,7 @@ void SetConvAttrParam(const Operation &op, ConvAttrParam &convAttrParam)
     convAttrParam.isInOutTensorNZ = false;
     ASSERT(ConvExpandFuncError::EXPANDFUNC_TENSOR_ATTR_GET_FAILED, op.HasAttr(CONV_ORI_FMAP_SHAPE_ATTR)) <<
         "Conv ori fmapshape should be set when InOut Tensor NZ mode.";
-    ASSERT(ConvExpandFuncError::EXPANDFUNC_TENSOR_ATTR_GET_FAILED, op.HasAttr(CONV_ORI_WEIGHT_SHAPE_ATTR) <<
+    ASSERT(ConvExpandFuncError::EXPANDFUNC_TENSOR_ATTR_GET_FAILED, op.HasAttr(CONV_ORI_WEIGHT_SHAPE_ATTR)) <<
         "Conv ori weightshape should be set when InOut Tensor NZ mode.";
     convAttrParam.oriFmapShape = op.GetVectorIntAttribute(CONV_ORI_FMAP_SHAPE_ATTR);
     convAttrParam.oriWeightShape = op.GetVectorIntAttribute(CONV_ORI_WEIGHT_SHAPE_ATTR);
@@ -556,8 +556,8 @@ void SetTensorGraphNodes(const std::vector<LogicalTensorPtr> &operandVec, const 
     if (convAttrParam.hasBias) {
         tensorGraphNodes.biasTensorPtr = operandVec[INPUT_BIAS_IDX];
     }
-    ASSERT(ConvExpandFuncError::EXPANDFUNC_TILE_OP_NULLPTR) <<
-        tensorGraphNodes.fmapTensorPtr != nullptr && tensorGraphNodes.weightTensorPtr != nullptr,
+    ASSERT(ConvExpandFuncError::EXPANDFUNC_TILE_OP_NULLPTR,
+        tensorGraphNodes.fmapTensorPtr != nullptr && tensorGraphNodes.weightTensorPtr != nullptr) <<
         "Expected aTensorPtr and bTensorPtr to be non-nullptr.";
 
     ASSERT(ConvExpandFuncError::EXPANDFUNC_TILE_OP_NULLPTR, cTensorPtr != nullptr) <<
