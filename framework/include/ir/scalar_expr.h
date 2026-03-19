@@ -96,7 +96,7 @@ public:
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ConstInt::value_, "value")));
     }
 
-    [[nodiscard]] DataType dtype() const {
+    [[nodiscard]] DataType GetDtype() const {
         // Note: Must use dynamic_pointer_cast here because this header is included before
         // the TypePtr overload of As<> is defined in kind_traits.h
         auto scalarType = std::dynamic_pointer_cast<const ScalarType>(GetType());
@@ -140,7 +140,7 @@ public:
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ConstFloat::value_, "value")));
     }
 
-    [[nodiscard]] DataType dtype() const {
+    [[nodiscard]] DataType GetDtype() const {
         // Note: Must use dynamic_pointer_cast here because this header is included before
         // the TypePtr overload of As<> is defined in kind_traits.h
         auto scalarType = std::dynamic_pointer_cast<const ScalarType>(GetType());
@@ -183,7 +183,7 @@ public:
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ConstBool::value_, "value")));
     }
 
-    [[nodiscard]] DataType dtype() const { return DataType::BOOL; }
+    [[nodiscard]] DataType GetDtype() const { return DataType::BOOL; }
 };
 
 using ConstBoolPtr = std::shared_ptr<const ConstBool>;
@@ -221,7 +221,7 @@ using BinaryExprPtr = std::shared_ptr<const BinaryExpr>;
 // Usage: DEFINE_BINARY_EXPR_NODE(Add, "Addition expression (left + right)")
 // NOLINTNEXTLINE(bugprone-macro-parentheses)
 #define DEFINE_BINARY_EXPR_NODE(OpName, Description)                                              \
-    /* Description */                                                                             \
+    /** \brief Description */                                                                     \
     class OpName : public BinaryExpr {                                                            \
     public:                                                                                       \
         OpName(ExprPtr left, ExprPtr right, DataType dtype, Span span)                            \
@@ -286,7 +286,7 @@ using UnaryExprPtr = std::shared_ptr<const UnaryExpr>;
 // Usage: DEFINE_UNARY_EXPR_NODE(Neg, "Negation expression (-operand)")
 // NOLINTNEXTLINE(bugprone-macro-parentheses)
 #define DEFINE_UNARY_EXPR_NODE(OpName, Description)                                                                   \
-    /* Description */                                                                                                 \
+    /** \brief Description */                                                                                         \
     class OpName : public UnaryExpr {                                                                                 \
     public:                                                                                                           \
         OpName(ExprPtr operand, DataType dtype, Span span) : UnaryExpr(std::move(operand), dtype, std::move(span)) {} \

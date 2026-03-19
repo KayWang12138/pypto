@@ -36,12 +36,12 @@ namespace ir {
  * \return DataType of the expression
  * \throws ValueError if expr is not a scalar expression or scalar var
  */
-inline DataType GetScalarDtype(const ExprPtr &expr) {
+inline DataType GetScalarDtype(const ExprPtr &expr, const Span &span = Span::Unknown()) {
     // Note: Must use dynamic_pointer_cast here because this header is included before
     // the TypePtr overload of As<> is defined in kind_traits.h
     auto scalarType = std::dynamic_pointer_cast<const ScalarType>(expr->GetType());
     CHECK(scalarType) << "Expression must be ScalarExpr or Var with ScalarType, got " << expr->TypeName()
-                      << " with type " << expr->GetType()->TypeName() << " at " << expr->span_.ToString();
+                      << " with type " << expr->GetType()->TypeName() << " at " << span.ToString();
     return scalarType->dtype_;
 }
 
@@ -54,26 +54,28 @@ enum class ScalarCategory {
     FLOAT,
 };
 
-inline ScalarCategory GetNumericCategory(const DataType &dtype, const std::string &opName) {
+inline ScalarCategory GetNumericCategory(const DataType &dtype, const std::string &opName, const Span &span = Span::Unknown()) {
     if (dtype.IsFloat()) {
         return ScalarCategory::FLOAT;
     }
     if (dtype.IsInt()) {
         return ScalarCategory::INT;
     }
-    CHECK(false) << "Operator '" << opName << "' requires numeric scalar dtype, got " << dtype.ToString();
+    CHECK(false) << "Operator '" << opName << "' requires numeric scalar dtype, got " << dtype.ToString()
+                 << " at " << span.ToString();
     return ScalarCategory::INT;  // unreachable, suppress compiler warning
 }
 
 inline DataType PromoteSameCategoryDtype(
-    const DataType &leftDtype, const DataType &rightDtype, const std::string &opName) {
+    const DataType &leftDtype, const DataType &rightDtype, const std::string &opName, const Span &span = Span::Unknown()) {
     CHECK(!IsBoolDtype(leftDtype) && !IsBoolDtype(rightDtype))
-        << "Operator '" << opName << "' does not accept bool dtype";
-    auto leftCategory = GetNumericCategory(leftDtype, opName);
-    auto rightCategory = GetNumericCategory(rightDtype, opName);
+        << "Operator '" << opName << "' does not accept bool dtype"
+        << " at " << span.ToString();
+    auto leftCategory = GetNumericCategory(leftDtype, opName, span);
+    auto rightCategory = GetNumericCategory(rightDtype, opName, span);
     CHECK(leftCategory == rightCategory)
         << "Operator '" << opName << "' requires same numeric dtype category, got " << leftDtype.ToString()
-        << " and " << rightDtype.ToString();
+        << " and " << rightDtype.ToString() << " at " << span.ToString();
     size_t leftBits = leftDtype.GetBit();
     size_t rightBits = rightDtype.GetBit();
     if (leftBits > rightBits) {
@@ -92,7 +94,7 @@ struct BinaryOperands {
 };
 
 inline ExprPtr MaybeCast(const ExprPtr &expr, DataType targetDtype, const Span &span) {
-    DataType dtype = GetScalarDtype(expr);
+    DataType dtype = GetScalarDtype(expr, span);
     if (dtype == targetDtype) {
         return expr;
     }
@@ -101,20 +103,20 @@ inline ExprPtr MaybeCast(const ExprPtr &expr, DataType targetDtype, const Span &
 
 inline BinaryOperands PromoteBinaryOperands(
     const ExprPtr &left, const ExprPtr &right, const std::string &opName, const Span &span) {
-    DataType leftDtype = GetScalarDtype(left);
-    DataType rightDtype = GetScalarDtype(right);
-    DataType promotedDtype = PromoteSameCategoryDtype(leftDtype, rightDtype, opName);
+    DataType leftDtype = GetScalarDtype(left, span);
+    DataType rightDtype = GetScalarDtype(right, span);
+    DataType promotedDtype = PromoteSameCategoryDtype(leftDtype, rightDtype, opName, span);
     return {MaybeCast(left, promotedDtype, span), MaybeCast(right, promotedDtype, span), promotedDtype};
 }
 
 inline BinaryOperands PromoteIntBinaryOperands(
     const ExprPtr &left, const ExprPtr &right, const std::string &opName, const Span &span) {
-    DataType leftDtype = GetScalarDtype(left);
-    DataType rightDtype = GetScalarDtype(right);
+    DataType leftDtype = GetScalarDtype(left, span);
+    DataType rightDtype = GetScalarDtype(right, span);
     CHECK(leftDtype.IsInt() && rightDtype.IsInt())
         << "Operator '" << opName << "' requires integer dtype, got " << leftDtype.ToString() << " and "
         << rightDtype.ToString() << " at " << span.ToString();
-    DataType promotedDtype = PromoteSameCategoryDtype(leftDtype, rightDtype, opName);
+    DataType promotedDtype = PromoteSameCategoryDtype(leftDtype, rightDtype, opName, span);
     return {MaybeCast(left, promotedDtype, span), MaybeCast(right, promotedDtype, span), promotedDtype};
 }
 
@@ -217,11 +219,11 @@ inline ExprPtr MakeBitShiftRight(const ExprPtr &left, const ExprPtr &right, cons
 // ========== Unary Operator Construction Functions ==========
 
 inline ExprPtr MakeNeg(const ExprPtr &operand, const Span &span = Span::Unknown()) {
-    return std::make_shared<Neg>(operand, GetScalarDtype(operand), span);
+    return std::make_shared<Neg>(operand, GetScalarDtype(operand, span), span);
 }
 
 inline ExprPtr MakeBitNot(const ExprPtr &operand, const Span &span = Span::Unknown()) {
-    DataType dtype = GetScalarDtype(operand);
+    DataType dtype = GetScalarDtype(operand, span);
     CHECK(dtype.IsInt()) << "Operator 'bit_not' requires integer dtype, got " << dtype.ToString()
                          << " at " << span.ToString();
     return std::make_shared<BitNot>(operand, dtype, span);
