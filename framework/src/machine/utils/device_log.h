@@ -41,6 +41,8 @@ namespace npu::tile_fwk {
 #define DEV_IF_NONDEVICE     if constexpr (!IsDeviceMode())
 
 #define DEV_IF_DEVICE        if constexpr (IsDeviceMode())
+#define DEV_IF_DEVICE_OR_ESL                                                        \
+    if constexpr (IsDeviceMode() || IsEslMode())
 
 #define DEV_IF_DEBUG         if (IsDebugMode())
 

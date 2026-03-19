@@ -346,7 +346,7 @@ struct DevAscendProgram {
 
     void ResetFromLaunch() {
         DevArgsPreservedParams preservedParams = BackupDevArgsParams(devArgs);
-        memset_s(&devArgs, sizeof(devArgs), 0, sizeof(devArgs));
+        // memset_s(&devArgs, sizeof(devArgs), 0, sizeof(devArgs));
         RestoreDevArgsParams(devArgs, preservedParams);
 
         controlFlowBinaryAddr = nullptr;

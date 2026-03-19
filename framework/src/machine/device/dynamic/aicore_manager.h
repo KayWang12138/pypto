@@ -370,7 +370,7 @@ public:
             ret = RunTask(taskCtrl);
             lastDevTaskFinCycle = GetCycles();
             PerfMtEnd(PERF_EVT_RUN_TASK, threadIdx);
-                DEV_DEBUG("Run task finish: taskId=%d, ret=%d.", curTaskId_, ret);
+            DEV_DEBUG("Run task finish: taskId=%d, ret=%d.", curTaskId_, ret);
             if (ret != 0)
                 break;
             taskCtrl->PutTask(ret);
@@ -529,7 +529,7 @@ private:
     };
 
     void SendStopToCore(int coreIdx, bool isLastDevTask, AicoreStatus *coreStatus, int &finishStopNum) {
-        DEV_IF_DEVICE {
+        DEV_IF_DEVICE_OR_ESL {
             if (isLastDevTask) {
                 NormalStopSingleCore(coreIdx);
                 coreStatus[coreIdx] = AicoreStatus::CORE_FINISH_STOP;
@@ -570,7 +570,7 @@ private:
         }
 
         if (!isLastDevTask) {
-            DEV_IF_DEVICE {
+            DEV_IF_DEVICE_OR_ESL {
                 if ((coreStatus[coreIdx] == AicoreStatus::CORE_SEND_STOP) &&
                     (aicoreHal_.GetFinishedTask(coreIdx) == ((static_cast<uint64_t>(curTaskId_) <<
                         REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP | AICORE_FIN_MASK)))) {
@@ -681,7 +681,7 @@ private:
         }
         return DEVICE_MACHINE_OK;
     }
-    //检查是否进入了尾批，当剩余任务数小于等于管理核心数时，认为进入了尾批
+//检查是否进入了尾批，当剩余任务数小于等于管理核心数时，认为进入了尾批
     inline bool CheckIsTailBatch(CoreType type, uint64_t &remaining) {
         if (curTaskCtrl_ == nullptr || aicpuNum_ <= 1) {
             return false;
@@ -704,7 +704,7 @@ private:
             DEV_VERBOSE_DEBUG("AiCpud:%d, can not send task currently. ready Task: 0", aicpuIdx_);
             return 0;
         }
-        uint64_t remaining = 0;
+uint64_t remaining = 0;
         bool isTail = CheckIsTailBatch(type, remaining);
         uint32_t ready = GetReadyCoreNum(type, isTail);
         if (ready == 0 ) {
@@ -808,7 +808,7 @@ private:
         }
         return ret;
     }
-    
+
     #define RAW_TENSOR_ADDR_MASK ((1UL << 63) - 1)
     inline DynFuncData* GetDynFuncData(uint64_t taskId) {
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
@@ -894,7 +894,7 @@ private:
         DEV_IF_VERBOSE_DEBUG {
             DumpSchemaOperationInfo(coreIdx, newTask);
         }
-        
+
 #if ENABLE_TENSOR_DUMP
         // dump input tensor
         aicoreDump_.DoDump(curDevTask_, "input", newTask, GetPhyIdByBlockId(coreIdx));
@@ -911,7 +911,7 @@ private:
 
         DEV_IF_VERBOSE_DEBUG {
             sendTask_[coreIdx].push_back(TaskInfo(coreIdx, newTask));
-            if (wrapManager_.IsBindedWrapId(newTask) && wrapManager_.GetWrapCoreAvailable(coreIdx)) {
+if (wrapManager_.IsBindedWrapId(newTask) && wrapManager_.GetWrapCoreAvailable(coreIdx)) {
                 DEV_WARN("newTask[%lu][%lx] is mix task, but core[%d] is available!", newTask, newTask, coreIdx);
             }
             if (!wrapManager_.IsBindedWrapId(newTask) && !wrapManager_.GetWrapCoreAvailable(coreIdx)) {
@@ -1038,10 +1038,10 @@ private:
             }
             pendingIds_[coreIdx] = AICORE_TASK_INIT;
             pendingResolveIndexList_[coreIdx] = 0;
-            if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
-                context_->corePendReadyCnt_[static_cast<int>(type)]++;
-                context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
-            }
+if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
+            context_->corePendReadyCnt_[static_cast<int>(type)]++;
+            context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
+}
             wrapManager_.UpdateFinishIdForMixCore(finTaskId);
         }
         return ret;
@@ -1063,7 +1063,7 @@ private:
         auto &pendingResolveIndexBaseRef = pendingResolveIndexList_[coreIdx];
         auto &runningIdRef = runningIds_[coreIdx];
         auto &runningResolveIndexBaseRef = runningResolveIndexList_[coreIdx];
-        if (likely(finTaskId == pendingIdRef && finTaskState == TASK_FIN_STATE)) {
+                if (likely(finTaskId == pendingIdRef && finTaskState == TASK_FIN_STATE)) {
             // pending task is finished, resolve both running and pending task.
             DEV_VERBOSE_DEBUG("Pending Finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
             uint32_t runningIdValue = runningIdRef;
@@ -1085,7 +1085,7 @@ private:
                 }
             }
             ret = ResolveDepWithDfx(type, coreIdx, pendingIdValue, pendingResolveIndexBaseValue);
-            wrapManager_.UpdateFinishIdForMixCore(finTaskId);
+wrapManager_.UpdateFinishIdForMixCore(finTaskId);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
@@ -1122,12 +1122,12 @@ private:
             }
             uint32_t runningIdValueAck = runningIdRef;
             int runningResolveIndexBaseValueAck = runningResolveIndexBaseRef;
-            if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
-                runningIdRef = finTaskId;
-                runningResolveIndexBaseRef = pendingResolveIndexBaseRef;
-                pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
-                pendingResolveIndexBaseRef = 0;
-                context_->corePendReadyCnt_[static_cast<int>(type)]++;
+if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
+            runningIdRef = finTaskId;
+            runningResolveIndexBaseRef = pendingResolveIndexBaseRef;
+            pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
+            pendingResolveIndexBaseRef = 0;
+                            context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
             if (runningIdValueAck != AICORE_TASK_INIT) {
                 ret = ResolveDepWithDfx(type, coreIdx, runningIdValueAck, runningResolveIndexBaseValueAck);
@@ -1324,7 +1324,7 @@ private:
         auto funcId = FuncID(finishId);
         auto opIndex = TaskID(finishId);
 
-        auto cceBinary = dyntask->cceBinary;
+                auto cceBinary = dyntask->cceBinary;
         auto func = dyntask->dynFuncDataCacheList[funcId].devFunc;
         auto predCounts =  dyntask->dynFuncDataCacheList[funcId].predCount;
         auto callList = dyntask->dynFuncDataCacheList[funcId].calleeList;
@@ -1668,8 +1668,10 @@ private:
         context_->lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIV)] = static_cast<uint32_t>(aivStart_);
         context_->lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIC)] = static_cast<uint32_t>(aicStart_);
         aicoreHal_.SetMngCoreBlockId(aicStart_, aicEnd_, aivStart_, aivEnd_);
-        DEV_DEBUG("assign core aic coreindex section: start=%d, end=%d.", aicStart_, aicEnd_);
-        DEV_DEBUG("assign core aiv coreindex section: start=%d, end=%d.", aivStart_, aivEnd_);
+        DEV_DEBUG("assign core aic coreindex section: start %d end %d .", aicStart_, aicEnd_);
+        DEV_DEBUG("assign core aiv coreindex section: start %d end %d .", aivStart_, aivEnd_);
+        printf("assign core aic coreindex section: start %d end %d .\n", aicStart_, aicEnd_);
+        printf("assign core aiv coreindex section: start %d end %d .\n", aivStart_, aivEnd_);
     }
 
     inline int GetPhyIdByBlockId(int coreIdx) {
