@@ -681,9 +681,18 @@ private:
         }
         return DEVICE_MACHINE_OK;
     }
-
-    inline uint32_t GetReadyCoreNum(CoreType type) {
-        if (enableFairSch_ && IsExistOtherAicpuIdle(type))  {
+    //检查是否进入了尾批，当剩余任务数小于等于管理核心数时，认为进入了尾批
+    inline bool CheckIsTailBatch(CoreType type, uint64_t &remaining) {
+        if (curTaskCtrl_ == nullptr || aicpuNum_ <= 1) {
+            return false;
+        }
+        remaining = curDevTask_->coreFunctionCnt - curTaskCtrl_->finishedFunctionCnt.load(std::memory_order_relaxed);
+        uint32_t totalCoreNum = (type == CoreType::AIC) ? static_cast<uint32_t>(aicNum_) : static_cast<uint32_t>(aivNum_);
+        return (remaining > 0 && remaining <= static_cast<uint64_t>(totalCoreNum));
+    }
+    //当进入尾批时，也选择保守策略，只分配完全空闲的核心
+    inline uint32_t GetReadyCoreNum(CoreType type, bool isTail = false) {
+        if ((enableFairSch_ || isTail) && IsExistOtherAicpuIdle(type))  {
             return context_->coreRunReadyCnt_[static_cast<int>(type)];
         }
         return context_->corePendReadyCnt_[static_cast<int>(type)];
@@ -695,8 +704,9 @@ private:
             DEV_VERBOSE_DEBUG("AiCpud:%d, can not send task currently. ready Task: 0", aicpuIdx_);
             return 0;
         }
-
-        uint32_t ready = GetReadyCoreNum(type);
+        uint64_t remaining = 0;
+        bool isTail = CheckIsTailBatch(type, remaining);
+        uint32_t ready = GetReadyCoreNum(type, isTail);
         if (ready == 0 ) {
             DEV_VERBOSE_DEBUG("AiCpud:%d, can not send task currently. ready Core: %u.", aicpuIdx_, ready);
             return 0;
