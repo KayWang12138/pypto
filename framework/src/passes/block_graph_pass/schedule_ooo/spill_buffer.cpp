@@ -522,13 +522,9 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     spillCopyout->predecessors.insert(spillIssue->id);
     spillIssue->successors.insert(spillCopyout->id);
     spillCopyout->isRetired = true;
-    for (auto preId : spillIssue->predecessors) {
-        auto issue = issueEntryMap[preId];
-        if (issue->isAlloc) {
-            spillCopyout->coreLocation = issue->coreLocation;
-            UpdateOpInternalSubgraphID(spillCopyout->tileOp, issue);
-        }
-    }
+    // Keep spill-generated copyout on the same core/subgraph context as the spill producer.
+    spillCopyout->coreLocation = spillIssue->coreLocation;
+    UpdateOpInternalSubgraphID(spillCopyout->tileOp, spillIssue);
     APASS_LOG_DEBUG_F(Elements::Operation, "Add SPILL_OUT: %s. ", spillCopyout->GetOpInfo().c_str());
     return SUCCESS;
 }
