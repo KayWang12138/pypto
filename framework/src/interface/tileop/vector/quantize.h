@@ -39,6 +39,7 @@
 #define TILEOP_TILE_OPERATOR_QUANTIZE__H
 
 #include "pto_tile.h"
+#include "trans.h"
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
@@ -181,7 +182,7 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
         using ScaleTileDefine = pto::Tile<pto::TileType::Vec, ScaleDtype, scaleTileH, scaleTileW,
                                         pto::BLayout::ColMajor, -1, -1>;
 
-        // 四层嵌套循环遍历所有Tile
+        // 三层嵌套循环遍历所有Tile
         // n0, n1, n2: 遍历批次维度
         // n3: 遍历H维度（行），每个n3对应一组独立的scale
         for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
@@ -222,29 +223,45 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
     // 输入形状: [..., H, W]
     // scale形状: [..., 1, W] (每列一个scale)
     // 输出形状: [..., H, W]
+    //
+    // 实现方式: 通过两次转置实现正确的逐列量化
+    // 1. 将输入 [H, W] 转置为 [W, H]
+    // 2. 对转置后的数据进行逐行量化 (每行对应原数据的一列)
+    // 3. 将量化结果转置回 [H, W]
     else if constexpr (axisIn5D == 3) {
-        // 定义Tile类型:
-        // - DstTileDefine/SrcTileDefine: 行主序布局
-        // - ScaleTileDefine: 行主序布局（因为scale形状是[1,W]）
+        // 定义原始Tile类型: 行主序布局
         using DstTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
         using SrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
         using ScaleTileDefine = pto::Tile<pto::TileType::Vec, ScaleDtype, 1, scaleTileW, pto::BLayout::RowMajor, -1, -1>;
 
+        // 定义转置后的Tile类型: 形状变为 [W, H]
+        constexpr auto transTileH = dstTileW;  // 转置后的高度 = 原宽度
+        constexpr auto transTileW = dstTileH;  // 转置后的宽度 = 原高度
+        constexpr unsigned tmpTileW = (sizeof(DstDtype) == 1) ? 32 : 16;  // 临时Tile宽度
+
+        using TransSrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, transTileH, transTileW,
+                                              pto::BLayout::RowMajor, -1, -1>;
+        using TransDstTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, transTileH, transTileW,
+                                              pto::BLayout::RowMajor, -1, -1>;
+        using TmpTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, transTileH, tmpTileW,
+                                          pto::BLayout::RowMajor, transTileH, tmpTileW>;
+
         // 三层嵌套循环遍历所有Tile
         // n0, n1, n2: 遍历批次维度
-        // 注意: 这里不需要遍历n3(H维度)，因为所有行共享同一组scale
         for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
                 for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
-                    // 创建Tile对象
-                    // dstTile和srcTile: 处理整个 [H, W] 块
-                    // scaleTile: 只有一行 [1, W]，每个W对应一个scale值
+                    // 创建原始Tile对象
                     DstTileDefine dstTile(dstShape3, dstShape4);
-                    SrcTileDefine srcTile(dstShape3, dstShape4);
+                    SrcTileDefine srcTile(srcShape3, srcShape4);  // 修复: 使用正确的 srcShape3
                     ScaleTileDefine scaleTile(1, dstShape4);
 
+                    // 创建转置后的中间Tile对象: 形状 [W, H]
+                    TransSrcTileDefine transSrcTile(dstShape4, dstShape3);
+                    TransDstTileDefine transDstTile(dstShape4, dstShape3);
+                    TmpTileDefine tmpTile;  // 临时Tile，用于转置操作
+
                     // 计算内存偏移量
-                    // 注意: 逐列量化时，scale的n3维度步长为0（所有行共享）
                     auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                     auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                     auto scaleOffset = n0Index * scaleStride0 + n1Index * scaleStride1 + n2Index * scaleStride2;
@@ -253,9 +270,19 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * sizeof(DstDtype)));
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * sizeof(SrcDtype)));
                     pto::TASSIGN(scaleTile, (uint64_t)(scale.GetAddr() + scaleOffset * sizeof(ScaleDtype)));
+                    pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));  // 绑定临时Tile
 
-                    // 执行INT8对称量化操作
-                    PTO_WITH_LAST_USE(pto::TQUANT<pto::QuantType::INT8_SYM>(dstTile, srcTile, scaleTile), n1, n2, n3);
+                    // 执行转置-量化-转置流程
+                    // 步骤1: 将输入 [H, W] 转置为 [W, H]
+                    pto::TTRANS(transSrcTile, srcTile, tmpTile);
+
+                    // 步骤2: 对转置后的 [W, H] 进行逐行量化
+                    // 现在尾轴是H，对应原数据的列方向
+                    // scaleTile需要适配转置后的布局，通过广播机制自动处理
+                    pto::TQUANT<pto::QuantType::INT8_SYM>(transDstTile, transSrcTile, scaleTile);
+
+                    // 步骤3: 将量化结果 [W, H] 转置回 [H, W]
+                    pto::TTRANS(dstTile, transDstTile, tmpTile);
                 }
             }
         }
@@ -445,37 +472,69 @@ TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset) {
     // 输入形状: [..., H, W]
     // scale/offset形状: [..., 1, W]
     // 输出形状: [..., H, W]
+    //
+    // 实现方式: 通过两次转置实现正确的逐列量化
+    // 1. 将输入 [H, W] 转置为 [W, H]
+    // 2. 对转置后的数据进行逐行量化 (每行对应原数据的一列)
+    // 3. 将量化结果转置回 [H, W]
     } else if constexpr (axisIn5D == 3) {
-        // 定义Tile类型
-        // 所有Tile都使用行主序布局
-        using DstTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+        // 定义原始Tile类型: 行主序布局
         using DstTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
         using SrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
         using ScaleTileDefine = pto::Tile<pto::TileType::Vec, ScaleDtype, 1, scaleTileW, pto::BLayout::RowMajor, -1, -1>;
         using OffsetTileDefine = pto::Tile<pto::TileType::Vec, OffsetDtype, 1, offsetTileW, pto::BLayout::RowMajor, -1, -1>;
 
+        // 定义转置后的Tile类型: 形状变为 [W, H]
+        constexpr auto transTileH = dstTileW;  // 转置后的高度 = 原宽度
+        constexpr auto transTileW = dstTileH;  // 转置后的宽度 = 原高度
+        constexpr unsigned tmpTileW = (sizeof(DstDtype) == 1) ? 32 : 16;  // 临时Tile宽度
+
+        using TransSrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, transTileH, transTileW,
+                                              pto::BLayout::RowMajor, -1, -1>;
+        using TransDstTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, transTileH, transTileW,
+                                              pto::BLayout::RowMajor, -1, -1>;
+        using TmpTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, transTileH, tmpTileW,
+                                          pto::BLayout::RowMajor, transTileH, tmpTileW>;
+
+        // 三层嵌套循环遍历所有Tile
         for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
-            for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
-                for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
-                    for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
-                        // scaleTile和offsetTile只有一行 [1, W]
-                        DstTileDefine dstTile(dstShape3, dstShape4);
-                        SrcTileDefine srcTile(dstShape3, dstShape4);
-                        ScaleTileDefine scaleTile(1, dstShape4);
-                        OffsetTileDefine offsetTile(1, dstShape4);
+            for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
+                for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
+                    // 创建原始Tile对象
+                    DstTileDefine dstTile(dstShape3, dstShape4);
+                    SrcTileDefine srcTile(srcShape3, srcShape4);  // 修复: 使用正确的 srcShape3
+                    ScaleTileDefine scaleTile(1, dstShape4);
+                    OffsetTileDefine offsetTile(1, dstShape4);
 
-                        auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
-                        auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                        auto scaleOffset = n0Index * scaleStride0 + n1Index * scaleStride1 + n2Index * scaleStride2;
-                        auto offsetOffset = n0Index * offsetStride0 + n1Index * offsetStride1 + n2Index * offsetStride2;
+                    // 创建转置后的中间Tile对象: 形状 [W, H]
+                    TransSrcTileDefine transSrcTile(dstShape4, dstShape3);
+                    TransDstTileDefine transDstTile(dstShape4, dstShape3);
+                    TmpTileDefine tmpTile;  // 临时Tile，用于转置操作
 
-                        pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * sizeof(DstDtype)));
-                        pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * sizeof(SrcDtype)));
-                        pto::TASSIGN(scaleTile, (uint64_t)(scale.GetAddr() + scaleOffset * sizeof(ScaleDtype)));
-                        pto::TASSIGN(offsetTile, (uint64_t)(offset.GetAddr() + offsetOffset * sizeof(OffsetDtype)));
+                    // 计算内存偏移量
+                    auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
+                    auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
+                    auto scaleOffset = n0Index * scaleStride0 + n1Index * scaleStride1 + n2Index * scaleStride2;
+                    auto offsetOffset = n0Index * offsetStride0 + n1Index * offsetStride1 + n2Index * offsetStride2;
 
-                        PTO_WITH_LAST_USE(pto::TQUANT<pto::QuantType::INT8_ASYM>(dstTile, srcTile, scaleTile, &offsetTile), n1, n2, n3);
-                    }
+                    // 将Tile绑定到实际内存地址
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * sizeof(DstDtype)));
+                    pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * sizeof(SrcDtype)));
+                    pto::TASSIGN(scaleTile, (uint64_t)(scale.GetAddr() + scaleOffset * sizeof(ScaleDtype)));
+                    pto::TASSIGN(offsetTile, (uint64_t)(offset.GetAddr() + offsetOffset * sizeof(OffsetDtype)));
+                    pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));  // 绑定临时Tile
+
+                    // 执行转置-量化-转置流程
+                    // 步骤1: 将输入 [H, W] 转置为 [W, H]
+                    pto::TTRANS(transSrcTile, srcTile, tmpTile);
+
+                    // 步骤2: 对转置后的 [W, H] 进行逐行量化
+                    // 现在尾轴是H，对应原数据的列方向
+                    // scaleTile和offsetTile需要适配转置后的布局，通过广播机制自动处理
+                    pto::TQUANT<pto::QuantType::INT8_ASYM>(transDstTile, transSrcTile, scaleTile, &offsetTile);
+
+                    // 步骤3: 将量化结果 [W, H] 转置回 [H, W]
+                    pto::TTRANS(dstTile, transDstTile, tmpTile);
                 }
             }
         }
