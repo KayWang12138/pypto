@@ -69,7 +69,6 @@ enum class ArchInfo {
 #define DEVICE_TASK_TYPE_STATIC  0
 #define DEVICE_TASK_TYPE_DYN     1
 #define DEVICE_TASK_TYPE_INVALID 0xf
-#define PYPTO                    59
 
 template <typename DerivedType, typename UnderlyingType>
 class BitmaskBase {
