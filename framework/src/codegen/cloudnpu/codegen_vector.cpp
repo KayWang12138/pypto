@@ -1759,7 +1759,8 @@ std::string CodeGenOpCloudNPU::GenQuantizeOp() const {
     return "";
 }
 
-std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const {
+std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const
+{
     // Get tensor names
     // For QUANTIZE_SYM: dst(ID0), src(ID1), scale(ID2)
     // For QUANTIZE_ASYM: dst(ID0), src(ID1), scale(ID2), offset(ID3)
@@ -1776,20 +1777,14 @@ std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const {
     // Convert axis to 5D representation
     // axis = -1 means last axis (dim 4 in 5D)
     // axis = -2 means second to last axis (dim 3 in 5D)
-    size_t srcRank = rawShape[ID1].size();
-    int axisIn5D = static_cast<int>(SHAPE_DIM5 - srcRank + axis);
-    if (axis < 0) {
-        axisIn5D = static_cast<int>(SHAPE_DIM5 + axis);
-    }
+    int axisIn5D = static_cast<int>(SHAPE_DIM5 + axis);
 
     // Determine quantization type based on opcode
     std::string quantType;
     if (opCode == Opcode::OP_QUANTIZE_SYM) {
         quantType = "pto::QuantType::INT8_SYM";
-    } else if (opCode == Opcode::OP_QUANTIZE_ASYM) {
-        quantType = "pto::QuantType::INT8_ASYM";
     } else {
-        ASSERT(false) << "Unknown quantize opcode";
+        quantType = "pto::QuantType::INT8_ASYM";
     }
 
     std::ostringstream oss;
