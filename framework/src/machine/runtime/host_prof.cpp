@@ -12,6 +12,7 @@
 #include <fstream>
 #include <unistd.h>
 #include <sys/syscall.h>
+#include "tilefwk/pypto_fwk_log.h"
 #include "machine/runtime/host_prof.h"
 #include "interface/tensor/logical_tensor.h"
 #ifdef BUILD_WITH_CANN
@@ -19,8 +20,7 @@
 #include "toolchain/prof_api.h"
 #include "log_types.h"
 #include "prof_common.h"
-#include "tilefwk/pypto_fwk_log.h"
-
+#include "acl/acl_rt.h"
 
 namespace npu::tile_fwk {
 const std::string OpType = "PyPTO";
@@ -189,6 +189,85 @@ void HostProf::PackTensorInfo(MsprofTensorInfo *profTensorData, const uint32_t g
   }
   iOtensorInfo << "\n";
   MACHINE_LOGD("tensorInfo %s", iOtensorInfo.str().c_str());
+}
+
+void BuildTensor(const uint32_t tensorType, const std::shared_ptr<LogicalTensor> &tensorInfo,
+                 MsrofTensorData &tensorData) {
+    tensorData.tensorType = tensorType;
+    if (tensorInfo == nullptr) {
+        tensorData.format = 0U;
+        tensorData.dataType = 0U;
+        tensorData.shape[0U] = 0U;
+        return;
+    }
+    tensorData.format = static_cast<uint32_t>(tensorInfo->Format());
+    tensorData.dataType = static_cast<uint32_t>(tensorInfo->Datatype());
+    for (size_t i = 0; i < tensorInfo->shape.size(); i++) {
+        tensorData.shape[i] = tensorInfo->shape[i];
+    }
+}
+
+void HostProf::BuildCacheTensorInfo(CacheTaskInfo *taskInfo) const {
+    if (taskInfo == nullptr) {
+        return;
+    }
+    for (uint32_t i = 0U; i < profFunction_->inCasts_.size(); ++i) {
+        BuildTensor(MSPROF_GE_TENSOR_TYPE_INPUT, profFunction_->inCasts_.at(i), taskInfo->tensorData[i]);
+    }
+    for (uint32_t i = 0U; i < profFunction_->inCasts_.size(); ++i) {
+        BuildTensor(MSPROF_GE_TENSOR_TYPE_OUTPUT, profFunction_->outCasts_.at(i), taskInfo->tensorData[i + profFunction_->inCasts_.size()]);
+    }
+}
+
+bool HostProf::IsCacheOpInfoEnable(const aclrtStream_t stream) {
+    if (stream == nullptr) {
+        return false;
+    }
+    aclrtStreamAttrValue value = {};
+    value.cacheOpInfoSwitch = 0;
+    aclError ret = aclrtGetStreamAttribute(stream, ACL_STREAM_ATTR_CACHE_OP_INFO, &value);
+    if (ret != ACL_SUCCESS) {
+        MACHINE_LOGW("Get stream attribute failed, ret is [%d]", ret);
+        return false;
+    }
+    return static_cast<bool>(value.cacheOpInfoSwitch);
+}
+
+void HostProf::HostProfReportCacheTaskInfo(const aclrtStream_t stream, const uint32_t numBlocks, const uint32_t taskType) const {
+    if (!IsCacheOpInfoEnable(stream)) {
+        MACHINE_LOGD("Op cache for AclGraph is disabled.");
+        return;
+    }
+    uint32_t tensorSize =
+        taskType == MSPROF_GE_TASK_TYPE_AI_CPU ? 0 : profFunction_->inCasts_.size() + profFunction_->outCasts_.size();
+
+    size_t bufferSize = sizeof(CacheTaskInfo) + sizeof(MsrofTensorData) * tensorSize;
+    void *buffer = malloc(bufferSize);
+    if (buffer == nullptr) {
+        MACHINE_LOGW("Fail to malloc memory, size is [%zu]", bufferSize);
+        return;
+    }
+    (void)memset_s(buffer, bufferSize, 0, bufferSize);
+    CacheTaskInfo *taskInfo = reinterpret_cast<CacheTaskInfo*>(buffer);
+    uint64_t itemId = 0U; // todo
+    taskInfo->taskType = taskType;
+    taskInfo->numBlocks = numBlocks;
+    taskInfo->nodeId = itemId;
+    taskInfo->opType = itemId;
+    taskInfo->attrId = 0;
+    taskInfo->opFlag = 0;
+    taskInfo->tensorNum = tensorSize;
+
+    if (taskType != MSPROF_GE_TASK_TYPE_AI_CPU) {
+        BuildCacheTensorInfo(taskInfo);
+    }
+
+    if (aclrtCacheLastTaskOpInfo(buffer, bufferSize) != ACL_SUCCESS) {
+        MACHINE_LOGW("Report op info cache failed");
+    }
+    MACHINE_LOGI("Report task info cache, task type[%u], numBlocks[%u], attrId[%lu] size[%zu]",
+                 taskType, numBlocks, taskInfo->attrId, bufferSize);
+    free(buffer);
 }
 
 void HostProf::SetProfFunction(Function *function)
