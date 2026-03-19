@@ -30,7 +30,7 @@ __aicore__ inline void swap(T& a, T& b) {
     b = tmp;
 }
 
-template <typename DType, size_t tileH, size_t tileW>
+template <typename DType, size_t tileH, size_t tileW, size_t tmpTileW>
 TILEOP void UBTransposeAxisImpl(
     uint64_t srcUbAddr, uint64_t dstUbAddr, uint64_t tmpUbAddr,
     size_t rows, size_t cols,
@@ -39,7 +39,7 @@ TILEOP void UBTransposeAxisImpl(
 
     using SrcTileDefine = pto::Tile<pto::TileType::Vec, DType, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
     using DstTileDefine = pto::Tile<pto::TileType::Vec, DType, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
-    using TmpTileDefine = pto::Tile<pto::TileType::Vec, DType, tileH, tileW, pto::BLayout::RowMajor, tileH, tileW>;
+    using TmpTileDefine = pto::Tile<pto::TileType::Vec, DType, tileH, tmpTileW, pto::BLayout::RowMajor, tileH, tmpTileW>;
 
     SrcTileDefine srcTile(rows, cols);
     DstTileDefine dstTile(cols, rows);
@@ -56,7 +56,7 @@ TILEOP void UBTransposeAxisImpl(
 #endif
 }
 
-template <typename DType>
+template <typename DType, size_t tmpTileW>
 TILEOP void UBTransposeAxis(
     uint64_t srcUbAddr, uint64_t dstUbAddr, uint64_t tmpUbAddr,
     const size_t srcShape[5], const size_t srcStride[5],
@@ -98,7 +98,7 @@ TILEOP void UBTransposeAxis(
             dstOffset += index[k] * dstStride[loopDims[k]];
         }
 
-        UBTransposeAxisImpl<DType, 1, 16>(
+        UBTransposeAxisImpl<DType, 1, 16, tmpTileW>(
             srcUbAddr + srcOffset * sizeof(DType),
             dstUbAddr + dstOffset * sizeof(DType),
             tmpUbAddr,
@@ -164,7 +164,7 @@ TILEOP void TPermute(DST dst, SRC src, const size_t perm[], size_t n, C coordina
         totalElems *= srcShape[d];
     }
     size_t totalBytes = totalElems * elemSize;
-    (void)ubSize;
+    assert(3 * totalBytes <= ubSize && "UB memory size insufficient for permute operation");
 
     uint64_t ubAddrA = ubAddr;
     uint64_t ubAddrB = ubAddr + totalBytes;
@@ -231,7 +231,7 @@ TILEOP void TPermute(DST dst, SRC src, const size_t perm[], size_t n, C coordina
             uint64_t otherUbAddr = (activeUbAddr == ubAddrA) ? ubAddrB : ubAddrA;
             size_t newShape[5], newStride[5];
 
-            UBTransposeAxis<ActualType>(
+            UBTransposeAxis<ActualType, tmpTileW>(
                 activeUbAddr, otherUbAddr, tmpUbAddr,
                 currentShape, currentStride, i, j,
                 newShape, newStride,
