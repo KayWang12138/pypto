@@ -685,6 +685,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
 Status PadLocalBuffer::RunOnFunction(Function &function) {
     combineAxis = function.paramConfigs_.combineAxis;
     forceCombineAxis = function.paramConfigs_.forceCombineAxis;
+    std::cout << "****************************PadLocalBuffer::RunOnFunction**********************************" << std::endl;
     if (combineAxis) {
         axisCombineMarker.Run(function);
         APASS_LOG_INFO_F(Elements::Operation, "======> Start PadLocalBuffer in COMBINE_AXIS mode.");
