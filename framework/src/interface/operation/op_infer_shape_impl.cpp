@@ -277,7 +277,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD_UB, IndexAddUBIn
 void IndexAddInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
     outValidShapes.push_back(op->GetIOperands()[0]->GetDynValidShape());
 }
-REGISTER_INFER_SHAPE_FUNC(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, IndexAddInferFunc);
+// REGISTER_INFER_SHAPE_FUNC(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, IndexAddInferFunc);
 
 void LogicalNotInferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {

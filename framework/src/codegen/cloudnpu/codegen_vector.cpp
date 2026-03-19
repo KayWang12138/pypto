@@ -810,7 +810,7 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintIndexAddUBDynamicUnaligned(const PrintIndexAddUBParam &param) const {
+std::string CodeGenOpCloudNPU::PrintIndexAddUBDynamicUnaligned(const PrintIndexAddParam &param) const {
     // support 2-4 dims
     const std::string &dstVar = param.dstVar;
     const std::string &srcVar = param.srcVar;
@@ -856,7 +856,7 @@ std::string CodeGenOpCloudNPU::PrintIndexAddUBDynamicUnaligned(const PrintIndexA
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintIndexAddUBTileTensor(const PrintIndexAddUBParam &param) const {
+std::string CodeGenOpCloudNPU::PrintIndexAddUBTileTensor(const PrintIndexAddParam &param) const {
     std::string dstTensor = QueryTileTensorNameByIdx(ID0);
     std::string tmpTensor = QueryTileTensorNameByIdx(ID1);
     std::string src0Tensor = QueryTileTensorNameByIdx(ID2);
@@ -906,7 +906,7 @@ std::string CodeGenOpCloudNPU::GenIndexAddUBOp() const {
 
 std::string CodeGenOpCloudNPU::GenIndexAddOp() const {
     ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
-    ASSERT(isSupportLayout) << "IndexAdd operator only support TileTensor";
+    ASSERT(isSupportLayout) << "IndexAdd operation only support TileTensor mode";
     int axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
     axis += SHAPE_DIM5 - rawShape[ID0].size();
     std::string dstTensor = QueryTileTensorNameByIdx(ID0);

@@ -63,19 +63,14 @@ static void IndexAddOperationExeFunc2Dims(
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 std::vector<SymbolicScalar> offset = {bIdx * firstViewShape, sIdx * secondViewShape};
-                std::vector<SymbolicScalar> selfValidShape = {
-                    std::min(self_firstDim - bIdx * firstViewShape, firstViewShape),
-                    std::min(self_secondDim - sIdx * secondViewShape, secondViewShape)};
                 std::vector<SymbolicScalar> srcValidShape = {
                     std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
                     std::min(src_secondDim - sIdx * secondViewShape, secondViewShape)};
-                auto selfTensor = View(inputs[0], viewShape, selfValidShape, offset);
                 auto srcTensor = View(inputs[1], viewShape, srcValidShape, offset);
                 auto idxTensor = View(
                     inputs[2], {viewShape[axis]}, {srcValidShape[axis]}, {offset[axis]}); // idxshape只有在axis轴才切
                 TileShape::Current().SetVecTile(args->tileShape_);
-                IndexAdd_(selfTensor, srcTensor, idxTensor, args->axis_, args->alpha_);
-                Assemble(selfTensor, offset, outputs[0]); // offset[axis]=0
+                IndexAdd_(outputs[0], srcTensor, idxTensor, args->axis_, args->alpha_);
             }
         }
     }
@@ -113,10 +108,6 @@ static void IndexAddOperationExeFunc3Dims(
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
                     std::vector<SymbolicScalar> offset = {
                         bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape};
-                    std::vector<SymbolicScalar> selfValidShape = {
-                        std::min(self_firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(self_secondDim - sIdx * secondViewShape, secondViewShape),
-                        std::min(self_thirdDim - nIdx * thirdViewShape, thirdViewShape)};
                     std::vector<SymbolicScalar> srcValidShape = {
                         std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(src_secondDim - sIdx * secondViewShape, secondViewShape),
@@ -126,8 +117,7 @@ static void IndexAddOperationExeFunc3Dims(
                     auto idxTensor = View(inputs[2], {viewShape[axis]}, {srcValidShape[axis]},
                         {offset[axis]}); // idxshape只有在axis轴才切
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    IndexAdd_(selfTensor, srcTensor, idxTensor, args->axis_, args->alpha_);
-                    Assemble(selfTensor, offset, outputs[0]); // offset[axis]=0
+                    IndexAdd_(outputs[0], srcTensor, idxTensor, args->axis_, args->alpha_);
                 }
             }
         }
@@ -171,11 +161,6 @@ static void IndexAddOperationExeFunc4Dims(
                     LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1)) {
                         std::vector<SymbolicScalar> offset = {bIdx * firstViewShape, sIdx * secondViewShape,
                             nIdx * thirdViewShape, qIdx * forthViewShape};
-                        std::vector<SymbolicScalar> selfValidShape = {
-                            std::min(self_firstDim - bIdx * firstViewShape, firstViewShape),
-                            std::min(self_secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(self_thirdDim - nIdx * thirdViewShape, thirdViewShape),
-                            std::min(self_forthDim - qIdx * forthViewShape, forthViewShape)};
                         std::vector<SymbolicScalar> srcValidShape = {
                             std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(src_secondDim - sIdx * secondViewShape, secondViewShape),
@@ -186,8 +171,7 @@ static void IndexAddOperationExeFunc4Dims(
                         auto idxTensor = View(inputs[2], {viewShape[axis]}, {srcValidShape[axis]},
                             {offset[axis]}); // idxshape只有在axis轴才切
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        IndexAdd_(selfTensor, srcTensor, idxTensor, args->axis_, args->alpha_);
-                        Assemble(selfTensor, offset, outputs[0]); // offset[axis]=0
+                        IndexAdd_(outputs[0], srcTensor, idxTensor, args->axis_, args->alpha_);
                     }
                 }
             }
@@ -231,12 +215,6 @@ static void IndexAddOperationExeFunc5Dims(
                         LOOP("LOOP_L4_rIdx", FunctionType::DYNAMIC_LOOP, rIdx, LoopRange(loop[4])) {
                             std::vector<SymbolicScalar> offset = {bIdx * firstViewShape, sIdx * secondViewShape,
                                 nIdx * thirdViewShape, qIdx * forthViewShape, rIdx * fifthViewShape};
-                            std::vector<SymbolicScalar> selfValidShape = {
-                                std::min(self_firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(self_secondDim - sIdx * secondViewShape, secondViewShape),
-                                std::min(self_thirdDim - nIdx * thirdViewShape, thirdViewShape),
-                                std::min(self_forthDim - qIdx * forthViewShape, forthViewShape),
-                                std::min(self_fifthDim - rIdx * fifthViewShape, fifthViewShape)};
                             std::vector<SymbolicScalar> srcValidShape = {
                                 std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
                                 std::min(src_secondDim - sIdx * secondViewShape, secondViewShape),
@@ -248,8 +226,7 @@ static void IndexAddOperationExeFunc5Dims(
                             auto idxTensor = View(inputs[2], {viewShape[axis]}, {srcValidShape[axis]},
                                 {offset[axis]}); // idxshape只有在axis轴才切
                             TileShape::Current().SetVecTile(args->tileShape_);
-                            IndexAdd_(selfTensor, srcTensor, idxTensor, args->axis_, args->alpha_);
-                            Assemble(selfTensor, offset, outputs[0]); // offset[axis]=0
+                            IndexAdd_(outputs[0], srcTensor, idxTensor, args->axis_, args->alpha_);
                         }
                     }
                 }

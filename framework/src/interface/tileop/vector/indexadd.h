@@ -258,12 +258,12 @@ TILEOP void TIndexAddUB(T0 dst, T1 src0, T2 src1, T3 src2, T4 tempTensor, Scalar
     }
 }
 
-template <typename dstTileDefine, typename tmpTileDefine, typename src1TileDefine, typename Scalar, typename T0,
-    typename T2>
+template <typename T0, typename T2, typename dstTileDefine, typename tmpTileDefine, typename src1TileDefine,
+    typename Scalar>
 TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstGlobal, tmpTileDefine tmpTile, src1TileDefine src1Tile,
-    Scalar alpha, __ubuf__ typename T0::Type *dstAddr, __ubuf__ float *tmpAddr, __ubuf__ typename T2::Type *src1Addr,
+    Scalar alpha, __gm__ typename T0::Type *dstAddr, __ubuf__ float *tmpAddr, __ubuf__ typename T2::Type *src1Addr,
     size_t dstOffset, size_t src1Offset) {
-    pto::TASSIGN(dstGlobal, (uint64_t)(dstAddr + dstOffset));
+    pto::TASSIGN(dstGlobal, dstAddr + dstOffset);
     pto::TASSIGN(src1Tile, (uint64_t)(src1Addr + src1Offset));
     if (abs(static_cast<float>(alpha) - 1) > TileOp::EPSILON) {
         if constexpr (Std::is_same_v<Scalar, bfloat16_t>) {
@@ -408,6 +408,7 @@ TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tmpTensor, C coord, 
     auto dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
     auto dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
     auto dstStride3 = dstLayout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
+    size_t dstStrides[] = {dstStride0, dstStride1, dstStride2, dstStride3};
 
     const auto src1Layout = src1.GetLayout();
     auto src1Shape0 = src1Layout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
@@ -434,13 +435,13 @@ TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tmpTensor, C coord, 
         IndexAddLastAxisCompute(dst, src1, src2, alpha, src1Shape0, src1Shape1, src1Shape2, src1Shape3, src1Shape4,
             dstStride0, dstStride1, dstStride2, dstStride3, src1Stride0, src1Stride1, src1Stride2, src1Stride3);
     } else {
-        constexpr auto tmpTileW = GetTupleElement<typename T4::TileShape, DIM_5TH, MAX_DIMS, 1>();
-        constexpr auto src1TileW = GetTupleElement<typename T2::TileShape, DIM_5TH, MAX_DIMS, 1>();
+        constexpr auto tmpTileW = Std::tuple_element<shapeSize - 1, typename T4::TileShape>::type::value;
+        constexpr auto src1TileW = Std::tuple_element<shapeSize - 1, typename T2::TileShape>::type::value;
         using dstGlobalData =
             pto::GlobalTensor<dstType, pto::Shape<-1, -1, -1, -1, -1>, pto::Stride<-1, -1, -1, -1, -1>>;
         using tmpTileDefine = pto::Tile<pto::TileType::Vec, tmpType, 1, tmpTileW, pto::BLayout::RowMajor, -1, -1>;
         using src1TileDefine = pto::Tile<pto::TileType::Vec, src1Type, 1, src1TileW, pto::BLayout::RowMajor, -1, -1>;
-        dstGlobalData dstGlobal(dst, pto::Shape(1, 1, 1, 1, dstShape4), pto::Stride(1, 1, 1, 1, dstStride3));
+        dstGlobalData dstGlobal(dstAddr, pto::Shape(1, 1, 1, 1, dstShape4), pto::Stride(0, 0, 0, 0, dstStride3));
         tmpTileDefine tmpTile(1, src1Shape4);
         src1TileDefine src1Tile(1, src1Shape4);
         for (LoopVar i = 0; i < src1Shape0; ++i) {
@@ -449,10 +450,10 @@ TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tmpTensor, C coord, 
                     for (LoopVar l = 0; l < src1Shape3; ++l) {
                         set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
                         wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
-                        auto dstOffset = GetDstOffset<axis, T3>(
-                            {dstStride0, dstStride1, dstStride2, dstStride3}, {i, j, k, l}, idxAddr);
+                        size_t idx[] = {i, j, k, l};
+                        auto dstOffset = GetDstOffset<axis, T3>(dstStrides, idx, idxAddr);
                         auto src1Offset = i * src1Stride0 + j * src1Stride1 + k * src1Stride2 + l * src1Stride3;
-                        IndexAddNotLastAxisCompute(
+                        IndexAddNotLastAxisCompute<T0, T2>(
                             dstGlobal, tmpTile, src1Tile, alpha, dstAddr, tmpAddr, src1Addr, dstOffset, src1Offset);
                     }
                 }
