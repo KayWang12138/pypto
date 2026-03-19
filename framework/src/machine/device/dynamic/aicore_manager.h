@@ -434,10 +434,11 @@ private:
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
 
-        if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
+        const auto runningTaskId = runningIds_[coreIdx];
+        const auto pendingTaskId = pendingIds_[coreIdx];
+
+        if (finTaskId == pendingTaskId && finTaskState == TASK_FIN_STATE) {
             // pending task is finished, resolve both running and pending task.
-            uint32_t runningIdValue = runningIds_[coreIdx];
-            uint32_t pendingIdValue = pendingIds_[coreIdx];
             runningIds_[coreIdx] = AICORE_TASK_INIT;
             pendingIds_[coreIdx] = AICORE_TASK_INIT; // processFinishedTask depend this line
 
@@ -447,13 +448,12 @@ private:
             context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
             context_->corePendReadyCnt_[static_cast<int>(type)]++;
 
-            if (runningIdValue != AICORE_TASK_INIT) processFinishedTask(type, runningIdValue);
-            processFinishedTask(type, pendingIdValue);
+            if (runningTaskId != AICORE_TASK_INIT) processFinishedTask(type, runningTaskId);
+            processFinishedTask(type, pendingTaskId);
         }
         
-        if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_ACK_STATE) {
+        if (finTaskId == pendingTaskId && finTaskState == TASK_ACK_STATE) {
             // pending task is acknowledged, resolve running task. And move pending to running
-            uint32_t runningIdValueAck = runningIds_[coreIdx];
             runningIds_[coreIdx] = finTaskId;
             pendingIds_[coreIdx] = AICORE_TASK_INIT; // processFinishedTask depend this line
             context_->corePendReadyCnt_[static_cast<int>(type)]++;
@@ -461,19 +461,18 @@ private:
             aicoreRunningTaskId_[coreIdx] = aicorePendingTaskId_[coreIdx];
             aicorePendingTaskId_[coreIdx] = aicoreNullTask;
 
-            if (runningIdValueAck != AICORE_TASK_INIT) processFinishedTask(type, runningIdValueAck);
+            if (runningTaskId != AICORE_TASK_INIT) processFinishedTask(type, runningTaskId);
         }
         
-        if (finTaskId == runningIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
+        if (finTaskId == runningTaskId && finTaskState == TASK_FIN_STATE) {
             // running task is finished, resolve running task. Pending task is unmodified
-            uint32_t runningIdValue = runningIds_[coreIdx];
             runningIds_[coreIdx] = AICORE_TASK_INIT;
 
             aicoreRunningTaskId_[coreIdx] = aicoreNullTask;
             // aicorePendingTaskId_[coreIdx] = aicorePendingTaskId_[coreIdx];
 
             if (pendingIds_[coreIdx] == AICORE_TASK_INIT) context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
-            processFinishedTask(type, runningIdValue);
+            processFinishedTask(type, runningTaskId);
         }
     }
 
