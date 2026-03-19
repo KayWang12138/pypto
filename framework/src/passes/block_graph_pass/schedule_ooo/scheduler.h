@@ -316,7 +316,6 @@ private:
         std::vector<int> &groupNextUseTime, std::unordered_map<int, size_t> &nextUseTimeCache, bool isGenSpill);
     IssueEntryPtr GetSpillIssue(IssueEntryPtr allocIssue, int memId, bool isGenSpill);
     bool CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue);
-    bool CheckParallelL0C2L1(IssueEntryPtr spillIssue);
     bool IsBelongSpillBlackList(IssueEntryPtr spillIssue, IssueEntryPtr issue);
     void FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntryPtr> &filterLtags);
     Status SpillAllBuffer(IssueEntryPtr allocIssue, size_t &pcIdx, bool isGenSpill, LocalBufferPtr allocBuffer);
@@ -356,13 +355,13 @@ private:
     int GetMemidAllocPriority(int memId);
     Status SpillAssembleBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, size_t &pcIdx,
         LocalBufferPtr allocBuffer, bool isGenSpill);
-    Status SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr assemble, 
+    Status SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr producerIssue,
         LogicalTensorPtr assembleTensor, bool &isFirst, bool isGenSpill);
     IssueEntryPtr UpdateIssueAttr(Operation &newOp, std::vector<int> memIds, IssueEntryPtr allocIssue, int &bufNextUseOrder, bool isGenSpill);
     Status FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vector<IssueEntryPtr> &assembleList);
     Status UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr allocBuffer, LogicalTensorPtr assembleTensor);
     LogicalTensorPtr CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
-        SpillInfo &spillInfo, std::shared_ptr<AssembleOpAttribute> assembleAttr);
+        SpillInfo &spillInfo, const std::vector<int64_t> &toOffset);
     int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset);
     void GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t &base);
     Status UpdateCopyOutMode(Operation &copyOutOp);
