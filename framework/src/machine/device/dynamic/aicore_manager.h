@@ -902,7 +902,7 @@ private:
         pendingResolveIndexList_[coreIdx] = 0;
         context_->sendCnt_[static_cast<int>(type)]++;
 
-        INSTRUMENTATION_MARK_SET(coreIdx2tracrIdx(coreIdx, type), PERF_TRACE_DEV_TASK_RUN, (uint32_t)newTask);  // 0 = "running task"
+        INSTRUMENTATION_MARK_SET(coreIdx2tracrIdx(coreIdx, type), 5+aicpuIdx_, (uint32_t)newTask);  // 0 = "running task"
         if (isFirstTaskSend_) {
             INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, (uint32_t)newTask);
             PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, aicpuIdx_);
