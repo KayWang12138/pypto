@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"C:\\\\He\\\\test\\\\ffn\\\\framework\\\\src\\\\passes\\\\block_graph_pass\\\\schedule_ooo\\\\rebase\\\\scheduler.cpp.tmp\")"
+    ]
+  }
+}
