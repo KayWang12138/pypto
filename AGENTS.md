@@ -11,338 +11,279 @@
 - 使用 PyPTO 编程语言开发昇腾 AI 处理器自定义算子
 - 提供完整的开发、构建、测试及性能调优工作流支持
 - 遵循官方开发规范和性能优化最佳实践
-- 支持批量生成
----
-
-## Skills目录说明
-
-本项目使用的skills位于 `.opencode/skills/` 目录下，每个skill包含一个SKILL.md文件。
-由于Skill工具无法直接从项目目录加载skills，开发时应：
-1. 直接读取对应skill的SKILL.md文件内容
-2. 将skill内容作为指导文档使用
-3. 使用Task工具调用Explore和Plan Agent来执行相应任务
-
-可用skills：
-- pypto-operator-develop-workflow: 算子开发流程
-- pypto-operator-perf-analyzer: 算子性能分析
-- pypto-operator-perf-autotuner: 算子性能自动化调优
 
 ---
 
-## 集成的技能列表
-| 技能  | 触发时机  | 说明  |
-| :------------ | :------------ | :------------ |
-| pypto-skill-creator  | 接收到用户生成skill指令时  | 根据用户需求，自动创建skill，并将其添加到skills中 |
-| pypto-operator-develop-workflow  | 接收到算子开发任务时  | 详细开发流程及环境准备、运行测试等 |
-| pypto-operator-perf-autotuner  | 接收到算子性能统计及调优指令时  | 算子性能自动化调优，会调用pypto-operator-perf-analyzer进行性能分析 |
+## 构建与测试命令
+
+### 环境准备
+
+```bash
+# 设置NPU设备ID（必需）
+export TILE_FWK_DEVICE_ID=0
+export PTO_TILE_LIB_CODE_PATH=/mnt/workspace/pto-isa/
+
+# 如果TILE_FWK_DEVICE_ID=0报"Invalid Device"，运行以下命令查看可用设备
+npu-smi info
+# 然后设置正确的设备号
+export TILE_FWK_DEVICE_ID=<正确的设备号>
+```
+
+### 构建命令
+
+```bash
+# 编译whl包（推荐）
+python3 build_ci.py -f python3 --disable_auto_execute
+
+# 完整构建（包含C++后端）
+python3 build_ci.py -f python3 -b npu --build_type Release
+
+# 清理后重新构建
+python3 build_ci.py -c -f python3
+
+# 可编辑模式安装（开发时推荐）
+python3 build_ci.py -f python3 --editable
+
+# 使用cost_model后端（无NPU环境时）
+python3 build_ci.py -f python3 -b cost_model
+```
+
+### 测试命令
+
+```bash
+# 运行所有UT测试
+python3 build_ci.py -f python3 -u
+
+# 运行所有ST测试
+python3 build_ci.py -f python3 -s
+
+# 运行特定UT测试模块
+python3 build_ci.py -f python3 -u --utest_module test_operator
+
+# 使用pytest运行单个测试文件
+pytest python/tests/ut/operator/test_operator.py -v
+
+# 运行单个测试用例
+pytest python/tests/ut/operator/test_operator.py::test_function_name -v
+
+# 使用特定设备运行ST测试
+python3 build_ci.py -f python3 -s -d 0
+
+# 运行examples验证
+python3 build_ci.py -f python3 --example
+```
+
+### 运行单个示例
+
+```bash
+# NPU模式运行
+python examples/03_advanced/advanced_nn/attention/attention.py --run_mode npu
+
+# 模拟器模式运行（无NPU环境）
+python examples/03_advanced/advanced_nn/attention/attention.py --run_mode sim
+```
+
 ---
 
-## 核心原则 ⭐⭐⭐
+## 代码风格指南
 
-> 严格遵循以下核心原则，可避免 95% 的开发问题
+### 文件头注释
+
+所有Python文件必须包含标准版权头：
+
+```python
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+```
+
+### 导入顺序
+
+```python
+# 1. 标准库
+import os
+import sys
+import argparse
+from dataclasses import dataclass
+from typing import Optional, List, Dict
+
+# 2. 第三方库
+import torch
+import numpy as np
+
+# 3. 本地模块
+import pypto
+```
+
+### 命名约定
+
+| 类型 | 约定 | 示例 |
+|-----|------|------|
+| 模块/包 | 小写下划线 | `test_operator.py` |
+| 类名 | 大驼峰 | `AttentionConfig` |
+| 函数名 | 小写下划线 | `scaled_dot_product_attention` |
+| 常量 | 大写下划线 | `BATCH_SIZE`, `NUM_HEADS` |
+| 私有方法 | 单下划线前缀 | `_get_job_num()` |
+
+### 类型注解
+
+```python
+def scaled_dot_product_attention_golden(
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    scale: float,
+    attn_mask: Optional[torch.Tensor] = None
+) -> torch.Tensor:
+    ...
+
+@dataclass
+class AttentionConfig:
+    num_heads: int = 8
+    head_dim: int = 64
+    scale: Optional[float] = None
+    dtype: pypto.DataType = pypto.DT_BF16
+```
+
+### 错误处理
+
+```python
+# 环境变量验证
+if 'TILE_FWK_DEVICE_ID' not in os.environ:
+    print("Please set TILE_FWK_DEVICE_ID before running")
+    return None
+
+try:
+    device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
+except ValueError:
+    print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer")
+    return None
+
+# 参数验证
+if run_mode not in ["npu", "sim"]:
+    raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
+```
+
+### 文档字符串
+
+```python
+def get_device_id() -> Optional[int]:
+    """
+    Get and validate TILE_FWK_DEVICE_ID from environment variable.
+
+    Returns:
+        int: The device ID if valid, None otherwise.
+    """
+
+def test_attention_with_projection(device_id=None, run_mode: str = "npu") -> None:
+    """Test complete attention with input/output projections."""
+```
+
+### PyPTO 特定规范
+
+```python
+# JIT装饰器定义kernel
+@pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.NPU})
+def attention_kernel(
+    q: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16),
+    k: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM), pypto.DT_BF16),
+) -> pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16):
+    ...
+
+# Tiling配置
+pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+pypto.set_vec_tile_shapes(1, 8, 16, HEAD_DIM)
+
+# 数据类型使用常量
+pypto.DT_BF16  # bfloat16
+pypto.DT_FP16  # float16
+pypto.DT_FP32  # float32
+```
+
+---
+
+## 目录结构
+
+```
+pypto/
+├── python/pypto/          # Python包源码
+│   └── tests/             # 测试用例
+│       ├── ut/            # 单元测试
+│       └── st/            # 系统测试
+├── examples/              # 示例代码
+│   ├── 01_beginner/       # 初级示例
+│   ├── 02_intermediate/   # 中级示例
+│   └── 03_advanced/       # 高级示例
+├── docs/                  # 文档资源
+│   └── api/               # API参考文档
+├── models/                # 模型实现示例
+├── framework/             # C++源码
+├── build_ci.py            # 构建入口脚本
+├── pytest.ini             # pytest配置
+└── pyproject.toml         # Python项目配置
+```
+
+---
+
+## 核心开发原则
 
 ### 原则 1：遇问题直接定位修复
 
-当遇到技术问题时：
-- ✅ 第一步：直接搜索 `./docs/` 中的 API 文档
-- ✅ 第二步：查阅 `./examples/` 中的官方示例
-- ✅ 第三步：定位问题点后修复该部分
-- ❌ 禁止：下意识简化代码、凭直觉实现、遇到错误就推翻重写
+- 搜索 `docs/` 中的 API 文档
+- 查阅 `examples/` 中的官方示例
+- 定位问题点后修复，**禁止简化代码或推翻重写**
 
 ### 原则 2：基于官方文档实现
 
-- 优先查阅本地 `./docs/api/` API 文档
-- 参考 `./examples/` 中的类似实现
-- 按照官方示例结构进行开发
-- 所有资料均可`cann/pypto`仓中获取到，请参考`README.md`进行搜索
+- 优先查阅本地 `docs/api/` API 文档
+- 参考 `examples/` 中的类似实现
+- 所有API/参数用法必须严格参照官方文档
 
-### 原则 3：优先保证方案可用
+### 原则 3：渐进式调试
 
-- 方案走通后即完成开发，不进行额外优化探索
-- 避免过度优化导致开发时间过长
-
-### 原则 4：环境兼容性验证
-
-- 查阅资料时确认 API/方法适用于当前环境（A3 服务器，CANN 8.5.0）
-- 遇到不兼容立即停止，搜索替代方案
-- 避免花费时间实现后发现环境不支持
-
-### 原则 5：渐进式调试方法
-
-**Level 0~N 多级用例构建**：
 ```
-Level 0: 8-16 元素  ──▶ 基础功能验证
-    ↓ 通过
-Level 1: 1K 元素     ──▶ 典型场景验证
-    ↓ 通过
-Level 2: 极值/零值   ──▶ 边界情况验证
-    ↓ 通过
-Level 3: 大数据量    ──▶ 性能验证
+Level 0: 8-16 元素    → 基础功能验证
+Level 1: 1K 元素      → 典型场景验证
+Level 2: 极值/零值    → 边界情况验证
+Level 3: 大数据量     → 性能验证
 ```
 
-**分段调试步骤**（复杂公式）：
-1. 识别公式中的关键中间步骤
-3. 在每个步骤后插入 `pypto.assemble`，并将tensor的结果作为输出
-4. 运行并比对每个中间输出值与预期
-5. 定位误差来源的具体步骤
-6. 修复该步骤的问题
+---
 
-**精度工具使用**：
-暂无
+## 测试文件命名
 
-### 原则 6：定位问题而非推翻重写
+- 测试文件：`test_*.py`
+- 特定模型测试：`glm_*.py`, `deepseekv32_*.py`, `qwen3_next_*.py`
+- 测试类：继承 `TestBuilder` 或使用 pytest 风格
 
-- 遇到错误思考：哪些地方有问题？如何解决？
-- 定位问题点后修复该部分
-- ❌ 禁止：每次遇到错误就全部推翻重写
+## pytest标记
 
-## 需求充分性检查
+```python
+@pytest.mark.soc("910")  # 特定SOC版本
+@pytest.mark.world_size(2)  # NPU卡数要求
+```
 
-在开始算子开发前，使用默认值处理缺失信息：
+## 常见问题
 
-### 必需信息（缺失时使用默认值）
-- [ ] **算子名称**：从需求描述中提取，缺失时使用通用命名
-- [ ] **数学公式**：从需求描述中推断，缺失时参考标准实现
-- [ ] **输入输出规格**：
-  - 输入 tensor：默认使用 1D tensor，数据类型 float32
-  - 输出 tensor：与输入相同 shape
-- [ ] **支持的数据类型**：默认 float32，可根据需要添加 float16
-- [ ] **精度要求**：使用默认精度容忍度（相对误差 1e-3）
-- [ ] **服务器类型**：默认 A3 服务器
-
-### 默认配置
-- **性能预期**：不预设性能基准，完成功能即可
-- **NPU 资源**：动态获取硬件参数，不写死配置
-- **特殊约束**：使用 32 字节对齐作为默认
+| 问题 | 解决方案 |
+|-----|---------|
+| "Invalid Device" | 运行 `npu-smi info` 确认设备号 |
+| "If no NPU environment" | 设置 `export TILE_FWK_DEVICE_ID=0` |
+| 导入 pypto 失败 | 先运行 `python3 build_ci.py -f python3` 编译安装 |
+| 精度不满足 | 使用 `rtol=1e-3, atol=1e-3` 作为默认容差 |
 
 ---
 
-## Plan 模式使用规范
+## Skills目录
 
-### 何时进入 Plan 模式
-
-**强烈推荐**进入 Plan 模式的情况：
-- 所有非最简单的算子（如不仅仅是单元素加减乘除）
-- 需要组合多个 API 的算子
-- 需要特殊内存管理或优化策略的算子
-- 你对 PyPTO 实现方案不太确定的算子
-
-**可跳过 Plan 模式**的情况：
-- 与现有示例几乎完全相同的简单算子
-
-### Plan 模式下的工作内容
-
-在计划文件中，你应该包含：
-
-1. **算子设计方案**
-   - 数学公式 → PyPTO API 的映射关系
-   - 数据流设计（输入 → 计算 → 输出）
-
-2. **NPU 性能优化方案**
-   暂不考虑
-
-3. **开发步骤**
-   - 按官方模板结构分解任务
-   - 明确每个文件的开发内容
-   - 设置验证检查点（每完成一部分就验证编译）
-   - 性能验证点（如何验证 NPU 性能是否充分发挥）
-
-1. **计划执行**
-   - 写完plan后，将plan保存至 @./custom/plan/{算子名称}.md中，**立即开始执行实现**，无需等待确认。
-
----
-
-## 开发规范
-
-### 目录结构要求
-## 项目目录结构
-
-**强制规则：**
-- 所有开发的算子**必须**放置在 `custom/` 目录下
-- 每个算子**必须**拥有独立的子目录（例如：`custom/my_operator/`）
-
-**每个算子目录应包含：**
-
-采用**eager模式**进行算子开发：
-
-- **`.py` 文件**：包含完整的算子实现（必需）
-- **`.py` 文件**：包含算子golden及测试用例（必需）
-- **`README.md`**：编写算子文档（必须）
-- **`data_utils.h`**：数据读写工具函数（可选，推荐包含）
-- **`scripts/` 目录**：辅助脚本（可选）
-
-### 核心开发规范 ⭐
-
-> **严格遵循以下三条黄金法则，可避免 95% 的开发问题**
-
-1. **理解官方示例原理后实现**
-   - 生成一个测试及golden文件
-   - 生成一个算子实现文件
-   - 生成一个性能分析数据报告
-2. **黄金法则：遇问题处理流程**
-   - 第一步：直接搜索 `docs/` API 文档
-   - 第二步：查阅官方示例 `examples/`
-   - 第三步：定位问题点后修复，**禁止简化代码或推翻重写**
-   - 第四步：完成功能即可，无需继续探索
-
-## 分阶段开发指南
-加载`pypto-operator-develop-workflow`技能，进行算子开发.
-
-### 阶段一：需求分析与方案设计
-
-1. **理解需求**：
-   - 根据用户需求，设计算子的原型（输入、输出、数据类型）
-   - 明确算子的数学公式（如：sinh(x) = (e^x - e^(-x)) / 2）
-
-2. **API 可行性验证**：
-   - 将公式拆解为 PyPTO API 的组合
-   - 搜索 `docs/api/` 验证 API 存在性
-   - 确认每个 API 支持的数据类型和约束
-
-### 阶段二：算子实现
-
-1. **从零实现算子**：
-   - 参考 `examples/03_advanced/advanced_nn/attention/attention.py` 的代码结构
-   - 创建 `custom/your_operator/` 目录
-   - 按照设计方案实现算子逻辑
-
-2. **核心实现**：
-   - 实现文件中的 golden 函数
-   - 实现文件中的 jit 函数
-   - **一次只实现一个函数，立即验证编译**
-
-3. **关键实现要点**：
-   - 使用 `eager` 的方式进行开发
-   - 可以先开发基础版本，再进行性能调试
-
-### 阶段三：构建和测试
-
-1. **测试准备**：
-   - 生成覆盖多种场景的测试数据（边界值、零值、大值等）
-   - 明确验证标准：误差容忍度、通过率等
-
-2. **构建与执行**：
-
-   **⚠️ 环境变量设置（非常重要）**
-   ```bash
-   # 设置NPU Chip ID（使用实际可用的chip）
-   export TILE_FWK_DEVICE_ID=0
-   export PTO_TILE_LIB_CODE_PATH=/mnt/workspace/pto-isa/
-   ```
-    **⚠️ 重要提示**：
-    - **先设置 `export TILE_FWK_DEVICE_ID=0`**
-    - 如果设置TILE_FWK_DEVICE_ID=0执行失败了，报错为`Invalid Device`时，再检查npu设备
-    - 运行 `npu-smi info` 查看可用的NPU chip，进行设置`export TILE_FWK_DEVICE_ID=x`
-
-   - 编译whl包并安装
-     python3 build_ci.py -f python3 --disable_auto_execute
-   - 执行算子进行验证
-    **⚠️ 重要提示**：
-    - **检查到存在npu卡的时候，必须使用run_mode=npu执行**
-
-3. **验证与调试**：
-
-   **Level 0~N 多级用例**：
-   ```
-   Level 0: 8-16 元素  ──▶ 基础功能验证
-       ↓ 通过
-   Level 1: 1K 元素     ──▶ 典型场景验证
-       ↓ 通过
-   Level 2: 极值/零值   ──▶ 边界情况验证
-       ↓ 通过
-   Level 3: 大数据量    ──▶ 性能验证
-   ```
-**✓ 检查清单**：
-- [ ] 功能和精度验证通过
-- [ ] 性能达到合理水平
-- [ ] 多种输入规模测试通过
-
-### 阶段四：开发结果总结
-
-1. **总结开发情况**：
-   - 编译运行成功，无错误无警告
-   - 功能和精度验证通过
-   - 性能验证结果（NPU 利用率、带宽利用率等）
-   - 泛化验证结果（多种输入规模测试情况）
-   - 记录已知限制（如 FP16 精度损失）
-
-**✓ 检查清单**：
-- [ ] 明确标注成功/失败
-- [ ] 记录功能验证结果
-- [ ] 记录精度测试结果
-- [ ] 记录性能验证结果
-- [ ] 记录泛化测试结果
-- [ ] 记录已知限制和问题
-- [ ] 如失败，总结失败原因
-
-### 阶段五：编写算子文档
-
-1. **编写 README.md**（必须使用中文）：
-   - 记录数学公式和 API 映射关系
-   - 参考标准写法：`examples/03_advanced/advanced_nn/attention/README.md`
-   - 包含：
-     - 算子概述（功能、数学公式）
-     - 编译运行指南
-     - 测试结果说明
-     - 已知限制和注意事项
-     - 常见问题
-
-2. **更新当前状态至plan中**：`custom/plan/{算子名称}.md`
-
-### 阶段六：性能数据采集及优化建议
-加载`pypto-operator-perf-autotuner`技能进行性能分析。
-1. **采集性能数据，并进行性能分析**
-2. **生成性能分析报告**
-**⚠️ 重要提示**：
-性能分析报告不要过于复杂，列举出性能数据、分析汇总、性能优化建议即可。
-
----
-
-## 错误处理与失败记录
-
-### 错误处理原则 ⭐
-
-遇到错误时：
-- **编译错误**：定位错误行号，参考文档检查语法，对比官方示例
-- **运行时错误**：使用增加中间输出的方式定位问题，采用渐进式调试方法
-- **精度错误**：从最小用例开始，分段验证中间结果，检查数据类型
-- **环境配置错误**：遇到 "If no NPU environment is available" 提示时，首先检查 `export TILE_FWK_DEVICE_ID=0` 是否已设置，使用 `npu-smi info` 确认NPU设备号
-
-**禁止**：一遇到错误就全部重写、看到问题就简化代码、不分析原因就尝试其他方案
-
-### 开发失败处理
-
-当遇到无法解决的开发问题时：
-
-1. **记录失败原因**：
-   - 明确说明哪个 API 或功能无法实现
-   - 记录已尝试的方案和结果
-   - 提供相关错误信息或文档引用
-
-2. **诚实报告**：
-   - 不要猜测或强行实现
-   - 明确标注"开发失败"及原因
-   - 这有助于后续改进和寻求帮助
-
----
-
-## 附录
-
-### API 使用规则
-
-> ⚠️ **所有可调用的 PyPTO API、参数及用法必须严格参照官方文档，禁止猜测。**
-
-### 当用户提出查看文档/代码时
-
-直接使用 **Read**、**Grep**、**Glob** 工具进行文档和代码查看。
-
-### 文件查找规则
-
-当需要查找文件时：
-1. 优先使用 **Glob** 工具通过文件名模式搜索整个代码仓库
-2. 文档中提到的路径可能是相对路径，需要使用Glob在整个项目中搜索
-3. 例如：查找 `scripts/environment_prepare.sh` 时，使用 `Glob` 搜索 `**/environment_prepare.sh`
-
-### Agent使用规则
-1. 使用`Explore Agent`查找资料
-2. 使用`Plan Agent`进行plan设计
+本项目使用的skills位于 `.opencode/skills/` 目录，可用skills：
+- `pypto-operator-develop-workflow`: 算子开发流程
+- `pypto-operator-perf-analyzer`: 算子性能分析
+- `pypto-operator-perf-autotuner`: 算子性能自动化调优
