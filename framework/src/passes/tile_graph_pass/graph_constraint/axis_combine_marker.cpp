@@ -22,7 +22,16 @@ void AxisCombineMarker::Run(Function& function)
 {
     Init(function);
     ForwardVisit();
+    MarkAllTensorStatus();
+    std::string str1 =
+        function.GetRawName() + std::to_string(function.Operations().DuplicatedOpList().size()) + "_forward";
+    function.DumpJsonFile("" + str1 + ".json");
     BackwardVisit();
+    MarkAllTensorStatus();
+    std::string str2 =
+        function.GetRawName() + std::to_string(function.Operations().DuplicatedOpList().size()) + "_backward";
+    function.DumpJsonFile("" + str2 + ".json");
+    MarkAllTensorStatus();
 }
 
 bool AxisCombineMarker::IsTensorEnableAxisCombine(LogicalTensorPtr tensor)
@@ -33,8 +42,14 @@ bool AxisCombineMarker::IsTensorEnableAxisCombine(LogicalTensorPtr tensor)
     return false;
 }
 
-void AxisCombineMarker::Init(Function& function)
-{
+void AxisCombineMarker::MarkAllTensorStatus() {
+    for (const auto& [tensor, status] : tensorStatus_) {
+        tensor->SetEnableCombineAxis(status);
+        std::cout << "Tensor " << tensor->GetMagic() << " enable_combine_axis: " << AxisReorderStatusToString(status) << std::endl;
+    }
+}
+
+void AxisCombineMarker::Init(Function &function) {
     size_t i = 0U;
     std::map<int, size_t> opMagic2Idx;
     opList_ = function.Operations().DuplicatedOpList();
@@ -235,7 +250,14 @@ void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx)
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
         OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST ||
         ((op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE) &&
-         outputTensor->GetShape().back() == op->GetIOperands()[0]->GetShape().back())) {
+          outputTensor->GetShape().back() == op->GetIOperands()[0]->GetShape().back())) {
+        std::cout << "**************************************************************" << std::endl;
+        std::cout << op->GetOpcodeStr() << op->GetOpMagic() << std::endl;
+        for (auto inputTensor : op->GetIOperands()) {
+            std::cout << "in" << inputTensor->GetMagic() << ":" << tensorStatus_[inputTensor] << std::endl;
+        }
+        std::cout << "out" << outputTensor->GetMagic() << ":" << tensorStatus_[outputTensor] << std::endl;
+        std::cout << "**************************************************************" << std::endl;
         if (tensorStatus_[outputTensor] == AxisReorderStatus::DISABLE) {
             for (auto inputTensor : op->GetIOperands()) {
                 tensorStatus_[inputTensor] = AxisReorderStatus::DISABLE;
