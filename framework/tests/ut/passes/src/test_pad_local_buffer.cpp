@@ -1381,6 +1381,35 @@ TEST_F(TestPadLocalBuffer, padCmpInputTo256){
     // functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padCmpInputTo256_after.json");
 }
 
+TEST_F(TestPadLocalBuffer, padCmpsInputTo256){
+    ComputationalGraphBuilder graphBuilder;
+    EXPECT_EQ(graphBuilder.AddTensor(DataType::DT_FP32, {3, 7}, MemoryType::MEM_DEVICE_DDR, "in1"), true);
+    EXPECT_EQ(graphBuilder.AddTensor(DataType::DT_FP32, {3, 7}, MemoryType::MEM_DEVICE_DDR, "in2"), true);
+    EXPECT_EQ(graphBuilder.AddTensor(DataType::DT_FP32, {3, 7}, MemoryType::MEM_UB, "t1"), true);
+    EXPECT_EQ(graphBuilder.AddTensor(DataType::DT_FP32, {3, 7}, MemoryType::MEM_UB, "t2"), true);
+    EXPECT_EQ(graphBuilder.AddOp(Opcode::OP_COPY_IN, {"in1"}, {"t1"}, "copyin1", true), true);
+    EXPECT_EQ(graphBuilder.AddOp(Opcode::OP_COPY_IN, {"in2"}, {"t2"}, "copyin2", true), true);
+    EXPECT_EQ(graphBuilder.AddTensor(DataType::DT_FP32, {3, 7}, MemoryType::MEM_UB, "t3"), true);
+    EXPECT_EQ(graphBuilder.AddOp(Opcode::OP_CMPS, {"t1","t2"}, {"t3"}, "cmps1", true), true);
+    EXPECT_EQ(graphBuilder.AddTensor(DataType::DT_FP32, {3, 7}, MemoryType::MEM_UB, "t4"), true);
+    EXPECT_EQ(graphBuilder.AddOp(Opcode::OP_COPY_OUT, {"t3"}, {"t4"}, "copyout1", true), true);
+    EXPECT_EQ(graphBuilder.AddTensor(DataType::DT_FP32, {3, 7}, MemoryType::MEM_UB, "t5"), true);
+    EXPECT_EQ(graphBuilder.AddTensor(DataType::DT_FP32, {3, 7}, MemoryType::MEM_UB, "t6"), true);
+    EXPECT_EQ(graphBuilder.AddOp(Opcode::OP_COPY_IN, {"t4"}, {"t5"}, "copyin3", true), true);
+    EXPECT_EQ(graphBuilder.AddOp(Opcode::OP_COPY_IN, {"t4"}, {"t6"}, "copyin4", true), true);
+    EXPECT_EQ(graphBuilder.AddTensor(DataType::DT_FP32, {3, 7}, MemoryType::MEM_UB, "t7"), true);
+    EXPECT_EQ(graphBuilder.AddOp(Opcode::OP_ADD, {"t6", "t5"}, {"t7"}, "add1", true), true);
+    EXPECT_EQ(graphBuilder.AddTensor(DataType::DT_FP32, {3, 7}, MemoryType::MEM_DEVICE_DDR, "out1"), true);
+    EXPECT_EQ(graphBuilder.AddOp(Opcode::OP_COPY_OUT, {"t7"}, {"out1"}, "copyout2", true), true);
+    std::vector<bool> dimMap({true, false});
+ 	graphBuilder.GetOp("cmps1")->SetAttr(OpAttributeKey::rowPad, dimMap);
+    auto *functionPtr = graphBuilder.GetFunction();
+    PadLocalBuffer padLocalBufferTest;
+    // functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padCmpInputTo256_brfore.json");
+    EXPECT_EQ(padLocalBufferTest.RunOnFunction(*functionPtr), SUCCESS);
+    // functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padCmpInputTo256_after.json");
+}
+
 TEST_F(TestPadLocalBuffer, padPreluInputTo256){
     ComputationalGraphBuilder graphBuilder;
     EXPECT_EQ(graphBuilder.AddTensor(DataType::DT_FP32, {3, 7}, MemoryType::MEM_DEVICE_DDR, "in1"), true);
