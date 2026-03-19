@@ -313,7 +313,8 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     if (convTile.setL0Tile){
         numTileL0 = CheckL0TileTiling(outType, attrParam, weightTensor);
     }
-    if (numTile > MAX_LOOP) {
+    int64_t loopCount = numTileL0 * numTileL1;
+    if (loopCount > MAX_LOOP) {
         CONV_LOGW("Suggestion: Consider increasing tile size to reduce compilation time.");
     }
 }
