@@ -46,8 +46,6 @@
 
 namespace npu::tile_fwk::dynamic {
 
-const uint32_t AICORE_STATUS_INIT = 0xFFFFFFFFU;
-
 constexpr uint32_t REG_31_BITS = 0x7FFFFFFF;
 constexpr uint32_t REG_32_BITS = 0xFFFFFFFF;
 #define REG_LOW_TASK_ID(regVal) (regVal) & REG_31_BITS // 低31位存储的taskid
@@ -169,11 +167,11 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
         for (int i = aivStart_; i < aivEnd_; i++) availableCoreQueue_[(int)CoreType::AIV]->push(i);
         for (int i = aicStart_; i < aicEnd_; i++) availableCoreQueue_[(int)CoreType::AIC]->push(i);
         
-        for (int i = aivStart_; i < aivEnd_; i++) aicoreRunningTaskId_[i] = aicoreNullTask;
-        for (int i = aivStart_; i < aivEnd_; i++) aicorePendingTaskId_[i] = aicoreNullTask;
+        for (int i = aivStart_; i < aivEnd_; i++) aicoreRunningTaskIds_[i] = aicoreNullTask;
+        for (int i = aivStart_; i < aivEnd_; i++) aicorePendingTaskIds_[i] = aicoreNullTask;
         
-        for (int i = aicStart_; i < aicEnd_; i++) aicoreRunningTaskId_[i] = aicoreNullTask;
-        for (int i = aicStart_; i < aicEnd_; i++) aicorePendingTaskId_[i] = aicoreNullTask;
+        for (int i = aicStart_; i < aicEnd_; i++) aicoreRunningTaskIds_[i] = aicoreNullTask;
+        for (int i = aicStart_; i < aicEnd_; i++) aicorePendingTaskIds_[i] = aicoreNullTask;
     }
 
     inline void CountSendTask(uint64_t &sentAic, uint64_t &sentAiv) {
@@ -326,7 +324,7 @@ private:
     };
 
     inline uint32_t GetReadyCoreNum(CoreType type) {
-        return context_->corePendReadyCnt_[static_cast<int>(type)];
+        return context_->corePendReadyCnt_[(int)type];
     }
 
     inline uint64_t TryBatchSendTask(CoreType type, ReadyCoreFunctionQueue* readyQue,
@@ -360,7 +358,6 @@ private:
         {
             uint32_t coreIdx = context_->coreRunReadyCnt_[typeIdx] - 1;
             uint32_t coreId = context_->runReadyCoreIdx_[typeIdx][coreIdx];
-            aicoreRunningTaskId_[coreId] = newTask[sendCnt];
             SendTaskToAiCore(type, coreId, newTask[sendCnt]);
             context_->coreRunReadyCnt_[typeIdx]--;
             sendCnt++;
@@ -370,8 +367,7 @@ private:
         uint32_t idx = coreIdxStart;
         uint32_t coreNum = coreIdxEnd - coreIdxStart;
         while (context_->corePendReadyCnt_[typeIdx] > 0 && sendCnt < taskCount) {
-            if (pendingIds_[idx] == AICORE_TASK_INIT) {
-                aicorePendingTaskId_[idx] = newTask[sendCnt];
+            if (aicorePendingTaskIds_[idx] == aicoreNullTask) {
                 SendTaskToAiCore(type, idx, newTask[sendCnt]);
                 sendCnt++;
                 context_->corePendReadyCnt_[typeIdx]--;
@@ -383,7 +379,7 @@ private:
     }
 
     inline void DispatchAiCoreTask(CoreType type, ReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd) {
-        if (context_->waitTaskCnt_[static_cast<int>(type)] > 0) {
+        if (context_->waitTaskCnt_[(int)type] > 0) {
             ResolveDepForAllAiCore(type, coreIdxStart, coreIdxEnd);
         }
         TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
@@ -391,8 +387,8 @@ private:
 
     inline void SendTaskToAiCore(CoreType type, int coreIdx, uint32_t newTask) {
         aicoreHal_.SetReadyQueue(coreIdx, newTask + 1);
-        pendingIds_[coreIdx] = newTask;
-        context_->sendCnt_[static_cast<int>(type)]++;
+        aicorePendingTaskIds_[coreIdx] = newTask;
+        context_->sendCnt_[(int)type]++;
     }
 
     inline void PushReadyQue(ReadyCoreFunctionQueue *readyQue, void *idList, uint32_t idCnt) const {
@@ -404,7 +400,7 @@ private:
     
     inline void ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd) {
         for (int i = coreIdxStart; i < coreIdxEnd; i++) {
-            if ((runningIds_[i] != AICORE_TASK_INIT || pendingIds_[i] != AICORE_TASK_INIT)) {
+            if ((aicoreRunningTaskIds_[i] != aicoreNullTask || aicorePendingTaskIds_[i] != aicoreNullTask)) {
                 ResolveByRegVal(type, i);
             }
         }
@@ -434,44 +430,35 @@ private:
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
 
-        const auto runningTaskId = runningIds_[coreIdx];
-        const auto pendingTaskId = pendingIds_[coreIdx];
+        const auto runningTaskId = aicoreRunningTaskIds_[coreIdx];
+        const auto pendingTaskId = aicorePendingTaskIds_[coreIdx];
 
         if (finTaskId == pendingTaskId && finTaskState == TASK_FIN_STATE) {
             // pending task is finished, resolve both running and pending task.
-            runningIds_[coreIdx] = AICORE_TASK_INIT;
-            pendingIds_[coreIdx] = AICORE_TASK_INIT; // processFinishedTask depend this line
+            aicoreRunningTaskIds_[coreIdx] = aicoreNullTask;
+            aicorePendingTaskIds_[coreIdx] = aicoreNullTask; // processFinishedTask depend this line
 
-            aicoreRunningTaskId_[coreIdx] = aicoreNullTask;
-            aicorePendingTaskId_[coreIdx] = aicoreNullTask;
+            context_->runReadyCoreIdx_[(int)type][context_->coreRunReadyCnt_[(int)type]++] = coreIdx;
+            context_->corePendReadyCnt_[(int)type]++;
 
-            context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
-            context_->corePendReadyCnt_[static_cast<int>(type)]++;
-
-            if (runningTaskId != AICORE_TASK_INIT) processFinishedTask(type, runningTaskId);
+            if (runningTaskId != aicoreNullTask) processFinishedTask(type, runningTaskId);
             processFinishedTask(type, pendingTaskId);
         }
         
         if (finTaskId == pendingTaskId && finTaskState == TASK_ACK_STATE) {
             // pending task is acknowledged, resolve running task. And move pending to running
-            runningIds_[coreIdx] = finTaskId;
-            pendingIds_[coreIdx] = AICORE_TASK_INIT; // processFinishedTask depend this line
-            context_->corePendReadyCnt_[static_cast<int>(type)]++;
+            aicoreRunningTaskIds_[coreIdx] = pendingTaskId;
+            aicorePendingTaskIds_[coreIdx] = aicoreNullTask; // processFinishedTask depend this line
+            context_->corePendReadyCnt_[(int)type]++;
 
-            aicoreRunningTaskId_[coreIdx] = aicorePendingTaskId_[coreIdx];
-            aicorePendingTaskId_[coreIdx] = aicoreNullTask;
-
-            if (runningTaskId != AICORE_TASK_INIT) processFinishedTask(type, runningTaskId);
+            if (runningTaskId != aicoreNullTask) processFinishedTask(type, runningTaskId);
         }
         
         if (finTaskId == runningTaskId && finTaskState == TASK_FIN_STATE) {
             // running task is finished, resolve running task. Pending task is unmodified
-            runningIds_[coreIdx] = AICORE_TASK_INIT;
+            aicoreRunningTaskIds_[coreIdx] = aicoreNullTask;
 
-            aicoreRunningTaskId_[coreIdx] = aicoreNullTask;
-            // aicorePendingTaskId_[coreIdx] = aicorePendingTaskId_[coreIdx];
-
-            if (pendingIds_[coreIdx] == AICORE_TASK_INIT) context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
+            if (pendingTaskId == aicoreNullTask) context_->runReadyCoreIdx_[(int)type][context_->coreRunReadyCnt_[(int)type]++] = coreIdx;
             processFinishedTask(type, runningTaskId);
         }
     }
@@ -542,7 +529,7 @@ private:
 
     inline void processFinishedTask(CoreType type, uint64_t taskId) {
         ResolveDepDyn(taskId);
-        context_->waitTaskCnt_[static_cast<int>(type)]--;
+        context_->waitTaskCnt_[(int)type]--;
     }
 
     inline void Init(int threadIdx, DeviceArgs *deviceArgs, int schedIdx) {
@@ -554,8 +541,6 @@ private:
         aicValidNum_ = deviceArgs->nrValidAic;
         aicoreHal_.Init(deviceArgs);
         validGetPgMask_ = deviceArgs->validGetPgMask;
-        runningIds_.fill(AICORE_STATUS_INIT);
-        pendingIds_.fill(AICORE_STATUS_INIT);
         isSendStop = false;
 
         // Getting variable controlling who is the scheduler lead. The first to arrive here should take the lead so that this starts as fast as possible
@@ -734,9 +719,6 @@ private:
     DeviceTaskCtrl* curTaskCtrl_{nullptr};
     int curTaskId_{0};
 
-    std::array<uint32_t, MAX_AICORE_NUM> runningIds_;
-    std::array<uint32_t, MAX_AICORE_NUM> pendingIds_;
-
     /* prepare aicore ready task list */
     ReadyCoreFunctionQueue* readyAicCoreFunctionQue_{nullptr};
     ReadyCoreFunctionQueue* readyAivCoreFunctionQue_{nullptr};
@@ -756,8 +738,9 @@ private:
     pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* availableCoreQueue_[AICORE_TYPE_NUM];
     pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* pendingCoreQueue_[AICORE_TYPE_NUM];
     pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* runningCoreQueue_[AICORE_TYPE_NUM];
-    std::array<aicoreTask_t, TOTAL_CORE_COUNT> aicoreRunningTaskId_;
-    std::array<aicoreTask_t, TOTAL_CORE_COUNT> aicorePendingTaskId_;
+
+    std::array<aicoreTask_t, TOTAL_CORE_COUNT> aicoreRunningTaskIds_;
+    std::array<aicoreTask_t, TOTAL_CORE_COUNT> aicorePendingTaskIds_;
 
     // Variable to scheduler lead and whether or not I am the lead
     bool isLeaderScheduler_;
