@@ -47,9 +47,6 @@ namespace npu::tile_fwk {
 // If enabled, performance trace statistics are recorded in the log.
 #define ENABLE_PERF_TRACE 0
 
-// If enabled a lightweight end-to-end timing of AICPU kernel execution will be performed
-#define ENABLE_AICPU_KERNEL_TIMING 1
-
 /* When enabled, verbose log will be compiled.Because verbose logging is so extensive, having it compiled into the code
    can hurt performance, even when the logging feature is turned off.
 */
@@ -58,10 +55,6 @@ namespace npu::tile_fwk {
 #define DEBUG_INFINITE_LIFETIME 0
 
 #define ENABLE_AICORE_PRINT 0
-
-// Macros to enable tracing and debugging in the AICPU scheduler at runtime
-#define ENABLE_AICPU_PRINT 0
-#define ENABLE_AICPU_PROFILING 0
 
 // for tensor dump
 #define ENABLE_TENSOR_DUMP 1
