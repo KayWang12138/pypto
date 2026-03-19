@@ -785,7 +785,8 @@ void CheckCMatrixNZFormatAligned(const DataType &outType, const Tensor &operand,
     auto &cubeType = TileShape::Current().GetCubeTile();
     const int64_t nL0 = cubeType.n[0];
     if (attrParam.isCMatrixNZ) {
-        int64_t nView = attrParam.transB ? operand.GetShape()[0] : operand.GetShape()[1];
+        int64_t nView = attrParam.transB ? operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2] :
+                                           operand.GetShape()[operand.GetShape().size() - 1];
         if (outType == DataType::DT_INT32) {
             ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, nView % ALIGN_SIZE_16 == 0)
                 << "Current nView: " << nView
@@ -894,8 +895,10 @@ void CheckGmAccumulationParam(DataType outType, const Tensor &aMatrix, const Ten
     ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
         aMatrix.GetShape().size() == SHAPE_DIM2 && bMatrix.GetShape().size() == SHAPE_DIM2)
         << "The shapes of aMatrix and bMatrix must be 2 Dim";
-    int64_t kSizeA = attrParam.transA ? aMatrix.GetShape()[0] : aMatrix.GetShape()[1];
-    int64_t kSizeB = attrParam.transB ? bMatrix.GetShape()[1] : bMatrix.GetShape()[0];
+    int64_t kSizeA = attrParam.transA ? aMatrix.GetShape()[aMatrix.GetShape().size() - SHAPE_DIM2] :
+                                        aMatrix.GetShape()[aMatrix.GetShape().size() - 1];
+    int64_t kSizeB = attrParam.transB ? bMatrix.GetShape()[bMatrix.GetShape().size() - 1] :
+                                        bMatrix.GetShape()[bMatrix.GetShape().size() - SHAPE_DIM2];
     ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, kSizeA == kSizeB)
         << "Matrix K dimension mismatch, kSizeA: " << kSizeA << ", kSizeB: " << kSizeB;
 }
@@ -935,10 +938,10 @@ void CheckOperandDtype(DataType outType, const Tensor &operand1, const Tensor &o
     MATMUL_LOGD("Begin Matmul Operand Legality Check.\n");
     // dtype valid check
     CheckOperandDtype(outType, operand1, operand2);
-    // GM Acc valid check
-    CheckGmAccumulationParam(outType, operand1, operand2, attrParam, param);
     // shape valid check
     CheckOperandShape(operand1, operand2);
+    // GM Acc valid check
+    CheckGmAccumulationParam(outType, operand1, operand2, attrParam, param);
     // tile valid check
     CheckCubeTiling(operand1, operand2, attrParam);
     // shape bound valid check
@@ -1631,141 +1634,127 @@ Tensor MatmulMX(DataType outType, const Tensor &aMatrix, const Tensor &aScale, c
     return ConstructTensorGraph(outType, tensorGraphNodes, attrParam, param);
 }
 
-Tensor ABatchMulB3D(
-    DataType dataType, const Tensor &operand1, const Tensor &operand2, const MatmulAttrParam &attrParam) {
+void CheckABatchMulB(const Tensor &operand1, const Tensor &operand2) {
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, operand1.GetStorage() != nullptr) << "A Tensor cannot be null";
+    ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, operand2.GetStorage() != nullptr) << "B Tensor cannot be null";
     ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        operand1.GetShape().size() == operand2.GetShape().size() && operand1.GetShape().size() == SHAPE_DIM3)
-        << "Shape dimension mismatch, expected exactly " << SHAPE_DIM3
-        << " dimension for both operands. operand1: " << operand1.GetShape().size()
-        << ", operand2: " << operand2.GetShape().size();
-    const int64_t batchSizeA = operand1.GetShape()[0];
-    const int64_t batchSizeB = operand2.GetShape()[0];
-    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, batchSizeA == batchSizeB || batchSizeB == 1 || batchSizeA == 1)
-        << "batchSize invalid, only allowed batchSizeA = batchSizeB, batchSizeA = 1, or batchSizeB = 1: batchSizeA = "
-        << batchSizeA << ", batchSizeB: " << batchSizeB;
-    const int64_t orgM = attrParam.transA ? operand1.GetShape()[SHAPE_DIM2] : operand1.GetShape()[1];
-    const int64_t orgKa = attrParam.transA ? operand1.GetShape()[1] : operand1.GetShape()[SHAPE_DIM2];
-    const int64_t orgKb = attrParam.transB ? operand2.GetShape()[2] : operand2.GetShape()[1];
-    const int64_t orgN = attrParam.transB ? operand2.GetShape()[1] : operand2.GetShape()[SHAPE_DIM2];
-    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, orgKa == orgKb) << "orgK mismatch: Ka: " << orgKa << ", Kb: " << orgKb;
-    int64_t firstDimA = attrParam.transA ? orgKa : orgM;
-    int64_t secondDimA = attrParam.transA ? orgM : orgKa;
-    int64_t firstDimB = attrParam.transB ? orgN : orgKb;
-    int64_t secondDimB = attrParam.transB ? orgKb : orgN;
-    int64_t batchSize = std::max(batchSizeA, batchSizeB);
-    auto operand2D1 = Reshape(operand1, {batchSizeA * firstDimA, secondDimA});
-    auto operand2D2 = Reshape(operand2, {batchSizeB * firstDimB, secondDimB});
-    Tensor result(dataType, {batchSize * orgM, orgN});
-    if (attrParam.isCMatrixNZ) {
-        result = Tensor(dataType, {batchSize * orgM, orgN}, "BatchMatmulOutputNz", TileOpFormat::TILEOP_NZ);
+        operand1.GetShape().size() == SHAPE_DIM3 || operand1.GetShape().size() == SHAPE_DIM4)
+        << "Batch matmul only support 3 dimensions or 4 dimensions.";
+
+    for (uint64_t bIdx = 0; bIdx < operand1.GetShape().size() - SHAPE_DIM2; bIdx++) {
+        const int64_t batchSizeA = operand1.GetShape()[bIdx];
+        const int64_t batchSizeB = operand2.GetShape()[bIdx];
+        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, batchSizeA == batchSizeB || batchSizeB == 1 || batchSizeA == 1)
+            << "batchSize invalid: A" << bIdx << "= B" << bIdx << "or 1 allowed. A" << bIdx << ": " << batchSizeA
+            << ", B" << bIdx << ": " << batchSizeB;
     }
-    Status checkStatus = CheckMatmulOperands(dataType, operand2D1, operand2D2, attrParam);
-    ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS) << "BatchMatmul 3D operands check failed";
-    auto &curFunc = *Program::GetInstance().GetCurrentFunction();
-    for (int64_t i = 0; i < batchSize; i++) {
-        int64_t offsetA = batchSizeA == 1 ? 0 : i * firstDimA;
-        int64_t offsetB = batchSizeB == 1 ? 0 : i * firstDimB;
-        int64_t offsetC = i * orgM;
-        auto tensorA = operand2D1.GetStorage()->View(curFunc, {firstDimA, secondDimA}, {offsetA, 0});
-        auto tensorB = operand2D2.GetStorage()->View(curFunc, {firstDimB, secondDimB}, {offsetB, 0});
-        auto tensorC = result.GetStorage()->View(curFunc, {orgM, orgN}, {offsetC, 0});
-        MatmulGraphNodes tensorGraphNodes(tensorA, tensorB);
-        tensorGraphNodes.outTensorPtr = tensorC;
-        AddAMulBNode(tensorGraphNodes, attrParam);
-    }
-    return Reshape(result, {batchSize, orgM, orgN});
-};
-
-Status CheckABatchMulB4D(const Tensor &operand1, const Tensor &operand2) {
-    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID,
-        operand1.GetShape().size() == SHAPE_DIM4 && operand2.GetShape().size() == SHAPE_DIM4)
-        << "Expected 4D tensor, but got: op1Size: " << operand1.GetShape().size()
-        << ", op2Size: " << operand2.GetShape().size();
-    const int64_t batchSizeA1 = operand1.GetShape()[0];
-    const int64_t batchSizeA2 = operand1.GetShape()[1];
-    const int64_t batchSizeB1 = operand2.GetShape()[0];
-    const int64_t batchSizeB2 = operand2.GetShape()[1];
-
-    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, batchSizeA1 == batchSizeB1 || batchSizeB1 == 1 || batchSizeA1 == 1)
-        << "batchSize invalid: A1=B1 or 1 allowed. A1: " << batchSizeA1 << ", B1: " << batchSizeB1;
-
-    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, batchSizeA2 == batchSizeB2 || batchSizeB2 == 1 || batchSizeA2 == 1)
-        << "batchSize invalid: A2=B2 or 1 allowed. A2: " << batchSizeA2 << ", B2: " << batchSizeB2;
-
-    return SUCCESS;
 }
 
-Tensor ABatchMulB4D(
+Tensor ConstructBatchMatmulTensorGraph3D(
     DataType dataType, const Tensor &operand1, const Tensor &operand2, const MatmulAttrParam &attrParam) {
-    Status checkStatus = CheckABatchMulB4D(operand1, operand2);
-    ASSERT(MatmulErrorCode::ERR_RUNTIME_LOGIC, checkStatus == SUCCESS) << "BatchMatmul 4D operands check failed";
+    const int64_t batchSizeA = operand1.GetShape()[0];
+    const int64_t batchSizeB = operand2.GetShape()[0];
+    const int64_t batchSize = std::max(batchSizeA, batchSizeB);
+
+    const int64_t mView = attrParam.transA ? operand1.GetShape()[SHAPE_DIM2] : operand1.GetShape()[1];
+    const int64_t nView = attrParam.transB ? operand2.GetShape()[1] : operand2.GetShape()[SHAPE_DIM2];
+    Tensor result = attrParam.isCMatrixNZ ?
+                        Tensor(dataType, {batchSize, mView, nView}, "BatchMatmulOutputNz", TileOpFormat::TILEOP_NZ) :
+                        Tensor(dataType, {batchSize, mView, nView});
+    auto oriVecTile = TileShape::Current().GetVecTile();
+    TileShape::Current().SetVecTile({1, 128, 128});
+    for (int64_t bIdx = 0; bIdx < batchSize; bIdx++) {
+        int64_t offsetBatchA = batchSizeA == 1 ? 0 : bIdx;
+        int64_t offsetBatchB = batchSizeB == 1 ? 0 : bIdx;
+        auto aValidShape3D = operand1.GetStorage()->GetDynValidShape();
+        auto bValidShape3D = operand2.GetStorage()->GetDynValidShape();
+
+        Tensor aTensorSingleBatch = View(operand1, {1, operand1.GetShape()[1], operand1.GetShape()[SHAPE_DIM2]},
+            std::vector<SymbolicScalar>({1, aValidShape3D[1], aValidShape3D[SHAPE_DIM2]}), {offsetBatchA, 0, 0});
+        Tensor bTensorSingleBatch = View(operand2, {1, operand2.GetShape()[1], operand2.GetShape()[SHAPE_DIM2]},
+            std::vector<SymbolicScalar>({1, bValidShape3D[1], bValidShape3D[SHAPE_DIM2]}), {offsetBatchB, 0, 0});
+
+        Tensor aTensor = Reshape(aTensorSingleBatch, {operand1.GetShape()[1], operand1.GetShape()[SHAPE_DIM2]},
+            std::vector<SymbolicScalar>({aValidShape3D[1], aValidShape3D[SHAPE_DIM2]}));
+        Tensor bTensor = Reshape(bTensorSingleBatch, {operand2.GetShape()[1], operand2.GetShape()[SHAPE_DIM2]},
+            std::vector<SymbolicScalar>({bValidShape3D[1], bValidShape3D[SHAPE_DIM2]}));
+        Tensor cTensor(dataType, {mView, nView}, "cTensorSingleBatch");
+
+        MatmulGraphNodes tensorGraphNodes(aTensor.GetStorage(), bTensor.GetStorage());
+        tensorGraphNodes.outTensorPtr = cTensor.GetStorage();
+        AddAMulBNode(tensorGraphNodes, attrParam);
+        auto cValidShape2D = cTensor.GetStorage()->GetDynValidShape();
+        Tensor cTensor3D = Reshape(cTensor, {1, cTensor.GetShape()[0], cTensor.GetShape()[1]},
+            std::vector<SymbolicScalar>({1, cValidShape2D[0], cValidShape2D[1]}));
+        Assemble(cTensor3D, {bIdx, 0, 0}, result);
+    }
+    TileShape::Current().SetVecTile(oriVecTile);
+    return result;
+}
+
+Tensor ConstructBatchMatmulTensorGraph4D(
+    DataType dataType, const Tensor &operand1, const Tensor &operand2, const MatmulAttrParam &attrParam) {
     const int64_t batchSizeA1 = operand1.GetShape()[0];
     const int64_t batchSizeA2 = operand1.GetShape()[1];
     const int64_t batchSizeB1 = operand2.GetShape()[0];
     const int64_t batchSizeB2 = operand2.GetShape()[1];
+    const int64_t batchSize1 = std::max(batchSizeA1, batchSizeB1);
+    const int64_t batchSize2 = std::max(batchSizeA2, batchSizeB2);
+    const int64_t mView = attrParam.transA ? operand1.GetShape()[SHAPE_DIM3] : operand1.GetShape()[SHAPE_DIM2];
+    const int64_t nView = attrParam.transB ? operand2.GetShape()[SHAPE_DIM2] : operand2.GetShape()[SHAPE_DIM3];
+    Tensor result = attrParam.isCMatrixNZ ? Tensor(dataType, {batchSize1, batchSize2, mView, nView}, "BatchMatmulOutputNz",
+                                      TileOpFormat::TILEOP_NZ) :
+                                  Tensor(dataType, {batchSize1, batchSize2, mView, nView});
+    auto oriVecTile = TileShape::Current().GetVecTile();
+    TileShape::Current().SetVecTile({1, 1, 128, 128});
+    for (int64_t bIdx1 = 0; bIdx1 < batchSize1; bIdx1++) {
+        int64_t offsetBatchA1 = batchSizeA1 == 1 ? 0 : bIdx1;
+        int64_t offsetBatchB1 = batchSizeB1 == 1 ? 0 : bIdx1;
+        for (int64_t bIdx2 = 0; bIdx2 < batchSize2; bIdx2++) {
+            int64_t offsetBatchA2 = batchSizeA2 == 1 ? 0 : bIdx2;
+            int64_t offsetBatchB2 = batchSizeB2 == 1 ? 0 : bIdx2;
+            auto aValidShape4D = operand1.GetStorage()->GetDynValidShape();
+            auto bValidShape4D = operand2.GetStorage()->GetDynValidShape();
 
-    const int64_t orgM = attrParam.transA ? operand1.GetShape()[SHAPE_DIM3] : operand1.GetShape()[SHAPE_DIM2];
-    const int64_t orgKa = attrParam.transA ? operand1.GetShape()[SHAPE_DIM2] : operand1.GetShape()[SHAPE_DIM3];
-    const int64_t orgKb = attrParam.transB ? operand2.GetShape()[SHAPE_DIM3] : operand2.GetShape()[SHAPE_DIM2];
-    const int64_t orgN = attrParam.transB ? operand2.GetShape()[SHAPE_DIM2] : operand2.GetShape()[SHAPE_DIM3];
-    ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, orgKa == orgKb) << "orgK mismatch: Ka: " << orgKa << ", Kb: " << orgKb;
-    int64_t firstDimA = attrParam.transA ? orgKa : orgM;
-    int64_t secondDimA = attrParam.transA ? orgM : orgKa;
-    int64_t firstDimB = attrParam.transB ? orgN : orgKb;
-    int64_t secondDimB = attrParam.transB ? orgKb : orgN;
-    auto operand2D1 = Reshape(operand1, {batchSizeA1 * batchSizeA2 * firstDimA, secondDimA});
-    auto operand2D2 = Reshape(operand2, {batchSizeB1 * batchSizeB2 * firstDimB, secondDimB});
-    int64_t batchSize1 = std::max(batchSizeA1, batchSizeB1);
-    int64_t batchSize2 = std::max(batchSizeA2, batchSizeB2);
-    Tensor result(dataType, {batchSize1 * batchSize2 * orgM, orgN});
-    if (attrParam.isCMatrixNZ) {
-        result =
-            Tensor(dataType, {batchSize1 * batchSize2 * orgM, orgN}, "BatchMatmulOutputNz", TileOpFormat::TILEOP_NZ);
-    }
-    CheckMatmulOperands(dataType, operand2D1, operand2D2, attrParam);
+            Tensor aTensorSingleBatch =
+                View(operand1, {1, 1, operand1.GetShape()[SHAPE_DIM2], operand1.GetShape()[SHAPE_DIM3]},
+                    std::vector<SymbolicScalar>({1, 1, aValidShape4D[SHAPE_DIM2], aValidShape4D[SHAPE_DIM3]}),
+                    {offsetBatchA1, offsetBatchA2, 0, 0});
+            Tensor bTensorSingleBatch =
+                View(operand2, {1, 1, operand2.GetShape()[SHAPE_DIM2], operand2.GetShape()[SHAPE_DIM3]},
+                    std::vector<SymbolicScalar>({1, 1, bValidShape4D[SHAPE_DIM2], bValidShape4D[SHAPE_DIM3]}),
+                    {offsetBatchB1, offsetBatchB2, 0, 0});
+            Tensor aTensor =
+                Reshape(aTensorSingleBatch, {operand1.GetShape()[SHAPE_DIM2], operand1.GetShape()[SHAPE_DIM3]},
+                    std::vector<SymbolicScalar>({aValidShape4D[SHAPE_DIM2], aValidShape4D[SHAPE_DIM3]}));
+            Tensor bTensor =
+                Reshape(bTensorSingleBatch, {operand2.GetShape()[SHAPE_DIM2], operand2.GetShape()[SHAPE_DIM3]},
+                    std::vector<SymbolicScalar>({bValidShape4D[SHAPE_DIM2], bValidShape4D[SHAPE_DIM3]}));
+            Tensor cTensor(dataType, {mView, nView}, "cTensorSingleBatch");
 
-    int64_t strideA = batchSizeA2 == 1 ? 0 : firstDimA;
-    int64_t strideB = batchSizeB2 == 1 ? 0 : firstDimB;
-    int64_t offsetC = 0;
-    auto &curFunc = *Program::GetInstance().GetCurrentFunction();
-    for (int64_t i = 0; i < batchSize1; i++) {
-        int64_t offsetA = batchSizeA1 == 1 ? 0 : i * batchSizeA2 * firstDimA;
-        int64_t offsetB = batchSizeB1 == 1 ? 0 : i * batchSizeB2 * firstDimB;
-        for (int64_t j = 0; j < batchSize2; j++) {
-            auto tensorA = operand2D1.GetStorage()->View(curFunc, {firstDimA, secondDimA}, {offsetA, 0});
-            auto tensorB = operand2D2.GetStorage()->View(curFunc, {firstDimB, secondDimB}, {offsetB, 0});
-            auto tensorC = result.GetStorage()->View(curFunc, {orgM, orgN}, {offsetC, 0});
-            MatmulGraphNodes tensorGraphNodes(tensorA, tensorB);
-            tensorGraphNodes.outTensorPtr = tensorC;
+            MatmulGraphNodes tensorGraphNodes(aTensor.GetStorage(), bTensor.GetStorage());
+            tensorGraphNodes.outTensorPtr = cTensor.GetStorage();
             AddAMulBNode(tensorGraphNodes, attrParam);
-            offsetC += orgM;
-            offsetA += strideA;
-            offsetB += strideB;
+            auto cValidShape2D = cTensor.GetStorage()->GetDynValidShape();
+            Tensor cTensor4D = Reshape(cTensor, {1, 1, cTensor.GetShape()[0], cTensor.GetShape()[1]},
+                std::vector<SymbolicScalar>({1, 1, cValidShape2D[0], cValidShape2D[1]}));
+            Assemble(cTensor4D, {bIdx1, bIdx2, 0, 0}, result);
         }
     }
-    return Reshape(result, {batchSize1, batchSize2, orgM, orgN});
-};
+    TileShape::Current().SetVecTile(oriVecTile);
+    return result;
+}
 
 Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix, const bool isTransA,
     const bool isTransB, const bool isCMatrixNZ) {
     MatmulAttrParam attrParam(isTransA, isTransB, isCMatrixNZ);
-    auto vecTile = TileShape::Current().GetVecTile();
-    if (vecTile.size() < SHAPE_DIM2) {
-        const int32_t vecTileShape = 128;
-        TileShape::Current().SetVecTile({vecTileShape, vecTileShape});
-    }
-    DECLARE_TRACER();
-    ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, aMatrix.GetShape().size() == bMatrix.GetShape().size())
-        << "Matrix dimension mismatch: a: " << aMatrix.GetShape().size() << ", b: " << bMatrix.GetShape().size();
-    Tensor res;
+    CheckMatmulOperands(dataType, aMatrix, bMatrix, attrParam);
+    CheckABatchMulB(aMatrix, bMatrix);
     if (aMatrix.GetShape().size() == SHAPE_DIM4) {
-        MATMUL_LOGD("BatchMatmul 4D: Start.");
-        res = ABatchMulB4D(dataType, aMatrix, bMatrix, attrParam);
+        return ConstructBatchMatmulTensorGraph4D(dataType, aMatrix, bMatrix, attrParam);
     } else {
-        MATMUL_LOGD("BatchMatmul 3D: Start.");
-        res = ABatchMulB3D(dataType, aMatrix, bMatrix, attrParam);
+        return ConstructBatchMatmulTensorGraph3D(dataType, aMatrix, bMatrix, attrParam);
     }
-    return res;
 }
 
 // 定制接口：用于Transpose + BMM + Transpose融合场景
