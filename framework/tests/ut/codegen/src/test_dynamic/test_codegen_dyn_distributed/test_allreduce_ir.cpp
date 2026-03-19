@@ -229,6 +229,26 @@ TEST_F(AllReduceIRTest, V6PlusPull_IRStructure)
     });
 }
 
+TEST_F(AllReduceIRTest, V6LightPlusPull_IRStructure)
+{
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    Shape shmemDataShape{1, kRow, kCol};
+    FUNCTION("UT_IR_V6_LIGHT", {in}, {out}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        CreateShmemSignalLight(kGroup, kWorldSize, shmemSignal);
+        OneShotCommunicatorV2 comm(kGroup, kWorldSize, shmemSignal);
+        OneShotAllReduce_v6_light(in, in, shmemData, comm);
+        auto waitToken = comm.Wait(in);
+        out = comm.Pull(waitToken, shmemData);
+    }
+
+    auto ops = ExtractShmemOpcodes("UT_IR_V6_LIGHT");
+    VerifyOneShotCounts(CountShmemOps(ops), kWorldSize);
+}
+
 // v7 grouped signaling: validate IR op counts across k sweep.
 TEST_F(AllReduceIRTest, V7Grouped_IRStructure_KSweep)
 {
@@ -295,6 +315,72 @@ TEST_F(AllReduceIRTest, V7Grouped_TailGroupThreshold_IRStructure)
     VerifyOneShotGroupedCounts(CountShmemOps(ops), kWorldSize, payloadChunkCount, chunksPerSignal);
 }
 
+// v8 policy-driven signaling: contiguous grouping should preserve grouped op counts.
+TEST_F(AllReduceIRTest, V8SignalPlan_Contiguous_KSweep_IRStructure)
+{
+    constexpr uint32_t payloadChunkCount = 8u;
+    std::vector<uint32_t> kCandidates{1u, 2u, 4u, payloadChunkCount};
+    for (uint32_t k : kCandidates) {
+        Program::GetInstance().Reset();
+        std::string tag = "UT_IR_V8_CONTIG_K" + std::to_string(k);
+        Tensor in(DT_FP16, {kRow, kCol}, "in");
+        Tensor out(DT_FP16, {kRow, kCol}, "out");
+        Shape shmemDataShape{1, kRow, kCol};
+
+        FUNCTION(tag.c_str(), {in}, {out}) {
+            TileShape::Current().SetVecTile({kRow, kCol});
+            Tensor shmemData, shmemSignal;
+            CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+            OneShotSignalPlan plan(payloadChunkCount, k, SignalGroupingMode::CONTIGUOUS);
+            OneShotCommunicatorV4 comm(kGroup, kWorldSize, shmemSignal, plan);
+            OneShotAllReduce_v8(in, in, shmemData, comm);
+            for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
+                auto waitToken = comm.WaitGroup(in, groupId);
+                uint32_t gSize = comm.GroupSize(groupId);
+                for (uint32_t local = 0; local < gSize; ++local) {
+                    uint32_t chunkId = comm.GroupChunkAt(groupId, local);
+                    auto reducedChunk = comm.PullChunk(waitToken, shmemData, chunkId);
+                    Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
+                }
+            }
+        }
+
+        auto ops = ExtractShmemOpcodes(tag);
+        VerifyOneShotGroupedCounts(CountShmemOps(ops), kWorldSize, payloadChunkCount, k);
+    }
+}
+
+// v8 interleaved mapping: same control-op counts, different chunk->group mapping.
+TEST_F(AllReduceIRTest, V8SignalPlan_Interleaved_TailGroup_IRStructure)
+{
+    constexpr uint32_t payloadChunkCount = 7u;
+    constexpr uint32_t chunksPerSignal = 4u;
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    Shape shmemDataShape{1, kRow, kCol};
+
+    FUNCTION("UT_IR_V8_INTERLEAVED_TAIL", {in}, {out}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        OneShotSignalPlan plan(payloadChunkCount, chunksPerSignal, SignalGroupingMode::INTERLEAVED);
+        OneShotCommunicatorV4 comm(kGroup, kWorldSize, shmemSignal, plan);
+        OneShotAllReduce_v8(in, in, shmemData, comm);
+        for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
+            auto waitToken = comm.WaitGroup(in, groupId);
+            uint32_t gSize = comm.GroupSize(groupId);
+            for (uint32_t local = 0; local < gSize; ++local) {
+                uint32_t chunkId = comm.GroupChunkAt(groupId, local);
+                auto reducedChunk = comm.PullChunk(waitToken, shmemData, chunkId);
+                Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
+            }
+        }
+    }
+
+    auto ops = ExtractShmemOpcodes("UT_IR_V8_INTERLEAVED_TAIL");
+    VerifyOneShotGroupedCounts(CountShmemOps(ops), kWorldSize, payloadChunkCount, chunksPerSignal);
+}
+
 // ===========================================================================
 // OneShot cross-variant IR equivalence (base as golden reference).
 // If any variant drifts here, something went wrong in the refactoring.
@@ -338,11 +424,29 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
         out = comm.Pull(waitToken, sd);
     });
 
+    Program::GetInstance().Reset();
+    Tensor inV6Light(DT_FP16, {kRow, kCol}, "in_v6_light");
+    Tensor outV6Light(DT_FP16, {kRow, kCol}, "out_v6_light");
+    Shape shmemDataShapeV6Light{1, kRow, kCol};
+    FUNCTION("UT_EQUIV_V6_LIGHT", {inV6Light}, {outV6Light}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(PromotedType(inV6Light.GetDataType()), shmemDataShapeV6Light, shmemData, shmemSignal);
+        CreateShmemSignalLight(kGroup, kWorldSize, shmemSignal);
+        OneShotCommunicatorV2 comm(kGroup, kWorldSize, shmemSignal);
+        OneShotAllReduce_v6_light(inV6Light, inV6Light, shmemData, comm);
+        auto waitToken = comm.Wait(inV6Light);
+        outV6Light = comm.Pull(waitToken, shmemData);
+    }
+    auto irV6Light = ExtractShmemOpcodes("UT_EQUIV_V6_LIGHT");
+    VerifyOneShotCounts(CountShmemOps(irV6Light), kWorldSize);
+
     EXPECT_EQ(irBase, irV2) << "OneShot base and v2 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV3) << "OneShot base and v3 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV4) << "OneShot base and v4 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV5) << "OneShot base and v5+Pull SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV6) << "OneShot base and v6+Pull SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV6Light) << "OneShot base and v6_light+Pull SHMEM opcode sequences differ";
 }
 
 // ===========================================================================
@@ -547,6 +651,43 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV6_IRStructure)
     EXPECT_EQ(opsV6, opsBase) << "OneShot v6 and base differ at worldSize=" << worldSize;
 }
 
+TEST_P(AllReduceIRMultiRankTest, OneShotV6Light_IRStructure)
+{
+    uint32_t worldSize = W();
+    std::string tag = "UT_MR_OS_V6_LIGHT_W" + std::to_string(worldSize);
+    Shape shmemDataShape{1, kRow, kCol};
+
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    FUNCTION(tag.c_str(), {in}, {out}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        CreateShmemSignalLight(kGroup, worldSize, shmemSignal);
+        OneShotCommunicatorV2 comm(kGroup, worldSize, shmemSignal);
+        OneShotAllReduce_v6_light(in, in, shmemData, comm);
+        auto waitToken = comm.Wait(in);
+        out = comm.Pull(waitToken, shmemData);
+    }
+
+    auto opsV6Light = ExtractShmemOpcodes(tag);
+    VerifyOneShotCounts(CountShmemOps(opsV6Light), worldSize);
+
+    Program::GetInstance().Reset();
+    std::string baseTag = "UT_MR_OS_BASE_V6_LIGHT_W" + std::to_string(worldSize);
+    Tensor inBase(DT_FP16, {kRow, kCol}, "in_base");
+    Tensor outBase(DT_FP16, {kRow, kCol}, "out_base");
+    FUNCTION(baseTag.c_str(), {inBase}, {outBase}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        OneShotAllReduce(inBase, inBase, kGroup, shmemData, shmemSignal, outBase);
+    }
+
+    auto opsBase = ExtractShmemOpcodes(baseTag);
+    EXPECT_EQ(opsV6Light, opsBase) << "OneShot v6_light and base differ at worldSize=" << worldSize;
+}
+
 TEST_P(AllReduceIRMultiRankTest, OneShotV7Grouped_IRStructure)
 {
     uint32_t worldSize = W();
@@ -577,6 +718,38 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV7Grouped_IRStructure)
 
     auto opsV7 = ExtractShmemOpcodes(tag);
     VerifyOneShotGroupedCounts(CountShmemOps(opsV7), worldSize, payloadChunkCount, chunksPerSignal);
+}
+
+TEST_P(AllReduceIRMultiRankTest, OneShotV8Grouped_IRStructure)
+{
+    uint32_t worldSize = W();
+    constexpr uint32_t payloadChunkCount = 7u;
+    constexpr uint32_t chunksPerSignal = 4u;
+    std::string tag = "UT_MR_OS_V8_GROUPED_W" + std::to_string(worldSize);
+    Shape shmemDataShape{1, kRow, kCol};
+
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    FUNCTION(tag.c_str(), {in}, {out}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        OneShotSignalPlan plan(payloadChunkCount, chunksPerSignal, SignalGroupingMode::CONTIGUOUS);
+        OneShotCommunicatorV4 comm(kGroup, worldSize, shmemSignal, plan);
+        OneShotAllReduce_v8(in, in, shmemData, comm);
+        for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
+            auto waitToken = comm.WaitGroup(in, groupId);
+            uint32_t gSize = comm.GroupSize(groupId);
+            for (uint32_t local = 0; local < gSize; ++local) {
+                uint32_t chunkId = comm.GroupChunkAt(groupId, local);
+                auto reducedChunk = comm.PullChunk(waitToken, shmemData, chunkId);
+                Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
+            }
+        }
+    }
+
+    auto opsV8 = ExtractShmemOpcodes(tag);
+    VerifyOneShotGroupedCounts(CountShmemOps(opsV8), worldSize, payloadChunkCount, chunksPerSignal);
 }
 
 TEST_P(AllReduceIRMultiRankTest, TwoShotV5_IRStructure)
