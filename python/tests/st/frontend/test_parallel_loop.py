@@ -1,3 +1,14 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
 import logging
 import pypto
 import torch
@@ -18,13 +29,11 @@ def gen_add_golden(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     return out
 
 
-
 def prep_env():
-
     device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
     torch.npu.set_device(device_id)
-
     torch_npu.npu.config.allow_internal_format = True
+
 
 def parallel_add_compute_single_parallel(left: pypto.Tensor, right: pypto.Tensor, res: pypto.Tensor):
     n0 = left.shape[0]
