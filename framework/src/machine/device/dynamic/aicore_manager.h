@@ -168,6 +168,12 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
         availableCoreQueue_[(int)CoreType::AIC] = new coreQueue_t(AIC_CORE_COUNT);
         for (int i = aivStart_; i < aivEnd_; i++) availableCoreQueue_[(int)CoreType::AIV]->push(i);
         for (int i = aicStart_; i < aicEnd_; i++) availableCoreQueue_[(int)CoreType::AIC]->push(i);
+        
+        for (int i = aivStart_; i < aivEnd_; i++) aicoreRunningTaskId_[i] = aicoreNullTask;
+        for (int i = aivStart_; i < aivEnd_; i++) aicorePendingTaskId_[i] = aicoreNullTask;
+        
+        for (int i = aicStart_; i < aicEnd_; i++) aicoreRunningTaskId_[i] = aicoreNullTask;
+        for (int i = aicStart_; i < aicEnd_; i++) aicorePendingTaskId_[i] = aicoreNullTask;
     }
 
     inline void CountSendTask(uint64_t &sentAic, uint64_t &sentAiv) {
@@ -354,6 +360,7 @@ private:
         {
             uint32_t coreIdx = context_->coreRunReadyCnt_[typeIdx] - 1;
             uint32_t coreId = context_->runReadyCoreIdx_[typeIdx][coreIdx];
+            aicoreRunningTaskId_[coreId] = newTask[sendCnt];
             SendTaskToAiCore(type, coreId, newTask[sendCnt]);
             context_->coreRunReadyCnt_[typeIdx]--;
             sendCnt++;
@@ -365,6 +372,7 @@ private:
         uint32_t lastProcCore = idx;
         while (context_->corePendReadyCnt_[typeIdx] > 0 && sendCnt < taskCount) {
             if (pendingIds_[idx] == AICORE_TASK_INIT) {
+                aicorePendingTaskId_[idx] = newTask[sendCnt];
                 SendTaskToAiCore(type, idx, newTask[sendCnt]);
                 sendCnt++;
                 context_->corePendReadyCnt_[typeIdx]--;
@@ -448,13 +456,15 @@ private:
             pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
             pendingResolveIndexBaseRef = 0;
 
+            aicoreRunningTaskId_[coreIdx] = aicoreNullTask;
+            aicorePendingTaskId_[coreIdx] = aicoreNullTask;
+
             context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
             context_->corePendReadyCnt_[static_cast<int>(type)]++;
 
             if (runningIdValue != AICORE_TASK_INIT) ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
             ResolveDepWithDfx(type, coreIdx, pendingIdValue, pendingResolveIndexBaseValue);
         }
-        
         
         if (finTaskId == pendingIdRef && finTaskState == TASK_ACK_STATE) {
             // pending task is acknowledged, resolve running task. And move pending to running
@@ -464,8 +474,10 @@ private:
             runningResolveIndexBaseRef = pendingResolveIndexBaseRef;
             pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
             pendingResolveIndexBaseRef = 0;
-             
             context_->corePendReadyCnt_[static_cast<int>(type)]++;
+
+            aicoreRunningTaskId_[coreIdx] = aicorePendingTaskId_[coreIdx];
+            aicorePendingTaskId_[coreIdx] = aicoreNullTask;
 
             if (runningIdValueAck != AICORE_TASK_INIT) ResolveDepWithDfx(type, coreIdx, runningIdValueAck, runningResolveIndexBaseValueAck);
         }
@@ -476,6 +488,9 @@ private:
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
             runningIdRef = AICORE_TASK_INIT;
             runningResolveIndexBaseRef = 0;
+
+            aicoreRunningTaskId_[coreIdx] = aicoreNullTask;
+            // aicorePendingTaskId_[coreIdx] = aicorePendingTaskId_[coreIdx];
 
             if (pendingIdRef == AICORE_TASK_INIT) context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
             ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
