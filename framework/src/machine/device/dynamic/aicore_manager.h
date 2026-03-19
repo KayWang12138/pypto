@@ -367,23 +367,18 @@ private:
         }
         context_->corePendReadyCnt_[typeIdx] -= sendCnt;
 
-        uint32_t idx = context_->lastPendReadyCoreIdx_[typeIdx];
+        uint32_t idx = coreIdxStart;
         uint32_t coreNum = coreIdxEnd - coreIdxStart;
-        uint32_t lastProcCore = idx;
         while (context_->corePendReadyCnt_[typeIdx] > 0 && sendCnt < taskCount) {
             if (pendingIds_[idx] == AICORE_TASK_INIT) {
                 aicorePendingTaskId_[idx] = newTask[sendCnt];
                 SendTaskToAiCore(type, idx, newTask[sendCnt]);
                 sendCnt++;
                 context_->corePendReadyCnt_[typeIdx]--;
-                lastProcCore = idx;
             }
             idx = coreIdxStart + (idx - coreIdxStart + 1) % coreNum;
         }
 
-        if (lastProcCore != context_->lastPendReadyCoreIdx_[typeIdx]) {
-            context_->lastPendReadyCoreIdx_[typeIdx] = coreIdxStart + (lastProcCore - coreIdxStart + 1) % coreNum;
-        }
         return sendCnt;
     }
 
@@ -444,7 +439,7 @@ private:
             uint32_t runningIdValue = runningIds_[coreIdx];
             uint32_t pendingIdValue = pendingIds_[coreIdx];
             runningIds_[coreIdx] = AICORE_TASK_INIT;
-            pendingIds_[coreIdx] = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
+            pendingIds_[coreIdx] = AICORE_TASK_INIT; // processFinishedTask depend this line
 
             aicoreRunningTaskId_[coreIdx] = aicoreNullTask;
             aicorePendingTaskId_[coreIdx] = aicoreNullTask;
@@ -452,21 +447,21 @@ private:
             context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
             context_->corePendReadyCnt_[static_cast<int>(type)]++;
 
-            if (runningIdValue != AICORE_TASK_INIT) ResolveDepWithDfx(type, coreIdx, runningIdValue);
-            ResolveDepWithDfx(type, coreIdx, pendingIdValue);
+            if (runningIdValue != AICORE_TASK_INIT) processFinishedTask(type, runningIdValue);
+            processFinishedTask(type, pendingIdValue);
         }
         
         if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_ACK_STATE) {
             // pending task is acknowledged, resolve running task. And move pending to running
             uint32_t runningIdValueAck = runningIds_[coreIdx];
             runningIds_[coreIdx] = finTaskId;
-            pendingIds_[coreIdx] = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
+            pendingIds_[coreIdx] = AICORE_TASK_INIT; // processFinishedTask depend this line
             context_->corePendReadyCnt_[static_cast<int>(type)]++;
 
             aicoreRunningTaskId_[coreIdx] = aicorePendingTaskId_[coreIdx];
             aicorePendingTaskId_[coreIdx] = aicoreNullTask;
 
-            if (runningIdValueAck != AICORE_TASK_INIT) ResolveDepWithDfx(type, coreIdx, runningIdValueAck);
+            if (runningIdValueAck != AICORE_TASK_INIT) processFinishedTask(type, runningIdValueAck);
         }
         
         if (finTaskId == runningIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
@@ -478,7 +473,7 @@ private:
             // aicorePendingTaskId_[coreIdx] = aicorePendingTaskId_[coreIdx];
 
             if (pendingIds_[coreIdx] == AICORE_TASK_INIT) context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
-            ResolveDepWithDfx(type, coreIdx, runningIdValue);
+            processFinishedTask(type, runningIdValue);
         }
     }
 
@@ -486,7 +481,7 @@ private:
         context_->readyIds[coreType][context_->readyCount[coreType]++] = taskId;
     }
 
-    inline void ResolveDynStitched(DynDeviceTask *dyntask, int origfunc, int origop, int coreIdx = 0) {
+    inline void ResolveDynStitched(DynDeviceTask *dyntask, int origfunc, int origop) {
         auto &duppedData = dyntask->GetDynFuncDataCacheList()[origfunc].duppedData;
         auto &stitchList = duppedData->GetOperationStitch(origop);
         auto cceBinary = dyntask->cceBinary;
@@ -507,8 +502,7 @@ private:
                 auto callList = dyntask->dynFuncDataCacheList[funcId].calleeList;
                 auto coreType = cceBinary[callList[opIndex]].coreType;
                 if (unlikely(coreType == static_cast<int>(CoreType::HUB))) {
-                    ResolveDepDyn(id, 0, coreIdx);
-                    context_->resolveHubCnt_++;
+                    ResolveDepDyn(id);
                 } else {
                     PushReadyTask(static_cast<int>(coreType), id);
                 }
@@ -516,10 +510,10 @@ private:
         }
     }
 
-    inline void ResolveDepDyn(uint64_t finishId, size_t resolveIndexBase = 0, int coreIdx = 0) {
+    inline void ResolveDepDyn(uint64_t taskId) {
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
-        auto funcId = FuncID(finishId);
-        auto opIndex = TaskID(finishId);
+        auto funcId = FuncID(taskId);
+        auto opIndex = TaskID(taskId);
 
         auto cceBinary = dyntask->cceBinary;
         auto func = dyntask->dynFuncDataCacheList[funcId].devFunc;
@@ -530,26 +524,25 @@ private:
         const int *succIndexList = func->GetOperationDepGraphCopyOutResolveSuccIndexAddr(opIndex, succIndexSize);
         size_t succSize;
         auto succList = func->GetOperationDepGraphSuccAddr(opIndex, succSize);
-        for (size_t i = succIndexList[resolveIndexBase]; i < succSize; i++) {
+        for (size_t i = succIndexList[0]; i < succSize; i++) {
             auto succIdx = succList[i];
             if (predCounts[succIdx] == 1 ||
                 __atomic_sub_fetch(&predCounts[succIdx], 1, __ATOMIC_RELAXED) == 0) {
                 auto id = MakeTaskID(funcId, succIdx);
                 auto coreType = cceBinary[callList[succIdx]].coreType;
                 if (unlikely(coreType == static_cast<int>(CoreType::HUB))) {
-                    ResolveDepDyn(id, resolveIndexBase, coreIdx);
-                    context_->resolveHubCnt_++;
+                    ResolveDepDyn(id);
                 } else {
                     PushReadyTask(static_cast<int>(coreType), id);
                 }
             }
         }
 
-        ResolveDynStitched(dyntask, funcId, opIndex, coreIdx);
+        ResolveDynStitched(dyntask, funcId, opIndex);
     }
 
-    inline void ResolveDepWithDfx(CoreType type, int coreIdx, uint64_t finishId, size_t resolveIndexBase = 0) {
-        ResolveDepDyn(finishId, resolveIndexBase, coreIdx);
+    inline void processFinishedTask(CoreType type, uint64_t taskId) {
+        ResolveDepDyn(taskId);
         context_->waitTaskCnt_[static_cast<int>(type)]--;
     }
 
@@ -699,8 +692,6 @@ private:
         aivStart_ += aicValidNum_;
         aivEnd_ += aicValidNum_;
 
-        context_->lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIV)] = static_cast<uint32_t>(aivStart_);
-        context_->lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIC)] = static_cast<uint32_t>(aicStart_);
         aicoreHal_.SetMngCoreBlockId(aicStart_, aicEnd_, aivStart_, aivEnd_);
     }
 

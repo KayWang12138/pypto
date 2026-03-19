@@ -52,7 +52,6 @@ struct SchduleContext {
     uint32_t corePendReadyCnt_[AICORE_TYPE_NUM]{0,0};
     uint32_t coreRunReadyCnt_[AICORE_TYPE_NUM]{0,0};
     uint32_t runReadyCoreIdx_[AICORE_TYPE_NUM][MAX_MANAGER_AIV_NUM];
-    uint32_t lastPendReadyCoreIdx_[AICORE_TYPE_NUM]{0,0};
     uint64_t resolveHubCnt_{0};
 
     uint32_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
