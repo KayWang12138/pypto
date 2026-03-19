@@ -396,7 +396,7 @@ Assemble拆分了最高轴，认为可以透传，不需要拷贝，前序在Exp
 Copy_Out --> tensor(GM) --> Reshape --> oriBackUp [16, 16] --> Assemble(offset, dynOffset) --> OCAST(offset, dynOffset) [16, 64]
 因此需要: 重新计算Reshape输入的RawShape, offset, dynOffset
 */
-Status HandleDynOffsetForReshape(
+Status RemoveRedundantAssemble::HandleDynOffsetForReshape(
     Operation &assembleOp, const std::set<Operation *, LogicalTensor::CompareOp> &producers) const {
     std::vector<SymbolicScalar> newDynOffset;
     std::vector<int64_t> newRawShape;
