@@ -210,7 +210,8 @@ void IndexOutCastInferFunc(Operation* op,
                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;
     /* 这里取IOperands索引是依据AddOperation中ioprand中的输入的顺序，这里使用的是dst参数的ioprand，即第2个索引 */
-    auto inValidShape = op->GetIOperands()[2]->GetDynValidShape();
+    size_t input_dim = 2;
+    auto inValidShape = op->GetIOperands()[input_dim]->GetDynValidShape();
 
     for (size_t i = 0; i < inValidShape.size(); ++i) {
         outValidShape.push_back(inValidShape[i]);
@@ -221,7 +222,11 @@ void IndexOutCastInferFunc(Operation* op,
     }
     
     auto indexOutCastOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
-    indexOutCastOpAttribute->SetFromDynValidShape(OpImmediate::Specified(op->GetIOperands()[2]->GetDynValidShape()));
+    if (indexOutCastOpAttribute == null) {
+        ALOG_WARN_F("IndexOutCast [%d] has no  copyOpAttr.", op->GetOpMagic());
+        return;
+    }
+    indexOutCastOpAttribute->SetFromDynValidShape(OpImmediate::Specified(op->GetIOperands()[input_dim]->GetDynValidShape()));
     op->SetOpAttribute(indexOutCastOpAttribute);
 }
 REGISTER_INFER_SHAPE_FUNC(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, IndexOutCastInferFunc);

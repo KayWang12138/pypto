@@ -686,7 +686,8 @@ TEST_F(InferShapeTest, TestIndexOutCast) {
     EXPECT_NE(outcast->GetDynValidShape().size(), 0);
     EXPECT_EQ(inferShapeTest.PostCheck(*currFunctionPtr), SUCCESS);
     auto indexOutCastOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(indexoutcastOp.GetOpAttribute());
-    EXPECT_EQ(indexOutCastOpAttribute != nullptr, true);
+    auto fromDynValidShape = indexOutCastOpAttribute->GetFromDynValidShape();
+    EXPECT_EQ(fromDynValidShape.size() != 0, true);
 }
 }
 }
