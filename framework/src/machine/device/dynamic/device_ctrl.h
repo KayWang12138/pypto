@@ -71,6 +71,7 @@ public:
 
     int AllocNewTaskCtrl() {
         uint32_t &taskCtrlIndex = devStartArgs_->devCtrlState.taskCtrlIndex;
+        uint64_t start = GetCycles();
         while (true) {
             if (taskCtrlIndex == MAX_DEVICE_TASK_NUM)
                 taskCtrlIndex = 0;
@@ -78,6 +79,10 @@ public:
                 return taskCtrlIndex++;
             }
             taskCtrlIndex++;
+            if (GetCycles() - start > TIMEOUT_FIVE_MINUTE) {
+                DEV_ERROR("Alloc new task ctrl over 5 min.");
+                start = GetCycles();
+            }
         }
     }
 
