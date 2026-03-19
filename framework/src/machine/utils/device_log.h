@@ -30,6 +30,7 @@
 #include "securec.h"
 #include "tilefwk/aikernel_define.h"
 #include "machine/utils/device_switch.h"
+#include "machine/utils/machine_error.h"
 
 #ifdef __DEVICE__
 #include "dlog_pub.h"
