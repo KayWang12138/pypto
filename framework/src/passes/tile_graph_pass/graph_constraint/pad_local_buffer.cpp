@@ -280,7 +280,8 @@ void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unorder
         in->tensor->oriRawshape = in->tensor->rawshape;
 
         // 修改shape和rawshape，256B/96B非整除场景需要向上取整
-        in->shape[lastIdx - 1] = Pad256(in->shape[lastIdx - 1], std::ceil(8 / dim32Count));
+        int64_t padValue = (8 + dim32Count - 1) / dim32Count;
+        in->shape[lastIdx - 1] = Pad256(in->shape[lastIdx - 1], padValue);
         in->tensor->rawshape[lastIdx - 1] = Pad256(in->tensor->oriRawshape[lastIdx - 1], 8);
         APASS_LOG_INFO_F(Elements::Operation, "op %d %s input shape and rawshape has been changed\n", op.opmagic, op.GetOpcodeStr().c_str());
     }
