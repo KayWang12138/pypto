@@ -46,7 +46,11 @@ void TestAllReduce_v5(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
 void TestAllReduce_v6(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
+void TestAllReduce_v6_light(OpTestParam &testParam, std::string& goldenDir);
+template<typename T>
 void TestAllReduce_v7(OpTestParam &testParam, std::string& goldenDir);
+template<typename T>
+void TestAllReduce_v8(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
 void TestAllReduceIREquivalence(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
