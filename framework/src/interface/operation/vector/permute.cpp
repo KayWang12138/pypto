@@ -15,8 +15,8 @@
  * 框架层次说明（参考Transpose架构）：
  * 1. TensorInnerPermute：通过AddOperation添加图节点
  * 2. TileFunc：框架自动调用，内部调用TiledInnerPermute
- * 3. TiledInnerPermute：递归切分，内部AddOperation调用TileOp
- * 4. TileOp：具体的二维Tile块处理
+ * 3. TiledInnerPermute：递归切分，内部调用TileOp
+ * 4. TileOp：具体的二维Tile块处理（含外抛for循环）
  */
 
 #include <algorithm>
@@ -305,19 +305,23 @@ struct Input {
     TileInfo tileInfo;
 };
 
-template <typename T>
-void TiledInnerPermute(Function& function, const TileShape& tileShape, int cur, Input& input,
-                       const LogicalTensorPtr& result, const LogicalTensorPtr& idxTmpTensor,
-                       const std::vector<int64_t>& reducedPerm,
-                       const std::vector<int64_t>& reducedInShape,
-                       const std::vector<int64_t>& reducedOutShape);
+void TiledInnerPermuteComputeIdx(Function& function, const TileShape& tileShape, int cur, Input& input,
+                                 const LogicalTensorPtr& idxTmpTensor,
+                                 const std::vector<int64_t>& reducedPerm,
+                                 const std::vector<int64_t>& reducedInShape);
 
-template <typename T>
-void TiledInnerPermute(Function& function, const TileShape& tileShape, const LogicalTensorPtr& operand,
-                       const LogicalTensorPtr& result, const LogicalTensorPtr& idxTmpTensor,
-                       const std::vector<int64_t>& reducedPerm,
-                       const std::vector<int64_t>& reducedInShape,
-                       const std::vector<int64_t>& reducedOutShape);
+void TiledInnerPermuteComputeIdx(Function& function, const TileShape& tileShape, const LogicalTensorPtr& operand,
+                                 const LogicalTensorPtr& idxTmpTensor,
+                                 const std::vector<int64_t>& reducedPerm,
+                                 const std::vector<int64_t>& reducedInShape);
+
+void TiledInnerPermuteGather(Function& function, const TileShape& tileShape, int cur, Input& input,
+                             const LogicalTensorPtr& result, const LogicalTensorPtr& idxTmpTensor,
+                             const std::vector<int64_t>& reducedPerm);
+
+void TiledInnerPermuteGather(Function& function, const TileShape& tileShape, const LogicalTensorPtr& operand,
+                             const LogicalTensorPtr& result, const LogicalTensorPtr& idxTmpTensor,
+                             const std::vector<int64_t>& reducedPerm);
 
 void PermuteComputeIdxTileFunc(Function& function, const TileShape& tileShape,
                                const std::vector<LogicalTensorPtr>& iOperand,
@@ -329,12 +333,10 @@ void PermuteGatherTileFunc(Function& function, const TileShape& tileShape,
                            const std::vector<LogicalTensorPtr>& oOperand,
                            const Operation& op);
 
-template <>
-void TiledInnerPermute<uint32_t>(Function& function, const TileShape& tileShape, int cur, Input& input,
-                                 const LogicalTensorPtr& result, const LogicalTensorPtr& idxTmpTensor,
+void TiledInnerPermuteComputeIdx(Function& function, const TileShape& tileShape, int cur, Input& input,
+                                 const LogicalTensorPtr& idxTmpTensor,
                                  const std::vector<int64_t>& reducedPerm,
-                                 const std::vector<int64_t>& reducedInShape,
-                                 const std::vector<int64_t>& reducedOutShape) {
+                                 const std::vector<int64_t>& reducedInShape) {
     int shapeSize = input.tensor->shape.size();
     
     if (cur == shapeSize) {
@@ -348,8 +350,8 @@ void TiledInnerPermute<uint32_t>(Function& function, const TileShape& tileShape,
         std::vector<int64_t> tmpShape = {totalElements};
         auto idxTile = idxTmpTensor->View(function, tmpShape, {0});
         
-        TPermuteComputeIdx(tile, idxTile, reducedPerm, reducedInShape, reducedOutShape, 
-                           input.tileInfo.shape, static_cast<int64_t>(reducedPerm.size()));
+        TPermuteComputeIdx(tile, idxTile, reducedPerm, reducedInShape, 
+                           input.tileInfo.shape, input.tileInfo.offset, static_cast<int64_t>(reducedPerm.size()));
         return;
     }
     
@@ -357,17 +359,24 @@ void TiledInnerPermute<uint32_t>(Function& function, const TileShape& tileShape,
     for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
         input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
-        TiledInnerPermute<uint32_t>(function, tileShape, cur + 1, input, result, idxTmpTensor,
-                                    reducedPerm, reducedInShape, reducedOutShape);
+        TiledInnerPermuteComputeIdx(function, tileShape, cur + 1, input, idxTmpTensor,
+                                    reducedPerm, reducedInShape);
     }
 }
 
-template <>
-void TiledInnerPermute<float>(Function& function, const TileShape& tileShape, int cur, Input& input,
-                              const LogicalTensorPtr& result, const LogicalTensorPtr& idxTmpTensor,
-                              const std::vector<int64_t>& reducedPerm,
-                              const std::vector<int64_t>& reducedInShape,
-                              const std::vector<int64_t>& reducedOutShape) {
+void TiledInnerPermuteComputeIdx(Function& function, const TileShape& tileShape, const LogicalTensorPtr& operand,
+                                 const LogicalTensorPtr& idxTmpTensor,
+                                 const std::vector<int64_t>& reducedPerm,
+                                 const std::vector<int64_t>& reducedInShape) {
+    TileInfo tileInfo(operand->shape.size(), operand->offset.size());
+    auto input = Input{operand, tileInfo};
+    TiledInnerPermuteComputeIdx(function, tileShape, 0, input, idxTmpTensor,
+                                reducedPerm, reducedInShape);
+}
+
+void TiledInnerPermuteGather(Function& function, const TileShape& tileShape, int cur, Input& input,
+                             const LogicalTensorPtr& result, const LogicalTensorPtr& idxTmpTensor,
+                             const std::vector<int64_t>& reducedPerm) {
     int shapeSize = input.tensor->shape.size();
     
     if (cur == shapeSize) {
@@ -391,8 +400,7 @@ void TiledInnerPermute<float>(Function& function, const TileShape& tileShape, in
         std::vector<int64_t> tmpShape = {totalElements};
         auto idxTile = idxTmpTensor->View(function, tmpShape, {0});
         
-        TPermuteGather(resultTile, tile, idxTile, reducedPerm, reducedInShape, reducedOutShape,
-                       input.tileInfo.shape, static_cast<int64_t>(reducedPerm.size()));
+        TPermuteGather(resultTile, tile, idxTile);
         return;
     }
     
@@ -400,33 +408,16 @@ void TiledInnerPermute<float>(Function& function, const TileShape& tileShape, in
     for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
         input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
-        TiledInnerPermute<float>(function, tileShape, cur + 1, input, result, idxTmpTensor,
-                                 reducedPerm, reducedInShape, reducedOutShape);
+        TiledInnerPermuteGather(function, tileShape, cur + 1, input, result, idxTmpTensor, reducedPerm);
     }
 }
 
-template <>
-void TiledInnerPermute<uint32_t>(Function& function, const TileShape& tileShape, const LogicalTensorPtr& operand,
-                                 const LogicalTensorPtr& result, const LogicalTensorPtr& idxTmpTensor,
-                                 const std::vector<int64_t>& reducedPerm,
-                                 const std::vector<int64_t>& reducedInShape,
-                                 const std::vector<int64_t>& reducedOutShape) {
+void TiledInnerPermuteGather(Function& function, const TileShape& tileShape, const LogicalTensorPtr& operand,
+                             const LogicalTensorPtr& result, const LogicalTensorPtr& idxTmpTensor,
+                             const std::vector<int64_t>& reducedPerm) {
     TileInfo tileInfo(result->shape.size(), result->offset.size());
     auto input = Input{operand, tileInfo};
-    TiledInnerPermute<uint32_t>(function, tileShape, 0, input, result, idxTmpTensor,
-                                reducedPerm, reducedInShape, reducedOutShape);
-}
-
-template <>
-void TiledInnerPermute<float>(Function& function, const TileShape& tileShape, const LogicalTensorPtr& operand,
-                              const LogicalTensorPtr& result, const LogicalTensorPtr& idxTmpTensor,
-                              const std::vector<int64_t>& reducedPerm,
-                              const std::vector<int64_t>& reducedInShape,
-                              const std::vector<int64_t>& reducedOutShape) {
-    TileInfo tileInfo(result->shape.size(), result->offset.size());
-    auto input = Input{operand, tileInfo};
-    TiledInnerPermute<float>(function, tileShape, 0, input, result, idxTmpTensor,
-                             reducedPerm, reducedInShape, reducedOutShape);
+    TiledInnerPermuteGather(function, tileShape, 0, input, result, idxTmpTensor, reducedPerm);
 }
 
 void PermuteComputeIdxTileFunc(Function& function, const TileShape& tileShape,
@@ -435,14 +426,11 @@ void PermuteComputeIdxTileFunc(Function& function, const TileShape& tileShape,
                                const Operation& op) {
     auto perm = op.GetVectorIntAttribute<int64_t>(OP_ATTR_PREFIX + "perm");
     auto srcShape = op.GetVectorIntAttribute<int64_t>(OP_ATTR_PREFIX + "srcShape");
-    auto dstShape = op.GetVectorIntAttribute<int64_t>(OP_ATTR_PREFIX + "dstShape");
     
     const auto& srcTensor = iOperand[0];
     const auto& idxTensor = iOperand[1];
-    const auto& resultTensor = oOperand[0];
     
-    TiledInnerPermute<uint32_t>(function, tileShape, srcTensor, resultTensor, idxTensor,
-                                perm, srcShape, dstShape);
+    TiledInnerPermuteComputeIdx(function, tileShape, srcTensor, idxTensor, perm, srcShape);
 }
 
 void PermuteGatherTileFunc(Function& function, const TileShape& tileShape,
@@ -450,15 +438,12 @@ void PermuteGatherTileFunc(Function& function, const TileShape& tileShape,
                            const std::vector<LogicalTensorPtr>& oOperand,
                            const Operation& op) {
     auto perm = op.GetVectorIntAttribute<int64_t>(OP_ATTR_PREFIX + "perm");
-    auto srcShape = op.GetVectorIntAttribute<int64_t>(OP_ATTR_PREFIX + "srcShape");
-    auto dstShape = op.GetVectorIntAttribute<int64_t>(OP_ATTR_PREFIX + "dstShape");
     
     const auto& srcTensor = iOperand[0];
     const auto& idxTensor = iOperand[1];
     const auto& dstTensor = oOperand[0];
     
-    TiledInnerPermute<float>(function, tileShape, srcTensor, dstTensor, idxTensor,
-                             perm, srcShape, dstShape);
+    TiledInnerPermuteGather(function, tileShape, srcTensor, dstTensor, idxTensor, perm);
 }
 
 REGISTER_OPERATION_TILED_FUNC(OP_PERMUTE_COMPUTE_IDX, Opcode::OP_PERMUTE_COMPUTE_IDX, PermuteComputeIdxTileFunc);
@@ -478,15 +463,12 @@ void TensorInnerPermute(Function& function, const LogicalTensorPtr& self, const 
     }
     tileShape.SetVecTile(newVecTileShape);
     
-    auto& computeIdxOp = function.AddOperation(Opcode::OP_PERMUTE_COMPUTE_IDX, {self, idxTmpTensor}, {result});
+    auto& computeIdxOp = function.AddOperation(Opcode::OP_PERMUTE_COMPUTE_IDX, {self, idxTmpTensor}, {});
     computeIdxOp.SetAttribute(OP_ATTR_PREFIX + "perm", reducedPerm);
     computeIdxOp.SetAttribute(OP_ATTR_PREFIX + "srcShape", reducedInShape);
-    computeIdxOp.SetAttribute(OP_ATTR_PREFIX + "dstShape", reducedOutShape);
     
     auto& gatherOp = function.AddOperation(Opcode::OP_PERMUTE_GATHER, {self, idxTmpTensor}, {result});
     gatherOp.SetAttribute(OP_ATTR_PREFIX + "perm", reducedPerm);
-    gatherOp.SetAttribute(OP_ATTR_PREFIX + "srcShape", reducedInShape);
-    gatherOp.SetAttribute(OP_ATTR_PREFIX + "dstShape", reducedOutShape);
     
     tileShape.SetVecTile(oldVecTileShapes);
 }
