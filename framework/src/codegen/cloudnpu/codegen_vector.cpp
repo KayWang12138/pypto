@@ -1641,22 +1641,24 @@ std::string CodeGenOpCloudNPU::PrintPreluTileTensor() const {
 
     return oss.str();
 }
+/*
+float32：1符号位 + 8指数位 + 23尾数位
+float16：1符号位 + 5指数位 + 10尾数位
+bfloat16：1符号位 + 8指数位 + 7尾数位
+*/
+
 
 std::string CodeGenOpCloudNPU::PrintPadTileTensor() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
-    auto c = extOperandVal.Cast<float>();
-    std::string padValue = "pto::PadValue::Zero";
-    if (c < 0) {
-        padValue = "pto::PadValue::Min";
-    } else if (c > 0) {
-        padValue = "pto::PadValue::Max";
-    }
-    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor};
-
+    
+    // 直接获取浮点数类型的 padValue
+    std::string padValue = FormatFloat(extOperandVal.Cast<float>());
+    
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, padValue};
+    
     std::ostringstream oss;
-    oss << tileOpName << "<" << padValue << ">";
-    oss << WrapParamByParentheses(tileOpParamList);
+    oss << tileOpName << WrapParamByParentheses(tileOpParamList);
     oss << STMT_END;
     return oss.str();
 }
