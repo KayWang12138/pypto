@@ -13,6 +13,9 @@
  * \brief Unit test for DynAttrToStatic pass.
  */
 
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk_op.h"
 #include "interface/function/function.h"
@@ -342,27 +345,36 @@ TEST_F(DynAttrToStaticTest, DumpAndPrintFunction) {
     ASSERT_NE(func, nullptr);
     npu::tile_fwk::DynAttrToStatic passDynAttrToStatic;
 
-    auto dir = "/tmp/dyn_attr_to_static_test" + std::to_string(::getpid());
-    std::filesystem::remove_all(dir);
-    std::filesystem::create_directories(dir);
+    std::string dir = "/tmp/dyn_attr_to_static_test" + std::to_string(::getpid());
+    (void)!system(("rm -rf " + dir).c_str());
+    if (system(("mkdir -p " + dir).c_str()) != 0) {
+        FAIL() << "Failed to create directory: " << dir;
+    }
 
-    // RAII 清理
     struct Cleanup {
-        std::filesystem::path p;
-        ~Cleanup() { std::error_code ec; std::filesystem::remove_all(p, ec); }
+        std::string p;
+        ~Cleanup() { (void)!system(("rm -rf " + p).c_str()); }
     } cleanup{dir};
 
+    std::cout << "asd " << dir << std::endl;
     EXPECT_EQ(passDynAttrToStatic.DumpFunctionJson(*func, dir, true), SUCCESS);
     EXPECT_EQ(passDynAttrToStatic.PrintFunction(*func, dir, true), SUCCESS);
 
     size_t jsonCnt = 0;
     size_t tifwkgrCnt = 0;
-    for (const auto& it : std::filesystem::directory_iterator(dir)) {
-        if (!it.is_regular_file()) continue;
-        const auto ext = it.path().extension().string();
+    DIR* dirp = opendir(dir.c_str());
+    ASSERT_NE(dirp, nullptr);
+    struct dirent* entry;
+    while ((entry = readdir(dirp)) != nullptr) {
+        if (entry->d_type != DT_REG) continue;
+        std::string filename = entry->d_name;
+        size_t pos = filename.rfind('.');
+        if (pos == std::string::npos) continue;
+        std::string ext = filename.substr(pos);
         if (ext == ".json") jsonCnt++;
         else if (ext == ".tifwkgr") tifwkgrCnt++;
     }
+    closedir(dirp);
 
     EXPECT_EQ(jsonCnt, 3u);
     EXPECT_EQ(tifwkgrCnt, 3u);
