@@ -1809,4 +1809,55 @@ std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const
 
     return oss.str();
 }
+
+std::string CodeGenOpCloudNPU::GenDequantizeOp() const {
+    if (isSupportLayout) {
+        return PrintDequantizeTileTensor();
+    }
+    ASSERT(false) << "Dequantize only support TileTensor mode";
+    return "";
+}
+
+std::string CodeGenOpCloudNPU::PrintDequantizeTileTensor() const
+{
+    // TDequant always has 4 params: dst, src, scale, offset
+    // - INT8 -> FP32: uses TDequant<INT8>
+    // - INT16 -> FP32: uses TDequant<INT16>
+    // symmetric: offset is all zeros
+    // asymmetric: offset is actual zero_points
+
+    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
+    std::string srcTensor = QueryTileTensorNameByIdx(ID1);
+    std::string scaleTensor = QueryTileTensorNameByIdx(ID2);
+    std::string offsetTensor = QueryTileTensorNameByIdx(ID3);
+
+    // Determine dequant type based on input tensor dtype
+    std::string dequantType;
+    auto srcDtype = originalOp.GetInputOperand(ID1)->GetDataType();
+    if (srcDtype == DataType::DT_INT8) {
+        dequantType = "pto::DequantType::INT8";
+    } else if (srcDtype == DataType::DT_INT16) {
+        dequantType = "pto::DequantType::INT16";
+    } else {
+        ASSERT(false) << "PrintDequantizeTileTensor: unsupported input dtype "
+                      << static_cast<int>(srcDtype) << ", expected INT8 or INT16";
+    }
+
+    std::ostringstream oss;
+    std::vector<std::string> templateParamList;
+    templateParamList.emplace_back(dequantType);
+
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstTensor);
+    paramList.emplace_back(srcTensor);
+    paramList.emplace_back(scaleTensor);
+    paramList.emplace_back(offsetTensor);  // Always 4 params
+
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets(templateParamList);
+    oss << WrapParamByParentheses(paramList);
+    oss << STMT_END;
+
+    return oss.str();
+}
 } // namespace npu::tile_fwk

@@ -685,4 +685,70 @@ class QuantizeTestCase(TestCase):
             "axis": self._case_desc.params.get("axis", -1),
             "is_asymmetric": self._case_desc.params.get("is_asymmetric", False),
         }
-        return {}
+
+
+class DequantizeTestCase(TestCase):
+    def __init__(
+        self,
+        case_index: str,
+        case_name: str,
+        input_tensors: list,
+        output_tensors: list,
+        view_shape: tuple,
+        tile_shape: tuple,
+        params: dict,
+    ):
+        super().__init__(
+            case_index,
+            case_name,
+            "Dequantize",
+            input_tensors,
+            output_tensors,
+            view_shape,
+            tile_shape,
+            params,
+            PTOTestCaseRunner(
+                "Dequantize", input_tensors, output_tensors, view_shape, tile_shape, params
+            ),
+        )
+
+    def run_in_dyn_func(self, inputs, params: dict) -> dict:
+        output_dtype = get_pto_dtype_by_name(params["otype"])
+        axis = params.get("axis", -1)
+
+        if params.get("is_asymmetric", False):
+            return pypto.dequantize(inputs[0], inputs[1], output_dtype, axis, inputs[2])
+        else:
+            return pypto.dequantize(inputs[0], inputs[1], output_dtype, axis)
+
+    def golden_func(self, inputs, params: dict) -> list:
+        input_tensor = inputs[0].to(torch.float32)  # Convert int8/int16 to float
+        scale_tensor = inputs[1]
+        axis = params.get("axis", -1)
+
+        # Normalize axis to positive index
+        if axis < 0:
+            axis = len(input_tensor.shape) + axis
+
+        # Broadcast scale to input shape
+        if scale_tensor.shape != input_tensor.shape:
+            scale_tensor = scale_tensor.broadcast_to(input_tensor.shape)
+
+        if params.get("is_asymmetric", False):
+            zero_points = inputs[2]
+            if zero_points.shape != input_tensor.shape:
+                zero_points = zero_points.broadcast_to(input_tensor.shape)
+            # Formula: dst = (src - offset) * scale
+            output = (input_tensor - zero_points) * scale_tensor
+        else:
+            # Symmetric: dst = src * scale
+            output = input_tensor * scale_tensor
+
+        return [output]
+
+    def golden_func_params(self) -> dict:
+        return {
+            "otype": self._case_desc.output_tensors[0].dtype,
+            "axis": self._case_desc.params.get("axis", -1),
+            "is_asymmetric": self._case_desc.params.get("is_asymmetric", False),
+        }

@@ -287,4 +287,169 @@ void QuantizeAsymmetricOperationTileFunc(Function &function, const TileShape &ti
 REGISTER_OPERATION_TILED_FUNC(OP_QUANTIZE_SYM, Opcode::OP_QUANTIZE_SYM, QuantizeSymmetricOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_QUANTIZE_ASYM, Opcode::OP_QUANTIZE_ASYM, QuantizeAsymmetricOperationTileFunc);
 
+// =============================================================================
+// Dequantization Operations (INT8/INT16 -> FP32)
+// TDequant always requires 4 params: dst, src, scale, offset (symmetric: offset=0)
+// =============================================================================
+
+void TiledDequantize(Function &function, const TileShape &tileShape, size_t cur,
+    Input &srcInput, Input &scaleInput, Input &offsetInput, Input &dstInput, int64_t axis) {
+    if (cur == dstInput.tensor.GetShape().size()) {
+        auto srcTile = srcInput.tensor.GetStorage()->View(function, srcInput.tileInfo.shape, srcInput.tileInfo.offset);
+        auto scaleTile = scaleInput.tensor.GetStorage()->View(function, scaleInput.tileInfo.shape, scaleInput.tileInfo.offset);
+        auto offsetTile = offsetInput.tensor.GetStorage()->View(function, offsetInput.tileInfo.shape, offsetInput.tileInfo.offset);
+        auto dstTile = dstInput.tensor.GetStorage()->View(function, dstInput.tileInfo.shape, dstInput.tileInfo.offset);
+
+        auto &op = function.AddOperation(Opcode::OP_DEQUANTIZE, {srcTile, scaleTile, offsetTile}, {dstTile});
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        return;
+    }
+
+    auto &vecTile = tileShape.GetVecTile();
+    for (int64_t i = 0; i < dstInput.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        dstInput.tileInfo.shape[cur] = std::min(dstInput.tensor.GetShape()[cur] - i, vecTile[cur]);
+        dstInput.tileInfo.offset[cur] = i;
+
+        if (cur < srcInput.tensor.GetShape().size()) {
+            srcInput.tileInfo.shape[cur] = std::min(srcInput.tensor.GetShape()[cur] - i, vecTile[cur]);
+            srcInput.tileInfo.offset[cur] = i;
+        }
+
+        if (cur < scaleInput.tensor.GetShape().size()) {
+            int64_t scaleIdx = i % scaleInput.tensor.GetShape()[cur];
+            scaleInput.tileInfo.shape[cur] = std::min(scaleInput.tensor.GetShape()[cur] - scaleIdx, vecTile[cur]);
+            scaleInput.tileInfo.offset[cur] = scaleIdx;
+        }
+
+        if (cur < offsetInput.tensor.GetShape().size()) {
+            int64_t offsetIdx = i % offsetInput.tensor.GetShape()[cur];
+            offsetInput.tileInfo.shape[cur] = std::min(offsetInput.tensor.GetShape()[cur] - offsetIdx, vecTile[cur]);
+            offsetInput.tileInfo.offset[cur] = offsetIdx;
+        }
+
+        TiledDequantize(function, tileShape, cur + 1, srcInput, scaleInput, offsetInput, dstInput, axis);
+    }
+}
+
+void TiledDequantize(Function &function, const TileShape &tileShape,
+    const LogicalTensorPtr &src, const LogicalTensorPtr &scale, const LogicalTensorPtr &offset,
+    const LogicalTensorPtr &dst, int64_t axis) {
+    TileInfo srcTileInfo(src->shape.size(), src->offset.size());
+    TileInfo scaleTileInfo(scale->shape.size(), scale->offset.size());
+    TileInfo offsetTileInfo(offset->shape.size(), offset->offset.size());
+    TileInfo dstTileInfo(dst->shape.size(), dst->offset.size());
+
+    auto srcInput = Input{Tensor(src), srcTileInfo};
+    auto scaleInput = Input{Tensor(scale), scaleTileInfo};
+    auto offsetInput = Input{Tensor(offset), offsetTileInfo};
+    auto dstInput = Input{Tensor(dst), dstTileInfo};
+
+    TiledDequantize(function, tileShape, 0, srcInput, scaleInput, offsetInput, dstInput, axis);
+}
+
+LogicalTensorPtr TensorDequantizeOperation(Function &function,
+    const LogicalTensorPtr &src, const LogicalTensorPtr &scale, const LogicalTensorPtr &offset, int64_t axis) {
+    auto result = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, src->shape, src->GetDynValidShape());
+    auto &op = function.AddOperation(Opcode::OP_DEQUANTIZE, {src, scale, offset}, {result});
+    op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+    function.UpdateTensorDataUsage(op);
+    return result;
+}
+
+// Helper: create zero tensor for symmetric dequantization
+static LogicalTensorPtr CreateZeroOffsetTensor(Function &function, const LogicalTensorPtr &scale) {
+    auto zeroTensor = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, scale->shape, scale->GetDynValidShape());
+    // Initialize with zeros - this will be filled at runtime
+    return zeroTensor;
+}
+
+// Public Dequantize API
+Tensor Dequantize(const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints) {
+    DECLARE_TRACER();
+
+    // Validate input shapes: 2D to 5D tensors supported
+    size_t inputRank = input.GetShape().size();
+    ASSERT(inputRank >= SHAPE_DIM2 && inputRank <= SHAPE_DIM5)
+        << "Dequantize input rank must be 2~5, but got rank=" << inputRank;
+
+    // Validate input data type: INT8 or INT16
+    ASSERT(input.GetDataType() == DataType::DT_INT8 || input.GetDataType() == DataType::DT_INT16)
+        << "Dequantize input dtype must be INT8 or INT16, but got dtype="
+        << static_cast<int>(input.GetDataType());
+
+    // Validate output type
+    ASSERT(otype == DataType::DT_FP32)
+        << "Dequantize output type must be FP32, but got dtype=" << static_cast<int>(otype);
+
+    // Normalize axis to negative indexing and validate
+    int ndim = static_cast<int>(input.GetShape().size());
+    int normalizedAxis = axis;
+    if (axis >= 0) {
+        normalizedAxis = axis - ndim;
+    }
+    ASSERT(normalizedAxis == -1 || normalizedAxis == -2)
+        << "Dequantize axis must be -1 (per-row) or -2 (per-column), but got axis="
+        << axis << " (normalized=" << normalizedAxis << ")";
+
+    // Determine if symmetric or asymmetric
+    bool isAsymmetric = (zeroPoints.GetStorage() != nullptr);
+
+    // For axis=-2, use Transpose
+    if (normalizedAxis == -2) {
+        int lastDim = ndim - 1;
+        int secondLastDim = ndim - 2;
+
+        Tensor transposedInput = Transpose(input, {secondLastDim, lastDim});
+        Tensor transposedScale = Transpose(scale, {secondLastDim, lastDim});
+
+        if (isAsymmetric) {
+            Tensor transposedZP = Transpose(zeroPoints, {secondLastDim, lastDim});
+            Tensor dequantizedResult = TensorDequantizeOperation(
+                *Program::GetInstance().GetCurrentFunction(),
+                transposedInput.GetStorage(), transposedScale.GetStorage(),
+                transposedZP.GetStorage(), -1);
+            return Transpose(dequantizedResult, {secondLastDim, lastDim});
+        } else {
+            // Symmetric: create zero offset tensor
+            auto zeroOffset = CreateZeroOffsetTensor(*Program::GetInstance().GetCurrentFunction(),
+                transposedScale.GetStorage());
+            Tensor dequantizedResult = TensorDequantizeOperation(
+                *Program::GetInstance().GetCurrentFunction(),
+                transposedInput.GetStorage(), transposedScale.GetStorage(),
+                zeroOffset, -1);
+            return Transpose(dequantizedResult, {secondLastDim, lastDim});
+        }
+    }
+
+    // axis=-1 case
+    if (isAsymmetric) {
+        RETURN_CALL(TensorDequantizeOperation, *Program::GetInstance().GetCurrentFunction(),
+            input.GetStorage(), scale.GetStorage(), zeroPoints.GetStorage(), normalizedAxis);
+    } else {
+        // Symmetric: create zero offset tensor
+        auto zeroOffset = CreateZeroOffsetTensor(*Program::GetInstance().GetCurrentFunction(),
+            scale.GetStorage());
+        RETURN_CALL(TensorDequantizeOperation, *Program::GetInstance().GetCurrentFunction(),
+            input.GetStorage(), scale.GetStorage(), zeroOffset, normalizedAxis);
+    }
+}
+
+Tensor DequantizeSymmetric(const Tensor &src, const Tensor &scale, int64_t axis) {
+    return Dequantize(src, scale, DataType::DT_FP32, axis, Tensor());
+}
+
+Tensor DequantizeAsymmetric(const Tensor &src, const Tensor &scale, const Tensor &zeroPoints, int64_t axis) {
+    return Dequantize(src, scale, DataType::DT_FP32, axis, zeroPoints);
+}
+
+// Tile Function Registration
+void DequantizeOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    const Operation &op) {
+    int64_t axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
+    TiledDequantize(function, tileShape, iOperand[0], iOperand[1], iOperand[2], oOperand[0], axis);
+}
+
+REGISTER_OPERATION_TILED_FUNC(OP_DEQUANTIZE, Opcode::OP_DEQUANTIZE, DequantizeOperationTileFunc);
+
 } // namespace npu::tile_fwk

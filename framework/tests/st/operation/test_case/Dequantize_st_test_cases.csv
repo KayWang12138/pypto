@@ -1,0 +1,14 @@
+case_name,input_shape,input_dtype,input_format,input_datarange,output_shape,output_dtype,output_format,view_shape,tile_shape,otype,axis,use_zero_points,input_dtype
+Dequantize_symmetric_int8_2d_basic,"[32, 64], [32, 1]","int8, fp32","ND, ND","[-100, 100], [0.001, 0.01]","[32, 64]",fp32,ND,"[32, 64]","[32, 64]",0,-1,false,1
+Dequantize_symmetric_int8_2d_tiled,"[128, 256], [128, 1]","int8, fp32","ND, ND","[-120, 120], [0.0005, 0.005]","[128, 256]",fp32,ND,"[128, 256]","[64, 128]",0,-1,false,1
+Dequantize_asymmetric_int8_2d,"[64, 128], [64, 1], [64, 1]","int8, fp32, fp32","ND, ND, ND","[-100, 100], [0.001, 0.01], [-10.0, 10.0]","[64, 128]",fp32,ND,"[64, 128]","[32, 64]",0,-1,true,1
+Dequantize_symmetric_int16_2d,"[64, 128], [64, 1]","int16, fp32","ND, ND","[-30000, 30000], [0.00001, 0.0001]","[64, 128]",fp32,ND,"[64, 128]","[32, 64]",0,-1,false,6
+Dequantize_asymmetric_int16_2d,"[32, 64], [32, 1], [32, 1]","int16, fp32, fp32","ND, ND, ND","[-20000, 20000], [0.00001, 0.0001], [-100.0, 100.0]","[32, 64]",fp32,ND,"[32, 64]","[32, 64]",0,-1,true,6
+Dequantize_symmetric_int8_axis2,"[64, 128], [1, 128]","int8, fp32","ND, ND","[-110, 110], [0.001, 0.01]","[64, 128]",fp32,ND,"[64, 128]","[32, 64]",0,-2,false,1
+Dequantize_asymmetric_int8_axis2,"[32, 64], [1, 64], [1, 64]","int8, fp32, fp32","ND, ND, ND","[-100, 100], [0.001, 0.01], [-10.0, 10.0]","[32, 64]",fp32,ND,"[32, 64]","[32, 64]",0,-2,true,1
+Dequantize_symmetric_int8_3d,"[4, 32, 64], [4, 1, 1]","int8, fp32","ND, ND","[-100, 100], [0.001, 0.01]","[4, 32, 64]",fp32,ND,"[4, 32, 64]","[4, 32, 64]",0,-1,false,1
+Dequantize_asymmetric_int8_3d,"[2, 64, 128], [2, 1, 1], [2, 1, 1]","int8, fp32, fp32","ND, ND, ND","[-90, 90], [0.001, 0.01], [-10.0, 10.0]","[2, 64, 128]",fp32,ND,"[2, 64, 128]","[2, 32, 64]",0,-1,true,1
+Dequantize_symmetric_int16_3d,"[4, 32, 64], [4, 1, 1]","int16, fp32","ND, ND","[-25000, 25000], [0.00001, 0.0001]","[4, 32, 64]",fp32,ND,"[4, 32, 64]","[4, 32, 64]",0,-1,false,6
+Dequantize_symmetric_int8_4d,"[2, 2, 32, 64], [2, 2, 1, 1]","int8, fp32","ND, ND","[-100, 100], [0.001, 0.01]","[2, 2, 32, 64]",fp32,ND,"[2, 2, 32, 64]","[2, 2, 32, 64]",0,-1,false,1
+Dequantize_asymmetric_int8_4d,"[2, 2, 32, 64], [2, 2, 1, 1], [2, 2, 1, 1]","int8, fp32, fp32","ND, ND, ND","[-90, 90], [0.001, 0.01], [-10.0, 10.0]","[2, 2, 32, 64]",fp32,ND,"[2, 2, 32, 64]","[2, 2, 32, 64]",0,-1,true,1
+Dequantize_symmetric_int8_5d,"[2, 2, 2, 16, 32], [2, 2, 2, 1, 1]","int8, fp32","ND, ND","[-100, 100], [0.001, 0.01]","[2, 2, 2, 16, 32]",fp32,ND,"[2, 2, 2, 16, 32]","[2, 2, 2, 16, 32]",0,-1,false,1

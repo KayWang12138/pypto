@@ -1865,3 +1865,52 @@ def quantize(
     >>> y2 = pypto.quantize(x, scale, pypto.DT_UINT8, axis=-1, zero_points=zero_points)
     """
     return pypto_impl.Quantize(input, scale, dtype, axis, zero_points)
+
+
+@op_wrapper
+def dequantize(
+    input: Tensor,
+    scale: Tensor,
+    dtype: DataType,
+    axis: int,
+    zero_points: Optional[Tensor] = None,
+) -> Tensor:
+    """Dequantize int8/int16 tensor to fp32.
+
+    Converts low-precision quantized data back to high-precision floating-point format.
+
+    Parameters
+    ----------
+    input : Tensor
+        Source operand. dtype must be DT_INT8 or DT_INT16.
+        Shape: [..., row, col], 2~5 dimensions supported.
+    scale : Tensor
+        Scaling factor. dtype must be DT_FP32.
+        When axis=-1: shape is [..., row, 1] (per-row dequantization)
+        When axis=-2: shape is [..., 1, col] (per-column dequantization)
+    dtype : DataType
+        Output data type. Currently only DT_FP32 is supported.
+    axis : int
+        Dequantization axis. Supports -1 (per-row) or -2 (per-column).
+    zero_points : Tensor, optional
+        Zero point offset for asymmetric dequantization. If provided,
+        asymmetric dequantization is used; otherwise symmetric dequantization.
+
+    Returns
+    -------
+    Tensor
+        Dequantized tensor with specified dtype (FP32).
+
+    Examples
+    --------
+    >>> x = pypto.tensor([3, 4], pypto.DT_INT8)
+    >>> scale = pypto.tensor([3, 1], pypto.DT_FP32)
+    >>>
+    >>> # Symmetric dequantization: int8 -> fp32
+    >>> y1 = pypto.dequantize(x, scale, pypto.DT_FP32, axis=-1)
+    >>>
+    >>> # Asymmetric dequantization: int8 -> fp32
+    >>> zero_points = pypto.tensor([3, 1], pypto.DT_FP32)
+    >>> y2 = pypto.dequantize(x, scale, pypto.DT_FP32, axis=-1, zero_points=zero_points)
+    """
+    return pypto_impl.Dequantize(input, scale, dtype, axis, zero_points)

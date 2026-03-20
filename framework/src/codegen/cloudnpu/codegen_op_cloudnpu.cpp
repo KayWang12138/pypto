@@ -297,7 +297,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
           // float -> int8/uint8
           {Opcode::OP_QUANTIZE_SYM, [this]() { return GenQuantizeOp(); }},
           {Opcode::OP_QUANTIZE_ASYM, [this]() { return GenQuantizeOp(); }},
-          // TODO: DeQuantize
+          // int8/int16 -> float (always 4 params: dst, src, scale, offset)
+          {Opcode::OP_DEQUANTIZE, [this]() { return GenDequantizeOp(); }},
       }),
       perfOps_({
           // for performace optimization

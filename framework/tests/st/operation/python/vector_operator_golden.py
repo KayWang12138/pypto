@@ -2896,6 +2896,82 @@ def gen_quantize_op_golden(case_name: str, output: Path, case_index: int = None)
     return gen_op_golden("Quantize", quantize_golden_func, output, case_index)
 
 
+@TestCaseLoader.reg_params_handler(ops=["Dequantize"])
+def dequantize_params_func(params: dict):
+    """
+    Parameter handler for Dequantize operation.
+    Converts parameter types from JSON strings to appropriate Python types.
+    """
+    params["otype"] = int(params.get("otype", "0"))  # Default to DT_FP32
+    params["axis"] = int(params.get("axis", "-1"))
+    # Convert use_zero_points from string to bool
+    use_zero_points_str = params.get("use_zero_points", "False")
+    if isinstance(use_zero_points_str, bool):
+        params["use_zero_points"] = use_zero_points_str
+    else:
+        params["use_zero_points"] = str_to_bool(use_zero_points_str)
+    return params
+
+
+@GoldenRegister.reg_golden_func(case_names=[
+    "TestDequantize/DequantizeOperationTest.TestDequantize",
+])
+def gen_dequantize_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+
+    def dequantize_golden_func(
+        inputs: List[np.ndarray],
+        config: Dict[str, Any],    # noqa
+    ) -> List[np.ndarray]:
+        """
+        Golden implementation for Dequantize operation.
+
+        Supports:
+        - INT8 -> FP32: symmetric/asymmetric
+        - INT16 -> FP32: symmetric/asymmetric
+
+        Formula:
+        - Symmetric: dst = src * scale
+        - Asymmetric: dst = (src - offset) * scale
+        """
+        params = config.get("params")
+        input_tensor = inputs[0]  # INT8 or INT16
+        scale = inputs[1]  # FP32
+
+        use_zero_points = params.get("use_zero_points", False)
+
+        # Convert input to float for computation
+        if input_tensor.dtype == np.int8:
+            input_float = input_tensor.astype(np.float32)
+        elif input_tensor.dtype == np.int16:
+            input_float = input_tensor.astype(np.float32)
+        else:
+            input_float = input_tensor.astype(np.float32)
+
+        # Perform dequantization
+        if use_zero_points and len(inputs) > 2:
+            # Asymmetric: dst = (src - offset) * scale
+            zero_points = inputs[2].astype(np.float32)
+            # Broadcast zero_points if needed
+            if zero_points.shape != input_float.shape:
+                zero_points = np.broadcast_to(zero_points, input_float.shape)
+            # Broadcast scale if needed
+            if scale.shape != input_float.shape:
+                scale = np.broadcast_to(scale, input_float.shape)
+            result = (input_float - zero_points) * scale
+        else:
+            # Symmetric: dst = src * scale
+            # Broadcast scale if needed
+            if scale.shape != input_float.shape:
+                scale = np.broadcast_to(scale, input_float.shape)
+            result = input_float * scale
+
+        # Output is always FP32
+        return [result.astype(np.float32)]
+
+    logging.debug(f"Generating golden files of {case_name} ...")
+    return gen_op_golden("Dequantize", dequantize_golden_func, output, case_index)
+
+
 def main() -> bool:
     # 用例名称
     case_name_list: List[str] = [
