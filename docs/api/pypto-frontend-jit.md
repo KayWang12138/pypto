@@ -54,6 +54,7 @@ def kernel_function(...):
 2. 动态维度必须使用 `pypto.DYNAMIC` 或 `pypto.DYN` 在参数注解中标记
 3. 张量参数在前，非张量参数（如 `scalar`、`tiling`）在后
 4. 非张量参数支持 keyword 传参、位置参数、使用默认值
+5. **`run_mode` 为 `pypto.RunMode.NPU` 时**：入参、输出对应的 `torch.Tensor` 须已在 NPU 上（推荐 `device='npu:0'` 创建，或 `out = cpu_tensor.npu()` 再传入）；勿对输出张量使用 `kernel(..., cpu_tensor.npu())` 行内写法，否则输出的张量无法写回。
 
 
 ## 调用示例
@@ -71,10 +72,11 @@ def add_kernel(
     out[:] = pypto.add(a, b)
     
 
-# 直接传入 torch 张量调用
+# 输入、输出均在 NPU 上创建（device='npu:0'）后传入
 x = torch.randn(3, dtype=torch.float32, device='npu:0')
 y = torch.randn(3, dtype=torch.float32, device='npu:0')
-result = add_kernel(x, y)
+out = torch.empty(3, dtype=torch.float32, device='npu:0')
+add_kernel(x, y, out)
 ```
 
 ### 示例2: 指定运行模式
