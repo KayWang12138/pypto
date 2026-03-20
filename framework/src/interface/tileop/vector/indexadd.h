@@ -290,32 +290,26 @@ TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstGlobal, tmpTileDefine tm
 }
 
 template <typename T0, typename T2, typename T3, typename Scalar>
-TILEOP void IndexAddLastAxisCompute(T0 dst, T2 src1, T3 src2, Scalar alpha, size_t src1Shape0, size_t src1Shape1,
-    size_t src1Shape2, size_t src1Shape3, size_t src1Shape4, size_t dstStride0, size_t dstStride1, size_t dstStride2,
-    size_t dstStride3, size_t src1Stride0, size_t src1Stride1, size_t src1Stride2, size_t src1Stride3) {
-    auto dstAddr = (__gm__ typename T0::Type *)((uint64_t)(dst.GetAddr()));
-    auto src1Addr = (__ubuf__ typename T2::Type *)((uint64_t)(src1.GetAddr()));
-    auto idxAddr = (__ubuf__ typename T3::Type *)((uint64_t)(src2.GetAddr()));
-    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
-    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+TILEOP void IndexAddLastAxisCompute(__gm__ typename T0::Type *dstAddr, __ubuf__ typename T2::Type *src1Addr, __ubuf__ typename T3::Type *idxAddr,
+    Scalar alpha, size_t src1Shapes[], size_t dstStrides[], size_t src1Strides[]) {
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
     uint64_t dstOffset = 0;
     uint64_t src1Offset = 0;
     if (abs(static_cast<float>(alpha) - 1) > TileOp::EPSILON) {
-        for (LoopVar i = 0; i < src1Shape0; ++i) {
-            for (LoopVar j = 0; j < src1Shape1; ++j) {
-                for (LoopVar k = 0; k < src1Shape2; ++k) {
-                    for (LoopVar l = 0; l < src1Shape3; ++l) {
-                        for (LoopVar idx = 0; idx < src1Shape4; ++idx) {
-                            auto index = *(idxAddr + idx);
-                            dstOffset = i * dstStride0 + j * dstStride1 + k * dstStride2 + l * dstStride3 + index;
-                            src1Offset = i * src1Stride0 + j * src1Stride1 + k * src1Stride2 + l * src1Stride3 + idx;
+        for (LoopVar i = 0; i < src1Shapes[0]; ++i) {
+            for (LoopVar j = 0; j < src1Shapes[1]; ++j) {
+                for (LoopVar k = 0; k < src1Shapes[2]; ++k) {
+                    for (LoopVar l = 0; l < src1Shapes[3]; ++l) {
+                        for (LoopVar idx = 0; idx < src1Shapes[4]; ++idx) {
+                            dstOffset = i * dstStrides[0] + j * dstStrides[1] + k * dstStrides[2] + l * dstStrides[3] + idxAddr[idx];
+                            src1Offset = i * src1Strides[0] + j * src1Strides[1] + k * src1Strides[2] + l * src1Strides[3] + idx;
                             if constexpr (Std::is_same_v<Scalar, half>) { // half
                                 float mulsResult = static_cast<float>(src1Addr[src1Offset]) * static_cast<float>(alpha);
                                 src1Addr[src1Offset] = static_cast<half>(mulsResult);
                             } else if constexpr (Std::is_same_v<Scalar, bfloat16_t>) { // bf16
-                                float mulsResult = src1Addr[src1Offset] * TileOp::Bf16ToFp32(alpha);
-                                bfloat16_t mulsResBf16 = TileOp::Fp32ToBf16R(mulsResult);
-                                src1Addr[src1Offset] = TileOp::Bf16ToFp32(mulsResBf16);
+                                float mulsResult = TileOp::Bf16ToFp32(src1Addr[src1Offset]) * TileOp::Bf16ToFp32(alpha);
+                                src1Addr[src1Offset]= TileOp::Fp32ToBf16R(mulsResult);
                             } else { // int8,int16,int32,float32
                                 Scalar mulsResult = static_cast<Scalar>(src1Addr[src1Offset]) * alpha;
                                 src1Addr[src1Offset] = static_cast<typename T2::Type>(mulsResult);
@@ -326,27 +320,28 @@ TILEOP void IndexAddLastAxisCompute(T0 dst, T2 src1, T3 src2, Scalar alpha, size
             }
         }
     }
-    for (LoopVar i = 0; i < src1Shape0; ++i) {
-        for (LoopVar j = 0; j < src1Shape1; ++j) {
-            for (LoopVar k = 0; k < src1Shape2; ++k) {
-                for (LoopVar l = 0; l < src1Shape3; ++l) {
-                    for (LoopVar idx = 0; idx < src1Shape4; ++idx) {
-                        auto index = *(idxAddr + idx);
-                        dstOffset = i * dstStride0 + j * dstStride1 + k * dstStride2 + l * dstStride3 + index;
-                        src1Offset = i * src1Stride0 + j * src1Stride1 + k * src1Stride2 + l * src1Stride3 + idx;
+    for (LoopVar i = 0; i < src1Shapes[0]; ++i) {
+        for (LoopVar j = 0; j < src1Shapes[1]; ++j) {
+            for (LoopVar k = 0; k < src1Shapes[2]; ++k) {
+                for (LoopVar l = 0; l < src1Shapes[3]; ++l) {
+                    for (LoopVar idx = 0; idx < src1Shapes[4]; ++idx) {
+                        dstOffset = i * dstStrides[0] + j * dstStrides[1] + k * dstStrides[2] + l * dstStrides[3] + idxAddr[idx];
+                        src1Offset = i * src1Strides[0] + j * src1Strides[1] + k * src1Strides[2] + l * src1Strides[3] + idx;
                         if constexpr (Std::is_same_v<Scalar, half>) {
+                            float addResult =
+                                static_cast<float>(dstAddr[dstOffset]) + static_cast<float>(src1Addr[src1Offset]);
                             if (abs(static_cast<float>(alpha) - 1) < TileOp::EPSILON &&
                                 Std::is_same_v<typename T3::Type, int64_t>) {
-                                dstAddr[dstOffset] += src1Addr[src1Offset]; // 不需要转换
+                                dstAddr[dstOffset] = addResult; // 不需要转换
                             } else {
-                                float addResult =
-                                    static_cast<float>(dstAddr[dstOffset]) + static_cast<float>(src1Addr[src1Offset]);
                                 dstAddr[dstOffset] = static_cast<half>(addResult);
                             }
                         } else if constexpr (Std::is_same_v<Scalar, bfloat16_t>) {
                             if (abs(static_cast<float>(alpha) - 1) < TileOp::EPSILON &&
                                 Std::is_same_v<typename T3::Type, int64_t>) {
-                                dstAddr[dstOffset] += src1Addr[src1Offset]; // 不需要转换
+                                float addResult =
+                                    static_cast<float>(dstAddr[dstOffset]) + static_cast<float>(src1Addr[src1Offset]);
+                                dstAddr[dstOffset] = addResult; // 不需要转换
                             } else {
                                 float addResult =
                                     TileOp::Bf16ToFp32(dstAddr[dstOffset]) + TileOp::Bf16ToFp32(src1Addr[src1Offset]);
@@ -362,8 +357,8 @@ TILEOP void IndexAddLastAxisCompute(T0 dst, T2 src1, T3 src2, Scalar alpha, size
             }
         }
     }
-    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
-    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
 }
 
 template <int axis, typename T3>
@@ -396,30 +391,29 @@ template <int axis, typename T0, typename T1, typename T2, typename T3, typename
 TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tmpTensor, C coord, Scalar alpha) { // T0: tileTensor
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;                      // support 2-5
     const auto dstLayout = dst.GetLayout();
-    auto dstShape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>(); // validShape
-    auto dstShape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
-    auto dstShape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
-    auto dstShape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
-    auto dstShape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
-    if (!dstShape0 || !dstShape1 || !dstShape2 || !dstShape3 || !dstShape4) {
+    size_t dstShapes[] = {dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>(),
+        dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>(),
+        dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>(),
+        dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>(),
+        dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>()}; // validShape
+    if (!dstShapes[0] || !dstShapes[1] || !dstShapes[2] || !dstShapes[3] || !dstShapes[4]) {
         return;
     }
-    auto dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
-    auto dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
-    auto dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
-    auto dstStride3 = dstLayout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
-    size_t dstStrides[] = {dstStride0, dstStride1, dstStride2, dstStride3};
+    size_t dstStrides[] = {dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>(),
+        dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>(),
+        dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>(),
+        dstLayout.template GetStrideDim<DIM_4TH, MAX_DIMS>()};
 
     const auto src1Layout = src1.GetLayout();
-    auto src1Shape0 = src1Layout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
-    auto src1Shape1 = src1Layout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
-    auto src1Shape2 = src1Layout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
-    auto src1Shape3 = src1Layout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
-    auto src1Shape4 = src1Layout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
-    auto src1Stride0 = src1Layout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
-    auto src1Stride1 = src1Layout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
-    auto src1Stride2 = src1Layout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
-    auto src1Stride3 = src1Layout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
+    size_t src1Shapes[] = {src1Layout.template GetShapeDim<DIM_1ST, MAX_DIMS>(),
+        src1Layout.template GetShapeDim<DIM_2ND, MAX_DIMS>(),
+        src1Layout.template GetShapeDim<DIM_3RD, MAX_DIMS>(),
+        src1Layout.template GetShapeDim<DIM_4TH, MAX_DIMS>(),
+        src1Layout.template GetShapeDim<DIM_5TH, MAX_DIMS>()};
+    size_t src1Strides[] = {src1Layout.template GetStrideDim<DIM_1ST, MAX_DIMS>(),
+        src1Layout.template GetStrideDim<DIM_2ND, MAX_DIMS>(),
+        src1Layout.template GetStrideDim<DIM_3RD, MAX_DIMS>(),
+        src1Layout.template GetStrideDim<DIM_4TH, MAX_DIMS>()};
     using dstType = typename T0::Type;
     using src1Type = typename T2::Type;
     using idxType = typename T3::Type;
@@ -432,8 +426,7 @@ TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tmpTensor, C coord, 
     dstAddr += gmOffset;
 
     if constexpr (axis == 4) { // 尾轴
-        IndexAddLastAxisCompute(dst, src1, src2, alpha, src1Shape0, src1Shape1, src1Shape2, src1Shape3, src1Shape4,
-            dstStride0, dstStride1, dstStride2, dstStride3, src1Stride0, src1Stride1, src1Stride2, src1Stride3);
+        IndexAddLastAxisCompute<T0, T2, T3, Scalar>(dstAddr, src1Addr, idxAddr, alpha, src1Shapes, dstStrides, src1Strides);
     } else {
         constexpr auto tmpTileW = Std::tuple_element<shapeSize - 1, typename T4::TileShape>::type::value;
         constexpr auto src1TileW = Std::tuple_element<shapeSize - 1, typename T2::TileShape>::type::value;
@@ -441,18 +434,18 @@ TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tmpTensor, C coord, 
             pto::GlobalTensor<dstType, pto::Shape<-1, -1, -1, -1, -1>, pto::Stride<-1, -1, -1, -1, -1>>;
         using tmpTileDefine = pto::Tile<pto::TileType::Vec, tmpType, 1, tmpTileW, pto::BLayout::RowMajor, -1, -1>;
         using src1TileDefine = pto::Tile<pto::TileType::Vec, src1Type, 1, src1TileW, pto::BLayout::RowMajor, -1, -1>;
-        dstGlobalData dstGlobal(dstAddr, pto::Shape(1, 1, 1, 1, dstShape4), pto::Stride(0, 0, 0, 0, dstStride3));
-        tmpTileDefine tmpTile(1, src1Shape4);
-        src1TileDefine src1Tile(1, src1Shape4);
-        for (LoopVar i = 0; i < src1Shape0; ++i) {
-            for (LoopVar j = 0; j < src1Shape1; ++j) {
-                for (LoopVar k = 0; k < src1Shape2; ++k) {
-                    for (LoopVar l = 0; l < src1Shape3; ++l) {
+        dstGlobalData dstGlobal(dstAddr, pto::Shape(1, 1, 1, 1, dstShapes[4]), pto::Stride(0, 0, 0, 0, dstStrides[3]));
+        tmpTileDefine tmpTile(1, src1Shapes[4]);
+        src1TileDefine src1Tile(1, src1Shapes[4]);
+        for (LoopVar i = 0; i < src1Shapes[0]; ++i) {
+            for (LoopVar j = 0; j < src1Shapes[1]; ++j) {
+                for (LoopVar k = 0; k < src1Shapes[2]; ++k) {
+                    for (LoopVar l = 0; l < src1Shapes[3]; ++l) {
                         set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
                         wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
                         size_t idx[] = {i, j, k, l};
                         auto dstOffset = GetDstOffset<axis, T3>(dstStrides, idx, idxAddr);
-                        auto src1Offset = i * src1Stride0 + j * src1Stride1 + k * src1Stride2 + l * src1Stride3;
+                        auto src1Offset = i * src1Strides[0] + j * src1Strides[1] + k * src1Strides[2] + l * src1Strides[3];
                         IndexAddNotLastAxisCompute<T0, T2>(
                             dstGlobal, tmpTile, src1Tile, alpha, dstAddr, tmpAddr, src1Addr, dstOffset, src1Offset);
                     }
