@@ -182,13 +182,8 @@ Status Pass::CreateGraphFolder(Function &function) {
     return SUCCESS;
 }
 
-Status Pass::PreRun(Function &function) {
+void Pass::handlePreRunDumpGraph(Function &function) {
     std::string fileName;
-    if (passDfxconfigs_.printGraph) {
-        if (PrintFunction(function, passFolder_, true) != SUCCESS) {
-            ALOG_WARN_F("Print function before pass failed.");
-        }
-    }
     if (CreateGraphFolder(function) != SUCCESS) {
         ALOG_WARN_F("Create graph directory failed.");
     }
@@ -219,6 +214,16 @@ Status Pass::PreRun(Function &function) {
             ALOG_WARN_F("Dump function json before pass failed.");
         }
     }
+}
+
+Status Pass::PreRun(Function &function) {
+    std::string fileName;
+    if (passDfxconfigs_.printGraph) {
+        if (PrintFunction(function, passFolder_, true) != SUCCESS) {
+            ALOG_WARN_F("Print function before pass failed.");
+        }
+    }
+    handlePreRunDumpGraph(function);
     if (DefaultEnabledPreCheck(function) != SUCCESS) {
         ALOG_ERROR_F("Precheck the necessary items of pass [%s] failed.", identifier_.c_str());
         return FAILED;

@@ -58,6 +58,7 @@ protected:
     virtual Status DumpFunctionJson(Function& function, const std::string &logFolder, bool beforeFunction);
     virtual Status DumpGraphJson(Function& function, const std::string &fileName);
     virtual Status CreateGraphFolder(Function &function);
+    virtual void handlePreRunDumpGraph(Function &function);
     virtual Status PreRun(Function &function);
     virtual Status PostRun(Function &function);
     // folderPath: dump路径
