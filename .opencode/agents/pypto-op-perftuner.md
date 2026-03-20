@@ -1,4 +1,5 @@
 ---
+name: pypto-op-perftuner
 description: "PyPTO 算子性能调优 Subagent。负责性能分析和调优迭代（Stage 7）。在隔离上下文中完成性能采集、分析、调优，每次调优后验证精度。"
 mode: subagent
 tools:

@@ -1,4 +1,5 @@
 ---
+name: pypto-op-analyst
 description: "PyPTO 算子分析 Subagent。负责 Golden 生成（Stage 3）和 Design 设计（Stage 4）阶段。接收算子目录路径和 Stage 指令，在隔离上下文中调用相应 Skill 完成分析工作，将输出写入指定路径。"
 mode: subagent
 tools:

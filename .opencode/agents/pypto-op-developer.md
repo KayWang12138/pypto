@@ -1,4 +1,5 @@
 ---
+name: pypto-op-developer
 description: "PyPTO 算子开发 Subagent。负责代码实现（Stage 5）和精度修复（Stage 6）阶段。在隔离上下文中完成 kernel 实现、测试生成、首跑判定、精度调试修复。"
 mode: subagent
 tools:

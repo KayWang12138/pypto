@@ -1,4 +1,5 @@
 ---
+name: pypto-op-orchestrator
 description: "PyPTO 算子端到端开发编排。管理 7-Stage 状态机（需求→API探索→Golden→Design→实现→精度修复→性能调优），通过 Subagent 隔离上下文。当用户请求开发算子时，这是默认入口。"
 mode: primary
 ---

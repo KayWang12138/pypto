@@ -5,7 +5,7 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 
 # pypto-api-explorer
 
-探索 PyPTO API，为算子开发提供 API 映射、约束检查和 Tiling 需求分析。
+使用 `Explore` subagent 探索 PyPTO API，为算子开发提供 API 映射、约束检查和 Tiling 需求分析。
 
 ## 输入约定
 
@@ -36,6 +36,8 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 
 ## 核心工作流
 
+**注意**：必须使用 `Explore` subagent 进行 API 和约束探索，确保搜索的全面性和准确性。
+
 ### Stage 1: 输入解析
 
 接受任意形式输入，提取：
@@ -64,7 +66,7 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 2. 读取具体 API 文档 `docs/api/operation/pypto-*.md` 获取参数和约束
 3. 未找到 → 标记 unsupported，尝试 substitute 方案
 
-### Stage 4: 约束验证
+### Stage 4: 约束探索
 
 三层验证：
 
