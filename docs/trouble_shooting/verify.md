@@ -66,7 +66,13 @@ lineno: 136
 [ERROR] PYPTO(1693310):2026-03-20 15:08:54.116 [flow_verifier.cpp:299][VERIFY]:EVICE_DDR, %12209@102(bIdx, 0)#(22)MEM_DEVICE_DDR::MEM_DEVICE_DDR #IS_CUBE{0} #block_size{128}
 <16x512xINT8/0x512xINT8> = GATHER_IN_UB <82816x512xINT8/82816x512xINT8>, <1x16xINT32/1x16xINT32>, <1x512xINT32/1x512xINT32>
 out must have shape [topk_count, hidden_dim]
-[ERROR] PYPTO(1693310):2026-03-20 15:08:54.910 [ope
 ```
+#### 定位指导
+核心报错为：  
+`<16x512xINT8/0x512xINT8> = GATHER_IN_UB <82816x512xINT8/82816x512xINT8>, <1x16xINT32/1x16xINT32>, <1x512xINT32/1x512xINT32> `
+  `out must have shape [topk_count, hidden_dim]`  
+  第一行为出错`operation`的简要信息， 示例中，`<16x512xINT8/0x512xINT8> `为输出的`<shape/validshape>`,等号右边为这个operation的`opcode`及其所有输入的`<shape/validshape>`。  
+  示例中，`torch cpp`抛出错误信息`out must have shape [topk_count, hidden_dim]`，同时结合上一行信息，可以初步判断该报错来源为该`operation`的输出的`validshape`为空shape。  
+  如果需要进一步的信息定位，可参考上方几行更详细的报错，包括该`operation`输入输出`tensor`的信息，以及该`operation`的`IR`。
 
 ### 非典型错误码场景
