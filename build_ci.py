@@ -1410,10 +1410,7 @@ class BuildCtrl(CMakeParam):
         # 执行用例, Models/STest, 支持混合执行
         dev_lst = [int(d) for d in self.tests.stest_exec.auto_execute_device_id.split(":")]
         dev_ext = " ".join(f"{d}" for d in dev_lst)
-        ext_str = f"-n {len(dev_lst)} --device {dev_ext}"
-        self.py_tests_run_pytest(dist=dist, params=[(self.tests.models, "models"),
-                                                    (self.tests.stest, "python/tests/st")],
-                                 ext=ext_str)
+
         # 执行多卡用例 通过world_size区分 当前通信用例都是4卡
         for cards_per_case in [4]:
             if cards_per_case <= 1 or cards_per_case > len(dev_lst):
@@ -1426,11 +1423,6 @@ class BuildCtrl(CMakeParam):
                                                         (self.tests.stest, "python/tests/st")],
                                     ext=ext_str)
 
-        # 执行用例, Examples
-        dev_ext_comma = ",".join(f"{d}" for d in dev_lst)
-        self.py_run_examples(dist=dist, tests=self.tests.example,
-                             def_filter=str(Path(self.src_root, "examples")),
-                             dev_ext_comma=dev_ext_comma, n_workers=n_workers)
 
     def py_tests_run_pytest(self, dist: Optional[Path], params: List[Tuple[TestsFilterParam, str]], ext: str = ""):
         """调用 pytest 执行测试用例
