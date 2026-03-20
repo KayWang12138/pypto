@@ -107,6 +107,7 @@ python3 tools/schema/schema_memory_check.py -d /path/to/my_log/debug/device-8/ -
 
 6. **复杂特性排除**：
 关闭unroll_list、合轴特性、配置submit_before_loop=True使loop串行执行、确定valid_shape配置正确性、+0.0等，缩小定位范围
+使用 `pypto-precision-debugger` skill
 
 
 ### F70006 HANDSHAKE_TIMEOUT
