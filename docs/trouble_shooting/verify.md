@@ -30,16 +30,18 @@
   maxAbs-> index:0 golden:10 output:1 absDiff:9 relDiff:1.63636
   maxRel-> index:0 golden:10 output:1 absDiff:9 relDiff:1.63636
 ```
+首先根据类似示例中`[VERIFY]:ErrCode: FB4001! tensor_graph Verify for 1 data view list index 0 result FAILED`确定精度出错的阶段。如示例中，出错阶段为`tensor_graph `，即进入pass前精度出错。
 ##### 定位手段指导
 
 ###### pass_verify_print与pass_verify_save  
-精度工具提供pypto.pass_veirfy_print与pypto.pass_verify_save支持用户将自己编写的pypto kernal函数中的tensor的计算结果打印或者保存下来。（注意：该tensor既可以是最终的输出，也可以是中间产生的tensor，但是打印出来的结果并不是在npu中的计算结果，而是基于精度工具模拟执行和用户前端表达的模拟结果）。  
+精度工具提供`pypto.pass_veirfy_print`与`pypto.pass_verify_save`支持用户将自己编写的pypto kernal函数中的tensor的计算结果打印或者保存下来。（注意：该tensor既可以是最终的输出，也可以是中间产生的tensor，但是打印出来的结果并不是在npu中的计算结果，而是基于精度工具模拟执行和用户前端表达的模拟结果）。  
 再开启精度定位前，可先确认精度工具Dump的最终输出与npu计算结果保持一致。
 详参见[pass_verify_print接口示例](docs/api/others/pypto-pass_verify_print.md)与
 [pass_verify_save接口示例](docs/api/others/pypto-pass_verify_save.md)  。
 
 ###### 精度工具skill
 ###### 精度工具自动比对脚本
+脚本路径：`tools/verifier/pass_compare.py`  
 当某个pass精度对比失败的时候，可以利用 `pass_compare.py` 这个脚本将该对比失败的pass和前面的pass进行精度对比。对比会在精度工具dump数据的目录生成一个类似 `verify_pass@SplitK@ExpandFunction@1773821696834386.csv` 这样的对比结果文件，里面记录了精度对比失败的pass的每个op节点和前面pass对比的结果，未能匹配上的也会记录在表中标注skip。这样就能定位到匹配上的第一个出错的节点。  
 脚本使用方法：`python3 pass_compare.py --p ExpandFunction RemoveUndrivenView --verify_path=.....`
 `--p`参数后面的是对比的两个pass，空格隔开，前面的是精度对比失败的pass，后面的是作为golden的pass，`--verify_path`参数是精度工具dump数据文件的那个目录的绝对路径。
