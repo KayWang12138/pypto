@@ -233,7 +233,7 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
     if (attrParam.isConv3D) {
         int64_t kd = weightTensor.GetShape()[NCDHW_D_IDX];
         int64_t dout = ConvComputeDo(inputTensor, weightTensor, attrParam);
-        numTileL0 *= dout; kAL1 *= kd; kBL1 *= kd; oriK *= kd
+        numTileL0 *= dout; kAL1 *= kd; kBL1 *= kd; oriK *= kd;
     }
     if (numTileL0 > MAX_LOOP || CeilDiv(oriK, tileK) > MAX_LOOP) {
         CONV_LOGW("Suggestion: Consider increasing tile size to reduce compilation time.");
