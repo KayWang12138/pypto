@@ -185,7 +185,7 @@ def rotate_half(input_tensor: pypto.Tensor) -> pypto.Tensor:
     offset2[shape_size - 1] = shape[shape_size - 1]
     x1 = pypto.view(input_tensor, shape, offset1)
     x2 = pypto.view(input_tensor, shape, offset2)
-    return pypto.concat([x2 * (-1.0), x1 + 0.0], -1)
+    return pypto.concat([x2 * (-1.0), x1], -1)
 
 
 def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tensor:
