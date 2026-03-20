@@ -1821,7 +1821,7 @@ def prelu(self: Tensor, weight: Tensor) -> Tensor:
 def quantize(
     input: Tensor,
     scale: Tensor,
-    otype: DataType,
+    dtype: DataType,
     axis: int,
     zero_points: Optional[Tensor] = None,
 ) -> Tensor:
@@ -1833,33 +1833,35 @@ def quantize(
     ----------
     input : Tensor
         Source operand. dtype must be DT_FP32.
-        Shape: [..., row, col], 2-4 dimensions supported.
+        Shape: [..., row, col], 2~5 dimensions supported.
     scale : Tensor
         Scaling factor. dtype must be DT_FP32.
-        When axis=-1: shape is [..., row, 1]
-        When axis=-2: shape is [..., 1, col]
-    otype : DataType
-        Output data type. DT_INT8 for symmetric, DT_UINT8 for asymmetric.
+        When axis=-1: shape is [..., row, 1] (per-row quantization)
+        When axis=-2: shape is [..., 1, col] (per-column quantization)
+    dtype : DataType
+        Output data type. Use DT_INT8 for symmetric quantization,
+        DT_UINT8 for asymmetric quantization.
     axis : int
-        Quantization axis. Supports -1, -2 or relative dimensions.
+        Quantization axis. Supports -1 (per-row) or -2 (per-column).
     zero_points : Tensor, optional
-        Zero point offset for asymmetric quantization.
+        Zero point offset for asymmetric quantization. If provided,
+        asymmetric quantization is used; otherwise symmetric quantization.
 
     Returns
     -------
     Tensor
-        Quantized tensor with specified otype.
+        Quantized tensor with specified dtype.
 
     Examples
     --------
     >>> x = pypto.tensor([3, 4], pypto.DT_FP32)
     >>> scale = pypto.tensor([3, 1], pypto.DT_FP32)
-    >>> zero_points = pypto.tensor([3, 1], pypto.DT_FP32)
     >>>
     >>> # Symmetric quantization: fp32 -> int8
-    >>> y1 = pypto.quantize(x, scale, pypto.DT_INT8, -1)
+    >>> y1 = pypto.quantize(x, scale, pypto.DT_INT8, axis=-1)
     >>>
     >>> # Asymmetric quantization: fp32 -> uint8
-    >>> y2 = pypto.quantize(x, scale, pypto.DT_UINT8, -1, zero_points)
+    >>> zero_points = pypto.tensor([3, 1], pypto.DT_FP32)
+    >>> y2 = pypto.quantize(x, scale, pypto.DT_UINT8, axis=-1, zero_points=zero_points)
     """
-    return pypto_impl.Quantize(input, scale, otype, axis, zero_points)
+    return pypto_impl.Quantize(input, scale, dtype, axis, zero_points)

@@ -177,23 +177,25 @@ LogicalTensorPtr TensorQuantizeAsymmetricOperation(Function &function,
 Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints) {
     DECLARE_TRACER();
 
-    // Validate input shapes
-    ASSERT(input.GetShape().size() >= SHAPE_DIM2 && input.GetShape().size() <= SHAPE_DIM5)
-        << "The shape.size() only support 2~5";
+    // Validate input shapes: 2D to 5D tensors supported
+    size_t inputRank = input.GetShape().size();
+    ASSERT(inputRank >= SHAPE_DIM2 && inputRank <= SHAPE_DIM5)
+        << "Quantize input rank must be 2~5, but got rank=" << inputRank;
 
-    // Validate data types
-    std::vector<DataType> SUPPORT_INPUT_DATATYPES = {DataType::DT_FP32, DataType::DT_FP16, DataType::DT_BF16};
-    ASSERT(std::find(SUPPORT_INPUT_DATATYPES.begin(), SUPPORT_INPUT_DATATYPES.end(), input.GetDataType()) !=
-           SUPPORT_INPUT_DATATYPES.end())
-        << "The input datatype is not supported";
+    // Validate input data type: only FP32 is supported currently
+    ASSERT(input.GetDataType() == DataType::DT_FP32)
+        << "Quantize input dtype must be FP32, but got dtype="
+        << static_cast<int>(input.GetDataType());
 
-    // Normalize axis to negative indexing
+    // Normalize axis to negative indexing and validate
     int ndim = static_cast<int>(input.GetShape().size());
     int normalizedAxis = axis;
     if (axis >= 0) {
         normalizedAxis = axis - ndim;
     }
-    ASSERT(normalizedAxis == -1 || normalizedAxis == -2) << "Only axis=-1 (per-row) and axis=-2 (per-column) are supported";
+    ASSERT(normalizedAxis == -1 || normalizedAxis == -2)
+        << "Quantize axis must be -1 (per-row) or -2 (per-column), but got axis="
+        << axis << " (normalized=" << normalizedAxis << ")";
 
     // Determine quantization type based on zeroPoints presence
     bool isAsymmetric = (zeroPoints.GetStorage() != nullptr);

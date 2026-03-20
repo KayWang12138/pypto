@@ -1776,13 +1776,16 @@ std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const
     // Note: axis parameter is handled at Operation layer via Transpose
     // TileOp layer only supports axis=-1 (per-row quantization)
 
-    // Determine quantization type based on opcode
-    std::string quantType;
-    if (opCode == Opcode::OP_QUANTIZE_SYM) {
-        quantType = "pto::QuantType::INT8_SYM";
-    } else {
-        quantType = "pto::QuantType::INT8_ASYM";
-    }
+    // Map opcode to quantization type string (using static map for extensibility)
+    static const std::unordered_map<Opcode, std::string> kQuantTypeMap = {
+        {Opcode::OP_QUANTIZE_SYM, "pto::QuantType::INT8_SYM"},
+        {Opcode::OP_QUANTIZE_ASYM, "pto::QuantType::INT8_ASYM"},
+    };
+
+    auto it = kQuantTypeMap.find(opCode);
+    ASSERT(it != kQuantTypeMap.end())
+        << "PrintQuantizeTileTensor: unknown opcode " << static_cast<int>(opCode);
+    const std::string& quantType = it->second;
 
     std::ostringstream oss;
     std::vector<std::string> templateParamList;
