@@ -75,6 +75,7 @@ Tensor Ln(const Tensor &operand) {
 
 Tensor IsFinite(const Tensor &self) {
     DECLARE_TRACER();
+<<<<<<< HEAD
     std::vector<DataType> SUPPORT_TYPES = {DT_FP16, DT_FP32, DT_BF16, DT_INT16, DT_INT4, DT_INT8, DT_INT32, DT_UINT16,
         DT_UINT32, DT_UINT8, DT_UINT64, DT_INT64};
 
@@ -83,6 +84,13 @@ Tensor IsFinite(const Tensor &self) {
         << "`IsFinite` only supports FP16/BF16/FP32/INT8/UINT8/INT16/UINT16/INT32/UINT32/INT64/UINT64 in datatypes!";
     RETURN_CALL(UnaryOperation<UnaryOpType::ISFINITE>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
         DT_BOOL);
+=======
+    std::vector<DataType> SUPPORT_TYPES = {DT_FP16, DT_FP32, DT_BF16, DT_INT16, DT_INT4, DT_INT8, DT_INT32, DT_UINT16, DT_UINT32, DT_UINT8, DT_UINT64, DT_INT64};
+
+    ASSERT(std::find(SUPPORT_TYPES.begin(), SUPPORT_TYPES.end(), self.GetDataType()) !=
+           SUPPORT_TYPES.end()) << "`IsFinite` only supports FP16/BF16/FP32/INT8/UINT8/INT16/UINT16/INT32/UINT32/INT64/UINT64 in datatypes!";
+    RETURN_CALL(UnaryOperation<UnaryOpType::ISFINITE>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), DT_BOOL);
+>>>>>>> f9d7b0bf... fix(operation): Datatype uint8 -> bool for isfinite operation
 }
 
 Tensor Rsqrt(const Tensor &self) {
