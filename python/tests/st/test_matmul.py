@@ -27,6 +27,7 @@ INT32 = pypto.DT_INT32
 INT8 = pypto.DT_INT8
 UINT64 = pypto.DT_UINT64
 UINT32 = pypto.DT_UINT32
+BF16 = pypto.DT_BF16
 
 
 @dataclass
@@ -43,7 +44,6 @@ class ShapeConfig:
     a_format_nz: bool = False
     b_format_nz: bool = False
     c_format_nz: bool = False
-    mdl_flag: bool = False
     gm_acc: bool = False
 
 
@@ -101,7 +101,7 @@ def matmul_kernel_with_mn_split(
     m_view = shape_info.view_shape[0]
     n_view = shape_info.view_shape[1]
     pypto.set_cube_tile_shapes(shape_info.m_tile_shape, shape_info.k_tile_shape, shape_info.n_tile_shape,
-                                enable_multi_data_load=shape_info.mdl_flag, enable_split_k=shape_info.gm_acc)
+                                enable_split_k=shape_info.gm_acc)
     m_loop = (m + m_view - 1) // m_view
     n_loop = (n + n_view - 1) // n_view
     for m_idx in pypto.loop(0, m_loop, 1, name="LOOP_L0_mIdx", idx_name="m_idx"):
@@ -135,6 +135,25 @@ def bmm_kernel_with_no_mn_split(
     out_tensor.move(result)
 
 
+@pypto.frontend.jit(
+    debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 0}
+)
+def create_l0c2l1_kernel(
+    a_tensor: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    b_tensor: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    out_tensor: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    scale_tensor:pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_UINT64),
+    shape_info: ShapeConfig,
+):
+
+    pypto.set_cube_tile_shapes(shape_info.m_tile_shape, shape_info.k_tile_shape, shape_info.n_tile_shape,
+                                enable_split_k=shape_info.gm_acc)
+    params = {'scale_tensor': scale_tensor, 'relu_type': pypto.ReLuType.RELU}
+    result = pypto.matmul(a_tensor, b_tensor, a_trans=shape_info.a_trans, b_trans=shape_info.b_trans,
+                                    out_dtype=pypto.DT_BF16, extend_params=params)
+    out_tensor.move(result)
+
+
 @pytest.mark.soc("950", "910")
 @pytest.mark.skip(reason="large test case")
 def test_mm_with_mn_split():
@@ -149,7 +168,7 @@ def test_mm_with_mn_split():
     m_view = 128
     n_view = 256
     shape_info = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP16,
-                                FP32, True, True, False, False, False, False, False)
+                                FP32, True, True, False, False, False, False)
     a1_tensor = torch.rand([k, m], dtype=torch.float16, device=f"npu:{device_id}")
     b1_tensor = torch.rand([n, k], dtype=torch.float16, device=f"npu:{device_id}")
     c1_tensor = torch.zeros([m, n], dtype=torch.float32, device=f"npu:{device_id}")
@@ -176,7 +195,7 @@ def test_mm_with_mn_split_nz():
     m_view = 128
     n_view = 256
     shape_info = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP16,
-                                FP32, True, True, True, True, False, False, False)
+                                FP32, True, True, True, True, False, False)
     a1_tensor = torch.rand([k, m], dtype=torch.float16, device=f'npu:{device_id}')
     b1_tensor = torch.rand([n, k], dtype=torch.float16, device=f'npu:{device_id}')
     c1_tensor = torch.zeros([m, n], dtype=torch.float32, device=f'npu:{device_id}')
@@ -205,7 +224,7 @@ def test_bmm_with_mn_split():
     tile_k = 64
     tile_n = 64
     shape_info = ShapeConfig([b, m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [-1, -1], FP16, FP32,
-                                True, False, False, False, False, False, False)
+                                True, False, False, False, False, False)
     a1_tensor = torch.rand([b, k, m], dtype=torch.float16, device=f'npu:{device_id}')
     b1_tensor = torch.rand([b, k, n], dtype=torch.float16, device=f'npu:{device_id}')
     c1_tensor = torch.zeros([b, m, n], dtype=torch.float32, device=f'npu:{device_id}')
@@ -215,3 +234,39 @@ def test_bmm_with_mn_split():
         shape_info
     )
     assert torch.allclose(c1_tensor.cpu().to(torch.float32), golden.cpu().to(torch.float32), atol=1e-3, rtol=1e-3)
+
+def test_fixpipe_with_mn_split():
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    torch_npu.npu.config.allow_internal_format = True
+    m = 128
+    k = 256
+    n = 128
+    a_tensor = torch.rand([m, k], dtype=torch.bfloat16, device=f"npu:{device_id}")
+    b_tensor = torch.rand([k, n], dtype=torch.bfloat16, device=f"npu:{device_id}")
+    c_tensor = torch.zeros([m, n], dtype=torch.bfloat16, device=f"npu:{device_id}")
+
+    shape_info = ShapeConfig([m, k, n], [128, 128], [128, 128], [128, 128], [-1, -1], BF16, BF16,
+                               False, False, False, False, False, False)
+    scale_tensor = np.random.uniform(0, 3, [1, n]).astype(np.float32)
+    tensor_data = scale_tensor.view(np.uint32)
+    mask = 0xFFFFE000
+    tensor_data = tensor_data & mask
+    fp32_modified = tensor_data.view(np.float32)
+    fp32_modified_tensor = torch.from_numpy(fp32_modified).to(torch.float32)
+    scale_uint64 = tensor_data.astype(np.uint64)
+    scale_tensor_uint64 = torch.from_numpy(scale_uint64)
+
+    scale_tensor_uint64 = scale_tensor_uint64.to(f"npu:{device_id}")
+    fp32_modified_tensor = fp32_modified_tensor.to(f"npu:{device_id}")
+
+    create_l0c2l1_kernel(a_tensor, b_tensor, c_tensor, scale_tensor_uint64, shape_info)
+
+    tensor_res = torch.matmul(a_tensor.to(torch.float32), b_tensor.to(torch.float32))
+    tensor_res = F.relu(tensor_res)
+    tensor_res = tensor_res * fp32_modified_tensor
+    tensor_res = tensor_res.to(torch.bfloat16)
+
+    c_cpu = c_tensor.cpu().to(torch.float32)
+    res_cpu = tensor_res.cpu().to(torch.float32)
+
+    assert torch.allclose(c_cpu, res_cpu, atol=1e-3, rtol=1e-3)

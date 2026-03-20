@@ -714,7 +714,8 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyW
     }
 
     if ((!scaleValue.GetUnsignedData()) &&
-        ((operandDtype[param.localIdx] == DT_INT32) && (operandDtype[param.gmIdx] == DT_FP16))) {
+        (((operandDtype[param.localIdx] == DT_INT32) && (operandDtype[param.gmIdx] == DT_FP16)) ||
+         ((operandDtype[param.localIdx] == DT_FP32) && (operandDtype[param.gmIdx] == DT_BF16)))) {
         src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
     }
 

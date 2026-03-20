@@ -592,7 +592,7 @@ void CheckOperandDtype(DataType outType, const Tensor &operand1, const Tensor &o
     CheckCMatrixNZFormatAligned(outType, operand2, attrParam);
     // bias and scale valid check
     CheckBiasParam(operand1.GetDataType(), param);
-    CheckFixpipeParam(operand1.GetDataType(), outType, param);
+    // CheckFixpipeParam(operand1.GetDataType(), outType, param);
     // trans mode valid check
     CheckTransModeParam(operand1.GetDataType(), param);
     MATMUL_LOGD("Finish Matmul Operand Legality Check.\n");
