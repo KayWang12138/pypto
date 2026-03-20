@@ -50,9 +50,6 @@
 脚本使用方法：`python3 pass_compare.py --p ExpandFunction RemoveUndrivenView --verify_path=.....`
 `--p`参数后面的是对比的两个pass，空格隔开，前面的是精度对比失败的pass，后面的是作为golden的pass，`--verify_path`参数是精度工具dump数据文件的那个目录的绝对路径。
 #### 错误码：
-脚本使用方法：`python3 pass_compare.py --p ExpandFunction RemoveUndrivenView --verify_path=.....`
-`--p`参数后面的是对比的两个pass，空格隔开，前面的是精度对比失败的pass，后面的是作为golden的pass，`--verify_path`参数是精度工具dump数据文件的那个目录的绝对路径。
-#### 错误码：
 ##### 日志示例
 ```log
 [ERROR] PYPTO(1693310):2026-03-20 15:08:54.112 [operation.cpp:58][VERIFY]:ErrCode: FB200F! ExecuteOperation error: op GATHER_IN_UB (magic=10564) input[0] tensorMagic=94, shape=[82816, 512], offset=[0, 0], dynValidShape=[82816, 512], dynOffset=[]
