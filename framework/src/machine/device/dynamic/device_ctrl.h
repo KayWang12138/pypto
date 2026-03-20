@@ -41,7 +41,7 @@ class DeviceCtrlMachine {
 public:
     void InitTaskCtrl(int idx, int type, uint64_t taskId, DeviceTask *devTask, DeviceExecuteContext *ctx) {
         if (ctx == nullptr) {
-            DEV_ERROR("Init Task control failed, which ctx is null.");
+            DEV_ERROR(ERROR_CODE_UNDEFINED, "Init Task control failed, which ctx is null.");
             return;
         }
         auto taskCtrl = &GetTaskCtrlInPool(idx);
@@ -141,10 +141,10 @@ public:
         } else if (ctrlFlowCache != nullptr) {
             DEV_INFO("Init independent anchor program cache %p.", ctrlFlowCache);
             if (ctrlFlowCache->isRecording) {
-                DEV_ASSERT_MSG(!devProg->controlFlowCache.isRecording, "dev program ctr cache should not record");
+                DEV_ASSERT_MSG(ERROR_CODE_UNDEFINED, !devProg->controlFlowCache.isRecording, "dev program ctr cache should not record");
                 ctrlFlowCache->contextWorkspaceAddr = devStartArgs->contextWorkspaceAddr;
             } else {
-                DEV_ASSERT_MSG(!devProg->controlFlowCache.isActivated && ctrlFlowCache->isActivated,
+                DEV_ASSERT_MSG(ERROR_CODE_UNDEFINED, !devProg->controlFlowCache.isActivated && ctrlFlowCache->isActivated,
                         "should not active dev program cache and independent ctrl cache at same time");
             }
             devCtrlFlowCache = ctrlFlowCache;
@@ -328,7 +328,7 @@ public:
             return -1;
         }
         if (kargs->inputs == nullptr || kargs->cfgdata == nullptr) {
-            DEV_ERROR("Args has null in inputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
+            DEV_ERROR(ERROR_CODE_UNDEFINED, "Args has null in inputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
                     kargs->workspace, kargs->cfgdata);
             return -1;
         }
