@@ -156,9 +156,8 @@ LogicalTensorPtr TensorCompareOperation(
     auto resultType = DT_BOOL;
     if (mode == OutType::BIT) {
         resultType = DT_UINT8;
-        if (!resultShape.empty() && resultShape.back() % NUM_VALUE_8 != 0) {
-            ALOG_ERROR_F("Last dimension must be divisible by 8 in BIT mode");
-        }
+        ASSERT(VectorErrorCode::ERR_CONFIG_ALIGNMENT, (resultShape.empty() || resultShape.back() % NUM_VALUE_8 == 0))
+            << "Last dimension must be divisible by 8 in BIT mode";
         if (!resultShape.empty()) {
             resultShape.back() /= NUM_VALUE_8;
             if (!resultValidShape.empty()) {
@@ -186,9 +185,8 @@ LogicalTensorPtr TensorCompareOperationScalar(
         resultType = DT_UINT8;
         if (!resultShape.empty()) {
             int64_t lastDim = resultShape.back();
-            if (lastDim % NUM_VALUE_8 != 0) {
-                ALOG_ERROR_F("Last dimension must be divisible by 8 in BIT mode");
-            }
+            ASSERT(VectorErrorCode::ERR_CONFIG_ALIGNMENT, lastDim % NUM_VALUE_8 == 0)
+                << "Last dimension must be divisible by 8 in BIT mode";
             resultShape.back() = lastDim / NUM_VALUE_8;
             if (!resultValidShape.empty()) {
                 auto &lastSymDim = resultValidShape.back();
