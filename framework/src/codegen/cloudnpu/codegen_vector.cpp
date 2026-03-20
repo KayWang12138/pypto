@@ -1646,11 +1646,22 @@ std::string CodeGenOpCloudNPU::PrintPadTileTensor() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     auto c = extOperandVal.Cast<float>();
-    std::string padValue = "pto::PadValue::Zero";
-    if (c < 0) {
+    std::string padValue;
+    if (std::isinf(c) && c < 0) {
         padValue = "pto::PadValue::Min";
-    } else if (c > 0) {
+    } else if (std::isinf(c) && c > 0) {
         padValue = "pto::PadValue::Max";
+    } else if (std::fabs(c) < std::numeric_limits<float>::epsilon() * 10) {
+        padValue = "pto::PadValue::Zero";
+    } else {
+        union {
+            float f;
+            uint32_t u;
+        } conv;
+        conv.f = c;
+        std::ostringstream pvOss;
+        pvOss << "pto::PadCustom<" << conv.u << "U>";  // 使用 uint32_t 位模式
+        padValue = pvOss.str();
     }
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor};
 
