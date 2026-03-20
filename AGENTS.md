@@ -1,6 +1,6 @@
 # AGENTS.md
 
-本文件为 PyPTO 算子开发项目级指令。
+本文件为 PyPTO 项目级指令。
 
 ## 项目概述
 
@@ -77,20 +77,6 @@
 | pypto-pass-module-analyzer | 需要理解 Pass 模块时 | 分析 PyPTO pass 代码，生成模块分析文档 |
 | pypto-pass-ut-generate | 需要生成 Pass 测试用例时 | 根据Pass业务描述，生成单元测试用例 |
 | pypto-pass-workflow-analyzer | 需要理解 Pass 执行流程时 | 分析 PyPTO pass 文档中的业务流，帮助理解执行流程和数据流转 |
----
-=======
-- 编程框架：PyPTO
-- 目标硬件：昇腾 AI 处理器（A3 服务器，CANN 8.5.0）
-- 算子目录：`custom/{op}/`
-
----
-
-## 核心原则
-
-1. **文档优先** — 遇到问题先查 `docs/api/` 和 `examples/`，禁止凭直觉实现
-2. **定位修复不推翻** — 定位问题点后修复该部分，禁止遇错推翻重写
-3. **方案可用即完成** — 方案走通后即完成，不做额外优化探索
-
 ---
 
 ## 开发技能系统

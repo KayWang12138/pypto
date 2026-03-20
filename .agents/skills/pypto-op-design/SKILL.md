@@ -79,9 +79,9 @@ description: "基于 spec.md 生成算子设计文档 design.md（含 API 映射
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌───────────────────┐    ┌───────────────────┐                  │
 │  │ 知识库匹配          │    │ 动态查文档          │                  │
-│  │ - references/ 下    │    │ - 搜索 docs/       │                  │
-│  │   的 4 个知识库文件  │    │ - 查找类似算子示例  │                  │
-│  │ - 常见公式→API映射  │    │ - 验证 API 规格    │                  │
+│  │ - references/      │    │ - 搜索 docs/       │                  │
+│  │   quick_ref.md     │    │ - 查找类似算子示例  │                  │
+│  │ - 核心原则速查      │    │ - 验证 API 规格    │                  │
 │  └───────────────────┘    └───────────────────┘                  │
 │            │                        │                              │
 │            └──────────┬─────────────┘                              │
@@ -135,12 +135,12 @@ design.md 包含 9 个章节，模板文件位于: [templates/design-template.md
 | 章节 | 内容 | 信息来源 |
 |------|------|----------|
 | 1. 概述 | 算子名称、功能、数学公式、数据流图 | spec.md §1, §3 |
-| 2. API 映射设计 | 公式分解、PyPTO API 映射表、计算步骤 | references/api_mapping.md + docs/ |
+| 2. API 映射设计 | 公式分解、PyPTO API 映射表、计算步骤 | references/quick_ref.md + docs/ |
 | 3. 数据规格设计 | Input/Output dataclass、中间 Tensor、数据格式、JIT 配置 | spec.md §4 |
-| 4. Tiling 策略 | 算子类型判断、TileShape 配置、设置依据 | references/tiling_rules.md + docs/ |
-| 5. Loop 结构设计 | 是否需要 loop、静态/动态轴处理、尾块处理 | references/loop_strategy.md + docs/ |
+| 4. Tiling 策略 | 算子类型判断、TileShape 配置、设置依据 | references/quick_ref.md + docs/ |
+| 5. Loop 结构设计 | 是否需要 loop、静态/动态轴处理、尾块处理 | references/quick_ref.md + docs/ |
 | 6. 验证方案 | Golden 函数设计、测试用例（基于典型配置）、精度标准 | spec.md §6, §11 |
-| 7. 性能指标与开箱配置 | 性能目标、TileShape、pass_options、runtime_options | references/performance_params.md |
+| 7. 性能指标与开箱配置 | 性能目标、TileShape、pass_options、runtime_options | references/quick_ref.md + docs/ |
 | 8. 风险点与注意事项 | 已知约束、常见错误规避、特殊场景处理 | 知识库 + docs/ |
 | 9. 交付件清单 | 目录结构、文件清单、命名规范、生成顺序 | 固定模板 |
 
@@ -150,14 +150,13 @@ design.md 包含 9 个章节，模板文件位于: [templates/design-template.md
 
 ## 6. 知识库使用规范
 
-### 4 个 references 文件
+### 知识库文件
 
 | 文件 | 内容 | 使用时机 |
 |------|------|----------|
-| [references/api_mapping.md](references/api_mapping.md) | 公式 → PyPTO API 映射 | Stage 2 生成 §2 API 映射设计 |
-| [references/tiling_rules.md](references/tiling_rules.md) | Tiling 配置规则和约束 | Stage 2 生成 §4 Tiling 策略 |
-| [references/loop_strategy.md](references/loop_strategy.md) | Loop 策略和注意事项 | Stage 2 生成 §5 Loop 结构设计 |
-| [references/performance_params.md](references/performance_params.md) | 性能参数配置 | Stage 2 生成 §7 性能指标 |
+| [references/quick_ref.md](references/quick_ref.md) | Tiling/Loop/Runtime 核心原则速查 | 所有设计阶段的快速参考 |
+
+> 详细的 API 映射、Tiling 规则、Loop 策略、性能参数等信息通过搜索 `docs/` 动态获取。
 
 ### 来源优先级
 
@@ -173,12 +172,11 @@ examples/（教学示例）→ 参考优先级
 
 ### 正确性保障
 
-| 文件 | 保障层级 | 机制 |
-|------|----------|------|
-| tiling_rules.md | 三重保障 | 来源引用 + 原文关键内容 + 使用时查 docs 验证 |
-| loop_strategy.md | 三重保障 | 来源引用 + 原文关键内容 + 使用时查 docs 验证 |
-| api_mapping.md | 二重保障 | 来源引用 + 使用时查 docs 验证 |
-| performance_params.md | 二重保障 | 来源引用 + 使用时查 docs 验证 |
+| 文件 | 保障机制 |
+|------|----------|
+| quick_ref.md | 来源引用 + 使用时查 docs/ 验证 |
+
+> 所有知识库内容为预整理的经验总结。当知识库与 docs/ 不一致时，以 docs/ 为准。
 
 ---
 
