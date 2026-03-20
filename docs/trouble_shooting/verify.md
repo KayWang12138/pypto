@@ -33,7 +33,10 @@
 ##### 定位手段指导
 
 ###### pass_verify_print与pass_verify_save  
-精度工具提供pypto.pass_veirfy_print与pypto.pass_verify_save支持用户将自己编写的pypto kernal函数中的tensor的计算结果打印或者保存下来。（注意：该tensor既可以是最终的输出，也可以是中间产生的tensor，但是打印出来的结果并不是在npu中的计算结果，而是基于精度工具模拟执行和用户前端表达的模拟结果）。再开启精度定位前，可先确认精度工具Dump的最终输出与npu计算结果保持一致
+精度工具提供pypto.pass_veirfy_print与pypto.pass_verify_save支持用户将自己编写的pypto kernal函数中的tensor的计算结果打印或者保存下来。（注意：该tensor既可以是最终的输出，也可以是中间产生的tensor，但是打印出来的结果并不是在npu中的计算结果，而是基于精度工具模拟执行和用户前端表达的模拟结果）。  
+再开启精度定位前，可先确认精度工具Dump的最终输出与npu计算结果保持一致。
+详参见[pass_verify_print接口示例](docs/api/others/pypto-pass_verify_print.md)与
+[pass_verify_save接口示例](docs/api/others/pypto-pass_verify_save.md)  。
 
 ###### 精度工具skill
 ###### 精度工具自动比对脚本
