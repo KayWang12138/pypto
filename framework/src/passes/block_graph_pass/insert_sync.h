@@ -120,6 +120,7 @@ private:
         bool operator!=(const PipeCoreReal &t) const { return !(*this == t); }
     };
 
+    // 包含AIVCore类型的PipeCoreReal
     struct PipeCoreRealEx {
         PipeCoreRealEx(PipeType p, CoreType c, AIVCore a = AIVCore::UNSPECIFIED) : pipe(p), core(c), aivCore(a) {}
         PipeCoreRealEx(PipeCoreReal p, AIVCore a = AIVCore::UNSPECIFIED) : pipe(p.pipe), core(p.core), aivCore(a) {}
