@@ -19,6 +19,7 @@ from numpy.testing import assert_allclose
 import torch_npu
 
 
+@pytest.mark.soc("910", "950")
 def test_cos_shape_dim():
     """Test whether the output shape is correct"""
 
@@ -33,6 +34,8 @@ def test_cos_shape_dim():
         torch_case_res = torch.cos(torch_case_tensor)
         assert res.shape == list(torch_case_res.shape)
 
+
+@pytest.mark.soc("910", "950")
 def test_cos_FP32():
     """Test whether the output of FP32 is correct"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
@@ -57,6 +60,8 @@ def test_cos_FP32():
     assert_allclose(res_tensor.flatten(), expected.flatten(), atol=1e-3, verbose=True)
     pypto.runtime._device_fini()
 
+
+@pytest.mark.soc("910", "950")
 def test_cos_FP16():
     """Test whether the output of FP16 shape is correct"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
@@ -83,6 +88,8 @@ def test_cos_FP16():
 
     pypto.runtime._device_fini()
 
+
+@pytest.mark.soc("910", "950")
 def test_tensor_cos_FP32():
     """Test whether the output of FP32 is correct"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
