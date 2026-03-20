@@ -88,6 +88,7 @@ struct DevAscendProgram {
     uint16_t stitchFunctionNumInitial{0};
     uint16_t stitchFunctionNumStep{0};
     uint32_t stitchFunctionsize{0};
+    uint32_t stitchMaxFunctionNum{0};
     uint32_t ctrlFlowCacheSize{0};
     DevRelocVector<DevAscendProgramSymbol> symbolTable;
     DevRelocVector<char> symbolTableNameList;
@@ -157,6 +158,18 @@ struct DevAscendProgram {
 
     void DumpExpressionTable(const int indent, const bool dumpAddr, std::ostringstream& oss) const;
 
+    void DumpBasicInfo(const int indent, std::ostringstream& oss) const;
+
+    void DumpSymbolTable(const int indent, std::ostringstream& oss) const;
+
+    void DumpInputOutputSlots(const int indent, std::ostringstream& oss) const;
+
+    void DumpAssembleAndInplaceSlots(const int indent, std::ostringstream& oss) const;
+
+    void DumpPartialUpdate(const int indent, std::ostringstream& oss) const;
+
+    void DumpInputSymbols(const int indent, std::ostringstream& oss) const;
+    
     std::string Dump(const int indent = 0, const bool dumpAddr = false) const;
 
     void DumpFile(const std::string &filePath) const;

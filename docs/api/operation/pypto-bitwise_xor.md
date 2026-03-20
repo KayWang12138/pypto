@@ -12,7 +12,7 @@
 逐元素地将input与other值进行按位异或（XOR）运算。计算公式如下：
 
 $$
-res_i = input_i ^ other_i
+res_i = input_i \oplus other_i
 $$
 
 ## 函数原型

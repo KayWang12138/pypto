@@ -29,36 +29,6 @@ namespace {
 const int FILE_AUTHORITY = 0640;
 }
 
-bool FileExist(const std::string &fPath) {
-    return !RealPath(fPath).empty();
-}
-
-std::string RealPath(const std::string &path) {
-    if (path.empty()) {
-        FUNCTION_LOGI("path string is nullptr.");
-        return "";
-    }
-    if (path.size() >= PATH_MAX) {
-        FUNCTION_LOGI("file path %s is too long.", path.c_str());
-        return "";
-    }
-
-    // PATH_MAX is the system marco, indicate the maximum length for file path
-    // pclint check one param in stack can not exceed 1K bytes
-    char resovedPath[PATH_MAX] = {0x00};
-
-    std::string res;
-
-    // path not exists or not allowed to read return nullptr
-    // path exists and readable, return the resoved path
-    if (realpath(path.c_str(), resovedPath) != nullptr) {
-        res = resovedPath;
-    } else {
-        FUNCTION_LOGI("path %s is not exist.", path.c_str());
-    }
-    return res;
-}
-
 bool GetFileSize(const std::string& fPath, uint32_t &fileSize) {
     if (RealPath(fPath).empty()) {
         return false;
@@ -211,16 +181,6 @@ bool ReadBytesFromFile(const std::string &fPath, std::vector<char> &buffer)
     return true;
 }
 
-bool IsPathExist(const std::string& path)
-{
-    if (path.empty()) {
-        return false;
-    }
-
-    struct stat buffer;
-    return (stat(path.c_str(), &buffer) == 0);
-}
-
 std::vector<std::string> GetFiles(const std::string& path, const std::string& ext) {
     std::vector<std::string> files;
     DIR* dir = opendir(path.c_str());
@@ -298,7 +258,7 @@ bool DumpFile(const char *data, const size_t size, const std::string &fPath) {
     // dump bin file
     std::ofstream outFile(fPath, std::ios::binary);
     if (!outFile) {
-        FUNCTION_LOGE("Failed open file %s.", fPath.c_str());
+        FUNCTION_LOGE_E(FError::BAD_FD, "Failed open file %s.", fPath.c_str());
         return false;
     }
     outFile.write(data, size);
@@ -377,11 +337,11 @@ FILE* LockAndOpenFile(const std::string &lockFilePath) {
     }
     (void)chmod(lockFilePath.c_str(), FILE_AUTHORITY);
     if (!FcntlLockFile(fileno(fp), F_WRLCK)) {
-        FUNCTION_LOGW("Fail to lock file:", lockFilePath.c_str());
+        FUNCTION_LOGW("Fail to lock file: %s", lockFilePath.c_str());
         fclose(fp);
         return nullptr;
     }
-    FUNCTION_LOGI("Lock file successfully.", lockFilePath.c_str());
+    FUNCTION_LOGI("Lock file successfully. %s", lockFilePath.c_str());
     return fp;
 }
 
@@ -399,7 +359,7 @@ bool CopyFile(const std::string &srcPath, const std::string &dstPath) {
     std::ofstream dst(dstPath, std::ios::binary);
 
     if (!src.is_open() || !dst.is_open()) {
-        FUNCTION_LOGW("Fail to open file:", srcPath.c_str(), ", ", dstPath.c_str());
+        FUNCTION_LOGW("Fail to open file: %s, %s", srcPath.c_str(), dstPath.c_str());
         return false;
     }
 
@@ -431,7 +391,7 @@ std::string GetCurRunningPath() {
     char buffer[size] = {};
     std::string cwd = getcwd(buffer, size);
     if (cwd.empty()) {
-        FUNCTION_LOGE("failed to call getcwd()");
+        FUNCTION_LOGW("failed to call getcwd()");
         return "";
     }
     return cwd;

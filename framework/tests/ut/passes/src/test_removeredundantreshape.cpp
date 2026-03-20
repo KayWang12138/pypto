@@ -324,5 +324,39 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest5) {
     EXPECT_EQ(status, SUCCESS);
     EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 }
+
+/*
+inCast->reShape->ubTensor1->reShape->outCast  
+
+inCast->reShape->ubTensor1->reShape->outCast  
+*/
+TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeContainNegativeOne) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantReshape", "TestRemoveRedundantReshape", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    int64_t kSizeNegativeOne = -1;
+    // Prepare the graph
+    std::vector<int64_t> shape = {kSizeNegativeOne, kNumEight};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {inCast}, {ubTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {outCast});
+
+    currFunctionPtr->inCasts_.push_back(inCast);
+    currFunctionPtr->outCasts_.push_back(outCast);
+
+    RemoveRedundantReshape removeRedundantPass;
+
+    auto status = removeRedundantPass.RunOnFunction(*currFunctionPtr);
+    int reshapeNum = kNumZero;
+    EXPECT_EQ(status, SUCCESS);
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            ++reshapeNum;
+        }
+    }
+    EXPECT_EQ(reshapeNum, kNumTwo);
+}
 }
 }

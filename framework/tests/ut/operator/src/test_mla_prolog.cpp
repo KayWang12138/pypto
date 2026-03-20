@@ -151,7 +151,6 @@ void TestMlaPrologV2(std::vector<int> &params, bool isQuant = false, bool hasSmo
 }
 
 TEST_F(MlaPrologUtest, mla_ut_bf16_high_quant_smooth_nz_pa_bsnd) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(VEC_NBUFFER_MODE, 2);
     config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
     int b = 32;
     int s = 1;

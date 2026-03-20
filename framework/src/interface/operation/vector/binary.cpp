@@ -179,15 +179,22 @@ void TiledPReLUOperation(
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
         int axis = 5 - cur + 1;
         constexpr size_t ALIGN_SIZE = 32;
-        auto inputDataType = input.tensor.GetStorage()->Datatype();
-        int64_t tmpSize = ALIGN_SIZE / BytesOf(inputDataType);
+        constexpr size_t SIZEOFBYTE = 8;
+        int64_t tmpSize = ALIGN_SIZE;
         if (axis == 4) {
-            tmpSize = (input.tileInfo.shape[cur - 1] + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE;
+            tmpSize = (input.tileInfo.shape[cur - 1] + SIZEOFBYTE - 1) / SIZEOFBYTE;
+            tmpSize = (tmpSize + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE + ALIGN_SIZE;
         }
         std::vector<int64_t> tmpShape({tmpSize});
-        auto tmpTensor = std::make_shared<LogicalTensor>(function, inputDataType, tmpShape);
+        auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmpShape);
         auto &op = function.AddOperation(Opcode::OP_PRELU, {tile, weightTile}, {resultTile, tmpTensor});
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        
+        size_t dimSize = input.tensor.GetShape().size();
+        if (dimSize == 2) {
+            std::vector<bool> dimMap({true, false});
+            op.SetAttr(OpAttributeKey::rowPad, dimMap);
+        }
         return;
     }
     auto &vecTile = tileShape.GetVecTile();
@@ -502,6 +509,36 @@ Tensor LReLU(const Tensor &self, const Element &other) {
     DECLARE_TRACER();
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::LRELU>, *Program::GetInstance().GetCurrentFunction(),
         self.GetStorage(), other);
+}
+
+Tensor CeilDiv(const Tensor &self, const Tensor &other) {
+    std::vector<DataType> CEILDIV_SUPPORT_TYPES = {DataType::DT_INT32};
+    ASSERT(
+        self.GetDataType() == other.GetDataType() && 
+        std::find(CEILDIV_SUPPORT_TYPES.begin(), CEILDIV_SUPPORT_TYPES.end(), self.GetDataType()) != CEILDIV_SUPPORT_TYPES.end())
+        << "CeilDiv only supports same data type for self and other! And it should be in DT_INT32.";
+
+    Tensor selfFp32 = Cast(self, DataType::DT_FP32);
+    Tensor otherFp32 = Cast(other, DataType::DT_FP32);
+    Tensor resultFp32 = Div(selfFp32, otherFp32);
+    resultFp32 = Ceil(resultFp32);
+    Tensor result = Cast(resultFp32, DT_INT32);
+    return result;
+}
+
+Tensor CeilDiv(const Tensor &self, const Element &other) {
+    std::vector<DataType> CEILDIV_SUPPORT_TYPES = {DataType::DT_INT32};
+    ASSERT(
+        self.GetDataType() == other.GetDataType() && 
+        std::find(CEILDIV_SUPPORT_TYPES.begin(), CEILDIV_SUPPORT_TYPES.end(), self.GetDataType()) != CEILDIV_SUPPORT_TYPES.end())
+        << "CeilDiv only supports same data type for self and other! And it should be in DT_INT32.";
+
+    Tensor selfFp32 = Cast(self, DataType::DT_FP32);
+    Element otherFp32(DT_FP32, other.Cast<float>());
+    Tensor resultFp32 = Div(selfFp32, otherFp32);
+    resultFp32 = Ceil(resultFp32);
+    Tensor result = Cast(resultFp32, DT_INT32);
+    return result;
 }
 
 template <BinaryOpType T>

@@ -387,19 +387,9 @@ def do_test_lighting_indexer_prolog_quant(case_name, configs):
         layerout_key="PA_BSND",
     )
 
-    shapes = [tensor.shape for _, tensor in vars(inputs).items()] + \
-             [tensor.shape for _, tensor in vars(outputs).items()]
     tensors = [tensor for _, tensor in vars(inputs).items()] + \
               [tensor for _, tensor in vars(outputs).items()]
-    lightning_indexer_prolog_quant(*shapes, configs, attrs)(*tensors)
-
-    outputs = IndexerPrologQuantOutput(
-        q_int8=tensors[16],
-        q_scale=tensors[17],
-        k_int8=tensors[18],
-        k_scale=tensors[19],
-        weights=tensors[20]
-    )
+    lightning_indexer_prolog_quant(*tensors, configs, attrs)
     
     compare(outputs.q_int8.cpu(), q_int8_golden, "q_int8", 1, 0, 0)
     compare(outputs.q_scale.cpu(), q_scale_golden, "q_scale", 0.000025, 0, 0.005)
@@ -410,6 +400,7 @@ def do_test_lighting_indexer_prolog_quant(case_name, configs):
     print(f"=== {case_name}: PASS ===")
 
 
+@pytest.mark.soc("950", "910")
 def test_b4_s1_2_s2_64k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[16, 16, 512, 512, 128, 128],
@@ -422,7 +413,7 @@ def test_b4_s1_2_s2_64k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_2_s2_64k", configs)
 
@@ -440,7 +431,7 @@ def test_b8_s1_2_s2_64k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b8_s1_2_s2_64k", configs)
 
@@ -458,7 +449,7 @@ def test_b1_s1_4k_s2_64k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_4k_s2_64k", configs)
 
@@ -476,7 +467,7 @@ def test_b2_s1_4k_s2_64k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b2_s1_4k_s2_64k", configs)
 
@@ -494,9 +485,8 @@ def test_b128_s1_4_s2_8k():
         block_size=128,
         t_sub_tile=2,
         chunk_size=1,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
-    pypto.set_runtime_options(stitch_function_inner_memory=512, stitch_function_outcast_memory=512)
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b128_s1_4_s2_8k", configs)
 
 

@@ -34,7 +34,7 @@ argsort(input: Tensor, dim: Optional[int]=None, descending: bool=True) -> Tensor
 
 1. 当前不支持ViewShape在dim轴切分，即要求ViewShape[dim] = InputShape[dim]。
 2. 当前仅支持TileShape在dim轴上为32的倍数，即要求TileShape[dim] % 32 = 0。
-3. 当shape较大场景(tileShape Size/tileShape[dim] * ((viewShape[dim] + 31) / 32 * 32) >= 8KB)时，在dim轴的切分数量小于128。
+3. 当shape较大场景`(tileShape Size/tileShape[dim] * ((viewShape[dim] + 31) / 32 * 32) >= 6KB)`时, 排序轴的切分数量小于128。
 4. 对于四维输入，暂不支持在第0轴上进行排序。
 5. 排序时遇到相同值时，采用稳定排序返回对应的索引。
 
@@ -42,7 +42,7 @@ argsort(input: Tensor, dim: Optional[int]=None, descending: bool=True) -> Tensor
 
 ### TileShape设置示例
 
-调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
+说明：调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输入input一致。
 

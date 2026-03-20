@@ -125,7 +125,7 @@ bool RangeTest(
             T rlv = it;
             try {
                 SetFunc(group + "." + key, std::move(rlv));
-            } catch (const std::runtime_error &e) {
+            } catch (const std::exception &e) {
                 std::stringstream ss;
                 ss << e.what();
                 std::string errStr(ss.str());
@@ -180,10 +180,7 @@ TEST_F(TestConfigManager, NormalPassTest) {
         {SG_PARALLEL_NUM, {0, INT_MAX}},
         {SG_PG_UPPER_BOUND, {0, INT_MAX}},
         {SG_PG_LOWER_BOUND, {0, INT_MAX}},
-        {CUBE_L1_REUSE_MODE, {0, 2}},
-        {CUBE_NBUFFER_MODE, {0, 2}},
         {MG_COPYIN_UPPER_BOUND, {0, INT_MAX}},
-        {VEC_NBUFFER_MODE, {0, 2}},
         {MG_VEC_PARALLEL_LB, {1, 48}},
         {COPYOUT_RESOLVE_COALESCING, {0, 1000000}}
     };
@@ -206,10 +203,7 @@ TEST_F(TestConfigManager, AbnormalPassTest) {
         {SG_PARALLEL_NUM, {-1, outVal}},
         {SG_PG_UPPER_BOUND, {-1, outVal}},
         {SG_PG_LOWER_BOUND, {-1, outVal}},
-        {CUBE_L1_REUSE_MODE, {-1, 3}},
-        {CUBE_NBUFFER_MODE, {-1, 3}},
         {MG_COPYIN_UPPER_BOUND, {-1, outVal}},
-        {VEC_NBUFFER_MODE, {-1, 3}},
         {MG_VEC_PARALLEL_LB, {0, 49}},
         {COPYOUT_RESOLVE_COALESCING, {-1, 1000001}}
     };
@@ -269,4 +263,17 @@ TEST_F(TestConfigManager, LoadJson) {
     };
     test.build_type_infos(jdata, "");
     EXPECT_EQ(test.typeInfos.size(), 0);
+}
+
+TEST_F(TestConfigManager, JitScopeGuardBasic) {
+    auto &cm = ConfigManagerNg::GetInstance();
+    auto scopeBefore = cm.CurrentScope();
+    {
+        ConfigManagerNg::JitScopeGuard guard("jit_scope", std::map<std::string, Any>{});
+        auto scopeInGuard = cm.CurrentScope();
+        EXPECT_NE(scopeInGuard.get(), scopeBefore.get());
+        EXPECT_TRUE(scopeInGuard->HasConfig("pass.pg_lower_bound"));
+    }
+    auto scopeAfter = cm.CurrentScope();
+    EXPECT_EQ(scopeAfter.get(), scopeBefore.get());
 }

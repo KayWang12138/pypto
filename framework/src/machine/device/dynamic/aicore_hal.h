@@ -274,7 +274,7 @@ public:
             uint64_t startCycle = GetCycles();
             while (*finishRegQueues_[GetPhyIdByBlockId(idx)] != val) {
                 if (GetCycles() - startCycle > TIMEOUT_CYCLES) {
-                    DEV_ERROR("CoreId: %d cannot get finish Flag", idx);
+                    DEV_ERROR("CoreId=%d cannot get finish Flag", idx);
                     return;
                 }
             }
@@ -293,7 +293,7 @@ public:
 
     uint64_t CostModelGetTask(int coreIdx) {
         auto currentTime = GetCycles();
-        DEV_DEBUG("CostModel AICore polling aicore %d, time %lu.", coreIdx, currentTime);
+        DEV_DEBUG("CostModel AICore polling: aicoreIdx=%d, time=%lu.", coreIdx, currentTime);
         if (taskIds[coreIdx].empty()) return AICORE_FUNC_STOP | AICORE_FIN_MASK;
         uint64_t taskId = 0;
         while (!taskIds[coreIdx].empty() && currentTime >= taskTimes[coreIdx].front()) {
@@ -302,10 +302,10 @@ public:
             taskIds[coreIdx].pop_front();
         }
         if (taskIds[coreIdx].empty()) {
-            DEV_DEBUG("CostModel AICore %d finish task 0x%lx, current time %lu.", coreIdx, taskId, currentTime);
+            DEV_DEBUG("CostModel AICore finish task: aicoreIdx=%d, taskId=%#lx, currentTime=%lu.", coreIdx, taskId, currentTime);
             return taskId | AICORE_FIN_MASK;
         }
-        DEV_DEBUG("CostModel AICore %d running task 0x%lx, current time %lu, finish time %lu.",
+        DEV_DEBUG("CostModel AICore running task: aicoreIdx=%d, taskId=%#lx, currentTime=%lu, finishTime=%lu.",
                   coreIdx, taskIds[coreIdx].front(), currentTime, taskTimes[coreIdx].front());
         return taskIds[coreIdx].front();
     }
@@ -318,7 +318,7 @@ public:
         if (costModel_) {
             costModel_->SendTask(coreIdx, taskId);
         }
-        DEV_DEBUG("CostModel AICore %d add task 0x%lx, new queue size %lu, finish time %lu.",
+        DEV_DEBUG("CostModel AICore add task: aicoreIdx=%d, taskId=%#lx, newQueueSize=%lu, finishTime=%lu.",
                   coreIdx, taskId, taskIds[coreIdx].size(), time + timeCost);
     }
 
@@ -347,9 +347,9 @@ public:
     Metrics* GetMetrics(int coreIdx) {
         volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
         volatile Metrics*  metric = reinterpret_cast<Metrics *>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
-        DEV_INFO("aicore %d host alloc metric memory :%p.", coreIdx, metric);
+        DEV_INFO("aicoreIdx=%d host alloc metric memory: %p.", coreIdx, metric);
         if (metric == nullptr) {
-            DEV_ERROR("aicore %d Null metric.", coreIdx);
+            DEV_ERROR("aicoreIdx=%d null metric.", coreIdx);
            return nullptr;
         }
 
@@ -385,37 +385,32 @@ public:
         (void)coretype;
         (void)oss;
         (void)aicpuIdx;
-#if ENABLE_PERF_TRACE
+#if ENABLE_PERF_TRACE 
         Metrics* metric =  GetMetrics(coreIdx);
         if (metric == nullptr) {
             return DEVICE_MACHINE_ERROR;
         }
-
         oss << "{\"blockIdx\":" << coreIdx << ",\"coreType\":\"SCHED" << aicpuIdx << "-"
             << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":" << freq_ << ",\"tasks\":[";
 
+        auto turnNumIdx = metric->turnNum - 1;
         uint64_t curCycle = 0;
         for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
-            for (uint32_t cnt = 0; cnt < metric->perfTraceCnt[type]; cnt++) {
-                curCycle = metric->perfTrace[type][cnt];
+            for (uint32_t cnt = 0; cnt < metric->perfTraceCnt[turnNumIdx][type]; cnt++) {
+                curCycle = metric->perfTrace[turnNumIdx][type][cnt];
                 if (curCycle == 0) {
                     break;
                 }
-
-                oss << "{\"name\":\"" << AicorePerfTraceName[type];
-                if (metric->perfTraceDevTaskId[type][cnt] != INVALID_DEV_TASK_ID) {
-                    oss << "(" << metric->perfTraceDevTaskId[type][cnt] << ")";
+                oss << "{\"name\":\"" << AicorePerfTraceName[type]; 
+                if (metric->perfTraceDevTaskId[turnNumIdx][type][cnt] != INVALID_DEV_TASK_ID) { 
+                    oss << "(" << metric->perfTraceDevTaskId[turnNumIdx][type][cnt] << ")"; 
                 }
-
-                oss << "\",\"end\":" << curCycle << "}"
-                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[type] - 1)) ? "" : ",");
+                oss << "\",\"end\":" << curCycle << "}" 
+                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[turnNumIdx][type] - 1)) ? "" : ","); 
             }
         }
         oss << "]}";
-        if (!aicoreProf_->ProfIsEnable()) {
-            memset_s(metric, sizeof(Metrics), 0, sizeof(Metrics));
-        }
-#endif
+ #endif
         return DEVICE_MACHINE_OK;
     }
 

@@ -521,7 +521,7 @@ TEST_F(ReplaceTensorTest, TestSameAssembleOut) {
     currFunctionPtr->outCasts_.push_back(outcast1);
     int opSumBefore = currFunctionPtr->Operations().size();
     EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(currFunctionPtr->Operations().size(), opSumBefore + 4);
+    EXPECT_EQ(currFunctionPtr->Operations().size(), opSumBefore);
     EXPECT_EQ(pass.PostCheck(*currFunctionPtr), SUCCESS);
 }
 

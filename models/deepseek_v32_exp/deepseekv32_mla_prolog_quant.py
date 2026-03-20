@@ -181,8 +181,8 @@ def mla_prolog_quant_v32_compute(inputs):
         # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现与x86平台不一致，通过升精度保证正确性
         q_a_proj = torch.matmul(x_2d.to(torch.float32), w_dq.to(torch.float32))  # [b * s, q_lora_rank]
 
-    q_a_proj = q_a_proj.to(dtype)
-
+    q_a_proj = q_a_proj.to(torch.bfloat16)
+    
     q_a_layernorm = rms_norm(q_a_proj, gamma_cq)
 
     # shape is: [b * s, q_lora_rank] @ [q_lora_rank, n * q_head_dim] -> [b * s, n * q_head_dim]
@@ -614,30 +614,15 @@ def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_
     output_data = [output_q_norm_data, output_q_norm_scale_data, output_q_nope_data,
                 output_q_rope_data, output_kv_cache_data, output_kr_cache_data, k_scale_cache_data_out]
 
-    block_num_value = kv_cache_shape[0]
-    n_kv = n2
-    n_q = n1
-
-    output_data = [output_q_norm_data, output_q_norm_scale_data, output_q_nope_data,
-                output_q_rope_data, output_kv_cache_data, output_kr_cache_data, k_scale_cache_data_out]
-
-    block_num_value = kv_cache_shape[0]
-    n_kv = n2
-    n_q = n1
-
     if is_p:
         from mla_prolog_quant_impl import RopeTileShapeConfig
         rope_tile_shape = RopeTileShapeConfig(two_dim=[32, 64], three_dim=[32, 32, 128], four_dim=[16, 128, 128, 128])
-        mla_prolog_quant_p(h, q_lora_rank, n1, qk_nope_head_dim, kv_lora_rank, qk_rope_head_dim,
-                            block_num_value, block_size, n_kv, n_q, 1e-5, 1e-5, 
-                            cache_mode, tile_config, rope_tile_shape)(*input_data, *output_data)
+        mla_prolog_quant_p(*input_data, *output_data, 1e-5, 1e-5, cache_mode, tile_config, rope_tile_shape)
     else:
         from mla_prolog_quant_impl import RopeTileShapeConfig
         rope_tile_shape = RopeTileShapeConfig(two_dim=[128, 128],
             three_dim=[128, 128, 128], four_dim=[16, 128, 128, 128])
-        mla_prolog_quant_d(h, q_lora_rank, n1, qk_nope_head_dim, kv_lora_rank, qk_rope_head_dim,
-                            block_num_value, block_size, n_kv, n_q, 1e-5, 1e-5, 
-                            cache_mode, tile_config, rope_tile_shape)(*input_data, *output_data)
+        mla_prolog_quant_d(*input_data, *output_data, 1e-5, 1e-5, cache_mode, tile_config, rope_tile_shape)
     torch_npu.npu.synchronize()
 
     ########### compare #######
@@ -712,6 +697,7 @@ def test_b128_s4k4_pa_nd_bf16_quantb_p():
                         is_quant_a, is_quant_b, is_nz, tile_config, cache_mode, is_p=True)
 
 
+@pytest.mark.soc("950", "910")
 def test_b4_s64k2_pa_nd_bf16_quantb_d():
     '''
     mla_prolog decode测试函数

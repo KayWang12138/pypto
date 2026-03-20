@@ -20,6 +20,7 @@ DEVICE_TYPE=""
 INSTALL_PATH="/usr/local/Ascend"
 DOWNLOAD_DIR=$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")/pypto_download
 QUIET=false
+ONLY_DOWNLOAD=false
 
 DOWNLOADED_CANN_FILES=()
 INSTALL_CANN_FILES=()
@@ -59,8 +60,8 @@ THIRD_PARTY_DEPENDENCIES=(
 
 readonly CANN_VERSION="8.5.0"
 
-JSON_URL="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/json-3.11.3.tar.gz"
-SECUREC_URL="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/libboundscheck-v1.1.16.tar.gz"
+JSON_URL="https://gitcode.com/cann-src-third-party/json/releases/download/v3.11.3/json-3.11.3.tar.gz"
+SECUREC_URL="https://gitcode.com/cann-src-third-party/libboundscheck/releases/download/v1.1.16/libboundscheck-v1.1.16.tar.gz"
 
 CANN_TOOLKIT_URL_X86="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/x86_64/Ascend-cann-toolkit_8.5.0_linux-x86_64.run"
 CANN_TOOLKIT_URL_ARM="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/aarch64/Ascend-cann-toolkit_8.5.0_linux-aarch64.run"
@@ -144,6 +145,10 @@ parse_arguments() {
                 fi
                 shift
                 ;;
+            --only-download)
+                ONLY_DOWNLOAD=true
+                shift
+                ;;
             --quiet)
                 QUIET=true
                 shift
@@ -209,6 +214,7 @@ Optional Options:
     --download-path=<path>          Download cann packages to specific dir path
     --install-path=<path>           Install cann packages to specific dir path
     --quiet                         Run in quiet mode, automatically answer yes to all prompts
+    --only-download                 Download cann packages and third_party packages
     -h | --help                     Show this help message
 EOF
 }
@@ -683,6 +689,8 @@ install_single_package() {
         install_cmd="$filename --quiet --install --force --install-path=$INSTALL_PATH "
     elif [[ "$filename" =~ "toolkit" ]]; then
         install_cmd="$filename --quiet --install --force --install-path=$INSTALL_PATH "
+    elif [[ "$filename" =~ "pto-isa" ]]; then
+        install_cmd="$filename --quiet --full --install-path=$INSTALL_PATH "
     else
         install_cmd="$filename --full --install-path=$INSTALL_PATH "
     fi
@@ -917,7 +925,9 @@ main() {
     
     if [[ "$TYPE" == "cann" || "$TYPE" == "all" ]]; then
         download_cann_packages
-        install_cann_packages
+        if [[ "$ONLY_DOWNLOAD" != true ]]; then
+            install_cann_packages
+        fi
     fi
 }
 

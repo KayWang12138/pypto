@@ -144,13 +144,6 @@ rtError_t rtStreamSynchronize(rtStream_t stream)
     return RT_ERROR_NONE;
 }
 
-rtError_t rtGetSocVersion(char* version, const uint32_t maxlen)
-{
-    (void)version;
-    (void)maxlen;
-    return 1;
-}
-
 rtError_t rtMemcpy(void *dst, uint64_t destMax, const void *src, uint64_t count, rtMemcpyKind_t kind)
 {
     (void)destMax;
@@ -378,6 +371,14 @@ rtError_t rtCpuKernelLaunchWithFlag(const void *soName, const void *kernelName, 
     (void)smDesc;
     (void)stream;
     (void)flags;
+    return RT_ERROR_NONE;
+}
+
+rtError_t halResMap(unsigned int devId, struct res_map_info *res_info, unsigned long *va, unsigned int *len) {
+    (void)devId;
+    (void)res_info;
+    (void)va;
+    (void)len;
     return RT_ERROR_NONE;
 }
 }

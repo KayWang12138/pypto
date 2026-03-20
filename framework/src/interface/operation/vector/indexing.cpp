@@ -568,6 +568,9 @@ void TensorScatterElementS(Function &function, const ScatterElementSPara &scatte
 
 static void CheckScatterElementSParamsInvalid(
     const Tensor &self, const Tensor &indices, int axis, const ScatterMode reduce) {
+    DataType idx_dtype = indices.GetDataType();
+    ASSERT(idx_dtype == DataType::DT_INT32 || idx_dtype == DataType::DT_INT64)
+        << "Scatter: 'indices' must be of integer type (int32 or int64)";
     ASSERT(self.GetShape().size() == indices.GetShape().size()) << "The shape size of self and indices should be equal";
     ASSERT(axis < static_cast<int>(self.GetShape().size())) << "The axis should be less than size of self shape";
     ASSERT(reduce <= ScatterMode::UNKNOWN) << "The ScatterMode of reduce should be less than UNKNOWN";
@@ -715,6 +718,9 @@ void TensorScatter(Function &function, const ScatterPara &scatterPara) {
 
 static void CheckScatterParamsInvalid(
     const Tensor &self, const Tensor &indices, const Tensor &src, int axis, const ScatterMode reduce) {
+    DataType idx_dtype = indices.GetDataType();
+    ASSERT(idx_dtype == DataType::DT_INT32 || idx_dtype == DataType::DT_INT64)
+        << "Scatter: 'indices' must be of integer type (int32 or int64)";
     ASSERT(self.GetShape().size() == indices.GetShape().size()) << "The shape size of self and indices should be equal";
     ASSERT(src.GetShape().size() == indices.GetShape().size()) << "The shape size of src and indices should be equal";
     ASSERT(axis < static_cast<int>(self.GetShape().size())) << "The axis should be less than size of self shape";
@@ -1055,26 +1061,47 @@ Tensor ScatterUpdate(
     return result;
 }
 
-void TiledIndexPut(Function &function, const TileShape &tileShape, const LogicalTensorPtr &inputSelf, Input &inputValues,
-    std::vector<Input> &inputIndices, const LogicalTensorPtr result, bool accumulate) {
-    const auto &vecTile = tileShape.GetVecTile()[0];
-    for (int i = 0; i < inputValues.tensor.GetShape()[0]; i += vecTile) {
-        inputValues.tileInfo.shape[0] = std::min(inputValues.tensor.GetShape()[0] - i, vecTile);
-        inputValues.tileInfo.offset[0] = i;
+void TiledIndexPut(Function &function, const TileShape &tileShape, Input &inputSelf, Input &inputValues,
+    std::vector<Input> &inputIndices, const LogicalTensorPtr result, bool accumulate, size_t cur) {
+    size_t selfDim = inputSelf.tileInfo.shape.size();
+    size_t valuesDim = inputValues.tileInfo.shape.size();
+    size_t indicesCount = inputIndices.size();
+    if (cur == valuesDim) {
+        auto inputSelfTile = inputSelf.tensor.GetStorage()->View(function, inputSelf.tileInfo.shape, inputSelf.tileInfo.offset);
         auto inputValuesTile = inputValues.tensor.GetStorage()->View(function, inputValues.tileInfo.shape, inputValues.tileInfo.offset);
         std::vector<LogicalTensorPtr> inputsTile;
-        inputsTile.push_back(inputSelf);
+        inputsTile.push_back(inputSelfTile);
         inputsTile.push_back(inputValuesTile);
-        for (size_t j = 0; j < inputIndices.size(); j++) {
-            inputIndices[j].tileInfo.shape[0] = std::min(inputIndices[j].tensor.GetShape()[0] - i, vecTile);
-            inputIndices[j].tileInfo.offset[0] = i;
-            auto inputIndicesTileTemp = inputIndices[j].tensor.GetStorage()->View(function, inputIndices[j].tileInfo.shape, inputIndices[j].tileInfo.offset);
-            inputsTile.push_back(inputIndicesTileTemp);
+        for (size_t j = 0; j < indicesCount; j++) {
+            auto inputIndicesTile = inputIndices[j].tensor.GetStorage()->View(function, inputIndices[j].tileInfo.shape, inputIndices[j].tileInfo.offset);
+            inputsTile.push_back(inputIndicesTile);
         }
         auto &newOp = function.AddOperation(Opcode::OP_INDEX_PUT, inputsTile, {result});
         newOp.SetAttribute(OpAttributeKey::inplaceIdx, 0);
         newOp.SetAttribute(OpAttributeKey::accumulate, accumulate);
-        newOp.SetAttribute(OpAttributeKey::indicesSize, static_cast<int>(inputIndices.size()));
+        newOp.SetAttribute(OpAttributeKey::indicesSize, static_cast<int>(indicesCount));
+        return;
+    }
+    const auto &vecTile = tileShape.GetVecTile();
+    int64_t tileSize = inputValues.tensor.GetShape()[cur];
+    if (cur < vecTile.size()) {
+        tileSize = vecTile[cur];
+    }
+    for (int64_t i = 0, size = inputValues.tensor.GetShape()[cur]; i < size; i += tileSize) {
+        if (cur != 0) {
+            size_t selfIndex = selfDim - valuesDim + cur;
+            inputSelf.tileInfo.shape[selfIndex] = std::min(inputSelf.tensor.GetShape()[selfIndex] - i, tileSize);
+            inputSelf.tileInfo.offset[selfIndex] = i;
+        }
+        inputValues.tileInfo.shape[cur] = std::min(inputValues.tensor.GetShape()[cur] - i, tileSize);
+        inputValues.tileInfo.offset[cur] = i;
+        if (cur == 0) {
+            for (size_t j = 0; j < indicesCount; ++j) {
+                inputIndices[j].tileInfo.shape[cur] = std::min(inputIndices[j].tensor.GetShape()[cur] - i, tileSize);
+                inputIndices[j].tileInfo.offset[cur] = i;
+            }
+        }
+        TiledIndexPut(function, tileShape, inputSelf, inputValues, inputIndices, result, accumulate, cur + 1);
     }
 }
 
@@ -1086,18 +1113,20 @@ void TiledIndexPut(Function &function, const TileShape &tileShape, const Logical
         ASSERT(indices[i]->GetShape().size() == indices[i]->GetOffset().size());
     }
     TileInfo valuesTileInfo(values->shape.size(), values->offset.size());
-    for (size_t i = 1; i < values->GetShape().size(); i++) {
-        valuesTileInfo.shape[i] = values->GetShape()[i];
-        valuesTileInfo.offset[i] = 0;
-    }
+    TileInfo selfTileInfo(self->shape.size(), self->offset.size());
     auto inputValues = Input{values, valuesTileInfo};
+    auto inputSelf = Input{self, selfTileInfo};
+    for (size_t i = 0, size = self->shape.size(); i < size; ++i) {
+        inputSelf.tileInfo.shape[i] = self->shape[i];
+        inputSelf.tileInfo.offset[i] = 0;
+    }
     std::vector<Input> inputIndices;
-    for (size_t i = 0; i < indices.size(); i++) {
+    for (size_t i = 0, size = indices.size(); i < size; ++i) {
         TileInfo indicesTileInfoTemp(indices[i]->shape.size(), indices[i]->offset.size());
         auto inputIndicesTemp = Input{indices[i], indicesTileInfoTemp};
         inputIndices.push_back(inputIndicesTemp);
     }
-    TiledIndexPut(function, tileShape, self, inputValues, inputIndices, result, accumulate);
+    TiledIndexPut(function, tileShape, inputSelf, inputValues, inputIndices, result, accumulate, 0);
 }
 
 void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const LogicalTensors &indices, const LogicalTensorPtr &values,
@@ -1340,19 +1369,33 @@ Tensor GatherMask(const Tensor &self, const uint8_t patternMode) {
     if (patternMode == 1 || patternMode == 2) {
         ASSERT(shape[shape.size() - 1] % 2 == 0) 
             << "The last axis of input shape should be divisible by 2 when ptternMode is 1 or 2";
-        ASSERT(vecTile[shape.size() - 1] % 2 == 0) 
+        ASSERT(vecTile.tile[vecTile.tile.size() - 1] % 2 == 0) 
             << "The last axis of tileshape should be divisible by 2 when ptternMode is 1 or 2";
         shape[shape.size() - 1] = shape[shape.size() - 1] / 2;
     } else if (patternMode == 3 || patternMode == 4 || patternMode == 5 || patternMode == 6) {
         ASSERT(shape[shape.size() - 1] % 4 == 0) 
             << "The last axis of input shape should be divisible by 4 when ptternMode is 3, 4, 5 or 6";
-        ASSERT(shape[shape.size() - 1] % 4 == 0) 
+        ASSERT(vecTile.tile[vecTile.tile.size() - 1] % 4 == 0) 
             << "The last axis of tileshape should be divisible by 4 when ptternMode is 3, 4, 5 or 6";
         shape[shape.size() - 1] = shape[shape.size() - 1] / 4;
     } else {
         ASSERT(patternMode == 7) << "Just support patternMode is 1, 2, 3, 4, 5, 6, 7";
     }
     auto result = Tensor(self.GetStorage()->tensor->datatype, shape);
+
+    if (!self.GetStorage()->GetDynValidShape().empty()) {
+        std::vector<SymbolicScalar> outValidShape;
+        for (auto dim : self.GetStorage()->GetDynValidShape()) {
+            outValidShape.push_back(dim);
+        }
+        if (patternMode == 1 || patternMode == 2){
+            outValidShape[outValidShape.size() - 1] = outValidShape[outValidShape.size() - 1] / 2;
+        } else if (patternMode == 3 || patternMode == 4 || patternMode == 5 || patternMode == 6) {
+            outValidShape[outValidShape.size() - 1] = outValidShape[outValidShape.size() - 1] / 4;
+        }
+        result.GetStorage()->UpdateDynValidShape(outValidShape);
+    }
+
     CALL(GatherMask, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), result.GetStorage(), patternMode);
     return result;
 }

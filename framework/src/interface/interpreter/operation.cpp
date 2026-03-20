@@ -14,7 +14,7 @@
  */
 
 #include "interface/interpreter/function.h"
-#include "interface/utils/log.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/interpreter/operation.h"
 
 namespace npu::tile_fwk {
@@ -55,7 +55,7 @@ void LogTensorList(const char *role, Operation *op, const LogicalTensors &tensor
         auto offsetStr = DumpShapeVec(tensor->offset);
         auto dynValidShapeStr = DumpSymbolicVec(tensor->GetDynValidShape());
         auto dynOffsetStr = DumpSymbolicVec(tensor->GetDynOffset());
-        ALOG_ERROR_F(
+        VERIFY_LOGE_FULL_E(ExecuteOperationScene::RUNTIME_EXCEPTION,
             "ExecuteOperation error: op %s (magic=%d) %s[%zu] tensorMagic=%d, "
             "shape=%s, offset=%s, dynValidShape=%s, dynOffset=%s",
             op->GetOpcodeStr().c_str(),
@@ -113,6 +113,10 @@ std::vector<int64_t> OperationInterpreter::EvaluateOpImmediate(
 void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
     auto iOperands = OperationInterpreter::GetValidDataView(*ctx->ioperandDataViewList);
     auto oOperands = OperationInterpreter::GetValidDataView(*ctx->ooperandInplaceDataViewList);
+    if (ctx->op->GetOpcode() == Opcode::OP_RESHAPE) {
+        iOperands = *ctx->ioperandDataViewList;
+        oOperands = *ctx->ooperandInplaceDataViewList;
+    }
     ExecuteOperationContext ctxValid = {ctx->frame, this, ctx->op, &iOperands, {}, &oOperands};
     try {
         OperationInterpreter::CallOperationInterpreterFunc(&ctxValid);
@@ -125,7 +129,14 @@ void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
         }
         auto func = ctx->frame->func;
         func->DumpFile(config::LogTensorGraphFolder() + "/" + func->GetRawName() + ".tifwkgr");
-        throw std::runtime_error(ctx->Dump() + e.what());
+        std::string errMsg = e.what();
+        auto pos = errMsg.find('\n');
+        if (pos != std::string::npos) {
+            errMsg = errMsg.substr(0, pos);
+        }
+        throw std::runtime_error(std::to_string(ctx->frame->rootFuncHash) + ", " + std::to_string(ctx->frame->funcHash)
+                                + ", " + std::to_string(op->GetOpMagic()) + ", " + op->GetOpcodeStr()
+                                + "OpError\n" + ctx->Dump() + errMsg);
     }
 }
 

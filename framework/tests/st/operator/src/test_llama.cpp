@@ -32,7 +32,6 @@ public:
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_ALL_COMPLETE);
         config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
-        config::SetPassOption(VEC_NBUFFER_MODE, 1);
         config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, LLMA_L1REUSE_THRESHOLD}});
         config::SetPassOption(SG_PG_LOWER_BOUND, LLMA_CYCLE_THRESHOLD);
         rtSetDevice(GetDeviceIdByEnvVar());

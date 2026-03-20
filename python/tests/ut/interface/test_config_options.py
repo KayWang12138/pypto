@@ -23,9 +23,9 @@ def test_print_options():
 
 def test_pass_option():
     # int
-    pypto.set_pass_options(cube_l1_reuse_mode=0)
+    pypto.set_pass_options(sg_set_scope=48)
     pass_option = pypto.get_pass_options()
-    assert pass_option["cube_l1_reuse_mode"] == 0
+    assert pass_option["sg_set_scope"] == 48
     # map
     pypto.set_pass_options(cube_nbuffer_setting={3: 4})
     pass_option = pypto.get_pass_options()
@@ -36,25 +36,26 @@ def test_host_option():
     pypto.set_host_options(compile_stage=pypto.CompStage.EXECUTE_GRAPH)
     host_option = pypto.get_host_options()
     assert host_option["compile_stage"] == pypto.CompStage.EXECUTE_GRAPH.value
-
-
-def test_runtime_option():
-    pypto.set_runtime_options(stitch_function_size=30000)
-    runtime_option = pypto.get_runtime_options()
-    assert runtime_option["stitch_function_size"] == 30000
+    pypto.set_host_options(compile_monitor_enable=False)
+    host_option = pypto.get_host_options()
+    assert host_option["compile_monitor_enable"] == False
+    pypto.set_host_options(compile_monitor_print_interval=123)
+    host_option = pypto.get_host_options()
+    assert host_option["compile_monitor_print_interval"] == 123
+    pypto.set_host_options(compile_timeout_stage=50)
+    host_option = pypto.get_host_options()
+    assert host_option["compile_timeout_stage"] == 50
+    pypto.set_host_options(compile_timeout=1000)
+    host_option = pypto.get_host_options()
+    assert host_option["compile_timeout"] == 1000
 
 
 def test_reset_option():
-    pypto.set_runtime_options(stitch_function_num_initial=23)
-    runtime_option = pypto.get_runtime_options()
-    assert runtime_option["stitch_function_num_initial"] == 23
     pypto.set_host_options(compile_stage=pypto.CompStage.EXECUTE_GRAPH)
     host_option = pypto.get_host_options()
     assert host_option["compile_stage"] == pypto.CompStage.EXECUTE_GRAPH.value
     pypto.reset_options()
-    runtime_option = pypto.get_runtime_options()
     host_option = pypto.get_host_options()
-    assert runtime_option["stitch_function_num_initial"] == 128
     assert host_option["compile_stage"] == pypto.CompStage.ALL_COMPLETE.value
 
 
@@ -79,5 +80,11 @@ def test_global_option():
     res = pypto.get_global_config("codegen.parallel_compile")
     assert res == 10
 
+
+def test_option_map():
+    pass_option = pypto.get_pass_options()
+    assert pass_option["cube_nbuffer_setting"] == {-1: 1}
+
+
 if __name__ == "__main__":
-    test_global_option()
+    test_option_map()

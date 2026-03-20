@@ -10,20 +10,25 @@
 
 add_library(tile_fwk_intf_pub INTERFACE)
 target_include_directories(tile_fwk_intf_pub
-        INTERFACE   # 源码依赖
-            ${PTO_FWK_SRC_ROOT}/framework/include
-            ${PTO_FWK_SRC_ROOT}/framework/src
-            ${PTO_FWK_SRC_ROOT}/framework/src/interface
-            ${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device
-            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include>
+        INTERFACE   # 源码构建时依赖
+            $<$<BOOL:${PTO_FWK_SRC_ROOT}>:${PTO_FWK_SRC_ROOT}/framework/include>
+            $<$<BOOL:${PTO_FWK_SRC_ROOT}>:${PTO_FWK_SRC_ROOT}/framework/src>
+            $<$<BOOL:${PTO_FWK_SRC_ROOT}>:${PTO_FWK_SRC_ROOT}/framework/src/interface>
+            $<$<BOOL:${PTO_FWK_SRC_ROOT}>:${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device>
+            $<$<BOOL:${PTO_FWK_SRC_ROOT}>:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
 )
 target_compile_options(tile_fwk_intf_pub
         INTERFACE
             # 安全编译选项
             $<$<CONFIG:Release>:-O2 -D_FORTIFY_SOURCE=2>
             $<$<OR:$<BOOL:${ENABLE_ASAN}>,$<BOOL:${ENABLE_UBSAN}>,$<BOOL:${ENABLE_GCOV}>>:-Og>
+            -fPIC
+            $<$<CXX_COMPILER_ID:GNU>:$<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>:-pie>>
+            $<$<CXX_COMPILER_ID:GNU>:$<IF:$<VERSION_GREATER:${CMAKE_C_COMPILER_VERSION},4.8.5>,-fstack-protector-strong,-fstack-protector-all>>
+            $<$<CXX_COMPILER_ID:Clang>:$<IF:$<VERSION_GREATER:${CMAKE_C_COMPILER_VERSION},10.0.0>,-fstack-protector-strong,-fstack-protector-all>>
             # 基础要求选项
             $<$<CONFIG:Debug>:-g>
+            -Wall
             # 告警增强选项
             -Wextra
             -Wundef
@@ -97,10 +102,36 @@ target_compile_options(tile_fwk_intf_pub
             -Werror
             # 依赖分析选项
             $<$<CXX_COMPILER_ID:GNU>:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:-MMD>>
+            # GCOV
+            $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:--coverage -fprofile-arcs -ftest-coverage>>
+            # ASAN
+            $<$<BOOL:${ENABLE_ASAN}>:-fsanitize=address -fsanitize-address-use-after-scope -fsanitize=leak>
+            # UBSAN
+            # 在 Clang 编译器场景下 使能 -fsanitize=undefined 会默认开启基本所有的 UBSAN 检查项, 只有以下检查项不会开启
+            #   float-divide-by-zero, unsigned-integer-overflow, implicit-conversion, local-bounds 及 nullability-* 类检查.
+            # 故在 Clang 编译器使能 UBSAN 场景下, 需开启 -fsanitize=undefined 使能时仍未开启的对应检查项
+            # 在 GNU 编译器场景下, 官方文档并未对使能 -fsanitize=undefined 时开启的默认检查项范围进行说明, 故手工开启常用基本检查项, 避免能力遗漏
+            $<$<BOOL:${ENABLE_UBSAN}>:-fsanitize=undefined -fsanitize=float-divide-by-zero -fno-sanitize=alignment>
+            $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:Clang>:-fsanitize=unsigned-integer-overflow>>    # GNU 不支持这些检查项
+            $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:Clang>:$<$<VERSION_GREATER_EQUAL:${CMAKE_C_COMPILER_VERSION},10.0.0>:-fsanitize=implicit-conversion>>>    # GNU 不支持这些检查项, Clang高版本才支持这些检查项
+            $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=shift>>
+            $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=integer-divide-by-zero>>
+            $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=signed-integer-overflow>>
+            $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=float-divide-by-zero>>
+            $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=float-cast-overflow>>
+            $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=bool>>
+            $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=enum>>
+            $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=vptr>>
+            # ASAN/UBSAN 公共
+            $<$<OR:$<BOOL:${ENABLE_ASAN}>,$<BOOL:${ENABLE_UBSAN}>>:-fno-omit-frame-pointer -fsanitize-recover=all>
 )
 target_link_directories(tile_fwk_intf_pub
         INTERFACE
-            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
+            $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
+)
+target_link_libraries(tile_fwk_intf_pub
+        INTERFACE
+            $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:gcov>>
 )
 target_link_options(tile_fwk_intf_pub
         INTERFACE
@@ -109,57 +140,16 @@ target_link_options(tile_fwk_intf_pub
             -Wl,-z,now
             -Wl,-z,noexecstack
             $<$<CONFIG:Release>:-s>
+            # GCOV
+            $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:-fprofile-arcs -ftest-coverage>>
+            # ASAN
+            $<$<BOOL:${ENABLE_ASAN}>:-fsanitize=address>
+            # UBSAN
+            $<$<BOOL:${ENABLE_UBSAN}>:-fsanitize=undefined>
 )
 
-if (BUILD_OPEN_PROJECT)
-    add_library(intf_pub_cxx17 INTERFACE)
-    target_compile_options(intf_pub_cxx17
-            INTERFACE
-                # 安全编译选项
-                -fPIC
-                $<$<CXX_COMPILER_ID:GNU>:$<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>:-pie>>
-                $<$<CXX_COMPILER_ID:GNU>:$<IF:$<VERSION_GREATER:${CMAKE_C_COMPILER_VERSION},4.8.5>,-fstack-protector-strong,-fstack-protector-all>>
-                $<$<CXX_COMPILER_ID:Clang>:$<IF:$<VERSION_GREATER:${CMAKE_C_COMPILER_VERSION},10.0.0>,-fstack-protector-strong,-fstack-protector-all>>
-                # 基础要求选项
-                -Wall
-                # GCOV
-                $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:--coverage -fprofile-arcs -ftest-coverage>>
-                # ASAN
-                $<$<BOOL:${ENABLE_ASAN}>:-fsanitize=address -fsanitize-address-use-after-scope -fsanitize=leak>
-                # UBSAN
-                # 在 Clang 编译器场景下 使能 -fsanitize=undefined 会默认开启基本所有的 UBSAN 检查项, 只有以下检查项不会开启
-                #   float-divide-by-zero, unsigned-integer-overflow, implicit-conversion, local-bounds 及 nullability-* 类检查.
-                # 故在 Clang 编译器使能 UBSAN 场景下, 需开启 -fsanitize=undefined 使能时仍未开启的对应检查项
-                # 在 GNU 编译器场景下, 官方文档并未对使能 -fsanitize=undefined 时开启的默认检查项范围进行说明, 故手工开启常用基本检查项, 避免能力遗漏
-                $<$<BOOL:${ENABLE_UBSAN}>:-fsanitize=undefined -fsanitize=float-divide-by-zero -fno-sanitize=alignment>
-                $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:Clang>:-fsanitize=unsigned-integer-overflow>>    # GNU 不支持这些检查项
-                $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:Clang>:$<$<VERSION_GREATER_EQUAL:${CMAKE_C_COMPILER_VERSION},10.0.0>:-fsanitize=implicit-conversion>>>    # GNU 不支持这些检查项, Clang高版本才支持这些检查项
-                $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=shift>>
-                $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=integer-divide-by-zero>>
-                $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=signed-integer-overflow>>
-                $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=float-divide-by-zero>>
-                $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=float-cast-overflow>>
-                $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=bool>>
-                $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=enum>>
-                $<$<BOOL:${ENABLE_UBSAN}>:$<$<CXX_COMPILER_ID:GNU>:-fsanitize=vptr>>
-                # ASAN/UBSAN 公共
-                $<$<OR:$<BOOL:${ENABLE_ASAN}>,$<BOOL:${ENABLE_UBSAN}>>:-fno-omit-frame-pointer -fsanitize-recover=all>
-    )
-    target_compile_definitions(intf_pub_cxx17
-            INTERFACE
-                $<$<COMPILE_LANGUAGE:CXX>:_GLIBCXX_USE_CXX11_ABI=0>    # 必须设置, 以保证与 CANN 包内其他 C++ 二进制兼容
-    )
-    target_link_libraries(intf_pub_cxx17
-            INTERFACE
-                $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:gcov>>
-    )
-    target_link_options(intf_pub_cxx17
-            INTERFACE
-                # GCOV
-                $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:-fprofile-arcs -ftest-coverage>>
-                # ASAN
-                $<$<BOOL:${ENABLE_ASAN}>:-fsanitize=address>
-                # UBSAN
-                $<$<BOOL:${ENABLE_UBSAN}>:-fsanitize=undefined>
-    )
-endif()
+add_library(intf_pub_cxx17 INTERFACE)
+target_compile_definitions(intf_pub_cxx17
+        INTERFACE
+            $<$<COMPILE_LANGUAGE:CXX>:_GLIBCXX_USE_CXX11_ABI=0>    # 必须设置, 以保证与 CANN 包内其他 C++ 二进制兼容
+)

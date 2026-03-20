@@ -41,9 +41,7 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        print("Please set it before running this example:")
+        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
 
@@ -99,143 +97,87 @@ def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, eps
     return scaled + beta
 
 
-def layer_norm(x_shape, gamma_shape, beta_shape, run_mode: str = "npu"):
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def layer_norm_kernel(
-        x: pypto.Tensor(x_shape, pypto.DT_BF16), 
-        gamma: pypto.Tensor(gamma_shape, pypto.DT_BF16), 
-        beta: pypto.Tensor(beta_shape, pypto.DT_BF16),
-    ) -> (
-        pypto.Tensor(x_shape, pypto.DT_BF16)
-    ):
-        """Layer Normalization."""
-        pypto.set_vec_tile_shapes(64, 128)
+@pypto.frontend.jit
+def layer_norm_kernel(
+    x: pypto.Tensor(), 
+    gamma: pypto.Tensor(), 
+    beta: pypto.Tensor(),
+    out: pypto.Tensor(),
+):
+    """Layer Normalization."""
+    pypto.set_vec_tile_shapes(64, 128)
 
-        out = layernorm_core(x, gamma, beta)
-        
-        return out
-    
-    return layer_norm_kernel
+    out[:] = layernorm_core(x, gamma, beta)
 
 
 # Function 2: Linear Projection
-def linear_projection(x_shape, w_shape, run_mode: str = "npu"):
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
+@pypto.frontend.jit
+def linear_projection_kernel(
+    x: pypto.Tensor(),
+    weight: pypto.Tensor(), 
+    out: pypto.Tensor(),
+    ):
+
+    bias = None
+
+    pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+    # Matrix multiplication
+    if bias is not None:
+        out[:] = pypto.add(pypto.matmul(x, weight, out_dtype=x.dtype), bias)
     else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def linear_projection_kernel(
-        x: pypto.Tensor(x_shape, pypto.DT_BF16),
-        weight: pypto.Tensor(w_shape, pypto.DT_BF16), 
-        ) -> pypto.Tensor(x_shape, pypto.DT_BF16):
-
-        bias = None
-
-        pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
-        # Matrix multiplication
-        if bias is not None:
-            out = pypto.add(pypto.matmul(x, weight, out_dtype=x.dtype), bias)
-        else:
-            out = pypto.matmul(x, weight, out_dtype=x.dtype)
-        return out
-    
-    return linear_projection_kernel
+        out[:] = pypto.matmul(x, weight, out_dtype=x.dtype)
 
 
 # Function 3: GELU Activation
-def gelu_activation(x_shape, run_mode: str = "npu"):
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def gelu_activation_kernel(x: pypto.tensor(x_shape, pypto.DT_BF16)) -> pypto.tensor(x_shape, pypto.DT_BF16):
-        # Configure tiling
-        tile_shapes = [32 for _ in range(len(x.shape))]
-        pypto.set_vec_tile_shapes(*tile_shapes)
+@pypto.frontend.jit
+def gelu_activation_kernel(
+    x: pypto.Tensor(),
+    out: pypto.Tensor(),
+):
+    # Configure tiling
+    tile_shapes = [32 for _ in range(len(x.shape))]
+    pypto.set_vec_tile_shapes(*tile_shapes)
 
-        # GELU approximation: x * sigmoid(1.702 * x)
-        coeff = 1.702
-        x_scaled = x * coeff
+    # GELU approximation: x * sigmoid(1.702 * x)
+    coeff = 1.702
+    x_scaled = x * coeff
 
-        y = x * pypto.sigmoid(x_scaled)
-        return y
-    
-    return gelu_activation_kernel
+    out[:] = x * pypto.sigmoid(x_scaled)
 
 
 # Function 4: Residual Connection
-def residual_add(x_shape, res_shape, run_mode: str = "npu"):
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def residual_add_kernel(
-            x: pypto.tensor(x_shape, pypto.DT_BF16), 
-            residual: pypto.tensor(res_shape, pypto.DT_BF16),
-        ) -> (
-            pypto.tensor(x_shape, pypto.DT_BF16)
-        ):
-        pypto.set_vec_tile_shapes(64, 128)
+@pypto.frontend.jit
+def residual_add_kernel(
+        x: pypto.tensor(), 
+        residual: pypto.tensor(),
+        out: pypto.tensor(),
+    ):
+    pypto.set_vec_tile_shapes(64, 128)
+    out[:] = pypto.add(x, residual)
 
-        out = pypto.add(x, residual)
-        return out
-    
-    return residual_add_kernel
-    
     
 # Function 5: Attention (simplified)
-def attention(q_shape, k_shape, v_shape, out_shape, run_mode: str = "npu"):
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def attention_kernel(
-            q: pypto.tensor(q_shape, pypto.DT_BF16), 
-            k: pypto.tensor(k_shape, pypto.DT_BF16), 
-            v: pypto.tensor(v_shape, pypto.DT_BF16), 
-        ) -> (
-            pypto.tensor(out_shape, pypto.DT_BF16)
-        ):
-        pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+@pypto.frontend.jit
+def attention_kernel(
+        q: pypto.tensor(), 
+        k: pypto.tensor(), 
+        v: pypto.tensor(), 
+        out: pypto.tensor(),
+    ):
+    pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
 
-        # Q @ K^T
-        k_t = pypto.transpose(k, [0, 1, 3, 2])
-        scores = pypto.matmul(q, k_t, out_dtype=out.dtype)
+    # Q @ K^T
+    k_t = pypto.transpose(k, [0, 1, 3, 2])
+    scores = pypto.matmul(q, k_t, out_dtype=out.dtype)
 
-        # Scale
-        scores_scaled = pypto.mul(scores, scale)
+    # Scale
+    scores_scaled = pypto.mul(scores, scale)
 
-        # Softmax
-        attn_weights = pypto.softmax(scores_scaled, dim=-1)
+    # Softmax
+    attn_weights = pypto.softmax(scores_scaled, dim=-1)
 
-        # Apply to values
-        out = pypto.matmul(attn_weights, v, out_dtype=out.dtype)
-        return out
-    
-    return attention_kernel
+    # Apply to values
+    out[:] = pypto.matmul(attn_weights, v, out_dtype=out.dtype)
 
 
 def test_sequential_functions(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
@@ -257,10 +199,12 @@ def test_sequential_functions(device_id: int = None, run_mode: str = "npu", dyna
     beta = torch.zeros(hidden_size, dtype=torch.bfloat16, device=device)
 
     # Step 1: Layer normalization
-    normed = layer_norm(x.shape, gamma.shape, beta.shape, run_mode)(x, gamma, beta)
+    normed = torch.empty(x.shape, dtype=torch.bfloat16, device=device)
+    layer_norm_kernel(x, gamma, beta, normed)
 
     # Step 2: GELU activation
-    activated = gelu_activation(normed.shape, run_mode)(normed)
+    activated = torch.empty(normed.shape, dtype=torch.bfloat16, device=device)
+    gelu_activation_kernel(normed, activated)
 
     # Verify
     expected_normed = layer_norm_golden(x, gamma, beta, 1e-6)
@@ -295,7 +239,8 @@ def test_residual_connection(device_id: int = None, run_mode: str = "npu", dynam
     residual = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
 
     # Apply residual connection
-    out = residual_add(x.shape, residual.shape, run_mode)(x, residual)
+    out = torch.empty(x.shape, dtype=torch.bfloat16, device=device)
+    residual_add_kernel(x, residual, out)
 
     # Verify
     expected = x + residual
@@ -329,10 +274,10 @@ def test_transformer_block(device_id: int = None, run_mode: str = "npu", dynamic
     gamma = torch.ones(hidden_size, dtype=torch.bfloat16, device=device)
     beta = torch.zeros(hidden_size, dtype=torch.bfloat16, device=device)
 
-    # FFN weights
+    # FFN weights (gate/up: 128->256, down: 256->128)
     gate_weight = torch.randn(hidden_size, intermediate_size, dtype=torch.bfloat16, device=device)
     up_weight = torch.randn(hidden_size, intermediate_size, dtype=torch.bfloat16, device=device)
-    down_weight = torch.randn(hidden_size, intermediate_size, dtype=torch.bfloat16, device=device)
+    down_weight = torch.randn(intermediate_size, hidden_size, dtype=torch.bfloat16, device=device)
 
     # Intermediate tensors
     normed = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
@@ -343,20 +288,22 @@ def test_transformer_block(device_id: int = None, run_mode: str = "npu", dynamic
     output = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
     # Transformer block computation:
     # 1. Layer normalization
-    normed = layer_norm(x.shape, gamma.shape, beta.shape, run_mode)(x, gamma, beta)
+    normed = torch.empty(x.shape, dtype=torch.bfloat16, device=device)
+    layer_norm_kernel(x, gamma, beta, normed)
     if run_mode == "npu":
         torch.npu.synchronize()
 
     # 2. FFN: Gate and Up projections
-    gate = linear_projection(normed.shape, gate_weight.shape, run_mode)(normed, gate_weight)
+    linear_projection_kernel(normed, gate_weight, gate)
     if run_mode == "npu":
         torch.npu.synchronize()
-    up = linear_projection(normed.shape, up_weight.shape, run_mode)(normed, up_weight)
+    linear_projection_kernel(normed, up_weight, up)
     if run_mode == "npu":
         torch.npu.synchronize()
 
     # 3. GELU activation on gate
-    activated = gelu_activation(gate.shape, run_mode)(gate)
+    activated = torch.empty(gate.shape, dtype=torch.bfloat16, device=device)
+    gelu_activation_kernel(gate, activated)
     if run_mode == "npu":
         torch.npu.synchronize()
 
@@ -364,10 +311,11 @@ def test_transformer_block(device_id: int = None, run_mode: str = "npu", dynamic
     activated = activated * up  # PyTorch operation for simplicity
 
     # 5. Down projection
-    ffn_out = linear_projection(activated.shape, down_weight.shape, run_mode)(activated, down_weight)
+    linear_projection_kernel(activated, down_weight, ffn_out)
 
     # 6. Residual connection
-    output = residual_add(x.shape, ffn_out.shape, run_mode)(x, ffn_out)
+    output = torch.empty(x.shape, dtype=torch.bfloat16, device=device)
+    residual_add_kernel(x, ffn_out, output)
 
     print(f"Input shape: {x.shape}")
     print(f"Output shape: {output.shape}")
@@ -401,13 +349,13 @@ def test_function_reuse(device_id: int = None, run_mode: str = "npu", dynamic: b
     out3 = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
 
     # Reuse the same function with different inputs
-    out1 = layer_norm(x1.shape, gamma.shape, beta.shape, run_mode)(x1, gamma, beta)
+    layer_norm_kernel(x1, gamma, beta, out1)
     if run_mode == "npu":
         torch.npu.synchronize()
-    out2 = layer_norm(x2.shape, gamma.shape, beta.shape, run_mode)(x2, gamma, beta)
+    layer_norm_kernel(x2, gamma, beta, out2)
     if run_mode == "npu":
         torch.npu.synchronize()
-    out3 = layer_norm(x3.shape, gamma.shape, beta.shape, run_mode)(x3, gamma, beta)
+    layer_norm_kernel(x3, gamma, beta, out3)
     if run_mode == "npu":
         torch.npu.synchronize()
 
@@ -465,9 +413,9 @@ Examples:
         '--run_mode',
         type=str,
         nargs='?',
-        default="npu",
-        choices=["npu", "sim"],
-        help='Run mode, such as npu/sim etc.'
+        default='npu',
+        choices=["npu"],
+        help='Run mode, currently only support npu.'
     )
 
     args = parser.parse_args()

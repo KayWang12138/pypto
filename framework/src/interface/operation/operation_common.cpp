@@ -36,18 +36,15 @@ void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op) {
     auto shape = tensor->shape;
     // valid input dims must in [1, 4]
     auto shape_len_limit = GetShapeLenLimit(op);
-    if (shape.size() < shape_len_limit[0] || shape.size() > shape_len_limit[1]) {
-        ASSERT(false && "The dims of tensor out of range.");
-    }
+    ASSERT(shape.size() >= shape_len_limit[0] && shape.size() <= shape_len_limit[1])
+        << "The dims of tensor out of range. shape.size(): " << shape.size()
+        << "shape_len_limit[0]: "<< shape_len_limit[0]
+        << "shape_len_limit[1]" << shape_len_limit[1];
     size_t shapeSize = 1;
     for (const auto &value : shape) {
-        if (value > INT32_MAX) {
-            ASSERT(false && "The dim value of tensor must less than or equal to INT32_MAX(2,147,483,647)");
-        }
+        ASSERT(value <= INT32_MAX) << "The dim value of tensor must less than or equal to INT32_MAX(2,147,483,647)";
         shapeSize *= static_cast<size_t>(value);
-        if (shapeSize > INT32_MAX) {
-            ASSERT(false && "The shape size of tensor must less than or equal to INT32_MAX(2,147,483,647)");
-        }
+        ASSERT(shapeSize <= INT32_MAX) << "The shape size of tensor must less than or equal to INT32_MAX(2,147,483,647)";
     }
 }
 

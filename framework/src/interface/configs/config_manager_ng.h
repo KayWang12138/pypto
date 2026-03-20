@@ -32,13 +32,10 @@ constexpr const char *SG_PARALLEL_NUM = "pg_parallel_lower_bound";
 constexpr const char *SG_PG_UPPER_BOUND = "pg_upper_bound";
 constexpr const char *SG_PG_LOWER_BOUND = "pg_lower_bound";
 constexpr const char *SG_SET_SCOPE = "sg_set_scope";
-constexpr const char *CUBE_L1_REUSE_MODE = "cube_l1_reuse_mode";
 constexpr const char *CUBE_L1_REUSE_SETTING = "cube_l1_reuse_setting";
-constexpr const char *CUBE_NBUFFER_MODE = "cube_nbuffer_mode";
 constexpr const char *CUBE_NBUFFER_SETTING = "cube_nbuffer_setting";
 constexpr const char *MG_COPYIN_UPPER_BOUND = "mg_copyin_upper_bound";
 constexpr const char *OOO_PRESCHEDULE_METHOD = "ooo_preschedule_method";
-constexpr const char *VEC_NBUFFER_MODE = "vec_nbuffer_mode";
 constexpr const char *VEC_NBUFFER_SETTING = "vec_nbuffer_setting";
 constexpr const char *SG_CUBE_PARALLEL_NUM = "sg_cube_parallel_num";
 constexpr const char *MG_VEC_PARALLEL_LB = "mg_vec_parallel_lb";
@@ -59,9 +56,14 @@ constexpr const char *CFG_RUN_MODE = "run_mode";
 constexpr const char *CFG_VALID_SHAPE_OPTIMIZE = "valid_shape_optimize";
 constexpr int64_t CFG_RUN_MODE_NPU = 0;
 constexpr int64_t CFG_RUN_MODE_SIM = 1;
+constexpr const char *READY_ON_HOST_TENSORS = "ready_on_host_tensors";
 
 // host
 constexpr const char *COMPILE_STAGE = "compile_stage";
+constexpr const char *COMPILE_MONITOR_ENABLE = "compile_monitor_enable";
+constexpr const char *INTERVAL_SEC = "compile_monitor_print_interval";
+constexpr const char *TIMEOUT_SEC = "compile_timeout_stage";
+constexpr const char *TOTAL_TIMEOUT_SEC = "compile_timeout";
 constexpr int64_t CS_ALL_COMPLETE = 0;
 constexpr int64_t CS_TENSOR_GRAPH = 1;
 constexpr int64_t CS_TILE_GRAPH = 2;
@@ -84,7 +86,6 @@ constexpr const char *CFG_COMPILE_DBEUG_MODE = "compile_debug_mode";
 constexpr const char *CFG_RUNTIME_DBEUG_MODE = "runtime_debug_mode";
 constexpr int64_t CFG_DEBUG_NONE = 0;
 constexpr int64_t CFG_DEBUG_ALL = 1;
-constexpr int64_t CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND = 2;
 
 // operation
 const std::string KEY_FORCE_COMBINE_AXIS = "force_combine_axis";
@@ -179,6 +180,14 @@ public:
     }
 
     /**
+     * \brief Retrieves the ConvTile configuration.
+     */
+    ConvTile GetConvTile() const {
+        const Any& value = GetAnyConfig("conv_tile_shapes");
+        return AnyCast<ConvTile>(value);
+    }
+
+    /**
      * \brief Retrieves the VecTile configuration as a VecTile structure.
      */
     VecTile GetVecTile() const {
@@ -236,9 +245,7 @@ public:
     /**
      * \brief clear the config in Scope
      */
-    void Clear() {
-        values_.clear();
-    }
+    void Clear();
 
     template <typename T>
     T GetConfigAllType(const std::string &key) const {
@@ -297,6 +304,37 @@ public:
      *
      */
     void EndScope(const char *file = __builtin_FILE(), int line = __builtin_LINE());
+
+    /**
+    * @brief RAII guard: BeginScope on construction, EndScope on destruction.
+    * Use instead of manual BeginScope + EndScope pair for exception safety.
+    */
+    class JitScopeGuard {
+    public:
+        JitScopeGuard(const std::string &name, std::map<std::string, Any> &&values = {},
+                        const char *file = __builtin_FILE(), int line = __builtin_LINE());
+        ~JitScopeGuard();
+        JitScopeGuard(const JitScopeGuard &) = delete;
+        JitScopeGuard &operator=(const JitScopeGuard &) = delete;
+
+    private:
+        // RAII: ctor does BeginScope, dtor does EndScope
+    };
+
+    /**
+     * @brief RAII guard: PushScope on construction, EndScope on destruction.
+     * Use instead of manual Restore + EndScope pair for exception safety.
+     */
+    class ScopedRestore {
+    public:
+        explicit ScopedRestore(std::shared_ptr<ConfigScope> scope);
+        ~ScopedRestore();
+        ScopedRestore(const ScopedRestore &) = delete;
+        ScopedRestore &operator=(const ScopedRestore &) = delete;
+
+    private:
+        // RAII: ctor does PushScope, dtor does EndScope
+    };
 
     /**
      * @brief Set the Scope object
@@ -388,8 +426,6 @@ private:
 };
 
 namespace config {
-
-void Restore(std::shared_ptr<ConfigScope> config);
 
 std::shared_ptr<ConfigScope> Duplicate();
 

@@ -33,7 +33,7 @@ public:
     void HealthCheckBlockGraph(Function *function);
     std::string jsonFileName;
     bool doHealthCheck{false};
-    int workspaceOffset{0};
+    int64_t workspaceOffset{0};
     int clock{0};
     uint64_t spillCnt = 0;
     std::unordered_map<PipeType, uint64_t> pipeUsageCount = {

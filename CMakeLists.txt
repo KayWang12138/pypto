@@ -29,7 +29,6 @@ message(STATUS "PTO_FWK_SRC_ROOT=${PTO_FWK_SRC_ROOT}")
 message(STATUS "PTO_FWK_BIN_ROOT=${PTO_FWK_BIN_ROOT}")
 
 # 公开编译开关(build)
-option(BUILD_OPEN_PROJECT "Build in open scenario." ON)
 option(BUILD_WITH_CANN "Build with CANN." ON)  # Need to install CANN package and set corresponding environment variables.
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
@@ -39,7 +38,6 @@ option(ENABLE_COMPILE_DEPENDENCY_CHECK "Enable compile dependency relation check
 # 公开编译开关(Feature 特性级开关)
 option(ENABLE_FEATURE_PYTHON_FRONT_END "Enable Python Front-end" ON)
 option(ENABLE_FEATURE_INSTALL_EXPERIMENT "Enable experiment header or binary file install" OFF)
-option(ENABLE_TORCH_VERIFIER "Flow verify with libtorch" OFF)
 
 # 公开编译开关(tests)
 option(ENABLE_TESTS_EXECUTE "Enable auto execute tests executable" OFF)
@@ -82,15 +80,16 @@ add_subdirectory(python)
 # 安装流程
 ########################################################################################################################
 
-if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
+if (ENABLE_FEATURE_PYTHON_FRONT_END)
     # whl 包名配置
     set(PyPTO_WhlName "pypto")
 
     # 安装 二进制文件
     set(InstallExport ${PROJECT_NAME}Targets)
     set(InstallTargets
-            tile_fwk_simulation_platform
             tile_fwk_utils
+            tile_fwk_cann_host_runtime
+            tile_fwk_platform
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler
@@ -110,9 +109,6 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
             DESTINATION "${PyPTO_WhlName}/lib"
             PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
     )
-    if (ENABLE_TORCH_VERIFIER)
-        list(APPEND InstallTargets tile_fwk_calculator)
-    endif()
     PTO_Fwk_InstallBinaries(
             EXPORT      ${InstallExport}
             WHL_NAME    ${PyPTO_WhlName}
@@ -125,7 +121,8 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
                 framework/src/interface/configs/tile_fwk_config.json
                 framework/src/interface/configs/tile_fwk_types.json
                 framework/src/interface/configs/tile_fwk_config_schema.json
-                framework/src/cost_model/simulation_platform/platform_config/A2A3.ini
+                framework/src/platform/parser/platforminfo.ini
+                framework/src/platform/parser/simulation_platform/platform_config/A2A3.ini
             DESTINATION ${PyPTO_WhlName}/lib/configs
     )
 
@@ -182,4 +179,32 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
                 TARGETS             ${InstallTargets}
         )
     endif ()
+
+    # 安装 在线编译 calculator 二进制必需文件
+    get_target_property(cSecIncludeDir c_sec_include INTERFACE_INCLUDE_DIRECTORIES)
+    install(FILES
+                ${cSecIncludeDir}/securec.h
+                ${cSecIncludeDir}/securectype.h
+            DESTINATION ${PyPTO_WhlName}/lib/calculator/include
+    )
+    install(FILES
+                framework/include/tilefwk/data_type.h
+                framework/include/tilefwk/error.h
+                framework/include/tilefwk/lazy.h
+                framework/include/tilefwk/element.h
+            DESTINATION ${PyPTO_WhlName}/lib/calculator/include/tilefwk
+    )
+    install(DIRECTORY framework/src/interface/interpreter/calculator/
+            DESTINATION ${PyPTO_WhlName}/lib/calculator/src
+            PATTERN "*.h"
+            PATTERN "*.cpp"
+            PATTERN ".svn" EXCLUDE
+            PATTERN ".git" EXCLUDE
+            PATTERN "CMakeLists.txt" EXCLUDE
+    )
+    install(FILES
+                cmake/intf.cmake
+                framework/src/interface/interpreter/calculator/CMakeLists.txt
+            DESTINATION ${PyPTO_WhlName}/lib/calculator
+    )
 endif ()

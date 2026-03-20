@@ -872,8 +872,8 @@ TEST_F(FunctionWithPass, CreateBopOperations) {
     // 测试CreateBopAdd
     RawSymbolicScalarPtr exprAdd = RawSymbolicExpression::CreateBopAdd(operand1, operand2);
     RawSymbolicScalarPtr exprMul = RawSymbolicExpression::CreateBopMul(operand1, operand2);
-    RawSymbolicScalarPtr exprMin = RawSymbolicExpression::CreateBopMin(operand1, operand2);
-    RawSymbolicScalarPtr exprMax = RawSymbolicExpression::CreateBopMax(operand1, operand2);
+    RawSymbolicScalarPtr exprMin = RawSymbolicExpression::CreateMopMin({operand1, operand2});
+    RawSymbolicScalarPtr exprMax = RawSymbolicExpression::CreateMopMax({operand1, operand2});
     EXPECT_NE(exprAdd, nullptr);
     EXPECT_EQ(exprAdd->Kind(), SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE);
 

@@ -466,22 +466,40 @@ def scatter_(
                 [2.0 2.0 0 0 0],
                 [0   2.0 0 0 0]]
     """
+    if index.dtype not in (pypto_impl.DT_INT32, pypto_impl.DT_INT64):
+        raise TypeError(f"index tensor must be of int32 or int64, but got {index.dtype}")
     scatter_mode = get_scatter_mode(reduce)
-    if isinstance(src, float):
-        input.Move(pypto_impl.Scatter(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode))
+    if isinstance(src, (int, float)):
+        src_float = float(src)
+        input.Move(pypto_impl.Scatter(input, index, pypto_impl.Element(input.dtype, src_float), dim, scatter_mode))
         return input
-    input.Move(pypto_impl.Scatter(input, index, src, dim, scatter_mode))
-    return input
+    elif isinstance(src, pypto_impl.Element):
+        input.Move(pypto_impl.Scatter(input, index, src, dim, scatter_mode))
+        return input
+    elif isinstance(src, pypto_impl.Tensor):
+        input.Move(pypto_impl.Scatter(input, index, src, dim, scatter_mode))
+        return input
+    else:
+        raise TypeError(f"Expected src to be int, float, Element, or Tensor, but got {type(src).__name__}")
 
 
 @op_wrapper
 def scatter(
     input: Tensor, dim: int, index: Tensor, src: Union[float, Element, Tensor], *, reduce: str = None) -> Tensor:
     """Out-of-place version of 'scatter_'."""
+    if index.dtype not in (pypto_impl.DT_INT32, pypto_impl.DT_INT64):
+        raise TypeError(f"index tensor must be of int32 or int64, but got {index.dtype}")
     scatter_mode = get_scatter_mode(reduce)
-    if isinstance(src, float):
-        return pypto_impl.Scatter(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode)
-    return pypto_impl.Scatter(input, index, src, dim, scatter_mode)
+    if isinstance(src, (int, float)):
+        src_float = float(src)
+        return pypto_impl.Scatter(input, index, pypto_impl.Element(input.dtype, src_float), dim, scatter_mode)
+    elif isinstance(src, pypto_impl.Element):
+        return pypto_impl.Scatter(input, index, src, dim, scatter_mode)
+    elif isinstance(src, pypto_impl.Tensor):
+        return pypto_impl.Scatter(input, index, src, dim, scatter_mode)
+    else:
+        raise TypeError(
+            f"Expected src to be int, float, Element, or Tensor, but got {type(src).__name__}")
 
 
 @op_wrapper

@@ -39,35 +39,21 @@ void ValidateGroup(const char* group)
 void ValidateTypeAndShape(const Tensor& tensor, const DataType expectedType, const Shape expectedShape)
 {
     CHECK(tensor.GetDataType() == expectedType) << "Tensor dtype not supported";
-    CHECK(tensor.GetShape() == expectedShape) <<"tensor shape not supported";
+    CHECK(tensor.GetShape() == expectedShape) << "Tensor shape not supported";
 }
 
-void ValidateTilingSize(const VecTile& vecTile, const Tensor& in, int32_t worldSize)
+void ValidateTilingSize(const Opcode& opCode, const VecTile& vecTile, const int32_t supportDim)
 {
-    int32_t expectedTileSize = in.GetShape().size();
-    CHECK(expectedTileSize == static_cast<int32_t>(vecTile.size())) <<
-        "Invalid dim of tile shape: dim of tile shape must be equal to " << std::to_string(expectedTileSize) << ".";
-    CHECK(std::all_of(vecTile.tile.begin(), vecTile.tile.begin() + expectedTileSize, [](int64_t v) { return v > 0;}))
-        << "Invalid vecTile set: each element of the tileSize must be > 0";
-    CHECK([&](){
-        for (int32_t i = 0; i < expectedTileSize; ++i) {
-            if (vecTile[i] > in.GetShape(i)) {
-                return false;
-            }
-        }
-        return true;
-    }()) << "Invalid vecTile set: tile size must be <= input shape for each dimension";
-    int32_t tileRowShape = vecTile[0];
-    int32_t tileColShape = vecTile[1];
-    int32_t tileRowNum = in.GetShape(0) / tileRowShape + (in.GetShape(0) % tileRowShape == 0 ? 0 : 1);
-    int32_t tileColNum = in.GetShape(1) / tileColShape + (in.GetShape(1) % tileColShape == 0 ? 0 : 1);
-    CHECK(worldSize > 0) << "WorldSize is invalid, worldSize should be less than 0, but got " << worldSize;
-    CHECK(tileRowNum * tileColNum <= MAX_TILE_NUM / worldSize) <<
-        "TotalTileNum is invalid, totalTileNum shoule be less than " << MAX_TILE_NUM / worldSize << ", but got " << tileRowNum * tileColNum;
+    CHECK(vecTile.valid()) << OpcodeManager::Inst().GetOpcodeStr(opCode) << ": vecTile must contains exactly " <<
+        supportDim << " elements and both must be non-zero";
+    CHECK(supportDim == static_cast<int32_t>(vecTile.size())) << OpcodeManager::Inst().GetOpcodeStr(opCode) <<
+        " has invalid dim of tile shape: dim of tile shape must be equal to " << std::to_string(supportDim) <<
+        ", but got " << static_cast<int32_t>(vecTile.size());
 }
 
-void ValidateDataType(DataType dataType, const std::unordered_set<DataType>& allowedTypes)
+void ValidateDataType(const Tensor& tensor, const std::string& tensorDesc, const std::unordered_set<DataType>& allowedTypes)
 {
+    auto dataType = tensor.GetDataType();
     std::ostringstream oss;
     oss << "[";
     bool first = true;
@@ -75,47 +61,69 @@ void ValidateDataType(DataType dataType, const std::unordered_set<DataType>& all
         if (!first) {
             oss << ", ";
         }
-        oss << DataType2CCEStr(dtype);
+        oss << DataType2String(dtype);
         first = false;
     }
     oss << "]";
-    CHECK(allowedTypes.count(dataType)) << "Invalid data type for input tensor. Expected: " << oss.str() <<
-        ", but got: " << DataType2CCEStr(dataType);
+    CHECK(allowedTypes.count(dataType)) << "Invalid data type: " << tensorDesc << " data type only support "
+        << oss.str() << ", but got:" << DataType2String(dataType);
+}
+
+void ValidateShape(const Tensor& tensor, const std::string& tensorDesc, uint32_t supportedDim) {
+    const auto& shape = tensor.GetShape();
+    CHECK(shape.size() == supportedDim) << "Invalid dimensional: " << tensorDesc << " dimensional must be "
+        << supportedDim << ", but got dimensional=" << shape.size();
+    for (size_t i = 0; i < shape.size(); ++i) {
+        CHECK(shape[i] > 0) << "Invaild dimemsion value: " << tensorDesc << " dimension " << i
+            << " must be greater than 0, but got " << shape[i];
+    }
+}
+
+void ValidateFormat(const Tensor& tensor, const std::string& tensorDesc) {
+    CHECK(tensor.Format() == TileOpFormat::TILEOP_ND) << "Invalid format: " << tensorDesc
+        << " only support ND format, but got format: " << std::to_string(tensor.Format());
+}
+
+void ValidateWorldSize(const char* group, int64_t worldSize) {
+    static std::unordered_map<std::string, int64_t> groupWorldSizeMap;
+    auto groupWorldSize = groupWorldSizeMap.find(group);
+    if (groupWorldSize== groupWorldSizeMap.end()) {
+        CHECK(worldSize > 0) << "Invalid world size for group " << group << ": world size must be greather than 0"
+            << ", but got " << worldSize;
+        groupWorldSizeMap.emplace(group, worldSize);
+    } else {
+        CHECK(worldSize == groupWorldSize->second) << "WorldSize mismatch for group " << group
+            << ": expected " << groupWorldSize->second << ", but got " << worldSize;
+    }
 }
 
 void ValidateParams(const Tensor& predToken, const Tensor& in, const Tensor& out, Shape shmemDataShape,
     DataType shmemDataType, bool checkShapeMatch = false, bool validateType = false,
     const std::unordered_set<DataType>& allowedTypes = {})
 {
-    CHECK(predToken.GetShape().size() == 2UL) << "Invalid dimensional: PredToken dimensional must be 2, but got dimensional=" << predToken.GetShape().size();
+    ValidateShape(predToken, "PredToken", 2);
     int32_t predRow = predToken.GetShape(0);
     int32_t predCol = predToken.GetShape(1);
     CHECK(predRow > 0 && predCol > 0) << "PredToken parameter error - the 'row' and 'col' dimensional of the input tensor must be greater than 0, "
         << "but got row=" << predRow << ", col=" << predCol;
-    CHECK(in.GetShape().size() == 2UL) << "Invalid dimensional: Input dimensional must be 2, but got dimensional=" << in.GetShape().size();
-    CHECK(out.GetShape().size() == 2UL) << "Invalid dimensional: Output dimensional must be 2, but got dimensional=" << out.GetShape().size();
+    ValidateShape(in, "Input tensor", 2);
+    ValidateShape(out, "Output tensor", 2);
     CHECK(out.GetDataType() == in.GetDataType()) << "The data type of \"out\" must be consistent with that of \"in\", "
         << "but the data type of \"out\" is "<< DataType2String(out.GetDataType()) << " and the data type of \"in\" is "
         << DataType2String(in.GetDataType()) << ".";
-    CHECK(in.Format() == out.Format()) << "Output tensor format dose not match input tensor fromat. "
-        << "in format: " << std::to_string(in.Format())
-        << "out format: " << std::to_string(out.Format()) << ".";
+    ValidateFormat(in, "Input tensor");
+    ValidateFormat(out, "Output tensor");
     int32_t inRow = in.GetShape(0);
     int32_t inCol = in.GetShape(1);
     int32_t outRow = out.GetShape(0);
     int32_t outCol = out.GetShape(1);
-    CHECK((in.Format() != TileOpFormat::TILEOP_NZ) && (out.Format() != TileOpFormat::TILEOP_NZ)) <<
-        "NZ not supported.";
-    CHECK(inRow > 0 && inCol > 0) <<
-        "Input parameter error - the 'row' and 'col' dimensional of the input tensor must be greater than 0, "
-        << "but got row=" << inRow << ", col=" << inCol;
     if (checkShapeMatch) {
         CHECK((inRow == outRow) && (inCol == outCol)) <<
         "Shape mismatch: Input and output dimensions must be the same, but got "
         << "Input shape: (" << inRow << "," << inCol << "), Output shape: (" << outRow << "," << outCol << ").";
     }
     if (validateType) {
-        ValidateDataType(in.GetDataType(), allowedTypes);
+       ValidateDataType(in, "Input tensor", allowedTypes);
     }
     int64_t shmemDataEleNum =
         std::accumulate(shmemDataShape.begin() + 1, shmemDataShape.end(), 1, std::multiplies<int64_t>());
@@ -127,11 +135,20 @@ void ValidateParams(const Tensor& predToken, const Tensor& in, const Tensor& out
 
 Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemData, AtomicType atomicType)
 {
+    std::unordered_set<DataType> allowedTypes = {DT_INT32, DT_FP32, DT_FP16, DT_BF16};
+    ValidateDataType(in, "Input tensor", allowedTypes);
+    ValidateDataType(shmemData, "Shmem data", allowedTypes);
+    ValidateShape(predToken, "PredToken", 2);
+    ValidateShape(in, "Input tensor", 2);
+    ValidateShape(shmemData, "Shmem data", 4);
+    ValidateFormat(in, "Input tensor");
+    ValidateFormat(shmemData, "Shmem data");
+    ValidateTilingSize(Opcode::OP_SHMEM_PUT, TileShape::Current().GetVecTile(), 2);
     auto &function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT,
         {predToken.GetStorage(), in.GetStorage(), shmemData.GetStorage()}, {out});
-    DistOpAttr distOpAttr;
+    ShmemPutAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
@@ -140,11 +157,12 @@ Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemDa
 Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
     AtomicType atomicType)
 {
+    CHECK(in.GetDataType() == shmemDataTile.GetDataType());
     auto &function = *Program::GetInstance().GetCurrentFunction();
     auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, barrierDummy.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT_UB2GM,
         {in.GetStorage(), shmemDataTile.GetStorage(), barrierDummy.GetStorage()}, {dummy});
-    DistOpAttr distOpAttr;
+    ShmemPutAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return dummy;
@@ -152,13 +170,16 @@ Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor
 
 Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicType atomicType)
 {
+    ValidateShape(predToken, "PredToken", 2);
+    ValidateShape(shmemSignal, "Shmem signal", 5);
+    ValidateTilingSize(Opcode::OP_SHMEM_SIGNAL, TileShape::Current().GetVecTile(), 2);
     auto &function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_SIGNAL, {predToken.GetStorage(), shmemSignal.GetStorage()},
         {out});
-    DistOpAttr distOpAttr;
-    distOpAttr.signalValue = 1;
+    ShmemSignalAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
+    distOpAttr.signalValue = 1;
     distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
@@ -166,6 +187,11 @@ Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicTyp
 
 Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonShmemDataType, AtomicType atomicType)
 {
+    ValidateDataType(shmemData, "Shmem data", {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
+    ValidateShape(predToken, "PredToken", 2);
+    ValidateShape(shmemData, "Shmem data", 4);
+    ValidateFormat(shmemData, "Shmem data");
+    ValidateTilingSize(Opcode::OP_SHMEM_GET, TileShape::Current().GetVecTile(), 2);
     if (nonShmemDataType == DT_BOTTOM) {
         nonShmemDataType = shmemData.GetDataType();
     }
@@ -174,7 +200,7 @@ Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonSh
     auto out = std::make_shared<LogicalTensor>(function, nonShmemDataType, shape, shmemData.Format());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_GET, {predToken.GetStorage(), shmemData.GetStorage()},
         {out});
-    DistOpAttr distOpAttr;
+    ShmemGetAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
@@ -182,6 +208,7 @@ Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonSh
 
 Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType, AtomicType atomicType)
 {
+    ValidateTilingSize(Opcode::OP_SHMEM_GET_GM2UB, TileShape::Current().GetVecTile(), 2);
     if (nonShmemDataType == DT_BOTTOM) {
         nonShmemDataType = shmemDataTile.GetDataType();
     }
@@ -195,7 +222,7 @@ Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType 
         OpImmediate::Specified({tempOutTile->shape[0], tempOutTile->shape[1]}),
         OpImmediate::Specified(std::vector<SymbolicScalar>{shmemDataTile.GetValidShape()[2], shmemDataTile.GetValidShape()[3]})));
     function.UpdateTensorDataUsage(op);
-    DistOpAttr distOpAttr;
+    ShmemGetAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return tempOutTile;
@@ -203,36 +230,28 @@ Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType 
 
 Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t expectedSum, bool resetSignal)
 {
+    ValidateShape(predToken, "PredToken", 2);
+    ValidateShape(shmemSignal, "Shmem signal", 5);
+    ValidateTilingSize(Opcode::OP_SHMEM_WAIT_UNTIL, TileShape::Current().GetVecTile(), 2);
     auto &function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {predToken.GetStorage(), shmemSignal.GetStorage()},
         {out});
     std::vector<int64_t> param = {static_cast<int64_t>(expectedSum),
         static_cast<int64_t>(SHMEM_SIGNAL_STRIDE), static_cast<int64_t>(resetSignal)};
-    DistOpAttr distOpAttr;
-    distOpAttr.aicpuOpParams = param;
+    ShmemWaitUntilAttr distOpAttr;
+    distOpAttr.expectedSum = expectedSum;
+    distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
+    distOpAttr.resetSignal = resetSignal;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
-}
-
-void ShmemReduce(const Tensor& in, const Tensor& shmData, const Tensor& dummy, const Tensor& out)
-{
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto &op = function.AddOperation(Opcode::OP_SHMEM_REDUCE,
-        {in.GetStorage(), shmData.GetStorage(), dummy.GetStorage()}, {out.GetStorage()});
-    DistOpAttr distOpAttr;
-    // fp16 和 bf16 做reduce计算，默认转化为fp32
-    if ((in.GetDataType() == DT_FP16) || (in.GetDataType() == DT_BF16)) {
-        distOpAttr.fp32Mode = true;
-    } else {
-        distOpAttr.fp32Mode = false;
-    }
-    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
 }
 
 void CreateShmemData(const char* group, int64_t worldSize, DataType dataType,
     const Shape &shape, Tensor &shmemTensor, uint64_t memType)
 {
+    ValidateGroup(group);
+    ValidateWorldSize(group, worldSize);
     auto &function = *Program::GetInstance().GetCurrentFunction();
     int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     Shape shmemShape{worldSize};
@@ -247,6 +266,7 @@ void CreateShmemData(const char* group, int64_t worldSize, DataType dataType,
 
 void CreateShmemSignal(const char* group, Tensor& shmemData, Tensor& shmemSignal)
 {
+    ValidateGroup(group);
     auto &function = *Program::GetInstance().GetCurrentFunction();
     int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     int64_t worldSize = shmemData.GetShape(0);
@@ -283,7 +303,7 @@ Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData)
     auto& function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, Shape{1, 1});
     auto& op = function.AddOperation(Opcode::OP_SHMEM_SET, {predToken.GetStorage(), shmemData.GetStorage()}, {out});
-    DistOpAttr distOpAttr;
+    ShmemSetAttr distOpAttr;
     distOpAttr.setType = 0;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
@@ -298,7 +318,7 @@ Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal)
     auto& function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, Shape{1, 1});
     auto& op = function.AddOperation(Opcode::OP_SHMEM_SET, {predToken.GetStorage(), shmemSignal.GetStorage()}, {out});
-    DistOpAttr distOpAttr;
+    ShmemSetAttr distOpAttr;
     distOpAttr.setType = 1;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
@@ -312,9 +332,7 @@ void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Ten
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
     SymbolicScalar thisRank = GetHcclRankId(group);
-    const TileShape& tileShape = TileShape::Current();
     ValidateGroup(group);
-    ValidateTilingSize(tileShape.GetVecTile(), in, worldSize);
     ValidateParams(predToken, in, out, shmemData.GetShape(), in.GetDataType());
     ValidateTypeAndShape(shmemData, out.GetDataType(), {worldSize, worldSize, row, col});
     ValidateTypeAndShape(shmemSignal, DataType::DT_INT32, {worldSize, worldSize, worldSize, row, col});
@@ -346,9 +364,7 @@ void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group,
         << ", worldSize: " << worldSize;
     const int32_t rowOut = row / worldSize;
     SymbolicScalar thisRank = GetHcclRankId(group);
-    const TileShape& tileShape = TileShape::Current();
     ValidateGroup(group);
-    ValidateTilingSize(tileShape.GetVecTile(), in, worldSize);
     ValidateParams(predToken, in, out, shmemData.GetShape(), shmemData.GetDataType(),
         false, true, {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
     ValidateTypeAndShape(shmemData, ((in.GetDataType() == DT_BF16) || (in.GetDataType() == DT_FP16) ? DT_FP32 :
@@ -376,8 +392,6 @@ void AllReduceValidate(const Tensor& predToken, const Tensor& in, const Tensor& 
     ValidateGroup(group);
     ValidateParams(predToken, in, out, shmemData.GetShape(), shmemData.GetDataType(), true, true,
         {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
-    const TileShape& tileShape = TileShape::Current();
-    ValidateTilingSize(tileShape.GetVecTile(), in, shmemData.GetShape(0));
 }
 
 void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,

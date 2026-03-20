@@ -12,7 +12,7 @@
 逐元素地将input值进行按位非（NOT）运算。计算公式如下：
 
 $$
-res_i = ~input_i
+res_i = \sim input_i
 $$
 
 ## 函数原型

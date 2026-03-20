@@ -38,6 +38,7 @@
 #include "vector/binary_scalar.h"
 #include "vector/cast.h"
 #include "vector/sign.h"
+#include "vector/signbit.h"
 #include "vector/reduce.h"
 #include "vector/sort.h"
 #include "vector/mte.h"
@@ -53,6 +54,8 @@
 #include "vector/extract.h"
 #include "vector/pair_binary.h"
 #include "vector/where.h"
+#include "vector/pad.h"
+#include "vector/fillpad.h"
 #include "vector/logicaland.h"
 #include "vector/vector_dup.h"
 #include "vector/range.h"
@@ -62,6 +65,7 @@
 #include "vector/bitwise_shift.h"
 #include "vector/copysign.h"
 #include "cube/cube_pto.h"
+#include "conv/conv_pto.h"
 #endif
 
 #endif

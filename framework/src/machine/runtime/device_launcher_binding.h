@@ -255,6 +255,12 @@ private:
                 } else if (SymbolicOpcode::T_BOP_BEGIN <= opcode && opcode< SymbolicOpcode::T_BOP_END) {
                     return RawSymbolicExpression::GetSymbolicCalcBinary(opcode)(
                         Evaluate(iops[0]), Evaluate(iops[1]));
+                } else if (opcode == SymbolicOpcode::T_MOP_MAX || opcode == SymbolicOpcode::T_MOP_MIN) {
+                    std::vector<ScalarImmediateType> immediateList;
+                    for (size_t i = 0; i < iops.size(); i++) {
+                        immediateList.emplace_back(Evaluate(iops[i]));
+                    }
+                    return RawSymbolicExpression::GetSymbolicCalcMultiple(opcode)(immediateList);
                 } else {
                     ASSERT(false);
                     return 0;

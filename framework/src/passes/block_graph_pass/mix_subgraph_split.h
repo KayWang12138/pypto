@@ -22,8 +22,8 @@
 #include "interface/program/program.h"
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
-#include "passes/tile_graph_pass/subgraph_to_function.h"
 #include "passes/block_graph_pass/mix_subgraph_split/mix_subgraph_split_utils.h"
+#include "passes/tile_graph_pass/subgraph_to_function.h"
 #include "passes/block_graph_pass/mix_subgraph_split/mix_internal_components_analyzer.h"
 #include "passes/block_graph_pass/mix_subgraph_split/mix_dependency_analyzer.h"
 #include "passes/block_graph_pass/mix_subgraph_split/function_clone.h"
@@ -93,12 +93,17 @@ struct GlobalSplitRecord {
 
 class MixSubgraphSplit : public Pass {
 public:
-    MixSubgraphSplit() : Pass("MixSubgraphSplit"), nextMixId_(0) {
+    MixSubgraphSplit() : Pass("MixSubgraphSplit") {
         SetSupportedArches({NPUArch::DAV_3510});
     }
     ~MixSubgraphSplit() override = default;
 
     Status RunOnFunction(Function &function) override;
+
+    static void ResetGlobalState() {
+        globalSplitRecords_.clear();
+        globalNextMixId_.store(0);    
+    }
 
 private:
     // 子模块
@@ -164,7 +169,7 @@ private:
         int componentId,
         const std::vector<SimpleTensorParam>& outcastParams) const;
 
-    uint64_t nextMixId_;
+    static std::atomic<uint64_t> globalNextMixId_;
     static constexpr uint64_t INVALID_PROGRAM_ID = static_cast<uint64_t>(-1);
 };
 

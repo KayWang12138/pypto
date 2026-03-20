@@ -801,6 +801,92 @@ TEST_F(PreGraphTest, TestRemoveRedundantViewMultiReshape) {
     EXPECT_EQ(viewCnt, 0);
 }
 
+TEST_F(PreGraphTest, TestProcessReshape) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    G.AddTensor(DataType::DT_FP16, {16, 24576}, "t1");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 192}, "t2");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t3");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t4");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t5");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t6");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "o1");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "o2");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "o3");
+
+    // add op
+    G.AddOp(Opcode::OP_RESHAPE, {"t1"}, {"t2"}, "RESHAPE1");
+    G.AddOp(Opcode::OP_VIEW, {"t2"}, {"t3"}, "VIEW");
+    G.AddOp(Opcode::OP_RESHAPE, {"t3"}, {"t4"}, "RESHAPE2");
+    G.AddOp(Opcode::OP_COPY_IN, {"t2"}, {"t5"}, "COPY_IN1");
+    G.AddOp(Opcode::OP_COPY_IN, {"t2"}, {"t6"}, "COPY_IN2");
+    G.AddOp(Opcode::OP_ABS, {"t5"}, {"o1"}, "ABS1");
+    G.AddOp(Opcode::OP_ABS, {"t6"}, {"o2"}, "ABS2");
+    G.AddOp(Opcode::OP_ABS, {"t4"}, {"o3"}, "ABS3");
+
+    // set incast and outcast
+    G.SetInCast({"t1"});
+    G.SetOutCast({"o1", "o2", "o3"});
+
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    PreGraphProcess passLocal;
+    EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
+    // check after pass
+    auto opList = function->Operations();
+    int64_t viewCnt = 0;
+    int64_t reshapeCnt = 0;
+
+    for (const auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            ++viewCnt;
+        }
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            reshapeCnt++;
+        }
+    }
+    EXPECT_EQ(viewCnt, 0);
+    EXPECT_EQ(reshapeCnt, 2); // tmp Reshape Remove
+
+    // Verify RESHAPE2 exists and has correct shapes
+    auto *reshape2Op = G.GetOp("RESHAPE2");
+    EXPECT_NE(reshape2Op, nullptr) << "RESHAPE2 should exist";
+    auto reshape2Input = reshape2Op->GetIOperands().front();
+    auto reshape2Output = reshape2Op->GetOOperands().front();
+    EXPECT_EQ(reshape2Input->GetShape(), (std::vector<int64_t>{16, 24576}))
+        << "RESHAPE2 input shape should be {16, 24576}";
+
+    // Verify RESHAPE1 : connect to copyin
+    auto *reshape1Op = G.GetOp("RESHAPE1");
+    int64_t copyinCnt = 0;
+    for (auto consumer : reshape1Op->GetOutputOperand(0)->GetConsumers()) {
+        if (consumer->GetOpcode() == Opcode::OP_COPY_IN) {
+            ++copyinCnt;
+        }
+    }
+    EXPECT_EQ(copyinCnt, 2);
+}
+
+TEST_F(PreGraphTest, TestRemoveViewMultiReshapeErrCondition) {
+    ComputationalGraphBuilder G;
+    G.AddTensor(DataType::DT_FP16, {16, 24576}, "t1");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 192}, "t2");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t3");
+    G.AddOp(Opcode::OP_RESHAPE, {"t1"}, {"t2"}, "RESHAPE1");
+    G.AddOp(Opcode::OP_VIEW, {"t2"}, {"t3"}, "VIEW");
+
+    RemoveRedundantAssemble pass;
+    std::vector<std::pair<Operation *, Operation *>> multiReshapeVector;
+    multiReshapeVector.push_back({G.GetOp("RESHAPE1"), G.GetOp("VIEW")});
+
+    EXPECT_EQ(pass.RemoveViewMultiReshape(multiReshapeVector), FAILED);
+
+    auto viewOp = G.GetOp("VIEW");
+    viewOp->oOperand[0] = nullptr;
+    EXPECT_EQ(pass.RemoveViewMultiReshape(multiReshapeVector), FAILED);
+}
+
 void CompareOpImmediateVector(const std::vector<OpImmediate> &result, const std::vector<int64_t> &expect) {
     EXPECT_EQ(result.size(), expect.size());
     for (size_t idx = 0; idx < result.size(); ++idx) {

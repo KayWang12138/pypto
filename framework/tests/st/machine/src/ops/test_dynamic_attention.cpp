@@ -28,7 +28,7 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     (void) timeThreshold;
 
     config::SetRuntimeOption(DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
-    config::SetRuntimeOption(STITCH_FUNCTION_NUM_INITIAL, 128);
+    config::SetRuntimeOption(STITCH_FUNCTION_MAX_NUM, 128);
     std::string cacheMode = "PA_NZ";
 
     int b = params[0];

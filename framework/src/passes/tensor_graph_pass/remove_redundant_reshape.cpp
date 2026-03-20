@@ -16,6 +16,7 @@
 #include "remove_redundant_reshape.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_check/remove_redundant_reshape_checker.h"
+#include "passes/pass_utils/pass_utils.h"
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "RemoveRedundantReshape"
@@ -63,6 +64,9 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
         if (CheckIOOperands(op, in, out) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "Op [%d] has invalid input or output operands; Check if op has valid input and output. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;}
+        if (CommonUtils::ContainsNegativeOne(in->GetShape()) || CommonUtils::ContainsNegativeOne(out->GetShape())) {
+            continue;
+        }
         auto consumers = out->GetConsumers();
         bool allConsumersIsReshape = true;
         for (auto &consumerOp : consumers) {
@@ -76,7 +80,7 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
             consumerOp->ReplaceInput(in, out);
         }
         if (allConsumersIsReshape == true) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "All consummers of op [%d] are reshape.", op.GetOpMagic());
+            APASS_LOG_DEBUG_F(Elements::Operation, "All consummers of op [%d] are reshape and the shapes are not -1.", op.GetOpMagic());
             redundantResapes.insert(&op);
         }
     }

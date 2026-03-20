@@ -18,11 +18,9 @@
 #include <iostream>
 #include <sstream>
 #include <sys/stat.h>
-#include "interface/utils/log.h"
 #include "codegen/utils/parallel_execute.h"
 #include "interface/utils/file_utils.h"
 #include "interface/utils/op_info_manager.h"
-#include "machine/dump/kernel_dump_utils.h"
 #include "machine/compile/gen_aicore_code.h"
 #include "machine/host/main_block.h"
 #include "tilefwk/platform.h"

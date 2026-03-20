@@ -45,7 +45,9 @@ public:
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
-    void TearDown() override {}
+    void TearDown() override {
+        MixSubgraphSplit::ResetGlobalState();
+    }
 protected:
     // 单个辅助函数：构建Mix子图的所有内容
     std::shared_ptr<Function> BuildMixFunction(Function* rootFunc, std::vector<int64_t>& tensorShape) {

@@ -12,7 +12,7 @@
 逐元素地将input与other值进行按位与（AND）运算。计算公式如下：
 
 $$
-res_i = input_i & other_i
+\text{res}_i = \text{input\_i \& other\_i}
 $$
 
 ## 函数原型

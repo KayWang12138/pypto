@@ -85,7 +85,7 @@ struct DevAscendFunctionDuppedData {
         int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
         DEV_IF_NONDEVICE {
             if (!maybeNull && outcastStitchIndex == 0) {
-                DEV_ERROR("GetOperationStitch: operation %d has invalid outcast stitch index 0", operationIndex);
+                DEV_ERROR("GetOperationStitch: operationIndex=%d has invalid outcast stitch index 0", operationIndex);
             }
             DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
         }
@@ -95,7 +95,7 @@ struct DevAscendFunctionDuppedData {
         int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
         DEV_IF_NONDEVICE {
             if (!maybeNull && outcastStitchIndex == 0) {
-                DEV_ERROR("GetOperationStitch: operation %d has invalid outcast stitch index 0", operationIndex);
+                DEV_ERROR("GetOperationStitch: operationIndex=%d has invalid outcast stitch index 0", operationIndex);
             }
             DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
         }
@@ -110,6 +110,12 @@ struct DevAscendFunctionDuppedData {
 
     inline uint64_t GetOutcastDataSize(int outcastIndex) const {
         auto rawTensor = GetSource()->GetOutcastRawTensor(outcastIndex);
+        auto size = rawTensor->GetMemoryRequirement(GetExpressionAddr());
+        return size;
+    }
+
+    inline uint64_t GetRawTensorDataSize(int rawIndex) {
+        auto rawTensor = GetSource()->GetRawTensor(rawIndex);
         auto size = rawTensor->GetMemoryRequirement(GetExpressionAddr());
         return size;
     }
@@ -131,6 +137,14 @@ struct DevAscendFunctionDuppedData {
         return schema::RActWorkspace(schema::Range(workspaceBegin, workspaceEnd));
     }
 
+    schema::ExpressionTable SchemaGetExpressionList() const {
+        size_t expressionSize = GetExpressionSize();
+        std::vector<schema::Int64Type> expressionList;
+        for (size_t i = 0; i < expressionSize; i++) {
+            expressionList.push_back(schema::Int64Type(GetExpression(i)));
+        }
+        return schema::ExpressionTable(expressionList);
+    }    
     std::string Dump(int indent = 0) const;
 };
 
@@ -302,7 +316,7 @@ struct DevAscendFunctionDupped {
         return oss.str();
     }
 
-    void DumpTopo(std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary) const;
+    void DumpTopo(std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary, bool enableVFFusion) const;
 
 #if DEBUG_INFINITE_LIFETIME
     void DumpTensorAddrInfo(std::vector<std::string> &infos, uint32_t seqNo, uint32_t funcIdx);

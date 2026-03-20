@@ -14,8 +14,6 @@ set(PTO_Fwk_STestCaseGoldenScriptPathList  "" CACHE INTERNAL "" FORCE)     # STe
 
 # 切换完成前, 增加原有目录
 set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/golden/net/deepseekv3/mla CACHE INTERNAL "" FORCE)
-set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/golden/net/deepseekv3/quant CACHE INTERNAL "" FORCE)
-set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/golden/net/llama CACHE INTERNAL "" FORCE)
 set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/golden/net/deepseekv3/nsa CACHE INTERNAL "" FORCE)
 set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/golden/op CACHE INTERNAL "" FORCE)
 set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${PTO_FWK_SRC_ROOT}/framework/tests/st/operator/src/test_deepseek_v3.2_exp CACHE INTERNAL "" FORCE)
@@ -208,8 +206,9 @@ function(PTO_Fwk_STest_AddExe_RunExe)
     execute_process(COMMAND touch ${_Sources})
     list(REMOVE_DUPLICATES PTO_Fwk_STestCaseLibraries)
     set(PTO_Fwk_Libraries
-            tile_fwk_simulation_platform
             tile_fwk_utils
+            tile_fwk_cann_host_runtime
+            tile_fwk_platform
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler

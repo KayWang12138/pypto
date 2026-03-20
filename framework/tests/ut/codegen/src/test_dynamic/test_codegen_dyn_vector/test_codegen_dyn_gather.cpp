@@ -23,7 +23,9 @@
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_common.h"
+#include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
 
@@ -119,5 +121,33 @@ TEST_F(TestCodegenDynGather, TestGatherLayout) {
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestCodegenDynGather, GatherFromUB) {
+    auto function = GenMockFuncDyn("GatherFromUB");
+    std::vector<int64_t> shape = {64, 64};
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    std::vector<SymbolicScalar> dynValidShapeIdx = {32};
+    auto params = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto indices = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}, dynValidShapeIdx});
+    auto result = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+
+    auto &op = function->AddOperation(Opcode::OP_GATHER_FROM_UB, {params, indices}, {result});
+    op.SetAttribute(OP_ATTR_PREFIX + "axis", 0);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpCloudNPU cop(opCtx);
+    function->GetTensorMap().inverseMap_[params->GetMagic()] = params;
+    function->GetTensorMap().inverseMap_[indices->GetMagic()] = indices;
+    function->GetTensorMap().inverseMap_[result->GetMagic()] = result;
+    std::string res = cop.GenOpCode();
+    std::string expect =
+        R"!!!(TileOp::DynTgatherFromUB_<float, float, /*before*/ 1, /*after*/ 64, /*axis_shape*/ 64, 1, 1, 1, 32, 64>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 1, 32);
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 } // namespace npu::tile_fwk

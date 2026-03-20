@@ -703,6 +703,33 @@ def sign(a: Tensor) -> Tensor:
 
 
 @op_wrapper
+def signbit(a: Tensor) -> Tensor:
+    """Checks if the sign bit of each element of input is set (i.e., is negative).
+
+    This function returns a tensor with the sign bits of the elements of input.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new bool tensor containing True where the sign bit is set, False otherwise.
+
+    Examples
+    --------
+    x = pypto.tensor([-5.0, 0.0, 5.0, -2.0], pypto.DT_FP32)
+    y = pypto.signbit(x)
+
+    Input x: [-5.0, 0.0, 5.0, -2.0]
+    Output y:[True, False, False, True]
+    """
+    return pypto_impl.Signbit(a)
+
+
+@op_wrapper
 def abs(a: Tensor) -> Tensor:
     """
     Computes the absolute value of each element in input.
@@ -1720,6 +1747,40 @@ def var(
         raise TypeError(f"the type of dim is not supported. 'int' or 'Lise[int]' or 'Tuple[int]' is needed.")
 
     return pypto_impl.Var(input, inner_dim, correction, keepdim)
+
+
+
+@op_wrapper
+def ceil_div(
+    self: Tensor,
+    other: Union[Tensor, int],
+) -> Tensor:
+    """
+    Calculate the ceiling division of two tensors.
+    Parameters
+    ---------
+    self: Tensor
+        The dividend tensor.
+    other: Tensor or int
+        The divisor tensor or scalar.
+    out: Tensor
+        The tensor after calculating the ceiling division of the corresponding elements of self and other.
+    Examples
+    ---------
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    out = pypto.ceildiv(x, y)
+    Input  x : [[1 6 6],
+                [4 6 6]]
+           y : [[1 1 2],
+                [3 4 5]]
+    Output out:[[1 6 3],
+                [2 2 2]]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.CeilDiv(self, other)
+    else:
+        return pypto_impl.CeilDiv(self, pypto_impl.Element(self.dtype, other))
 
 
 @op_wrapper

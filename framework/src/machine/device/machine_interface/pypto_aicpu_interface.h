@@ -18,12 +18,11 @@
 #include <unordered_map>
 #include <mutex>
 #include "machine/utils/device_log.h"
+
 using TileFwkKernelServelEnty = int (*)(void *);
 namespace npu::tile_fwk {
-  const std::string staticServerKernelkFun = "StaticTileFwkBackendKernelServer";
   const std::string dynServerKernelFun = "DynTileFwkBackendKernelServer";
   const std::string dynServerKernelInitFun = "DynTileFwkBackendKernelServerInit";
-  const uint64_t staticFuncKey = 1;
   const uint64_t dyInitFuncKey = 2;
   const uint64_t dyExecFuncKey = 3;
   const uint64_t minSoLen = 1;
@@ -65,7 +64,6 @@ public:
         if (firstLoadSo_) {
             return;
         }
-        (void)LoadTileFwkKernelFunc(staticServerKernelkFun);
         (void)LoadTileFwkKernelFunc(dynServerKernelInitFun);
         (void)LoadTileFwkKernelFunc(dynServerKernelFun);
         firstLoadSo_ = true;
@@ -95,13 +93,13 @@ private:
             DEV_ERROR("Cannot open so %s", pyptoServerSoName_.c_str());
             return;
         }
-        uint64_t funcKey = staticFuncKey;
+        uint64_t funcKey = 0;
         if (kernelName == dynServerKernelInitFun) {
             funcKey = dyInitFuncKey;
         } else if (kernelName == dynServerKernelFun){
             funcKey = dyExecFuncKey;
         }
-        DEV_DEBUG("Current to open kernel func %s funcKey %lu.", kernelName.c_str(), funcKey);
+        DEV_DEBUG("Current to open kernel func: name=%s, funcKey=%lu.", kernelName.c_str(), funcKey);
         auto iter = kernelKey2FuncHandle_.find(funcKey);
         if (iter != kernelKey2FuncHandle_.end()) {
             return;
@@ -114,7 +112,7 @@ private:
             (void)dlclose(soHandle_);
             return;
         }
-        DEV_INFO("kernelName %s has been loaded", kernelName.c_str());
+        DEV_INFO("kernelName=%s has been loaded", kernelName.c_str());
         kernelKey2FuncHandle_[funcKey] = tileFwkServrFuncEnty;
         return;
     }
@@ -138,10 +136,7 @@ private:
 
 }// end name space
 extern "C" {
-__attribute__((visibility("default"))) uint32_t StaticPyptoKernelServer(void *args);
 __attribute__((visibility("default"))) uint32_t DynPyptoKernelServer(void *args);
 __attribute__((visibility("default"))) uint32_t DynPyptoKernelServerInit(void *args);
 }
-
-
 #endif // TILE_FWK_AICPU_INTERFACE_H
