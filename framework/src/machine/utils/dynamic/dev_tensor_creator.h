@@ -38,9 +38,9 @@ struct DevAscendTensorDataCreator {
     template<typename T>
     static void Init(DevTensorData *tensorData, uintdevptr_t tensorAddress, const T *dims, int n) {
         if (n > DEV_SHAPE_DIM_MAX) {
-            DEV_ERROR("Dimension count (%d) exceeds maximum allowed (%d)", n, DEV_SHAPE_DIM_MAX);
+            DEV_ERROR(ERROR_CODE_UNDEFINED, "Dimension count (%d) exceeds maximum allowed (%d)", n, DEV_SHAPE_DIM_MAX);
         }
-        DEV_ASSERT(n <= DEV_SHAPE_DIM_MAX);
+        DEV_ASSERT(ERROR_CODE_UNDEFINED, n <= DEV_SHAPE_DIM_MAX);
 
         tensorData->address = tensorAddress;
         tensorData->shape.dimSize = n;
@@ -102,10 +102,10 @@ struct DevAscendTensorDataCreator {
             h = h->next();
         }
         if (ptr != data.data() + data.size()) {
-            DEV_ERROR("Pointer mismatch: ptr (0x%p) != data.data() + data.size() (0x%p)",
+            DEV_ERROR(ERROR_CODE_UNDEFINED, "Pointer mismatch: ptr (0x%p) != data.data() + data.size() (0x%p)",
                       (void*)ptr, (void*)(data.data() + data.size()));
         }
-        DEV_ASSERT(ptr == data.data() + data.size());
+        DEV_ASSERT(ERROR_CODE_UNDEFINED, ptr == data.data() + data.size());
 
         return data;
     }
