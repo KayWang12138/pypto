@@ -1760,21 +1760,13 @@ std::string CodeGenOpCloudNPU::GenGatherInUB() const {
 
 std::string CodeGenOpCloudNPU::GetConvCopyInMode() const {
     int64_t copyInMode = -1;
-    std::string copyInModeStr = "";
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyInMode, copyInMode);
     ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret) << "GenMemL1CopyInConv get CopyInMode failed.";
-
-    if (copyInMode == ToUnderlying(Matrix::CopyInMode::ND2NZ)) {
-        copyInModeStr = "CopyInMode::ND2NZ";
-    } else if (copyInMode == ToUnderlying(Matrix::CopyInMode::NZ2NZ)) {
-        copyInModeStr = "CopyInMode::NZ2NZ";
-    } else if (copyInMode == ToUnderlying(Matrix::CopyInMode::DN2NZ)) {
-        copyInModeStr = "CopyInMode::DN2NZ";
-    } else {
-        ASSERT(ConvCodenGenError::CODEGEN_CHECK_ATTR_INVALID, false) <<
-            "GenMemL1CopyInConv check CopyInMode failed.";
-    }
-    return copyInModeStr;
+    bool isValidMode =
+        copyInMode >= ToUnderlying(Matrix::CopyInMode::ND2NZ) && copyInMode <= ToUnderlying(Matrix::CopyInMode::DN2NZ);
+    ASSERT(ConvCodenGenError::CODEGEN_CHECK_ATTR_INVALID, isValidMode) << "GenMemL1CopyInConv CopyInMode is invalid: "
+        << copyInMode;
+    return CopyInModeToString(static_cast<Matrix::CopyInMode>(copyInMode));
 }
 
 std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
@@ -1832,20 +1824,14 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
 
 std::string CodeGenOpCloudNPU::GetConvCopyOutMode() const {
     int64_t copyOutMode = -1;
-    std::string copyOutModeStr = "";
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyOutMode, copyOutMode);
-    ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret) << "GenMemL1CopyOutConv get CopyOutMode failed";
-    if (copyOutMode == ToUnderlying(Matrix::CopyOutMode::NZ2ND)) {
-        copyOutModeStr = "CopyOutMode::NZ2ND";
-    } else if (copyOutMode == ToUnderlying(Matrix::CopyOutMode::NZ2NZ)) {
-        copyOutModeStr = "CopyOutMode::NZ2NZ";
-    } else if (copyOutMode == ToUnderlying(Matrix::CopyOutMode::NZ2DN)) {
-        copyOutModeStr = "CopyOutMode::NZ2DN";
-    } else {
-        ASSERT(ConvCodenGenError::CODEGEN_CHECK_ATTR_INVALID, false)
-            << "GenMemL1CopyOutConv check CopyOutMode failed";
-    }
-    return copyOutModeStr;
+    ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret) << "GenMemL1CopyOutConv get CopyOutMode failed.";
+    bool isValidMode = copyOutMode == ToUnderlying(Matrix::CopyOutMode::NZ2ND) ||
+                       copyOutMode == ToUnderlying(Matrix::CopyOutMode::NZ2NZ) ||
+                       copyOutMode == ToUnderlying(Matrix::CopyOutMode::NZ2DN);
+    ASSERT(ConvCodenGenError::CODEGEN_CHECK_ATTR_INVALID, isValidMode) << "GenMemL1CopyOutConv CopyOutMode is invalid: "
+        << copyOutMode;
+    return CopyOutModeToString(static_cast<Matrix::CopyOutMode>(copyOutMode));
 }
 
 std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
