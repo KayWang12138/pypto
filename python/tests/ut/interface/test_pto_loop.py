@@ -36,12 +36,6 @@ def gen_add_golden(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     return out
 
 
-# def prep_env():
-#     device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
-#     torch.npu.set_device(device_id)
-#     torch_npu.npu.config.allow_internal_format = True
-
-
 def parallel_add_compute_single_parallel(left: pypto.Tensor, right: pypto.Tensor, res: pypto.Tensor):
     n0 = left.shape[0]
     n1 = left.shape[1]
@@ -57,7 +51,6 @@ def parallel_add_compute_single_parallel(left: pypto.Tensor, right: pypto.Tensor
 
 
 def test_parallel_add_single_parallel():
-    # prep_env()
     pypto.runtime._device_init()
     a = torch.rand((2, 4, 4), dtype=torch.float32) * 2 - 1  # [-1, 1]
     b = torch.rand((2, 4, 4), dtype=torch.float32) * 2 - 1  # [-1, 1]
