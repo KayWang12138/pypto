@@ -212,6 +212,7 @@ RecordLoopFunc::RecordLoopFunc(const std::string &name, FunctionType funcType, c
       iterName_(iterName),
       loopRange_(std::make_shared<LoopRange>(range)),
       submitBeforeLoop_(submitBeforeLoop),
+      parallelFor_(parallelFor),
       funcType_(funcType) {
     CHECK(FError::INVALID_TYPE, funcType == FunctionType::STATIC || funcType == FunctionType::DYNAMIC_LOOP)
         << "funcType: " << GetFunctionTypeNameDict().Find(funcType);
@@ -254,6 +255,7 @@ void RecordLoopFunc::BeginLoopFunction() {
     currentLoopFunc_ = Program::GetInstance().GetCurrentFunction();
     CHECK(FError::IS_EXIST, currentLoopFunc_->InsertLoopIdxNameList(iterName_))
         << "Forbid duplicate name of loop idx. It names " << iterName_;
+    AddLoopUnrollFunctions(currentLoopFunc_);
     auto currentStep = CurUnrollTimes() == 1 ? loopRange_->Step() : loopRange_->Step() * CurUnrollTimes();
     if (rangeOfEaceUnroll_.empty()) {
         auto newRangeEnd = (UnrollTimesSize() == 1 ? loopRange_->End() : loopRange_->End() / currentStep * currentStep);
