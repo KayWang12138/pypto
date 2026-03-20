@@ -373,6 +373,46 @@ std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
         {s0Var, s1Var, addrExpr, gms, s0os, s0rs, src1OriginShape, s1rs, dataTypeExpr, cacheMode, blockSizeStr});
 }
 
+std::string CodeGenOpCloudNPU::PrintScatterLayout() const {
+    // Scatter: output = scatter(input, indices, src)
+    // IR layout: [output(ID0), indices(ID2), src(ID3)]
+    // Note: output and input are the same tensor (in-place)
+
+    auto outputValidShapes = dynamicValidShape[ID0]; // == input shape
+    auto indicesValidShapes = dynamicValidShape[ID1];
+    auto srcValidShapes = dynamicValidShape[ID2];    // unused in layout, but could assert
+
+    size_t inputDim = outputValidShapes.size();      // output shape = input shape
+    // size_t indicesDim = indicesValidShapes.size(); // not needed for layout
+
+    // Get attributes
+    const int64_t axis = AnyCast<int64_t>(opAttrs.at("op_attr_axis"));
+    const int64_t scatterMode = AnyCast<int64_t>(opAttrs.at("op_attr_scatter_mode"));
+
+    // Coordinate for dst (which is the input/output tensor in GM)
+    auto dstOffsetSymbol = GenGetParamMacroPacked(ID0, inputDim, PREFIX_STR_OFFSET);
+    std::string coord4Dst = PrintCoord(inputDim, WrapParamByParentheses(dstOffsetSymbol));
+
+    // Tensor names from tile allocation
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));     // GM
+    std::string indicesTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX)); // UB
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));     // UB
+
+    // Template args: <axis, scatterMode>
+    std::vector<std::string> templateParams;
+    templateParams.emplace_back(std::to_string(NormalizeAxis(axis, inputDim)));
+    templateParams.emplace_back(std::to_string(scatterMode));
+    std::string templateParam = JoinString(templateParams, CONN_COMMA);
+
+    // Function args: (dst, indices, src, coordinate)
+    std::vector<std::string> callArgs = {dstTensor, indicesTensor, srcTensor, coord4Dst};
+
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParam << ">"
+        << WrapParamByParentheses(callArgs) << STMT_END;
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintL0CToL1TileTensor() const {
     auto l1Offset = offsetFromAttr[ID0];
     std::vector<std::string> dstOffset;
