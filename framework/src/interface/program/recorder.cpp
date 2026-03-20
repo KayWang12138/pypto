@@ -216,9 +216,9 @@ RecordLoopFunc::RecordLoopFunc(const std::string &name, FunctionType funcType, c
       funcType_(funcType) {
     CHECK(FError::INVALID_TYPE, funcType == FunctionType::STATIC || funcType == FunctionType::DYNAMIC_LOOP)
         << "funcType: " << GetFunctionTypeNameDict().Find(funcType);
-    
+    std::cout << "parallelFor_ 111 " << parallelFor_ << std::endl;
     if (parallelFor_) {
-        std::cout << "parallelFor_ 111 " << parallelFor_ << std::endl;
+        std::cout << "parallelFor_ 2222 " << parallelFor_ << std::endl;
         for (auto &rlf : Program::GetInstance().GetLoopStack()) {
             if (rlf.get().GetParallelFor()) {
                 ASSERT(!rlf.get().GetParallelFor()) << "The parallel attribute value does not allow nesting";
