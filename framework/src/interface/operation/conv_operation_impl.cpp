@@ -235,7 +235,7 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
         int64_t dout = ConvComputeDo(inputTensor, weightTensor, attrParam);
         numTileL0 *= dout; kAL1 *= kd; kBL1 *= kd; oriK *= kd
     }
-    if (numTileL0 > MAX_LOOP || oriK > MAX_LOOP) {
+    if (numTileL0 > MAX_LOOP || CeilDiv(oriK, tileK) > MAX_LOOP) {
         CONV_LOGW("Suggestion: Consider increasing tile size to reduce compilation time.");
     }
     int64_t minKL1 = std::min(kAL1, kBL1);
