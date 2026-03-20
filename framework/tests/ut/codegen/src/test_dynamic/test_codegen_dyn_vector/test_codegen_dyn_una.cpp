@@ -136,7 +136,7 @@ TEST_F(TestCodegenDynUna, TestPadDynamic) {
     FUNCTION(funcName, {input, output}) {
         LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            output = Pad(input, {0, 6, 0, 8}, "constant", 0.0f);
+            output = Pad(input, {0, 6, 0, 8}, "constant", 2.0f);
         }
     }
     auto function =
@@ -148,7 +148,7 @@ TEST_F(TestCodegenDynUna, TestPadDynamic) {
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
     const std::string res = GetResultFromCpp(*function);
-    std::string expect = R"!!!(TPad<pto::PadValue::Zero>(ubTensor_2, ubTensor_0);)!!!";
+    std::string expect = R"!!!(TPad<static_cast<pto::PadValue>(0x4000000000000001ULL)>(ubTensor_2, ubTensor_0);)!!!";
     CheckStringExist(expect, res);
 }
 
