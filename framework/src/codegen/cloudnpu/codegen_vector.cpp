@@ -1773,16 +1773,8 @@ std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const
     std::string srcTensor = QueryTileTensorNameByIdx(ID1);
     std::string scaleTensor = QueryTileTensorNameByIdx(ID2);
 
-    // Get axis attribute, default is -1
-    int64_t axis = -1;
-    if (opAttrs.count(OP_ATTR_PREFIX + "axis")) {
-        axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
-    }
-
-    // Convert axis to 5D representation
-    // axis = -1 means last axis (dim 4 in 5D)
-    // axis = -2 means second to last axis (dim 3 in 5D)
-    int axisIn5D = static_cast<int>(SHAPE_DIM5 + axis);
+    // Note: axis parameter is handled at Operation layer via Transpose
+    // TileOp layer only supports axis=-1 (per-row quantization)
 
     // Determine quantization type based on opcode
     std::string quantType;
@@ -1795,12 +1787,6 @@ std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const
     std::ostringstream oss;
     std::vector<std::string> templateParamList;
     templateParamList.emplace_back(quantType);
-    templateParamList.emplace_back(std::to_string(axisIn5D));
-
-    std::string lastUse = GetLastUse();
-    if (!lastUse.empty()) {
-        templateParamList.emplace_back(lastUse);
-    }
 
     std::vector<std::string> paramList;
     paramList.emplace_back(dstTensor);
