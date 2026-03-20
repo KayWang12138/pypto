@@ -14,6 +14,8 @@
  */
 
 #include "unary.h"
+#include <sstream>
+#include <string>
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
 
@@ -30,24 +32,43 @@ struct ExpandInfo {
         : srcTensor(srcTensor0), result(result0), viewShape(viewShape0), offset(offset0), expandDim(expandDim0) {}
 };
 
-void CheckExpandTensorVaild(const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
-    if (operand->shape.size() != result->shape.size()) {
-        ASSERT(false && "Dims not match");
+void CheckExpandTensorValid(const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
+    const auto& operand_shape = operand->shape;
+    const auto& result_shape = result->shape;
+
+    if (operand_shape.size() != result_shape.size()) {
+        std::ostringstream oss;
+        oss << "The number of dimensions must match! "
+            << "Operand shape: " << operand_shape.size() << "D (" << operand_shape << ") "
+            << "Result shape: " << result_shape.size() << "D (" << result_shape << ")";
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << oss.str();
     }
 
-    for (size_t i = 0; i < result->shape.size(); ++i) {
-        if (operand->shape[i] != result->shape[i] && operand->shape[i] != 1) {
-            ASSERT(0 && "shape not match");
+    for (size_t i = 0; i < result_shape.size(); ++i) {
+        if (operand_shape[i] != result_shape[i] && operand_shape[i] != 1) {
+            std::ostringstream oss;
+            oss << "The size of tensor a (" << operand_shape[i] << ") must match the size of tensor b (" 
+                << result_shape[i] << ") at non-singleton dimension " << i << ". "
+                << "Operand shape: (" << operand_shape << ") "
+                << "Result shape: (" << result_shape << ")";
+            ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << oss.str();
         }
     }
-    
+
     int numExpandAxis = 0;
-    for (size_t i = 0; i < result->shape.size(); ++i) {
-        if (operand->shape[i] != result->shape[i]) {
+    for (size_t i = 0; i < result_shape.size(); ++i) {
+        if (operand_shape[i] != result_shape[i]) {
             numExpandAxis++;
         }
     }
-    ASSERT(numExpandAxis <= 1) << "Only allow to expand one axis";
+    if (numExpandAxis > 1) {
+        std::ostringstream oss;
+        oss << "Only allow to expand one axis! "
+            << "Actual expanded axes count: " << numExpandAxis << ". "
+            << "Operand shape: (" << operand_shape << ") "
+            << "Result shape: (" << result_shape << ")";
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << oss.str();
+    }
 }
 
 void ExpandTile(Function &function, const struct ExpandInfo &expandInfo) {
@@ -87,7 +108,7 @@ void ExpandTile(Function &function, const TileShape &tileShape, int dimIdx, cons
 
 void Expand(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const std::vector<LogicalTensorPtr> &other, const LogicalTensorPtr &result) {
-    CheckExpandTensorVaild(operand, result);
+    CheckExpandTensorValid(operand, result);
     ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH) << "The GetGraphType of function is incorrect";
     std::vector<int64_t> offset(result->shape.size(), 0);
     std::vector<int64_t> viewShape(result->shape.size(), 1);
@@ -122,7 +143,7 @@ void Expand(Function &function, const TileShape &tileShape, const LogicalTensorP
 
 void ExpandWithResultValidShape(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const LogicalTensorPtr &result, const std::vector<SymbolicScalar> resultValidShape) {
-    CheckExpandTensorVaild(operand, result);
+    CheckExpandTensorValid(operand, result);
     ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH) << "The GetGraphType of function is incorrect";
     std::vector<int64_t> offset(result->shape.size(), 0);
     std::vector<int64_t> viewShape(result->shape.size(), 1);
@@ -139,7 +160,7 @@ void ExpandWithResultValidShape(Function &function, const TileShape &tileShape, 
 
 void TiledExpand(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &validShape) {
-    CheckExpandTensorVaild(operand, result);
+    CheckExpandTensorValid(operand, result);
     ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH) << "The GetGraphType of function is incorrect";
 
     std::vector<int64_t> offset(result->shape.size(), 0);
