@@ -19,14 +19,15 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
-def get_commentable_range(cce_file):
+def get_commentable_range(cce_file, ERROR_IN_T):
     logger.info("获取可注释行范围...")
     logger.info(f"CCE 文件: {cce_file}")
+    logger.info(f"ERROR_IN_T: {ERROR_IN_T}")
     logger.info("")
     
     cce_lines = read_file(cce_file)
     cce_lines = comment_special_lines(cce_lines)
-    commentable_lines = get_commentable_lines(cce_lines)
+    commentable_lines= get_commentable_lines(cce_lines, ERROR_IN_T)
     
     n = len(commentable_lines)
     logger.info(f"可注释的行数: {n}")
@@ -43,10 +44,11 @@ def get_commentable_range(cce_file):
 
 
 def print_usage():
-    logger.info("用法: python3 get_commentable_range.py <cce_file>")
+    logger.info("用法: python3 get_commentable_range.py <cce_file> <ERROR_IN_T>")
     logger.info("")
     logger.info("参数说明:")
     logger.info("  cce_file: CCE 文件路径")
+    logger.info("  ERROR_IN_T: 错误是否在T操作中 (True/False)")
     logger.info("")
     logger.info("输出格式:")
     logger.info("  LEFT <left>")
@@ -54,11 +56,12 @@ def print_usage():
 
 
 def main():
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 3:
         print_usage()
         sys.exit(1)
     
     cce_file = sys.argv[1]
+    ERROR_IN_T = sys.argv[2].lower() == 'true'
     cce_file = os.path.abspath(cce_file)
     
     valid, error_msg = validate_path(cce_file, "CCE 文件")
@@ -66,7 +69,7 @@ def main():
         logger.info(error_msg)
         sys.exit(1)
     
-    left, right = get_commentable_range(cce_file)
+    left, right = get_commentable_range(cce_file, ERROR_IN_T)
     
     if left is not None:
         logger.info(f"LEFT {left}")
