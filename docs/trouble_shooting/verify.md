@@ -77,5 +77,6 @@ out must have shape [topk_count, hidden_dim]
 
 ### 非典型错误码场景
 #### 错误码： 0xB0001U: VERIFY_NOT_ENABLE
-请检查本地torch版本
+请检查本地`torch >= 2.1.0`。
+#### 其他错误码
 对于其他类型的错误码，往往是由于pypto内部缺陷导致，如遇到，请在社区联系开发人员解决。
