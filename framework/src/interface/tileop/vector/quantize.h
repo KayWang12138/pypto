@@ -69,16 +69,18 @@
  * @param dst 输出张量（INT8类型），存储量化后的结果
  * @param src 输入张量（FP32类型），待量化的浮点数据
  * @param scale 缩放因子张量，每个待量化行/列对应一个scale值
+ * @param tmp 临时内存张量，用于逐列量化时的转置操作（仅axis=-2时使用）
  *
  * 使用示例:
  *   // 逐行量化: 输入 [M, N], scale [M, 1], 输出 [M, N]
- *   TQuantInt8Sym<-1>(dst, src, scale);
+ *   TQuantInt8Sym<-1>(dst, src, scale, tmp);
  *
  *   // 逐列量化: 输入 [M, N], scale [1, N], 输出 [M, N]
- *   TQuantInt8Sym<-2>(dst, src, scale);
+ *   TQuantInt8Sym<-2>(dst, src, scale, tmp);
  */
-template <int axis = -1, typename LastUse = LastUse3Dim<0, 0, 0>, typename T0, typename T1, typename T2>
-TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
+template <int axis = -1, typename LastUse = LastUse3Dim<0, 0, 0>,
+          typename T0, typename T1, typename T2, typename T3>
+TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale, T3 tmp) {
     // 期望的5D张量维度数，所有张量都将被统一转换为5D表示进行处理
     constexpr size_t expectSize = 5;
 
@@ -309,17 +311,18 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
  * @param src 输入张量（FP32类型），待量化的浮点数据
  * @param scale 缩放因子张量
  * @param offset 零点偏移张量，与scale形状相同
+ * @param tmp 临时内存张量，用于逐列量化时的转置操作（仅axis=-2时使用）
  *
  * 使用示例:
  *   // 逐行量化: 输入 [M, N], scale [M, 1], offset [M, 1], 输出 [M, N]
- *   TQuantInt8Asym<-1>(dst, src, scale, offset);
+ *   TQuantInt8Asym<-1>(dst, src, scale, offset, tmp);
  *
  *   // 逐列量化: 输入 [M, N], scale [1, N], offset [1, N], 输出 [M, N]
- *   TQuantInt8Asym<-2>(dst, src, scale, offset);
+ *   TQuantInt8Asym<-2>(dst, src, scale, offset, tmp);
  */
 template <int axis = -1, typename LastUse = LastUse3Dim<0, 0, 0>,
-          typename T0, typename T1, typename T2, typename T3>
-TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset) {
+          typename T0, typename T1, typename T2, typename T3, typename T4>
+TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset, T4 tmp) {
     // 期望的5D张量维度数
     constexpr size_t expectSize = 5;
 
@@ -543,26 +546,26 @@ TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset) {
  */
 
 // ---------------------------------------------------------------------------
-// INT8_SYM: 3参数版本（对称量化，不需要offset）
-// ---------------------------------------------------------------------------
-template <pto::QuantType quantType, int axis = -1, typename LastUse = LastUse3Dim<0, 0, 0>,
-          typename T0, typename T1, typename T2>
-TILEOP void TQuant(T0 dst, T1 src, T2 scale) {
-    // 如果用户传入INT8_ASYM但只提供3个参数，会在编译时报错
-    static_assert(quantType == pto::QuantType::INT8_SYM,
-                  "TQuant with 3 parameters only supports INT8_SYM. For INT8_ASYM, provide offset parameter.");
-    TQuantInt8Sym<axis, LastUse>(dst, src, scale);
-}
-
-// INT8_ASYM: 4参数版本（非对称量化，需要offset）
+// INT8_SYM: 4参数版本（对称量化，带tmp临时内存）
 // ---------------------------------------------------------------------------
 template <pto::QuantType quantType, int axis = -1, typename LastUse = LastUse3Dim<0, 0, 0>,
           typename T0, typename T1, typename T2, typename T3>
-TILEOP void TQuant(T0 dst, T1 src, T2 scale, T3 offset) {
-    // 如果用户传入INT8_SYM但提供了4个参数，会在编译时报错
+TILEOP void TQuant(T0 dst, T1 src, T2 scale, T3 tmp) {
+    // 如果用户传入INT8_ASYM但只提供4个参数，会在编译时报错
+    static_assert(quantType == pto::QuantType::INT8_SYM,
+                  "TQuant with 4 parameters only supports INT8_SYM. For INT8_ASYM, provide offset parameter.");
+    TQuantInt8Sym<axis, LastUse>(dst, src, scale, tmp);
+}
+
+// INT8_ASYM: 5参数版本（非对称量化，带tmp临时内存）
+// ---------------------------------------------------------------------------
+template <pto::QuantType quantType, int axis = -1, typename LastUse = LastUse3Dim<0, 0, 0>,
+          typename T0, typename T1, typename T2, typename T3, typename T4>
+TILEOP void TQuant(T0 dst, T1 src, T2 scale, T3 offset, T4 tmp) {
+    // 如果用户传入INT8_SYM但提供了5个参数，会在编译时报错
     static_assert(quantType == pto::QuantType::INT8_ASYM,
-                  "TQuant with 4 parameters only supports INT8_ASYM. For INT8_SYM, use 3 parameters.");
-    TQuantInt8Asym<axis, LastUse>(dst, src, scale, offset);
+                  "TQuant with 5 parameters only supports INT8_ASYM. For INT8_SYM, use 4 parameters.");
+    TQuantInt8Asym<axis, LastUse>(dst, src, scale, offset, tmp);
 }
 
 #endif // TILEOP_TILE_OPERATOR_QUANTIZE__H

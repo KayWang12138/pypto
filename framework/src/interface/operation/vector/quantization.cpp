@@ -26,14 +26,21 @@ namespace npu::tile_fwk {
 // =============================================================================
 
 void TiledQuantizeSymmetric(Function &function, const TileShape &tileShape, size_t cur,
-    Input &srcInput, Input &scaleInput, Input &dstInput, int64_t axis) {
+    Input &srcInput, Input &scaleInput, Input &dstInput, int64_t axis,
+    const LogicalTensorPtr &tmpTensor) {
     if (cur == dstInput.tensor.GetShape().size()) {
         auto srcTile = srcInput.tensor.GetStorage()->View(function, srcInput.tileInfo.shape, srcInput.tileInfo.offset);
         auto scaleTile = scaleInput.tensor.GetStorage()->View(function, scaleInput.tileInfo.shape, scaleInput.tileInfo.offset);
         auto dstTile = dstInput.tensor.GetStorage()->View(function, dstInput.tileInfo.shape, dstInput.tileInfo.offset);
 
-        auto &op = function.AddOperation(Opcode::OP_QUANTIZE_SYM, {srcTile, scaleTile}, {dstTile});
-        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        // axis = -2 (逐列量化) 需要临时内存用于转置操作
+        if (tmpTensor) {
+            auto &op = function.AddOperation(Opcode::OP_QUANTIZE_SYM, {srcTile, scaleTile}, {dstTile, tmpTensor});
+            op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        } else {
+            auto &op = function.AddOperation(Opcode::OP_QUANTIZE_SYM, {srcTile, scaleTile}, {dstTile});
+            op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        }
         return;
     }
 
@@ -58,7 +65,7 @@ void TiledQuantizeSymmetric(Function &function, const TileShape &tileShape, size
             scaleInput.tileInfo.offset[cur] = scaleIdx;
         }
 
-        TiledQuantizeSymmetric(function, tileShape, cur + 1, srcInput, scaleInput, dstInput, axis);
+        TiledQuantizeSymmetric(function, tileShape, cur + 1, srcInput, scaleInput, dstInput, axis, tmpTensor);
     }
 }
 
@@ -68,6 +75,16 @@ void TiledQuantizeSymmetric(Function &function, const TileShape &tileShape,
     ASSERT(src->shape.size() == src->offset.size()) << "Source shape size and offset size should be equal";
     ASSERT(dst->shape.size() == dst->offset.size()) << "Destination shape size and offset size should be equal";
 
+    // axis = -2 (逐列量化) 需要临时内存用于转置操作
+    LogicalTensorPtr tmpTensor;
+    if (axis == -2) {
+        // 临时内存大小: 需要足够容纳转置操作的中间结果
+        // 参考 reduce.h 中的 tmpTileW 计算: (sizeof(dtype) == 1) ? 32 : 16
+        constexpr size_t tmpTileW = 32;  // INT8 使用 32
+        std::vector<int64_t> tmpShape = {dst->shape[dst->shape.size() - 2], static_cast<int64_t>(tmpTileW)};
+        tmpTensor = std::make_shared<LogicalTensor>(function, dst->datatype, tmpShape);
+    }
+
     TileInfo srcTileInfo(src->shape.size(), src->offset.size());
     TileInfo scaleTileInfo(scale->shape.size(), scale->offset.size());
     TileInfo dstTileInfo(dst->shape.size(), dst->offset.size());
@@ -76,7 +93,7 @@ void TiledQuantizeSymmetric(Function &function, const TileShape &tileShape,
     auto scaleInput = Input{Tensor(scale), scaleTileInfo};
     auto dstInput = Input{Tensor(dst), dstTileInfo};
 
-    TiledQuantizeSymmetric(function, tileShape, 0, srcInput, scaleInput, dstInput, axis);
+    TiledQuantizeSymmetric(function, tileShape, 0, srcInput, scaleInput, dstInput, axis, tmpTensor);
 }
 
 // =============================================================================
@@ -84,15 +101,22 @@ void TiledQuantizeSymmetric(Function &function, const TileShape &tileShape,
 // =============================================================================
 
 void TiledQuantizeAsymmetric(Function &function, const TileShape &tileShape, size_t cur,
-    Input &srcInput, Input &scaleInput, Input &offsetInput, Input &dstInput, int64_t axis) {
+    Input &srcInput, Input &scaleInput, Input &offsetInput, Input &dstInput, int64_t axis,
+    const LogicalTensorPtr &tmpTensor) {
     if (cur == dstInput.tensor.GetShape().size()) {
         auto srcTile = srcInput.tensor.GetStorage()->View(function, srcInput.tileInfo.shape, srcInput.tileInfo.offset);
         auto scaleTile = scaleInput.tensor.GetStorage()->View(function, scaleInput.tileInfo.shape, scaleInput.tileInfo.offset);
         auto offsetTile = offsetInput.tensor.GetStorage()->View(function, offsetInput.tileInfo.shape, offsetInput.tileInfo.offset);
         auto dstTile = dstInput.tensor.GetStorage()->View(function, dstInput.tileInfo.shape, dstInput.tileInfo.offset);
 
-        auto &op = function.AddOperation(Opcode::OP_QUANTIZE_ASYM, {srcTile, scaleTile, offsetTile}, {dstTile});
-        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        // axis = -2 (逐列量化) 需要临时内存用于转置操作
+        if (tmpTensor) {
+            auto &op = function.AddOperation(Opcode::OP_QUANTIZE_ASYM, {srcTile, scaleTile, offsetTile}, {dstTile, tmpTensor});
+            op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        } else {
+            auto &op = function.AddOperation(Opcode::OP_QUANTIZE_ASYM, {srcTile, scaleTile, offsetTile}, {dstTile});
+            op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        }
         return;
     }
 
@@ -122,7 +146,7 @@ void TiledQuantizeAsymmetric(Function &function, const TileShape &tileShape, siz
             offsetInput.tileInfo.offset[cur] = offsetIdx;
         }
 
-        TiledQuantizeAsymmetric(function, tileShape, cur + 1, srcInput, scaleInput, offsetInput, dstInput, axis);
+        TiledQuantizeAsymmetric(function, tileShape, cur + 1, srcInput, scaleInput, offsetInput, dstInput, axis, tmpTensor);
     }
 }
 
@@ -131,6 +155,15 @@ void TiledQuantizeAsymmetric(Function &function, const TileShape &tileShape,
     const LogicalTensorPtr &dst, int64_t axis) {
     ASSERT(src->shape.size() == src->offset.size()) << "Source shape size and offset size should be equal";
     ASSERT(dst->shape.size() == dst->offset.size()) << "Destination shape size and offset size should be equal";
+
+    // axis = -2 (逐列量化) 需要临时内存用于转置操作
+    LogicalTensorPtr tmpTensor;
+    if (axis == -2) {
+        // 临时内存大小: 需要足够容纳转置操作的中间结果
+        constexpr size_t tmpTileW = 32;  // INT8/UINT8 使用 32
+        std::vector<int64_t> tmpShape = {dst->shape[dst->shape.size() - 2], static_cast<int64_t>(tmpTileW)};
+        tmpTensor = std::make_shared<LogicalTensor>(function, dst->datatype, tmpShape);
+    }
 
     TileInfo srcTileInfo(src->shape.size(), src->offset.size());
     TileInfo scaleTileInfo(scale->shape.size(), scale->offset.size());
@@ -142,7 +175,7 @@ void TiledQuantizeAsymmetric(Function &function, const TileShape &tileShape,
     auto offsetInput = Input{Tensor(offset), offsetTileInfo};
     auto dstInput = Input{Tensor(dst), dstTileInfo};
 
-    TiledQuantizeAsymmetric(function, tileShape, 0, srcInput, scaleInput, offsetInput, dstInput, axis);
+    TiledQuantizeAsymmetric(function, tileShape, 0, srcInput, scaleInput, offsetInput, dstInput, axis, tmpTensor);
 }
 
 // =============================================================================
@@ -153,9 +186,20 @@ LogicalTensorPtr TensorQuantizeSymmetricOperation(Function &function,
     const LogicalTensorPtr &src, const LogicalTensorPtr &scale, int64_t axis) {
     // Output is INT8 for symmetric quantization
     auto result = std::make_shared<LogicalTensor>(function, DataType::DT_INT8, src->shape, src->GetDynValidShape());
-    auto &op = function.AddOperation(Opcode::OP_QUANTIZE_SYM, {src, scale}, {result});
-    op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
-    function.UpdateTensorDataUsage(op);
+
+    // axis = -2 (逐列量化) 需要临时内存用于转置操作
+    if (axis == -2) {
+        constexpr size_t tmpTileW = 32;  // INT8 使用 32
+        std::vector<int64_t> tmpShape = {src->shape[src->shape.size() - 2], static_cast<int64_t>(tmpTileW)};
+        auto tmpTensor = std::make_shared<LogicalTensor>(function, DataType::DT_INT8, tmpShape);
+        auto &op = function.AddOperation(Opcode::OP_QUANTIZE_SYM, {src, scale}, {result, tmpTensor});
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        function.UpdateTensorDataUsage(op);
+    } else {
+        auto &op = function.AddOperation(Opcode::OP_QUANTIZE_SYM, {src, scale}, {result});
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        function.UpdateTensorDataUsage(op);
+    }
     return result;
 }
 
@@ -163,9 +207,20 @@ LogicalTensorPtr TensorQuantizeAsymmetricOperation(Function &function,
     const LogicalTensorPtr &src, const LogicalTensorPtr &scale, const LogicalTensorPtr &offset, int64_t axis) {
     // Output is UINT8 for asymmetric quantization
     auto result = std::make_shared<LogicalTensor>(function, DataType::DT_UINT8, src->shape, src->GetDynValidShape());
-    auto &op = function.AddOperation(Opcode::OP_QUANTIZE_ASYM, {src, scale, offset}, {result});
-    op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
-    function.UpdateTensorDataUsage(op);
+
+    // axis = -2 (逐列量化) 需要临时内存用于转置操作
+    if (axis == -2) {
+        constexpr size_t tmpTileW = 32;  // UINT8 使用 32
+        std::vector<int64_t> tmpShape = {src->shape[src->shape.size() - 2], static_cast<int64_t>(tmpTileW)};
+        auto tmpTensor = std::make_shared<LogicalTensor>(function, DataType::DT_UINT8, tmpShape);
+        auto &op = function.AddOperation(Opcode::OP_QUANTIZE_ASYM, {src, scale, offset}, {result, tmpTensor});
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        function.UpdateTensorDataUsage(op);
+    } else {
+        auto &op = function.AddOperation(Opcode::OP_QUANTIZE_ASYM, {src, scale, offset}, {result});
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        function.UpdateTensorDataUsage(op);
+    }
     return result;
 }
 
@@ -230,6 +285,7 @@ void QuantizeSymmetricOperationTileFunc(Function &function, const TileShape &til
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
     const Operation &op) {
     int64_t axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
+    // axis = -2 时，oOperand[1] 是临时 Tensor
     TiledQuantizeSymmetric(function, tileShape, iOperand[0], iOperand[1], oOperand[0], axis);
 }
 
@@ -237,6 +293,7 @@ void QuantizeAsymmetricOperationTileFunc(Function &function, const TileShape &ti
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
     const Operation &op) {
     int64_t axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
+    // axis = -2 时，oOperand[1] 是临时 Tensor
     TiledQuantizeAsymmetric(function, tileShape, iOperand[0], iOperand[1], iOperand[2], oOperand[0], axis);
 }
 

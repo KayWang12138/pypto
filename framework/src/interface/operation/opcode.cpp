@@ -424,11 +424,16 @@ void OpcodeManager::RegisterVectorReduction() {
 }
 
 void OpcodeManager::RegisterVectorQuant() {
-    RegisterInfo(Opcode::OP_QUANTIZE_SYM, OpCoreType::AIV, "QUANTIZE_SYM", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+    // axis = -1 (逐行量化): 不需要 tmp
+    // axis = -2 (逐列量化): 需要 tmp 用于转置操作
+    // 输出包含两个 MEM_UB: {result, tmp}，tmp 在 axis=-1 时可以为空
+    RegisterInfo(Opcode::OP_QUANTIZE_SYM, OpCoreType::AIV, "QUANTIZE_SYM",
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::TQuant", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis"}, TileShapeVerifier::Verify);
-    RegisterInfo(Opcode::OP_QUANTIZE_ASYM, OpCoreType::AIV, "QUANTIZE_ASYM", {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
-        {"TileOp::TQuant",PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+    RegisterInfo(Opcode::OP_QUANTIZE_ASYM, OpCoreType::AIV, "QUANTIZE_ASYM",
+        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::TQuant", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis"}, TileShapeVerifier::Verify);
     // TODO: DeQauntize
 }
