@@ -313,13 +313,15 @@ void TiledInnerPermute(Function& function, const TileShape& tileShape, int cur,
                              OutputTileInfo& outputTile,
                              const LogicalTensorPtr& srcTensor,
                              const std::vector<int64_t>& reducedPerm,
-                             const std::vector<int64_t>& reducedInShape);
+                             const std::vector<int64_t>& reducedInShape,
+                             const std::vector<int64_t>& reducedOutShape);
 
 void TiledInnerPermute(Function& function, const TileShape& tileShape,
                              const LogicalTensorPtr& srcTensor,
                              const LogicalTensorPtr& resultTensor,
                              const std::vector<int64_t>& reducedPerm,
-                             const std::vector<int64_t>& reducedInShape);
+                             const std::vector<int64_t>& reducedInShape,
+                             const std::vector<int64_t>& reducedOutShape);
 
 void TiledInnerPermute(Function& function, const TileShape& tileShape, int cur,
                              OutputTileInfo& outputTile,
@@ -339,6 +341,7 @@ void TiledInnerPermute(Function& function, const TileShape& tileShape, int cur,
         auto& op = function.AddOperation(Opcode::OP_PERMUTE, {srcTensor, tempTensor}, {resultTile});
         op.SetAttribute(OP_ATTR_PREFIX + "perm", reducedPerm);
         op.SetAttribute(OP_ATTR_PREFIX + "srcShape", reducedInShape);
+        op.SetAttribute(OP_ATTR_PREFIX + "dstShape", reducedOutShape);
         return;
     }
     
@@ -346,8 +349,8 @@ void TiledInnerPermute(Function& function, const TileShape& tileShape, int cur,
     for (int i = 0; i < outputTile.tensor->shape[cur]; i += vecTile[cur]) {
         outputTile.tileInfo.shape[cur] = std::min(outputTile.tensor->shape[cur] - i, vecTile[cur]);
         outputTile.tileInfo.offset[cur] = i;
-        TiledInnerPermute(function, tileShape, cur + 1, outputTile, srcTensor, idxTmpTensor,
-                                reducedPerm, reducedInShape);
+        TiledInnerPermute(function, tileShape, cur + 1, outputTile, srcTensor,
+                                reducedPerm, reducedInShape, reducedOutShape);
     }
 }
 
