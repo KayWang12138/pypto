@@ -34,13 +34,17 @@
 ##### 定位手段指导
 
 ###### pass_verify_print与pass_verify_save  
+对于在`tensor graph`阶段的精度问题，进行人工数据分析。  
 精度工具提供`pypto.pass_veirfy_print`与`pypto.pass_verify_save`支持用户将自己编写的pypto kernal函数中的tensor的计算结果打印或者保存下来。（注意：该tensor既可以是最终的输出，也可以是中间产生的tensor，但是打印出来的结果并不是在npu中的计算结果，而是基于精度工具模拟执行和用户前端表达的模拟结果）。  
 再开启精度定位前，可先确认精度工具Dump的最终输出与npu计算结果保持一致。
 详参见[pass_verify_print接口示例](docs/api/others/pypto-pass_verify_print.md)与
 [pass_verify_save接口示例](docs/api/others/pypto-pass_verify_save.md)  。
 
 ###### 精度工具skill
+对于在`tensor graph`阶段的精度问题，借助ai agent进行精度定位。  
+当发现算子精度不对但不知道具体问题在哪，可以调用pypto-binary-search-verify技能，只需要向助手发送明确的指令“算子test_my_op.py 精度验证失败了，请帮我使用算子精度问题查找技能定位是哪里有问题”，或者直接指定“使用pypto-binary-search-verify技能，定位test_my_op.py 的精度问题”, 就可以自动插入检查点，根据测试生成数据文件用对比脚本分析结果，得出出错的op。
 ###### 精度工具自动比对脚本
+对于发生在pass执行阶段的精度问题，使用自动化脚本进行定位。
 脚本路径：`tools/verifier/pass_compare.py`  
 当某个pass精度对比失败的时候，可以利用 `pass_compare.py` 这个脚本将该对比失败的pass和前面的pass进行精度对比。对比会在精度工具dump数据的目录生成一个类似 `verify_pass@SplitK@ExpandFunction@1773821696834386.csv` 这样的对比结果文件，里面记录了精度对比失败的pass的每个op节点和前面pass对比的结果，未能匹配上的也会记录在表中标注skip。这样就能定位到匹配上的第一个出错的节点。  
 脚本使用方法：`python3 pass_compare.py --p ExpandFunction RemoveUndrivenView --verify_path=.....`
