@@ -376,9 +376,9 @@ TEST_F(CommonOperationEliminateTest, InsertAssembleCopy) {
     }
 
     // 应该为2个ASSEMBLE操作插入拷贝序列（每个需要2个COPY操作）
-    EXPECT_EQ(assembleNum, 3) << "Should have 3 ASSEMBLE operations";
-    EXPECT_EQ(copyInNum, 2) << "Should insert 2 COPY_IN operations";
-    EXPECT_EQ(copyOutNum, 2) << "Should insert 2 COPY_OUT operations";
+    EXPECT_EQ(assembleCount, 3) << "Should have 3 ASSEMBLE operations";
+    EXPECT_EQ(copyInCount, 2) << "Should insert 2 COPY_IN operations";
+    EXPECT_EQ(copyOutCount, 2) << "Should insert 2 COPY_OUT operations";
 }
 
 // ========== 测试用例：InsertAssembleCopy - DDR内存类型场景 ==========
@@ -462,22 +462,22 @@ TEST_F(CommonOperationEliminateTest, InsertAssembleCopySingleAssemble) {
 
     // 验证没有插入拷贝序列
     int copyInNumBer = 0;
-    int copyOutInNumBer = 0;
+    int copyOutNumBer = 0;
     int assembleInNumBer = 0;
     for (const auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_COPY_IN) {
-            copyOutInNumBer++;
+            copyInNumBer++;
         } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
-            copyOutNum++;
+            copyOutNumBer++;
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             assembleInNumBer++;
         }
     }
 
     // 单个ASSEMBLE不应该插入拷贝序列
-    EXPECT_EQ(assembleNum, 1) << "Should have 1 ASSEMBLE operation";
-    EXPECT_EQ(copyInNum, 0) << "Should not insert COPY_IN operation";
-    EXPECT_EQ(copyOutNum, 0) << "Should not insert COPY_OUT operation";
+    EXPECT_EQ(assembleInNumBer, 1) << "Should have 1 ASSEMBLE operation";
+    EXPECT_EQ(copyInNumBer, 0) << "Should not insert COPY_IN operation";
+    EXPECT_EQ(copyOutNumBer, 0) << "Should not insert COPY_OUT operation";
 }
 } // namespace tile_fwk
 } // namespace npu
