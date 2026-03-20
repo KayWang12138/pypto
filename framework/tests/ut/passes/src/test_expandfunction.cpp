@@ -553,7 +553,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest6) {
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
 
     ExpandFunction expandfunctionpass;
-    EXPECT_EQ(expandfunctionpass.PreCheck(*currFunctionPtr), FAILED);
+    EXPECT_EQ(expandfunctionpass.DefaultEnabledPreCheck(*currFunctionPtr), FAILED);
 
     currFunctionPtr->SetGraphType(GraphType::TILE_GRAPH);
     EXPECT_EQ(expandfunctionpass.PostCheck(*currFunctionPtr), FAILED);
