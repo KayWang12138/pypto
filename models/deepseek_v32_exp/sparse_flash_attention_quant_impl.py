@@ -147,18 +147,26 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
                                 valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), dn])
                             kn = pypto.cast(cur_kn_fp32, dtype)
                         else:
-                            pypto.set_cube_tile_shapes([c1_tile[0], c1_tile[1]],
-                                [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]])
-                            kn = gather_in_l1(key_nope_2d,
-                                cur_topk_indices, cur_block_table, block_size, dn, is_b_matrix=True, is_trans=True)
+                            pypto.set_semantic_label("Sa_V0")
+                            pypto.set_vec_tile_shapes(32, 512)
+                            k_nope_2d_view = pypto.view(key_nope_2d, [key_nope_2d.shape[0], dn],
+                                [0, 0], valid_shape=[key_nope_2d.shape[0], dn])
+                            kn = gather_in_ub(k_nope_2d_view, cur_topk_indices, cur_block_table, block_size, -2)
+
                         # C1
                         pypto.set_semantic_label("Sa_C1")
                         pypto.set_vec_tile_shapes(32, 512)
                         pypto.set_cube_tile_shapes([c1_tile[0],
                             c1_tile[1]], [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]])
 
-                        kr = gather_in_l1(key_rope_2d, cur_topk_indices, cur_block_table, block_size, dr,
-                                          is_b_matrix=True, is_trans=True)
+                        if kn_dtype == pypto.DT_INT8:
+                            kr = gather_in_l1(key_rope_2d, cur_topk_indices, cur_block_table, block_size, dr,
+                                            is_b_matrix=True, is_trans=True)
+                        else:
+                            key_rope_2d_view = pypto.view(key_rope_2d, [key_rope_2d.shape[0], dr],
+                                                            [0, 0], valid_shape=[key_rope_2d.shape[0], dr])
+                            kr = gather_in_ub(key_rope_2d_view, cur_topk_indices, cur_block_table, block_size, -2)
+
                         kj = pypto.tensor([cur_s2_tile, dn + dr], dtype, "kj")
                         pypto.assemble(kn, [0, 0], kj)
                         pypto.assemble(kr, [0, dn], kj)
@@ -192,14 +200,9 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
                             tilda_pij_f16.shape[1], kn.shape[1]])
 
                         q1 = pypto.tensor([cur_group_tile, dn], dtype)
-                        if kn_dtype == pypto.DT_INT8:
-                            vj = pypto.view(kn, [cur_s2_tile, dn], [0, 0],
-                                            valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), dn])
-                            q1 = pypto.matmul(tilda_pij_f16, vj, dtype)
-                        else:
-                            vj = gather_in_l1(key_nope_2d, cur_topk_indices, cur_block_table, block_size,
-                                dn, is_b_matrix=True, is_trans=False)
-                            q1 = pypto.matmul(tilda_pij_f16, vj, dtype)
+                        vj = pypto.view(kn, [cur_s2_tile, dn], [0, 0],
+                                        valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), dn])
+                        q1 = pypto.matmul(tilda_pij_f16, vj, dtype)
 
                         pypto.assemble(q1, [cur_offset, 0], atten_out_2dim)
                         attention_out[:] = pypto.reshape(atten_out_2dim,
@@ -431,7 +434,7 @@ def sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_
 def sparse_flash_attention_quant_d(
     query_nope: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
     query_rope: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
-    key_nope_2d: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    key_nope_2d: pypto.Tensor([pypto.STATIC, pypto.STATIC], ), # int8 or bf16
     key_rope_2d: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
     k_nope_scales: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
     topk_indices: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT32),
@@ -492,7 +495,7 @@ def sparse_flash_attention_quant_d(
 def sparse_flash_attention_quant_p(
     query_nope: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
     query_rope: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
-    key_nope_2d: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    key_nope_2d: pypto.Tensor([pypto.STATIC, pypto.STATIC],), # int8 or bf16
     key_rope_2d: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
     k_nope_scales: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
     topk_indices: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT32),
