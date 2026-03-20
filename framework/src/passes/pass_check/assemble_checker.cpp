@@ -32,7 +32,16 @@ Status CheckDynSkip(const LogicalTensorPtr &outputTensor, bool &needSkip) {
         auto assembleOpAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(producerOp->GetOpAttribute());
         if (assembleOpAttr) {
             if (assembleOpAttr->GetToDynOffset().size() != 0) {
-                needSkip = true;
+                bool isAllImmediate = true;
+                for (auto offset : assembleOpAttr->GetToDynOffset()) {
+                    if (!offset.IsImmediate()) {
+                        isAllImmediate = false;
+                        break;
+                    }
+                }
+                if (!isAllImmediate) {
+                    needSkip = true;
+                }
                 return SUCCESS;
             }
         } else {
