@@ -104,7 +104,7 @@ public:
                 return ret;
             }
             if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
-                DEV_ERROR("SyncAicpuTaskFinish timeout.");
+                DEV_ERROR(SchedErr::AICPU_TASK_SYNC_TIMEOUT, "SyncAicpuTaskFinish timeout.");
                 return DEVICE_MACHINE_TIMEOUT_SYNC_AICPU_FINISH;
             }
         }

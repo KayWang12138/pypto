@@ -58,7 +58,7 @@ public:
 
     SignalTileOp* CreateTaskData(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
         if (taskCount >= AICPU_TASK_ARRAY_SIZE) {
-            DEV_ERROR("taskCount=%u >= AICPU_TASK_ARRAY_SIZE=%lu", taskCount, AICPU_TASK_ARRAY_SIZE);
+            DEV_ERROR(SchedErr::SIGNAL_QUEUE_OVERFLOW, "taskCount=%u >= AICPU_TASK_ARRAY_SIZE=%lu", taskCount, AICPU_TASK_ARRAY_SIZE);
             return nullptr;
         }
         SignalTileOp* newTask = &taskArray[taskCount];
@@ -70,7 +70,7 @@ public:
     int32_t InsertTask(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
         SignalTileOp* newTask = CreateTaskData(taskId, addr, expectSum, resetSignal);
         if (newTask == nullptr) {
-            DEV_ERROR("newTask is nullptr");
+            DEV_ERROR(CtrlErr::DEVICE_TASK_BUILD_FAILED, "newTask is nullptr");
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         uint32_t index = Hash(taskId);
@@ -106,7 +106,7 @@ public:
         queue_[rear_] = task;
         rear_ = (rear_ + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
         if (rear_ == front_) {
-            DEV_ERROR("SignalTileOp queue_ is full, front=%u, rear=%u", front_, rear_);
+            DEV_ERROR(SchedErr::SIGNAL_QUEUE_OVERFLOW, "SignalTileOp queue_ is full, front=%u, rear=%u", front_, rear_);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         return dynamic::DEVICE_MACHINE_OK;
@@ -118,7 +118,7 @@ public:
 
     inline int32_t Dequeue() {
         if (IsEmpty()) {
-            DEV_ERROR("Queue is empty.");
+            DEV_ERROR(SchedErr::QUEUE_DEQUEUE_WHEN_EMPTY, "Queue is empty.");
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         front_ = (front_ + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
@@ -180,7 +180,7 @@ public:
     inline int32_t EnqueueOp(uint64_t taskId, TaskStat* taskStat) {
         SignalTileOp* task = hashMap_.FindTask(taskId);
         if (task == nullptr) {
-            DEV_ERROR("taskId=%lu not found", taskId);
+            DEV_ERROR(CtrlErr::DEVICE_TASK_BUILD_FAILED, "taskId=%lu not found", taskId);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         if (taskStat != nullptr) {
