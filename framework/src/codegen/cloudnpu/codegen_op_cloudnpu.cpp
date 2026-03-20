@@ -733,6 +733,15 @@ TileTensor CodeGenOpCloudNPU::QueryTileTensorByIdx(int paramIdx) const {
     return emptyTileTensor;
 }
 
+std::string CodeGenOpCloudNPU::InsertOpComment(const std::string &tileOpSourceCode) const {
+    std::ostringstream os;
+    for (auto &c : originalOp.GetCommentList()) {
+        os << "/*" << c << "*/\n";
+    }
+    os << tileOpSourceCode;
+    return os.str();
+}
+
 std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {
     const TileTensor &tileTensor = QueryTileTensorByIdx(paramIdx);
     return tileTensor.tensorName;
@@ -744,17 +753,19 @@ std::string CodeGenOpCloudNPU::QueryTileTensorTypeByIdx(int paramIdx) const {
 }
 
 std::string CodeGenOpCloudNPU::GenOpCode() const {
-    std::string ret;
+    std::string tileOpSourceCode;
     auto iter = opsGenMap_.find(opCode);
     if (iter != opsGenMap_.end()) {
-        ret = iter->second();
+        tileOpSourceCode = iter->second();
     } else {
         // To aid in testing, do not use ASSERT.
         return std::string{"CAN NOT HANDLE OP: " + opCodeStr};
     }
 
+    std::string ret = InsertOpComment(tileOpSourceCode);
+
     if (forBlkMgr_ == nullptr || !forBlkMgr_->IsInLoop()) {
-        CODEGEN_LOGI_FULL(": op codegen result: \n, %s", ret.c_str());
+        CODEGEN_LOGI_FULL("op codegen result: \n, %s", ret.c_str());
         return ret;
     }
 
@@ -768,7 +779,7 @@ std::string CodeGenOpCloudNPU::GenOpCode() const {
 
     ret = forBlkMgr_->Print();
     forBlkMgr_->OutLoop();
-    CODEGEN_LOGI_FULL(": op codegen result: \n, %s", ret.c_str());
+    CODEGEN_LOGI_FULL("op codegen result: \n, %s", ret.c_str());
     return ret;
 }
 
