@@ -165,7 +165,7 @@ TILEOP void Tgather(T0 dst, T1 src, T2 idx, C1 srcCoordinate, C2 idxCoordinate) 
     srcAddr += srcOffset;
     idxAddr += idxOffset;
     __ubuf__ dstType *dstAddr = (__ubuf__ dstType *)((uint64_t)(dst.GetAddr()));
-    constexpr auto tileH = Std::tuple_element<shapeSize - 2, typename T0::TileShape>::type::value;
+    constexpr auto tileH = Std::tuple_element<shapeSize - 2, typename T0::TileShape>::type::value; //dst
     constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
     using ShapeDim5 = pto::Shape<-1, -1, -1, -1, -1>;
     using StrideDim5 = pto::Stride<-1, -1, -1, -1, -1>;

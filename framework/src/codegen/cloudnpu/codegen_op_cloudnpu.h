@@ -112,7 +112,8 @@ public:
 
     std::string GenScatterElementSOp() const;
     std::string GenScatterOp() const;
-
+    std::string PrintScatterLayout() const;
+    
     std::string GenIndexAddOp() const;
 
     std::string GenIndexPutOp() const;

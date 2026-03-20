@@ -1233,8 +1233,9 @@ std::string CodeGenOpCloudNPU::GenScatterOp() const {
 
     const std::vector<std::string> dataTypeExpr = {dstDtypeStr, src1DtypeStr, src2DtypeStr};
     if (isSupportLayout) {
-        return PrintScatterTileTensor(
-            {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
+        // return PrintScatterTileTensor(
+        //     {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
+        return PrintScatterLayout();
     }
     return PrintScatterOpDynamicUnaligned(
         {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});

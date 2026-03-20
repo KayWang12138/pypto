@@ -491,6 +491,14 @@ void CodeGenOp::GetGmParamIdx(const Operation &oper) {
         return;
     }
 
+    if (oper.GetOpcode() == Opcode::OP_SCATTER) {
+        // 假设 scatter 的 output (ID0) 是 GM（被更新的 tensor）
+        // indices (ID1) 和 updates (ID2) 在 UB，不占 GM 参数
+        paramLocation[ID0] = oper.GetIOpAttrOffset(0); // output/input in GM
+        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
+        return;
+    }   
+
     if (OpcodeManager::Inst().IsCopyIn(oper.GetOpcode())) {
         const std::shared_ptr<OpAttribute> &attr = oper.GetOpAttribute();
         ASSERT(OperErr::ATTRIBUTE_INVALID, attr != nullptr) << "Copy In attr is null, Op is " << oper.Dump();
