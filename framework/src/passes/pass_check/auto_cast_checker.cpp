@@ -18,7 +18,7 @@
 namespace npu {
 namespace tile_fwk {
 Status AutoCastChecker::DoDefaultEnabledPreCheck(Function &function) {
-    ALOG_INFO_F("PreCheck for AutoCast");
+    ALOG_INFO_F("DoDefaultEnabledPreCheck for AutoCast");
     std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
     for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
         Operation *op = opList[opIdx];
