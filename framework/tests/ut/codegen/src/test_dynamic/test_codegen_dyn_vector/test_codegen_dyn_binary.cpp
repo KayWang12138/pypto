@@ -111,7 +111,7 @@ void TestAddSDynBody(
 
 TEST_F(TestCodegenDynBinary, TestAddSDynamic) {
     std::vector<std::string> expect = {
-        R"!!!(TileOp::DynTadds_<float, /*DS*/ 1, 64, 64, /*S0S*/ 1, 64, 64>((__ubuf__ float*)UB_S0_E16384, (__ubuf__ float*)UB_S0_E16384, (float)1.5, 1, 1, sym_5_dim_0, sym_5_dim_1);
+        R"!!!(TileOp::DynTadds_<float, /*DS*/ 1, 64, 64, /*S0S*/ 1, 64, 64>((__ubuf__ float*)UB_S0_E16384, (__ubuf__ float*)UB_S0_E16384, (float)1.5f, 1, 1, sym_5_dim_0, sym_5_dim_1);
 )!!!"};
     TestAddSDynBody("TestAddsDynamic", 1.5, false, expect);
 }
