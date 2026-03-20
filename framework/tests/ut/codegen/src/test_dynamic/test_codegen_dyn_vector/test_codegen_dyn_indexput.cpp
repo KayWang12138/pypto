@@ -98,7 +98,6 @@ TEST_F(TestCodegenDynIndexPut, DynIndexPutDynUnaligned) {
     op.SetAttribute(OpAttributeKey::indicesSize, 1);
     auto shapeImme = OpImmediate::Specified(shape);
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
