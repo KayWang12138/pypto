@@ -1924,7 +1924,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     paramList.emplace_back(strideW);
 
     std::vector<int64_t> fmapL0Shape = this->rawShape[ID0];
-    ALOG_INFO_F("GenMemL1ToL0Load3D %s, fmapL0Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL0Shape).c_str());
+    CODEGEN_LOGI("GenMemL1ToL0Load3D %s, fmapL0Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL0Shape).c_str());
     ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, fmapL0Shape.size() == SHAPE_DIM2)
         << "GenMemL1ToL0Load3D L0 fmap only support 2-dim!";
 
@@ -1955,7 +1955,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
     CODEGEN_LOGI("GenMemL1ToL0Load2D %s, weightL1Shape is %s", tileOpName.c_str(), IntVecToStr(weightL1Shape).c_str());
 
     std::vector<int64_t> weightL0Shape = this->rawShape[ID0];
-    ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL0Shape is %s", tileOpName.c_str(), IntVecToStr(weightL0Shape).c_str());
+    CODEGEN_LOGI("GenMemL1ToL0Load2D %s, weightL0Shape is %s", tileOpName.c_str(), IntVecToStr(weightL0Shape).c_str());
     ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, weightL0Shape.size() == SHAPE_DIM2)
         << "GenMemL1ToL0Load2D L0 weight only support 2-dim!";
 
