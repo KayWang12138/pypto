@@ -149,3 +149,7 @@ TEST_F(TestDynamicDeviceRunner, test_launch_init) {
 TEST_F(TestDynamicDeviceRunner, test_static) {
     EXPECT_EQ(StaticTileFwkBackendKernelServer(nullptr), 0);
 }
+
+TEST_F(TestDynamicDeviceRunner, DynPyptoKernelServerNull_RejectsNullArgs) {
+    EXPECT_EQ(DynPyptoKernelServerNull(nullptr), 1U);
+}
