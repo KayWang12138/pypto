@@ -1,0 +1,102 @@
+{
+    "graph_id": 0,
+    "op": [
+        {
+            "error_type": "infer_shape_error",
+            "input0": {
+                "data_type": "DT_FLOAT",
+                "layout": "ND",
+                "shape": [
+                    10,
+                    4
+                ]
+            },
+            "input1": {
+                "data_type": "DT_FLOAT",
+                "layout": "ND",
+                "shape": [
+                    10,
+                    4
+                ]
+            },
+            "name": "GIoU1",
+            "output0": {
+                "data_type": "DT_FLOAT",
+                "layout": "ND",
+                "shape": [
+                    1,
+                    4
+                ]
+            },
+            "reason": "InferShapeFailed!",
+            "type": "GIoU"
+        }
+    ],
+    "session_id": 0
+}
+{
+    "graph_id": 0,
+    "op": [
+        {
+            "error_type": "infer_shape_error",
+            "input0": {
+                "data_type": "DT_FLOAT",
+                "layout": "ND",
+                "shape": [
+                    10,
+                    4
+                ]
+            },
+            "input1": {
+                "data_type": "DT_FLOAT",
+                "layout": "ND",
+                "shape": [
+                    10,
+                    4
+                ]
+            },
+            "name": "GIoU1",
+            "output0": {
+                "data_type": "DT_FLOAT",
+                "layout": "ND",
+                "shape": [
+                    1,
+                    4
+                ]
+            },
+            "reason": "InferShapeFailed!",
+            "type": "GIoU"
+        },
+        {
+            "error_type": "infer_shape_error",
+            "input0": {
+                "data_type": "DT_FLOAT",
+                "layout": "ND",
+                "shape": [
+                    10,
+                    4
+                ]
+            },
+            "input1": {
+                "data_type": "DT_FLOAT",
+                "layout": "ND",
+                "shape": [
+                    10,
+                    4
+                ]
+            },
+            "name": "GIoU1",
+            "output0": {
+                "data_type": "DT_FLOAT",
+                "layout": "ND",
+                "shape": [
+                    1,
+                    4
+                ]
+            },
+            "reason": "InferShapeFailed!",
+            "type": "GIoU"
+        }
+    ],
+    "session_id": 0
+}
