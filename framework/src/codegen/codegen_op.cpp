@@ -105,6 +105,7 @@ void CodeGenOp::UpdateShape(
         std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
         ASSERT(OperErr::ATTRIBUTE_INVALID, attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
         shape[operandIdx] = attr->GetSpecifiedShape(1);
+        dynamicRawShape[operandIdx] = OpImmediate::ToSpecified(attr->GetRawShape());
         CODEGEN_LOGI("attrShape(from op CopyOpAttribute) = %s", IntVecToStr(shape[operandIdx]).c_str());
     } else { // Local Tensor shape just use shape from LogicalTensor
         shape[operandIdx] = logicalTensor.shape;

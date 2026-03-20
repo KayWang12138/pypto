@@ -273,6 +273,9 @@ private:
 
     std::vector<std::string> GenSymbolicArgument(const std::vector<SymbolicScalar> &exprList) const;
 
+    std::vector<std::string> GenDynRawShapePacked(unsigned gmParamIdx) const;
+    std::vector<std::string> GenDynStridePacked(unsigned gmParamIdx) const;
+
     std::string GenMemUBTransfer(bool isCopyUBToGM) const;
     std::string GenVectorScalarOpByMode(VecScalMode mode) const;
     std::string GenVectorScalarOpScalarMode() const;

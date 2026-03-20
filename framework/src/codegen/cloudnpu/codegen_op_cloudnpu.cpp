@@ -224,7 +224,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
           // hypot op
           {Opcode::OP_HYPOT, [this]() { return GenHypotOp(); }},
           {Opcode::OP_PAD, [this]() { return GenPadOp(); }},
-          {Opcode::OP_FILLPAD, [this]() { return GenPadOp(); }},          
+          {Opcode::OP_FILLPAD, [this]() { return GenPadOp(); }},
       }),
       sortOps_({
           // sort
@@ -468,6 +468,29 @@ std::vector<std::string> CodeGenOpCloudNPU::GenGetParamMacroPacked(
     return paramExpr;
 };
 
+std::vector<std::string> CodeGenOpCloudNPU::GenDynStridePacked(unsigned gmParamIdx) const {
+    std::ostringstream os;
+    std::vector<std::string> paramExpr;
+    auto rawshape = GenDynRawShapePacked(gmParamIdx);;
+    os << "GET_PARAM_STRIDE_" << rawshape.size() << "(";
+    for (size_t i = 1; i < rawshape.size(); i++) {
+        if (i != 1) os << ", ";
+        os << rawshape[i];
+    }
+    os << ")";
+    paramExpr.emplace_back(os.str());
+    return paramExpr;
+};
+
+std::vector<std::string> CodeGenOpCloudNPU::GenDynRawShapePacked(
+    unsigned paramIdx) const {
+    std::vector<std::string> paramExpr;
+    for (const auto& s : dynamicRawShape[paramIdx]) {
+        paramExpr.emplace_back(SymbolicExpressionTable::BuildExpression(s));
+    }
+    return paramExpr;
+};
+
 std::vector<std::string> CodeGenOpCloudNPU::GenParamIdxExprByIndex(
     unsigned gmParamIdx, int dim, const std::string &prefix) const {
     std::vector<std::string> paramExpr;
@@ -533,8 +556,8 @@ void CodeGenOpCloudNPU::UpdateTileTensorShapeAndStride(
             }
             tileTensor.stride = BuildStride(shape[paramIdx]);
         } else {
-            tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
-            tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
+            tileTensor.shape = GenDynRawShapePacked(paramIdx);
+            tileTensor.stride = GenDynStridePacked(paramIdx);
         }
         return;
     }
