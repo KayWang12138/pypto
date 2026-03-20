@@ -1637,16 +1637,67 @@ std::string CodeGenOpCloudNPU::PrintPreluTileTensor() const {
 
     return oss.str();
 }
+/*
+float32：1符号位 + 8指数位 + 23尾数位
+float16：1符号位 + 5指数位 + 10尾数位
+bfloat16：1符号位 + 8指数位 + 7尾数位
+*/
+
 
 std::string CodeGenOpCloudNPU::PrintPadTileTensor() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     auto c = extOperandVal.Cast<float>();
-    std::string padValue = "pto::PadValue::Zero";
-    if (c < 0) {
+    std::string padValue;
+    
+    if (std::isinf(c) && c < 0) {
         padValue = "pto::PadValue::Min";
-    } else if (c > 0) {
+    } else if (std::isinf(c) && c > 0) {
         padValue = "pto::PadValue::Max";
+    } else if (std::fabs(c) < std::numeric_limits<float>::epsilon() * 10) {
+        padValue = "pto::PadValue::Zero";
+    } else {
+        std::ostringstream pvOss;
+        std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(MISOIdx::DST_IDX)]);
+        uint32_t bits = 0;
+        if (dstDtypeStr == "float") {
+            union { float f; uint32_t u; } conv;
+            conv.f = c;
+            bits = conv.u;
+        } else if (dstDtypeStr == "half") {
+            union { float f; uint32_t u; } conv;
+            conv.f = c;
+            uint32_t fbits = conv.u;  // 获取 float32 的原始位模式
+            int sign = (fbits >> 31) & 1;// 提取符号位（第31位）
+            int exponent = (fbits >> 23) & 0xFF;// 提取指数位（第30-23位）
+            int mantissa = fbits & 0x7FFFFF;// 提取尾数位（低23位）
+            //情况1：指数为0（0或非正规数）
+            if (exponent == 0) {
+                bits = sign << 15; // 只保留符号位，其余为0
+            } else if (exponent == 0xFF) {//指数为0xFF（无穷大或NaN）
+                bits = (sign << 15) | 0x7C00 | (mantissa ? 0x200 : 0);
+            } else {
+                int newExp = exponent - 127 + 15;
+                if (newExp <= 0) {
+                    bits = sign << 15; // 指数太小，下溢为0
+                } else if (newExp >= 31) {
+                    bits = (sign << 15) | 0x7C00; // 指数太大，上溢为无穷大
+                } else {
+                    bits = (sign << 15) | (newExp << 10) | ((mantissa >> 13) & 0x3FF);//拼接其他数
+                }
+            }
+        } else if (dstDtypeStr == "bfloat16_t") {
+            union { float f; uint32_t u; } conv;
+            conv.f = c;
+            bits = (conv.u >> 16) & 0xFFFF;//截取高 16 位  只保留最低 16 位
+        } else {
+            union { float f; uint32_t u; } conv;
+            conv.f = c;
+            bits = conv.u;
+        }
+        uint64_t customPadValue = (static_cast<uint64_t>(bits) << 32) | 0x1ULL;//bits占 64 位整数的高 32 位  低 32 位：0x00000001作为特殊标记
+        pvOss << "static_cast<pto::PadValue>(0x" << std::hex << customPadValue << "ULL)";
+        padValue = pvOss.str();
     }
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor};
 
