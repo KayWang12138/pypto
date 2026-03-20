@@ -960,8 +960,10 @@ def gen_pad_op_golden(case_name: str, output: Path, case_index: int = None) -> b
             pad_value = -torch.inf
         elif pad_value_type == "max":
             pad_value = torch.inf
+        elif pad_value_type == "custom":
+            pad_value = config.get("params", {}).get("pad_value", 0.0)
         else:
-            pad_value = 0.0
+            pad_value = 0.0   
         if inputs[0].dtype == bfloat16:
             tensor = torch.from_numpy(inputs[0].astype(np.float32)).to(torch.bfloat16)
         else:
@@ -990,11 +992,12 @@ def gen_fillpad_op_golden(case_name: str, output: Path, case_index: int = None) 
         valid_shape = config["view_shape"]
         output_shape = config["output_tensors"][0]["shape"]
         pad_value_type = config.get("params", {}).get("pad_value_type", "zero")
-        
         if pad_value_type == "min":
             pad_value = -np.inf
         elif pad_value_type == "max":
             pad_value = np.inf
+        elif pad_value_type == "custom":
+            pad_value = config.get("params", {}).get("pad_value", 0.0)            
         else:
             pad_value = 0.0
         
