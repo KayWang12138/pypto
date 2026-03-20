@@ -16,6 +16,18 @@
 
 #### 错误码：0xB4001U：VERIFY_RESULT_MISMATCH
 该场景为精度校验失败场景，同时会伴随如下输出：
+`[ERROR] PYPTO(1535746):2026-03-20 09:43:12.887 [flow_verifier.cpp:105][VERIFY]:ErrCode: FB4001! tensor_graph Verify for 1 data view list index 0 result FAILED
+[INFO ] PYPTO(1535746):2026-03-20 09:43:12.887 [flow_verifier.h:151][VERIFY]:  
+    Error rtol=0.001000 atol=0.001000 index:0 golden:10 output:1 absDiff:9 relDiff:1.63636  
+    Error rtol=0.001000 atol=0.001000 index:1 golden:10 output:1 absDiff:9 relDiff:1.63636  
+    Error rtol=0.001000 atol=0.001000 index:2 golden:10 output:1 absDiff:9 relDiff:1.63636  
+    Error rtol=0.001000 atol=0.001000 index:3 golden:10 output:1 absDiff:9 relDiff:1.63636  
+    Error rtol=0.001000 atol=0.001000 index:4 golden:10 output:1 absDiff:9 relDiff:1.63636  
+    Error rtol=0.001000 atol=0.001000 index:5 golden:10 output:1 absDiff:9 relDiff:1.63636
+  All size:256 failNum:256 maxAbsDiff:9 maxRelDiff:1.63636averageAbsDiff:9averageRelDiff:1.63636 errorCount:256 errorRatio:1 zeroCount:0 zeroRatio:0
+  maxAbs-> index:0 golden:10 output:1 absDiff:9 relDiff:1.63636
+  maxRel-> index:0 golden:10 output:1 absDiff:9 relDiff:1.63636
+`
 #### 错误码：
 
 
