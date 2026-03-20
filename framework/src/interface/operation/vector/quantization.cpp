@@ -82,7 +82,7 @@ void TiledQuantizeSymmetric(Function &function, const TileShape &tileShape,
         // 参考 reduce.h 中的 tmpTileW 计算: (sizeof(dtype) == 1) ? 32 : 16
         constexpr size_t tmpTileW = 32;  // INT8 使用 32
         std::vector<int64_t> tmpShape = {dst->shape[dst->shape.size() - 2], static_cast<int64_t>(tmpTileW)};
-        tmpTensor = std::make_shared<LogicalTensor>(function, dst->Datatype, tmpShape);
+        tmpTensor = std::make_shared<LogicalTensor>(function, dst->Datatype(), tmpShape);
     }
 
     TileInfo srcTileInfo(src->shape.size(), src->offset.size());
@@ -162,7 +162,7 @@ void TiledQuantizeAsymmetric(Function &function, const TileShape &tileShape,
         // 临时内存大小: 需要足够容纳转置操作的中间结果
         constexpr size_t tmpTileW = 32;  // INT8/UINT8 使用 32
         std::vector<int64_t> tmpShape = {dst->shape[dst->shape.size() - 2], static_cast<int64_t>(tmpTileW)};
-        tmpTensor = std::make_shared<LogicalTensor>(function, dst->Datatype, tmpShape);
+        tmpTensor = std::make_shared<LogicalTensor>(function, dst->Datatype(), tmpShape);
     }
 
     TileInfo srcTileInfo(src->shape.size(), src->offset.size());
