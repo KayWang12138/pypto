@@ -41,13 +41,14 @@
 namespace npu {
 namespace tile_fwk {
 
-enum class CoaType { PARAM_OFFSET, PARAM_VALID_SHAPE, PARAM, INVALID };
+enum class CoaType { PARAM_OFFSET, PARAM_VALID_SHAPE, PARAM_RAW_SHAPE, PARAM, INVALID };
 
 static const std::string COA_PREFIX = "RUNTIME_COA_GET_PARAM";
 static const std::string MAYBE_CONST_POSTFIX = "MAYBE_CONST";
 
 static const SymbolicScalar MAYBE_CONST_COA_GetOffset = AddRuntimeCoaPrefix("GET_PARAM_OFFSET_MAYBE_CONST");
 static const SymbolicScalar MAYBE_CONST_COA_GetValidShape = AddRuntimeCoaPrefix("GET_PARAM_VALID_SHAPE_MAYBE_CONST");
+static const SymbolicScalar MAYBE_CONST_COA_GetRawShape = AddRuntimeCoaPrefix("GET_PARAM_RAW_SHAPE_MAYBE_CONST");
 static const SymbolicScalar MAYBE_CONST_COA_GetParam = AddRuntimeCoaPrefix("GET_PARAM_MAYBE_CONST");
 static const SymbolicScalar GET_PARAM_ADDR = AddRuntimeCoaPrefix("GET_PARAM_ADDR_MAYBE_CONST");
 
@@ -262,7 +263,7 @@ private:
     Status GetTileFunction(Function* function, std::unordered_set<Function*>& tileFunctionSet);
     Status DumpFunctionJson(Function& function, const std::string& logFolder, bool beforeFunction = true) override;
     Status PrintFunction(Function& function, const std::string& logFolder, bool beforeFunction = true) override;
-    void BuildParamAddr(Operation &op);
+    void BuildParamAddr(Operation& op);
 };
 } // namespace tile_fwk
 } // namespace npu

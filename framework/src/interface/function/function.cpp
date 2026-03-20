@@ -2603,6 +2603,7 @@ std::shared_ptr<Function> Function::LoadJson(Program& belongTo, const Json& func
 
 static const SymbolicScalar RUNTIME_COA_GetOffset = AddRuntimeCoaPrefix("GET_PARAM_OFFSET");
 static const SymbolicScalar RUNTIME_COA_GetValidShape = AddRuntimeCoaPrefix("GET_PARAM_VALID_SHAPE");
+static const SymbolicScalar RUNTIME_COA_GetRawShape = AddRuntimeCoaPrefix("GET_PARAM_RAW_SHAPE");
 static const SymbolicScalar RUNTIME_COA_GetParam = AddRuntimeCoaPrefix("GET_PARAM");
 
 static int64_t MakeTensorIndex(int64_t magic) { return magic | (1UL << 62); }
@@ -2659,7 +2660,8 @@ static std::vector<SymbolicScalar> NormalizeCopyIn(Operation* op, int coaIndexBa
     coaIndex += dim;
 
     opImmList = copyAttr->GetRawShape();
-    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
+    MaybeNormalizeValue(
+        RUNTIME_COA_GetRawShape, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
     copyAttr->SetRawShape(opImmList);
     operandCoaIndex += dim;
     coaIndex += dim;
@@ -2696,7 +2698,8 @@ static std::vector<SymbolicScalar> NormalizeCopyOut(Operation* op, int coaIndexB
     coaIndex += dim;
 
     opImmList = copyAttr->GetRawShape();
-    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
+    MaybeNormalizeValue(
+        RUNTIME_COA_GetRawShape, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
     copyAttr->SetRawShape(opImmList);
     operandCoaIndex += dim;
     coaIndex += dim;

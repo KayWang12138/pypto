@@ -234,30 +234,30 @@ INLINE uint64_t GetTensorAddr(CoreFuncParam* ctx, int idx)
     auto func = ctx->funcData;
     auto desc = &func->rawTensorDesc[ctx->opAttrs[idx]];
     if constexpr (mode == 2) {
- 	    return func->workspaceAddr + desc->offsetOrIndex;
- 	} else if constexpr (mode == 3) {
- 	    return func->rawTensorAddr[desc->offsetOrIndex] & RAW_TENSOR_ADDR_MASK;
- 	} else {
- 	    return (desc->location == npu::tile_fwk::RAW_TENSOR_LOCATION_LOCAL) ?
- 	            func->workspaceAddr + desc->offsetOrIndex :
- 	            func->rawTensorAddr[desc->offsetOrIndex] & RAW_TENSOR_ADDR_MASK;
- 	}
+        return func->workspaceAddr + desc->offsetOrIndex;
+    } else if constexpr (mode == 3) {
+        return func->rawTensorAddr[desc->offsetOrIndex] & RAW_TENSOR_ADDR_MASK;
+    } else {
+        return (desc->location == npu::tile_fwk::RAW_TENSOR_LOCATION_LOCAL) ?
+                   func->workspaceAddr + desc->offsetOrIndex :
+                   func->rawTensorAddr[desc->offsetOrIndex] & RAW_TENSOR_ADDR_MASK;
+    }
 }
 
 template <int mode, int64_t constval>
 INLINE uint64_t GetCoa(CoreFuncParam* ctx, int idx)
 {
     if constexpr (mode == 1) {
- 	    return constval;
- 	}
- 	uint64_t val = ctx->opAttrs[idx];
- 	if constexpr (mode == 2) {
- 	    return ctx->exprTbl[SYM_VALUE(val)];
- 	} else if constexpr (mode == 3) {
- 	    return SYM_VALUE(val);
- 	} else {
- 	    return SYM_IS_EXPR(val) ? ctx->exprTbl[SYM_VALUE(val)] : SYM_VALUE(val);
- 	}
+        return constval;
+    }
+    uint64_t val = ctx->opAttrs[idx];
+    if constexpr (mode == 2) {
+        return ctx->exprTbl[SYM_VALUE(val)];
+    } else if constexpr (mode == 3) {
+        return SYM_VALUE(val);
+    } else {
+        return SYM_IS_EXPR(val) ? ctx->exprTbl[SYM_VALUE(val)] : SYM_VALUE(val);
+    }
 }
 
 INLINE
@@ -275,11 +275,11 @@ int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int6
     RuntimeGetViewValidShapeDim(validShape, viewOffset, viewShape)
 
 #define GET_PARAM_ADDR(param, n, base) GetTensorAddr<0, 0>(param, base)
- 	 
-#define GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx)         GetCoa<0, 0>(param, ((base) + 1) + 0 * (dim) + idx)
-#define GET_PARAM_SHAPE_BY_IDX(param, n, base, dim, idx)          GetCoa<0, 0>(param, ((base) + 1) + 1 * (dim) + idx)
-#define GET_PARAM_RAWSHAPE_BY_IDX(param, n, base, dim, idx)       GetCoa<0, 0>(param, ((base) + 1) + 2 * (dim) + idx)
-#define GET_PARAM_VALID_SHAPE_BY_IDX(param, n, base, dim, idx)    GetCoa<0, 0>(param, ((base) + 1) + 3 * (dim) + idx)
+
+#define GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx) GetCoa<0, 0>(param, ((base) + 1) + 0 * (dim) + idx)
+#define GET_PARAM_SHAPE_BY_IDX(param, n, base, dim, idx) GetCoa<0, 0>(param, ((base) + 1) + 1 * (dim) + idx)
+#define GET_PARAM_RAWSHAPE_BY_IDX(param, n, base, dim, idx) GetCoa<0, 0>(param, ((base) + 1) + 2 * (dim) + idx)
+#define GET_PARAM_VALID_SHAPE_BY_IDX(param, n, base, dim, idx) GetCoa<0, 0>(param, ((base) + 1) + 3 * (dim) + idx)
 
 #define GET_PARAM_ATTR_1(name, param, n, base) GET_PARAM_##name##_BY_IDX(param, n, base, 1, 0)
 #define GET_PARAM_ATTR_2(name, param, n, base) \
@@ -295,47 +295,33 @@ int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int6
         GET_PARAM_##name##_BY_IDX(param, n, base, 5, 2), GET_PARAM_##name##_BY_IDX(param, n, base, 5, 3), \
         GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4)
 
-#define GET_PARAM_ATTR_2_STRIDE(name, param, n, base) GET_PARAM_##name##_BY_IDX(param, n, base, 2, 1), 1
-#define GET_PARAM_ATTR_3_STRIDE(name, param, n, base)                                                  \
-    GET_PARAM_##name##_BY_IDX(param, n, base, 3, 1) * GET_PARAM_##name##_BY_IDX(param, n, base, 3, 2), \
-        GET_PARAM_##name##_BY_IDX(param, n, base, 3, 2), 1
-#define GET_PARAM_ATTR_4_STRIDE(name, param, n, base)                                                      \
-    GET_PARAM_##name##_BY_IDX(param, n, base, 4, 1) * GET_PARAM_##name##_BY_IDX(param, n, base, 4, 2) *    \
-        GET_PARAM_##name##_BY_IDX(param, n, base, 4, 3),                                                   \
-        GET_PARAM_##name##_BY_IDX(param, n, base, 4, 2) * GET_PARAM_##name##_BY_IDX(param, n, base, 4, 3), \
-        GET_PARAM_##name##_BY_IDX(param, n, base, 4, 3), 1
-#define GET_PARAM_ATTR_5_STRIDE(name, param, n, base)                                                       \
-    GET_PARAM_##name##_BY_IDX(param, n, base, 5, 1) * GET_PARAM_##name##_BY_IDX(param, n, base, 5, 2) *     \
-        GET_PARAM_##name##_BY_IDX(param, n, base, 5, 3) * GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4),  \
-        GET_PARAM_##name##_BY_IDX(param, n, base, 5, 2) * GET_PARAM_##name##_BY_IDX(param, n, base, 5, 3) * \
-            GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4),                                                \
-        GET_PARAM_##name##_BY_IDX(param, n, base, 5, 3) * GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4),  \
-        GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4), 1
+#define GET_PARAM_ATTR_5_STRIDE(name, param, n, base)
 
 #define GET_PARAM_OFFSET_1(param, n, base) GET_PARAM_ATTR_1(OFFSET, param, n, base)
 #define GET_PARAM_SHAPE_1(param, n, base) GET_PARAM_ATTR_1(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_1(param, n, base) GET_PARAM_ATTR_1(RAWSHAPE, param, n, base)
-#define GET_PARAM_STRIDE_1(param, n, base) 1
+#define GET_PARAM_STRIDE_1() 1
 
 #define GET_PARAM_OFFSET_2(param, n, base) GET_PARAM_ATTR_2(OFFSET, param, n, base)
 #define GET_PARAM_SHAPE_2(param, n, base) GET_PARAM_ATTR_2(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_2(param, n, base) GET_PARAM_ATTR_2(RAWSHAPE, param, n, base)
-#define GET_PARAM_STRIDE_2(param, n, base) GET_PARAM_ATTR_2_STRIDE(RAWSHAPE, param, n, base)
+#define GET_PARAM_STRIDE_2(val0) (val0), 1
 
 #define GET_PARAM_OFFSET_3(param, n, base) GET_PARAM_ATTR_3(OFFSET, param, n, base)
 #define GET_PARAM_SHAPE_3(param, n, base) GET_PARAM_ATTR_3(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_3(param, n, base) GET_PARAM_ATTR_3(RAWSHAPE, param, n, base)
-#define GET_PARAM_STRIDE_3(param, n, base) GET_PARAM_ATTR_3_STRIDE(RAWSHAPE, param, n, base)
+#define GET_PARAM_STRIDE_3(val0, val1) (val0) * (val1), (val1), 1
 
 #define GET_PARAM_OFFSET_4(param, n, base) GET_PARAM_ATTR_4(OFFSET, param, n, base)
 #define GET_PARAM_SHAPE_4(param, n, base) GET_PARAM_ATTR_4(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_4(param, n, base) GET_PARAM_ATTR_4(RAWSHAPE, param, n, base)
-#define GET_PARAM_STRIDE_4(param, n, base) GET_PARAM_ATTR_4_STRIDE(RAWSHAPE, param, n, base)
+#define GET_PARAM_STRIDE_4(val0, val1, val2) (val0) * (val1) * (val2), (val1) * (val2), (val2), 1
 
 #define GET_PARAM_OFFSET_5(param, n, base) GET_PARAM_ATTR_5(OFFSET, param, n, base)
 #define GET_PARAM_SHAPE_5(param, n, base) GET_PARAM_ATTR_5(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_5(param, n, base) GET_PARAM_ATTR_5(RAWSHAPE, param, n, base)
-#define GET_PARAM_STRIDE_5(param, n, base) GET_PARAM_ATTR_5_STRIDE(RAWSHAPE, param, n, base)
+#define GET_PARAM_STRIDE_5(val0, val1, val2, val3) \
+    (val0) * (val1) * (val2) * (val3), (val1) * (val2) * (val3), (val2) * (val3), (val3), 1
 
 INLINE uint64_t RUNTIME_Min(uint64_t input1, uint64_t input2) { return input1 < input2 ? input1 : input2; }
 
@@ -362,9 +348,12 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam* ctx, uint64_t address)
 #define RUNTIME_COA_GET_PARAM_ADDR(_, idx) GET_PARAM_ADDR(param, _, idx)
 #define RUNTIME_COA_GET_PARAM(idx) GetCoa(param, idx)
 
-#define RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST(mode, value, dim, base, idx)  GetCoa<mode, value>(param, ((base) + 1) + idx)
-#define RUNTIME_COA_GET_PARAM_RAW_SHAPE_MAYBE_CONST(mode, value, dim, base, idx)   GetCoa<mode, value>(param, ((base) + 1) + 2 * (dim) + idx)
-#define RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST(mode, value, dim, base, idx)   GetCoa<mode, value>(param, ((base) + 1) + 3 * (dim) + idx)
+#define RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST(mode, value, dim, base, idx) \
+    GetCoa<mode, value>(param, ((base) + 1) + idx)
+#define RUNTIME_COA_GET_PARAM_RAW_SHAPE_MAYBE_CONST(mode, value, dim, base, idx) \
+    GetCoa<mode, value>(param, ((base) + 1) + 2 * (dim) + idx)
+#define RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST(mode, value, dim, base, idx) \
+    GetCoa<mode, value>(param, ((base) + 1) + 3 * (dim) + idx)
 
 #define RUNTIME_COA_GET_PARAM_ADDR_MAYBE_CONST(mode, value, tensorIdx, idx) GetTensorAddr<mode, value>(param, idx)
 
