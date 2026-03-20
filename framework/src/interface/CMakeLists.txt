@@ -14,6 +14,10 @@ file(GLOB _Interface_Srcs
         # Core infrastructure
         core/*.cpp
         ir/*.cpp
+        ir/op/*.cpp
+        ir/op/block_ops/*.cpp
+        ir/op/tensor_ops/*.cpp
+        ir/op/sync_ops/*.cpp
         # 前端框架
         schema/*.cpp
         configs/*.cpp
