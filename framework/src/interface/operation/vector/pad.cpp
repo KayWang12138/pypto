@@ -128,7 +128,6 @@ void TiledFillPadOperation(Function &function, const TileShape &tileShape, const
 LogicalTensorPtr TensorPadOperation(
     Function &function, const Tensor &self, const std::vector<int64_t> &padding, const std::string &mode, float value) {
     ASSERT(mode == "constant") << "Pad: only 'constant' mode is supported.";
-    ASSERT(std::isinf(value) || (std::abs(value) < 1e-6)) << "Pad: pad value must be -inf, inf, or 0.";
 
     auto operand = self.GetStorage();
     std::vector<int64_t> outputShape = operand->shape;
@@ -176,7 +175,6 @@ Tensor Pad(const Tensor &self, const std::vector<int64_t> &padding, std::string 
 
 LogicalTensorPtr TensorFillPadOperation(Function &function, const Tensor &self, const std::string &mode, float value) {
     ASSERT(mode == "constant") << "FillPad: only 'constant' mode is supported.";
-    ASSERT(std::isinf(value) || (std::abs(value) < 1e-6)) << "FillPad: pad value must be -inf, inf, or 0.";
 
     auto operand = self.GetStorage();
     std::vector<int64_t> outputShape = operand->shape;
