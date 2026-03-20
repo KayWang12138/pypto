@@ -454,13 +454,13 @@ void ExecuteOpTranspose(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV, ExecuteOpTranspose);
 
-void ExecuteOpPermute(ExecuteOperationContext *ctx) {
+void ExecuteOpPERMUTE(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop = ctx->ioperandDataViewList->at(0);
-    auto axises = ctx->op->GetVectorIntAttribute(OP_ATTR_PREFIX + "shape");
-    calc::Permute(oop, iop, axises);
+    auto perm = ctx->op->GetVectorIntAttribute(OP_ATTR_PREFIX + "perm");
+    calc::Permute(oop, iop, perm);
 }
 REGISTER_CALC_OP(OP_PERMUTE, Opcode::OP_PERMUTE, ExecuteOpPERMUTE);
 
