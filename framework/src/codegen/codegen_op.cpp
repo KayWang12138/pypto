@@ -40,6 +40,8 @@ const std::unordered_set<Opcode> OP_SHAPE_FROM_ATTR{
     // conv Load
     Opcode::OP_L1_COPY_IN_CONV,
     Opcode::OP_L0C_COPY_OUT_CONV,
+    Opcode::OP_L1_COPY_IN_A_SCALE,
+    Opcode::OP_L1_COPY_IN_B_SCALE,
 };
 bool IsOpShapeFromAttr(Opcode opcode) {
     return OP_SHAPE_FROM_ATTR.find(opcode) != OP_SHAPE_FROM_ATTR.end();
@@ -105,6 +107,7 @@ void CodeGenOp::UpdateShape(
         std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
         ASSERT(OperErr::ATTRIBUTE_INVALID, attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
         shape[operandIdx] = attr->GetSpecifiedShape(1);
+        dynamicRawShape[operandIdx] = OpImmediate::ToSpecified(attr->GetRawShape());
         CODEGEN_LOGI("attrShape(from op CopyOpAttribute) = %s", IntVecToStr(shape[operandIdx]).c_str());
     } else { // Local Tensor shape just use shape from LogicalTensor
         shape[operandIdx] = logicalTensor.shape;
