@@ -38,7 +38,7 @@ license: 完整条款见 LICENSE.txt
 
 ## 3. 重新编译和安装
 
-进入 pypto_path，重新编译 pypto 包并 pip 安装。
+将bash超时限制设置为30分钟，进入 pypto_path，重新编译 pypto 包并 pip 安装。
 
 ```bash
 cd pypto_path && python3 build_ci.py -f python3 --disable_auto_execute
@@ -65,9 +65,9 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/analyze_trace.py devic
 ```
 **重要**: 若未定位到问题CCE文件，请说明原因，停止运行后续步骤
 
-### 5.2 测试每个 CCE 文件（多个文件时执行）
+### 5.2 测试验证 CCE 文件
 
-如果有多个问题 CCE 文件，需要分别测试每个文件，若只有一个问题 CCE 文件，不需要执行此步骤：
+如果有多个问题 CCE 文件，需要分别测试每个文件，以确定哪个是问题文件，若只有一个问题 CCE 文件，测试验证该文件是否为问题文件：
 
 ```bash
 python3 .agents/skills/pypto-aicore-error-locator/scripts/test_cce_file.py <cce_file> test_cmd run_path
@@ -78,35 +78,28 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/test_cce_file.py <cce_
 
 ## 6. 二分查找定位问题代码行
 
-### 6.1 检查原始文件是否有 error
+### 6.1 获取ERROR_IN_T的值（错误是否在T操作中）
 
 ```bash
-python3 .agents/skills/pypto-aicore-error-locator/scripts/check_original_error.py <cce_file> test_cmd run_path
+python3 .agents/skills/pypto-aicore-error-locator/scripts/determine_error_scope.py <cce_file> test_cmd run_path
 ```
-**重要**: cce_file为上一步的输出，若原始文件无 error，则不适用于该SKILL，停止运行后续步骤
-
-### 6.2 注释所有行后是否有 error
-
-```bash
-python3 .agents/skills/pypto-aicore-error-locator/scripts/check_all_commented_error.py <cce_file> test_cmd run_path
-```
-**重要**: cce_file为上一步的输出，若注释所有行后存在 error，则不适用于该SKILL，停止运行后续步骤
+**重要**: cce_file为上一步的输出
 **重要**: 若打印的error中包含 `ld.lld: error: undefined`关键字，则修改tile_fwk_config.json中的parallel_compile为1，再从第一步开始重新执行一遍
 
-### 6.3 获取二分查找初始范围
+### 6.2 获取二分查找初始范围
 
 ```bash
-python3 .agents/skills/pypto-aicore-error-locator/scripts/get_commentable_range.py <cce_file>
+python3 .agents/skills/pypto-aicore-error-locator/scripts/get_commentable_range.py <cce_file> ERROR_IN_T
 ```
 
 记录输出的 `LEFT` 和 `RIGHT` 值。
 
-### 6.4 执行二分查找迭代
+### 6.3 执行二分查找迭代
 
 根据上一步的 LEFT 和 RIGHT 值，执行第一次迭代：
 
 ```bash
-python3 .agents/skills/pypto-aicore-error-locator/scripts/binary_search_iteration.py <cce_file> test_cmd run_path <left> <right>
+python3 .agents/skills/pypto-aicore-error-locator/scripts/binary_search_iteration.py <cce_file> test_cmd run_path <left> <right> ERROR_IN_T
 ```
 
 记录输出的 `NEXT_LEFT` 和 `NEXT_RIGHT` 值。
@@ -117,8 +110,8 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/binary_search_iteratio
 
 **重要**: cce_file为上一步的输出，若未定位到问题代码行，请说明原因，停止运行后续步骤
 
-### 7. 输出结果
- 	
+## 7. 输出结果
+  	
 输出找到的 CCE 文件路径、问题代码行和问题代码。
 
 ## 关键点
