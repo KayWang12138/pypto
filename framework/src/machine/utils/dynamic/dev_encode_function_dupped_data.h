@@ -85,9 +85,9 @@ struct DevAscendFunctionDuppedData {
         int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
         DEV_IF_NONDEVICE {
             if (!maybeNull && outcastStitchIndex == 0) {
-                DEV_ERROR("GetOperationStitch: operationIndex=%d has invalid outcast stitch index 0", operationIndex);
+                DEV_ERROR(ERROR_CODE_UNDEFINED, "GetOperationStitch: operationIndex=%d has invalid outcast stitch index 0", operationIndex);
             }
-            DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
+            DEV_ASSERT(ERROR_CODE_UNDEFINED, maybeNull || outcastStitchIndex != 0);
         }
         return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, outcastStitchIndex);
     }
@@ -95,9 +95,9 @@ struct DevAscendFunctionDuppedData {
         int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
         DEV_IF_NONDEVICE {
             if (!maybeNull && outcastStitchIndex == 0) {
-                DEV_ERROR("GetOperationStitch: operationIndex=%d has invalid outcast stitch index 0", operationIndex);
+                DEV_ERROR(ERROR_CODE_UNDEFINED, "GetOperationStitch: operationIndex=%d has invalid outcast stitch index 0", operationIndex);
             }
-            DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
+            DEV_ASSERT(ERROR_CODE_UNDEFINED, maybeNull || outcastStitchIndex != 0);
         }
         return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, outcastStitchIndex);
     }
@@ -217,19 +217,19 @@ struct DevAscendFunctionDupped {
         const DevAscendRawTensor *rawTensor = GetSource()->GetRawTensor(rawIndex);
         if (rawTensor->ioProperty == DevIOProperty::ROOT_INCAST) {
             AddressDescriptor incast = GetIncastAddress(rawTensor->ioIndex);
-            DEV_ASSERT_MSG(!incast.IsNullAddress(),
+            DEV_ASSERT_MSG(ERROR_CODE_UNDEFINED, !incast.IsNullAddress(),
                 "Null incast: root [%s], rawIndex [%d], ioIndex [%d]",
                 GetSource()->GetRawName(), rawIndex, rawTensor->ioIndex);
             addr = incast.addr;
         } else if (rawTensor->ioProperty == DevIOProperty::ROOT_OUTCAST) {
             AddressDescriptor outcast = GetOutcastAddress(rawTensor->ioIndex);
-            DEV_ASSERT_MSG(!outcast.IsNullAddress(),
+            DEV_ASSERT_MSG(ERROR_CODE_UNDEFINED, !outcast.IsNullAddress(),
                 "Null outcast: root [%s], rawIndex [%d], ioIndex [%d]",
                 GetSource()->GetRawName(), rawIndex, rawTensor->ioIndex);
             addr = outcast.addr;
         } else {
             uintdevptr_t runtimeWorkspace = RuntimeWorkspace();
-            DEV_ASSERT_MSG(runtimeWorkspace != 0,
+            DEV_ASSERT_MSG(ERROR_CODE_UNDEFINED, runtimeWorkspace != 0,
                 "Trying to access inner tensor addr with zero runtime workspace: root [%s], rawIndex [%d]",
                 GetSource()->GetRawName(), rawIndex);
             addr = runtimeWorkspace + rawTensor->addrOffset;
@@ -339,27 +339,27 @@ struct DevAscendFunctionDupped {
         int dim = info.GetDim();
         auto rawTensor = func->GetRawTensor(rawIndex);
         if (rawIndex >= func->GetRawTensorSize()) {
-            DEV_ERROR("Invalid rawIndex=%lu, exceeds raw tensor size=%lu", rawIndex, func->GetRawTensorSize());
+            DEV_ERROR(ERROR_CODE_UNDEFINED, "Invalid rawIndex=%lu, exceeds raw tensor size=%lu", rawIndex, func->GetRawTensorSize());
         }
         if (dim != rawTensor->GetDim()) {
-            DEV_ERROR("Dimension mismatch: info.dim=%d, rawTensor->dim=%d", dim, rawTensor->GetDim());
+            DEV_ERROR(ERROR_CODE_UNDEFINED, "Dimension mismatch: info.dim=%d, rawTensor->dim=%d", dim, rawTensor->GetDim());
         }
-        DEV_ASSERT(rawIndex < func->GetRawTensorSize());
-        DEV_ASSERT(dim == rawTensor->GetDim());
+        DEV_ASSERT(ERROR_CODE_UNDEFINED, rawIndex < func->GetRawTensorSize());
+        DEV_ASSERT(ERROR_CODE_UNDEFINED, dim == rawTensor->GetDim());
 
         for (int d = 0; d < rawTensor->GetDim(); d++) {
             auto shapeIdx = attrOffset + d + rawTensor->GetDim() * 2;
             auto shape = static_cast<int64_t>(rawTensor->shape.At(d, funcData->exprTbl));
             auto actualShape = GetValue(attrs, shapeIdx);
             if (actualShape != shape) {
-                DEV_ERROR("Shape mismatch at dim %d: expacted=%ld, got=%ld", d, shape, actualShape);
+                DEV_ERROR(ERROR_CODE_UNDEFINED, "Shape mismatch at dim %d: expacted=%ld, got=%ld", d, shape, actualShape);
             }
-            DEV_ASSERT(actualShape == shape);
+            DEV_ASSERT(ERROR_CODE_UNDEFINED, actualShape == shape);
         }
         if (dim != rawTensor->GetDim()) {
-            DEV_ERROR("Final dimension mismatch after shape validation: info.dim=%d, rawTensor->dim=%d", dim, rawTensor->GetDim());
+            DEV_ERROR(ERROR_CODE_UNDEFINED, "Final dimension mismatch after shape validation: info.dim=%d, rawTensor->dim=%d", dim, rawTensor->GetDim());
         }
-        DEV_ASSERT(dim == rawTensor->GetDim());
+        DEV_ASSERT(ERROR_CODE_UNDEFINED, dim == rawTensor->GetDim());
         for (int i = 0; i < dim * ARG_ATTR_TYPE; i++) {
             oss << GetValue(attrs, attrOffset + i) << ", ";
         }
@@ -432,9 +432,9 @@ struct DevAscendFunctionDupped {
             if (i % RAW_TENSOR_DESC_PRE_SIZE == 0)
                 oss << "\n   ";
             if (GetRawTensorAddrEx(i) != GetRawTensorAddr(i)) {
-                DEV_ERROR("Tensor address mismatch at index %lu: addr=%lu, addrEx=%lu.", i, GetRawTensorAddr(i), GetRawTensorAddrEx(i));
+                DEV_ERROR(ERROR_CODE_UNDEFINED, "Tensor address mismatch at index %lu: addr=%lu, addrEx=%lu.", i, GetRawTensorAddr(i), GetRawTensorAddrEx(i));
             }
-            DEV_ASSERT(GetRawTensorAddrEx(i) == GetRawTensorAddr(i));
+            DEV_ASSERT(ERROR_CODE_UNDEFINED, GetRawTensorAddrEx(i) == GetRawTensorAddr(i));
             auto desc = funcData->rawTensorDesc[i];
             oss << GetRawTensorAddrEx(i) << "(location:" << desc.location << " offsetOrIdex: " << desc.offsetOrIndex << ")" << ", ";
         }
