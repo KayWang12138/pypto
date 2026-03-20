@@ -51,7 +51,6 @@ def parallel_add_compute_single_parallel(left: pypto.Tensor, right: pypto.Tensor
 
 
 def test_parallel_add_single_parallel():
-    pypto.runtime._device_init()
     a = torch.rand((2, 4, 4), dtype=torch.float32) * 2 - 1  # [-1, 1]
     b = torch.rand((2, 4, 4), dtype=torch.float32) * 2 - 1  # [-1, 1]
 
@@ -70,7 +69,6 @@ def test_parallel_add_single_parallel():
     b_npu = b.npu()
     parallel_add(a_npu, b_npu, res)
     assert torch.allclose(res.cpu(), res_golden, atol=0.000025, rtol=0.005)
-    pypto.runtime._device_fini()
 
 
 def test_pto_loop_end_only():
