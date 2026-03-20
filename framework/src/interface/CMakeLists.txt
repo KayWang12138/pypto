@@ -15,14 +15,7 @@ file(GLOB _Interface_Srcs
         core/*.cpp
         ir/*.cpp
         ir/op/*.cpp
-        ir/op/block_ops/batch_matmul.cpp
-        ir/op/block_ops/broadcast.cpp
-        ir/op/block_ops/elementwise.cpp
-        ir/op/block_ops/matmul.cpp
-        ir/op/block_ops/memory.cpp
-        ir/op/block_ops/reduction.cpp
-        ir/op/block_ops/transform.cpp
-        ir/op/block_ops/unary.cpp
+        ir/op/block_ops/*.cpp
         ir/op/tensor_ops/*.cpp
         ir/op/sync_ops/*.cpp
         # 前端框架
