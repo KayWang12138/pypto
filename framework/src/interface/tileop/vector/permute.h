@@ -16,8 +16,8 @@
 #ifndef TILEOP_TILE_OPERATOR_PERMUTE__H
 #define TILEOP_TILE_OPERATOR_PERMUTE__H
 
-#include "utils/layout.h"
-#include "utils/tile_tensor.h"
+#include "../utils/layout.h"
+#include "../utils/tile_tensor.h"
 #include "mte.h"
 #include "trans.h"
 
