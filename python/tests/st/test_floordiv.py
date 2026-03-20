@@ -53,7 +53,7 @@ def test_floor_div():
     out = torch.zeros((32, 128), dtype=torch.int32, device=f"npu:{device_id}")
     floor_div_2d(x_pt.npu(), y_pt.npu(), out.npu(), view_shape, tile_shape)
     assert out.shape == (32, 128)
-    golden = torch.floor_divide(x_pt.to("npu"), y.to("npu")).to(torch.int32)
+    golden = torch.floor_divide(x_pt.npu(), y_pt.npu()).to(torch.int32)
     assert torch.allclose(golden.cpu(), out.cpu())
 
 

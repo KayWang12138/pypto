@@ -1811,9 +1811,9 @@ def floor_div(
                 [1 1 1]]
     """
     if isinstance(other, pypto_impl.Tensor):
-        return pypto_impl.FloorDiv(self, other)
+        return pypto_impl.FloorDiv(input, other)
     else:
-        return pypto_impl.FloorDiv(self, pypto_impl.Element(self.dtype, other))
+        return pypto_impl.FloorDiv(input, pypto_impl.Element(input.dtype, other))
 
 
 @op_wrapper
