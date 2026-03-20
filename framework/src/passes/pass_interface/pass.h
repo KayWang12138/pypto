@@ -31,8 +31,9 @@ public:
     Status Run(Function &function, const std::string &strategy,
                const std::string &identifier, size_t runtimeIdx = 0);
     virtual Status PreCheck(Function &function);
-
     virtual Status PostCheck(Function &function);
+    virtual Status DefaultEnabledPreCheck(Function &function);
+    virtual Status DefaultEnabledPostCheck(Function &function);
     const std::string &LogFolder(const std::string &topFolder, size_t i) const;
     const std::string &GetName() const { return name_; }
     void SetPassConfigs(const PassConfigs &config) {

@@ -93,6 +93,11 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
     return SUCCESS;
 }
 
+Status RemoveRedundantReshape::DefaultEnabledPreCheck(Function &function) {
+    RemoveRedundantReshapeChecker checker;
+    return checker.DoDefaultEnabledPreCheck(function);
+}
+
 Status RemoveRedundantReshape::PreCheck(Function &function) {
     RemoveRedundantReshapeChecker checker;
     return checker.DoPreCheck(function);

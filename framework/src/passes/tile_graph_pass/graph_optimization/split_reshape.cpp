@@ -1239,9 +1239,10 @@ Status SplitReshape::SetMemoryType(Function &function) {
     return SUCCESS;
 }
 
-Status SplitReshape::PreCheck(Function &function){
-    return checker_.DoPreCheck(function);
+Status SplitReshape::DefaultEnabledPreCheck(Function &function){
+    return checker_.DoDefaultEnabledPreCheck(function);
 }
+
 Status SplitReshape::PostCheck(Function &function){
     return checker_.DoPostCheck(function);
 }
