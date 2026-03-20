@@ -811,8 +811,10 @@ TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale, T5 &bias)
 
 template <typename config, typename globalData, typename tileData, typename V>
 INLINE void TStoreExecute(globalData dstGlobal, tileData srcL0C, V &fixbuf, uint64_t scaleValue) {
-    if constexpr (std::is_same<typename tileData::DType, int32_t>::value &&
-                  std::is_same<typename globalData::DType, __gm__ half>::value) {
+    if constexpr ((std::is_same<typename tileData::DType, int32_t>::value &&
+                      std::is_same<typename globalData::DType, __gm__ half>::value) ||
+                  (std::is_same<typename tileData::DType, float>::value &&
+                      std::is_same<typename globalData::DType, __gm__ bfloat16_t>::value)) {
         if (scaleValue != 0) {
             pto::TSTORE<tileData, globalData, config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone,
                 config::kReluMode == 0 ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu>(
@@ -837,8 +839,7 @@ INLINE void TStoreExecute(globalData dstGlobal, tileData srcL0C, V &fixbuf, uint
         }
     } else {
         pto::TSTORE<tileData, globalData, config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone,
-            config::kReluMode == 0 ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu>(
-            dstGlobal, srcL0C);
+            config::kReluMode == 0 ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu>(dstGlobal, srcL0C);
     }
 }
 
