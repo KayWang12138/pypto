@@ -571,7 +571,7 @@ TEST_F(TestExpandFunctionPass, DisableCombineAxisOnA5) {
     EXPECT_EQ(currFunctionPtr->paramConfigs_.combineAxis, true);
 }
 
-TEST_F(TestExpandFunctionPass, PreCheckForDisorderIndexOutcast2) {
+TEST_F(TestExpandFunctionPass, PreCheckForDisorderIndexOutcast) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"src", "index1", "dst", "index2", "result1", "result2", "tensor1", "outcast1", "outcast2"}), true);
@@ -588,7 +588,6 @@ TEST_F(TestExpandFunctionPass, PreCheckForDisorderIndexOutcast2) {
     function->GetTensorMap().Insert(G.GetTensor("dst"));
 
     ExpandFunction expandfunctionpass;
-    function->DumpJsonFile("/mnt/workspace/gitCode/zhangxiangjie/pypto/framework/tests/ut/passes/src/check_before2.json");
     EXPECT_EQ(expandfunctionpass.DefaultEnabledPreCheck(*function), FAILED);
 }
 }
