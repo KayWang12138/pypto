@@ -438,11 +438,11 @@ Status RemoveRedundantAssemble::HandleDynOffsetForReshape(
         return SUCCESS;
     }
     auto &assembleOutShape = assembleOp.GetOOperands()[0]->tensor->rawshape;
-    if (assembleOutShape.size() < producer->GetIOperands()[0]->shape.size()) {
-            if (!CalculateNewRawShapeReduce(producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape)) return SUCCESS;
-    } else {
-            if (!CalculateNewRawShapeExpand(producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape)) return SUCCESS;
-    }
+    bool isReduce = assembleOutShape.size() < producer->GetIOperands()[0]->shape.size();
+    bool isSuccess = isReduce 
+        ? CalculateNewRawShapeReduce(producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape)
+        : CalculateNewRawShapeExpand(producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape);
+    if (!isSuccess) return SUCCESS;
     GetDynOffsetBeforeReshape(dynOffset, assembleOutShape, newRawShape, newDynOffset);
     APASS_LOG_DEBUG_F(Elements::Operation, "Process Assemble %d Tensor[%d]: newRawshape: %s, newOffset: %s.",
         assembleOp.GetOpMagic(), producer->GetIOperands()[0]->GetMagic(), IntVecToStr(newRawShape).c_str(),
