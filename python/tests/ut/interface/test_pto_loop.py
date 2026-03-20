@@ -12,6 +12,8 @@
 """
 import pypto
 import pypto._controller as controller
+import torch
+import torch_npu
 
 def init_tensors():
     dtype = pypto.DT_FP32
