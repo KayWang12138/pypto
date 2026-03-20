@@ -40,6 +40,8 @@ const std::unordered_set<Opcode> OP_SHAPE_FROM_ATTR{
     // conv Load
     Opcode::OP_L1_COPY_IN_CONV,
     Opcode::OP_L0C_COPY_OUT_CONV,
+    Opcode::OP_L1_COPY_IN_A_SCALE,
+    Opcode::OP_L1_COPY_IN_B_SCALE,
 };
 bool IsOpShapeFromAttr(Opcode opcode) {
     return OP_SHAPE_FROM_ATTR.find(opcode) != OP_SHAPE_FROM_ATTR.end();
@@ -73,6 +75,7 @@ void CodeGenOp::CombineAxis(const Operation &oper, int operandIdx, bool isInput,
         CombineLastTwoAxis(rawShape[operandIdx], dim);
         CombineLastTwoAxis(originShape[operandIdx], dim);
         CombineLastTwoAxis(dynamicValidShape[operandIdx], dim);
+        CombineLastTwoAxis(dynamicRawShape[operandIdx], dim);
         CODEGEN_LOGI("op code %s, operandIdx: %d, after CombineAxis shape is %s, raw shape is %s, originShape is %s, "
                      "dynamicValidShape is %s",
             oper.GetOpcodeStr().c_str(), operandIdx, IntVecToStr(shape[operandIdx]).c_str(),
@@ -105,6 +108,7 @@ void CodeGenOp::UpdateShape(
         ASSERT(OperErr::ATTRIBUTE_INVALID, attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
         // 1. for spilling GM scene 2. for conv
         shapeFromAttr[operandIdx] = attr->GetSpecifiedShape(1);
+        dynamicRawShape[operandIdx] = OpImmediate::ToSpecified(attr->GetRawShape());
         CODEGEN_LOGI("attrShape(from op CopyOpAttribute) = %s", IntVecToStr(shapeFromAttr[operandIdx]).c_str());
     } else { // Tile Shape from LogicalTensor (Only used in extremely special cases)
         shape[operandIdx] = logicalTensor.shape;
