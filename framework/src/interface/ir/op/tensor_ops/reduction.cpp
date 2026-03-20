@@ -15,6 +15,7 @@
 
 #include "core/any_cast.h"
 #include "core/logging.h"
+#include "ir/core.h"
 #include "ir/kind_traits.h"
 #include "ir/op_registry.h"
 #include "ir/op_utils.h"
@@ -26,15 +27,15 @@ namespace pypto {
 namespace ir {
 
 TypePtr DeduceTensorReductionType(const std::vector<ExprPtr> &args,
-    const std::vector<std::pair<std::string, std::any>> &kwargs, const std::string &opName) {
+    const std::vector<std::pair<std::string, std::any>> &kwargs, const std::string &opName, const Span &span) {
     // Reduction operations require exactly 1 argument (input tensor)
     INTERNAL_CHECK(args.size() == 1) << "The operator " << opName << " requires exactly 1 argument, but got "
-                                     << args.size();
+                                     << args.size() << " at " << span.ToString();
 
     // First argument must be TensorType
     auto tensorType = As<TensorType>(args[0]->GetType());
     INTERNAL_CHECK(tensorType) << "The operator " << opName << " requires first argument to be a TensorType, but got "
-                               << args[0]->GetType()->TypeName();
+                               << args[0]->GetType()->TypeName() << " at " << span.ToString();
 
     const auto &inputShape = tensorType->shape_;
     int64_t inputNdim = static_cast<int64_t>(inputShape.size());
@@ -48,7 +49,7 @@ TypePtr DeduceTensorReductionType(const std::vector<ExprPtr> &args,
     }
     INTERNAL_CHECK(axis >= 0 && static_cast<int64_t>(axis) < inputNdim)
         << "The operator " << opName << " axis " << axis << " is out of range for shape with " << inputNdim
-        << " dimensions";
+        << " dimensions" << " at " << span.ToString();
 
     // Extract keep_dim flag from kwargs (default: true)
     bool keepDim = GetKwarg<bool>(kwargs, "keep_dim", true);
@@ -85,8 +86,9 @@ REGISTER_OP("tensor.row_max")
     .AddArgument("input", "Input tensor (TensorType)")
     .set_attr<int>("axis")
     .set_attr<bool>("keep_dim")
-    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
-        return DeduceTensorReductionType(args, kwargs, "tensor.row_max");
+    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs,
+        const Span &span) {
+        return DeduceTensorReductionType(args, kwargs, "tensor.row_max", span);
     });
 
 REGISTER_OP("tensor.row_sum")
@@ -95,8 +97,9 @@ REGISTER_OP("tensor.row_sum")
     .AddArgument("input", "Input tensor (TensorType)")
     .set_attr<int>("axis")
     .set_attr<bool>("keep_dim")
-    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
-        return DeduceTensorReductionType(args, kwargs, "tensor.row_sum");
+    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs,
+        const Span &span) {
+        return DeduceTensorReductionType(args, kwargs, "tensor.row_sum", span);
     });
 
 } // namespace ir

@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "ir/core.h"
 #include "ir/expr.h"
 #include "ir/op_registry.h"
 #include "ir/pipe.h"
@@ -24,7 +25,8 @@ namespace {
 
 // Helper to deduce UnknownType (for ops with no return value)
 TypePtr DeduceUnknownType([[maybe_unused]] const std::vector<ExprPtr> &args,
-    [[maybe_unused]] const std::vector<std::pair<std::string, std::any>> &kwargs) {
+    [[maybe_unused]] const std::vector<std::pair<std::string, std::any>> &kwargs,
+    [[maybe_unused]] const Span &span) {
     return GetUnknownType();
 }
 

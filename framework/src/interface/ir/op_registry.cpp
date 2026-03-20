@@ -95,8 +95,8 @@ CallPtr OpRegistry::Create(const std::string &opName, const std::vector<ExprPtr>
 
     const auto &deduceTypeFn = entry.GetDeduceType();
 
-    // Deduce result type (pass args and kwargs separately)
-    TypePtr ResultType = deduceTypeFn(args, kwargs);
+    // Deduce result type (pass args, kwargs, and span for error location)
+    TypePtr ResultType = deduceTypeFn(args, kwargs, span);
     INTERNAL_CHECK(ResultType) << "Type deduction failed for '" + opName + "'";
 
     // Create Call with deduced type

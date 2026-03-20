@@ -18,6 +18,7 @@
 #include "core/dtype.h"
 #include "core/error.h"
 #include "core/logging.h"
+#include "ir/core.h"
 #include "ir/kind_traits.h"
 #include "ir/op_registry.h"
 #include "ir/op_utils.h"
@@ -28,26 +29,29 @@ namespace pypto {
 namespace ir {
 
 TypePtr DeduceTensorMatMulType(
-    const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
+    const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs,
+    const Span &span) {
     // tensor.matmul requires exactly 2 Expr arguments (lhs, rhs)
     INTERNAL_CHECK(args.size() == 2) << "tensor.matmul requires exactly 2 arguments (lhs, rhs), but got "
-                                     << args.size();
+                                     << args.size() << " at " << span.ToString();
 
     // First two arguments must be TensorType
     auto lhsType = As<TensorType>(args[0]->GetType());
     auto rhsType = As<TensorType>(args[1]->GetType());
 
     INTERNAL_CHECK(lhsType) << "tensor.matmul requires first argument to be a TensorType, but got "
-                            << args[0]->GetType()->TypeName();
+                            << args[0]->GetType()->TypeName() << " at " << span.ToString();
     INTERNAL_CHECK(rhsType) << "tensor.matmul requires second argument to be a TensorType, but got "
-                            << args[1]->GetType()->TypeName();
+                            << args[1]->GetType()->TypeName() << " at " << span.ToString();
 
     // Extract shapes
     const auto &lhsShape = lhsType->shape_;
     const auto &rhsShape = rhsType->shape_;
 
-    INTERNAL_CHECK(lhsShape.size() >= 1) << "tensor.matmul requires lhs to have at least 1 dimension";
-    INTERNAL_CHECK(rhsShape.size() >= 1) << "tensor.matmul requires rhs to have at least 1 dimension";
+    INTERNAL_CHECK(lhsShape.size() >= 1) << "tensor.matmul requires lhs to have at least 1 dimension"
+                                         << " at " << span.ToString();
+    INTERNAL_CHECK(rhsShape.size() >= 1) << "tensor.matmul requires rhs to have at least 1 dimension"
+                                         << " at " << span.ToString();
 
     // Read kwargs (with defaults)
     DataType outDtype;
@@ -55,7 +59,8 @@ TypePtr DeduceTensorMatMulType(
         outDtype = GetKwarg<DataType>(kwargs, "out_dtype");
     } catch (const ValueError &e) {
         auto promoted = PromoteDataTypes(lhsType->dtype_, rhsType->dtype_);
-        INTERNAL_CHECK(promoted) << "Cannot promote data types for tensor.matmul";
+        INTERNAL_CHECK(promoted) << "Cannot promote data types for tensor.matmul"
+                                 << " at " << span.ToString();
         outDtype = *promoted;
     } catch (const TypeError &e) {
         throw TypeError("Invalid kwarg type for out_dtype: " + std::string(e.what()));
@@ -93,7 +98,8 @@ TypePtr DeduceTensorMatMulType(
         // Ensure both tensors have at least 2 dimensions for batched matmul
         INTERNAL_CHECK(lhsNdim >= 2 && rhsNdim >= 2)
             << "tensor.matmul requires both tensors to have at least 2 dimensions "
-            << "for batched matmul, but got lhs shape size " << lhsNdim << " and rhs shape size " << rhsNdim;
+            << "for batched matmul, but got lhs shape size " << lhsNdim << " and rhs shape size " << rhsNdim
+            << " at " << span.ToString();
 
         // Extract batch dimensions (all except last 2)
         std::vector<ExprPtr> lhsBatch(lhsShape.begin(), lhsShape.end() - 2);
@@ -101,7 +107,8 @@ TypePtr DeduceTensorMatMulType(
 
         // Broadcast batch dimensions
         auto broadcastResult = BroadcastShapes(lhsBatch, rhsBatch);
-        INTERNAL_CHECK(broadcastResult.success) << "Cannot broadcast batch dimensions for tensor.matmul";
+        INTERNAL_CHECK(broadcastResult.success) << "Cannot broadcast batch dimensions for tensor.matmul"
+                                                 << " at " << span.ToString();
 
         outputShape = broadcastResult.shape;
 
@@ -128,8 +135,9 @@ REGISTER_OP("tensor.matmul")
     .set_attr<bool>("a_trans")
     .set_attr<bool>("b_trans")
     .set_attr<bool>("c_matrix_nz")
-    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
-        return DeduceTensorMatMulType(args, kwargs);
+    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs,
+        const Span &span) {
+        return DeduceTensorMatMulType(args, kwargs, span);
     });
 
 } // namespace ir

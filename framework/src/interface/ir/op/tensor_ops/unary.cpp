@@ -15,6 +15,7 @@
 
 #include "core/any_cast.h"
 #include "core/logging.h"
+#include "ir/core.h"
 #include "ir/kind_traits.h"
 #include "ir/op_registry.h"
 #include "ir/type.h"
@@ -22,12 +23,14 @@ namespace pypto {
 namespace ir {
 
 TypePtr DeduceTensorExpType(
-    const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> & /*kwargs*/) {
-    INTERNAL_CHECK(args.size() == 1) << "tensor.exp requires exactly 1 argument, but got " << args.size();
+    const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> & /*kwargs*/,
+    const Span &span) {
+    INTERNAL_CHECK(args.size() == 1) << "tensor.exp requires exactly 1 argument, but got " << args.size()
+                                     << " at " << span.ToString();
 
     auto tensorType = As<TensorType>(args[0]->GetType());
     INTERNAL_CHECK(tensorType) << "tensor.exp requires first argument to be a TensorType, but got "
-                               << args[0]->GetType()->TypeName();
+                               << args[0]->GetType()->TypeName() << " at " << span.ToString();
 
     // exp should promote to float type if input is integer
     // Exponential always produces floating-point output (e.g., exp(1) = 2.718...)
@@ -41,12 +44,14 @@ TypePtr DeduceTensorExpType(
 }
 
 TypePtr DeduceTensorCastType(
-    const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
-    INTERNAL_CHECK(args.size() == 1) << "tensor.cast requires exactly 1 argument (input), but got " << args.size();
+    const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs,
+    const Span &span) {
+    INTERNAL_CHECK(args.size() == 1) << "tensor.cast requires exactly 1 argument (input), but got " << args.size()
+                                     << " at " << span.ToString();
 
     auto tensorType = As<TensorType>(args[0]->GetType());
     INTERNAL_CHECK(tensorType) << "tensor.cast requires first argument to be a TensorType, but got "
-                               << args[0]->GetType()->TypeName();
+                               << args[0]->GetType()->TypeName() << " at " << span.ToString();
 
     // Read target_type from kwargs
     bool foundTargetType = false;
@@ -65,7 +70,7 @@ TypePtr DeduceTensorCastType(
             break;
         }
     }
-    INTERNAL_CHECK(foundTargetType) << "tensor.cast requires 'target_type' kwarg";
+    INTERNAL_CHECK(foundTargetType) << "tensor.cast requires 'target_type' kwarg" << " at " << span.ToString();
 
     // mode kwarg is optional, not used in type deduction
 
@@ -81,8 +86,9 @@ REGISTER_OP("tensor.exp")
     .SetOpCategory("TensorOp")
     .SetDescription("Element-wise exponential operation")
     .AddArgument("input", "Input tensor (TensorType)")
-    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
-        return DeduceTensorExpType(args, kwargs);
+    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs,
+        const Span &span) {
+        return DeduceTensorExpType(args, kwargs, span);
     });
 
 REGISTER_OP("tensor.cast")
@@ -91,8 +97,9 @@ REGISTER_OP("tensor.cast")
     .AddArgument("input", "Input tensor (TensorType)")
     .set_attr<DataType>("target_type")
     .set_attr<int>("mode")
-    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
-        return DeduceTensorCastType(args, kwargs);
+    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs,
+        const Span &span) {
+        return DeduceTensorCastType(args, kwargs, span);
     });
 
 } // namespace ir

@@ -148,7 +148,7 @@ public:
      * \throws ValueError if the type deduction function is not set
      */
     [[nodiscard]] inline const std::function<TypePtr(
-        const std::vector<ExprPtr> &, const std::vector<std::pair<std::string, std::any>> &)> &
+        const std::vector<ExprPtr> &, const std::vector<std::pair<std::string, std::any>> &, const Span &)> &
     GetDeduceType() const {
         INTERNAL_CHECK(deduceType_.has_value()) << "Operator '" + name_ + "' has no type deduction function";
         return *deduceType_;
@@ -239,7 +239,8 @@ public:
      * \return Reference to this entry for method chaining
      */
     inline OpRegistryEntry &SetDeduceType(
-        std::function<TypePtr(const std::vector<ExprPtr> &, const std::vector<std::pair<std::string, std::any>> &)>
+        std::function<TypePtr(const std::vector<ExprPtr> &, const std::vector<std::pair<std::string, std::any>> &,
+            const Span &)>
             dt) {
         INTERNAL_CHECK(!deduceType_.has_value()) << "Operator '" + name_ + "' type deduction function is already set";
         deduceType_ = std::move(dt);
@@ -383,7 +384,8 @@ private:
     std::optional<std::vector<std::pair<std::string, std::string>>>
         arguments_; ///< Argument specifications (name, description)
     std::optional<
-        std::function<TypePtr(const std::vector<ExprPtr> &, const std::vector<std::pair<std::string, std::any>> &)>>
+        std::function<TypePtr(const std::vector<ExprPtr> &, const std::vector<std::pair<std::string, std::any>> &,
+            const Span &)>>
         deduceType_;                           ///< Type deduction function
     std::optional<CCECodegenFunc> codegenCce_; ///< CCE code generation function
     std::optional<PTOCodegenFunc> codegenPto_; ///< PTO code generation function

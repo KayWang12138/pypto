@@ -16,6 +16,7 @@
 #include "core/dtype.h"
 #include "core/error.h"
 #include "core/logging.h"
+#include "ir/core.h"
 #include "ir/kind_traits.h"
 #include "ir/op_registry.h"
 #include "ir/op_utils.h"
@@ -38,18 +39,18 @@ namespace ir {
  * \return TileType with output shape
  */
 TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr> &args,
-    const std::vector<std::pair<std::string, std::any>> & /*kwargs*/, const std::string &opName) {
+    const std::vector<std::pair<std::string, std::any>> & /*kwargs*/, const std::string &opName, const Span &span) {
     INTERNAL_CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
-                                     << args.size();
+                                     << args.size() << " at " << span.ToString();
 
     // Both arguments must be TileType
     auto lhsType = As<TileType>(args[0]->GetType());
     auto rhsType = As<TileType>(args[1]->GetType());
 
     INTERNAL_CHECK(lhsType) << "The operator " << opName << " requires first argument to be a TileType, but got "
-                            << args[0]->GetType()->TypeName();
+                            << args[0]->GetType()->TypeName() << " at " << span.ToString();
     INTERNAL_CHECK(rhsType) << "The operator " << opName << " requires second argument to be a TileType, but got "
-                            << args[1]->GetType()->TypeName();
+                            << args[1]->GetType()->TypeName() << " at " << span.ToString();
 
     // Extract shapes
     const auto &lhsShape = lhsType->shape_;
@@ -58,10 +59,10 @@ TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr> &args,
     // For batch matmul, we require at least 2D tiles
     INTERNAL_CHECK(lhsShape.size() >= 2) << "The operator " << opName
                                          << " requires lhs to have at least 2 dimensions, but got " << lhsShape.size()
-                                         << " dimensions";
+                                         << " dimensions" << " at " << span.ToString();
     INTERNAL_CHECK(rhsShape.size() >= 2) << "The operator " << opName
                                          << " requires rhs to have at least 2 dimensions, but got " << rhsShape.size()
-                                         << " dimensions";
+                                         << " dimensions" << " at " << span.ToString();
 
     size_t lhsNdim = lhsShape.size();
     size_t rhsNdim = rhsShape.size();
@@ -73,7 +74,7 @@ TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr> &args,
     ExprPtr nDim = rhsShape[rhsNdim - 1];
 
     // Try to verify K dimensions match if they are constant
-    VerifyKDimensionsMatch(kDimLhs, kDimRhs, opName);
+    VerifyKDimensionsMatch(kDimLhs, kDimRhs, opName, span);
 
     // Handle batch dimensions
     std::vector<ExprPtr> outputShape;
@@ -89,7 +90,7 @@ TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr> &args,
 
         // Broadcast batch dimensions
         auto broadcastResult = BroadcastShapes(lhsBatch, rhsBatch);
-        INTERNAL_CHECK(broadcastResult.success) << "Cannot broadcast batch dimensions for " << opName;
+        INTERNAL_CHECK(broadcastResult.success) << "Cannot broadcast batch dimensions for " << opName << " at " << span.ToString();
 
         outputShape = broadcastResult.shape;
 
@@ -101,7 +102,7 @@ TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr> &args,
     // Promote data types
     auto resultDtype = PromoteDataTypes(lhsType->dtype_, rhsType->dtype_);
     INTERNAL_CHECK(resultDtype) << "The operator " << opName << " requires compatible data types, but got "
-                                << lhsType->dtype_.ToString() << " and " << rhsType->dtype_.ToString();
+                                << lhsType->dtype_.ToString() << " and " << rhsType->dtype_.ToString() << " at " << span.ToString();
 
     return std::make_shared<TileType>(outputShape, *resultDtype);
 }
@@ -116,8 +117,9 @@ REGISTER_OP("block.batch_matmul")
     .SetPipe(PipeType::M)
     .AddArgument("lhs", "Left-hand side tile (TileType, at least 2D)")
     .AddArgument("rhs", "Right-hand side tile (TileType, at least 2D)")
-    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
-        return DeduceBlockBatchMatMulType(args, kwargs, "block.batch_matmul");
+    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs,
+        const Span &span) {
+        return DeduceBlockBatchMatMulType(args, kwargs, "block.batch_matmul", span);
     });
 
 } // namespace ir

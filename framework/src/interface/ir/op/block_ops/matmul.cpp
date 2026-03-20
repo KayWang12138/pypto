@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "core/logging.h"
+#include "ir/core.h"
 #include "ir/expr.h"
 #include "ir/kind_traits.h"
 #include "ir/op_registry.h"
@@ -26,18 +27,18 @@ namespace pypto {
 namespace ir {
 
 TypePtr DeduceBlockMatMulType(const std::vector<ExprPtr> &args,
-    const std::vector<std::pair<std::string, std::any>> &kwargs, const std::string &opName) {
+    const std::vector<std::pair<std::string, std::any>> &kwargs, const std::string &opName, const Span &span) {
     (void)kwargs;
-    CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got " << args.size();
+    CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got " << args.size() << " at " << span.ToString();
 
     // Both arguments must be TileType
     auto lhsType = As<TileType>(args[0]->GetType());
     auto rhsType = As<TileType>(args[1]->GetType());
 
     CHECK(lhsType) << "The operator " << opName << " requires first argument to be a TileType, but got "
-                   << args[0]->GetType()->TypeName();
+                   << args[0]->GetType()->TypeName() << " at " << span.ToString();
     CHECK(rhsType) << "The operator " << opName << " requires second argument to be a TileType, but got "
-                   << args[1]->GetType()->TypeName();
+                   << args[1]->GetType()->TypeName() << " at " << span.ToString();
 
     // Extract shapes
     const auto &lhsShape = lhsType->shape_;
@@ -45,9 +46,9 @@ TypePtr DeduceBlockMatMulType(const std::vector<ExprPtr> &args,
 
     // For block matmul, we require 2D tiles
     CHECK(lhsShape.size() == 2) << "The operator " << opName << " requires lhs to be 2D, but got " << lhsShape.size()
-                                << " dimensions";
+                                << " dimensions" << " at " << span.ToString();
     CHECK(rhsShape.size() == 2) << "The operator " << opName << " requires rhs to be 2D, but got " << rhsShape.size()
-                                << " dimensions";
+                                << " dimensions" << " at " << span.ToString();
 
     // Matrix multiplication: [M, K] @ [K, N] -> [M, N]
     // We need to verify that K dimensions match
@@ -65,13 +66,13 @@ TypePtr DeduceBlockMatMulType(const std::vector<ExprPtr> &args,
     if (kLhsConst && kRhsConst) {
         CHECK(kLhsConst->value_ == kRhsConst->value_)
             << "The operator " << opName << " requires matching inner dimensions, but got lhs K=" << kLhsConst->value_
-            << " and rhs K=" << kRhsConst->value_;
+            << " and rhs K=" << kRhsConst->value_ << " at " << span.ToString();
     }
 
     // Promote data types
     auto resultDtype = PromoteDataTypes(lhsType->dtype_, rhsType->dtype_);
     CHECK(resultDtype) << "The operator " << opName << " requires compatible data types, but got "
-                       << lhsType->dtype_.ToString() << " and " << rhsType->dtype_.ToString();
+                       << lhsType->dtype_.ToString() << " and " << rhsType->dtype_.ToString() << " at " << span.ToString();
 
     // Output shape is [M, N]
     std::vector<ExprPtr> outputShape = {mDim, nDim};
@@ -80,9 +81,9 @@ TypePtr DeduceBlockMatMulType(const std::vector<ExprPtr> &args,
 }
 
 TypePtr DeduceBlockMatMulAccType(const std::vector<ExprPtr> &args,
-    const std::vector<std::pair<std::string, std::any>> &kwargs, const std::string &opName) {
+    const std::vector<std::pair<std::string, std::any>> &kwargs, const std::string &opName, const Span &span) {
     (void)kwargs;
-    CHECK(args.size() == 3) << "The operator " << opName << " requires exactly 3 arguments, but got " << args.size();
+    CHECK(args.size() == 3) << "The operator " << opName << " requires exactly 3 arguments, but got " << args.size() << " at " << span.ToString();
 
     // All arguments must be TileType
     auto accType = As<TileType>(args[0]->GetType());
@@ -90,11 +91,11 @@ TypePtr DeduceBlockMatMulAccType(const std::vector<ExprPtr> &args,
     auto rhsType = As<TileType>(args[2]->GetType());
 
     CHECK(accType) << "The operator " << opName << " requires first argument (acc) to be a TileType, but got "
-                   << args[0]->GetType()->TypeName();
+                   << args[0]->GetType()->TypeName() << " at " << span.ToString();
     CHECK(lhsType) << "The operator " << opName << " requires second argument (lhs) to be a TileType, but got "
-                   << args[1]->GetType()->TypeName();
+                   << args[1]->GetType()->TypeName() << " at " << span.ToString();
     CHECK(rhsType) << "The operator " << opName << " requires third argument (rhs) to be a TileType, but got "
-                   << args[2]->GetType()->TypeName();
+                   << args[2]->GetType()->TypeName() << " at " << span.ToString();
 
     // Extract shapes
     const auto &accShape = accType->shape_;
@@ -103,11 +104,11 @@ TypePtr DeduceBlockMatMulAccType(const std::vector<ExprPtr> &args,
 
     // For block matmul_acc, we require 2D tiles
     CHECK(accShape.size() == 2) << "The operator " << opName << " requires acc to be 2D, but got " << accShape.size()
-                                << " dimensions";
+                                << " dimensions" << " at " << span.ToString();
     CHECK(lhsShape.size() == 2) << "The operator " << opName << " requires lhs to be 2D, but got " << lhsShape.size()
-                                << " dimensions";
+                                << " dimensions" << " at " << span.ToString();
     CHECK(rhsShape.size() == 2) << "The operator " << opName << " requires rhs to be 2D, but got " << rhsShape.size()
-                                << " dimensions";
+                                << " dimensions" << " at " << span.ToString();
 
     // Matrix multiplication with accumulation: acc[M, N] += lhs[M, K] @ rhs[K, N]
     ExprPtr mDimAcc = accShape[0];
@@ -124,29 +125,29 @@ TypePtr DeduceBlockMatMulAccType(const std::vector<ExprPtr> &args,
     if (mAccConst && mLhsConst) {
         CHECK(mAccConst->value_ == mLhsConst->value_)
             << "The operator " << opName << " requires matching M dimensions, but got acc M=" << mAccConst->value_
-            << " and lhs M=" << mLhsConst->value_;
+            << " and lhs M=" << mLhsConst->value_ << " at " << span.ToString();
     }
 
     if (nAccConst && nRhsConst) {
         CHECK(nAccConst->value_ == nRhsConst->value_)
             << "The operator " << opName << " requires matching N dimensions, but got acc N=" << nAccConst->value_
-            << " and rhs N=" << nRhsConst->value_;
+            << " and rhs N=" << nRhsConst->value_ << " at " << span.ToString();
     }
 
     if (kLhsConst && kRhsConst) {
         CHECK(kLhsConst->value_ == kRhsConst->value_)
             << "The operator " << opName << " requires matching K dimensions, but got lhs K=" << kLhsConst->value_
-            << " and rhs K=" << kRhsConst->value_;
+            << " and rhs K=" << kRhsConst->value_ << " at " << span.ToString();
     }
 
     // Promote data types
     auto lhsRhsDtype = PromoteDataTypes(lhsType->dtype_, rhsType->dtype_);
     CHECK(lhsRhsDtype) << "The operator " << opName << " requires compatible lhs and rhs data types, but got "
-                       << lhsType->dtype_.ToString() << " and " << rhsType->dtype_.ToString();
+                       << lhsType->dtype_.ToString() << " and " << rhsType->dtype_.ToString() << " at " << span.ToString();
 
     auto resultDtype = PromoteDataTypes(accType->dtype_, *lhsRhsDtype);
     CHECK(resultDtype) << "The operator " << opName << " requires compatible accumulator data type, but got "
-                       << accType->dtype_.ToString() << " and " << lhsRhsDtype->ToString();
+                       << accType->dtype_.ToString() << " and " << lhsRhsDtype->ToString() << " at " << span.ToString();
 
     // Output shape is [M, N] (same as accumulator)
     std::vector<ExprPtr> outputShape = {mDimAcc, nDimAcc};
@@ -163,8 +164,9 @@ REGISTER_OP("block.matmul")
     .SetDescription("Matrix multiplication of two tiles")
     .AddArgument("lhs", "Left-hand side tile (TileType, 2D)")
     .AddArgument("rhs", "Right-hand side tile (TileType, 2D)")
-    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
-        return DeduceBlockMatMulType(args, kwargs, "block.matmul");
+    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs,
+        const Span &span) {
+        return DeduceBlockMatMulType(args, kwargs, "block.matmul", span);
     });
 
 REGISTER_OP("block.matmul_acc")
@@ -173,8 +175,9 @@ REGISTER_OP("block.matmul_acc")
     .AddArgument("acc", "Accumulator tile (TileType, 2D)")
     .AddArgument("lhs", "Left-hand side tile (TileType, 2D)")
     .AddArgument("rhs", "Right-hand side tile (TileType, 2D)")
-    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
-        return DeduceBlockMatMulAccType(args, kwargs, "block.matmul_acc");
+    .SetDeduceType([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs,
+        const Span &span) {
+        return DeduceBlockMatMulAccType(args, kwargs, "block.matmul_acc", span);
     });
 
 } // namespace ir

@@ -19,6 +19,7 @@
 #include "core/any_cast.h"
 #include "core/error.h"
 #include "core/logging.h"
+#include "ir/core.h"
 #include "ir/kind_traits.h"
 #include "ir/scalar_expr.h"
 
@@ -58,12 +59,12 @@ T GetKwarg(const std::vector<std::pair<std::string, std::any>> &kwargs, const st
  * \param ndim The number of dimensions
  * \return The normalized (non-negative) axis index
  */
-inline int NormalizeAxis(int axis, size_t ndim) {
+inline int NormalizeAxis(int axis, size_t ndim, const Span &span = Span::Unknown()) {
     if (axis < 0) {
         axis += static_cast<int>(ndim);
     }
     INTERNAL_CHECK(axis >= 0 && axis < static_cast<int>(ndim))
-        << "Axis " << axis << " is out of range for " << ndim << "D shape";
+        << "Axis " << axis << " is out of range for " << ndim << "D shape at " << span.ToString();
     return axis;
 }
 
@@ -95,13 +96,14 @@ inline int64_t ComputeShapeProduct(const std::vector<ExprPtr> &shape) {
  * \param kRhs The K dimension from the right-hand side
  * \param opName Operator name for error messages
  */
-inline void VerifyKDimensionsMatch(const ExprPtr &kLhs, const ExprPtr &kRhs, const std::string &opName) {
+inline void VerifyKDimensionsMatch(
+    const ExprPtr &kLhs, const ExprPtr &kRhs, const std::string &opName, const Span &span = Span::Unknown()) {
     auto kLhsConst = As<ConstInt>(kLhs);
     auto kRhsConst = As<ConstInt>(kRhs);
     if (kLhsConst && kRhsConst) {
         INTERNAL_CHECK(kLhsConst->value_ == kRhsConst->value_)
             << "The operator " << opName << " requires matching inner dimensions, but got lhs K=" << kLhsConst->value_
-            << " and rhs K=" << kRhsConst->value_;
+            << " and rhs K=" << kRhsConst->value_ << " at " << span.ToString();
     }
 }
 
