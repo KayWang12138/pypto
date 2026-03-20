@@ -32,12 +32,12 @@ struct ExpandInfo {
 
 void CheckExpandTensorVaild(const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
     if (operand->shape.size() != result->shape.size()) {
-        ASSERT(false && "Dims not match");
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "Dims not match";
     }
 
     for (size_t i = 0; i < result->shape.size(); ++i) {
         if (operand->shape[i] != result->shape[i] && operand->shape[i] != 1) {
-            ASSERT(0 && "shape not match");
+            ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "shape not match";
         }
     }
     
@@ -47,7 +47,7 @@ void CheckExpandTensorVaild(const LogicalTensorPtr &operand, const LogicalTensor
             numExpandAxis++;
         }
     }
-    ASSERT(numExpandAxis <= 1) << "Only allow to expand one axis";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, numExpandAxis <= 1) << "Only allow to expand one axis";
 }
 
 void ExpandTile(Function &function, const struct ExpandInfo &expandInfo) {
@@ -88,7 +88,7 @@ void ExpandTile(Function &function, const TileShape &tileShape, int dimIdx, cons
 void Expand(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const std::vector<LogicalTensorPtr> &other, const LogicalTensorPtr &result) {
     CheckExpandTensorVaild(operand, result);
-    ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH) << "The GetGraphType of function is incorrect";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, function.GetGraphType() == GraphType::TILE_GRAPH) << "The GetGraphType of function is incorrect";
     std::vector<int64_t> offset(result->shape.size(), 0);
     std::vector<int64_t> viewShape(result->shape.size(), 1);
     std::vector<SymbolicScalar> outValidShape;
@@ -123,7 +123,7 @@ void Expand(Function &function, const TileShape &tileShape, const LogicalTensorP
 void ExpandWithResultValidShape(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const LogicalTensorPtr &result, const std::vector<SymbolicScalar> resultValidShape) {
     CheckExpandTensorVaild(operand, result);
-    ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH) << "The GetGraphType of function is incorrect";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, function.GetGraphType() == GraphType::TILE_GRAPH) << "The GetGraphType of function is incorrect";
     std::vector<int64_t> offset(result->shape.size(), 0);
     std::vector<int64_t> viewShape(result->shape.size(), 1);
     int expandDim = -1;
@@ -140,7 +140,7 @@ void ExpandWithResultValidShape(Function &function, const TileShape &tileShape, 
 void TiledExpand(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &validShape) {
     CheckExpandTensorVaild(operand, result);
-    ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH) << "The GetGraphType of function is incorrect";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, function.GetGraphType() == GraphType::TILE_GRAPH) << "The GetGraphType of function is incorrect";
 
     std::vector<int64_t> offset(result->shape.size(), 0);
     std::vector<int64_t> viewShape(result->shape.size(), 1);
@@ -176,14 +176,14 @@ Tensor TensorJustNeedCopyOperation(Function &function, const LogicalTensorPtr &o
 Tensor Expand(const Tensor &self, const std::vector<int64_t> &dstShape, std::vector<SymbolicScalar> validShape) {
     DECLARE_TRACER();
 
-    ASSERT(self.GetShape().size() == dstShape.size()) << "The shape size of self and dst should be equal";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self.GetShape().size() == dstShape.size()) << "The shape size of self and dst should be equal";
     int numExpandAxis = 0;
     for (size_t i = 0; i < dstShape.size(); ++i) {
         if (self.GetShape()[i] != dstShape[i]) {
             numExpandAxis++;
         }
     }
-    ASSERT(numExpandAxis <= 1) << "Only allow to expand one axis";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, numExpandAxis <= 1) << "Only allow to expand one axis";
     if (validShape.empty()) {
         for (size_t i = 0; i < dstShape.size(); ++i) {
             if (self.GetShape()[i] != dstShape[i]) {
@@ -219,10 +219,10 @@ Opcode GetTransposeOpName() {
 #define CASE(X) \
     case TransposeOpType::X: return Opcode::OP_##X
     switch (T) {
-        CASE(TRANSPOSE_MOVEIN);
         CASE(TRANSPOSE_MOVEOUT);
+        CASE(TRANSPOSE_MOVEIN);
         CASE(TRANSPOSE_VNCHWCONV);
-        default: ASSERT(false && "unknown transpose op type");
+        default: ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown transpose op type";
     }
 #undef CASE
 }
@@ -292,8 +292,8 @@ void TensorInnerTranspose(
         return;
     }
 
-    ASSERT(self->shape.size() == 3 || self->shape.size() == 4) // input should be 3 or 4 dims
-        << "Transpose shape should be [A1,T1,A2,T2] or [T1,A2,T2].";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self->shape.size() == 3 || self->shape.size() == 4) // input should be 3 or 4 dims
+        << "Transpose shape should be [A1,T1,A2,T2] or [T1,A2,T2]";
 
     // [A1,T1,A2,T2] to [A1,A2,T1,T2] or [T1,A2,T2] to [A2,T1,T2]
     auto oldVecTileShapes = TileShape::Current().GetVecTile();
@@ -407,7 +407,7 @@ bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t> &inputShape,
 
 Tensor Transpose(const Tensor &self, std::vector<int> perm) {
     DECLARE_TRACER();
-    ASSERT(perm.size() == 2) << "Transpose dim num should be 2."; // perm should be 2 dims
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, perm.size() == 2) << "Transpose dim num should be 2."; // perm should be 2 dims
     int shapeSize = self.GetShape().size();
     if (perm[0] < 0) {
         perm[0] += shapeSize;
@@ -415,20 +415,20 @@ Tensor Transpose(const Tensor &self, std::vector<int> perm) {
     if (perm[1] < 0) {
         perm[1] += shapeSize;
     }
-    ASSERT(perm[0] < shapeSize && perm[0] >= 0) << "Transpose dim 0 is invalid.";
-    ASSERT(perm[1] < shapeSize && perm[1] >= 0) << "Transpose dim 1 is invalid.";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, perm[0] < shapeSize && perm[0] >= 0) << "Transpose dim 0 is invalid.";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, perm[1] < shapeSize && perm[1] >= 0) << "Transpose dim 1 is invalid.";
 
     std::sort(perm.begin(), perm.end());
     if ((self.GetShape()[perm[0]] == 1 && self.GetShape()[perm[1]] == 1) || perm[0] == perm[1]) {
         return self;
     }
     auto oldVecTileShapes = TileShape::Current().GetVecTile();
-    ASSERT((int)oldVecTileShapes.size() == shapeSize) << "TileShape dim num should same to input.";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, (int)oldVecTileShapes.size() == shapeSize) << "TileShape dim num should same to input.";
     auto oldValidShapes = self.GetStorage()->GetDynValidShape();
     if (oldValidShapes.empty()) {
         oldValidShapes = SymbolicScalar::FromConcrete(self.GetShape());
     }
-    ASSERT((int)oldValidShapes.size() == shapeSize) << "ValidShape dim num should same to input.";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, (int)oldValidShapes.size() == shapeSize) << "ValidShape dim num should same to input.";
 
     std::vector<int64_t> newInputShape;
     std::vector<int64_t> newVecTileShape;
@@ -539,7 +539,7 @@ void TiledCastOperation(Function &function, const TileShape &tileShape, const in
 template <CastOpType T>
 void TiledCastOperation(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const LogicalTensorPtr &result, const CastMode &mode, const SaturationMode &satmode) {
-    ASSERT(operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset should be equal";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset should be equal";
 
     TileInfo tileInfo(result->shape.size(), result->offset.size());
     auto input = Input{operand, tileInfo};
@@ -548,7 +548,7 @@ void TiledCastOperation(Function &function, const TileShape &tileShape, const Lo
 
 Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode, SaturationMode satmode) {
     DECLARE_TRACER();
-    ASSERT(self.GetShape().size() == self.GetStorage()->offset.size()) << "The shape size of self and offset should be equal";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self.GetShape().size() == self.GetStorage()->offset.size()) << "The shape size of self and offset should be equal";
     // Cast to same dType with no mode will do nothing
     if (self.GetStorage()->tensor->datatype == dstDataType && (mode == CAST_NONE || mode == CAST_RINT)) {
         return self;
@@ -572,18 +572,18 @@ void CheckCat(const std::vector<Tensor> &tensors, int axis) {
     auto shapeSize = shape.size();
     auto dataType = tensors[0].GetDataType();
 
-    ASSERT(SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM4) << "The support dimension must be 2 to 4 dimensions";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM4) << "The support dimension must be 2 to 4 dimensions";
     std::vector<DataType> CAT_SUPPORT_DATATYPES = {DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32,
         DataType::DT_INT16, DataType::DT_INT8, DataType::DT_BF16};
-    ASSERT(
+    ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED,
         std::find(CAT_SUPPORT_DATATYPES.begin(), CAT_SUPPORT_DATATYPES.end(), dataType) != CAT_SUPPORT_DATATYPES.end()) << "The datatype is not within the supported range";
 
     CheckAxisRange(tensors[0], axis);
     for (auto tensor : tensors) {
-        ASSERT(tensor.GetShape().size() == shapeSize) << "The shape size of all tensors should be equal";
-        ASSERT(tensor.Format() == format) << "The format of all tensors should be equal";
-        ASSERT(tensor.GetStorage() != nullptr) << "Each input must not be a null pointer";
-        ASSERT(tensor.GetDataType() == dataType) << "The dataType of all tensors should be equal";
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, tensor.GetShape().size() == shapeSize) << "The shape size of all tensors should be equal";
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, tensor.Format() == format) << "The format of all tensors should be equal";
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, tensor.GetStorage() != nullptr) << "Each input must not be a null pointer";
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, tensor.GetDataType() == dataType) << "The dataType of all tensors should be equal";
     }
 
     for (auto tensor : tensors) {
@@ -591,7 +591,7 @@ void CheckCat(const std::vector<Tensor> &tensors, int axis) {
             if (i == axis) {
                 continue;
             }
-            ASSERT(shape[i] == tensor.GetShape()[i]) << "The shape of all tensors should be equal except at axis";
+            ASSERT(VectorErrorCode::ERR_PARAM_INVALID, shape[i] == tensor.GetShape()[i]) << "The shape of all tensors should be equal except at axis";
         }
     }
 }
@@ -653,8 +653,8 @@ void ExpandOperationTileFunc(Function &function, const TileShape &tileShape,
 
 inline void CastOperationOperandCheck(
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand) {
-    ASSERT(iOperand.size() == 1) << "The input operand size should be 1";
-    ASSERT(oOperand.size() == 1) << "The output operand size should be 1";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, iOperand.size() == 1) << "The input operand size should be 1";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, oOperand.size() == 1) << "The output operand size should be 1";
 }
 
 void CastOperationTileFunc(Function &function, const TileShape &tileShape,
