@@ -1642,20 +1642,23 @@ std::string CodeGenOpCloudNPU::PrintPreluTileTensor() const {
     return oss.str();
 }
 
+
 std::string CodeGenOpCloudNPU::PrintPadTileTensor() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
-    auto c = extOperandVal.Cast<float>();
-    std::string padValue = "pto::PadValue::Zero";
-    if (c < 0) {
-        padValue = "pto::PadValue::Min";
-    } else if (c > 0) {
-        padValue = "pto::PadValue::Max";
-    }
-    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor};
+    
+    std::string padValueStr = FormatFloat(extOperandVal.Cast<float>());
 
+    if (padValueStr.find('.') == std::string::npos && 
+        padValueStr.find('e') == std::string::npos && 
+        padValueStr.find('E') == std::string::npos) {
+        padValueStr += ".0";
+    }
+    
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor};
     std::ostringstream oss;
-    oss << tileOpName << "<" << padValue << ">";
+    oss << "constexpr auto pad_val_" << tileOpName << " = pto::PadValueCustom(" << padValueStr << "f);\n";
+    oss << tileOpName << "<pad_val_" << tileOpName << ">";
     oss << WrapParamByParentheses(tileOpParamList);
     oss << STMT_END;
     return oss.str();
