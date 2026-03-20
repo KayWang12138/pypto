@@ -26,9 +26,10 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
-def binary_search_iteration(cce_file, test_cmd, run_dir, left, right):
+def binary_search_iteration(cce_file, test_cmd, run_dir, left, right, ERROR_IN_T):
     logger.info("二分查找迭代: left=%d, right=%d", left, right)
     logger.info("CCE 文件: %s", cce_file)
+    logger.info("ERROR_IN_T: %s", ERROR_IN_T)
     logger.info("")
     
     backup_file = cce_file + ".bak"
@@ -36,7 +37,7 @@ def binary_search_iteration(cce_file, test_cmd, run_dir, left, right):
     cce_lines = read_file(cce_file)
     original_lines = cce_lines.copy()
     
-    commentable_lines = get_commentable_lines(cce_lines)
+    commentable_lines = get_commentable_lines(cce_lines, ERROR_IN_T)
     
     if not commentable_lines:
         logger.info("错误：没有可注释的行")
@@ -85,7 +86,7 @@ def binary_search_iteration(cce_file, test_cmd, run_dir, left, right):
 
 
 def print_usage():
-    logger.info("用法: python3 binary_search_iteration.py <cce_file> <test_cmd> <run_dir> <left> <right>")
+    logger.info("用法: python3 binary_search_iteration.py <cce_file> <test_cmd> <run_dir> <left> <right> <ERROR_IN_T>")
     logger.info("")
     logger.info("参数说明:")
     logger.info("  cce_file: CCE 文件路径")
@@ -93,6 +94,7 @@ def print_usage():
     logger.info("  run_dir: 运行测试命令的目录路径")
     logger.info("  left: 二分查找左边界")
     logger.info("  right: 二分查找右边界")
+    logger.info("  ERROR_IN_T: 错误是否在T操作中 (True/False)")
     logger.info("")
     logger.info("输出格式:")
     logger.info("  NEXT_LEFT <next_left>")
@@ -101,7 +103,7 @@ def print_usage():
 
 
 def main():
-    if len(sys.argv) < 6:
+    if len(sys.argv) < 7:
         print_usage()
         sys.exit(1)
     
@@ -110,6 +112,7 @@ def main():
     run_dir = sys.argv[3]
     left = int(sys.argv[4])
     right = int(sys.argv[5])
+    ERROR_IN_T = sys.argv[6].lower() == 'true'
     
     cce_file = os.path.abspath(cce_file)
     run_dir = os.path.abspath(run_dir)
@@ -124,7 +127,7 @@ def main():
         logger.info(error_msg)
         sys.exit(1)
     
-    new_left, new_right, problem_line = binary_search_iteration(cce_file, test_cmd, run_dir, left, right)
+    new_left, new_right, problem_line = binary_search_iteration(cce_file, test_cmd, run_dir, left, right, ERROR_IN_T)
     
     if new_left is not None:
         logger.info(f"NEXT_LEFT {new_left}")
