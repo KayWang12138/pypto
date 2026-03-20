@@ -18,6 +18,7 @@
 #include "interface/operation/operation_common.h"
 #include "interface/function/function.h"
 #include "interface/program/program.h"
+#include "interface/operation/vector/tensor_transformation.h"
 
 namespace npu::tile_fwk {
 
@@ -197,6 +198,47 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int ax
     // Determine quantization type based on zeroPoints presence
     bool isAsymmetric = (zeroPoints.GetStorage() != nullptr);
 
+    // For axis=-2 (per-column quantization), use Transpose to swap last two dimensions
+    // Strategy: transpose input and scale -> quantize with axis=-1 -> transpose output back
+    if (normalizedAxis == -2) {
+        // Swap last two dimensions: [..., H, W] -> [..., W, H]
+        int lastDim = ndim - 1;        // -1 in positive index
+        int secondLastDim = ndim - 2;  // -2 in positive index
+
+        // Transpose input: [..., H, W] -> [..., W, H]
+        Tensor transposedInput = Transpose(input, {secondLastDim, lastDim});
+
+        // Transpose scale: scale shape is [..., 1, W] -> [..., W, 1]
+        Tensor transposedScale = Transpose(scale, {secondLastDim, lastDim});
+
+        if (isAsymmetric) {
+            // Transpose zeroPoints: [..., 1, W] -> [..., W, 1]
+            Tensor transposedZeroPoints = Transpose(zeroPoints, {secondLastDim, lastDim});
+
+            // Asymmetric quantization with axis=-1
+            ASSERT(otype == DataType::DT_UINT8 || otype == DataType::DT_INT8)
+                << "Asymmetric quantization output type should be UINT8 or INT8";
+            Tensor quantizedResult = TensorQuantizeAsymmetricOperation(
+                *Program::GetInstance().GetCurrentFunction(),
+                transposedInput.GetStorage(), transposedScale.GetStorage(),
+                transposedZeroPoints.GetStorage(), -1);
+
+            // Transpose output back: [..., W, H] -> [..., H, W]
+            return Transpose(quantizedResult, {secondLastDim, lastDim});
+        } else {
+            // Symmetric quantization with axis=-1
+            ASSERT(otype == DataType::DT_INT8)
+                << "Symmetric quantization output type should be INT8";
+            Tensor quantizedResult = TensorQuantizeSymmetricOperation(
+                *Program::GetInstance().GetCurrentFunction(),
+                transposedInput.GetStorage(), transposedScale.GetStorage(), -1);
+
+            // Transpose output back: [..., W, H] -> [..., H, W]
+            return Transpose(quantizedResult, {secondLastDim, lastDim});
+        }
+    }
+
+    // axis=-1 case: direct quantization without transpose
     if (isAsymmetric) {
         // Asymmetric quantization: FP32 -> UINT8
         ASSERT(otype == DataType::DT_UINT8 || otype == DataType::DT_INT8)
