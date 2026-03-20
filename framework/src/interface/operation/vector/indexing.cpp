@@ -506,10 +506,6 @@ void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &
 
     // 按照dstShape进行切分
     auto &vecTile = tileShape.GetVecTile();
-    if (vecTile[axis] < std::max(dstTensor->shape[axis], idxInput->shape[axis])) {
-        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld", 	 
-            axis, vecTile[axis], dstTensor->shape[axis], idxInput->shape[axis]);
-    }
     ASSERT(vecTile[axis] >= dstTensor->shape[axis]) << "The axis is not supported for tile splitting";
     ASSERT(vecTile[axis] >= idxInput->shape[axis]) << "The axis is not supported for tile splitting";
     int64_t tmpTile = vecTile[cur];
@@ -649,10 +645,6 @@ void InnerTiledScatter(size_t cur, Function &function, const TileShape &tileShap
 
     // 按照dstShape进行切分
     auto &vecTile = tileShape.GetVecTile();
-    if (vecTile[axis] < std::max(dstTensor->shape[axis], idxInput->shape[axis])) {
-        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld", 	 
-            axis, vecTile[axis], dstTensor->shape[axis], idxInput->shape[axis]);
-    }
     ASSERT(vecTile[axis] >= dstTensor->shape[axis]) << "The axis is not supported for tile splitting";
     ASSERT(vecTile[axis] >= idxInput->shape[axis]) << "The axis is not supported for tile splitting";
     int64_t tmpTile = vecTile[cur];
@@ -881,14 +873,10 @@ void TiledScatterUpdateFor2Dims(Function &function, const TileShape &tileShape, 
     int64_t tileBS = vecTile[NUM_VALUE_0];
     int64_t tileD = vecTile[NUM_VALUE_1];
     int64_t s = index->shape[1];
-    if (s == 0 || tileBS == 0) {
-        ALOG_ERROR_F("error: s == 0 || tileBS == 0");
-        ASSERT(s == 0 || tileBS == 0);
-    }
-    if ((tileBS < s && s % tileBS != 0) || (tileBS > s && tileBS % s != 0)) {
-        ALOG_ERROR_F("tileshape 0 is invalid, tileshape(%d, %d)", tileBS, tileD);
-    }
-    ASSERT((tileBS <= s && s % tileBS == 0) || (tileBS > s && tileBS % s == 0));
+    ASSERT(s != 0) << "1 dim of index is zero.";
+    ASSERT(tileBS != 0) << "0 dim of tileshape is zero.";
+    ASSERT((tileBS <= s && s % tileBS == 0) || (tileBS > s && tileBS % s == 0))
+        << "tileshape 0 is invalid, tileshape(" << tileBS << ", " << tileD << ")";
     ASSERT(tileD == src->shape[NUM_VALUE_1]) << "The tileD and src shape[0] should be equal";
     int64_t tileB = CeilDiv(tileBS, s);
     int64_t tileS = tileBS < s ? tileBS : s;
@@ -942,14 +930,12 @@ void TiledScatterUpdate(Function &function, const TileShape &tileShape, const Lo
     const LogicalTensorPtr &src, const LogicalTensorPtr &index, const LogicalTensorPtr &dst, int axis,
     std::string cacheMode, int blockSize) {
     if (cacheMode == "PA_BSND") {
+        ASSERT(src->shape.size() == NUM_VALUE_2 || src->shape.size() == NUM_VALUE_4) << "shape must be 2 or 4";
         if (src->shape.size() == NUM_VALUE_2) {
             TiledScatterUpdateFor2Dims(function, tileShape, result, src, index, dst, axis, cacheMode, blockSize);
         } else if (src->shape.size() == NUM_VALUE_4) {
             TiledScatterUpdateFor4Dims(function, tileShape, result, src, index, dst, axis, cacheMode, blockSize);
-        } else {
-            ALOG_ERROR_F("shape must be 2 or 4");
         }
-        ASSERT(src->shape.size() == NUM_VALUE_2 || src->shape.size() == NUM_VALUE_4);
         return;
     }
     // Check Operands Valid
@@ -990,13 +976,6 @@ void TensorScatterUpdate(Function &function, const LogicalTensorPtr &result, con
 }
 
 static void CheckScatterUpdateInput(const Tensor &input) {
-    if ((input.GetShape().size() == NUM_VALUE_2 &&
-            (input.GetShape(NUM_VALUE_0) == NUM_VALUE_0 || input.GetShape(NUM_VALUE_1) == NUM_VALUE_0)) ||
-        (input.GetShape().size() == NUM_VALUE_4 &&
-            (input.GetShape(NUM_VALUE_0) == NUM_VALUE_0 || input.GetShape(NUM_VALUE_1) == NUM_VALUE_0 ||
-                input.GetShape(NUM_VALUE_2) == NUM_VALUE_0 || input.GetShape(NUM_VALUE_3) == NUM_VALUE_0))) {
-        ALOG_ERROR_F("input shape is zero");
-    }
     ASSERT((input.GetShape().size() == NUM_VALUE_2 &&
                (input.GetShape(NUM_VALUE_0) != NUM_VALUE_0 && input.GetShape(NUM_VALUE_1) != NUM_VALUE_0)) ||
            (input.GetShape().size() == NUM_VALUE_4 &&
@@ -1008,25 +987,14 @@ static void CheckScatterUpdateInput(const Tensor &input) {
 }
 
 static void CheckScatterUpdateIndex(const Tensor &index) {
-    if (index.GetDataType() != DT_INT64 && index.GetDataType() != DT_INT32 && index.GetDataType() != DT_INT16) {
-        ALOG_ERROR_F(
-            "index.GetDataType() != DT_INT64 && index.GetDataType() != DT_INT32 && index.GetDataType() != DT_INT16");
-    }
     ASSERT(index.GetDataType() == DT_INT64 || index.GetDataType() == DT_INT32 || index.GetDataType() == DT_INT16)
         << "The datatype of input is not supported";
-    if (index.GetShape().size() != NUM_VALUE_2 || index.GetShape(NUM_VALUE_0) == NUM_VALUE_0 ||
-        index.GetShape(NUM_VALUE_1) == NUM_VALUE_0) {
-        ALOG_ERROR_F("index.GetShape().size() is %d, shoud be 2", index.GetShape().size());
-    }
     ASSERT(index.GetShape().size() == NUM_VALUE_2 && index.GetShape(NUM_VALUE_0) != NUM_VALUE_0 &&
            index.GetShape(NUM_VALUE_1) != NUM_VALUE_0)
         << "The shape of index is invaild";
 }
 
 static void CheckScatterUpdateInvalid(const Tensor &dst, const Tensor &index, const Tensor &src) {
-    if (src.GetShape().size() != dst.GetShape().size()) {
-        ALOG_ERROR_F("src.GetShape().size() == dst.GetShape().size()");
-    }
     ASSERT(src.GetShape().size() == dst.GetShape().size()) << "The shape size of src and dst should be equal";
     CheckScatterUpdateIndex(index);
     CheckScatterUpdateInput(src);

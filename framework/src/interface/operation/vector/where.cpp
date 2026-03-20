@@ -330,7 +330,7 @@ LogicalTensorPtr TensorWhereOperation(
         conditionT0 = BinaryOperationUnsqueeze(conditionT0, resultShape);
         ShrinkTensorLastDimension(conditionT0);
     } else {
-        ALOG_ERROR_F("condition Datatype must be uint8 or bool.");
+        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false) << "condition Datatype must be uint8 or bool.";
     }
 
     inputT1 = BinaryOperationUnsqueeze(inputT1, resultShape);
@@ -369,7 +369,7 @@ LogicalTensorPtr TensorWhereOperation(
         conditionT0 = BinaryOperationUnsqueeze(conditionT0, resultShape);
         ShrinkTensorLastDimension(conditionT0);
     } else {
-        ALOG_ERROR_F("condition Datatype must be uint8 or bool.");
+        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false) << "condition Datatype must be uint8 or bool.";
     }
     inputT1 = BinaryOperationUnsqueeze(inputT1, resultShape);
     std::vector<SymbolicScalar> resultValidShape = GetResultValidShape(conditionT0, inputT1, other, resultShape);
@@ -406,7 +406,7 @@ LogicalTensorPtr TensorWhereOperation(
         conditionT0 = BinaryOperationUnsqueeze(conditionT0, resultShape);
         ShrinkTensorLastDimension(conditionT0);
     } else {
-        ALOG_ERROR_F("condition Datatype must be uint8 or bool.");
+        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false) << "condition Datatype must be uint8 or bool.";
     }
     otherT1 = BinaryOperationUnsqueeze(otherT1, resultShape);
     std::vector<SymbolicScalar> resultValidShape = GetResultValidShape(conditionT0, input, otherT1, resultShape);
@@ -432,7 +432,7 @@ LogicalTensorPtr TensorWhereOperation(
         resultShape = GetBroadCastShapeReturnInt64_t(conditionT0, conditionT0);
         ShrinkTensorLastDimension(conditionT0);
     } else {
-        ALOG_ERROR_F("condition Datatype must be uint8 or bool.");
+        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false) << "condition Datatype must be uint8 or bool.";
     }
     std::vector<SymbolicScalar> resultValidShape = conditionT0->GetDynValidShape();
     if (conditionT0->Datatype() == DT_UINT8) {
