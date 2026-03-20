@@ -16,6 +16,7 @@
 #include "unary.h"
 #include "interface/configs/config_manager.h"
 #include "interface/utils/operator_tracer.h"
+#include "interface/utils/vector_error.h"
 
 namespace npu::tile_fwk {
 
@@ -224,9 +225,9 @@ void ReduceSingle(size_t cur, const std::string &op, Input &input, const Logical
 
 void TiledReduceSingle(Function &function, const TileShape &tileShape, const std::string &op,
     const LogicalTensorPtr &operand, const LogicalTensorPtr &result, int axis) {
-    ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "PROD" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS")
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, op == "MAX" || op == "MIN" || op == "SUM" || op == "PROD" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS")
         << "Not support op:" << op;
-    ASSERT(operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset should be equal";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset should be equal";
 
     if (axis < 0) {
         axis = operand->shape.size() + axis;
@@ -245,9 +246,9 @@ void TiledReduceSingle(Function &function, const TileShape &tileShape, const std
 
 [[maybe_unused]] void TensorReduceSingle(
     Function &function, const std::string &op, const Tensor &operand, Tensor &result, int axis) {
-    ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "PROD" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS")
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, op == "MAX" || op == "MIN" || op == "SUM" || op == "PROD" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS")
         << "Not support op:" << op;
-    ASSERT(operand.GetShape().size() == operand.GetStorage()->offset.size())
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand.GetShape().size() == operand.GetStorage()->offset.size())
         << "The shape size of operand and offset should be equal";
     auto opCode = Opcode::OP_ROWMAX_SINGLE;
     if (op == "MAX") {
@@ -292,7 +293,7 @@ static void ValidateReductionAxis(const Tensor& self, int axis) {
     auto vecTile = TileShape::Current().GetVecTile();
 
     if (axis == lastDim) {
-        ASSERT(vecTile[lastDim] % alignNum == 0) 
+        ASSERT(VectorErrorCode::ERR_CONFIG_ALIGNMENT, vecTile[lastDim] % alignNum == 0) 
         << "Reduce op: the tileShape of last axis need to 32Byte align!";
     }
 }
@@ -401,12 +402,12 @@ Tensor Prod(const Tensor &self, int axis, bool keepDim) {
 
 void TiledReduceExpand(Function &function, const TileShape &tileShape, const std::string &op,
     const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
-    ASSERT(op == "MAX" || op == "SUM") << "Not support op:" << op;
-    ASSERT(operand->shape.size() == operand->offset.size());
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, op == "MAX" || op == "SUM") << "Not support op:" << op;
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset should be equal";
 
     // 目前只支持2维操作
     if (operand->shape.size() != 2) {
-        ASSERT(false && "unsupported dimension");
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unsupported dimension";
     }
 
     auto &vecTile = tileShape.GetVecTile();
@@ -426,8 +427,8 @@ void TiledReduceExpand(Function &function, const TileShape &tileShape, const std
 }
 
 void TensorReduceExpand(Function &function, const std::string &op, const Tensor &operand, const Tensor &result) {
-    ASSERT(op == "MAX" || op == "SUM") << "Not support op:" << op;
-    ASSERT(operand.GetShape().size() == operand.GetStorage()->offset.size())
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, op == "MAX" || op == "SUM") << "Not support op:" << op;
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand.GetShape().size() == operand.GetStorage()->offset.size())
         << "The shape size of operand and offset must be equal";
     function.AddOperation(
         op == "MAX" ? Opcode::OP_ROWEXPMAX : Opcode::OP_ROWEXPSUM, {operand.GetStorage()}, {result.GetStorage()});
@@ -444,7 +445,7 @@ void TiledReduceExpandNew(Function &function, const TileShape &tileShape, const 
     const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
     // 目前只支持2维操作
     if (operand->shape.size() != 2) {
-        ASSERT(false && "unsupported dimension");
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unsupported dimension";
     }
     auto &vecTile = tileShape.GetVecTile();
     TileInfo tileInfo({vecTile[0], operand->shape[1]}, std::vector<int64_t>(operand->offset.size()));
