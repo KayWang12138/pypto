@@ -1762,7 +1762,7 @@ std::string CodeGenOpCloudNPU::GetConvCopyInMode() const {
     int64_t copyInMode = -1;
     std::string copyInModeStr = "";
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyInMode, copyInMode);
-    ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret) << ": GenMemL1CopyInConv get CopyInMode failed.";
+    ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret) << "GenMemL1CopyInConv get CopyInMode failed.";
 
     if (copyInMode == ToUnderlying(Matrix::CopyInMode::ND2NZ)) {
         copyInModeStr = "CopyInMode::ND2NZ";
@@ -1772,7 +1772,7 @@ std::string CodeGenOpCloudNPU::GetConvCopyInMode() const {
         copyInModeStr = "CopyInMode::DN2NZ";
     } else {
         ASSERT(ConvCodenGenError::CODEGEN_CHECK_ATTR_INVALID, false) <<
-            ": GenMemL1CopyInConv check CopyInMode failed.";
+            "GenMemL1CopyInConv check CopyInMode failed.";
     }
     return copyInModeStr;
 }
@@ -1834,7 +1834,7 @@ std::string CodeGenOpCloudNPU::GetConvCopyOutMode() const {
     int64_t copyOutMode = -1;
     std::string copyOutModeStr = "";
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyOutMode, copyOutMode);
-    ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret) << ": GenMemL1CopyOutConv get CopyOutMode failed";
+    ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret) << "GenMemL1CopyOutConv get CopyOutMode failed";
     if (copyOutMode == ToUnderlying(Matrix::CopyOutMode::NZ2ND)) {
         copyOutModeStr = "CopyOutMode::NZ2ND";
     } else if (copyOutMode == ToUnderlying(Matrix::CopyOutMode::NZ2NZ)) {
@@ -1939,7 +1939,8 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
 
     std::vector<int64_t> fmapL0Shape = this->rawShape[ID0];
     ALOG_INFO_F("GenMemL1ToL0Load3D %s, fmapL0Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL0Shape).c_str());
-    ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, fmapL0Shape.size() == SHAPE_DIM2) << "GenMemL1ToL0Load3D L0 fmap only support 2-dim!";
+    ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, fmapL0Shape.size() == SHAPE_DIM2)
+        << "GenMemL1ToL0Load3D L0 fmap only support 2-dim!";
 
     bool isConv3D = false;
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
@@ -1969,7 +1970,8 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
 
     std::vector<int64_t> weightL0Shape = this->rawShape[ID0];
     ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL0Shape is %s", tileOpName.c_str(), IntVecToStr(weightL0Shape).c_str());
-    ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, weightL0Shape.size() == SHAPE_DIM2) << "GenMemL1ToL0Load2D L0 weight only support 2-dim!";
+    ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, weightL0Shape.size() == SHAPE_DIM2)
+        << "GenMemL1ToL0Load2D L0 weight only support 2-dim!";
 
     std::ostringstream oss;
     oss << tileOpName.c_str() << WrapParamByParentheses(paramList) << STMT_END;

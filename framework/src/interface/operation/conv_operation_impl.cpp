@@ -341,8 +341,8 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
     CheckDivisible(cinFmap, groups, "Cin", "groups");
     CheckDivisible(cOut, groups, "Cout", "groups");
 
-    ASSERT(ConvOperationError::INPUT_INVALID, cinFmap == cinWeight * groups) <<
-        "Fmap Cin (" << cinFmap << ") != weight Cin (" << cinWeight << ") * groups (" << groups << ").";
+    ASSERT(ConvOperationError::INPUT_INVALID, cinFmap == cinWeight * groups)
+        << "Fmap Cin (" << cinFmap << ") != weight Cin (" << cinWeight << ") * groups (" << groups << ").";
 }
 
 void CheckDimParam(const std::vector<int64_t>& vec, const std::string& name, int expectedDim)
