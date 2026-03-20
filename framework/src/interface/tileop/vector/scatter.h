@@ -197,4 +197,154 @@ TILEOP void Tscatter(T0 dst, T1 src1, T2 src2, T3 tmp) {
     }
 }
 
+template <int axis, int scatterMode, typename T0, typename T1, typename T2, typename T3, typename C>
+TILEOP void Tscatter(T0 dst, T1 src1, T2 src2, T3 temp, C coordinate) {
+    static_assert(scatterMode >= 0 && scatterMode < SCATTER_MODE_MAX, "Unsupported scatterMode");
+    constexpr size_t expectSize = 5;
+    const auto dstLayout = dst.GetLayout();
+    auto d0Shape = dstLayout.template GetShapeDim<0, expectSize>();
+    auto d1Shape = dstLayout.template GetShapeDim<1, expectSize>();
+    auto d2Shape = dstLayout.template GetShapeDim<2, expectSize>();
+    auto d3Shape = dstLayout.template GetShapeDim<3, expectSize>();
+    auto d4Shape = dstLayout.template GetShapeDim<4, expectSize>();
+    auto d0Stride = dstLayout.template GetStrideDim<0, expectSize>();
+    auto d1Stride = dstLayout.template GetStrideDim<1, expectSize>();
+    auto d2Stride = dstLayout.template GetStrideDim<2, expectSize>();
+    auto d3Stride = dstLayout.template GetStrideDim<3, expectSize>();
+
+    const auto idxLayout = src1.GetLayout();
+    auto i0Shape = idxLayout.template GetShapeDim<0, expectSize>();
+    auto i1Shape = idxLayout.template GetShapeDim<1, expectSize>();
+    auto i2Shape = idxLayout.template GetShapeDim<2, expectSize>();
+    auto i3Shape = idxLayout.template GetShapeDim<3, expectSize>();
+    auto i4Shape = idxLayout.template GetShapeDim<4, expectSize>();
+    auto i0Stride = idxLayout.template GetStrideDim<0, expectSize>();
+    auto i1Stride = idxLayout.template GetStrideDim<1, expectSize>();
+    auto i2Stride = idxLayout.template GetStrideDim<2, expectSize>();
+    auto i3Stride = idxLayout.template GetStrideDim<3, expectSize>();
+    const auto srcLayout = src2.GetLayout();
+    auto s0Stride = srcLayout.template GetStrideDim<0, expectSize>();
+    auto s1Stride = srcLayout.template GetStrideDim<1, expectSize>();
+    auto s2Stride = srcLayout.template GetStrideDim<2, expectSize>();
+    auto s3Stride = srcLayout.template GetStrideDim<3, expectSize>();
+    
+    constexpr auto dstTypeSize = sizeof(typename T0::Type);
+    constexpr auto idxTypeSize = sizeof(typename T1::Type);
+    constexpr auto srcTypeSize = sizeof(typename T2::Type);
+    constexpr auto idxTileH = TileOp::GetTensorTileShapeDim<T1, 3, 5>();
+    constexpr auto idxTileW = TileOp::GetTensorTileShapeDim<T1, 4, 5>();
+    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T2, 3, 5>();
+    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T2, 4, 5>();
+    //modify
+    using ShapeDim5 = pto::Shape<-1, -1, -1, -1, -1>;
+    using StrideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
+    using GlobalData = pto::GlobalTensor<typename T0::Type, ShapeDim5, StrideDim5>;
+ 
+#ifdef __DAV_V220
+    constexpr bool isV220 = true;
+#else
+    constexpr bool isV220 = false;
+#endif
+    constexpr auto srcTileShape1 = TileOp::GetOutterAxisMergeResult<shapeSize, typename T1::TileShape>();   
+    auto dstBaseOffset = dstLayout.template GetGmOffset<C, expectSize>(coordinate);
+    __gm__ typename T0::Type* dstBaseAddr = reinterpret_cast<__gm__ typename T0::Type*>(dst.GetAddr()) + dstBaseOffset;
+    __ubuf__ typename T1::Type* idxBaseAddr = reinterpret_cast<__ubuf__ typename T1::Type*>(src1.GetAddr());
+    __ubuf__ typename T2::Type* srcBaseAddr = reinterpret_cast<__ubuf__ typename T2::Type*>(src2.GetAddr());
+    constexpr bool useScalarPath = isV220 || (scatterMode == 2);
+    if constexpr (useScalarPath) {
+        for (LoopVar i = 0; i < i0Shape; ++i) {
+            for (LoopVar j = 0; j < i1Shape; ++j) {
+                for (LoopVar k = 0; k < i2Shape; ++k) {
+                    for (LoopVar l = 0; l < i3Shape; ++l) {
+                        for (LoopVar m = 0; m < i4Shape; ++m) {
+                            typename T1::Type index = *(idxBaseAddr + i * i0Stride + j * i1Stride + k * i2Stride + l * i3Stride + m);
+                            typename T2::Type srcVal = *(srcBaseAddr + i * s0Stride + j * s1Stride + k * s2Stride + l * s3Stride + m);
+                            int64_t localOffset = 0;
+                            if constexpr (axis == 0) {
+                                localOffset = static_cast<int64_t>(index) * d0Stride + j * d1Stride + k * d2Stride + l * d3Stride + m;
+                            } else if constexpr (axis == 1) {
+                                localOffset = i * d0Stride + static_cast<int64_t>(index) * d1Stride + k * d2Stride + l * d3Stride + m;
+                            } else if constexpr (axis == 2) {
+                                localOffset = i * d0Stride + j * d1Stride + static_cast<int64_t>(index) * d2Stride + l * d3Stride + m;
+                            } else if constexpr (axis == 3) {
+                                localOffset = i * d0Stride + j * d1Stride + k * d2Stride + static_cast<int64_t>(index) * d3Stride + m;
+                            } else {
+                                localOffset = i * d0Stride + j * d1Stride + k * d2Stride + l * d3Stride + static_cast<int64_t>(index);
+                            }
+                            if constexpr (scatterMode == 0) {
+                                dstBaseAddr[localOffset] = srcVal;
+                            } else if constexpr (scatterMode == 1) {
+                                dstBaseAddr[localOffset] += srcVal;
+                            } else if constexpr (scatterMode == 2) {
+                                dstBaseAddr[localOffset] *= srcVal;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+    } else {
+        __ubuf__ uint32_t* offsetBuf = reinterpret_cast<__ubuf__ uint32_t*>(temp.GetAddr());
+        constexpr bool useMScatter = (scatterMode == 0 || scatterMode == 1);
+        if constexpr (useMScatter) {
+            using SrcType = typename T2::Type;
+            using IdxType = typename T1::Type;
+
+            using SrcTileType = pto::Tile<pto::TileType::Vec, SrcType, srcTileH, srcTileW, pto::BLayout::RowMajor>;
+            using OffsetTileType = pto::Tile<pto::TileType::Vec, IdxType, idxTileH, idxTileW, pto::BLayout::RowMajor>;
+
+            for (LoopVar i = 0; i < i0Shape; ++i) {
+                for (LoopVar j = 0; j < i1Shape; ++j) {
+                    for (LoopVar k = 0; k < i2Shape; ++k) {
+                        for (LoopVar l = 0; l < i3Shape; ++l) {
+                            // 填充 offsetBuf: [NUM_COLS] 个偏移量
+                            for (LoopVar m = 0; m < i4Shape; ++m) {
+                                IdxType localIdx = *(idxBaseAddr + i * i0Stride + j * i1Stride + k * i2Stride + l * i3Stride + m);
+                                int64_t elemOffset = 0;
+                                if constexpr (axis == 0) {
+                                    elemOffset = static_cast<int64_t>(localIdx) * d0Stride + j * d1Stride + k * d2Stride + l * d3Stride + m;
+                                } else if constexpr (axis == 1) {
+                                    elemOffset = i * d0Stride + static_cast<int64_t>(localIdx) * d1Stride + k * d2Stride + l * d3Stride + m;
+                                } else if constexpr (axis == 2) {
+                                    elemOffset = i * d0Stride + j * d1Stride + static_cast<int64_t>(localIdx) * d2Stride + l * d3Stride + m;
+                                } else if constexpr (axis == 3) {
+                                    elemOffset = i * d0Stride + j * d1Stride + k * d2Stride + static_cast<int64_t>(localIdx) * d3Stride + m;
+                                } else {
+                                    elemOffset = i * d0Stride + j * d1Stride + k * d2Stride + l * d3Stride + static_cast<int64_t>(localIdx);
+                                }
+                                offsetBuf[l * i3Shape + m] = static_cast<uint32_t>(elemOffset);
+                            }   
+                        }
+                        // 构造 Tile
+                        SrcTileType srcTile;
+                        OffsetTileType offsetTile;
+
+                        // 地址对齐到当前 (i,j,k,l) 块的起始位置
+                        uint64_t srcTileAddr = reinterpret_cast<uint64_t>(
+                            srcBaseAddr + i * s0Stride + j * s1Stride + k * s2Stride + l * s3Stride
+                        );
+                        GlobalData dstGlobal(dstBaseAddr, pto::Shape(1, 1, 1, d3Shape, d4Shape), pto::Stride(0, 0, 0, d3Stride, 1));
+                        pto::TASSIGN(srcTile, srcTileAddr);
+                        pto::TASSIGN(offsetTile, reinterpret_cast<uint64_t>(offsetBuf));
+
+                        // 调用 MSCATTER
+                        if constexpr (scatterMode == 0) {
+                            pto::MSCATTER<pto::ScatterAtomicOp::None, pto::ScatterOOB::Skip>(
+                                dstGlobal, srcTile, offsetTile
+                            );
+                        } else if constexpr (scatterMode == 1) {
+                            pto::MSCATTER<pto::ScatterAtomicOp::Add, pto::ScatterOOB::Skip>(
+                                dstGlobal, srcTile, offsetTile
+                            );
+                        }
+                    }
+                }
+            }
+            set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+            wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+        }
+    }  
+}                            
 #endif
