@@ -207,6 +207,10 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
         UpdateElewiseStatus(op, tensorStatus_);
         return;
     }
+    if (outputTensor->GetShape().back() == 1) { // 非白名单Op，虽然尾轴为1，仍不支持合轴
+        tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
+        return;
+    }
     tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;
 }
 
