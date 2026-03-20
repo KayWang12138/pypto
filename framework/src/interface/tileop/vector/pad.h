@@ -64,10 +64,9 @@ TILEOP void TPad(DstTensor dst, SrcTensor src) {
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                 auto srcAddr = src.GetAddr() + srcOffset * sizeof(SrcDtype);
                 pto::TASSIGN(srcTile, srcAddr);
-                pto::TFILLPAD_EXPAND(dstTile, srcTile);
+                pto::TFILLPAD(dstTile, srcTile);
             }
         }
     }
 }
-
 #endif
