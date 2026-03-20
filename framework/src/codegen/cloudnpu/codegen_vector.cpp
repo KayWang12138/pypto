@@ -1149,96 +1149,97 @@ std::string CodeGenOpCloudNPU::GenScatterElementSOp() const {
         {axis, scatterMode, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
 }
 
-std::string CodeGenOpCloudNPU::PrintScatterOpDynamicUnaligned(const PrintScatterParam &param) const {
-    const std::string &dstVar = param.dVar;
-    const std::string &src1Var = param.s1Var;
-    const std::string &src2Var = param.s2Var;
-    std::vector<int64_t> dstRawShape = NormalizeShape(param.dstRawShape, SHAPE_DIM4);
-    std::vector<int64_t> src1RawShape = NormalizeShape(param.src1RawShape, SHAPE_DIM4);
-    std::vector<int64_t> src2RawShape = NormalizeShape(param.src2RawShape, SHAPE_DIM4);
-    const std::vector<std::string> &dataTypeExpr = param.dataTypeExpr;
+// std::string CodeGenOpCloudNPU::PrintScatterOpDynamicUnaligned(const PrintScatterParam &param) const {
+//     const std::string &dstVar = param.dVar;
+//     const std::string &src1Var = param.s1Var;
+//     const std::string &src2Var = param.s2Var;
+//     std::vector<int64_t> dstRawShape = NormalizeShape(param.dstRawShape, SHAPE_DIM4);
+//     std::vector<int64_t> src1RawShape = NormalizeShape(param.src1RawShape, SHAPE_DIM4);
+//     std::vector<int64_t> src2RawShape = NormalizeShape(param.src2RawShape, SHAPE_DIM4);
+//     const std::vector<std::string> &dataTypeExpr = param.dataTypeExpr;
 
-    auto dynSrc1Shape = dynamicValidShape[ID3];
-    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrc1Shape, SHAPE_DIM4 - dynamicValidShape[ID3].size(), 1);
+//     auto dynSrc1Shape = dynamicValidShape[ID3];
+//     FillIntVecWithDummyInHead<SymbolicScalar>(dynSrc1Shape, SHAPE_DIM4 - dynamicValidShape[ID3].size(), 1);
 
-    std::vector<std::string> templateParams;
-    templateParams.emplace_back(dataTypeExpr[ID0]);
-    templateParams.emplace_back(dataTypeExpr[ID1]);
-    for (size_t i = 1; i < src1RawShape.size(); ++i) {
-        templateParams.emplace_back(std::to_string(src1RawShape[i]));
-    }
-    for (size_t i = 1; i < src2RawShape.size(); ++i) {
-        templateParams.emplace_back(std::to_string(src2RawShape[i]));
-    }
-    for (size_t i = 1; i < dstRawShape.size(); ++i) {
-        templateParams.emplace_back(std::to_string(dstRawShape[i]));
-    }
-    int axis = param.axis + SHAPE_DIM4 - param.src1RawShape.size();
-    templateParams.emplace_back(std::to_string(axis));
-    templateParams.emplace_back(std::to_string(param.scatterMode));
-    std::string templateParamStr = JoinString(templateParams, ", ");
+//     std::vector<std::string> templateParams;
+//     templateParams.emplace_back(dataTypeExpr[ID0]);
+//     templateParams.emplace_back(dataTypeExpr[ID1]);
+//     for (size_t i = 1; i < src1RawShape.size(); ++i) {
+//         templateParams.emplace_back(std::to_string(src1RawShape[i]));
+//     }
+//     for (size_t i = 1; i < src2RawShape.size(); ++i) {
+//         templateParams.emplace_back(std::to_string(src2RawShape[i]));
+//     }
+//     for (size_t i = 1; i < dstRawShape.size(); ++i) {
+//         templateParams.emplace_back(std::to_string(dstRawShape[i]));
+//     }
+//     int axis = param.axis + SHAPE_DIM4 - param.src1RawShape.size();
+//     templateParams.emplace_back(std::to_string(axis));
+//     templateParams.emplace_back(std::to_string(param.scatterMode));
+//     std::string templateParamStr = JoinString(templateParams, ", ");
 
-    std::vector<std::string> callParams;
-    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ID0] + "*)" + dstVar);
-    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ID1] + "*)" + src1Var);
-    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ID2] + "*)" + src2Var);
-    for (size_t i = 0; i < SHAPE_DIM4; ++i) {
-        callParams.emplace_back(SymbolicExpressionTable::BuildExpression(dynSrc1Shape[i]));
-    }
-    std::string callParamStr = JoinString(callParams, ", ");
+//     std::vector<std::string> callParams;
+//     callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ID0] + "*)" + dstVar);
+//     callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ID1] + "*)" + src1Var);
+//     callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ID2] + "*)" + src2Var);
+//     for (size_t i = 0; i < SHAPE_DIM4; ++i) {
+//         callParams.emplace_back(SymbolicExpressionTable::BuildExpression(dynSrc1Shape[i]));
+//     }
+//     std::string callParamStr = JoinString(callParams, ", ");
 
-    std::ostringstream oss;
-    oss << tileOpName << "<" << templateParamStr << ">(" << callParamStr << ");\n";
-    return oss.str();
-}
+//     std::ostringstream oss;
+//     oss << tileOpName << "<" << templateParamStr << ">(" << callParamStr << ");\n";
+//     return oss.str();
+// }
 
-std::string CodeGenOpCloudNPU::PrintScatterTileTensor(const PrintScatterParam &param) const {
-    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
-    std::string tmpTensor = QueryTileTensorNameByIdx(ID1);
-    std::string src1Tensor = QueryTileTensorNameByIdx(ID3);
-    std::string src2Tensor = QueryTileTensorNameByIdx(ID4);
-    std::vector<std::string> paramList;
-    int axis = param.axis + SHAPE_DIM5 - param.src1RawShape.size();
-    paramList.emplace_back(std::to_string(axis));
-    paramList.emplace_back(std::to_string(param.scatterMode));
-    std::ostringstream oss;
-    oss << tileOpName << WrapParamByAngleBrackets(paramList)
-        << WrapParamByParentheses({dstTensor, src1Tensor, src2Tensor, tmpTensor}) << ";\n";
-    return oss.str();
-}
+// std::string CodeGenOpCloudNPU::PrintScatterTileTensor(const PrintScatterParam &param) const {
+//     std::string dstTensor = QueryTileTensorNameByIdx(ID0);
+//     std::string tmpTensor = QueryTileTensorNameByIdx(ID1);
+//     std::string src1Tensor = QueryTileTensorNameByIdx(ID3);
+//     std::string src2Tensor = QueryTileTensorNameByIdx(ID4);
+//     std::vector<std::string> paramList;
+//     int axis = param.axis + SHAPE_DIM5 - param.src1RawShape.size();
+//     paramList.emplace_back(std::to_string(axis));
+//     paramList.emplace_back(std::to_string(param.scatterMode));
+//     std::ostringstream oss;
+//     oss << tileOpName << WrapParamByAngleBrackets(paramList)
+//         << WrapParamByParentheses({dstTensor, src1Tensor, src2Tensor, tmpTensor}) << ";\n";
+//     return oss.str();
+// }
 
-std::string CodeGenOpCloudNPU::GenScatterOp() const {
-    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "scatter_mode"))
-        << "cannot get scatter mode attr";
-    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
-    int axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
-    int scatterMode = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "scatter_mode"));
-    const DataType dstDtype = operandDtype[ID0];
-    const DataType src1Dtype = operandDtype[ID3];
-    const DataType src2Dtype = operandDtype[ID4];
+// std::string CodeGenOpCloudNPU::GenScatterOp() const {
+//     ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "scatter_mode"))
+//         << "cannot get scatter mode attr";
+//     ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
+//     int axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
+//     int scatterMode = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "scatter_mode"));
+//     const DataType dstDtype = operandDtype[ID0];
+//     const DataType src1Dtype = operandDtype[ID3];
+//     const DataType src2Dtype = operandDtype[ID4];
 
-    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
-    std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
-    std::string src2Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID4]);
+//     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+//     std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
+//     std::string src2Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID4]);
 
-    std::vector dstRawShape = this->rawShape[ID0];
-    std::vector src1RawShape = this->rawShape[ID3];
-    std::vector src2RawShape = this->rawShape[ID4];
+//     std::vector dstRawShape = this->rawShape[ID0];
+//     std::vector src1RawShape = this->rawShape[ID3];
+//     std::vector src2RawShape = this->rawShape[ID4];
 
-    std::string dstDtypeStr = DataType2CCEStr(dstDtype);
-    std::string src1DtypeStr = DataType2CCEStr(src1Dtype);
-    std::string src2DtypeStr = DataType2CCEStr(src2Dtype);
+//     std::string dstDtypeStr = DataType2CCEStr(dstDtype);
+//     std::string src1DtypeStr = DataType2CCEStr(src1Dtype);
+//     std::string src2DtypeStr = DataType2CCEStr(src2Dtype);
 
-    AppendLocalBufVarOffsetInOrder(dstVar, src1Var, src2Var);
+//     AppendLocalBufVarOffsetInOrder(dstVar, src1Var, src2Var);
 
-    const std::vector<std::string> dataTypeExpr = {dstDtypeStr, src1DtypeStr, src2DtypeStr};
-    if (isSupportLayout) {
-        return PrintScatterTileTensor(
-            {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
-    }
-    return PrintScatterOpDynamicUnaligned(
-        {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
-}
+//     const std::vector<std::string> dataTypeExpr = {dstDtypeStr, src1DtypeStr, src2DtypeStr};
+//     if (isSupportLayout) {
+//         // return PrintScatterTileTensor(
+//         //     {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
+//         return PrintScatterLayout();
+//     }
+//     return PrintScatterOpDynamicUnaligned(
+//         {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
+// }
 
 void CodeGenOpCloudNPU::GetWhereVarAndType(
     std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const {
