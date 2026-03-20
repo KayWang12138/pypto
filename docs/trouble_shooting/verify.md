@@ -76,3 +76,6 @@ out must have shape [topk_count, hidden_dim]
   如果需要进一步的信息定位，可参考上方几行更详细的报错，包括该`operation`输入输出`tensor`的信息，以及该`operation`的`IR`。
 
 ### 非典型错误码场景
+#### 错误码： 0xB0001U: VERIFY_NOT_ENABLE
+请检查本地torch版本
+对于其他类型的错误码，往往是由于pypto内部缺陷导致，如遇到，请在社区联系开发人员解决。
