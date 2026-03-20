@@ -44,6 +44,8 @@ def lightning_indexer_decode_compute(
     act_seq_key: pypto.tensor,
     block_table: pypto.tensor,
     topk_res: pypto.tensor,
+    mm_out: pypto.tensor,
+    topk_value: pypto.tensor,
     unroll_list: list,
     configs: LightningIndexerConfigs,
     selected_count: int):
@@ -171,6 +173,8 @@ def lightning_indexer_decode_compute(
 
                 k_res = pypto.mul(second_mm, pypto.cast(ks_assemble, pypto.DT_FP32))
                 pypto.assemble(k_res, [s1_tile_idx * s1_tile, bn_idx * block_size], max_tensor)
+                if mm_out is not None:
+                    pypto.assemble(k_res, [b_idx * s1 + s1_tile_idx * s1_tile, bn_idx * block_size], mm_out)
 
             for s1_idx in pypto.loop(0, s1, 1, name="LOOP_TOPK_S1", idx_name="s1_idx"):
                 # TopK Process
@@ -206,8 +210,9 @@ def lightning_indexer_decode_compute(
                     eff_in = pypto.view(max_tensor, [1, MAX_LI_S2], [src_offset, 0], valid_shape=[1, eff_seq])
                     eff_3d = pypto.reshape(eff_in, [1, 1, MAX_LI_S2], valid_shape=[1, 1, eff_seq])
                     pypto.set_vec_tile_shapes(1, 1, topk_tile)
-                    _, res_index = pypto.topk(eff_3d, k=selected_count, dim=-1, largest=True)
+                    res_value, res_index = pypto.topk(eff_3d, k=selected_count, dim=-1, largest=True)
                     pypto.assemble(res_index, [dst_offset, 0, 0], topk_res)
+                    pypto.assemble(res_value, [dst_offset, 0, 0], topk_value)
 
 
 @pypto.frontend.jit(
@@ -225,6 +230,8 @@ def lightning_indexer_decode(
     act_seq_key: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT32),
     block_table: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT32),
     topk_res: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT32),
+    mm_out: pypto.Tensor([pypto.DYNAMIC], pypto.DT_FP32),
+    topk_value: pypto.Tensor([pypto.DYNAMIC], pypto.DT_FP32),
 
     unroll_list, configs, selected_count
 ):
@@ -261,6 +268,8 @@ def lightning_indexer_decode(
         act_seq_key,
         block_table,
         topk_res,
+        mm_out,
+        topk_value,
         unroll_list,
         configs,
         selected_count

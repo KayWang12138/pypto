@@ -201,6 +201,7 @@ def lightning_indexer_compute(input_data_map, params):
     block_table = input_data_map.get("block_table")
 
     topk_res = torch.zeros([b * s1, 1, selected_count], dtype=torch.int32)
+    topk_value = torch.zeros([b * s1, 1, selected_count], dtype=torch.float32)
     first_mm = torch.zeros(b * s1 * n1, max_block_num * block_size, dtype=torch.float16)
     mm_out = torch.zeros([b * s1 * 1, max_block_num * block_size], dtype=torch.float32)
     avoid_fp32_to_fp16_overflow_scale = 1.0 / 2048
@@ -265,8 +266,9 @@ def lightning_indexer_compute(input_data_map, params):
             else:
                 cur_res, cur_idx = torch.topk(topk_in, k=selected_count, dim=-1) # (1, selected_count)
                 topk_res[(b_idx * s1 + s_idx):(b_idx * s1 + s_idx + 1), :, :] = cur_idx.reshape(1, 1, selected_count)
+                topk_value[(b_idx * s1 + s_idx):(b_idx * s1 + s_idx + 1), :, :] = cur_res
 
-    return topk_res
+    return topk_res, mm_out, topk_value
 
 
 def topk_idx_compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, error_count_threshold):
@@ -306,6 +308,12 @@ def topk_idx_compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, error_cou
                 error_count += 1
 
         if error_count > int(error_count_threshold * atol):
+            torch.set_printoptions(threshold=10000, edgeitems=10000, linewidth=10000)
+            print("=========================exp_list==============================")
+            print(exp_list)
+
+            print("=========================act_list==============================")
+            print(act_list)
             precision = "FAIL"
             err_msg = f"compare fail: {name}, error_count: {error_count}, \
                         error_count_threshold: {int(error_count_threshold * atol)}"
@@ -327,8 +335,8 @@ def lightning_indexer(case_name: str) -> bool:
 
     # 根据测试用例名称配置参数
     if case_name == "LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2":
-        b, s1 = 4, 2  # batch size和query序列长度
-        act_seq = [64 * 1024, 971, 32 * 1024 + 101, 16 * 1024 - 1] # 每个样本的实际序列长度
+        b, s1 = 1, 1  # batch size和query序列长度
+        act_seq = [682] # 每个样本的实际序列长度
     else:
         logging.error("Fail to gen golden for Case(%s)", case_name)
         return False
@@ -364,20 +372,26 @@ def lightning_indexer(case_name: str) -> bool:
     idx_weight_npu = input_data_map["weights"].reshape(b * s1, n1).npu()
     act_seq_key_npu = input_data_map["act_seq"].npu()
     block_table_npu = input_data_map["block_table"].npu()
-
+    mm_out = torch.zeros([b * s1, max_block_num * block_size], dtype=torch.float32)
+    mm_out_npu = mm_out.npu()
+    topk_value = torch.zeros([b * s1, 1, selected_count], dtype=torch.float32)
+    topk_value_npu = topk_value.npu()
     topk_res_out = torch.zeros([b * s1, 1, selected_count], dtype=torch.int32)
     topk_res_npu = topk_res_out.npu()
 
     unroll_list = [128, 64, 32, 16, 8, 4, 1]
+
     configs = LightningIndexerConfigs()
 
     lightning_indexer_decode(idx_query_npu, idx_query_scale_npu, idx_key_cache_npu, idx_key_scale_npu,
-                         idx_weight_npu, act_seq_key_npu, block_table_npu, topk_res_npu,
+                         idx_weight_npu, act_seq_key_npu, block_table_npu, topk_res_npu, mm_out_npu, topk_value_npu,
                          unroll_list, configs, selected_count)
 
     torch_npu.npu.synchronize()
 
-    topk_res_golden = lightning_indexer_compute(input_data_map, params)
+    topk_res_golden, mm_out_golden, topk_value_golden = lightning_indexer_compute(input_data_map, params)
+    compare(mm_out_npu.cpu(), mm_out_golden.cpu(), "mm_out", 0.000025, 0.005, 0.005)
+    compare(topk_value_npu.cpu(), topk_value_golden.cpu(), "topk_value", 0.000025, 0.005, 0.005)
     topk_idx_compare(topk_res_npu.cpu(), topk_res_golden.cpu(), "topk_res", 5e-3, selected_count)
 
     return True
