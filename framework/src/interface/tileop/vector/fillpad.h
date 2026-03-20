@@ -2,7 +2,7 @@
  * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
@@ -19,8 +19,8 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
-template <pto::PadValue padValue, typename DstTensor, typename SrcTensor>
-TILEOP void TFillPad(DstTensor dst, SrcTensor src) {
+template <typename DstTensor, typename SrcTensor>
+TILEOP void TFillPad(DstTensor dst, SrcTensor src, float padValue) {
     constexpr auto dstShapeSize = Std::tuple_size<typename DstTensor::Shape>::value;
     constexpr auto srcShapeSize = Std::tuple_size<typename SrcTensor::Shape>::value;
     static_assert(srcShapeSize == dstShapeSize, "FillPad: Src and Dst rank mismatch");
@@ -49,8 +49,10 @@ TILEOP void TFillPad(DstTensor dst, SrcTensor src) {
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<DstTensor, 4, 5>();
     constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<SrcTensor, 3, 5>();
     constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<SrcTensor, 4, 5>();
+    
+    constexpr pto::PadValue padVal = pto::PadValueCustom(padValue);
     using DstTileType = pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1,
-        pto::SLayout::NoneBox, 512, padValue>;
+        pto::SLayout::NoneBox, 512, padVal>;
     using SrcTileType = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
 
     for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
