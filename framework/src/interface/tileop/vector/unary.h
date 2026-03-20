@@ -215,7 +215,21 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
     pto::TASSIGN(dstTile, dst.GetAddr());
     pto::TASSIGN(srcTile, src.GetAddr());
 
-    if constexpr (std::is_same_v<typename SrcTileTensor::Type, float>) {
+    if constexpr (
+        std::is_same_v<SrcType, int32_t> || 
+        std::is_same_v<SrcType, uint32_t> || 
+        std::is_same_v<SrcType, int8_t> || 
+        std::is_same_v<SrcType, uint8_t> ||
+        std::is_same_v<SrcType, int16_t> || 
+        std::is_same_v<SrcType, uint16_t> || 
+        std::is_same_v<SrcType, int64_t> || 
+        std::is_same_v<SrcType, uint64_t>
+    ) {
+        TORS(dstTile, dstTile, (uint8_t)0x1);
+        return;
+    }
+
+    if constexpr (std::is_same_v<SrcType, float>) {
         using FP32TileDefineSrc = pto::Tile<pto::TileType::Vec, float, tileSrcH, tileSrcW, pto::BLayout::RowMajor, validH, validW>;
         FP32TileDefineSrc srcFP32;
         HalfTileDefineSrc srcFP16;
@@ -225,7 +239,7 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
         SyncV();
     }
 
-    IsFiniteComputeImpl<typename SrcTileTensor::Type, HalfTileDefineSrc, true>(dstTile, srcTile, bufferTile);
+    IsFiniteComputeImpl<SrcType, HalfTileDefineSrc, true>(dstTile, srcTile, bufferTile);
 }
 
 #define OP_TILE_OP_ISFINITE TIsFinite
@@ -265,7 +279,20 @@ TILEOP void TIsFinite(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buf
                 auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
                 pto::TASSIGN(dstTile, dst.GetAddr() + GenTileOffset(dst, tileOffsets) * sizeof(DstType));
                 pto::TASSIGN(srcTile, src.GetAddr() + GenTileOffset(src, tileOffsets) * sizeof(int16_t));
-                if constexpr (std::is_same_v<typename SrcTileTensor::Type, float>) {
+                if constexpr (
+                    std::is_same_v<SrcType, int32_t> || 
+                    std::is_same_v<SrcType, uint32_t> || 
+                    std::is_same_v<SrcType, int8_t> || 
+                    std::is_same_v<SrcType, uint8_t> ||
+                    std::is_same_v<SrcType, int16_t> || 
+                    std::is_same_v<SrcType, uint16_t> || 
+                    std::is_same_v<SrcType, int64_t> || 
+                    std::is_same_v<SrcType, uint64_t>
+                ) {
+                    TORS(dstTile, dstTile, (uint8_t)0x1);
+                    continue;
+                }
+                if constexpr (std::is_same_v<SrcType, float>) {
                     using FP32TileDefineSrc = pto::Tile<pto::TileType::Vec, float, tileSrcH, tileSrcW, pto::BLayout::RowMajor, -1, -1>;
                     FP32TileDefineSrc srcFP32(validH, validW);
                     HalfTileDefineSrc srcFP16(validH, validW);
@@ -274,7 +301,7 @@ TILEOP void TIsFinite(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buf
                     pto::TCVT(srcFP16, srcFP32, pto::RoundMode::CAST_NONE);
                     SyncV();
                 }
-                IsFiniteComputeImpl<typename SrcTileTensor::Type, HalfTileDefineSrc, false>(dstTile, srcTile, bufferTile);
+                IsFiniteComputeImpl<SrcType, HalfTileDefineSrc, false>(dstTile, srcTile, bufferTile);
             }
         }
     }
