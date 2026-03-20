@@ -277,7 +277,7 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamic(const PrintTranspos
     std::string dstVar = GenGmParamVar(ID0);
 
     int dim = static_cast<int>(rawShape[ID0].size());
-    std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(ID0, dim, PREFIX_STR_RAW_SHAPE);
+    std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(ID0);
     FillIntVecWithDummyInHead<std::string>(gmShapeExpr, SHAPE_DIM4 - dim, "1");
     CODEGEN_LOGI("dynamic gmShape param: %s", IntVecToStr(gmShapeExpr).c_str());
 
