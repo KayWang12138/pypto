@@ -633,6 +633,7 @@ TEST_F(InferShapeTest, TestFillPad) {
     std::cout << currFunctionPtr->Dump() << std::endl;
     EXPECT_EQ(inferShapeTest.PostCheck(*currFunctionPtr), SUCCESS);
 }
+
 TEST_F(InferShapeTest, TestIndexOutCast) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestIndexOutCast", "TestIndexOutCast", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
@@ -641,7 +642,6 @@ TEST_F(InferShapeTest, TestIndexOutCast) {
     std::vector<int64_t> inshape1 = {2, 2};
     std::vector<int64_t> inshape2 = {4, 4};
     std::vector<int64_t> outshape = {4, 4};
-    auto shapeImme = OpImmediate::Specified(outshape);
 
     auto incast0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape0);
     incast0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
@@ -686,8 +686,8 @@ TEST_F(InferShapeTest, TestIndexOutCast) {
     EXPECT_NE(outcast->GetDynValidShape().size(), 0);
     EXPECT_EQ(inferShapeTest.PostCheck(*currFunctionPtr), SUCCESS);
     auto indexOutCastOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(indexoutcastOp.GetOpAttribute());
-    auto fromDynValidShape = indexOutCastOpAttribute->GetFromDynValidShape();
-    EXPECT_EQ(fromDynValidShape.size() != 0, true);
+    const auto& fromDynValidShape = indexOutCastOpAttribute->GetFromDynValidShape();
+    EXPECT_NE(fromDynValidShape.size(), 0U);
 }
 }
 }

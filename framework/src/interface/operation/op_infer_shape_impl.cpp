@@ -223,11 +223,10 @@ void IndexOutCastInferFunc(Operation* op,
     
     auto indexOutCastOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
     if (indexOutCastOpAttribute == nullptr) {
-        ALOG_WARN_F("IndexOutCast [%d] has no  copyOpAttr.", op->GetOpMagic());
+        ALOG_WARN_F("IndexOutCast [%d] has no copyOpAttr.", op->GetOpMagic());
         return;
     }
     indexOutCastOpAttribute->SetFromDynValidShape(OpImmediate::Specified(op->GetIOperands()[input_dim]->GetDynValidShape()));
-    op->SetOpAttribute(indexOutCastOpAttribute);
 }
 REGISTER_INFER_SHAPE_FUNC(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, IndexOutCastInferFunc);
 
