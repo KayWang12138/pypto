@@ -52,7 +52,7 @@ def kernel_function(...):
 
 1. 张量参数，必须使用类型注解指定为 `pypto.Tensor` 类型
 2. 动态维度必须使用 `pypto.DYNAMIC` 或 `pypto.DYN` 在参数注解中标记
-3. tensor format用format标记，format支持非显式标记(参考示例1中的a)；若format显式标记(参考示例1中的b)，要求传入的tensor format与标记的format相同
+3. tensor format用format标记，format支持非显式标记(参考示例1中的a), 默认为pypto.TileOpFormat.TILEOP_ND;
 4. 张量参数在前，非张量参数（如 `scalar`、`tiling`）在后
 5. 非张量参数支持 keyword 传参、位置参数、使用默认值
 
