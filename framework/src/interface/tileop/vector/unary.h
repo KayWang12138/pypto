@@ -204,6 +204,25 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
     
     constexpr int validH = GetValidHeight<SrcTileTensor, true>();
     constexpr int validW = GetValidWidth<SrcTileTensor>();
+
+    if constexpr (
+        std::is_same_v<SrcType, int32_t> || 
+        std::is_same_v<SrcType, uint32_t> || 
+        std::is_same_v<SrcType, int8_t> || 
+        std::is_same_v<SrcType, uint8_t> ||
+        std::is_same_v<SrcType, int16_t> || 
+        std::is_same_v<SrcType, uint16_t> || 
+        std::is_same_v<SrcType, int64_t> || 
+        std::is_same_v<SrcType, uint64_t>
+    ) {
+        using TileDefineDst = pto::Tile<pto::TileType::Vec, int16_t, tileDstH, tileDstW / 2, pto::BLayout::RowMajor, validH, validW / 2>;
+        TileDefineDst dstTile;
+        pto::TASSIGN(dstTile, dst.GetAddr());
+        int16_t mask = 0x11;
+        TORS(dstTile, dstTile, mask);
+        return;
+    }
+
     using TileDefineDst = pto::Tile<pto::TileType::Vec, DstType, tileDstH, tileDstW, pto::BLayout::RowMajor, validH, validW>;
     using HalfTileDefineSrc = pto::Tile<pto::TileType::Vec, half, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(half), pto::BLayout::RowMajor, validH, validW>;
     using B16TileDefineSrc = pto::Tile<pto::TileType::Vec, int16_t, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(int16_t), pto::BLayout::RowMajor, validH, validW>;
@@ -215,7 +234,7 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
     pto::TASSIGN(dstTile, dst.GetAddr());
     pto::TASSIGN(srcTile, src.GetAddr());
 
-    if constexpr (std::is_same_v<typename SrcTileTensor::Type, float>) {
+    if constexpr (std::is_same_v<SrcType, float>) {
         using FP32TileDefineSrc = pto::Tile<pto::TileType::Vec, float, tileSrcH, tileSrcW, pto::BLayout::RowMajor, validH, validW>;
         FP32TileDefineSrc srcFP32;
         HalfTileDefineSrc srcFP16;
@@ -225,7 +244,7 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
         SyncV();
     }
 
-    IsFiniteComputeImpl<typename SrcTileTensor::Type, HalfTileDefineSrc, true>(dstTile, srcTile, bufferTile);
+    IsFiniteComputeImpl<SrcType, HalfTileDefineSrc, true>(dstTile, srcTile, bufferTile);
 }
 
 #define OP_TILE_OP_ISFINITE TIsFinite
@@ -245,6 +264,38 @@ TILEOP void TIsFinite(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buf
 
     int validH = src.GetLayout().template GetShapeDim<DIM_4TH, MAX_DIMS>();
     int validW = src.GetLayout().template GetShapeDim<DIM_5TH, MAX_DIMS>();
+    
+    if constexpr (
+        std::is_same_v<SrcType, int32_t> || 
+        std::is_same_v<SrcType, uint32_t> || 
+        std::is_same_v<SrcType, int8_t> || 
+        std::is_same_v<SrcType, uint8_t> ||
+        std::is_same_v<SrcType, int16_t> || 
+        std::is_same_v<SrcType, uint16_t> || 
+        std::is_same_v<SrcType, int64_t> || 
+        std::is_same_v<SrcType, uint64_t>
+    ) {
+        using TileDefineDst = pto::Tile<pto::TileType::Vec, int16_t, tileDstH, tileDstW / 2, pto::BLayout::RowMajor, -1, -1>;
+        TileDefineDst dstTile(validH, validW / 2);
+        pto::TASSIGN(dstTile, dst.GetAddr());
+        const auto dstLayout = dst.GetLayout();
+        auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+        auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+        auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+        int16_t mask = 0x11;
+
+        for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+            for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+                for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                    auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                    pto::TASSIGN(dstTile, dst.GetAddr() + GenTileOffset(dst, tileOffsets) * sizeof(DstType));
+                    TORS(dstTile, dstTile, mask);
+                }
+            }
+        }
+        return;
+    }
+
     using TileDefineDst = pto::Tile<pto::TileType::Vec, DstType, tileDstH, tileDstW, pto::BLayout::RowMajor, -1, -1>;
     using HalfTileDefineSrc = pto::Tile<pto::TileType::Vec, half, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(half), pto::BLayout::RowMajor, -1, -1>;
     using B16TileDefineSrc = pto::Tile<pto::TileType::Vec, int16_t, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(int16_t), pto::BLayout::RowMajor, -1, -1>;
@@ -265,7 +316,20 @@ TILEOP void TIsFinite(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buf
                 auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
                 pto::TASSIGN(dstTile, dst.GetAddr() + GenTileOffset(dst, tileOffsets) * sizeof(DstType));
                 pto::TASSIGN(srcTile, src.GetAddr() + GenTileOffset(src, tileOffsets) * sizeof(int16_t));
-                if constexpr (std::is_same_v<typename SrcTileTensor::Type, float>) {
+                if constexpr (
+                    std::is_same_v<SrcType, int32_t> || 
+                    std::is_same_v<SrcType, uint32_t> || 
+                    std::is_same_v<SrcType, int8_t> || 
+                    std::is_same_v<SrcType, uint8_t> ||
+                    std::is_same_v<SrcType, int16_t> || 
+                    std::is_same_v<SrcType, uint16_t> || 
+                    std::is_same_v<SrcType, int64_t> || 
+                    std::is_same_v<SrcType, uint64_t>
+                ) {
+                    TORS(dstTile, dstTile, (uint8_t)0x1);
+                    continue;
+                }
+                if constexpr (std::is_same_v<SrcType, float>) {
                     using FP32TileDefineSrc = pto::Tile<pto::TileType::Vec, float, tileSrcH, tileSrcW, pto::BLayout::RowMajor, -1, -1>;
                     FP32TileDefineSrc srcFP32(validH, validW);
                     HalfTileDefineSrc srcFP16(validH, validW);
@@ -274,7 +338,7 @@ TILEOP void TIsFinite(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buf
                     pto::TCVT(srcFP16, srcFP32, pto::RoundMode::CAST_NONE);
                     SyncV();
                 }
-                IsFiniteComputeImpl<typename SrcTileTensor::Type, HalfTileDefineSrc, false>(dstTile, srcTile, bufferTile);
+                IsFiniteComputeImpl<SrcType, HalfTileDefineSrc, false>(dstTile, srcTile, bufferTile);
             }
         }
     }
