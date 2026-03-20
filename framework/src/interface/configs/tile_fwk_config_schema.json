@@ -307,7 +307,7 @@
                 },
                 "compile_monitor_enable": {
                     "type": "boolean",
-                    "default": true,
+                    "default": false,
                     "label": {
                         "zh": "控制编译阶段是否开启编译过程进度打印",
                         "en": "Control whether to enable compilation progress printing during the compilation phase."

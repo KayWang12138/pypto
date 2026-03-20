@@ -119,17 +119,14 @@ void MonitorImpl::PrintTotalTimeOut(double total_elapsed, int total_timeout_sec)
 }
 
 void MonitorImpl::MonitorLoop() {
-    COMPILER_LOGI("set_compiler_monitor_options -> enable:%d interval_sec:%d timeout_sec:%d total_timeout_sec:%d",
-        IsEnabledImmediate(manager_), GetIntervalSecImmediate(manager_), GetTimeoutSecImmediate(manager_),
-        GetTotalTimeoutSecImmediate(manager_));
-    
+    bool check_enable = IsEnabledImmediate(manager_);
+    int interval_sec = GetIntervalSecImmediate(manager_);
+    int stage_timeout_sec = GetTimeoutSecImmediate(manager_);
+    int total_timeout_sec = GetTotalTimeoutSecImmediate(manager_);
+
     // 如果当前子stage执行时间超过60秒后，开始使能interval的间隔时间打印
     int pre_cost = 60;
     while (!stop_.load()) {
-        bool check_enable = IsEnabledImmediate(manager_);
-        int interval_sec = GetIntervalSecImmediate(manager_);
-        int stage_timeout_sec = GetTimeoutSecImmediate(manager_);
-        int total_timeout_sec = GetTotalTimeoutSecImmediate(manager_);
         // 检查 start_flag，如果为 false 则等待
         if (!stage_start_flag_.load()) {
             std::unique_lock<std::mutex> lock(mutex_);
