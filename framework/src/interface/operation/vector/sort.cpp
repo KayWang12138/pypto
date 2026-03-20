@@ -24,6 +24,7 @@
 #include "tensor_transformation.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "tilefwk/platform.h"
+#include "interface/utils/vector_error.h"
 
 namespace npu::tile_fwk {
 
@@ -248,7 +249,7 @@ void TiledTopK(Function &function, const TileShape &tileShape, size_t cur, Input
     const LogicalTensorPtr &valueResult, const LogicalTensorPtr &indexResult, TileInfo &resultTileInfo, int axis, int k,
     int isLargest) {
     auto &vecTile = tileShape.GetVecTile();
-    ASSERT(k <= vecTile[axis]) << "The k should less than or equal to" << vecTile[axis];
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, k <= vecTile[axis]) << "The k should less than or equal to" << vecTile[axis];
     if (static_cast<int>(cur) == axis) {
         auto source = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         std::vector<int64_t> vecTileAlign = vecTile.tile;
@@ -502,7 +503,7 @@ void TensorTopK(Function &function, const LogicalTensorPtr &self, LogicalTensorP
 std::tuple<Tensor, Tensor> TopK(const Tensor &self, int k, int axis, bool isLargest) {
     DECLARE_TRACER();
     const auto len = static_cast<int>(self.GetShape().size());
-    ASSERT(axis == (len - 1) || axis == -1) << "TopK only support last axis";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, axis == (len - 1) || axis == -1) << "TopK only support last axis";
     axis = axis >= 0 ? axis : (axis + len);
 
     auto topkOutShape = self.GetShape();
@@ -522,8 +523,8 @@ bool checkIsExceedUB(const std::vector<int64_t> &tileShape, const std::vector<in
     for (const auto &num : tileShape) {
         tileRowShapeSize *= num;
     }
-    ASSERT(tileShape[axis] > 0) << "tileShape in axis must greater than 0.";
-    ASSERT(blockSize > 0) << "blockSize must greater than 0.";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, tileShape[axis] > 0) << "tileShape in axis must greater than 0.";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, blockSize > 0) << "blockSize must greater than 0.";
     tileRowShapeSize = tileRowShapeSize / tileShape[axis] * ((shape[axis] + blockSize - 1) / blockSize * blockSize);
     int64_t maxShapeSize = tileRowShapeSize * 2 * 4 * 4; // every element is 8B
     bool isInGM = maxShapeSize >= UBSize ? true : false;
@@ -774,20 +775,20 @@ void TensorSort(Function &function, const LogicalTensorPtr &self, LogicalTensorP
 std::tuple<Tensor, Tensor> sort(const Tensor &self, int axis = -1, bool descending = false) {
     DECLARE_TRACER();
     auto len = static_cast<int>(self.GetShape().size());
-    ASSERT(len >= 1 && len <= 4) << "Only support 1 dim to 4 dim.\n";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, len >= 1 && len <= 4) << "Only support 1 dim to 4 dim.\n";
 
     axis = axis >= 0 ? axis : axis + len;
-    ASSERT(axis >= 0 && axis < len) << "Invalid axis value: " << axis << ". Expected range: [-" << len << "," << len - 1 << "]\n";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, axis >= 0 && axis < len) << "Invalid axis value: " << axis << ". Expected range: [-" << len << "," << len - 1 << "]\n";
 
-    ASSERT(len != 4 || axis != 0) << "Sort not support the 0th axis of 4D input.\n";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, len != 4 || axis != 0) << "Sort not support the 0th axis of 4D input.\n";
 
     auto validShape = self.GetStorage()->GetDynValidShape();
     auto vecTileShape = TileShape::Current().GetVecTile();
-    ASSERT(vecTileShape[axis] % 32 == 0) << "The size of the tile shape along axis " << axis << " must be a multiple of 32. Got " << vecTileShape[axis] << ".\n";
+    ASSERT(VectorErrorCode::ERR_CONFIG_ALIGNMENT, vecTileShape[axis] % 32 == 0) << "The size of the tile shape along axis " << axis << " must be a multiple of 32. Got " << vecTileShape[axis] << ".\n";
 
     if (checkIsExceedUB(vecTileShape.tile, self.GetShape(), axis, 32)) {
         int64_t tileNum = (self.GetShape()[axis] + vecTileShape[axis] - 1) / vecTileShape[axis];
-        ASSERT(tileNum < 128) << "For Large Shape in GM, the number of tile on sort axis must less than 128.";
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, tileNum < 128) << "For Large Shape in GM, the number of tile on sort axis must less than 128.";
     }
 
     auto transposeSelf = Transpose(self, {axis, len - 1});
