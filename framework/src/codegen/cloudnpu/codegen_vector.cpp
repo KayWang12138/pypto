@@ -1646,11 +1646,68 @@ std::string CodeGenOpCloudNPU::PrintPadTileTensor() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     auto c = extOperandVal.Cast<float>();
-    std::string padValue = "pto::PadValue::Zero";
-    if (c < 0) {
+    std::string padValue;
+    
+    if (std::isinf(c) && c < 0) {
         padValue = "pto::PadValue::Min";
-    } else if (c > 0) {
+    } else if (std::isinf(c) && c > 0) {
         padValue = "pto::PadValue::Max";
+    } else if (std::fabs(c) < std::numeric_limits<float>::epsilon() * 10) {
+        padValue = "pto::PadValue::Zero";
+    } else {
+        std::ostringstream pvOss;
+        
+        // 获取目标数据类型
+        std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(MISOIdx::DST_IDX)]);
+        
+        // 根据目标数据类型计算正确的位模式
+        uint32_t bits = 0;
+        if (dstDtypeStr == "float") {
+            // float: 直接使用 float 位模式
+            union { float f; uint32_t u; } conv;
+            conv.f = c;
+            bits = conv.u;
+        } else if (dstDtypeStr == "half") {
+            // half: 需要转换为 half 位模式
+            // half 的 1.0 = 0x3C00
+            union { float f; uint32_t u; } conv;
+            conv.f = c;
+            // 将 float 转换为 half 位模式
+            uint32_t fbits = conv.u;
+            int sign = (fbits >> 31) & 1;
+            int exponent = (fbits >> 23) & 0xFF;
+            int mantissa = fbits & 0x7FFFFF;
+            
+            if (exponent == 0) {
+                bits = sign << 15;  // zero
+            } else if (exponent == 0xFF) {
+                bits = (sign << 15) | 0x7C00 | (mantissa ? 0x200 : 0);  // inf/nan
+            } else {
+                int newExp = exponent - 127 + 15;
+                if (newExp <= 0) {
+                    bits = sign << 15;  // underflow to zero
+                } else if (newExp >= 31) {
+                    bits = (sign << 15) | 0x7C00;  // overflow to inf
+                } else {
+                    bits = (sign << 15) | (newExp << 10) | ((mantissa >> 13) & 0x3FF);
+                }
+            }
+        } else if (dstDtypeStr == "bfloat16_t") {
+            // bfloat16: 截取 float 的高 16 位
+            union { float f; uint32_t u; } conv;
+            conv.f = c;
+            bits = (conv.u >> 16) & 0xFFFF;
+        } else {
+            // 其他类型：暂时使用 float 位模式
+            union { float f; uint32_t u; } conv;
+            conv.f = c;
+            bits = conv.u;
+        }
+        
+        // 构造 PadValue: 高32位是位模式，低32位是 CustomBase 标记
+        uint64_t customPadValue = (static_cast<uint64_t>(bits) << 32) | 0x1ULL;
+        pvOss << "static_cast<pto::PadValue>(0x" << std::hex << customPadValue << "ULL)";
+        padValue = pvOss.str();
     }
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor};
 
