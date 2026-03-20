@@ -32,7 +32,7 @@ DynamicParamPackMTE CodeGenOpNPU::PrepareDynamicShapeInfoForMTE(int dynShapeIdx,
             pack.gmShapeExpr.emplace_back(std::to_string(s));
         }
     } else {
-        pack.gmShapeExpr = GenGetParamMacroPacked(dynShapeIdx, dim, PREFIX_STR_RAW_SHAPE);
+        pack.gmShapeExpr = GenDynRawShapePacked(dynShapeIdx);
     }
     FillVecWithDummyInHead<std::string>(pack.gmShapeExpr, shapeDim - dim, "1");
     CODEGEN_LOGI("dynamic gmShape param: %s", IntVecToStr(pack.gmShapeExpr).c_str());
@@ -617,7 +617,7 @@ std::string CodeGenOpNPU::PrintMemCopyWithL0CDynamic(const PrintMemCopyWithL0CPa
     int oriTileShape0 = std::min(originShape[localIdx][ID0], localRawShape[ID0]);
     int oriTileShape1 = std::min(originShape[localIdx][ID1], localRawShape[ID1]);
 
-    std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(param.gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
+    std::vector<std::string> gmShapeExpr = GenDynRawShapePacked(param.gmIdx);
     CODEGEN_LOGI("dynamic gmShape param: %s", IntVecToStr(gmShapeExpr).c_str());
 
     std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(param.gmIdx, SHAPE_DIM2, PREFIX_STR_OFFSET);
@@ -651,7 +651,7 @@ std::pair<std::string, std::string> CodeGenOpNPU::GetOuterInnerValueStr(
     GetAttr("op_attr_inner_value", innerValue);
 
     bool useStaticShape = functionType == FunctionType::STATIC || isSpillingToGM;
-    auto gmShapeExprByIndex = GenParamIdxExprByIndex(gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
+    auto gmShapeExprByIndex = GenDynRawShapePacked(gmIdx);
 
     auto getValueStr = [useStaticShape, &gmShapeExprByIndex](
                            int64_t value, size_t idx, int64_t shapeValue) -> std::string {
@@ -816,7 +816,7 @@ std::string CodeGenOpNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL1Para
     const std::vector<int64_t>& localRawShape = param.localRawShape;
     const std::vector<std::string>& dataTypeExpr = param.dataTypeExpr;
 
-    std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(param.gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
+    std::vector<std::string> gmShapeExpr = GenDynRawShapePacked(param.gmIdx);
     CODEGEN_LOGI("dynamic gmShape param: %s", IntVecToStr(gmShapeExpr).c_str());
 
     std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(param.gmIdx, SHAPE_DIM2, PREFIX_STR_OFFSET);
