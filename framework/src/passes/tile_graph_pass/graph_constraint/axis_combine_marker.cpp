@@ -16,6 +16,8 @@
 #include "axis_combine_marker.h"
 namespace npu {
 namespace tile_fwk {
+const std::unordered_set<Opcode> whiteList{Opcode::OP_RESHAPE, Opcode::OP_VEC_DUP};
+
 void AxisCombineMarker::Run(Function &function) {
     Init(function);
     ForwardVisit();
@@ -207,7 +209,8 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
         UpdateElewiseStatus(op, tensorStatus_);
         return;
     }
-    if (outputTensor->GetShape().back() == 1) { // 非白名单Op，虽然尾轴为1，仍不支持合轴
+    if (outputTensor->GetShape().back() == 1 &&
+        whiteList.find(op->GetOpcode()) == whiteList.end()) { // 非白名单Op，虽然尾轴为1，仍不支持合轴
         tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
         return;
     }
