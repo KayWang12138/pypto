@@ -1766,17 +1766,43 @@ std::string CodeGenOpCloudNPU::GenQuantizeOp() const {
 
 std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const
 {
-    // Get tensor names
-    // For QUANTIZE_SYM: dst(ID0), src(ID1), scale(ID2)
-    // For QUANTIZE_ASYM: dst(ID0), src(ID1), scale(ID2), offset(ID3)
-    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
-    std::string srcTensor = QueryTileTensorNameByIdx(ID1);
-    std::string scaleTensor = QueryTileTensorNameByIdx(ID2);
-
     // Get axis attribute, default is -1
     int64_t axis = -1;
     if (opAttrs.count(OP_ATTR_PREFIX + "axis")) {
         axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
+    }
+
+    // Determine if tmpTensor is present (axis == -2 requires tmpTensor)
+    bool hasTmpTensor = (axis == -2);
+
+    // Get tensor names based on operand layout
+    // Without tmpTensor (axis == -1):
+    //   For QUANTIZE_SYM: dst(ID0), src(ID1), scale(ID2)
+    //   For QUANTIZE_ASYM: dst(ID0), src(ID1), scale(ID2), offset(ID3)
+    // With tmpTensor (axis == -2, MIMO layout):
+    //   For QUANTIZE_SYM: dst(ID0), tmp(ID1), src(ID2), scale(ID3)
+    //   For QUANTIZE_ASYM: dst(ID0), tmp(ID1), src(ID2), scale(ID3), offset(ID4)
+    std::string dstTensor;
+    std::string tmpTensor;
+    std::string srcTensor;
+    std::string scaleTensor;
+    std::string offsetTensor;
+
+    if (hasTmpTensor) {
+        dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+        tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+        srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+        scaleTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC1_IDX));
+        if (opCode == Opcode::OP_QUANTIZE_ASYM) {
+            offsetTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC1_IDX) + 1);
+        }
+    } else {
+        dstTensor = QueryTileTensorNameByIdx(ID0);
+        srcTensor = QueryTileTensorNameByIdx(ID1);
+        scaleTensor = QueryTileTensorNameByIdx(ID2);
+        if (opCode == Opcode::OP_QUANTIZE_ASYM) {
+            offsetTensor = QueryTileTensorNameByIdx(ID3);
+        }
     }
 
     // Convert axis to 5D representation
@@ -1804,12 +1830,14 @@ std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const
 
     std::vector<std::string> paramList;
     paramList.emplace_back(dstTensor);
+    if (hasTmpTensor) {
+        paramList.emplace_back(tmpTensor);
+    }
     paramList.emplace_back(srcTensor);
     paramList.emplace_back(scaleTensor);
 
     // For asymmetric quantization, add offset tensor
     if (opCode == Opcode::OP_QUANTIZE_ASYM) {
-        std::string offsetTensor = QueryTileTensorNameByIdx(ID3);
         paramList.emplace_back(offsetTensor);
     }
 
