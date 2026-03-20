@@ -976,7 +976,7 @@ struct EncodeDevAscendFunctionInfo {
                 if (cellMatchShape.dim[index] == 0) {
                     MACHINE_LOGE("cellMatchShape.dim[%zu] is zero after assignment", index);
                 }
-                DEV_ASSERT(cellMatchShape.dim[index]);
+                DEV_ASSERT(ERROR_CODE_UNDEFINED, cellMatchShape.dim[index]);
             }
         }
     }

@@ -14,11 +14,15 @@
  */
 
 #include <gtest/gtest.h>
+#include <array>
 #include <memory>
 #define private public
 #include "machine/device/dynamic/context/device_task_context.h"
+#include "machine/device/dynamic/context/device_execute_context.h"
+#include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/machine/device/tilefwk/aikernel_data.h"
 #include "tilefwk/platform.h"
 #include "tilefwk/tilefwk.h"
 
@@ -95,4 +99,99 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_calls_wrap_functions) {
     EXPECT_EQ(wrapQueue->head, 0);
     EXPECT_EQ(wrapQueue->tail, 0);
     EXPECT_GT(wrapQueue->capacity, 0);
+}
+
+TEST_F(TestDeviceTaskContext, ShowStats_HitsDevErrorMacroLines) {
+    DeviceTaskContext taskContext;
+    taskContext.ShowStats();
+}
+
+TEST_F(TestDeviceTaskContext, InitReadyQueues_ExceedsStitchSize_ReturnsError) {
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    devProg.stitchFunctionsize = 10;
+    DeviceWorkspaceAllocator workspace(&devProg);
+    taskContext.InitAllocator(&devProg, workspace, &startArgs);
+    auto dyntask = std::make_unique<DynDeviceTask>(workspace);
+    CreateMockDynDeviceTask(dyntask.get(), 100U);
+    ReadyCoreFunctionQueue *queues[READY_QUEUE_SIZE] = {};
+    EXPECT_EQ(taskContext.InitReadyQueues(dyntask.get(), &devProg, queues), DEVICE_MACHINE_ERROR);
+}
+
+namespace {
+
+void InitReadyQueueSlot(ReadyCoreFunctionQueue &q, std::array<taskid_t, 4> &elemBuf, uint32_t head,
+    uint32_t tail, taskid_t firstId)
+{
+    q.lock = 0;
+    q.head = head;
+    q.tail = tail;
+    q.capacity = static_cast<uint32_t>(elemBuf.size());
+    q.elem = elemBuf.data();
+    if (tail > head) {
+        elemBuf[0] = firstId;
+    }
+}
+} // namespace
+
+TEST_F(TestDeviceTaskContext, DumpReadyQueue_CoversLoggingLines) {
+    DeviceWorkspaceAllocator workspace;
+    auto dyntask = std::make_unique<DynDeviceTask>(workspace);
+    dyntask->devTask.coreFunctionCnt = 3;
+    std::array<taskid_t, 4> bufAiv{};
+    std::array<taskid_t, 4> bufAic{};
+    std::array<taskid_t, 4> bufAicpu{};
+    ReadyCoreFunctionQueue qslot[READY_QUEUE_SIZE];
+    InitReadyQueueSlot(qslot[0], bufAiv, 0, 1, MakeTaskID(0, 1));
+    InitReadyQueueSlot(qslot[1], bufAic, 0, 1, MakeTaskID(0, 2));
+    InitReadyQueueSlot(qslot[2], bufAicpu, 0, 1, MakeTaskID(0, 3));
+    for (size_t i = 0; i < READY_QUEUE_SIZE; ++i) {
+        dyntask->readyQueue[i] = &qslot[i];
+    }
+    DeviceTaskContext::DumpReadyQueue(dyntask.get(), "ut_cov");
+}
+
+TEST_F(TestDeviceTaskContext, DumpDepend_CoversHeadLoggingWithoutDupData) {
+    DeviceWorkspaceAllocator workspace;
+    auto dyntask = std::make_unique<DynDeviceTask>(workspace);
+    dyntask->devTask.coreFunctionCnt = 1;
+    DynFuncHeader header{};
+    header.seqNo = 42;
+    header.funcNum = 0;
+    header.funcSize = sizeof(DynFuncHeader);
+    dyntask->dynFuncDataList = &header;
+
+    std::array<taskid_t, 4> bufAiv{};
+    std::array<taskid_t, 4> bufAic{};
+    std::array<taskid_t, 4> bufAicpu{};
+    ReadyCoreFunctionQueue qslot[READY_QUEUE_SIZE];
+    InitReadyQueueSlot(qslot[0], bufAiv, 0, 1, MakeTaskID(0, 0));
+    InitReadyQueueSlot(qslot[1], bufAic, 0, 0, 0);
+    InitReadyQueueSlot(qslot[2], bufAicpu, 0, 0, 0);
+    for (size_t i = 0; i < READY_QUEUE_SIZE; ++i) {
+        dyntask->readyQueue[i] = &qslot[i];
+    }
+
+    std::array<DevTensorData, 2> tensors{};
+    tensors[0].address = 0x1000ULL;
+    tensors[1].address = 0x2000ULL;
+    DevStartArgs startArgs{};
+    startArgs.contextWorkspaceAddr = 0x3000ULL;
+    startArgs.inputTensorSize = 1;
+    startArgs.outputTensorSize = 1;
+    startArgs.devTensorList = tensors.data();
+
+    DevAscendProgram devProg{};
+    DeviceTaskContext::DumpDepend(dyntask.get(), &devProg, &startArgs, "ut_cov");
+}
+
+TEST_F(TestDeviceTaskContext, DeviceExecute_InvalidCtx_ReturnsNull) {
+    EXPECT_EQ(DeviceExecuteContext::DeviceExecuteRuntimeCallRootAlloc(nullptr, 0), nullptr);
+    EXPECT_EQ(DeviceExecuteContext::DeviceExecuteRuntimeCallRootStitch(nullptr, 0), nullptr);
+}
+
+TEST_F(TestDeviceTaskContext, DeviceExecuteRuntimeCallLog_IsNullSafe) {
+    EXPECT_EQ(DeviceExecuteContext::DeviceExecuteRuntimeCallLog(nullptr, 7ULL), nullptr);
 }
