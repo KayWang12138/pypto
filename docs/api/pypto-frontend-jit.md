@@ -74,7 +74,8 @@ def add_kernel(
 # 直接传入 torch 张量调用
 x = torch.randn(3, dtype=torch.float32, device='npu:0')
 y = torch.randn(3, dtype=torch.float32, device='npu:0')
-result = add_kernel(x, y)
+out = torch.empty(3, dtype=torch.float32, device='npu:0')
+add_kernel(x, y, out)
 ```
 
 ### 示例2: 指定运行模式

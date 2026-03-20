@@ -215,6 +215,10 @@ class JitCallableWrapper:
         "torch.bool": pypto.DataType.DT_BOOL,
     }
 
+    _special_dtype_dict = {
+        "torch.uint8": pypto.DataType.DT_HF8,
+    }
+
     _format_dict = {
         "ND": pypto.TileOpFormat.TILEOP_ND,
         "NZ": pypto.TileOpFormat.TILEOP_NZ,
@@ -471,11 +475,13 @@ class JitCallableWrapper:
                 if isinstance(dim, pypto.SymbolicScalar) or dim in (pypto.StatusType.DYN, pypto.StatusType.DYNAMIC)
             ]
 
+            dtype = tensor_def.dtype if tensor_def.status_dtype is not None else torch_tensor.dtype
             pto_tensors.append(
                 pypto.from_torch(
                     torch_tensor,
                     name=tensor_def.name,
-                    dynamic_axis=dynamic_axis if dynamic_axis else None
+                    dynamic_axis=dynamic_axis if dynamic_axis else None,
+                    dtype= dtype
                 )
             )
         return pto_tensors
@@ -738,7 +744,8 @@ class JitCallableWrapper:
 
             # Check the dtype of input tensors and input tensor definitions
             if input_tensor_def.status_dtype is not None and \
-                    self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype:
+                    ((self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype) or
+                     (self._special_dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype)):
                 raise ValueError(f"The dtype of {ordinal(idx)} input tensor {in_tensor.dtype} \
                     does not match the dtype of input tensor definition {input_tensor_def.dtype}.")
 
