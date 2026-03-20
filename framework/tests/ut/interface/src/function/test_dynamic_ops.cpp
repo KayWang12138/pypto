@@ -121,7 +121,7 @@ TEST_F(DynamicOpsTest, FmodFp32ParallelLoop) {
     });
 
     FUNCTION("main", {t0, t1}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1), true) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1), {}, false, true) {
             (void)i;
             auto t0a = View(t0, {s, s}, {0, 0});
             auto t0b = View(t0, {s, s}, {s, 0});
