@@ -299,9 +299,17 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(Function &function, Opera
         auto copyInInputMemType = copyInInput->GetMemoryTypeOriginal();
         auto copyInOutput = copyInOp->GetOOperands().front();
         auto copyInOutputMemType = copyInOutput->GetMemoryTypeOriginal();
-        if (copyInInputMemType == MemoryType::MEM_DEVICE_DDR && copyInOutputMemType == MemoryType::MEM_UB) {
+
+        bool copyInShapeSame = true;
+        for (size_t i = 0; i < copyInInput->GetShape().size(); i++) {
+            if (copyInInput->GetShape()[i] != copyInOutput->GetShape()[i]) {
+                copyInShapeSame = false;
+                break;
+            }
+        }
+        if (copyInInputMemType == MemoryType::MEM_DEVICE_DDR && copyInOutputMemType == MemoryType::MEM_UB && copyInShapeSame) {
             copyInOp->SetOpCode(Opcode::OP_RESHAPE_COPY_IN);
-        } else if (copyInInputMemType == MemoryType::MEM_DEVICE_DDR && copyInOutputMemType != MemoryType::MEM_UB) {
+        } else if (copyInInputMemType == MemoryType::MEM_DEVICE_DDR && (copyInOutputMemType != MemoryType::MEM_UB || !copyInShapeSame)) {
             //reshape -- copyInInput(DDR) -- COPYIN -- copyInOutout(NOTUB)
             //reshape -- copyInInput(DDR) -- RESHAPECOPYIN -- newTensor(UB) -- COPYOUT -- newTensor2(DDR) -- COPYIN --copyInOutout(NOTUB)
             LogicalTensor newTensor(function, copyInInput->Datatype(), copyInInput->GetShape());
