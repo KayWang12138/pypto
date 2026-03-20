@@ -49,8 +49,9 @@
 当某个pass精度对比失败的时候，可以利用 `pass_compare.py` 这个脚本将该对比失败的pass和前面的pass进行精度对比。对比会在精度工具dump数据的目录生成一个类似 `verify_pass@SplitK@ExpandFunction@1773821696834386.csv` 这样的对比结果文件，里面记录了精度对比失败的pass的每个op节点和前面pass对比的结果，未能匹配上的也会记录在表中标注skip。这样就能定位到匹配上的第一个出错的节点。  
 脚本使用方法：`python3 pass_compare.py --p ExpandFunction RemoveUndrivenView --verify_path=.....`
 `--p`参数后面的是对比的两个pass，空格隔开，前面的是精度对比失败的pass，后面的是作为golden的pass，`--verify_path`参数是精度工具dump数据文件的那个目录的绝对路径。
-#### 错误码：
+#### 错误码：0xB200FU：RUNTIME_EXCEPTION 
 ##### 日志示例
+该场景为operation模拟执行失败，往往是operation上有不正确的属性，日志如下：
 ```log
 [ERROR] PYPTO(1693310):2026-03-20 15:08:54.112 [operation.cpp:58][VERIFY]:ErrCode: FB200F! ExecuteOperation error: op GATHER_IN_UB (magic=10564) input[0] tensorMagic=94, shape=[82816, 512], offset=[0, 0], dynValidShape=[82816, 512], dynOffset=[]
 [ERROR] PYPTO(1693310):2026-03-20 15:08:54.112 [operation.cpp:58][VERIFY]:ErrCode: FB200F! ExecuteOperation error: op GATHER_IN_UB (magic=10564) input[1] tensorMagic=3717, shape=[1, 16], offset=[0, 1792], dynValidShape=[RUNTIME_GetViewValidShapeDim(RUNTIME_GetInputShapeDim(ARG_topk_indices,0),((bIdx*((RUNTIME_GetInputShapeDim(ARG_query_nope,0)/RUNTIME_GetInputShapeDim(ARG_kv_act_seqs,0))/128))+s1Idx),1), RUNTIME_GetViewValidShapeDim(2048,((s2_idx*2048)+1792),16)], dynOffset=[((bIdx*((RUNTIME_GetInputShapeDim(ARG_query_nope,0)/RUNTIME_GetInputShapeDim(ARG_kv_act_seqs,0))/128))+s1Idx), ((s2_idx*2048)+1792)]
