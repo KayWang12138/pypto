@@ -414,6 +414,7 @@ TEST_F(InsertSyncTest, TestUpdateDep) {
                 PipeSync::PipeCoreRealEx pcSet2(PipeType::PIPE_MTE2, CoreType::AIV, AIVCore::AIV0);
                 auto setPipeIdx1 = ps.latestPipeDep_[pcCurr].setPipes[pcSet1];
                 auto setPipeIdx2 = ps.latestPipeDep_[pcCurr].setPipes[pcSet2];
+                ps.latestPipeDep_[pcCurr].DumpPipeDepInfo();
                 if (i == IS_NUM4 && k == IS_NUM3) {
                     EXPECT_EQ(setPipeIdx1, IS_NUM3);
                     EXPECT_EQ(setPipeIdx2, IS_NUM1);
