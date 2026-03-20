@@ -144,7 +144,13 @@ enum class MachineSimulationErr : uint32_t {
 };
 
 enum class MachineDistributedErr : uint32_t {
-    RESERVED = 0x89000U
+    AICPU_TASK_TIMEOUT = 0x89001U,
+    AICPU_TASK_NUM_EXCEED_LIMIT = 0x89002U,
+    AICPU_TASK_QUEUE_EMPTY = 0x89003U,
+    AICPU_TASKID_NOT_IN_MAP = 0x89004U,
+    INVALID_GROUP_INDEX = 0x89005U,
+    NULLPTR = 0x89006U,
+    UNKNOWN = 0x89999U,
 };
 
 enum class MachineOperationErr : uint32_t {
