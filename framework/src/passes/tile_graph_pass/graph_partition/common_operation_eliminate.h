@@ -43,6 +43,10 @@ private:
                     const std::shared_ptr<LogicalTensor> newtensors) const;
     void UpdateCopy(CopyOpAttribute *copyOpAttribute, const std::shared_ptr<LogicalTensor> oldtensors,
                     const std::shared_ptr<LogicalTensor> newtensors) const;
+    void InsertCopyUBOp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input);
+    void InsertCopyDDROp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input);
+    void FindNeedToCopyAssemble(std::unordered_set<Operation*> &needInsertCopyAssOps, std::unordered_set<int> &visitedAssOps, Operation &op);
+    void InsertAssembleCopy(Function &function);
 };
 }  // namespace npu::tile_fwk
 #endif  // PASS_COMMON_OPERATION_ELIMINATE_H_
