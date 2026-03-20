@@ -67,6 +67,14 @@ protected:
     ExprPtr MakeConstInt(int64_t val, DataType dt = DataType::INT32) {
         return std::make_shared<ConstInt>(val, dt, span_);
     }
+
+    ExprPtr MakeShapeTuple(std::vector<int64_t> dims, DataType dtype = DataType::INT64) {
+        std::vector<ExprPtr> elems;
+        for (auto d : dims) {
+            elems.push_back(std::make_shared<ConstInt>(d, dtype, span_));
+        }
+        return std::make_shared<MakeTuple>(elems, span_);
+    }
 };
 
 // ================================================================
@@ -585,14 +593,8 @@ TEST_F(BlockOpsTest, TestBlockRowExpandAddCreate) {
 
 TEST_F(BlockOpsTest, TestBlockViewCreate) {
     auto input = MakeTileVar("input", {16, 32});
-    // shape tuple
-    std::vector<ExprPtr> shapeElems = {
-        std::make_shared<ConstInt>(4, DataType::INT64, span_), std::make_shared<ConstInt>(8, DataType::INT64, span_)};
-    auto shape = std::make_shared<MakeTuple>(shapeElems, span_);
-    // offset tuple
-    std::vector<ExprPtr> offsetElems = {
-        std::make_shared<ConstInt>(0, DataType::INT64, span_), std::make_shared<ConstInt>(0, DataType::INT64, span_)};
-    auto offset = std::make_shared<MakeTuple>(offsetElems, span_);
+    auto shape = MakeShapeTuple({4, 8});
+    auto offset = MakeShapeTuple({0, 0});
     auto call = registry_.Create("block.view", {input, shape, offset}, span_);
     ASSERT_NE(call, nullptr);
     auto rt = As<TileType>(call->GetType());
@@ -602,9 +604,7 @@ TEST_F(BlockOpsTest, TestBlockViewCreate) {
 
 TEST_F(BlockOpsTest, TestBlockReshapeCreate) {
     auto input = MakeTileVar("input", {4, 8});
-    std::vector<ExprPtr> shapeElems = {
-        std::make_shared<ConstInt>(2, DataType::INT64, span_), std::make_shared<ConstInt>(16, DataType::INT64, span_)};
-    auto shape = std::make_shared<MakeTuple>(shapeElems, span_);
+    auto shape = MakeShapeTuple({2, 16});
     auto call = registry_.Create("block.reshape", {input, shape}, span_);
     ASSERT_NE(call, nullptr);
     auto rt = As<TileType>(call->GetType());
@@ -697,10 +697,7 @@ TEST_F(BlockOpsTest, TestBlockViewRuntimeShape) {
     auto tupleType = std::make_shared<TupleType>(std::vector<TypePtr>{
         std::make_shared<ScalarType>(DataType::INT64), std::make_shared<ScalarType>(DataType::INT64)});
     auto shapeVar = std::make_shared<Var>("shape", tupleType, span_);
-    // Offset as MakeTuple
-    std::vector<ExprPtr> offsetElems = {
-        std::make_shared<ConstInt>(0, DataType::INT64, span_), std::make_shared<ConstInt>(0, DataType::INT64, span_)};
-    auto offset = std::make_shared<MakeTuple>(offsetElems, span_);
+    auto offset = MakeShapeTuple({0, 0});
     auto call = registry_.Create("block.view", {input, shapeVar, offset}, span_);
     ASSERT_NE(call, nullptr);
     auto rt = As<TileType>(call->GetType());
@@ -735,9 +732,7 @@ TEST_F(BlockOpsTest, TestBlockReshapeStaticProductCheck) {
 
 TEST_F(BlockOpsTest, TestBlockReshape3D) {
     auto input = MakeTileVar("input", {4, 8});
-    std::vector<ExprPtr> shapeElems = {std::make_shared<ConstInt>(2, DataType::INT64, span_),
-        std::make_shared<ConstInt>(2, DataType::INT64, span_), std::make_shared<ConstInt>(8, DataType::INT64, span_)};
-    auto shape = std::make_shared<MakeTuple>(shapeElems, span_);
+    auto shape = MakeShapeTuple({2, 2, 8});
     auto call = registry_.Create("block.reshape", {input, shape}, span_);
     ASSERT_NE(call, nullptr);
     auto rt = As<TileType>(call->GetType());
@@ -758,33 +753,23 @@ TEST_F(BlockOpsTest, TestBlockTranspose3D) {
 
 TEST_F(BlockOpsTest, TestBlockViewUINT64Shape) {
     auto input = MakeTileVar("input", {16, 32});
-    std::vector<ExprPtr> shapeElems = {
-        std::make_shared<ConstInt>(4, DataType::UINT64, span_), std::make_shared<ConstInt>(8, DataType::UINT64, span_)};
-    auto shape = std::make_shared<MakeTuple>(shapeElems, span_);
-    std::vector<ExprPtr> offsetElems = {
-        std::make_shared<ConstInt>(0, DataType::UINT64, span_), std::make_shared<ConstInt>(0, DataType::UINT64, span_)};
-    auto offset = std::make_shared<MakeTuple>(offsetElems, span_);
+    auto shape = MakeShapeTuple({4, 8}, DataType::UINT64);
+    auto offset = MakeShapeTuple({0, 0}, DataType::UINT64);
     auto call = registry_.Create("block.view", {input, shape, offset}, span_);
     ASSERT_NE(call, nullptr);
 }
 
 TEST_F(BlockOpsTest, TestBlockReshapeUINT64Shape) {
     auto input = MakeTileVar("input", {4, 8});
-    std::vector<ExprPtr> shapeElems = {std::make_shared<ConstInt>(2, DataType::UINT64, span_),
-        std::make_shared<ConstInt>(16, DataType::UINT64, span_)};
-    auto shape = std::make_shared<MakeTuple>(shapeElems, span_);
+    auto shape = MakeShapeTuple({2, 16}, DataType::UINT64);
     auto call = registry_.Create("block.reshape", {input, shape}, span_);
     ASSERT_NE(call, nullptr);
 }
 
 TEST_F(BlockOpsTest, TestBlockViewPreservesDtype) {
     auto input = MakeTileVar("input", {16, 32}, DataType::FP16);
-    std::vector<ExprPtr> shapeElems = {
-        std::make_shared<ConstInt>(4, DataType::INT64, span_), std::make_shared<ConstInt>(8, DataType::INT64, span_)};
-    auto shape = std::make_shared<MakeTuple>(shapeElems, span_);
-    std::vector<ExprPtr> offsetElems = {
-        std::make_shared<ConstInt>(0, DataType::INT64, span_), std::make_shared<ConstInt>(0, DataType::INT64, span_)};
-    auto offset = std::make_shared<MakeTuple>(offsetElems, span_);
+    auto shape = MakeShapeTuple({4, 8});
+    auto offset = MakeShapeTuple({0, 0});
     auto call = registry_.Create("block.view", {input, shape, offset}, span_);
     ASSERT_NE(call, nullptr);
     auto rt = As<TileType>(call->GetType());
@@ -794,9 +779,7 @@ TEST_F(BlockOpsTest, TestBlockViewPreservesDtype) {
 
 TEST_F(BlockOpsTest, TestBlockReshapePreservesDtype) {
     auto input = MakeTileVar("input", {4, 8}, DataType::FP16);
-    std::vector<ExprPtr> shapeElems = {
-        std::make_shared<ConstInt>(2, DataType::INT64, span_), std::make_shared<ConstInt>(16, DataType::INT64, span_)};
-    auto shape = std::make_shared<MakeTuple>(shapeElems, span_);
+    auto shape = MakeShapeTuple({2, 16});
     auto call = registry_.Create("block.reshape", {input, shape}, span_);
     ASSERT_NE(call, nullptr);
     auto rt = As<TileType>(call->GetType());
