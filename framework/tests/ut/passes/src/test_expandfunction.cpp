@@ -26,6 +26,7 @@
 #define private public
 #include "interface/operation/operation.h"
 #include "passes/tensor_graph_pass/expand_function.h"
+#include "computational_graph_builder.h"
 
 namespace npu {
 namespace tile_fwk{
@@ -570,5 +571,25 @@ TEST_F(TestExpandFunctionPass, DisableCombineAxisOnA5) {
     EXPECT_EQ(currFunctionPtr->paramConfigs_.combineAxis, true);
 }
 
+TEST_F(TestExpandFunctionPass, PreCheckForDisorderIndexOutcast2) {
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{16, 16};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"src", "index1", "dst", "index2", "result1", "result2", "tensor1", "outcast1", "outcast2"}), true);
+    std::vector<Opcode> opLists{Opcode::OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, Opcode::OP_ASSEMBLE, Opcode::OP_ADDS, Opcode::OP_ASSEMBLE};
+    std::vector<std::vector<std::string>> iOperands{{"src", "index1", "dst"}, {"src", "index2", "dst"}, {"result1"}, {"result2"}, {"tensor1"}};
+    std::vector<std::vector<std::string>> oOperands{{"result1"}, {"result2"}, {"outcast1"}, {"tensor1"}, {"outcast2"}};
+    std::vector<std::string> opNames{"OP_INDEX_OUTCAST_1", "OP_INDEX_OUTCAST_2", "OP_ASSEMBLE_1", "OP_ADDS_1", "OP_ASSEMBLE_2"};
+    EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+    
+    EXPECT_EQ(G.SetInCast({"src", "index1", "dst", "index2"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast1", "outcast2"}), true);
+
+    Function *function = G.GetFunction();
+    function->GetTensorMap().Insert(G.GetTensor("dst"));
+
+    ExpandFunction expandfunctionpass;
+    function->DumpJsonFile("/mnt/workspace/gitCode/zhangxiangjie/pypto/framework/tests/ut/passes/src/check_before2.json");
+    EXPECT_EQ(expandfunctionpass.DefaultEnabledPreCheck(*function), FAILED);
+}
 }
 }
