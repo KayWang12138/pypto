@@ -238,7 +238,7 @@ void PadLocalBuffer::PadVector256(Operation &op, LogicalTensorPtr &in, bool need
         size_t lastIdx = in->shape.size() - 1;
         int64_t padValue = (8 + dim32Count - 1) / dim32Count;
         in->shape[lastIdx - 1] = PadRowDim(in->shape[lastIdx - 1], padValue);
-        in->tensor->rawshape[lastIdx - 1] = PadRowDim(in->tensor->oriRawshape[lastIdx - 1], 8);
+        in->tensor->rawshape[lastIdx - 1] = PadRowDim(in->tensor->oriRawshape[lastIdx - 1], padValue);
         APASS_LOG_INFO_F(Elements::Operation, "Op %d %s input shape and rawshape has been changed\n", op.opmagic, op.GetOpcodeStr().c_str());
     }
 }
