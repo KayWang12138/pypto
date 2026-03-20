@@ -102,7 +102,7 @@ bool CallwithBrcBinOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
 
 template <BinaryOpType T>
 void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
-    LogicalInput &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool withBrc) {
+    LogicalInput &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool withBrc, bool tailBrc) {
     size_t shapeSize = input1.tensor->GetShape().size();
     if (cur == shapeSize) {
         auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
@@ -140,6 +140,9 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
             } else if ((input1.tensor->GetShape()[shapeSize - 2] == 1) && (input2.tensor->GetShape()[shapeSize - 2] != 1)) {
                 op->SetAttribute(OpAttributeKey::brcpIdx, static_cast<int64_t>(1));
             }
+            if (op.HasAttr(OpAttributeKey::brcpIdx) && tailBrc) {
+                op->SetAttribute(OpAttributeKey::excludeBufferReuse, true);
+            }
         }
         return;
     }
@@ -165,6 +168,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, Logica
     if (tailBrc && !function.paramConfigs_.forceCombineAxis && !function.paramConfigs_.combineAxis) {
         BroadcastOperandTensor(operand1, operand2, result, function, tileShape, tailBrc);
         BroadcastOperandTensor(operand2, operand1, result, function, tileShape, tailBrc);
+        tailBrc = false;
     }
 
     TileInfo tileInfo1(operand1->shape.size(), operand1->offset.size());
@@ -174,7 +178,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, Logica
     auto input2 = LogicalInput{operand2, tileInfo2};
     // 如果打开了forceCombineAxis要走进OP_XX_BRC，如果打开combineAxis要避免后续走OP_XX_BRC逻辑
     bool withBrc = tailBrc && function.paramConfigs_.forceCombineAxis && !function.paramConfigs_.combineAxis;
-    TiledBinaryOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, withBrc);
+    TiledBinaryOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, withBrc, tailBrc);
 }
 
 void TiledPReLUOperation(
