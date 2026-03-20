@@ -35,7 +35,7 @@ def kernel_function(
 
 ```bash
 # 运行算子（生成泳道图数据）
-python3 custom/operator_name/operator.py --run-mode npu
+python3 test_{op}.py --run-mode npu
 ```
 
 执行后会在 `output/output_*/` 目录下生成泳道图数据文件：
@@ -67,11 +67,12 @@ python3 custom/operator_name/operator.py --run-mode npu
 ## Contract
 
 ### Inputs
-- `custom/{op}/test_{op}.py` — 精度已通过的实现
-- `custom/{op}/{op}_impl.py`
+- `test_{op}.py` — 精度已通过的测试入口
+- `{op}_impl.py` — 算子实现文件
+- 路径由调用者提供
 
 ### Outputs
-- `custom/{op}/output/output_*` — 性能数据
+- `output/output_*` — 性能数据
 - 调优建议
 
 ### Side Effects
@@ -82,6 +83,16 @@ python3 custom/operator_name/operator.py --run-mode npu
 
 ### Failure Exit
 - 精度未通过 → FAIL（不应进入此阶段）
+
+---
+
+## 独立使用
+
+当用户直接调用本 Skill 时：
+1. 从用户输入提取算子实现路径和测试脚本路径
+2. 如果信息不足，向用户逐步提问补充
+3. 按工作流执行性能数据采集、分析、优化迭代
+4. 输出性能数据和调优建议
 
 ## 常见问题
 

@@ -11,19 +11,14 @@ description: "基于 spec.md 生成算子设计文档 design.md（含 API 映射
 
 | 项目 | 说明 |
 |------|------|
-| **输入** | `custom/{算子名}/spec.md` |
-| **输出** | `custom/{算子名}/design.md` |
+| **输入** | 算子规格信息（spec.md 内容或等效描述） |
+| **输出** | `design.md`，路径由调用者决定 |
 
 ---
 
-## 2. 算子定位逻辑
+## 2. 算子信息获取
 
-按以下优先级定位目标算子（与 pypto-golden-generator 统一）：
-
-1. **用户明确指定**：`/pypto-op-design gelu` → 使用 `custom/gelu/spec.md`
-2. **当前目录推断**：工作目录在 `custom/xxx/` 下 → 自动使用该算子
-3. **唯一 spec**：`custom/` 下有且只有一个算子目录含 `spec.md` → 自动使用
-4. **多个未指定**：列出所有可用算子，要求用户指定
+从输入中提取算子名称，或由调用者指定。如果信息不足，向用户逐步提问补充。
 
 ---
 
@@ -121,7 +116,7 @@ description: "基于 spec.md 生成算子设计文档 design.md（含 API 映射
 ┌─────────────────────────────────────────────────────────────────┐
 │ Stage 5: 输出文件                                                  │
 ├─────────────────────────────────────────────────────────────────┤
-│  输出：custom/{算子名}/design.md                                    │
+│  输出：design.md，路径由调用者决定                                     │
 │  如果文件已存在 → 通过 AskUserQuestion 询问是否覆盖                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -227,7 +222,7 @@ spec.md §11 中的典型配置在 design.md 中的用途：
 
 ```
 ✅ 设计文档已生成:
-  • custom/{name}/design.md
+  • design.md
 
 后续可用技能:
   • /pypto-golden-generator — 生成 PyTorch golden 参考实现（如未生成）
@@ -239,11 +234,11 @@ spec.md §11 中的典型配置在 design.md 中的用途：
 ## Contract
 
 ### Inputs
-- `custom/{op}/spec.md`
-- `custom/{op}/{op}_golden.py` — 参考 golden 的函数签名和结构
+- 算子规格信息（spec.md 内容或等效描述）
+- golden 参考实现（`{op}_golden.py` 的函数签名和结构，可选）
 
 ### Outputs
-- `custom/{op}/design.md`
+- `design.md` — 算子设计方案文档，路径由调用者决定
 
 ### Side Effects
 - 无
@@ -252,5 +247,15 @@ spec.md §11 中的典型配置在 design.md 中的用途：
 - 覆盖前需确认
 
 ### Failure Exit
-- spec.md 不存在 → FAIL
-- {op}_golden.py 不存在 → WARN，可继续
+- 算子规格信息不存在 → FAIL
+- golden 参考实现不存在 → WARN，可继续
+
+---
+
+## 独立使用
+
+当用户直接调用本 Skill 时：
+1. 从用户输入提取算子名称、规格信息等必要内容
+2. 如果信息不足，向用户逐步提问补充
+3. 按工作流执行设计方案生成（输入验证 → 信息收集 → 生成草稿 → 确认 → 输出）
+4. 输出 design.md 到当前目录或用户指定位置

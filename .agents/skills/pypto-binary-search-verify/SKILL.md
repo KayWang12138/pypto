@@ -137,13 +137,8 @@ python3 test_operator.py
 使用通用对比工具或手动对比：
 
 ```bash
-<<<<<<< HEAD
 # 使用通用工具（推荐）
 python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py -v
-=======
-# 自动对比所有检查点
-python3 scripts/verify_binary_search.py -v
->>>>>>> 1848ab1d (fix(skills): use relative script paths and natural language skill references)
 ```
 
 ### 步骤 4：继续二分

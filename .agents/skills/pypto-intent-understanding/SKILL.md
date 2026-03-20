@@ -401,11 +401,7 @@ Algorithm: Flash Attention (Forward)
 
 ## 输出文件生成
 
-用户确认后，生成文件：
-
-### 文件路径
-
-- `custom/{算子名称}/spec.md` — 人类可读需求文档
+用户确认后，生成 `spec.md` 文件，输出路径由调用者决定。
 
 ### spec.md 模板
 
@@ -432,11 +428,11 @@ Algorithm: Flash Attention (Forward)
 
 ## 文件冲突处理
 
-如果 `custom/{算子名称}/spec.md` 已存在，**必须**通过 `AskUserQuestion` 询问用户：
+如果目标路径下 `spec.md` 已存在，**必须**通过 `AskUserQuestion` 询问用户：
 
 ```
 ⚠ 文件已存在:
-  - custom/{name}/spec.md
+  - spec.md
 
 请选择:
   1. 覆盖 — 用新生成的内容替换已有文件
@@ -499,13 +495,23 @@ Algorithm: Flash Attention (Forward)
 - 用户需求描述（自然语言）
 
 ### Outputs
-- `custom/{op}/spec.md` — 算子需求规格说明
+- `spec.md` — 算子需求规格说明，路径由调用者决定
 
 ### Side Effects
-- 创建 `custom/{op}/` 目录（如不存在）
+- 创建输出目录（如不存在）
 
 ### Overwrite Policy
 - 覆盖前需确认
 
 ### Failure Exit
 - 需求不清晰 → 返回问题清单要求补充
+
+---
+
+## 独立使用
+
+当用户直接调用本 Skill 时：
+1. 从用户输入提取算子名称、公式、输入输出规格等必要信息
+2. 如果信息不足，向用户逐步提问补充
+3. 按核心工作流（快速解析 → 可视化确认 → 可选补充）执行
+4. 输出 spec.md 到当前目录或用户指定位置

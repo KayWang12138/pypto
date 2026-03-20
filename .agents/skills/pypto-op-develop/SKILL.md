@@ -11,16 +11,16 @@ description: "读取 spec.md、design.md 和 {op}_golden.py，产出完整可运
 
 ### Inputs
 
-- `custom/{op}/spec.md` — 算子需求规格
-- `custom/{op}/design.md` — 设计方案
-- `custom/{op}/{op}_golden.py` — 纯 torch 参考实现
-- 可选：已有 `custom/{op}/` 目录中的历史实现文件（续跑场景）
+- 算子需求规格（spec.md 内容）
+- 设计方案（design.md 内容）
+- 纯 torch 参考实现（`{op}_golden.py`）
+- 可选：已有的历史实现文件（续跑场景）
 
 ### Outputs
 
-- `custom/{op}/test_{op}.py` — 测试入口（从 golden 和 impl 导入，不含实现代码）
-- `custom/{op}/{op}_impl.py` — PyPTO kernel 实现（必须使用pypto接口实现，导出 `{op}_wrapper()` 函数）
-- `custom/{op}/README.md` — PyPTO 算子文档
+- `test_{op}.py` — 测试入口（从 golden 和 impl 导入，不含实现代码），路径由调用者决定
+- `{op}_impl.py` — PyPTO kernel 实现（必须使用pypto接口实现，导出 `{op}_wrapper()` 函数），路径由调用者决定
+- `README.md` — PyPTO 算子文档，路径由调用者决定
 
 ### Side Effects
 
@@ -157,3 +157,45 @@ PyPTO kernel函数实现，基于固定模板 `references/impl-template.py` 生�
 4. **Tile Shape 未设置**：matmul 前必须调用 `set_cube_tile_shapes`
 5. **使用 PyTorch 作为 Golden**：golden 必须独立在 `{op}_golden.py`，使用纯 torch 实现
 6. **使用 PyPTO 接口实现 kernel 函数**：kernel 函数必须使用纯 pypto 实现
+
+---
+
+## 三态标记约定
+
+生成的 `test_{op}.py` 必须使用以下模式输出精度判定标记：
+
+```python
+import sys
+import numpy as np
+
+def run_test():
+    # ... setup inputs, call golden and impl ...
+    try:
+        np.testing.assert_allclose(impl_output, golden_output, rtol=rtol, atol=atol)
+        print("[PRECISION_PASS]")
+    except AssertionError as e:
+        print(f"[PRECISION_FAIL] {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        # 功能问题（无标记），exit code ≠ 0
+        print(f"Runtime error: {e}", file=sys.stderr)
+        sys.exit(2)
+
+if __name__ == "__main__":
+    run_test()
+```
+
+标记含义：
+- `[PRECISION_PASS]`: 精度验证通过
+- `[PRECISION_FAIL]`: 精度验证失败（数值不匹配）
+- 无标记 + exit ≠ 0: 功能问题（代码崩溃、逻辑错误等）
+
+---
+
+## 独立使用
+
+当用户直接调用本 Skill 时：
+1. 从用户输入提取算子名称，获取 spec、design、golden 等必要信息
+2. 如果信息不足，向用户逐步提问补充
+3. 按工作流执行代码生成（test + impl + README）
+4. 输出到当前目录或用户指定位置

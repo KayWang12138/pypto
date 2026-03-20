@@ -395,7 +395,7 @@ python3 scripts/analyze_perf.py output/output_20260214_152549_401503_511667
 ## Contract
 
 ### Inputs
-- `custom/{op}/output/output_*` — 性能数据文件
+- 性能数据文件（`output/output_*` 目录下的 `bubble_analysis.log`、`merged_swimlane.json` 等），路径由调用者提供
 
 ### Outputs
 - 性能分析报告（core_utilization、bubble_rate、load_balance、max_work_time）
@@ -408,6 +408,16 @@ python3 scripts/analyze_perf.py output/output_20260214_152549_401503_511667
 
 ### Failure Exit
 - 性能数据文件不存在 → FAIL
+
+---
+
+## 独立使用
+
+当用户直接调用本 Skill 时：
+1. 从用户输入提取性能数据文件路径或算子信息
+2. 如果信息不足，向用户逐步提问补充
+3. 按工作流执行性能数据提取、指标计算、瓶颈分析
+4. 输出性能分析报告
 
 ## 参考资料
 

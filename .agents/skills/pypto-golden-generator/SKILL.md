@@ -15,35 +15,14 @@ description: "基于 spec.md 生成纯 PyTorch golden 参考实现 {op}_golden.p
 
 | 项目 | 说明 |
 |------|------|
-| **输入** | `custom/{算子名}/spec.md` |
-| **输出** | `custom/{算子名}/{算子名}_golden.py` |
+| **输入** | 算子规格信息（如 spec.md 文档的内容、自然语言描述等） |
+| **输出** | `{op}_golden.py`，导出 `{op}_golden()` 函数，路径由调用者决定 |
 
 ---
 
-## 2. 算子定位逻辑
+## 2. 算子信息获取
 
-按以下优先级定位目标算子：
-
-1. **用户明确指定**：`/pypto-golden-generator gelu` → 使用 `custom/gelu/spec.md`
-2. **当前目录推断**：工作目录在 `custom/xxx/` 下 → 自动使用该算子
-3. **唯一 spec**：`custom/` 下有且只有一个算子目录含 `spec.md` → 自动使用
-4. **多个未指定**：列出所有可用算子，要求用户指定
-
-```
-用户输入
-  │
-  ├── 指定了算子名 → 查找 custom/{名称}/spec.md
-  │     └── 不存在 → 报错，提示可用算子
-  │
-  ├── 未指定 → 检查 cwd
-  │     ├── 在 custom/xxx/ 下 → 使用 xxx
-  │     └── 不在 → 扫描 custom/
-  │           ├── 只有一个 → 自动使用
-  │           ├── 多个 → 列出，要求指定
-  │           └── 没有 → 报错，提示先运行 pypto-intent-understanding
-  │
-  └── 找到 spec.md → 继续
-```
+从输入中提取算子名称，或由调用者指定。如果信息不足，向用户逐步提问补充。
 
 ---
 
@@ -348,7 +327,7 @@ if __name__ == "__main__":
 
 ```
 ✅ Golden 参考实现已生成:
-  • custom/{name}/{name}_golden.py
+  • {name}_golden.py
 
 ============================================================
 attention_golden 验证报告
@@ -386,10 +365,10 @@ attention_golden 验证报告
 ## Contract
 
 ### Inputs
-- `custom/{op}/spec.md`
+- 算子规格信息（spec.md 内容或等效的自然语言描述）
 
 ### Outputs
-- `custom/{op}/{op}_golden.py` — 纯 torch 参考实现，导出 `{op}_golden()` 函数
+- `{op}_golden.py` — 纯 torch 参考实现，导出 `{op}_golden()` 函数，路径由调用者决定
 
 ### Side Effects
 - 无
@@ -398,4 +377,14 @@ attention_golden 验证报告
 - 覆盖前需确认
 
 ### Failure Exit
-- spec.md 不存在或缺少数学公式 → FAIL
+- 算子规格信息不存在或缺少数学公式 → FAIL
+
+---
+
+## 独立使用
+
+当用户直接调用本 Skill 时：
+1. 从用户输入提取算子名称、公式、输入输出规格等必要信息
+2. 如果信息不足，向用户逐步提问补充
+3. 按工作流执行 golden 函数生成和验证
+4. 输出 `{op}_golden.py` 到当前目录或用户指定位置
