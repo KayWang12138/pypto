@@ -45,7 +45,7 @@
 // =============================================================================
 // INT8 对称量化 (INT8 Symmetric Quantization)
 // =============================================================================
-
+#define PTO_CEIL(x, y) ((((x) + (y)-1) / (y)) * (y))
 #define OP_TILE_OP_TQUANT_INT8_SYM TQuantInt8Sym
 
 /**
@@ -113,32 +113,32 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
     auto dstStride0 = dstLayout.template GetStrideDim<0, expectSize>();
     auto dstStride1 = dstLayout.template GetStrideDim<1, expectSize>();
     auto dstStride2 = dstLayout.template GetStrideDim<2, expectSize>();
-    auto dstStride3 = dstLayout.template GetStrideDim<3, expectSize>();
 
     auto srcStride0 = srcLayout.template GetStrideDim<0, expectSize>();
     auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
     auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
-    auto srcStride3 = srcLayout.template GetStrideDim<3, expectSize>();
 
     auto scaleStride0 = scaleLayout.template GetStrideDim<0, expectSize>();
     auto scaleStride1 = scaleLayout.template GetStrideDim<1, expectSize>();
     auto scaleStride2 = scaleLayout.template GetStrideDim<2, expectSize>();
-    auto scaleStride3 = scaleLayout.template GetStrideDim<3, expectSize>();
 
     // =========================================================================
     // 步骤3: 获取Tile级别的形状信息（编译期常量）
     // =========================================================================
     // Tile是硬件级别的基本处理单元，Tile形状在编译时确定
     // 这些值决定了每次迭代处理的数据块大小
+    // dst rowwise的 W 要按int8做32对齐
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, expectSize>();   // 输出Tile高度
-    // TODO：int8 输出要32对齐
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, expectSize>();   // 输出Tile宽度
+    constexpr int paddedCol_dst = PTO_CEIL(dstTileW, 32 / sizeof(int8_t));
+    // src rowwise的 W 要按half做32对齐(TQuant中间fp32->s32->fp16)
     constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, expectSize>();   // 输入Tile高度
-    // TODO：float32 输入要32对齐
     constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, expectSize>();   // 输入Tile宽度
+    constexpr int paddedCol_src = PTO_CEIL(srcTileW, 32 / sizeof(half));
+    // scale colwise的 H 需要32对齐
     constexpr auto scaleTileH = TileOp::GetTensorTileShapeDim<T2, 3, expectSize>(); // scale Tile高度
+    constexpr int paddedRow_scale = PTO_CEIL(scaleTileH, 32 / sizeof(float));
     constexpr auto scaleTileW = TileOp::GetTensorTileShapeDim<T2, 4, expectSize>(); // scale Tile宽度
-
     // =========================================================================
     // 步骤4: 提取数据类型信息
     // =========================================================================
@@ -147,21 +147,12 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
     using ScaleDtype = typename T2::Type;  // scale数据类型（通常是float）
 
     // =========================================================================
-    // 步骤5: 提取LastUse配置参数
-    // =========================================================================
-    // LastUse用于指示编译器优化内存访问模式，减少不必要的内存加载/存储
-    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
-    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
-    constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
-
-    // =========================================================================
     // 步骤6: 计算在5D表示中的实际量化轴
     // =========================================================================
     // 用户可能使用负数索引（如-1表示最后一维），需要转换为5D表示中的正数索引
     // 例如: 对于2D输入 [M, N]，axis=-1 对应 5D中的 axisIn5D=4
     constexpr auto srcShapeSize = Std::tuple_size<typename T1::Shape>::value;
-    constexpr int axisIn5D = (axis < 0) ? (expectSize + axis) : (expectSize - srcShapeSize + axis);
-
+    constexpr int axisIn5D = (axis < 0) ? (expectSize + axis) : (axis);
     // =========================================================================
     // 分支1: axis = -1 (axisIn5D == 4) - 逐行量化
     // =========================================================================
@@ -174,12 +165,12 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
         // - DstTileDefine: 输出Tile，行主序布局
         // - SrcTileDefine: 输入Tile，行主序布局
         // - ScaleTileDefine: scale Tile，列主序布局（因为scale形状是[H,1]）
-        using DstTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW,
+        using DstTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, paddedCol_dst,
                                         pto::BLayout::RowMajor, -1, -1>;
-        using SrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW,
+        using SrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, paddedCol_src,
                                         pto::BLayout::RowMajor, -1, -1>;
-        using ScaleTileDefine = pto::Tile<pto::TileType::Vec, ScaleDtype, scaleTileH, scaleTileW,
-                                        pto::BLayout::ColMajor, -1, -1>;
+        using ScaleTileDefine = pto::Tile<pto::TileType::Vec, ScaleDtype, paddedRow_scale, scaleTileW, // <Loc_, Element_, Row_, Col_
+                                        pto::BLayout::ColMajor, -1, -1>; // BFractal, RowValid_, ColValid_> -1 表示动态
 
         // 四层嵌套循环遍历所有Tile
         // n0, n1, n2: 遍历批次维度
@@ -207,8 +198,19 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * sizeof(SrcDtype)));
                     pto::TASSIGN(scaleTile, (uint64_t)(scale.GetAddr() + scaleOffset * sizeof(ScaleDtype)));
                     
+                    // 打印ValidShape
+                    // set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+                    // wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+                    // ((__ubuf__ int8_t *)dst.GetAddr())[0] = static_cast<int8_t>(dstTile.GetValidRow());
+                    // ((__ubuf__ int8_t *)dst.GetAddr())[1] = static_cast<int8_t>(dstTile.GetValidCol());
+                    // ((__ubuf__ int8_t *)dst.GetAddr())[2] = static_cast<int8_t>(srcTile.GetValidRow());
+                    // ((__ubuf__ int8_t *)dst.GetAddr())[3] = static_cast<int8_t>(srcTile.GetValidCol());
+                    // ((__ubuf__ int8_t *)dst.GetAddr())[4] = static_cast<int8_t>(scaleTile.GetValidRow());
+                    // ((__ubuf__ int8_t *)dst.GetAddr())[5] = static_cast<int8_t>(scaleTile.GetValidCol());
+                    // set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+                    // wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+                                        
                     // 执行INT8对称量化操作
-                    // PTO_WITH_LAST_USE: 宏，结合LastUse优化信息执行底层算子
                     // TQUANT<INT8_SYM>: 底层量化算子，执行 FP32 -> INT8 转换
                     pto::TQUANT<pto::QuantType::INT8_SYM>(dstTile, srcTile, scaleTile);
                 }
@@ -250,9 +252,13 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
                     auto scaleOffset = n0Index * scaleStride0 + n1Index * scaleStride1 + n2Index * scaleStride2;
 
                     // 将Tile绑定到实际内存地址
-                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * sizeof(DstDtype)));
-                    pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * sizeof(SrcDtype)));
-                    pto::TASSIGN(scaleTile, (uint64_t)(scale.GetAddr() + scaleOffset * sizeof(ScaleDtype)));
+                    // pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * sizeof(DstDtype)));
+                    // pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * sizeof(SrcDtype)));
+                    // pto::TASSIGN(scaleTile, (uint64_t)(scale.GetAddr() + scaleOffset * sizeof(ScaleDtype)));
+                    
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() ));
+                    pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() ));
+                    pto::TASSIGN(scaleTile, (uint64_t)(scale.GetAddr() ));
 
                     // 执行INT8对称量化操作
                     PTO_WITH_LAST_USE(pto::TQUANT<pto::QuantType::INT8_SYM>(dstTile, srcTile, scaleTile), n1, n2, n3);
@@ -386,7 +392,7 @@ TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset) {
     // 步骤6: 计算在5D表示中的实际量化轴
     // =========================================================================
     constexpr auto srcShapeSize = Std::tuple_size<typename T1::Shape>::value;
-    constexpr int axisIn5D = (axis < 0) ? (expectSize + axis) : (expectSize - srcShapeSize + axis);
+    constexpr int axisIn5D = (axis < 0) ? (expectSize + axis) : (axis);
 
     // =========================================================================
     // 分支1: axis = -1 (axisIn5D == 4) - 逐行量化
