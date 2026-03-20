@@ -208,13 +208,12 @@ size_t GetPaddingValue(LogicalTensorPtr &in) {
 
 size_t GetLastDimBytes(const LogicalTensorPtr& tensor) {
     if (tensor->shape.empty()) {
-        return false;
+        return 0;
     }
 
     size_t lastIdx = tensor->shape.size() - 1;
     size_t lastDim = tensor->shape[lastIdx];
     size_t bytes = BytesOf(tensor->Datatype());
-    
     size_t totalByte = lastDim * bytes;
 
     return totalByte;
@@ -227,7 +226,7 @@ int64_t Pad256(int64_t dim, int64_t padValue) {
 // 针对OP_CMP OP_CMPS OP_PRELU特殊OP做倒数第二轴的256B扩充
 void PadLocalBuffer::PadVector256(Operation &op, LogicalTensorPtr &in, bool needRowPad) {
     size_t lastDimBytes = GetLastDimBytes(in);
-    if (needRowPad && (lastDimBytes % 32 == 0)) {
+    if (needRowPad && lastDimBytes != 0 && (lastDimBytes % 32 == 0)) {
 
         auto dim32Count = lastDimBytes / 32;
         if (dim32Count == 0) {
