@@ -105,6 +105,7 @@ protected:
     // Used for unaligned scene. In AST 1.0 it was padded in LogicalTensor constructor
     std::vector<int64_t> originShape[MAX_OPERANDS] = {};
     std::vector<SymbolicScalar> dynamicOffset[MAX_OPERANDS] = {};
+    std::vector<SymbolicScalar> dynamicRawShape[MAX_OPERANDS] = {};   // raw shape
     std::vector<SymbolicScalar> dynamicValidShape[MAX_OPERANDS] = {}; // valid shape
 
     std::vector<int64_t> shapeFromAttr[MAX_OPERANDS] = {};            // 1.for spilling to GM scene 2.for conv
