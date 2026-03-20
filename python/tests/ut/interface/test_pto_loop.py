@@ -36,10 +36,10 @@ def gen_add_golden(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     return out
 
 
-def prep_env():
-    device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
-    torch.npu.set_device(device_id)
-    torch_npu.npu.config.allow_internal_format = True
+# def prep_env():
+#     device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
+#     torch.npu.set_device(device_id)
+#     torch_npu.npu.config.allow_internal_format = True
 
 
 def parallel_add_compute_single_parallel(left: pypto.Tensor, right: pypto.Tensor, res: pypto.Tensor):
