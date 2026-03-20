@@ -50,6 +50,25 @@
 脚本使用方法：`python3 pass_compare.py --p ExpandFunction RemoveUndrivenView --verify_path=.....`
 `--p`参数后面的是对比的两个pass，空格隔开，前面的是精度对比失败的pass，后面的是作为golden的pass，`--verify_path`参数是精度工具dump数据文件的那个目录的绝对路径。
 #### 错误码：
-
+脚本使用方法：`python3 pass_compare.py --p ExpandFunction RemoveUndrivenView --verify_path=.....`
+`--p`参数后面的是对比的两个pass，空格隔开，前面的是精度对比失败的pass，后面的是作为golden的pass，`--verify_path`参数是精度工具dump数据文件的那个目录的绝对路径。
+#### 错误码：
+##### 日志示例
+```log
+[ERROR] PYPTO(1693310):2026-03-20 15:08:54.112 [operation.cpp:58][VERIFY]:ErrCode: FB200F! ExecuteOperation error: op GATHER_IN_UB (magic=10564) input[0] tensorMagic=94, shape=[82816, 512], offset=[0, 0], dynValidShape=[82816, 512], dynOffset=[]
+[ERROR] PYPTO(1693310):2026-03-20 15:08:54.112 [operation.cpp:58][VERIFY]:ErrCode: FB200F! ExecuteOperation error: op GATHER_IN_UB (magic=10564) input[1] tensorMagic=3717, shape=[1, 16], offset=[0, 1792], dynValidShape=[RUNTIME_GetViewValidShapeDim(RUNTIME_GetInputShapeDim(ARG_topk_indices,0),((bIdx*((RUNTIME_GetInputShapeDim(ARG_query_nope,0)/RUNTIME_GetInputShapeDim(ARG_kv_act_seqs,0))/128))+s1Idx),1), RUNTIME_GetViewValidShapeDim(2048,((s2_idx*2048)+1792),16)], dynOffset=[((bIdx*((RUNTIME_GetInputShapeDim(ARG_query_nope,0)/RUNTIME_GetInputShapeDim(ARG_kv_act_seqs,0))/128))+s1Idx), ((s2_idx*2048)+1792)]
+[ERROR] PYPTO(1693310):2026-03-20 15:08:54.112 [operation.cpp:58][VERIFY]:ErrCode: FB200F! ExecuteOperation error: op GATHER_IN_UB (magic=10564) input[2] tensorMagic=12209, shape=[1, 512], offset=[0, 0], dynValidShape=[RUNTIME_GetViewValidShapeDim(RUNTIME_GetInputShapeDim(ARG_block_table,0),bIdx,1), 512], dynOffset=[bIdx, 0]
+[ERROR] PYPTO(1693310):2026-03-20 15:08:54.112 [operation.cpp:58][VERIFY]:ErrCode: FB200F! ExecuteOperation error: op GATHER_IN_UB (magic=10564) output[0] tensorMagic=3716, shape=[16, 512], offset=[0, 0], dynValidShape=[sym_3716_dim_0, sym_3716_dim_1], dynOffset=[]
+[ERROR] PYPTO(1693310):2026-03-20 15:08:54.116 [flow_verifier.cpp:299][VERIFY]:ErrCode: FB4001! VerifyPass failed for function TENSOR_LOOP_L4_s2_SA_LoopUnroll1_Unroll1_PATH0_hiddenfunc0_20, pass InferParamIndex (passIndex: 28, captureIndex: 4): 10447510811372117949, 3415564916459561148, 10564, GATHER_IN_UBOpError
+func: TENSOR_LOOP_L4_s2_SA_LoopUnroll1_Unroll1_PATH0_hiddenfunc0_leaf22
+filename: /data/l00504208/g00955608/pypto/models/deepseek_v32_exp/sparse_flash_attention_quant_impl.py
+lineno: 136
+/* /data/l00504208/g00955608/pypto/models/deepseek_v32_exp/sparse_flash_attention_quant_impl.py:136 */
+<16 x 512 x DT_INT8 / sym_3716_dim_0 x sym_3716_dim_1 x DT_INT8> %3716@3264#(22)MEM_UB::MEM_UB = !10564 TILE_GATHER_IN_UB(g:22, s:-1) %94@106#(1)MEM_DEVICE_DDR::MEM_DEVICE_DDR, %3717@100(0, 1792)(((bIdx*((RUNTIME_GetInputShapeDim(ARG_query_nope,0)/RUNTIME_GetInputShapeDim(ARG_kv_act_seqs,0))/128))+s1Idx), ((s2_idx*2048)+1792))#(22)MEM_DEVICE_DDR::MEM_D
+[ERROR] PYPTO(1693310):2026-03-20 15:08:54.116 [flow_verifier.cpp:299][VERIFY]:EVICE_DDR, %12209@102(bIdx, 0)#(22)MEM_DEVICE_DDR::MEM_DEVICE_DDR #IS_CUBE{0} #block_size{128}
+<16x512xINT8/0x512xINT8> = GATHER_IN_UB <82816x512xINT8/82816x512xINT8>, <1x16xINT32/1x16xINT32>, <1x512xINT32/1x512xINT32>
+out must have shape [topk_count, hidden_dim]
+[ERROR] PYPTO(1693310):2026-03-20 15:08:54.910 [ope
+```
 
 ### 非典型错误码场景
