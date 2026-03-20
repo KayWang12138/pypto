@@ -75,7 +75,10 @@ bool CalculateNewRawShapeReduce(
         std::accumulate(newRawShape.begin(), newRawShape.end(), INT64_C(1), std::multiplies<int64_t>());
     int64_t oriShapeSize = 
         std::accumulate(oriRawShape.begin(), oriRawShape.end(), INT64_C(1), std::multiplies<int64_t>());
-    int64_t remainShapeSize = oriShapeSize / newShapeSize;
+    int64_t remainShapeSize = 1;
+    if (newShapeSize > 0) {
+        remainShapeSize = oriShapeSize / newShapeSize;
+    } 
     if (remainShapeSize <= 0) {
         APASS_LOG_INFO_F(Elements::Function, "Cannot calculate NewRawShape as the dimension is not divisible.");
         return false;
@@ -435,9 +438,6 @@ Status RemoveRedundantAssemble::HandleDynOffsetForReshape(
         return SUCCESS;
     }
     auto &assembleOutShape = assembleOp.GetOOperands()[0]->tensor->rawshape;
-    if (!CalculateNewRawShapeExpand(producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape)) {
-        return SUCCESS;
-    }
     if (assembleOutShape.size() < producer->GetIOperands()[0]->shape.size()) {
             if (!CalculateNewRawShapeReduce(producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape)) return SUCCESS;
     } else {
@@ -460,7 +460,6 @@ Status RemoveRedundantAssemble::HandleDynOffsetForReshape(
         copyAttr->SetRawShape(OpImmediate::Specified(newRawShape));
         copyAttr->SetToOffset(newOffset);
     }
-    // UpdateReshapeShape(*producer, producer->GetIOperands().front(), newRawShape);
     producer->GetIOperands()[0]->tensor->UpdateRawShape(newRawShape);
     return SUCCESS;
 }
