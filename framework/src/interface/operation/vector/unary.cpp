@@ -75,22 +75,11 @@ Tensor Ln(const Tensor &operand) {
 
 Tensor IsFinite(const Tensor &self) {
     DECLARE_TRACER();
-    std::vector<DataType> SUPPORT_FLOAT_TYPES = {DT_FP16, DT_FP32, DT_BF16};
-    std::vector<DataType> SUPPORT_INT_TYPES = {
-        DT_INT16, DT_INT4, DT_INT8, DT_INT32, DT_UINT16, DT_UINT32, DT_UINT8, DT_UINT64, DT_INT64};
+    std::vector<DataType> SUPPORT_TYPES = {DT_FP16, DT_FP32, DT_BF16, DT_INT16, DT_INT4, DT_INT8, DT_INT32, DT_UINT16, DT_UINT32, DT_UINT8, DT_UINT64, DT_INT64};
 
-    if (std::find(SUPPORT_INT_TYPES.begin(), SUPPORT_INT_TYPES.end(), self.GetDataType()) != SUPPORT_INT_TYPES.end()) {
-        Tensor halfResult = Full(Element(DT_FP16, 1.0f), DT_FP16, self.GetShape(), self.GetValidShape());
-        Tensor result = Cast(halfResult, DT_UINT8, CastMode::CAST_NONE);
-        return result;
-    }
-
-    ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED,
-        std::find(SUPPORT_FLOAT_TYPES.begin(), SUPPORT_FLOAT_TYPES.end(), self.GetDataType()) !=
-            SUPPORT_FLOAT_TYPES.end())
-        << "`IsFinite` only supports FP16/BF16/FP32 in float datatypes!";
-    RETURN_CALL(UnaryOperation<UnaryOpType::ISFINITE>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
-        DT_BOOL);
+    ASSERT(std::find(SUPPORT_TYPES.begin(), SUPPORT_TYPES.end(), self.GetDataType()) !=
+           SUPPORT_TYPES.end()) << "`IsFinite` only supports FP16/BF16/FP32/INT8/UINT8/INT16/UINT16/INT32/UINT32/INT64/UINT64 in datatypes!";
+    RETURN_CALL(UnaryOperation<UnaryOpType::ISFINITE>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), DT_BOOL);
 }
 
 Tensor Rsqrt(const Tensor &self) {
