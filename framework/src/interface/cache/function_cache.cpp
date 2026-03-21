@@ -136,7 +136,7 @@ void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
             totalSize += binData.size() + sizeof(uint64_t);
             binMap[ele.first] = std::move(binData);
         } else {
-            MACHINE_LOGE("bin path %s is not existed", binPath.c_str());
+            MACHINE_LOGE(DevCommonErr::FILE_ERROR, "bin path %s is not existed", binPath.c_str());
             abort();
         }
     }

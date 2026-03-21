@@ -130,6 +130,40 @@ TEST_F(DynamicBasicTest, TestHybridLoopIfWithTernary) {
     EXPECT_TRUE(resultCmp(golden1, (float *)outs->data(), 0.004f));
 }
 
+TEST_F(DynamicBasicTest, DynamicShapeControlFlowMix_Smoke) {
+    SetInterpreterConfig();
+    int s = 32;
+    Tensor in0(DT_FP32, {-1, s}, "in0");
+    Tensor in1(DT_FP32, {s, s}, "in1");
+    Tensor out(DT_FP32, {-1, s}, "out");
+    int n = 4;
+    Tensor arg0(DT_FP32, {n * s, s});
+    Tensor out0(DT_FP32, {n * s, s});
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(arg0, 1.0f),
+        RawTensorData::CreateConstantTensor<float>(in1, 2.0f),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out0, 0.0f),
+    });
+    FUNCTION("main", {in0, in1}, {out}) {
+        LOOP("DynMix", FunctionType::DYNAMIC_LOOP, idx, LoopRange(GetInputShape(in0, 0) / s)) {
+            Tensor block = View(in0, {s, s}, {idx * s, 0});
+            IF (idx < 2) {
+                block = Add(block, in1);
+            } ELSE {
+                block = Sub(block, in1);
+            }
+            Assemble(block, {idx * s, 0}, out);
+        }
+    }
+#ifdef BUILD_WITH_CANN
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    ASSERT_NE(outs, nullptr);
+#endif
+}
+
 void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &blockTable, Tensor &out, int s) {
     FUNCTION("main", {t0, t1, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s)) {
