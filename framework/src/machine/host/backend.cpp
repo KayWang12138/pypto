@@ -376,6 +376,13 @@ void GetReadyOnHostTensorsSet(std::unordered_set<int> &readyOnHostTensorsSet) {
         ASSERT(i < inputSize) << "Tensor " << tensorStr << " not found in input list, please check [ready_on_host_tensors] config.";
     }
 }
+static bool NeedCrossDie(Function *func) {
+    if ((Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) &&
+        (func->GetDynloopAttribute()->parallel == ParallelMode::PARALLEL)) {
+        return true;
+    }
+    return false;
+}
 
 static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::string &sectionName,
     Function *func, std::unordered_map<int, int> &slotIdxMapping, DyndevFunctionAttribute::FunctionGroup &group,
@@ -483,10 +490,9 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         std::string iterVar = "VAR_" + attr->iterSymbolName;
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "LOOP(" << iterVar << ", " << iterBegin << ", " << iterEnd << ", " << iterStep << ") {\n";
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "VALUE_" << attr->iterSymbolName << " = " << iterVar << ";\n";
-        if ((Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) && (func->GetDynloopAttribute()->parallelFor == ParallelMode::PARALLEL)) {
-            controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "int8_t DIESET_" << attr->iterSymbolName << " = 0;\n";
-            controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_CalcLoopDieId(" << iterVar << ", " <<  iterEnd << ", "
-                << iterStep << ", " << DIE_NUM << ", " << "DIESET_" << attr->iterSymbolName << ");\n";
+        if (NeedCrossDie(func)) {
+            controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "int8_t DIESET_" << attr->iterSymbolName << "= RUNTIME_CalcLoopDieId("
+                << iterVar << ", " <<  iterEnd << ", " << iterStep << ", " << DIE_NUM << ");\n";
         }
         auto pathNode = attr->BuildPathNode();
         MACHINE_LOGI("Paths: \n %s", pathNode->Dump().c_str());
@@ -500,7 +506,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         std::sort(pathRootList.begin(), pathRootList.end());
         ASSERT(calleeList == pathRootList)<<"calleeList size:"<<calleeList.size()<<" pathRootList size:"<<pathRootList.size();
         condBuilder(pathNode, indent + 1);
-        if ((Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) && (func->GetDynloopAttribute()->parallelFor == ParallelMode::PARALLEL)) {
+        if (NeedCrossDie(func)) {
             controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_ClearLoopDieId(" << "DIESET_" << attr->iterSymbolName << ");\n";
         }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "}\n";

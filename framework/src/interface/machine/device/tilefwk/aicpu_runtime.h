@@ -107,17 +107,10 @@ int64_t RuntimeNe(int64_t input1, int64_t input2) {
 #define RUNTIME_And(lhs, rhs) ((lhs) && (rhs))
 #define RUNTIME_Select(cond, set, unset) ((cond) ? (set) : (unset))
 
-#define RUNTIME_CalcLoopDieId(idx, loopRange, step, dieNum, loopDieSet) \
-    do { \
-        if (*loopDieId == -1) { \
-            *loopDieId = (idx / step) % dieNum; \
-            if (idx + step == loopRange && *loopDieId == 0) { \
-                *loopDieId = -1; \
-            } else { \
-                loopDieSet = 1; \
-            } \
-        } \
-    } while(0)
+#define RUNTIME_CalcLoopDieId(idx, loopRange, step, dieNum) \
+    (*loopDieId != -1) ? 0 : \
+        (*loopDieId = (idx / step) % dieNum, \
+         (idx + step == loopRange && *loopDieId == 0) ? (*loopDieId = -1, 0) : 1)
 
 #define RUNTIME_ClearLoopDieId(loopDieSet) \
     do { \
