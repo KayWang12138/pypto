@@ -97,48 +97,48 @@ TEST_F(DynamicOpsTest, FmodFp32) {
     EXPECT_NO_VERIFY_FAILED(logOutput);
 }
 
-TEST_F(DynamicOpsTest, FmodFp32ParallelLoop) {
-    std::string logOutput = CaptureLogFileAndEcho([]() {
-    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
-    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+// TEST_F(DynamicOpsTest, FmodFp32ParallelLoop) {
+//     std::string logOutput = CaptureLogFileAndEcho([]() {
+//     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+//     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
-    int s = 32;
-    int n = 2;
-    int m = 1;
-    Tensor t0(DT_FP32, {n * s, m * s}, "t0");
-    Tensor t1(DT_FP32, {n * s, m * s}, "t1");
-    Tensor out(DT_FP32, {n * s, m * s}, "out");
+//     int s = 32;
+//     int n = 2;
+//     int m = 1;
+//     Tensor t0(DT_FP32, {n * s, m * s}, "t0");
+//     Tensor t1(DT_FP32, {n * s, m * s}, "t1");
+//     Tensor out(DT_FP32, {n * s, m * s}, "out");
 
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(t0, 2.0),
-        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out, 0.0),
-    });
-    ProgramData::GetInstance().AppendGoldens({
-        RawTensorData::CreateConstantTensor<float>(out, 0.0),
-    });
+//     ProgramData::GetInstance().AppendInputs({
+//         RawTensorData::CreateConstantTensor<float>(t0, 2.0),
+//         RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+//     });
+//     ProgramData::GetInstance().AppendOutputs({
+//         RawTensorData::CreateConstantTensor<float>(out, 0.0),
+//     });
+//     ProgramData::GetInstance().AppendGoldens({
+//         RawTensorData::CreateConstantTensor<float>(out, 0.0),
+//     });
 
-    FUNCTION("main", {t0, t1}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1), {}, false, true) {
-            (void)i;
-            auto t0a = View(t0, {s, s}, {0, 0});
-            auto t0b = View(t0, {s, s}, {s, 0});
-            auto t1a = View(t1, {s, s}, {0, 0});
-            auto t1b = View(t1, {s, s}, {s, 0});
-            auto t2a = Fmod(t0a, t1a);
-            auto t2b = Fmod(t0b, t1b);
-            std::vector<std::pair<Tensor, std::vector<int64_t>>> data = {
-                {t2a, {0, 0}},
-                {t2b, {s, 0}},
-            };
-            out = Assemble(data);
-        }
-    }
-    });
-    EXPECT_NO_VERIFY_FAILED(logOutput);
-}
+//     FUNCTION("main", {t0, t1}, {out}) {
+//         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1), {}, false, true) {
+//             (void)i;
+//             auto t0a = View(t0, {s, s}, {0, 0});
+//             auto t0b = View(t0, {s, s}, {s, 0});
+//             auto t1a = View(t1, {s, s}, {0, 0});
+//             auto t1b = View(t1, {s, s}, {s, 0});
+//             auto t2a = Fmod(t0a, t1a);
+//             auto t2b = Fmod(t0b, t1b);
+//             std::vector<std::pair<Tensor, std::vector<int64_t>>> data = {
+//                 {t2a, {0, 0}},
+//                 {t2b, {s, 0}},
+//             };
+//             out = Assemble(data);
+//         }
+//     }
+//     });
+//     EXPECT_NO_VERIFY_FAILED(logOutput);
+// }
 
 TEST_F(DynamicOpsTest, FillPad1DFp32) {
     std::string logOutput = CaptureLogFileAndEcho([]() {
@@ -699,6 +699,105 @@ TEST_F(DynamicOpsTest, OpsElementWise) {
 
     FUNCTION("main", {t0, t1, t2, t3, t4, t5}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(npu::tile_fwk::GetTensorData(t5, {n - 1, s - 1, m * s - 1}))) {
+            IF (i == 0) {
+                out = Add(t0, t1); // +t0, +t1
+            } ELSE {
+                out = Add(out, t1); // +t1 * 7
+                IF(i < condThreshold) {
+                    out = Add(out, t2); // +t2 * 5
+                }
+                ELSE {
+                    out = Mul(out, t3); // +t3 * 2
+                }
+                out = Add(out, t4);
+            }
+        }
+        LOOP("L1", FunctionType::DYNAMIC_LOOP, i, LoopRange(loopCount)) {
+            out = Add(out, t1); // +t1
+            IF(i < condThreshold) {
+                out = Add(out, t2); // +t2 * 5
+            }
+            ELSE {
+                out = Mul(out, t3); // +t3 * 2
+            }
+            out = Add(out, t4);
+        }
+    }
+    });
+    EXPECT_NO_VERIFY_FAILED(logOutput);
+}
+
+TEST_F(DynamicOpsTest, OpsElementWiseParallelLoop) {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+
+    std::vector<uint8_t> devProgBinary;
+
+    int s = 32;
+    int n = 2;
+    int m = 2;
+    Tensor t0(DT_FP32, {n * s, m * s}, "t0");
+    Tensor t1(DT_FP32, {n * s, m * s}, "t1");
+    Tensor t2(DT_FP32, {n * s, m * s}, "t2");
+    Tensor t3(DT_FP32, {n * s, m * s}, "t3");
+    Tensor t4(DT_FP32, {n * s, m * s}, "t4");
+    Tensor t5(DT_INT32, {n, s, m * s}, "t5");
+    Tensor out(DT_FP32, {n * s, m * s}, "out");
+
+    float t0Data = 10.0;
+    float t1Data = 20.0;
+    float t2Data = 30.0;
+    float t3Data = 1.0;
+    float t4Data = 50.0;
+
+    std::vector<int> t5Data(n * s * m * s, 1);
+    t5Data[n * s * m * s - 1] = 3; // 3: loop cnt
+
+    float r0Data = 0;
+    int loopCount = 3;
+    int condThreshold = 2;
+
+    for (int i = 0; i < loopCount; i++) {
+        if (i == 0) {
+            r0Data = t0Data + t1Data;
+        }  else {
+            r0Data = r0Data + t1Data; // +t0, +t1
+            if (i < condThreshold) {
+                r0Data = r0Data + t2Data; // +t2 * 5
+            } else {
+                r0Data = r0Data * t3Data; // +t3 * 2
+            }
+            r0Data = r0Data + t4Data;
+        }
+    }
+    for (int i = 0; i < loopCount; i++) {
+        r0Data = r0Data + t1Data; // +t1
+        if (i < condThreshold) {
+            r0Data = r0Data + t2Data; // +t2 * 5
+        } else {
+            r0Data = r0Data * t3Data; // +t3 * 2
+        }
+        r0Data = r0Data + t4Data;
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, t0Data),
+        RawTensorData::CreateConstantTensor<float>(t1, t1Data),
+        RawTensorData::CreateConstantTensor<float>(t2, t2Data),
+        RawTensorData::CreateConstantTensor<float>(t3, t3Data),
+        RawTensorData::CreateConstantTensor<float>(t4, t4Data),
+        RawTensorData::CreateTensor<int>(t5, t5Data),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateConstantTensor<float>(out, r0Data),
+    });
+
+    FUNCTION("main", {t0, t1, t2, t3, t4, t5}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(npu::tile_fwk::GetTensorData(t5, {n - 1, s - 1, m * s - 1})), {}, false, true) {
             IF (i == 0) {
                 out = Add(t0, t1); // +t0, +t1
             } ELSE {

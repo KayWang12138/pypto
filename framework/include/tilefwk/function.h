@@ -186,16 +186,10 @@ public:
     int CurUnrollTimes() const;
     void NextUnrollTimes();
     bool GetParallelFor() const {return parallelFor_;}
-    std::string GetName() const {return name_;}
-    void AddLoopUnrollFunctions(Function* func) {
-        loopUnrollFunctions_.push_back(func);
-    }
 
     std::vector<npu::tile_fwk::Function *>& GetLoopUnrollFunctions() {
         return loopUnrollFunctions_;
     }
-
-    void SetLoopUnrollFuncParallelAttr(int parallelForValue);
 
     bool CustomUnrollTimesMatched() const { return customUnrollTimes_.count(CurUnrollTimes()) > 0; }
     static bool MatchUnrollTimes(int unrollTimes);
