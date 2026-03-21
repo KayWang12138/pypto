@@ -182,7 +182,7 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int ax
         << "The shape.size() only support 2~5";
 
     // Validate data types
-    std::vector<DataType> SUPPORT_INPUT_DATATYPES = {DataType::DT_FP32, DataType::DT_FP16, DataType::DT_BF16};
+    std::vector<DataType> SUPPORT_INPUT_DATATYPES = {DataType::DT_FP32};
     ASSERT(std::find(SUPPORT_INPUT_DATATYPES.begin(), SUPPORT_INPUT_DATATYPES.end(), input.GetDataType()) !=
            SUPPORT_INPUT_DATATYPES.end())
         << "The input datatype is not supported";
@@ -216,9 +216,9 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int ax
             Tensor transposedZeroPoints = Transpose(zeroPoints, {secondLastDim, lastDim});
 
             // Asymmetric quantization with axis=-1
-            ASSERT(otype == DataType::DT_UINT8 || otype == DataType::DT_INT8)
-                << "Asymmetric quantization output type should be UINT8 or INT8";
-            Tensor quantizedResult = TensorQuantizeAsymmetricOperation(
+            ASSERT(otype == DataType::DT_UINT8)
+                << "Asymmetric quantization output type should be UINT8";
+            Tensor quantizedResult = CALL(QuantizeAsymmetricOperation,
                 *Program::GetInstance().GetCurrentFunction(),
                 transposedInput.GetStorage(), transposedScale.GetStorage(),
                 transposedZeroPoints.GetStorage(), -1);
@@ -229,7 +229,7 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int ax
             // Symmetric quantization with axis=-1
             ASSERT(otype == DataType::DT_INT8)
                 << "Symmetric quantization output type should be INT8";
-            Tensor quantizedResult = TensorQuantizeSymmetricOperation(
+            Tensor quantizedResult = CALL(QuantizeSymmetricOperation,
                 *Program::GetInstance().GetCurrentFunction(),
                 transposedInput.GetStorage(), transposedScale.GetStorage(), -1);
 
@@ -241,8 +241,8 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int ax
     // axis=-1 case: direct quantization without transpose
     if (isAsymmetric) {
         // Asymmetric quantization: FP32 -> UINT8
-        ASSERT(otype == DataType::DT_UINT8 || otype == DataType::DT_INT8)
-            << "Asymmetric quantization output type should be UINT8 or INT8";
+        ASSERT(otype == DataType::DT_UINT8)
+            << "Asymmetric quantization output type should be UINT8";
         RETURN_CALL(QuantizeAsymmetricOperation, *Program::GetInstance().GetCurrentFunction(),
             input.GetStorage(), scale.GetStorage(), zeroPoints.GetStorage(), normalizedAxis);
     } else {
@@ -254,15 +254,15 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int ax
     }
 }
 
-// Convenience function for symmetric quantization
-Tensor QuantizeSymmetric(const Tensor &src, const Tensor &scale, int64_t axis) {
-    return Quantize(src, scale, DataType::DT_INT8, axis, Tensor());
-}
+// // Convenience function for symmetric quantization
+// Tensor QuantizeSymmetric(const Tensor &src, const Tensor &scale, int64_t axis) {
+//     return Quantize(src, scale, DataType::DT_INT8, axis, Tensor());
+// }
 
-// Convenience function for asymmetric quantization
-Tensor QuantizeAsymmetric(const Tensor &src, const Tensor &scale, const Tensor &offset, int64_t axis) {
-    return Quantize(src, scale, DataType::DT_UINT8, axis, offset);
-}
+// // Convenience function for asymmetric quantization
+// Tensor QuantizeAsymmetric(const Tensor &src, const Tensor &scale, const Tensor &offset, int64_t axis) {
+//     return Quantize(src, scale, DataType::DT_UINT8, axis, offset);
+// }
 
 // =============================================================================
 // Tile Function Registration
