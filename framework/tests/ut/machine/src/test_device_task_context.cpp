@@ -10,15 +10,29 @@
 
 /*!
  * \file test_device_task_context.cpp
- * \brief Unit tests for DeviceTaskContext
+ * \brief Unit tests for DeviceTaskContext, DeviceStitchContext, DeviceExecuteContext (includes former
+ *        test_machine_encode_coverage cases).
  */
 
 #include <gtest/gtest.h>
+#include <array>
+#include <cstdlib>
+#include <cstring>
 #include <memory>
+#include <vector>
 #define private public
-#include "machine/device/dynamic/context/device_task_context.h"
-#include "machine/utils/dynamic/dev_workspace.h"
+#include "interface/configs/config_manager.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/program/program.h"
+#include "machine/device/dynamic/context/device_task_context.h"
+#include "machine/device/dynamic/context/device_stitch_context.h"
+#include "machine/device/dynamic/context/device_execute_context.h"
+#include "machine/device/dynamic/context/device_slot_context.h"
+#include "machine/utils/dynamic/dev_start_args.h"
+#include "machine/utils/dynamic/dev_workspace.h"
+#include "interface/machine/device/tilefwk/aikernel_data.h"
+#include "interface/tileop/distributed/comm_context.h"
+#include "tilefwk/data_type.h"
 #include "tilefwk/platform.h"
 #include "tilefwk/tilefwk.h"
 
@@ -95,4 +109,23 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_calls_wrap_functions) {
     EXPECT_EQ(wrapQueue->head, 0);
     EXPECT_EQ(wrapQueue->tail, 0);
     EXPECT_GT(wrapQueue->capacity, 0);
+}
+
+TEST_F(TestDeviceTaskContext, ShowStats_HitsDevErrorMacroLines) {
+    DeviceTaskContext taskContext;
+    taskContext.ShowStats();
+}
+
+TEST_F(TestDeviceTaskContext, InitReadyQueues_ExceedsStitchSize_ReturnsError) {
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    devProg.stitchFunctionsize = 10;
+    DeviceWorkspaceAllocator workspace(&devProg);
+    taskContext.InitAllocator(&devProg, workspace, &startArgs);
+    auto dyntask = std::make_unique<DynDeviceTask>(workspace);
+    CreateMockDynDeviceTask(dyntask.get(), 100U);
+    ReadyCoreFunctionQueue *queues[READY_QUEUE_SIZE] = {};
+    EXPECT_EQ(taskContext.InitReadyQueues(dyntask.get(), &devProg, queues), DEVICE_MACHINE_ERROR);
 }
