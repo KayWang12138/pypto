@@ -42,10 +42,10 @@ enum class LogModule {
     VERIFY,
     COMPILER_MONITOR,
     PLATFORM,
-    BOTTOM,
     MATMUL,
     VECTOR,
-    CONV
+    CONV,
+    BOTTOM
 };
 
 class LogFuncInfo {
