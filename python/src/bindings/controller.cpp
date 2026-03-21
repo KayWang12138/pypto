@@ -159,7 +159,7 @@ void bind_controller_function(py::module &m) {
         .def(py::init<const std::string &, FunctionType, const std::string &, const LoopRange &, const std::set<int> &,
                  bool, bool>(),
             py::arg("name"), py::arg("func_type"), py::arg("iter_name"), py::arg("loop_range"), py::arg("unroll_List"),
-            py::arg("submit_before_loop"), py::arg("parallel_for"))
+            py::arg("submit_before_loop"), py::arg("parallel"))
         .def("__iter__", [](RecordLoopFunc &c) {
             // Return Python iterator from C++ begin/end
             return py::make_iterator(c.begin(), c.end());

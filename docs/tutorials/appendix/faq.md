@@ -320,10 +320,10 @@ kernel_aicpu 负责控制流的执行，创建kernel_aicore任务，包括使用
 
 ```python
 def loop(start, end, step=1, name=None, idx_name=None,
-         unroll_list = [1], submit_before_loop=False, parallel_for=True):
+         unroll_list = [1], submit_before_loop=False, parallel=True):
 
 def loop_roll(start, end, step=1, name=None, idx_name=None,
-         unroll_list = [1], submit_before_loop=False, parallel_for=True):
+         unroll_list = [1], submit_before_loop=False, parallel=True):
 ```
 
 ### 描述
@@ -361,7 +361,7 @@ def loop_roll(start, end, step=1, name=None, idx_name=None,
 
 5. submit_before_loop 表示是否在循环开始前提交任务，默认值为False。如果设置为True，则循环前的任务会先提交到调度队列中，等待后续任务完成后再开始执行， *过多的设置submit_before_loop会增加调度开销*， 建议仅在必要时设置为True
 
-6. 在前端表达上，在 pypto.loop 上添加 parallel_for 的参数，默认为 False，当该值为 True 的时候，表明不同次的 loop 迭代之间无任意依赖关系，支持调度队列存在不同的优先级，高优先级的先调度。如果标记错误，会出现精度问题, parallel_for 不支持嵌套。
+6. 在前端表达上，在 pypto.loop 上添加 parallel 的参数，默认为 False，当该值为 True 的时候，表明不同次的 loop 迭代之间无任意依赖关系，支持不同次的loop迭代并行。如果标记错误，会出现精度问题, parallel 不支持嵌套。
 
 7. unroll_list 对 `pypto.cond` 影响， 通常一个循环中有一个 `pypto.cond`, 会产生两个分支，当unroll次数为4次时，会产生 2 ** 4 16个路径分支，通常上每个分支都需要单独编译， 因此会大量增加编译时间和编译出的代码量. 为了支持关键算子FA的编译优化，提供了两个特殊的函数 `pypto.is_loop_begin()` 和 `pypto.is_loop_end()` 用于优化条件分支
 

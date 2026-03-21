@@ -28,7 +28,7 @@ def parallel_add_single_parallel_func(left: pypto.tensor, right: pypto.tensor, r
     n1 = left.shape[1]
     n2 = left.shape[2]
     for n0_idx in pypto.loop(0, 2, 1, name="N0_LOOP", idx_name="n0_loop"):
-        for n1_idx in pypto.loop(0, 2, 1, name="N1_LOOP", idx_name="n1_loop", parallel_for=True):
+        for n1_idx in pypto.loop(0, 2, 1, name="N1_LOOP", idx_name="n1_loop", parallel=True):
             for n2_idx in pypto.loop(0, 2, 1, name="N2_LOOP", idx_name="n2_loop"):
                 pypto.set_vec_tile_shapes(1, 1, 2)
                 left_view = pypto.view(left, [1, 2, 2], [n0_idx, n1_idx * 2, n2_idx * 2])

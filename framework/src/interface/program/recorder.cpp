@@ -201,19 +201,19 @@ bool RecordFunc::Iterator::operator!=(const IteratorEnd &rhs) {
 }
 
 RecordLoopFunc::RecordLoopFunc(const std::string &name, FunctionType funcType, const std::string &iterName,
-    const LoopRange &range, const std::set<int> &unrollList, bool submitBeforeLoop, bool parallelFor)
+    const LoopRange &range, const std::set<int> &unrollList, bool submitBeforeLoop, bool parallel)
     : name_(FUNCTION_PREFIX + name),
       iterName_(iterName),
       loopRange_(std::make_shared<LoopRange>(range)),
       submitBeforeLoop_(submitBeforeLoop),
-      parallelFor_(parallelFor),
+      parallel_(parallel),
       funcType_(funcType) {
     CHECK(FError::INVALID_TYPE, funcType == FunctionType::STATIC || funcType == FunctionType::DYNAMIC_LOOP)
         << "funcType: " << GetFunctionTypeNameDict().Find(funcType);
-    if (parallelFor_) {
+    if (parallel_) {
         for (auto &rlf : Program::GetInstance().GetLoopStack()) {
-            if (rlf.get().GetParallelFor()) {
-                ASSERT(!rlf.get().GetParallelFor()) << "The parallel attribute value does not allow nesting";
+            if (rlf.get().Getparallel()) {
+                ASSERT(!rlf.get().Getparallel()) << "The parallel attribute value does not allow nesting";
             }
         }
     }
@@ -262,17 +262,17 @@ void RecordLoopFunc::BeginLoopFunction() {
     range->End().AsIntermediateVariable();
     // 如果是paralell for配置在的loop，则paralell for的值为ParallelMode::PARALLEL；
     // 如果是parallel loop的子loop，设为ParallelMode::DEFAULT
-    auto funcParallelAttr = parallelFor_ ? ParallelMode::PARALLEL : ParallelMode::DEFAULT;
+    auto funcParallelAttr = parallel_ ? ParallelMode::PARALLEL : ParallelMode::DEFAULT;
     if (currentLoopFunc_->HasParent() && currentLoopFunc_->Parent().HasParent() &&
         funcParallelAttr == ParallelMode::DEFAULT && currentLoopFunc_->Parent().Parent().GetDynloopAttribute()) {
         funcParallelAttr =
-            currentLoopFunc_->Parent().Parent().GetDynloopAttribute()->parallelFor == ParallelMode::PARALLEL ?
+            currentLoopFunc_->Parent().Parent().GetDynloopAttribute()->parallel == ParallelMode::PARALLEL ?
                 ParallelMode::CHILD : funcParallelAttr;
     }
 
     if (funcParallelAttr == ParallelMode::PARALLEL && currentLoopFunc_->HasParent() &&
         currentLoopFunc_->Parent().HasParent() && currentLoopFunc_->Parent().Parent().GetDynloopAttribute()) {
-        currentLoopFunc_->Parent().Parent().GetDynloopAttribute()->parallelFor = ParallelMode::PARENT;
+        currentLoopFunc_->Parent().Parent().GetDynloopAttribute()->parallel = ParallelMode::PARENT;
     }
 
     auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, funcParallelAttr);

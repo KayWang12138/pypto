@@ -26,7 +26,7 @@ loop(start: SymInt, stop: SymInt, step: Optional[SymInt] = 1, /, **kwargs) -> It
 | start             | 输入      | 循环的起始值。 |
 | stop              | 输入      | 循环的终止值。 |
 | step              | 输入      | 每次循环的步长。 |
-| **kwargs          | 输入      | - name(str)：循环标识名称，默认生成f"loop_{loop_idx}"。<br> - idx_name(str):  循环索引变量的名称，默认生成f"loop_idx_{loop_idx}"。<br> - submit_before_loop(bool):  是否在循环开始前提交计算，默认为False。开启后会在循环开启前强制提交当前累积的计算任务到AICore执行。 <br> - parallel_for(bool):  默认为 False，当该值为 True 的时候，表明不同次的 loop 迭代之间无任意依赖关系, 支持调度队列存在不同的优先级，高优先级的先调度，如果标记错误，会出现精度问题, parallel_for 不支持嵌套。|
+| **kwargs          | 输入      | - name(str)：循环标识名称，默认生成f"loop_{loop_idx}"。<br> - idx_name(str):  循环索引变量的名称，默认生成f"loop_idx_{loop_idx}"。<br> - submit_before_loop(bool):  是否在循环开始前提交计算，默认为False。开启后会在循环开启前强制提交当前累积的计算任务到AICore执行。 <br> - parallel(bool):  默认为 False，当该值为 True 的时候，表明不同次的 loop 迭代之间无任意依赖关系, 支持不同次的loop迭代并行，如果标记错误，会出现精度问题, parallel 不支持嵌套。|
 
 ## 返回值说明
 

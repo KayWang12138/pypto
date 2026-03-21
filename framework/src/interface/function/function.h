@@ -240,7 +240,7 @@ struct DynloopFunctionAttribute {
     LoopRange originalRange;
 
     bool submitBeforeLoop;
-    ParallelMode parallelFor{DEFAULT};
+    ParallelMode parallel{DEFAULT};
     int unrollTimes{1};
     std::vector<DynloopFunctionPath> pathList;
 
@@ -250,7 +250,7 @@ struct DynloopFunctionAttribute {
 
     DynloopFunctionAttribute(
         const std::string &symbolName, const LoopRange &range, const LoopRange &originRange, bool submit = false, ParallelMode parallel = ParallelMode::DEFAULT)
- 	         : iterSymbolName(symbolName), loopRange(range), originalRange(originRange), submitBeforeLoop(submit), parallelFor(parallel) {}
+ 	         : iterSymbolName(symbolName), loopRange(range), originalRange(originRange), submitBeforeLoop(submit), parallel(parallel) {}
 
     const std::string &IterSymbolName() { return iterSymbolName; }
     const SymbolicScalar &Begin() { return loopRange.Begin(); }
