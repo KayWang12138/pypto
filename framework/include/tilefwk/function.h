@@ -187,10 +187,6 @@ public:
     void NextUnrollTimes();
     bool GetParallelFor() const {return parallelFor_;}
 
-    std::vector<npu::tile_fwk::Function *>& GetLoopUnrollFunctions() {
-        return loopUnrollFunctions_;
-    }
-
     bool CustomUnrollTimesMatched() const { return customUnrollTimes_.count(CurUnrollTimes()) > 0; }
     static bool MatchUnrollTimes(int unrollTimes);
 

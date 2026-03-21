@@ -320,10 +320,10 @@ kernel_aicpu 负责控制流的执行，创建kernel_aicore任务，包括使用
 
 ```python
 def loop(start, end, step=1, name=None, idx_name=None,
-         unroll_list = [1], submit_before_loop=False):
+         unroll_list = [1], submit_before_loop=False, parallel_for=True):
 
 def loop_roll(start, end, step=1, name=None, idx_name=None,
-         unroll_list = [1], submit_before_loop=False):
+         unroll_list = [1], submit_before_loop=False, parallel_for=True):
 ```
 
 ### 描述
@@ -361,11 +361,13 @@ def loop_roll(start, end, step=1, name=None, idx_name=None,
 
 5. submit_before_loop 表示是否在循环开始前提交任务，默认值为False。如果设置为True，则循环前的任务会先提交到调度队列中，等待后续任务完成后再开始执行， *过多的设置submit_before_loop会增加调度开销*， 建议仅在必要时设置为True
 
-6. unroll_list 对 `pypto.cond` 影响， 通常一个循环中有一个 `pypto.cond`, 会产生两个分支，当unroll次数为4次时，会产生 2 ** 4 16个路径分支，通常上每个分支都需要单独编译， 因此会大量增加编译时间和编译出的代码量. 为了支持关键算子FA的编译优化，提供了两个特殊的函数 `pypto.is_loop_begin()` 和 `pypto.is_loop_end()` 用于优化条件分支
+6. 在前端表达上，在 pypto.loop 上添加 parallel_for 的参数，默认为 False，当该值为 True 的时候，表明不同次的 loop 迭代之间无任意依赖关系。如果标记错误，会出现精度问题, parallel_for 不支持嵌套。
 
-7. 考虑到对外层loop进行loop_unroll不能提升loop body的大小， 当前仅支持最内侧循环进行unroll
+7. unroll_list 对 `pypto.cond` 影响， 通常一个循环中有一个 `pypto.cond`, 会产生两个分支，当unroll次数为4次时，会产生 2 ** 4 16个路径分支，通常上每个分支都需要单独编译， 因此会大量增加编译时间和编译出的代码量. 为了支持关键算子FA的编译优化，提供了两个特殊的函数 `pypto.is_loop_begin()` 和 `pypto.is_loop_end()` 用于优化条件分支
 
-8. 为了写代码方便，可能有时看到前端算子并没有直接表达loop，是如何产生loop和loop body的呢. 实际是在构图阶段前端会隐式的在function开始的位置插入一个loop， 循环次数为1. 循环直到下一个循环开始前结束，举例如下
+8. 考虑到对外层loop进行loop_unroll不能提升loop body的大小， 当前仅支持最内侧循环进行unroll
+
+9. 为了写代码方便，可能有时看到前端算子并没有直接表达loop，是如何产生loop和loop body的呢. 实际是在构图阶段前端会隐式的在function开始的位置插入一个loop， 循环次数为1. 循环直到下一个循环开始前结束，举例如下
 
     ```python
     @pypto.jit
