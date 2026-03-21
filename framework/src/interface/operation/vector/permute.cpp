@@ -35,8 +35,7 @@
 #include "interface/function/function.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
-#include "interface/tileop/vector/permute.h"
-#include "interface/tileop/vector/mte.h"
+
 
 namespace npu::tile_fwk {
 
@@ -103,12 +102,6 @@ static void DuplicateArray(const std::vector<int64_t>& src, int64_t* dst, int64_
 }
 
 static void DuplicateArray(const int64_t* src, std::vector<int64_t>& dst, int64_t len) {
-    for (int64_t i = 0; i < len; i++) {
-        dst[i] = src[i];
-    }
-}
-
-static void DuplicateArray(const int64_t* src, int64_t* dst, int64_t len) {
     for (int64_t i = 0; i < len; i++) {
         dst[i] = src[i];
     }
