@@ -99,6 +99,8 @@ TEST_F(TestGenAtten, test_mem_check_ok) {
     genAtten1<npu::tile_fwk::float16>(data, tileConfig);
     auto ret = machine::GetRA()->CheckAllSentinels();
     EXPECT_TRUE(ret);
+    genAtten1<npu::tile_fwk::float16>(data, tileConfig);
+    EXPECT_TRUE(machine::GetRA()->CheckAllSentinels());
 }
 
 TEST_F(TestGenAtten, test_mem_check_fail) {
