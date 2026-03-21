@@ -248,12 +248,12 @@ inline int CheckTimeOut(const uint64_t &tStart, uint64_t &tCnt, uint64_t &tCur, 
         tCur = CurrentTime();
         DEV_IF_VERBOSE_DEBUG {
             if (tCur - tStart > DFX_TIME_OUT_THRESHOLD) {
-                DEV_ERROR("%s dfx_timeout, aicpu force exit, ttl=%lu.", opString.c_str(), tCnt);
+                DEV_ERROR(DumpDfxErr::DFX_AICPU_TIMEOUT, "%s dfx_timeout, aicpu force exit, ttl=%lu.", opString.c_str(), tCnt);
                 return DEVICE_MACHINE_ERROR;
             }
         } else {
             if (tCur - tStart > TIME_OUT_THRESHOLD) {
-                DEV_ERROR("%s timeout, aicpu force exit, ttl=%lu.", opString.c_str(), tCnt);
+                DEV_ERROR(SchedErr::AICPU_TASK_SYNC_TIMEOUT, "%s timeout, aicpu force exit, ttl=%lu.", opString.c_str(), tCnt);
                 return DEVICE_MACHINE_ERROR;
             }
         }
