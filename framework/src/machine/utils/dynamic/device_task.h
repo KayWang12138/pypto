@@ -76,10 +76,20 @@ struct DynDeviceTask : DynDeviceTaskBase {
             of.open(path);
         }
         if (of.tellp() == 0) {
-            of << "seqNo,taskId,rootIndex,rootHash,opmagic,leafIndex,leafHash,coreType,psgId,successors\n";
+            of << "seqNo,taskId,rootIndex,rootHash,opmagic,leafIndex,leafHash,coreType,psgId,wrapId,successors\n";
         }
         for (size_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
-            stitchedList[funcIdx].DumpTopo(of, header->seqNo, funcIdx, cceBinary, enableVFFusion);
+            for (size_t opIdx = 0; opIdx < stitchedList[funcIdx].GetSource()->GetOperationSize(); opIdx++) {
+                int32_t wrapId = -1;
+               DEV_ERROR("eeeeeeeeeeeeeeeenter dumptopo");
+                if (devTask.mixTaskData.wrapIdNum > 0) {
+                    auto opWrapList = reinterpret_cast<int32_t*>(devTask.mixTaskData.opWrapList[funcIdx]);
+                    if (opWrapList != nullptr && opWrapList[opIdx] != -1) {
+                        wrapId = MakeMixWrapID(funcIdx, opWrapList[opIdx]);
+                    }
+                }
+                stitchedList[funcIdx].DumpTopo(of, header->seqNo, funcIdx, cceBinary, enableVFFusion, wrapId);
+            }
         }
         of.flush();
     }

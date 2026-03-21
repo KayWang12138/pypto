@@ -14,6 +14,7 @@
  */
 
 #include "machine/utils/dynamic/dev_encode_function_dupped_data.h"
+#include "machine/utils/dynamic/dev_encode_program_ctrlflow_cache.h"
 
 namespace npu::tile_fwk::dynamic {
 constexpr const uint8_t MAIN_BLOCK_SIZE = 2;
@@ -56,27 +57,25 @@ std::string DevAscendFunctionDuppedData::Dump(int indent) const {
     return oss.str();
 }
 
-void DevAscendFunctionDupped::DumpTopo(std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary, bool enableVFFusion) const {
+void DevAscendFunctionDupped::DumpTopo(std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary, bool enableVFFusion, int32_t wrapId, size_t opIdx) const {
     auto func = GetSource();
-    for (size_t opIdx = 0; opIdx < DupData()->GetSource()->GetOperationSize(); opIdx++) {
-        int cceIndex = func->GetOperationAttrCalleeIndex(opIdx);
-        if (enableVFFusion) {
-            cceIndex = (func->GetOperationAttrCalleeIndex(opIdx) + 1) / MAIN_BLOCK_SIZE;
-        }
-        auto &cceInfo = cceBinary[cceIndex];
-        os << seqNo << "," << MakeTaskID(funcIdx, opIdx) << "," << func->funcKey << "," << func->rootHash << ","
-            <<func->GetOperationDebugOpmagic(opIdx) << "," << cceIndex << ","
-            << cceInfo.funcHash << "," << cceInfo.coreType << "," << cceInfo.psgId << ",";
-        auto &succList = func->GetOperationDepGraphSuccList(opIdx);
-        for (size_t j = 0; j < succList.size(); j++) {
-            os << "," << MakeTaskID(funcIdx, func->At(succList, j));
-        }
-        auto &stitch = GetOperationStitch(opIdx);
-        stitch.ForEach([&os](uint32_t id) {
-            os << "," << id;
-        });
-        os << "\n";
+    int cceIndex = func->GetOperationAttrCalleeIndex(opIdx);
+    if (enableVFFusion) {
+        cceIndex = (func->GetOperationAttrCalleeIndex(opIdx) + 1) / MAIN_BLOCK_SIZE;
     }
+    auto &cceInfo = cceBinary[cceIndex];
+    os << seqNo << "," << MakeTaskID(funcIdx, opIdx) << "," << func->funcKey << "," << func->rootHash << ","
+        <<func->GetOperationDebugOpmagic(opIdx) << "," << cceIndex << ","
+        << cceInfo.funcHash << "," << cceInfo.coreType << "," << cceInfo.psgId << "," << wrapId << ",";
+    auto &succList = func->GetOperationDepGraphSuccList(opIdx);
+    for (size_t j = 0; j < succList.size(); j++) {
+        os << "," << MakeTaskID(funcIdx, func->At(succList, j));
+    }
+    auto &stitch = GetOperationStitch(opIdx);
+    stitch.ForEach([&os](uint32_t id) {
+        os << "," << id;
+    });
+    os << "\n";
 }
 
 #if DEBUG_INFINITE_LIFETIME
