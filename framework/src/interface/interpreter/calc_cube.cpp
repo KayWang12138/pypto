@@ -201,9 +201,10 @@ void ExecuteOpGatherInL1(ExecuteOperationContext *ctx) {
     auto output = ctx->ooperandInplaceDataViewList->at(0);
     auto params = ctx->ioperandDataViewList->at(0);
     auto indices = ctx->ioperandDataViewList->at(1);
+    auto actualIndices = indices->View({indices->GetShape()[0], output->GetShape()[0]}, indices->GetOffset());
     auto pageTable = ctx->ioperandDataViewList->at(2);
     int blocksize = ctx->op->GetIntAttribute("op_attr_blocksize");
-    calc::GatherInL1(output, params, indices, pageTable, blocksize);
+    calc::GatherInL1(output, params, actualIndices, pageTable, blocksize);
 }
 
 REGISTER_CALC_OP(OP_GATHER_IN_L1, Opcode::OP_GATHER_IN_L1, ExecuteOpGatherInL1);
