@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -208,20 +208,14 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int ax
         // Transpose input: [..., H, W] -> [..., W, H]
         Tensor transposedInput = Transpose(input, {secondLastDim, lastDim});
 
-        // Transpose scale: scale shape is [..., 1, W] -> [..., W, 1]
-        Tensor transposedScale = Transpose(scale, {secondLastDim, lastDim});
-
         if (isAsymmetric) {
-            // Transpose zeroPoints: [..., 1, W] -> [..., W, 1]
-            Tensor transposedZeroPoints = Transpose(zeroPoints, {secondLastDim, lastDim});
-
             // Asymmetric quantization with axis=-1
             ASSERT(otype == DataType::DT_UINT8)
                 << "Asymmetric quantization output type should be UINT8";
             Tensor quantizedResult = CALL(QuantizeAsymmetricOperation,
                 *Program::GetInstance().GetCurrentFunction(),
-                transposedInput.GetStorage(), transposedScale.GetStorage(),
-                transposedZeroPoints.GetStorage(), -1);
+                transposedInput.GetStorage(), scale.GetStorage(),
+                zeroPoints.GetStorage(), -1);
 
             // Transpose output back: [..., W, H] -> [..., H, W]
             return Transpose(quantizedResult, {secondLastDim, lastDim});
@@ -231,7 +225,7 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int ax
                 << "Symmetric quantization output type should be INT8";
             Tensor quantizedResult = CALL(QuantizeSymmetricOperation,
                 *Program::GetInstance().GetCurrentFunction(),
-                transposedInput.GetStorage(), transposedScale.GetStorage(), -1);
+                transposedInput.GetStorage(), scale.GetStorage(), -1);
 
             // Transpose output back: [..., W, H] -> [..., H, W]
             return Transpose(quantizedResult, {secondLastDim, lastDim});
@@ -253,16 +247,6 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int ax
             input.GetStorage(), scale.GetStorage(), normalizedAxis);
     }
 }
-
-// // Convenience function for symmetric quantization
-// Tensor QuantizeSymmetric(const Tensor &src, const Tensor &scale, int64_t axis) {
-//     return Quantize(src, scale, DataType::DT_INT8, axis, Tensor());
-// }
-
-// // Convenience function for asymmetric quantization
-// Tensor QuantizeAsymmetric(const Tensor &src, const Tensor &scale, const Tensor &offset, int64_t axis) {
-//     return Quantize(src, scale, DataType::DT_UINT8, axis, offset);
-// }
 
 // =============================================================================
 // Tile Function Registration
