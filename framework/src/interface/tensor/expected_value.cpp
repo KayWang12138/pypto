@@ -74,7 +74,7 @@ bool ExpectedValue::operator==(const ExpectedValue &rhs) const {
     case RawExpectedValue::ValueKind::T_EXPECTED_RESULTOF:
         return Equal<RawExpectedResultofValue>(ptr_, rhs.ptr_);
     default:
-        ASSERT(false);
+        FUNCTION_ASSERT(false);
         break;
     }
     return true;
@@ -198,7 +198,7 @@ DEFINE_NORMALIZER(OP_ADD, builder, values) {
         if (v.IsInputValue() || v.IsResultofValue() || v.IsInsertValue() || v.IsExtractValue()) {
             valuesNorm.push_back(v);
         } else {
-            ASSERT(v.IsOperationValue());
+            FUNCTION_ASSERT(v.IsOperationValue());
             if (v.CastOperationValue()->GetOperator()->GetOpcode() == Opcode::OP_ADD) {
                 for (auto &velt : v.CastOperationValue()->GetOperands()) {
                     valuesNorm.push_back(velt);
@@ -231,8 +231,8 @@ DEFINE_EVALUATOR(OP_VIEW, builder, values) {
         return {};
     }
 
-    ASSERT(operation.GetIOperands().size() == 1);
-    ASSERT(operation.GetOOperands().size() == 1);
+    FUNCTION_ASSERT(operation.GetIOperands().size() == 1);
+    FUNCTION_ASSERT(operation.GetOOperands().size() == 1);
 
     std::shared_ptr<ViewOpAttribute> op = std::static_pointer_cast<ViewOpAttribute>(operation.GetOpAttribute());
     if (CheckAllZero(op->GetFromOffset()) && CheckSameShape(operation.GetIOperands()[0], operation.GetOOperands()[0])) {
@@ -248,14 +248,14 @@ DEFINE_EVALUATOR(OP_CONVERT, builder, values) {
         return {};
     }
 
-    ASSERT(operation.GetIOperands().size() == 1);
-    ASSERT(operation.GetOOperands().size() == 1);
-    ASSERT(CheckSameShape(operation.GetIOperands()[0], operation.GetOOperands()[0]));
+    FUNCTION_ASSERT(operation.GetIOperands().size() == 1);
+    FUNCTION_ASSERT(operation.GetOOperands().size() == 1);
+    FUNCTION_ASSERT(CheckSameShape(operation.GetIOperands()[0], operation.GetOOperands()[0]));
     return values[0];
 }
 
 ExpectedValue ExpectedValueBuilder::CreateValue(const Operation &operation, const std::vector<ExpectedValue> &values) {
-    ASSERT(operation.GetOpcode() != Opcode::OP_CALL);
+    FUNCTION_ASSERT(operation.GetOpcode() != Opcode::OP_CALL);
 
     std::vector<ExpectedValue> normalizedValues;
     auto norm = g_normalizers[static_cast<int>(operation.GetOpcode())];
@@ -292,8 +292,8 @@ ExpectedValue ExpectedValueBuilder::CreateValue(const ExpectedValue &resultof, i
 
 ExpectedValue ExpectedValueBuilder::CreateIncast(const std::shared_ptr<LogicalTensor> &incast)
 {
-    ASSERT(incast->nodetype == NodeType::INCAST);
-    ASSERT(incast->tensor->GetRawShape() == incast->GetShape());
+    FUNCTION_ASSERT(incast->nodetype == NodeType::INCAST);
+    FUNCTION_ASSERT(incast->tensor->GetRawShape() == incast->GetShape());
     ExpectedValue incastExpectedValue(incast->GetShape(), incast->tensor->datatype, incast->tensor->symbol);
     return incastExpectedValue;
 }
@@ -316,11 +316,11 @@ std::vector<ExpectedValue> ExpectedValueBuilder::CreateOperationOOperands(const 
 
 std::vector<ExpectedValue> ExpectedValueBuilder::CreateOperationInsertOOperands(const Operation &op, const std::vector<ExpectedValue> &ioperandExpectedValueList, const std::vector<ExpectedValue> &ooperandExpectedValueList)
 {
-    ASSERT(op.GetOpcode() == Opcode::OP_ASSEMBLE || op.GetOpcode() == Opcode::OP_COPY_OUT);
-    ASSERT(op.GetIOperands().size() == 1);
-    ASSERT(op.GetOOperands().size() == 1);
-    ASSERT(ioperandExpectedValueList.size() == 1);
-    ASSERT(ooperandExpectedValueList.size() == 1);
+    FUNCTION_ASSERT(op.GetOpcode() == Opcode::OP_ASSEMBLE || op.GetOpcode() == Opcode::OP_COPY_OUT);
+    FUNCTION_ASSERT(op.GetIOperands().size() == 1);
+    FUNCTION_ASSERT(op.GetOOperands().size() == 1);
+    FUNCTION_ASSERT(ioperandExpectedValueList.size() == 1);
+    FUNCTION_ASSERT(ooperandExpectedValueList.size() == 1);
 
     std::shared_ptr<AssembleOpAttribute> opattr = std::static_pointer_cast<AssembleOpAttribute>(op.GetOpAttribute());
     if (CheckAllZero(opattr->GetToOffset()) && CheckSameShape(op.GetIOperands()[0], op.GetOOperands()[0])) {
@@ -332,7 +332,7 @@ std::vector<ExpectedValue> ExpectedValueBuilder::CreateOperationInsertOOperands(
     std::vector<RawExpectedInsertValueElement> elementList = {element};
 
     if (!ooperandExpectedValueList[0].IsNull()) {
-        ASSERT(ooperandExpectedValueList[0].IsInsertValue());
+        FUNCTION_ASSERT(ooperandExpectedValueList[0].IsInsertValue());
         auto insert = ooperandExpectedValueList[0].CastInsertValue();
         elementList.insert(elementList.end(), insert->GetElements().begin(), insert->GetElements().end());
     }
@@ -348,7 +348,7 @@ std::shared_ptr<CallExpectedValue> ExpectedValueBuilder::CreateCall(Function *fu
     std::shared_ptr<CallExpectedValue> result = std::make_shared<CallExpectedValue>();
     std::ostringstream debugTraceStream;
 
-    ASSERT(incastExpectedValueList.size() == static_cast<size_t>(0) ||
+    FUNCTION_ASSERT(incastExpectedValueList.size() == static_cast<size_t>(0) ||
            incastExpectedValueList.size() == func->GetIncast().size());
     for (size_t index = 0; index < func->GetIncast().size(); index++) {
         std::shared_ptr<LogicalTensor> incast = func->GetIncast()[index];
