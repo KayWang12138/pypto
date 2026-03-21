@@ -172,6 +172,7 @@ void DeviceExecuteContext::GELaunchRunCached(DevStartArgs *startArgs, PushTaskEn
         DynDeviceTask *dynTask = reinterpret_cast<DynDeviceTask *>(devProg->ctrlFlowCacheAnchor->deviceTaskCacheList[index].dynTaskBase);
         devProg->ctrlFlowCacheAnchor->PredCountDataRestore(dynTask);
         devProg->ctrlFlowCacheAnchor->ReadyQueueDataRestore(dynTask);
+        devProg->ctrlFlowCacheAnchor->DieReadyQueueDataRestore(dynTask);
         devProg->ctrlFlowCacheAnchor->MixTaskDataRestore(dynTask);
         taskContext.UpdateReadyTaskNum(dynTask->readyQueueBackup->readyTaskNum);
 
@@ -295,6 +296,7 @@ void DeviceExecuteContext::ProcessControlFlowCacheRecord(DynDeviceTask *dynTask)
         if (!devProg->ctrlFlowCacheAnchor->IsRecordingStopped()) {
             devProg->ctrlFlowCacheAnchor->PredCountDataBackup(dynTask);
             devProg->ctrlFlowCacheAnchor->ReadyQueueDataBackup(dynTask);
+            devProg->ctrlFlowCacheAnchor->DieReadyQueueDataBackup(dynTask);
             devProg->ctrlFlowCacheAnchor->MixTaskDataBackup(dynTask);
             devProg->ctrlFlowCacheAnchor->IncastOutcastAddrBackup(dynTask);
             devProg->ctrlFlowCacheAnchor->TaskAddrBackupWorkspace(dynTask);
@@ -478,6 +480,9 @@ void DeviceExecuteContext::MarkSlotNeedAlloc(int slotIndex) {
 }
 
 void DeviceExecuteContext::SetLoopDieId(int8_t dieId) {
+    if (DuppedRootCached()) {
+        return;
+    }
     currDevRootDup.DupDataForDynFuncData()->loopDieId_ = dieId;
 }
 
