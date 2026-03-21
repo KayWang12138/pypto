@@ -210,15 +210,7 @@ TEST_F(CalcCommonTest, ExecuteOpGatherInL1Basic) {
     std::vector<LogicalTensorDataPtr> ioperandDataViewList = {paramsView, indicesView, pageTableView};
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
-    ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &gatherOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
-
+    ExecuteOperationContext ctx = {&frame, &opInter, &gatherOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
     opInter.ExecuteOperation(&ctx);
 
     std::vector<float> expected = {30.f, 40.f, 10.f, 20.f};
