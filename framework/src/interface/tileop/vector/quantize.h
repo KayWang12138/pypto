@@ -29,10 +29,7 @@
 constexpr size_t TILE_ALIGNMENT_BYTES = 32;
 
 /// 向上取整到对齐边界
-template<typename T>
-constexpr T PtoCeil(T value, T alignment) {
-    return ((value + alignment - 1) / alignment) * alignment;
-}
+#define PTO_CEIL(x, y) ((((x) + (y)-1) / (y)) * (y))
 
 // =============================================================================
 // INT8 对称量化
@@ -83,14 +80,14 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
     // 获取 Tile 形状并计算对齐
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, expectSize>();
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, expectSize>();
-    constexpr int paddedCol_dst = PtoCeil(dstTileW, static_cast<int>(TILE_ALIGNMENT_BYTES / sizeof(int8_t)));
+    constexpr int paddedCol_dst = PTO_CEIL(dstTileW, static_cast<int>(TILE_ALIGNMENT_BYTES / sizeof(int8_t)));
 
     constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, expectSize>();
     constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, expectSize>();
-    constexpr int paddedCol_src = PtoCeil(srcTileW, static_cast<int>(TILE_ALIGNMENT_BYTES / sizeof(half)));
+    constexpr int paddedCol_src = PTO_CEIL(srcTileW, static_cast<int>(TILE_ALIGNMENT_BYTES / sizeof(half)));
 
     constexpr auto scaleTileH = TileOp::GetTensorTileShapeDim<T2, 3, expectSize>();
-    constexpr int paddedRow_scale = PtoCeil(scaleTileH, static_cast<int>(TILE_ALIGNMENT_BYTES / sizeof(float)));
+    constexpr int paddedRow_scale = PTO_CEIL(scaleTileH, static_cast<int>(TILE_ALIGNMENT_BYTES / sizeof(float)));
 
     // 数据类型
     using DstDtype = typename T0::Type;
@@ -182,16 +179,16 @@ TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset) {
     // 获取 Tile 形状
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, expectSize>();
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, expectSize>();
-    constexpr int paddedCol_dst = PtoCeil(dstTileW, static_cast<int>(TILE_ALIGNMENT_BYTES / sizeof(int8_t)));
+    constexpr int paddedCol_dst = PTO_CEIL(dstTileW, static_cast<int>(TILE_ALIGNMENT_BYTES / sizeof(int8_t)));
 
     constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, expectSize>();
     constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, expectSize>();
-    constexpr int paddedCol_src = PtoCeil(srcTileW, static_cast<int>(TILE_ALIGNMENT_BYTES / sizeof(half)));
+    constexpr int paddedCol_src = PTO_CEIL(srcTileW, static_cast<int>(TILE_ALIGNMENT_BYTES / sizeof(half)));
 
     constexpr auto scaleTileH = TileOp::GetTensorTileShapeDim<T2, 3, expectSize>();
-    constexpr int paddedRow_scale = PtoCeil(scaleTileH, static_cast<int>(TILE_ALIGNMENT_BYTES / sizeof(float)));
+    constexpr int paddedRow_scale = PTO_CEIL(scaleTileH, static_cast<int>(TILE_ALIGNMENT_BYTES / sizeof(float)));
     constexpr auto offsetTileH = TileOp::GetTensorTileShapeDim<T3, 3, expectSize>();
-    constexpr int paddedRow_offset = PtoCeil(offsetTileH, static_cast<int>(TILE_ALIGNMENT_BYTES / sizeof(float)));
+    constexpr int paddedRow_offset = PTO_CEIL(offsetTileH, static_cast<int>(TILE_ALIGNMENT_BYTES / sizeof(float)));
 
     // 数据类型
     using DstDtype = typename T0::Type;
