@@ -260,19 +260,19 @@ void RecordLoopFunc::BeginLoopFunction() {
     
     auto range = rangeOfEaceUnroll_.back();
     range->End().AsIntermediateVariable();
-    // 如果是paralell for配置在的loop，则paralell for的值为Parallel_Mode::PARALLEL；
-    // 如果是parallel loop的子loop，设为Parallel_Mode::DEFAULT
-    auto funcParallelAttr = parallelFor_ ? Parallel_Mode::PARALLEL : Parallel_Mode::DEFAULT;
+    // 如果是paralell for配置在的loop，则paralell for的值为ParallelMode::PARALLEL；
+    // 如果是parallel loop的子loop，设为ParallelMode::DEFAULT
+    auto funcParallelAttr = parallelFor_ ? ParallelMode::PARALLEL : ParallelMode::DEFAULT;
     if (currentLoopFunc_->HasParent() && currentLoopFunc_->Parent().HasParent() &&
-        funcParallelAttr == Parallel_Mode::DEFAULT && currentLoopFunc_->Parent().Parent().GetDynloopAttribute()) {
+        funcParallelAttr == ParallelMode::DEFAULT && currentLoopFunc_->Parent().Parent().GetDynloopAttribute()) {
         funcParallelAttr =
-            currentLoopFunc_->Parent().Parent().GetDynloopAttribute()->parallelFor == Parallel_Mode::PARALLEL ?
-                Parallel_Mode::CHILD : funcParallelAttr;
+            currentLoopFunc_->Parent().Parent().GetDynloopAttribute()->parallelFor == ParallelMode::PARALLEL ?
+                ParallelMode::CHILD : funcParallelAttr;
     }
 
-    if (funcParallelAttr == Parallel_Mode::PARALLEL && currentLoopFunc_->HasParent() &&
+    if (funcParallelAttr == ParallelMode::PARALLEL && currentLoopFunc_->HasParent() &&
         currentLoopFunc_->Parent().HasParent() && currentLoopFunc_->Parent().Parent().GetDynloopAttribute()) {
-        currentLoopFunc_->Parent().Parent().GetDynloopAttribute()->parallelFor = Parallel_Mode::PARENT;
+        currentLoopFunc_->Parent().Parent().GetDynloopAttribute()->parallelFor = ParallelMode::PARENT;
     }
 
     auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, funcParallelAttr);

@@ -57,7 +57,7 @@ enum class GraphType {
     INVALID
 };
 
-enum Parallel_Mode {
+enum ParallelMode {
     DEFAULT = 0,
     PARENT,
     PARALLEL,
@@ -240,7 +240,7 @@ struct DynloopFunctionAttribute {
     LoopRange originalRange;
 
     bool submitBeforeLoop;
-    Parallel_Mode parallelFor{DEFAULT};
+    ParallelMode parallelFor{DEFAULT};
     int unrollTimes{1};
     std::vector<DynloopFunctionPath> pathList;
 
@@ -249,7 +249,7 @@ struct DynloopFunctionAttribute {
     size_t currIndex{0};
 
     DynloopFunctionAttribute(
-        const std::string &symbolName, const LoopRange &range, const LoopRange &originRange, bool submit = false, Parallel_Mode parallel = Parallel_Mode::DEFAULT)
+        const std::string &symbolName, const LoopRange &range, const LoopRange &originRange, bool submit = false, ParallelMode parallel = ParallelMode::DEFAULT)
  	         : iterSymbolName(symbolName), loopRange(range), originalRange(originRange), submitBeforeLoop(submit), parallelFor(parallel) {}
 
     const std::string &IterSymbolName() { return iterSymbolName; }

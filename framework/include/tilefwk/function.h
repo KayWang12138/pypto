@@ -209,7 +209,6 @@ private:
     std::unordered_set<int> visited_;
     std::unordered_set<int> customUnrollTimes_;
     std::shared_ptr<SourceLocation> location_;
-    std::vector<npu::tile_fwk::Function *> loopUnrollFunctions_;
 
     void GenDefaultUnrollTimes(const std::set<int> &unrollList);
 };
