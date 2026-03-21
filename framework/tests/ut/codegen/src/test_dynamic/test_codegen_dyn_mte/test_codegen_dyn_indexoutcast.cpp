@@ -115,26 +115,13 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
 }
 
 TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor) {
-    std::vector<int64_t> scaterShape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(scaterShape);
-    TileShape::Current().SetVecTile(scaterShape);
-    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
-    Tensor inputA(DT_FP32, scaterShape, "A");
-    Tensor inputB(DT_FP32, scaterShape, "B");
-    Tensor output(DT_FP32, scaterShape, "C");
 
-    std::string funcName = "IndexoutTileTensor";
-    FUNCTION(funcName, {inputA, inputB}, {output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetUnderDynamicFunction(true);
+    auto function = GenMockFuncDyn("IndexoutTileTensor");
+
+    std::vector<int64_t> scaterShape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(scaterShape);
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto indexoutTensor =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, scaterShape, dynValidShape});

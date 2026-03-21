@@ -345,22 +345,9 @@ TStore(gmTensor_8, ubTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)
 TEST_F(TestCodegenDynBinary, TestAddTileTensor) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
 
-    std::vector<int64_t> addShape = {64, 64};
-    TileShape::Current().SetVecTile(addShape);
-    Tensor inputA(DT_FP16, addShape, "A");
-    Tensor inputB(DT_FP16, addShape, "B");
-    Tensor output(DT_FP16, addShape, "C");
+    auto function = GenMockFuncDyn("TestAddTileTensor");
 
-    std::string addFuncName = "TestAddTileTensor";
-    FUNCTION(addFuncName, {inputA, inputB, output}) {
-        LOOP(addFuncName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(
-        FUNCTION_PREFIX + addFuncName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetUnderDynamicFunction(true);
+    std::vector<int64_t> addShape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorA =
         CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_UB, addShape, dynValidShape});
