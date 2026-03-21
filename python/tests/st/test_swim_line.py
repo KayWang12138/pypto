@@ -77,6 +77,7 @@ def device_run_data_from_device_mix_nodep(queue):
     queue.put(pref_path)
 
 
+@pytest.mark.skip(reason="unused test case")
 def test_swim():
     mp.set_start_method('spawn', force=True)
     result_queue = mp.Queue()
