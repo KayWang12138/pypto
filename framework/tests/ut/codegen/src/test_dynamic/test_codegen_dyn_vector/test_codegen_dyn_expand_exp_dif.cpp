@@ -59,7 +59,6 @@ void TestExpandExpDif(const Shape &shape_x, const Shape &shape_y, const std::str
 
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
