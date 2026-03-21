@@ -18,6 +18,7 @@
 #include <thread>
 #include "machine/host/backend.h"
 #include "machine/runtime/device_launcher.h"
+#include "machine/utils/machine_error.h"
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
 
@@ -40,7 +41,7 @@ static int EmulationLaunchOnce(DeviceKernelArgs &kArgs) {
             CPU_SET(tidx, &cpuset);
             char name[64];
             (void)sprintf_s(name, sizeof(name), "aicput%d", tidx);
-            MACHINE_LOGD("start thread: %s ", name);
+            MACHINE_LOGD("start thread %s.", name);
             pthread_setname_np(pthread_self(), name);
             pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
             aicpuResultList[threadIndex] = DynTileFwkBackendKernelServer(&kArgs);
@@ -118,7 +119,7 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     DevAscendProgram *devProg = DeviceLauncher::GetDevProg(function);
     DevControlFlowCache* hostCtrlFlowCache = CreateHostCtrlFlowCache(devProg, function, memUtils);
     if (hostCtrlFlowCache == nullptr) {
-        MACHINE_LOGE("Failed to allocate control flow cache");
+        MACHINE_LOGE(CtrlErr::CTRL_SIM_FAILED, "Failed to allocate control flow cache");
         return -1;
     }
     hostCtrlFlowCache->isRecording = true;
@@ -184,7 +185,7 @@ int EmulationLauncher::BuildControlFlowCache(
         }
         return ss.str();
     };
-    MACHINE_LOGI("!!! Emulation ControlFlowCache shape {%s}\n", getShapeString(inputList).c_str());
+    MACHINE_LOGI("!!! Emulation ControlFlowCache shape {%s}.\n", getShapeString(inputList).c_str());
 
     /* python front end use inputs/output as unified tensors, outputList is always null */
     if (inputList.size() == 0 && outputList.size() == 0) {
