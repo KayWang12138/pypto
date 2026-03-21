@@ -53,3 +53,183 @@ TEST_F(ExpectedValueTest, TestCheck) {
         c = Add(a, b);
     }
 }
+
+TEST_F(ExpectedValueTest, TestExpectedValueCreateValue) {
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile(16, 16);
+
+    std::vector<int64_t> shape{32, 32};
+    Tensor a(DataType::DT_FP32, shape, "a");
+    Tensor b(DataType::DT_FP32, shape, "b");
+    Tensor c;
+
+    FUNCTION("TestCreateValue") {
+        c = Add(a, b);
+    }
+
+    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestCreateValue");
+    ASSERT_NE(func, nullptr);
+
+    EXPECT_THROW(
+        {
+            auto scope = std::make_shared<TensorSlotScope>(func);
+            auto incasts = func->MakeIncasts(scope);
+            (void)incasts;
+        },
+        Error);
+}
+
+TEST_F(ExpectedValueTest, TestExpectedValueWithView) {
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile(16, 16);
+
+    std::vector<int64_t> shape{32, 32};
+    Tensor a(DataType::DT_FP32, shape, "a");
+    Tensor b(DataType::DT_FP32, shape, "b");
+    Tensor c;
+
+    FUNCTION("TestView") {
+        c = View(a, {0, 0}, {16, 16});
+    }
+
+    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestView");
+    ASSERT_NE(func, nullptr);
+
+    EXPECT_THROW(
+        {
+            auto scope = std::make_shared<TensorSlotScope>(func);
+            auto incasts = func->MakeIncasts(scope);
+            (void)incasts;
+        },
+        Error);
+}
+
+TEST_F(ExpectedValueTest, TestExpectedValueWithConvert) {
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile(16, 16);
+
+    std::vector<int64_t> shape{32, 32};
+    Tensor a(DataType::DT_FP32, shape, "a");
+    Tensor b(DataType::DT_FP16, shape, "b");
+
+    FUNCTION("TestConvert") {
+        b = Cast(a, (DataType)DataType::DT_FP16);
+    }
+
+    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestConvert");
+    ASSERT_NE(func, nullptr);
+
+    EXPECT_THROW(
+        {
+            auto scope = std::make_shared<TensorSlotScope>(func);
+            auto incasts = func->MakeIncasts(scope);
+            (void)incasts;
+        },
+        Error);
+}
+
+TEST_F(ExpectedValueTest, TestExpectedValueWithAssemble) {
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile(16, 16);
+
+    std::vector<int64_t> shape{32, 32};
+    Tensor a(DataType::DT_FP32, shape, "a");
+    Tensor b(DataType::DT_FP32, shape, "b");
+
+    FUNCTION("TestAssemble") {
+        std::vector<std::pair<Tensor, std::vector<int64_t>>> tensors = {
+            {a, {0, 0}}
+        };
+        b = Assemble(tensors);
+    }
+
+    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestAssemble");
+    ASSERT_NE(func, nullptr);
+
+    EXPECT_THROW(
+        {
+            auto scope = std::make_shared<TensorSlotScope>(func);
+            auto incasts = func->MakeIncasts(scope);
+            (void)incasts;
+        },
+        Error);
+}
+
+TEST_F(ExpectedValueTest, TestExpectedValueWithAdd) {
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile(16, 16);
+
+    std::vector<int64_t> shape{32, 32};
+    Tensor a(DataType::DT_FP32, shape, "a");
+    Tensor b(DataType::DT_FP32, shape, "b");
+    Tensor c(DataType::DT_FP32, shape, "c");
+
+    FUNCTION("TestAdd") {
+        c = Add(a, b);
+    }
+
+    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestAdd");
+    ASSERT_NE(func, nullptr);
+
+    EXPECT_THROW(
+        {
+            auto scope = std::make_shared<TensorSlotScope>(func);
+            auto incasts = func->MakeIncasts(scope);
+            (void)incasts;
+        },
+        Error);
+}
+
+TEST_F(ExpectedValueTest, TestExpectedValueWithMultipleOps) {
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile(16, 16);
+
+    std::vector<int64_t> shape{32, 32};
+    Tensor a(DataType::DT_FP32, shape, "a");
+    Tensor b(DataType::DT_FP32, shape, "b");
+    Tensor c(DataType::DT_FP32, shape, "c");
+    Tensor d(DataType::DT_FP32, shape, "d");
+
+    FUNCTION("TestMultipleOps") {
+        c = Add(a, b);
+        d = Mul(c, a);
+    }
+
+    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestMultipleOps");
+    ASSERT_NE(func, nullptr);
+
+    EXPECT_THROW(
+        {
+            auto scope = std::make_shared<TensorSlotScope>(func);
+            auto incasts = func->MakeIncasts(scope);
+            (void)incasts;
+        },
+        Error);
+}
+
+TEST_F(ExpectedValueTest, TestExpectedValueWithNestedOps) {
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile(16, 16);
+
+    std::vector<int64_t> shape{32, 32};
+    Tensor a(DataType::DT_FP32, shape, "a");
+    Tensor b(DataType::DT_FP32, shape, "b");
+    Tensor c(DataType::DT_FP32, shape, "c");
+    Tensor d(DataType::DT_FP32, shape, "d");
+
+    FUNCTION("TestNestedOps") {
+        c = Add(Add(a, b), Mul(a, b));
+        d = Sub(c, a);
+    }
+
+    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestNestedOps");
+    ASSERT_NE(func, nullptr);
+
+    EXPECT_THROW(
+        {
+            auto scope = std::make_shared<TensorSlotScope>(func);
+            auto incasts = func->MakeIncasts(scope);
+            (void)incasts;
+        },
+        Error);
+}

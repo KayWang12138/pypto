@@ -222,7 +222,7 @@ def view_assemble_kernel(
         for w_idx in pypto.loop(w_tiles, name="w_loop", idx_name="w_idx"):
             h_off = h_idx * tile_h
             w_off = w_idx * tile_w
-            tile = pypto.view(x, [tile_h, tile_w], [h_off, w_off])
+            tile = pypto.view(x, [tile_h], [0, 0])
             result = pypto.mul(tile, 2.0)
             pypto.assemble(result, [h_off, w_off], output)
 
