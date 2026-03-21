@@ -447,6 +447,25 @@ def summarize_us(values: List[float], freq: float) -> List[str]:
     ]
 
 
+def calc_avg_aicore_exit_wait_us(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional[int]) -> Optional[float]:
+    aicore_exec_rows = collect_aicore_exec_rows(aicpu_dev_pref, round_id)
+    wait_us_values: List[float] = []
+    for row in aicore_exec_rows:
+        exit_wait = row.get("exit_wait")
+        freq = float(row.get("freq", 0)) or 1.0
+        if exit_wait is not None and exit_wait > 0:
+            wait_us_values.append(to_us(float(exit_wait), freq))
+    if not wait_us_values:
+        return None
+    return sum(wait_us_values) / len(wait_us_values)
+
+
+def format_sched_post_process(post_dur_cycles: Optional[float], sched_freq: float) -> str:
+    if post_dur_cycles is None:
+        return "-"
+    return f"{to_us(post_dur_cycles, sched_freq):.2f}"
+
+
 def analyze_ctrl_aicpu(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional[int]) -> None:
     print_subsection("CTRL AICPU")
     ctrl = next((x for x in aicpu_dev_pref if str(x.get("coreType")) == "AICPU-CTRL"), None)
@@ -478,7 +497,7 @@ def analyze_sched_aicpu(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional
         init_dur = get_task_duration(tasks, TaskPoint("ALLOC_THREAD_ID"), TaskPoint("INIT"), round_id)
         handshake_dur = get_task_duration(tasks, TaskPoint("INIT"), TaskPoint("CORE_HAND_SHAKE"), round_id)
         dev_task_rcv = get_task_duration(tasks, TaskPoint("CORE_HAND_SHAKE"), TaskPoint("DEV_TASK_RCV", 0), round_id)
-        post_dur = get_task_duration(tasks, TaskPoint("DEV_TASK_SCHED_EXEC", 0), TaskPoint("WAIT_CORE_EXIT"), round_id)
+        post_dur = get_task_duration(tasks, TaskPoint("DEV_TASK_SCHED_EXEC", 0), TaskPoint("EXIT"), round_id)
         rows.append(
             [
                 f"AICPU-SCHED-{block_idx}",
@@ -486,7 +505,7 @@ def analyze_sched_aicpu(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional
                 format_us(init_dur, freq),
                 format_us(handshake_dur, freq),
                 format_us(dev_task_rcv, freq),
-                format_us(post_dur, freq),
+                format_sched_post_process(post_dur, freq),
             ]
         )
 
@@ -610,7 +629,7 @@ def build_sched_rows(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional[in
         init_dur = get_task_duration(tasks, TaskPoint("ALLOC_THREAD_ID"), TaskPoint("INIT"), round_id)
         handshake_dur = get_task_duration(tasks, TaskPoint("INIT"), TaskPoint("CORE_HAND_SHAKE"), round_id)
         dev_task_rcv = get_task_duration(tasks, TaskPoint("CORE_HAND_SHAKE"), TaskPoint("DEV_TASK_RCV", 0), round_id)
-        post_dur = get_task_duration(tasks, TaskPoint("DEV_TASK_SCHED_EXEC", 0), TaskPoint("WAIT_CORE_EXIT"), round_id)
+        post_dur = get_task_duration(tasks, TaskPoint("DEV_TASK_SCHED_EXEC", 0), TaskPoint("EXIT"), round_id)
         sched_total_dur = get_task_duration(tasks, TaskPoint("BEGIN"), TaskPoint("WAIT_CORE_EXIT"), round_id)
         rows.append(
             [
@@ -620,7 +639,7 @@ def build_sched_rows(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional[in
                 format_us(init_dur, freq),
                 format_us(handshake_dur, freq),
                 format_us(dev_task_rcv, freq),
-                format_us(post_dur, freq),
+                format_sched_post_process(post_dur, freq),
                 "-",
                 format_us(sched_total_dur, freq),
             ]
@@ -630,10 +649,21 @@ def build_sched_rows(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional[in
 
 def build_aicore_row(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional[int]) -> List[str]:
     aicore_exec_rows = collect_aicore_exec_rows(aicpu_dev_pref, round_id)
+    aicore_post_process_us = calc_avg_aicore_exit_wait_us(aicpu_dev_pref, round_id)
     if not aicore_exec_rows:
         return ["AICore", "-", "-", "-", "-", "-", "-", "-", "-"]
     e2e_time, total_runtime_max = calc_aicore_timing_summary(aicore_exec_rows)
-    return ["AICore", "-", "-", "-", "-", "-", "-", e2e_time, total_runtime_max]
+    return [
+        "AICore",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-" if aicore_post_process_us is None else f"{aicore_post_process_us:.2f}",
+        e2e_time,
+        total_runtime_max,
+    ]
 
 
 def build_round_combined_rows(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional[int]) -> List[List[str]]:
@@ -682,8 +712,8 @@ def analyze_output_command(output_dir_arg: Optional[str]) -> None:
             "CORE_HAND_SHAKE(us)",
             "DEV_TASK_RCV(us)",
             "Post-process(us)",
-            "End-to-End time",
-            "Total run time",
+            "End-to-End time(us)",
+            "Total run time(us)",
         ]
         rows = build_round_combined_rows(aicpu_dev_pref, round_id)
         table_lines = render_table_lines(headers, rows)
