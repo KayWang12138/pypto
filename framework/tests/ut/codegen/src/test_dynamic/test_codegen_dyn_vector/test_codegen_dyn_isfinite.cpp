@@ -53,21 +53,10 @@ void TestCodegenIsFiniteBody() {
     std::vector<int64_t> vecTileShape = {5, 9};
     std::vector<int64_t> shape{12, 14};
 
-    TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]);
-    Tensor input(DataType::DT_FP32, shape, "input");
-    Tensor output(DataType::DT_FP32, shape, "res");
-    std::string funcName = "IsFinite";
-    FUNCTION(funcName, {input, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = IsFinite(input);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
-    function->SetUnderDynamicFunction(true);
-    
+    auto function = GenMockFuncDynUnary("IsFinite", {shape, vecTileShape}, [](Tensor &input, Tensor &output) {
+        output = IsFinite(input);
+    });
+
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});

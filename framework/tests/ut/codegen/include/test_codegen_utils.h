@@ -18,6 +18,7 @@
 
 #include "interface/tensor/logical_tensor.h"
 #include "interface/operation/operation.h"
+#include "interface/program/program.h"
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
@@ -65,6 +66,32 @@ std::string GetResultFromCpp(const Function &function);
 void CheckStringExist(const std::string &expect, const std::string &result);
 
 Function *GenMockFuncDyn(const std::string &funcName, const std::vector<int64_t> &shape = {64, 64});
+
+struct MockFuncDynConfig {
+    std::vector<int64_t> shape = {64, 64};
+    std::vector<int64_t> tileShape = {};
+    DataType dtype = DT_FP32;
+};
+
+template <typename OpFunc>
+Function *GenMockFuncDynUnary(const std::string &funcName, const MockFuncDynConfig &config, OpFunc opFunc) {
+    auto tileShape = config.tileShape.empty() ? config.shape : config.tileShape;
+    TileShape::Current().SetVecTile(tileShape);
+    Tensor input(config.dtype, config.shape, "input");
+    Tensor output(config.dtype, config.shape, "output");
+
+    FUNCTION(funcName, {input}, {output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            opFunc(input, output);
+        }
+    }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    function->SetUnderDynamicFunction(true);
+    return function;
+}
 
 std::shared_ptr<LogicalTensor> CreateConvTensor(Function &function, const DataType &dtype,
     const std::vector<int64_t> &shape, const MemoryType &memType, const bool &isCopyIn = true);

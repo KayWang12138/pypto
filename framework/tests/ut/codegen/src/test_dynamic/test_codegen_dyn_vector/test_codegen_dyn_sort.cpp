@@ -76,24 +76,8 @@ std::string generateCodeForOp(TestContext &tc) {
 }
 
 TestContext prepareSortParamForUT(Opcode opcode) {
+    auto function = GenMockFuncDyn(OpcodeManager::Inst().GetOpcodeStr(opcode));
     std::vector<int64_t> shape = {64, 64};
-
-    auto shapeImme = OpImmediate::Specified(shape);
-    TileShape::Current().SetVecTile(shape);
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    std::string funcName = "ADD";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetUnderDynamicFunction(true);
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensor =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, OP_MAGIC3, dynValidShape});
@@ -159,23 +143,10 @@ TEST_F(TestCodegenDynSort, TestDynExtract) {
 TEST_F(TestCodegenDynSort, TestDynTiledMgrSort) {
     std::vector<int64_t> shape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
-    TileShape::Current().SetVecTile(shape);
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
+    auto function = GenMockFuncDyn("TestDynTiledMgrSort");
 
     Element scalaVal(DataType::DT_FP32, 1.0);
 
-    std::string funcName = "TestDynTiledMgrSort";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     auto localTensorInput1 =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorInput2 =
@@ -220,23 +191,7 @@ Operation &GetTopkOp(Function *function, Opcode opCode, const LogicalTensors &te
 void TestTopkBody(Opcode opCode, const std::string &expect) {
     std::vector<int64_t> shape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
-    TileShape::Current().SetVecTile(shape);
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    Element scalaVal(DataType::DT_FP32, 1.0);
-
-    std::string funcName = "TestDynTopkSort";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function = GenMockFuncDyn("TestDynTopkSort");
     auto yVar = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto tmpVar = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto xVar = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});

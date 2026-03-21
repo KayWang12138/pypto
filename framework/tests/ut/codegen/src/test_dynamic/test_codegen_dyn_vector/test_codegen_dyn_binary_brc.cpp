@@ -26,6 +26,7 @@
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_common.h"
+#include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
 
@@ -67,7 +68,6 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
 
     npu::tile_fwk::CodeGenCtx ctx;
@@ -78,24 +78,8 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
 TEST_F(TestCodegenDynBinaryBrc, TestAddBrcTileTensorDynamic) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
-    std::vector<int64_t> shape1 = {32, 256};
-    TileShape::Current().SetVecTile({32, 256});
-    Tensor input_a(DataType::DT_FP32, shape1, "A");
-    Tensor input_b(DataType::DT_FP32, shape1, "B");
-    Tensor output(DataType::DT_FP32, shape1, "C");
     ConfigManager::Instance();
-
-    std::string funcName = "TestAddBrcTileTensorDynamic";
-    FUNCTION(funcName, {input_a, input_b, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(input_a, input_b);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
-    function->SetUnderDynamicFunction(true);
+    auto function = GenMockFuncDyn("TestAddBrcTileTensorDynamic", {32, 256});
     for (auto &subFunc : function->rootFunc_->programs_) {
         for (auto &op : subFunc.second->Operations()) {
             if (op.GetOpcode() == Opcode::OP_ADD) {
