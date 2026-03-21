@@ -744,7 +744,7 @@ private:
 
 private:
     bool inferCacheShape{false};
-    bool tripleStream{true};
+    bool tripleStream{false};
     bool isDebugMode{false};
     int64_t stitchCfgCacheSize{0};
     bool compileStageAllComplete{true};
