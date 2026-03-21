@@ -51,6 +51,9 @@ bool CalculateNewRawShapeExpand(
     const std::vector<int64_t> &newShape, const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape) {
     newRawShape.resize(newShape.size());
     size_t diff = oriRawShape.size() - newShape.size();
+    if (oriRawShape.size() < newShape.size()) { 
+         return false; 
+    }
     std::copy(oriRawShape.begin() + diff, oriRawShape.end(), newRawShape.begin());
     int64_t newShapeSize = 1;
     if (newRawShape.size() > 1) {
@@ -79,7 +82,7 @@ bool CalculateNewRawShapeReduce(
     if (newShapeSize > 0) {
         remainShapeSize = oriShapeSize / newShapeSize;
     } 
-    if (remainShapeSize <= 0) {
+    if (remainShapeSize <= 0 || oriShapeSize % newShapeSize != 0) {
         APASS_LOG_INFO_F(Elements::Function, "Cannot calculate NewRawShape as the dimension is not divisible.");
         return false;
     }
