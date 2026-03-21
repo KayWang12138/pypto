@@ -157,19 +157,20 @@ TEST_F(CalcCommonTest, VecDupClampFp32FromLargeDouble) {
     }
 }
 
-// 测试 ExecuteOpGatherInL1 中 blocksize 与输入参数、索引和页表的组合是否正确传递到 calc::GatherInL1
+// 测试 ExecuteOpGatherInL1：形状与《pypto-experimental-gather_in_l1》一致
+// - src: 两维；indices: [1, n] 行偏移；block_table: [1, block_table_size]，DT_INT32
 TEST_F(CalcCommonTest, ExecuteOpGatherInL1Basic) {
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestGatherInL1",
         "TestGatherInL1", nullptr);
 
-    // params 和 output 为 2 维 tensor，index 和 pageTable 为 1 维 tensor
+    // 与文档示例对齐：src [rows, cols]；indices [1, n]；block_table [1, block_table_size]
     std::vector<int64_t> paramsShape = {4, 1};
-    std::vector<int64_t> indicesShape = {4, 1};
-    std::vector<int64_t> pageTableShape = {2, 1};
+    std::vector<int64_t> indicesShape = {1, 4};
+    std::vector<int64_t> pageTableShape = {1, 2};
 
     auto paramsTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, paramsShape);
     auto indicesTensor = std::make_shared<LogicalTensor>(*func, DT_INT64, indicesShape);
-    auto pageTableTensor = std::make_shared<LogicalTensor>(*func, DT_INT64, pageTableShape);
+    auto pageTableTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, pageTableShape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, paramsShape);
 
     auto &gatherOp = func->AddOperation(Opcode::OP_GATHER_IN_L1,
@@ -178,24 +179,25 @@ TEST_F(CalcCommonTest, ExecuteOpGatherInL1Basic) {
 
     int64_t blockSize = 2;
     gatherOp.SetAttribute("op_attr_blocksize", blockSize);
+    gatherOp.SetAttribute(OpAttributeKey::startOffset, static_cast<int64_t>(0));
 
-    // 构造输入数据:
-    // params: [10, 20, 30, 40]
-    // indices: [0, 1, 2, 3]
-    // pageTable: [1, 0]
-    // GatherInL1 的邏輯會將輸出變換為 [30, 40, 10, 20]
+    // 构造输入数据（行主序与 shape 一致）:
+    // src 第 0..3 行标量: 10, 20, 30, 40
+    // indices [1,4]: 逻辑行号 0,1,2,3
+    // block_table [1,2]: PageAttention 页表 [1, 0]，block_size=2
+    // Golden: 物理行序 [2,3,0,1] -> 输出 30, 40, 10, 20
     Tensor paramsTensorData(DT_FP32, paramsShape);
     Tensor indicesTensorData(DT_INT64, indicesShape);
-    Tensor pageTableTensorData(DT_INT64, pageTableShape);
+    Tensor pageTableTensorData(DT_INT32, pageTableShape);
     Tensor outputTensorData(DT_FP32, paramsShape);
 
     std::vector<float> paramsVals = {10.f, 20.f, 30.f, 40.f};
     std::vector<int64_t> indicesVals = {0, 1, 2, 3};
-    std::vector<int64_t> pageTableVals = {1, 0};
+    std::vector<int32_t> pageTableVals = {1, 0};
 
     auto paramsData = RawTensorData::CreateTensor<float>(paramsTensorData, paramsVals);
     auto indicesData = RawTensorData::CreateTensor<int64_t>(indicesTensorData, indicesVals);
-    auto pageTableData = RawTensorData::CreateTensor<int64_t>(pageTableTensorData, pageTableVals);
+    auto pageTableData = RawTensorData::CreateTensor<int32_t>(pageTableTensorData, pageTableVals);
     auto outputData = RawTensorData::CreateConstantTensor<float>(outputTensorData, 0.f);
 
     auto paramsView = std::make_shared<LogicalTensorData>(paramsData);
