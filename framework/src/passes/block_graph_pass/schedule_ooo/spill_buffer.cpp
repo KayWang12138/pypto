@@ -79,7 +79,7 @@ int OoOScheduler::GetBufLastUseOrder(Operation* op, int curMemId) {
 }
 
 // 新增：基于Operation*的版本
-Operation* OoOScheduler::GetBufLastWrite(Operation* op, int curMemId) {
+Operation* OoOScheduler::GetBufLastWriteOp(Operation* op, int curMemId) {
     auto targetIt = std::find(orderedOps.begin(), orderedOps.end(), op);
     if (targetIt == orderedOps.end()) {
         return nullptr;
@@ -376,7 +376,6 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     Operation* copyInOpPtr = &spillCopyInOp;
 
     // 初始化 spillAllocOp
-    orderedOps.push_back(allocOpPtr);
     opExecOrderMap[allocOpPtr] = static_cast<int>(orderedOps.size()) - 1;
     opPipeTypeMap[allocOpPtr] = RescheduleUtils::GetOpPipeType(allocOpPtr);
     opIsAllocMap[allocOpPtr] = true;
@@ -389,7 +388,6 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     issueEntriesOpMagic.insert(allocOpPtr->GetOpMagic());
 
     // 初始化 spillCopyInOp
-    orderedOps.push_back(copyInOpPtr);
     opExecOrderMap[copyInOpPtr] = static_cast<int>(orderedOps.size()) - 1;
     opPipeTypeMap[copyInOpPtr] = RescheduleUtils::GetOpPipeType(copyInOpPtr);
     opIsAllocMap[copyInOpPtr] = false;
@@ -1135,7 +1133,7 @@ bool OoOScheduler::IsBelongSpillBlackList(Operation* spillOp, Operation* op) {
 
 Operation* OoOScheduler::GetSpillIssue(Operation* allocOp, int memId, bool isGenSpill) {
     if (isGenSpill) {
-        return GetBufLastWrite(allocOp, memId);
+        return GetBufLastWriteOp(allocOp, memId);
     }
     return tensorOccupyMap[localBufferMap[opReqMemIdsMap[allocOp][0]]->memType][memId];
 }
@@ -1312,7 +1310,7 @@ Status OoOScheduler::SpillAllBuffer(Operation* allocOp, size_t &pcIdx, bool isGe
     std::vector<int> memIds = bufferManagerMap[corePair.first][corePair.second][memType].GetAddrSortedBufs();
 
     for (auto memId : memIds) {
-        Operation* spillOp = isGenSpill ? GetBufLastWrite(allocOp, memId) : tensorOccupyMap[memType][memId];
+        Operation* spillOp = isGenSpill ? GetBufLastWriteOp(allocOp, memId) : tensorOccupyMap[memType][memId];
         if (spillOp == nullptr) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Cannot find spill Tensor[%d] last write issue.", memId);
             return FAILED;
@@ -1373,7 +1371,7 @@ Status OoOScheduler::GenBufferSpill(Operation* allocOp) {
     return SUCCESS;
 }
 
-Status OoOScheduler::GenSpill(size_t &pcIdx) {
+Status OoOScheduler::GenSpillOp(size_t &pcIdx) {
     APASS_LOG_DEBUG_F(Elements::Operation, "START: SPILL tensor!");
     LocalBufferPtr allocBuffer = localBufferMap[opReqMemIdsMap[orderedOps[pcIdx]][0]];
     if (allocBuffer->memType != MemoryType::MEM_L1 && allocBuffer->memType != MemoryType::MEM_UB) {
