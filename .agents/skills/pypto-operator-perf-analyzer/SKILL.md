@@ -46,7 +46,10 @@ ls -lt output/ | head -n 2
 - 同上指标
 
 **算子实际执行时间：**
-所有核心中 Core Total Work Time 的最大值
+所有核心中 Core Total Work Time 的最大值。
+
+**⚠️ 重要提示**：
+算子实际执行时间 即算子的性能数据，是算子性能的最重要指标，其它指标都是辅助。
 
 **AicoreTime(核心实际工作时间)：**
 AicoreTime = 核心总工作时间 - 总等待时间
@@ -202,6 +205,8 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
       runtime_options={"stitch_function_max_num": 128}
    )
    ```
+   **参数说明：**
+   - `stitch_function_max_num`: 参数取值范围[1, 128]
 
 2. **对于循环类任务动态轴范围较广时开启loop_unroll（优先级高）**
    ```python
@@ -226,25 +231,25 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
    **优化案例对比：**
 
    **原始代码（无优化）：**
-   ```python
-   for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx"):
-      for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
-         for n2_idx in pypto.loop(n2_sym, name="LOOP_n2", idx_name="n2_idx"):
-               for g_idx in pypto.loop(g_loop, name="LOOP_g", idx_name="g_idx"):
-                  for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx"):
-                     # 计算逻辑
-   ```
+      ```python
+      for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx"):
+         for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
+            for n2_idx in pypto.loop(n2_sym, name="LOOP_n2", idx_name="n2_idx"):
+                  for g_idx in pypto.loop(g_loop, name="LOOP_g", idx_name="g_idx"):
+                     for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx"):
+                        # 计算逻辑
+      ```
 
    **优化后代码（添加 loop_unroll）：**
-   ```python
-   for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx="b_idx"):
-      for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
-         for n2_idx in pypto.loop(n2_sym, name="LOOP_n2", idx_name="n2_idx"):
-               for g_idx in pypto.loop(g_loop, name="LOOP_g", idx_name="g_idx"):
-                  # 最内层循环添加 unroll_list
-                  for s2_idx in pypto.loop(s2_loop, unroll_list=[8, 4, 2, 1], name="LOOP_s2", idx_name="s2_idx"):
-                     # 计算逻辑
-   ```
+      ```python
+      for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx="b_idx"):
+         for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
+            for n2_idx in pypto.loop(n2_sym, name="LOOP_n2", idx_name="n2_idx"):
+                  for g_idx in pypto.loop(g_loop, name="LOOP_g", idx_name="g_idx"):
+                     # 最内层循环添加 unroll_list
+                     for s2_idx in pypto.loop(s2_loop, unroll_list=[8, 4, 2, 1], name="LOOP_s2", idx_name="s2_idx"):
+                        # 计算逻辑
+      ```
 
 3. **调整任务粒度**
    - 增大 loop 的 tile size
@@ -252,13 +257,25 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
 
 4. **优化调度策略**
    ```python
-   pypto.set_runtime_options(device_sched_mode=1)
+   @pypto.frontend.jit(
+      # 调度策略
+      runtime_options={"device_sched_mode": 1}
+   )
    ```
+
+   **参数说明：**
+   - `device_sched_mode`: 调度策略。取值[0, 3]，其中0-默认调度，1-L2亲和调度，2-公平调度，3-L2亲和+公平调度
 
 5. **使用 L1Reuse 优化**
    ```python
-   pypto.set_pass_options(cube_l1_reuse_setting={0: 8})
+   @pypto.frontend.jit(
+      # 开启合图
+      pass_options={"cube_l1_reuse_setting": {0: 8}}
+   )
    ```
+
+   **参数说明：**
+   - `cube_l1_reuse_setting`: 合图参数。建议值：{0: 4}
 
 ### 优化建议 2：核心利用率低
 
@@ -273,7 +290,10 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
 
 1. **使用 L2 亲和调度**
    ```python
-   pypto.set_runtime_runtime_options(device_sched_mode=1)
+   @pypto.frontend.jit(
+      # 调度策略
+      runtime_options={"device_sched_mode": 1}
+   )
    ```
 
 2. **调整 Tilesize 增大算术强度**
@@ -311,6 +331,19 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
    # ... 操作 ...
    pypto.set_pass_options(sg_set_scope=-1)
    ```
+
+### 优化建议 4：其它通用优化
+
+**优化建议：**
+
+1. **合轴优化（优先级高）**
+
+   ```python
+   pypto.experimental.set_operation_options(combine_axis=True)
+   ```
+
+   **参数说明：**
+   - `combine_axis`: 是否开启合轴
 
 ## 性能分析报告模板
 
