@@ -76,7 +76,7 @@ struct DumpTensorData {
             auto ret = memcpy_s(reinterpret_cast<uint8_t *>(data) + dataOffset, shape[idx] * dataByte,
                         reinterpret_cast<const uint8_t *>(tensorAddr) + offset[idx] * dataByte, shape[idx] * dataByte);
             if (ret != 0) {
-                DEV_ERROR("memcpy_s failed, ret=%d.", ret);
+                DEV_ERROR(DevCommonErr::MEMCPY_FAILED, "#sche.dump.prep: memcpy_s failed, ret=%d.", ret);
             }
             dataOffset = dataOffset + shape[idx] * dataByte;
         }
@@ -179,12 +179,12 @@ public:
         bool ret = DumpData(ideSession, fileName, reinterpret_cast<uint8_t *>(&dumpTensorInfo),
             dumpTensorInfo.headSize, isLast);
         if (!ret) {
-            DEV_ERROR("Dump Tensor info not successful.");
+            DEV_WARN("#sche.dump.info: Dump Tensor info not successful.");
             return;
         }
         ret = DumpData(ideSession, fileName, reinterpret_cast<uint8_t *>(dumpTensorData.data), dataSize_, isLast);
         if (!ret) {
-            DEV_ERROR("Dump Tensor data not successful.");
+            DEV_WARN("#sche.dump.data: Dump Tensor data not successful.");
             return;
         }
     }
@@ -260,7 +260,7 @@ public:
         int32_t tensorNum = (iOinfo == "input") ? func->GetOperationIOperandSize(opIdx) :
             func->GetOperationOOperandSize(opIdx);
         if (!IdeDumpStart || !IdeDumpData || !IdeDumpEnd) {
-            DEV_ERROR("IdeDumpStart, IdeDumpData, IdeDumpEnd function not found.");
+            DEV_WARN("#sche.dump.prep: IdeDumpStart, IdeDumpData, IdeDumpEnd function not found.");
             return;
         }
 
