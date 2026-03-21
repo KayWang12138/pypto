@@ -316,7 +316,6 @@ TEST_F(TestCodegenUnary, TestRowMaxLine) {
     config::SetBuildStatic(true);
 
     std::vector<int64_t> shape = {2, 2, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");

@@ -46,29 +46,14 @@ public:
 
 TEST_F(TestCodegenDynRange, TestDynOpRange) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    std::vector<int64_t> shape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
-    TileShape::Current().SetVecTile(shape);
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
 
+    auto function = GenMockFuncDyn("TestDynOpRange");
+    std::vector<int64_t> shape = {64, 64};
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
     Element start(DataType::DT_FP32, 1.0);
     Element step(DataType::DT_FP32, 2.0);
     Element size(DataType::DT_FP32, 3.0);
     int64_t idx = 0;
-
-    std::string funcName = "TestDynOpRange";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetUnderDynamicFunction(true);
-    std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
     auto &op = function->AddOperation(Opcode::OP_RANGE, {}, {localTensor});
@@ -92,27 +77,8 @@ TEST_F(TestCodegenDynRange, TestDynOpRange) {
 }
 
 TEST_F(TestCodegenDynRange, RangeTileTensor) {
+    auto function = GenMockFuncDyn("RangeTileTensor");
     std::vector<int64_t> rangeShape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(rangeShape);
-    TileShape::Current().SetVecTile(rangeShape);
-    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
-
-    Tensor inputA(DT_FP32, rangeShape, "A");
-    Tensor inputB(DT_FP32, rangeShape, "B");
-    Tensor output(DT_FP32, rangeShape, "C");
-
-    std::string funcName = "RangeTileTensor";
-
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetUnderDynamicFunction(true);
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, rangeShape});
     auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, rangeShape});
