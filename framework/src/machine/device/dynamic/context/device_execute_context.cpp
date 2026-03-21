@@ -80,8 +80,8 @@ void *DeviceExecuteContext::SymbolHandlerIdToHandler(SymbolHandlerId id) {
         case SymbolHandlerId::GetInputDataInt32Dim4:
             return reinterpret_cast<void *>(GetInputDataInt32Dim4);
         default:
-            DEV_ERROR("Invalid SymbolHandlerId: %lu", static_cast<uint64_t>(id));
-            DEV_ASSERT(0);
+            DEV_ERROR(CtrlErr::SYMBOL_HANDLER_INVALID, "Invalid SymbolHandlerId: %lu", static_cast<uint64_t>(id));
+            DEV_ASSERT(CtrlErr::DEVICE_TASK_BUILD_FAILED, 0);
             return nullptr;
     }
     return nullptr;
@@ -121,7 +121,7 @@ int DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTa
         if (handler == nullptr) {
             return DEVICE_MACHINE_ERROR;
         }
-        DEV_ASSERT_MSG(handler, "handler not found.");
+        DEV_ASSERT_MSG(CtrlErr::SYMBOL_HANDLER_NOT_FOUND, handler, "handler not found.");
         symbolTable[symbolHandler.symIndex] = PtrToValue(handler);
     }
 
@@ -197,7 +197,7 @@ int DeviceExecuteContext::RunControlFlow(DevStartArgs *startArgs) {
     execProg.controlFlowBinary.CallControlFlow(this, symbolTable.data(), runtimeCallList, startArgs);
     int finalErrorState = this->GetErrorState();
     if (finalErrorState != originalErrorState && finalErrorState != DEVICE_MACHINE_OK) {
-        DEV_ERROR("Control flow execution failed with error code: %d", finalErrorState);
+        DEV_ERROR(CtrlErr::CTRL_FLOW_EXEC_FAILED, "Control flow execution failed with error code: %d", finalErrorState);
         return finalErrorState;
     }
     PerfEnd(PERF_EVT_CONTROL_FLOW);
@@ -337,7 +337,7 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
     PROF_STAGE_BEGIN(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.before\n");
     DynDeviceTask *dynTask = taskContext.BuildDeviceTaskData(stitchContext, taskId, devProg, withoutTail);
     if (dynTask == nullptr) {
-        DEV_ERROR("Build device task data failed.");
+        DEV_ERROR(CtrlErr::DEVICE_TASK_BUILD_FAILED, "Build device task data failed.");
         return DEVICE_MACHINE_ERROR;
     }
 
@@ -469,7 +469,7 @@ void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
 }
 
 void DeviceExecuteContext::MarkSlotNeedAlloc(int slotIndex) {
-    DEV_ASSERT_MSG(slotIndex >= 0 && slotIndex < static_cast<int>(slotContext.GetSlotSize()),
+    DEV_ASSERT_MSG(CtrlErr::DEVICE_TASK_BUILD_FAILED, slotIndex >= 0 && slotIndex < static_cast<int>(slotContext.GetSlotSize()),
         "MarkSlotNeedAlloc: Invalid slot index %d.", slotIndex);
     slotContext.GetSlotList()[slotIndex].isAssembleSlotNeedAlloc = true;
     return;
@@ -478,7 +478,7 @@ void DeviceExecuteContext::MarkSlotNeedAlloc(int slotIndex) {
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootAlloc(void *ctx_, uint64_t rootKey) {
     DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
     if (ctx == nullptr) {
-        DEV_ERROR("invalid ctx.");
+        DEV_ERROR(CtrlErr::ROOT_ALLOC_CTX_NULL, "invalid ctx.");
         return nullptr;
     }
     PerfBegin(PERF_EVT_ROOT_FUNC);
@@ -509,7 +509,7 @@ bool IsSpecialRootKey(uint64_t rootKey) {
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootStitch(void *ctx_, uint64_t rootKey) {
     DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
     if (ctx == nullptr) {
-        DEV_ERROR("invalid ctx.");
+        DEV_ERROR(CtrlErr::ROOT_STITCH_CTX_NULL, "invalid ctx.");
         return nullptr;
     }
     PerfBegin(PERF_EVT_ROOT_FUNC);
@@ -559,15 +559,15 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, u
     constexpr uint64_t GROUP_SHIFT = OFFSET_BITS;
     constexpr uint64_t MEMTYPE_SHIFT = GROUP_SHIFT + GROUP_BITS;
     constexpr uint64_t FILL_SHIFT = MEMTYPE_SHIFT + MEMTYPE_BITS;
-    DEV_ASSERT(memType < memTypeCount);
+    DEV_ASSERT(CtrlErr::MEM_TYPE_INVALID, memType < memTypeCount);
     DeviceExecuteContext* ctx = (DeviceExecuteContext*)ctx_;
-    DEV_ASSERT(groupIndex < ctx->args->commGroupNum);
+    DEV_ASSERT(CtrlErr::COMM_GROUP_INDEX_INVALID, groupIndex < ctx->args->commGroupNum);
     auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(ctx->args->commContexts[groupIndex]);
     uint64_t winSize = memType == 0 ? hcclOpParam->winDataSize : hcclOpParam->winStatusSize;
     uint64_t shmemAddrEndOffset = ctx->shmemAddrOffset[memType] + size;
     if (shmemAddrEndOffset > winSize) {
         ctx->shmemAddrOffset[memType] = 0UL;
-        DEV_ERROR("Exceeds winSize limit. Maximum allowed: %lu, got: %lu", winSize, shmemAddrEndOffset);
+        DEV_ERROR(CtrlErr::WIN_SIZE_EXCEEDED, "Exceeds winSize limit. Maximum allowed: %lu, got: %lu", winSize, shmemAddrEndOffset);
     }
     uint64_t vaddr = ctx->shmemAddrOffset[memType] | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
     ctx->shmemAddrOffset[memType] += size;
