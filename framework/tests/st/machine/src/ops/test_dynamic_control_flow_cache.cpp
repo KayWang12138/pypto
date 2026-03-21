@@ -92,7 +92,10 @@ TEST_F(DynamicControlFlowCacheTest, KernelReuse) {
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
 
 #ifdef BUILD_WITH_CANN
+    DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), false);
+    EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), ctrlFlowCache, config));
     for (int k = 0; k < 3; k++) {
+        DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
         EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), ctrlFlowCache, config));
         auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
         EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
