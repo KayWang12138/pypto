@@ -96,6 +96,24 @@ static void DuplicateArray(const std::vector<int64_t>& src, std::vector<int64_t>
     }
 }
 
+static void DuplicateArray(const std::vector<int64_t>& src, int64_t* dst, int64_t len) {
+    for (int64_t i = 0; i < len; i++) {
+        dst[i] = src[i];
+    }
+}
+
+static void DuplicateArray(const int64_t* src, std::vector<int64_t>& dst, int64_t len) {
+    for (int64_t i = 0; i < len; i++) {
+        dst[i] = src[i];
+    }
+}
+
+static void DuplicateArray(const int64_t* src, int64_t* dst, int64_t len) {
+    for (int64_t i = 0; i < len; i++) {
+        dst[i] = src[i];
+    }
+}
+
 static bool IsAllOne(const PermuteShapeInfo& shapeInfo) {
     return std::all_of(shapeInfo.inShape.begin(), 
                        shapeInfo.inShape.begin() + shapeInfo.dim, 
@@ -103,7 +121,7 @@ static bool IsAllOne(const PermuteShapeInfo& shapeInfo) {
 }
 
 static int DecreaseCompare(const void* a, const void* b) {
-    return (*(int64_t*)b - *(int64_t*)a);
+    return (*static_cast<const int64_t*>(b) - *static_cast<const int64_t*>(a));
 }
 
 static void CalcOutShape(PermuteShapeInfo& shapeInfo) {
@@ -307,6 +325,8 @@ static bool IsIdentityPermutation(const std::vector<int64_t>& perm, int64_t dim)
 struct OutputTileInfo {
     LogicalTensorPtr tensor;
     TileInfo tileInfo;
+
+    OutputTileInfo() : tensor(nullptr), tileInfo(0, 0) {}
 };
 
 void TiledInnerPermute(Function& function, const TileShape& tileShape, int cur,
