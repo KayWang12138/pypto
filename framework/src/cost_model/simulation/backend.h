@@ -42,6 +42,7 @@ public:
     uint64_t funcHashPos = pos++;
     uint64_t coreTypePos = pos++;
     uint64_t psgIdPos = pos++;
+    uint64_t wrapIdPos = pos++;
     uint64_t succStartPos = pos++;
     uint64_t seqNumOffset = 32;
     Json ParseDynTopo(std::string &path);
