@@ -157,13 +157,11 @@ TEST_F(CalcCommonTest, VecDupClampFp32FromLargeDouble) {
     }
 }
 
-// 测试 ExecuteOpGatherInL1：形状与《pypto-experimental-gather_in_l1》一致
 // - src: 两维；indices: [1, n] 行偏移；block_table: [1, block_table_size]，DT_INT32
 TEST_F(CalcCommonTest, ExecuteOpGatherInL1Basic) {
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestGatherInL1",
         "TestGatherInL1", nullptr);
 
-    // 与文档示例对齐：src [rows, cols]；indices [1, n]；block_table [1, block_table_size]
     std::vector<int64_t> paramsShape = {4, 1};
     std::vector<int64_t> indicesShape = {1, 4};
     std::vector<int64_t> pageTableShape = {1, 2};
