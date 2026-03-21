@@ -10,13 +10,14 @@
 
 /*!
  * \file test_device_task_context.cpp
- * \brief Unit tests for DeviceTaskContext
+ * \brief Unit tests for DeviceTaskContext and DeviceExecuteContext
  */
 
 #include <gtest/gtest.h>
 #include <memory>
 #define private public
 #include "machine/device/dynamic/context/device_task_context.h"
+#include "machine/device/dynamic/context/device_execute_context.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/platform.h"
@@ -169,4 +170,70 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_core_function_cnt_not_excee
     int ret = taskContext.BuildReadyQueue(dyntask.get(), &devProg);
 
     EXPECT_EQ(ret, DEVICE_MACHINE_OK);
+}
+
+class TestDeviceExecuteContext : public testing::Test {
+public:
+    static void SetUpTestCase() {}
+
+    static void TearDownTestCase() {}
+
+    void SetUp() override { Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510); }
+
+    void TearDown() override { Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN); }
+};
+
+TEST_F(TestDeviceExecuteContext, test_loop_die_id_default_value) {
+    alignas(alignof(DeviceExecuteContext)) char buffer[sizeof(DeviceExecuteContext)];
+    DeviceExecuteContext *ctx = reinterpret_cast<DeviceExecuteContext *>(buffer);
+    memset(buffer, 0, sizeof(DeviceExecuteContext));
+    ctx->loopDieId_ = -1;
+    EXPECT_EQ(ctx->loopDieId_, -1);
+}
+
+TEST_F(TestDeviceExecuteContext, test_set_loop_die_id) {
+    alignas(alignof(DeviceExecuteContext)) char buffer[sizeof(DeviceExecuteContext)];
+    DeviceExecuteContext *ctx = reinterpret_cast<DeviceExecuteContext *>(buffer);
+    memset(buffer, 0, sizeof(DeviceExecuteContext));
+    ctx->loopDieId_ = -1;
+    ctx->loopDieId_ = 5;
+    EXPECT_EQ(ctx->loopDieId_, 5);
+    ctx->loopDieId_ = 10;
+    EXPECT_EQ(ctx->loopDieId_, 10);
+}
+
+TEST_F(TestDeviceExecuteContext, test_runtime_call_get_loop_die_id) {
+    alignas(alignof(DeviceExecuteContext)) char buffer[sizeof(DeviceExecuteContext)];
+    DeviceExecuteContext *ctx = reinterpret_cast<DeviceExecuteContext *>(buffer);
+    memset(buffer, 0, sizeof(DeviceExecuteContext));
+    ctx->loopDieId_ = -1;
+    void *result = DeviceExecuteContext::DeviceExecuteRuntimeCallGetLoopDieId(ctx, 0);
+    EXPECT_NE(result, nullptr);
+    int8_t *dieIdPtr = static_cast<int8_t *>(result);
+    EXPECT_EQ(*dieIdPtr, -1);
+    ctx->loopDieId_ = 7;
+    result = DeviceExecuteContext::DeviceExecuteRuntimeCallGetLoopDieId(ctx, 0);
+    dieIdPtr = static_cast<int8_t *>(result);
+    EXPECT_EQ(*dieIdPtr, 7);
+}
+
+TEST_F(TestDeviceExecuteContext, test_runtime_call_set_loop_die_id) {
+    alignas(alignof(DeviceExecuteContext)) char buffer[sizeof(DeviceExecuteContext)];
+    DeviceExecuteContext *ctx = reinterpret_cast<DeviceExecuteContext *>(buffer);
+    memset(buffer, 0, sizeof(DeviceExecuteContext));
+    
+    DevAscendFunctionDuppedData duppedData{};
+    duppedData.loopDieId_ = -1;
+    
+    ctx->currDevRootDup.dupTiny_.ptr = reinterpret_cast<uint64_t>(&duppedData);
+    ctx->loopDieId_ = 3;
+    
+    void *result = DeviceExecuteContext::DeviceExecuteRuntimeCallSetLoopDieId(ctx, 0);
+    EXPECT_EQ(result, nullptr);
+    EXPECT_EQ(duppedData.loopDieId_, 3);
+    
+    ctx->loopDieId_ = 12;
+    result = DeviceExecuteContext::DeviceExecuteRuntimeCallSetLoopDieId(ctx, 0);
+    EXPECT_EQ(result, nullptr);
+    EXPECT_EQ(duppedData.loopDieId_, 12);
 }

@@ -46,6 +46,17 @@ struct ReadyQueueCache {
     uint32_t readyTaskNum;
 };
 
+struct DieReadyQueueCache {
+    uint32_t coreFunctionCnt;
+    struct Queue {
+        uint32_t head;
+        uint32_t tail;
+        uint32_t capacity;
+        uint32_t *elem;
+    } queueList[DIE_READY_QUEUE_SIZE];
+    uint32_t readyTaskNum;
+};
+
 struct MixTaskDataCache {
     WrapInfoQueue queue;
     uint32_t* wrapTasklist;
@@ -93,6 +104,7 @@ struct DynDeviceTaskBase {
     const DevAicpuLeafBinary *aicpuLeafBinary;
 
     ReadyQueueCache *readyQueueBackup;
+    DieReadyQueueCache *dieReadyQueueBackup;
     MixTaskDataCache *mixTaskDataBackup{nullptr};
     DynFuncDataBackup dynFuncDataBackupList[MAX_STITCH_FUNC_NUM];
     bool isLastTask{false};
@@ -399,6 +411,61 @@ struct DevControlFlowCache {
             memcpy_s(base->readyQueue[i]->elem, backupSize, readyQueueBackup->queueList[i].elem, backupSize);
         }
     }
+
+    void DieReadyQueueDataBackup(DynDeviceTaskBase *base) {
+        DieReadyQueueCache *dieReadyQueueBackup = reinterpret_cast<DieReadyQueueCache *>(AllocateCache(sizeof(DieReadyQueueCache)));
+        if (dieReadyQueueBackup == nullptr) {
+            return;
+        }
+        dieReadyQueueBackup->coreFunctionCnt = base->devTask.coreFunctionCnt;
+        uint32_t readyTaskNum = 0;
+        for (size_t i = 0; i < DIE_READY_QUEUE_SIZE; i++) {
+            ReadyCoreFunctionQueue *dieReadyQueue = reinterpret_cast<ReadyCoreFunctionQueue *>(
+                (i < DIE_NUM) ? base->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[i]
+                              : base->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[i - DIE_NUM]);
+            if (dieReadyQueue == nullptr) {
+                dieReadyQueueBackup->queueList[i].head = 0;
+                dieReadyQueueBackup->queueList[i].tail = 0;
+                dieReadyQueueBackup->queueList[i].capacity = 0;
+                dieReadyQueueBackup->queueList[i].elem = nullptr;
+                continue;
+            }
+            size_t backupSize = sizeof(uint32_t) * dieReadyQueue->capacity;
+            uint32_t *dieReadyQueueBackupElem = reinterpret_cast<uint32_t *>(AllocateCache(backupSize));
+            if (dieReadyQueueBackupElem == nullptr) {
+                return;
+            }
+
+            dieReadyQueueBackup->queueList[i].head = dieReadyQueue->head;
+            dieReadyQueueBackup->queueList[i].tail = dieReadyQueue->tail;
+            dieReadyQueueBackup->queueList[i].capacity = dieReadyQueue->capacity;
+            dieReadyQueueBackup->queueList[i].elem = dieReadyQueueBackupElem;
+            memcpy_s(dieReadyQueueBackup->queueList[i].elem, backupSize, dieReadyQueue->elem, backupSize);
+
+            readyTaskNum += dieReadyQueue->tail - dieReadyQueue->head;
+        }
+        dieReadyQueueBackup->readyTaskNum = readyTaskNum;
+        base->dieReadyQueueBackup = dieReadyQueueBackup;
+    }
+
+    void DieReadyQueueDataRestore(DynDeviceTaskBase *base) {
+        DieReadyQueueCache *dieReadyQueueBackup = base->dieReadyQueueBackup;
+        base->devTask.coreFunctionCnt = dieReadyQueueBackup->coreFunctionCnt;
+        for (size_t i = 0; i < DIE_READY_QUEUE_SIZE; i++) {
+            ReadyCoreFunctionQueue *dieReadyQueue = reinterpret_cast<ReadyCoreFunctionQueue *>(
+                (i < DIE_NUM) ? base->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[i]
+                              : base->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[i - DIE_NUM]);
+            if (dieReadyQueue == nullptr) {
+                continue;
+            }
+            size_t backupSize = sizeof(uint32_t) * dieReadyQueue->capacity;
+
+            dieReadyQueue->head = dieReadyQueueBackup->queueList[i].head;
+            dieReadyQueue->tail = dieReadyQueueBackup->queueList[i].tail;
+            memcpy_s(dieReadyQueue->elem, backupSize, dieReadyQueueBackup->queueList[i].elem, backupSize);
+        }
+    }
+
     void MixTaskDataBackup(DynDeviceTaskBase *base) {
         if (base->devTask.mixTaskData.wrapIdNum == 0) {
             return;
@@ -886,6 +953,10 @@ struct DevControlFlowCache {
             relocCtrlCache.Reloc(dynTaskBase->devTask.readyAivCoreFunctionQue);
             relocCtrlCache.Reloc(dynTaskBase->devTask.readyAicCoreFunctionQue);
             relocCtrlCache.Reloc(dynTaskBase->devTask.readyAicpuFunctionQue);
+            for (size_t i = 0; i < DIE_NUM; i++) {
+                relocCtrlCache.RelocNullable(dynTaskBase->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[i]);
+                relocCtrlCache.RelocNullable(dynTaskBase->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[i]);
+            }
             for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
                 ReadyCoreFunctionQueue *&readyQueueRef = dynTaskBase->readyQueue[i];
                 ReadyCoreFunctionQueue *readyQueue = RelocControlFlowCachePointer(readyQueueRef, relocCtrlCache);
@@ -898,6 +969,12 @@ struct DevControlFlowCache {
             ReadyQueueCache *readyQueueBackup = RelocControlFlowCachePointer(readyQueueBackupRef, relocCtrlCache);
             for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
                 relocCtrlCache.Reloc(readyQueueBackup->queueList[i].elem);
+            }
+
+            DieReadyQueueCache *&dieReadyQueueBackupRef = dynTaskBase->dieReadyQueueBackup;
+            DieReadyQueueCache *dieReadyQueueBackup = RelocControlFlowCachePointer(dieReadyQueueBackupRef, relocCtrlCache);
+            for (size_t i = 0; i < DIE_READY_QUEUE_SIZE; i++) {
+                relocCtrlCache.RelocNullable(dieReadyQueueBackup->queueList[i].elem);
             }
 
             DynFuncHeader *&dynFuncDataListRef = dynTaskBase->dynFuncDataList;
