@@ -508,12 +508,13 @@ class JitCallableWrapper:
         self._parser.parse()
         self._parser.input_pto_tensor = args
 
-        # Initialize backend for compilation
-        self._setup_verify_data(args)
 
         # Set options AFTER OperatorBegin() to match @pypto.jit behavior
 
         self._set_config_option()
+
+        # Initialize backend for compilation
+        self._setup_verify_data(args)
 
         # Bind dynamic dimensions from concrete inputs
         self._parser.bind_dynamic_dims_to_input_tensors()
@@ -923,10 +924,7 @@ class JitCallableWrapper:
         - Use golden data pre-injected via set_verify_golden_data
         - Call SetVerifyData to register all three to the underlying ProgramData
         """
-        if not (
-            isinstance(self._verify_options, dict)
-            and self._verify_options.get("enable_pass_verify")
-        ):
+        if not pypto.get_verify_options().get("enable_pass_verify"):
             return
         # Compile and load calculator
         mgr = BuildOnlineManager()

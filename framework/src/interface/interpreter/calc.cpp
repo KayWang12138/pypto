@@ -45,6 +45,12 @@ struct CalcOps *GetCalcOps() {
         }
 #endif
         auto func = dlsym(handle, "GetCalcOps");
+        const char* error = dlerror();
+        if (error != nullptr) {
+            VERIFY_LOGE_FULL_E(VerifyEnableScene::VERIFY_LOAD_CALC_OPS_FAILED,
+                               "Can't get symbol GetCalcOps, error: %s", error);
+            return;
+        }
         calcOps = reinterpret_cast<GetCalcOpsFunc>(func)();
     });
 
