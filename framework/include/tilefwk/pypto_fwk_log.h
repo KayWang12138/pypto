@@ -42,7 +42,7 @@ enum class LogModule {
     VERIFY,
     COMPILER_MONITOR,
     PLATFORM,
-    CONV
+    CONV,
     MATMUL,
     VECTOR,
     BOTTOM
