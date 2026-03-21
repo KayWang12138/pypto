@@ -42,8 +42,10 @@ enum class LogModule {
     VERIFY,
     COMPILER_MONITOR,
     PLATFORM,
-    BOTTOM,
-    MATMUL
+    CONV,
+    MATMUL,
+    VECTOR,
+    BOTTOM
 };
 
 class LogFuncInfo {
@@ -209,4 +211,12 @@ private:
 #define MATMUL_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN,  MATMUL, __VA_ARGS__)
 #define MATMUL_LOGE(...) PYPTO_HOST_LOG(DLOG_ERROR, MATMUL, __VA_ARGS__)
 #define MATMUL_LOGE_E(errCode, fmt, ...) PYPTO_HOST_LOGE(MATMUL, errCode, fmt, ##__VA_ARGS__)
+
+#define CONV_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN,  CONV, __VA_ARGS__)
+
+#define VECTOR_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, VECTOR, __VA_ARGS__)
+#define VECTOR_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO,  VECTOR, __VA_ARGS__)
+#define VECTOR_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN,  VECTOR, __VA_ARGS__)
+#define VECTOR_LOGE(...) PYPTO_HOST_LOG(DLOG_ERROR, VECTOR, __VA_ARGS__)
+#define VECTOR_LOGE_E(errCode, fmt, ...) PYPTO_HOST_LOGE(VECTOR, errCode, fmt, ##__VA_ARGS__)
 #endif

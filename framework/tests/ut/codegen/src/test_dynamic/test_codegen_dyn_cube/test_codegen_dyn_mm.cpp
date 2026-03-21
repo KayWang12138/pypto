@@ -74,13 +74,8 @@ TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
 
     auto &op =
         function->AddOperation(Opcode::OP_A_MUL_B, {localTensorA, localTensorB, localTensorBias}, {localOutTensor});
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
     op.SetAttribute(OP_ATTR_PREFIX + "has_bias", true);
 
-    function->GetTensorMap().inverseMap_[localTensorA->GetMagic()] = localTensorA;
-    function->GetTensorMap().inverseMap_[localTensorB->GetMagic()] = localTensorB;
-    function->GetTensorMap().inverseMap_[localTensorBias->GetMagic()] = localTensorBias;
-    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
@@ -128,13 +123,8 @@ TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor) {
 
     auto &op =
         function->AddOperation(Opcode::OP_A_MUL_B, {localTensorAMX, localTensorBMX, localTensorBias}, {localOutTensor});
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
     op.SetAttribute(OP_ATTR_PREFIX + "has_bias", true);
 
-    function->GetTensorMap().inverseMap_[localTensorAMX->GetMagic()] = localTensorAMX;
-    function->GetTensorMap().inverseMap_[localTensorBMX->GetMagic()] = localTensorBMX;
-    function->GetTensorMap().inverseMap_[localTensorBias->GetMagic()] = localTensorBias;
-    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
 
     std::shared_ptr<SymbolManager> symbolManagerMX = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
