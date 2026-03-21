@@ -73,7 +73,7 @@ public:
     Error(const char *func, const char *file, size_t line, const std::string &msg, Backtrace backtrace)
         : func_(func), file_(file), line_(line), msg_(msg), backtrace_(backtrace) {}
 
-    Error(const char *func, const char *file, size_t line, Backtrace backtrace)
+    Error(const char *func, const char *file, size_t line, Backtrace backtrace = nullptr)
         : func_(func), file_(file), line_(line), backtrace_(backtrace) {}
 
     const char *what() const noexcept override;
@@ -92,7 +92,6 @@ private:
     const char *file_;
     size_t line_;
     std::string msg_;
-    std::string umsg_;
     Backtrace backtrace_;
     mutable LazyShared<std::string> what_;
 };
@@ -113,7 +112,7 @@ public:
             npu::tile_fwk::ErrorMessage()                                                                                   \
             << "Errcode: F"                                                                                                 \
             << std::uppercase << std::hex << std::setw(5) << std::setfill('0')                                             \
-            << (static_cast<unsigned>(errcode) & 0xFFFFF) << "!\n"
+            << (static_cast<unsigned>(errcode) & 0xFFFFF) << std::dec << "!\n"
 
 #define CHECK_WITH_CODE(errcode, cond)                                                                                      \
     (cond) ?                                                                                                                \
@@ -122,7 +121,7 @@ public:
             npu::tile_fwk::ErrorMessage()                                                                                   \
             << "Errcode: F"                                                                                                 \
             << std::uppercase << std::hex << std::setw(5) << std::setfill('0')                                             \
-            << (static_cast<unsigned>(errcode) & 0xFFFFF) << "!\n"
+            << (static_cast<unsigned>(errcode) & 0xFFFFF) << std::dec << "!\n"
 
 #define TILEFWK_ERROR()                                                                                            \
     npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
@@ -132,13 +131,13 @@ public:
     (cond) ? 0 :                                                                                                            \
              AssertInfo() = npu::tile_fwk::ErrorMessage()                                                                   \
              << "Errcode: F" << std::uppercase << std::hex << std::setw(5) << std::setfill('0')                            \
-             << (static_cast<unsigned>(errcode) & 0xFFFFF) << "!\n"
+             << (static_cast<unsigned>(errcode) & 0xFFFFF) << std::dec << "!\n"
 
 #define CHECK_WITH_CODE(errcode, cond)                                                                                      \
     (cond) ? 0 :                                                                                                            \
              AssertInfo() = npu::tile_fwk::ErrorMessage()                                                                   \
              << "Errcode: F" << std::uppercase << std::hex << std::setw(5) << std::setfill('0')                            \
-             << (static_cast<unsigned>(errcode) & 0xFFFFF) << "!\n"
+             << (static_cast<unsigned>(errcode) & 0xFFFFF) << std::dec << "!\n"
 #endif
 
 #define ASSERT_OVERLOAD_SELECT(_1, _2, NAME, ...) NAME

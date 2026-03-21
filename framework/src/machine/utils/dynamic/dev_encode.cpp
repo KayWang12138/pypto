@@ -33,7 +33,7 @@
 #include <unordered_map>
 #include <utility>
 #include <queue>
-
+#include <sstream>
 using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 namespace dynamic {
@@ -221,6 +221,20 @@ static int64_t GetShapeSizeSafe(const std::vector<int64_t> &shape) {
     return nelm;
 }
 
+static std::string FormatShape(const std::vector<int64_t> &shape) {
+    std::ostringstream oss;
+    oss << "[";
+    for (size_t i = 0; i < shape.size(); i++) {
+        if (i > 0) {
+            oss << ", ";
+        }
+        oss << shape[i];
+    }
+    oss << "]";
+    return oss.str();
+}
+
+
 static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAscendRawTensor *encoded,
         std::shared_ptr<RawTensor> rawTensor, bool needIndependentlyAlloc, const std::string rootName = "") {
     std::vector<SymInt> shape;
@@ -363,11 +377,13 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
 
         for (size_t i = 0; i < rawList.size(); i++) {
             const auto &rawTensor = rawList[i];
+            std::string rawShape = FormatShape(rawTensor->GetRawShape()).c_str();
             if (rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic) {
                 auto it = rawMagicToRawTensor.find(rawTensor->actualRawmagic);
                 ASSERT(it != rawMagicToRawTensor.end()) << "rawMagic is not found in rawMagicToRawTensor: " <<
                        rawTensor->actualRawmagic;
                 auto &actualRaw = it->second;
+                std::string actualrawShape = FormatShape(actualRaw->GetRawShape()).c_str();
                 const auto &rawTensorRawShape = rawTensor->GetRawShape();
                 bool isDynamicShape = std::find_if(rawTensorRawShape.begin(), rawTensorRawShape.end(),
                     [](int64_t dimShape) { return dimShape < 0; }) != rawTensorRawShape.end();
@@ -394,15 +410,29 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                     continue;
                 }
                 ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize()) << "Shape size mismatch:"
-                       << rawTensor->GetRawShapeSize() << "!=" << actualRaw->GetRawShapeSize();
+                       << rawTensor->GetRawShapeSize() << "!=" << actualRaw->GetRawShapeSize()
+ 	                   << ", rootMagic="<< param.devRoot->GetMagicName()
+ 	                   << ", rootHash="<< param.devRoot->GetFunctionHash().GetHash()
+                       <<" ,rawShape="<< rawShape
+                       <<",actualrawShape="<< actualrawShape
+ 	                   << ", rawTensor->rawMagic=" << rawTensor->GetRawMagic()
+ 	                   << ", rawTensor->actualRawmagic=" << rawTensor->actualRawmagic
+ 	                   << ", actualRaw->rawMagic=" << actualRaw->rawmagic;
                 ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize()) << "Data size mismatch:"
-                       << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize();
+                       << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize()
+ 	                   << ", rootMagic="<< param.devRoot->GetMagicName()
+ 	                   << ", rootHash="<< param.devRoot->GetFunctionHash().GetHash()
+                       <<" ,rawShape="<< rawShape
+                       <<",actualrawShape="<< actualrawShape
+ 	                   << ", rawTensor->rawMagic=" << rawTensor->GetRawMagic()
+ 	                   << ", rawTensor->actualRawmagic=" << rawTensor->actualRawmagic
+ 	                   << ", actualRaw->rawMagic=" << actualRaw->rawmagic;
             }
         }
 
         // file linkedIncastId
         auto outIncastLinkMap = param.devRoot->outIncastLinkMap;
-        MACHINE_LOGD("devRoot is %s", param.devRoot->GetRawName().c_str());
+        MACHINE_LOGD("rootName is %s", param.devRoot->GetRawName().c_str());
         for (size_t i = 0; i < rawList.size(); i++) {
             auto &encoded = *GetRawTensor(i);
             if (outIncastLinkMap.find(rawList[i]) != outIncastLinkMap.end()) {
@@ -418,7 +448,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 }
             } else {
                 encoded.linkedIncastId = -1;
-                MACHINE_LOGD("linkedIncastId is %d", encoded.linkedIncastId);
+                MACHINE_LOGD("raw tensor linkedIncastId is %d", encoded.linkedIncastId);
             }
         }
     }; // ONFILLCONTENT
@@ -969,7 +999,7 @@ struct EncodeDevAscendFunctionInfo {
             cellMatchSize *= tile;
             cellMatchStride[r] = cellMatchSize;
         }
-        MACHINE_LOGD("Outcast is %d raw %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
+        MACHINE_LOGD("Outcast is %d rawtensor magic %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
             IntVecToStr(tensor->shape).c_str(),
             cellMatchSize,
             IntVecToStr(ShapeToVector(cellMatchShape)).c_str(),
@@ -1015,7 +1045,7 @@ struct EncodeDevAscendFunctionInfo {
                 } else {
                     useList.emplace_back(i, j, coaIndex, coaIndex + dimSize);
                 }
-                MACHINE_LOGD("Outcast oOperandIdx for outcast %d %d is %zu", o->magic, o->GetRawMagic(), j);
+                MACHINE_LOGD("Outcast oOperandIdx for outcast %d rawtensor maigic %d is %zu", o->magic, o->GetRawMagic(), j);
                 outcastUseOpSet.insert(i);
                 auto expr = callAttr->GetOutcastSymbolicExpr(j);
                 outcastOpAttr.bindTensorExprIndex = -1;
@@ -1034,7 +1064,7 @@ struct EncodeDevAscendFunctionInfo {
                     UNUSED(offsetAttrIdx);
                     auto shape = callAttr->GetLinearImmediateArgList(shapeAttrIdx, shapeAttrIdx + dimSize, false);
                     UpdateCellMatchShape(outcastOpAttr.cellMatchTableDesc, shape);
-                    MACHINE_LOGD("minimal shape for outcast %d raw %d op %zu %d is %s\n", o->magic, o->GetRawMagic(), i,
+                    MACHINE_LOGD("minimal shape for outcast %d rawtensor magic %d op %zu %d is %s\n", o->magic, o->GetRawMagic(), i,
                         op.GetOpMagic(), IntVecToStr(ShapeToVector(outcastOpAttr.cellMatchTableDesc.cellShape)).c_str());
                 }
             }
@@ -1130,7 +1160,7 @@ struct EncodeDevAscendFunctionInfo {
                         }
                         incastOpAttr.useList.emplace_back(j, k, coaIndex, coaIndex + dimSize);
                         UpdateCellMatchShape(incastOpAttr.cellMatchTableDesc, shape);
-                        MACHINE_LOGD("minimal shape for incast %d raw %d op %zu %d is %s\n", index->magic, index->GetRawMagic(), j,
+                        MACHINE_LOGD("minimal shape for incast %d rawtensor magic %d op %zu %d is %s\n", index->magic, index->GetRawMagic(), j,
                             op.GetOpMagic(), IntVecToStr(ShapeToVector(incastOpAttr.cellMatchTableDesc.cellShape)).c_str());
                         incastUseOpSet.insert(j);
                     }
@@ -1178,17 +1208,29 @@ struct EncodeDevAscendFunctionInfo {
         return cceCodeInfoList[leafIndex].coreType;
     }
 
-    void RemoveDeadHubCall(std::vector<Operation *> &/* callOpList */) {
+    void RemoveDeadHubCall(Function *tdevRoot, std::vector<Operation *> &/* callOpList */) {
         std::vector<Operation *> deadCallOps;
         for (auto &[callOp, succOps] : callOpSuccDict) {
-            if (GetCoreType(callOp) == static_cast<int>(CoreType::HUB) && succOps.size() == 0) {
-                /*  Find all hub callop that has no successors, mark it is no need to schedule:
-                 *  1. mark pred to be zero
-                 *  2. remove it from the successor of all callop
-                 */
-                callOpPredDict[callOp] = 0;
-                deadCallOps.push_back(callOp);
+            if (GetCoreType(callOp) != static_cast<int>(CoreType::HUB) || (succOps.size() != 0)) {
+                continue;
             }
+            /* When HUB's oOperands have rootFunc outcast, do not remove it. (eg. Reshape as rootFunc output) */
+            bool needSave = false;
+            for (const auto &out : callOp->oOperand) {
+                if (tdevRoot->IsFromOutCast(out)) {
+                    needSave = true;
+                    break;
+                }
+            }
+            if (needSave) {
+                continue;
+            }
+            /*  Find all hub callop that has no successors, mark it is no need to schedule:
+                *  1. mark pred to be zero
+                *  2. remove it from the successor of all callop
+                */
+            callOpPredDict[callOp] = 0;
+            deadCallOps.push_back(callOp);
         }
 
         for (auto &[callOp, succOps] : callOpSuccDict) {
@@ -1242,6 +1284,7 @@ struct EncodeDevAscendFunctionInfo {
 
     inline void FindAllReachableNodes(int start_node, std::unordered_map<int, std::vector<int>>& outGraph,
                                         std::vector<std::unordered_set<int>>& reachable, std::vector<int>& visited) {
+        visited[start_node] = 1;
         reachable[start_node].insert(start_node);
         for (int v : outGraph[start_node]) {
             if (visited[v] == 0) {
@@ -1249,7 +1292,6 @@ struct EncodeDevAscendFunctionInfo {
             }
             reachable[start_node].insert(reachable[v].begin(), reachable[v].end());
         }
-        visited[start_node] = 1;
     }
 
     void FindRedundantEdges(int colorNum, std::vector<std::vector<int>>& redundantColorOutGraph) {
@@ -1593,7 +1635,7 @@ struct EncodeDevAscendFunctionInfo {
         EraseRedundantColorEdges(callopList);
         PrintColorGraph(callopList.size());
 
-        RemoveDeadHubCall(callopList);
+        RemoveDeadHubCall(tdevRoot, callopList);
         ReplaceSuccessorWithHub(callopList, 10); // add dummp op at least 10 depends can be reduced
 
         AddDummyCallsAtBeginningAndEnding(callopList);
@@ -1946,6 +1988,7 @@ static uint32_t ExpectedMaxCachedNum() {
         return 1;
     }
     expectedMaxCachedNum = (expectedMaxCachedNum > (int)MAX_STITCH_FUNC_NUM_LOWER) ? expectedMaxCachedNum : MAX_STITCH_FUNC_NUM_LOWER;
+    MACHINE_LOGD("max stitch function num  user expected is %d", expectedMaxCachedNum);
     return std::min(static_cast<uint32_t>(expectedMaxCachedNum), static_cast<uint32_t>(MAX_STITCH_FUNC_NUM));
 }
 
@@ -1971,6 +2014,7 @@ struct EncodeDevAscendProgramInfo {
             int unroll = ParseUnrollTimes(devRoot->GetRawName());
             MAX_UNROLL_TIMES = std::max(MAX_UNROLL_TIMES, (uint32_t)unroll);
         }
+        MACHINE_LOGD("MAX_UNROLL_TIMES user set is %u", MAX_UNROLL_TIMES);
     }
 
     bool GetEnableVFFusion() {
@@ -2219,9 +2263,13 @@ static void ProcessDevFunctionOutcasts(Function *func, DevAscendFunction *devFun
         devFunc->rootInnerTensorWsMemoryRequirement, unroll, WorkspaceRecyclePeriod());
     uint64_t funcDevTaskInnerExclusiveOutcastMem = CalcUnrolledRootBudget(
         devFunc->exclusiveOutcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
-
+    MACHINE_LOGD("rootInnerTensorWsMemoryRequirement is %lu, funcDevTaskInnerExclusiveOutcastMem is %lu", 
+                  devFunc->rootInnerTensorWsMemoryRequirement, devFunc->exclusiveOutcastWsMemoryRequirement);
+    
     maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
     maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
+    MACHINE_LOGD("maxRootInnerMem is %lu, maxDevTaskInnerExclusiveOutcastMem is %lu", 
+                  maxRootInnerMem, maxDevTaskInnerExclusiveOutcastMem);
     maxPerCoreSpilledMem = std::max(maxPerCoreSpilledMem, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
 }
 
@@ -2289,7 +2337,6 @@ static uint64_t CalcGeneralMetadataSlotWorkspace(DevAscendProgram *devProg) {
     MACHINE_LOGD("workspace of generalMetadataSlotSize is %lu, ", generalMetadataSlotSize);
     return generalMetadataSlotSize;
 }
-/**wraplist**/
 static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
     DeviceWorkspaceAllocator workspace(devProg);
     uint64_t generalMetadataSlabSize = 0;
@@ -2302,8 +2349,6 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
         1,// DynDevTask
         READY_QUEUE_SIZE, //ReadyQue
         DIE_READY_QUEUE_SIZE * DIE_NUM, // DieReadyQue
-        1,
-        1,
         1,
         1,
     };
@@ -2388,7 +2433,8 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);
         base->memBudget.debug.dumpTensor = DumpTensorWorkspace();
         base->memBudget.debug.leafDump = LeafDumpWorkspace();
-
+        MACHINE_LOGD("base->memBudget.metadata.stitchPool is %lu",base->memBudget.metadata.stitchPool);
+        MACHINE_LOGD("base->memBudget.aicoreSpilled is %lu",base->memBudget.aicoreSpilled);
         func->GetDyndevAttribute()->maxDynamicAssembleOutcastMem = tensorWsRes.maxDynamicAssembleOutcastMem;
     }
 }

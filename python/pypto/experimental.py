@@ -20,11 +20,6 @@ from .enum import AtomicType
 
 
 @op_wrapper
-def load(a: Tensor, offsets: Tensor) -> Tensor:
-    return pypto_impl.Load(a, offsets)
-
-
-@op_wrapper
 def gather_in_l1(src: Tensor, indices: Tensor, block_table: Tensor, block_size: int,
                  size: int, is_b_matrix: bool, is_trans: bool) -> Tensor:
     """gather_in_l1."""

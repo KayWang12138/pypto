@@ -79,7 +79,7 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
     bool isShapeValid = (shape[ID0][ID0] == shape[ID1][ID0]) &&
                         (shape[ID0][ID1] == shape[ID2][ID1] || shape[ID0][ID1] == shape[ID2][ID0]) &&
                         (shape[ID1][ID1] == shape[ID2][ID1] || shape[ID1][ID1] == shape[ID2][ID0]);
-    ASSERT(isShapeValid) << "CUBE: m k n is invalid.";
+    ASSERT(GenCodeErr::TENSOR_SHAPE_MISMATCHED, isShapeValid) << "CUBE: m k n is invalid.";
     int64_t m = shape[ID0][ID0];
     int64_t k = shape[ID1][ID1]; // NEXTNEXT assume A is not transposed for now
     int64_t n = shape[ID0][ID1];

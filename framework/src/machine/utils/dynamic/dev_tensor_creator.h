@@ -59,7 +59,7 @@ struct DevAscendTensorDataCreator {
         while (reinterpret_cast<int64_t *>(h) < ptrBase) {
             int64_t addr = *ptr;
             if (devProg->disableL2List[idxOffset + n] == 1) {
-              DEV_INFO("Tensor index %d disable l2.", idxOffset + n);
+              DEV_INFO("Tensor index=%d disable l2.", idxOffset + n);
               addr += static_cast<int64_t>(devProg->l2CacheOffset);
             }
             Init(&tensorData[n], addr, h->dimVal, h->dim);

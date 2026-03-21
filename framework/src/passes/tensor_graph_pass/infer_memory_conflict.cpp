@@ -448,13 +448,11 @@ Status InferMemoryConflict::ObtainReshapeTile(Operation &op, Shape &inTileShape,
         if (inTileShape.empty() && outTileShape.empty()) {
             return SUCCESS;
         }
-        Shape inShape = op.GetIOperands().front()->shape;
-        Shape outShape = op.GetOOperands().front()->shape;
-        DerivationTileShape derivationTileShapePass;
-        if (derivationTileShapePass.DerivationReshapeTileShape(&op, inShape, outShape, inTileShape, outTileShape) != SUCCESS) {
-            APASS_LOG_WARN_F(Elements::Operation, "DerivationReshapeTileShape failed. %s", GetFormatBacktrace(op).c_str());
-            // 失败时返回空的tileshape，由InferTileShape自动推导
-            return SUCCESS;
+        if (!inTileShape.empty() && !op.GetOOperands()[0]->GetConsumers().empty()) {
+            auto consumerOp = *op.GetOOperands()[0]->GetConsumers().begin();
+            
+            auto vec = consumerOp->GetTileShape().GetVecTile();
+            outTileShape = vec.tile;
         }
     }
     return SUCCESS;
@@ -470,9 +468,11 @@ Status InferMemoryConflict::InsertPrecededCopys(Function &function) {
         auto &copyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
         APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d].", copyOp.GetOpMagic());
         Shape reshapeTile;
-        if (ObtainReshapeTile(*op, reshapeTile, ObtainTileShape(op->ConsumerOps()).GetVecTile().tile) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeTile failed. %s", GetFormatBacktrace(*op).c_str());
-            return FAILED;
+        if (op->GetOpcode() == Opcode::OP_RESHAPE) {
+            TileShape vecTile = op->GetTileShape();
+            if (vecTile.GetVecTile().size() > 0) {
+                reshapeTile = vecTile.GetVecTile().tile;
+            }
         }
         if (InferTileShape(copyOp, inputTensor, ObtainTileShape(copyOp.ProducerOps()), reshapeTile) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "InferTileShape failed. %s", GetFormatBacktrace(copyOp).c_str());

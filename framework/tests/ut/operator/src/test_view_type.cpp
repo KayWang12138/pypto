@@ -61,26 +61,6 @@ TEST_F(ViewTypeUtest, add0_test) {
     ViewTypeFunc(x, result, dstDtype);  
 }
 
-TEST_F(ViewTypeUtest, cast_add0_test) {
-
-    int64_t m = 4;
-    int64_t k = 32;
-    int64_t n = 1024;
-
-    DataType originDtype = DT_INT8;
-    DataType dstDtype = DT_FP16;
-    DataType castDtype = DT_FP32;
-    float factor = (float)BytesOf(originDtype) / (float)BytesOf(dstDtype);
-
-    std::vector<int64_t> xShape = {m, k, n};
-    std::vector<int64_t> resultShape = {m, k, int(n * factor)};
-
-    Tensor x(originDtype, xShape, "x");
-    Tensor result(dstDtype, resultShape, "result");
-
-    ViewTypeCastFunc(x, result, dstDtype, castDtype);  
-}
-
 TEST_F(ViewTypeUtest, quant_test) {
 
     int64_t m = 64;

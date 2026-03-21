@@ -22,7 +22,6 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
-#include "interface/utils/log.h"
 #include "interface/configs/config_manager.h"
 
 #ifdef BUILD_WITH_CANN
@@ -75,7 +74,7 @@ struct MemoryBlock {
                 used_size = block_size;
                 return base_addr;
             } else {
-                MACHINE_LOGE("Logic Error: 2MB block allocation failed. (used_size: %zu, block_size: %zu, req: %lu)", used_size, block_size, alignSize);
+                MACHINE_LOGE("Logic Error: 2MB block allocation failed. (used_size=%zu, block_size=%zu, req=%lu)", used_size, block_size, alignSize);
                 return nullptr;
             }
         }
@@ -95,7 +94,7 @@ struct MemoryBlock {
                 }
 
                 used_size += alignSize;
-                MACHINE_LOGI("Allocate in 1GB block: %p, size: %zu, alignSize: %lu", use_ptr, chunk_size, alignSize);
+                MACHINE_LOGI("Allocate in 1GB block: ptr=%p, chunkSize=%zu, alignSize=%lu", use_ptr, chunk_size, alignSize);
                 return use_ptr;
             }
         }
@@ -177,7 +176,7 @@ public:
             }
         }
         
-        MACHINE_LOGE("Allocate failed size %lu", size);
+        MACHINE_LOGE("Allocate failed: size=%lu", size);
         return false;
     }
     
@@ -200,7 +199,7 @@ public:
         if (block->is_huge_1g) {
             block->Free(ptr, size);
         } else {
-            MACHINE_LOGI("Directly freeing 2MB block addr %p", block->base_addr);
+            MACHINE_LOGI("Directly freeing 2MB block: addr=%p", block->base_addr);
             FreeMemBlock(block); 
             for (auto vec_it = memoryBlocks_.begin(); vec_it != memoryBlocks_.end(); ++vec_it) {
                 if (*vec_it == block) {
@@ -221,7 +220,7 @@ public:
                 MACHINE_LOGW("Memory copy sentinel value failed! Do not check memory.");
                 return;
             }
-            MACHINE_LOGI("Base addr add %p with sentinelAddr %p.", baseAddr, sentinelAddr);
+            MACHINE_LOGI("Base addr add: baseAddr=%p, sentinelAddr=%p.", baseAddr, sentinelAddr);
             sentinelValMap_[baseAddr].push_back(sentinelAddr);
         }
     }
@@ -248,7 +247,7 @@ public:
         std::ostringstream oss;
         uint8_t* byte_ptr = reinterpret_cast<uint8_t*>(sentinelVal.data());
         oss << "Print Sentinel val in hex with ori val[" << std::hex << "0x" << SENTINEL_VALUE << "]" << std::endl;
-        ALOG_ERROR_F("%s", oss.str().c_str());
+        MACHINE_LOGE("%s", oss.str().c_str());
         oss.str("");
         for (uint32_t i = 0; i < SENTINEL_MEM_SIZE; ++i) {
             oss << std::hex << std::setw(2) << std::setfill('0') << (int)byte_ptr[i];
@@ -282,7 +281,7 @@ public:
         bool allGood = true;
         auto &sentinelVec = iter->second;
         for (auto sentinelAddr : sentinelVec) {
-            MACHINE_LOGI("Check base:%p sentinelAddr:%p.", baseAddr, sentinelAddr);
+            MACHINE_LOGI("Check baseAddr=%p, sentinelAddr=%p.", baseAddr, sentinelAddr);
             if (rtMemcpy(sentinelVal.data(), SENTINEL_MEM_SIZE, sentinelAddr, SENTINEL_MEM_SIZE, RT_MEMCPY_DEVICE_TO_HOST) != 0) {
                 MACHINE_LOGW("Memory copy D2H failed! Do not check memory.");
                 break;
@@ -307,7 +306,7 @@ public:
         auto it = memoryBlocks_.begin();
         while (it != memoryBlocks_.end()) {
             if ((*it)->used_size == 0) {
-                MACHINE_LOGI("Recycling empty block %p", (*it)->base_addr);
+                MACHINE_LOGI("Recycling empty block: addr=%p", (*it)->base_addr);
                 FreeMemBlock(*it);
                 it = memoryBlocks_.erase(it);
             } else {
@@ -354,7 +353,7 @@ private:
         }
 
         if (block->base_addr != nullptr) {
-            MACHINE_LOGI("Releasing physical memory: %p (size %lu)", block->base_addr, block->block_size);
+            MACHINE_LOGI("Releasing physical memory: addr=%p, size=%lu", block->base_addr, block->block_size);
             rtFree(block->base_addr);
             block->base_addr = nullptr;
         }

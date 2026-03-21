@@ -66,11 +66,6 @@ TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
-    function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
-
-    cop.originShape[0] = shape;
-    cop.originShape[1] = shape;
-
     cop.GenOpCode();
 }
 
@@ -95,11 +90,6 @@ TEST_F(TestCodegenDynSpillOut, L1SpillOut) {
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
-    function->GetTensorMap().inverseMap_[l1Tensor->GetMagic()] = l1Tensor;
-
-    cop.originShape[0] = shape;
-    cop.originShape[1] = shape;
-
     cop.GenOpCode();
 }
 
@@ -126,7 +116,7 @@ TEST_F(TestCodegenDynSpillOut, L1SpillTileTensor) {
     codegen.GenCode(*function, {});
     const std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TStore<TStoreConfig<CopyOutMode::ND2ND, 0, 0>>(gmTensor_18, l1Tensor_19, Coord2Dim(0, 0));)!!!";
+        R"!!!(TStore<TStoreConfig<CopyOutMode::NZ2ND, 0, 0>>(gmTensor_18, l1Tensor_19, Coord2Dim(0, 0));)!!!";
     CheckStringExist(expect, res);
 
     expect =
