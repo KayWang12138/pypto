@@ -15,9 +15,12 @@
 
 #include <gtest/gtest.h>
 #include <memory>
+#include <fstream>
+#include <cstdio>
 #define private public
 #include "machine/device/dynamic/context/device_task_context.h"
 #include "machine/utils/dynamic/dev_workspace.h"
+#include "machine/utils/dynamic/dev_encode_function_dupped_data.h"
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/platform.h"
 #include "tilefwk/tilefwk.h"
@@ -95,4 +98,136 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_calls_wrap_functions) {
     EXPECT_EQ(wrapQueue->head, 0);
     EXPECT_EQ(wrapQueue->tail, 0);
     EXPECT_GT(wrapQueue->capacity, 0);
+}
+
+TEST_F(TestDeviceTaskContext, test_dev_ascend_function_dupped_dump_topo) {
+    constexpr size_t kOpCount = 4;
+    constexpr size_t kFuncBufferSize = 4096;
+    constexpr size_t kDuppedDataBufferSize = 2048;
+
+    auto funcBuffer = std::make_unique<uint8_t[]>(kFuncBufferSize);
+    memset(funcBuffer.get(), 0, kFuncBufferSize);
+    uint8_t *funcDataPtr = funcBuffer.get();
+
+    DevAscendFunction *devFunc = reinterpret_cast<DevAscendFunction *>(funcDataPtr);
+    funcDataPtr += sizeof(DevAscendFunction);
+
+    devFunc->rootHash = 0x12345678;
+    devFunc->funcKey = 100;
+    devFunc->sourceFunc = nullptr;
+
+    size_t currentOffset = sizeof(DevAscendFunction);
+    auto alignUp = [&currentOffset](size_t alignment) {
+        currentOffset = (currentOffset + alignment - 1) & ~(alignment - 1);
+    };
+
+    alignUp(alignof(SymInt));
+    devFunc->operationAttrList_.AssignOffsetSize(currentOffset, kOpCount);
+    SymInt *attrData = reinterpret_cast<SymInt *>(funcDataPtr);
+    for (size_t i = 0; i < kOpCount; i++) {
+        attrData[i] = SymInt(static_cast<uint64_t>(0));
+    }
+    currentOffset += kOpCount * sizeof(SymInt);
+    funcDataPtr += kOpCount * sizeof(SymInt);
+
+    alignUp(alignof(int32_t));
+    devFunc->opAttrOffsetList_.AssignOffsetSize(currentOffset, kOpCount);
+    int32_t *attrOffsets = reinterpret_cast<int32_t *>(funcDataPtr);
+    for (size_t i = 0; i < kOpCount; i++) {
+        attrOffsets[i] = static_cast<int32_t>(i);
+    }
+    currentOffset += kOpCount * sizeof(int32_t);
+    funcDataPtr += kOpCount * sizeof(int32_t);
+
+    alignUp(alignof(DevAscendOperation));
+    devFunc->operationList_.AssignOffsetSize(currentOffset, kOpCount);
+    DevAscendOperation *ops = reinterpret_cast<DevAscendOperation *>(funcDataPtr);
+    for (size_t i = 0; i < kOpCount; i++) {
+        new (&ops[i]) DevAscendOperation();
+        ops[i].debugOpmagic = static_cast<uint64_t>(i + 1);
+        size_t attrOffset = reinterpret_cast<uint8_t*>(attrData + i) - funcBuffer.get();
+        ops[i].attrList.AssignOffsetSize(attrOffset, 1);
+        ops[i].depGraphSuccList.AssignOffsetSize(0, 0);
+        ops[i].depGraphPredCount = 0;
+        ops[i].outcastStitchIndex = 0;
+    }
+    currentOffset += kOpCount * sizeof(DevAscendOperation);
+    funcDataPtr += kOpCount * sizeof(DevAscendOperation);
+
+    auto duppedDataBuffer = std::make_unique<uint8_t[]>(kDuppedDataBufferSize);
+    memset(duppedDataBuffer.get(), 0, kDuppedDataBufferSize);
+    uint8_t *duppedDataPtr = duppedDataBuffer.get();
+
+    DevAscendFunctionDuppedData *duppedData = reinterpret_cast<DevAscendFunctionDuppedData *>(duppedDataPtr);
+    duppedDataPtr += sizeof(DevAscendFunctionDuppedData);
+
+    duppedData->source_ = devFunc;
+    duppedData->operationList_.size = kOpCount;
+    duppedData->operationList_.predCountBase = static_cast<uint32_t>(duppedDataPtr - duppedDataBuffer.get());
+    duppedData->operationList_.stitchBase = duppedData->operationList_.predCountBase + kOpCount * sizeof(predcount_t);
+    duppedData->operationList_.stitchCount = 1;
+
+    predcount_t *predCounts = reinterpret_cast<predcount_t *>(duppedDataPtr);
+    for (size_t i = 0; i < kOpCount; i++) {
+        predCounts[i] = 0;
+    }
+    duppedDataPtr += kOpCount * sizeof(predcount_t);
+
+    for (size_t i = 0; i <= kOpCount; i++) {
+        new (duppedDataPtr + i * sizeof(DevAscendFunctionDuppedStitchList)) DevAscendFunctionDuppedStitchList();
+    }
+
+    duppedData->incastList_.size = 0;
+    duppedData->incastList_.base = 0;
+    duppedData->outcastList_.size = 0;
+    duppedData->outcastList_.base = 0;
+    duppedData->expressionList_.size = 0;
+    duppedData->expressionList_.base = 0;
+
+    DevAscendFunctionDupped funcDupped;
+    WsAllocation tinyAlloc;
+    tinyAlloc.ptr = reinterpret_cast<uint64_t>(duppedData);
+    funcDupped = DevAscendFunctionDupped(tinyAlloc);
+
+    auto opWrapListData = std::make_unique<int32_t[]>(kOpCount);
+    for (size_t i = 0; i < kOpCount; i++) {
+        opWrapListData[i] = static_cast<int32_t>(i);
+    }
+
+    auto devTaskPtr = std::make_unique<DeviceTask>();
+    DeviceTask &devTask = *devTaskPtr;
+    devTask.mixTaskData.wrapIdNum = 1;
+    devTask.mixTaskData.opWrapList[0] = reinterpret_cast<uint64_t>(opWrapListData.get());
+
+    DevCceBinary cceBinary[1];
+    cceBinary[0].coreType = 0;
+    cceBinary[0].psgId = 0;
+    cceBinary[0].funcHash = 0xABCDEF00;
+
+    std::string testFilePath = "./tmp/test_dump_topo_direct_output.txt";
+    {
+        std::ofstream outFile(testFilePath);
+        ASSERT_TRUE(outFile.is_open());
+
+        int seqNo = 0;
+        int funcIdx = 0;
+        bool enableVFFusion = false;
+
+        funcDupped.DumpTopo(outFile, seqNo, funcIdx, cceBinary, enableVFFusion, &devTask);
+
+        outFile.close();
+
+        std::ifstream inFile(testFilePath);
+        ASSERT_TRUE(inFile.is_open());
+        std::string line;
+        size_t lineCount = 0;
+        while (std::getline(inFile, line)) {
+            lineCount++;
+            EXPECT_FALSE(line.empty());
+        }
+        inFile.close();
+
+        EXPECT_EQ(lineCount, kOpCount);
+    }
+    std::remove(testFilePath.c_str());
 }
