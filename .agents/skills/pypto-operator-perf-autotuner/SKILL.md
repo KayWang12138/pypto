@@ -13,7 +13,19 @@ description: PyPTO算子性能分析和自动调优技能。用于生成泳道�
 
 ### 步骤 1：性能数据采集
 
-#### 1.1 启用性能数据采集
+#### 1.1 编译安装Pypto的whl包
+
+编译安装指令如下：
+
+```bash
+# 编译 whl 包
+python3 build_ci.py -f python3 --disable_auto_execute
+```
+
+**⚠️ 重要提示**：
+- 非首次迭代，没有修改framework或python下的代码的情况下，不需要重新编译安装。
+
+#### 1.2 启用性能数据采集
 
 在算子实现文件中，修改 `@pypto.frontend.jit` 装饰器，添加 `debug_options` 参数：
 
@@ -31,16 +43,12 @@ def kernel_function(
 **⚠️ 重要提示**：
 - 性能调优任务结束时，将修改的开关还原
 
-#### 1.2 重新编译并运行
-如果非第一次运行，没有修改framework或python下的代码，则不需要重新编译，跳过此节。
+#### 1.3 运行算子
 
 ```bash
 # 设置环境变量
 export TILE_FWK_DEVICE_ID=0
 export PTO_TILE_LIB_CODE_PATH=/mnt/workspace/pto-isa/
-
-# 编译 whl 包
-python3 build_ci.py -f python3 --disable_auto_execute
 
 # 运行算子（生成泳道图数据）
 python3 custom/operator_name/operator.py --run-mode npu
