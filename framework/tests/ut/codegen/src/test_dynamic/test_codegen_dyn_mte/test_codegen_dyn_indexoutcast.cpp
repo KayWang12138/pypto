@@ -106,8 +106,6 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
-    function->GetTensorMap().inverseMap_[localTensorSrc0->GetMagic()] = localTensorSrc0;
-    function->GetTensorMap().inverseMap_[localTensorSrc1->GetMagic()] = localTensorSrc1;
 
     std::string res = cop.GenOpCode();
     std::string expect =
@@ -166,8 +164,6 @@ TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor) {
     cga.GenAllocForLocalBuffer(indexoutOp, symbolManager);
     CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], indexoutOp, {}, true);
     CodeGenOpCloudNPU cop(opCtx);
-    function->GetTensorMap().inverseMap_[indexoutTensor->GetMagic()] = indexoutTensor;
-    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
 
     std::string res = cop.GenOpCode();
     std::string expect = R"!!!(TIndexOutcast<0, 1>(gmTensor_9, ubTensor_10, ubTensor_10, Coord2Dim(0, 0));
@@ -211,29 +207,14 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
 #else
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX);
 #endif
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
-        }
-        DynParamInfo fakeParam = {2, 0, 1, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_32_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_32_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_38_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_38_dim_1", fakeParam);
-    }
+
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TileOp::DynTIndexoutcast<int32_t, int32_t, 1, 32, 32, 32, 0, 1>((__gm__ int32_t*)GET_PARAM_ADDR(param, 0, 0), (__ubuf__ int32_t*)UB_S0_E4096, (__ubuf__ int32_t*)UB_S4096_E8192, 1, 1, sym_6_dim_1, sym_9_dim_0, sym_9_dim_1, 1, 1, GET_PARAM_RAWSHAPE_2(param, 0, 0), 0, 0, (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 1)));
+        R"!!!(TileOp::DynTIndexoutcast<int32_t, int32_t, 1, 32, 32, 32, 0, 1>((__gm__ int32_t*)GET_PARAM_ADDR(param, 2, 28), (__ubuf__ int32_t*)UB_S0_E4096, (__ubuf__ int32_t*)UB_S4096_E8192, 1, 1, sym_6_dim_1, sym_9_dim_0, sym_9_dim_1, 1, 1, GET_PARAM_RAWSHAPE_2(param, 2, 28), 0, 0, (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 1)));
 )!!!";
     CheckStringExist(expect, res);
 }
