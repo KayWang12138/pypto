@@ -158,7 +158,7 @@ void HandleActualRaw(const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList
     auto iter = rawMagicToRawTensor.find(rawTensor->actualRawmagic);
     if (iter != rawMagicToRawTensor.end()) {
         if (iter->second->addrOffset == UINT64_MAX) {
-            MACHINE_LOGE("addrOffset is invalid actual raw magic %d, original raw magic %d",
+            MACHINE_LOGE(ProgEncodeErr::ADDR_OFFSET_RAW_MAGIC_MISMATCH, "addrOffset is invalid actual raw magic %d, original raw magic %d",
                 rawTensor->actualRawmagic, rawTensor->rawmagic);
             encoded.addrOffset = 0;
         } else {
@@ -492,6 +492,21 @@ void DevAscendFunction::InitOperation(
         const std::vector<int> &noSuccOpList,
         const std::unordered_map<Operation *, std::vector<int>> &copyOutResolveSuccIndexListDict,
         bool fillContent) {
+    InitOperationNoPredNoSuccIndices(
+        initOffset, callList, callOpPredDict, callOpSuccDict, noPredOpList, noSuccOpList, fillContent);
+    InitOperationBufferLayouts(initOffset, callList, callOpSuccDict, copyOutResolveSuccIndexListDict);
+    FillOperationEncodedContent(expressionTable, callList, tlist, rawList, callOpPredDict, callOpSuccDict,
+        calleeHashIndexDict, outcastStitchIndexList, copyOutResolveSuccIndexListDict, fillContent);
+}
+
+void DevAscendFunction::InitOperationNoPredNoSuccIndices(
+        uintdevptr_t &initOffset,
+        const OrderedSet<Operation *> &callList,
+        const std::unordered_map<Operation *, uint64_t> &callOpPredDict,
+        const std::unordered_map<Operation *, OrderedSet<Operation *>> &callOpSuccDict,
+        const std::vector<int> &noPredOpList,
+        const std::vector<int> &noSuccOpList,
+        bool fillContent) {
     noPredOpList_.HostInitDataSizeOffset(initOffset, noPredOpList.size());
     noSuccOpList_.HostInitDataSizeOffset(initOffset, noSuccOpList.size());
 
@@ -518,7 +533,13 @@ void DevAscendFunction::InitOperation(
                    op << " is not empty";
         }
     }
+}
 
+void DevAscendFunction::InitOperationBufferLayouts(
+        uintdevptr_t &initOffset,
+        const OrderedSet<Operation *> &callList,
+        const std::unordered_map<Operation *, OrderedSet<Operation *>> &callOpSuccDict,
+        const std::unordered_map<Operation *, std::vector<int>> &copyOutResolveSuccIndexListDict) {
     operationList_.HostInitDataSizeOffset(initOffset, callList.size());
 
     int operanSize = 0;
@@ -540,99 +561,24 @@ void DevAscendFunction::InitOperation(
     opCalleeList_.HostInitDataSizeOffset(initOffset, callList.size());
     operationSuccList_.HostInitDataSizeOffset(initOffset, sucSize);
     operationCopyOutResolveSuccIndexList_.HostInitDataSizeOffset(initOffset, copyOutResolveSuccIdxSize);
+}
 
+void DevAscendFunction::FillOperationEncodedContent(
+        const SymbolicExpressionTable *expressionTable,
+        const OrderedSet<Operation *> &callList,
+        const OrderedSet<std::shared_ptr<LogicalTensor>> &tlist,
+        const OrderedSet<std::shared_ptr<RawTensor>> &rawList,
+        const std::unordered_map<Operation *, uint64_t> &callOpPredDict,
+        const std::unordered_map<Operation *, OrderedSet<Operation *>> &callOpSuccDict,
+        const std::unordered_map<uint64_t, int> &calleeHashIndexDict,
+        const std::vector<int32_t> &outcastStitchIndexList,
+        const std::unordered_map<Operation *, std::vector<int>> &copyOutResolveSuccIndexListDict,
+        bool fillContent) {
     ONFILLCONTENT {
-        DevAscendFunctionDuppedData *dupData = reinterpret_cast<DevAscendFunctionDuppedData *>(&At(duppedData_, 0));
-        operanSize = 0;
-        staticAttributeSize = 0;
-        sucSize = 0;
-        copyOutResolveSuccIdxSize = 0;
-        for (size_t index = 0; index < callList.size(); index++) {
-            Operation *op = callList[index];
-            auto callop = std::static_pointer_cast<CallOpAttribute>(callList[index]->GetOpAttribute());
-            DevAscendOperation &staticField = At(operationList_, index);
-
-            staticField.outcastStitchIndex = outcastStitchIndexList[index];
-            staticField.debugOpmagic = op->GetOpMagic();
-            staticField.ioperandList.AssignRangeOffsetSize(
-                operationOperandInfoList_, operanSize, op->GetIOperands().size());
-            std::map<int, int> rawTensorIndex;
-            for (size_t k = 0; k < op->GetIOperands().size(); k++) {
-                auto coaIndex = op->GetIOpAttrOffset(k);
-                const std::shared_ptr<LogicalTensor> &tensor = op->GetIOperands()[k];
-                rawTensorIndex[coaIndex] = rawList.find(tensor->tensor)->second;
-                At(staticField.ioperandList, k) =
-                    DevAscendOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_DIM_BASE, tensor->GetShape().size());
-            }
-            operanSize += op->GetIOperands().size();
-
-            staticField.ooperandList.AssignRangeOffsetSize(
-                operationOperandInfoList_, operanSize, op->GetOOperands().size());
-            for (size_t k = 0; k < op->GetOOperands().size(); k++) {
-                auto coaIndex = op->GetOOpAttrOffset(k);
-                const std::shared_ptr<LogicalTensor> &tensor = op->GetOOperands()[k];
-                rawTensorIndex[coaIndex] = rawList.find(tensor->tensor)->second;
-                At(staticField.ooperandList, k) =
-                    DevAscendOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_DIM_BASE, tensor->GetShape().size());
-            }
-            operanSize += op->GetOOperands().size();
-            MACHINE_LOGD("Producer %zu oOperand list size is %zu", index, op->GetOOperands().size());
-            // Fill attr
-            auto callArgs = callop->GetLinearArgList();
-            int opStaticAttrSize = callArgs.size();
-            staticField.attrList.AssignRangeOffsetSize(operationAttrList_, staticAttributeSize, opStaticAttrSize);
-            At(staticField.attrList, 0) = GetCceIndex(calleeHashIndexDict, callop);
-            for (size_t k = CALLOP_ARG_ATTR_BASE_INDEX; k < (size_t)opStaticAttrSize; k++) {
-                int fillValue = 0;
-                if (callArgs[k].IsImmediate()) {
-                    if (rawTensorIndex.count(k)) {
-                        fillValue = rawTensorIndex[k];
-                    } else {
-                        fillValue = callArgs[k].Concrete();
-                    }
-                } else {
-                    fillValue = expressionTable->LookupPrimaryExpressionIndex(callArgs[k]);
-                }
-                At(staticField.attrList, k) = SymInt(!callArgs[k].IsImmediate(), fillValue);
-            }
-
-            At(opAttrOffsetList_, index) = staticAttributeSize;
-            At(opCalleeList_, index) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
-            staticAttributeSize += opStaticAttrSize;
-
-            // Fill succ
-            int opSuccSize = callOpSuccDict.find(op)->second.size();
-            staticField.depGraphSuccList.AssignRangeOffsetSize(operationSuccList_, sucSize, opSuccSize);
-            for (int k = 0; k < opSuccSize; k++) {
-                int succ = callList.GetIndex(callOpSuccDict.find(op)->second[k]);
-                At(staticField.depGraphSuccList, k) = succ;
-                At(operationList_, succ).depGraphPredCount++;
-                dupData->GetOperationCurrPredCount(succ)++;
-            }
-            sucSize += opSuccSize;
-
-            // Fill copyout resolve
-            const std::vector<int> &copyOutResolveSuccIndexList = copyOutResolveSuccIndexListDict.find(op)->second;
-            int opCopyOutResolveSuccIndexSize = copyOutResolveSuccIndexList.size();
-            staticField.depGraphCopyOutResolveSuccIndexList.AssignRangeOffsetSize(operationCopyOutResolveSuccIndexList_, copyOutResolveSuccIdxSize, opCopyOutResolveSuccIndexSize);
-            for (int k = 0; k < opCopyOutResolveSuccIndexSize; k++) {
-                At(staticField.depGraphCopyOutResolveSuccIndexList, k) = copyOutResolveSuccIndexList[k];
-            }
-            copyOutResolveSuccIdxSize += copyOutResolveSuccIndexList.size();
-        }
-        for (size_t idx = 0; idx < callList.size(); idx++) {
-            Operation *op = callList[idx];
-            ASSERT(callOpPredDict.count(op)) << "callOpPredDict does not contain op " << op;
-            ASSERT(At(operationList_, idx).depGraphPredCount == callOpPredDict.find(op)->second) << "depGraphPredCount mismatch: expected " <<
-                   callOpPredDict.find(op)->second << ", got " << At(operationList_, idx).depGraphPredCount;
-            if(dupData->GetOperationCurrPredCount(idx) != callOpPredDict.find(op)->second) {
-                MACHINE_LOGE("OperationCurrPredCount: %d Callopsize is %u exceeds the maximum allowed value of 65535.",
-                dupData->GetOperationCurrPredCount(idx), dupData ->GetOperationSize());
-            }
-            ASSERT(dupData->GetOperationCurrPredCount(idx) == callOpPredDict.find(op)->second) << "GetOperationCurrPredCount mismatch: expected " <<
-                   dupData->GetOperationCurrPredCount(idx) << ", got " << callOpPredDict.find(op)->second <<
-                   ", Callopsize is " << dupData->GetOperationSize() << " exceeds the maximum allowed value of 65535.";
-        }
+        auto *dupData = reinterpret_cast<DevAscendFunctionDuppedData *>(&At(duppedData_, 0));
+        PopulateOperationEncodedContent(expressionTable, callList, tlist, rawList, callOpSuccDict, calleeHashIndexDict,
+            outcastStitchIndexList, copyOutResolveSuccIndexListDict, dupData);
+        VerifyOperationEncodedContent(callList, callOpPredDict, dupData);
         dupData->GetSource() = this;
         for (size_t index = 0; index < callList.size(); index++) {
             uint8_t *ptr = reinterpret_cast<uint8_t *>(&dupData->GetOperationStitch(index));
@@ -642,6 +588,139 @@ void DevAscendFunction::InitOperation(
                    stitchBegin << ", " << dataEndAlloc << ")";
         }
         dupData->GetSource() = nullptr;
+    }
+}
+
+void DevAscendFunction::PopulateOperationEncodedContent(
+        const SymbolicExpressionTable *expressionTable,
+        const OrderedSet<Operation *> &callList,
+        const OrderedSet<std::shared_ptr<LogicalTensor>> &tlist,
+        const OrderedSet<std::shared_ptr<RawTensor>> &rawList,
+        const std::unordered_map<Operation *, OrderedSet<Operation *>> &callOpSuccDict,
+        const std::unordered_map<uint64_t, int> &calleeHashIndexDict,
+        const std::vector<int32_t> &outcastStitchIndexList,
+        const std::unordered_map<Operation *, std::vector<int>> &copyOutResolveSuccIndexListDict,
+        DevAscendFunctionDuppedData *dupData) {
+    int operanSize = 0;
+    int staticAttributeSize = 0;
+    int sucSize = 0;
+    int copyOutResolveSuccIdxSize = 0;
+    for (size_t index = 0; index < callList.size(); index++) {
+        PopulateOneEncodedOpOperandsAndAttrs(index, operanSize, staticAttributeSize, expressionTable, callList, tlist,
+            rawList, calleeHashIndexDict, outcastStitchIndexList);
+        PopulateOneEncodedOpGraphEdges(
+            index, sucSize, copyOutResolveSuccIdxSize, callList, callOpSuccDict, copyOutResolveSuccIndexListDict, dupData);
+    }
+}
+
+void DevAscendFunction::PopulateOneEncodedOpOperandsAndAttrs(
+        size_t index,
+        int &operanSize,
+        int &staticAttributeSize,
+        const SymbolicExpressionTable *expressionTable,
+        const OrderedSet<Operation *> &callList,
+        const OrderedSet<std::shared_ptr<LogicalTensor>> &tlist,
+        const OrderedSet<std::shared_ptr<RawTensor>> &rawList,
+        const std::unordered_map<uint64_t, int> &calleeHashIndexDict,
+        const std::vector<int32_t> &outcastStitchIndexList) {
+    Operation *op = callList[index];
+    auto callop = std::static_pointer_cast<CallOpAttribute>(callList[index]->GetOpAttribute());
+    DevAscendOperation &staticField = At(operationList_, index);
+
+    staticField.outcastStitchIndex = outcastStitchIndexList[index];
+    staticField.debugOpmagic = op->GetOpMagic();
+    staticField.ioperandList.AssignRangeOffsetSize(
+        operationOperandInfoList_, operanSize, op->GetIOperands().size());
+    std::map<int, int> rawTensorIndex;
+    for (size_t k = 0; k < op->GetIOperands().size(); k++) {
+        auto coaIndex = op->GetIOpAttrOffset(k);
+        const std::shared_ptr<LogicalTensor> &tensor = op->GetIOperands()[k];
+        rawTensorIndex[coaIndex] = rawList.find(tensor->tensor)->second;
+        At(staticField.ioperandList, k) =
+            DevAscendOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_DIM_BASE, tensor->GetShape().size());
+    }
+    operanSize += op->GetIOperands().size();
+
+    staticField.ooperandList.AssignRangeOffsetSize(
+        operationOperandInfoList_, operanSize, op->GetOOperands().size());
+    for (size_t k = 0; k < op->GetOOperands().size(); k++) {
+        auto coaIndex = op->GetOOpAttrOffset(k);
+        const std::shared_ptr<LogicalTensor> &tensor = op->GetOOperands()[k];
+        rawTensorIndex[coaIndex] = rawList.find(tensor->tensor)->second;
+        At(staticField.ooperandList, k) =
+            DevAscendOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_DIM_BASE, tensor->GetShape().size());
+    }
+    operanSize += op->GetOOperands().size();
+    MACHINE_LOGD("Producer %zu oOperand list size is %zu", index, op->GetOOperands().size());
+
+    auto callArgs = callop->GetLinearArgList();
+    int opStaticAttrSize = callArgs.size();
+    staticField.attrList.AssignRangeOffsetSize(operationAttrList_, staticAttributeSize, opStaticAttrSize);
+    At(staticField.attrList, 0) = GetCceIndex(calleeHashIndexDict, callop);
+    for (size_t k = CALLOP_ARG_ATTR_BASE_INDEX; k < (size_t)opStaticAttrSize; k++) {
+        int fillValue = 0;
+        if (callArgs[k].IsImmediate()) {
+            auto it = rawTensorIndex.find(k);
+            fillValue = (it != rawTensorIndex.end()) ? it->second : callArgs[k].Concrete();
+        } else {
+            fillValue = expressionTable->LookupPrimaryExpressionIndex(callArgs[k]);
+        }
+        At(staticField.attrList, k) = SymInt(!callArgs[k].IsImmediate(), fillValue);
+    }
+
+    At(opAttrOffsetList_, index) = staticAttributeSize;
+    At(opCalleeList_, index) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
+    staticAttributeSize += opStaticAttrSize;
+}
+
+void DevAscendFunction::PopulateOneEncodedOpGraphEdges(
+        size_t index,
+        int &sucSize,
+        int &copyOutResolveSuccIdxSize,
+        const OrderedSet<Operation *> &callList,
+        const std::unordered_map<Operation *, OrderedSet<Operation *>> &callOpSuccDict,
+        const std::unordered_map<Operation *, std::vector<int>> &copyOutResolveSuccIndexListDict,
+        DevAscendFunctionDuppedData *dupData) {
+    Operation *op = callList[index];
+    DevAscendOperation &staticField = At(operationList_, index);
+
+    int opSuccSize = callOpSuccDict.find(op)->second.size();
+    staticField.depGraphSuccList.AssignRangeOffsetSize(operationSuccList_, sucSize, opSuccSize);
+    for (int k = 0; k < opSuccSize; k++) {
+        int succ = callList.GetIndex(callOpSuccDict.find(op)->second[k]);
+        At(staticField.depGraphSuccList, k) = succ;
+        At(operationList_, succ).depGraphPredCount++;
+        dupData->GetOperationCurrPredCount(succ)++;
+    }
+    sucSize += opSuccSize;
+
+    const std::vector<int> &copyOutResolveSuccIndexList = copyOutResolveSuccIndexListDict.find(op)->second;
+    int opCopyOutResolveSuccIndexSize = copyOutResolveSuccIndexList.size();
+    staticField.depGraphCopyOutResolveSuccIndexList.AssignRangeOffsetSize(
+        operationCopyOutResolveSuccIndexList_, copyOutResolveSuccIdxSize, opCopyOutResolveSuccIndexSize);
+    for (int k = 0; k < opCopyOutResolveSuccIndexSize; k++) {
+        At(staticField.depGraphCopyOutResolveSuccIndexList, k) = copyOutResolveSuccIndexList[k];
+    }
+    copyOutResolveSuccIdxSize += copyOutResolveSuccIndexList.size();
+}
+
+void DevAscendFunction::VerifyOperationEncodedContent(
+        const OrderedSet<Operation *> &callList,
+        const std::unordered_map<Operation *, uint64_t> &callOpPredDict,
+        DevAscendFunctionDuppedData *dupData) {
+    for (size_t idx = 0; idx < callList.size(); idx++) {
+        Operation *op = callList[idx];
+        ASSERT(callOpPredDict.count(op)) << "callOpPredDict does not contain op " << op;
+        ASSERT(At(operationList_, idx).depGraphPredCount == callOpPredDict.find(op)->second) << "depGraphPredCount mismatch: expected " <<
+               callOpPredDict.find(op)->second << ", got " << At(operationList_, idx).depGraphPredCount;
+        if (dupData->GetOperationCurrPredCount(idx) != callOpPredDict.find(op)->second) {
+            MACHINE_LOGE(ProgEncodeErr::CALL_OP_COUNT_EXCEEDS_UINT16_MAX,
+                "OperationCurrPredCount: %d Callopsize is %u exceeds the maximum allowed value of 65535.",
+                dupData->GetOperationCurrPredCount(idx), dupData->GetOperationSize());
+        }
+        ASSERT(dupData->GetOperationCurrPredCount(idx) == callOpPredDict.find(op)->second) << "GetOperationCurrPredCount mismatch: expected " <<
+               dupData->GetOperationCurrPredCount(idx) << ", got " << callOpPredDict.find(op)->second <<
+               ", Callopsize is " << dupData->GetOperationSize() << " exceeds the maximum allowed value of 65535.";
     }
 }
 
@@ -677,6 +756,20 @@ void DevAscendFunction::InitIncastOutcast(
         const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &incastOpAttrDict,
         const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &outcastOpAttrDict,
         const EncodeDevAscendFunctionParam &param, const std::string &initRawName, bool fillContent) {
+    InitIncastOutcastFillMetaSlotsAndUse(initOffset, incastTensorList, outcastTensorList, tlist, incastOpAttrDict,
+        outcastOpAttrDict, param, fillContent);
+    InitIncastOutcastFillPoliciesCellMatchAndName(initOffset, incastTensorList, outcastTensorList, incastOpAttrDict,
+        outcastOpAttrDict, initRawName, fillContent);
+}
+
+void DevAscendFunction::InitIncastOutcastFillMetaSlotsAndUse(
+        uintdevptr_t &initOffset,
+        const std::vector<std::shared_ptr<LogicalTensor>> &incastTensorList,
+        const std::vector<std::shared_ptr<LogicalTensor>> &outcastTensorList,
+        const OrderedSet<std::shared_ptr<LogicalTensor>> &tlist,
+        const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &incastOpAttrDict,
+        const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &outcastOpAttrDict,
+        const EncodeDevAscendFunctionParam &param, bool fillContent) {
     {
         // Fill metadata
         incastList.HostInitDataSizeOffset(initOffset, incastTensorList.size());
@@ -765,6 +858,15 @@ void DevAscendFunction::InitIncastOutcast(
         }
         useList.HostInitDataSizeOffset(initOffset, useSize);
     }
+}
+
+void DevAscendFunction::InitIncastOutcastFillPoliciesCellMatchAndName(
+        uintdevptr_t &initOffset,
+        const std::vector<std::shared_ptr<LogicalTensor>> &incastTensorList,
+        const std::vector<std::shared_ptr<LogicalTensor>> &outcastTensorList,
+        const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &incastOpAttrDict,
+        const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &outcastOpAttrDict,
+        const std::string &initRawName, bool fillContent) {
     {
         // Fill runtime full update table
         uint64_t cellMatchSizeOutcastTotal = 0;
@@ -974,9 +1076,9 @@ struct EncodeDevAscendFunctionInfo {
             if (cellMatchShape.dim[index] > dimValue) {
                 cellMatchShape.dim[index] = dimValue;
                 if (cellMatchShape.dim[index] == 0) {
-                    MACHINE_LOGE("cellMatchShape.dim[%zu] is zero after assignment", index);
+                    MACHINE_LOGE(ProgEncodeErr::CELL_MATCH_DIM_ZERO, "cellMatchShape.dim[%zu] is zero after assignment", index);
                 }
-                DEV_ASSERT(cellMatchShape.dim[index]);
+                DEV_ASSERT(ProgEncodeErr::CELL_MATCH_DIM_ZERO, cellMatchShape.dim[index]);
             }
         }
     }
@@ -1005,7 +1107,7 @@ struct EncodeDevAscendFunctionInfo {
             IntVecToStr(ShapeToVector(cellMatchShape)).c_str(),
             IntVecToStr(StrideToVector(cellMatchStride)).c_str());
         if (cellMatchStride[0] > MAX_CELLMATCHSSTRIDE) {
- 	  	    MACHINE_LOGE("Assemble out-cast %d raw %d stitch results in excessive memory consumption "
+            MACHINE_LOGE(ProgEncodeErr::ASSEMBLE_STITCH_MEMORY_EXCESS, "Assemble out-cast %d raw %d stitch results in excessive memory consumption "
  	  	                 "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape ",
  	  	                 tensor->magic, tensor->GetRawMagic());
  	  	}
@@ -1473,7 +1575,7 @@ struct EncodeDevAscendFunctionInfo {
             std::shared_ptr<LeafFuncAttribute> leafAttr = devLeafFunc->GetLeafFuncAttribute();
 
             if (leafAttr == nullptr) {
-                MACHINE_LOGE("Leaf Attr of leaf function %s is nullptr.", callop->GetCalleeMagicName().c_str());
+                MACHINE_LOGE(ProgEncodeErr::LEAF_CALLEE_ATTR_NULL, "Leaf Attr of leaf function %s is nullptr.", callop->GetCalleeMagicName().c_str());
                 continue;
             }
             if (leafAttr->outcastCopyOutResolveCounterList.size() == 0) {
