@@ -92,7 +92,7 @@ Status OoOScheduler::PrintSpillFailedInfo(Operation* allocOp, bool isGenSpill) {
     if (isGenSpill) {
         auto bufferSlices = bufferManagerMap[corePair.first][corePair.second][memType].GetBufferSlices();
         for (auto memId : bufferSlices) {
-            auto occupyOp = GetBufLastWrite(allocOp, memId);
+            auto occupyOp = GetBufLastWriteOp(allocOp, memId);
             if (occupyOp == nullptr) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Cannot find spill Tensor[%d] last write time.", memId);
                 return FAILED;
@@ -632,7 +632,7 @@ Status OoOScheduler::ExecuteAllocIssue(Operation* op, size_t &pcIdx) {
     LocalBufferPtr allocBuffer = localBufferMap[opReqMemIdsMap[op][0]];
     auto corePair = opCoreLocationMap[op];
     if (bufferManagerMap[corePair.first][corePair.second][allocBuffer->memType].IsFull(allocBuffer)) {
-        if (GenSpill(pcIdx) != SUCCESS) {
+        if (GenSpillOp(pcIdx) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "GenSpillOp failed at ExecuteAllocIssue. %s", GetFormatBacktrace(*orderedOps[pcIdx]).c_str());
             return FAILED;
         }
@@ -723,14 +723,14 @@ void OoOScheduler::InitIssueQueuesAndBufferManager() {
     }
 }
 
-void OoOScheduler::UpdateAllocMap(Operation* op, std::map<int, Operation*> &tensorAllocOpMap) {
+void OoOScheduler::UpdateAllocMap(Operation* op, std::map<int, Operation*> &tensorAllocMap) {
     for (auto outTensor : op->GetOOperands()) {
         if (outTensor->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         int memId = outTensor->memoryrange.memId;
-        if (tensorAllocOpMap.find(memId) == tensorAllocOpMap.end()) {
-            tensorAllocOpMap[memId] = op;
+        if (tensorAllocMap.find(memId) == tensorAllocMap.end()) {
+            tensorAllocMap[memId] = op;
         }
     }
     for (auto inTensor : op->GetIOperands()) {
@@ -738,14 +738,14 @@ void OoOScheduler::UpdateAllocMap(Operation* op, std::map<int, Operation*> &tens
             continue;
         }
         int memId = inTensor->memoryrange.memId;
-        if (tensorAllocOpMap.find(memId) == tensorAllocOpMap.end()) {
-            tensorAllocOpMap[memId] = op;
+        if (tensorAllocMap.find(memId) == tensorAllocMap.end()) {
+            tensorAllocMap[memId] = op;
         }
     }
 }
 
 Status OoOScheduler::CheckAllocIssue() {
-    std::map<int, Operation*> tensorAllocOpMap;
+    std::map<int, Operation*> tensorAllocMap;
     for (const auto &op : orderedOps) {
         if (opIsAllocMap[op]) {
             if (opReqMemIdsMap[op].size() != 1) {
@@ -753,15 +753,15 @@ Status OoOScheduler::CheckAllocIssue() {
                     op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
                 return FAILED;
             }
-            UpdateAllocMap(op, tensorAllocOpMap);
+            UpdateAllocMap(op, tensorAllocMap);
         }
     }
     for (const auto &op : orderedOps) {
         if (!opIsAllocMap[op]) {
-            UpdateAllocMap(op, tensorAllocOpMap);
+            UpdateAllocMap(op, tensorAllocMap);
         }
     }
-    for (auto tensorAlloc : tensorAllocOpMap) {
+    for (auto tensorAlloc : tensorAllocMap) {
         if (!opIsAllocMap[tensorAlloc.second]) {
             APASS_LOG_ERROR_F(Elements::Tensor, "%s Tensor[%d] is missing Alloc.",
                 GetOpInfo(tensorAlloc.second).c_str(), tensorAlloc.first);
@@ -935,7 +935,7 @@ Status OoOScheduler::CalcBufferSize(LogicalTensors tensors, std::map<MemoryType,
     return SUCCESS;
 }
 
-std::string OoOScheduler::dumpOpInfo(Operation &op) {
+std::string OoOScheduler::DumpOpInfo(Operation &op) {
     std::ostringstream oss;
     oss << "OP: " << op.GetOpcodeStr().c_str() << "[" << op.GetOpMagic() << "] | ";
     oss << "Inputs: {";
@@ -981,13 +981,13 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
                 if (producer == op) {
                     continue;
                 }
-                APASS_LOG_ERROR_F(Elements::Operation, "    %s.", dumpOpInfo(*producer).c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "    %s.", DumpOpInfo(*producer).c_str());
             }
         } else {
             APASS_LOG_ERROR_F(Elements::Operation, "OP %s[%d] in/output total size[%ld] exceeds %s size[%ld]!",
                 op->GetOpcodeStr().c_str(), op->GetOpMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(),
                 localMemorySize[buffer.first]);
-            APASS_LOG_ERROR_F(Elements::Operation, "%s.", dumpOpInfo(*op).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "%s.", DumpOpInfo(*op).c_str());
         }
         return FAILED;
     }
@@ -1125,7 +1125,6 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
     opViewOpsMap.clear();
     opCoreLocationMap.clear();
     localBufferMap.clear();
-    depthCache_.clear();
     LOG_SCOPE_BEGIN(tInit, Elements::Function, "Init");
     // 初始化芯片各buffer大小
     localMemorySize = CommonUtils::GetLocalMemorySize();

@@ -184,7 +184,7 @@ private:
 
     void InitCoreConfig(const std::vector<Operation *> &operations);
     Status CheckOpBufferSize(Operation *op);
-    std::string dumpOpInfo(Operation &op);
+    std::string DumpOpInfo(Operation &op);
     Status CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap);
     Status InitDependencies();
     void FindDependencies(Operation* op);
@@ -195,7 +195,7 @@ private:
     void UpdateBufRefCount(Operation* op, LogicalTensorPtr tensor);
     Status CheckAllocIssue();
     void InitTensorCoreMap();
-    void UpdateAllocMap(Operation* op, std::map<int, Operation*> &tensorAllocOpMap);
+    void UpdateAllocMap(Operation* op, std::map<int, Operation*> &tensorAllocMap);
     void InitIssueQueuesAndBufferManager();
 
     Status GenSpillSchedule();
@@ -230,7 +230,7 @@ private:
     Status PrintSpillFailedInfo(Operation* allocOp, bool isGenSpill);
 
     // gen spill
-    Status GenSpill(size_t &pcIdx);
+    Status GenSpillOp(size_t &pcIdx);
     Status GenBufferSpill(Operation* allocOp);
     Status SelectSpillBuffers(LocalBufferPtr allocBuffer, Operation* allocOp,
         std::vector<int> &spillGroup, bool isGenSpill);
@@ -286,7 +286,7 @@ private:
     Status UpdateTensorAttr(LogicalTensorPtr tensor, MemoryType memType, LogicalTensorPtr spillTensor, int spillMemId);
     int GetBufNextUseOrder(Operation* op, int curMemId);
     int GetBufLastUseOrder(Operation* op, int curMemId);
-    Operation* GetBufLastWrite(Operation* op, int curMemId);
+    Operation* GetBufLastWriteOp(Operation* op, int curMemId);
     OoOSchedulerCheck::SpillInfo RecordSpillInfo(MemoryType bufferType, int memId, LocalBufferPtr allocIssue,
         LogicalTensorPtr spillOutTensor, bool needCopyOut);
     bool CanAllocateAll(std::vector<LocalBufferPtr> tensors, MemoryType memType);
