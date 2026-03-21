@@ -51,7 +51,6 @@ public:
 
 TEST_F(TestCodegenDynCalcInteger, TestDynOpCeil) {
     std::vector<int64_t> shape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
@@ -66,7 +65,6 @@ TEST_F(TestCodegenDynCalcInteger, TestDynOpCeil) {
 
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
@@ -85,7 +83,6 @@ TEST_F(TestCodegenDynCalcInteger, TestDynOpCeil) {
 
 TEST_F(TestCodegenDynCalcInteger, TestDynOpFloor) {
     std::vector<int64_t> shape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
@@ -100,7 +97,6 @@ TEST_F(TestCodegenDynCalcInteger, TestDynOpFloor) {
 
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
@@ -119,7 +115,6 @@ TEST_F(TestCodegenDynCalcInteger, TestDynOpFloor) {
 
 TEST_F(TestCodegenDynCalcInteger, TestDynOpTrunc) {
     std::vector<int64_t> shape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
@@ -134,12 +129,7 @@ TEST_F(TestCodegenDynCalcInteger, TestDynOpTrunc) {
 
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
-    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
-    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
