@@ -22,6 +22,7 @@
 #include "topo_processor.h"
 #include "interface/utils/log.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "machine/utils/machine_error.h"
 
 namespace npu::tile_fwk {
 std::optional<CacheValue> FunctionCache::Get(HashKey key) {
@@ -136,7 +137,7 @@ void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
             totalSize += binData.size() + sizeof(uint64_t);
             binMap[ele.first] = std::move(binData);
         } else {
-            MACHINE_LOGE("bin path %s is not existed", binPath.c_str());
+            MACHINE_LOGE(DevCommonErr::FILE_ERROR, "bin path %s is not existed", binPath.c_str());
             abort();
         }
     }
