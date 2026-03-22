@@ -151,5 +151,6 @@ enum class MachineOperationErr : uint32_t {
     RESERVED = 0x89500U 
 };
 
+
 }  // namespace npu::tile_fwk
 
