@@ -50,6 +50,30 @@ tag: [PyPTO，算子开发]
 4. **op准确度**：禁止无中生有op，确保使用的op是pypto支持的
 5. **装饰器jit的使用**：选择最新的不用wrapper的pypto.frontend.jit前端写法，参考`docs/api/pypto-frontend-jit.md`
 
+### set_cube_tile_shapes 使用指南
+
+#### 参数含义
+```python
+set_cube_tile_shapes([mL0, mL1], [kL0, kL1], [nL0, nL1])
+```
+
+| 参数 | 含义 | 约束 |
+|------|------|------|
+| [mL0, mL1] | M 维度在 L0/L1 buffer 的切分大小 | mL0 <= mL1, mL1 % mL0 == 0 |
+| [kL0, kL1] | K 维度在 L0/L1 buffer 的切分大小 | kL0 <= kL1, kL1 % kL0 == 0 |
+| [nL0, nL1] | N 维度在 L0/L1 buffer 的切分大小 | nL0 <= nL1, nL1 % nL0 == 0 |
+
+#### 对齐约束（来自官方文档 docs/api/config/pypto-set_cube_tile_shapes.md）
+- **kL0, kL1, nL0, nL1**：必须满足 32 字节对齐（BF16/FP16 是 16 元素对齐，FP32 是 8 元素对齐）
+- **mL0, mL1**：仅在 A 矩阵转置场景需要 32 字节对齐，非转置场景可不对齐
+
+#### 设置原则
+- **维度较小时**：可以直接设置成轴的大小，如 `[dim, dim]`，matmul 会一次性处理
+- **使用对齐值时**：matmul 有处理尾块的能力，设置成 `[128, 128]` 等对齐值也可正确运行
+
+#### Tensor 形状设计优化
+- **减少 reshape 操作**：当后续操作的输出形状已知时（如 `sum(..., keepdim=True)`），应提前设计好 tensor 形状以匹配，避免不必要的 reshape
+
 ## 开发阶段
 
 ### 阶段一：需求检查
