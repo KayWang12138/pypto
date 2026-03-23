@@ -273,8 +273,8 @@ void TiledShmemSignal(Function& function, const TileShape& tileShape,
 
         ShmemSignalAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-        distOpAttr.tileRowShape = tileShape.GetVecTile()[0];
-        distOpAttr.tileColShape = tileShape.GetVecTile()[1];
+        distOpAttr.tileRowShape = tileShape.GetVecTile()[0] > shmemSignal->shape[3] ? shmemSignal->shape[4] : tileShape.GetVecTile()[0];
+        distOpAttr.tileColShape = tileShape.GetVecTile()[1] > shmemSignal->shape[4] ? shmemSignal->shape[4] : tileShape.GetVecTile()[1];
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::dontTouch, true);
     });
@@ -289,9 +289,6 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
     auto predToken = iOperand[0];
     auto shmemSignal = iOperand[1];
     auto out = oOperand[0];
-
-    int64_t tileRowShape = tileShape.GetVecTile()[0];
-    int64_t tileColShape = tileShape.GetVecTile()[1];
 
     DummyTileFunc predTokenTileFunc = GetDummyTileFunc(predToken, shmemSignal, tileShape.GetVecTile(), function);
     DummyTileFunc outTileFunc = GetDummyTileFunc(out, shmemSignal, tileShape.GetVecTile(), function);
@@ -308,8 +305,8 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
             "WaitUntil tile count exceeds the maximum allowed value: " << std::to_string(MAX_TILE_NUM);
         ShmemWaitUntilAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-        distOpAttr.tileRowShape = tileRowShape;
-        distOpAttr.tileColShape = tileColShape;
+        distOpAttr.tileRowShape = tileShape.GetVecTile()[0] > shmemSignal->shape[3] ? shmemSignal->shape[4] : tileShape.GetVecTile()[0];
+        distOpAttr.tileColShape = tileShape.GetVecTile()[1] > shmemSignal->shape[4] ? shmemSignal->shape[4] : tileShape.GetVecTile()[1];
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     });
 }
