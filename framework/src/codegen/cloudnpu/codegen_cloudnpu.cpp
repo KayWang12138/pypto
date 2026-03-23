@@ -257,7 +257,7 @@ void CodeGenCloudNPU::GenCode(
         };
         tasks.push_back(task);
     }
-    unsigned threadNum = ConfigManager::Instance().GetCodeGenConfig(KEY_PARALLEL_COMPILE, 1u);
+    unsigned threadNum = GetCGThreadNum();
     ParallelExecuteAndWait(threadNum, tasks);
 
 #ifdef BUILD_WITH_CANN
@@ -739,7 +739,7 @@ void CodeGenCloudNPU::ExecuteParallelCompile(const Function &topFunc) {
     std::ostringstream makeCmd;
     makeCmd << "make -j";
 
-    unsigned parallelJobs = ConfigManager::Instance().GetCodeGenConfig(KEY_PARALLEL_COMPILE, 1u);
+    unsigned parallelJobs = GetCGThreadNum();
     makeCmd << std::to_string(parallelJobs);
 
     std::string makefilePath = GetOutputDir();

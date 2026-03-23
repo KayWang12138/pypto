@@ -101,12 +101,12 @@ void CodeGenOp::UpdateShape(
 
     Opcode opcode = oper.GetOpcode();
     if (logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR && IsOpShapeFromAttr(opcode)) {
-        // used for spilling GM scene
         std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
         ASSERT(OperErr::ATTRIBUTE_INVALID, attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
-        shape[operandIdx] = attr->GetSpecifiedShape(1);
-        CODEGEN_LOGI("attrShape(from op CopyOpAttribute) = %s", IntVecToStr(shape[operandIdx]).c_str());
-    } else { // Local Tensor shape just use shape from LogicalTensor
+        // 1. for spilling GM scene 2. for conv
+        shapeFromAttr[operandIdx] = attr->GetSpecifiedShape(1);
+        CODEGEN_LOGI("attrShape(from op CopyOpAttribute) = %s", IntVecToStr(shapeFromAttr[operandIdx]).c_str());
+    } else { // Tile Shape from LogicalTensor (Only used in extremely special cases)
         shape[operandIdx] = logicalTensor.shape;
     }
     if ((opCode == Opcode::OP_L0C_TO_L1) && (operandIdx == 0)) {
