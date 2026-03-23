@@ -1,5 +1,5 @@
 ---
-name: pypto-operator-perf-autotuner
+name: pypto-op-perf-autotuner
 description: PyPTO算子性能分析和自动调优技能。用于生成泳道图、分析性能数据、查看性能统计和提供优化建议。当用户需要分析 PyPTO 算子的性能、生成性能报告或进行性能调优时使用此技能。
 ---
 
@@ -31,19 +31,11 @@ def kernel_function(
 **⚠️ 重要提示**：
 - 性能调优任务结束时，将修改的开关还原
 
-#### 1.2 重新编译并运行
-如果非第一次运行，没有修改framework或python下的代码，则不需要重新编译，跳过此节。
+#### 1.2 运行算子采集性能数据
 
 ```bash
-# 设置环境变量
-export TILE_FWK_DEVICE_ID=0
-export PTO_TILE_LIB_CODE_PATH=/mnt/workspace/pto-isa/
-
-# 编译 whl 包
-python3 build_ci.py -f python3 --disable_auto_execute
-
 # 运行算子（生成泳道图数据）
-python3 custom/operator_name/operator.py --run-mode npu
+python3 test_{op}.py --run-mode npu
 ```
 
 执行后会在 `output/output_*/` 目录下生成泳道图数据文件：
@@ -58,7 +50,7 @@ python3 custom/operator_name/operator.py --run-mode npu
 3. 如果检查失败，失败是由于上一轮修改导致，回退修改，尝试其它优化方案
 
 ### 步骤 3：分析性能数据
-使用pypto-operator-perf-analyzer分析性能，生成性能报告和性能优化建议
+使用pypto-op-perf-analyzer分析性能，生成性能报告和性能优化建议
 
 ### 步骤 4：执行性能优化
 根据上一步的性能优化建议, 执行性能优化
@@ -71,6 +63,8 @@ python3 custom/operator_name/operator.py --run-mode npu
 5. 检查精度
 6. 对比性能提升，如果性能出现回退则回退修改
 7. 重复步骤 1-6 直到达到目标性能
+
+---
 
 ## 常见问题
 
