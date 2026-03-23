@@ -41,8 +41,8 @@ struct EmulationMemoryUtils {
     static bool IsDevice() { return false; }
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
-        if (size == 0 || size > 0x7FFFFFFF) {
-            MACHINE_LOGE(DevCommonErr::PARAM_INVALID, "AllocDev failed: size=%zu", size);
+        if (size == 0 || size > 0x500000000) {
+            MACHINE_LOGW(DevCommonErr::PARAM_INVALID, "AllocDev failed: size=%zu", size);
             return nullptr;
         }
         uint8_t *rawPtr = (uint8_t *)malloc(size);
