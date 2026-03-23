@@ -216,6 +216,7 @@ void TiledShmemPut(Function& function, const TileShape& tileShape,
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
     });
 }
 
@@ -246,7 +247,9 @@ void TiledShmemPutUB2GM(Function& function, const TileShape& tileShape,
         ShmemPutAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
     });
+    
 }
 
 void TiledShmemSignal(Function& function, const TileShape& tileShape,
@@ -277,6 +280,7 @@ void TiledShmemSignal(Function& function, const TileShape& tileShape,
         distOpAttr.tileRowShape = tileShape.GetVecTile()[0];
         distOpAttr.tileColShape = tileShape.GetVecTile()[1];
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
         tileOp.SetAttr(OpAttributeKey::dontTouch, true);
     });
 }
@@ -312,6 +316,7 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
         distOpAttr.tileRowShape = tileRowShape;
         distOpAttr.tileColShape = tileColShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
     });
 }
 
@@ -343,6 +348,7 @@ void TiledShmemGet(Function& function, const TileShape& tileShape,
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
     });
 }
 
@@ -376,10 +382,11 @@ void TiledShmemGetGM2UB(Function& function, const TileShape& tileShape,
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
         tileOp.SetOpAttribute(
             std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB,
-            OpImmediate::Specified({shmemDataTile->shape[2], shmemDataTile->shape[3]}), OpImmediate::Specified({outUb->shape[0], outUb->shape[1]}),
-            OpImmediate::Specified(std::vector<SymbolicScalar>{shmemDataTile->dynValidShape_[2], shmemDataTile->dynValidShape_[3]})));
+            OpImmediate::Specified({shmemDataTile->shape[1], shmemDataTile->shape[2]}), OpImmediate::Specified({outUb->shape[0], outUb->shape[1]}),
+            OpImmediate::Specified(std::vector<SymbolicScalar>{shmemDataTile->dynValidShape_[1], shmemDataTile->dynValidShape_[2]})));
     });
 }
 
@@ -405,6 +412,7 @@ void TiledShmemSet(Function& function, const TileShape& tileShape,
     op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     distOpAttr.setBufferShape = bufferShape;
     tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+    tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
 }
 
 void TiledShmemBindTensor(Function& function, const TileShape& tileShape,

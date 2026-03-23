@@ -55,7 +55,7 @@ std::string MoeDistributedGetFunctionRawName(const std::string& functionName)
 }
 
 TEST_F(TestMoeDistributed, MoeDistributedDispatchV2) {
-    const char *group = "hcom1";
+    const char *group = "hcom123";
     DataType dType = DT_BF16;
     int routingExpertNum = 160;
     int topK = 8;
@@ -87,7 +87,7 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatchV2) {
             rankSize, routingExpertNum, 0, 0, expandX, assistInfoForCombine, expertTokenNums, recvCounts);
     }
 
-    auto functionRawName = MoeDistributedGetFunctionRawName("MoeDistributedDispatchSendData");
+    auto functionRawName = MoeDistributedGetFunctionRawName("MoeDistributedDispatchPrepare");
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -95,7 +95,7 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatchV2) {
 }
 
 TEST_F(TestMoeDistributed, MoeDistributedDispatch) {
-    const char *group = "hcom12";
+    const char *group = "hcom123";
     DataType dType = DT_BF16;
     int routingExpertNum = 160;
     int topK = 8;
