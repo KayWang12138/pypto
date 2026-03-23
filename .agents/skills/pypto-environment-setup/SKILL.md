@@ -109,33 +109,23 @@ npu-smi info
 ```
 
 #### 步骤 4.3：设置环境变量
-```bash
-# 设置 NPU 设备 ID（根据步骤 4.2 选择空闲卡）
-export TILE_FWK_DEVICE_ID=0
 
+**⚠️ 重要：使用 Write 工具创建 env_setup.sh 文件，不要使用 Bash heredoc**
 
-# 设置 PTO-ISA 路径
-arch=$(uname -m)   # 常见值：x86_64 或 aarch64
+将以下内容写入 `$PYPTO_REPO/env_setup.sh`：
 
-# 3. 设置 PTO-ISA 库路径
-export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/${arch}-linux
-
-# 将环境变量写入当前目录文件
-cat > env_setup.sh << "EOF"
+```
 #!/bin/bash
-# 自动生成的环境配置文件
-# 加载 Ascend 基础环境（根据实际安装路径调整）
-source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
-
-# 动态获取当前架构（确保生成的脚本在不同机器上仍正确）
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 arch=$(uname -m)
 export TILE_FWK_DEVICE_ID=0
-export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/${arch}-linux
-
-echo "env_setup.sh 加载完成：TILE_FWK_DEVICE_ID=${TILE_FWK_DEVICE_ID}, PTO_TILE_LIB_CODE_PATH=${PTO_TILE_LIB_CODE_PATH}"
-EOF
+export PTO_TILE_LIB_CODE_PATH=/usr/local/Ascend/cann/${arch}-linux
+echo "env_setup.sh loaded: TILE_FWK_DEVICE_ID=${TILE_FWK_DEVICE_ID}, PTO_TILE_LIB_CODE_PATH=${PTO_TILE_LIB_CODE_PATH}"
 ```
-> - \$\{arch\}：CPU架构，如aarch64、x86_64.
+
+**注意事项**：
+- `TILE_FWK_DEVICE_ID` 默认为 0，如 NPU 0 不可用，根据步骤 4.2 的 `npu-smi info` 输出修改为空闲卡号
+- 每次使用 PyPTO 前需执行：`source env_setup.sh`
 
 #### 步骤 4.4：安装 torch 和 torch_npu
 ```bash
@@ -203,6 +193,7 @@ pypto:      ✅ 已安装
   - <问题> -> <解决方案>
 
 ⚠️ `TILE_FWK_DEVICE_ID` 需根据 `npu-smi info` 输出修改。
+```
 ## 📚 参考文件
 
 | 文件 | 内容 |
