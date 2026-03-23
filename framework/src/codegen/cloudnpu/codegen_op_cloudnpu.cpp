@@ -193,6 +193,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
       compositeOps_({
           // range op
           {Opcode::OP_RANGE, [this]() { return GenRangeOp(); }},
+          // philox_random op
+          {Opcode::OP_PHILOX_RANDOM, [this]() { return GenPhiloxRandomOp(); }},
 
           // logicalnot
           {Opcode::OP_LOGICALNOT, [this]() { return GenLogicalNotOp(); }},

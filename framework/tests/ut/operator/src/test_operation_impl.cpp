@@ -700,6 +700,20 @@ TEST_F(OperationImplTest, test_Range_INT32) {
     }
 }
 
+TEST_F(OperationImplTest, Test_PhiloxRandom_UINT32) {
+    PROGRAM("PhiloxRandom") {
+        std::vector<int64_t> shape = {128, 32};
+        TileShape::Current().SetVecTile({128, 32});
+        std::vector<uint32_t> key = {12345, 67890};
+        std::vector<uint32_t> counter = {0, 0, 0, 0};
+        Tensor output(DT_UINT32, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("PhiloxRandom_UINT32") {
+            output = PhiloxRandom(key, counter, shape, DT_UINT32, 10);
+        }
+    }
+}
+
 TEST_F(OperationImplTest, Test_Exp2_FP16) {
     PROGRAM("Exp2") {
         std::vector<int64_t> shape = {128, 32};

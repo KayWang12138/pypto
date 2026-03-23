@@ -835,6 +835,77 @@ static void Range(const TensorData &out, const Element &start, const Element &en
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static uint32_t MultiplyHighLow(uint32_t a, uint32_t b, uint32_t &hi) {
+    uint64_t product = static_cast<uint64_t>(a) * static_cast<uint64_t>(b);
+    hi = static_cast<uint32_t>(product >> 32);
+    return static_cast<uint32_t>(product & 0xFFFFFFFF);
+}
+
+static void PhiloxRandomGolden(std::vector<uint32_t> &counter, std::vector<uint32_t> &key, int rounds) {
+    for (int i = 0; i < rounds; ++i) {
+        uint32_t hi0, hi1;
+        uint32_t lo0 = MultiplyHighLow(0xD2511F53, counter[0], hi0);
+        uint32_t lo1 = MultiplyHighLow(0xCD9E8D57, counter[2], hi1);
+        
+        counter = {hi1 ^ counter[1] ^ key[0], lo1, hi0 ^ counter[3] ^ key[1], lo0};
+        
+        key[0] += 0x9E3779B9;
+        key[1] += 0xBB67AE85;
+    }
+}
+
+static void PhiloxRandom(const TensorData &out, const TensorData &key,
+                         const TensorData &counter, uint16_t rounds) {
+    auto tkey = From(key);
+    auto tcounter = From(counter);
+    
+    std::vector<uint32_t> keyVec(2);
+    std::vector<uint32_t> counterVec(4);
+    
+    auto keyAccessor = tkey.second.accessor<uint32_t, 1>();
+    auto counterAccessor = tcounter.second.accessor<uint32_t, 1>();
+    for (int i = 0; i < 2; ++i) {
+        keyVec[i] = keyAccessor[i];
+    }
+    for (int i = 0; i < 4; ++i) {
+        counterVec[i] = counterAccessor[i];
+    }
+    
+    int64_t totalElements = 1;
+    for (int64_t dim : out.shape) {
+        totalElements *= dim;
+    }
+    
+    std::vector<uint32_t> result(totalElements);
+    std::vector<uint32_t> currentKey = keyVec;
+    std::vector<uint32_t> currentCounter = counterVec;
+    
+    for (int64_t i = 0; i < totalElements; i += 4) {
+        PhiloxRandomGolden(currentCounter, currentKey, rounds);
+        
+        for (int j = 0; j < 4 && (i + j) < totalElements; ++j) {
+            result[i + j] = currentCounter[j];
+        }
+        
+        currentCounter[0]++;
+        if (currentCounter[0] == 0) {
+            currentCounter[1]++;
+            if (currentCounter[1] == 0) {
+                currentCounter[2]++;
+                if (currentCounter[2] == 0) {
+                    currentCounter[3]++;
+                }
+            }
+        }
+    }
+    
+    auto options = torch::TensorOptions().dtype(torch::kUInt32);
+    auto tmp = torch::from_blob(result.data(), {totalElements}, options).clone();
+    auto tout = From(out);
+    tout.second.copy_(tmp.reshape(tout.second.sizes()));
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 template <typename T>
 static void CompareImpl(const TensorData &out, const torch::Tensor& tself, const T& other_op,
                         CmpOperationType operation, CmpModeType mode) {
@@ -2067,6 +2138,7 @@ static struct CalcOps calcOps = {
     .IsFinite = IsFinite,
     .LogicalNot = LogicalNot,
     .Range = Range,
+    .PhiloxRandom = PhiloxRandom,
     .Compare = Compare,
     .Cmps = Cmps,
     .Hypot = Hypot,
