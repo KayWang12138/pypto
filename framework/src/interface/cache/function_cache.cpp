@@ -121,7 +121,7 @@ std::vector<uint8_t> LoadBinData(const std::string &binPath) {
 
 void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
     std::map<uint64_t, std::vector<uint8_t>> binMap;
-    uint64_t totalSize = 0;
+    uint64_t totalSizeNum = 0;
     for (auto &ele : func.programs_) {
         auto leafFuncAttr = ele.second->GetLeafFuncAttribute();
         ASSERT(leafFuncAttr != nullptr)<<"Leaf function attr not found";
@@ -129,11 +129,11 @@ void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
         if (!RealPath(binPath).empty()) {
             auto binData = LoadBinData(binPath);
             assert(binData.size() != 0);
-            totalSize += binData.size() + sizeof(uint64_t);
+            totalSizeNum += binData.size() + sizeof(uint64_t);
             binMap[ele.first] = std::move(binData);
         } else if (leafFuncAttr->coreType == CoreType::AICPU) {
             std::vector<uint8_t> binData(0, 0);
-            totalSize += binData.size() + sizeof(uint64_t);
+            totalSizeNum += binData.size() + sizeof(uint64_t);
             binMap[ele.first] = std::move(binData);
         } else {
             MACHINE_LOGE(ERROR_CODE_UNDEFINED, "bin path %s is not existed", binPath.c_str());
@@ -142,14 +142,14 @@ void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
     }
 
     uint64_t progNum = func.programs_.size();
-    totalSize += progNum * sizeof(uint64_t);
+    totalSizeNum += progNum * sizeof(uint64_t);
 
-    size_t binSize = totalSize + sizeof(uint64_t);
+    size_t binSize = totalSizeNum + sizeof(uint64_t);
     value.binCache = CacheValue::CreateCache<CoreFunctionBinCache>(binSize);
     uint8_t* buf = reinterpret_cast<uint8_t*>(value.binCache.get());
 
     value.header.programFuncionNum = progNum;
-    value.binCache->dataSize = totalSize;
+    value.binCache->dataSize = totalSizeNum;
 
     auto binOffsets = reinterpret_cast<uint64_t *>(buf + sizeof(CoreFunctionBinCache));
     uint64_t curOffset = sizeof(uint64_t) + progNum * sizeof(uint64_t);

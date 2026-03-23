@@ -1,0 +1,23 @@
+﻿PR链接,合入分支,合入时间,关联ISSUE链接,PR标题
+https://gitcode.com/cann/pypto/merge_requests/1547,master,2026-03-13T08:59:37+08:00,https://gitcode.com/cann/pypto/issues/663,fix(pass): Modify check for duplicateop and splitk
+https://gitcode.com/cann/pypto/merge_requests/1556,master,2026-03-13T09:08:38+08:00,https://gitcode.com/cann/pypto/issues/664,fix(pass): Fix eliminate operation sorting logic
+https://gitcode.com/cann/pypto/merge_requests/1569,master,2026-03-13T10:32:29+08:00,https://gitcode.com/cann/pypto/issues/633,fix(Operation): Fix conv codegen code review
+https://gitcode.com/cann/pypto/merge_requests/1391,master,2026-03-13T11:09:33+08:00,,fix(operator): Modify the golden code and optimize the performance
+https://gitcode.com/cann/pypto/merge_requests/1484,master,2026-03-13T11:09:55+08:00,,fix(distributed): Improve tile check error message for shmem ops
+https://gitcode.com/cann/pypto/merge_requests/1434,master,2026-03-13T11:11:55+08:00,https://gitcode.com/cann/pypto/issues/627,fix(machine): Add Dump Thread
+https://gitcode.com/cann/pypto/merge_requests/1565,master,2026-03-13T11:31:31+08:00,,fix(operation): Modify 4096-byte limit on temporary buffer for Compare operation
+https://gitcode.com/cann/pypto/merge_requests/1573,master,2026-03-13T11:31:59+08:00,,fix(Operation): Fix expandexpdif
+https://gitcode.com/cann/pypto/merge_requests/1558,master,2026-03-13T11:32:17+08:00,https://gitcode.com/cann/pypto/issues/662,fix(operation): Fix gm accumulation tf32 precision.
+https://gitcode.com/cann/pypto/merge_requests/1512,master,2026-03-13T14:02:53+08:00,,fix(pass): Fix multi_data_load issue
+https://gitcode.com/cann/pypto/merge_requests/1582,master,2026-03-13T14:41:47+08:00,https://gitcode.com/cann/pypto/issues/652,feat(config): Parse 2D list as map in config.json
+https://gitcode.com/cann/pypto/merge_requests/1588,master,2026-03-13T14:41:55+08:00,,fix(machine): Fix unexpected error log after remove static code
+https://gitcode.com/cann/pypto/merge_requests/1482,master,2026-03-13T14:42:00+08:00,,fix(machine): Fix log dir issue while ASCEND_WORK_PATH is set
+https://gitcode.com/cann/pypto/merge_requests/1551,master,2026-03-13T14:44:06+08:00,,fix(Pass): Change old ALOG to APASS_LOG
+https://gitcode.com/cann/pypto/merge_requests/1579,master,2026-03-13T14:48:30+08:00,https://gitcode.com/cann/pypto/issues/617;https://gitcode.com/cann/pypto/issues/631,fix(frontend): Add operator overloads to pypto.Tensor class
+https://gitcode.com/cann/pypto/merge_requests/1560,master,2026-03-13T15:11:58+08:00,https://gitcode.com/cann/pypto/issues/429,fix(precision tools): Fix the gatheinub issue in dsv32
+https://gitcode.com/cann/pypto/merge_requests/1584,master,2026-03-13T15:34:09+08:00,https://gitcode.com/cann/pypto/issues/647,fix(docs): Fix conv tileK and L1Size
+https://gitcode.com/cann/pypto/merge_requests/1592,master,2026-03-13T16:35:02+08:00,https://gitcode.com/cann/pypto/issues/429,feat(interpreter): Add VIEW_TYPE in interpreter.
+https://gitcode.com/cann/pypto/merge_requests/1586,master,2026-03-13T16:36:26+08:00,https://gitcode.com/cann/pypto/issues/657,fix(Pass): Guard spill for L0C2L1 small-to-large copy
+https://gitcode.com/cann/pypto/merge_requests/1564,master,2026-03-13T17:37:31+08:00,,fix(operator): New function express update
+https://gitcode.com/cann/pypto/merge_requests/1058,master,2026-03-13T17:42:32+08:00,https://gitcode.com/cann/pypto/issues/32,fix(machine): Fix some isssues of ctrlflow
+https://gitcode.com/cann/pypto/merge_requests/1285,master,2026-03-13T17:45:30+08:00,https://gitcode.com/cann/pypto/issues/385,feat(operation): IndexPut support tile shape dim less equal than values dim
