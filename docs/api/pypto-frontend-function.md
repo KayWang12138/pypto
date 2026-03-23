@@ -27,8 +27,9 @@
 def reusable_function(
     arg1: pypto.Tensor,
     arg2: pypto.Tensor,
+    out: pypto.Tensor,
     ...
-) -> pypto.Tensor:
+):
     ...
 ```
 

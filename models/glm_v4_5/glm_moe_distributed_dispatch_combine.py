@@ -27,6 +27,7 @@ import multiprocessing as mp
 import numpy as np
 import pytest
 import torch
+import torch_npu
 import torch.nn.functional as F
 
 import pypto
@@ -622,6 +623,7 @@ def moe_distributed_dispatch(
     operands: MoeDispatchOperands,
     logical_rank_id: int,
 ) -> None:
+    torch_npu.npu.config.allow_internal_format = True
     groups = config.init_hccl_comm(logical_rank_id)
 
     x = operands.x
@@ -968,4 +970,5 @@ def test_moe_distributed_dispatch_combine() -> None:
 
 
 if __name__ == '__main__':
-    test_moe_distributed_dispatch_combine()
+    torch_npu.npu.config.allow_internal_format = True
+    test_moe_distributed_dispatch()

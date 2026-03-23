@@ -78,7 +78,7 @@ def attention_kernel(
     # 实现 attention 逻辑
     # 前两维（batch、序列长度）都是动态的
     ...
-    return output
+
 
 # 可以处理不同的 batch 和序列长度
 attention_kernel(q_4_128, k_4_128, v_4_128, out)  # B=4, SEQ=128
