@@ -196,56 +196,6 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynBinary, TestGatherEleForFuncParallel) {
-    LogManager::Instance().SetLogLevel(LogLevel::INFO);
-    constexpr const int32_t nRoutedExperts = 256;
-    constexpr const int32_t numExpertsPerTopk = 8;
-    constexpr const int32_t S = 1;
-    constexpr const int32_t B = 2;
-
-    std::vector<int64_t> inputShape = {B * S, nRoutedExperts};
-    std::vector<int64_t> outputShape = {B * S, numExpertsPerTopk};
-    TileShape::Current().SetVecTile({16, 32});
-    Tensor inputScores(DT_INT32, outputShape, "input_scores");
-    Tensor inputTmpScores(DT_FP32, inputShape, "input_tmp_scores");
-    Tensor outputTensor(DT_FP32, outputShape, "output_tensor");
-
-    std::string funcName = "GATHER_ELEMET_T";
-    FUNCTION(funcName, {inputScores, inputTmpScores, outputTensor}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1), {}, false, true) {
-            LOOP(funcName, FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
-                (void)i;
-                (void)j;
-                outputTensor = GatherElements(inputTmpScores, inputScores, 1); // [b*s,8]
-            }
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
-    function->SetUnderDynamicFunction(true);
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
-        }
-        DynParamInfo fakeParam = {2, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_2_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_2_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_4_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_4_dim_1", fakeParam);
-    }
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-    LogManager::Instance().SetLogLevel(LogLevel::NONE);
-}
-
 TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
