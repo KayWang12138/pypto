@@ -80,12 +80,19 @@ bool NeedClearStatus(const Operation& op)
 
     //  Opcode::OP_EXPAND only support last axis or second last axis in for-loop
     if (opCode == Opcode::OP_EXPAND) {
-        std::string axisKey = OP_ATTR_PREFIX + "EXPANDDIM";
-        ASSERT(op.HasAttr(axisKey)) << "attr " << axisKey << "not found";
-        int64_t expandAxis = op.GetIntAttribute(axisKey);
+        // TODO: 这里的判断返回的逻辑还不清楚
+        // 单轴expand场景下，为什么判定expandAxis == 0或者1要返回true
+        std::string axisKey = OP_ATTR_PREFIX + "EXPANDDIMS";
+        ASSERT(op.HasAttr(axisKey)) << "attr " << axisKey << " not found";
+        auto expandAxes = op.GetVectorIntAttribute(axisKey);
         int shapeSize = static_cast<int>(op.GetOOperands().front()->GetDynValidShape().size());
-        expandAxis += SHAPE_DIM4 - shapeSize;
-        return expandAxis == 0 || expandAxis == 1;
+        for (auto expandAxis : expandAxes) {
+            int64_t normalizedAxis = expandAxis += SHAPE_DIM4 - shapeSize;
+            if (normalizedAxis == 0 || normalizedAxis == 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     return false;
