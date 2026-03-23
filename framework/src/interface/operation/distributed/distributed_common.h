@@ -76,11 +76,13 @@ inline std::string AtomicTypeToString(AtomicType type)
 struct ShmemPutAttr {
     Shape copyBufferShape;
     AtomicType atomicType = AtomicType::SET;
+    SymbolicScalar targetRank;
 };
 
 struct ShmemGetAttr {
     Shape copyBufferShape;
     AtomicType atomicType = AtomicType::SET;
+    SymbolicScalar targetRank;
 };
 
 struct ShmemSignalAttr {
@@ -89,6 +91,9 @@ struct ShmemSignalAttr {
     int64_t tileRowShape = 0;
     int64_t tileColShape = 0;
     AtomicType atomicType = AtomicType::SET;
+    bool notifyAll{false};
+    int64_t worldSize{0};
+    SymbolicScalar targetRank;
 };
 
 struct ShmemWaitUntilAttr {
@@ -97,16 +102,19 @@ struct ShmemWaitUntilAttr {
     bool resetSignal =  false;
     int64_t tileRowShape = 0;
     int64_t tileColShape = 0;
+    SymbolicScalar targetRank;
 };
 
 struct ShmemSetAttr {
     int64_t setType = 0;
     Shape setBufferShape;
+    SymbolicScalar targetRank;
 };
 
 struct MoeDispatchAttr {
     std::string extraTemplateParam{};
     int64_t topK = 0;
+    SymbolicScalar targetRank;
 };
 
 struct MoeCombineAttr {
@@ -115,6 +123,7 @@ struct MoeCombineAttr {
     int64_t paddedColShape{0};
     int64_t rowOffset{-1};
     int64_t rowShape{-1};
+    SymbolicScalar targetRank;
 };
 
 inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE> &tile)
