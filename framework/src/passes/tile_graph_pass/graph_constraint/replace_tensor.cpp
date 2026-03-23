@@ -798,7 +798,7 @@ inline size_t GetPaddingValue(LogicalTensorPtr &in) {
  * @brief 为 UB 上尾轴非32B对齐的tensor做32B对齐操作
  */
 inline int64_t Pad(int64_t dim, int64_t padValue) {
-    if (padValue <= 0) {
+    if (padValue == 0) {
         return dim;
     }
     return (dim + padValue - 1) / padValue * padValue;
