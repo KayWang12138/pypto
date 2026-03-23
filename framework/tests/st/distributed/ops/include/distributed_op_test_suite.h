@@ -52,6 +52,10 @@ void TestAllReduce_v7(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
 void TestAllReduce_v8(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
+void TestAllReduce_v7_light(OpTestParam &testParam, std::string& goldenDir);
+template<typename T>
+void TestAllReduce_v8_light(OpTestParam &testParam, std::string& goldenDir);
+template<typename T>
 void TestAllReduceIREquivalence(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
 void TestAllReduce_TwoShot_v2(OpTestParam &testParam, std::string& goldenDir);
