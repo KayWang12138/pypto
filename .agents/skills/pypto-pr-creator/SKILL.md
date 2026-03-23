@@ -3,11 +3,11 @@ name: pypto-pr-creator
 description: "PyPTO 项目 PR 创建全流程指南。当需要为 cann/pypto 仓库创建 PR、编写 commit 信息、准备代码提交、检查 PR 规范时使用。覆盖：(1) 仓库发现与 fork 验证，(2) 用户确认检查点（强制阻塞确认），(3) 分支创建与 commit，(4) 通过 GitCode MCP 创建/更新 PR，(5) PR 创建后结构化报告。触发词：创建PR、提交PR、PR规范、commit message、pypto贡献、代码提交到pypto、更新PR。"
 ---
 
-# PyPTO PR Creator
+# PyPTO PR 创建
 
 ---
 
-## ⚠️ 核心概念：跨 Fork PR
+## ⚠️ 核心概念：跨 Fork 提交 PR
 
 > **本 skill 的目标是创建从用户 fork 仓库到上游仓库 `cann/pypto` 的 PR**
 
@@ -174,7 +174,7 @@ result = gitcode_get_repository(owner="<username>", repo="pypto")
 # 验证: result.parent.full_name == "cann/pypto"
 ```
 
-### 阶段 3：用户确认（强制阻塞）
+### 阶段 3：用户确认（必须等待确认）
 
 > **在获得用户明确确认之前，禁止执行任何 git 操作。**
 
@@ -203,7 +203,7 @@ result = gitcode_get_repository(owner="<username>", repo="pypto")
 
 #### 4.1 基础检查
 
-- 浅克隆修复：若 `git rev-parse --is-shallow-repository` 为 true → `git fetch --unshallow origin`
+- 浅克隆问题修复：若 `git rev-parse --is-shallow-repository` 为 true → `git fetch --unshallow origin`
 - 再次验证 origin 不是 `cann/pypto`
 
 #### 4.2 Upstream 同步检查（关键）
