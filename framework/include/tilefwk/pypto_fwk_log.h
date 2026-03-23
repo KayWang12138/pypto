@@ -219,8 +219,6 @@ private:
 
 #define MATMUL_LOGE_E(errCode, fmt, ...) PYPTO_HOST_LOGE(MATMUL, errCode, fmt, ##__VA_ARGS__)
 
-#define CONV_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN,  CONV, __VA_ARGS__)
-
 #define VECTOR_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, VECTOR, __VA_ARGS__)
 #define VECTOR_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO,  VECTOR, __VA_ARGS__)
 #define VECTOR_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN,  VECTOR, __VA_ARGS__)
