@@ -457,7 +457,7 @@ void OpcodeManager::RegisterVector() {
         OpCalcType::MOVE_LOCAL, {OP_ATTR_PREFIX + "shape", OpAttributeKey::excludeBufferReuse},
         TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_EXPAND, OpCoreType::AIV, "EXPAND", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
-        {"TileOp::Texpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OP_ATTR_PREFIX + "EXPANDDIM"},
+        {"TileOp::Texpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OP_ATTR_PREFIX + "EXPANDDIMS"},
         TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_ONEHOT, OpCoreType::AIV, "ONEHOT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tonehot", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,

@@ -180,9 +180,16 @@ bool ReduceNeedCombineAxis(const Operation &op) {
 
 void CodegenPreproc::FixExpandDimForAxisCombine(Operation &op, int dimSize) const {
     if (op.GetOpcode() == Opcode::OP_EXPAND) {
-        int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
-        if (axis == dimSize - NUM2) {
-            op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis + 1);
+        auto axes = op.GetVectorIntAttribute(OP_ATTR_PREFIX + "EXPANDDIMS");
+        bool updated = false;
+        for (auto &axis : axes) {
+            if (axis == dimSize - NUM2) {
+                axis = axis + 1;
+                updated = true;
+            }
+            if (updated) {
+                op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", axes);
+            }
         }
     }
 }

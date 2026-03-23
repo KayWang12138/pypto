@@ -33,7 +33,7 @@ const std::unordered_map<Opcode, uint32_t> verify_cfg = {
 };
 
 const std::unordered_map<Opcode, std::string> axis_name_map = {
-    {Opcode::OP_EXPAND, "EXPANDDIM"},
+    {Opcode::OP_EXPAND, "EXPANDDIMS"},
     {Opcode::OP_GATHER,      "axis"}
 };
 

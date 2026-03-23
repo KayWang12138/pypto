@@ -225,7 +225,7 @@ TEST_F(CodegenPreprocTest, TestCombineAxisExpand) {
     EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"in1"}, {"t3"}, "c2", true), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_SUB, {"t2", "t3"}, {"t4"}, "sub", true), true);
     auto expand = graph.GetOp("expand");
-    expand->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 0);
+    expand->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", std::vector<int>{0});
 
     auto funcPtr = graph.GetFunction();
     funcPtr->paramConfigs_.combineAxis = true;
@@ -247,8 +247,9 @@ TEST_F(CodegenPreprocTest, TestCombineAxisExpand) {
     EXPECT_EQ(codegenPreprocPass.RunOnFunction(*rootFuncPtr), SUCCESS);
     // Verify CodegenPreproc
     auto afterExpand = graph.GetOp("expand");
-    int axis = afterExpand->GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
-    EXPECT_EQ(axis, 1);
+    int axes = afterExpand->GetVectorIntAttribute(OP_ATTR_PREFIX + "EXPANDDIMS");
+    ASSERT_EQ(axes.size(), 1)
+    EXPECT_EQ(axes[0], 1);
 }
 
 TEST_F(CodegenPreprocTest, TestCombineAxis3510) {
@@ -264,7 +265,7 @@ TEST_F(CodegenPreprocTest, TestCombineAxis3510) {
     EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"in1"}, {"t3"}, "c2", true), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_SUB, {"t2", "t3"}, {"t4"}, "sub", true), true);
     auto expand = graph.GetOp("expand");
-    expand->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 0);
+    expand->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", std::vector<int>{0});
 
     auto funcPtr = graph.GetFunction();
     funcPtr->paramConfigs_.combineAxis = true;

@@ -52,13 +52,14 @@ Status GetPaddingValue(const LogicalTensorPtr &tensor, int64_t &padValue) {
     return SUCCESS;
 }
 
-inline int GetExpandDim(const std::vector<int64_t> &lhsShape, const std::vector<int64_t> &rhsShape) {
+inline std::vector<int> GetExpandDims(const std::vector<int64_t> &lhsShape, const std::vector<int64_t> &rhsShape) {
+    std::vector<int> dims;
     for (int i = static_cast<int>(lhsShape.size() - 1); i >= 0; --i) {
         if (lhsShape[i] != rhsShape[i]) {
-            return i;
+            dims.push_back(i);
         }
     }
-    return -1;
+    return dims;
 }
 
 Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, Operation &op) {
@@ -90,7 +91,7 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, O
                 auto &brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
                 if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor)) {
                     brcb.SetOpCode(Opcode::OP_EXPAND);
-                    brcb.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", GetExpandDim(srcTensor->GetShape(), inputTensor[idx ^ 1]->GetShape()));
+                    brcb.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", GetExpandDims(srcTensor->GetShape(), inputTensor[idx ^ 1]->GetShape()));
                     needMarkBrcInput = false;
                     if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
                         brcb.SetAttribute(OP_ATTR_PREFIX + "validShape", inputTensor[idx ^ 1]->GetDynValidShape());

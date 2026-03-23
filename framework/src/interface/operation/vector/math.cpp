@@ -634,7 +634,7 @@ void InnerTiledCumSum(size_t cur, Function &function, const TileShape &tileShape
             LogicalTensorPtr lastTile =
                 std::make_shared<LogicalTensor>(function, srcTile->Datatype(), srcTile->GetShape());
             auto &eop = function.AddOperation("TILE_EXPAND", {lastAxisTile}, {lastTile});
-            eop.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis);
+            eop.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", std::vector<int>(axis));
             function.AddOperation(Opcode::OP_ADD, {srcTile, lastTile}, {dstTile});
         } else {
             function.AddOperation(Opcode::OP_REGISTER_COPY, {srcTile}, {dstTile});
