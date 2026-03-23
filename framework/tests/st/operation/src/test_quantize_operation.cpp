@@ -470,7 +470,10 @@ class QuantizeOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_A
 
 INSTANTIATE_TEST_SUITE_P(TestQuantize, QuantizeOperationTest,
     ::testing::ValuesIn(GetOpMetaData<QuantizeOpMetaData>(
-        {QuantizeSymmetricOperationExeFunc}, "Quantize")));
+        {QuantizeSymmetricOperationExeFunc, Quantize2DAxis2OperationExeFunc,
+        QuantizeAsymmetricOperationExeFunc, Quantize2DAxis2AsymmetricOperationExeFunc,
+        Quantize3DOperationExeFunc, Quantize3DAxis2OperationExeFunc, Quantize3DAsymmetricOperationExeFunc,
+        Quantize4DOperationExeFunc, Quantize4DAxis2OperationExeFunc}, "Quantize")));
 
 TEST_P(QuantizeOperationTest, TestQuantize) {
     auto test_data = GetParam().test_data_;
