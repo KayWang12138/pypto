@@ -125,7 +125,7 @@ bool RangeTest(
             T rlv = it;
             try {
                 SetFunc(group + "." + key, std::move(rlv));
-            } catch (const std::runtime_error &e) {
+            } catch (const std::exception &e) {
                 std::stringstream ss;
                 ss << e.what();
                 std::string errStr(ss.str());
@@ -263,4 +263,17 @@ TEST_F(TestConfigManager, LoadJson) {
     };
     test.build_type_infos(jdata, "");
     EXPECT_EQ(test.typeInfos.size(), 0);
+}
+
+TEST_F(TestConfigManager, JitScopeGuardBasic) {
+    auto &cm = ConfigManagerNg::GetInstance();
+    auto scopeBefore = cm.CurrentScope();
+    {
+        ConfigManagerNg::JitScopeGuard guard("jit_scope", std::map<std::string, Any>{});
+        auto scopeInGuard = cm.CurrentScope();
+        EXPECT_NE(scopeInGuard.get(), scopeBefore.get());
+        EXPECT_TRUE(scopeInGuard->HasConfig("pass.pg_lower_bound"));
+    }
+    auto scopeAfter = cm.CurrentScope();
+    EXPECT_EQ(scopeAfter.get(), scopeBefore.get());
 }

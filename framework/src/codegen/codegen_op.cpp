@@ -450,8 +450,8 @@ void CodeGenOp::GetGmParamIdx(const Operation &oper) {
         ASSERT(OperErr::OPERAND_COUNT_NOT_MATCHED, outParamLocSize <= oper.oOperand.size())
             << "size of Op.outParamLocation_ is larger than output operands, Op is " << oper.Dump();
 
-        CODEGEN_LOGI("%s: inParamLocation = %s", __FUNCTION__, IntVecToStr(oper.inParamLocation_).c_str());
-        CODEGEN_LOGI("%s: outParamLocation = %s", __FUNCTION__, IntVecToStr(oper.outParamLocation_).c_str());
+        CODEGEN_LOGI("inParamLocation = %s", IntVecToStr(oper.inParamLocation_).c_str());
+        CODEGEN_LOGI("outParamLocation = %s", IntVecToStr(oper.outParamLocation_).c_str());
 
         std::copy(oper.outParamLocation_.begin(), oper.outParamLocation_.end(), paramLocation);
         std::copy(oper.inParamLocation_.begin(), oper.inParamLocation_.end(), paramLocation + oper.oOperand.size());
@@ -498,7 +498,7 @@ void CodeGenOp::GetGmParamIdx(const Operation &oper) {
         paramLocation[1] = oper.GetIOpAttrOffset(0);
         CODEGEN_LOGI("Gm Param Index of Copy In Op %s is %d", tileOpName.c_str(), paramLocation[1]);
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        CODEGEN_LOGI("%s GmTensorParamIdxInCallFunc: %d", __FUNCTION__, GmTensorParamIdxInCallFunc);
+        CODEGEN_LOGI("GmTensorParamIdxInCallFunc: %d", GmTensorParamIdxInCallFunc);
         return;
     }
 
@@ -509,7 +509,7 @@ void CodeGenOp::GetGmParamIdx(const Operation &oper) {
         paramLocation[0] = oper.GetOOpAttrOffset(0);
         CODEGEN_LOGI("Gm Param Index of Copy Out Op %s is %d", tileOpName.c_str(), paramLocation[0]);
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        CODEGEN_LOGI("%s GmTensorParamIdxInCallFunc: %d", __FUNCTION__, GmTensorParamIdxInCallFunc);
+        CODEGEN_LOGI("GmTensorParamIdxInCallFunc: %d", GmTensorParamIdxInCallFunc);
         return;
     }
 }
