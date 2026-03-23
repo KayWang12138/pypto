@@ -1,57 +1,62 @@
-"""
-Gmm Mxfp8 Examples for PyPTO
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
 
-Usage:
-    python3 gmm_mxfp8_pr.py
-"""
-
-from dataclasses import dataclass
 import argparse
 import os
 import sys
+import math
+import time
+from dataclasses import dataclass
+
+import numpy as np
 import pypto
 import torch
 import torch_npu
-import numpy as np
-import math
-import time
 from numpy.testing import assert_allclose
 
-def compute_golden_result(x, weight, scaled_x_gloden, scaled_weight_gloden, a_trans, b_trans):
+def compute_golden_result(x, weight, scaled_x_golden, scaled_weight_golden, a_trans, b_trans):
     if a_trans:
         x = np.swapaxes(x, -1, -2)
-        scaled_x_gloden = np.swapaxes(scaled_x_gloden, -1, -2)
-        if len(scaled_x_gloden.shape) == 3:
-            scaled_x_gloden = scaled_x_gloden.reshape(scaled_x_gloden.shape[0] * scaled_x_gloden.shape[1], scaled_x_gloden.shape[2])
-        scaled_x_gloden = np.swapaxes(scaled_x_gloden, -1, -2)
+        scaled_x_golden = np.swapaxes(scaled_x_golden, -1, -2)
+        if len(scaled_x_golden.shape) == 3:
+            scaled_x_golden = scaled_x_golden.reshape(scaled_x_golden.shape[0] * scaled_x_golden.shape[1], scaled_x_golden.shape[2])
+        scaled_x_golden = np.swapaxes(scaled_x_golden, -1, -2)
     else:
-        if len(scaled_x_gloden.shape) == 3:
-            scaled_x_gloden = scaled_x_gloden.reshape(scaled_x_gloden.shape[0], scaled_x_gloden.shape[1] * scaled_x_gloden.shape[2])
+        if len(scaled_x_golden.shape) == 3:
+            scaled_x_golden = scaled_x_golden.reshape(scaled_x_golden.shape[0], scaled_x_golden.shape[1] * scaled_x_golden.shape[2])
     if b_trans:
         weight = np.swapaxes(weight, -1, -2)
-        if len(scaled_weight_gloden.shape) == 3:
-            scaled_weight_gloden = scaled_weight_gloden.reshape(scaled_weight_gloden.shape[0], scaled_weight_gloden.shape[1] * scaled_weight_gloden.shape[2])
-        scaled_weight_gloden = np.swapaxes(scaled_weight_gloden, -1, -2)
+        if len(scaled_weight_golden.shape) == 3:
+            scaled_weight_golden = scaled_weight_golden.reshape(scaled_weight_golden.shape[0], scaled_weight_golden.shape[1] * scaled_weight_golden.shape[2])
+        scaled_weight_golden = np.swapaxes(scaled_weight_golden, -1, -2)
     else:
-        scaled_weight_gloden = np.swapaxes(scaled_weight_gloden, -1, -2)
-        if len(scaled_weight_gloden.shape) == 3:
-            scaled_weight_gloden = scaled_weight_gloden.reshape(scaled_weight_gloden.shape[0] * scaled_weight_gloden.shape[1], scaled_weight_gloden.shape[2])
+        scaled_weight_golden = np.swapaxes(scaled_weight_golden, -1, -2)
+        if len(scaled_weight_golden.shape) == 3:
+            scaled_weight_golden = scaled_weight_golden.reshape(scaled_weight_golden.shape[0] * scaled_weight_golden.shape[1], scaled_weight_golden.shape[2])
     
     k_dim = x.shape[-1]
     if math.ceil(k_dim / 32) % 2 != 0:
-        scaled_x_gloden = scaled_x_gloden[:, :-1]
-        scaled_weight_gloden = scaled_weight_gloden[:-1, :]
+        scaled_x_golden = scaled_x_golden[:, :-1]
+        scaled_weight_golden = scaled_weight_golden[:-1, :]
 
-    scaled_x_gloden_broadcast = torch.repeat_interleave(scaled_x_gloden, repeats=32, dim=-1)
-    scaled_weight_gloden_broadcast = torch.repeat_interleave(scaled_weight_gloden, repeats=32, dim=-2)
+    scaled_x_golden_broadcast = torch.repeat_interleave(scaled_x_golden, repeats=32, dim=-1)
+    scaled_weight_golden_broadcast = torch.repeat_interleave(scaled_weight_golden, repeats=32, dim=-2)
     x1_dims = len(x.shape)
     x2_dims = len(weight.shape)
-    x1_pad_len = scaled_x_gloden_broadcast.shape[-1] - x.shape[-1]
-    x2_pad_len = scaled_weight_gloden_broadcast.shape[-2] - weight.shape[-2]
+    x1_pad_len = scaled_x_golden_broadcast.shape[-1] - x.shape[-1]
+    x2_pad_len = scaled_weight_golden_broadcast.shape[-2] - weight.shape[-2]
     x1_pad = [0, x1_pad_len]
     for _ in range(x1_dims - 1):
         x1_pad += [0,0]
-    x1_gloden = torch.nn.functional.pad(x, x1_pad, mode='constant', value = 0)
+    x1_golden = torch.nn.functional.pad(x, x1_pad, mode='constant', value = 0)
 
     weight_pad = [0,0]
     weight_pad += [0, x2_pad_len]
@@ -60,14 +65,14 @@ def compute_golden_result(x, weight, scaled_x_gloden, scaled_weight_gloden, a_tr
     weight_golden = torch.nn.functional.pad(weight, weight_pad, mode='constant', value = 0)
 
     x_fp32 = x.to(torch.float32)
-    scaled_x_gloden_broadcast_fp32 = scaled_x_gloden_broadcast.to(torch.float32)
-    x1_gloden = x_fp32 * scaled_x_gloden_broadcast_fp32
+    scaled_x_golden_broadcast_fp32 = scaled_x_golden_broadcast.to(torch.float32)
+    x1_golden = x_fp32 * scaled_x_golden_broadcast_fp32
 
     weight_fp32 = weight.to(torch.float32)
-    scaled_weight_gloden_broadcast_fp32 = scaled_weight_gloden_broadcast.to(torch.float32)
-    weight_golden = weight_fp32 * scaled_weight_gloden_broadcast_fp32
+    scaled_weight_golden_broadcast_fp32 = scaled_weight_golden_broadcast.to(torch.float32)
+    weight_golden = weight_fp32 * scaled_weight_golden_broadcast_fp32
 
-    golden = torch.matmul(x1_gloden, weight_golden)
+    golden = torch.matmul(x1_golden, weight_golden)
 
     return golden
 
@@ -88,16 +93,16 @@ def gen_golden(a, b, scaled_a, scaled_b, group_list, a_trans, b_trans):
             x = a[begin:end,:]
         weight = b[i]
         if a_trans:
-            scaled_x_gloden = scaled_a[:,begin:end,:]
+            scaled_x_golden = scaled_a[:,begin:end,:]
         else:
-            scaled_x_gloden = scaled_a[begin:end,:,:]
-        scaled_weight_gloden = scaled_b[i]
+            scaled_x_golden = scaled_a[begin:end,:,:]
+        scaled_weight_golden = scaled_b[i]
 
         golden_temp = compute_golden_result(
             x=x,
             weight=weight,
-            scaled_x_gloden = scaled_x_gloden,
-            scaled_weight_gloden = scaled_weight_gloden,
+            scaled_x_golden = scaled_x_golden,
+            scaled_weight_golden = scaled_weight_golden,
             a_trans = a_trans,
             b_trans = b_trans,
         )
@@ -119,10 +124,7 @@ class ShapeConfig:
     b_format_nz: bool = False
     c_format_nz: bool = False
     
-@pypto.jit(
-    debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 1},
-    runtime_options={"device_sched_mode": 3},
-)
+@pypto.jit
 def scaled_matmul_kernel(a: pypto.Tensor, b: pypto.Tensor, scaled_a: pypto.Tensor, scaled_b: pypto.Tensor, out: pypto.Tensor, group_list, tile_config) -> None:
     round = b.shape[0]
     n_size = b.shape[-1]

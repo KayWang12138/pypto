@@ -1,3 +1,14 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
 import pypto
 import time
 import torch
@@ -62,9 +73,7 @@ def quant_matmul_reduce_sum_pypto(config: QuantMatmulReduceSumConfig):
     out_shape = [m, n]
     x2_format = pypto.TileOpFormat.TILEOP_NZ if config.x2_format_nz else pypto.TileOpFormat.TILEOP_ND
     
-    @pypto.frontend.jit(
-        debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 1}
-    )
+    @pypto.frontend.jit
     def quant_matmul_reduce_sum_impl(
         x1: pypto.Tensor(x1_shape, pypto.DT_INT8),
         x2: pypto.Tensor(x2_shape, pypto.DT_INT8, format=x2_format),
@@ -142,19 +151,4 @@ def run_quant_matmul_reduce_sum_case(config: QuantMatmulReduceSumConfig):
     print(f"Test passed for {config.description}")
 
 if __name__ == "__main__":
-    # 15.14 23.58 0.642
-    # run_quant_matmul_reduce_sum_case(QuantMatmulReduceSumConfig([5, 16, 32, 32], [128, 128], [256, 256], [256, 256], pypto.DT_INT8, pypto.DT_BF16, True, [256, 256, 256], "testcase1"))
-
-    # 14.54 16.44 0.88
-    # run_quant_matmul_reduce_sum_case(QuantMatmulReduceSumConfig([5, 16, 128, 128], [128, 128], [256, 256], [256, 256], pypto.DT_INT8, pypto.DT_BF16, True, [1024, 1024, 1024], "testcase2"))
-
-    # 21.5 29.14 0.737
-    # run_quant_matmul_reduce_sum_case(QuantMatmulReduceSumConfig([7, 32, 1024, 128], [128, 128], [128, 128], [128, 128], pypto.DT_INT8, pypto.DT_BF16, True, [16, 16, 16], "testcase3"))
-
-    # 12.8 21.02 0.608
-    # run_quant_matmul_reduce_sum_case(QuantMatmulReduceSumConfig([4, 64, 256, 64], [128, 128], [256, 256], [128, 128], pypto.DT_INT8, pypto.DT_BF16, True, [4096, 4096, 4096], "testcase4"))
-
-    # 17.62 22 0.8
     run_quant_matmul_reduce_sum_case(QuantMatmulReduceSumConfig([2, 128, 128, 128], [128, 128], [128, 128], [128, 128], pypto.DT_INT8, pypto.DT_BF16, True, [64, 64, 64], "testcase5"))
-
-    # 0.733
