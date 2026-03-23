@@ -338,6 +338,18 @@ std::string CodeGenOpCloudNPU::PrintExpm1() const {
     return PrintExpm1Layout();
 }
 
+std::string CodeGenOpCloudNPU::PrintPermute(const PrintUnaryTmpBuffParam &param) const {
+    if (isSupportLayout) {
+        return PrintpermuteLayout(param);
+    }
+    return PrintUnaryWithTmpTileTensor();
+}
+
+std::string CodeGenOpCloudNPU::PrintpermuteLayout(const PrintUnaryTmpBuffParam &param) const {
+    (void)param;
+    return PrintUnaryWithTmpTileTensor();
+}
+
 std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryTmpBuffParam &param) const {
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
