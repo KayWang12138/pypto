@@ -256,6 +256,9 @@ Tensor NewCompact(const Tensor &operand);
 Tensor LogicalNot(const Tensor &self);
 Tensor Range(const Element &start, const Element &end, const Element &step);
 Tensor LogicalAnd(const Tensor &self, const Tensor &other);
+Tensor Random(uint64_t key, const std::vector<uint64_t> &counter,
+              const std::vector<int64_t> &shape, uint16_t rounds = 10);
+Tensor LogicalAnd(const Tensor &self, const Tensor &other);
 Tensor IsFinite(const Tensor &self);
 Tensor Assign(const Tensor &operand);
 
