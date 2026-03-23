@@ -974,6 +974,35 @@ REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV
 REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEIN, TransposeInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, TransposeInferFunc);
 
+void PermuteInferFunc(Operation* op,
+    std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+    auto perm = op->GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "perm");
+    size_t dims = inputValidShapes[0].size();
+    for (auto output : op->GetOOperands()) {
+        std::vector<SymbolicScalar> res;
+        res.reserve(dims);
+        for (size_t i = 0; i < dims; ++i) {
+            res.push_back(inputValidShapes[0][perm[i]]);
+        }
+        outValidShapes.push_back(res);
+    }
+    if (op->GetOpcode() == Opcode::OP_PERMUTE) {
+        auto copyOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+        if (copyOpAttribute != nullptr) {
+            copyOpAttribute->SetToDynValidShape(OpImmediate::Specified(outValidShapes[0]));
+        }
+    }
+}
+
+REGISTER_INFER_SHAPE_FUNC(OP_PERMUTE, Opcode::OP_PERMUTE, PermuteInferFunc);
+
 void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
     if (viewOpAttribute == nullptr) {

@@ -1307,6 +1307,35 @@ TEST_F(DynamicOpsTest, Exp2) {
     }
 }
 
+TEST_F(DynamicOpsTest, Permute) {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+
+    int64_t rows = 2;
+    int64_t cols = 3;
+    std::vector<int> perm = {1, 0}; 
+
+    Tensor self(DT_FP32, {rows, cols}, "self");
+    Tensor outValue(DT_FP32, {cols, rows}, "outValue");
+
+    std::vector<float> inputData = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor(self, inputData),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(outValue, 0.0f),
+    });
+
+    FUNCTION("main", {self}, {outValue}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            auto t0 = View(self, {rows, cols}, {0, 0});
+            outValue = Permute(t0, perm);
+        }
+    }
+}
+
 TEST_F(DynamicOpsTest, TriU) {
     std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);

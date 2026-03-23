@@ -36,6 +36,7 @@ enum class UnaryOp : uint8_t {
     BITWISENOT,
     RELU,
     LN,
+    PERMUTE,
     PAD,
     FILLPAD,
     SIGN,

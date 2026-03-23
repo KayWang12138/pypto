@@ -338,6 +338,18 @@ std::string CodeGenOpCloudNPU::PrintExpm1() const {
     return PrintExpm1Layout();
 }
 
+std::string CodeGenOpCloudNPU::PrintPermute(const PrintUnaryTmpBuffParam &param) const {
+    if (isSupportLayout) {
+        return PrintpermuteLayout(param);
+    }
+    return PrintUnaryWithTmpTileTensor();
+}
+
+std::string CodeGenOpCloudNPU::PrintpermuteLayout(const PrintUnaryTmpBuffParam &param) const {
+    (void)param;
+    return PrintUnaryWithTmpTileTensor();
+}
+
 std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryTmpBuffParam &param) const {
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
@@ -493,6 +505,10 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
     if (opCode == Opcode::OP_TRANSPOSE_VNCHWCONV) {
         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
+    }
+
+    if (opCode == Opcode::OP_PERMUTE) {
+        return PrintPermute({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
     if (opCode == Opcode::OP_SIGN || opCode == Opcode::OP_SIGNBIT) {

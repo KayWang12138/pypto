@@ -56,6 +56,45 @@ def transpose(input: Tensor, dim0: int, dim1: int) -> Tensor:
 
 
 @op_wrapper
+def permute(input: Tensor, dims: List[int]) -> Tensor:
+    """Returns a tensor that is a permuted version of `input`. The dimensions are reordered according to `dims`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    dims : List[int]
+        The desired ordering of dimensions. Must be a permutation of all dimensions indices (0 to input.dim() - 1).
+
+    Returns
+    -------
+    Tensor
+        A new tensor with the same data as `input` but with dimensions reordered as specified.
+
+    Raises
+    ------
+    RuntimeError
+        If `dims` is not a valid permutation of input dimensions.
+        If the length of `dims` does not match the input tensor's dimension.
+
+    Examples
+    --------
+    x = pypto.tensor([2, 3, 4], pypto.DT_FP32)
+    out = pypto.permute(x, [2, 0, 1])
+
+    Input x:    shape [2, 3, 4]
+    Output out: shape [4, 2, 3]  # data permuted accordingly
+
+    # For 2D transpose (equivalent to transpose(x, 0, 1)):
+    y = pypto.permute(x, [1, 0])
+    """
+    # Note: The underlying implementation `pypto_impl.Permute` should accept
+    # the dimension list directly. It can internally reuse the Transpose
+    # implementation if it supports multi-axis permutation.
+    return pypto_impl.Permute(input, dims)
+
+
+@op_wrapper
 def cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE, 
          satmode: SaturationMode = SaturationMode.OFF) -> Tensor:
     """Casting the operand to the specified type.

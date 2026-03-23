@@ -211,6 +211,8 @@ stest:
       - TestLogicalNot/LogicalNotOperationTest.TestLogicalNot/4
       - TestCompare/CompareOperationTest.TestCompare/1
       - TestCompare/CompareOperationTest.TestCompare/13
+      - TestPermute/PermuteOperationTest.TestPermute/0
+      - TestPermute/PermuteOperationTest.TestPermute/1
       - TestIndexPut_/IndexPut_OperationTest.TestIndexPut_/37
       - TestIndexPut_/IndexPut_OperationTest.TestIndexPut_/42
       - TestExpand/ExpandOperationTest.TestExpand/4

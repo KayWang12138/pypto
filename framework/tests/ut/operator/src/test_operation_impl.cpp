@@ -726,6 +726,24 @@ TEST_F(OperationImplTest, Test_Exp2_FP32) {
     }
 }
 
+TEST_F(OperationImplTest, Test_Permute_FP32_2D) {
+    PROGRAM("Permute") {
+        std::vector<int64_t> inputShape = {2, 3};
+        std::vector<int64_t> outputShape = {3, 2};
+        std::vector<int> perm = {1, 0};
+
+        TileShape::Current().SetVecTile({2, 3});
+        Tensor input(DT_FP32, inputShape, "input");
+        auto output = Tensor(DT_FP32, outputShape, "output");
+
+        config::SetBuildStatic(true);
+
+        FUNCTION("Permute_FP32_2D") {
+            output = Permute(input, perm);
+        }
+    }
+}
+
 TEST_F(OperationImplTest, Test_Round_FP16) {
     PROGRAM("Round") {
         std::vector<int64_t> shape = {128, 32};
