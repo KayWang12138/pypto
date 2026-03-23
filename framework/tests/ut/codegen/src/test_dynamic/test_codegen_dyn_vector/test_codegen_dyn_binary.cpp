@@ -51,24 +51,8 @@ public:
     void TearDown() override {}
 };
 
-void TestAddDynBody(const std::vector<int64_t> &shape, const std::vector<int64_t> &tile_shape, const std::string &name,
-    bool isNeedCalcMinForBinaryOperands = false) {
-    TileShape::Current().SetVecTile(tile_shape);
-    Tensor input_a(DT_FP32, shape, "A");
-    Tensor input_b(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    FUNCTION(name, {input_a, input_b, output}) {
-        LOOP(name, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(input_a, input_b);
-        }
-    }
-
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
-    function->SetUnderDynamicFunction(true);
+void TestAddDynBody(const std::string &name, bool isNeedCalcMinForBinaryOperands = false) {
+    auto function = GenMockFuncDyn(name);
     for (auto &subFunc : function->rootFunc_->programs_) {
         for (auto &op : subFunc.second->Operations()) {
             if (op.GetOpcode() == Opcode::OP_ADD && isNeedCalcMinForBinaryOperands) {
@@ -82,11 +66,11 @@ void TestAddDynBody(const std::vector<int64_t> &shape, const std::vector<int64_t
 }
 
 TEST_F(TestCodegenDynBinary, TestCodegenAddDim2) {
-    TestAddDynBody({64, 64}, {64, 64}, "ADD");
+    TestAddDynBody("TestCodegenAddDim2");
 }
 
 TEST_F(TestCodegenDynBinary, TestCodegenAddDim2SrcNotSameShape) {
-    TestAddDynBody({64, 64}, {64, 64}, "ADD", true);
+    TestAddDynBody("TestCodegenAddDim2SrcNotSameShape", true);
 }
 
 void TestAddSDynBody(
@@ -112,7 +96,6 @@ void TestAddSDynBody(
 
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
 
     npu::tile_fwk::CodeGenCtx ctx;
@@ -172,7 +155,6 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
 
     npu::tile_fwk::CodeGenCtx ctx;
@@ -204,9 +186,8 @@ TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor) {
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    
+
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
@@ -345,22 +326,9 @@ TStore(gmTensor_8, ubTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)
 TEST_F(TestCodegenDynBinary, TestAddTileTensor) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
 
-    std::vector<int64_t> addShape = {64, 64};
-    TileShape::Current().SetVecTile(addShape);
-    Tensor inputA(DT_FP16, addShape, "A");
-    Tensor inputB(DT_FP16, addShape, "B");
-    Tensor output(DT_FP16, addShape, "C");
+    auto function = GenMockFuncDyn("TestAddTileTensor");
 
-    std::string addFuncName = "TestAddTileTensor";
-    FUNCTION(addFuncName, {inputA, inputB, output}) {
-        LOOP(addFuncName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(
-        FUNCTION_PREFIX + addFuncName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetUnderDynamicFunction(true);
+    std::vector<int64_t> addShape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorA =
         CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_UB, addShape, dynValidShape});
@@ -372,7 +340,6 @@ TEST_F(TestCodegenDynBinary, TestAddTileTensor) {
     auto &op = function->AddOperation(Opcode::OP_ADD, {localTensorA, localTensorB}, {localOutTensor});
     std::vector<int> initVec(addShape.size(), false);
     op.SetAttribute(OpAttributeKey::lastUse, initVec);
-
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
