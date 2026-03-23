@@ -48,8 +48,7 @@ export PYPTO_REPO="$PWD/pypto"
 
 **运行环境诊断**：
 ```bash
-# 步骤 1.3：进入 skill 目录运行诊断脚本
-cd ${SKILL_DIR:-.opencode/skills/pypto-environment-setup}
+# 步骤 1.3：运行诊断脚本
 python3 scripts/diagnose_env.py --checklist
 ```
 
