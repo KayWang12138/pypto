@@ -72,7 +72,6 @@ TEST_F(TestCodegenDynRange, TestDynOpRange) {
     auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
     auto &op = function->AddOperation(Opcode::OP_RANGE, {}, {localTensor});
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
     op.SetAttribute(OP_ATTR_PREFIX + "START", start);
     op.SetAttribute(OP_ATTR_PREFIX + "STEP", step);
     op.SetAttribute(OP_ATTR_PREFIX + "SIZE", size);
@@ -85,7 +84,6 @@ TEST_F(TestCodegenDynRange, TestDynOpRange) {
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
-    function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
     std::string res = cop.GenOpCode();
     std::string expect =
         R"!!!(TileOp::DynRange<float, 64>((__ubuf__ float*)UB_S0_E0, 64, 1, 2, ((int64_t)(0)));
@@ -126,7 +124,6 @@ TEST_F(TestCodegenDynRange, RangeTileTensor) {
 
     auto &op = function->AddOperation(Opcode::OP_RANGE, {localTensor}, {localOutTensor});
     Element start(DataType::DT_FP32, 1.0);
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
     op.SetAttribute(OP_ATTR_PREFIX + "START", start);
     op.SetAttribute(OP_ATTR_PREFIX + "STEP", start);
     op.SetAttribute(OP_ATTR_PREFIX + "SIZE", start);
@@ -137,8 +134,6 @@ TEST_F(TestCodegenDynRange, RangeTileTensor) {
     cga.GenAllocForLocalBuffer(op, rangeSymbolManager);
     CodeGenOpCloudNPUCtx opCtx(rangeSymbolManager, *function, *function->rootFunc_->programs_[0], op, {}, true);
     CodeGenOpCloudNPU cop(opCtx);
-    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
-    function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
 
     cop.GenOpCode();
 }

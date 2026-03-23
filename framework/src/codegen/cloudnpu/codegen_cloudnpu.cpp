@@ -140,10 +140,6 @@ void CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ost
             << "Generate code of op failed, op is " << op.Dump();
 
         allocSourceRegion.append(allocSourceCode);
-
-        for (auto &c : op.GetCommentList()) {
-            tileOpSourceRegion.append("/*").append(c).append("*/\n");
-        }
         tileOpSourceRegion.append(tileOpSourceCode);
 
         if (!allocSourceCode.empty()) {
@@ -380,7 +376,7 @@ std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
     auto memType = tensor->GetMemoryTypeOriginal();
     if (OPERAND_TYPE_TO_MEMORY_TYPE.find(memType) == OPERAND_TYPE_TO_MEMORY_TYPE.end()) {
         CODEGEN_LOGE_E(OperErr::OPERAND_TYPE_UNSUPPORTED,
-            " memory type(%zu) of tensor from PASS is invalid, tensor is: %s", static_cast<size_t>(memType),
+            " memory type(%u) of tensor from PASS is invalid, tensor is: %s", ToUnderlying(memType),
             tensor->Dump().c_str());
         return std::nullopt;
     }
@@ -422,7 +418,7 @@ std::string CodeGenCloudNPU::GenAlloc(
         return "";
     }
 
-    CODEGEN_LOGI("%s: bind key to name: %s->%s", __FUNCTION__, sm->FormatAllocKey(key).c_str(), allocVarName.c_str());
+    CODEGEN_LOGI("bind key to name: %s->%s", sm->FormatAllocKey(key).c_str(), allocVarName.c_str());
 
     std::string dataTypeStr = DataType2CCEStr(dataType);
 

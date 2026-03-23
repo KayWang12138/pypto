@@ -455,6 +455,9 @@ def get_case_config(case_name: str):
         "sfa_bf16_b4_s2_seq64K_per_int8_d": (
             (4, 128, 1, 2), 1, [65536] * 4
         ),
+        "sfa_bf16_b4_s2_seq64K_per_bf16_d": (
+            (4, 128, 1, 2), 0, [65536] * 4
+        ),
         "sfa_bf16_b1_s256_seq64K_int8_p": (
             (1, 128, 1, 256), 1, [65536]
         ),
@@ -493,6 +496,14 @@ def test_sfa_bf16_b4_s2_seq64k_per_int8_d():
     sfa decode测试函数
     '''
     do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_per_int8_d", is_p=False)
+
+
+@pytest.mark.skip(reason="bf16 perf")
+def test_sfa_bf16_b4_s2_seq64k_per_bf16_d():
+    '''
+    sfa decode非量化测试函数
+    '''
+    do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_per_bf16_d", is_p=False)
 
 
 @pytest.mark.skip(reason="large test case")
