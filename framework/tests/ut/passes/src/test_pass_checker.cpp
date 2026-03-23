@@ -479,8 +479,7 @@ TEST_F(PassCheckTest, TestPublicCheck_IncastEmpty) {
 }
 
 TEST_F(PassCheckTest, TestDefaultCheckItems) {
-    auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "TestPublicCheck_IncastEmpty", "TestPublicCheck_IncastEmpty", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDefaultCheckItems", "TestDefaultCheckItems", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     Checker checker;
