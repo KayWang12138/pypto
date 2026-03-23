@@ -1,0 +1,238 @@
+================================================================================
+PyPTO 二分调试对比工具
+================================================================================
+✓ 找到 output 目录: output_20260324_194132_246137_1845064_C0A800C5
+✓ 找到 12 个检查点: ['1_sij_idx0', '2_sij_scale_idx0', '3_tilda_mij_idx0', '4_tsub_idx0', '5_tilda_pij_idx0', '6_tilda_pij_fp16_idx0', '7_sum_update_idx0', '8_max_update_idx0', '9_oi_tmp_after_pv_matmul', '10_oi_update_idx0', '11_oi_final_idx0', '12_oi_final_3d_idx0']
+
+================================================================================
+步骤 4：对比 jit 和 golden 数据
+================================================================================
+
+使用文件:
+  jit: 1_sij_idx0_1774352493788312.data
+  golden: golden_1_sij_idx0.bin
+  对比范围: 前 6144 个元素 (jit=6144, golden=6144)
+
+1_sij_idx0: ✓ PASS
+  Max diff: 0.000000
+  Max val: 13.640930
+  Relative error: 0.000000
+  Mismatch count: 0/6144 (0.00%)
+  Tolerance: rtol=0.0001, atol=1e-05 (dtype=7)
+  Actual: rtol=0.000000, atol=0.000000
+
+使用文件:
+  jit: 2_sij_scale_idx0_1774352493788669.data
+  golden: golden_2_sij_scale_idx0.bin
+  对比范围: 前 6144 个元素 (jit=6144, golden=6144)
+
+2_sij_scale_idx0: ✓ PASS
+  Max diff: 0.000000
+  Max val: 1.205699
+  Relative error: 0.000000
+  Mismatch count: 0/6144 (0.00%)
+  Tolerance: rtol=0.0001, atol=1e-05 (dtype=7)
+  Actual: rtol=0.000000, atol=0.000000
+
+使用文件:
+  jit: 3_tilda_mij_idx0_1774352493790090.data
+  golden: golden_3_tilda_mij_idx0.bin
+  对比范围: 前 12 个元素 (jit=12, golden=12)
+
+3_tilda_mij_idx0: ✓ PASS
+  Max diff: 0.000000
+  Max val: 1.205699
+  Relative error: 0.000000
+  Mismatch count: 0/12 (0.00%)
+  Tolerance: rtol=0.0001, atol=1e-05 (dtype=7)
+  Actual: rtol=0.000000, atol=0.000000
+
+使用文件:
+  jit: 4_tsub_idx0_1774352493790350.data
+  golden: golden_4_tsub_idx0.bin
+  对比范围: 前 6144 个元素 (jit=6144, golden=6144)
+
+4_tsub_idx0: ✓ PASS
+  Max diff: 0.000000
+  Max val: 2.173229
+  Relative error: 0.000000
+  Mismatch count: 0/6144 (0.00%)
+  Tolerance: rtol=0.0001, atol=1e-05 (dtype=7)
+  Actual: rtol=0.000000, atol=0.000000
+
+使用文件:
+  jit: 5_tilda_pij_idx0_1774352493791809.data
+  golden: golden_5_tilda_pij_idx0.bin
+  对比范围: 前 6144 个元素 (jit=6144, golden=6144)
+
+5_tilda_pij_idx0: ✗ FAIL
+  Max diff: 0.648721
+  Max val: 1.000000
+  Relative error: 0.648721
+  Mismatch count: 6144/6144 (100.00%)
+  Tolerance: rtol=0.0001, atol=1e-05 (dtype=7)
+  Actual: rtol=0.648721, atol=0.648721
+  前10个元素对比:
+    [0] jit=0.776950, golden=0.471244, diff=0.305706
+    [1] jit=1.506222, golden=0.913570, diff=0.592652
+    [2] jit=0.737397, golden=0.447254, diff=0.290143
+    [3] jit=0.495548, golden=0.300565, diff=0.194983
+    [4] jit=0.930285, golden=0.564247, diff=0.366039
+    [5] jit=0.504118, golden=0.305763, diff=0.198355
+    [6] jit=0.717285, golden=0.435055, diff=0.282230
+    [7] jit=0.508216, golden=0.308249, diff=0.199968
+    [8] jit=0.683025, golden=0.414276, diff=0.268749
+    [9] jit=0.795544, golden=0.482522, diff=0.313022
+
+使用文件:
+  jit: 6_tilda_pij_fp16_idx0_1774352493792026.data
+  golden: golden_6_tilda_pij_fp16_idx0.bin
+  对比范围: 前 6144 个元素 (jit=6144, golden=6144)
+
+6_tilda_pij_fp16_idx0: ✗ FAIL
+  Max diff: 0.652344
+  Max val: 1.000000
+  Relative error: 0.652344
+  Mismatch count: 6144/6144 (100.00%)
+  Tolerance: rtol=0.05, atol=0.005 (dtype=8)
+  Actual: rtol=0.652344, atol=0.652344
+  前10个元素对比:
+    [0] jit=0.777344, golden=0.470703, diff=0.306641
+    [1] jit=1.507812, golden=0.914062, diff=0.593750
+    [2] jit=0.738281, golden=0.447266, diff=0.291016
+    [3] jit=0.496094, golden=0.300781, diff=0.195312
+    [4] jit=0.929688, golden=0.562500, diff=0.367188
+    [5] jit=0.503906, golden=0.306641, diff=0.197266
+    [6] jit=0.718750, golden=0.435547, diff=0.283203
+    [7] jit=0.507812, golden=0.308594, diff=0.199219
+    [8] jit=0.683594, golden=0.414062, diff=0.269531
+    [9] jit=0.796875, golden=0.482422, diff=0.314453
+
+使用文件:
+  jit: 7_sum_update_idx0_1774352493792260.data
+  golden: golden_7_sum_update_idx0.bin
+  对比范围: 前 12 个元素 (jit=12, golden=12)
+
+7_sum_update_idx0: ✗ FAIL
+  Max diff: 149.146866
+  Max val: 229.909012
+  Relative error: 0.648721
+  Mismatch count: 12/12 (100.00%)
+  Tolerance: rtol=0.0001, atol=1e-05 (dtype=7)
+  Actual: rtol=0.648721, atol=149.146866
+  前10个元素对比:
+    [0] jit=350.554016, golden=212.621765, diff=137.932251
+    [1] jit=290.210754, golden=176.021713, diff=114.189041
+    [2] jit=298.237793, golden=180.890381, diff=117.347412
+    [3] jit=291.130341, golden=176.579468, diff=114.550873
+    [4] jit=294.762787, golden=178.782669, diff=115.980118
+    [5] jit=363.852386, golden=220.687622, diff=143.164764
+    [6] jit=361.640594, golden=219.346115, diff=142.294479
+    [7] jit=379.055878, golden=229.909012, diff=149.146866
+    [8] jit=357.732513, golden=216.975739, diff=140.756775
+    [9] jit=264.139008, golden=160.208405, diff=103.930603
+
+使用文件:
+  jit: 8_max_update_idx0_1774352493795287.data
+  golden: golden_8_max_update_idx0.bin
+  对比范围: 前 12 个元素 (jit=12, golden=12)
+
+8_max_update_idx0: ✓ PASS
+  Max diff: 0.000000
+  Max val: 1.205699
+  Relative error: 0.000000
+  Mismatch count: 0/12 (0.00%)
+  Tolerance: rtol=0.0001, atol=1e-05 (dtype=7)
+  Actual: rtol=0.000000, atol=0.000000
+
+使用文件:
+  jit: 9_oi_tmp_after_pv_matmul_1774352493801081.data
+  golden: golden_9_oi_tmp_after_pv_matmul.bin
+  对比范围: 前 1536 个元素 (jit=1536, golden=1536)
+
+9_oi_tmp_after_pv_matmul: ✗ FAIL
+  Max diff: 14.700119
+  Max val: 22.628036
+  Relative error: 0.649642
+  Mismatch count: 1536/1536 (100.00%)
+  Tolerance: rtol=0.0001, atol=1e-05 (dtype=7)
+  Actual: rtol=0.649642, atol=14.700119
+  前10个元素对比:
+    [0] jit=5.772194, golden=3.499153, diff=2.273041
+    [1] jit=-18.010834, golden=-10.934822, diff=7.076012
+    [2] jit=-13.687630, golden=-8.299202, diff=5.388428
+    [3] jit=-2.379280, golden=-1.434349, diff=0.944931
+    [4] jit=-8.209297, golden=-4.983887, diff=3.225410
+    [5] jit=-12.747528, golden=-7.746841, diff=5.000687
+    [6] jit=1.144714, golden=0.710533, diff=0.434181
+    [7] jit=6.740059, golden=4.079475, diff=2.660583
+    [8] jit=-17.892349, golden=-10.851822, diff=7.040527
+    [9] jit=-8.980011, golden=-5.446556, diff=3.533455
+
+使用文件:
+  jit: 10_oi_update_idx0_1774352493801219.data
+  golden: golden_10_oi_update_idx0.bin
+  对比范围: 前 1536 个元素 (jit=1536, golden=1536)
+
+10_oi_update_idx0: ✗ FAIL
+  Max diff: 14.700119
+  Max val: 22.628036
+  Relative error: 0.649642
+  Mismatch count: 1536/1536 (100.00%)
+  Tolerance: rtol=0.0001, atol=1e-05 (dtype=7)
+  Actual: rtol=0.649642, atol=14.700119
+  前10个元素对比:
+    [0] jit=5.772194, golden=3.499153, diff=2.273041
+    [1] jit=-18.010834, golden=-10.934822, diff=7.076012
+    [2] jit=-13.687630, golden=-8.299202, diff=5.388428
+    [3] jit=-2.379280, golden=-1.434349, diff=0.944931
+    [4] jit=-8.209297, golden=-4.983887, diff=3.225410
+    [5] jit=-12.747528, golden=-7.746841, diff=5.000687
+    [6] jit=1.144714, golden=0.710533, diff=0.434181
+    [7] jit=6.740059, golden=4.079475, diff=2.660583
+    [8] jit=-17.892349, golden=-10.851822, diff=7.040527
+    [9] jit=-8.980011, golden=-5.446556, diff=3.533455
+
+使用文件:
+  jit: 11_oi_final_idx0_1774352494557417.data
+  golden: golden_11_oi_final_idx0.bin
+  对比范围: 前 1536 个元素 (jit=1536, golden=1536)
+
+11_oi_final_idx0: ✗ FAIL
+  Max diff: 0.002017
+  Max val: 0.019337
+  Relative error: 0.104297
+  Mismatch count: 1509/1536 (98.24%)
+  Tolerance: rtol=0.0001, atol=1e-05 (dtype=7)
+  Actual: rtol=0.104297, atol=0.002017
+  前10个元素对比:
+    [0] jit=-0.009419, golden=-0.009957, diff=0.000538
+    [1] jit=-0.004873, golden=-0.003908, diff=0.000965
+    [2] jit=-0.005890, golden=-0.005201, diff=0.000690
+    [3] jit=0.000905, golden=0.001066, diff=0.000161
+    [4] jit=-0.007084, golden=-0.006745, diff=0.000339
+    [5] jit=-0.003488, golden=-0.002807, diff=0.000681
+    [6] jit=-0.005880, golden=-0.006068, diff=0.000188
+    [7] jit=0.005003, golden=0.004706, diff=0.000297
+    [8] jit=0.001728, golden=0.002825, diff=0.001097
+    [9] jit=-0.002690, golden=-0.002213, diff=0.000477
+
+使用文件:
+  jit: 12_oi_final_3d_idx0_1774352494557712.data
+  golden: golden_12_oi_final_3d_idx0.bin
+  对比范围: 前 1536 个元素 (jit=1536, golden=1536)
+
+12_oi_final_3d_idx0: ✓ PASS
+  Max diff: 0.002021
+  Max val: 0.019337
+  Relative error: 0.104518
+  Mismatch count: 0/1536 (0.00%)
+  Tolerance: rtol=0.05, atol=0.005 (dtype=8)
+  Actual: rtol=0.104518, atol=0.002021
+
+================================================================================
+步骤 5：根据结果继续二分
+================================================================================
+✗ 检查点 4_tsub_idx0 匹配，但 5_tilda_pij_idx0 不匹配
+→ 问题位置：4_tsub_idx0 和 5_tilda_pij_idx0 之间的操作
+→ 建议：在这两个检查点之间插入新的检查点，进一步定位问题

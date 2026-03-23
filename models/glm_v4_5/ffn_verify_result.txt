@@ -1,0 +1,179 @@
+================================================================================
+PyPTO 二分调试对比工具
+================================================================================
+✓ 找到 output 目录: output_20260325_105143_192576_3420772_C0A800C5
+✓ 找到 10 个检查点: ['1_hidden_states_quant', '2_hidden_states_scale', '3_up_proj', '4_up_proj_dequant', '5_swiglu_out', '6_down_proj_quant', '7_down_proj_scale', '8_down_proj', '9_down_proj_dequant', '10_out']
+
+================================================================================
+步骤 4：对比 jit 和 golden 数据
+================================================================================
+
+使用文件:
+  jit: 1_hidden_states_quant_1774407103285699.data
+  golden: golden_1_hidden_states_quant.bin
+  对比范围: 前 10240 个元素 (jit=10240, golden=10240)
+
+1_hidden_states_quant: ✓ PASS
+  Max diff: 1.000000
+  Max val: 127.000000
+  Relative error: 0.007874
+  Mismatch count: 18/10240 (0.18%)
+  Tolerance: rtol=0.0078125, atol=0.0001 (dtype=1)
+  Actual: rtol=0.007874, atol=1.000000
+
+使用文件:
+  jit: 2_hidden_states_scale_1774407103285793.data
+  golden: golden_2_hidden_states_scale.bin
+  对比范围: 前 2 个元素 (jit=2, golden=2)
+
+2_hidden_states_scale: ✓ PASS
+  Max diff: 0.000000
+  Max val: 0.000684
+  Relative error: 0.000000
+  Mismatch count: 0/2 (0.00%)
+  Tolerance: rtol=0.0078125, atol=0.0001 (dtype=7)
+  Actual: rtol=0.000000, atol=0.000000
+
+使用文件:
+  jit: 3_up_proj_1774407103326606.data
+  golden: golden_3_up_proj.bin
+  对比范围: 前 768 个元素 (jit=768, golden=768)
+
+3_up_proj: ✓ PASS
+  Max diff: 0.002128
+  Max val: 0.617188
+  Relative error: 0.003448
+  Mismatch count: 0/768 (0.00%)
+  Tolerance: rtol=0.0078125, atol=0.0001 (dtype=7)
+  Actual: rtol=0.003448, atol=0.002128
+
+使用文件:
+  jit: 4_up_proj_dequant_1774407103327432.data
+  golden: golden_4_up_proj_dequant.bin
+  对比范围: 前 384 个元素 (jit=384, golden=384)
+
+4_up_proj_dequant: ✗ FAIL
+  Max diff: 0.001842
+  Max val: 0.234375
+  Relative error: 0.007859
+  Mismatch count: 5/384 (1.30%)
+  Tolerance: rtol=0.0078125, atol=0.0001 (dtype=7)
+  Actual: rtol=0.007859, atol=0.001842
+  前10个元素对比:
+    [0] jit=0.196042, golden=0.196289, diff=0.000247
+    [1] jit=0.183090, golden=0.183594, diff=0.000503
+    [2] jit=0.193509, golden=0.192383, diff=0.001126
+    [3] jit=0.173562, golden=0.172852, diff=0.000710
+    [4] jit=0.170279, golden=0.170898, diff=0.000620
+    [5] jit=0.198780, golden=0.198242, diff=0.000538
+    [6] jit=0.185279, golden=0.185547, diff=0.000268
+    [7] jit=0.168431, golden=0.168945, diff=0.000514
+    [8] jit=0.160937, golden=0.161133, diff=0.000195
+    [9] jit=0.164903, golden=0.165039, diff=0.000136
+
+使用文件:
+  jit: 5_swiglu_out_1774407103327507.data
+  golden: golden_5_swiglu_out.bin
+  对比范围: 前 384 个元素 (jit=384, golden=384)
+
+5_swiglu_out: ✗ FAIL
+  Max diff: 0.001842
+  Max val: 0.234375
+  Relative error: 0.007859
+  Mismatch count: 5/384 (1.30%)
+  Tolerance: rtol=0.0078125, atol=0.0001 (dtype=7)
+  Actual: rtol=0.007859, atol=0.001842
+  前10个元素对比:
+    [0] jit=0.196042, golden=0.196289, diff=0.000247
+    [1] jit=0.183090, golden=0.183594, diff=0.000503
+    [2] jit=0.193509, golden=0.192383, diff=0.001126
+    [3] jit=0.173562, golden=0.172852, diff=0.000710
+    [4] jit=0.170279, golden=0.170898, diff=0.000620
+    [5] jit=0.198780, golden=0.198242, diff=0.000538
+    [6] jit=0.185279, golden=0.185547, diff=0.000268
+    [7] jit=0.168431, golden=0.168945, diff=0.000514
+    [8] jit=0.160937, golden=0.161133, diff=0.000195
+    [9] jit=0.164903, golden=0.165039, diff=0.000136
+
+使用文件:
+  jit: 6_down_proj_quant_1774407103329537.data
+  golden: golden_6_down_proj_quant.bin
+  对比范围: 前 384 个元素 (jit=384, golden=384)
+
+6_down_proj_quant: ✗ FAIL
+  Max diff: 2.000000
+  Max val: 127.000000
+  Relative error: 0.015748
+  Mismatch count: 180/384 (46.88%)
+  Tolerance: rtol=0.0078125, atol=0.0001 (dtype=1)
+  Actual: rtol=0.015748, atol=2.000000
+  前10个元素对比:
+    [0] jit=107.000000, golden=106.000000, diff=1.000000
+    [1] jit=100.000000, golden=99.000000, diff=1.000000
+    [2] jit=105.000000, golden=104.000000, diff=1.000000
+    [3] jit=95.000000, golden=94.000000, diff=1.000000
+    [4] jit=93.000000, golden=93.000000, diff=0.000000
+    [5] jit=108.000000, golden=107.000000, diff=1.000000
+    [6] jit=101.000000, golden=101.000000, diff=0.000000
+    [7] jit=92.000000, golden=92.000000, diff=0.000000
+    [8] jit=88.000000, golden=87.000000, diff=1.000000
+    [9] jit=90.000000, golden=89.000000, diff=1.000000
+
+使用文件:
+  jit: 7_down_proj_scale_1774407103331719.data
+  golden: golden_7_down_proj_scale.bin
+  对比范围: 前 2 个元素 (jit=2, golden=2)
+
+7_down_proj_scale: ✓ PASS
+  Max diff: 0.000009
+  Max val: 0.001845
+  Relative error: 0.004823
+  Mismatch count: 0/2 (0.00%)
+  Tolerance: rtol=0.0078125, atol=0.0001 (dtype=7)
+  Actual: rtol=0.004823, atol=0.000009
+
+使用文件:
+  jit: 8_down_proj_1774407103334810.data
+  golden: golden_8_down_proj.bin
+  对比范围: 前 10240 个元素 (jit=10240, golden=10240)
+
+8_down_proj: ✓ PASS
+  Max diff: 0.002182
+  Max val: 0.539062
+  Relative error: 0.004048
+  Mismatch count: 0/10240 (0.00%)
+  Tolerance: rtol=0.0078125, atol=0.0001 (dtype=7)
+  Actual: rtol=0.004048, atol=0.002182
+
+使用文件:
+  jit: 9_down_proj_dequant_1774407103334921.data
+  golden: golden_9_down_proj_dequant.bin
+  对比范围: 前 10240 个元素 (jit=10240, golden=10240)
+
+9_down_proj_dequant: ✓ PASS
+  Max diff: 0.002182
+  Max val: 0.539062
+  Relative error: 0.004048
+  Mismatch count: 0/10240 (0.00%)
+  Tolerance: rtol=0.0078125, atol=0.0001 (dtype=7)
+  Actual: rtol=0.004048, atol=0.002182
+
+使用文件:
+  jit: 10_out_1774407103335120.data
+  golden: golden_10_out.bin
+  对比范围: 前 10240 个元素 (jit=10240, golden=10240)
+
+10_out: ✓ PASS
+  Max diff: 0.003906
+  Max val: 0.539062
+  Relative error: 0.007246
+  Mismatch count: 0/10240 (0.00%)
+  Tolerance: rtol=0.0078125, atol=0.0001 (dtype=8)
+  Actual: rtol=0.007246, atol=0.003906
+
+================================================================================
+步骤 5：根据结果继续二分
+================================================================================
+✗ 检查点 3_up_proj 匹配，但 4_up_proj_dequant 不匹配
+→ 问题位置：3_up_proj 和 4_up_proj_dequant 之间的操作
+→ 建议：在这两个检查点之间插入新的检查点，进一步定位问题

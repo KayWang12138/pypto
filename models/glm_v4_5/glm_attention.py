@@ -246,12 +246,17 @@ def softmax(x, is_fp16=False):
     return ans, x_max, x_sum
 
 
+verify_options = {
+    "enable_pass_verify": True,
+    "pass_verify_save_tensor": True,
+    "pass_verify_pass_filter": []
+}
+
 @pypto.frontend.jit(
     runtime_options={"stitch_function_max_num": 128},
-    # 当子图大小达到上界不允许与其他子图合并
     pass_options={"pg_upper_bound": 1536,
-    # Q常驻，0代表第一组mmad，4代表4次matmul合并
-    "cube_l1_reuse_setting": {0: 4}}
+    "cube_l1_reuse_setting": {0: 4}},
+    verify_options=verify_options
 )
 def ifa_func_kernel(
     q: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
@@ -301,6 +306,7 @@ def ifa_func_kernel(
     k_2d = pypto.reshape(k, k_2d_shape, inplace=True)
     v_2d = pypto.reshape(v, k_2d_shape, inplace=True)
     q_2d = pypto.reshape(q, q_2d_shape, inplace=True)
+
     # 4. 实现kernel逻辑，循环展开B动态轴
     for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx"):
         for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
@@ -337,17 +343,26 @@ def ifa_func_kernel(
                                             b_trans=True)
                         sij = pypto.view(sij, [g_tile, s2_tile], [0, 0],
                                             valid_shape=[g_tile, actual_s2_tile])
+                        pypto.pass_verify_save(sij, "1_sij_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
                         # v1
                         pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                         if pypto.is_loop_begin(s2_idx):
                             sij_scale = pypto.mul(sij, softmax_scale)
+                            pypto.pass_verify_save(sij_scale, "2_sij_scale_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
                             tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
+                            pypto.pass_verify_save(tilda_mij, "3_tilda_mij_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
 
                             tsub = pypto.sub(sij_scale, tilda_mij)
-                            tilda_pij = pypto.exp(tsub)
+                            pypto.pass_verify_save(tsub, "4_tsub_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
+                            temp = tsub + 0.5
+                            tilda_pij = pypto.exp(temp)
+                            pypto.pass_verify_save(tilda_pij, "5_tilda_pij_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
                             tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
+                            pypto.pass_verify_save(tilda_pij_fp16, "6_tilda_pij_fp16_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
                             sum_update[:] = pypto.sum(tilda_pij, dim=-1, keepdim=True)
+                            pypto.pass_verify_save(sum_update, "7_sum_update_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
                             max_update[:] = tilda_mij
+                            pypto.pass_verify_save(max_update, "8_max_update_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
 
                             # c2
                             vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
@@ -360,9 +375,11 @@ def ifa_func_kernel(
                                                         [0, 0], valid_shape=[actual_s2_tile, dn])
                             pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
                             oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
+                            pypto.pass_verify_save(oi_tmp, "9_oi_tmp_after_pv_matmul", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
 
                             pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                             oi_update[:] = oi_tmp
+                            pypto.pass_verify_save(oi_update, "10_oi_update_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
                         else:
                             pypto.set_pass_options(sg_set_scope=1)
                             sij_scale = pypto.mul(sij, softmax_scale)
@@ -398,10 +415,12 @@ def ifa_func_kernel(
                             oi_update[:] = oi_update * update_mul + oi_tmp
                         if pypto.is_loop_end(s2_idx):
                             oi_final = pypto.div(oi_update, sum_update)
+                            pypto.pass_verify_save(oi_final, "11_oi_final_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == s2_loop - 1))
                             pypto.set_vec_tile_shapes(16, v2_tile[0], v2_tile[1])
                             oi_final_3d = pypto.cast(
                                 pypto.reshape(oi_final, [1, g_tile, dn]),
                                 dtype)
+                            pypto.pass_verify_save(oi_final_3d, "12_oi_final_3d_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == s2_loop - 1))
                             # 7. 将结果搬运到输出tensor上
                             pypto.assemble(oi_final_3d, oi_ofs, atten_out)
 
@@ -439,27 +458,6 @@ def IFA(atten_cfg):
     # 3. 根据block table 将pa格式的数据转换成
     k_cache_bsnd, v_cache_bsnd = kv_cache_concat_bsnd(k, v, block_table, atten_cfg)
 
-    for i in range(b):
-        for j in range(s1):
-            for n2_idx in range(nkv):
-                # 从 torch tensor 获取值
-                kv_seq_len = kv_cache_actual_seq[i].item()  # 使用 .item() 获取标量值
-                seq_len = kv_seq_len - s1 + 1 + j
-                q_bs = q[i * s1 + j]
-                k_bs = k_cache_bsnd[i, :seq_len, n2_idx:n2_idx + 1].reshape(seq_len, d)
-                v_bs = v_cache_bsnd[i, :seq_len, n2_idx:n2_idx + 1].reshape(seq_len, d)
-                # MM1: 矩阵乘法
-                qk_bmm_res = torch.matmul(q_bs, k_bs.transpose(1, 0))  # 1,nq, d  -> n_q,d @ d, s2_actual_len
-                qk_ele_res = qk_bmm_res * atten_cfg.softmax_scale
-                # Softmax计算
-                softmax_res, _, _ = softmax(qk_ele_res, True)
-
-                # MM2: 矩阵乘法
-                bmm2_res = torch.matmul(softmax_res, v_bs)
-
-                # 存储结果
-                attention_output[i * s1 + j] = bmm2_res
-
     # 4. 准备测试数据 - 直接使用 torch 张量
     block_table_torch = block_table.to(dtype=torch.int32, device=device)
     act_seq_torch = kv_cache_actual_seq.to(dtype=torch.int32, device=device)  # 直接使用已有的 tensor
@@ -477,6 +475,9 @@ def IFA(atten_cfg):
     # 5. 执行kernel并获取结果
     attention(*inputs)
 
+    import utils.golden.attn_golden as attn_golden
+    attn_golden.ifa_golden(q, k, v, block_table_torch, act_seq_torch, attention_output, is_high_precision=False)
+
     # 6. 与PyTorch参考实现对比
     assert_allclose(np.array(attention_output.cpu().flatten().tolist()),
                     np.array(out_torch.cpu().flatten().tolist()),
@@ -484,7 +485,6 @@ def IFA(atten_cfg):
 
 
 @pytest.mark.soc("950", "910")
-@pytest.mark.skip(reason="large test case")
 def test_ifa():
     # 1. 设置参数
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
