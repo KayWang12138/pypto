@@ -40,35 +40,6 @@ COS_SIN_DIM = 2
 SCATTER_DIM = -2
 
 
-@dataclass
-class IndexerPrologQuantInput:
-    x: torch.tensor  # BF16, (t, h)
-    q_norm: torch.tensor  # HIF8, (t, qLoraRank)
-    q_norm_scale: torch.tensor  # FP32, (t, 1)
-    w_qb: torch.tensor  # HIF8, (qLoraRank, headNum * headDim)
-    w_qb_scale: torch.tensor  # FP32, (headNum * headDim, 1)
-    wk: torch.tensor  # BF16, (h, headDim)
-    w_proj: torch.tensor  # BF16, (h, headNum)
-    ln_gamma_k: torch.tensor  # BF16, (headDim,)
-    cos_idx_rope: torch.tensor  # BF16, (t, ropeHeadDim)
-    sin_idx_rope: torch.tensor  # BF16, (t, ropeHeadDim)
-    hadamard_q: torch.tensor  # BF16, (headDim, headDim)
-    hadamard_k: torch.tensor  # BF16, (headDim, headDim)
-    k_cache: torch.tensor  # HIF8, (blockNum, blockSize, nKv, headDim)
-    k_scale_cache: torch.tensor  # FP16, (blockNum, blockSize, nKv, 1)
-    k_cache_index: torch.tensor  # INT64, (t,)
-    k_scale_cache_index: torch.tensor  # INT64, (t,)
-
-
-@dataclass
-class IndexerPrologQuantOutput:
-    q_hif8: torch.tensor
-    q_scale: torch.tensor
-    k_hif8: torch.tensor
-    k_scale: torch.tensor
-    weights: torch.tensor
-
-
 def quant_rms_norm(x: pypto.Tensor, gamma: pypto.Tensor, dim: int, epsilon: float):
     """Compute quantized RmsNorm operation.
 
@@ -259,7 +230,7 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tens
 
 
 def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_qb_in, w_qb_scale_in, wk_in,
-                                           w_proj_in, ln_gamma_k_in, cos_idx_rope_in, sin_idx_rope_in,
+                                           w_proj_in, gamma_k_in, cos_idx_rope_in, sin_idx_rope_in,
                                            hadamard_q_in, hadamard_k_in, k_quant_in, k_scale_in, 
                                            k_cache_index_in, k_scale_cache_index_in, q_quant_out,
                                            q_scale_out, k_quant_out, k_scale_out, weights_out):
@@ -294,18 +265,18 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         q_norm_in: Quantized query norm tensor, shape (t, q_lora_rank), dtype HIF8
         q_norm_scale_in: Query norm dequantization scale, shape (t, 1), dtype FP32
         w_qb_in: Query projection weight matrix, HIF8 format with ND layout
-        w_qb_scale_in: Query weight dequantization scale, shape (head_num * head_dim, 1), dtype FP32
+        w_qb_scale_in: Query weight dequantization scale, shape (1, head_num * head_dim), dtype FP32
         wk_in: Key projection weight matrix, BF16 format with ND layout
         w_proj_in: Weight projection matrix, BF16 format with ND layout
-        ln_gamma_k_in: RmsNorm scale parameter for key, shape (head_dim,), dtype BF16
+        gamma_k_in: RmsNorm scale parameter for key, shape (1, head_dim), dtype BF16
         cos_idx_rope_in: Cosine values for RoPE, shape (t, rope_head_dim), dtype BF16
         sin_idx_rope_in: Sine values for RoPE, shape (t, rope_head_dim), dtype BF16
         hadamard_q_in: Hadamard transformation matrix for query, shape (head_dim, head_dim), dtype BF16
         hadamard_k_in: Hadamard transformation matrix for key, shape (head_dim, head_dim), dtype BF16
         k_quant_in: Input key cache, shape (block_num, block_size, n_kv, head_dim), dtype HIF8
         k_scale_in: Key cache scale, shape (block_num, block_size, n_kv, 1), dtype FP16
-        k_cache_index_in: Cache index for scatter update, shape (t,), dtype INT64
-        k_scale_cache_index_in: Cache index for scatter update, shape (t,), dtype INT64
+        k_cache_index_in: Cache index for scatter update, shape (t, 1), dtype INT64
+        k_scale_cache_index_in: Cache index for scatter update, shape (t, 1), dtype INT64
         q_quant_out: Output quantized query tensor, shape (t, head_num, head_dim), dtype HIF8
         q_scale_out: Output query quantization scale, shape (t, head_num, 1), dtype FP16
         k_quant_out: Output key cache (updated in-place), shape (block_num, block_size, n_kv, head_dim), dtype HIF8
@@ -326,11 +297,6 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
     head_dim = hadamard_q_in.shape[0]
     rope_head_dim = cos_idx_rope_in.shape[1]
 
-    k_cache_index = pypto.reshape(k_cache_index_in, [t, 1], inplace=True)
-    k_scale_cache_index = pypto.reshape(k_scale_cache_index_in, [t, 1], inplace=True)
-    w_qb_scale = pypto.reshape(w_qb_scale_in, [1, head_num * head_dim], inplace=True)
-    gamma_2d = pypto.reshape(ln_gamma_k_in, [1, ln_gamma_k_in.shape[0]], inplace=True)
-
     unroll_list = [128, 64, 32, 16, 8, 4, 2, 1]
     for t_idx, unroll_length in pypto.loop_unroll(0, t, 1, name="IndexerPrologQuantQuantLoop", idx_name="tIdx",
                                                   unroll_list=unroll_list):
@@ -345,7 +311,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         pypto.set_semantic_label("Query-Dequant")
         pypto.set_vec_tile_shapes(8, head_num * head_dim)
         q_proj = q_proj * q_norm_scale
-        q_proj = q_proj * w_qb_scale
+        q_proj = q_proj * w_qb_scale_in
         q_bf16 = pypto.cast(q_proj, x_dtype)
 
         pypto.set_semantic_label("Query-Rope")
@@ -376,7 +342,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
 
         pypto.set_semantic_label("Key-RmsNorm")
         pypto.set_vec_tile_shapes(128, head_dim)
-        k_rms_norm = quant_rms_norm(k_proj, gamma_2d, -1, 1e-6)
+        k_rms_norm = quant_rms_norm(k_proj, gamma_k_in, -1, 1e-6)
 
         pypto.set_semantic_label("Key-Rope")
         k_rope = pypto.view(k_rms_norm, [t_tile, rope_head_dim], [0, 0])
@@ -395,8 +361,8 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         k_cache_4d = pypto.reshape(k_res[0], [t_tile, 1, 1, head_dim])
         k_scale_4d = pypto.reshape(k_res[1], [t_tile, 1, 1, 1])
 
-        index = pypto.view(k_cache_index, [t_tile, 1], [t_idx, 0])
-        scale_index = pypto.view(k_scale_cache_index, [t_tile, 1], [t_idx, 0])
+        index = pypto.view(k_cache_index_in, [t_tile, 1], [t_idx, 0])
+        scale_index = pypto.view(k_scale_cache_index_in, [t_tile, 1], [t_idx, 0])
         pypto.set_vec_tile_shapes(128, 1, 1, head_dim)
         k_quant_out.move(pypto.scatter_update(k_quant_in, SCATTER_DIM, index, k_cache_4d))
         k_scale_out.move(pypto.scatter_update(k_scale_in, SCATTER_DIM, scale_index, k_scale_4d))
@@ -412,7 +378,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
 @pypto.jit(
     pass_options={
         # 3 cast_cos/sin, 5 q_dequant, 1 q_quant
-        "vec_nbuffer_setting": {3: 2, 5: 2, 1: 4, -2: 1},
+        "vec_nbuffer_setting": {3: 2, 5: 2, 1: 8, -2: 1},
         "cube_l1_reuse_setting": {-1: 8},
         "pg_upper_bound": 8192
     },
@@ -423,7 +389,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
     }
 )
 def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in, w_qb_scale_in, wk_in,
-                                   w_proj_in, ln_gamma_k_in, cos_idx_rope_in, sin_idx_rope_in,
+                                   w_proj_in, gamma_k_in, cos_idx_rope_in, sin_idx_rope_in,
                                    hadamard_q_in, hadamard_k_in, k_quant_in, k_scale_in, 
                                    k_cache_index_in, k_scale_cache_index_in, q_quant_out,
                                    q_scale_out, k_quant_out, k_scale_out, weights_out):
@@ -438,17 +404,18 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in, w_
         q_norm_in: Quantized query norm tensor, shape (t, q_lora_rank), dtype HIF8
         q_norm_scale_in: Query norm dequantization scale, shape (t, 1), dtype FP32
         w_qb_in: Query projection weight matrix, HIF8 format with ND layout
-        w_qb_scale_in: Query weight dequantization scale, shape (head_num * head_dim, 1), dtype FP32
+        w_qb_scale_in: Query weight dequantization scale, shape (1, head_num * head_dim), dtype FP32
         wk_in: Key projection weight matrix, BF16 format with ND layout
         w_proj_in: Weight projection matrix, BF16 format with ND layout
-        ln_gamma_k_in: RmsNorm scale parameter for key, shape (head_dim,), dtype BF16
+        gamma_k_in: RmsNorm scale parameter for key, shape (1, head_dim), dtype BF16
         cos_idx_rope_in: Cosine values for RoPE, shape (t, rope_head_dim), dtype BF16
         sin_idx_rope_in: Sine values for RoPE, shape (t, rope_head_dim), dtype BF16
         hadamard_q_in: Hadamard transformation matrix for query, shape (head_dim, head_dim), dtype BF16
         hadamard_k_in: Hadamard transformation matrix for key, shape (head_dim, head_dim), dtype BF16
         k_quant_in: Input key cache, shape (block_num, block_size, n_kv, head_dim), dtype HIF8
         k_scale_in: Key cache scale, shape (block_num, block_size, n_kv, 1), dtype FP16
-        k_cache_index_in: Cache index for scatter update, shape (t,), dtype INT64
+        k_cache_index_in: Cache index for scatter update, shape (t, 1), dtype INT64
+        k_scale_cache_index_in: Cache index for scatter update, shape (t, 1), dtype INT64
         q_quant_out: Output quantized query tensor, shape (t, head_num, head_dim), dtype HIF8
         q_scale_out: Output query quantization scale, shape (t, head_num, 1), dtype FP16
         k_quant_out: Output key cache (updated in-place), shape (block_num, block_size, n_kv, head_dim), dtype HIF8
@@ -462,7 +429,7 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in, w_
     """
 
     lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_qb_in, w_qb_scale_in, wk_in,
-                                           w_proj_in, ln_gamma_k_in, cos_idx_rope_in, sin_idx_rope_in,
+                                           w_proj_in, gamma_k_in, cos_idx_rope_in, sin_idx_rope_in,
                                            hadamard_q_in, hadamard_k_in, k_quant_in, k_scale_in, 
                                            k_cache_index_in, k_scale_cache_index_in, q_quant_out,
                                            q_scale_out, k_quant_out, k_scale_out, weights_out)

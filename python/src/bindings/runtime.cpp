@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -368,7 +369,7 @@ public:
         EmulationMemoryUtils memUtils;
         int ret = EmulationLauncher::BuildControlFlowCache(dynFunc.get(), memUtils, inputs, {}, &ctrlCache, config);
         if (ret != 0) {
-            ALOG_ERROR("control flow cache failed", ret);
+            COMPILER_LOGE("control flow cache failed %d", ret);
             return nullptr;
         }
 
@@ -380,7 +381,7 @@ public:
                 ss << x << " ";
             }
         }
-        ALOG_ERROR_F("control flow cache: %p shape %s", devCache, ss.str().c_str());
+        COMPILER_LOGE("control flow cache: %p shape %s", devCache, ss.str().c_str());
 #endif
         if (isOriginShape) {
             originShapeCaches.emplace_back(inputs, devCache);
@@ -408,7 +409,7 @@ public:
             auto &t = tensors[i];
             auto addr = (uint64_t)t.GetAddr();
             if (unlikely(addr && disableL2List.size() && disableL2List[i])) {
-                ALOG_ERROR("mismatch tensor addr");
+                COMPILER_LOGE("mismatch tensor addr");
                 addr += l2Offset;
             }
             tensorData->address = addr;
@@ -554,7 +555,7 @@ public:
                 ss << s << " ";
             }
         }
-        ALOG_ERROR_F("find ctrlflow cache: %p shape %s", devCache, ss.str().c_str());
+        COMPILER_LOGE("find ctrlflow cache: %p shape %s", devCache, ss.str().c_str());
 #endif
         return devCache;
     }
@@ -589,7 +590,7 @@ public:
         kernels.push_back(kernel);
         if (inferCacheShape) {
 #if ENABALE_VERBOSE_LOG
-            ALOG_ERROR("build default cache");
+            COMPILER_LOGE("build default cache");
 #endif
             BuildDefaultCache(kernel, module);
         }
@@ -613,8 +614,8 @@ public:
         bool debugEnable = !isCaptureMode && isDebugMode;
 
 #if ENABALE_VERBOSE_LOG
-        ALOG_ERROR_F("triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(), workspace,
-            ctrlFlowCache);
+        COMPILER_LOGE("triple stream %d sequence %ld workspace %p cfgcache %p",
+                      tripleStream, sequence.load(), workspace, ctrlFlowCache);
 #endif
         DeviceLauncher::SetDevPerfAddr(debugEnable, isCaptureMode);
         int ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
@@ -676,7 +677,8 @@ private:
         if (!module.attr("_host_options").is_none()) {
             auto host_options = module.attr("_host_options").cast<py::dict>();
             if (host_options.contains("compile_stage")) {
-                int64_t stageValue = host_options["compile_stage"].attr("value").cast<int64_t>();
+                auto stage = host_options["compile_stage"];
+                int64_t stageValue = py::hasattr(stage, "value") ? stage.attr("value").cast<int64_t>() : stage.cast<int64_t>();
                 compileStageAllComplete = (stageValue == CS_ALL_COMPLETE);
             }
             if (host_options.contains("compile_monitor_enable")) {
@@ -693,8 +695,8 @@ private:
             }
         }
 #if ENABALE_VERBOSE_LOG
-        ALOG_ERROR("triple_stream_sched: ", tripleStream, " stitch_cfgcache_size: ", stitchCfgCacheSize,
-            " infer_cache_shape: ", inferCacheShape);
+        COMPILER_LOGE("triple_stream_sched: %d, stitch_cfgcache_size: %ld, infer_cache_shape: %d",
+                     tripleStream, stitchCfgCacheSize, inferCacheShape);
 #endif
     }
 
@@ -705,7 +707,7 @@ private:
         for (auto &pyshape : cfshapes) {
             auto inputShapes = pyshape.cast<std::vector<std::vector<int64_t>>>();
             if (inputShapes.size() != tensors.size()) {
-                ALOG_ERROR("Invalid input size, expect: ", tensors.size(), " got: ", inputShapes.size());
+                COMPILER_LOGE("Invalid input size, expect: %zu, get: %zu.", tensors.size(), inputShapes.size());
                 continue;
             }
             std::vector<DeviceTensorData> inputs;
@@ -715,7 +717,7 @@ private:
             if (kernel->CheckArgs(inputs)) {
                 kernel->BuildControlFlowCache(inputs, stitchCfgCacheSize, false);
             } else {
-                ALOG_ERROR("Invalid cache shape, skip it");
+                COMPILER_LOGE("Invalid cache shape, skip it");
             }
         }
     }
@@ -799,12 +801,15 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
 
     HOST_PERF_TRACE(TracePhase::LaunchInit);
 
+    std::optional<ConfigManagerNg::JitScopeGuard> jitScopeGuard;
+
     auto kbinary = kmodule->GetKernelBinary(tensors);
     if (kbinary == nullptr) {
+        jitScopeGuard.emplace("jit_scope", std::map<std::string, Any>{});
         Program::GetInstance().Reset();
         AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
 #if ENABALE_VERBOSE_LOG
-        ALOG_ERROR("compile kernel");
+        COMPILER_LOGE("compile kernel");
 #endif
         kbinary = compile_fn(kmodule);
     }
@@ -818,7 +823,7 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     HOST_PERF_TRACE(TracePhase::LaunchGetKernel);
 
 #if ENABALE_VERBOSE_LOG
-    ALOG_ERROR("alloc workspace");
+    COMPILER_LOGE("alloc workspace");
 #endif
     int64_t *wsAddr = nullptr;
     int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);

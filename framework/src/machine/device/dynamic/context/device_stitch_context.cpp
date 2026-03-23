@@ -59,9 +59,9 @@ void DeviceStitchContext::CheckStitch(DevAscendFunctionDupped *stitchedList, int
             }
         }
         if (dynPredCount != dynSuccCount) {
-            DEV_ERROR("dynPredCount %u does not match dynSuccCount %u", dynPredCount, dynSuccCount);
+            DEV_ERROR(ProgEncodeErr::STITCH_PRED_SUCC_MISMATCH, "#ctrl.task.pre.stitch.check: dynPredCount %u does not match dynSuccCount %u", dynPredCount, dynSuccCount);
         }
-        DEV_ASSERT(dynPredCount == dynSuccCount);
+        DEV_ASSERT(ProgEncodeErr::STITCH_PRED_SUCC_MISMATCH, dynPredCount == dynSuccCount);
     }
 }
 
@@ -140,7 +140,7 @@ int DeviceStitchContext::DecideIncastOutcast(uint64_t taskId) {
         size_t incastSize = dup.GetSource()->GetIncastSize();
         for (size_t i = 0; i < incastSize; ++i) {
             auto &desc = dup.GetIncastAddress(i);
-            DEV_ASSERT(desc.IsRtOutcast());
+            DEV_ASSERT(CtrlErr::DEVICE_TASK_BUILD_FAILED, desc.IsRtOutcast());
             ItemPoolIter iter = desc.GetRtOutcastIter();
             uintdevptr_t addr = workspace_->GetRuntimeOutcastTensor(iter).addr;
             workspace_->RuntimeOutcastTensorDeref(iter);
@@ -151,7 +151,7 @@ int DeviceStitchContext::DecideIncastOutcast(uint64_t taskId) {
         size_t outcastSize = dup.GetSource()->GetOutcastSize();
         for (size_t i = 0; i < outcastSize; ++i) {
             auto &desc = dup.GetOutcastAddress(i);
-            DEV_ASSERT(desc.IsRtOutcast());
+            DEV_ASSERT(CtrlErr::DEVICE_TASK_BUILD_FAILED, desc.IsRtOutcast());
             ItemPoolIter iter = desc.GetRtOutcastIter();
             uintdevptr_t addr = workspace_->GetRuntimeOutcastTensor(iter).addr;
             workspace_->RuntimeOutcastTensorDeref(iter);
@@ -168,29 +168,17 @@ int DeviceStitchContext::MoveTo(DynDeviceTask *dynTask) {
     stitchedCallOpSize_ = 0;
 
     if (dynTask->stitchedList.size() > MAX_STITCH_FUNC_NUM) {
-        DEV_ERROR("Stitch list size:%u exceeds maximum allowed cached function number:%zu.", dynTask->stitchedList.size(), MAX_STITCH_FUNC_NUM);
+        DEV_ERROR(ProgEncodeErr::STITCH_LIST_TOO_LARGE, "#ctrl.stitch.toomany_root: Stitch list size:%u exceeds maximum allowed cached function number:%zu.", dynTask->stitchedList.size(), MAX_STITCH_FUNC_NUM);
         return DEVICE_MACHINE_ERROR;
     }
-    DEV_ASSERT(dynTask->stitchedList.size() <= MAX_STITCH_FUNC_NUM);
-    uint64_t *opWrapArray = nullptr;
-    uint64_t *opWrapTaskNumArray = nullptr;
-    if (dynTask->devTask.mixTaskData.opWrapListPtr != 0) {
-        opWrapArray = reinterpret_cast<uint64_t *>(dynTask->devTask.mixTaskData.opWrapListPtr);
-    }
-    if (dynTask->devTask.mixTaskData.opWrapTaskNumListPtr != 0) {
-        opWrapTaskNumArray = reinterpret_cast<uint64_t *>(dynTask->devTask.mixTaskData.opWrapTaskNumListPtr);
-    }
+    DEV_ASSERT(ProgEncodeErr::STITCH_LIST_TOO_LARGE, dynTask->stitchedList.size() <= MAX_STITCH_FUNC_NUM);
     int size = static_cast<int>(dynTask->stitchedList.size());
     for (int i = 0; i < size; ++i) {
         auto &funcDup = dynTask->stitchedList[i];
         dynTask->dynFuncDataCacheList[i] = {
             funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0), funcDup.GetSource()->GetCalleeIndexAddr(), funcDup.DupDataForDynFuncData()};
-        if (opWrapArray != nullptr) {
-            opWrapArray[i] = PtrToValue(funcDup.GetSource()->GetOpWrapListAddr());
-        }
-        if (opWrapTaskNumArray != nullptr) {
-            opWrapTaskNumArray[i] = PtrToValue(funcDup.GetSource()->GetOpWrapTaskNumListAddr());
-        }
+        dynTask->devTask.mixTaskData.opWrapList[i] = PtrToValue(funcDup.GetSource()->GetOpWrapListAddr());	 
+        dynTask->devTask.mixTaskData.opWrapTaskNumList[i] = PtrToValue(funcDup.GetSource()->GetOpWrapTaskNumListAddr());
     }
     dynTask->dynFuncDataCacheListSize = size;
     return DEVICE_MACHINE_OK;
@@ -210,13 +198,13 @@ void DeviceStitchContext::HandleOneStitch(
 
     DEV_IF_NONDEVICE {
         if (producerOperationIdx >= producerDup.GetSource()->GetOperationSize()) {
-            DEV_ERROR("producerOperationIdx %zu exceeds the size of GetOperation %zu", producerOperationIdx, producerDup.GetSource()->GetOperationSize());
+            DEV_ERROR(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, "#ctrl.task.pre.stitch.handle: producerOperationIdx %zu exceeds the size of GetOperation %zu", producerOperationIdx, producerDup.GetSource()->GetOperationSize());
         }
         if (consumerOperationIdx >= consumerDup.GetSource()->GetOperationSize()) {
-            DEV_ERROR("consumerOperationIdx %zu exceeds the size of GetOperation %zu", consumerOperationIdx, consumerDup.GetSource()->GetOperationSize());
+            DEV_ERROR(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, "#ctrl.task.pre.stitch.handle: consumerOperationIdx %zu exceeds the size of GetOperation %zu", consumerOperationIdx, consumerDup.GetSource()->GetOperationSize());
         }
-        DEV_ASSERT(producerOperationIdx < producerDup.GetSource()->GetOperationSize());
-        DEV_ASSERT(consumerOperationIdx < consumerDup.GetSource()->GetOperationSize());
+        DEV_ASSERT(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, producerOperationIdx < producerDup.GetSource()->GetOperationSize());
+        DEV_ASSERT(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, consumerOperationIdx < consumerDup.GetSource()->GetOperationSize());
         DEV_VERBOSE_DEBUG("[Stitch] slot:%d kind:%s dupIdx:%d funcKey:%d,op:%d -> funcKey:%d,op:%d\n",
                     debugSlotIdx, GetStitchKindName(debugStitchKind).c_str(), (int)consumerIdx,
                     producerDup.GetSource()->GetFuncKey(), (int)producerOperationIdx,
@@ -455,7 +443,7 @@ uint64_t DeviceStitchContext::FastStitch(DeviceExecuteSlot *slotList, size_t slo
         for (size_t j = 0; j < incast.fromSlotList.size(); ++j) {
             auto slotIdx = nextSrc->At(incast.fromSlotList, j);
             if (slotIdx >= (int)slotSize) {
-                DEV_ERROR("slotIdx %d is larger than slotSize %zu!.", slotIdx, slotSize);
+                DEV_ERROR(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, "#ctrl.stitch.invalid_slot: slotIdx %d is larger than slotSize %zu!.", slotIdx, slotSize);
                 continue;
             }
 

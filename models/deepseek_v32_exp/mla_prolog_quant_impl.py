@@ -440,7 +440,7 @@ def pre_compute_2d(
                                    [tile_config.pre_quant_cube_tile[2], tile_config.pre_quant_cube_tile[3]],
                                    [tile_config.pre_quant_cube_tile[4], tile_config.pre_quant_cube_tile[5]])
         pypto.set_semantic_label("Matmul_qa")
-        q_a_proj = pypto.matmul(token_x, w_dq, pypto.DT_FP32)
+        q_a_proj = pypto.matmul(token_x, w_dq, dtype)
 
     pypto.set_vec_tile_shapes(mv, q_lora_rank)
     pypto.set_semantic_label("RmsNorm_qa")
@@ -777,7 +777,8 @@ def mla_prolog_quant_p(
 
 @pypto.frontend.jit(
     pass_options={
-        "cube_l1_reuse_setting": {-1: 4, -1: 1, 1: 1},
+        "cube_l1_reuse_setting": {-1: 3, 0: 1, 1: 1},
+        "cube_nbuffer_setting": {-1: 6, 0: 1, 1: 4},
     },
 )
 def mla_prolog_quant_d(

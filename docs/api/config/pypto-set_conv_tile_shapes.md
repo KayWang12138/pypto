@@ -43,13 +43,13 @@ TileShape需要满足以下约束条件：
 
         - wout % 16 = 0 时， 1 <= tileHout <= Hout（Hout为输出特征图实际高度）
 
-        - wout & 16 != 0 时， tileHout = 1
+        - wout % 16 != 0 时， tileHout = 1
 
         - 1 <= tileWin <= Win（Win为输入特征图实际宽度）
 
         - 1 <= tileWout <= CeilAlign(Wout, 16)（Wout为输出特征图实际宽度）
 
-        - tileHout > 1 时， tileWout == wout
+        - tileHout > 1 时， tileWout == wout == tileW
 
         - 1 <= tileCinFmap <= Cin（Cin为输入特征图实际通道数）
 
@@ -69,13 +69,13 @@ TileShape需要满足以下约束条件：
 
         - tileK `C0 <= tileK <= min(kAL1, kBL1)`
 
-        - tileK `tileK % C0 = 0`
+        - tileK `tileK % C0 == 0`
 
-        - tileK `kAL1 % tilek = 0`
+        - tileK `kAL1 % tilek == 0`
 
-        - tilek `kBL1 % tilek = 0`
+        - tilek `kBL1 % tilek == 0`
 
-        - tileW需满足16元素对齐，即 `tileW % 16 == 0`
+        - tileW 需满足16元素对齐，即 `tileW % 16 == 0`
 
         - tileW `1 <= tileW <= tileWout`
 
@@ -83,7 +83,7 @@ TileShape需要满足以下约束条件：
 
         - tileN（代表L0上的n的大小）需满足16元素对齐，即 `tileN % 16 == 0`
 
-        - tileN `1 <= tileN <= CeilAlign(tileL1Info.tileN, 16)
+        - tileN `1 <= tileN <= CeilAlign(tileL1Info.tileN, 16)`
 
         其中：
 
@@ -135,19 +135,15 @@ TileShape需要满足以下约束条件：
 
         其中：
 
-        - `hinL1 = min((tileHout - 1) * strideH + (Kh - 1) * dilationH + 1, orgHin)` （orgHin为特征图高度）
+        - `hinL1 = min((tileHout - 1) * strideH + (Kh - 1) * dilationH + 1, Hin)` （Hin为输入特征图高度）
 
-        - `winL1 = min((tileWout - 1) * strideW + (Kw - 1) * dilationW + 1, orgWin)` （orgWin为特征图宽度）
+        - `winL1 = min((tileWout - 1) * strideW + (Kw - 1) * dilationW + 1, Win)` （Win为输入特征图宽度）
         
         - `kAL1 = CeilAlign(tileCinFmap * kh * kw, C0)`
 
         - `kBL1 = CeilAlign(tileCinWeight * kh * kw, C0)`
 
-        - `mL1 = tileWout * tileHout`
-
         - `nL1 = tileN`（输出通道数）
-
-        - `kL1 = Kh * Kw * tileCinWeight`（Kh为卷积核高度，Kw为卷积核宽度）
 
         - `dtype为input_conv（输入矩阵）的数据类型`
 

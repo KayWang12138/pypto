@@ -97,6 +97,50 @@ TEST_F(DynamicOpsTest, FmodFp32) {
     EXPECT_NO_VERIFY_FAILED(logOutput);
 }
 
+TEST_F(DynamicOpsTest, FillPad1DFp32) {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+
+    int s = 32;
+    Tensor t0(DT_FP32, {s}, "t0");
+    Tensor out(DT_FP32, {s}, "out");
+
+    std::vector<float> inputData(s);
+    std::vector<float> goldenData(s);
+    
+    for (int i = 0; i < s; ++i) {
+        if (i < 16) { 
+            inputData[i] = 1.0f + i * 0.1f;
+            goldenData[i] = 1.0f + i * 0.1f; 
+        } else { 
+            inputData[i] = 999.0f;
+            goldenData[i] = 0.0f;  
+        }
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<float>(t0, inputData),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, goldenData),
+    });
+
+    FUNCTION("main", {t0}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            auto t0_view = View(t0, {s}, SymbolicScalar::FromConcrete({16}), {0});
+            auto filled = FillPad(t0_view, "constant", 0.0f);
+            Assemble(filled, {0}, out);
+        }
+    }
+    });
+    EXPECT_NO_VERIFY_FAILED(logOutput);
+}
+
 TEST_F(DynamicOpsTest, FmodSFp32) {
     std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
@@ -700,6 +744,7 @@ TEST_F_WITH_COST(DynamicOpsTest, Cube, 98) {
 }
 
 TEST_F(DynamicOpsTest, Cmps) {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -726,8 +771,44 @@ TEST_F(DynamicOpsTest, Cmps) {
                           static_cast<OutType>(CmpModeType::BOOL));
         }
     }
+    });
+    EXPECT_NO_VERIFY_FAILED(logOutput);
 }
 
+TEST_F(DynamicOpsTest, WhereSS) {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+
+    int64_t b = 1;
+    int64_t s = 16;
+    Tensor self(DT_FP32, {b, s}, "self");
+    Element elem(DT_FP32, 4.0f);
+    Element zeroFp32(DT_FP32, 4.0f);
+    Tensor out(DT_BOOL, {b, s}, "out");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(self, 4.0f),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<bool>(out, false),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateConstantTensor<bool>(out, true),
+    });
+    FUNCTION("main", {self}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            auto t0 = View(self, {b, s}, {0, 0});
+            auto mask = Compare(t0, elem,
+                          static_cast<OpType>(CmpOperationType::EQ),
+                          static_cast<OutType>(CmpModeType::BOOL));
+            out = Where(mask, zeroFp32, elem);
+        }
+    }
+    });
+    EXPECT_NO_VERIFY_FAILED(logOutput);
+}
 
 TEST_F(DynamicOpsTest, ElementScalar) {
     auto floatElement = Element(DT_BF16, 2.0);

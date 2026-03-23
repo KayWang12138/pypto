@@ -22,6 +22,7 @@
 #include <algorithm>
 #include "tilefwk/error.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "interface/tensor/symbolic_scalar.h"
 
 namespace npu::tile_fwk {
 namespace {
@@ -49,28 +50,32 @@ public:
         CalculateBatches();
     }
 
-    void HeaderFileBegin(std::ostringstream &exprHeaderOss) const {
-        exprHeaderOss << "#pragma once\n"
-                       << "#include <cstdint>\n\n"
-                       << "namespace npu::tile_fwk {\n\n";
+    void HeaderFileBegin(std::ostringstream &out) const {
+        out << "#pragma once\n"
+            << "#include <cstdint>\n\n"
+            << "namespace npu::tile_fwk {\n\n";
         GenerateLinkScript();
     }
 
-    void HeaderFileEnd(std::ostringstream &exprHeaderOss) const {
+    void HeaderFileEnd(std::ostringstream &out) const {
         std::string headerPath = outputDir_ + "/control_flow_expr_table.h";
         std::ofstream header(headerPath);
         if (!header.is_open()) {
             ASSERT(false) << "File batch_expr.h open failed!";
             return;
         }
-        exprHeaderOss << "\n} // namespace npu::tile_fwk\n";
-        header << exprHeaderOss.str();
+        out << "\n} // namespace npu::tile_fwk\n";
+        header << out.str();
         header.close();
     }
 
-    template<typename ExpressionSet, typename BuildExpressionFunc>
-    void GenerateBatchFile(std::ostringstream &controlFlowOss, std::ostringstream &exprHeaderOss, const std::string &expName,
-        const ExpressionSet& expressions, std::vector<std::string> &exprSrcFiles, int indent, int devRootKey, const BuildExpressionFunc& buildExpr) {
+    template<typename ExpressionSet>
+    void GenerateBatchFile(SymbolicExpressionTable *exprTable, std::ostringstream &controlFlowOss, std::ostringstream &exprHeaderOss,
+        const std::string &expName, const ExpressionSet& expressions, std::vector<std::string> &exprSrcFiles,
+        int indent, int devRootKey, std::unordered_map<std::string, bool> &tensorNameToDependCore) {
+        std::ostringstream subCallOss;
+        bool needSync = false;
+        std::unordered_map<RawSymbolicScalarPtr, bool> valDependMap;
         for (auto& batch : batches_) {
             std::string filePath = outputDir_ + "/" + batch.fileName;
             std::ofstream out(filePath);
@@ -91,18 +96,25 @@ public:
                 << "(void *ctx, int64_t *symbolTable, RuntimeCallEntryType runtimeCallList[], DevStartArgsBase *startArgs, uint64_t *exprList) {\n";
             for (size_t idx = batch.startExprIndex; idx < batch.endExprIndex; idx++) {
                 const auto& expr = expressions[idx];
-                auto exprStr = buildExpr(expr);
+                auto exprStr = exprTable->BuildExpression(expr);
+                if (!needSync && exprTable->CheckExprDependCore(expr, tensorNameToDependCore, valDependMap)) {
+                    needSync = true;
+                }
                 out << "    RUNTIME_SetExpr(exprList, " << idx << ", " << exprStr << ");\n";
             }
             out << "}\n\n"
                 << "} // namespace npu::tile_fwk\n";
             out.close();
-            controlFlowOss << std::setw(indent * TABSIZE) << ' ' 
+            subCallOss << std::setw(indent * TABSIZE) << ' ' 
                 << batch.functionName << "(ctx, symbolTable, runtimeCallList, startArgs, exprList" << devRootKey <<");\n";
             exprSrcFiles.emplace_back(filePath);
             exprHeaderOss << "void " << batch.functionName
                 << "(void *ctx, int64_t *symbolTable, RuntimeCallEntryType runtimeCallList[], DevStartArgsBase *startArgs, uint64_t *exprList);\n";
         }
+        if (needSync) {
+            controlFlowOss << std::setw(indent * TABSIZE) << ' '  << "WaitAicoreStart(startArgs);\n";
+        }
+        controlFlowOss << subCallOss.str();
         return;
     }
 

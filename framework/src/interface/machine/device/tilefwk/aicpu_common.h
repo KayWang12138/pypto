@@ -16,6 +16,7 @@
 #ifndef RUNTIME_COMMON_DEF_H
 #define RUNTIME_COMMON_DEF_H
 
+#include <cstddef>
 #include <cstdint>
 #include "aicpu_perf.h"
 
@@ -68,7 +69,6 @@ enum class ArchInfo {
 #define DEVICE_TASK_TYPE_STATIC  0
 #define DEVICE_TASK_TYPE_DYN     1
 #define DEVICE_TASK_TYPE_INVALID 0xf
-#define PYPTO                    59
 
 template <typename DerivedType, typename UnderlyingType>
 class BitmaskBase {
@@ -170,12 +170,12 @@ struct DeviceArgs {
     uint32_t hostPid{0};       // for dump tensor
     uint32_t scheCpuNum{0};    // sche cpu num calc by host
     uint32_t enableCtrl : 2;    // if enable builtin ctrl
-    uint32_t validGetPgMask : 2; // mark pgmask is invalid
-    uint32_t disableSync : 28;    // close ctrl and sche soft sync
+    uint32_t validGetPgMask : 30; // mark pgmask is invalid
     uint64_t aicpuPerfAddr{0};    // aicpuPer Gm addr
     uint64_t devDfxArgAddr{0};   // devDfx
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
     int maxAicpuNum{0};
+    bool enableVFFusion = false;
     ArchInfo archInfo{ArchInfo::DAV_2201};
     ToSubMachineConfig toSubMachineConfig;
 };

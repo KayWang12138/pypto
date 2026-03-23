@@ -252,7 +252,7 @@ public:
     inline void CheckCoreIdxInitStatus(uint32_t coreIdx) {
         DEV_IF_VERBOSE_DEBUG {
             if (pendingIds_[coreIdx] != AICORE_TASK_INIT || runningIds_[coreIdx] != AICORE_TASK_INIT) {
-                DEV_ERROR("core[%u] is pendingId = %x, runningId = %x, is illegal!", coreIdx, pendingIds_[coreIdx], runningIds_[coreIdx]);
+                DEV_ERROR(CtrlErr::TASK_STATS_ABNORMAL, "#sche.task.run.wrap.stats: core[%u]: pendingId=%x, runningId=%x, is illegal!", coreIdx, pendingIds_[coreIdx], runningIds_[coreIdx]);
             }
         }
     }
@@ -356,11 +356,8 @@ public:
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(taskId);
         auto opIndex = TaskID(taskId);
-        auto opWrapArrayBase =
-             reinterpret_cast<uint64_t *>(dyntask->devTask.mixTaskData.opWrapListPtr);
-        auto opWrapList =
-            reinterpret_cast<int32_t*>(opWrapArrayBase[funcId]);
-        if (opWrapList != nullptr && opWrapList[opIndex] != -1) {
+        auto opWrapList = reinterpret_cast<int32_t*>(dyntask->devTask.mixTaskData.opWrapList[funcId]);
+        if (opWrapList[opIndex] != -1) {
             return MakeMixWrapID(funcId, opWrapList[opIndex]);
         } else {
             return -1;
@@ -371,10 +368,7 @@ public:
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(taskId);
         auto opIndex = TaskID(taskId);
-        auto opWrapArrayNumBase =
-             reinterpret_cast<uint64_t *>(dyntask->devTask.mixTaskData.opWrapTaskNumListPtr);
-        auto opWrapTaskNumList = 
-             reinterpret_cast<uint32_t*>(opWrapArrayNumBase[funcId]);
+        auto opWrapTaskNumList = reinterpret_cast<uint32_t*>(dyntask->devTask.mixTaskData.opWrapTaskNumList[funcId]);
         return opWrapTaskNumList[opIndex];
     }
 
@@ -509,7 +503,7 @@ public:
         }
 
         if (wrapInfo == nullptr) {
-            DEV_ERROR("cant find wrapInfo in wrapQueueForThread!");
+            DEV_ERROR(DevCommonErr::NULLPTR, "#sche.task.run.wrap.dep.resolve: cant find wrapInfo in wrapQueueForThread!");
             return;
         }
         wrapInfo->taskCnt--;

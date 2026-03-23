@@ -151,6 +151,7 @@ void StaticSubgraphProcessor::PrintColorGraph(const Function &function) {
 
 inline void findAllReachableNodes(int start_node, std::vector<std::vector<int>>& outGraph,	 
                                          std::vector<std::unordered_set<int>>& reachable, std::vector<int>& visited) {	 
+     visited[start_node] = 1; 
      reachable[start_node].insert(start_node);	 
      for (int v : outGraph[start_node]) { 	 
          if (visited[v] == 0) {	 
@@ -158,7 +159,6 @@ inline void findAllReachableNodes(int start_node, std::vector<std::vector<int>>&
          }	 
          reachable[start_node].insert(reachable[v].begin(), reachable[v].end());
      }	 
-     visited[start_node] = 1; 
  }
 
 void StaticSubgraphProcessor::FindRedundantEdges(int colorNum, std::vector<std::vector<int>>& redundantColorInGraph,

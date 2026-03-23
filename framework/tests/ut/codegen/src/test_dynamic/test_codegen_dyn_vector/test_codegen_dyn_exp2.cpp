@@ -55,39 +55,15 @@ public:
 
 TEST_F(TestCodegenDynExp2, TestDynOpExp2) {
     std::vector<int64_t> shape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
-    TileShape::Current().SetVecTile(shape);
-    Tensor input(DT_FP32, shape, "input");
-    Tensor output(DT_FP32, shape, "output");
+    auto function = GenMockFuncDynUnary("TestDynOpExp2", {shape}, [](Tensor &input, Tensor &output) {
+        output = Exp2(input);
+    });
 
-    std::string funcName = "TestDynOpExp2";
-    FUNCTION(funcName, {input, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Exp2(input);
-        }
-    }
-
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
-    function->SetUnderDynamicFunction(true);
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
-        }
-    }
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});

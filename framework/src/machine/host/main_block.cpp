@@ -167,7 +167,8 @@ void MainBlockCondBulider::Gencode(Function *function)
     bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
     enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
     if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVF) {
-        npu::tile_fwk::CodeGenCtx codeGenCtxMainBlock("", GetEmitPath("kernel_aicore"), true);
+        bool isDynamicAligned = function->paramConfigs_.dynamicAlignedOps;
+        npu::tile_fwk::CodeGenCtx codeGenCtxMainBlock("", GetEmitPath("kernel_aicore"), true, isDynamicAligned);
         npu::tile_fwk::CodeGen codeGenMainBlock(codeGenCtxMainBlock);
         codeGenMainBlock.GenCode(*function, {});
     }

@@ -207,9 +207,9 @@ def attention(
 
 
 @pypto.frontend.jit(
-    runtime_options={"stitch_function_max_num": 128
+    runtime_options={"stitch_function_max_num": 128,
+                     "ready_on_host_tensors": ["block_table", "kv_act_seqs"]
                     },
-    debug_options={"runtime_debug_mode": 2}
 )
 def ifa_func_kernel(
     block_table: pypto.Tensor(),
@@ -371,7 +371,7 @@ def ifa_func_kernel(
             x_add = pypto.add(x_mul, x_offset_2d_fp32)
             x_int32 = pypto.cast(x_add, pypto.DT_INT32, pypto.CastMode.CAST_RINT)  # Align ascendC
             x_fp16 = pypto.cast(x_int32, pypto.DT_FP16)
-            x_int8[tmp_idx:tmp_idx + 1, 0:] = pypto.cast(x_fp16, pypto.DT_INT8)
+            x_int8[tmp_idx:tmp_idx + 1, 0:] = pypto.cast(x_fp16, pypto.DT_INT8, satmode=pypto.SaturationMode.ON)
 
         pypto.set_cube_tile_shapes([32, 32], [256, 512], [256, 256])
         tmp_c = pypto.matmul(x_int8, weight, pypto.DT_INT32)

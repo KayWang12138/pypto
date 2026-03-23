@@ -23,8 +23,13 @@
 #include <vector>
 #include <cstring>
 #include <cassert>
+#include <iomanip>
 
 #include "lazy.h"
+
+#ifndef ERROR_CODE_UNDEFINED
+#define ERROR_CODE_UNDEFINED 0xFFFFFU
+#endif
 
 namespace npu::tile_fwk {
 using Backtrace = std::shared_ptr<LazyValue<std::string>>;
@@ -68,7 +73,7 @@ public:
     Error(const char *func, const char *file, size_t line, const std::string &msg, Backtrace backtrace)
         : func_(func), file_(file), line_(line), msg_(msg), backtrace_(backtrace) {}
 
-    Error(const char *func, const char *file, size_t line, Backtrace backtrace)
+    Error(const char *func, const char *file, size_t line, Backtrace backtrace = nullptr)
         : func_(func), file_(file), line_(line), backtrace_(backtrace) {}
 
     const char *what() const noexcept override;
@@ -87,7 +92,6 @@ private:
     const char *file_;
     size_t line_;
     std::string msg_;
-    std::string umsg_;
     Backtrace backtrace_;
     mutable LazyShared<std::string> what_;
 };
@@ -101,27 +105,49 @@ public:
 };
 
 #ifndef __DEVICE__
-/* used for internal check */
-#define ASSERT(cond)                                                                                                           \
-   (cond) ? 0 : npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
-        npu::tile_fwk::ErrorMessage() << "ASSERTION FAILED: " #cond << "\n"
+#define ASSERT_WITH_CODE(errcode, cond)                                                                                     \
+    (cond) ?                                                                                                                \
+        0 :                                                                                                                 \
+        npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) =      \
+            npu::tile_fwk::ErrorMessage()                                                                                   \
+            << "Errcode: F"                                                                                                 \
+            << std::uppercase << std::hex << std::setw(5) << std::setfill('0')                                             \
+            << (static_cast<unsigned>(errcode) & 0xFFFFF) << std::dec << "!\n"
 
-/* check for user input */
-#define CHECK(cond)                                                                                                           \
-   (cond) ? 0 : npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
-        npu::tile_fwk::ErrorMessage() << "CHECK FAILED: " #cond << "\n"
+#define CHECK_WITH_CODE(errcode, cond)                                                                                      \
+    (cond) ?                                                                                                                \
+        0 :                                                                                                                 \
+        npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) =      \
+            npu::tile_fwk::ErrorMessage()                                                                                   \
+            << "Errcode: F"                                                                                                 \
+            << std::uppercase << std::hex << std::setw(5) << std::setfill('0')                                             \
+            << (static_cast<unsigned>(errcode) & 0xFFFFF) << std::dec << "!\n"
 
 #define TILEFWK_ERROR()                                                                                            \
     npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
         npu::tile_fwk::ErrorMessage()
 #else
+#define ASSERT_WITH_CODE(errcode, cond)                                                                                     \
+    (cond) ? 0 :                                                                                                            \
+             AssertInfo() = npu::tile_fwk::ErrorMessage()                                                                   \
+             << "Errcode: F" << std::uppercase << std::hex << std::setw(5) << std::setfill('0')                            \
+             << (static_cast<unsigned>(errcode) & 0xFFFFF) << std::dec << "!\n"
 
-#define ASSERT(cond)                             \
-    (cond) ? 0 : AssertInfo() = npu::tile_fwk::ErrorMessage() \
-        << "ASSERTION FAILED: " #cond " file " << __FILE__ << ", line " << __LINE__ << "\n"
-
-#define CHECK(cond)                             \
-    (cond) ? 0 : AssertInfo() = npu::tile_fwk::ErrorMessage() \
-        << "CHECK FAILED: " #cond " file " << __FILE__ << ", line " << __LINE__ << "\n"
+#define CHECK_WITH_CODE(errcode, cond)                                                                                      \
+    (cond) ? 0 :                                                                                                            \
+             AssertInfo() = npu::tile_fwk::ErrorMessage()                                                                   \
+             << "Errcode: F" << std::uppercase << std::hex << std::setw(5) << std::setfill('0')                            \
+             << (static_cast<unsigned>(errcode) & 0xFFFFF) << std::dec << "!\n"
 #endif
+
+#define ASSERT_OVERLOAD_SELECT(_1, _2, NAME, ...) NAME
+#define ASSERT_WITHOUT_ERR_CODE(cond)          ASSERT_WITH_CODE(ERROR_CODE_UNDEFINED, cond)
+#define ASSERT_WITH_ERR_CODE(errcode, cond)    ASSERT_WITH_CODE(errcode, cond)
+#define ASSERT(...) ASSERT_OVERLOAD_SELECT(__VA_ARGS__, ASSERT_WITH_ERR_CODE, ASSERT_WITHOUT_ERR_CODE)(__VA_ARGS__)
+
+#define CHECK_OVERLOAD_SELECT(_1, _2, NAME, ...) NAME
+#define CHECK_WITHOUT_ERR_CODE(cond)           CHECK_WITH_CODE(ERROR_CODE_UNDEFINED, cond)
+#define CHECK_WITH_ERR_CODE(errcode, cond)     CHECK_WITH_CODE(errcode, cond)
+#define CHECK(...) CHECK_OVERLOAD_SELECT(__VA_ARGS__, CHECK_WITH_ERR_CODE, CHECK_WITHOUT_ERR_CODE)(__VA_ARGS__)
+
 } // namespace npu::tile_fwk

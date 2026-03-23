@@ -57,20 +57,24 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
     PyPTO编译过程依赖以下第三方开源软件源码包，若您的环境可正常访问[cann-src-third-party](https://gitcode.com/cann-src-third-party)，
     这些软件的源码包会在编译时自动下载和编译，否则请手动准备：
 
-    | 软件包                 | 版本      | 下载地址                                                                                                                    |
-    |:--------------------|:--------|:------------------------------------------------------------------------------------------------------------------------|
-    | JSON for Modern C++ | v3.11.3 | [下载链接](https://gitcode.com/cann-src-third-party/json/releases/download/v3.11.3/json-3.11.3.tar.gz)                      |
-    | libboundscheck      | v1.1.16 | [下载链接](https://gitcode.com/cann-src-third-party/libboundscheck/releases/download/v1.1.16/libboundscheck-v1.1.16.tar.gz) |
+    | 软件包                 | 版本      | 
+    |:--------------------|:--------|
+    | JSON for Modern C++ | v3.11.3 |                     |
+    | libboundscheck      | v1.1.16 |
 
     手工准备第三方开源源码包的方法:
 
     方法一：手工下载
     >
     > ```bash
-    > # 创建用于存放第三方开源软件源码包的目录path-to-your-thirdparty
-    > mkdir -p <path-to-your-thirdparty>
+    > # 创建并进入用于存放第三方开源软件源码包的目录path-to-your-thirdparty
+    > mkdir -p <path-to-your-thirdparty> && cd $_
     >
-    > # 将上述三方库源码压缩包，下载到本地并上传到开发环境对应的`path-to-your-thirdparty`目录中
+    > # 下载 JSON for Modern C++ 三方库
+    > wget https://gitcode.com/cann-src-third-party/json/releases/download/v3.11.3/json-3.11.3.tar.gz
+    > 
+    > # 下载 libboundscheck 三方库
+    > wget https://gitcode.com/cann-src-third-party/libboundscheck/releases/download/v1.1.16/libboundscheck-v1.1.16.tar.gz
     > ```
 
     方法二：通过辅助脚本下载
@@ -141,16 +145,9 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
     - aarch64：[Ascend-cann-toolkit_8.5.0_linux-aarch64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/aarch64/Ascend-cann-toolkit_8.5.0_linux-aarch64.run)
 
     ```bash
-    # 确保安装包有可执行权限
-    chmod +x Ascend-cann-toolkit_8.5.0_linux-${arch}.run
-
     # 安装命令
-    ./Ascend-cann-toolkit_8.5.0_linux-${arch}.run --install --force --install-path=${install_path}
+    bash ./Ascend-cann-toolkit_8.5.0_linux-*.run --install --force
     ```
-
-    **参数说明**：
-    - \$\{arch\}：表示CPU架构，如aarch64、x86_64。
-    - \$\{install\_path\}：表示指定安装路径，默认安装在`/usr/local/Ascend`目录。
 
 2. **安装CANN ops包**
 
@@ -160,16 +157,10 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
     - A3、x86：[CANN_A3-OPS-8.5.0.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/x86_64/Ascend-cann-A3-ops_8.5.0_linux-x86_64.run)
     - A3、aarch64：[CANN_A3-OPS-8.5.0.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/aarch64/Ascend-cann-A3-ops_8.5.0_linux-aarch64.run)
 
-    ```
-    # 确保安装包有可执行权限
-    chmod +x Ascend-cann-${device_type}-ops_8.5.0_linux-${arch}.run
+    ```bash
     # 安装命令
-    ./Ascend-cann-${device_type}-ops_8.5.0_linux-${arch}.run --install --force --install-path=${install_path}
+    bash ./Ascend-cann-*-ops_8.5.0_linux-*.run --install --force
     ```
-
-    - \$\{device_type\}：NPU型号，当前支持A2、A3。
-    - \$\{arch\}：CPU架构，如aarch64、x86_64。
-    - \$\{install-path\}：表示指定安装路径，默认安装在`/usr/local/Ascend`目录。
 
 3. **获取pto-isa源码**
 
@@ -178,15 +169,10 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
     > - x86：[cann-pto-isa_8.5.0_linux-x86_64.run](http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/release_version/ubuntu_x86/cann-pto-isa_linux-x86_64.run)
     > - aarch64：[cann-pto-isa_8.5.0_linux-aarch64.run](http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/release_version/ubuntu_aarch64/cann-pto-isa_linux-aarch64.run)
 
-    > ```
-    > # 确保安装包有可执行权限
-    > chmod +x cann-pto-isa_8.5.0_linux-${arch}.run
+    > ```bash
     > # 安装命令
-    > ./cann-pto-isa_8.5.0_linux-${arch}.run --full --install-path=${install_path}
+    > bash ./cann-pto-isa_linux-*.run --full 
     > ```
-    >
-    > - \$\{arch\}：CPU架构，如aarch64、x86_64.
-    > - \$\{install-path\}：表示指定安装路径，默认安装在`/usr/local/Ascend`目录.
 
     > 方法二：下载源码方式
 

@@ -67,7 +67,67 @@ def test_verify_dyn():
     b = torch.rand(shape, dtype=torch.float16, device=device)
     output_data = torch.zeros(shape, dtype=torch.float16, device=device)
     golden = ((a * (a + b)) - b) * b
-    golden_cpu = golden.cpu()
-    pypto.set_verify_golden_data(goldens=[None, None, golden_cpu])
+    pypto.set_verify_golden_data(goldens=[None, None, golden.cpu()])
     add_dyn_kernel(a, b, output_data)
     assert torch.allclose(output_data, golden)
+
+
+@pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.NPU},
+                    verify_options=verify_options
+                    )
+def cmp_where_kenrel(
+        a: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16), 
+        out: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16)):
+
+    for _ in pypto.loop(1):
+        pypto.set_vec_tile_shapes(16, 16)
+        mask = pypto.ge(a, 0.5)
+        out[:] = pypto.where(mask, 1.0, 0.0)
+
+
+def test_verify_where():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+
+    a = torch.rand((64, 64), dtype=torch.float16)
+    c = torch.zeros((64, 64))
+
+    golden = torch.where(a >= 0.5, 1.0, 0.0)
+    pypto.set_verify_golden_data(goldens=[None, golden])
+
+    inputs = [a.to(f"npu:{device_id}")]
+    outputs = [c.to(f"npu:{device_id}")]
+
+    cmp_where_kenrel(*inputs, *outputs)
+
+    assert torch.allclose(outputs[0].cpu(), golden)
+
+
+@pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.NPU})
+def cmp_where_kenrel2(
+        a: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16), 
+        out: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16)):
+
+    for _ in pypto.loop(1):
+        pypto.set_vec_tile_shapes(16, 16)
+        mask = pypto.ge(a, 0.5)
+        out[:] = pypto.where(mask, 1.0, 0.0)
+
+
+def test_verify_set_options():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    pypto.set_verify_options(**verify_options)
+
+    a = torch.rand((64, 64), dtype=torch.float16)
+    c = torch.zeros((64, 64))
+
+    golden = torch.where(a >= 0.5, 1.0, 0.0)
+    pypto.set_verify_golden_data(goldens=[None, golden])
+
+    inputs = [a.to(f"npu:{device_id}")]
+    outputs = [c.to(f"npu:{device_id}")]
+
+    cmp_where_kenrel2(*inputs, *outputs)
+
+    assert torch.allclose(outputs[0].cpu(), golden)
