@@ -225,57 +225,306 @@
 ### 3.1. pypto.amax
 
 #### 3.1.1. 算子计算原理
+参考pypto\docs\api\operation\pypto-amax.md  
+对一个多维向量在指定的维度求最大值。
+定义指定计算的维度（Reduce轴）为R轴，非指定维度（Normal轴）为A轴。如下图所示，对Shape为\(2, 3\)的二维矩阵进行运算，指定在第一维求最大值，输出结果为\[4, 5, 6\]；指定在第二维求最大值，输出结果为\[3, 6\]。
 
+**图 1**  amax按第一个维度计算示例  
+![](../docs/api/figures/pypto.amax_1.png)
+**图 2**  amax按最后一个维度计算示例  
+![](../docs/api/figures/pypto.amax_2.png)
 #### 3.1.2. pypto前段接口（python）以及支持范围
+```python
+amax(input: Tensor, dim: int, keepdim: bool = False) -> Tensor: 
+```
+##### 参数说明
 
+
+| 参数名  | 输入/输出 | 说明                                                                 |
+|---------|-----------|----------------------------------------------------------------------|
+| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| dim     | 输入      | 源操作数。 <br> 支持任意单轴。                                       |
+| keepdim | 输入      | 源操作数 <br> 控制在进行归约后，是否保持被压缩的维度。 <br> 默认值为False。 |
+
+##### 返回值说明
+
+返回输出Tensor，输出Tensor的Shape与keepdim参数相关。
+
+若keepdim参数为 True，则在执行归约操作后保留被归约的维度。输出Tensor在除dim指定的维度外，其他维度的Shape与输入Tensor的Shape一致，而在dim指定的维度上的大小为 1。
+
+若keepdim参数为False（默认），则被归约的维度会从输出Tensor中移除，而tileshape中对应的维度不变, 所以建议在调其他operation前重设tileshape。
 #### 3.1.3. c++ tensor graph接口
-
+```cpp
+Tensor Amax(const Tensor &self, int axis = -1, bool keepDim=false);
+```
 #### 3.1.4. c++ tile graph接口
+`amax` 算子在 Tile Graph 层面会生成针对 NPU 硬件的 Tile 级归约操作，使用 "MAX" 或 "MAX_COMBINE_AXIS" 操作符，根据张量形状和归约维度选择合适的实现方式。
+```cpp
+void RowMaxSingleOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    UnaryOperationOperandCheck(iOperand, oOperand);
+    auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    TiledReduceSingle(function, tileShape, "MAX", iOperand[0], oOperand[0], axis);
+}
 
+void RowMaxCombineOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    UnaryOperationOperandCheck(iOperand, oOperand);
+    auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    TiledReduceSingle(function, tileShape, "MAX_COMBINE_AXIS", iOperand[0], oOperand[0], axis);
+}
+```
 #### 3.1.5. 算子npu计算使用的pto instruction
-
+**PTO 指令**:TLOAD、TPairMax、TROWMaxSingle、TStore
 #### 3.1.6. 算子kernel的计算过程（搬运+计算）
+1. **数据搬运**：
+   - 将输入张量从全局内存加载到 NPU 的局部内存
+   - 根据 Tile 大小进行分块处理
+   - 优化内存访问模式，提高缓存命中率
 
+2. **计算**：
+   - 对每个 Tile 执行局部最大值计算
+   - 利用 NPU 的向量处理能力，并行计算多个元素
+   - 对于大张量，采用多级归约策略
+
+3. **结果存储**：
+   - 将计算结果写回全局内存
+   - 根据 `keepdim` 参数调整输出形状
 #### 3.1.7. tile shape设置约束
+1. TileShape大小不超过 64KB；
 
+2. 尾轴要 32bytes 对齐；
+
+3. TileShape次尾轴要小于等于255，即 TileShape\[-2\]<=255.
 #### 3.1.8. 用例设计
-
+| 用例名称 | 输入维度 | tileshape | 输入dtype | 说明 |
+|----------|---------|-----------|-----------|------|
+| amax_fp16_001 | (112) | (50) | fp16 | 1d尾轴对齐，w切分 |
+| amax_fp16_002 | (100) | (100) | fp16 | 1d尾轴不对齐，无切分 |
+| amax_fp16_003 | (4, 128) | (2, 32) | fp16 | 2d尾轴对齐，h,w切分 |
+| amax_fp16_004 | (4, 130) | (1, 130) | fp16 | 2d尾轴不对齐，h切分 |
+| amax_fp16_005 | (2, 4, 160) | (1, 2, 32) | fp16 | 3d尾轴对齐，c,h,w切分 |
+| amax_fp16_006 | (2, 4, 140) | (1, 2, 140) | fp16 | 3d尾轴不对齐，c,h切分 |
+| amax_fp16_007 | (2, 5, 152) | (1, 5, 32) | fp16 | 3d尾轴不对齐，c,w切分 |
+| amax_fp16_008 | (2, 3, 170) | (1, 3, 170) | fp16 | 3d尾轴不对齐，c切分 |
+| amax_fp16_009 | (5, 2, 4, 176) | (2, 1, 2, 16) | fp16 | 4d尾轴对齐，n,c,h,w切分 |
+| amax_fp16_010 | (5, 2, 4, 130) | (1, 1, 1, 130) | fp16 | 4d尾轴不对齐，n,c,h切分 |
+| amax_fp16_011 | (2, 3, 5, 134) | (1, 1, 5, 32) | fp16 | 4d尾轴不对齐，n,c,w切分 |
+| amax_fp16_012 | (4, 2, 6, 135) | (2, 2, 3, 32) | fp16 | 4d尾轴不对齐，n,h,w切分 |
+| amax_fp16_013 | (6, 2, 4, 130) | (1, 1, 4, 130) | fp16 | 4d尾轴不对齐，n,c切分 |
+| amax_fp16_014 | (3, 2, 3, 139) | (1, 2, 1, 139) | fp16 | 4d尾轴不对齐，n,h切分 |
+| amax_fp16_015 | (6, 3, 5, 141) | (3, 3, 5, 32) | fp16 | 4d尾轴不对齐，n,w切分 |
+| amax_fp32_001 | (112) | (50) | fp32 | 1d尾轴对齐，w切分 |
+| amax_fp32_002 | (100) | (100) | fp32 | 1d尾轴不对齐，无切分 |
+| amax_fp32_003 | (4, 128) | (2, 32) | fp32 | 2d尾轴对齐，h,w切分 |
+| amax_fp32_004 | (4, 130) | (1, 130) | fp32 | 2d尾轴不对齐，h切分 |
+| amax_fp32_005 | (2, 4, 160) | (1, 2, 32) | fp32 | 3d尾轴对齐，c,h,w切分 |
+| amax_fp32_006 | (2, 4, 140) | (1, 2, 140) | fp32 | 3d尾轴不对齐，c,h切分 |
+| amax_fp32_007 | (2, 5, 152) | (1, 5, 32) | fp32 | 3d尾轴不对齐，c,w切分 |
+| amax_fp32_008 | (2, 3, 170) | (1, 3, 170) | fp32 | 3d尾轴不对齐，c切分 |
+| amax_fp32_009 | (5, 2, 4, 176) | (2, 1, 2, 16) | fp32 | 4d尾轴对齐，n,c,h,w切分 |
+| amax_fp32_010 | (5, 2, 4, 130) | (1, 1, 1, 130) | fp32 | 4d尾轴不对齐，n,c,h切分 |
+| amax_fp32_011 | (2, 3, 5, 134) | (1, 1, 5, 32) | fp32 | 4d尾轴不对齐，n,c,w切分 |
+| amax_fp32_012 | (4, 2, 6, 135) | (2, 2, 3, 32) | fp32 | 4d尾轴不对齐，n,h,w切分 |
+| amax_fp32_013 | (6, 2, 4, 130) | (1, 1, 4, 130) | fp32 | 4d尾轴不对齐，n,c切分 |
+| amax_fp32_014 | (3, 2, 3, 139) | (1, 2, 1, 139) | fp32 | 4d尾轴不对齐，n,h切分 |
+| amax_fp32_015 | (6, 3, 5, 141) | (3, 3, 5, 32) | fp32 | 4d尾轴不对齐，n,w切分 |
 ### 3.2. pypto.amin
-
+```python
+amin(input: Tensor, dim: int, keepdim: bool = False) -> Tensor: 
+```
 #### 3.2.1. 算子计算原理
+参考pypto\docs\api\operation\pypto-amin.md  
+对一个多维向量在指定的维度求最小值。
 
+定义指定计算的维度（Reduce轴）为R轴，非指定维度（Normal轴）为A轴。如下图所示，对Shape为\(2, 3\)的二维矩阵进行运算，指定在第一维求最小值，输出结果为\[1, 2, 3\]；指定在第二维求最小值，输出结果为\[1, 4\]。
+
+**图 1**  amin按第一个维度计算示例  
+![](../docs/api/figures/pypto.amin_1.png)
+**图 2**  amin按最后一个维度计算示例  
+![](../docs/api/figures/pypto.amin_2.png)
 #### 3.2.2. pypto前段接口（python）以及支持范围
+```python
+amin(input: Tensor, dim: int, keepdim: bool = False) -> Tensor: 
+```
+##### 参数说明
 
+
+| 参数名  | 输入/输出 | 说明                                                                 |
+|---------|-----------|----------------------------------------------------------------------|
+| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| dim     | 输入      | 源操作数。 <br> 支持任意单轴。                                       |
+| keepdim | 输入      | 源操作数 <br> 控制在进行归约后，是否保持被压缩的维度。 <br> 默认值为False。 |
+
+##### 返回值说明
+
+返回输出Tensor，输出Tensor的Shape与keepdim参数相关。
+
+若keepdim参数为 True，则在执行归约操作后保留被归约的维度。输出Tensor在除dim指定的维度外，其他维度的Shape与输入Tensor的Shape一致，而在dim指定的维度上的大小为 1。
+
+若keepdim参数为 False（默认），则被归约的维度会从输出Tensor中移除，而tileshape中对应的维度不变, 所以建议在调其他operation前重设tileshape。
 #### 3.2.3. c++ tensor graph接口
-
+```cpp
+Tensor Amin(const Tensor &self, int axis = -1, bool keepDim=false);
+```
 #### 3.2.4. c++ tile graph接口
-
+`amin` 算子在 Tile Graph 层面会生成针对 NPU 硬件的 Tile 级归约操作，使用 "MIN" 或 "MIN_COMBINE_AXIS" 操作符，根据张量形状和归约维度选择合适的实现方式。
+```cpp
+void RowMinSingleOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    UnaryOperationOperandCheck(iOperand, oOperand);
+    auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    TiledReduceSingle(function, tileShape, "MIN", iOperand[0], oOperand[0], axis);
+}
+```
 #### 3.2.5. 算子npu计算使用的pto instruction
-
+- **PTO 指令**：TLOAD、TPairMin、TROWMinSingle、TStore
 #### 3.2.6. 算子kernel的计算过程（搬运+计算）
+1. **数据搬运**：
+   - 将输入张量从全局内存加载到 NPU 的局部内存
+   - 根据 Tile 大小进行分块处理
+   - 优化内存访问模式，提高缓存命中率
 
+2. **计算**：
+   - 对每个 Tile 执行局部最小值计算
+   - 利用 NPU 的向量处理能力，并行计算多个元素
+   - 对于大张量，采用多级归约策略
+
+3. **结果存储**：
+   - 将计算结果写回全局内存
+   - 根据 `keepdim` 参数调整输出形状
 #### 3.2.7. tile shape设置约束
+1. TileShape大小不超过 64KB；
 
+2. 尾轴要 32bytes 对齐；
+
+3. TileShape 次尾轴要小于等于255，即 TileShape\[-2\]<=255.
 #### 3.2.8. 用例设计
-
+| 用例名称 | 输入维度 | tileshape | 输入dtype | 说明 |
+|----------|---------|-----------|-----------|------|
+| amin_fp16_001 | (112) | (50) | fp16 | 1d尾轴对齐，w切分 |
+| amin_fp16_002 | (100) | (100) | fp16 | 1d尾轴不对齐，无切分 |
+| amin_fp16_003 | (4, 128) | (2, 32) | fp16 | 2d尾轴对齐，h,w切分 |
+| amin_fp16_004 | (4, 130) | (1, 130) | fp16 | 2d尾轴不对齐，h切分 |
+| amin_fp16_005 | (2, 4, 160) | (1, 2, 32) | fp16 | 3d尾轴对齐，c,h,w切分 |
+| amin_fp16_006 | (2, 4, 140) | (1, 2, 140) | fp16 | 3d尾轴不对齐，c,h切分 |
+| amin_fp16_007 | (2, 5, 152) | (1, 5, 32) | fp16 | 3d尾轴不对齐，c,w切分 |
+| amin_fp16_008 | (2, 3, 170) | (1, 3, 170) | fp16 | 3d尾轴不对齐，c切分 |
+| amin_fp16_009 | (5, 2, 4, 176) | (2, 1, 2, 16) | fp16 | 4d尾轴对齐，n,c,h,w切分 |
+| amin_fp16_010 | (5, 2, 4, 130) | (1, 1, 1, 130) | fp16 | 4d尾轴不对齐，n,c,h切分 |
+| amin_fp16_011 | (2, 3, 5, 134) | (1, 1, 5, 32) | fp16 | 4d尾轴不对齐，n,c,w切分 |
+| amin_fp16_012 | (4, 2, 6, 135) | (2, 2, 3, 32) | fp16 | 4d尾轴不对齐，n,h,w切分 |
+| amin_fp16_013 | (6, 2, 4, 130) | (1, 1, 4, 130) | fp16 | 4d尾轴不对齐，n,c切分 |
+| amin_fp16_014 | (3, 2, 3, 139) | (1, 2, 1, 139) | fp16 | 4d尾轴不对齐，n,h切分 |
+| amin_fp16_015 | (6, 3, 5, 141) | (3, 3, 5, 32) | fp16 | 4d尾轴不对齐，n,w切分 |
+| amin_fp32_001 | (112) | (50) | fp32 | 1d尾轴对齐，w切分 |
+| amin_fp32_002 | (100) | (100) | fp32 | 1d尾轴不对齐，无切分 |
+| amin_fp32_003 | (4, 128) | (2, 32) | fp32 | 2d尾轴对齐，h,w切分 |
+| amin_fp32_004 | (4, 130) | (1, 130) | fp32 | 2d尾轴不对齐，h切分 |
+| amin_fp32_005 | (2, 4, 160) | (1, 2, 32) | fp32 | 3d尾轴对齐，c,h,w切分 |
+| amin_fp32_006 | (2, 4, 140) | (1, 2, 140) | fp32 | 3d尾轴不对齐，c,h切分 |
+| amin_fp32_007 | (2, 5, 152) | (1, 5, 32) | fp32 | 3d尾轴不对齐，c,w切分 |
+| amin_fp32_008 | (2, 3, 170) | (1, 3, 170) | fp32 | 3d尾轴不对齐，c切分 |
+| amin_fp32_009 | (5, 2, 4, 176) | (2, 1, 2, 16) | fp32 | 4d尾轴对齐，n,c,h,w切分 |
+| amin_fp32_010 | (5, 2, 4, 130) | (1, 1, 1, 130) | fp32 | 4d尾轴不对齐，n,c,h切分 |
+| amin_fp32_011 | (2, 3, 5, 134) | (1, 1, 5, 32) | fp32 | 4d尾轴不对齐，n,c,w切分 |
+| amin_fp32_012 | (4, 2, 6, 135) | (2, 2, 3, 32) | fp32 | 4d尾轴不对齐，n,h,w切分 |
+| amin_fp32_013 | (6, 2, 4, 130) | (1, 1, 4, 130) | fp32 | 4d尾轴不对齐，n,c切分 |
+| amin_fp32_014 | (3, 2, 3, 139) | (1, 2, 1, 139) | fp32 | 4d尾轴不对齐，n,h切分 |
+| amin_fp32_015 | (6, 3, 5, 141) | (3, 3, 5, 32) | fp32 | 4d尾轴不对齐，n,w切分 |
 ### 3.3. pypto.sum
 
 #### 3.3.1. 算子计算原理
+参考pypto\docs\api\operation\pypto-sum.md  
+对一个多维向量按照指定的维度进行数据累加。
 
+定义指定计算的维度（Reduce轴）为R轴，非指定维度（Normal轴）为A轴。如下图所示，对Shape为\(2, 3\)的二维矩阵进行运算，指定在第一维计算数据的累加，输出结果为\[5, 7, 9\]；指定在第二维计算数据的累加，输出结果为\[6, 15\]。
+
+**图 1**  sum按第一个维度计算示例  
+![](../docs/api/figures/pypto.sum_1.png)
+**图 2**  sum按最后一个维度计算示例  
+![](../docs/api/figures/pypto.sum_2.png)
 #### 3.3.2. pypto前段接口（python）以及支持范围
+```python
+sum(input: Tensor,  dim: int, keepdim: bool = False) -> Tensor: 
+```
+##### 参数说明
 
+
+| 参数名  | 输入/输出 | 说明                                                                 |
+|---------|-----------|----------------------------------------------------------------------|
+| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维，Shape Size不大于2147483647（即INT32_MAX）。 |
+| dim     | 输入      | 源操作数。 <br> 支持任意单轴。 |
+| keepdim | 输入      | 源操作数。 <br> 控制在进行归约后，是否保持被压缩的维度。 <br> 默认值为False。 |
+
+##### 返回值说明
+
+返回输出Tensor，输出Tensor的Shape与keepdim参数相关。
+
+若keepdim参数为 True，则在执行归约操作后保留被归约的维度。输出Tensor在除dim指定的维度外，其他维度的Shape与输入Tensor的Shape一致，而在dim指定的维度上的大小为 1。
+
+若keepdim参数为 False（默认），则被归约的维度会从输出Tensor中移除，而tileshape中对应的维度不变, 所以建议在调其他operation前重设tileshape。
 #### 3.3.3. c++ tensor graph接口
-
+```cpp
+Tensor Sum(const Tensor &self, int axis = -1, bool keepDim=false);
+```
 #### 3.3.4. c++ tile graph接口
+`sum` 算子在 Tile Graph 层面会生成针对 NPU 硬件的 Tile 级归约操作，使用 "SUM" 或 "SUM_COMBINE_AXIS" 操作符，根据张量形状和归约维度选择合适的实现方式。
+```cpp
+void RowSumSingleOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    UnaryOperationOperandCheck(iOperand, oOperand);
+    auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    TiledReduceSingle(function, tileShape, "SUM", iOperand[0], oOperand[0], axis);
+}
 
+void RowSumCombineOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    UnaryOperationOperandCheck(iOperand, oOperand);
+    auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    TiledReduceSingle(function, tileShape, "SUM_COMBINE_AXIS", iOperand[0], oOperand[0], axis);
+}
+```
 #### 3.3.5. 算子npu计算使用的pto instruction
-
+- **PTO 指令**：TLOAD、TPairSum、TROWSumSingle、TStore
 #### 3.3.6. 算子kernel的计算过程（搬运+计算）
+1. **数据搬运**：
+   - 将输入张量从全局内存加载到 NPU 的局部内存
+   - 根据 Tile 大小进行分块处理
+   - 优化内存访问模式，提高缓存命中率
 
+2. **计算**：
+   - 对每个 Tile 执行局部求和计算
+   - 利用 NPU 的向量处理能力，并行计算多个元素
+   - 对于大张量，采用多级归约策略
+
+3. **结果存储**：
+   - 将计算结果写回全局内存
+   - 根据 `keepdim` 参数调整输出形状
 #### 3.3.7. tile shape设置约束
+1. TileShape大小不超过 64KB；
 
+2. 尾轴要 32bytes 对齐；
+
+3. TileShape次尾轴要小于等于255，即 TileShape\[-2\]<=255.
 #### 3.3.8. 用例设计
-
+| 用例名称 | 输入维度 | tileshape | 输入dtype | 说明 |
+|----------|---------|-----------|-----------|------|
+| sum_fp32_001 | (112) | (50) | fp32 | 1d尾轴对齐，w切分 |
+| sum_fp32_002 | (100) | (100) | fp32 | 1d尾轴不对齐，无切分 |
+| sum_fp32_003 | (4, 128) | (2, 32) | fp32 | 2d尾轴对齐，h,w切分 |
+| sum_fp32_004 | (4, 130) | (1, 130) | fp32 | 2d尾轴不对齐，h切分 |
+| sum_fp32_005 | (2, 4, 160) | (1, 2, 32) | fp32 | 3d尾轴对齐，c,h,w切分 |
+| sum_fp32_006 | (2, 4, 140) | (1, 2, 140) | fp32 | 3d尾轴不对齐，c,h切分 |
+| sum_fp32_007 | (2, 5, 152) | (1, 5, 32) | fp32 | 3d尾轴不对齐，c,w切分 |
+| sum_fp32_008 | (2, 3, 170) | (1, 3, 170) | fp32 | 3d尾轴不对齐，c切分 |
+| sum_fp32_009 | (5, 2, 4, 176) | (2, 1, 2, 16) | fp32 | 4d尾轴对齐，n,c,h,w切分 |
+| sum_fp32_010 | (5, 2, 4, 130) | (1, 1, 1, 130) | fp32 | 4d尾轴不对齐，n,c,h切分 |
+| sum_fp32_011 | (2, 3, 5, 134) | (1, 1, 5, 32) | fp32 | 4d尾轴不对齐，n,c,w切分 |
+| sum_fp32_012 | (4, 2, 6, 135) | (2, 2, 3, 32) | fp32 | 4d尾轴不对齐，n,h,w切分 |
+| sum_fp32_013 | (6, 2, 4, 130) | (1, 1, 4, 130) | fp32 | 4d尾轴不对齐，n,c切分 |
+| sum_fp32_014 | (3, 2, 3, 139) | (1, 2, 1, 139) | fp32 | 4d尾轴不对齐，n,h切分 |
+| sum_fp32_015 | (6, 3, 5, 141) | (3, 3, 5, 32) | fp32 | 4d尾轴不对齐，n,w切分 |
 ## 4. 基础数学运算
 
 ### 4.1. pypto.exp
@@ -411,93 +660,463 @@
 ### 6.1. pypto.transpose
 
 #### 6.1.1. 算子计算原理
-
+返回一个Tensor，该Tensor是输入Tensor的转置版本。指定的维度 dim0 和 dim1 将被交换。
 #### 6.1.2. pypto前段接口（python）以及支持范围
+```python
+transpose(input: Tensor, dim0: int, dim1: int) -> Tensor
+```
+##### 参数说明
 
+
+| 参数名  | 输入/输出 | 说明                                                                 |
+|---------|-----------|----------------------------------------------------------------------|
+| input   | 输入      | 源操作数。<br> 支持的类型为：Tensor。<br> Tensor支持的数据类型为：DT_FP16，DT_INT16，DT_UINT16，DT_FP32，DT_INT32，DT_UINT32。<br> 不支持空Tensor；Shape仅支持2-5维；Shape Size不大于2147483647（即INT32_MAX）。<br> 算子对不同 Shape 支持不同，详见约束说明。 |
+| dim0    | 输入      | 源操作数，要交换的第一个维度的索引，从0开始计数。 |
+| dim1    | 输入      | 源操作数，要交换的第二个维度的索引，从0开始计数。 |
+
+##### 返回值说明
+返回一个与输入数据类型一致的Tensor，其中 dim0 与 dim1 的维度位置被对调。
 #### 6.1.3. c++ tensor graph接口
 
 #### 6.1.4. c++ tile graph接口
-
+`transpose` 算子在 Tile Graph 层面会生成针对 NPU 硬件的 Tile 级转置操作，根据输入张量的形状和指定的维度交换生成相应的 Tile 操作。
+```CPP
+void TiledInnerTranspose(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
+    const LogicalTensorPtr &result, const std::vector<int> &shape) {
+    TileInfo tileInfo(result->shape.size(), result->offset.size());
+    auto input = Input{operand, tileInfo};
+    TiledInnerTranspose<T>(function, tileShape, 0, input, result, shape);
+}
+```
 #### 6.1.5. 算子npu计算使用的pto instruction
-
+- **PTO 指令**：TLoad、TTransMoveOut
 #### 6.1.6. 算子kernel的计算过程（搬运+计算）
+1. **数据搬运**：
+   - 将输入张量从全局内存加载到 NPU 的局部内存
+   - 根据 Tile 大小进行分块处理
+   - 优化内存访问模式，提高缓存命中率
 
+2. **计算**：
+   - 对每个 Tile 执行局部转置操作
+   - 利用 NPU 的向量处理能力，并行处理多个元素
+   - 对于大张量，采用分块转置策略
+
+3. **结果存储**：
+   - 将转置后的结果写回全局内存
+   - 确保输出张量的形状正确
 #### 6.1.7. tile shape设置约束
+1. TileShape和输入input维度一致，用于切分input。
 
+2.输入维度dim0，dim1 必须大于0，小于input维度。
+
+3.当前Transpose实现存在约束，只能支持以下场景转置：
+
+-   2维：任意轴
+-   3维：任意轴
+-   4维：支持：0轴和2轴，1轴和 3轴，2轴和3轴, 1轴和 2轴,  不支持：0轴和3轴,  0轴和1轴
+-   5维：支持：3轴和 4轴，其他不支持
+
+4.涉及尾轴转置的场景，需要预留一块临时空间，用来搬运。
+
+示例：
+
+input : \[a, b, c, d\]  TileShape为\[t0, t1, t2, t3\] 数据类型为DT\_FP32
+
+dim0: 2
+
+dim1: 3
+
+预留的临时空间为：t0 \* t1 \* align\(t2, 16\) \* align\(t3, 32 / sizeof\(DT\_FP32\)\)
 #### 6.1.8. 用例设计
-
+| 用例名称 | 输入维度 | tileshape | 输入dtype | 说明 |
+|----------|---------|-----------|-----------|------|
+| transpose_fp16_001 | (2, 3) | (1, 3) | fp16 | 2d转置，交换0和1轴 |
+| transpose_fp16_002 | (3, 4) | (1, 4) | fp16 | 2d转置，交换0和1轴 |
+| transpose_fp16_003 | (3, 4, 5) | (1, 2, 5) | fp16 | 3d转置，交换1和2轴 |
+| transpose_fp16_004 | (2, 3, 4) | (1, 3, 2) | fp16 | 3d转置，交换0和2轴 |
+| transpose_fp16_005 | (2, 3, 4, 5) | (1, 1, 2, 5) | fp16 | 4d转置，交换2和3轴 |
+| transpose_fp16_006 | (2, 3, 4, 5) | (1, 3, 1, 5) | fp16 | 4d转置，交换1和2轴 |
+| transpose_fp16_007 | (2, 3, 4, 5, 6) | (1, 1, 1, 2, 6) | fp16 | 5d转置，交换3和4轴 |
+| transpose_fp16_008 | (4, 5) | (2, 5) | fp16 | 2d转置，交换0和1轴 |
+| transpose_fp16_009 | (2, 5, 6) | (1, 5, 3) | fp16 | 3d转置，交换1和2轴 |
+| transpose_fp16_010 | (3, 2, 4, 5) | (1, 2, 2, 5) | fp16 | 4d转置，交换2和3轴 |
+| transpose_fp32_001 | (2, 3) | (1, 3) | fp32 | 2d转置，交换0和1轴 |
+| transpose_fp32_002 | (3, 4) | (1, 4) | fp32 | 2d转置，交换0和1轴 |
+| transpose_fp32_003 | (3, 4, 5) | (1, 2, 5) | fp32 | 3d转置，交换1和2轴 |
+| transpose_fp32_004 | (2, 3, 4) | (1, 3, 2) | fp32 | 3d转置，交换0和2轴 |
+| transpose_fp32_005 | (2, 3, 4, 5) | (1, 1, 2, 5) | fp32 | 4d转置，交换2和3轴 |
+| transpose_fp32_006 | (2, 3, 4, 5) | (1, 3, 1, 5) | fp32 | 4d转置，交换1和2轴 |
+| transpose_fp32_007 | (2, 3, 4, 5, 6) | (1, 1, 1, 2, 6) | fp32 | 5d转置，交换3和4轴 |
+| transpose_fp32_008 | (4, 5) | (2, 5) | fp32 | 2d转置，交换0和1轴 |
+| transpose_fp32_009 | (2, 5, 6) | (1, 5, 3) | fp32 | 3d转置，交换1和2轴 |
+| transpose_fp32_010 | (3, 2, 4, 5) | (1, 2, 2, 5) | fp32 | 4d转置，交换2和3轴 |
+| transpose_int32_001 | (2, 3) | (1, 3) | int32 | 2d转置，交换0和1轴 |
+| transpose_int32_002 | (3, 4) | (1, 4) | int32 | 2d转置，交换0和1轴 |
+| transpose_int32_003 | (3, 4, 5) | (1, 2, 5) | int32 | 3d转置，交换1和2轴 |
+| transpose_int32_004 | (2, 3, 4, 5) | (1, 1, 2, 5) | int32 | 4d转置，交换2和3轴 |
+| transpose_int32_005 | (4, 5) | (2, 5) | int32 | 2d转置，交换0和1轴 |
 ### 6.2. pypto.reshape
-
 #### 6.2.1. 算子计算原理
-
+改变Tensor形状，改变valid\_shape部分的形状\(Shape\)
 #### 6.2.2. pypto前段接口（python）以及支持范围
+```python
+reshape(input: Tensor,shape: List[int],*,valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None, inplace: bool = False) -> Tensor
+```
+##### 参数说明
 
+
+| 参数名      | 输入/输出 | 说明                                                                 |
+|-------------|-----------|----------------------------------------------------------------------|
+| input       | 输入      | 源操作数。 <br> 支持的数据类型为：PyPTO支持的数据类型 <br> 不支持空Tensor，Shape Size不大于INT32_MAX。 |
+| shape       | 输入      | 目标Shape。 <br> Shape Size不大于INT32_MAX；某个维度为-1时，支持自动推导。 |
+| valid_shape | 输入      | 输出Tensor的有效数据的Shape，且valid_shape Size不大于INT32_MAX。 |
+| inplace     | 输入      | 是否为inplace；参数为True时，不会为输出申请新地址； |
+
+##### 返回值说明
+
+返回输出Tensor，Tensor的数据类型和input相同，形状\(Shape\)为输入参数指定的shape。
+
+##### 约束说明
+
+inplace为True时，需要保证输入输出分别是当前loop的输入输出；输出不可作为整个Function的输出
 #### 6.2.3. c++ tensor graph接口
+```cpp
+Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape={}, const bool inplace=false); 
+Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dstshape, const std::initializer_list<SymbolicScalar> &validShape={}, const bool inplace=false); 
+Tensor Reshape(const Tensor &operand, const std::vector<SymbolicScalar> &dstShape, const bool inplace);
 
+void Reshape(const Tensor &operand, Tensor &dst);
+```
 #### 6.2.4. c++ tile graph接口
-
+`reshape` 算子在 Tile Graph 层面会生成针对 NPU 硬件的 Tile 级形状调整操作，根据输入张量的形状和目标形状生成相应的 Tile 操作。
+```CPP
+void TiledInnerReshape(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result, const bool isInplace = false) {
+    auto &op = function.AddOperation("TILE_RESHAPE", {operand}, {result});
+    op.SetAttribute(OP_ATTR_PREFIX + "isInplace", isInplace);
+    op.SetAttribute(OP_ATTR_PREFIX + "validShape", result->GetDynValidShape());
+    op.oOperand.front()->SetIsDummy();
+}
+```
 #### 6.2.5. 算子npu计算使用的pto instruction
-
+- **PTO 指令**：TLoad、TStore
 #### 6.2.6. 算子kernel的计算过程（搬运+计算）
+1. **数据搬运**：
+   - 如果是原地操作，直接使用原内存
+   - 如果不是原地操作，将数据从输入张量复制到新张量
+   - 优化内存访问模式，提高缓存命中率
 
+2. **计算**：
+   - 调整内存访问的映射关系
+   - 不需要实际的计算操作，主要是内存布局的调整
+
+3. **结果存储**：
+   - 如果是原地操作，直接修改原张量的形状信息
+   - 如果不是原地操作，将数据写入新张量
 #### 6.2.7. tile shape设置约束
-
+inplace为True时，需要保证输入输出分别是当前loop的输入输出；输出不可作为整个Function的输出
 #### 6.2.8. 用例设计
-
+| 用例名称 | 输入维度 | tileshape | 输入dtype | 说明 |
+|----------|---------|-----------|-----------|------|
+| reshape_fp16_001 | (2, 2) | (1, 2) | fp16 | 2d转4d，保持数据 |
+| reshape_fp16_002 | (4, 4) | (2, 2) | fp16 | 2d转1d，保持数据 |
+| reshape_fp16_003 | (2, 3, 4) | (1, 1, 2) | fp16 | 3d转2d，保持数据 |
+| reshape_fp16_004 | (2, 2, 2, 2) | (1, 1, 1, 1) | fp16 | 4d转2d，保持数据 |
+| reshape_fp16_005 | (8) | (4) | fp16 | 1d转2d，保持数据 |
+| reshape_fp16_006 | (3, 9) | (1, 3) | fp16 | 2d转3d，保持数据 |
+| reshape_fp16_007 | (2, 2, 6) | (1, 1, 2) | fp16 | 3d转4d，保持数据 |
+| reshape_fp16_008 | (4, 4, 4, 4) | (2, 2, 2, 2) | fp16 | 4d转1d，保持数据 |
+| reshape_fp16_009 | (12) | (6) | fp16 | 1d转3d，保持数据 |
+| reshape_fp16_010 | (2, 6) | (1, 3) | fp16 | 2d转4d，保持数据 |
+| reshape_fp32_001 | (2, 2) | (1, 2) | fp32 | 2d转4d，保持数据 |
+| reshape_fp32_002 | (4, 4) | (2, 2) | fp32 | 2d转1d，保持数据 |
+| reshape_fp32_003 | (2, 3, 4) | (1, 1, 2) | fp32 | 3d转2d，保持数据 |
+| reshape_fp32_004 | (2, 2, 2, 2) | (1, 1, 1, 1) | fp32 | 4d转2d，保持数据 |
+| reshape_fp32_005 | (8) | (4) | fp32 | 1d转2d，保持数据 |
+| reshape_fp32_006 | (3, 9) | (1, 3) | fp32 | 2d转3d，保持数据 |
+| reshape_fp32_007 | (2, 2, 6) | (1, 1, 2) | fp32 | 3d转4d，保持数据 |
+| reshape_fp32_008 | (4, 4, 4, 4) | (2, 2, 2, 2) | fp32 | 4d转1d，保持数据 |
+| reshape_fp32_009 | (12) | (6) | fp32 | 1d转3d，保持数据 |
+| reshape_fp32_010 | (2, 6) | (1, 3) | fp32 | 2d转4d，保持数据 |
+| reshape_inplace_fp32_001 | (2, 2) | (1, 2) | fp32 | 2d转4d，inplace操作 |
+| reshape_inplace_fp32_002 | (4, 4) | (2, 2) | fp32 | 2d转1d，inplace操作 |
+| reshape_inplace_fp32_003 | (2, 3, 4) | (1, 1, 2) | fp32 | 3d转2d，inplace操作 |
+| reshape_inplace_fp32_004 | (2, 2, 2, 2) | (1, 1, 1, 1) | fp32 | 4d转2d，inplace操作 |
+| reshape_inplace_fp32_005 | (8) | (4) | fp32 | 1d转2d，inplace操作 |
 ### 6.3. pypto.view
 
 #### 6.3.1. 算子计算原理
-
+从输入Tensor中取出部分视图，用于后续计算。
 #### 6.3.2. pypto前段接口（python）以及支持范围
+```python
+view(input: Tensor, shape: List[int] = None, offsets: List[Union[int, SymbolicScalar]] = None, *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None, dtype: DataType = None,
+) -> Tensor:
+```
+##### 参数说明
+
+
+| 参数名      | 输入/输出 | 说明                                                                 |
+|-------------|-----------|----------------------------------------------------------------------|
+| input       | 输入      | 源操作数。<br> 支持的数据类型为：PyPto支持的数据类型<br> 不支持空Tensor；Shape Size不大于2147483647（即INT32_MAX）。 |
+| shape       | 输入      | 获取出视图的大小。<br> Shape Size不大于2147483647（即INT32_MAX） |
+| offsets     | 输入      | 获取视图时每个维度相对于input的偏移。<br> 需要保证offsets小于input的Shape |
+| valid_shape | 输入      | 取出示意图块的有效数据大小。<br> 需要保证valid_shape小于input的Shape |
+| dtype       | 输入      | 返回值的数据类型，允许将输入数据解读为不同数据类型 |
+
+##### 返回值说明
+
+返回输出Tensor，Tensor的数据类型和input相同，Shape为参数shape指定大小，若指定了valid\_shape，则真实大小为valid\_shape。若指定dtype，则会将输入按照dtype进行读取。
 
 #### 6.3.3. c++ tensor graph接口
-
+```cpp
+Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets);
+Tensor View(const Tensor &operand, const DataType dstDataType);
+Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets);
+Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::initializer_list<SymbolicScalar> &newOffsets);
+Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,
+    const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets);
+```
 #### 6.3.4. c++ tile graph接口
+`view` 算子在 Tile Graph 层面会生成针对 NPU 硬件的 Tile 级视图操作，根据输入张量的形状、偏移和目标形状生成相应的 Tile 操作。
+```CPP
+void TiledViewTypeOperation(Function &function, const TileShape &tileShape,
+    const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
+    assert(operand->shape.size() == operand->offset.size());
 
+    TileInfo operandTileInfo(operand->shape.size(), operand->offset.size());
+    auto input = Input{operand, operandTileInfo};
+
+    float factor = (float)BytesOf(operand->tensor->datatype) / (float)BytesOf(result->tensor->datatype);
+    // 检查TileShape是否符合要求
+    if(factor < 1){
+        auto vecTile = tileShape.GetVecTile();
+        auto lastDim = vecTile[vecTile.size() - 1];
+        ASSERT(isInteger(lastDim * factor)) << "TileShape lastDim * factor must be int";
+    }
+    TiledViewTypeOperation(function, tileShape, 0, input, factor, result);
+}
+```
 #### 6.3.5. 算子npu计算使用的pto instruction
-
+- **PTO 指令**：TLoad、TStore
 #### 6.3.6. 算子kernel的计算过程（搬运+计算）
+1. **数据搬运**：
+   - 不需要实际的数据搬运，只是创建一个视图
+   - 建立从视图到原始张量的内存映射关系
+   - 优化内存访问模式，提高缓存命中率
 
-#### 6.3.7. tile shape设置约束
+2. **计算**：
+   - 不需要实际的计算操作，主要是内存访问的重映射
+   - 建立视图的内存访问逻辑
 
+3. **结果存储**：
+   - 不需要实际的存储操作，视图共享原始张量的内存
+   - 只是创建一个新的张量对象，指向原始张量的特定区域
 #### 6.3.8. 用例设计
-
+| 用例名称 | 输入维度 | tileshape | 输入dtype | 说明 |
+|----------|---------|-----------|-----------|------|
+| view_fp16_001 | (4, 8) | (2, 4) | fp16 | 2d视图，从(0,4)开始，形状(4,4) |
+| view_fp16_002 | (4, 8) | (2, 4) | fp16 | 2d视图，带valid_shape(2,4) |
+| view_fp16_003 | (2, 4, 8) | (1, 2, 4) | fp16 | 3d视图，从(0,0,4)开始，形状(2,4,4) |
+| view_fp16_004 | (2, 4, 8) | (1, 2, 4) | fp16 | 3d视图，带valid_shape(2,2,4) |
+| view_fp16_005 | (8) | (4) | fp16 | 1d视图，从(4)开始，形状(4) |
+| view_fp16_006 | (3, 6) | (1, 3) | fp16 | 2d视图，从(0,3)开始，形状(3,3) |
+| view_fp16_007 | (2, 3, 6) | (1, 1, 3) | fp16 | 3d视图，从(0,0,3)开始，形状(2,3,3) |
+| view_fp16_008 | (2, 2, 2, 4) | (1, 1, 1, 2) | fp16 | 4d视图，从(0,0,0,2)开始，形状(2,2,2,2) |
+| view_fp16_009 | (6) | (3) | fp16 | 1d视图，从(2)开始，形状(4) |
+| view_fp16_010 | (2, 8) | (1, 4) | fp16 | 2d视图，从(0,4)开始，形状(2,4) |
+| view_fp32_001 | (4, 8) | (2, 4) | fp32 | 2d视图，从(0,4)开始，形状(4,4) |
+| view_fp32_002 | (4, 8) | (2, 4) | fp32 | 2d视图，带valid_shape(2,4) |
+| view_fp32_003 | (2, 4, 8) | (1, 2, 4) | fp32 | 3d视图，从(0,0,4)开始，形状(2,4,4) |
+| view_fp32_004 | (2, 4, 8) | (1, 2, 4) | fp32 | 3d视图，带valid_shape(2,2,4) |
+| view_fp32_005 | (8) | (4) | fp32 | 1d视图，从(4)开始，形状(4) |
+| view_fp32_006 | (3, 6) | (1, 3) | fp32 | 2d视图，从(0,3)开始，形状(3,3) |
+| view_fp32_007 | (2, 3, 6) | (1, 1, 3) | fp32 | 3d视图，从(0,0,3)开始，形状(2,3,3) |
+| view_fp32_008 | (2, 2, 2, 4) | (1, 1, 1, 2) | fp32 | 4d视图，从(0,0,0,2)开始，形状(2,2,2,2) |
+| view_fp32_009 | (6) | (3) | fp32 | 1d视图，从(2)开始，形状(4) |
+| view_fp32_010 | (2, 8) | (1, 4) | fp32 | 2d视图，从(0,4)开始，形状(2,4) |
+| view_dtype_fp32_001 | (2, 2) | (1, 2) | fp32 | 2d视图，转换为int8 |
+| view_dtype_fp32_002 | (2, 2) | (1, 2) | fp32 | 2d视图，转换为fp16 |
+| view_dtype_fp32_003 | (4) | (2) | fp32 | 1d视图，转换为int8 |
+| view_dtype_fp32_004 | (2, 4) | (1, 2) | fp32 | 2d视图，转换为fp16 |
+| view_dtype_fp32_005 | (3, 3) | (1, 3) | fp32 | 2d视图，转换为int8 |
 ### 6.4. pypto.assemble
 
 #### 6.4.1. 算子计算原理
-
+以offsets指定的out索引位置为基准，将输入Tensor input赋值到输出Tensor out的对应区域。
 #### 6.4.2. pypto前段接口（python）以及支持范围
+```python
+assemble(input: Tensor, offsets: List[Union[int, SymbolicScalar]], out: Tensor) -> None
 
+assemble(inputs: List[Tuple[Tensor, List[Union[int, SymbolicScalar]]]], out: Tensor, parallel: bool = False) -> None
+```
+##### 参数说明
+
+
+| 参数名  | 输入/输出 | 说明                                                                 |
+|---------|-----------|----------------------------------------------------------------------|
+| input   | 输入      | 源操作数。 <br> 支持的数据类型为：PyPto支持的数据类型。 <br> 不支持空Tensor；Shape Size不大于2147483647（即INT32_MAX）。 |
+| inputs   | 输入      | 源操和输出偏移组成的Tuple列表。 <br> 单个支持的数据类型为：PyPto支持的数据类型。 <br> 不支持空Tensor；Shape Size不大于2147483647（即INT32_MAX）。 |
+| offsets | 输入      | 相对于目标输出的偏移。 <br> 需要保证offsets小于out的Shape。          |
+| out     | 输入      | 目的操作数。 <br> 支持的数据类型为：PyPto支持的数据类型。 <br> 不支持空Tensor；Shape Size不大于2147483647（即INT32_MAX）。 |
+| parallel | 输入      | 是否并行执行。 <br> 默认值为False |
+
+##### 返回值说明
+
+无返回值，会直接对out进行修改。
 #### 6.4.3. c++ tensor graph接口
+`assemble` 算子的 C++ 接口会调用相应的底层实现，将小张量组装到大多张量的指定位置。
+```CPP
+Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensors);
+void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest);
 
+struct AssembleItem {
+    Tensor tensor;
+    std::vector<SymbolicScalar> offsets;
+};
+
+void Assemble(const std::vector<AssembleItem> &items, Tensor &src, bool parallelInAssemble = false);
+```
 #### 6.4.4. c++ tile graph接口
+`assemble` 算子在 Tile Graph 层面会生成针对 NPU 硬件的 Tile 级组装操作，根据源张量、偏移和目标张量生成相应的 Tile 操作。
+```CPP
+void TiledAssemble(Function &function, const TileShape &tileShape,
+    const std::shared_ptr<LogicalTensor> &operand, const std::shared_ptr<LogicalTensor> &result,
+    std::shared_ptr<AssembleOpAttribute> attr) {
+    assert(operand->shape.size() == operand->offset.size());
 
+    TileInfo tileInfo(result->shape.size(), result->offset.size());
+    auto input = Input{operand, tileInfo};
+    TiledAssemble(function, tileShape, 0, input, result, attr);
+}
+```
 #### 6.4.5. 算子npu计算使用的pto instruction
-
+- **PTO 指令**：TLoad、TStore
 #### 6.4.6. 算子kernel的计算过程（搬运+计算）
+1. **数据搬运**：
+   - 将源张量的数据从全局内存加载到 NPU 的局部内存
+   - 将数据从局部内存写入目标张量的指定位置
+   - 优化内存访问模式，提高缓存命中率
 
-#### 6.4.7. tile shape设置约束
+2. **计算**：
+   - 不需要实际的计算操作，主要是数据复制
+   - 对于多个源张量，可以并行执行组装操作
 
+3. **结果存储**：
+   - 将组装后的数据写回目标张量的全局内存
+   - 确保数据正确写入指定位置
 #### 6.4.8. 用例设计
-
+| 用例名称 | 输入维度 | tileshape | 输入dtype | 说明 |
+|----------|---------|-----------|-----------|------|
+| assemble_fp16_001 | (2, 2) | (1, 2) | fp16 | 单张量组装，偏移(0,0)到(4,4)张量 |
+| assemble_fp16_002 | (2, 2) | (1, 2) | fp16 | 多张量组装，并行执行 |
+| assemble_fp16_003 | (3, 3) | (1, 3) | fp16 | 单张量组装，偏移(1,1)到(5,5)张量 |
+| assemble_fp16_004 | (2, 2, 2) | (1, 1, 2) | fp16 | 3d张量组装，偏移(0,0,0)到(3,3,3)张量 |
+| assemble_fp16_005 | (4) | (2) | fp16 | 1d张量组装，偏移(1)到(6)张量 |
+| assemble_fp16_006 | (2, 4) | (1, 2) | fp16 | 2d张量组装，偏移(0,2)到(3,6)张量 |
+| assemble_fp16_007 | (1, 2, 2) | (1, 1, 2) | fp16 | 3d张量组装，偏移(0,1,1)到(2,3,3)张量 |
+| assemble_fp16_008 | (2, 2, 2, 2) | (1, 1, 1, 2) | fp16 | 4d张量组装，偏移(0,0,0,0)到(3,3,3,3)张量 |
+| assemble_fp16_009 | (3) | (3) | fp16 | 1d张量组装，偏移(0)到(5)张量 |
+| assemble_fp16_010 | (1, 3) | (1, 3) | fp16 | 2d张量组装，偏移(0,0)到(2,5)张量 |
+| assemble_fp32_001 | (2, 2) | (1, 2) | fp32 | 单张量组装，偏移(0,0)到(4,4)张量 |
+| assemble_fp32_002 | (2, 2) | (1, 2) | fp32 | 多张量组装，并行执行 |
+| assemble_fp32_003 | (3, 3) | (1, 3) | fp32 | 单张量组装，偏移(1,1)到(5,5)张量 |
+| assemble_fp32_004 | (2, 2, 2) | (1, 1, 2) | fp32 | 3d张量组装，偏移(0,0,0)到(3,3,3)张量 |
+| assemble_fp32_005 | (4) | (2) | fp32 | 1d张量组装，偏移(1)到(6)张量 |
+| assemble_fp32_006 | (2, 4) | (1, 2) | fp32 | 2d张量组装，偏移(0,2)到(3,6)张量 |
+| assemble_fp32_007 | (1, 2, 2) | (1, 1, 2) | fp32 | 3d张量组装，偏移(0,1,1)到(2,3,3)张量 |
+| assemble_fp32_008 | (2, 2, 2, 2) | (1, 1, 1, 2) | fp32 | 4d张量组装，偏移(0,0,0,0)到(3,3,3,3)张量 |
+| assemble_fp32_009 | (3) | (3) | fp32 | 1d张量组装，偏移(0)到(5)张量 |
+| assemble_fp32_010 | (1, 3) | (1, 3) | fp32 | 2d张量组装，偏移(0,0)到(2,5)张量 |
+| assemble_int32_001 | (2, 2) | (1, 2) | int32 | 单张量组装，偏移(0,0)到(4,4)张量 |
+| assemble_int32_002 | (2, 2) | (1, 2) | int32 | 多张量组装，并行执行 |
+| assemble_int32_003 | (3, 3) | (1, 3) | int32 | 单张量组装，偏移(1,1)到(5,5)张量 |
+| assemble_int32_004 | (4) | (2) | int32 | 1d张量组装，偏移(1)到(6)张量 |
+| assemble_int32_005 | (2, 4) | (1, 2) | int32 | 2d张量组装，偏移(0,2)到(3,6)张量 |
 ### 6.5. pypto.unsqueeze
 
 #### 6.5.1. 算子计算原理
-
+为输入Tensor增加维度。
 #### 6.5.2. pypto前段接口（python）以及支持范围
+```python
+unsqueeze(input: Tensor, dim: int) -> Tensor
+```
+##### 参数说明
 
+
+| 参数名  | 输入/输出 | 说明                                                                 |
+|---------|-----------|----------------------------------------------------------------------|
+| input   | 输入      | 源操作数。<br> 支持的数据类型为：PyPto支持的数据类型<br> 不支持空Tensor；Shape Size不大于2147483647（即INT32_MAX）。 |
+| dim     | 输入      | 指定插入新维度的位置（索引）。<br> 支持负索引。<br> 需在 [-input.dim - 1, input.dim] 范围内。 |
+
+##### 返回值说明
+
+返回在指定维度dim处新增大小为1的维度的输出Tensor，与输入Tensor共享数据且属性一致。
 #### 6.5.3. c++ tensor graph接口
-
+```cpp
+Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum);
+```
 #### 6.5.4. c++ tile graph接口
+`unsqueeze` 算子在 Tile Graph 层面会生成针对 NPU 硬件的 Tile 级维度扩展操作，根据输入张量和指定的维度位置生成相应的 Tile 操作。
+同reshape
+```CPP
+Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum) {
+    DECLARE_TRACER();
 
+    ASSERT(unsqueezeDimNum < static_cast<int>(old.GetShape().size()) + 1 && unsqueezeDimNum >= -static_cast<int>(old.GetShape().size()) - 1);
+    size_t unsqueezeDim = unsqueezeDimNum;
+    if (unsqueezeDimNum < 0) {
+        unsqueezeDim = unsqueezeDimNum + old.GetShape().size() + 1;
+    }
+    std::vector<int64_t> newShape(old.GetStorage()->shape);
+    newShape.insert(newShape.begin() + unsqueezeDim, 1);
+    auto validShape = old.GetStorage()->GetDynValidShape();
+    ASSERT(!validShape.empty());
+    validShape.insert(validShape.begin() + unsqueezeDim, 1);
+    return Reshape(old, newShape, validShape);
+}
+```
 #### 6.5.5. 算子npu计算使用的pto instruction
-
+- **PTO 指令**：TLoad、TStore
 #### 6.5.6. 算子kernel的计算过程（搬运+计算）
 
-#### 6.5.7. tile shape设置约束
+1. **数据搬运**：
+   - 不需要实际的数据搬运，只是调整张量的形状信息
+   - 建立从新张量到原始张量的内存映射关系
 
+2. **计算**：
+   - 不需要实际的计算操作，主要是形状信息的调整
+   - 建立新维度的内存访问逻辑
+
+3. **结果存储**：
+   - 不需要实际的存储操作，新张量共享原始张量的内存
+   - 只是创建一个新的张量对象，具有扩展后的形状
 #### 6.5.8. 用例设计
-
+| 用例名称 | 输入维度 | tileshape | 输入dtype | 说明 |
+|----------|---------|-----------|-----------|------|
+| unsqueeze_fp16_001 | (2) | (2) | fp16 | 1d张量在0维添加维度 |
+| unsqueeze_fp16_002 | (2, 3) | (1, 3) | fp16 | 2d张量在0维添加维度 |
+| unsqueeze_fp16_003 | (2, 3) | (1, 3) | fp16 | 2d张量在1维添加维度 |
+| unsqueeze_fp16_004 | (2, 3, 4) | (1, 1, 4) | fp16 | 3d张量在2维添加维度 |
+| unsqueeze_fp16_005 | (2, 3, 4, 5) | (1, 1, 1, 5) | fp16 | 4d张量在3维添加维度 |
+| unsqueeze_fp16_006 | (5) | (5) | fp16 | 1d张量在0维添加维度 |
+| unsqueeze_fp16_007 | (3, 4) | (1, 4) | fp16 | 2d张量在0维添加维度 |
+| unsqueeze_fp16_008 | (3, 4, 5) | (1, 2, 5) | fp16 | 3d张量在1维添加维度 |
+| unsqueeze_fp16_009 | (2, 3, 4, 5, 6) | (1, 1, 1, 1, 6) | fp16 | 5d张量在4维添加维度 |
+| unsqueeze_fp16_010 | (4) | (4) | fp16 | 1d张量在0维添加维度 |
+| unsqueeze_fp32_001 | (2) | (2) | fp32 | 1d张量在0维添加维度 |
+| unsqueeze_fp32_002 | (2, 3) | (1, 3) | fp32 | 2d张量在0维添加维度 |
+| unsqueeze_fp32_003 | (2, 3) | (1, 3) | fp32 | 2d张量在1维添加维度 |
+| unsqueeze_fp32_004 | (2, 3, 4) | (1, 1, 4) | fp32 | 3d张量在2维添加维度 |
+| unsqueeze_fp32_005 | (2, 3, 4, 5) | (1, 1, 1, 5) | fp32 | 4d张量在3维添加维度 |
+| unsqueeze_fp32_006 | (5) | (5) | fp32 | 1d张量在0维添加维度 |
+| unsqueeze_fp32_007 | (3, 4) | (1, 4) | fp32 | 2d张量在0维添加维度 |
+| unsqueeze_fp32_008 | (3, 4, 5) | (1, 2, 5) | fp32 | 3d张量在1维添加维度 |
+| unsqueeze_fp32_009 | (2, 3, 4, 5, 6) | (1, 1, 1, 1, 6) | fp32 | 5d张量在4维添加维度 |
+| unsqueeze_fp32_010 | (4) | (4) | fp32 | 1d张量在0维添加维度 |
+| unsqueeze_int32_001 | (2) | (2) | int32 | 1d张量在0维添加维度 |
+| unsqueeze_int32_002 | (2, 3) | (1, 3) | int32 | 2d张量在0维添加维度 |
+| unsqueeze_int32_003 | (2, 3, 4) | (1, 1, 4) | int32 | 3d张量在2维添加维度 |
+| unsqueeze_int32_004 | (5) | (5) | int32 | 1d张量在0维添加维度 |
+| unsqueeze_int32_005 | (3, 4) | (1, 4) | int32 | 2d张量在0维添加维度 |
 ## 7. 张量操作
 
 ### 7.1. pypto.full
