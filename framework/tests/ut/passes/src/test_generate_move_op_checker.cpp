@@ -458,5 +458,221 @@ TEST_F(TestGenerateMoveOpChecker, PostCheck_View_MemoryTypeMismatch) {
     
     EXPECT_EQ(postCheckStatus, FAILED);
 }
+
+TEST_F(TestGenerateMoveOpChecker, ViewInputNullCheck) {
+    PROGRAM("GenerateMoveOpPassTest") {
+        std::vector<int64_t> shape1{256, 256};
+        std::vector<int64_t> shape2{128, 128};
+        TileShape::Current().SetVecTile({128, 128});
+        Tensor input_a(DT_FP32, shape1, "input_a");
+        Tensor input_b(DT_FP32, shape1, "input_b");
+        Tensor output(DT_FP32, shape2, "output");
+
+        PassManager &passManager = PassManager::Instance();
+        passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
+            { "GenerateMoveOp", PassName::GENERATE_MOVE_OP },
+        });
+        ConfigManager::Instance();
+
+        Function* originFunction = nullptr;
+        std::vector<int> originOpmagic;
+        config::SetBuildStatic(true);
+        FUNCTION("VIEW", {input_a, input_b, output}) {
+            config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
+            auto tmp_view = View(input_a, shape2, {0,0});
+            output = tmp_view;
+        }
+
+        std::string jsonFilePath = "./view_null_check.json";
+        bool dumpJsonFlag = true;
+        if (dumpJsonFlag) {
+            auto programJson = Program::GetInstance().DumpJson();
+            DumpJsonFile(programJson, jsonFilePath);
+        }
+        Json readData = LoadJsonFile(jsonFilePath);
+        Program::GetInstance().LoadJson(readData);
+
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_VIEW");
+        ASSERT_NE(originFunction, nullptr);
+        for (auto& op : originFunction->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_VIEW) {
+                auto& inputs = op.GetIOperands();
+                if (!inputs.empty()) {
+                    inputs[0] = nullptr;
+                }
+            }
+        }
+
+        GenerateMoveOp generateMoveOp;
+        bool preCheck = generateMoveOp.PreCheck(*originFunction);
+        
+        EXPECT_EQ(preCheck, true);
+    }
+}
+
+TEST_F(TestGenerateMoveOpChecker, ViewOutputNullCheck) {
+    PROGRAM("GenerateMoveOpPassTest") {
+        std::vector<int64_t> shape1{256, 256};
+        std::vector<int64_t> shape2{128, 128};
+        TileShape::Current().SetVecTile({128, 128});
+        Tensor input_a(DT_FP32, shape1, "input_a");
+        Tensor input_b(DT_FP32, shape1, "input_b");
+        Tensor output(DT_FP32, shape2, "output");
+        Tensor output2(DT_FP32, shape2, "output2");
+
+        PassManager &passManager = PassManager::Instance();
+        passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
+            { "GenerateMoveOp", PassName::GENERATE_MOVE_OP },
+        });
+        ConfigManager::Instance();
+
+        Function* originFunction = nullptr;
+        std::vector<int> originOpmagic;
+        config::SetBuildStatic(true);
+
+        FUNCTION("VIEW", {input_a, input_b, output, output2}) {
+            config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
+            auto tmp_view = View(input_a, shape2, {0,0});
+            output = tmp_view;
+            output2 = tmp_view;
+        }
+
+        std::string jsonFilePath = "./view_output_null_check.json";
+        bool dumpJsonFlag = true;
+        if (dumpJsonFlag) {
+            auto programJson = Program::GetInstance().DumpJson();
+            DumpJsonFile(programJson, jsonFilePath);
+        }
+        Json readData = LoadJsonFile(jsonFilePath);
+        Program::GetInstance().LoadJson(readData);
+
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_VIEW");
+        ASSERT_NE(originFunction, nullptr);
+        for (auto& op : originFunction->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_VIEW) {
+                auto& outputs = op.GetOOperands();
+                if (!outputs.empty()) {
+                    outputs[0] = nullptr;
+                }
+            }
+        }
+
+        GenerateMoveOp generateMoveOp;
+        bool preCheck = generateMoveOp.PreCheck(*originFunction);
+        
+        EXPECT_EQ(preCheck, true);
+    }
+}
+
+TEST_F(TestGenerateMoveOpChecker, AssembleInputNullCheck) {
+    PROGRAM("GenerateMoveOpPassTest") {
+        std::vector<int64_t> shape1{128, 128};
+        std::vector<int64_t> shape2{256, 128};
+        TileShape::Current().SetVecTile({128, 128});
+
+        Tensor input_a(DT_FP32, shape1, "input_a");
+        Tensor input_b(DT_FP32, shape1, "input_b");
+        Tensor output(DT_FP32, shape2, "output");
+
+        PassManager &passManager = PassManager::Instance();
+        passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
+            { "GenerateMoveOp", PassName::GENERATE_MOVE_OP },
+        });
+        ConfigManager::Instance();
+
+        Function* originFunction = nullptr;
+        config::SetBuildStatic(true);
+
+        FUNCTION("ASSEMBLE", {input_a, input_b, output}) {
+            config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
+            
+            Assemble({{input_a, {0, 0}}, {input_b, {128, 0}}});
+        }
+
+        std::string jsonFilePath = "./assemble_null_check.json";
+        DumpJsonFile(Program::GetInstance().DumpJson(), jsonFilePath);
+        Json readData = LoadJsonFile(jsonFilePath);
+        Program::GetInstance().LoadJson(readData);
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_ASSEMBLE");
+
+        for (auto& op : originFunction->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+                auto& inputs = op.GetIOperands();
+                inputs[0] = nullptr;
+            }
+        }
+
+        GenerateMoveOp generateMoveOp;
+        bool preCheck = generateMoveOp.PreCheck(*originFunction);
+        
+        EXPECT_EQ(preCheck, true);
+    }
+}
+
+TEST_F(TestGenerateMoveOpChecker, AssembleOutputNullCheck) {
+    PROGRAM("GenerateMoveOpPassTest") {
+        std::vector<int64_t> shape1{128, 128};
+        std::vector<int64_t> shape2{256, 128};
+        TileShape::Current().SetVecTile({128, 128});
+
+        Tensor input_a(DT_FP32, shape1, "input_a");
+        Tensor input_b(DT_FP32, shape1, "input_b");
+        Tensor output(DT_FP32, shape2, "output");
+
+        PassManager &passManager = PassManager::Instance();
+        passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
+            { "GenerateMoveOp", PassName::GENERATE_MOVE_OP },
+        });
+        ConfigManager::Instance();
+
+        Function* originFunction = nullptr;
+        config::SetBuildStatic(true);
+
+        FUNCTION("ASSEMBLE", {input_a, input_b, output}) {
+            config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
+        
+            Assemble({{input_a, {0, 0}}, {input_b, {128, 0}}});
+        }
+
+        std::string jsonFilePath = "./assemble_output_null_check.json";
+        DumpJsonFile(Program::GetInstance().DumpJson(), jsonFilePath);
+        Json readData = LoadJsonFile(jsonFilePath);
+        Program::GetInstance().LoadJson(readData);
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_ASSEMBLE");
+
+        for (auto& op : originFunction->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+                auto& outputs = op.GetOOperands();
+                outputs[0] = nullptr;
+            }
+        }
+
+        GenerateMoveOp generateMoveOp;
+        bool preCheck = generateMoveOp.PreCheck(*originFunction);
+        
+        EXPECT_EQ(preCheck, true);
+    }
+}
+
+TEST_F(TestGenerateMoveOpChecker, ConvertOp_ShapeMismatch) {
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestConvertShapeMismatch", "TestConvertShapeMismatch", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int64_t> shape_in  = {16, 32};
+    std::vector<int64_t> shape_out = {16, 64};
+    
+    auto inTensor  = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape_in);
+    auto outTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape_out);
+    auto &convertOp = currFunctionPtr->AddOperation(Opcode::OP_CONVERT, {inTensor}, {outTensor});
+    auto convertAttr = std::make_shared<ConvertOpAttribute>(MEM_UB, MEM_DEVICE_DDR);
+    convertOp.SetOpAttribute(convertAttr);
+
+    currFunctionPtr->inCasts_.push_back(inTensor);
+    currFunctionPtr->outCasts_.push_back(outTensor);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
 } // namespace tile_fwk
 } // namespace npu
