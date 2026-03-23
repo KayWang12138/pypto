@@ -647,7 +647,7 @@ class AtomicType(enum.Enum):
     ADD = ...      
 
 
-def CreateShmemData(
+def CreateShmemTensor(
     group: str, 
     world_size: int, 
     dtype: DataType, 
