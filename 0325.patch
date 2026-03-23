@@ -1,0 +1,1086 @@
+diff --git a/.agents/skills/pypto-binary-search-verify/SKILL.md b/.agents/skills/pypto-binary-search-verify/SKILL.md
+index ce7ff28c..b50e970d 100644
+--- a/.agents/skills/pypto-binary-search-verify/SKILL.md
++++ b/.agents/skills/pypto-binary-search-verify/SKILL.md
+@@ -4,9 +4,9 @@ description: PyPTO 算子查找精度问题调试技能。利用精度工具通
+ license: 完整条款见 LICENSE.txt
+ ---
+ 
+-# PyPTO 算子精度问题查找调试技能
++# PyPTO 算子精度问题全量对比调试技能
+ 
+-利用精度工具快速定位 PyPTO 算子中导致精度问题的具体 op。
++利用精度工具一次性对比所有关键计算节点的中间结果，快速定位 PyPTO 算子中导致精度问题的具体 op。
+ 
+ ## 核心原理
+ 
+@@ -14,17 +14,28 @@ license: 完整条款见 LICENSE.txt
+ 2. **kernel 保存**：在 kernel 函数中使用 `pypto.pass_verify_save()` 保存中间结果（循环场景使用 `cond=(idx == 0)`）
+ 3. **golden 保存**：在 golden 函数中使用 `numpy.tofile()` 保存中间结果（循环场景使用 `if idx == 0:`）
+ 4. **数据对比**：使用对比工具检查 kernel 的 `.data` 文件和 golden 的 `.bin` 文件
+-5. **二分查找**：结果相同→往后 dump，不同→往前 dump
+-6. **定位问题**：定位第一个计算结果不同的 op
+-7. **插入原则**：一次性添加的检查点不要多，从关键的节点开始，插入的检查点数据切片必须一致
++5. **全量对比**：一次性开启所有关键计算节点的检查点，对比所有中间结果
++6. **定位问题**：根据对比结果定位第一个计算结果不同的 op
++7. **插入原则**：正常情况下一次性添加的检查点不要多，从关键的节点开始，插入的检查点数据切片必须一致
+ 8. **数据类型**：读取数据时根据 csv 文件中的 dtype 自动判断数据类型（BF16/FP32 等）
+ 
++### 检查点对齐三要素
++
++添加检查点时，必须确保以下三点完全一致：
++
++1. **计算语义一致**：检查点变量在 kernel 和 golden 中的计算逻辑必须相同
++2. **切块大小一致**：检查点变量在 kernel 和 golden 中取的数据块大小必须相同。
++3. **数据维度一致**：保存的 tensor 形状必须完全匹配
++
++如果发现golden和kernel无法对应上检查点，请重写golden，和kernel保证计算逻辑，切块一致，再进行精度对比
++
++
+ ## 核心原则
+ 
+ ### 原则 1：插入检查点（kernel 函数）
+ 
+ ```python
+-# 必须启用验证选项
++# 必须启用验证选项（重要，不开启无法保存数据文件）
+ verify_options = {
+     "enable_pass_verify": True,
+     "pass_verify_save_tensor": True,
+@@ -47,16 +58,23 @@ def kernel(inputs, outputs):
+ ### 原则 2：保存 golden 中间结果
+ 
+ ```python
++import os
++import time
++
++# 创建以算子名称和时间戳命名的文件夹，在执行路径下
++output_dir = f"golden_data_{operator_name}_{int(time.time())}"
++os.makedirs(output_dir, exist_ok=True)
++
+ def golden(inputs, outputs):
+     # 基础场景
+     temp1 = compute_op1(inputs[0])
+-    temp1.cpu().numpy().tofile("golden_checkpoint1_after_op1.bin")
++    temp1.cpu().numpy().tofile(f"{output_dir}/golden_checkpoint1_after_op1.bin")
+ 
+     # 循环场景：只保存 idx=0 的数据
+     for idx in range(batch_size):
+         temp = compute_op(inputs[idx])
+         if idx == 0:
+-            temp.cpu().numpy().tofile(f"golden_checkpoint_idx{idx}.bin")
++            temp.cpu().numpy().tofile(f"{output_dir}/golden_checkpoint_idx{idx}.bin")
+ ```
+ 
+ **文件命名约定**：
+@@ -65,9 +83,28 @@ def golden(inputs, outputs):
+ - 名称必须匹配（去掉 `golden_` 前缀和数字后缀）
+ - 循环场景需在名称中包含 `idx` 信息
+ 
+-### 原则 3：二分查找策略
++**检查点命名前缀规则**：
++- 为保证对比时按计算顺序执行，检查点名称必须按计算顺序添加数字前缀
++- 格式：`{序号}_{检查点名称}`，如 `1_sij`、`2_sij_scale`，golden格式`golden_1_sij.bin`
++- 对比工具会按开头的数字排序检查点，确保按计算顺序对比
++- 示例：
++  ```python
++  # ✓ 推荐：按计算顺序添加前缀
++  pypto.pass_verify_save(sij, "1_sij_idx0", cond=(b_idx == 0))
++  # golden 中对应保存
++  sij.cpu().numpy().tofile("golden_1_sij_idx0.bin")
++  ```
++### 原则 3：全量对比策略
+ 
+ ```
++一次性开启所有关键计算节点的检查点
++对比所有中间结果，定位第一个计算结果不同的 op
++```
++
++**优势**：
++- 一次性对比所有检查点，快速定位问题
++- 避免多次二分查找的重复操作
++- 通过对比结果直接看出哪些步骤有问题
+ 输入 [op1] [op2] [op3] ... [opN] 输出
+   ↑                              ↑
+ 正确                          不正确
+@@ -120,20 +157,16 @@ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.p
+ **原则**：保持保存的数据维度一致
+ 
+ **两种解决思路**：
+-1. **golden 保存对应的切片数据**（推荐）
+-   - golden 一次性计算完整数据
++1. **golden 保存对应的切片数据**
++   - golden 一次性计算完整数据（仅此情形下可用）
+    - 只保存与 kernel 对应的切片（如 `result[0:tile_b]`，根据循环层数修改）
+    - 数据范围与 kernel 的 `idx=0` 切片完全一致
+ 
+-2. **kernel 在循环外保存完整数据**
+-   - kernel 在循环外定义完整大小的 tensor
+-   - 循环内使用 assemble 或赋值填充数据
+-   - 循环结束后保存完整 tensor
+-   - golden 一次性计算完整数据
++2. **golden 改写为和kernel实现完全一致** （推荐）
++   - 根据kernel侧实现，改写golden
++   - 循环方式，数据读取方式和切块方式需完全对应
++   - golden 函数需要模拟 kernel 的循环结构和分块策略
+ 
+-**选择依据**：
+-- 如果切块是为了性能优化（分批处理），用方案 1（推荐）
+-- 如果需要验证完整输出的正确性，用方案 2
+ 
+ ### 5. 精度标准问题
+ 
+@@ -148,6 +181,26 @@ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.p
+ | FP16 | 6 | 1e-3 | 1e-3 |
+ | INT32 | 3 | 1e-5 | 1e-5 |
+ 
++### 6. 量化场景容差设置
++
++**问题**：量化算子由于量化误差，需要更宽松的容差标准
++
++**修正**：使用 `--rtol` 和 `--atol` 参数指定自定义容差：
++
++```bash
++# 量化场景推荐容差：rtol=0.0078125, atol=0.0001
++python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py \
++    --rtol 0.0078125 \
++    --atol 0.0001 \
++    -v
++```
++
++**说明**：
++- 量化算子由于量化误差，正常情况下会有较大的精度差异
++- 使用更宽松的容差可以避免误判
++- 推荐值：`rtol=0.0078125, atol=0.0001`
++- 如果仍然有大量 FAIL，可以进一步放宽容差
++
+ ### 6. 对比逻辑问题
+ 
+ **问题**：只看最大差异容易误判，应统计不匹配率
+@@ -181,29 +234,29 @@ python3 test_operator.py
+ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py -v
+ ```
+ 
+-### 步骤 4：继续二分
++### 步骤 4：分析对比结果
+ 
+-根据对比结果：
+-- **匹配** → 问题在后面，在后面插入新检查点
+-- **不匹配** → 问题在前或此处，在前面插入新检查点
++根据对比结果定位问题：
++- 查看哪些检查点不匹配
++- 不匹配的检查点就是导致精度问题的位置
++- 分析不匹配率、最大差异等指标
+ 
+-### 步骤 5：定位并修复
++### 步骤 5：绘制精度变化图（可选）
+ 
+-重复步骤 1-4，直到定位到具体的 op，然后修复问题。
++使用绘图脚本可视化精度变化：
++```bash
++python3 .agents/skills/pypto-binary-search-verify/scripts/plot_accuracy.py
++```
++
++### 步骤 6：定位并修复
++
++根据对比结果定位到具体的 op，然后修复问题。
+ 
+ ## 最佳实践
+ 
+ ### 1. 检查点命名
+ 
+ 使用有意义的名称，反映计算步骤：
+-```python
+-# ✓ 推荐
+-pypto.pass_verify_save(sij, "checkpoint1_after_qk_matmul")
+-pypto.pass_verify_save(sij, "checkpoint1_qk_idx$idx", cond=(idx == 0))
+-
+-# ✗ 不推荐
+-pypto.pass_verify_save(sij, "temp1")
+-```
+ 
+ ### 2. 循环场景处理
+ 
+@@ -212,17 +265,14 @@ pypto.pass_verify_save(sij, "temp1")
+ - kernel 和 golden 必须保存相同的 idx 数据
+ - 避免生成过多文件
+ 
+-### 3. 渐进式二分
++### 3. 全量对比模式
+ 
+-```
+-第1轮：输入 → 中间 → 输出（3个检查点）
+-  ↓ 发现中间不匹配
+-第2轮：在中间位置前后插入检查点（5个检查点）
+-  ↓ 继续缩小范围
+-第3轮：在问题范围内插入更多检查点
+-  ↓
+-定位到具体 op
+-```
++一次性开启所有关键计算节点的检查点，对比所有中间结果。
++
++**使用场景**：
++- 算子计算步骤较多，需要全面检查
++- 已经知道大概的问题范围，需要精确定位
++- 需要分析整个计算流程的精度变化
+ 
+ ### 4. 清理调试代码
+ 
+@@ -270,9 +320,13 @@ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.p
+ 
+ # 指定工作目录
+ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py -w /path/to/operator -v
++
++# 指定 golden 文件所在目录（当 golden 文件保存在独立文件夹时使用，推荐）
++python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py -w /path/to/operator -g /path/to/golden_data_operator_xxx -v
++
+ ```
+ 
+-工具功能：
++**工具功能**：
+ - ✓ 自动检测最新 output 目录
+ - ✓ 自动扫描所有检查点文件
+ - ✓ 智能匹配 jit 和 golden 文件
+@@ -280,6 +334,7 @@ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.p
+ - ✓ 统计不匹配率而非只看最大差异
+ - ✓ 自动分析并给出二分建议
+ - ✓ 支持详细元素级对比
++- ✓ 按检查点名称开头的数字排序，确保按计算顺序对比
+ 
+ ## 检查清单
+ 
+@@ -290,16 +345,22 @@ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.p
+   - [ ] kernel 函数中使用 `pypto.pass_verify_save(tensor, fname)`
+   - [ ] golden 函数中使用 `numpy.tofile()` 保存中间结果
+   - [ ] 循环场景使用 `cond=(idx == 0)` 和 `if idx == 0:`
+-  - [ ] 文件命名遵循约定
++  - [ ] 文件命名遵循约定（添加数字前缀）
+   - [ ] 检查点插入位置要一一对应（避免连乘 vs 分步）
+   - [ ] 切块计算要保持一致（golden 切块或 kernel assemble）
++  - [ ] golden 和 kernel 的切块逻辑完全一致（相同的分块参数、循环结构）
+ - [ ] **步骤 2**：运行测试生成数据
++  - [ ] golden 数据保存到独立文件夹（以算子名称和时间戳命名）
++  - [ ] 避免与之前测试的 golden 文件混淆
+ - [ ] **步骤 3**：对比检查点
+   - [ ] 在正确目录下使用通用工具
++  - [ ] 如 golden 文件在独立文件夹，使用 `--golden-dir` 参数指定
+   - [ ] 查看对比结果和不匹配率
++  - [ ] 确认检查点按计算顺序对比
+ - [ ] **步骤 4**：继续二分
+   - [ ] 根据对比结果判断问题位置
+   - [ ] 在问题范围内插入新的检查点
++  - [ ] 保持检查点命名前缀的连续性
+ - [ ] **步骤 5**：定位并修复
+   - [ ] 定位到具体的 op
+   - [ ] 修复问题
+diff --git a/.agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py b/.agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py
+index 943412d9..9d196100 100644
+--- a/.agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py
++++ b/.agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py
+@@ -17,18 +17,19 @@ import sys
+ import glob
+ import argparse
+ import logging
++import re
+ from pathlib import Path
+ import numpy as np
+ 
+ 
++# 初始化日志（先只输出到控制台）
+ logging.basicConfig(
+     level=logging.INFO,
+     format='%(message)s',
+-    handlers=[
+-        logging.StreamHandler(sys.stdout)
+-    ]
++    handlers=[logging.StreamHandler(sys.stdout)]
+ )
+ logger = logging.getLogger(__name__)
++logger = logging.getLogger(__name__)
+ 
+ 
+ def find_latest_output_dir(work_dir="."):
+@@ -46,15 +47,10 @@ def find_latest_output_dir(work_dir="."):
+     return output_dirs[0]
+ 
+ 
+-def scan_checkpoints(work_dir="."):
+-    """扫描所有检查点文件"""
+-    latest_dir = find_latest_output_dir(work_dir)
+-    if not latest_dir:
+-        return None, []
+-
+-    tensor_dir = os.path.join(work_dir, "output", latest_dir, "tensor")
++def scan_checkpoints_from_dir(tensor_dir):
++    """从指定目录扫描所有检查点文件"""
+     if not os.path.exists(tensor_dir):
+-        return latest_dir, []
++        return []
+ 
+     # 查找所有 .data 文件
+     data_files = glob.glob(os.path.join(tensor_dir, "*.data"))
+@@ -70,11 +66,32 @@ def scan_checkpoints(work_dir="."):
+             checkpoint_name = parts[0]
+             checkpoints.add(checkpoint_name)
+ 
+-    return latest_dir, sorted(list(checkpoints))
++    # 按开头的数字排序
++    def get_sort_key(name):
++        # 提取开头的数字
++        match = re.match(r'^(\d+)', name)
++        if match:
++            return int(match.group(1))
++        return float('inf')  # 如果没有数字，排在最后
+ 
++    return sorted(list(checkpoints), key=get_sort_key)
+ 
+-def get_tolerance_by_dtype(dtype):
+-    """根据数据类型返回对应的容差标准"""
++
++def get_tolerance_by_dtype(dtype, custom_rtol=None, custom_atol=None):
++    """根据数据类型返回对应的容差标准
++    
++    Args:
++        dtype: 数据类型
++        custom_rtol: 自定义相对容差（用于量化场景）
++        custom_atol: 自定义绝对容差（用于量化场景）
++    
++    Returns:
++        (rtol, atol): 相对容差和绝对容差
++    """
++    # 如果指定了自定义容差，优先使用
++    if custom_rtol is not None and custom_atol is not None:
++        return custom_rtol, custom_atol
++    
+     # 容差标准映射表（常用数据类型）
+     tolerance_map = {
+         1: (1e-3, 1e-3),   # DT_INT8
+@@ -120,7 +137,7 @@ def read_jit_data(filename):
+             data_fp32 = data_bf16.astype(np.uint32) << 16
+             data = data_fp32.view(np.float32)
+             logger.warning(f"  警告: 未找到 CSV 文件，假设为 BF16 格式")
+-            return data, 8  # 返回 BF16 的 dtype
++            return data, 8  # 返回返回 BF16 的 dtype
+         else:
+             return np.fromfile(filename, dtype=np.float32), 7  # 返回 FP32 的 dtype
+ 
+@@ -177,60 +194,29 @@ def read_jit_data(filename):
+         logger.warning(f"  警告: 数据类型 {type_name} (dtype={dtype}) 暂不支持，尝试作为 FP32 读取")
+         return np.fromfile(filename, dtype=np.float32), dtype
+ 
+-    type_name, bytes_per_element = dtype_map[dtype]
+-
+-    # 处理不同的数据类型
+-    if type_name == 'bf16':
+-        # BF16 转 FP32
+-        data_bf16 = np.frombuffer(data_bytes.tobytes(), dtype=np.uint16)
+-        data_fp32 = data_bf16.astype(np.uint32) << 16
+-        data = data_fp32.view(np.float32)
+-        return data
+-    elif type_name == 'fp16':
+-        # FP16 转 FP32
+-        data_fp16 = np.frombuffer(data_bytes.tobytes(), dtype=np.float16)
+-        return data_fp16.astype(np.float32)
+-    elif type_name == 'fp32':
+-        return np.fromfile(filename, dtype=np.float32)
+-    elif type_name == 'double':
+-        data_double = np.fromfile(filename, dtype=np.float64)
+-        return data_double.astype(np.float32)
+-    elif type_name == 'int32':
+-        data_int32 = np.fromfile(filename, dtype=np.int32)
+-        return data_int32.astype(np.float32)
+-    elif type_name == 'int64':
+-        data_int64 = np.fromfile(filename, dtype=np.int64)
+-        return data_int64.astype(np.float32)
+-    elif type_name in ['int8', 'int16', 'uint8', 'uint16', 'uint32', 'uint64', 'bool']:
+-        # 整数类型转浮点
+-        dtype_numpy = {
+-            'int8': np.int8,
+-            'int16': np.int16,
+-            'uint8': np.uint8,
+-            'uint16': np.uint16,
+-            'uint32': np.uint32,
+-            'uint64': np.uint64,
+-            'bool': np.bool_,
+-        }
+-        data_int = np.fromfile(filename, dtype=dtype_numpy[type_name])
+-        return data_int.astype(np.float32)
+-    else:
+-        # 其他特殊类型 (int4, fp8, hf4, hf8 等)
+-        logger.warning(f"  警告: 数据类型 {type_name} (dtype={dtype}) 暂不支持,尝试作为原始字节读取")
+-        return data_bytes.view(np.float32)
+-
+-    return np.fromfile(filename, dtype=np.float32)
+ 
+-
+-def compare_with_golden(jit_data, golden_data, name, dtype=None, verbose=True):
+-    """对比 jit 结果与 golden 结果"""
++def compare_with_golden(jit_data, golden_data, name, dtype=None, verbose=True, custom_rtol=None, custom_atol=None):
++    """对比 jit 结果与 golden 结果
++    
++    Args:
++        jit_data: jit 数据
++        golden_data: golden 数据
++        name: 检查点名称
++        dtype: 数据类型
++        verbose: (bool, optional): 是否显示详细对比
++        custom_rtol: 自定义相对容差（用于量化场景）
++        custom_atol: 自定义绝对容差（用于量化场景）
++    
++    Returns:
++        bool: 是否匹配
++    """
+     min_size = min(jit_data.shape[0], golden_data.shape[0])
+     jit_data_to_compare = jit_data[:min_size]
+     golden_data_to_compare = golden_data[:min_size]
+ 
+     # 根据 dtype 获取对应的容差
+     if dtype is not None:
+-        rtol, atol = get_tolerance_by_dtype(dtype)
++        rtol, atol = get_tolerance_by_dtype(dtype, custom_rtol, custom_atol)
+     else:
+         # 默认容差（向后兼容）
+         rtol, atol = 1e-3, 1e-3
+@@ -242,13 +228,17 @@ def compare_with_golden(jit_data, golden_data, name, dtype=None, verbose=True):
+     close_mask = np.isclose(jit_data_to_compare, golden_data_to_compare, rtol=rtol, atol=atol)
+     mismatch_count = (~close_mask).sum()
+     total_count = min_size
+-    
++
+     # 计算统计信息（用于显示）
+     diff = np.abs(jit_data_to_compare - golden_data_to_compare)
+     max_diff = np.max(diff)
+     max_val = np.max(np.abs(golden_data_to_compare))
+     relative_error = max_diff / (max_val + 1e-10)
+-    
++
++    # 计算实际得到的rtol和atol
++    actual_rtol = relative_error
++    actual_atol = max_diff
++
+     # 判断条件：不匹配个数 < 总数 * max(rtol, atol)
+     threshold = total_count * max(rtol, atol)
+     match = mismatch_count < threshold
+@@ -260,6 +250,7 @@ def compare_with_golden(jit_data, golden_data, name, dtype=None, verbose=True):
+     logger.info(f"  Relative error: {relative_error:.6f}")
+     logger.info(f"  Mismatch count: {mismatch_count}/{total_count} ({mismatch_count/total_count*100:.2f}%)")
+     logger.info(f"  Tolerance: rtol={rtol}, atol={atol} (dtype={dtype})")
++    logger.info(f"  Actual: rtol={actual_rtol:.6f}, atol={actual_atol:.6f}")
+ 
+     if verbose and not match:
+         logger.info(f"  前10个元素对比:")
+@@ -308,13 +299,32 @@ def main():
+                         help='工作目录（默认为当前目录）')
+     parser.add_argument('--output-dir', '-o', default=None,
+                         help='指定 output 目录名（不指定则自动检测最新的）')
++    parser.add_argument('--golden-dir', '-g', default=None,
++                        help='指定 golden 文件所在目录（默认从工作目录查找）')
+     parser.add_argument('--verbose', '-v', action='store_true',
+                         help='显示详细的元素级对比')
+     parser.add_argument('--list', '-l', action='store_true',
+                         help='只列出检查点，不进行对比')
++    parser.add_argument('--rtol', type=float, default=None,
++                        help='自定义相对容差（用于量化场景，推荐值：0.0078125）')
++    parser.add_argument('--atol', type=float, default=None,
++                        help='自定义绝对容差（用于量化场景，推荐值：0.0001）')
+ 
+     args = parser.parse_args()
+ 
++    # 配置日志输出到文件（保存到工作目录下）
++    log_formatter = logging.Formatter('%(message)s')
++    console_handler = logging.StreamHandler(sys.stdout)
++    console_handler.setFormatter(log_formatter)
++
++    # 日志文件保存到工作目录
++    log_file = os.path.join(os.path.abspath(args.work_dir), 'verify_result.log')
++    file_handler = logging.FileHandler(log_file, mode='w', encoding='utf-8')
++    file_handler.setFormatter(log_formatter)
++
++    # 重新配置日志处理器
++    logger.handlers = [console_handler, file_handler]
++
+     logger.info("=" * 80)
+     logger.info("PyPTO 二分调试对比工具")
+     logger.info("=" * 80)
+@@ -329,20 +339,16 @@ def main():
+         sys.exit(1)
+ 
+     latest_dir_full = latest_dir
+-    checkpoints = []
++
++    # 确定 golden 文件所在目录
++    if args.golden_dir:
++        golden_base_dir = args.golden_dir
++    else:
++        golden_base_dir = args.work_dir
+ 
+     # 扫描指定目录
+     tensor_dir = os.path.join(args.work_dir, "output", latest_dir_full, "tensor")
+-    if os.path.exists(tensor_dir):
+-        data_files = glob.glob(os.path.join(tensor_dir, "*.data"))
+-        checkpoints = set()
+-        for data_file in data_files:
+-            basename = os.path.basename(data_file)
+-            parts = basename.rsplit('_', 1)
+-            if len(parts) == 2 and parts[1].replace('.data', '').isdigit():
+-                checkpoint_name = parts[0]
+-                checkpoints.add(checkpoint_name)
+-        checkpoints = sorted(list(checkpoints))
++    checkpoints = scan_checkpoints_from_dir(tensor_dir)
+ 
+     if not checkpoints:
+         logger.error(f"✗ 未在 {tensor_dir} 找到检查点文件")
+@@ -373,7 +379,7 @@ def main():
+             results.append((checkpoint_name, False))
+             continue
+ 
+-        golden_pattern = os.path.join(args.work_dir, f"golden_{checkpoint_name}.bin")
++        golden_pattern = os.path.join(golden_base_dir, f"golden_{checkpoint_name}.bin")
+         golden_files = glob.glob(golden_pattern)
+ 
+         if not golden_files:
+@@ -394,7 +400,8 @@ def main():
+ 
+         # 对比
+         match = compare_with_golden(jit_data, golden_data, checkpoint_name,
+-                                   dtype=dtype, verbose=args.verbose)
++                                   dtype=dtype, verbose=args.verbose,
++                                   custom_rtol=args.rtol, custom_atol=args.atol)
+         results.append((checkpoint_name, match))
+ 
+     # 分析结果
+diff --git a/models/glm_v4_5/glm_attention.py b/models/glm_v4_5/glm_attention.py
+index a22bb89c..e61854a3 100644
+--- a/models/glm_v4_5/glm_attention.py
++++ b/models/glm_v4_5/glm_attention.py
+@@ -246,12 +246,17 @@ def softmax(x, is_fp16=False):
+     return ans, x_max, x_sum
+ 
+ 
++verify_options = {
++    "enable_pass_verify": True,
++    "pass_verify_save_tensor": True,
++    "pass_verify_pass_filter": []
++}
++
+ @pypto.frontend.jit(
+     runtime_options={"stitch_function_max_num": 128},
+-    # 当子图大小达到上界不允许与其他子图合并
+     pass_options={"pg_upper_bound": 1536,
+-    # Q常驻，0代表第一组mmad，4代表4次matmul合并
+-    "cube_l1_reuse_setting": {0: 4}}
++    "cube_l1_reuse_setting": {0: 4}},
++    verify_options=verify_options
+ )
+ def ifa_func_kernel(
+     q: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
+@@ -301,6 +306,7 @@ def ifa_func_kernel(
+     k_2d = pypto.reshape(k, k_2d_shape, inplace=True)
+     v_2d = pypto.reshape(v, k_2d_shape, inplace=True)
+     q_2d = pypto.reshape(q, q_2d_shape, inplace=True)
++
+     # 4. 实现kernel逻辑，循环展开B动态轴
+     for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx"):
+         for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
+@@ -337,17 +343,26 @@ def ifa_func_kernel(
+                                             b_trans=True)
+                         sij = pypto.view(sij, [g_tile, s2_tile], [0, 0],
+                                             valid_shape=[g_tile, actual_s2_tile])
++                        pypto.pass_verify_save(sij, "1_sij_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
+                         # v1
+                         pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+                         if pypto.is_loop_begin(s2_idx):
+                             sij_scale = pypto.mul(sij, softmax_scale)
++                            pypto.pass_verify_save(sij_scale, "2_sij_scale_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
+                             tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
++                            pypto.pass_verify_save(tilda_mij, "3_tilda_mij_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
+ 
+                             tsub = pypto.sub(sij_scale, tilda_mij)
+-                            tilda_pij = pypto.exp(tsub)
++                            pypto.pass_verify_save(tsub, "4_tsub_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
++                            temp = tsub + 0.5
++                            tilda_pij = pypto.exp(temp)
++                            pypto.pass_verify_save(tilda_pij, "5_tilda_pij_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
+                             tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
++                            pypto.pass_verify_save(tilda_pij_fp16, "6_tilda_pij_fp16_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
+                             sum_update[:] = pypto.sum(tilda_pij, dim=-1, keepdim=True)
++                            pypto.pass_verify_save(sum_update, "7_sum_update_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
+                             max_update[:] = tilda_mij
++                            pypto.pass_verify_save(max_update, "8_max_update_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
+ 
+                             # c2
+                             vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
+@@ -360,9 +375,11 @@ def ifa_func_kernel(
+                                                         [0, 0], valid_shape=[actual_s2_tile, dn])
+                             pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
+                             oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
++                            pypto.pass_verify_save(oi_tmp, "9_oi_tmp_after_pv_matmul", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
+ 
+                             pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
+                             oi_update[:] = oi_tmp
++                            pypto.pass_verify_save(oi_update, "10_oi_update_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == 0))
+                         else:
+                             pypto.set_pass_options(sg_set_scope=1)
+                             sij_scale = pypto.mul(sij, softmax_scale)
+@@ -398,10 +415,12 @@ def ifa_func_kernel(
+                             oi_update[:] = oi_update * update_mul + oi_tmp
+                         if pypto.is_loop_end(s2_idx):
+                             oi_final = pypto.div(oi_update, sum_update)
++                            pypto.pass_verify_save(oi_final, "11_oi_final_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == s2_loop - 1))
+                             pypto.set_vec_tile_shapes(16, v2_tile[0], v2_tile[1])
+                             oi_final_3d = pypto.cast(
+                                 pypto.reshape(oi_final, [1, g_tile, dn]),
+                                 dtype)
++                            pypto.pass_verify_save(oi_final_3d, "12_oi_final_3d_idx0", cond=(b_idx == 0) * (s1_idx == 0) * (n2_idx == 0) * (g_idx == 0) * (s2_idx == s2_loop - 1))
+                             # 7. 将结果搬运到输出tensor上
+                             pypto.assemble(oi_final_3d, oi_ofs, atten_out)
+ 
+@@ -439,27 +458,6 @@ def IFA(atten_cfg):
+     # 3. 根据block table 将pa格式的数据转换成
+     k_cache_bsnd, v_cache_bsnd = kv_cache_concat_bsnd(k, v, block_table, atten_cfg)
+ 
+-    for i in range(b):
+-        for j in range(s1):
+-            for n2_idx in range(nkv):
+-                # 从 torch tensor 获取值
+-                kv_seq_len = kv_cache_actual_seq[i].item()  # 使用 .item() 获取标量值
+-                seq_len = kv_seq_len - s1 + 1 + j
+-                q_bs = q[i * s1 + j]
+-                k_bs = k_cache_bsnd[i, :seq_len, n2_idx:n2_idx + 1].reshape(seq_len, d)
+-                v_bs = v_cache_bsnd[i, :seq_len, n2_idx:n2_idx + 1].reshape(seq_len, d)
+-                # MM1: 矩阵乘法
+-                qk_bmm_res = torch.matmul(q_bs, k_bs.transpose(1, 0))  # 1,nq, d  -> n_q,d @ d, s2_actual_len
+-                qk_ele_res = qk_bmm_res * atten_cfg.softmax_scale
+-                # Softmax计算
+-                softmax_res, _, _ = softmax(qk_ele_res, True)
+-
+-                # MM2: 矩阵乘法
+-                bmm2_res = torch.matmul(softmax_res, v_bs)
+-
+-                # 存储结果
+-                attention_output[i * s1 + j] = bmm2_res
+-
+     # 4. 准备测试数据 - 直接使用 torch 张量
+     block_table_torch = block_table.to(dtype=torch.int32, device=device)
+     act_seq_torch = kv_cache_actual_seq.to(dtype=torch.int32, device=device)  # 直接使用已有的 tensor
+@@ -477,6 +475,9 @@ def IFA(atten_cfg):
+     # 5. 执行kernel并获取结果
+     attention(*inputs)
+ 
++    import utils.golden.attn_golden as attn_golden
++    attn_golden.ifa_golden(q, k, v, block_table_torch, act_seq_torch, attention_output, is_high_precision=False)
++
+     # 6. 与PyTorch参考实现对比
+     assert_allclose(np.array(attention_output.cpu().flatten().tolist()),
+                     np.array(out_torch.cpu().flatten().tolist()),
+@@ -484,7 +485,6 @@ def IFA(atten_cfg):
+ 
+ 
+ @pytest.mark.soc("950", "910")
+-@pytest.mark.skip(reason="large test case")
+ def test_ifa():
+     # 1. 设置参数
+     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+diff --git a/models/glm_v4_5/glm_ffn_shared_expert_quant.py b/models/glm_v4_5/glm_ffn_shared_expert_quant.py
+index 634a5fd0..c3579743 100644
+--- a/models/glm_v4_5/glm_ffn_shared_expert_quant.py
++++ b/models/glm_v4_5/glm_ffn_shared_expert_quant.py
+@@ -31,6 +31,7 @@ from torch._dynamo import allow_in_graph
+ import pypto
+ from utils.get_format import get_format
+ import pytest
++import time
+ 
+ 
+ def check_args(
+@@ -124,6 +125,44 @@ def moe_torch_npu(hidden_states, w13, w13_scale, w2, w2_scale):
+     return output
+ 
+ 
++def moe_torch_npu_with_save(hidden_states, w13, w13_scale, w2, w2_scale, output_dir):
++    x_dtype = hidden_states.dtype
++    quantized_x, dynamic_scale = torch_npu.npu_dynamic_quant(hidden_states)
++    quantized_x[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_1_hidden_states_quant.bin")
++    dynamic_scale[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_2_hidden_states_scale.bin")
++
++    output_w13 = torch_npu.npu_quant_matmul(
++            quantized_x,
++            w13,
++            w13_scale,
++            pertoken_scale=dynamic_scale,
++            bias=None,
++            output_dtype=x_dtype,
++        )
++    output_w13[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_3_up_proj.bin")
++
++    swiglu_out = torch_npu.npu_swiglu(output_w13)
++    swiglu_out[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_4_up_proj_dequant.bin")
++    swiglu_out[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_5_swiglu_out.bin")
++
++    quantized_x, x_scale = torch_npu.npu_dynamic_quant(swiglu_out)
++    quantized_x[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_6_down_proj_quant.bin")
++    x_scale[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_7_down_proj_scale.bin")
++
++    output = torch_npu.npu_quant_matmul(
++            quantized_x,
++            w2,
++            w2_scale,
++            pertoken_scale=x_scale,
++            bias=None,
++            output_dtype=x_dtype,
++        )
++    output[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_8_down_proj.bin")
++    output[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_9_down_proj_dequant.bin")
++    output[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_10_out.bin")
++    return output
++
++
+ def gen_input(
+     b: int,
+     s: int,
+@@ -191,39 +230,56 @@ def expert_infer_base(hidden_states, w13_params, w2_params, ffn_res, tiling_para
+ 
+     # dynamic per_token_quant
+     hidden_states_quant, hidden_states_scale = symmetric_quantization_per_token(hidden_states_actual)
++    pypto.pass_verify_save(hidden_states_quant, "1_hidden_states_quant")
++    pypto.pass_verify_save(hidden_states_scale, "2_hidden_states_scale")
+ 
+     # up_proj的matmul计算
+     pypto.set_cube_tile_shapes([unroll_level, unroll_level],
+                                [mm1_cube_tile_shape[1], mm1_cube_tile_shape[1] * 2],
+                                [mm1_cube_tile_shape[2], mm1_cube_tile_shape[2]], True)
+     up_proj = pypto.matmul(hidden_states_quant, w13, pypto.DT_INT32)
+-
+-    # dequant
+     w13_scale_2d = pypto.unsqueeze(w13_scale, 0)
+     pypto.set_vec_tile_shapes(4, intermediate_size * 2)
+     up_proj_dequant = dequant_dynamic(up_proj, w13_scale_2d, hidden_states_scale)
++    pypto.pass_verify_save(up_proj_dequant, "3_up_proj")
++
++    # dequant
+     swiglu_out = swiglu(up_proj_dequant)
++    pypto.pass_verify_save(swiglu_out, "4_up_proj_dequant")
++    pypto.pass_verify_save(swiglu_out, "5_swiglu_out")
+ 
+     # dynamic per_token_quant
+     down_proj_quant, down_proj_scale = symmetric_quantization_per_token(swiglu_out)
++    pypto.pass_verify_save(down_proj_quant, "6_down_proj_quant")
++    pypto.pass_verify_save(down_proj_scale, "7_down_proj_scale")
+ 
+     # down_proj
+     pypto.set_cube_tile_shapes([unroll_level, unroll_level],
+                                [mm2_cube_tile_shape[1], mm2_cube_tile_shape[1] * 2],
+                                [mm2_cube_tile_shape[2], mm2_cube_tile_shape[2]], False)
+     down_proj = pypto.matmul(down_proj_quant, w2, pypto.DT_INT32)
+-
+-    # dequant
+     w2_scale_2d = pypto.unsqueeze(w2_scale, 0)
+     pypto.set_vec_tile_shapes(4, hidden_size)
+     down_proj_dequant = dequant_dynamic(down_proj, w2_scale_2d, down_proj_scale)
++    pypto.pass_verify_save(down_proj_dequant, "8_down_proj")
++
++    # dequant
++    pypto.pass_verify_save(down_proj_dequant, "9_down_proj_dequant")
+     out = pypto.cast(down_proj_dequant, x_dtype)
++    pypto.pass_verify_save(out, "10_out")
+     pypto.assemble(out, hidden_states_offset, ffn_res)
+ 
+ 
++verify_options = {
++    "enable_pass_verify": True,
++    "pass_verify_save_tensor": True,
++    "pass_verify_pass_filter": []
++}
++
+ @pypto.frontend.jit(
+     runtime_options={"device_sched_mode": 1,
+                         "stitch_cfgcache_size": 2700000},
++    verify_options=verify_options
+ )
+ def share_expert_moe_main(
+     hidden_states: pypto.tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
+@@ -293,7 +349,7 @@ def ffn_shared_expert_quant(
+ @pytest.mark.soc("950", "910")
+ def test_ffn_share() -> None:
+     x_dtype = torch.bfloat16
+-    # parameter config 
++    # parameter config
+     s = 1
+     intermediate_size = 192
+     hidden_size = 5120
+@@ -301,19 +357,23 @@ def test_ffn_share() -> None:
+     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+     torch.npu.set_device(device_id)
+ 
++    # 创建golden数据输出目录
++    output_dir = f"golden_data_glm_ffn_shared_expert_quant_{int(time.time())}"
++    os.makedirs(output_dir, exist_ok=True)
++
+     # Test with different batch sizes
+-    for b in [1, 2]:
+-        # hidden_states, w13, w13_scale, w2, w2_scale, ffn_res
+-        hidden_states, w13, w13_scale, w2, w2_scale, ffn_res = \
+-            gen_input(b, s, hidden_size, intermediate_size, x_dtype, device_id)
+-        w13 = torch_npu.npu_format_cast(w13, 29)
+-        w2 = torch_npu.npu_format_cast(w2, 29)
+-        ffn_shared_expert_quant(hidden_states, w13, w13_scale, w2, w2_scale, ffn_res)
+-
+-        # golden
+-        golden = moe_torch_npu(hidden_states, w13, w13_scale, w2, w2_scale)
+-        assert_allclose(np.array(ffn_res.cpu().flatten().tolist()), np.array(golden.cpu().flatten().tolist()),
+-                        rtol=0.0078125, atol=0.0001)
++    b = 2
++    # hidden_states, w13, w13_scale, w2, w2_scale, ffn_res
++    hidden_states, w13, w13_scale, w2, w2_scale, ffn_res = \
++        gen_input(b, s, hidden_size, intermediate_size, x_dtype, device_id)
++    w13 = torch_npu.npu_format_cast(w13, 29)
++    w2 = torch_npu.npu_format_cast(w2, 29)
++    ffn_shared_expert_quant(hidden_states, w13, w13_scale, w2, w2_scale, ffn_res)
++
++    # golden with save
++    golden = moe_torch_npu_with_save(hidden_states, w13, w13_scale, w2, w2_scale, output_dir)
++    assert_allclose(np.array(ffn_res.cpu().flatten().tolist()), np.array(golden.cpu().flatten().tolist()),
++                    rtol=0.0078125, atol=0.0001)
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/models/glm_v4_5/utils/golden/attn_golden.py b/models/glm_v4_5/utils/golden/attn_golden.py
+index 7bd718de..2ac0e84e 100644
+--- a/models/glm_v4_5/utils/golden/attn_golden.py
++++ b/models/glm_v4_5/utils/golden/attn_golden.py
+@@ -9,9 +9,15 @@
+ # See LICENSE in the root of the software repository for the full text of the License.
+ # -----------------------------------------------------------------------------------------------------------
+ import math
++import os
++import time
+ import torch
+ import torch_npu
+ 
++# 创建以算子名称和时间戳命名的文件夹
++OPERATOR_NAME = "attn_golden"
++GOLDEN_DATA_DIR = f"golden_data_{OPERATOR_NAME}_{int(time.time())}"
++os.makedirs(GOLDEN_DATA_DIR, exist_ok=True)
+ 
+ def gen_block_table(actual_seq_len, block_size, block_table_shape):
+     block_num_per_batch = []
+@@ -143,124 +149,140 @@ def ifa_flash_torch(q, k, v, block_table, kv_act_seqs, out, is_fp32=False):
+         k = k.to(fp32)
+         v = v.to(fp32)
+ 
+-    # ========== 1. 提取维度信息（与原代码一致） ==========
++    # ========== 1. 提取维度信息（与kernel一致） ==========
+     q_shape = q.shape
+     bs1, n1, d = q_shape[0], q_shape[1], q_shape[2]
+     b = kv_act_seqs.shape[0]
+-    s1 = bs1 // b  # 每个样本的query序列长度
++    s1 = bs1 // b
+     k_shape = k.shape
+-    block_num, block_size, n2, _ = k_shape  # 补充block_num维度（原代码遗漏）
+-    g = n1 // n2  # 头数比例（n1必须是n2的整数倍）
+-    g_tile = g  # 与g一致，保留原变量名
+-    k_2d = k.reshape(-1, d)  # shape: [block_num*block_size*n2, d]
+-    v_2d = v.reshape(-1, d)  # shape: [block_num*block_size*n2, d]
+-    # q的重塑：将[b*s1, n1, d]重塑为[b*s1*n1, d]（与原代码一致）
+-    q_2d = q.reshape(-1, d)  # shape: [bs1*n1, d]
+-
+-    # ========== 3. 循环处理每个样本、每个位置（保留原代码的循环逻辑） ==========
+-    # 遍历batch
++    block_num_total, block_size, n2, _ = k_shape
++    g = n1 // n2
++    g_tile = g
++    g_loop = g // g_tile
++    s2_tile = 512  # 与kernel一致
++    k_2d = k.reshape(-1, d)
++    v_2d = v.reshape(-1, d)
++    q_2d = q.reshape(-1, d)
++
++    # ========== 3. 循环处理 ==========
+     for b_idx in range(b):
+-        # 遍历每个query的位置
+         for s1_idx in range(s1):
+-            # 计算当前kv的有效序列长度（原代码逻辑）
+             cur_seq = kv_act_seqs[b_idx] - (s1 - 1 - s1_idx)
+-            cur_seq = max(cur_seq.item(), 0)  # 防止负数（PyTorch标量需用.item()取数值）
+-            s2_loop = math.ceil(cur_seq / block_size)  # 需要遍历的block数
++            cur_seq = max(cur_seq.item(), 0)
++            s2_loop = math.ceil(cur_seq / s2_tile)  # 按 s2_tile 切块
+ 
+-            # 遍历每个key/value头
+             for n2_idx in range(n2):
+-                # 遍历头数比例g
+-                for g_idx in range(g // g_tile):
+-                    # ========== 4. 初始化中间变量（修正原代码的初始化错误） ==========
+-                    # 原代码错误：np.array([g_tile, d]) 生成的是[g_tile, d]的一维数组，形状错误
+-                    # 修正：初始化对应形状的零张量，与q同设备、同数据类型
++                for g_idx in range(g_loop):
+                     device = q.device
+                     dtype = q.dtype
+-                    oi_upd = torch.zeros((g_tile, d), device=device, dtype=fp32)  # shape: [g_tile, d]
+-                    li_upd = torch.zeros(g_tile, device=device, dtype=fp32)  # shape: [g_tile]（原代码维度需匹配max/sum的维度）
+-                    mi_upd = torch.zeros(g_tile, device=device, dtype=fp32)  # shape: [g_tile]
++                    oi_upd = torch.zeros((g_tile, d), device=device, dtype=fp32)
++                    li_upd = torch.zeros(g_tile, device=device, dtype=fp32)
++                    mi_upd = torch.zeros(g_tile, device=device, dtype=fp32)
+ 
+-                    # 遍历每个kv block
+                     for s2_idx in range(s2_loop):
+-                        # 获取当前block的索引（需确保block_idx是有效标量）
+-                        block_idx = block_table[b_idx][s2_idx].item()
+-                        # 防止block_idx超出范围
+-
+-                        # 计算偏移量（原代码逻辑）
+-                        bs_ofs = b_idx * s1 + s1_idx  # batch+seq的偏移
+-                        n2g_ofs = n2_idx * g + g_idx * g_tile  # 头数的偏移
+-                        # 计算当前block的有效长度（防止超出cur_seq）
+-                        actual_s2_tile = min(block_size, cur_seq - s2_idx * block_size)
+-
+-                        # ========== 5. 提取当前的q、k、v切片（修正索引范围，防止越界） ==========
+-                        # 提取qi: shape [g_tile, d]
++                        block_num = s2_tile // block_size  # 每个 s2_tile 包含的 block 数
++                        idx = s2_idx * block_num  # 起始 block 索引
++                        bs_ofs = b_idx * s1 + s1_idx
++                        n2g_ofs = n2_idx * g + g_idx * g_tile
++                        actual_s2_tile = min(s2_tile, cur_seq - s2_idx * s2_tile)
++
++                        # 提取 qi
+                         qi_start = bs_ofs * n1 + n2g_ofs
+                         qi_end = qi_start + g_tile
+-                        # 防止索引越界
+-                        qi = q_2d[qi_start:qi_end, :]  # shape: [g_tile, d]
+-
+-                        # 提取kj: shape [actual_s2_tile*n2, d]（对应block内的所有key头）
+-                        kj_start = block_idx * block_size
+-                        kj_end = kj_start + actual_s2_tile
+-                        # 防止索引越界
+-                        kj = k_2d[kj_start:kj_end, :]  # shape: [actual_s2_tile*n2, d]
+-
+-                        # 提取vj: shape [actual_s2_tile*n2, d]（与kj对应）
+-                        vj = v_2d[kj_start:kj_end, :]  # shape: [actual_s2_tile*n2, d]
+-
+-                        # ========== 6. 注意力计算（修正原代码的聚合维度，匹配PyTorch操作） ==========
+-                        # 第一步：q @ k.T (g_tile, d) @ (d, actual_s2_tile*n2) → (g_tile, actual_s2_tile*n2)
++                        qi = q_2d[qi_start:qi_end, :]
++
++                        # 组装 kj：按 s2_tile 大小组装多个 block
++                        kj_assemble = torch.zeros((s2_tile, d), device=device, dtype=dtype)
++                        for i in range(block_num):
++                            block_idx = block_table[b_idx, idx + i].item()
++                            if block_idx >= 0:
++                                kj_start = block_idx * block_size
++                                kj_end = kj_start + block_size
++                                kj_assemble[i * block_size:(i + 1) * block_size, :] = k_2d[kj_start:kj_end, :]
++                        kj = kj_assemble[:actual_s2_tile, :]
++
++                        # 组装 vj
++                        vj_assemble = torch.zeros((s2_tile, d), device=device, dtype=dtype)
++                        for i in range(block_num):
++                            block_idx = block_table[b_idx, idx + i].item()
++                            if block_idx >= 0:
++                                vj_start = block_idx * block_size
++                                vj_end = vj_start + block_size
++                                vj_assemble[i * block_size:(i + 1) * block_size, :] = v_2d[vj_start:vj_end, :]
++                        vj = vj_assemble[:actual_s2_tile, :]
++
++                        # 注意力计算
+                         mm1 = matmul_proxy(qi, kj.t()).to(fp32)
+-                        # 缩放因子：d^-0.5
++                        if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
++                            mm1.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_1_sij_idx0.bin"))
++
+                         muls_res = mm1 * (d ** -0.5)
+-                        # 第二步：计算max(muls_res) → 按最后一维取max（原代码全局max是错误的），保留维度便于广播
+-                        tilda_mij, _ = torch.max(muls_res, dim=-1, keepdim=True)  # shape: [g_tile, 1]
++                        if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
++                            muls_res.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_2_sij_scale_idx0.bin"))
++
++                        tilda_mij, _ = torch.max(muls_res, dim=-1, keepdim=True)
++                        if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
++                            tilda_mij.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_3_tilda_mij_idx0.bin"))
+ 
+-                        # ========== 7. 累积更新oi、li、mi（原代码逻辑，适配PyTorch） ==========
+                         if s2_idx == 0:
+-                            # 第三步：exp(muls_res - max) 防止数值溢出
+                             tsub = muls_res - tilda_mij
+-                            tilda_pij = torch.exp(tsub)  # shape: [g_tile, actual_s2_tile*n2]
+-                            # 第四步：sum(tilda_pij) → 按最后一维求和
+-                            tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)  # shape: [g_tile, 1]
+-                            # 首次迭代：初始化累积值
++                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
++                                tsub.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_4_tsub_idx0.bin"))
++
++                            tilda_pij = torch.exp(tsub)
++                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
++                                tilda_pij.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_5_tilda_pij_idx0.bin"))
++
++                            tilda_pij_fp16 = tilda_pij.to(dtype)
++                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
++                                tilda_pij_fp16.to(fp32).cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_6_tilda_pij_fp16_idx0.bin"))
++
++                            tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)
++                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
++                                tilda_lij.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_7_sum_update_idx0.bin"))
++
+                             oi_tmp = matmul_proxy(tilda_pij.to(dtype), vj).to(fp32)
++                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
++                                oi_tmp.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_9_oi_tmp_after_pv_matmul.bin"))
++
+                             oi_upd = oi_tmp
+-                            li_upd = tilda_lij.squeeze(-1)  # 去掉最后一维，shape [g_tile]
+-                            mi_upd = tilda_mij.squeeze(-1)  # 去掉最后一维，shape [g_tile]
++                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
++                                oi_upd.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_10_oi_update_idx0.bin"))
++
++                            li_upd = tilda_lij.squeeze(-1)
++                            mi_upd = tilda_mij.squeeze(-1)
++                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
++                                mi_upd.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_8_max_update_idx0.bin"))
+                         else:
+-                            # 第三步：exp(muls_res - max) 防止数值溢出
+-                            mi = mi_upd.unsqueeze(-1)  # 恢复维度便于广播
+-                            max_new, _ = torch.max(torch.cat([mi, tilda_mij], dim=-1), dim=-1,
+-                                                   keepdim=True)
++                            mi = mi_upd.unsqueeze(-1)
++                            max_new, _ = torch.max(torch.cat([mi, tilda_mij], dim=-1), dim=-1, keepdim=True)
+                             tsub = muls_res - max_new
+-
+-                            tilda_pij = torch.exp(tsub)  # shape: [g_tile, actual_s2_tile*n2]
+-                            # 第四步：sum(tilda_pij) → 按最后一维求和
+-                            tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)  # shape: [g_tile, 1]
+-
++                            tilda_pij = torch.exp(tsub)
++                            tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)
+                             tsub2 = torch.sub(mi, max_new)
+-                            mi_upd = max_new.squeeze(-1)  # 更新mi
++                            mi_upd = max_new.squeeze(-1)
+                             update_mul = torch.exp(tsub2)
+-                            li = li_upd.unsqueeze(-1)  # 恢复维度便于广播
++                            li = li_upd.unsqueeze(-1)
+                             sum_new = li * update_mul + tilda_lij
+-                            li_upd = sum_new.squeeze(-1)  # 更新li
++                            li_upd = sum_new.squeeze(-1)
+                             q1 = matmul_proxy(tilda_pij.to(dtype), vj).to(fp32)
+-
+-                            # 后续迭代：累积更新
+                             oi_upd = oi_upd * update_mul + q1
+ 
+                         if s2_idx == s2_loop - 1:
+                             li = li_upd.unsqueeze(-1)
+                             oi_final = oi_upd / li
+-                            oi_upd_3d = oi_final.unsqueeze(0)  # shape: [1, g_tile, d]
++                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == s2_loop - 1:
++                                oi_final.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_11_oi_final_idx0.bin"))
++                            oi_upd_3d = oi_final.unsqueeze(0)
++                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == s2_loop - 1:
++                                oi_upd_3d.to(fp32).cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_12_oi_final_3d_idx0.bin"))
+                             attn_out_start_col = n2g_ofs
+                             attn_out_end_col = n2g_ofs + g_tile
+                             if attn_out_end_col > out.shape[1]:
+                                 attn_out_end_col = out.shape[1]
+                                 attn_out_start_col = attn_out_end_col - g_tile
+                             out[bs_ofs:bs_ofs + 1, attn_out_start_col:attn_out_end_col, :] = oi_upd_3d.to(dtype)
+-    return out  # 返回输出张量（可选，因为attn_out是原地修改）
++    return out
+ 
+ 
+ def add_rms_norm_npu_golden(residual_input, x, x_gamma, x_bias, eps):
