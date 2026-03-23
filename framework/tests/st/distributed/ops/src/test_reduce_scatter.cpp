@@ -41,15 +41,13 @@ void TestReduceScatter(OpTestParam& testParam, std::string& goldenDir)
     FUNCTION("ShmemReduceScatter", {in}, {out}) {
         DataType shmemDataType = in.GetDataType();
         shmemDataType = (shmemDataType == DT_BF16) || (shmemDataType == DT_FP16) ? DT_FP32 : shmemDataType;
-        Tensor shmemData;
-        Tensor shmemSignal;
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, unused, LoopRange(1)) {
-            (void)unused;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+        ShmemTensor shmemTensor;
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) { 
+            (void)index; 
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor); 
         }
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        ReduceScatter(in, in, testParam.group, shmemData, shmemSignal, DistReduceType::DIST_REDUCE_ADD, out);
+        ReduceScatter(in, in, shmemTensor, DistReduceType::DIST_REDUCE_ADD, out);
     }
 
     ProgramData::GetInstance().AppendInputs({
