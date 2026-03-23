@@ -31,7 +31,7 @@ constexpr uint32_t VERIFY_SHAPE_SIZE_LAST_INPUT = 0x0008;
 const std::unordered_map<Opcode, uint32_t> verify_cfg = {{Opcode::OP_INDEX_PUT, VERIFY_SHAPE_SIZE_LAST_INPUT}};
 
 const std::unordered_map<Opcode, std::string> axis_name_map = {
-    {Opcode::OP_EXPAND, "EXPANDDIM"}, {Opcode::OP_GATHER, "axis"}};
+    {Opcode::OP_EXPAND, "EXPANDDIMS"}, {Opcode::OP_GATHER, "axis"}};
 
 class TileShapeVerifier {
 public:
