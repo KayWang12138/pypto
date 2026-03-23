@@ -260,22 +260,8 @@ void RecordLoopFunc::BeginLoopFunction() {
     
     auto range = rangeOfEaceUnroll_.back();
     range->End().AsIntermediateVariable();
-    // 如果是paralell for配置在的loop，则paralell for的值为ParallelMode::PARALLEL；
-    // 如果是parallel loop的子loop，设为ParallelMode::DEFAULT
-    auto funcParallelAttr = parallel_ ? ParallelMode::PARALLEL : ParallelMode::DEFAULT;
-    if (currentLoopFunc_->HasParent() && currentLoopFunc_->Parent().HasParent() &&
-        funcParallelAttr == ParallelMode::DEFAULT && currentLoopFunc_->Parent().Parent().GetDynloopAttribute()) {
-        funcParallelAttr =
-            currentLoopFunc_->Parent().Parent().GetDynloopAttribute()->parallel == ParallelMode::PARALLEL ?
-                ParallelMode::CHILD : funcParallelAttr;
-    }
 
-    if (funcParallelAttr == ParallelMode::PARALLEL && currentLoopFunc_->HasParent() &&
-        currentLoopFunc_->Parent().HasParent() && currentLoopFunc_->Parent().Parent().GetDynloopAttribute()) {
-        currentLoopFunc_->Parent().Parent().GetDynloopAttribute()->parallel = ParallelMode::PARENT;
-    }
-
-    auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, funcParallelAttr);
+    auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, parallel_);
     currentLoopFunc_->SetDynloopAttribute(attr);
     currentLoopFunc_->SetSourceLocation(location_);
 }
