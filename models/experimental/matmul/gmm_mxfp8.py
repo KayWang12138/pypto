@@ -113,6 +113,7 @@ def gen_golden(a, b, scaled_a, scaled_b, group_list, a_trans, b_trans):
 @dataclass
 class ShapeConfig:
     ori_shape: list
+    group_list: list
     tile_size: int
     m_tile_shape: list
     k_tile_shape: list
@@ -123,6 +124,7 @@ class ShapeConfig:
     a_format_nz: bool = False
     b_format_nz: bool = False
     c_format_nz: bool = False
+    description: str = ""
     
 @pypto.jit
 def scaled_matmul_kernel(a: pypto.Tensor, b: pypto.Tensor, scaled_a: pypto.Tensor, scaled_b: pypto.Tensor, out: pypto.Tensor, group_list, tile_config) -> None:
@@ -140,8 +142,7 @@ def scaled_matmul_kernel(a: pypto.Tensor, b: pypto.Tensor, scaled_a: pypto.Tenso
         pypto.set_vec_tile_shapes(tile_config.vector_tile_shape[0], tile_config.vector_tile_shape[1], tile_config.vector_tile_shape[2], tile_config.vector_tile_shape[3])
         scaled_weight = scaled_b[i]
         
-        pypto.set_cube_tile_shapes(tile_config.m_tile_shape, tile_config.k_tile_shape, tile_config.n_tile_shape,
-                                    enable_multi_data_load = True, enable_split_k = True)
+        pypto.set_cube_tile_shapes(tile_config.m_tile_shape, tile_config.k_tile_shape, tile_config.n_tile_shape)
         out[begin:end,:] = pypto.scaled_mm(x, weight, pypto.DT_FP32, scaled_x, scaled_weight)
         
 def gen_mxfp8(a, b, scaled_a, scaled_b, group_list, tile_config):
@@ -170,22 +171,13 @@ def gen_mxfp8(a, b, scaled_a, scaled_b, group_list, tile_config):
     out = out.to(torch.float32)
     return out
     
-def test_gmm_mxfp8(params):
-    m = params["m"]
-    k = params["k"]
-    n = params["n"]
-    group_list = params["group_list"]
-    a_trans = params["a_trans"]
-    b_trans = params["b_trans"]
-    tile_size = params["tile_size"]
-    m_tile_shape = params["m_tile_shape"]
-    k_tile_shape = params["k_tile_shape"]
-    n_tile_shape = params["n_tile_shape"]
-    vector_tile_shape = params["vector_tile_shape"]
-    
-    tile_config = ShapeConfig([m, k, n], tile_size, m_tile_shape, k_tile_shape, n_tile_shape, vector_tile_shape,
-                                a_trans, b_trans, False, False, False)
-                                
+def test_gmm_mxfp8(tile_config: ShapeConfig):
+    m = tile_config.ori_shape[0]
+    k = tile_config.ori_shape[1]
+    n = tile_config.ori_shape[2]
+    a_trans = tile_config.a_trans
+    b_trans = tile_config.b_trans
+    group_list = tile_config.group_list
     a = torch.randn((m, k), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
     scaled_a = torch.randn((m, k // 64, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
     
@@ -209,18 +201,6 @@ def test_gmm_mxfp8(params):
     
     assert_allclose(golden.cpu().numpy(), result.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print("Gmm mxfp8 completed successfully")
-    
-def get_params(case_name):
-    if case_name == "testcase6":
-        params = {
-        "m": 16, "k": 512, "n": 7168, "group_list": [7, 9], "a_trans": False, "b_trans": False,
-        "tile_size": 256, "m_tile_shape": [9, 9], "k_tile_shape": [256, 256], "n_tile_shape": [256, 256], "vector_tile_shape": [1, 8, 256, 32]    
-        }
-    else:
-        raise Exception(f"Can't get params, Case({case_name})")
-    return params
 
 if __name__ == "__main__":
-    params = get_params("testcase6")
-    test_gmm_mxfp8(params)
-
+    test_gmm_mxfp8(ShapeConfig([16, 512, 7168], [7, 9], 256, [9, 9], [256, 256], [256, 256], [1, 8, 256, 32], False, False, False, False, False, "testcase6"))
