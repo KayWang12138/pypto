@@ -41,6 +41,12 @@
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
 
+enum ParallelMode {
+    DEFAULT = 0,
+    PARALLEL,
+    CHILD,
+};
+
 void ForceLinkLibraryCompiler() {}
 
 constexpr int ALIGN_SIZE_8 = 8;
@@ -347,6 +353,19 @@ static std::string BuildControlFlowCallee(Function *func, int ident) {
     oss << std::string(ident, ' ') << "// " << "#name: " << func->GetRawName() << " #hash: " << func->GetFunctionHash()
         << " #magic: " << func->GetFuncMagic() << "\n";
     return oss.str();
+}
+
+static ParallelMode GetFunctionParallelMode(Function *func) {
+    if (func->GetDynloopAttribute()->parallel) {
+        return ParallelMode::PARALLEL;
+    }
+
+    if (func->HasParent() && func->Parent().HasParent() && func->Parent().Parent().GetDynloopAttribute() &&
+        func->Parent().Parent().GetDynloopAttribute()->parallel) {
+            return func->Parent().Parent().GetDynloopAttribute()->parallel ?
+                ParallelMode::CHILD : ParallelMode::DEFAULT;
+    }
+    return ParallelMode::DEFAULT;
 }
 
 static void GenerateExpression(SymbolicExpressionTable *exprTable, int devRootKey, const std::string &expName,
