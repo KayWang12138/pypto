@@ -668,5 +668,23 @@ TEST_F(TestGenerateMoveOpChecker, ConvertOp_ShapeMismatch) {
     Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, FAILED);
 }
+
+TEST_F(TestGenerateMoveOpChecker, ConvertOpAttributeNull) {
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestConvertAttrNull", "TestConvertAttrNull", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    
+    std::vector<int64_t> shape = {16, 32};
+    auto inTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+
+    currFunctionPtr->AddOperation(Opcode::OP_CONVERT, {inTensor}, {outTensor});
+    currFunctionPtr->inCasts_.push_back(inTensor);
+    currFunctionPtr->outCasts_.push_back(outTensor);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
 } // namespace tile_fwk
 } // namespace npu
