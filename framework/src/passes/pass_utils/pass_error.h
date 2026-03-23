@@ -20,12 +20,12 @@
 namespace npu::tile_fwk {
 enum class PassError : uint32_t {
     PUBLIC_ERROR_TENSOR    = 40000U, // 前端传入公共Tensor错误
-    PUBLIC_ERROR_OPERATION = 40200U, // 前端传入公共Operation错误
-    PUBLIC_ERROR_FUNCTION  = 40400U, // 前端传入公共Function错误
-    TENSOR_GRAPH   = 41000U, // TensorGraph阶段
-    TILE_GRAPH     = 42000U, // TileGraph阶段
-    BLOCK_GRAPH    = 43000U, // BlockGraph阶段
-    UNKNOWN        = 49000U  // 未知错误
+    PUBLIC_ERROR_OPERATION = 41000U, // 前端传入公共Operation错误
+    PUBLIC_ERROR_FUNCTION  = 42000U, // 前端传入公共Function错误
+    PUBLIC_ERROR_GRAPH     = 43000U, // 前端传入公共Graph错误
+    PUBLIC_ERROR_CONFIG    = 44000U, // 前端传入公共Config错误
+    PUBLIC_ERROR_MANAGER   = 45000U, // 前端传入公共Manager错误
+    UNKNOWN                = 49999U  // 未知错误
 };
 
 enum class PublicTensorErr : uint32_t {
@@ -36,45 +36,47 @@ enum class PublicTensorErr : uint32_t {
     TENSOR_UNSUPPORTED_DATATYPE = 40005U,
     TENSOR_MEMORY_ALLOCATION    = 40006U,
     TENSOR_DYNAMIC_ATTR         = 40007U,
-    TENSOR_MEMORY_CORRUPTION    = 40008U,
-    UNKNOWN                     = 40099U
+    TENSOR_MEMORY_CORRUPTION    = 40008U
 };
 
 enum class PublicOperationErr : uint32_t {
-    OP_INVALID_OPERAND_COUNT = 40201U,
-    OP_NULL_POINTER          = 40202U,
-    OP_INVALID_OPCODE        = 40203U,
-    OP_PRODUCER_CONSUMER     = 40204U,
-    OP_SPECIAL_CONSTRAINT    = 40205U,
-    OP_NESTING_DEPTH         = 40206U,
-    OP_SEQUENCE_ERROR        = 40207U,
-    UNKNOWN                  = 40299U
+    OP_INVALID_OPERAND_COUNT = 41001U,
+    OP_NULL_POINTER          = 41002U,
+    OP_INVALID_OPCODE        = 41003U,
+    OP_PRODUCER_CONSUMER     = 41004U,
+    OP_SPECIAL_CONSTRAINT    = 41005U,
+    OP_NESTING_DEPTH         = 41006U,
+    OP_SEQUENCE_ERROR        = 41007U
 };
 
 enum class PublicFunctionErr : uint32_t {
-    FUNCTION_GRAPH_STRUCTURE       = 40401U,
-    FUNCTION_BOUNDARY_COMPLETENESS = 40402U,
-    FUNCTION_GRAPH_CONNECTION      = 40403U,
-    FUNCTION_EXPAND_FEATURE        = 40404U,
-    FUNCTION_MEMORY_REACHABILITY   = 40405U,
-    FUNCTION_UNIQUENESS            = 40406U,
-    FUNCTION_SPECIAL_STRUCTURE     = 40407U,
-    UNKNOWN                        = 40499U
+    FUNCTION_GRAPH_STRUCTURE       = 42001U,
+    FUNCTION_BOUNDARY_COMPLETENESS = 42002U,
+    FUNCTION_GRAPH_CONNECTION      = 42003U,
+    FUNCTION_EXPAND_FEATURE        = 42004U,
+    FUNCTION_MEMORY_REACHABILITY   = 42005U,
+    FUNCTION_UNIQUENESS            = 42006U,
+    FUNCTION_SPECIAL_STRUCTURE     = 42007U
 };
 
-enum class TensorGraphErr : uint32_t {
-    UNKNOWN           = 41099U
+enum class PublicGraphErr : uint32_t {
+    GRAPH_LOOP_DETECTION       = 43001U,
+    GRAPH_TOPOLOGY_STRUCTURE   = 43002U,
+    GRAPH_SUBGRAPH_EMPTY       = 43003U,
+    GRAPH_SUBGRAPH_ID_INVALID  = 43004U,
+    GRAPH_EDGE_CONSISTENCY     = 43005U,
+    GRAPH_COLOR_CONSISTENCY    = 43006U,
+    GRAPH_READY_STATE          = 43007U,
+    GRAPH_AIV_AIC_MIX          = 43009U
 };
 
-enum class TileGraphErr : uint32_t {
-    UNKNOWN           = 42099U
+enum class PublicConfigErr : uint32_t {
+    CONFIG_MEMORY_TYPE_REACHABLE  = 44001U,
+    CONFIG_SUBGRAPH_BOUNDARY      = 44002U,
+    CONFIG_TENSOR_MEMORY_TYPE     = 44003U
 };
 
-enum class BlockGraphErr : uint32_t {
-    BLOCK_MEMORY_BUBBLE   = 43001U,
-    UB_OVER_LIMIT         = 43002U,
-    L1_OVER_LIMIT         = 43003U,
-    UNKNOWN               = 43099U
+enum class PublicManagerErr : uint32_t {
 };
 
 }  // namespace npu::tile_fwk
