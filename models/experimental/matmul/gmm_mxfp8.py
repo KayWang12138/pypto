@@ -203,4 +203,4 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
     print("Gmm mxfp8 completed successfully")
 
 if __name__ == "__main__":
-    test_gmm_mxfp8(ShapeConfig([16, 512, 7168], [7, 9], 256, [9, 9], [256, 256], [256, 256], [1, 8, 256, 32], False, False, False, False, False, "testcase6"))
+    test_gmm_mxfp8(ShapeConfig([16, 512, 7168], [7, 9], 256, [9, 9], [256, 256], [256, 256], [1, 8, 256, 32], False, False, False, False, False))
