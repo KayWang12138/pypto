@@ -31,6 +31,7 @@ from torch._dynamo import allow_in_graph
 import pypto
 from utils.get_format import get_format
 import pytest
+import time
 
 
 def check_args(
@@ -124,6 +125,44 @@ def moe_torch_npu(hidden_states, w13, w13_scale, w2, w2_scale):
     return output
 
 
+def moe_torch_npu_with_save(hidden_states, w13, w13_scale, w2, w2_scale, output_dir):
+    x_dtype = hidden_states.dtype
+    quantized_x, dynamic_scale = torch_npu.npu_dynamic_quant(hidden_states)
+    quantized_x[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_1_hidden_states_quant.bin")
+    dynamic_scale[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_2_hidden_states_scale.bin")
+
+    output_w13 = torch_npu.npu_quant_matmul(
+            quantized_x,
+            w13,
+            w13_scale,
+            pertoken_scale=dynamic_scale,
+            bias=None,
+            output_dtype=x_dtype,
+        )
+    output_w13[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_3_up_proj.bin")
+
+    swiglu_out = torch_npu.npu_swiglu(output_w13)
+    swiglu_out[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_4_up_proj_dequant.bin")
+    swiglu_out[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_5_swiglu_out.bin")
+
+    quantized_x, x_scale = torch_npu.npu_dynamic_quant(swiglu_out)
+    quantized_x[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_6_down_proj_quant.bin")
+    x_scale[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_7_down_proj_scale.bin")
+
+    output = torch_npu.npu_quant_matmul(
+            quantized_x,
+            w2,
+            w2_scale,
+            pertoken_scale=x_scale,
+            bias=None,
+            output_dtype=x_dtype,
+        )
+    output[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_8_down_proj.bin")
+    output[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_9_down_proj_dequant.bin")
+    output[0:8].cpu().to(torch.float32).numpy().tofile(f"{output_dir}/golden_10_out.bin")
+    return output
+
+
 def gen_input(
     b: int,
     s: int,
@@ -191,39 +230,56 @@ def expert_infer_base(hidden_states, w13_params, w2_params, ffn_res, tiling_para
 
     # dynamic per_token_quant
     hidden_states_quant, hidden_states_scale = symmetric_quantization_per_token(hidden_states_actual)
+    pypto.pass_verify_save(hidden_states_quant, "1_hidden_states_quant")
+    pypto.pass_verify_save(hidden_states_scale, "2_hidden_states_scale")
 
     # up_proj的matmul计算
     pypto.set_cube_tile_shapes([unroll_level, unroll_level],
                                [mm1_cube_tile_shape[1], mm1_cube_tile_shape[1] * 2],
                                [mm1_cube_tile_shape[2], mm1_cube_tile_shape[2]], True)
     up_proj = pypto.matmul(hidden_states_quant, w13, pypto.DT_INT32)
-
-    # dequant
     w13_scale_2d = pypto.unsqueeze(w13_scale, 0)
     pypto.set_vec_tile_shapes(4, intermediate_size * 2)
     up_proj_dequant = dequant_dynamic(up_proj, w13_scale_2d, hidden_states_scale)
+    pypto.pass_verify_save(up_proj_dequant, "3_up_proj")
+
+    # dequant
     swiglu_out = swiglu(up_proj_dequant)
+    pypto.pass_verify_save(swiglu_out, "4_up_proj_dequant")
+    pypto.pass_verify_save(swiglu_out, "5_swiglu_out")
 
     # dynamic per_token_quant
     down_proj_quant, down_proj_scale = symmetric_quantization_per_token(swiglu_out)
+    pypto.pass_verify_save(down_proj_quant, "6_down_proj_quant")
+    pypto.pass_verify_save(down_proj_scale, "7_down_proj_scale")
 
     # down_proj
     pypto.set_cube_tile_shapes([unroll_level, unroll_level],
                                [mm2_cube_tile_shape[1], mm2_cube_tile_shape[1] * 2],
                                [mm2_cube_tile_shape[2], mm2_cube_tile_shape[2]], False)
     down_proj = pypto.matmul(down_proj_quant, w2, pypto.DT_INT32)
-
-    # dequant
     w2_scale_2d = pypto.unsqueeze(w2_scale, 0)
     pypto.set_vec_tile_shapes(4, hidden_size)
     down_proj_dequant = dequant_dynamic(down_proj, w2_scale_2d, down_proj_scale)
+    pypto.pass_verify_save(down_proj_dequant, "8_down_proj")
+
+    # dequant
+    pypto.pass_verify_save(down_proj_dequant, "9_down_proj_dequant")
     out = pypto.cast(down_proj_dequant, x_dtype)
+    pypto.pass_verify_save(out, "10_out")
     pypto.assemble(out, hidden_states_offset, ffn_res)
 
+
+verify_options = {
+    "enable_pass_verify": True,
+    "pass_verify_save_tensor": True,
+    "pass_verify_pass_filter": []
+}
 
 @pypto.frontend.jit(
     runtime_options={"device_sched_mode": 1,
                         "stitch_cfgcache_size": 2700000},
+    verify_options=verify_options
 )
 def share_expert_moe_main(
     hidden_states: pypto.tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
@@ -293,7 +349,7 @@ def ffn_shared_expert_quant(
 @pytest.mark.soc("950", "910")
 def test_ffn_share() -> None:
     x_dtype = torch.bfloat16
-    # parameter config 
+    # parameter config
     s = 1
     intermediate_size = 192
     hidden_size = 5120
@@ -301,19 +357,23 @@ def test_ffn_share() -> None:
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
-    # Test with different batch sizes
-    for b in [1, 2]:
-        # hidden_states, w13, w13_scale, w2, w2_scale, ffn_res
-        hidden_states, w13, w13_scale, w2, w2_scale, ffn_res = \
-            gen_input(b, s, hidden_size, intermediate_size, x_dtype, device_id)
-        w13 = torch_npu.npu_format_cast(w13, 29)
-        w2 = torch_npu.npu_format_cast(w2, 29)
-        ffn_shared_expert_quant(hidden_states, w13, w13_scale, w2, w2_scale, ffn_res)
+    # 创建golden数据输出目录
+    output_dir = f"golden_data_glm_ffn_shared_expert_quant_{int(time.time())}"
+    os.makedirs(output_dir, exist_ok=True)
 
-        # golden
-        golden = moe_torch_npu(hidden_states, w13, w13_scale, w2, w2_scale)
-        assert_allclose(np.array(ffn_res.cpu().flatten().tolist()), np.array(golden.cpu().flatten().tolist()),
-                        rtol=0.0078125, atol=0.0001)
+    # Test with different batch sizes
+    b = 2
+    # hidden_states, w13, w13_scale, w2, w2_scale, ffn_res
+    hidden_states, w13, w13_scale, w2, w2_scale, ffn_res = \
+        gen_input(b, s, hidden_size, intermediate_size, x_dtype, device_id)
+    w13 = torch_npu.npu_format_cast(w13, 29)
+    w2 = torch_npu.npu_format_cast(w2, 29)
+    ffn_shared_expert_quant(hidden_states, w13, w13_scale, w2, w2_scale, ffn_res)
+
+    # golden with save
+    golden = moe_torch_npu_with_save(hidden_states, w13, w13_scale, w2, w2_scale, output_dir)
+    assert_allclose(np.array(ffn_res.cpu().flatten().tolist()), np.array(golden.cpu().flatten().tolist()),
+                    rtol=0.0078125, atol=0.0001)
 
 
 if __name__ == "__main__":

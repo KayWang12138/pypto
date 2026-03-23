@@ -9,9 +9,15 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 import math
+import os
+import time
 import torch
 import torch_npu
 
+# 创建以算子名称和时间戳命名的文件夹
+OPERATOR_NAME = "attn_golden"
+GOLDEN_DATA_DIR = f"golden_data_{OPERATOR_NAME}_{int(time.time())}"
+os.makedirs(GOLDEN_DATA_DIR, exist_ok=True)
 
 def gen_block_table(actual_seq_len, block_size, block_table_shape):
     block_num_per_batch = []
@@ -143,124 +149,140 @@ def ifa_flash_torch(q, k, v, block_table, kv_act_seqs, out, is_fp32=False):
         k = k.to(fp32)
         v = v.to(fp32)
 
-    # ========== 1. 提取维度信息（与原代码一致） ==========
+    # ========== 1. 提取维度信息（与kernel一致） ==========
     q_shape = q.shape
     bs1, n1, d = q_shape[0], q_shape[1], q_shape[2]
     b = kv_act_seqs.shape[0]
-    s1 = bs1 // b  # 每个样本的query序列长度
+    s1 = bs1 // b
     k_shape = k.shape
-    block_num, block_size, n2, _ = k_shape  # 补充block_num维度（原代码遗漏）
-    g = n1 // n2  # 头数比例（n1必须是n2的整数倍）
-    g_tile = g  # 与g一致，保留原变量名
-    k_2d = k.reshape(-1, d)  # shape: [block_num*block_size*n2, d]
-    v_2d = v.reshape(-1, d)  # shape: [block_num*block_size*n2, d]
-    # q的重塑：将[b*s1, n1, d]重塑为[b*s1*n1, d]（与原代码一致）
-    q_2d = q.reshape(-1, d)  # shape: [bs1*n1, d]
+    block_num_total, block_size, n2, _ = k_shape
+    g = n1 // n2
+    g_tile = g
+    g_loop = g // g_tile
+    s2_tile = 512  # 与kernel一致
+    k_2d = k.reshape(-1, d)
+    v_2d = v.reshape(-1, d)
+    q_2d = q.reshape(-1, d)
 
-    # ========== 3. 循环处理每个样本、每个位置（保留原代码的循环逻辑） ==========
-    # 遍历batch
+    # ========== 3. 循环处理 ==========
     for b_idx in range(b):
-        # 遍历每个query的位置
         for s1_idx in range(s1):
-            # 计算当前kv的有效序列长度（原代码逻辑）
             cur_seq = kv_act_seqs[b_idx] - (s1 - 1 - s1_idx)
-            cur_seq = max(cur_seq.item(), 0)  # 防止负数（PyTorch标量需用.item()取数值）
-            s2_loop = math.ceil(cur_seq / block_size)  # 需要遍历的block数
+            cur_seq = max(cur_seq.item(), 0)
+            s2_loop = math.ceil(cur_seq / s2_tile)  # 按 s2_tile 切块
 
-            # 遍历每个key/value头
             for n2_idx in range(n2):
-                # 遍历头数比例g
-                for g_idx in range(g // g_tile):
-                    # ========== 4. 初始化中间变量（修正原代码的初始化错误） ==========
-                    # 原代码错误：np.array([g_tile, d]) 生成的是[g_tile, d]的一维数组，形状错误
-                    # 修正：初始化对应形状的零张量，与q同设备、同数据类型
+                for g_idx in range(g_loop):
                     device = q.device
                     dtype = q.dtype
-                    oi_upd = torch.zeros((g_tile, d), device=device, dtype=fp32)  # shape: [g_tile, d]
-                    li_upd = torch.zeros(g_tile, device=device, dtype=fp32)  # shape: [g_tile]（原代码维度需匹配max/sum的维度）
-                    mi_upd = torch.zeros(g_tile, device=device, dtype=fp32)  # shape: [g_tile]
+                    oi_upd = torch.zeros((g_tile, d), device=device, dtype=fp32)
+                    li_upd = torch.zeros(g_tile, device=device, dtype=fp32)
+                    mi_upd = torch.zeros(g_tile, device=device, dtype=fp32)
 
-                    # 遍历每个kv block
                     for s2_idx in range(s2_loop):
-                        # 获取当前block的索引（需确保block_idx是有效标量）
-                        block_idx = block_table[b_idx][s2_idx].item()
-                        # 防止block_idx超出范围
+                        block_num = s2_tile // block_size  # 每个 s2_tile 包含的 block 数
+                        idx = s2_idx * block_num  # 起始 block 索引
+                        bs_ofs = b_idx * s1 + s1_idx
+                        n2g_ofs = n2_idx * g + g_idx * g_tile
+                        actual_s2_tile = min(s2_tile, cur_seq - s2_idx * s2_tile)
 
-                        # 计算偏移量（原代码逻辑）
-                        bs_ofs = b_idx * s1 + s1_idx  # batch+seq的偏移
-                        n2g_ofs = n2_idx * g + g_idx * g_tile  # 头数的偏移
-                        # 计算当前block的有效长度（防止超出cur_seq）
-                        actual_s2_tile = min(block_size, cur_seq - s2_idx * block_size)
-
-                        # ========== 5. 提取当前的q、k、v切片（修正索引范围，防止越界） ==========
-                        # 提取qi: shape [g_tile, d]
+                        # 提取 qi
                         qi_start = bs_ofs * n1 + n2g_ofs
                         qi_end = qi_start + g_tile
-                        # 防止索引越界
-                        qi = q_2d[qi_start:qi_end, :]  # shape: [g_tile, d]
+                        qi = q_2d[qi_start:qi_end, :]
 
-                        # 提取kj: shape [actual_s2_tile*n2, d]（对应block内的所有key头）
-                        kj_start = block_idx * block_size
-                        kj_end = kj_start + actual_s2_tile
-                        # 防止索引越界
-                        kj = k_2d[kj_start:kj_end, :]  # shape: [actual_s2_tile*n2, d]
+                        # 组装 kj：按 s2_tile 大小组装多个 block
+                        kj_assemble = torch.zeros((s2_tile, d), device=device, dtype=dtype)
+                        for i in range(block_num):
+                            block_idx = block_table[b_idx, idx + i].item()
+                            if block_idx >= 0:
+                                kj_start = block_idx * block_size
+                                kj_end = kj_start + block_size
+                                kj_assemble[i * block_size:(i + 1) * block_size, :] = k_2d[kj_start:kj_end, :]
+                        kj = kj_assemble[:actual_s2_tile, :]
 
-                        # 提取vj: shape [actual_s2_tile*n2, d]（与kj对应）
-                        vj = v_2d[kj_start:kj_end, :]  # shape: [actual_s2_tile*n2, d]
+                        # 组装 vj
+                        vj_assemble = torch.zeros((s2_tile, d), device=device, dtype=dtype)
+                        for i in range(block_num):
+                            block_idx = block_table[b_idx, idx + i].item()
+                            if block_idx >= 0:
+                                vj_start = block_idx * block_size
+                                vj_end = vj_start + block_size
+                                vj_assemble[i * block_size:(i + 1) * block_size, :] = v_2d[vj_start:vj_end, :]
+                        vj = vj_assemble[:actual_s2_tile, :]
 
-                        # ========== 6. 注意力计算（修正原代码的聚合维度，匹配PyTorch操作） ==========
-                        # 第一步：q @ k.T (g_tile, d) @ (d, actual_s2_tile*n2) → (g_tile, actual_s2_tile*n2)
+                        # 注意力计算
                         mm1 = matmul_proxy(qi, kj.t()).to(fp32)
-                        # 缩放因子：d^-0.5
+                        if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
+                            mm1.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_1_sij_idx0.bin"))
+
                         muls_res = mm1 * (d ** -0.5)
-                        # 第二步：计算max(muls_res) → 按最后一维取max（原代码全局max是错误的），保留维度便于广播
-                        tilda_mij, _ = torch.max(muls_res, dim=-1, keepdim=True)  # shape: [g_tile, 1]
+                        if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
+                            muls_res.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_2_sij_scale_idx0.bin"))
 
-                        # ========== 7. 累积更新oi、li、mi（原代码逻辑，适配PyTorch） ==========
+                        tilda_mij, _ = torch.max(muls_res, dim=-1, keepdim=True)
+                        if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
+                            tilda_mij.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_3_tilda_mij_idx0.bin"))
+
                         if s2_idx == 0:
-                            # 第三步：exp(muls_res - max) 防止数值溢出
                             tsub = muls_res - tilda_mij
-                            tilda_pij = torch.exp(tsub)  # shape: [g_tile, actual_s2_tile*n2]
-                            # 第四步：sum(tilda_pij) → 按最后一维求和
-                            tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)  # shape: [g_tile, 1]
-                            # 首次迭代：初始化累积值
+                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
+                                tsub.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_4_tsub_idx0.bin"))
+
+                            tilda_pij = torch.exp(tsub)
+                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
+                                tilda_pij.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_5_tilda_pij_idx0.bin"))
+
+                            tilda_pij_fp16 = tilda_pij.to(dtype)
+                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
+                                tilda_pij_fp16.to(fp32).cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_6_tilda_pij_fp16_idx0.bin"))
+
+                            tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)
+                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
+                                tilda_lij.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_7_sum_update_idx0.bin"))
+
                             oi_tmp = matmul_proxy(tilda_pij.to(dtype), vj).to(fp32)
+                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
+                                oi_tmp.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_9_oi_tmp_after_pv_matmul.bin"))
+
                             oi_upd = oi_tmp
-                            li_upd = tilda_lij.squeeze(-1)  # 去掉最后一维，shape [g_tile]
-                            mi_upd = tilda_mij.squeeze(-1)  # 去掉最后一维，shape [g_tile]
+                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
+                                oi_upd.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_10_oi_update_idx0.bin"))
+
+                            li_upd = tilda_lij.squeeze(-1)
+                            mi_upd = tilda_mij.squeeze(-1)
+                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == 0:
+                                mi_upd.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_8_max_update_idx0.bin"))
                         else:
-                            # 第三步：exp(muls_res - max) 防止数值溢出
-                            mi = mi_upd.unsqueeze(-1)  # 恢复维度便于广播
-                            max_new, _ = torch.max(torch.cat([mi, tilda_mij], dim=-1), dim=-1,
-                                                   keepdim=True)
+                            mi = mi_upd.unsqueeze(-1)
+                            max_new, _ = torch.max(torch.cat([mi, tilda_mij], dim=-1), dim=-1, keepdim=True)
                             tsub = muls_res - max_new
-
-                            tilda_pij = torch.exp(tsub)  # shape: [g_tile, actual_s2_tile*n2]
-                            # 第四步：sum(tilda_pij) → 按最后一维求和
-                            tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)  # shape: [g_tile, 1]
-
+                            tilda_pij = torch.exp(tsub)
+                            tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)
                             tsub2 = torch.sub(mi, max_new)
-                            mi_upd = max_new.squeeze(-1)  # 更新mi
+                            mi_upd = max_new.squeeze(-1)
                             update_mul = torch.exp(tsub2)
-                            li = li_upd.unsqueeze(-1)  # 恢复维度便于广播
+                            li = li_upd.unsqueeze(-1)
                             sum_new = li * update_mul + tilda_lij
-                            li_upd = sum_new.squeeze(-1)  # 更新li
+                            li_upd = sum_new.squeeze(-1)
                             q1 = matmul_proxy(tilda_pij.to(dtype), vj).to(fp32)
-
-                            # 后续迭代：累积更新
                             oi_upd = oi_upd * update_mul + q1
 
                         if s2_idx == s2_loop - 1:
                             li = li_upd.unsqueeze(-1)
                             oi_final = oi_upd / li
-                            oi_upd_3d = oi_final.unsqueeze(0)  # shape: [1, g_tile, d]
+                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == s2_loop - 1:
+                                oi_final.cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_11_oi_final_idx0.bin"))
+                            oi_upd_3d = oi_final.unsqueeze(0)
+                            if b_idx == 0 and s1_idx == 0 and n2_idx == 0 and g_idx == 0 and s2_idx == s2_loop - 1:
+                                oi_upd_3d.to(fp32).cpu().numpy().tofile(os.path.join(GOLDEN_DATA_DIR, "golden_12_oi_final_3d_idx0.bin"))
                             attn_out_start_col = n2g_ofs
                             attn_out_end_col = n2g_ofs + g_tile
                             if attn_out_end_col > out.shape[1]:
                                 attn_out_end_col = out.shape[1]
                                 attn_out_start_col = attn_out_end_col - g_tile
                             out[bs_ofs:bs_ofs + 1, attn_out_start_col:attn_out_end_col, :] = oi_upd_3d.to(dtype)
-    return out  # 返回输出张量（可选，因为attn_out是原地修改）
+    return out
 
 
 def add_rms_norm_npu_golden(residual_input, x, x_gamma, x_bias, eps):
