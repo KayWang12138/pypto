@@ -278,133 +278,394 @@
 
 ## 4. 基础数学运算
 
-### 4.1. pypto.exp
+### 4.1. pypto.exp、pypto.neg、pypto.abs、pypto.sqrt、pypto.reciprocal
 
 #### 4.1.1. 算子计算原理
+__pypto.exp__：计算输入Tensor中每个元素的 e 的指数，逐元素运算，返回与输入形状相同的Tensor。
+
+__pypto.neg__：计算输入Tensor中每个元素的负数，逐元素运算，返回与输入形状相同的Tensor。
+
+__pypto.abs__：计算输入Tensor中每个元素的绝对值，逐元素运算。
+
+__pypto.sqrt__：计算输入Tensor中每个元素的平方根，逐元素运算。输入为负数时返回 NaN。
+
+__pypto.reciprocal__：计算输入Tensor中每个元素的倒数，逐元素运算。
 
 #### 4.1.2. pypto前段接口（python）以及支持范围
+| exp(input: Tensor) -> Tensor | neg(input: Tensor) -> Tensor | abs(input: Tensor) -> Tensor | sqrt(input: Tensor) -> Tensor | reciprocal(input: Tensor) -> Tensor |
+
+__参数说明__
+
+| 参数名  | 输入/输出 | 说明                                                                 |
+|---------|-----------|----------------------------------------------------------------------|
+| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16，neg额外支持DT_INT32，DT_INT16。 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
 
 #### 4.1.3. c++ tensor graph接口
+统一调用TensorUnaryOperation接口
+
+```
+template <UnaryOpType T>
+LogicalTensorPtr TensorUnaryOperation(Function &function, LogicalTensorPtr operand, std::optional<DataType> datatype = std::nullopt) {
+    auto opName = GetUnaryOpName<T>();
+    CheckTensorShape(operand, opName);
+    datatype = datatype.value_or(operand->tensor->datatype);
+    auto result = std::make_shared<LogicalTensor>(
+        function, *datatype, operand->shape, operand->GetDynValidShape(), operand->Format());
+    function.AddOperation(GetUnaryOpNameCode<T>(), {operand}, {result});
+    return result;
+}
+```
 
 #### 4.1.4. c++ tile graph接口
+统一调用TiledUnaryOperation接口
+```
+template <UnaryOpType T>
+void TiledUnaryOperation(
+    Function &function, const TileShape &tileShape, size_t cur, Input &input, const LogicalTensorPtr &result, uint32_t workspaceSize = 0) {
+    if (cur == input.tensor.GetShape().size()) {
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        if (workspaceSize == 0) {
+            function.AddOperation(GetUnaryOpNameCode<T>(), {tile}, {resultTile});
+        } else {
+            LogicalTensorPtr workspace = std::make_shared<LogicalTensor>(function, DT_UINT8, std::vector<int64_t>{workspaceSize});
+            function.AddOperation(GetUnaryOpNameCode<T>(), {tile}, {resultTile, workspace});
+        }
+        return;
+    }
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        TiledUnaryOperation<T>(function, tileShape, cur + 1, input, result, workspaceSize);
+    }
+}
+
+```
 
 #### 4.1.5. 算子npu计算使用的pto instruction
+__Tload__：gm to ub
+
+__TUnary__：unary基础运算，包含：__exp__、__neg__(调用TMul接口，与-1或-1.相乘)、__abs__、__sqrt__、__reciprocal__
+
+__TStore__：ub to gm
 
 #### 4.1.6. 算子kernel的计算过程（搬运+计算）
+```
+// load x from gm to ub
+TLoad(ub_x, gm_x)
+
+// Template Unary(input)
+Tunary(ub_x)
+
+// store x from ub to gm
+TStore(gm_y, ub_x)
+```
+```
+// load x from gm to ub
+TLoad(ub_x, gm_x)
+
+// Reciprocal(input)
+TReciprocal(ub_y, ub_x)
+
+// store x from ub to gm
+TStore(gm_y, ub_y)
+```
 
 #### 4.1.7. tile shape设置约束
-
+无
 #### 4.1.8. 用例设计
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32
 
-### 4.2. pypto.neg
+| 用例名称  | 输入维度 | 切分 | 输入dtype | 说明 |
+|----------|---------|-----------|------|------|
+| Unary_fp16_001  | (112) | (50) | fp16 | 1d尾轴对齐，w切分 |
+| Unary_fp16_002  | (100) | (100) | fp16 | 1d尾轴不对齐，无切分 |
+| Unary_fp16_003  | (4,128) | (2,32) | fp16 | 2d尾轴对齐，h,w切分 |
+| Unary_fp16_004  | (4,130) | (1,130) | fp16 | 2d尾轴不对齐，h切分 |
+| Unary_fp16_005  | (2,4,160) | (1,2,32) | fp16 | 3d尾轴对齐，c,h,w切分 |
+| Unary_fp16_006  | (2,4,140) | (1,2,140) | fp16 | 3d尾轴不对齐，c,h切分 |
+| Unary_fp16_007  | (2,5,152) | (1,5,32) | fp16 | 3d尾轴不对齐，c,w切分 |
+| Unary_fp16_008  | (2,3,170) | (1,3,170) | fp16 | 3d尾轴不对齐，c切分 |
+| Unary_fp16_009  | (5,2,4,176) | (2,1,2,16) | fp16 | 4d尾轴对齐，n,c,h,w切分 |
+| Unary_fp16_010  | (5,2,4,130) | (1,1,1,130) | fp16 | 4d尾轴不对齐，n,c,h切分 |
+| Unary_fp16_011  | (2,3,5,134) | (1,1,5,32) | fp16 | 4d尾轴不对齐，n,c,w切分 |
+| Unary_fp16_012  | (4,2,6,135) | (2,2,3,32) | fp16 | 4d尾轴不对齐，n,h,w切分 |
+| Unary_fp16_013  | (6,2,4,130) | (1,1,4,130) | fp16 | 4d尾轴不对齐，n,c切分 |
+| Unary_fp16_014  | (3,2,3,139) | (1,2,1,139) | fp16 | 4d尾轴不对齐，n,h切分 |
+| Unary_fp16_015  | (6,3,5,141) | (3,3,5,32) | fp16 | 4d尾轴不对齐，n,w切分 |
+| Unary_fp32_001  | (112) | (50) | fp32 | 1d尾轴对齐，w切分 |
+| Unary_fp32_002  | (100) | (100) | fp32 | 1d尾轴不对齐，无切分 |
+| Unary_fp32_003  | (4,128) | (2,32) | fp32 | 2d尾轴对齐，h,w切分 |
+| Unary_fp32_004  | (4,130) | (1,130) | fp32 | 2d尾轴不对齐，h切分 |
+| Unary_fp32_005  | (2,4,160) | (1,2,32) | fp32 | 3d尾轴对齐，c,h,w切分 |
+| Unary_fp32_006  | (2,4,140) | (1,2,140) | fp32 | 3d尾轴不对齐，c,h切分 |
+| Unary_fp32_007  | (2,5,152) | (1,5,32) | fp32 | 3d尾轴不对齐，c,w切分 |
+| Unary_fp32_008  | (2,3,170) | (1,3,170) | fp32 | 3d尾轴不对齐，c切分 |
+| Unary_fp32_009  | (5,2,4,176) | (2,1,2,16) | fp32 | 4d尾轴对齐，n,c,h,w切分 |
+| Unary_fp32_010  | (5,2,4,130) | (1,1,1,130) | fp32 | 4d尾轴不对齐，n,c,h切分 |
+| Unary_fp32_011  | (2,3,5,134) | (1,1,5,32) | fp32 | 4d尾轴不对齐，n,c,w切分 |
+| Unary_fp32_012  | (4,2,6,135) | (2,2,3,32) | fp32 | 4d尾轴不对齐，n,h,w切分 |
+| Unary_fp32_013  | (6,2,4,130) | (1,1,4,130) | fp32 | 4d尾轴不对齐，n,c切分 |
+| Unary_fp32_014  | (3,2,3,139) | (1,2,1,139) | fp32 | 4d尾轴不对齐，n,h切分 |
+| Unary_fp32_015  | (6,3,5,141) | (3,3,5,32) | fp32 | 4d尾轴不对齐，n,w切分 |
+
+### 4.2. pypto.rsqrt
 
 #### 4.2.1. 算子计算原理
 
+计算输入Tensor中每个元素的平方根倒数，逐元素运算。当输入为负数时返回 NaN，输入为零时返回 Inf。
+
 #### 4.2.2. pypto前段接口（python）以及支持范围
 
-#### 4.2.3. c++ tensor graph接口
+rsqrt(input: Tensor) -> Tensor
 
+__参数说明__
+
+| 参数名  | 输入/输出 | 说明                                                                 |
+|---------|-----------|----------------------------------------------------------------------|
+| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16。 <br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+
+#### 4.2.3. c++ tensor graph接口
+```
+Tensor Rsqrt(const Tensor &self) {
+    DECLARE_TRACER();
+
+    auto castSelf = self.GetStorage();
+    if (self.GetDataType() != DataType::DT_FP32) {
+        castSelf = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
+            DataType::DT_FP32, CastMode::CAST_NONE);
+    }
+    auto sqrtSelf = CALL(UnaryOperation<UnaryOpType::SQRT>, *Program::GetInstance().GetCurrentFunction(), castSelf);
+    auto ones = CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(DataType::DT_FP32, 1.0),
+        SymbolicScalar(), DataType::DT_FP32, self.GetShape(), self.GetStorage()->GetDynValidShape());
+    auto result = CALL(BinaryOperation<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(), ones, sqrtSelf);
+    if (self.GetDataType() != DataType::DT_FP32) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result,
+            self.GetDataType(), CastMode::CAST_NONE);
+    }
+    return result;
+}
+```
 #### 4.2.4. c++ tile graph接口
+
+调用cast、sqrt、Full、Div算子的tile graph接口
 
 #### 4.2.5. 算子npu计算使用的pto instruction
 
+__TVecDup__：按给定值填充
+
+__TLoad__：gm to ub
+
+__TSqrt__：计算平方根
+
+__TDiv__：除法运算
+
+__TStore__： ub to gm
+
 #### 4.2.6. 算子kernel的计算过程（搬运+计算）
 
+```
+// filling with 1
+TVecDup(ub_y, 1)
+
+// load x from gm to ub
+TLoad(ub_x, gm_x)
+
+//√input
+TSqrt(ub_X)
+
+//division
+TDiv(ub_y, ub_x)
+
+//store x from ub to gm
+TStore(gm_y, ub_x)
+```
+
 #### 4.2.7. tile shape设置约束
-
+无
 #### 4.2.8. 用例设计
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32
 
-### 4.3. pypto.abs
-
-#### 4.3.1. 算子计算原理
-
-#### 4.3.2. pypto前段接口（python）以及支持范围
-
-#### 4.3.3. c++ tensor graph接口
-
-#### 4.3.4. c++ tile graph接口
-
-#### 4.3.5. 算子npu计算使用的pto instruction
-
-#### 4.3.6. 算子kernel的计算过程（搬运+计算）
-
-#### 4.3.7. tile shape设置约束
-
-#### 4.3.8. 用例设计
-
-### 4.4. pypto.sqrt
-
-#### 4.4.1. 算子计算原理
-
-#### 4.4.2. pypto前段接口（python）以及支持范围
-
-#### 4.4.3. c++ tensor graph接口
-
-#### 4.4.4. c++ tile graph接口
-
-#### 4.4.5. 算子npu计算使用的pto instruction
-
-#### 4.4.6. 算子kernel的计算过程（搬运+计算）
-
-#### 4.4.7. tile shape设置约束
-
-#### 4.4.8. 用例设计
-
-### 4.5. pypto.reciprocal
-
-#### 4.5.1. 算子计算原理
-
-#### 4.5.2. pypto前段接口（python）以及支持范围
-
-#### 4.5.3. c++ tensor graph接口
-
-#### 4.5.4. c++ tile graph接口
-
-#### 4.5.5. 算子npu计算使用的pto instruction
-
-#### 4.5.6. 算子kernel的计算过程（搬运+计算）
-
-#### 4.5.7. tile shape设置约束
-
-#### 4.5.8. 用例设计
-
-### 4.6. pypto.rsqrt
-
-#### 4.6.1. 算子计算原理
-
-#### 4.6.2. pypto前段接口（python）以及支持范围
-
-#### 4.6.3. c++ tensor graph接口
-
-#### 4.6.4. c++ tile graph接口
-
-#### 4.6.5. 算子npu计算使用的pto instruction
-
-#### 4.6.6. 算子kernel的计算过程（搬运+计算）
-
-#### 4.6.7. tile shape设置约束
-
-#### 4.6.8. 用例设计
-
+| 用例名称  | 输入维度 | 切分 | 输入dtype | 说明 |
+|----------|---------|-----------|------|------|
+| rsqrt_fp16_001  | (112) | (50) | fp16 | 1d尾轴对齐，w切分 |
+| rsqrt_fp16_002  | (100) | (100) | fp16 | 1d尾轴不对齐，无切分 |
+| rsqrt_fp16_003  | (4,128) | (2,32) | fp16 | 2d尾轴对齐，h,w切分 |
+| rsqrt_fp16_004  | (4,130) | (1,130) | fp16 | 2d尾轴不对齐，h切分 |
+| rsqrt_fp16_005  | (2,4,160) | (1,2,32) | fp16 | 3d尾轴对齐，c,h,w切分 |
+| rsqrt_fp16_006  | (2,4,140) | (1,2,140) | fp16 | 3d尾轴不对齐，c,h切分 |
+| rsqrt_fp16_007  | (2,5,152) | (1,5,32) | fp16 | 3d尾轴不对齐，c,w切分 |
+| rsqrt_fp16_008  | (2,3,170) | (1,3,170) | fp16 | 3d尾轴不对齐，c切分 |
+| rsqrt_fp16_009  | (5,2,4,176) | (2,1,2,16) | fp16 | 4d尾轴对齐，n,c,h,w切分 |
+| rsqrt_fp16_010  | (5,2,4,130) | (1,1,1,130) | fp16 | 4d尾轴不对齐，n,c,h切分 |
+| rsqrt_fp16_011  | (2,3,5,134) | (1,1,5,32) | fp16 | 4d尾轴不对齐，n,c,w切分 |
+| rsqrt_fp16_012  | (4,2,6,135) | (2,2,3,32) | fp16 | 4d尾轴不对齐，n,h,w切分 |
+| rsqrt_fp16_013  | (6,2,4,130) | (1,1,4,130) | fp16 | 4d尾轴不对齐，n,c切分 |
+| rsqrt_fp16_014  | (3,2,3,139) | (1,2,1,139) | fp16 | 4d尾轴不对齐，n,h切分 |
+| rsqrt_fp16_015  | (6,3,5,141) | (3,3,5,32) | fp16 | 4d尾轴不对齐，n,w切分 |
+| rsqrt_fp32_001  | (112) | (50) | fp32 | 1d尾轴对齐，w切分 |
+| rsqrt_fp32_002  | (100) | (100) | fp32 | 1d尾轴不对齐，无切分 |
+| rsqrt_fp32_003  | (4,128) | (2,32) | fp32 | 2d尾轴对齐，h,w切分 |
+| rsqrt_fp32_004  | (4,130) | (1,130) | fp32 | 2d尾轴不对齐，h切分 |
+| rsqrt_fp32_005  | (2,4,160) | (1,2,32) | fp32 | 3d尾轴对齐，c,h,w切分 |
+| rsqrt_fp32_006  | (2,4,140) | (1,2,140) | fp32 | 3d尾轴不对齐，c,h切分 |
+| rsqrt_fp32_007  | (2,5,152) | (1,5,32) | fp32 | 3d尾轴不对齐，c,w切分 |
+| rsqrt_fp32_008  | (2,3,170) | (1,3,170) | fp32 | 3d尾轴不对齐，c切分 |
+| rsqrt_fp32_009  | (5,2,4,176) | (2,1,2,16) | fp32 | 4d尾轴对齐，n,c,h,w切分 |
+| rsqrt_fp32_010  | (5,2,4,130) | (1,1,1,130) | fp32 | 4d尾轴不对齐，n,c,h切分 |
+| rsqrt_fp32_011  | (2,3,5,134) | (1,1,5,32) | fp32 | 4d尾轴不对齐，n,c,w切分 |
+| rsqrt_fp32_012  | (4,2,6,135) | (2,2,3,32) | fp32 | 4d尾轴不对齐，n,h,w切分 |
+| rsqrt_fp32_013  | (6,2,4,130) | (1,1,4,130) | fp32 | 4d尾轴不对齐，n,c切分 |
+| rsqrt_fp32_014  | (3,2,3,139) | (1,2,1,139) | fp32 | 4d尾轴不对齐，n,h切分 |
+| rsqrt_fp32_015  | (6,3,5,141) | (3,3,5,32) | fp32 | 4d尾轴不对齐，n,w切分 |
 ## 5. 数据转换
 
 ### 5.1. pypto.cast
 
 #### 5.1.1. 算子计算原理
 
+根据源操作数和目的操作数Tensor的数据类型进行精度转换，如果目的操作数是整型且源操作数的数值超过整型的数据表示范围进行精度转换结果为目的操作数的最大值或者最小值。
+
 #### 5.1.2. pypto前段接口（python）以及支持范围
+
+cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE) -> Tensor
+
+__参数说明__
+
+| 参数名     | 输入/输出 | 说明                                                                 |
+|------------|-----------|----------------------------------------------------------------------|
+| input      | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32，DT_FP16，DT_INT8，DT_UINT8，DT_INT16，DT_INT32。 <br> 不支持空Tensor；Shape仅支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| dtype      | 输入      | 精度转换后的数据类型。 <br> 支持的数据类型为：DT_FP32，DT_FP16，DT_INT8，DT_UINT8，DT_INT16，DT_INT32。 |
+| CastMode   | 输入      | 源操作数枚举类型，用以控制精度转换处理模式，具体定义为：[CastMode](../docs\api\datatype\CastMode.md) 。<br> 默认为 CAST_NONE，常见类型之间的转换，框架会自动转换，与torch对齐，详见约束说明。 |
+
+__约束说明__
+
+1.  目的操作数是整型且源操作数的数值超过整型的数据表示范围进行精度转换结果为目的操作数的最大值或者最小值。例如DT\_FP16转DT\_INT8时，若输入是130.0，将会输出127（DT\_INT8的上界）
+2.  支持以下转化：
+    1.  DT\_FP16 到 DT\_FP32\\DT\_INT32\\DT\_INT16\\DT\_INT8\\DT\_UINT8 转化
+    2.  DT\_FP32 到 DT\_FP16\\DT\_INT16\\DT\_INT32  转化
+    3.  DT\_INT32 到 DT\_FP32 转化
+    4.  DT\_UINT8 到 DT\_FP16 转化
+    5.  DT\_INT8 到 DT\_FP16 转化
+    6.  DT\_INT16 到 DT\_FP32\\DT\_FP16 转化
+
+3.  支持精度转换处理模式CastMode，默认处理模式如下：
+    1.  DT\_FP32 -\> DT\_FP16 : CAST\_RINT，与 Torch 对齐。
+    2.  DT\_FP16\\DT\_INT32 -\> DT\_FP32 : 与 Torch 对齐。
+    3.  DT\_FP16 -\> DT\_TNT8:  CAST\_TRUNC，见约束1。
+    4.  DT\_INT32-\> DT\_FP16 : 与 Torch 对齐。
+
+4.  当 cast 前后类型相同的时候，某些场景下会产生空操作，不保证精度。
 
 #### 5.1.3. c++ tensor graph接口
 
+```
+Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode) {
+    DECLARE_TRACER();
+    ASSERT(self.GetShape().size() == self.GetStorage()->offset.size()) << "The shape size of self and offset should be equal";
+    // Cast to same dType with no mode will do nothing
+    if (self.GetStorage()->tensor->datatype == dstDataType && (mode == CAST_NONE || mode == CAST_RINT)) {
+        return self;
+    }
+    RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
+        dstDataType, mode);
+}
+```
+```
+template <CastOpType T>
+LogicalTensorPtr TensorCastOperation(
+    Function &function, LogicalTensorPtr self, const DataType &dstDataType, const CastMode &mode = CAST_NONE) {
+    auto result = std::make_shared<LogicalTensor>(function, dstDataType, self->shape, self->dynValidShape_);
+    auto &op = function.AddOperation(GetCastOpName<T>(), {self}, {result});
+    op.SetAttribute(OP_ATTR_PREFIX + "mode", mode);
+    return result;
+}
+```
+
 #### 5.1.4. c++ tile graph接口
+```
+template <CastOpType T>
+void TiledCastOperation(Function &function, const TileShape &tileShape, const int cur, Input &input,
+    const LogicalTensorPtr &result, const CastMode &mode) {
+    if (cur == static_cast<int>(input.tensor.GetShape().size())) {
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto &op = function.AddOperation(GetCastOpName<T>(), {tile}, {resultTile});
+        op.SetAttribute(OP_ATTR_PREFIX + "mode", mode);
+        return;
+    }
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        TiledCastOperation<T>(function, tileShape, cur + 1, input, result, mode);
+    }
+}
+```
+```
+template <CastOpType T>
+void TiledCastOperation(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
+    const LogicalTensorPtr &result, const CastMode &mode) {
+    ASSERT(operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset should be equal";
+
+    TileInfo tileInfo(result->shape.size(), result->offset.size());
+    auto input = Input{operand, tileInfo};
+    TiledCastOperation<T>(function, tileShape, 0, input, result, mode);
+}
+```
 
 #### 5.1.5. 算子npu计算使用的pto instruction
+Tload: gm to ub
+
+TCast：类型转换
+
+TStore：ub to gm
 
 #### 5.1.6. 算子kernel的计算过程（搬运+计算）
+```
+// load x from gm to ub
+TLoad(ub_x, gm_x)
+
+//type casting
+TCast(ub_y, ub_x)
+
+// store x from ub to gm
+TStore(gm_y, ub_y)
+```
 
 #### 5.1.7. tile shape设置约束
-
+无
 #### 5.1.8. 用例设计
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 输入/输出数据类型：FP16/FP32->(FP32/FP16/INT8/Uint8/INT16/INT32)、(FP32/FP16/INT8/Uint8/INT16/INT32)->FP16/FP32
+* 转换类型：CAST_NONE、CAST_RINT、CAST_ROUND、CAST_FLOOR、CAST_CEIL、CAST_TRUNC、CAST_ODD
+
+| 用例名称  | 输入维度 | 切分 | 输入dtype | 输出dtype | 处理模式 | 说明 |
+|----------|---------|-----------|------|------|------|------|
+| cast_001  | (112) | (50) | FP16 | FP32 | CAST_NONE | 1d尾轴对齐，w切分 |
+| cast_002  | (100) | (100) | INT32 | FP32 | CAST_RINT | 1d尾轴不对齐，无切分 |
+| cast_003  | (4,128) | (2,32) | INT16 | FP32 | CAST_ROUND | 2d尾轴对齐，h,w切分 |
+| cast_004  | (4,130) | (1,130) | FP32 | FP16 | CAST_FLOOR | 2d尾轴不对齐，h切分 |
+| cast_005  | (2,4,160) | (1,2,32) | INT8 | FP16 | CAST_CEIL | 3d尾轴对齐，c,h,w切分 |
+| cast_006  | (2,4,140) | (1,2,140) | Uint8 | FP16 | CAST_TRUNC | 3d尾轴不对齐，c,h切分 |
+| cast_007  | (2,5,152) | (1,5,32) | INT16 | FP16| CAST_ODD | 3d尾轴不对齐，c,w切分 |
+| cast_008  | (2,3,170) | (1,3,170) | FP32 | INT16 | CAST_NONE | 3d尾轴不对齐，c切分 |
+| cast_009  | (5,2,4,176) | (2,1,2,16) | FP32 | INT32 | CAST_NONE | 4d尾轴对齐，n,c,h,w切分 |
+| cast_010  | (5,2,4,130) | (1,1,1,130) | FP16 | INT8 | CAST_NONE | 4d尾轴不对齐，n,c,h切分 |
+| cast_011  | (2,3,5,134) | (1,1,5,32) | FP16 | Uint8 | CAST_NONE | 4d尾轴不对齐，n,c,w切分 |
+| cast_012  | (4,2,6,135) | (2,2,3,32) | FP16 | INT16 | CAST_NONE | 4d尾轴不对齐，n,h,w切分 |
+| cast_013  | (6,2,4,130) | (1,1,4,130) | FP16 | INT32 | CAST_NONE | 4d尾轴不对齐，n,c切分 |
+| cast_014  | (3,2,3,139) | (1,2,1,139) | FP16 | FP32 | CAST_NONE | 4d尾轴不对齐，n,h切分 |
+| cast_015  | (6,3,5,141) | (3,3,5,32) | FP16 | FP32 | CAST_NONE | 4d尾轴不对齐，n,w切分 |
 
 ## 6. 视图操作
 
