@@ -286,6 +286,8 @@ std::string CodeGenOpCloudNPU::PrintVcopy(const PrintUnaryParam &param) const {
 }
 
 std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam &param, std::vector<int> expandAxes) const {
+    ASSERT(OperErr::ATTRIBUTE_INVALID, expandAxes.size() == 1)
+        << "Dynamic Expand only supports single axis expand, got " << expandAxes.size();
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &srcDtypeStr = param.srcDtypeStr;
     const std::string &dVar = param.dVar;
