@@ -434,7 +434,7 @@ void ConvertInserter::GraphReconnect(const std::shared_ptr<LogicalTensor> &oOper
 // 合法性校验
 void ConvertInserter::CheckUnknown(Function &function) const {
     auto opList = function.Operations();
-    ParallelTool::Instance().Parallel_for(0, opList.size(), 1, [&](int st, int et, int tid) {
+    ParallelTool::Instance().parallel_for(0, opList.size(), 1, [&](int st, int et, int tid) {
         (void)tid;
         for (int opIdx = st; opIdx < et; opIdx++) {
             auto &op = opList[opIdx];

@@ -158,7 +158,7 @@ void NBufferMerge::InitParam(OperationsViewer &opOriList) {
     std::vector<std::mutex> subgraphMtx(color_);
     std::vector<std::mutex> inColorMtx(color_);
     std::vector<std::mutex> outColorMtx(color_);
-    ParallelTool::Instance().Parallel_for(0, opOriList.size(),1,[&](int st,int et,int tid) {
+    ParallelTool::Instance().parallel_for(0, opOriList.size(),1,[&](int st,int et,int tid) {
         (void) tid;
         for (int i = st; i < et; i++) {
             // 过滤FromInCast节点和NOP节点
@@ -405,7 +405,7 @@ Status NBufferMerge::MergeProcessForMulityInOut(const OperationsViewer &opOriLis
         hashMapKeys.push_back(entry.first);
     }
     DFSSortUtils::DFSSortColor(color_, inColor_, outColor_, dfsColorOrder_);
-    ParallelTool::Instance().Parallel_for(0, hashMapKeys.size(),1,[&](int st,int et,int tid) {
+    ParallelTool::Instance().parallel_for(0, hashMapKeys.size(),1,[&](int st,int et,int tid) {
         (void) tid;
         for(int hashMapKeyIdx = st; hashMapKeyIdx < et; hashMapKeyIdx++) {
             uint64_t colorHashValue = hashMapKeys[hashMapKeyIdx];
@@ -432,7 +432,7 @@ Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList,
     for (const auto &entry : hashMap) {
         hashMapKeys.push_back(entry.first);
     }
-    ParallelTool::Instance().Parallel_for(0, hashMapKeys.size(),1,[&](int st,int et,int tid) {
+    ParallelTool::Instance().parallel(0, hashMapKeys.size(),1,[&](int st,int et,int tid) {
         (void) tid;
         for(int hashMapKeyIdx = st; hashMapKeyIdx < et; hashMapKeyIdx++) {
             uint64_t colorHashValue = hashMapKeys[hashMapKeyIdx];
