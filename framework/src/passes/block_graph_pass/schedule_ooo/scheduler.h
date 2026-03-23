@@ -217,8 +217,6 @@ private:
     // 新增：基于Operation*的版本
     Status AllocTensorMemRange(Operation* op);
     Status AllocViewTensorMemRange(Operation &operation);
-    Status SpillOnBlock();
-    Status SpillOnCoreBlock(OpCoreType coreType, int idx, bool &didSpill);
     Status CheckAndUpdateLifecycle();
 
     void UpdateIssueExecOrder();
@@ -269,6 +267,7 @@ private:
     Status FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vector<Operation*> &assembleOps);
     Status SpillOnBlock();
     Status SpillOnCoreBlock(OpCoreType coreType, int idx, bool &didSpill);
+    Operation* SkipViewChain(Operation* start, bool followProducers);
 
     // 新增：插入Operation到orderedOps
     void InsertOrdered(Operation* insertOp);
@@ -303,7 +302,7 @@ private:
     // buffer rearrange
     Status RearrangeBuffer(Operation* allocOp, MemoryType memType, std::pair<OpCoreType, int> corePair, bool isGenSpill);
     Status RearrangeBuffers(Operation* op, bool isGenSpillStage, bool &rearrangeUBBF16);
-    Status GenRearrangeCopy(Operation* op, MemoryType memType, int memId, int &newMemId, bool &rearrangeUBBF16);
+    Status GenRearrangeCopyOp(Operation* op, MemoryType memType, int memId, int &newMemId, bool &rearrangeUBBF16);
     Status UpdateMemId(int oldMemId, int newMemId);
     void UpdateMoveOpAttr(Operation &moveOp, Operation &occupyOp);
     void ProcessMoveIssue(Operation* moveOp, Operation* allocOp, MemoryType memType, int oldMemId, int newMemId);
