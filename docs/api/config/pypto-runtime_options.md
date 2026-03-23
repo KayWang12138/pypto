@@ -27,7 +27,10 @@ runtime 选项配置，通过`@pypto.frontend.jit` 的 `runtime_options` 参数�
 @pypto.frontend.jit(
         runtime_options={
         "stitch_function_max_num": 128,
-        "device_sched_mode": 1
+        "device_sched_mode": 1,
+        "ready_on_host_tensors": ["x", "y"]
         }
 )
+def kernel(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor) -> pypto.Tensor:
+    return x + y + z
 ```
