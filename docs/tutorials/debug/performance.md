@@ -43,6 +43,20 @@
 
     图中展示了任务的执行顺序和耗时信息，帮助开发者分析性能瓶颈。
 
+### 采集Aicpu/Aicore泳道图数据
+1、通过环境变量的形式进行使能：
+    ```bash
+    export DUMP_DEVICE_PERF=true
+    ```
+2、执行用例
+    ```bash
+    python3 examples/02_intermediate/operators/softmax/softmax.py
+    ```
+3、生成Aicpu/Aicore泳道图json文件
+    在当前工作目录的output/output\_时间戳目录下生成machine_runtime_operator_trace_xx.json，该文件为Aicpu/Aicore泳道图数据文件。
+4、通过PyPTO Toolkit插件查看泳道图，直接右键单击json文件，在弹出的菜单中选择“使用PyPTO Toolkit打开” 即可。
+    ![Aicpu/Aicore泳道图](../figures/machine_runtime_operator_trace_0.png)
+
 ## 开箱性能调优
 
 算子初始性能与loop的写法、TileShape的设置最为密切。本章将介绍如何使用相关接口，在算子初始编写过程中直接得到较好的开箱性能。请参考PyPTO仓库的models文件夹内已开发算子的实现，进行新算子的开发。
