@@ -61,7 +61,7 @@ LogicalTensorPtr AddOpView(Function &function, const LogicalTensorPtr &srcTensor
     const MatmulTensorInfo &dstTensorInfo, const std::map<std::string, T1> opAttr = {},
     const std::map<std::string, T2> extraOpAttr = {}) {
     ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR, srcTensorPtr != nullptr)
-        << "Original tensor for OpView operation is nullptr.";
+        << "Original tensor for OpView operation is nullptrsss.";
     auto dstShape = dstTensorInfo.shape;
     if (dstTensorInfo.transFlag) {
         ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, dstShape.size() == SHAPE_DIM2 || dstShape.size() == SHAPE_DIM3)
