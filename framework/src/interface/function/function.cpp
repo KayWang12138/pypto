@@ -1943,6 +1943,8 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
                 }
             } else {
                 DEFINE_SOURCE_LOCATION();
+                FUNCTION_ASSERT(FError::INVALID_OPERATION, !HasNegativeNum(iOperand[i]->oriShape))
+                    << "The ioperand of outcast can't be dynamic shape! It's shape: " << iOperand[i]->oriShape;
                 auto &assembleOp = AddOperation(Opcode::OP_ASSEMBLE, {iOperand[i]}, oOperand);
                 assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(newOutcastOffsets[i], SymbolicScalar::FromConcrete(newOutcastOffsets[i])));
             }
