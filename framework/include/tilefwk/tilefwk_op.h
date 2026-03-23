@@ -547,7 +547,9 @@ void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
 // Forward declarations — full definitions in tilefwk/distributed_communicator.h
 class OneShotCommunicatorV2;
 class OneShotCommunicatorV3;
+class OneShotCommunicatorV3Light;
 class OneShotCommunicatorV4;
+class OneShotCommunicatorV4Light;
 class TwoShotCommunicatorV2;
 Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
     OneShotCommunicatorV2& comm);
@@ -557,8 +559,12 @@ void OneShotAllReduce_v6_light(const Tensor& predToken, const Tensor& in, Tensor
     OneShotCommunicatorV2& comm);
 void OneShotAllReduce_v7(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
     OneShotCommunicatorV3& comm);
+void OneShotAllReduce_v7_light(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
+    OneShotCommunicatorV3Light& comm);
 void OneShotAllReduce_v8(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
     OneShotCommunicatorV4& comm);
+void OneShotAllReduce_v8_light(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
+    OneShotCommunicatorV4Light& comm);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out);
@@ -578,6 +584,8 @@ void CreateShmemData(const char* group, int64_t worldSize, DataType dataType,
     const Shape& shape, Tensor& shmemTensor, uint64_t memType = 0);
 void CreateShmemSignal(const char* group, Tensor& shmemData, Tensor& shmemSignal);
 void CreateShmemSignalLight(const char* group, int64_t worldSize, Tensor& shmemSignal);
+void CreateShmemSignalGroupedLight(const char* group, int64_t worldSize, int64_t signalGroupCount,
+    Tensor& shmemSignal);
 Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemData,
     AtomicType atomicType = AtomicType::SET);
 Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
