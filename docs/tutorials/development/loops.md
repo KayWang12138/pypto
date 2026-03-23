@@ -35,14 +35,13 @@ def add_kernel(
 循环使用的pypto.loop的全接口入参如下：
 
 ```python
-for idx in pypto.loop(start, end, step, name="label", idx_name="idx_label", submit_before_loop=False, parallel=True)
+for idx in pypto.loop(start, end, step, name="label", idx_name="idx_label", submit_before_loop=False)
 ```
 
 -   参数说明：
     -   start, end, step：可选参数，支持灵活配置循环范围。
     -   name, idx\_name：循环标识和索引变量名称，用于调试。
     -   submit\_before\_loop：控制循环执行顺序。
-    -   parallel：表明不同次的 loop 迭代之间无任意依赖关系，支持不同次的loop迭代并行。
 
 也可以按需简化成：
 
@@ -90,13 +89,5 @@ view/assemble接口完整样例请参考：[add_scalar_loop_view_assemble.py](..
 
 ```python
 for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx", submit_before_loop=True):
-```
-
-## 数据依赖与循环顺序
-
-网络在大 Batch 下，machine 上的执行无法完全 stitch 成一个单独的 devTask，且每个 devTask 内存在部分串行任务，在调度时串行任务因为存在依赖，被安排在调度的末尾，导致相邻的 devTask 之间存在较长的调度空隙。为了避免这种可以和并行网络同时调度的串行网络在调度时靠后。需设置parallel = True, 支持不同次的loop迭代并行。
-
-```python
-for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx", submit_before_loop=False, parallel=True):
 ```
 

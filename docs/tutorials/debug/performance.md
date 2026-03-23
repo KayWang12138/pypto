@@ -96,15 +96,6 @@ for b_idx in pypto.loop(bsz, name="LOOP_2", idx_name="b_idx"):
        out_2 = Operation2(x2[b_idx, :], y)
 ```
 
-#### 若loop的不同次迭代间无依赖，可用配置parallel=True让不同此的loop迭代并行
-
-检查算子代码loop不同次迭代间是否存在依赖，用配置parallel=True让不同此的loop迭代并行， 注意parallel 不支持嵌套。正确配置方式如下示例1:
-```
-bsz = x1.shape[0]
-示例1： for b_idx in pypto.loop(bsz, name="LOOP_1", idx_name="b_idx", parallel=True):
-       out_1 = Operation1(x1[b_idx, :], y)
-```
-
 #### 动态轴范围较广时使用 [loop_unroll](../../api/controlflow/pypto-loop_unroll.md)
 
 当算子使用动态Shape，且Shape范围较广的场景，应考虑使用loop_unroll代替loop接口。loop_unroll功能与loop类似，在其基础上增加了unroll_list参数支持多个展开方式。比如当算子中某个动态轴需要泛化支持1~64k的Shape范围时，指定单一的动态轴切分大小难以满足要求。切分过大时，小Shape场景会引入较多实际计算大小为0的空计算任务，增加耗时；切分过小时，大Shape场景下循环次数过多，影响整体性能。使用loop_unroll后，无论大小Shape场景，框架都会根据unroll_list参数选择合适的档位或组合，避免冗余计算，且循环次数可控，因此可获得较好的性能。
