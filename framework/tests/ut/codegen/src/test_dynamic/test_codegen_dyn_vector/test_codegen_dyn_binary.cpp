@@ -197,7 +197,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
 }
 
 TEST_F(TestCodegenDynBinary, TestGatherEleForFuncParallel) {
-    LogManager::Instance().SetLogLevel(LogLevel::INFO)
+    LogManager::Instance().SetLogLevel(LogLevel::INFO);
     constexpr const int32_t nRoutedExperts = 256;
     constexpr const int32_t numExpertsPerTopk = 8;
     constexpr const int32_t S = 1;
@@ -243,7 +243,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEleForFuncParallel) {
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
-    LogManager::Instance().SetLogLevel(LogLevel::NONE)
+    LogManager::Instance().SetLogLevel(LogLevel::NONE);
 }
 
 TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor) {
