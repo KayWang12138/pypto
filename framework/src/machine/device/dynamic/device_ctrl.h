@@ -312,7 +312,7 @@ public:
         if (devArgs->devDfxArgAddr != 0) {
             DevDfxArgs *devDfxArgs = reinterpret_cast<DevDfxArgs*>(devArgs->devDfxArgAddr);
             if (devDfxArgs->logLevel != -1 && dlog_setlevel != nullptr) {
-                (void)dlog_setlevel(PYPTO, devDfxArgs->logLevel, 1);
+                (void)dlog_setlevel(LOG_MOD_ID, devDfxArgs->logLevel, 1);
             }
         }
 #endif

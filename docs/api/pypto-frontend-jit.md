@@ -42,7 +42,7 @@ def kernel_function(...):
 | codegen_options | 输入 | 类型为 `dict[str, any]`，用于设置 codegen 配置项，配置项参数见[参数说明](./config/pypto-set_codegen_options.md)  |
 | host_options | 输入 | 类型为 `dict[str, any]`，用于设置 host 配置项，配置项参数见[参数说明](./config/pypto-set_host_options.md) |
 | pass_options | 输入 | 类型为 `dict[str, any]`，用于设置 Pass 配置项，配置项参数见[参数说明](./config/pypto-set_pass_options.md)  |
-| runtime_options | 输入 | 类型为 `dict[str, any]`，用于设置 runtime 配置项，配置项参数见[参数说明](./config/pypto-set_runtime_options.md) |
+| runtime_options | 输入 | 类型为 `dict[str, any]`，用于设置 runtime 配置项，配置项参数见[参数说明](./config/pypto-runtime_options.md) |
 
 ## 返回值说明
 
@@ -52,8 +52,10 @@ def kernel_function(...):
 
 1. 张量参数，必须使用类型注解指定为 `pypto.Tensor` 类型
 2. 动态维度必须使用 `pypto.DYNAMIC` 或 `pypto.DYN` 在参数注解中标记
-3. 张量参数在前，非张量参数（如 `scalar`、`tiling`）在后
-4. 非张量参数支持 keyword 传参、位置参数、使用默认值
+3. tensor format用format标记，format支持非显式标记(参考示例1中的a), 默认为pypto.TileOpFormat.TILEOP_ND;
+   format显式标记时, 性能更优, 要求传入的torch tensor与pypto.Tensor声明的format一致，能获得更优的性能;
+4. 张量参数在前，非张量参数（如 `scalar`、`tiling`）在后
+5. 非张量参数支持 keyword 传参、位置参数、使用默认值
 
 
 ## 调用示例
@@ -64,7 +66,7 @@ def kernel_function(...):
 @pypto.frontend.jit
 def add_kernel(
     a: pypto.Tensor([3], pypto.DT_FP32),
-    b: pypto.Tensor([3], pypto.DT_FP32),
+    b: pypto.Tensor([3], pypto.DT_FP32, format=pypto.TileOpFormat.TILEOP_NZ),
     out: pypto.Tensor([3], pypto.DT_FP32)
 ):
     pypto.set_vec_tile_shapes(2, 8)
