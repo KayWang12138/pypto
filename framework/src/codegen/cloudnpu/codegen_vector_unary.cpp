@@ -368,9 +368,9 @@ std::string CodeGenOpCloudNPU::PrintExpand(
     std::vector<int64_t> os = NormalizeShape(originShape[1], SHAPE_DIM4);
     std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
-    auto axis = opAttrs.at(OP_ATTR_PREFIX + "EXPANDDIM");
-    if (axis.HasValue()) {
-        expandAxis = AnyCast<int64_t>(axis);
+    auto axes = opAttrs.at(OP_ATTR_PREFIX + "EXPANDDIMS");
+    if (axes.HasValue()) {
+        expandAxis = AnyCast<int64_t>(axes);
     }
 
     bool isValidAxis = ((expandAxis >= 0) && (expandAxis <= (static_cast<int>(rawShape[1].size() - 1))));

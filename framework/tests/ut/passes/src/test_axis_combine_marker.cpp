@@ -263,7 +263,7 @@ TEST_F(TestAxisCombineMarker, expand_non_last_axis)
     EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"t1"}, {"t2"}, "copy_in", true), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_EXPAND, {"t2"}, {"t3"}, "expand", true), true);
     auto expand_op = graph.GetOp("expand");
-    expand_op->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 0); // Expand non-last axis
+    expand_op->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", std::vector<int>{0}); // Expand non-last axis
 
     auto* rootFuncPtr = graph.GetFunction();
     AxisCombineMarker marker;
