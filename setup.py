@@ -32,7 +32,7 @@ import site
 import sysconfig
 import warnings
 from pathlib import Path
-from typing import Optional, Any, List, Tuple, Union
+from typing import Optional, List, Tuple
 from importlib import metadata
 
 from setuptools import setup, Extension

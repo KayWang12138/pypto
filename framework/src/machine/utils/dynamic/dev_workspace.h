@@ -106,7 +106,7 @@ private:
                 default:
                     break;
             }
-            DEV_ERROR("  Func (%2zu) %16s rawTensor[%2zu], @%" PRIx64 " [%zu bytes]%s.",
+            DEV_INFO("  Func (%2zu) %16s rawTensor[%2zu], @%" PRIx64 " [%zu bytes]%s.",
                 stitchedListIndex, dup.GetSource()->GetRawName(), rawIndex, ptr, size,
                 ioPropertyDump.c_str());
         }
@@ -152,19 +152,19 @@ public:
                 switch (VerifyTensorMemoryState(memInfo.ptr, memInfo.size)) {
                     case WsMemoryState::INSIDE:
                         if (!IsValidWsTensor(memInfo.ptr, memInfo.size)) {
-                            DEV_ERROR("Invalid workspace tensor (not completely inside any workspace segment):");
+                            DEV_ERROR(WsErr::WS_TENSOR_ADDRESS_OUT_OF_RANGE, "workspace.verify.tensor: Invalid workspace tensor (not completely inside any workspace segment):");
                             memInfo.DumpError();
                             verificationSuccess = false;
                         }
                         break;
                     case WsMemoryState::CROSS_BOUNDARY:
-                        DEV_ERROR("Memory crossing workspace boundary:");
+                        DEV_ERROR(WsErr::WS_TENSOR_ADDRESS_OUT_OF_RANGE, "workspace.verify.tensor: Memory crossing workspace boundary:");
                         memInfo.DumpError();
                         verificationSuccess = false;
                         break;
                     default:
                         if (!inoutAddr.count(memInfo.ptr)) {
-                            DEV_ERROR("Non input/output tensor outside of workspace:");
+                            DEV_ERROR(WsErr::WS_TENSOR_ADDRESS_OUT_OF_RANGE, "workspace.verify.tensor: Non input/output tensor outside of workspace:");
                             memInfo.DumpError();
                             verificationSuccess = false;
                         }
@@ -172,7 +172,7 @@ public:
                 }
             }
         }
-        DEV_ASSERT(verificationSuccess);
+        DEV_ASSERT(WsErr::WORKSPACE_INIT_RESOURCE_ERROR, verificationSuccess);
     }
 
 private:
@@ -180,7 +180,7 @@ private:
                                         [[maybe_unused]] WsAllocatorCounter *dfxCounter) {
         if (!tensorAllocators_.rootInner.CanAllocate(rootInnerMemReq)) {
             tensorAllocators_.rootInner.ResetPool();
-            DEV_ASSERT_MSG(tensorAllocators_.rootInner.CanAllocate(rootInnerMemReq),
+            DEV_ASSERT_MSG(WsErr::WORKSPACE_INIT_RESOURCE_ERROR, tensorAllocators_.rootInner.CanAllocate(rootInnerMemReq),
                 "After reset, still cannot allocate root inner workspace unexpectedly, memReq=%" PRIu64,
                 rootInnerMemReq);
         }
@@ -202,7 +202,7 @@ private:
         DevAscendFunction *devRootSrc = devRootDup.GetSource();
         size_t outcastMemReq = devRootSrc->exclusiveOutcastWsMemoryRequirement;
         if (outcastMemReq != 0) {
-            DEV_ASSERT(tensorAllocators_.devTaskInnerExclusiveOutcasts.CanAllocate(outcastMemReq));
+            DEV_ASSERT(WsErr::WORKSPACE_INIT_RESOURCE_ERROR, tensorAllocators_.devTaskInnerExclusiveOutcasts.CanAllocate(outcastMemReq));
             WsAllocation allocation = tensorAllocators_.devTaskInnerExclusiveOutcasts.Malloc(
                 outcastMemReq, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
@@ -238,11 +238,11 @@ private:
     void AssignIncastAddresses(DevAscendFunctionDupped devRootDup, DeviceExecuteSlot *slotList) {
         DevAscendFunction *devRootSrc = devRootDup.GetSource();
         for (size_t i = 0; i < devRootSrc->GetIncastSize(); ++i) {
-            DEV_ASSERT_MSG(devRootSrc->GetIncast(i).fromSlotList.size() > 0,
+            DEV_ASSERT_MSG(WsErr::WORKSPACE_ITER_INVALID, devRootSrc->GetIncast(i).fromSlotList.size() > 0,
                 "Root [%s] Incast %zu has no fromSlotList.", devRootSrc->GetRawName(), i);
 
             int slotIndex = devRootSrc->At(devRootSrc->GetIncast(i).fromSlotList, 0);
-            DEV_ASSERT_MSG(slotList[slotIndex].rtOutcastIter != ITEM_POOL_INVALID_INDEX,
+            DEV_ASSERT_MSG(WsErr::WORKSPACE_ITER_INVALID, slotList[slotIndex].rtOutcastIter != ITEM_POOL_INVALID_INDEX,
                 "Root incast read from empty address.");
             auto &incastDesc = devRootDup.GetIncastAddress(i);
             incastDesc = AddressDescriptor::MakeFromRtOutcast(slotList[slotIndex].rtOutcastIter);
@@ -283,7 +283,7 @@ private:
                         AllocateSlot(devRootSrc->GetRawName()), RuntimeTensorMemProperty::BOUNDARY_OUTCAST);
                     slotList[assembleSlotIndex].isAssembleSlotNeedAlloc = false;
                 } else {
-                    DEV_ASSERT_MSG(slotList[assembleSlotIndex].rtOutcastIter != ITEM_POOL_INVALID_INDEX,
+                    DEV_ASSERT_MSG(WsErr::WORKSPACE_ITER_INVALID, slotList[assembleSlotIndex].rtOutcastIter != ITEM_POOL_INVALID_INDEX,
                         "Missing RUNTIME_SlotMarkNeedAlloc for assemble slot %d.", assembleSlotIndex);
                 }
                 outcastDesc = AddressDescriptor::MakeFromRtOutcast(slotList[assembleSlotIndex].rtOutcastIter);
@@ -297,8 +297,8 @@ private:
             } else if (rawTensor->linkedIncastId != -1) {
                 /* reshape inplace or something */
                 auto &incastDesc = devRootDup.GetIncastAddress(rawTensor->linkedIncastId);
-                DEV_ASSERT(incastDesc.IsRtOutcast());
-                DEV_ASSERT(incastDesc.GetRtOutcastIter() != ITEM_POOL_INVALID_INDEX);
+                DEV_ASSERT(WsErr::WORKSPACE_CATEGORY_INVALID, incastDesc.IsRtOutcast());
+                DEV_ASSERT(WsErr::WORKSPACE_ITER_INVALID, incastDesc.GetRtOutcastIter() != ITEM_POOL_INVALID_INDEX);
                 outcastDesc = incastDesc;
                 RuntimeOutcastTensorRef(outcastDesc.GetRtOutcastIter());
             } else {
@@ -339,7 +339,7 @@ public:
 #if DEBUG_INFINITE_LIFETIME
     WsAllocation DebugDumpTensorAllocate(size_t memReq,
         WsMemCategory category = WsMemCategory::UNCLASSIFIED) {
-        DEV_ASSERT_MSG(dumpTensorWsAllocator_.CanAllocate(memReq),
+        DEV_ASSERT_MSG(WsErr::WORKSPACE_INIT_RESOURCE_ERROR, dumpTensorWsAllocator_.CanAllocate(memReq),
             "dumpTensorWsAllocator_ cannot allocate requested memory unexpectedly, memReq=%zu", memReq);
         WsAllocation allocation = dumpTensorWsAllocator_.Malloc(memReq, category);
         *dumpTensorWsAllocatorCounter_ = dumpTensorWsAllocator_.AllocatedSize();
@@ -400,14 +400,14 @@ public:
     }
 
     RuntimeOutcastTensor &GetRuntimeOutcastTensor(ItemPoolIter iter) {
-        DEV_ASSERT(iter != ITEM_POOL_INVALID_INDEX);
+        DEV_ASSERT(WsErr::WORKSPACE_ITER_INVALID, iter != ITEM_POOL_INVALID_INDEX);
         return runtimeOutcastTensorPool_.At(iter);
     }
 
     void RuntimeOutcastTensorDeref(ItemPoolIter iter) {
-        DEV_ASSERT(iter != ITEM_POOL_INVALID_INDEX);
+        DEV_ASSERT(WsErr::WORKSPACE_ITER_INVALID, iter != ITEM_POOL_INVALID_INDEX);
         auto &outcast = runtimeOutcastTensorPool_.At(iter);
-        DEV_ASSERT(outcast.refCnt > 0);
+        DEV_ASSERT(WsErr::WORKSPACE_REFCOUNT_INVALID, outcast.refCnt > 0);
         outcast.refCnt--;
         if (outcast.refCnt == 0) {
             RuntimeOutcastTensorDestruct(outcast);
@@ -415,9 +415,9 @@ public:
     }
 
     void RuntimeOutcastTensorRef(ItemPoolIter iter) {
-        DEV_ASSERT(iter != ITEM_POOL_INVALID_INDEX);
+        DEV_ASSERT(WsErr::WORKSPACE_ITER_INVALID, iter != ITEM_POOL_INVALID_INDEX);
         auto &outcast = runtimeOutcastTensorPool_.At(iter);
-        DEV_ASSERT_MSG(outcast.refCnt > 0, "Shouldn't ref a possibly destroyed tensor, iter=%" PRId64, iter);
+        DEV_ASSERT_MSG(WsErr::WORKSPACE_REFCOUNT_INVALID, outcast.refCnt > 0, "Shouldn't ref a possibly destroyed tensor, iter=%" PRId64, iter);
         outcast.refCnt++;
     }
 
@@ -443,7 +443,7 @@ public:
     }
 
     void RuntimeOutcastTensorReplaceAddrWithoutRecycle(ItemPoolIter iter, uintdevptr_t addr, RuntimeTensorMemProperty property) {
-        DEV_ASSERT(iter != ITEM_POOL_INVALID_INDEX);
+        DEV_ASSERT(WsErr::WORKSPACE_ITER_INVALID, iter != ITEM_POOL_INVALID_INDEX);
         auto &outcast = runtimeOutcastTensorPool_.At(iter);
         outcast.addr = addr;
         outcast.property = property;
@@ -543,7 +543,7 @@ public:
     }
 
     void InitMetadataSlabAllocator() {
-        DEV_ASSERT(metadataAllocators_.general.FreeMemorySize() > 0);
+        DEV_ASSERT(WsErr::WORKSPACE_CAPACITY_INSUFFICIENT, metadataAllocators_.general.FreeMemorySize() > 0);
         uint64_t memBase = metadataAllocators_.general.MemBaseAddr() + metadataAllocators_.general.AllocatedSize();
         uint64_t realMemBase = AlignUp(memBase, sizeof(uint64_t));
         uint32_t metaSlabMemSize = metadataAllocators_.general.FreeMemorySize() - (realMemBase - memBase);
@@ -553,14 +553,14 @@ public:
             if (slabMemObjSizeFunc[i] != nullptr) {
                 [[maybe_unused]] bool registCacheRes =
                     metadataAllocators_.generalSlab.RegistCache(i, (this->*slabMemObjSizeFunc[i])());
-                DEV_ASSERT(registCacheRes);
+                DEV_ASSERT(WsErr::WORKSPACE_ALLOCATOR_REGIST_FAILED, registCacheRes);
             }
         }
     }
 
     static uint64_t CalcMetadataItemPoolMemSize(const DevAscendProgram* devProg) {
         size_t itemBlockSize = sizeof(ItemPool<RuntimeOutcastTensor>::ItemBlock);
-        DEV_DEBUG("itemBlockSize is: %zu, OutcastPoolSize is %u",
+        DEV_DEBUG("itemBlockSize=%zu, OutcastPoolSize=%u",
                    itemBlockSize, devProg->runtimeOutcastPoolSize);
         uint64_t itemPoolMemSize = itemBlockSize * devProg->runtimeOutcastPoolSize;
         return itemPoolMemSize;
@@ -570,50 +570,46 @@ public:
         // 1. symbolTable
         uint64_t symbolTableCapacity = CalculateVectorCapacity(devProg->symbolTable.size());
         uint64_t symbolTableMemory = symbolTableCapacity * sizeof(int64_t);
-        DEV_DEBUG("symbolTableMemory is %lu,", symbolTableMemory);
+        DEV_DEBUG("symbolTableMemory=%lu.", symbolTableMemory);
         // 2. slotList_
         uint64_t slotListCapacity = CalculateVectorCapacity(devProg->slotSize);
         uint64_t slotListMemory = slotListCapacity * sizeof(DeviceExecuteSlot);
-        DEV_DEBUG("slotListMemory is %lu,", slotListMemory);
-        // 3. slotInfosInDecidingSlotMem_
-        uint64_t slotInfosCapacity = CalculateVectorCapacity(devProg->slotSize);
-        uint64_t slotInfosMemory = slotInfosCapacity * sizeof(ItemPoolIter);
-        DEV_DEBUG("slotInfosMemory is %lu,", slotInfosMemory);
-        // 4. rtBoundaryOutcastToBeFree_
+        DEV_DEBUG("slotListMemory=%lu.", slotListMemory);
+        // 3. rtBoundaryOutcastToBeFree_
         uint64_t boundaryOutcastToFreeListSize = CalculateVectorCapacity(devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
         uint64_t boundaryOutcastToFreeMemory = boundaryOutcastToFreeListSize * sizeof(RuntimeOutcastTensor);
-        DEV_DEBUG("Memory of list for Boundary outcast to free is %lu,", boundaryOutcastToFreeMemory);
+        DEV_DEBUG("boundaryOutcastToFreeMemory=%lu.", boundaryOutcastToFreeMemory);
         // total
         uint64_t totalSetupVectorMemory = symbolTableMemory + slotListMemory +
-                                          slotInfosMemory + boundaryOutcastToFreeMemory;
+                                          boundaryOutcastToFreeMemory;
         return totalSetupVectorMemory;
     }
 
     static uint64_t CalcMetadataSlotAllocatorMemSize(const DevAscendProgram* devProg) {
         size_t blockHeaderSize = sizeof(WsSlotAllocator::BlockHeader);
         uint64_t slotNum = devProg->memBudget.tensor.devTaskBoundaryOutcastNum;
-        DEV_DEBUG("slotNum of boundary outcast is %lu", slotNum);
+        DEV_DEBUG("boundaryOutcastSlotNum=%lu", slotNum);
         return slotNum * blockHeaderSize;
     }
 
     uint32_t CalcSlabMemObjmaxSize () {
         uint32_t slabMemObjmaxSize = CalcAicpuMetaSlabAlloctorSlabMemObjmaxSize();
-        DEV_DEBUG ("slabMemObjmaxSize is: %u", slabMemObjmaxSize);
+        DEV_DEBUG ("slabMemObjmaxSize=%u", slabMemObjmaxSize);
         return slabMemObjmaxSize;
     }
     void CalculateSlabCapacityPerType (uint32_t slabSize, uint32_t* slabCapacity, uint32_t slabTypeNum) {
         if (slabCapacity == nullptr) {
-            DEV_ERROR("slabCapacity is nullptr");
+            DEV_ERROR(WsErr::WORKSPACE_INIT_PARAM_INVALID, "#workspace.init.resource: slabCapacity is nullptr");
             return;
         }
         constexpr uint32_t maxSlabTypes = ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT);
         if (slabTypeNum > maxSlabTypes) {
-            DEV_ERROR("slabTypeNum exceeds the allowed typenum %u ", maxSlabTypes);
+            DEV_ERROR(WsErr::SLAB_TYPE_INVALID, "#workspace.init.check: slabTypeNum exceeds the allowed maxSlabTypes=%u", maxSlabTypes);
             return;
         }
         for (size_t i = 0; i < slabTypeNum; ++i) {
             if (slabMemObjSizeFunc[i] != nullptr && (this->*slabMemObjSizeFunc[i])() !=0) {
-                DEV_DEBUG("WsAicpuSlabMemType[%zu] is %u", i, (this->*slabMemObjSizeFunc[i])());
+                DEV_DEBUG("WsAicpuSlabMemType[%zu]=%u", i, (this->*slabMemObjSizeFunc[i])());
                 slabCapacity[i] = slabSize / (this->*slabMemObjSizeFunc[i])();
             }
         }
@@ -636,8 +632,8 @@ public:
                 // should not happen, first task alloc failed
                 metadataAllocators_.generalSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
                 metadataAllocators_.stitchSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
-                DEV_ERROR("Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type), objSize);
-                DEV_ASSERT_MSG(false, "Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type), objSize);
+                DEV_ERROR(WsErr::SLAB_ADD_CACHE_FAILED, "#workspace.init.check: Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type), objSize);
+                DEV_ASSERT_MSG(WsErr::SLAB_ADD_CACHE_FAILED, false, "Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type), objSize);
             }
             uint64_t ttlstart = GetCycles();
             while (!SlabStageAllocMemTryRecycle()) {  // wait sch aicpu finish task
@@ -671,7 +667,7 @@ public:
     /* support vector allocator,so need have this fucntion member */
     template <typename T>
     WsAllocation Allocate(uint64_t count, WsMemCategory category) {
-        DEV_ASSERT_MSG(category == WsMemCategory::VECTOR_STITCHED_LIST,
+        DEV_ASSERT_MSG(WsErr::WORKSPACE_CATEGORY_INVALID, category == WsMemCategory::VECTOR_STITCHED_LIST,
             "Unexpected category=%s", GetCategoryName(category));
         return SlabAlloc(count * sizeof(T), WsAicpuSlabMemType::VEC_STITCHED_LIST);
     }
@@ -725,7 +721,7 @@ private:
         DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInDeviceTaskOutcast(Range(baseAddr, baseAddr + devTaskInnerOutcastBudget))));
         baseAddr += devTaskInnerOutcastBudget;
 
-        DEV_ASSERT(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + tensorWorkspaceSize);
+        DEV_ASSERT(WsErr::WORKSPACE_BASE_ADDR_OUT_OF_RANGE, workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + tensorWorkspaceSize);
     }
 
     void InitAICoreSpilledMemory(uintdevptr_t workspaceAddr,
@@ -774,12 +770,12 @@ private:
 
     /* 按照devicetask最大支持stitch阈值分配对象 */
     uint32_t DynFuncDataSlabMemObjSize() {
-        return (sizeof(DynFuncHeader) + MAX_CACHED_FUNC_NUM * sizeof(DynFuncData));
+        return (sizeof(DynFuncHeader) + devProg_-> stitchMaxFunctionNum * sizeof(DynFuncData));
     }
 
     /* 按照devicetask最大支持stitch阈值分配对象 */
     uint32_t VecStitchListSLabMemObjSize() {
-        return MAX_CACHED_FUNC_NUM * sizeof(DevAscendFunctionDupped);
+        return devProg_-> stitchMaxFunctionNum * sizeof(DevAscendFunctionDupped);
     }
 
     uint32_t DynDevTaskSlabMemObjSize() {
@@ -792,6 +788,14 @@ private:
 
     uint32_t ReadyQueSlabMemObjSize() {
         return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
+    }
+
+    uint32_t DieReadyQueSlabMemObjSize() {
+        if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
+            return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
+        } else {
+            return 1;
+        }
     }
 
     uint32_t WrapQueSlabMemObjSize() {
@@ -809,13 +813,13 @@ private:
             return 1;
         }
     }
-
     uint32_t (DeviceWorkspaceAllocator::*slabMemObjSizeFunc[ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)])() = {
         &DeviceWorkspaceAllocator::DevFunctionDuppedSlabMemObjSize,
         &DeviceWorkspaceAllocator::DynFuncDataSlabMemObjSize,
         &DeviceWorkspaceAllocator::VecStitchListSLabMemObjSize,
         &DeviceWorkspaceAllocator::DynDevTaskSlabMemObjSize,
         &DeviceWorkspaceAllocator::ReadyQueSlabMemObjSize,
+        &DeviceWorkspaceAllocator::DieReadyQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapTasklistSlabMemObjSize,
         nullptr, // invalid type
@@ -841,7 +845,7 @@ private:
         uint32_t allocNumOneSlab = 4; // default
         uint32_t slabSize = CalcAicpuMetaSlabAlloctorSlabMemObjmaxSize();
         uint32_t leastSlabReqMem = (ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)) * slabSize;
-        DEV_ASSERT_MSG(leastSlabReqMem < totalMemSize,
+        DEV_ASSERT_MSG(WsErr::WORKSPACE_CAPACITY_INSUFFICIENT, leastSlabReqMem < totalMemSize,
             "leastSlabReqMem=%u >= totalMemSize=%u", leastSlabReqMem, totalMemSize);
         uint32_t realMaxAllocNum = totalMemSize / leastSlabReqMem;
         if (realMaxAllocNum < allocNumOneSlab) {
@@ -852,7 +856,7 @@ private:
     }
 
     void InitAicpuStitchSlabAllocator(void* memBase, uint32_t totalSize) {
-        DEV_ASSERT_MSG(memBase != nullptr && totalSize > 0,
+        DEV_ASSERT_MSG(WsErr::WORKSPACE_INIT_PARAM_INVALID, memBase != nullptr && totalSize > 0,
             "memBase %s null, totalSize=%u", memBase == nullptr ? "is" : "is not", totalSize);
         constexpr uint32_t slabSize = 4 * 1024; // fix size
         metadataAllocators_.stitchSlab.Init(memBase, totalSize, slabSize);
@@ -860,10 +864,10 @@ private:
             i < ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT); ++i) {
             if (slabMemObjSizeFunc[i] != nullptr) {
                 uint32_t objSize = (this->*slabMemObjSizeFunc[i])();
-                DEV_ASSERT_MSG(slabSize > objSize, "slabSize=%u <= objSize=%u", slabSize, objSize);
+                DEV_ASSERT_MSG(WsErr::WORKSPACE_CAPACITY_INSUFFICIENT, slabSize > objSize, "slabSize=%u <= objSize=%u", slabSize, objSize);
                 [[maybe_unused]] bool registCacheRes =
                     metadataAllocators_.stitchSlab.RegistCache(i, (this->*slabMemObjSizeFunc[i])());
-                DEV_ASSERT(registCacheRes);
+                DEV_ASSERT(WsErr::WORKSPACE_ALLOCATOR_REGIST_FAILED, registCacheRes);
             }
         }
     }
@@ -873,17 +877,17 @@ private:
             if (!metadataAllocators_.generalSlab.ExistCache(ToUnderlying(type), objSize)) {
                 [[maybe_unused]] bool registCacheRes =
                     metadataAllocators_.generalSlab.RegistCache(ToUnderlying(type), objSize);
-                DEV_ASSERT(registCacheRes);
+                DEV_ASSERT(WsErr::WORKSPACE_ALLOCATOR_REGIST_FAILED, registCacheRes);
             }
         } else if (type < WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT) {
             if (!metadataAllocators_.stitchSlab.ExistCache(ToUnderlying(type), objSize)) {
                 [[maybe_unused]] bool registCacheRes =
                     metadataAllocators_.stitchSlab.RegistCache(ToUnderlying(type), objSize);
-                DEV_ASSERT(registCacheRes);
+                DEV_ASSERT(WsErr::WORKSPACE_ALLOCATOR_REGIST_FAILED, registCacheRes);
             }
         } else {
-            DEV_ERROR("Invalid slab memory type: %u", (unsigned int)type);
-            DEV_ASSERT(false);
+            DEV_ERROR(WsErr::SLAB_TYPE_INVALID, "#workspace.init.check: Invalid slab memory type: %u", (unsigned int)type);
+            DEV_ASSERT(WsErr::SLAB_TYPE_INVALID, false);
         }
     }
 public:

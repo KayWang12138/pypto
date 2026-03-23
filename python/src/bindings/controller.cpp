@@ -65,7 +65,7 @@ void bind_controller_set_tile(py::module &m) {
     m.def(
         "SetCubeTile",
         [](const std::vector<int64_t> &mvec, const std::vector<int64_t> &kvec, const std::vector<int64_t> &nvec,
-            bool enableMultiDataLoad, bool enableSplitK) {
+            bool enableSplitK) {
             if (mvec.size() > MAX_M_DIM_SIZE) {
                 throw py::value_error(
                     "Parameter 'm' must have exactly " + std::to_string(MAX_M_DIM_SIZE) + " elements");
@@ -86,13 +86,44 @@ void bind_controller_set_tile(py::module &m) {
             std::copy(mvec.begin(), mvec.end(), marr.begin());
             std::copy(kvec.begin(), kvec.end(), karr.begin());
             std::copy(nvec.begin(), nvec.end(), narr.begin());
-            TileShape::Current().SetCubeTile(marr, karr, narr, enableMultiDataLoad, enableSplitK);
+            TileShape::Current().SetCubeTile(marr, karr, narr, enableSplitK);
         },
-        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("enable_multi_data_load"), py::arg("enable_split_k"), 
+        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("enable_split_k"), 
         "Set cube tile shapes with specified dimensions");
     m.def("GetCubeTile", []() {
         auto cubeTile = TileShape::Current().GetCubeTile();
-        return std::tuple(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.enableMultiDataLoad, cubeTile.enableSplitK);
+        return std::tuple(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.enableSplitK);
+    });
+    py::class_<Conv::TileL1Info>(m, "TileL1Info")
+        .def(py::init<>())
+        .def(py::init<int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t>(), 
+            py::arg("tileHin"), py::arg("tileHout"),py::arg("tileWin"), py::arg("tileWout"),
+            py::arg("tileCinFmap"), py::arg("tileCinWeight"),py::arg("tileN"), py::arg("tileBatch"))
+        .def_readwrite("tileHin", &Conv::TileL1Info::tileHin)
+        .def_readwrite("tileHout", &Conv::TileL1Info::tileHout)
+        .def_readwrite("tileWin", &Conv::TileL1Info::tileWin)
+        .def_readwrite("tileWout", &Conv::TileL1Info::tileWout)
+        .def_readwrite("tileCinFmap", &Conv::TileL1Info::tileCinFmap)
+        .def_readwrite("tileCinWeight", &Conv::TileL1Info::tileCinWeight)
+        .def_readwrite("tileN", &Conv::TileL1Info::tileN)
+        .def_readwrite("tileBatch", &Conv::TileL1Info::tileBatch);
+    py::class_<Conv::TileL0Info>(m, "TileL0Info")
+        .def(py::init<>())
+        .def(py::init<int64_t, int64_t, int64_t, int64_t>(), 
+            py::arg("tileH"), py::arg("tileW"), py::arg("tileK"),py::arg("tileN"))
+        .def_readwrite("tileH", &Conv::TileL0Info::tileH)
+        .def_readwrite("tileW", &Conv::TileL0Info::tileW)
+        .def_readwrite("tileK", &Conv::TileL0Info::tileK)
+        .def_readwrite("tileN", &Conv::TileL0Info::tileN);
+    m.def(
+        "SetConvTile",
+        [](const Conv::TileL1Info &tileL1Info, const Conv::TileL0Info &tileL0Info, bool setL0Tile) {
+            TileShape::Current().SetConvTile(tileL1Info, tileL0Info, setL0Tile);
+        },
+        py::arg("tileL1Info"), py::arg("tileL0Info"), py::arg("setL0Tile"), "Set conv tile shapes");
+    m.def("GetConvTile", []() {
+        auto convTile = TileShape::Current().GetConvTile();
+        return std::tuple(convTile.tileL1Info, convTile.tileL0Info, convTile.setL0Tile);
     });
 }
 
@@ -123,7 +154,7 @@ void bind_controller_function(py::module &m) {
         .def("__iter__", [](RecordFunc &c) {
             // Return Python iterator from C++ begin/end
             return py::make_iterator(c.begin(), c.end());
-            });;
+            });
     py::class_<RecordLoopFunc>(m, "RecordLoopFunc")
         .def(py::init<const std::string &, FunctionType, const std::string &, const LoopRange &, const std::set<int> &,
                  bool>(),
@@ -187,6 +218,8 @@ std::map<std::string, npu::tile_fwk::Any> ConvertPyDictToCppMap(const py::dict &
             cpp_values[key] = value.cast<std::string>();
         } else if (py::isinstance<CubeTile>(value)) {
             cpp_values[key] = value.cast<CubeTile>();
+        } else if (py::isinstance<ConvTile>(value)) {
+            cpp_values[key] = value.cast<ConvTile>();
         } else if (py::isinstance<py::list>(value) || py::isinstance<py::tuple>(value)) {
             py::list lst = py::cast<py::list>(value);
             if (lst.size() > 0) {
@@ -275,6 +308,7 @@ py::object AnyToPyObject(const Any &val) {
         {typeid(std::vector<double>), [](const Any& a){ return py::cast(AnyCast<std::vector<double>>(a)); }},
         {typeid(std::map<int64_t,int64_t>), [](const Any& a){ return py::cast(AnyCast<std::map<int64_t,int64_t>>(a)); }},
         {typeid(CubeTile), [](const Any& a){ return py::cast(AnyCast<CubeTile>(a)); }},
+        {typeid(ConvTile), [](const Any& a){ return py::cast(AnyCast<ConvTile>(a)); }},
         {typeid(DistTile), [](const Any& a){ return py::str(AnyCast<DistTile>(a).ToString()); }},
     };
 
@@ -318,21 +352,35 @@ void bind_controller_scope_classes(py::module &m) {
     .def(py::init<const std::array<int64_t, MAX_M_DIM_SIZE>&,
                    const std::array<int64_t, MAX_K_DIM_SIZE>&,
                    const std::array<int64_t, MAX_N_DIM_SIZE>&,
-                   bool, bool>(),
+                   bool>(),
          py::arg("m"),
          py::arg("k"),
          py::arg("n"),
-         py::arg("enableMultiDataLoad") = false,
          py::arg("enableSplitK") = false)
     .def_readwrite("m", &CubeTile::m)
     .def_readwrite("k", &CubeTile::k)
     .def_readwrite("n", &CubeTile::n)
-    .def_readwrite("enableMultiDataLoad", &CubeTile::enableMultiDataLoad)
     .def_readwrite("enableSplitK", &CubeTile::enableSplitK)
     .def("valid", &CubeTile::valid)
     .def("ToString", &CubeTile::ToString)
     .def("__repr__", [](const CubeTile &t) { return t.ToString(); })
     .def("__str__",  [](const CubeTile &t) { return t.ToString(); });
+
+    py::class_<ConvTile>(m, "ConvTile")
+    .def(py::init<>())
+    .def(py::init<const Conv::TileL1Info&,
+                   const Conv::TileL0Info&,
+                   bool>(),
+         py::arg("tileL1Info"),
+         py::arg("tileL0Info") = Conv::TileL0Info(),
+         py::arg("setL0Tile") = false)
+    .def_readwrite("tileL1Info", &ConvTile::tileL1Info)
+    .def_readwrite("tileL0Info", &ConvTile::tileL0Info)
+    .def_readwrite("setL0Tile", &ConvTile::setL0Tile)
+    .def("valid", &ConvTile::valid)
+    .def("ToString", &ConvTile::ToString)
+    .def("__repr__", [](const ConvTile &t) { return t.ToString(); })
+    .def("__str__",  [](const ConvTile &t) { return t.ToString(); });
 }
 
 void bind_controller(py::module &m) {

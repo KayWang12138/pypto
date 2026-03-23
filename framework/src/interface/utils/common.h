@@ -52,6 +52,7 @@ constexpr uint32_t DIST_COMM_GROUP_NUM = 2;
 
 constexpr const int NUM2 = 2;
 constexpr const int NUM4 = 4;
+constexpr const int NUM1 = 1;
 constexpr const int NUM150 = 150;
 constexpr const int NUM16 = 16;
 
@@ -77,6 +78,7 @@ constexpr const int SHAPE_DIM2 = 2;
 constexpr const int SHAPE_DIM3 = 3;
 constexpr const int SHAPE_DIM4 = 4;
 constexpr const int SHAPE_DIM5 = 5;
+constexpr const int SHAPE_DIM6 = 6;
 constexpr const int ALIGN_SIZE_512 = 512;
 constexpr const int ALIGN_SIZE_64 = 64;
 constexpr const int ALIGN_SIZE_32 = 32;
@@ -84,8 +86,10 @@ constexpr const int ALIGN_SIZE_16 = 16;
 constexpr const int VNCHWCONV_REPEAT = 16;
 constexpr const int MAX_CAT_NUM_ONCE = 64;
 constexpr const int TILE_VEC_FOUR_DIMS = 4;
-
+constexpr const int MAX_DILATION_STRIDE = 63;
+constexpr const int MAX_PAD_KERNEL = 255;
 constexpr const int SHAPE_INNER_AXIS_MAX_SIZE = 65535;
+constexpr const int MAX_SIZE = 1000000;
 
 constexpr const int SHAPE_BUFFER_MAX_SIZE = 32;
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -137,7 +141,7 @@ enum OperandType {
     BUF_L0B = 3,
     BUF_L0C = 4,
     BUF_FIX = 5,
-    BUF_BT  = 6,
+    BUF_BT = 6,
     BUF_DDR = 7,
     BUF_REG = 8,
     SCALAR = 9,
@@ -148,18 +152,18 @@ enum OperandType {
 
 inline std::string OperandTypeToStr(OperandType t) {
     static std::map<OperandType, std::string> strMap = {
-        { BUF_UB,     "UB"},
-        { BUF_L1,     "L1"},
-        {BUF_L0A,    "L0A"},
-        {BUF_L0B,    "L0B"},
-        {BUF_L0C,    "L0C"},
-        {BUF_FIX,    "FIX"},
-        {BUF_DDR,    "DDR"},
-        {BUF_REG,    "REG"},
-        { SCALAR, "SCALAR"},
-        { BUF_BT, "BiasTable"},
-        {BUF_L0AMX,"L0A_MX"},
-        {BUF_L0BMX,"L0B_MX"},
+        {   BUF_UB,        "UB"},
+        {   BUF_L1,        "L1"},
+        {  BUF_L0A,       "L0A"},
+        {  BUF_L0B,       "L0B"},
+        {  BUF_L0C,       "L0C"},
+        {  BUF_FIX,       "FIX"},
+        {  BUF_DDR,       "DDR"},
+        {  BUF_REG,       "REG"},
+        {   SCALAR,    "SCALAR"},
+        {   BUF_BT, "BiasTable"},
+        {BUF_L0AMX,    "L0A_MX"},
+        {BUF_L0BMX,    "L0B_MX"},
     };
 
     if (strMap.count(t)) {
@@ -291,37 +295,35 @@ private:
     std::unordered_map<std::string, T> str2typeDict;
 };
 
-inline const BiMap<CoreType> &GetCoreTypeDict()
-{
-    static BiMap<CoreType> dict {
+inline const BiMap<CoreType> &GetCoreTypeDict() {
+    static BiMap<CoreType> dict{
         {
-            {CoreType::AIV, "AIV"},
-            {CoreType::AIC, "AIC"},
-            {CoreType::MIX, "MIX"},
-            {CoreType::AICPU, "AICPU"},
-            {CoreType::HUB, "HUB"},
-            {CoreType::GMATOMIC, "GMATOMIC"},
-        }
+         {CoreType::AIV, "AIV"},
+         {CoreType::AIC, "AIC"},
+         {CoreType::MIX, "MIX"},
+         {CoreType::AICPU, "AICPU"},
+         {CoreType::HUB, "HUB"},
+         {CoreType::GMATOMIC, "GMATOMIC"},
+         }
     };
     return dict;
 };
 
-inline const BiMap<PipeType> &GetPipeTypeDict()
-{
-    static BiMap<PipeType> dict {
+inline const BiMap<PipeType> &GetPipeTypeDict() {
+    static BiMap<PipeType> dict{
         {
-            {PipeType::PIPE_S, "PIPE_S"},
-            {PipeType::PIPE_V, "PIPE_V"},
-            {PipeType::PIPE_M, "PIPE_M"},
-            {PipeType::PIPE_MTE1, "PIPE_MTE1"},
-            {PipeType::PIPE_MTE2, "PIPE_MTE2"},
-            {PipeType::PIPE_MTE3, "PIPE_MTE3"},
-            {PipeType::PIPE_ALL, "PIPE_ALL"},
-            {PipeType::PIPE_MTE4, "PIPE_MTE4"},
-            {PipeType::PIPE_MTE5, "PIPE_MTE5"},
-            {PipeType::PIPE_V2, "PIPE_V2"},
-            {PipeType::PIPE_FIX, "PIPE_FIX"},
-        }
+         {PipeType::PIPE_S, "PIPE_S"},
+         {PipeType::PIPE_V, "PIPE_V"},
+         {PipeType::PIPE_M, "PIPE_M"},
+         {PipeType::PIPE_MTE1, "PIPE_MTE1"},
+         {PipeType::PIPE_MTE2, "PIPE_MTE2"},
+         {PipeType::PIPE_MTE3, "PIPE_MTE3"},
+         {PipeType::PIPE_ALL, "PIPE_ALL"},
+         {PipeType::PIPE_MTE4, "PIPE_MTE4"},
+         {PipeType::PIPE_MTE5, "PIPE_MTE5"},
+         {PipeType::PIPE_V2, "PIPE_V2"},
+         {PipeType::PIPE_FIX, "PIPE_FIX"},
+         }
     };
     return dict;
 };
@@ -343,17 +345,19 @@ struct OrderedSet : std::unordered_map<T, int> {
         return GetIndex(data);
     }
 
-    using OrderElementType = T ;
+    using OrderElementType = T;
     typename std::vector<OrderElementType>::iterator begin() { return order.begin(); }
     typename std::vector<OrderElementType>::iterator end() { return order.end(); }
 
     typename std::vector<OrderElementType>::const_iterator begin() const { return order.begin(); }
-    typename std::vector<OrderElementType>::const_iterator end()const { return order.end(); }
+    typename std::vector<OrderElementType>::const_iterator end() const { return order.end(); }
 
     const T &operator[](int index) const { return order[index]; }
     T &operator[](int index) { return order[index]; }
 
-    bool HasData(const T &data) const { return this->find(data) != static_cast<const std::unordered_map<T, int> &>(*this).end(); }
+    bool HasData(const T &data) const {
+        return this->find(data) != static_cast<const std::unordered_map<T, int> &>(*this).end();
+    }
     int GetIndex(const T &data) const { return this->find(data)->second; }
 
     void Remove(const std::vector<T> &items) {
@@ -401,7 +405,7 @@ struct OrderedMap {
     typename std::vector<OrderElementType>::iterator end() { return orderData.end(); }
 
     typename std::vector<OrderElementType>::const_iterator begin() const { return orderData.begin(); }
-    typename std::vector<OrderElementType>::const_iterator end()const { return orderData.end(); }
+    typename std::vector<OrderElementType>::const_iterator end() const { return orderData.end(); }
 
     T &operator[](const Key &key) {
         if (!orderDict.count(key)) {
@@ -448,8 +452,7 @@ inline std::string IQName(IQType qt) {
         case IQ_MTE1: return "MTE1";
         case IQ_MTE2: return "MTE2";
         case IQ_VECTOR_ALU: return "VECTOR_ALU";
-        case IQ_CUBE_ALU:
-            return "CUBE";
+        case IQ_CUBE_ALU: return "CUBE";
         case IQ_MTE3: return "MTE3";
         case IQ_MTE_FIXP: return "MTE_FIXP";
         default: return "ILLEGAL";
@@ -459,16 +462,16 @@ inline std::string IQName(IQType qt) {
 inline const BiMap<OperandType> &GetBufferNameDict() {
     static BiMap<OperandType> dict{
         {
-             { BUF_UB,     "UB"},
-             { BUF_L1,     "L1"},
-             {BUF_L0A,    "L0A"},
-             {BUF_L0B,    "L0B"},
-             {BUF_L0C,    "L0C"},
-             {BUF_FIX,    "FIX"},
-             {BUF_DDR,    "DDR"},
-             {BUF_REG,    "REG"},
-             { SCALAR, "SCALAR"},
-             {BUF_BT,     "BT"},
+         {BUF_UB, "UB"},
+         {BUF_L1, "L1"},
+         {BUF_L0A, "L0A"},
+         {BUF_L0B, "L0B"},
+         {BUF_L0C, "L0C"},
+         {BUF_FIX, "FIX"},
+         {BUF_DDR, "DDR"},
+         {BUF_REG, "REG"},
+         {SCALAR, "SCALAR"},
+         {BUF_BT, "BT"},
          }
     };
     return dict;
@@ -495,9 +498,11 @@ inline std::string ShapeStrCompact(const std::vector<int> &shape) {
     } else if (shape.size() == SHAPE_DIM3) {
         sprintf_s(shapeBuffer, SHAPE_BUFFER_MAX_SIZE, "[%d,%d,%d]", shape[0], shape[1], shape[SHAPE_DIM_NUM_2]);
     } else if (shape.size() == SHAPE_DIM4) {
-        sprintf_s(shapeBuffer, SHAPE_BUFFER_MAX_SIZE, "[%d,%d,%d,%d]", shape[0], shape[1], shape[SHAPE_DIM_NUM_2], shape[SHAPE_DIM_NUM_3]);
+        sprintf_s(shapeBuffer, SHAPE_BUFFER_MAX_SIZE, "[%d,%d,%d,%d]", shape[0], shape[1], shape[SHAPE_DIM_NUM_2],
+            shape[SHAPE_DIM_NUM_3]);
     } else if (shape.size() == SHAPE_DIM5) {
-        sprintf_s(shapeBuffer, SHAPE_BUFFER_MAX_SIZE, "[%d,%d,%d,%d,%d]", shape[0], shape[1], shape[SHAPE_DIM_NUM_2], shape[SHAPE_DIM_NUM_3], shape[SHAPE_DIM_NUM_4]);
+        sprintf_s(shapeBuffer, SHAPE_BUFFER_MAX_SIZE, "[%d,%d,%d,%d,%d]", shape[0], shape[1], shape[SHAPE_DIM_NUM_2],
+            shape[SHAPE_DIM_NUM_3], shape[SHAPE_DIM_NUM_4]);
     } else {
         ASSERT(0) << "cannot support tensor shape of more than 4 dims";
     }
@@ -564,7 +569,7 @@ inline std::set<int> PowersOf2(int n) {
     ASSERT(n > 0) << "n: " << n;
     int power = 0;
     while (true) {
-        int current = 1 << power;  // 计算 2^power
+        int current = 1 << power; // 计算 2^power
         if (current > n) {
             break;
         }
@@ -609,11 +614,13 @@ const std::string L1_TO_L0_OFFSET = OP_ATTR_PREFIX + "l1_to_l0_offset";
 const std::string L1_TO_L0_TILE = OP_ATTR_PREFIX + "l1_to_l0_tile";
 const std::string A_MUL_B_COPY_IN_MODE = OP_ATTR_PREFIX + "copy_in_mode";
 
-enum class CopyInMode : int64_t {
-    ND2ND = 0,
-    ND2NZ = 1,
-    NZ2NZ = 2,
-    DN2NZ = 3
+enum class CopyInMode : int64_t { ND2ND = 0, ND2NZ = 1, NZ2NZ = 2, DN2NZ = 3 };
+
+enum class CopyOutMode : int64_t {
+    NZ2ND = 0,
+    NZ2NZ = 1,
+    ND2ND = 2,
+    NZ2DN = 3
 };
 
 enum class PaddingMode : int64_t {

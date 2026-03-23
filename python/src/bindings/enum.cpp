@@ -34,6 +34,8 @@ void bind_enum(py::module &m){
         .value("DT_FP8E4M3", DataType::DT_FP8E4M3)
         .value("DT_FP8E5M2", DataType::DT_FP8E5M2)
         .value("DT_FP8E8M0", DataType::DT_FP8E8M0)
+        .value("DT_FP4_E2M1X2", DataType::DT_FP4_E2M1X2)
+        .value("DT_FP4_E1M2X2", DataType::DT_FP4_E1M2X2)
         .value("DT_UINT8", DataType::DT_UINT8)
         .value("DT_UINT16", DataType::DT_UINT16)
         .value("DT_UINT32", DataType::DT_UINT32)
@@ -114,6 +116,11 @@ void bind_enum(py::module &m){
         .value("CAST_ODD", CastMode::CAST_ODD)
         .export_values();
 
+    py::enum_<SaturationMode>(m, "SaturationMode")
+        .value("OFF", SaturationMode::OFF)
+        .value("ON", SaturationMode::ON)
+        .export_values();
+
     py::enum_<TileType>(m, "TileType")
         .value("VEC", TileType::VEC)
         .value("CUBE", TileType::CUBE)
@@ -138,6 +145,17 @@ void bind_enum(py::module &m){
     py::enum_<Matrix::ReLuType>(m, "ReLuType")
         .value("NO_RELU", Matrix::ReLuType::NoReLu)
         .value("RELU", Matrix::ReLuType::ReLu)
+        .export_values();
+
+    py::enum_<Conv::ReLuType>(m, "ConvReLuType")
+        .value("NO_RELU", Conv::ReLuType::NoReLu)
+        .value("RELU", Conv::ReLuType::ReLu)
+        .export_values();
+
+    py::enum_<Matrix::TransMode>(m, "TransMode")
+        .value("CAST_NONE", Matrix::TransMode::CAST_NONE)
+        .value("CAST_RINT", Matrix::TransMode::CAST_RINT)
+        .value("CAST_ROUND", Matrix::TransMode::CAST_ROUND)
         .export_values();
 
     py::enum_<LogBaseType>(m, "LogBaseType")

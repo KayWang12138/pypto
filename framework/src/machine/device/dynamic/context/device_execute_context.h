@@ -36,7 +36,7 @@ struct DeviceExecuteContext {
 
     DevAscendProgram *devProg{nullptr};
     DeviceExecuteProgram execProg;
-    uint16_t stitchTaskLoopNumThreshold{MAX_CACHED_FUNC_NUM};
+    uint16_t stitchTaskLoopNumThreshold{MAX_STITCH_FUNC_NUM};
 
     DeviceWorkspaceAllocator workspace;
 

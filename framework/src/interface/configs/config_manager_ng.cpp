@@ -33,12 +33,12 @@
 #include "config_manager_ng.h"
 #include "tilefwk/tile_shape.h"
 #include "tilefwk/pypto_fwk_log.h"
-
+#include "interface/utils/function_error.h"
 
 namespace npu::tile_fwk {
 
 namespace {
-    std::mutex mtx;
+std::mutex mtx;
 }
 
 struct TypeInfo {
@@ -46,7 +46,7 @@ struct TypeInfo {
 
     void LoadConf(const std::string &path) {
         std::ifstream infile(path);
-        ASSERT(infile.is_open()) << "Open file " << path << " failed";
+        FUNCTION_ASSERT(FError::BAD_FD, infile.is_open()) << "Open file " << path << " failed";
         nlohmann::json jData;
         infile >> jData;
 
@@ -76,10 +76,11 @@ struct TypeInfo {
             } else if (type == "object") {
                 parse_object_type(jData, prefix);
             } else {
-                FUNCTION_LOGE("invalid type: %s at %s", type.c_str(), prefix.c_str());
+                FUNCTION_LOGE_E(FError::INVALID_TYPE, "invalid type: %s at %s", type.c_str(), prefix.c_str());
             }
         } else {
-            FUNCTION_LOGE("Label<%s> field['type', 'properties'] not found in tile_fwk_config_schema.json", prefix.c_str());
+            FUNCTION_LOGE_E(FError::NOT_EXIST,
+                "Label<%s> field['type', 'properties'] not found in tile_fwk_config_schema.json", prefix.c_str());
         }
     }
 
@@ -134,6 +135,12 @@ bool ConfigScope::HasConfig(const std::string &key) const {
     return values_.find(key) != values_.end() || (parent_ && parent_->HasConfig(key));
 }
 
+void ConfigScope::Clear() {
+    values_.clear();
+    FUNCTION_LOGD("Clear config scope successfully");
+}
+
+
 const std::type_info &ConfigScope::Type(const std::string &key) const {
     return ConfigManagerNg::GetInstance().Type(key);
 }
@@ -147,9 +154,10 @@ ConfigScope::ConfigScope(ConfigScopePtr parent) : parent_(parent) {
 TileShape ConfigScope::GenerateTileShape() const {
     std::vector<int64_t> vecTile = GetConfig<std::vector<int64_t>>("vec_tile_shapes");
     CubeTile cubeTile = GetConfig<CubeTile>("cube_tile_shapes");
+    ConvTile convTile = GetConfig<ConvTile>("conv_tile_shapes");
     DistTile distTile = GetConfig<DistTile>("dist_tile_shapes");
     std::vector<int64_t> matrixSize = GetConfig<std::vector<int64_t>>("matrix_size");
-    TileShape tileShape(vecTile, cubeTile, distTile, matrixSize);
+    TileShape tileShape(vecTile, cubeTile, convTile, distTile, matrixSize);
     return tileShape;
 }
 
@@ -257,7 +265,7 @@ void ConfigScope::UpdateValueWithAny(const std::string &key, Any value) {
         os << ", its value doesn't within the value range.";
         DumpRange(os, value.Type(), key, ConfigManagerNg::GetInstance().Range());
         os << "\n";
-        throw std::runtime_error(os.str().c_str());
+        FUNCTION_ASSERT(FError::INVALID_VAL, false) << os.str();
     }
     std::stringstream oss;
     DumpValue(oss, key, value, "");
@@ -285,7 +293,7 @@ struct ConfigManagerImpl {
 
     void PushScope(ConfigScopePtr scope) {
         // Ensure the provided scope is not null
-        ASSERT(scope != nullptr) << "Cannot push a null scope";
+        FUNCTION_ASSERT(scope != nullptr) << "Cannot push a null scope";
         scopes.push(scope);
     }
 
@@ -302,7 +310,7 @@ struct ConfigManagerImpl {
         auto ins = typeInfo.rangeInfos;
         for (auto &[lf, rf] : value) {
             if (!IntervalJudge(lf, ins.at(properties + "_key").first, ins.at(properties + "_key").second) ||
-            !IntervalJudge(rf, ins.at(properties + "_val").first, ins.at(properties + "_val").second)) {
+                !IntervalJudge(rf, ins.at(properties + "_val").first, ins.at(properties + "_val").second)) {
                 return false;
             }
         }
@@ -320,7 +328,7 @@ struct ConfigManagerImpl {
 
     void EndScope(const char *file, int lino) {
         /* at least default and global two levels */
-        ASSERT(scopes.size() >= 0x2) << "No scope to pop";
+        FUNCTION_ASSERT(scopes.size() >= 0x2) << "No scope to pop";
         auto &scope = scopes.top();
         scope->end_file_ = file;
         scope->end_lino_ = lino;
@@ -351,10 +359,9 @@ struct ConfigManagerImpl {
                 root->AddValue(it.first, it.second);
                 FUNCTION_LOGD("Set option successfully. Key: %s", it.first.c_str());
             } catch (const std::exception &e) {
-                FUNCTION_LOGE("Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
+                FUNCTION_LOGE_E(FError::INVALID_VAL, "Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
             }
         }
-        FUNCTION_LOGD("Set locations: %s:%d", file, lino);
     }
 
     void Dump(std::stringstream &os, ConfigScope *node, const std::string &prefix) {
@@ -393,9 +400,11 @@ private:
             root->AddValue(prefix, jData.get<bool>());
         } else if (typeInfo.Type(prefix) == typeid(std::map<int64_t, int64_t>)) {
             std::map<int64_t, int64_t> mapJson;
-            auto arr = jData.get<std::vector<int64_t>>();
-            for (size_t i = 0; i + 1 < arr.size(); i += 2) {
-                mapJson[arr[i]] = arr[i + 1];
+            for (const auto &pair : jData) {
+                auto arr = pair.get<std::vector<int64_t>>();
+                if (arr.size() >= 2) {
+                    mapJson[arr[0]] = arr[1];
+                }
             }
             root->AddValue(prefix, mapJson);
         } else if (jData.is_array()) {
@@ -435,6 +444,7 @@ private:
         tileShape.Reset();
         root->AddValue("cube_tile_shapes", tileShape.GetCubeTile());
         root->AddValue("vec_tile_shapes", tileShape.GetVecTile().tile);
+        root->AddValue("conv_tile_shapes", tileShape.GetConvTile());
         root->AddValue("matrix_size", tileShape.GetMatrixSize());
         root->AddValue("dist_tile_shapes", tileShape.GetDistTile());
     }
@@ -447,6 +457,23 @@ void ConfigManagerNg::BeginScope(
 
 void ConfigManagerNg::EndScope(const char *file, int lino) {
     impl_->EndScope(file, lino);
+}
+
+ConfigManagerNg::ScopedRestore::ScopedRestore(std::shared_ptr<ConfigScope> scope) {
+    ConfigManagerNg::GetInstance().PushScope(std::move(scope));
+}
+
+ConfigManagerNg::ScopedRestore::~ScopedRestore() {
+    ConfigManagerNg::GetInstance().EndScope();
+}
+
+ConfigManagerNg::JitScopeGuard::JitScopeGuard(const std::string &name, std::map<std::string, Any> &&values,
+    const char *file, int lino) {
+    ConfigManagerNg::GetInstance().BeginScope(name, std::move(values), file, lino);
+}
+
+ConfigManagerNg::JitScopeGuard::~JitScopeGuard() {
+    ConfigManagerNg::GetInstance().EndScope();
 }
 
 void ConfigManagerNg::SetScope(std::map<std::string, Any> &&values, const char *file, int lino) {
@@ -477,7 +504,8 @@ bool ConfigManagerNg::IsWithinRange(const std::string &properties, Any &value) c
             return impl_->IsWithinRange(properties, AnyCast<int64_t>(value));
         }
     } catch (const std::out_of_range &e) {
-        FUNCTION_LOGE("key[%s] has been not loaded form tile_fwk_config_schema.json.", properties.c_str());
+        FUNCTION_LOGE_E(FError::INVALID_VAL,
+            "key[%s] has been not loaded form tile_fwk_config_schema.json.", properties.c_str());
         return false;
     }
     return true;
@@ -494,7 +522,6 @@ const std::map<std::string, std::pair<int64_t, int64_t>> &ConfigManagerNg::Range
 std::string ConfigManagerNg::GetOptionsTree() {
     return impl_->GetOptionsTree();
 }
-
 
 ConfigManagerNg::ConfigManagerNg() : impl_(std::make_unique<ConfigManagerImpl>()) {
     globalScope = impl_->root;
@@ -527,13 +554,9 @@ template void SetOptionsNg<std::vector<std::string>>(const std::string &key, con
 template void SetOptionsNg<std::vector<double>>(const std::string &key, const std::vector<double> &value);
 
 
-void Restore(std::shared_ptr<ConfigScope> config) {
-    ConfigManagerNg::GetInstance().PushScope(config);
-}
-
 std::shared_ptr<ConfigScope> Duplicate() {
     return ConfigManagerNg::CurrentScope();
 }
 
-}
+}  // namespace config
 } // namespace npu::tile_fwk

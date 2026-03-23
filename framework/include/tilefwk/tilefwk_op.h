@@ -40,6 +40,11 @@ enum class OutType {
     BIT,
 };
 
+enum class SaturationMode : uint8_t {
+    ON = 0,
+    OFF = 1,
+};
+
 namespace experimental {
 struct PrintHelper {
     SymbolicScalar cond;
@@ -116,14 +121,12 @@ Tensor Reshape(const Tensor &operand, const std::vector<SymbolicScalar> &dstShap
 
 void Reshape(const Tensor &operand, Tensor &dst);
 
-Tensor Load(const Tensor &src, const Tensor &offsets);
-
 Tensor Full(const Element &src, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape = {});
 Tensor Full(const SymbolicScalar &src, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape = {});
 Tensor Transpose(const Tensor &self, std::vector<int> perm);
-Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE);
+Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE, SaturationMode satmode = SaturationMode::OFF);
 
 Tensor Exp(const Tensor &self);
 Tensor Exp2(const Tensor &self);
@@ -132,6 +135,8 @@ Tensor Neg(const Tensor &self);
 Tensor Round(const Tensor &self, const int &decimals = 0);
 Tensor Rsqrt(const Tensor &self);
 Tensor Relu(const Tensor &self);
+Tensor Pad(const Tensor &self, const std::vector<int64_t> &padding, std::string mode = "constant", float value = 0.0);
+Tensor FillPad(const Tensor &self, std::string mode = "constant", float value = 0.0);
 Tensor BitwiseNot(const Tensor &self);
 Tensor Sqrt(const Tensor &self);
 Tensor Ceil(const Tensor &self);
@@ -248,7 +253,6 @@ Tensor RmsNorm(const Tensor &operand);
 Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon = 1e-05f);
 Tensor Cat(const std::vector<Tensor> &tensors, int axis);
 Tensor NewCompact(const Tensor &operand);
-Tensor Pad(const Tensor &old, const std::vector<int64_t> &newShape);
 Tensor LogicalNot(const Tensor &self);
 Tensor Range(const Element &start, const Element &end, const Element &step);
 Tensor LogicalAnd(const Tensor &self, const Tensor &other);
@@ -394,17 +398,26 @@ enum class ReLuType : int64_t
     ReLu = 1
 };
 
+enum class TransMode : int64_t
+{
+    CAST_NONE = 0,
+    CAST_RINT = 1,
+    CAST_ROUND = 2
+};
+
 struct MatmulExtendParam {
     Tensor biasTensor{Tensor()};
     Tensor scaleTensor{Tensor()};
     float scaleValue{0.0f};
     ReLuType reluType{ReLuType::NoReLu};
+    TransMode transMode{TransMode::CAST_NONE};
 
-    MatmulExtendParam(Tensor bias, Tensor scale, float scaleVal, ReLuType relu)
+    MatmulExtendParam(Tensor bias, Tensor scale, float scaleVal, ReLuType relu, TransMode mode = TransMode::CAST_NONE)
         : biasTensor(std::move(bias)),
           scaleTensor(std::move(scale)),
           scaleValue(scaleVal),
-          reluType(relu) {}
+          reluType(relu),
+          transMode(mode) {}
 
     MatmulExtendParam() = default;
 };
@@ -430,6 +443,65 @@ Tensor TransposedBatchMatmul(DataType dataType, const Tensor &aMatrix, const Ten
 
 Tensor QuantMM(const Tensor &operand1, const Tensor &operand2, const Tensor &dequantScaleW);
 } // namespace Matrix
+
+namespace Conv {
+
+struct TileL1Info {
+    int64_t tileHin{0};
+    int64_t tileHout{0};
+    int64_t tileWin{0};
+    int64_t tileWout{0};
+    int64_t tileCinFmap{0};
+    int64_t tileCinWeight{0};
+    int64_t tileN{0};
+    int64_t tileBatch{0};
+
+    TileL1Info(int64_t hin, int64_t hout, int64_t win, int64_t wout,
+                int64_t cinFmap, int64_t cinWeight, int64_t cout, int64_t n)
+        : tileHin(hin), tileHout(hout), tileWin(win), tileWout(wout),
+            tileCinFmap(cinFmap), tileCinWeight(cinWeight), tileN(cout), tileBatch(n) {}
+
+    TileL1Info() = default;
+};
+
+struct TileL0Info{
+    int64_t tileH{0};
+    int64_t tileW{0};
+    int64_t tileK{0};
+    int64_t tileN{0};
+
+    TileL0Info(int64_t h, int64_t w, int64_t k, int64_t n)
+        : tileH(h), tileW(w), tileK(k), tileN(n) {}
+
+    TileL0Info() = default;
+};
+
+enum class ReLuType : int64_t
+{
+    NoReLu = 0,
+    ReLu = 1
+};
+
+struct ConvExtendParam {
+    Tensor biasTensor{Tensor()};
+    Tensor scaleTensor{Tensor()};
+    float scaleValue{0.0f};
+    ReLuType reluType{ReLuType::NoReLu};
+
+    ConvExtendParam(Tensor bias, Tensor scale, float scaleVal, ReLuType relu)
+        : biasTensor(std::move(bias)),
+          scaleTensor(std::move(scale)),
+          scaleValue(scaleVal),
+          reluType(relu) {}
+
+    ConvExtendParam() = default;
+};
+
+Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const std::vector<int64_t> &strides,
+            const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const ConvExtendParam &extendParam,
+            const int64_t groups = 1);
+
+}
 
 namespace Distributed {
 enum class DistReduceType {

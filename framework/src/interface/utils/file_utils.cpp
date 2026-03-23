@@ -258,7 +258,7 @@ bool DumpFile(const char *data, const size_t size, const std::string &fPath) {
     // dump bin file
     std::ofstream outFile(fPath, std::ios::binary);
     if (!outFile) {
-        FUNCTION_LOGE("Failed open file %s.", fPath.c_str());
+        FUNCTION_LOGE_E(FError::BAD_FD, "Failed open file %s.", fPath.c_str());
         return false;
     }
     outFile.write(data, size);
@@ -337,11 +337,11 @@ FILE* LockAndOpenFile(const std::string &lockFilePath) {
     }
     (void)chmod(lockFilePath.c_str(), FILE_AUTHORITY);
     if (!FcntlLockFile(fileno(fp), F_WRLCK)) {
-        FUNCTION_LOGW("Fail to lock file:", lockFilePath.c_str());
+        FUNCTION_LOGW("Fail to lock file: %s", lockFilePath.c_str());
         fclose(fp);
         return nullptr;
     }
-    FUNCTION_LOGI("Lock file successfully.", lockFilePath.c_str());
+    FUNCTION_LOGI("Lock file successfully. %s", lockFilePath.c_str());
     return fp;
 }
 
@@ -359,7 +359,7 @@ bool CopyFile(const std::string &srcPath, const std::string &dstPath) {
     std::ofstream dst(dstPath, std::ios::binary);
 
     if (!src.is_open() || !dst.is_open()) {
-        FUNCTION_LOGW("Fail to open file:", srcPath.c_str(), ", ", dstPath.c_str());
+        FUNCTION_LOGW("Fail to open file: %s, %s", srcPath.c_str(), dstPath.c_str());
         return false;
     }
 
@@ -391,7 +391,7 @@ std::string GetCurRunningPath() {
     char buffer[size] = {};
     std::string cwd = getcwd(buffer, size);
     if (cwd.empty()) {
-        FUNCTION_LOGE("failed to call getcwd()");
+        FUNCTION_LOGW("failed to call getcwd()");
         return "";
     }
     return cwd;

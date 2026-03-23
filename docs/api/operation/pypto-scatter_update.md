@@ -15,10 +15,10 @@ $$
 input\left[\frac{\text{index}[i][j]}{\text{blockSize}}\right]\left[\text{index}[i][j] \% \text{blockSize}\right][0][\dots] = src[i][j][0][\dots]
 $$
 
-功能2：原地操作，将2维src根据2维index更新到2维 input 上，计算公式如下：
+功能2：原地操作，将2维src根据2维index更新到2维 input 上，计算公式如下(其中s是index第二维的大小，即index.shape[1])：
 
 $$
-input[\text{index}[i][j][\dots]] = src[i*s + j][\dots]
+input[[\text{index}[i][j]][\dots]] = src[i*s + j][\dots]
 $$
 
 ## 函数原型

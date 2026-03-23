@@ -43,7 +43,7 @@ target_compile_options(pypto_ctrl_server
             -Wextra
             -std=gnu++17
             -rdynamic
-            -O3	
+            -O3
             -shared
             -fPIC
             -D__DEVICE__
@@ -57,22 +57,22 @@ target_include_directories(pypto_ctrl_server
             ${PTO_FWK_SRC_ROOT}/framework/src/include
             ${PTO_FWK_SRC_ROOT}/framework/src/interface
             ${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device
-        PRIVATE  # 使用 CANN 场景依赖
-            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include>>
-            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/toolchain>>
-            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
+        PRIVATE
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/toolchain>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
 )
 target_link_directories(pypto_ctrl_server
         PRIVATE
-            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib/linux/aarch64/>
-            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib/device/>
+            $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib/linux/aarch64/>
+            $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib/device/>
             $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
 )
 target_link_libraries(pypto_ctrl_server
         PRIVATE
             -Wl,--no-as-needed
             c_sec
-            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,slog_stub,slog>
+            slog_stub
             -ldl
             $<$<TARGET_EXISTS:intf_pub>:$<BUILD_INTERFACE:intf_pub>>
 )

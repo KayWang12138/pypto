@@ -272,7 +272,7 @@ Status PipeSync::InsertSync(Function &function, std::vector<Operation *> &synced
     uint64_t idxInput = 0;
     for (const auto &op : opLogPtr) {
         BuildTensorRangeMap(op);
-        APASS_LOG_DEBUG_F(Elements::Operation, "Input operation %d %d: %s.", idxInput, op->GetOpMagic(), op->GetOpcodeStr().c_str());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Input operation %lu %lu: %s.", static_cast<unsigned long>(idxInput), static_cast<unsigned long>(op->GetOpMagic()), op->GetOpcodeStr().c_str());
         idxInput++;
     }
     if (PipeDispatch(opLogPtr, synced) != SUCCESS) { 
@@ -336,7 +336,8 @@ std::string PipeSync::PipeDepInfo::DumpPipeDepInfo() {
     ss << "    wait idx: " << waitIdx << "\n";
     ss << "    setPipes:" << "\n";
     for (auto pair : setPipes) {
-        ss << "        pipetype: " << GetPipeTypeDict().Find(pair.first.pipe) << "  opidx: " << pair.second << "\n";
+        ss << "        pipetype: " << GetPipeTypeDict().Find(pair.first.pipe)
+           << "  aivCore: " << static_cast<int>(pair.first.aivCore) << "  opidx: " << pair.second << "\n";
     }
     return ss.str();
 }
@@ -1072,7 +1073,7 @@ Status PipeSync::GetDepInfo(std::vector<IndexOp> &syncedOpLog, const PipePair &p
     std::reverse(depInfo.setOpIdList.begin(), depInfo.setOpIdList.end());
     std::reverse(depInfo.setOpEventIdList.begin(), depInfo.setOpEventIdList.end());
     if (depInfo.opDepList.size() != eventNum || depInfo.setOpIdList.size() != eventNum || depInfo.setOpEventIdList.size() != eventNum) {
-        APASS_LOG_ERROR_F(Elements::Operation, "dep size should be %d, RelaxFakeDataDep failed.", eventNum);
+        APASS_LOG_ERROR_F(Elements::Operation, "dep size should be %zu, RelaxFakeDataDep failed.", eventNum);
         return FAILED;
     }
     return SUCCESS;
@@ -1281,8 +1282,10 @@ bool PipeSync::HasDataDependency(const Operation &opSet, const Operation &opWait
 }
 
 void PipeSync::UpdateDep(DepOp &currOp, DepOp &prevOp) {
-    PipeCoreReal currPipe(currOp.selfPipeCore.pipeStart, currOp.selfPipeCore.core);
-    PipeCoreReal prevPipe(prevOp.selfPipeCore.pipeEnd, prevOp.selfPipeCore.core);
+    AIVCore currAIVCore = oriOpList_[currOp.idx]->GetAIVCore();
+    AIVCore prevAIVCore = oriOpList_[prevOp.idx]->GetAIVCore();
+    PipeCoreRealEx currPipe(currOp.selfPipeCore.pipeStart, currOp.selfPipeCore.core, currAIVCore);
+    PipeCoreRealEx prevPipe(prevOp.selfPipeCore.pipeEnd, prevOp.selfPipeCore.core, prevAIVCore);
     auto &currPipeDep = latestPipeDep_[currPipe];
     currPipeDep.waitIdx = currOp.idx;
 
@@ -1296,9 +1299,9 @@ void PipeSync::UpdateDep(DepOp &currOp, DepOp &prevOp) {
         auto prevWaitPipeIdx = prevPipeDepIter->second.waitIdx;
         if (prevPipeDepIter != latestPipeDep_.end() && prevWaitPipeIdx <= prevOp.idx) {
             // merge dependency
-            std::map<PipeCoreReal, size_t, PipeCoreRealCompare> prevSetPipes = prevPipeDepIter->second.setPipes;
+            std::map<PipeCoreRealEx, size_t, PipeCoreRealExCompare> prevSetPipes = prevPipeDepIter->second.setPipes;
             for (auto ele : prevSetPipes) {
-                PipeCoreReal prevSetPipeType = ele.first;
+                PipeCoreRealEx prevSetPipeType = ele.first;
                 size_t prevSetPipeIdx = ele.second;
                 auto res = currPipeDep.setPipes.emplace(prevSetPipeType, prevSetPipeIdx);
                 //isExist == isPrevSetPipeTypeExist
@@ -1686,7 +1689,7 @@ Status InsertSync::InsertSyncMainLoop(Function *subGraphFunc) {
                 GetPipeTypeDict().Find(op->syncQueue_.trigPipeId_).c_str(), GetCoreTypeDict().Find(op->syncQueue_.trigCoreType_).c_str(), op->syncQueue_.eventId_);
             continue;
         }
-        APASS_LOG_DEBUG_F(Elements::Operation, "Output operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Output operation %d: %s, AIV core type: %d", op->GetOpMagic(), op->GetOpcodeStr().c_str(), static_cast<int>(op->GetAIVCore()));
     }
     return SUCCESS;
 }
@@ -1714,7 +1717,7 @@ Status InsertSync::RunOnFunction(Function &function) {
         workers.emplace_back([&subPrograms, &nextIdx, leafFuncSize, &index, this, &status] {
             for (size_t idx = nextIdx.fetch_add(1, std::memory_order_relaxed); idx < leafFuncSize; idx = nextIdx.fetch_add(1, std::memory_order_relaxed)) {
                 auto program = subPrograms[idx];
-                APASS_LOG_DEBUG_F(Elements::Operation, "====================================Program %d ===========================================", index);
+                APASS_LOG_DEBUG_F(Elements::Operation, "====================================Program %zu ===========================================", index);
                 if (InsertSyncMainLoop(program.second) != SUCCESS) {
                     status = false;
                     break;

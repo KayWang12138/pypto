@@ -151,8 +151,23 @@ struct PerfEvtMgr {
     }
 
     void SetIsOpenProf(bool isOpenProf, uint64_t aicpuPerf = 0) {
+        if (ctrlTurn_ >= MAX_TURN_NUM) {
+            aicpuPerf_ = 0;
+            isOpenProf_ = false;
+            DEV_WARN("Aicpu perf info more than maxTurnNum=%u, some info would be lost", MAX_TURN_NUM);
+            return;
+        }
+        ResetPerfTrace();
         isOpenProf_ = isOpenProf;
-        aicpuPref_ = (MetricPerf*)aicpuPerf;
+        aicpuPerf_ = aicpuPerf;
+    }
+
+    void AddCtrlTurn() {
+        ctrlTurn_++;
+    }
+
+    void AddScheduleTurn() {
+        schTurn_++;
     }
 
     void PerfBegin(int type) {
@@ -176,7 +191,7 @@ struct PerfEvtMgr {
             buf[i] = c;
         }
         buf[count] = '\0';
-        DEV_ERROR("%s.", buf);
+        DEV_INFO( "%s.", buf);
     }
 
     void Dump() {
@@ -184,7 +199,7 @@ struct PerfEvtMgr {
         static constexpr size_t SHEET_WIDTH = 40 + 3 + 10 + 3 + 10 + 3 + 10;
 
         RepeatPuts('=', SHEET_WIDTH);
-        DEV_ERROR("%40s | %10s | %10s | %10s.", "EventType", "Count", "Total(us)", "Avg(us)");
+        DEV_INFO( "%40s | %10s | %10s | %10s.", "EventType", "Count", "Total(us)", "Avg(us)");
         RepeatPuts('-', SHEET_WIDTH);
 
         for (int i = 0; i < PERF_EVT_MAX; i++) {
@@ -192,7 +207,7 @@ struct PerfEvtMgr {
             if (evt.count != 0) {
                 uint64_t total = evt.total * NSEC_PER_SEC / freq / NSEC_PER_USEC;
                 float avg = static_cast<float>(total / evt.count);
-                DEV_ERROR("%-40s | %10ld | %10lu | %10.1f.", PerfEventName[i], evt.count, total, avg);
+                DEV_INFO( "%-40s | %10ld | %10lu | %10.1f.", PerfEventName[i], evt.count, total, avg);
             }
         }
 
@@ -203,22 +218,27 @@ struct PerfEvtMgr {
         if (tid >= MAX_USED_AICPU_NUM) {
             return;
         }
+        MetricPerf* aicpuMetrics = nullptr;
+        if (aicpuPerf_ > 0) {
+            aicpuMetrics = (MetricPerf*)(aicpuPerf_ + (tid == 0 ? ctrlTurn_ : schTurn_) * sizeof(MetricPerf));
+        }        
         if (PerfTraceIsDevTask[type] && DEVTASK_PERF_ARRY_INDEX(type) < DEVTASK_PERF_TYPE_NUM) {
             auto &cnt = perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
             if (cnt < PERF_TRACE_COUNT_DEVTASK_MAX_NUM) {
                 perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][cnt++] =
                     cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
-                if (aicpuPref_ != nullptr) {
-                    uint8_t devCnt = aicpuPref_->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
-                    aicpuPref_->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)] += 1;
-                    aicpuPref_->perfAicpuTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][devCnt] = perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][devCnt];
+                if (aicpuMetrics != nullptr) {
+                    uint8_t devCnt = aicpuMetrics->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
+                    aicpuMetrics->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)] += 1;
+                    aicpuMetrics->perfAicpuTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][devCnt] =
+                        cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
                 }
             }
             return;
         }
         perfTrace[tid][type] = cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
-        if (aicpuPref_ != nullptr) {
-            aicpuPref_->perfAicpuTrace[tid][type] = perfTrace[tid][type];
+        if (aicpuMetrics != nullptr) {
+            aicpuMetrics->perfAicpuTrace[tid][type] = perfTrace[tid][type];
         }
     }
 
@@ -272,7 +292,7 @@ struct PerfEvtMgr {
         while (startPos < totalLength) {
             uint32_t endPos = std::min(startPos + batchSize, totalLength);
             std::string batch = str.substr(startPos, endPos - startPos);
-            DEV_ERROR("tile_fwk aicpu prof:%s", batch.c_str());
+            DEV_INFO( "tile_fwk aicpu prof:%s", batch.c_str());
             startPos = endPos;
         }
 
@@ -309,7 +329,9 @@ private:
     uint64_t perfTraceDevTask[MAX_USED_AICPU_NUM][DEVTASK_PERF_TYPE_NUM][PERF_TRACE_COUNT_DEVTASK_MAX_NUM] = {{{0}}};
     uint8_t perfTraceDevTaskCnt[MAX_USED_AICPU_NUM][DEVTASK_PERF_TYPE_NUM] = {{0}};
     bool isOpenProf_{false};
-    MetricPerf *aicpuPref_{nullptr};
+    uint64_t aicpuPerf_{0};
+    uint32_t ctrlTurn_{0};
+    uint32_t schTurn_{0};
 };
 
 inline void PerfBegin(int type) {

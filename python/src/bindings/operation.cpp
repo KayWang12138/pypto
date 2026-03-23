@@ -106,6 +106,27 @@ void bind_operation(py::module &m) {
     m.def("Reciprocal", [](const Tensor &operand) { return npu::tile_fwk::Reciprocal(operand); }, "Tensor reciprocal.");
     m.def("Relu", [](const Tensor &operand) { return npu::tile_fwk::Relu(operand); }, "Tensor relu.");
     m.def(
+        "Pad",
+        [](const Tensor &self, const std::vector<int64_t> &padding, const std::string &mode, float value) {
+            return npu::tile_fwk::Pad(self, padding, mode, value);
+        },
+        "Pads tensor with constant value (supports right/bottom padding only).",
+        py::arg("input"),
+        py::arg("pad"),
+        py::arg("mode") = "constant",
+        py::arg("value") = 0.0f
+    );
+    m.def(
+        "FillPad",
+        [](const Tensor &self, const std::string &mode, float value) {
+            return npu::tile_fwk::FillPad(self, mode, value);
+        },
+        "Fills padding region of tensor with constant value.",
+        py::arg("input"),
+        py::arg("mode") = "constant",
+        py::arg("value") = 0.0f
+    );    
+    m.def(
         "Round", [](const Tensor &self, int decimals) { return npu::tile_fwk::Round(self, decimals); }, py::arg("self"),
         py::arg("decimals") = 0, "Tensor round.");
     m.def("Rsqrt", [](const Tensor &self) { return npu::tile_fwk::Rsqrt(self); }, "Tensor rsqrt.");
@@ -127,10 +148,11 @@ void bind_operation(py::module &m) {
         "Pow", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Pow(self, other); }, "Tensor pow.");
     m.def(
         "Cast",
-        [](const Tensor &self, DataType dstDataType, CastMode mode) {
-            return npu::tile_fwk::Cast(self, dstDataType, mode);
+        [](const Tensor &self, DataType dstDataType, CastMode mode, SaturationMode satmode) {
+            return npu::tile_fwk::Cast(self, dstDataType, mode, satmode);
         },
-        py::arg("operand"), py::arg("new_data_type"), py::arg("mode") = CAST_NONE, "Tensor cast.");
+        py::arg("operand"), py::arg("new_data_type"), py::arg("mode") = CAST_NONE, py::arg("satmode") = SaturationMode::OFF,
+        "Tensor cast.");
 
     m.def(
         "Add", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Add(self, other); },
@@ -247,7 +269,7 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::Gather(params, indices, axis);
         },
         "Tensor gather.");
-    m.def("GatherMask", 
+    m.def("GatherMask",
         [](const Tensor &self, int patternMode) { return npu::tile_fwk::GatherMask(self, patternMode); },
         "Tensor gather Mask.");
     m.def("Duplicate", [](const Tensor &operand) { return npu::tile_fwk::Duplicate(operand); }, "Tensor duplicate.");
@@ -264,9 +286,6 @@ void bind_operation(py::module &m) {
             std::vector<SymbolicScalar> validShape) { return npu::tile_fwk::Full(src, dType, dstShape, validShape); },
         py::arg("src"), py::arg("dType"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
         "Tensor vector duplicate.");
-    m.def(
-        "Load", [](const Tensor &src, const Tensor &offsets) { return npu::tile_fwk::Load(src, offsets); },
-        py::arg("src"), py::arg("offsets"), "Tensor load.");
     m.def(
         "Reshape",
         [](const Tensor &input, const std::vector<int64_t> &dstShape, const std::vector<SymbolicScalar> validShape,
@@ -356,10 +375,6 @@ void bind_operation(py::module &m) {
         [](const Tensor &input, const SymbolicScalar &diagonal) { return npu::tile_fwk::TriL(input, diagonal); },
         "Tensor tril.");
     m.def(
-        "Pad",
-        [](const Tensor &old, const std::vector<int64_t> &newShape) { return npu::tile_fwk::Pad(old, newShape); },
-        "Tensor pad.");
-    m.def(
         "TopK",
         [](const Tensor &self, int k, int axis, bool islargest) {
             return npu::tile_fwk::TopK(self, k, axis, islargest);
@@ -413,8 +428,8 @@ void bind_operation(py::module &m) {
 
     py::class_<Matrix::MatmulExtendParam>(m, "MatmulExtendParam")
         .def(py::init<>())
-        .def(py::init<Tensor, Tensor, float, Matrix::ReLuType>(), py::arg("bias_tensor"), py::arg("scale_tensor"),
-            py::arg("scale"), py::arg("relu_type"), "Matrix extend params.");
+        .def(py::init<Tensor, Tensor, float, Matrix::ReLuType, Matrix::TransMode>(), py::arg("bias_tensor"), py::arg("scale_tensor"),
+            py::arg("scale"), py::arg("relu_type"), py::arg("trans_mode"), "Matrix extend params.");
 
     m.def(
         "Matmul",
@@ -425,6 +440,10 @@ void bind_operation(py::module &m) {
         py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("a_trans") = false,
         py::arg("b_trans") = false, py::arg("c_matrix_nz") = false, py::arg("extend_params"),
         "Matrix multiply with extend param.");
+    py::class_<Conv::ConvExtendParam>(m, "ConvExtendParam")
+        .def(py::init<>())
+        .def(py::init<Tensor, Tensor, float, Conv::ReLuType>(), py::arg("bias_tensor"), py::arg("scale_tensor"),
+            py::arg("scale"), py::arg("relu_type"), "Conv extend params.");
     m.def(
         "MatmulMX",
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_a_scale, const Tensor &tensor_b,
@@ -437,6 +456,17 @@ void bind_operation(py::module &m) {
         py::arg("tensor_b_scale"), py::arg("a_trans") = false, py::arg("a_scale_trans") = false,
         py::arg("b_trans") = false, py::arg("b_scale_trans") = false, py::arg("c_matrix_nz") = false,
         py::arg("extend_params"), "Matrix multiply with extend param.");
+    m.def(
+        "Conv",
+        [](DataType out_type, const Tensor &tensor_input, const Tensor &tensor_weight, const std::vector<int64_t> &strides,
+            const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const Conv::ConvExtendParam& extendParam,
+            const int64_t groups) {
+            return Conv::Conv(out_type, tensor_input, tensor_weight, strides, paddings,
+                dilations, extendParam, groups);
+        },
+        py::arg("out_type"), py::arg("tensor_input"), py::arg("tensor_weight"), py::arg("strides"),
+        py::arg("paddings"), py::arg("dilations"), py::arg("extend_params"), py::arg("groups") = 1,
+        "Convolution forward with extend param.");
     m.def(
         "BatchMatmul",
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
@@ -624,7 +654,7 @@ void bind_operation(py::module &m) {
 
     m.def(
         "isfinite", [](const Tensor &self) { return npu::tile_fwk::IsFinite(self); }, "Judge whether the value is inf/nan/-inf. If it is, the value will be false.");
-        
+
     m.def(
         "Nop",
         [](const std::vector<Tensor> &inTensors) {

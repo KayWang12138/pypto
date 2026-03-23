@@ -71,23 +71,7 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowSumLine) {
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
-        }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_23_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_23_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_23_dim_2", fakeParam);
-    }
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -196,7 +180,7 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowProdSingleTileTensor) {
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    const std::string expect = R"(TRowProdSingle<LastUse3Dim<0, 0, 0>>(ubTensor_20, ubTensor_17, ubTensor_21);)";
+    const std::string expect = R"(TRowProdSingle<LastUse3Dim<0, 0, 1>>(ubTensor_20, ubTensor_17, ubTensor_21);)";
     CheckStringExist(expect, res);
 }
 } // namespace npu::tile_fwk

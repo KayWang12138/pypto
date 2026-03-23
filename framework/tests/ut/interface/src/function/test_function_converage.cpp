@@ -34,12 +34,10 @@ class FunctionCoverageTest : public testing::Test {
 public:
     static void SetUpTestCase() {
         std::cout << "FunctionCoverageTest SetUpTestCase" << std::endl;
-        LoggerManager::GetManager().level = LoggerLevel::ERROR;
     }
 
     static void TearDownTestCase() {
         std::cout << "FunctionCoverageTest TearDownTestCase" << std::endl;
-        LoggerManager::GetManager().level = LoggerLevel::ERROR;
     }
 
     void SetUp() override {

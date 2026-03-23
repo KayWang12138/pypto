@@ -37,12 +37,12 @@ def create_add_kernel(run_mode: str):
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_kernel(
-        x: pypto.Tensor(shape, pypto.DT_FP32),
-        y: pypto.Tensor(shape, pypto.DT_FP32),
-    ) -> pypto.Tensor(shape, pypto.DT_FP32):
+        x: pypto.Tensor([...], pypto.DT_FP32),
+        y: pypto.Tensor([...], pypto.DT_FP32),
+        out: pypto.Tensor([...], pypto.DT_FP32),
+    ):
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
-        out = x + y
-        return out
+        out[:] = x + y
 
     return add_kernel
 
@@ -60,14 +60,15 @@ if __name__ == "__main__":
 
     x = torch.rand(shape, dtype=torch.float32, device=device)
     y = torch.rand(shape, dtype=torch.float32, device=device)
+    output = torch.empty(shape, dtype=torch.float32, device=device)
 
     # 执行计算并查看结果
-    output = create_add_kernel(args.run_mode)(x, y)
+    create_add_kernel(args.run_mode)(x, y, output)
     print(f"Output shape: {output.shape}")
 ```
 
-- 对于真实环境，可以直接通过查看输出张量的值查看运行结果
-- 对于仿真环境，通过 `output/` 下的泳道图查看仿真结果
+- 对于真实环境或者精度仿真，可以直接通过查看输出张量的值查看运行结果
+- 对于性能仿真，通过 `output/` 下的泳道图查看仿真结果
 
 完整样例请参考：[hello_world.py](../../examples/00_hello_world/hello_world.py)。
 

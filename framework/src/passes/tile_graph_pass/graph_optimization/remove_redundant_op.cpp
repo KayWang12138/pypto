@@ -17,6 +17,7 @@
 #include "passes/pass_check/remove_redundant_op_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_utils/merge_view_assemble_utils.h"
+#include "passes/pass_utils/pass_utils.h"
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "RemoveRedundantOp"
@@ -58,6 +59,10 @@ bool EqualInOut(const Operation &op) {
 bool RemoveRedundantOp::ProcessRedundantOpWithDynShape(Operation &op) const {
     if (!EqualInOut(op)) {
         APASS_LOG_DEBUG_F(Elements::Operation, "op[%d]'s input and output has unequal shape and dynshape, skip removing.", op.opmagic);
+        return false;
+    }
+    if (op.HasAttr("op_attr_remain_redundant_op_flag")) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "op[%d] has attribute op_attr_remain_redundant_op_flag, skip removing.", op.opmagic);
         return false;
     }
     return true;
@@ -395,7 +400,7 @@ Status RemoveRedundantOp::ProcessReshape(Function &function) {
         auto in = op.GetIOperands().front();
         auto out = op.GetOOperands().front();
         canRemove = false;
-        if (in->shape == out->shape) {
+        if (in->shape == out->shape && !CommonUtils::ContainsNegativeOne(in->GetShape()) && !CommonUtils::ContainsNegativeOne(out->GetShape())) {
             APASS_LOG_DEBUG_F(Elements::Operation, "op[%d]'s in->shape == out->shape.", op.GetOpMagic());
             canRemove = true;
         } else if (!op.ConsumerOps().empty()) {

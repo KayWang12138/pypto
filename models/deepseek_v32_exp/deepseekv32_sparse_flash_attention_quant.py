@@ -429,18 +429,21 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
     kv_act_seqs_npu = kv_act_seqs.npu()
     pto_inputs = [q_nope_npu, q_rope_npu, kn_npu, kr_npu, kn_scales_npu, topk_indices_npu, block_table_npu,
                   kv_act_seqs_npu]
+    
+    calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
+    calc_attention_out_npu = calc_attention_out.npu()
+    pto_outputs = [calc_attention_out_npu]
 
     max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
 
     if is_p:
-        attecalc_attention_out_pton_out = sparse_flash_attention_quant_p(b, s1, block_num, max_kv_seq, block_size,\
-             max_blocknum_perbatch, kv_lora_rank, qk_rope_dim, n_q, n_kv, softmax_scale, topk, tile_config)(*pto_inputs)
+        sparse_flash_attention_quant_p(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size, \
+            max_blocknum_perbatch, tile_config)
     else:
-        attecalc_attention_out_pton_out = sparse_flash_attention_quant_d(b, s1, block_num, max_kv_seq, block_size,\
-             max_blocknum_perbatch, kv_lora_rank, qk_rope_dim, n_q, n_kv, softmax_scale, topk, tile_config)(*pto_inputs)
-
+        sparse_flash_attention_quant_d(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size, \
+            max_blocknum_perbatch, tile_config)
     torch_npu.npu.synchronize()
-    compare(attecalc_attention_out_pton_out.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
+    compare(calc_attention_out_npu.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
 
 
 def get_case_config(case_name: str):
@@ -451,6 +454,9 @@ def get_case_config(case_name: str):
         ),
         "sfa_bf16_b4_s2_seq64K_per_int8_d": (
             (4, 128, 1, 2), 1, [65536] * 4
+        ),
+        "sfa_bf16_b4_s2_seq64K_per_bf16_d": (
+            (4, 128, 1, 2), 0, [65536] * 4
         ),
         "sfa_bf16_b1_s256_seq64K_int8_p": (
             (1, 128, 1, 256), 1, [65536]
@@ -490,6 +496,14 @@ def test_sfa_bf16_b4_s2_seq64k_per_int8_d():
     sfa decode测试函数
     '''
     do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_per_int8_d", is_p=False)
+
+
+@pytest.mark.skip(reason="bf16 perf")
+def test_sfa_bf16_b4_s2_seq64k_per_bf16_d():
+    '''
+    sfa decode非量化测试函数
+    '''
+    do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_per_bf16_d", is_p=False)
 
 
 @pytest.mark.skip(reason="large test case")

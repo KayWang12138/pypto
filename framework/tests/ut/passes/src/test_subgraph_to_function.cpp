@@ -82,7 +82,6 @@ std::multimap<int, int> GetPSgToESgMap(Function *rootFunc) {
         int PSgId = iter.GetProgramId();
         int ESgId = rootFunc->Operations()[i].GetSubgraphID();
         PSgToESgMap.insert({PSgId, ESgId});
-        ALOG_INFO_F("PSgId: %d, ESgId: %d", PSgId, ESgId);
     }
     return PSgToESgMap;
 }
@@ -219,7 +218,6 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset) {
     currFunctionPtr->outCasts_.push_back(output_tensor);
 
     currFunctionPtr->SetTotalSubGraphCount(totalSubGraphCount);
-    ALOG_INFO("draw program graph before pass.");
 
     std::stringstream ssBefore;
     ssBefore << "Before_subgraphToFunction";
@@ -334,7 +332,6 @@ TEST_F(SubgraphToFunctionTest, SameOffset) {
     currFunctionPtr->outCasts_.push_back(output_tensor);
 
     currFunctionPtr->SetTotalSubGraphCount(totalSubGraphCount);
-    ALOG_INFO("draw program graph before pass.");
 
     Json progDump;
     progDump["version"] = "2.0";
@@ -990,6 +987,24 @@ TEST_F(SubgraphToFunctionTest, ReshapeDependencyHandling) {
         }
     }
     EXPECT_TRUE(found) << "ABS_SG1 subgraph entry not found in topology";
+}
+
+TEST_F(SubgraphToFunctionTest, TransViewToCopyIn_ViewWithTwoOOperands_Fail) {
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> shape = {16, 16};
+    EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, shape, "v_in"));
+    EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, shape, "v_out1"));
+    EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, shape, "v_out2"));
+    EXPECT_TRUE(G.AddOp(Opcode::OP_VIEW, {"v_in"}, {"v_out1", "v_out2"}, "view_two_out"));
+    Operation* viewOp = G.GetOp("view_two_out");
+    ASSERT_NE(viewOp, nullptr);
+    viewOp->SetAttribute(OpAttributeKey::inplaceIdx, 0);
+    viewOp->UpdateSubgraphID(0);
+    Function* function = G.GetFunction();
+    function->SetTotalSubGraphCount(1);
+    SubgraphToFunction pass;
+    Status status = pass.RunOnFunction(*function);
+    EXPECT_NE(status, SUCCESS);
 }
 } // namespace tile_fwk
 } // namespace npu

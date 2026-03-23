@@ -17,6 +17,7 @@
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "interface/utils/vector_error.h"
 
 namespace npu::tile_fwk {
 
@@ -44,7 +45,7 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
         if (inputTile1->Datatype() == DT_BF16) {
             element_size = BytesOf(DT_FP32);
         }
-        ASSERT(element_size != 0) << "Element size cannot be zero.";
+        ASSERT(VectorErrorCode::ERR_RUNTIME_LOGIC, element_size != 0) << "Element size cannot be zero.";
         int64_t elements_per_chunk = COUNT_MODE_SIZE / element_size;
         int64_t vcmp_bits_size = (elements_per_chunk + 7) / 8;
 
@@ -54,11 +55,13 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
         size_t array_size = elements_per_chunk * element_size;
         size_t aligned_array_size = ((array_size + ALIGN_SIZE - 1) / ALIGN_SIZE) * ALIGN_SIZE;
 
-        size_t total_bytes = vcmpBitResult_size + 3 * aligned_array_size + ALIGN_SIZE;
+        size_t total_bytes = vcmpBitResult_size + 3 * aligned_array_size + ALIGN_SIZE * 2;
         std::vector<int64_t> tmp_shape({static_cast<int64_t>(total_bytes)});
         auto tmp_tensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmp_shape);
 
         auto &op = function.AddOperation(Opcode::OP_CMP, {convertedTile1, convertedTile2}, {resultTile, tmp_tensor});
+        std::vector<bool> dimMap({true, true});
+        op.SetAttr(OpAttributeKey::rowPad, dimMap);
 
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", static_cast<int64_t>(operation));
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", static_cast<int64_t>(mode));
@@ -154,9 +157,8 @@ LogicalTensorPtr TensorCompareOperation(
     auto resultType = DT_BOOL;
     if (mode == OutType::BIT) {
         resultType = DT_UINT8;
-        if (!resultShape.empty() && resultShape.back() % NUM_VALUE_8 != 0) {
-            ALOG_ERROR_F("Last dimension must be divisible by 8 in BIT mode");
-        }
+        ASSERT(VectorErrorCode::ERR_CONFIG_ALIGNMENT, resultShape.empty() || resultShape.back() % NUM_VALUE_8 == 0)
+            << "Last dimension must be divisible by 8 in BIT mode";
         if (!resultShape.empty()) {
             resultShape.back() /= NUM_VALUE_8;
             if (!resultValidShape.empty()) {
@@ -166,6 +168,8 @@ LogicalTensorPtr TensorCompareOperation(
     }
     auto result = std::make_shared<LogicalTensor>(function, resultType, resultShape, resultValidShape);
     auto &op = function.AddOperation(Opcode::OP_CMP, {operandT1, operandT2}, {result});
+    std::vector<bool> dimMap({true, true});
+    op.SetAttr(OpAttributeKey::rowPad, dimMap);
     op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", static_cast<int64_t>(operation));
     op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", static_cast<int64_t>(mode));
     return result;
@@ -182,9 +186,8 @@ LogicalTensorPtr TensorCompareOperationScalar(
         resultType = DT_UINT8;
         if (!resultShape.empty()) {
             int64_t lastDim = resultShape.back();
-            if (lastDim % NUM_VALUE_8 != 0) {
-                ALOG_ERROR_F("Last dimension must be divisible by 8 in BIT mode");
-            }
+            ASSERT(VectorErrorCode::ERR_CONFIG_ALIGNMENT, lastDim % NUM_VALUE_8 == 0)
+                << "Last dimension must be divisible by 8 in BIT mode";
             resultShape.back() = lastDim / NUM_VALUE_8;
             if (!resultValidShape.empty()) {
                 auto &lastSymDim = resultValidShape.back();
@@ -194,6 +197,8 @@ LogicalTensorPtr TensorCompareOperationScalar(
     }
     auto result = std::make_shared<LogicalTensor>(function, resultType, resultShape, resultValidShape);
     auto &op = function.AddOperation(Opcode::OP_CMPS, {operandT1}, {result});
+    std::vector<bool> dimMap({true});
+    op.SetAttr(OpAttributeKey::rowPad, dimMap);
     op.SetAttribute(OpAttributeKey::scalar, value);
     op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", static_cast<int64_t>(operation));
     op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", static_cast<int64_t>(mode));
@@ -237,7 +242,7 @@ void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size
         if (inputTile->Datatype() == DT_BF16) {
             element_size = BytesOf(DT_FP32);
         }
-        ASSERT(element_size != 0) << "Element size cannot be zero.";
+        ASSERT(VectorErrorCode::ERR_RUNTIME_LOGIC, element_size != 0) << "Element size cannot be zero.";
         int64_t elements_per_chunk = COUNT_MODE_SIZE / element_size;
         int64_t vcmp_bits_size = (elements_per_chunk + 8 - 1) / 8;
 
@@ -252,6 +257,8 @@ void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size
         auto tmp_tensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmp_shape);
 
         auto &op = function.AddOperation(Opcode::OP_CMPS, {convertedTile}, {resultTile, tmp_tensor});
+        std::vector<bool> dimMap({true});
+        op.SetAttr(OpAttributeKey::rowPad, dimMap);
 
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", static_cast<int64_t>(operation));
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", static_cast<int64_t>(mode));

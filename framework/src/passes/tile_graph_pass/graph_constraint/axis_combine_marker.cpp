@@ -16,6 +16,8 @@
 #include "axis_combine_marker.h"
 namespace npu {
 namespace tile_fwk {
+const std::unordered_set<Opcode> whiteList{Opcode::OP_RESHAPE, Opcode::OP_VEC_DUP};
+
 void AxisCombineMarker::Run(Function &function) {
     Init(function);
     ForwardVisit();
@@ -146,6 +148,7 @@ void UpdateReduceStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axis
     }
     if (axis == dimSize - 2) {
         // reduce倒数第二轴，当前不支持合轴优化
+        tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;
         tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
         return;
     }
@@ -201,8 +204,14 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
         return;
     }
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
-        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST) {
+        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST ||
+        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::CAST) {
         UpdateElewiseStatus(op, tensorStatus_);
+        return;
+    }
+    if (outputTensor->GetShape().back() == 1 &&
+        whiteList.find(op->GetOpcode()) == whiteList.end()) { // 非白名单Op，虽然尾轴为1，仍不支持合轴
+        tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
         return;
     }
     tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;

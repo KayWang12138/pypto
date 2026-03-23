@@ -58,7 +58,7 @@ struct DynDeviceTask : DynDeviceTaskBase {
         return funcDup.DumpDyn(FuncID(id), TaskID(id), cceBinary);
     }
 
-    void DumpTopo() {
+    void DumpTopo(bool enableVFFusion) {
         auto header = GetDynFuncDataList();
 #ifdef __DEVICE__
         std::string path = "./output/dyn_topo.txt";
@@ -79,7 +79,7 @@ struct DynDeviceTask : DynDeviceTaskBase {
             of << "seqNo,taskId,rootIndex,rootHash,opmagic,leafIndex,leafHash,coreType,psgId,successors\n";
         }
         for (size_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
-            stitchedList[funcIdx].DumpTopo(of, header->seqNo, funcIdx, cceBinary);
+            stitchedList[funcIdx].DumpTopo(of, header->seqNo, funcIdx, cceBinary, enableVFFusion);
         }
         of.flush();
     }
@@ -88,7 +88,7 @@ struct DynDeviceTask : DynDeviceTaskBase {
         for (size_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
             auto lines = stitchedList[funcIdx].DumpLeafs(GetDynFuncDataList()->seqNo, funcIdx);
             for (auto &&line : lines) {
-                DEV_ERROR("[DumpLeafs] %s", line.c_str());
+                DEV_DEBUG("[DumpLeafs] %s", line.c_str());
             }
         }
     }
@@ -103,12 +103,12 @@ struct DynDeviceTask : DynDeviceTaskBase {
             stitchedList[funcIdx].DumpTensorAddrInfo(infos, GetDynFuncDataList()->seqNo, funcIdx);
         }
         auto str = std::move(oss).str();
-        DEV_ERROR("[DumpTensor] seqNo,taskId,rawMagic,address,dtype,bytesOfDtype,(shapes,)");
-        DEV_ERROR("[DumpTensor] >>>");
+        DEV_INFO("[DumpTensor] seqNo,taskId,rawMagic,address,dtype,bytesOfDtype,(shapes,)");
+        DEV_INFO("[DumpTensor] >>>");
         for (auto &info : infos) {
-            DEV_ERROR("[DumpTensor] %s", info.c_str());
+            DEV_INFO("[DumpTensor] %s", info.c_str());
         }
-        DEV_ERROR("[DumpTensor] <<<");
+        DEV_INFO("[DumpTensor] <<<");
     }
 #endif
 };

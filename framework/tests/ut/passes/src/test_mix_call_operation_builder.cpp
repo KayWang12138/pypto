@@ -388,6 +388,78 @@ protected:
         }
     }
 
+    std::shared_ptr<Function> createFunctionWithOps(const std::string& name) {
+        auto func = createSimpleFunction(name);
+        const std::vector<int64_t> shape = {MS_NUM16, MS_NUM16};
+
+        auto input1 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+        auto input2 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+        auto output = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+        auto internal1 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+        auto internal2 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+
+        func->inCasts_.push_back(input1);
+        func->inCasts_.push_back(input2);
+        func->outCasts_.push_back(output);
+
+        auto& copyIn1 = func->AddRawOperation(Opcode::OP_COPY_IN, {input1}, {internal1});
+        copyIn1.opmagic = OP_MAGIC_BASE + 1;
+        copyIn1.SetIOpAttrOffset(0, 100);
+
+        auto& copyIn2 = func->AddRawOperation(Opcode::OP_COPY_IN, {input2}, {internal2});
+        copyIn2.opmagic = OP_MAGIC_BASE + 2;
+        copyIn2.SetIOpAttrOffset(0, 101);
+
+        auto& addOp = func->AddRawOperation(Opcode::OP_ADD, {internal1, internal2}, {output});
+        addOp.opmagic = OP_MAGIC_BASE + 3;
+        addOp.SetIOpAttrOffset(0, 200);
+        addOp.SetIOpAttrOffset(1, 201);
+        addOp.SetOOpAttrOffset(0, 300);
+
+        return func;
+    }
+
+    std::shared_ptr<Function> createFunctionWithInvokeInfo(const std::string& name) {
+        auto func = createFunctionWithOps(name);
+
+        auto invokeInfo = std::make_shared<SubfuncInvokeInfoTy>();
+        invokeInfo->UpdateProgramSubgraphId(TEST_PROGRAM_ID);
+
+        const std::vector<int64_t> shape = {MS_NUM16, MS_NUM16};
+        const std::vector<int64_t> offset = {0, 0};
+        const std::vector<int64_t> rawShape = {MS_NUM16, MS_NUM16};
+
+        auto operations = func->Operations(false).DuplicatedOpList();
+        auto& addOp = operations[2];
+
+        invokeInfo->RecordConnection(-1, TEST_PROGRAM_ID, 0, 0, offset, shape, rawShape, DT_FP32,
+            func->inCasts_[0], addOp->GetOpMagic());
+        invokeInfo->RecordConnection(-1, TEST_PROGRAM_ID, 1, 0, offset, shape, rawShape, DT_FP32,
+            func->inCasts_[1], addOp->GetOpMagic());
+
+        SubfuncInvokeInfoTy::SuccessorIncastInfoTy emptySuccessorInfo;
+        invokeInfo->RecordOutcast(TEST_PROGRAM_ID, 0, 1, 0, emptySuccessorInfo, offset,
+            shape, rawShape, DT_FP32, func->outCasts_[0], addOp->GetOpMagic());
+
+        invokeInfo->DoFinishRecord();
+
+        return func;
+    }
+
+    Operation* createCallOpWithoutAttribute(Function& func) {
+        const std::vector<int64_t> shape = {MS_NUM16, MS_NUM16};
+        auto input1 = std::make_shared<LogicalTensor>(func, DT_FP32, shape);
+        auto input2 = std::make_shared<LogicalTensor>(func, DT_FP32, shape);
+        auto output1 = std::make_shared<LogicalTensor>(func, DT_FP32, shape);
+
+        auto& callOp = func.AddRawOperation(
+            Opcode::OP_CALL,
+            {input1, input2},
+            {output1});
+
+        return &callOp;
+    }
+
 protected:
     std::shared_ptr<Function> rootFunc;
     std::unique_ptr<MixCallOperationBuilder> builder;
@@ -958,5 +1030,111 @@ TEST_F(MixCallOperationBuilderTest, TestPropagatedIncastOutcast)
     // 验证结果
     verifyPropagatedTestResults(originalCallOp, components.size());
 }
+
+// =====================日志覆盖======================
+TEST_F(MixCallOperationBuilderTest, TestCreateCallOpWithNullCallAttribute)
+{
+    auto originalMixFunc = createSimpleFunction("original_mix");
+    auto originalCallOp = createCallOpWithoutAttribute(*rootFunc);
+
+    std::vector<InternalComponentInfo> components = {
+        {0, "comp_0", AIVCore::UNSPECIFIED, ComponentType::C_SCOPE}
+    };
+
+    auto leafFunc = createFunctionWithOps("leaf_0");
+    std::vector<Function*> newFunctions = {leafFunc.get()};
+
+    std::vector<uint64_t> newProgramIDs = {TEST_PROGRAM_ID};
+    auto subgraphToFunction = createSubgraphToFunctionForComponents(1);
+    std::vector<InternalDependencyInfo> emptyDeps;
+
+    Status status = builder->CreateCallOps(*rootFunc, {originalCallOp}, originalMixFunc.get(),
+        components, newProgramIDs, subgraphToFunction, newFunctions, emptyDeps);
+
+    EXPECT_EQ(status, FAILED) << "CreateCallOps should fail with null CallOpAttribute";
+}
+
+TEST_F(MixCallOperationBuilderTest, TestGetOffsetFromOpWithInvalidOpMagic)
+{
+    auto leafFunc = createFunctionWithInvokeInfo("leaf_func");
+
+    int offset = builder->GetOffsetFromOp(99999, 0, *leafFunc, false);
+
+    EXPECT_EQ(offset, -1) << "GetOffsetFromOp should return -1 for invalid op magic";
+}
+
+TEST_F(MixCallOperationBuilderTest, TestFindIOpAttrOffsetFromActualIncastsWithInvalidTensor)
+{
+    auto leafFunc = createFunctionWithInvokeInfo("leaf_func");
+    auto originalMixFunc = createFunctionWithOps("original_mix");
+
+    const std::vector<int64_t> shape = {MS_NUM16, MS_NUM16};
+    auto invalidTensor = std::make_shared<LogicalTensor>(*leafFunc, DT_FP32, shape);
+
+    std::vector<std::shared_ptr<LogicalTensor>> actualIncasts = {invalidTensor};
+
+    std::vector<int> iOffsets;
+    std::vector<int> oOffsets;
+    std::set<LogicalTensorPtr> processedIncasts;
+    std::set<LogicalTensorPtr> processedOutcasts;
+    ExtractInfo extractInfo{iOffsets, oOffsets, processedIncasts, processedOutcasts};
+
+    bool result = builder->FindIOpAttrOffsetFromActualIncasts(actualIncasts, extractInfo, originalMixFunc.get());
+
+    EXPECT_FALSE(result) << "FindIOpAttrOffsetFromActualIncasts should return false for invalid tensor";
+}
+
+TEST_F(MixCallOperationBuilderTest, TestFindOOpAttrOffsetFromActualOutcastsWithEmptyShape)
+{
+    auto leafFunc = createFunctionWithInvokeInfo("leaf_func");
+    auto originalMixFunc = createFunctionWithOps("original_mix");
+
+    const std::vector<int64_t> emptyShape = {};
+    auto tensorWithEmptyShape = std::make_shared<LogicalTensor>(*leafFunc, DT_FP32, emptyShape);
+
+    std::vector<std::shared_ptr<LogicalTensor>> actualOutcasts = {tensorWithEmptyShape};
+
+    std::vector<int> iOffsets;
+    std::vector<int> oOffsets;
+    std::set<LogicalTensorPtr> processedIncasts;
+    std::set<LogicalTensorPtr> processedOutcasts;
+    ExtractInfo extractInfo{iOffsets, oOffsets, processedIncasts, processedOutcasts};
+
+    bool result = builder->FindOOpAttrOffsetFromActualOutcasts(actualOutcasts, extractInfo, originalMixFunc.get());
+
+    EXPECT_FALSE(result) << "FindOOpAttrOffsetFromActualOutcasts should return false for tensor with empty shape";
+}
+
+TEST_F(MixCallOperationBuilderTest, TestFindOOpAttrOffsetFromActualOutcastsWithInvalidTensor)
+{
+    auto leafFunc = createFunctionWithInvokeInfo("leaf_func");
+    auto originalMixFunc = createFunctionWithOps("original_mix");
+
+    const std::vector<int64_t> shape = {MS_NUM16, MS_NUM16};
+    auto invalidTensor = std::make_shared<LogicalTensor>(*leafFunc, DT_FP32, shape);
+
+    std::vector<std::shared_ptr<LogicalTensor>> actualOutcasts = {invalidTensor};
+
+    std::vector<int> iOffsets;
+    std::vector<int> oOffsets;
+    std::set<LogicalTensorPtr> processedIncasts;
+    std::set<LogicalTensorPtr> processedOutcasts;
+    ExtractInfo extractInfo{iOffsets, oOffsets, processedIncasts, processedOutcasts};
+
+    bool result = builder->FindOOpAttrOffsetFromActualOutcasts(actualOutcasts, extractInfo, originalMixFunc.get());
+
+    EXPECT_FALSE(result) << "FindOOpAttrOffsetFromActualOutcasts should return false for invalid tensor";
+}
+
+TEST_F(MixCallOperationBuilderTest, TestFindOriginalOffsetInMixFunctionWithNullTensor)
+{
+    auto originalMixFunc = createFunctionWithOps("original_mix");
+
+    int offset = builder->FindOriginalOffsetInMixFunction(nullptr, originalMixFunc.get());
+
+    EXPECT_EQ(offset, -1) << "FindOriginalOffsetInMixFunction should return -1 for null tensor";
+}
+
+
 } // namespace tile_fwk
 } // namespace npu

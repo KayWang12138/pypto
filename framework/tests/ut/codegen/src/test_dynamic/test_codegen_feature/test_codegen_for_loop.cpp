@@ -102,7 +102,6 @@ TEST_F(TestCodegenForLoop, TestForLoop) {
 
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     LoopaxesProc lpPass;
     lpPass.RunOnFunction(*function);
@@ -123,7 +122,7 @@ TEST_F(TestCodegenForLoop, TestForLoop) {
         ubTensor_1_low2DimInLoop.SetAddr(ubTensor_1.GetLinearAddr(tileOffsets));
         ubTensor_5_low2DimInLoop.SetAddr(ubTensor_5.GetLinearAddr(tileOffsets));
         TAdd<LastUse3Dim<0, 0, 0>>(ubTensor_5_low2DimInLoop, ubTensor_1_low2DimInLoop, ubTensor_3_low2DimInLoop);
-        TSub<LastUse3Dim<0, 0, 0>>(ubTensor_11_low2DimInLoop, ubTensor_1_low2DimInLoop, ubTensor_3_low2DimInLoop);
+        TSub<LastUse3Dim<0, 1, 1>>(ubTensor_11_low2DimInLoop, ubTensor_1_low2DimInLoop, ubTensor_3_low2DimInLoop);
     }
   }
 })";
@@ -133,7 +132,7 @@ TEST_F(TestCodegenForLoop, TestForLoop) {
         auto tileOffsets = TileOffset(idx0, idx1, idx2);
         ubTensor_11_low2DimInLoop.SetAddr(ubTensor_11.GetLinearAddr(tileOffsets));
         ubTensor_5_low2DimInLoop.SetAddr(ubTensor_5.GetLinearAddr(tileOffsets));
-        TMul<LastUse3Dim<0, 0, 0>>(ubTensor_5_low2DimInLoop, ubTensor_5_low2DimInLoop, ubTensor_11_low2DimInLoop);
+        TMul<LastUse3Dim<0, 1, 1>>(ubTensor_5_low2DimInLoop, ubTensor_5_low2DimInLoop, ubTensor_11_low2DimInLoop);
     }
   }
 })";

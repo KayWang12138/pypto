@@ -21,11 +21,9 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
-#include "machine/host/device_agent_task.h"
 #include "cost_model/simulation/pv/PvModel.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
 #include "machine/device/dynamic/costmodel_utils.h"
-#include "machine/runtime/machine_agent.h"
 #include "machine/runtime/device_launcher.h"
 #include "cost_model/simulation/backend.h"
 #include "machine/runtime/host_prof.h"
@@ -224,7 +222,9 @@ private:
         SIMULATION_LOGI("Run DynCostModel");
         RunDynCostModel();
         SIMULATION_LOGI("Run PvModel");
+#ifdef BUILD_WITH_CANN
         RunPvModel(kArgs, inputs, outputs);
+#endif
     }
 
     bool IsDumpTensorEnable() const {

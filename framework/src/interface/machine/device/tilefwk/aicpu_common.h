@@ -16,6 +16,7 @@
 #ifndef RUNTIME_COMMON_DEF_H
 #define RUNTIME_COMMON_DEF_H
 
+#include <cstddef>
 #include <cstdint>
 #include "aicpu_perf.h"
 
@@ -54,6 +55,8 @@ constexpr const int DEV_SHAPE_DIM_NUM_3 = 3;
 constexpr const int DEV_SHAPE_DIM_NUM_4 = 4;
 constexpr const int DEV_SHAPE_DIM_NUM_5 = 5;
 
+constexpr const uint32_t MAX_TURN_NUM = 200;
+
 constexpr uint32_t AICPU_LEAD_SCHEDULER_NULL = 0xFFFFFFFFU;
 
 enum class ArchInfo {
@@ -68,7 +71,6 @@ enum class ArchInfo {
 #define DEVICE_TASK_TYPE_STATIC  0
 #define DEVICE_TASK_TYPE_DYN     1
 #define DEVICE_TASK_TYPE_INVALID 0xf
-#define PYPTO                    59
 
 template <typename DerivedType, typename UnderlyingType>
 class BitmaskBase {
@@ -170,14 +172,14 @@ struct DeviceArgs {
     uint32_t hostPid{0};       // for dump tensor
     uint32_t scheCpuNum{0};    // sche cpu num calc by host
     uint32_t enableCtrl : 2;    // if enable builtin ctrl
-    uint32_t validGetPgMask : 2; // mark pgmask is invalid
-    uint32_t disableSync : 28;    // close ctrl and sche soft sync
+    uint32_t validGetPgMask : 30; // mark pgmask is invalid
     uint64_t aicpuPerfAddr{0};    // aicpuPer Gm addr
     uint64_t devDfxArgAddr{0};   // devDfx
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
     uint32_t leadSchedulerId{AICPU_LEAD_SCHEDULER_NULL}; // Indicates the  lead aicpu scheduler id
     volatile bool isDeviceInitialized; // A flag to indicate the device has been properly initialized by the lead AICPU scheduler
     int maxAicpuNum{0};
+    bool enableVFFusion = false;
     ArchInfo archInfo{ArchInfo::DAV_2201};
     ToSubMachineConfig toSubMachineConfig;
 };
@@ -210,7 +212,7 @@ struct TaskStat {
 
 struct DevDfxArgs {
     int32_t logLevel{-1};
-    int32_t isOpenSwim{0};
+    int32_t isOpenPerfTrace{0};
 };
 
 constexpr uint32_t PERF_TRACE_INST_MAX_NUM_EVERY_TYPE = 10;
@@ -230,9 +232,10 @@ enum AicorePerfTrace {
 struct Metrics {
   int64_t isMetricStop;
   int64_t taskCount;
-  int64_t perfTrace[PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
-  uint32_t perfTraceDevTaskId[PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
-  uint32_t perfTraceCnt[PERF_TRACE_CORE_MAX];
+  int64_t turnNum;
+  int64_t perfTrace[MAX_TURN_NUM][PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
+  uint32_t perfTraceDevTaskId[MAX_TURN_NUM][PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
+  uint32_t perfTraceCnt[MAX_TURN_NUM][PERF_TRACE_CORE_MAX];
   TaskStat tasks[];
 };
 

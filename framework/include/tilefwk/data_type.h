@@ -52,6 +52,8 @@ enum DataType {
     DT_FP8E5M2 = 17,
     DT_FP8E4M3 = 18,
     DT_FP8E8M0 = 19,
+    DT_FP4_E2M1X2 = 20,
+    DT_FP4_E1M2X2 = 21,
     DT_BOTTOM
 };
 
@@ -141,6 +143,8 @@ inline std::string DataType2String(DataType t) {
         case DT_FP8E5M2: return "DT_FP8E5M2";
         case DT_FP8E4M3: return "DT_FP8E4M3";
         case DT_FP8E8M0: return "DT_FP8E8M0";
+        case DT_FP4_E2M1X2: return "DT_FP4_E2M1X2";
+        case DT_FP4_E1M2X2: return "DT_FP4_E1M2X2";
         default: throw std::invalid_argument("Unknown DataType");
     }
 }
@@ -167,6 +171,8 @@ inline std::string DataType2String(DataType t) {
         case DT_FP8E5M2: return "FP8E5M2";
         case DT_FP8E4M3: return "FP8E4M3";
         case DT_FP8E8M0: return "FP8E8M0";
+        case DT_FP4_E2M1X2: return "FP4_E2M1X2";
+        case DT_FP4_E1M2X2: return "FP4_E1M2X2";
         default: throw std::invalid_argument("Unknown DataType");
     }
 }
@@ -192,6 +198,8 @@ inline std::string DataType2CCEStr(DataType t) {
         case DT_FP8E4M3: return "float8_e4m3_t";
         case DT_FP8E5M2: return "float8_e5m2_t";
         case DT_FP8E8M0: return "float8_e8m0_t";
+        case DT_FP4_E2M1X2: return "float4_e2m1x2_t";
+        case DT_FP4_E1M2X2: return "float4_e1m2x2_t";
         default: throw std::invalid_argument("Unknown DataType");
     }
 }
@@ -229,7 +237,9 @@ const std::unordered_map<std::string, DataType> STR_DATA_TYPE_MAP = {
     {"double",   DT_DOUBLE},
     {"fp8e4m3",  DT_FP8E4M3},
     {"fp8e5m2",  DT_FP8E5M2},
-    {"fp8e8m0",  DT_FP8E8M0}
+    {"fp8e8m0",  DT_FP8E8M0},
+    {"fp4_e2m1x2",  DT_FP4_E2M1X2},
+    {"fp4_e1m2x2",  DT_FP4_E1M2X2}
 };
 
 inline std::string MemoryTypeToString(MemoryType mt) {
@@ -284,6 +294,8 @@ inline std::string MemoryTypeToString(MemoryType mt) {
 inline size_t BytesOf(DataType t) {
     switch (t) {
         case DT_INT4:
+        case DT_FP4_E2M1X2:
+        case DT_FP4_E1M2X2:
         case DT_HF4: return 1; // 4bits still need 1 byte
         case DT_INT8:
         case DT_UINT8:

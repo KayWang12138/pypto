@@ -895,6 +895,8 @@ struct SymbolicExpressionTable {
     static std::string BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
     static std::string BuildExpression(const SymbolicScalar &ss);
     static std::string BuildExpression(const RawSymbolicScalarPtr &ss);
+    static bool CheckExprDependCore(const RawSymbolicScalarPtr &ss, const std::unordered_map<std::string, bool> &tensorNameToDependCore,
+        std::unordered_map<RawSymbolicScalarPtr, bool> &valDependMap);
 private:
     static void BuildExtremaExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict, std::ostringstream &oss);
     static std::string BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
@@ -916,8 +918,9 @@ private:
     }
 };
 
-std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::string &sourceFilePath,
-    const std::string &gcc, const std::string &objcopy, const std::string &sectionName, bool needDump, const std::string &extraCflag="");
+std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::string &sourceFilePath, const std::string &aicpuPath,
+    std::vector<std::string> &exprSrcFiles, const std::string &gcc, const std::string &ld, const std::string &objcopy,
+    const std::string &sectionName, bool needDump, const std::string &extraCflag="");
 
 void CompileAndLink(const std::string &code, const std::string &sourceFilePath,
         const std::string &gcc, bool isStaticLink, bool isBenchmark, bool useMakefile);

@@ -33,13 +33,15 @@ constexpr size_t HIGH_INDEX = 0;
 constexpr size_t LOW_INDEX = 1;
 constexpr uint32_t LEFT_SHIFT32 = 32;
 constexpr int64_t CUBE_PAD_VALUE = 16;
-constexpr int64_t CUBE_PAD_INT8_VALUE = 32;
+constexpr int64_t CUBE_PAD_B8_VALUE = 32;
+constexpr int64_t CUBE_PAD_B4_VALUE = 64;
 constexpr int64_t BT_PAD_BASE = 64;
 constexpr int64_t mxHighAxis = 0;
 constexpr int64_t mxLowAxis = 1;
 const std::vector<bool> AXIS_COMBINED = {true};
 const std::vector<bool> BROADCAST_AXIS_COMBINED = {true, true};
-const std::unordered_set<DataType> inDataSupport = {DataType::DT_INT8, DataType::DT_FP8E5M2, DataType::DT_FP8E4M3, DataType::DT_HF8};
+const std::unordered_set<DataType> b8DataSupport = {DataType::DT_INT8, DataType::DT_FP8E5M2, DataType::DT_FP8E4M3, DataType::DT_HF8};
+const std::unordered_set<DataType> b4DataSupport = {DataType::DT_FP4_E2M1X2, DataType::DT_FP4_E1M2X2};
 const int64_t BRCB_SECOND_LAST_BASE = 8;
 const size_t LAST_SECOND_AXIS = 2;
 const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "AXIS";
@@ -47,35 +49,39 @@ int64_t Pad(int64_t dim, int64_t padValue) {
     return (dim + padValue - 1) / padValue * padValue;
 }
 
-bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in) const {
-    std::vector<Opcode> cubeOps = {Opcode::OP_A_MUL_B, Opcode::OP_AT_MUL_B, Opcode::OP_A_MUL_BT, Opcode::OP_AT_MUL_BT, Opcode::OP_A_MULACC_B};
+
+bool PadLocalBuffer::IsInputDataType(
+    const Operation &op, const LogicalTensorPtr &in, const std::unordered_set<DataType> &targetTypes) const {
+    std::vector<Opcode> cubeOps = {
+        Opcode::OP_A_MUL_B, Opcode::OP_AT_MUL_B, Opcode::OP_A_MUL_BT, Opcode::OP_AT_MUL_BT, Opcode::OP_A_MULACC_B};
 
     if (in == nullptr || in->tensor == nullptr) {
         return false;
     }
 
-    APASS_LOG_DEBUG_F(Elements::Tensor, "Tensor", "Matmul Op %d is %s\n", op.opmagic, op.GetOpcodeStr().c_str());
-    APASS_LOG_DEBUG_F(Elements::Tensor, "Tensor", "####### %d data type is %s\n", in->magic, DataType2VectorRegStr(in->tensor->GetDataType()).c_str());
+    APASS_LOG_DEBUG_F(Elements::Tensor, "Matmul Op %d is %s\n", op.opmagic, op.GetOpcodeStr().c_str());
+    APASS_LOG_DEBUG_F(Elements::Tensor, "####### %d data type is %s\n", in->magic, DataType2VectorRegStr(in->tensor->GetDataType()).c_str());
 
     bool matmulOp = std::find(cubeOps.begin(), cubeOps.end(), op.GetOpcode()) != cubeOps.end();
-    bool opsInputInt8 = false;
+    bool opsInputDtype = false;
     if (op.GetIOperands().size() > 0 && op.GetIOperands()[0] != nullptr && op.GetIOperands()[0]->tensor != nullptr) {
-        opsInputInt8 = inDataSupport.find(op.GetIOperands()[0]->tensor->GetDataType()) != inDataSupport.end();
+        opsInputDtype = targetTypes.find(op.GetIOperands()[0]->tensor->GetDataType()) != targetTypes.end();
     }
 
-    if (inDataSupport.find(in->tensor->GetDataType()) != inDataSupport.end() || (matmulOp && opsInputInt8)) {
+    if (targetTypes.find(in->tensor->GetDataType()) != targetTypes.end() || (matmulOp && opsInputDtype)) {
         // 检查op的输入数据类型是不是int8类型或者in的数据类型是否为int8
         // 包括matmul系列和GM->L1->L0系列
         return true;
     }
 
-    if (op.GetOpcode() == Opcode::OP_COPY_OUT || op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
+    if (op.GetOpcode() == Opcode::OP_COPY_OUT || op.GetOpcode() == Opcode::OP_L0C_TO_L1 ||
+        op.GetOpcode() == Opcode::OP_L0C_COPY_UB) {
         Operation *inProducerPtr = *in->GetProducers().begin();
         if (inProducerPtr != nullptr && inProducerPtr->GetIOperands().size() != 0 &&
             inProducerPtr->GetIOperands()[0] != nullptr && inProducerPtr->GetIOperands()[0]->tensor != nullptr) {
             // 检查in的前置op节点的输入是否为int8。
             // iOperands (dtype:int8) --> A_MULACC_B --> in (dtype:fp16/int32), iOperands (dtype:fp16/int32) --> COPY_OUT
-            return inDataSupport.find(inProducerPtr->GetIOperands()[0]->tensor->GetDataType()) != inDataSupport.end();
+            return targetTypes.find(inProducerPtr->GetIOperands()[0]->tensor->GetDataType()) != targetTypes.end();
         }
     }
     return false;
@@ -104,9 +110,9 @@ void PadMatmulL1ConvertScene(Operation &op, LogicalTensorPtr &in, size_t lowInde
 }
 
 void PadForMatMulMX(LogicalTensorPtr &in, const int64_t &axisNum) {
-    in->shape[axisNum] = Pad(in->shape[axisNum], CUBE_PAD_INT8_VALUE);
+    in->shape[axisNum] = Pad(in->shape[axisNum], CUBE_PAD_B8_VALUE);
     in->tensor->oriRawshape = in->tensor->rawshape;
-    in->tensor->rawshape[axisNum] = Pad(in->tensor->oriRawshape[axisNum], CUBE_PAD_INT8_VALUE);
+    in->tensor->rawshape[axisNum] = Pad(in->tensor->oriRawshape[axisNum], CUBE_PAD_B8_VALUE);
 }
 
 void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
@@ -125,7 +131,8 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     const bool isL1ConvertScene = !producers.empty() && !consumers.empty() && *producers.begin() != nullptr && *consumers.begin() != nullptr
         && ((*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE || (*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_BT
             || (*consumers.begin())->GetOpcode() == Opcode::OP_L1_TO_BT || (*consumers.begin())->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE);
-    const bool isInt8Input = IsInputInt8(op, in);
+    const bool IsInputB8 = IsInputDataType(op, in, b8DataSupport);
+    const bool IsInputB4 = IsInputDataType(op, in, b4DataSupport);
     /*
     首先，可以通过in的数据类型是否为int8来判断是否要做32B对齐。
     再者，存在两种情况
@@ -148,7 +155,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         另外，bias或fixpipe场景只做低维16元素对齐，高维保持不变
         Before:
         L1_TO_L0A --> L0A (shape:[24, 400]) ------------------------->    \
-        L1_TO_BT --> bias_BT (shape:[1, 8]) -----> (address misalign)  A_MUL_B 
+        L1_TO_BT --> bias_BT (shape:[1, 8]) -----> (address misalign)  A_MUL_B
         L1_TO_L0B --> L0B (shape:[400, 16]) ------------------------->    /
 
         After:
@@ -157,9 +164,12 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         L1_TO_L0B --> L0B (shape:[400, 16])  -->   /
         */
         PadMatmulL1ConvertScene(op, in, lowIndex, false);
-    } else if (isInt8Input) {
-        in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_INT8_VALUE);
-        in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_INT8_VALUE);
+    } else if (IsInputB8) {
+        in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_B8_VALUE);
+        in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_B8_VALUE);
+    } else if (IsInputB4) {
+        in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_B4_VALUE);
+        in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_B4_VALUE);
     } else {
         in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_VALUE);
         in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_VALUE);
@@ -173,9 +183,12 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     in->tensor->oriRawshape = in->tensor->rawshape;
     if (isL1ConvertScene) {
         PadMatmulL1ConvertScene(op, in, lowIndex, true);
-    } else if (isInt8Input) {
-        in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_INT8_VALUE);
-        in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_INT8_VALUE);
+    } else if (IsInputB8) {
+        in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_B8_VALUE);
+        in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_B8_VALUE);
+    } else if (IsInputB4) {
+        in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_B4_VALUE);
+        in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_B4_VALUE);
     } else {
         in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_VALUE);
         in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_VALUE);
@@ -184,13 +197,50 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         IntVecToStr(in->tensor->rawshape).c_str());
 }
 
-size_t PadLocalBuffer::GetPaddingValue(LogicalTensorPtr &in) {
+size_t GetPaddingValue(LogicalTensorPtr &in) {
     auto bytes = BytesOf(in->Datatype());
     auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
     if (paddingIter == BLOCK_PADDING_DIM.end()) {
         return 1;
     }
     return paddingIter->second;
+}
+
+size_t GetLastDimBytes(const LogicalTensorPtr& tensor) {
+    if (tensor->shape.empty()) {
+        return 0;
+    }
+
+    size_t lastIdx = tensor->shape.size() - 1;
+    size_t lastDim = tensor->shape[lastIdx];
+    size_t bytes = BytesOf(tensor->Datatype());
+    size_t totalByte = lastDim * bytes;
+
+    return totalByte;
+}
+
+int64_t PadRowDim(int64_t dim, int64_t padValue) {
+    return dim + padValue - 1;
+}
+
+// 针对OP_CMP OP_CMPS OP_PRELU特殊OP做倒数第二轴的256B扩充
+void PadLocalBuffer::PadVector256(Operation &op, LogicalTensorPtr &in, bool needRowPad) {
+    size_t lastDimBytes = GetLastDimBytes(in);
+    if (needRowPad && lastDimBytes != 0 && (lastDimBytes % 32 == 0)) {
+        if (in->shape.size() < 2 || in->tensor->rawshape.size() < 2) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "Tensor %d shape or rawshape less than 2D\n", in->GetMagic());
+            return;
+        }
+        
+        auto dim32Count = lastDimBytes / 32;
+
+        // 修改shape和rawshape，256B/96B非整除场景需要向上取整
+        size_t lastIdx = in->shape.size() - 1;
+        int64_t padValue = (8 + dim32Count - 1) / dim32Count;
+        in->shape[lastIdx - 1] = PadRowDim(in->shape[lastIdx - 1], padValue);
+        in->tensor->rawshape[lastIdx - 1] = PadRowDim(in->tensor->oriRawshape[lastIdx - 1], padValue);
+        APASS_LOG_INFO_F(Elements::Operation, "Op %d %s input shape and rawshape has been changed\n", op.opmagic, op.GetOpcodeStr().c_str());
+    }
 }
 
 /* 1. 对于非BroadcastOp，默认做到Block对齐；
@@ -203,12 +253,13 @@ void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unorder
         return;
     }
     OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
-    size_t paddingValue = GetPaddingValue(in);
+    size_t paddingValue = GetPaddingValue(in); // 根据数据类型，判断需要pad到几个元素
     size_t lastIdx = in->shape.size() - 1;
     if (noPadding) {
         in->oriShape = in->shape;
         in->tensor->UpdateRawShape(in->shape);
         in->tensor->oriRawshape = in->tensor->rawshape;
+        // 开启了强制合轴，倒数第2轴不是对齐的
         if (forceCombineAxis && paddingValue > 0 && in->tensor->rawshape[lastIdx - 1] % paddingValue != 0) {
             int64_t shapeAfterPad = Pad(in->tensor->rawshape[lastIdx - 1], paddingValue);
             in->tensor->rawshape[lastIdx - 1] = shapeAfterPad;
@@ -428,6 +479,7 @@ void PadLocalBuffer::DoPadding(Function &function) {
     for (auto &op : function.Operations()) {
         std::vector<bool> inputAxis;
         op.GetAttr(OpAttributeKey::inputCombineAxis, inputAxis);
+        if(op.GetBoolAttribute("isConv")) continue;
         for (size_t i = 0; i < op.iOperand.size(); i++) {
             auto &in = op.iOperand[i];
             if (visited.count(in) != 0) continue;
@@ -448,6 +500,7 @@ void PadLocalBuffer::DoPadding(Function &function) {
     for (auto &op : function.Operations()) {
         std::vector<bool> outputAxis;
         op.GetAttr(OpAttributeKey::outputCombineAxis, outputAxis);
+        if(op.GetBoolAttribute("isConv")) continue;
         for (size_t i = 0; i < op.oOperand.size(); i++) {
             auto &out = op.oOperand[i];
             if (visited.count(out) != 0) continue;
@@ -467,6 +520,19 @@ void PadLocalBuffer::DoPadding(Function &function) {
     }
 }
 
+void PadLocalBuffer::DoPadding256(Function &function) {
+    // pad256
+    for (auto &op : function.Operations()) {
+        std::vector<bool> inputRowPad;
+        op.GetAttr(OpAttributeKey::rowPad, inputRowPad);
+        for (size_t i = 0; i < op.iOperand.size(); i++) {
+            auto &in = op.iOperand[i];
+            bool needRowPad = ((inputRowPad.size() > i) && inputRowPad[i]);
+            PadVector256(op, in, needRowPad);
+        }
+    }
+}
+
 // 对ub上transpose的特殊处理,其他类型的transpose不做处理
 Status PadLocalBuffer::ProcessTranspose(Function &function) {
     for (const auto &op : function.Operations()) {
@@ -475,7 +541,7 @@ Status PadLocalBuffer::ProcessTranspose(Function &function) {
         }
         auto transposeAxis = op.GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "shape");
         if (transposeAxis.size() != TRANSPOSE_MIN_SHAPE_SIZE) {
-            APASS_LOG_DEBUG_F(Elements::Tensor, "transpose op %d %s's shape size %d is not two, skip.", op.opmagic, op.GetOpcodeStr().c_str(), transposeAxis.size());
+            APASS_LOG_DEBUG_F(Elements::Tensor, "transpose op %d %s's shape size %zu is not two, skip.", op.opmagic, op.GetOpcodeStr().c_str(), transposeAxis.size());
             continue;
         }
         if (op.iOperand.size() <= 0 || op.oOperand.size() <= 0) {
@@ -502,7 +568,7 @@ Status PadLocalBuffer::ProcessTranspose(Function &function) {
         auto &inLastDim = inTensor->shape[lastDimIdx];
         auto &outFirstDim = outTensor->shape[nonLastDimIdx];
         if (inLastDim != outFirstDim) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "tune transpose output dim %d to %d.", inLastDim, outFirstDim);
+            APASS_LOG_DEBUG_F(Elements::Operation, "tune transpose output dim %ld to %ld.", static_cast<long>(inLastDim), static_cast<long>(outFirstDim));
             outTensor->shape[nonLastDimIdx] = inLastDim;
             outTensor->tensor->rawshape[nonLastDimIdx] = inLastDim;
         }
@@ -536,11 +602,29 @@ int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(LogicalTensorPtr &inTenso
     return (dimSize - 1);
 }
 
+// 当前不支持UB上的shape不可能为负数。
+int64_t Gcd(int64_t a, int64_t b) {
+    while (b != 0) {
+        int64_t temp = b;
+        b = a % b;
+        a = temp;
+    }
+    return a;
+}
+
+int64_t Lcm(int64_t a, int64_t b) {
+    return (a / Gcd(a, b)) * b;
+}
+
 int64_t AlignedRawTensorIfNeed(LogicalTensorPtr &in, int64_t pos, const int64_t base) {
     if (in == nullptr || pos < 0 || pos >= static_cast<int64_t>(in->tensor->rawshape.size())) {
         return -1;
     }
     int64_t padDim = Pad(in->tensor->rawshape[pos], base);
+    int64_t paddingValue = GetPaddingValue(in);
+    if (paddingValue != 0 && padDim % paddingValue != 0) {
+        padDim = Lcm(padDim, paddingValue);
+    }
     in->tensor->rawshape[pos] = padDim;
     return padDim;
 }
@@ -608,10 +692,11 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
             AlignedRawTensorIfNeed(out, lastIdx, paddingValue);
             visitedRaw.emplace(out->tensor);
         }
+        return;
     }
     if (calcType == OpCalcType::BROADCAST) {
         auto dimIdx = lastIdx;
-        if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && axisCombineMarker.IsTensorEnableAxisCombine(in)) {
+        if (axisCombineMarker.IsTensorEnableAxisCombine(in)) {
             dimIdx = ProcessBroadcastForAxisCombine(in);
         }
         AlignedRawTensorIfNeed(in, dimIdx, paddingValue);
@@ -623,8 +708,9 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
             return;
         }
     }
-    if (calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN || calcType == OpCalcType::MOVE_OUT || op.GetOpcode() == Opcode::OP_VIEW ||
-            (producerOp != nullptr && OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST)) {
+    if (calcType == OpCalcType::CAST || calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN ||
+        calcType == OpCalcType::MOVE_OUT || op.GetOpcode() == Opcode::OP_VIEW ||
+        (producerOp != nullptr && OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST)) {
         if (op.GetOpcode() == Opcode::OP_EXPAND || !axisCombineMarker.IsTensorEnableAxisCombine(in)) {
             AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
             return;
@@ -648,6 +734,7 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
         axisCombineMarker.Run(function);
         APASS_LOG_INFO_F(Elements::Operation, "======> Start PadLocalBuffer in COMBINE_AXIS mode.");
         DoPadding(function);
+        DoPadding256(function);
         APASS_LOG_INFO_F(Elements::Operation, "======> End PadLocalBuffer in COMBINE_AXIS mode.");
         return SUCCESS;
     }
@@ -674,6 +761,7 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
         }
     }
     DoPadding(function);
+    DoPadding256(function);
     if (processTranspose_) {
         if (ProcessTranspose(function) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "ProcessTranspose failed.");

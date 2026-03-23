@@ -35,6 +35,10 @@ uint32_t GetPowerOfTwo(uint32_t cur) {
     }
     return ret;
 }
+
+bool CheckDynRawShape(const Shape &shape) {
+    return std::any_of(shape.begin(), shape.end(), [](int dim) { return dim < 0; });
+}
 }
 
 Status InferMemoryConflict::RunOnFunction(Function &function) {
@@ -101,7 +105,8 @@ bool InferMemoryConflict::CheckConflict(const LogicalTensorPtr &inTensor, const 
     return true;
 }
 
-bool InferMemoryConflict::CheckRawShapeConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor) {
+bool InferMemoryConflict::CheckRawShapeConflict(
+    const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor, const Operation *reshapeOp) {
     int64_t inRawSize = 1;
     int64_t outRawSize = 1;
     Shape inShape = inTensor->GetRawTensor()->GetRawShape();
@@ -124,20 +129,25 @@ bool InferMemoryConflict::CheckRawShapeConflict(const LogicalTensorPtr &inTensor
     }
     for (size_t i = 0; i < inShape.size(); ++i) {
         if (inShape[i] < 0) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "inShape[%d] = %d, dynamic shape should trigger conflict", i, inShape[i]);
+            APASS_LOG_DEBUG_F(Elements::Operation, "inShape[%zu] = %ld, dynamic shape should trigger conflict", i, static_cast<long>(inShape[i]));
             return true;
         }
         inRawSize *= inShape[i];
     }
     for (size_t i = 0; i < outShape.size(); ++i) {
         if (outShape[i] < 0) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "outShape[%d] = %d, dynamic shape should trigger conflict", i, outShape[i]);
+            APASS_LOG_DEBUG_F(Elements::Operation, "outShape[%zu] = %ld, dynamic shape should trigger conflict", i, static_cast<long>(outShape[i]));
             return true;
         }
         outRawSize *= outShape[i];
     }
+    auto reshapeInput = reshapeOp->GetInputOperand(0);
+    auto reshapeOutput = reshapeOp->GetOutputOperand(0);
+    if (MatchReshapePattern(reshapeInput, reshapeOutput)) {
+        return false;
+    }
     if (inRawSize > 0 && outRawSize > 0 && inRawSize != outRawSize) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "The raw size of input is %d, the raw size of output is %d", inRawSize, outRawSize);
+        APASS_LOG_DEBUG_F(Elements::Operation, "The raw size of input is %ld, the raw size of output is %ld", inRawSize, outRawSize);
         return true;
     }
     return false;
@@ -172,24 +182,41 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     return true;
 }
 
+/*
+仅支持两种场景
+1. View -> Reshape -> MatMul (MatMul 的输入只有一个，且为当前处理的reshape)
+2. MatMul ->Reshape -> Assemble (MatMul 的输出只有一个，且为当前处理的reshape)
+*/
 bool InferMemoryConflict::MatMulPattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
+    if (reshapeIn->GetProducers().empty() || reshapeOut->GetConsumers().empty()) {
+        return false;
+    }
     auto producer = *(reshapeIn->GetProducers().begin());
     auto consumer = *(reshapeOut->GetConsumers().begin());
     if (producer == nullptr || consumer == nullptr) {
         return false;
     }
-    bool mulPattern =
-        ((producer->GetOpcode() == Opcode::OP_VIEW &&
-          OpcodeManager::Inst().GetOpCalcType(consumer->GetOpcode()) == OpCalcType::MATMUL) ||
-         (OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) == OpCalcType::MATMUL && 
-          consumer->GetOpcode() == Opcode::OP_ASSEMBLE));
-
-    return mulPattern;
+    if (producer->GetOpcode() == Opcode::OP_VIEW &&
+        OpcodeManager::Inst().GetOpCalcType(consumer->GetOpcode()) == OpCalcType::MATMUL) {
+        auto matmulIn = consumer->GetIOperands().front();
+        return matmulIn->GetProducers().size() == 1;
+    } else if (OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) == OpCalcType::MATMUL &&
+               consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+        auto matmulOut = producer->GetOOperands().front();
+        return matmulOut->GetConsumers().size() == 1;
+    }
+    return false;
 }
 
 // batch MatMul优化pattern，不插入register copy
 bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
-    if (!reshapeIn || !reshapeOut) return false;
+    if (!reshapeIn || !reshapeOut)
+        return false;
+    Shape inRawShape = reshapeIn->GetRawTensor()->GetRawShape();
+    Shape outRawShape = reshapeOut->GetRawTensor()->GetRawShape();
+    if (CheckDynRawShape(inRawShape) || CheckDynRawShape(outRawShape)) {
+        return false;
+    }
 
     if (!MatMulPattern(reshapeIn, reshapeOut)) {
         return false;
@@ -250,9 +277,8 @@ bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
 Status InferMemoryConflict::UpdateForwardTensor(Function &function, const LogicalTensorPtr &curTensor, Operation* consumer, std::queue<LogicalTensorPtr> &curTensors) {
     for (const auto &outputTensor : consumer->GetOOperands()) {
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
-            auto reshapeInput = consumer->GetIOperands().front();
             bool isInplace = consumer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-            if (!MatchReshapePattern(reshapeInput, outputTensor) && !isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor)) {
+            if (!isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor, consumer)) {
                 preregcopys.insert(consumer);
                 continue;
             }
@@ -283,7 +309,7 @@ Status InferMemoryConflict::UpdateBackwardTensor(const LogicalTensorPtr &curTens
         auto reshapeOutput = producer->GetOOperands().front();
         if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
             bool isInplace = producer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-            if (!MatchReshapePattern(inputTensor, reshapeOutput) && !isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor])) {
+            if (!isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor], producer)) {
                 postregcopys.insert(producer);
                 continue;
             }
@@ -422,13 +448,11 @@ Status InferMemoryConflict::ObtainReshapeTile(Operation &op, Shape &inTileShape,
         if (inTileShape.empty() && outTileShape.empty()) {
             return SUCCESS;
         }
-        Shape inShape = op.GetIOperands().front()->shape;
-        Shape outShape = op.GetOOperands().front()->shape;
-        DerivationTileShape derivationTileShapePass;
-        if (derivationTileShapePass.DerivationReshapeTileShape(&op, inShape, outShape, inTileShape, outTileShape) != SUCCESS) {
-            APASS_LOG_WARN_F(Elements::Operation, "DerivationReshapeTileShape failed. %s", GetFormatBacktrace(op).c_str());
-            // 失败时返回空的tileshape，由InferTileShape自动推导
-            return SUCCESS;
+        if (!inTileShape.empty() && !op.GetOOperands()[0]->GetConsumers().empty()) {
+            auto consumerOp = *op.GetOOperands()[0]->GetConsumers().begin();
+            
+            auto vec = consumerOp->GetTileShape().GetVecTile();
+            outTileShape = vec.tile;
         }
     }
     return SUCCESS;
@@ -444,9 +468,11 @@ Status InferMemoryConflict::InsertPrecededCopys(Function &function) {
         auto &copyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
         APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d].", copyOp.GetOpMagic());
         Shape reshapeTile;
-        if (ObtainReshapeTile(*op, reshapeTile, ObtainTileShape(op->ConsumerOps()).GetVecTile().tile) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeTile failed. %s", GetFormatBacktrace(*op).c_str());
-            return FAILED;
+        if (op->GetOpcode() == Opcode::OP_RESHAPE) {
+            TileShape vecTile = op->GetTileShape();
+            if (vecTile.GetVecTile().size() > 0) {
+                reshapeTile = vecTile.GetVecTile().tile;
+            }
         }
         if (InferTileShape(copyOp, inputTensor, ObtainTileShape(copyOp.ProducerOps()), reshapeTile) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "InferTileShape failed. %s", GetFormatBacktrace(copyOp).c_str());

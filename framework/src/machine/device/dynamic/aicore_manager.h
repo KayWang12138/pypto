@@ -211,7 +211,7 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
 
         const auto tf = std::chrono::high_resolution_clock::now();
         const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(tf - t0).count();
-        DEV_ERROR("[AICPU %d] Running Time: %ldns", aicpuIdx_, ns);
+        DEV_ERROR(0, "[AICPU %d] Running Time: %ldns", aicpuIdx_, ns);
     }
 
     inline void ExecuteTask(DeviceTaskCtrl *taskCtrl) {
@@ -339,7 +339,7 @@ private:
         if (__atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED) == __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED)) {
             return 0;
         }
-
+        
         uint32_t ready = GetReadyCoreNum(type);
         if (ready == 0 ) {
             return 0;
@@ -657,7 +657,7 @@ private:
             }
 
             if (GetCycles() - start_cycles > HAND_SHAKE_TIMEOUT) {
-                DEV_ERROR("HandShakeByGmWithPreSendTask timeout notHandshakeNum=%d.", mngAicoreNum - handShakeNum);
+                DEV_ERROR(0, "HandShakeByGmWithPreSendTask timeout notHandshakeNum=%d.", mngAicoreNum - handShakeNum);
                 return;
             }
         }
@@ -731,6 +731,9 @@ private:
     ReadyCoreFunctionQueue* readyAivCoreFunctionQue_{nullptr};
     ReadyCoreFunctionQueue* readyAicpuFunctionQue_{nullptr};
     SchduleContext * context_{nullptr};
+    // for die-to-die shchedule
+    ReadyCoreFunctionQueue* readyDieAicFunctionQue_{nullptr};
+    ReadyCoreFunctionQueue* readyDieAivFunctionQue_{nullptr};
 
     bool preFetchSuccess_{false};
     DeviceTaskCtrl* preFetchNextDevTaskCtrl_{nullptr};

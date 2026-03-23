@@ -22,9 +22,7 @@
 #include "interface/utils/file_utils.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "interface/inner/pre_def.h"
-#include "calc.h"
 #include "tilefwk/data_type.h"
-#include "calc.h"
 
 namespace npu::tile_fwk {
 
@@ -54,13 +52,13 @@ public:
     ScalarImmediateType EvaluateSymbolicScalar(const SymbolicScalar &ss) {
         return evaluateSymbol->EvaluateSymbolicScalar(ss);
     }
-    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset, 
+    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset,
             const std::vector<SymbolicScalar> &linearArgList = {}) {
         return evaluateSymbol->EvaluateOffset(offset, dynOffset, linearArgList);
     }
     std::vector<int64_t> EvaluateOpImmediate(FunctionFrame *frame, const std::vector<OpImmediate> &opImmList);
 
-    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape, 
+    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape,
             const std::vector<SymbolicScalar> &linearArgList = {}) {
         return evaluateSymbol->EvaluateValidShape(dynValidShape, linearArgList);
     }
@@ -81,7 +79,9 @@ private:
         if (it != operationInterpreterFuncs_().end()) {
             it->second(ctx);
         } else {
-            ASSERT(0) << "opcode [" << ctx->op->GetOpcodeStr() << "]'s torch interface implementation is not registered";
+            ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false)
+                << "opcode [" << ctx->op->GetOpcodeStr()
+                << "]'s torch interface implementation is not registered";
         }
     }
 
@@ -89,6 +89,7 @@ private:
         std::vector<LogicalTensorDataPtr> result;
         for (auto &dataView : dataViewList) {
             auto &validShape = dataView->GetValidShape();
+            ASSERT(ExecuteOperationScene::EMPTY_VALIDSHAPE, validShape.size() != 0);
             if (validShape == dataView->GetShape()) {
                 result.emplace_back(dataView);
             } else {
