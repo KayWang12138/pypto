@@ -57,8 +57,8 @@ public:
     static ParallelTool& Instance();
     void ExecTaskVec(int threadIdx);
     int GetThreadNum();
-    void Parallel_for(int start, int end, int step, std::function<void(int,int,int)> body); // static
-    void Parallel_for(int start, int end, int step, int numWork, std::function<void(int,int,int)> body); // dynamic
+    void parallel(int start, int end, int step, std::function<void(int,int,int)> body); // static
+    void parallel(int start, int end, int step, int numWork, std::function<void(int,int,int)> body); // dynamic
     std::vector<std::thread> workers;
     std::vector<std::atomic<bool>> taskReadys;
     int numThread;
