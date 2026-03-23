@@ -28,7 +28,7 @@ DynamicParamPackMTE CodeGenOpCloudNPU::PrepareDynamicShapeInfoForMTE(
     DynamicParamPackMTE pack;
     int dim = static_cast<int>(rawShape[dynShapeIdx].size());
     if (isGmSpill) {
-        for (auto s : shape[dynShapeIdx]) {
+        for (auto s : shapeFromAttr[dynShapeIdx]) {
             pack.gmShapeExpr.emplace_back(std::to_string(s));
         }
     } else {
@@ -194,10 +194,10 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0() const {
 
     std::string paramStr = GenParamsStr();
 
-    std::vector<int64_t> l1Shape = this->rawShape[ID1];
+    std::vector<int64_t> l1Shape = rawShape[ID1];
     CODEGEN_LOGI("GenMemL1ToL0 %s, l1Shape is %s", tileOpName.c_str(), IntVecToStr(l1Shape).c_str());
 
-    std::vector<int64_t> l0Shape = this->rawShape[ID0];
+    std::vector<int64_t> l0Shape = rawShape[ID0];
     CODEGEN_LOGI("GenMemL1ToL0 %s, l0Shape is %s", tileOpName.c_str(), IntVecToStr(l0Shape).c_str());
 
     unsigned srcOffset0 = 0;
@@ -393,7 +393,7 @@ std::string CodeGenOpCloudNPU::GenUBToL1TileTensor() const {
     if (!isSupportLayout) {
         return "";
     }
-    std::vector<int64_t> dstOffset = this->offset[ID0];
+    std::vector<int64_t> dstOffset = offset[ID0];
     std::string coordCp = WrapParamByParentheses(dstOffset);
     // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
     std::string coord = PrintCoord(rawShape[ID0].size(), coordCp);
@@ -443,9 +443,9 @@ std::string CodeGenOpCloudNPU::GenMemCopyVar(bool isCopyLocalToGM, bool isSpillT
     addrTypeHead[gmIdx] = GetAddrTypeByOperandType(BUF_DDR);
     addrTypeHead[localIdx] = GetAddrTypeByOperandType(localType);
 
-    std::vector<int64_t> gmShape = this->rawShape[gmIdx];
+    std::vector<int64_t> gmShape = rawShape[gmIdx];
     CODEGEN_LOGI("gmShape is %s", IntVecToStr(gmShape).c_str());
-    std::vector<int64_t> localRawShape = this->rawShape[localIdx];
+    std::vector<int64_t> localRawShape = rawShape[localIdx];
     CODEGEN_LOGI("localRawShape is %s", IntVecToStr(localRawShape).c_str());
 
     std::vector<std::string> addrExpr(ID2);
@@ -809,7 +809,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Static(const PrintMemCopyWithL1
         ASSERT(GenCodeErr::PRINT_FAILED, printRet >= 0)
             << "sprintf_s failed in genMemCopyVar, return value:" << printRet;
     } else {
-        std::vector<SymbolicScalar> gmOffset = this->offsetFromAttr[gmIdx];
+        std::vector<SymbolicScalar> gmOffset = offsetFromAttr[gmIdx];
         printRet = sprintf_s(addrBuffer, BUFFER_SIZE_1024, "%s", addrExpr[ID1].c_str());
         ASSERT(GenCodeErr::PRINT_FAILED, printRet >= 0)
             << "sprintf_s failed in PrintMemCopyWithL1Static, return value:" << printRet;

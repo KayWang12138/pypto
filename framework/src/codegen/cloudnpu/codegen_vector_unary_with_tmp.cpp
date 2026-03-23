@@ -478,10 +478,10 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
-    std::vector srcShape = this->rawShape[2];
+    std::vector srcShape = rawShape[2];
     CODEGEN_LOGI("GenUnaryOpWithTmpBuff %s src raw shape: %s", tileOpName.c_str(), IntVecToStr(srcShape).c_str());
 
-    std::vector dstShape = this->rawShape[0];
+    std::vector dstShape = rawShape[0];
     CODEGEN_LOGI("GenUnaryOpWithTmpBuff %s dst raw shape: %s", tileOpName.c_str(), IntVecToStr(dstShape).c_str());
 
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID2]);
