@@ -29,6 +29,7 @@
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
+#include "utils/host_log/log_manager.h"
 
 namespace npu::tile_fwk {
 class TestCodegenDynBinary : public ::testing::Test {
@@ -196,7 +197,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
 }
 
 TEST_F(TestCodegenDynBinary, TestGatherEleForFuncParallel) {
-    LogManager::Instance().CheckLevel(LogLevel::INFO)
+    LogManager::Instance().SetLogLevel(LogLevel::INFO)
     constexpr const int32_t nRoutedExperts = 256;
     constexpr const int32_t numExpertsPerTopk = 8;
     constexpr const int32_t S = 1;
