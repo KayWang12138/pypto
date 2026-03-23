@@ -668,7 +668,7 @@ TEST_F(InferShapeTest, TestIndexOutCast) {
     viewOp0.SetOpAttribute(viewOpAttribute0);
     viewOp1.SetOpAttribute(viewOpAttribute1);
     auto indexoutcastOpAttr = std::make_shared<CopyOpAttribute>(
-    MemoryType::MEM_DEVICE_DDR,
+        MemoryType::MEM_DEVICE_DDR,
         OpImmediate::Specified(offsets),
         OpImmediate::Specified(inshape1),
         OpImmediate::Specified(incast2->tensor->GetDynRawShape()));
