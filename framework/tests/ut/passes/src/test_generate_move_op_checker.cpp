@@ -438,7 +438,7 @@ TEST_F(TestGenerateMoveOpChecker, PostCheck_ConvertOp_Invalid) {
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpChecker, PostCheck_View_MemoryTypeMismatch) {
+TEST_F(TestGenerateMoveOpChecker, View_MemoryTypeMismatch) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "PostCheckViewMemMismatch", "PostCheckViewMemMismatch", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     
@@ -464,8 +464,8 @@ TEST_F(TestGenerateMoveOpChecker, ViewInputNullCheck) {
         std::vector<int64_t> shape1{256, 256};
         std::vector<int64_t> shape2{128, 128};
         TileShape::Current().SetVecTile({128, 128});
-        Tensor input_a(DT_FP32, shape1, "input_a");
-        Tensor input_b(DT_FP32, shape1, "input_b");
+        Tensor input_1(DT_FP32, shape1, "input_1");
+        Tensor input_2(DT_FP32, shape1, "input_2");
         Tensor output(DT_FP32, shape2, "output");
 
         PassManager &passManager = PassManager::Instance();
@@ -477,9 +477,9 @@ TEST_F(TestGenerateMoveOpChecker, ViewInputNullCheck) {
         Function* originFunction = nullptr;
         std::vector<int> originOpmagic;
         config::SetBuildStatic(true);
-        FUNCTION("VIEW", {input_a, input_b, output}) {
+        FUNCTION("VIEW", {input_1, input_2, output}) {
             config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
-            auto tmp_view = View(input_a, shape2, {0,0});
+            auto tmp_view = View(input_1, shape2, {0,0});
             output = tmp_view;
         }
 
@@ -489,8 +489,8 @@ TEST_F(TestGenerateMoveOpChecker, ViewInputNullCheck) {
             auto programJson = Program::GetInstance().DumpJson();
             DumpJsonFile(programJson, jsonFilePath);
         }
-        Json readData = LoadJsonFile(jsonFilePath);
-        Program::GetInstance().LoadJson(readData);
+        Json readData1 = LoadJsonFile(jsonFilePath);
+        Program::GetInstance().LoadJson(readData1);
 
         originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_VIEW");
         ASSERT_NE(originFunction, nullptr);
@@ -515,8 +515,8 @@ TEST_F(TestGenerateMoveOpChecker, ViewOutputNullCheck) {
         std::vector<int64_t> shape1{256, 256};
         std::vector<int64_t> shape2{128, 128};
         TileShape::Current().SetVecTile({128, 128});
-        Tensor input_a(DT_FP32, shape1, "input_a");
-        Tensor input_b(DT_FP32, shape1, "input_b");
+        Tensor input_aa(DT_FP32, shape1, "input_aa");
+        Tensor input_bb(DT_FP32, shape1, "input_bb");
         Tensor output(DT_FP32, shape2, "output");
         Tensor output2(DT_FP32, shape2, "output2");
 
@@ -530,9 +530,9 @@ TEST_F(TestGenerateMoveOpChecker, ViewOutputNullCheck) {
         std::vector<int> originOpmagic;
         config::SetBuildStatic(true);
 
-        FUNCTION("VIEW", {input_a, input_b, output, output2}) {
+        FUNCTION("VIEW", {input_aa, input_bb, output, output2}) {
             config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
-            auto tmp_view = View(input_a, shape2, {0,0});
+            auto tmp_view = View(input_aa, shape2, {0,0});
             output = tmp_view;
             output2 = tmp_view;
         }
@@ -570,8 +570,8 @@ TEST_F(TestGenerateMoveOpChecker, AssembleInputNullCheck) {
         std::vector<int64_t> shape2{256, 128};
         TileShape::Current().SetVecTile({128, 128});
 
-        Tensor input_a(DT_FP32, shape1, "input_a");
-        Tensor input_b(DT_FP32, shape1, "input_b");
+        Tensor input_m(DT_FP32, shape1, "input_m");
+        Tensor input_n(DT_FP32, shape1, "input_n");
         Tensor output(DT_FP32, shape2, "output");
 
         PassManager &passManager = PassManager::Instance();
@@ -583,10 +583,10 @@ TEST_F(TestGenerateMoveOpChecker, AssembleInputNullCheck) {
         Function* originFunction = nullptr;
         config::SetBuildStatic(true);
 
-        FUNCTION("ASSEMBLE", {input_a, input_b, output}) {
+        FUNCTION("ASSEMBLE", {input_m, input_n, output}) {
             config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
             
-            Assemble({{input_a, {0, 0}}, {input_b, {128, 0}}});
+            Assemble({{input_m, {0, 0}}, {input_n, {128, 0}}});
         }
 
         std::string jsonFilePath = "./assemble_null_check.json";
@@ -614,26 +614,20 @@ TEST_F(TestGenerateMoveOpChecker, AssembleOutputNullCheck) {
         std::vector<int64_t> shape1{128, 128};
         std::vector<int64_t> shape2{256, 128};
         TileShape::Current().SetVecTile({128, 128});
-
-        Tensor input_a(DT_FP32, shape1, "input_a");
-        Tensor input_b(DT_FP32, shape1, "input_b");
-        Tensor output(DT_FP32, shape2, "output");
-
+        Tensor input_c(DT_FP32, shape1, "input_c");
+        Tensor input_d(DT_FP32, shape1, "input_d");
+        Tensor output2(DT_FP32, shape2, "output2");
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
             { "GenerateMoveOp", PassName::GENERATE_MOVE_OP },
         });
         ConfigManager::Instance();
-
         Function* originFunction = nullptr;
         config::SetBuildStatic(true);
-
-        FUNCTION("ASSEMBLE", {input_a, input_b, output}) {
+        FUNCTION("ASSEMBLE", {input_c, input_d, output2}) {
             config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
-        
-            Assemble({{input_a, {0, 0}}, {input_b, {128, 0}}});
+            Assemble({{input_c, {0, 0}}, {input_d, {128, 0}}});
         }
-
         std::string jsonFilePath = "./assemble_output_null_check.json";
         DumpJsonFile(Program::GetInstance().DumpJson(), jsonFilePath);
         Json readData = LoadJsonFile(jsonFilePath);
