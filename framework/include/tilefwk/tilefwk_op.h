@@ -255,6 +255,8 @@ Tensor Cat(const std::vector<Tensor> &tensors, int axis);
 Tensor NewCompact(const Tensor &operand);
 Tensor LogicalNot(const Tensor &self);
 Tensor Range(const Element &start, const Element &end, const Element &step);
+Tensor PhiloxRandom(const Tensor &key, const Tensor &counter,
+                    const std::vector<int64_t> &shape, DataType dtype, uint16_t rounds = 10);
 Tensor LogicalAnd(const Tensor &self, const Tensor &other);
 Tensor IsFinite(const Tensor &self);
 Tensor Assign(const Tensor &operand);
