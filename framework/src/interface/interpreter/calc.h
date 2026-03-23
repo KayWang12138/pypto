@@ -57,7 +57,7 @@ inline std::vector<TensorData> TransVec(std::vector<LogicalTensorDataPtr> datas)
     return result;
 }
 
-inline void Random(LogicalTensorDataPtr out) { GetCalcOps()->Random(Trans(out)); }
+inline void TorchRandom(LogicalTensorDataPtr out) { GetCalcOps()->TorchRandom(Trans(out)); }
 inline bool AllClose(LogicalTensorDataPtr self, LogicalTensorDataPtr other, double atol = 1e-8, double rtol = 1e-5)
 {
     return GetCalcOps()->AllClose(Trans(self), Trans(other), atol, rtol);
@@ -153,6 +153,12 @@ inline void Range(LogicalTensorDataPtr out, const Element& start, const Element&
 {
     GetCalcOps()->Range(Trans(out), start, end, step);
 }
+
+inline void Random(LogicalTensorDataPtr out, uint64_t key,
+                   const std::vector<uint64_t> &counter, uint16_t rounds) {
+    GetCalcOps()->Random(Trans(out), key, counter, rounds);
+}
+
 inline void Compare(
     LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, CmpOperationType operation,
     CmpModeType mode)

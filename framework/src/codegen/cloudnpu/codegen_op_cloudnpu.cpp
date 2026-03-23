@@ -199,6 +199,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx& ctx)
       compositeOps_({
           // range op
           {Opcode::OP_RANGE, [this]() { return GenRangeOp(); }},
+          // random op
+          {Opcode::OP_RANDOM, [this]() { return GenRandomOp(); }},
 
           // logicalnot
           {Opcode::OP_LOGICALNOT, [this]() { return GenLogicalNotOp(); }},

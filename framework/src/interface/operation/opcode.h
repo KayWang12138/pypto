@@ -312,6 +312,7 @@ enum class Opcode {
     // End: aicpu-aicore communication
     OP_MAX_POOL,
     OP_RANGE,
+    OP_RANDOM,
     // Begin: parallel sort
     OP_SORT,
     OP_COMPARE_SWAP,

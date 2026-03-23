@@ -235,6 +235,14 @@ void bind_operation(py::module& m)
         },
         py::arg("start"), py::arg("end"), py::arg("step"), "Tensor range.");
     m.def(
+        "Random",
+        [](uint64_t key, const std::vector<uint64_t> &counter,
+           const std::vector<int64_t> &shape, uint16_t rounds) {
+            return npu::tile_fwk::Random(key, counter, shape, rounds);
+        },
+        py::arg("key"), py::arg("counter"), py::arg("shape"), py::arg("rounds") = 10,
+        "Random number generator.");
+    m.def(
         "Amax",
         [](const Tensor& operand, int axis, bool keepDim) { return npu::tile_fwk::Amax(operand, axis, keepDim); },
         py::arg("operand"), py::arg("axis") = -1, py::arg("keepDim") = false, "Tensor row max single.");
