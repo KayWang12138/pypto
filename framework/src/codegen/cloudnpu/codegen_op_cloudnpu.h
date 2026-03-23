@@ -196,6 +196,7 @@ private:
     std::string GenOffsetsAndRawShapesForFfnCombineInfo() const;
     std::string GenOffsetsAndRawShapesForShmemSet() const;
     std::string GenOffsetsAndRawShapesDefault() const;
+    std::string GenTargetRankStr() const;
 
     void UpdateTileTensorInfo();
     void UpdateLoopInfo();
