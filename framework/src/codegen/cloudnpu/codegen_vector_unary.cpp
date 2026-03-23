@@ -293,7 +293,7 @@ std::string CodeGenOpCloudNPU::PrintVcopyStatic(const PrintUnaryParam& param) co
 
 std::string CodeGenOpCloudNPU::PrintVcopy(const PrintUnaryParam& param) const { return PrintVcopyStatic(param); }
 
-std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam& param, int expandAxis) const
+std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam& param, std::vector<int> expandAxes) const
 {
     const std::string& dstDtypeStr = param.dstDtypeStr;
     const std::string& srcDtypeStr = param.srcDtypeStr;
@@ -318,7 +318,9 @@ std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam
     for (int i = ID1; i < SHAPE_DIM4; i++) {
         paramList.emplace_back(std::to_string(ss[i]));
     }
-    paramList.emplace_back(std::to_string(expandAxis));
+    for (auto axis : expandAxes) {
+        paramList.emplace_back(std::to_string(axis));
+    }
     std::string templateParam = JoinString(paramList, CONN_COMMA);
     paramList.clear();
     std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
@@ -350,7 +352,9 @@ std::string CodeGenOpCloudNPU::PrintExpandLayout(int expandAxis) const
     if (!lastUse.empty()) {
         templateParamList.emplace_back(lastUse);
     }
-    templateParamList.emplace_back(std::to_string(expandAxis));
+    for (auto axis : expandAxes) {
+        templateParamList.emplace_back(std::to_string(axis));
+    }
     oss << WrapParamByAngleBrackets(templateParamList);
     oss << WrapParamByParentheses({dstTensor, srcTensor});
     oss << ";\n";
@@ -368,21 +372,24 @@ std::string CodeGenOpCloudNPU::PrintExpand(
     std::vector<int64_t> os = NormalizeShape(originShape[1], SHAPE_DIM4);
     std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
-    auto axes = opAttrs.at(OP_ATTR_PREFIX + "EXPANDDIMS");
-    if (axes.HasValue()) {
-        expandAxis = AnyCast<int64_t>(axes);
-    }
+    auto axesAttr = opAttrs.at(OP_ATTR_PREFIX + "EXPANDDIMS");
+    ASSERT(OperErr::ATTRIBUTE_INVALID, axesAttr.HasValue()) << "EXPANDDIMS attribute not found";
+    auto expandAxes = AnyCast<std::vector<int64_t>>(axesAttr);
+    ASSERT(OperErr::ATTRIBUTE_INVALID, !expandAxes.empty()) << "EXPANDDIMS is empty";
 
-    bool isValidAxis = ((expandAxis >= 0) && (expandAxis <= (static_cast<int>(rawShape[1].size() - 1))));
-    ASSERT(OperErr::ATTRIBUTE_INVALID, isValidAxis) << "unsupported expand axis: " << expandAxis;
-    // modify expandAxis for SHAPE_DIM4
-    expandAxis += SHAPE_DIM4 - rawShape[1].size();
+    int dimOffset = SHAPE_DIM4 - rawShape[1].size();
+    std::vector<int> normalizedAxes;
+    for (auto axis : expandAxes) {
+        bool isValidAxis = ((axis >= 0) && (axis <= (static_cast<int>(rawShape[1].size() - 1))));
+        ASSERT(OperErr::ATTRIBUTE_INVALID, isValidAxis) << "unsupported expand axis: " << axis;
+        normalizedAxes.push_back(static_cast<int>(axis) + dimOffset);
+    }
 
     if (isSupportLayout) {
-        return PrintExpandLayout(expandAxis);
+        return PrintExpandLayout(normalizedAxes);
     }
     if (isDynamicFunction) {
-        return PrintExpandDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr}, expandAxis);
+        return PrintExpandDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr}, normalizedAxes);
     }
 
     ret = sprintf_s(
