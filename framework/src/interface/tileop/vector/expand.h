@@ -20,30 +20,30 @@
 #include "utils/tile_tensor.h"
 
 #define OP_TILE_OP_EXPAND TExpand
-template <typename LastUse = LastUse2Dim<0, 0>, unsigned axis, typename T0, typename T1>
+template <unsigned Head, unsigned... Tail>
+struct FirstAxis {
+    static constexpr unsigned value = Head;
+};
+template <typename LastUse = LastUse2Dim<0, 0>, unsigned... Axes, typename T0, typename T1>
 TILEOP void TExpand(T0 dst, T1 src)
 {
-    constexpr size_t expectSize = 5;
+    static_assert(sizeof...(Axes) >= 1, "At lease one expand axis required");
+    constexpr unsigned axis = FirstAxis<Axes...>::value;
     const auto dstLayout = dst.GetLayout();
-
-    auto dstShape0 = dstLayout.template GetShapeDim<0, expectSize>();
-    auto dstShape1 = dstLayout.template GetShapeDim<1, expectSize>();
-    auto dstShape2 = dstLayout.template GetShapeDim<2, expectSize>();
-    auto dstShape3 = dstLayout.template GetShapeDim<3, expectSize>();
-    auto dstShape4 = dstLayout.template GetShapeDim<4, expectSize>();
-    auto dstStride0 = dstLayout.template GetStrideDim<0, expectSize>();
-    auto dstStride1 = dstLayout.template GetStrideDim<1, expectSize>();
-    auto dstStride2 = dstLayout.template GetStrideDim<2, expectSize>();
+    
+    auto dstShape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto dstShape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto dstShape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    auto dstShape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    auto dstShape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+    auto dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    auto dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    auto dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
 
     const auto srcLayout = src.GetLayout();
-    auto srcShape0 = srcLayout.template GetShapeDim<0, expectSize>();
-    auto srcShape1 = srcLayout.template GetShapeDim<1, expectSize>();
-    auto srcShape2 = srcLayout.template GetShapeDim<2, expectSize>();
-    auto srcShape3 = srcLayout.template GetShapeDim<3, expectSize>();
-    auto srcShape4 = srcLayout.template GetShapeDim<4, expectSize>();
-    auto srcStride0 = srcLayout.template GetStrideDim<0, expectSize>();
-    auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
-    auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
+    auto srcStride0 = srcLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    auto srcStride1 = srcLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    auto srcStride2 = srcLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
 
     using SrcDtype = std::conditional_t<std::is_same_v<typename T1::Type, bool>, uint8_t, typename T1::Type>;
     using DstDtype = std::conditional_t<std::is_same_v<typename T0::Type, bool>, uint8_t, typename T0::Type>;
@@ -57,10 +57,10 @@ TILEOP void TExpand(T0 dst, T1 src)
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
 
-    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, 5>();
-    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>();
-    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, 5>();
-    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, 5>();
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, DIM_4TH, MAX_DIMS>();
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, DIM_5TH, MAX_DIMS>();
+    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, DIM_4TH, MAX_DIMS>();
+    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, DIM_5TH, MAX_DIMS>();
 
     if constexpr (axis == 3) {
         for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
