@@ -665,16 +665,16 @@ class QuantizeTestCase(TestCase):
             # For axis=-2: scale shape is [..., 1, col]
             scale_tensor = scale_tensor.broadcast_to(input_tensor.shape)
 
-        # Perform quantization
-        scaled = input_tensor * scale_tensor
-
         if params.get("is_asymmetric", False):
             zero_points = inputs[2]
             if zero_points.shape != input_tensor.shape:
                 zero_points = zero_points.broadcast_to(input_tensor.shape)
-            scaled = scaled + zero_points
+            # Perform quantization
+            scaled = input_tensor * scale_tensor + zero_points
             output = torch.round(scaled).to(torch.uint8)
         else:
+            # Perform quantization
+            scaled = input_tensor * scale_tensor
             output = torch.round(scaled).to(torch.int8)
 
         return [output]
