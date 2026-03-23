@@ -186,10 +186,8 @@ LogicalTensorPtr TensorFillPadOperation(Function &function, const Tensor &self, 
 
     auto operand = self.GetStorage();
     std::vector<int64_t> outputShape = operand->shape;
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, outputShape.size() == 1 || outputShape.size() == 2)
-        << "FillPad: only support 1 dim or 2 dim.";
-    auto result = std::make_shared<LogicalTensor>(
-        function, operand->Datatype(), outputShape, SymbolicScalar::FromConcrete(outputShape));
+    ASSERT(outputShape.size() == 1 || outputShape.size() == 2) << "FillPad: only support 1 dim or 2 dim.";
+    auto result = std::make_shared<LogicalTensor>(function, operand->Datatype(), outputShape, SymbolicScalar::FromConcrete(outputShape));
     auto &op = function.AddOperation(Opcode::OP_FILLPAD, {operand}, {result});
     op.SetAttribute(OpAttributeKey::scalar, Element(self.GetDataType(), value));
     return result;
