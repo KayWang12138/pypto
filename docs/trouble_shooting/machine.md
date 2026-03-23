@@ -7,7 +7,6 @@
 ## 错误码定义与使用说明
 
 相关错误码的统一定义，参见 `framework/src/machine/utils/machine_error.h` 文件。
----
 
 ## 排查建议
 
