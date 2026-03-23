@@ -425,12 +425,13 @@ Tensor TensorPermuteOperation(Function& function, const LogicalTensorPtr& operan
 
 REGISTER_OPERATION_TILED_FUNC(OP_PERMUTE, Opcode::OP_PERMUTE, PermuteOperationTileFunc);
 
-Tensor Permute(const Tensor& self, const std::vector<int64_t>& dims) {
+Tensor Permute(const Tensor& self, std::vector<int> dims) {
     DECLARE_TRACER();
     
     PermuteShapeInfo shapeInfo;
     
-    if (!GetShapeInfo(self, dims, shapeInfo)) {
+    std::vector<int64_t> dims64(dims.begin(), dims.end());
+    if (!GetShapeInfo(self, dims64, shapeInfo)) {
         ASSERT(false) << "Permute: Invalid input dimensions or permutation";
         return self;
     }
