@@ -41,10 +41,10 @@ Status IndexOutcastChecker::CheckIndexOutcastDisorderedCoverage(Function &functi
                     continue;
                 }
                 indexOutcastConsumers.insert(consumerOp);
-            }
-            if (indexOutcastConsumers.size() > 1) {
-                APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%d] has multiple OP_INDEX_OUTCAST consumers.", tensor->GetMagic());
-                return FAILED;
+                if (indexOutcastConsumers.size() > 1) {
+                    APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%d] has multiple OP_INDEX_OUTCAST consumers.", tensor->GetMagic());
+                    return FAILED;
+                }
             }
         }
     }

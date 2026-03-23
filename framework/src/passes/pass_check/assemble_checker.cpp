@@ -37,7 +37,7 @@ Status CheckDynSkip(const LogicalTensorPtr &outputTensor, bool &needSkip) {
         }
         if (assembleOpAttr->GetToDynOffset().size() != 0) {
             bool isAllImmediate = true;
-            for (auto offset : assembleOpAttr->GetToDynOffset()) {
+            for (const auto offset : assembleOpAttr->GetToDynOffset()) {
                 if (!offset.IsImmediate()) {
                     isAllImmediate = false;
                     break;
