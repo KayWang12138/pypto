@@ -701,6 +701,20 @@ TEST_F(OperationImplTest, test_Range_INT32) {
     }
 }
 
+TEST_F(OperationImplTest, Test_Random_UINT32) {
+    PROGRAM("Random") {
+        std::vector<int64_t> shape = {128};
+        TileShape::Current().SetVecTile({128});
+        uint64_t key = 12345678901234;
+        std::vector<uint64_t> counter = {0, 0};
+        Tensor output(DT_UINT32, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Random_UINT32") {
+            output = Random(key, counter, shape, 10);
+        }
+    }
+}
+
 TEST_F(OperationImplTest, Test_Exp2_FP16) {
     PROGRAM("Exp2") {
         std::vector<int64_t> shape = {128, 32};
