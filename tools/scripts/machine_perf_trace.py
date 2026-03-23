@@ -646,6 +646,60 @@ def build_round_combined_rows(aicpu_dev_pref: List[Dict[str, Any]], round_id: Op
     return rows
 
 
+def analyze_aicore_l1_prof(input_path: Path, freq: float) -> None:
+    """Parse tilefwk_L1_prof_data.json in the same directory as the input perf file,
+    compute AIcore total time (sum of all execEnd - execStart) and AIcore utilization."""
+    parent_dir = input_path.parent
+    l1_prof_file = parent_dir / "tilefwk_L1_prof_data.json"
+    if not l1_prof_file.exists():
+        print(f"Info: {l1_prof_file} not found, skipping AIcore L1 prof analysis")
+        return
+
+    l1_data = load_json(l1_prof_file)
+    if not isinstance(l1_data, list):
+        print("Error: invalid tilefwk_L1_prof_data.json format, expected list")
+        return
+
+    aicore_total_cycles: float = 0.0
+    lane_count = 0
+    global_min_start: Optional[float] = None
+    global_max_end: Optional[float] = None
+
+    for core in l1_data:
+        tasks = core.get("tasks", [])
+        if not tasks:
+            continue
+        lane_count += 1
+        for task in tasks:
+            exec_start = task.get("execStart", 0)
+            exec_end = task.get("execEnd", 0)
+            if exec_end > exec_start:
+                aicore_total_cycles += (exec_end - exec_start)
+            if global_min_start is None or exec_start < global_min_start:
+                global_min_start = exec_start
+            if global_max_end is None or exec_end > global_max_end:
+                global_max_end = exec_end
+
+    if lane_count == 0 or global_min_start is None or global_max_end is None:
+        print("Info: no valid AIcore task data in tilefwk_L1_prof_data.json")
+        return
+
+    lane_duration_cycles = global_max_end - global_min_start
+    if lane_duration_cycles <= 0:
+        print("Info: AIcore lane duration is zero, cannot compute utilization")
+        return
+
+    utilization = aicore_total_cycles / (lane_count * lane_duration_cycles)
+    aicore_total_us = to_us(aicore_total_cycles, freq)
+    lane_duration_us = to_us(lane_duration_cycles, freq)
+
+    print_subsection("AICore L1 Prof Summary")
+    print(f"  AIcore total time (us): {aicore_total_us:.2f}")
+    print(f"  Lane count:             {lane_count}")
+    print(f"  Lane duration (us):     {lane_duration_us:.2f}")
+    print(f"  AIcore utilization:     {utilization:.4f} ({utilization * 100:.2f}%)")
+
+
 def analyze_output_command(output_dir_arg: Optional[str]) -> None:
     if output_dir_arg:
         input_path = Path(output_dir_arg)
@@ -690,6 +744,14 @@ def analyze_output_command(output_dir_arg: Optional[str]) -> None:
         table_width = max(display_width(line) for line in table_lines) if table_lines else None
         print_section(round_name, table_width)
         print_table(headers, rows)
+
+    ref_freq = 1.0
+    for block in aicpu_dev_pref:
+        f = float(block.get("freq", 0))
+        if f > 0:
+            ref_freq = f
+            break
+    analyze_aicore_l1_prof(input_path, ref_freq)
     print()
 
 
