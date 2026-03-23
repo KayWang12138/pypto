@@ -75,14 +75,7 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
     if (isSupportLayout) {
         return PrintMatmulTileTensor(!zeroC);
     }
-    // shape: dst, src0, src1
-    bool isShapeValid = (shape[ID0][ID0] == shape[ID1][ID0]) &&
-                        (shape[ID0][ID1] == shape[ID2][ID1] || shape[ID0][ID1] == shape[ID2][ID0]) &&
-                        (shape[ID1][ID1] == shape[ID2][ID1] || shape[ID1][ID1] == shape[ID2][ID0]);
-    ASSERT(GenCodeErr::TENSOR_SHAPE_MISMATCHED, isShapeValid) << "CUBE: m k n is invalid.";
-    int64_t m = shape[ID0][ID0];
-    int64_t k = shape[ID1][ID1]; // NEXTNEXT assume A is not transposed for now
-    int64_t n = shape[ID0][ID1];
+
     unsigned uf = 0;
 
     std::string aVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
@@ -119,8 +112,11 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
             << ", " << SymbolicExpressionTable::BuildExpression(l0cShapeDyn[ID0]) << ", "
             << SymbolicExpressionTable::BuildExpression(l0cShapeDyn[ID1]) << ");\n";
     } else { // static function
+        int64_t m = originShape[ID0][ID0];
+        int64_t k = originShape[ID1][ID1]; // NEXTNEXT assume A is not transposed for now
+        int64_t n = originShape[ID0][ID1];
         oss << tileOpName << "<" << cDtypeStr << ", " << aDtypeStr << ", " << bDtypeStr << ", " << offset[ID0][ID0]
-            << ", " << offset[ID0][ID1] << ", " << shape[ID0][ID0] << ", " << shape[ID0][ID1] << ">"
+            << ", " << offset[ID0][ID1] << ", " << m << ", " << n << ">"
             << "((" << GetAddrTypeByOperandType(operandType[ID0]) << " " << cDtypeStr << "*)" << cVar << ", "
             << "(" << GetAddrTypeByOperandType(operandType[ID1]) << " " << aDtypeStr << "*)" << aVar << ", "
             << "(" << GetAddrTypeByOperandType(operandType[ID2]) << " " << bDtypeStr << "*)" << bVar << ", " << m
