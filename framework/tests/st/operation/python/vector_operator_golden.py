@@ -2872,7 +2872,7 @@ def gen_quantize_op_golden(case_name: str, output: Path, case_index: int = None)
         # Convert to target dtype
         if output_dtype == "int8":
             # Perform quantization: q = round(x * scale)
-            quantized = torch.round(input_tensor * scale_dtype)
+            quantized = torch.round(input_tensor * scale)
             # Clamp to int8 range
             quantized = torch.clamp(quantized, -128, 127)
             result = quantized.to(torch.int8)
