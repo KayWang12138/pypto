@@ -965,15 +965,14 @@ assemble(inputs: List[Tuple[Tensor, List[Union[int, SymbolicScalar]]]], out: Ten
 #### 6.4.3. c++ tensor graph接口
 `assemble` 算子的 C++ 接口会调用相应的底层实现，将小张量组装到大多张量的指定位置。
 ```CPP
-Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensors);
-void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest);
-
+Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensors); // 00 Tuple列表输入，Python前端直接调用这个接口
 struct AssembleItem {
     Tensor tensor;
     std::vector<SymbolicScalar> offsets;
 };
+void Assemble(const std::vector<AssembleItem> &items, Tensor &src, bool parallelInAssemble = false); //01 Tuple列表输入，最终底层调用这个接口
 
-void Assemble(const std::vector<AssembleItem> &items, Tensor &src, bool parallelInAssemble = false);
+void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest); //1 正常调用此接口
 ```
 #### 6.4.4. c++ tile graph接口
 `assemble` 算子在 Tile Graph 层面会生成针对 NPU 硬件的 Tile 级组装操作，根据源张量、偏移和目标张量生成相应的 Tile 操作。
