@@ -546,6 +546,22 @@ void ExecuteOpRange(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_RANGE, Opcode::OP_RANGE, ExecuteOpRange);
 
+void ExecuteOpRandom(ExecuteOperationContext *ctx) {
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    uint64_t key = static_cast<uint64_t>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "KEY"));
+    auto counterAttr = ctx->op->GetVectorIntAttribute(OP_ATTR_PREFIX + "COUNTER");
+    std::vector<uint64_t> counter;
+    for (auto val : counterAttr) {
+        counter.push_back(static_cast<uint64_t>(val));
+    }
+    uint16_t rounds = 10;
+    if (ctx->op->HasAttr(OP_ATTR_PREFIX + "ROUNDS")) {
+        rounds = static_cast<uint16_t>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "ROUNDS"));
+    }
+    calc::Random(oop, key, counter, rounds);
+}
+REGISTER_CALC_OP(OP_RANDOM, Opcode::OP_RANDOM, ExecuteOpRandom);
+
 void ExecuteOpLog1p(ExecuteOperationContext *ctx) {
     ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
            ctx->ooperandInplaceDataViewList->size() == 1);
