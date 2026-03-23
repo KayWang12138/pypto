@@ -41,6 +41,7 @@
 #include "machine/device/dynamic/device_utils.h"
 #include "machine/device/dynamic/wrap_manager.h"
 #include "machine/device/dump/aicore_dump.h"
+#include <chrono>
 
 namespace npu::tile_fwk::dynamic {
 
@@ -191,6 +192,9 @@ public:
     }
 
     inline int RunTask(DeviceTaskCtrl *taskCtrl) {
+
+        const auto t0 = std::chrono::high_resolution_clock::now();
+
         auto ret = ExecuteTask(taskCtrl);
         wrapManager_.Deinit();
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -198,6 +202,11 @@ public:
                 taskCtrl->finishedFunctionCnt.load(), curDevTask_->coreFunctionCnt, taskCtrl->taskId);
             DumpAiCoreStatus();
         }
+
+        const auto tf = std::chrono::high_resolution_clock::now();
+        const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(tf - t0).count();
+        DEV_ERROR(SchedErr::CORE_TASK_EXEC_FAILED, "[AICPU %d] Running Time: %ldns", aicpuIdx_, ns);
+
         return ret;
     }
 
