@@ -167,6 +167,13 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
         for (int i = aivStart_; i < aivEnd_; i++) availableCoreQueue_[(int)CoreType::AIV]->push(i);
         for (int i = aicStart_; i < aicEnd_; i++) availableCoreQueue_[(int)CoreType::AIC]->push(i);
         
+        pendingCoreQueue_[(int)CoreType::AIV] = new coreQueue_t(AIV_CORE_COUNT);
+        pendingCoreQueue_[(int)CoreType::AIC] = new coreQueue_t(AIC_CORE_COUNT);
+
+        runningCoreQueue_[(int)CoreType::AIV] = new coreQueue_t(AIV_CORE_COUNT);
+        runningCoreQueue_[(int)CoreType::AIC] = new coreQueue_t(AIC_CORE_COUNT);
+
+
         for (int i = aivStart_; i < aivEnd_; i++) aicoreRunningTaskIds_[i] = aicoreNullTask;
         for (int i = aivStart_; i < aivEnd_; i++) aicorePendingTaskIds_[i] = aicoreNullTask;
         
