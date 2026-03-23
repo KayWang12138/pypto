@@ -196,10 +196,20 @@ bool ReduceNeedCombineAxis(const Operation& op)
 
 void CodegenPreproc::FixExpandDimForAxisCombine(Operation& op, int dimSize) const
 {
+    // TODO: 多轴扩展时，合轴的场景还不清晰，
+    // 例：[1, 1, 1] & [m, n, 1] 换轴逻辑
+    // 这个分支判定的逻辑是什么（期望是尾轴都为1且相等）
     if (op.GetOpcode() == Opcode::OP_EXPAND) {
-        int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
-        if (axis == dimSize - NUM2) {
-            op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis + 1);
+        auto axes = op.GetVectorIntAttribute(OP_ATTR_PREFIX + "EXPANDDIMS");
+        bool updated = false;
+        for (auto &axis : axes) {
+            if (axis == dimSize - NUM2) {
+                axis = axis + 1;
+                updated = true;
+            }
+        }
+        if (updated) {
+            op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", axes);
         }
     }
 }
