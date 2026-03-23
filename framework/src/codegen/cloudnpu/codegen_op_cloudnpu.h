@@ -135,6 +135,7 @@ public:
     std::string GenMrgSortOp() const;
     std::string GenExtractOp() const;
     std::string GenTiledMrgSortOp() const;
+    std::string GenSortOpWithParams(const std::vector<size_t> &varIndices, const std::vector<size_t> &shapeIndices) const;
     std::string GenSortOp() const;
     std::string GenCompareAndSwapOp() const;
     std::string GenMergeOp() const;
@@ -258,6 +259,18 @@ private:
         tempVarsMap.clear();
         tempKey = 0;
         AppendLocalBufVarOffsetInOrderImpl<T>(args...);
+    }
+    void AppendLocalBufVarOffsetInOrder(const std::vector<std::string> &vars) const {
+        tempVarsMap.clear();
+        tempKey = 0;
+        for (auto &var : vars) {
+            tempVarsMap.emplace(tempKey++, std::ref(const_cast<std::string&>(var)));
+        }
+        if (!tempVarsMap.empty()) {
+            AppendLocalBufferVarOffset(tempVarsMap);
+            tempVarsMap.clear();
+            tempKey = 0;
+        }
     }
     void AppendLocalBufferVarOffset(const std::map<unsigned, std::reference_wrapper<std::string>> &vars) const;
 
