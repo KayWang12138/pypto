@@ -360,9 +360,9 @@ static ParallelMode GetFunctionParallelMode(Function *func) {
         return ParallelMode::PARALLEL;
     }
 
-    if (func->HasParent() && func->Parent().HasParent() &&
-        !func->Parent().Parent().GetDynloopAttribute()->parallel && func->Parent().Parent().GetDynloopAttribute()) {
-            return currentLoopFunc_->Parent().Parent().GetDynloopAttribute()->parallel ?
+    if (func->HasParent() && func->Parent().HasParent() && func->Parent().Parent().GetDynloopAttribute() &&
+        !func->Parent().Parent().GetDynloopAttribute()->parallel) {
+            return func->Parent().Parent().GetDynloopAttribute()->parallel ?
                 ParallelMode::CHILD : ParallelMode::DEFAULT;
     }
     return ParallelMode::DEFAULT;
