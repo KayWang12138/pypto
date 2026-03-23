@@ -2869,21 +2869,17 @@ def gen_quantize_op_golden(case_name: str, output: Path, case_index: int = None)
         output_dtype = config.get("output_tensors")[0].get("dtype")
         use_zero_points = params.get("use_zero_points", False)
 
-        # Perform quantization: q = round(x * scale)
-        # Note: Using correct division (not multiplication)
-        quantized = torch.round(input_tensor * scale)
-
-        # Add zero_points for asymmetric quantization
-        if use_zero_points and len(inputs) > 2:
-            zero_points = from_numpy(inputs[2])
-            quantized = quantized + zero_points
-
         # Convert to target dtype
         if output_dtype == "int8":
+            # Perform quantization: q = round(x * scale)
+            quantized = torch.round(input_tensor * scale_dtype)
             # Clamp to int8 range
             quantized = torch.clamp(quantized, -128, 127)
             result = quantized.to(torch.int8)
         elif output_dtype == "uint8":
+            zero_points = from_numpy(inputs[2])
+            # Perform quantization: q = round(x * scale)
+            quantized = torch.round(input_tensor * scale + zero_points)
             # Clamp to uint8 range
             quantized = torch.clamp(quantized, 0, 255)
             result = quantized.to(torch.uint8)
