@@ -6,7 +6,7 @@
 需求分析 → 环境准备 → 编码实现 → 精度验证 → 性能调优 → PR 提交
 ```
 
-本仓库为 [OpenCode](https://opencode.ai) 预配置了项目规范（AGENTS.md）和专家技能（Skills），开箱即用。技能持续增加中，以 `.opencode/skills/` 目录下的实际内容为准。
+本仓库为 [OpenCode](https://opencode.ai) 预配置了项目规范（AGENTS.md）和专家技能（Skills），开箱即用。技能持续增加中，以 `.agents/skills/` 目录下的实际内容为准。
 
 ---
 
@@ -43,10 +43,10 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 
 | 我想…                     | 推荐技能                             | 一句话说明               |
 | :------------------------ | :----------------------------------- | :----------------------- |
-| 开发一个新算子            | `pypto-operator-develop-workflow`     | 全流程引导，从需求到交付 |
+| 开发一个新算子            | `pypto-op-develop`     | 全流程引导，从需求到交付 |
 | 修复环境报错              | `pypto-environment-setup`            | 诊断 + 修复 + 验证      |
 | 分析编译 pass 校验结果    | `pypto-verify-pass`                  | 定位失败的 pass 及原因   |
-| 排查精度不一致            | `pypto-verify-binary-search`         | 二分法定位首个误差点     |
+| 排查精度不一致            | `pypto-binary-search-verify`         | 二分法定位首个误差点     |
 | 分析算子性能瓶颈          | `pypto-operator-perf-autotune`       | 泳道图分析 + 优化建议    |
 | 迭代调优到目标性能        | `pypto-perf-tuning-loop`             | 参数扫描 + 对比报告      |
 | 提交 PR 到 cann/pypto     | `pypto-pr-creator`                   | 自动创建规范 PR          |
@@ -61,7 +61,7 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 
 ### 算子开发
 
-#### `pypto-operator-develop-workflow` — 算子开发全流程
+#### `pypto-op-develop` — 算子开发全流程
 
 **适用场景**：从零开发一个昇腾 NPU 自定义算子
 
@@ -87,7 +87,7 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 
 **你会得到**：逐 pass 成功/失败状态 + 失败原因定位
 
-#### `pypto-verify-binary-search` — 精度二分定位
+#### `pypto-binary-search-verify` — 精度二分定位
 
 **适用场景**：算子输出与 golden 不一致，需要定位误差来源
 
@@ -166,7 +166,7 @@ AGENTS.md 是 OpenCode 的项目级自定义指令文件。当你在本仓库中
 
 ### Skills — 专家技能，按需加载
 
-Skills 是定义在 `.opencode/skills/` 目录下的可复用行为模块。每个 skill 包含一个 `SKILL.md` 文件，描述完整的执行流程。OpenCode 会在需要时自动发现并加载。
+Skills 是定义在 `.agents/skills/` 目录下的可复用行为模块。每个 skill 包含一个 `SKILL.md` 文件，描述完整的执行流程。OpenCode 会在需要时自动发现并加载。
 
 **调用方式**（三选一，效果等价）：
 
@@ -179,13 +179,13 @@ Skills 是定义在 `.opencode/skills/` 目录下的可复用行为模块。每�
 **斜杠命令** — 明确指定技能：
 
 ```
-/pypto-operator-develop-workflow
+/pypto-op-develop
 ```
 
 **自然语言点名** — 在对话中提及：
 
 ```
-请使用 pypto-operator-develop-workflow 技能帮我开发一个算子。
+请使用 pypto-op-develop 技能帮我开发一个算子。
 ```
 
 > 📖 进一步了解：[OpenCode Skills 文档](https://opencode.ai/docs/zh-cn/skills/)
