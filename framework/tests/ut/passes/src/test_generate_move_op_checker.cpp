@@ -652,13 +652,18 @@ TEST_F(TestGenerateMoveOpChecker, ConvertOp_ShapeMismatch) {
     auto currFunctionPtr =
         std::make_shared<Function>(Program::GetInstance(), "TestConvertShapeMismatch", "TestConvertShapeMismatch", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int64_t> shape_in  = {16, 32};
-    std::vector<int64_t> shape_out = {16, 64};
-    
+
+    std::vector<int64_t> shape_in  = {16, 16};
+    std::vector<int64_t> shape_out = {32, 32};
+
     auto inTensor  = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape_in);
     auto outTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape_out);
+    inTensor->SetMemoryTypeOriginal(MEM_DEVICE_DDR);
+    outTensor->SetMemoryTypeOriginal(MEM_UB);
+
     auto &convertOp = currFunctionPtr->AddOperation(Opcode::OP_CONVERT, {inTensor}, {outTensor});
-    auto convertAttr = std::make_shared<ConvertOpAttribute>(MEM_UB, MEM_DEVICE_DDR);
+    
+    auto convertAttr = std::make_shared<ConvertOpAttribute>(MEM_DEVICE_DDR, MEM_UB);
     convertOp.SetOpAttribute(convertAttr);
 
     currFunctionPtr->inCasts_.push_back(inTensor);
