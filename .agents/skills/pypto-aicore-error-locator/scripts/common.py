@@ -35,7 +35,7 @@ def print_error_info(output, logger, max_lines=10):
             logger.info(f"  {line}")
 
 
-def get_commentable_lines(lines, ERROR_IN_T=False):
+def get_commentable_lines(lines, error_in_t=False):
     commentable_lines = []
     fast_commentable_lines = []
     skip_keywords = ['set_flag', 'wait_flag', 'pipe_barrier']
@@ -57,8 +57,8 @@ def get_commentable_lines(lines, ERROR_IN_T=False):
             is_t_operation = stripped.startswith('T') and '<' in stripped and '>' in stripped
             if is_t_operation:
                 fast_commentable_lines.append(i)
-            
-    if ERROR_IN_T:
+
+    if error_in_t:
         return fast_commentable_lines
     else:
         return commentable_lines
