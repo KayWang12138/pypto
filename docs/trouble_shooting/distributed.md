@@ -35,6 +35,12 @@
 ### INVALID_TENSOR_FORMAT
 1. **检查张量格式**：确认张量格式为 ND 格式，确保数据格式符合规范。
 
+### INVALID_SHMEM_TENSOR
+1. **检查输入Shmem Tensor**：请根据报错信息确定原因，可能原因是ShmemTensor中没有合法的data或者signal Tensor。
+
+### INVALID_SHMEM_VIEW_PARAM
+1. **检查ShmemView接口参数**：请根据报错信息确定原因，可能原因是ShmemView传入shape或者offset信息不合法。
+
 ### INVALID_OPERAND_NUM
 1. ***检查输入输出参数个数**：确保传入的输入和输出参数数量与 API 定义一致。
 

@@ -38,7 +38,7 @@ private:
     {
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(group, worldSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemTensor(group, worldSize, shmemDataType, shmemDataShape, shmemData);
             CreateShmemSignal(group, shmemData, shmemSignal);
         }
     }
