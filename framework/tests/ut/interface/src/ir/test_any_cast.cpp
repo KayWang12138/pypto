@@ -89,7 +89,7 @@ TEST(CoreAnyCastTest, TestAnyCastRef) {
     std::any value = 42;
 
     try {
-        const int &result = AnyCastRef<int>(value);
+        const int result = AnyCastRef<int>(value);
         ASSERT_EQ(result, 42);
     } catch (...) {
         FAIL() << "AnyCastRef should succeed for matching type";
@@ -143,7 +143,7 @@ TEST(CoreAnyCastTest, TestAnyCastConstRef) {
     std::any value = std::string("test");
 
     try {
-        const std::string &result = AnyCastRef<std::string>(value);
+        const std::string result = AnyCastRef<std::string>(value);
         ASSERT_EQ(result, "test");
     } catch (...) {
         FAIL() << "AnyCastRef should succeed for const reference";

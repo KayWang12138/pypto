@@ -24,10 +24,16 @@
 #include "machine/runtime/pmu_common.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/platform/platform_manager.h"
+#define private public
 #include "machine/device/dynamic/aicore_prof.h"
+#ifdef private
+#undef private
+#endif
 #include "machine/device/dynamic/aicpu_task_manager.h"
 #include "machine/device/dynamic/aicore_manager.h"
 #include "machine/device/tilefwk/aicpu_common.h"
+
+ using namespace npu::tile_fwk;
 class TestDeviceRunner : public testing::Test {
 public:
     static void SetUpTestCase() {
@@ -74,10 +80,12 @@ TEST_F(TestDeviceRunner, test_ini_device_args_arch32) {
 }
 
 TEST_F(TestDeviceRunner, test_ini_device_args_arch35) {
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
     DeviceArgs args_;
     args_.archInfo = ArchInfo::DAV_3510;
     npu::tile_fwk::DeviceRunner runner;
     runner.InitDeviceArgs(args_);
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
 }
 
 TEST_F(TestDeviceRunner, test_ini_proflevel) {
@@ -122,6 +130,7 @@ TEST_F(TestDeviceRunner, test_ini_proflevel) {
     prof.ProGetHandShake(threadIdx, &handShakeSta);
     prof.ProfStopHandShake();
     prof.ProfStopAiCpuTaskStat();
+    prof.profLevel_ = npu::tile_fwk::dynamic::PROF_LEVEL_FUNC_LOG_PMU;
     prof.ProfStop();
     prof.GetAiCpuTaskStat(taskId);
     delete aiCpuStat;

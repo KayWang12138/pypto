@@ -57,10 +57,6 @@ TEST_F(FunctionTest, TestAddTensorFunctionDim4) {
     FUNCTION("A") {
         c = Add(a, b);
     }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestAddTensorFunctionDim2) {
@@ -76,10 +72,6 @@ TEST_F(FunctionTest, TestAddTensorFunctionDim2) {
     FUNCTION("A") {
         c = Add(a, b);
     }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestOperationRopeV2Deepseekv3B32) {
@@ -111,8 +103,6 @@ TEST_F(FunctionTest, TestOperationRopeV2Deepseekv3B32) {
     FUNCTION("A") {
         ApplyRotaryPosEmbV2(q, k, cos, sin, qEmbed, kEmbed, 2, ropeTileConfig);
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, test_fa_new) {
@@ -163,10 +153,6 @@ TEST_F(FunctionTest, TestSubTensorFunctionDim2) {
     FUNCTION("A") {
         c = Sub(a, b);
     }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestMulTensorFunctionDim2) {
@@ -182,10 +168,6 @@ TEST_F(FunctionTest, TestMulTensorFunctionDim2) {
     FUNCTION("A") {
         c = Mul(a, b);
     }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestDivTensorFunctionDim2) {
@@ -201,10 +183,6 @@ TEST_F(FunctionTest, TestDivTensorFunctionDim2) {
     FUNCTION("A") {
         c = Div(a, b);
     }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestAddScalarFunctionDim2) {
@@ -221,10 +199,6 @@ TEST_F(FunctionTest, TestAddScalarFunctionDim2) {
     FUNCTION("A") {
         d = Add(a, value);
     }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestAddScalarFunctionDim3) {
@@ -241,10 +215,6 @@ TEST_F(FunctionTest, TestAddScalarFunctionDim3) {
     FUNCTION("A") {
         d = Add(a, value);
     }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestSubScalarFunctionDim2) {
@@ -261,10 +231,6 @@ TEST_F(FunctionTest, TestSubScalarFunctionDim2) {
     FUNCTION("A") {
         d = Sub(a, value);
     }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestMulScalarFunctionDim2) {
@@ -281,10 +247,6 @@ TEST_F(FunctionTest, TestMulScalarFunctionDim2) {
     FUNCTION("A") {
         d = Mul(a, value);
     }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestDivScalarFunctionDim2) {
@@ -301,10 +263,6 @@ TEST_F(FunctionTest, TestDivScalarFunctionDim2) {
     FUNCTION("A") {
         d = Div(a, value);
     }
-
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestExpTensorFunctionDim2) {
@@ -319,8 +277,6 @@ TEST_F(FunctionTest, TestExpTensorFunctionDim2) {
     FUNCTION("A") {
         c = Exp(a);
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestSin) {
@@ -334,9 +290,6 @@ TEST_F(FunctionTest, TestSin) {
     FUNCTION("Sin") {
         res = Sin(input);
     }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestCos) {
@@ -350,9 +303,6 @@ TEST_F(FunctionTest, TestCos) {
     FUNCTION("Cos") {
         res = Cos(input);
     }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestGatherAxis0Indices2_1) {
@@ -374,8 +324,6 @@ TEST_F(FunctionTest, TestGatherAxis0Indices2_1) {
     FUNCTION("A") {
         res = Gather(params, indices, axis);
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestGatherAxis1Indices2_1) {
@@ -397,8 +345,6 @@ TEST_F(FunctionTest, TestGatherAxis1Indices2_1) {
     FUNCTION("A") {
         res = Gather(params, indices, axis);
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestGatherAxis3Indices4_2) {
@@ -416,8 +362,6 @@ TEST_F(FunctionTest, TestGatherAxis3Indices4_2) {
     FUNCTION("A") {
         res = Gather(params, indices, axis);
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestGatherElementAxis1Indices2) {
@@ -435,10 +379,6 @@ TEST_F(FunctionTest, TestGatherElementAxis1Indices2) {
     FUNCTION("A") {
         res = GatherElements(params, indices, axis);
     }
-    // Program::GetInstance().GraphCheck();
-    //
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestGatherElementAxis0Indices2) {
@@ -456,10 +396,6 @@ TEST_F(FunctionTest, TestGatherElementAxis0Indices2) {
     FUNCTION("A") {
         res = GatherElements(params, indices, axis);
     }
-    // Program::GetInstance().GraphCheck();
-    //
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestScatter) {
@@ -476,7 +412,6 @@ TEST_F(FunctionTest, TestScatter) {
     FUNCTION("A") {
         res = Scatter(cnts, topk_ids, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nRoutedExperts)
     }
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestScatterUpdate2) {
@@ -512,9 +447,6 @@ TEST_F(FunctionTest, testRowSumSingle) {
         d = npu::tile_fwk::Sum(T, -1, true);
         c = npu::tile_fwk::Sum(T, -2, true);
     }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, testRowMaxSingle) {
@@ -529,9 +461,6 @@ TEST_F(FunctionTest, testRowMaxSingle) {
     FUNCTION("A") {
         d = npu::tile_fwk::Amax(T);
     }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, testSoftmax) {
@@ -546,9 +475,6 @@ TEST_F(FunctionTest, testSoftmax) {
     FUNCTION("A") {
         d = SoftmaxNew(T);
     }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestRoPE) {
@@ -583,8 +509,6 @@ TEST_F(FunctionTest, TestRoPE) {
     FUNCTION("A") {
         ApplyRotaryPosEmb(q, k, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestRoPEDeepseekV3) {
@@ -632,8 +556,6 @@ TEST_F(FunctionTest, TestRoPEDeepseekV3) {
         // auto kPeTrans = Transpose(Reshape(kPe, {b, s, 1, d}), {1, 2}); // [b,s,d]->[b,s,1,d]->[b,1,s,d]
         ApplyRotaryPosEmb(qPeTrans, kPeReshape, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, testRmsNormNewMultiDims) {
@@ -647,8 +569,6 @@ TEST_F(FunctionTest, testRmsNormNewMultiDims) {
     FUNCTION("Function_BLOCK1") {
         T = RmsNorm(T);
     }
-    // Program::GetInstance().GraphCheck();
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestConcat) {
@@ -665,9 +585,6 @@ TEST_F(FunctionTest, TestConcat) {
     FUNCTION("A") {
         res = Cat(std::vector<Tensor>{params1, params2}, axis);
     }
-    //Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 static std::map<std::string, std::variant<bool, int, float, std::string>> attnPostConfig = {
@@ -713,7 +630,6 @@ TEST_F(FunctionTest, TestAttentionPost) {
         Tensor attn_out_w = Unsqueeze(oProjW, 0);
         atten_output = Matrix::BatchMatmul(dType, mm7_res2, attn_out_w);
     }
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, Test_qkvPre) {
@@ -746,8 +662,6 @@ TEST_F(FunctionTest, Test_qkvPre) {
     FUNCTION("A") {
         res = Attention.QkvPre(hidden_states);
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, Test_qkvPre2) {
@@ -789,8 +703,6 @@ TEST_F(FunctionTest, Test_qkvPre2) {
     FUNCTION("Test_qkvPre2") {
         res = Attention.QkvPre2(hidden_states);
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, Test_deepseekAttention_pre) {
@@ -838,7 +750,6 @@ TEST_F(FunctionTest, Test_deepseekAttention_pre) {
         res = deepseekAttention.AtentionPreForward(
             hidden_states, atten_mask, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig);
     }
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestBMMtest) {
@@ -852,8 +763,6 @@ TEST_F(FunctionTest, TestBMMtest) {
     FUNCTION("BMM") {
         c = npu::tile_fwk::Matrix::BatchMatmul(DT_FP16, a, b, false, false);
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestBMMtest2) {
@@ -867,8 +776,6 @@ TEST_F(FunctionTest, TestBMMtest2) {
     FUNCTION("BMM") {
         c = npu::tile_fwk::Matrix::BatchMatmul(DT_FP16, a, b, false, true);
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, Test_deepseekMoEGate) {
@@ -891,9 +798,6 @@ TEST_F(FunctionTest, Test_deepseekMoEGate) {
         topk_idx = std::get<0>(res);
         topk_weight = std::get<1>(res);
     }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, Test_deepseekMoEInfer) {
@@ -917,9 +821,6 @@ TEST_F(FunctionTest, Test_deepseekMoEInfer) {
     FUNCTION("A") {
         res = deepseekMoEInfer.MoeInfer(hidden_states, topk_idx, topk_weight);
     }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, Test_deepseekMoEInfer_singleout) {
@@ -1081,8 +982,6 @@ TEST_F(FunctionTest, Test_quant) {
     FUNCTION("A") {
         res = std::get<0>(Quant(input));
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, Test_ScalarOp) {
@@ -1100,8 +999,6 @@ TEST_F(FunctionTest, Test_ScalarOp) {
         auto d = ScalarDivS(c, Element(DataType::DT_FP32, F_127), true);
         output = ScalarMaxS(d, Element(DataType::DT_FP32, F_127), true);
     }
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestPad) {
@@ -1115,7 +1012,6 @@ TEST_F(FunctionTest, TestPad) {
     FUNCTION("Pad") {
         b = Pad(a, {0, 0, 0, 8}, "constant");
     }
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, TestRmsNorm) {
@@ -1129,7 +1025,6 @@ TEST_F(FunctionTest, TestRmsNorm) {
     FUNCTION("RmsNorm") {
         c = RmsNorm(a, b, 1e-5f);
     }
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, dynamic_pa_low_lantency) {

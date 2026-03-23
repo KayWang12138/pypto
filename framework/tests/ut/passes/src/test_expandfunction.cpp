@@ -319,15 +319,17 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest4) {
 }
 
 /*
-TESTExpandFunctionAssembleV2
-inCast1{32,128}->reshape->ubTensor{64,64}->assemble->outCast{32,128}
-inCast1{32,128}->reshape->ubTensor{64,64}->assemble(*4)->outCast{32,128}
+TESTExpandFunctionAssembleNotExpand
+Bug #605: Assemble operation should NOT be expanded.
+inCast{32,128}->reshape->ubTensor{64,64}->assemble->outCast{32,128}
+Expected: assemble remains as a single instance (not expanded to 4 instances)
+No UB node operations should be generated.
 */
 TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
-    // Prepare the graph
+    // Prepare the graph: reshape -> assemble
     std::vector<int64_t> shape1 = {kNumExpFive, kNumExpSeven};
     std::vector<int64_t> shape2 = {kNumExpSix, kNumExpSix};
     std::vector<int64_t> shape3 = {kNumExpFive, kNumExpSeven};
@@ -365,14 +367,27 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
     EXPECT_EQ(status, SUCCESS);
     EXPECT_EQ(currFunctionPtr->GetGraphType(), GraphType::TILE_GRAPH);
 
+    // Verify assemble is NOT expanded (Bug #605 fix)
+    // Before fix: assemble_num was 4 (expanded)
+    // After fix: assemble_num should be 1 (not expanded)
     uint32_t assemble_num = kNumZero;
+    uint32_t reshape_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             EXPECT_NE(op.GetOpMagic(), assemble_op->GetOpMagic());
+            // Verify assemble has correct attribute
+            auto attr = op.GetOpAttribute();
+            EXPECT_NE(attr, nullptr);
             ++assemble_num;
         }
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            ++reshape_num;
+        }
     }
-    EXPECT_EQ(assemble_num, kNumFour);
+    // Key assertion: assemble should remain as a single instance (not expanded)
+    EXPECT_EQ(assemble_num, kNumOne);
+    // Verify reshape is also not expanded (it's not in kNotNeedExpandOps, but should still work)
+    EXPECT_EQ(reshape_num, kNumOne);
 }
 
 /*

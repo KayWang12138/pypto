@@ -41,7 +41,7 @@ class DeviceCtrlMachine {
 public:
     void InitTaskCtrl(int idx, int type, uint64_t taskId, DeviceTask *devTask, DeviceExecuteContext *ctx) {
         if (ctx == nullptr) {
-            DEV_ERROR("Init Task control failed, which ctx is null.");
+            DEV_ERROR(CtrlErr::ROOT_ALLOC_CTX_NULL, "#ctrl.push.init_dtask: Init Task control failed, which ctx is null.");
             return;
         }
         auto taskCtrl = &GetTaskCtrlInPool(idx);
@@ -141,11 +141,11 @@ public:
         } else if (ctrlFlowCache != nullptr) {
             DEV_INFO("Init independent anchor program cache %p.", ctrlFlowCache);
             if (ctrlFlowCache->isRecording) {
-                DEV_ASSERT_MSG(!devProg->controlFlowCache.isRecording, "dev program ctr cache should not record");
+                DEV_ASSERT_MSG(CtrlErr::CTRL_FLOW_EXEC_FAILED, !devProg->controlFlowCache.isRecording, "#ctrl.flow.exec: dev program ctr cache should not record");
                 ctrlFlowCache->contextWorkspaceAddr = devStartArgs->contextWorkspaceAddr;
             } else {
-                DEV_ASSERT_MSG(!devProg->controlFlowCache.isActivated && ctrlFlowCache->isActivated,
-                        "should not active dev program cache and independent ctrl cache at same time");
+                DEV_ASSERT_MSG(CtrlErr::CTRL_FLOW_EXEC_FAILED, !devProg->controlFlowCache.isActivated && ctrlFlowCache->isActivated,
+                        "#ctrl.flow.exec: should not active dev program cache and independent ctrl cache at same time");
             }
             devCtrlFlowCache = ctrlFlowCache;
             if (devCtrlFlowCache->isActivated && !devCtrlFlowCache->isRelocMetaDev) {
@@ -155,7 +155,7 @@ public:
             }
         }
 
-        DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devCtrlFlowCache->deviceTaskCount, (int)firstInit);
+        DEV_INFO("ControlFlowCache: deviceTaskCount=%d, firstInit=%d.", (int)devCtrlFlowCache->deviceTaskCount, (int)firstInit);
 
         /* Currently, sche does not use ctrlFlowCacheAnchor, so that we could record it in devProgram.
          * However, it should be moved into the execute context. */
@@ -238,7 +238,7 @@ public:
         uint64_t inputSize = *kargs->inputs;
         uint64_t outputSize = *(kargs->inputs + 1);
         auto inputPtr = PtrToPtr<int64_t, DevTensorData>(kargs->inputs + TENSOR_INFO_OFFSET);
-        DEV_INFO("Input/output size [%lu][%lu] tensor list ptr[%p].", inputSize, outputSize, inputPtr);
+        DEV_INFO("inputSize=%lu, outputSize=%lu, tensorListPtr=%p.", inputSize, outputSize, inputPtr);
         devStartArgs->devTensorList = inputPtr;
         devStartArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
         devStartArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
@@ -312,7 +312,7 @@ public:
         if (devArgs->devDfxArgAddr != 0) {
             DevDfxArgs *devDfxArgs = reinterpret_cast<DevDfxArgs*>(devArgs->devDfxArgAddr);
             if (devDfxArgs->logLevel != -1 && dlog_setlevel != nullptr) {
-                (void)dlog_setlevel(PYPTO, devDfxArgs->logLevel, 1);
+                (void)dlog_setlevel(LOG_MOD_ID, devDfxArgs->logLevel, 1);
             }
         }
 #endif
@@ -328,7 +328,7 @@ public:
             return -1;
         }
         if (kargs->inputs == nullptr || kargs->cfgdata == nullptr) {
-            DEV_ERROR("Args has null in inputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
+            DEV_ERROR(DevCommonErr::NULLPTR, "#ctrl.init: Args has null in inputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
                     kargs->workspace, kargs->cfgdata);
             return -1;
         }
@@ -369,7 +369,7 @@ private:
             auto dyntask = PtrToPtr<DeviceTask, DynDeviceTask>(devTask);
             int funcIdx = 0;
             for (auto &func : dyntask->stitchedList) {
-                DEV_DEBUG("func %d %s.", funcIdx, func.DumpDyn(funcIdx, dyntask->cceBinary).c_str());
+                DEV_DEBUG("funcIdx=%d, %s.", funcIdx, func.DumpDyn(funcIdx, dyntask->cceBinary).c_str());
                 funcIdx++;
                 (void)func;
             }

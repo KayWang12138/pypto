@@ -193,11 +193,25 @@ void PadInferShapeFunc(Operation* op,
 }
 REGISTER_INFER_SHAPE_FUNC(OP_PAD, Opcode::OP_PAD, PadInferShapeFunc);
 
+void FillPadInferShapeFunc(Operation* op,
+                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    std::vector<SymbolicScalar> outValidShape;
+    for (auto c : op->GetOOperands()[0]->oriShape) {
+        outValidShape.push_back(SymbolicScalar(c));
+    }
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outValidShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_FILLPAD, Opcode::OP_FILLPAD, FillPadInferShapeFunc);
+
+
 void IndexOutCastInferFunc(Operation* op,
                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;
     /* 这里取IOperands索引是依据AddOperation中ioprand中的输入的顺序，这里使用的是dst参数的ioprand，即第2个索引 */
-    auto inValidShape = op->GetIOperands()[2]->GetDynValidShape();
+    size_t input_dim = 2;
+    auto inValidShape = op->GetIOperands()[input_dim]->GetDynValidShape();
 
     for (size_t i = 0; i < inValidShape.size(); ++i) {
         outValidShape.push_back(inValidShape[i]);
@@ -206,6 +220,13 @@ void IndexOutCastInferFunc(Operation* op,
     for (auto output : op->GetOOperands()) {
         outValidShapes.push_back(outValidShape);
     }
+    
+    auto indexOutCastOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+    if (indexOutCastOpAttribute == nullptr) {
+        ALOG_WARN_F("IndexOutCast [%d] has no copyOpAttr.", op->GetOpMagic());
+        return;
+    }
+    indexOutCastOpAttribute->SetFromDynValidShape(OpImmediate::Specified(op->GetIOperands()[input_dim]->GetDynValidShape()));
 }
 REGISTER_INFER_SHAPE_FUNC(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, IndexOutCastInferFunc);
 
@@ -329,8 +350,7 @@ void PairReduceInferFunc(Operation* op,
     auto dimSize = op->GetIOperands()[0]->GetDynValidShape().size();
     std::vector<SymbolicScalar> outValidShape;
     for (size_t i = 0; i < dimSize; i++) {
-        outValidShape.push_back(std::max(op->GetIOperands()[0]->GetDynValidShape()[i],
-            op->GetIOperands()[1]->GetDynValidShape()[i]));
+        outValidShape.push_back(op->GetIOperands()[0]->GetDynValidShape()[i]);
     }
     for (auto output : op->GetOOperands()) {
         outValidShapes.push_back(outValidShape);
@@ -410,16 +430,6 @@ void RangeInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &out
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_RANGE, Opcode::OP_RANGE, RangeInferFunc);
-
-void LoadInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
-    auto iOperands = op->GetIOperands();
-    assert(iOperands.size() == NUM2);
-    auto offsetValidShape = iOperands[1]->GetDynValidShape();
-    for (auto output : op->GetOOperands()) {
-        outValidShapes.push_back(offsetValidShape);
-    }
-}
-REGISTER_INFER_SHAPE_FUNC(OP_LOAD, Opcode::OP_LOAD, LoadInferFunc);
 
 // reduce infer shape func
 void ReduceInferFunc(Operation* op,
@@ -575,7 +585,7 @@ void LoadL0C2L1InferFunc(Operation* op,
         auto fromValidShape = op->GetIOperands()[0]->GetDynValidShape();
         copyAttr->SetFromDynValidShape(OpImmediate::Specified(fromValidShape));
     } else {
-        ALOG_WARN_F("%s[%d] has no copy out attr, set output valid shape same as input.",
+        VECTOR_LOGW("%s[%d] has no copy out attr, set output valid shape same as input.",
             op->GetOpcodeStr().c_str(), op->GetOpMagic());
         outValidShapes.emplace_back(op->GetIOperands()[0]->GetDynValidShape());
         return;
@@ -865,7 +875,7 @@ void CopyOutInferFunc(Operation* op,
     if (copyOpAttribute != nullptr) {
         copyOpAttribute->SetFromDynValidShape(OpImmediate::Specified(op->GetIOperands()[0]->GetDynValidShape()));
     } else {
-        ALOG_WARN_F("Copyout [%d] has no copy out attr.", op->GetOpMagic());
+        VECTOR_LOGW("Copyout [%d] has no copy out attr.", op->GetOpMagic());
         outValidShapes.push_back(op->GetIOperands()[0]->GetDynValidShape());
         return;
     }
@@ -967,7 +977,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, Tr
 void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
     if (viewOpAttribute == nullptr) {
-        ALOG_WARN_F("View [%d] has no view attr.", op->GetOpMagic());
+        VECTOR_LOGW("View [%d] has no view attr.", op->GetOpMagic());
         outValidShapes.push_back(op->GetIOperands()[0]->GetDynValidShape());
         return;
     }
@@ -984,8 +994,10 @@ void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
             inputValidShape.resize(shapeImm.size());
             OpImmediate::NormalizeValue(inputValidShape, 0, shapeImm, 0, false);
         }
+
         auto newDynValidShape = GetViewValidShape(inputValidShape, viewOpAttribute->GetFromOffset(),
                                                     viewOpAttribute->GetFromDynOffset(), op->GetOOperands()[0]->oriShape);
+
         for (auto output : op->GetOOperands()) {
             outValidShapes.push_back(newDynValidShape);
         }
@@ -1000,7 +1012,7 @@ void AssembleInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& 
         auto fromValidShape = op->GetIOperands()[0]->GetDynValidShape();
         assembleOpAttribute->SetFromDynValidShape(fromValidShape);
     } else {
-        ALOG_WARN_F("Copyout [%d] has no copy out attr.", op->GetOpMagic());
+        VECTOR_LOGW("Copyout [%d] has no copy out attr.", op->GetOpMagic());
         outValidShapes.push_back(op->GetIOperands()[0]->GetDynValidShape());
         return;
     }
@@ -1049,10 +1061,12 @@ void BitSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outVal
     }
     std::vector<SymbolicScalar> res(inputValidShapes[0]);
     auto topk_axis = op->GetIntAttribute(TOPK_AXIS);
-    res[topk_axis] = (res[topk_axis] + blockSize - 1) / blockSize * blockSize;
     res[topk_axis] = res[topk_axis] * NUM2;
-    for (auto output : op->GetOOperands()) {
-        outValidShapes.push_back(res);
+    outValidShapes.emplace_back(res);
+    if (inputValidShapes[0].size() == 1) {
+        outValidShapes.emplace_back(std::vector<SymbolicScalar>{res[topk_axis]});
+    } else {
+        outValidShapes.emplace_back(std::vector<SymbolicScalar>{1, res[topk_axis]});
     }
 }
 
@@ -1070,11 +1084,12 @@ void MrgSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outVal
     std::vector<SymbolicScalar> res(inputValidShapes[0]);
     auto topk_axis = op->GetIntAttribute(TOPK_AXIS);
     auto topk_kvalue = op->GetIntAttribute(TOPK_KVALUE);
-    SymbolicScalar tmp = (res[topk_axis] + blockSize - 1) / blockSize * blockSize;
-    res[topk_axis] = std::min(res[topk_axis],
-     (topk_kvalue + kBlockFpNum - 1) / kBlockFpNum * kBlockFpNum * NUM2);
-    for (auto output : op->GetOOperands()) {
-        outValidShapes.push_back(res);
+    res[topk_axis] = std::min(res[topk_axis], (topk_kvalue + kBlockFpNum - 1) / kBlockFpNum * kBlockFpNum * NUM2);
+    outValidShapes.emplace_back(res);
+    if (inputValidShapes[0].size() == 1) {
+        outValidShapes.emplace_back(std::vector<SymbolicScalar>{res[topk_axis]});
+    } else {
+        outValidShapes.emplace_back(std::vector<SymbolicScalar>{1, res[topk_axis]});
     }
 }
 
@@ -1175,14 +1190,14 @@ REGISTER_INFER_SHAPE_FUNC(OP_EXTRACT_SINGLE, Opcode::OP_EXTRACT_SINGLE, ExtractS
 void PReLUInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     ASSERT(op->GetIOperands().size() == 2) << "PReLU input operand size should be 2";
     ASSERT(op->GetOOperands().size() == 2) << "PReLU output operand size should be 2";
-    
+
     auto input0 = op->GetIOperands()[0];
-    
+
     std::vector<SymbolicScalar> output0ValidShape = input0->GetDynValidShape();
-    
+
     std::vector<SymbolicScalar> output1ValidShape;
     auto input0ShapeDim = input0->GetDynValidShape().size();
-    
+
     if (input0ShapeDim == 2) {
         output1ValidShape.emplace_back(input0->GetDynValidShape().back());
     } else {
@@ -1190,7 +1205,7 @@ void PReLUInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& out
         int64_t elementCount = ALIGN_SIZE / BytesOf(input0->Datatype());
         output1ValidShape.emplace_back(elementCount);
     }
-    
+
     outValidShapes.emplace_back(std::move(output0ValidShape));
     outValidShapes.emplace_back(std::move(output1ValidShape));
 }

@@ -204,7 +204,7 @@ TEST_F(TestCodegenUnary, CastDim1) {
 TEST_F(TestCodegenUnary, CastDim1TileTensor) {
     Function &func = TestCastBody({128}, {128}, {64}, "CastDim1TileTensor", true);
     std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(TCast<LastUse2Dim<0, 1>, 0>(ubTensor_3, ubTensor_1);
+    std::string expect = R"!!!(TCast<LastUse2Dim<0, 1>, 0, pto::SaturationMode::ON>(ubTensor_3, ubTensor_1);
 )!!!";
     CheckStringExist(expect, res);
 }
@@ -316,7 +316,6 @@ TEST_F(TestCodegenUnary, TestRowMaxLine) {
     config::SetBuildStatic(true);
 
     std::vector<int64_t> shape = {2, 2, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
@@ -341,8 +340,6 @@ TEST_F(TestCodegenUnary, TestRowMaxLine) {
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
     CodeGenOpCloudNPU cop(opCtx);
-    function->GetTensorMap().inverseMap_[localTensorSrc->GetMagic()] = localTensorSrc;
-    function->GetTensorMap().inverseMap_[localTensorDst->GetMagic()] = localTensorDst;
     std::string res = cop.GenOpCode();
     std::string expect =
         R"!!!(TileOp::Trowmaxline_<float, 1, 2, 2, 64, 2, 2, 64, 2, 2, 64, 2>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0);

@@ -160,7 +160,7 @@ def attention(
     n1 = total_head_size // head_size - 2
     q_shape = (bs, n1, head_size)
     out_torch = torch.empty(q_shape, dtype=dtype, device=device)
-    q_tmp = torch.empty((bs, n1 * head_size), dtype=dtype, device=device)
+    q_tmp = torch.empty((128 * 1, n1 * head_size), dtype=dtype, device=device)
     k_tmp = torch.empty((bs, head_size), dtype=dtype, device=device)
     v_tmp = torch.empty((bs, head_size), dtype=dtype, device=device)
     hidden_size = qkv_proj_scale.shape[0]
@@ -207,9 +207,9 @@ def attention(
 
 
 @pypto.frontend.jit(
-    runtime_options={"stitch_function_max_num": 128
+    runtime_options={"stitch_function_max_num": 128,
+                     "ready_on_host_tensors": ["block_table", "kv_act_seqs"]
                     },
-    debug_options={"runtime_debug_mode": 2}
 )
 def ifa_func_kernel(
     block_table: pypto.Tensor(),
@@ -231,7 +231,7 @@ def ifa_func_kernel(
     cos: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16), 
     sin: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     atten_out: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
-    q_tmp: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
+    q_tmp: pypto.Tensor([...], pypto.DT_BF16),
     k_tmp: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     v_tmp: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     residual: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
@@ -300,7 +300,7 @@ def ifa_func_kernel(
     g = n1 // n2
     g_loop = g // g_tile
 
-    q_2d_shape = (b_scalar * s1_scalar * n1, dn)
+    q_2d_shape = (128 * 1 * n1, dn)
     kv_cache_2d_shape = (block_num_scalar * block_size, n2 * dn)
 
     pypto.set_vec_tile_shapes(5120)
@@ -371,7 +371,7 @@ def ifa_func_kernel(
             x_add = pypto.add(x_mul, x_offset_2d_fp32)
             x_int32 = pypto.cast(x_add, pypto.DT_INT32, pypto.CastMode.CAST_RINT)  # Align ascendC
             x_fp16 = pypto.cast(x_int32, pypto.DT_FP16)
-            x_int8[tmp_idx:tmp_idx + 1, 0:] = pypto.cast(x_fp16, pypto.DT_INT8)
+            x_int8[tmp_idx:tmp_idx + 1, 0:] = pypto.cast(x_fp16, pypto.DT_INT8, satmode=pypto.SaturationMode.ON)
 
         pypto.set_cube_tile_shapes([32, 32], [256, 512], [256, 256])
         tmp_c = pypto.matmul(x_int8, weight, pypto.DT_INT32)

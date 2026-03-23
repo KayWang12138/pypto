@@ -81,7 +81,6 @@ void TestWhereBody(
     }
 
     std::vector<int64_t> shape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
@@ -107,15 +106,7 @@ void TestWhereBody(
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
-    function->GetTensorMap().inverseMap_[localTensorCond->GetMagic()] = localTensorCond;
-    function->GetTensorMap().inverseMap_[localTensorInput->GetMagic()] = localTensorInput;
-    function->GetTensorMap().inverseMap_[localTensorOther->GetMagic()] = localTensorOther;
-    function->GetTensorMap().inverseMap_[localTensorResult->GetMagic()] = localTensorResult;
-    function->GetTensorMap().inverseMap_[localTensorTmp->GetMagic()] = localTensorTmp;
 
-    if (isSupportTileTensor) {
-        cop.UpdateTileTensorInfo();
-    }
     std::string res = cop.GenOpCode();
     EXPECT_EQ(res, expect);
 }

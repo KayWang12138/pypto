@@ -15,7 +15,7 @@
 
 #ifndef AIKERNEL_DATA_H
 #define AIKERNEL_DATA_H
-
+#include <atomic>
 #include "tilefwk/aikernel_define.h"
 
 struct LogContext;
@@ -67,7 +67,7 @@ struct DevStartArgsBase {
     uint64_t outputTensorSize;
     __gm__ int64_t *commContexts;
     uint64_t commGroupNum;
-
+    std::atomic<uint64_t> syncFlag{0}; // sche and ctrl soft sync flag
 #ifdef __TILE_FWK_HOST__
     int GetInputTensorSize() const { return inputTensorSize; }
     const DevTensorData &GetInputTensor(int index) const { return devTensorList[index]; }

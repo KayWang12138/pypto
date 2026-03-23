@@ -79,7 +79,9 @@ private:
         if (it != operationInterpreterFuncs_().end()) {
             it->second(ctx);
         } else {
-            ASSERT(0) << "opcode [" << ctx->op->GetOpcodeStr() << "]'s torch interface implementation is not registered";
+            ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false)
+                << "opcode [" << ctx->op->GetOpcodeStr()
+                << "]'s torch interface implementation is not registered";
         }
     }
 
@@ -87,6 +89,7 @@ private:
         std::vector<LogicalTensorDataPtr> result;
         for (auto &dataView : dataViewList) {
             auto &validShape = dataView->GetValidShape();
+            ASSERT(ExecuteOperationScene::EMPTY_VALIDSHAPE, validShape.size() != 0);
             if (validShape == dataView->GetShape()) {
                 result.emplace_back(dataView);
             } else {

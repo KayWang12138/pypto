@@ -766,6 +766,16 @@ public:
         outCasts_.erase(outCasts_.begin() + idx);
         auto &outcastSlot = slotScope_->ioslot.outcastSlot;
         outcastSlot.erase(outcastSlot.begin() + idx);
+
+        // rebuild partial outcast list
+        auto &partialList = slotScope_->ioslot.partialUpdateOutcastList;
+        auto &partialDict = slotScope_->partialUpdateOutcastDict;
+        partialList.clear();
+        for (size_t i = 0; i < outCasts_.size(); i++) {
+            if (partialDict.find(outCasts_[i]) != partialDict.end()) {
+                partialList.push_back(i);
+            }
+        }
     }
 
     const SubfuncParam &GetParameter() const { return parameter_; }

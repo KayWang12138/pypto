@@ -22,6 +22,7 @@
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/utils/dynamic/device_task.h"
 #include "machine/device/dynamic/device_utils.h"
+#include "interface/utils/distributed_error.h"
 
 namespace npu::tile_fwk::Distributed {
 constexpr int32_t ATTR_STRIDE_OFFSET = 1;
@@ -58,7 +59,7 @@ public:
 
     SignalTileOp* CreateTaskData(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
         if (taskCount >= AICPU_TASK_ARRAY_SIZE) {
-            DEV_ERROR("taskCount : %u >= AICPU_TASK_ARRAY_SIZE : %lu", taskCount, AICPU_TASK_ARRAY_SIZE);
+            DEV_ERROR(DistributedErrorCode::AICPU_TASK_NUM_EXCEED_LIMIT, "ctrl.task.pre.task.create#: taskCount=%u >= AICPU_TASK_ARRAY_SIZE=%lu", taskCount, AICPU_TASK_ARRAY_SIZE);
             return nullptr;
         }
         SignalTileOp* newTask = &taskArray[taskCount];
@@ -70,7 +71,6 @@ public:
     int32_t InsertTask(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
         SignalTileOp* newTask = CreateTaskData(taskId, addr, expectSum, resetSignal);
         if (newTask == nullptr) {
-            DEV_ERROR("newTask is nullptr");
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         uint32_t index = Hash(taskId);
@@ -106,7 +106,7 @@ public:
         queue_[rear_] = task;
         rear_ = (rear_ + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
         if (rear_ == front_) {
-            DEV_ERROR("SignalTileOp* queue_ is Full, Need resize queue_, front_ = %u, rear_ = %u", front_, rear_);
+            DEV_ERROR(DistributedErrorCode::AICPU_TASK_NUM_EXCEED_LIMIT, "ctrl.task.pre.task.enqueue#: SignalTileOp queue_ is full, front=%u, rear=%u", front_, rear_);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         return dynamic::DEVICE_MACHINE_OK;
@@ -118,7 +118,7 @@ public:
 
     inline int32_t Dequeue() {
         if (IsEmpty()) {
-            DEV_ERROR("Queue is empty.");
+            DEV_ERROR(DistributedErrorCode::AICPU_TASK_QUEUE_EMPTY, "sche.task.end.task.dequeue#: Queue is empty.");
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         front_ = (front_ + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
@@ -180,7 +180,7 @@ public:
     inline int32_t EnqueueOp(uint64_t taskId, TaskStat* taskStat) {
         SignalTileOp* task = hashMap_.FindTask(taskId);
         if (task == nullptr) {
-            DEV_ERROR("There is no this taskId: %lu", taskId);
+            DEV_ERROR(DistributedErrorCode::AICPU_TASKID_NOT_IN_MAP, "ctrl.task.pre.task.enqueue#: taskId=%lu not found", taskId);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         if (taskStat != nullptr) {
@@ -208,7 +208,8 @@ public:
         int32_t totalTileNum = tileRows * tileCols;
 
         // info.offset[1]代表src的rankId=offset[1]的shmemSignal版图, info.offset[2]代表srcRankId, info.offset[3]代表row offset, info.offset[4]代表col offset
-        DEV_DEBUG("ShmemWaitUntil::EnqueueOp offset1=%u, offset2=%u, offset3=%u,  offset4=%u, shape3=%u, shape4=%u, rawShape3=%u, rawShape4=%u, tileIndex=%d, totalTileNum=%d",
+        DEV_DEBUG("ShmemWaitUntil::EnqueueOp srcShmemSignalId=%u, srcRankId=%u, dimRow=%u, dimCol=%u, "
+            "tileShapeRow=%u, tileShapeCol=%u, rawShapeRow=%u, rawShapeCol=%u, tileIndex=%d, totalTileNum=%d",
             info.offset[SRC_SHMEM_SIGNAL_ID], info.offset[SRC_RANK_ID], info.offset[SHMEM_DIM_ROW], info.offset[SHMEM_DIM_COL],
             paramInfo_.tileShapeRow, paramInfo_.tileShapeCol, paramInfo_.rawShapeRow, paramInfo_.rawShapeCol, tileIndex, totalTileNum);
 

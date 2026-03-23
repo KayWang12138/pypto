@@ -40,6 +40,11 @@ enum class OutType {
     BIT,
 };
 
+enum class SaturationMode : uint8_t {
+    ON = 0,
+    OFF = 1,
+};
+
 namespace experimental {
 struct PrintHelper {
     SymbolicScalar cond;
@@ -116,14 +121,12 @@ Tensor Reshape(const Tensor &operand, const std::vector<SymbolicScalar> &dstShap
 
 void Reshape(const Tensor &operand, Tensor &dst);
 
-Tensor Load(const Tensor &src, const Tensor &offsets);
-
 Tensor Full(const Element &src, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape = {});
 Tensor Full(const SymbolicScalar &src, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape = {});
 Tensor Transpose(const Tensor &self, std::vector<int> perm);
-Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE);
+Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE, SaturationMode satmode = SaturationMode::OFF);
 
 Tensor Exp(const Tensor &self);
 Tensor Exp2(const Tensor &self);
@@ -133,6 +136,7 @@ Tensor Round(const Tensor &self, const int &decimals = 0);
 Tensor Rsqrt(const Tensor &self);
 Tensor Relu(const Tensor &self);
 Tensor Pad(const Tensor &self, const std::vector<int64_t> &padding, std::string mode = "constant", float value = 0.0);
+Tensor FillPad(const Tensor &self, std::string mode = "constant", float value = 0.0);
 Tensor BitwiseNot(const Tensor &self);
 Tensor Sqrt(const Tensor &self);
 Tensor Ceil(const Tensor &self);
@@ -452,11 +456,11 @@ struct TileL1Info {
     int64_t tileN{0};
     int64_t tileBatch{0};
 
-    TileL1Info(int64_t hin, int64_t hout, int64_t win, int64_t wout, 
+    TileL1Info(int64_t hin, int64_t hout, int64_t win, int64_t wout,
                 int64_t cinFmap, int64_t cinWeight, int64_t cout, int64_t n)
-        : tileHin(hin), tileHout(hout), tileWin(win), tileWout(wout), 
+        : tileHin(hin), tileHout(hout), tileWin(win), tileWout(wout),
             tileCinFmap(cinFmap), tileCinWeight(cinWeight), tileN(cout), tileBatch(n) {}
-    
+
     TileL1Info() = default;
 };
 
@@ -468,7 +472,7 @@ struct TileL0Info{
 
     TileL0Info(int64_t h, int64_t w, int64_t k, int64_t n)
         : tileH(h), tileW(w), tileK(k), tileN(n) {}
-        
+
     TileL0Info() = default;
 };
 
@@ -493,8 +497,8 @@ struct ConvExtendParam {
     ConvExtendParam() = default;
 };
 
-Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const std::vector<int64_t> &strides, 
-            const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const ConvExtendParam &extendParam, 
+Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const std::vector<int64_t> &strides,
+            const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const ConvExtendParam &extendParam,
             const int64_t groups = 1);
 
 }

@@ -56,6 +56,7 @@ constexpr const char *CFG_RUN_MODE = "run_mode";
 constexpr const char *CFG_VALID_SHAPE_OPTIMIZE = "valid_shape_optimize";
 constexpr int64_t CFG_RUN_MODE_NPU = 0;
 constexpr int64_t CFG_RUN_MODE_SIM = 1;
+constexpr const char *READY_ON_HOST_TENSORS = "ready_on_host_tensors";
 
 // host
 constexpr const char *COMPILE_STAGE = "compile_stage";
@@ -85,7 +86,6 @@ constexpr const char *CFG_COMPILE_DBEUG_MODE = "compile_debug_mode";
 constexpr const char *CFG_RUNTIME_DBEUG_MODE = "runtime_debug_mode";
 constexpr int64_t CFG_DEBUG_NONE = 0;
 constexpr int64_t CFG_DEBUG_ALL = 1;
-constexpr int64_t CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND = 2;
 
 // operation
 const std::string KEY_FORCE_COMBINE_AXIS = "force_combine_axis";
@@ -306,6 +306,37 @@ public:
     void EndScope(const char *file = __builtin_FILE(), int line = __builtin_LINE());
 
     /**
+    * @brief RAII guard: BeginScope on construction, EndScope on destruction.
+    * Use instead of manual BeginScope + EndScope pair for exception safety.
+    */
+    class JitScopeGuard {
+    public:
+        JitScopeGuard(const std::string &name, std::map<std::string, Any> &&values = {},
+                        const char *file = __builtin_FILE(), int line = __builtin_LINE());
+        ~JitScopeGuard();
+        JitScopeGuard(const JitScopeGuard &) = delete;
+        JitScopeGuard &operator=(const JitScopeGuard &) = delete;
+
+    private:
+        // RAII: ctor does BeginScope, dtor does EndScope
+    };
+
+    /**
+     * @brief RAII guard: PushScope on construction, EndScope on destruction.
+     * Use instead of manual Restore + EndScope pair for exception safety.
+     */
+    class ScopedRestore {
+    public:
+        explicit ScopedRestore(std::shared_ptr<ConfigScope> scope);
+        ~ScopedRestore();
+        ScopedRestore(const ScopedRestore &) = delete;
+        ScopedRestore &operator=(const ScopedRestore &) = delete;
+
+    private:
+        // RAII: ctor does PushScope, dtor does EndScope
+    };
+
+    /**
      * @brief Set the Scope object
      * \brief Scope is not modifiable after it's begin, SetScope is just a syntax sugar for:
      * \code {.c}
@@ -395,8 +426,6 @@ private:
 };
 
 namespace config {
-
-void Restore(std::shared_ptr<ConfigScope> config);
 
 std::shared_ptr<ConfigScope> Duplicate();
 

@@ -84,9 +84,16 @@ conv(input_conv, weight, out_dtype, strides, paddings, dilations, *, groups=1, t
 ## 调用示例
 
 ```python
-# 2D 卷积基础示例
+# 2D 卷积基础示例（当前暂不支持动态轴切分调用）
 input_conv = pypto.tensor((1, 32, 8, 16), pypto.DT_FP16, "input_conv")
 weight = pypto.tensor((32, 32, 1, 1), pypto.DT_FP16, "weight")
+
+# 暂时不支持子图合并特性，需要手动关闭
+pypto.set_pass_options(
+    cube_l1_reuse_setting={-1: 1},
+    cube_nbuffer_setting={-1: 1},
+)
+
 out = pypto.conv(input_conv, weight, pypto.DT_FP16,
                    strides=[1, 1],
                    paddings=[0, 0, 0, 0],
@@ -97,15 +104,29 @@ input_conv = pypto.tensor((1, 32, 8, 16), pypto.DT_FP16, "input_conv")
 weight = pypto.tensor((32, 32, 1, 1), pypto.DT_FP16, "weight")
 bias = pypto.tensor((32,), pypto.DT_FP16, "bias")
 extend_params = {'bias_tensor': bias, 'relu_type': pypto.ReLuType.RELU}
+
+# 暂时不支持子图合并特性，需要手动关闭
+pypto.set_pass_options(
+    cube_l1_reuse_setting={-1: 1},
+    cube_nbuffer_setting={-1: 1},
+)
+
 out = pypto.conv(input_conv, weight, pypto.DT_FP16,
                    strides=[1, 1],
                    paddings=[0, 0, 0, 0],
                    dilations=[1, 1],
                    extend_params=extend_params)
 
-# 3D 卷积示例
+# 3D 卷积示例（当前暂不支持动态轴切分调用）
 input_conv = pypto.tensor((1, 96, 2, 16, 16), pypto.DT_FP16, "input_conv")
 weight = pypto.tensor((32, 96, 1, 1, 1), pypto.DT_FP16, "weight")
+
+# 暂时不支持子图合并特性，需要手动关闭
+pypto.set_pass_options(
+    cube_l1_reuse_setting={-1: 1},
+    cube_nbuffer_setting={-1: 1},
+)
+
 out = pypto.conv(input_conv, weight, pypto.DT_FP16,
                    strides=[1, 1, 1],
                    paddings=[0, 0, 0, 0, 0, 0],

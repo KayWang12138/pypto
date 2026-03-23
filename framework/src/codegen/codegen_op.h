@@ -40,18 +40,20 @@ struct CodeGenOpCtx {
     std::shared_ptr<SymbolManager> symbolManager;
     Function &topFunc;
     Function &subFunc;
+    const Operation &operation;
     const std::map<int, int> &locToOffset = {};
     bool isMainBlock{false};
-    const Operation &operation;
+    bool isDynamicAligned{false};
 
     CodeGenOpCtx(std::shared_ptr<SymbolManager> sm, Function &tf, Function &sf, const Operation &op,
-        const std::map<int, int> &lto = {}, bool isMainBlk = false)
+        const std::map<int, int> &lto = {}, bool isMainBlk = false, bool isDynAligned = false)
         : symbolManager(std::move(sm)),
           topFunc(tf),
           subFunc(sf),
+          operation(op),
           locToOffset(lto),
           isMainBlock(isMainBlk),
-          operation(op) {}
+          isDynamicAligned(isDynAligned) {}
 };
 
 class CodeGenOp {
@@ -61,7 +63,8 @@ public:
           functionType(ctx.topFunc.GetFunctionType()),
           paramLocToParamListOffset(ctx.locToOffset),
           isUnderDynamicFunction(ctx.topFunc.IsUnderDynamicFunction()),
-          isMainBlock(ctx.isMainBlock) {
+          isMainBlock(ctx.isMainBlock),
+          isDynamicAligned(ctx.isDynamicAligned) {
         for (size_t i = 0; i < MAX_OPERANDS; i++) {
             operand[i] = NULL_OPERAND;
             operandType[i] = BUF_UNKNOWN;
@@ -126,6 +129,7 @@ protected:
     bool isUnderDynamicFunction{false};
     int operandCnt{0};
     bool isMainBlock{false};
+    bool isDynamicAligned{false};
 
 private:
     void UpdateCodegenOpInfoByTensor(const Operation &ops, bool isInput, const std::shared_ptr<LogicalTensor> &tensor,

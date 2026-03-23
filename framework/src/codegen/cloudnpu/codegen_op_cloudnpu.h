@@ -37,12 +37,9 @@ struct CodeGenOpCloudNPUCtx : public CodeGenOpCtx {
     std::shared_ptr<ForBlockManager> forBlockManager{nullptr};
 
     CodeGenOpCloudNPUCtx(std::shared_ptr<SymbolManager> sm, Function &tf, Function &sf, const Operation &op,
-        const std::map<int, int> &lto = {}, bool isMainBlk = false)
-        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk) {}
-
-    CodeGenOpCloudNPUCtx(std::shared_ptr<SymbolManager> sm, std::shared_ptr<ForBlockManager> fbm, Function &tf,
-        Function &sf, const Operation &op, const std::map<int, int> &lto = {}, bool isMainBlk = false)
-        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk), forBlockManager(std::move(fbm)) {}
+        const std::map<int, int> &lto = {}, bool isMainBlk = false, bool isDynAligned = false,
+        std::shared_ptr<ForBlockManager> fbm = nullptr)
+        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk, isDynAligned), forBlockManager(std::move(fbm)) {}
 };
 
 class CodeGenOpCloudNPU : public CodeGenOp {
@@ -78,7 +75,6 @@ public:
     std::string GenReshapeCopyIn() const;
     std::string GenReshapeCopyOut() const;
 
-    std::string GenLoadOp() const;
     std::string PrintGatherInL1TileTensor() const;
     std::string GenGatherInL1() const;
     std::string GenGatherInUB() const;
@@ -156,11 +152,11 @@ public:
     std::string GetTemplateDType() const;
     std::string GenTemplateParams() const;
     std::string GenExtraTemplateParamsForMoeDistributedCombine(int32_t operandIndex) const;
-    std::string GenOffsets(int32_t operandIndex, int32_t dim) const;
-    std::string GenShapes(int32_t operandIndex, int32_t dim) const;
-    std::string GenRawShapes(int32_t operandIndex, int32_t dim) const;
+    std::string GenOffsets(int32_t operandIndex) const;
+    std::string GenShapes(int32_t operandIndex) const;
+    std::string GenRawShapes(int32_t operandIndex) const;
     std::string GenExtraParamsStr() const;
-    std::string GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const;
+    std::string GenOffsetsAndRawShapes(int32_t operandIndex) const;
 
     std::string GenAicpuCallOp() const;
 
@@ -173,8 +169,10 @@ public:
 
 private:
     TileTensor QueryTileTensorByIdx(int paramIdx) const;
+    std::string InsertOpComment(const std::string &tileOpSourceCode) const;
 
     std::string GenTemplateParamsForPutAndGet() const;
+    std::string GenTemplateParamsForPutUb2Gm() const;
     std::string GenTemplateParamsForSignal() const;
     std::string GenTemplateParamsForMoeDistributedCombineSend() const;
     std::string GenTemplateParamsForMoeDistributedCombineReceive() const;
@@ -204,7 +202,8 @@ private:
 
     template <typename T = int64_t>
     std::vector<T> GetShapeInLoop(const std::vector<T> &input) {
-        ASSERT(input.size() > SHAPE_DIM2) << "input size " << input.size() << " is less than 2";
+        ASSERT(OperErr::TENSOR_DIM_EXCEEDED, input.size() > SHAPE_DIM2)
+            << "input size " << input.size() << " is less than 2";
         std::vector<T> reservedShapeExceptLoopAxes = {*(input.rbegin() + 1), input.back()};
         return reservedShapeExceptLoopAxes;
     }
@@ -222,14 +221,14 @@ private:
             value = AnyCast<T>(it->second);
             return true;
         }
-        CODEGEN_LOGE("Type of attribute %s from PASS is mismatch: %s != %s", key.c_str(), it->second.Type().name(),
-            typeid(T).name());
+        CODEGEN_LOGE_E(GenCodeErr::DATA_TYPE_MISMATCHED, "Type of attribute %s from PASS is mismatch: %s != %s",
+            key.c_str(), it->second.Type().name(), typeid(T).name());
         return false;
     }
 
     template <typename T = int64_t>
     std::vector<T> GetVectorIntAttribute(const std::string &key) const {
-        static_assert(std::is_integral_v<T>);
+        ASSERT(GenCodeErr::DATA_TYPE_UNSUPPORTED, std::is_integral_v<T>) << "T must be integral type";
         std::vector<int64_t> val;
         GetAttr(key, val);
         if constexpr (std::is_same_v<T, int64_t>) {
@@ -526,8 +525,8 @@ private:
 
     template <typename T, typename FirstArg, typename... RestArgs>
     void AppendLocalBufVarOffsetInOrderImpl(FirstArg &first_arg, RestArgs &...rest_args) const {
-        static_assert(
-            std::is_same_v<std::remove_reference_t<FirstArg>, T>, "All arguments must be T (default: std::string)!");
+        bool isValidDType = std::is_same_v<std::remove_reference_t<FirstArg>, T>;
+        ASSERT(GenCodeErr::DATA_TYPE_UNSUPPORTED, isValidDType) << "All arguments must be T (default: std::string)!";
         tempVarsMap.emplace(tempKey++, std::ref(first_arg));
         AppendLocalBufVarOffsetInOrderImpl<T>(rest_args...);
     }

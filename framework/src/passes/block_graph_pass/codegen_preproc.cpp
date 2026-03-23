@@ -62,10 +62,6 @@ Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function &func) const {
                 gmParamInCallFunc[op.GetIOpAttrOffset(0)].emplace_back(&op);
                 gmParamInCallFunc[op.GetIOpAttrOffset(1)].emplace_back(&op);
             }
-            if (op.GetOpcode() == Opcode::OP_LOAD) {
-                int addrPos = op.GetIOpAttrOffset(0);
-                gmParamInCallFunc[addrPos].emplace_back(&op);
-            }
         }
         APASS_LOG_INFO_F(Elements::Operation, "%d:%sgmParamInCallFunc size: %zu", __LINE__, __FUNCTION__, gmParamInCallFunc.size());
         int tensorParamIdx{0};
@@ -193,7 +189,7 @@ void CodegenPreproc::FixExpandDimForAxisCombine(Operation &op, int dimSize) cons
 
 inline bool SkipInputCombineOps3510(Operation& op) {
     const std::unordered_set<Opcode> skipInputCombineOps3510 = {Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL,
-        Opcode::OP_DIV, Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM};
+        Opcode::OP_DIV, Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_EXPANDEXPDIF};
     if (skipInputCombineOps3510.count(op.GetOpcode()) == 0) {
         return false;
     }

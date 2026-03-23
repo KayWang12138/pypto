@@ -26,6 +26,7 @@
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 #include "cloudnpu/codegen_cloudnpu.h"
+#include "utils/codegen_error.h"
 
 namespace npu::tile_fwk {
 class CodeGenFactory {
@@ -35,7 +36,8 @@ public:
         if (platform == NPUArch::DAV_2201 || platform == NPUArch::DAV_3510) {
             return std::make_shared<CodeGenCloudNPU>(ctx);
         }
-        ASSERT(false) << "can not support this platform: " << ToUnderlying(platform) << ", please check environment";
+        ASSERT(FwkErr::PLATFORM_NOT_SUPPORTED, false)
+            << " can not support this platform: " << ToUnderlying(platform) << ", please check environment";
         return nullptr;
     }
 };

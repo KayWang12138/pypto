@@ -113,9 +113,6 @@ std::string TestConvL1CopyInBody(const std::string &funcName, const std::vector<
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPU cgop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
-    function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
-    cgop.originShape[0] = gmShape;
-    cgop.originShape[1] = gmShape;
     return cgop.GenOpCode();
 }
 
@@ -222,7 +219,6 @@ std::string TestConvLoad3DBody(const std::string &funcName, const bool &isConv3D
     l1Tensor->UpdateOffset(TensorOffset(offset, dynoffset));
 
     auto &op = function->AddOperation(Opcode::OP_LOAD3D_CONV, {l1Tensor}, {l0Tensor});
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
     SetConvLoad3DAttributes(op, isConv3D);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
@@ -230,8 +226,6 @@ std::string TestConvLoad3DBody(const std::string &funcName, const bool &isConv3D
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
-    function->GetTensorMap().inverseMap_[l1Tensor->GetMagic()] = l1Tensor;
-    function->GetTensorMap().inverseMap_[l0Tensor->GetMagic()] = l0Tensor;
 
     return cop.GenOpCode();
 }
@@ -267,7 +261,6 @@ std::string TestConvLoad2DBody(const std::string &funcName) {
     l1Tensor->UpdateOffset(TensorOffset(offset, dynoffset));
 
     auto &op = function->AddOperation(Opcode::OP_LOAD2D_CONV, {l1Tensor}, {l0Tensor});
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
     SetConvLoad2DAttributes(op);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
@@ -275,8 +268,6 @@ std::string TestConvLoad2DBody(const std::string &funcName) {
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
-    function->GetTensorMap().inverseMap_[l1Tensor->GetMagic()] = l1Tensor;
-    function->GetTensorMap().inverseMap_[l0Tensor->GetMagic()] = l0Tensor;
 
     return cop.GenOpCode();
 }

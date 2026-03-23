@@ -94,6 +94,11 @@ public:
     static const std::string blockSize;
     static const std::string transMode;
     static const std::string workspaceBaseOffset;
+    static const std::string copyInMode;
+    static const std::string copyOutMode;
+    static const std::string copyIsNZ;
+    static const std::string scaleValue;
+    static const std::string rowPad;
 };
 
 
@@ -371,8 +376,7 @@ public:
             Opcode::OP_INDEX_PUT,
             Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING,
             Opcode::OP_FFN_COMBINEINFO, Opcode::OP_FFN_VALIDCNT, Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_PUT_UB2GM,
-            Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET, Opcode::OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_REDUCE,
-            Opcode::OP_SHMEM_SET,
+            Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET, Opcode::OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_SET,
             Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
             Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
             Opcode::OP_GATHER_IN_UB, Opcode::OP_COPY_TO_LOCAL_EXPERT,

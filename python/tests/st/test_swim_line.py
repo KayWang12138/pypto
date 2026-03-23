@@ -23,12 +23,13 @@ import torch
 import torch_npu
 
 
-@pypto.jit(debug_options=dict(runtime_debug_mode=1))
-def matmul_add(in_tensor0, in_tensor1, in_tensor2, out_tensor):
-    a = in_tensor0	 
-    b = in_tensor1	 
-    c = in_tensor2	 
-    d = out_tensor
+@pypto.frontend.jit(debug_options=dict(runtime_debug_mode=1))
+def matmul_add(
+    a: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    b: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    c: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT32),
+    out: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT32),
+):
     tiling = 32
     n, k, m = tiling * 8, tiling * 8, tiling * 8
     pypto.set_vec_tile_shapes(tiling, tiling)
@@ -37,7 +38,7 @@ def matmul_add(in_tensor0, in_tensor1, in_tensor2, out_tensor):
     for _ in pypto.loop(1, name="s0", idx_name="i"):
         a0 = pypto.view(a, [n, k], [0, 0])
         b0 = pypto.view(b, [k, m], [0, 0])
-        d.move(pypto.add(pypto.matmul(a0, b0, pypto.DT_INT32), c))
+        out.move(pypto.add(pypto.matmul(a0, b0, pypto.DT_INT32), c))
 
 
 def device_run_data_from_device_mix_nodep(queue):
@@ -69,18 +70,12 @@ def device_run_data_from_device_mix_nodep(queue):
         d_data_list.append(d_data)
 
         # def inputs and outputs
-        inputs = [a_data, b_data, c_data]
-        outputs = [d_data]
-        pto_inputs = [pypto.from_torch(
-            tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-        pto_outputs = [pypto.from_torch(
-            tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-        matmul_add(pto_inputs[0], pto_inputs[1], pto_inputs[2], pto_outputs[0])
+        matmul_add(a_data, b_data, c_data, d_data)
 
     torch_npu.npu.synchronize()
     pref_path = pypto.pypto_impl.LogTopFolder()
     queue.put(pref_path)
-    
+
 
 def test_swim():
     mp.set_start_method('spawn', force=True)
@@ -95,7 +90,7 @@ def test_swim():
         assert False, "Could not Get pref path"
     aicpu_json_path = pref_path + "/machine_trace_perf_data_0.json"
     assert os.path.exists(aicpu_json_path), "Could not Get aicpu perf"
-    
+
     with open(aicpu_json_path, 'r', encoding='utf-8') as f:
         core_list: List[Dict] = json.load(f)
         for core in core_list:
@@ -107,3 +102,11 @@ def test_swim():
     swim_lane_json_path = pref_path + "/merged_swimlane.json"
     assert os.path.exists(swim_lane_json_path), "Could not Get swim lane"
     assert os.path.getsize(swim_lane_json_path) > 0, "Get swim lane is null"
+
+    tilefwk_l1_prof_data_path = pref_path + "/tilefwk_L1_prof_data.json"
+    assert os.path.exists(tilefwk_l1_prof_data_path), "Could not Get tilefwk_L1_prof_data"
+
+    # can not be empty list, need to have data
+    with open(tilefwk_l1_prof_data_path, 'r', encoding='utf-8') as f:
+        tilefwk_11_prof_data: List[Dict] = json.load(f)
+        assert len(tilefwk_11_prof_data) > 0, "tilefwk_L1_prof_data is empty"

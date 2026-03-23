@@ -124,7 +124,6 @@ struct IncastOutcastSlot {
     std::vector<std::vector<int>> incastSlot;
     std::vector<std::vector<int>> outcastSlot;
     std::vector<int> partialUpdateOutcastList;
-    std::vector<int> partialUpdateCount;
 };
 
 struct TensorSlotScope {
