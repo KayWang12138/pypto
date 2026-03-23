@@ -64,6 +64,20 @@ python3 test_{op}.py --run-mode npu
 6. 对比性能提升，如果性能出现回退则回退修改
 7. 重复步骤 1-6 直到达到目标性能
 
+## 常见高阶优化项
+
+- `loop_unroll`
+- `stitch_function_inner_memory`
+- `stitch_function_outcast_memory`
+- `stitch_function_num_initial`
+
+使用原则：
+
+1. 先保证功能和精度正确，再调整高阶参数
+2. 每次只调整一小组参数，避免收益来源不可追踪
+3. 每轮调整后都要回验精度和性能，出现回退立即撤销
+4. 对 `loop_unroll` 与 stitch 相关参数，不要在缺少性能数据时盲目开启
+
 ---
 
 ## 常见问题

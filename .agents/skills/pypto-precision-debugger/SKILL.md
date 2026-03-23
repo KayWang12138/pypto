@@ -429,12 +429,14 @@ BF16 正常精度损失范围：
 
 ## 参考资料
 
+当 workflow 或实现阶段怀疑问题与 `valid_shape`、`unroll_list`、workspace、合轴或内存重叠有关时，优先转入本 skill。
+
 ### 文档资料
 
 | 文档 | 路径 | 说明 |
 |------|------|------|
 | Machine 错误排查 | `docs/trouble_shooting/machine.md` | 内存相关错误排查指南 |
-| 精度验证技能 | `.agents/skills/pypto-operator-accuracy-verify/SKILL.md` | 精度验证方法 |
+| 精度验证入口 | `test_{op}.py` 与 `{op}_golden.py` | 基于 golden 的精度验证方法 |
 | 二分查找调试 | `.agents/skills/pypto-binary-search-verify/SKILL.md` | 二分定位精度问题 |
 | 已知问题文档 | `docs/tutorials/appendix/issue.md` | 常见问题及解决方案 |
 | 循环开发指南 | `docs/tutorials/development/loops.md` | loop 使用方法 |

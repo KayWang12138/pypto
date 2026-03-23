@@ -113,6 +113,20 @@ PyPTO kernel函数实现，基于固定模板 `references/impl-template.py` 生�
 | 输出写回 | `output[:] = result` 或 `pypto.assemble(result, offset, output)` |
 | 可选辅助函数 | `{op}_core()` — 复杂算子拆分核心计算逻辑 |
 
+## 实现注意点
+
+1. **PyPTO tensor 初始化与 torch 不同**：不要机械照搬 `torch.zeros` / `torch.empty` 的习惯，优先按照 PyPTO 张量描述与后续完整写回方式组织代码。
+2. **禁止无中生有 op**：实现时只能使用 PyPTO 已支持的 API，遇到缺失能力应回退到 API 探索或设计阶段重新确认。
+3. **优先使用当前项目推荐的 `@pypto.frontend.jit` 写法**：实现应与现有示例和当前文档保持一致，不要混用过时包装方式。
+4. **golden / impl / test 必须职责分离**：不要把 golden 逻辑、实现逻辑和测试逻辑混写到同一个文件中。
+
+## 动态与循环实现提醒
+
+- 动态 shape 场景下，`pypto.view` / `pypto.reshape` 需要认真检查 `valid_shape`
+- 多层循环场景下，谨慎使用 `unroll_list`，尤其注意是否只放在最内层循环
+- matmul / cube 场景必须确认 `set_cube_tile_shapes(...)` 已正确配置
+- 如果设计中已有 tiling / loop 约束，编码时优先遵循 `design.md`，不要临时拍脑袋改写
+
 ---
 
 ## Generate README.md
@@ -148,6 +162,13 @@ PyPTO kernel函数实现，基于固定模板 `references/impl-template.py` 生�
 1. 3 个文件（`test_{op}.py` + `{op}_impl.py` + `README.md`）全部存在
 2. `test_{op}.py` 可执行（无语法错误）
 3. 精度判定由 orchestrator 负责（非本 skill 职责）
+
+## 推荐验证顺序
+
+1. 小规模功能验证：先确认代码能运行、基础输出形状正确
+2. 典型规模验证：使用目标场景下的常规输入做主路径验证
+3. 边界与极值验证：检查零值、大值、特殊 shape、动态 shape 等情况
+4. 大规模或性能相关验证：在功能和精度稳定后再推进性能相关验证
 
 ## 注意事项
 
