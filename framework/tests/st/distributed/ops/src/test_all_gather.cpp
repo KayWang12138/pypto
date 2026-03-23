@@ -31,8 +31,6 @@ void TestAllGather(OpTestParam& testParam, std::string& goldenDir)
 
     DataType dType = GetDataTypeNum(typeNum);
 
-    int32_t outSize = row * col * testParam.rankSize;
-
     Shape shape{row, col};
     Shape outShape{testParam.rankSize * row, col};
     Tensor in(dType, shape, "in");
@@ -43,14 +41,12 @@ void TestAllGather(OpTestParam& testParam, std::string& goldenDir)
     Shape shmemDataShape{testParam.rankSize, row, col};
     FUNCTION("ALLGATHER", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        Tensor shmemData;
-        Tensor shmemSignal;
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, dType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
-        }
-        AllGather(in, in, testParam.group, shmemData, shmemSignal, out);
+        ShmemTensor shmemTensor;
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) { 
+             (void)index; 
+             CreateShmemTensor(testParam.group, testParam.rankSize, dType, shmemDataShape, shmemTensor);
+         }
+        AllGather(in, in, shmemTensor, out);
     }
 
     ProgramData::GetInstance().AppendInputs({
@@ -62,8 +58,8 @@ void TestAllGather(OpTestParam& testParam, std::string& goldenDir)
 
     RunTest();
     auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
+    int32_t outSize = row * col * testParam.rankSize;
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, outPtr, testParam));
-
 }
 
 template void TestAllGather<int32_t>(OpTestParam &testParam, std::string& goldenDir);
