@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+# coding: utf-8
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
 """
 Pass Performance Analysis Script
 
@@ -27,9 +35,52 @@ import re
 import sys
 import os
 import glob
+import logging
+from datetime import datetime
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
+
+
+def setup_logger(log_dir: str = "./perf_logs") -> logging.Logger:
+    """Setup logger with file and console handlers."""
+    os.makedirs(log_dir, exist_ok=True)
+    
+    log_filename = os.path.join(
+        log_dir, 
+        f"pass_perf_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.log"
+    )
+    
+    lg = logging.getLogger("PassPerfAnalyzer")
+    lg.setLevel(logging.INFO)
+    lg.handlers.clear()
+    
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    
+    file_handler = logging.FileHandler(log_filename, encoding='utf-8')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    lg.addHandler(file_handler)
+    
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+    lg.addHandler(console_handler)
+    
+    lg.info(f"Log file: {log_filename}")
+    
+    return lg
+
+
+_logger: Optional[logging.Logger] = None
+
+
+def get_logger() -> logging.Logger:
+    """Get the global logger instance."""
+    global _logger
+    if _logger is None:
+        _logger = setup_logger()
+    return _logger
 
 
 @dataclass
@@ -121,7 +172,8 @@ class PassPerfAnalyzer:
         self.total_ops = 0
         self.total_pass_time = 0
     
-    def find_split_log_files(self, log_file: str) -> List[str]:
+    @staticmethod
+    def find_split_log_files(log_file: str) -> List[str]:
         """
         Find all split log files for a given log file based on pid.
         
@@ -166,25 +218,24 @@ class PassPerfAnalyzer:
             Tuple of (pass_times dict, total_ops)
             pass_times: {pass_name: [duration1, duration2, ...]}
         """
+        lg = get_logger()
         pass_times: Dict[str, List[int]] = defaultdict(list)
         total_ops = 0
         
         log_files = self.find_split_log_files(log_file)
         
         if not log_files:
-            print(f"Error: Log file not found: {log_file}")
-            sys.exit(1)
+            raise FileNotFoundError(f"Log file not found: {log_file}")
         
         if len(log_files) > 1 and not self.quiet_mode:
             first_file = os.path.basename(log_files[0])
             match = re.match(r'pypto-log-(\d+)_', first_file)
             pid = match.group(1) if match else "unknown"
             
-            print(f"Found {len(log_files)} split log files (pid: {pid}):")
+            lg.info(f"Found {len(log_files)} split log files (pid: {pid}):")
             for i, f in enumerate(log_files, 1):
                 size_mb = os.path.getsize(f) / (1024 * 1024)
-                print(f"  {i}. {os.path.basename(f)} ({size_mb:.1f}M)")
-            print()
+                lg.info(f"  {i}. {os.path.basename(f)} ({size_mb:.1f}M)")
         
         try:
             for current_file in log_files:
@@ -201,12 +252,10 @@ class PassPerfAnalyzer:
                             ops = int(match.group(1))
                             if ops > total_ops:
                                 total_ops = ops
-        except FileNotFoundError:
-            print(f"Error: Log file not found: {log_file}")
-            sys.exit(1)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"Log file not found: {log_file}") from e
         except Exception as e:
-            print(f"Error parsing log file: {e}")
-            sys.exit(1)
+            raise RuntimeError(f"Error parsing log file: {e}") from e
         
         return pass_times, total_ops
     
@@ -228,16 +277,12 @@ class PassPerfAnalyzer:
                 durations_before=durations_before
             )
         
-        # Calculate total pass time for percentage calculation
         total_pass_time = sum(d.duration_us for d in self.pass_data.values())
         for data in self.pass_data.values():
             data.total_pass_time = total_pass_time
     
     def get_status(self, data: PassPerfData) -> Tuple[str, float]:
         """Get status string and dynamic threshold for a pass based on Op count."""
-        # Calculate dynamic threshold based on actual Op count
-        # Base target: 200,000 Op -> 20s
-        # Formula: target = (actual_ops / 200,000) × 20s
         base_ops = 200000
         dynamic_threshold = (data.ops / base_ops) * self.time_threshold_s
         
@@ -245,86 +290,84 @@ class PassPerfAnalyzer:
             return f"WARNING (>{dynamic_threshold:.1f}s for {data.ops} ops)", dynamic_threshold
         return "OK", dynamic_threshold
     
-    def print_report(self, output_file: Optional[str] = None):
+    def print_report(self):
         """Print performance analysis report with count and average."""
-        import sys
+        lg = get_logger()
         
-        # 保存原始stdout
-        original_stdout = sys.stdout
+        if not self.pass_data:
+            lg.info("No pass timing data found in log file.")
+            return
         
-        # 如果指定了输出文件，重定向stdout
-        if output_file:
-            sys.stdout = open(output_file, 'w', encoding='utf-8')
+        sorted_data = sorted(self.pass_data.values(), key=lambda x: x.duration_us, reverse=True)
         
-        try:
-            if not self.pass_data:
-                print("No pass timing data found in log file.")
-                return
+        lg.info("=" * 140)
+        lg.info(" " * 45 + "Pass Performance Analysis Report")
+        lg.info("=" * 140)
+        lg.info(f"Total Operations: {self.total_ops}")
+        lg.info(f"Time Threshold: {self.time_threshold_s}s ({int(self.time_threshold_s * 1_000_000)} us)")
+        lg.info("")
+        
+        has_comparison = any(d.durations_before for d in sorted_data)
+        
+        if has_comparison:
+            header = (f"{'Pass Name':<30} | {'Count':<5} | {'Avg(s)':<8} | "
+                      f"{'Target(s)':<9} | {'Total(s)':<9} | {'Avg Ops':<10} | "
+                      f"{'Time%':<6} | {'Improve%':<8} | {'Status'}")
+            lg.info(header)
+            lg.info("-" * 160)
+        else:
+            header = (f"{'Pass Name':<30} | {'Count':<5} | {'Avg(s)':<8} | "
+                      f"{'Target(s)':<9} | {'Total(s)':<9} | {'Avg Ops':<10} | "
+                      f"{'Time%':<6} | {'Status'}")
+            lg.info(header)
+            lg.info("-" * 130)
+        
+        for data in sorted_data:
+            status, dynamic_threshold = self.get_status(data)
+            time_percent = f"{data.time_percent:.1f}%"
+            avg_ops = f"{data.avg_ops}"
             
-            sorted_data = sorted(self.pass_data.values(), key=lambda x: x.duration_us, reverse=True)
-            
-            print("=" * 140)
-            print(" " * 45 + "Pass Performance Analysis Report")
-            print("=" * 140)
-            print(f"Total Operations: {self.total_ops}")
-            print(f"Time Threshold: {self.time_threshold_s}s ({int(self.time_threshold_s * 1_000_000)} us)")
-            print()
-            
-            has_comparison = any(d.durations_before for d in sorted_data)
-            
-            if has_comparison:
-                print(f"{'Pass Name':<30} | {'Count':<5} | {'Avg(s)':<8} | {'Target(s)':<9} | {'Total(s)':<9} | {'Avg Ops':<10} | {'Time%':<6} | {'Improve%':<8} | {'Status'}")
-                print("-" * 160)
+            if has_comparison and data.durations_before:
+                improve = f"{data.improvement_percent:+.1f}%"
+                row = (f"{data.name:<30} | {data.count:<5} | {data.avg_duration_s:<8.3f} | "
+                       f"{dynamic_threshold:<9.2f} | {data.duration_s:<9.3f} | "
+                       f"{avg_ops:<10} | {time_percent:<6} | {improve:<8} | {status}")
+                lg.info(row)
             else:
-                print(f"{'Pass Name':<30} | {'Count':<5} | {'Avg(s)':<8} | {'Target(s)':<9} | {'Total(s)':<9} | {'Avg Ops':<10} | {'Time%':<6} | {'Status'}")
-                print("-" * 130)
-            
-            for data in sorted_data:
-                status, dynamic_threshold = self.get_status(data)
-                time_percent = f"{data.time_percent:.1f}%"
-                avg_ops = f"{data.avg_ops}"
-                
-                if has_comparison and data.durations_before:
-                    improve = f"{data.improvement_percent:+.1f}%"
-                    print(f"{data.name:<30} | {data.count:<5} | {data.avg_duration_s:<8.3f} | {dynamic_threshold:<9.2f} | {data.duration_s:<9.3f} | {avg_ops:<10} | {time_percent:<6} | {improve:<8} | {status}")
-                else:
-                    print(f"{data.name:<30} | {data.count:<5} | {data.avg_duration_s:<8.3f} | {dynamic_threshold:<9.2f} | {data.duration_s:<9.3f} | {avg_ops:<10} | {time_percent:<6} | {status}")
-            
-            print()
-            
-            # Find passes exceeding their dynamic threshold
-            exceeding = []
-            for d in sorted_data:
-                _, dynamic_threshold = self.get_status(d)
-                if d.avg_duration_s > dynamic_threshold:
-                    exceeding.append((d, dynamic_threshold))
-            
-            if exceeding:
-                print("=" * 140)
-                print("Passes Exceeding Dynamic Threshold:")
-                for i, (data, threshold) in enumerate(exceeding, 1):
-                    print(f"  {i}. {data.name}: avg {data.avg_duration_s:.1f}s > target {threshold:.1f}s (ops: {data.ops}, count: {data.count}, time%: {data.time_percent:.1f}%)")
-                print("=" * 140)
-            
-            print()
-            print("Summary:")
-            print(f"  Total passes analyzed: {len(self.pass_data)}")
-            print(f"  Passes exceeding threshold: {len(exceeding)}")
-            total_time = sum(d.duration_us for d in self.pass_data.values())
-            total_count = sum(d.count for d in self.pass_data.values())
-            print(f"  Total pass executions: {total_count}")
-            print(f"  Total pass time: {total_time / 1_000_000:.2f}s")
-            
-            if has_comparison:
-                total_before = sum(d.duration_us_before for d in self.pass_data.values() if d.durations_before)
-                if total_before > 0:
-                    improvement = (total_before - total_time) / total_before * 100
-                    print(f"  Total improvement: {improvement:+.1f}%")
-        finally:
-            # 恢复stdout
-            if output_file:
-                sys.stdout.close()
-                sys.stdout = original_stdout
+                row = (f"{data.name:<30} | {data.count:<5} | {data.avg_duration_s:<8.3f} | "
+                       f"{dynamic_threshold:<9.2f} | {data.duration_s:<9.3f} | "
+                       f"{avg_ops:<10} | {time_percent:<6} | {status}")
+                lg.info(row)
+        
+        lg.info("")
+        
+        exceeding = []
+        for d in sorted_data:
+            _, dynamic_threshold = self.get_status(d)
+            if d.avg_duration_s > dynamic_threshold:
+                exceeding.append((d, dynamic_threshold))
+        
+        if exceeding:
+            lg.info("=" * 140)
+            lg.info("Passes Exceeding Dynamic Threshold:")
+            for i, (data, threshold) in enumerate(exceeding, 1):
+                lg.info(f"  {i}. {data.name}: avg {data.avg_duration_s:.1f}s > target {threshold:.1f}s (ops: {data.ops}, count: {data.count}, time%: {data.time_percent:.1f}%)")
+            lg.info("=" * 140)
+        
+        lg.info("")
+        lg.info("Summary:")
+        lg.info(f"  Total passes analyzed: {len(self.pass_data)}")
+        lg.info(f"  Passes exceeding threshold: {len(exceeding)}")
+        total_time = sum(d.duration_us for d in self.pass_data.values())
+        total_count = sum(d.count for d in self.pass_data.values())
+        lg.info(f"  Total pass executions: {total_count}")
+        lg.info(f"  Total pass time: {total_time / 1_000_000:.2f}s")
+        
+        if has_comparison:
+            total_before = sum(d.duration_us_before for d in self.pass_data.values() if d.durations_before)
+            if total_before > 0:
+                improvement = (total_before - total_time) / total_before * 100
+                lg.info(f"  Total improvement: {improvement:+.1f}%")
     
     def get_exceeding_passes(self) -> List[PassPerfData]:
         """Get list of passes exceeding threshold."""
@@ -351,9 +394,14 @@ Examples:
                         help='Operations threshold for scale reference (default: 200000)')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Suppress file list output, show only analysis results')
-    parser.add_argument('-o', '--output', help='Output file path (default: stdout)')
+    parser.add_argument('--log-dir', default='./perf_logs',
+                        help='Directory for output log files (default: ./perf_logs)')
     
     args = parser.parse_args()
+    
+    global _logger
+    _logger = setup_logger(args.log_dir)
+    lg = get_logger()
     
     analyzer = PassPerfAnalyzer(
         time_threshold_s=args.time_threshold,
@@ -361,8 +409,15 @@ Examples:
         quiet_mode=args.quiet
     )
     
-    analyzer.analyze(args.log, args.compare)
-    analyzer.print_report(args.output)
+    try:
+        analyzer.analyze(args.log, args.compare)
+        analyzer.print_report()
+    except FileNotFoundError as e:
+        lg.error(str(e))
+        sys.exit(1)
+    except RuntimeError as e:
+        lg.error(str(e))
+        sys.exit(1)
     
     exceeding = analyzer.get_exceeding_passes()
     if exceeding:
