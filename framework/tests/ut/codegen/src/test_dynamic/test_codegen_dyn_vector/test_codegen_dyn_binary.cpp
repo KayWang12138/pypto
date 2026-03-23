@@ -242,7 +242,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEleForFuncParallel) {
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
-    LogManager::Instance(). SetLogLevel(LogLevel::NONE)
+    LogManager::Instance().SetLogLevel(LogLevel::NONE)
 }
 
 TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor) {
