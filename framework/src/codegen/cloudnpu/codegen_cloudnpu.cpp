@@ -548,6 +548,7 @@ void CodeGenCloudNPU::AppendVFOptions(NPUArch platform, std::ostringstream &oss)
         oss << "--enable-pto-tile-fusion "
             << "-mllvm --tile-fusion-skip-shape-inference=true "
             << "-mllvm --tile-fusion-skip-reduceop-fusion=false "
+            << "-mllvm --cce-vf-enable-pto-vf-extender=true "
             << "-mllvm --tile-fusion-skip-legality-check=false ";
     }
 }
