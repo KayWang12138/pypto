@@ -218,7 +218,7 @@ public:
             ret = rc;
         }
         PerfMtEnd(PERF_EVT_SYNC_AICORE, aicpuIdx_);
-        DEV_DEBUG("aicpu[%d] proc finish send all task: aicCnt=%lu, aivCnt=%lu, aicpuCnt=%lu, syncFinishRet=%d.",
+        DEV_VERBOSE_DEBUG("aicpu[%d] proc finish send all task: aicCnt=%lu, aivCnt=%lu, aicpuCnt=%lu, syncFinishRet=%d.",
             aicpuIdx_, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_, procAicpuFunctionCnt_, ret);
         return ret;
     }
@@ -226,7 +226,7 @@ public:
     inline int32_t ProcessTask(DeviceTaskCtrl *taskCtrl) {
         int32_t ret = DEVICE_MACHINE_OK;
         seq = taskCtrl->taskId;
-        DEV_INFO("receive new taskId=%lu.", taskCtrl->taskId);
+        DEV_VERBOSE_DEBUG("receive new taskId=%lu.", taskCtrl->taskId);
         InitDevTask(taskCtrl);
 
         uint64_t curSent = 0UL;
@@ -331,10 +331,10 @@ public:
 
     inline int RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         int ret = DEVICE_MACHINE_OK;
-        DEV_DEBUG("schedule run threadIdx=%d", threadIdx);
+        DEV_VERBOSE_DEBUG("schedule run threadIdx=%d", threadIdx);
         Init(threadIdx, devStartArgs, deviceArgs, schedIdx);
         PerfMtTrace(PERF_TRACE_INIT, threadIdx);
-        DEV_DEBUG("Schedule run init succ");
+        DEV_VERBOSE_DEBUG("Schedule run init succ");
         DeviceTaskCtrl *taskCtrl = nullptr;
         taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
         if constexpr (IsDeviceMode()) {
@@ -351,12 +351,12 @@ public:
             devStartArgs->syncFlag = 1;
             aicoreProf_.ProfStart();
         }
-        DEV_DEBUG("Schedule run start succ");
+        DEV_VERBOSE_DEBUG("Schedule run start succ");
         uint64_t lastDevTaskFinCycle = 0;
         while (ret == 0) {
-            DEV_DEBUG("Schedule task wait");
+            DEV_VERBOSE_DEBUG("Schedule task wait");
             taskCtrl = preFetchSuccess_ ? preFetchNextDevTaskCtrl_ : taskQueue_->Dequeue();
-            DEV_DEBUG("Schedule task recv");
+            DEV_VERBOSE_DEBUG("Schedule task recv");
             if (taskCtrl == nullptr) {
                 PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, aicpuIdx_, lastDevTaskFinCycle);
                 if (!isSendStop) {
@@ -370,7 +370,7 @@ public:
             ret = RunTask(taskCtrl);
             lastDevTaskFinCycle = GetCycles();
             PerfMtEnd(PERF_EVT_RUN_TASK, threadIdx);
-                DEV_DEBUG("Run task finish: taskId=%d, ret=%d.", curTaskId_, ret);
+            DEV_VERBOSE_DEBUG("Run task finish: taskId=%d, ret=%d.", curTaskId_, ret);
             if (ret != 0)
                 break;
             taskCtrl->PutTask(ret);
@@ -1512,7 +1512,7 @@ private:
             InitDevTask(preFetchNextDevTaskCtrl_);
             needSendAic = (readyAicCoreFunctionQue_->tail != readyAicCoreFunctionQue_->head);
             needSendAiv = (readyAivCoreFunctionQue_->tail != readyAivCoreFunctionQue_->head);
-            DEV_DEBUG("hand shake prefetch dev task success: needSendAic=%d, needSendAiv=%d", needSendAic, needSendAiv);
+            DEV_VERBOSE_DEBUG("hand shake prefetch dev task success: needSendAic=%d, needSendAiv=%d", needSendAic, needSendAiv);
         }
     }
 
@@ -1534,7 +1534,7 @@ private:
             if (sentAic + sentAiv > 0) {
                 preFetchNextDevTaskCtrl_->finishedFunctionCnt.fetch_add(sentAic + sentAiv, std::memory_order_relaxed);
             }
-            DEV_DEBUG("hand shake presend task cnt: aic=%lu, aiv=%lu", sentAic, sentAiv);
+            DEV_VERBOSE_DEBUG("hand shake presend task cnt: aic=%lu, aiv=%lu", sentAic, sentAiv);
         }
     }
 
@@ -1668,8 +1668,8 @@ private:
         context_->lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIV)] = static_cast<uint32_t>(aivStart_);
         context_->lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIC)] = static_cast<uint32_t>(aicStart_);
         aicoreHal_.SetMngCoreBlockId(aicStart_, aicEnd_, aivStart_, aivEnd_);
-        DEV_DEBUG("assign core aic coreindex section: start=%d, end=%d.", aicStart_, aicEnd_);
-        DEV_DEBUG("assign core aiv coreindex section: start=%d, end=%d.", aivStart_, aivEnd_);
+        DEV_VERBOSE_DEBUG("assign core aic coreindex section: start=%d, end=%d.", aicStart_, aicEnd_);
+        DEV_VERBOSE_DEBUG("assign core aiv coreindex section: start=%d, end=%d.", aivStart_, aivEnd_);
     }
 
     inline int GetPhyIdByBlockId(int coreIdx) {
