@@ -893,7 +893,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         tasks.push_back(task);
     }
     
-    unsigned threadNum = ConfigManager::Instance().GetCodeGenConfig(KEY_PARALLEL_COMPILE, 1u);
+    unsigned threadNum = GetCGThreadNum();
     ParallelExecuteAndWait(threadNum, tasks);
 
     struct EncodeDevAscendFunctionParam encodeDevAscendFunctionParam = {};

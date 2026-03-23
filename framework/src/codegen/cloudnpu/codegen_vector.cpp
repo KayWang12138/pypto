@@ -29,10 +29,10 @@ std::string CodeGenOpCloudNPU::GenCastOp() const {
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
-    std::vector srcShape = this->rawShape[ID1];
+    std::vector srcShape = rawShape[ID1];
     CODEGEN_LOGI("genCastOp %s, srcShape is %s", tileOpName.c_str(), IntVecToStr(srcShape).c_str());
 
-    std::vector dstShape = this->rawShape[ID0];
+    std::vector dstShape = rawShape[ID0];
     CODEGEN_LOGI("genCastOp %s, dstShape is %s", tileOpName.c_str(), IntVecToStr(dstShape).c_str());
 
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
@@ -183,9 +183,9 @@ std::string CodeGenOpCloudNPU::GenTransposeDataMove() const {
     std::string localVar = sm->QueryVarNameByTensorMagic(operandWithMagic[localIdx]);
     std::string gmVar = GenGmParamVar(gmIdx);
 
-    std::vector<int64_t> srcShape = this->rawShape[localIdx];
+    std::vector<int64_t> srcShape = rawShape[localIdx];
     CODEGEN_LOGI("GenTransposeDataMove: srcShape is %s", IntVecToStr(srcShape).c_str());
-    std::vector<int64_t> gmShape = this->rawShape[gmIdx];
+    std::vector<int64_t> gmShape = rawShape[gmIdx];
     CODEGEN_LOGI("GenTransposeDataMove: gmShape is %s", IntVecToStr(gmShape).c_str());
 
     AppendLocalBufferVarOffset({
@@ -383,8 +383,8 @@ std::string CodeGenOpCloudNPU::PrintGatherStatic(const PrintGatherParam &param) 
     const std::string &s0Var = param.s0Var;
     const std::string &s1Var = param.s1Var;
 
-    std::vector dstShape = this->rawShape[ID0];
-    std::vector src0Shape = this->rawShape[ID1];
+    std::vector dstShape = rawShape[ID0];
+    std::vector src0Shape = rawShape[ID1];
 
     std::vector<int64_t> dos = NormalizeShape(originShape[ID0], SHAPE_DIM4);
     std::vector<int64_t> ss = NormalizeShape(src0Shape, SHAPE_DIM4);
@@ -423,9 +423,9 @@ std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned(const PrintGatherPara
     const std::string &src0DtypeStr = param.src0DtypeStr;
     const std::string &src1DtypeStr = param.src1DtypeStr;
     const int64_t axis = param.axis;
-    std::vector dstShape = this->rawShape[ID0];
-    std::vector src0Shape = this->rawShape[ID1];
-    std::vector src1Shape = this->rawShape[ID2];
+    std::vector dstShape = rawShape[ID0];
+    std::vector src0Shape = rawShape[ID1];
+    std::vector src1Shape = rawShape[ID2];
 
     auto mul = [](uint32_t data, const int64_t in) { return data * in; };
     std::vector<int64_t> indexShape = NormalizeShape(src1Shape, SHAPE_DIM4);
@@ -492,12 +492,11 @@ std::string CodeGenOpCloudNPU::GenGatherFromUBOp() const {
         << "GenGatherOp: There is nop axis attribute here";
     const int64_t axis = AnyCast<int64_t>(opAttrs.at("op_attr_axis"));
     // shape: dst, src0, src1
-    int src0Rank = shape[ID1].size();
-    ASSERT(GenCodeErr::TENSOR_SHAPE_INVALID, src0Rank <= RANK4) << "GenGatherOp: src0 shape rank is not supported!";
+    int dim = rawShape[ID1].size();
+    ASSERT(GenCodeErr::TENSOR_SHAPE_INVALID, dim <= SHAPE_DIM4) << "GenGatherOp: dim is not supported: " << dim;
 
-    std::vector dstShape = this->rawShape[0];
-
-    std::vector src0Shape = this->rawShape[1];
+    std::vector dstShape = rawShape[ID0];
+    std::vector src0Shape = rawShape[ID1];
     CODEGEN_LOGI(
         "GenGatherOp, src0 Shape is [%ld,%ld]", static_cast<long>(src0Shape[0]), static_cast<long>(src0Shape[1]));
 
@@ -602,9 +601,9 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
     std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
-    std::vector dstShape = this->rawShape[ID0];
-    std::vector src0Shape = this->rawShape[ID2];
-    std::vector src1Shape = this->rawShape[ID3];
+    std::vector dstShape = rawShape[ID0];
+    std::vector src0Shape = rawShape[ID2];
+    std::vector src1Shape = rawShape[ID3];
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID2]);
     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID3]);
@@ -724,8 +723,8 @@ std::string CodeGenOpCloudNPU::GenIndexPutOp() const {
         std::string s2VarTemp = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3 + i]);
         s2Var.emplace_back(s2VarTemp);
     }
-    std::vector gmShape = this->rawShape[ID0];
-    std::vector src1RawShape = this->rawShape[ID2];
+    std::vector gmShape = rawShape[ID0];
+    std::vector src1RawShape = rawShape[ID2];
 
     std::vector<std::string> dataTypeExpr;
     for (int i = 0; i < NUM4; i++) {
@@ -886,8 +885,8 @@ std::string CodeGenOpCloudNPU::GenIndexAddOp() const {
     std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
     std::string indicesVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID4]);
 
-    std::vector dstRawShape = this->rawShape[ID0];
-    std::vector srcRawShape = this->rawShape[ID3];
+    std::vector dstRawShape = rawShape[ID0];
+    std::vector srcRawShape = rawShape[ID3];
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID3]);
@@ -958,7 +957,7 @@ std::string CodeGenOpCloudNPU::GenCumSumOp() const {
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     std::string inputVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
 
-    std::vector inputRawShape = this->rawShape[ID1];
+    std::vector inputRawShape = rawShape[ID1];
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string inputDtypeStr = DataType2CCEStr(operandDtype[ID1]);
@@ -1007,23 +1006,20 @@ std::string CodeGenOpCloudNPU::GenTriULOp() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const {
-    // Static only support 2Dim
-    int dstRank = shape[ToUnderlying(MISOIdx::DST_IDX)].size();
-    int src1Rank = shape[ToUnderlying(MISOIdx::SRC1_IDX)].size();
-    ASSERT(GenCodeErr::TENSOR_SHAPE_INVALID, src1Rank == RANK2)
-        << "GenScatterElementSOp: src1 shape rank is not supported!";
-    ASSERT(GenCodeErr::TENSOR_SHAPE_INVALID, dstRank == RANK2)
-        << "GenScatterElementSOp: dst shape rank is not supported!";
-
     const std::string &dstVar = param.dVar;
     const std::string &src0Var = param.s0Var;
     const std::string &src1Var = param.s1Var;
     std::vector<int64_t> &dstShape = param.dstRawShape;
     std::vector<int64_t> &src1RawShape = param.src1RawShape;
+    // Static only support 2Dim
+    ASSERT(GenCodeErr::TENSOR_DIM_UNSUPPORTED, dstShape.size() == SHAPE_DIM2)
+        << "dst only support 2 Dim, current is : " << dstShape.size();
+    ASSERT(GenCodeErr::TENSOR_DIM_UNSUPPORTED, src1RawShape.size() == SHAPE_DIM2)
+        << "src1 only support 2 Dim, current is : " << src1RawShape.size();
     const std::vector<std::string> &dataTypeExpr = param.dataTypeExpr;
     const Element &scala = extOperandVal;
 
-    std::vector src1Shape = this->originShape[ToUnderlying(MISOIdx::SRC1_IDX)];
+    std::vector src1Shape = originShape[ToUnderlying(MISOIdx::SRC1_IDX)];
     std::vector<int64_t> s1os = NormalizeShape(src1Shape, SHAPE_DIM2);
     std::vector<int64_t> s1rs = NormalizeShape(src1RawShape, SHAPE_DIM2);
     std::vector<int64_t> drs = NormalizeShape(dstShape, SHAPE_DIM2);
@@ -1125,8 +1121,8 @@ std::string CodeGenOpCloudNPU::GenScatterElementSOp() const {
     std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
 
-    std::vector dstRawShape = this->rawShape[ToUnderlying(MISOIdx::DST_IDX)];
-    std::vector src1RawShape = this->rawShape[ToUnderlying(MISOIdx::SRC1_IDX)];
+    std::vector dstRawShape = rawShape[ToUnderlying(MISOIdx::DST_IDX)];
+    std::vector src1RawShape = rawShape[ToUnderlying(MISOIdx::SRC1_IDX)];
 
     std::string dstDtypeStr = DataType2CCEStr(dstDtype);
     std::string src0DtypeStr = DataType2CCEStr(src0Dtype);
@@ -1221,9 +1217,9 @@ std::string CodeGenOpCloudNPU::GenScatterOp() const {
     std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
     std::string src2Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID4]);
 
-    std::vector dstRawShape = this->rawShape[ID0];
-    std::vector src1RawShape = this->rawShape[ID3];
-    std::vector src2RawShape = this->rawShape[ID4];
+    std::vector dstRawShape = rawShape[ID0];
+    std::vector src1RawShape = rawShape[ID3];
+    std::vector src2RawShape = rawShape[ID4];
 
     std::string dstDtypeStr = DataType2CCEStr(dstDtype);
     std::string src1DtypeStr = DataType2CCEStr(src1Dtype);
@@ -1292,9 +1288,9 @@ WhereParam CodeGenOpCloudNPU::PrepareWhereParam() const {
     std::vector<std::string> varExpr;
     std::vector<std::string> dataTypeExpr;
     GetWhereVarAndType(varExpr, dataTypeExpr);
-    std::vector<int64_t> ds = NormalizeShape(this->rawShape[ToUnderlying(WhereOpIdx::resIdx)], SHAPE_DIM4);
-    std::vector<int64_t> c0s = NormalizeShape(this->rawShape[ToUnderlying(WhereOpIdx::condIdx)], SHAPE_DIM4);
-    std::vector<int64_t> s0s = NormalizeShape(this->rawShape[ToUnderlying(WhereOpIdx::src0Idx)], SHAPE_DIM4);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[ToUnderlying(WhereOpIdx::resIdx)], SHAPE_DIM4);
+    std::vector<int64_t> c0s = NormalizeShape(rawShape[ToUnderlying(WhereOpIdx::condIdx)], SHAPE_DIM4);
+    std::vector<int64_t> s0s = NormalizeShape(rawShape[ToUnderlying(WhereOpIdx::src0Idx)], SHAPE_DIM4);
     std::vector<std::string> templateList;
     templateList.emplace_back(dataTypeExpr[ToUnderlying(WhereOpIdx::resIdx)]);
     templateList.emplace_back(dataTypeExpr[ToUnderlying(WhereOpIdx::condIdx)]);
@@ -1438,8 +1434,8 @@ std::string CodeGenOpCloudNPU::GenLogicalNotOp() const {
     std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::tmpIdx)]);
     std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::srcIdx)]);
 
-    std::vector dstShape = this->rawShape[ToUnderlying(OpIdx::resIdx)];
-    std::vector srcShape = this->rawShape[ToUnderlying(OpIdx::srcIdx)];
+    std::vector dstShape = rawShape[ToUnderlying(OpIdx::resIdx)];
+    std::vector srcShape = rawShape[ToUnderlying(OpIdx::srcIdx)];
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::resIdx)]);
     std::string tmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::tmpIdx)]);
@@ -1707,9 +1703,9 @@ std::string CodeGenOpCloudNPU::GenLogicalAndOp() const {
     std::string srcVar0 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::srcIdx0)]);
     std::string srcVar1 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::srcIdx1)]);
 
-    std::vector dstShape = this->rawShape[ToUnderlying(OpIdx::resIdx)];
-    std::vector srcShape0 = this->rawShape[ToUnderlying(OpIdx::srcIdx0)];
-    std::vector srcShape1 = this->rawShape[ToUnderlying(OpIdx::srcIdx1)];
+    std::vector dstShape = rawShape[ToUnderlying(OpIdx::resIdx)];
+    std::vector srcShape0 = rawShape[ToUnderlying(OpIdx::srcIdx0)];
+    std::vector srcShape1 = rawShape[ToUnderlying(OpIdx::srcIdx1)];
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::resIdx)]);
     std::string tmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::tmpIdx)]);

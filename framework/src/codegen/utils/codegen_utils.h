@@ -188,5 +188,7 @@ std::string CopyOutModeToString(Matrix::CopyOutMode copyMode);
 
 std::string PaddingModeToString(Matrix::PaddingMode paddingMode);
 
+unsigned GetCGThreadNum();
+
 } // namespace npu::tile_fwk
 #endif
