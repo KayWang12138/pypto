@@ -11,13 +11,33 @@ tag: [PyPTO，算子开发]
 ## 工作流程概览
 
 ```
-需求检查 → 环境准备 → Plan 模式 → 开发实现 → 测试验证 → 高阶参数使能
+需求理解 → 环境准备 → Golden → 设计 → 算子实现 → 精度调试 → 性能分析 → 性能调优
 ```
+
+## 关键 skill 串联
+
+- 需求理解：调用 `pypto-intent-understanding` 技能
+- Golden 参考实现：调用 `pypto-golden-generator` 技能
+- 设计方案：调用 `pypto-op-design` 技能
+- 算子实现：调用 `pypto-op-develop` 技能
+- 精度调试：调用 `pypto-precision-debugger` 技能
+- 性能分析：调用 `pypto-op-perf-analyzer` 技能
+- 性能调优：调用 `pypto-op-perf-autotuner` 技能
+
+## Checklist
+
+- [ ] 需求规格已明确，`spec.md` 已具备且足以支撑后续开发
+- [ ] 环境已满足当前开发要求，或当前环境阻塞点已被明确识别
+- [ ] Golden 参考实现已生成，可作为精度基线
+- [ ] 设计方案已完成，可指导实现与验证
+- [ ] 实现工件已完成（`{op}_impl.py`、`test_{op}.py`、`README.md`）
+- [ ] 精度验证已通过；若未通过，误差原因已定位或修复路径已明确
+- [ ] 性能分析已完成，且已获得实测性能数据；完成调优后已得到对应的性能结果
 
 ## 核心原则
 
 1. **遇问题先探索，不简化代码**
-   - 第一步：使用 `Explore Agent` 搜索查找 API 资料，选择合适的 pypto operation
+   - 第一步：优先搜索 API 文档、相关 skill 和仓库示例，选择合适的 pypto operation
    - 第二步：综合审视代码，查阅官方示例
    - 第三步：定位问题点后修复
    - 禁止：下意识简化代码、凭直觉实现、遇到错误就推翻重写
@@ -54,6 +74,8 @@ tag: [PyPTO，算子开发]
 
 ### 阶段一：需求检查
 
+优先调用 `pypto-intent-understanding` 技能，把用户描述整理成结构化需求，再继续后续开发。
+
 必需信息清单：
 - 算子名称
 - 数学公式
@@ -75,13 +97,13 @@ echo ${PTO_TILE_LIB_CODE_PATH} # 检查依赖的pto-isa源码是否获取
 ```
 **⚠️ 重要提示**：
 - 首先，需要检查这个路径（pto-isa源码路径）是否存在；
-- 如果不存在，参考`scripts/environment_prepare.sh`脚本进行环境初始化；
-- 如果不存在，初始化也不成功，可以参考`docs/install/prepare_environment.md`获取pto-isa源码章节，并进行环境变量的设置。
+- 如果不存在，优先调用 `pypto-environment-setup` 技能进行环境初始化与修复；
+- 如果仍无法解决，可参考`docs/install/prepare_environment.md`获取pto-isa源码章节，并进行环境变量的设置。
 
 3. 验证关键api文档及用例目录
 ```bash
 ls docs/api/    # API 接口说明
-ls examples/            # 示例代码
+ls examples/    # 示例代码
 ```
 4. 设置device_id
 ```bash
@@ -93,10 +115,10 @@ export TILE_FWK_DEVICE_ID=1
 export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 ```
 
--**⚠️ 重要提示**：
--- 未设置TILE_FWK_DEVICE_ID会导致运行时提示："If no NPU environment is available"
+**⚠️ 重要提示**：
+- 未设置TILE_FWK_DEVICE_ID会导致运行时提示："If no NPU environment is available"
 
-如果以上信息未检查通过或者有疑问，请参考`docs/install`中的参考资料进行环境准备。
+如果以上信息未检查通过或者有疑问，请优先调用 `pypto-environment-setup` 技能，或参考 `docs/install` 中的资料继续准备环境。
 
 ### 阶段三：Plan 模式
 
@@ -114,19 +136,21 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 
 开发顺序：
 1. 创建算子目录结构
-   - 创建custom/my_operator/
-2. 编写 golden 及测试用例
-   - 创建my_operator.py
-   - 测试用例涉及随机数生成时，设置随机数种子
-3. 编写 operator 实现代码
-   - 创建my_operator_impl.py
-   - 使用@pypto.frontend.jit的方式实现
+   - 输出目录：`custom/{op}/`
+2. 调用 `pypto-golden-generator` 技能生成 golden 参考实现
+   - 主要输出件：`spec.md`、`{op}_golden.py`
+3. 调用 `pypto-op-design` 技能生成设计方案
+   - 主要输出件：`design.md`
+4. 调用 `pypto-op-develop` 技能生成实现、测试和 README
+   - 主要输出件：`{op}_impl.py`、`test_{op}.py`、`README.md`
 
 **⚠️ 重要提示**：
 - 实现代码与测试代码分开
+- 若 API 约束、tiling 策略或 loop 结构仍不清晰，先调用 `pypto-api-explorer` 技能 / `pypto-op-design` 技能，不要直接硬写实现
 
 ### 阶段五：测试验证
 优先使用npu模式进行验证
+
 验证步骤：
 1. 没有安装pypto的话，编译whl包并安装，有的话，则不需要反复编译
    python3 build_ci.py -f python3 --disable_auto_execute
@@ -135,20 +159,24 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
    python3 custom/my_operator/my_operator.py
 3. 验证如果失败，不要跳过问题或者简化算子，正向排查问题
 
+如果运行通过但精度不满足预期，转入 `pypto-precision-debugger` 技能继续定位与修复。
+
 测试类型：
 - 单元测试：基本功能验证
 - 精度测试：精度符合要求
-- 性能测试：性能符合要求
+- 性能测试：已完成性能测量，并基于实测数据判断是否符合要求
 
 **⚠️ 重要提示**：
 - 有npu卡的情况下，不要使用run_mode=sim
 - 为了节省时间，编译一次whl包并安装即可
-- **完成阶段五后，必须继续执行阶段六：高阶参数使能**
+- 完成基础验证和精度验证后，必须继续进行性能分析，并产出实测性能数据
 
 ### 阶段六：高阶参数使能 ⭐
-当阶段五保证算子基础版本正确后，请做以下高阶参数的使能
+当阶段五保证算子基础版本正确后，请做以下高阶参数的使能：
 1. 涉及loop的话，请使能loop_unroll
 2. 设置stich相关参数,比如stitch_function_inner_memory，stitch_function_outcast_memory，stitch_function_num_initial等参数
+
+必须先调用 `pypto-op-perf-analyzer` 技能完成性能分析并获取实测性能数据，再调用 `pypto-op-perf-autotuner` 技能做调优与回验，并给出调优前后实测对比。
 
 ## 环境兼容性
 
