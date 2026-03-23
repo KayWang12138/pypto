@@ -99,6 +99,7 @@ public:
     static const std::string copyIsNZ;
     static const std::string scaleValue;
     static const std::string rowPad;
+    static const std::string ownerRank;
 };
 
 
