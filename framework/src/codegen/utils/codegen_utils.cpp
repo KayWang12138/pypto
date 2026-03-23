@@ -17,7 +17,10 @@
 
 #include <cstring>
 #include <algorithm>
+#include <thread>
 #include <unistd.h>
+
+#include "interface/configs/config_manager.h"
 
 #include "codegen/codegen_common.h"
 #include "interface/utils/log.h"
@@ -123,6 +126,15 @@ void PrintIndent(std::ostringstream &os, int scopeLevel) {
     for (int i = 0; i < scopeLevel; i++) {
         os << "  ";
     }
+}
+
+unsigned GetCGThreadNum() {
+    unsigned threadNum = ConfigManager::Instance().GetCodeGenConfig(KEY_PARALLEL_COMPILE, 1u);
+    unsigned cpuCores = std::thread::hardware_concurrency();
+    if (cpuCores != 0 && threadNum > cpuCores * 2) {
+        return cpuCores * 2;
+    }
+    return threadNum;
 }
 
 } // namespace npu::tile_fwk
