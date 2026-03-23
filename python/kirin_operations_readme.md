@@ -1201,11 +1201,11 @@ matmul(input, mat2, out_dtype, *, a_trans = False, b_trans = False, c_matrix_nz 
 |-------------------|-----------|----------------------------------------------------------------------|
 | input             | 输入      | 表示输入左矩阵。不支持输入空Tensor。 <br> 支持的数据类型为：DT_INT8, DT_FP16。需保证左右矩阵一致。 <br> 支持的矩阵维度：2维、3维、4维，且左右矩阵维度需保持一致。 <br> 输入矩阵支持的Format为：TILEOP_ND, TILEOP_NZ。 <br> 当Format为TILEOP_ND（ND格式）时，外轴范围为[1, 2^31 - 1]，内轴范围为[1, 65535]。 <br> 当Format为TILEOP_NZ（NZ格式）时，其Shape维度需满足内轴32字节对齐（当输出矩阵数据类型为DT_INT32时，内轴为16元素对齐），外轴16元素对齐。 <br> 内轴外轴：当输入矩阵input非转置时，对应数据排布为[M, K]，此时外轴为M，内轴为K；当输入矩阵input转置时，对应数据排布为[K, M]，此时外轴为K，内轴为M； <br> 在使用pypto.view接口的场景，应保证传入View的Shape维度也满足内轴32字节对齐（当输出矩阵数据类型为DT_INT32时，内轴为16元素对齐），外轴16元素对齐 <br> 当矩阵维度为3维或者4维时，不支持pypto.view场景。 |
 | mat2              | 输入      | 表示输入右矩阵。不支持输入空Tensor。 <br> 支持的数据类型为：DT_INT8, DT_FP16。 <br> 支持的矩阵维度：2维、3维、4维，且左右矩阵维度需保持一致。 <br> 输入矩阵支持的Format为：TILEOP_ND, TILEOP_NZ。 <br> 当Format为TILEOP_ND（ND格式）时，外轴范围为[1, 2^31 - 1]，内轴范围为[1, 65535]。 <br> 当Format为TILEOP_NZ（NZ格式）时，其Shape维度需满足内轴32字节对齐（当输出矩阵数据类型为DT_INT32时，内轴为16元素对齐），外轴16元素对齐。 <br> 内轴外轴：当输入矩阵mat2非转置时，对应数据排布为[K, N]，此时外轴为K，内轴为N；当输入矩阵mat2转置时，对应数据排布为[N, K]，此时外轴为N，内轴为K； <br> 在使用pypto.view接口的场景，应保证传入View的Shape维度也满足内轴32字节对齐（其中当输出矩阵数据类型为DT_INT32时，内轴为16元素对齐），外轴16元素对齐。 <br> 当矩阵维度为3维或者4维时，不支持pypto.view场景。 |
-| out_dtype         | 输出      | 表示输出矩阵数据类型，支持DT_FP16，DT_INT32。 <br> - 输入矩阵数据类型为DT_FP16时，out_dtype可选DT_FP32, DT_FP16。 <br> - 输入矩阵数据类型为DT_INT8时，out_dtype可选DT_INT32。 |
-| a_trans           | 输入      | 参数a_trans表示输入左矩阵是否转置，端侧不支持，必须是False。 |
+| out_dtype         | 输出      | 表示输出矩阵数据类型，支持DT_FP16，DT_INT8。 |
+| a_trans           | 输入      | 参数a_trans表示输入左矩阵是否转置，**端侧不支持，必须是False。** |
 | b_trans           | 输入      | 参数b_trans表示输入右矩阵是否转置，默认为False。 |
 | c_matrix_nz       | 输入      | 参数c_matrix_nz表示输出矩阵的Format是否采用NZ格式，默认为False，当前仅支持设置False，即输出矩阵仅支持ND格式。 |
-| extend_params     | 输入      | 支持bias、fixpipe反量化及TF32舍入模式TransMode功能，数据类型为字典格式。 <br> 参数：bias_tensor <br> 类型：Tensor <br> 功能说明： <br> - 输入左右矩阵数据类型为DT_FP16时，Bias矩阵数据类型可选DT_FP16和DT_FP32。 <br> - 输入左右矩阵数据类型为DT_INT8时，Bias矩阵数据类型只能为DT_INT32。<br> - bias_tensor只支持ND格式。 <br> - bias_tensor的第一维度应置1，且N维度需要与mat2矩阵的N维度相等。 <br> - Bias不支持多核切K功能。 <br> - 仅支持矩阵维度为2维场景。 <br> 参数：scale <br> 类型：float <br> 功能说明： <br> - 输入为float类型，取1为符号位 + 8位指数位 + 10位尾数位参与运算。 <br> 参数：scale_tensor <br> 类型：Tensor <br> 功能说明： <br> - scale_tensor输入固定为uint64_t 的Tensor。计算时会转换uint64_t为float类型的低32位bit后，取1为符号位 + 8位指数位 + 10位尾数位参与运算。 <br> - scale_tensor的第一维度必须置1，且N维度需要与mat2矩阵的N维度相等。 <br> - scale_tensor只支持ND格式。 <br> - 仅支持矩阵维度为2维场景。 <br> 参数：relu_type <br> 类型：[ReLuType](../datatype/ReLuType.md) <br> 功能说明： <br> - 支持RELU和NO_RELU两种模式。 <br> - 仅支持矩阵维度为2维场景。 <br> 参数：trans_mode <br> 类型：[TransMode](../datatype/TransMode.md) <br> 功能说明： <br> - CAST_NONE：不使能float数据类型转换为TF32数据类型。 <br> - CAST_RINT：使能float数据类型转换为TF32数据类型，舍入规则：舍入到最近整数，中间值时舍入到偶数。 <br> - CAST_ROUND：使能float数据类型转换为TF32数据类型，舍入规则：舍入到最近整数，中间值时远离零舍入。  <br> - 仅支持输入左右矩阵和输出矩阵数据类型均为DT_FP32时设置。 <br> - 仅支持矩阵维度为2维场景。 |
+| extend_params     | 输入      | 支持bias、fixpipe反量化及TF32舍入模式TransMode功能，数据类型为字典格式。 <br> 参数：bias_tensor <br> 类型：Tensor <br> 功能说明： <br> - 输入左右矩阵数据类型为DT_FP16时，Bias矩阵数据类型可选DT_FP16和DT_FP32。 <br> - 输入左右矩阵数据类型为DT_INT8时，Bias矩阵数据类型只能为DT_INT32。<br> - bias_tensor只支持ND格式。 <br> - bias_tensor的第一维度应置1，且N维度需要与mat2矩阵的N维度相等。 <br> - Bias不支持多核切K功能。 <br> - 仅支持矩阵维度为2维场景。 <br> 参数：scale <br> 类型：float <br> 功能说明： <br> - 输入为float类型，取1为符号位 + 8位指数位 + 10位尾数位参与运算。 <br> 参数：scale_tensor <br> 类型：Tensor <br> 功能说明： <br> - scale_tensor输入固定为uint64_t 的Tensor。计算时会转换uint64_t为float类型的低32位bit后，取1为符号位 + 8位指数位 + 10位尾数位参与运算。 <br> - scale_tensor的第一维度必须置1，且N维度需要与mat2矩阵的N维度相等。 <br> - scale_tensor只支持ND格式。 <br> - 仅支持矩阵维度为2维场景。 <br> 参数：relu_type <br> 类型：[ReLuType](../datatype/ReLuType.md) <br> 功能说明： <br> - 支持RELU和NO_RELU两种模式。 <br> - 仅支持矩阵维度为2维场景。 <br> 参数：trans_mode <br> 类型：[TransMode](../datatype/TransMode.md) <br> 端侧场景不支持trans_mode |
 
 返回值说明
 
@@ -1316,7 +1316,26 @@ tile m是16的整数倍，tile k和tile n是32B的整数倍。
 
 #### 8.1.8. 用例设计
 
-TODO：确认matmul支持范围
+测试因子
+* a、b矩阵维度（必须相同）：2~4维
+* bias: 有/没有
+* 切分：m1,m0,k1,k0,n1,n0组合
+* 数据类型：FP16FP16（输出可以S8或者FP16）/S8S8（输出可以S8或者FP16）量化
+
+| 用例名称 | A输入维度 | B输入维度 | bias | b_trans | 切分 (m1,m0,k1,k0,n1,n0) | 输入dtype | 输出dtype | 说明 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| matmul_001 | (16,16) | (16,16) | 有 | false | (16,16,16,16,16,16) | FP16/FP16 | FP16 | 基础FP16用例 |
+| matmul_002 | (64,130) | (130,64) | 没有 | false | (64,64,16,16,16,16) | FP16/FP16 | S8 | K非对齐，验证FP16到S8量化 |
+| matmul_003 | (64,128) | (80,128) | 有 | true | (32,32,16,16,16,16) | FP16/FP16 | FP16 | N非对齐，B转置，输出FP16 |
+| matmul_004 | (80,256) | (256,32) | 有 | false | (64,64,16,16,32,32) | FP16/FP16 | S8 | M非对齐，验证Bias累加后量化 |
+| matmul_005 | (4,32,32) | (4,32,32) | 没有 | false | (16,16,16,16,16,16) | FP16/FP16 | FP16 | 3维带Batch，标准对齐切分 |
+| matmul_006 | (2,2,64,64) | (2,2,64,64) | 有 | false | (32,32,32,32,32,32) | FP16/FP16 | FP16 | 4维高维张量，验证多维Offset逻辑 |
+| matmul_007 | (128,64) | (64,128) | 没有 | false | (64,64,32,32,64,64) | S8/S8 | S8 | 纯S8整型路径，验证饱和处理 |
+| matmul_008 | (64,64) | (64,128) | 有 | true | (32,32,32,32,64,64) | S8/S8 | FP16 | S8转FP16，验证带Bias的反量化路径 |
+| matmul_009 | (8,48,48) | (8,48,48) | 有 | false | (16,32,16,32,16,32) | S8/S8 | S8 | 3维S8，非2幂次维度(48)切分验证 |
+| matmul_010 | (2,3,32,64) | (2,3,64,32) | 没有 | false | (16,16,32,32,16,16) | S8/S8 | FP16 | 4维S8，验证非对称M/N维度 |
+| matmul_011 | (128,33) | (33,128) | 有 | false | (64,64,32,32,64,64) | S8/S8 | S8 | 2d s8量化 |
+| matmul_012 | (64,128) | (64,128) | 有 | true | (32,32,64,64,32,32) | FP16/FP16 | S8 | 综合用例：B转置 + Bias + 输出量化 |
 
 ## 9. 芯片能力增强
 
