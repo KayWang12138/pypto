@@ -268,13 +268,13 @@ Level 3: 大数据量    ──▶ 性能验证
     **⚠️ 环境变量设置（非常重要）**
     ```bash
     # 设置NPU Chip ID（使用实际可用的chip）
-    export TILE_FWK_DEVICE_ID=0
+    export TILE_FWK_DEVICE_ID=<可用Chip ID>
     export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch64-linux
     ```
      **⚠️ 重要提示**：
-    - **先设置 `export TILE_FWK_DEVICE_ID=0`**
-    - 如果设置TILE_FWK_DEVICE_ID=0执行失败了，报错为`Invalid Device`时，再检查npu设备
-    - 运行 `npu-smi info` 查看可用的NPU chip，进行设置`export TILE_FWK_DEVICE_ID=x`
+    - **首先运行 `npu-smi info` 查看NPU设备状态**
+    - 选择 Health 为 OK 且无进程占用的 NPU 卡对应的 Chip ID
+    - 设置 `export TILE_FWK_DEVICE_ID=<可用Chip ID>`
     
     **⚠️ PTO_TILE_LIB_CODE_PATH 配置检查（关键）**：
     - **必须确保 `$PTO_TILE_LIB_CODE_PATH` 路径存在**
@@ -362,7 +362,7 @@ Level 3: 大数据量    ──▶ 性能验证
 - **编译错误**：定位错误行号，参考文档检查语法，对比官方示例
 - **运行时错误**：使用增加中间输出的方式定位问题，采用渐进式调试方法
 - **精度错误**：从最小用例开始，分段验证中间结果，检查数据类型
-- **环境配置错误**：遇到 "If no NPU environment is available" 提示时，首先检查 `export TILE_FWK_DEVICE_ID=0` 是否已设置，使用 `npu-smi info` 确认NPU设备号
+- **环境配置错误**：遇到 "If no NPU environment is available" 提示时，首先运行 `npu-smi info` 查看可用NPU，设置 `export TILE_FWK_DEVICE_ID=<可用Chip ID>`
 
 **禁止**：一遇到错误就全部重写、看到问题就简化代码、不分析原因就尝试其他方案
 
