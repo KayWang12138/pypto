@@ -448,6 +448,9 @@ Status OoOScheduler::SpillInBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssu
     reloadCopyin = reloadIssues.second;
     if (UpdateReloadIssueInfo(reloadAlloc, reloadCopyin, spillInfo.spillIssue_, spillInfo.spillMemId_,
         allocIssue) != SUCCESS) {
+        reloadIssues.first->tileOp.SetAsDeleted();
+        reloadIssues.second->tileOp.SetAsDeleted();
+        function_.EraseOperations();
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateReloadIssueInfo failed!");
         return FAILED;
     }
@@ -1196,8 +1199,8 @@ Status OoOScheduler::SpillAllBuffer(IssueEntryPtr allocIssue, size_t &pcIdx, boo
             return FAILED;
         }
 
-        if (!CheckMachineAndL1(spillIssue, allocIssue) || !CheckParallelL0C2L1(spillIssue) || IsViewOp(spillIssue->tileOp) ||
-            spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE || spillIssue->tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos) {
+        if (spillIssue->tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos || !CheckMachineAndL1(spillIssue, allocIssue) || !CheckParallelL0C2L1(spillIssue) ||
+            IsViewOp(spillIssue->tileOp) || spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
             continue;
         }
 
