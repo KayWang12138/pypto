@@ -55,10 +55,10 @@ std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
     std::vector<std::string> addrExpr(ID2);
     addrExpr[gmIdx] = GenGmParamVar(gmIdx);
 
-    std::vector<int64_t> src0OriginShape = this->originShape[ID1];
-    std::vector<int64_t> src1OriginShape = this->originShape[ID2];
-    std::vector<int64_t> src0RawShape = this->rawShape[ID1];
-    std::vector<int64_t> src1RawShape = this->rawShape[ID2];
+    std::vector<int64_t> src0OriginShape = originShape[ID1];
+    std::vector<int64_t> src1OriginShape = originShape[ID2];
+    std::vector<int64_t> src0RawShape = rawShape[ID1];
+    std::vector<int64_t> src1RawShape = rawShape[ID2];
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
@@ -71,7 +71,7 @@ std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
         {localIdx, std::ref(s0Var)}
     });
 
-    std::vector gmShape = this->rawShape[gmIdx];
+    std::vector gmShape = rawShape[gmIdx];
     CODEGEN_LOGI("genIndexOutCastOp gm shape: %s", IntVecToStr(gmShape).c_str());
 
     std::vector<int64_t> s0os = NormalizeShape(src0OriginShape, SHAPE_DIM4);
