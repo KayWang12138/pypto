@@ -73,33 +73,193 @@ def scan_checkpoints(work_dir="."):
     return latest_dir, sorted(list(checkpoints))
 
 
+def get_tolerance_by_dtype(dtype):
+    """根据数据类型返回对应的容差标准"""
+    # 容差标准映射表（常用数据类型）
+    tolerance_map = {
+        1: (1e-3, 1e-3),   # DT_INT8
+        2: (1e-4, 1e-4),   # DT_INT16
+        3: (1e-5, 1e-5),   # DT_INT32
+        4: (1e-5, 1e-5),   # DT_INT64
+        5: (1e-1, 1e-2),   # DT_FP8
+        6: (1e-2, 1e-3),   # DT_FP16
+        7: (1e-4, 1e-5),   # DT_FP32
+        8: (5e-2, 5e-3),   # DT_BF16
+    }
+
+    return tolerance_map.get(dtype, (1e-3, 1e-3))  # 默认容差
+
+
 def read_jit_data(filename):
-    """读取 jit 生成的数据文件"""
-    data = np.fromfile(filename, dtype=np.float32)
-    return data
+    """读取 jit 生成的数据文件，自动检测数据类型
+
+    返回: (data, dtype)
+    """
+    # 读取对应的 CSV 文件获取 dtype
+    csv_file = filename.replace('.data', '.csv')
+
+    dtype = None
+    if os.path.exists(csv_file):
+        with open(csv_file, 'r') as f:
+            for line in f:
+                if line.startswith('dtype,'):
+                    dtype = int(line.split(',')[1].strip())
+                    break
+
+    # 读取原始字节数据
+    data_bytes = np.fromfile(filename, dtype=np.uint8)
+
+    # 根据 dtype 选择正确的读取方式
+    if dtype is None:
+        # 如果没有 CSV 文件，尝试自动检测
+        file_size = len(data_bytes)
+        # 假设可能是 BF16 (2字节) 或 FP32 (4字节)
+        if file_size % 2 == 0:
+            # 优先尝试 BF16
+            data_bf16 = np.frombuffer(data_bytes.tobytes(), dtype=np.uint16)
+            data_fp32 = data_bf16.astype(np.uint32) << 16
+            data = data_fp32.view(np.float32)
+            logger.warning(f"  警告: 未找到 CSV 文件，假设为 BF16 格式")
+            return data, 8  # 返回 BF16 的 dtype
+        else:
+            return np.fromfile(filename, dtype=np.float32), 7  # 返回 FP32 的 dtype
+
+    # PyPTO 常用数据类型映射
+    # DT_INT8 = 1, DT_INT16 = 2, DT_INT32 = 3, DT_INT64 = 4
+    # DT_FP8 = 5, DT_FP16 = 6, DT_FP32 = 7, DT_BF16 = 8
+
+    dtype_map = {
+        1: ('int8', 1),
+        2: ('int16', 2),
+        3: ('int32', 4),
+        4: ('int64', 8),
+        5: ('fp8', 1),       # FP8 特殊处理
+        6: ('fp16', 2),
+        7: ('fp32', 4),
+        8: ('bf16', 2),      # BF16
+    }
+
+    if dtype not in dtype_map:
+        logger.warning(f"  警告: 未知的数据类型 {dtype}, 尝试作为 FP32 读取")
+        return np.fromfile(filename, dtype=np.float32), dtype
+
+    type_name, bytes_per_element = dtype_map[dtype]
+
+    # 处理不同的数据类型
+    if type_name == 'bf16':
+        # BF16 转 FP32
+        data_bf16 = np.frombuffer(data_bytes.tobytes(), dtype=np.uint16)
+        data_fp32 = data_bf16.astype(np.uint32) << 16
+        data = data_fp32.view(np.float32)
+        return data, dtype
+    elif type_name == 'fp16':
+        # FP16 转 FP32
+        data_fp16 = np.frombuffer(data_bytes.tobytes(), dtype=np.float16)
+        return data_fp16.astype(np.float32), dtype
+    elif type_name == 'fp32':
+        return np.fromfile(filename, dtype=np.float32), dtype
+    elif type_name == 'int32':
+        data_int32 = np.fromfile(filename, dtype=np.int32)
+        return data_int32.astype(np.float32), dtype
+    elif type_name == 'int64':
+        data_int64 = np.fromfile(filename, dtype=np.int64)
+        return data_int64.astype(np.float32), dtype
+    elif type_name in ['int8', 'int16']:
+        # 整数类型转浮点
+        dtype_numpy = {
+            'int8': np.int8,
+            'int16': np.int16,
+        }
+        data_int = np.fromfile(filename, dtype=dtype_numpy[type_name])
+        return data_int.astype(np.float32), dtype
+    else:
+        # 其他特殊类型 (fp8 等)
+        logger.warning(f"  警告: 数据类型 {type_name} (dtype={dtype}) 暂不支持，尝试作为 FP32 读取")
+        return np.fromfile(filename, dtype=np.float32), dtype
+
+    type_name, bytes_per_element = dtype_map[dtype]
+
+    # 处理不同的数据类型
+    if type_name == 'bf16':
+        # BF16 转 FP32
+        data_bf16 = np.frombuffer(data_bytes.tobytes(), dtype=np.uint16)
+        data_fp32 = data_bf16.astype(np.uint32) << 16
+        data = data_fp32.view(np.float32)
+        return data
+    elif type_name == 'fp16':
+        # FP16 转 FP32
+        data_fp16 = np.frombuffer(data_bytes.tobytes(), dtype=np.float16)
+        return data_fp16.astype(np.float32)
+    elif type_name == 'fp32':
+        return np.fromfile(filename, dtype=np.float32)
+    elif type_name == 'double':
+        data_double = np.fromfile(filename, dtype=np.float64)
+        return data_double.astype(np.float32)
+    elif type_name == 'int32':
+        data_int32 = np.fromfile(filename, dtype=np.int32)
+        return data_int32.astype(np.float32)
+    elif type_name == 'int64':
+        data_int64 = np.fromfile(filename, dtype=np.int64)
+        return data_int64.astype(np.float32)
+    elif type_name in ['int8', 'int16', 'uint8', 'uint16', 'uint32', 'uint64', 'bool']:
+        # 整数类型转浮点
+        dtype_numpy = {
+            'int8': np.int8,
+            'int16': np.int16,
+            'uint8': np.uint8,
+            'uint16': np.uint16,
+            'uint32': np.uint32,
+            'uint64': np.uint64,
+            'bool': np.bool_,
+        }
+        data_int = np.fromfile(filename, dtype=dtype_numpy[type_name])
+        return data_int.astype(np.float32)
+    else:
+        # 其他特殊类型 (int4, fp8, hf4, hf8 等)
+        logger.warning(f"  警告: 数据类型 {type_name} (dtype={dtype}) 暂不支持,尝试作为原始字节读取")
+        return data_bytes.view(np.float32)
+
+    return np.fromfile(filename, dtype=np.float32)
 
 
-def compare_with_golden(jit_data, golden_data, name, rtol=1e-3, atol=1e-3, verbose=True):
+def compare_with_golden(jit_data, golden_data, name, dtype=None, verbose=True):
     """对比 jit 结果与 golden 结果"""
     min_size = min(jit_data.shape[0], golden_data.shape[0])
     jit_data_to_compare = jit_data[:min_size]
     golden_data_to_compare = golden_data[:min_size]
 
+    # 根据 dtype 获取对应的容差
+    if dtype is not None:
+        rtol, atol = get_tolerance_by_dtype(dtype)
+    else:
+        # 默认容差（向后兼容）
+        rtol, atol = 1e-3, 1e-3
+
     if verbose:
         logger.info(f"  对比范围: 前 {min_size} 个元素 (jit={jit_data.shape[0]}, golden={golden_data.shape[0]})")
 
-    diff = np.max(np.abs(jit_data_to_compare - golden_data_to_compare))
+    # 使用 np.isclose 统计不匹配个数
+    close_mask = np.isclose(jit_data_to_compare, golden_data_to_compare, rtol=rtol, atol=atol)
+    mismatch_count = (~close_mask).sum()
+    total_count = min_size
+    
+    # 计算统计信息（用于显示）
+    diff = np.abs(jit_data_to_compare - golden_data_to_compare)
+    max_diff = np.max(diff)
     max_val = np.max(np.abs(golden_data_to_compare))
-    relative_error = diff / (max_val + 1e-10)
-
-    match = relative_error < rtol and diff < atol
+    relative_error = max_diff / (max_val + 1e-10)
+    
+    # 判断条件：不匹配个数 < 总数 * max(rtol, atol)
+    threshold = total_count * max(rtol, atol)
+    match = mismatch_count < threshold
 
     status = "✓ PASS" if match else "✗ FAIL"
     logger.info(f"\n{name}: {status}")
-    logger.info(f"  Max diff: {diff:.6f}")
+    logger.info(f"  Max diff: {max_diff:.6f}")
     logger.info(f"  Max val: {max_val:.6f}")
     logger.info(f"  Relative error: {relative_error:.6f}")
-    logger.info(f"  Tolerance: rtol={rtol}, atol={atol}")
+    logger.info(f"  Mismatch count: {mismatch_count}/{total_count} ({mismatch_count/total_count*100:.2f}%)")
+    logger.info(f"  Tolerance: rtol={rtol}, atol={atol} (dtype={dtype})")
 
     if verbose and not match:
         logger.info(f"  前10个元素对比:")
@@ -148,10 +308,6 @@ def main():
                         help='工作目录（默认为当前目录）')
     parser.add_argument('--output-dir', '-o', default=None,
                         help='指定 output 目录名（不指定则自动检测最新的）')
-    parser.add_argument('--rtol', type=float, default=1e-3,
-                        help='相对误差容忍度（默认 1e-3）')
-    parser.add_argument('--atol', type=float, default=1e-3,
-                        help='绝对误差容忍度（默认 1e-3）')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='显示详细的元素级对比')
     parser.add_argument('--list', '-l', action='store_true',
@@ -233,12 +389,12 @@ def main():
         logger.info(f"  golden: {os.path.basename(golden_file)}")
 
         # 读取数据
-        jit_data = read_jit_data(jit_file)
+        jit_data, dtype = read_jit_data(jit_file)
         golden_data = np.fromfile(golden_file, dtype=np.float32)
 
         # 对比
         match = compare_with_golden(jit_data, golden_data, checkpoint_name,
-                                   rtol=args.rtol, atol=args.atol, verbose=args.verbose)
+                                   dtype=dtype, verbose=args.verbose)
         results.append((checkpoint_name, match))
 
     # 分析结果
