@@ -187,9 +187,9 @@ void CodegenPreproc::FixExpandDimForAxisCombine(Operation &op, int dimSize) cons
                 axis = axis + 1;
                 updated = true;
             }
-            if (updated) {
-                op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", axes);
-            }
+        }
+        if (updated) {
+            op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", axes);
         }
     }
 }

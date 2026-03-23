@@ -119,7 +119,7 @@ void UpdateExpandStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axis
         // 在尾轴为1的条件下，要求尾轴没有发生broadcast。[n, 1, 1]->expand->[n, 8, 1]??
         bool hasTailExpand = false;
         for (auto axis : axes) {
-            if (axis < dimSize - 1) {
+            if (axis >= dimSize - 1) {
                 hasTailExpand = true;
                 break;
             }

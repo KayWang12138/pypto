@@ -28,7 +28,7 @@ struct ExpandInfo {
     std::vector<int64_t> &offset;
     const std::vector<int> expandDims;
     ExpandInfo(const std::shared_ptr<LogicalTensor> &srcTensor0, const std::shared_ptr<LogicalTensor> &result0,
-        std::vector<int64_t> &viewShape0, std::vector<int64_t> &offset0, const int expandDims0)
+        std::vector<int64_t> &viewShape0, std::vector<int64_t> &offset0, const std::vector<int> expandDims0)
         : srcTensor(srcTensor0), result(result0), viewShape(viewShape0), offset(offset0), expandDims(expandDims0) {}
 };
 
