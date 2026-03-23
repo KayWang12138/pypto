@@ -810,6 +810,40 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const {
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::GenPhiloxRandomOp() const {
+    auto roundsAttr = opAttrs.at(OP_ATTR_PREFIX + "ROUNDS");
+
+    uint16_t rounds = 10;
+    if (roundsAttr.HasValue()) {
+        rounds = AnyCast<uint16_t>(roundsAttr);
+    }
+
+    std::string roundsStr = std::to_string(rounds);
+
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string keyVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string counterVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+
+    AppendLocalBufVarOffsetInOrder(dVar, keyVar, counterVar);
+    std::ostringstream oss;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+    paramList.clear();
+    std::string dst = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + dstDtypeStr + "*)" + dVar;
+    std::string key = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + dstDtypeStr + "*)" + keyVar;
+    std::string counter = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + dstDtypeStr + "*)" + counterVar;
+    paramList.emplace_back(dst);
+    paramList.emplace_back(key);
+    paramList.emplace_back(counter);
+    paramList.emplace_back(roundsStr);
+
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
+    oss << tileOpName << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const {
     // support 2-4 dims
     const std::string &dstVar = param.dstVar;

@@ -89,6 +89,7 @@ struct CalcOps {
     void (*IsFinite)(const TensorData &, const TensorData &);
     void (*LogicalNot)(const TensorData &, const TensorData &);
     void (*Range)(const TensorData &, const Element &, const Element &, const Element &);
+    void (*PhiloxRandom)(const TensorData &, const TensorData &, const TensorData &, uint16_t);
     void (*Compare)(const TensorData &, const TensorData &, const TensorData &, CmpOperationType, CmpModeType);
     void (*Cmps)(const TensorData &, const TensorData &, const Element &, CmpOperationType, CmpModeType);
     void (*Hypot)(const TensorData &, const TensorData &, const TensorData &);

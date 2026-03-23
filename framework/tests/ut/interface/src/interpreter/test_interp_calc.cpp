@@ -86,6 +86,13 @@ TEST_F(TorchAdaptorTest, Range) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
+TEST_F(TorchAdaptorTest, PhiloxRandom) {
+    std::vector<uint32_t> key = {12345, 67890};
+    std::vector<uint32_t> counter = {0, 0, 0, 0};
+    auto out = makeTensorData(DT_UINT32, {16}, 0u);
+    calc::PhiloxRandom(out, key, counter, 10);
+}
+
 TEST_F(TorchAdaptorTest, Exp2) {
     auto self = makeTensorData(DT_FP32, {16, 16}, 2.0f);
     auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
