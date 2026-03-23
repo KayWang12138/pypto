@@ -167,6 +167,10 @@ inline void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step) {
     GetCalcOps()->Range(Trans(out), start, end, step);
 }
+inline void PhiloxRandom(LogicalTensorDataPtr out, const std::vector<uint32_t> &key,
+                         const std::vector<uint32_t> &counter, uint16_t rounds) {
+    GetCalcOps()->PhiloxRandom(Trans(out), key, counter, rounds);
+}
 inline void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
     CmpOperationType operation, CmpModeType mode) {
     GetCalcOps()->Compare(Trans(out), Trans(self), Trans(other), operation, mode);

@@ -546,6 +546,18 @@ void ExecuteOpRange(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_RANGE, Opcode::OP_RANGE, ExecuteOpRange);
 
+void ExecuteOpPhiloxRandom(ExecuteOperationContext *ctx) {
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto keyAttr = ctx->op->GetVectorUint32Attribute(OP_ATTR_PREFIX + "KEY");
+    auto counterAttr = ctx->op->GetVectorUint32Attribute(OP_ATTR_PREFIX + "COUNTER");
+    uint16_t rounds = 10;
+    if (ctx->op->HasAttr(OP_ATTR_PREFIX + "ROUNDS")) {
+        rounds = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "ROUNDS");
+    }
+    calc::PhiloxRandom(oop, keyAttr, counterAttr, rounds);
+}
+REGISTER_CALC_OP(OP_PHILOX_RANDOM, Opcode::OP_PHILOX_RANDOM, ExecuteOpPhiloxRandom);
+
 void ExecuteOpLog1p(ExecuteOperationContext *ctx) {
     ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
            ctx->ooperandInplaceDataViewList->size() == 1);

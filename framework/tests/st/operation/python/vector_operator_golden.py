@@ -2531,6 +2531,73 @@ def as_float(value):
     return value
 
 
+def philox_random_golden_func(inputs: list, config: dict):
+    params = config.get("params", {})
+    key = params.get("key", [0, 0])
+    counter = params.get("counter", [0, 0, 0, 0])
+    rounds = params.get("rounds", 10)
+    shape = params.get("shape", [1])
+    
+    def multiply_high_low(a, b):
+        product = a * b
+        hi = (product >> 32) & 0xFFFFFFFF
+        lo = product & 0xFFFFFFFF
+        return lo, hi
+    
+    def philox_single_round(counter, key):
+        lo0, hi0 = multiply_high_low(0xD2511F53, counter[0])
+        lo1, hi1 = multiply_high_low(0xCD9E8D57, counter[2])
+        
+        return [
+            hi1 ^ counter[1] ^ key[0],
+            lo1,
+            hi0 ^ counter[3] ^ key[1],
+            lo0
+        ]
+    
+    def raise_key(key):
+        return [
+            (key[0] + 0x9E3779B9) & 0xFFFFFFFF,
+            (key[1] + 0xBB67AE85) & 0xFFFFFFFF
+        ]
+    
+    total_elements = 1
+    for dim in shape:
+        total_elements *= dim
+    
+    result = np.zeros(total_elements, dtype=np.uint32)
+    current_key = list(key)
+    current_counter = list(counter)
+    
+    for i in range(0, total_elements, 4):
+        for _ in range(rounds):
+            current_counter = philox_single_round(current_counter, current_key)
+            current_key = raise_key(current_key)
+        
+        for j in range(min(4, total_elements - i)):
+            result[i + j] = current_counter[j]
+        
+        current_counter[0] = (current_counter[0] + 1) & 0xFFFFFFFF
+        if current_counter[0] == 0:
+            current_counter[1] = (current_counter[1] + 1) & 0xFFFFFFFF
+            if current_counter[1] == 0:
+                current_counter[2] = (current_counter[2] + 1) & 0xFFFFFFFF
+                if current_counter[2] == 0:
+                    current_counter[3] = (current_counter[3] + 1) & 0xFFFFFFFF
+    
+    return [result.reshape(shape)]
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestPhiloxRandom/PhiloxRandomOperationTest.TestPhiloxRandom",
+    ]
+)
+def gen_philox_random_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("PhiloxRandom", philox_random_golden_func, output, case_index)
+
+
 def safe_tensor_conversion(arr):
     if isinstance(arr, np.ndarray) and arr.dtype == np.dtype('bfloat16'):
         return torch.tensor(arr.astype(np.float32), dtype=torch.bfloat16)

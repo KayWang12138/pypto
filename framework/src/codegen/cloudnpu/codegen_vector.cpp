@@ -810,6 +810,52 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const {
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::GenPhiloxRandomOp() const {
+    auto keyAttr = opAttrs.at(OP_ATTR_PREFIX + "KEY");
+    auto counterAttr = opAttrs.at(OP_ATTR_PREFIX + "COUNTER");
+    auto roundsAttr = opAttrs.at(OP_ATTR_PREFIX + "ROUNDS");
+
+    ASSERT(OperErr::ATTRIBUTE_INVALID, keyAttr.HasValue() && counterAttr.HasValue()) << "GenPhiloxRandomOp failed ";
+
+    std::vector<uint32_t> key = AnyCast<std::vector<uint32_t>>(keyAttr);
+    std::vector<uint32_t> counter = AnyCast<std::vector<uint32_t>>(counterAttr);
+    uint16_t rounds = 10;
+    if (roundsAttr.HasValue()) {
+        rounds = AnyCast<uint16_t>(roundsAttr);
+    }
+
+    std::string key0 = std::to_string(key[0]);
+    std::string key1 = std::to_string(key[1]);
+    std::string counter0 = std::to_string(counter[0]);
+    std::string counter1 = std::to_string(counter[1]);
+    std::string counter2 = std::to_string(counter[2]);
+    std::string counter3 = std::to_string(counter[3]);
+    std::string roundsStr = std::to_string(rounds);
+
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+
+    AppendLocalBufVarOffsetInOrder(dVar);
+    std::ostringstream oss;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+    paramList.clear();
+    std::string dst = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + dstDtypeStr + "*)" + dVar;
+    paramList.emplace_back(dst);
+    paramList.emplace_back("(" + dstDtypeStr + "*)" + key0);
+    paramList.emplace_back("(" + dstDtypeStr + "*)" + key1);
+    paramList.emplace_back("(" + dstDtypeStr + "*)" + counter0);
+    paramList.emplace_back("(" + dstDtypeStr + "*)" + counter1);
+    paramList.emplace_back("(" + dstDtypeStr + "*)" + counter2);
+    paramList.emplace_back("(" + dstDtypeStr + "*)" + counter3);
+    paramList.emplace_back(roundsStr);
+
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
+    oss << tileOpName << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const {
     // support 2-4 dims
     const std::string &dstVar = param.dstVar;

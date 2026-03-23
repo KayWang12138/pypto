@@ -523,6 +523,9 @@ void OpcodeManager::RegisterVector() {
     RegisterInfo(Opcode::OP_RANGE, OpCoreType::AIV, "RANGE", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Range", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "START", OP_ATTR_PREFIX + "STEP", OpAttributeKey::dynScalar}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_PHILOX_RANDOM, OpCoreType::AIV, "PHILOX_RANDOM", {}, {MemoryType::MEM_UB},
+        {"TileOp::TPhiloxRandomOp", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+        {OP_ATTR_PREFIX + "KEY", OP_ATTR_PREFIX + "COUNTER", OP_ATTR_PREFIX + "ROUNDS"}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_VEC_DUP, OpCoreType::AIV, "VEC_DUP", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tduplicate", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OpAttributeKey::scalar, OpAttributeKey::dynScalar, OP_ATTR_PREFIX + "shape"}, TileShapeVerifier::Verify);
@@ -983,6 +986,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {             Opcode::OP_ONEHOT,        "TOneHot"},
     {            Opcode::OP_VEC_DUP,        "TVecDup"},
     {              Opcode::OP_RANGE,         "TRange"},
+    {      Opcode::OP_PHILOX_RANDOM, "TPhiloxRandomOp"},
     {               Opcode::OP_BRCB,          "Tbrcb"},
     {                 Opcode::OP_LN,           "TLog"},
     {      Opcode::OP_INDEX_OUTCAST,  "TIndexOutcast"},

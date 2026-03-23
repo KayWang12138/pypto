@@ -1815,3 +1815,53 @@ def prelu(self: Tensor, weight: Tensor) -> Tensor:
     Output y: [-0.25, 2.0, -0.125, 3.0]
     """
     return pypto_impl.PReLU(self, weight)
+
+
+@op_wrapper
+def philox_random(
+    key: List[int],
+    counter: List[int],
+    shape: List[int],
+    dtype: DataType = DataType.DT_UINT32,
+    rounds: int = 10
+) -> Tensor:
+    """
+    Generates random numbers using the Philox algorithm.
+    
+    Philox is a counter-based random number generator that produces deterministic
+    random sequences based on a key and counter.
+    
+    Parameters
+    ----------
+    key : List[int]
+        A list of 2 uint32 values that serve as the key for the random number sequence.
+    counter : List[int]
+        A list of 4 uint32 values that serve as the 128-bit counter, determining
+        the position in the random sequence.
+    shape : List[int]
+        The shape of the output tensor.
+    dtype : DataType, optional
+        The data type of the output tensor. Default is DT_UINT32.
+    rounds : int, optional
+        The number of rounds for the Philox algorithm (7 or 10). Default is 10.
+    
+    Returns
+    -------
+    Tensor
+        A tensor of random numbers with the specified shape.
+    
+    Examples
+    --------
+    key = [12345, 67890]
+    counter = [0, 0, 0, 0]
+    shape = [1024]
+    output = pypto.philox_random(key, counter, shape, pypto.DT_UINT32, rounds=10)
+    """
+    if len(key) != 2:
+        raise ValueError(f"key must have exactly 2 elements, got {len(key)}")
+    if len(counter) != 4:
+        raise ValueError(f"counter must have exactly 4 elements, got {len(counter)}")
+    if rounds not in [7, 10]:
+        raise ValueError(f"rounds must be 7 or 10, got {rounds}")
+    
+    return pypto_impl.PhiloxRandom(key, counter, shape, dtype, rounds)
