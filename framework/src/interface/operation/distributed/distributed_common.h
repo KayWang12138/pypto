@@ -32,6 +32,7 @@
 #include "interface/configs/config_manager.h"
 #include "distributed_expand.h"
 #include "tilefwk/comm_group_recorder.h"
+#include "interface/utils/distributed_error.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -73,14 +74,63 @@ inline std::string AtomicTypeToString(AtomicType type)
     }
 }
 
+template <typename T, typename = void>
+struct is_iterable : std::false_type {};
+
+template <typename T>
+struct is_iterable<T, std::void_t<decltype(std::begin(std::declval<T>())), decltype(std::end(std::declval<T>()))>> 
+    : std::true_type {};
+
+template <typename T>
+inline constexpr bool is_iterable_v = is_iterable<T>::value;
+
+template <typename T>
+typename std::enable_if<!is_iterable_v<T>, std::string>::type
+ToString(T value)
+{
+    if constexpr (std::is_same_v<T, std::string>) {
+        return value;
+    } else if constexpr (std::is_convertible_v<T, std::string>) {
+        return std::string(value);
+    } else if constexpr (std::is_integral_v<T>) {
+        return std::to_string(value);
+    } else if constexpr (std::is_same_v<T, AtomicType>) {
+        return AtomicTypeToString(value);
+    } else if constexpr (std::is_same_v<T, DataType>) {
+        return DataType2String(value);
+    } else {
+        ASSERT(DistributedErrorCode::INVALID_TENSOR_DTYPE, true) << "Invalid data type, can not translate into string";
+    }
+}
+
+template <typename Container>
+typename std::enable_if<is_iterable_v<Container>, std::string>::type
+ToString(const Container& c)
+{
+    std::ostringstream oss;
+    oss << "[";
+    bool first = true;
+    for (const auto& item : c) {
+        if (!first) {
+            oss << ", ";
+        }
+        oss << ToString(item);
+        first = false;
+    }
+    oss << "]";
+    return oss.str();
+}
+
 struct ShmemPutAttr {
     Shape copyBufferShape;
     AtomicType atomicType = AtomicType::SET;
+    SymbolicScalar targetRank;
 };
 
 struct ShmemGetAttr {
     Shape copyBufferShape;
     AtomicType atomicType = AtomicType::SET;
+    SymbolicScalar targetRank;
 };
 
 struct ShmemSignalAttr {
@@ -89,6 +139,9 @@ struct ShmemSignalAttr {
     int64_t tileRowShape = 0;
     int64_t tileColShape = 0;
     AtomicType atomicType = AtomicType::SET;
+    bool notifyAll{false};
+    int64_t worldSize{0};
+    SymbolicScalar targetRank;
 };
 
 struct ShmemWaitUntilAttr {
@@ -97,16 +150,19 @@ struct ShmemWaitUntilAttr {
     bool resetSignal =  false;
     int64_t tileRowShape = 0;
     int64_t tileColShape = 0;
+    SymbolicScalar targetRank;
 };
 
 struct ShmemSetAttr {
     int64_t setType = 0;
     Shape setBufferShape;
+    SymbolicScalar targetRank;
 };
 
 struct MoeDispatchAttr {
     std::string extraTemplateParam{};
     int64_t topK = 0;
+    SymbolicScalar targetRank;
 };
 
 struct MoeCombineAttr {
@@ -115,6 +171,7 @@ struct MoeCombineAttr {
     int64_t paddedColShape{0};
     int64_t rowOffset{-1};
     int64_t rowShape{-1};
+    SymbolicScalar targetRank;
 };
 
 inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE> &tile)
@@ -171,7 +228,6 @@ inline bool checkValidConfig(const MoeConfig &moeConfig, std::string &assertResu
     }
     return true;
 }
-
 } // namespace Distributed
 } // namespace npu::tile_fwk
 
