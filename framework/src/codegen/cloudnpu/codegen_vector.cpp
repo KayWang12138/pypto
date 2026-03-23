@@ -810,6 +810,63 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const {
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::GenRandomOp() const {
+    auto keyAttr = opAttrs.at(OP_ATTR_PREFIX + "KEY");
+    auto counterAttr = opAttrs.at(OP_ATTR_PREFIX + "COUNTER");
+    auto roundsAttr = opAttrs.at(OP_ATTR_PREFIX + "ROUNDS");
+    auto shapeAttr = opAttrs.at(OP_ATTR_PREFIX + "SHAPE");
+
+    uint64_t key = 0;
+    if (keyAttr.HasValue()) {
+        key = static_cast<uint64_t>(AnyCast<int64_t>(keyAttr));
+    }
+    
+    std::vector<uint64_t> counter;
+    if (counterAttr.HasValue()) {
+        auto counterAttrVal = AnyCast<std::vector<int64_t>>(counterAttr);
+        for (auto val : counterAttrVal) {
+            counter.push_back(static_cast<uint64_t>(val));
+        }
+    }
+
+    uint16_t rounds = 10;
+    if (roundsAttr.HasValue()) {
+        rounds = AnyCast<uint16_t>(roundsAttr);
+    }
+
+    std::vector<int64_t> shape;
+    if (shapeAttr.HasValue()) {
+        shape = AnyCast<std::vector<int64_t>>(shapeAttr);
+    }
+
+    std::string keyStr = std::to_string(key) + "ULL";
+    std::string counterStr = "{" + JoinString(counter, ", ") + "}";
+    std::string roundsStr = std::to_string(rounds);
+    std::string shapeStr = "{" + JoinString(shape, ", ") + "}";
+    std::string shapeSizeStr = std::to_string(shape.size());
+
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+
+    AppendLocalBufVarOffsetInOrder(dVar);
+    std::ostringstream oss;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+    paramList.clear();
+    std::string dst = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + dstDtypeStr + "*)" + dVar;
+    paramList.emplace_back(dst);
+    paramList.emplace_back(keyStr);
+    paramList.emplace_back(counterStr);
+    paramList.emplace_back(roundsStr);
+    paramList.emplace_back(shapeStr);
+    paramList.emplace_back(shapeSizeStr);
+
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
+    oss << tileOpName << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const {
     // support 2-4 dims
     const std::string &dstVar = param.dstVar;
