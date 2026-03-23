@@ -49,7 +49,7 @@ inline bool IsMixGraph(const std::vector<Operation*> &operations) {
     return false;
 }
 
-inline Operation* SkipViewChain(Operation* start, bool followProducers) {
+Operation* OoOScheduler::SkipViewChain(Operation* start, bool followProducers) {
     if (start == nullptr) return nullptr;
     Operation* op = start;
     Operation* lastView = nullptr;
@@ -555,10 +555,6 @@ void OoOScheduler::LaunchReadyIssue() {
             }
         }
     }
-}
-
-bool OoOScheduler::IsInIssueEntries(Operation* op) {
-    return issueEntriesOpMagic.count(op->GetOpMagic());
 }
 
 Status OoOScheduler::ScheduleMainLoop() {
@@ -1105,7 +1101,6 @@ Status OoOScheduler::InitOpEntry(Operation* op, const std::unordered_map<Operati
         return FAILED;
     }
 
-    issueEntriesOpMagic.insert(op->GetOpMagic());
     APASS_LOG_DEBUG_F(Elements::Operation, "issue: %s, coreType: %s, idx: %d",
         GetOpInfo(op).c_str(), coreTypeToString(opCoreLocationMap[op].first).c_str(), opCoreLocationMap[op].second);
     return SUCCESS;
@@ -1325,16 +1320,16 @@ Status OoOScheduler::GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, L
     return SUCCESS;
 }
 
-Status OoOScheduler::GenRearrangeCopy(Operation* allocOp, MemoryType memType, int oldMemId, int &newMemId, bool &rearrangeUBBF16) {
+Status OoOScheduler::GenRearrangeCopyOp(Operation* allocOp, MemoryType memType, int oldMemId, int &newMemId, bool &rearrangeUBBF16) {
     if (memType != MemoryType::MEM_L1 && memType != MemoryType::MEM_UB) {
-        APASS_LOG_WARN_F(Elements::Tensor, "Unexpected rearrange tensor memory type found, GenRearrangeCopyOpOp failed.");
+        APASS_LOG_WARN_F(Elements::Tensor, "Unexpected rearrange tensor memory type found, GenRearrangeCopyOp failed.");
         return FAILED;
     }
     Opcode moveOpcode = memType == MemoryType::MEM_L1 ? Opcode::OP_COPY_IN : Opcode::OP_ADDS;
     auto occupyOp = tensorOccupyMap[memType][oldMemId];
     LogicalTensorPtr moveFromTensor{nullptr};
     if (FindMoveFromTensor(*occupyOp, oldMemId, memType, rearrangeUBBF16, moveFromTensor) != SUCCESS) {
-        APASS_LOG_WARN_F(Elements::Tensor, "GenRearrangeCopyOpOp failed at FindMoveFromTensor.");
+        APASS_LOG_WARN_F(Elements::Tensor, "GenRearrangeCopyOp failed at FindMoveFromTensor.");
         return FAILED;
     }
     if (rearrangeUBBF16) {
@@ -1343,13 +1338,13 @@ Status OoOScheduler::GenRearrangeCopy(Operation* allocOp, MemoryType memType, in
     LogicalTensorPtr moveToTensor = std::make_shared<LogicalTensor>(function_, moveFromTensor->Datatype(), moveFromTensor->shape);
     // 给moveToTensor分配memId和创建新的localbuffer
     if (UpdateTensorAttr(moveToTensor, memType, moveFromTensor, oldMemId) != SUCCESS) {
-        APASS_LOG_WARN_F(Elements::Tensor, "GenRearrangeCopyOpOp failed at UpdateTensorAttr.");
+        APASS_LOG_WARN_F(Elements::Tensor, "GenRearrangeCopyOp failed at UpdateTensorAttr.");
         return FAILED;
     }
     newMemId = moveToTensor->memoryrange.memId;
     LogicalTensorPtr inTensor{nullptr};
     if (GetMoveOpInTensor(moveOpcode, *occupyOp, inTensor, moveFromTensor) != SUCCESS) {
-        APASS_LOG_WARN_F(Elements::Tensor, "GenRearrangeCopyOpOp failed at GetMoveOpInTensor.");
+        APASS_LOG_WARN_F(Elements::Tensor, "GenRearrangeCopyOp failed at GetMoveOpInTensor.");
         return FAILED;
     }
     auto &moveOp = (moveOpcode == Opcode::OP_COPY_IN && occupyOp->GetOpcode() == Opcode::OP_COPY_IN) ?
@@ -1365,7 +1360,7 @@ Status OoOScheduler::GenRearrangeCopy(Operation* allocOp, MemoryType memType, in
     ProcessMoveIssue(&moveOp, allocOp, memType, oldMemId, newMemId);
     // 更新memId
     if (UpdateMemId(oldMemId, newMemId) != SUCCESS) {
-        APASS_LOG_WARN_F(Elements::Operation, "GenRearrangeCopyOpOp failed at UpdateMemId. %s", GetFormatBacktrace(moveOp).c_str());
+        APASS_LOG_WARN_F(Elements::Operation, "GenRearrangeCopyOp failed at UpdateMemId. %s", GetFormatBacktrace(moveOp).c_str());
         return FAILED;
     }
     // Free oldMemId

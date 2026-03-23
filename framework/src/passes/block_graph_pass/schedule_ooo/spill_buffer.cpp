@@ -33,7 +33,7 @@ OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(MemoryType bufferType
     spillInfo.triggerTensorSize = allocBuffer->size;
     int allocOccupied = 0;
     for (const auto &pair : tensorOccupyMap[bufferType]) {
-        if (pair.second->isAlloc) {
+        if (opIsAllocMap[pair.second]) {
             allocOccupied += localBufferMap[pair.first]->size;
         }
     }
@@ -385,7 +385,6 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     opSuccessorsMap[allocOpPtr] = std::unordered_set<Operation*>();
     opViewOpsMap[allocOpPtr] = std::vector<Operation*>();
     InitOpViewOps(allocOpPtr);
-    issueEntriesOpMagic.insert(allocOpPtr->GetOpMagic());
 
     // 初始化 spillCopyInOp
     opExecOrderMap[copyInOpPtr] = static_cast<int>(orderedOps.size()) - 1;
@@ -397,7 +396,6 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     opSuccessorsMap[copyInOpPtr] = std::unordered_set<Operation*>();
     opViewOpsMap[copyInOpPtr] = std::vector<Operation*>();
     InitOpViewOps(copyInOpPtr);
-    issueEntriesOpMagic.insert(copyInOpPtr->GetOpMagic());
 
     reloadOps.first = allocOpPtr;
     reloadOps.second = copyInOpPtr;
@@ -626,7 +624,7 @@ Status OoOScheduler::CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spi
     for (auto preOp : opPredecessorsMap[spillOp]) {
         if (opIsAllocMap[preOp]) {
             opCoreLocationMap[spillCopyoutOp] = opCoreLocationMap[preOp];
-            UpdateOpInternalSubgraphID(spillCopyoutOp, preOp);
+            UpdateOpInternalSubgraphID(*spillCopyoutOp, preOp);
         }
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "Add SPILL_OUT: %s. ", GetOpInfo(spillCopyoutOp).c_str());
@@ -888,7 +886,6 @@ Operation* OoOScheduler::UpdateIssueAttr(Operation &newOp, std::vector<int> memI
     opViewOpsMap[newOpPtr] = std::vector<Operation*>();
     opCoreLocationMap[newOpPtr] = corePair;
     InitOpViewOps(newOpPtr);
-    issueEntriesOpMagic.insert(newOpPtr->GetOpMagic());
 
     // 插入orderedOps
     InsertOrdered(newOpPtr);
