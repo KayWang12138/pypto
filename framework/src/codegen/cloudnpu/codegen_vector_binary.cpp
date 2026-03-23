@@ -183,7 +183,7 @@ std::string CodeGenOpCloudNPU::GenBinaryOp() const {
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
-    std::vector src0RawShape = this->rawShape[ID1];
+    std::vector src0RawShape = rawShape[ID1];
     CODEGEN_LOGI("genBinaryOp %s, src0RawShape is %s", tileOpName.c_str(), IntVecToStr(src0RawShape).c_str());
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
@@ -364,8 +364,8 @@ std::string CodeGenOpCloudNPU::GenBinaryWithBrc() const {
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
-    std::vector src0RawShape = this->rawShape[ID2];
-    std::vector src1RawShape = this->rawShape[ID3];
+    std::vector src0RawShape = rawShape[ID2];
+    std::vector src1RawShape = rawShape[ID3];
     CODEGEN_LOGI("GenBinaryWithBrc %s, src0RawShape is %s", tileOpName.c_str(), IntVecToStr(src0RawShape).c_str());
 
     char buffer[256] = "CG_ERROR";
@@ -401,8 +401,8 @@ std::string CodeGenOpCloudNPU::PrintBinaryScalarStatic(const PrintBinaryScalarPa
     const std::string &dVar = param.dVar;
     const std::string &s0Var = param.s0Var;
 
-    std::vector dstShape = this->rawShape[0];
-    std::vector src0Shape = this->rawShape[1];
+    std::vector dstShape = rawShape[0];
+    std::vector src0Shape = rawShape[1];
 
     std::vector<int64_t> os0 = NormalizeShape(originShape[1], SHAPE_DIM3);
     std::vector<int64_t> ss = NormalizeShape(src0Shape, SHAPE_DIM3);
@@ -442,8 +442,8 @@ std::string CodeGenOpCloudNPU::PrintBinaryScalarDynamicUnaligned(const PrintBina
     const std::string &dVar = param.dVar;
     const std::string &s0Var = param.s0Var;
 
-    std::vector dstShape = this->rawShape[0];
-    std::vector src0Shape = this->rawShape[1];
+    std::vector dstShape = rawShape[0];
+    std::vector src0Shape = rawShape[1];
 
     std::vector<int64_t> ss = NormalizeShape(src0Shape, SHAPE_DIM3);
     std::vector<int64_t> ds = NormalizeShape(dstShape, SHAPE_DIM3);
@@ -577,8 +577,8 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
 
     AppendLocalBufVarOffsetInOrder(dVar, s0Var);
 
-    std::vector src0RawShape = this->rawShape[1];
-    std::vector dstRawShape = this->rawShape[0];
+    std::vector src0RawShape = rawShape[1];
+    std::vector dstRawShape = rawShape[0];
     std::vector<int64_t> os0 = NormalizeShape(originShape[1], SHAPE_DIM4);
     std::vector<int64_t> s0 = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
