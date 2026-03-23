@@ -224,7 +224,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
           // hypot op
           {Opcode::OP_HYPOT, [this]() { return GenHypotOp(); }},
           {Opcode::OP_PAD, [this]() { return GenPadOp(); }},
-          {Opcode::OP_FILLPAD, [this]() { return GenPadOp(); }},          
+          {Opcode::OP_FILLPAD, [this]() { return GenPadOp(); }},
       }),
       sortOps_({
           // sort
@@ -528,10 +528,10 @@ void CodeGenOpCloudNPU::UpdateTileTensorShapeAndStride(
     // gm tensor
     if (tileTensor.bufType == OperandType::BUF_DDR) {
         if (isSpillToGm) {
-            for (auto s : shape[paramIdx]) {
+            for (auto s : shapeFromAttr[paramIdx]) {
                 tileTensor.shape.emplace_back(std::to_string(s));
             }
-            tileTensor.stride = BuildStride(shape[paramIdx]);
+            tileTensor.stride = BuildStride(shapeFromAttr[paramIdx]);
         } else {
             tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
             tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);

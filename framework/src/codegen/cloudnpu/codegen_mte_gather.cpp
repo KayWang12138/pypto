@@ -173,8 +173,8 @@ void HelpNormalize(std::vector<size_t> &index, int axis, int paramDim) {
     index.insert(index.begin() + axis, delNum);
 }
 std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned() const {
-    std::vector dstShape = this->rawShape[0];
-    std::vector src0Shape = this->rawShape[1];
+    std::vector dstShape = rawShape[0];
+    std::vector src0Shape = rawShape[1];
 
     std::string resultDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string paramDtypeStr = DataType2CCEStr(operandDtype[ID1]);
@@ -325,8 +325,8 @@ std::string CodeGenOpCloudNPU::PrintGatherInUBLayout() const {
     return oss.str();
 }
 std::string CodeGenOpCloudNPU::PrintGatherInUBDynamicUnaligned() const {
-    std::vector dstShape = this->rawShape[0];
-    std::vector src0Shape = this->rawShape[1];
+    std::vector dstShape = rawShape[0];
+    std::vector src0Shape = rawShape[1];
 
     std::string resultDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string paramDtypeStr = DataType2CCEStr(operandDtype[ID1]);

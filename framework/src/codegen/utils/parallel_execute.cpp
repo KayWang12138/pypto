@@ -61,11 +61,7 @@ void TaskRunner(ThreadSafeTaskQueue &taskQueue) {
 }; // namespace
 
 void ParallelExecuteAndWait(unsigned threadNum, std::deque<Task> tasks) {
-    constexpr unsigned threshold = 128;
-    if (threadNum > threshold) {
-        CODEGEN_LOGI("ParallelExecute: threadNum is too large and thus ignored. Reset to %ud.", threshold);
-        threadNum = threshold;
-    } else if (threadNum == 0) {
+    if (threadNum == 0) {
         threadNum = 1;
     }
 
