@@ -271,19 +271,10 @@ void OoOScheduler::InsertOrdered(Operation* insertOp) {
 }
 
 // 新增：基于Operation*的版本
-Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* reloadCopyin,
-    Operation* spillOp, int spillMemId, Operation* allocOp) {
-    int allocOOperandsSize = reloadAlloc->GetOOperands().size();
-    int copyInOOperandsSize = reloadCopyin->GetOOperands().size();
-    if (allocOOperandsSize != 1 || copyInOOperandsSize != 1 || reloadAlloc->GetOutputOperand(0) != reloadCopyin->GetOutputOperand(0)) {
-        APASS_LOG_ERROR_F(Elements::Operation, "oOperands expected 1. %s and %s should share the same oOperand[0]. %s",
-            GetOpInfo(reloadAlloc).c_str(), GetOpInfo(reloadCopyin).c_str(), GetFormatBacktrace(*reloadAlloc).c_str());
-        return FAILED;
-    }
-    auto outTensor = reloadAlloc->GetOutputOperand(0);
-    opReqMemIdsMap[reloadAlloc] = {outTensor->memoryrange.memId};
+Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* reloadCopyin, Operation* spillOp, int spillMemId, Operation* allocOp) {
+    opReqMemIdsMap[reloadAlloc] = {reloadAlloc->GetOutputOperand(0)->memoryrange.memId};
     opSuccessorsMap[reloadAlloc].insert(reloadCopyin);
-    opReqMemIdsMap[reloadCopyin] = {outTensor->memoryrange.memId};
+    opReqMemIdsMap[reloadCopyin] = {reloadAlloc->GetOutputOperand(0)->memoryrange.memId};
     opPredecessorsMap[reloadCopyin].insert(reloadAlloc);
     int bufNextUseOrder = GetBufNextUseOrder(allocOp, spillMemId);
     if (bufNextUseOrder == -1) {
@@ -297,8 +288,6 @@ Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* re
     opIsRetiredMap[reloadCopyin] = false;
     opPipeTypeMap[reloadAlloc] = RescheduleUtils::GetOpPipeType(reloadAlloc);
     opPipeTypeMap[reloadCopyin] = RescheduleUtils::GetOpPipeType(reloadCopyin);
-    opViewOpsMap[reloadAlloc] = std::vector<Operation*>();
-    opViewOpsMap[reloadCopyin] = std::vector<Operation*>();
 
     opExecOrderMap[reloadAlloc] = bufNextUseOrder++;
     InsertOrdered(reloadAlloc);
@@ -309,11 +298,9 @@ Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* re
     UpdateOpInternalSubgraphID(*reloadAlloc, allocOp);
     UpdateOpInternalSubgraphID(*reloadCopyin, allocOp);
     if (UpdateReloadIssueDepend(reloadCopyin, spillOp, spillMemId) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "UpdateReloadIssueDependOp failed. %s", GetFormatBacktrace(*reloadCopyin).c_str());
         return FAILED;
     }
     if (UpdateRemainOpBufId(spillMemId, opReqMemIdsMap[reloadAlloc][0])) {
-        APASS_LOG_ERROR_F(Elements::Operation, "UpdateRemainOpBufId failed. %s", GetFormatBacktrace(*reloadAlloc).c_str());
         return FAILED;
     }
     for (auto& op : orderedOps) {
@@ -342,10 +329,6 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     // 创建将spill搬出数据搬回OP_COPY_IN的tensor
     LogicalTensorPtr localTensor = std::make_shared<LogicalTensor>(
             function_, spillTensor->Datatype(), spillTensor->shape, spillTensor->Format());
-    if (localTensor == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Create local tensor failed!");
-        return FAILED;
-    }
     if (UpdateTensorAttr(localTensor, memType, spillTensor, -1) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Tensor, "UpdateTensorAttr local tensor failed!");
         return FAILED;
@@ -383,7 +366,6 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     opReqMemIdsMap[allocOpPtr] = std::vector<int>();
     opPredecessorsMap[allocOpPtr] = std::unordered_set<Operation*>();
     opSuccessorsMap[allocOpPtr] = std::unordered_set<Operation*>();
-    opViewOpsMap[allocOpPtr] = std::vector<Operation*>();
     InitOpViewOps(allocOpPtr);
 
     // 初始化 spillCopyInOp
@@ -394,7 +376,6 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     opReqMemIdsMap[copyInOpPtr] = std::vector<int>();
     opPredecessorsMap[copyInOpPtr] = std::unordered_set<Operation*>();
     opSuccessorsMap[copyInOpPtr] = std::unordered_set<Operation*>();
-    opViewOpsMap[copyInOpPtr] = std::vector<Operation*>();
     InitOpViewOps(copyInOpPtr);
 
     reloadOps.first = allocOpPtr;
