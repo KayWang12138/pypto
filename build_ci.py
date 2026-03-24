@@ -1037,6 +1037,8 @@ class BuildCtrl(CMakeParam):
     def main(cls):
         ts = datetime.now(tz=timezone.utc)
         try:
+            import time
+            time.sleep(600)
             cls._main()
         except KeyboardInterrupt as e:
             logging.error("Operation cancelled by user")
