@@ -222,7 +222,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &funct
             return;
         }
         if (copyOutOps.size() != 1) {
-            APASS_LOG_WARN_F(Elements::Operation, "Do not follow reshape[%d] on GM after multiple copyouts. This scenario may have accuracy issues.", op.GetOpMagic());
+            APASS_LOG_WARN_F(Elements::Operation, "Do not follow reshape[%d] on GM after multiple copyouts.", op.GetOpMagic());
             return;
         }
         Operation *copyOutOp = copyOutOps.front();
@@ -301,12 +301,17 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(Function &function, Opera
         auto copyInOutputMemType = copyInOutput->GetMemoryTypeOriginal();
 
         bool copyInShapeSame = true;
-        for (size_t i = 0; i < copyInInput->GetShape().size(); i++) {
-            if (copyInInput->GetShape()[i] != copyInOutput->GetShape()[i]) {
-                copyInShapeSame = false;
-                break;
+        if (copyInInput->GetShape().size() != copyInOutput->GetShape().size()) {
+            copyInShapeSame = false;
+        } else {
+            for (size_t i = 0; i < copyInInput->GetShape().size(); i++) {
+                if (copyInInput->GetShape()[i] != copyInOutput->GetShape()[i]) {
+                    copyInShapeSame = false;
+                    break;
+                }
             }
         }
+        
         if (copyInInputMemType == MemoryType::MEM_DEVICE_DDR) {
             if (copyInOutputMemType == MemoryType::MEM_UB && copyInShapeSame) {
                 copyInOp->SetOpCode(Opcode::OP_RESHAPE_COPY_IN);
