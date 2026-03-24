@@ -131,16 +131,16 @@ int64_t ConvComputeDo(const Tensor &inputTensor, const Tensor &weightTensor, con
 
 void CheckOutputShape(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
-    int64_t hOut = ConvComputeHo(inputTensor, weightTensor, attrParam);
-    std::string hOutFormula = "hOut = (hin + 2 * pad_h - (kh - 1) * dilation_h - 1) / stride_h + 1";
-    CheckValueRange(hOut, "hOut" , NUM1, MAX_SIZE, hOutFormula);
-    int64_t wOut = ConvComputeWo(inputTensor, weightTensor, attrParam);
-    std::string wOutFormula = "wOut = (win + 2 * pad_w - (kw - 1) * dilation_w - 1) / stride_w + 1";
-    CheckValueRange(wOut, "wOut" , NUM1, MAX_SIZE, wOutFormula);
+    int64_t hout = ConvComputeHo(inputTensor, weightTensor, attrParam);
+    std::string hOutFormula = "hout = (hin + 2 * pad_h - (kh - 1) * dilation_h - 1) / stride_h + 1";
+    CheckValueRange(hout, "hout" , NUM1, MAX_SIZE, hOutFormula);
+    int64_t wout = ConvComputeWo(inputTensor, weightTensor, attrParam);
+    std::string wOutFormula = "wout = (win + 2 * pad_w - (kw - 1) * dilation_w - 1) / stride_w + 1";
+    CheckValueRange(wout, "wput" , NUM1, MAX_SIZE, wOutFormula);
     if (attrParam.isConv3D) {
-        int64_t dOut = ConvComputeDo(inputTensor, weightTensor, attrParam);
-        std::string dOutFormula = "dOut = (din + 2 * pad_d - (kd - 1) * dilation_d - 1) / stride_d + 1";
-        CheckValueRange(dOut, "dOut" , NUM1, MAX_SIZE, dOutFormula);
+        int64_t dout = ConvComputeDo(inputTensor, weightTensor, attrParam);
+        std::string dOutFormula = "dout = (din + 2 * pad_d - (kd - 1) * dilation_d - 1) / stride_d + 1";
+        CheckValueRange(dout, "dout" , NUM1, MAX_SIZE, dOutFormula);
     }
 }
 
@@ -165,19 +165,19 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
     auto &convTile = TileShape::Current().GetConvTile();
     int64_t tileHout = convTile.tileL1Info.tileHout;
     int64_t tileWout = convTile.tileL1Info.tileWout;
-    int64_t hOut = ConvComputeHo(inputTensor, weightTensor, attrParam);
-    int64_t wOut = ConvComputeWo(inputTensor, weightTensor, attrParam);
-    if (wOut % 16 != 0) {
+    int64_t hout = ConvComputeHo(inputTensor, weightTensor, attrParam);
+    int64_t wout = ConvComputeWo(inputTensor, weightTensor, attrParam);
+    if (wout % 16 != 0) {
         ASSERT(ConvOperationError::INPUT_INVALID, tileHout == 1)
-            << "When wOut is not a multiple of 16, tileHout should be 1.";
+            << "When wout is not a multiple of 16, tileHout should be 1.";
     }
-    CheckValueRange(tileHout, "tileHout" , NUM1, hOut);
+    CheckValueRange(tileHout, "tileHout" , NUM1, hout);
     if (tileHout > 1) {
-        ASSERT(ConvOperationError::INPUT_INVALID, tileWout == wOut)
+        ASSERT(ConvOperationError::INPUT_INVALID, tileWout == wout)
             << "When tileHout > 1, tileWout must be equal to wOut.Now tileHout=" << tileHout
-            << ", tileWout=" << tileWout << ", wOut=" << wOut;
+            << ", tileWout=" << tileWout << ", wout=" << wout;
     }
-    CheckValueRange(tileWout, "tileWout" , NUM1, ConvAlignB(wOut, NUM16));
+    CheckValueRange(tileWout, "tileWout" , NUM1, ConvAlignB(wout, NUM16));
     CheckAlignment(tileWout, NUM16, "tileWout");
 }
 
@@ -262,14 +262,14 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
 
     uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
     uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
-    int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
+    int64_t cout = weightTensor.GetShape()[NCHW_N_IDX];
     int64_t hin = attrParam.isConv1D ? 1 : inputTensor.GetShape()[indexH];
     int64_t win = inputTensor.GetShape()[indexW];
 
     CheckValueRange(tileHin, "tileHin", NUM1, hin);
     CheckValueRange(tileBatch, "tileBatch", NUM1, NUM1);
     CheckValueRange(tileWin, "tileWin", NUM1, win);
-    CheckValueRange(tileN, "tileL1Info.tileN", NUM1, ConvAlignB(cOut/groups, NUM16));
+    CheckValueRange(tileN, "tileL1Info.tileN", NUM1, ConvAlignB(cout/groups, NUM16));
     CheckAlignment(tileN, NUM16, "tileL1Info.tileN");
 
     CheckHowoTile(inputTensor, weightTensor, attrParam);
@@ -337,12 +337,12 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
         << "MinL1LoadSize > L1size, current MinL1LoadSize: " << minL1LoadSize << ", L1size: " << l1Size << ".";
 }
 
-void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64_t cOut, const int64_t groups)
+void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64_t cout, const int64_t groups)
 {
     CheckValueRange(groups, "groups", NUM1, SHAPE_INNER_AXIS_MAX_SIZE);
 
     CheckDivisible(cinFmap, groups, "Cin", "groups");
-    CheckDivisible(cOut, groups, "Cout", "groups");
+    CheckDivisible(cout, groups, "Cout", "groups");
 
     ASSERT(ConvOperationError::INPUT_INVALID, cinFmap == cinWeight * groups)
         << "Fmap Cin (" << cinFmap << ") != weight Cin (" << cinWeight << ") * groups (" << groups << ").";
@@ -404,7 +404,7 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
     int64_t groups = attrParam.groups;
     int64_t cinFmap = inputTensor.GetShape()[NCHW_C_IDX];
     int64_t cinWeight = weightTensor.GetShape()[NCHW_C_IDX];
-    int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
+    int64_t cout = weightTensor.GetShape()[NCHW_N_IDX];
 
     if (attrParam.isConv3D) {
         paddings = rotateVector(paddings, 4);
@@ -424,7 +424,7 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
             << " and " << paddingRight
             << ".";
     }
-    CheckGroupsShape(cinFmap, cinWeight, cOut, groups);
+    CheckGroupsShape(cinFmap, cinWeight, cout, groups);
     CheckLoad3dShape(outType, weightTensor, attrParam);
 }
 
@@ -436,9 +436,9 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
     if (biasTensor.IsEmpty()) {
         return;
     }
-    int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
-    ASSERT(ConvOperationError::INPUT_INVALID, biasTensor.GetShape()[0] == cOut) <<
-        "Input illegal bias shape:" << biasTensor.GetShape()[0] << ", which must equal to Cout:" << cOut << ".";
+    int64_t cout = weightTensor.GetShape()[NCHW_N_IDX];
+    ASSERT(ConvOperationError::INPUT_INVALID, biasTensor.GetShape()[0] == cout) <<
+        "Input illegal bias shape:" << biasTensor.GetShape()[0] << ", which must equal to Cout:" << cout << ".";
 }
 
 void CheckConvOperands(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor, ConvAttrParam &attrParam)
