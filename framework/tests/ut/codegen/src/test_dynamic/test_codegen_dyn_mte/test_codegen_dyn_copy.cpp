@@ -289,13 +289,8 @@ TEST_F(TestCodegenDynCopy, L1ToBt)
     EXPECT_EQ(res, expect);
 }
 
-std::string TestMatmulMteBody(
-    const std::string& funcName, Opcode opcode, MemoryType inType, MemoryType outType, bool isTileTensor = false)
+std::string TestMatmulMteBody(const std::string& funcName, Opcode opcode, MemoryType inType, MemoryType outType)
 {
-    if (isTileTensor) {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-        config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
-    }
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
@@ -356,7 +351,7 @@ TEST_F(TestCodegenDynCopy, L1CopyInTensor)
 TEST_F(TestCodegenDynCopy, L1CopyL0Tensor)
 {
     std::string res =
-        TestMatmulMteBody("L1CopyL0Tensor", Opcode::OP_L1_TO_L0A, MemoryType::MEM_L1, MemoryType::MEM_L0A, true);
+        TestMatmulMteBody("L1CopyL0Tensor", Opcode::OP_L1_TO_L0A, MemoryType::MEM_L1, MemoryType::MEM_L0A);
     std::string expect = R"!!!(TExtract<0>(l0aTensor_0, l1Tensor_1, Coord2Dim(0, 0));
 )!!!";
     EXPECT_EQ(res, expect);
@@ -373,8 +368,7 @@ TEST_F(TestCodegenDynCopy, L1CopyFBTensor)
 
 TEST_F(TestCodegenDynCopy, L1CopyBTTensor)
 {
-    std::string res =
-        TestMatmulMteBody("L1CopyBTTensor", Opcode::OP_L1_TO_BT, MemoryType::MEM_L1, MemoryType::MEM_BT, true);
+    std::string res = TestMatmulMteBody("L1CopyBTTensor", Opcode::OP_L1_TO_BT, MemoryType::MEM_L1, MemoryType::MEM_BT);
     std::string expect = R"!!!(TExtract<0>(btTensor_0, l1Tensor_1, Coord2Dim(0, 0));
 )!!!";
     EXPECT_EQ(res, expect);
@@ -393,7 +387,7 @@ TEST_F(TestCodegenDynCopy, L0CopyOutTensor)
 TEST_F(TestCodegenDynCopy, L0CopyOutTensorTileTensor)
 {
     std::string res = TestMatmulMteBody(
-        "L0CopyOutTensorTileTensor", Opcode::OP_COPY_OUT, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR, true);
+        "L0CopyOutTensorTileTensor", Opcode::OP_COPY_OUT, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR);
     std::string expect =
         R"!!!(TStore<TStoreConfig<CopyOutMode::NZ2ND, 0, 0>>(gmTensor_0, l0cTensor_1, l0cTensor_1, Coord2Dim(0, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1), 0);
 )!!!";
