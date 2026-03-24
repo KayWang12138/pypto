@@ -63,8 +63,8 @@ struct SchduleContext {
     uint32_t readyCount[AICORE_TYPE_NUM]{0, 0};
     uint32_t sendCnt_[AICORE_TYPE_NUM]{0, 0};
 
-    bool wrapCoreAvail_[MAX_AICORE_NUM]{true};    // used to check coreIdx is used by wrap_manager
     uint32_t coreIdxPosition_[MAX_AICORE_NUM]{0}; // used to record core's position in runReadyCoreIdx_
+    bool wrapCoreAvail_[MAX_AICORE_NUM]{true};    // used to check coreIdx is used by wrap_manager
 };
 
 } // namespace npu::tile_fwk::dynamic

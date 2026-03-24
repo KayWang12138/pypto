@@ -20,9 +20,9 @@ namespace npu::tile_fwk::dynamic {
 inline int32_t GetTaskIdx(uint32_t coreType, int32_t wrapVecId)
 {
     if (coreType == static_cast<uint32_t>(CoreType::AIC)) {
-        return 0;
+        return WRAP_IDX_AIC;
     } else {
-        return wrapVecId == 1 ? 2 : 1;
+        return wrapVecId == 1 ? WRAP_IDX_AIV1 : WRAP_IDX_AIV0;
     }
 }
 
