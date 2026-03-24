@@ -730,7 +730,7 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
         if (scheCpuNum == 1) {
             nrAicpu = 1;   // sche num is 1, no need lauch more aicpu in tripleStream
             DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu = 1;
-            MACHINE_LOGE(HostLauncherErr::TRIPLE_STREAM_ERROR,
+            MACHINE_LOGI(HostLauncherErr::TRIPLE_STREAM_ERROR,
                            "sche num is 1, no need lauch more aicpu in tripleStream, nrAicpu changed to %u",
                            DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
         }
