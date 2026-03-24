@@ -448,12 +448,15 @@ void CheckBiasParam(DataType inDtype, const MatmulExtendParam &param = {}) {
     if (param.biasTensor.GetStorage() == nullptr) {
         return;
     }
+    std::vector<DataType> supportDtype = {DataType::DT_FP8E5M2, DataType::DT_FP8E4M3, DataType::DT_FP8E8M0,
+                                             DataType::DT_FP4_E2M1X2, DataType::DT_FP4_E1M2X2, DataType::DT_FP16};
+    bool isSupportDtype = std::find(supportDtype.begin(), supportDtype.end(), inDtype) != supportDtype.end();
     ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, param.biasTensor.Format() == TileOpFormat::TILEOP_ND)
         << "Only support TILEOP_ND.";
     if (inDtype == DataType::DT_BF16 || inDtype == DataType::DT_FP32) {
         ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH, param.biasTensor.GetDataType() == DataType::DT_FP32)
             << "When input tensor is DT_BF16 or DT_FP32, bias must be DT_FP32.";
-    } else if (inDtype == DataType::DT_FP16) {
+    } else if (isSupportDtype) {
         ASSERT(MatmulErrorCode::ERR_PARAM_MISMATCH,
             param.biasTensor.GetDataType() == DataType::DT_FP32 || param.biasTensor.GetDataType() == DataType::DT_FP16)
             << "When input tensor is DT_FP16, bias must be DT_FP32 or DT_FP16.";
