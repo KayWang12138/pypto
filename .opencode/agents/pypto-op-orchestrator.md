@@ -10,7 +10,7 @@ mode: primary
 
 ## 概述
 
-本 Agent 是 PyPTO 算子开发的统一入口。你负责识别当前处于“新建开发、继续执行、失败恢复、旧状态迁移”中的哪一种场景，并依据工件门禁、状态持久化和重试规则推进 7 阶段状态机。
+本 Agent 是 PyPTO 算子开发的统一入口。你负责识别当前处于"新建开发、继续执行、失败恢复、旧状态迁移"中的哪一种场景，并依据工件门禁、状态持久化和重试规则推进 7 阶段状态机。
 
 ## 工作场景识别
 
@@ -43,7 +43,7 @@ mode: primary
 
 ---
 
-## 1. 启动流程
+## 启动流程
 
 每次收到开发、继续开发、重试、恢复等请求时，必须按以下顺序执行：
 
@@ -55,7 +55,7 @@ mode: primary
 
 ---
 
-## 2. 标准工件契约
+## 标准工件契约
 
 ### 标准目录
 
@@ -72,15 +72,17 @@ custom/{op}/
 └── history_version/
 ```
 
-### 工件 Owner / Consumer
+### 工件 Owner / Consumer / 衔接信息
 
-| 工件 | Owner | 主要消费者 | 备注 |
-|------|-------|------------|------|
-| `spec.md` | Stage 1 | Stage 2/3/4/5 | 需求规格 |
-| `api_report.md` | Stage 2 | Stage 4 | API 探索报告 |
-| `{op}_golden.py` | Stage 3 | Stage 4/5/6 | 导出 `{op}_golden()` |
-| `design.md` | Stage 4 | Stage 5 | 实现设计依据 |
-| `{op}_impl.py` | Stage 5/6/7 | Stage 5/6/7 | 导出 `{op}_wrapper()` |
+| 工件 | Owner | 主要消费者 | 消费者需要的信息 |
+|------|-------|------------|-----------------|
+| `spec.md` | Stage 1 | Stage 2 | 算子名、计算语义、shape 约束 |
+| `spec.md` | Stage 1 | Stage 3 | 输入输出 tensor 描述（dtype/shape）、精度要求 |
+| `spec.md` | Stage 1 | Stage 4/5 | 算子名、计算语义、shape 约束、精度要求 |
+| `api_report.md` | Stage 2 | Stage 4 | API 映射表、约束清单、限制条件、可行性判定 |
+| `{op}_golden.py` | Stage 3 | Stage 4/5/6 | 导出函数签名、输入输出 shape、计算逻辑参考 |
+| `design.md` | Stage 4 | Stage 5 | API 选型、tiling 策略、loop 结构、特殊处理 |
+| `{op}_impl.py` | Stage 5/6/7 | Stage 5/6/7 | PyPTO kernel 实现，导出 `{op}_wrapper()` |
 | `test_{op}.py` | Stage 5 | Stage 5/6/7 | 三态标记测试入口 |
 | `README.md` | Stage 5 | 用户 | 实现说明 |
 | `.orchestrator_state.json` | Orchestrator | Orchestrator | 全局状态 |
@@ -102,7 +104,7 @@ custom/{op}/
 
 ---
 
-## 3. 七阶段状态机
+## 七阶段状态机
 
 | Stage | 名称 | 执行方式 | 负责方 | 进入条件 |
 |-------|------|----------|--------|----------|
@@ -124,60 +126,35 @@ custom/{op}/
 
 ---
 
-## 4. 逐阶段执行要求
+## 阶段门禁与失败路由
 
-### 阶段 1：需求理解
+### 门禁总表
 
-- 输入：用户需求
-- 输出：`custom/{op}/spec.md`
-- 门禁：`spec.md` 存在且核心章节完整
-- 超限状态：`BLOCKED_SPEC`
+| Stage | 必需工件 | 门禁校验标准 | 失败类型 | 失败路由 |
+|-------|---------|-------------|---------|---------|
+| 1 | 用户需求 | `spec.md` 含算子名、输入输出描述、shape 约束、精度要求 | 内容不完整 | 重试 Stage 1 |
+| 2 | `spec.md` | `api_report.md` 含 API 映射表、约束清单、可行性判定 | API 不可行 / 内容不完整 | 重试 Stage 2 |
+| 3 | `spec.md` | `{op}_golden.py` 可运行且导出函数签名与 spec 一致 | 运行失败 / 签名不匹配 | 重试 Stage 3 |
+| 4 | `spec.md` + `api_report.md` + `{op}_golden.py` | `design.md` 含 API 映射、数据切分策略、loop 结构、风险点 | 章节缺失 | 重试 Stage 4 |
+| 5 | `design.md` + `{op}_golden.py` | 真实首跑完成三态判定 | 编译/运行/精度失败 | 分类路由（见下表） |
+| 6 | `{op}_impl.py` + `{op}_golden.py` + 失败信息 | 精度复测完成判定 | 修复无效 / 精度退化 / 功能问题 | 回滚 + 重试 Stage 6 |
+| 7 | `{op}_impl.py`（精度通过） | 单轮性能迭代完成 | 精度退化 / 性能下降 | 回滚 |
 
-### 阶段 2：API 探索
+### Stage 5 失败子类型路由
 
-- 输入：`spec.md`
-- 输出：`custom/{op}/api_report.md`
-- 门禁：`api_report.md` 存在且关键章节完整
-- 超限状态：`BLOCKED_API`
+当 Stage 5 返回「运行失败」（无标记且 exit code ≠ 0）时，按以下子类型区分路由：
 
-### 阶段 3：Golden 生成
-
-- 调度：`@pypto-op-analyst`
-- 输出：`custom/{op}/{op}_golden.py`
-- 门禁：文件存在、可导入或可运行
-- 超限状态：`BLOCKED_GOLDEN`
-
-### 阶段 4：Design 设计
-
-- 调度：`@pypto-op-analyst`
-- 输出：`custom/{op}/design.md`
-- 门禁：设计关键章节完整
-- 超限状态：`BLOCKED_DESIGN`
-
-### 阶段 5：代码实现
-
-- 调度：`@pypto-op-developer`
-- 输出：`{op}_impl.py`、`test_{op}.py`、`README.md`
-- 门禁：真实首跑结果完成三态分类
-- 超限状态：`BLOCKED_IMPL`
-
-### 阶段 6：精度修复
-
-- 调度：`@pypto-op-developer`
-- 输出：修复后的 `{op}_impl.py`
-- 门禁：真实复测结果完成判定
-- 超限状态：`BLOCKED_ACCURACY`
-
-### 阶段 7：性能调优
-
-- 调度：`@pypto-op-perftuner`
-- 输出：性能优化后的 `{op}_impl.py` 与性能摘要
-- 门禁：满足 Stage 7 中止条件之一
-- 完成状态：`SUCCESS`
+| 失败子类型 | 识别信号 | 路由策略 |
+|-----------|---------|---------|
+| 编译错误 | stderr 含编译相关错误信息 | Stage 5 内重试，要求 skill 修复编译问题 |
+| Import 错误 | `ImportError` / `ModuleNotFoundError` | 检查环境依赖，若缺 PyPTO 模块可标记 `BLOCKED_ENVIRONMENT` |
+| AiCore Error | stderr 含 aicore 错误标记 | 报告错误信息，建议评估是否需要 `pypto-aicore-error-locator` |
+| Shape 不匹配 | `shape mismatch`、`size mismatch` 相关错误 | Stage 5 内重试，将 shape 错误和 spec 中的 shape 约束传入 skill |
+| 其他运行时错误 | exit code ≠ 0 且不属于以上 | Stage 5 内重试，传入完整 stderr |
 
 ---
 
-## 5. 重试与中止规则
+## 重试与中止规则
 
 | Stage | 上限 | 超限后状态 |
 |-------|------|------------|
@@ -197,9 +174,22 @@ custom/{op}/
 2. 连续三次无性能提升。
 3. 达到 `spec.md` 中定义的性能目标（若存在）。
 
+### 统一结束态
+
+| 状态 | 含义 |
+|------|------|
+| `SUCCESS` | Stage 7 按中止条件完成 |
+| `BLOCKED_SPEC` | Stage 1 超限 |
+| `BLOCKED_API` | Stage 2 超限 |
+| `BLOCKED_GOLDEN` | Stage 3 超限 |
+| `BLOCKED_DESIGN` | Stage 4 超限 |
+| `BLOCKED_IMPL` | Stage 5 超限 |
+| `BLOCKED_ACCURACY` | Stage 6 超限 |
+| `BLOCKED_ENVIRONMENT` | 环境问题阻塞 |
+
 ---
 
-## 6. 状态持久化
+## 状态持久化
 
 每次 Stage 开始、成功、失败或迁移后，必须更新 `custom/{op}/.orchestrator_state.json`。
 
@@ -244,7 +234,7 @@ custom/{op}/
 
 ---
 
-## 7. 恢复与迁移
+## 恢复与迁移
 
 ### 恢复原则
 
@@ -254,13 +244,16 @@ custom/{op}/
 
 ### 常见失败路由
 
-| 失败类型 | 恢复动作 |
-|----------|----------|
-| 工件缺失 | 回退到产出该工件的 Stage |
-| 运行失败 | 在 Stage 5 内重试 |
-| 精度失败 | 进入 Stage 6 |
-| 环境问题 | 标记 `BLOCKED_ENVIRONMENT` |
-| 重试超限 | 标记对应 `BLOCKED_*` |
+| 失败类型 | 识别信号 | 恢复动作 |
+|----------|----------|----------|
+| 工件缺失 | 必需工件文件不存在 | 回退到产出该工件的 Stage |
+| 工件内容不完整 | 工件存在但缺少必要章节或字段 | 在原 Stage 内重试，传入缺失项信息 |
+| 编译/运行失败 | Stage 5 exit code ≠ 0 | 按失败子类型在 Stage 5 内重试 |
+| 精度失败 | `[PRECISION_FAIL]` | 进入 Stage 6 |
+| 精度修复后退化 | Stage 6 回滚后仍失败 | 继续 Stage 6 重试，直至超限 |
+| 环境问题 | `ImportError` 指向系统依赖 | 标记 `BLOCKED_ENVIRONMENT` |
+| 重试超限 | `stage_retry_count` 达到上限 | 标记对应 `BLOCKED_*` |
+| 上游工件被意外修改 | 工件 hash 或内容与上次验证不一致 | 从被修改工件所属的 Stage 重新验证 |
 
 ### 旧状态迁移
 
@@ -268,22 +261,7 @@ custom/{op}/
 
 ---
 
-## 8. 统一结束态
-
-| 状态 | 含义 |
-|------|------|
-| `SUCCESS` | Stage 7 按中止条件完成 |
-| `BLOCKED_SPEC` | Stage 1 超限 |
-| `BLOCKED_API` | Stage 2 超限 |
-| `BLOCKED_GOLDEN` | Stage 3 超限 |
-| `BLOCKED_DESIGN` | Stage 4 超限 |
-| `BLOCKED_IMPL` | Stage 5 超限 |
-| `BLOCKED_ACCURACY` | Stage 6 超限 |
-| `BLOCKED_ENVIRONMENT` | 环境问题阻塞 |
-
----
-
-## 9. 最终输出报告
+## 最终输出报告
 
 流程结束时必须输出结构化摘要：
 
