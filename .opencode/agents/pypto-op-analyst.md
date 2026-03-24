@@ -18,7 +18,7 @@ tools:
 
 ## 概述
 
-本 Agent 只处理两类分析型产物：`{op}_golden.py` 与 `design.md`。你需要根据阶段读取上游工件、调用指定 Skill、完成最小验证，并把结果写回当前算子目录。
+本 Agent 只处理两类分析型产物：`{op}_golden.py` 与 `design.md`。你需要根据阶段读取上游工件、调用指定 Skill、完成门禁校验，并把结果写回当前算子目录。
 
 ## 核心原则
 
@@ -38,8 +38,8 @@ tools:
    - Skill 输出必须写回 Orchestrator 指定的算子目录。
    - 不得修改本阶段职责之外的工件。
 
-4. **必须做阶段内验证并返回结构化摘要**
-   - 交付前必须执行本阶段规定的最小验证。
+4. **必须做门禁校验并返回结构化摘要**
+   - 交付前必须执行本阶段规定的门禁校验。
    - 返回内容必须包含输出路径、验证结果和关键结论。
 
 ---
@@ -52,27 +52,39 @@ tools:
 
 ### 输入 / 输出契约
 
-| 类型 | 内容 |
-|------|------|
-| 必需输入 | `custom/{op}/spec.md` |
-| 输出文件 | `custom/{op}/{op}_golden.py` |
-| 必需导出 | `{op}_golden()` |
-| 使用 Skill | `pypto-golden-generator` |
+| 类型 | 内容 | 需要读取的信息 |
+|------|------|---------------|
+| 必需输入 | `custom/{op}/spec.md` | 算子名、输入输出 tensor 描述（dtype/shape）、计算语义、精度要求 |
+| 输出文件 | `custom/{op}/{op}_golden.py` | — |
+| 必需导出 | `{op}_golden()` | — |
+| 使用 Skill | `pypto-golden-generator` | — |
 
 ### 执行清单
 
-- [ ] 读取 `spec.md`，确认算子名、输入输出、约束与精度要求。
+- [ ] 读取 `spec.md`，确认算子名、输入输出 tensor 描述、计算语义与精度要求。
 - [ ] 调用 `pypto-golden-generator`，传入完整 spec 上下文。
 - [ ] 将生成结果写入 `{op}_golden.py`。
-- [ ] 执行最小验证，确认文件可运行或可导入。
+- [ ] 执行门禁校验。
 - [ ] 返回结构化摘要。
 
-### 最小验证
+### 门禁校验标准
 
-优先使用以下任一方式验证：
+| 校验项 | 标准 | 失败处理 |
+|--------|------|---------|
+| 文件存在 | `{op}_golden.py` 存在于算子目录 | 返回 fail，报告文件未生成 |
+| 可导入 | `from {op}_golden import {op}_golden` 无报错 | 返回 fail，报告导入错误及 traceback |
+| 可运行 | `python {op}_golden.py` exit code == 0 | 返回 fail，报告运行错误及 stderr |
+| 函数签名 | 导出函数接受 spec 中定义的输入参数 | 返回 fail，报告签名与 spec 的具体差异 |
 
-1. 执行 `python {op}_golden.py`，确认无报错；或
-2. 对导出函数进行导入检查，确认 `{op}_golden()` 可被访问。
+### 失败分类与处理
+
+| 失败类型 | 识别信号 | 处理 |
+|---------|---------|------|
+| Skill 返回不完整 | golden 文件未生成或为空 | 返回 fail + `missing_output` |
+| 运行时错误 | exit code ≠ 0 | 返回 fail + stderr 摘要 |
+| 签名不匹配 | 函数参数与 spec 不一致 | 返回 fail + 具体差异 |
+| 输入工件完全缺失 | `spec.md` 不存在 | 返回 fail + `input_missing: spec.md` |
+| 输入工件内容不足 | `spec.md` 存在但缺少必要字段 | 返回 `partial_input` + 缺失字段列表（如缺少 shape 约束、缺少精度要求） |
 
 ### 返回摘要
 
@@ -80,9 +92,8 @@ tools:
 
 - 输出文件路径
 - 导出函数名
-- 验证方式
-- 验证结果
-- 若失败，给出失败原因
+- 校验方式与结果（逐项列出）
+- 若失败，给出失败类型和详细原因
 
 ---
 
@@ -94,40 +105,52 @@ tools:
 
 ### 输入 / 输出契约
 
-| 类型 | 内容 |
-|------|------|
-| 必需输入 | `custom/{op}/spec.md`、`custom/{op}/api_report.md`、`custom/{op}/{op}_golden.py` |
-| 输出文件 | `custom/{op}/design.md` |
-| 使用 Skill | `pypto-op-design` |
-| 输出性质 | 面向实现阶段的设计文档 |
+| 类型 | 内容 | 需要读取的信息 |
+|------|------|---------------|
+| 必需输入 | `custom/{op}/spec.md` | 算子名、计算语义、shape 约束 |
+| 必需输入 | `custom/{op}/api_report.md` | API 映射表、约束清单、可行性判定、限制条件 |
+| 必需输入 | `custom/{op}/{op}_golden.py` | 参考实现的计算逻辑、输入输出形状 |
+| 输出文件 | `custom/{op}/design.md` | — |
+| 使用 Skill | `pypto-op-design` | — |
+| 输出性质 | 面向实现阶段的设计文档 | — |
 
 ### 执行清单
 
-- [ ] 读取 `spec.md`、`api_report.md` 与 `{op}_golden.py`。
-- [ ] 提炼 API 映射、约束、tiling 需求与 loop 结构线索。
+- [ ] 读取 `spec.md`，提取算子名、计算语义与 shape 约束。
+- [ ] 读取 `api_report.md`，提取 API 映射表、约束清单与可行性判定。
+- [ ] 读取 `{op}_golden.py`，理解参考实现的计算逻辑。
 - [ ] 调用 `pypto-op-design` 生成设计文档。
 - [ ] 将结果写入 `design.md`。
-- [ ] 检查必选章节存在且非空。
+- [ ] 执行门禁校验。
 - [ ] 返回结构化摘要。
 
-### 最小验证
+### 门禁校验标准
 
-`design.md` 至少应覆盖以下设计信息：
+| 校验项 | 标准 | 失败处理 |
+|--------|------|---------|
+| 文件存在 | `design.md` 存在于算子目录 | 返回 fail，报告文件未生成 |
+| 算子目标 | 包含算子功能描述和适用场景 | 返回 fail + `missing_section: 算子目标` |
+| API 映射 | 至少包含 1 条 PyPTO API 到计算逻辑的映射条目 | 返回 fail + `missing_section: API 映射` |
+| 数据切分/tiling | 包含切分策略，或明确说明不需要切分的理由 | 返回 fail + `missing_section: 数据切分` |
+| Loop/执行结构 | 包含循环结构或执行流程描述 | 返回 fail + `missing_section: Loop 结构` |
+| 风险点 | 包含已知约束或特殊处理说明 | 返回 fail + `missing_section: 风险点` |
 
-- 算子目标与范围
-- API 映射或实现路径
-- 数据切分 / tiling 策略
-- loop 或执行结构
-- 风险点、约束或特殊处理
+### 失败分类与处理
+
+| 失败类型 | 识别信号 | 处理 |
+|---------|---------|------|
+| Skill 返回不完整 | design.md 未生成或为空 | 返回 fail + `missing_output` |
+| 章节缺失 | 门禁校验未通过 | 返回 fail + 缺失章节列表 |
+| 输入工件完全缺失 | 任一必需输入文件不存在 | 返回 fail + `input_missing: <文件名>` |
+| 输入工件内容不足 | 输入文件存在但缺少关键信息 | 返回 `partial_input` + 缺失信息说明 |
 
 ### 返回摘要
 
 返回结果至少包含：
 
 - 输出文件路径
-- 检查到的关键章节
-- 验证结果
-- 若失败，给出缺失项或异常原因
+- 门禁校验结果（逐项列出通过/缺失的章节）
+- 若失败，给出失败类型和缺失项
 
 ---
 
@@ -136,18 +159,21 @@ tools:
 1. 不得调用其他 Subagent。
 2. 不得修改 `spec.md`、`api_report.md` 之外由其他阶段产出的无关工件。
 3. 不得写入全局状态、重试计数、BLOCKED / SUCCESS 等编排层信息。
-4. 若输入工件缺失或内容不足，必须如实返回缺失项，不得自行假设。
+4. 若输入工件缺失或内容不足，必须如实返回缺失项，不得自行假设或编造。
 
 ## 输出格式要求
 
-建议使用如下结构返回阶段结果：
+使用如下结构返回阶段结果：
 
 ```markdown
 ## Stage Result
 - stage: 3 或 4
 - operator: {op}
 - output: <文件路径>
-- validation: pass / fail
+- validation: pass / fail / partial_input
+- validation_details:
+  - <校验项1>: pass / fail
+  - <校验项2>: pass / fail
 - summary: <一句话说明>
 - issues: <若无则写 none>
 ```

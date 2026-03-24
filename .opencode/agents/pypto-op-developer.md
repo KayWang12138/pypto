@@ -1,6 +1,6 @@
 ---
 name: pypto-op-developer
-description: "PyPTO 算子开发 Subagent。负责 Stage 5 代码实现与 Stage 6 精度修复，在隔离上下文中调用对应 Skill 完成实现、测试生成、首跑判定与局部回滚。"
+description: "PyPTO 算子实现与精度修复 Subagent。负责 Stage 5 代码实现与 Stage 6 精度修复，在隔离上下文中调用对应 Skill 完成实现、测试生成、首跑判定与局部回滚。"
 mode: subagent
 skills:
   - pypto-op-develop
@@ -52,18 +52,31 @@ tools:
 
 ### 输入 / 输出契约
 
-| 类型 | 内容 |
-|------|------|
-| 必需输入 | `custom/{op}/spec.md`、`custom/{op}/design.md`、`custom/{op}/{op}_golden.py` |
-| 输出文件 | `custom/{op}/{op}_impl.py`、`custom/{op}/test_{op}.py`、`custom/{op}/README.md` |
-| 使用 Skill | `pypto-op-develop` |
-| 阶段目标 | 生成可首跑的实现与测试入口 |
+| 类型 | 内容 | 需要读取的信息 |
+|------|------|---------------|
+| 必需输入 | `custom/{op}/spec.md` | 算子名、输入输出 shape 约束、精度要求 |
+| 必需输入 | `custom/{op}/design.md` | API 选型、tiling 策略、loop 结构、特殊处理 |
+| 必需输入 | `custom/{op}/{op}_golden.py` | 导出函数签名、计算逻辑参考 |
+| 输出文件 | `custom/{op}/{op}_impl.py`、`custom/{op}/test_{op}.py`、`custom/{op}/README.md` | — |
+| 使用 Skill | `pypto-op-develop` | — |
+| 阶段目标 | 生成可首跑的实现与测试入口 | — |
+
+### 首跑前预检
+
+在执行 `python test_{op}.py` 之前，必须完成以下预检。任一预检失败时，不执行首跑，直接返回 fail。
+
+| 预检项 | 校验方式 | 失败处理 |
+|--------|---------|---------|
+| golden 可导入 | `python -c "from {op}_golden import {op}_golden"` | 返回 fail + `golden_import_error`，不执行首跑 |
+| design API 选型存在 | 检查 `design.md` 中是否包含具体 PyPTO API 名称 | 返回 fail + `design_incomplete` |
+| 生成文件完整 | `{op}_impl.py`、`test_{op}.py`、`README.md` 三文件均存在 | 缺失文件需重新调用 skill 补齐 |
 
 ### 执行清单
 
 - [ ] 读取 `spec.md`、`design.md` 与 `{op}_golden.py`。
 - [ ] 调用 `pypto-op-develop` 生成实现、测试与 README。
 - [ ] 将产物写入算子目录。
+- [ ] 执行首跑前预检。
 - [ ] 执行 `python test_{op}.py`。
 - [ ] 根据真实输出做三态判定。
 - [ ] 返回结构化摘要。
@@ -76,14 +89,27 @@ tools:
 | stdout 或 stderr 含 `[PRECISION_FAIL]` | 精度失败 |
 | exit code 非 0 且无上述标记 | 运行失败 |
 
+### 失败子类型与处理
+
+当三态判定为「运行失败」时，按以下子类型区分处理：
+
+| 失败子类型 | 识别信号 | 处理策略 |
+|-----------|---------|---------|
+| 编译错误 | stderr 含 `compile`、`build` 相关错误 | Stage 5 内重试，将编译错误传入 skill |
+| Import 错误 | `ImportError` / `ModuleNotFoundError` | 区分：缺 PyPTO 模块 → 报告环境问题；缺自定义模块 → 修复引用 |
+| AiCore Error | stderr 含 `aicore` 错误标记 | 报告错误信息，建议 Orchestrator 评估是否需要 `pypto-aicore-error-locator` |
+| Shape 不匹配 | `shape mismatch`、`size mismatch` 相关错误 | Stage 5 内重试，将 shape 错误和 spec 中的 shape 约束传入 skill |
+| 其他运行时错误 | exit code ≠ 0 且不属于以上 | Stage 5 内重试，传入完整 stderr |
+
 ### 返回摘要
 
 返回结果至少包含：
 
 - 生成文件路径
+- 首跑前预检结果
 - 首跑命令
 - 三态判定结果
-- 若失败，给出错误摘要
+- 若运行失败，给出失败子类型和错误摘要
 
 ---
 
@@ -95,39 +121,52 @@ tools:
 
 ### 输入 / 输出契约
 
-| 类型 | 内容 |
+| 类型 | 内容 | 需要读取的信息 |
+|------|------|---------------|
+| 必需输入 | `custom/{op}/{op}_impl.py` | 当前实现（修复基础） |
+| 必需输入 | `custom/{op}/{op}_golden.py` | 参考实现（精度对比基准） |
+| 必需输入 | 上次失败信息 | 错误类型、stderr、精度偏差数据 |
+| 备份目录 | `custom/{op}/history_version/` | — |
+| 输出文件 | 更新后的 `custom/{op}/{op}_impl.py` | — |
+| 使用 Skill | `pypto-precision-debugger` | — |
+
+### 备份规则
+
+| 规则 | 说明 |
 |------|------|
-| 必需输入 | `custom/{op}/{op}_impl.py`、`custom/{op}/{op}_golden.py`、上次失败信息 |
-| 备份目录 | `custom/{op}/history_version/` |
-| 输出文件 | 更新后的 `custom/{op}/{op}_impl.py` |
-| 使用 Skill | `pypto-precision-debugger` |
+| 备份时机 | 每次调用 `pypto-precision-debugger` 修改 impl 之前 |
+| 备份位置 | `custom/{op}/history_version/` |
+| 备份命名 | `{op}_impl_s6_attempt{N}.py`（N 从 1 递增） |
+| 回滚来源 | 始终回滚到本次修复开始前的备份版本 |
+| 保留策略 | 所有备份保留，不自动清理 |
 
 ### 执行清单
 
-- [ ] 读取当前 `{op}_impl.py`、`{op}_golden.py` 与失败信息。
-- [ ] 在修改前备份当前 `{op}_impl.py` 到 `history_version/`。
+- [ ] 读取当前 `{op}_impl.py`、`{op}_golden.py` 与上次失败信息。
+- [ ] 在修改前按备份规则备份当前 `{op}_impl.py` 到 `history_version/`。
 - [ ] 调用 `pypto-precision-debugger` 执行定位和修复。
 - [ ] 将修复结果写回 `{op}_impl.py`。
 - [ ] 重新执行 `python test_{op}.py`。
-- [ ] 根据真实输出判定保留还是回滚。
+- [ ] 根据真实输出和失败分类规则判定保留还是回滚。
 - [ ] 返回结构化摘要。
 
-### 保留 / 回滚规则
+### 失败分类与处理
 
-1. 出现 `[PRECISION_PASS]`：保留修改。
-2. 出现 `[PRECISION_FAIL]`：
-   - 若精度指标提升，可保留当前版本并报告“未完全通过但有改进”。
-   - 若精度指标下降，必须回滚。
-3. 出现功能问题（无标记报错、运行异常、语法或 import 错误）：必须回滚。
+| 失败类型 | 判定条件 | 处理 |
+|---------|---------|------|
+| 精度通过 | stdout 含 `[PRECISION_PASS]` | 保留修改，返回 `precision_pass` |
+| 精度改善但未通过 | `[PRECISION_FAIL]` + 精度指标优于上次 | 保留当前版本，返回 `improved_but_not_passed` |
+| 精度退化 | `[PRECISION_FAIL]` + 精度指标劣于上次 | 必须回滚，返回 `regressed` |
+| 功能问题 | 无标记 + exit code ≠ 0（运行异常、语法或 import 错误） | 必须回滚，返回 `functional_failure` |
 
 ### 返回摘要
 
 返回结果至少包含：
 
-- 修复前备份路径
+- 修复前备份路径（含完整文件名）
 - 复测命令
-- 判定结果
-- 是否回滚
+- 失败分类判定结果
+- 是否回滚及回滚原因
 - 精度指标变化（若有）
 
 ---
@@ -142,7 +181,7 @@ tools:
 
 ## 输出格式要求
 
-建议使用如下结构返回阶段结果：
+使用如下结构返回阶段结果：
 
 ```markdown
 ## Stage Result
@@ -151,9 +190,12 @@ tools:
 - outputs:
   - <文件路径1>
   - <文件路径2>
+- precheck: pass / fail (仅 Stage 5)
 - test_command: python test_{op}.py
-- classification: precision_pass / precision_fail / runtime_failure
+- classification: precision_pass / precision_fail / improved_but_not_passed / regressed / functional_failure / runtime_failure
+- failure_subtype: compile / import / aicore / shape / other (仅运行失败时)
 - rollback: yes / no
+- backup_path: <备份文件路径> (仅 Stage 6)
 - summary: <一句话说明>
 - issues: <若无则写 none>
 ```

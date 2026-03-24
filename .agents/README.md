@@ -40,13 +40,15 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 
 ## 使用方式
 
+本节介绍如何在 OpenCode 和 Claude Code 中使用本项目的 Skills 和 Agents 进行算子开发。
+
 ### OpenCode
 
 在 PyPTO 仓库主目录启动 OpenCode，通过以下方式开始算子开发：
 
 #### 方式一：直接调用 Skill
 
-在对话中描述开发任务，自动触发 `pypto-operator-develop-workflow`：
+在对话中描述开发任务，自动触发 `pypto-op-workflow`：
 
 ```
 开发一个 sinh 算子，数学公式是 (e^x - e^(-x)) / 2
@@ -55,7 +57,7 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 或使用斜杠命令明确指定：
 
 ```
-/pypto-operator-develop-workflow 开发一个 sinh 算子
+/pypto-op-workflow 开发一个 sinh 算子
 ```
 
 #### 方式二：切换到 Orchestrator Agent
@@ -95,19 +97,20 @@ cp -r .opencode/agents/* .claude/agents/
 启动 Claude Code 后，直接在对话中调用 skill：
 
 ```bash
+# 启动 Claude Code
 claude
 ```
 
 然后在对话中使用斜杠命令：
 
 ```
-/pypto-operator-develop-workflow 开发一个 sinh 算子
+/pypto-op-workflow 开发一个 sinh 算子
 ```
 
 或自然语言描述：
 
 ```
-请使用 pypto-operator-develop-workflow 技能开发一个 sinh 算子
+请使用 pypto-op-workflow 技能开发一个 sinh 算子
 ```
 
 #### 方式二：指定 Agent 启动
@@ -180,7 +183,7 @@ Stage 7: 性能调优 → PerfTuner Subagent
 
 ---
 
-### Skills — 专家技能
+### Skills（专家技能）
 
 技能是定义在 `.agents/skills/` 目录下的可复用行为模块。每个 skill 包含一个 `SKILL.md` 文件，描述完整的执行流程。
 
@@ -193,12 +196,12 @@ Stage 7: 性能调优 → PerfTuner Subagent
 
 **斜杠命令** — 明确指定技能：
 ```
-/pypto-op-develop
+/pypto-op-workflow
 ```
 
 **自然语言点名** — 在对话中提及：
 ```
-请使用 pypto-op-develop 技能帮我开发一个算子。
+请使用 pypto-op-workflow 技能帮我开发一个算子。
 ```
 
 > 进一步了解：[OpenCode Skills 文档](https://opencode.ai/docs/zh-cn/skills/)
@@ -211,7 +214,7 @@ Stage 7: 性能调优 → PerfTuner Subagent
 
 ### 算子开发与编排
 
-#### `pypto-operator-develop-workflow` — 算子开发工作流程
+#### `pypto-op-workflow` — 算子开发工作流程
 
 **适用场景**：接到算子开发任务，确保开发过程规范、高效、符合最佳实践
 
@@ -370,7 +373,7 @@ Stage 7: 性能调优 → PerfTuner Subagent
 <details>
 <summary><b>什么时候用 Orchestrator，什么时候直接用 Skill？</b></summary>
 
-- **完整算子开发**：使用 `pypto-op-orchestrator`（或触发 `pypto-operator-develop-workflow`），它会自动编排 7 个阶段
+- **完整算子开发**：使用 `pypto-op-orchestrator` agent（或触发 `pypto-op-workflow` skill）
 - **单步任务**：直接调用对应 Skill，如只需生成 Golden 就调用 `pypto-golden-generator`
 - **调试修复**：直接调用调试类 Skill，如 `pypto-precision-debugger`、`pypto-aicore-error-locator`
 
