@@ -104,6 +104,7 @@ void RecordFunc::RecordDynFuncInner(const std::vector<std::reference_wrapper<con
 
 RecordFunc::RecordFunc(const std::string &name) : funcName(FUNCTION_PREFIX + name) {
     ConfigManager::Instance().ResetLog();
+    Program::GetInstance().GetTensorSlotManager()->SetRecording(true);
     Program::GetInstance().BeginFunction(funcName, config::GetFunctionType());
 }
 
@@ -112,6 +113,7 @@ RecordFunc::RecordFunc(const std::string &name,
     : funcName(FUNCTION_PREFIX + name) {
     // RecordFunc start with TENSOR_GRAPH
     ConfigManager::Instance().ResetLog();
+    Program::GetInstance().GetTensorSlotManager()->SetRecording(true);
     if (config::GetFunctionType() == FunctionType::DYNAMIC) {
         RecordDynFuncInner(explicitOpArgs, {}, {});
     } else {
@@ -125,6 +127,7 @@ RecordFunc::RecordFunc(const std::string &name,
     const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs)
     : funcName(FUNCTION_PREFIX + name) {
     ConfigManager::Instance().ResetLog();
+    Program::GetInstance().GetTensorSlotManager()->SetRecording(true);
     RecordDynFuncInner(startArgsInputTensorList, startArgsOutputTensorList, inplaceArgs);
 }
 
@@ -143,7 +146,10 @@ void RecordFunc::EndFunction() {
     }
 
     // might raise exception in EndFunction, force isEnd_ is always set
-    Defer clean([this](){ isEnd_ = true;});
+    Defer clean([this](){
+        isEnd_ = true;
+        Program::GetInstance().GetTensorSlotManager()->SetRecording(false);
+    });
     (void)Program::GetInstance().EndFunction(funcName);
     if (dynFunc_) {
         Program::GetInstance().SetLastFunction(dynFunc_);
