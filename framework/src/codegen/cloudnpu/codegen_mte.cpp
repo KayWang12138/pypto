@@ -136,17 +136,14 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillToGM(bool isLocalToGM, unsigned uf) 
 std::string CodeGenOpCloudNPU::GenL0CToUBTileTensor() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
-    // constructor call parameter ((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
-    std::string coordCp = WrapParamByParentheses(offset[ToUnderlying(MISOIdx::SRC0_IDX)]);
-    // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
-    std::string coord = PrintCoord(rawShape[ToUnderlying(MISOIdx::SRC0_IDX)].size(), coordCp);
+    auto [coordDst, coordSrc] = PrintDstSrcCoordFromAttr();
     std::string nzVar = "CopyOutMode::NZ2ND"; // current only support NZ2ND in L0C -> UB
     std::ostringstream oss;
     int64_t aivId = 0;
     GetAttr(OpAttributeKey::subBlockIdx, aivId);
     oss << tileOpName;
     oss << WrapParamByAngleBrackets({nzVar});
-    oss << WrapParamByParentheses({dstTensor, src0Tensor, coord, std::to_string(aivId)});
+    oss << WrapParamByParentheses({dstTensor, src0Tensor, coordDst, coordSrc, std::to_string(aivId)});
     oss << STMT_END;
     return oss.str();
 }
@@ -308,26 +305,14 @@ std::string CodeGenOpCloudNPU::GenReshapeCopyOut() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintL0CToL1TileTensor() const {
-    auto l1Offset = offsetFromAttr[ID0];
-    std::vector<std::string> dstOffset;
-    for (auto tmpOffset : l1Offset) {
-        dstOffset.emplace_back(SymbolicExpressionTable::BuildExpression(tmpOffset));
-    }
-    auto l0cOffset = offsetFromAttr[ID1];
-    std::vector<std::string> srcOffset;
-    for (auto tmpOffset : l0cOffset) {
-        srcOffset.emplace_back(SymbolicExpressionTable::BuildExpression(tmpOffset));
-    }
-    std::string coordCpDst = WrapParamByParentheses(dstOffset);
-    std::string coordDst = PrintCoord(rawShape[ID0].size(), coordCpDst);
-    std::string coordCpSrc = WrapParamByParentheses(srcOffset);
-    std::string coordSrc = PrintCoord(rawShape[ID1].size(), coordCpSrc);
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::string src1Tensor = srcTensor;
+
+    auto [coordDst, coordSrc] = PrintDstSrcCoordFromAttr();
+
     int64_t isAcc = 0;
     int64_t reluMode = 0;
-
     GetAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
     std::string nzVar = "CopyOutMode::NZ2NZ";
     std::vector<std::string> storeConfigList = {nzVar, std::to_string(isAcc), std::to_string(reluMode)};
@@ -373,13 +358,13 @@ std::string CodeGenOpCloudNPU::GenMemL0CToL1() const {
     std::string src = "(" + GetAddrTypeByOperandType(BUF_L0C) + " " + srcDtypeStr + "*)" + srcVar;
     paramList.insert(paramList.end(), {dst, src});
 
-    FillParamWithFullShape(paramList, dynValidShapeFromAttr);
-    FillParamWithFullShape(paramList, dstValidShape);
+    FillParamWithFullInput(paramList, dynValidShapeFromAttr);
+    FillParamWithFullInput(paramList, dstValidShape);
     auto l1Offset = offsetFromAttr[ID0];
-    FillParamWithFullShape(paramList, l1Offset);
-    FillParamWithFullShape(paramList, srcValidShape);
+    FillParamWithFullInput(paramList, l1Offset);
+    FillParamWithFullInput(paramList, srcValidShape);
     auto l0COffset = offsetFromAttr[ID1];
-    FillParamWithFullShape(paramList, l0COffset);
+    FillParamWithFullInput(paramList, l0COffset);
 
     Element scaleValue = Element(DataType::DT_UINT64, 0);
     GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
