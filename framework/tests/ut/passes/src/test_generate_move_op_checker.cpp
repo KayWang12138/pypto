@@ -74,8 +74,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_AttrNull) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*function);
+    GenerateMoveOp generateMoveOp;
+    Status preCheckStatus = generateMoveOp.PreCheck(*function);
     EXPECT_EQ(preCheckStatus, FAILED);
 }
 
@@ -97,8 +97,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_MoreThanOneInput) {
     currFunctionPtr->inCasts_.push_back(t1Tensor);
     currFunctionPtr->outCasts_.push_back(t3Tensor);
 
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status preCheckStatus = generateMoveOp.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, FAILED);
     const auto &operations = currFunctionPtr->Operations();
     for (auto &op : operations) {
@@ -125,8 +125,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_MoreThanOneOutput) {
     currFunctionPtr->inCasts_.push_back(t1Tensor);
     currFunctionPtr->outCasts_.push_back(t2Tensor);
 
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status preCheckStatus = generateMoveOp.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, FAILED);
     const auto &operations = currFunctionPtr->Operations();
     for (auto &op : operations) {
@@ -161,8 +161,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_OutputHasNullConsumer) {
     currFunctionPtr->inCasts_.push_back(t01Tensor);
     currFunctionPtr->outCasts_.push_back(t02Tensor);
 
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status preCheckStatus = generateMoveOp.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, FAILED);
     const auto &operations = currFunctionPtr->Operations();
     for (auto &op : operations) {
@@ -197,8 +197,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_ConsumerNotSupportDDR) {
     consumers.insert(&mulOp);
     currFunctionPtr->inCasts_.push_back(t1Tensor);
     currFunctionPtr->outCasts_.push_back(t3Tensor);
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status preCheckStatus = generateMoveOp.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, FAILED);
 
     const auto &operations = currFunctionPtr->Operations();
@@ -213,7 +213,7 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_ConsumerNotSupportDDR) {
     }
 }
 
-TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_ConvertPathInvalid) {
+TEST_F(TestGenerateMoveOpChecker, ViewOp_ConvertPathInvalid) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestViewConvertPathInvalid", "TestViewConvertPathInvalid", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {16, 16};
@@ -237,7 +237,7 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_ConvertPathInvalid) {
     currFunctionPtr->inCasts_.push_back(t1Tensor);
     currFunctionPtr->outCasts_.push_back(t2Tensor);
 
-    GenerateMoveOp checker;
+    GenerateMoveOp generateMoveOp;
     Status preCheckStatus = FAILED;
     auto convertAttrPtr = dynamic_cast<ConvertOpAttribute*>(convertOp.GetOpAttribute().get());
     ASSERT_NE(convertAttrPtr, nullptr);
@@ -254,8 +254,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_AttrNull) {
     auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {t1Tensor}, {t2Tensor});
     currFunctionPtr->inCasts_.push_back(t1Tensor);
     currFunctionPtr->outCasts_.push_back(t2Tensor);
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status preCheckStatus = generateMoveOp.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, FAILED);
     EXPECT_EQ(assembleOp.GetOpAttribute().get(), nullptr);
 }
@@ -273,8 +273,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_MoreThanOneInput) {
     assembleOp.SetOpAttribute(assembleAttr);
     currFunctionPtr->inCasts_.push_back(t1Tensor);
     currFunctionPtr->outCasts_.push_back(t3Tensor);
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status preCheckStatus = generateMoveOp.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, FAILED);
     EXPECT_EQ(assembleOp.GetIOperands().size(), 2);
 }
@@ -291,8 +291,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_MoreThanOneOutput) {
     assembleOp.SetOpAttribute(assembleAttr);
     currFunctionPtr->inCasts_.push_back(t0Tensor);
     currFunctionPtr->outCasts_.push_back(t2Tensor);
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status preCheckStatus = generateMoveOp.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, FAILED);
     EXPECT_EQ(assembleOp.GetOOperands().size(), 2);
 }
@@ -309,8 +309,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_MoreThanOneInput) {
     convertOp.SetOpAttribute(convertAttr);
     currFunctionPtr->inCasts_.push_back(t1Tensor);
     currFunctionPtr->outCasts_.push_back(t3Tensor);
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status preCheckStatus = generateMoveOp.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, FAILED);
     EXPECT_EQ(convertOp.GetIOperands().size(), 2);
 }
@@ -327,8 +327,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_MoreThanOneOutput) {
     convertOp.SetOpAttribute(convertAttr);
     currFunctionPtr->inCasts_.push_back(t1Tensor);
     currFunctionPtr->outCasts_.push_back(t2Tensor);
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status preCheckStatus = generateMoveOp.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, FAILED);
     EXPECT_EQ(convertOp.GetOOperands().size(), 2);
 }
@@ -346,8 +346,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_SameMemType) {
     t2Tensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
     currFunctionPtr->inCasts_.push_back(t1Tensor);
     currFunctionPtr->outCasts_.push_back(t2Tensor);
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status preCheckStatus = generateMoveOp.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, FAILED);
     EXPECT_EQ(t1Tensor->GetMemoryTypeOriginal(), t2Tensor->GetMemoryTypeOriginal());
 }
@@ -364,8 +364,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_DiffShape) {
     convertOp.SetOpAttribute(convertAttr);
     currFunctionPtr->inCasts_.push_back(t1Tensor);
     currFunctionPtr->outCasts_.push_back(t2Tensor);
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status preCheckStatus = generateMoveOp.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, FAILED);
     EXPECT_NE(t1Tensor->GetShape(), t2Tensor->GetShape());
 }
@@ -383,8 +383,8 @@ TEST_F(TestGenerateMoveOpChecker, PostCheck_View_InputInvalid) {
     auto viewAttr = std::make_shared<ViewOpAttribute>(shape);
     viewOp.SetOpAttribute(viewAttr);
     
-    GenerateMoveOp checker;
-    Status postCheckStatus = checker.PostCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status postCheckStatus = generateMoveOp.PostCheck(*currFunctionPtr);
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
@@ -401,8 +401,8 @@ TEST_F(TestGenerateMoveOpChecker, PostCheck_View_OutputInvalid) {
     auto viewAttr = std::make_shared<ViewOpAttribute>(shape);
     viewOp.SetOpAttribute(viewAttr);
     
-    GenerateMoveOp checker;
-    Status postCheckStatus = checker.PostCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status postCheckStatus = generateMoveOp.PostCheck(*currFunctionPtr);
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
@@ -416,8 +416,8 @@ TEST_F(TestGenerateMoveOpChecker, PostCheck_DuplicateOp_Invalid) {
     
     currFunctionPtr->AddOperation(Opcode::OP_DUPLICATE, {in1}, {out1});
     
-    GenerateMoveOp checker;
-    Status postCheckStatus = checker.PostCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status postCheckStatus = generateMoveOp.PostCheck(*currFunctionPtr);
     
     EXPECT_EQ(postCheckStatus, FAILED);
 }
@@ -432,8 +432,8 @@ TEST_F(TestGenerateMoveOpChecker, PostCheck_ConvertOp_Invalid) {
     
     currFunctionPtr->AddOperation(Opcode::OP_CONVERT, {in1}, {out1});
     
-    GenerateMoveOp checker;
-    Status postCheckStatus = checker.PostCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status postCheckStatus = generateMoveOp.PostCheck(*currFunctionPtr);
     
     EXPECT_EQ(postCheckStatus, FAILED);
 }
@@ -453,8 +453,8 @@ TEST_F(TestGenerateMoveOpChecker, View_MemoryTypeMismatch) {
     auto viewAttr = std::make_shared<ViewOpAttribute>(shape);
     viewOp.SetOpAttribute(viewAttr);
     
-    GenerateMoveOp checker;
-    Status postCheckStatus = checker.PostCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status postCheckStatus = generateMoveOp.PostCheck(*currFunctionPtr);
     
     EXPECT_EQ(postCheckStatus, FAILED);
 }
@@ -669,8 +669,8 @@ TEST_F(TestGenerateMoveOpChecker, ConvertOp_ShapeMismatch) {
     currFunctionPtr->inCasts_.push_back(inTensor);
     currFunctionPtr->outCasts_.push_back(outTensor);
 
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status preCheckStatus = generateMoveOp.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, FAILED);
 }
 
@@ -687,8 +687,8 @@ TEST_F(TestGenerateMoveOpChecker, ConvertOpAttributeNull) {
     currFunctionPtr->inCasts_.push_back(inTensor);
     currFunctionPtr->outCasts_.push_back(outTensor);
 
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    GenerateMoveOp generateMoveOp;
+    Status preCheckStatus = generateMoveOp.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, FAILED);
 }
 } // namespace tile_fwk

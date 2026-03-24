@@ -125,7 +125,7 @@ void SubfuncInvokeInfoTy::ConstructActualInvokeParam(int esgId) {
 
     int paramLoc = 0;
     for (auto &tensorArg : tensorArgs_) {
-        APASS_LOG_DEBUG_F(Elements::Function, "######## Construct TA for %d ########", esgId);
+        APASS_LOG_DEBUG_F(Elements::Function, "Construct TA for %d", esgId);
         tensorParamList_.emplace_back(paramLoc, tensorArg.realDDRId, tensorArg.offset, tensorArg.shape,
             tensorArg.rawShape, tensorArg.dType, tensorArg.isOutputToGM, tensorArg.tensor, tensorArg.opMagic,
             tensorArg.operandIdx);
