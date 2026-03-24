@@ -144,7 +144,8 @@ namespace tile_fwk {
 void AssignTensorData(Tensor &lhs, const Tensor &rhs) {
     if (lhs.GetData() != nullptr) {
         if (rhs.GetData() != nullptr) {
-            CHECK(lhs.GetData() == rhs.GetData()) << "Prohibit self-assignment.";
+            CHECK(FError::INVALID_OPERATION, lhs.GetData() == rhs.GetData())
+                << "Assign data to a tensor that already contains data is prohibited.";
         }
     } else {
         lhs.SetData(rhs.GetData());
@@ -392,7 +393,7 @@ SymbolicScalar DoGetTensorDataInt32(SymbolHandlerId handlerId, const Tensor &t, 
     Program::GetInstance().GetTensorSlotManager()->TensorRead(t);
 
     auto currDynFunc = Program::GetInstance().GetCurrentDynamicFunction();
-    ASSERT(currDynFunc != nullptr) << "Not under dynamic function!\n";
+    FUNCTION_ASSERT(FError::INVALID_OPERATION, currDynFunc != nullptr) << "Not under dynamic function!\n";
 
     auto currDynAttr = currDynFunc->GetDyndevAttribute();
     int getTensorDataIndex = currDynAttr->getTensorDataCount++;
@@ -450,7 +451,7 @@ void DoSetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicSca
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(t);
 
     auto currDynFunc = Program::GetInstance().GetCurrentDynamicFunction();
-    ASSERT(currDynFunc != nullptr) << "Not under dynamic function!\n";
+    FUNCTION_ASSERT(FError::INVALID_OPERATION, currDynFunc != nullptr) << "Not under dynamic function!\n";
 
     Shape vShape = Shape(t.GetShape().size(), 1);
     auto tmp = Full(v, t.GetDataType(), vShape);
