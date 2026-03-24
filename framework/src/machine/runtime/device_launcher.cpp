@@ -241,7 +241,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     HOST_PERF_TRACE(TracePhase::RunDevRegistKernelBin);
 
     DataDumpInit();
-    rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
+    rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum, config.isTripleStream);
     if (rc < 0) {
         return rc;
     }
@@ -714,7 +714,7 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
     devRunner.GetHostProfInstance().SetProfFunction(function);
     int ret = 0;
     auto args = (AiCpuArgs *)rtArgs.args;
-    int nrAicpu = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
+    const int nrAicpu = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
     if (tripleStream) {
         auto startTime = MsprofSysCycleTime();
         args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
@@ -727,12 +727,6 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
         args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
         startTime = MsprofSysCycleTime();
         const int scheCpuNum = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.scheCpuNum);
-        if (scheCpuNum == 1) {
-            nrAicpu = 1;   // sche num is 1, no need lauch more aicpu in tripleStream
-            DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu = 1;
-            MACHINE_LOGI("sche num is 1, no need lauch more aicpu in tripleStream, nrAicpu changed to %u",
-                DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
-        }
         ret = rtAicpuKernelLaunchExWithArgs(
             rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs, nullptr, schedStream, 0);
         devRunner.ReportHostProfInfo(startTime, scheCpuNum, MSPROF_GE_TASK_TYPE_AI_CPU, false);
