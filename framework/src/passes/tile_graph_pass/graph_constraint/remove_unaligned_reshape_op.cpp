@@ -189,6 +189,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForUB(Function &functi
             APASS_LOG_INFO_F(Elements::Operation,"Reshape op %d is replaceed by reshapeCopyOutOp %d and reshapeCopyInOp %d.", 
                 op.opmagic, reshapeCopyOutOp.opmagic, reshapeCopyInOp.opmagic);
             processedReshapeOps.insert(op.GetOpMagic());
+            function.EraseOperations(true, false);
             break;
         }
     }
@@ -217,12 +218,11 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &funct
         bool hasOtherBranch = false;
         std::vector<Operation *> copyOutOps = FindAllProducerCopyOuts(input, hasOtherBranch);
         if (hasOtherBranch) {
-            APASS_LOG_WARN_F(Elements::Operation, "Do not follow reshape[%d] after multiple copyouts which move tensors to DDR."
-                "This scenario may have accuracy issues.", op.GetOpMagic());
+            APASS_LOG_WARN_F(Elements::Operation, "There are other branches between reshape[%d] and copyins.", op.GetOpMagic());
             return;
         }
         if (copyOutOps.size() != 1) {
-            APASS_LOG_WARN_F(Elements::Operation, "Reshape op %d has %lu copy_out producers, only support exactly 1.", op.GetOpMagic(), copyOutOps.size());
+            APASS_LOG_WARN_F(Elements::Operation, "Do not follow reshape[%d] on GM after multiple copyouts. This scenario may have accuracy issues.", op.GetOpMagic());
             return;
         }
         Operation *copyOutOp = copyOutOps.front();
