@@ -21,7 +21,7 @@
 namespace npu {
 namespace tile_fwk {
 Status RemoveRedundantReshapeChecker::DoDefaultEnabledPreCheck(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "DoDefaultEnabledPreCheck for RemoveRedundantShape.");
+    APASS_LOG_INFO_F(Elements::Function, "DoDefaultEnabledPreCheck for RemoveRedundantShape.");
     if (CheckValidOp(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Found invalid op from the function [%s].", function.GetRawName().c_str());
         return FAILED;
@@ -30,7 +30,7 @@ Status RemoveRedundantReshapeChecker::DoDefaultEnabledPreCheck(Function &functio
 }
 
 Status RemoveRedundantReshapeChecker::DoPreCheck(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "PreCheck for RemoveRedundantShape.");
+    APASS_LOG_INFO_F(Elements::Function, "PreCheck for RemoveRedundantShape.");
     if (CheckOpIOValid(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Found invalid input/output in the function [%s].", function.GetRawName().c_str());
         return FAILED;
@@ -49,7 +49,7 @@ Status RemoveRedundantReshapeChecker::DoPreCheck(Function &function) {
 }
 
 Status RemoveRedundantReshapeChecker::DoPostCheck(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "PostCheck for RemoveRedundantShape.");
+    APASS_LOG_INFO_F(Elements::Function, "PostCheck for RemoveRedundantShape.");
     for (const auto &op : function.Operations().DuplicatedOpList()) {
         if (ProcessPostCheck(*op)) {
             APASS_LOG_ERROR_F(Elements::Operation, "Postcheck RemoveRedundantShape failed. %s", GetFormatBacktrace(op).c_str());

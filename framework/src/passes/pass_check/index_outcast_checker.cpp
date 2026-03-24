@@ -32,7 +32,7 @@ constexpr size_t DST_TILE_INPUT_PARAM_INDEX = 2;
 Status IndexOutcastChecker::CheckIndexOutcastDisorderedCoverage(Function &function) {
     for (const auto &tMap : function.GetTensorMap().tensorMap_) {
         for (const auto &tensor : tMap.second) {
-            std::set<Operation *> indexOutcastConsumers;
+            std::unordered_set<Operation *> indexOutcastConsumers;
             for (const auto &consumerOp : tensor->GetConsumers()) {
                 if (consumerOp->GetOpcode() != Opcode::OP_INDEX_OUTCAST) {
                     continue;
