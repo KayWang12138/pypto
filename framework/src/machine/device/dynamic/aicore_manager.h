@@ -344,17 +344,26 @@ private:
             return 0;
         }
         
+        
         uint32_t ready = GetReadyCoreNum(type);
-        uint32_t newReady = idleCoreQueue_[(int)type]->wasSize() + pendCoreQueue_[(int)type]->wasSize();
+        // uint32_t newReady = idleCoreQueue_[(int)type]->wasSize() + pendCoreQueue_[(int)type]->wasSize();
 
         if (ready == 0 ) {
             return 0;
         }
 
-        if (aicpuIdx_ == 1) if (type == CoreType::AIV) if (newReady != ready)
+        uint32_t runReady = context_->coreRunReadyCnt_[(int)type];
+        uint32_t newRunReady = idleCoreQueue_[(int)type]->wasSize();
+        if (aicpuIdx_ == 1) if (type == CoreType::AIV) if (runReady != newRunReady)
         {
-            DEV_ERROR(0, "[AICPU %d] Ready: %u, NewRedy: %u (%lu + %lu)", aicpuIdx_, ready, newReady, idleCoreQueue_[(int)type]->wasSize(), pendCoreQueue_[(int)type]->wasSize());
+            DEV_ERROR(0, "[AICPU %d] RunReady: %u, newRunReady: %u", aicpuIdx_, runReady, newRunReady);
         }
+
+
+        // if (aicpuIdx_ == 1) if (type == CoreType::AIV) if (newReady != ready)
+        // {
+        //     DEV_ERROR(0, "[AICPU %d] Ready: %u, NewRedy: %u (%lu + %lu)", aicpuIdx_, ready, newReady, idleCoreQueue_[(int)type]->wasSize(), pendCoreQueue_[(int)type]->wasSize());
+        // }
 
         ReadyQueueLock(readyQue);
         uint32_t head = readyQue->head;
@@ -379,11 +388,11 @@ private:
             uint32_t coreId = context_->runReadyCoreIdx_[typeIdx][coreIdx];
             SendTaskToAiCore(type, coreId, newTask[sendCnt]);
             context_->coreRunReadyCnt_[typeIdx]--;
+            idleCoreQueue_[typeIdx]->pop();
             busyCoreQueue_[(int)type]->push(coreId);
             sendCnt++;
         }
         context_->corePendReadyCnt_[typeIdx] -= sendCnt;
-        // for (size_t i = 0; i < sendCnt; i++) idleCoreQueue_[typeIdx]->pop();
 
         uint32_t idx = coreIdxStart;
         uint32_t coreNum = coreIdxEnd - coreIdxStart;
@@ -392,7 +401,6 @@ private:
                 SendTaskToAiCore(type, idx, newTask[sendCnt]);
                 sendCnt++;
                 context_->corePendReadyCnt_[typeIdx]--;
-                // idleCoreQueue_[typeIdx]->pop();
             }
             idx = coreIdxStart + (idx - coreIdxStart + 1) % coreNum;
         }
@@ -465,7 +473,7 @@ private:
 
             context_->runReadyCoreIdx_[(int)type][context_->coreRunReadyCnt_[(int)type]++] = coreIdx;
             context_->corePendReadyCnt_[(int)type]++;
-            // idleCoreQueue_[(int)type]->push(coreIdx);
+            idleCoreQueue_[(int)type]->push(coreIdx);
 
             if (runningTaskId != aicoreNullTask) processFinishedTask(type, runningTaskId);
             processFinishedTask(type, pendingTaskId);
@@ -490,6 +498,7 @@ private:
             if (pendingTaskId == aicoreNullTask)
             {
               context_->runReadyCoreIdx_[(int)type][context_->coreRunReadyCnt_[(int)type]++] = coreIdx;
+              idleCoreQueue_[(int)type]->push(coreIdx);
             }
             else
             {
