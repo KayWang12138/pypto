@@ -142,7 +142,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
             } else if ((input1.tensor->GetShape()[shapeSize - 2] == 1) && (input2.tensor->GetShape()[shapeSize - 2] != 1)) {
                 op->SetAttribute(OpAttributeKey::brcpIdx, static_cast<int64_t>(1));
             }
-            if (op->HasAttr(OpAttributeKey::brcpIdx) && tailBrc) {
+            if (op->HasAttr(OpAttributeKey::brcpIdx)) {
                 op->SetAttribute(OpAttributeKey::excludeBufferReuse, true);
             }
         }
