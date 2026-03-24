@@ -15,12 +15,12 @@
 ## Skills 索引
 
 #### 算子开发与编排
-- `pypto-operator-develop-workflow`：统筹算子开发流程，串联相关 skills 与关键检查点
+- `pypto-op-workflow`：无状态的全流程 Skill 入口，用于手动串联算子开发阶段
 - `pypto-intent-understanding`：将自然语言算子需求转化为结构化规格
 - `pypto-api-explorer`：探索 API 映射、约束条件与实现可行性
 - `pypto-golden-generator`：生成用于精度对比的 golden 参考实现
 - `pypto-op-design`：生成算子设计方案，明确数据切分、tiling 与 loop 结构
-- `pypto-op-develop`：依据规格与设计实现算子，并补齐测试与交付材料
+- `pypto-op-develop`：Stage 5 实现阶段 Skill，生成实现、测试入口与 README
 
 #### 精度验证与调试
 - `pypto-precision-debugger`：定位并修复精度问题
@@ -39,12 +39,9 @@
 #### PR 与代码质量
 - `pypto-pr-creator`：准备并创建符合规范的 PR
 - `pypto-pr-fixer`：修复 PR 的 CI 失败与 review 意见
+- `pypto-issue-creator`：基于上下文创建 GitCode Issue
+- `pypto-fracture-point-detector`：识别 PyPTO 框架或文档断裂点
 - `pypto-skill-reviewer`：评审 skill 目录的质量与规范符合性
-
-#### Pass 开发
-- `pypto-pass-module-analyzer`：分析 PyPTO Pass 模块的代码结构与职责边界
-- `pypto-pass-ut-generate`：根据 Pass 业务逻辑生成单元测试用例
-- `pypto-pass-workflow-analyzer`：分析 Pass 业务流、执行顺序与数据流
 
 ---
 
