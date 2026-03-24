@@ -1,0 +1,1261 @@
+#!/usr/bin/env python3
+"""
+Pass UT 生成工具 - PR 处理模块
+
+功能：
+1. 通过 PR 编号获取代码变更内容
+2. 解析 PR 评论中的 UT-REPORT，获取覆盖率和未覆盖行
+3. 根据未覆盖行分析业务，设计 UT
+4. 支持离线分析（用户提供的 diff 文件或 UT-Report 文件）
+
+支持多种输入方式（PR编号、diff文件、diff内容、离线文件）
+"""
+
+import os
+import subprocess
+import re
+import sys
+import json
+import urllib.request
+import urllib.error
+import tarfile
+import tempfile
+from typing import Optional, List, Dict, Tuple
+from datetime import datetime
+
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+
+GITCODE_API_BASE = "https://api.gitcode.com/api/v5"
+GITCODE_TOKEN = os.environ.get("GITCODE_TOKEN", "")
+
+
+def make_gitcode_api_request(endpoint: str) -> Optional[Dict]:
+    """通过 GitCode API 获取 JSON 数据"""
+    url = f"{GITCODE_API_BASE}/{endpoint}"
+    headers = {"Accept": "application/json"}
+    if GITCODE_TOKEN:
+        headers["PRIVATE-TOKEN"] = GITCODE_TOKEN
+    
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=30) as response:
+            return json.loads(response.read().decode('utf-8'))
+    except urllib.error.HTTPError as e:
+        print(f"⚠️ HTTP 错误: {e.code} - {e.reason}")
+        return None
+    except Exception as e:
+        print(f"⚠️ API 请求失败: {e}")
+        return None
+
+
+def get_pr_info_via_api(owner: str, repo: str, pr_number: int) -> Optional[Dict]:
+    """通过 GitCode API 获取 PR 信息"""
+    print(f"通过 GitCode API 获取 PR #{pr_number} 信息...")
+    return make_gitcode_api_request(f"repos/{owner}/{repo}/pulls/{pr_number}")
+
+
+def get_pr_comments_via_api(owner: str, repo: str, pr_number: int) -> List[Dict]:
+    """通过 GitCode API 获取 PR 评论"""
+    result = make_gitcode_api_request(f"repos/{owner}/{repo}/pulls/{pr_number}/comments")
+    if result is None:
+        return []
+    if isinstance(result, list):
+        return result
+    return []
+
+
+def get_pr_diff_via_api(owner: str, repo: str, pr_number: int) -> Optional[str]:
+    """通过 GitCode API 获取 PR diff"""
+    try:
+        print(f"通过 GitCode API 获取 PR #{pr_number} 的 diff...")
+        url = f"{GITCODE_API_BASE}/repos/{owner}/{repo}/pulls/{pr_number}/diff"
+        headers = {"Accept": "text/plain"}
+        if GITCODE_TOKEN:
+            headers["PRIVATE-TOKEN"] = GITCODE_TOKEN
+        
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=30) as response:
+            diff_content = response.read().decode('utf-8')
+        
+        if not diff_content.strip():
+            print("⚠️ API 返回的 diff 内容为空")
+            return None
+
+        print(f"✓ API 成功获取 diff，大小: {len(diff_content)} 字节")
+        return diff_content
+
+    except urllib.error.HTTPError as e:
+        print(f"⚠️ API 获取 diff 失败: {e.code} - {e.reason}")
+        return None
+    except Exception as e:
+        print(f"⚠️ API 获取 diff 异常: {e}")
+        return None
+
+
+def get_pr_diff_via_git_fetch(owner: str, repo: str, pr_number: int, repo_dir: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
+    """通过 git fetch 获取 PR diff，返回 (diff_content, local_branch)"""
+    work_dir = repo_dir if repo_dir else PROJECT_ROOT
+    local_branch = f"pr{pr_number}_branch"
+    
+    try:
+        print(f"通过 git fetch 获取 PR #{pr_number} 的 diff...")
+        
+        result = subprocess.run(
+            ['git', 'remote', '-v'],
+            capture_output=True, text=True, cwd=work_dir
+        )
+        
+        remotes = []
+        for line in result.stdout.strip().split('\n'):
+            if line:
+                parts = line.split()
+                if len(parts) >= 2:
+                    remotes.append(parts[0])
+        
+        for remote_name in remotes + ['cann', 'origin', 'bytecode']:
+            result = subprocess.run(
+                ['git', 'fetch', remote_name, f'pull/{pr_number}/head:{local_branch}'],
+                capture_output=True, text=True, cwd=work_dir, timeout=60
+            )
+            
+            if result.returncode == 0:
+                print(f"✓ 成功从 {remote_name} 获取 PR 分支")
+                
+                result = subprocess.run(
+                    ['git', 'log', '-1', '--format=%H', local_branch],
+                    capture_output=True, text=True, cwd=work_dir
+                )
+                
+                if result.returncode == 0:
+                    commit = result.stdout.strip()
+                    base_commit = f"{commit}~1"
+                    
+                    result = subprocess.run(
+                        ['git', 'diff', f'{base_commit}..{commit}'],
+                        capture_output=True, text=True, cwd=work_dir
+                    )
+                    
+                    if result.returncode == 0:
+                        diff_content = result.stdout
+                        if diff_content.strip():
+                            print(f"✓ git fetch 成功获取 diff，大小: {len(diff_content)} 字节")
+                            return diff_content, local_branch
+                break
+            else:
+                print(f"⚠️ 从 {remote_name} fetch 失败: {result.stderr.strip()[:100]}")
+        
+        return None, None
+        
+    except Exception as e:
+        print(f"⚠️ git fetch 获取 diff 失败: {e}")
+        return None, None
+
+
+def fetch_pr_branch_from_author(
+    owner: str, 
+    repo: str, 
+    pr_number: int, 
+    repo_dir: str, 
+    author: str,
+    author_repo: str,
+    head_ref: str
+) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """从 PR 作者的仓库获取分支"""
+    work_dir = repo_dir
+    local_branch = f"pr{pr_number}_branch"
+    
+    try:
+        print(f"\n尝试从 PR 作者 ({author}) 仓库获取分支...")
+        
+        author_remote_name = f"pr_author_{author}"
+        
+        result = subprocess.run(
+            ['git', 'remote', '-v'],
+            capture_output=True, text=True, cwd=work_dir
+        )
+        
+        remote_url = None
+        for line in result.stdout.strip().split('\n'):
+            if line and author_remote_name in line:
+                parts = line.split()
+                if len(parts) >= 2:
+                    remote_url = parts[1]
+                    break
+        
+        if not remote_url:
+            author_git_url = f"https://gitcode.com/{author}/{author_repo}.git"
+            print(f"添加作者 remote: {author_git_url}")
+            result = subprocess.run(
+                ['git', 'remote', 'add', author_remote_name, author_git_url],
+                capture_output=True, text=True, cwd=work_dir
+            )
+            
+            if result.returncode != 0 and 'already exists' not in result.stderr:
+                print(f"⚠️ 添加作者 remote 失败: {result.stderr.strip()[:100]}")
+                return None, None, None
+            
+            remote_url = author_git_url
+        
+        print(f"从 {author_remote_name} fetch 分支 {head_ref}...")
+        result = subprocess.run(
+            ['git', 'fetch', author_remote_name, f'heads/{head_ref}:{local_branch}'],
+            capture_output=True, text=True, cwd=work_dir, timeout=120
+        )
+        
+        if result.returncode != 0:
+            print(f"⚠️ fetch 分支失败: {result.stderr.strip()[:100]}")
+            
+            print("尝试通过 merge request refs 获取...")
+            result = subprocess.run(
+                ['git', 'fetch', remote_url, f'+refs/merge-requests/{pr_number}/head:{local_branch}'],
+                capture_output=True, text=True, cwd=work_dir, timeout=120
+            )
+            
+            if result.returncode != 0:
+                print(f"⚠️ merge request refs fetch 也失败: {result.stderr.strip()[:100]}")
+                return None, None, None
+        
+        result = subprocess.run(
+            ['git', 'log', '-1', '--format=%H', local_branch],
+            capture_output=True, text=True, cwd=work_dir
+        )
+        
+        if result.returncode != 0:
+            print(f"⚠️ 无法获取本地分支 {local_branch}")
+            return None, None, None
+        
+        commit = result.stdout.strip()
+        base_commit = f"{commit}~1"
+        
+        result = subprocess.run(
+            ['git', 'diff', f'{base_commit}..{commit}'],
+            capture_output=True, text=True, cwd=work_dir
+        )
+        
+        if result.returncode == 0:
+            diff_content = result.stdout
+            print(f"✓ 成功获取 PR diff，大小: {len(diff_content)} 字节")
+            return diff_content, local_branch, local_branch
+        
+        return None, None, None
+        
+    except Exception as e:
+        print(f"⚠️ 从作者仓库获取分支失败: {e}")
+        return None, None, None
+
+
+def checkout_or_fetch_pr_branch(
+    owner: str, 
+    repo: str, 
+    pr_number: int, 
+    repo_dir: str,
+    pr_info: Optional[Dict] = None
+) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """
+    获取 PR 分支，返回 (分支名, head分支名, diff_content)
+    """
+    local_branch = f"pr{pr_number}_branch"
+    
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--verify', local_branch],
+            capture_output=True, text=True, cwd=repo_dir
+        )
+        
+        if result.returncode == 0:
+            print(f"✓ 本地分支 {local_branch} 已存在")
+            
+            result = subprocess.run(
+                ['git', 'log', '-1', '--format=%H', local_branch],
+                capture_output=True, text=True, cwd=repo_dir
+            )
+            
+            if result.returncode == 0:
+                commit = result.stdout.strip()
+                base_commit = f"{commit}~1"
+                
+                result = subprocess.run(
+                    ['git', 'diff', f'{base_commit}..{commit}'],
+                    capture_output=True, text=True, cwd=repo_dir
+                )
+                
+                if result.returncode == 0 and result.stdout.strip():
+                    return local_branch, local_branch, result.stdout
+                else:
+                    print("⚠️ 本地分支存在但无 diff，删除后重新获取")
+                    subprocess.run(['git', 'branch', '-D', local_branch], capture_output=True, cwd=repo_dir)
+        
+        remotes_with_urls = {}
+        result = subprocess.run(
+            ['git', 'remote', '-v'],
+            capture_output=True, text=True, cwd=repo_dir
+        )
+        for line in result.stdout.strip().split('\n'):
+            if line and 'fetch' in line:
+                parts = line.split()
+                if len(parts) >= 2:
+                    remotes_with_urls[parts[0]] = parts[1]
+        
+        for remote_name, remote_url in remotes_with_urls.items():
+            print(f"尝试从 {remote_name} 获取 PR #{pr_number}...")
+            result = subprocess.run(
+                ['git', 'fetch', remote_url, f'+refs/merge-requests/{pr_number}/head:{local_branch}'],
+                capture_output=True, text=True, cwd=repo_dir, timeout=60
+            )
+            
+            if result.returncode == 0:
+                print(f"✓ 成功从 {remote_name} 获取 PR 分支 {local_branch}")
+                
+                result = subprocess.run(
+                    ['git', 'log', '-1', '--format=%H', local_branch],
+                    capture_output=True, text=True, cwd=repo_dir
+                )
+                
+                if result.returncode == 0:
+                    commit = result.stdout.strip()
+                    base_commit = f"{commit}~1"
+                    
+                    result = subprocess.run(
+                        ['git', 'diff', f'{base_commit}..{commit}'],
+                        capture_output=True, text=True, cwd=repo_dir
+                    )
+                    
+                    if result.returncode == 0 and result.stdout.strip():
+                        return local_branch, local_branch, result.stdout
+                break
+            else:
+                print(f"⚠️ 从 {remote_name} fetch 失败: {result.stderr.strip()[:80]}")
+        
+        if pr_info:
+            head_ref = pr_info.get('head', {}).get('ref', '')
+            author = pr_info.get('user', {}).get('login', '')
+            author_repo = pr_info.get('head', {}).get('repo', {}).get('name', repo)
+            
+            if head_ref and author:
+                diff_content, branch, _ = fetch_pr_branch_from_author(
+                    owner, repo, pr_number, repo_dir, author, author_repo, head_ref
+                )
+                if diff_content:
+                    return branch, branch, diff_content
+        
+        return None, None, None
+        
+    except Exception as e:
+        print(f"⚠️ 分支操作失败: {e}")
+        return None, None, None
+
+
+def parse_ut_report_from_comments(comments: List[Dict]) -> Dict:
+    """
+    从评论列表中解析 UT-REPORT 状态
+    
+    返回格式:
+    {
+        'found': bool,
+        'status': str,  # SUCCESS, PARTIAL_FAILED, ABORT, FAILED, NOT_FOUND
+        'ut_tests': Dict[str, str],  # task_name -> status
+        'coverage_url': str,
+        'failed_tests': List[str],
+        'message': str
+    }
+    """
+    result = {
+        'found': False,
+        'status': 'NOT_FOUND',
+        'ut_tests': {},
+        'coverage_url': '',
+        'failed_tests': [],
+        'message': ''
+    }
+    
+    latest_pipeline_comment = None
+    latest_time = None
+    
+    for comment in comments:
+        body = comment.get('body', '')
+        created_at = comment.get('created_at', '')
+        
+        if '流水线任务触发成功' in body or 'UT-REPORT' in body:
+            if latest_time is None or created_at > latest_time:
+                latest_time = created_at
+                latest_pipeline_comment = comment
+    
+    if not latest_pipeline_comment:
+        result['message'] = '未找到流水线任务评论'
+        return result
+    
+    result['found'] = True
+    body = latest_pipeline_comment.get('body', '')
+    
+    matches = re.findall(r'<td><strong>([^<]+)</strong></td>\s*<td>([^<]+)</td>', body)
+    for task_name, status in matches:
+        result['ut_tests'][task_name.strip()] = status.strip()
+    
+    cov_match = re.search(r'https://ascend-ci\.obs\.cn-north-4\.myhuaweicloud\.com/[^"\']*ut_cov\.tar\.gz', body)
+    if cov_match:
+        result['coverage_url'] = cov_match.group(0)
+    
+    failed_tests = [k for k, v in result['ut_tests'].items() if 'FAILED' in v.upper() or '❌' in v]
+    aborted_tests = [k for k, v in result['ut_tests'].items() if 'ABORTED' in v.upper() or '⚪' in v]
+    success_tests = [k for k, v in result['ut_tests'].items() if 'SUCCESS' in v.upper() or '✅' in v]
+    
+    if failed_tests:
+        result['status'] = 'PARTIAL_FAILED'
+        result['failed_tests'] = failed_tests
+        result['message'] = f'UT 测试部分失败: {", ".join(failed_tests)}'
+    elif aborted_tests and success_tests:
+        result['status'] = 'ABORT'
+        result['message'] = f'UT 测试部分通过({len(success_tests)}个)，部分中止({len(aborted_tests)}个)'
+    elif all('SUCCESS' in v.upper() or '✅' in v for v in result['ut_tests'].values() if v.strip()):
+        result['status'] = 'SUCCESS'
+        result['message'] = 'UT 测试全部通过'
+    else:
+        result['status'] = 'NOT_FOUND'
+        result['message'] = '无法确定 UT 状态'
+    
+    return result
+
+
+def download_and_parse_coverage_report(coverage_url: str, pr_number: int) -> Dict:
+    """
+    下载并解析覆盖率报告
+    
+    返回格式:
+    {
+        'success': bool,
+        'uncovered_files': List[str],
+        'low_coverage_files': List[Dict],
+        'message': str
+    }
+    """
+    result = {
+        'success': False,
+        'uncovered_files': [],
+        'low_coverage_files': [],
+        'message': ''
+    }
+    
+    if not coverage_url:
+        result['message'] = '没有覆盖率报告链接'
+        return result
+    
+    try:
+        print(f"\n下载覆盖率报告: {coverage_url[:80]}...")
+        
+        with tempfile.NamedTemporaryFile(suffix='.tar.gz', delete=False) as tmp_file:
+            tmp_path = tmp_file.name
+        
+        req = urllib.request.Request(coverage_url, headers={'Accept': 'application/octet-stream'})
+        with urllib.request.urlopen(req, timeout=60) as response:
+            with open(tmp_path, 'wb') as f:
+                f.write(response.read())
+        
+        print(f"✓ 覆盖率报告下载成功: {tmp_path}")
+        
+        extract_dir = tempfile.mkdtemp(prefix=f'cov_pr{pr_number}_')
+        
+        with tarfile.open(tmp_path, 'r:gz') as tar:
+            tar.extractall(extract_dir)
+        
+        print(f"✓ 覆盖率报告解压到: {extract_dir}")
+        
+        result['success'] = True
+        result['extract_dir'] = extract_dir
+        result['message'] = f'覆盖率报告已解压到: {extract_dir}'
+        
+        os.unlink(tmp_path)
+        
+    except Exception as e:
+        result['message'] = f'下载/解析覆盖率报告失败: {e}'
+        print(f"⚠️ {result['message']}")
+    
+    return result
+
+
+def parse_pr_info(pr_input: str) -> Tuple[str, str, int]:
+    """解析 PR 链接，返回 (owner, repo, pr_number)"""
+    if pr_input.isdigit():
+        return "cann", "pypto", int(pr_input)
+    
+    url_match = re.search(r'gitcode\.com/([^/]+)/([^/]+)/(?:pull|-\/merge_requests)/(\d+)', pr_input)
+    if url_match:
+        return url_match.group(1), url_match.group(2), int(url_match.group(3))
+    
+    short_match = re.search(r'([^/]+)/([^/]+)/(\d+)', pr_input)
+    if short_match:
+        return short_match.group(1), short_match.group(2), int(short_match.group(3))
+    
+    hash_match = re.search(r'#(\d+)', pr_input)
+    if hash_match:
+        return "cann", "pypto", int(hash_match.group(1))
+    
+    raise ValueError(f"无法解析 PR 链接：{pr_input}")
+
+
+def save_diff_to_file(diff_content: str, output_file: str) -> bool:
+    """保存 diff 内容到文件"""
+    try:
+        os.makedirs(os.path.dirname(output_file) if os.path.dirname(output_file) else '.', exist_ok=True)
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(diff_content)
+        print(f"✓ Diff 已保存到: {output_file}")
+        return True
+    except Exception as e:
+        print(f"⚠️ 保存 diff 文件失败: {e}")
+        return False
+
+
+def apply_diff_to_repo(diff_file: str, repo_dir: str, auto_stash: bool = True) -> Tuple[bool, str]:
+    """
+    将 diff 文件应用到本地仓库
+    
+    Args:
+        diff_file: diff 文件路径
+        repo_dir: 仓库目录
+        auto_stash: 是否自动 stash 未提交的更改（默认 True）
+    
+    Returns:
+        (是否成功, 消息)
+    """
+    try:
+        result = subprocess.run(
+            ['git', 'status', '--porcelain'],
+            capture_output=True, text=True, cwd=repo_dir
+        )
+        
+        uncommitted = [line for line in result.stdout.strip().split('\n') if line]
+        stash_applied = False
+        stash_message = ""
+        
+        if uncommitted:
+            print("\n" + "="*60)
+            print("工作区有未提交的更改：")
+            for line in uncommitted[:10]:
+                print(f"  {line}")
+            if len(uncommitted) > 10:
+                print(f"  ... 还有 {len(uncommitted) - 10} 个文件")
+            
+            if auto_stash:
+                print("\n自动执行 git stash...")
+                result = subprocess.run(
+                    ['git', 'stash', 'push', '-m', 'auto-stash-before-apply-diff'],
+                    capture_output=True, text=True, cwd=repo_dir
+                )
+                if result.returncode == 0:
+                    print("✓ stash 成功")
+                    stash_applied = True
+                    stash_message = "（已自动 stash 当前更改）"
+                else:
+                    print(f"⚠️ stash 失败: {result.stderr.strip()}")
+                    print("将尝试直接 apply...")
+            else:
+                return False, f"工作区有未提交的更改: {len(uncommitted)} 个文件"
+        
+        result = subprocess.run(
+            ['git', 'apply', '--3way', '--check', diff_file],
+            capture_output=True, text=True, cwd=repo_dir
+        )
+        
+        if result.returncode == 0:
+            result = subprocess.run(
+                ['git', 'apply', '--3way', diff_file],
+                capture_output=True, text=True, cwd=repo_dir
+            )
+            
+            if result.returncode == 0:
+                return True, f"Diff 已成功应用到本地仓库 {stash_message}"
+            else:
+                print("\n" + "="*60)
+                print("⚠️ Diff 应用发生冲突")
+                print("冲突文件:")
+                
+                conflict_files = []
+                result = subprocess.run(
+                    ['git', 'diff', '--name-only', '--diff-filter=U'],
+                    capture_output=True, text=True, cwd=repo_dir
+                )
+                for f in result.stdout.strip().split('\n'):
+                    if f:
+                        conflict_files.append(f)
+                        print(f"  - {f}")
+                
+                choice = input("\n请选择操作：\n"
+                              "  1 - 保留本地版本（丢弃 diff 变更）\n"
+                              "  2 - 接受 incoming 版本（应用 diff 变更）\n"
+                              "  3 - 手动解决冲突\n"
+                              "请输入选项 [1/2/3]: ").strip()
+                
+                if choice == '1':
+                    result = subprocess.run(
+                        ['git', 'checkout', '--ours'] + conflict_files,
+                        capture_output=True, text=True, cwd=repo_dir
+                    )
+                    return True, "已保留本地版本，冲突已解决"
+                elif choice == '2':
+                    result = subprocess.run(
+                        ['git', 'checkout', '--theirs'] + conflict_files,
+                        capture_output=True, text=True, cwd=repo_dir
+                    )
+                    return True, "已接受 incoming 版本，冲突已解决"
+                else:
+                    print("请手动解决冲突后，运行以下命令继续：")
+                    print(f"  git add <resolved-files>")
+                    return False, "请手动解决冲突"
+        else:
+            conflict_info = result.stderr.strip()
+            return False, f"Diff 应用会冲突: {conflict_info[:200]}"
+            
+    except Exception as e:
+        return False, f"应用 diff 异常: {e}"
+
+
+def check_build_status(repo_dir: str, pass_files: List[str]) -> Tuple[bool, str]:
+    """
+    检查代码编译状态
+    
+    Args:
+        repo_dir: 仓库目录
+        pass_files: 需要检查的 Pass 文件列表
+    
+    Returns:
+        (是否成功, 消息)
+    """
+    if not pass_files:
+        return True, "无需检查编译（无 Pass 文件变更）"
+    
+    print("\n" + "="*60)
+    print("检查编译状态...")
+    print("="*60)
+    
+    try:
+        result = subprocess.run(
+            ['python3', 'build_ci.py', '-c', '-j', '24', '-f', 'cpp'],
+            capture_output=True, text=True, cwd=repo_dir, timeout=600
+        )
+        
+        if result.returncode == 0:
+            return True, "✓ 编译通过"
+        else:
+            error_output = result.stderr[-2000:] if len(result.stderr) > 2000 else result.stderr
+            return False, f"⚠️ 编译失败:\n{error_output[-500:]}"
+            
+    except subprocess.TimeoutExpired:
+        return False, "⚠️ 编译超时（超过10分钟）"
+    except Exception as e:
+        return False, f"⚠️ 编译检查异常: {e}"
+
+
+def analyze_changed_files(diff_content: str) -> Dict:
+    """分析 diff 内容，返回修改的文件和类型"""
+    result = {
+        'total_files': 0,
+        'pass_files': [],
+        'test_files': [],
+        'other_files': [],
+        'files_detail': []
+    }
+    
+    if not diff_content:
+        return result
+    
+    current_file = None
+    additions = 0
+    deletions = 0
+    
+    for line in diff_content.split('\n'):
+        if line.startswith('diff --git'):
+            if current_file:
+                result['files_detail'].append({
+                    'file': current_file,
+                    'additions': additions,
+                    'deletions': deletions
+                })
+                if 'passes' in current_file and current_file.endswith('.cpp'):
+                    result['pass_files'].append(current_file)
+                elif 'test' in current_file and current_file.endswith('.cpp'):
+                    result['test_files'].append(current_file)
+                else:
+                    result['other_files'].append(current_file)
+            
+            match = re.search(r'a/(\S+)', line)
+            if match:
+                current_file = match.group(1)
+                additions = 0
+                deletions = 0
+        
+        elif line.startswith('+') and not line.startswith('+++'):
+            additions += 1
+        elif line.startswith('-') and not line.startswith('---'):
+            deletions += 1
+    
+    if current_file:
+        result['files_detail'].append({
+            'file': current_file,
+            'additions': additions,
+            'deletions': deletions
+        })
+        result['total_files'] = len(result['files_detail'])
+        if 'passes' in current_file and current_file.endswith('.cpp'):
+            result['pass_files'].append(current_file)
+        elif 'test' in current_file and current_file.endswith('.cpp'):
+            result['test_files'].append(current_file)
+        else:
+            result['other_files'].append(current_file)
+    
+    return result
+
+
+def process_pr(
+    pr_input: str,
+    output_dir: Optional[str] = None,
+    repo_dir: Optional[str] = None,
+    use_api_for_comments: bool = True,
+    auto_stash: bool = True,
+    check_build: bool = True
+) -> Dict:
+    """
+    处理 PR 的主函数
+    
+    参数:
+        pr_input: PR 编号或链接
+        output_dir: diff 文件输出目录
+        repo_dir: 仓库目录
+        use_api_for_comments: 是否使用 API 获取评论
+        auto_stash: 是否自动 stash 未提交的更改（默认 True）
+        check_build: 是否检查编译状态（默认 True）
+    
+    返回:
+        包含处理结果的字典
+    """
+    work_output_dir = output_dir if output_dir else PROJECT_ROOT
+    work_repo_dir = repo_dir if repo_dir else PROJECT_ROOT
+
+    result = {
+        'pr_info': None,
+        'diff_content': None,
+        'diff_file': None,
+        'diff_applied': False,
+        'diff_apply_error': None,
+        'analysis': {},
+        'ut_report': None,
+        'build_status': None,
+        'coverage': None,
+        'success': False,
+        'error': None,
+        'method': None,
+        'need_design_ut': False,
+        'design_ut_reason': ""
+    }
+
+    try:
+        print("\n" + "="*60)
+        print("PR 处理工具 V8")
+        print("="*60)
+        
+        owner, repo, pr_number = parse_pr_info(pr_input)
+        print(f"PR编号: {pr_number}")
+        print(f"仓库: {owner}/{repo}")
+        result['pr_info'] = {'owner': owner, 'repo': repo, 'pr_number': pr_number}
+
+        pr_info = get_pr_info_via_api(owner, repo, pr_number)
+        if pr_info:
+            print(f"PR 标题: {pr_info.get('title', 'N/A')}")
+            print(f"PR 状态: {pr_info.get('state', 'N/A')}")
+            base_ref = pr_info.get('base', {}).get('ref', 'master')
+            head_ref = pr_info.get('head', {}).get('ref', '')
+            print(f"基分支: {base_ref}")
+            print(f"头分支: {head_ref}")
+            result['pr_info']['base_branch'] = base_ref
+            result['pr_info']['head_branch'] = head_ref
+            result['pr_info']['author'] = pr_info.get('user', {}).get('login', '')
+            result['pr_info']['author_repo'] = pr_info.get('head', {}).get('repo', {}).get('name', repo)
+        else:
+            print("⚠️ 无法通过 API 获取 PR 信息，将尝试其他方式")
+
+        print("\n" + "-"*60)
+        print("Step 1: 获取 UT-REPORT 状态")
+        print("-"*60)
+        
+        ut_result = {
+            'found': False,
+            'status': 'NOT_FOUND',
+            'ut_tests': {},
+            'coverage_url': '',
+            'failed_tests': [],
+            'message': '无法获取 UT-REPORT 评论'
+        }
+        
+        if use_api_for_comments:
+            try:
+                comments = get_pr_comments_via_api(owner, repo, pr_number)
+                if comments:
+                    ut_result = parse_ut_report_from_comments(comments)
+                    print(f"✓ 通过 API 获取到 {len(comments)} 条评论")
+                else:
+                    print("⚠️ API 返回空评论列表")
+            except Exception as e:
+                print(f"⚠️ API 调用失败: {e}")
+        
+        result['ut_report'] = ut_result
+        
+        print(f"\nUT 状态: {ut_result['status']}")
+        print(f"消息: {ut_result['message']}")
+        
+        if ut_result['ut_tests']:
+            print("\nUT 测试任务状态:")
+            for task, status in sorted(ut_result['ut_tests'].items()):
+                icon = "✅" if "SUCCESS" in status.upper() or "✅" in status else ("❌" if "FAILED" in status.upper() or "❌" in status else "⚪")
+                print(f"  {icon} {task}: {status}")
+        
+        if ut_result['coverage_url']:
+            print(f"\n覆盖率报告: {ut_result['coverage_url'][:80]}...")
+
+        print("\n" + "-"*60)
+        print("Step 2: 获取 PR 代码变更")
+        print("-"*60)
+
+        diff_content = None
+        pr_branch = None
+
+        pr_branch, head_branch, diff_content = checkout_or_fetch_pr_branch(
+            owner, repo, pr_number, work_repo_dir, pr_info
+        )
+        
+        if pr_branch and diff_content:
+            print(f"✓ 找到 PR 分支: {pr_branch}")
+            result['method'] = 'git_fetch'
+            result['diff_content'] = diff_content
+
+        if not diff_content:
+            print("\n尝试通过 API 获取 diff...")
+            diff_content = get_pr_diff_via_api(owner, repo, pr_number)
+            if diff_content:
+                result['method'] = 'api'
+
+        if not diff_content:
+            diff_content, branch = get_pr_diff_via_git_fetch(owner, repo, pr_number, work_repo_dir)
+            if diff_content:
+                result['method'] = 'git_fetch_legacy'
+
+        if not diff_content:
+            error_msg = (
+                f"无法获取 PR #{pr_number} 的代码变更。\n"
+                f"可能的原因：\n"
+                f"  1. 网络问题导致无法连接到 GitCode\n"
+                f"  2. API Token 未设置或权限不足 (当前: {'已设置' if GITCODE_TOKEN else '未设置'})\n"
+                f"  3. PR 作者的仓库不可访问\n"
+                f"\n"
+                f"建议解决方法：\n"
+                f"  1. 设置环境变量: export GITCODE_TOKEN=your_token\n"
+                f"  2. 确保网络可以访问 gitcode.com\n"
+                f"  3. 手动下载 PR diff 或让作者提供变更内容\n"
+            )
+            print(f"\n❌ {error_msg}")
+            result['error'] = error_msg
+            return result
+
+        diff_filename = f'pr_{pr_number}.diff'
+        diff_filepath = os.path.join(work_output_dir, diff_filename)
+        save_diff_to_file(diff_content, diff_filepath)
+        result['diff_file'] = diff_filepath
+        
+        print("\n" + "-"*60)
+        print("Step 3: 分析修改的代码")
+        print("-"*60)
+        
+        analysis = analyze_changed_files(diff_content)
+        result['analysis'] = analysis
+        
+        print(f"总修改文件数: {analysis['total_files']}")
+        if analysis['pass_files']:
+            print(f"Pass 文件: {len(analysis['pass_files'])}")
+            for f in analysis['pass_files'][:5]:
+                print(f"  - {f}")
+            if len(analysis['pass_files']) > 5:
+                print(f"  ... 还有 {len(analysis['pass_files']) - 5} 个")
+        if analysis['test_files']:
+            print(f"测试文件: {len(analysis['test_files'])}")
+            for f in analysis['test_files'][:5]:
+                print(f"  - {f}")
+
+        print("\n" + "-"*60)
+        print("Step 4: 应用 diff 到本地仓库")
+        print("-"*60)
+        
+        print(f"自动 stash: {'开启' if auto_stash else '关闭'}")
+        apply_success, apply_msg = apply_diff_to_repo(diff_filepath, work_repo_dir, auto_stash=auto_stash)
+        if apply_success:
+            print(f"✓ {apply_msg}")
+            result['diff_applied'] = True
+        else:
+            print(f"⚠️ {apply_msg}")
+            result['diff_applied'] = False
+            result['diff_apply_error'] = apply_msg
+
+        print("\n" + "-"*60)
+        print("Step 5: 检查编译状态")
+        print("-"*60)
+        
+        if check_build and result['diff_applied']:
+            build_success, build_msg = check_build_status(work_repo_dir, analysis['pass_files'])
+            if build_success:
+                print(f"✓ {build_msg}")
+            else:
+                print(f"⚠️ {build_msg}")
+            result['build_status'] = {'success': build_success, 'message': build_msg}
+        else:
+            print("跳过编译检查")
+            result['build_status'] = {'success': None, 'message': '跳过'}
+
+        print("\n" + "-"*60)
+        print("Step 6: 分析是否需要设计 UT")
+        print("-"*60)
+        
+        need_design_ut = False
+        design_ut_reason = ""
+        
+        if ut_result['status'] == 'SUCCESS':
+            design_ut_reason = "UT 测试全部通过，覆盖率满足要求"
+            print(f"✅ {design_ut_reason}")
+        elif ut_result['status'] == 'PARTIAL_FAILED':
+            need_design_ut = True
+            design_ut_reason = f"UT 测试部分失败: {', '.join(ut_result['failed_tests'])}"
+            print(f"❌ {design_ut_reason}")
+        elif ut_result['status'] == 'ABORT':
+            need_design_ut = True
+            design_ut_reason = "UT 测试部分中止，需要检查覆盖率"
+            print(f"⚠️ {design_ut_reason}")
+        else:
+            need_design_ut = True
+            design_ut_reason = "无法获取 UT 状态，建议设计 UT"
+            print(f"⚠️ {design_ut_reason}")
+        
+        if analysis['pass_files'] and ut_result['status'] != 'SUCCESS':
+            need_design_ut = True
+            design_ut_reason += f"\n  修改了 {len(analysis['pass_files'])} 个 Pass 文件，需要设计 UT"
+            print(f"\n⚠️ 修改了 Pass 文件，需要设计 UT 覆盖新代码")
+        
+        result['need_design_ut'] = need_design_ut
+        result['design_ut_reason'] = design_ut_reason
+
+        print("\n" + "="*60)
+        print("处理完成")
+        print("="*60)
+        result['success'] = True
+        return result
+
+    except Exception as e:
+        result['error'] = str(e)
+        print(f"\n❌ 处理失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return result
+
+
+def process_offline_diff(diff_file: str) -> Dict:
+    """
+    处理离线 diff 文件
+    
+    Args:
+        diff_file: diff 文件路径
+    
+    Returns:
+        包含处理结果的字典
+    """
+    result = {
+        'diff_content': None,
+        'analysis': {},
+        'success': False,
+        'error': None,
+        'method': 'offline_file'
+    }
+    
+    try:
+        if not os.path.exists(diff_file):
+            result['error'] = f"文件不存在: {diff_file}"
+            return result
+        
+        with open(diff_file, 'r', encoding='utf-8') as f:
+            diff_content = f.read()
+        
+        if not diff_content.strip():
+            result['error'] = "diff 文件内容为空"
+            return result
+        
+        result['diff_content'] = diff_content
+        result['analysis'] = analyze_changed_files(diff_content)
+        result['success'] = True
+        
+        print(f"✓ 成功解析离线 diff 文件")
+        print(f"  文件路径: {diff_file}")
+        print(f"  变更文件数: {result['analysis']['total_files']}")
+        print(f"  Pass 文件数: {len(result['analysis']['pass_files'])}")
+        
+        return result
+        
+    except Exception as e:
+        result['error'] = str(e)
+        print(f"⚠️ 处理离线 diff 文件失败: {e}")
+        return result
+
+
+def process_offline_ut_report(report_file: str) -> Dict:
+    """
+    处理离线 UT-Report 文件
+    
+    Args:
+        report_file: UT-Report 文件路径（HTML 或文本）
+    
+    返回:
+        包含处理结果的字典
+    """
+    result = {
+        'report_content': None,
+        'coverage_info': {},
+        'low_coverage_files': [],
+        'success': False,
+        'error': None,
+        'method': 'offline_report'
+    }
+    
+    try:
+        if not os.path.exists(report_file):
+            result['error'] = f"文件不存在: {report_file}"
+            return result
+        
+        with open(report_file, 'r', encoding='utf-8') as f:
+            report_content = f.read()
+        
+        if not report_content.strip():
+            result['error'] = "UT-Report 文件内容为空"
+            return result
+        
+        result['report_content'] = report_content
+        
+        if report_file.endswith('.html') or '<html' in report_content.lower():
+            from scripts.ut_coverage import parse_coverage_html, find_low_coverage_files
+            result['coverage_info'] = parse_coverage_html(report_content)
+            result['low_coverage_files'] = find_low_coverage_files(result['coverage_info'], 80.0)
+        else:
+            result['coverage_info'] = {'raw_content': report_content[:500]}
+        
+        result['success'] = True
+        
+        print(f"✓ 成功解析离线 UT-Report 文件")
+        print(f"  文件路径: {report_file}")
+        print(f"  总体覆盖率: {result['coverage_info'].get('overall_line_coverage', 'N/A')}")
+        print(f"  低覆盖率文件数: {len(result['low_coverage_files'])}")
+        
+        return result
+        
+    except Exception as e:
+        result['error'] = str(e)
+        print(f"⚠️ 处理离线 UT-Report 文件失败: {e}")
+        return result
+
+
+def analyze_offline_files(
+    diff_file: Optional[str] = None,
+    report_file: Optional[str] = None
+) -> Dict:
+    """
+    综合分析离线 diff 和 UT-Report 文件
+    
+    Args:
+        diff_file: diff 文件路径
+        report_file: UT-Report 文件路径
+    
+    返回:
+        包含分析结果的字典
+    """
+    result = {
+        'diff_result': None,
+        'report_result': None,
+        'combined_analysis': {},
+        'ut_design_items': [],
+        'success': False
+    }
+    
+    print("\n" + "="*60)
+    print("离线文件分析")
+    print("="*60)
+    
+    if diff_file:
+        print(f"\n[1] 处理 Diff 文件: {diff_file}")
+        result['diff_result'] = process_offline_diff(diff_file)
+    
+    if report_file:
+        print(f"\n[2] 处理 UT-Report 文件: {report_file}")
+        result['report_result'] = process_offline_ut_report(report_file)
+    
+    if result['diff_result'] and result['diff_result']['success']:
+        if result['report_result'] and result['report_result']['success']:
+            print("\n[3] 关联分析...")
+            
+            from scripts.ut_coverage import (
+                correlate_coverage_with_diff,
+                generate_ut_design_suggestions
+            )
+            
+            suggestions = generate_ut_design_suggestions(
+                result['diff_result']['analysis'],
+                result['report_result']['coverage_info']
+            )
+            
+            result['ut_design_items'] = [
+                {
+                    'file_path': s.file_path,
+                    'uncovered_lines': s.uncovered_lines,
+                    'change_type': s.change_type,
+                    'suggestion': s.suggestion,
+                    'priority': s.priority
+                }
+                for s in suggestions
+            ]
+            
+            print(f"  ✓ 生成 {len(result['ut_design_items'])} 条 UT 设计建议")
+    
+    result['success'] = True
+    return result
+
+
+def main():
+    """命令行入口"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        description='PR UT 生成工具 V8（支持离线分析）',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+使用方式：
+  # 在线：处理 PR
+  python pr_utils.py 1856
+  python pr_utils.py --pr 1856
+  
+  # 离线：分析 diff 文件
+  python pr_utils.py --diff /path/to/diff.file
+  
+  # 离线：分析 UT-Report 文件
+  python pr_utils.py --report /path/to/report.html
+  
+  # 离线：综合分析
+  python pr_utils.py --diff diff.file --report report.html
+  
+  # 输出 JSON
+  python pr_utils.py --diff diff.file --json
+        """
+    )
+    
+    parser.add_argument('pr_input', nargs='?', help='PR 编号或链接')
+    parser.add_argument('--pr', dest='pr_number', help='PR 编号')
+    parser.add_argument('--diff', dest='diff_file', help='离线 diff 文件路径')
+    parser.add_argument('--report', dest='report_file', help='离线 UT-Report 文件路径')
+    parser.add_argument('--json', action='store_true', help='输出 JSON 格式')
+    parser.add_argument('--output', '-o', help='输出文件路径')
+    
+    args = parser.parse_args()
+    
+    if args.diff_file:
+        result = analyze_offline_files(
+            diff_file=args.diff_file,
+            report_file=args.report_file
+        )
+        
+        if args.json or args.output:
+            import json
+            output = json.dumps(result, indent=2, ensure_ascii=False)
+            if args.output:
+                with open(args.output, 'w') as f:
+                    f.write(output)
+                print(f"\n结果已保存到: {args.output}")
+            else:
+                print(output)
+        else:
+            print_summary(result)
+        
+        return 0
+    
+    if args.report_file:
+        result = process_offline_ut_report(args.report_file)
+        if args.json:
+            import json
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 0
+    
+    pr_input = args.pr_input or args.pr_number
+    if not pr_input:
+        print("PR UT 生成工具 V8")
+        print("="*60)
+        print("使用方式：")
+        print("  python pr_utils.py <PR编号或链接>")
+        print("  python pr_utils.py --diff <diff文件>")
+        print("  python pr_utils.py --report <覆盖率报告>")
+        print("  python pr_utils.py --help 查看更多选项")
+        return 1
+    
+    result = process_pr(pr_input)
+    
+    if args.json or args.output:
+        import json
+        output = json.dumps(result, indent=2, ensure_ascii=False)
+        if args.output:
+            with open(args.output, 'w') as f:
+                f.write(output)
+            print(f"\n结果已保存到: {args.output}")
+        else:
+            print(output)
+    else:
+        print_summary(result)
+    
+    return 0
+
+
+def print_summary(result: Dict):
+    """打印结果摘要"""
+    print("\n" + "="*60)
+    print("处理结果汇总")
+    print("="*60)
+    print(f"成功: {result.get('success', False)}")
+    
+    if result.get('pr_info'):
+        print(f"PR: #{result['pr_info']['pr_number']} ({result['pr_info']['owner']}/{result['pr_info']['repo']})")
+    
+    if result.get('method'):
+        print(f"处理方式: {result['method']}")
+    
+    if result.get('analysis'):
+        analysis = result['analysis']
+        print(f"修改文件数: {analysis.get('total_files', 0)}")
+        print(f"Pass 文件数: {len(analysis.get('pass_files', []))}")
+    
+    if result.get('ut_report'):
+        ut = result['ut_report']
+        print(f"\nUT 状态: {ut.get('status', 'N/A')}")
+        print(f"需要设计 UT: {result.get('need_design_ut', False)}")
+        if ut.get('failed_tests'):
+            print(f"失败测试: {', '.join(ut['failed_tests'])}")
+    
+    if result.get('diff_result'):
+        print(f"\nDiff 分析完成:")
+        print(f"  Pass 文件数: {len(result['diff_result']['analysis'].get('pass_files', []))}")
+    
+    if result.get('report_result'):
+        print(f"\nUT-Report 分析完成:")
+        print(f"  低覆盖率文件数: {len(result['report_result'].get('low_coverage_files', []))}")
+    
+    if result.get('ut_design_items'):
+        print(f"\nUT 设计建议:")
+        for i, item in enumerate(result['ut_design_items'][:3], 1):
+            print(f"  {i}. [{item['priority'].upper()}] {item['file_path']}")
+        if len(result['ut_design_items']) > 3:
+            print(f"  ... 还有 {len(result['ut_design_items']) - 3} 条建议")
+    
+    if result.get('error'):
+        print(f"\n错误: {result['error']}")
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())
