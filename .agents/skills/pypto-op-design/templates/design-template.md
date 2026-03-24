@@ -62,6 +62,11 @@ Algorithm: {algorithm_name}
 {output_code}
 ```
 
+### 2.4 设计依据
+
+- 来源：{spec / api_report / docs / example}
+- 说明：{为何选择这些 API}
+
 ---
 
 ## 3. 数据规格设计
@@ -137,38 +142,59 @@ def {operator_name}(inputs: {OperatorName}Input) -> {OperatorName}Output:
 - {tiling_note_1}
 - {tiling_note_2}
 
+### 4.5 判断依据与适用条件
+
+- 判断依据：{为什么采用该 tiling}
+- 适用条件：{适用于哪些 shape / dtype / 动态轴场景}
+- 不适用场景：{哪些情况需要人工调整}
+
 ---
 
 ## 5. Loop 结构设计
 
-<!-- 仅在需要 loop 时填写此章节 -->
+<!-- 根据 quick_ref.md §2.1 判据表的结论选择对应模板 -->
 
-### 5.1 是否需要 pypto.loop
+### 场景 A：不需要 Loop
 
-- **结论**: {yes/no}
+> 适用于所有轴编译期已知、单次 Tile 可处理的算子（如逐元素运算）。
+
+- **结论**：不需要 pypto.loop
+- **原因**：{no_loop_reason}（如"所有轴编译期已知，单次 Tile 可覆盖全部数据"）
+- **适用条件**：{no_loop_applicable_conditions}
+- **限制**：{no_loop_limitations}
+- **处理方式**：编译器自动处理数据切分，无需手动循环
+
+### 场景 B：需要 Loop
+
+#### 5.1 Loop 判断结论
+
+- **结论**: 需要 Loop
 - **原因**: {loop_reason}
+- **Loop 类型**: {pypto.loop / pypto.loop_unroll / Python for}
+- **适用条件**: {loop_applicable_conditions}
+- **限制**: {loop_limitations}
 
-### 5.2 静态轴 vs 动态轴处理
+#### 5.2 静态轴 vs 动态轴处理
 
 | 轴 | 类型 | 处理方式 |
 |----|------|----------|
 | {axis} | 静态 / 动态 | Python for / pypto.loop |
 
-### 5.3 Loop 合并策略
+#### 5.3 Loop 合并策略
 
 {loop_merge_strategy}
 
-### 5.4 数据依赖处理
+#### 5.4 数据依赖处理
 
 {data_dependency_handling}
 
-### 5.5 尾块处理策略
+#### 5.5 尾块处理策略
 
 {tail_block_strategy}
 
-### 5.6 loop_unroll 配置
+#### 5.6 loop_unroll 配置
 
-<!-- 广范围动态轴（1~64k）时使用 -->
+<!-- 动态轴范围跨度大（如 1~64k）时使用，可在编译期生成多版本代码 -->
 
 ```python
 {loop_unroll_config}
@@ -245,13 +271,21 @@ def {operator_name}_golden({golden_params}) -> {golden_return_type}:
 
 ### 8.2 常见错误规避
 
-| 错误 | 原因 | 规避方法 |
-|------|------|----------|
-| {error_1} | {reason_1} | {solution_1} |
+| 风险 / 错误 | 触发场景 | 影响 / 原因 | 规避方法 |
+|-------------|----------|-------------|----------|
+| {error_1} | {trigger_1} | {reason_1} | {solution_1} |
 
 ### 8.3 特殊场景处理
 
 {special_scenario_handling}
+
+### 8.4 实现建议
+
+<!-- 记录影响后续 PyPTO算子实现的关键提示 -->
+
+| 建议项 | 说明 |
+|--------|------|
+| {impl_hint_1} | {hint_desc_1} |
 
 ---
 
