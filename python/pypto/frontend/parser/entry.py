@@ -917,7 +917,7 @@ class JitCallableWrapper:
     ) -> None:
         """Set verify input/output/golden data for pass-level verification.
 
-        This mirrors the behavior of pypto.runtime._JIT.compile:
+        This performs pass-level verification data setup:
         - Copy current input/output from NPU to Host
         - Use golden data pre-injected via set_verify_golden_data
         - Call SetVerifyData to register all three to the underlying ProgramData
