@@ -3,7 +3,7 @@ name: pypto-pr-creator
 description: "PyPTO 项目 PR 创建全流程指南。当需要为 cann/pypto 仓库创建 PR、编写 commit 信息、准备代码提交、检查 PR 规范时使用。覆盖：(1) 仓库发现与 fork 验证，(2) 用户确认检查点（强制阻塞确认），(3) 分支创建与 commit，(4) 通过 GitCode MCP 创建/更新 PR，(5) PR 创建后结构化报告。触发词：创建PR、提交PR、PR规范、commit message、pypto贡献、代码提交到pypto、更新PR。"
 ---
 
-# PyPTO PR 创建
+# PyPTO PR Creator
 
 ---
 

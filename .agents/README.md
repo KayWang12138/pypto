@@ -38,45 +38,124 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 
 ---
 
-## 我想做…→ 用这个
+## 使用方式
 
-根据你的目标快速定位合适的技能或代理：
+### OpenCode
 
-| 我想… | 推荐技能/代理 | 一句话说明 |
-|:---|:---|:---|
-| 开发一个新算子 | `pypto-operator-develop-workflow` | 全流程引导，从需求到交付 |
-| 理解算子需求意图 | `pypto-intent-understanding` | 自然语言转结构化规格 |
-| 探索 PyPTO API | `pypto-api-explorer` | API 映射、约束检查、可行性分析 |
-| 生成 Golden 参考 | `pypto-golden-generator` | 纯 PyTorch 参考实现 |
-| 设计算子方案 | `pypto-op-design` | Tiling 策略、Loop 结构设计 |
-| 编写算子实现 | `pypto-op-develop` | Kernel 实现 + 测试 + README |
-| 排查精度问题 | `pypto-precision-debugger` | 系统化定位精度根因 |
-| 二分定位精度差异 | `pypto-binary-search-verify` | 精度差异定位（Verify 模式） |
-| Checkpoint 精度对比 | `pypto-binary-search-without-verify` | 中间结果精度对比 |
-| 定位 AICore 错误 | `pypto-aicore-error-locator` | 找到问题 CCE 文件和代码行 |
-| 分析算子性能 | `pypto-op-perf-analyzer` | 泳道图分析 + 瓶颈定位 |
-| 调优算子性能 | `pypto-op-perf-autotuner` | 迭代调优 + 验证 |
-| 修复环境报错 | `pypto-environment-setup` | 诊断 + 修复 + 验证 |
-| 创建 GitCode Issue | `pypto-issue-creator` | 智能创建规范 Issue |
-| 提交 PR | `pypto-pr-creator` | 自动创建规范 PR |
-| 修复 PR 问题 | `pypto-pr-fixer` | CI 失败 + Review 意见修复 |
-| 评审 Skill 质量 | `pypto-skill-reviewer` | 48 条规则评分报告 |
-| 识别框架断裂点 | `pypto-fracture-point-detector` | 产出可转化为 Issue 的报告 |
-| 安装 GitCode MCP | `gitcode-mcp-install` | 安装 + 配置 + 验证 |
+在 PyPTO 仓库主目录启动 OpenCode，通过以下方式开始算子开发：
 
-> **不确定用哪个？** 直接描述目标，OpenCode 会自动匹配。
+#### 方式一：直接调用 Skill
+
+在对话中描述开发任务，自动触发 `pypto-operator-develop-workflow`：
+
+```
+开发一个 sinh 算子，数学公式是 (e^x - e^(-x)) / 2
+```
+
+或使用斜杠命令明确指定：
+
+```
+/pypto-operator-develop-workflow 开发一个 sinh 算子
+```
+
+#### 方式二：切换到 Orchestrator Agent
+
+按 `Tab` 键切换到 `pypto-op-orchestrator` 代理，然后输入开发任务：
+
+```
+开发一个 sinh 算子，数学公式是 (e^x - e^(-x)) / 2
+```
+
+> **提示**：Orchestrator 会自动编排 7 阶段状态机：需求理解 → API探索 → Golden生成 → 设计方案 → 代码实现 → 精度修复 → 性能调优
+
+---
+
+### Claude Code
+
+#### 前置准备
+
+Claude Code 使用不同的目录结构，需要先迁移项目配置：
+
+```bash
+# 1. 创建 Claude Code 目录结构
+mkdir -p .claude/skills .claude/agents
+
+# 2. 重命名项目指令文件
+mv AGENTS.md CLAUDE.md
+
+# 3. 复制 Skills 到 Claude Code 目录
+cp -r .agents/skills/* .claude/skills/
+
+# 4. 复制 Agents 到 Claude Code 目录
+cp -r .opencode/agents/* .claude/agents/
+```
+
+#### 方式一：直接调用 Skill
+
+启动 Claude Code 后，直接在对话中调用 skill：
+
+```bash
+claude
+```
+
+然后在对话中使用斜杠命令：
+
+```
+/pypto-operator-develop-workflow 开发一个 sinh 算子
+```
+
+或自然语言描述：
+
+```
+请使用 pypto-operator-develop-workflow 技能开发一个 sinh 算子
+```
+
+#### 方式二：指定 Agent 启动
+
+使用 `--agent` 参数直接指定代理启动 Claude Code：
+
+```bash
+claude --agent pypto-op-orchestrator
+```
+
+启动后，在对话中输入算子开发任务即可。
+
+---
+
+### 使用建议
+
+| 场景 | 推荐方式 |
+|:---|:---|
+| 完整算子开发流程 | 方式二（Orchestrator Agent） |
+| 单步任务（如只需生成 Golden） | 方式一（直接调用对应 Skill） |
+| 调试修复类任务 | 方式一（直接调用 `pypto-precision-debugger` 等） |
 
 ---
 
 ## 核心架构
 
-### Agents（协作代理）
+### AGENTS.md — 项目规范
+
+AGENTS.md 是 OpenCode 的项目级自定义指令文件。当你在本仓库中使用 OpenCode 时，它会自动加载并生效——无需手动操作。
+
+该文件定义了：
+
+- **核心原则**：遇问题优先定位修复、基于官方文档实现、优先保证方案可用
+- **环境配置**：默认版本（CANN 8.5.0 / PyTorch 2.6.0 / torch_npu 2.6.0.post3）
+- **开发规范**：目录结构、分阶段流程、错误处理策略
+- **默认值**：输入输出规格、数据类型、精度要求的合理缺省
+
+> 进一步了解：[OpenCode 自定义规则文档](https://opencode.ai/docs/zh-cn/rules/)
+
+---
+
+### Agents — 协作代理
 
 代理是定义在 `.opencode/agents/` 目录下的协作实体，负责编排和隔离执行复杂任务。
 
 | 代理 | 模式 | 职责 |
 |:---|:---|:---|
-| `pypto-op-orchestrator` | Primary | 算子端到端开发编排，管理 7 阶段状态机（需求→API探索→Golden→Design→实现→精度修复→性能调优） |
+| `pypto-op-orchestrator` | Primary | 算子端到端开发编排，管理 7 阶段状态机 |
 | `pypto-op-analyst` | Subagent | Golden 生成与 Design 设计分析（上下文隔离） |
 | `pypto-op-developer` | Subagent | 代码实现与精度修复（上下文隔离） |
 | `pypto-op-perftuner` | Subagent | 性能分析与调优（上下文隔离） |
@@ -99,11 +178,13 @@ Stage 6: 精度修复 → Developer Subagent (可选)
 Stage 7: 性能调优 → PerfTuner Subagent
 ```
 
-### Skills（专家技能）
+---
+
+### Skills — 专家技能
 
 技能是定义在 `.agents/skills/` 目录下的可复用行为模块。每个 skill 包含一个 `SKILL.md` 文件，描述完整的执行流程。
 
-**调用方式**（三选一，效果等价）：
+**调用方式**：
 
 **自动匹配** — 描述目标，OpenCode 自动选择：
 ```
@@ -120,9 +201,13 @@ Stage 7: 性能调优 → PerfTuner Subagent
 请使用 pypto-op-develop 技能帮我开发一个算子。
 ```
 
+> 进一步了解：[OpenCode Skills 文档](https://opencode.ai/docs/zh-cn/skills/)
+
 ---
 
 ## 技能详解
+
+按场景快速定位：[算子开发](#算子开发与编排) · [精度调试](#精度验证与调试) · [性能分析](#性能分析) · [环境配置](#环境与工具) · [PR提交](#pr-与代码质量)
 
 ### 算子开发与编排
 
@@ -266,33 +351,6 @@ Stage 7: 性能调优 → PerfTuner Subagent
 
 ---
 
-## 工作原理
-
-### AGENTS.md — 项目规范，自动生效
-
-AGENTS.md 是 OpenCode 的项目级自定义指令文件。当你在本仓库中使用 OpenCode 时，它会自动加载并生效——无需手动操作。
-
-该文件定义了：
-
-- **核心原则**：遇问题优先定位修复、基于官方文档实现、优先保证方案可用
-- **环境配置**：默认版本（CANN 8.5.0 / PyTorch 2.6.0 / torch_npu 2.6.0.post3）
-- **开发规范**：目录结构、分阶段流程、错误处理策略
-- **默认值**：输入输出规格、数据类型、精度要求的合理缺省
-
-> 进一步了解：[OpenCode 自定义规则文档](https://opencode.ai/docs/zh-cn/rules/)
-
-### Skills — 专家技能，按需加载
-
-Skills 是定义在 `.agents/skills/` 目录下的可复用行为模块。每个 skill 包含一个 `SKILL.md` 文件，描述完整的执行流程。OpenCode 会在需要时自动发现并加载。
-
-> 进一步了解：[OpenCode Skills 文档](https://opencode.ai/docs/zh-cn/skills/)
-
-### Agents — 协作代理，编排执行
-
-Agents 是定义在 `.opencode/agents/` 目录下的协作实体。Primary 代理负责流程编排，Subagent 代理在隔离上下文中执行具体任务，确保复杂任务的可靠执行。
-
----
-
 ## 常见问题
 
 <details>
@@ -319,19 +377,11 @@ Agents 是定义在 `.opencode/agents/` 目录下的协作实体。Primary 代�
 </details>
 
 <details>
-<summary><b>如何理解 Subagent 的上下文隔离？</b></summary>
-
-</details>
-
----
-
-## 工具兼容
+<summary><b>其他 AI 工具兼容性</b></summary>
 
 本项目支持多种 AI 编程工具，包括 [OpenCode](https://opencode.ai)、[Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview)、Cursor、Codex 等。
 
-### Claude Code
-
-#### 目录结构映射
+**Claude Code 目录结构映射**：
 
 | 组件 | OpenCode | Claude Code |
 |:---|:---|:---|
@@ -339,25 +389,8 @@ Agents 是定义在 `.opencode/agents/` 目录下的协作实体。Primary 代�
 | Skills | `.agents/skills/` | `.claude/skills/` |
 | Agents | `.opencode/agents/` | `.claude/agents/` |
 
-#### 迁移命令
-
-从 OpenCode 迁移到 Claude Code 只需 4 条命令：
-
-```bash
-# 1. 创建 Claude Code 目录
-mkdir -p .claude/skills .claude/agents
-
-# 2. 重命名项目指令
-mv AGENTS.md CLAUDE.md
-
-# 3. 迁移 skills
-mv .agents/skills/* .claude/skills/
-
-# 4. 迁移 agents
-mv .opencode/agents/* .claude/agents/
-```
-
-#### 格式兼容性
-
+**格式兼容性**：
 - **SKILL.md**：YAML frontmatter + Markdown，两种工具完全兼容
 - **Agents**：YAML frontmatter + Markdown，`mode: primary` 为 OpenCode 特有字段，Claude Code 会忽略
+
+</details>
