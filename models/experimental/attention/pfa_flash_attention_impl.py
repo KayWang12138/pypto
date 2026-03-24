@@ -77,7 +77,7 @@ class TempUpdateTensor:
 
 
 @dataclass
-class IFAKernelParams:
+class PFAKernelParams:
     n1: int
     d: int
     block_num: int
@@ -91,7 +91,7 @@ class IFAKernelParams:
 
 @dataclass
 class ContextParams:
-    kernel_params: IFAKernelParams = None
+    kernel_params: PFAKernelParams = None
     tile_cfg: AttentionTileConfig = None
     loop_tensors: LoopTensor = None
     loop_index: LoopIndex = None
@@ -244,7 +244,7 @@ def init_kernel_params(q, k, block_table):
     s1 = bs // b
     group = n1 // n2
     softmax_scale = d ** -0.5
-    kernel_params = IFAKernelParams(
+    kernel_params = PFAKernelParams(
         n1=n1, d=d, block_num=block_num, n2=n2, block_size=block_size, 
         b=b, s1=s1, group=group, softmax_scale=softmax_scale
     )
@@ -287,7 +287,6 @@ def compute_loop_b_optimized(dtype, ctx_params):
         s1_end = (s1_block_idx + 1) * S1_BLOCK_STEP
         actual_s1_in_block = (s1 - s1_start).min(S1_BLOCK_STEP)
         
-        # s2_max_for_block = (s1_block_idx + 1) * S1_BLOCK_STEP
         s2_max_for_block = s1_start + actual_s1_in_block
 
         s2_loop_for_block = pypto.ceildiv(
@@ -394,8 +393,6 @@ def compute_loop_s2_optimized(ctx_params, cur_seq_len, dtype, s2_loop_for_block)
         "device_sched_mode": 1
     },
     pass_options={
-        # "cube_l1_reuse_setting": {0: 8},
-        # "vec_nbuffer_setting": {0: 2}
         "cube_l1_reuse_setting": {-1: 16},
         "vec_nbuffer_setting": {0: 8}
     },
