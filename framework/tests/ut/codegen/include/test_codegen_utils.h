@@ -66,6 +66,7 @@ std::string GetResultFromCpp(const Function &function);
 void CheckStringExist(const std::string &expect, const std::string &result);
 
 Function *GenMockFuncDyn(const std::string &funcName, const std::vector<int64_t> &shape = {64, 64});
+Function *GenMockFuncStatic(const std::string &funcName, const std::vector<int64_t> &shape = {64, 64});
 
 struct MockFuncDynConfig {
     std::vector<int64_t> shape = {64, 64};
