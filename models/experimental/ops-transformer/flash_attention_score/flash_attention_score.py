@@ -22,12 +22,12 @@ import pypto
 
 BATCH_SIZE = 2
 NUM_HEADS = 8
-SEQ_LEN_Q = 16
-SEQ_LEN_KV = 16
-HEAD_DIM = 64
+SEQ_LEN_Q = 64
+SEQ_LEN_KV = 64
+HEAD_DIM = 128
 
-TILE_S1 = 16
-TILE_S2 = 16
+TILE_S1 = 64
+TILE_S2 = 64
 
 
 def get_device_id():
@@ -60,47 +60,49 @@ def flash_attention_score_golden_online_softmax(
     num_s1_tiles = (Sq + TILE_S1 - 1) // TILE_S1
     num_s2_tiles = (Skv + TILE_S2 - 1) // TILE_S2
     
-    for b_idx in range(B):
-        for n_idx in range(N):
-            for s1_tile in range(num_s1_tiles):
-                s1_start = s1_tile * TILE_S1
-                s1_end = min(s1_start + TILE_S1, Sq)
-                s1_size = s1_end - s1_start
-                
-                q_block = query[b_idx, n_idx, s1_start:s1_end, :]
-                
-                m_running = torch.full((s1_size, 1), float('-inf'), dtype=torch.float32, device=query.device)
-                l_running = torch.zeros((s1_size, 1), dtype=torch.float32, device=query.device)
-                acc_running = torch.zeros((s1_size, D), dtype=torch.float32, device=query.device)
-                
-                for s2_tile in range(num_s2_tiles):
-                    s2_start = s2_tile * TILE_S2
-                    s2_end = min(s2_start + TILE_S2, Skv)
-                    
-                    k_block = key[b_idx, n_idx, s2_start:s2_end, :]
-                    v_block = value[b_idx, n_idx, s2_start:s2_end, :]
-                    
-                    scores = torch.matmul(q_block, k_block.transpose(-2, -1)) * scale_value
-                    
-                    m_new = torch.maximum(m_running, scores.max(dim=-1, keepdim=True)[0].to(torch.float32))
-                    exp_scores = torch.exp(scores.to(torch.float32) - m_new)
-                    l_new = l_running * torch.exp(m_running - m_new) + exp_scores.sum(dim=-1, keepdim=True)
-                    acc_new = acc_running * torch.exp(m_running - m_new) + torch.matmul(exp_scores.to(query.dtype), v_block)
-                    
-                    m_running = m_new
-                    l_running = l_new
-                    acc_running = acc_new
-                
-                acc_out = acc_running / l_running
-                
-                attention_out[b_idx, n_idx, s1_start:s1_end, :] = acc_out.to(query.dtype)
-                softmax_max_out[b_idx, n_idx, s1_start:s1_end, :] = m_running
-                softmax_sum_out[b_idx, n_idx, s1_start:s1_end, :] = l_running
+    for s1_tile in range(num_s1_tiles):
+        s1_start = s1_tile * TILE_S1
+        s1_end = min(s1_start + TILE_S1, Sq)
+        
+        q_block = query[:, :, s1_start:s1_end, :]
+        
+        m_running = torch.full((B, N, s1_end - s1_start, 1), float('-inf'), dtype=torch.float32, device=query.device)
+        l_running = torch.zeros((B, N, s1_end - s1_start, 1), dtype=torch.float32, device=query.device)
+        acc_running = torch.zeros((B, N, s1_end - s1_start, D), dtype=torch.float32, device=query.device)
+        
+        for s2_tile in range(num_s2_tiles):
+            s2_start = s2_tile * TILE_S2
+            s2_end = min(s2_start + TILE_S2, Skv)
+            
+            k_block = key[:, :, s2_start:s2_end, :]
+            v_block = value[:, :, s2_start:s2_end, :]
+            
+            scores = torch.matmul(q_block.to(torch.float32), k_block.transpose(-2, -1).to(torch.float32)) * scale_value
+            m_new = torch.maximum(m_running, scores.max(dim=-1, keepdim=True)[0])
+            exp_scores = torch.exp(scores - m_new)
+            
+            m_diff = m_running - m_new
+            exp_m_diff = torch.exp(m_diff)
+            l_running_scaled = l_running * exp_m_diff
+            exp_scores_sum = exp_scores.sum(dim=-1, keepdim=True)
+            l_new = l_running_scaled + exp_scores_sum
+            
+            acc_new = acc_running * exp_m_diff + torch.matmul(exp_scores, v_block.to(torch.float32)).to(query.dtype)
+            
+            m_running = m_new
+            l_running = l_new
+            acc_running = acc_new
+        
+        acc_out = acc_running / l_running
+        
+        attention_out[:, :, s1_start:s1_end, :] = acc_out.to(query.dtype)
+        softmax_max_out[:, :, s1_start:s1_end, :] = m_running
+        softmax_sum_out[:, :, s1_start:s1_end, :] = l_running
     
     return attention_out, softmax_max_out, softmax_sum_out
 
 
-@pypto.frontend.jit
+@pypto.frontend.jit(debug_options={"runtime_debug_mode": 1})
 def flash_attention_score_kernel(
     query: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16),
     key: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM), pypto.DT_BF16),
@@ -147,6 +149,7 @@ def flash_attention_score_kernel(
             m_diff = pypto.sub(m_running, m_new)
             exp_m_diff = pypto.exp(m_diff)
             l_running_scaled = pypto.mul(l_running, exp_m_diff)
+            
             exp_scores_sum = pypto.sum(exp_scores, dim=-1, keepdim=True)
             l_new = pypto.add(l_running_scaled, exp_scores_sum)
             
@@ -174,15 +177,21 @@ def test_flash_attention_score_basic(device_id=None, run_mode: str = "npu") -> N
     
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
-    query_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM, dtype=torch.bfloat16, device=device)
-    key_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, dtype=torch.bfloat16, device=device)
-    value_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, dtype=torch.bfloat16, device=device)
+    torch.manual_seed(42)
+    query_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM, dtype=torch.bfloat16, device='cpu')
+    key_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, dtype=torch.bfloat16, device='cpu')
+    value_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, dtype=torch.bfloat16, device='cpu')
+    
+    query_torch = query_torch.to(device)
+    key_torch = key_torch.to(device)
+    value_torch = value_torch.to(device)
+    
+    scale_value = 1.0 / (HEAD_DIM ** 0.5)
     
     out_torch = torch.empty(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM, dtype=torch.bfloat16, device=device)
     softmax_max_torch = torch.empty(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, 1, dtype=torch.float32, device=device)
     softmax_sum_torch = torch.empty(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, 1, dtype=torch.float32, device=device)
     
-    scale_value = 1.0 / (HEAD_DIM ** 0.5)
     flash_attention_score_kernel(
         query_torch, key_torch, value_torch,
         out_torch, softmax_max_torch, softmax_sum_torch,
