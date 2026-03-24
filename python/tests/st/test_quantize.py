@@ -27,7 +27,7 @@ def test_quantize_symmetric_int8_basic():
 
     # Create tensors
     x = pypto.tensor(shape, pypto.DT_FP32, "x")
-    scale = pypto.tensor((3, 1), pypto.DT_FP32, "scale")
+    scale = pypto.tensor((3,), pypto.DT_FP32, "scale")
     y = pypto.tensor(shape, pypto.DT_INT8, "y")
 
     # Build computation graph

@@ -40,7 +40,7 @@ constexpr size_t TILE_ALIGNMENT_BYTES = 32;
  * @brief INT8 对称量化 (逐行)
  * @param dst   输出 INT8 张量, 形状 [..., H, W]
  * @param src   输入 FP32 张量, 形状 [..., H, W]
- * @param scale 缩放因子, 形状 [..., H, 1]
+ * @param scale 缩放因子, 形状 [..., H]
  */
 template <typename T0, typename T1, typename T2>
 TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
@@ -99,8 +99,8 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
                                     pto::BLayout::RowMajor, -1, -1>;
     using SrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, paddedCol_src,
                                     pto::BLayout::RowMajor, -1, -1>;
-    using ScaleTileDefine = pto::Tile<pto::TileType::Vec, ScaleDtype, 1, paddedRow_scale,
-                                    pto::BLayout::RowMajor, -1, -1>;
+    using ParaTileDefine = pto::Tile<pto::TileType::Vec, ScaleDtype, paddedRow_scale, 1
+                                    pto::BLayout::ColMajor, -1, -1>;
 
     // 遍历所有 Tile
     for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
@@ -108,7 +108,7 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
             for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
                 DstTileDefine dstTile(dstShape3, dstShape4);
                 SrcTileDefine srcTile(srcShape3, srcShape4);
-                ScaleTileDefine scaleTile(1, srcShape3);
+                ParaTileDefine scaleTile(srcShape3, 1);
 
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
@@ -133,8 +133,8 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
  * @brief INT8 非对称量化 (逐行)
  * @param dst    输出 UINT8 张量, 形状 [..., H, W]
  * @param src    输入 FP32 张量, 形状 [..., H, W]
- * @param scale  缩放因子, 形状 [..., H, 1]
- * @param offset 零点偏移, 形状 [..., H, 1]
+ * @param scale  缩放因子, 形状 [..., H]
+ * @param offset 零点偏移, 形状 [..., H]
  */
 template <typename T0, typename T1, typename T2, typename T3>
 TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset) {
@@ -201,10 +201,8 @@ TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset) {
                                     pto::BLayout::RowMajor, -1, -1>;
     using SrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW,
                                     pto::BLayout::RowMajor, -1, -1>;
-    using ScaleTileDefine = pto::Tile<pto::TileType::Vec, ScaleDtype, 1, paddedRow_scale,
-                                    pto::BLayout::RowMajor, -1, -1>;
-    using OffsetTileDefine = pto::Tile<pto::TileType::Vec, OffsetDtype, 1, paddedRow_offset,
-                                    pto::BLayout::RowMajor, -1, -1>;
+    using ParaTileDefine = pto::Tile<pto::TileType::Vec, ScaleDtype, 1, paddedRow_scale,
+                                    pto::BLayout::ColMajor, -1, -1>;
 
     // 遍历所有 Tile
     for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
@@ -212,8 +210,8 @@ TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset) {
             for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
                 DstTileDefine dstTile(dstShape3, dstShape4);
                 SrcTileDefine srcTile(srcShape3, dstShape4);
-                ScaleTileDefine scaleTile(1, srcShape3);
-                OffsetTileDefine offsetTile(1, srcShape3);
+                ParaTileDefine scaleTile(srcShape3, 1);
+                ParaTileDefine offsetTile(srcShape3, 1);
 
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
@@ -225,7 +223,7 @@ TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset) {
                 pto::TASSIGN(scaleTile, (uint64_t)(scale.GetAddr() + scaleOffset * sizeof(ScaleDtype)));
                 pto::TASSIGN(offsetTile, (uint64_t)(offset.GetAddr() + offsetOffset * sizeof(OffsetDtype)));
 
-                pto::TQUANT<pto::QuantType::INT8_ASYM>(dstTile, srcTile, scaleTile, &offsetTile);
+                pto::TQUANT<pto::QuantType::INT8_ASYM>(dstTile, srcTile, scaleTile, offsetTile);
             }
         }
     }
