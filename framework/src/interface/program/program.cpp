@@ -259,9 +259,6 @@ bool Program::BeginFunction(const std::string &funcName,
 }
 
 Operation &Program::ConnectCallerGusket(Function &caller, FunctionCallArgs &args) const {
-    // callFunc is used for:
-    //  1. Submit to machine
-    //  2. Draw graph
     auto &callFunc = caller.AddRawOperation(Opcode::OP_CALL, args.iOperands, args.oOperands, false);
     callFunc.SetOpAttribute(currentFunctionPtr_->CreateCallOpAttribute(args.argList, args.outIndexToExpr));
     callFunc.SetOpOffset(args.iOpAttrOffset, args.oOpAttrOffset);
@@ -293,7 +290,6 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
     return &ConnectCallerGusket(currentFunctionPtr_->Parent(), funcArgs);
 }
 
-// Helper function: Dump tensor graph if needed
 void Program::DumpTensorGraphIfNeeded(Function *result) {
     if (config::GetPassDefaultConfig(KEY_PRINT_GRAPH, false) &&
         result->IsGraphType(GraphType::TENSOR_GRAPH)) {
