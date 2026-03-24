@@ -878,7 +878,7 @@ void SetReduceTiles(std::vector<Operation *> reduceOrderedOperations) {
         int64_t outputTypeSize = BytesOf(op->GetOOperands()[0]->tensor->GetDataType());
         int64_t maxTypeSize = std::max(inputTypeSize, outputTypeSize);
         if (inputTypeSize == 0 || maxTypeSize == 0) {
-            ALOG_ERROR_F("typeSize = 0, division by zero");
+            APASS_LOG_ERROR_F(Elements::Operation, "typeSize = 0, division by zero");
         }
         ASSERT(inputDims == outputDims) << "Input dims should be equal output dims";
         ASSERT(outputsNum == 1) << "ReduceOp must have 1 output";
