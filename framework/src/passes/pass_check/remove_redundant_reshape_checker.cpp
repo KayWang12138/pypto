@@ -20,12 +20,17 @@
 
 namespace npu {
 namespace tile_fwk {
-Status RemoveRedundantReshapeChecker::DoPreCheck(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "PreCheck for RemoveRedundantShape.");
+Status RemoveRedundantReshapeChecker::DoDefaultEnabledPreCheck(Function &function) {
+    APASS_LOG_INFO_F(Elements::Operation, "DoDefaultEnabledPreCheck for RemoveRedundantShape.");
     if (CheckValidOp(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Found invalid op from the function [%s].", function.GetRawName().c_str());
         return FAILED;
     }
+    return SUCCESS;
+}
+
+Status RemoveRedundantReshapeChecker::DoPreCheck(Function &function) {
+    APASS_LOG_INFO_F(Elements::Operation, "PreCheck for RemoveRedundantShape.");
     if (CheckOpIOValid(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Found invalid input/output in the function [%s].", function.GetRawName().c_str());
         return FAILED;
