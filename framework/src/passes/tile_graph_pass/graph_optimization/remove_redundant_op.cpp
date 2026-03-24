@@ -61,6 +61,10 @@ bool RemoveRedundantOp::ProcessRedundantOpWithDynShape(Operation &op) const {
         APASS_LOG_DEBUG_F(Elements::Operation, "op[%d]'s input and output has unequal shape and dynshape, skip removing.", op.opmagic);
         return false;
     }
+    if (op.HasAttr("op_attr_remain_redundant_op_flag")) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "op[%d] has attribute op_attr_remain_redundant_op_flag, skip removing.", op.opmagic);
+        return false;
+    }
     return true;
 }
 
@@ -178,6 +182,11 @@ Status RemoveRedundantOp::ProcessViewAssemble(Function &function) {
                     "CASE1: Process OP_VIEW[%d]'s input and OP_ASSEMBLE[%d]'s output perfectMatch.", op.opmagic, consumer->GetOpMagic());
                 ProcessPerfectMatch(function, startTensor, endTensor);
             } else {
+                //对于输入输出存在动轴的场景无法做级联的冗余删除
+                if ((function.IsFromInCast(startTensor) && CommonUtils::ContainsNegativeOne(startTensor->GetShape())) ||
+                    (function.IsFromOutCast(endTensor) && CommonUtils::ContainsNegativeOne(endTensor->GetShape()))) {
+                        continue;
+                    }
                 //case2：assemble的输出tensor是view输入tensor的一部分
                 //       startTensor(inshape) ---> view1  ---> tempTensor1  --->  assemble1  ---> endTensor(outshape < inshape)
                 //                            ---> view2  ---> tempTensor2  --->  assemble2 
