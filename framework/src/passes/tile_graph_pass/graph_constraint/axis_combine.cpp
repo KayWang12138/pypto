@@ -31,12 +31,10 @@ const std::unordered_set<Opcode> NEED_BRC_OPS{
     Opcode::OP_MINIMUM,
     Opcode::OP_EXPANDEXPDIF,
 };
+const std::unordered_set<OpCalcType> SUPPORT_CALC_TYPE{OpCalcType::BROADCAST, OpCalcType::ELMWISE};
 
-bool InsertCondition(const Opcode &code) {
-    if (NEED_BRC_OPS.count(code) > 0) {
-        return true;
-    }
-    return false;
+bool InsertCondition(const OpCalcType &calcType) {
+    return SUPPORT_CALC_TYPE.find(calcType) != SUPPORT_CALC_TYPE.end();
 }
 
 Status AlignedIfNeed(int64_t &currentDim, int64_t &padValue) {
@@ -74,7 +72,8 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, O
     auto inputTensor = op.GetIOperands();
     auto inTensor0 = inputTensor[0];
     auto inTensor1 = inputTensor[1];
-    if (inTensor0->GetShape() == inTensor1->GetShape()) {
+    if (inTensor0->GetShape() == inTensor1->GetShape() ||
+        (inTensor0->GetShape().back() == inTensor1->GetShape().back() && inTensor0->GetShape().back() == 1)) {
         return SUCCESS;
     }
     for (size_t idx = 0; idx < inputTensor.size(); ++idx) {
@@ -96,7 +95,8 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, O
                 auto alignedTensor = std::make_shared<LogicalTensor>(function, srcTensor->Datatype(), alignedShape, srcTensor->Format());
                 alignedTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
                 auto &brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
-                if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor)) {
+                if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor) ||
+                    NEED_BRC_OPS.count(op.GetOpcode()) == 0) {
                     brcb.SetOpCode(Opcode::OP_EXPAND);
                     brcb.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", GetExpandDim(srcTensor->GetShape(), inputTensor[idx ^ 1]->GetShape()));
                     needMarkBrcInput = false;
@@ -121,11 +121,12 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, O
 
 Status AxisCombine::Process(Function &function) {   
     for (auto &op : function.Operations()) {
-        if (InsertCondition(op.GetOpcode()) && op.GetIOperands().size() == INPUT_SIZE) {
+        if (InsertCondition(OpcodeManager::Inst().GetOpCalcType(op.GetOpcode())) &&
+            op.GetIOperands().size() == INPUT_SIZE) {
             if (AlignBroadCastOpInputs(function, op) != SUCCESS) {
                     APASS_LOG_ERROR_F(Elements::Operation, "operation %d's aligned faild. %s", op.GetOpMagic(), op.GetOpcodeStr().c_str());
                     return FAILED;
-            } 
+            }
         }
     }
     return SUCCESS;
