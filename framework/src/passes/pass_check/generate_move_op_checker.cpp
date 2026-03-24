@@ -22,7 +22,7 @@
 namespace npu {
 namespace tile_fwk {
 Status GenerateMoveOpChecker::DoPreCheck(Function &function) {
-    APASS_LOG_INFO_F(Elements::Function, "Start Precheck for GenerateMoveOp.");
+    APASS_LOG_INFO_F(Elements::Operation, "Start Precheck for GenerateMoveOp.");
     auto operations = function.Operations();
     // Check iOperand and oOperand of OP_CONVERT
     for (auto &operation : operations) {
@@ -42,7 +42,7 @@ Status GenerateMoveOpChecker::DoPreCheck(Function &function) {
                 continue;
         }
         if (!isValid) {
-            APASS_LOG_ERROR_F(Elements::Function, "Operation validation failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed.");
             return FAILED;
         }
     }
@@ -50,27 +50,27 @@ Status GenerateMoveOpChecker::DoPreCheck(Function &function) {
 }
 
 Status GenerateMoveOpChecker::DoPostCheck(Function &function) {
-    APASS_LOG_INFO_F(Elements::Function, "Start Postcheck for GenerateMoveOp.");
+    APASS_LOG_INFO_F(Elements::Operation, "Start Postcheck for GenerateMoveOp.");
     auto operations = function.Operations();
     for (auto &operation : operations) {
         auto op = operation.GetOpcode();
         if(op == Opcode::OP_DUPLICATE || op == Opcode::OP_CONVERT) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %d[%d] is invalid here.",static_cast<int>(operation.GetOpcode()),operation.GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %s[%d] is invalid here.", operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
             return FAILED;
         }
         if(op == Opcode::OP_ASSEMBLE || op == Opcode::OP_VIEW) {
             if(operation.GetIOperands().size() != 1) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %d[%d] has more than one input.",static_cast<int>(operation.GetOpcode()),operation.GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %s[%d] has more than one input.", operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
                 return FAILED;
             }
             if(operation.GetOOperands().size() != 1) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %d[%d] has more than one output.",static_cast<int>(operation.GetOpcode()),operation.GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %s[%d] has more than one output.", operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
                 return FAILED;
             }
             auto inputMemType = operation.GetIOperands().front()->GetMemoryTypeOriginal();
             auto outputMemType = operation.GetOOperands().front()->GetMemoryTypeOriginal();
             if(inputMemType != outputMemType) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %d[%d] has dismatched memory type. Input memory type:%s. Output memory type:%s",static_cast<int>(operation.GetOpcode()),operation.GetOpMagic(),
+                APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %s[%d] has dismatched memory type. Input memory type:%s. Output memory type:%s", operation.GetOpcodeStr().c_str(), operation.GetOpMagic(),
                     BriefMemoryTypeToString(inputMemType).c_str(),
                     BriefMemoryTypeToString(outputMemType).c_str()
                 );
