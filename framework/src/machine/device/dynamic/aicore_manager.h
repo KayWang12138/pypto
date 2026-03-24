@@ -118,7 +118,8 @@ public:
         return isValid;
     }
 
-inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
+inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
+{
         curTaskCtrl_ = taskCtrl;
         curDevTask_ = taskCtrl->devTask;
         curTaskId_ = taskCtrl->taskId;
@@ -179,6 +180,9 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
         
         for (int i = aicStart_; i < aicEnd_; i++) aicoreRunningTaskIds_[i] = aicoreNullTask;
         for (int i = aicStart_; i < aicEnd_; i++) aicorePendingTaskIds_[i] = aicoreNullTask;
+
+        DEV_ERROR(0, "[AICPU %d] Vector Ready: %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIV), availableCoreQueue_[(int)CoreType::AIV]->wasSize(), pendingCoreQueue_[(int)CoreType::AIV]->wasSize());
+        DEV_ERROR(0, "[AICPU %d] Cube Ready:   %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIC), availableCoreQueue_[(int)CoreType::AIC]->wasSize(), pendingCoreQueue_[(int)CoreType::AIC]->wasSize());
     }
 
     inline void CountSendTask(uint64_t &sentAic, uint64_t &sentAiv) {
@@ -334,15 +338,22 @@ private:
         return context_->corePendReadyCnt_[(int)type];
     }
 
-    inline uint64_t TryBatchSendTask(CoreType type, ReadyCoreFunctionQueue* readyQue,
-                int coreIdxStart, int coreIdxEnd) {
+    inline uint64_t TryBatchSendTask(CoreType type, ReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd)
+    {
         if (__atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED) == __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED)) {
             return 0;
         }
         
         uint32_t ready = GetReadyCoreNum(type);
+        uint32_t newReady = availableCoreQueue_[(int)type]->wasSize() + pendingCoreQueue_[(int)type]->wasSize();
+
         if (ready == 0 ) {
             return 0;
+        }
+
+        if (newReady != ready)
+        {
+            // DEV_ERROR(0, "[AICPU %d] Ready: %u, NewRedy: %u (%lu + %lu)", aicpuIdx_, ready, newReady, availableCoreQueue_[(int)type]->wasSize(), pendingCoreQueue_[(int)type]->wasSize());
         }
 
         ReadyQueueLock(readyQue);
@@ -367,6 +378,7 @@ private:
             uint32_t coreId = context_->runReadyCoreIdx_[typeIdx][coreIdx];
             SendTaskToAiCore(type, coreId, newTask[sendCnt]);
             context_->coreRunReadyCnt_[typeIdx]--;
+            availableCoreQueue_[typeIdx]->pop();
             sendCnt++;
         }
         context_->corePendReadyCnt_[typeIdx] -= sendCnt;
@@ -378,6 +390,7 @@ private:
                 SendTaskToAiCore(type, idx, newTask[sendCnt]);
                 sendCnt++;
                 context_->corePendReadyCnt_[typeIdx]--;
+                pendingCoreQueue_[typeIdx]->pop();
             }
             idx = coreIdxStart + (idx - coreIdxStart + 1) % coreNum;
         }
@@ -447,6 +460,7 @@ private:
 
             context_->runReadyCoreIdx_[(int)type][context_->coreRunReadyCnt_[(int)type]++] = coreIdx;
             context_->corePendReadyCnt_[(int)type]++;
+            availableCoreQueue_[(int)type]->push(coreIdx);
 
             if (runningTaskId != aicoreNullTask) processFinishedTask(type, runningTaskId);
             processFinishedTask(type, pendingTaskId);
@@ -457,6 +471,7 @@ private:
             aicoreRunningTaskIds_[coreIdx] = pendingTaskId;
             aicorePendingTaskIds_[coreIdx] = aicoreNullTask; // processFinishedTask depend this line
             context_->corePendReadyCnt_[(int)type]++;
+            pendingCoreQueue_[(int)type]->push(coreIdx);
 
             if (runningTaskId != aicoreNullTask) processFinishedTask(type, runningTaskId);
         }
@@ -465,7 +480,11 @@ private:
             // running task is finished, resolve running task. Pending task is unmodified
             aicoreRunningTaskIds_[coreIdx] = aicoreNullTask;
 
-            if (pendingTaskId == aicoreNullTask) context_->runReadyCoreIdx_[(int)type][context_->coreRunReadyCnt_[(int)type]++] = coreIdx;
+            if (pendingTaskId == aicoreNullTask)
+            {
+              context_->runReadyCoreIdx_[(int)type][context_->coreRunReadyCnt_[(int)type]++] = coreIdx;
+              availableCoreQueue_[(int)type]->push(coreIdx);
+            } 
             processFinishedTask(type, runningTaskId);
         }
     }
