@@ -166,13 +166,14 @@ template <BinaryOpType T>
 void TiledBinaryOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1,
     LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
     CheckBinOpOperandsValid(operand1, operand2);
-    bool tailBrc = CallwithBrcBinOp(operand1, operand2);
-    bool isBrcinlineSupportedDtype(operand1->Datatype() == DT_FP32 || operand2->Datatype() == DT_FP16);
+    bool isBrcinlineSupportedDtype = (operand1->Datatype() == DT_FP32 || operand1->Datatype() == DT_FP16);
     if (!isBrcinlineSupportedDtype) {
-        BroadcastOperandTensor(operand1, operand2, result, function, tileShape, false);
-        BroadcastOperandTensor(operand2, operand1, result, function, tileShape, false);
-        tailBrc = false;
-    } else if (tailBrc && (!function.paramConfigs_.forceCombineAxis || !function.paramConfigs_.combineAxis)) {
+        BroadcastOperandTensor(operand1, operand2, result, function, tileShape);
+        BroadcastOperandTensor(operand2, operand1, result, function, tileShape);
+    }
+    bool tailBrc = CallwithBrcBinOp(operand1, operand2);
+    bool combineAxisOn = (function.paramConfigs_.forceCombineAxis || function.paramConfigs_.combineAxis);
+    if (tailBrc && !combineAxisOn) {
         BroadcastOperandTensor(operand1, operand2, result, function, tileShape, tailBrc);
         BroadcastOperandTensor(operand2, operand1, result, function, tileShape, tailBrc);
         tailBrc = false;
