@@ -163,12 +163,11 @@ bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTens
     return removeAllOnes(inputShape) == removeAllOnes(outputShape);
 }
 
-void RemoveRedundantAssemble::UpdateReshapeShape(
-    Operation &reshapeOp, LogicalTensorPtr tensorPtr, const Shape &newRawShape) const {
-    tensorPtr->dynValidShape_ = SymbolicScalar::FromConcrete(newRawShape);
-    reshapeOp.SetAttr(OP_ATTR_PREFIX + "validShape", tensorPtr->dynValidShape_);
-    tensorPtr->shape = newRawShape;
-    tensorPtr->tensor->UpdateRawShape(newRawShape);
+void RemoveRedundantAssemble::UpdateReshapeShape(Operation &reshapeOp, const Shape &newRawShape) const {
+    reshapeOp.GetOOperands().front()->dynValidShape_ = SymbolicScalar::FromConcrete(newRawShape);
+    reshapeOp.SetAttr(OP_ATTR_PREFIX + "validShape", reshapeOp.GetOOperands().front()->dynValidShape_);
+    reshapeOp.GetOOperands().front()->shape = newRawShape;
+    reshapeOp.GetOOperands().front()->tensor->UpdateRawShape(newRawShape);
 }
 
 Status RemoveRedundantAssemble::ProcessView(Function &function) const {
@@ -240,7 +239,7 @@ Status RemoveRedundantAssemble::RemoveViewSingleReshape(Function &function) cons
             copyAttr->SetFromOffset(newOffset);
             copyAttr->SetRawShape(OpImmediate::Specified(newRawShape));
         }
-        UpdateReshapeShape(reshapeOp, reshapeOp.GetOOperands().front(), newRawShape);
+        UpdateReshapeShape(reshapeOp, newRawShape);
         reshapeOp.ReplaceIOperand(0, viewInput);
         producerOp->SetAsDeleted();
     }
@@ -417,17 +416,17 @@ Assemble拆分了最高轴，认为可以透传，不需要拷贝，前序在Exp
 Copy_Out --> tensor(GM) --> Reshape --> oriBackUp [16, 16] --> Assemble(offset, dynOffset) --> OCAST(offset, dynOffset) [16, 64]
 因此需要: 重新计算Reshape输入的RawShape, offset, dynOffset
 */
-Status RemoveRedundantAssemble::HandleDynOffsetForReshape(
-    Operation &assembleOp, const std::set<Operation *, LogicalTensor::CompareOp> &producers) const {
+Status HandleDynOffsetForReshape(	 
+     Operation &assembleOp, const std::set<Operation *, LogicalTensor::CompareOp> &producers) {
     std::vector<SymbolicScalar> newDynOffset;
     std::vector<int64_t> newRawShape;
     auto opAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(assembleOp.GetOpAttribute());
     if (opAttr == nullptr) return FAILED;
-    auto dynOffset = opAttr->GetToDynOffset();
+    auto &dynOffset = opAttr->GetToDynOffset();
     if (dynOffset.empty()) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] does not have DynOffset attributes", 
             assembleOp.GetOpcodeStr().c_str(), assembleOp.GetOpMagic());
-        dynOffset = OpImmediate::ToSpecified(OpImmediate::Specified(opAttr->GetToOffset()));
+        return SUCCESS;
     }
     if (producers.size() != 1) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] has multiple producer operations, size: %zu", 
