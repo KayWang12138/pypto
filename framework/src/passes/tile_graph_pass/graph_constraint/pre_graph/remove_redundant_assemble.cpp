@@ -163,12 +163,11 @@ bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTens
     return removeAllOnes(inputShape) == removeAllOnes(outputShape);
 }
 
-void RemoveRedundantAssemble::UpdateReshapeShape(
-    Operation &reshapeOp, LogicalTensorPtr tensorPtr, const Shape &newRawShape) const {
-    tensorPtr->dynValidShape_ = SymbolicScalar::FromConcrete(newRawShape);
-    reshapeOp.SetAttr(OP_ATTR_PREFIX + "validShape", tensorPtr->dynValidShape_);
-    tensorPtr->shape = newRawShape;
-    tensorPtr->tensor->UpdateRawShape(newRawShape);
+void RemoveRedundantAssemble::UpdateReshapeShape(Operation &reshapeOp, const Shape &newRawShape) const {
+    reshapeOp.GetOOperands().front()->dynValidShape_ = SymbolicScalar::FromConcrete(newRawShape);
+    reshapeOp.SetAttr(OP_ATTR_PREFIX + "validShape", reshapeOp.GetOOperands().front()->dynValidShape_);
+    reshapeOp.GetOOperands().front()->shape = newRawShape;
+    reshapeOp.GetOOperands().front()->tensor->UpdateRawShape(newRawShape);
 }
 
 Status RemoveRedundantAssemble::ProcessView(Function &function) const {
