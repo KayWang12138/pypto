@@ -32,7 +32,7 @@ tag: [PyPTO, Ascend C, PyTorch Golden, 算子开发, 精度调试]
 ### 步骤
 1. 阅读AscendC文档和代码
 2. 根据以上读取的内容，仿照pypto下的.agents/user_in.md中的需求3提取算子需求。内容要简明概要聚焦重点，篇幅跟需求3差不多即可，着重注意隐藏功能/可选参数/扩展功能/计算公式等
-3. 提取完需求后，展示出来，让用户确认一下细节，确认是否符合要求！
+3. 提取完需求后，展示出来，让用户确认一下细节，确认是否符合要求！提醒用户检查：是否有类似“online softmax”的隐藏需求没有被发现或提及？
 
 ### 输出
 - `custom/{算子名}/spec.md`
@@ -44,10 +44,11 @@ tag: [PyPTO, Ascend C, PyTorch Golden, 算子开发, 精度调试]
 **核心阶段：Golden必须先于PyPTO完成并验证**
 
 ### 步骤
-1. 使用 `pypto-golden-generator` skill开发Golden
-2. 支持所有算子功能，处理边界情况
-3. 创建测试用例：小规模(8-16元素)、中等(1K)、边界、大规模
-4. 运行验证确保Golden正确
+1. 参考 `pypto-golden-generator` skill开发Golden
+2. 确实支持所有算子功能，处理边界情况
+3. 创建测试用例：小规模(8-16元素)、中等(1K)、边界
+4. 运行验证确保Golden正确，所有功能都确实实现了
+5. 生成并运行完毕后，展示出来，让用户确认一下细节，确认是否符合要求！提醒用户检查：是否有类似“online softmax”的要求没有在golden中确实实现？
 
 ### 代码规范
 ```python
@@ -74,8 +75,7 @@ def {算子名}_golden(x: torch.Tensor, param1: float) -> torch.Tensor:
 **严格遵循Golden的计算流**
 
 ### 步骤
-1. 分析Golden的每个计算步骤
-2. 逐步骤实现与Golden计算流完全一致的PyPTO kernel
+1. 分析Golden的每个计算步骤，参考 `pypto-operator-develop-workflow` skill 开发PyPTO算子，逐步骤实现与Golden计算流完全一致的PyPTO kernel
 
 ### 输出
 - `custom/{算子名}/{算子名}.py`
@@ -84,7 +84,7 @@ def {算子名}_golden(x: torch.Tensor, param1: float) -> torch.Tensor:
 
 ## 阶段四：功能问题解决
 
-完成算子开发后，在空闲NPU上运行PyPTO算子。
+完成算子开发后，在空闲NPU上运行PyPTO算子，可能会遇见除精度错误外的报错，即功能问题。
 
 ### 常见问题
 - 编译错误：API使用、类型不匹配
@@ -133,7 +133,7 @@ custom/{算子名}/
 2. Golden计算流程
 3. PyPTO实现要点
 4. 编译运行指南
-5. 测试结果和已知限制
+5. 测试结果
 
 ---
 
@@ -169,7 +169,6 @@ custom/{算子名}/
 
 ## 相关Skills
 
-- `pypto-intent-understanding` - 需求理解
 - `pypto-golden-generator` - Golden生成
-- `pypto-op-develop` - PyPTO开发
+- `pypto-operator-develop-workflow` - PyPTO开发
 - `pypto-binary-search-verify` - 精度调试
