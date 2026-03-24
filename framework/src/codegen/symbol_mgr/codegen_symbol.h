@@ -19,6 +19,8 @@
 #include <tuple>
 #include <cstdint>
 #include <string>
+#include <functional>
+#include <memory>
 
 #include "interface/utils/log.h"
 #include "interface/utils/id_gen.h"
@@ -157,6 +159,15 @@ struct TileTensorHash {
     };
 };
 
+struct TileTensorPtrHash {
+    std::size_t operator()(const std::shared_ptr<TileTensor> &t) const noexcept {
+        if (!t) {
+            return 0;
+        }
+        return TileTensorHash{}(*t);
+    };
+};
+
 struct TileTensorUsing {
     bool isConstant;
     DataType dtype;
@@ -241,8 +252,8 @@ public:
 
     std::string AddTileTensorUsing(const TileTensorUsing &tileTensorUsing);
     std::string AddTileTensor(const TileTensor &tileTensor);
-    std::vector<TileTensor> QueryTileTensorByMagic(int magic);
-    std::vector<TileTensor> QueryTileTensorInLoopByMagic(int magic);
+    std::vector<const TileTensor *> QueryTileTensorByMagic(int magic);
+    std::vector<const TileTensor *> QueryTileTensorInLoopByMagic(int magic);
     void InsertTensorNameInLoopToFullDim(const std::string &tensorName, const std::string &fullDimTensorName);
     std::string QueryTileTensorFullDimByTensorInLoop(const std::string &tensorName);
     // To be compatible with GM Tensor in Static Function Type like same ddr magic number with different parmaIdx &
@@ -272,12 +283,12 @@ private:
     // <tensor magic, LogicalTensor>
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> tensorMap_;
     // <TileTensor, tensorName>
-    std::unordered_map<TileTensor, std::string, TileTensorHash> tileTensor_;
+    std::unordered_map<std::shared_ptr<TileTensor>, std::string, TileTensorPtrHash> tileTensor_;
     // When use forcing axis merging feature under TileTensor mode,
     // we may encounter a situation where Tensors with the same magic ID have different Shapes.
-    // <tensor magic, TileTensor>
-    std::multimap<int, TileTensor> tileTensorByMagic_;
-    std::multimap<int, TileTensor> tileTensorByMagicInLoop_;
+    // <tensor magic, TileTensor pointer>
+    std::multimap<int, std::shared_ptr<TileTensor>> tileTensorByMagic_;
+    std::multimap<int, std::shared_ptr<TileTensor>> tileTensorByMagicInLoop_;
     // <tensorName in for loop, tensorName with full dim out of loop>
     // both key and value are from same tile operation
     std::unordered_map<std::string, std::string> tensorNameInLoopToFullDim_;
