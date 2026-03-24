@@ -89,6 +89,8 @@ struct ShmemSignalAttr {
     int64_t tileRowShape = 0;
     int64_t tileColShape = 0;
     AtomicType atomicType = AtomicType::SET;
+    // When size() >= 2, expand uses for signal trailing dims instead of tensor shape (Phase 3).
+    std::vector<int64_t> effectiveSignalTrailingDims;
 };
 
 struct ShmemWaitUntilAttr {
@@ -97,6 +99,27 @@ struct ShmemWaitUntilAttr {
     bool resetSignal =  false;
     int64_t tileRowShape = 0;
     int64_t tileColShape = 0;
+    std::vector<int64_t> effectiveSignalTrailingDims;
+};
+
+// Legacy combined attr used by expand when reading OP_SHMEM_SIGNAL / OP_SHMEM_WAIT_UNTIL.
+struct DistOpAttr {
+    AtomicType atomicType = AtomicType::SET;
+    int64_t signalValue = 1;
+    int64_t signalStride = SHMEM_SIGNAL_STRIDE;
+    int64_t setType = 0;
+    std::vector<int64_t> aicpuOpParams;
+    bool fp32Mode = false;
+    int64_t topK = 0;
+    Shape copyBufferShape;
+    Shape setBufferShape;
+    std::string extraTemplateParam{};
+    int64_t paddedColShape = 0;
+    int64_t rowOffset = -1;
+    int64_t rowShape = -1;
+    int64_t tileRowShape = 0;
+    int64_t tileColShape = 0;
+    std::vector<int64_t> effectiveSignalTrailingDims;
 };
 
 struct ShmemSetAttr {
