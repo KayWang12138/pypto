@@ -204,6 +204,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
 
           // indexadd
           {Opcode::OP_INDEX_ADD_UB, [this]() { return GenIndexAddUBOp(); }},
+          {Opcode::OP_INDEX_ADD, [this]() { return GenIndexAddOp(); }},
 
           // indexput
           {Opcode::OP_INDEX_PUT, [this]() { return GenIndexPutOp(); }},
