@@ -287,6 +287,7 @@ def compute_loop_b_optimized(dtype, ctx_params):
         s1_end = (s1_block_idx + 1) * S1_BLOCK_STEP
         actual_s1_in_block = (s1 - s1_start).min(S1_BLOCK_STEP)
         
+        # s2_max_for_block = (s1_block_idx + 1) * S1_BLOCK_STEP
         s2_max_for_block = s1_start + actual_s1_in_block
 
         s2_loop_for_block = pypto.ceildiv(
@@ -436,7 +437,8 @@ def prompt_flash_attention(
     block_table: torch.Tensor,
 ):
     """Prompt Flash Attention入口函数"""
-    atten_out = torch.zeros_like(query)
+    atten_out = torch.empty_like(query)
+    atten_out.fill_(0)
     inputs = [query, key, value, block_table, actual_seq_lengths, atten_out]
     pfa_optimized_kernel(*inputs)
     return atten_out
