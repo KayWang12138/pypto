@@ -33,7 +33,7 @@ description: "PyPTO 算子需求意图理解。将用户的自然语言算子描
 
 - ✅ 必须信息（算子名称、公式、输入输出规格、动态轴）不可缺失
 - ✅ 复杂算子必须提供算法描述
-- ✅ 建议提供典型配置，支持下游 golden 生成和设计方案
+- ✅ 建议提供典型配置，便于后续 golden 生成和设计方案
 
 ### 原则 5：至少确认一次
 
@@ -120,7 +120,7 @@ description: "PyPTO 算子需求意图理解。将用户的自然语言算子描
 3. 生成特性清单，标注置信度和来源
 4. 在确认环节让用户逐一确认或修改
 
-### 4 类输入的详细处理
+### 各类输入的详细处理
 
 #### 类别 1：标准参考类（通常为 ✓ 高置信度）
 
@@ -274,24 +274,6 @@ description: "PyPTO 算子需求意图理解。将用户的自然语言算子描
 - 提供选项：全部确认 / 修改特性 / 添加新特性 / 我不确定，帮我解释
 - 若用户不确定，提供每个特性的简要说明和典型使用场景
 
-**特性确认示例**：
-```
-助手: 我识别到以下关键特性，请确认：
-
-      [1] causal_mask - 因果掩码，用于自回归生成（GPT类模型）
-          └─ 你标记为"需要"，是否正确？
-
-      [2] online_softmax - 在线softmax，用于分块计算避免显存爆炸
-          └─ 我从论文中推断需要此特性，是否正确？
-
-      [3] paged_attention - 分页注意力，用于KV cache动态管理
-          └─ 我不确定是否需要，你的场景需要吗？
-
-用户: 1和2需要，3不需要
-
-助手: 好的，已更新特性清单。继续展示数据流图...
-```
-
 #### 1. ASCII 数据流图
 
 根据算子类型选择合适的数据流图模板：
@@ -332,44 +314,7 @@ description: "PyPTO 算子需求意图理解。将用户的自然语言算子描
              └──────────┘
 ```
 
-**Attention 类算子**（QKV 结构）：
-```
-  Q[shape]       K[shape]        V[shape]
-    │             │              │
-    └────┬────────┘              │
-         ▼                       │
-    ┌─────────┐                  │
-    │ Q @ K^T │                  │
-    └────┬────┘                  │
-         ▼  * scale              │
-    ┌─────────┐                  │
-    │ softmax │                  │
-    └────┬────┘                  │
-         └───────────┬───────────┘
-                     ▼
-               ┌─────────┐
-               │  @ V    │
-               └────┬────┘
-                    ▼
-                   out
-```
-
-**组合算子分解图**（多步骤）：
-```
-       input_1          input_2
-         │                │
-         ▼                ▼
-    ┌──────────┐    ┌─────────┐
-    │  子算子1  │    │ 子算子2  │
-    └────┬─────┘    └────┬────┘
-         └───────┬───────┘
-                 ▼
-              ┌─────┐
-              │ 组合 │
-              └──┬──┘
-                 ▼
-                 y
-```
+**Attention 类 / 组合算子**：参考上述模板，按实际数据流绘制。Attention 类展示 Q/K/V 三路输入的矩阵乘法和 softmax 流程；组合算子展示子算子的分解与合并关系。
 
 #### 2. 规格确认清单
 
@@ -420,20 +365,12 @@ Algorithm: Flash Attention (Forward)
 输出: O ∈ R^{N×d}
 
 1. 将 Q 分为 Tr = ⌈N/Br⌉ 块, K/V 分为 Tc = ⌈N/Bc⌉ 块
-2. 初始化 O = 0, l = 0, m = -∞  (均为 R^N)
+2. 初始化 O = 0, l = 0, m = -∞
 3. for j = 1 to Tc:                          // 外层循环: K/V 块
-     3.1 从 HBM 加载 K_j, V_j 到 SRAM
-     3.2 for i = 1 to Tr:                    // 内层循环: Q 块
-           3.2.1 从 HBM 加载 Q_i, O_i, l_i, m_i 到 SRAM
-           3.2.2 S_ij = Q_i @ K_j^T  ∈ R^{Br×Bc}
-           3.2.3 m̃_ij = rowmax(S_ij)
-           3.2.4 P̃_ij = exp(S_ij - m̃_ij)
-           3.2.5 l̃_ij = rowsum(P̃_ij)
-           3.2.6 m_new = max(m_i, m̃_ij)
-           3.2.7 l_new = exp(m_i - m_new) * l_i + exp(m̃_ij - m_new) * l̃_ij
-           3.2.8 O_i ← diag(l_new)^{-1} * (diag(l_i) * exp(m_i - m_new) * O_i
-                        + exp(m̃_ij - m_new) * P̃_ij @ V_j)
-           3.2.9 写回 O_i, l_new, m_new 到 HBM
+     3.1 for i = 1 to Tr:                    // 内层循环: Q 块
+           3.2.1 S_ij = Q_i @ K_j^T
+           3.2.2 Online softmax 更新: m_new, l_new, P̃_ij
+           3.2.3 O_i ← 重缩放累加 O_i + P̃_ij @ V_j
 4. return O
 ```
 
@@ -464,7 +401,7 @@ Algorithm: Flash Attention (Forward)
 4. **参考实现** — PyTorch/NumPy 参考实现链接或代码
 5. **应用场景与典型配置** — 目标模型、使用位置、典型配置表格（强烈建议提供）
 
-   典型配置用于下游 golden 验证和设计方案生成，采用 7 列格式：
+   典型配置用于后续 golden 验证和设计方案生成，采用 7 列格式：
 
    | 配置名称 | 类型 | 优先级 | 参数 | 输入 Shape | 输出 Shape | 说明 |
    |----------|------|--------|------|------------|------------|------|
@@ -509,23 +446,7 @@ Algorithm: Flash Attention (Forward)
 
 模板文件位于: [templates/spec-template.md](templates/spec-template.md)
 
-使用时需替换以下占位符:
-- `{name}` — 算子名称
-- `{category}` — 算子分类 (element-wise / reduction / matmul / attention / custom)
-- `{formula}` — 数学公式
-- `{description}` — 功能描述
-- `{feature_name}`, `{need_or_not}`, `{confidence}`, `{impl_note}`, `{priority}` — 关键特性表格行（复杂算子必须）
-- `{algorithm_name}` / `{带编号的伪代码步骤}` — 算法描述（可选，复杂算子需要）
-- `{ASCII数据流图}` — 数据流图
-- `{name}`, `{shape}`, `{dtype}`, `{dynamic_axes}`, `{description}` — 输入输出规格
-- `{atol}`, `{rtol}` — 精度要求
-- `{axes_list}`, `{axes_meanings}`, `{axes_ranges}` — 动态轴说明
-- `{zero_handling}`, `{inf_handling}`, `{nan_handling}` — 边界条件处理
-- `{performance_target}` — 性能目标
-- `{reference_impl}`, `{paper}`, `{similar_ops}` — 参考信息
-- `{model}`, `{layer}` — 应用场景
-- `{config_name}`, `{type}`, `{priority}`, `{params}`, `{input_shapes}`, `{output_shapes}`, `{config_desc}` — 典型配置表格行
-- `{timestamp}` — 生成时间
+占位符定义见模板文件，生成时逐项替换。
 
 ---
 
@@ -581,7 +502,7 @@ Algorithm: Flash Attention (Forward)
 | 动态轴范围 | [1, INT32_MAX] | 性能优化 |
 | 边界条件处理 | 正常计算 (zero/inf/nan 均为 normal) | 特殊值处理 |
 | 参考实现 | 无 | 框架/论文/代码参考 |
-| 应用场景 | 建议提供典型配置（7列表格） | 模型/层/典型配置表格，支持下游 golden 生成和设计方案 |
+| 应用场景 | 建议提供典型配置（7列表格） | 模型/层/典型配置表格，便于后续 golden 生成和设计方案 |
 
 ### 默认值披露规则
 
