@@ -17,6 +17,8 @@
 #define CODEGEN_OP_CLOUDNPU_H
 
 #include <utility>
+#include <map>
+#include <functional>
 #include <unordered_set>
 
 #include "op_print_param_def.h"
@@ -135,6 +137,7 @@ public:
     std::string GenMrgSortOp() const;
     std::string GenExtractOp() const;
     std::string GenTiledMrgSortOp() const;
+    std::string GenSortOpWithParams(const std::set<int> &idx) const;
     std::string GenSortOp() const;
     std::string GenCompareAndSwapOp() const;
     std::string GenMergeOp() const;
@@ -259,6 +262,7 @@ private:
         tempKey = 0;
         AppendLocalBufVarOffsetInOrderImpl<T>(args...);
     }
+
     void AppendLocalBufferVarOffset(const std::map<unsigned, std::reference_wrapper<std::string>> &vars) const;
 
     // get start offset in total block

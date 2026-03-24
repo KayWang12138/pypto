@@ -81,6 +81,7 @@ protected:
     std::string GenOpAttr(bool hasExistingParam = true) const;
 
     const Operation &originalOp;
+    const FunctionType functionType;
     std::string opCodeStr;
     Opcode opCode{Opcode::OP_UNKNOWN};
     std::string aliasOp; // alias op name
@@ -93,6 +94,8 @@ protected:
     Element extOperandVal;
     SymbolicScalar extSymbolicScalar;
     std::vector<Element> extScalarVec;
+    bool isPartialMem[MAX_OPERANDS] = {};
+
     std::vector<int64_t> offset[MAX_OPERANDS] = {};
     std::vector<int64_t> shape[MAX_OPERANDS] = {};
     std::vector<int64_t> rawShape[MAX_OPERANDS] = {};
@@ -101,8 +104,9 @@ protected:
     std::vector<int64_t> originShape[MAX_OPERANDS] = {};
     std::vector<SymbolicScalar> dynamicOffset[MAX_OPERANDS] = {};
     std::vector<SymbolicScalar> dynamicValidShape[MAX_OPERANDS] = {}; // valid shape
-    std::vector<SymbolicScalar> offsetFromAttr[MAX_OPERANDS] = {};    // for spilling to GM scene
-    bool isPartialMem[MAX_OPERANDS] = {};
+
+    std::vector<int64_t> shapeFromAttr[MAX_OPERANDS] = {};         // 1.for spilling to GM scene 2.for conv
+    std::vector<SymbolicScalar> offsetFromAttr[MAX_OPERANDS] = {}; // for spilling to GM scene
     std::vector<SymbolicScalar> dynValidShapeFromOpAttr[MAX_OPERANDS] = {};
     // if operand is an variable, record its related argument location
     // In COA(Call Operation Attribute), 0-index is the callee's cce info. So the tensor list starts from 1.
@@ -118,14 +122,13 @@ protected:
     std::map<std::string, Any> opAttrs;
 
     std::shared_ptr<SymbolManager> sm{nullptr};
+    const std::map<int, int> &paramLocToParamListOffset{};
 
-    const FunctionType functionType;
     std::string tileOpName;
     bool isInputForceCombineAxis{false};
     bool isSupportDynamicAligned{false}; // NEXTNEXT delete after all TileOp is changed to TileTensor Mode
     bool isDynamicFunction{false};
     bool isSupportLayout{false};
-    const std::map<int, int> &paramLocToParamListOffset{};
     bool isUnderDynamicFunction{false};
     int operandCnt{0};
     bool isMainBlock{false};

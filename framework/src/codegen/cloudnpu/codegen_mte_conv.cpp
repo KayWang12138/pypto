@@ -45,7 +45,7 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isFmap, isFmap);
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
     auto dynOffset = offsetFromAttr[ToUnderlying(MISOIdx::SRC0_IDX)];
-    auto srcShape = shape[ToUnderlying(MISOIdx::SRC0_IDX)];
+    auto srcShape = shapeFromAttr[ToUnderlying(MISOIdx::SRC0_IDX)];
     if (isConv3D) {
         ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, dynOffset.size() == SHAPE_DIM5)
             << "GenMemL1CopyInConv offset should be 5-dim!";
@@ -108,7 +108,7 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
     int64_t realM = 0, realN = 0;
     int64_t offsetN = 0, offsetC = 0, offsetD = 0, offsetH = 0, offsetW = 0;
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
-    auto realShape = shape[ToUnderlying(MISOIdx::DST_IDX)];
+    auto realShape = shapeFromAttr[ToUnderlying(MISOIdx::DST_IDX)];
     ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, realShape.size() == SHAPE_DIM2)
         << "GenMemL1CopyOutConv valid shape should be 2-dim!";
     realM = realShape[ID0];
@@ -154,7 +154,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     paramList.emplace_back(mPos);
     paramList.emplace_back(kPos);
 
-    std::vector<int64_t> fmapL1Shape = this->rawShape[ID1];
+    std::vector<int64_t> fmapL1Shape = rawShape[ID1];
     CODEGEN_LOGI("GenMemL1ToL0Load3D %s, fmapL1Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL1Shape).c_str());
 
     int64_t padLeft = 0, padRight = 0, padTop = 0, padBottom = 0, padValue = 0;
@@ -187,7 +187,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     paramList.emplace_back(strideH);
     paramList.emplace_back(strideW);
 
-    std::vector<int64_t> fmapL0Shape = this->rawShape[ID0];
+    std::vector<int64_t> fmapL0Shape = rawShape[ID0];
     CODEGEN_LOGI("GenMemL1ToL0Load3D %s, fmapL0Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL0Shape).c_str());
     ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, fmapL0Shape.size() == SHAPE_DIM2)
         << "GenMemL1ToL0Load3D L0 fmap only support 2-dim!";
@@ -215,10 +215,10 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
     paramList.emplace_back(kPos);
     paramList.emplace_back(nPos);
 
-    std::vector<int64_t> weightL1Shape = this->rawShape[ID1];
+    std::vector<int64_t> weightL1Shape = rawShape[ID1];
     CODEGEN_LOGI("GenMemL1ToL0Load2D %s, weightL1Shape is %s", tileOpName.c_str(), IntVecToStr(weightL1Shape).c_str());
 
-    std::vector<int64_t> weightL0Shape = this->rawShape[ID0];
+    std::vector<int64_t> weightL0Shape = rawShape[ID0];
     CODEGEN_LOGI("GenMemL1ToL0Load2D %s, weightL0Shape is %s", tileOpName.c_str(), IntVecToStr(weightL0Shape).c_str());
     ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, weightL0Shape.size() == SHAPE_DIM2)
         << "GenMemL1ToL0Load2D L0 weight only support 2-dim!";
