@@ -339,8 +339,11 @@ TEST_F(ScheduleOoOTest, TestSpillCopyIn) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
@@ -363,8 +366,11 @@ TEST_F(ScheduleOoOTest, TestSpill) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
@@ -397,8 +403,11 @@ TEST_F(ScheduleOoOTest, TestSpillInplace) {
     tensor2->memoryrange.memId =
         subGraph.GetTensor("t5")->memoryrange.memId;
 
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     std::rotate(ooOScheduler.orderedOps.begin(), ooOScheduler.orderedOps.begin() + 6, ooOScheduler.orderedOps.begin() + 11);
     res = ooOScheduler.GenSpillSchedule();
@@ -439,8 +448,11 @@ TEST_F(ScheduleOoOTest, TestSpillMultiTensor) {
     tensor2->shape = {128, 128};
     tensor2->tensor->rawshape = {128, 128};
 
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
@@ -470,8 +482,11 @@ TEST_F(ScheduleOoOTest, TestSpillView) {
     tensor2->memoryrange.memId =
         subGraph.GetTensor("t3")->memoryrange.memId;
 
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
@@ -544,8 +559,11 @@ TEST_F(ScheduleOoOTest, TestSpillAssemble) {
     auto assemble4 = subGraph.GetOp("Assemble4");
     assemble4->SetOpAttribute(assembleAttr4);
 
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
@@ -566,8 +584,11 @@ TEST_F(ScheduleOoOTest, TestSchedule) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList());
+    res = ooOScheduler.Schedule(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     Operation* add = subGraph.GetOp("Add2");
     EXPECT_NE(add, nullptr);
@@ -599,8 +620,11 @@ TEST_F(ScheduleOoOTest, TestScheduleInplace) {
     tensor2->memoryrange.memId =
         subGraph.GetTensor("t5")->memoryrange.memId;
 
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList());
+    res = ooOScheduler.Schedule(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     Operation* copyin = subGraph.GetOp("Copyin1");
     EXPECT_NE(copyin, nullptr);
@@ -643,8 +667,11 @@ TEST_F(ScheduleOoOTest, TestScheduleView) {
     tensor2->shape = {32, 32};
     tensor2->tensor->rawshape = {64, 64};
 
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList());
+    res = ooOScheduler.Schedule(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     Operation* copyin = subGraph.GetOp("Copyin1");
     EXPECT_NE(copyin, nullptr);
@@ -685,8 +712,11 @@ TEST_F(ScheduleOoOTest, TestScheduleAssemble) {
     tensor3->shape = {32, 32};
     tensor3->tensor->rawshape = {64, 64};
 
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList());
+    res = ooOScheduler.Schedule(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     Operation* copyin1 = subGraph.GetOp("Copyin1");
     EXPECT_NE(copyin1, nullptr);
