@@ -256,28 +256,29 @@ def get_base_params(case_name: str):
     params = {}
     if case_name.startswith("1b4k4"):
         params = {"b": 1, "s2": 4 * 1024, "s1": 4, "d": 128, "n1": 12, "n2": 1}
-    elif case_name.startswith("1b4k8"):
-        params = {"b": 1, "s2": 4 * 1024, "s1": 8, "d": 128, "n1": 12, "n2": 1}
     elif case_name.startswith("2b4k4"):
         params = {"b": 2, "s2": 4 * 1024, "s1": 4, "d": 128, "n1": 12, "n2": 1}
+    
+    elif case_name.startswith("1b4k8"):
+        params = {"b": 1, "s2": 4 * 1024, "s1": 8, "d": 128, "n1": 12, "n2": 1}
     elif case_name.startswith("2b4k8"):
         params = {"b": 2, "s2": 4 * 1024, "s1": 8, "d": 128, "n1": 12, "n2": 1}
+    elif case_name.startswith("8b16k8"):
+        params = {"b": 8, "s2": 16 * 1024, "s1": 8, "d": 128, "n1": 12, "n2": 1}
+
     elif case_name.startswith("2b8k16"):
         params = {"b": 2, "s2": 8 * 1024, "s1": 16, "d": 128, "n1": 12, "n2": 1}
-    elif case_name.startswith("2b8k32"):
-        params = {"b": 2, "s2": 8 * 1024, "s1": 32, "d": 128, "n1": 12, "n2": 1}
     elif case_name.startswith("4b16k16"):
         params = {"b": 4, "s2": 16 * 1024, "s1": 16, "d": 128, "n1": 12, "n2": 1}
+
+    elif case_name.startswith("2b8k32"):
+        params = {"b": 2, "s2": 8 * 1024, "s1": 32, "d": 128, "n1": 12, "n2": 1}
     elif case_name.startswith("4b16k32"):
         params = {"b": 4, "s2": 16 * 1024, "s1": 32, "d": 128, "n1": 12, "n2": 1}
     elif case_name.startswith("4b8k32"):
         params = {"b": 4, "s2": 8 * 1024, "s1": 32, "d": 128, "n1": 12, "n2": 1}
     elif case_name.startswith("8b8k32"):
         params = {"b": 8, "s2": 8 * 1024, "s1": 32, "d": 128, "n1": 12, "n2": 1}
-    elif case_name.startswith("8b8k64"):
-        params = {"b": 8, "s2": 8 * 1024, "s1": 64, "d": 128, "n1": 12, "n2": 1}
-    elif case_name.startswith("8b16k8"):
-        params = {"b": 8, "s2": 16 * 1024, "s1": 8, "d": 128, "n1": 12, "n2": 1}
     else:
         raise Exception(f"Case {case_name} does not exist.")
     return params
@@ -483,55 +484,39 @@ def main():
     test_prompt_flash_attention_4b16k32() 
     test_prompt_flash_attention_8b8k32() 
 
-    test_prompt_flash_attention_8b8k64() 
-
 
 def test_prompt_flash_attention_1b4k4():
     do_test_prompt_flash_attention("1b4k4")
 
+def test_prompt_flash_attention_2b4k4():
+    do_test_prompt_flash_attention("2b4k4")
 
 def test_prompt_flash_attention_1b4k8():
     do_test_prompt_flash_attention("1b4k8")
 
-
-def test_prompt_flash_attention_2b4k4():
-    do_test_prompt_flash_attention("2b4k4")
-
-
 def test_prompt_flash_attention_2b4k8():
     do_test_prompt_flash_attention("2b4k8")
 
+def test_prompt_flash_attention_8b16k8():
+    do_test_prompt_flash_attention("8b16k8")
 
 def test_prompt_flash_attention_2b8k16():
     do_test_prompt_flash_attention("2b8k16")
 
+def test_prompt_flash_attention_4b16k16():
+    do_test_prompt_flash_attention("4b16k16")
 
 def test_prompt_flash_attention_2b8k32():
     do_test_prompt_flash_attention("2b8k32")
 
-
-def test_prompt_flash_attention_4b16k16():
-    do_test_prompt_flash_attention("4b16k16")
-
+def test_prompt_flash_attention_4b16k32():
+    do_test_prompt_flash_attention("4b16k32")
 
 def test_prompt_flash_attention_4b8k32():
     do_test_prompt_flash_attention("4b8k32")
 
-
-def test_prompt_flash_attention_4b16k32():
-    do_test_prompt_flash_attention("4b16k32")
-
-
 def test_prompt_flash_attention_8b8k32():
     do_test_prompt_flash_attention("8b8k32")
-
-
-def test_prompt_flash_attention_8b8k64():
-    do_test_prompt_flash_attention("8b8k64")
-
-
-def test_prompt_flash_attention_8b16k8():
-    do_test_prompt_flash_attention("8b16k8")
 
 
 if __name__ == "__main__":
