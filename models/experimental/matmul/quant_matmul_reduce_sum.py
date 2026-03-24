@@ -9,14 +9,16 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-import pypto
 import time
+from dataclasses import dataclass
+
+import pypto
+import pytest
 import torch
 import torch_npu
-import torch.nn.functional as F
-import pytest
+
 from numpy.testing import assert_allclose
-from dataclasses import dataclass
+from torch.nn import functional as F
 
 def trans_nd_to_fractal_nz(data: torch.Tensor, keep_m_dim=False):
     def _gen_axes_for_transpose(offset, base):
@@ -151,4 +153,4 @@ def run_quant_matmul_reduce_sum_case(config: QuantMatmulReduceSumConfig):
     print(f"Test passed for {config.description}")
 
 if __name__ == "__main__":
-    run_quant_matmul_reduce_sum_case(QuantMatmulReduceSumConfig([2, 128, 128, 128], [128, 128], [128, 128], [128, 128], pypto.DT_INT8, pypto.DT_BF16, True, [64, 64, 64], "testcase5"))
+    run_quant_matmul_reduce_sum_case(QuantMatmulReduceSumConfig([2, 128, 128, 128], [128, 128], [128, 128], [128, 128], pypto.DT_INT8, pypto.DT_BF16, True, [64, 64, 64]))
