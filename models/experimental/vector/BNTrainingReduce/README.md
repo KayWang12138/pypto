@@ -154,4 +154,5 @@ export TILE_FWK_DEVICE_ID=0
 ```bash
 npu-smi info
 ```
+
 再选择正确的设备号。
