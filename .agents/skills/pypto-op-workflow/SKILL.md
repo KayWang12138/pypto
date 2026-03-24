@@ -6,104 +6,77 @@ tag: [PyPTO, 算子开发]
 
 # PyPTO 算子开发工作流程
 
-本技能提供 PyPTO 算子开发的完整工作流程指导。
+本技能提供 PyPTO 算子开发的完整工作流程指导。正式端到端开发优先使用 `pypto-op-orchestrator`；本 Skill 适合手动串联相关 Skills。
 
-## 工作流程概览
+## 定位
+
+| 入口 | 适用场景 | 特点 |
+|------|----------|------|
+| `pypto-op-workflow` | 手动串联完整开发流程 | 无状态、轻量、适合直接对话触发 |
+| `pypto-op-orchestrator` | 正式端到端开发 | 有状态、带阶段门禁、支持恢复与重试 |
+
+## 推荐阶段顺序
 
 ```
-需求理解 → 环境准备 → Golden → 设计 → 算子实现 → 精度调试 → 性能分析 → 性能调优
+需求理解 → API 探索 → Golden 参考实现 → 设计方案 → 代码实现 → 精度修复（按需）→ 性能调优（按需）
 ```
 
-## 关键 skill 串联
+## 对应 Skill 串联
 
-- 需求理解：调用 `pypto-intent-understanding` skill
-- Golden 参考实现：调用 `pypto-golden-generator` skill
-- 设计方案：调用 `pypto-op-design` skill
-- 算子实现：调用 `pypto-op-implement` skill（承载核心开发流程）
-- 精度调试：调用 `pypto-precision-debugger` skill
-- 性能分析：调用 `pypto-op-perf-analyzer` skill
-- 性能调优：调用 `pypto-op-perf-autotuner` skill
+1. **需求理解**：`pypto-intent-understanding`
+2. **API 探索**：`pypto-api-explorer`
+3. **Golden 参考实现**：`pypto-golden-generator`
+4. **设计方案**：`pypto-op-design`
+5. **代码实现**：`pypto-op-implement`
+6. **精度修复（按需）**：`pypto-precision-debugger`
+7. **性能分析与调优（按需）**：`pypto-op-perf-analyzer` → `pypto-op-perf-autotuner`
 
-## Checklist
+## 适用边界
 
-- [ ] 需求规格已明确，`spec.md` 已具备且足以支撑后续开发
-- [ ] 环境已满足当前开发要求，或当前环境阻塞点已被明确识别
-- [ ] Golden 参考实现已生成，可作为精度基线
-- [ ] 设计方案已完成，可指导实现与验证
-- [ ] 实现工件已完成（`{op}_impl.py`、`test_{op}.py`、`README.md`）
-- [ ] 精度验证已通过；若未通过，误差原因已定位或修复路径已明确
-- [ ] 性能分析已完成，且已获得实测性能数据；完成调优后已得到对应的性能结果
+### 本 Skill 负责什么
+
+- 识别完整开发任务需要经过哪些阶段。
+- 指导用户或上层 Agent 以正确顺序调用相关 Skills。
+- 强调工件依赖关系与推荐执行顺序。
+
+### 本 Skill 不负责什么
+
+- 不维护 `.orchestrator_state.json`。
+- 不定义全局重试策略、恢复入口或 BLOCKED / SUCCESS 结束态。
+- 不替代 `pypto-op-implement`、`pypto-precision-debugger`、`pypto-op-perf-autotuner` 等阶段型 Skills 的细节职责。
 
 ## 核心原则
 
-1. **遇问题先定位，不简化代码**
-   - 第一步：优先搜索 API 文档、相关 skills 和仓库示例，选择合适的 pypto operation
-   - 第二步：综合审视代码，查阅官方示例
-   - 第三步：定位问题点后修复
-   - 禁止：下意识简化代码、凭直觉实现、遇到错误就推翻重写
+1. **先确认工件，再进入下游阶段**
+   - `spec.md` 不完整，不进入 API 探索。
+   - `api_report.md` 不完整，不进入 Golden / 设计阶段。
+   - `design.md` 不完整，不进入代码实现。
 
-2. **充分了解后再下结论**
-   - 查阅资料、搜索代码、理解原理
-   - 不要轻易下结论
+2. **环境问题单独处理，不把环境准备当成主流程阶段**
+   - 遇到环境阻塞时，调用 `pypto-environment-setup`。
+   - 环境检查是前置条件，不单独占用主阶段编号。
 
-3. **持续搜索更优方案**
-   - 方案走通后，继续搜索是否存在更优实现
+3. **实现、精度修复、性能调优职责分离**
+   - `pypto-op-implement` 只负责代码实现与测试入口生成。
+   - `pypto-precision-debugger` 只负责精度问题定位与修复。
+   - `pypto-op-perf-autotuner` 只在精度通过后进入。
 
-4. **环境兼容性验证**
-   - 确认 API/方法适用于 A3 服务器，CANN 8.5.0
+4. **始终以真实验证结果推进**
+   - 不得凭经验宣布精度通过或性能达标。
+   - 任何结论都应有对应工件或命令输出支撑。
 
-## 开发阶段
+## 交付检查清单
 
-### 阶段一：需求检查
+- [ ] `spec.md` 已确认需求完整
+- [ ] `api_report.md` 已确认 API 可行性
+- [ ] `{op}_golden.py` 已生成并可作为精度基线
+- [ ] `design.md` 已能指导实现
+- [ ] `{op}_impl.py`、`test_{op}.py`、`README.md` 已生成
+- [ ] 已完成首次真实验证，并明确是精度通过、精度失败还是运行失败
+- [ ] 若精度通过，已完成性能分析；若进入调优，已有调优前后实测对比
 
-优先调用 `pypto-intent-understanding` skill，将用户描述转化为结构化需求，再继续后续开发。
+## 使用建议
 
-必需信息清单：
-- 算子名称
-- 数学公式
-- 输入/输出规格（shape、dtype）
-- 支持的数据类型
-- 精度要求
-- 服务器类型
-
-### 阶段二：环境准备
-
-由 `pypto-op-implement` skill 的环境准备阶段处理。若遇到环境问题，优先调用 `pypto-environment-setup` skill。
-
-### 阶段三：开发实现
-
-开发顺序：
-1. 创建算子目录结构：`custom/{op}/`
-2. 调用 `pypto-golden-generator` skill 生成 golden 参考实现
-   - 主要输出件：`spec.md`、`{op}_golden.py`
-3. 调用 `pypto-op-design` skill 生成设计方案
-   - 主要输出件：`design.md`
-4. 调用 `pypto-op-implement` skill 生成实现、测试和 README
-   - 主要输出件：`{op}_impl.py`、`test_{op}.py`、`README.md`
-
-⚠️ 实现代码与测试代码分开。若 API 约束、tiling 策略或 loop 结构仍不清晰，先调用 `pypto-api-explorer` / `pypto-op-design` skill，不要直接硬写实现。
-
-### 阶段四：测试验证
-
-由 `pypto-op-implement` skill 的测试验证阶段执行首次验证。
-
-如果运行通过但精度不满足预期，转入 `pypto-precision-debugger` skill 继续定位与修复。
-
-⚠️ 有 NPU 卡的情况下，不要使用 `run_mode=sim`。完成基础验证和精度验证后，必须继续进行性能分析。
-
-### 阶段五：高阶参数使能与性能调优 ⭐
-
-当阶段四保证算子基础版本正确后，由 `pypto-op-implement` skill 的高阶参数使能阶段处理 `loop_unroll`、stitch 参数等。
-
-必须先调用 `pypto-op-perf-analyzer` skill 完成性能分析并获取实测性能数据，再调用 `pypto-op-perf-autotuner` skill 做调优与回验，并给出调优前后实测对比。
-
-## 环境兼容性
-
-**当前环境**：A3 服务器，CANN 8.5.0
-
-查阅资料时必须确认 API/方法适用于当前环境。
-
-## 注意事项
-
-1. 当编译或执行时长超过 10 分钟且确认已卡住时，请中断并结束相关进程，再重新检查代码。
-2. 优先使用 NPU 模式进行精度验证
+1. **想要完整但轻量地手动推进**：使用本 Skill。
+2. **想要正式的端到端状态机**：切换到 `pypto-op-orchestrator`。
+3. **只做单阶段工作**：直接调用对应的阶段型 Skill，不必经过本 Skill。

@@ -5,7 +5,7 @@ description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需�
 
 # PyPTO 算子实现
 
-基于需求规格、设计方案和参考实现，完成从环境就绪到算子交付的全流程。
+基于需求规格、设计方案和参考实现，完成代码实现、测试入口与 README 交付。
 
 ---
 
@@ -279,4 +279,5 @@ if __name__ == "__main__":
 
 1. 3 个文件（`test_{op}.py` + `{op}_impl.py` + `README.md`）全部存在
 2. `test_{op}.py` 可执行（无语法错误）
-3. 输出状态标记为 PRECISION_PASS 或 PRECISION_FAIL，仅可能存在精度报错，无编译报错或其他运行报错
+3. 生成的测试入口包含 `[PRECISION_PASS]` / `[PRECISION_FAIL]` 标记逻辑
+4. 交付物可供 `pypto-op-developer` 继续执行首跑判定

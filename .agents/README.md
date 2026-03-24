@@ -40,6 +40,8 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 
 ## 使用方式
 
+本节介绍如何在 OpenCode 和 Claude Code 中使用本项目的 Skills 和 Agents 进行算子开发。
+
 ### OpenCode
 
 在 PyPTO 仓库主目录启动 OpenCode，通过以下方式开始算子开发：
@@ -95,6 +97,7 @@ cp -r .opencode/agents/* .claude/agents/
 启动 Claude Code 后，直接在对话中调用 skill：
 
 ```bash
+# 启动 Claude Code
 claude
 ```
 
@@ -180,7 +183,7 @@ Stage 7: 性能调优 → PerfTuner Subagent
 
 ---
 
-### Skills — 专家技能
+### Skills（专家技能）
 
 技能是定义在 `.agents/skills/` 目录下的可复用行为模块。每个 skill 包含一个 `SKILL.md` 文件，描述完整的执行流程。
 
@@ -193,12 +196,12 @@ Stage 7: 性能调优 → PerfTuner Subagent
 
 **斜杠命令** — 明确指定技能：
 ```
-/pypto-op-implement
+/pypto-op-workflow
 ```
 
 **自然语言点名** — 在对话中提及：
 ```
-请使用 pypto-op-implement 技能帮我开发一个算子。
+请使用 pypto-op-workflow 技能帮我开发一个算子。
 ```
 
 > 进一步了解：[OpenCode Skills 文档](https://opencode.ai/docs/zh-cn/skills/)
@@ -370,7 +373,7 @@ Stage 7: 性能调优 → PerfTuner Subagent
 <details>
 <summary><b>什么时候用 Orchestrator，什么时候直接用 Skill？</b></summary>
 
-- **完整算子开发**：使用 `pypto-op-orchestrator`（或触发 `pypto-op-workflow`），它会自动编排 7 个阶段
+- **完整算子开发**：使用 `pypto-op-orchestrator` agent（或触发 `pypto-op-workflow` skill）
 - **单步任务**：直接调用对应 Skill，如只需生成 Golden 就调用 `pypto-golden-generator`
 - **调试修复**：直接调用调试类 Skill，如 `pypto-precision-debugger`、`pypto-aicore-error-locator`
 

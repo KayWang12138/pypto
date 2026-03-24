@@ -4,7 +4,7 @@
 """PyPTO {op} kernel implementation.
 
 模板说明：
-  - 本文件是 {op}_impl.py 的固定模板，由 pypto-op-develop 在 Stage 3 生成。
+  - 本文件是 {op}_impl.py 的固定模板，由 pypto-op-implement 在 Stage 3 生成。
   - 所有 {op} 占位符需替换为实际算子名称。
   - 导出函数 {op}_wrapper() 供 test_{op}.py 调用。
   - kernel 使用 @pypto.frontend.jit 装饰，内部使用 pypto API。
