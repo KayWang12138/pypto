@@ -75,7 +75,9 @@ def quant_matmul_reduce_sum_pypto(config: QuantMatmulReduceSumConfig):
     out_shape = [m, n]
     x2_format = pypto.TileOpFormat.TILEOP_NZ if config.x2_format_nz else pypto.TileOpFormat.TILEOP_ND
     
-    @pypto.frontend.jit
+    @pypto.frontend.jit(	 
+         debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 1} 
+    )
     def quant_matmul_reduce_sum_impl(
         x1: pypto.Tensor(x1_shape, pypto.DT_INT8),
         x2: pypto.Tensor(x2_shape, pypto.DT_INT8, format=x2_format),
@@ -150,7 +152,7 @@ def run_quant_matmul_reduce_sum_case(config: QuantMatmulReduceSumConfig):
     golden_out_cpu = golden_out.cpu().float()
 
     assert_allclose(pypto_out_cpu, golden_out_cpu, rtol=0.001, atol=0.001)
-    print(f"Test passed for {config.description}")
+    print(f"Test passed {config.description}")
 
 if __name__ == "__main__":
     run_quant_matmul_reduce_sum_case(QuantMatmulReduceSumConfig([2, 128, 128, 128], [128, 128], [128, 128], [128, 128], pypto.DT_INT8, pypto.DT_BF16, True, [64, 64, 64]))
