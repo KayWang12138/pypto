@@ -20,7 +20,7 @@
 #include "utils/tile_tensor.h"
 #include "binary_brcinline.h"
 
-template <BinaryOp op, TileOp::BroadcastOperand WBrcSide, typename LastUse, typename T0, typename T1, typename T2>
+template <BinaryOp op, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
@@ -71,38 +71,17 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
     }  
 
     if constexpr (op == BinaryOp::EXPANDEXPDIF) {
-        if constexpr (WBrcSide == TileOp::BroadcastOperand::NONE) {
-            pto::TCOLEXPANDEXPDIF(dst, src0, src1);
-        } else {
-            pto::TROWEXPANDEXPDIF(dst, src0, src1);
-        }
+        pto::TCOLEXPANDEXPDIF(dst, src0, src1);
         return;
     }
 
     if constexpr (op == BinaryOp::MOD) {
-        if constexpr (WBrcSide == TileOp::BroadcastOperand::NONE) {
-            pto::TFMOD(dst, src0, src1);
-        } else {
-            pto::TROWEXPANDDIV(dst, src0, src1);
-            #ifdef __DAV_V220
-            pipe_barrier(PIPE_V);
-            #endif
-            pto::TCVT(dst, dst, pto::RoundMode::CAST_TRUNC);
-            #ifdef __DAV_V220
-            pipe_barrier(PIPE_V);
-            #endif
-            pto::TROWEXPANDMUL(dst, dst, src1);
-            #ifdef __DAV_V220
-            pipe_barrier(PIPE_V);
-            #endif
-            pto::TROWEXPANDSUB(dst, src0, dst);
-        }
+        pto::TFMOD(dst, src0, src1);
         return;
     }
 }
 
-template <BinaryOp op, BrcMode brcmode, TileOp::BroadcastOperand WBrcSide,
-          typename LastUse, typename T0, typename T1, typename T2>
+template <BinaryOp op, BrcMode brcmode, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryBrcDispatch(T0 dst, T1 src0, T2 src1) {
     if constexpr (brcmode == BrcMode::BRC_W) {
         BinaryRowExpandComputeImpl<op, LastUse>(dst, src0, src1);
@@ -121,7 +100,7 @@ TILEOP void BinaryBrcDispatch(T0 dst, T1 src0, T2 src1) {
         #endif
         BinaryRowExpandComputeImpl<op, LastUse>(dst, dst, src1);
     } else {
-        BinaryComputeImpl<op, WBrcSide, LastUse>(dst, src0, src1);
+        BinaryComputeImpl<op, LastUse>(dst, src0, src1);
     }
 }
 
@@ -142,7 +121,7 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(src0Tile, (uint64_t)src0.GetAddr());
         pto::TASSIGN(src1Tile, (uint64_t)src1.GetAddr());
-        BinaryBrcDispatch<op, brcmode, WBrcSide, LastUse>(dstTile, src0Tile, src1Tile);
+        BinaryBrcDispatch<op, brcmode, LastUse>(dstTile, src0Tile, src1Tile);
         return;
     }
     
@@ -173,7 +152,7 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
                 dstTile.Assign(dst, dsttileOffsets);
                 src0Tile.Assign(src0, src0tileOffsets);
                 src1Tile.Assign(src1, src1tileOffsets);
-                BinaryBrcDispatch<op, brcmode, WBrcSide, LastUse>(dstTile.Data(), src0Tile.Data(), src1Tile.Data());
+                BinaryBrcDispatch<op, brcmode, LastUse>(dstTile.Data(), src0Tile.Data(), src1Tile.Data());
             }
         }
     }

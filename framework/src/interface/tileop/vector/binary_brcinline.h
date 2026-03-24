@@ -114,6 +114,8 @@ struct TensorTileInfo {
         PTO_WITH_LAST_USE(pto::T##PREFIX##MAX(dst, src0, src1), n1, n2, n3); return;    \
     } else if constexpr (op == BinaryOp::MIN) {                                         \
         PTO_WITH_LAST_USE(pto::T##PREFIX##MIN(dst, src0, src1), n1, n2, n3); return;    \
+    } else if constexpr (op == BinaryOp::EXPANDEXPDIF) {                                \
+        PTO_WITH_LAST_USE(pto::T##PREFIX##EXPDIF(dst, src0, src1), n1, n2, n3); return; \
     }
 
 template <BinaryOp op, typename LastUse, typename T0, typename T1, typename T2>
@@ -126,6 +128,21 @@ template <BinaryOp op, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryColExpandComputeImpl(T0 dst, T1 src0, T2 src1) {
     EXTRACT_LAST_USE_3DIM(LastUse)
     BINARY_EXPAND_DISPATCH(COLEXPAND)
+    if constexpr (op == BinaryOp::MOD) {
+        pto::TROWEXPANDDIV(dst, src0, src1);
+        #ifdef __DAV_V220
+        pipe_barrier(PIPE_V);
+        #endif
+        pto::TCVT(dst, dst, pto::RoundMode::CAST_TRUNC);
+        #ifdef __DAV_V220
+        pipe_barrier(PIPE_V);
+        #endif
+        pto::TROWEXPANDMUL(dst, dst, src1);
+        #ifdef __DAV_V220
+        pipe_barrier(PIPE_V);
+        #endif
+        pto::TROWEXPANDSUB(dst, src0, dst);
+    }
 }
 
 template <BinaryOp op, TileOp::BroadcastOperand WBrcSide, 
