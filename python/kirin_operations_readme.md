@@ -5,147 +5,1069 @@
 ### 1.1. pypto.eq
 
 #### 1.1.1. 算子计算原理
-
+逐元素等于比较运算。
+参考：pypto/docs/api/operation/pypto-eq.md
 #### 1.1.2. pypto前段接口（python）以及支持范围
+函数原型
+```python
+eq(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor
+```
+参数说明
+| 参数名 | 输入/输出 | 说明                                                                 |
+|--------|-----------|----------------------------------------------------------------------|
+| input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32，两个源操作数的数据类型必须保持一致。 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other  | 输入      | 源操作数。 <br> 支持的类型为：Tensor\float\Element。 <br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。 <br> Tensor和Element支持的数据类型为：DT_FP16，DT_FP32，两个源操作数的数据类型必须保持一致。 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
 
+返回值说明
+
+返回Shape与输入Tensor一致、数据类型为DT\_BOOL的Tensor。若input对应位置的元素值等于other对应位置的元素值，则该位置的返回值为True，其余位置的返回值为False。
+
+### 约束说明
+
+1.  input 和 other 类型须保持一致。
+2.  支持一维广播。
 #### 1.1.3. c++ tensor graph接口
+```c++
+// 根据OpType区分具体的操作类型
+// 比较两个Tensor
+Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperation, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
 
+// 比较Tensor和Scalar
+Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
+
+// 比较Scalar和Tensor
+Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
+```
+<br>
+
+```c++
+enum class OpType {
+    EQ,
+    NE,
+    LT,
+    LE,
+    GT,
+    GE,
+};
+```
 #### 1.1.4. c++ tile graph接口
+```c++
+// 两个Tensor间逐元素比较  对应的pto instruction是TCMP
+void CompareOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    BinaryOperationOperandCheck(iOperand, oOperand);
+    auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
+    TiledCompareOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0], operation, mode);
+}
 
+// Tensor和Scalar逐元素比较 对应的pto instruction是TCMPS
+void CmpsOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
+    TiledCmpsOperation(
+        function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0], operation, mode);
+}
+```
 #### 1.1.5. 算子npu计算使用的pto instruction
+TLoad：搬运buffer从gm到ub
 
+TCMP:比较两个 Tile 并写入一个打包的谓词掩码。
+TCMPS:将 Tile 与标量比较并写入逐元素比较结果。
+
+TStore：ub to gm搬运
 #### 1.1.6. 算子kernel的计算过程（搬运+计算）
+```c++
+// 搬运源操作数x从gm到ub
+TLoad(ubTensor_x, gmTensor_x, Coor2Dim(4, 4));
 
+// 搬运源操作数y从gm到ub
+TLoad(ubTensor_y, gmTensor_y, Coor2Dim(4, 4));
+
+// 逐元素比较x和y，将结果保存到z
+// 此处<0, 0> 指明OpType为EQ
+// ubTensor_5为临时buffer
+TCompare<0, 0>(ubTensor_z, ubTensor_x, ubTensor_y, ubTensor_5);
+
+// 搬运z从ub到gm
+TStore(gmTensor_z, ubTensor_z, Coor2Dim(4, 4));
+```
 #### 1.1.7. tile shape设置约束
-
+TileShape维度应和输出一致。
 #### 1.1.8. 用例设计
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32
+* 输入组合：input + other 严格满足一维广播规则
 
+
+| 用例名称  | input维度 | other维度 | 切分        | 输入dtype | 说明                     |
+|----------|-----------|-----------|-------------|-----------|--------------------------|
+| fp16_001 | (112)     | (112)     | (50)        | fp16      | 1D 尾轴对齐，w切分        |
+| fp16_002 | (64)      | (1)       | (32)        | fp16      | 1D 一维广播，w切分        |
+| fp16_003 | (3, 128)  | (3, 128)  | (2, 64)     | fp16      | 2D 无广播，h+w切分        |
+| fp16_004 | (2, 96)   | (1, 96)   | (1, 48)     | fp16      | 2D 一维广播，h+w切分      |
+| fp16_005 | (5, 1)    | (5, 32)   | (5, 16)     | fp16      | 2D 一维广播，h+w切分      |
+| fp16_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 32) | fp16      | 3D 无广播，c+h+w切分      |
+| fp16_007 | (2, 1, 48) | (2, 3, 48) | (2, 1, 24) | fp16      | 3D 一维广播，c+h+w切分    |
+| fp16_008 | (3, 64, 1) | (3, 64, 48) | (3, 32, 1) | fp16      | 3D 一维广播，c+h+w切分    |
+| fp16_009 | (1, 1, 32, 32) | (1, 1, 32, 32) | (1, 1, 16, 16) | fp16      | 4D 无广播，n+c+h+w切分    |
+| fp16_010 | (1, 4, 16, 16) | (1, 1, 16, 16) | (1, 2, 8, 8) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_011 | (2, 1, 24, 24) | (2, 3, 24, 24) | (2, 1, 12, 12) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_012 | (4, 80)     | (4, 80)     | (2, 40)     | fp16      | 2D 大尺寸，h+w切分        |
+| fp16_013 | (1, 2, 40, 40) | (1, 2, 1, 40) | (1, 1, 20, 20) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_014 | (8, 1)      | (1,)       | (4, 1)      | fp16      | 跨维度广播，h+w切分       |
+| fp16_015 | (2, 3, 16, 16) | (2, 3, 16, 16) | (1, 3, 8, 8) | fp16      | 4D 标准尺寸，n+c+h+w切分  |
+| fp32_001 | (112)     | (112)     | (50)        | fp32      | 1D 尾轴对齐，w切分        |
+| fp32_002 | (64)      | (1)       | (32)        | fp32      | 1D 一维广播，w切分        |
+| fp32_003 | (3, 128)  | (3, 128)  | (2, 64)     | fp32      | 2D 无广播，h+w切分        |
+| fp32_004 | (2, 96)   | (1, 96)   | (1, 48)     | fp32      | 2D 一维广播，h+w切分      |
+| fp32_005 | (5, 1)    | (5, 32)   | (5, 16)     | fp32      | 2D 一维广播，h+w切分      |
+| fp32_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 32) | fp32      | 3D 无广播，c+h+w切分      |
+| fp32_007 | (2, 1, 48) | (2, 3, 48) | (2, 1, 24) | fp32      | 3D 一维广播，c+h+w切分    |
+| fp32_008 | (3, 64, 1) | (3, 64, 48) | (3, 32, 1) | fp32      | 3D 一维广播，c+h+w切分    |
+| fp32_009 | (1, 1, 32, 32) | (1, 1, 32, 32) | (1, 1, 16, 16) | fp32      | 4D 无广播，n+c+h+w切分    |
+| fp32_010 | (1, 4, 16, 16) | (1, 1, 16, 16) | (1, 2, 8, 8) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_011 | (2, 1, 24, 24) | (2, 3, 24, 24) | (2, 1, 12, 12) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_012 | (4, 80)     | (4, 80)     | (2, 40)     | fp32      | 2D 大尺寸，h+w切分        |
+| fp32_013 | (1, 2, 40, 40) | (1, 2, 1, 40) | (1, 1, 20, 20) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_014 | (8, 1)      | (1,)       | (4, 1)      | fp32      | 跨维度广播，h+w切分       |
+| fp32_015 | (2, 3, 16, 16) | (2, 3, 16, 16) | (1, 3, 8, 8) | fp32      | 4D 标准尺寸，n+c+h+w切分  |
 ### 1.2. pypto.ge
 
 #### 1.2.1. 算子计算原理
-
+逐元素大于等于比较运算。
 #### 1.2.2. pypto前段接口（python）以及支持范围
+函数原型
+```python
+ge(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor
+```
+参数说明
+| 参数名 | 输入/输出 | 说明                                                                 |
+|--------|-----------|----------------------------------------------------------------------|
+| input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32，两个源操作数的数据类型必须保持一致。 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other  | 输入      | 源操作数。 <br> 支持的类型为：Tensor\float\Element。 <br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。 <br> Tensor和Element支持的数据类型为：DT_FP16，DT_FP32，两个源操作数的数据类型必须保持一致。 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
 
+返回值说明
+
+返回Shape与输入Tensor一致、数据类型为DT\_BOOL的Tensor。若input对应位置的元素值等于other对应位置的元素值，则该位置的返回值为True，其余位置的返回值为False。
+
+### 约束说明
+
+1.  input 和 other 类型须保持一致。
+2.  支持一维广播。
 #### 1.2.3. c++ tensor graph接口
+```c++
+// 根据OpType区分具体的操作类型
+// 比较两个Tensor
+Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperation, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
 
+// 比较Tensor和Scalar
+Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
+
+// 比较Scalar和Tensor
+Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
+```
 #### 1.2.4. c++ tile graph接口
+```c++
+// 两个Tensor间逐元素比较  对应的pto instruction是TCMP
+void CompareOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    BinaryOperationOperandCheck(iOperand, oOperand);
+    auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
+    TiledCompareOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0], operation, mode);
+}
 
+// Tensor和Scalar逐元素比较 对应的pto instruction是TCMPS
+void CmpsOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
+    TiledCmpsOperation(
+        function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0], operation, mode);
+}
+```
 #### 1.2.5. 算子npu计算使用的pto instruction
+TLoad：搬运buffer从gm到ub
 
+TCMP:比较两个 Tile 并写入一个打包的谓词掩码。
+TCMPS:将 Tile 与标量比较并写入逐元素比较结果。
+
+TStore：ub to gm搬运
 #### 1.2.6. 算子kernel的计算过程（搬运+计算）
+```c++
+// 搬运源操作数x从gm到ub
+TLoad(ubTensor_x, gmTensor_x, Coor2Dim(4, 4));
 
+// 搬运源操作数y从gm到ub
+TLoad(ubTensor_y, gmTensor_y, Coor2Dim(4, 4));
+
+// 逐元素比较x和y，将结果保存到z
+// 此处<5, 0> 指明OpType为GE
+// ubTensor_5为临时buffer
+TCompare<5, 0>(ubTensor_z, ubTensor_x, ubTensor_y, ubTensor_5);
+
+// 搬运z从ub到gm
+TStore(gmTensor_z, ubTensor_z, Coor2Dim(4, 4));
+```
 #### 1.2.7. tile shape设置约束
-
+TileShape维度应和输出一致。
 #### 1.2.8. 用例设计
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32
+* 输入组合：input + other 严格满足一维广播规则
 
+
+| 用例名称  | input维度 | other维度 | 切分        | 输入dtype | 说明                     |
+|----------|-----------|-----------|-------------|-----------|--------------------------|
+| fp16_001 | (112)     | (112)     | (50)        | fp16      | 1D 尾轴对齐，w切分        |
+| fp16_002 | (64)      | (1)       | (32)        | fp16      | 1D 一维广播，w切分        |
+| fp16_003 | (3, 128)  | (3, 128)  | (2, 64)     | fp16      | 2D 无广播，h+w切分        |
+| fp16_004 | (2, 96)   | (1, 96)   | (1, 48)     | fp16      | 2D 一维广播，h+w切分      |
+| fp16_005 | (5, 1)    | (5, 32)   | (5, 16)     | fp16      | 2D 一维广播，h+w切分      |
+| fp16_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 32) | fp16      | 3D 无广播，c+h+w切分      |
+| fp16_007 | (2, 1, 48) | (2, 3, 48) | (2, 1, 24) | fp16      | 3D 一维广播，c+h+w切分    |
+| fp16_008 | (3, 64, 1) | (3, 64, 48) | (3, 32, 1) | fp16      | 3D 一维广播，c+h+w切分    |
+| fp16_009 | (1, 1, 32, 32) | (1, 1, 32, 32) | (1, 1, 16, 16) | fp16      | 4D 无广播，n+c+h+w切分    |
+| fp16_010 | (1, 4, 16, 16) | (1, 1, 16, 16) | (1, 2, 8, 8) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_011 | (2, 1, 24, 24) | (2, 3, 24, 24) | (2, 1, 12, 12) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_012 | (4, 80)     | (4, 80)     | (2, 40)     | fp16      | 2D 大尺寸，h+w切分        |
+| fp16_013 | (1, 2, 40, 40) | (1, 2, 1, 40) | (1, 1, 20, 20) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_014 | (8, 1)      | (1,)       | (4, 1)      | fp16      | 跨维度广播，h+w切分       |
+| fp16_015 | (2, 3, 16, 16) | (2, 3, 16, 16) | (1, 3, 8, 8) | fp16      | 4D 标准尺寸，n+c+h+w切分  |
+| fp32_001 | (112)     | (112)     | (50)        | fp32      | 1D 尾轴对齐，w切分        |
+| fp32_002 | (64)      | (1)       | (32)        | fp32      | 1D 一维广播，w切分        |
+| fp32_003 | (3, 128)  | (3, 128)  | (2, 64)     | fp32      | 2D 无广播，h+w切分        |
+| fp32_004 | (2, 96)   | (1, 96)   | (1, 48)     | fp32      | 2D 一维广播，h+w切分      |
+| fp32_005 | (5, 1)    | (5, 32)   | (5, 16)     | fp32      | 2D 一维广播，h+w切分      |
+| fp32_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 32) | fp32      | 3D 无广播，c+h+w切分      |
+| fp32_007 | (2, 1, 48) | (2, 3, 48) | (2, 1, 24) | fp32      | 3D 一维广播，c+h+w切分    |
+| fp32_008 | (3, 64, 1) | (3, 64, 48) | (3, 32, 1) | fp32      | 3D 一维广播，c+h+w切分    |
+| fp32_009 | (1, 1, 32, 32) | (1, 1, 32, 32) | (1, 1, 16, 16) | fp32      | 4D 无广播，n+c+h+w切分    |
+| fp32_010 | (1, 4, 16, 16) | (1, 1, 16, 16) | (1, 2, 8, 8) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_011 | (2, 1, 24, 24) | (2, 3, 24, 24) | (2, 1, 12, 12) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_012 | (4, 80)     | (4, 80)     | (2, 40)     | fp32      | 2D 大尺寸，h+w切分        |
+| fp32_013 | (1, 2, 40, 40) | (1, 2, 1, 40) | (1, 1, 20, 20) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_014 | (8, 1)      | (1,)       | (4, 1)      | fp32      | 跨维度广播，h+w切分       |
+| fp32_015 | (2, 3, 16, 16) | (2, 3, 16, 16) | (1, 3, 8, 8) | fp32      | 4D 标准尺寸，n+c+h+w切分  |
 ### 1.3. pypto.gt
 
 #### 1.3.1. 算子计算原理
-
+逐元素大于比较运算。
 #### 1.3.2. pypto前段接口（python）以及支持范围
+函数原型
+```python
+gt(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor
+```
+参数说明
+| 参数名 | 输入/输出 | 说明                                                                 |
+|--------|-----------|----------------------------------------------------------------------|
+| input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32，两个源操作数的数据类型必须保持一致。 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other  | 输入      | 源操作数。 <br> 支持的类型为：Tensor\float\Element。 <br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。 <br> Tensor和Element支持的数据类型为：DT_FP16，DT_FP32，两个源操作数的数据类型必须保持一致。 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
 
+返回值说明
+
+返回Shape与输入Tensor一致、数据类型为DT\_BOOL的Tensor。若input对应位置的元素值等于other对应位置的元素值，则该位置的返回值为True，其余位置的返回值为False。
+
+### 约束说明
+
+1.  input 和 other 类型须保持一致。
+2.  支持一维广播。
 #### 1.3.3. c++ tensor graph接口
+```c++
+// 根据OpType区分具体的操作类型
+// 比较两个Tensor
+Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperation, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
 
+// 比较Tensor和Scalar
+Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
+
+// 比较Scalar和Tensor
+Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
+```
 #### 1.3.4. c++ tile graph接口
+```c++
+// 两个Tensor间逐元素比较  对应的pto instruction是TCMP
+void CompareOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    BinaryOperationOperandCheck(iOperand, oOperand);
+    auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
+    TiledCompareOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0], operation, mode);
+}
 
+// Tensor和Scalar逐元素比较 对应的pto instruction是TCMPS
+void CmpsOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
+    TiledCmpsOperation(
+        function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0], operation, mode);
+}
+```
 #### 1.3.5. 算子npu计算使用的pto instruction
+TLoad：搬运buffer从gm到ub
 
+TCMP:比较两个 Tile 并写入一个打包的谓词掩码。
+TCMPS:将 Tile 与标量比较并写入逐元素比较结果。
+
+TStore：ub to gm搬运
 #### 1.3.6. 算子kernel的计算过程（搬运+计算）
+```c++
+// 搬运源操作数x从gm到ub
+TLoad(ubTensor_x, gmTensor_x, Coor2Dim(4, 4));
 
+// 搬运源操作数y从gm到ub
+TLoad(ubTensor_y, gmTensor_y, Coor2Dim(4, 4));
+
+// 逐元素比较x和y，将结果保存到z
+// 此处<4, 0> 指明OpType为GT
+// ubTensor_5为临时buffer
+TCompare<4, 0>(ubTensor_z, ubTensor_x, ubTensor_y, ubTensor_5);
+
+// 搬运z从ub到gm
+TStore(gmTensor_z, ubTensor_z, Coor2Dim(4, 4));
+```
 #### 1.3.7. tile shape设置约束
-
+TileShape维度应和输出一致。
 #### 1.3.8. 用例设计
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32
+* 输入组合：input + other 严格满足一维广播规则
 
+
+| 用例名称  | input维度 | other维度 | 切分        | 输入dtype | 说明                     |
+|----------|-----------|-----------|-------------|-----------|--------------------------|
+| fp16_001 | (112)     | (112)     | (50)        | fp16      | 1D 尾轴对齐，w切分        |
+| fp16_002 | (64)      | (1)       | (32)        | fp16      | 1D 一维广播，w切分        |
+| fp16_003 | (3, 128)  | (3, 128)  | (2, 64)     | fp16      | 2D 无广播，h+w切分        |
+| fp16_004 | (2, 96)   | (1, 96)   | (1, 48)     | fp16      | 2D 一维广播，h+w切分      |
+| fp16_005 | (5, 1)    | (5, 32)   | (5, 16)     | fp16      | 2D 一维广播，h+w切分      |
+| fp16_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 32) | fp16      | 3D 无广播，c+h+w切分      |
+| fp16_007 | (2, 1, 48) | (2, 3, 48) | (2, 1, 24) | fp16      | 3D 一维广播，c+h+w切分    |
+| fp16_008 | (3, 64, 1) | (3, 64, 48) | (3, 32, 1) | fp16      | 3D 一维广播，c+h+w切分    |
+| fp16_009 | (1, 1, 32, 32) | (1, 1, 32, 32) | (1, 1, 16, 16) | fp16      | 4D 无广播，n+c+h+w切分    |
+| fp16_010 | (1, 4, 16, 16) | (1, 1, 16, 16) | (1, 2, 8, 8) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_011 | (2, 1, 24, 24) | (2, 3, 24, 24) | (2, 1, 12, 12) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_012 | (4, 80)     | (4, 80)     | (2, 40)     | fp16      | 2D 大尺寸，h+w切分        |
+| fp16_013 | (1, 2, 40, 40) | (1, 2, 1, 40) | (1, 1, 20, 20) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_014 | (8, 1)      | (1,)       | (4, 1)      | fp16      | 跨维度广播，h+w切分       |
+| fp16_015 | (2, 3, 16, 16) | (2, 3, 16, 16) | (1, 3, 8, 8) | fp16      | 4D 标准尺寸，n+c+h+w切分  |
+| fp32_001 | (112)     | (112)     | (50)        | fp32      | 1D 尾轴对齐，w切分        |
+| fp32_002 | (64)      | (1)       | (32)        | fp32      | 1D 一维广播，w切分        |
+| fp32_003 | (3, 128)  | (3, 128)  | (2, 64)     | fp32      | 2D 无广播，h+w切分        |
+| fp32_004 | (2, 96)   | (1, 96)   | (1, 48)     | fp32      | 2D 一维广播，h+w切分      |
+| fp32_005 | (5, 1)    | (5, 32)   | (5, 16)     | fp32      | 2D 一维广播，h+w切分      |
+| fp32_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 32) | fp32      | 3D 无广播，c+h+w切分      |
+| fp32_007 | (2, 1, 48) | (2, 3, 48) | (2, 1, 24) | fp32      | 3D 一维广播，c+h+w切分    |
+| fp32_008 | (3, 64, 1) | (3, 64, 48) | (3, 32, 1) | fp32      | 3D 一维广播，c+h+w切分    |
+| fp32_009 | (1, 1, 32, 32) | (1, 1, 32, 32) | (1, 1, 16, 16) | fp32      | 4D 无广播，n+c+h+w切分    |
+| fp32_010 | (1, 4, 16, 16) | (1, 1, 16, 16) | (1, 2, 8, 8) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_011 | (2, 1, 24, 24) | (2, 3, 24, 24) | (2, 1, 12, 12) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_012 | (4, 80)     | (4, 80)     | (2, 40)     | fp32      | 2D 大尺寸，h+w切分        |
+| fp32_013 | (1, 2, 40, 40) | (1, 2, 1, 40) | (1, 1, 20, 20) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_014 | (8, 1)      | (1,)       | (4, 1)      | fp32      | 跨维度广播，h+w切分       |
+| fp32_015 | (2, 3, 16, 16) | (2, 3, 16, 16) | (1, 3, 8, 8) | fp32      | 4D 标准尺寸，n+c+h+w切分  |
 ### 1.4. pypto.le
 
 #### 1.4.1. 算子计算原理
-
+逐元素小于等于比较运算。
 #### 1.4.2. pypto前段接口（python）以及支持范围
+函数原型
+```python
+le(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor
+```
+参数说明
+| 参数名 | 输入/输出 | 说明                                                                 |
+|--------|-----------|----------------------------------------------------------------------|
+| input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32，两个源操作数的数据类型必须保持一致。 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other  | 输入      | 源操作数。 <br> 支持的类型为：Tensor\float\Element。 <br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。 <br> Tensor和Element支持的数据类型为：DT_FP16，DT_FP32，两个源操作数的数据类型必须保持一致。 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
 
+返回值说明
+
+返回Shape与输入Tensor一致、数据类型为DT\_BOOL的Tensor。若input对应位置的元素值等于other对应位置的元素值，则该位置的返回值为True，其余位置的返回值为False。
+
+### 约束说明
+
+1.  input 和 other 类型须保持一致。
+2.  支持一维广播。
 #### 1.4.3. c++ tensor graph接口
+```c++
+// 根据OpType区分具体的操作类型
+// 比较两个Tensor
+Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperation, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
 
+// 比较Tensor和Scalar
+Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
+
+// 比较Scalar和Tensor
+Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
+```
 #### 1.4.4. c++ tile graph接口
+```c++
+// 两个Tensor间逐元素比较  对应的pto instruction是TCMP
+void CompareOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    BinaryOperationOperandCheck(iOperand, oOperand);
+    auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
+    TiledCompareOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0], operation, mode);
+}
 
+// Tensor和Scalar逐元素比较 对应的pto instruction是TCMPS
+void CmpsOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
+    TiledCmpsOperation(
+        function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0], operation, mode);
+}
+```
 #### 1.4.5. 算子npu计算使用的pto instruction
+TLoad：搬运buffer从gm到ub
 
+TCMP:比较两个 Tile 并写入一个打包的谓词掩码。
+TCMPS:将 Tile 与标量比较并写入逐元素比较结果。
+
+TStore：ub to gm搬运
 #### 1.4.6. 算子kernel的计算过程（搬运+计算）
+```c++
+// 搬运源操作数x从gm到ub
+TLoad(ubTensor_x, gmTensor_x, Coor2Dim(4, 4));
 
+// 搬运源操作数y从gm到ub
+TLoad(ubTensor_y, gmTensor_y, Coor2Dim(4, 4));
+
+// 逐元素比较x和y，将结果保存到z
+// 此处<3, 0> 指明OpType为LE
+// ubTensor_5为临时buffer
+TCompare<3, 0>(ubTensor_z, ubTensor_x, ubTensor_y, ubTensor_5);
+
+// 搬运z从ub到gm
+TStore(gmTensor_z, ubTensor_z, Coor2Dim(4, 4));
+```
 #### 1.4.7. tile shape设置约束
-
+TileShape维度应和输出一致。
 #### 1.4.8. 用例设计
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32
+* 输入组合：input + other 严格满足一维广播规则
+数据类型：FP16/FP32
 
+
+| 用例名称  | input维度 | other维度 | 切分        | 输入dtype | 说明                     |
+|----------|-----------|-----------|-------------|-----------|--------------------------|
+| fp16_001 | (112)     | (112)     | (50)        | fp16      | 1D 尾轴对齐，w切分        |
+| fp16_002 | (64)      | (1)       | (32)        | fp16      | 1D 一维广播，w切分        |
+| fp16_003 | (3, 128)  | (3, 128)  | (2, 64)     | fp16      | 2D 无广播，h+w切分        |
+| fp16_004 | (2, 96)   | (1, 96)   | (1, 48)     | fp16      | 2D 一维广播，h+w切分      |
+| fp16_005 | (5, 1)    | (5, 32)   | (5, 16)     | fp16      | 2D 一维广播，h+w切分      |
+| fp16_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 32) | fp16      | 3D 无广播，c+h+w切分      |
+| fp16_007 | (2, 1, 48) | (2, 3, 48) | (2, 1, 24) | fp16      | 3D 一维广播，c+h+w切分    |
+| fp16_008 | (3, 64, 1) | (3, 64, 48) | (3, 32, 1) | fp16      | 3D 一维广播，c+h+w切分    |
+| fp16_009 | (1, 1, 32, 32) | (1, 1, 32, 32) | (1, 1, 16, 16) | fp16      | 4D 无广播，n+c+h+w切分    |
+| fp16_010 | (1, 4, 16, 16) | (1, 1, 16, 16) | (1, 2, 8, 8) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_011 | (2, 1, 24, 24) | (2, 3, 24, 24) | (2, 1, 12, 12) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_012 | (4, 80)     | (4, 80)     | (2, 40)     | fp16      | 2D 大尺寸，h+w切分        |
+| fp16_013 | (1, 2, 40, 40) | (1, 2, 1, 40) | (1, 1, 20, 20) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_014 | (8, 1)      | (1,)       | (4, 1)      | fp16      | 跨维度广播，h+w切分       |
+| fp16_015 | (2, 3, 16, 16) | (2, 3, 16, 16) | (1, 3, 8, 8) | fp16      | 4D 标准尺寸，n+c+h+w切分  |
+| fp32_001 | (112)     | (112)     | (50)        | fp32      | 1D 尾轴对齐，w切分        |
+| fp32_002 | (64)      | (1)       | (32)        | fp32      | 1D 一维广播，w切分        |
+| fp32_003 | (3, 128)  | (3, 128)  | (2, 64)     | fp32      | 2D 无广播，h+w切分        |
+| fp32_004 | (2, 96)   | (1, 96)   | (1, 48)     | fp32      | 2D 一维广播，h+w切分      |
+| fp32_005 | (5, 1)    | (5, 32)   | (5, 16)     | fp32      | 2D 一维广播，h+w切分      |
+| fp32_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 32) | fp32      | 3D 无广播，c+h+w切分      |
+| fp32_007 | (2, 1, 48) | (2, 3, 48) | (2, 1, 24) | fp32      | 3D 一维广播，c+h+w切分    |
+| fp32_008 | (3, 64, 1) | (3, 64, 48) | (3, 32, 1) | fp32      | 3D 一维广播，c+h+w切分    |
+| fp32_009 | (1, 1, 32, 32) | (1, 1, 32, 32) | (1, 1, 16, 16) | fp32      | 4D 无广播，n+c+h+w切分    |
+| fp32_010 | (1, 4, 16, 16) | (1, 1, 16, 16) | (1, 2, 8, 8) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_011 | (2, 1, 24, 24) | (2, 3, 24, 24) | (2, 1, 12, 12) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_012 | (4, 80)     | (4, 80)     | (2, 40)     | fp32      | 2D 大尺寸，h+w切分        |
+| fp32_013 | (1, 2, 40, 40) | (1, 2, 1, 40) | (1, 1, 20, 20) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_014 | (8, 1)      | (1,)       | (4, 1)      | fp32      | 跨维度广播，h+w切分       |
+| fp32_015 | (2, 3, 16, 16) | (2, 3, 16, 16) | (1, 3, 8, 8) | fp32      | 4D 标准尺寸，n+c+h+w切分  |
 ### 1.5. pypto.lt
 
 #### 1.5.1. 算子计算原理
-
+逐元素小于比较运算。
 #### 1.5.2. pypto前段接口（python）以及支持范围
+函数原型
+```python
+lt(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor
+```
+参数说明
+| 参数名 | 输入/输出 | 说明                                                                 |
+|--------|-----------|----------------------------------------------------------------------|
+| input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32，两个源操作数的数据类型必须保持一致。 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other  | 输入      | 源操作数。 <br> 支持的类型为：Tensor\float\Element。 <br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。 <br> Tensor和Element支持的数据类型为：DT_FP16，DT_FP32，两个源操作数的数据类型必须保持一致。 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
 
+返回值说明
+
+返回Shape与输入Tensor一致、数据类型为DT\_BOOL的Tensor。若input对应位置的元素值等于other对应位置的元素值，则该位置的返回值为True，其余位置的返回值为False。
+
+### 约束说明
+
+1.  input 和 other 类型须保持一致。
+2.  支持一维广播。
 #### 1.5.3. c++ tensor graph接口
+```c++
+// 根据OpType区分具体的操作类型
+// 比较两个Tensor
+Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperation, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
 
+// 比较Tensor和Scalar
+Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
+
+// 比较Scalar和Tensor
+Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
+```
 #### 1.5.4. c++ tile graph接口
+```c++
+// 两个Tensor间逐元素比较  对应的pto instruction是TCMP
+void CompareOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    BinaryOperationOperandCheck(iOperand, oOperand);
+    auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
+    TiledCompareOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0], operation, mode);
+}
 
+// Tensor和Scalar逐元素比较 对应的pto instruction是TCMPS
+void CmpsOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
+    TiledCmpsOperation(
+        function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0], operation, mode);
+}
+```
 #### 1.5.5. 算子npu计算使用的pto instruction
+TLoad：搬运buffer从gm到ub
 
+TCMP:比较两个 Tile 并写入一个打包的谓词掩码。
+TCMPS:将 Tile 与标量比较并写入逐元素比较结果。
+
+TStore：ub to gm搬运
 #### 1.5.6. 算子kernel的计算过程（搬运+计算）
+```c++
+// 搬运源操作数x从gm到ub
+TLoad(ubTensor_x, gmTensor_x, Coor2Dim(4, 4));
 
+// 搬运源操作数y从gm到ub
+TLoad(ubTensor_y, gmTensor_y, Coor2Dim(4, 4));
+
+// 逐元素比较x和y，将结果保存到z
+// 此处<2, 0> 指明OpType为LT
+// ubTensor_5为临时buffer
+TCompare<2, 0>(ubTensor_z, ubTensor_x, ubTensor_y, ubTensor_5);
+
+// 搬运z从ub到gm
+TStore(gmTensor_z, ubTensor_z, Coor2Dim(4, 4));
+```
 #### 1.5.7. tile shape设置约束
-
+TileShape维度应和输出一致。
 #### 1.5.8. 用例设计
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32
+* 输入组合：input + other 严格满足一维广播规则
 
+
+| 用例名称  | input维度 | other维度 | 切分        | 输入dtype | 说明                     |
+|----------|-----------|-----------|-------------|-----------|--------------------------|
+| fp16_001 | (112)     | (112)     | (50)        | fp16      | 1D 尾轴对齐，w切分        |
+| fp16_002 | (64)      | (1)       | (32)        | fp16      | 1D 一维广播，w切分        |
+| fp16_003 | (3, 128)  | (3, 128)  | (2, 64)     | fp16      | 2D 无广播，h+w切分        |
+| fp16_004 | (2, 96)   | (1, 96)   | (1, 48)     | fp16      | 2D 一维广播，h+w切分      |
+| fp16_005 | (5, 1)    | (5, 32)   | (5, 16)     | fp16      | 2D 一维广播，h+w切分      |
+| fp16_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 32) | fp16      | 3D 无广播，c+h+w切分      |
+| fp16_007 | (2, 1, 48) | (2, 3, 48) | (2, 1, 24) | fp16      | 3D 一维广播，c+h+w切分    |
+| fp16_008 | (3, 64, 1) | (3, 64, 48) | (3, 32, 1) | fp16      | 3D 一维广播，c+h+w切分    |
+| fp16_009 | (1, 1, 32, 32) | (1, 1, 32, 32) | (1, 1, 16, 16) | fp16      | 4D 无广播，n+c+h+w切分    |
+| fp16_010 | (1, 4, 16, 16) | (1, 1, 16, 16) | (1, 2, 8, 8) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_011 | (2, 1, 24, 24) | (2, 3, 24, 24) | (2, 1, 12, 12) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_012 | (4, 80)     | (4, 80)     | (2, 40)     | fp16      | 2D 大尺寸，h+w切分        |
+| fp16_013 | (1, 2, 40, 40) | (1, 2, 1, 40) | (1, 1, 20, 20) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_014 | (8, 1)      | (1,)       | (4, 1)      | fp16      | 跨维度广播，h+w切分       |
+| fp16_015 | (2, 3, 16, 16) | (2, 3, 16, 16) | (1, 3, 8, 8) | fp16      | 4D 标准尺寸，n+c+h+w切分  |
+| fp32_001 | (112)     | (112)     | (50)        | fp32      | 1D 尾轴对齐，w切分        |
+| fp32_002 | (64)      | (1)       | (32)        | fp32      | 1D 一维广播，w切分        |
+| fp32_003 | (3, 128)  | (3, 128)  | (2, 64)     | fp32      | 2D 无广播，h+w切分        |
+| fp32_004 | (2, 96)   | (1, 96)   | (1, 48)     | fp32      | 2D 一维广播，h+w切分      |
+| fp32_005 | (5, 1)    | (5, 32)   | (5, 16)     | fp32      | 2D 一维广播，h+w切分      |
+| fp32_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 32) | fp32      | 3D 无广播，c+h+w切分      |
+| fp32_007 | (2, 1, 48) | (2, 3, 48) | (2, 1, 24) | fp32      | 3D 一维广播，c+h+w切分    |
+| fp32_008 | (3, 64, 1) | (3, 64, 48) | (3, 32, 1) | fp32      | 3D 一维广播，c+h+w切分    |
+| fp32_009 | (1, 1, 32, 32) | (1, 1, 32, 32) | (1, 1, 16, 16) | fp32      | 4D 无广播，n+c+h+w切分    |
+| fp32_010 | (1, 4, 16, 16) | (1, 1, 16, 16) | (1, 2, 8, 8) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_011 | (2, 1, 24, 24) | (2, 3, 24, 24) | (2, 1, 12, 12) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_012 | (4, 80)     | (4, 80)     | (2, 40)     | fp32      | 2D 大尺寸，h+w切分        |
+| fp32_013 | (1, 2, 40, 40) | (1, 2, 1, 40) | (1, 1, 20, 20) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_014 | (8, 1)      | (1,)       | (4, 1)      | fp32      | 跨维度广播，h+w切分       |
+| fp32_015 | (2, 3, 16, 16) | (2, 3, 16, 16) | (1, 3, 8, 8) | fp32      | 4D 标准尺寸，n+c+h+w切分  |
 ### 1.6. pypto.ne
 
 #### 1.6.1. 算子计算原理
-
+逐元素不等于比较运算。
 #### 1.6.2. pypto前段接口（python）以及支持范围
+函数原型
+```python
+ne(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor
+```
+参数说明
+| 参数名 | 输入/输出 | 说明                                                                 |
+|--------|-----------|----------------------------------------------------------------------|
+| input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32，两个源操作数的数据类型必须保持一致。 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other  | 输入      | 源操作数。 <br> 支持的类型为：Tensor\float\Element。 <br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。 <br> Tensor和Element支持的数据类型为：DT_FP16，DT_FP32，两个源操作数的数据类型必须保持一致。 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
 
+返回值说明
+
+返回Shape与输入Tensor一致、数据类型为DT\_BOOL的Tensor。若input对应位置的元素值等于other对应位置的元素值，则该位置的返回值为True，其余位置的返回值为False。
+
+### 约束说明
+
+1.  input 和 other 类型须保持一致。
+2.  支持一维广播。
 #### 1.6.3. c++ tensor graph接口
+```c++
+// 根据OpType区分具体的操作类型
+// 比较两个Tensor
+Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperation, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
 
+// 比较Tensor和Scalar
+Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
+
+// 比较Scalar和Tensor
+Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode) {
+    DECLARE_TRACER();
+    RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
+}
+```
 #### 1.6.4. c++ tile graph接口
+```c++
+// 两个Tensor间逐元素比较  对应的pto instruction是TCMP
+void CompareOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    BinaryOperationOperandCheck(iOperand, oOperand);
+    auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
+    TiledCompareOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0], operation, mode);
+}
 
+// Tensor和Scalar逐元素比较 对应的pto instruction是TCMPS
+void CmpsOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
+    TiledCmpsOperation(
+        function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0], operation, mode);
+}
+```
 #### 1.6.5. 算子npu计算使用的pto instruction
+TLoad：搬运buffer从gm到ub
 
+TCMP:比较两个 Tile 并写入一个打包的谓词掩码。
+TCMPS:将 Tile 与标量比较并写入逐元素比较结果。
+
+TStore：ub to gm搬运
 #### 1.6.6. 算子kernel的计算过程（搬运+计算）
+```c++
+// 搬运源操作数x从gm到ub
+TLoad(ubTensor_x, gmTensor_x, Coor2Dim(4, 4));
 
+// 搬运源操作数y从gm到ub
+TLoad(ubTensor_y, gmTensor_y, Coor2Dim(4, 4));
+
+// 逐元素比较x和y，将结果保存到z
+// 此处<1, 0> 指明OpType为NE
+// ubTensor_5为临时buffer
+TCompare<1, 0>(ubTensor_z, ubTensor_x, ubTensor_y, ubTensor_5);
+
+// 搬运z从ub到gm
+TStore(gmTensor_z, ubTensor_z, Coor2Dim(4, 4));
+```
 #### 1.6.7. tile shape设置约束
-
+TileShape维度应和输出一致。
 #### 1.6.8. 用例设计
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32
+* 输入组合：input + other 严格满足一维广播规则
 
+| 用例名称  | input维度 | other维度 | 切分        | 输入dtype | 说明                     |
+|----------|-----------|-----------|-------------|-----------|--------------------------|
+| fp16_001 | (112)     | (112)     | (50)        | fp16      | 1D 尾轴对齐，w切分        |
+| fp16_002 | (64)      | (1)       | (32)        | fp16      | 1D 一维广播，w切分        |
+| fp16_003 | (3, 128)  | (3, 128)  | (2, 64)     | fp16      | 2D 无广播，h+w切分        |
+| fp16_004 | (2, 96)   | (1, 96)   | (1, 48)     | fp16      | 2D 一维广播，h+w切分      |
+| fp16_005 | (5, 1)    | (5, 32)   | (5, 16)     | fp16      | 2D 一维广播，h+w切分      |
+| fp16_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 32) | fp16      | 3D 无广播，c+h+w切分      |
+| fp16_007 | (2, 1, 48) | (2, 3, 48) | (2, 1, 24) | fp16      | 3D 一维广播，c+h+w切分    |
+| fp16_008 | (3, 64, 1) | (3, 64, 48) | (3, 32, 1) | fp16      | 3D 一维广播，c+h+w切分    |
+| fp16_009 | (1, 1, 32, 32) | (1, 1, 32, 32) | (1, 1, 16, 16) | fp16      | 4D 无广播，n+c+h+w切分    |
+| fp16_010 | (1, 4, 16, 16) | (1, 1, 16, 16) | (1, 2, 8, 8) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_011 | (2, 1, 24, 24) | (2, 3, 24, 24) | (2, 1, 12, 12) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_012 | (4, 80)     | (4, 80)     | (2, 40)     | fp16      | 2D 大尺寸，h+w切分        |
+| fp16_013 | (1, 2, 40, 40) | (1, 2, 1, 40) | (1, 1, 20, 20) | fp16      | 4D 一维广播，n+c+h+w切分  |
+| fp16_014 | (8, 1)      | (1,)       | (4, 1)      | fp16      | 跨维度广播，h+w切分       |
+| fp16_015 | (2, 3, 16, 16) | (2, 3, 16, 16) | (1, 3, 8, 8) | fp16      | 4D 标准尺寸，n+c+h+w切分  |
+| fp32_001 | (112)     | (112)     | (50)        | fp32      | 1D 尾轴对齐，w切分        |
+| fp32_002 | (64)      | (1)       | (32)        | fp32      | 1D 一维广播，w切分        |
+| fp32_003 | (3, 128)  | (3, 128)  | (2, 64)     | fp32      | 2D 无广播，h+w切分        |
+| fp32_004 | (2, 96)   | (1, 96)   | (1, 48)     | fp32      | 2D 一维广播，h+w切分      |
+| fp32_005 | (5, 1)    | (5, 32)   | (5, 16)     | fp32      | 2D 一维广播，h+w切分      |
+| fp32_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 32) | fp32      | 3D 无广播，c+h+w切分      |
+| fp32_007 | (2, 1, 48) | (2, 3, 48) | (2, 1, 24) | fp32      | 3D 一维广播，c+h+w切分    |
+| fp32_008 | (3, 64, 1) | (3, 64, 48) | (3, 32, 1) | fp32      | 3D 一维广播，c+h+w切分    |
+| fp32_009 | (1, 1, 32, 32) | (1, 1, 32, 32) | (1, 1, 16, 16) | fp32      | 4D 无广播，n+c+h+w切分    |
+| fp32_010 | (1, 4, 16, 16) | (1, 1, 16, 16) | (1, 2, 8, 8) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_011 | (2, 1, 24, 24) | (2, 3, 24, 24) | (2, 1, 12, 12) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_012 | (4, 80)     | (4, 80)     | (2, 40)     | fp32      | 2D 大尺寸，h+w切分        |
+| fp32_013 | (1, 2, 40, 40) | (1, 2, 1, 40) | (1, 1, 20, 20) | fp32      | 4D 一维广播，n+c+h+w切分  |
+| fp32_014 | (8, 1)      | (1,)       | (4, 1)      | fp32      | 跨维度广播，h+w切分       |
+| fp32_015 | (2, 3, 16, 16) | (2, 3, 16, 16) | (1, 3, 8, 8) | fp32      | 4D 标准尺寸，n+c+h+w切分  |
 ### 1.7. pypto.maximum
 
 #### 1.7.1. 算子计算原理
-
+计算输入与另一输入的逐元素最大值
 #### 1.7.2. pypto前段接口（python）以及支持范围
+函数原型
 
+```python
+maximum(
+    input: Union[Tensor, Element, int, float], other: Union[Tensor, Element, int, float]
+) -> Tensor
+```
+
+参数说明
+
+
+| 参数名  | 输入/输出 | 说明                                                                 |
+|---------|-----------|----------------------------------------------------------------------|
+| input   | 输入      | 源操作数。 <br> 支持的类型为 float, Element, Tensor类型。 <br> 当为float 类型时会自动转换为 Element 类型，其中 float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。 <br> Tensor和Element支持的数据类型为：DT_FP16，DT_FP32 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other   | 输入      | 源操作数。 <br> 支持的类型为 float, Element, Tensor类型。 <br> 当为 float 类型时会自动转换为 Element 类型，其中 float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。 <br> Tensor和Element支持的数据类型为：DT_FP16，DT_FP32 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 <br> 类型和数据类型必须与源操作数一保持一致。 |
+
+源操作数一与源操作数二之间至少一者为Tensor。
+
+返回值说明
+
+当两个源操作数均为Tensor时，两个Tensor必须满足广播关系。该接口返回一个与源操作数一和源操作数二广播后形状相同的Tensor，数据类型与源操作数相同，其元素为源操作数一和源操作数二的逐元素最大值。
+### 且源操作数为Tensor时，源操作数一和源操作数二均仅支持单轴广播。
+
+当两个源操作数之中存在一个Tensor时，返回与输入Tensor相同形状的Tensor，其元素为源操作数一和源操作数二的逐元素最大值。
 #### 1.7.3. c++ tensor graph接口
+```c++
+// 计算两个Tensor的最大值
+Tensor Maximum(const Tensor &operand1, const Tensor &operand2) {
+    DECLARE_TRACER();
 
+    RETURN_CALL(
+        BinaryOperation<BinaryOpType::MAXIMUM>, *Program::GetInstance().GetCurrentFunction(), operand1, operand2);
+}
+
+// 计算Tensor和Scalar的最大值
+Tensor Maximum(const Tensor &operand1, const Element &operand2) {
+    DECLARE_TRACER();
+    ASSERT(operand1.GetDataType() == operand2.GetDataType()) << "The datatype of the two input must be equal";
+    std::vector<DataType> MAXS_SUPPORT_DATATYPES = {
+        DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16, DataType::DT_BF16};
+    ASSERT(std::find(MAXS_SUPPORT_DATATYPES.begin(), MAXS_SUPPORT_DATATYPES.end(), operand1.GetDataType()) !=
+           MAXS_SUPPORT_DATATYPES.end())
+        << "The datatype is not supported";
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::MAX>, *Program::GetInstance().GetCurrentFunction(),
+        operand1.GetStorage(), operand2);
+}
+```
 #### 1.7.4. c++ tile graph接口
+```c++
+// 计算两个Tensor的最大值
+template <BinaryOpType T>
+void BinaryOperationScalarTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    TiledBinaryOperationScalar<T>(
+        function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0]);
+}
 
+// 计算Tensor和Scalar的最大值
+template <BinaryOpType T>
+void BinaryOperationScalarTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    TiledBinaryOperationScalar<T>(
+        function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0]);
+}
+```
 #### 1.7.5. 算子npu计算使用的pto instruction
+```c++
+// 搬运源操作数x从gm到ub
+TLoad(ubTensor_x, gmTensor_x, Coor2Dim(4, 4));
 
+// LastUse2Dim<0, 0>表示该张量在此操作后立即释放
+// 将x扩展至2维，并存入ubTensor_x1
+TExpand<LastUse2Dim<0, 0>, 2>(ubTensor_x1, ubTensor_x);
+
+// 搬运源操作数y从gm到ub
+TLoad(ubTensor_y, gmTensor_y, Coor2Dim(4, 4));
+
+// 逐元素取x和y的最大值，结果存储到y中
+TMax<LastUse3Dim<0, 0, 0>>(ubTensor_y, ubTensor_y, ubTensor_x1);
+
+// 将结果从ub搬运到gm
+TStore(gmTensor_z, ubTensor_y, Coor2Dim(4, 4));
+```
 #### 1.7.6. 算子kernel的计算过程（搬运+计算）
+TLoad：搬运buffer从gm到ub
 
+TExpand：将标量广播到目标Tile中
+
+TMax:两个Tile的逐元素求最大值
+
+TStore：ub to gm搬运
 #### 1.7.7. tile shape设置约束
-
+TileShape维度应和输出一致。
 #### 1.7.8. 用例设计
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32
+* 广播约束：Tensor + Tensor 时仅支持单轴广播
 
+| 用例名称  | input维度   | other维度   | 切分         | 输入dtype | 说明 |
+|----------|-------------|-------------|--------------|-----------|------|
+| fp16_001 | (112)       | (112)       | (56)         | fp16      | 1D，W单轴切分 |
+| fp16_002 | (64)        | (1)         | (32)         | fp16      | 1D，单轴广播，W单轴切分 |
+| fp16_003 | (3, 128)    | (3, 128)    | (3, 64)      | fp16      | 2D，W单轴切分 |
+| fp16_004 | (2, 96)     | (1, 96)     | (2, 96)      | fp16      | 2D，单轴广播，N单轴切分 |
+| fp16_005 | (5, 1)      | (5, 32)     | (5, 1)       | fp16      | 2D，单轴广播，H单轴切分 |
+| fp16_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 64)  | fp16      | 3D，C单轴切分 |
+| fp16_007 | (2, 1, 48)  | (2, 3, 48)  | (2, 1, 24)   | fp16      | 3D，单轴广播，W单轴切分 |
+| fp16_008 | (3, 64, 1)  | (3, 64, 48) | (3, 32, 1)   | fp16      | 3D，单轴广播，H单轴切分 |
+| fp16_009 | (1,1,32,32) | (1,1,32,32) | (1,1,16,32)  | fp16      | 4D，H单轴切分 |
+| fp16_010 | (1,4,16,16) | (1,1,16,16) | (1,2,16,16)  | fp16      | 4D，单轴广播，C单轴切分 |
+| fp16_011 | (2,1,24,24) | (2,3,24,24) | (1,1,24,24)  | fp16      | 4D，单轴广播，N单轴切分 |
+| fp16_012 | (4, 80)     | 标量        | (2, 40)      | fp16      | 2D，Tensor+标量，H+W切分 |
+| fp16_013 | (1,2,40,40) | 标量        | (1,1,40,20)  | fp16      | 4D，Tensor+标量，W单轴切分 |
+| fp16_014 | (8, 1)      | 标量        | (4, 1)       | fp16      | 2D，Tensor+标量，N单轴切分 |
+| fp16_015 | (2,3,16,16) | (2,3,16,16) | (1,3,8,8)    | fp16      | 4D，N+H+W多轴切分 |
+| fp32_001 | (112)       | (112)       | (56)         | fp32      | 1D，W单轴切分 |
+| fp32_002 | (64)        | (1)         | (32)         | fp32      | 1D，单轴广播，W单轴切分 |
+| fp32_003 | (3, 128)    | (3, 128)    | (3, 64)      | fp32      | 2D，W单轴切分 |
+| fp32_004 | (2, 96)     | (1, 96)     | (2, 96)      | fp32      | 2D，单轴广播，N单轴切分 |
+| fp32_005 | (5, 1)      | (5, 32)     | (5, 1)       | fp32      | 2D，单轴广播，H单轴切分 |
+| fp32_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 64)  | fp32      | 3D，C单轴切分 |
+| fp32_007 | (2, 1, 48)  | (2, 3, 48)  | (2, 1, 24)   | fp32      | 3D，单轴广播，W单轴切分 |
+| fp32_008 | (3, 64, 1)  | (3, 64, 48) | (3, 32, 1)   | fp32      | 3D，单轴广播，H单轴切分 |
+| fp32_009 | (1,1,32,32) | (1,1,32,32) | (1,1,16,32)  | fp32      | 4D，H单轴切分 |
+| fp32_010 | (1,4,16,16) | (1,1,16,16) | (1,2,16,16)  | fp32      | 4D，单轴广播，C单轴切分 |
+| fp32_011 | (2,1,24,24) | (2,3,24,24) | (1,1,24,24)  | fp32      | 4D，单轴广播，N单轴切分 |
+| fp32_012 | (4, 80)     | 标量        | (2, 40)      | fp32      | 2D，Tensor+标量，H+W切分 |
+| fp32_013 | (1,2,40,40) | 标量        | (1,1,40,20)  | fp32      | 4D，Tensor+标量，W单轴切分 |
+| fp32_014 | (8, 1)      | 标量        | (4, 1)       | fp32      | 2D，Tensor+标量，N单轴切分 |
+| fp32_015 | (2,3,16,16) | (2,3,16,16) | (1,3,8,8)    | fp32      | 4D，N+H+W多轴切分 |
 ### 1.8. pypto.minimum
 
 #### 1.8.1. 算子计算原理
-
+计算输入与另一输入的最小值。
 #### 1.8.2. pypto前段接口（python）以及支持范围
+函数原型
 
+```python
+maximum(
+    input: Union[Tensor, Element, int, float], other: Union[Tensor, Element, int, float]
+) -> Tensor
+```
+
+参数说明
+
+
+| 参数名  | 输入/输出 | 说明                                                                 |
+|---------|-----------|----------------------------------------------------------------------|
+| input   | 输入      | 源操作数。 <br> 支持的类型为 int, float, Element, Tensor类型。 <br> 当为 int 或者 float 类型时会自动转换为 Element 类型，其中 int 对应 DT_INT_32，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。 <br> Tensor和Element支持的数据类型为：DT_FP16，DT_FP32 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other   | 输入      | 源操作数。 <br> 支持的类型为 int, float, Element, Tensor类型。 <br> 当为 int 或者 float 类型时会自动转换为 Element 类型，其中 int 对应 DT_INT_32，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。 <br> Tensor和Element支持的数据类型为：DT_FP16，DT_FP32 <br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 <br> 类型和数据类型必须与源操作数一保持一致。 |
+
+源操作数一与源操作数二之间至少一者为Tensor。
+
+返回值说明
+
+当两个源操作数均为Tensor时，两个Tensor必须满足广播关系。该接口返回一个与源操作数一和源操作数二广播后形状相同的Tensor，数据类型与源操作数相同，其元素为源操作数一和源操作数二的逐元素最大值。
+### 且源操作数为Tensor时，源操作数一和源操作数二均仅支持单轴广播。
+
+当两个源操作数之中存在一个Tensor时，返回与输入Tensor相同形状的Tensor，其元素为源操作数一和源操作数二的逐元素最大值。
 #### 1.8.3. c++ tensor graph接口
+```c++
+// 计算两个Tensor的最小值
+Tensor Minimum(const Tensor &operand1, const Tensor &operand2) {
+    DECLARE_TRACER();
 
+    RETURN_CALL(
+        BinaryOperation<BinaryOpType::MINIMUM>, *Program::GetInstance().GetCurrentFunction(), operand1, operand2);
+}
+
+// 计算Tensor和Scalar的最小值
+Tensor Minimum(const Tensor &operand1, const Element &operand2) {
+    DECLARE_TRACER();
+    ASSERT(operand1.GetDataType() == operand2.GetDataType()) << "The datatype of the two input must be equal";
+    std::vector<DataType> MINS_SUPPORT_DATATYPES = {
+        DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16, DataType::DT_BF16};
+    ASSERT(std::find(MINS_SUPPORT_DATATYPES.begin(), MINS_SUPPORT_DATATYPES.end(), operand1.GetDataType()) !=
+           MINS_SUPPORT_DATATYPES.end())
+        << "The datatype is not supported";
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::MIN>, *Program::GetInstance().GetCurrentFunction(),
+        operand1.GetStorage(), operand2);
+}
+```
 #### 1.8.4. c++ tile graph接口
+```c++
+// 计算两个Tensor的最小值
+template <BinaryOpType T>
+void BinaryOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    BinaryOperationOperandCheck(iOperand, oOperand);
+    TiledBinaryOperation<T>(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+}
 
+// 计算Tensor和Scalar的最小值
+template <BinaryOpType T>
+void BinaryOperationScalarTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    TiledBinaryOperationScalar<T>(
+        function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0]);
+}
+```
 #### 1.8.5. 算子npu计算使用的pto instruction
+TLoad：搬运buffer从gm到ub
+
+TExpand：将标量广播到目标Tile中
+
+TMin:两个Tile的逐元素最小值
+
+TStore：ub to gm搬运
 
 #### 1.8.6. 算子kernel的计算过程（搬运+计算）
+```c++
+// 搬运源操作数x从gm到ub
+TLoad(ubTensor_x, gmTensor_x, Coor2Dim(4, 4));
 
+// LastUse2Dim<0, 0>表示该张量在此操作后立即释放
+// 将x扩展至2维，并存入ubTensor_x1
+TExpand<LastUse2Dim<0, 0>, 2>(ubTensor_x1, ubTensor_x);
+
+// 搬运源操作数y从gm到ub
+TLoad(ubTensor_y, gmTensor_y, Coor2Dim(4, 4));
+
+// 逐元素取x和y的最小值，结果存储到y中
+TMin<LastUse3Dim<0, 0, 0>>(ubTensor_y, ubTensor_y, ubTensor_x1);
+
+// 将结果从ub搬运到gm
+TStore(gmTensor_z, ubTensor_y, Coor2Dim(4, 4));
+```
 #### 1.8.7. tile shape设置约束
-
+TileShape维度应和输出一致。
 #### 1.8.8. 用例设计
+测试因子:
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32
+* 广播约束：Tensor + Tensor 时仅支持单轴广播
 
+| 用例名称  | input维度   | other维度   | 切分         | 输入dtype | 说明 |
+|----------|-------------|-------------|--------------|-----------|------|
+| fp16_001 | (112)       | (112)       | (56)         | fp16      | 1D，W单轴切分 |
+| fp16_002 | (64)        | (1)         | (32)         | fp16      | 1D，单轴广播，W单轴切分 |
+| fp16_003 | (3, 128)    | (3, 128)    | (3, 64)      | fp16      | 2D，W单轴切分 |
+| fp16_004 | (2, 96)     | (1, 96)     | (2, 96)      | fp16      | 2D，单轴广播，N单轴切分 |
+| fp16_005 | (5, 1)      | (5, 32)     | (5, 1)       | fp16      | 2D，单轴广播，H单轴切分 |
+| fp16_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 64)  | fp16      | 3D，C单轴切分 |
+| fp16_007 | (2, 1, 48)  | (2, 3, 48)  | (2, 1, 24)   | fp16      | 3D，单轴广播，W单轴切分 |
+| fp16_008 | (3, 64, 1)  | (3, 64, 48) | (3, 32, 1)   | fp16      | 3D，单轴广播，H单轴切分 |
+| fp16_009 | (1,1,32,32) | (1,1,32,32) | (1,1,16,32)  | fp16      | 4D，H单轴切分 |
+| fp16_010 | (1,4,16,16) | (1,1,16,16) | (1,2,16,16)  | fp16      | 4D，单轴广播，C单轴切分 |
+| fp16_011 | (2,1,24,24) | (2,3,24,24) | (1,1,24,24)  | fp16      | 4D，单轴广播，N单轴切分 |
+| fp16_012 | (4, 80)     | 标量        | (2, 40)      | fp16      | 2D，Tensor+标量，H+W切分 |
+| fp16_013 | (1,2,40,40) | 标量        | (1,1,40,20)  | fp16      | 4D，Tensor+标量，W单轴切分 |
+| fp16_014 | (8, 1)      | 标量        | (4, 1)       | fp16      | 2D，Tensor+标量，N单轴切分 |
+| fp16_015 | (2,3,16,16) | (2,3,16,16) | (1,3,8,8)    | fp16      | 4D，N+H+W多轴切分 |
+| fp32_001 | (112)       | (112)       | (56)         | fp32      | 1D，W单轴切分 |
+| fp32_002 | (64)        | (1)         | (32)         | fp32      | 1D，单轴广播，W单轴切分 |
+| fp32_003 | (3, 128)    | (3, 128)    | (3, 64)      | fp32      | 2D，W单轴切分 |
+| fp32_004 | (2, 96)     | (1, 96)     | (2, 96)      | fp32      | 2D，单轴广播，N单轴切分 |
+| fp32_005 | (5, 1)      | (5, 32)     | (5, 1)       | fp32      | 2D，单轴广播，H单轴切分 |
+| fp32_006 | (1, 64, 64) | (1, 64, 64) | (1, 32, 64)  | fp32      | 3D，C单轴切分 |
+| fp32_007 | (2, 1, 48)  | (2, 3, 48)  | (2, 1, 24)   | fp32      | 3D，单轴广播，W单轴切分 |
+| fp32_008 | (3, 64, 1)  | (3, 64, 48) | (3, 32, 1)   | fp32      | 3D，单轴广播，H单轴切分 |
+| fp32_009 | (1,1,32,32) | (1,1,32,32) | (1,1,16,32)  | fp32      | 4D，H单轴切分 |
+| fp32_010 | (1,4,16,16) | (1,1,16,16) | (1,2,16,16)  | fp32      | 4D，单轴广播，C单轴切分 |
+| fp32_011 | (2,1,24,24) | (2,3,24,24) | (1,1,24,24)  | fp32      | 4D，单轴广播，N单轴切分 |
+| fp32_012 | (4, 80)     | 标量        | (2, 40)      | fp32      | 2D，Tensor+标量，H+W切分 |
+| fp32_013 | (1,2,40,40) | 标量        | (1,1,40,20)  | fp32      | 4D，Tensor+标量，W单轴切分 |
+| fp32_014 | (8, 1)      | 标量        | (4, 1)       | fp32      | 2D，Tensor+标量，N单轴切分 |
+| fp32_015 | (2,3,16,16) | (2,3,16,16) | (1,3,8,8)    | fp32      | 4D，N+H+W多轴切分 |
 ## 2. 二元数学运算
 
 ### 2.1. pypto.mul
@@ -539,20 +1461,178 @@
 ### 7.3. pypto.where
 
 #### 7.3.1. 算子计算原理
+condition 为一个布尔类型的掩码张量（mask tensor）。对于张量中任意位置的元素，该操作基于布尔掩码张量 condition 进行逐元素选择。其计算行为可形式化表示为如下表达式。
 
+$$
+result_{i}=
+\begin{cases}
+input_{i} & \text{if } condition_{i}==True \\
+other_{i} & \text{if } condition_{i}==False
+\end{cases}
+$$
+
+condition 须为Tensor，input 和 other 可以为 Tensor、 float  以及 Element，广播规则如下（**只支持单轴广播**）：
+
+1.  input, other, condition 均为Tensor，result 的 Shape 由三者广播得到。
+
+    例：input:[1,20,20], other:[20,1,20], condition:[20,20,1], result:[20,20,20]
+
+2.  只有 input, condition 为 Tensor时，result 的 Shape 由两者广播得到。
+
+    例：input:[1,20,20], condition:[20,20,1], result:[20,20,20]
+
+3.  只有 other, condition 为 Tensor时，result 的 Shape 由两者广播得到。
+
+    例：other:[20,1,20], condition:[20,20,1], result:[20,20,20]
+
+4.  只有 condition 为 Tensor时，result 的 Shape 与 condition 一致。
 #### 7.3.2. pypto前段接口（python）以及支持范围
+函数原型
 
+```python
+where(
+    condition: Tensor,
+    input: Union[Tensor, float, Element],
+    other: Union[Tensor, float, Element]
+) -> Tensor
+```
+
+参数说明
+
+| 参数名      | 输入/输出 | 说明                                                                 |
+|-------------|-----------|----------------------------------------------------------------------|
+| condition   | 输入      | 支持的类型为：Tensor。<br> Tensor支持的数据类型为：DT_BOOL。<br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。<br> 作为条件选择input或者other的元素。 |
+| input       | 输入      | 支持的类型为 float\Element\Tensor类型。<br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。<br> Tensor和Element支持的数据类型为：DT_FP32，DT_FP16。<br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other       | 输入      | 支持的类型为 float\Element\Tensor类型。<br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。<br> Tensor和Element支持的数据类型为：DT_FP32，DT_FP16。<br> 不支持空Tensor；Shape支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+
+返回值说明
+
+result ：Tensor，Shape由输入的广播得到，详细广播场景可看上文。数据类型和input、other保持一致。
+
+约束说明
+
+1. 建议优先使用 Element，传入 float 标量对于 fp16 场景，不保证正确性。
 #### 7.3.3. c++ tensor graph接口
+```c++
+// 根据条件从两个Tensor中选取元素
+Tensor Where(const Tensor &condition, const Tensor &input, const Tensor &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(WhereOperation, *Program::GetInstance().GetCurrentFunction(), condition, input, other);
+}
 
+// 根据条件从Tensor和Scalar中选取元素
+Tensor Where(const Tensor &condition, const Tensor &input, const Element &otherValue) {
+    DECLARE_TRACER();
+    RETURN_CALL(WhereOperation, *Program::GetInstance().GetCurrentFunction(), condition, input, otherValue);
+}
+
+// 根据条件从Scalar和Tensor中选取元素
+Tensor Where(const Tensor &condition, const Element &inputValue, const Tensor &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(WhereOperation, *Program::GetInstance().GetCurrentFunction(), condition, inputValue, other);
+}
+
+// 根据条件从两个Scalar中选取元素
+Tensor Where(const Tensor &condition, const Element &inputValue, const Element &otherValue) {
+    DECLARE_TRACER();
+    RETURN_CALL(WhereOperation, *Program::GetInstance().GetCurrentFunction(), condition, inputValue, otherValue);
+}
+```
 #### 7.3.4. c++ tile graph接口
+```c++
+// 根据条件从两个Tensor中选取元素
+void WhereOperationTileFuncTT(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    TiledWhereOperation(function, tileShape, iOperand[0], iOperand[1], iOperand[2], oOperand[0]);
+}
 
+// 根据条件从Tensor和Scalar中选取元素
+void WhereOperationTileFuncTS(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    TiledWhereOperation(
+        function, tileShape, iOperand[0], iOperand[1], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0]);
+}
+
+// 根据条件从Scalar和Tensor中选取元素
+void WhereOperationTileFuncST(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    TiledWhereOperation(
+        function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), iOperand[1], oOperand[0]);
+}
+
+// 根据条件从Tensor和Scalar中选取元素
+void WhereOperationTileFuncSS(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    TiledWhereOperation(function, tileShape, iOperand[0], op.GetVectorElementAttribute(OpAttributeKey::vectorScalar)[0],
+        op.GetVectorElementAttribute(OpAttributeKey::vectorScalar)[1], oOperand[0]);
+}
+```
 #### 7.3.5. 算子npu计算使用的pto instruction
+TLoad：搬运buffer从gm到ub
 
+TWhere: 通过TASSIGN、TSEL封装实现
+TASSIGN:将Tile对象绑定到实现定义的片上地址（手动选择）
+TSEL：使用掩码Tile在两个Tile之间进行逐元素选择
+
+TStore：ub to gm搬运
 #### 7.3.6. 算子kernel的计算过程（搬运+计算）
+```c++
+// 搬运源操作数condition从gm到ub
+TLoad(ubTensor_c, gmTensor_c, Coor2Dim(0, 1));
 
+// 搬运源操作数x从gm到ub
+TLoad(ubTensor_x, gmTensor_x, Coor2Dim(0, 8));
+
+// TT表示从两个Tensor中按条件选择元素
+TWhereTT(ubTensor_x, ubTensor_1, ubTensor_c, ubTensor_x, ubTensor_y);
+
+// 将结果从ub搬运到gm
+TStore(gmTensor_2, ubTensor_x, Coor2Dim(0, 8));
+```
 #### 7.3.7. tile shape设置约束
-
+TileShape维度应和输出一致。
 #### 7.3.8. 用例设计
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32
+
+| 用例名称  | input维度   | other维度   | condition维度 | 切分         | 输入dtype | 说明 |
+| --------- | ----------- | ----------- | ------------ | ------------ | --------- | ---- |
+| fp16_001  | (112)       | (112)       | (112)        | (56)         | fp16      | 1D 三Tensor同shape，W单轴切分 |
+| fp16_002  | (64)        | (1)         | (64)         | (32)         | fp16      | 1D 单轴广播，W单轴切分 |
+| fp16_003  | (3, 128)    | (3, 128)    | (3, 128)     | (3, 64)      | fp16      | 2D 三Tensor同shape，W单轴切分 |
+| fp16_004  | (2, 96)     | (1, 96)     | (2, 96)      | (2, 96)      | fp16      | 2D 单轴广播，N单轴切分 |
+| fp16_005  | (5, 1)      | (5, 32)     | (5, 32)      | (5, 1)       | fp16      | 2D 单轴广播，H单轴切分 |
+| fp16_006  | (1, 64, 64) | (1, 64, 64) | (1, 64, 64)  | (1, 32, 64)  | fp16      | 3D 三Tensor同shape，C单轴切分 |
+| fp16_007  | (2, 1, 48)  | (2, 3, 48)  | (2, 3, 48)   | (2, 1, 24)   | fp16      | 3D 单轴广播，W单轴切分 |
+| fp16_008  | (3, 64, 1)  | (3, 64, 48) | (3, 64, 48)  | (3, 32, 1)   | fp16      | 3D 单轴广播，H单轴切分 |
+| fp16_009  | (1,1,32,32) | (1,1,32,32) | (1,1,32,32)  | (1,1,16,32)  | fp16      | 4D 三Tensor同shape，H单轴切分 |
+| fp16_010  | (1,4,16,16) | (1,1,16,16) | (1,4,16,16)  | (1,2,16,16)  | fp16      | 4D 单轴广播，C单轴切分 |
+| fp16_011  | (2,1,24,24) | (2,3,24,24) | (2,3,24,24)  | (1,1,24,24)  | fp16      | 4D 单轴广播，N单轴切分 |
+| fp16_012  | (4, 80)     | 标量        | (4, 80)      | (2, 40)      | fp16      | 2D Tensor+标量，H+W双轴切分 |
+| fp16_013  | (1,2,40,40) | 标量        | (1,2,40,40)  | (1,1,40,20)  | fp16      | 4D Tensor+标量，W单轴切分 |
+| fp16_014  | (8, 1)      | 标量        | (8, 1)       | (4, 1)       | fp16      | 2D Tensor+标量，N单轴切分 |
+| fp16_015  | (2,3,16,16) | (2,3,16,16) | (2,3,16,16)  | (1,3,8,8)    | fp16      | 4D 三Tensor同shape，N+H+W多轴切分 |
+| fp32_001  | (112)       | (112)       | (112)        | (56)         | fp32      | 1D 三Tensor同shape，W单轴切分 |
+| fp32_002  | (64)        | (1)         | (64)         | (32)         | fp32      | 1D 单轴广播，W单轴切分 |
+| fp32_003  | (3, 128)    | (3, 128)    | (3, 128)     | (3, 64)      | fp32      | 2D 三Tensor同shape，W单轴切分 |
+| fp32_004  | (2, 96)     | (1, 96)     | (2, 96)      | (2, 96)      | fp32      | 2D 单轴广播，N单轴切分 |
+| fp32_005  | (5, 1)      | (5, 32)     | (5, 32)      | (5, 1)       | fp32      | 2D 单轴广播，H单轴切分 |
+| fp32_006  | (1, 64, 64) | (1, 64, 64) | (1, 64, 64)  | (1, 32, 64)  | fp32      | 3D 三Tensor同shape，C单轴切分 |
+| fp32_007  | (2, 1, 48)  | (2, 3, 48)  | (2, 3, 48)   | (2, 1, 24)   | fp32      | 3D 单轴广播，W单轴切分 |
+| fp32_008  | (3, 64, 1)  | (3, 64, 48) | (3, 64, 48)  | (3, 32, 1)   | fp32      | 3D 单轴广播，H单轴切分 |
+| fp32_009  | (1,1,32,32) | (1,1,32,32) | (1,1,32,32)  | (1,1,16,32)  | fp32      | 4D 三Tensor同shape，H单轴切分 |
+| fp32_010  | (1,4,16,16) | (1,1,16,16) | (1,4,16,16)  | (1,2,16,16)  | fp32      | 4D 单轴广播，C单轴切分 |
+| fp32_011  | (2,1,24,24) | (2,3,24,24) | (2,3,24,24)  | (1,1,24,24)  | fp32      | 4D 单轴广播，N单轴切分 |
+| fp32_012  | (4, 80)     | 标量        | (4, 80)      | (2, 40)      | fp32      | 2D Tensor+标量，H+W双轴切分 |
+| fp32_013  | (1,2,40,40) | 标量        | (1,2,40,40)  | (1,1,40,20)  | fp32      | 4D Tensor+标量，W单轴切分 |
+| fp32_014  | (8, 1)      | 标量        | (8, 1)       | (4, 1)       | fp32      | 2D Tensor+标量，N单轴切分 |
+| fp32_015  | (2,3,16,16) | (2,3,16,16) | (2,3,16,16)  | (1,3,8,8)    | fp32      | 4D 三Tensor同shape，N+H+W多轴切分 |
 
 ## 8. 矩阵运算
 
