@@ -192,6 +192,9 @@ bool IsFloat(const std::shared_ptr<LogicalTensor> tensor) {
 }
  
 double CalculateGeometricMean(const std::vector<double>& vectorRatio) {
+    if (vectorRatio.empty()) {
+        return 0.0;
+    }
     double product = 1.0;
     for (double num : vectorRatio) {
         product *= num;
@@ -224,7 +227,7 @@ void FindCubeTilesCombinations(std::map<std::vector<int64_t>, double>& setOfCube
     const int64_t L0A_MAX_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0A);
     const int64_t L0B_MAX_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0B);
     const int64_t L0C_MAX_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0C);
-    std::vector<int64_t> tmpTile = {0,0,0}; // m,k,n
+    std::vector<int64_t> tmpTile = {0, 0, 0}; // m,k,n
     if (((m * k * inputTypeSize) <= (L0A_MAX_SIZE / DOUBLE_BUFFER)) && ((k * n * inputTypeSize) <= (L0B_MAX_SIZE / DOUBLE_BUFFER)) && ((m * n * outputTypeSize) <= (L0C_MAX_SIZE / DOUBLE_BUFFER))) {
         tmpTile[M_DIM] = m;
         tmpTile[K_DIM] = k;
@@ -407,7 +410,11 @@ std::tuple<std::array<int64_t, MAX_MDIM>, std::array<int64_t, MAX_KDIM>, std::ar
     #ifdef L1_TILES_SETTING
     resultCubeTiles = FindL1Tiles(shapeAndTypeInfo, resultL0Tiles);
     #else
-    resultCubeTiles = {{mFinal, mFinal}, {kFinal, kFinal}, {nFinal, nFinal}};
+    resultCubeTiles = std::make_tuple(
+        std::array<int64_t, MAX_MDIM>{mFinal, mFinal},
+        std::array<int64_t, MAX_KDIM>{kFinal, kFinal},
+        std::array<int64_t, MAX_NDIM>{nFinal, nFinal}
+    );
     #endif
     return resultCubeTiles;
 }
@@ -456,7 +463,7 @@ void PrintOpInfo(const Operation *op) {
 }
 
 void AdjustTilesToReshape(Operation * op, Shape opBaseInputShape, Shape opBaseOutputShape, Shape& vectorTilesOld, Shape& outTileShape) {
-    //then try to find dimensions that were not changed in reshape
+    // Try to find dimensions that were not changed in reshape
     std::queue<size_t> unstableDims;
     size_t inProd = 1, outProd = 1;
     std::cout<<"Unstable :  ";
@@ -487,7 +494,7 @@ void AdjustTilesToReshape(Operation * op, Shape opBaseInputShape, Shape opBaseOu
             outProd *= opBaseOutputShape[outPos];
             unstableDims.push(inPos);
             std::cout<<inPos<<"  ";
-            if(opBaseInputShape[inPos] < opBaseOutputShape[outPos]) {
+            if (opBaseInputShape[inPos] < opBaseOutputShape[outPos]) {
                 inPos++;
             } else {
                 outPos++;
@@ -633,7 +640,7 @@ void TileThroughGather(Operation *producerOp, Operation *op, std::vector<int64_t
         int magicProducer = producerOp->GetOOperands()[0]->magic;
         
         std::cout << "magicFirst = " << magicFirst << std::endl;
-        std::cout << "magicSecond = " << magicSecond<< std::endl;
+        std::cout << "magicSecond = " << magicSecond << std::endl;
         std::cout << "magicProducer = " << magicProducer << std::endl;
         
         if (magicFirst == magicProducer) {
@@ -697,7 +704,7 @@ void TileThroughTranspose(Operation* op, std::vector<int64_t>& tile) {
 
 std::vector<uint32_t> FindChangedDims(Shape inShape, Shape outShape) {
     std::cout << "FindChangedDims" << std::endl;
-    std::vector<uint32_t>  changedDims;
+    std::vector<uint32_t> changedDims;
     std::cout << "inShape: ";
     for (size_t p = 0; p < inShape.size(); p++) {
         std::cout << inShape[p] << " ";
@@ -709,8 +716,6 @@ std::vector<uint32_t> FindChangedDims(Shape inShape, Shape outShape) {
         std::cout << outShape[p] << " ";
     }
     std::cout << std::endl;
-    
-    
     
     for (size_t p = 0; p < inShape.size(); p++) {
         // assume that -1 is any big value
@@ -780,7 +785,7 @@ void AdjustTileToUB(Operation* op, Shape& vectorTilesNew) {
             }
             memUsedTmp *= realTile[di];
         }
-        memUsedTmp *=  BytesOf(inp->tensor->GetDataType());
+        memUsedTmp *= BytesOf(inp->tensor->GetDataType());
         memUsed += memUsedTmp;
         std::cout<<"Inp "<<memUsedTmp<<"  "<<memUsed<<"\n";
     }
@@ -836,7 +841,7 @@ void AdjustTileToUB(Operation* op, Shape& vectorTilesNew) {
                 }
                 memUsedTmp *= realTile[di];
             }
-            memUsedTmp *=  BytesOf(inp->tensor->GetDataType());
+            memUsedTmp *= BytesOf(inp->tensor->GetDataType());
             memUsed += memUsedTmp;
         }
         for(auto out: op->GetOOperands()) {
@@ -859,7 +864,6 @@ void AdjustTileToUB(Operation* op, Shape& vectorTilesNew) {
 void ReshapeTileSetting(Operation *op, std::vector<int64_t>& vectorTilesOld, std::vector<int64_t>& vectorTilesNew) {
     std::vector<int64_t> opBaseInputShape; 
     std::vector<int64_t> opBaseOutputShape;
-
     opBaseInputShape = op->GetIOperands()[0]->shape;
     opBaseOutputShape = op->GetOOperands()[0]->shape;
 
@@ -1112,7 +1116,7 @@ void GatherTileSetting(Operation *op, std::vector<int64_t>& vectorTilesNew) {
         ASSERT(op->GetIOperands()[inp]->GetProducers().size() == 1);
         std::cout<<prodOp->GetOpMagic()<<"  "<<op->GetOpMagic()<<"\n";
         
-        if((prodOp->GetIOperands().size() == 0) || (prodOp->GetIOperands()[0]->GetProducers().size() == 0)) {
+        if ((prodOp->GetIOperands().size() == 0) || (prodOp->GetIOperands()[0]->GetProducers().size() == 0)) {
             std::cout<<"No inputs from prod, ignore its tiling\n";
             toUpdate.push_back(prodOp);
             continue;
@@ -1267,8 +1271,6 @@ void DefaultTileSetting(Operation *op, const std::vector<int64_t>& vectorTilesOl
         std::cout<<v<<"  ";
     }
     std::cout<<"\n";
-
-
     std::cout<<"same tiles as old \n";
 }
 
@@ -1276,34 +1278,12 @@ void ExpandTileSetting(Operation *op, const std::vector<int64_t>& vectorTilesOld
     DataType inputType = op->GetIOperands()[0]->tensor->GetDataType();
     int64_t inputTypeSize = BytesOf(inputType);
     vectorTilesNew.resize(vectorTilesOld.size());
-    vectorTilesNew = op->GetOOperands()[0]->shape;
-
-    std::cout<<"Vec default set1 : "; 
-    for(auto v: vectorTilesNew) {
-        std::cout<<v<<"  ";
-    }
-    std::cout<<"\n"; 
-
+    vectorTilesNew = (vectorTilesOld[vectorTilesOld.size() - 1] == 1) ? op->GetOOperands()[0]->shape : vectorTilesOld;
     uint32_t typedBlock  = BLOCK_SIZE / inputTypeSize;
     if (vectorTilesNew[vectorTilesNew.size() - 1]  %  typedBlock != 0) {
         vectorTilesNew[vectorTilesNew.size() - 1] = (vectorTilesNew[vectorTilesNew.size() - 1] + typedBlock - 1) / typedBlock * typedBlock;
     }
-
-    std::cout<<"Vec default set2 : ";
-    for(auto v: vectorTilesNew) {
-        std::cout<<v<<"  ";
-    }
-    std::cout<<"\n";
-
     AdjustTileToUB(op, vectorTilesNew);
-
-    std::cout<<"Vec default set3 : ";
-    for(auto v: vectorTilesNew) {
-        std::cout<<v<<"  ";
-    }
-    std::cout<<"\n";
-
-    std::cout<<"same tiles as old \n";
 }
 
 void ReduceTileSetting(Operation *op, std::vector<int64_t>& vectorTilesNew) {
@@ -1330,7 +1310,7 @@ void ReduceTileSetting(Operation *op, std::vector<int64_t>& vectorTilesNew) {
     for(uint32_t i=0; i<inputDims; i++) {
         if ((maxInputShape[i] != op->GetOOperands()[0]->shape[i]) && (op->GetOOperands()[0]->shape[i] == 1) && (reducedDim == -1)) {
             reducedDim = i;
-        } else if((maxInputShape[i] != op->GetOOperands()[0]->shape[i]) && (op->GetOOperands()[0]->shape[i] == 1) && (reducedDim != -1)) {
+        } else if ((maxInputShape[i] != op->GetOOperands()[0]->shape[i]) && (op->GetOOperands()[0]->shape[i] == 1) && (reducedDim != -1)) {
             std::cout<<"Several reduced dimensions need check";
             return;
         }
@@ -1346,11 +1326,11 @@ void ReduceTileSetting(Operation *op, std::vector<int64_t>& vectorTilesNew) {
     
     // Other Dims processing
     bool setBlock = false;
-    for (int64_t dim = inputDims-1; dim >= 0; dim--) {
+    for (int64_t dim = inputDims - 1; dim >= 0; dim--) {
         if (dim == reducedDim) {
             continue;
         }
-        curTile = ((reducedDim == (int32_t)(inputDims -1))) ? (((maxInputShape[dim] != 1) && (!setBlock) /*&& (vectorTilesReduce[reducedDim] == maxInputShape[reducedDim])*/) ? (BLOCK_SIZE / inputTypeSize) : 1) : std::min(static_cast<int64_t>(std::pow(2, static_cast<int64_t>(std::log2(tileSize)))), static_cast<int64_t>(std::pow(2, static_cast<int64_t>(std::log2(maxInputShape[dim])))));
+        curTile = ((reducedDim == (int32_t)(inputDims - 1))) ? (((maxInputShape[dim] != 1) && (!setBlock) /*&& (vectorTilesReduce[reducedDim] == maxInputShape[reducedDim])*/) ? (BLOCK_SIZE / inputTypeSize) : 1) : std::min(static_cast<int64_t>(std::pow(2, static_cast<int64_t>(std::log2(tileSize)))), static_cast<int64_t>(std::pow(2, static_cast<int64_t>(std::log2(maxInputShape[dim])))));
         if (curTile == BLOCK_SIZE / inputTypeSize) {
             setBlock = true;
         }
@@ -1372,7 +1352,7 @@ void IndexInOutTileSetting(Operation *op, std::vector<int64_t>& vectorTilesNew) 
     //temporal solution, check if it s is good
     vectorTilesNew[inputDims - 1] = curTile;
     auto curProd = curTile;
-    for (size_t di =0; di < inputDims -1; di++) {
+    for (size_t di = 0; di < inputDims - 1; di++) {
         if (op->GetIOperands()[0]->shape[di] != 1) {
             if (curProd > MIN_TILE_SIZE) {
                 vectorTilesNew[di] = 1;
@@ -1404,12 +1384,11 @@ void TopkTileSetting(Operation *op, std::vector<int64_t>& vectorTilesNew) {
     ASSERT(inputDims == outputDims) << "reduce have different shape size for input and output\n";
 
     auto maxInputShape = op->GetIOperands()[0]->GetShape();
-
     int32_t reducedDim = -1;
-    for(uint32_t i=0; i<inputDims; i++) {
+    for (uint32_t i = 0; i < inputDims; i++) {
         if ((maxInputShape[i] != op->GetOOperands()[0]->shape[i]) && (reducedDim == -1)) {
             reducedDim = i;
-        } else if((maxInputShape[i] != op->GetOOperands()[0]->shape[i]) && (reducedDim != -1)) {
+        } else if ((maxInputShape[i] != op->GetOOperands()[0]->shape[i]) && (reducedDim != -1)) {
             std::cout<<"Several reduced dimensions need check";
             return;
         }
@@ -1459,7 +1438,7 @@ void TopkTileSetting(Operation *op, std::vector<int64_t>& vectorTilesNew) {
     
     // Other Dims processing
     //bool setBlock = false;
-    for (int64_t dim = inputDims-1; dim >= 0; dim--) {
+    for (int64_t dim = inputDims - 1; dim >= 0; dim--) {
         if (dim == reducedDim) {
             continue;
         }
@@ -1527,7 +1506,7 @@ void AdaptTileToRealInputShape(Operation* op, std::vector<int64_t>& vectorTiles)
     std::vector<int64_t> maxInputShape = MaxInputShapeCalculation(op, inputsNum, inputDims);
     std::cout<<"Max input shape "<<maxInputShape[0]<<"   "<<maxInputShape[1]<<"\n";
     
-    for (size_t di = 0; di< vectorTiles.size(); di++) {
+    for (size_t di = 0; di < vectorTiles.size(); di++) {
         vectorTiles[di] = (maxInputShape[di] != -1) ? std::min(vectorTiles[di], maxInputShape[di]) : vectorTiles[di];
     }
     std::cout<<"Vectiles old \n";
@@ -1556,7 +1535,7 @@ bool IsBroadcastedShapes(Operation *op) {
         }
     }
 
-    for (auto inp :  op->GetIOperands()) {
+    for (auto inp:  op->GetIOperands()) {
         auto inpShape = inp->GetShape();
         if (inpShape.size() != outShape.size()) {
             return false;
@@ -1574,9 +1553,9 @@ void BackPropagate(Operation *producerOp, Operation *op) {
     size_t inputsNum = producerOp->GetIOperands().size();
     size_t inputDims = DimsCalculation(producerOp, inputsNum, true);
 
-    std::cout << "!Propagate producerOp type " <<producerOp->GetCoreTypeStr()<<"\n";
-    std::cout << "!Propagate op " <<op->GetOpcodeStr()<<"\n";
-    std::cout << "!Propagate producerOp " <<producerOp->GetOpcodeStr()<<"\n";
+    std::cout << "!Propagate producerOp type " << producerOp->GetCoreTypeStr() << "\n";
+    std::cout << "!Propagate op " << op->GetOpcodeStr() << "\n";
+    std::cout << "!Propagate producerOp " << producerOp->GetOpcodeStr() << "\n";
 
     std::vector<int64_t> vectorTilesNew(inputDims, -1);
     std::vector<int64_t> vectorTilesOld = op->GetTileShape().GetVecTile().tile;
@@ -1596,12 +1575,12 @@ void BackPropagate(Operation *producerOp, Operation *op) {
     }
     
     if (producerOp->GetOpcode() == Opcode::OP_VIEW) {
-        std::cout<<"View process\n";
+        std::cout << "ViewTileSetting";
         ViewTileSetting(producerOp, vectorTilesOld, vectorTilesNew);
     } else if (producerOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
         AssembleTileSetting(producerOp, vectorTilesOld, vectorTilesNew);
-    } else if(wholeLastDimOps.find(producerOp->GetOpcode()) != wholeLastDimOps.end()) {
-        std::cout<<"transpose as consumer process";
+    } else if (wholeLastDimOps.find(producerOp->GetOpcode()) != wholeLastDimOps.end()) {
+        std::cout << "TransposeTileSetting";
         TransposeTileSetting(producerOp, vectorTilesOld, vectorTilesNew);
     } else if (producerOp->GetOpcode() == Opcode::OP_EXPAND) {
         std::cout << "ExpandTileSetting" << std::endl;
@@ -1610,7 +1589,11 @@ void BackPropagate(Operation *producerOp, Operation *op) {
         DefaultTileSetting(producerOp, vectorTilesOld, vectorTilesNew);
     }
 
-    //AdaptTileToRealInputShape(producerOp, vectorTilesNew);
+    //if (gatherVectorOps.find(producerOp->GetOpcode()) == gatherVectorOps.end() &&
+        //producerOp->GetOpcode() != Opcode::OP_EXPAND) { // No need to adapt tiles for Gather OPs and Expand
+        //AdaptTileToRealInputShape(producerOp, vectorTilesNew);
+    //}
+    
     producerOp->GetTileShapeForSetting().SetVecTile(vectorTilesNew);
     PrintOpInfo(producerOp);
 }
@@ -1619,12 +1602,11 @@ void Propagate(Operation *consumerOp, Operation *op) {
     size_t inputsNum = consumerOp->GetIOperands().size();
     size_t inputDims = DimsCalculation(consumerOp, inputsNum, true);
 
-    std::cout << "!Propagate consumerOp type " <<consumerOp->GetCoreTypeStr()<<"\n";
-    std::cout << "!Propagate op " <<op->GetOpcodeStr()<<"\n";
-    std::cout << "!Propagate consumerOp " <<consumerOp->GetOpcodeStr()<<"\n";
+    std::cout << "!Propagate consumerOp type " << consumerOp->GetCoreTypeStr() << "\n";
+    std::cout << "!Propagate op " << op->GetOpcodeStr() << "\n";
+    std::cout << "!Propagate consumerOp " << consumerOp->GetOpcodeStr() << "\n";
                         
     std::vector<int64_t> maxInputShape = MaxInputShapeCalculation(consumerOp, inputsNum, inputDims);
-
     std::vector<int64_t> vectorTilesNew(inputDims, -1);
     std::vector<int64_t> vectorTilesOld = op->GetTileShape().GetVecTile().tile;
 
@@ -1640,7 +1622,7 @@ void Propagate(Operation *consumerOp, Operation *op) {
     }
 
     std::cout << " -----------------> BEFORE AdaptTileToRealOutputShape operation : " << consumerOp->GetOpcodeStr() << " Set old vector tile : ";
-    for(unsigned int i=0; i<vectorTilesOld.size();i++){
+    for (size_t i = 0; i < vectorTilesOld.size(); i++) {
         std::cout << vectorTilesOld[i] << "  ";
     }
     std::cout<<"\n";
@@ -1648,7 +1630,7 @@ void Propagate(Operation *consumerOp, Operation *op) {
     AdaptTileToRealOutputShape(op, consumerOp->GetOpMagic(), vectorTilesOld);
 
     std::cout << " -----------------> AFTER AdaptTileToRealOutputShape operation : " << consumerOp->GetOpcodeStr() << " Set old vector tile : ";
-    for(unsigned int i=0; i<vectorTilesOld.size();i++){
+    for (size_t i = 0; i < vectorTilesOld.size(); i++) {
         std::cout << vectorTilesOld[i] << "  ";
     }
     std::cout<<"\n";
@@ -1680,7 +1662,7 @@ void Propagate(Operation *consumerOp, Operation *op) {
     }
 
     std::cout << " -----------------> BEFORE ADAPT Operation : " << consumerOp->GetOpcodeStr() << " Set new vector tile : ";
-    for(unsigned int i=0; i<vectorTilesNew.size();i++){
+    for (size_t i = 0; i < vectorTilesNew.size(); i++){
         std::cout << vectorTilesNew[i] << "  ";
     }
     std::cout<<"\n";
@@ -1691,7 +1673,7 @@ void Propagate(Operation *consumerOp, Operation *op) {
     }
 
     std::cout << " -----------------> AFTER ADAPT Operation : " << consumerOp->GetOpcodeStr() << " Set new vector tile : ";
-    for(unsigned int i=0; i<vectorTilesNew.size();i++){
+    for (size_t i = 0; i < vectorTilesNew.size(); i++){
         std::cout << vectorTilesNew[i] << "  ";
     }
     std::cout<<"\n";
@@ -1704,22 +1686,26 @@ std::pair<std::vector<int64_t>, std::vector<DataType>> ShapeAndTypeSetting(Opera
     bool isTransA = op->GetBoolAttribute(npu::tile_fwk::Matrix::A_MUL_B_TRANS_A);
     bool isTransB = op->GetBoolAttribute(npu::tile_fwk::Matrix::A_MUL_B_TRANS_B);
     
-    if (!isTransA && !isTransB) { // [m, k] * [k, n]
+    if (!isTransA && !isTransB) { 
+        // [m, k] * [k, n]
         shapeM = op->GetIOperands()[0]->shape[0];
         shapeK = op->GetIOperands()[0]->shape[1];
         shapeN = op->GetIOperands()[1]->shape[1];
     }
-    if (!isTransA && isTransB) { // [m, k] * [n, k]
+    if (!isTransA && isTransB) {
+        // [m, k] * [n, k]
         shapeM = op->GetIOperands()[0]->shape[0];
         shapeK = op->GetIOperands()[0]->shape[1];
         shapeN = op->GetIOperands()[1]->shape[0];
     }
-    if (isTransA && !isTransB) { // [k, m] * [k, n]
+    if (isTransA && !isTransB) {
+        // [k, m] * [k, n]
         shapeM = op->GetIOperands()[0]->shape[1];
         shapeK = op->GetIOperands()[0]->shape[0];
         shapeN = op->GetIOperands()[1]->shape[1];
     }
-    if (isTransA && isTransB) { // [k, m] * [n, k]
+    if (isTransA && isTransB) {
+        // [k, m] * [n, k]
         shapeM = op->GetIOperands()[0]->shape[1];
         shapeK = op->GetIOperands()[0]->shape[0];
         shapeN = op->GetIOperands()[1]->shape[0];
@@ -1776,9 +1762,9 @@ void SetHeuristicCubeTiles(Function &function, std::unordered_set<Operation *> c
         k = std::get<1>(resultCubeTilesAndInfo[curShapeAndType]);
         n = std::get<2>(resultCubeTilesAndInfo[curShapeAndType]);
         
-        // Set new tiles for each operation (M = m, N = n, K = k, enableMultiDataLoad = true, enableSplitK = false)
+        // Set new tiles for each operation (M = m, N = n, K = k, enableSplitK = false)
         op->GetTileShapeForSetting().SetCubeTile(m, k, n, false);  
-        std::cout<<op->GetOpcodeStr()<<"  "<<op->GetOpMagic()<<"  "<<op->GetTileShape().ToString()<<"\n";
+        std::cout << op->GetOpcodeStr() << "  " << op->GetOpMagic() << "  " << op->GetTileShape().ToString() << "\n";
     }
 }
 
@@ -1887,7 +1873,7 @@ void UpdateBFS(Operation *op, std::queue<Operation *> &queueBFS, std::map<int, b
     std::cout<<"check "<<op->GetOpMagic()<<"  "<<visitedBFS[op->GetOpMagic()]<<"\n";
     if (!visitedBFS[op->GetOpMagic()]) {      
         queueBFS.push(op);
-        std::cout<<"added "<<op->GetOpMagic()<<"\n";
+        std::cout << "added " << op->GetOpMagic() << "\n";
     }  
     visitedBFS[op->GetOpMagic()] = true;
     std::cout<<"check fin "<<op->GetOpMagic()<<"  "<<visitedBFS[op->GetOpMagic()]<<"\n";
@@ -1920,13 +1906,8 @@ void BackwardPropagation(std::vector<Operation *> orderedOperations, std::queue<
                 // Update queueBFS and visitedBFS
                 UpdateBFS(producerOp, queueBFS, visitedBFS);
             }
-            std::cout << "\n----------------------------------------------------------------------------------" << std::endl;
-            std::cout << "----------------------------------------------------------------------------------\n" << std::endl;
         }
         visitedBFS.clear();
-        std::cout << "\n----------------------------------------------------------------------------------" << std::endl;
-        std::cout << "----------------------------------------------------------------------------------" << std::endl;
-        std::cout << "----------------------------------------------------------------------------------\n" << std::endl;
     }
 }
 
@@ -1972,13 +1953,8 @@ void ForwardPropagation(std::vector<Operation *> orderedOperations, std::queue<O
                 // Update queueBFS and visitedBFS
                 UpdateBFS(consumerOp, queueBFS, visitedBFS);
             }
-            std::cout << "\n----------------------------------------------------------------------------------" << std::endl;
-            std::cout << "----------------------------------------------------------------------------------\n" << std::endl;
         }
         visitedBFS.clear();
-        std::cout << "\n----------------------------------------------------------------------------------" << std::endl;
-        std::cout << "----------------------------------------------------------------------------------" << std::endl;
-        std::cout << "----------------------------------------------------------------------------------\n" << std::endl;
     }
 }
 
@@ -2026,7 +2002,7 @@ std::vector<Operation *> FillNoConsumersOperations(Function &function) {
                 defaultTileSize /= curTile;
                 for (size_t j = 1; j < inputDims; j++) {
                     curTile = std::min(defaultTileSize,  static_cast<int64_t>(std::pow(NUM2, static_cast<int64_t>(std::log2(op.GetIOperands()[0]->shape[inputDims - 1 - j])))));
-                    if(curTile == 0) {
+                    if (curTile == 0) {
                         std::cout<<"some wrong \n";
                         curTile = 2048;
                     }

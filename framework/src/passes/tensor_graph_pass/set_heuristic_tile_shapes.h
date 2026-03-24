@@ -40,8 +40,7 @@ constexpr const int64_t MAX_KL1 = 2048;
 constexpr const int64_t MIN_KL1_TILE = 128;
 constexpr const int64_t KL1_FACTOR = 4; // kL1 = 4kL0 feature
 constexpr const int64_t MIN_TILE_SIZE = 2048;
-constexpr const int64_t MAX_TILE_SIZE = 192 * 1024 / 4; // 4 - max num of In/Out/Tmp buffers
-constexpr const int64_t DEFAULT_TILE_SIZE = 4096;
+constexpr const int64_t DEFAULT_TILE_SIZE = 16384;
 constexpr const int64_t BYTES_PER_REPEAT = 256;
 constexpr const int64_t DEFAULT_MAX_PARALLELISM = 128;
 constexpr const int64_t DEFAULT_LATENCY = 10;
