@@ -20,6 +20,8 @@ import os
 from typing import Any, Callable, Optional, Union
 from enum import IntEnum
 
+import time
+
 import pypto
 import torch
 from pypto import pypto_impl
@@ -321,18 +323,68 @@ class JitCallableWrapper:
         None
             User holds output tensor(s) passed as arguments; no return value.
         """
-        in_tensors, non_tensor_values, input_tensor_defs = self._parse_call_args(
+        import time
+        
+        # Record timing for each stage
+        timings = {}
+        sub_timings = {}
+        
+        # Stage 1: Parse call arguments
+        t0 = time.perf_counter()
+        in_tensors, non_tensor_values, input_tensor_defs, _pca_timings = self._parse_call_args(
             args, kwargs
         )
-        self._get_or_create_kmodule(non_tensor_values)
+        timings['parse_call_args'] = (time.perf_counter() - t0) * 1e6
+        sub_timings['parse_call_args'] = _pca_timings
+        
+        # Stage 2: Get or create kernel module
+        t0 = time.perf_counter()
+        _goc_timings, _cache_hit = self._get_or_create_kmodule(non_tensor_values)
+        timings['get_or_create_kmodule'] = (time.perf_counter() - t0) * 1e6
+        sub_timings['get_or_create_kmodule'] = (_goc_timings, _cache_hit)
+        
+        # Stage 3: Resolve device
+        t0 = time.perf_counter()
         device = self._resolve_device(in_tensors)
+        timings['resolve_device'] = (time.perf_counter() - t0) * 1e6
+        
+        # Stage 4: Debug check (if enabled)
+        t0 = time.perf_counter()
         if self._debug_options is not None:
             debug_mode = self._debug_options.get("runtime_debug_mode", None)
             if debug_mode == DebugMode.CHECKATTR:
                 self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
+        timings['debug_check'] = (time.perf_counter() - t0) * 1e6
+        
+        # Stage 5: Execute kernel
+        t0 = time.perf_counter()
         torch_tensors = in_tensors
         tensor_defs = input_tensor_defs
         self._execute_kernel(torch_tensors, tensor_defs)
+        timings['execute_kernel'] = (time.perf_counter() - t0) * 1e6
+        
+        # Print all timing statistics
+        total_time = sum(timings.values())
+        print("\n=== Execution Timing Statistics (microseconds) ===")
+        for stage, duration in timings.items():
+            percentage = (duration / total_time * 100) if total_time > 0 else 0
+            print(f"  {stage:30s}: {duration:10.2f} μs ({percentage:6.2f}%)")
+            if stage == 'parse_call_args':
+                sub = sub_timings['parse_call_args']
+                sub_total = sum(sub.values())
+                for s, d in sub.items():
+                    pct = (d / sub_total * 100) if sub_total > 0 else 0
+                    print(f"    {'└─ ' + s:30s}: {d:10.2f} μs ({pct:6.2f}%)")
+            elif stage == 'get_or_create_kmodule':
+                sub, cache_hit = sub_timings['get_or_create_kmodule']
+                sub_total = sum(sub.values())
+                print(f"    {'└─ cache_hit':30s}: {str(cache_hit)}")
+                for s, d in sub.items():
+                    pct = (d / sub_total * 100) if sub_total > 0 else 0
+                    print(f"    {'└─ ' + s:30s}: {d:10.2f} μs ({pct:6.2f}%)")
+        print(f"  {'Total':30s}: {total_time:10.2f} μs (100.00%)")
+        print("=" * 55)
+        
         return None
 
 
@@ -566,9 +618,18 @@ class JitCallableWrapper:
         non_tensor_values : dict[str, Any]
         input_tensor_defs : list
         """
+
+        _pca_timings = {}
+
+        # Sub-stage 1: get function signature
+        _t = time.perf_counter()
         input_tensor_defs, non_tensor_param_names = (
             self.get_signature_high_performance(self._original_func)
         )
+        _pca_timings['get_signature'] = (time.perf_counter() - _t) * 1e6
+
+        # Sub-stage 2: split tensor / non-tensor args
+        _t = time.perf_counter()
         n_tensors = len(input_tensor_defs)
         if len(args) < n_tensors:
             raise RuntimeError(
@@ -576,10 +637,14 @@ class JitCallableWrapper:
             )
         in_tensors = list(args[:n_tensors])
         non_tensor_from_args = list(args[n_tensors:])
+        _pca_timings['split_args'] = (time.perf_counter() - _t) * 1e6
 
+        # Sub-stage 3: merge non-tensor params
+        _t = time.perf_counter()
         non_tensor_values = self._merge_non_tensor_params(
             non_tensor_param_names, non_tensor_from_args, kwargs
         )
+        _pca_timings['merge_non_tensor_params'] = (time.perf_counter() - _t) * 1e6
 
         if len(non_tensor_from_args) > len(non_tensor_param_names):
             raise RuntimeError(
@@ -593,7 +658,8 @@ class JitCallableWrapper:
                 f"Unknown keyword argument(s): {sorted(extra_kwargs)}. "
                 f"Valid non-tensor parameters: {non_tensor_param_names}."
             )
-        return in_tensors, non_tensor_values, input_tensor_defs
+
+        return in_tensors, non_tensor_values, input_tensor_defs, _pca_timings
 
     def _merge_non_tensor_params(
         self,
@@ -666,22 +732,48 @@ class JitCallableWrapper:
                 "compile_monitor_print_interval", 60
             )
 
-    def _get_or_create_kmodule(self, non_tensor_values: dict[str, Any]) -> None:
+    def _get_or_create_kmodule(self, non_tensor_values: dict[str, Any]) -> tuple[dict, bool]:
         """Set self.kwargs and resolve kmodule from cache or create new."""
+        import time
+        _goc_timings = {}
+
+        # Sub-stage 1: set kwargs
+        _t = time.perf_counter()
         self.kwargs = non_tensor_values
+        _goc_timings['set_kwargs'] = (time.perf_counter() - _t) * 1e6
+
+        # Sub-stage 2: ensure debug options
+        _t = time.perf_counter()
         self._ensure_debug_options()
+        _goc_timings['ensure_debug_options'] = (time.perf_counter() - _t) * 1e6
+
+        # Sub-stage 3: ensure host options
+        _t = time.perf_counter()
         self._ensure_host_options()
+        _goc_timings['ensure_host_options'] = (time.perf_counter() - _t) * 1e6
+
+        # Sub-stage 4: get compilation cache key
+        _t = time.perf_counter()
         key = self._get_compilation_cache_key(non_tensor_values)
+        _goc_timings['get_cache_key'] = (time.perf_counter() - _t) * 1e6
+
+        # Sub-stage 5: cache lookup or create KernelModule
+        _t = time.perf_counter()
         if (
             self._use_cache
             and key is not None
             and key in JitCallableWrapper._kernel_module_cache
         ):
             self.kmodule = JitCallableWrapper._kernel_module_cache[key]
+            _cache_hit = True
         else:
             self.kmodule = pypto_impl.KernelModule(self)
             if key is not None:
                 JitCallableWrapper._kernel_module_cache[key] = self.kmodule
+            _cache_hit = False
+        _goc_timings['cache_lookup_or_create'] = (time.perf_counter() - _t) * 1e6
+
+        return _goc_timings, _cache_hit
 
     def _resolve_device(self, in_tensors: list) -> torch.device:
         """Resolve device from in_tensors or run_mode."""

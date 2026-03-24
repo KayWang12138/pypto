@@ -307,7 +307,7 @@ def test_moe_fusion():
             (bs, top_k), dtype=torch.float32, device=f'npu:{device_id}')
         topk_ids = torch.empty(
             (bs, top_k), dtype=torch.int32, device=f'npu:{device_id}')
-
+        print("dynamci_axis:", bs)
         # 4. 执行kernel并获取结果
         inputs = [
             mm_weight,
