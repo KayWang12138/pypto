@@ -1119,9 +1119,12 @@ TEST_F(ScheduleOoOTest, TestBufferUsage) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
 
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
+    res = ooOScheduler.Init(sort.operations);
     ooOScheduler.oooCheck.doHealthCheck = true;
-    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.ScheduleMainLoop();
     EXPECT_EQ(res, SUCCESS);
@@ -1189,8 +1192,11 @@ TEST_F(ScheduleOoOTest, TestScheduleGenSpillInfiniteLoop) {
     tensor4->shape = {16, 16};
     tensor4->tensor->rawshape = {16, 16};
 
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    res = ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
