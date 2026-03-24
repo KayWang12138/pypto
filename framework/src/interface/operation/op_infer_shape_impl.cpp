@@ -625,7 +625,7 @@ void Load2L1InferFunc(Operation* op,
 }
 REGISTER_INFER_SHAPE_FUNC(OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1, Load2L1InferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_UB_COPY_ND2NZ, Opcode::OP_UB_COPY_ND2NZ, Load2L1InferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_L0C_COPY_UB, Opcode::OP_L0C_COPY_UB, Load2L1InferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_L0C_COPY_UB, Opcode::OP_L0C_COPY_UB, LoadL0C2L1InferFunc);
 
 void Load2L1MXScaleInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes)
 {
