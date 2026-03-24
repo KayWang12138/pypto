@@ -395,6 +395,7 @@ public:
     [[nodiscard]] std::vector<OpImmediate> GetShape() const {
         return tensorShape_; }
     [[nodiscard]] std::vector<OpImmediate> GetRawShape() const { return rawShape_; }
+    [[nodiscard]] std::vector<OpImmediate> &GetRawShape() { return rawShape_; }
     [[nodiscard]] const std::vector<OpImmediate> &GetToDynValidShape() const { return toDynValidShape_; }
     [[nodiscard]] std::vector<OpImmediate> &GetToDynValidShape() { return toDynValidShape_; }
     [[nodiscard]] const std::vector<OpImmediate> &GetFromDynValidShape() const { return fromDynValidShape_; }

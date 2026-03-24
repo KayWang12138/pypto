@@ -44,6 +44,7 @@ namespace tile_fwk {
 enum class CoaType {
     PARAM_OFFSET,
     PARAM_VALID_SHAPE,
+    PARAM_RAW_SHAPE,
     PARAM,
     INVALID
 };
@@ -53,6 +54,7 @@ static const std::string MAYBE_CONST_POSTFIX = "MAYBE_CONST";
 
 static const SymbolicScalar MAYBE_CONST_COA_GetOffset = AddRuntimeCoaPrefix("GET_PARAM_OFFSET_MAYBE_CONST");
 static const SymbolicScalar MAYBE_CONST_COA_GetValidShape = AddRuntimeCoaPrefix("GET_PARAM_VALID_SHAPE_MAYBE_CONST");
+static const SymbolicScalar MAYBE_CONST_COA_GetRawShape = AddRuntimeCoaPrefix("GET_PARAM_RAW_SHAPE_MAYBE_CONST");
 static const SymbolicScalar MAYBE_CONST_COA_GetParam = AddRuntimeCoaPrefix("GET_PARAM_MAYBE_CONST");
 
 Status SToIWrapper(const std::string str, int& result);
@@ -78,7 +80,7 @@ public:
      */
     bool RegisterCall(const std::vector<SymbolicScalar>& args) {
         if (args.empty()) return false; // 空vector无意义
-        
+
         // 首次调用：记录vector长度，后续调用需保持长度一致
         if (callCount_ == 0) {
             vecLen_ = args.size();
