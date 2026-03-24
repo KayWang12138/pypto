@@ -1213,6 +1213,11 @@ static std::vector<int64_t> CheckAndInferShape(const std::vector<int64_t> &oriSh
     std::vector<int64_t> newShape = dstshape;
     auto capacity = CalculateCapacity(oriShape);
 
+    // Special case: dstshape == [-1], flatten to 1D
+    if (dstshape.size() == 1 && dstshape[0] == -1) {
+        return {capacity};
+    }
+
     for (size_t i = 0; i < newShape.size(); i++) {
         int x = newShape[i];
         CHECK_OP(x >= -1) << "Invalid shape " << x;
