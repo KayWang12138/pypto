@@ -145,6 +145,8 @@ void PadLocalBuffer::PadMatmul(Operation& op, LogicalTensorPtr& in)
                                    (*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_BT ||
                                    (*consumers.begin())->GetOpcode() == Opcode::OP_L1_TO_BT ||
                                    (*consumers.begin())->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE);
+    const bool isUB2L1Scene = !consumers.empty() && *consumers.begin() != nullptr &&
+                              (*consumers.begin())->GetOpcode() == Opcode::OP_UB_COPY_L1;
     const bool IsInputB8 = IsInputDataType(op, in, b8DataSupport);
     const bool IsInputB4 = IsInputDataType(op, in, b4DataSupport);
     /*
@@ -214,6 +216,10 @@ void PadLocalBuffer::PadMatmul(Operation& op, LogicalTensorPtr& in)
     } else {
         in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_VALUE);
         in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_VALUE);
+    }
+    if (isUB2L1Scene) {
+        ++(in->shape[highIndex]);
+        ++(in->tensor->rawshape[highIndex]);
     }
     APASS_LOG_DEBUG_F(
         Elements::Tensor, "####### %d %d set rawshape as %s\n", in->tensor->rawmagic, in->magic,
