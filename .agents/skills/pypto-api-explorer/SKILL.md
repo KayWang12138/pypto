@@ -7,7 +7,7 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 
 使用 `Explore` subagent 探索 PyPTO API，为算子开发提供 API 映射、约束检查和 Tiling 需求分析。
 
-## 输入约定
+## 输入
 
 接受任意形式的输入，提取算子计算逻辑：
 - 自然语言描述（如"计算 softmax"）
@@ -15,22 +15,13 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 - 代码片段（PyTorch 或伪代码）
 - 已有的 spec 文档内容
 
-**不约定输入文件名或路径。** 调用者负责传递内容。
+如果信息不足，向用户提问补充。
 
-## 输出约定
+## 输出
 
 - **输出件**：api_report.md
 - **格式**：markdown，使用 [templates/api_report.md](templates/api_report.md) 模板
-- **导出函数**：无
-- **输出路径由调用者决定**
-
-## 独立使用
-
-当用户直接调用本 Skill 时：
-1. 从用户输入提取算子信息（名称、公式、数据规格）
-2. 如果信息不足，向用户提问补充
-3. 按核心工作流生成 api_report.md
-4. 输出到当前目录或用户指定位置
+- **输出路径**：当前目录或用户指定位置
 
 ---
 
@@ -66,7 +57,28 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 2. 读取具体 API 文档 `docs/api/operation/pypto-*.md` 获取参数和约束
 3. 未找到 → 标记 unsupported，尝试 substitute 方案
 
-### Stage 4: 约束探索
+### Stage 4: 参考实现搜索
+
+在 `models/` 和 `examples/` 目录中搜索与当前算子相关的官方示例（具体目录见「搜索目录」），提取可复用的实现模式。
+
+> **⚠️ 不要找到一个就停止**
+> - 遍历所有候选目录，收集**所有匹配的参考实现**
+> - 对多个候选进行对比评估，选择**最佳匹配**（相似度最高、置信度最高、可复用点最多）
+> - 若存在多个高质量参考，在报告中列出 Top 3，并说明推荐首选及理由
+
+排除 `models/experimental/`，该目录为实验性实现，未充分验证，禁止参考。
+
+**提取内容**：
+- API 实际调用方式和参数用法
+- Tiling 配置（tile shape 设置、分块策略）
+- Loop 结构（循环方式、边界处理）
+- 数据类型处理、cast 用法
+
+**输出**：
+- 找到匹配 → 记录路径、相似度、置信度、可复用点，写入报告「参考实现」章节
+- 未找到匹配 → 在报告中标注「无匹配参考实现」
+
+### Stage 5: 约束探索
 
 三层验证：
 
@@ -81,7 +93,7 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 - Vector: `set_vec_tile_shapes()`
 - Cube: `set_cube_tile_shapes()`
 
-### Stage 5: 生成报告
+### Stage 6: 生成报告
 
 基于 [templates/api_report.md](templates/api_report.md) 模板生成 api_report.md。
 
@@ -97,6 +109,9 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 | `docs/api/config/pypto-set_vec_tile_shapes.md` | Vector Tiling | 条件 |
 | `docs/api/config/pypto-set_cube_tile_shapes.md` | Cube Tiling | 条件 |
 | `docs/api/datatype/` | DataType、TileOpFormat 枚举 | 参考 |
+| `models/`（排除 experimental） | 生产级模型算子实现 | 首选 |
+| `examples/02_intermediate/operators/` | 完整算子参考实现 | 次选 |
+| `examples/03_advanced/patterns/` | 高级组合模式 | 参考 |
 
 ---
 
@@ -150,11 +165,12 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 
 验证 api_report.md 的门禁条件：
 1. 文件存在
-2. 以下 4 个章节存在且内容不为空：
+2. 以下 5 个章节存在且内容不为空：
    - `## 1. 概述`
    - `## 3. API 映射`
-   - `## 7. 证据索引`
-   - `## 8. 结论`
+   - `## 6. 参考实现`（可标注「无匹配」但不可缺失）
+   - `## 8. 证据索引`
+   - `## 9. 结论`
 
 ---
 
@@ -165,3 +181,4 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 | 输入无法解析 | 引导用户提供公式或代码 |
 | API 不存在 | 标记 unsupported，在风险中说明 |
 | 约束不满足 | 标记 ✗，在风险中给出替代方案 |
+| 无匹配参考实现 | 在「参考实现」章节标注「无匹配」，不阻断流程 |
