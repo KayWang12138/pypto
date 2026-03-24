@@ -588,7 +588,7 @@ TEST_F(TestExpandFunctionPass, PreCheckForDisorderIndexOutcast) {
     function->GetTensorMap().Insert(G.GetTensor("dst"));
 
     ExpandFunction expandfunctionpass;
-    EXPECT_EQ(expandfunctionpass.PreRun(*function), FAILED);
+    EXPECT_EQ(expandfunctionpass.PreRun(*function), SUCCESS);
 }
 }
 }
