@@ -384,7 +384,7 @@ class GenCoverage:
                 cmd += f" --exclude {filter_path}"
         if self.lcov_ability.lcov_supported_parallel:
             cmd += f" --rc geninfo_unexecuted_blocks=1"  # 接受未执行块
-            cmd += f" --ignore-errors negative"
+            cmd += f" --ignore-errors negative --ignore-errors unused"
             cmd += f" -j {self.job_num}"
         ret = subprocess.run(cmd.split(), capture_output=False, check=True, encoding='utf-8')
         ret.check_returncode()
