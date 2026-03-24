@@ -28,8 +28,7 @@ Status ExpandFunctionChecker::DoDefaultEnabledPreCheck(Function &function) {
     }
     IndexOutcastChecker indexOutcastChecker;
     if (indexOutcastChecker.CheckIndexOutcastDisorderedCoverage(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "Function[%d] has multiple OP_INDEX_OUTCAST consume the same tensor, the precision may be abnormal.", function.GetFuncMagic());
-        return FAILED;
+        APASS_LOG_WARN_F(Elements::Function, "Function[%d] has multiple OP_INDEX_OUTCAST consume the same tensor, the precision may be abnormal.", function.GetFuncMagic());
     }
     return SUCCESS;
 }
