@@ -325,6 +325,103 @@ Agents 是定义在 `.opencode/agents/` 目录下的协作实体。Primary 代�
 
 ---
 
+## 使用方式
+
+本节介绍如何在 OpenCode 和 Claude Code 中使用本项目的 Skills 和 Agents 进行算子开发。
+
+### OpenCode
+
+在 PyPTO 仓库主目录启动 OpenCode，通过以下方式开始算子开发：
+
+#### 方式一：直接调用 Skill
+
+在对话中描述开发任务，自动触发 `pypto-operator-develop-workflow`：
+
+```
+开发一个 sinh 算子，数学公式是 (e^x - e^(-x)) / 2
+```
+
+或使用斜杠命令明确指定：
+
+```
+/pypto-operator-develop-workflow 开发一个 sinh 算子
+```
+
+#### 方式二：切换到 Orchestrator Agent
+
+按 `Tab` 键切换到 `pypto-op-orchestrator` 代理，然后输入开发任务：
+
+```
+开发一个 sinh 算子，数学公式是 (e^x - e^(-x)) / 2
+```
+
+> **提示**：Orchestrator 会自动编排 7 阶段状态机：需求理解 → API探索 → Golden生成 → 设计方案 → 代码实现 → 精度修复 → 性能调优
+
+---
+
+### Claude Code
+
+#### 前置准备
+
+Claude Code 使用不同的目录结构，需要先迁移项目配置：
+
+```bash
+# 1. 创建 Claude Code 目录结构
+mkdir -p .claude/skills .claude/agents
+
+# 2. 重命名项目指令文件
+mv AGENTS.md CLAUDE.md
+
+# 3. 复制 Skills 到 Claude Code 目录
+cp -r .agents/skills/* .claude/skills/
+
+# 4. 复制 Agents 到 Claude Code 目录
+cp -r .opencode/agents/* .claude/agents/
+```
+
+#### 方式一：直接调用 Skill
+
+启动 Claude Code 后，直接在对话中调用 skill：
+
+```bash
+# 启动 Claude Code
+claude
+```
+
+然后在对话中使用斜杠命令：
+
+```
+/pypto-operator-develop-workflow 开发一个 sinh 算子
+```
+
+或自然语言描述：
+
+```
+请使用 pypto-operator-develop-workflow 技能开发一个 sinh 算子
+```
+
+#### 方式二：指定 Agent 启动
+
+使用 `--agent` 参数直接指定代理启动 Claude Code：
+
+```bash
+claude --agent pypto-op-orchestrator
+```
+
+启动后，在对话中输入算子开发任务即可。
+
+---
+
+### 使用建议
+
+| 场景 | 推荐方式 |
+|:---|:---|
+| 完整算子开发流程 | 方式二（Orchestrator Agent） |
+| 单步任务（如只需生成 Golden） | 方式一（直接调用对应 Skill） |
+| 调试修复类任务 | 方式一（直接调用 `pypto-precision-debugger` 等） |
+
+---
+
 ## 工具兼容
 
 本项目支持多种 AI 编程工具，包括 [OpenCode](https://opencode.ai)、[Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview)、Cursor、Codex 等。
