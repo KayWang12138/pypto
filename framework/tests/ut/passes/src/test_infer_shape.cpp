@@ -689,5 +689,59 @@ TEST_F(InferShapeTest, TestIndexOutCast) {
     const auto& fromDynValidShape = indexOutCastOpAttribute->GetFromDynValidShape();
     EXPECT_NE(fromDynValidShape.size(), 0U);
 }
+
+TEST_F(InferShapeTest, TestIndexOutCastCopyOpNull) {
+    auto funPtr = std::make_shared<Function>(Program::GetInstance(), "TestIndexOutCast", "TestIndexOutCast", nullptr);
+    EXPECT_TRUE(funPtr != nullptr);
+
+    std::vector<int64_t> inputshap0 = {1, 1};
+    std::vector<int64_t> inputshap1 = {2, 2};
+    std::vector<int64_t> inputshap2 = {4, 4};
+    std::vector<int64_t> outputshape = {4, 4};
+
+    auto inputcast0 = std::make_shared<LogicalTensor>(*funPtr, DT_FP32, inputshap0);
+    inputcast0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto viewtmp0 = std::make_shared<LogicalTensor>(*funPtr, DT_FP32, inputshap0);
+    viewtmp0->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto inputcast1 = std::make_shared<LogicalTensor>(*funPtr, DT_FP32, inputshap1);
+    inputcast1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto viewtmp1 = std::make_shared<LogicalTensor>(*funPtr, DT_FP32, inputshap1);
+    viewtmp1->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto inputcast2 = std::make_shared<LogicalTensor>(*funPtr, DT_FP32, inputshap2);
+    std::vector<SymbolicScalar> validShapes = {SymbolicScalar("Input_0_Dim_0"), SymbolicScalar("Input_0_Dim_1")};
+    inputcast2->UpdateDynValidShape(validShapes);
+    inputcast2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto outputcast = std::make_shared<LogicalTensor>(*funPtr, DT_FP32, outputshape);
+    outputcast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+
+    auto &viewOpe0 = funPtr->AddOperation(Opcode::OP_VIEW, {inputcast0}, {viewtmp0});
+    auto &viewOpe1 = funPtr->AddOperation(Opcode::OP_VIEW, {inputcast1}, {viewtmp1});
+    auto &indexoutcastOpe = funPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {viewtmp0, viewtmp1, inputcast2}, {outputcast});
+
+    Offset offsetsOp = {0, 0};
+    auto viewOpeAtt0 = std::make_shared<ViewOpAttribute>(offsetsOp);
+    auto viewOpeAtt1 = std::make_shared<ViewOpAttribute>(offsetsOp);
+    viewOpe0.SetOpAttribute(viewOpeAtt0);
+    viewOpe1.SetOpAttribute(viewOpeAtt1);
+    auto indexoutcastOpAttr = std::make_shared<CopyOpAttribute>(
+        MemoryType::MEM_DEVICE_DDR,
+        OpImmediate::Specified(offsetsOp),
+        OpImmediate::Specified(inputshap1),
+        OpImmediate::Specified(inputcast2->tensor->GetDynRawShape()));
+    
+    funPtr->inCasts_.push_back(inputcast0);
+    funPtr->inCasts_.push_back(inputcast1);
+    funPtr->inCasts_.push_back(inputcast2);
+    funPtr->outCasts_.push_back(outputcast);
+
+    InferDynShape inferShapeTests;
+    inferShapeTests.RunOnFunction(*funPtr);
+    std::cout << funPtr->Dump() << std::endl;
+    EXPECT_NE(outputcast->GetDynValidShape().size(), 0);
+    EXPECT_EQ(inferShapeTests.PostCheck(*funPtr), SUCCESS);
+    auto indexOutCastOpAtt = std::dynamic_pointer_cast<CopyOpAttribute>(indexoutcastOpe.GetOpAttribute());
+    EXPECT_EQ(indexOutCastOpAtt, nullptr);
+}
 }
 }
