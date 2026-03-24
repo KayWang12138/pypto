@@ -133,9 +133,9 @@ std::string SymbolManager::AddTileTensor(const TileTensor &tileTensor) {
     // normal mode
     if (tileTensor.shapeInLoop.loopDepth == 0) {
         if (result.second) {
-            tileTensorByMagic_.insert({tileTensor.magic, tileTensor});
+            tileTensorByMagic_.insert({tileTensor.magic, std::cref(tileTensor)});
         } else {
-            tileTensorByMagic_.insert({tileTensor.magic, result.first->first});
+            tileTensorByMagic_.insert({tileTensor.magic, std::cref(result.first->first)});
         }
         CODEGEN_LOGI(
             "tileTensor_.insert result is %d Add TileTensor --> tensor magic: %d, tensor name: %s, tile tensor: %s",
@@ -145,33 +145,33 @@ std::string SymbolManager::AddTileTensor(const TileTensor &tileTensor) {
 
     // enable marking 'for' to optimize VF Fusing
     if (result.second) {
-        tileTensorByMagicInLoop_.insert({tileTensor.magic, tileTensor});
+        tileTensorByMagicInLoop_.insert({tileTensor.magic, std::cref(tileTensor)});
     } else {
-        tileTensorByMagicInLoop_.insert({tileTensor.magic, result.first->first});
+        tileTensorByMagicInLoop_.insert({tileTensor.magic, std::cref(result.first->first)});
     }
     CODEGEN_LOGI("tileTensor_.insert result is %d, tileTensor in loop insert tensor magic: %d, tensor name in loop: %s",
         result.second, tileTensor.magic, tensorName.c_str());
     return tensorName;
 }
 
-std::vector<TileTensor> SymbolManager::QueryTileTensorByMagic(int magic) {
+std::vector<const TileTensor *> SymbolManager::QueryTileTensorByMagic(int magic) {
     CODEGEN_LOGI("QueryTileTensorByMagic magic is %d", magic);
-    std::vector<TileTensor> res;
+    std::vector<const TileTensor *> res;
     auto [start, end] = tileTensorByMagic_.equal_range(magic);
     for (auto it = start; it != end; ++it) {
-        res.emplace_back(it->second);
+        res.emplace_back(&it->second.get());
     }
 
     ASSERT(GenCodeErr::TENSOR_NOT_FOUND, !res.empty()) << "tensor magic " << magic << " is not found !!! ";
     return res;
 }
 
-std::vector<TileTensor> SymbolManager::QueryTileTensorInLoopByMagic(int magic) {
+std::vector<const TileTensor *> SymbolManager::QueryTileTensorInLoopByMagic(int magic) {
     CODEGEN_LOGI("QueryTileTensorInLoopByMagic magic is %d", magic);
-    std::vector<TileTensor> res;
+    std::vector<const TileTensor *> res;
     auto [start, end] = tileTensorByMagicInLoop_.equal_range(magic);
     for (auto it = start; it != end; ++it) {
-        res.emplace_back(it->second);
+        res.emplace_back(&it->second.get());
     }
     return res;
 }
