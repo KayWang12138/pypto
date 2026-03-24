@@ -136,10 +136,10 @@ def bmm_kernel_with_no_mn_split(
 
 
 @pytest.mark.soc("950", "910")
-@pytest.mark.skip(reason="large test case")
 def test_mm_with_mn_split():
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     torch_npu.npu.config.allow_internal_format = True
+    torch.npu.set_device(int(device_id))
     m = 69
     k = 99
     n = 129
@@ -162,7 +162,6 @@ def test_mm_with_mn_split():
 
 
 @pytest.mark.soc("950", "910")
-@pytest.mark.skip(reason="large test case")
 def test_mm_with_mn_split_nz():
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     torch_npu.npu.config.allow_internal_format = True
@@ -193,9 +192,9 @@ def test_mm_with_mn_split_nz():
 
 
 @pytest.mark.soc("950", "910")
-@pytest.mark.skip(reason="large test case")
 def test_bmm_with_mn_split():
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    torch_npu.npu.config.allow_internal_format = True
     torch.npu.set_device(int(device_id))
     b = 3
     m = 63
