@@ -21,6 +21,7 @@
 
 namespace npu::tile_fwk {
 
+    
 std::vector<int64_t> BinaryOperationResultShape(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
     std::vector<int64_t> resultShape(operand1->shape.size());
     for (size_t i = 0; i < resultShape.size(); i++) {
