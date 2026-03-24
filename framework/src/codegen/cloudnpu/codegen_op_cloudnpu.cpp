@@ -692,7 +692,7 @@ std::string CodeGenOpCloudNPU::PrintCoord(size_t dim, const std::string &coord) 
 }
 
 TileTensor CodeGenOpCloudNPU::QueryTileTensorByIdx(int paramIdx) const {
-    std::vector<TileTensor> res;
+    std::vector<const TileTensor *> res;
     bool isInLoop = forBlkMgr_ != nullptr && forBlkMgr_->IsInLoop();
     if (isInLoop) {
         res = sm->QueryTileTensorInLoopByMagic(operandWithMagic[paramIdx]);
@@ -705,8 +705,8 @@ TileTensor CodeGenOpCloudNPU::QueryTileTensorByIdx(int paramIdx) const {
     }
 
     if (res.size() == 1) {
-        CODEGEN_LOGI("QueryTileTensorByIdx found: %s", res[0].tensorName.c_str());
-        return res[0];
+        CODEGEN_LOGI("QueryTileTensorByIdx found: %s", res[0]->tensorName.c_str());
+        return *res[0];
     }
     CODEGEN_LOGI("isInLoop: %d, paramIdx is %d, tensor magic is %d, res size is %zu", isInLoop, paramIdx,
         operandWithMagic[paramIdx], res.size());
@@ -718,11 +718,11 @@ TileTensor CodeGenOpCloudNPU::QueryTileTensorByIdx(int paramIdx) const {
 
     for (const auto &tileTensor : res) {
         CODEGEN_LOGI("isInLoop: %d, tileTensor.shapeInLoop.rawShape is %s, tileTensor.rawShape is %s", isInLoop,
-            IntVecToStr(tileTensor.shapeInLoop.rawShape).c_str(), IntVecToStr(tileTensor.rawShape).c_str());
+            IntVecToStr(tileTensor->shapeInLoop.rawShape).c_str(), IntVecToStr(tileTensor->rawShape).c_str());
         // Currently only support additional comparison of rawShape
-        if (tileTensor.rawShape == targetRawShape) {
-            CODEGEN_LOGI("QueryTileTensorNameByIdx found: %s", tileTensor.tensorName.c_str());
-            return tileTensor;
+        if (tileTensor->rawShape == targetRawShape) {
+            CODEGEN_LOGI("QueryTileTensorNameByIdx found: %s", tileTensor->tensorName.c_str());
+            return *tileTensor;
         }
     }
 
