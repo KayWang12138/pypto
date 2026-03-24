@@ -208,11 +208,7 @@ public:
     auto &GetFromDynOffset() { return fromDynOffset_; }
     void SetFromOffset(const Offset &fromOffset, const std::vector<SymbolicScalar> &fromDynOffset = {}) {
         fromOffset_ = fromOffset;
-        if (fromDynOffset.empty()) {
-            fromDynOffset_ = OpImmediate::ToSpecified(OpImmediate::Specified(fromOffset));
-        } else {
-            fromDynOffset_ = fromDynOffset;
-        }
+        fromDynOffset_ = fromDynOffset;
     }
 
     TensorOffset GetFromTensorOffset() const { return TensorOffset(fromOffset_, fromDynOffset_); }
