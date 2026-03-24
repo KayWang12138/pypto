@@ -136,17 +136,14 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillToGM(bool isLocalToGM, unsigned uf) 
 std::string CodeGenOpCloudNPU::GenL0CToUBTileTensor() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
-    // constructor call parameter ((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
-    std::string coordCp = WrapParamByParentheses(offset[ToUnderlying(MISOIdx::SRC0_IDX)]);
-    // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
-    std::string coord = PrintCoord(rawShape[ToUnderlying(MISOIdx::SRC0_IDX)].size(), coordCp);
+    auto [coordDst, coordSrc] = PrintDstSrcCoordFromAttr();
     std::string nzVar = "CopyOutMode::NZ2ND"; // current only support NZ2ND in L0C -> UB
     std::ostringstream oss;
     int64_t aivId = 0;
     GetAttr(OpAttributeKey::subBlockIdx, aivId);
     oss << tileOpName;
     oss << WrapParamByAngleBrackets({nzVar});
-    oss << WrapParamByParentheses({dstTensor, src0Tensor, coord, std::to_string(aivId)});
+    oss << WrapParamByParentheses({dstTensor, src0Tensor, coordDst, coordSrc, std::to_string(aivId)});
     oss << STMT_END;
     return oss.str();
 }
