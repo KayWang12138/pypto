@@ -79,7 +79,7 @@ custom/{op}/
 | `spec.md` | Stage 1 | Stage 2 | 算子名、计算语义、shape 约束 |
 | `spec.md` | Stage 1 | Stage 3 | 输入输出 tensor 描述（dtype/shape）、精度要求 |
 | `spec.md` | Stage 1 | Stage 4/5 | 算子名、计算语义、shape 约束、精度要求 |
-| `api_report.md` | Stage 2 | Stage 4 | API 映射表、约束清单、限制条件、可行性判定 |
+| `api_report.md` | Stage 2 | Stage 4 | API 映射表、约束清单、限制条件、可行性判定、参考实现信息 |
 | `{op}_golden.py` | Stage 3 | Stage 4/5/6 | 导出函数签名、输入输出 shape、计算逻辑参考 |
 | `design.md` | Stage 4 | Stage 5 | API 选型、tiling 策略、loop 结构、特殊处理 |
 | `{op}_impl.py` | Stage 5/6/7 | Stage 5/6/7 | PyPTO kernel 实现，导出 `{op}_wrapper()` |

@@ -66,6 +66,34 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 2. 读取具体 API 文档 `docs/api/operation/pypto-*.md` 获取参数和约束
 3. 未找到 → 标记 unsupported，尝试 substitute 方案
 
+### Stage 3.5: 参考实现搜索
+
+在 `models/` 和 `examples/` 目录中搜索与当前算子相关的官方示例，提取可复用的实现模式：
+
+> **⚠️ 注意：不要找到一个就停止**
+> - 必须遍历所有候选目录，收集**所有匹配的参考实现**
+> - 对多个候选进行对比评估，选择**最佳匹配**（相似度最高、置信度最高、可复用点最多）
+> - 若存在多个高质量参考，在报告中列出 Top 3，并说明推荐首选及理由
+
+**搜索目录**：
+排除`models/experimental/`，该目录为实验性算子实现，未充分验证，禁止参考
+
+| 目录 | 内容特征 | 搜索优先级 | 置信度 |
+|------|----------|------------|--------|
+| `models/`（排除 experimental） | 生产级模型算子实现（attention、matmul、moe 等） | **首选** | 高 |
+| `examples/02_intermediate/operators/` | 完整算子实现（如 softmax、activation） | 次选 | 高 |
+| `examples/03_advanced/patterns/` | 高级组合模式 | 参考 | 高 |
+
+**提取内容**：
+- API 实际调用方式和参数用法
+- Tiling 配置（tile shape 设置、分块策略）
+- Loop 结构（循环方式、边界处理）
+- 数据类型处理、cast 用法
+
+**输出**：
+- 找到匹配 → 记录路径、相似度、置信度、可复用点，写入报告「参考实现」章节
+- 未找到匹配 → 在报告中标注「无匹配参考实现」
+
 ### Stage 4: 约束探索
 
 三层验证：
@@ -97,6 +125,9 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 | `docs/api/config/pypto-set_vec_tile_shapes.md` | Vector Tiling | 条件 |
 | `docs/api/config/pypto-set_cube_tile_shapes.md` | Cube Tiling | 条件 |
 | `docs/api/datatype/` | DataType、TileOpFormat 枚举 | 参考 |
+| `models/`（排除 experimental） | 生产级模型算子实现 | **参考·首选** |
+| `examples/02_intermediate/operators/` | 完整算子参考实现 | 参考 |
+| `examples/03_advanced/patterns/` | 高级组合模式 | 参考 |
 
 ---
 
@@ -150,11 +181,12 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 
 验证 api_report.md 的门禁条件：
 1. 文件存在
-2. 以下 4 个章节存在且内容不为空：
+2. 以下 5 个章节存在且内容不为空：
    - `## 1. 概述`
    - `## 3. API 映射`
-   - `## 7. 证据索引`
-   - `## 8. 结论`
+   - `## 6. 参考实现`（可标注「无匹配」但不可缺失）
+   - `## 8. 证据索引`
+   - `## 9. 结论`
 
 ---
 
@@ -165,3 +197,4 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 | 输入无法解析 | 引导用户提供公式或代码 |
 | API 不存在 | 标记 unsupported，在风险中说明 |
 | 约束不满足 | 标记 ✗，在风险中给出替代方案 |
+| 无匹配参考实现 | 在「参考实现」章节标注「无匹配」，不阻断流程 |
