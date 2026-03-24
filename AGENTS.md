@@ -15,12 +15,12 @@
 ## Skills 索引
 
 #### 算子开发与编排
-- `pypto-operator-develop-workflow`：统筹算子开发流程，串联相关 skills 与关键检查点
+- `pypto-op-workflow`：统筹算子开发流程，串联相关 skills 与关键检查点
 - `pypto-intent-understanding`：将自然语言算子需求转化为结构化规格
 - `pypto-api-explorer`：探索 API 映射、约束条件与实现可行性
 - `pypto-golden-generator`：生成用于精度对比的 golden 参考实现
 - `pypto-op-design`：生成算子设计方案，明确数据切分、tiling 与 loop 结构
-- `pypto-op-develop`：依据规格与设计实现算子，并补齐测试与交付材料
+- `pypto-op-implement`：依据规格与设计实现算子，并补齐测试与交付材料
 
 #### 精度验证与调试
 - `pypto-precision-debugger`：定位并修复精度问题

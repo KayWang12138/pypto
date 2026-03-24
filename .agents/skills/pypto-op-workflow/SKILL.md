@@ -1,6 +1,6 @@
 ---
-name: pypto-operator-develop-workflow
-description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理器自定义算子。在接到算子开发任务时使用，确保开发过程规范、高效、符合官方最佳实践。
+name: pypto-op-workflow
+description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理器自定义算子。在接到算子开发任务时使用，确保开发过程规范、高效、符合官方最佳实践。Triggers: 开发算子、算子开发流程、全流程开发、算子开发工作流、operator workflow。
 tag: [PyPTO, 算子开发]
 ---
 
@@ -19,7 +19,7 @@ tag: [PyPTO, 算子开发]
 - 需求理解：调用 `pypto-intent-understanding` skill
 - Golden 参考实现：调用 `pypto-golden-generator` skill
 - 设计方案：调用 `pypto-op-design` skill
-- 算子实现：调用 `pypto-op-develop` skill（承载核心开发流程）
+- 算子实现：调用 `pypto-op-implement` skill（承载核心开发流程）
 - 精度调试：调用 `pypto-precision-debugger` skill
 - 性能分析：调用 `pypto-op-perf-analyzer` skill
 - 性能调优：调用 `pypto-op-perf-autotuner` skill
@@ -68,7 +68,7 @@ tag: [PyPTO, 算子开发]
 
 ### 阶段二：环境准备
 
-由 `pypto-op-develop` skill 的环境准备阶段处理。若遇到环境问题，优先调用 `pypto-environment-setup` skill。
+由 `pypto-op-implement` skill 的环境准备阶段处理。若遇到环境问题，优先调用 `pypto-environment-setup` skill。
 
 ### 阶段三：开发实现
 
@@ -78,14 +78,14 @@ tag: [PyPTO, 算子开发]
    - 主要输出件：`spec.md`、`{op}_golden.py`
 3. 调用 `pypto-op-design` skill 生成设计方案
    - 主要输出件：`design.md`
-4. 调用 `pypto-op-develop` skill 生成实现、测试和 README
+4. 调用 `pypto-op-implement` skill 生成实现、测试和 README
    - 主要输出件：`{op}_impl.py`、`test_{op}.py`、`README.md`
 
 ⚠️ 实现代码与测试代码分开。若 API 约束、tiling 策略或 loop 结构仍不清晰，先调用 `pypto-api-explorer` / `pypto-op-design` skill，不要直接硬写实现。
 
 ### 阶段四：测试验证
 
-由 `pypto-op-develop` skill 的测试验证阶段执行首次验证。
+由 `pypto-op-implement` skill 的测试验证阶段执行首次验证。
 
 如果运行通过但精度不满足预期，转入 `pypto-precision-debugger` skill 继续定位与修复。
 
@@ -93,7 +93,7 @@ tag: [PyPTO, 算子开发]
 
 ### 阶段五：高阶参数使能与性能调优 ⭐
 
-当阶段四保证算子基础版本正确后，由 `pypto-op-develop` skill 的高阶参数使能阶段处理 `loop_unroll`、stitch 参数等。
+当阶段四保证算子基础版本正确后，由 `pypto-op-implement` skill 的高阶参数使能阶段处理 `loop_unroll`、stitch 参数等。
 
 必须先调用 `pypto-op-perf-analyzer` skill 完成性能分析并获取实测性能数据，再调用 `pypto-op-perf-autotuner` skill 做调优与回验，并给出调优前后实测对比。
 

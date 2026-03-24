@@ -1,9 +1,9 @@
 ---
-name: pypto-op-develop
-description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需求规格、设计方案和参考实现，生成完整可运行的 PyPTO 算子实现与配套测试、文档。Triggers: 实现算子、写 kernel、编写实现、写 impl、算子编码、开始编码、code the op、写 test、生成测试、写实现代码、op develop、算子开发、kernel 实现。"
+name: pypto-op-implement
+description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需求规格、设计方案和参考实现，生成完整可运行的 PyPTO 算子实现与配套测试、文档。Triggers: 实现算子、写 kernel、编写实现、写 impl、算子编码、开始编码、code the op、写 test、生成测试、写实现代码、op implement、kernel 实现。"
 ---
 
-# PyPTO 算子开发
+# PyPTO 算子实现
 
 基于需求规格、设计方案和参考实现，完成从环境就绪到算子交付的全流程。
 
