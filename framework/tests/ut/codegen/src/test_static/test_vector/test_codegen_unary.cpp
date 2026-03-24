@@ -314,20 +314,8 @@ TEST_F(TestCodegenUnary, TestVecDupUnaligned) {
 
 TEST_F(TestCodegenUnary, TestRowMaxLine) {
     config::SetBuildStatic(true);
-
     std::vector<int64_t> shape = {2, 2, 64};
-    TileShape::Current().SetVecTile(shape);
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    Element scalaVal(DataType::DT_FP32, 1.0);
-
-    std::string funcName = "TestRowMaxLine";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function = GenMockFuncStatic("TestCVSyncBody", shape);
     auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
