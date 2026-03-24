@@ -172,7 +172,8 @@ Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor
     return dummy;
 }
 
-Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicType atomicType)
+Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicType atomicType,
+    const std::vector<int64_t>* effectiveSignalTrailingDims)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
@@ -182,6 +183,9 @@ Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicTyp
     distOpAttr.signalValue = 1;
     distOpAttr.atomicType = atomicType;
     distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
+    if (effectiveSignalTrailingDims && effectiveSignalTrailingDims->size() >= 2) {
+        distOpAttr.effectiveSignalTrailingDims = *effectiveSignalTrailingDims;
+    }
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
 }
@@ -225,7 +229,8 @@ Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType 
     return tempOutTile;
 }
 
-Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t expectedSum, bool resetSignal)
+Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t expectedSum, bool resetSignal,
+    const std::vector<int64_t>* effectiveSignalTrailingDims)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
@@ -234,6 +239,9 @@ Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t exp
     std::vector<int64_t> param = {static_cast<int64_t>(expectedSum), static_cast<int64_t>(SHMEM_SIGNAL_STRIDE), static_cast<int64_t>(resetSignal)};
     DistOpAttr distOpAttr;
     distOpAttr.aicpuOpParams = param;
+    if (effectiveSignalTrailingDims && effectiveSignalTrailingDims->size() >= 2) {
+        distOpAttr.effectiveSignalTrailingDims = *effectiveSignalTrailingDims;
+    }
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
 }
@@ -285,6 +293,8 @@ void CreateShmemSignal(const char* group, Tensor& shmemData, Tensor& shmemSignal
         BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
 }
 
+// Compact coarse signal domain: shape {W,W,1,1,1}. Per proposal Section 14.5,
+// logical bytes = 4*W*W; BindTensor reservation kept at 32768*W for compatibility.
 void CreateShmemSignalLight(const char* group, int64_t worldSize, Tensor& shmemSignal)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
@@ -298,6 +308,8 @@ void CreateShmemSignalLight(const char* group, int64_t worldSize, Tensor& shmemS
         BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
 }
 
+// Compact grouped signal domain: shape {W,W,1,S,1}. Per proposal Section 14,
+// S = ceil(C_payload/k); logical bytes = 4*W*W*S.
 void CreateShmemSignalGroupedLight(const char* group, int64_t worldSize, int64_t signalGroupCount,
     Tensor& shmemSignal)
 {

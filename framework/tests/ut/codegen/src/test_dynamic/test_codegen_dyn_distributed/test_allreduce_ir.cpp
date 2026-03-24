@@ -63,6 +63,26 @@ protected:
         }
     }
 
+    void CreateShmemDataAndSignalLight(DataType shmemDataType, const Shape& shmemDataShape,
+                                       Tensor& shmemData, Tensor& shmemSignal)
+    {
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(kGroup, kWorldSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignalLight(kGroup, kWorldSize, shmemSignal);
+        }
+    }
+
+    void CreateShmemDataAndSignalGroupedLight(DataType shmemDataType, const Shape& shmemDataShape,
+                                              uint32_t signalGroupCount, Tensor& shmemData, Tensor& shmemSignal)
+    {
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(kGroup, kWorldSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignalGroupedLight(kGroup, kWorldSize, signalGroupCount, shmemSignal);
+        }
+    }
+
     static DataType PromotedType(DataType dt)
     {
         if (dt == DT_BF16 || dt == DT_FP16) return DT_FP32;
@@ -249,6 +269,43 @@ TEST_F(AllReduceIRTest, V6LightPlusPull_IRStructure)
     VerifyOneShotCounts(CountShmemOps(ops), kWorldSize);
 }
 
+// Phase 3: effectiveSignalTrailingDims attribute path. Payload-mirrored signal shape
+// {1,1,1,kRow,kCol} with tile {32,64} would yield ceil(64/32)*ceil(256/64)=8 tiles per op
+// without the attribute; with effectiveSignalTrailingDims={1,1} expand uses 1x1 → 1 tile each.
+TEST_F(AllReduceIRTest, EffectiveSignalTrailingDims_AttributePath_TileCountOne)
+{
+    static const std::vector<int64_t> kEffectiveDims{1, 1};
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    Shape shmemDataShape{1, kRow, kCol};
+
+    FUNCTION("UT_IR_EFFECTIVE_SIGNAL_DIMS", {in}, {out}) {
+        TileShape::Current().SetVecTile({32, 64});  // smaller than dims → multiple tiles w/o attribute
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        Tensor pred = in;
+        for (uint32_t r = 0; r < kWorldSize; ++r) {
+            auto dataView = View(shmemData, {1, 1, kRow, kCol},
+                std::vector<SymbolicScalar>{static_cast<int64_t>(r), 0, 0, 0});
+            auto signalView = View(shmemSignal, {1, 1, 1, kRow, kCol},
+                std::vector<SymbolicScalar>{static_cast<int64_t>(r), static_cast<int64_t>(r), 0, 0, 0});
+            pred = ShmemSignal(ShmemPut(pred, in, dataView, AtomicType::ADD), signalView,
+                AtomicType::ADD, &kEffectiveDims);
+        }
+        auto signalView = View(shmemSignal, {1, 1, 1, kRow, kCol},
+            std::vector<SymbolicScalar>{GetHcclRankId(kGroup), GetHcclRankId(kGroup), 0, 0, 0});
+        auto waitToken = WaitUntil(pred, signalView, static_cast<int32_t>(kWorldSize), false, &kEffectiveDims);
+        auto dataLocal = View(shmemData, {1, 1, kRow, kCol},
+            std::vector<SymbolicScalar>{GetHcclRankId(kGroup), 0, 0, 0});
+        out = ShmemGet(waitToken, dataLocal, in.GetDataType());
+    }
+
+    auto ops = ExtractShmemOpcodes("UT_IR_EFFECTIVE_SIGNAL_DIMS");
+    auto c = CountShmemOps(ops);
+    EXPECT_EQ(c.signal, kWorldSize) << "Expected " << kWorldSize << " OP_SHMEM_SIGNAL ops (1 per Put)";
+    EXPECT_EQ(c.wait, 1u) << "effectiveSignalTrailingDims={1,1} should yield 1 OP_SHMEM_WAIT_UNTIL";
+}
+
 // v7 grouped signaling: validate IR op counts across k sweep.
 TEST_F(AllReduceIRTest, V7Grouped_IRStructure_KSweep)
 {
@@ -298,9 +355,9 @@ TEST_F(AllReduceIRTest, V7LightGrouped_IRStructure_KSweep)
         FUNCTION(tag.c_str(), {in}, {out}) {
             TileShape::Current().SetVecTile({kRow, kCol});
             Tensor shmemData, shmemSignal;
-            CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
             uint32_t signalGroupCount = (payloadChunkCount + k - 1) / k;
-            CreateShmemSignalGroupedLight(kGroup, kWorldSize, signalGroupCount, shmemSignal);
+            CreateShmemDataAndSignalGroupedLight(PromotedType(in.GetDataType()), shmemDataShape,
+                signalGroupCount, shmemData, shmemSignal);
             OneShotCommunicatorV3Light comm(kGroup, kWorldSize, shmemSignal, kRow, kCol, payloadChunkCount, k);
             OneShotAllReduce_v7_light(in, in, shmemData, comm);
             for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
@@ -431,9 +488,9 @@ TEST_F(AllReduceIRTest, V8LightSignalPlan_Contiguous_KSweep_IRStructure)
         FUNCTION(tag.c_str(), {in}, {out}) {
             TileShape::Current().SetVecTile({kRow, kCol});
             Tensor shmemData, shmemSignal;
-            CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
             OneShotSignalPlan plan(payloadChunkCount, k, SignalGroupingMode::CONTIGUOUS);
-            CreateShmemSignalGroupedLight(kGroup, kWorldSize, plan.SignalGroupCount(), shmemSignal);
+            CreateShmemDataAndSignalGroupedLight(PromotedType(in.GetDataType()), shmemDataShape,
+                plan.SignalGroupCount(), shmemData, shmemSignal);
             OneShotCommunicatorV4Light comm(kGroup, kWorldSize, shmemSignal, kRow, kCol, plan);
             OneShotAllReduce_v8_light(in, in, shmemData, comm);
             for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
@@ -502,8 +559,7 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
     FUNCTION("UT_EQUIV_V6_LIGHT", {inV6Light}, {outV6Light}) {
         TileShape::Current().SetVecTile({kRow, kCol});
         Tensor shmemData, shmemSignal;
-        CreateShmemTensors(PromotedType(inV6Light.GetDataType()), shmemDataShapeV6Light, shmemData, shmemSignal);
-        CreateShmemSignalLight(kGroup, kWorldSize, shmemSignal);
+        CreateShmemDataAndSignalLight(PromotedType(inV6Light.GetDataType()), shmemDataShapeV6Light, shmemData, shmemSignal);
         OneShotCommunicatorV2 comm(kGroup, kWorldSize, shmemSignal);
         OneShotAllReduce_v6_light(inV6Light, inV6Light, shmemData, comm);
         auto waitToken = comm.Wait(inV6Light);
@@ -644,6 +700,28 @@ protected:
         }
     }
 
+    void CreateShmemDataAndSignalLight(uint32_t worldSize, DataType shmemDataType,
+                                       const Shape& shmemDataShape,
+                                       Tensor& shmemData, Tensor& shmemSignal)
+    {
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(kGroup, worldSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignalLight(kGroup, worldSize, shmemSignal);
+        }
+    }
+
+    void CreateShmemDataAndSignalGroupedLight(uint32_t worldSize, DataType shmemDataType,
+                                              const Shape& shmemDataShape, uint32_t signalGroupCount,
+                                              Tensor& shmemData, Tensor& shmemSignal)
+    {
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(kGroup, worldSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignalGroupedLight(kGroup, worldSize, signalGroupCount, shmemSignal);
+        }
+    }
+
     static DataType PromotedType(DataType dt)
     {
         if (dt == DT_BF16 || dt == DT_FP16) return DT_FP32;
@@ -733,8 +811,7 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV6Light_IRStructure)
     FUNCTION(tag.c_str(), {in}, {out}) {
         TileShape::Current().SetVecTile({kRow, kCol});
         Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        CreateShmemSignalLight(kGroup, worldSize, shmemSignal);
+        CreateShmemDataAndSignalLight(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
         OneShotCommunicatorV2 comm(kGroup, worldSize, shmemSignal);
         OneShotAllReduce_v6_light(in, in, shmemData, comm);
         auto waitToken = comm.Wait(in);
@@ -804,9 +881,9 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV7LightGrouped_IRStructure)
     FUNCTION(tag.c_str(), {in}, {out}) {
         TileShape::Current().SetVecTile({kRow, kCol});
         Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
         uint32_t signalGroupCount = (payloadChunkCount + chunksPerSignal - 1) / chunksPerSignal;
-        CreateShmemSignalGroupedLight(kGroup, worldSize, signalGroupCount, shmemSignal);
+        CreateShmemDataAndSignalGroupedLight(worldSize, PromotedType(in.GetDataType()), shmemDataShape,
+            signalGroupCount, shmemData, shmemSignal);
         OneShotCommunicatorV3Light comm(kGroup, worldSize, shmemSignal, kRow, kCol, payloadChunkCount, chunksPerSignal);
         OneShotAllReduce_v7_light(in, in, shmemData, comm);
         for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
@@ -870,9 +947,9 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV8LightGrouped_IRStructure)
     FUNCTION(tag.c_str(), {in}, {out}) {
         TileShape::Current().SetVecTile({kRow, kCol});
         Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
         OneShotSignalPlan plan(payloadChunkCount, chunksPerSignal, SignalGroupingMode::CONTIGUOUS);
-        CreateShmemSignalGroupedLight(kGroup, worldSize, plan.SignalGroupCount(), shmemSignal);
+        CreateShmemDataAndSignalGroupedLight(worldSize, PromotedType(in.GetDataType()), shmemDataShape,
+            plan.SignalGroupCount(), shmemData, shmemSignal);
         OneShotCommunicatorV4Light comm(kGroup, worldSize, shmemSignal, kRow, kCol, plan);
         OneShotAllReduce_v8_light(in, in, shmemData, comm);
         for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {

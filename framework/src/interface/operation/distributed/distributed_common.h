@@ -90,6 +90,9 @@ public:
     int64_t rowShape{-1};
     int64_t tileRowShape;
     int64_t tileColShape;
+    // When size() >= 2, expand uses these for signal trailing dims instead of tensor shape.
+    // Enables compact semantics with payload-mirrored nominal shape (Phase 3 / Auto mode).
+    std::vector<int64_t> effectiveSignalTrailingDims;
 };
 
 inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE> &tile)
