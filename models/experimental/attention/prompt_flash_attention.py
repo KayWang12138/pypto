@@ -382,7 +382,8 @@ def gen_pfa_golden(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, atten_cfg:
     softmax_scale = atten_cfg.softmax_scale
     kv_actual_seqs = atten_cfg.kv_actual_seqs
 
-    atten_out = torch.zeros_like(q)
+    atten_out = torch.empty_like(q)
+    atten_out.fill_(0)
 
     # Compute attention for each batch, query position, and head
     for b_idx in range(b):
