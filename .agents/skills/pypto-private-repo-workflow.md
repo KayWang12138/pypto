@@ -361,3 +361,97 @@ export TILE_FWK_DEVICE_ID=<actual_device_id>
 3. **Python 版本**: 使用 Python 3
 4. **代码风格**: 遵循 PEP 8 规范
 5. **文档语言**: README.md 必须使用中文
+
+## 重要经验教训
+
+### 输入输出 Tensor 的数据类型和 Shape 确认
+
+在开发算子之前，**必须**明确以下信息，如果有任何不明确的地方，必须向用户确认：
+
+#### 必须确认的信息
+
+1. **输入 Tensor 的 Shape**
+   - 是二维 (m, n)？
+   - 是三维 (batch, seq_len, hidden_size)？
+   - 还是四维？
+   - 每个维度的含义是什么？
+
+2. **输入 Tensor 的数据类型**
+   - FP32 (pypto.DT_FP32, torch.float32)
+   - BF16 (pypto.DT_BF16, torch.bfloat16)
+   - FP16 (pypto.DT_FP16, torch.float16)
+   - 其他？
+
+3. **输出 Tensor 的 Shape**
+   - 与输入相同？
+   - 有变化？如何变化？
+
+4. **输出 Tensor 的数据类型**
+   - FP8E4M3 (pypto.DT_FP8_E4M3, torch.float8_e4m3fn)
+   - FP8E8M0 (pypto.DT_FP8_E8M0, torch.float8_e8m0fnu)
+   - 其他？
+
+5. **规约操作的规约轴**
+   - Per-token 量化：规约轴为 -1（最后一个维度）
+   - Per-channel 量化：规约轴为 -2（倒数第二个维度）
+   - 其他？
+
+6. **中间 Tensor 的 Shape 和数据类型**
+   - 如果有中间计算结果，它们的 shape 和 dtype 是什么？
+
+#### 常见的数据类型对应关系
+
+| PyPTO 类型 | Torch 类型 | 说明 |
+|-----------|-----------|------|
+| pypto.DT_FP32 | torch.float32 | 32位浮点 |
+| pypto.DT_BF16 | torch.bfloat16 | 16位脑浮点 |
+| pypto.DT_FP16 | torch.float16 | 16位浮点 |
+| pypto.DT_FP8_E4M3 | torch.float8_e4m3fn | FP8 E4M3 格式 |
+| pypto.DT_FP8_E8M0 | torch.float8_e8m0fnu | FP8 E8M0 格式 |
+
+#### 错误示例
+
+❌ **错误做法**：猜测输入输出的数据类型和 shape
+```python
+# 错误：假设输入是 FP32，输出是 FP8E4M3
+def quant_kernel(
+    x: pypto.Tensor([m, n], pypto.DT_FP32),  # 假设是 FP32
+    out: pypto.Tensor([m, n], pypto.DT_FP8_E4M3),  # 假设输出是 FP8E4M3
+):
+    ...
+```
+
+✅ **正确做法**：向用户确认后再实现
+```
+请确认以下信息：
+1. 输入 tensor 的数据类型是什么？（FP32/BF16/FP16/其他）
+2. 输入 tensor 的 shape 是什么？
+3. 输出 tensor 的数据类型是什么？
+4. 输出 tensor 的 shape 是什么？
+5. 如果有规约操作，规约轴是哪个？
+```
+
+#### 实际案例
+
+在 FP8E4M3 Per-Token 量化示例中，最初实现有错误：
+- ❌ 输入使用了 FP32，但实际应该是 BF16
+- ❌ scale 使用了 FP32，但实际应该是 FP8E8M0
+- ❌ set_vec_tile_shapes 使用了四维，但实际 tensor 是二维
+
+修正后：
+- ✅ 输入：BF16 (torch.bfloat16, pypto.DT_BF16)
+- ✅ 输出量化：FP8E4M3 (torch.float8_e4m3fn, pypto.DT_FP8_E4M3)
+- ✅ 输出 scale：FP8E8M0 (torch.float8_e8m0fnu, pypto.DT_FP8_E8M0)
+- ✅ set_vec_tile_shapes 使用二维 shape (m, n, 1, 1)
+
+#### 检查清单
+
+在开始实现算子之前，确保已经明确：
+
+- [ ] 输入 tensor 的 shape
+- [ ] 输入 tensor 的数据类型（PyPTO 和 Torch）
+- [ ] 输出 tensor 的 shape
+- [ ] 输出 tensor 的数据类型（PyPTO 和 Torch）
+- [ ] 如果有规约操作，规约轴是哪个
+- [ ] 中间 tensor 的 shape 和数据类型（如果有）
+- [ ] set_vec_tile_shapes 的参数是否与 tensor shape 匹配

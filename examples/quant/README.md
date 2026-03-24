@@ -19,10 +19,29 @@ FP8E4M3 是一种 8 位浮点格式：
 - 4 位指数位
 - 3 位尾数位
 
+### FP8E8M0 格式
+FP8E8M0 是一种 8 位纯指数格式：
+- 1 位符号位
+- 8 位指数位
+- 0 位尾数位
+
 ### Per-Token 量化流程
-1. 对每个 token 计算绝对值的最大值作为 scale
+1. 对每个 token 计算绝对值的最大值作为 scale（规约轴为 -1）
 2. 将输入数据除以对应的 scale 进行归一化
 3. 将归一化后的数据转换为 FP8E4M3 格式
+4. 将 scale 转换为 FP8E8M0 格式
+
+## 数据类型和形状
+
+### 输入
+- **类型**: BF16 (torch.bfloat16, pypto.DT_BF16)
+- **形状**: (m, n) 二维张量
+
+### 输出
+- **量化输出**: FP8E4M3 (torch.float8_e4m3fn, pypto.DT_FP8_E4M3)
+  - **形状**: (m, n) 二维张量
+- **Scale 输出**: FP8E8M0 (torch.float8_e8m0fnu, pypto.DT_FP8_E8M0)
+  - **形状**: (m, 1) 二维张量
 
 ## 代码结构
 
@@ -65,26 +84,33 @@ python3 fp8e4m3_per_token_quant.py --list
 ```python
 @pypto.frontend.jit(runtime_options={"run_mode": mode})
 def quant_kernel(
-    x: pypto.Tensor([tokens, hidden_size], pypto.DT_FP32),
-    scale: pypto.Tensor([tokens, 1], pypto.DT_FP32),
-    out: pypto.Tensor([tokens, hidden_size], pypto.DT_FP8_E4M3),
+    x: pypto.Tensor([m, n], pypto.DT_BF16),
+    out_quant: pypto.Tensor([m, n], pypto.DT_FP8_E4M3),
+    out_scale: pypto.Tensor([m, 1], pypto.DT_FP8_E8M0),
 ):
-    pypto.set_vec_tile_shapes(tokens, hidden_size, 1, 1)
-    out[:] = x / scale
+    pypto.set_vec_tile_shapes(m, n, 1, 1)
+    
+    x_abs = pypto.abs(x)
+    scale = pypto.max(x_abs, axis=1, keepdims=True)
+    scale = pypto.maximum(scale, 1e-6)
+    
+    out_scale[:] = scale
+    out_quant[:] = x / scale
 ```
 
 ### Golden 实现
 Golden 实现在 CPU 上执行相同的计算流程，用于验证 NPU 上的结果正确性：
-1. 计算每个 token 的最大绝对值作为 scale
+1. 计算每个 token 的最大绝对值作为 scale（沿 axis=1 规约）
 2. 归一化输入数据
 3. 转换为 FP8E4M3 格式
+4. 将 scale 转换为 FP8E8M0 格式
 
 ## 测试结果
 
 示例会输出：
-- 输入张量的形状
-- 输出张量的形状
-- Scale 张量的形状
+- 输入张量的形状和数据类型
+- 量化输出张量的形状和数据类型
+- Scale 输出张量的形状和数据类型
 - 反量化后的最大误差
 - 反量化后的平均误差
 
@@ -92,12 +118,14 @@ Golden 实现在 CPU 上执行相同的计算流程，用于验证 NPU 上的结
 
 - FP8E4M3 量化会引入一定的精度损失，这是正常的
 - Per-token 量化比 per-tensor 量化能更好地保持数值精度
+- Per-token 量化的规约轴为 -1（最后一个维度）
+- Per-channel 量化的规约轴为 -2（倒数第二个维度）
 - 本示例使用相对误差 1e-2 和绝对误差 1e-2 作为验证标准
 - 在实际应用中，可能需要根据具体场景调整精度容忍度
 
 ## 扩展建议
 
-- 可以扩展支持 per-channel 量化
+- 可以扩展支持 per-channel 量化（规约轴为 -2）
 - 可以添加不同的量化策略（如对称量化、非对称量化）
 - 可以实现反量化算子
 - 可以添加性能测试和基准对比

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # coding: utf-8
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
-# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# This program is free software, you can redistribute it and/or modify it under terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
-# Please refer to the License for details. You may not use this file except in compliance with the License.
+# Please refer to License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
@@ -13,6 +13,9 @@ FP8E4M3 Per-Token Quantization Example for PyPTO
 
 This example demonstrates per-token quantization to FP8E4M3 format.
 Per-token quantization computes a scale for each token (row) independently.
+
+Input: BF16 tensor of shape (m, n)
+Output: FP8E4M3 quantized tensor of shape (m, n) and FP8E8M0 scale tensor of shape (m, 1)
 """
 import os
 import sys
@@ -50,7 +53,7 @@ def create_quant_kernel(shape: tuple, run_mode: str = "npu"):
     Create per-token FP8E4M3 quantization kernel.
     
     Args:
-        shape: Input tensor shape (tokens, hidden_size)
+        shape: Input tensor shape (m, n)
         run_mode: Run mode (npu or sim)
     
     Returns:
@@ -63,21 +66,24 @@ def create_quant_kernel(shape: tuple, run_mode: str = "npu"):
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
-    tokens, hidden_size = shape
+    m, n = shape
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def quant_kernel(
-        x: pypto.Tensor([tokens, hidden_size], pypto.DT_FP32),
-        scale: pypto.Tensor([tokens, 1], pypto.DT_FP32),
-        out: pypto.Tensor([tokens, hidden_size], pypto.DT_FP8_E4M3),
+        x: pypto.Tensor([m, n], pypto.DT_BF16),
+        out_quant: pypto.Tensor([m, n], pypto.DT_FP8_E4M3),
+        out_scale: pypto.Tensor([m, 1], pypto.DT_FP8_E8M0),
     ):
-        pypto.set_vec_tile_shapes(tokens, hidden_size, 1, 1)
-        out[:] = x / scale
+        pypto.set_vec_tile_shapes(m, n, 1, 1)
+        
+        x_abs = pypto.abs(x)
+        scale = pypto.max(x_abs, axis=1, keepdims=True)
+        scale = pypto.maximum(scale, 1e-6)
+        
+        out_scale[:] = scale
+        out_quant[:] = x / scale
 
     return quant_kernel
-
-
-
 
 
 def golden_per_token_quantize(x: torch.Tensor) -> tuple:
@@ -85,14 +91,14 @@ def golden_per_token_quantize(x: torch.Tensor) -> tuple:
     Golden reference implementation of per-token FP8E4M3 quantization.
     
     Args:
-        x: Input tensor of shape (tokens, hidden_size)
+        x: Input tensor of shape (m, n) with dtype torch.bfloat16
     
     Returns:
         tuple: (quantized_tensor, scale)
-            - quantized_tensor: Quantized tensor in FP8 format
-            - scale: Scale tensor of shape (tokens, 1)
+            - quantized_tensor: Quantized tensor in FP8E4M3 format, shape (m, n)
+            - scale: Scale tensor in FP8E8M0 format, shape (m, 1)
     """
-    tokens, hidden_size = x.shape
+    m, n = x.shape
     
     x_abs = torch.abs(x)
     scale = torch.max(x_abs, dim=1, keepdim=True)[0]
@@ -102,8 +108,9 @@ def golden_per_token_quantize(x: torch.Tensor) -> tuple:
     x_scaled = x / scale
     
     quantized = x_scaled.to(torch.float8_e4m3fn)
+    scale_fp8 = scale.to(torch.float8_e8m0fnu)
     
-    return quantized, scale
+    return quantized, scale_fp8
 
 
 def test_per_token_quantize(device_id=None, run_mode: str = "npu") -> None:
@@ -117,22 +124,21 @@ def test_per_token_quantize(device_id=None, run_mode: str = "npu") -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     shape = (16, 128)
     
-    input_data = torch.randn(shape, dtype=torch.float32, device=device)
+    input_data = torch.randn(shape, dtype=torch.bfloat16, device=device)
     
     golden_quantized, golden_scale = golden_per_token_quantize(input_data)
     
-    scale = torch.empty((shape[0], 1), dtype=torch.float32, device=device)
-    output_data = torch.empty(shape, dtype=torch.float8_e4m3fn, device=device)
+    output_quant = torch.empty(shape, dtype=torch.float8_e4m3fn, device=device)
+    output_scale = torch.empty((shape[0], 1), dtype=torch.float8_e8m0fnu, device=device)
     
-    scale[:] = golden_scale
-    create_quant_kernel(shape, run_mode)(input_data, scale, output_data)
+    create_quant_kernel(shape, run_mode)(input_data, output_quant, output_scale)
     
-    print(f"Input shape: {input_data.shape}")
-    print(f"Output shape: {output_data.shape}")
-    print(f"Scale shape: {scale.shape}")
+    print(f"Input shape: {input_data.shape}, dtype: {input_data.dtype}")
+    print(f"Output quant shape: {output_quant.shape}, dtype: {output_quant.dtype}")
+    print(f"Output scale shape: {output_scale.shape}, dtype: {output_scale.dtype}")
     
-    dequant_output = output_data.to(torch.float32) * scale
-    dequant_golden = golden_quantized.to(torch.float32) * golden_scale
+    dequant_output = output_quant.to(torch.float32) * output_scale.to(torch.float32)
+    dequant_golden = golden_quantized.to(torch.float32) * golden_scale.to(torch.float32)
     
     max_diff = torch.max(torch.abs(dequant_output.cpu() - dequant_golden.cpu())).item()
     mean_diff = torch.mean(torch.abs(dequant_output.cpu() - dequant_golden.cpu())).item()
@@ -212,7 +218,7 @@ Examples:
             sys.exit(1)
 
     print("\n" + "=" * 60)
-    print("PyPTO FP8E4M3 Per-Token Quantization Example")
+    print("PyPTO FP8E44M3 Per-Token Quantization Example")
     print("=" * 60 + "\n")
 
     device_id = None
