@@ -25,15 +25,8 @@
 
 // device switch head file begin
 namespace npu::tile_fwk {
-#define PERF_PMU_TEST_SWITCH 0
-
 #define DEBUG_SWITCH 0
 
-/* The DFX swimlane performance statistics use host pre-allocated memory mode, which avoids data collection during
-   AICPU scheduling to minimize scheduling interference. However, each AICore only supports tracking up to
-   MAX_DFX_TASK_NUM_PER_CORE tasks, with excess tasks being discarded.
-*/
-#define PROF_DFX_HOST_PREPARE_MEMORY_MODE 1
 __gm__ static bool g_is_open_dump_perf_trace_data = false;
 }
 // device switch head file end
@@ -196,7 +189,6 @@ INLINE void SetTaskStatistic(__gm__ KernelArgs *args, int32_t& dfxPose,
 
 INLINE void AddMetricStatistic(ExecuteContext *ctx, uint32_t seqNo, uint32_t taskId, int32_t subGraphId, int64_t t1) {
     UNUSED(ctx); UNUSED(seqNo); UNUSED(taskId); UNUSED(subGraphId); UNUSED(t1);
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE
     auto m = (__gm__ Metrics*)(ctx->args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     if (m && m->taskCount < MAX_DFX_TASK_NUM_PER_CORE) {
         m->tasks[m->taskCount].subGraphId = subGraphId;
@@ -207,7 +199,14 @@ INLINE void AddMetricStatistic(ExecuteContext *ctx, uint32_t seqNo, uint32_t tas
         m->tasks[m->taskCount].execEnd = ctx->lastTaskFinishCycle;
         m->taskCount++;
     }
-#endif
+}
+
+INLINE bool RuntimeFlagEnabled(const __gm__ KernelArgs *args, uint32_t flag) {
+    return (static_cast<uint32_t>(args->taskEntry.reserved2[0]) & flag) != 0;
+}
+
+INLINE bool UseHostDfxMetrics(const __gm__ KernelArgs *args) {
+    return !RuntimeFlagEnabled(args, AICORE_RUNTIME_FLAG_DISABLE_HOST_DFX_METRICS);
 }
 
 INLINE void FlushMetricStatistic(__gm__ volatile KernelArgs* args) {
@@ -276,20 +275,16 @@ INLINE uint64_t GetCoreFuncionData(__gm__ KernelArgs *args, int64_t lastFunc) {
 
 INLINE void PmuTestBegin(__gm__ KernelArgs *args) {
     UNUSED(args);
-#if PERF_PMU_TEST_SWITCH
     if (args->taskEntry.reserved[0] == PRO_LEVEL2) {
         set_ctrl((uint64_t) get_ctrl() | 0x1);
     }
-#endif
 }
 
 INLINE void PmuTestEnd(__gm__ KernelArgs *args) {
     UNUSED(args);
-#if PERF_PMU_TEST_SWITCH
-        if (args->taskEntry.reserved[0] == PRO_LEVEL2) {
-            set_ctrl((uint64_t) get_ctrl() - 1);
-        }
-#endif
+    if (args->taskEntry.reserved[0] == PRO_LEVEL2) {
+        set_ctrl((uint64_t) get_ctrl() - 1);
+    }
 }
 
 #define FuncNum(id)      TaskID(id)
@@ -311,16 +306,18 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
     PipeSync();
     SetStatus(ctx->args, STAGE_FINISH_PIPE_SYNC);
     if (unlikely(ctx->args->taskEntry.reserved[0] == PRO_LEVEL2 || ctx->args->taskEntry.reserved[0] == PRO_LEVEL1)) {
-        AddMetricStatistic(ctx, ctx->seqNo, taskId, opAttrs[0], t1);
+        if (UseHostDfxMetrics(ctx->args)) {
+            AddMetricStatistic(ctx, ctx->seqNo, taskId, opAttrs[0], t1);
+        }
     }
     if (unlikely(npu::tile_fwk::g_is_open_dump_perf_trace_data)) {
         ctx->lastTaskFinishCycle = get_sys_cnt();
     }
 
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
-    static int32_t taskDfxPos = REG_LOW_TASK_PING;
-    SetTaskStatistic(ctx->args, taskDfxPos, taskId, opAttrs[0], t1, ctx->seqNo);
-#endif
+    if (!UseHostDfxMetrics(ctx->args)) {
+        static int32_t taskDfxPos = REG_LOW_TASK_PING;
+        SetTaskStatistic(ctx->args, taskDfxPos, taskId, opAttrs[0], t1, ctx->seqNo);
+    }
 }
 #endif
 
