@@ -345,16 +345,16 @@ private:
         }
         
         uint32_t ready = GetReadyCoreNum(type);
-        uint32_t newReady = availableCoreQueue_[(int)type]->wasSize() + pendingCoreQueue_[(int)type]->wasSize();
+        // uint32_t ready = availableCoreQueue_[(int)type]->wasSize() + pendingCoreQueue_[(int)type]->wasSize();
 
         if (ready == 0 ) {
             return 0;
         }
 
-        if (newReady != ready)
-        {
-            // DEV_ERROR(0, "[AICPU %d] Ready: %u, NewRedy: %u (%lu + %lu)", aicpuIdx_, ready, newReady, availableCoreQueue_[(int)type]->wasSize(), pendingCoreQueue_[(int)type]->wasSize());
-        }
+        // if (aicpuIdx_ == 1) if (type == CoreType::AIV) if (newReady != ready)
+        // {
+        //     DEV_ERROR(0, "[AICPU %d] Ready: %u, NewRedy: %u (%lu + %lu)", aicpuIdx_, ready, newReady, availableCoreQueue_[(int)type]->wasSize(), pendingCoreQueue_[(int)type]->wasSize());
+        // }
 
         ReadyQueueLock(readyQue);
         uint32_t head = readyQue->head;
@@ -372,16 +372,18 @@ private:
         const int typeIdx = (int)type;
         uint32_t coreRunReadyCnt = context_->coreRunReadyCnt_[typeIdx];
         
+                
         while (sendCnt < coreRunReadyCnt && sendCnt < taskCount)
         {
             uint32_t coreIdx = context_->coreRunReadyCnt_[typeIdx] - 1;
             uint32_t coreId = context_->runReadyCoreIdx_[typeIdx][coreIdx];
             SendTaskToAiCore(type, coreId, newTask[sendCnt]);
             context_->coreRunReadyCnt_[typeIdx]--;
-            availableCoreQueue_[typeIdx]->pop();
+            runningCoreQueue_[(int)type]->push(coreId);
             sendCnt++;
         }
         context_->corePendReadyCnt_[typeIdx] -= sendCnt;
+        // for (size_t i = 0; i < sendCnt; i++) availableCoreQueue_[typeIdx]->pop();
 
         uint32_t idx = coreIdxStart;
         uint32_t coreNum = coreIdxEnd - coreIdxStart;
@@ -390,7 +392,7 @@ private:
                 SendTaskToAiCore(type, idx, newTask[sendCnt]);
                 sendCnt++;
                 context_->corePendReadyCnt_[typeIdx]--;
-                pendingCoreQueue_[typeIdx]->pop();
+                // availableCoreQueue_[typeIdx]->pop();
             }
             idx = coreIdxStart + (idx - coreIdxStart + 1) % coreNum;
         }
@@ -418,11 +420,14 @@ private:
         ReadyQueueUnLock(readyQue);
     }
     
-    inline void ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd) {
-        for (int i = coreIdxStart; i < coreIdxEnd; i++) {
-            if ((aicoreRunningTaskIds_[i] != aicoreNullTask || aicorePendingTaskIds_[i] != aicoreNullTask)) {
-                ResolveByRegVal(type, i);
-            }
+    inline void ResolveDepForAllAiCore(CoreType type, [[maybe_unused]] int coreIdxStart, [[maybe_unused]] int coreIdxEnd) {
+
+        size_t runningCoreCount = runningCoreQueue_[(int)type]->wasSize();
+        for (size_t i = 0; i < runningCoreCount; i++)
+        {
+            const auto coreIdx = runningCoreQueue_[(int)type]->pop();
+            if (coreIdx == aicoreNullCore) return;
+            ResolveByRegVal(type, coreIdx);
         }
 
         BatchPushReadyQueue();
@@ -460,10 +465,11 @@ private:
 
             context_->runReadyCoreIdx_[(int)type][context_->coreRunReadyCnt_[(int)type]++] = coreIdx;
             context_->corePendReadyCnt_[(int)type]++;
-            availableCoreQueue_[(int)type]->push(coreIdx);
+            // availableCoreQueue_[(int)type]->push(coreIdx);
 
             if (runningTaskId != aicoreNullTask) processFinishedTask(type, runningTaskId);
             processFinishedTask(type, pendingTaskId);
+            return;
         }
         
         if (finTaskId == pendingTaskId && finTaskState == TASK_ACK_STATE) {
@@ -471,9 +477,11 @@ private:
             aicoreRunningTaskIds_[coreIdx] = pendingTaskId;
             aicorePendingTaskIds_[coreIdx] = aicoreNullTask; // processFinishedTask depend this line
             context_->corePendReadyCnt_[(int)type]++;
-            pendingCoreQueue_[(int)type]->push(coreIdx);
+            // availableCoreQueue_[(int)type]->push(coreIdx);
+            runningCoreQueue_[(int)type]->push(coreIdx);
 
             if (runningTaskId != aicoreNullTask) processFinishedTask(type, runningTaskId);
+            return;
         }
         
         if (finTaskId == runningTaskId && finTaskState == TASK_FIN_STATE) {
@@ -483,10 +491,16 @@ private:
             if (pendingTaskId == aicoreNullTask)
             {
               context_->runReadyCoreIdx_[(int)type][context_->coreRunReadyCnt_[(int)type]++] = coreIdx;
-              availableCoreQueue_[(int)type]->push(coreIdx);
-            } 
+            }
+            else
+            {
+                runningCoreQueue_[(int)type]->push(coreIdx);
+            }
             processFinishedTask(type, runningTaskId);
+            return;
         }
+
+        runningCoreQueue_[(int)type]->push(coreIdx);
     }
 
     inline void PushReadyTask(int coreType, uint64_t taskId) {
