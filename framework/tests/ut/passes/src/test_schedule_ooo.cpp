@@ -343,7 +343,7 @@ TEST_F(ScheduleOoOTest, TestSpillCopyIn) {
     Status res = sort.SortOps();
     EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.Init(sort.operations);
+    res = ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
@@ -370,7 +370,7 @@ TEST_F(ScheduleOoOTest, TestSpill) {
     Status res = sort.SortOps();
     EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.Init(sort.operations);
+    res = ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
@@ -407,7 +407,7 @@ TEST_F(ScheduleOoOTest, TestSpillInplace) {
     Status res = sort.SortOps();
     EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.Init(sort.operations);
+    res = ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     std::rotate(ooOScheduler.orderedOps.begin(), ooOScheduler.orderedOps.begin() + 6, ooOScheduler.orderedOps.begin() + 11);
     res = ooOScheduler.GenSpillSchedule();
@@ -452,7 +452,7 @@ TEST_F(ScheduleOoOTest, TestSpillMultiTensor) {
     Status res = sort.SortOps();
     EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.Init(sort.operations);
+    res = ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
@@ -486,7 +486,7 @@ TEST_F(ScheduleOoOTest, TestSpillView) {
     Status res = sort.SortOps();
     EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.Init(sort.operations);
+    res = ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
@@ -563,7 +563,7 @@ TEST_F(ScheduleOoOTest, TestSpillAssemble) {
     Status res = sort.SortOps();
     EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.Init(sort.operations);
+    res = ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
@@ -632,12 +632,12 @@ TEST_F(ScheduleOoOTest, TestScheduleInplace) {
     EXPECT_NE(add1, nullptr);
     Operation* add3 = subGraph.GetOp("Add3");
     EXPECT_NE(add3, nullptr);
-    EXPECT_EQ(copyin->oOperand[0]->memoryrange.start, 16384);
-    EXPECT_EQ(copyin->oOperand[0]->memoryrange.end, 32768);
-    EXPECT_EQ(add1->oOperand[0]->memoryrange.start, 16384);
-    EXPECT_EQ(add1->oOperand[0]->memoryrange.end, 32768);
-    EXPECT_EQ(add3->oOperand[0]->memoryrange.start, 16384);
-    EXPECT_EQ(add3->oOperand[0]->memoryrange.end, 32768);
+    EXPECT_EQ(copyin->oOperand[0]->memoryrange.start, 49152);
+    EXPECT_EQ(copyin->oOperand[0]->memoryrange.end, 65536);
+    EXPECT_EQ(add1->oOperand[0]->memoryrange.start, 49152);
+    EXPECT_EQ(add1->oOperand[0]->memoryrange.end, 65536);
+    EXPECT_EQ(add3->oOperand[0]->memoryrange.start, 49152);
+    EXPECT_EQ(add3->oOperand[0]->memoryrange.end, 65536);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleView) {
@@ -726,14 +726,14 @@ TEST_F(ScheduleOoOTest, TestScheduleAssemble) {
     EXPECT_NE(assemble1, nullptr);
     Operation* assemble2 = subGraph.GetOp("Assemble2");
     EXPECT_NE(assemble2, nullptr);
-    EXPECT_EQ(copyin1->oOperand[0]->memoryrange.start, 32768);
-    EXPECT_EQ(copyin1->oOperand[0]->memoryrange.end, 49152);
-    EXPECT_EQ(copyin2->oOperand[0]->memoryrange.start, 32768);
-    EXPECT_EQ(copyin2->oOperand[0]->memoryrange.end, 49152);
-    EXPECT_EQ(assemble1->oOperand[0]->memoryrange.start, 32768);
-    EXPECT_EQ(assemble1->oOperand[0]->memoryrange.end, 49152);
-    EXPECT_EQ(assemble2->oOperand[0]->memoryrange.start, 32768);
-    EXPECT_EQ(assemble2->oOperand[0]->memoryrange.end, 49152);
+    EXPECT_EQ(copyin1->oOperand[0]->memoryrange.start, 0);
+    EXPECT_EQ(copyin1->oOperand[0]->memoryrange.end, 16384);
+    EXPECT_EQ(copyin2->oOperand[0]->memoryrange.start, 0);
+    EXPECT_EQ(copyin2->oOperand[0]->memoryrange.end, 16384);
+    EXPECT_EQ(assemble1->oOperand[0]->memoryrange.start, 0);
+    EXPECT_EQ(assemble1->oOperand[0]->memoryrange.end, 16384);
+    EXPECT_EQ(assemble2->oOperand[0]->memoryrange.start, 0);
+    EXPECT_EQ(assemble2->oOperand[0]->memoryrange.end, 16384);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleSpillCopyIn) {
@@ -755,7 +755,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillCopyIn) {
     Status res = sort.SortOps();
     EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.Init(sort.operations);
+    res = ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.ScheduleMainLoop();
     EXPECT_EQ(res, SUCCESS);
@@ -786,7 +786,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpill) {
     Status res = sort.SortOps();
     EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    ooOScheduler.Init(sort.operations);
+    res = ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.ScheduleMainLoop();
     EXPECT_EQ(res, SUCCESS);
@@ -825,8 +825,11 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillInplace) {
     tensor2->memoryrange.memId =
         subGraph.GetTensor("t5")->memoryrange.memId;
 
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
     OoOScheduler ooOScheduler(*function);
-    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    res = ooOScheduler.Init(sort.operations);
     EXPECT_EQ(res, SUCCESS);
     std::rotate(ooOScheduler.orderedOps.begin(), ooOScheduler.orderedOps.begin() + 6, ooOScheduler.orderedOps.begin() + 11);
     res = ooOScheduler.ScheduleMainLoop();
@@ -2116,7 +2119,7 @@ TEST_F(ScheduleOoOTest, TestCreateSpillCopyout) {
     Status res = sort.SortOps();
     EXPECT_EQ(res, SUCCESS);
     OoOScheduler oooSchedule(*function);
-    oooSchedule.Init(sort.operations);
+    res = oooSchedule.Init(sort.operations);
     Operation* l0cCopyL1 = subGraph.GetOp("L0C_L1");
     Operation* copyIn = subGraph.GetOp("copy_in");
     Element scaleValue = Element(DataType::DT_UINT64, 0);
