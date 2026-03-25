@@ -178,6 +178,9 @@ Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
             if (opcfg.pipeIdStart_ != PipeType::PIPE_V) {
                 continue;
             }
+            if (op->HasAttr(OpAttributeKey::isCube) && op->GetBoolAttribute(OpAttributeKey::isCube)) {
+                continue;
+            }
             // 假定：pipe_V的op的AIV类型只能是AIV0或AIV1
             if (op->GetAIVCore() != AIVCore::AIV0 && op->GetAIVCore() != AIVCore::AIV1) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Pipe_V op %d %s AIV type is neither AIV0 nor AIV1, RunOnFunction failed.", op->GetOpMagic(), op->GetOpcodeStr().c_str());
