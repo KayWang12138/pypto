@@ -474,7 +474,6 @@ private:
 
             if (finTaskState == TASK_ACK_STATE)
             {
-                DEV_ERROR(0, "Ack core %lu", coreId);
                 freeBCoreQueue_[(int)type]->push(pair);
                 return;
             }
