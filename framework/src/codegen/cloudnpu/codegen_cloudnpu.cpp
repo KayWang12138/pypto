@@ -658,12 +658,12 @@ void FloatSpecValMgr::UpdateByOp(const Operation &op) {
     }
 
     for (const auto &e : eles) {
-        if (e.GetDataType() != DataType::DT_FP16 && e.GetDataType() != DataType::DT_FP32) {
-            continue;
-        }
-        double value = e.Cast<float>();
-        if (std::isinf(value) || std::isnan(value)) {
-            floatSpecVals_.insert({e.GetDataType(), value});
+        if (e.GetDataType() == DataType::DT_FP16 || e.GetDataType() == DataType::DT_FP32 ||
+            e.GetDataType() == DataType::DT_BF16) {
+            double value = e.Cast<float>();
+            if (std::isinf(value) || std::isnan(value)) {
+                floatSpecVals_.insert({e.GetDataType(), value});
+            }
         }
     }
 }
