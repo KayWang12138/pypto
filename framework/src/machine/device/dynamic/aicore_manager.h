@@ -333,7 +333,7 @@ private:
     };
 
     inline uint32_t GetReadyCoreNum(CoreType type) {
-        return freeACoreQueue_[(int)type]->wasSize();
+        return freeACoreQueue_[(int)type]->wasSize() + freeBCoreQueue_[(int)type]->wasSize();
     }
 
     inline uint64_t TryBatchSendTask(CoreType type, ReadyCoreFunctionQueue* readyQue)
@@ -369,6 +369,15 @@ private:
             SendTaskToAiCore(type, coreId, newTask[sendCnt]);
             auto pair = encodePair(coreId, newTask[sendCnt]);
             busyACoreQueue_[(int)type]->push(pair);
+            sendCnt++;
+        }
+
+        while (sendCnt < taskCount)
+        {
+            auto pair = freeBCoreQueue_[(int)type]->pop();
+            auto coreId = decodePairCore(pair);
+            SendTaskToAiCore(type, coreId, newTask[sendCnt]);
+            busyBCoreQueue_[(int)type]->push(pair);
             sendCnt++;
         }
 
@@ -465,6 +474,7 @@ private:
 
             if (finTaskState == TASK_ACK_STATE)
             {
+                DEV_ERROR(0, "Ack core %lu", coreId);
                 freeBCoreQueue_[(int)type]->push(pair);
                 return;
             }
@@ -508,71 +518,15 @@ private:
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
 
         const auto taskAId = decodePairTask(pair);
-        const auto taskBId = finTaskId;
-
-        // If the finished task is A, process it and let (busy) task B become (busy) A
-        if (finTaskId == taskAId)
-        {
-            if (finTaskState == TASK_FIN_STATE)
-            {
-                processFinishedTask(type, taskAId);
-                const auto newPair = encodePair(coreId, taskBId);
-                busyACoreQueue_[(int)type]->push(newPair);
-                return;
-            }
-        }
-
-        // If the reported task is B, it means A is finished, 
-        if (finTaskId == taskBId)
-        {
-            // Process A
-            processFinishedTask(type, taskAId);
-
-            // If B has also finished, then process it and return the core to the free core queue
-            if (finTaskState == TASK_FIN_STATE)
-            {
-                processFinishedTask(type, taskBId);
-                freeACoreQueue_[(int)type]->push(coreId);
-                return;
-            }
-
-            // Otherwise, set task B as task A and put it into the freeB queue to allow a new task B to be assigned to the core
-            const auto newPair = encodePair(coreId, taskBId);
-            freeBCoreQueue_[(int)type]->push(newPair);
-            return;
-        }
-        
-        // Nothing has changed, put this pair back into its queue
-        busyBCoreQueue_[(int)type]->push(pair);
-    }
-
-    inline void ResolveBusyBQueuePair(CoreType type, const aicorePair_t pair)
-    {
-        const auto coreId = decodePairCore(pair);
-
-        uint64_t finTaskRegVal = aicoreHal_.GetFinishedTask(coreId);
-        uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
-        uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
-
-        const auto taskAId = decodePairTask(pair);
-
-        // If the finished task is A, process it and let (busy) task B become (busy) A
-        if (finTaskId == taskAId)
-        {
-            if (finTaskState == TASK_FIN_STATE)
-            {
-                processFinishedTask(type, taskAId);
-                const auto newPair = encodePair(coreId, taskBId);
-                busyACoreQueue_[(int)type]->push(newPair);
-                return;
-            }
-        }
 
         // If the reported task is not A, it means A is finished
         if (finTaskId != taskAId)
         {
             // Process A
             processFinishedTask(type, taskAId);
+
+            // Get task B id
+            const auto taskBId = finTaskId;
 
             // If B has also finished, then process it and return the core to the free core queue
             if (finTaskState == TASK_FIN_STATE)
