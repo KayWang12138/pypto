@@ -220,10 +220,9 @@ void IndexOutCastInferFunc(Operation* op,
     for (auto output : op->GetOOperands()) {
         outValidShapes.push_back(outValidShape);
     }
-    
     auto indexOutCastOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
     if (indexOutCastOpAttribute == nullptr) {
-        ALOG_WARN_F("IndexOutCast [%d] has no copyOpAttr.", op->GetOpMagic());
+        VECTOR_LOGW("IndexOutCast [%d] has no copyOpAttr.", op->GetOpMagic());
         return;
     }
     indexOutCastOpAttribute->SetFromDynValidShape(OpImmediate::Specified(op->GetIOperands()[input_dim]->GetDynValidShape()));
@@ -995,9 +994,32 @@ void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
             OpImmediate::NormalizeValue(inputValidShape, 0, shapeImm, 0, false);
         }
 
-        auto newDynValidShape = GetViewValidShape(inputValidShape, viewOpAttribute->GetFromOffset(),
-                                                    viewOpAttribute->GetFromDynOffset(), op->GetOOperands()[0]->oriShape);
-
+        Offset inOffset = op->GetIOperands()[0]->GetOffset();
+        Offset viewOpAttributeFromOffset = viewOpAttribute->GetFromOffset();
+        Offset relativeOffset(viewOpAttributeFromOffset.size(), 0);
+        bool canToReduce = !inOffset.empty() && !viewOpAttributeFromOffset.empty() && (inOffset.size() == viewOpAttributeFromOffset.size());
+        if (canToReduce) {
+            for (size_t i = 0; i < inOffset.size(); i++) {
+                if (viewOpAttributeFromOffset[i] < inOffset[i]) {
+                    VECTOR_LOGW("FromOffset on ViewOp[%d] is larger than offset on viewinput.", op->GetOpMagic());
+                }
+                relativeOffset[i] = viewOpAttributeFromOffset[i] - inOffset[i];
+            }
+        } else {
+            relativeOffset = viewOpAttributeFromOffset;
+        }
+        std::vector<SymbolicScalar> inDynOffset = op->GetIOperands()[0]->GetDynOffset();
+        std::vector<SymbolicScalar> viewOpAttributeFromDynOffset = viewOpAttribute->GetFromDynOffset();
+        std::vector<SymbolicScalar> relativeDynOffset(viewOpAttributeFromDynOffset.size());
+        bool canToReduceDyn = !inDynOffset.empty() && !viewOpAttributeFromDynOffset.empty() && (inDynOffset.size() == viewOpAttributeFromDynOffset.size());
+        if (canToReduceDyn) {
+            for (size_t i = 0; i < inDynOffset.size(); i++) {
+                relativeDynOffset[i] = viewOpAttributeFromDynOffset[i] - inDynOffset[i];
+            }
+        } else {
+            relativeDynOffset = viewOpAttributeFromDynOffset;
+        }
+        auto newDynValidShape = GetViewValidShape(inputValidShape, relativeOffset, relativeDynOffset, op->GetOOperands()[0]->oriShape);
         for (auto output : op->GetOOperands()) {
             outValidShapes.push_back(newDynValidShape);
         }
