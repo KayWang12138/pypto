@@ -10,6 +10,22 @@
 
 ## 排查建议
 
+### AIC ERROR/The aicore execution is abnormal
+
+1. **排除 machine 框架调度问题**
+注释 aicore_entry.h 中的 CallSubFuncTask 及相关代码，重新编译安装，运行验证，check运行日志，若有aicore error， 说明是 machine 调度框架的问题，停止后续步骤。
+2. **启用追踪日志**
+设置 `"fixed_output_path"` 为 `true`，`"force_overwrite"` 为 `false`，`#define ENABLE_AICORE_PRINT` 为 `1`，`#define ENABLE_COMPILE_VERBOSE_LOG` 为 `1`，并重新编译安装
+3. **清理日志并运行测试**
+清理落盘日志目录、kernel_aic文件夹，设置环境变量并运行 export ASCEND_PROCESS_LOG_PATH=device_log_path && export ASCEND_GLOBAL_LOG_LEVEL=0 && test_cmd
+4. **分析追踪日志并定位 CCE 文件**
+查找 trace 日志、分析缺失 leaf index 并定位问题 CCE 文件，测试验证 CCE 文件
+5. 二分查找定位CCE文件问题代码行
+check错误是否在 T 操作中，获取二分查找初始范围，执行二分查找迭代，直到找到CCE文件问题代码行
+
+**关联 Skill**：[pypto-aicore-error-locator](../../.agents/skills/pypto-aicore-error-locator/SKILL.md)
+
+
 ### 怀疑和MACHINE内存处理有关的精度问题
 
 1. **检查输入初始化**：
@@ -187,5 +203,5 @@ python3 tools/schema/schema_memory_check.py -d /path/to/my_log/debug/device-8/ -
 3. **确认超时配置**：若存在握手/同步超时配置项，检查是否过短或与环境不符。
 4. **查日志上下文**：结合同线程前后日志（如 “Schedule run init succ” 之后、AbnormalStop 相关）确认是首次握手失败还是运行中异常。
 
-**关联 Skill**：[pypto-environment-setup](../../.opencode/skills/pypto-environment-setup/SKILL.md)（环境与 NPU 设备诊断、`npu-smi`、驱动与编译运行）
+**关联 Skill**：[pypto-environment-setup](../../.agents/skills/pypto-environment-setup/SKILL.md)（环境与 NPU 设备诊断、`npu-smi`、驱动与编译运行）
 
