@@ -49,6 +49,10 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation& op)
             !Program::GetInstance().GetCurrentFunction()->IsFromOutCast(outOperand)) {
             continue;
         }
+        if (op.GetOpcode() == Opcode::OP_SCATTER &&
+            !Program::GetInstance().GetCurrentFunction()->IsFromOutCast(outOperand)) {
+            continue;
+        }
         if (OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) || specifiedOps.count(op.GetOpcode())) {
             for (size_t dimIdx = 0U; dimIdx < outOperand->GetShape().size(); ++dimIdx) {
                 validShape.push_back(

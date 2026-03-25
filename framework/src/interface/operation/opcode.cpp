@@ -666,7 +666,7 @@ void OpcodeManager::RegisterVector()
     RegisterInfo(Opcode::OP_SCATTER, OpCoreType::ANY, "SCATTER",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
         {"TileOp::Tscatter", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT,
-        {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "scatter_mode"}, TileShapeVerifier::Verify);
+        {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "scatter_mode", OpAttributeKey::inplaceIdx}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_INDEX_PUT, OpCoreType::ANY, "INDEX_PUT",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB,
          MemoryType::MEM_UB},
