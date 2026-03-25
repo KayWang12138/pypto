@@ -686,25 +686,16 @@ void InnerTiledScatter(size_t cur, Function &function, const TileShape &tileShap
     if (static_cast<int>(cur) == axis) {
         tmpTile = std::max(dstTensor->shape[axis], idxInput->shape[axis]);
     }
+    //self和dst都在gm上，在axis轴上不切分
     for (int i = 0; i < idxInput->shape[cur]; i += tmpTile) {
         if (static_cast<int>(cur) == axis) {
-            scatterTileInfo.idxInfo.offset[cur] = 0;
-            scatterTileInfo.idxInfo.shape[cur] = idxInput->shape[cur];
             scatterTileInfo.dstInfo.offset[cur] = 0;
             scatterTileInfo.dstInfo.shape[cur] = dstTensor->shape[cur];
-            scatterTileInfo.srcInfo.offset[cur] = 0;
-            scatterTileInfo.srcInfo.shape[cur] = idxInput->shape[cur];
             scatterTileInfo.selfInfo.offset[cur] = 0;
             scatterTileInfo.selfInfo.shape[cur] = selfInput->shape[cur];
         } else {
-            scatterTileInfo.idxInfo.offset[cur] = i % idxInput->shape[cur];
-            scatterTileInfo.idxInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
             scatterTileInfo.dstInfo.offset[cur] = i;
             scatterTileInfo.dstInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
-            scatterTileInfo.srcInfo.offset[cur] = i;
-            scatterTileInfo.srcInfo.shape[cur] =
                 std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
             scatterTileInfo.selfInfo.offset[cur] = i;
             scatterTileInfo.selfInfo.shape[cur] =
@@ -771,7 +762,7 @@ static void CheckScatterParamsInvalid(
     }
 }
 
-Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int axis, ScatterMode reduce) {
+Tensor Scatter(Tensor &self, const Tensor &indices, const Tensor &src, int axis, ScatterMode reduce) {
     DECLARE_TRACER();
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self.GetDataType() == src.GetDataType())
         << "Datatype of self and src should be equal";
@@ -798,9 +789,12 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int
 
     if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) &&
         (reduce == ScatterMode::ADD || reduce == ScatterMode::MULTIPLY)) {
-        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+        Tensor castedResult = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
             result.GetStorage(), orgDtype, CastMode::CAST_RINT);
+        result = castedResult;
     }
+    Program::GetInstance().GetCurrentFunction()->SetSameMemId(self.GetStorage(), result.GetStorage());
+    self = result;
     return result;
 }
 
