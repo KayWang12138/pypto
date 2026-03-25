@@ -380,6 +380,7 @@ class GenCoverage:
         # 生成覆盖率原始统计文件
         cmd = f"lcov -c -d {self.data_dir} -o {self.full_cov_info_file}"
         if self.lcov_ability.lcov_supported_exclude:
+            cmd += f" --ignore-errors unused"  # 兼容高版本 LCov
             for filter_path in self.filter_lst:
                 cmd += f" --exclude {filter_path}"
         if self.lcov_ability.lcov_supported_parallel:
