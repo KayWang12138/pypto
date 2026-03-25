@@ -98,7 +98,6 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
     >>> print(y_pto.dtype)
     DataType.DT_INT32
     """
-    import torch
 
     if not isinstance(tensor, torch.Tensor):
         raise TypeError("input type is not currently supported.")
@@ -184,7 +183,6 @@ def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
     torch.dtype
         The torch.dtype string.
     """
-    import torch
 
     _torch_dtype_dict = {
         DataType.DT_FP16: torch.float16,
@@ -209,7 +207,6 @@ def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
 
 
 def _gen_pto_tensor(input_tensors):
-    import torch
 
     torch_tensors = []
     pto_tensors = []
