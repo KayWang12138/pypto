@@ -2602,6 +2602,8 @@ static const SymbolicScalar RUNTIME_COA_GetOffset = AddRuntimeCoaPrefix("GET_PAR
 static const SymbolicScalar RUNTIME_COA_GetValidShape = AddRuntimeCoaPrefix("GET_PARAM_VALID_SHAPE");
 static const SymbolicScalar RUNTIME_COA_GetParam = AddRuntimeCoaPrefix("GET_PARAM");
 
+static int64_t MakeTensorIndex(int64_t magic) { return magic | (1UL << 62); }
+
 static void MaybeNormalizeValue(
     const SymbolicScalar& coaFunc, std::vector<SymbolicScalar>& operandCoaList, int operandCoaIndex,
     std::vector<OpImmediate>& opImmList, int coaIndex, bool valueToIndex)
@@ -2638,6 +2640,8 @@ static std::vector<SymbolicScalar> NormalizeCopyIn(Operation* op, int coaIndexBa
     int coaIndex = coaIndexBase + COA_INDEX_DIM_BASE;
     std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
+    operandCoaList[0] = MakeTensorIndex(op->GetIOperands()[0]->GetRawMagic());
+
     auto opImmList = copyAttr->GetFromOffset();
     MaybeNormalizeValue(RUNTIME_COA_GetOffset, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
     copyAttr->SetFromOffset(opImmList);
@@ -2672,6 +2676,8 @@ static std::vector<SymbolicScalar> NormalizeCopyOut(Operation* op, int coaIndexB
     int operandCoaIndex = COA_INDEX_DIM_BASE;
     int coaIndex = coaIndexBase + COA_INDEX_DIM_BASE;
     std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
+
+    operandCoaList[0] = MakeTensorIndex(op->GetOOperands()[0]->GetRawMagic());
 
     auto opImmList = copyAttr->GetToOffset();
     MaybeNormalizeValue(RUNTIME_COA_GetOffset, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
@@ -2720,6 +2726,10 @@ static std::vector<SymbolicScalar> NormalizeTensor(
     int operandCoaIndex = COA_INDEX_DIM_BASE;
     int coaIndex = coaIndexBase + COA_INDEX_DIM_BASE;
     std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
+
+    if (operand->GetMemoryTypeToBe() == MemoryType::MEM_DEVICE_DDR) {
+        operandCoaList[0] = MakeTensorIndex(operand->GetRawMagic());
+    }
 
     if (!dynOffset.empty()) {
         MaybeNormalizeValue(
