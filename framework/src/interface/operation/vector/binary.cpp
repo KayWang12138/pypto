@@ -128,6 +128,15 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
                 auto tempTensor = std::make_shared<LogicalTensor>(function, result->Datatype(), tmpShape);
                 function.AddOperation(
                     GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile, tempTensor});
+            } else if (opName == "FLOORDIV") {
+                std::vector<int64_t> tmpShape(resultTileInfo.shape);
+                auto alignSize = BLOCK_SIZE / BytesOf(result->Datatype());
+                tmpShape[resultTileInfo.shape.size() - 1] = 
+                    AlignUp(tmpShape[resultTileInfo.shape.size() - 1], alignSize) * 2;
+                auto tempTensor0 = std::make_shared<LogicalTensor>(function, result->Datatype(), tmpShape);
+                auto tempTensor1 = std::make_shared<LogicalTensor>(function, result->Datatype(), tmpShape);
+                function.AddOperation(
+                    GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile, tempTensor0, tempTensor1});
             } else {
                 function.AddOperation(GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile});
             }
@@ -372,6 +381,7 @@ Tensor Gcd(const Tensor &self, const Element &other) {
 }
 
 Tensor FloorDiv(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
     std::vector<DataType> FLOORDIV_SUPPORT_TYPES = {DataType::DT_INT32};
     ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED,
         self.GetDataType() == other.GetDataType() &&
@@ -379,12 +389,15 @@ Tensor FloorDiv(const Tensor &self, const Tensor &other) {
                 FLOORDIV_SUPPORT_TYPES.end())
         << "FloorDiv only supports same data type for self and other! And it should be in DT_INT32.";
 
-    Tensor selfFp32 = Cast(self, DataType::DT_FP32);
-    Tensor otherFp32 = Cast(other, DataType::DT_FP32);
-    Tensor resultFp32 = Div(selfFp32, otherFp32);
-    resultFp32 = Floor(resultFp32);
-    Tensor result = Cast(resultFp32, DataType::DT_INT32);
-    return result;
+    // Tensor selfFp32 = Cast(self, DataType::DT_FP32);
+    // Tensor otherFp32 = Cast(other, DataType::DT_FP32);
+    // Tensor resultFp32 = Div(selfFp32, otherFp32);
+    // resultFp32 = Floor(resultFp32);
+    // Tensor result = Cast(resultFp32, DataType::DT_INT32);
+    // return result;
+
+    RETURN_CALL(BinaryOperation<BinaryOpType::FLOORDIV>, *Program::GetInstance().GetCurrentFunction(),
+        self, other);
 }
 
 template <BinaryOpType T>
@@ -824,6 +837,7 @@ REGISTER_OPERATION_TILED_FUNC(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, BinaryOperat
 REGISTER_OPERATION_TILED_FUNC(OP_COPYSIGN, Opcode::OP_COPYSIGN, BinaryOperationTileFunc<BinaryOpType::COPYSIGN>);
 REGISTER_OPERATION_TILED_FUNC(OP_GCD, Opcode::OP_GCD, BinaryOperationTileFunc<BinaryOpType::GCD>);
 REGISTER_OPERATION_TILED_FUNC(OP_PRELU, Opcode::OP_PRELU, PReLUOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_FLOORDIV, Opcode::OP_FLOORDIV, BinaryOperationTileFunc<BinaryOpType::FLOORDIV>);
 
 REGISTER_OPERATION_TILED_FUNC(OP_ADDS, Opcode::OP_ADDS, BinaryOperationScalarTileFunc<BinaryOpType::ADD>);
 REGISTER_OPERATION_TILED_FUNC(OP_SUBS, Opcode::OP_SUBS, BinaryOperationScalarTileFunc<BinaryOpType::SUB>);

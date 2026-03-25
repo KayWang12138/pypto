@@ -207,6 +207,19 @@ std::string CodeGenOpCloudNPU::GenBinaryOp() const {
     return PrintBinary({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
 }
 
+std::string CodeGenOpCloudNPU::GenBinaryOpWithTwoTmp() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::DST_IDX));
+    std::string tmp0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP_IDX));
+    std::string tmp1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP2_IDX));
+    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::SRC0_IDX));
+    std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::SRC0_IDX));
+    std::vector<std::string> tileOpCallParamList = {dstTensor, src0Tensor, src1Tensor, tmp0Tensor, tmp1Tensor};
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByParentheses(tileOpCallParamList) << STMT_END;
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenBinaryOpWithTmp() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
     std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));

@@ -90,6 +90,7 @@ enum class MILOIdx : unsigned {
     TMP_IDX = 1,
     TMP2_IDX = 2,
     SRC0_IDX = 3,
+    SRC1_IDX = 4,
 };
 
 const std::unordered_map<OperandType, std::string> OPERAND_TYPE_TO_ADDR_TYPE{
