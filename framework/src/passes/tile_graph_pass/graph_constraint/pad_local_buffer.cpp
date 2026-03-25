@@ -474,7 +474,7 @@ bool PadLocalBuffer::IsVector(const LogicalTensorPtr &tensor) {
 }
 
 void PadLocalBuffer::DoPadding(Function &function) {
-    std::unordered_set<std::shared_ptr<LogicalTensor>> visited;
+    std::unordered_set<LogicalTensorPtr> visited;
     std::unordered_set<std::shared_ptr<RawTensor>> visitedRaw;
     for (auto &op : function.Operations()) {
         std::vector<bool> inputAxis;
@@ -521,7 +521,7 @@ void PadLocalBuffer::DoPadding(Function &function) {
 }
 
 void PadLocalBuffer::DoPadding256(Function &function) {
-    std::unordered_set<std::shared_ptr<LogicalTensor>> visited;
+    std::unordered_set<LogicalTensorPtr> visited;
     // pad256
     for (auto &op : function.Operations()) {
         std::vector<bool> inputRowPad;
