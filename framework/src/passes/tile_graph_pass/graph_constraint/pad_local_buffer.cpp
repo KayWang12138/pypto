@@ -521,12 +521,15 @@ void PadLocalBuffer::DoPadding(Function &function) {
 }
 
 void PadLocalBuffer::DoPadding256(Function &function) {
+    std::unordered_set<std::shared_ptr<LogicalTensor>> visited;
     // pad256
     for (auto &op : function.Operations()) {
         std::vector<bool> inputRowPad;
         op.GetAttr(OpAttributeKey::rowPad, inputRowPad);
         for (size_t i = 0; i < op.iOperand.size(); i++) {
             auto &in = op.iOperand[i];
+            if (visited.count(in) != 0) continue;
+            visited.emplace(in);
             bool needRowPad = ((inputRowPad.size() > i) && inputRowPad[i]);
             PadVector256(op, in, needRowPad);
         }
