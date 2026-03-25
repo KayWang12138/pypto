@@ -574,12 +574,8 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(Function &function, Logi
     auto producersBackup = input->GetProducers();
     auto &consumers = input->GetConsumers();
     LogicalTensorPtr oriOutputBackUp = nullptr;
-    for (auto &cons : consumers) {
-        if (cons->GetOpcode() != Opcode::OP_ASSEMBLE) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Change the connection relationship of non assemble op:[%d]. %s",
-                cons->GetOpMagic(), cons->GetOpcodeStr().c_str());
-                break;
-        }
+    auto cons = *consumers.begin();
+    if (consumers.size() == 1 && cons->GetOpcode() == Opcode::OP_ASSEMBLE) {
         cons->SetAsDeleted();
         for (auto &producer : producersBackup) {
             oriOutputBackUp = producer->oOperand[0]; // producer --> oriOutputBackUp(input) --> op
