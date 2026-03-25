@@ -22,10 +22,10 @@ eq(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor
 
 返回Shape与输入Tensor一致、数据类型为DT\_BOOL的Tensor。若input对应位置的元素值等于other对应位置的元素值，则该位置的返回值为True，其余位置的返回值为False。
 
-### 约束说明
+约束说明
 
 1.  input 和 other 类型须保持一致。
-2.  支持一维广播。
+2.  **支持一维广播。**
 #### 1.1.3. c++ tensor graph接口
 ```c++
 // 根据OpType区分具体的操作类型
@@ -163,10 +163,10 @@ ge(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor
 
 返回Shape与输入Tensor一致、数据类型为DT\_BOOL的Tensor。若input对应位置的元素值等于other对应位置的元素值，则该位置的返回值为True，其余位置的返回值为False。
 
-### 约束说明
+约束说明
 
 1.  input 和 other 类型须保持一致。
-2.  支持一维广播。
+2.  **支持一维广播。**
 #### 1.2.3. c++ tensor graph接口
 ```c++
 // 根据OpType区分具体的操作类型
@@ -292,10 +292,10 @@ gt(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor
 
 返回Shape与输入Tensor一致、数据类型为DT\_BOOL的Tensor。若input对应位置的元素值等于other对应位置的元素值，则该位置的返回值为True，其余位置的返回值为False。
 
-### 约束说明
+约束说明
 
 1.  input 和 other 类型须保持一致。
-2.  支持一维广播。
+2.  **支持一维广播。**
 #### 1.3.3. c++ tensor graph接口
 ```c++
 // 根据OpType区分具体的操作类型
@@ -421,10 +421,10 @@ le(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor
 
 返回Shape与输入Tensor一致、数据类型为DT\_BOOL的Tensor。若input对应位置的元素值等于other对应位置的元素值，则该位置的返回值为True，其余位置的返回值为False。
 
-### 约束说明
+约束说明
 
 1.  input 和 other 类型须保持一致。
-2.  支持一维广播。
+2.  **支持一维广播。**
 #### 1.4.3. c++ tensor graph接口
 ```c++
 // 根据OpType区分具体的操作类型
@@ -551,10 +551,10 @@ lt(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor
 
 返回Shape与输入Tensor一致、数据类型为DT\_BOOL的Tensor。若input对应位置的元素值等于other对应位置的元素值，则该位置的返回值为True，其余位置的返回值为False。
 
-### 约束说明
+约束说明
 
 1.  input 和 other 类型须保持一致。
-2.  支持一维广播。
+2.  **支持一维广播。**
 #### 1.5.3. c++ tensor graph接口
 ```c++
 // 根据OpType区分具体的操作类型
@@ -680,10 +680,10 @@ ne(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor
 
 返回Shape与输入Tensor一致、数据类型为DT\_BOOL的Tensor。若input对应位置的元素值等于other对应位置的元素值，则该位置的返回值为True，其余位置的返回值为False。
 
-### 约束说明
+约束说明
 
 1.  input 和 other 类型须保持一致。
-2.  支持一维广播。
+2.  **支持一维广播。**
 #### 1.6.3. c++ tensor graph接口
 ```c++
 // 根据OpType区分具体的操作类型
@@ -815,7 +815,7 @@ maximum(
 返回值说明
 
 当两个源操作数均为Tensor时，两个Tensor必须满足广播关系。该接口返回一个与源操作数一和源操作数二广播后形状相同的Tensor，数据类型与源操作数相同，其元素为源操作数一和源操作数二的逐元素最大值。
-### 且源操作数为Tensor时，源操作数一和源操作数二均仅支持单轴广播。
+**且源操作数为Tensor时，源操作数一和源操作数二均仅支持单轴广播。**
 
 当两个源操作数之中存在一个Tensor时，返回与输入Tensor相同形状的Tensor，其元素为源操作数一和源操作数二的逐元素最大值。
 #### 1.7.3. c++ tensor graph接口
@@ -954,7 +954,7 @@ maximum(
 返回值说明
 
 当两个源操作数均为Tensor时，两个Tensor必须满足广播关系。该接口返回一个与源操作数一和源操作数二广播后形状相同的Tensor，数据类型与源操作数相同，其元素为源操作数一和源操作数二的逐元素最大值。
-### 且源操作数为Tensor时，源操作数一和源操作数二均仅支持单轴广播。
+**且源操作数为Tensor时，源操作数一和源操作数二均仅支持单轴广播。**
 
 当两个源操作数之中存在一个Tensor时，返回与输入Tensor相同形状的Tensor，其元素为源操作数一和源操作数二的逐元素最大值。
 #### 1.8.3. c++ tensor graph接口
