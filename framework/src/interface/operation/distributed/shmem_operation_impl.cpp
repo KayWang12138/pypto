@@ -328,7 +328,7 @@ void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Ten
     Tensor& out)
 {
     uint32_t worldSize = shmemData.GetShape()[0];
-    CHECK(worldSize > 0) << "worldSize should be more than 0.";
+    CHECK(worldSize > 0) << "worldSize should be more than 0.  ";
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
     SymbolicScalar thisRank = GetHcclRankId(group);
