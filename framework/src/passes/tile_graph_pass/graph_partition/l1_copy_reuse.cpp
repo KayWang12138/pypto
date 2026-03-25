@@ -676,6 +676,132 @@ void L1CopyInReuseRunner::RemoveUselessViews(Function& func) const
     }
 }
 
+static void MakeSubgraphIdContinue(Function &function) {
+    std::set<int> subgraphIds;
+    for (auto &op : function.Operations()) {
+        subgraphIds.insert(op.GetSubgraphID());
+    }
+    function.SetTotalSubGraphCount(subgraphIds.size());
+    std::unordered_map<int, int> newIdMap;
+    int newId = 0;
+    for (auto id : subgraphIds) {
+        newIdMap[id] = newId;
+        newId++;
+    }
+    for (auto &op : function.Operations()) {
+        op.UpdateSubgraphID(newIdMap[op.GetSubgraphID()]);
+    }
+}
+
+static void DSUinit(std::vector<int> &parent, int num) {
+    parent.resize(num);
+    for (int i = 0; i < num; i++) {
+        parent[i] = i;
+    }
+}
+
+static int DSUfind(std::vector<int> &parent, int i) {
+    if (parent[i] != i) {
+        parent[i] = DSUfind(parent, parent[i]);
+    }
+    return parent[i];
+}
+
+static void DSUunite(std::vector<int> &parent, int i, int j) {
+    i = DSUfind(parent, i);
+    j = DSUfind(parent, j);
+    if (i < j) {
+        parent[j] = i;
+    } else if (j < i) {
+        parent[i] = j;
+    }
+}
+
+static void MarkHubSubgraph(Function &function, std::vector<bool> &isHubGraph) {
+    std::vector<bool> hasView(function.GetTotalSubGraphCount(), false);
+    std::vector<bool> hasReshape(function.GetTotalSubGraphCount(), false);
+    std::vector<bool> hasAssemble(function.GetTotalSubGraphCount(), false);
+    std::vector<bool> hasOthers(function.GetTotalSubGraphCount(), false);
+    for (auto &op : function.Operations()) {
+        int currSubgraphID = op.GetSubgraphID();
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            hasView[currSubgraphID] = true;
+        } else if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            hasReshape[currSubgraphID] = true;
+        } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            hasAssemble[currSubgraphID] = true;
+        } else {
+            hasOthers[currSubgraphID] = true;
+        }
+    }
+    for (int subgraphId = 0; subgraphId < static_cast<int>(function.GetTotalSubGraphCount()); subgraphId++) {
+        if (hasOthers[subgraphId] || (hasView[subgraphId] && hasAssemble[subgraphId])) {
+            isHubGraph[subgraphId] = false;
+        }
+    }
+}
+
+static Status AnyOpSpecialProcess(Function &function) {
+    std::vector<bool> isHubGraph(function.GetTotalSubGraphCount(), true);
+    std::vector<bool> isCubeSubgraph(function.GetTotalSubGraphCount(), false);
+    std::vector<std::set<int>> subgraphInGraph(function.GetTotalSubGraphCount());
+    std::vector<std::set<int>> subgraphOutGraph(function.GetTotalSubGraphCount());
+    for (auto &op : function.Operations()) {
+        int currSubgraphID = op.GetSubgraphID();
+        if (op.HasAttr(OpAttributeKey::isCube) && op.GetBoolAttribute(OpAttributeKey::isCube)) {
+            isCubeSubgraph[currSubgraphID] = true;
+        }
+        for (auto nextOp : op.ConsumerOps()) {
+            int nextSubgraphID = nextOp->GetSubgraphID();
+            if (currSubgraphID != nextSubgraphID) {
+                subgraphInGraph[nextSubgraphID].insert(currSubgraphID);
+                subgraphOutGraph[currSubgraphID].insert(nextSubgraphID);
+            }
+        }
+    }
+    MarkHubSubgraph(function, isHubGraph);
+    std::unordered_map<int, bool> updateIsCube;
+    std::vector<int> parent;
+    DSUinit(parent, function.GetTotalSubGraphCount());
+    for (int subgraphId = 0; subgraphId < static_cast<int>(function.GetTotalSubGraphCount()); subgraphId++) {
+        if (!isHubGraph[subgraphId]) {
+            continue;
+        }
+        if (subgraphInGraph[subgraphId].size() == 1) {
+            int prevId = *(subgraphInGraph[subgraphId].begin());
+            DSUunite(parent, subgraphId, prevId);
+            updateIsCube[subgraphId] = isCubeSubgraph[prevId];
+            continue;
+        }
+        if (subgraphOutGraph[subgraphId].size() == 1) {
+            int nextId = *(subgraphOutGraph[subgraphId].begin());
+            DSUunite(parent, subgraphId, nextId);
+            updateIsCube[subgraphId] = isCubeSubgraph[nextId];
+        }
+    }
+    for (auto &op : function.Operations()) {
+        int currSubgraphID = op.GetSubgraphID();
+        op.UpdateSubgraphID(DSUfind(parent, currSubgraphID));
+        if (updateIsCube.count(currSubgraphID) > 0) {
+            op.SetAttribute(OpAttributeKey::isCube, updateIsCube[currSubgraphID]);
+        }
+    }
+    MakeSubgraphIdContinue(function);
+    return SUCCESS;
+}
+
+Status L1CopyInReuseMerge::RunOnFunction(Function &function) {
+    APASS_LOG_INFO_F(Elements::Operation, "===> Start L1CopyInReuseMerge.");
+    if (L1CopyInReuse(function) == FAILED) {
+      return FAILED;
+    }
+    AnyOpSpecialProcess(function);
+    DeadOperationEliminator eliminator;
+    eliminator.EliminateDeadOperationBackward(function);
+    APASS_LOG_INFO_F(Elements::Operation, "===> Finish L1CopyInReuseMerge.");
+    return SUCCESS;
+}
+
 Status L1CopyInReuseMerge::InitColorNode(Function& func, std::vector<std::vector<int>>& colorNode) const
 {
     int colorMax{0};
