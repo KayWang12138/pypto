@@ -119,7 +119,7 @@ struct MatmulGraphNodes {
     LogicalTensorPtr bTensorPtr = nullptr;
     LogicalTensorPtr bScaleTensorPtr = nullptr;
     LogicalTensorPtr gmAccumulationTensorPtr = nullptr;
-    LogicalTensorPtr biasTensorPtr = nullptr;
+    LogicalTensorPtr biasTensorPtr = nullptr; 
     LogicalTensorPtr scaleTensorPtr = nullptr;
     LogicalTensorPtr cL0PartialSumPtr = nullptr;
     LogicalTensorPtr outTensorPtr = nullptr;
