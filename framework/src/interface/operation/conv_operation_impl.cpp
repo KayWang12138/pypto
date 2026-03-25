@@ -196,7 +196,7 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
 {
     auto &convTile = TileShape::Current().GetConvTile();
     int64_t tileH = convTile.tileL0Info.tileH, tileW = convTile.tileL0Info.tileW;
-    int64_t tileN = convTile.tileL0Info.tileN, tileK = convTile.tileL0Info.tileK;
+    int64_t tileN = convTile.tileL0Info.tileN, tileK = convTile.tileL0Info.tileK; 
     int64_t tileHout = convTile.tileL1Info.tileHout, tileWout = convTile.tileL1Info.tileWout;
     int64_t tileCout = convTile.tileL1Info.tileN, k0 = ALIGN_SIZE_32 / BytesOf(outType);
     int64_t tileCinFmap = convTile.tileL1Info.tileCinFmap;
