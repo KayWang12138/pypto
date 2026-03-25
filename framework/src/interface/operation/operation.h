@@ -442,6 +442,7 @@ public:
             Opcode::OP_INDEX_OUTCAST,
             Opcode::OP_INDEX_PUT,
             Opcode::OP_INDEX_ADD,
+            Opcode::OP_SCATTER,
             Opcode::OP_TRANSPOSE_MOVEIN,
             Opcode::OP_TRANSPOSE_MOVEOUT,
             Opcode::OP_FFN_SCHED,

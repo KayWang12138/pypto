@@ -27,7 +27,7 @@ void SetCopyAttr::ProcessSpecialMTEOperation(Operation& op) const
     if ((inputTensor == nullptr) || (outputTensor == nullptr)) {
         return;
     }
-    if (op.GetOpcode() == Opcode::OP_INDEX_PUT || op.GetOpcode() == Opcode::OP_INDEX_ADD) {
+    if (op.GetOpcode() == Opcode::OP_INDEX_PUT || op.GetOpcode() == Opcode::OP_INDEX_ADD || op.GetOpcode() == Opcode::OP_SCATTER) {
         outputTensor = inputTensor;
     }
     /* transpose datamove 输入和输出的shape不相同 */
