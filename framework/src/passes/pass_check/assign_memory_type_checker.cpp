@@ -15,6 +15,7 @@
 
 #include "assign_memory_type_checker.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes\pass_utils\pass_error.h"
 
 #define MODULE_NAME "AssignMemoryType"
 
@@ -63,7 +64,7 @@ Status AssignMemoryTypeChecker::CheckAmulBInputProducers(Operation &operation) {
         if(producerOpcode != Opcode::OP_L1_TO_L0A && producerOpcode !=Opcode::OP_L1_TO_L0B && 
            producerOpcode != Opcode::OP_L1_TO_L0_AT && producerOpcode !=Opcode::OP_L1_TO_L0_BT && 
            producerOpcode != Opcode::OP_VIEW && producerOpcode !=Opcode::OP_VEC_DUP) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Memory error, %s[%d] has invalid input producer; "
+            APASS_LOG_ERROR_C(OperationErr::OP_SPECIAL_CONSTRAINT, Elements::Operation, "Memory error, %s[%d] has invalid input producer; "
                 "Please check input producer %s[%d]. %s", operation.GetOpcodeStr().c_str(), operation.GetOpMagic(),
                 producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(), GetFormatBacktrace(operation).c_str());
             return FAILED;
@@ -74,7 +75,7 @@ Status AssignMemoryTypeChecker::CheckAmulBInputProducers(Operation &operation) {
             if (attrToType != MemoryType::MEM_BT && attrToType != MemoryType::MEM_FIX_QUANT_PRE &&
                 attrToType != MemoryType::MEM_L0A && attrToType != MemoryType::MEM_L0B &&
                 attrToType != MemoryType::MEM_UNKNOWN) {
-                APASS_LOG_ERROR_F(Elements::Operation, "View attribute error, %s[%d] has invalid input OP_VIEW(toType: %d); "
+                APASS_LOG_ERROR_C(OperationErr::OP_SPECIAL_CONSTRAINT, Elements::Operation, "View attribute error, %s[%d] has invalid input OP_VIEW(toType: %d); "
                     "Please check input view %s[%d]. %s", operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), attrToType,
                     producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(), GetFormatBacktrace(operation).c_str());
                 return FAILED;
