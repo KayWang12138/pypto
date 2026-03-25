@@ -1220,7 +1220,7 @@ static std::vector<int64_t> CheckAndInferShape(const std::vector<int64_t> &oriSh
 
     // Special case: dstshape == [-1], flatten to 1D
     if (dstshape.size() == 1 && dstshape[0] == -1) {
-        return {capacity};
+        return std::vector<int64_t>{capacity};
     }
 
     for (size_t i = 0; i < newShape.size(); i++) {
