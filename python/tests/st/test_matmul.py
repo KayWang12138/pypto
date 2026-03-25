@@ -134,6 +134,7 @@ def bmm_kernel_with_no_mn_split(
     out_tensor.move(result)
 
 
+# 这是一个测试
 @pytest.mark.soc("950", "910")
 def test_mm_with_mn_split():
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
