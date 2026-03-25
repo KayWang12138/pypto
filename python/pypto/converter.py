@@ -13,9 +13,10 @@
 from typing import List, Optional
 from functools import wraps
 
+import torch
+
 from .enum import DataType, TileOpFormat
 from .tensor import Tensor
-import torch
 
 
 def _count_calls(func):
