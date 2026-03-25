@@ -809,6 +809,7 @@ inline int64_t Pad(int64_t dim, int64_t padValue) {
  */
 void ReplaceTensor::InsertCopyUBOp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input) {
     auto copyShape = input->GetShape();
+    auto copyRawShape = input->tensor->GetDynRawShape();
     auto copyDynShape = input->GetDynValidShape();
     Offset offset(copyShape.size(), 0);
 
@@ -821,6 +822,7 @@ void ReplaceTensor::InsertCopyUBOp(Function &function, Operation *needInsertCopy
         input->GetMemoryTypeOriginal(),
         OpImmediate::Specified(offset),
         OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyRawShape),
         OpImmediate::Specified(copyDynShape)
     ));
     copyOutOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
@@ -833,6 +835,7 @@ void ReplaceTensor::InsertCopyUBOp(Function &function, Operation *needInsertCopy
         OpImmediate::Specified(offset),
         input->GetMemoryTypeOriginal(),
         OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyRawShape),
         OpImmediate::Specified(copyDynShape)
     ));
     copyInOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
@@ -845,6 +848,7 @@ void ReplaceTensor::InsertCopyUBOp(Function &function, Operation *needInsertCopy
  */
 void ReplaceTensor::InsertCopyDDROp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input) {
     auto copyShape = input->GetShape();
+    auto copyRawShape = input->tensor->GetDynRawShape();
     auto copyDynShape = input->GetDynValidShape();
     Offset offset(copyShape.size(), 0);
 
@@ -874,6 +878,7 @@ void ReplaceTensor::InsertCopyDDROp(Function &function, Operation *needInsertCop
         OpImmediate::Specified(input->GetOffset()),
         MemoryType::MEM_UB,
         OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyRawShape),
         OpImmediate::Specified(copyDynShape)
     ));
     copyInOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
@@ -886,6 +891,7 @@ void ReplaceTensor::InsertCopyDDROp(Function &function, Operation *needInsertCop
         MemoryType::MEM_UB,
         OpImmediate::Specified(offset),
         OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyRawShape),
         OpImmediate::Specified(copyDynShape)
     ));
     copyOutOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
