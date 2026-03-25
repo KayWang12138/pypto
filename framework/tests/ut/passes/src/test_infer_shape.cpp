@@ -20,7 +20,6 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/operation/op_infer_shape_impl.h"
 #include "passes/tile_graph_pass/graph_constraint/infer_dyn_shape.h"
-#include "passes/tile_graph_pass/graph_constraint/replace_tensor.h"
 #include "interface/operation/attribute.h"
 
 namespace npu {
