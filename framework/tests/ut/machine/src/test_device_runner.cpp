@@ -70,6 +70,8 @@ TEST_F(TestDeviceRunner, test_set_pmu_event) {
 TEST_F(TestDeviceRunner, test_ini_device_runner) {
     npu::tile_fwk::DeviceRunner runner;
     runner.Init();
+    runner.SetAicoreRuntimeConfig(AicoreRuntimeConfig::NONE);
+    runner.EnableAicorePmuSerialCollectionMode();
 }
 
 TEST_F(TestDeviceRunner, test_ini_device_args_arch32) {
@@ -174,4 +176,14 @@ TEST_F(TestDeviceRunner, test_create_proflevel) {
 
     ToSubMachineConfig config7;
     EXPECT_EQ(config7.profConfig.value, ProfConfig::OFF);
+    EXPECT_EQ(config7.aicoreRuntimeConfig.value, AicoreRuntimeConfig::NONE);
+
+    AicoreRuntimeConfig config8;
+    EXPECT_TRUE(config8.Empty());
+    config8.Add(AicoreRuntimeConfig::SERIAL_SCHEDULE);
+    config8.Add(AicoreRuntimeConfig::DISABLE_HOST_DFX_METRICS);
+    config8.Add(AicoreRuntimeConfig::ENABLE_PMU);
+    EXPECT_TRUE(config8.Contains(AicoreRuntimeConfig::SERIAL_SCHEDULE));
+    EXPECT_TRUE(config8.Contains(AicoreRuntimeConfig::DISABLE_HOST_DFX_METRICS));
+    EXPECT_TRUE(config8.Contains(AicoreRuntimeConfig::));
 }

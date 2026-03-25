@@ -22,8 +22,13 @@
 #include <unordered_map>
 #include <map>
 #include "tilefwk/core_func_data.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "function_cache.h"
 #include "interface/utils/common.h"
+
+#ifndef ALOG_DEBUG_F
+#define ALOG_DEBUG_F(...) FUNCTION_LOGD(__VA_ARGS__)
+#endif
 
 namespace npu::tile_fwk {
 

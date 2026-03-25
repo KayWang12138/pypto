@@ -40,6 +40,10 @@ bool ProfCheckLevel(uint64_t feature) {
     return AdprofCheckFeatureIsOn(feature) > 0;
 }
 
+uint32_t AiCoreProf::GetRuntimeConfigFlags() const {
+    return hostAicoreMng_.GetRuntimeConfigFlags();
+}
+
 
 void AiCoreProf::ProInitHandShake() {
     handkShakeMsgSize_ = sizeof(PyPtoMsprofAdditionalInfo);
@@ -117,10 +121,10 @@ void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int
     if ((ProfCheckLevel(PROF_TASK_TIME_L2) == true) || (profLevel_ == PROF_LEVEL_FUNC_LOG) || (profLevel_ == PROF_LEVEL_FUNC_LOG_PMU)) {
         profLevel_ = PROF_LEVEL_FUNC_LOG;
         ProfInitLog();
-        #if PMU_COLLECT
+        if (hostAicoreMng_.IsPmuHwEnabled() || profConfig.Contains(ProfConfig::AICORE_PMU)) {
             ProfInitPmu(regAddrs, pmuEventAddrs);
             profLevel_ = PROF_LEVEL_FUNC_LOG_PMU;
-        #endif
+        }
     } else {
         profLevel_ = PROF_LEVEL_OFF;
         DEV_INFO("aicore profiling is closed..");
