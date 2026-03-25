@@ -246,7 +246,7 @@ public:
     static const std::string dilationW;
     static const std::string paddingLeft;
     static const std::string paddingRight;
-    static const std::string paddingTop;
+    static const std::string paddingTop; 
     static const std::string paddingBottom;
     static const std::string padValue;
 };
