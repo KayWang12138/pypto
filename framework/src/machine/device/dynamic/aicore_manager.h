@@ -177,12 +177,6 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
         for (int i = aivStart_; i < aivEnd_; i++) freeACoreQueue_[(int)CoreType::AIV]->push(i);
         for (int i = aicStart_; i < aicEnd_; i++) freeACoreQueue_[(int)CoreType::AIC]->push(i);
 
-        for (int i = aivStart_; i < aivEnd_; i++) aicoreRunningTaskIds_[i] = aicoreNullTask;
-        for (int i = aivStart_; i < aivEnd_; i++) aicorePendingTaskIds_[i] = aicoreNullTask;
-        
-        for (int i = aicStart_; i < aicEnd_; i++) aicoreRunningTaskIds_[i] = aicoreNullTask;
-        for (int i = aicStart_; i < aicEnd_; i++) aicorePendingTaskIds_[i] = aicoreNullTask;
-
         // DEV_ERROR(0, "[AICPU %d] Vector Ready: %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIV), freeACoreQueue_[(int)CoreType::AIV]->wasSize(), busyACoreQueue_[(int)CoreType::AIV]->wasSize());
         // DEV_ERROR(0, "[AICPU %d] Cube Ready:   %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIC), freeACoreQueue_[(int)CoreType::AIC]->wasSize(), busyACoreQueue_[(int)CoreType::AIC]->wasSize());
     }
@@ -392,7 +386,6 @@ private:
 
     inline void SendTaskToAiCore(CoreType type, int coreIdx, uint32_t newTask) {
         aicoreHal_.SetReadyQueue(coreIdx, newTask + 1);
-        aicorePendingTaskIds_[coreIdx] = newTask;
         context_->sendCnt_[(int)type]++;
     }
 
@@ -403,14 +396,15 @@ private:
         ReadyQueueUnLock(readyQue);
     }
     
-    inline void ResolveDepForAllAiCore(CoreType type) {
-
-        size_t runningCoreCount = busyACoreQueue_[(int)type]->wasSize();
-        for (size_t i = 0; i < runningCoreCount; i++)
+    inline void ResolveDepForAllAiCore(CoreType type)
+    {
+        // Handling Busy A queue pairings
+        size_t busyAQueuePairCount = busyACoreQueue_[(int)type]->wasSize();
+        for (size_t i = 0; i < busyAQueuePairCount; i++)
         {
             const auto pair = busyACoreQueue_[(int)type]->pop();
             if (pair == aicoreNullPair) return;
-            ResolveByRegVal(type, pair);
+            ResolveBusyAQueuePair(type, pair);
         }
 
         BatchPushReadyQueue();
@@ -433,25 +427,18 @@ private:
         }
     }
 
-    inline void ResolveByRegVal(CoreType type, const aicorePair_t pair) {
+    inline void ResolveBusyAQueuePair(CoreType type, const aicorePair_t pair) {
         const auto coreId = decodePairCore(pair);
-        [[maybe_unused]] const auto taskId = decodePairTask(pair);
+        const auto taskId = decodePairTask(pair);
 
         uint64_t finTaskRegVal = aicoreHal_.GetFinishedTask(coreId);
-        uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
+        // uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
 
-        const auto runningTaskId = aicoreRunningTaskIds_[coreId];
-        const auto pendingTaskId = aicorePendingTaskIds_[coreId];
-
-        if (finTaskId == pendingTaskId && finTaskState == TASK_FIN_STATE) {
-            aicoreRunningTaskIds_[coreId] = aicoreNullTask;
-            aicorePendingTaskIds_[coreId] = aicoreNullTask; // processFinishedTask depend this line
-
+        if (finTaskState == TASK_FIN_STATE)
+        {
+            processFinishedTask(type, taskId);
             freeACoreQueue_[(int)type]->push(coreId);
-
-            if (runningTaskId != aicoreNullTask) processFinishedTask(type, runningTaskId);
-            processFinishedTask(type, pendingTaskId);
             return;
         }
         
@@ -737,9 +724,6 @@ private:
     pairQueue_t* busyACoreQueue_[AICORE_TYPE_NUM];
     pairQueue_t* freeBCoreQueue_[AICORE_TYPE_NUM];
     pairQueue_t* busyBCoreQueue_[AICORE_TYPE_NUM];
-
-    std::array<aicoreTask_t, TOTAL_CORE_COUNT> aicoreRunningTaskIds_;
-    std::array<aicoreTask_t, TOTAL_CORE_COUNT> aicorePendingTaskIds_;
 
     // Variable to scheduler lead and whether or not I am the lead
     bool isLeaderScheduler_;
