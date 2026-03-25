@@ -40,7 +40,6 @@ Status GenerateMoveOp::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "===> Start GenerateMoveOp");
     Status status = CreateMoveOp(function);
     if(status != SUCCESS) {return status;}
-    InsertAssembleCopy(function);
     APASS_LOG_INFO_F(Elements::Operation, "===> End GenerateMoveOp");
     return SUCCESS;
 }
@@ -269,7 +268,7 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
 Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op) const {
     auto convertOpAttribute = dynamic_cast<ConvertOpAttribute *>(op.GetOpAttribute().get());
     auto [from, to] = convertOpAttribute->GetConvertPath();
-    Status status = SetOpcodeByMemPath(op, from, to);	 
+    Status status = SetOpcodeByMemPath(op, from, to);
     if (op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
         ProcessUB2L1(function, op);
     }
@@ -293,15 +292,6 @@ void GenerateMoveOp::ProcessUB2L1(Function &function, Operation &op) const {
         std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(ubNdTensor->Datatype(), ubNdTensor->GetShape(), TileOpFormat::TILEOP_NZ);
         std::vector<int64_t> newoffset(inputTensor->GetShape().size(),0);
         std::shared_ptr<LogicalTensor> ubNzTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newoffset, inputTensor->shape, inputTensor->GetDynValidShape());
-        //ND转NZ时shape对齐
-        auto innerIndex = ubNzTensor->shape.size() - 2; // matmul高轴
-        auto outerIndex = ubNzTensor->shape.size() - 1;  // matmul低轴
-        ubNzTensor->shape[innerIndex] = GenerateMoveOp::PadUB(ubNzTensor->shape[innerIndex], INNER_PAD_VALUE/BytesOf(ubNdTensor->Datatype()));
-        ubNzTensor->shape[outerIndex] = GenerateMoveOp::PadUB(ubNzTensor->shape[outerIndex], OUTER_PAD_VALUE);
-        std::vector<int64_t> rawshape_new = ubNdTensor->tensor->rawshape;
-        rawshape_new[innerIndex] = GenerateMoveOp::PadUB(ubNzTensor->tensor->rawshape[innerIndex], INNER_PAD_VALUE/BytesOf(ubNdTensor->Datatype()));
-        rawshape_new[outerIndex] = GenerateMoveOp::PadUB(ubNzTensor->tensor->rawshape[outerIndex], OUTER_PAD_VALUE);
-        ubNzTensor->tensor->UpdateRawShape(rawshape_new);
         ubNzTensor->SetMemoryTypeBoth(MemoryType::MEM_UB);
         //插入UB2UB节点（ND2NZ)
         auto &ub2ub = function.AddRawOperation(Opcode::OP_UB_COPY_ND2NZ, {inputTensor}, {ubNzTensor});
@@ -352,137 +342,5 @@ Status GenerateMoveOp::CreateMoveOp(Function &function) const {
         }
     }
     return SUCCESS;
-}
-
-/**
- * @brief 为 UB 内存类型的输入插入拷贝序列 (UB → DDR → UB)
- */
-void GenerateMoveOp::InsertCopyUBOp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input) {
-    auto copyShape = input->GetShape();
-    auto copyDynShape = input->GetDynValidShape();
-    Offset offset(copyShape.size(), 0);
-
-    LogicalTensor copyOutOutput(function, input->Datatype(), copyShape);
-    copyOutOutput.SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-    auto copyOutOutputPtr = std::make_shared<LogicalTensor>(std::move(copyOutOutput));
-    auto &copyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {input}, {copyOutOutputPtr});
-
-    copyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        input->GetMemoryTypeOriginal(),
-        OpImmediate::Specified(offset),
-        OpImmediate::Specified(copyShape),
-        OpImmediate::Specified(copyDynShape)
-    ));
-    copyOutOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
-
-    LogicalTensor copyInOutput(function, input->Datatype(), copyShape);
-    copyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-    auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
-    auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {copyOutOutputPtr}, {copyInOutputPtr});
-    copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified(offset),
-        input->GetMemoryTypeOriginal(),
-        OpImmediate::Specified(copyShape),
-        OpImmediate::Specified(copyDynShape)
-    ));
-    copyInOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
-
-    needInsertCopyAssOp->ReplaceInput(copyInOutputPtr, input);
-}
-
-/**
- * @brief 为 DDR 内存类型的输入插入拷贝序列 (DDR → UB → DDR)
- */
-void GenerateMoveOp::InsertCopyDDROp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input) {
-    auto copyShape = input->GetShape();
-    auto copyDynShape = input->GetDynValidShape();
-    Offset offset(copyShape.size(), 0);
-
-    LogicalTensor copyInOutput(function, input->Datatype(), copyShape);
-    copyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-    const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB));
-    auto memType = copyInOutput.GetMemoryTypeOriginal();
-    if ((memType == MemoryType::MEM_UB) && (copyInOutput.GetDataSize() > UB_SIZE_THRESHOLD)) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Tensor %d exceeds the UB size limit.", copyInOutput.magic);
-        return;
-    }
-    auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
-    auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {input}, {copyInOutputPtr});
-    copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified(input->GetOffset()),
-        MemoryType::MEM_UB,
-        OpImmediate::Specified(copyShape),
-        OpImmediate::Specified(copyDynShape)
-    ));
-    copyInOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
-
-    LogicalTensor copyOutOutput(function, input->Datatype(), copyShape);
-    copyOutOutput.SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-    auto copyOutOutputPtr = std::make_shared<LogicalTensor>(std::move(copyOutOutput));
-    auto &copyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {copyInOutputPtr}, {copyOutOutputPtr});
-    copyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        MemoryType::MEM_UB,
-        OpImmediate::Specified(offset),
-        OpImmediate::Specified(copyShape),
-        OpImmediate::Specified(copyDynShape)
-    ));
-    copyOutOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
-
-    needInsertCopyAssOp->ReplaceInput(copyOutOutputPtr, input);
-}
-
-/**
- * @brief 递归查找需要插入拷贝的 ASSEMBLE 操作
- */
-void GenerateMoveOp::FindNeedToCopyAssemble(std::unordered_set<Operation*> &needInsertCopyAssOps, std::unordered_set<int> &visitedAssOps, Operation &op) {
-    visitedAssOps.insert(op.GetOpMagic());
-    auto assembleIn = op.GetIOperands()[0];
-    auto producers = assembleIn->GetProducers();
-    if ((!producers.empty()) && (*producers.begin())->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
-        return;
-    }
-    auto consumers = assembleIn->GetConsumers();
-    bool sameAssembleOut = true;
-    for (const auto &con : consumers) {
-        if (con->GetOOperands()[0]->GetMagic() != op.GetOOperands()[0]->GetMagic()) {
-            sameAssembleOut = false;
-            break;
-        }
-    }
-    if (!sameAssembleOut) {
-        for (const auto &con : consumers) {
-            if (con->GetOpMagic() != op.GetOpMagic() && con->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                visitedAssOps.insert(con->GetOpMagic());
-                needInsertCopyAssOps.insert(con);
-            }
-        }
-    }
-}
-
-/**
- * @brief 遍历所有 ASSEMBLE 操作，为需要拷贝的操作插入拷贝序列，避免多个 ASSEMBLE 操作共享同一个输入导致的内存冲突
- * Tensor1 ---> Assemble ---> Tensor2
- *         ---> Assemble ---> Tensor3
- *         ---> Assemble ---> Tensor4
- */
-void GenerateMoveOp::InsertAssembleCopy(Function &function) {
-    std::unordered_set<int> visitedAssOps;
-    std::unordered_set<Operation *> needInsertCopyAssOps;
-    for (auto &op : function.Operations()) {
-        if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
-            FindNeedToCopyAssemble(needInsertCopyAssOps, visitedAssOps, op);
-        }
-    }
-    std::vector<Operation *> sortedOps(needInsertCopyAssOps.begin(), needInsertCopyAssOps.end());
-    std::sort(sortedOps.begin(), sortedOps.end(),
-        [](const Operation *a, const Operation *b) { return a->GetOpMagic() < b->GetOpMagic(); });
-    for (auto &needInsertCopyAssOp : sortedOps) {
-        auto input = needInsertCopyAssOp->GetIOperands()[0];
-        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-            InsertCopyUBOp(function, needInsertCopyAssOp, input);
-        } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            InsertCopyDDROp(function, needInsertCopyAssOp, input);
-        }
-    }
 }
 } // namespace npu::tile_fwk

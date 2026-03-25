@@ -102,7 +102,6 @@ def create_scaled_mm_kernel_with_mn_split(tile_config: ShapeConfig):
         a_scale: pypto.Tensor(scale_a_shape, pypto.DT_FP8E8M0),
         b_tensor: pypto.Tensor(b_shape, tile_config.in_dtype, format=b_format),
         b_scale: pypto.Tensor(scale_b_shape, pypto.DT_FP8E8M0),
-        bias: pypto.Tensor(bias_shape, pypto.DT_FP32),
         out_tensor: pypto.Tensor(out_shape, tile_config.out_dtype),
     ):
         pypto.set_cube_tile_shapes(tile_config.m_tile_shape, tile_config.k_tile_shape, tile_config.n_tile_shape)
@@ -130,12 +129,10 @@ def create_scaled_mm_kernel_with_mn_split(tile_config: ShapeConfig):
                     scale_b_view = b_scale[n_idx * n_view: n_idx * n_view + n_view, :, :]
                 else:
                     scale_b_view = b_scale[:, n_idx * n_view: n_idx * n_view + n_view, :]
-                #Get the view tensor of bias
-                bias_view = bias[:, n_idx * n_view: n_idx * n_view + n_view]
-                extend_params = {'bias_tensor': bias_view}
+
                 out_view = pypto.scaled_mm(a_view, b_view, tile_config.out_dtype, scale_a_view, scale_b_view,
-                                        extend_params=extend_params, a_trans=tile_config.a_trans,
-                                        b_trans=tile_config.b_trans, scale_a_trans=tile_config.scale_a_trans,
+                                        a_trans=tile_config.a_trans, b_trans=tile_config.b_trans,
+                                        scale_a_trans=tile_config.scale_a_trans,
                                         scale_b_trans=tile_config.scale_b_trans)
                 out_tensor[m_idx * m_view: m_idx * m_view + m_view,
                         n_idx * n_view: n_idx * n_view + n_view] = out_view
@@ -170,15 +167,13 @@ def create_scale_mm_with_bias(tile_config: ShapeConfig):
     mat_a_tmp = mat_a_tmp * scale_a_tmp.to(torch.float32)
     mat_b_tmp = mat_b.to(torch.float32).T if tile_config.b_trans else mat_b.to(torch.float32)
     mat_b_tmp = scale_b_tmp.to(torch.float32) * mat_b_tmp
-    bias_tmp = np.repeat(bias, m, axis=0)
-    golden = torch.matmul(mat_a_tmp.to(torch.float32), mat_b_tmp.to(torch.float32)) + bias_tmp
+    golden = torch.matmul(mat_a_tmp.to(torch.float32), mat_b_tmp.to(torch.float32))
     if tile_config.a_format_nz:
         mat_a = trans_nd_to_fractal_nz(mat_a, True)
     if tile_config.b_format_nz:
         mat_b = trans_nd_to_fractal_nz(mat_b, True)
     out = torch.zeros([m, n], dtype=torch.float16).npu()
-    create_scaled_mm_kernel_with_mn_split(tile_config)(mat_a.npu(), scale_a.npu(), mat_b.npu(), scale_b.npu(),
-                                                            bias.npu(), out)
+    create_scaled_mm_kernel_with_mn_split(tile_config)(mat_a.npu(), scale_a.npu(), mat_b.npu(), scale_b.npu(), out)
     assert torch.allclose(out.cpu().to(torch.float32), golden, rtol=1e-3, atol=1e-3), "结果精度不匹配"
 
 
