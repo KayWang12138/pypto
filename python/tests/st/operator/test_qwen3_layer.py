@@ -260,7 +260,9 @@ def _build_frontend_rope_helpers(b: int, s: int, heads: int, d: int, pto_dtype):
     tile_half = max(16, min(64, half))
 
     @pypto.frontend.function
-    def rope_rearrange(x: pypto.tensor((b, s, heads, d), pypto.DT_FP32)) -> pypto.tensor((b, s, heads, d), pypto.DT_FP32):
+    def rope_rearrange(
+        x: pypto.tensor((b, s, heads, d), pypto.DT_FP32)
+    ) -> pypto.tensor((b, s, heads, d), pypto.DT_FP32):
         pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_last)
         x_view = pypto.reshape(x, [b, s, heads, half, 2])
         pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_half, 2)
@@ -489,23 +491,53 @@ def build_qwen3_paged_attention_prolog_frontend_jit(params, run_mode):
         pypto.tensor((cache_rows, kv_hidden), pto_dtype),
     ):
         # Inline the prolog body to avoid the new parser's multi-output nested function issue.
-        pypto.set_cube_tile_shapes([q_mm_tile[0], q_mm_tile[0]], [q_mm_tile[1], q_mm_tile[1]], [q_mm_tile[2], q_mm_tile[2]])
+        pypto.set_cube_tile_shapes(
+            [q_mm_tile[0], q_mm_tile[0]],
+            [q_mm_tile[1], q_mm_tile[1]],
+            [q_mm_tile[2], q_mm_tile[2]]
+        )
         pypto.set_matrix_size([b * s, hidden_size, hidden_size])
         q = pypto.matmul(hidden_states, attn_q_w, pto_dtype)
         pypto.set_vec_tile_shapes(1, hidden_size)
-        q = pypto.cast(pypto.add(pypto.cast(q, pypto.DT_FP32), pypto.cast(attn_q_b, pypto.DT_FP32)), pto_dtype)
+        q = pypto.cast(
+            pypto.add(
+                pypto.cast(q, pypto.DT_FP32),
+                pypto.cast(attn_q_b, pypto.DT_FP32)
+            ),
+            pto_dtype
+        )
 
-        pypto.set_cube_tile_shapes([kv_mm_tile[0], kv_mm_tile[0]], [kv_mm_tile[1], kv_mm_tile[1]], [kv_mm_tile[2], kv_mm_tile[2]])
+        pypto.set_cube_tile_shapes(
+            [kv_mm_tile[0], kv_mm_tile[0]],
+            [kv_mm_tile[1], kv_mm_tile[1]],
+            [kv_mm_tile[2], kv_mm_tile[2]]
+        )
         pypto.set_matrix_size([b * s, hidden_size, kv_hidden])
         k = pypto.matmul(hidden_states, attn_k_w, pto_dtype)
         pypto.set_vec_tile_shapes(1, kv_hidden)
-        k = pypto.cast(pypto.add(pypto.cast(k, pypto.DT_FP32), pypto.cast(attn_k_b, pypto.DT_FP32)), pto_dtype)
+        k = pypto.cast(
+            pypto.add(
+                pypto.cast(k, pypto.DT_FP32),
+                pypto.cast(attn_k_b, pypto.DT_FP32)
+            ),
+            pto_dtype
+        )
 
-        pypto.set_cube_tile_shapes([kv_mm_tile[0], kv_mm_tile[0]], [kv_mm_tile[1], kv_mm_tile[1]], [kv_mm_tile[2], kv_mm_tile[2]])
+        pypto.set_cube_tile_shapes(
+            [kv_mm_tile[0], kv_mm_tile[0]],
+            [kv_mm_tile[1], kv_mm_tile[1]],
+            [kv_mm_tile[2], kv_mm_tile[2]]
+        )
         pypto.set_matrix_size([b * s, hidden_size, kv_hidden])
         v = pypto.matmul(hidden_states, attn_v_w, pto_dtype)
         pypto.set_vec_tile_shapes(1, kv_hidden)
-        v = pypto.cast(pypto.add(pypto.cast(v, pypto.DT_FP32), pypto.cast(attn_v_b, pypto.DT_FP32)), pto_dtype)
+        v = pypto.cast(
+            pypto.add(
+                pypto.cast(v, pypto.DT_FP32),
+                pypto.cast(attn_v_b, pypto.DT_FP32)
+            ),
+            pto_dtype
+        )
 
         pypto.set_vec_tile_shapes(min(16, b * s * n_q), d)
         q_flat = pypto.reshape(q, [b * s * n_q, d])
@@ -717,23 +749,53 @@ def build_qwen3_layer_frontend_jit(params, run_mode):
         pypto.tensor((cache_rows, kv_hidden), pto_dtype),
         pypto.tensor((cache_rows, kv_hidden), pto_dtype),
     ):
-        pypto.set_cube_tile_shapes([q_mm_tile[0], q_mm_tile[0]], [q_mm_tile[1], q_mm_tile[1]], [q_mm_tile[2], q_mm_tile[2]])
+        pypto.set_cube_tile_shapes(
+            [q_mm_tile[0], q_mm_tile[0]],
+            [q_mm_tile[1], q_mm_tile[1]],
+            [q_mm_tile[2], q_mm_tile[2]]
+        )
         pypto.set_matrix_size([b * s, hidden_size, hidden_size])
         q = pypto.matmul(hidden_states, attn_q_w, pto_dtype)
         pypto.set_vec_tile_shapes(1, hidden_size)
-        q = pypto.cast(pypto.add(pypto.cast(q, pypto.DT_FP32), pypto.cast(attn_q_b, pypto.DT_FP32)), pto_dtype)
+        q = pypto.cast(
+            pypto.add(
+                pypto.cast(q, pypto.DT_FP32),
+                pypto.cast(attn_q_b, pypto.DT_FP32)
+            ),
+            pto_dtype
+        )
 
-        pypto.set_cube_tile_shapes([kv_mm_tile[0], kv_mm_tile[0]], [kv_mm_tile[1], kv_mm_tile[1]], [kv_mm_tile[2], kv_mm_tile[2]])
+        pypto.set_cube_tile_shapes(
+            [kv_mm_tile[0], kv_mm_tile[0]],
+            [kv_mm_tile[1], kv_mm_tile[1]],
+            [kv_mm_tile[2], kv_mm_tile[2]]
+        )
         pypto.set_matrix_size([b * s, hidden_size, kv_hidden])
         k = pypto.matmul(hidden_states, attn_k_w, pto_dtype)
         pypto.set_vec_tile_shapes(1, kv_hidden)
-        k = pypto.cast(pypto.add(pypto.cast(k, pypto.DT_FP32), pypto.cast(attn_k_b, pypto.DT_FP32)), pto_dtype)
+        k = pypto.cast(
+            pypto.add(
+                pypto.cast(k, pypto.DT_FP32),
+                pypto.cast(attn_k_b, pypto.DT_FP32)
+            ),
+            pto_dtype
+        )
 
-        pypto.set_cube_tile_shapes([kv_mm_tile[0], kv_mm_tile[0]], [kv_mm_tile[1], kv_mm_tile[1]], [kv_mm_tile[2], kv_mm_tile[2]])
+        pypto.set_cube_tile_shapes(
+            [kv_mm_tile[0], kv_mm_tile[0]],
+            [kv_mm_tile[1], kv_mm_tile[1]],
+            [kv_mm_tile[2], kv_mm_tile[2]]
+        )
         pypto.set_matrix_size([b * s, hidden_size, kv_hidden])
         v = pypto.matmul(hidden_states, attn_v_w, pto_dtype)
         pypto.set_vec_tile_shapes(1, kv_hidden)
-        v = pypto.cast(pypto.add(pypto.cast(v, pypto.DT_FP32), pypto.cast(attn_v_b, pypto.DT_FP32)), pto_dtype)
+        v = pypto.cast(
+            pypto.add(
+                pypto.cast(v, pypto.DT_FP32),
+                pypto.cast(attn_v_b, pypto.DT_FP32)
+            ),
+            pto_dtype
+        )
 
         pypto.set_vec_tile_shapes(min(16, b * s * n_q), d)
         q_flat = pypto.reshape(q, [b * s * n_q, d])
@@ -810,7 +872,11 @@ def build_qwen3_layer_frontend_jit(params, run_mode):
                             valid_shape=[valid_s2, d],
                         )
 
-                        pypto.set_cube_tile_shapes([c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]])
+                        pypto.set_cube_tile_shapes(
+                            [c1_tile[0], c1_tile[1]],
+                            [c1_tile[2], c1_tile[3]],
+                            [c1_tile[4], c1_tile[5]]
+                        )
                         pypto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
                         sij = pypto.matmul(qi, kj, pypto.DT_FP32, b_trans=True)
                         pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
@@ -822,7 +888,11 @@ def build_qwen3_layer_frontend_jit(params, run_mode):
                         tilda_lij = pypto.sum(tilda_pij, dim=-1, keepdim=True)
 
                         if pypto.is_loop_begin(bn):
-                            pypto.set_cube_tile_shapes([c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]], [c2_tile[4], c2_tile[5]])
+                            pypto.set_cube_tile_shapes(
+                                [c2_tile[0], c2_tile[1]],
+                                [c2_tile[2], c2_tile[3]],
+                                [c2_tile[4], c2_tile[5]]
+                            )
                             pypto.set_matrix_size([tilda_pij_dt.shape[0], tilda_pij_dt.shape[1], vj.shape[1]])
                             oi_tmp = pypto.matmul(tilda_pij_dt, vj, pypto.DT_FP32)
                             pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
@@ -838,7 +908,11 @@ def build_qwen3_layer_frontend_jit(params, run_mode):
                             t4 = pypto.exp(pypto.sub(tilda_mij, mi_new))
                             li_new = pypto.add(pypto.mul(t2, li_update), pypto.mul(t4, tilda_lij))
                             q3 = pypto.mul(oi_update, t2)
-                            pypto.set_cube_tile_shapes([c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]], [c2_tile[4], c2_tile[5]])
+                            pypto.set_cube_tile_shapes(
+                                [c2_tile[0], c2_tile[1]],
+                                [c2_tile[2], c2_tile[3]],
+                                [c2_tile[4], c2_tile[5]]
+                            )
                             pypto.set_matrix_size([tilda_pij_dt.shape[0], tilda_pij_dt.shape[1], vj.shape[1]])
                             q1 = pypto.matmul(tilda_pij_dt, vj, pypto.DT_FP32)
                             pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
@@ -864,7 +938,11 @@ def build_qwen3_layer_frontend_jit(params, run_mode):
         pypto.set_vec_tile_shapes(1, hidden_size)
         context = pypto.reshape(pa_out, [b * s, hidden_size])
 
-        pypto.set_cube_tile_shapes([o_mm_tile[0], o_mm_tile[0]], [o_mm_tile[1], o_mm_tile[1]], [o_mm_tile[2], o_mm_tile[2]])
+        pypto.set_cube_tile_shapes(
+            [o_mm_tile[0], o_mm_tile[0]],
+            [o_mm_tile[1], o_mm_tile[1]],
+            [o_mm_tile[2], o_mm_tile[2]]
+        )
         pypto.set_matrix_size([b * s, hidden_size, hidden_size])
         pypto.set_vec_tile_shapes(1, hidden_size)
         attn_o_w_fp32 = pypto.cast(attn_o_w, pypto.DT_FP32)
@@ -874,7 +952,13 @@ def build_qwen3_layer_frontend_jit(params, run_mode):
         pypto.set_vec_tile_shapes(1, hidden_size)
         o_proj = pypto.cast(o_proj_fp32, pto_dtype)
         pypto.set_vec_tile_shapes(1, hidden_size)
-        h1 = pypto.cast(pypto.add(pypto.cast(hidden_states, pypto.DT_FP32), pypto.cast(o_proj, pypto.DT_FP32)), pto_dtype)
+        h1 = pypto.cast(
+            pypto.add(
+                pypto.cast(hidden_states, pypto.DT_FP32),
+                pypto.cast(o_proj, pypto.DT_FP32)
+            ),
+            pto_dtype
+        )
         pypto.set_vec_tile_shapes(1, hidden_size)
         norm2 = pypto.rms_norm(h1)
         return h1, norm2
@@ -909,23 +993,53 @@ def build_qwen3_layer_frontend_jit(params, run_mode):
         pypto.set_vec_tile_shapes(1, hidden_size)
         norm1 = pypto.rms_norm(hidden_states)
 
-        pypto.set_cube_tile_shapes([q_mm_tile[0], q_mm_tile[0]], [q_mm_tile[1], q_mm_tile[1]], [q_mm_tile[2], q_mm_tile[2]])
+        pypto.set_cube_tile_shapes(
+            [q_mm_tile[0], q_mm_tile[0]],
+            [q_mm_tile[1], q_mm_tile[1]],
+            [q_mm_tile[2], q_mm_tile[2]]
+        )
         pypto.set_matrix_size([b * s, hidden_size, hidden_size])
-        q = pypto.matmul(norm1, attn_q_w, pto_dtype)
+        q = pypto.matmul(hidden_states, attn_q_w, pto_dtype)
         pypto.set_vec_tile_shapes(1, hidden_size)
-        q = pypto.cast(pypto.add(pypto.cast(q, pypto.DT_FP32), pypto.cast(attn_q_b, pypto.DT_FP32)), pto_dtype)
+        q = pypto.cast(
+            pypto.add(
+                pypto.cast(q, pypto.DT_FP32),
+                pypto.cast(attn_q_b, pypto.DT_FP32)
+            ),
+            pto_dtype
+        )
 
-        pypto.set_cube_tile_shapes([kv_mm_tile[0], kv_mm_tile[0]], [kv_mm_tile[1], kv_mm_tile[1]], [kv_mm_tile[2], kv_mm_tile[2]])
+        pypto.set_cube_tile_shapes(
+            [kv_mm_tile[0], kv_mm_tile[0]],
+            [kv_mm_tile[1], kv_mm_tile[1]],
+            [kv_mm_tile[2], kv_mm_tile[2]]
+        )
         pypto.set_matrix_size([b * s, hidden_size, kv_hidden])
         k = pypto.matmul(norm1, attn_k_w, pto_dtype)
         pypto.set_vec_tile_shapes(1, kv_hidden)
-        k = pypto.cast(pypto.add(pypto.cast(k, pypto.DT_FP32), pypto.cast(attn_k_b, pypto.DT_FP32)), pto_dtype)
+        k = pypto.cast(
+            pypto.add(
+                pypto.cast(k, pypto.DT_FP32),
+                pypto.cast(attn_k_b, pypto.DT_FP32)
+            ),
+            pto_dtype
+        )
 
-        pypto.set_cube_tile_shapes([kv_mm_tile[0], kv_mm_tile[0]], [kv_mm_tile[1], kv_mm_tile[1]], [kv_mm_tile[2], kv_mm_tile[2]])
+        pypto.set_cube_tile_shapes(
+            [kv_mm_tile[0], kv_mm_tile[0]],
+            [kv_mm_tile[1], kv_mm_tile[1]],
+            [kv_mm_tile[2], kv_mm_tile[2]]
+        )
         pypto.set_matrix_size([b * s, hidden_size, kv_hidden])
-        v = pypto.matmul(norm1, attn_v_w, pto_dtype)
+        v = pypto.matmul(hidden_states, attn_v_w, pto_dtype)
         pypto.set_vec_tile_shapes(1, kv_hidden)
-        v = pypto.cast(pypto.add(pypto.cast(v, pypto.DT_FP32), pypto.cast(attn_v_b, pypto.DT_FP32)), pto_dtype)
+        v = pypto.cast(
+            pypto.add(
+                pypto.cast(v, pypto.DT_FP32),
+                pypto.cast(attn_v_b, pypto.DT_FP32)
+            ),
+            pto_dtype
+        )
 
         pypto.set_vec_tile_shapes(min(16, b * s * n_q), d)
         q_flat = pypto.reshape(q, [b * s * n_q, d])
@@ -1350,7 +1464,10 @@ class CountBasedCompareTestBuilder(TestBuilder):
 
         if on_board:
             pto_input_data = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(self.input_data_list)]
-            pto_output_data = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(self.output_data_list)]
+            pto_output_data = [
+                pypto.from_torch(tensor, f"OUT_{idx}")
+                for idx, tensor in enumerate(self.output_data_list)
+            ]
             pypto.runtime._device_run_once_data_from_host(*pto_input_data, *pto_output_data)
             for idx in range(len(self.golden_output)):
                 self._assert_count_based_close(
@@ -1463,7 +1580,10 @@ class Qwen3PagedAttentionPrologRunner(CountBasedCompareTestBuilder):
 
         if on_board:
             pto_input_data = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(self.input_data_list)]
-            pto_output_data = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(self.output_data_list)]
+            pto_output_data = [
+                pypto.from_torch(tensor, f"OUT_{idx}")
+                for idx, tensor in enumerate(self.output_data_list)
+            ]
             pypto.runtime._device_run_once_data_from_host(*pto_input_data, *pto_output_data)
 
             self._assert_count_based_close(self.golden_output[0].cpu(), self.output_data_list[0].cpu(), self.atol_value)
