@@ -55,7 +55,7 @@ std::string MoeDistributedGetFunctionRawName(const std::string& functionName)
 }
 
 TEST_F(TestMoeDistributed, MoeDistributedDispatchV2) {
-    const char *group = "hcom1";
+    const char *groupName = "hcom123";
     DataType dType = DT_BF16;
     int routingExpertNum = 160;
     int topK = 8;
@@ -81,13 +81,12 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatchV2) {
     Tensor assistInfoForCombine(DataType::DT_INT32, assistInfoForCombineShape, "assistInfoForCombine");
     Tensor recvCounts(DataType::DT_INT32, recvCountsShape, "recvCounts");
 
-
     FUNCTION("DISPATCH_F", {x, expertIds}, {expandX, assistInfoForCombine, expertTokenNums, recvCounts}) {
-        Distributed::MoeDistributedDispatchV2(x, expertIds, group,
+        Distributed::MoeDistributedDispatchV2(x, expertIds, groupName,
             rankSize, routingExpertNum, 0, 0, expandX, assistInfoForCombine, expertTokenNums, recvCounts);
     }
 
-    auto functionRawName = MoeDistributedGetFunctionRawName("MoeDistributedDispatchSendData");
+    auto functionRawName = MoeDistributedGetFunctionRawName("MoeDistributedDispatchPrepare");
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -95,20 +94,20 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatchV2) {
 }
 
 TEST_F(TestMoeDistributed, MoeDistributedDispatch) {
-    const char *group = "hcom12";
+    const char *group = "hcom123";
     DataType dType = DT_BF16;
     int routingExpertNum = 160;
     int topK = 8;
-    int batchSize = 8;
+    int bs = 8;
     int hiddenSize = 5120;
     int rankSize = 4;
 
     int32_t expandXRowShape = topK * rankSize < routingExpertNum ?
-        static_cast<int32_t>(batchSize) * static_cast<int32_t>(topK) * rankSize :
-        static_cast<int32_t>(batchSize) * routingExpertNum;
+        static_cast<int32_t>(bs) * static_cast<int32_t>(topK) * rankSize :
+        static_cast<int32_t>(bs) * routingExpertNum;
     
-    Shape tokenTensorShape{batchSize, hiddenSize};
-    Shape tokenExpertTableShape{batchSize, topK};
+    Shape tokenTensorShape{bs, hiddenSize};
+    Shape tokenExpertTableShape{bs, topK};
     Shape expandXShape{expandXRowShape, hiddenSize};
     Shape validCntShape{routingExpertNum / rankSize};
     Shape combineInfoShape{expandXRowShape, 3};
