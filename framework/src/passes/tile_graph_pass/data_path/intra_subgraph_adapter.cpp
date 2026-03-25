@@ -40,75 +40,192 @@ inline std::string IntSetToStr(const std::set<T>& colorSet)
     return ss.str();
 }
 
+enum class HubMergeType { AIV, AIC, HUB, NOMERGE };
+
+static void MakeSubgraphIdContinue(Function &function) {
+    std::set<int> subgraphIds;
+    for (auto &op : function.Operations()) {
+        subgraphIds.insert(op.GetSubgraphID());
+    }
+    function.SetTotalSubGraphCount(subgraphIds.size());
+    std::unordered_map<int, int> newIdMap;
+    int newId = 0;
+    for (auto id : subgraphIds) {
+        newIdMap[id] = newId;
+        newId++;
+    }
+    for (auto &op : function.Operations()) {
+        op.UpdateSubgraphID(newIdMap[op.GetSubgraphID()]);
+    }
+}
+
+static void DSUinit(std::vector<int> &parent, int num) {
+    parent.resize(num);
+    for (int i = 0; i < num; i++) {
+        parent[i] = i;
+    }
+}
+
+static int DSUfind(std::vector<int> &parent, int i) {
+    if (parent[i] != i) {
+        parent[i] = DSUfind(parent, parent[i]);
+    }
+    return parent[i];
+}
+
+static void DSUunite(std::vector<int> &parent, int i, int j) {
+    i = DSUfind(parent, i);
+    j = DSUfind(parent, j);
+    if (i < j) {
+        parent[j] = i;
+    } else if (j < i) {
+        parent[i] = j;
+    }
+}
+
+static std::vector<HubMergeType> MarkSubgraphType(Function &function) {
+    std::vector<bool> hasAIC(function.GetTotalSubGraphCount(), false);
+    std::vector<bool> hasAIV(function.GetTotalSubGraphCount(), false);
+    std::vector<bool> hasView(function.GetTotalSubGraphCount(), false);
+    std::vector<bool> hasAssemble(function.GetTotalSubGraphCount(), false);
+    std::vector<bool> hasOthers(function.GetTotalSubGraphCount(), false);
+    std::vector<HubMergeType> subgraphTypes(function.GetTotalSubGraphCount());
+    for (auto &op : function.Operations()) {
+        int currSubgraphID = op.GetSubgraphID();
+        if (op.HasAttr(OpAttributeKey::isCube) && op.GetBoolAttribute(OpAttributeKey::isCube)) {
+            hasAIC[currSubgraphID] = true;
+        } else if (op.HasAttr(OpAttributeKey::isCube) && !op.GetBoolAttribute(OpAttributeKey::isCube)) {
+            hasAIV[currSubgraphID] = true;
+        }
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            hasView[currSubgraphID] = true;
+        } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            hasAssemble[currSubgraphID] = true;
+        } else if (op.GetOpcode() != Opcode::OP_RESHAPE) {
+            hasOthers[currSubgraphID] = true;
+        }
+    }
+    for (int subgraphId = 0; subgraphId < static_cast<int>(function.GetTotalSubGraphCount()); subgraphId++) {
+        if (hasAIC[subgraphId] && hasAIV[subgraphId]) {
+            subgraphTypes[subgraphId] = HubMergeType::NOMERGE;
+        } else if (hasAIC[subgraphId]) {
+            subgraphTypes[subgraphId] = HubMergeType::AIC;
+        } else {
+            subgraphTypes[subgraphId] = HubMergeType::AIV;
+        }
+        if (hasOthers[subgraphId]) {
+            continue;
+        }
+        if (hasView[subgraphId] && hasAssemble[subgraphId]) {
+            subgraphTypes[subgraphId] = HubMergeType::NOMERGE;
+        } else {
+            subgraphTypes[subgraphId] = HubMergeType::HUB;
+        }
+    }
+    return subgraphTypes;
+}
+
+static Status HubSpecialProcess(Function &function) {
+    std::vector<HubMergeType> subgraphTypes = MarkSubgraphType(function);
+    std::unordered_map<int, bool> updateIsCube;
+
+    std::vector<std::set<int>> subgraphInGraph(function.GetTotalSubGraphCount());
+    std::vector<std::set<int>> subgraphOutGraph(function.GetTotalSubGraphCount());
+    for (auto &op : function.Operations()) {
+        int currSubgraphID = op.GetSubgraphID();
+        for (auto nextOp : op.ConsumerOps()) {
+            int nextSubgraphID = nextOp->GetSubgraphID();
+            if (currSubgraphID != nextSubgraphID) {
+                subgraphInGraph[nextSubgraphID].insert(currSubgraphID);
+                subgraphOutGraph[currSubgraphID].insert(nextSubgraphID);
+            }
+        }
+    }
+    std::vector<int> parent;
+    DSUinit(parent, function.GetTotalSubGraphCount());
+    for (int subgraphId = 0; subgraphId < static_cast<int>(function.GetTotalSubGraphCount()); subgraphId++) {
+        if (subgraphTypes[subgraphId] != HubMergeType::HUB) {
+            continue;
+        }
+        int mergeCandidate = -1;
+        if (subgraphInGraph[subgraphId].size() == 1) {
+            mergeCandidate = *(subgraphInGraph[subgraphId].begin());
+        }
+        if (subgraphOutGraph[subgraphId].size() == 1) {
+            mergeCandidate = *(subgraphOutGraph[subgraphId].begin());
+        }
+        if (mergeCandidate == -1 || subgraphTypes[mergeCandidate] == HubMergeType::HUB ||
+                subgraphTypes[mergeCandidate] == HubMergeType::NOMERGE) {
+            continue;
+        }
+        DSUunite(parent, subgraphId, mergeCandidate);
+        updateIsCube[subgraphId] = subgraphTypes[mergeCandidate] == HubMergeType::AIC;//isCubeSubgraph[mergeCandidate];
+    }
+    for (auto &op : function.Operations()) {
+        int currSubgraphID = op.GetSubgraphID();
+        op.UpdateSubgraphID(DSUfind(parent, currSubgraphID));
+        if (updateIsCube.count(currSubgraphID) > 0) {
+            op.SetAttribute(OpAttributeKey::isCube, updateIsCube[currSubgraphID]);
+        }
+    }
+    MakeSubgraphIdContinue(function);
+    return SUCCESS;
+}
+
+static void PrintTensorInfo(LogicalTensorPtr tensor)
+{
+    for (const auto& producer : tensor->GetProducers()) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "producer: %s", producer->Dump().c_str());
+    }
+    for (const auto& consumer : tensor->GetConsumers()) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "consumer: %s", consumer->Dump().c_str());
+    }
+}
+
 Status IntraSubgraphAdapter::RunOnFunction(Function& function)
 {
+    HubSpecialProcess(function);
     LogicalTensors boundaryTensors = CollectBoundaryTensors(function);
-
     for (size_t i = 0; i < boundaryTensors.size(); i++) {
         LogicalTensorPtr tensor = boundaryTensors[i];
         if (CheckBoundaryTensor(tensor) != SUCCESS) {
-            APASS_LOG_ERROR_F(
-                Elements::Tensor, "Check boundary tensor failed; Please check the CheckBoundaryTensor method.");
+            APASS_LOG_ERROR_F(Elements::Tensor, "Check boundary tensor failed; Please check the CheckBoundaryTensor method.");
             return FAILED;
         }
-
         // If the boundary tensor is already in the ddr, then skip processing this tensor
         if (tensor->GetMemoryTypeOriginal() == MEM_DEVICE_DDR) {
             continue;
         }
-
         std::set<int> producerColors, consumerColors;
         CollectProducerColors(tensor, producerColors);
         CollectConsumerColors(tensor, consumerColors);
-
         std::set<int> commonColors = SetIntersection(producerColors, consumerColors);
         if (commonColors.size() > 1) {
-            APASS_LOG_ERROR_F(
-                Elements::Tensor,
-                "Process boundary tensor failed, tensor magic : %d; The producers and consumers cannot simultaneously "
-                "appear in more than one subgraph.",
-                tensor->GetMagic());
+            APASS_LOG_ERROR_F(Elements::Tensor, "Process boundary tensor %d failed; The producers and consumers cannot "
+                "simultaneously appear in more than one subgraph.", tensor->GetMagic());
             return FAILED;
         }
-        if (commonColors.size() == 0) {
-            if (ProcessBoundaryTensor(function, tensor) == FAILED) {
-                APASS_LOG_ERROR_F(
-                    Elements::Tensor,
-                    "Process boundary tensor failed, tensor magic : %d; Please check the ProcessBoundaryTensor method.",
-                    tensor->GetMagic());
-                return FAILED;
-            }
+        if (commonColors.size() == 0 && ProcessBoundaryTensor(function, tensor) == FAILED) {
+            APASS_LOG_ERROR_F(Elements::Tensor, 
+                "Process boundary tensor %d failed; Please check the ProcessBoundaryTensor method.", tensor->GetMagic());
+            return FAILED;
         }
         if (commonColors.size() == 1) {
             // For boundary tensor that have both producer and consumer in a single subgraph,
             // we split it to multiple boundary tensors, whose producers and consumers do not share same subgraph.
             int mainSubgraphID = *(commonColors.begin()); // the only subgraph id that has both producers and consumers.
             LogicalTensors newBoundaryTensors;
-
-            APASS_LOG_DEBUG_F(
-                Elements::Tensor, "********** %s requires SplitBoundaryTensor. **********",
-                function.GetMagicName().c_str());
-            APASS_LOG_DEBUG_F(
-                Elements::Tensor, "Boundary tensor: %s, mainSubgraphID: %d, producerColors: %s, consumerColors: %s",
-                tensor->Dump().c_str(), mainSubgraphID, IntSetToStr(producerColors).c_str(),
-                IntSetToStr(consumerColors).c_str());
-            for (const auto& producer : tensor->GetProducers()) {
-                APASS_LOG_DEBUG_F(Elements::Operation, "producer: %s", producer->Dump().c_str());
-            }
-            for (const auto& consumer : tensor->GetConsumers()) {
-                APASS_LOG_DEBUG_F(Elements::Operation, "consumer: %s", consumer->Dump().c_str());
-            }
-
+            APASS_LOG_DEBUG_F(Elements::Tensor, "*** %s requires SplitBoundaryTensor. ***", function.GetMagicName().c_str());
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Boundary tensor: %s, mainSubgraphID: %d, producerColors: %s, consumerColors: %s",
+                tensor->Dump().c_str(), mainSubgraphID, IntSetToStr(producerColors).c_str(), IntSetToStr(consumerColors).c_str());
+            PrintTensorInfo(tensor);
             if (SplitBoundaryTensor(function, tensor, mainSubgraphID, newBoundaryTensors) == FAILED) {
-                APASS_LOG_ERROR_F(
-                    Elements::Tensor,
-                    "Split boundary tensor failed, tensor magic : %d; Please check SplitBoundaryTensor method.",
+                APASS_LOG_ERROR_F(Elements::Tensor, "Split boundary tensor %d failed; Please check SplitBoundaryTensor method.",
                     tensor->GetMagic());
                 return FAILED;
             }
             if (ProcessBoundaryTensors(function, newBoundaryTensors) == FAILED) {
-                APASS_LOG_ERROR_F(
-                    Elements::Tensor, "Process boundary tensors failed; Please check ProcessBoundaryTensors method.");
+                APASS_LOG_ERROR_F(Elements::Tensor, "Process boundary tensors failed; Please check ProcessBoundaryTensors method.");
                 return FAILED;
             }
         }

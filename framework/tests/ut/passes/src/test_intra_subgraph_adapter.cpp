@@ -118,6 +118,7 @@ TEST_F(IntraSubgraphAdapterTest, TestInnerConvert)
         std::make_shared<ConvertOpAttribute>(MemoryType::MEM_UB, MemoryType::MEM_L1));
     subGraph.GetOp("L1ToL0A")->UpdateSubgraphID(0);
     Function* function = subGraph.GetFunction();
+    function->SetTotalSubGraphCount(1);
     EXPECT_NE(function, nullptr);
     IntraSubgraphAdapter adapter;
     adapter.RunOnFunction(*function);
