@@ -68,9 +68,11 @@ typedef uint64_t aicorePair_t;
 constexpr aicoreFunction_t aicoreNullFunction = 0xFFFFFFFFFFFFFFFFUL;
 constexpr aicoreTask_t aicoreNullTask = 0xFFFFFFFFUL;
 constexpr aicoreCore_t aicoreNullCore = 0xFFFFFFFFUL;
+constexpr aicorePair_t aicoreNullPair = 0xFFFFFFFFFFFFFFFFUL;
 
 typedef pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask> taskQueue_t;
 typedef pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore> coreQueue_t;
+typedef pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullCore> pairQueue_t;
 
 struct TaskInfo {
     int coreIdx;
@@ -163,17 +165,17 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
         // If I am not a lead AICPU scheduler, wait until initialization is ready
         if (isLeaderScheduler_ == false) while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
 
-        idleCoreQueue_[(int)CoreType::AIV] = new coreQueue_t(AIV_CORE_COUNT);
-        idleCoreQueue_[(int)CoreType::AIC] = new coreQueue_t(AIC_CORE_COUNT);
-        for (int i = aivStart_; i < aivEnd_; i++) idleCoreQueue_[(int)CoreType::AIV]->push(i);
-        for (int i = aicStart_; i < aicEnd_; i++) idleCoreQueue_[(int)CoreType::AIC]->push(i);
-        
-        pendCoreQueue_[(int)CoreType::AIV] = new coreQueue_t(AIV_CORE_COUNT);
-        pendCoreQueue_[(int)CoreType::AIC] = new coreQueue_t(AIC_CORE_COUNT);
+        freeACoreQueue_[(int)CoreType::AIV] = new coreQueue_t(AIV_CORE_COUNT);
+        freeACoreQueue_[(int)CoreType::AIC] = new coreQueue_t(AIC_CORE_COUNT);
+        busyACoreQueue_[(int)CoreType::AIV] = new pairQueue_t(AIV_CORE_COUNT);
+        busyACoreQueue_[(int)CoreType::AIC] = new pairQueue_t(AIC_CORE_COUNT);
+        freeBCoreQueue_[(int)CoreType::AIV] = new pairQueue_t(AIV_CORE_COUNT);
+        freeBCoreQueue_[(int)CoreType::AIC] = new pairQueue_t(AIC_CORE_COUNT);
+        busyBCoreQueue_[(int)CoreType::AIV] = new pairQueue_t(AIV_CORE_COUNT);
+        busyBCoreQueue_[(int)CoreType::AIC] = new pairQueue_t(AIC_CORE_COUNT);
 
-        busyCoreQueue_[(int)CoreType::AIV] = new coreQueue_t(AIV_CORE_COUNT);
-        busyCoreQueue_[(int)CoreType::AIC] = new coreQueue_t(AIC_CORE_COUNT);
-
+        for (int i = aivStart_; i < aivEnd_; i++) freeACoreQueue_[(int)CoreType::AIV]->push(i);
+        for (int i = aicStart_; i < aicEnd_; i++) freeACoreQueue_[(int)CoreType::AIC]->push(i);
 
         for (int i = aivStart_; i < aivEnd_; i++) aicoreRunningTaskIds_[i] = aicoreNullTask;
         for (int i = aivStart_; i < aivEnd_; i++) aicorePendingTaskIds_[i] = aicoreNullTask;
@@ -181,8 +183,8 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
         for (int i = aicStart_; i < aicEnd_; i++) aicoreRunningTaskIds_[i] = aicoreNullTask;
         for (int i = aicStart_; i < aicEnd_; i++) aicorePendingTaskIds_[i] = aicoreNullTask;
 
-        // DEV_ERROR(0, "[AICPU %d] Vector Ready: %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIV), idleCoreQueue_[(int)CoreType::AIV]->wasSize(), pendCoreQueue_[(int)CoreType::AIV]->wasSize());
-        // DEV_ERROR(0, "[AICPU %d] Cube Ready:   %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIC), idleCoreQueue_[(int)CoreType::AIC]->wasSize(), pendCoreQueue_[(int)CoreType::AIC]->wasSize());
+        // DEV_ERROR(0, "[AICPU %d] Vector Ready: %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIV), freeACoreQueue_[(int)CoreType::AIV]->wasSize(), busyACoreQueue_[(int)CoreType::AIV]->wasSize());
+        // DEV_ERROR(0, "[AICPU %d] Cube Ready:   %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIC), freeACoreQueue_[(int)CoreType::AIC]->wasSize(), busyACoreQueue_[(int)CoreType::AIC]->wasSize());
     }
 
     inline void CountSendTask(uint64_t &sentAic, uint64_t &sentAiv) {
@@ -195,8 +197,8 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
     }
 
     inline void RunCoreTask(uint64_t& sent) {
-        DispatchAiCoreTask(CoreType::AIC, readyAicCoreFunctionQue_, aicStart_, aicEnd_);
-        DispatchAiCoreTask(CoreType::AIV, readyAivCoreFunctionQue_, aivStart_, aivEnd_);
+        DispatchAiCoreTask(CoreType::AIC, readyAicCoreFunctionQue_);
+        DispatchAiCoreTask(CoreType::AIV, readyAivCoreFunctionQue_);
 
         uint64_t sentAic = 0;
         uint64_t sentAiv = 0;
@@ -315,6 +317,10 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
 
 private:
 
+    static inline aicorePair_t encodePair(const uint64_t coreId, const uint64_t taskId) { return aicorePair_t ((taskId << 32) + (coreId & 0x00000000FFFFFFFFUL)); }
+    static inline uint64_t decodePairTask(const aicorePair_t pair) { return pair >> 32; }
+    static inline uint64_t decodePairCore(const aicorePair_t pair) { return pair & 0x00000000FFFFFFFFUL; }
+
     inline bool PreFetchNextDevTask() {
         preFetchNextDevTaskCtrl_ = nullptr;
         preFetchSuccess_ = taskQueue_->TryDequeue(preFetchNextDevTaskCtrl_);
@@ -335,35 +341,20 @@ private:
     };
 
     inline uint32_t GetReadyCoreNum(CoreType type) {
-        return context_->corePendReadyCnt_[(int)type];
+        return freeACoreQueue_[(int)type]->wasSize();
     }
 
-    inline uint64_t TryBatchSendTask(CoreType type, ReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd)
+    inline uint64_t TryBatchSendTask(CoreType type, ReadyCoreFunctionQueue* readyQue)
     {
         if (__atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED) == __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED)) {
             return 0;
         }
         
-        
         uint32_t ready = GetReadyCoreNum(type);
-        // uint32_t newReady = idleCoreQueue_[(int)type]->wasSize() + pendCoreQueue_[(int)type]->wasSize();
 
         if (ready == 0 ) {
             return 0;
         }
-
-        uint32_t runReady = context_->coreRunReadyCnt_[(int)type];
-        uint32_t newRunReady = idleCoreQueue_[(int)type]->wasSize();
-        if (aicpuIdx_ == 1) if (type == CoreType::AIV) if (runReady != newRunReady)
-        {
-            DEV_ERROR(0, "[AICPU %d] RunReady: %u, newRunReady: %u", aicpuIdx_, runReady, newRunReady);
-        }
-
-
-        // if (aicpuIdx_ == 1) if (type == CoreType::AIV) if (newReady != ready)
-        // {
-        //     DEV_ERROR(0, "[AICPU %d] Ready: %u, NewRedy: %u (%lu + %lu)", aicpuIdx_, ready, newReady, idleCoreQueue_[(int)type]->wasSize(), pendCoreQueue_[(int)type]->wasSize());
-        // }
 
         ReadyQueueLock(readyQue);
         uint32_t head = readyQue->head;
@@ -372,47 +363,31 @@ private:
         readyQue->head += taskCount;
         ReadyQueueUnLock(readyQue);
 
-        BatchSendTask(type, &readyQue->elem[head], taskCount, coreIdxStart, coreIdxEnd);
+        BatchSendTask(type, &readyQue->elem[head], taskCount);
         return taskCount;
     }
 
-    inline uint32_t BatchSendTask(CoreType type, uint32_t *newTask, uint32_t taskCount, int coreIdxStart, int coreIdxEnd) {
+    inline uint32_t BatchSendTask(CoreType type, uint32_t *newTask, uint32_t taskCount) {
         uint32_t sendCnt = 0;
-        const int typeIdx = (int)type;
-        uint32_t coreRunReadyCnt = context_->coreRunReadyCnt_[typeIdx];
-        
-                
-        while (sendCnt < coreRunReadyCnt && sendCnt < taskCount)
+        while (sendCnt < taskCount)
         {
-            uint32_t coreIdx = context_->coreRunReadyCnt_[typeIdx] - 1;
-            uint32_t coreId = context_->runReadyCoreIdx_[typeIdx][coreIdx];
+            uint32_t coreId = freeACoreQueue_[(int)type]->pop();
             SendTaskToAiCore(type, coreId, newTask[sendCnt]);
-            context_->coreRunReadyCnt_[typeIdx]--;
-            idleCoreQueue_[typeIdx]->pop();
-            busyCoreQueue_[(int)type]->push(coreId);
+
+            auto pair = encodePair(coreId, newTask[sendCnt]);
+            busyACoreQueue_[(int)type]->push(pair);
             sendCnt++;
         }
-        context_->corePendReadyCnt_[typeIdx] -= sendCnt;
-
-        uint32_t idx = coreIdxStart;
-        uint32_t coreNum = coreIdxEnd - coreIdxStart;
-        while (context_->corePendReadyCnt_[typeIdx] > 0 && sendCnt < taskCount) {
-            if (aicorePendingTaskIds_[idx] == aicoreNullTask) {
-                SendTaskToAiCore(type, idx, newTask[sendCnt]);
-                sendCnt++;
-                context_->corePendReadyCnt_[typeIdx]--;
-            }
-            idx = coreIdxStart + (idx - coreIdxStart + 1) % coreNum;
-        }
+        
 
         return sendCnt;
     }
 
-    inline void DispatchAiCoreTask(CoreType type, ReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd) {
+    inline void DispatchAiCoreTask(CoreType type, ReadyCoreFunctionQueue* readyQue) {
         if (context_->waitTaskCnt_[(int)type] > 0) {
-            ResolveDepForAllAiCore(type, coreIdxStart, coreIdxEnd);
+            ResolveDepForAllAiCore(type);
         }
-        TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
+        TryBatchSendTask(type, readyQue);
     }
 
     inline void SendTaskToAiCore(CoreType type, int coreIdx, uint32_t newTask) {
@@ -428,14 +403,14 @@ private:
         ReadyQueueUnLock(readyQue);
     }
     
-    inline void ResolveDepForAllAiCore(CoreType type, [[maybe_unused]] int coreIdxStart, [[maybe_unused]] int coreIdxEnd) {
+    inline void ResolveDepForAllAiCore(CoreType type) {
 
-        size_t runningCoreCount = busyCoreQueue_[(int)type]->wasSize();
+        size_t runningCoreCount = busyACoreQueue_[(int)type]->wasSize();
         for (size_t i = 0; i < runningCoreCount; i++)
         {
-            const auto coreIdx = busyCoreQueue_[(int)type]->pop();
-            if (coreIdx == aicoreNullCore) return;
-            ResolveByRegVal(type, coreIdx);
+            const auto pair = busyACoreQueue_[(int)type]->pop();
+            if (pair == aicoreNullPair) return;
+            ResolveByRegVal(type, pair);
         }
 
         BatchPushReadyQueue();
@@ -447,68 +422,43 @@ private:
 
         if (context_->readyCount[aicIndex] > 0) {
             PushReadyQue(readyAicCoreFunctionQue_, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
-            TryBatchSendTask(CoreType::AIC, readyAicCoreFunctionQue_, aicStart_, aicEnd_);
+            TryBatchSendTask(CoreType::AIC, readyAicCoreFunctionQue_);
             context_->readyCount[aicIndex] = 0;
         }
 
         if (context_->readyCount[aivIndex] > 0) {
             PushReadyQue(readyAivCoreFunctionQue_, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
-            TryBatchSendTask(CoreType::AIV, readyAivCoreFunctionQue_, aivStart_, aivEnd_);
+            TryBatchSendTask(CoreType::AIV, readyAivCoreFunctionQue_);
             context_->readyCount[aivIndex] = 0;
         }
     }
 
-    inline void ResolveByRegVal(CoreType type, int coreIdx) {
-        uint64_t finTaskRegVal = aicoreHal_.GetFinishedTask(coreIdx);
+    inline void ResolveByRegVal(CoreType type, const aicorePair_t pair) {
+        const auto coreId = decodePairCore(pair);
+        [[maybe_unused]] const auto taskId = decodePairTask(pair);
+
+        uint64_t finTaskRegVal = aicoreHal_.GetFinishedTask(coreId);
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
 
-        const auto runningTaskId = aicoreRunningTaskIds_[coreIdx];
-        const auto pendingTaskId = aicorePendingTaskIds_[coreIdx];
+        const auto runningTaskId = aicoreRunningTaskIds_[coreId];
+        const auto pendingTaskId = aicorePendingTaskIds_[coreId];
 
         if (finTaskId == pendingTaskId && finTaskState == TASK_FIN_STATE) {
-            // pending task is finished, resolve both running and pending task.
-            aicoreRunningTaskIds_[coreIdx] = aicoreNullTask;
-            aicorePendingTaskIds_[coreIdx] = aicoreNullTask; // processFinishedTask depend this line
+            aicoreRunningTaskIds_[coreId] = aicoreNullTask;
+            aicorePendingTaskIds_[coreId] = aicoreNullTask; // processFinishedTask depend this line
 
-            context_->runReadyCoreIdx_[(int)type][context_->coreRunReadyCnt_[(int)type]++] = coreIdx;
-            context_->corePendReadyCnt_[(int)type]++;
-            idleCoreQueue_[(int)type]->push(coreIdx);
+            freeACoreQueue_[(int)type]->push(coreId);
 
             if (runningTaskId != aicoreNullTask) processFinishedTask(type, runningTaskId);
             processFinishedTask(type, pendingTaskId);
             return;
         }
         
-        if (finTaskId == pendingTaskId && finTaskState == TASK_ACK_STATE) {
-            // pending task is acknowledged, resolve running task. And move pending to running
-            aicoreRunningTaskIds_[coreIdx] = pendingTaskId;
-            aicorePendingTaskIds_[coreIdx] = aicoreNullTask; // processFinishedTask depend this line
-            context_->corePendReadyCnt_[(int)type]++;
-            busyCoreQueue_[(int)type]->push(coreIdx);
+        // if (finTaskId == pendingTaskId && finTaskState == TASK_ACK_STATE) {
+        // if (finTaskId == runningTaskId && finTaskState == TASK_FIN_STATE) {
 
-            if (runningTaskId != aicoreNullTask) processFinishedTask(type, runningTaskId);
-            return;
-        }
-        
-        if (finTaskId == runningTaskId && finTaskState == TASK_FIN_STATE) {
-            // running task is finished, resolve running task. Pending task is unmodified
-            aicoreRunningTaskIds_[coreIdx] = aicoreNullTask;
-
-            if (pendingTaskId == aicoreNullTask)
-            {
-              context_->runReadyCoreIdx_[(int)type][context_->coreRunReadyCnt_[(int)type]++] = coreIdx;
-              idleCoreQueue_[(int)type]->push(coreIdx);
-            }
-            else
-            {
-                busyCoreQueue_[(int)type]->push(coreIdx);
-            }
-            processFinishedTask(type, runningTaskId);
-            return;
-        }
-
-        busyCoreQueue_[(int)type]->push(coreIdx);
+        busyACoreQueue_[(int)type]->push(pair);
     }
 
     inline void PushReadyTask(int coreType, uint64_t taskId) {
@@ -618,11 +568,11 @@ private:
         // send task by left ready core
         if (needSendAic) {
             __sync_synchronize();
-            TryBatchSendTask(CoreType::AIC, readyAicCoreFunctionQue_, aicStart_, aicEnd_);
+            TryBatchSendTask(CoreType::AIC, readyAicCoreFunctionQue_);
         }
         if (needSendAiv) {
             __sync_synchronize();
-            TryBatchSendTask(CoreType::AIV, readyAivCoreFunctionQue_, aivStart_, aivEnd_);
+            TryBatchSendTask(CoreType::AIV, readyAivCoreFunctionQue_);
         }
 
         if (preFetchSuccess_) {
@@ -648,6 +598,7 @@ private:
         int aivSucessCnt = 0;
         int aicTreshold = 4;
         int aivThreshold = 4;
+        
         while (handShakeNum < mngAicoreNum) {
             HandShakeTryPreFetchDevTask(needSendAic, needSendAiv);
 
@@ -661,8 +612,6 @@ private:
                     handShakeNum++;
                     aicSucessCnt++;
                     handFlag[i] = true;
-                    context_->corePendReadyCnt_[static_cast<int>(CoreType::AIC)]++;
-                    context_->runReadyCoreIdx_[static_cast<int>(CoreType::AIC)][context_->coreRunReadyCnt_[static_cast<int>(CoreType::AIC)]++] = i;
                 } else {
                     curIterAllAicSuccess = false;
                 }
@@ -671,7 +620,7 @@ private:
 
             if (needSendAic && aicSucessCnt >= aicTreshold) {
                 __sync_synchronize(); // sync  REG_SPR_FAST_PATH_ENABLE
-                TryBatchSendTask(CoreType::AIC, readyAicCoreFunctionQue_, aicStart_, aicEnd_);
+                TryBatchSendTask(CoreType::AIC, readyAicCoreFunctionQue_);
                 aicSucessCnt = 0;
             }
 
@@ -683,8 +632,6 @@ private:
                     handShakeNum++;
                     aivSucessCnt++;
                     handFlag[i] = true;
-                    context_->corePendReadyCnt_[static_cast<int>(CoreType::AIV)]++;
-                    context_->runReadyCoreIdx_[static_cast<int>(CoreType::AIV)][context_->coreRunReadyCnt_[static_cast<int>(CoreType::AIV)]++] = i;
                 } else {
                     curIterAllAivSuccess = false;
                 }
@@ -693,7 +640,7 @@ private:
 
             if (needSendAiv && aivSucessCnt >= aivThreshold) {
                 __sync_synchronize();
-                TryBatchSendTask(CoreType::AIV, readyAivCoreFunctionQue_, aivStart_, aivEnd_);
+                TryBatchSendTask(CoreType::AIV, readyAivCoreFunctionQue_);
                 aivSucessCnt = 0;
             }
 
@@ -786,9 +733,10 @@ private:
     friend class AiCoreProf;
 
     // Queues for managing tasks, cores and their pairing
-    pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* idleCoreQueue_[AICORE_TYPE_NUM];
-    pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* pendCoreQueue_[AICORE_TYPE_NUM];
-    pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* busyCoreQueue_[AICORE_TYPE_NUM];
+    coreQueue_t* freeACoreQueue_[AICORE_TYPE_NUM];
+    pairQueue_t* busyACoreQueue_[AICORE_TYPE_NUM];
+    pairQueue_t* freeBCoreQueue_[AICORE_TYPE_NUM];
+    pairQueue_t* busyBCoreQueue_[AICORE_TYPE_NUM];
 
     std::array<aicoreTask_t, TOTAL_CORE_COUNT> aicoreRunningTaskIds_;
     std::array<aicoreTask_t, TOTAL_CORE_COUNT> aicorePendingTaskIds_;
