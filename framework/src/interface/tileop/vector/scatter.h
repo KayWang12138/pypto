@@ -293,10 +293,10 @@ TILEOP void Tscatter(T0 dst, T1 src1, T2 src2, T3 tmp, C coordinate) {
                             } else {
                                 if constexpr (scatterMode == 1) {
                                     float val_to_add = static_cast<float>(srcVal);
-                                    // set_st_atomic_cfg(ATOMIC_F32, ATOMIC_SUM);
-                                    dcci((__gm__ float *)(dstGmAddr), 0);
-                                    // st_atomic(val_to_add, (__gm__ float *)(dstGmAddr));
-                                    *dstGmAddr = *dstGmAddr + srcVal;
+                                    set_st_atomic_cfg(ATOMIC_F32, ATOMIC_SUM);
+                                    // dcci((__gm__ float *)(dstGmAddr), 0);
+                                    st_atomic(val_to_add, (__gm__ float *)(dstGmAddr));
+                                    // *dstGmAddr = *dstGmAddr + srcVal;
                                     dcci((__gm__ float *)(dstGmAddr), 0);
                                 } else {
                                     dcci((__gm__ T0 *)dstGmAddr, 0);
