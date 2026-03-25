@@ -661,16 +661,15 @@ void InnerTiledScatter(size_t cur, Function &function, const TileShape &tileShap
     const LogicalTensorPtr &srcInput = scatterPara.srcInput;
     const int axis = scatterPara.axis;
     const int mode = scatterPara.scatterMode;
-
     if (cur == dstTensor->shape.size()) {
         // add Operation
         auto selfTile = selfInput->View(function, scatterTileInfo.selfInfo.shape, scatterTileInfo.selfInfo.offset);
         auto idxTile = idxInput->View(function, scatterTileInfo.idxInfo.shape, scatterTileInfo.idxInfo.offset);
         auto srcTile = srcInput->View(function, scatterTileInfo.srcInfo.shape, scatterTileInfo.srcInfo.offset);
-        auto dstTile = dstTensor->View(function, scatterTileInfo.dstInfo.shape, scatterTileInfo.dstInfo.offset);
+        // auto dstTile = dstTensor->View(function, scatterTileInfo.dstInfo.shape, scatterTileInfo.dstInfo.offset);
         Shape tmpShape({idxTile->GetShape()[idxTile->GetShape().size() - 1]});
         auto tmpBuffer = std::make_shared<LogicalTensor>(function, idxTile->Datatype(), tmpShape);
-        auto &op = function.AddOperation(Opcode::OP_SCATTER, {selfTile, idxTile, srcTile}, {dstTile, tmpBuffer});
+        auto &op = function.AddOperation(Opcode::OP_SCATTER, {selfTile, idxTile, srcTile}, {dstTensor, tmpBuffer});
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
         op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", mode);
         return;
@@ -686,30 +685,41 @@ void InnerTiledScatter(size_t cur, Function &function, const TileShape &tileShap
     if (static_cast<int>(cur) == axis) {
         tmpTile = std::max(dstTensor->shape[axis], idxInput->shape[axis]);
     }
-    for (int i = 0; i < idxInput->shape[cur]; i += tmpTile) {
+    //self和dst都在gm上，在axis轴上不切分
+    // for (int i = 0; i < idxInput->shape[cur]; i += tmpTile) {
+    //     if (static_cast<int>(cur) == axis) {
+    //         scatterTileInfo.dstInfo.offset[cur] = 0;
+    //         scatterTileInfo.dstInfo.shape[cur] = dstTensor->shape[cur];
+    //         scatterTileInfo.selfInfo.offset[cur] = 0;
+    //         scatterTileInfo.selfInfo.shape[cur] = selfInput->shape[cur];
+    //     } else {
+    //         scatterTileInfo.dstInfo.offset[cur] = i;
+    //         scatterTileInfo.dstInfo.shape[cur] =
+    //             std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
+    //         scatterTileInfo.selfInfo.offset[cur] = i;
+    //         scatterTileInfo.selfInfo.shape[cur] =
+    //             std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
+    //     }
+    for (int i = 0; i < srcInput->shape[cur]; i += tmpTile) {
         if (static_cast<int>(cur) == axis) {
-            scatterTileInfo.idxInfo.offset[cur] = 0;
-            scatterTileInfo.idxInfo.shape[cur] = idxInput->shape[cur];
             scatterTileInfo.dstInfo.offset[cur] = 0;
             scatterTileInfo.dstInfo.shape[cur] = dstTensor->shape[cur];
-            scatterTileInfo.srcInfo.offset[cur] = 0;
-            scatterTileInfo.srcInfo.shape[cur] = idxInput->shape[cur];
             scatterTileInfo.selfInfo.offset[cur] = 0;
             scatterTileInfo.selfInfo.shape[cur] = selfInput->shape[cur];
         } else {
-            scatterTileInfo.idxInfo.offset[cur] = i % idxInput->shape[cur];
-            scatterTileInfo.idxInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
             scatterTileInfo.dstInfo.offset[cur] = i;
             scatterTileInfo.dstInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
-            scatterTileInfo.srcInfo.offset[cur] = i;
-            scatterTileInfo.srcInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
+                std::min(dstTensor->shape[cur] - i, tmpTile);
             scatterTileInfo.selfInfo.offset[cur] = i;
             scatterTileInfo.selfInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
+                std::min(selfInput->shape[cur] - i, tmpTile);
         }
+        scatterTileInfo.idxInfo.offset[cur] = i; 
+        scatterTileInfo.idxInfo.shape[cur] = 
+            std::min(idxInput->shape[cur] - i, tmpTile);  
+        scatterTileInfo.srcInfo.offset[cur] = i; 
+        scatterTileInfo.srcInfo.shape[cur] = 
+            std::min(srcInput->shape[cur] - i, tmpTile);
         InnerTiledScatter(cur + 1, function, tileShape, scatterPara, scatterTileInfo);
     }
 }
@@ -728,7 +738,7 @@ void TiledScatter(Function &function, const TileShape &tileShape, const ScatterP
     ASSERT(
         VectorErrorCode::ERR_PARAM_INVALID, scatterPara.selfInput->shape.size() == scatterPara.selfInput->offset.size())
         << "The shape size of selfInput and offset should be equal";
-
+    
     ScatterTileInfoPara scatterTileInfo{
         TileInfo(scatterPara.srcInput->shape.size(), scatterPara.srcInput->offset.size()),
         TileInfo(scatterPara.idxInput->shape.size(), scatterPara.idxInput->offset.size()),
@@ -771,11 +781,11 @@ static void CheckScatterParamsInvalid(
     }
 }
 
-Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int axis, ScatterMode reduce) {
+void Scatter(Tensor &self, const Tensor &indices, const Tensor &src, int axis, ScatterMode reduce) {
     DECLARE_TRACER();
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self.GetDataType() == src.GetDataType())
         << "Datatype of self and src should be equal";
-
+    std::cout<<"---------------------------------scatter debug------------"<<std::endl;
     DataType orgDtype = self.GetDataType();
     auto operandSelfCast = Tensor(DataType::DT_FP32, self.GetShape());
     auto operandSrcCast = Tensor(DataType::DT_FP32, src.GetShape());
@@ -798,10 +808,13 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int
 
     if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) &&
         (reduce == ScatterMode::ADD || reduce == ScatterMode::MULTIPLY)) {
-        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+        Tensor castedResult = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
             result.GetStorage(), orgDtype, CastMode::CAST_RINT);
+        result = castedResult;
     }
-    return result;
+    Program::GetInstance().GetCurrentFunction()->SetSameMemId(self.GetStorage(), result.GetStorage());
+    self = result;
+    // return result;
 }
 
 void TiledScatterUpdate(size_t cur, Function &function, const TileShape &tileShape, Input &srcInput, Input &indexInput,
