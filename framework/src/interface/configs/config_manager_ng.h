@@ -57,6 +57,7 @@ constexpr const char *CFG_VALID_SHAPE_OPTIMIZE = "valid_shape_optimize";
 constexpr int64_t CFG_RUN_MODE_NPU = 0;
 constexpr int64_t CFG_RUN_MODE_SIM = 1;
 constexpr const char *READY_ON_HOST_TENSORS = "ready_on_host_tensors";
+constexpr const char *CFG_TRIPLE_STREAM_SCHED = "triple_stream_sched";
 
 // host
 constexpr const char *COMPILE_STAGE = "compile_stage";
