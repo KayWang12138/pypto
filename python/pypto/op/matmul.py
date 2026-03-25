@@ -233,26 +233,13 @@ def scaled_mm(
     a_scale = pypto.tensor((16, 2, 2), pypto.DT_FP8E8M0, "scale_a")
     b_scale = pypto.tensor((2, 64, 2), pypto.DT_FP8E8M0, "scale_b")
     pypto.scaled_mm(a, b, pypto.DT_BF16, a_scale, b_scale)
-
-    # With bias addition
-    a = pypto.tensor((16, 128), pypto.DT_FP8E4M3, "tensor_a")
-    b = pypto.tensor((128, 64), pypto.DT_FP8E4M3, "tensor_b")
-    a_scale = pypto.tensor((16, 2, 2), pypto.DT_FP8E8M0, "scale_a")
-    b_scale = pypto.tensor((2, 64, 2), pypto.DT_FP8E8M0, "scale_b")
-    bias = pypto.tensor((1, 64), pypto.DT_FP16, "tensor_bias")
-    extend_params = {'bias_tensor': bias}
-    pypto.scaled_mm(a, b, pypto.DT_FP16, extend_params=extend_params)
     """
     __validate_inputs(mat_a, mat_b, out_dtype, [a_trans, b_trans, c_matrix_nz, extend_params])
     __validate_scaled_inputs(mat_a, mat_b, scale_a, scale_b)
     __validate_scaled_shape(mat_a, mat_b, scale_a, scale_b, [a_trans, b_trans, scale_a_trans, scale_b_trans])
     if extend_params is not None:
-        extend_params = pypto_impl.MatmulExtendParam(
-            **__convert_matmul_extend_params(extend_params)
-        )
-        return pypto_impl.MatmulMX(
-            out_dtype, mat_a, scale_a, mat_b, scale_b, a_trans, scale_a_trans, b_trans, scale_b_trans,
-            c_matrix_nz, extend_params
+        raise RuntimeError(
+            "The input parameter 'extend_params' is currently not supported."
         )
     else:
         return pypto_impl.MatmulMX(
@@ -428,8 +415,8 @@ def __validate_scale_k_alignment(ka_dim, k_a_scale0_dim, align_64):
 def __validate_trans_mode(mat_a, mat_b, extend_params):
     if extend_params is not None:
         if (extend_params.get('trans_mode', pypto_impl.TransMode.CAST_NONE) !=
-            pypto_impl.TransMode.CAST_NONE and 
-            mat_a.GetDataType() != pypto_impl.DataType.DT_FP32 and 
+            pypto_impl.TransMode.CAST_NONE and
+            mat_a.GetDataType() != pypto_impl.DataType.DT_FP32 and
             mat_b.GetDataType() != pypto_impl.DataType.DT_FP32):
             raise RuntimeError(
                 "The param of trans_mode is only supported when input data type is DT_FP32."
