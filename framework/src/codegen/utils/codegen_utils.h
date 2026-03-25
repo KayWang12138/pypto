@@ -157,11 +157,14 @@ struct FloatSpecVal {
             {{DataType::DT_FP16, false}, FP16_INF_POS},
             { {DataType::DT_FP16, true}, FP16_INF_NEG},
             {{DataType::DT_FP32, false}, FP32_INF_POS},
-            { {DataType::DT_FP32, true}, FP32_INF_NEG}
+            { {DataType::DT_FP32, true}, FP32_INF_NEG},
+            {{DataType::DT_BF16, false}, BF16_INF_POS},
+            { {DataType::DT_BF16, true}, BF16_INF_NEG},
         };
         static const std::map<DataType, std::string> nanMap = {
             {DataType::DT_FP16, FP16_NAN},
-            {DataType::DT_FP32, FP32_NAN}
+            {DataType::DT_FP32, FP32_NAN},
+            {DataType::DT_BF16, BF16_NAN},
         };
 
         if (std::isinf(value)) {
