@@ -460,7 +460,7 @@ public:
     inline bool IsCopyOut(Opcode opCode) const {
         return opCode == Opcode::OP_COPY_OUT || opCode == Opcode::OP_UB_COPY_OUT || opCode == Opcode::OP_L0C_COPY_OUT ||
                opCode == Opcode::OP_L1_COPY_OUT || opCode == Opcode::OP_TRANSPOSE_MOVEOUT ||
-               opCode == Opcode::OP_INDEX_OUTCAST ||
+               opCode == Opcode::OP_INDEX_OUTCAST || opCode == Opcode::OP_SCATTER ||
                opCode == Opcode::OP_INDEX_PUT ||
                opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_BATCHING ||
                opCode == Opcode::OP_FFN_COMBINEINFO || opCode == Opcode::OP_FFN_VALIDCNT ||
