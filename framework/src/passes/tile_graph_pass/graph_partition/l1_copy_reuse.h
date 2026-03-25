@@ -89,16 +89,7 @@ private:
     Status InitColorNode(Function &func, std::vector<std::vector<int>> &colorNode) const;
     Status CheckOpListValid(Function &func) const;
     Status L1CopyInReuse(Function &func) const;
-    Status RunOnFunction(Function &function) override {
-        APASS_LOG_INFO_F(Elements::Operation, "===> Start L1CopyInReuseMerge.");
-        if (L1CopyInReuse(function) == FAILED) {
-          return FAILED;
-        }
-        DeadOperationEliminator eliminator;
-        eliminator.EliminateDeadOperationBackward(function);
-        APASS_LOG_INFO_F(Elements::Operation, "===> Finish L1CopyInReuseMerge.");
-        return SUCCESS;
-    }
+    Status RunOnFunction(Function &function) override;
     void DoHealthCheckAfter(Function &function, const std::string &folderPath) override;
 };
 } // namespace npu::tile_fwk
