@@ -15,6 +15,7 @@
 
 #include "auto_cast_checker.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes\pass_utils\pass_error.h"
 
 #define MODULE_NAME "AutoCast"
 
@@ -31,7 +32,7 @@ Status AutoCastChecker::DoDefaultEnabledPreCheck(Function &function) {
 
         int inputNum = static_cast<int>(op->GetIOperands().size());
         if (inputNum != 1) {
-            APASS_LOG_ERROR_F(Elements::Operation,
+            APASS_LOG_ERROR_C(OperationErr::OP_INVALID_OPERAND_COUNT, Elements::Operation,
                              "CAST op %d has %d input tensor, which should be 1.",
                              op->GetOpMagic(),
                              inputNum);
@@ -40,7 +41,7 @@ Status AutoCastChecker::DoDefaultEnabledPreCheck(Function &function) {
 
         int outputNum = static_cast<int>(op->GetOOperands().size());
         if (outputNum != 1) {
-            APASS_LOG_ERROR_F(Elements::Operation,
+            APASS_LOG_ERROR_C(OperationErr::OP_INVALID_OPERAND_COUNT, Elements::Operation,
                              "CAST op %d has %d output tensor, which should be 1.",
                              op->GetOpMagic(),
                              outputNum);

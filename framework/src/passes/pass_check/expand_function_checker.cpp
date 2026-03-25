@@ -15,6 +15,8 @@
 
 #include "expand_function_checker.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes\pass_utils\pass_error.h"
+
 
 #define MODULE_NAME "ExpandFunction"
 
@@ -23,12 +25,12 @@ namespace tile_fwk {
 Status ExpandFunctionChecker::DoDefaultEnabledPreCheck(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "DoDefaultEnabledPreCheck for ExpandFunction.");
     if (!function.OperationLoopCheck()) {
-        APASS_LOG_ERROR_F(Elements::Function, "Operation Loop detected before expand function; Please validate the operation input specifications.");
+        APASS_LOG_ERROR_C(GraphErr::GRAPH_LOOP_DETECTION, Elements::Function, "Operation Loop detected before expand function; Please validate the operation input specifications.");
         return FAILED;
     }
     IndexOutcastChecker indexOutcastChecker;
     if (indexOutcastChecker.CheckIndexOutcastDisorderedCoverage(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "Function[%d] has multiple OP_INDEX_OUTCAST consume the same tensor, the precision may be abnormal.", function.GetFuncMagic());
+        APASS_LOG_WARN_F(Elements::Function, "Function[%d] has multiple OP_INDEX_OUTCAST consume the same tensor, the precision may be abnormal.", function.GetFuncMagic());
         return FAILED;
     }
     return SUCCESS;
