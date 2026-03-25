@@ -10,6 +10,8 @@ bool isIdentityPermutation(const std::vector<int> &perm);
 int findTargetPosition(const std::vector<int> &invPerm, int targetIndex, int startSearch);
 Tensor permuteTensor(const Tensor &self, const std::vector<int> &perm, int shapeSize);
 Tensor permuteAnyDims(Tensor tensor, std::vector<int> invPerm);
+int calculateMinTransposeCount(const std::vector<int> &perm);
+Tensor applyOptimalTransposeSequence(const Tensor &self, const std::vector<int> &perm, int shapeSize);
 
 struct MergeAxisOptimization {
     bool canOptimize = false;
@@ -182,17 +184,53 @@ Tensor permuteTensor(const Tensor &self, const std::vector<int> &perm, int shape
     if (shapeSize == 2) {
         return Transpose(self, {perm[0], perm[1]});
     }
-    
+
     auto optimization = analyzeMergeAxisOptimization(self.GetShape(), perm);
     if (optimization.canOptimize) {
         return applyMergeAxisTranspose(self, perm, optimization);
     }
-    
-    Tensor result = self;
+
     std::vector<int> invPerm(shapeSize);
     for (int i = 0; i < shapeSize; ++i) {
         invPerm[perm[i]] = i;
     }
+
+    int greedyTotalCount = 0;
+    int greedyTailCount = 0;
+    {
+        std::vector<int> tempPerm = invPerm;
+        const int tailDim1 = shapeSize - 2;
+        const int tailDim2 = shapeSize - 1;
+        for (int i = 0; i < shapeSize; ++i) {
+            int targetPos = findTargetPosition(tempPerm, i, i);
+            if (targetPos != i && targetPos != -1) {
+                greedyTotalCount++;
+                bool isTailSwap = (i == tailDim1 && targetPos == tailDim2) ||
+                                  (i == tailDim2 && targetPos == tailDim1);
+                if (isTailSwap) {
+                    greedyTailCount++;
+                }
+                std::swap(tempPerm[i], tempPerm[targetPos]);
+            }
+        }
+    }
+
+    auto optimalSeq = getOptimalSwapSequence(invPerm, shapeSize);
+    int optimalTotalCount = optimalSeq.totalSwapCount;
+    int optimalTailCount = optimalSeq.tailSwapCount;
+
+    int greedyNonTailCount = greedyTotalCount - greedyTailCount;
+    int optimalNonTailCount = optimalTotalCount - optimalTailCount;
+
+    const int MOVE_OUT_COST = 2;
+    int greedyCost = greedyTotalCount + greedyNonTailCount * MOVE_OUT_COST;
+    int optimalCost = optimalTotalCount + optimalNonTailCount * MOVE_OUT_COST;
+
+    if (optimalCost < greedyCost) {
+        return applyOptimalTransposeSequence(self, invPerm, shapeSize);
+    }
+
+    Tensor result = self;
     result = permuteAnyDims(result, invPerm);
     return result;
 }
@@ -207,6 +245,115 @@ Tensor permuteAnyDims(Tensor inputTensor, std::vector<int> invPerm) {
         }
     }
     return inputTensor;
+}
+
+int calculateMinTransposeCount(const std::vector<int> &perm) {
+    const int n = perm.size();
+    std::vector<bool> visited(n, false);
+    int cycles = 0;
+    for (int i = 0; i < n; ++i) {
+        if (!visited[i]) {
+            int j = i;
+            while (!visited[j]) {
+                visited[j] = true;
+                j = perm[j];
+            }
+            cycles++;
+        }
+    }
+    return n - cycles;
+}
+
+struct SwapSequence {
+    std::vector<std::pair<int, int>> swaps;
+    int tailSwapCount = 0;
+    int totalSwapCount = 0;
+};
+
+static SwapSequence getOptimalSwapSequence4D(const std::vector<int> &perm) {
+    SwapSequence result;
+    std::vector<int> p = perm;
+    std::vector<bool> fixed(p.size(), false);
+    const int n = 4;
+    const int tailDim1 = n - 2;
+    const int tailDim2 = n - 1;
+    for (int i = 0; i < n; ++i) {
+        if (fixed[i] || p[i] == i) {
+            fixed[i] = true;
+            continue;
+        }
+        int j = i;
+        std::vector<int> cycle;
+        while (!fixed[j]) {
+            cycle.push_back(j);
+            j = p[j];
+        }
+        for (size_t k = 0; k + 1 < cycle.size(); ++k) {
+            int dim1 = cycle[k];
+            int dim2 = cycle[k + 1];
+            bool isTailSwap = (dim1 == tailDim1 && dim2 == tailDim2) ||
+                              (dim1 == tailDim2 && dim2 == tailDim1);
+            result.swaps.push_back({dim1, dim2});
+            if (isTailSwap) {
+                result.tailSwapCount++;
+            }
+            fixed[dim1] = true;
+        }
+        fixed[cycle.back()] = true;
+    }
+    result.totalSwapCount = result.swaps.size();
+    return result;
+}
+
+static SwapSequence getOptimalSwapSequence5D(const std::vector<int> &perm) {
+    SwapSequence result;
+    std::vector<int> p = perm;
+    std::vector<bool> fixed(p.size(), false);
+    const int n = 5;
+    const int tailDim1 = n - 2;
+    const int tailDim2 = n - 1;
+    for (int i = 0; i < n; ++i) {
+        if (fixed[i] || p[i] == i) {
+            fixed[i] = true;
+            continue;
+        }
+        int j = i;
+        std::vector<int> cycle;
+        while (!fixed[j]) {
+            cycle.push_back(j);
+            j = p[j];
+        }
+        for (size_t k = 0; k + 1 < cycle.size(); ++k) {
+            int dim1 = cycle[k];
+            int dim2 = cycle[k + 1];
+            bool isTailSwap = (dim1 == tailDim1 && dim2 == tailDim2) ||
+                              (dim1 == tailDim2 && dim2 == tailDim1);
+            result.swaps.push_back({dim1, dim2});
+            if (isTailSwap) {
+                result.tailSwapCount++;
+            }
+            fixed[dim1] = true;
+        }
+        fixed[cycle.back()] = true;
+    }
+    result.totalSwapCount = result.swaps.size();
+    return result;
+}
+
+static SwapSequence getOptimalSwapSequence(const std::vector<int> &perm, int shapeSize) {
+    if (shapeSize == 4) {
+        return getOptimalSwapSequence4D(perm);
+    }
+    return getOptimalSwapSequence5D(perm);
+}
+
+Tensor applyOptimalTransposeSequence(const Tensor &self, const std::vector<int> &invPerm, int shapeSize) {
+    auto seq = getOptimalSwapSequence(invPerm, shapeSize);
+    Tensor result = self;
+    for (const auto &swap : seq.swaps) {
+        result = Transpose(result, {swap.first, swap.second});
+    }
+    return result;
 }
 
 } // namespace npu::tile_fwk
