@@ -9,6 +9,7 @@ import pypto
 
 from ..log import get_logger
 from . import dtypes
+from .context import Context
 
 T = TypeVar("T")
 
@@ -132,6 +133,9 @@ def reduce_shape(shape: List[int], max_bytes: int, dtype_size: int) -> List[int]
 
 
 def auto_cube_tile(m: List[int], k: List[int], n: List[int], dtype: dtypes.AnyDataType) -> None:
+    if not Context.OverrideScope.empty_cube():
+        return
+
     for name, dims in ('m', m), ('k', k), ('n', n):
         if any(d <= 0 for d in dims):
             raise ValueError(f"All {name} dimensions must be > 0, got {dims}")
@@ -151,6 +155,9 @@ def auto_cube_tile(m: List[int], k: List[int], n: List[int], dtype: dtypes.AnyDa
 
 
 def auto_vec_tile(target_shape: Iterable[int], dtype: dtypes.AnyDataType, buf_num: int = 2) -> None:
+    if not Context.OverrideScope.empty_vec():
+        return
+
     shape_list = list(target_shape)
 
     if any(d <= 0 for d in shape_list):

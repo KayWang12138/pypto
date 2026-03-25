@@ -7,8 +7,9 @@ import io
 import math
 import operator
 from numbers import Real
-from typing import Any, Callable, Iterable, NoReturn, Optional, Tuple, Type, TypeVar, Union, List, overload
+from typing import Any, Callable, Iterable, NoReturn, Optional, Tuple, Type, TypeVar, Union, overload
 from typing_extensions import Self, TypeAlias
+from contextlib import contextmanager
 
 import numpy as np
 import pypto
@@ -18,6 +19,7 @@ from ..log import get_logger
 from .compound import BaseArange, CompoundMask, CompoundNode, TensorPointer, TensorWithOffset
 from .errors import NonAffineLayoutError
 from . import dtypes, pypto_wrap
+from .context import Context
 
 T = TypeVar("T")
 IntArrayLike: TypeAlias = Union[int, Tuple[int, ...], np.ndarray]
@@ -25,10 +27,31 @@ IntArrayLike: TypeAlias = Union[int, Tuple[int, ...], np.ndarray]
 logger = get_logger("triton_pypto.language", "TRITON_PYPTO")
 
 
-class Context:
-    program_id = (0, 0, 0)
-    num_programs = (1, 1, 1)
-    dynamic = False
+@contextmanager
+def override_tile_shapes(*, vec: Optional[dtypes.VecTile] = None, cube: Optional[dtypes.CubeTile] = None):
+    if vec is None and cube is None:
+        raise ValueError("At least one parameter must be provided: vec or cube")
+    try:
+        logger.debug(f"entry override_tile_shapes(vec={vec}, cube={cube})")
+        if vec is not None:
+            Context.OverrideScope.push_vec(vec)
+            pypto_wrap.set_vec_tile_shapes(*vec)
+        if cube is not None:
+            Context.OverrideScope.push_cube(cube)
+            pypto_wrap.set_cube_tile_shapes(*cube)
+        yield
+    finally:
+        logger.debug(f"exit override_tile_shapes(vec={vec}, cube={cube})")
+        if vec is not None:
+            Context.OverrideScope.pop_vec()
+        if cube is not None:
+            Context.OverrideScope.pop_cube()
+        if not Context.OverrideScope.empty_vec():
+            vec = Context.OverrideScope.top_vec()
+            pypto_wrap.set_vec_tile_shapes(*vec)
+        if not Context.OverrideScope.empty_cube():
+            cube = Context.OverrideScope.top_cube()
+            pypto_wrap.set_cube_tile_shapes(*cube)
 
 
 def expand_impl(tensor: Union[TensorWrapper, pypto.tensor], target_shape: Iterable[int]) -> TensorWrapper:

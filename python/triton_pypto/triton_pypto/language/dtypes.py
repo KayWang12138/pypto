@@ -1,6 +1,6 @@
 from enum import Enum
 import functools
-from typing import Any, Dict, Optional, Type, TypeVar, Union, overload
+from typing import Any, Dict, Optional, Type, TypeVar, Union, Sequence, Tuple, overload
 from typing_extensions import Literal, TypeAlias
 
 import numpy
@@ -9,6 +9,8 @@ import torch
 import triton.language as tl
 
 T = TypeVar("T")
+VecTile: TypeAlias = Sequence[int]
+CubeTile: TypeAlias = Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]]
 
 
 class DataTypeKind(Enum):
