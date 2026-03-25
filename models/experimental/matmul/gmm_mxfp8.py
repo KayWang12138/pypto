@@ -43,13 +43,13 @@ def compute_golden_result(x, weight, scaled_x_golden, scaled_weight_golden, a_tr
     """
     # Handle input transposition
     if a_trans:
-        x = np.swapaxes(x, -1, -2)
-        scaled_x_golden = np.swapaxes(scaled_x_golden, -1, -2)
+        x = torch.swapaxes(x, -1, -2)
+        scaled_x_golden = torch.swapaxes(scaled_x_golden, -1, -2)
         if len(scaled_x_golden.shape) == 3:
             scaled_x_golden = scaled_x_golden.reshape(
                 scaled_x_golden.shape[0] * scaled_x_golden.shape[1], scaled_x_golden.shape[2]
             )
-        scaled_x_golden = np.swapaxes(scaled_x_golden, -1, -2)
+        scaled_x_golden = torch.swapaxes(scaled_x_golden, -1, -2)
     else:
         if len(scaled_x_golden.shape) == 3:
             scaled_x_golden = scaled_x_golden.reshape(
@@ -58,15 +58,15 @@ def compute_golden_result(x, weight, scaled_x_golden, scaled_weight_golden, a_tr
     
     # Handle weight transposition
     if b_trans:
-        weight = np.swapaxes(weight, -1, -2)
+        weight = torch.swapaxes(weight, -1, -2)
         if len(scaled_weight_golden.shape) == 3:
             scaled_weight_golden = scaled_weight_golden.reshape(
                 scaled_weight_golden.shape[0] * scaled_weight_golden.shape[1],
                 scaled_weight_golden.shape[2]
             )
-        scaled_weight_golden = np.swapaxes(scaled_weight_golden, -1, -2)
+        scaled_weight_golden = torch.swapaxes(scaled_weight_golden, -1, -2)
     else:
-        scaled_weight_golden = np.swapaxes(scaled_weight_golden, -1, -2)
+        scaled_weight_golden = torch.swapaxes(scaled_weight_golden, -1, -2)
         if len(scaled_weight_golden.shape) == 3:
             scaled_weight_golden = scaled_weight_golden.reshape(
                 scaled_weight_golden.shape[0] * scaled_weight_golden.shape[1],
