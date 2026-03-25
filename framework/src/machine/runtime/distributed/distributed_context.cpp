@@ -36,14 +36,16 @@ constexpr uint64_t WIN_EXP_SIZE = 1024UL * 1024UL;
 std::unordered_map<std::string, std::pair<uint64_t, uint64_t>> g_context; //key: groupname; value: deviceCommContext,hostCommContext
 
 namespace npu::tile_fwk::dynamic {
-uint8_t* AllocHostAddr(size_t size) {
-    if (size == 0 || size > 0x500000000) {
+using HostMemPtr = std::unique_ptr<void, std::function<void(void*)>>;
+
+HostMemPtr AllocHostAddr(size_t size) {
+    if (size == 0 || size > 0x7FFFFFFF) {
         DISTRIBUTED_LOGE("AllocHostAddr failed size %zu", size);
         return nullptr;
     }
     auto hostPtr = (uint8_t*)malloc(size);
     memset_s(hostPtr, size, 0, size);
-    return hostPtr;
+    return HostMemPtr(hostPtr, std::free);
 }
 
 template<typename T>
@@ -145,9 +147,9 @@ uint64_t AllocateAndSetupCommContext(void* paramHost, uint32_t rankNum, const st
     std::function<void(uint32_t, TileOp::CommContext*, void*)> fillWinArrFunc) {
     size_t commCtxSize = sizeof(TileOp::CommContext) + sizeof(uint64_t) * rankNum * WIN_TYPE_NUM;
 
-    TileOp::CommContext* ctxHost = static_cast<TileOp::CommContext*>(static_cast<void*>(AllocHostAddr(commCtxSize)));
-    ASSERT(ctxHost != nullptr) << "ctxHost malloc failed";
-
+    auto ctxHostPtr = AllocHostAddr(commCtxSize);
+    ASSERT(ctxHostPtr != nullptr) << "ctxHost malloc failed";
+    TileOp::CommContext* ctxHost = static_cast<TileOp::CommContext*>(ctxHostPtr.get());
     fillAttrFunc(ctxHost, paramHost);
     for (uint32_t i = 0; i < rankNum; i++) {
         fillWinArrFunc(i, ctxHost, paramHost);
@@ -160,6 +162,7 @@ uint64_t AllocateAndSetupCommContext(void* paramHost, uint32_t rankNum, const st
     auto ret = aclrtMemcpy(ctxDevice, commCtxSize, ctxHost, commCtxSize, ACL_MEMCPY_HOST_TO_DEVICE);
     ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
     g_context[groupName] = std::make_pair(reinterpret_cast<uint64_t>(ctxDevice), reinterpret_cast<uint64_t>(ctxHost));
+    (void)ctxHostPtr.release(); 
     return reinterpret_cast<uint64_t>(ctxDevice);
 }
 #endif
@@ -169,9 +172,9 @@ uint64_t DistributedContext::AllocCommContext<ResType::MESH_A5>(
     [[maybe_unused]] const uint64_t ctxAddr, [[maybe_unused]]const std::string &groupName) {
 #ifdef BUILD_WITH_CANN
     npu::tile_fwk::HcclCombinOpParamA5 *hcclParamDevice = (npu::tile_fwk::HcclCombinOpParamA5 *)ctxAddr;
-    npu::tile_fwk::HcclCombinOpParamA5 *hcclParamhost =
-        (npu::tile_fwk::HcclCombinOpParamA5 *)AllocHostAddr(sizeof(npu::tile_fwk::HcclCombinOpParamA5));
-    ASSERT(hcclParamhost != nullptr) << "hcclParamhost malloc failed";
+    auto hcclParamhostPtr = AllocHostAddr(sizeof(npu::tile_fwk::HcclCombinOpParamA5));
+    ASSERT(hcclParamhostPtr != nullptr) << "hcclParamhost malloc failed";
+    auto hcclParamhost = static_cast<npu::tile_fwk::HcclCombinOpParamA5*>(hcclParamhostPtr.get());
     size_t offsetRankId = offsetof(npu::tile_fwk::HcclCombinOpParamA5, rankId);
     size_t offsetXnAddr = offsetof(npu::tile_fwk::HcclCombinOpParamA5, xnAddr);
     auto ret = aclrtMemcpy(&(hcclParamhost->rankId), offsetXnAddr - offsetRankId, &(hcclParamDevice->rankId),
@@ -196,9 +199,9 @@ uint64_t DistributedContext::AllocCommContext<ResType::MESH_A3>(
     [[maybe_unused]] const uint64_t ctxAddr, [[maybe_unused]]const std::string &groupName) {
 #ifdef BUILD_WITH_CANN
     npu::tile_fwk::HcclCombinOpParam *hcclParamDevice = (npu::tile_fwk::HcclCombinOpParam *)ctxAddr;
-    npu::tile_fwk::HcclCombinOpParam *hcclParamhost =
-        (npu::tile_fwk::HcclCombinOpParam *)AllocHostAddr(sizeof(npu::tile_fwk::HcclCombinOpParam));
-    ASSERT(hcclParamhost != nullptr) << "hcclParamhost malloc failed";
+    auto hcclParamhostPtr = AllocHostAddr(sizeof(npu::tile_fwk::HcclCombinOpParam));
+    ASSERT(hcclParamhostPtr != nullptr) << "hcclParamhost malloc failed";
+    auto hcclParamhost = static_cast<npu::tile_fwk::HcclCombinOpParam*>(hcclParamhostPtr.get());
     size_t offsetRankId = offsetof(npu::tile_fwk::HcclCombinOpParam, rankId);
     size_t offsetHcomId = offsetof(npu::tile_fwk::HcclCombinOpParam, hcomId);
     size_t offsetWinExpSize = offsetof(npu::tile_fwk::HcclCombinOpParam, winExpSize);
@@ -229,9 +232,9 @@ uint64_t DistributedContext::AllocCommContext<ResType::RING_A2>([[maybe_unused]]
     [[maybe_unused]]const std::string &groupName) {
 #ifdef BUILD_WITH_CANN
     npu::tile_fwk::HcclOpResParam *hcclParam = (npu::tile_fwk::HcclOpResParam *)ctxAddr;
-    npu::tile_fwk::HcclOpResParamHead *hcclParamhost =
-        (npu::tile_fwk::HcclOpResParamHead *)AllocHostAddr(sizeof(npu::tile_fwk::HcclOpResParamHead));
-    ASSERT(hcclParamhost != nullptr) << "hcclParamhost malloc failed";
+    auto hcclParamhostPtr = AllocHostAddr(sizeof(npu::tile_fwk::HcclOpResParamHead));
+    ASSERT(hcclParamhostPtr != nullptr) << "hcclParamhost malloc failed";
+    auto hcclParamhost = static_cast<npu::tile_fwk::HcclOpResParamHead*>(hcclParamhostPtr.get());
     size_t offsetLocalUsrRankId = offsetof(npu::tile_fwk::HcclOpResParam, localUsrRankId);
     size_t offsetRWinStart = offsetof(npu::tile_fwk::HcclOpResParam, rWinStart);
     auto ret = aclrtMemcpy(&(hcclParamhost->localUsrRankId), offsetRWinStart - offsetLocalUsrRankId,
@@ -239,14 +242,16 @@ uint64_t DistributedContext::AllocCommContext<ResType::RING_A2>([[maybe_unused]]
     ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
 
     size_t remoteResSize = hcclParamhost->rankSize * sizeof(npu::tile_fwk::RemoteResPtr);
-    npu::tile_fwk::RemoteResPtr *remoteResPtr = (npu::tile_fwk::RemoteResPtr *)AllocHostAddr(remoteResSize);
-    ASSERT(remoteResPtr != nullptr) << "remoteResPtr malloc failed";
+    auto remoteResPtrUnique = AllocHostAddr(remoteResSize);
+    ASSERT(remoteResPtrUnique != nullptr) << "remoteResPtr malloc failed";
+    auto remoteResPtr = static_cast<npu::tile_fwk::RemoteResPtr*>(remoteResPtrUnique.get());
     ret = aclrtMemcpy(remoteResPtr, remoteResSize, &(hcclParam->remoteRes), remoteResSize, ACL_MEMCPY_DEVICE_TO_HOST);
     ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
 
     size_t commCtxSize = sizeof(TileOp::CommContext) + sizeof(uint64_t) * hcclParamhost->rankSize * WIN_TYPE_NUM;
-    TileOp::CommContext *ctxHost = (TileOp::CommContext *)AllocHostAddr(commCtxSize);
-    ASSERT(ctxHost != nullptr) << "ctxHost malloc failed";
+    auto ctxHostPtr = AllocHostAddr(commCtxSize);
+    ASSERT(ctxHostPtr != nullptr) << "ctxHost malloc failed";
+    TileOp::CommContext *ctxHost = static_cast<TileOp::CommContext*>(ctxHostPtr.get());
     FillCommCtxAttr<npu::tile_fwk::HcclOpResParamHead>(ctxHost, hcclParamhost);
     for (uint64_t i = 0; i < hcclParamhost->rankSize; i++) {
         if (i == hcclParamhost->localUsrRankId) {
@@ -270,8 +275,8 @@ uint64_t DistributedContext::AllocCommContext<ResType::RING_A2>([[maybe_unused]]
         ctxHost, sizeof(TileOp::CommContext) + sizeof(uint64_t) * hcclParamhost->rankSize * WIN_TYPE_NUM,
         ACL_MEMCPY_HOST_TO_DEVICE);
     ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
-    g_context[groupName].first = (uint64_t)ctxDevice;
-    g_context[groupName].second = (uint64_t)ctxHost;
+    g_context[groupName] = std::make_pair(reinterpret_cast<uint64_t>(ctxDevice), reinterpret_cast<uint64_t>(ctxHost));
+    (void)ctxHostPtr.release();
     return (uint64_t)ctxDevice;
 #endif
     return 0;
@@ -324,7 +329,7 @@ std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const 
 std::vector<uint64_t> DistributedContext::GetCommContextToHost(
     [[maybe_unused]] const std::vector<std::string> &groupNames) {
 #ifdef BUILD_WITH_CANN
-    std::vector<uint64_t> devAddrs = GetCommContext(groupNames);
+    (void)GetCommContext(groupNames);
     std::vector<uint64_t> hostContext;
     ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM) << "Commgroup size is not be supported";
     for (size_t groupIndex = 0; groupIndex < groupNames.size(); groupIndex++) {
