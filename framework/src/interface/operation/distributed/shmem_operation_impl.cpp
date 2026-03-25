@@ -351,8 +351,8 @@ void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group,
     int32_t col = in.GetShape(1);
     uint32_t worldSize = shmemData.GetShape()[0];
     ValidateWorldSize(group, worldSize);
-    ASSERT(DistributedErrorCode::INVALID_TENSOR_SHAPE, (row % worldSize) == 0) << "ReduceScatter constraint: row must be divisible by worldSize, but row: " << row
-        << ", worldSize: " << worldSize;
+    ASSERT(DistributedErrorCode::INVALID_TENSOR_SHAPE, (row % worldSize) == 0) <<
+        "ReduceScatter constraint: row must be divisible by worldSize, but row: " << row << ", worldSize: " << worldSize;
     const int32_t rowOut = row / worldSize;
     SymbolicScalar thisRank = GetHcclRankId(group);
     ValidateGroup(group);
