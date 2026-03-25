@@ -73,6 +73,8 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
     ProcesSmallTileToLargeTile(function);
     ProcessLargeTileToSamllTile(function);
 
+    ProcessL0C2UBSmallToLarge(function);
+
     // 插入convert op
     Status insertionStatus = inserter.DoInsertion(function);
     if(insertionStatus != SUCCESS) {return insertionStatus;}
@@ -454,6 +456,13 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
                 operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
             continue;
         }
+        if (operation.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+            tensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+            APASS_LOG_DEBUG_F(Elements::Operation, 
+                "%s[%d] skip setting since input origin MEM_L0C and output origin MEM_UB",
+                operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
+            continue;
+        }
         tensor->SetMemoryTypeOriginal(fromType, true);
         auto assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(operation.GetOpAttribute());
         assembleOpAttribute->SetFromType(fromType);
@@ -626,6 +635,73 @@ void AssignMemoryType::ProcessLargeTileToSamllTile(Function &function) {
         }
     }
 }
+
+// 处理L0C->UB小搬大场景（Cube到Vector）
+void AssignMemoryType::ProcessL0C2UBSmallToLarge(Function &function) {
+    for (auto &op : function.Operations()) {
+        auto opcode = op.GetOpcode();
+        if (opcode != Opcode::OP_ASSEMBLE) {
+            continue;
+        }
+        auto oOperand = op.GetOOperands().front();
+        auto iOperand = op.GetIOperands().front();
+        // 检查输入是否为L0C
+        if (iOperand->GetMemoryTypeOriginal() != MEM_L0C) {
+            continue;
+        }
+        if (iOperand->GetShape().size() != 2 || oOperand->GetShape().size() != 2) {
+            APASS_LOG_DEBUG_F(Elements::Operation, 
+                "L0C2UB skip: not 2D tensor, Assemble Op[%d]", op.GetOpMagic());
+            continue;
+        }
+        // 检查所有consumer是否都需要UB
+        bool isToUB = true;
+        auto toBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
+        for (const auto &pair : toBeMap) {
+            const auto &toBeType = pair.second;
+            if (toBeType != MemoryType::MEM_UB) {
+                isToUB = false;
+                break;
+            }
+        }
+        // 检查shape倍数关系（小搬大）
+        bool isConsumerOutputMultiple = true;
+        for (auto &consumerOp : oOperand->GetConsumers()) {
+            if (consumerOp->GetOpcode() == Opcode::OP_VIEW && 
+                !IsDimMultiple(consumerOp->GetOOperands().front()->GetShape(), iOperand->GetShape())) {
+                isConsumerOutputMultiple = false;
+                break;
+            }
+        }  
+        // 检查输出shape是否是输入shape的整数倍（小搬大）  
+        if (!isToUB || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()) || !isConsumerOutputMultiple) {
+            APASS_LOG_WARN_F(Elements::Operation, 
+                "L0C2UB small to large not satisfied for Assemble Op[%d], "
+                "isToUB=%d, shapeMultiple=%d, consumerMultiple=%d, downgrade to DDR",
+                op.GetOpMagic(), isToUB, 
+                IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()),
+                isConsumerOutputMultiple);
+            // 不满足条件，降级为DDR
+            oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+            const auto &tensorToBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
+            for (const auto &[consumerOp, memoryType] : tensorToBeMap) {
+                if (memoryType == MemoryType::MEM_L0C) {
+                    inserter.UpdateTensorTobeMap(oOperand, *consumerOp, MemoryType::MEM_DEVICE_DDR);    
+                }
+            }
+            APASS_LOG_DEBUG_F(Elements::Tensor, 
+                "Set tensor %d original memory type to DDR since not towards UB or not multiple dimensions.", 
+                oOperand->magic);
+        } else {
+            // 满足条件，设置为UB    
+            oOperand->SetMemoryTypeOriginal(MemoryType::MEM_UB, true);
+            APASS_LOG_DEBUG_F(Elements::Operation, 
+                "Set L0C->UB small to large for Assemble Op[%d], input tensor[%d] (L0C) -> output tensor[%d] (UB)",
+                op.GetOpMagic(), iOperand->magic, oOperand->magic);
+        }
+    }
+}
+
 /*
     @brief 检查第一个矩阵的所有维度是否为第二个矩阵的正整数倍
     @param shape1为第一个矩阵，shape2为第二个矩阵。

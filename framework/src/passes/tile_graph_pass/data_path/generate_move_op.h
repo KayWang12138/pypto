@@ -56,6 +56,7 @@ private:
     Status CreateMoveOp(Function &function) const;
     void SetCopyAttr(Operation &op,ViewOpAttribute *viewOpAttribute) const;
     void SetL0C2L1CopyAttr(Operation &op, const Shape &realShape, const std::vector<OpImmediate> &fromOffset, const std::vector<OpImmediate> &toOffset) const;
+    void SetL0C2UBCopyAttr(Operation &op, const Shape &realShape, const std::vector<OpImmediate> &fromOffset, const std::vector<OpImmediate> &toOffset) const;
     Status SetOpcodeByMemPath(Operation &op,MemoryType from,MemoryType to) const;
     bool HasSpecificConsumer(const Operation &op) const;
     void ConvertViewToCopyInWhenInputGm(Operation &op, ViewOpAttribute *viewOpAttribute) const;
