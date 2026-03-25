@@ -1,160 +1,275 @@
 #!/usr/bin/env python3
 # coding: utf-8
 """
-FlashAttentionScore - PyPTO Implementation
+Flash Attention Score with Online Softmax
 
-Training scenario FlashAttention operator with softmax max/sum outputs.
-Uses FP32 for all intermediate calculations.
+This module implements Flash Attention using online softmax algorithm,
+which avoids storing the full attention matrix and provides better
+numerical stability through block-wise computation.
 """
 
 import os
 import sys
+import math
 import argparse
-import numpy as np
+from typing import Optional
 import torch
+import numpy as np
+from numpy.testing import assert_allclose
+
 import pypto
+from flash_attention_score_impl import flash_attention_score_kernel, flash_attention_score_kernel_with_mask
 
 
-BATCH_SIZE = 2
+BATCH_SIZE = 4
 NUM_HEADS = 8
-SEQ_LEN_Q = 16
-SEQ_LEN_KV = 16
+SEQ_LEN_Q = 64
+SEQ_LEN_KV = 128
 HEAD_DIM = 64
 
 
 def get_device_id():
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("Please set: export TILE_FWK_DEVICE_ID=0")
+        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
+        print("  export TILE_FWK_DEVICE_ID=0")
         return None
     try:
-        return int(os.environ['TILE_FWK_DEVICE_ID'])
+        device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
+        return device_id
     except ValueError:
-        print(f"ERROR: TILE_FWK_DEVICE_ID must be integer")
+        print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
 
 
-def flash_attention_score_golden(
+def flash_attention_score_golden_online_softmax(
     query: torch.Tensor,
     key: torch.Tensor,
     value: torch.Tensor,
-    scale: float,
-) -> tuple:
-    """PyTorch reference implementation."""
-    dtype = query.dtype
+    atten_mask: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
+    """
+    Flash Attention Score 参考实现 - Online Softmax 版本
+
+    使用 online softmax 算法实现，避免存储完整的 attention matrix，
+    通过分块计算和在线更新来提高数值稳定性。
+
+    Args:
+        query: Query tensor, shape [B, N, Sq, D], dtype bfloat16
+        key: Key tensor, shape [B, N, Skv, D], dtype bfloat16
+        value: Value tensor, shape [B, N, Skv, D], dtype bfloat16
+        atten_mask: Attention mask tensor, shape [Sq, Skv], dtype uint8
+                   值为 1 表示不参与计算，值为 0 表示参与计算
+
+    Returns:
+        attention_out: Output tensor, shape [B, N, Sq, D], dtype bfloat16
+    """
+    B, N, Sq, D = query.shape
+    _, _, Skv, _ = key.shape
     
-    scores = torch.matmul(query.float(), key.float().transpose(-2, -1))
-    scores_scaled = scores * scale
+    scale = 1.0 / math.sqrt(D)
     
-    softmax_max = torch.amax(scores_scaled, dim=-1, keepdim=True)
-    scores_shifted = scores_scaled - softmax_max
-    exp_scores = torch.exp(scores_shifted)
-    softmax_sum = torch.sum(exp_scores, dim=-1, keepdim=True)
-    attn_weights = exp_scores / softmax_sum
+    query_fp32 = query.float()
+    key_fp32 = key.float()
+    value_fp32 = value.float()
     
-    attention_out = torch.matmul(attn_weights, value.float())
+    output = torch.zeros(B, N, Sq, D, dtype=torch.float32, device=query.device)
     
-    return attention_out.to(dtype), softmax_max.to(dtype), softmax_sum.to(dtype)
+    for b in range(B):
+        for n in range(N):
+            for q_idx in range(Sq):
+                q_vec = query_fp32[b, n, q_idx, :]
+                
+                max_score = float('-inf')
+                sum_exp = 0.0
+                output_vec = torch.zeros(D, dtype=torch.float32, device=query.device)
+                
+                for kv_idx in range(Skv):
+                    if atten_mask is not None and atten_mask[q_idx, kv_idx] == 1:
+                        continue
+                    
+                    k_vec = key_fp32[b, n, kv_idx, :]
+                    score = torch.dot(q_vec, k_vec) * scale
+                    
+                    new_max = max(max_score, score.item())
+                    
+                    if new_max > max_score:
+                        correction = math.exp(max_score - new_max)
+                        sum_exp = sum_exp * correction
+                        output_vec = output_vec * correction
+                        max_score = new_max
+                    
+                    exp_score = math.exp(score - max_score)
+                    sum_exp += exp_score
+                    
+                    v_vec = value_fp32[b, n, kv_idx, :]
+                    output_vec += exp_score * v_vec
+                
+                if sum_exp > 0:
+                    output[b, n, q_idx, :] = output_vec / sum_exp
+    
+    return output.to(torch.bfloat16)
 
 
-@pypto.frontend.jit
-def flash_attention_score_kernel(
-    query: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16),
-    key: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM), pypto.DT_BF16),
-    value: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM), pypto.DT_BF16),
-    attention_out: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16),
-    softmax_max: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, 1), pypto.DT_BF16),
-    softmax_sum: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, 1), pypto.DT_BF16),
-    scale: float,
-):
+def flash_attention_score_golden_batch(
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    atten_mask: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
     """
-    FlashAttentionScore kernel using FP32 for intermediate calculations.
+    Flash Attention Score 参考实现 - 批量矩阵乘版本（验证用）
     
-    Steps:
-    1. scores = Q @ K^T (BF16 -> FP32)
-    2. scores_scaled = scores * scale (FP32)
-    3. softmax_max = amax(scores_scaled) (FP32)
-    4. scores_shifted = scores_scaled - softmax_max (FP32)
-    5. exp_scores = exp(scores_shifted) (FP32)
-    6. softmax_sum = sum(exp_scores) (FP32)
-    7. attn_weights = exp_scores / softmax_sum (FP32)
-    8. output = attn_weights @ V (FP32 -> BF16)
+    使用标准的注意力计算方式：Softmax(Q @ K^T * scale) @ V
+    
+    Args:
+        query: Query tensor, shape [B, N, Sq, D], dtype bfloat16
+        key: Key tensor, shape [B, N, Skv, D], dtype bfloat16
+        value: Value tensor, shape [B, N, Skv, D], dtype bfloat16
+        atten_mask: Attention mask tensor, shape [Sq, Skv], dtype uint8
+                   值为 1 表示不参与计算，值为 0 表示参与计算
+
+    Returns:
+        attention_out: Output tensor, shape [B, N, Sq, D], dtype bfloat16
     """
-    pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
-    pypto.set_vec_tile_shapes(1, 8, 16, SEQ_LEN_KV)
+    B, N, Sq, D = query.shape
+    _, _, Skv, _ = key.shape
+    scale = 1.0 / math.sqrt(D)
     
-    k_t = pypto.transpose(key, 2, 3)
-    scores = pypto.matmul(query, k_t, out_dtype=pypto.DT_FP32)
-    scores_scaled = pypto.mul(scores, scale)
+    query_fp32 = query.float()
+    key_fp32 = key.float()
+    value_fp32 = value.float()
     
-    sm_max = pypto.amax(scores_scaled, dim=-1, keepdim=True)
+    scores = torch.matmul(query_fp32, key_fp32.transpose(-2, -1))
+    scores = scores * scale
     
-    scores_shifted = pypto.sub(scores_scaled, sm_max)
-    exp_scores = pypto.exp(scores_shifted)
+    if atten_mask is not None:
+        mask_expanded = atten_mask.unsqueeze(0).unsqueeze(0)
+        scores = scores.masked_fill(mask_expanded == 1, float('-inf'))
     
-    sm_sum = pypto.sum(exp_scores, dim=-1, keepdim=True)
+    attn_weights = torch.softmax(scores, dim=-1)
     
-    attn_weights = pypto.div(exp_scores, sm_sum)
+    if atten_mask is not None:
+        attn_weights = attn_weights.masked_fill(mask_expanded == 1, 0.0)
     
-    sm_max_bf16 = pypto.cast(sm_max, pypto.DT_BF16)
-    softmax_max.move(sm_max_bf16)
+    output = torch.matmul(attn_weights, value_fp32)
     
-    sm_sum_bf16 = pypto.cast(sm_sum, pypto.DT_BF16)
-    softmax_sum.move(sm_sum_bf16)
-    
-    attn_weights_bf16 = pypto.cast(attn_weights, pypto.DT_BF16)
-    output = pypto.matmul(attn_weights_bf16, value, out_dtype=pypto.DT_BF16)
-    attention_out.move(output)
+    return output.to(torch.bfloat16)
 
 
 def test_flash_attention_score(device_id=None, run_mode: str = "npu"):
-    """Test FlashAttentionScore operator."""
+    """Test Flash Attention Score"""
     print("=" * 60)
-    print("Test: FlashAttentionScore")
+    print("Test: Flash Attention Score with Online Softmax")
     print("=" * 60)
     
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
-    scale = 1.0 / (HEAD_DIM ** 0.5)
+    query = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM, 
+                        dtype=torch.bfloat16, device=device)
+    key = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, 
+                      dtype=torch.bfloat16, device=device)
+    value = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, 
+                        dtype=torch.bfloat16, device=device)
     
-    q_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM, dtype=torch.bfloat16, device=device)
-    k_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, dtype=torch.bfloat16, device=device)
-    v_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, dtype=torch.bfloat16, device=device)
+    atten_mask = torch.zeros(SEQ_LEN_Q, SEQ_LEN_KV, dtype=torch.uint8, device=device)
+    atten_mask[:, SEQ_LEN_KV // 2:] = 1
     
-    out_torch = torch.empty(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM, dtype=torch.bfloat16, device=device)
-    sm_max_torch = torch.empty(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, 1, dtype=torch.bfloat16, device=device)
-    sm_sum_torch = torch.empty(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, 1, dtype=torch.bfloat16, device=device)
+    output = torch.empty(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM, 
+                         dtype=torch.bfloat16, device=device)
     
-    flash_attention_score_kernel(q_torch, k_torch, v_torch, out_torch, sm_max_torch, sm_sum_torch, scale)
+    atten_mask_fp32 = atten_mask.float() if atten_mask is not None else None
     
-    golden_out, golden_max, golden_sum = flash_attention_score_golden(q_torch, k_torch, v_torch, scale)
+    flash_attention_score_kernel_with_mask(query, key, value, atten_mask_fp32, output)
     
-    print(f"Input shape: Q{q_torch.shape}, K{k_torch.shape}, V{v_torch.shape}")
-    print(f"Output shape: {out_torch.shape}")
+    golden = flash_attention_score_golden_online_softmax(query, key, value, atten_mask)
+    
+    print(f"Input shape: query={query.shape}, key={key.shape}, value={value.shape}")
+    print(f"Output shape: {output.shape}")
     
     if run_mode == "npu":
-        out_diff = (out_torch - golden_out).abs().max().item()
-        max_diff = (sm_max_torch - golden_max).abs().max().item()
-        sum_diff = (sm_sum_torch - golden_sum).abs().max().item()
+        output_fp32 = output.float()
+        golden_fp32 = golden.float()
+        max_diff = (output_fp32 - golden_fp32).abs().max().item()
+        mean_diff = (output_fp32 - golden_fp32).abs().mean().item()
         
-        print(f"attention_out max diff: {out_diff:.6f}")
-        print(f"softmax_max max diff: {max_diff:.6f}")
-        print(f"softmax_sum max diff: {sum_diff:.6f}")
+        print(f"Max difference: {max_diff:.6f}")
+        print(f"Mean difference: {mean_diff:.6f}")
         
-        if out_diff < 0.02 and max_diff < 0.1 and sum_diff < 1.0:
-            print("✓ All outputs within tolerance")
-        else:
-            print("✗ Some outputs exceed tolerance")
+        assert_allclose(
+            output_fp32.cpu().numpy().flatten(),
+            golden_fp32.cpu().numpy().flatten(),
+            rtol=0.0078125,
+            atol=0.0001
+        )
+        print("✓ Flash Attention Score test passed!")
+    print()
+
+
+def test_flash_attention_score_no_mask(device_id=None, run_mode: str = "npu"):
+    """Test Flash Attention Score without mask"""
+    print("=" * 60)
+    print("Test: Flash Attention Score without Mask")
+    print("=" * 60)
     
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+    
+    query = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM, 
+                        dtype=torch.bfloat16, device=device)
+    key = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, 
+                      dtype=torch.bfloat16, device=device)
+    value = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, 
+                        dtype=torch.bfloat16, device=device)
+    
+    output = torch.empty(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM, 
+                         dtype=torch.bfloat16, device=device)
+    
+    flash_attention_score_kernel(query, key, value, output)
+    
+    golden = flash_attention_score_golden_online_softmax(query, key, value, None)
+    
+    print(f"Input shape: query={query.shape}, key={key.shape}, value={value.shape}")
+    print(f"Output shape: {output.shape}")
+    
+    if run_mode == "npu":
+        output_fp32 = output.float()
+        golden_fp32 = golden.float()
+        max_diff = (output_fp32 - golden_fp32).abs().max().item()
+        
+        print(f"Max difference: {max_diff:.6f}")
+        
+        assert_allclose(
+            output_fp32.cpu().numpy().flatten(),
+            golden_fp32.cpu().numpy().flatten(),
+            rtol=0.0078125,
+            atol=0.0001
+        )
+        print("✓ Flash Attention Score (no mask) test passed!")
     print()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="FlashAttentionScore PyPTO Test")
-    parser.add_argument('--run_mode', type=str, default='npu', choices=["npu"], help='Run mode')
+    parser = argparse.ArgumentParser(
+        description="PyPTO Flash Attention Score Example",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        'test_case',
+        type=str,
+        nargs='?',
+        default='all',
+        help='Test case to run: with_mask, no_mask, or all (default: all)'
+    )
+    parser.add_argument(
+        '--run_mode',
+        type=str,
+        default='npu',
+        choices=["npu", "sim"],
+        help='Run mode: npu or sim (default: npu)'
+    )
     args = parser.parse_args()
     
     print("\n" + "=" * 60)
-    print("FlashAttentionScore PyPTO Test")
+    print("PyPTO Flash Attention Score Example")
     print("=" * 60 + "\n")
     
     device_id = None
@@ -164,13 +279,25 @@ def main():
             return
         import torch_npu
         torch.npu.set_device(device_id)
-        print("Running on NPU...")
+        print(f"Running on NPU device {device_id}\n")
     
-    test_flash_attention_score(device_id, args.run_mode)
-    
-    print("=" * 60)
-    print("FlashAttentionScore test completed!")
-    print("=" * 60)
+    try:
+        if args.test_case == 'with_mask':
+            test_flash_attention_score(device_id, args.run_mode)
+        elif args.test_case == 'no_mask':
+            test_flash_attention_score_no_mask(device_id, args.run_mode)
+        else:
+            test_flash_attention_score(device_id, args.run_mode)
+            test_flash_attention_score_no_mask(device_id, args.run_mode)
+        
+        print("=" * 60)
+        print("All tests passed!")
+        print("=" * 60)
+    except Exception as e:
+        print(f"\nError: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 if __name__ == "__main__":
