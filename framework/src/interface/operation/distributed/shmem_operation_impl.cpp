@@ -327,6 +327,8 @@ Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal)
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData, Tensor& shmemSignal,
     Tensor& out)
 {
+
+
     uint32_t worldSize = shmemData.GetShape()[0];
     CHECK(worldSize > 0) << "worldSize should be more than 0.";
     int32_t row = in.GetShape(0);
