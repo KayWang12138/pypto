@@ -771,7 +771,7 @@ static void CheckScatterParamsInvalid(
     }
 }
 
-Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int axis, ScatterMode reduce) {
+Tensor Scatter(Tensor &self, const Tensor &indices, const Tensor &src, int axis, ScatterMode reduce) {
     DECLARE_TRACER();
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self.GetDataType() == src.GetDataType())
         << "Datatype of self and src should be equal";
@@ -798,9 +798,12 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int
 
     if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) &&
         (reduce == ScatterMode::ADD || reduce == ScatterMode::MULTIPLY)) {
-        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+        Tensor castedResult = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
             result.GetStorage(), orgDtype, CastMode::CAST_RINT);
+        result = castedResult;
     }
+    Program::GetInstance().GetCurrentFunction()->SetSameMemId(self.GetStorage(), result.GetStorage());
+    self = result;
     return result;
 }
 
