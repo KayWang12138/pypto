@@ -255,19 +255,6 @@ def gen_perfetto_example():
     print("You can check it by upload this file to https://ui.perfetto.dev/")
 
 
-def get_output_dirs() -> List[Path]:
-    dirs: List[Path] = []
-    root = Path(".")
-    dirs.extend([d for d in root.iterdir() if d.is_dir() and d.name.startswith("output_")])
-    nested_output = root / "output"
-    if nested_output.exists():
-        dirs.extend([d for d in nested_output.iterdir() if d.is_dir() and d.name.startswith("output_")])
-    uniq = {str(d.resolve()): d for d in dirs}
-    result = list(uniq.values())
-    result.sort(key=lambda x: x.name, reverse=True)
-    return result
-
-
 def load_json(file_path: Path) -> Any:
     with open(file_path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -322,25 +309,6 @@ def print_table(headers: List[str], rows: List[List[str]]) -> None:
         print(line)
 
 
-def print_tables_side_by_side(
-    left_headers: List[str],
-    left_rows: List[List[str]],
-    right_headers: List[str],
-    right_rows: List[List[str]],
-    gap: int = 4,
-) -> None:
-    left_lines = render_table_lines(left_headers, left_rows)
-    right_lines = render_table_lines(right_headers, right_rows)
-    left_width = max(display_width(line) for line in left_lines) if left_lines else 0
-    total_lines = max(len(left_lines), len(right_lines))
-
-    for i in range(total_lines):
-        left = left_lines[i] if i < len(left_lines) else ""
-        right = right_lines[i] if i < len(right_lines) else ""
-        left_padded = pad_cell(left, left_width)
-        print(left_padded + (" " * gap) + right)
-
-
 def print_section(title: str, total_width: Optional[int] = None) -> None:
     if total_width is None:
         term_cols = shutil.get_terminal_size(fallback=(100, 20)).columns
@@ -357,9 +325,20 @@ def print_section(title: str, total_width: Optional[int] = None) -> None:
     print("\n" + ("=" * left) + text + ("=" * right))
 
 
-def print_subsection(title: str) -> None:
-    line = "-" * 20
-    print(f"\n{line} {title} {line}")
+def print_subsection(title: str, total_width: Optional[int] = None) -> None:
+    if total_width is None:
+        term_cols = shutil.get_terminal_size(fallback=(100, 20)).columns
+        total_width = max(40, term_cols - 2)
+    else:
+        total_width = max(total_width, 20)
+    text = f" {title} "
+    text_width = display_width(text)
+    if text_width >= total_width:
+        print(f"\n{text}")
+        return
+    left = (total_width - text_width) // 2
+    right = total_width - text_width - left
+    print("\n" + ("-" * left) + text + ("-" * right))
 
 
 def parse_task_name(name: str) -> Tuple[str, Optional[int], Optional[int]]:
@@ -370,10 +349,6 @@ def parse_task_name(name: str) -> Tuple[str, Optional[int], Optional[int]]:
     round_id = int(m.group(2)) if m.group(2) is not None else None
     idx = int(m.group(3)) if m.group(3) is not None else None
     return base, round_id, idx
-
-
-def format_round(round_id: Optional[int]) -> str:
-    return "-" if round_id is None else str(round_id)
 
 
 def collect_round_ids(aicpu_dev_pref: List[Dict[str, Any]]) -> List[Optional[int]]:
@@ -435,18 +410,6 @@ def format_us(v: Optional[float], freq: float) -> str:
     return f"{to_us(v, freq):.2f}"
 
 
-def summarize_us(values: List[float], freq: float) -> List[str]:
-    if not values:
-        return ["0", "-", "-", "-"]
-    avg = sum(values) / len(values)
-    return [
-        str(len(values)),
-        f"{to_us(min(values), freq):.2f}",
-        f"{to_us(avg, freq):.2f}",
-        f"{to_us(max(values), freq):.2f}"
-    ]
-
-
 def calc_avg_aicore_exit_wait_us(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional[int]) -> Optional[float]:
     aicore_exec_rows = collect_aicore_exec_rows(aicpu_dev_pref, round_id)
     wait_us_values: List[float] = []
@@ -464,62 +427,6 @@ def format_sched_post_process(post_dur_cycles: Optional[float], sched_freq: floa
     if post_dur_cycles is None:
         return "-"
     return f"{to_us(post_dur_cycles, sched_freq):.2f}"
-
-
-def analyze_ctrl_aicpu(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional[int]) -> None:
-    print_subsection("CTRL AICPU")
-    ctrl = next((x for x in aicpu_dev_pref if str(x.get("coreType")) == "AICPU-CTRL"), None)
-    if ctrl is None:
-        print("- No AICPU-CTRL data found")
-        return
-    tasks = ctrl.get("tasks", [])
-    freq = float(ctrl.get("freq", 0)) or 1.0
-    block_idx = int(ctrl.get("blockIdx", 0))
-    build_dur = get_task_duration(tasks, TaskPoint("BEGIN"), TaskPoint("DEV_TASK_BUILD", 0), round_id)
-    print_table(["Compute Units", "DEV_TASK_BUILD(us)"], [[f"AICPU-CTRL-{block_idx}", format_us(build_dur, freq)]])
-
-
-def analyze_sched_aicpu(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional[int]) -> None:
-    print_subsection("SCHED AICPU")
-    scheds = [x for x in aicpu_dev_pref if str(x.get("coreType")) == "AICPU-SCHED"]
-    if not scheds:
-        print("- No AICPU-SCHED data found")
-        return
-
-    scheds.sort(key=lambda x: int(x.get("blockIdx", 0)))
-    rows: List[List[str]] = []
-
-    for s in scheds:
-        block_idx = int(s.get("blockIdx", -1))
-        tasks = s.get("tasks", [])
-        freq = float(s.get("freq", 0)) or 1.0
-        alloc_dur = get_task_duration(tasks, TaskPoint("BEGIN"), TaskPoint("ALLOC_THREAD_ID"), round_id)
-        init_dur = get_task_duration(tasks, TaskPoint("ALLOC_THREAD_ID"), TaskPoint("INIT"), round_id)
-        handshake_dur = get_task_duration(tasks, TaskPoint("INIT"), TaskPoint("CORE_HAND_SHAKE"), round_id)
-        dev_task_rcv = get_task_duration(tasks, TaskPoint("CORE_HAND_SHAKE"), TaskPoint("DEV_TASK_RCV", 0), round_id)
-        post_dur = get_task_duration(tasks, TaskPoint("DEV_TASK_SCHED_EXEC", 0), TaskPoint("EXIT"), round_id)
-        rows.append(
-            [
-                f"AICPU-SCHED-{block_idx}",
-                format_us(alloc_dur, freq),
-                format_us(init_dur, freq),
-                format_us(handshake_dur, freq),
-                format_us(dev_task_rcv, freq),
-                format_sched_post_process(post_dur, freq),
-            ]
-        )
-
-    print_table(
-        [
-            "Compute Units",
-            "ALLOC_THREAD_ID(us)",
-            "INIT(us)",
-            "CORE_HAND_SHAKE(us)",
-            "DEV_TASK_RCV(us)",
-            "Post-process(us)",
-        ],
-        rows,
-    )
 
 
 def collect_aicore_exec_rows(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional[int]) -> List[Dict[str, Any]]:
@@ -555,16 +462,6 @@ def collect_aicore_exec_rows(aicpu_dev_pref: List[Dict[str, Any]], round_id: Opt
         )
     rows.sort(key=lambda x: x["block_idx"])
     return rows
-
-
-def analyze_aicore(aicore_exec_rows: List[Dict[str, Any]]) -> None:
-    print_subsection("AICore")
-    if not aicore_exec_rows:
-        print("- No valid AICore execution data")
-        return
-
-    e2e_time, total_runtime_max = calc_aicore_timing_summary(aicore_exec_rows)
-    print_table(["Compute Units", "End-to-End time", "Total run time (max)"], [["AICore", e2e_time, total_runtime_max]])
 
 
 def calc_aicore_timing_summary(aicore_exec_rows: List[Dict[str, Any]]) -> Tuple[str, str]:
@@ -723,6 +620,73 @@ def analyze_output_command(output_dir_arg: Optional[str]) -> None:
     print()
 
 
+def calc_aicore_prof_summary(l1_prof_data: List[Dict[str, Any]]) -> Tuple[int, int, float]:
+    total_aicore_time = 0
+    lane_count = 0
+    global_min_start: Optional[int] = None
+    global_max_end: Optional[int] = None
+
+    for core in l1_prof_data:
+        core_type = str(core.get("coreType", ""))
+        if core_type not in ("AIC", "AIV"):
+            continue
+        lane_count += 1
+        for task in core.get("tasks", []):
+            exec_start = task.get("execStart")
+            exec_end = task.get("execEnd")
+            if not isinstance(exec_start, int) or not isinstance(exec_end, int):
+                continue
+            if exec_end < exec_start:
+                continue
+            total_aicore_time += (exec_end - exec_start)
+            if global_min_start is None or exec_start < global_min_start:
+                global_min_start = exec_start
+            if global_max_end is None or exec_end > global_max_end:
+                global_max_end = exec_end
+
+    if lane_count <= 0 or global_min_start is None or global_max_end is None:
+        return total_aicore_time, 0, 0.0
+
+    lane_duration = max(global_max_end - global_min_start, 0)
+    if lane_duration == 0:
+        return total_aicore_time, lane_duration, 0.0
+
+    utilization = safe_div(float(total_aicore_time), float(lane_count * lane_duration))
+    return total_aicore_time, lane_duration, utilization
+
+
+def print_aicore_prof_summary(l1_file_path: Path, freq: float) -> None:
+    if not l1_file_path.exists():
+        return
+
+    l1_prof_data = load_json(l1_file_path)
+    if not isinstance(l1_prof_data, list) or not l1_prof_data:
+        return
+
+    aicore_time, lane_duration, utilization = calc_aicore_prof_summary(l1_prof_data)
+    aicore_time_us = to_us(float(aicore_time), freq)
+    lane_duration_us = to_us(float(lane_duration), freq)
+    rows: List[Tuple[str, str]] = [
+        ["AICore Time(us)", f"{aicore_time_us:.2f}"],
+        ["AICore End-to-End Time(us)", f"{lane_duration_us:.2f}"],
+        ["AICore Utilization", f"{utilization * 100:.2f}%"],
+    ]
+    lines = [f"{k}: {v}" for k, v in rows]
+    content_width = max((display_width(line) for line in lines), default=0)
+    print_subsection("AICORE Prof Summary", content_width)
+    for line in lines:
+        print(line)
+
+
+def analyze_aicore_summary_command(input_file: str, freq: float) -> None:
+    input_path = Path(input_file)
+    if not input_path.exists():
+        print(f"Error: path does not exist: {input_path}")
+        return
+    print_aicore_prof_summary(input_path, freq)
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(description='Performance data processing tool')
     subparsers = parser.add_subparsers(dest='command', help='Available commands', required=True)
@@ -747,6 +711,20 @@ def main():
         nargs='?',
         help='Output directory or perf json file path; latest output_* if omitted',
     )
+    # analyze_aicore_summary 子命令
+    analyze_aicore_summary_parser = subparsers.add_parser(
+        'analyze_aicore_summary',
+        help='Print AICORE Prof Summary from tilefwk_L1_prof_data.json',
+    )
+    analyze_aicore_summary_parser.add_argument(
+        'input_file',
+        help='Path to tilefwk_L1_prof_data.json',
+    )
+    analyze_aicore_summary_parser.add_argument(
+        'freq',
+        type=float,
+        help='Frequency used to convert cycle to us',
+    )
 
     args = parser.parse_args()
 
@@ -758,6 +736,8 @@ def main():
         gen_perfetto_example()
     elif args.command == 'analyze':
         analyze_output_command(args.output_dir)
+    elif args.command == 'analyze_aicore_summary':
+        analyze_aicore_summary_command(args.input_file, args.freq)
     else:
         parser.print_help()
 
