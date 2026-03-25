@@ -724,19 +724,15 @@ TEST_F(InferShapeTest, TestViewInputWithOffset) {
 
     Offset copyInFromOffset = {0, 0};
     auto copyInOpAttribute = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified(copyInFromOffset),
-        MEM_UB, OpImmediate::Specified(incast->GetShape()),
-        OpImmediate::Specified(incast->tensor->GetDynRawShape()),
-        OpImmediate::Specified(incast->GetDynValidShape())
+        OpImmediate::Specified(copyInFromOffset), MEM_UB, OpImmediate::Specified(incast->GetShape()),
+        OpImmediate::Specified(incast->tensor->GetDynRawShape()),OpImmediate::Specified(incast->GetDynValidShape())
     );
     copyInOp.SetOpAttribute(copyInOpAttribute);
     Offset assembleToOffset = {4, 0};
-    std::vector<SymbolicScalar> assembleToDynOffset = {SymbolicScalar(4), SymbolicScalar(0)};
-    auto assembleOpAttribute = std::make_shared<AssembleOpAttribute>(assembleToOffset, assembleToDynOffset);
+    auto assembleOpAttribute = std::make_shared<AssembleOpAttribute>(assembleToOffset, SymbolicScalar::FromConcrete(assembleToOffset));
     assembleOp.SetOpAttribute(assembleOpAttribute);
     Offset viewFromOffset = {2, 0};
-    std::vector<SymbolicScalar> viewFromDynOffset = {SymbolicScalar(2), SymbolicScalar(0)};
-    auto viewOpAttribute = std::make_shared<ViewOpAttribute>(viewFromOffset, MEM_UB, viewFromDynOffset, viewOut->GetDynValidShape());
+    auto viewOpAttribute = std::make_shared<ViewOpAttribute>(viewFromOffset, MEM_UB, SymbolicScalar::FromConcrete(viewFromOffset), viewOut->GetDynValidShape());
     viewOp.SetOpAttribute(viewOpAttribute);
     
     currFunctionPtr->inCasts_.push_back(incast);
