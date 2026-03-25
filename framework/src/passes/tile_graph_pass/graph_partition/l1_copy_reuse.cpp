@@ -676,6 +676,17 @@ void L1CopyInReuseRunner::RemoveUselessViews(Function& func) const
     }
 }
 
+Status L1CopyInReuseMerge::RunOnFunction(Function &function) {
+    APASS_LOG_INFO_F(Elements::Operation, "===> Start L1CopyInReuseMerge.");
+    if (L1CopyInReuse(function) == FAILED) {
+      return FAILED;
+    }
+    DeadOperationEliminator eliminator;
+    eliminator.EliminateDeadOperationBackward(function);
+    APASS_LOG_INFO_F(Elements::Operation, "===> Finish L1CopyInReuseMerge.");
+    return SUCCESS;
+}
+
 Status L1CopyInReuseMerge::InitColorNode(Function& func, std::vector<std::vector<int>>& colorNode) const
 {
     int colorMax{0};
