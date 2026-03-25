@@ -410,7 +410,6 @@ def build_qwen3_mlp_frontend_jit(params, run_mode):
             "stitch_function_size": 2048,
             "valid_shape_optimize": 1,
         },
-        debug_options={"runtime_debug_mode": 1},
     )
     def qwen3_mlp_frontend_jit(
         hidden_states: pypto.tensor((m, h), pto_dtype),
@@ -468,7 +467,6 @@ def build_qwen3_paged_attention_prolog_frontend_jit(params, run_mode):
 
     @pypto.frontend.jit(
         runtime_options={"run_mode": run_mode},
-        debug_options={"runtime_debug_mode": 1},
     )
     def qwen3_paged_attention_prolog_frontend_jit(
         hidden_states: pypto.tensor((b * s, hidden_size), pto_dtype),
@@ -560,7 +558,6 @@ def build_qwen3_paged_attention_frontend_jit(params, run_mode):
 
     @pypto.frontend.jit(
         runtime_options={"run_mode": run_mode},
-        debug_options={"runtime_debug_mode": 1},
     )
     def qwen3_paged_attention_frontend_jit(
         query: pypto.tensor((b * s * n_q, d), pto_dtype),
@@ -884,7 +881,6 @@ def build_qwen3_layer_frontend_jit(params, run_mode):
 
     @pypto.frontend.jit(
         runtime_options={"run_mode": run_mode},
-        debug_options={"runtime_debug_mode": 1},
     )
     def qwen3_layer_frontend_jit(
         hidden_states: pypto.tensor((b * s, hidden_size), pto_dtype),
@@ -970,7 +966,6 @@ def build_qwen3_layer_frontend_jit(params, run_mode):
             "stitch_function_size": 2048,
             "valid_shape_optimize": 1,
         },
-        debug_options={"runtime_debug_mode": 1},
     )
     def qwen3_layer_frontend_graph_jit(
         hidden_states: pypto.tensor((b * s, hidden_size), pto_dtype),
