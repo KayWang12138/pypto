@@ -677,7 +677,9 @@ transpose(input: Tensor, dim0: int, dim1: int) -> Tensor
 ##### 返回值说明
 返回一个与输入数据类型一致的Tensor，其中 dim0 与 dim1 的维度位置被对调。
 #### 6.1.3. c++ tensor graph接口
-
+```CPP
+Tensor Transpose(const Tensor &self, std::vector<int> perm);
+```
 #### 6.1.4. c++ tile graph接口
 `transpose` 算子在 Tile Graph 层面会生成针对 NPU 硬件的 Tile 级转置操作，根据输入张量的形状和指定的维度交换生成相应的 Tile 操作。
 ```CPP
