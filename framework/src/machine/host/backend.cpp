@@ -196,12 +196,13 @@ static void AlignUpTo(std::vector<uint8_t> &code, int align, uint8_t padding) {
     }
 }
 
-static void ReplaceSlotIndex(DyndevFunctionAttribute *attr, std::vector<bool>& slotUsed,
+static void ReplaceSlotIndex(DyndevFunctionAttribute *attr, std::set<int>& slotUsed,
                              std::unordered_map<int, int>& slotIdxMapping) {
     IncastOutcastLink &inoutLink = attr->inoutLink;
-    for (int i = 0; i < inoutLink.totalSlot; i++) {
-        if (slotUsed[i] && !slotIdxMapping.count(i)) {
-            slotIdxMapping.emplace(i, slotIdxMapping.size());
+
+    for (auto idx : slotUsed) {
+        if (!slotIdxMapping.count(idx)) {
+            slotIdxMapping.emplace(idx, slotIdxMapping.size());
         }
     }
 
@@ -238,7 +239,7 @@ static void ReplaceSlotIndex(DyndevFunctionAttribute *attr, std::vector<bool>& s
             slot = slotIdxMapping[slot];
     }
 
-    auto replaceSlotIdxForFunc = [&slotIdxMapping, replaceSlotIdx](Function *func) {
+    auto replaceSlotIdxForFunc = [replaceSlotIdx](Function *func) {
         std::shared_ptr<TensorSlotScope> scope = func->GetSlotScope();
         if (scope) {
             replaceSlotIdx(scope->constructAssembleSlotList);
@@ -251,25 +252,25 @@ static void ReplaceSlotIndex(DyndevFunctionAttribute *attr, std::vector<bool>& s
     inoutLink.UpdateRuntimeSlotKindSetList();
 }
 
-static void MarkUsedSlotsFromInoutLink(const IncastOutcastLink &inoutLink, std::vector<bool> &slotUsed) {
+static void MarkUsedSlotsFromInoutLink(const IncastOutcastLink &inoutLink, std::set<int> &slotUsed) {
     for (int slotIdx : inoutLink.inputSlotIndexList) {
-        slotUsed[slotIdx] = true;
+        slotUsed.insert(slotIdx);
     }
     for (int slotIdx : inoutLink.outputSlotIndexList) {
-        slotUsed[slotIdx] = true;
+        slotUsed.insert(slotIdx);
     }
     for (int slotIdx : inoutLink.shmemTensorSlotIndexList) {
-        slotUsed[slotIdx] = true;
+        slotUsed.insert(slotIdx);
     }
     for (int slotIdx : inoutLink.assembleSlotIndexList) {
-        slotUsed[slotIdx] = true;
+        slotUsed.insert(slotIdx);
     }
     // partialUpdateSlotIdexList的数据有问题
 }
 
 static void SimplifySlots(DyndevFunctionAttribute *attr, std::unordered_map<int, int>& slotIdxMapping) {
     IncastOutcastLink &inoutLink = attr->inoutLink;
-    std::vector<bool> slotUsed(inoutLink.totalSlot);
+    std::set<int> slotUsed;
 
     MarkUsedSlotsFromInoutLink(inoutLink, slotUsed);
     for (Function *devRoot : attr->funcGroup.devRootList) {
@@ -285,7 +286,7 @@ static void SimplifySlots(DyndevFunctionAttribute *attr, std::unordered_map<int,
             }
             int32_t simplifiedIncastSlot = -1;
             for (auto &incastSlot : incastSlots) {
-                if (slotUsed[incastSlot]) {
+                if (slotUsed.count(incastSlot)) {
                     simplifiedIncastSlot = incastSlot;
                     break;
                 }
@@ -294,7 +295,7 @@ static void SimplifySlots(DyndevFunctionAttribute *attr, std::unordered_map<int,
                 incastSlots.front() = simplifiedIncastSlot;
             }
             incastSlots.resize(1); // meaningless to maintain multi incast slots
-            slotUsed[incastSlots.front()] = true;
+            slotUsed.insert(incastSlots.front());
         }
     }
 
@@ -307,10 +308,10 @@ static void SimplifySlots(DyndevFunctionAttribute *attr, std::unordered_map<int,
             ASSERT(!outcastSlots.empty()) << "devTile: " << devTile->GetMagicName();
             bool outcastSlotFound = false;
             for (auto &outcastSlot : outcastSlots) {
-                outcastSlotFound = outcastSlotFound || slotUsed[outcastSlot];
+                outcastSlotFound = outcastSlotFound || slotUsed.count(outcastSlot);
             }
             if (!outcastSlotFound) {
-                slotUsed[outcastSlots.front()] = true;
+                slotUsed.insert(outcastSlots.front());
             }
         }
     }
@@ -885,7 +886,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     AlignUpTo(attr->devControlFlowBinary, 0x8, 0);
     std::map<uint64_t, Function *> leafDict;
     std::mutex leafDictMutex;
-    
+
     std::deque<std::function<void(void)>> tasks;
     for (auto &devRoot : attr->funcGroup.devRootList) {
         std::function task = [&devRoot, &attr, &leafDict, &leafDictMutex]() {
@@ -897,7 +898,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
                           devTile->GetMagicName().c_str());
             codeGen.GenCode(*devTile, {});
             MainBlockCondBulider::Gencode(devTile);
-            
+
             std::lock_guard<std::mutex> lock(leafDictMutex);
             for (auto &[psgId, leaf] : devRoot->programs_) {
                 (void)psgId;
@@ -913,7 +914,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         };
         tasks.push_back(task);
     }
-    
+
     unsigned threadNum = GetCGThreadNum();
     ParallelExecuteAndWait(threadNum, tasks);
 
