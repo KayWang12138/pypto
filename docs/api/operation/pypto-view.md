@@ -33,6 +33,9 @@ view(input: Tensor, shape: List[int] = None, offsets: List[Union[int, SymbolicSc
 
 返回输出Tensor，Tensor的数据类型和input相同，Shape为参数shape指定大小，若指定了valid\_shape，则真实大小为valid\_shape。若指定dtype，则会将输入按照dtype进行读取。
 
+## 约束说明
+- valid_shape; 类似page_attention场景下kv_cache等存在无效数据的Tensor作为输入时，无法正确推导输出的validshape，需要手动传入；
+
 ## 调用示例
 
 -   基本使用方法
@@ -90,13 +93,13 @@ view(input: Tensor, shape: List[int] = None, offsets: List[Union[int, SymbolicSc
     结果如下：
 
     ```python
-    输入数据x: 
+    输入数据x:
     [[0.9405094  0.20237109],
      [0.99819463 0.13246714]]
-    
-    输出数据y: 
+
+    输出数据y:
     [[  57  -59  112   63   94   58   79   62],
      [ -81 -119  127   63  119  -91    7   62]]
-    
+
     ```
 

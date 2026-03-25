@@ -34,6 +34,7 @@ loop_unroll(*args, **kwargs) -> Iterator[Tuple[SymInt, int]]
 -   展开因子列表会被排序并去重，且总是包含 1
 -   展开因子按从大到小排序
 -   每个展开因子会生成一个子循环
+-   unroll展开只在最内层循环生效
 
 ## 调用示例
 
