@@ -1015,9 +1015,8 @@ void Scatter(Tensor& self, const Tensor& indices, const Tensor& src, int axis, S
          static_cast<int>(reduce)});
 
     if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) && reduce == ScatterMode::MULTIPLY) {
-        Tensor castedResult = CALL(
-            CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(),
-            orgDtype, CastMode::CAST_RINT);
+        Tensor castedResult = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            result.GetStorage(), orgDtype, CastMode::CAST_RINT);
         result = castedResult;
     }
     Program::GetInstance().GetCurrentFunction()->SetSameMemId(self.GetStorage(), result.GetStorage());
