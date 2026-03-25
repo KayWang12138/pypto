@@ -93,5 +93,4 @@ scatter_nd_sub_kernel(target, indices, updates)
 | [934708, 64] | [256, 1] | [256, 64] |
 
 ## 详细实现
-
 - 详见 [scatter_nd_sub.py](./scatter_nd_sub.py)
