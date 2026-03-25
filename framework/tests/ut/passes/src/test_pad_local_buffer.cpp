@@ -1472,9 +1472,7 @@ TEST_F(TestPadLocalBuffer, padTwoCmpsInputTo256){
     graphBuilder.GetOp("cmps2")->SetAttr(OpAttributeKey::rowPad, dimMap);
     auto *functionPtr = graphBuilder.GetFunction();
     PadLocalBuffer padLocalBufferTest;
-    functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padTwoCmpsInputTo256_before1.json");
     EXPECT_EQ(padLocalBufferTest.RunOnFunction(*functionPtr), SUCCESS);
-    functionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto_wmj/build/output/padTwoCmpsInputTo256_after1.json");
     EXPECT_EQ(graphBuilder.GetTensor("t1")->GetRawTensor()->GetRawShape()[0], 3);
     EXPECT_EQ(graphBuilder.GetTensor("t2")->GetRawTensor()->GetRawShape()[0], 10);
     EXPECT_EQ(graphBuilder.GetTensor("t3")->GetRawTensor()->GetRawShape()[0], 3);
