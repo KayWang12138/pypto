@@ -50,9 +50,6 @@ void DeviceTaskContext::ProcessWrapQueue(
     // add new wrap id to wrapQueue
     WrapInfo* info = &wrapQueue->elem[wrapQueue->tail];
     info->wrapId = wrapId;
-    // info->aicCoreIdx = 0;
-    // info->aivCoreIdxZero = 0;
-    // info->aivCoreIdxOne = 0;
     info->mixResourceType = cceBinary[callList[opIndex]].mixResourceType;
 
     uint32_t taskIdx = GetTaskIdx(cceBinary[callList[opIndex]].coreType, cceBinary[callList[opIndex]].wrapVecId);
