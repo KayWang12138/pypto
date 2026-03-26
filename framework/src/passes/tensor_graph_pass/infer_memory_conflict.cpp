@@ -42,8 +42,7 @@ bool CheckDynRawShape(const Shape &shape) {
 } // namespace
 
 Status InferMemoryConflict::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(
-        Elements::Operation, "Start InferMemoryConflict for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Operation, "Start InferMemoryConflict for function [%s].", function.GetRawName().c_str());
     if (Init(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed.");
         return FAILED;
@@ -76,8 +75,7 @@ Status InferMemoryConflict::RunOnFunction(Function &function) {
             auto inEntry = viewTypeTable.find(inType);
             auto outEntry = viewTypeTable.find(outType);
             if (inEntry == viewTypeTable.end() || outEntry == viewTypeTable.end()) {
-                APASS_LOG_ERROR_F(Elements::Operation,
-                    "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
+                APASS_LOG_ERROR_F(Elements::Operation, "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
                 return FAILED;
             }
             if (inEntry->second < outEntry->second) {
