@@ -17,6 +17,7 @@
 
 #include <array>
 #include <string>
+#include <cstdint>
 #include <stdexcept>
 #include <unordered_map>
 
