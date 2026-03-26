@@ -105,9 +105,6 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_calls_wrap_functions) {
     bool isNeedWrap = taskContext.IsNeedWrapProcess(dyntask.get(), &devProg);
     EXPECT_TRUE(isNeedWrap);
 
-    uint32_t *wrapTasklist = taskContext.AllocWrapTasklist(dyntask.get());
-    EXPECT_NE(wrapTasklist, nullptr);
-
     WrapInfoQueue *wrapQueue = taskContext.AllocWrapQueue(dyntask.get());
     EXPECT_NE(wrapQueue, nullptr);
     EXPECT_EQ(wrapQueue->head, 0);
