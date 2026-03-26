@@ -435,7 +435,7 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
             // 获取操作属性
             auto opAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(outputProducer->GetOpAttribute());
             if (opAttr == nullptr) {
-                APASS_LOG_WARN_F(Elements::Operation, "Op[%d]'s OpAttribute is null!", outputProducer->GetOpMagic());
+                APASS_LOG_WARN_F(Elements::Operation, "Op[%d]'s OpAttribute is null.", outputProducer->GetOpMagic());
                 continue;
             }
             auto offset = opAttr->GetToOffset();
