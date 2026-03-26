@@ -26,7 +26,7 @@
 
 using namespace npu::tile_fwk;
 
-class LiteNPUCodeGenSigmoid : public testing::Test {
+class LiteNPUCodeGenCompare : public testing::Test {
 public:
     static void TearDownTestCase() {}
 
