@@ -30,6 +30,7 @@
 #include "interface/operation/opcode.h"
 #include "interface/schema/schema.h"
 #include "machine/utils/concurrent_queue.h"
+#include "machine/utils/limited_queue.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/utils/dynamic/device_task.h"
 #include "machine/utils/dynamic/small_array.h"
@@ -70,7 +71,7 @@ constexpr aicoreTask_t aicoreNullTask = 0xFFFFFFFFUL;
 constexpr aicoreCore_t aicoreNullCore = 0xFFFFFFFFUL;
 constexpr aicorePair_t aicoreNullPair = 0xFFFFFFFFFFFFFFFFUL;
 
-typedef pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask, MAX_QUEUED_TASKS> taskQueue_t;
+typedef pypto::utils::LimitedQueue<aicoreTask_t,    aicoreNullTask, MAX_QUEUED_TASKS> taskQueue_t;
 typedef pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore, TOTAL_CORE_COUNT> coreQueue_t;
 typedef pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair, TOTAL_CORE_COUNT> pairQueue_t;
 
@@ -129,9 +130,6 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
         if (!preFetchSuccess_) {
             SendDevTaskModel(curDevTask_);
         }
-
-        readyAicCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
-        readyAivCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
 
         // If I am the lead AICPU scheduler, perform initailization steps
         if (isLeaderScheduler_ == true)
@@ -194,8 +192,8 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
     }
 
     inline void RunCoreTask(uint64_t& sent) {
-        DispatchAiCoreTask(CoreType::AIC, readyAicCoreFunctionQue_);
-        DispatchAiCoreTask(CoreType::AIV, readyAivCoreFunctionQue_);
+        DispatchAiCoreTask(CoreType::AIC);
+        DispatchAiCoreTask(CoreType::AIV);
 
         uint64_t sentAic = 0;
         uint64_t sentAiv = 0;
@@ -333,27 +331,27 @@ private:
         return freeACoreQueue_[(int)type]->size() + freeBCoreQueue_[(int)type]->size();
     }
 
-    inline uint64_t TryBatchSendTask(CoreType type, ReadyCoreFunctionQueue* readyQue)
+    inline uint64_t TryBatchSendTask(CoreType type)
     {
-        if (__atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED) == __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED)) {
+        auto taskQueue = taskQueue_[(int)type];
+
+         if (taskQueue->empty()) {
             return 0;
         }
-        
+
         uint32_t ready = GetReadyCoreNum(type);
 
         if (ready == 0 ) {
             return 0;
         }
 
-        ReadyQueueLock(readyQue);
-        uint32_t head = readyQue->head;
-        const uint32_t availableTasks = readyQue->Size();
-        uint32_t taskCount = std::min(ready, availableTasks);
-        readyQue->head += taskCount;
-        ReadyQueueUnLock(readyQue);
+        
+        taskQueue->lock();
+        const auto taskSet = taskQueue->pop(ready);
+        taskQueue->unlock();        
 
-        BatchSendTask(type, &readyQue->elem[head], taskCount);
-        return taskCount;
+        BatchSendTask(type, taskSet.first, taskSet.second);
+        return taskSet.second;
     }
 
     inline uint32_t BatchSendTask(CoreType type, uint32_t *newTask, uint32_t taskCount) {
@@ -381,11 +379,11 @@ private:
         return sendCnt;
     }
 
-    inline void DispatchAiCoreTask(CoreType type, ReadyCoreFunctionQueue* readyQue) {
+    inline void DispatchAiCoreTask(CoreType type) {
         if (context_->waitTaskCnt_[(int)type] > 0) {
             ResolveDepForAllAiCore(type);
         }
-        TryBatchSendTask(type, readyQue);
+        TryBatchSendTask(type);
     }
 
     inline void SendTaskToAiCore(CoreType type, int coreIdx, uint32_t newTask) {
@@ -393,11 +391,12 @@ private:
         context_->sendCnt_[(int)type]++;
     }
 
-    inline void PushReadyQue(ReadyCoreFunctionQueue *readyQue, void *idList, uint32_t idCnt) const {
-        ReadyQueueLock(readyQue);
-        memcpy_s(&readyQue->elem[readyQue->tail], idCnt * sizeof(uint32_t), (uint8_t *)idList, idCnt * sizeof(uint32_t));
-        readyQue->tail += idCnt;
-        ReadyQueueUnLock(readyQue);
+    inline void PushReadyQue(CoreType type, aicoreTask_t *idList, uint32_t idCnt) const
+    {
+        auto taskQueue = taskQueue_[(int)type];
+        taskQueue->lock();
+        taskQueue->pushMany(idList, idCnt);
+        taskQueue->unlock();
     }
 
     inline void BatchPushReadyQueue() {
@@ -405,14 +404,14 @@ private:
         uint32_t aivIndex = static_cast<uint32_t>(CoreType::AIV);
 
         if (context_->readyCount[aicIndex] > 0) {
-            PushReadyQue(readyAicCoreFunctionQue_, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
-            TryBatchSendTask(CoreType::AIC, readyAicCoreFunctionQue_);
+            PushReadyQue(CoreType::AIC, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
+            TryBatchSendTask(CoreType::AIC);
             context_->readyCount[aicIndex] = 0;
         }
 
         if (context_->readyCount[aivIndex] > 0) {
-            PushReadyQue(readyAivCoreFunctionQue_, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
-            TryBatchSendTask(CoreType::AIV, readyAivCoreFunctionQue_);
+            PushReadyQue(CoreType::AIV, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
+            TryBatchSendTask(CoreType::AIV);
             context_->readyCount[aivIndex] = 0;
         }
     }
@@ -773,10 +772,7 @@ private:
     int curTaskId_{0};
 
     /* prepare aicore ready task list */
-    ReadyCoreFunctionQueue* readyAicCoreFunctionQue_{nullptr};
-    ReadyCoreFunctionQueue* readyAivCoreFunctionQue_{nullptr};
     SchduleContext * context_{nullptr};
-
 
     bool preFetchSuccess_{false};
     DeviceTaskCtrl* preFetchNextDevTaskCtrl_{nullptr};
