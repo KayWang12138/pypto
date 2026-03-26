@@ -70,7 +70,7 @@ constexpr aicoreTask_t aicoreNullTask = 0xFFFFFFFFUL;
 constexpr aicoreCore_t aicoreNullCore = 0xFFFFFFFFUL;
 constexpr aicorePair_t aicoreNullPair = 0xFFFFFFFFFFFFFFFFUL;
 
-// typedef pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask> taskQueue_t;
+typedef pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask, MAX_QUEUED_TASKS> taskQueue_t;
 typedef pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore, TOTAL_CORE_COUNT> coreQueue_t;
 typedef pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair, TOTAL_CORE_COUNT> pairQueue_t;
 
@@ -137,26 +137,26 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
         if (isLeaderScheduler_ == true)
         {
             // Allocating queues
-            // auto availableVectorTaskQueue = new coreQueue_t();
-            // auto availableCubeTaskQueue = new coreQueue_t();
-            // curDevTask_->availableVectorTaskQueue = (uint64_t) availableVectorTaskQueue;
-            // curDevTask_->availableCubeTaskQueue = (uint64_t) availableCubeTaskQueue;
+            auto availableVectorTaskQueue = new coreQueue_t();
+            auto availableCubeTaskQueue = new coreQueue_t();
+            curDevTask_->availableVectorTaskQueue = (uint64_t) availableVectorTaskQueue;
+            curDevTask_->availableCubeTaskQueue = (uint64_t) availableCubeTaskQueue;
 
-            // // // Adding initial set of tasks 
-            // auto readyAicCoreFunctionQue = (ReadyCoreFunctionQueue *)curDevTask_->readyAicCoreFunctionQue;
-            // auto readyAivCoreFunctionQue = (ReadyCoreFunctionQueue *)curDevTask_->readyAivCoreFunctionQue;
-            // // DEV_ERROR("[AICPU %d] AIV Tasks: %lu", aicpuIdx_, readyAivCoreFunctionQue->size());
-            // // DEV_ERROR("[AICPU %d] AIC Tasks: %lu", aicpuIdx_, readyAicCoreFunctionQue->size());
-            // for (size_t i = 0; i < readyAivCoreFunctionQue->Size(); i++) availableVectorTaskQueue->push((uint32_t)readyAivCoreFunctionQue->GetBuffer()[i]);
-            // for (size_t i = 0; i < readyAicCoreFunctionQue->Size(); i++) availableCubeTaskQueue->push((uint32_t)readyAicCoreFunctionQue->GetBuffer()[i]);
+            // // Adding initial set of tasks 
+            auto readyAicCoreFunctionQue = (ReadyCoreFunctionQueue *)curDevTask_->readyAicCoreFunctionQue;
+            auto readyAivCoreFunctionQue = (ReadyCoreFunctionQueue *)curDevTask_->readyAivCoreFunctionQue;
+            // DEV_ERROR("[AICPU %d] AIV Tasks: %lu", aicpuIdx_, readyAivCoreFunctionQue->size());
+            // DEV_ERROR("[AICPU %d] AIC Tasks: %lu", aicpuIdx_, readyAicCoreFunctionQue->size());
+            for (size_t i = 0; i < readyAivCoreFunctionQue->Size(); i++) availableVectorTaskQueue->push((uint32_t)readyAivCoreFunctionQue->GetBuffer()[i]);
+            for (size_t i = 0; i < readyAicCoreFunctionQue->Size(); i++) availableCubeTaskQueue->push((uint32_t)readyAicCoreFunctionQue->GetBuffer()[i]);
 
-        //     // Allocating core queues
-        //     auto availableVectorCoreQueue = new coreQueue_t(AIV_CORE_COUNT);
-        //     auto availableCubeCoreQueue = new coreQueue_t(AIC_CORE_COUNT);
-        //     curDevTask_->availableVectorCoreQueue = (uint64_t) availableVectorCoreQueue;
-        //     curDevTask_->availableCubeCoreQueue = (uint64_t) availableCubeCoreQueue;
-        //     for (uint32_t i = AIC_CORE_COUNT; i < AIC_CORE_COUNT + AIV_CORE_COUNT; i++) availableVectorCoreQueue->push(i);
-        //     for (uint32_t i = 0; i < AIC_CORE_COUNT; i++) availableCubeCoreQueue->push(i);
+            // Allocating core queues
+            // auto availableVectorCoreQueue = new coreQueue_t(AIV_CORE_COUNT);
+            // auto availableCubeCoreQueue = new coreQueue_t(AIC_CORE_COUNT);
+            // curDevTask_->availableVectorCoreQueue = (uint64_t) availableVectorCoreQueue;
+            // curDevTask_->availableCubeCoreQueue = (uint64_t) availableCubeCoreQueue;
+            // for (uint32_t i = AIC_CORE_COUNT; i < AIC_CORE_COUNT + AIV_CORE_COUNT; i++) availableVectorCoreQueue->push(i);
+            // for (uint32_t i = 0; i < AIC_CORE_COUNT; i++) availableCubeCoreQueue->push(i);
 
             // Setting task as initialized, allowing others to continue
             curDevTask_->isTaskInitialized = true;
@@ -164,6 +164,9 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
         
         // If I am not a lead AICPU scheduler, wait until initialization is ready
         if (isLeaderScheduler_ == false) while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
+
+        taskQueue_[(int)CoreType::AIV] = (taskQueue_t*)curDevTask_->availableVectorTaskQueue;
+        taskQueue_[(int)CoreType::AIC] = (taskQueue_t*)curDevTask_->availableCubeTaskQueue;
 
         freeACoreQueue_[(int)CoreType::AIV] = new coreQueue_t();
         freeACoreQueue_[(int)CoreType::AIC] = new coreQueue_t();
@@ -778,6 +781,7 @@ private:
     friend class AiCoreProf;
 
     // Queues for managing tasks, cores and their pairing
+    taskQueue_t* taskQueue_[AICORE_TYPE_NUM];
     coreQueue_t* freeACoreQueue_[AICORE_TYPE_NUM];
     pairQueue_t* busyACoreQueue_[AICORE_TYPE_NUM];
     pairQueue_t* freeBCoreQueue_[AICORE_TYPE_NUM];
