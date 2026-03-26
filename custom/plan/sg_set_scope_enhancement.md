@@ -546,7 +546,7 @@ constexpr const char *SG_SET_SCOPE_CROSS_MERGE = "sg_set_scope_cross_merge";
 constexpr const char *SG_SET_SCOPE_RESERVED = "sg_set_scope_reserved";
 ```
 
-### 步骤5：添加测试用例
+### 步骤5：添加 Python 测试用例
 
 在 `python/tests/ut/interface/test_config_options.py` 中添加新的测试用例：
 
@@ -575,29 +575,145 @@ def test_sg_set_scope_new_format():
         assert "tuple of 4 elements" in str(e)
 
     try:
-        pypto.set_pass_options(sg_set_scope=(1, "True", True, 123))  # 类型错误
+        pypto.set_pass_scope(sg_set_scope=(1, "True", True, 123))  # 类型错误
         assert False, "Should raise ValueError"
     except ValueError as e:
         assert "must be bool" in str(e)
 ```
 
+### 步骤6：添加 C++ 单元测试
+
+**测试文件位置**: `framework/tests/ut/passes/src/test_graph_partition.cpp`
+
+#### 测试设计思路
+
+测试目标：验证两个新开关的功能正确性
+
+**测试框架**：
+- 使用 `ComputationalGraphBuilder` 构建测试图
+- 使用 `IsoPartitioner` 进行分区
+- 验证子图数量和操作分布
+
+#### 测试用例设计
+
+**用例1：测试开关1（allowParallelMerge=True）**
+
+测试场景：
+- 创建4个并行分支的操作，每个操作有相同的 scopeId=1
+- 操作之间没有直接连接关系
+- 设置 allowParallelMerge=True
+
+预期结果：
+- 所有操作应该合并到同一个 supernode
+- 子图数量为 1
+
+图结构示意：
+```
+输入1 → 操作1(scopeId=1) → 输出1
+输入2 → 操作2(scopeId=1) → 输出2
+输入3 → 操作3(scopeId=1) → 输出3
+输入4 → 操作4(scopeId=1) → 输出4
+```
+
+**用例2：测试开关1（allowParallelMerge=False）**
+
+测试场景：
+- 相同的4个并行分支操作，scopeId=1
+- 设置 allowParallelMerge=False（保持原有行为）
+
+预期结果：
+- 操作不合并，保持独立
+- 子图数量为 4
+
+**用例3：测试开关2（allowCrossScopeMerge=True）**
+
+测试场景：
+- 创建两个 supernode，每个内部有相同 scopeId 的操作
+- supernode 之间有数据依赖
+- 两个 supernode 都设置 allowCrossScopeMerge=True
+
+预期结果：
+- 两个 supernode 应该合并
+- 子图数量为 1
+
+图结构示意：
+```
+[Supernode A: scopeId=1, allowCrossScopeMerge=True]
+  操作1 → 中间结果
+  操作2 → 中间结果
+
+[Supernode B: scopeId=2, allowCrossScopeMerge=True]
+  中间结果 → 操作3 → 输出
+  中间结果 → 操作4 → 输出
+```
+
+**用例4：测试开关2（allowCrossScopeMerge=False）**
+
+测试场景：
+- 相同的两个 supernode 结构
+- 两个 supernode 都设置 allowCrossScopeMerge=False
+
+预期结果：
+- 两个 supernode 不合并
+- 子图数量为 2
+
+**用例5：两个开关组合测试**
+
+测试场景：
+- 创建多个并行分支（测试开关1）
+- 同时有跨 supernode 的依赖关系（测试开关2）
+- 组合不同的开关值
+
+预期结果：
+- 根据开关组合验证分区结果
+- 验证两种开关的交互行为
+
+#### 测试覆盖矩阵
+
+| 测试用例 | 测试开关 | 预期子图数 | 验证点 |
+|---------|---------|-----------|-------|
+| 用例1 | 开关1=True | 1 | 并行分支合并 |
+| 用例2 | 开关1=False | 4 | 并行分支不合并 |
+| 用例3 | 开关2=True | 1 | 跨 supernode 合并 |
+| 用例4 | 开关2=False | 2 | 跨 supernode 不合并 |
+| 用例5 | 两开关组合 | 2 | 组合行为 |
+
+#### 测试实现要点
+
+1. **设置 ScopeInfo**：
+   - 使用 `SetScopeInfo()` 方法设置完整的 ScopeInfo 对象
+   - 或分别设置 scopeId 和开关属性
+
+2. **验证子图数量**：
+   - 使用 `function->GetTotalSubGraphCount()` 获取子图总数
+   - 验证是否符合预期
+
+3. **验证操作分布**：
+   - 遍历所有操作，检查其 `GetSubgraphID()`
+   - 验证相关操作是否在同一子图中
+
+4. **参数配置**：
+   - 设置合适的 cycleUB、parallelTH、cycleLB
+   - 确保不会因为其他约束影响测试结果
+
 ## 实现顺序
 
 1. **数据结构修改** (步骤1)
-   - 修改 `operation.h`
-   - 修改配置 JSON 文件
+    - 修改 `operation.h`
+    - 修改配置 JSON 文件
 
 2. **Python 接口修改** (步骤2)
-   - 修改 `config.py`
-   - 修改 `function.cpp`
+    - 修改 `config.py`
+    - 修改 `function.cpp`
 
 3. **Pass 逻辑修改** (步骤3)
-   - 修改 `supernode_graph_builder.cpp`
-   - 修改 `iso_partitioner.cpp`
+    - 修改 `supernode_graph_builder.cpp`
+    - 修改 `iso_partitioner.cpp`
 
-4. **测试验证** (步骤5)
-   - 添加测试用例
-   - 运行测试验证功能
+4. **测试验证**
+    - 步骤5：添加 Python 测试用例（`test_config_options.py`）
+    - 步骤6：添加 C++ 单元测试（`test_graph_partition.cpp`）
+    - 运行测试验证功能
 
 ## 注意事项
 
@@ -611,35 +727,38 @@ def test_sg_set_scope_new_format():
    - bool 值需要转换为 int (0/1)
 
 3. **SubGraph 类扩展**:
-   - 可能需要在 `SubGraph` 类中添加 `allowCrossScopeMerge` 字段
-   - 需要查看相关头文件
+    - 已在 `iso_partitioner.h` 中添加 `allowCrossScopeMerge_` 字段
+    - 已添加 `SetAllowCrossScopeMerge()` 和 `GetAllowCrossScopeMerge()` 接口
 
 4. **日志输出**:
    - 添加适当的日志输出，便于调试
    - 在关键决策点输出配置信息
 
 5. **默认值**:
-   - 开关1 默认为 False（保持原有行为）
-   - 开关2 默认为 False（保持原有行为）
-   - mixId 默认为 -1
+    - 开关1 默认为 False（保持原有行为）
+    - 开关2 默认为 False（保持原有行为）
+    - mixId 默认为 -1
+
+6. **测试要点**:
+    - 测试应该覆盖开关开启和关闭两种情况
+    - 测试应该验证向后兼容性（原有 scopeId 功能）
+    - 测试应该覆盖边界情况（空图、单节点等）
+    - 测试用例应该足够独立，便于调试
 
 ## 待确认问题
 
-1. **SubGraph 类的定义位置**:
-   - 需要找到 `SubGraph` 类的定义文件
-   - 确认如何扩展该类存储 scopeInfo
+1. **Python 接口实现**:
+    - 需要确认 Python 到 C++ 的参数传递机制
+    - ConfigManager 是否支持列表类型传给 C++
+    - 可能需要在 C++ 层面进行适配
 
-2. **Any 类型支持**:
-   - ConfigManager 的 Any 类型是否支持 `std::vector<int64_t>`
-   - 如不支持，需要找到替代方案
+2. **测试场景细化**:
+    - 需要根据实际测试结果调整预期子图数量
+    - 可能需要调整参数配置（cycleUB、parallelTH 等）
 
-3. **并行合并的具体实现**:
-   - 并行分支合并的具体算法需要进一步确认
-   - 可能需要更复杂的图遍历逻辑
-
-4. **测试场景**:
-   - 需要定义具体的测试场景验证功能正确性
-   - 包括串行连接、并行分支、跨 scope 合并等场景
+3. **向后兼容性验证**:
+    - 需要确保旧版本的 `sg_set_scope=48` 格式仍然正常工作
+    - 需要验证默认值（-1, false, false, -1）的行为
 
 ## 验证说明
 
@@ -656,9 +775,9 @@ python3 build_ci.py --generator Ninja
 2. 执行 CMake 编译
 3. 生成 whl 包
 
-### 单元测试验证
+### Python 单元测试验证
 
-在编译成功后，执行以下命令运行单元测试：
+在编译成功后，执行以下命令运行 Python 单元测试：
 
 ```bash
 python3 build_ci.py --generator Ninja -u --utest=test_config_options.py
@@ -666,17 +785,39 @@ python3 build_ci.py --generator Ninja -u --utest=test_config_options.py
 
 该命令会：
 1. 执行 CMake 编译（如果需要）
-2. 运行指定的 UT 测试文件
+2. 运行指定的 Python UT 测试文件
 3. 验证配置解析和接口调用是否正确
+
+### C++ 单元测试验证
+
+在编译成功后，执行以下命令运行 C++ 单元测试：
+
+```bash
+# 测试开关1和开关2的功能
+python3 build_ci.py -f=cpp --generator Ninja -u=GraphPartitionTest.TestAllowParallelMerge
+python3 build_ci.py -f=cpp --generator Ninja -u=GraphPartitionTest.TestAllowCrossScopeMerge
+python3 build_ci.py -f=cpp --generator Ninja -u=GraphPartitionTest.TestCombinedScopeSwitches
+
+# 测试原有的 scopeId 功能（向后兼容性）
+python3 build_ci.py -f=cpp --generator Ninja -u=GraphPartitionTest.TestScopeId
+```
+
+该命令会：
+1. 执行 C++ 编译（如果需要）
+2. 运行指定的 C++ UT 测试用例
+3. 验证开关功能的正确性
 
 ### 完整验证流程
 
 推荐的验证顺序：
 
 1. **编译验证**：`python3 build_ci.py --generator Ninja`
-2. **python UT测试**：`python3 build_ci.py --generator Ninja -u --utest=test_config_options.py`
-   **cpp UT测试**：   `python3 build_ci.py -f=cpp --generator Ninja -u=GraphPartitionTest.TestScopeId `
-3. **功能验证**：编写测试脚本验证 sg_set_scope 的各个开关是否生效
-   - 验证命令：`python3 build_ci.py --generator Ninja -u --utest=test_config_options.py`
+2. **Python UT测试**：`python3 build_ci.py --generator Ninja -u --utest=test_config_options.py`
+3. **C++ UT测试**：运行新增的测试用例
+4. **功能验证**：验证 sg_set_scope 的各个开关是否生效
+5. **gdb调试**（如需要）：`python3 build_ci.py -f=cpp --generator Ninja -u=GraphPartitionTest.TestAllowParallelMerge --disable_auto_execute`
 
-4. **gdb调试** `python3 build_ci.py -f=cpp --generator Ninja -u=GraphPartitionTest.TestScopeId --disable_auto_execute` 
+### 测试文档
+
+详细的测试设计思路和测试用例说明，请参考：
+- 测试设计文档：`custom/plan/sg_set_scope_test_design.md`
