@@ -289,8 +289,8 @@ Status CheckTileShapeAIV(Operation *op, std::vector<int> &res) {
     for (auto input : op->GetIOperands()) {
         auto tensorShape = input->GetShape();
         if (tileSize.size() != tensorShape.size()) {
-            APASS_LOG_WARN_F(Elements::Tensor, "%d Tensorshape size %d is not equal to %d %s tileshape size %d, CheckTileShapeAIV failed!",
-                input->GetMagic(), static_cast<int>(tensorShape.size()), op->GetOpMagic(), op->GetOpcodeStr().c_str(), static_cast<int>(tileSize.size()));
+            APASS_LOG_WARN_F(Elements::Tensor, "%d Tensorshape size %zu is not equal to %d %s tileshape size %zu, CheckTileShapeAIV failed!",
+                input->GetMagic(), tensorShape.size(), op->GetOpMagic(), op->GetOpcodeStr().c_str(), tileSize.size());
             return FAILED;
         }
         bool devisible = true;
@@ -317,7 +317,7 @@ Status CheckTileShapeAIC(Operation *op, std::vector<int> &res)  {
     auto kL0 = tileSize.k[0];
     auto nL0 = tileSize.n[0];
     if (op->GetIOperands().size() != CUDE_IOPERAND_NUM2 && op->GetIOperands().size() != CUDE_IOPERAND_NUM3) {
-        APASS_LOG_WARN_F(Elements::Operation, "Cube operation %d %s ioperands size is %d, should be 2 or 3, CheckTileShapeAIC failed!", op->GetOpMagic(), op->GetOpcodeStr().c_str(), static_cast<int>(op->GetIOperands().size()));
+        APASS_LOG_WARN_F(Elements::Operation, "Cube operation %d %s ioperands size is %zu, should be 2 or 3, CheckTileShapeAIC failed!", op->GetOpMagic(), op->GetOpcodeStr().c_str(), op->GetIOperands().size());
         return FAILED;
     }
     auto TensorA = op->GetIOperands()[0];

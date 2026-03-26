@@ -120,8 +120,7 @@ Status CommonOperationEliminate::RunOnFunction(Function &function) {
             continue;
         }
         for (auto op : producerGroup) {
-            if (op == nullptr)
-                continue;
+            if (op == nullptr) continue;
             if (!cacheProducers.count(op)) {
                 APASS_LOG_DEBUG_F(Elements::Operation, "Operation[%d] was set as deleted.", op->GetOpMagic());
                 op->SetAsDeleted();
@@ -159,8 +158,7 @@ std::unordered_map<LogicalTensorPtr, std::vector<Operation *>> CommonOperationEl
             visitedTensors.insert(tensor->GetMagic());
             for (const auto &pro : tensor->GetProducers()) {
                 if (pro == nullptr) {
-                    APASS_LOG_ERROR_F(
-                        Elements::Operation, "Producer operation nullptr for Tensor[%d].", tensor->GetMagic());
+                    APASS_LOG_ERROR_F(Elements::Operation, "Producer operation nullptr for Tensor[%d].", tensor->GetMagic());
                     continue;
                 }
                 if (tensorProducerMap.count(tensor) == 0) {
