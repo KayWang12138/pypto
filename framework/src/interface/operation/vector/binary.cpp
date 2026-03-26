@@ -162,7 +162,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
     }
 }
 
-// Determine the target shape for expand before passind op to tileop
+// Determine the target shape for expand before passing op to tileop
 template <BinaryOpType T>
 std::pair<std::vector<int64_t>, std::vector<int64_t>> GetBrcExpandShape(
     Function &function, LogicalTensorPtr operand1, LogicalTensorPtr operand2, LogicalTensorPtr result) {
@@ -183,7 +183,7 @@ std::pair<std::vector<int64_t>, std::vector<int64_t>> GetBrcExpandShape(
     bool isCombineAxisEnabled =
         function.paramConfigs_.forceCombineAxis || (function.paramConfigs_.combineAxis && isInWhiteList);
     if (isSupportBrcInline) {
-        // The 2nd last axis: skip epxnad, brcinline
+        // The 2nd last axis: skip expand, brcinline
         if (shapeSize > 1) {
             operand1Shape[shapeSize - 2] = operand1->shape[shapeSize - 2];
             operand2Shape[shapeSize - 2] = operand2->shape[shapeSize - 2];
@@ -201,7 +201,7 @@ template <BinaryOpType T>
 void TiledBinaryOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1,
     LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
     CheckBinOpOperandsValid(operand1, operand2);
-    auto [dstShape1,dstShape2] = GetBrcExpandShape(function, operand1, operand2);
+    auto [dstShape1,dstShape2] = GetBrcExpandShape<T>(function, operand1, operand2, result);
     BroadcastOperandTensor(operand1, operand2, result, function, tileShape, dstShape1);
     BroadcastOperandTensor(operand2, operand1, result, function, tileShape, dstShape2);
 
