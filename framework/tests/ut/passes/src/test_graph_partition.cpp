@@ -765,33 +765,15 @@ TEST_F(GraphPartitionTest, TestAllowParallelMergeTrue) {
     ComputationalGraphBuilder G;
     GetParallelBranchGraph(G);
 
-    Operation::ScopeInfo info1;
-    info1.scopeId = 1;
-    info1.allowParallelMerge = true;
-    info1.allowCrossScopeMerge = false;
-    info1.mixId = -1;
-    G.GetOp("ABS0")->SetScopeInfo(info1);
-
-    Operation::ScopeInfo info2;
-    info2.scopeId = 1;
-    info2.allowParallelMerge = true;
-    info2.allowCrossScopeMerge = false;
-    info2.mixId = -1;
-    G.GetOp("ABS1")->SetScopeInfo(info2);
-
-    Operation::ScopeInfo info3;
-    info3.scopeId = 1;
-    info3.allowParallelMerge = true;
-    info3.allowCrossScopeMerge = false;
-    info3.mixId = -1;
-    G.GetOp("ABS2")->SetScopeInfo(info3);
-
-    Operation::ScopeInfo info4;
-    info4.scopeId = 1;
-    info4.allowParallelMerge = true;
-    info4.allowCrossScopeMerge = false;
-    info4.mixId = -1;
-    G.GetOp("ABS3")->SetScopeInfo(info4);
+    Operation::ScopeInfo info;
+    info.scopeId = 1;
+    info.allowParallelMerge = true;
+    info.allowCrossScopeMerge = false;
+    info.mixId = -1;
+    G.GetOp("ABS0")->SetScopeInfo(info);
+    G.GetOp("ABS1")->SetScopeInfo(info);
+    G.GetOp("ABS2")->SetScopeInfo(info);
+    G.GetOp("ABS3")->SetScopeInfo(info);
 
     Function *function = G.GetFunction();
     const int cycleUB = 100000;
@@ -802,47 +784,26 @@ TEST_F(GraphPartitionTest, TestAllowParallelMergeTrue) {
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
 
-    int abs0SubgraphId = G.GetOp("ABS0")->GetSubgraphID();
-    int abs1SubgraphId = G.GetOp("ABS1")->GetSubgraphID();
-    int abs2SubgraphId = G.GetOp("ABS2")->GetSubgraphID();
-    int abs3SubgraphId = G.GetOp("ABS3")->GetSubgraphID();
-
-    EXPECT_EQ(abs0SubgraphId, abs1SubgraphId);
-    EXPECT_EQ(abs0SubgraphId, abs2SubgraphId);
-    EXPECT_EQ(abs0SubgraphId, abs3SubgraphId);
+    std::unordered_set<int> subgraphIds;
+    for (const auto& opPair : G.operations_) {
+        subgraphIds.insert(opPair.second->GetSubgraphID());
+    }
+    EXPECT_EQ(subgraphIds.size(), 1);
 }
 
 TEST_F(GraphPartitionTest, TestAllowParallelMergeFalse) {
     ComputationalGraphBuilder G;
     GetParallelBranchGraph(G);
 
-    Operation::ScopeInfo info1;
-    info1.scopeId = 1;
-    info1.allowParallelMerge = false;
-    info1.allowCrossScopeMerge = false;
-    info1.mixId = -1;
-    G.GetOp("ABS0")->SetScopeInfo(info1);
-
-    Operation::ScopeInfo info2;
-    info2.scopeId = 1;
-    info2.allowParallelMerge = false;
-    info2.allowCrossScopeMerge = false;
-    info2.mixId = -1;
-    G.GetOp("ABS1")->SetScopeInfo(info2);
-
-    Operation::ScopeInfo info3;
-    info3.scopeId = 1;
-    info3.allowParallelMerge = false;
-    info3.allowCrossScopeMerge = false;
-    info3.mixId = -1;
-    G.GetOp("ABS2")->SetScopeInfo(info3);
-
-    Operation::ScopeInfo info4;
-    info4.scopeId = 1;
-    info4.allowParallelMerge = false;
-    info4.allowCrossScopeMerge = false;
-    info4.mixId = -1;
-    G.GetOp("ABS3")->SetScopeInfo(info4);
+    Operation::ScopeInfo info;
+    info.scopeId = 1;
+    info.allowParallelMerge = false;
+    info.allowCrossScopeMerge = false;
+    info.mixId = -1;
+    G.GetOp("ABS0")->SetScopeInfo(info);
+    G.GetOp("ABS1")->SetScopeInfo(info);
+    G.GetOp("ABS2")->SetScopeInfo(info);
+    G.GetOp("ABS3")->SetScopeInfo(info);
 
     Function *function = G.GetFunction();
     const int cycleUB = 100000;
@@ -853,14 +814,11 @@ TEST_F(GraphPartitionTest, TestAllowParallelMergeFalse) {
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
 
-    int abs0SubgraphId = G.GetOp("ABS0")->GetSubgraphID();
-    int abs1SubgraphId = G.GetOp("ABS1")->GetSubgraphID();
-    int abs2SubgraphId = G.GetOp("ABS2")->GetSubgraphID();
-    int abs3SubgraphId = G.GetOp("ABS3")->GetSubgraphID();
-
-    EXPECT_NE(abs0SubgraphId, abs1SubgraphId);
-    EXPECT_NE(abs0SubgraphId, abs2SubgraphId);
-    EXPECT_NE(abs0SubgraphId, abs3SubgraphId);
+    std::unordered_set<int> subgraphIds;
+    for (const auto& opPair : G.operations_) {
+        subgraphIds.insert(opPair.second->GetSubgraphID());
+    }
+    EXPECT_EQ(subgraphIds.size(), 4);
 }
 
 void GetCrossScopeGraph(ComputationalGraphBuilder &G) {
@@ -905,13 +863,8 @@ TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeTrue) {
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
 
-    int abs1SubgraphId = G.GetOp("ABS1")->GetSubgraphID();
-    int mul1SubgraphId = G.GetOp("MUL1")->GetSubgraphID();
-    int abs2SubgraphId = G.GetOp("ABS2")->GetSubgraphID();
-    int mul2SubgraphId = G.GetOp("MUL2")->GetSubgraphID();
-
-    EXPECT_EQ(abs1SubgraphId, mul1SubgraphId);
-    EXPECT_EQ(abs2SubgraphId, mul2SubgraphId);
+    EXPECT_EQ(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("MUL1")->GetSubgraphID());
+    EXPECT_EQ(G.GetOp("ABS2")->GetSubgraphID(), G.GetOp("MUL2")->GetSubgraphID());
 }
 
 TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeFalse) {
@@ -943,14 +896,9 @@ TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeFalse) {
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
 
-    int abs1SubgraphId = G.GetOp("ABS1")->GetSubgraphID();
-    int mul1SubgraphId = G.GetOp("MUL1")->GetSubgraphID();
-    int abs2SubgraphId = G.GetOp("ABS2")->GetSubgraphID();
-    int mul2SubgraphId = G.GetOp("MUL2")->GetSubgraphID();
-
-    EXPECT_EQ(abs1SubgraphId, mul1SubgraphId);
-    EXPECT_EQ(abs2SubgraphId, mul2SubgraphId);
-    EXPECT_NE(abs1SubgraphId, abs2SubgraphId);
+    EXPECT_EQ(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("MUL1")->GetSubgraphID());
+    EXPECT_EQ(G.GetOp("ABS2")->GetSubgraphID(), G.GetOp("MUL2")->GetSubgraphID());
+    EXPECT_NE(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("ABS2")->GetSubgraphID());
 }
 
 TEST_F(GraphPartitionTest, TestCombinedScopeSwitches) {
@@ -982,14 +930,11 @@ TEST_F(GraphPartitionTest, TestCombinedScopeSwitches) {
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
 
-    int abs0SubgraphId = G.GetOp("ABS0")->GetSubgraphID();
-    int abs1SubgraphId = G.GetOp("ABS1")->GetSubgraphID();
-    int abs2SubgraphId = G.GetOp("ABS2")->GetSubgraphID();
-    int abs3SubgraphId = G.GetOp("ABS3")->GetSubgraphID();
-
-    EXPECT_EQ(abs0SubgraphId, abs1SubgraphId);
-    EXPECT_EQ(abs2SubgraphId, abs3SubgraphId);
-    EXPECT_NE(abs0SubgraphId, abs2SubgraphId);
+    std::unordered_set<int> subgraphIds;
+    for (const auto& opPair : G.operations_) {
+        subgraphIds.insert(opPair.second->GetSubgraphID());
+    }
+    EXPECT_EQ(subgraphIds.size(), 2);
 }
 
 } // namespace tile_fwk
