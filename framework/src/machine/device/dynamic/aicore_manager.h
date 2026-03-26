@@ -58,6 +58,7 @@ constexpr uint32_t REG_TASK_NUM = 2; // 一次寄存器task个数
 constexpr uint32_t AIV_CORE_COUNT = 48;
 constexpr uint32_t AIC_CORE_COUNT = 24;
 constexpr uint32_t TOTAL_CORE_COUNT = AIV_CORE_COUNT + AIC_CORE_COUNT;
+constexpr uint32_t TASK_BATCH_SIZE = 32;
 
 #define MAX_QUEUED_TASKS 4096
 
@@ -334,23 +335,32 @@ private:
     inline uint64_t TryBatchSendTask(CoreType type)
     {
         auto taskQueue = taskQueue_[(int)type];
-
-         if (taskQueue->empty()) {
-            return 0;
-        }
+        if (taskQueue->empty()) return 0;
 
         uint32_t ready = GetReadyCoreNum(type);
+        if (ready == 0 ) return 0;
+        
+        freeACoreQueue_[(int)type]->lock();
+        freeBCoreQueue_[(int)type]->lock();
+        taskQueue->lock();
+
+        ready = GetReadyCoreNum(type);
 
         if (ready == 0 ) {
+            taskQueue->unlock();
+            freeBCoreQueue_[(int)type]->unlock();
+            freeACoreQueue_[(int)type]->unlock();     
             return 0;
         }
+        
+        const auto taskSet = taskQueue->pop(ready);
+        BatchSendTask(type, taskSet.first, taskSet.second);
+
+        taskQueue->unlock();
+        freeBCoreQueue_[(int)type]->unlock();
+        freeACoreQueue_[(int)type]->unlock();        
 
         
-        taskQueue->lock();
-        const auto taskSet = taskQueue->pop(ready);
-        taskQueue->unlock();        
-
-        BatchSendTask(type, taskSet.first, taskSet.second);
         return taskSet.second;
     }
 
