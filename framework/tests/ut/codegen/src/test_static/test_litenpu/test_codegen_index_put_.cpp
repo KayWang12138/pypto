@@ -26,7 +26,7 @@
 
 using namespace npu::tile_fwk;
 
-class LiteNPUCodeGenMatmul : public testing::Test {
+class LiteNPUCodeGenIndexPut : public testing::Test {
 public:
     static void TearDownTestCase() {}
 
@@ -40,18 +40,21 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(LiteNPUCodeGenMatmul, test_matmul_001) {
-    PROGRAM("MATMUL_001") {
-        Tensor a(DataType::DT_FP16, {16, 16}, "a");
-        Tensor b(DataType::DT_FP16, {16, 16}, "b");
-        auto c = Tensor(DataType::DT_FP16, {16, 16}, "c");
-        FUNCTION("MATMUL_001") {
-            TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {16, 16}, false, false);
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
+TEST_F(LiteNPUCodeGenIndexPut, test_index_put_001) {
+    PROGRAM("INDEX_PUT_001") {
+        Tensor self(DataType::DT_FP16, {3,3}, "self");
+        Tensor values(DataType::DT_FP16, {2,3}, "values");
+        Tensor indice(DataType::DT_FP16, {2}, "values");
+        std::vector<Tensor> indices = {indice};
+        bool accumulate = false;
+
+        FUNCTION("INDEX_PUT_001") {           
+            TileShape::Current().SetVecTile({3});
+            IndexPut_(self, indices, values, accumulate);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_001");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "INDEX_PUT_001");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});

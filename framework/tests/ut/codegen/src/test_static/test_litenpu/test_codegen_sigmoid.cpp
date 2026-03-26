@@ -26,7 +26,7 @@
 
 using namespace npu::tile_fwk;
 
-class LiteNPUCodeGenMatmul : public testing::Test {
+class LiteNPUCodeGenSigmoid : public testing::Test {
 public:
     static void TearDownTestCase() {}
 
@@ -40,18 +40,17 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(LiteNPUCodeGenMatmul, test_matmul_001) {
-    PROGRAM("MATMUL_001") {
-        Tensor a(DataType::DT_FP16, {16, 16}, "a");
-        Tensor b(DataType::DT_FP16, {16, 16}, "b");
-        auto c = Tensor(DataType::DT_FP16, {16, 16}, "c");
-        FUNCTION("MATMUL_001") {
-            TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {16, 16}, false, false);
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
+TEST_F(LiteNPUCodeGenSigmoid, test_sigmoid_002) {
+    PROGRAM("SIGMOID_002") {
+        Tensor input(DataType::DT_FP16, {100}, "input");
+        auto output = Tensor(DataType::DT_FP16, {100}, "output");
+        FUNCTION("SIGMOID_002") {           
+        TileShape::Current().SetVecTile({100});
+            output = Sigmoid(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_001");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "SIGMOID_002");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
