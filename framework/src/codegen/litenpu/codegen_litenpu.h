@@ -112,17 +112,10 @@ public:
     std::string GenAllocForLocalBuffer(const Operation &op, const std::shared_ptr<SymbolManager> &symbolMgr) const;
 
 private:
-    void GenFuncBodyBefore(const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc,
-        CompileInfo_LiteNPU &compileInfo, std::ostringstream &oss) const;
-    void GenInclude(const Function &topFunc, std::ostringstream &oss) const;
-    void GenCommentBeforeFuncHeader(Function &subFunc, std::ostringstream &oss) const;
-    std::string GenFuncHeader(uint64_t programId, Function &topFunc, CompileInfo_LiteNPU &compileInfo) const;
     void GenFuncBody(Function &subFunc, Function &topFunc, std::ostringstream &oss) const;
-    void GenFuncEnd(std::ostringstream &oss) const;
-    static std::string GenKernelName(Function &topFunc, uint64_t programId);
 
     bool IsNeedDumpCCE(const std::string &inputFile) const;
-    void DumpCCE(const std::string &name, std::ostringstream &oss) const;
+    void DumpCCE(const std::string &name, const std::string &code) const;
 
     void DoCompileCCE(const CompileInfo_LiteNPU &compileInfo, const std::string &compileOptions) const;
     void BuildArchOptions(std::ostringstream &oss, const CompileInfo_LiteNPU &compileInfo) const;

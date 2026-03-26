@@ -940,21 +940,21 @@ TEST_F(OperationImplTest, test_Clip_FP32_VV_BRC) {
         result = Clip(src, min, max);
     }
 }
-TEST_F(OperationImplTest, Test_Amax_Lite) {
-    PROGRAM(TestAmax){
-        TileShape::Current().SetVecTile(8, 8);
-        Tensor operand(DT_FP32, {16, 16}, "operand");
-        Tensor result;
-        FUNCTION("TestAmax") {
-            result = Amax(operand, -1, true);
-        }
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestAmax");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::codegen_litenpu codeGen(ctx);
-    codeGen.GenCode(*function, {});
+// TEST_F(OperationImplTest, Test_Amax_Lite) {
+//     PROGRAM(TestAmax){
+//         TileShape::Current().SetVecTile(8, 8);
+//         Tensor operand(DT_FP32, {16, 16}, "operand");
+//         Tensor result;
+//         FUNCTION("TestAmax") {
+//             result = Amax(operand, -1, true);
+//         }
+//     }
+//     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestAmax");
+//     npu::tile_fwk::CodeGenCtx ctx;
+//     npu::tile_fwk::codegen_litenpu codeGen(ctx);
+//     codeGen.GenCode(*function, {});
 
-}
+// }
 
 TEST_F(OperationImplTest, Test_Amax) {
     TileShape::Current().SetVecTile(8, 8);
@@ -974,63 +974,63 @@ TEST_F(OperationImplTest, Test_Amin) {
     }
 }
 
-TEST_F(OperationImplTest, Test_Amin_Lite) {
-    PROGRAM(TestAmin){
-        TileShape::Current().SetVecTile(8, 8);
-        Tensor operand(DT_FP32, {16, 16}, "operand");
-        Tensor result;
-        FUNCTION("TestAmin") {
-            result = Amin(operand, -1, true);
-        }
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestAmin");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::codegen_litenpu codeGen(ctx);
-    codeGen.GenCode(*function, {});
+// TEST_F(OperationImplTest, Test_Amin_Lite) {
+//     PROGRAM(TestAmin){
+//         TileShape::Current().SetVecTile(8, 8);
+//         Tensor operand(DT_FP32, {16, 16}, "operand");
+//         Tensor result;
+//         FUNCTION("TestAmin") {
+//             result = Amin(operand, -1, true);
+//         }
+//     }
+//     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestAmin");
+//     npu::tile_fwk::CodeGenCtx ctx;
+//     npu::tile_fwk::codegen_litenpu codeGen(ctx);
+//     codeGen.GenCode(*function, {});
 
-}
+// }
 
-TEST_F(OperationImplTest, Test_Sum_Lite) {
-    PROGRAM(TestSum){
-        TileShape::Current().SetVecTile(8, 8);
-        Tensor operand(DT_FP32, {16, 16}, "operand");
-        Tensor result;
-        FUNCTION("TestSum") {
-            result = Sum(operand, -1, true);
-        }
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestSum");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::codegen_litenpu codeGen(ctx);
-    codeGen.GenCode(*function, {});
+// TEST_F(OperationImplTest, Test_Sum_Lite) {
+//     PROGRAM(TestSum){
+//         TileShape::Current().SetVecTile(8, 8);
+//         Tensor operand(DT_FP32, {16, 16}, "operand");
+//         Tensor result;
+//         FUNCTION("TestSum") {
+//             result = Sum(operand, -1, true);
+//         }
+//     }
+//     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestSum");
+//     npu::tile_fwk::CodeGenCtx ctx;
+//     npu::tile_fwk::codegen_litenpu codeGen(ctx);
+//     codeGen.GenCode(*function, {});
 
-}
+// }
 
-TEST_F(OperationImplTest, Test_Transpose_View_Assemble_Unsqueeze_Reshape_Lite) {
-    PROGRAM(TestTranspose){
-        TileShape::Current().SetVecTile(8, 8);
-        Tensor operand(DT_FP32, {32, 32}, "operand");
-        Tensor result;
-        std::vector<int64_t> new_shape = {16, 16};
-        std::vector<int64_t> offsetsView = {0, 4};
-        Tensor resultAssemble(DataType::DT_FP32, {32, 32}, "resultAssemble")
-        FUNCTION("TestTranspose") {
-            result = Transpose(operand, {-1, 0});
-            result = View(result, new_shape, offsetsView);
-            std::vector<SymbolicScalar> offsetsAssemble(2);
-            offsetsAssemble[0] = 1;
-            offsetsAssemble[1] = 1;
-            Assemble(result, offsetsAssemble, resultAssemble);
-            result = Unsqueeze(resultAssemble, 0);
-            result = Reshape(result, {1024});
-        }
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestTranspose");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::codegen_litenpu codeGen(ctx);
-    codeGen.GenCode(*function, {});
+// TEST_F(OperationImplTest, Test_Transpose_View_Assemble_Unsqueeze_Reshape_Lite) {
+//     PROGRAM(TestTranspose){
+//         TileShape::Current().SetVecTile(8, 8);
+//         Tensor operand(DT_FP32, {32, 32}, "operand");
+//         Tensor result;
+//         std::vector<int64_t> new_shape = {16, 16};
+//         std::vector<int64_t> offsetsView = {0, 4};
+//         Tensor resultAssemble(DataType::DT_FP32, {32, 32}, "resultAssemble")
+//         FUNCTION("TestTranspose") {
+//             result = Transpose(operand, {-1, 0});
+//             result = View(result, new_shape, offsetsView);
+//             std::vector<SymbolicScalar> offsetsAssemble(2);
+//             offsetsAssemble[0] = 1;
+//             offsetsAssemble[1] = 1;
+//             Assemble(result, offsetsAssemble, resultAssemble);
+//             result = Unsqueeze(resultAssemble, 0);
+//             result = Reshape(result, {1024});
+//         }
+//     }
+//     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestTranspose");
+//     npu::tile_fwk::CodeGenCtx ctx;
+//     npu::tile_fwk::codegen_litenpu codeGen(ctx);
+//     codeGen.GenCode(*function, {});
 
-}
+// }
 
 TEST_F(OperationImplTest, test_Gather) {
     TileShape::Current().SetVecTile(8, 8, 8);

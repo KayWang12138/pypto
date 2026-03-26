@@ -44,7 +44,7 @@ TEST_F(LiteNPUCodeGenIndexPut, test_index_put_001) {
     PROGRAM("INDEX_PUT_001") {
         Tensor self(DataType::DT_FP16, {3,3}, "self");
         Tensor values(DataType::DT_FP16, {2,3}, "values");
-        Tensor indice(DataType::DT_FP16, {2}, "values");
+        Tensor indice(DataType::DT_FP16, {2}, "indice");
         std::vector<Tensor> indices = {indice};
         bool accumulate = false;
 
