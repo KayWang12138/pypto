@@ -130,6 +130,43 @@ def _save_debug_artifacts(page: object, debug_dir: str, attempt: int, stage: str
         logging.debug("save html failed: %s", exc)
 
 
+def _dismiss_cookie_popup(page: object) -> None:
+    """关闭 cookie 弹窗，防止遮挡分页按钮。"""
+    from playwright.sync_api import Page
+
+    cookie_page = cast(Page, page)
+
+    cookie_selectors = [
+        "button:has-text('接受')",
+        "button:has-text('Accept')",
+        "button:has-text('同意')",
+        "button:has-text('Allow')",
+        ".cookie-content button",
+        "[class*='cookie'] button",
+        ".el-dialog__footer button",
+        ".cookie-btn",
+    ]
+
+    for selector in cookie_selectors:
+        try:
+            btn = cookie_page.locator(selector)
+            if btn.count() > 0:
+                btn.first.click(timeout=2000)
+                logging.debug("clicked cookie button: %s", selector)
+                cookie_page.wait_for_timeout(500)
+                return
+        except Exception:
+            continue
+
+    cookie_page.evaluate("""
+        document.querySelectorAll('.cookie-content, [class*="cookie"], .el-dialog__wrapper, .cookie-overlay').forEach(el => {
+            el.style.display = 'none';
+            el.remove();
+        });
+    """)
+    logging.debug("removed cookie overlay via JavaScript")
+
+
 def _collect_candidate_texts(page: object) -> list[str]:
     from playwright.sync_api import Page
 
@@ -155,6 +192,60 @@ def _collect_candidate_texts(page: object) -> list[str]:
     return texts
 
 
+def _get_total_pages(page: object) -> int:
+    """获取分页总数。"""
+    from playwright.sync_api import Page
+
+    pager_page = cast(Page, page)
+    try:
+        pager_items = pager_page.locator(".el-pager li.number").all_inner_texts()
+        if pager_items:
+            return max([int(n) for n in pager_items if n.isdigit()])
+    except Exception:
+        pass
+
+    try:
+        pagination_text = pager_page.locator(".el-pagination").inner_text()
+        match = re.search(r"共\s*(\d+)\s*条", pagination_text)
+        if match:
+            total_items = int(match.group(1))
+            return (total_items + 19) // 20
+    except Exception:
+        pass
+
+    return 1
+
+
+def _go_to_next_page(page: object, current_page: int) -> bool:
+    """翻到下一页，返回是否成功。"""
+    from playwright.sync_api import Page
+
+    nav_page = cast(Page, page)
+
+    nav_page.evaluate("document.querySelectorAll('.el-dialog__wrapper, .cookie-content').forEach(el => el.remove());")
+    nav_page.wait_for_timeout(300)
+
+    try:
+        next_btn = nav_page.locator(f".el-pager li.number:has-text('{current_page + 1}')")
+        if next_btn.count() > 0:
+            next_btn.click(timeout=5000)
+            nav_page.wait_for_timeout(2000)
+            return True
+    except Exception as exc:
+        logging.debug("click page number failed: %s", exc)
+
+    try:
+        next_arrow = nav_page.locator(".btn-next:not(.disabled)")
+        if next_arrow.count() > 0:
+            next_arrow.click(timeout=5000)
+            nav_page.wait_for_timeout(2000)
+            return True
+    except Exception as exc:
+        logging.debug("click next arrow failed: %s", exc)
+
+    return False
+
+
 def extract_violations_with_playwright(
     url: str,
     config: FetcherConfig,
@@ -165,7 +256,7 @@ def extract_violations_with_playwright(
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
-            page = browser.new_page(viewport={"width": 1440, "height": 2200})
+            page = browser.new_page(viewport={"width": 1920, "height": 3000})
             last_error: Exception | None = None
 
             for strategy in config.wait_strategies:
@@ -182,6 +273,10 @@ def extract_violations_with_playwright(
                         logging.debug("selector wait skipped: %s", exc)
 
                     page.wait_for_timeout(config.post_wait_ms)
+
+                    _dismiss_cookie_popup(page)
+                    page.wait_for_timeout(500)
+
                     try:
                         page.locator(".el-pagination__sizes").click(timeout=5000)
                         page.wait_for_timeout(500)
@@ -200,16 +295,39 @@ def extract_violations_with_playwright(
                         if largest_opt is not None:
                             largest_opt.click()
                             page.wait_for_timeout(2000)
+                            logging.info("  expanded page size to %d", largest_num)
                     except Exception as exc:
                         logging.debug("pagination size expand skipped: %s", exc)
 
-                    collected: list[Violation] = []
-                    for text in _collect_candidate_texts(page):
-                        collected.extend(parse_violations_from_text(text))
-                    violations = _dedup_violations(collected)
+                    _dismiss_cookie_popup(page)
 
-                    if violations:
-                        return violations
+                    total_pages = _get_total_pages(page)
+                    logging.info("  detected %d page(s)", total_pages)
+
+                    all_violations: list[Violation] = []
+                    seen_keys: set[tuple[str, int, str, str]] = set()
+
+                    for page_num in range(1, total_pages + 1):
+                        logging.info("  processing page %d/%d", page_num, total_pages)
+                        page.wait_for_timeout(1500)
+
+                        for text in _collect_candidate_texts(page):
+                            for v in parse_violations_from_text(text):
+                                key = (v.file, v.line, v.description, v.rule_id)
+                                if key not in seen_keys:
+                                    seen_keys.add(key)
+                                    all_violations.append(v)
+
+                        logging.info("    collected %d violations (total: %d)", len(seen_keys) - len(all_violations) + len([v for v in all_violations if True]), len(all_violations))
+
+                        if page_num < total_pages:
+                            _dismiss_cookie_popup(page)
+                            if not _go_to_next_page(page, page_num):
+                                logging.warning("    failed to navigate to page %d", page_num + 1)
+                                break
+
+                    if all_violations:
+                        return all_violations
 
                     _save_debug_artifacts(page, config.debug_dir, attempt, f"empty_{strategy}")
                     logging.warning("  no violations parsed with strategy=%s", strategy)
