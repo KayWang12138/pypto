@@ -37,6 +37,17 @@ public:
     std::string DumpStr();
     const std::vector<int32_t>& GetNodeList();
     std::vector<Operation*> GetOpList();
+
+    // 新增接口：设置 allowCrossScopeMerge
+    void SetAllowCrossScopeMerge(bool allow) {
+        allowCrossScopeMerge_ = allow;
+    }
+
+    // 新增接口：获取 allowCrossScopeMerge
+    bool GetAllowCrossScopeMerge() const {
+        return allowCrossScopeMerge_;
+    }
+
     std::shared_ptr<OperationGraphInfo> operationInfo_;
     std::shared_ptr<NodeGraphInfo> superNodeInfo_;
     std::vector<int32_t> nodeList_;
@@ -48,6 +59,7 @@ public:
     OpCoreType coreType_{OpCoreType::ANY};
     bool mergeable_{true};
     int32_t scopeId_{-1};
+    bool allowCrossScopeMerge_{false};  // 新增字段
 };
 
 class IsomorphismGraphGroup {
