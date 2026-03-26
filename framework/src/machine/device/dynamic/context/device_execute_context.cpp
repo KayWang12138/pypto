@@ -439,6 +439,7 @@ void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
 
     DEV_TRACE_DEBUG(REvent(GetRuid(rootKey), currDevRootDup.SchemaGetExpressionTable()));
     // dyn rawshape size depend expresstable calculated
+    START_TIMEOUT_CHECK();
     while (!workspace.TryAllocateFunctionMemory(currDevRootDup, slotContext.GetSlotList())) {
         // Failed to allocate, failed to stitch, submit existing stitched window to aicore and recycle memory
         // If nothing stitched, wait for aicore to finish tasks and release enough memory
@@ -447,6 +448,7 @@ void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
             return RUNTIME_FUNCKEY_ERROR;
         }
         DEV_INFO("[Stitch Finish] Memory Limit Exceeded.");
+        CHECK_TIMEOUT_AND_RESET(TIMEOUT_ONE_MINUTE, CtrlErr::CTRL_ALLOC_TIMEOUT, "Memory limit exceeded, wait for 1 min.");
     }
 
     if (AiCoreFree()) {
