@@ -420,34 +420,40 @@ private:
     inline void ResolveDepForAllAiCore(CoreType type)
     {
         // Handling Busy A queue pairings
-        busyACoreQueue_[(int)type]->lock();
-        size_t busyAQueuePairCount = busyACoreQueue_[(int)type]->size();
-        for (size_t i = 0; i < busyAQueuePairCount; i++)
+        if (busyACoreQueue_[(int)type]->tryLock() == true)
         {
-            const auto pair = busyACoreQueue_[(int)type]->pop();
-            ResolveBusyAQueuePair(type, pair);
+            size_t pairCount = busyACoreQueue_[(int)type]->size();
+            for (size_t i = 0; i < pairCount; i++)
+            {
+                const auto pair = busyACoreQueue_[(int)type]->pop();
+                ResolveBusyAQueuePair(type, pair);
+            }
+            busyACoreQueue_[(int)type]->unlock();
         }
-        busyACoreQueue_[(int)type]->unlock();
 
         // Handling Free B queue pairings
-        freeBCoreQueue_[(int)type]->lock();
-        size_t freeBQueuePairCount = freeBCoreQueue_[(int)type]->size();
-        for (size_t i = 0; i < freeBQueuePairCount; i++)
+        if (freeBCoreQueue_[(int)type]->tryLock() == true)
         {
-            const auto pair = freeBCoreQueue_[(int)type]->pop();
-            ResolveFreeBQueuePair(type, pair);
+            size_t pairCount = freeBCoreQueue_[(int)type]->size();
+            for (size_t i = 0; i < pairCount; i++)
+            {
+                const auto pair = freeBCoreQueue_[(int)type]->pop();
+                ResolveFreeBQueuePair(type, pair);
+            }
+            freeBCoreQueue_[(int)type]->unlock();
         }
-        freeBCoreQueue_[(int)type]->unlock();
 
         // Handling Busy B queue pairings
-        busyBCoreQueue_[(int)type]->lock();
-        size_t busyBQueuePairCount = busyBCoreQueue_[(int)type]->size();
-        for (size_t i = 0; i < busyBQueuePairCount; i++)
+        if (busyBCoreQueue_[(int)type]->tryLock() == true)
         {
-            const auto pair = busyBCoreQueue_[(int)type]->pop();
-            ResolveBusyBQueuePair(type, pair);
+            size_t pairCount = busyBCoreQueue_[(int)type]->size();
+            for (size_t i = 0; i < pairCount; i++)
+            {
+                const auto pair = busyBCoreQueue_[(int)type]->pop();
+                ResolveBusyBQueuePair(type, pair);
+            }
+            busyBCoreQueue_[(int)type]->unlock();
         }
-        busyBCoreQueue_[(int)type]->unlock();
 
         BatchPushReadyQueue();
     }

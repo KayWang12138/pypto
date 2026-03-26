@@ -76,8 +76,8 @@ class ConcurrentQueue
    */
   [[nodiscard]] inline size_t size() const { return _head - _tail; }
 
-  inline void lock()    { while (trylock() == false) {} }
-  inline bool trylock() { return __sync_bool_compare_and_swap(&_lock, 0, 1); }
+  inline void lock()    { while (tryLock() == false) {} }
+  inline bool tryLock() { return __sync_bool_compare_and_swap(&_lock, 0, 1); }
   inline void unlock()  { while (!__sync_bool_compare_and_swap(&_lock, 1, 0)) {} }
 
   private:
