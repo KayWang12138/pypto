@@ -54,6 +54,7 @@ static const std::string MAYBE_CONST_POSTFIX = "MAYBE_CONST";
 static const SymbolicScalar MAYBE_CONST_COA_GetOffset = AddRuntimeCoaPrefix("GET_PARAM_OFFSET_MAYBE_CONST");
 static const SymbolicScalar MAYBE_CONST_COA_GetValidShape = AddRuntimeCoaPrefix("GET_PARAM_VALID_SHAPE_MAYBE_CONST");
 static const SymbolicScalar MAYBE_CONST_COA_GetParam = AddRuntimeCoaPrefix("GET_PARAM_MAYBE_CONST");
+static const SymbolicScalar GET_PARAM_ADDR = AddRuntimeCoaPrefix("GET_PARAM_ADDR_MAYBE_CONST");
 
 Status SToIWrapper(const std::string str, int& result);
 
@@ -65,6 +66,7 @@ constexpr int VALID_SHAPE_INDEX_ORDER = 3;
 constexpr int INPUT_PARAM_POS_ONE = 1;
 constexpr int INPUT_PARAM_POS_TWO = 2;
 constexpr int INPUT_PARAM_POS_THREE = 3;
+constexpr int SYMBOL_STACK_BASE = 0x3f000000;
 
 /**
  * @brief 校验vector形参调用时，是否存在索引组满足「每次调用内组内索引值相同」
@@ -252,6 +254,7 @@ private:
         std::reference_wrapper<SymbolicScalar>& dynScalar,
         std::vector<std::vector<SymbolicScalar>>& callopArglistOneDim);
     Status TryRemoveDynAttr(Function* leafFunc, std::vector<Operation*> callList);
+    void BuildParamAddr(Operation &op);
     Status GetTileFunction(Function* function, std::unordered_set<Function*> &tileFunctionSet);
     Status DumpFunctionJson(Function& function, const std::string &logFolder, bool beforeFunction = true) override;
     Status PrintFunction(Function& function, const std::string &logFolder, bool beforeFunction = true) override;
