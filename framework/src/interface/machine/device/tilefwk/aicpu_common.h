@@ -118,8 +118,22 @@ struct ProfConfig : public BitmaskBase<ProfConfig, uint32_t> {
     };
 };
 
+struct AicoreRuntimeConfig : public BitmaskBase<AicoreRuntimeConfig, uint32_t> {
+    using BitmaskBase::BitmaskBase;
+    enum : underlying_type {
+        NONE = 0x0,
+        SERIAL_SCHEDULE = 0x1 << 0,
+        DISABLE_HOST_DFX_METRICS = 0x1 << 1,
+        ENABLE_PMU_HW = 0x1 << 2,
+    };
+};
+constexpr uint32_t AICORE_RUNTIME_FLAG_SERIAL_SCHEDULE = AicoreRuntimeConfig::SERIAL_SCHEDULE;
+constexpr uint32_t AICORE_RUNTIME_FLAG_DISABLE_HOST_DFX_METRICS = AicoreRuntimeConfig::DISABLE_HOST_DFX_METRICS;
+constexpr uint32_t AICORE_RUNTIME_FLAG_ENABLE_PMU_HW = AicoreRuntimeConfig::ENABLE_PMU_HW;
+
 struct ToSubMachineConfig {
     ProfConfig profConfig{ProfConfig::OFF};
+    AicoreRuntimeConfig aicoreRuntimeConfig{AicoreRuntimeConfig::NONE};
 };
 
 enum DeviceKernelRunMode : uint32_t {

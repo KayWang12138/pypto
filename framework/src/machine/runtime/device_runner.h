@@ -85,6 +85,9 @@ public:
     bool GetEnableDumpDevPref() const;
     void StartMachinePerfTraceDumpThread();
     void StopMachinePerfTraceDumpThread();
+    // This must be called before first DynamicLaunch/Init to take effect.
+    void SetAicoreRuntimeConfig(AicoreRuntimeConfig runtimeConfig);
+    void EnableAicorePmuSerialCollectionMode();
 
 private:
     DeviceRunner() = default;

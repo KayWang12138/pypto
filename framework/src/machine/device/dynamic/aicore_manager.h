@@ -414,9 +414,9 @@ private:
 
     inline void ProfStop() {
         if (aicoreProf_.ProfIsEnable()) {
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE
-            DumpTaskProf();
-#endif
+            if (useHostPrepareDfxMemory_) {
+                DumpTaskProf();
+            }
         }
 
         aicoreProf_.ProfStop();
@@ -1058,117 +1058,117 @@ private:
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
         DEV_VERBOSE_DEBUG("reslove task core index: %d, finishtaskid:%x, finishstate: %u.", coreIdx, finTaskId, finTaskState);
-#if SCHEDULE_USE_PENDING_AND_RUNING_SWITCH
-        auto &pendingIdRef = pendingIds_[coreIdx];
-        auto &pendingResolveIndexBaseRef = pendingResolveIndexList_[coreIdx];
-        auto &runningIdRef = runningIds_[coreIdx];
-        auto &runningResolveIndexBaseRef = runningResolveIndexList_[coreIdx];
-        if (likely(finTaskId == pendingIdRef && finTaskState == TASK_FIN_STATE)) {
-            // pending task is finished, resolve both running and pending task.
-            DEV_VERBOSE_DEBUG("Pending Finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
-            uint32_t runningIdValue = runningIdRef;
-            int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
-            uint32_t pendingIdValue = pendingIdRef;
-            int pendingResolveIndexBaseValue = pendingResolveIndexBaseRef;
-            runningIdRef = AICORE_TASK_INIT;
-            runningResolveIndexBaseRef = 0;
-            pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
-            pendingResolveIndexBaseRef = 0;
-            if (wrapManager_.GetWrapCoreAvailable(coreIdx)) { // wrapcore doesnt support pending & running yet
-                context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
-                context_->corePendReadyCnt_[static_cast<int>(type)]++;
-            }
-            if (runningIdValue != AICORE_TASK_INIT) {
+        if (usePendingRunningSchedule_) {
+            auto &pendingIdRef = pendingIds_[coreIdx];
+            auto &pendingResolveIndexBaseRef = pendingResolveIndexList_[coreIdx];
+            auto &runningIdRef = runningIds_[coreIdx];
+            auto &runningResolveIndexBaseRef = runningResolveIndexList_[coreIdx];
+            if (likely(finTaskId == pendingIdRef && finTaskState == TASK_FIN_STATE)) {
+                // pending task is finished, resolve both running and pending task.
+                DEV_VERBOSE_DEBUG("Pending Finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
+                uint32_t runningIdValue = runningIdRef;
+                int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
+                uint32_t pendingIdValue = pendingIdRef;
+                int pendingResolveIndexBaseValue = pendingResolveIndexBaseRef;
+                runningIdRef = AICORE_TASK_INIT;
+                runningResolveIndexBaseRef = 0;
+                pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
+                pendingResolveIndexBaseRef = 0;
+                if (wrapManager_.GetWrapCoreAvailable(coreIdx)) { // wrapcore doesnt support pending & running yet
+                    context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
+                    context_->corePendReadyCnt_[static_cast<int>(type)]++;
+                }
+                if (runningIdValue != AICORE_TASK_INIT) {
+                    ret = ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
+                    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                        return ret;
+                    }
+                }
+                ret = ResolveDepWithDfx(type, coreIdx, pendingIdValue, pendingResolveIndexBaseValue);
+                wrapManager_.UpdateFinishIdForMixCore(finTaskId);
+                if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                    return ret;
+                }
+            } else if (unlikely(finTaskId == pendingIdRef && aicpuCallCode != 0)) {
+                // pending task is copyout, reolve both running and pending task.
+                DEV_VERBOSE_DEBUG("Pending Copyout: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
+                uint32_t copyOutResolveCounter = RuntimeCopyOutResolveCounterDecode(aicpuCallCode);
+                uint32_t runningIdValueCopyout = runningIdRef;
+                int runningResolveIndexBaseValueCopyout = runningResolveIndexBaseRef;
+                uint32_t pendingIdValue = pendingIdRef;
+                int pendingResolveIndexBaseValue = pendingResolveIndexBaseRef;
+                runningIdRef = pendingIdRef;
+                runningResolveIndexBaseRef = copyOutResolveCounter + 1;
+                pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
+                pendingResolveIndexBaseRef = 0;
+                if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
+                    context_->corePendReadyCnt_[static_cast<int>(type)]++;
+                }
+                if (runningIdValueCopyout != AICORE_TASK_INIT) {
+                    ret = ResolveDepWithDfx(type, coreIdx, runningIdValueCopyout, runningResolveIndexBaseValueCopyout);
+                    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                        return ret;
+                    }
+                }
+                ret = ResolveCopyOutDepDyn(copyOutResolveCounter, pendingIdValue, pendingResolveIndexBaseValue);
+                if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                    return ret;
+                }
+            } else if (finTaskId == pendingIdRef && finTaskState == TASK_ACK_STATE) {
+                // pending task is acknowledged, resolve running task. And move pending to running
+                DEV_VERBOSE_DEBUG("Pending Acknowledged: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
+                DEV_IF_VERBOSE_DEBUG {
+                    recvAckTask_[coreIdx].push_back(TaskInfo(coreIdx, finTaskId));
+                }
+                uint32_t runningIdValueAck = runningIdRef;
+                int runningResolveIndexBaseValueAck = runningResolveIndexBaseRef;
+                if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
+                    runningIdRef = finTaskId;
+                    runningResolveIndexBaseRef = pendingResolveIndexBaseRef;
+                    pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
+                    pendingResolveIndexBaseRef = 0;
+                    context_->corePendReadyCnt_[static_cast<int>(type)]++;
+                }
+                if (runningIdValueAck != AICORE_TASK_INIT) {
+                    ret = ResolveDepWithDfx(type, coreIdx, runningIdValueAck, runningResolveIndexBaseValueAck);
+                    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                        return ret;
+                    }
+                }
+            } else if (finTaskId == runningIdRef && finTaskState == TASK_FIN_STATE) {
+                // running task is finished, resolve running task. Pending task is unmodified
+                DEV_VERBOSE_DEBUG("Running finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
+                uint32_t runningIdValue = runningIdRef;
+                int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
+                runningIdRef = AICORE_TASK_INIT;
+                runningResolveIndexBaseRef = 0;
+                if (pendingIdRef == AICORE_TASK_INIT) {
+                    context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
+                }
                 ret = ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
                     return ret;
                 }
-            }
-            ret = ResolveDepWithDfx(type, coreIdx, pendingIdValue, pendingResolveIndexBaseValue);
-            wrapManager_.UpdateFinishIdForMixCore(finTaskId);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
-        } else if (unlikely(finTaskId == pendingIdRef && aicpuCallCode != 0)) {
-            // pending task is copyout, reolve both running and pending task.
-            DEV_VERBOSE_DEBUG("Pending Copyout: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
-            uint32_t copyOutResolveCounter = RuntimeCopyOutResolveCounterDecode(aicpuCallCode);
-            uint32_t runningIdValueCopyout = runningIdRef;
-            int runningResolveIndexBaseValueCopyout = runningResolveIndexBaseRef;
-            uint32_t pendingIdValue = pendingIdRef;
-            int pendingResolveIndexBaseValue = pendingResolveIndexBaseRef;
-            runningIdRef = pendingIdRef;
-            runningResolveIndexBaseRef = copyOutResolveCounter + 1;
-            pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
-            pendingResolveIndexBaseRef = 0;
-            if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
-                context_->corePendReadyCnt_[static_cast<int>(type)]++;
-            }
-            if (runningIdValueCopyout != AICORE_TASK_INIT) {
-                ret = ResolveDepWithDfx(type, coreIdx, runningIdValueCopyout, runningResolveIndexBaseValueCopyout);
+            } else if (unlikely(finTaskId == runningIdRef && aicpuCallCode != 0)) {
+                // running task is copyout, resolve running task. Pending task is unmodified
+                DEV_VERBOSE_DEBUG("Running copyout: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
+                uint32_t copyOutResolveCounter = RuntimeCopyOutResolveCounterDecode(aicpuCallCode);
+                uint32_t runningIdValue = runningIdRef;
+                int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
+                runningResolveIndexBaseRef = copyOutResolveCounter + 1;
+                ret = ResolveCopyOutDepDyn(copyOutResolveCounter, runningIdValue, runningResolveIndexBaseValue);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
                     return ret;
                 }
-            }
-            ret = ResolveCopyOutDepDyn(copyOutResolveCounter, pendingIdValue, pendingResolveIndexBaseValue);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
-        } else if (finTaskId == pendingIdRef && finTaskState == TASK_ACK_STATE) {
-            // pending task is acknowledged, resolve running task. And move pending to running
-            DEV_VERBOSE_DEBUG("Pending Acknowledged: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
-            DEV_IF_VERBOSE_DEBUG {
-                recvAckTask_[coreIdx].push_back(TaskInfo(coreIdx, finTaskId));
-            }
-            uint32_t runningIdValueAck = runningIdRef;
-            int runningResolveIndexBaseValueAck = runningResolveIndexBaseRef;
-            if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
-                runningIdRef = finTaskId;
-                runningResolveIndexBaseRef = pendingResolveIndexBaseRef;
-                pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
-                pendingResolveIndexBaseRef = 0;
-                context_->corePendReadyCnt_[static_cast<int>(type)]++;
-            }
-            if (runningIdValueAck != AICORE_TASK_INIT) {
-                ret = ResolveDepWithDfx(type, coreIdx, runningIdValueAck, runningResolveIndexBaseValueAck);
-                if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                    return ret;
-                }
-            }
-        } else if (finTaskId == runningIdRef && finTaskState == TASK_FIN_STATE) {
-            // running task is finished, resolve running task. Pending task is unmodified
-            DEV_VERBOSE_DEBUG("Running finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
-            uint32_t runningIdValue = runningIdRef;
-            int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
-            runningIdRef = AICORE_TASK_INIT;
-            runningResolveIndexBaseRef = 0;
-            if (pendingIdRef == AICORE_TASK_INIT) {
-                context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
-            }
-            ret = ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
-        } else if (unlikely(finTaskId == runningIdRef && aicpuCallCode != 0)) {
-            // running task is copyout, resolve running task. Pending task is unmodified
-            DEV_VERBOSE_DEBUG("Running copyout: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
-            uint32_t copyOutResolveCounter = RuntimeCopyOutResolveCounterDecode(aicpuCallCode);
-            uint32_t runningIdValue = runningIdRef;
-            int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
-            runningResolveIndexBaseRef = copyOutResolveCounter + 1;
-            ret = ResolveCopyOutDepDyn(copyOutResolveCounter, runningIdValue, runningResolveIndexBaseValue);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
+            } else {
+                DEV_VERBOSE_DEBUG("Warning, maybe inconsistent state. coreidx: %d,finTask: %lx,pending: %x,running: %x.", coreIdx, finTaskRegVal, pendingIdRef, runningIdRef);
             }
         } else {
-            DEV_VERBOSE_DEBUG("Warning, maybe inconsistent state. coreidx: %d,finTask: %lx,pending: %x,running: %x.", coreIdx, finTaskRegVal, pendingIdRef, runningIdRef);
+            ret = ResolveWhenSyncMode(type, finTaskId, finTaskState, coreIdx);
+            if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                return ret;
+            }
         }
-#else
-        ret = ResolveWhenSyncMode(type, finTaskId, finTaskState, coreIdx);
-        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-            return ret;
-        }
-#endif
         return ret;
     }
 
@@ -1485,6 +1485,10 @@ private:
             enableL2CacheSch_ = static_cast<uint8_t>(deviceArgs->machineConfig) &
                 static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH);
         }
+        auto runtimeConfig = deviceArgs->toSubMachineConfig.aicoreRuntimeConfig;
+        usePendingRunningSchedule_ = !runtimeConfig.Contains(AicoreRuntimeConfig::SERIAL_SCHEDULE);
+        useHostPrepareDfxMemory_ = !runtimeConfig.Contains(AicoreRuntimeConfig::DISABLE_HOST_DFX_METRICS);
+        enablePmuHw_ = runtimeConfig.Contains(AicoreRuntimeConfig::ENABLE_PMU_HW);
         UpdateAiCoreBlockIndexSection();
         if constexpr (IsDeviceMode()) {
             aicoreHal_.MapRegistersForAllCores(aicNum_);
@@ -1738,6 +1742,20 @@ private:
 
     inline int GetAllAiCoreNum() { return aicNum_ + aivNum_; }
     inline void SetDotStatus(int64_t status) { dotStatus_ = status; }
+    inline bool IsPmuHwEnabled() const { return enablePmuHw_; }
+    inline uint32_t GetRuntimeConfigFlags() const {
+        uint32_t flags = AicoreRuntimeConfig::NONE;
+        if (!usePendingRunningSchedule_) {
+            flags |= AICORE_RUNTIME_FLAG_SERIAL_SCHEDULE;
+        }
+        if (!useHostPrepareDfxMemory_) {
+            flags |= AICORE_RUNTIME_FLAG_DISABLE_HOST_DFX_METRICS;
+        }
+        if (enablePmuHw_) {
+            flags |= AICORE_RUNTIME_FLAG_ENABLE_PMU_HW;
+        }
+        return flags;
+    }
     inline CoreType AicoreType(int coreIdx) const { return coreIdx < aicEnd_ ? CoreType::AIC : CoreType::AIV; }
     inline void SetNextDfxPos(int coreIdx) {
             taskDfxStatPos_[coreIdx] =
@@ -1759,9 +1777,9 @@ private:
 
         volatile TaskStat *stat = aicoreHal_.GetTaskStat(coreIdx, 0);
 
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
-        aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
-#endif
+        if (!useHostPrepareDfxMemory_) {
+            aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
+        }
 
 #if ENABLE_TENSOR_DUMP
         // dump output tensor
@@ -1772,9 +1790,9 @@ private:
             recvFinTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId));
         }
 
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
-        SetNextDfxPos(coreIdx); // pingpong 存储
-#endif
+        if (!useHostPrepareDfxMemory_) {
+            SetNextDfxPos(coreIdx); // pingpong 存储
+        }
     (void)stat;
     }
 
@@ -1802,6 +1820,9 @@ private:
     uint64_t procAicpuFunctionCnt_{0};
     bool enableL2CacheSch_{false};
     bool enableFairSch_{false};
+    bool usePendingRunningSchedule_{true};
+    bool useHostPrepareDfxMemory_{true};
+    bool enablePmuHw_{false};
     bool validGetPgMask_{true};
 
     DeviceTask* curDevTask_{nullptr};
