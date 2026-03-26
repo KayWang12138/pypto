@@ -71,7 +71,8 @@ std::string CodeGenOpCloudNPU::GenMemL0CCopyOut() const {
 
 std::string CodeGenOpCloudNPU::GenMemCopyCube(bool isLocalToGM, unsigned uf) const {
     unsigned gmIdx = isLocalToGM ? 0 : 1;
-    bool isSpillToGm = operand[gmIdx] == SYMBOL_STACK_BASE;
+    bool isSpillToGm{false};
+    GetTensorAttr(gmIdx, "isWorkspaceGM", isSpillToGm);
     return GenMemCopyVar(isLocalToGM, isSpillToGm, uf);
 }
 
@@ -287,7 +288,8 @@ std::string CodeGenOpCloudNPU::GenMemL1ToBt() const {
 
 std::string CodeGenOpCloudNPU::GenMemUBTransfer(bool isCopyUBToGM) const {
     unsigned gmIdx = isCopyUBToGM ? 0 : 1;
-    bool isSpillToGm = operand[gmIdx] == SYMBOL_STACK_BASE;
+    bool isSpillToGm{false};
+    GetTensorAttr(gmIdx, "isWorkspaceGM", isSpillToGm);
     return GenMemCopyVar(isCopyUBToGM, isSpillToGm);
 }
 
@@ -1000,7 +1002,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
         paramList.emplace_back(std::to_string(localRawShape[i]));
     }
     if (localIdx == 0) { // means op is COPY_IN
-        if (isPartialMem[localIdx]) {
+        bool isPartialMem{false};
+        GetTensorAttr(localIdx, "isPartialMem", isPartialMem);
+        if (isPartialMem) {
             paramList.emplace_back("true");
         }
     }
