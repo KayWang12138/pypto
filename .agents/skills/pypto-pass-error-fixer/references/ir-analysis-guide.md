@@ -46,7 +46,7 @@ Function TENSOR_TENSOR_update_kernel_loop_Unroll1_PATH0_hiddenfunc0_5[5] 3116444
 **字段说明：**
 - `Function`: 固定关键字
 - `函数名`: 当前处理的函数名称
-- `[function_magic]`: 函数magic唯一标识符
+- `[function_magic]`: 函数magic，即唯一标识符
 - `{hash}`: 函数hash值
 - `{函数类型}`: 函数类型，如 DYNAMIC_LOOP_PATH
 - `{图类型}`: TENSOR_GRAPH 或 TILE_GRAPH
@@ -85,7 +85,7 @@ RAWTENSOR[索引] <shape> @{编号}"{名称}"
 RAWTENSOR[  0] <1 x 16 x DT_INT32> @10"TENSOR_3"
 RAWTENSOR[  1] <8 x 128 x DT_FP32> @12"TENSOR_2"
 RAWTENSOR[  2] <16 x 128 x DT_FP32> @14"TENSOR_1"
-`````
+```
 
 #### 字段说明
 
@@ -145,8 +145,6 @@ OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@16#(-1) toSlot[3]
 - **raw tensor**: 标识符（@6, @9, @aaa等）
 - **子图ID**: 子图标识符，用于标识tensor所属的子图
 - **fromSlot/toSlot**: 槽位列表，用于追踪INCAST/OUTCAST的slot映射关系
-
-```
 
 ### 4. 操作节点
 
@@ -771,7 +769,7 @@ def generate_analysis_report(ir, checks):
 ```
 IR文件 ::= 文件头 RAWTENSOR* INCAST* OUTCAST* operation*
 
-文件头 ::= "Function"” 函数名 "[" function_magic "]" hash 函数类型 图类型 "{" 
+文件头 ::= "Function" 函数名 "[" function_magic "]" hash 函数类型 图类型 "{" 
 
 RAWTENSOR ::= "RAWTENSOR[" 索引 "] <" shape "> @" 编号 "\"" 名称 "\""
 
