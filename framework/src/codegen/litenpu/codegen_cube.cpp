@@ -19,71 +19,72 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
-// std::string CodeGenOpLiteNPU::GenCubeOp(bool zeroC) const {
-//     // shape: dst, src0, src1
-//     bool isOffsetValid =
-//         (offset[ID1][ID0] == 0) && (offset[ID1][ID1] == 0) && (offset[ID2][ID0] == 0) && (offset[ID2][ID1] == 0);
-//     ASSERT(isOffsetValid) << "CUBE: haven't consider l0A/B offset yet.";
-//     bool isShapeValid = (shape[ID0][ID0] == shape[ID1][ID0]) &&
-//                         (shape[ID0][ID1] == shape[ID2][ID1] || shape[ID0][ID1] == shape[ID2][ID0]) &&
-//                         (shape[ID1][ID1] == shape[ID2][ID1] || shape[ID1][ID1] == shape[ID2][ID0]);
-//     ASSERT(isShapeValid) << "CUBE: m k n is invalid.";
-//     int m = shape[ID0][ID0];
-//     int k = shape[ID1][ID1]; // NEXTNEXT assume A is not transposed for now
-//     int n = shape[ID0][ID1];
-//     unsigned uf = 0;
+std::string CodeGenOpLiteNPU::GenCubeOp(bool zeroC) const {
+    // if (isSupportLayout) {
+    //     return PrintMatmulTileTensor(!zeroC);
+    // }
+    // shape: dst, src0, src1
+    bool isShapeValid = (shape[ID0][ID0] == shape[ID1][ID0]) &&
+                        (shape[ID0][ID1] == shape[ID2][ID1] || shape[ID0][ID1] == shape[ID2][ID0]) &&
+                        (shape[ID1][ID1] == shape[ID2][ID1] || shape[ID1][ID1] == shape[ID2][ID0]);
+    ASSERT(isShapeValid) << "CUBE: m k n is invalid.";
+    int64_t m = shape[ID0][ID0];
+    int64_t k = shape[ID1][ID1]; // NEXTNEXT assume A is not transposed for now
+    int64_t n = shape[ID0][ID1];
+    unsigned uf = 0;
 
-//     auto kL0C = sm->CreateAllocKey(operandWithMagic[ID0]);
-//     auto kL0A = sm->CreateAllocKey(operandWithMagic[ID1]);
-//     auto kL0B = sm->CreateAllocKey(operandWithMagic[ID2]);
+    std::string aVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string bVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+    std::string cVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
-//     std::string aVar = sm->QueryVariableName(kL0A);
-//     std::string bVar = sm->QueryVariableName(kL0B);
-//     std::string cVar = sm->QueryVariableName(kL0C);
+    std::string aDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+    std::string bDtypeStr = DataType2CCEStr(operandDtype[ID2]);
+    std::string cDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
-//     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-//     std::string aDtypeStr = DataType2CCEStr(operandDtype[ID1]);
-//     std::string bDtypeStr = DataType2CCEStr(operandDtype[ID2]);
-//     std::string cDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::ostringstream oss;
 
-//     int ret{0};
-//     if (isSupportDynamicUnaligned) {
-//         auto l0cShapeDyn = dynamicValidShape[0];
-//         auto l0aShapeDyn = dynamicValidShape[1];
-//         auto l0bShapeDyn = dynamicValidShape[2];
-//         auto mSymbol = l0cShapeDyn[0];
-//         auto kSymbol = l0aShapeDyn[1];
-//         auto nSymbol = l0cShapeDyn[1];
-//         ret = sprintf_s(buffer, sizeof(buffer),
-//             "%s<%s, %s, %s,  %u, %u>((%s %s*)%s, (%s %s*)%s, (%s %s*)%s, %s, %s, %s, %s, %u, %s, %s);\n",
-//             tileOpName.c_str(), cDtypeStr.c_str(), aDtypeStr.c_str(), bDtypeStr.c_str(), offset[ID0][ID0],
-//             offset[ID0][ID1], GetAddrTypeByOperandType(operandType[0]).c_str(), cDtypeStr.c_str(), cVar.c_str(),
-//             GetAddrTypeByOperandType(operandType[ID1]).c_str(), aDtypeStr.c_str(), aVar.c_str(),
-//             GetAddrTypeByOperandType(operandType[ID2]).c_str(), bDtypeStr.c_str(), bVar.c_str(), mSymbol.Dump().c_str(),
-//             kSymbol.Dump().c_str(), nSymbol.Dump().c_str(), zeroC ? "true" : "false", uf, l0cShapeDyn[0].Dump().c_str(),
-//             l0cShapeDyn[1].Dump().c_str());
-//         ASSERT(ret >= 0) << "GenCubeOp sprintf_s failed ";
-//     } else {
-//         ret = sprintf_s(buffer, sizeof(buffer),
-//             "%s<%s, %s, %s, %u, %u, %u, %u>((%s %s*)%s, (%s %s*)%s, (%s %s*)%s, %d, %d, %d, %s, %u);\n",
-//             tileOpName.c_str(), cDtypeStr.c_str(), aDtypeStr.c_str(), bDtypeStr.c_str(), offset[ID0][ID0],
-//             offset[ID0][ID1], shape[ID0][ID0], shape[ID0][ID1], GetAddrTypeByOperandType(operandType[0]).c_str(),
-//             cDtypeStr.c_str(), cVar.c_str(), GetAddrTypeByOperandType(operandType[1]).c_str(), aDtypeStr.c_str(),
-//             aVar.c_str(), GetAddrTypeByOperandType(operandType[ID2]).c_str(), bDtypeStr.c_str(), bVar.c_str(), m, k, n,
-//             zeroC ? "true" : "false", uf);
-//         ASSERT(ret >= 0) << "GenCubeOp sprintf_s failed ";
-//     }
+    if (isDynamicFunction) {
+        auto l0cShapeDyn = dynamicValidShape[ID0];
+        auto l0aShapeDyn = dynamicValidShape[ID1];
+        auto l0bShapeDyn = dynamicValidShape[ID2];
+        auto mSymbol = l0cShapeDyn[ID0];
+        auto kSymbol = l0aShapeDyn[ID1];
+        auto nSymbol = l0cShapeDyn[ID1];
+        bool hasBias = 0;
+        if (opAttrs.count(OP_ATTR_PREFIX + "has_bias")) {
+            hasBias = AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "has_bias"));
+        }
+        std::string biasStr = ", " + std::to_string(hasBias);
 
-//     return buffer;
-// }
+        oss << tileOpName << "<" << cDtypeStr << ", " << aDtypeStr << ", " << bDtypeStr << ", " << offset[ID0][ID0]
+            << ", " << offset[ID0][ID1] << biasStr << ">"
+            << "((" << GetAddrTypeByOperandType(operandType[ID0]) << " " << cDtypeStr << "*)" << cVar << ", "
+            << "(" << GetAddrTypeByOperandType(operandType[ID1]) << " " << aDtypeStr << "*)" << aVar << ", "
+            << "(" << GetAddrTypeByOperandType(operandType[ID2]) << " " << bDtypeStr << "*)" << bVar << ", "
+            << SymbolicExpressionTable::BuildExpression(mSymbol) << ", "
+            << SymbolicExpressionTable::BuildExpression(kSymbol) << ", "
+            << SymbolicExpressionTable::BuildExpression(nSymbol) << ", " << (zeroC ? "true" : "false") << ", " << uf
+            << ", " << SymbolicExpressionTable::BuildExpression(l0cShapeDyn[ID0]) << ", "
+            << SymbolicExpressionTable::BuildExpression(l0cShapeDyn[ID1]) << ");\n";
+    } else { // static function
+        oss << tileOpName << "<" << cDtypeStr << ", " << aDtypeStr << ", " << bDtypeStr << ", " << offset[ID0][ID0]
+            << ", " << offset[ID0][ID1] << ", " << shape[ID0][ID0] << ", " << shape[ID0][ID1] << ">"
+            << "((" << GetAddrTypeByOperandType(operandType[ID0]) << " " << cDtypeStr << "*)" << cVar << ", "
+            << "(" << GetAddrTypeByOperandType(operandType[ID1]) << " " << aDtypeStr << "*)" << aVar << ", "
+            << "(" << GetAddrTypeByOperandType(operandType[ID2]) << " " << bDtypeStr << "*)" << bVar << ", " << m
+            << ", " << k << ", " << n << ", " << (zeroC ? "true" : "false") << ", " << uf << ");\n";
+    }
 
-// std::string CodeGenOpLiteNPU::GenCubeOpMatmul() const{
-//     return GenCubeOp(true);
-// }
+    return oss.str();
+}
 
-// std::string CodeGenOpLiteNPU::GenCubeOpMatmulAcc() const{
-//     return GenCubeOp(false);
-// }
+std::string CodeGenOpLiteNPU::GenCubeOpMatmul() const{
+    return GenCubeOp(true);
+}
+
+std::string CodeGenOpLiteNPU::GenCubeOpMatmulAcc() const{
+    return GenCubeOp(false);
+}
 
 std::string CodeGenOpLiteNPU::GenParamsStr() const {
     std::vector<std::string> params;
