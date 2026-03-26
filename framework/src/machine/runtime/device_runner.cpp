@@ -809,14 +809,9 @@ void DeviceRunner::StopMachinePerfTraceDumpThread() {
         void *ptr = npu::tile_fwk::dynamic::ValueToPtr(args_.aicpuPerfAddr);
         if (ptr != nullptr) {
             rtFree(ptr);
+            args_.aicpuPerfAddr = 0;
         }
     }
-    for (size_t i = 0; i < perfData_.size(); i++) {
-        if (perfData_[i] != nullptr) {
-            rtFree(perfData_[i]);
-        }
-    }
-    perfData_.clear();
 }
 
 void DeviceRunner::MachinePerfTraceDumpThread() {
@@ -832,6 +827,13 @@ void DeviceRunner::MachinePerfTraceDumpThread() {
 DeviceRunner::~DeviceRunner() {
     MACHINE_LOGD("Start to cleanup perfData");
     StopMachinePerfTraceDumpThread();
+    for (size_t i = 0; i < perfData_.size(); i++) {
+        if (perfData_[i] != nullptr) {
+            rtFree(perfData_[i]);
+            perfData_[i] = nullptr;
+        }
+    }
+    perfData_.clear();
 }
 
 } // namespace npu::tile_fwk
