@@ -137,10 +137,10 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
         if (isLeaderScheduler_ == true)
         {
             // Allocating queues
-            auto availableVectorTaskQueue = new coreQueue_t();
-            auto availableCubeTaskQueue = new coreQueue_t();
+            auto availableVectorTaskQueue = new taskQueue_t();
+            auto availableCubeTaskQueue   = new taskQueue_t();
             curDevTask_->availableVectorTaskQueue = (uint64_t) availableVectorTaskQueue;
-            curDevTask_->availableCubeTaskQueue = (uint64_t) availableCubeTaskQueue;
+            curDevTask_->availableCubeTaskQueue   = (uint64_t) availableCubeTaskQueue;
 
             // // Adding initial set of tasks 
             auto readyAicCoreFunctionQue = (ReadyCoreFunctionQueue *)curDevTask_->readyAicCoreFunctionQue;
