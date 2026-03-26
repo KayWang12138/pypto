@@ -38,15 +38,17 @@ namespace npu::tile_fwk {
 // 不需要展开的操作码集合
 // 这些操作在展开过程中保持原样，不进行 tile-level 展开
 const std::unordered_set<Opcode> ExpandFunction::kNotNeedExpandOps = {
-    Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_NOP};
+    Opcode::OP_VIEW,
+    Opcode::OP_ASSEMBLE,
+    Opcode::OP_NOP
+};
 
 Status ExpandFunction::ClearIOOperand(const std::vector<OperationPtr> &tensorOperations) const {
     for (auto &op : tensorOperations) {
         // clear consumers and producers
         for (auto &iOperand : op->GetIOperands()) {
             if (iOperand == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Op:%s[%d] input is null.%s", op->GetOpcodeStr().c_str(),
-                    op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "Op:%s[%d] input is null.%s",  op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
                 return FAILED;
             }
             iOperand->GetConsumers().clear();
@@ -54,8 +56,7 @@ Status ExpandFunction::ClearIOOperand(const std::vector<OperationPtr> &tensorOpe
         }
         for (auto &oOperand : op->GetOOperands()) {
             if (oOperand == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Op:%s[%d] output is null.%s", op->GetOpcodeStr().c_str(),
-                    op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "Op:%s[%d] output is null.%s",  op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
                 return FAILED;
             }
             oOperand->GetConsumers().clear();
@@ -96,16 +97,14 @@ Status ExpandFunction::RunOnFunction(Function &function) {
         }
     }
     if (!verifyResult) {
-        APASS_LOG_ERROR_F(Elements::Function, "FUnction[%s] ExpandFunction failed: %s", function.GetRawName().c_str(),
-            oss.str().c_str());
+        APASS_LOG_ERROR_F(Elements::Function, "FUnction[%s] ExpandFunction failed: %s", function.GetRawName().c_str(), oss.str().c_str());
         return FAILED;
     }
     if (Expandfunction(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Function[%s] ExpandFunction failed.", function.GetRawName().c_str());
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Function, "Function[%s] operation size is: %zu after expansion.",
-        function.GetMagicName().c_str(), function.Operations().size());
+    APASS_LOG_INFO_F(Elements::Function, "Function[%s] operation size is: %zu after expansion.", function.GetMagicName().c_str(), function.Operations().size());
     APASS_LOG_INFO_F(Elements::Function, "End ExpandFunction function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }

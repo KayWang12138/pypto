@@ -118,8 +118,7 @@ bool InferMemoryConflict::CheckRawShapeConflict(
     auto consumerOp = *inTensor->GetConsumers().begin();
     if (consumerOp->GetOpcode() == Opcode::OP_VIEW_TYPE) {
         if (inEntry == viewTypeTable.end() || outEntry == viewTypeTable.end()) {
-            APASS_LOG_ERROR_F(Elements::Operation,
-                "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
+            APASS_LOG_ERROR_F(Elements::Operation, "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
             return true;
         }
         if (inEntry->second > outEntry->second) {
@@ -177,10 +176,9 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     auto input = op.GetIOperands().front();
     VecTile tileSize = op.GetTileShape().GetVecTile();
     if (input->GetShape().size() != tileSize.size()) {
-        APASS_LOG_ERROR_F(Elements::Operation,
-            "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s. %s",
-            op.GetOpcodeStr().c_str(), op.GetOpMagic(), input->DumpType().c_str(),
-            op.GetTileShape().ToString(TileType::VEC).c_str(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s. %s", 
+                            op.GetOpcodeStr().c_str(), op.GetOpMagic(),
+                            input->DumpType().c_str(), op.GetTileShape().ToString(TileType::VEC).c_str(), GetFormatBacktrace(op).c_str());
         return false;
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "The size info of %s[%d]: input shape: %s, tile size: %s",
@@ -256,7 +254,9 @@ bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
 
         // 2D转4D：[H, W] -> [1, 1, H, W]
         case (DIMENSIONS_2D << 4) | DIMENSIONS_4D: {
-            return outputShape[0] == 1 && outputShape[1] == 1 && inputShape[0] == outputShape[2] &&
+            return outputShape[0] == 1 && 
+                   outputShape[1] == 1 &&
+                   inputShape[0] == outputShape[2] &&
                    inputShape[1] == outputShape[3];
         }
 
@@ -440,8 +440,7 @@ Status InferMemoryConflict::InferTileShape(
         op.UpdateTileShape(parentTile);
     }
     if (!IsValidTileShape(op)) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Invalid tile size for %s[%d]. %s", op.GetOpcodeStr().c_str(),
-            op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "Invalid tile size for %s[%d]. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;

@@ -114,7 +114,7 @@ Status AutoCast::InsertInt32Fp16Cast(Function &function) {
             continue;
         }
         APASS_LOG_INFO_F(Elements::Operation, "Cast[%d] is cast between int32 and fp16.", op->GetOpMagic());
-        auto fp32Tensor = std::make_shared<LogicalTensor>(
+        auto fp32Tensor = std::make_shared<LogicalTensor>( 
             function, DataType::DT_FP32, tgtTensor->shape, tgtTensor->GetDynValidShape(), tgtTensor->Format());
         InsertCastOp(function, srcTensor, fp32Tensor, op->GetTileShape());
         op->ReplaceInput(fp32Tensor, srcTensor);
