@@ -19,6 +19,8 @@
 #include "codegen/utils/codegen_utils.h"
 
 namespace npu::tile_fwk {
+const std::string DEFAULT_TENSOR_OFFSET = "tileOffsets";
+
 std::string ForNode::Print() const {
     std::ostringstream os;
     os << "for (";
@@ -49,11 +51,17 @@ void ForBlockManager::UpdateAxesList(const std::vector<SymbolicScalar> &axesList
     axesList_ = axesList;
     FillIntVecWithDummyInHead<SymbolicScalar>(axesList_, MAX_LOOP_DEPTH - axesList.size(), 1);
     CODEGEN_LOGI("axesList_ after fill is : %s, ", IntVecToStr(axesList_).c_str());
+    std::vector<std::string> offsetInLoop;
     for (size_t i = 0; i < axesList_.size(); ++i) {
         std::string loopVar = "idx" + std::to_string(i);
         ForNode forNode{loopVar, 0, axesList_[i], 1};
         forNodes_.push_back(forNode);
+        std::string offsetVal = axesList_[i].ConcreteValid() && axesList_[i].Concrete() == 1 ? "0" : loopVar;
+        offsetInLoop.emplace_back(loopVar);
     }
+    allOffsetsInLoop_[offsetInLoop] = DEFAULT_TENSOR_OFFSET;
+    defaultOffset_ = offsetInLoop;
+    ++offsetCnt_;
 }
 
 std::string ForBlockManager::Print() const {
@@ -86,25 +94,24 @@ void ForBlockManager::PrintForEnd(std::ostringstream &os) const {
 }
 
 void ForBlockManager::PrintOffsetDef(std::ostringstream &os) const {
-    os << "auto tileOffsets = TileOffset";
-    std::vector<std::string> loopVars;
-    for (const auto &forNode : forNodes_) {
-        loopVars.emplace_back(forNode.loopVar);
+    for (const auto &[offsetInLoop, offsetName] : allOffsetsInLoop_) {
+        PrintIndent(os, MAX_LOOP_DEPTH + 1);
+        os << "auto " << offsetName << " = " << "TileOffset" << WrapParamByParentheses(offsetInLoop) << STMT_END;
     }
-    os << WrapParamByParentheses(loopVars) << STMT_END;
 }
 
 void ForBlockManager::PrintSetAddrs(std::ostringstream &os) const {
-    for (const auto &tensor : tensorNeedSetAddr_) {
+    for (const auto &[tensor, offset] : tensorOffset_) {
         PrintIndent(os, MAX_LOOP_DEPTH + 1);
-        PrintSetAddrSingle(os, tensor);
+        PrintSetAddrSingle(os, tensor, offset);
     }
 }
 
-void ForBlockManager::PrintSetAddrSingle(std::ostringstream &os, const std::string &tensor) const {
+void ForBlockManager::PrintSetAddrSingle(
+    std::ostringstream &os, const std::string &tensor, const std::string &offset) const {
     std::string fullDimTensor;
     fullDimTensor = sm_->QueryTileTensorFullDimByTensorInLoop(tensor);
-    os << tensor << ".SetAddr(" << fullDimTensor << ".GetLinearAddr(tileOffsets));\n";
+    os << tensor << ".SetAddr(" << fullDimTensor << ".GetLinearAddr(" << offset << "));\n";
 }
 
 void ForBlockManager::PrintTileOps(std::ostringstream &os) const {
@@ -113,6 +120,34 @@ void ForBlockManager::PrintTileOps(std::ostringstream &os) const {
         PrintIndent(os, MAX_LOOP_DEPTH + 1);
         os << tileOp;
     }
+}
+
+void ForBlockManager::UpdateTensorOffsetInLoop(size_t tensorFullDimHash, const std::string &tensorNameInLoop) {
+    auto tileTensor = sm_->QueryTileTensorByHash(tensorFullDimHash);    
+    auto rawShape = tileTensor.rawShape;
+    FillIntVecWithDummyInHead<int64_t>(rawShape, SHAPE_DIM5 - rawShape.size(), 1);
+    auto newOffset = defaultOffset_;
+    for (size_t i = 0; i < rawShape.size(); ++i) {
+        if (rawShape[i] == 1) {
+            newOffset[i] = "0";
+        }
+    }
+
+    std::string offsetName = DEFAULT_TENSOR_OFFSET;
+    if (allOffsetsInLoop_.find(newOffset) == allOffsetsInLoop_.end()) {
+        offsetName = DEFAULT_TENSOR_OFFSET + std::to_string(offsetCnt_);
+        allOffsetsInLoop_[newOffset] = offsetName;
+        ++offsetCnt_;
+    }
+    tensorOffset_[tensorNameInLoop] = offsetName;
+}
+
+void ForBlockManager::AddTensorInLoopBody(size_t tensorFullDimHash, const TileTensor &tileTensor) {
+    CODEGEN_LOGI("AddTensorInLoopBody : %s", tileTensor.tensorName.c_str());
+    std::string tensorNameInLoop = sm_->AddTileTensor(tileTensor);
+    std::string tensorFullDim = sm_->QueryTileTensorNameByHash(tensorFullDimHash);
+    sm_->InsertTensorNameInLoopToFullDim(tensorNameInLoop, tensorFullDim);
+    UpdateTensorOffsetInLoop(tensorFullDimHash, tensorNameInLoop);
 }
 
 } // namespace npu::tile_fwk
