@@ -95,7 +95,7 @@ int BrcAxisBinaryOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2, size_t
     if (shapeSize < axisNum || axisNum == 0) {
         return operandNum;
     }
-    const size_t idx = shapeSize - axisNu;
+    const size_t idx = shapeSize - axisNum;
     if ((operand1->shape[idx] != 1) && (operand2->shape[idx] == 1)) {
         operandNum = 2;
     } else if ((operand1->shape[idx] == 1) && (operand2->shape[idx] != 1)) {
@@ -162,31 +162,48 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
     }
 }
 
+// Determine the target shape for expand before passind op to tileop
 template <BinaryOpType T>
-std::vector<int64_t> ExpandLast2Axes(Function &function, LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
-    std::vector<int64_t> dstShape = {};
+std::pair<std::vector<int64_t>, std::vector<int64_t>> GetBrcExpandShape(
+    Function &function, LogicalTensorPtr operand1, LogicalTensorPtr operand2, LogicalTensorPtr result) {
+    auto operand1Shape = result->shape;
+    auto operand2Shape = result->shape;
+    size_t shapeSize = result->shape.size();
+    // Outer axis: handled by tileop loop with stride control, keep operand shape.
+    if (shapeSize > 2) {
+        for (size_t i = 0; i < shapeSize - 2; i++) {
+            operand1Shape[i] = operand1->shape[i];
+            operand2Shape[i] = operand2->shape[i];
+        }
+    }
+    
     bool isInWhiteList = SUPPORT_BRCINLINE.count(GetBinaryOpNameCode<T>());
     bool isSupportBrcInline =
         isInWhiteList && (operand1->Datatype() == DT_FP32 || operand1->Datatype() == DT_FP16);
     bool isCombineAxisEnabled =
         function.paramConfigs_.forceCombineAxis || (function.paramConfigs_.combineAxis && isInWhiteList);
-    int GetLastBrcOp = BrcAxisBinaryOp(operand1, operand2, 1);
-    int Get2ndLastBrcOp = BrcAxisBinaryOp(operand1, operand2, NUM2);
-    if (!isSupportBrcInline) {    // brcinline for last two axes only support half/float/bf16
-        return dstShape;
+    if (isSupportBrcInline) {
+        // The 2nd last axis: skip epxnad, brcinline
+        if (shapeSize > 1) {
+            operand1Shape[shapeSize - 2] = operand1->shape[shapeSize - 2];
+            operand2Shape[shapeSize - 2] = operand2->shape[shapeSize - 2];
+        }
+        // The last axis: brcinline when combineAxis is enabled
+        if (shapeSize > 0 && isCombineAxisEnabled) {
+            operand1Shape[shapeSize - 1] = operand1->shape[shapeSize - 1];
+            operand2Shape[shapeSize - 1] = operand2->shape[shapeSize - 1];
+        }
     }
-
-    if (GetLastBrcOp != -1 && !isCombineAxisEnabled) {    // for last axis brcinline need combineAxis on
-        return dstShape;
-    }
+    return {operand1Shape, operand2Shape};
 }
 
 template <BinaryOpType T>
 void TiledBinaryOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1,
     LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
     CheckBinOpOperandsValid(operand1, operand2);
-    BroadcastOperandTensor(operand1, operand2, result, function, ExpandLast2Axes(function, operand1, operand2));
-    BroadcastOperandTensor(operand2, operand1, result, function, ExpandLast2Axes(function, operand1, operand2));
+    auto [dstShape1,dstShape2] = GetBrcExpandShape(function, operand1, operand2);
+    BroadcastOperandTensor(operand1, operand2, result, function, tileShape, dstShape1);
+    BroadcastOperandTensor(operand2, operand1, result, function, tileShape, dstShape2);
 
     TileInfo tileInfo1(operand1->shape.size(), operand1->offset.size());
     TileInfo tileInfo2(operand2->shape.size(), operand2->offset.size());
@@ -195,8 +212,8 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, Logica
     auto input2 = LogicalInput{operand2, tileInfo2};
     // 如果打开了forceCombineAxis要走进OP_XX_BRC，如果打开combineAxis要避免后续走OP_XX_BRC逻辑
     bool withBrc = 
-        (BrcAxisBinaryOp(input1.tensor, input2.tensor, 1) != -1) && 
-        function.paramConfigs_.forceCombineAxis && !function.paramConfigs_.combineAxis;
+        (BrcAxisBinaryOp(operand1, operand2, 1) != -1)
+        && function.paramConfigs_.forceCombineAxis && !function.paramConfigs_.combineAxis;
     TiledBinaryOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, withBrc);
 }
 
