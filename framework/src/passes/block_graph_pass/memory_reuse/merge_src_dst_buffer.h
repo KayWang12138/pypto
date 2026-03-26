@@ -19,6 +19,10 @@
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_interface/pass.h"
 #include "interface/utils/log.h"
+#include "passes/pass_log/pass_log.h"
+
+#undef MODULE_NAME
+#define MODULE_NAME "MergeSrcDstBuffer"
 namespace npu::tile_fwk {
 class SrcDstBufferMergeImpl {
 public:
@@ -60,13 +64,13 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override {
-        ALOG_INFO_F("===> Start SrcDstBufferMerge.");
+        APASS_LOG_INFO_F(Elements::Function, "===> Start SrcDstBufferMerge.");
         SrcDstBufferMergeImpl merge;
         if (merge.Run(function) != SUCCESS) {
-			ALOG_INFO_F("===> Stop SrcDstBufferMerge.");
+			APASS_LOG_INFO_F(Elements::Function, "===> Stop SrcDstBufferMerge.");
 			return SUCCESS;
 		}
-        ALOG_INFO_F("===> Finish SrcDstBufferMerge.");
+        APASS_LOG_INFO_F(Elements::Function, "===> Finish SrcDstBufferMerge.");
         return SUCCESS;
     }
 };
