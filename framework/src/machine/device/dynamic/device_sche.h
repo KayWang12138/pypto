@@ -228,12 +228,17 @@ struct DynMachineManager {
         }
 
         int cpu = sched_getcpu();
+#ifndef __DEVICE__
+        cpu = simCpuId_++;
+#endif
         if (devArgs->archInfo == ArchInfo::DAV_3510) {
             return AllocThreadIdxForDav3510(devArgs, cpu, curThreadIdx, threadIdx);
         } else if (devArgs->archInfo == ArchInfo::DAV_2201) {
             return AllocThreadIdxForDav2201(devArgs, cpu, curThreadIdx, threadIdx);
         }
-
+#ifndef __DEVICE__
+        cpu = --simCpuId_;
+#endif
         curThreadIdx = ++threadIdx;
         return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
     }
@@ -562,6 +567,9 @@ struct DynMachineManager {
     std::atomic<int> finished_{0};
     std::atomic<uint64_t> cpumask_{0};
     std::atomic<uint32_t> exitNum_{0};
+ #ifndef __DEVICE__
+    std::atomic<int> simCpuId_{0};
+#endif
     std::atomic<int> ctrlcpuIdx_{0};
     std::atomic<int> die0ThreadIdx_{0};
     std::atomic<int> die1ThreadIdx_{0};
