@@ -613,6 +613,24 @@ void DevAscendFunction::PopulateOperationEncodedContent(
     }
 }
 
+static int64_t MaybeRawTensorIndex(int64_t val, const OrderedSet<std::shared_ptr<RawTensor>> &rawList) {
+    const int64_t kRawTensorIndexBit = 1L << 62;
+    if ((val == -1) || !(val & kRawTensorIndexBit)) {
+        // concrete may -1, ignore this bad case
+        return val;
+    }
+
+    auto magic = val & (~kRawTensorIndexBit);
+    for (auto rawTensor : rawList) {
+        if (rawTensor->GetRawMagic() == magic) {
+            return rawList.GetIndex(rawTensor);
+        }
+    }
+
+    ASSERT(false) << "Raw tensor index not found for magic " << std::hex << val;
+    return val;
+}
+
 void DevAscendFunction::PopulateOneEncodedOpOperandsAndAttrs(
         size_t index,
         int &operanSize,
@@ -660,8 +678,7 @@ void DevAscendFunction::PopulateOneEncodedOpOperandsAndAttrs(
     for (size_t k = CALLOP_ARG_ATTR_BASE_INDEX; k < (size_t)opStaticAttrSize; k++) {
         int fillValue = 0;
         if (callArgs[k].IsImmediate()) {
-            auto it = rawTensorIndex.find(k);
-            fillValue = (it != rawTensorIndex.end()) ? it->second : callArgs[k].Concrete();
+            fillValue = MaybeRawTensorIndex(callArgs[k].Concrete(), rawList);
         } else {
             fillValue = expressionTable->LookupPrimaryExpressionIndex(callArgs[k]);
         }
@@ -1089,8 +1106,8 @@ struct EncodeDevAscendFunctionInfo {
  	  	                 tensor->magic, tensor->GetRawMagic());
  	  	}
         ASSERT(cellMatchStride[0] < MAX_CELLMATCHSSTRIDE) << " Assemble outcast " << tensor->magic << " raw " << tensor->GetRawMagic()
- 	         <<"stitch results in excessive memory consumption," 
- 	         << "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape."; 
+ 	         <<"stitch results in excessive memory consumption,"
+ 	         << "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape.";
     }
 
     void RecordRawTensor(const std::shared_ptr<LogicalTensor> &tensor) {
@@ -2344,7 +2361,7 @@ static void ProcessDevFunctionOutcasts(Function *func, DevAscendFunction *devFun
         devFunc->exclusiveOutcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
     MACHINE_LOGD("RootInnerTensorWsMemoryRequirement is %lu, funcDevTaskInnerExclusiveOutcastMem is %lu.",
                   devFunc->rootInnerTensorWsMemoryRequirement, devFunc->exclusiveOutcastWsMemoryRequirement);
-    
+
     maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
     maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
     MACHINE_LOGD("MaxRootInnerMem is %lu, maxDevTaskInnerExclusiveOutcastMem is %lu.",
@@ -2413,7 +2430,7 @@ static uint64_t CalcGeneralMetadataSlotWorkspace(DevAscendProgram *devProg) {
     MACHINE_LOGD("ItemPoolMemSize is: %lu, vectorMemSize is: %lu, slotAllocatorMemSize is %lu.,",
                   itemPoolMemSize, vectorMemSize, slotAllocatorMemSize);
     static constexpr uint64_t AICPU_SLOT_STATIC_MEMSIZE = 2 * MEBI;
-    generalMetadataSlotSize = itemPoolMemSize + vectorMemSize + 
+    generalMetadataSlotSize = itemPoolMemSize + vectorMemSize +
                               slotAllocatorMemSize + AICPU_SLOT_STATIC_MEMSIZE;
     MACHINE_LOGD("Workspace of generalMetadataSlotSize is %lu., ", generalMetadataSlotSize);
     return generalMetadataSlotSize;
