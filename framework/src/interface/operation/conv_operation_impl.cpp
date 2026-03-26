@@ -418,7 +418,7 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
         int paddingRight = paddings[i * 2 + 1];
         ASSERT(ConvOperationError::INPUT_INVALID, paddingLeft < weightVal && paddingRight < weightVal)
             << "The value of the " << dimNames[i]
-            << " dimension of weight must be >= padding.Current weight value:" << weightVal
+            << " dimension of weight must be > padding.Current weight value:" << weightVal
             << ",padding value:" << paddingLeft
             << " and " << paddingRight
             << ".";
