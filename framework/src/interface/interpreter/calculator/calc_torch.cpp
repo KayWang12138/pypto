@@ -2034,6 +2034,21 @@ static void Scatter(const TensorData &out, const TensorData &self, const TensorD
     }
 }
 
+static void Bind(const TensorData &out, uint64_t groupIndex, uint64_t memType, uint64_t slotSize) {
+    (void) out;
+    (void) groupIndex;
+    auto &comm = CommManager::getInstance();
+    std::string groupName = "";
+    int rank = 0;
+    int worldSize = 0;
+    // TODO: 并非根据 memType 来分配
+    if (memType == 1) {
+        comm.InitControl(groupName, rank, worldSize);
+    } else {
+        comm.InitData(groupName, rank, worldSize);
+    }
+}
+
 static struct CalcOps calcOps = {
     .Random = Random,
     .AllClose = AllClose,
@@ -2155,6 +2170,7 @@ static struct CalcOps calcOps = {
     .BitwiseLeftShiftS = BitwiseLeftShiftS,
     .SBitwiseRightShift = SBitwiseRightShift,
     .SBitwiseLeftShift = SBitwiseLeftShift,
+    .BindTensor = Bind,
 };
 
 extern "C" struct CalcOps *GetCalcOps() {
