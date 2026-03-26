@@ -65,5 +65,4 @@ TEST(AllLogsCover, LOG04_TO_12_ALL) {
     auto func = std::make_shared<Function>(Program::GetInstance(), "test", "test", nullptr);
     Strategy_AllRemainingLogs(*func);
 }
-
 } // namespace npu::tile_fwk
