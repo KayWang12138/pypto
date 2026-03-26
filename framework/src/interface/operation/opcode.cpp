@@ -1067,4 +1067,13 @@ std::unordered_set<Opcode> SKIP_OPCODE_FOR_CODEGEN = {
     Opcode::OP_NOP,
     Opcode::OP_HUB,
 };
+
+std::unordered_set<Opcode> SUPPORT_BRC_INLINE = {
+    Opcode::OP_ADD,
+    Opcode::OP_SUB,
+    Opcode::OP_DIV,
+    Opcode::OP_MUL,
+    Opcode::OP_MAXIMUM,
+    Opcode::OP_MINIMUM,
+};
 } // namespace npu::tile_fwk
