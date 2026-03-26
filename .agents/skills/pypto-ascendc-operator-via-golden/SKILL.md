@@ -35,7 +35,7 @@ tag: [PyPTO, Ascend C, PyTorch Golden, 算子开发, 精度调试]
 3. 提取完需求后，展示出来，让用户确认一下细节，确认是否符合要求！提醒用户检查：是否有类似“online softmax”的隐藏需求没有被发现或提及？
 
 ### 输出
-- `custom/{算子名}/spec.md`
+- `custom/{算子名}/needs_analysis.md`
 
 ---
 
@@ -63,6 +63,11 @@ def {算子名}_golden(x: torch.Tensor, param1: float) -> torch.Tensor:
     # Step 2: ...
     return output
 ```
+
+**重要原则**：
+- Golden专注于计算流程的准确、完整复现，不添加错误检查/泛化性判断
+- 去掉边界条件判断（如 `if sp == 1`），保持计算流的一致性
+- 确保计算步骤清晰、准确，便于 PyPTO 对照实现
 
 ### 输出
 - `custom/{算子名}/{算子名}_golden.py`
