@@ -26,7 +26,6 @@ using json = nlohmann::json;
 namespace npu::tile_fwk {
 
 using LogStrategy = std::function<void(Function&)>;
-
 void Strategy_PeakMemory(Function& func) {
     func.SetFunctionType(FunctionType::DYNAMIC);
     json j;
