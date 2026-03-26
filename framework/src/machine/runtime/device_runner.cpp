@@ -811,12 +811,6 @@ void DeviceRunner::StopMachinePerfTraceDumpThread() {
             rtFree(ptr);
         }
     }
-    for (size_t i = 0; i < perfData_.size(); i++) {
-        if (perfData_[i] != nullptr) {
-            rtFree(perfData_[i]);
-        }
-    }
-    perfData_.clear();
 }
 
 void DeviceRunner::MachinePerfTraceDumpThread() {
@@ -832,6 +826,12 @@ void DeviceRunner::MachinePerfTraceDumpThread() {
 DeviceRunner::~DeviceRunner() {
     MACHINE_LOGD("Start to cleanup perfData");
     StopMachinePerfTraceDumpThread();
+    for (size_t i = 0; i < perfData_.size(); i++) {
+        if (perfData_[i] != nullptr) {
+            ret = rtFree(perfData_[i]);
+        }
+    }
+    perfData_.clear();
 }
 
 } // namespace npu::tile_fwk
