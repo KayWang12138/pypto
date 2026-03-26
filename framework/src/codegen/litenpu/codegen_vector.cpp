@@ -1290,7 +1290,7 @@ std::string CodeGenOpLiteNPU::GenBinaryOp() const
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
 
-    std::string s1Var = sm->QueryVarNameByTensorMagic(ID2)
+    std::string s1Var = sm->QueryVarNameByTensorMagic(ID2);
     //AppendLocalBufferVarOffset({&dVar, &s0Var, &s1Var}, {0, 1, 2});
     std::map<unsigned, std::reference_wrapper<std::string>> vars;
     vars.insert({static_cast<unsigned>(0), std::ref(dVar)});
