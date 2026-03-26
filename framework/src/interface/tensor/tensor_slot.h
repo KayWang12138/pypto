@@ -221,7 +221,7 @@ struct TensorSlotManager {
 
     /* Mapping from slot to its index */
     std::unordered_map<TensorSlot, int> slotIndexDict;
-    std::vector<TensorSlotUsage> slotUsageList;
+    std::unordered_map<TensorSlot, TensorSlotUsage> slotUsageDict;
 
     std::unordered_set<TensorSlot> liveSlotSet;
     std::unordered_set<TensorSlot> assembleSlotSet;
@@ -244,7 +244,9 @@ struct TensorSlotManager {
     std::set<int> partialUpdateSlotIndexSet;
 
     std::vector<TensorSlotCheckpoint> checkpointStack;
+    std::unordered_set<TensorSlot> recycleSlotSet;
 
+    void SetRecording(bool isRecording);
     void BeginScope(Function *tensorFunc);
     std::shared_ptr<TensorSlotScope> EndScope();
     void ConnectSlot(std::shared_ptr<TensorSlotScope> scope);
@@ -291,5 +293,7 @@ struct TensorSlotManager {
 private:
     void LogOperation(const TensorSlot &slot, const std::string &op);
     void InsertLiveSlot(const TensorSlot &slot);
+    void TensorSlotRecycle(const TensorSlot &slot);
+    bool isRecording_{false};
 };
 } // namespace npu::tile_fwk

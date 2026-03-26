@@ -197,6 +197,26 @@ std::string TensorSlotScope::Dump() const {
     return oss.str();
 }
 
+void TensorSlotManager::TensorSlotRecycle(const TensorSlot &slot) {
+    slotIndexDict.erase(slot);
+    slotUsageDict.erase(slot);
+    auto name = slotNameDict.find(slot);
+    if (name != slotNameDict.end()) {
+        symbolNameDict.erase(name->second);
+        slotNameDict.erase(slot);
+    }
+}
+
+void TensorSlotManager::SetRecording(bool isRecording) {
+    isRecording_ = isRecording;
+    if (!isRecording_) {
+        for (auto &slot : recycleSlotSet) {
+            TensorSlotRecycle(slot);
+        }
+        recycleSlotSet.clear();
+    }
+}
+
 void TensorSlotManager::BeginScope(Function *tensorFunc) {
     std::shared_ptr<TensorSlotScope> scope = std::make_shared<TensorSlotScope>(tensorFunc);
     scopeList.push_back(scope);
@@ -219,20 +239,14 @@ void TensorSlotManager::ConnectSlot(std::shared_ptr<TensorSlotScope> scope) {
 
 void TensorSlotManager::InsertLiveSlot(const TensorSlot &slot) {
     if (slotIndexDict.count(slot) == 0) {
-        int slotIndex = slotIndexDict.size();
-        slotIndexDict[slot] = slotIndex;
-        slotUsageList.push_back(TensorSlotUsage());
+        slotIndexDict[slot] = slot.GetId();
+        slotUsageDict[slot] = TensorSlotUsage();
     }
     liveSlotSet.insert(slot);
 }
 
 TensorSlotUsage &TensorSlotManager::GetTensorSlotUsage(const TensorSlot &slot) {
-    FUNCTION_ASSERT(FError::NOT_EXIST, slotIndexDict.count(slot) != 0)
-        << "TensorSlot[" << slot.GetSymbolName() << "] not found in slotIndexDict.";
-    int index = slotIndexDict[slot];
-    FUNCTION_ASSERT(index >= 0 && index < static_cast<int>(slotUsageList.size()))
-        << "index: " << index << ", slotUsageList.size(): " << slotUsageList.size();
-    return slotUsageList[index];
+    return slotUsageDict[slot];
 }
 
 static Function *GetCurrentNonHiddenFunction() {
@@ -289,6 +303,12 @@ void TensorSlotManager::TensorSlotDestruct(const TensorSlot &slot) {
 
     if (liveSlotSet.count(slot)) {
         liveSlotSet.erase(slot);
+    }
+    if (isRecording_) {
+        // slot info maybe used during end function, could not freed directly
+        recycleSlotSet.insert(slot);
+    } else {
+        TensorSlotRecycle(slot);
     }
 }
 

@@ -104,7 +104,7 @@ Status ExpandFunction::RunOnFunction(Function &function) {
         APASS_LOG_ERROR_F(Elements::Function, "Function[%s] ExpandFunction failed.", function.GetRawName().c_str());
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Function, "Function operation size is: %zu after expansion.", function.Operations().size());
+    APASS_LOG_INFO_F(Elements::Function, "Function[%s] operation size is: %zu after expansion.", function.GetMagicName().c_str(), function.Operations().size());
     APASS_LOG_INFO_F(Elements::Function, "End ExpandFunction function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }

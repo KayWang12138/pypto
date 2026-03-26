@@ -447,11 +447,11 @@ def moe_distributed_dispatch_kernel(
         this_rank = pypto.distributed.my_symbolic_pe(group_name)
 
         # 创建通信共享区域
-        shmem_data, shmem_data_signal = pypto.distributed.create_shmem_tensor(
+        shmem_data = pypto.distributed.create_shmem_tensor(
             group_name, ep_world_size, x.dtype, [moe_expert_num, batch_size, hidden_size])
-        shmem_info, _ = pypto.distributed.create_shmem_tensor(
+        shmem_info = pypto.distributed.create_shmem_tensor(
             group_name, ep_world_size, pypto.DT_INT32, [moe_expert_num, batch_size, info_size])
-        shmem_count, shmem_count_signal = pypto.distributed.create_shmem_tensor(
+        shmem_count = pypto.distributed.create_shmem_tensor(
             group_name, ep_world_size, pypto.DT_INT32, [1, cum_sum_row_size, count_size])
 
         # 根据专家表计算发送偏移
@@ -500,11 +500,12 @@ def moe_distributed_dispatch_kernel(
                 )
                 pypto.set_vec_tile_shapes(1, hidden_size)
                 pypto.distributed.shmem_signal(
-                    shmem_data_signal,
-                    ep_world_size,
+                    shmem_data,
+                    0,
                     1,
-                    [ep_world_size, 1, 1, 1, hidden_size],
-                    [0, 0, 0, 0, 0],
+                    [1, 1, hidden_size],
+                    [0, 0, 0],
+                    target_pe=-1,
                     sig_op=pypto.AtomicType.ADD,
                     pred=[shmem_data_out_put, shmem_info_out_put],
                 )
@@ -525,11 +526,12 @@ def moe_distributed_dispatch_kernel(
             )
             pypto.set_vec_tile_shapes(1, count_size)
             pypto.distributed.shmem_signal(
-                shmem_count_signal,
-                remote_rank_id,
+                shmem_count,
+                0,
                 1,
-                [1, 1, 1, 1, count_size],
-                [remote_rank_id, 0, 0, 0, 0],
+                [1, 1, count_size],
+                [0, 0, 0],
+                target_pe=remote_rank_id,
                 sig_op=pypto.AtomicType.ADD, pred=[shmem_put_out],
             )
 
@@ -539,21 +541,23 @@ def moe_distributed_dispatch_kernel(
         for _ in pypto.loop(1, name='MOE_DISTRIBUTED_DISPATCH_CUM_SUM', idx_name='_'):
             pypto.set_vec_tile_shapes(1, hidden_size)
             shmem_data_wait_out = pypto.distributed.shmem_wait_until(
-                shmem_data_signal,
-                pypto.OpType.EQ,
+                shmem_data,
+                0,
                 batch_size * topk * ep_world_size,
-                [1, 1, 1, 1, hidden_size],
-                [this_rank, 0, 0, 0, 0],
+                [1, 1, hidden_size],
+                [0, 0, 0],
+                cmp=pypto.OpType.EQ,
                 clear_signal=True,
                 pred=[cum_sum_result],
             )
             pypto.set_vec_tile_shapes(1, count_size)
             shmem_count_wait_out = pypto.distributed.shmem_wait_until(
-                shmem_count_signal,
-                pypto.OpType.EQ,
+                shmem_count,
+                0,
                 moe_expert_num,
-                [1, 1, 1, 1, count_size],
-                [this_rank, 0, 0, 0, 0],
+                [1, 1, count_size],
+                [0, 0, 0],
+                cmp=pypto.OpType.EQ,
                 clear_signal=True,
                 pred=[cum_sum_result],
             )
@@ -599,7 +603,7 @@ def moe_distributed_dispatch_kernel(
                     [1, batch_size, hidden_size],
                     [index, 0, 0],
                     pred=[cum_sum_result],
-                    valid_shape=[1, 1, cur_count, hidden_size],
+                    valid_shape=[1, cur_count, hidden_size],
                 )
                 expand_x[offset:offset + cur_count, ...] = local_data_recv_count
                 pypto.set_vec_tile_shapes(batch_size, info_size)
@@ -609,7 +613,7 @@ def moe_distributed_dispatch_kernel(
                     [1, batch_size, info_size],
                     [index, 0, 0],
                     pred=[cum_sum_result],
-                    valid_shape=[1, 1, cur_count, info_size],
+                    valid_shape=[1, cur_count, info_size],
                 )
                 assist_info_for_combine[offset:offset + cur_count, :info_size] = local_info_recv_count
 
@@ -739,8 +743,8 @@ def moe_distributed_combine_kernel(
         expert_scales: pypto.Tensor([batch_size, topk], pypto.DT_FP32, format=pypto.TileOpFormat.TILEOP_ND),
         out: pypto.Tensor([batch_size, hidden_size], data_type, format=pypto.TileOpFormat.TILEOP_ND),
     ):
-        # 创建 shmem_data 和 shmem_signal
-        shmem_data, shmem_signal = pypto.distributed.create_shmem_tensor(
+        # 创建 shmem_data
+        shmem_data = pypto.distributed.create_shmem_tensor(
             group_name,
             ep_world_size,
             expand_x.dtype,
@@ -764,11 +768,12 @@ def moe_distributed_combine_kernel(
             )
 
             pypto.distributed.shmem_signal(
-                shmem_signal,
+                shmem_data,
                 0,
                 1,
-                [1, 1, 1, 1, hidden_size],
-                [logical_rank_id, 0, 0, token_id, 0],
+                [1, 1, hidden_size],
+                [0, token_id, 0],
+                target_pe=logical_rank_id,
                 sig_op=pypto.AtomicType.ADD,
                 pred=[shmem_put_out],
             )
@@ -778,11 +783,14 @@ def moe_distributed_combine_kernel(
         for token_id in range(batch_size):
             pypto.set_vec_tile_shapes(1, hidden_size)
             wait_until_out = pypto.distributed.shmem_wait_until(
-                shmem_signal,
-                pypto.OpType.EQ,
+                shmem_data,
+                0,
                 topk,
-                [1, 1, 1, 1, hidden_size],
-                [my_pe, 0, 0, token_id, 0],
+                [1, 1, hidden_size],
+                [0, token_id, 0],
+                cmp=pypto.OpType.EQ,
+                clear_signal=True,
+                pred=[expand_x],
             )
 
             pypto.set_vec_tile_shapes(topk, hidden_size)

@@ -196,6 +196,7 @@ private:
     std::string GenOffsetsAndRawShapesForFfnCombineInfo() const;
     std::string GenOffsetsAndRawShapesForShmemSet() const;
     std::string GenOffsetsAndRawShapesDefault() const;
+    std::string GenTargetRankStr() const;
 
     void UpdateTileTensorInfo();
     void UpdateLoopInfo();
@@ -475,13 +476,14 @@ private:
     void InitAICPUOpsMap();
 
     std::string PrintCoord(size_t dim, const std::string &coord) const;
+    std::pair<std::string, std::string> PrintDstSrcCoordFromAttr() const;
     std::string PrintTensorForCopyBetweenGM(unsigned operandIdx, unsigned gmIdx, const std::string &gmVarName) const;
     template <typename T>
-    void FillParamWithFullShape(std::vector<std::string> &paramList, const std::vector<T> &input) const {
+    void FillParamWithFullInput(std::vector<std::string> &paramList, const std::vector<T> &input) const {
         FillParamWithInput(paramList, input, 0, input.size());
     }
     template <typename T>
-    void FillParamWithShapeExceptFirst(std::vector<std::string> &paramList, const std::vector<T> &input) const {
+    void FillParamWithInputExceptFirst(std::vector<std::string> &paramList, const std::vector<T> &input) const {
         FillParamWithInput(paramList, input, 1, input.size());
     }
 

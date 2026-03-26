@@ -738,37 +738,39 @@ void OpcodeManager::RegisterCube() {
 void OpcodeManager::RegisterDistribute() {
     RegisterInfo(Opcode::OP_SHMEM_SET, OpCoreType::AIV, "SHMEM_SET",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
-        {"TileOp::Distributed::ShmemSet", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED);
+        {"TileOp::Distributed::ShmemSet", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
+        {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::distOpAttr, OpAttributeKey::ownerRank});
     RegisterInfo(Opcode::OP_SHMEM_PUT, OpCoreType::AIV, "SHMEM_PUT",
         {MemoryType::MEM_DEVICE_DDR , MemoryType::MEM_DEVICE_DDR ,
             MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
         {"TileOp::Distributed::ShmemPut", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
-        {OpAttributeKey::requiresBoundaryCopy});
+        {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::distOpAttr, OpAttributeKey::ownerRank});
     RegisterInfo(Opcode::OP_SHMEM_PUT_UB2GM, OpCoreType::AIV, "SHMEM_PUT_UB2GM",
         {MemoryType::MEM_UB , MemoryType::MEM_DEVICE_DDR,
             MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR}, {"TileOp::Distributed::ShmemPutUb2Gm", PIPE_S, PIPE_S, CoreType::AIV},
-        OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
+        OpCalcType::DISTRIBUTED,
+        {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::distOpAttr, OpAttributeKey::ownerRank});
     RegisterInfo(Opcode::OP_SHMEM_SIGNAL, OpCoreType::AIV, "SHMEM_SIGNAL",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
         {"TileOp::Distributed::ShmemSignal", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
-        {OpAttributeKey::requiresBoundaryCopy});
+        {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::distOpAttr, OpAttributeKey::ownerRank});
     RegisterInfo(Opcode::OP_SHMEM_WAIT_UNTIL, OpCoreType::AICPU, "SHMEM_WAIT_UNTIL",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR}, TileOpCfg(), OpCalcType::DISTRIBUTED,
-        {OP_ATTR_PREFIX + "distributed"});
+        {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::distOpAttr, OpAttributeKey::ownerRank});
     RegisterInfo(Opcode::OP_SHMEM_GET, OpCoreType::AIV, "SHMEM_GET",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
         {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
-        {OpAttributeKey::requiresBoundaryCopy});
+        {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::distOpAttr, OpAttributeKey::ownerRank});
     RegisterInfo(Opcode::OP_SHMEM_GET_GM2UB, OpCoreType::AIV, "SHMEM_GET_GM2UB",
         {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_DEVICE_DDR /* shmemData */},
         {MemoryType::MEM_UB /* UBData */, MemoryType::MEM_UB /* ubTensor */},
         {"TileOp::Distributed::ShmemGetGm2Ub", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
-        {OpAttributeKey::requiresBoundaryCopy});
+        {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::distOpAttr, OpAttributeKey::ownerRank});
     RegisterInfo(Opcode::OP_BIND_TENSOR, OpCoreType::ANY, "BIND_TENSOR", {}, {MemoryType::MEM_DEVICE_DDR},
         {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
         {OP_ATTR_PREFIX + "BindTensor"});
