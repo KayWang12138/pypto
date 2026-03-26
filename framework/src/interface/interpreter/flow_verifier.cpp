@@ -24,6 +24,10 @@
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/error_code.h"
+#include "tilefwk/comm_group_recorder.h"
+#include "communication.h"
+#include "machine/runtime/distributed/distributed_context.h"
+
 
 namespace npu::tile_fwk {
 
@@ -398,12 +402,22 @@ void FlowVerifier::WriteException()
         ProgrameInfo, functionInterpreter_->ProgrameRowNum, functionInterpreter_->execProgrameResultFile);
 }
 
+static std::atomic<uint32_t> round{0};
+
 void FlowVerifier::VerifyTensorGraph(
     Function* entry, const std::vector<std::shared_ptr<LogicalTensorData>>& inputDataViewList,
     const std::vector<std::shared_ptr<LogicalTensorData>>& outputDataViewList,
     const std::vector<std::shared_ptr<LogicalTensorData>>& goldenDataViewList,
     const std::shared_ptr<TensorSlotManager>& slotManager)
 {
+    const std::vector<std::string> groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
+    if (!groupNames.empty()) {
+        for (const std::string &groupName: groupNames) {
+            SimulationCommManager::Instance().CreateSimulationCommContext(groupName, round.load());
+        }
+    }
+    round++;
+
     entry_ = entry;
     inputDataViewList_ = inputDataViewList;
     outputDataViewList_ = outputDataViewList;
@@ -505,6 +519,12 @@ void FlowVerifier::VerifyTensorGraph(
         WriteException();
         throw std::runtime_error(e.what());
     }
+
+    if (!groupNames.empty()) {
+        for (const std::string &groupName: groupNames) {
+            SimulationCommManager::Instance().DestroySimulationCommContext(groupName);
+        }
+    }
 }
 
 template <typename T>
@@ -542,6 +562,15 @@ void FlowVerifier::VerifyPass(Function* func, int passIndex, const std::string& 
             return;
         }
     }
+
+    const std::vector<std::string> groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
+    if (!groupNames.empty()) {
+        for (const std::string &groupName: groupNames) {
+            SimulationCommManager::Instance().CreateSimulationCommContext(groupName, round.load());
+        }
+    }
+    round++;
+
     std::vector<double> tolerance = config::GetVerifyOption<std::vector<double>>(KEY_PASS_VERIFY_ERROR_TOL);
     float rtol = static_cast<float>(tolerance[0]);
     float atol = static_cast<float>(tolerance[1]);
@@ -587,6 +616,12 @@ void FlowVerifier::VerifyPass(Function* func, int passIndex, const std::string& 
         }
     }
     functionInterpreter_->DumpReset();
+
+    if (!groupNames.empty()) {
+        for (const std::string &groupName: groupNames) {
+            SimulationCommManager::Instance().DestroySimulationCommContext(groupName);
+        }
+    }
 }
 
 FlowVerifier& FlowVerifier::GetInstance()

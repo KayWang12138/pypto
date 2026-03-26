@@ -296,6 +296,7 @@ static Tensor ShmemPutImpl(
     ShmemPutAttr distOpAttr;
     distOpAttr.atomicType = putOp;
     distOpAttr.ownerRank = dstRank;
+    distOpAttr.group = dst.group;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
 }
@@ -334,6 +335,7 @@ Tensor ShmemGet(const ShmemTensor& src, const SymbolicScalar& srcRank, const Ten
     function.UpdateTensorDataUsage(op);
     ShmemGetAttr distOpAttr;
     distOpAttr.ownerRank = srcRank;
+    distOpAttr.group = src.group;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     op.SetAttr(OpAttributeKey::isDistCopyOut, true);
     return out;
@@ -361,6 +363,7 @@ Tensor ShmemLoad(const ShmemTensor& src, const SymbolicScalar& srcRank, const Te
     function.UpdateTensorDataUsage(op);
     ShmemGetAttr distOpAttr;
     distOpAttr.ownerRank = srcRank;
+    distOpAttr.group = src.group;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     op.SetAttr(OpAttributeKey::isDistCopyOut, false);
     return out;
@@ -398,6 +401,7 @@ static Tensor ShmemSignalImpl(
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, pred.GetShape());
     auto& op = function.AddOperation(Opcode::OP_SHMEM_SIGNAL, {pred.GetStorage(), signalTensor.GetStorage()}, {out});
     ShmemSignalAttr distOpAttr;
+    distOpAttr.group = src.group;
     distOpAttr.signalValue = signal;
     distOpAttr.atomicType = sigOp;
     distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
@@ -443,6 +447,7 @@ Tensor ShmemWaitUntil(
     auto& op =
         function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {pred.GetStorage(), signalTensor.GetStorage()}, {out});
     ShmemWaitUntilAttr distOpAttr;
+    distOpAttr.group = src.group;
     distOpAttr.expectedSum = cmpValue;
     distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
     distOpAttr.resetSignal = clearSignal;
@@ -465,6 +470,7 @@ static Tensor ShmemClearImpl(const ShmemTensor& src, Tensor& pred, bool clearDat
     auto& op = function.AddOperation(
         Opcode::OP_SHMEM_SET, {pred.GetStorage(), clearData ? src.data.GetStorage() : src.signal.GetStorage()}, {out});
     ShmemSetAttr distOpAttr;
+    distOpAttr.group = src.group;
     distOpAttr.isSetData = clearData;
     distOpAttr.ownerRank = GetHcclRankId(src.group);
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);

@@ -22,7 +22,11 @@
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "calc.h"
 #include "tilefwk/error_code.h"
+#include "interface/interpreter/verify_error.h"
+#include "communication.h"
+#include "tilefwk/comm_group_recorder.h"
 #include <algorithm>
+#include <future>
 
 namespace npu::tile_fwk {
 
@@ -704,6 +708,8 @@ struct FunctionInterpreter {
     VerifyType verifyType{VerifyType::INVALID};
     int captureIndex{0};
     int passIndex{-1};
+    std::unordered_map<Operation*, Operation*> waitDependencies_;
+    std::vector<Operation*> waitOpQueue_;
 
     std::vector<std::shared_ptr<LogicalTensorData>>& GetInputDataViewList()
     {
@@ -874,6 +880,54 @@ struct FunctionInterpreter {
         return false;
     }
 
+    std::vector<uint64_t> UnBind(SymbolicScalar attr) {
+        std::shared_ptr<RawSymbolicExpression> expr = std::static_pointer_cast<RawSymbolicExpression>(attr.Raw());
+        ASSERT(expr->Opcode() == SymbolicOpcode::T_MOP_CALL);
+        std::vector<uint64_t> parameters;
+        for (size_t i = 1; i < expr->OperandList().size(); i++) {
+            ScalarImmediateType value = EvaluateSymbolicScalar(SymbolicScalar(expr->OperandList()[i]));
+            parameters.emplace_back(value);
+        }
+        return parameters;
+    }
+
+    void ExecuteBindTensor(FunctionFrame& frame, Operation& op,
+        const std::vector<std::shared_ptr<LogicalTensorData>>& iOpDataList,
+        std::vector<std::shared_ptr<LogicalTensorData>>& oOpDataList)
+    {
+        (void) iOpDataList;
+        (void) oOpDataList;
+        std::cout << "=== ExecuteOpBindTensor running ..." << std::endl;
+        ASSERT(op.GetIOperands().size() == 0);
+        ASSERT(op.GetOOperands().size() == 1);
+        SymbolicScalar attr = op.GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
+        std::vector<uint64_t> parameters = UnBind(attr);
+        uint64_t groupIndex = parameters[0];
+        uint64_t memType = parameters[1];
+        uint64_t slotSize = parameters[2];
+        const auto &groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
+        ASSERT(groupIndex < static_cast<uint64_t>(groupNames.size()));
+        const std::string &groupName = groupNames[groupIndex];
+        LogicalTensorDataPtr out;
+        RawTensorDataPtr tmp;
+        
+        auto outOp = op.GetOOperands()[0];
+        if (frame.GetDataView(outOp) != nullptr) {
+            return;
+        }
+        if (memType == 0) {
+            std::cout << "Alloc " << slotSize << "B for " << groupName << std::endl;
+            tmp = SimulationCommManager::Instance().Alloc(groupName, outOp->Datatype(), outOp->GetShape());
+            out = LogicalTensorData::Create(*tmp);
+        }
+        if (memType == 1) {
+            std::cout << "AllocSignal " << slotSize << "B for " << groupName << std::endl;
+            tmp = SimulationCommManager::Instance().AllocSignal(groupName, outOp->Datatype(), outOp->GetShape());
+            out = LogicalTensorData::Create(*tmp);
+        }
+        frame.AddDataView(outOp, out);
+    }
+
     void ExecuteInplaceOperation(
         FunctionFrame& frame, Operation& op, int oOperandIdx,
         const std::vector<std::shared_ptr<LogicalTensorData>>& iOpDataList,
@@ -945,6 +999,8 @@ struct FunctionInterpreter {
             auto oop = op->GetOOperands()[i];
             if (auto index = GetInplaceIndex(op, i); index != -1) {
                 ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList);
+            } else if (op->GetOpcode() == Opcode::OP_BIND_TENSOR){
+                ExecuteBindTensor(frame, *op, iOpDataList, oOpDataList);
             } else {
                 if (isConsumerAccMatmul(op)) {
                     auto dtype = oop->GetRawTensor()->GetDataType();
@@ -1034,19 +1090,96 @@ struct FunctionInterpreter {
         EvaluateDynParam(dynParamTable, linearArgList);
 
         ExecuteHandleFunctionBegin(func, frame);
+        // TODO: 将依赖 WaitUntil 的 Op 以及对应的任务绑定
+        ResolveWaitUntilDependency(func);
         for (auto& op : func->Operations()) {
             if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
                 continue;
-            ExecuteHandleOperationBegin(&op);
-            ExecuteOperation(*frame, &op);
+            // TODO: 判断 op 中是否依赖 WaitUntil，如果依赖则将对应的 waitUntil 执行【此时 waitUntil 必定已经执行，拓扑序优先】
+            if (DependsOnWaitUntil(&op) || DependsOnWaitQueue(&op)) {
+                waitOpQueue_.push_back(&op);
+            } else {
+                ExecuteHandleOperationBegin(&op);
+                ExecuteOperation(*frame, &op);
+                ExecuteHandleOperationEnd();
+            }
+        }
+
+        for (auto& op: waitOpQueue_) {
+            ExecuteHandleOperationBegin(op);
+            if (DependsOnWaitUntil(op)) {
+                std::cout << op->GetOpcodeStr() << op->GetOpMagic() << " depends on waituntil" << std::endl;
+                // GetWaitTask 需要从全局变量中拿，每执行一次 WaitUntil，就应该把相应的执行序下的 waitUntil 记录在全局哈希表中
+                std::future<void>* task = GetWaitTask(op);
+                // 如果拿到了相应的执行任务，就需要等待 WaitUntil 执行完成
+                if (task != nullptr) {
+                    std::cout << op->GetOpcodeStr() << op->GetOpMagic() << " is waitting for waituntil ..." << std::endl;
+                    task->get();
+                }
+                RemoveWaitTask(op);
+                ExecuteOperation(*frame, op);
+            } else {
+                ExecuteOperation(*frame, op);
+            }
             ExecuteHandleOperationEnd();
         }
+        waitOpQueue_.clear();
         ExecuteHandleFunctionEnd();
 
         CopyInplaceOutcastToIncast(func, frame);
 
         EraseTensorDataView(func, *frame);
         return frame;
+    }
+
+    void ResolveWaitUntilDependency(Function* func) {
+        for (auto& op : func->Operations()) {
+            if (op.GetOpcode() != Opcode::OP_SHMEM_WAIT_UNTIL) {
+                continue;
+            }
+            LogicalTensors dependencyOperands = op.GetOOperands();
+            for (auto& depend : dependencyOperands) {
+                for (auto& consumer : depend->GetConsumers()) {
+                    waitDependencies_[consumer] = &op;
+                    std::cout << consumer->GetOpcodeStr() << consumer->GetOpMagic() << " depends on " << 
+                        op.GetOpcodeStr() << op.GetOpMagic() << std::endl;
+                }
+            }
+        }
+    }
+
+    bool DependsOnWaitUntil(Operation* op) {
+        if (waitDependencies_.find(op) != waitDependencies_.end()) {
+            return true;
+        }
+        return false;
+    }
+
+    bool DependsOnWaitQueue(Operation* op) {
+        for (Operation *wop: waitOpQueue_) {
+            for (auto ot: wop->GetOOperands()) {
+                if (ot->HasConsumer(op)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    std::future<void>* GetWaitTask(Operation* op) {
+        auto it = waitDependencies_.find(op);
+        if (it == waitDependencies_.end()) {
+            return nullptr;
+        }
+        return SimulationCommManager::GetWaitTaskFuture(it->second);
+    }
+
+    void RemoveWaitTask(Operation* op) {
+        auto it = waitDependencies_.find(op);
+        if (it == waitDependencies_.end()) {
+            return;
+        }
+        waitDependencies_.erase(it);
     }
 
     void CopyInplaceOutcastToIncast(Function* func, const std::shared_ptr<FunctionFrame>& frame)
