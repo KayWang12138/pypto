@@ -21,8 +21,6 @@
 #include "interface/utils/log.h"
 #include "passes/pass_log/pass_log.h"
 
-#undef MODULE_NAME
-#define MODULE_NAME "MergeSrcDstBuffer"
 namespace npu::tile_fwk {
 class SrcDstBufferMergeImpl {
 public:
