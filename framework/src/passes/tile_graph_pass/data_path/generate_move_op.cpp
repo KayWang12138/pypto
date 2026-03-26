@@ -123,26 +123,28 @@ Status GenerateMoveOp::ProcessL0B(Operation &op, ViewOpAttribute *viewOpAttribut
     return SUCCESS;
 }
 
-Status GenerateMoveOp::ProcessL0A(Operation &op, ViewOpAttribute *viewOpAttribute) const {
-    auto isTrans = (op.HasAttr("op_attr_l1_to_l0_transpose")) ? op.GetBoolAttribute("op_attr_l1_to_l0_transpose") : 0;
-    if(isTrans) {
-        op.SetOpCode(Opcode::OP_L1_TO_L0_AT);
-    } else {
-        op.SetOpCode(Opcode::OP_L1_TO_L0A);
-    }
+Status GenerateMoveOp::ProcessL0AMX(Operation &op, ViewOpAttribute *viewOpAttribute) const {
+    op.SetOpCode(Opcode::OP_L1_TO_L0A_SCALE);
     op.SetCoreType(CoreType::AIC);
+    auto input = op.GetIOperands()[0];
+    auto prodOp = *input->GetProducers().begin();
+    if (prodOp->GetOpcode() == Opcode::OP_COPY_IN && input->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+        prodOp->SetOpCode(Opcode::OP_L1_COPY_IN_A_SCALE);
+        prodOp->SetCoreType(CoreType::AIC);
+    }
     SetCopyAttr(op,viewOpAttribute);
     return SUCCESS;
 }
 
-Status GenerateMoveOp::ProcessL0B(Operation &op, ViewOpAttribute *viewOpAttribute) const {
-    auto isTrans = (op.HasAttr("op_attr_l1_to_l0_transpose")) ? op.GetBoolAttribute("op_attr_l1_to_l0_transpose") : 0;
-    if (isTrans) {
-        op.SetOpCode(Opcode::OP_L1_TO_L0_BT);
-    } else {
-        op.SetOpCode(Opcode::OP_L1_TO_L0B);
-    }
+Status GenerateMoveOp::ProcessL0BMX(Operation &op, ViewOpAttribute *viewOpAttribute) const {
+    op.SetOpCode(Opcode::OP_L1_TO_L0B_SCALE);
     op.SetCoreType(CoreType::AIC);
+    auto input = op.GetIOperands()[0];
+    auto prodOp = *input->GetProducers().begin();
+    if (prodOp->GetOpcode() == Opcode::OP_COPY_IN && input->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+        prodOp->SetOpCode(Opcode::OP_L1_COPY_IN_B_SCALE);
+        prodOp->SetCoreType(CoreType::AIC);
+    }
     SetCopyAttr(op,viewOpAttribute);
     return SUCCESS;
 }
