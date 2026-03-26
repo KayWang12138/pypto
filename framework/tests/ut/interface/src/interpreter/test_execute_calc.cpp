@@ -675,15 +675,8 @@ TEST_F(CalcCommonTest, ExecuteOpBinaryWithLhsFromBrcb) {
     std::vector<LogicalTensorDataPtr> ioperandDataViewList = {lhsView, rhsView};
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
-    ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &addOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
-
+    ExecuteOperationContext ctx = {&frame, &opInter, &addOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
+    opInter.ExecuteOperation(&ctx);
     opInter.ExecuteOperation(&ctx);
 
     ASSERT_EQ(outputView->GetSize(), 4);
