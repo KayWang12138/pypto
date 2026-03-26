@@ -449,14 +449,14 @@ inline void Sort(LogicalTensorDataPtr value, LogicalTensorDataPtr index, Logical
 
 // quantization
 inline void Quantize(LogicalTensorDataPtr out, LogicalTensorDataPtr input, LogicalTensorDataPtr scale,
-    LogicalTensorDataPtr otype, int64_t axis, LogicalTensorDataPtr zeroPoints) {
+    LogicalTensorDataPtr dtype, int64_t axis, LogicalTensorDataPtr zeroPoints) {
     CalcOps *ops = GetCalcOps();
     ASSERT(ops != nullptr);
 
-    // Get output data type from otype tensor
-    uint64_t otypeValue = 0;
-    if (otype != nullptr) {
-        otypeValue = static_cast<uint64_t>(Trans(otype).dtype);
+    // Get output data type from dtype tensor
+    uint64_t dtypeValue = 0;
+    if (dtype != nullptr) {
+        dtypeValue = static_cast<uint64_t>(Trans(dtype).dtype);
     }
 
     // Prepare scale data
@@ -466,10 +466,10 @@ inline void Quantize(LogicalTensorDataPtr out, LogicalTensorDataPtr input, Logic
     if (zeroPoints == nullptr) {
         // Symmetric quantization (no zero_points)
         TensorData emptyZeroPoints = {nullptr, {}, {}, {}, 0, DataType::DT_FP32, false};
-        ops->Quantize(Trans(out), Trans(input), scaleData, otypeValue, axis, emptyZeroPoints);
+        ops->Quantize(Trans(out), Trans(input), scaleData, dtypeValue, axis, emptyZeroPoints);
     } else {
         // Asymmetric quantization (with zero_points)
-        ops->Quantize(Trans(out), Trans(input), scaleData, otypeValue, axis, Trans(zeroPoints));
+        ops->Quantize(Trans(out), Trans(input), scaleData, dtypeValue, axis, Trans(zeroPoints));
     }
 }
 // TODO: Dequantize
