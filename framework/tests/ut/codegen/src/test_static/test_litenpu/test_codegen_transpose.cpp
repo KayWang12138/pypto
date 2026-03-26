@@ -47,7 +47,7 @@ TEST_F(LiteNPUCodeGenTranspose, Test_Transpose_View_Assemble_Unsqueeze_Reshape_L
         Tensor result;
         std::vector<int64_t> new_shape = {16, 16};
         std::vector<int64_t> offsetsView = {0, 4};
-        Tensor resultAssemble(DataType::DT_FP32, {32, 32}, "resultAssemble")
+        Tensor resultAssemble(DataType::DT_FP32, {32, 32}, "resultAssemble");
         FUNCTION("TestTranspose") {
             result = Transpose(operand, {-1, 0});
             result = View(result, new_shape, offsetsView);
@@ -61,7 +61,7 @@ TEST_F(LiteNPUCodeGenTranspose, Test_Transpose_View_Assemble_Unsqueeze_Reshape_L
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestTranspose");
     npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::codegen_litenpu codeGen(ctx);
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 
 }
