@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <string>
 
 #include "tilefwk/data_type.h"
 #include "tilefwk/element.h"
