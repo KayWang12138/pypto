@@ -169,29 +169,30 @@ std::pair<std::vector<int64_t>, std::vector<int64_t>> GetBrcExpandShape(
     auto operand1Shape = result->shape;
     auto operand2Shape = result->shape;
     size_t shapeSize = result->shape.size();
-    // Outer axis: handled by tileop loop with stride control, keep operand shape.
-    if (shapeSize > 2) {
-        for (size_t i = 0; i < shapeSize - 2; i++) {
-            operand1Shape[i] = operand1->shape[i];
-            operand2Shape[i] = operand2->shape[i];
-        }
-    }
     
     bool isInWhiteList = SUPPORT_BRCINLINE.count(GetBinaryOpNameCode<T>());
-    bool isSupportBrcInline =
-        isInWhiteList && (operand1->Datatype() == DT_FP32 || operand1->Datatype() == DT_FP16);
+    bool isSupportDtype = (operand1->Datatype() == DT_FP32 || operand1->Datatype() == DT_FP16);
     bool isCombineAxisEnabled =
-        function.paramConfigs_.forceCombineAxis || (function.paramConfigs_.combineAxis && isInWhiteList);
-    if (isSupportBrcInline) {
-        // The 2nd last axis: skip expand, brcinline
-        if (shapeSize > 1) {
-            operand1Shape[shapeSize - 2] = operand1->shape[shapeSize - 2];
-            operand2Shape[shapeSize - 2] = operand2->shape[shapeSize - 2];
+    function.paramConfigs_.forceCombineAxis || (function.paramConfigs_.combineAxis && isInWhiteList);
+    if (isInWhiteList) {
+        // Outer axis: handled by tileop loop with stride control, keep operand shape.
+        if (shapeSize > 2) {
+            for (size_t i = 0; i < shapeSize - 2; i++) {
+                operand1Shape[i] = operand1->shape[i];
+                operand2Shape[i] = operand2->shape[i];
+            }
         }
-        // The last axis: brcinline when combineAxis is enabled
-        if (shapeSize > 0 && isCombineAxisEnabled) {
-            operand1Shape[shapeSize - 1] = operand1->shape[shapeSize - 1];
-            operand2Shape[shapeSize - 1] = operand2->shape[shapeSize - 1];
+        if (isSupportDtype) {
+            // The 2nd last axis: skip expand, brcinline
+            if (shapeSize > 1) {
+                operand1Shape[shapeSize - 2] = operand1->shape[shapeSize - 2];
+                operand2Shape[shapeSize - 2] = operand2->shape[shapeSize - 2];
+            }
+            // The last axis: brcinline when combineAxis is enabled
+            if (shapeSize > 0 && isCombineAxisEnabled) {
+                operand1Shape[shapeSize - 1] = operand1->shape[shapeSize - 1];
+                operand2Shape[shapeSize - 1] = operand2->shape[shapeSize - 1];
+            }
         }
     }
     return {operand1Shape, operand2Shape};
