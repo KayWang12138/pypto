@@ -1633,6 +1633,8 @@ __TLoad__：gm to ub
 
 __TSqrt__：计算平方根
 
+__pipe_barrier__: 同步
+
 __TDiv__：除法运算
 
 __TStore__： ub to gm
@@ -1648,6 +1650,9 @@ TLoad(ub_x, gm_x)
 
 //√input
 TSqrt(ub_X)
+
+//sync
+pipe_barrier(PIPE_V)
 
 //division
 TDiv(ub_y, ub_x)
