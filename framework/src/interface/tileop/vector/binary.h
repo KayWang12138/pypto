@@ -81,12 +81,7 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
     if constexpr (op == BinaryOp::BITWISEOR) {
         pto::TOR(dst, src0, src1);
         return;
-    }
-    
-    if constexpr (op == BinaryOp::REM) {
-        pto::TREM(dst, src0, src1);
-        return;
-    }  
+    } 
 
     if constexpr (op == BinaryOp::EXPANDEXPDIF) {
         if constexpr (operand == TileOp::BroadcastOperand::NONE) {
@@ -197,12 +192,6 @@ TILEOP void TMax(T0 dst, T1 src0, T2 src1) {
 template <typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TMin(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::MIN, operand, LastUse>(dst, src0, src1);
-}
-
-#define OP_TILE_OP_REM TRem
-template <typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
-TILEOP void TRemainder(T0 dst, T1 src0, T2 src1) {
-    BinaryCompute<BinaryOp::REM, operand, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_BITWISEAND TBitwiseAnd
@@ -423,6 +412,10 @@ TILEOP void BinaryTmpComputeImpl(T0 dst, T1 src0, T2 src1, T3 tmp) {
         CalcPow(dst, src0, src1, tmp);
         return;
     }
+    if constexpr (op == BinaryOp::REM) {
+        pto::TREM(dst, src0, src1, tmp);
+        return;
+    } 
 }
 
 template <BinaryOp op, TileOp::BroadcastOperand operand, typename T0, typename T1, typename T2, typename T3>
@@ -476,4 +469,9 @@ TILEOP void TPow(T0 dst, T1 src0, T2 src1, T3 tmp) {
     BinaryTmpCompute<BinaryOp::POW, operand>(dst, src0, src1, tmp);
 }
 
+#define OP_TILE_OP_REM TRem
+template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2, typename T3>
+TILEOP void TRemainder(T0 dst, T1 src0, T2 src1, T3 tmp) {
+    BinaryTmpCompute<BinaryOp::REM, operand>(dst, src0, src1, tmp);
+}
 #endif

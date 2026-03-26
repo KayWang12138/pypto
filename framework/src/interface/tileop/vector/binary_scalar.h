@@ -72,11 +72,6 @@ TILEOP void BinaryScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
         pto::TLRELU(dst, src0, src1);
         return;
     }
-
-    if constexpr (op == BinaryScalarOp::REM) {
-        pto::TREMS(dst, src0, src1);
-        return;
-    }
 }
 
 template <BinaryScalarOp op, typename LastUse, typename T0, typename T1, typename Scalar>
@@ -139,12 +134,6 @@ TILEOP void TMinS(T0 dst, T1 src0, Scalar src1) {
 template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
 TILEOP void TLReLU(T0 dst, T1 src0, Scalar src1) {
     BinaryScalarCompute<BinaryScalarOp::LRELU, LastUse>(dst, src0, src1);
-}
-
-#define OP_TILE_OP_REMS TRemainderS
-template <typename Scalar, typename T0, typename T1>
-TILEOP void TRemainderS(T0 dst, T1 src0, Scalar src1) {
-    BinaryScalarCompute<BinaryScalarOp::REM, LastUse2Dim<0, 0>>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_BITWISEANDS TBitwiseAndS
@@ -222,6 +211,10 @@ TILEOP void BinaryScalarTmpComputeImpl(T0 dst, T1 src0, Scalar src1, T2 tmp) {
         pto::TXORS(dst, src0, src1, tmp);
         return;
     }
+    if constexpr (op == BinaryScalarOp::REM) {
+        pto::TREMS(dst, src0, src1, tmp);
+        return;
+    }
 }
 
 template <BinaryScalarOp op, typename T0, typename T1, typename Scalar, typename T2>
@@ -253,6 +246,12 @@ TILEOP void TBitwiseXorS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
     BinaryScalarTmpCompute<BinaryScalarOp::BITWISEXOR>(dst, src0, src1, tmp);
 }
 
+#define OP_TILE_OP_REMS TRemainderS
+template <typename Scalar, typename T0, typename T1, typename T2>
+TILEOP void TRemainderS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
+    BinaryScalarTmpCompute<BinaryScalarOp::REM>(dst, src0, src1, tmp);
+}
+
 #define OP_TILE_OP_REMRS TRemainderRS
 template <typename Scalar, typename T0, typename T1, typename T2>
 TILEOP void TRemainderRS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
@@ -262,19 +261,21 @@ TILEOP void TRemainderRS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
     auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
     auto dstTile = PtoTile<T0>(dst);
     auto src0Tile = PtoTile<T1>(src0);
-    auto tmpTile = PtoTile<T2>(tmp);
+    auto tmp0Tile = PtoTile<T2>(tmp);
+    auto tmp1Tile = PtoTile<T2>(tmp);
     for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
         for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
             for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
                 auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
                 dstTile.Assign(dst, tileOffsets);
                 src0Tile.Assign(src0, tileOffsets);
-                tmpTile.Assign(tmp, tileOffsets);
-                pto::TEXPANDS(tmpTile.Data(), src1);
+                tmp0Tile.Assign(tmp, tileOffsets);
+                tmp1Tile.Assign(tmp, tileOffsets + tmp1Tile.tileH * tmp1Tile.tileW);
+                pto::TEXPANDS(tmp0Tile.Data(), src1);
                 #ifdef __DAV_V220
                 pipe_barrier(PIPE_V);
                 #endif
-                pto::TREM(dstTile.Data(), tmpTile.Data(), src0Tile.Data());
+                pto::TREM(dstTile.Data(), tmp0Tile.Data(), src0Tile.Data(), tmp1Tile.Data());
             }
         }
     }

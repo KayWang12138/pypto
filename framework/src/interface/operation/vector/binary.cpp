@@ -120,7 +120,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
             function.AddOperation(
                 GetBinaryOpNameCode<T, false, true>(), {inputTile1, inputTile2}, {resultTile, tempTensor});
         } else {
-            if (opName == "BITWISEXOR" || opName == "COPYSIGN" || opName == "POW") {
+            if (opName == "BITWISEXOR" || opName == "COPYSIGN" || opName == "POW" || opName == "REM") {
                 std::vector<int64_t> tmpShape(resultTileInfo.shape);
                 auto alignSize = BLOCK_SIZE / BytesOf(result->Datatype());
                 tmpShape[resultTileInfo.shape.size() - 1] = 
@@ -405,10 +405,13 @@ void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, 
     if (cur == input1.tensor->GetShape().size()) {
         auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        if (opNameCode == Opcode::OP_BITWISEXORS || opNameCode == Opcode::OP_REMRS) {
+        if (opNameCode == Opcode::OP_BITWISEXORS) {
             std::vector<int64_t> tmpShape(resultTileInfo.shape);
             auto alignSize = BLOCK_SIZE / BytesOf(input1.tensor->Datatype());
             tmpShape[resultTileInfo.shape.size() - 1] = AlignUp(tmpShape[resultTileInfo.shape.size() - 1], alignSize);
+            if (opNameCode == Opcode::OP_REMRS) {
+                tmpShape[resultTileInfo.shape.size() - 1] = 2 * tmpShape[resultTileInfo.shape.size() - 1];
+            }
             auto tempTensor = std::make_shared<LogicalTensor>(function, input1.tensor->Datatype(), tmpShape);
             auto &tmpOp = function.AddOperation(
                 opNameCode, {inputTile1}, {resultTile, tempTensor});

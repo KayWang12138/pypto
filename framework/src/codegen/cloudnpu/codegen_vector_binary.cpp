@@ -551,23 +551,6 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarOpDynamicUnalign(const PrintUnar
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenRemainderSOp() const {
-    const std::string &scalarDtypeStr = DataType2CCEStr(extOperandVal.GetDataType());
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
-    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
-
-    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, scalarTmpBuffer};
-    std::vector<std::string> templateParamList;
-    std::ostringstream oss;
-    templateParamList.emplace_back(scalarDtypeStr);
-    oss << tileOpName;
-    oss << WrapParamByAngleBrackets(templateParamList);
-    oss << WrapParamByParentheses(tileOpParamList);
-    oss << STMT_END;
-    return oss.str();
-}
-
 std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
