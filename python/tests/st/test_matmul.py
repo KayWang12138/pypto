@@ -9,6 +9,12 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+Matmul Operator Test Cases
+
+测试 PyPTO matmul 算子的功能正确性，包括：
+- mm with MN split
+- mm with NZ format  
+- bmm with MN split
 """
 from dataclasses import dataclass, field
 from typing import Optional
@@ -49,14 +55,27 @@ class ShapeConfig:
 @dataclass
 class ExtendParams:
     bias_shape: list = field(default_factory=list)
-    bias_dtype: np.dtype = None
+    bias_dtype: Optional[np.dtype] = None
     scale_shape: list = field(default_factory=list)
-    scale_dtype: np.dtype = None
+    scale_dtype: Optional[np.dtype] = None
     scale: int = None
     relu_type: int = None
 
 
-def trans_nd_to_fractal_nz(data: torch.Tensor, keep_m_dim=False):
+def _get_device_id() -> int:
+    """获取NPU设备ID"""
+    return int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+
+
+@pytest.fixture(autouse=True)
+def setup_device():
+    """自动设置NPU设备"""
+    device_id = _get_device_id()
+    torch.npu.set_device(device_id)
+    yield
+
+
+def _trans_nd_to_fractal_nz(data: torch.Tensor, keep_m_dim=False):
     def _gen_axes_for_transpose(offset, base):
         return [x for x in range(offset)] + [x + offset for x in base]
 
@@ -136,8 +155,7 @@ def bmm_kernel_with_no_mn_split(
 
 @pytest.mark.soc("950", "910")
 def test_mm_with_mn_split():
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
-    torch.npu.set_device(int(device_id))
+    """测试带 MN split 的矩阵乘法算子"""
     m = 69
     k = 99
     n = 129
@@ -148,9 +166,9 @@ def test_mm_with_mn_split():
     n_view = 256
     shape_info = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP16,
                                 FP32, True, True, False, False, False, False)
-    a1_tensor = torch.rand([k, m], dtype=torch.float16, device=f"npu:{device_id}")
-    b1_tensor = torch.rand([n, k], dtype=torch.float16, device=f"npu:{device_id}")
-    c1_tensor = torch.zeros([m, n], dtype=torch.float32, device=f"npu:{device_id}")
+    a1_tensor = torch.rand([k, m], dtype=torch.float16, device=f"npu:{_get_device_id()}")
+    b1_tensor = torch.rand([n, k], dtype=torch.float16, device=f"npu:{_get_device_id()}")
+    c1_tensor = torch.zeros([m, n], dtype=torch.float32, device=f"npu:{_get_device_id()}")
     golden = torch.matmul(a1_tensor.to(torch.float32).T, b1_tensor.to(torch.float32).T)
     matmul_kernel_with_mn_split(
         a1_tensor, b1_tensor, c1_tensor,
@@ -161,9 +179,8 @@ def test_mm_with_mn_split():
 
 @pytest.mark.soc("950", "910")
 def test_mm_with_mn_split_nz():
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    """测试带 MN split 的矩阵乘法算子（NZ格式）"""
     torch_npu.npu.config.allow_internal_format = True
-    torch.npu.set_device(int(device_id))
     m = 64
     k = 128
     n = 128
@@ -174,9 +191,9 @@ def test_mm_with_mn_split_nz():
     n_view = 256
     shape_info = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP16,
                                 FP32, True, True, True, True, False, False)
-    a1_tensor = torch.rand([k, m], dtype=torch.float16, device=f'npu:{device_id}')
-    b1_tensor = torch.rand([n, k], dtype=torch.float16, device=f'npu:{device_id}')
-    c1_tensor = torch.zeros([m, n], dtype=torch.float32, device=f'npu:{device_id}')
+    a1_tensor = torch.rand([k, m], dtype=torch.float16, device=f'npu:{_get_device_id()}')
+    b1_tensor = torch.rand([n, k], dtype=torch.float16, device=f'npu:{_get_device_id()}')
+    c1_tensor = torch.zeros([m, n], dtype=torch.float32, device=f'npu:{_get_device_id()}')
     a1_tensor_nz = torch_npu.npu_format_cast(a1_tensor, 29) if shape_info.a_format_nz else a1_tensor
     b1_tensor_nz = torch_npu.npu_format_cast(b1_tensor, 29) if shape_info.b_format_nz else b1_tensor
     golden = torch.matmul(a1_tensor.to(torch.float32).T, b1_tensor.to(torch.float32).T)
@@ -189,8 +206,7 @@ def test_mm_with_mn_split_nz():
 
 @pytest.mark.soc("950", "910")
 def test_bmm_with_mn_split():
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
-    torch.npu.set_device(int(device_id))
+    """测试带 MN split 的批量矩阵乘法算子"""
     b = 3
     m = 63
     k = 127
@@ -200,9 +216,9 @@ def test_bmm_with_mn_split():
     tile_n = 64
     shape_info = ShapeConfig([b, m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [-1, -1], FP16, FP32,
                                 True, False, False, False, False, False)
-    a1_tensor = torch.rand([b, k, m], dtype=torch.float16, device=f'npu:{device_id}')
-    b1_tensor = torch.rand([b, k, n], dtype=torch.float16, device=f'npu:{device_id}')
-    c1_tensor = torch.zeros([b, m, n], dtype=torch.float32, device=f'npu:{device_id}')
+    a1_tensor = torch.rand([b, k, m], dtype=torch.float16, device=f'npu:{_get_device_id()}')
+    b1_tensor = torch.rand([b, k, n], dtype=torch.float16, device=f'npu:{_get_device_id()}')
+    c1_tensor = torch.zeros([b, m, n], dtype=torch.float32, device=f'npu:{_get_device_id()}')
     golden = torch.matmul(a1_tensor.to(torch.float32).transpose(-2, -1), b1_tensor.to(torch.float32))
     bmm_kernel_with_no_mn_split(
         a1_tensor, b1_tensor, c1_tensor,
