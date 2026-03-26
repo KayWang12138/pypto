@@ -72,7 +72,7 @@ constexpr aicorePair_t aicoreNullPair = 0xFFFFFFFFFFFFFFFFUL;
 
 // typedef pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask> taskQueue_t;
 typedef pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore, TOTAL_CORE_COUNT> coreQueue_t;
-typedef pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullCore, TOTAL_CORE_COUNT> pairQueue_t;
+typedef pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair, TOTAL_CORE_COUNT> pairQueue_t;
 
 struct TaskInfo {
     int coreIdx;
@@ -428,7 +428,6 @@ private:
         for (size_t i = 0; i < busyAQueuePairCount; i++)
         {
             const auto pair = busyACoreQueue_[(int)type]->pop();
-            if (pair == aicoreNullPair) break;
             ResolveBusyAQueuePair(type, pair);
         }
         busyACoreQueue_[(int)type]->unlock();
@@ -439,7 +438,6 @@ private:
         for (size_t i = 0; i < freeBQueuePairCount; i++)
         {
             const auto pair = freeBCoreQueue_[(int)type]->pop();
-            if (pair == aicoreNullPair) break;
             ResolveFreeBQueuePair(type, pair);
         }
         freeBCoreQueue_[(int)type]->unlock();
@@ -450,7 +448,6 @@ private:
         for (size_t i = 0; i < busyBQueuePairCount; i++)
         {
             const auto pair = busyBCoreQueue_[(int)type]->pop();
-            if (pair == aicoreNullPair) break;
             ResolveBusyBQueuePair(type, pair);
         }
         busyBCoreQueue_[(int)type]->unlock();
@@ -807,11 +804,7 @@ private:
     /* prepare aicore ready task list */
     ReadyCoreFunctionQueue* readyAicCoreFunctionQue_{nullptr};
     ReadyCoreFunctionQueue* readyAivCoreFunctionQue_{nullptr};
-    ReadyCoreFunctionQueue* readyAicpuFunctionQue_{nullptr};
     SchduleContext * context_{nullptr};
-    // for die-to-die shchedule
-    ReadyCoreFunctionQueue* readyDieAicFunctionQue_{nullptr};
-    ReadyCoreFunctionQueue* readyDieAivFunctionQue_{nullptr};
 
     bool preFetchSuccess_{false};
     DeviceTaskCtrl* preFetchNextDevTaskCtrl_{nullptr};
