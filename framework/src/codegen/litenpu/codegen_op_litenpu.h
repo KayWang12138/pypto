@@ -50,9 +50,9 @@ public:
     std::string GenUBCopyOut() const;
 
     // std::string GenUnaryOp() const;
-    // std::string GenUnaryOpWithTmpBuff() const;
+    std::string GenUnaryOpWithTmpBuff() const;
 
-    // std::string GenBinaryOp() const;
+    std::string GenBinaryOp() const;
     // std::string GenVectorScalarOp() const;
 
     // std::string GenCubeOpMatmul() const ;
