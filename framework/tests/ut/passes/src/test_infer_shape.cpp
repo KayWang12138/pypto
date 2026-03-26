@@ -20,6 +20,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/operation/op_infer_shape_impl.h"
 #include "passes/tile_graph_pass/graph_constraint/infer_dyn_shape.h"
+#include "passes/tile_graph_pass/graph_constraint/replace_tensor.h"
 #include "interface/operation/attribute.h"
 
 namespace npu {
@@ -688,6 +689,67 @@ TEST_F(InferShapeTest, TestIndexOutCast) {
     auto indexOutCastOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(indexoutcastOp.GetOpAttribute());
     const auto& fromDynValidShape = indexOutCastOpAttribute->GetFromDynValidShape();
     EXPECT_NE(fromDynValidShape.size(), 0U);
+}
+
+//incast -- CopyIN -- copyInOut -- Assemble -- assembleOut -- CopyOut -- outcast1
+//                              -- View     -- viewOut     -- CopyOut -- outcast2
+TEST_F(InferShapeTest, TestViewInputWithOffset) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestIndexOutCast", "TestIndexOutCast", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    std::vector<int64_t> inshape = {4, 4};
+    std::vector<int64_t> outshape1 = {8, 4};
+    std::vector<int64_t> outshape2 = {2, 4};
+
+    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
+    incast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto copyInOut = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
+    copyInOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    std::vector<SymbolicScalar> validShape = {SymbolicScalar(inshape[0]), SymbolicScalar(inshape[1])};
+    copyInOut->UpdateDynValidShape(validShape);
+    auto assembleOut = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape1);
+    assembleOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto viewOut = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape2);
+    viewOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape1);
+    outcast1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto outcast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape2);
+    outcast2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    auto &copyInOp = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copyInOut});
+    auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {copyInOut}, {assembleOut});
+    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {copyInOut}, {viewOut});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {assembleOut}, {outcast1});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {viewOut}, {outcast2});
+
+    Offset copyInFromOffset = {0, 0};
+    auto copyInOpAttribute = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified(copyInFromOffset), MEM_UB, OpImmediate::Specified(incast->GetShape()),
+        OpImmediate::Specified(incast->tensor->GetDynRawShape()),OpImmediate::Specified(incast->GetDynValidShape())
+    );
+    copyInOp.SetOpAttribute(copyInOpAttribute);
+    Offset assembleToOffset = {4, 0};
+    auto assembleOpAttribute = std::make_shared<AssembleOpAttribute>(assembleToOffset, SymbolicScalar::FromConcrete(assembleToOffset));
+    assembleOp.SetOpAttribute(assembleOpAttribute);
+    Offset viewFromOffset = {2, 0};
+    auto viewOpAttribute = std::make_shared<ViewOpAttribute>(viewFromOffset, MEM_UB, SymbolicScalar::FromConcrete(viewFromOffset), viewOut->GetDynValidShape());
+    viewOp.SetOpAttribute(viewOpAttribute);
+    
+    currFunctionPtr->inCasts_.push_back(incast);
+    currFunctionPtr->outCasts_.push_back(outcast1);
+    currFunctionPtr->outCasts_.push_back(outcast2);
+
+    ReplaceTensor replaceTensorPass;
+    replaceTensorPass.RunOnFunction(*currFunctionPtr);
+    EXPECT_EQ(copyInOut->GetOffset()[0] == assembleToOffset[0], true);
+    EXPECT_EQ(copyInOut->GetOffset()[1] == assembleToOffset[1], true);
+
+    InferDynShape inferShapeTest;
+    inferShapeTest.RunOnFunction(*currFunctionPtr);
+    std::cout << currFunctionPtr->Dump() << std::endl;
+    EXPECT_EQ(inferShapeTest.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(viewOut->GetDynValidShape()[0].Dump(), "2");
+    EXPECT_EQ(viewOut->GetDynValidShape()[1].Dump(), "4");
 }
 }
 }
