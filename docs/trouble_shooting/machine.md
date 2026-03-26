@@ -10,129 +10,6 @@
 
 ## 排查建议
 
-### AIC ERROR/The aicore execution is abnormal
-
-1. **注释 CallSubFuncTask 及相关代码排除 machine 框架调度问题**  
-
-`framework/src/interface/machine/device/tilefwk/aicore_entry.h`
-
-```cpp
-    INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
-        uint64_t t1 = get_sys_cnt();
-        SetStatus(ctx->args, ((uint64_t)taskId << 32) | STAGE_PRE_EXEC_COREFUNC_KERNEL); // high 32 bits used for taskId
-        auto funcData = &ctx->funcDataList[npu::tile_fwk::FuncID(taskId)];
-        auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[npu::tile_fwk::TaskID(taskId)]];
-    #if ENABLE_AICORE_PRINT
-        CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, ctx->logger.context()};
-    #else
-        CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, nullptr};
-    #endif
-        CallSubFuncTask(opAttrs[0] + funcData->exprTbl[0], &param, funcData->stackWorkSpaceAddr + ctx->blockIdx * funcData->stackWorkSpaceSize,
-                        (__gm__ int64_t *)funcData->startArgs->commContexts);
-        SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
-        PipeSync();
-        ...
-    }
-```
-
-```cpp
-    INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
-        uint64_t t1 = get_sys_cnt();
-        SetStatus(ctx->args, ((uint64_t)taskId << 32) | STAGE_PRE_EXEC_COREFUNC_KERNEL); // high 32 bits used for taskId
-        auto funcData = &ctx->funcDataList[npu::tile_fwk::FuncID(taskId)];
-        auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[npu::tile_fwk::TaskID(taskId)]];
-    // #if ENABLE_AICORE_PRINT
-    //     CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, ctx->logger.context()};
-    // #else
-    //     CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, nullptr};
-    // #endif
-    //     CallSubFuncTask(opAttrs[0] + funcData->exprTbl[0], &param, funcData->stackWorkSpaceAddr + ctx->blockIdx * funcData->stackWorkSpaceSize,
-    //                     (__gm__ int64_t *)funcData->startArgs->commContexts);
-        SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
-        PipeSync();
-        ...
-    }
-```
-
-重新编译安装，运行验证，若问题仍然复现， 则说明是 machine 调度框架的问题，停止后续步骤。若问题不复现，将上述修改恢复，继续后续步骤
-
-2. **启用追踪日志**  
-
-`framework/src/interface/configs/tile_fwk_config.json`
-```cpp
-"fixed_output_path": true,
-"force_overwrite": false,
-```
-
-`framework/src/interface/machine/device/tilefwk/aicore_print.h`
-```cpp
-#define ENABLE_AICORE_PRINT 1
-```
-
-`framework/src/machine/utils/device_switch.h`
-```cpp
-#define ENABLE_COMPILE_VERBOSE_LOG 1
-```
-
-重新编译安装
-
-3. **清理日志并运行测试**  
-
-（1）清理日志
-```bash
-rm -rf ./my_log/*
-rm -rf ./kernel_aic*
-```
-
-（2）打开DEBUG日志，指定日志落盘路径
-```bash
-export ASCEND_GLOBAL_LOG_LEVEL=0
-export ASCEND_PROCESS_LOG_PATH=./my_log
-```
-
-（3）执行用例
-
-4. **分析追踪日志并定位 CCE 文件**  
-
-（1）查找 trace 日志、分析缺失 leaf index 并定位问题 CCE 文件
-```bash
-python3 .agents/skills/pypto-aicore-error-locator/scripts/analyze_trace.py ./my_log run_path/kernel_aicore
-```
-结果说明：此脚本会给出问题CCE文件路径，若输出多个问题CCE文件，需要验证哪个CCE文件才是问题CCE文件，执行第二步，若只输出一个CCE文件，需要check该CCE文件是否是问题文件，执行第二步  
-
-（2）测试验证 CCE 文件
-```bash
-python3 .agents/skills/pypto-aicore-error-locator/scripts/test_cce_file.py <cce_file> test_cmd run_path
-```
-结果说明：此脚本会给出判断，明确输入的CCE文件是否为问题文件  
-
-注：run_path为运行目录路径，test_cmd为运行测试命令
-
-5. **二分查找定位CCE文件问题代码行**  
-
-（1）check错误是否在 T 操作中  
-
-```bash
-python3 .agents/skills/pypto-aicore-error-locator/scripts/determine_error_scope.py <cce_file> test_cmd run_path
-```
-结果说明：此脚本会将所有的操作行（例如TLoad、TMatmul等）全部注释，进行测试，若不复现现象，则说明问题出现在操作行，输出ERROR_IN_T为True，否则ERROR_IN_T为False  
-
-（2）获取二分查找初始范围
-```bash
-python3 .agents/skills/pypto-aicore-error-locator/scripts/get_commentable_range.py <cce_file> ERROR_IN_T
-```
-结果说明：此脚本根据ERROR_IN_T的值给出二分查找的范围left值和right值，若ERROR_IN_T为True，则排查范围为全部操作行，若ERROR_IN_T为False，则排查范围为除了同步行的所有行  
-
-（3）执行二分查找迭代，直到找到CCE文件问题代码行
-
-```bash
-python3 .agents/skills/pypto-aicore-error-locator/scripts/binary_search_iteration.py <cce_file> test_cmd run_path <left> <right> ERROR_IN_T
-```
-结果说明：此脚本运行输出结果为新的left和right值，基于新的left和right值继续执行该脚本，直到出现 找到问题代码行 为止
-
-**关联 Skill**：[pypto-aicore-error-locator](../../.agents/skills/pypto-aicore-error-locator/SKILL.md)
-
-
 ### 怀疑和MACHINE内存处理有关的精度问题
 
 1. **检查输入初始化**：
@@ -310,5 +187,61 @@ python3 tools/schema/schema_memory_check.py -d /path/to/my_log/debug/device-8/ -
 3. **确认超时配置**：若存在握手/同步超时配置项，检查是否过短或与环境不符。
 4. **查日志上下文**：结合同线程前后日志（如 “Schedule run init succ” 之后、AbnormalStop 相关）确认是首次握手失败还是运行中异常。
 
-**关联 Skill**：[pypto-environment-setup](../../.agents/skills/pypto-environment-setup/SKILL.md)（环境与 NPU 设备诊断、`npu-smi`、驱动与编译运行）
+**关联 Skill**：[pypto-environment-setup](../../.opencode/skills/pypto-environment-setup/SKILL.md)（环境与 NPU 设备诊断、`npu-smi`、驱动与编译运行）
 
+---
+
+## 泳道图相关问题指导
+
+### output 目录产物说明
+
+当前 `output` 目录中涉及泳道图相关的文件如下：
+`machine_runtime_operator_trace*.json`、`machine_trace_perf_data*.json`、`merged_swimlane.json`、`tilefwk_L1_prof_data_*.json`。
+
+其中 `machine_trace_perf_data*.json` 和 `tilefwk_L1_prof_data_*.json` 是 Machine 组件提供的原始 Profiling 数据，可以通过查看这些文件内容是否为空，来判断是否成功采集到信息。其余 JSON 文件则是 IDE 展示所需的格式化文件，如涉及 IDE 展示异常等问题，建议优先联系 IDE 对应负责人咨询解决。
+
+### IDE 参数含义解释
+
+在生成和查看泳道图时，IDE 工具中会显示多个性能参数和事件标签。以下是常见参数的含义说明：
+
+**1. AICore 泳道图**
+
+| 参数/事件名称 | 含义解释 |
+| --- | --- |
+| **Task Time** | AI Core 端到端执行时间 |
+| **AICore Time** | 所有 AICore 任务时间之和 |
+| **AICore 利用率** | `AICore Time` / (`泳道数` × `泳道时长`) |
+
+**2. AICPU 泳道图**
+
+| 模块 | 参数/事件名称 | 含义解释 | 线程信息 |
+| --- | --- | --- | --- |
+| **AICPU** | **DEV_TASK_BUILD** | Ctrl AICPU 构建 devTask 的耗时（即 stitch 耗时统计） | Ctrl |
+| **AICPU** | **DEV_TASK_RCV** | Sched AICPU 接收到 Ctrl AICPU 构建的 devTask 的耗时 | Sched |
+| **AICore** | **RCV_MODEL** | AICore 接收到 AICPU 发送的 devTask 的耗时 | Sched |
+| **AICore** | **ALL_CALLOP_TASK_EXEC** | 当前 AICore 的 devTask 中所有 leafTask 执行完成的耗时 | Sched |
+
+
+### 常见异常排查
+
+#### 1. 未生成泳道图文件
+**现象**：算子运行正常，但 `output` 目录下未生成 `merged_swimlane.json` 文件。
+**原因与排查**：通常是因为未启动性能数据采集功能。请检查代码中是否已正确将 `runtime_debug_mode` 设置为 `1`。
+
+#### 2. 泳道图文件为空（无任何数据）
+**现象**：成功生成了 `merged_swimlane.json` 文件，但文件内容为空。
+**原因与排查**：通常是 Profiling 功能未能成功使能。需要开启 DEBUG 日志打印进行进一步排查：
+   - 按照上文说明打开 DEBUG 日志并指定日志落盘路径。
+   - **Device 侧排查**：检查日志文件 `log/debug/device*/device*.log`。若包含 `aicore profiling is opened, level is %d.`，表示成功使能；若包含 `aicore profiling is closed..`，则表示未能成功使能。
+
+#### 3. 泳道图中某些核首任务启动时间过长
+**现象**：从泳道图看，部分核并没有前序任务依赖，但第一个任务的启动时间却很长。
+**原因与排查**：这种情况通常是因为 AICPU 启动较慢，导致 AICore 接收任务的时间被整体延后。在泳道图中表现为首任务启动前存在等待 AICPU 启动的时间。
+
+#### 4. ACL Graph 模式下采集不到泳道图数据
+**现象**：当算子运行在 ACL Graph 模式时，启动泳道图性能采集后，`output` 目录下没有生成泳道图文件。
+**原因与排查**：当前 PyPTO 尚未支持 ACL Graph 场景的泳道图性能数据采集。在 ACL Graph 模式中，执行流程分为 Capture 和 Replay 两个阶段，当前 Capture 阶段未开启 Profiling，而是在 Replay 阶段开启性能采集；但 Task 的下发实际发生在 Capture 阶段，由于此时 Profiling 开关是关闭的，所以不会上报 OP 相关信息。目前请暂时规避该场景，后续版本将支持 ACL Graph 模式下的泳道图性能数据采集。
+
+#### 5. Profiling 泳道图数据与 msprof 采集的结果差距较大
+**现象**：`msprof` 采集到的 AICore 耗时远大于泳道图中的 AICore 端到端耗时，二者数据无法对齐。
+**原因与排查**：`msprof` 所采集到的 AICore 耗时不能真实代表 AICore 内部端到端的执行耗时，因为它实际上还包含了 **AICore 启动等待 AICPU 下发 devTask 的时间**，以及 **AICore 执行完任务后的退出时间**。为了获取更准确的时间，当前已实现对 AICore 端到端执行时间的打屏输出，可以在执行算子前设置环境变量 `export DUMP_DEVICE_PERF=true`，即可在终端中直接获取当前准确的性能统计数据。
