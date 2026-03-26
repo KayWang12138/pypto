@@ -22,7 +22,14 @@
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "calc.h"
 #include "tilefwk/error_code.h"
+#include "communication.h"
+#include "tilefwk/comm_group_recorder.h"
+#include "interface/operation/distributed/distributed_common.h"
 #include <algorithm>
+#include <future>
+#include <queue>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace npu::tile_fwk {
 
@@ -705,6 +712,47 @@ struct FunctionInterpreter {
     int captureIndex{0};
     int passIndex{-1};
 
+    bool CheckWaitUntilReady(Operation *op, LogicalTensorDataPtr shmData)
+    {
+        Distributed::ShmemWaitUntilAttr attr;
+        op->GetAttr(OpAttributeKey::distOpAttr, attr);
+        std::shared_ptr<SimulationCommContext> context =
+            SimulationCommManager::Instance().GetCommContext(attr.group);
+        int srcRank = context->GetRank();
+        size_t slotSize = shmData->GetSize() * BytesOf(shmData->GetDataType());
+        uint64_t offset = shmData->GetShmStorageOffset();
+        return context->CheckWaitCondition(srcRank, attr.expectedSum, slotSize, offset);
+    }
+
+    std::unordered_map<Operation*, std::vector<Operation*>> ConstructOpConsumers(OperationsViewer operations, std::unordered_map<Operation*, int> &inDegree) {
+        std::unordered_map<Operation*, std::vector<Operation*>> consumers;
+        std::unordered_set<Operation*> opSet;
+        for (auto &op: operations) {
+            opSet.insert(&op);
+        }
+        for (auto &op: operations) {
+            for (auto &iTensor: op.GetIOperands()) {
+                for (auto *producer: iTensor->GetProducers()) {
+                    if (opSet.count(producer)) {
+                        inDegree[&op]++;
+                        consumers[producer].push_back(&op);
+                    }
+                }
+            }
+        }
+        for (auto &op: operations) {
+            for (auto &dTensor: op.GetDependOperands()) {
+                for (auto *producer: dTensor->GetProducers()) {
+                    if (opSet.count(producer)) {
+                        inDegree[&op]++;
+                        consumers[producer].push_back(&op);
+                    }
+                }
+            }
+        }
+        return consumers;
+    }
+
     std::vector<std::shared_ptr<LogicalTensorData>>& GetInputDataViewList()
     {
         return operationInterpreter->evaluateSymbol->GetInputDataViewList();
@@ -874,6 +922,51 @@ struct FunctionInterpreter {
         return false;
     }
 
+    std::vector<uint64_t> UnBind(SymbolicScalar attr) {
+        std::shared_ptr<RawSymbolicExpression> expr = std::static_pointer_cast<RawSymbolicExpression>(attr.Raw());
+        ASSERT(expr->Opcode() == SymbolicOpcode::T_MOP_CALL);
+        std::vector<uint64_t> parameters;
+        for (size_t i = 1; i < expr->OperandList().size(); i++) {
+            ScalarImmediateType value = EvaluateSymbolicScalar(SymbolicScalar(expr->OperandList()[i]));
+            parameters.emplace_back(value);
+        }
+        return parameters;
+    }
+
+    void ExecuteBindTensor(FunctionFrame& frame, Operation& op,
+        const std::vector<std::shared_ptr<LogicalTensorData>>& iOpDataList,
+        std::vector<std::shared_ptr<LogicalTensorData>>& oOpDataList)
+    {
+        (void) iOpDataList;
+        (void) oOpDataList;
+        std::cout << "=== ExecuteOpBindTensor running ..." << std::endl;
+        ASSERT(op.GetIOperands().size() == 0);
+        ASSERT(op.GetOOperands().size() == 1);
+        SymbolicScalar attr = op.GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
+        std::vector<uint64_t> parameters = UnBind(attr);
+        uint64_t groupIndex = parameters[0];
+        uint64_t memType = parameters[1];
+        const auto &groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
+        ASSERT(groupIndex < static_cast<uint64_t>(groupNames.size()));
+        const std::string &groupName = groupNames[groupIndex];
+        LogicalTensorDataPtr out;
+        RawTensorDataPtr tmp;
+        
+        auto outOp = op.GetOOperands()[0];
+        if (frame.GetDataView(outOp) != nullptr) {
+            return;
+        }
+        if (memType == 0) {
+            tmp = SimulationCommManager::Instance().Alloc(groupName, outOp->Datatype(), outOp->GetShape());
+            out = LogicalTensorData::Create(*tmp);
+        }
+        if (memType == 1) {
+            tmp = SimulationCommManager::Instance().AllocSignal(groupName, outOp->Datatype(), outOp->GetShape());
+            out = LogicalTensorData::Create(*tmp);
+        }
+        frame.AddDataView(outOp, out);
+    }
+
     void ExecuteInplaceOperation(
         FunctionFrame& frame, Operation& op, int oOperandIdx,
         const std::vector<std::shared_ptr<LogicalTensorData>>& iOpDataList,
@@ -945,6 +1038,8 @@ struct FunctionInterpreter {
             auto oop = op->GetOOperands()[i];
             if (auto index = GetInplaceIndex(op, i); index != -1) {
                 ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList);
+            } else if (op->GetOpcode() == Opcode::OP_BIND_TENSOR){
+                ExecuteBindTensor(frame, *op, iOpDataList, oOpDataList);
             } else {
                 if (isConsumerAccMatmul(op)) {
                     auto dtype = oop->GetRawTensor()->GetDataType();
@@ -1033,15 +1128,74 @@ struct FunctionInterpreter {
         auto dynParamTable = func->GetDynParamTable();
         EvaluateDynParam(dynParamTable, linearArgList);
 
+        std::cout << "Start | execute function " << func->GetFuncMagic() << std::endl;
         ExecuteHandleFunctionBegin(func, frame);
-        for (auto& op : func->Operations()) {
-            if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
-                continue;
-            ExecuteHandleOperationBegin(&op);
-            ExecuteOperation(*frame, &op);
-            ExecuteHandleOperationEnd();
+        auto operations = func->Operations();
+
+        //
+        bool hasWaitUntil = false;
+        for (auto &op: operations) {
+            if (op.GetOpcode() == Opcode::OP_SHMEM_WAIT_UNTIL) {
+                hasWaitUntil = true;
+                break;
+            }
         }
+        if (hasWaitUntil) {
+            std::queue<Operation*> queue;
+            std::unordered_map<Operation*, int> inDegree;
+            for (auto &operation: operations) {
+                queue.push(&operation);
+                inDegree[&operation] = 0;
+            }
+            std::unordered_map<Operation*, std::vector<Operation*>> consumers = ConstructOpConsumers(operations, inDegree);
+            while (!queue.empty()) {
+                auto op = queue.front();
+                queue.pop();
+                if (inDegree[op] != 0) {
+                    queue.push(op);
+                    continue;
+                }
+                if (op->GetOpcode() == Opcode::OP_SHMEM_WAIT_UNTIL) {
+                    auto iopList = frame->GetDataViewList(op->GetIOperands());
+                    LogicalTensorDataPtr shmData = iopList[1];
+                    if (CheckWaitUntilReady(op, shmData)) {
+                        std::cout << "Start | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
+                        ExecuteHandleOperationBegin(op);
+                        ExecuteOperation(*frame, op);
+                        ExecuteHandleOperationEnd();
+                        for (auto *consumer: consumers[op]) {
+                            inDegree[consumer]--;
+                        }
+                        std::cout << "End | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
+                    } else {
+                        std::this_thread::sleep_for(std::chrono::microseconds(10));
+                        queue.push(op);
+                    }
+                } else {
+                    std::cout << "Start | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
+                    ExecuteHandleOperationBegin(op);
+                    ExecuteOperation(*frame, op);
+                    ExecuteHandleOperationEnd();
+                    std::cout << "End | execute op " << op->GetOpcodeStr() << ":" << op->GetOpMagic() << std::endl;
+                    for (auto *consumer: consumers[op]) {
+                        inDegree[consumer]--;
+                    }
+                }
+            }
+        } else {
+            for (auto& op : operations) {
+                if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
+                    continue;
+                std::cout << "Start | execute op " << op.GetOpcodeStr() << ":" << op.GetOpMagic() << std::endl;
+                ExecuteHandleOperationBegin(&op);
+                ExecuteOperation(*frame, &op);
+                ExecuteHandleOperationEnd();
+                std::cout << "End | execute op " << op.GetOpcodeStr() << ":" << op.GetOpMagic() << std::endl;
+            }
+        }
+
         ExecuteHandleFunctionEnd();
+        std::cout << "End | execute function " << func->GetFuncMagic() << std::endl;
 
         CopyInplaceOutcastToIncast(func, frame);
 
