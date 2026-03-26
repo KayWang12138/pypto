@@ -187,6 +187,7 @@ def test_mm_with_mn_split_nz():
     assert torch.allclose(c1_tensor.cpu().to(torch.float32), golden.cpu().to(torch.float32), atol=1e-3, rtol=1e-3)
 
 
+# 测试bmm
 @pytest.mark.soc("950", "910")
 def test_bmm_with_mn_split():
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
