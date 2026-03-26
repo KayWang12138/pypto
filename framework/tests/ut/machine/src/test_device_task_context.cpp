@@ -630,3 +630,26 @@ TEST_F(TestDeviceExecuteContext, test_runtime_call_set_loop_die_id) {
     EXPECT_EQ(result, nullptr);
     EXPECT_EQ(duppedData.loopDieId_, 12);
 }
+
+TEST_F(TestDeviceExecuteContext, test_try_allocate_function_memory_with_retry) {
+    // Create mock objects
+    DevStartArgs args{};
+    DevAscendProgram devProg{};
+    devProg.controlFlowCache.isRecording = false;
+    args.devProg = &devProg;
+    
+    // Create DeviceExecuteContext
+    DeviceExecuteContext ctx(&args);
+    
+    // Create a mock DevAscendFunctionDupped
+    DevAscendFunction devFunc;
+    devFunc.exclusiveOutcastWsMemoryRequirement = 0;
+    devFunc.rootInnerTensorWsMemoryRequirement = 0;
+    DeviceWorkspaceAllocator workspace(&devProg);
+    DevAscendFunctionDupped devRootDup(&devFunc, &workspace);
+    
+    int ret = ctx.TryAllocateFunctionMemoryWithRetry(devRootDup);
+    EXPECT_EQ(ret, DEVICE_MACHINE_OK);
+    
+    // This test ensures the code path is covered, including the CHECK_TIMEOUT_AND_RESET macro
+}
