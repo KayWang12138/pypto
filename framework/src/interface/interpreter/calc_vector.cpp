@@ -42,12 +42,24 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
     auto rhs = trhs;
     auto lhsTensor = ctx->op->GetIOperands()[0];
     auto rhsTensor = ctx->op->GetIOperands()[1];
-    if (!lhsTensor->GetProducers().empty() &&
-        (*lhsTensor->GetProducers().begin())->GetOpcode() == Opcode::OP_BRCB) {
+    bool lhsFromBrcb = !lhsTensor->GetProducers().empty() &&
+        (*lhsTensor->GetProducers().begin())->GetOpcode() == Opcode::OP_BRCB;
+    bool rhsFromBrcb = !rhsTensor->GetProducers().empty() &&
+        (*rhsTensor->GetProducers().begin())->GetOpcode() == Opcode::OP_BRCB;
+
+    if (lhsFromBrcb) {
         lhs = tlhs->View({tlhs->GetShape()[0], 1}, tlhs->GetOffset());
-    } else if (!rhsTensor->GetProducers().empty() &&
-               (*rhsTensor->GetProducers().begin())->GetOpcode() == Opcode::OP_BRCB) {
+    } else if (rhsFromBrcb) {
         rhs = trhs->View({trhs->GetShape()[0], 1}, trhs->GetOffset());
+    }
+
+    if (lhsFromBrcb || rhsFromBrcb) {
+        VERIFY_LOGW("AxisCombine: detected by BRCB, opcode=%s lhsFromBrcb=%d rhsFromBrcb=%d",
+            ctx->op->GetOpcodeStr().c_str(), static_cast<int>(lhsFromBrcb), static_cast<int>(rhsFromBrcb));
+        VERIFY_LOGW("AxisCombine: lhs(shape=%s validShape=%s offset=%s) rhs(shape=%s validShape=%s offset=%s)",
+            IntVecToStr(lhs->GetShape()).c_str(), IntVecToStr(lhs->GetValidShape()).c_str(),
+            IntVecToStr(lhs->GetOffset()).c_str(), IntVecToStr(rhs->GetShape()).c_str(),
+            IntVecToStr(rhs->GetValidShape()).c_str(), IntVecToStr(rhs->GetOffset()).c_str());
     }
 
     if (opcode == Opcode::OP_ADD_BRC || opcode == Opcode::OP_SUB_BRC || opcode == Opcode::OP_MUL_BRC ||
