@@ -174,7 +174,7 @@ LogicalTensorPtr TensorQuantizeAsymmetricOperation(Function &function,
 // Public Quantize API
 // =============================================================================
 
-Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints) {
+Tensor Quantize(const Tensor &input, const Tensor &scale, DataType dtype, int axis, const Tensor &zeroPoints) {
     DECLARE_TRACER();
 
     // Validate input shapes
@@ -243,13 +243,13 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int ax
     // axis=-1 case: direct quantization without transpose
     if (isAsymmetric) {
         // Asymmetric quantization: FP32 -> UINT8
-        ASSERT(otype == DataType::DT_UINT8)
+        ASSERT(dtype == DataType::DT_UINT8)
             << "Asymmetric quantization output type should be UINT8";
         RETURN_CALL(QuantizeAsymmetricOperation, *Program::GetInstance().GetCurrentFunction(),
             input.GetStorage(), scale.GetStorage(), zeroPoints.GetStorage(), normalizedAxis);
     } else {
         // Symmetric quantization: FP32 -> INT8
-        ASSERT(otype == DataType::DT_INT8)
+        ASSERT(dtype == DataType::DT_INT8)
             << "Symmetric quantization output type should be INT8";
         RETURN_CALL(QuantizeSymmetricOperation, *Program::GetInstance().GetCurrentFunction(),
             input.GetStorage(), scale.GetStorage(), normalizedAxis);
