@@ -772,7 +772,7 @@ DeviceRunner::~DeviceRunner() {
     StopMachinePerfTraceDumpThread();
     for (size_t i = 0; i < perfData_.size(); i++) {
         if (perfData_[i] != nullptr) {
-            ret = rtFree(perfData_[i]);
+            rtFree(perfData_[i]);
         }
     }
     perfData_.clear();
