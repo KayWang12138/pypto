@@ -3,262 +3,336 @@
 ## 问题发现时间
 2026-03-26
 
-## 问题描述
+---
 
-在实现 `sg_set_scope` 功能增强时，发现了多个关键问题，影响了测试的通过和功能的完整性。
+## 历史问题（已解决）
+
+### 问题1：JSON 配置文件不支持数组格式
+
+**问题**：
+- `tile_fwk_config_schema.json` 中 `sg_set_scope` 定义为 `"type": "integer"`
+- `tile_fwk_config.json` 中 `sg_set_scope` 为单个整数值 `-1`
+- 需要支持数组格式：`[scopeid, allow_parallel_merge, allow_cross_scope_merge, mix_id]`
+
+**解决**：
+- ✅ 修改 `tile_fwk_config_schema.json`：将 `sg_set_scope` 类型从 `"integer"` 改为 `"array"`
+- ✅ 修改 `tile_fwk_config.json`：将 `sg_set_scope` 从 `-1` 改为 `[-1, 0, 0, -1]`
+
+### 问题2：function.cpp 无法读取数组配置
+
+**问题**：
+- `function.cpp` 的 `AddRawOperation` 方法使用 `GetPassOption<int>` 读取单个整数值
+- 无法读取数组格式并传递 `allowParallelMerge`、`allowCrossScopeMerge`、`mixId` 参数
+
+**解决**：
+- ✅ 使用 `GetPassOption<std::vector<int64_t>>` 读取数组配置
+- ✅ 支持 4 元素数组格式：`[scopeId, allowParallelMerge, allowCrossScopeMerge, mixId]`
+- ✅ 支持 1 元素数组格式：向后兼容原有 `scopeId` 单值配置
+
+### 问题3：JSON Schema 重复定义
+
+**问题**：初始修改时在 schema 中重复定义了 `items` 字段，导致 JSON 解析错误
+
+**解决**：✅ 删除重复的 `items` 定义，只保留 `"items": {"type": "integer"}` 配合 `minItems` 和 `maxItems` 限制
+
+### 问题4：类型不匹配
+
+**问题**：配置系统注册的是 `std::vector<int64_t>`，但代码中使用 `std::vector<int>`，导致 `std::bad_cast`
+
+**解决**：✅ 修改为使用 `std::vector<int64_t>` 并在赋值时进行类型转换
 
 ---
 
-## 已解决的问题
+## 当前问题（待解决）
 
-### 1. JSON 配置文件问题 ✅
+### 问题5：Python 测试运行失败 🔴 P0
 
-**问题描述**：
-- `tile_fwk_config_schema.json` 中 `sg_set_scope` 定义为 `"type": "array"` 但**缺少 `items` 字段**
-- 导致 ConfigManager 在解析 JSON 时抛出异常：
+**错误现象**：
+```python
+RuntimeError: [json.exception.parse_error.101] parse error at line 120, column 13:
+syntax error while parsing object key - unexpected '}'; expected string literal
+```
+
+**发生位置**：
+- 文件：`python/pypto/config.py:469`
+- 调用：`cpp_scope = pypto_impl.CurrentScope()`
+
+**问题分析**：
+- 源文件 `framework/src/interface/configs/tile_fwk_config.json` 只有 136 行
+- 错误提示在 "line 120, column 13"
+- 说明可能读取了错误的配置文件，或者有其他 JSON 文件被解析
+- 已安装的配置文件位于：`/home/developer/.local/lib/python3.11/site-packages/pypto/lib/configs/tile_fwk_config.json`
+
+**影响**：
+- Python 测试无法运行
+- 无法验证 Python 接口的正确性
+
+**解决计划**：
+1. 检查 `GetConfDir()` 返回的实际路径
+2. 对比源文件和已安装文件的差异
+3. 检查是否有其他 JSON 文件被加载（如 `tile_fwk_config_schema.json`）
+4. 验证 JSON 文件的语法正确性
+5. 重新编译和安装包
+
+**优先级**：P0（阻塞）
+
+---
+
+### 问题6：配置文件值格式需要确认 🟡 P3
+
+**问题现象**：
+- 源文件：`"sg_set_scope": [-1, 0, 0, -1]`（使用 0/1）
+- Python 测试期望：`[-1, False, False, -1]`（使用布尔值）
+
+**代码中的转换**：
+- `config.py:108`: `processed_sg_set_scope = [sg_set_scope, False, False, -1]`
+- `function.cpp:190-191`:
+  ```cpp
+  info.allowParallelMerge = sgSetScope[1] != 0;
+  info.allowCrossScopeMerge = sgSetScope[2] != 0;
   ```
-  [json.exception.type_error.305] cannot use operator[] with a string argument with null
-  ```
-- 异常发生在 `config_manager_ng.cpp` 的 `parse_array_type` 函数中
 
-**根本原因**：
-`parse_array_type` 函数期望读取 `jData["items"]["type"]`，但 `sg_set_scope` 没有定义 `items`，导致访问失败。
+**问题分析**：
+- 当前设计：JSON 使用 0/1，Python 层处理转换，C++ 层使用 `!= 0` 判断
+- 用户认为这种设计是合理的：Python 层处理转换，C++ 层使用整数
+- 需要确认 JSON 文件中的值是否会被正确传递到 Python 层
 
-**解决方案**：
-修改了两个配置文件：
+**影响**：
+- 可能导致配置值传递不一致
+- 需要验证跨语言数据转换的正确性
 
-1. `framework/src/interface/configs/tile_fwk_config.json`:
-   - 将 bool 值改为 int（0/1）
-   - `[-1, false, false, -1]` → `[-1, 0, 0, -1]`
+**解决计划**：
+1. ✅ 用户已确认设计：使用 `[-1, 0, 0, -1]` 格式是合理的
+2. 验证 Python 层正确接收配置值
+3. 验证 C++ 层正确解析配置值
 
-2. `framework/src/interface/configs/tile_fwk_config_schema.json`:
-   - 添加 `items` 定义：
-   ```json
-   "items": {
-       "type": "integer"
-   }
-   ```
-
-**验证结果**：
-- `TestScopeId` 测试通过 ✅
+**优先级**：P3（需用户确认）
 
 ---
 
-### 2. 测试代码输入向量不匹配问题 ✅
+### 问题7：功能完整性未验证 🟡 P1
 
-**问题描述**：
-`GetParallelBranchesGraph` 函数中，`ioperands` 和 `ooperands` 只有 2 个元素，但 `opCodes` 和 `opNames` 有 3 个元素。
+**需求功能点**：
+1. ✅ 开关1：允许并行分支合并（allowParallelMerge）
+2. ✅ 开关2：允许跨 scope 合并（allowCrossScopeMerge）
+3. ✅ 预留接口：mixId
+4. ✅ 向后兼容：支持旧的 `sg_set_scope=48` 格式
 
-**错误代码**：
-```cpp
-std::vector<std::vector<std::string>> ioperands{{"t1" + br}, {"t2" + br}};
-std::vector<std::vector<std::string>> ooperands{{"t2" + br}, {"t3" + br}};
-std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_MUL, Opcode::OP_COPY_OUT};  // 3 个元素
-std::vector<std::string> opNames{"COPY_IN" + br, "MUL" + br, "COPY_OUT" + br};  // 3 个元素
-```
+**未验证的点**：
+- ❌ 开关1的功能是否按预期工作（并行分支合并）
+- ❌ 开关2的功能是否按预期工作（跨 scope 合并）
+- ❌ 两个开关同时启用时的交互行为
+- ❌ 向后兼容性测试（旧的 int 格式）
+- ❌ 边界情况处理（空值、无效值等）
 
-**根本原因**：
-`AddOps` 的检查逻辑：
-```cpp
-if (opcodes.size() != ioperandss.size() || opcodes.size() != ooperandss.size() || opcodes.size() != names.size()) {
-    return false;
-}
-```
-由于 3 != 2，导致 `AddOps` 返回 false，操作未添加到图中。
+**影响**：
+- 不确定功能是否正常工作
+- 可能存在未发现的 bug
 
-**解决方案**：
-添加了第 3 个操作（COPY_OUT）的输入和输出：
-```cpp
-std::vector<std::vector<std::string>> ioperands{{"t1" + br}, {"t2" + br}, {"t3" + br}};
-std::vector<std::vector<std::string>> ooperands{{"t2" + br}, {"t3" + br}, {}};
-```
+**解决计划**：
+1. 设计端到端测试用例，覆盖所有功能点
+2. 使用实际的 PyPTO 代码创建测试场景
+3. 验证编译和运行结果
+4. 对比不同开关配置下的分区结果
 
-**验证结果**：
-- 图构建成功 ✅
+**优先级**：P1（部分阻塞）
 
 ---
 
-## 未解决的问题
+### 问题8：测试用例执行状态 🟢 P4
 
-### 3. TestAllowParallelMerge 测试的 segfault 问题 ❌
+**C++ 测试**：
+- ✅ TestAllowParallelMergeTrue - 通过
+- ✅ TestAllowParallelMergeFalse - 通过
+- ✅ TestAllowCrossScopeMergeTrue - 通过
+- ✅ TestAllowCrossScopeMergeFalse - 通过
+- ✅ TestCombinedScopeSwitches - 通过
 
-**问题描述**：
-运行 `TestAllowParallelMerge` 测试时，出现 segmentation fault。
+**Python 测试**：
+- ❌ test_sg_set_scope_new_format - 无法运行（问题5）
 
-**测试代码**：
-```cpp
-TEST_F(GraphPartitionTest, TestAllowParallelMerge) {
-    ComputationalGraphBuilder G;
-    GetParallelBranchesGraph(G);
-    Function *function = G.GetFunction();
+**测试覆盖不足**：
+- 缺少 mixId 的测试用例
+- 缺少向后兼容性的端到端测试
+- 缺少错误处理的测试（无效参数、类型错误等）
 
-    const int cycleUB = 100000;
-    const int parallelTH = 20;
-    const int cycleLB = 100000;
-    const int useNodeHash = false;
-    IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+**影响**：
+- 测试覆盖不完整
+- 可能遗漏边界情况
 
-    Operation::ScopeInfo scopeInfo;
-    scopeInfo.scopeId = 1;
-    scopeInfo.allowParallelMerge = true;
-    scopeInfo.allowCrossScopeMerge = false;
-    scopeInfo.mixId = -1;
+**解决计划**：
+1. 补充 mixId 的测试用例
+2. 添加向后兼容性的端到端测试
+3. 添加错误处理的测试用例
+4. 提高测试覆盖率
 
-    for (int i = 0; i < 3; i++) {
-        G.GetOp("COPY_IN" + std::to_string(i))->SetScopeInfo(scopeInfo);
-        G.GetOp("MUL" + std::to_string(i))->SetScopeInfo(scopeInfo);
-        G.GetOp("COPY_OUT" + std::to_string(i))->SetScopeInfo(scopeInfo);
-    }
-
-    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-
-    // 检查代码...
-}
-```
-
-**gdb 调试信息**：
-```
-Program received signal SIGSEGV, Segmentation fault.
-0x0000fffff78a9bd4 in npu::tile_fwk::Operation::Operation(...) 
-#0  0x0000fffff78a9bd4 in npu::tile_fwk::Operation::Operation(npu::tile_fwk::Function&, npu::tile_fwk::Opcode, 
-   std::vector<std::shared_ptr<npu::tile_fwk::LogicalTensor>, std::allocator<std::shared_ptr<npu::tile_fwk::LogicalTensor> > >, 
-   std::vector<std::shared_ptr<npu::tile_fwk::LogicalTensor>, std::allocator<std::shared_ptr<npu::tile_fwk::LogicalTensor> > >, 
-   bool, int) () from /mnt/workspace/gitCode/cann/pypto/build/output/lib/libtile_fwk_interface.so
-#1  0x0000fffff769f55c in npu::tile_fwk::Function::AddRawOperation(...) 
-#2  0x0000aaaaab571540 in npu::tile_fwk::ComputationalGraphBuilder::AddOp(...) 
-#3  0x0000aaaaab572730 in npu::tile_fwk::ComputationalGraphBuilder::AddOps(...) 
-#4  0x0000aaaaab755a58 in npu::tile_fwk::GetParallelBranchesGraph(...) 
-#5  0x0000aaaaab768e3c in npu::tile_fwk::GraphPartitionTest_TestAllowParallelMerge_Test::TestBody() 
-```
-
-**segfault 发生位置**：
-- 在 `Operation::Operation` 构造函数中
-- 说明 `SetScopeInfo` 调用本身没有问题
-- 问题可能在于构造函数内部
-
-**可能原因分析**：
-
-1. **ScopeInfo 成员初始化问题**：
-   - `ScopeInfo` 结构体中的 bool 成员可能未正确初始化
-   - 需要检查 `operation.h` 中的 `ScopeInfo` 定义
-
-2. **内存访问问题**：
-   - `GetOp("COPY_IN" + std::to_string(i))` 可能返回 nullptr
-   - 需要在调用 `SetScopeInfo` 之前检查返回值
-
-3. **Operation 对象生命周期问题**：
-   - `GetOp` 返回的 Operation 指针可能指向已销毁的对象
-   - 需要检查 Operation 的生命周期管理
-
-4. **多次调用 `SetScopeInfo` 的问题**：
-   - 在循环中多次调用 `SetScopeInfo` 可能导致内部状态不一致
-   - 需要检查 `SetScopeInfo` 方法的实现
-
-**调试尝试**：
-
-1. **禁用 `SetScopeInfo` 调用**：
-   - 注释掉测试代码中的 `SetScopeInfo` 调用后，测试通过 ✅
-   - 说明问题确实在 `SetScopeInfo` 调用上
-
-2. **禁用 `UpdateScopeId` 中的 `SetScopeInfo`**：
-   - 在 `UpdateScopeId` 中注释掉 `SetScopeInfo` 调用，测试仍然 segfault
-   - 说明问题不在这里，而在测试代码的 `SetScopeInfo` 调用中
-
-3. **简化测试代码**：
-   - 只测试第一个分支，仍然 segfault
-   - 说明问题与循环次数无关
-
-**下一步调试方向**：
-
-1. 在 `Operation::SetScopeInfo` 方法中添加断点，查看调用栈
-2. 检查 `ScopeInfo` 结构体的内存布局
-3. 使用 AddressSanitizer 运行测试，定位内存访问错误
-4. 检查 `Operation` 对象的构造和析构过程
+**优先级**：P4（可选）
 
 ---
 
-### 4. 测试文件语法问题 ⚠️
+### 问题9：文档更新 🟡 P2
 
-**问题描述**：
-在添加 `TestAllowParallelMerge` 测试时，出现了多次语法错误。
+**缺失的文档**：
 
-**错误示例**：
-```
-../framework/tests/ut/passes/src/test_graph_partition.cpp:811:1: error: expected '}' at end of input
-  811 | } // namespace npu
-      | ^
-../framework/tests/ut/passes/src/test_graph_partition.cpp:31:20: note: to match this '{'
-   31 | namespace tile_fwk {
-      |                    ^
-```
+1. **API 文档更新**
+   - Python 层 `set_pass_options()` 的参数说明
+   - 新参数 `allow_parallel_merge`、`allow_cross_scope_merge`、`mix_id` 的详细说明
 
-**根本原因**：
-- 文件末尾缺少正确的大括号闭合
-- 多次编辑导致代码结构混乱
+2. **使用示例**
+   - 如何使用新的 tuple 格式
+   - 两个开关的使用场景和效果
+   - 与原有 scopeId 功能的对比
 
-**解决方案**：
-- 需要仔细检查整个测试文件的语法结构
-- 确保所有大括号正确闭合
-- 建议使用代码格式化工具检查语法
+3. **实现机制文档**
+   - 更新 `sg_set_scope_merge_mechanism.md`，说明新开关的工作原理
+   - 添加新功能的架构图和数据流图
 
----
+4. **已知限制和注意事项**
+   - 两个开关的约束和优先级
+   - 性能影响分析
+   - 最佳实践建议
 
-## 相关代码文件
+**影响**：
+- 用户无法正确使用新功能
+- 增加学习成本
 
-### 修改的文件
-1. `framework/src/interface/configs/tile_fwk_config.json`
-2. `framework/src/interface/configs/tile_fwk_config_schema.json`
+**解决计划**：
+1. 更新 `python/pypto/config.py` 的文档字符串
+2. 创建使用示例文件
+3. 更新 `sg_set_scope_merge_mechanism.md`
+4. 编写开发者指南
 
-### 需要检查的文件
-1. `framework/src/interface/operation/operation.h`
-   - `ScopeInfo` 结构体定义
-   - `SetScopeInfo` 方法实现
-
-2. `framework/src/passes/tile_graph_pass/graph_partition/supernode_graph_builder.cpp`
-   - `UpdateScopeId` 函数
-   - `BuildSuperNodeGraph` 函数
-
-3. `framework/tests/ut/passes/src/test_graph_partition.cpp`
-   - `TestAllowParallelMerge` 测试
-   - `GetParallelBranchesGraph` 辅助函数
+**优先级**：P2（不阻塞）
 
 ---
 
-## 测试验证命令
+### 问题10：代码质量检查 🟢 P5
 
-### 编译验证
-```bash
-python3 build_ci.py --generator Ninja
-```
+**需要检查的点**：
+- 代码风格一致性
+- 内存泄漏风险
+- 边界条件处理
+- 错误信息完整性
+- 日志输出充分性
 
-### 运行 TestScopeId
-```bash
-python3 build_ci.py -f=cpp --generator Ninja -u=GraphPartitionTest.TestScopeId
-```
+**影响**：
+- 可能存在代码质量问题
+- 影响长期维护性
 
-### 运行 TestAllowParallelMerge（当前失败）
-```bash
-python3 build_ci.py -f=cpp --generator Ninja -u=GraphPartitionTest.TestAllowParallelMerge
-```
+**解决计划**：
+1. 运行代码检查工具（如 clang-tidy）
+2. 审查所有修改的代码
+3. 添加必要的边界检查
+4. 改进错误消息和日志
+
+**优先级**：P5（可选）
 
 ---
 
-## 总结
+## 解决计划
 
-### 已完成
-- ✅ 修复 JSON 配置文件问题
-- ✅ 修复测试代码输入向量不匹配问题
-- ✅ `TestScopeId` 测试通过
+### 阶段1：修复阻塞问题（P0）
 
-### 待完成
-- ❌ 解决 `TestAllowParallelMerge` 的 segfault 问题
-- ⚠️ 修复测试文件语法问题
-- ⚠️ 完善并行分支合并逻辑
-- ⚠️ 完善 `allowCrossScopeMerge` 逻辑
+1. **解决问题5：Python 测试运行失败**
+   - 步骤1：检查已安装的配置文件内容
+   - 步骤2：对比源文件和已安装文件的差异
+   - 步骤3：定位 JSON 解析错误的根本原因
+   - 步骤4：修复问题
+   - 步骤5：重新编译和安装
+   - 步骤6：验证 Python 测试可以运行
 
-### 建议
-1. 先解决 segfault 问题，确保基本的 `SetScopeInfo` 功能正常工作
-2. 然后逐步添加并行分支合并和跨 scope 合并的逻辑
-3. 使用更严格的内存检查工具（如 AddressSanitizer）进行调试
-4. 添加更多的单元测试，覆盖各种边界情况
+### 阶段2：功能验证（P1）
+
+2. **解决问题7：功能完整性验证**
+   - 步骤1：设计端到端测试用例
+   - 步骤2：实现测试代码
+   - 步骤3：验证开关1功能（并行分支合并）
+   - 步骤4：验证开关2功能（跨 scope 合并）
+   - 步骤5：验证两个开关的交互行为
+   - 步骤6：验证向后兼容性
+
+### 阶段3：文档更新（P2）
+
+3. **解决问题9：文档更新**
+   - 步骤1：更新 API 文档
+   - 步骤2：创建使用示例
+   - 步骤3：更新机制文档
+   - 步骤4：编写开发者指南
+
+### 阶段4：测试补充（P4）
+
+4. **解决问题8：测试用例补充**
+   - 步骤1：添加 mixId 测试用例
+   - 步骤2：添加向后兼容性测试
+   - 步骤3：添加错误处理测试
+   - 步骤4：提高测试覆盖率
+
+### 阶段5：代码质量（P5）
+
+5. **解决问题10：代码质量检查**
+   - 步骤1：运行代码检查工具
+   - 步骤2：审查代码
+   - 步骤3：改进代码质量
+
+---
+
+## 验证结果
+
+### C++ 单元测试
+- ✅ TestScopeId (2 ms)
+- ✅ TestAllowParallelMergeTrue (0.77 ms)
+- ✅ TestAllowParallelMergeFalse (0.77 ms)
+- ✅ TestCombinedScopeSwitches (2 ms)
+- ✅ TestAllowCrossScopeMergeTrue (2 ms)
+- ✅ TestAllowCrossScopeMergeFalse (2 ms)
+
+### Python 单元测试
+- ❌ test_config_options.py - 无法运行（问题5）
+
+### 端到端功能测试
+- ❌ 未执行（等待问题5解决）
+
+---
+
+## 修改的文件
+
+### 已修改的文件（历史问题）
+1. ✅ `framework/src/interface/configs/tile_fwk_config.json` (第10行)
+2. ✅ `framework/src/interface/configs/tile_fwk_config_schema.json` (第110-118行)
+3. ✅ `framework/src/interface/function/function.cpp` (第1489-1505行)
+
+### 新增/修改的文件（当前实现）
+4. ✅ `framework/src/interface/operation/operation.h` (第171-180行，添加 ScopeInfo 结构体)
+5. ✅ `python/pypto/config.py` (第62-121行，支持 tuple 格式)
+6. ✅ `framework/src/passes/tile_graph_pass/graph_partition/supernode_graph_builder.cpp` (第608-680行，实现开关1)
+7. ✅ `framework/src/passes/tile_graph_pass/graph_partition/iso_partitioner.h` (第41-62行，添加 allowCrossScopeMerge_)
+8. ✅ `framework/src/passes/tile_graph_pass/graph_partition/iso_partitioner.cpp` (第156-193行，第506-573行，实现开关2)
+9. ✅ `framework/tests/ut/passes/src/test_graph_partition.cpp` (第764-938行，添加测试用例)
+10. ✅ `python/tests/ut/interface/test_config_options.py` (第89-116行，添加测试用例)
+
+---
+
+## 问题优先级总结
+
+| 优先级 | 问题 | 影响 | 阻塞 | 状态 |
+|--------|------|------|------|------|
+| P0 | 问题5: Python 测试失败 | 无法验证 Python 接口 | ✅ 是 | 🔴 待解决 |
+| P1 | 问题7: 功能完整性验证 | 不确定功能是否正常工作 | ⚠️ 部分 | 🟡 待解决 |
+| P2 | 问题9: 文档更新 | 用户无法正确使用新功能 | ❌ 否 | 🟡 待解决 |
+| P3 | 问题6: 配置格式 | 需要用户确认设计意图 | ❌ 否 | 🟢 已确认 |
+| P4 | 问题8: 测试覆盖 | 需要补充测试用例 | ❌ 否 | 🟡 待解决 |
+| P5 | 问题10: 代码质量 | 提升代码质量 | ❌ 否 | 🟢 可选 |
+
+---
+
+## 下一步行动
+
+1. **立即行动**：解决问题5（Python 测试失败）
+2. **短期行动**：解决问题7（功能完整性验证）
+3. **中期行动**：解决问题9（文档更新）
+4. **长期行动**：解决问题8（测试补充）和问题10（代码质量）
+
+---
+
+**更新时间**：2026-03-26
+**更新人**：AI Assistant
