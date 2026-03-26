@@ -17,7 +17,7 @@
 #include "index_outcast_checker.h"
 #include "passes/pass_log/pass_log.h"
 #include "passes/pass_utils/pass_utils.h"
-#include "passes\pass_utils\pass_error.h"
+#include "passes/pass_utils/pass_error.h"
 
 #define MODULE_NAME "IndexOutcastChecker"
 
