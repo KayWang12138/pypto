@@ -29,7 +29,7 @@ IR（Intermediate Representation）是PyPTO编译器在各个Pass阶段生成的
 
 ```
 -------------
-Function {函数名}[索引] {hash} {图类型} {
+Function {函数名}[function_magic] {hash} {函数类型} {图类型} {
   RAWTENSOR声明
   INCAST/OUTCAST声明
   
@@ -46,10 +46,16 @@ Function TENSOR_TENSOR_update_kernel_loop_Unroll1_PATH0_hiddenfunc0_5[5] 3116444
 **字段说明：**
 - `Function`: 固定关键字
 - `函数名`: 当前处理的函数名称
-- `[索引]`: 索引
-- `{hash}`: 唯一标识符
+- `[function_magic]`: 函数magic唯一标识符
+- `{hash}`: 函数hash值
+- `{函数类型}`: 函数类型，如 DYNAMIC_LOOP_PATH
 - `{图类型}`: TENSOR_GRAPH 或 TILE_GRAPH
-- `{图属性}``:` 图的额外属性（如DYNAMIC_LOOP_PATH）
+
+**函数类型说明：**
+- `STATIC`: 静态函数
+- `DYNAMIC`: 动态函数
+- `DYNAMIC_LOOP`: 动态循环函数
+- `DYNAMIC_LOOP_PATH`: 动态循环路径函数
 
 **图类型说明：**
 - `TENSOR_GRAPH`: 高层张量图，表示原始的计算逻辑，未进行tiling优化
@@ -76,10 +82,10 @@ RAWTENSOR[索引] <shape> @{编号}"{名称}"
 #### 示例
 
 ```
-RAWTENSOR[  0] <1 x 16 x DT_INT_INT32> @10"TENSOR_3"
+RAWTENSOR[  0] <1 x 16 x DT_INT32> @10"TENSOR_3"
 RAWTENSOR[  1] <8 x 128 x DT_FP32> @12"TENSOR_2"
 RAWTENSOR[  2] <16 x 128 x DT_FP32> @14"TENSOR_1"
-```
+`````
 
 #### 字段说明
 
@@ -87,7 +93,7 @@ RAWTENSOR[  2] <16 x 128 x DT_FP32> @14"TENSOR_1"
 - **shape**: 张量的形状和数据类型
   - 格式：`dim1 x dim2 x ... x DT_数据类型`
   - 数据类型：DT_INT32, DT_FP32, DT_FP16等
-- **编号**: 张量的编号，唯一标识@10, @12, @14等）
+- **编号**: 张量的编号，唯一标识（@10, @12, @14等）
 - **名称**: 张量的名称，可能为空
 
 #### 分析要点
@@ -96,13 +102,31 @@ RAWTENSOR[  2] <16 x 128 x DT_FP32> @14"TENSOR_1"
 2. **形状合理性**: 检查shape的维度和大小是否合理
 3. **数据类型**: 验证数据类型是否匹配计算需求
 
-### 2. INCAST/OUTCAST（输入tensor/输出tensor）
+### 2. Tensor类型说明
+
+PyPTO IR中存在两种tensor类型：
+
+#### Logic Tensor（逻辑张量）
+
+- **标识符**: `%` 开头，如 `%6`, `%84`, `%TENSOR_1`
+- **含义**: 表示逻辑上的tensor，用于计算图中的数据流
+- **特点**: 可以有名称或编号
+- **作用**: 在IR中表示数据流和计算依赖
+
+#### Raw Tensor（原始张量）
+
+- **标识符**: `@` 开头，如 `@10`, `@50`, `@TENSOR_2`
+- **含义**: 表示物理存储空间
+- **特点**: 在RAWTENSOR声明中定义
+- **作用**: 表示实际的内存分配
+
+### 3. INCAST/OUTCAST（输入tensor/输出tensor）
 
 #### 语法格式
 
 ```
-INCAST[索引] <shape / valid_shape> %{logic tensor编号或名称}@{raw tensor编号或名称}#(xx) fromSlot[槽位]
-OUTCAST[索引] <shape / valid_shape> %{logic tensor编号或名称}@{raw tensor编号或名称}#(xx) toSlot[槽位]
+INCAST[索引] <shape / valid_shape> %{logic tensor}@{raw tensor}#(子图ID) fromSlot[槽位列表]
+OUTCAST[索引] <shape / valid_shape> %{logic tensor}@{raw tensor}#(子图ID) toSlot[槽位列表]
 ```
 
 #### 示例
@@ -117,47 +141,77 @@ OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@16#(-1) toSlot[3]
 - **索引**: 索引位置
 - **shape**: 张量的形状
 - **valid_shape**: 张量的有效形状
-- **logic tensor编号或名称**: 标识符（%6, %9, %aaa等）
-- **raw tensor编号或名称**: 标识符（@6, @9, @aaa等）
+- **logic tensor**: 标识符（%6, %9, %aaa等）
+- **raw tensor**: 标识符（@6, @9, @aaa等）
+- **子图ID**: 子图标识符，用于标识tensor所属的子图
+- **fromSlot/toSlot**: 槽位列表，用于追踪INCAST/OUTCAST的slot映射关系
 
-### 3. 操作节点
+```
+
+### 4. 操作节点
 
 #### 语法格式
 
-输出tensor列表 = op_id? opcode 输入参数列表？属性列表？ // 输入参数列表和属性列表可以为空
-
 ```
-<shape / valid_shape> %{输出logic tensor编号或名称}@{输出raw tensor编号或名称}#(xx){内存类型} = !{op_id} {opcode}(参数) %{输入logic tensor编号或名称}@{输入raw tensor编号或名称}#(xx){内存类型} #{属性}
+<shape / valid_shape> %{输出logic tensor}@{输出raw tensor}#(子图ID){读内存类型}::写内存类型} = !{op_id} {opcode}(g:{子图ID}, s:{作用域ID}) {输入参数} {属性}
 ```
 
 #### 示例
 
 ```
-<1 x 16 x DT_INT32 / 1 x 16 x DT_INT32> %7@11#(-1)MEM_UNKNOWN::MEM_UNKNOWN = !10005 VIEW(g:-1, s:-1) %6@10#(-1)MEM_UNKNOWN::MEM_UNKNOWN from offset:[  0,  0] dynoffset:[  0,  0] to MEM_UNKNOWN dynvalidshape:[  1, 16] #IS_GLOBAL_INPUT{1}
+<16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %84@50#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR = !10022 TILE_VIEW(g:-1, s:-1) %12@14#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR from offset:[  0,  0] dynoffset:[  0,  0] to MEM_DEVICE_DDR dynvalidshape:[ 16,128]
 
-<16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %1@6#(-1)MEM_UNKNOWN::MEM_UNKNOWN = !10001 INDEX_OUTCAST(g:-1, s:-1) %10@13#(-1)MEM_UNKNOWN::MEM_UNKNOWN, %0@5#(-1)MEM_UNKNOWN::MEM_UNKNOWN, %13@15#(-1)MEM_UNKNOWN::MEM_UNKNOWN #CACHE_MODE{PA_BSND} #PA_NZ_BLOCK_SIZE{1} #axis{0}
+<16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %1@6#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR = !10014 TILE_INDEX_OUTCAST(g:-1, s:-1) %88@52#(-1)MEM_UB::MEM_UB, %0@5#(-1)MEM_UB::MEM_UB, %84@50#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR #CACHE_MODE{PA_BSND} #PA_NZ_BLOCK_SIZE{1} #axis{0}
 
-<16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %76@17#(0)MEM_UB::MEM_UB = !10015 TILE_ADDS(g:0, s:-1) %87@52#(0)MEM_UB::MEM_UB #IS_CUBE{0} #SCALAR{1.000000} #last_use{[0, 1]} #op_attr_reverseOperand{0}
+<16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %76@17#(0)MEM_UB::MEM_UB = !10015 TILE_ADDS(g:0, s:-1) %87@52#(0)MEM_UB::MEM_UB #SCALAR{1.000000} #op_attr_reverseOperand{0}
 ```
 
 #### 字段说明
 
 - **shape**: 张量的形状
 - **valid_shape**: 张量的有效形状
-- **logic tensor编号或名称**: 标识符（%6, %9, %aaa等）
-- **raw tensor编号或名称**: 标识符（@6, @9, @aaa等）
-- **内存类型**: 变量的内存类型
+- **输出logic tensor**: 标识符（%6, %9, %aaa等）
+- **输出raw tensor**: 标识符（@6, @9, @aaa等）
+- **子图ID**: 子图标识符，用于标识tensor所属的子图
+- **读内存类型::写内存类型**: 双冒号分隔的内存类型
+  - 格式：`MEM_TYPE::MEM_TYPE`
+  - 例如：`MEM_UB::MEM_UB`, `MEM_DEVICE_DDR::MEM_UB`
 - **op_id**: 操作的唯一标识符（!10005, !10001等）
 - **opcode**: 操作的名称
-- **参数**: 操作的输入参数（变量列表、常量等）
-- **属性**: 操作的属性配置
+- **g:{子图ID}**: 操作所属的子图ID，用于图分区管理
+  - 默认值：`NOT_IN_SUBGRAPH = -1`
+  - 代码位置：`Operation::GetSubgraphID()` 返回 `subgraphID_` 成员变量
 
-#### 运行时参数
+- **s:{作用域ID}**: 操作的作用域ID，用于标识操作的执行阶段
+  - 默认值：`-1`
+  - 代码位置：`Operation::GetScopeId()` 返回 `scopeId_` 成员变量
+- **输入参数**: 操作的输入参数（变量列表、常量等）
+- **属性**: 使用空格分隔的键值对
+  - 格式：`#属性名{属性值}`
+  - 例如：`#CACHE_MODE{PA_BSND} #PA_NZ_BLOCK_SIZE{1}`
 
-| 参数名 | 说明 | 示例 |
-|-------|------|------|
-| RUNTIME_COA_GET_PARAM_OFFSET(param_index, dim_index) | 获取参数偏移 | RUNTIME_COA_GET_PARAM_OFFSET(2,1,0) |
-| RUNTIME_COA_GET_PARAM_VALID_SHAPE(param_index, dim_index) | 获取参数有效shape | RUNTIME_COA_GET_PARAM_VALID_SHAPE(2,1,0) |
+```
+
+#### 内存类型说明
+
+| 内存类型 | 说明 |
+|---------|------|
+| MEM_UNKNOWN | 未知内存类型 |
+| MEM_DEVICE_DDR | 设备DDR内存 |
+| MEM_UB | Unified Buffer（统一缓冲区） |
+| MEM_L1 | L1缓存 |
+
+#### 常见操作类型
+
+| 操作类型 | 说明 |
+|---------|------|
+| TILE_VIEW | 张量视图操作 |
+| TILE_COPY_IN | 从DDR拷贝到UB |
+| TILE_COPY_OUT | 从UB拷贝到DDR |
+| TILE_ADDS | 张量加法 |
+| TILE_MUL | 张量乘法 |
+| TILE_INDEX_OUTCAST | 索引输出操作 |
+| TILE_ASSEMBLE | 张量组装操作 |
 
 #### 分析要点
 
@@ -167,6 +221,71 @@ OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@16#(-1) toSlot[3]
 4. **内存类型**: 检查内存类型转换的正确性
 5. **操作参数**: 验证操作参数的完整性和正确性
 6. **属性一致性**: 检查操作属性的合理性
+
+## 实际IR示例分析
+
+### 示例1：TILE_VIEW操作
+
+```
+<16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %84@50#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR = !10022 TILE_VIEW(g:-1, s:-1) %12@14#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR from offset:[  0,  0] dynoffset:[  0,  0] to MEM_DEVICE_DDR dynvalidshape:[ 16,128]
+```
+
+**分析**：
+- **输出**: logic tensor `%84`，raw tensor `@50`，子图ID `-1`，内存类型 `MEM_DEVICE_DDR::MEM_DEVICE_DDR`
+- **操作**: `TILE_VIEW`，操作ID `10022`，子图ID `-1`，作用域ID `-1`
+- **输入**: logic tensor `%12`，raw tensor `@14`，内存类型 `MEM_DEVICE_DDR::MEM_DEVICE_DDR`
+- **参数**:
+  - `from offset:[0, 0]`：源偏移量
+  - `dynoffset:[0, 0]`：动态偏移量
+  - `to MEM_DEVICE_DDR`：目标内存类型
+  - `dynvalidshape:[16,128]`：动态有效形状
+
+### 示例2：TILE_INDEX_OUTCAST操作
+
+```
+<16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %1@6#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR = !10014 TILE_INDEX_OUTCAST(g:-1, s:-1) %88@52#(-1)MEM_UB::MEM_UB, %0@5#(-1)MEM_UB::MEM_UB, %84@50#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR #CACHE_MODE{PA_BSND} #PA_NZ_BLOCK_SIZE{1} #axis{0}
+```
+
+**分析**：
+- **输出**: logic tensor `%1`，raw tensor `@6`，子图ID `-1`，内存类型 `MEM_DEVICE_DDR::MEM_DEVICE_DDR`
+- **操作**: `TILE_INDEX_OUTCAST`，操作ID `10014`，子图ID `-1`，作用域ID `-1`
+- **输入**:
+  1. `%88@52`：数据tensor，内存类型 `MEM_UB::MEM_UB`
+  2. `%0@5`：索引tensor，内存类型 `MEM_UB::MEM_UB`
+  3. `%84@50`：输出tensor，内存类型 `MEM_DEVICE_DDR::MEM_DEVICE_DDR`
+- **属性**:
+  - `#CACHE_MODE{PA_BSND}`：缓存模式
+  - `#PA_NZ_BLOCK_SIZE{1}`：非零块大小
+  - `#axis{0}`：操作轴
+
+### 示例3：TILE_ADDS操作
+
+```
+<16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %76@17#(0)MEM_UB::MEM_UB = !10015 TILE_ADDS(g:0, s:-1) %87@52#(0)MEM_UB::MEM_UB #SCALAR{1.000000} #op_attr_reverseOperand{0}
+```
+
+**分析**：
+- **输出**: logic tensor `%76`，raw tensor `@17`，子图ID `0`，内存类型 `MEM_UB::MEM_UB`
+- **操作**: `TILE_ADDS`，操作ID `10015`，子图ID `0`，作用域ID `-1`
+- **输入**: logic tensor `%87`，raw tensor `@52`，内存类型 `MEM_UB::MEM_UB`
+- **属性**:
+  - `#SCALAR{1.000000}`：标量值
+  - `#op_attr_reverseOperand{0}`：操作数反转标志
+
+### 示例4：TILE_ASSEMBLE操作
+
+```
+<16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %18@18#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR = !10018 TILE_ASSEMBLE(g:-1, s:-1) %21@19#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR from MEM_DEVICE_DDR to offset:[  0,  0] to dynoffset:[  0,  0]
+```
+
+**分析**：
+- **输出**: logic tensor `%18`，raw tensor `@18`，子图ID `-1`，内存类型 `MEM_DEVICE_DDR::MEM_DEVICE_DDR`
+- **操作**: `TILE_ASSEMBLE`，操作ID `10018`，子图ID `-1`，作用域ID `-1`
+- **输入**: logic tensor `%21`，raw tensor `@19`，内存类型 `MEM_DEVICE_DDR::MEM_DEVICE_DDR`
+- **参数**:
+  - `from MEM_DEVICE_DDR`：源内存类型
+  - `to offset:[0, 0]`：目标偏移量
+  - `to dynoffset:[0, 0]`：目标动态偏移量
 
 ## IR分析方法
 
@@ -230,7 +349,7 @@ def check_file_completeness(ir_file):
 
 ```
 # 数据流示例
-INCAST[0] → %6 → VIEW → %7 → ... → OUTCAST[0]
+INCAST[0] → %6 → TILE_VIEW → %84 → TILE_INDEX_OUTCAST → %1 → ... → OUTCAST[0]
 ```
 
 ### 3. 内存访问分析
@@ -261,7 +380,7 @@ INCAST[0] → %6 → VIEW → %7 → ... → OUTCAST[0]
 
 ```
 # 内存访问模式示例
-%0 (DDR) → TILE_COPY_IN → %84 (UB) → TILE_ADDS → %76 (UB) → TILE_COPY_OUT → %14 (DDR)
+%0 (DDR) → TILE_VIEW → %84 (DDR) → TILE_INDEX_OUTCAST → %1 (DDR) → TILE_VIEW → %91 (UB) → TILE_ADDS → %76 (UB) → TILE_ASSEMBLE → %14 (DDR)
 ```
 
 ### 4. 依赖关系分析
@@ -345,7 +464,7 @@ INCAST[0] → %6 → VIEW → %7 → ... → OUTCAST[0]
 
 ```
 # 错误示例：缺少等号
-<16 x 128 x DT_FP32> %1@6#(-1)MEM_UNKNOWN::MEM_UNKNOWN !10001 ADDS(g:-1, s:-1) %10@13#(-1)MEM_UNKNOWN::MEM_UNKNOWN
+<16 x 128 x DT_FP32> %1@6#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR !10001 ADDS(g:-1, s:-1) %10@13#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR
 ```
 
 **定位方法**：
@@ -356,7 +475,7 @@ INCAST[0] → %6 → VIEW → %7 → ... → OUTCAST[0]
 
 ```
 # 错误示例：使用了未定义的变量
-<16 x 128 x DT_FP32> %1@6#(-1)MEM_UNKNOWN::MEM_UNKNOWN = !10001 ADDS(g:-1, s:-1) %999@13#(-1)MEM_UNKNOWN::MEM_UNKNOWN
+<16 x 128 x DT_FP32> %1@6#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR = !10001 ADDS(g:-1, s:-1) %999@13#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR
 # %999 未定义
 ```
 
@@ -368,7 +487,7 @@ INCAST[0] → %6 → VIEW → %7 → ... → OUTCAST[0]
 
 ```
 # 错误示例：数据流断裂
-INCAST[0] → %6 → VIEW → %7
+INCAST[0] → %6 → TILE_VIEW → %7
 # %7 未被任何操作使用
 ```
 
@@ -652,15 +771,15 @@ def generate_analysis_report(ir, checks):
 ```
 IR文件 ::= 文件头 RAWTENSOR* INCAST* OUTCAST* operation*
 
-文件头 ::= "Function" 函数名 "[" 参数数量 "]" hash 图属性 "{" 
+文件头 ::= "Function"” 函数名 "[" function_magic "]" hash 函数类型 图类型 "{" 
 
 RAWTENSOR ::= "RAWTENSOR[" 索引 "] <" shape "> @" 编号 "\"" 名称 "\""
 
-INCAST ::= "INCAST[" 索引 "] <" shape "/" valid_shape "> %" logic_tensor "@" raw_tensor "#(" 组号 ") fromSlot[" 槽位 "]"
+INCAST ::= "INCAST[" 索引 "] <" shape "/" valid_shape "> %" logic_tensor "@" raw_tensor "#(" 子图ID ") fromSlot[" 槽位列表 "]"
 
-OUTCAST ::= "OUTCAST[" 索引 "] <" shape "/" valid_shape "> %" logic_tensor "@" raw_tensor "#(" 组号 ") toSlot[" 槽位 "]"
+OUTCAST ::= "OUTCAST[" 索引 "] <" shape "/" valid_shape "> %" logic_tensor "@" raw_tensor "#(" 子图ID ") toSlot[" 槽位列表 "]"
 
-operation ::= "<" shape / valid_shape "> %" 输出logic_tensor "@" 输出raw_tensor "#(" 组号 ")" 内存类型 " = !" operation_id opcode 参数 属性*
+operation ::= "<" shape "/" valid_shape "> %" 输出logic_tensor "@" 输出raw_tensor "#(" 子图ID ")" 读内存类型 "::" 写内存类型 " = !" operation_id opcode "(g:" 子图ID ", s:" 作用域ID ")" 参数 属性*
 
 logic_tensor ::= "%" 名称 或 "%" 编号
 
@@ -670,3 +789,11 @@ shape ::= 维度 " x " 维度 " x " ... " x " 数据类型
 
 属性 ::= "#" 属性名 "{" 属性值 "}"
 ```
+
+**注意**：
+- 内存类型使用双冒号 `::` 分隔读写类型
+- 属性使用空格分隔，不是逗号
+- 操作参数包含 `(g:子图ID, s:作用域ID)` 子图和作用域信息
+- 函数类型和图类型是独立的字段
+- 子图ID默认值为 `-1`（NOT_IN_SUBGRAPH）
+- 作用域ID默认值为 `-1`
