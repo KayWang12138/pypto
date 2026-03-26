@@ -577,7 +577,7 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(
     tileTensor.tensorName = BUFFER_TYPE_TO_PREFIX_LC.at(tileTensor.bufType) + "Tensor_" +
                             std::to_string(IdGen<IdType::CG_VAR_NAME>::Inst().NewId());
     if (shapeInLoop.loopDepth != 0) {
-        std::string tensorName = tensorNames_[paramIdx];
+        std::string tensorName = sm->QueryTileTensorNameByHash(tensorHash_[paramIdx]);
         if (!tensorName.empty()) {
             tensorName.append("_low").append(std::to_string(tileTensor.dim)).append("DimInLoop");
             tileTensor.tensorName = tensorName;
@@ -586,6 +586,7 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(
     UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm, shapeInLoop);
 
     tileTensor.localBufOffset = offset[paramIdx];
+    tileTensor.ComputeHash();
 
     return tileTensor;
 }
@@ -610,7 +611,7 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType);
         std::string tensorName = sm->AddTileTensor(tileTensor);
-        tensorNames_[i] = tensorName;
+        tensorHash_[i] = tileTensor.hash;
         CODEGEN_LOGI(
             "AddTileTensor op idx: %d, result usingType: %s, tensorName: %s", i, usingType.c_str(), tensorName.c_str());
     }
@@ -673,7 +674,7 @@ void CodeGenOpCloudNPU::UpdateLoopInfo() {
             shapeInLoop.rawShape};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType, shapeInLoop);
-        forBlkMgr_->AddTensorInLoopBody(tensorNames_[i], tileTensor);
+        forBlkMgr_->AddTensorInLoopBody(tensorHash_[i], tileTensor, originalOp);
     }
 }
 
