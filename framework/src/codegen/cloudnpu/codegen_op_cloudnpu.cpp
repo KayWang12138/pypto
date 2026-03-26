@@ -444,7 +444,7 @@ std::string CodeGenOpCloudNPU::GenGmParamVar(unsigned gmParamIdx) const {
         std::ostringstream os;
         os << "GET_PARAM_ADDR(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
            << paramLocation[gmParamIdx] << ")";
-        return os.str();
+        return os.str()
     }
 
     auto paramLoc = paramLocation[gmParamIdx];
@@ -549,7 +549,8 @@ void CodeGenOpCloudNPU::UpdateTileTensorShapeAndStride(
 
 TileTensor CodeGenOpCloudNPU::BuildTileTensor(
     int paramIdx, const std::string &usingType, const ShapeInLoop &shapeInLoop) {
-    bool isSpillToGm = operand[paramIdx] == SYMBOL_STACK_BASE;
+    bool isSpillToGm{false};
+    GetTensorAttr(paramIdx, "isWorkspaceGM", isSpillToGm);
 
     TileTensor tileTensor;
     tileTensor.isConstant = functionType == FunctionType::STATIC || isMainBlock;
@@ -567,7 +568,7 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(
     tileTensor.bufType = operandType[paramIdx];
 
     if (tileTensor.bufType == OperandType::BUF_DDR) {
-        tileTensor.bufVar = isSpillToGm ? GenGMAddrExprWithOffset(GM_STACK_BASE) : GenGmParamVar(paramIdx);
+        tileTensor.bufVar = isSpillToGm ? GenGMAddrExprWithOffset(paramIdx, GM_STACK_BASE) : GenGmParamVar(paramIdx);
     } else {
         tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic, true);
     }
