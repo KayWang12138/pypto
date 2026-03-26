@@ -14,6 +14,7 @@
  */
 
 #include "raw_tensor_data.h"
+#include "shmem_tensor_data.h"
 
 namespace npu::tile_fwk {
 
@@ -270,6 +271,30 @@ std::shared_ptr<LogicalTensorData> LogicalTensorData::Load(const std::string &fi
 ProgramData &ProgramData::GetInstance() {
     static ProgramData data;
     return data;
+}
+
+std::shared_ptr<RawTensorData> RawTensorData::CreateFromSharedMemory(
+    DataType dataType,
+    const std::vector<int64_t> &shape,
+    const std::string &shmName,
+    int rankId,
+    bool isCreator) {
+
+    auto tensorData = std::make_shared<RawTensorData>();
+    tensorData->dataType_ = dataType;
+    tensorData->shape_ = shape;
+    tensorData->stride_ = ShapeToStride(shape);
+    tensorData->nelem = tensorData->stride_[0] * shape[0];
+    tensorData->elemSize_ = GetDataSize(dataType);
+
+    size_t totalSize = tensorData->nelem * tensorData->elemSize_;
+
+    tensorData->shmemData_ = ShmemTensorData::CreateShared(
+        shmName, totalSize, rankId, isCreator);
+
+    tensorData->reserve(totalSize);
+
+    return tensorData;
 }
 
 }

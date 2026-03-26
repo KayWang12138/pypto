@@ -32,6 +32,8 @@
 
 namespace npu::tile_fwk {
 
+class ShmemTensorData;
+
 template <typename T, std::size_t Align>
 class AlignedAllocator {
 public:
@@ -258,6 +260,15 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
     void SetDevPtr(uint8_t *ptr) { devPtr_ = ptr; }
     uint8_t *GetDevPtr() { return devPtr_; }
 
+    bool IsSharedMemory() const { return shmemData_ != nullptr; }
+
+    static std::shared_ptr<RawTensorData> CreateFromSharedMemory(
+        DataType dataType,
+        const std::vector<int64_t> &shape,
+        const std::string &shmName,
+        int rankId,
+        bool isCreator);
+
     void ToFile(const std::string &path) const {
         std::ofstream ofile(path, std::ios::out | std::ios::binary);
         if (!ofile) {
@@ -272,8 +283,9 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
         return nelem * elemSize_;
     }
 
-private:
+ private:
     uint8_t *devPtr_{nullptr};
+    std::shared_ptr<class ShmemTensorData> shmemData_;
     DataType dataType_;
     Shape shape_;
     Stride stride_;
