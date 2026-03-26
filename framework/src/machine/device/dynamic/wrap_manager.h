@@ -103,7 +103,7 @@ public:
 
     WrapInfoQueue* readyWrapCoreFunctionQue_{nullptr};
     // Queue managed by each thread, elem is wrapInfo's addr
-    StaticReadyCoreFunctionQueue wrapQueueForThread_{0, 0, nullptr, 0};
+    std::unordered_map<uint32_t, uint64_t> wrapQueueForThread_;
     uint32_t* wrapTasklist_{nullptr};
     SendTaskToAiCoreFunc SendTaskToAiCore;
     bool isOpenMixSche {false};
@@ -184,19 +184,12 @@ public:
         AddReadyCoreIdx = addReadyCoreIdxFunc;
         readyWrapCoreFunctionQue_ = reinterpret_cast<WrapInfoQueue *>(curDevTask_->mixTaskData.readyWrapCoreFunctionQue);
 
-        wrapQueueForThread_.head = 0;
-        wrapQueueForThread_.tail = 0;
-        wrapQueueForThread_.elem = curDevTask_->mixTaskData.wrapIdNum == 0 ? nullptr :
-            static_cast<uint64_t *>(malloc(curDevTask_->mixTaskData.wrapIdNum * sizeof(uint64_t)));
         SetDieReadyQueue(curDevTask->dieReadyFunctionQue);
     }
 
     inline void Deinit() {
         RETURN_NULL_IF_NOT(isOpenMixSche);
-        if (wrapQueueForThread_.elem != nullptr) {
-            free(wrapQueueForThread_.elem);
-            wrapQueueForThread_.elem = nullptr;
-        }
+        wrapQueueForThread_.clear();
     }
 
     inline bool GetIsMixarch() {
@@ -261,7 +254,7 @@ public:
     inline void UpdateWrapQueueAndRmvCoreIdx(WrapInfo* wrapTasks[], uint32_t taskCount) {
         for (uint32_t taskIdx =0; taskIdx < taskCount; taskIdx++) {
             WrapInfo* wrapInfo = wrapTasks[taskIdx];
-            wrapQueueForThread_.elem[wrapQueueForThread_.tail++] = reinterpret_cast<uint64_t>(wrapInfo);
+            wrapQueueForThread_.emplace(wrapInfo->wrapId, reinterpret_cast<uint64_t>(wrapInfo));
             uint32_t* aicoreIdxList = wrapInfo->aicoreIdxList;
             uint32_t mixType = wrapInfo->mixResourceType;
             switch (mixType) {
@@ -337,8 +330,8 @@ public:
     inline void DispatchMixCoreTask() {
         RETURN_NULL_IF_NOT(isOpenMixSche);
         UpdateWrapQueueForThread();
-        for (uint32_t idx = wrapQueueForThread_.head; idx < wrapQueueForThread_.tail; idx++) {
-            WrapInfo *wrapInfo = reinterpret_cast<WrapInfo *>(wrapQueueForThread_.elem[idx]);
+        for (const auto& pair : wrapQueueForThread_) {
+            WrapInfo *wrapInfo = reinterpret_cast<WrapInfo *>(pair.second);
             uint32_t taskNum = GetTaskNumByMixResType(wrapInfo->mixResourceType);
             for (uint32_t taskIdx = 0; taskIdx < taskNum; taskIdx++) {
                 uint32_t taskId = wrapInfo->tasklist[taskIdx];
@@ -447,22 +440,16 @@ public:
         uint32_t wrapId = GetWrapId(taskId);
         DEV_VERBOSE_DEBUG("taskId = %u, wrapId = %u", taskId, wrapId);
 
-        WrapInfo *wrapInfo = nullptr;
-        for (uint32_t idx = wrapQueueForThread_.head; idx < wrapQueueForThread_.tail; idx++) {
-            if (reinterpret_cast<WrapInfo *>(wrapQueueForThread_.elem[idx])->wrapId == wrapId) {
-                wrapInfo = reinterpret_cast<WrapInfo *>(wrapQueueForThread_.elem[idx]);
-                break;
-            }
-        }
-
+        auto it = wrapQueueForThread_.find(wrapId);
         int32_t taskIdx = GetMixTaskIdx(taskId);
 
-        if (wrapInfo == nullptr) { // the wrap is not in this thread
+        if (it == wrapQueueForThread_.end()) { // the wrap is not in this thread
             DEV_VERBOSE_DEBUG("the wrapId %u is not in this thread, push taskId %u to tasklist", wrapId, taskId);
             PushTaskToTasklist(wrapId, taskId, taskIdx);
             return;
         }
 
+        WrapInfo *wrapInfo = reinterpret_cast<WrapInfo *>(it->second);
         CoreType coreType = taskIdx == WRAP_IDX_AIC ? CoreType::AIC : CoreType::AIV;
         DEV_VERBOSE_DEBUG("directly send taskId %u to core, core type idx: %d", taskId, taskIdx);
         SendTaskToAiCore(coreType, wrapInfo->aicoreIdxList[taskIdx], taskId);
@@ -477,19 +464,14 @@ public:
         uint32_t wrapId = id;
         WrapInfo *wrapInfo = nullptr;
         uint32_t wrapIdx = 0;
-        for (uint32_t idx = wrapQueueForThread_.head; idx < wrapQueueForThread_.tail; idx++) {
-            if (reinterpret_cast<WrapInfo *>(wrapQueueForThread_.elem[idx])->wrapId == wrapId) {
-                wrapInfo = reinterpret_cast<WrapInfo *>(wrapQueueForThread_.elem[idx]);
-                wrapIdx = idx;
-                break;
-            }
-        }
+        auto it = wrapQueueForThread_.find(wrapId);
 
-        if (wrapInfo == nullptr) {
+        if (it == wrapQueueForThread_.end()) {
             DEV_ERROR(DevCommonErr::NULLPTR, "#sche.task.run.wrap.dep.resolve: cant find wrapInfo in wrapQueueForThread!");
             return;
         }
 
+        WrapInfo *wrapInfo = reinterpret_cast<WrapInfo *>(it->second);
         uint32_t taskIdx = GetMixTaskIdx(finishId);
         wrapInfo->tasklist[taskIdx] = AICORE_TASK_STOP;
 
@@ -499,7 +481,7 @@ public:
 
         if (IsMixTaskFinish(wrapInfo)) { // all tasks for this wrap finish
             DEV_VERBOSE_DEBUG("wrapId %u 's all tasks finish, release wrapcore", wrapId);
-            std::swap(wrapQueueForThread_.elem[wrapIdx], wrapQueueForThread_.elem[--wrapQueueForThread_.tail]);
+            wrapQueueForThread_.erase(wrapId);
         }
     }
 
