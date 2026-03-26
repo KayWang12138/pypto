@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <string>
 
 #include "tilefwk/data_type.h"
 #include "tilefwk/element.h"
@@ -587,5 +588,12 @@ inline void AccMatMul(
         auto accData = Trans(acc);
         ops->MatMul(Trans(out), Trans(self), Trans(other), &accData, param);
     }
+}
+
+inline void BindTensor(LogicalTensorDataPtr out, const std::string &groupName, uint64_t memType, uint64_t slotSize) {
+    CalcOps *ops = GetCalcOps();
+    ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
+    TensorData oData = Trans(out);
+    ops->BindTensor(oData, groupName, memType, slotSize);
 }
 } // namespace npu::tile_fwk::calc
