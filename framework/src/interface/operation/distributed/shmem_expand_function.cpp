@@ -405,11 +405,12 @@ void TiledShmemSet(Function& function, const TileShape& tileShape,
 
     ASSERT(DistributedErrorCode::INVALID_ALIGNMENT, UB_BUFFER_BYTE_SIZE % REPEAT_BYTE == 0) << "UB_BUFFER_BYTE_SIZE must be a multiple of 256, but got "
         << UB_BUFFER_BYTE_SIZE;
-    Shape bufferShape{static_cast<int64_t>(UB_BUFFER_BYTE_SIZE / BytesOf(shmemTensor->Datatype()))};
-    auto buffer = std::make_shared<LogicalTensor>(function, shmemTensor->Datatype(), bufferShape);
-    auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_SET, {predToken, shmemTensor}, {out, buffer});
     ShmemSetAttr distOpAttr;
     op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+    uint32_t bufferSize = distOpAttr.isData ? UB_BUFFER_BYTE_SIZE : SHMEM_SIZE_ALIGN;
+    Shape bufferShape{static_cast<int64_t>(bufferSize / BytesOf(shmemTensor->Datatype()))};
+    auto buffer = std::make_shared<LogicalTensor>(function, shmemTensor->Datatype(), bufferShape);
+    auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_SET, {predToken, shmemTensor}, {out, buffer});
     distOpAttr.setBufferShape = bufferShape;
     tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);

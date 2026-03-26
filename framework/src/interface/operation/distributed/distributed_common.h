@@ -43,6 +43,7 @@ constexpr int32_t DIST_INDEX_ONE = 1;
 constexpr int32_t DIST_INDEX_TWO = 2;
 constexpr uint16_t COPY_BLOCK_BYTE_SIZE = 32;
 constexpr uint16_t SAME_ADDR_BYTE_SIZE = 512;
+constexpr uint64_t SHMEM_SIZE_ALIGN = 512;
 constexpr int32_t ROUTED_EXPET_NUM = 160;
 constexpr int32_t FFN_TILE_SIZE = 8;
 constexpr int32_t AIV_NUM = 4;
@@ -177,7 +178,7 @@ struct ShmemWaitUntilAttr {
 };
 
 struct ShmemSetAttr {
-    int64_t setType = 0;
+    bool isData{true};
     Shape setBufferShape;
     SymbolicScalar ownerRank;
 };
