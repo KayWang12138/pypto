@@ -277,6 +277,27 @@ void CodegenPreproc::SetNeedAllocAttr(Function &function) {
     APASS_LOG_DEBUG_F(Elements::Operation, "%s", DumpOpList(function).c_str());
 }
 
+void CodegenPreproc::ProcessSpecialReduce(Function &func) {
+    for (const auto &subProgram : func.rootFunc_->programs_) {
+        for (const auto &op : subProgram.second->Operations(false)) {
+            if (op.GetOpcode() == Opcode::OP_ROWARGMAX_SINGLE || op.GetOpcode() == Opcode::OP_ROWARGMIN_SINGLE) {
+                auto out = op.GetOOperands().front();
+                for (auto &consumer : out->GetConsumers()) {
+                    LogicalTensors inputs = consumer->GetIOperands();
+                    std::vector<bool> inputCombineAxis(inputs.size(), false);
+                    for (size_t i = 0; i < inputs.size(); ++i) {
+                        if (inputs[i] == out) {
+                            inputCombineAxis[i] = true;
+                            break;
+                        }
+                    }
+                    consumer->SetAttr(OpAttributeKey::inputCombineAxis, inputCombineAxis);
+                }
+            }
+        }
+    }
+}
+
 Status CodegenPreproc::RunOnFunction(Function &function) {
     combineAxis = function.paramConfigs_.combineAxis;
     forceCombineAxis = function.paramConfigs_.forceCombineAxis;
@@ -302,7 +323,7 @@ Status CodegenPreproc::RunOnFunction(Function &function) {
             return FAILED;
         }
     }
-
+    ProcessSpecialReduce(function);
     SetNeedAllocAttr(function);
     APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Finish CodegenPreproc.");
     return SUCCESS;

@@ -59,6 +59,7 @@ private:
     bool IsVector(const LogicalTensorPtr &tensor);
     void DoPadding(Function &function);
     void DoPadding256(Function &function);
+    void DoPaddingReduce(Function &function);
     bool IsInputDataType(
         const Operation &op, const LogicalTensorPtr &in, const std::unordered_set<DataType> &targetTypes) const;
     bool processTranspose_;

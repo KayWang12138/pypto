@@ -47,6 +47,7 @@ private:
     void SetNeedAllocAttr(Function &function);
     void FixExpandDimForAxisCombine(Operation &op, int dimSize) const;
     std::string DumpOpList(Function &function);
+    void ProcessSpecialReduce(Function &func);
     bool combineAxis{false};
     bool forceCombineAxis{false};
 };

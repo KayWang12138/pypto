@@ -389,6 +389,12 @@ void OpcodeManager::RegisterVectorReduction() {
     RegisterInfo(Opcode::OP_ROWPROD_SINGLE, OpCoreType::AIV, "ROWPROD_SINGLE", {MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowprodsingle", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::REDUCE, {OP_ATTR_PREFIX + "AXIS", OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_ROWARGMAX_SINGLE, OpCoreType::AIV, "ROWARGMAX_SINGLE", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowargmaxsingle", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::REDUCE, {OP_ATTR_PREFIX + "AXIS", OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_ROWARGMIN_SINGLE, OpCoreType::AIV, "ROWARGMIN_SINGLE", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowargminsingle", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::REDUCE, {OP_ATTR_PREFIX + "AXIS", OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, OpCoreType::AIV, "ROWMAX_COMBINE_AXIS_SINGLE",
         {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::Trowmaxsinglecombine", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE,
@@ -399,6 +405,12 @@ void OpcodeManager::RegisterVectorReduction() {
         {OP_ATTR_PREFIX + "AXIS", OpAttributeKey::outputCombineAxis});
     RegisterInfo(Opcode::OP_ROWSUMLINE, OpCoreType::AIV, "ROWSUMLINE", {MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowsumline", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::REDUCE, {}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_ROWARGMAXLINE, OpCoreType::AIV, "ROWARGMAXLINE", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowargmaxline", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::REDUCE, {}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_ROWARGMINLINE, OpCoreType::AIV, "ROWARGMINLINE", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowargminline", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::REDUCE, {}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_ROWMAXLINE, OpCoreType::AIV, "ROWMAXLINE", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB}, {"TileOp::Trowmaxline", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE, {},
@@ -738,39 +750,37 @@ void OpcodeManager::RegisterCube() {
 void OpcodeManager::RegisterDistribute() {
     RegisterInfo(Opcode::OP_SHMEM_SET, OpCoreType::AIV, "SHMEM_SET",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
-        {"TileOp::Distributed::ShmemSet", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
-        {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::distOpAttr, OpAttributeKey::ownerRank});
+        {"TileOp::Distributed::ShmemSet", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED);
     RegisterInfo(Opcode::OP_SHMEM_PUT, OpCoreType::AIV, "SHMEM_PUT",
         {MemoryType::MEM_DEVICE_DDR , MemoryType::MEM_DEVICE_DDR ,
             MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
         {"TileOp::Distributed::ShmemPut", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
-        {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::distOpAttr, OpAttributeKey::ownerRank});
+        {OpAttributeKey::requiresBoundaryCopy});
     RegisterInfo(Opcode::OP_SHMEM_PUT_UB2GM, OpCoreType::AIV, "SHMEM_PUT_UB2GM",
         {MemoryType::MEM_UB , MemoryType::MEM_DEVICE_DDR,
             MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR}, {"TileOp::Distributed::ShmemPutUb2Gm", PIPE_S, PIPE_S, CoreType::AIV},
-        OpCalcType::DISTRIBUTED,
-        {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::distOpAttr, OpAttributeKey::ownerRank});
+        OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
     RegisterInfo(Opcode::OP_SHMEM_SIGNAL, OpCoreType::AIV, "SHMEM_SIGNAL",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
         {"TileOp::Distributed::ShmemSignal", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
-        {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::distOpAttr, OpAttributeKey::ownerRank});
+        {OpAttributeKey::requiresBoundaryCopy});
     RegisterInfo(Opcode::OP_SHMEM_WAIT_UNTIL, OpCoreType::AICPU, "SHMEM_WAIT_UNTIL",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR}, TileOpCfg(), OpCalcType::DISTRIBUTED,
-        {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::distOpAttr, OpAttributeKey::ownerRank});
+        {OP_ATTR_PREFIX + "distributed"});
     RegisterInfo(Opcode::OP_SHMEM_GET, OpCoreType::AIV, "SHMEM_GET",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
         {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
-        {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::distOpAttr, OpAttributeKey::ownerRank});
+        {OpAttributeKey::requiresBoundaryCopy});
     RegisterInfo(Opcode::OP_SHMEM_GET_GM2UB, OpCoreType::AIV, "SHMEM_GET_GM2UB",
         {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_DEVICE_DDR /* shmemData */},
         {MemoryType::MEM_UB /* UBData */, MemoryType::MEM_UB /* ubTensor */},
         {"TileOp::Distributed::ShmemGetGm2Ub", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
-        {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::distOpAttr, OpAttributeKey::ownerRank});
+        {OpAttributeKey::requiresBoundaryCopy});
     RegisterInfo(Opcode::OP_BIND_TENSOR, OpCoreType::ANY, "BIND_TENSOR", {}, {MemoryType::MEM_DEVICE_DDR},
         {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
         {OP_ATTR_PREFIX + "BindTensor"});
@@ -933,10 +943,14 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {        Opcode::OP_GATHER_MASK,    "TGatherMask"},
     {               Opcode::OP_CAST,          "TCast"},
     {      Opcode::OP_ROWSUM_SINGLE,  "TRowSumSingle"},
+    {      Opcode::OP_ROWARGMAX_SINGLE,  "TRowArgMaxSingle"},
+    {      Opcode::OP_ROWARGMIN_SINGLE,  "TRowArgMinSingle"},
     {      Opcode::OP_ROWMAX_SINGLE,  "TRowMaxSingle"},
     {      Opcode::OP_ROWMIN_SINGLE,  "TRowMinSingle"},
     {     Opcode::OP_ROWPROD_SINGLE, "TRowProdSingle"},
     {         Opcode::OP_ROWSUMLINE,    "TRowSumLine"},
+    {         Opcode::OP_ROWARGMAXLINE,    "TRowArgMaxLine"},
+    {         Opcode::OP_ROWARGMINLINE,    "TRowArgMinLine"},
     {         Opcode::OP_ROWMAXLINE,    "TRowMaxLine"},
     {         Opcode::OP_ROWMINLINE,    "TRowMinLine"},
     {        Opcode::OP_ROWPRODLINE,   "TRowProdLine"},
