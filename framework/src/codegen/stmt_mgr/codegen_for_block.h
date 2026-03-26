@@ -46,28 +46,23 @@ public:
 
     void UpdateAxesList(const std::vector<SymbolicScalar> &axesList);
 
-    void LoopStart() {
-        isInLoop_ = true;
-    }
+    void LoopStart() { isInLoop_ = true; }
 
     void OutLoop() {
         sm_->OutForLoop();
         axesList_.clear();
         forNodes_.clear();
-        tensorNeedSetAddr_.clear();
+        tensorOffset_.clear();
+        allOffsetsInLoop_.clear();
         opList_.clear();
 
         isInLoop_ = false;
+        offsetCnt_ = 0;
     }
 
     bool IsInLoop() { return isInLoop_; }
 
-    void AddTensorInLoopBody(const std::string& tensorFullDim, const TileTensor &tileTensor) {
-        CODEGEN_LOGI("AddTensorInLoopBody : %s", tileTensor.tensorName.c_str());
-        std::string tensorNameInLoop = sm_->AddTileTensor(tileTensor);
-        sm_->InsertTensorNameInLoopToFullDim(tensorNameInLoop, tensorFullDim);
-        tensorNeedSetAddr_.insert(tensorNameInLoop);
-    }
+    void AddTensorInLoopBody(const std::string &tensorFullDim, const TileTensor &tileTensor);
 
     void AddOpInLoopBody(std::string &op) {
         CODEGEN_LOGI("AddOpInLoopBody add op : %s", op.c_str());
@@ -82,14 +77,20 @@ private:
     void PrintForEnd(std::ostringstream &os) const;
     void PrintOffsetDef(std::ostringstream &os) const;
     void PrintSetAddrs(std::ostringstream &os) const;
-    void PrintSetAddrSingle(std::ostringstream &os, const std::string &tensor) const;
+    void PrintSetAddrSingle(std::ostringstream &os, const std::string &tensor, const std::string &offset) const;
     void PrintTileOps(std::ostringstream &os) const;
+    void UpdateTensorOffsetInLoop(const std::string &tensorFullDim, const std::string &tensorNameInLoop);
 
     std::shared_ptr<SymbolManager> sm_;
     std::vector<SymbolicScalar> axesList_;
     std::vector<ForNode> forNodes_;
-    std::unordered_set<std::string> tensorNeedSetAddr_;
     std::vector<std::string> opList_;
+    // tensorNameInLoop -> offset var
+    std::unordered_map<std::string, std::string> tensorOffset_;
+    // OffsetInLoop -> offset var
+    using OffsetInLoop = std::vector<std::string>;
+    std::unordered_map<OffsetInLoop, std::string> allOffsetsInLoop_;
     bool isInLoop_{false};
+    uint32_t offsetCnt_{0};
 };
 } // namespace npu::tile_fwk
