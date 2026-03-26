@@ -34,14 +34,41 @@
 
 ### 查看泳道图数据
 
-1.  通过PyPTO Toolkit插件查看泳道图。
+1.  通过终端查看Aicore执行端到端耗时以及Aicore利用率
+
+    **图 1**  查看Aicore Perf信息
+    ![](..\figures\aicore_perf_summary.png "Aicore Perf信息")
+    
+
+2.  通过PyPTO Toolkit插件查看泳道图。
 
     右键单击json文件，在弹出的菜单中选择“使用PyPTO Toolkit打开”，如下图所示。
 
-    **图 1**  查看泳道图
+    **图 2**  查看泳道图
     ![](../figures/view_swimlane_graph.png "查看泳道图")
 
     图中展示了任务的执行顺序和耗时信息，帮助开发者分析性能瓶颈。
+
+### 采集Aicpu/Aicore泳道图数据
+
+1、通过环境变量的形式进行使能：
+    ```bash
+    export DUMP_DEVICE_PERF=true
+    ```
+
+2、执行用例
+    ```bash
+    python3 examples/02_intermediate/operators/softmax/softmax.py
+    ```
+
+3、生成Aicpu/Aicore泳道图json文件
+    在当前工作目录的output/output\_时间戳目录下生成machine_runtime_operator_trace_xx.json，该文件为Aicpu/Aicore泳道图数据文件。
+
+4、在终端中能够直接查看Aicpu/Aicore数据汇总表
+    ![](../figures/machine_perf_summary.png "Aicpu/Aicore数据汇总表")
+
+4、进一步可以通过PyPTO Toolkit插件查看泳道图，直接右键单击json文件，在弹出的菜单中选择“使用PyPTO Toolkit打开” 即可。
+    ![Aicpu/Aicore泳道图](../figures/machine_runtime_operator_trace_0.png)
 
 ## 开箱性能调优
 
