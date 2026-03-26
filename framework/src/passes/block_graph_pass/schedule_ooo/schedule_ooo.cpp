@@ -129,6 +129,48 @@ Status OoOSchedule::ModifyBoundaryOrder(std::vector<Operation*> &opList) {
     return SUCCESS;
 }
 
+std::vector<ScheduleUnit> OoOSchedule::BuildScheduleUnits(const std::vector<TaskNode> &taskNodeList,
+    const std::vector<std::pair<int, int>> &cyclePairs, std::vector<Operation*> &opList) {
+    std::vector<ScheduleUnit> scheduleUnits;
+    std::unordered_set<int> pairedIndices;
+
+    for (const auto &pair : cyclePairs) {
+        auto it1 = std::find_if(taskNodeList.begin(), taskNodeList.end(),
+            [&](const TaskNode& n) { return n.idx == pair.first; });
+        auto it2 = std::find_if(taskNodeList.begin(), taskNodeList.end(),
+            [&](const TaskNode& n) { return n.idx == pair.second; });
+
+        if (it1 != taskNodeList.end() && it2 != taskNodeList.end()) {
+            ScheduleUnit unit;
+            unit.mergedOps.insert(unit.mergedOps.end(), it1->opList_.begin(), it1->opList_.end());
+            unit.mergedOps.insert(unit.mergedOps.end(), it2->opList_.begin(), it2->opList_.end());
+            SortTaskList(opList, unit.mergedOps);
+            unit.earliestStartTime = std::min(it1->startTime, it2->startTime);
+
+            pairedIndices.insert(pair.first);
+            pairedIndices.insert(pair.second);
+            scheduleUnits.push_back(std::move(unit));
+        }
+    }
+
+    for (const auto &taskNode : taskNodeList) {
+        if (pairedIndices.find(taskNode.idx) == pairedIndices.end()) {
+            ScheduleUnit unit;
+            unit.mergedOps = taskNode.opList_;
+            SortTaskList(opList, unit.mergedOps);
+            unit.earliestStartTime = taskNode.startTime;
+            scheduleUnits.push_back(std::move(unit));
+        }
+    }
+
+    std::sort(scheduleUnits.begin(), scheduleUnits.end(),
+        [](const ScheduleUnit& a, const ScheduleUnit& b) {
+            return a.earliestStartTime < b.earliestStartTime;
+        });
+
+    return scheduleUnits;
+}
+
 Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &function,
     std::pair<uint64_t, Function*> &program, int64_t &maxWorkeSpaceSize) {
     APASS_LOG_INFO_F(Elements::Operation, "=============== START MixSchedule ===============");
@@ -147,19 +189,25 @@ Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &funct
     for (auto &taskNode : spliter.GetTaskGraph().tasks) {
         APASS_LOG_INFO_F(Elements::Operation,  "eval task %d on %s: %d - %d.", taskNode.idx, targetToString[taskNode.targetCoreType].c_str(), taskNode.startTime, taskNode.endTime);
     }
-    spliter.MergeTask();
+    // 成环的 TaskNode
+    auto cyclePairs = spliter.GetCycledTaskNodePairs();
     spliter.MarkInternalSubgraphID();
     // 传入一个taskNode序列 taskNodeList,对全部opList进行schedule
     auto taskNodeList = spliter.GetTaskGraph().tasks;
     std::sort(taskNodeList.begin(), taskNodeList.end(), [](const TaskNode& a, const TaskNode& b) {
         return a.startTime < b.startTime;
     });
-    std::vector<Operation*> operations;
     std::unordered_map<Operation*, std::pair<OpCoreType, int>> opCoreMap;
-    for (auto& taskNode : taskNodeList) {
-        SortTaskList(taskNode.opList_, opList);
-        UpdateOpCoreMap(taskNode, opCoreMap);
-        operations.insert(operations.end(), taskNode.opList_.begin(), taskNode.opList_.end());
+    for (const auto& taskNode : taskNodeList) {
+        if (UpdateOpCoreMap(taskNode, opCoreMap) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "UpdateOpCoreMap failed.");
+            return FAILED;
+        }
+    }
+    auto scheduleUnits = BuildScheduleUnits(taskNodeList, cyclePairs, opList);
+    std::vector<Operation*> operations;
+    for (const auto& unit : scheduleUnits) {
+        operations.insert(operations.end(), unit.mergedOps.begin(), unit.mergedOps.end());
     }
     opList = operations;
     if (ModifyBoundaryOrder(opList) != SUCCESS) {
