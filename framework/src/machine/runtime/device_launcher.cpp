@@ -17,6 +17,7 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
+#include "machine/device/dynamic/aicore_prof.h"
 #include "machine/host/perf_analysis.h"
 #include "interface/utils/op_info_manager.h"
 #include "tilefwk/pypto_fwk_log.h"
@@ -241,6 +242,11 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     HOST_PERF_TRACE(TracePhase::RunDevRegistKernelBin);
 
     DataDumpInit();
+    if (ProfCheckLevel(PROF_TASK_TIME_L2)) {
+        DeviceRunner::Get().EnableAicorePmuSerialCollectionMode();
+    } else {
+        DeviceRunner::Get().SetAicoreRuntimeConfig(AicoreRuntimeConfig::NONE);
+    }
     rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum, config.isTripleStream);
     if (rc < 0) {
         return rc;

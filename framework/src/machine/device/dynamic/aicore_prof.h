@@ -283,6 +283,7 @@ public:
     void ProInitAiCpuTaskStat();
     void ProInitHandShake();
     bool ProfIsEnable() { return profLevel_ != PROF_LEVEL_OFF; }
+    uint32_t GetRuntimeConfigFlags() const;
 
     void ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs);
     void ProfStartPmu();

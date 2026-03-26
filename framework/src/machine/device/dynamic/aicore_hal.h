@@ -463,6 +463,7 @@ public:
 
         args_[coreIdx] = args;
         args->taskEntry.reserved[0] = static_cast<uint32_t>(dotStatus);
+        args->taskEntry.reserved2[0] = static_cast<int64_t>(aicoreProf_->GetRuntimeConfigFlags());
         GetPhyIdByBlockId(coreIdx) = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
         if (isNeedWriteRegForFastPath_) {
             WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN);
