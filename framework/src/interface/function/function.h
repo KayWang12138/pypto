@@ -576,14 +576,8 @@ public:
 
     std::vector<std::vector<SymbolicScalar>> NormalizeCoa(
         std::vector<int> &iOffset, std::vector<int> &oOffset);
-    void NormalizeCoaForInCasts(std::vector<int> &iOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
-        int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
-        const std::unordered_map<int, Operation *> &opmagicToOp);
-    void NormalizeCoaForOutCasts(std::vector<int> &oOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
-        int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
-        const std::unordered_map<int, Operation *> &opmagicToOp);
-    void NormalizeCoaForNormalOperands(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex,
-        std::unordered_map<LogicalTensorPtr, int> &processedOperands);
+    void NormalizeCoaCommon(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex,
+        std::vector<int> &iOffset, std::vector<int> &oOffset);
     void NormalizeCoaForSpecialInfo(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex);
     void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
 
@@ -752,18 +746,15 @@ public:
         }
     }
 
-    void AppendIncast(LogicalTensorPtr tensor, int opmagic, int k) {
-        incastPosition.emplace_back(opmagic, k);
+    void AppendIncast(LogicalTensorPtr tensor) {
         inCasts_.emplace_back(tensor);
     }
 
-    void AppendOutcast(LogicalTensorPtr tensor, int opmagic, int k) {
-        outcastPosition.emplace_back(opmagic, k);
+    void AppendOutcast(LogicalTensorPtr tensor) {
         outCasts_.emplace_back(tensor);
     }
 
     void RemoveOutcast(int idx) {
-        outcastPosition.erase(outcastPosition.begin() + idx);
         outCasts_.erase(outCasts_.begin() + idx);
         auto &outcastSlot = slotScope_->ioslot.outcastSlot;
         outcastSlot.erase(outcastSlot.begin() + idx);
@@ -869,11 +860,8 @@ private:
 
     std::vector<std::shared_ptr<LogicalTensor>> originInCasts_;
     std::unordered_set<std::shared_ptr<LogicalTensor>> inCastsSet_; // Input tensors set
-    std::vector<std::pair<int, int>> incastPosition;
 
     std::vector<std::shared_ptr<LogicalTensor>> originOutCasts_;
-    std::map<int, int> opmagicToOutcastIdx_;
-    std::vector<std::pair<int, int>> outcastPosition;
 
     TensorMap tensorMap_; // TensorMap to register tensors
     std::unordered_set<std::shared_ptr<LogicalTensor>> globalTensors_; // global tensors

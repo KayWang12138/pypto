@@ -411,18 +411,18 @@ void SubgraphToFunction::SymbolizeFunction(Function &rootFunc, std::vector<Funct
 
 void SubgraphToFunction::InsertParameter(size_t i, Function& leafFunc) {
     for (auto &in : subFuncInvokeInfos[i].GetIncastTensorParamList()) {
-        leafFunc.AppendIncast(in.tensor, in.opMagic, in.operandIdx);
+        leafFunc.AppendIncast(in.tensor);
     }
     for (auto &out : subFuncInvokeInfos[i].GetOutcastTensorParamList()) {
-        leafFunc.AppendOutcast(out.tensor, out.opMagic, out.operandIdx);
+        leafFunc.AppendOutcast(out.tensor);
     }
     for (auto &tensor : subFuncInvokeInfos[i].GetTensorParamList()) {
         leafFunc.AddGlobalTensor(tensor.tensor);
         if (tensor.isOutputToGM) {
-            leafFunc.AppendOutcast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
+            leafFunc.AppendOutcast(tensor.tensor);
             continue;
         }
-        leafFunc.AppendIncast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
+        leafFunc.AppendIncast(tensor.tensor);
     }
 }
 
@@ -747,8 +747,8 @@ Status SubgraphToFunction::GetTensorDataDependencyClear(Function &function) {
             }
             auto &copyInOp = op;
             copyInOp.SetAsDeleted();
-            int tensorIndex = GetTensorDataGetIndex(&op); 
-            int addrCoaIndex = GetTensorDataGetCoaIndex(&op); 
+            int tensorIndex = GetTensorDataGetIndex(&op);
+            int addrCoaIndex = GetTensorDataGetCoaIndex(&op);
             if (tensorIndex == -1) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Atrribute op_emuop_GetTensorData_index is not found for operation[%d]. %s", op.GetOpMagic(), GetFormatBacktrace(copyInOp).c_str());
                 return FAILED;
@@ -848,7 +848,7 @@ Status SubgraphToFunction::RecoverCopyInToViewAfterGenSubgraph(Function &functio
             }
         }
     }
-        
+
     return SUCCESS;
 }
 

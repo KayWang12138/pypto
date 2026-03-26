@@ -445,7 +445,7 @@ public:
 
     Opcode GetOpcode() const { return opcode_; }
 
-    void SetOpCode(Opcode opcode) { opcode_ = opcode; }
+    void SetOpCode(Opcode opcode) { opcode_ = opcode;}
     int GetLatency() const { return latency_; }
     void UpdateLatency(int latency) { latency_ = latency; }
 

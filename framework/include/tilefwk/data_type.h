@@ -243,7 +243,7 @@ const std::unordered_map<std::string, DataType> STR_DATA_TYPE_MAP = {
     {"fp4_e1m2x2",  DT_FP4_E1M2X2}
 };
 
-const std::array<uint32_t, static_cast<size_t>(DataType::DT_BOTTOM)> DATA_TYPE_CANN_ARRAY = {
+const std::array<int, static_cast<size_t>(DataType::DT_BOTTOM)> DATA_TYPE_CANN_ARRAY = {
     29, //  DT_INT4 = 0,
      2, //  DT_INT8 = 1,
      6, //  DT_INT16 = 2,

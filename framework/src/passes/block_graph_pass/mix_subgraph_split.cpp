@@ -565,7 +565,7 @@ void MixSubgraphSplit::ApplyIncastDependencies(
             continue;
         }
         // 添加新的incast
-        leafFunc->AppendIncast(param.tensor, param.opMagic, param.operandIdx);
+        leafFunc->AppendIncast(param.tensor);
         existingMagicSet.insert(param.tensor->magic);
         APASS_LOG_DEBUG_F(Elements::Tensor, "Component %d: Added incast - tensor %d (opMagic=%d, operandIdx=%d)",
                     componentId, param.tensor->GetRawMagic(),
@@ -603,11 +603,10 @@ void MixSubgraphSplit::ApplyOutcastDependencies(
         }
 
         // 添加新的outcast
-        leafFunc->AppendOutcast(param.tensor, param.opMagic, param.operandIdx);
+        leafFunc->AppendOutcast(param.tensor);
         existingMagicSet.insert(param.tensor->magic);
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Component %d: Added outcast - tensor %d (opMagic=%d, operandIdx=%d)",
-                    componentId, param.tensor->GetRawMagic(),
-                    param.opMagic, param.operandIdx);
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Component %d: Added outcast - tensor %d",
+                    componentId, param.tensor->GetRawMagic());
     }
 }
 

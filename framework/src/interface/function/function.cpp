@@ -2571,7 +2571,10 @@ static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, int coaIndexBa
     int coaIndex = coaIndexBase + COA_INDEX_DIM_BASE;
     std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
-    operandCoaList[0] = MakeTensorIndex(op->GetIOperands()[0]->GetRawMagic());
+    auto iOperand = op->iOperand[0];
+    if (iOperand->GetMemoryTypeToBe() == MemoryType::MEM_DEVICE_DDR) {
+        operandCoaList[0] = MakeTensorIndex(iOperand->GetRawMagic());
+    }
 
     auto opImmList = copyAttr->GetFromOffset();
     MaybeNormalizeValue(RUNTIME_COA_GetOffset, operandCoaList, operandCoaIndex,
@@ -2608,7 +2611,10 @@ static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, int coaIndexB
     int coaIndex = coaIndexBase + COA_INDEX_DIM_BASE;
     std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
-    operandCoaList[0] = MakeTensorIndex(op->GetOOperands()[0]->GetRawMagic());
+    auto oOperand = op->oOperand[0];
+    if (oOperand->GetMemoryTypeToBe() == MemoryType::MEM_DEVICE_DDR) {
+        operandCoaList[0] = MakeTensorIndex(oOperand->GetRawMagic());
+    }
 
     auto opImmList = copyAttr->GetToOffset();
     MaybeNormalizeValue(RUNTIME_COA_GetOffset, operandCoaList, operandCoaIndex,
@@ -2638,20 +2644,13 @@ static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, int coaIndexB
     return operandCoaList;
 }
 
-static std::vector<SymbolicScalar> NormalizeTensor(
-    LogicalTensorPtr operand, int coaIndexBase, bool valueToIndex, bool isNop = false) {
+static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensor *operand, int coaIndexBase, bool valueToIndex) {
     auto offset = OpImmediate::Specified(operand->GetOffset());
     auto dynOffset = OpImmediate::Specified(operand->GetDynOffset());
     auto shape = OpImmediate::Specified(operand->GetShape());
     auto rawshape = OpImmediate::Specified(operand->GetRawTensor()->GetRawShape());
     auto dynRawshape = OpImmediate::Specified(operand->GetRawTensor()->GetDynRawShape());
     auto dynValidShape = OpImmediate::Specified(operand->GetDynValidShape());
-    if (isNop) {
-        offset = OpImmediate::Specified(Offset(operand->GetShape().size()));
-        dynOffset = OpImmediate::Specified(Offset(operand->GetShape().size()));
-        shape = OpImmediate::Specified(Shape(operand->GetShape().size()));
-        dynValidShape = OpImmediate::Specified(Shape(operand->GetShape().size()));
-    }
 
     int dim = shape.size();
     int operandCoaIndex = COA_INDEX_DIM_BASE;
@@ -2709,137 +2708,88 @@ void Function::GetOutcastSymbolicExpr(std::map<int, SymbolicScalar> &tabel) {
 }
 
 std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(std::vector<int> &iOffset, std::vector<int> &oOffset) {
-    std::unordered_map<int, Operation *> opmagicToOp;
-    std::unordered_map<LogicalTensorPtr, int> processedOperands;
-
-    opmagicToOp.reserve(operations_.size());
-    for (auto &op : operations_) {
-        opmagicToOp[op->GetOpMagic()] = op.get();
-    }
-
     int coaIndex = COA_INDEX_BASE;
     std::vector<std::vector<SymbolicScalar>> coaLists;
-    coaLists.reserve(incastPosition.size() + outcastPosition.size());
-    NormalizeCoaForInCasts(iOffset, coaLists, coaIndex, processedOperands, opmagicToOp);
-    NormalizeCoaForOutCasts(oOffset, coaLists, coaIndex, processedOperands, opmagicToOp);
-    NormalizeCoaForNormalOperands(coaLists, coaIndex, processedOperands);
+    NormalizeCoaCommon(coaLists, coaIndex, iOffset, oOffset);
     NormalizeCoaForSpecialInfo(coaLists, coaIndex);
-
     return coaLists;
 }
 
-void Function::NormalizeCoaForInCasts(std::vector<int> &iOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
-    int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
-    const std::unordered_map<int, Operation *> &opmagicToOp) {
+void Function::NormalizeCoaCommon(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex,
+    std::vector<int> &iOffset, std::vector<int> &oOffset) {
     bool valueToIndex = parent_->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH;
-    iOffset.clear();
-    iOffset.reserve(incastPosition.size());
-    for (auto [opmagic, k] : incastPosition) {
-        auto op = opmagicToOp.at(opmagic);
-        if (op->GetIOpAttrOffset(k) != -1) {
-            continue;
-        }
-        std::vector<SymbolicScalar> operandCoaList;
-        if (IsCopyIn(op->GetOpcode()) && k == 0) {
-            operandCoaList = NormalizeCopyIn(op, coaIndex, valueToIndex);
-            if (CheckEmuOpcode(op, EMUOP_TENSOR_GETDATA_DEPEND)) {
-                GetTensorDataSetCoaIndex(op, coaIndex);
-            }
-        } else {
-            auto iOperand = op->GetInputOperand(k);
-            auto it = processedOperands.find(iOperand);
-            if (it != processedOperands.end()) {
-                op->SetIOpAttrOffset(k, it->second);
-                iOffset.emplace_back(it->second);
-                continue;
-            }
-            operandCoaList = NormalizeTensor(iOperand, coaIndex, false, op->GetOpcode() == Opcode::OP_NOP);
-            processedOperands.emplace(iOperand, coaIndex);
-        }
-        op->SetIOpAttrOffset(k, coaIndex);
-        iOffset.emplace_back(coaIndex);
-        coaIndex += operandCoaList.size();
-        coaLists.emplace_back(std::move(operandCoaList));
-    }
-}
+    std::unordered_map<LogicalTensor *, int> visited;
+    std::unordered_set<LogicalTensor *> inouts;
 
-void Function::NormalizeCoaForOutCasts(std::vector<int> &oOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
-    int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
-    const std::unordered_map<int, Operation *> &opmagicToOp) {
-    bool valueToIndex = parent_->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH;
-    oOffset.reserve(outcastPosition.size());
-    for (auto [opmagic, k] : outcastPosition) {
-        auto op = opmagicToOp.at(opmagic);
-        if (op->GetOOpAttrOffset(k) != -1) {
-            continue;
-        }
-        std::vector<SymbolicScalar> operandCoaList;
-        if (IsCopyOut(op->GetOpcode()) && k == 0) {
-            operandCoaList = NormalizeCopyOut(op, coaIndex, valueToIndex);
-        } else {
-            auto oOperand = op->GetOutputOperand(k);
-            auto it = processedOperands.find(oOperand);
-            if (it != processedOperands.end()) {
-                op->SetOOpAttrOffset(k, it->second);
-                oOffset.emplace_back(it->second);
-                continue;
-            }
-            operandCoaList = NormalizeTensor(oOperand, coaIndex, false);
-            processedOperands.emplace(oOperand, coaIndex);
-        }
-        op->SetOOpAttrOffset(k, coaIndex);
-        oOffset.emplace_back(coaIndex);
-        coaIndex += operandCoaList.size();
-        coaLists.emplace_back(std::move(operandCoaList));
+    for (auto &cast : inCasts_) {
+        inouts.insert(cast.get());
     }
-}
+    for (auto &cast : outCasts_) {
+        inouts.insert(cast.get());
+    }
 
-void Function::NormalizeCoaForNormalOperands(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex,
-    std::unordered_map<LogicalTensorPtr, int> &processedOperands) {
-    std::unordered_set<LogicalTensorPtr> inOutCasts;
-    inOutCasts.insert(inCasts_.begin(), inCasts_.end());
-    inOutCasts.insert(outCasts_.begin(), outCasts_.end());
-    bool valueToIndex = parent_->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH;
-    for (auto &op : operations_) {
+    auto needNormalize = [&inouts](LogicalTensor *operand) {
+        if (inouts.count(operand)) {
+            return false;
+        }
+        return operand->GetMemoryTypeToBe() == MemoryType::MEM_DEVICE_DDR ||
+               !operand->GetDynOffset().empty() ||
+               !operand->GetDynValidShape().empty();
+    };
+
+    for (auto &opOri : operations_) {
+        auto op = opOri.get();
         if (op->GetOpcode() == Opcode::OP_NOP) {
             continue;
         }
-        for (size_t i = 0; i < op->GetInputOperandSize(); i++) {
-            auto iOperand = op->GetInputOperand(i);
-            if ((op->GetIOpAttrOffset(i) != -1) || (inOutCasts.count(iOperand) > 0)) {
-                continue;
+        auto &iOperands = op->GetIOperands();
+        for (size_t i = 0; i < iOperands.size(); i++) {
+            std::vector<SymbolicScalar> coaList;
+            auto iOperand = iOperands[i].get();
+            if (IsCopyIn(op->GetOpcode()) && i == 0) {
+                coaList = NormalizeCopyIn(op, coaIndex, valueToIndex);
+                if (CheckEmuOpcode(op, EMUOP_TENSOR_GETDATA_DEPEND)) {
+                    GetTensorDataSetCoaIndex(op, coaIndex);
+                }
+            } else if (needNormalize(iOperand)) {
+                auto it = visited.find(iOperand);
+                if (it != visited.end()) {
+                    op->SetIOpAttrOffset(i, it->second);
+                    iOffset.emplace_back(it->second);
+                    continue;
+                }
+                coaList = NormalizeTensor(iOperand, coaIndex, valueToIndex);
+                visited.emplace(iOperand, coaIndex);
             }
-            auto it = processedOperands.find(iOperand);
-            if (it != processedOperands.end()) {
-                op->SetIOpAttrOffset(i, it->second);
-                continue;
-            }
-            if (!iOperand->GetDynOffset().empty() || !iOperand->GetDynValidShape().empty()) {
-                auto operandCoaList = NormalizeTensor(iOperand, coaIndex, valueToIndex);
-                processedOperands.emplace(iOperand, coaIndex);
-                coaIndex += operandCoaList.size();
-                coaLists.emplace_back(std::move(operandCoaList));
+            if (!coaList.empty()) {
+                op->SetIOpAttrOffset(i, coaIndex);
+                iOffset.emplace_back(coaIndex);
+                coaIndex += coaList.size();
+                coaLists.emplace_back(std::move(coaList));
             }
         }
-        for (size_t i = 0; i < op->GetOutputOperandSize(); i++) {
-            auto oOperand = op->GetOutputOperand(i);
-            if ((op->GetOOpAttrOffset(i) != -1) || (inOutCasts.count(oOperand) > 0)) {
-                continue;
+
+        auto &oOperands = op->GetOOperands();
+        for (size_t i = 0; i < oOperands.size(); i++) {
+            std::vector<SymbolicScalar> coaList;
+            auto oOperand = oOperands[i].get();
+            if (IsCopyOut(op->GetOpcode()) && i == 0) {
+                coaList = NormalizeCopyOut(op, coaIndex, valueToIndex);
+            } else if (needNormalize(oOperand)) {
+                auto it = visited.find(oOperand);
+                if (it != visited.end()) {
+                    op->SetOOpAttrOffset(i, it->second);
+                    oOffset.emplace_back(it->second);
+                    continue;
+                }
+                coaList = NormalizeTensor(oOperand, coaIndex, valueToIndex);
+                visited.emplace(oOperand, coaIndex);
             }
-            if (oOperand->GetConsumers().empty()) {
-                continue;
-            }
-            auto it = processedOperands.find(oOperand);
-            if (it != processedOperands.end()) {
-                op->SetOOpAttrOffset(i, it->second);
-                continue;
-            }
-            if (!oOperand->GetDynOffset().empty() || !oOperand->GetDynValidShape().empty()) {
-                auto operandCoaList = NormalizeTensor(oOperand, coaIndex, valueToIndex);
-                processedOperands.emplace(oOperand, coaIndex);
+            if (!coaList.empty()) {
                 op->SetOOpAttrOffset(i, coaIndex);
-                coaIndex += operandCoaList.size();
-                coaLists.emplace_back(std::move(operandCoaList));
+                oOffset.emplace_back(coaIndex);
+                coaIndex += coaList.size();
+                coaLists.emplace_back(std::move(coaList));
             }
         }
     }
