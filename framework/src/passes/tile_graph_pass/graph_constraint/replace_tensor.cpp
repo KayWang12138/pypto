@@ -514,6 +514,13 @@ Status ReplaceTensor::BackwardAssemble(Operation *op, LogicalTensorPtr &rootTens
     backwardOps.insert(op->GetOpMagic());
     if (op->GetIOperands()[0]->GetConsumers().size() > 1) {
         forRoots.push(op->GetIOperands()[0]);
+        for (auto &consumer : op->GetIOperands()[0]->GetConsumers()) {
+            if (IsCopyIn(consumer->GetOpcode())) {
+                if (UpdateCopyInAttr(consumer) == FAILED) {
+                    return FAILED;
+                }
+            }
+        }
     }
     return SUCCESS;
 }
@@ -1055,6 +1062,36 @@ Status ReplaceTensor::ForUpdateView(Operation *op) {
     viewAttr->SetFromOffset(viewOpOffset, viewAttr->GetFromDynOffset());
     TensorOffset newOffset(viewOpOffset, attrDynOffset);
     viewOut->UpdateOffset(newOffset);
+    return SUCCESS;
+}
+
+std::vector<OpImmediate> ReplaceTensor::SumOffsetForCopyIn(const std::vector<OpImmediate> offset1, const std::vector<OpImmediate> offset2) {
+    std::vector<OpImmediate> res;
+    for (size_t i = 0; i < offset1.size(); i++) {
+        res.push_back(offset1[i] + offset2[i]);
+    }
+    return res;
+}
+
+Status ReplaceTensor::UpdateCopyInAttr(Operation *copyInOp) {
+    auto input = copyInOp->GetIOperands()[0];
+    auto copyInOpAttr = std::static_pointer_cast<CopyOpAttribute>(copyInOp->GetOpAttribute());
+    if (copyInOpAttr == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "CopyInOp[%d] don not have attr.", copyInOp->GetOpMagic());
+        return FAILED;
+    } else {
+        std::vector<OpImmediate> inputOffset;
+        if (input->GetDynOffset().empty()) {
+            inputOffset = OpImmediate::Specified(input->GetOffset());
+        } else {
+            inputOffset = OpImmediate::Specified(input->GetDynOffset());
+        }
+        std::vector<OpImmediate> oldFromOffset = copyInOpAttr->GetFromOffset();
+        if (!inputOffset.empty() && !oldFromOffset.empty() && (inputOffset.size() == oldFromOffset.size())) {
+            copyInOpAttr->SetFromOffset(SumOffsetForCopyIn(inputOffset, oldFromOffset));
+        }
+        copyInOpAttr->SetRawShape(OpImmediate::Specified(input->tensor->GetDynRawShape()));
+    }
     return SUCCESS;
 }
 
