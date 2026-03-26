@@ -418,6 +418,22 @@ void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
     return reinterpret_cast<void *>(&currDevRootDup.GetExpression(0));
 }
 
+int DeviceExecuteContext::TryAllocateFunctionMemoryWithRetry(DevAscendFunctionDupped &devRootDup) {
+    // dyn rawshape size depend expresstable calculated
+    START_TIMEOUT_CHECK(memory_alloc);
+    while (!workspace.TryAllocateFunctionMemory(devRootDup, slotContext.GetSlotList())) {
+        // Failed to allocate, failed to stitch, submit existing stitched window to aicore and recycle memory
+        // If nothing stitched, wait for aicore to finish tasks and release enough memory
+        int ret = SubmitToAicoreAndRecycleMemory(true);
+        if (unlikely(ret != DEVICE_MACHINE_OK)) {
+            return ret;
+        }
+        DEV_INFO("[Stitch Finish] Memory Limit Exceeded.");
+        CHECK_TIMEOUT_AND_RESET(memory_alloc, TIMEOUT_ONE_MINUTE, CtrlErr::CTRL_ALLOC_TIMEOUT, "Memory limit exceeded, wait for 1 min.");
+    }
+    return DEVICE_MACHINE_OK;
+}
+
 void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
     int ret = DEVICE_MACHINE_OK;
     DEV_DEBUG("Root stitch %lu.", rootKey);
@@ -442,15 +458,11 @@ void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
     }
 
     DEV_TRACE_DEBUG(REvent(GetRuid(rootKey), currDevRootDup.SchemaGetExpressionTable()));
-    // dyn rawshape size depend expresstable calculated
-    while (!workspace.TryAllocateFunctionMemory(currDevRootDup, slotContext.GetSlotList())) {
-        // Failed to allocate, failed to stitch, submit existing stitched window to aicore and recycle memory
-        // If nothing stitched, wait for aicore to finish tasks and release enough memory
-        ret = SubmitToAicoreAndRecycleMemory(true);
-        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-            return RUNTIME_FUNCKEY_ERROR;
-        }
-        DEV_INFO("[Stitch Finish] Memory Limit Exceeded.");
+    
+    // Try to allocate function memory with retry and timeout check
+    ret = TryAllocateFunctionMemoryWithRetry(currDevRootDup);
+    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+        return RUNTIME_FUNCKEY_ERROR;
     }
 
     if (AiCoreFree()) {

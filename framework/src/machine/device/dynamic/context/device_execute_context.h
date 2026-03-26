@@ -114,6 +114,9 @@ struct DeviceExecuteContext {
 
     void *CallRootFunctionStitch(uint64_t rootKey);
 
+    // Try to allocate function memory with retry and timeout check
+    int TryAllocateFunctionMemoryWithRetry(DevAscendFunctionDupped &devRootDup);
+
     void MarkSlotNeedAlloc(int slotIndex);
     void SetLoopDieId(int8_t rootKey);
     int GetErrorState() const {
