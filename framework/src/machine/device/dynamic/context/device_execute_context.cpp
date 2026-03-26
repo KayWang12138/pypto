@@ -551,25 +551,33 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallLog(void *ctx_, uint64_t val
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, uint64_t value) {
     uint64_t groupIndex = (reinterpret_cast<uint64_t*>(value))[0];
     uint64_t memType = (reinterpret_cast<uint64_t*>(value))[1];
-    uint64_t size = (reinterpret_cast<uint64_t*>(value))[2];
+    uint64_t sizeOrTileNum = (reinterpret_cast<uint64_t*>(value))[2];
     constexpr uint64_t memTypeCount = 2;
-    constexpr uint64_t OFFSET_BITS = 54UL;
+
+    constexpr uint64_t OFFSET_BITS = 42UL;
+    constexpr uint64_t TILE_NUM_BITS = 12UL;
     constexpr uint64_t GROUP_BITS = 2UL;
     constexpr uint64_t MEMTYPE_BITS = 2UL;
-    constexpr uint64_t GROUP_SHIFT = OFFSET_BITS;
+
+    constexpr uint64_t TILE_NUM_SHIFT = OFFSET_BITS;
+    constexpr uint64_t GROUP_SHIFT = TILE_NUM_SHIFT + TILE_NUM_BITS;
     constexpr uint64_t MEMTYPE_SHIFT = GROUP_SHIFT + GROUP_BITS;
     constexpr uint64_t FILL_SHIFT = MEMTYPE_SHIFT + MEMTYPE_BITS;
+
     DEV_ASSERT(DevCommonErr::PARAM_CHECK_FAILED, memType < memTypeCount);
     DeviceExecuteContext* ctx = (DeviceExecuteContext*)ctx_;
     DEV_ASSERT(DevCommonErr::PARAM_CHECK_FAILED, groupIndex < ctx->args->commGroupNum);
     auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(ctx->args->commContexts[groupIndex]);
     uint64_t winSize = memType == 0 ? hcclOpParam->winDataSize : hcclOpParam->winStatusSize;
+    uint64_t size = memType == 0 ? sizeOrTileNum : sizeof(int32_t) * 8 * sizeOrTileNum * hcclOpParam->rankNum;
     uint64_t shmemAddrEndOffset = ctx->shmemAddrOffset[memType] + size;
     if (shmemAddrEndOffset > winSize) {
         ctx->shmemAddrOffset[memType] = 0UL;
         DEV_ERROR(DevCommonErr::PARAM_CHECK_FAILED, "#ctrl.unknown: Exceeds winSize limit. Maximum allowed: %lu, got: %lu", winSize, shmemAddrEndOffset);
     }
-    uint64_t vaddr = ctx->shmemAddrOffset[memType] | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
+    uint64_t tileNum = memType == 0 ? 0 : sizeOrTileNum;
+    uint64_t vaddr = ctx->shmemAddrOffset[memType] | (tileNum << TILE_NUM_SHIFT) | (groupIndex << GROUP_SHIFT) |
+        (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
     ctx->shmemAddrOffset[memType] += size;
     return reinterpret_cast<void*>(vaddr);
 }

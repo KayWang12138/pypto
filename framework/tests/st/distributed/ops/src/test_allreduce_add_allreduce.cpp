@@ -30,7 +30,7 @@ void LoopAllReduce1(const Tensor& in, ShmemTensor & shmemTensor, Tensor& allRedu
         (void)allReduce1Index;
         LOOP("AllReduce", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            TileShape::Current().SetVecTile(row, col);
+            TileShape::Current().SetVecTile(row / 2, col);
             OneShotAllReduce(in, in, shmemTensor, allReduceOut);
         }
     }
@@ -61,7 +61,7 @@ void LoopAllReduce2(const Tensor& addOut, ShmemTensor &shmemTensor, Tensor& out,
         auto memSetOut = Nop({memSetDataOut, memSetSignalOut});
         TileShape::Current().SetVecTile({1, 8});
         auto barrier2Out = ShmemBarrier(shmemBarrier2ShmemSignal, memSetOut);
-        TileShape::Current().SetVecTile(row, col);
+        TileShape::Current().SetVecTile(row / 4, col);
         OneShotAllReduce(barrier2Out, addOut, shmemTensor, out);
     }
 }
