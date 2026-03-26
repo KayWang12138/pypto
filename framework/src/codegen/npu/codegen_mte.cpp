@@ -1080,13 +1080,19 @@ std::string CodeGenOpNPU::GenMemL1ToFB() const
 std::string CodeGenOpNPU::GenGMAddrExprWithOffset(unsigned gmParamIdx, const std::string& addrExpr) const
 {
     // gm offset of spilling workspace is calculated by pass.
-    int64_t gmOffset{0};
+    std::map<int, int64_t> gmOffset;
     GetTensorAttr(gmParamIdx, OpAttributeKey::workspaceBaseOffset, gmOffset);
+    int offsetVal{0};
+    auto iter = gmOffset.find(originalOp.GetOpMagic());
+    if (iter != gmOffset.end()) {
+        offsetVal = iter->second;
+    }
+
     std::ostringstream oss;
-    if (gmOffset == 0) {
+    if (offsetVal == 0) {
         oss << addrExpr;
     } else {
-        oss << "((__gm__ uint8_t*)" << addrExpr << " + " << gmOffset << ")";
+        oss << "((__gm__ uint8_t*)" << addrExpr << " + " << offsetVal << ")";
     }
 
     return oss.str();
