@@ -1326,7 +1326,7 @@ void IndexAdd(const TensorData &out, const TensorData &self, const TensorData &s
 }
 
 static void Quantize(const TensorData &out, const TensorData &input, const TensorData &scale,
-                     uint64_t otype, int axis, const TensorData &zeroPoints) {
+                     uint64_t dtype, int axis, const TensorData &zeroPoints) {
     auto tout = From(out);
     auto tinput = From(input);
     auto tscale = From(scale);
@@ -1369,7 +1369,7 @@ static void Quantize(const TensorData &out, const TensorData &input, const Tenso
     auto rounded = torch::round(scaled);
 
     // Convert to output dtype
-    DataType outputType = static_cast<DataType>(otype);
+    DataType outputType = static_cast<DataType>(dtype);
     auto toutType = FromDataType(outputType);
 
     // For asymmetric quantization (UINT8), clamp to [0, 255]
