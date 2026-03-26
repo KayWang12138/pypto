@@ -35,9 +35,6 @@ BLOCK_SIZE_KV = 16
     runtime_options={
         "stitch_function_max_num": 128,
     },
-    debug_options={
-        "runtime_debug_mode": 1,
-    }
 )
 def flash_attention_score_kernel(
     query: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16),

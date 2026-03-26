@@ -20,6 +20,7 @@ AttentionWorkerCombine PyPTO Kernel - Final Implementation
 import os
 import logging
 import torch
+import torch_npu
 import pypto
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")

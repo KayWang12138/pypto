@@ -26,10 +26,9 @@ from typing import Optional
 import torch
 import numpy as np
 from numpy.testing import assert_allclose
+from flash_attention_score_impl import flash_attention_score_kernel, flash_attention_score_kernel_with_mask
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-
-from flash_attention_score_impl import flash_attention_score_kernel, flash_attention_score_kernel_with_mask
 
 
 BATCH_SIZE = 4
@@ -117,52 +116,6 @@ def flash_attention_score_golden_online_softmax(
                 
                 if sum_exp > 0:
                     output[b_idx, n_idx, q_idx, :] = output_vec / sum_exp
-    
-    return output.to(torch.bfloat16)
-
-
-def flash_attention_score_golden_batch(
-    query: torch.Tensor,
-    key: torch.Tensor,
-    value: torch.Tensor,
-    atten_mask: Optional[torch.Tensor] = None,
-) -> torch.Tensor:
-    """
-    Flash Attention Score 参考实现 - 批量矩阵乘版本（验证用）
-    
-    使用标准的注意力计算方式：Softmax(Q @ K^T * scale) @ V
-    
-    Args:
-        query: Query tensor, shape [b, n, sq, d], dtype bfloat16
-        key: Key tensor, shape [b, n, skv, d], dtype bfloat16
-        value: Value tensor, shape [b, n, skv, d], dtype bfloat16
-        atten_mask: Attention mask tensor, shape [sq, skv], dtype uint8
-                   值为 1 表示不参与计算，值为 0 表示参与计算
-
-    Returns:
-        attention_out: Output tensor, shape [b, n, sq, d], dtype bfloat16
-    """
-    b, n, sq, d = query.shape
-    _, _, skv, _ = key.shape
-    scale = 1.0 / math.sqrt(d)
-    
-    query_fp32 = query.float()
-    key_fp32 = key.float()
-    value_fp32 = value.float()
-    
-    scores = torch.matmul(query_fp32, key_fp32.transpose(-2, -1))
-    scores = scores * scale
-    
-    if atten_mask is not None:
-        mask_expanded = atten_mask.unsqueeze(0).unsqueeze(0)
-        scores = scores.masked_fill(mask_expanded == 1, float('-inf'))
-    
-    attn_weights = torch.softmax(scores, dim=-1)
-    
-    if atten_mask is not None:
-        attn_weights = attn_weights.masked_fill(mask_expanded == 1, 0.0)
-    
-    output = torch.matmul(attn_weights, value_fp32)
     
     return output.to(torch.bfloat16)
 

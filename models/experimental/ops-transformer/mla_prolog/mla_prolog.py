@@ -71,13 +71,13 @@ def mla_prolog_kernel(
     
     mm_qc_qr = pypto.matmul(c_q, weight_uq_qr, pypto.DT_BF16)
     qc_qr_split = N * D
-    mm_qc = mm_qc_qr[: , : qc_qr_split]
-    mm_qr = mm_qc_qr[: , qc_qr_split:]
+    mm_qc = mm_qc_qr[:, :qc_qr_split]
+    mm_qr = mm_qc_qr[:, qc_qr_split:]
     
-    q0 = pypto.matmul(mm_qc[:, 0 * D : 1 * D], weight_uk[0, :, :], pypto.DT_BF16)
-    q1 = pypto.matmul(mm_qc[:, 1 * D : 2 * D], weight_uk[1, :, :], pypto.DT_BF16)
-    q2 = pypto.matmul(mm_qc[:, 2 * D : 3 * D], weight_uk[2, :, :], pypto.DT_BF16)
-    q3 = pypto.matmul(mm_qc[:, 3 * D : 4 * D], weight_uk[3, :, :], pypto.DT_BF16)
+    q0 = pypto.matmul(mm_qc[:, 0 * D:1 * D], weight_uk[0, :, :], pypto.DT_BF16)
+    q1 = pypto.matmul(mm_qc[:, 1 * D:2 * D], weight_uk[1, :, :], pypto.DT_BF16)
+    q2 = pypto.matmul(mm_qc[:, 2 * D:3 * D], weight_uk[2, :, :], pypto.DT_BF16)
+    q3 = pypto.matmul(mm_qc[:, 3 * D:4 * D], weight_uk[3, :, :], pypto.DT_BF16)
     
     q01 = pypto.concat([q0, q1], dim=-1)
     q23 = pypto.concat([q2, q3], dim=-1)
@@ -88,29 +88,29 @@ def mla_prolog_kernel(
     sin_h = rope_sin[:, :HALF_DR]
     cos_h = rope_cos[:, :HALF_DR]
     
-    qr0 = mm_qr[:, 0 * DR : 1 * DR]
-    qr0_even = qr0[:, : HALF_DR]
+    qr0 = mm_qr[:, 0 * DR:1 * DR]
+    qr0_even = qr0[:, :HALF_DR]
     qr0_odd = qr0[:, HALF_DR:]
     qr0_out_even = qr0_even * cos_h - qr0_odd * sin_h
     qr0_out_odd = qr0_odd * cos_h + qr0_even * sin_h
     qr0_rope = pypto.concat([qr0_out_even, qr0_out_odd], dim=-1)
     
-    qr1 = mm_qr[:, 1 * DR : 2 * DR]
-    qr1_even = qr1[:, : HALF_DR]
+    qr1 = mm_qr[:, 1 * DR:2 * DR]
+    qr1_even = qr1[:, :HALF_DR]
     qr1_odd = qr1[:, HALF_DR:]
     qr1_out_even = qr1_even * cos_h - qr1_odd * sin_h
     qr1_out_odd = qr1_odd * cos_h + qr1_even * sin_h
     qr1_rope = pypto.concat([qr1_out_even, qr1_out_odd], dim=-1)
     
-    qr2 = mm_qr[:, 2 * DR : 3 * DR]
-    qr2_even = qr2[:, : HALF_DR]
+    qr2 = mm_qr[:, 2 * DR:3 * DR]
+    qr2_even = qr2[:, :HALF_DR]
     qr2_odd = qr2[:, HALF_DR:]
     qr2_out_even = qr2_even * cos_h - qr2_odd * sin_h
     qr2_out_odd = qr2_odd * cos_h + qr2_even * sin_h
     qr2_rope = pypto.concat([qr2_out_even, qr2_out_odd], dim=-1)
     
-    qr3 = mm_qr[:, 3 * DR : 4 * DR]
-    qr3_even = qr3[:, : HALF_DR]
+    qr3 = mm_qr[:, 3 * DR:4 * DR]
+    qr3_even = qr3[:, :HALF_DR]
     qr3_odd = qr3[:, HALF_DR:]
     qr3_out_even = qr3_even * cos_h - qr3_odd * sin_h
     qr3_out_odd = qr3_odd * cos_h + qr3_even * sin_h
@@ -182,12 +182,12 @@ def mla_prolog_golden(
     mm_qc_qr = torch.matmul(c_q, weight_uq_qr.float())
     qc_qr_split = N * D
     mm_qc = mm_qc_qr[:, : qc_qr_split]
-    mm_qr = mm_qc_qr[:, qc_qr_split: ]
+    mm_qr = mm_qc_qr[:, qc_qr_split:]
     
-    q0 = torch.matmul(mm_qc[:, 0 * D : 1 * D].float(), weight_uk[0, :, :].float())
-    q1 = torch.matmul(mm_qc[:, 1 * D : 2 * D].float(), weight_uk[1, :, :].float())
-    q2 = torch.matmul(mm_qc[:, 2 * D : 3 * D].float(), weight_uk[2, :, :].float())
-    q3 = torch.matmul(mm_qc[:, 3 * D : 4 * D].float(), weight_uk[3, :, :].float())
+    q0 = torch.matmul(mm_qc[:, 0 * D:1 * D].float(), weight_uk[0, :, :].float())
+    q1 = torch.matmul(mm_qc[:, 1 * D:2 * D].float(), weight_uk[1, :, :].float())
+    q2 = torch.matmul(mm_qc[:, 2 * D:3 * D].float(), weight_uk[2, :, :].float())
+    q3 = torch.matmul(mm_qc[:, 3 * D:4 * D].float(), weight_uk[3, :, :].float())
     
     q01 = torch.cat([q0, q1], dim=-1)
     q23 = torch.cat([q2, q3], dim=-1)
@@ -204,10 +204,10 @@ def mla_prolog_golden(
         out_odd = x_odd * cos_h + x_even * sin_h
         return torch.cat([out_even, out_odd], dim=-1)
     
-    qr0 = apply_rope_1d(mm_qr[:, 0 * DR : 1 * DR].float())
-    qr1 = apply_rope_1d(mm_qr[:, 1 * DR : 2 * DR].float())
-    qr2 = apply_rope_1d(mm_qr[:, 2 * DR : 3 * DR].float())
-    qr3 = apply_rope_1d(mm_qr[:, 3 * DR : 4 * DR].float())
+    qr0 = apply_rope_1d(mm_qr[:, 0 * DR:1 * DR].float())
+    qr1 = apply_rope_1d(mm_qr[:, 1 * DR:2 * DR].float())
+    qr2 = apply_rope_1d(mm_qr[:, 2 * DR:3 * DR].float())
+    qr3 = apply_rope_1d(mm_qr[:, 3 * DR:4 * DR].float())
     
     qr01 = torch.cat([qr0, qr1], dim=-1)
     qr23 = torch.cat([qr2, qr3], dim=-1)
@@ -303,7 +303,6 @@ def main():
         device_id = get_device_id()
         if device_id is None:
             return
-        import torch_npu
         torch.npu.set_device(device_id)
         logging.info("Running on NPU...")
     
