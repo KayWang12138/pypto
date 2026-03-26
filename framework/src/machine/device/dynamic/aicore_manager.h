@@ -145,8 +145,8 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
             // // // Adding initial set of tasks 
             // auto readyAicCoreFunctionQue = (ReadyCoreFunctionQueue *)curDevTask_->readyAicCoreFunctionQue;
             // auto readyAivCoreFunctionQue = (ReadyCoreFunctionQueue *)curDevTask_->readyAivCoreFunctionQue;
-            // // DEV_ERROR("[AICPU %d] AIV Tasks: %lu", aicpuIdx_, readyAivCoreFunctionQue->wasSize());
-            // // DEV_ERROR("[AICPU %d] AIC Tasks: %lu", aicpuIdx_, readyAicCoreFunctionQue->wasSize());
+            // // DEV_ERROR("[AICPU %d] AIV Tasks: %lu", aicpuIdx_, readyAivCoreFunctionQue->size());
+            // // DEV_ERROR("[AICPU %d] AIC Tasks: %lu", aicpuIdx_, readyAicCoreFunctionQue->size());
             // for (size_t i = 0; i < readyAivCoreFunctionQue->Size(); i++) availableVectorTaskQueue->push((uint32_t)readyAivCoreFunctionQue->GetBuffer()[i]);
             // for (size_t i = 0; i < readyAicCoreFunctionQue->Size(); i++) availableCubeTaskQueue->push((uint32_t)readyAicCoreFunctionQue->GetBuffer()[i]);
 
@@ -177,8 +177,8 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
         for (int i = aivStart_; i < aivEnd_; i++) freeACoreQueue_[(int)CoreType::AIV]->push(i);
         for (int i = aicStart_; i < aicEnd_; i++) freeACoreQueue_[(int)CoreType::AIC]->push(i);
 
-        // DEV_ERROR(0, "[AICPU %d] Vector Ready: %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIV), freeACoreQueue_[(int)CoreType::AIV]->wasSize(), busyACoreQueue_[(int)CoreType::AIV]->wasSize());
-        // DEV_ERROR(0, "[AICPU %d] Cube Ready:   %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIC), freeACoreQueue_[(int)CoreType::AIC]->wasSize(), busyACoreQueue_[(int)CoreType::AIC]->wasSize());
+        // DEV_ERROR(0, "[AICPU %d] Vector Ready: %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIV), freeACoreQueue_[(int)CoreType::AIV]->size(), busyACoreQueue_[(int)CoreType::AIV]->size());
+        // DEV_ERROR(0, "[AICPU %d] Cube Ready:   %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIC), freeACoreQueue_[(int)CoreType::AIC]->size(), busyACoreQueue_[(int)CoreType::AIC]->size());
     }
 
     inline void CountSendTask(uint64_t &sentAic, uint64_t &sentAiv) {
@@ -333,7 +333,7 @@ private:
     };
 
     inline uint32_t GetReadyCoreNum(CoreType type) {
-        return freeACoreQueue_[(int)type]->wasSize() + freeBCoreQueue_[(int)type]->wasSize();
+        return freeACoreQueue_[(int)type]->size() + freeBCoreQueue_[(int)type]->size();
     }
 
     inline uint64_t TryBatchSendTask(CoreType type, ReadyCoreFunctionQueue* readyQue)
@@ -362,7 +362,7 @@ private:
     inline uint32_t BatchSendTask(CoreType type, uint32_t *newTask, uint32_t taskCount) {
         uint32_t sendCnt = 0;
 
-        const auto freeACoreCount = freeACoreQueue_[(int)type]->wasSize();
+        const auto freeACoreCount = freeACoreQueue_[(int)type]->size();
         while (sendCnt < taskCount && sendCnt < freeACoreCount)
         {
             uint32_t coreId = freeACoreQueue_[(int)type]->pop();
@@ -423,31 +423,37 @@ private:
     inline void ResolveDepForAllAiCore(CoreType type)
     {
         // Handling Busy A queue pairings
-        size_t busyAQueuePairCount = busyACoreQueue_[(int)type]->wasSize();
+        busyACoreQueue_[(int)type]->lock();
+        size_t busyAQueuePairCount = busyACoreQueue_[(int)type]->size();
         for (size_t i = 0; i < busyAQueuePairCount; i++)
         {
             const auto pair = busyACoreQueue_[(int)type]->pop();
             if (pair == aicoreNullPair) break;
             ResolveBusyAQueuePair(type, pair);
         }
+        busyACoreQueue_[(int)type]->unlock();
 
         // Handling Free B queue pairings
-        size_t freeBQueuePairCount = freeBCoreQueue_[(int)type]->wasSize();
+        freeBCoreQueue_[(int)type]->lock();
+        size_t freeBQueuePairCount = freeBCoreQueue_[(int)type]->size();
         for (size_t i = 0; i < freeBQueuePairCount; i++)
         {
             const auto pair = freeBCoreQueue_[(int)type]->pop();
             if (pair == aicoreNullPair) break;
             ResolveFreeBQueuePair(type, pair);
         }
+        freeBCoreQueue_[(int)type]->unlock();
 
         // Handling Busy B queue pairings
-        size_t busyBQueuePairCount = busyBCoreQueue_[(int)type]->wasSize();
+        busyBCoreQueue_[(int)type]->lock();
+        size_t busyBQueuePairCount = busyBCoreQueue_[(int)type]->size();
         for (size_t i = 0; i < busyBQueuePairCount; i++)
         {
             const auto pair = busyBCoreQueue_[(int)type]->pop();
             if (pair == aicoreNullPair) break;
             ResolveBusyBQueuePair(type, pair);
         }
+        busyBCoreQueue_[(int)type]->unlock();
 
         BatchPushReadyQueue();
     }

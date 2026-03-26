@@ -7,6 +7,11 @@
 
 #pragma once
 
+#include <array>
+#include "tilefwk/aicpu_common.h"
+#include "interface/utils/common.h"
+#include "tilefwk/core_func_data.h"
+
 namespace pypto::utils
 {
 
@@ -37,7 +42,10 @@ class ConcurrentQueue
    *
    * \param[in] obj The object to push into the queue.
    */
-  inline void push(const T obj) { _elements[_head++] = obj; }
+  inline void push(const T obj)
+  {
+     _elements[_head++ % N] = obj;
+  }
 
   /**
    * Function to pop an object from the queue. Poping removes an object from the front of the queue and returns it to the caller. This is a thread-safe lock-free operation
@@ -46,20 +54,10 @@ class ConcurrentQueue
    */
   inline T pop()
   {
-    if (wasEmpty() == true) return D;
-
-    return _elements[--_head];
+    return empty() ? D : _elements[_tail++ % N];
   }
 
-  /**
-   * Function to clear the queue out of all objects
-   */
-  inline void clear()
-  {
-    _head = 0;
-  }
-
-  /**
+  /*
    * Function to determine whether the queue is currently empty or not
    *
    * The past tense in "was" is deliverate, since it can be proven the return value had that
@@ -67,7 +65,7 @@ class ConcurrentQueue
    * 
    * \return True, if it is empty; false if its not. Possibly changed now.
    */
-  [[nodiscard]] inline bool wasEmpty() const { return _head == 0; }
+  [[nodiscard]] inline bool empty() const { return _head == _tail; }
 
   /**
    * Function to determine the current possible size of the queue
@@ -77,12 +75,20 @@ class ConcurrentQueue
    * 
    * \return The size of the queue, as last read by this thread. Possibly changed now.
    */
-  [[nodiscard]] inline size_t wasSize() const { return _head; }
+  [[nodiscard]] inline size_t size() const { return _head - _tail; }
+
+  inline void lock()   { while (!__sync_bool_compare_and_swap(&_lock, 0, 1)) {} }
+  inline void unlock() { while (!__sync_bool_compare_and_swap(&_lock, 1, 0)) {} }
 
   private:
 
   std::array<T, N> _elements;
   size_t _head = 0;
+  size_t _tail = 0;
+  uint8_t _lock = 0;
+
 };
 
 } // namespace
+
+
