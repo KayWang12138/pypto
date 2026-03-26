@@ -26,21 +26,88 @@ import torch_npu
 from numpy.testing import assert_allclose
 
 
-def compute_golden_result(x, weight, scaled_x_golden, scaled_weight_golden, a_trans, b_trans):
+@dataclass
+class GmmGoldenInputs:
+    """
+    Input parameters for generating golden result in grouped matrix multiplication.
+    
+    Attributes:
+        a: Input tensor of shape [M, K]
+        b: Weight tensor of shape [num_groups, K, N] or [num_groups, N, K]
+        scaled_a: Scale factors for input tensor
+        scaled_b: Scale factors for weight tensor
+        group_list: List of group sizes for each weight group
+        a_trans: Whether input tensor is transposed
+        b_trans: Whether weight tensor is transposed
+    """
+    a: torch.Tensor
+    b: torch.Tensor
+    scaled_a: torch.Tensor
+    scaled_b: torch.Tensor
+    group_list: list
+    a_trans: bool
+    b_trans: bool
+
+
+@dataclass
+class GmmMxfp8Inputs:
+    """
+    Input parameters for generating MXFP8 output.
+    
+    Attributes:
+        a: Input tensor of shape [M, K]
+        b: Weight tensor of shape [num_groups, K, N] or [num_groups, N, K]
+        scaled_a: Scale factors for input tensor
+        scaled_b: Scale factors for weight tensor
+        group_list: List of group sizes for each weight group
+        tile_config: Tile configuration for computation
+    """
+    a: torch.Tensor
+    b: torch.Tensor
+    scaled_a: torch.Tensor
+    scaled_b: torch.Tensor
+    group_list: list
+    tile_config: 'ShapeConfig'
+
+
+@dataclass
+class GoldenComputeInputs:
+    """
+    Input parameters for computing golden result in matrix multiplication.
+    
+    Attributes:
+        x: Input tensor of shape [M, K] or [K, M] if transposed
+        weight: Weight tensor of shape [K, N] or [N, K] if transposed
+        scaled_x: Scale factors for input tensor
+        scaled_weight: Scale factors for weight tensor
+        a_trans: Whether input tensor is transposed
+        b_trans: Whether weight tensor is transposed
+    """
+    x: torch.Tensor
+    weight: torch.Tensor
+    scaled_x: torch.Tensor
+    scaled_weight: torch.Tensor
+    a_trans: bool
+    b_trans: bool
+
+
+def compute_golden_result(inputs: GoldenComputeInputs) -> torch.Tensor:
     """
     Compute golden (reference) result for a single group's matrix multiplication.
     
     Args:
-        x: Input tensor of shape [M, K] or [K, M] if transposed
-        weight: Weight tensor of shape [K, N] or [N, K] if transposed
-        scaled_x_golden: Scale factors for input tensor
-        scaled_weight_golden: Scale factors for weight tensor
-        a_trans: Whether input tensor is transposed
-        b_trans: Whether weight tensor is transposed
+        inputs: Input parameters including tensors and transposition flags
     
     Returns:
         torch.Tensor: Golden output tensor
     """
+    x = inputs.x
+    weight = inputs.weight
+    scaled_x_golden = inputs.scaled_x
+    scaled_weight_golden = inputs.scaled_weight
+    a_trans = inputs.a_trans
+    b_trans = inputs.b_trans
+    
     # Handle input transposition
     if a_trans:
         x = torch.swapaxes(x, -1, -2)
@@ -117,22 +184,24 @@ def compute_golden_result(x, weight, scaled_x_golden, scaled_weight_golden, a_tr
     return golden
 
 
-def gen_golden(a, b, scaled_a, scaled_b, group_list, a_trans, b_trans):
+def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     """
     Generate golden (reference) output for grouped matrix multiplication using PyTorch.
     
     Args:
-        a: Input tensor of shape [M, K]
-        b: Weight tensor of shape [num_groups, K, N] or [num_groups, N, K]
-        scaled_a: Scale factors for input tensor
-        scaled_b: Scale factors for weight tensor
-        group_list: List of group sizes for each weight group
-        a_trans: Whether input tensor is transposed
-        b_trans: Whether weight tensor is transposed
+        inputs: Input parameters including tensors, scales, and transposition flags
     
     Returns:
         torch.Tensor: Golden output tensor of shape [M, N]
     """
+    a = inputs.a
+    b = inputs.b
+    scaled_a = inputs.scaled_a
+    scaled_b = inputs.scaled_b
+    group_list = inputs.group_list
+    a_trans = inputs.a_trans
+    b_trans = inputs.b_trans
+    
     round_num = b.shape[0]
     result = []
     begin = 0
@@ -159,12 +228,14 @@ def gen_golden(a, b, scaled_a, scaled_b, group_list, a_trans, b_trans):
         
         # Compute golden result for this group
         golden_temp = compute_golden_result(
-            x=x,
-            weight=weight,
-            scaled_x_golden=scaled_x_golden,
-            scaled_weight_golden=scaled_weight_golden,
-            a_trans=a_trans,
-            b_trans=b_trans,
+            GoldenComputeInputs(
+                x=x,
+                weight=weight,
+                scaled_x=scaled_x_golden,
+                scaled_weight=scaled_weight_golden,
+                a_trans=a_trans,
+                b_trans=b_trans,
+            )
         )
         result.append(golden_temp)
     
@@ -265,21 +336,23 @@ def scaled_matmul_kernel(
         out[begin:end, :] = pypto.scaled_mm(x, weight, pypto.DT_FP32, scaled_x, scaled_weight)
 
 
-def gen_mxfp8(a, b, scaled_a, scaled_b, group_list, tile_config):
+def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
     """
     Generate MXFP8 output using PyPTO scaled matrix multiplication.
     
     Args:
-        a: Input tensor of shape [M, K]
-        b: Weight tensor of shape [num_groups, K, N] or [num_groups, N, K]
-        scaled_a: Scale factors for input tensor
-        scaled_b: Scale factors for weight tensor
-        group_list: List of group sizes for each weight group
-        tile_config: Tile configuration for computation
+        inputs: Input parameters including tensors, scales, group list and tile config
     
     Returns:
         torch.Tensor: Output tensor of shape [M, N] in FP32
     """
+    a = inputs.a
+    b = inputs.b
+    scaled_a = inputs.scaled_a
+    scaled_b = inputs.scaled_b
+    group_list = inputs.group_list
+    tile_config = inputs.tile_config
+    
     # Move tensors to NPU
     a = a.npu()
     b = b.npu()
@@ -353,8 +426,23 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
         ).uniform_(0, 1).to(torch.float8_e8m0fnu)
     
     # Compute golden and PyPTO results
-    golden = gen_golden(a, b, scaled_a, scaled_b, group_list, a_trans, b_trans)
-    result = gen_mxfp8(a, b, scaled_a, scaled_b, group_list, tile_config)
+    golden = gen_golden(GmmGoldenInputs(
+        a=a,
+        b=b,
+        scaled_a=scaled_a,
+        scaled_b=scaled_b,
+        group_list=group_list,
+        a_trans=a_trans,
+        b_trans=b_trans,
+    ))
+    result = gen_mxfp8(GmmMxfp8Inputs(
+        a=a,
+        b=b,
+        scaled_a=scaled_a,
+        scaled_b=scaled_b,
+        group_list=group_list,
+        tile_config=tile_config,
+    ))
     
     # Verify results
     assert_allclose(golden.cpu().numpy(), result.cpu().numpy(), rtol=1e-3, atol=1e-3)
