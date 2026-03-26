@@ -164,6 +164,20 @@ Status IsomorphismGraphGroup::BuildGraphGroup(std::shared_ptr<OperationGraphInfo
     subVisitedNodeSet_.clear();
     subVisitedNodeSet_.insert(expandCandidate.begin(), expandCandidate.end());
     currentNodeSet.insert(expandCandidate.begin(), expandCandidate.end());
+
+    // 获取 allowCrossScopeMerge 值（从第一个 op）
+    bool allowCrossScopeMerge = false;
+    if (!expandCandidate.empty()) {
+        int32_t firstNodeIdx = expandCandidate[0];
+        // 从第一个节点对应的 operation 获取 allowCrossScopeMerge
+        for (int32_t opIdx : superNodeInfo->node2Op_[firstNodeIdx]) {
+            allowCrossScopeMerge = operationInfo->opList_[opIdx]->GetAllowCrossScopeMerge();
+            if (allowCrossScopeMerge) {
+                break;
+            }
+        }
+    }
+
     for (int32_t nodeIdx : expandCandidate) {
         if (InLinkCountDelete(nodeIdx, idxInLinkNum, zeroInQueue) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "In-link count delete failed.");
@@ -176,6 +190,7 @@ Status IsomorphismGraphGroup::BuildGraphGroup(std::shared_ptr<OperationGraphInfo
         }
         sgPtr->AddNode(nodeIdx);
         sgPtr->scopeId_ = superNodeInfo->nodeScope_[nodeIdx];
+        sgPtr->SetAllowCrossScopeMerge(allowCrossScopeMerge);  // 新增：设置跨 scope 合并开关
         isoGraphs_.push_back(sgPtr);
     }
     mergeable_ = superNodeInfo_->nodeMergeable_[expandCandidate[0]];
@@ -490,16 +505,39 @@ std::vector<int32_t> IsoPartitioner::GetCandidateMergeColors(int32_t currColor,
 
 bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor, bool nonIsoGraphsMerge) const
 {
+    // ... 原有代码 ...
+
+    // 检查开关2：是否允许跨 scope 合并
+    bool currHasScope = false;
+    bool mergeHasScope = false;
+    bool currAllowCrossMerge = false;
+    bool mergeAllowCrossMerge = false;
+
     for (auto graphPtr : isoSubGroups_[currColor]->isoGraphs_) {
         if (graphPtr->scopeId_ != -1) {
-            return false;
+            currHasScope = true;
+            // 使用新的 GetAllowCrossScopeMerge 接口
+            currAllowCrossMerge = graphPtr->GetAllowCrossScopeMerge();
         }
     }
     for (auto graphPtr : isoSubGroups_[mergeColor]->isoGraphs_) {
         if (graphPtr->scopeId_ != -1) {
+            mergeHasScope = true;
+            // 使用新的 GetAllowCrossScopeMerge 接口
+            mergeAllowCrossMerge = graphPtr->GetAllowCrossScopeMerge();
+        }
+    }
+
+    // 如果两个 supernode 都有 scopeId，且至少有一个不允许跨 scope 合并，则不允许合并
+    if (currHasScope && mergeHasScope) {
+        if (!currAllowCrossMerge || !mergeAllowCrossMerge) {
+            APASS_LOG_INFO_F(Elements::Operation, "Cannot merge supernodes with scopeId (currAllowCrossMerge=%d, mergeAllowCrossMerge=%d)",
+                currAllowCrossMerge, mergeAllowCrossMerge);
             return false;
         }
     }
+
+    // ... 原有代码 ...
     std::set<OpCoreType> opcoreTypes{isoSubGroups_[currColor]->GetSubGraph(0)->coreType_,
                                      isoSubGroups_[mergeColor]->GetSubGraph(0)->coreType_};
     bool coreTypeMergable = operationInfo_->CoreTypeMergeable(opcoreTypes);
@@ -521,7 +559,7 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
                      currColor, isoSubGroups_[currColor]->GetSubGraph(0)->DumpStr().c_str(),
                      mergeColor, isoSubGroups_[mergeColor]->GetSubGraph(0)->DumpStr().c_str(), shouldMerge);
         return shouldMerge;
-    } 
+    }
     bool isSuitableForMerge = (currColorSize == mergeColorSize);
     isSuitableForMerge = isSuitableForMerge || (std::min(currColorSize, mergeColorSize) >= parallelNum_);
     isSuitableForMerge = isSuitableForMerge ||
@@ -530,7 +568,7 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
     isSuitableForMerge = coreTypeMergable && isSuitableForMerge && cycleMergable;
     APASS_LOG_DEBUG_F(Elements::Operation, "Try merge current group: %d [%s]\n\t with: %d [%s], is suitable for merge: %d.",
                  currColor, isoSubGroups_[currColor]->GetSubGraph(0)->DumpStr().c_str(),
-                 mergeColor, isoSubGroups_[mergeColor]->GetSubGraph(0)->DumpStr().c_str(), isSuitableForMerge);
+                  mergeColor, isoSubGroups_[mergeColor]->GetSubGraph(0)->DumpStr().c_str(), isSuitableForMerge);
     return isSuitableForMerge;
 }
 
