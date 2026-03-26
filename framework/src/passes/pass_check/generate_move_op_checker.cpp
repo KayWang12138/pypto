@@ -48,7 +48,7 @@ Status GenerateMoveOpChecker::DoPostCheck(Function &function) {
     for (auto &operation : operations) {
         auto op = operation.GetOpcode();
         if (op == Opcode::OP_DUPLICATE || op == Opcode::OP_CONVERT) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %s[%d] is invalid here.",
+            APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %s[%d] is invalid here!",
                 operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
             return FAILED;
         }
