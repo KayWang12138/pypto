@@ -294,13 +294,13 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
     inline void RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         Init(threadIdx, deviceArgs, schedIdx);
         DeviceTaskCtrl *taskCtrl = nullptr;
-        taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
+        prefetchedTaskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
         if constexpr (IsDeviceMode()) {
             HandShake();
             devStartArgs->syncFlag = 1;
         }
         while (true) {
-            taskCtrl = preFetchSuccess_ ? preFetchNextDevTaskCtrl_ : taskQueue_->Dequeue();
+            taskCtrl = preFetchSuccess_ ? preFetchNextDevTaskCtrl_ : prefetchedTaskQueue_->Dequeue();
             if (taskCtrl == nullptr) {
                 break;
             }
@@ -317,7 +317,7 @@ private:
 
     inline bool PreFetchNextDevTask() {
         preFetchNextDevTaskCtrl_ = nullptr;
-        preFetchSuccess_ = taskQueue_->TryDequeue(preFetchNextDevTaskCtrl_);
+        preFetchSuccess_ = prefetchedTaskQueue_->TryDequeue(preFetchNextDevTaskCtrl_);
         return preFetchSuccess_;
     }
 
@@ -325,12 +325,6 @@ private:
         aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1);
         aicoreHal_.ResetShakeBuf(coreIdx);
     }
-
-    enum class AicoreStatus {
-        CORE_TASK_WAIT_FINISH = 0,
-        CORE_SEND_STOP,
-        CORE_FINISH_STOP,
-    };
 
     inline uint32_t GetReadyCoreNum(CoreType type) {
         return freeACoreQueue_[(int)type]->size() + freeBCoreQueue_[(int)type]->size();
@@ -641,27 +635,15 @@ private:
         preFetchNextDevTaskCtrl_ = nullptr;
     }
 
-    inline void HandShakeTryPreFetchDevTask(bool &needSendAic, bool &needSendAiv) {
+    inline void HandShakeTryPreFetchDevTask() {
         if (!preFetchSuccess_ && PreFetchNextDevTask()) {
             preFetchNextDevTaskCtrl_->isFirstDevTask = true;
             SendDevTaskModel(preFetchNextDevTaskCtrl_->devTask);
             InitDevTask(preFetchNextDevTaskCtrl_);
-            needSendAic = (readyAicCoreFunctionQue_->tail != readyAicCoreFunctionQue_->head);
-            needSendAiv = (readyAivCoreFunctionQue_->tail != readyAivCoreFunctionQue_->head);
         }
     }
 
-    inline void HandShakePostProc(bool needSendAic, bool needSendAiv) {
-        // send task by left ready core
-        if (needSendAic) {
-            __sync_synchronize();
-            TryBatchSendTask(CoreType::AIC, readyAicCoreFunctionQue_);
-        }
-        if (needSendAiv) {
-            __sync_synchronize();
-            TryBatchSendTask(CoreType::AIV, readyAivCoreFunctionQue_);
-        }
-
+    inline void HandShakePostProc() {
         if (preFetchSuccess_) {
             uint64_t sentAic = 0;
             uint64_t sentAiv = 0;
@@ -672,22 +654,18 @@ private:
         }
     }
 
-    inline void HandShakeByGmWithPreSendTask() {
+    inline void HandShake() {
         int handShakeNum = 0;
         int mngAicoreNum = aicEnd_ - aicStart_ + aivEnd_ - aivStart_;
         bool handFlag[MAX_AICORE_NUM] = {false};
         uint64_t start_cycles = GetCycles();
-        bool needSendAic = false;
-        bool needSendAiv = false;
         bool aicAllSuccess = false;
         bool aivAllSuccess = false;
         int aicSucessCnt = 0;
         int aivSucessCnt = 0;
-        int aicTreshold = 4;
-        int aivThreshold = 4;
         
         while (handShakeNum < mngAicoreNum) {
-            HandShakeTryPreFetchDevTask(needSendAic, needSendAiv);
+            HandShakeTryPreFetchDevTask();
 
             bool curIterAllAicSuccess = true;
             bool curIterAllAivSuccess = true;
@@ -705,12 +683,6 @@ private:
             }
             aicAllSuccess = curIterAllAicSuccess;
 
-            if (needSendAic && aicSucessCnt >= aicTreshold) {
-                __sync_synchronize(); // sync  REG_SPR_FAST_PATH_ENABLE
-                TryBatchSendTask(CoreType::AIC, readyAicCoreFunctionQue_);
-                aicSucessCnt = 0;
-            }
-
             for (int i = aivEnd_ - 1; (!aivAllSuccess) && i >= aivStart_; i--) {
                 if (handFlag[i]) {
                     continue;
@@ -725,23 +697,13 @@ private:
             }
             aivAllSuccess = curIterAllAivSuccess;
 
-            if (needSendAiv && aivSucessCnt >= aivThreshold) {
-                __sync_synchronize();
-                TryBatchSendTask(CoreType::AIV, readyAivCoreFunctionQue_);
-                aivSucessCnt = 0;
-            }
-
             if (GetCycles() - start_cycles > HAND_SHAKE_TIMEOUT) {
                 DEV_ERROR(0, "HandShakeByGmWithPreSendTask timeout notHandshakeNum=%d.", mngAicoreNum - handShakeNum);
                 return;
             }
         }
 
-        HandShakePostProc(needSendAic, needSendAiv);
-    }
-
-    inline void HandShake() {
-        HandShakeByGmWithPreSendTask();
+        HandShakePostProc();
     }
 
     /* assign aic and aiv core index section for this aicpu */
@@ -806,10 +768,10 @@ private:
     ReadyCoreFunctionQueue* readyAivCoreFunctionQue_{nullptr};
     SchduleContext * context_{nullptr};
 
+
     bool preFetchSuccess_{false};
     DeviceTaskCtrl* preFetchNextDevTaskCtrl_{nullptr};
-
-    SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *taskQueue_{nullptr};
+    SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *prefetchedTaskQueue_{nullptr};
     int64_t dotStatus_{0};
     bool isSendStop{false};
 
