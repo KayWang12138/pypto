@@ -108,7 +108,7 @@ def flash_attention_score_kernel(
                             o_final = pypto.div(o_ij, l_ij)
                             o_final_bf16 = pypto.cast(o_final, pypto.DT_BF16)
                             o_final_4d = pypto.reshape(o_final_bf16, [1, 1, 1, HEAD_DIM])
-                            output[b_idx: b_idx+1, n_idx: n_idx+1, q_idx: q_idx+1, :] = o_final_4d
+                            output[b_idx: b_idx + 1, n_idx: n_idx + 1, q_idx: q_idx + 1, :] = o_final_4d
                         else:
                             oi_update[:] = o_ij
                         li_update[:] = l_ij
@@ -132,7 +132,7 @@ def flash_attention_score_kernel(
                             o_final = pypto.div(oi_new, li_new)
                             o_final_bf16 = pypto.cast(o_final, pypto.DT_BF16)
                             o_final_4d = pypto.reshape(o_final_bf16, [1, 1, 1, HEAD_DIM])
-                            output[b_idx: b_idx+1, n_idx: n_idx+1, q_idx: q_idx+1, :] = o_final_4d
+                            output[b_idx: b_idx + 1, n_idx: n_idx + 1, q_idx: q_idx + 1, :] = o_final_4d
                         else:
                             oi_update[:] = oi_new
                         li_update[:] = li_new
@@ -227,7 +227,7 @@ def flash_attention_score_kernel_with_mask(
                             o_final = pypto.div(o_ij, l_ij)
                             o_final_bf16 = pypto.cast(o_final, pypto.DT_BF16)
                             o_final_4d = pypto.reshape(o_final_bf16, [1, 1, 1, HEAD_DIM])
-                            output[b_idx: b_idx+1, n_idx: n_idx+1, q_idx: q_idx+1, :] = o_final_4d
+                            output[b_idx: b_idx + 1, n_idx: n_idx + 1, q_idx: q_idx + 1, :] = o_final_4d
                         else:
                             oi_update[:] = o_ij
                         li_update[:] = l_ij
@@ -251,7 +251,7 @@ def flash_attention_score_kernel_with_mask(
                             o_final = pypto.div(oi_new, li_new)
                             o_final_bf16 = pypto.cast(o_final, pypto.DT_BF16)
                             o_final_4d = pypto.reshape(o_final_bf16, [1, 1, 1, HEAD_DIM])
-                            output[b_idx: b_idx+1, n_idx: n_idx+1, q_idx: q_idx+1, :] = o_final_4d
+                            output[b_idx: b_idx + 1, n_idx: n_idx + 1, q_idx: q_idx + 1, :] = o_final_4d
                         else:
                             oi_update[:] = oi_new
                         li_update[:] = li_new
