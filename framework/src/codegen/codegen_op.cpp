@@ -270,8 +270,6 @@ void CodeGenOp::UpdateCodegenOpInfoByTensor(
                                                                               -tensor->tensor->GetRawMagic();
     operandWithMagic[operandIdx] = tensor->GetMagic();
     dynamicOffset[operandIdx] = tensor->GetDynOffset();
-    auto value = tensor->GetAttr<bool>("isPartialMem");
-    isPartialMem[operandIdx] = (value != nullptr) && (*value);
     UpdateShape(ops, *tensor, operandIdx, isInput, ioIdx);
     if (isInput) {
         UpdateOffsetForInput(ops, *tensor, operandIdx);
@@ -284,6 +282,7 @@ void CodeGenOp::UpdateCodegenOpInfoByTensor(
         << "can not support memory type: " << static_cast<size_t>(tensor->GetMemoryTypeOriginal()) << ", Tensor is "
         << tensor->Dump();
     operandType[operandIdx] = it->second;
+    tensorAttrs[operandIdx] = tensor->GetAllAttr();
     ++operandIdx;
 }
 
