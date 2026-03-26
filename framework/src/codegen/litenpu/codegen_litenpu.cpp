@@ -117,8 +117,7 @@ void CodeGenLiteNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ostr
         CODEGEN_LOGI("------------------------ Op CodeGenNPU Finish -----------------------");
     }
     floatSpecValMgr.PrintFloatSpecVal(oss);
-    oss << allocSourceRegion << GenDynParamForExpr(subFunc) << symbolMgr->GenUsingList()
-        << symbolMgr->GenTileTensorDefList() << tileOpSourceRegion;
+    oss << allocSourceRegion << symbolMgr->GenUsingList() << symbolMgr->GenTileTensorDefList() << tileOpSourceRegion;
 }
 
 std::string CodeGenLiteNPU::GenAllocForLocalBuffer(const Operation &op, const std::shared_ptr<SymbolManager> &symbolMgr) const {
@@ -146,32 +145,6 @@ std::string CodeGenLiteNPU::GenAllocForLocalBuffer(const Operation &op, const st
     }
 
     return allocSourceCode;
-}
-
-// GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx)
-// GET_PARAM_VALID_SHAPE_BY_IDX(param, n, base, dim, idx)
-std::string CodeGenLiteNPU::GenDynParamForExpr(const Function &func) const {
-    if (!func.IsUnderDynamicFunction()) {
-        return {};
-    }
-    std::string dynParamList;
-    for (const auto &dynParam : func.GetDynParamTable()) {
-        std::string dynParamExpr = "uint64_t " + dynParam.first + " = ";
-        DynParamInfo info = dynParam.second;
-        if (info.dim.IsValid()) {
-            dynParamExpr += SymbolicExpressionTable::BuildExpression(info.dim) + "; //";
-        }
-        if (info.type == DynParamInfoType::VALID_SHAPE) {
-            dynParamExpr += GET_PARAM_VALID_SHAPE_BY_IDX;
-        } else if (info.type == DynParamInfoType::OFFSET) {
-            dynParamExpr += GET_PARAM_OFFSET_BY_IDX;
-        }
-        dynParamExpr += "(param, " + std::to_string(info.tensorIndex) + ", " +
-                        std::to_string(info.tensorBaseAddrCoaIndex) + ", " + std::to_string(info.dimSize) + ", " +
-                        std::to_string(info.dimIndex) + ");\n";
-        dynParamList += dynParamExpr;
-    }
-    return dynParamList;
 }
 
 std::string CodeGenLiteNPU::GetParamType(const Function &func) const {
@@ -293,7 +266,6 @@ std::string CodeGenLiteNPU::GenFuncGlobalCodeAfterReplace(
 extern "C" __global__ [aicore] void ${FunctionName}$_main(${GlobalParams}$) {
     ${SubProgCode}$
 }
-
 )!!!";
     std::vector<std::string> inOutParams;
     std::map<std::string, std::string> dTypeMap;
@@ -385,7 +357,7 @@ void CodeGenLiteNPU::GenCode(
 #ifdef BUILD_WITH_CANN
             if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
                 DumpCCE(compileInfo.GetCCEAbsPath(), funcCode);
-                // DoCompileCCE(compileInfo, ""); // TODO: currently has issue
+                DoCompileCCE(compileInfo, ""); // TODO: currently has issue
                 int blockDim = 1; // TODO: currently only support one block dim
                 int jsonWorkspaceSize = 0; // TODO...
                 GenConfigJson(compileInfo.GetJsonAbsPath(), compileInfo.GetCCEAbsPath(), compileInfo.GetBinAbsPath(),
@@ -592,27 +564,46 @@ std::string CodeGenLiteNPU::GetIncludePathForCompileCCE() const {
     return "";
 }
 
+std::string CodeGenLiteNPU::GetPtoTileLibPathByEnv() const {
+    if (!ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
+        return "";
+    }
+
+    // Priority 1: Obtain pto-isa from the patch specified by the environment variable "PTO_TILE_LIB_CODE_PATH".
+    const char *homePath = std::getenv(ENV_PTO_TILE_LIB_CODE_PATH.c_str());
+    if (homePath != nullptr) {
+        std::string envPath = std::string(homePath) + "/include";
+        ASSERT(IsPathExist(envPath + "/pto")) << "Pto-isa path " << envPath << "/pto not found! please check.";
+        return envPath;
+    }
+
+    // Priority 2: Obtain pto-isa from the installed cann package.
+    homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
+    if (homePath != nullptr) {
+        std::string cannPath = std::string(homePath) + "/include";
+        ASSERT(IsPathExist(cannPath + "/pto")) << "Pto-isa path " << cannPath << "/pto not found! please check.";
+        return cannPath;
+    }
+
+    ASSERT(false) << "Pto-isa path not found. please install pto-isa properly.";
+    return "";
+}
+
 // TODO: modify for kirin...
 void CodeGenLiteNPU::BuildArchOptions(std::ostringstream &oss, const CompileInfo_LiteNPU &compileInfo) const {
-    const std::string corePredefine = compileInfo.IsCube() ? "-D__AIC__" : "-D__AIV__";
+    (void)compileInfo; // TODO...
+    // const std::string corePredefine = compileInfo.IsCube() ? "-D__AIC__" : "-D__AIV__";
 
-    std::vector<std::string> compileOpts{corePredefine};
+    // std::vector<std::string> compileOpts{corePredefine};
+    std::vector<std::string> compileOpts;
     if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
         compileOpts.emplace_back("-DSUPPORT_TILE_TENSOR");
     }
-    // TODO...
-    // if (platform_ == NPUArch::DAV_2201) {
-    //     compileOpts.emplace_back("-D__DAV_V220");
-    //     compileOpts.emplace_back("-DMEMORY_BASE");
-    // } else {
-    //     compileOpts.emplace_back("-D__DAV_V310");
-    //     compileOpts.emplace_back("-DREGISTER_BASE");
-    // }
 
     compileOpts.emplace_back("--cce-aicore-only");
-    // TODO...
-    // std::string coreArch = GetCoreArch(compileInfo);
-    // compileOpts.emplace_back("--cce-aicore-arch=" + coreArch);
+    // std::string coreArch = GetCoreArch(compileInfo); // TODO: support lite npu...
+    std::string coreArch = "dav-l311";
+    compileOpts.emplace_back("--cce-aicore-arch=" + coreArch);
 
     std::string allCompileOpts = JoinString(compileOpts, " ");
     oss << allCompileOpts << " ";
@@ -627,17 +618,14 @@ void CodeGenLiteNPU::BuildIncludes(std::ostringstream &oss) const {
         << "-I" << includePath << "/tileop/arch32 "
         << "-I" << includePath << " ";
 
-    // TODO...
-    // std::string ptoTileLibPath = GetPtoTileLibPathByEnv();
-    // if (!ptoTileLibPath.empty()) {
-    //     oss << "-I" << ptoTileLibPath << " ";
-    // }
+    std::string ptoTileLibPath = GetPtoTileLibPathByEnv();
+    if (!ptoTileLibPath.empty()) {
+        oss << "-I" << ptoTileLibPath << " ";
+    }
 }
 
-// TODO: maybe modify for kirin...
 void CodeGenLiteNPU::BuildExtraOptions(std::ostringstream &oss, const std::string &compileOptions) const {
-    oss << "-mllvm -cce-aicore-stack-size=0x8000 "
-        << "-mllvm -cce-aicore-function-stack-size=0x8000 "
+    oss << "-mllvm -cce-aicore-function-stack-size=16384 "
         << "-mllvm -cce-aicore-record-overflow=false "
         << "-mllvm -cce-aicore-addr-transform "
         << "-mllvm -cce-aicore-dcci-insert-for-scalar=false ";
@@ -647,7 +635,7 @@ void CodeGenLiteNPU::BuildExtraOptions(std::ostringstream &oss, const std::strin
 std::pair<int, std::string> CodeGenLiteNPU::CompileCCE(
     const CompileInfo_LiteNPU &compileInfo, const std::string &compileOptions) const {
     std::ostringstream oss;
-    oss << "bisheng -c -O3 -g -x cce -std=c++17 ";
+    oss << "bisheng -c -O3 -g -x cce -std=c++17 -w ";
     BuildArchOptions(oss, compileInfo);
     BuildIncludes(oss);
     BuildExtraOptions(oss, compileOptions);

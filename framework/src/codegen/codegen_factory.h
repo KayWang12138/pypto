@@ -26,15 +26,18 @@
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 #include "cloudnpu/codegen_cloudnpu.h"
+#include "litenpu/codegen_litenpu.h"
 
 namespace npu::tile_fwk {
 class CodeGenFactory {
 public:
     static std::shared_ptr<CodeGenCCE> GetCodeGenCCE(const CodeGenCtx &ctx) {
         auto platform = Platform::Instance().GetSoc().GetNPUArch();
-        if (platform == NPUArch::DAV_2201 || platform == NPUArch::DAV_3510) {
-            return std::make_shared<CodeGenCloudNPU>(ctx);
-        }
+        // TODO: differentiate these two codegen models...
+        // if (platform == NPUArch::DAV_2201 || platform == NPUArch::DAV_3510) {
+        //     return std::make_shared<CodeGenCloudNPU>(ctx);
+        // }
+        return std::make_shared<CodeGenLiteNPU>(ctx);
         ASSERT(false) << "can not support this platform: " << ToUnderlying(platform) << ", please check environment";
         return nullptr;
     }
