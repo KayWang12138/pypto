@@ -333,6 +333,39 @@ extern "C" __global__ [aicore] void ${FunctionName}$_main(${GlobalParams}$) {
     return funCode;
 }
 
+std::vector<std::string> CodeGenLiteNPU::GetInOutParams(std::pair<uint64_t, Function *> subFuncPair) {
+    std::vector<std::string> inOutParams;
+    std::map<std::string, std::string> dTypeMap;
+    auto symbolMap = GenParamsSymbolMap(subFuncPair.second->GetParameter(), inOutParams, dTypeMap);
+
+    return inOutParams;
+}
+
+void CodeGenLiteNPU::GenConfigJson(const std::string &jsonName, const std::string &cppName, const std::string &binName,
+    const std::string &kernelName, const int &workspaceSize, const std::vector<std::string> &argNames,
+    const int &blockDim) const {
+    std::ofstream file;
+    file.open(jsonName);
+
+    file << "{\n"
+         << "   \"kernelFile\": \"" << cppName << "\",\n"
+         << "   \"kernelBin\": \"" << binName << "\",\n"
+         << "   \"kernelName\": \"" << kernelName + "_main" << "\",\n"
+         << "   \"workspaceSize\": " << workspaceSize << ",\n"
+         << "   \"blockDim\": " << blockDim << ",\n"
+         << "   \"argNames\": [";
+
+    for (size_t i = 0; i < argNames.size(); i++) {
+        file << "\"" << argNames[i] << "\"";
+
+        if (i < argNames.size() - 1) {
+            file << ", ";
+        }
+    }
+
+    file << "]\n}";
+}
+
 void CodeGenLiteNPU::GenCode(
     Function &topFunc, [[maybe_unused]] const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
     std::deque<std::function<void(void)>> tasks;
@@ -343,6 +376,7 @@ void CodeGenLiteNPU::GenCode(
             if (HandleForAICpuSubFunc(*subFunc)) {
                 return;
             }
+            std::vector<std::string> inOutParams = GetInOutParams(subFuncPair);
             bool isCube = subFunc->IsCube();
             CompileInfo_LiteNPU compileInfo(topFunc, ctx, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
             std::ostringstream leafKernelFunc;
@@ -351,7 +385,11 @@ void CodeGenLiteNPU::GenCode(
 #ifdef BUILD_WITH_CANN
             if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
                 DumpCCE(compileInfo.GetCCEAbsPath(), funcCode);
-                DoCompileCCE(compileInfo, "");
+                // DoCompileCCE(compileInfo, ""); // TODO: currently has issue
+                int blockDim = 1; // TODO: currently only support one block dim
+                int jsonWorkspaceSize = 0; // TODO...
+                GenConfigJson(compileInfo.GetJsonAbsPath(), compileInfo.GetCCEAbsPath(), compileInfo.GetBinAbsPath(),
+                    topFunc.GetMagicName(), jsonWorkspaceSize, inOutParams, blockDim);
             }
 #endif
             UpdateSubFunc(subFuncPair, compileInfo);

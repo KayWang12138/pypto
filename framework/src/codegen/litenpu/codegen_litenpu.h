@@ -39,7 +39,8 @@ public:
     };
     std::string GetCCEAbsPath() const { return cceAbsPath_; }
     void SetCCEAbsPath(const std::string &cceAbsPath) { cceAbsPath_ = cceAbsPath; }
-
+    std::string GetJsonAbsPath() const { return jsonAbsPath_; }
+    void SetJsonAbsPath(const std::string &jsonAbsPath) { jsonAbsPath_ = jsonAbsPath; }
     std::string GetBinAbsPath() const { return binAbsPath_; }
     void SetBinAbsPath(const std::string &binAbsPath) { binAbsPath_ = binAbsPath; }
     void SetKernelName(const std::string &kernelName) { kernelName_ = kernelName; }
@@ -81,7 +82,11 @@ private:
         ss.str("");
         ss << userSpecCCEDir_ << "/" << cceFileName_ << ".o";
         binAbsPath_ = ss.str();
+        ss.str("");
+        ss << userSpecCCEDir_ << "/" << cceFileName_ << ".json";
+        jsonAbsPath_ = ss.str();
     }
+
     std::string GetSuffix() const {
         std::string suffix = ".cpp";
         return suffix;
@@ -92,6 +97,7 @@ private:
     bool isUnderDyn_{false};
     std::string cceFileName_;
     std::string cceAbsPath_;
+    std::string jsonAbsPath_;
     std::string binAbsPath_;
     std::string kernelName_;
     std::string funcDeclare_;
@@ -150,6 +156,12 @@ private:
     std::string GetIncludePathByLib() const;
 
     std::string GetIncludePathByEnv() const;
+
+    std::vector<std::string> GetInOutParams(std::pair<uint64_t, Function *> subFuncPair);
+
+    void GenConfigJson(const std::string &jsonName, const std::string &cppName, const std::string &binName,
+        const std::string &kernelName, const int &workspaceSize, const std::vector<std::string> &argNames,
+        const int &blockDim) const;
 
     std::string GenFuncGlobalCodeAfterReplace(const Function &func, std::pair<uint64_t, Function *> subFuncPair, const std::string &subProgramCode);
 };
