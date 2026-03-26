@@ -380,7 +380,7 @@ def lightning_indexer(case_name: str) -> bool:
     torch_npu.npu.synchronize()
 
     topk_res_golden = lightning_indexer_compute(input_data_map, params)
-    topk_idx_compare(topk_res_npu.cpu(), topk_res_golden.cpu(), "topk_res", 5e-3, selected_count)
+    topk_idx_compare(topk_res_npu.cpu(), topk_res_golden.cpu(), "topk_res", 5e-4, selected_count)
 
     return True
 
