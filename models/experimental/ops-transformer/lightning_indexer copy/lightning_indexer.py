@@ -21,8 +21,11 @@ with weights W of shape [B, Sq, N], the operator returns the top-k indices for e
 import os
 import sys
 import argparse
+import logging
 import torch
 import pypto
+
+logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 BATCH_SIZE = 1
 NUM_HEADS = 8
@@ -40,15 +43,15 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
-        print("  export TILE_FWK_DEVICE_ID=0")
+        logging.info("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
+        logging.info("  export TILE_FWK_DEVICE_ID=0")
         return None
 
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
     except ValueError:
-        print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
+        logging.error(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
 
 
@@ -70,8 +73,6 @@ def lightning_indexer_golden(
     Returns:
         indices: [B, Sq, N, topk] - Top-k indices
     """
-    B, Sq, N, D = query.shape
-    Skv = key.shape[1]
     
     query_t = query.transpose(1, 2)
     key_t = key.transpose(1, 2)
@@ -133,9 +134,9 @@ def lightning_indexer_kernel(
 
 def test_lightning_indexer(device_id=None, run_mode: str = "npu") -> None:
     """Test LightningIndexer function."""
-    print("=" * 60)
-    print("Test: LightningIndexer")
-    print("=" * 60)
+    logging.info("=" * 60)
+    logging.info("Test: LightningIndexer")
+    logging.info("=" * 60)
     
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
@@ -151,10 +152,10 @@ def test_lightning_indexer(device_id=None, run_mode: str = "npu") -> None:
     
     golden_indices = lightning_indexer_golden(query, key, weights_raw, TOPK)
     
-    print(f"Input query shape: {query.shape}")
-    print(f"Input key shape: {key.shape}")
-    print(f"Input weights shape: {weights.shape}")
-    print(f"Output indices shape: {indices.shape}")
+    logging.info(f"Input query shape: {query.shape}")
+    logging.info(f"Input key shape: {key.shape}")
+    logging.info(f"Input weights shape: {weights.shape}")
+    logging.info(f"Output indices shape: {indices.shape}")
     
     if run_mode == "npu":
         match = torch.allclose(indices, golden_indices.to(torch.int32), rtol=0, atol=0)
@@ -162,16 +163,16 @@ def test_lightning_indexer(device_id=None, run_mode: str = "npu") -> None:
         total_count = indices.numel()
         match_ratio = match_count / total_count * 100
         
-        print(f"Exact match: {match}")
-        print(f"Match ratio: {match_ratio:.2f}% ({match_count}/{total_count})")
+        logging.info(f"Exact match: {match}")
+        logging.info(f"Match ratio: {match_ratio:.2f}% ({match_count}/{total_count})")
         
         if not match:
-            print("Sample indices (first batch, first head):")
-            print(f"  PyPTO:   {indices[0, 0, 0, :].tolist()}")
-            print(f"  PyTorch: {golden_indices[0, 0, 0, :].tolist()}")
+            logging.info("Sample indices (first batch, first head):")
+            logging.info(f"  PyPTO:   {indices[0, 0, 0, :].tolist()}")
+            logging.info(f"  PyTorch: {golden_indices[0, 0, 0, :].tolist()}")
     
-    print("✓ LightningIndexer test completed")
-    print()
+    logging.info("✓ LightningIndexer test completed")
+    logging.info("")
 
 
 def main():
@@ -190,9 +191,9 @@ def main():
     )
     args = parser.parse_args()
 
-    print("\n" + "=" * 60)
-    print("PyPTO LightningIndexer Example")
-    print("=" * 60 + "\n")
+    logging.info("\n" + "=" * 60)
+    logging.info("PyPTO LightningIndexer Example")
+    logging.info("=" * 60 + "\n")
 
     device_id = None
     if args.run_mode == "npu":
@@ -201,13 +202,13 @@ def main():
             return
         import torch_npu
         torch.npu.set_device(device_id)
-        print("Running on NPU...")
-        print("Make sure CANN environment is configured and NPU is available\n")
+        logging.info("Running on NPU...")
+        logging.info("Make sure CANN environment is configured and NPU is available\n")
 
     try:
         test_lightning_indexer(device_id, args.run_mode)
     except Exception as e:
-        print(f"\nError: {e}")
+        logging.info(f"\nError: {e}")
         raise
 
 

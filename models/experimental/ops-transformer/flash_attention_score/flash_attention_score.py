@@ -12,10 +12,13 @@ import os
 import sys
 import math
 import argparse
+import logging
 from typing import Optional
 import torch
 import numpy as np
 from numpy.testing import assert_allclose
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 import pypto
 from flash_attention_score_impl import flash_attention_score_kernel, flash_attention_score_kernel_with_mask
@@ -30,14 +33,14 @@ HEAD_DIM = 64
 
 def get_device_id():
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
-        print("  export TILE_FWK_DEVICE_ID=0")
+        logging.info("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
+        logging.info("  export TILE_FWK_DEVICE_ID=0")
         return None
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
     except ValueError:
-        print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
+        logging.info(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
 
 
@@ -54,17 +57,17 @@ def flash_attention_score_golden_online_softmax(
     通过分块计算和在线更新来提高数值稳定性。
 
     Args:
-        query: Query tensor, shape [B, N, Sq, D], dtype bfloat16
-        key: Key tensor, shape [B, N, Skv, D], dtype bfloat16
-        value: Value tensor, shape [B, N, Skv, D], dtype bfloat16
-        atten_mask: Attention mask tensor, shape [Sq, Skv], dtype uint8
+        query: Query tensor, shape [B, N, sq, D], dtype bfloat16
+        key: Key tensor, shape [B, N, skv, D], dtype bfloat16
+        value: Value tensor, shape [B, N, skv, D], dtype bfloat16
+        atten_mask: Attention mask tensor, shape [sq, skv], dtype uint8
                    值为 1 表示不参与计算，值为 0 表示参与计算
 
     Returns:
-        attention_out: Output tensor, shape [B, N, Sq, D], dtype bfloat16
+        attention_out: Output tensor, shape [B, N, sq, D], dtype bfloat16
     """
-    B, N, Sq, D = query.shape
-    _, _, Skv, _ = key.shape
+    B, N, sq, D = query.shape
+    _, _, skv, _ = key.shape
     
     scale = 1.0 / math.sqrt(D)
     
@@ -72,18 +75,18 @@ def flash_attention_score_golden_online_softmax(
     key_fp32 = key.float()
     value_fp32 = value.float()
     
-    output = torch.zeros(B, N, Sq, D, dtype=torch.float32, device=query.device)
+    output = torch.zeros(B, N, sq, D, dtype=torch.float32, device=query.device)
     
     for b in range(B):
         for n in range(N):
-            for q_idx in range(Sq):
+            for q_idx in range(sq):
                 q_vec = query_fp32[b, n, q_idx, :]
                 
                 max_score = float('-inf')
                 sum_exp = 0.0
                 output_vec = torch.zeros(D, dtype=torch.float32, device=query.device)
                 
-                for kv_idx in range(Skv):
+                for kv_idx in range(skv):
                     if atten_mask is not None and atten_mask[q_idx, kv_idx] == 1:
                         continue
                     
@@ -122,17 +125,17 @@ def flash_attention_score_golden_batch(
     使用标准的注意力计算方式：Softmax(Q @ K^T * scale) @ V
     
     Args:
-        query: Query tensor, shape [B, N, Sq, D], dtype bfloat16
-        key: Key tensor, shape [B, N, Skv, D], dtype bfloat16
-        value: Value tensor, shape [B, N, Skv, D], dtype bfloat16
-        atten_mask: Attention mask tensor, shape [Sq, Skv], dtype uint8
+        query: Query tensor, shape [B, N, sq, D], dtype bfloat16
+        key: Key tensor, shape [B, N, skv, D], dtype bfloat16
+        value: Value tensor, shape [B, N, skv, D], dtype bfloat16
+        atten_mask: Attention mask tensor, shape [sq, skv], dtype uint8
                    值为 1 表示不参与计算，值为 0 表示参与计算
 
     Returns:
-        attention_out: Output tensor, shape [B, N, Sq, D], dtype bfloat16
+        attention_out: Output tensor, shape [B, N, sq, D], dtype bfloat16
     """
-    B, N, Sq, D = query.shape
-    _, _, Skv, _ = key.shape
+    B, N, sq, D = query.shape
+    _, _, skv, _ = key.shape
     scale = 1.0 / math.sqrt(D)
     
     query_fp32 = query.float()
@@ -158,9 +161,9 @@ def flash_attention_score_golden_batch(
 
 def test_flash_attention_score(device_id=None, run_mode: str = "npu"):
     """Test Flash Attention Score"""
-    print("=" * 60)
-    print("Test: Flash Attention Score with Online Softmax")
-    print("=" * 60)
+    logging.info("=" * 60)
+    logging.info("Test: Flash Attention Score with Online Softmax")
+    logging.info("=" * 60)
     
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
@@ -183,8 +186,8 @@ def test_flash_attention_score(device_id=None, run_mode: str = "npu"):
     
     golden = flash_attention_score_golden_online_softmax(query, key, value, atten_mask)
     
-    print(f"Input shape: query={query.shape}, key={key.shape}, value={value.shape}")
-    print(f"Output shape: {output.shape}")
+    logging.info(f"Input shape: query={query.shape}, key={key.shape}, value={value.shape}")
+    logging.info(f"Output shape: {output.shape}")
     
     if run_mode == "npu":
         output_fp32 = output.float()
@@ -192,8 +195,8 @@ def test_flash_attention_score(device_id=None, run_mode: str = "npu"):
         max_diff = (output_fp32 - golden_fp32).abs().max().item()
         mean_diff = (output_fp32 - golden_fp32).abs().mean().item()
         
-        print(f"Max difference: {max_diff:.6f}")
-        print(f"Mean difference: {mean_diff:.6f}")
+        logging.info(f"Max difference: {max_diff:.6f}")
+        logging.info(f"Mean difference: {mean_diff:.6f}")
         
         assert_allclose(
             output_fp32.cpu().numpy().flatten(),
@@ -201,15 +204,15 @@ def test_flash_attention_score(device_id=None, run_mode: str = "npu"):
             rtol=0.0078125,
             atol=0.0001
         )
-        print("✓ Flash Attention Score test passed!")
+        logging.info("✓ Flash Attention Score test passed!")
     print()
 
 
 def test_flash_attention_score_no_mask(device_id=None, run_mode: str = "npu"):
     """Test Flash Attention Score without mask"""
-    print("=" * 60)
-    print("Test: Flash Attention Score without Mask")
-    print("=" * 60)
+    logging.info("=" * 60)
+    logging.info("Test: Flash Attention Score without Mask")
+    logging.info("=" * 60)
     
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
@@ -227,15 +230,15 @@ def test_flash_attention_score_no_mask(device_id=None, run_mode: str = "npu"):
     
     golden = flash_attention_score_golden_online_softmax(query, key, value, None)
     
-    print(f"Input shape: query={query.shape}, key={key.shape}, value={value.shape}")
-    print(f"Output shape: {output.shape}")
+    logging.info(f"Input shape: query={query.shape}, key={key.shape}, value={value.shape}")
+    logging.info(f"Output shape: {output.shape}")
     
     if run_mode == "npu":
         output_fp32 = output.float()
         golden_fp32 = golden.float()
         max_diff = (output_fp32 - golden_fp32).abs().max().item()
         
-        print(f"Max difference: {max_diff:.6f}")
+        logging.info(f"Max difference: {max_diff:.6f}")
         
         assert_allclose(
             output_fp32.cpu().numpy().flatten(),
@@ -243,7 +246,7 @@ def test_flash_attention_score_no_mask(device_id=None, run_mode: str = "npu"):
             rtol=0.0078125,
             atol=0.0001
         )
-        print("✓ Flash Attention Score (no mask) test passed!")
+        logging.info("✓ Flash Attention Score (no mask) test passed!")
     print()
 
 
@@ -268,9 +271,9 @@ def main():
     )
     args = parser.parse_args()
     
-    print("\n" + "=" * 60)
-    print("PyPTO Flash Attention Score Example")
-    print("=" * 60 + "\n")
+    logging.info("\n" + "=" * 60)
+    logging.info("PyPTO Flash Attention Score Example")
+    logging.info("=" * 60 + "\n")
     
     device_id = None
     if args.run_mode == "npu":
@@ -279,7 +282,7 @@ def main():
             return
         import torch_npu
         torch.npu.set_device(device_id)
-        print(f"Running on NPU device {device_id}\n")
+        logging.info(f"Running on NPU device {device_id}\n")
     
     try:
         if args.test_case == 'with_mask':
@@ -290,11 +293,11 @@ def main():
             test_flash_attention_score(device_id, args.run_mode)
             test_flash_attention_score_no_mask(device_id, args.run_mode)
         
-        print("=" * 60)
-        print("All tests passed!")
-        print("=" * 60)
+        logging.info("=" * 60)
+        logging.info("All tests passed!")
+        logging.info("=" * 60)
     except Exception as e:
-        print(f"\nError: {e}")
+        logging.info(f"\nError: {e}")
         import traceback
         traceback.print_exc()
         raise
