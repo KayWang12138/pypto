@@ -207,29 +207,37 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int ax
 
         // Transpose input: [..., H, W] -> [..., W, H]
         Tensor transposedInput = Transpose(input, {secondLastDim, lastDim});
+        
+        // get tmp Tile for Tquant
+        VecTile oriVectile = TileShape::Current().GetVecTile();
+        VecTile tmpVectile = TileShape::Current().GetVecTile();
+        std::swap(tmpVectile.tile[secondLastDim], tmpVectile.tile[lastDim]);
+        TileShape::Current().SetVecTile(tmpVectile);
+        
+        // init result
+        Tensor quantizedResult;
 
         if (isAsymmetric) {
             // Asymmetric quantization with axis=-1
-            ASSERT(otype == DataType::DT_UINT8)
+            ASSERT(dtype == DataType::DT_UINT8)
                 << "Asymmetric quantization output type should be UINT8";
-            Tensor quantizedResult = CALL(QuantizeAsymmetricOperation,
+            quantizedResult = CALL(QuantizeAsymmetricOperation,
                 *Program::GetInstance().GetCurrentFunction(),
                 transposedInput.GetStorage(), scale.GetStorage(),
                 zeroPoints.GetStorage(), -1);
-
-            // Transpose output back: [..., W, H] -> [..., H, W]
-            return Transpose(quantizedResult, {secondLastDim, lastDim});
         } else {
             // Symmetric quantization with axis=-1
-            ASSERT(otype == DataType::DT_INT8)
+            ASSERT(dtype == DataType::DT_INT8)
                 << "Symmetric quantization output type should be INT8";
-            Tensor quantizedResult = CALL(QuantizeSymmetricOperation,
+            quantizedResult = CALL(QuantizeSymmetricOperation,
                 *Program::GetInstance().GetCurrentFunction(),
                 transposedInput.GetStorage(), scale.GetStorage(), -1);
-
-            // Transpose output back: [..., W, H] -> [..., H, W]
-            return Transpose(quantizedResult, {secondLastDim, lastDim});
         }
+
+        // get origin TileShape
+        TileShape::Current().SetVecTile(oriVectile);
+        // Transpose output back: [..., W, H] -> [..., H, W]
+        return Transpose(quantizedResult, {secondLastDim, lastDim});
     }
 
     // axis=-1 case: direct quantization without transpose
