@@ -514,8 +514,8 @@ private:
 
     std::shared_ptr<ForBlockManager> forBlkMgr_;
 
-    // <parameter index, tensor name>
-    std::unordered_map<int, std::string> tensorNames_;
+    // <parameter index, tensor hash>
+    std::unordered_map<int, size_t> tensorHash_;
 
     mutable std::map<unsigned, std::reference_wrapper<std::string>> tempVarsMap;
     mutable unsigned tempKey = 0;
