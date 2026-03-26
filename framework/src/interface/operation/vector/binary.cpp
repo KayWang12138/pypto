@@ -67,18 +67,12 @@ void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTenso
 }
 
 void BroadcastOperandTensor(LogicalTensorPtr &operand, LogicalTensorPtr &other, LogicalTensorPtr result,
-                                      Function& function, const TileShape& tileShape, bool withBrc) {
-    auto dstShape = result->shape;
-    size_t shapeSize = result->shape.size();
+                                      Function& function, const TileShape& tileShape, std::vector<int64_t> dstShape) {
+    if (dstShape.empty()) {
+        dstShape = result->shape;
+    }
     if (operand->shape == dstShape) {
         return;
-    }
-    if (withBrc) {
-        if (operand->shape[shapeSize - 1] == dstShape[shapeSize - 1]) {
-            return;
-        }
-        dstShape = operand->shape;
-        dstShape[shapeSize - 1] = result->shape[shapeSize - 1];
     }
     auto expanded = std::make_shared<LogicalTensor>(function, operand->Datatype(), dstShape);
     Expand(function, tileShape, operand, {other}, expanded);
@@ -93,18 +87,26 @@ void BinaryOperationOperandCheck(
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, oOperand.size() == outOpSize) << "oOperand size should be 1";
 }
 
-// [m,n] + [m, 1]
-bool CallwithBrcBinOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
+// Identify which operand need brc at a specific axis counting from the last (e.g., axisNum = 1 expand last axis)
+int BrcAxisBinaryOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2, size_t axisNum) {
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand1->shape.size() == operand2->shape.size()) << "Dims not match";
     size_t shapeSize = operand1->shape.size();
-
-    return ((operand1->shape[shapeSize - 1] != 1) && (operand2->shape[shapeSize - 1] == 1)) ||
-           ((operand1->shape[shapeSize - 1] == 1) && (operand2->shape[shapeSize - 1] != 1));
+    int operandNum = -1;
+    if (shapeSize < axisNum || axisNum == 0) {
+        return operandNum;
+    }
+    const size_t idx = shapeSize - axisNu;
+    if ((operand1->shape[idx] != 1) && (operand2->shape[idx] == 1)) {
+        operandNum = 2;
+    } else if ((operand1->shape[idx] == 1) && (operand2->shape[idx] != 1)) {
+        operandNum = 1;
+    }
+    return operandNum;
 }
 
 template <BinaryOpType T>
 void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
-    LogicalInput &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool withBrc, bool tailBrc) {
+    LogicalInput &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool withBrc) {
     size_t shapeSize = input1.tensor->GetShape().size();
     if (cur == shapeSize) {
         auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
@@ -136,13 +138,11 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
                 op = &function.AddOperation(GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile});
             }
         }
-        if (shapeSize > 1) {
-            if ((input1.tensor->GetShape()[shapeSize - 2] != 1) && (input2.tensor->GetShape()[shapeSize - 2] == 1)) {
-                op->SetAttribute(OpAttributeKey::brcpIdx, static_cast<int64_t>(2));
-            } else if ((input1.tensor->GetShape()[shapeSize - 2] == 1) && (input2.tensor->GetShape()[shapeSize - 2] != 1)) {
-                op->SetAttribute(OpAttributeKey::brcpIdx, static_cast<int64_t>(1));
-            }
-            if (op->HasAttr(OpAttributeKey::brcpIdx) && tailBrc) {
+
+        int Get2ndLastBrcOp = BrcAxisBinaryOp(input1.tensor, input2.tensor, NUM2);
+        if (Get2ndLastBrcOp != -1) {
+            op->SetAttribute(OpAttributeKey::brcpIdx, static_cast<int64_t>(Get2ndLastBrcOp));
+            if (BrcAxisBinaryOp(input1.tensor, input2.tensor, 1) != -1) {
                 op->SetAttribute(OpAttributeKey::excludeBufferReuse, true);
             }
         }
@@ -158,47 +158,46 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
         input2.tileInfo.offset[cur] = i % input2.tensor->GetShape()[cur];
         input2.tileInfo.shape[cur] =
             std::min(input2.tensor->GetShape()[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
-        TiledBinaryOperation<T>(function, tileShape, cur + 1, input1, input2, result, resultTileInfo, withBrc, tailBrc);
+        TiledBinaryOperation<T>(function, tileShape, cur + 1, input1, input2, result, resultTileInfo, withBrc);
     }
 }
 
 template <BinaryOpType T>
-bool IsOpInBrcWhitelist() {
-    Opcode opCode = GetBinaryOpNameCode<T>();
-    if (NEED_BRC_OPS.count(opCode) > 0) {
-        return true;
+std::vector<int64_t> ExpandLast2Axes(Function &function, LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
+    std::vector<int64_t> dstShape = {};
+    bool isInWhiteList = SUPPORT_BRCINLINE.count(GetBinaryOpNameCode<T>());
+    bool isSupportBrcInline =
+        isInWhiteList && (operand1->Datatype() == DT_FP32 || operand1->Datatype() == DT_FP16);
+    bool isCombineAxisEnabled =
+        function.paramConfigs_.forceCombineAxis || (function.paramConfigs_.combineAxis && isInWhiteList);
+    int GetLastBrcOp = BrcAxisBinaryOp(operand1, operand2, 1);
+    int Get2ndLastBrcOp = BrcAxisBinaryOp(operand1, operand2, NUM2);
+    if (!isSupportBrcInline) {    // brcinline for last two axes only support half/float/bf16
+        return dstShape;
     }
-    return false;
+
+    if (GetLastBrcOp != -1 && !isCombineAxisEnabled) {    // for last axis brcinline need combineAxis on
+        return dstShape;
+    }
 }
 
 template <BinaryOpType T>
 void TiledBinaryOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1,
     LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
     CheckBinOpOperandsValid(operand1, operand2);
-    bool isSupport_brcinline = 
-        SUPPORT_BRCINLINE.count(GetBinaryOpNameCode<T>()) && (operand1->Datatype() == DT_FP32 || operand1->Datatype() == DT_FP16);
-    // nolast brc will be inline
-    if (!isSupport_brcinline) {
-        BroadcastOperandTensor(operand1, operand2, result, function, tileShape);
-        BroadcastOperandTensor(operand2, operand1, result, function, tileShape);
-    }
-    bool tailBrc = CallwithBrcBinOp(operand1, operand2);
-    bool isCombineAxisEnabled =
-        function.paramConfigs_.forceCombineAxis || (function.paramConfigs_.combineAxis && IsOpInBrcWhitelist<T>());
-    if (tailBrc && !isCombineAxisEnabled) {
-        BroadcastOperandTensor(operand1, operand2, result, function, tileShape, tailBrc);
-        BroadcastOperandTensor(operand2, operand1, result, function, tileShape, tailBrc);
-        tailBrc = false;
-    }
+    BroadcastOperandTensor(operand1, operand2, result, function, ExpandLast2Axes(function, operand1, operand2));
+    BroadcastOperandTensor(operand2, operand1, result, function, ExpandLast2Axes(function, operand1, operand2));
 
     TileInfo tileInfo1(operand1->shape.size(), operand1->offset.size());
     TileInfo tileInfo2(operand2->shape.size(), operand2->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
     auto input1 = LogicalInput{operand1, tileInfo1};
     auto input2 = LogicalInput{operand2, tileInfo2};
-    // // 如果打开了forceCombineAxis要走进OP_XX_BRC，如果打开combineAxis要避免后续走OP_XX_BRC逻辑
-    bool withBrc = tailBrc && function.paramConfigs_.forceCombineAxis && !function.paramConfigs_.combineAxis;
-    TiledBinaryOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, withBrc, tailBrc);
+    // 如果打开了forceCombineAxis要走进OP_XX_BRC，如果打开combineAxis要避免后续走OP_XX_BRC逻辑
+    bool withBrc = 
+        (BrcAxisBinaryOp(input1.tensor, input2.tensor, 1) != -1) && 
+        function.paramConfigs_.forceCombineAxis && !function.paramConfigs_.combineAxis;
+    TiledBinaryOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, withBrc);
 }
 
 void TiledPReLUOperation(

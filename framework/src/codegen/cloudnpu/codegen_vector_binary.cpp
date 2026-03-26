@@ -171,6 +171,8 @@ std::string CodeGenOpCloudNPU::PrintBinaryTileTensor() const {
     }
     bool hasBrcb = GetAttr(OpAttributeKey::brcbIdx, brcOperandIdx);
     bool hasPenu = GetAttr(OpAttributeKey::brcpIdx, penuBrcOperandIdx);
+    // Must provide NONE for the last axis if only the 2nd last axis is specified
+    // To match TileOp template
     if (hasBrcb || hasPenu) {
         templateParamList.emplace_back(GetBrcbOprandIdxStr(brcOperandIdx));
     }
