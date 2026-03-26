@@ -866,21 +866,20 @@ void SubfuncTopologyInfoTy::LoadJson(const Json &topoJson)
     }
 }
 
-std::unordered_map<MemoryType, int64_t> CommonUtils::GetLocalMemorySize() { 
-    std::unordered_map<MemoryType, int64_t> localMemorySize; 
-    auto &die = Platform::Instance().GetDie(); 
-    
-    localMemorySize[MemoryType::MEM_UB] = die.GetMemoryLimit(MemoryType::MEM_UB); 
-    localMemorySize[MemoryType::MEM_L1] = die.GetMemoryLimit(MemoryType::MEM_L1); 
-    localMemorySize[MemoryType::MEM_L0A] = die.GetMemoryLimit(MemoryType::MEM_L0A); 
-    localMemorySize[MemoryType::MEM_L0B] = die.GetMemoryLimit(MemoryType::MEM_L0B); 
-    localMemorySize[MemoryType::MEM_L0C] = die.GetMemoryLimit(MemoryType::MEM_L0C); 
-    localMemorySize[MemoryType::MEM_L0AMX] = die.GetMemoryLimit(MemoryType::MEM_L0AMX); 
-    localMemorySize[MemoryType::MEM_L0BMX] = die.GetMemoryLimit(MemoryType::MEM_L0BMX); 
-    localMemorySize[MemoryType::MEM_BT] = die.GetMemoryLimit(MemoryType::MEM_BT); 
-    localMemorySize[MemoryType::MEM_FIX] = die.GetMemoryLimit(MemoryType::MEM_FIX); 
-    localMemorySize[MemoryType::MEM_FIX_QUANT_PRE] = die.GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE); 
+std::unordered_map<MemoryType, int64_t> CommonUtils::GetLocalMemorySize() {
+    std::unordered_map<MemoryType, int64_t> localMemorySize;
+    auto &die = Platform::Instance().GetDie();
 
+    localMemorySize[MemoryType::MEM_UB] = die.GetMemoryLimit(MemoryType::MEM_UB);
+    localMemorySize[MemoryType::MEM_L1] = die.GetMemoryLimit(MemoryType::MEM_L1);
+    localMemorySize[MemoryType::MEM_L0A] = die.GetMemoryLimit(MemoryType::MEM_L0A);
+    localMemorySize[MemoryType::MEM_L0B] = die.GetMemoryLimit(MemoryType::MEM_L0B);
+    localMemorySize[MemoryType::MEM_L0C] = die.GetMemoryLimit(MemoryType::MEM_L0C);
+    localMemorySize[MemoryType::MEM_L0AMX] = die.GetMemoryLimit(MemoryType::MEM_L0AMX);
+    localMemorySize[MemoryType::MEM_L0BMX] = die.GetMemoryLimit(MemoryType::MEM_L0BMX);
+    localMemorySize[MemoryType::MEM_BT] = die.GetMemoryLimit(MemoryType::MEM_BT);
+    localMemorySize[MemoryType::MEM_FIX] = die.GetMemoryLimit(MemoryType::MEM_FIX);
+    localMemorySize[MemoryType::MEM_FIX_QUANT_PRE] = die.GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE);
 
     return localMemorySize; 
 }
