@@ -162,7 +162,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
     }
 }
 
-// Determine the target shape for expand before passing op to tileop
+// Determine the target shape for expand before tileop
 template <BinaryOpType T>
 std::pair<std::vector<int64_t>, std::vector<int64_t>> GetBrcExpandShape(
     Function &function, LogicalTensorPtr operand1, LogicalTensorPtr operand2, LogicalTensorPtr result) {
