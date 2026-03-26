@@ -290,5 +290,44 @@ TEST_F(CodegenPreprocTest, TestCombineAxis3510) {
     Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
 }
 
+TEST_F(CodegenPreprocTest, TestSupportSpecialReduce) {
+    ComputationalGraphBuilder graph;
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {3, 512}, MemoryType::MEM_DEVICE_DDR, "in1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {3, 512}, MemoryType::MEM_UB, "t1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {3, 512}, MemoryType::MEM_UB, "t2"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {3, 1}, MemoryType::MEM_UB, "t3"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {3, 512}, MemoryType::MEM_UB, "tmp"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {3, 1}, MemoryType::MEM_DEVICE_DDR, "t4"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_VIEW, {"in1"}, {"t1"}, "v1", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_VIEW, {"t1"}, {"t2"}, "v2", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ROWARGMAX_SINGLE, {"t2"}, {"t3", "tmp"}, "argmax", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ASSEMBLE, {"t3"}, {"t4"}, "assemble", true), true);
+
+    auto funcPtr = graph.GetFunction();
+    PadLocalBuffer padLocalBufferTest;
+    EXPECT_EQ(padLocalBufferTest.RunOnFunction(*funcPtr), SUCCESS);
+
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestCombineAxis", "TestCombineAxis", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestCombineAxisLeaf", "TestCombineAxisLeaf", graph.GetFunction());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), graph.GetFunction());
+    rootFuncPtr->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    rootFuncPtr->SetUnderDynamicFunction(true);
+
+    CodegenPreproc codegenPreprocPass;
+    EXPECT_EQ(codegenPreprocPass.RunOnFunction(*rootFuncPtr), SUCCESS);
+    // Verify PadLocalBuffer
+    EXPECT_EQ(graph.GetTensor("t3")->GetRawTensor()->GetRawShape(), (std::vector<int64_t>{8, 1}));
+    // Verify CodegenPreproc
+    auto assemble = graph.GetOp("assemble");
+    std::vector<bool> attr;
+    EXPECT_TRUE(assemble->HasAttr(OpAttributeKey::inputCombineAxis));
+    assemble->GetAttr(OpAttributeKey::inputCombineAxis, attr);
+    EXPECT_EQ(attr, (std::vector<bool>{true}));
+}
+
 } // namespace tile_fwk
 } // namespace npu

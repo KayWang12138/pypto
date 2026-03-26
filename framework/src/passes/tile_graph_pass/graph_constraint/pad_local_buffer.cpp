@@ -536,6 +536,23 @@ void PadLocalBuffer::DoPadding256(Function &function) {
     }
 }
 
+void PadLocalBuffer::DoPaddingReduce(Function &function) {
+    for (auto &op : function.Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ROWARGMAX_SINGLE || op.GetOpcode() == Opcode::OP_ROWARGMIN_SINGLE) {
+            auto out = op.GetOOperands().front();
+            auto orishape = out->oriShape;
+            if (orishape.back() == 1 && orishape.size() >= 2) {
+                auto lastIdx = orishape.size() - 1;
+                size_t padValue = GetPaddingValue(out);
+                out->shape = out->oriShape;
+                out->tensor->rawshape = out->tensor->oriRawshape;
+                out->shape[lastIdx - 1] = Pad(out->shape[lastIdx - 1], padValue);
+                out->tensor->rawshape[lastIdx - 1] = Pad(out->tensor->rawshape[lastIdx - 1], padValue);
+            }
+        }
+    }
+}
+
 // 对ub上transpose的特殊处理,其他类型的transpose不做处理
 Status PadLocalBuffer::ProcessTranspose(Function &function) {
     for (const auto &op : function.Operations()) {
@@ -738,6 +755,7 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
         APASS_LOG_INFO_F(Elements::Operation, "======> Start PadLocalBuffer in COMBINE_AXIS mode.");
         DoPadding(function);
         DoPadding256(function);
+        DoPaddingReduce(function);
         APASS_LOG_INFO_F(Elements::Operation, "======> End PadLocalBuffer in COMBINE_AXIS mode.");
         return SUCCESS;
     }
@@ -765,6 +783,7 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
     }
     DoPadding(function);
     DoPadding256(function);
+    DoPaddingReduce(function);
     if (processTranspose_) {
         if (ProcessTranspose(function) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "ProcessTranspose failed.");
