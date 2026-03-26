@@ -25,6 +25,10 @@
 #include "passes/block_graph_pass/schedule_ooo/core_assign.h"
 
 namespace npu::tile_fwk {
+struct ScheduleUnit {
+    int earliestStartTime;
+    std::vector<Operation*> mergedOps;
+};
 
 const std::unordered_map<TargetCoreType, std::pair<OpCoreType, int>> targetCoreTypeMap{
     {TargetCoreType::AIC, std::make_pair(OpCoreType::AIC, 0)},
@@ -60,7 +64,9 @@ private:
     bool IsBoundary(Operation* op);
     Status UpdateOpCoreMap(
         const TaskNode& taskNode, std::unordered_map<Operation*, std::pair<OpCoreType, int>>& opCoreMap);
-    std::vector<Function*> oriFunctions;
+    std::vector<ScheduleUnit> BuildScheduleUnits(const std::vector<TaskNode> &taskNodeList,
+        const std::vector<std::pair<int, int>> &cyclePairs, std::vector<Operation*> &opList);
+    std::vector<Function *> oriFunctions;
     std::map<uint64_t, OoOScheduler> schedulerMap;
     std::unordered_map<LogicalTensorPtr, Operation*> lastUseMap_;
     OoOScheduleChecker checker;
