@@ -2834,7 +2834,7 @@ def quantize_params_func(params: dict):
     Parameter handler for Quantize operation.
     Converts parameter types from JSON strings to appropriate Python types.
     """
-    params["otype"] = int(params.get("otype", "3"))  # Default to DT_INT8
+    params["dtype"] = int(params.get("dtype", "3"))  # Default to DT_INT8
     params["axis"] = int(params.get("axis", "-1"))
     # Convert use_zero_points from string to bool
     use_zero_points_str = params.get("use_zero_points", "False")
@@ -2893,6 +2893,11 @@ def gen_quantize_op_golden(case_name: str, output: Path, case_index: int = None)
         params = config.get("params")
         input_tensor = from_numpy(inputs[0])
         scale = from_numpy(inputs[1])
+        
+        print("input_tensor")
+        print(input_tensor)
+        print("scale")
+        print(scale)
 
         # Get output dtype from config
         output_dtype = config.get("output_tensors")[0].get("dtype")
@@ -2908,6 +2913,9 @@ def gen_quantize_op_golden(case_name: str, output: Path, case_index: int = None)
                 quantized = ascend_tcvt_int8(input_tensor * scale[..., None, :])
         elif output_dtype == "uint8":
             zero_points = from_numpy(inputs[2])
+            print("zero_points")
+            print(zero_points)
+
             # Perform quantization: q = round(x * scale)
             if axis == -1:
                 quantized = ascend_tcvt_uint8(input_tensor * scale[..., None] + zero_points[..., None])
