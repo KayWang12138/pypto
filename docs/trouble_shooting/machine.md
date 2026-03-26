@@ -228,7 +228,7 @@ python3 tools/schema/schema_memory_check.py -d /path/to/my_log/debug/device-8/ -
 上述两种情况非内存重叠，脚本内存检查依赖不会发生上述情况 ，因此脚本会断言，直接提示日志信息错误。
 
 6. **复杂特性排除**：
-关闭unroll_list、合轴特性、配置submit_before_loop=True使loop串行执行、确定valid_shape配置正确性、+0.0等，缩小定位范围
+使用 `pypto-precision-debugger` skill，关闭unroll_list、合轴特性、配置submit_before_loop=True使loop串行执行、确定valid_shape配置正确性、+0.0等，缩小定位范围。
 
 
 ### encode 阶段 actualRawMagic 断言触发
