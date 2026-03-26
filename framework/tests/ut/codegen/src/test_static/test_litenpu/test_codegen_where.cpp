@@ -26,7 +26,7 @@
 
 using namespace npu::tile_fwk;
 
-class LiteNPUCodeGenIndexPut : public testing::Test {
+class LiteNPUCodeGenWhere : public testing::Test {
 public:
     static void TearDownTestCase() {}
 
@@ -40,7 +40,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(LiteNPUCodeGenMaximum, test_Where) {
+TEST_F(LiteNPUCodeGenWhere, test_where) {
     PROGRAM("WHERE_001") {
         TileShape::Current().SetVecTile(8, 8);
         Tensor condition(DT_UINT8, {8, 2}, "condition");
