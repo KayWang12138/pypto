@@ -100,8 +100,7 @@ void AssignMemoryType::RunOnOperation(Operation &operation) {
     for (size_t i = 0; i < operation.iOperand.size(); ++i) {
         auto &tensor = operation.iOperand[i];
         if (i >= inputsMemType.size()) {
-            APASS_LOG_INFO_F(Elements::Operation,
-                "%s[%d] input %zu magic %d mem original is NOT Defined in opcode.cpp.",
+            APASS_LOG_INFO_F(Elements::Operation,"%s[%d] input %zu magic %d mem original is NOT Defined in opcode.cpp.",
                 operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), i, tensor->magic);
             continue;
         }
@@ -444,8 +443,7 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
 
             int64_t lineOffset = CalcLineOffset(tensor->GetRawTensor()->rawshape, opAttr->GetToOffset());
             if (lineOffset == -1) {
-                APASS_LOG_WARN_F(Elements::Operation, "Op[%d]'s offset size and Tensor[%d]'s rawshape size is not equal.", outputProducer->GetOpMagic(),
-                    tensor->GetMagic());
+                APASS_LOG_WARN_F(Elements::Operation, "Op[%d]'s offset size and Tensor[%d]'s rawshape size is not equal.", outputProducer->GetOpMagic(), tensor->GetMagic());
                 continue;
             }
             int64_t tensorBytes = static_cast<int64_t>(BytesOf(tensor->Datatype()));
