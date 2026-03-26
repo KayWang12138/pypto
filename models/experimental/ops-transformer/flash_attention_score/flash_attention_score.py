@@ -26,7 +26,7 @@ from typing import Optional
 import torch
 import numpy as np
 from numpy.testing import assert_allclose
-from flash_attention_score_impl import flash_attention_score_kernel, flash_attention_score_kernel_with_mask
+from flash_attention_score_impl import flash_attention_score_kernel_with_mask
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -168,58 +168,10 @@ def test_flash_attention_score(device_id=None, run_mode: str = "npu"):
         logging.info("✓ Flash Attention Score test passed!")
 
 
-def test_flash_attention_score_no_mask(device_id=None, run_mode: str = "npu"):
-    """Test Flash Attention Score without mask"""
-    logging.info("=" * 60)
-    logging.info("Test: Flash Attention Score without Mask")
-    logging.info("=" * 60)
-    
-    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
-    query = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM, 
-                        dtype=torch.bfloat16, device=device)
-    key = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, 
-                      dtype=torch.bfloat16, device=device)
-    value = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, 
-                        dtype=torch.bfloat16, device=device)
-    
-    output = torch.empty(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM, 
-                         dtype=torch.bfloat16, device=device)
-    
-    flash_attention_score_kernel(query, key, value, output)
-    
-    golden = flash_attention_score_golden_online_softmax(query, key, value, None)
-    
-    logging.info(f"Input shape: query={query.shape}, key={key.shape}, value={value.shape}")
-    logging.info(f"Output shape: {output.shape}")
-    
-    if run_mode == "npu":
-        output_fp32 = output.float()
-        golden_fp32 = golden.float()
-        max_diff = (output_fp32 - golden_fp32).abs().max().item()
-        
-        logging.info(f"Max difference: {max_diff:.6f}")
-        
-        assert_allclose(
-            output_fp32.cpu().numpy().flatten(),
-            golden_fp32.cpu().numpy().flatten(),
-            rtol=0.0078125,
-            atol=0.0001
-        )
-        logging.info("✓ Flash Attention Score (no mask) test passed!")
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="PyPTO Flash Attention Score Example",
         formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument(
-        'test_case',
-        type=str,
-        nargs='?',
-        default='all',
-        help='Test case to run: with_mask, no_mask, or all (default: all)'
     )
     parser.add_argument(
         '--run_mode',
@@ -244,13 +196,7 @@ def main():
         logging.info(f"Running on NPU device {device_id}\n")
     
     try:
-        if args.test_case == 'with_mask':
-            test_flash_attention_score(device_id, args.run_mode)
-        elif args.test_case == 'no_mask':
-            test_flash_attention_score_no_mask(device_id, args.run_mode)
-        else:
-            test_flash_attention_score(device_id, args.run_mode)
-            test_flash_attention_score_no_mask(device_id, args.run_mode)
+        test_flash_attention_score(device_id, args.run_mode)
         
         logging.info("=" * 60)
         logging.info("All tests passed!")

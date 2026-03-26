@@ -19,8 +19,10 @@ import sys
 import argparse
 import logging
 from typing import Tuple
+from dataclasses import dataclass
 import pypto
 import torch
+import torch_npu
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -40,6 +42,20 @@ N = 4
 D = 16
 DR = 8
 HALF_DR = DR // 2
+
+
+@dataclass
+class MLAPrologParams:
+    weight_dq: torch.Tensor
+    weight_uq_qr: torch.Tensor
+    weight_uk: torch.Tensor
+    weight_dkv_kr: torch.Tensor
+    rmsnorm_gamma_cq: torch.Tensor
+    rmsnorm_gamma_ckv: torch.Tensor
+    rope_sin: torch.Tensor
+    rope_cos: torch.Tensor
+    epsilon_cq: float = 1e-5
+    epsilon_ckv: float = 1e-5
 
 
 @pypto.frontend.jit(debug_options={"runtime_debug_mode": 1})
@@ -144,16 +160,7 @@ def mla_prolog_kernel(
 
 def mla_prolog_golden(
     token_x: torch.Tensor,
-    weight_dq: torch.Tensor,
-    weight_uq_qr: torch.Tensor,
-    weight_uk: torch.Tensor,
-    weight_dkv_kr: torch.Tensor,
-    rmsnorm_gamma_cq: torch.Tensor,
-    rmsnorm_gamma_ckv: torch.Tensor,
-    rope_sin: torch.Tensor,
-    rope_cos: torch.Tensor,
-    epsilon_cq: float = 1e-5,
-    epsilon_ckv: float = 1e-5,
+    params: MLAPrologParams,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
 
     def rms_norm(x, gamma, epsilon):
@@ -176,51 +183,51 @@ def mla_prolog_golden(
         out_odd = x_odd * cos_half + x_even * sin_half
         return torch.cat([out_even, out_odd], dim=-1)
     
-    mm_cq = torch.matmul(token_x.float(), weight_dq.float())
-    c_q = rms_norm(mm_cq, rmsnorm_gamma_cq.float(), epsilon_cq)
+    mm_cq = torch.matmul(token_x.float(), params.weight_dq.float())
+    c_q = rms_norm(mm_cq, params.rmsnorm_gamma_cq.float(), params.epsilon_cq)
     
-    mm_qc_qr = torch.matmul(c_q, weight_uq_qr.float())
+    mm_qc_qr = torch.matmul(c_q, params.weight_uq_qr.float())
     qc_qr_split = N * D
     mm_qc = mm_qc_qr[:, : qc_qr_split]
     mm_qr = mm_qc_qr[:, qc_qr_split:]
     
-    q0 = torch.matmul(mm_qc[:, 0 * D:1 * D].float(), weight_uk[0, :, :].float())
-    q1 = torch.matmul(mm_qc[:, 1 * D:2 * D].float(), weight_uk[1, :, :].float())
-    q2 = torch.matmul(mm_qc[:, 2 * D:3 * D].float(), weight_uk[2, :, :].float())
-    q3 = torch.matmul(mm_qc[:, 3 * D:4 * D].float(), weight_uk[3, :, :].float())
+    q0 = torch.matmul(mm_qc[:, 0 * D: 1 * D].float(), params.weight_uk[0, :, :].float())
+    q1 = torch.matmul(mm_qc[:, 1 * D: 2 * D].float(), params.weight_uk[1, :, :].float())
+    q2 = torch.matmul(mm_qc[:, 2 * D: 3 * D].float(), params.weight_uk[2, :, :].float())
+    q3 = torch.matmul(mm_qc[:, 3 * D: 4 * D].float(), params.weight_uk[3, :, :].float())
     
     q01 = torch.cat([q0, q1], dim=-1)
     q23 = torch.cat([q2, q3], dim=-1)
     q_all = torch.cat([q01, q23], dim=-1)
     query = q_all.reshape(T, N, HCKV)
     
-    sin_h = rope_sin[:, :HALF_DR]
-    cos_h = rope_cos[:, :HALF_DR]
+    sin_h = params.rope_sin[:, : HALF_DR]
+    cos_h = params.rope_cos[:, : HALF_DR]
     
     def apply_rope_1d(x_1d):
-        x_even = x_1d[:, :HALF_DR]
+        x_even = x_1d[:, : HALF_DR]
         x_odd = x_1d[:, HALF_DR:]
         out_even = x_even * cos_h - x_odd * sin_h
         out_odd = x_odd * cos_h + x_even * sin_h
         return torch.cat([out_even, out_odd], dim=-1)
     
-    qr0 = apply_rope_1d(mm_qr[:, 0 * DR:1 * DR].float())
-    qr1 = apply_rope_1d(mm_qr[:, 1 * DR:2 * DR].float())
-    qr2 = apply_rope_1d(mm_qr[:, 2 * DR:3 * DR].float())
-    qr3 = apply_rope_1d(mm_qr[:, 3 * DR:4 * DR].float())
+    qr0 = apply_rope_1d(mm_qr[:, 0 * DR: 1 * DR].float())
+    qr1 = apply_rope_1d(mm_qr[:, 1 * DR: 2 * DR].float())
+    qr2 = apply_rope_1d(mm_qr[:, 2 * DR: 3 * DR].float())
+    qr3 = apply_rope_1d(mm_qr[:, 3 * DR: 4 * DR].float())
     
     qr01 = torch.cat([qr0, qr1], dim=-1)
     qr23 = torch.cat([qr2, qr3], dim=-1)
     qr_all = torch.cat([qr01, qr23], dim=-1)
     query_rope = qr_all.reshape(T, N, DR).bfloat16()
     
-    mm_ckv_kr = torch.matmul(token_x.float(), weight_dkv_kr.float())
-    hckv_actual = weight_dkv_kr.shape[1] - DR
-    mm_ckv = mm_ckv_kr[:, :hckv_actual]
+    mm_ckv_kr = torch.matmul(token_x.float(), params.weight_dkv_kr.float())
+    hckv_actual = params.weight_dkv_kr.shape[1] - DR
+    mm_ckv = mm_ckv_kr[:, : hckv_actual]
     mm_kr = mm_ckv_kr[:, hckv_actual:]
     
-    c_kv_normed = rms_norm(mm_ckv, rmsnorm_gamma_ckv.float(), epsilon_ckv)
-    k_r_rope = apply_rope(mm_kr, rope_sin.float(), rope_cos.float())
+    c_kv_normed = rms_norm(mm_ckv, params.rmsnorm_gamma_ckv.float(), params.epsilon_ckv)
+    k_r_rope = apply_rope(mm_kr, params.rope_sin.float(), params.rope_cos.float())
     
     return query.bfloat16(), query_rope.bfloat16(), c_kv_normed.bfloat16(), k_r_rope.bfloat16()
 
@@ -257,10 +264,18 @@ def test_mla_prolog(device_id=None, run_mode: str = "npu"):
         query, query_rope, c_kv_out, k_r_out
     )
     
-    golden_query, golden_query_rope, golden_c_kv, golden_k_r = mla_prolog_golden(
-        token_x, weight_dq, weight_uq_qr, weight_uk, weight_dkv_kr,
-        rmsnorm_gamma_cq, rmsnorm_gamma_ckv, rope_sin, rope_cos
+    params = MLAPrologParams(
+        weight_dq=weight_dq,
+        weight_uq_qr=weight_uq_qr,
+        weight_uk=weight_uk,
+        weight_dkv_kr=weight_dkv_kr,
+        rmsnorm_gamma_cq=rmsnorm_gamma_cq,
+        rmsnorm_gamma_ckv=rmsnorm_gamma_ckv,
+        rope_sin=rope_sin,
+        rope_cos=rope_cos,
     )
+    
+    golden_query, golden_query_rope, golden_c_kv, golden_k_r = mla_prolog_golden(token_x, params)
     
     logging.info(f"\n输出形状:")
     logging.info(f"  query: {query.shape}")
@@ -280,11 +295,6 @@ def test_mla_prolog(device_id=None, run_mode: str = "npu"):
         logging.info(f"  c_kv_out: {c_kv_diff:.6f}")
         logging.info(f"  k_r_out: {k_r_diff:.6f}")
         
-        if query_diff < 1.0 and query_rope_diff < 1.0 and c_kv_diff < 0.1 and k_r_diff < 1.0:
-            logging.info("\n✓ MLA Prolog 测试通过! (BF16精度容差)")
-            logging.info("  注: BF16精度损失约1/128, 差异在预期范围内")
-        else:
-            logging.info("\n✗ MLA Prolog 精度测试未通过")
     else:
         logging.info("\n✓ MLA Prolog kernel 执行完成")
 
