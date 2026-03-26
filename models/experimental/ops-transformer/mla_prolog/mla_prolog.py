@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 # coding: utf-8
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
 """
 MLA Prolog PyPTO Kernel Implementation
 Multi-Head Latent Attention 前处理算子
@@ -24,31 +32,31 @@ def get_device_id():
     return int(os.environ['TILE_FWK_DEVICE_ID'])
 
 
-t = 8
-he = 256
-hcq = 64
-hckv = 32
-n = 4
-d = 16
-dr = 8
-half_dr = dr // 2
+T = 8
+He = 256
+Hcq = 64
+Hckv = 32
+N = 4
+D = 16
+Dr = 8
+half_Dr = Dr // 2
 
 
 @pypto.frontend.jit(debug_options={"runtime_debug_mode": 1})
 def mla_prolog_kernel(
-    token_x: pypto.Tensor((t, he), pypto.DT_BF16),
-    weight_dq: pypto.Tensor((he, hcq), pypto.DT_BF16),
-    weight_uq_qr: pypto.Tensor((hcq, n * (d + dr)), pypto.DT_BF16),
-    weight_uk: pypto.Tensor((n, d, hckv), pypto.DT_BF16),
-    weight_dkv_kr: pypto.Tensor((he, hckv + dr), pypto.DT_BF16),
-    rmsnorm_gamma_cq: pypto.Tensor((hcq,), pypto.DT_BF16),
-    rmsnorm_gamma_ckv: pypto.Tensor((hckv,), pypto.DT_BF16),
-    rope_sin: pypto.Tensor((t, dr), pypto.DT_BF16),
-    rope_cos: pypto.Tensor((t, dr), pypto.DT_BF16),
-    query: pypto.Tensor((t, n, hckv), pypto.DT_BF16),
-    query_rope: pypto.Tensor((t, n, dr), pypto.DT_BF16),
-    c_kv_out: pypto.Tensor((t, hckv), pypto.DT_BF16),
-    k_r_out: pypto.Tensor((t, dr), pypto.DT_BF16),
+    token_x: pypto.Tensor((T, He), pypto.DT_BF16),
+    weight_dq: pypto.Tensor((He, Hcq), pypto.DT_BF16),
+    weight_uq_qr: pypto.Tensor((Hcq, N * (D + Dr)), pypto.DT_BF16),
+    weight_uk: pypto.Tensor((N, D, Hckv), pypto.DT_BF16),
+    weight_dkv_kr: pypto.Tensor((He, Hckv + Dr), pypto.DT_BF16),
+    rmsnorm_gamma_cq: pypto.Tensor((Hcq,), pypto.DT_BF16),
+    rmsnorm_gamma_ckv: pypto.Tensor((Hckv,), pypto.DT_BF16),
+    rope_sin: pypto.Tensor((T, Dr), pypto.DT_BF16),
+    rope_cos: pypto.Tensor((T, Dr), pypto.DT_BF16),
+    query: pypto.Tensor((T, N, Hckv), pypto.DT_BF16),
+    query_rope: pypto.Tensor((T, N, Dr), pypto.DT_BF16),
+    c_kv_out: pypto.Tensor((T, Hckv), pypto.DT_BF16),
+    k_r_out: pypto.Tensor((T, Dr), pypto.DT_BF16),
 ):
     pypto.set_cube_tile_shapes([32, 32], [32, 32], [32, 32])
     pypto.set_vec_tile_shapes(32, 64)
@@ -56,54 +64,54 @@ def mla_prolog_kernel(
     mm_cq = pypto.matmul(token_x, weight_dq, pypto.DT_BF16)
     squared = mm_cq * mm_cq
     mean_sq = pypto.sum(squared, dim=-1, keepdim=True)
-    mean_sq = mean_sq / hcq
+    mean_sq = mean_sq / Hcq
     rms = pypto.sqrt(mean_sq + 1e-5)
     c_q = mm_cq / rms
     c_q = c_q * rmsnorm_gamma_cq
     
     mm_qc_qr = pypto.matmul(c_q, weight_uq_qr, pypto.DT_BF16)
-    qc_qr_split = n * d
+    qc_qr_split = N * D
     mm_qc = mm_qc_qr[: , : qc_qr_split]
     mm_qr = mm_qc_qr[: , qc_qr_split:]
     
-    q0 = pypto.matmul(mm_qc[:, 0*d: 1*d], weight_uk[0, :, :], pypto.DT_BF16)
-    q1 = pypto.matmul(mm_qc[:, 1*d: 2*d], weight_uk[1, :, :], pypto.DT_BF16)
-    q2 = pypto.matmul(mm_qc[:, 2*d: 3*d], weight_uk[2, :, :], pypto.DT_BF16)
-    q3 = pypto.matmul(mm_qc[:, 3*d: 4*d], weight_uk[3, :, :], pypto.DT_BF16)
+    q0 = pypto.matmul(mm_qc[:, 0*D: 1*D], weight_uk[0, :, :], pypto.DT_BF16)
+    q1 = pypto.matmul(mm_qc[:, 1*D: 2*D], weight_uk[1, :, :], pypto.DT_BF16)
+    q2 = pypto.matmul(mm_qc[:, 2*D: 3*D], weight_uk[2, :, :], pypto.DT_BF16)
+    q3 = pypto.matmul(mm_qc[:, 3*D: 4*D], weight_uk[3, :, :], pypto.DT_BF16)
     
     q01 = pypto.concat([q0, q1], dim=-1)
     q23 = pypto.concat([q2, q3], dim=-1)
     q_all = pypto.concat([q01, q23], dim=-1)
-    query_3d = pypto.reshape(q_all, [t, n, hckv])
+    query_3d = pypto.reshape(q_all, [T, N, Hckv])
     query.move(query_3d)
     
-    sin_h = rope_sin[:, :half_dr]
-    cos_h = rope_cos[:, :half_dr]
+    sin_h = rope_sin[:, :half_Dr]
+    cos_h = rope_cos[:, :half_Dr]
     
-    qr0 = mm_qr[:, 0*dr: 1*dr]
-    qr0_even = qr0[:, : half_dr]
-    qr0_odd = qr0[:, half_dr:]
+    qr0 = mm_qr[:, 0*Dr: 1*Dr]
+    qr0_even = qr0[:, : half_Dr]
+    qr0_odd = qr0[:, half_Dr:]
     qr0_out_even = qr0_even * cos_h - qr0_odd * sin_h
     qr0_out_odd = qr0_odd * cos_h + qr0_even * sin_h
     qr0_rope = pypto.concat([qr0_out_even, qr0_out_odd], dim=-1)
     
-    qr1 = mm_qr[:, 1*dr: 2*dr]
-    qr1_even = qr1[:, : half_dr]
-    qr1_odd = qr1[:, half_dr:]
+    qr1 = mm_qr[:, 1*Dr: 2*Dr]
+    qr1_even = qr1[:, : half_Dr]
+    qr1_odd = qr1[:, half_Dr:]
     qr1_out_even = qr1_even * cos_h - qr1_odd * sin_h
     qr1_out_odd = qr1_odd * cos_h + qr1_even * sin_h
     qr1_rope = pypto.concat([qr1_out_even, qr1_out_odd], dim=-1)
     
-    qr2 = mm_qr[:, 2*dr: 3*dr]
-    qr2_even = qr2[:, : half_dr]
-    qr2_odd = qr2[:, half_dr:]
+    qr2 = mm_qr[:, 2*Dr: 3*Dr]
+    qr2_even = qr2[:, : half_Dr]
+    qr2_odd = qr2[:, half_Dr:]
     qr2_out_even = qr2_even * cos_h - qr2_odd * sin_h
     qr2_out_odd = qr2_odd * cos_h + qr2_even * sin_h
     qr2_rope = pypto.concat([qr2_out_even, qr2_out_odd], dim=-1)
     
-    qr3 = mm_qr[:, 3*dr: 4*dr]
-    qr3_even = qr3[:, : half_dr]
-    qr3_odd = qr3[:, half_dr:]
+    qr3 = mm_qr[:, 3*Dr: 4*Dr]
+    qr3_even = qr3[:, : half_Dr]
+    qr3_odd = qr3[:, half_Dr:]
     qr3_out_even = qr3_even * cos_h - qr3_odd * sin_h
     qr3_out_odd = qr3_odd * cos_h + qr3_even * sin_h
     qr3_rope = pypto.concat([qr3_out_even, qr3_out_odd], dim=-1)
@@ -111,23 +119,23 @@ def mla_prolog_kernel(
     qr01 = pypto.concat([qr0_rope, qr1_rope], dim=-1)
     qr23 = pypto.concat([qr2_rope, qr3_rope], dim=-1)
     qr_all = pypto.concat([qr01, qr23], dim=-1)
-    query_rope_3d = pypto.reshape(qr_all, [t, n, dr])
+    query_rope_3d = pypto.reshape(qr_all, [T, N, Dr])
     query_rope.move(query_rope_3d)
     
     mm_ckv_kr = pypto.matmul(token_x, weight_dkv_kr, pypto.DT_BF16)
-    mm_ckv = mm_ckv_kr[:, :hckv]
-    mm_kr = mm_ckv_kr[:, hckv:]
+    mm_ckv = mm_ckv_kr[:, :Hckv]
+    mm_kr = mm_ckv_kr[:, Hckv:]
     
     sq_ckv = mm_ckv * mm_ckv
     mean_sq_ckv = pypto.sum(sq_ckv, dim=-1, keepdim=True)
-    mean_sq_ckv = mean_sq_ckv / hckv
+    mean_sq_ckv = mean_sq_ckv / Hckv
     rms_ckv = pypto.sqrt(mean_sq_ckv + 1e-5)
     c_kv_normed = mm_ckv / rms_ckv
     c_kv_normed = c_kv_normed * rmsnorm_gamma_ckv
     c_kv_out.move(c_kv_normed)
     
-    k_even = mm_kr[:, :half_dr]
-    k_odd = mm_kr[:, half_dr:]
+    k_even = mm_kr[:, :half_Dr]
+    k_odd = mm_kr[:, half_Dr:]
     k_out_even = k_even * cos_h - k_odd * sin_h
     k_out_odd = k_odd * cos_h + k_even * sin_h
     k_r_result = pypto.concat([k_out_even, k_out_odd], dim=-1)
@@ -147,9 +155,9 @@ def mla_prolog_golden(
     epsilon_cq: float = 1e-5,
     epsilon_ckv: float = 1e-5,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    t, he = token_x.shape
-    n, d, hckv = weight_uk.shape
-    dr = rope_sin.shape[1]
+    T, He = token_x.shape
+    N, D, Hckv = weight_uk.shape
+    Dr = rope_sin.shape[1]
     
     def rms_norm(x, gamma, epsilon):
         rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + epsilon)
@@ -175,42 +183,42 @@ def mla_prolog_golden(
     c_q = rms_norm(mm_cq, rmsnorm_gamma_cq.float(), epsilon_cq)
     
     mm_qc_qr = torch.matmul(c_q, weight_uq_qr.float())
-    qc_qr_split = n * d
+    qc_qr_split = N * D
     mm_qc = mm_qc_qr[:, : qc_qr_split]
     mm_qr = mm_qc_qr[:, qc_qr_split: ]
     
-    q0 = torch.matmul(mm_qc[:, 0*d: 1*d].float(), weight_uk[0, :, :].float())
-    q1 = torch.matmul(mm_qc[:, 1*d: 2*d].float(), weight_uk[1, :, :].float())
-    q2 = torch.matmul(mm_qc[:, 2*d: 3*d].float(), weight_uk[2, :, :].float())
-    q3 = torch.matmul(mm_qc[:, 3*d: 4*d].float(), weight_uk[3, :, :].float())
+    q0 = torch.matmul(mm_qc[:, 0*D: 1*D].float(), weight_uk[0, :, :].float())
+    q1 = torch.matmul(mm_qc[:, 1*D: 2*D].float(), weight_uk[1, :, :].float())
+    q2 = torch.matmul(mm_qc[:, 2*D: 3*D].float(), weight_uk[2, :, :].float())
+    q3 = torch.matmul(mm_qc[:, 3*D: 4*D].float(), weight_uk[3, :, :].float())
     
     q01 = torch.cat([q0, q1], dim=-1)
     q23 = torch.cat([q2, q3], dim=-1)
     q_all = torch.cat([q01, q23], dim=-1)
-    query = q_all.reshape(t, n, hckv)
+    query = q_all.reshape(T, N, Hckv)
     
-    sin_h = rope_sin[:, :half_dr]
-    cos_h = rope_cos[:, :half_dr]
+    sin_h = rope_sin[:, :half_Dr]
+    cos_h = rope_cos[:, :half_Dr]
     
     def apply_rope_1d(x_1d):
-        x_even = x_1d[:, :half_dr]
-        x_odd = x_1d[:, half_dr:]
+        x_even = x_1d[:, :half_Dr]
+        x_odd = x_1d[:, half_Dr:]
         out_even = x_even * cos_h - x_odd * sin_h
         out_odd = x_odd * cos_h + x_even * sin_h
         return torch.cat([out_even, out_odd], dim=-1)
     
-    qr0 = apply_rope_1d(mm_qr[:, 0*dr: 1*dr].float())
-    qr1 = apply_rope_1d(mm_qr[:, 1*dr: 2*dr].float())
-    qr2 = apply_rope_1d(mm_qr[:, 2*dr: 3*dr].float())
-    qr3 = apply_rope_1d(mm_qr[:, 3*dr: 4*dr].float())
+    qr0 = apply_rope_1d(mm_qr[:, 0*Dr: 1*Dr].float())
+    qr1 = apply_rope_1d(mm_qr[:, 1*Dr: 2*Dr].float())
+    qr2 = apply_rope_1d(mm_qr[:, 2*Dr: 3*Dr].float())
+    qr3 = apply_rope_1d(mm_qr[:, 3*Dr: 4*Dr].float())
     
     qr01 = torch.cat([qr0, qr1], dim=-1)
     qr23 = torch.cat([qr2, qr3], dim=-1)
     qr_all = torch.cat([qr01, qr23], dim=-1)
-    query_rope = qr_all.reshape(t, n, dr).bfloat16()
+    query_rope = qr_all.reshape(T, N, Dr).bfloat16()
     
     mm_ckv_kr = torch.matmul(token_x.float(), weight_dkv_kr.float())
-    hckv_actual = weight_dkv_kr.shape[1] - dr
+    hckv_actual = weight_dkv_kr.shape[1] - Dr
     mm_ckv = mm_ckv_kr[:, :hckv_actual]
     mm_kr = mm_ckv_kr[:, hckv_actual:]
     
@@ -229,22 +237,22 @@ def test_mla_prolog(device_id=None, run_mode: str = "npu"):
     
     device = f'npu:{device_id}' if device_id is not None else 'cpu'
     
-    logging.info(f"\n配置: t={t}, he={he}, hcq={hcq}, hckv={hckv}, n={n}, d={d}, dr={dr}")
+    logging.info(f"\n配置: T={T}, He={He}, Hcq={Hcq}, Hckv={Hckv}, N={N}, D={D}, Dr={Dr}")
     
-    token_x = torch.randn(t, he, dtype=torch.bfloat16, device=device)
-    weight_dq = torch.randn(he, hcq, dtype=torch.bfloat16, device=device)
-    weight_uq_qr = torch.randn(hcq, n * (d + dr), dtype=torch.bfloat16, device=device)
-    weight_uk = torch.randn(n, d, hckv, dtype=torch.bfloat16, device=device)
-    weight_dkv_kr = torch.randn(he, hckv + dr, dtype=torch.bfloat16, device=device)
-    rmsnorm_gamma_cq = torch.randn(hcq, dtype=torch.bfloat16, device=device)
-    rmsnorm_gamma_ckv = torch.randn(hckv, dtype=torch.bfloat16, device=device)
-    rope_sin = torch.randn(t, dr, dtype=torch.bfloat16, device=device)
-    rope_cos = torch.randn(t, dr, dtype=torch.bfloat16, device=device)
+    token_x = torch.randn(T, He, dtype=torch.bfloat16, device=device)
+    weight_dq = torch.randn(He, Hcq, dtype=torch.bfloat16, device=device)
+    weight_uq_qr = torch.randn(Hcq, N * (D + Dr), dtype=torch.bfloat16, device=device)
+    weight_uk = torch.randn(N, D, Hckv, dtype=torch.bfloat16, device=device)
+    weight_dkv_kr = torch.randn(He, Hckv + Dr, dtype=torch.bfloat16, device=device)
+    rmsnorm_gamma_cq = torch.randn(Hcq, dtype=torch.bfloat16, device=device)
+    rmsnorm_gamma_ckv = torch.randn(Hckv, dtype=torch.bfloat16, device=device)
+    rope_sin = torch.randn(T, Dr, dtype=torch.bfloat16, device=device)
+    rope_cos = torch.randn(T, Dr, dtype=torch.bfloat16, device=device)
     
-    query = torch.empty(t, n, hckv, dtype=torch.bfloat16, device=device)
-    query_rope = torch.empty(t, n, dr, dtype=torch.bfloat16, device=device)
-    c_kv_out = torch.empty(t, hckv, dtype=torch.bfloat16, device=device)
-    k_r_out = torch.empty(t, dr, dtype=torch.bfloat16, device=device)
+    query = torch.empty(T, N, Hckv, dtype=torch.bfloat16, device=device)
+    query_rope = torch.empty(T, N, Dr, dtype=torch.bfloat16, device=device)
+    c_kv_out = torch.empty(T, Hckv, dtype=torch.bfloat16, device=device)
+    k_r_out = torch.empty(T, Dr, dtype=torch.bfloat16, device=device)
     
     mla_prolog_kernel(
         token_x, weight_dq, weight_uq_qr, weight_uk, weight_dkv_kr,

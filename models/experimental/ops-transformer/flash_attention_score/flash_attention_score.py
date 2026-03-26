@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 # coding: utf-8
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
 """
 Flash Attention Score with Online Softmax
 
@@ -20,7 +29,6 @@ from numpy.testing import assert_allclose
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-import pypto
 from flash_attention_score_impl import flash_attention_score_kernel, flash_attention_score_kernel_with_mask
 
 
@@ -57,40 +65,40 @@ def flash_attention_score_golden_online_softmax(
     通过分块计算和在线更新来提高数值稳定性。
 
     Args:
-        query: Query tensor, shape [B, N, sq, D], dtype bfloat16
-        key: Key tensor, shape [B, N, skv, D], dtype bfloat16
-        value: Value tensor, shape [B, N, skv, D], dtype bfloat16
+        query: Query tensor, shape [b, n, sq, d], dtype bfloat16
+        key: Key tensor, shape [b, n, skv, d], dtype bfloat16
+        value: Value tensor, shape [b, n, skv, d], dtype bfloat16
         atten_mask: Attention mask tensor, shape [sq, skv], dtype uint8
                    值为 1 表示不参与计算，值为 0 表示参与计算
 
     Returns:
-        attention_out: Output tensor, shape [B, N, sq, D], dtype bfloat16
+        attention_out: Output tensor, shape [b, n, sq, d], dtype bfloat16
     """
-    B, N, sq, D = query.shape
+    b, n, sq, d = query.shape
     _, _, skv, _ = key.shape
     
-    scale = 1.0 / math.sqrt(D)
+    scale = 1.0 / math.sqrt(d)
     
     query_fp32 = query.float()
     key_fp32 = key.float()
     value_fp32 = value.float()
     
-    output = torch.zeros(B, N, sq, D, dtype=torch.float32, device=query.device)
+    output = torch.zeros(b, n, sq, d, dtype=torch.float32, device=query.device)
     
-    for b in range(B):
-        for n in range(N):
+    for b_idx in range(b):
+        for n_idx in range(n):
             for q_idx in range(sq):
-                q_vec = query_fp32[b, n, q_idx, :]
+                q_vec = query_fp32[b_idx, n_idx, q_idx, :]
                 
                 max_score = float('-inf')
                 sum_exp = 0.0
-                output_vec = torch.zeros(D, dtype=torch.float32, device=query.device)
+                output_vec = torch.zeros(d, dtype=torch.float32, device=query.device)
                 
                 for kv_idx in range(skv):
                     if atten_mask is not None and atten_mask[q_idx, kv_idx] == 1:
                         continue
                     
-                    k_vec = key_fp32[b, n, kv_idx, :]
+                    k_vec = key_fp32[b_idx, n_idx, kv_idx, :]
                     score = torch.dot(q_vec, k_vec) * scale
                     
                     new_max = max(max_score, score.item())
@@ -104,11 +112,11 @@ def flash_attention_score_golden_online_softmax(
                     exp_score = math.exp(score - max_score)
                     sum_exp += exp_score
                     
-                    v_vec = value_fp32[b, n, kv_idx, :]
+                    v_vec = value_fp32[b_idx, n_idx, kv_idx, :]
                     output_vec += exp_score * v_vec
                 
                 if sum_exp > 0:
-                    output[b, n, q_idx, :] = output_vec / sum_exp
+                    output[b_idx, n_idx, q_idx, :] = output_vec / sum_exp
     
     return output.to(torch.bfloat16)
 
@@ -125,18 +133,18 @@ def flash_attention_score_golden_batch(
     使用标准的注意力计算方式：Softmax(Q @ K^T * scale) @ V
     
     Args:
-        query: Query tensor, shape [B, N, sq, D], dtype bfloat16
-        key: Key tensor, shape [B, N, skv, D], dtype bfloat16
-        value: Value tensor, shape [B, N, skv, D], dtype bfloat16
+        query: Query tensor, shape [b, n, sq, d], dtype bfloat16
+        key: Key tensor, shape [b, n, skv, d], dtype bfloat16
+        value: Value tensor, shape [b, n, skv, d], dtype bfloat16
         atten_mask: Attention mask tensor, shape [sq, skv], dtype uint8
                    值为 1 表示不参与计算，值为 0 表示参与计算
 
     Returns:
-        attention_out: Output tensor, shape [B, N, sq, D], dtype bfloat16
+        attention_out: Output tensor, shape [b, n, sq, d], dtype bfloat16
     """
-    B, N, sq, D = query.shape
+    b, n, sq, d = query.shape
     _, _, skv, _ = key.shape
-    scale = 1.0 / math.sqrt(D)
+    scale = 1.0 / math.sqrt(d)
     
     query_fp32 = query.float()
     key_fp32 = key.float()
@@ -205,7 +213,6 @@ def test_flash_attention_score(device_id=None, run_mode: str = "npu"):
             atol=0.0001
         )
         logging.info("✓ Flash Attention Score test passed!")
-    print()
 
 
 def test_flash_attention_score_no_mask(device_id=None, run_mode: str = "npu"):
@@ -247,7 +254,6 @@ def test_flash_attention_score_no_mask(device_id=None, run_mode: str = "npu"):
             atol=0.0001
         )
         logging.info("✓ Flash Attention Score (no mask) test passed!")
-    print()
 
 
 def main():
