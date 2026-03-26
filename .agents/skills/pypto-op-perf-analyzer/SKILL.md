@@ -1,5 +1,5 @@
 ---
-name: pypto-operator-perf-analyzer
+name: pypto-op-perf-analyzer
 description: 分析 PyPTO 算子的性能指标。用于分析 PyPTO 算子的性能指标，从性能数据文件中提取关键指标，计算性能评级，并提供性能瓶颈分析和优化建议。
 ---
 
@@ -60,7 +60,7 @@ AicoreTime = 核心总工作时间 - 总等待时间
 核心利用率 = AicoreTime / (AicoreTime + 等待总时间) × 100%
 ```
 
-#### 3.2 气泡率
+#### 3.2 气泡等待率
 
 ```
 气泡率 = 等待调度时间 / (AicoreTime + 等待调度时间) × 100%
@@ -97,7 +97,7 @@ AicoreTime = 核心总工作时间 - 总等待时间
 **高气泡率（>10%）可能原因：**
 - 任务粒度过小
 - 调度策略不当
-- stich参数过小
+- stitch 参数过小
 
 **分析要点：**
 - 识别气泡率最高的核心
@@ -174,17 +174,17 @@ AicoreTime = 核心总工作时间 - 总等待时间
 使用技能中的性能分析脚本自动生成报告：
 
 ```bash
-python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py <output_dir>
+python3 scripts/analyze_perf.py <output_dir>
 ```
 
 示例：
 ```bash
-python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py output/output_20260214_152549_401503_511667
+python3 scripts/analyze_perf.py output/output_20260214_152549_401503_511667
 ```
 
 ## 性能优化建议库
 
-**⚠️ 重要提示**：优先使用优先级高的优化建议进行优化！ 优先使用优先级高的优化建议进行优化！优先使用优先级高的优化建议进行优化！
+**⚠️ 重要提示**：优先采用高优先级的优化建议。
 
 ### 优化建议：气泡率高
 
@@ -193,7 +193,7 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
 **可能原因：**
 - 任务粒度过小
 - 调度策略不当
-- stich参数过小
+- stitch 参数过小
 
 **优化建议：**
 1. **Stitch 调优（优先级高）**
