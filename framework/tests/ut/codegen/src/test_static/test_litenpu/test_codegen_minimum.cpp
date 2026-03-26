@@ -26,7 +26,7 @@
 
 using namespace npu::tile_fwk;
 
-class LiteNPUCodeGenIndexPut : public testing::Test {
+class LiteNPUCodeGenMinimum : public testing::Test {
 public:
     static void TearDownTestCase() {}
 

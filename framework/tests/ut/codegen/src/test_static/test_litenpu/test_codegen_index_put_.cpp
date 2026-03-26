@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_codegen_matmul.cpp
+ * \file test_codegen_index_put_.cpp
  * \brief
  */
 
