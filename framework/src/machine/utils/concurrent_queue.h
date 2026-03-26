@@ -1,18 +1,11 @@
-/*
- * Copyright Huawei Technologies Switzerland AG
- * All rights reserved.
- */
-
 /**
  * @file concurrentQueue.h
  * @brief Provides generic support for concurrent queues.
  * @author S. M. Martin
- * @date 14/8/2023
+ * @date 26/3/2025
  */
 
 #pragma once
-
-#include "atomic_queue.h"
 
 namespace pypto::utils
 {
@@ -26,7 +19,7 @@ namespace pypto::utils
  * @tparam T Represents a item type to be stored in the queue
  * @tparam D Represents the NIL value; meant to signify no more elements contained in the queue
  */
-template <class T, T D>
+template <class T, T D, uint32_t N>
 class ConcurrentQueue
 {
   public:
@@ -36,18 +29,15 @@ class ConcurrentQueue
    * 
    * \param[in] maxEntries Indicates the maximum amount of entries
   */
-  ConcurrentQueue(const size_t maxEntries = 0)
-    : _queue(new atomic_queue::AtomicQueueB<T, std::allocator<T>, D>(maxEntries))
-  {}
-
-  ~ConcurrentQueue() { delete _queue; }
+  ConcurrentQueue() {}
+  ~ConcurrentQueue() {}
 
   /**
    * Function to push new objects in the queue. This is a thread-safe lock-free operation
    *
    * \param[in] obj The object to push into the queue.
    */
-  inline void push(T obj) { _queue->push(obj); }
+  inline void push(const T obj) { _elements[_head++] = obj; }
 
   /**
    * Function to pop an object from the queue. Poping removes an object from the front of the queue and returns it to the caller. This is a thread-safe lock-free operation
@@ -56,13 +46,9 @@ class ConcurrentQueue
    */
   inline T pop()
   {
-    T obj = D;
+    if (wasEmpty() == true) return D;
 
-    // Poping next object from the lock-free queue
-    _queue->try_pop(obj);
-
-    // If we did not find an object in the queue, then return a NULL pointer
-    return obj;
+    return _elements[--_head];
   }
 
   /**
@@ -70,8 +56,7 @@ class ConcurrentQueue
    */
   inline void clear()
   {
-    // Poping all objects from the lock-free queue
-    while(wasEmpty() == false) pop();
+    _head = 0;
   }
 
   /**
@@ -82,7 +67,7 @@ class ConcurrentQueue
    * 
    * \return True, if it is empty; false if its not. Possibly changed now.
    */
-  [[nodiscard]] inline bool wasEmpty() const { return _queue->was_empty(); }
+  [[nodiscard]] inline bool wasEmpty() const { return _head == 0; }
 
   /**
    * Function to determine the current possible size of the queue
@@ -92,14 +77,12 @@ class ConcurrentQueue
    * 
    * \return The size of the queue, as last read by this thread. Possibly changed now.
    */
-  [[nodiscard]] inline size_t wasSize() const { return _queue->was_size(); }
+  [[nodiscard]] inline size_t wasSize() const { return _head; }
 
   private:
 
-  /**
-   * Internal implementation of the concurrent queue
-   */
-  atomic_queue::AtomicQueueB<T, std::allocator<T>, D> *_queue;
+  std::array<T, N> _elements;
+  size_t _head = 0;
 };
 
 } // namespace
