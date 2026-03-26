@@ -18,6 +18,24 @@
 #include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
+
+size_t TileTensorHash::operator()(const TileTensor &t) const noexcept {
+    size_t seed = 0;
+    HashCombine(seed, t.dim);
+    HashCombine(seed, t.bufVar);
+    HashCombine(seed, ToUnderlying(t.dtype));
+    for (const auto &s : t.shape) {
+        HashCombine(seed, s);
+    }
+    for (const auto &s : t.rawShape) {
+        HashCombine(seed, s);
+    }
+    for (const auto &s : t.localBufOffset) {
+        HashCombine(seed, s);
+    }
+    return seed;
+}
+
 AllocKey SymbolManager::CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const {
     auto memType = tensor->GetMemoryTypeOriginal();
     if (OPERAND_TYPE_TO_MEMORY_TYPE.count(memType) == 0) {
@@ -128,6 +146,7 @@ std::string SymbolManager::AddTileTensorUsing(const TileTensorUsing &tileTensorU
 
 std::string SymbolManager::AddTileTensor(const TileTensor &tileTensor) {
     auto result = tileTensor_.insert({tileTensor, tileTensor.tensorName});
+    hash2TileTensor_.insert({tileTensor.hash, tileTensor});
     std::string tensorName = result.second ? tileTensor.tensorName : result.first->second;
 
     // normal mode
@@ -218,6 +237,17 @@ std::string SymbolManager::QueryTileTensorNameByBufVar(const std::string &bufVar
 std::string SymbolManager::QueryTileTensorTypeByBufVar(const std::string &bufVarName) {
     const TileTensor &tileTensor = QueryTileTensorByBufVar(bufVarName);
     return tileTensor.usingType;
+}
+
+const TileTensor &SymbolManager::QueryTileTensorByHash(size_t hash) {
+    auto iter = hash2TileTensor_.find(hash);
+    if (iter != hash2TileTensor_.end()) {
+        return iter->second;
+    }
+
+    ASSERT(GenCodeErr::SYMBOL_NOT_FOUND, false) << "hash " << hash << " is not found !!! ";
+    static TileTensor emptyTileTensor;
+    return emptyTileTensor;
 }
 
 std::string SymbolManager::GenUsingList() {

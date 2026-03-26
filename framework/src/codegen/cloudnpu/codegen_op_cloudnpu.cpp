@@ -586,6 +586,7 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(
     UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm, shapeInLoop);
 
     tileTensor.localBufOffset = offset[paramIdx];
+    tileTensor.ComputeHash();
 
     return tileTensor;
 }
