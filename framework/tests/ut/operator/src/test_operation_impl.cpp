@@ -1006,13 +1006,23 @@ TEST_F(OperationImplTest, Test_Sum_Lite) {
 
 }
 
-TEST_F(OperationImplTest, Test_Transpose_Lite) {
+TEST_F(OperationImplTest, Test_Transpose_View_Assemble_Unsqueeze_Reshape_Lite) {
     PROGRAM(TestTranspose){
         TileShape::Current().SetVecTile(8, 8);
-        Tensor operand(DT_FP32, {16, 16}, "operand");
+        Tensor operand(DT_FP32, {32, 32}, "operand");
         Tensor result;
+        std::vector<int64_t> new_shape = {16, 16};
+        std::vector<int64_t> offsetsView = {0, 4};
+        Tensor resultAssemble(DataType::DT_FP32, {32, 32}, "resultAssemble")
         FUNCTION("TestTranspose") {
-            result = Transpose(operand, -1, true);
+            result = Transpose(operand, {-1, 0});
+            result = View(result, new_shape, offsetsView);
+            std::vector<SymbolicScalar> offsetsAssemble(2);
+            offsetsAssemble[0] = 1;
+            offsetsAssemble[1] = 1;
+            Assemble(result, offsetsAssemble, resultAssemble);
+            result = Unsqueeze(resultAssemble, 0);
+            result = Reshape(result, {1024});
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestTranspose");
