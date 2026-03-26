@@ -2861,32 +2861,61 @@ def gen_quantize_op_golden(case_name: str, output: Path, case_index: int = None)
         - Symmetric quantization: q = round(x * scale)
         - Asymmetric quantization: q = round(x * scale) + zero_points
         """
+        def ascend_tcvt_int8(x: torch.Tensor) -> torch.Tensor:
+            """使用 torch.quantize 风格的实现"""
+            
+            # Step 1: FP32 -> S32 (round to nearest even)
+            s32 = torch.round(x).to(torch.int32)  # -0.528 -> 0
+            
+            # Step 2 & 3: S32 -> FP16 -> INT8 (saturation)
+            # 由于 S32 是整数，直接饱和到 INT8 范围即可
+            return torch.clamp(s32, -128, 127).to(torch.int8)
+        
+        def ascend_tcvt_uint8(src_fp32: torch.Tensor) -> torch.Tensor:
+            """
+            三段式转换，最终输出 uint8
+            """
+            
+            # Step 1: FP32 -> S32 (CAST_RINT)
+            src_s32 = torch.round(src_fp32).to(torch.int32)
+            # -0.528 -> 0
+            
+            # Step 2: S32 -> FP16 (CAST_RINT)
+            src_f16 = src_s32.to(torch.float16)
+            
+            # Step 3: FP16 -> uint8 (CAST_RINT, Saturation ON)
+            # uint8 范围: [0, 255]
+            dst_float = torch.round(src_f16.to(torch.float32))
+            dst_clamped = torch.clamp(dst_float, min=0, max=255)  # 关键：min=0
+            dst = dst_clamped.to(torch.uint8)
+            return dst
+        
         params = config.get("params")
         input_tensor = from_numpy(inputs[0])
         scale = from_numpy(inputs[1])
 
         # Get output dtype from config
         output_dtype = config.get("output_tensors")[0].get("dtype")
+        axis = int(params.get("axis", "-1"))
         use_zero_points = params.get("use_zero_points", False)
 
         # Convert to target dtype
         if output_dtype == "int8":
             # Perform quantization: q = round(x * scale)
-            quantized = torch.round(input_tensor * scale)
-            # Clamp to int8 range
-            quantized = torch.clamp(quantized, -128, 127)
-            result = quantized.to(torch.int8)
+            if axis == -1:
+                quantized = ascend_tcvt_int8(input_tensor * scale[..., None])
+            elif axis == -2: # axis = -2
+                quantized = ascend_tcvt_int8(input_tensor * scale[..., None, :])
         elif output_dtype == "uint8":
             zero_points = from_numpy(inputs[2])
             # Perform quantization: q = round(x * scale)
-            quantized = torch.round(input_tensor * scale + zero_points)
-            # Clamp to uint8 range
-            quantized = torch.clamp(quantized, 0, 255)
-            result = quantized.to(torch.uint8)
+            if axis == -1:
+                quantized = ascend_tcvt_uint8(input_tensor * scale[..., None] + zero_points[..., None])
+            elif axis == -2: # axis = -2
+                quantized = ascend_tcvt_uint8(input_tensor * scale[..., None, :] + zero_points[..., None, :])
         else:
             raise ValueError(f"Unsupported output dtype for quantize: {output_dtype}")
-
-        return [to_numpy(result)]
+        return [to_numpy(quantized)]
 
     logging.debug(f"Generating golden files of {case_name} ...")
     return gen_op_golden("Quantize", quantize_golden_func, output, case_index)
