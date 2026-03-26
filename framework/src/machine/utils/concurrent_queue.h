@@ -8,9 +8,7 @@
 #pragma once
 
 #include <array>
-#include "tilefwk/aicpu_common.h"
 #include "interface/utils/common.h"
-#include "tilefwk/core_func_data.h"
 
 namespace pypto::utils
 {
@@ -23,6 +21,7 @@ namespace pypto::utils
  *
  * @tparam T Represents a item type to be stored in the queue
  * @tparam D Represents the NIL value; meant to signify no more elements contained in the queue
+ * @tparam N Represents the maximum size of the queue
  */
 template <class T, T D, uint32_t N>
 class ConcurrentQueue
