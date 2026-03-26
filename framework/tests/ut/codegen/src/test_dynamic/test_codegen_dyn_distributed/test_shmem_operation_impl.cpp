@@ -33,16 +33,6 @@ namespace npu::tile_fwk::Distributed {
 
 class TestDistributedShmemImpl : public ::testing::Test {
 private:
-    void CreateShmemTensors(const char* group, uint32_t worldSize, const DataType shmemDataType,
-        const Shape& shmemDataShape, Tensor& shmemData, Tensor& shmemSignal)
-    {
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void)index;
-            CreateShmemData(group, worldSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(group, shmemData, shmemSignal);
-        }
-    }
-
     DataType GetType(const Tensor& in)
     {
         DataType shmemDataType = in.GetDataType();
@@ -102,15 +92,17 @@ TEST_F(TestDistributedShmemImpl, TestAllGather)
     Tensor in(DT_FP16, {16, 32}, "in");
     Tensor out(DT_FP16, {64, 32}, "out");
     Shape shmemDataShape{worldSize, 16, 32};
+    std::string functionName = "TestAllGather";
     FUNCTION("ALLGATHER", {in}, {out}) {
         TileShape::Current().SetVecTile({16, 32});
-        Tensor shmemData;
-        Tensor shmemSignal;
-        CreateShmemTensors(group, worldSize, DT_FP16, shmemDataShape, shmemData, shmemSignal);
-        AllGather(in, in, group, shmemData, shmemSignal, out);
+        auto shmemTensor = CreateShmemTensor(group, worldSize, DT_FP16, shmemDataShape);
+        LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            AllGather(in, in, shmemTensor, out);
+        }
     }
 
-    std::string functionRawName = GetFunctionRawName("CreateShmemTensor");
+    std::string functionRawName = GetFunctionRawName(functionName);
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -124,16 +116,18 @@ TEST_F(TestDistributedShmemImpl, TestReduceScatter)
     Tensor in(DT_FP16, {64, 256}, "in");
     Tensor out(DT_FP16, {16, 256}, "out");
     Shape shmemDataShape = {1, 64 / 4, 256};
+    std::string functionName = "TestReduceScatter";
     FUNCTION("REDUCESCATTER", {in}, {out}) {
         TileShape::Current().SetVecTile({64, 256});
-        Tensor shmemData;
-        Tensor shmemSignal;
         DataType shmemDataType = GetType(in);
-        CreateShmemTensors(group, worldSize, shmemDataType, shmemDataShape, shmemData, shmemSignal);
-        ReduceScatter(in, in, group, shmemData, shmemSignal, DistReduceType::DIST_REDUCE_ADD, out);
+        auto shmemTensor = CreateShmemTensor(group, worldSize, shmemDataType, shmemDataShape);
+        LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            ReduceScatter(in, in, shmemTensor, DistReduceType::DIST_REDUCE_ADD, out);
+        }
     }
 
-    std::string functionRawName = GetFunctionRawName("CreateShmemTensor");
+    std::string functionRawName = GetFunctionRawName(functionName);
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -147,16 +141,18 @@ TEST_F(TestDistributedShmemImpl, TestTwoShotAllReduce)
     Tensor in(DT_FP16, {64, 256}, "in");
     Tensor out(DT_FP16, {64, 256}, "out");
     Shape shmemDataShape = {worldSize, 64 / 4, 256};
+    std::string functionName = "TestTwoShotAllReduce";
     FUNCTION("ALLREDUCE", {in}, {out}) {
         TileShape::Current().SetVecTile({64, 256});
-        Tensor shmemData;
-        Tensor shmemSignal;
         DataType shmemDataType = GetType(in);
-        CreateShmemTensors(group, worldSize, shmemDataType, shmemDataShape, shmemData, shmemSignal);
-        TwoShotAllReduce(in, in, group, shmemData, shmemSignal, out);
+        auto shmemTensor = CreateShmemTensor(group, worldSize, shmemDataType, shmemDataShape);
+        LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            TwoShotAllReduce(in, in, shmemTensor, out);
+        }
     }
 
-    std::string functionRawName = GetFunctionRawName("CreateShmemTensor");
+    std::string functionRawName = GetFunctionRawName(functionName);
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -170,17 +166,19 @@ TEST_F(TestDistributedShmemImpl, TestOneShotAllReduce)
     uint32_t worldSize = 4;
     Tensor in(DT_FP16, {64, 256}, "in");
     Tensor out(DT_FP16, {64, 256}, "out");
-     Shape shmemDataShape = {1, 64, 256};
+    Shape shmemDataShape = {1, 64, 256};
+    std::string functionName = "TestOneShotAllReduce";
     FUNCTION("ALLREDUCE", {in}, {out}) {
         TileShape::Current().SetVecTile({64, 256});
-        Tensor shmemData;
-        Tensor shmemSignal;
         DataType shmemDataType = GetType(in);
-        CreateShmemTensors(group, worldSize, shmemDataType, shmemDataShape, shmemData, shmemSignal);
-        OneShotAllReduce(in, in, group, shmemData, shmemSignal, out);
+        auto shmemTensor = CreateShmemTensor(group, worldSize, shmemDataType, shmemDataShape);
+        LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            OneShotAllReduce(in, in, shmemTensor, out);
+        }
     }
 
-    std::string functionRawName = GetFunctionRawName("CreateShmemTensor");
+    std::string functionRawName = GetFunctionRawName(functionName);
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -189,15 +187,19 @@ TEST_F(TestDistributedShmemImpl, TestOneShotAllReduce)
 
 TEST_F(TestDistributedShmemImpl, TestShmemDataSet)
 {
-    Tensor predToken(DT_INT32, {1, 1}, "predToken");
-    Tensor in(DT_BF16, {4, 1, 256, 102400}, "in");
+    Tensor predToken(DT_INT32, {1, 1}, "pred");
     Tensor out(DT_INT32, {1, 1}, "out");
+    const char *group = "hcom123";
+    uint32_t worldSize = 4;
 
-    std::string functionName = "ShmemDataSet";
-    FUNCTION(functionName + "Main", {in}, {out}) {
+    std::string functionName = "ShmemClearData";
+    Shape shmemDataShape = {1, 64, 256};
+    FUNCTION(functionName + "Main", {predToken}, {out}) {
+        TileShape::Current().SetVecTile({64, 256});
+        auto shmemTensor = CreateShmemTensor(group, worldSize, DT_BF16, shmemDataShape);
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            out = ShmemDataSet(predToken, in);
+            out = ShmemClearData(shmemTensor, predToken);
         }
     }
 
@@ -208,22 +210,25 @@ TEST_F(TestDistributedShmemImpl, TestShmemDataSet)
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TileOp::Distributed::ShmemSet<bfloat16_t, 1, 256, 102400, 8192>)!!!";
+        R"!!!(TileOp::Distributed::ShmemSet<bfloat16_t, 1, 64, 256, 8192>)!!!";
     CheckStringExist(expect, res);
 }
 
 TEST_F(TestDistributedShmemImpl, TestShmemSignalSet)
 {
-    int64_t worldSize = 4;
     Tensor predToken(DT_INT32, {1, 1}, "predToken");
-    Tensor in(DT_BF16, {worldSize, worldSize, 1, 256, 102400}, "in");
     Tensor out(DT_INT32, {1, 1}, "out");
+    const char *group = "hcom123";
+    uint32_t worldSize = 4;
 
-    std::string functionName = "ShmemSignalSet";
-    FUNCTION(functionName + "Main", {in}, {out}) {
+    std::string functionName = "ShmemClearSignal";
+    Shape shmemDataShape = {1, 8, 256};
+    FUNCTION(functionName + "Main", {predToken}, {out}) {
+        TileShape::Current().SetVecTile({8, 256});
+        auto shmemTensor = CreateShmemTensor(group, worldSize, DT_FP16, shmemDataShape);
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            out = ShmemSignalSet(predToken, in);
+            out = ShmemClearSignal(shmemTensor, predToken);
         }
     }
 
@@ -234,7 +239,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemSignalSet)
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TileOp::Distributed::ShmemSet<bfloat16_t, 1, 1024, 8, 8192>)!!!";
+        R"!!!(TileOp::Distributed::ShmemSet<int32_t, 1, 1024, 8, 4096>)!!!";
     CheckStringExist(expect, res);
 }
 
@@ -244,15 +249,16 @@ TEST_F(TestDistributedShmemImpl, TestShmemBarrier)
     uint32_t worldSize = 4;
     int64_t row = 16;
     int64_t col = 32;
-    Tensor shmemSignal(DT_INT32, {worldSize, worldSize, 1, row, col}, "in");
     Tensor out(DT_INT32, {1, 1}, "out");
+    Tensor predToken(DT_INT32, {1, 1}, "predToken");
+
     std::string functionName = "ShmemBarrier";
-    FUNCTION(functionName + "Main", {shmemSignal}, {out}) {
+    FUNCTION(functionName + "Main", {predToken}, {out}) {
         TileShape::Current().SetVecTile({row, col});
-        Tensor predToken(DT_INT32, {1, 1}, "predToken");
+        auto shmemBarrier1ShmemSignal = CreateShmemSignal(group, worldSize);
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void) index;
-            out = ShmemBarrier(predToken, shmemSignal, group, worldSize);
+            out = ShmemBarrier(shmemBarrier1ShmemSignal, predToken);
         }
     }
 
@@ -263,23 +269,21 @@ TEST_F(TestDistributedShmemImpl, TestShmemBarrier)
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TileOp::Distributed::ShmemSignal<1, 8, 16, 32, TileOp::Distributed::AtomicType::ADD>)!!!";
+        R"!!!(TileOp::Distributed::ShmemSignal<1, 8, 16, 32, TileOp::Distributed::AtomicType::ADD, true, 4>)!!!";
     CheckStringExist(expect, res);
 }
 
 TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
 {
-    int64_t row = 4;
-    int64_t col = 64;
-    Tensor dummy(DT_INT32, {1, 1}, "dummy");
-    Tensor shmemData(DT_INT32, {1, 1, row, col}, "in");
-    Tensor out(DT_INT32, {row, col}, "out");
-    std::string functionName = "ShmemGetGm2Ub";
-    FUNCTION(functionName + "Main", {dummy, shmemData}, {out}) {
-        TileShape::Current().SetVecTile({row, col});
+    Tensor out(DT_BF16, {4, 64}, "out");
+    Tensor predToken(DT_INT32, {1, 1}, "predToken");
+    std::string functionName = "ShmemLoad";
+    FUNCTION(functionName + "Main", {predToken}, {out}) {
+        TileShape::Current().SetVecTile({4, 64});
+        auto shmemTensor = CreateShmemTensor("hcom123", 4, DT_BF16, {1, 4, 64});
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void) index;
-            out = ShmemGetGm2Ub(dummy, shmemData);
+            out = ShmemLoad(shmemTensor, 0, predToken);
         }
     }
     std::string functionRawName = GetFunctionRawName(functionName);
@@ -289,7 +293,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TileOp::Distributed::ShmemGetGm2Ub<int32_t, int32_t, 4, 64, 4, 64, 64, 64, TileOp::Distributed::AtomicType::SET>)!!!";
+        R"!!!(TileOp::Distributed::ShmemGetGm2Ub<bfloat16_t, bfloat16_t, 4, 64, 4, 64, 64, 64, TileOp::Distributed::AtomicType::SET>)!!!";
     CheckStringExist(expect, res);
 }
 
@@ -298,15 +302,15 @@ TEST_F(TestDistributedShmemImpl, TestShmemPutUb2Gm)
     int64_t row = 16;
     int64_t col = 32;
     Tensor in(DT_FP32, {row, col}, "in");
-    Tensor shmemData(DT_FP32, {1, 1, row, col}, "shmemData");
-    Tensor predToken(DT_INT32, {1, 1}, "predToken");
     Tensor out(DT_INT32, {1, 1}, "out");
+    Tensor predToken(DT_INT32, {1, 1}, "predToken");
     std::string functionName = "ShmemPutUb2Gm";
-    FUNCTION(functionName + "Main", {in, shmemData, predToken}, {out}) {
+    FUNCTION(functionName + "Main", {in, predToken}, {out}) {
         TileShape::Current().SetVecTile({row, col});
+        auto shmemTensor = CreateShmemTensor("hcom123", 4, DT_FP32, {1, row, col});
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void) index;
-            out = ShmemPutUb2Gm(in, shmemData, predToken, AtomicType::ADD);
+            out = ShmemStore(in, shmemTensor, 0, AtomicType::ADD, predToken);
         }
     }
     std::string functionRawName = GetFunctionRawName(functionName);

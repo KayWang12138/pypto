@@ -50,17 +50,6 @@ std::tuple<Tensor, Tensor, Tensor, Tensor> InitializeTestData(OpTestParam& testP
     return {agIn, wLora, wOut, out};
 }
 
-std::tuple<Tensor, Tensor> CreateShmemTensors(OpTestParam& testParam, DataType dtype, const Shape& shape) {
-    Tensor shmemData;
-    Tensor shmemSignal;
-    LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-        (void)index;
-        CreateShmemData(testParam.group, testParam.rankSize, dtype, shape, shmemData);
-        CreateShmemSignal(testParam.group, shmemData, shmemSignal);
-    }
-    return {shmemData, shmemSignal};
-}
-
 void TestAllGatherAttentionPostReducescatter(OpTestParam& testParam, std::string& goldenDir) {
     constexpr size_t paramsSize = 7;
     auto [b, s, n, kvLoraRank, vHeadDim, h, typeNum] = GetParams<paramsSize>(goldenDir + "/params.bin");
@@ -73,9 +62,9 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam& testParam, std::string
         LOOP("ALLGATHER", FunctionType::DYNAMIC_LOOP, unusedDynRankId, LoopRange(1)) {
             (void) unusedDynRankId;
             Shape shmemDataAgShape{testParam.rankSize, b * n * s / testParam.rankSize, kvLoraRank};
-            auto [shmemData, shmemSignal] = CreateShmemTensors(testParam, dtype, shmemDataAgShape);
+            ShmemTensor shmemTensor = CreateShmemTensor(testParam.group, testParam.rankSize, dtype, shmemDataAgShape);
             TileShape::Current().SetVecTile({64, kvLoraRank});
-            AllGather(agIn, agIn, testParam.group, shmemData, shmemSignal, agOut);
+            AllGather(agIn, agIn, shmemTensor, agOut);
         }
         Tensor attnOut(dtype, {b * s, h}, "attnOut");
         LOOP("ATTNPOST", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
@@ -102,9 +91,9 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam& testParam, std::string
             (void) unusedIndex;
             DataType shmemDataType = (attnOut.GetDataType() == DT_BF16 || attnOut.GetDataType() == DT_FP16) 
                 ? DT_FP32 : attnOut.GetDataType();
-            auto [shmemData, shmemSignal] = CreateShmemTensors(testParam, shmemDataType, {1, outRow, h});
+            ShmemTensor shmemTensor = CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, {1, outRow, h});
             TileShape::Current().SetVecTile({16, h});
-            Distributed::ReduceScatter(attnOut, attnOut, testParam.group, shmemData, shmemSignal,
+            Distributed::ReduceScatter(attnOut, attnOut, shmemTensor,
                 DistReduceType::DIST_REDUCE_ADD, out);
         }
     }

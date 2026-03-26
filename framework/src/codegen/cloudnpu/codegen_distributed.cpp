@@ -108,7 +108,7 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForPutAndGet() const {
     oss << "<" << DataType2CCEStr(operandDtype[nonShmemDataIndex]) << ", "
         << DataType2CCEStr(operandDtype[shmemDataIndex]) << ", " << tileRowShape << ", " << tileColShape << ", "
         << bufferRowShape << ", " << bufferColShape << ", " << srcStride << ", " << dstStride << ", "
-        << Distributed::AtomicTypeToString(atomicType) << ">";
+        << Distributed::ToString(atomicType) << ">";
     return oss.str();
 }
 
@@ -127,7 +127,7 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForPutUb2Gm() const
     int64_t dstStride = shmemTensorRawShape[shmemTensorRawShape.size() - 1];
 
     oss << "<" << GetTemplateDType() << ", " << tileRowShape << ", " << tileColShape << ", " << dstStride << ", "
-        << Distributed::AtomicTypeToString(distOpAttr.atomicType) << ">";
+        << Distributed::ToString(distOpAttr.atomicType) << ">";
     return oss.str();
 }
 
@@ -137,7 +137,8 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForSignal() const {
         AnyCast<Distributed::ShmemSignalAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
     oss << "<" << std::to_string(distOpAttr.signalValue) << ", " << std::to_string(distOpAttr.signalStride) << ", "
         << std::to_string(distOpAttr.tileRowShape) << ", " << std::to_string(distOpAttr.tileColShape) << ", "
-        << Distributed::AtomicTypeToString(distOpAttr.atomicType) << ">";
+        << Distributed::ToString(distOpAttr.atomicType) << ", "
+        << (distOpAttr.notifyAll ? "true" : "false") << ", " << std::to_string(distOpAttr.worldSize) << ">";
     return oss.str();
 }
 
@@ -407,6 +408,19 @@ std::string CodeGenOpCloudNPU::GenExtraParamsStr() const {
     }
 }
 
+std::string CodeGenOpCloudNPU::GenTargetRankStr() const
+{
+    if (opAttrs.count(OpAttributeKey::ownerRank) == 0) {
+        return "";
+    }
+    std::ostringstream oss;
+    auto ownerRank = AnyCast<SymbolicScalar>(opAttrs.at(OpAttributeKey::ownerRank));
+    if (ownerRank.IsValid()) {
+        oss << ", " << SymbolicExpressionTable::BuildExpression(ownerRank);
+    }
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenDistOp() const {
     std::ostringstream oss;
     std::unordered_set<int32_t> skipOperands = {};
@@ -425,7 +439,7 @@ std::string CodeGenOpCloudNPU::GenDistOp() const {
         skipOperands = it->second;
     }
     oss << tileOpName << GenTemplateParams() << "(param, " << GenParamsStr(skipOperands) << GenExtraParamsStr()
-        << ", hcclContext);\n";
+        << GenTargetRankStr() << ", hcclContext);\n";
     return oss.str();
 }
 
