@@ -45,40 +45,46 @@
 
 ## 当前问题（待解决）
 
-### 问题5：Python 测试运行失败 🔴 P0
+### 问题5：Python 测试运行失败 🔴 P0 ✅ 已解决
 
-**错误现象**：
+**错误现象**（已解决）：
 ```python
 RuntimeError: [json.exception.parse_error.101] parse error at line 120, column 13:
 syntax error while parsing object key - unexpected '}'; expected string literal
 ```
 
-**发生位置**：
-- 文件：`python/pypto/config.py:469`
-- 调用：`cpp_scope = pypto_impl.CurrentScope()`
+**根本原因**：
+- 初始测试使用了错误的命令和方法
+- 正确的测试命令为：`python3 build_ci.py --generator Ninja -u --utest=python/tests/ut/interface/test_config_options.py`
 
-**问题分析**：
-- 源文件 `framework/src/interface/configs/tile_fwk_config.json` 只有 136 行
-- 错误提示在 "line 120, column 13"
-- 说明可能读取了错误的配置文件，或者有其他 JSON 文件被解析
-- 已安装的配置文件位于：`/home/developer/.local/lib/python3.11/site-packages/pypto/lib/configs/tile_fwk_config.json`
+**解决步骤**：
+1. ✅ 使用正确的build_ci.py命令进行测试
+2. ✅ 测试环境会自动卸载旧包并重新编译安装最新版本
+3. ✅ 修改 `python/tests/ut/interface/test_config_options.py` 中的 `test_pass_option` 函数
+4. ✅ 将期望值从 `48` 改为 `[48, 0, 0, -1]` 以适配新的数组格式
 
-**影响**：
-- Python 测试无法运行
-- 无法验证 Python 接口的正确性
+**修复内容**：
+- 修改了 `test_pass_option` 函数的断言：
+  ```python
+  # 修改前
+  assert pass_option["sg_set_scope"] == 48
+  
+  # 修改后
+  assert pass_option["sg_set_scope"] == [48, 0, 0, -1]
+  ```
 
-**解决计划**：
-1. 检查 `GetConfDir()` 返回的实际路径
-2. 对比源文件和已安装文件的差异
-3. 检查是否有其他 JSON 文件被加载（如 `tile_fwk_config_schema.json`）
-4. 验证 JSON 文件的语法正确性
-5. 重新编译和安装包
+**验证结果**：
+```
+python/tests/ut/interface/test_config_options.py::test_pass_option PASSED
+python/tests/ut/interface/test_config_options.py::test_sg_set_scope_new_format PASSED
+======================= 8 passed, 16 warnings in 21.05s ========================
+```
 
-**优先级**：P0（阻塞）
+**优先级**：P0（阻塞）→ ✅ 已解决
 
 ---
 
-### 问题6：配置文件值格式需要确认 🟡 P3
+### 问题6：配置文件值格式需要确认 🟡 P3 ✅ 已解决
 
 **问题现象**：
 - 源文件：`"sg_set_scope": [-1, 0, 0, -1]`（使用 0/1）
@@ -93,20 +99,35 @@ syntax error while parsing object key - unexpected '}'; expected string literal
   ```
 
 **问题分析**：
-- 当前设计：JSON 使用 0/1，Python 层处理转换，C++ 层使用 `!= 0` 判断
-- 用户认为这种设计是合理的：Python 层处理转换，C++ 层使用整数
-- 需要确认 JSON 文件中的值是否会被正确传递到 Python 层
+- **设计理念**：
+  - Python侧使用bool值：长期目标，提供类型安全的用户接口
+  - C++侧使用int值（0/1）：权宜之计，受限于ConfigManager不支持bool数组
+  - 转换方式：Python层验证并保持bool，C++层通过`!= 0`判断转换为bool
 
-**影响**：
-- 可能导致配置值传递不一致
-- 需要验证跨语言数据转换的正确性
+- **数据流**：
+  ```
+  Python层: (scopeid, bool, bool, int)
+      ↓
+  C++层: std::vector<int64_t>
+      ↓ 类型转换
+  Pass层: bool值
+  ```
+
+- **技术限制**：
+  - ConfigManager当前只支持`std::vector<int64_t>`，不支持bool数组
+  - JSON schema定义`type: "array"`配合`items: {"type": "integer"}`
 
 **解决计划**：
-1. ✅ 用户已确认设计：使用 `[-1, 0, 0, -1]` 格式是合理的
-2. 验证 Python 层正确接收配置值
-3. 验证 C++ 层正确解析配置值
+1. ✅ 用户已确认设计：Python侧保持bool，C++侧使用int（权宜之计）
+2. ✅ 已在文档中明确说明设计理念
+3. ✅ 已实现Python层的bool类型校验
+4. ✅ 已实现C++层的int到bool转换（`!= 0`判断）
 
-**优先级**：P3（需用户确认）
+**未来优化方向**：
+1. 扩展ConfigManager支持bool数组的配置和读取
+2. 在配置层直接使用bool类型，消除转换开销
+
+**优先级**：P3（需用户确认）→ ✅ 已确认并文档化
 
 ---
 
@@ -139,9 +160,10 @@ syntax error while parsing object key - unexpected '}'; expected string literal
 
 ---
 
-### 问题8：测试用例执行状态 🟢 P4
+### 问题8：测试用例执行状态 🟡 P4
 
 **C++ 测试**：
+- ✅ TestScopeId - 通过
 - ✅ TestAllowParallelMergeTrue - 通过
 - ✅ TestAllowParallelMergeFalse - 通过
 - ✅ TestAllowCrossScopeMergeTrue - 通过
@@ -149,10 +171,17 @@ syntax error while parsing object key - unexpected '}'; expected string literal
 - ✅ TestCombinedScopeSwitches - 通过
 
 **Python 测试**：
-- ❌ test_sg_set_scope_new_format - 无法运行（问题5）
+- ✅ test_print_options - 通过
+- ✅ test_pass_option - 通过（已修复）
+- ✅ test_host_option - 通过
+- ✅ test_reset_option - 通过
+- ✅ test_operation_option - 通过
+- ✅ test_global_option - 通过
+- ✅ test_option_map - 通过
+- ✅ test_sg_set_scope_new_format - 通过
 
 **测试覆盖不足**：
-- 缺少 mixId 的测试用例
+- 缺少 mixId 的专门测试用例（虽然在新格式测试中有覆盖）
 - 缺少向后兼容性的端到端测试
 - 缺少错误处理的测试（无效参数、类型错误等）
 
@@ -287,10 +316,17 @@ syntax error while parsing object key - unexpected '}'; expected string literal
 - ✅ TestAllowCrossScopeMergeFalse (2 ms)
 
 ### Python 单元测试
-- ❌ test_config_options.py - 无法运行（问题5）
+- ✅ test_config_options.py::test_print_options - 通过
+- ✅ test_config_options.py::test_pass_option - 通过（已修复）
+- ✅ test_config_options.py::test_host_option - 通过
+- ✅ test_config_options.py::test_reset_option - 通过
+- ✅ test_config_options.py::test_operation_option - 通过
+- ✅ test_config_options.py::test_global_option - 通过
+- ✅ test_config_options.py::test_option_map - 通过
+- ✅ test_config_options.py::test_sg_set_scope_new_format - 通过
 
 ### 端到端功能测试
-- ❌ 未执行（等待问题5解决）
+- ❌ 未执行（待进行）
 
 ---
 
@@ -316,7 +352,7 @@ syntax error while parsing object key - unexpected '}'; expected string literal
 
 | 优先级 | 问题 | 影响 | 阻塞 | 状态 |
 |--------|------|------|------|------|
-| P0 | 问题5: Python 测试失败 | 无法验证 Python 接口 | ✅ 是 | 🔴 待解决 |
+| P0 | 问题5: Python 测试失败 | 无法验证 Python 接口 | ✅ 是 | ✅ 已解决 |
 | P1 | 问题7: 功能完整性验证 | 不确定功能是否正常工作 | ⚠️ 部分 | 🟡 待解决 |
 | P2 | 问题9: 文档更新 | 用户无法正确使用新功能 | ❌ 否 | 🟡 待解决 |
 | P3 | 问题6: 配置格式 | 需要用户确认设计意图 | ❌ 否 | 🟢 已确认 |
@@ -327,7 +363,7 @@ syntax error while parsing object key - unexpected '}'; expected string literal
 
 ## 下一步行动
 
-1. **立即行动**：解决问题5（Python 测试失败）
+1. ✅ **立即行动**：解决问题5（Python 测试失败）- 已完成
 2. **短期行动**：解决问题7（功能完整性验证）
 3. **中期行动**：解决问题9（文档更新）
 4. **长期行动**：解决问题8（测试补充）和问题10（代码质量）
