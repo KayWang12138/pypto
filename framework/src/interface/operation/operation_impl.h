@@ -119,7 +119,7 @@ struct MatmulGraphNodes {
     LogicalTensorPtr bTensorPtr = nullptr;
     LogicalTensorPtr bScaleTensorPtr = nullptr;
     LogicalTensorPtr gmAccumulationTensorPtr = nullptr;
-    LogicalTensorPtr biasTensorPtr = nullptr; 
+    LogicalTensorPtr biasTensorPtr = nullptr;
     LogicalTensorPtr scaleTensorPtr = nullptr;
     LogicalTensorPtr cL0PartialSumPtr = nullptr;
     LogicalTensorPtr outTensorPtr = nullptr;
@@ -246,7 +246,7 @@ public:
     static const std::string dilationW;
     static const std::string paddingLeft;
     static const std::string paddingRight;
-    static const std::string paddingTop; 
+    static const std::string paddingTop;
     static const std::string paddingBottom;
     static const std::string padValue;
 };
