@@ -269,7 +269,7 @@ Tensor Sort32(const Tensor &self, int idxStart = 0);
 Tensor MrgSort(const Tensor &self, int mergeSize);
 
 // support float32 -> int8/uint8
-Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints);
+Tensor Quantize(const Tensor &input, const Tensor &scale, DataType dtype, int axis, const Tensor &zeroPoints);
 // TODO: DeQuantize
 
 /**
