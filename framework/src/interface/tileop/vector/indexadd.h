@@ -258,6 +258,32 @@ TILEOP void TIndexAddUB(T0 dst, T1 src0, T2 src1, T3 src2, T4 tempTensor, Scalar
     }
 }
 
+template <typename T, bool isAtomicAdd>
+TILEOP void SetGlobalValue(__gm__ T *gmAddr, T value) {
+    if constexpr (isAtomicAdd) {
+        static_assert(Std::is_same_v<T, float> || Std::is_same_v<T, half> || Std::is_same_v<T, int32_t> ||
+                      Std::is_same_v<T, int16_t> || Std::is_same_v<T, int8_t>);
+        if constexpr (Std::is_same_v<T, half>) {
+            set_st_atomic_cfg(ATOMIC_F16, ATOMIC_SUM);
+        } else if constexpr (Std::is_same_v<T, int32_t>) {
+            set_st_atomic_cfg(ATOMIC_S32, ATOMIC_SUM);
+        } else if constexpr (Std::is_same_v<T, int16_t>) {
+            set_st_atomic_cfg(ATOMIC_S16, ATOMIC_SUM);
+        } else if constexpr (Std::is_same_v<T, int8_t>) {
+            set_st_atomic_cfg(ATOMIC_S8, ATOMIC_SUM);
+        } else {
+            set_st_atomic_cfg(ATOMIC_F32, ATOMIC_SUM);
+        }
+        dcci((__gm__ T *)gmAddr, 0);
+        st_atomic(value, (__gm__ T *)gmAddr);
+        dcci((__gm__ T *)gmAddr, 0);
+    } else {
+        dcci((__gm__ T *)gmAddr, 0);
+        *gmAddr = value;
+        dcci((__gm__ T *)gmAddr, 0);
+    }
+}
+
 template <typename T0, typename T2, typename dstTileDefine, typename tmpTileDefine, typename src1TileDefine,
     typename Scalar>
 TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstGlobal, tmpTileDefine tmpTile, src1TileDefine src1Tile,
@@ -326,30 +352,19 @@ TILEOP void IndexAddLastAxisCompute(__gm__ typename T0::Type *dstAddr, __ubuf__ 
                     for (LoopVar idx = 0; idx < src1Shapes[4]; ++idx) {
                         dstOffset = i * dstStrides[0] + j * dstStrides[1] + k * dstStrides[2] + l * dstStrides[3] + idxAddr[idx];
                         src1Offset = i * src1Strides[0] + j * src1Strides[1] + k * src1Strides[2] + l * src1Strides[3] + idx;
-                        if constexpr (Std::is_same_v<Scalar, half>) {
-                            float addResult =
-                                static_cast<float>(dstAddr[dstOffset]) + static_cast<float>(src1Addr[src1Offset]);
-                            if (abs(static_cast<float>(alpha) - 1) < TileOp::EPSILON &&
-                                Std::is_same_v<typename T3::Type, int64_t>) {
-                                dstAddr[dstOffset] = addResult; // 不需要转换
-                            } else {
-                                dstAddr[dstOffset] = static_cast<half>(addResult);
-                            }
-                        } else if constexpr (Std::is_same_v<Scalar, bfloat16_t>) {
-                            if (abs(static_cast<float>(alpha) - 1) < TileOp::EPSILON &&
-                                Std::is_same_v<typename T3::Type, int64_t>) {
-                                float addResult =
-                                    static_cast<float>(dstAddr[dstOffset]) + static_cast<float>(src1Addr[src1Offset]);
-                                dstAddr[dstOffset] = addResult; // 不需要转换
-                            } else {
-                                float addResult =
+                        if constexpr (Std::is_same_v<Scalar, bfloat16_t>) { // bf16
+                            if (abs(static_cast<float>(alpha) - 1) > TileOp::EPSILON ||
+                                Std::is_same_v<typename T3::Type, int32_t>) {
+                                float addResult = // TODO: dstAddr[dstOffset]是否正确读取
                                     TileOp::Bf16ToFp32(dstAddr[dstOffset]) + TileOp::Bf16ToFp32(src1Addr[src1Offset]);
-                                dstAddr[dstOffset] = TileOp::Fp32ToBf16R(addResult);
+                                bfloat16_t addResultBF16 = TileOp::Fp32ToBf16R(addResult);
+                                SetGlobalValue<bfloat16_t, false>(dstAddr + dstOffset, addResultBF16);
+                            } else {
+                                SetGlobalValue<float, true>(dstAddr + dstOffset, src1Addr[src1Offset]);
                             }
-                        } else { // int8,int16,int32,float32
-                            Scalar addResult =
-                                static_cast<Scalar>(dstAddr[dstOffset]) + static_cast<Scalar>(src1Addr[src1Offset]);
-                            dstAddr[dstOffset] = static_cast<typename T0::Type>(addResult);
+                            
+                        } else { // int8,int16,int32,float32,half
+                            SetGlobalValue<typename T2::Type, true>(dstAddr + dstOffset, src1Addr[src1Offset]);
                         }
                     }
                 }
