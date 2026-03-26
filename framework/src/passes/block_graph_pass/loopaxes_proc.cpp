@@ -64,14 +64,14 @@ bool NeedClearStatus(const Operation &op) {
         return true;
     }
 
-    if (SUPPORT_BRCINLINE_TMP.find(opCode) != SUPPORT_BRCINLINE_TMP.end()) {
+    if (SUPPORT_BRCINLINE.find(opCode) != SUPPORT_BRCINLINE.end()) {
         for (const auto& oper : op.GetIOperands()) {
-            for (int64_t s : oper->GetRawTensor()->GetRawShape()) {
-                if (s == 1) {
-                    return true;
-                }
-                
+            auto rawShape = oper->GetRawTensor()->GetRawShape();
+            bool hasOneAxis = std::find(rawShape.begin(), rawShape.end(), 1) != rawShape.end();
+            if (hasOneAxis) {
+                return true;
             }
+                                
         }
     }
 
