@@ -924,9 +924,9 @@ std::string CodeGenOpLiteNPU::PrintCompact(const PrintUnaryTmpBuffParam &param) 
 
 std::string CodeGenOpLiteNPU::GenUnaryOpWithTmpBuff() const {
     // In this scenario, frontend set tmp buffer in output to optimize ooo schedule result.
-    std::string s0Var = sm->QueryVarNameByTensorMagic(ID2);
-    std::string tmpVar = sm->QueryVarNameByTensorMagic(ID1);
-    std::string dVar = sm->QueryVarNameByTensorMagic(ID0);
+    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+    std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
     std::vector srcShape = this->rawShape[2];
     ALOG_INFO_F("GenUnaryOpWithTmpBuff %s src raw shape: %s", tileOpName.c_str(), IntVecToStr(srcShape).c_str());
@@ -1268,8 +1268,8 @@ std::string CodeGenOpLiteNPU::GenBinaryOp() const
         return std::string(buffer);
     }
 
-    std::string s0Var = sm->QueryVarNameByTensorMagic(ID1);
-    std::string dVar = sm->QueryVarNameByTensorMagic(ID0);
+    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
     std::vector src0RawShape = this->rawShape[ID1];
     std::vector src1RawShape = this->rawShape[ID2];
@@ -1290,7 +1290,7 @@ std::string CodeGenOpLiteNPU::GenBinaryOp() const
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
 
-    std::string s1Var = sm->QueryVarNameByTensorMagic(ID2);
+    std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
     //AppendLocalBufferVarOffset({&dVar, &s0Var, &s1Var}, {0, 1, 2});
     std::map<unsigned, std::reference_wrapper<std::string>> vars;
     vars.insert({static_cast<unsigned>(0), std::ref(dVar)});
