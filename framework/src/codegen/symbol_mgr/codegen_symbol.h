@@ -51,6 +51,12 @@ inline std::string GetLayoutType(BufferType bufType, int dim, bool isConst = fal
     return ss.str();
 }
 
+struct TileTensor;
+
+struct TileTensorHash {
+    std::size_t operator()(const TileTensor &t) const noexcept;
+};
+
 // e.g.
 // UBTileTensorFP32Dim2 ubTile_0((__ubuf__ float*)UB_S0_E16384, DimLayout2(Shape<int, int>(sym_18_dim_0, sym_18_dim_1),
 // Stride<int, int>(64, 1)));
@@ -68,6 +74,9 @@ struct TileTensor {
     std::vector<int64_t> rawShape;
     std::vector<int64_t> localBufOffset;
     ShapeInLoop shapeInLoop;
+    std::size_t hash{0}; // unique identifier hash code
+
+    void ComputeHash() noexcept { hash = TileTensorHash{}(*this); }
 
     bool operator==(const TileTensor &other) const {
         return dim == other.dim && bufVar == other.bufVar && shape == other.shape && dtype == other.dtype &&
@@ -136,25 +145,6 @@ private:
     }
     std::string GenShapeParam() const { return GenLayoutParam("Shape", shape); }
     std::string GenStrideParam() const { return GenLayoutParam("Stride", stride); }
-};
-
-struct TileTensorHash {
-    std::size_t operator()(const TileTensor &t) const noexcept {
-        std::size_t seed = 0;
-        HashCombine(seed, t.dim);
-        HashCombine(seed, t.bufVar);
-        HashCombine(seed, ToUnderlying(t.dtype));
-        for (const auto &s : t.shape) {
-            HashCombine(seed, s);
-        }
-        for (const auto &s : t.rawShape) {
-            HashCombine(seed, s);
-        }
-        for (const auto &s : t.localBufOffset) {
-            HashCombine(seed, s);
-        }
-        return seed;
-    };
 };
 
 struct TileTensorUsing {
@@ -250,6 +240,8 @@ public:
     const TileTensor &QueryTileTensorByBufVar(const std::string &bufVarName);
     std::string QueryTileTensorNameByBufVar(const std::string &bufVarName);
     std::string QueryTileTensorTypeByBufVar(const std::string &bufVarName);
+    const TileTensor &QueryTileTensorByHash(size_t hash);
+    std::string QueryTileTensorNameByHash(size_t hash);
 
     std::string GenUsingList();
     std::string GenTileTensorDefList();
@@ -273,6 +265,8 @@ private:
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> tensorMap_;
     // <TileTensor, tensorName>
     std::unordered_map<TileTensor, std::string, TileTensorHash> tileTensor_;
+    // <TileTensor hash, TileTensor>
+    std::unordered_map<std::size_t, TileTensor> hash2TileTensor_;
     // When use forcing axis merging feature under TileTensor mode,
     // we may encounter a situation where Tensors with the same magic ID have different Shapes.
     // <tensor magic, TileTensor>
