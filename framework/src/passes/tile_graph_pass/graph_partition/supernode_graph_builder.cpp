@@ -611,14 +611,29 @@ inline void UpdateScopeId(std::vector<Operation*> &opList) {
         if (targetScope == DEFAULT_SCOPE_ID) {
             continue;
         }
-        for (auto &consumer : opList[i]->ConsumerOps()) {
-            if (consumer->GetScopeId() == -1 && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                consumer->SetScopeId(targetScope);
+        bool allowParallelMerge = opList[i]->GetAllowParallelMerge();
+
+        if (allowParallelMerge) {
+            for (auto &consumer : opList[i]->ConsumerOps()) {
+                if (consumer->GetScopeId() == -1 && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                    consumer->SetScopeInfo(opList[i]->scopeInfo_);
+                }
             }
-        }
-        for (auto &producer : opList[i]->ProducerOps()) {
-            if (producer->GetScopeId() == -1 && producer->GetOpcode() == Opcode::OP_VIEW) {
-                producer->SetScopeId(targetScope);
+            for (auto &producer : opList[i]->ProducerOps()) {
+                if (producer->GetScopeId() == -1 && producer->GetOpcode() == Opcode::OP_VIEW) {
+                    producer->SetScopeInfo(opList[i]->scopeInfo_);
+                }
+            }
+        } else {
+            for (auto &consumer : opList[i]->ConsumerOps()) {
+                if (consumer->GetScopeId() == -1 && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                    consumer->SetScopeId(targetScope);
+                }
+            }
+            for (auto &producer : opList[i]->ProducerOps()) {
+                if (producer->GetScopeId() == -1 && producer->GetOpcode() == Opcode::OP_VIEW) {
+                    producer->SetScopeId(targetScope);
+                }
             }
         }
     }
@@ -638,9 +653,29 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
         if (targetScope == -1) {
             continue;
         }
-        for (auto outputNode : operationInfo_->outGraph_[i]) {
-            if (opList[outputNode]->GetScopeId() == targetScope) {
-                mergePair.emplace_back(outputNode, i);
+        bool allowParallelMerge = opList[i]->GetAllowParallelMerge();
+
+        if (allowParallelMerge) {
+            std::vector<int32_t> sameScopeOps;
+            for (size_t j = 0; j < opList.size(); j++) {
+                if (opList[j]->GetScopeId() == targetScope) {
+                    sameScopeOps.push_back(j);
+                }
+            }
+
+            if (sameScopeOps.size() > 1) {
+                for (size_t k = 1; k < sameScopeOps.size(); k++) {
+                    mergePair.emplace_back(sameScopeOps[k], sameScopeOps[0]);
+                    APASS_LOG_DEBUG_F(Elements::Operation, "Merge parallel ops %d and %d (scope=%d) due to allowParallelMerge",
+                        opList[sameScopeOps[k]]->GetOpMagic(),
+                        opList[sameScopeOps[0]]->GetOpMagic(), targetScope);
+                }
+            }
+        } else {
+            for (auto outputNode : operationInfo_->outGraph_[i]) {
+                if (opList[outputNode]->GetScopeId() == targetScope) {
+                    mergePair.emplace_back(outputNode, i);
+                }
             }
         }
     }
