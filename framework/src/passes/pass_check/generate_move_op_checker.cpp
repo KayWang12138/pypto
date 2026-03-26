@@ -126,7 +126,8 @@ bool GenerateMoveOpChecker::CheckViewOutTensorMemType(const Operation &op) const
     auto consumerOps = op.oOperand[0]->GetConsumers();
     for (auto childOp : consumerOps) {
         if (childOp == nullptr) {
-            APASS_LOG_ERROR_C(OperationErr::OP_PRODUCER_CONSUMER, Elements::Operation, "View op [%d] output has null consumers.", op.GetOpMagic());
+            APASS_LOG_ERROR_C(OperationErr::OP_PRODUCER_CONSUMER, Elements::Operation,
+                "View op [%d] output has null consumers.", op.GetOpMagic());
             return false;
         }
         auto opcode = childOp->GetOpcode();
@@ -203,11 +204,13 @@ bool GenerateMoveOpChecker::ValidConvertOp(const Operation &op) const {
         return false;
     }
     if (op.GetIOperands().front() == nullptr) {
-        APASS_LOG_ERROR_C(OperationErr::OP_NULL_POINTER, Elements::Operation, "Convert op [%d] check failed : Input is null.", op.GetOpMagic());
+        APASS_LOG_ERROR_C(OperationErr::OP_NULL_POINTER, Elements::Operation,
+            "Convert op [%d] check failed : Input is null.", op.GetOpMagic());
         return false;
     }
     if (op.GetOOperands().front() == nullptr) {
-        APASS_LOG_ERROR_C(OperationErr::OP_NULL_POINTER, Elements::Operation, "Convert op [%d] check failed : Output is null.", op.GetOpMagic());
+        APASS_LOG_ERROR_C(OperationErr::OP_NULL_POINTER, Elements::Operation,
+            "Convert op [%d] check failed : Output is null.", op.GetOpMagic());
         return false;
     }
     auto inputMemType = op.GetIOperands().front()->GetMemoryTypeOriginal();
