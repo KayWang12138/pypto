@@ -517,6 +517,7 @@ Status ReplaceTensor::BackwardAssemble(Operation *op, LogicalTensorPtr &rootTens
         for (auto &consumer : op->GetIOperands()[0]->GetConsumers()) {
             if (IsCopyIn(consumer->GetOpcode())) {
                 if (UpdateCopyInAttr(consumer) == FAILED) {
+                    APASS_LOG_ERROR_F(Elements::Operation, "Update copyIn[%d] attr failed.", consumer->GetOpMagic());
                     return FAILED;
                 }
             }
@@ -1075,7 +1076,7 @@ std::vector<OpImmediate> ReplaceTensor::SumOffsetForCopyIn(const std::vector<OpI
 
 Status ReplaceTensor::UpdateCopyInAttr(Operation *copyInOp) {
     auto input = copyInOp->GetIOperands()[0];
-    auto copyInOpAttr = std::static_pointer_cast<CopyOpAttribute>(copyInOp->GetOpAttribute());
+    auto copyInOpAttr = std::dynamic_pointer_cast<CopyOpAttribute>(copyInOp->GetOpAttribute());
     if (copyInOpAttr == nullptr) {
         APASS_LOG_ERROR_F(Elements::Tensor, "CopyInOp[%d] don not have attr.", copyInOp->GetOpMagic());
         return FAILED;
