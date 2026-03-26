@@ -128,12 +128,12 @@ private:
     void BuildIncludes(std::ostringstream &oss) const;
     void BuildExtraOptions(std::ostringstream &oss, const std::string &compileOptions) const;
 
+    std::string GetPtoTileLibPathByEnv() const;
+
     std::string GenAlloc(const std::shared_ptr<SymbolManager> &sm, BufferType bufferType, DataType dataType, const TileRange &range) const;
 
     bool IsCube(const OperationsViewer &operationList) const;
     std::string GetParamType(const Function &func) const;
-
-    std::string GenDynParamForExpr(const npu::tile_fwk::Function &func) const;
 
     bool HandleForAICpuSubFunc(Function &subFunc);
 
