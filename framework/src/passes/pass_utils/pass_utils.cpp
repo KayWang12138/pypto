@@ -869,7 +869,7 @@ void SubfuncTopologyInfoTy::LoadJson(const Json &topoJson)
 std::unordered_map<MemoryType, int64_t> CommonUtils::GetLocalMemorySize() {
     std::unordered_map<MemoryType, int64_t> localMemorySize;
     auto &die = Platform::Instance().GetDie();
-
+    
     localMemorySize[MemoryType::MEM_UB] = die.GetMemoryLimit(MemoryType::MEM_UB);
     localMemorySize[MemoryType::MEM_L1] = die.GetMemoryLimit(MemoryType::MEM_L1);
     localMemorySize[MemoryType::MEM_L0A] = die.GetMemoryLimit(MemoryType::MEM_L0A);
