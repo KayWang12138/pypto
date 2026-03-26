@@ -20,6 +20,7 @@
 #include "tilefwk/error.h"
 #include "securec.h"
 #include "calc_error.h"
+#include "communication.h"
 
 namespace npu::tile_fwk {
 
@@ -2034,6 +2035,55 @@ static void Scatter(const TensorData &out, const TensorData &self, const TensorD
     }
 }
 
+static void Bind(const TensorData &out, uint64_t groupIndex, uint64_t memType, uint64_t slotSize) {
+    (void) out;
+    (void) groupIndex;
+    auto &comm = CommManager::getInstance();
+    std::string groupName = "";
+    int rank = 0;
+    int worldSize = 0;
+    // TODO: 并非根据 memType 来分配
+    if (memType == 1) {
+        comm.InitControl(groupName, rank, worldSize);
+    }
+    if (memType == 0) {
+        comm.InitData(groupName, (size_t) slotSize);
+    }
+}
+
+static void Put(const TensorData &t, int dstRank) {
+    auto tensor = From(t);
+    CommManager::getInstance().Put(tensor.second, dstRank);
+}
+
+static void WaitUntil(int srcRank) {
+    CommManager::getInstance().Wait(srcRank);
+}
+
+static void Signal(int dstRank) {
+    CommManager::getInstance().Signal(dstRank);
+}
+
+torch::ScalarType GetTorchDataType(DataType dtype) {
+    switch (dtype) {
+        case DT_INT8: return torch::kChar;
+        // TODO: default action
+        default: return torch::kChar;
+    }
+}
+
+static void Get(const TensorData &out, int srcRank) {
+    auto outView = From(out);
+    torch::ScalarType datatype = GetTorchDataType(out.dtype);
+    auto tensor = CommManager::getInstance().Get(srcRank, out.shape, datatype);
+    outView.second = tensor;
+    ToOperand(outView.second, outView.first, out.dtype);
+}
+
+static void Set(int dstRank) {
+    (void) dstRank;
+}
+
 static struct CalcOps calcOps = {
     .Random = Random,
     .AllClose = AllClose,
@@ -2155,6 +2205,12 @@ static struct CalcOps calcOps = {
     .BitwiseLeftShiftS = BitwiseLeftShiftS,
     .SBitwiseRightShift = SBitwiseRightShift,
     .SBitwiseLeftShift = SBitwiseLeftShift,
+    .BindTensor = Bind,
+    .Put = Put,
+    .Get = Get,
+    .WaitUntil = WaitUntil,
+    .Signal = Signal,
+    .Set = Set,
 };
 
 extern "C" struct CalcOps *GetCalcOps() {
