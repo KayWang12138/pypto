@@ -199,7 +199,107 @@ python/tests/ut/interface/test_config_options.py::test_sg_set_scope_new_format P
 
 ---
 
-### 问题9：文档更新 🟡 P2
+### 问题9：ExpandFunction 展开丢失 ScopeInfo 开关配置 🔴 P0
+
+**问题描述**：
+- `expand_function.cpp` 的 `ExpandOperation` 方法（第164-177行）只读取 `scopeId`
+- 完全丢弃了 `allowParallelMerge`、`allowCrossScopeMerge`、`mixId` 三个开关
+- 导致经过 ExpandFunction 展开的 operation，其子操作将丢失所有开关配置
+
+**代码位置**：`framework/src/passes/tensor_graph_pass/expand_function.cpp:164-177`
+
+**问题代码**：
+```cpp
+Status ExpandFunction::ExpandOperation(Function &function, Operation &op) const{
+    int scopeIdx = op.GetScopeId();  // ❌ 只读 scopeId，丢失开关信息
+    // ...
+    config::SetPassOption(SG_SET_SCOPE, scopeIdx);  // ❌ 设置 int，但下游读取 vector<int64_t>
+    ExpandOperationInto(function, op.GetTileShape(), op.GetOpcode(), op.GetIOperands(), op.GetOOperands(), op);
+    config::SetPassOption(SG_SET_SCOPE, -1);  // ❌ 同上，int vs vector
+    return SUCCESS;
+}
+```
+
+**根本原因**：
+1. **ScopeInfo 丢失**：增强方案将 `ScopeInfo` 从单个 `int` 扩展为 4 字段结构体，但 `ExpandOperation` **只读取了 `scopeId`**，完全丢弃了开关信息
+2. **类型不匹配**：
+   - 第173行：`config::SetPassOption(SG_SET_SCOPE, scopeIdx)` 设置的是 `int`
+   - `function.cpp:1492` 读取的是 `config::GetPassOption<std::vector<int64_t>>(SG_SET_SCOPE)`
+   - 这是一个类型冲突，`SG_SET_SCOPE` 的默认值是 `[-1, 0, 0, -1]`（vector），但 `ExpandOperation` 试图用 `int` 去覆盖它
+
+**影响链路**：
+```
+原始 operation (ScopeInfo 完整)
+    │
+    ▼ ExpandOperation()
+    │ 只读 scopeId，丢弃开关
+    │ SetPassOption(int) ← 类型不匹配
+    │
+    ▼ ExpandOperationInto() 内部
+    │ function.AddRawOperation() → GetPassOption<vector<int64_t>>
+    │ 读到的值可能是：空的/旧值/转换失败的值
+    │
+    ▼ 展开后的子 operation
+    │ ScopeInfo 丢失或不正确
+    │
+    ▼ 后续合图阶段
+    │ allowParallelMerge=False (默认值)
+    │ allowCrossScopeMerge=False (默认值)
+    │ 即使用户显式设置为 True，也会被覆盖
+```
+
+**严重性**：
+- **功能性 Bug**：经过展开的 operation，用户设置的 `allowParallelMerge` 和 `allowCrossScopeMerge` 开关会被静默丢弃，回退为默认值 `False`
+- **影响范围**：所有经过 ExpandFunction 展开的 operation（包括大部分复合 operation）
+- **隐蔽性**：用户不会收到任何错误或警告，只是功能不生效
+
+**解决建议**：
+修改 `ExpandOperation` 方法，传递完整的 `ScopeInfo`：
+
+```cpp
+Status ExpandFunction::ExpandOperation(Function &function, Operation &op) const{
+    int scopeIdx = op.GetScopeId();
+    if (scopeIdx >= 0) {
+        // CV 检查逻辑保持不变
+        scopeMap_[scopeIdx].insert(op.GetCoreType());
+        if (!GraphUtils::IsCVMixPlatform() &&
+            scopeMap_[scopeIdx].find(CoreType::AIC) != scopeMap_[scopeIdx].end() &&
+            scopeMap_[scopeIdx].find(CoreType::AIV) != scopeMap_[scopeIdx].end()) {
+            APASS_LOG_ERROR_F(Elements::Function,
+                "Cannot mix cube and vector op on a CV seperate platform in function: %s, please check your setting: sg_set_scope=%d",
+                function.GetRawName().c_str(), scopeIdx);
+            return FAILED;
+        }
+    }
+
+    // ✅ 修复：传递完整的 ScopeInfo
+    const auto &info = op.scopeInfo_;
+    std::vector<int64_t> scopeVec = {
+        static_cast<int64_t>(info.scopeId),
+        static_cast<int64_t>(info.allowParallelMerge),
+        static_cast<int64_t>(info.allowCrossScopeMerge),
+        static_cast<int64_t>(info.mixId)
+    };
+    config::SetPassOption(SG_SET_SCOPE, scopeVec);
+    ExpandOperationInto(function, op.GetTileShape(), op.GetOpcode(), op.GetIOperands(), op.GetOOperands(), op);
+
+    // ✅ 修复：重置为默认 vector 值
+    config::SetPassOption(SG_SET_SCOPE, std::vector<int64_t>{-1, 0, 0, -1});
+    return SUCCESS;
+}
+```
+
+**验证方法**：
+1. 创建一个需要展开的 operation（如 OP_ADDS、OP_MULS 等）
+2. 设置 `allowParallelMerge=True` 和 `allowCrossScopeMerge=True`
+3. 展开后，检查子 operation 的 `GetAllowParallelMerge()` 和 `GetAllowCrossScopeMerge()` 是否为 `True`
+4. 如果为 `False`，说明修复失败
+
+**优先级**：P0（阻塞 - 核心功能失效）
+
+---
+
+### 问题10：文档更新 🟡 P2
 
 **缺失的文档**：
 
@@ -235,7 +335,7 @@ python/tests/ut/interface/test_config_options.py::test_sg_set_scope_new_format P
 
 ---
 
-### 问题10：代码质量检查 🟢 P5
+### 问题11：代码质量检查 🟢 P5
 
 **需要检查的点**：
 - 代码风格一致性
@@ -262,13 +362,21 @@ python/tests/ut/interface/test_config_options.py::test_sg_set_scope_new_format P
 
 ### 阶段1：修复阻塞问题（P0）
 
-1. **解决问题5：Python 测试运行失败**
+1. **解决问题5：Python 测试运行失败** ✅ 已解决
    - 步骤1：检查已安装的配置文件内容
    - 步骤2：对比源文件和已安装文件的差异
    - 步骤3：定位 JSON 解析错误的根本原因
    - 步骤4：修复问题
    - 步骤5：重新编译和安装
    - 步骤6：验证 Python 测试可以运行
+
+2. **解决问题9：ExpandFunction 展开丢失 ScopeInfo 开关配置**
+   - 步骤1：修改 `ExpandOperation` 方法，读取完整的 `ScopeInfo`
+   - 步骤2：将 `ScopeInfo` 转换为 `std::vector<int64_t>`
+   - 步骤3：使用 `SetPassOption` 设置完整的 vector 配置
+   - 步骤4：修改重置逻辑，使用 vector 默认值
+   - 步骤5：编写测试用例验证修复
+   - 步骤6：验证展开后的 operation 保留开关配置
 
 ### 阶段2：功能验证（P1）
 
@@ -346,6 +454,12 @@ python/tests/ut/interface/test_config_options.py::test_sg_set_scope_new_format P
 9. ✅ `framework/tests/ut/passes/src/test_graph_partition.cpp` (第764-938行，添加测试用例)
 10. ✅ `python/tests/ut/interface/test_config_options.py` (第89-116行，添加测试用例)
 
+### 待修复的文件（关键问题）
+11. 🔴 `framework/src/passes/tensor_graph_pass/expand_function.cpp` (第164-177行，**需要修复 ExpandOperation 方法**)
+    - 问题：只读取 scopeId，丢失开关配置
+    - 问题：类型不匹配（int vs vector<int64_t>）
+    - 影响：展开后的 operation 丢失所有开关配置，回退为默认值 False
+
 ---
 
 ## 问题优先级总结
@@ -353,22 +467,26 @@ python/tests/ut/interface/test_config_options.py::test_sg_set_scope_new_format P
 | 优先级 | 问题 | 影响 | 阻塞 | 状态 |
 |--------|------|------|------|------|
 | P0 | 问题5: Python 测试失败 | 无法验证 Python 接口 | ✅ 是 | ✅ 已解决 |
+| P0 | 问题9: ExpandFunction 展开丢失 ScopeInfo | 核心功能失效，开关配置丢失 | ✅ 是 | 🔴 待解决 |
 | P1 | 问题7: 功能完整性验证 | 不确定功能是否正常工作 | ⚠️ 部分 | 🟡 待解决 |
-| P2 | 问题9: 文档更新 | 用户无法正确使用新功能 | ❌ 否 | 🟡 待解决 |
+| P2 | 问题10: 文档更新 | 用户无法正确使用新功能 | ❌ 否 | 🟡 待解决 |
 | P3 | 问题6: 配置格式 | 需要用户确认设计意图 | ❌ 否 | 🟢 已确认 |
 | P4 | 问题8: 测试覆盖 | 需要补充测试用例 | ❌ 否 | 🟡 待解决 |
-| P5 | 问题10: 代码质量 | 提升代码质量 | ❌ 否 | 🟢 可选 |
+| P5 | 问题11: 代码质量 | 提升代码质量 | ❌ 否 | 🟢 可选 |
 
 ---
 
 ## 下一步行动
 
-1. ✅ **立即行动**：解决问题5（Python 测试失败）- 已完成
+1. ✅ **立即行动**：
+   - ✅ 解决问题5（Python 测试失败）- 已完成
+   - 🔴 解决问题9（ExpandFunction 展开丢失 ScopeInfo）- **最高优先级，核心功能失效**
 2. **短期行动**：解决问题7（功能完整性验证）
-3. **中期行动**：解决问题9（文档更新）
-4. **长期行动**：解决问题8（测试补充）和问题10（代码质量）
+3. **中期行动**：解决问题10（文档更新）
+4. **长期行动**：解决问题8（测试补充）和问题11（代码质量）
 
 ---
 
 **更新时间**：2026-03-26
 **更新人**：AI Assistant
+**最后更新**：2026-03-26（添加问题9：ExpandFunction 展开 ScopeInfo 丢失）
