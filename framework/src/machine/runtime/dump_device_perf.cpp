@@ -94,6 +94,13 @@ void DumpAicoreTaskExectInfo(DeviceArgs &args, const std::vector<void *> &perfDa
                 npu::tile_fwk::config::GetAbsoluteTopFolder() + "/merged_swimlane.json");
     uint64_t freq = (args.archInfo == ArchInfo::DAV_2201) ? FREQ_DAV_2201 : FREQ_DAV_3510;
 
+    std::string machinePerfTracePyPath = GetCurrentSharedLibPath() + "/scripts/machine_perf_trace.py";
+    std::string l1SummaryCmd = "python3 \"" + machinePerfTracePyPath + "\" analyze_aicore_summary \"" + jsonFilePath
+                               + "\" " + std::to_string(freq);
+    if (system(l1SummaryCmd.c_str()) != 0) {
+        MACHINE_LOGW("Failed to execute machine_perf_trace.py analyze_aicore_summary.");
+    }
+    
     if (FileExist(program_json_path) && FileExist(topo_txt_path)) {
         MACHINE_LOGI("The files program.json and dyn_topo.txt exist. Start merging the swimlane.");
         std::string command = "python3 "+ draw_swim_lane_py_path + " \""
