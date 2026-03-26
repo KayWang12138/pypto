@@ -21,13 +21,13 @@ namespace {
 
 struct QuantizeOpFuncArgs : public OpFuncArgs {
     QuantizeOpFuncArgs(std::vector<int64_t> shape, std::vector<int64_t> vecTileShapes,
-                       DataType otype, int axis, bool useZeroPoints = false)
-        : viewShape_(shape), tileShape_(vecTileShapes), otype_(otype), axis_(axis),
+                       DataType dtype, int axis, bool useZeroPoints = false)
+        : viewShape_(shape), tileShape_(vecTileShapes), dtype_(dtype), axis_(axis),
           useZeroPoints_(useZeroPoints) {}
 
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
-    DataType otype_;
+    DataType dtype_;
     int axis_;
     bool useZeroPoints_;
 };
@@ -57,7 +57,7 @@ static void QuantizeSymmetricOperationExeFunc(
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
 
-        DataType otype = args->otype_;
+        DataType dtype = args->dtype_;
         int axis = args->axis_;
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
@@ -73,7 +73,7 @@ static void QuantizeSymmetricOperationExeFunc(
                     {bIdx * firstViewShape});
 
                 TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = Quantize(tileTensorInput, tileTensorScale, otype, axis, Tensor());
+                auto res = Quantize(tileTensorInput, tileTensorScale, dtype, axis, Tensor());
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
@@ -94,7 +94,7 @@ static void QuantizeAsymmetricOperationExeFunc(
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
 
-        DataType otype = args->otype_;
+        DataType dtype = args->dtype_;
         int axis = args->axis_;
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
@@ -115,7 +115,7 @@ static void QuantizeAsymmetricOperationExeFunc(
                     {bIdx * firstViewShape});
 
                 TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = Quantize(tileTensorInput, tileTensorScale, otype, axis, tileTensorZeroPoints);
+                auto res = Quantize(tileTensorInput, tileTensorScale, dtype, axis, tileTensorZeroPoints);
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
@@ -142,7 +142,7 @@ static void Quantize3DOperationExeFunc(
         const int sloop = CeilDiv(secondDim, secondViewShape);
         const int nloop = CeilDiv(thirdDim, thirdViewShape);
 
-        DataType otype = args->otype_;
+        DataType dtype = args->dtype_;
         int axis = args->axis_;
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
@@ -161,7 +161,7 @@ static void Quantize3DOperationExeFunc(
                         {bIdx * firstViewShape, sIdx * secondViewShape});
 
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = Quantize(tileTensorInput, tileTensorScale, otype, axis, Tensor());
+                    auto res = Quantize(tileTensorInput, tileTensorScale, dtype, axis, Tensor());
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
@@ -185,7 +185,7 @@ static void Quantize3DAsymmetricOperationExeFunc(
         const int sloop = CeilDiv(secondDim, secondViewShape);
         const int nloop = CeilDiv(thirdDim, thirdViewShape);
 
-        DataType otype = args->otype_;
+        DataType dtype = args->dtype_;
         int axis = args->axis_;
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
@@ -210,7 +210,7 @@ static void Quantize3DAsymmetricOperationExeFunc(
                         {bIdx * firstViewShape, sIdx * secondViewShape});
 
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = Quantize(tileTensorInput, tileTensorScale, otype, axis, tileTensorZeroPoints);
+                    auto res = Quantize(tileTensorInput, tileTensorScale, dtype, axis, tileTensorZeroPoints);
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
@@ -241,7 +241,7 @@ static void Quantize4DOperationExeFunc(
         const int loop2 = CeilDiv(thirdDim, thirdViewShape);
         const int loop3 = CeilDiv(fourthDim, fourthViewShape);
 
-        DataType otype = args->otype_;
+        DataType dtype = args->dtype_;
         int axis = args->axis_;
 
         LOOP("LOOP_L0", FunctionType::DYNAMIC_LOOP, idx0, LoopRange(0, loop0, 1)) {
@@ -264,7 +264,7 @@ static void Quantize4DOperationExeFunc(
                             {idx0 * firstViewShape, idx1 * secondViewShape, idx2 * thirdViewShape});
 
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = Quantize(tileTensorInput, tileTensorScale, otype, axis, Tensor());
+                        auto res = Quantize(tileTensorInput, tileTensorScale, dtype, axis, Tensor());
                         Assemble(res, {idx0 * firstViewShape, idx1 * secondViewShape, idx2 * thirdViewShape, idx3 * fourthViewShape}, outputs[0]);
                     }
                 }
@@ -292,7 +292,7 @@ static void Quantize4DAsymmetricOperationExeFunc(
         const int loop2 = CeilDiv(thirdDim, thirdViewShape);
         const int loop3 = CeilDiv(fourthDim, fourthViewShape);
 
-        DataType otype = args->otype_;
+        DataType dtype = args->dtype_;
         int axis = args->axis_;
 
         LOOP("LOOP_L0", FunctionType::DYNAMIC_LOOP, idx0, LoopRange(0, loop0, 1)) {
@@ -321,7 +321,7 @@ static void Quantize4DAsymmetricOperationExeFunc(
                             {idx0 * firstViewShape, idx1 * secondViewShape, idx2 * thirdViewShape});
 
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = Quantize(tileTensorInput, tileTensorScale, otype, axis, tileTensorOffset);
+                        auto res = Quantize(tileTensorInput, tileTensorScale, dtype, axis, tileTensorOffset);
                         Assemble(res, {idx0 * firstViewShape, idx1 * secondViewShape, idx2 * thirdViewShape, idx3 * fourthViewShape}, outputs[0]);
                     }
                 }
@@ -354,7 +354,7 @@ INSTANTIATE_TEST_SUITE_P(TestQuantize, QuantizeOperationTest,
 
 TEST_P(QuantizeOperationTest, TestQuantize) {
     auto test_data = GetParam().test_data_;
-    auto otype = static_cast<DataType>(GetValueByName<int>(test_data, "otype"));
+    auto dtype = static_cast<DataType>(GetValueByName<int>(test_data, "dtype"));
     auto axis = GetValueByName<int>(test_data, "axis");
     auto useZeroPoints = GetValueByName<bool>(test_data, "use_zero_points");
     auto viewShape = GetViewShape(test_data);
@@ -363,7 +363,7 @@ TEST_P(QuantizeOperationTest, TestQuantize) {
     // Dynamically select the appropriate execution function
     auto selectedOpFunc = SelectQuantizeOpFunc(ndim, useZeroPoints);
 
-    auto args = QuantizeOpFuncArgs(viewShape, GetTileShape(test_data), otype, axis, useZeroPoints);
+    auto args = QuantizeOpFuncArgs(viewShape, GetTileShape(test_data), dtype, axis, useZeroPoints);
 
     TestCaseDesc testCase;
     testCase.inputTensors = GetInputTensors(test_data);
