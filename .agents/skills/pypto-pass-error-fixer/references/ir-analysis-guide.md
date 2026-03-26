@@ -32,7 +32,7 @@ IR（Intermediate Representation）是PyPTO编译器在各个Pass阶段生成的
 Function {函数名}[function_magic] {hash} {函数类型} {图类型} {
   RAWTENSOR声明
   INCAST/OUTCAST声明
-  
+
   操作节点定义
 }
 ```
@@ -52,10 +52,12 @@ Function TENSOR_TENSOR_update_kernel_loop_Unroll1_PATH0_hiddenfunc0_5[5] 3116444
 - `{图类型}`: TENSOR_GRAPH 或 TILE_GRAPH
 
 **函数类型说明：**
-- `STATIC`: 静态函数
-- `DYNAMIC`: 动态函数
-- `DYNAMIC_LOOP`: 动态循环函数
-- `DYNAMIC_LOOP_PATH`: 动态循环路径函数
+- `STATIC`: 静态函数（编译时确定）
+- `DYNAMIC`: 动态函数（运行时确定shape）
+- `DYNAMIC_LOOP`: 动态循环函数（包含循环结构）
+- `DYNAMIC_LOOP_PATH`: 动态循环路径函数（循环展开后的路径）
+- `DYNAMIC_IF`: 动态条件分支函数
+- `DYNAMIC_IF_PATH`: 动态条件分支路径函数
 
 **图类型说明：**
 - `TENSOR_GRAPH`: 高层张量图，表示原始的计算逻辑，未进行tiling优化
@@ -188,8 +190,6 @@ OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@16#(-1) toSlot[3]
   - 格式：`#属性名{属性值}`
   - 例如：`#CACHE_MODE{PA_BSND} #PA_NZ_BLOCK_SIZE{1}`
 
-```
-
 #### 内存类型说明
 
 | 内存类型 | 说明 |
@@ -198,6 +198,9 @@ OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@16#(-1) toSlot[3]
 | MEM_DEVICE_DDR | 设备DDR内存 |
 | MEM_UB | Unified Buffer（统一缓冲区） |
 | MEM_L1 | L1缓存 |
+| MEM_L0A | L0A缓存（矩阵A输入） |
+| MEM_L0B | L0B缓存（矩阵B输入） |
+| MEM_L0C | L0C缓存（矩阵C输出） |
 
 #### 常见操作类型
 
@@ -206,10 +209,15 @@ OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@16#(-1) toSlot[3]
 | TILE_VIEW | 张量视图操作 |
 | TILE_COPY_IN | 从DDR拷贝到UB |
 | TILE_COPY_OUT | 从UB拷贝到DDR |
-| TILE_ADDS | 张量加法 |
+| TILE_ADDS | 张量加法（标量） |
+| TILE_ADD | 张量加法（张量） |
 | TILE_MUL | 张量乘法 |
+| TILE_MATMUL | 矩阵乘法 |
 | TILE_INDEX_OUTCAST | 索引输出操作 |
 | TILE_ASSEMBLE | 张量组装操作 |
+| TILE_RESHAPE | 张量重塑操作 |
+| TILE_TRANSPOSE | 张量转置操作 |
+| TILE_BROADCAST | 张量广播操作 |
 
 #### 分析要点
 
@@ -305,19 +313,19 @@ def check_file_completeness(ir_file):
     # 1. 检查文件头
     if not ir_file.has_valid_header():
         return False, "Invalid file header"
-    
+
     # 2. 检查RAWTENSOR索引唯一性
     rawtensor_indices = ir_file.get_rawtensor_indices()
     if len(set(rawtensor_indices)) != len(rawtensor_indices):
         return False, "Duplicate RAWTENSOR indices"
-    
+
     # 3. 检查变量定义和使用
     defined_vars = ir_file.get_defined_variables()
     used_vars = ir_file.get_used_variables()
     undefined_vars = used_vars - defined_vars
     if undefined_vars:
         return False, f"Undefined variables: {undefined_vars}"
-    
+
     return True, "File is complete"
 ```
 
@@ -589,19 +597,19 @@ INCAST[0] → %6 → TILE_VIEW → %7
 def parse_ir_file(file_path):
     """解析IR文件"""
     ir = IRFile()
-    
+
     # 1. 读取文件头
     ir.parse_header()
-    
+
     # 2. 解析RAWTENSOR
     ir.parse_rawtensors()
-    
+
     # 3. 解析INCAST/OUTCAST
     ir.parse_casts()
-    
+
     # 4. 解析操作节点
     ir.parse_operations()
-    
+
     return ir
 ```
 
@@ -616,7 +624,7 @@ def check_completeness(ir):
         check_variable_definitions(ir),
         check_operation_ids(ir),
     ]
-    
+
     return all(checks)
 ```
 
@@ -627,13 +635,13 @@ def analyze_dataflow(ir):
     """分析数据流"""
     # 1. 构建数据流图
     graph = build_dataflow_graph(ir)
-    
+
     # 2. 追踪数据路径
     paths = trace_data_paths(graph)
-    
+
     # 3. 检查数据完整性
     integrity = check_data_integrity(paths)
-    
+
     return integrity
 ```
 
@@ -644,13 +652,13 @@ def analyze_memory(ir):
     """分析内存访问"""
     # 1. 构建内存访问图
     mem_graph = build_memory_graph(ir)
-    
+
     # 2. 检查内存类型转换
     type_checks = check_memory_types(mem_graph)
-    
+
     # 3. 检查内存冲突
     conflicts = check_memory_conflicts(mem_graph)
-    
+
     return type_checks, conflicts
 ```
 
@@ -668,7 +676,7 @@ def generate_analysis_report(ir, checks):
         'issues': checks['issues'],
         'recommendations': checks['recommendations'],
     }
-    
+
     return report
 ```
 
@@ -769,7 +777,7 @@ def generate_analysis_report(ir, checks):
 ```
 IR文件 ::= 文件头 RAWTENSOR* INCAST* OUTCAST* operation*
 
-文件头 ::= "Function" 函数名 "[" function_magic "]" hash 函数类型 图类型 "{" 
+文件头 ::= "Function" 函数名 "[" function_magic "]" hash 函数类型 图类型 "{"
 
 RAWTENSOR ::= "RAWTENSOR[" 索引 "] <" shape "> @" 编号 "\"" 名称 "\""
 
@@ -783,7 +791,7 @@ logic_tensor ::= "%" 名称 或 "%" 编号
 
 raw_tensor ::= "@" 编号 或 "@" 名称
 
-shape ::= 维度 " x " 维度 " x " ... " x " 数据类型
+shape ::= 维度 " x" 维度 " x" ... " x" 数据类型
 
 属性 ::= "#" 属性名 "{" 属性值 "}"
 ```

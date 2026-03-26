@@ -295,6 +295,44 @@
    - 展示所有子图的调度关系
    - `_total_subgraph_count`指示子图总数
 
+### 子图调用分析
+
+**CALL操作结构：**
+```json
+{
+  "opcode": "CALL",
+  "opmagic": 10021,
+  "ioperands": [],           // 输入参数（如果有）
+  "ooperands": [],           // 输出参数（如果有）
+  "attr": [
+    // 子图调用信息
+    0,                       // 子图ID
+    1,                       // 调用类型
+    // ... 其他属性
+  ],
+  "subgraphid": 0            // 所属子图ID
+}
+```
+
+**分析方法：**
+1. 从 `attr` 字段提取子图ID
+2. 在Block Graph文件中查找对应的子图
+3. 分析子图的输入输出
+4. 追踪数据在子图间的流转
+
+**示例：**
+```
+Execute Graph (ROOT)
+  └─ CALL → Block Graph (subgraph_id=0)
+       ├─ COPY_IN
+       ├─ 计算操作
+       └─ COPY_OUT
+  └─ CALL → Block Graph (subgraph_id=1)
+       ├─ COPY_IN
+       ├─ 计算操作
+       └─ COPY_OUT
+```
+
 **示例分析：**
 ```json
 {
@@ -371,23 +409,27 @@
 |--------|------|---------|
 | VIEW | 视图操作，不改变数据 | shape, offset |
 | ADDS | 标量加法 | SCALAR |
+| ADD | 张量加法 | - |
 | MATMUL | 矩阵乘法 | IS_CUBE |
 | INDEX_OUTCAST | 索引输出 | axis, CACHE_MODE |
 | ASSEMBLE | 数据组装 | - |
 | COPY_IN | 数据拷入 | in_param_loc |
 | COPY_OUT | 数据拷出 | out_param_loc |
 | CALL | 子图调用 | subgraph_id |
+| RESHAPE | 张量重塑 | shape |
+| TRANSPOSE | 张量转置 | axes |
+| BROADCAST | 张量广播 | shape |
 
 ## 六、内存层级说明
 
 | 值 | 内存层级 | 说明 |
 |----|---------|------|
-| 0 | MEM_UB | 统一缓冲区 |
+| 0 | MEM_UB | 统一缓冲区（Unified Buffer）|
 | 1 | MEM_L1 | L1缓存 |
-| 2 | MEM_L0A | L0A缓存（矩阵A） |
-| 3 | MEM_L0B | L0B缓存（矩阵B） |
-| 4 | MEM_L0C | L0C缓存（矩阵C） |
-| 15 | MEM_DEVICE_DDR | 设备DDR内存 |
+| 2 | MEM_L0A | L0A缓存（矩阵A输入）|
+| 3 | MEM_L0B | L0B缓存（矩阵B输入）|
+| 4 | MEM_L0C | L0C缓存（矩阵C输出）|
+| 15 | MEM_DEVICE_DDR | 设备DDR内存（Global Memory）|
 
 ## 七、分析工具建议
 
@@ -487,7 +529,7 @@ def compare_graphs(before_graph, after_graph):
 1. Tensor Graph: [节点数] nodes
 2. Tile Graph: [节点数] nodes
 3. Block Graph: [子图数] subgraphs, [平均节点数] nodes/subgraph
-4. Execute Graph: [子图数] subgraphs
+4. Execute Graph: [子图数] subgraph
 
 ### 优化效果
 - 节点总数变化: [初始] → [最终] ([倍数]x)
@@ -523,4 +565,4 @@ def compare_graphs(before_graph, after_graph):
 
 ## 十、参考资料
 
-- PyPTO计算图官方文档: `/mnt/workspace/gitCode/cann/pypto/docs/tools/computation_graph/`
+- [PyPTO计算图官方文档目录] (docs/tools/computation_graph/)

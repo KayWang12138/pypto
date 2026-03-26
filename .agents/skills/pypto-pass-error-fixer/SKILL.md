@@ -33,27 +33,37 @@ license: 完整条款见 LICENSE.txt
 
 2. **输入要求**
    - 用户必须提供复现问题的执行命令
+   - 执行命令必须能够生成日志文件（通过 debug_options 或环境变量）
+   - 用户提供错误日志或错误信息（如果已有）
+   - 可选：提供相关的测试用例或脚本路径
 
 3. **依赖技能**
    - `pypto-environment-setup`：用于检查环境状态
 
 ## 触发机制
 
-当用户输入包含以下关键字或相关内容时，自动触发此技能：
+当用户输入包含以下错误日志或关键字时，自动触发此技能：
 
 - **执行xx异常，修复pass问题**：定位Pass抛出异常的具体原因，并提供修复方案
 - **执行xx时，pass报错**：定位Pass抛出异常的具体原因，并提供修复方案
 - **定位pass错误**：定位Pass抛出异常的具体原因，并提供修复方案
 - **分析pass异常**：定位Pass抛出异常的具体原因，并提供修复方案
 - **分析pass失败原因**：定位Pass抛出异常的具体原因，并提供修复方案
+- **[ERROR] PYPTO(...)...[PASS]**：直接从错误日志中分析Pass错误
 
 **触发示例**
 - 执行 python3 build_ci.py -c -f=cpp -u=NBufferMergeTest.TestMode4 异常，pass报错
 - 执行 python3 test.py异常，分析pass失败原因
+- [ERROR] PYPTO(638465):2026-03-16 10:02:24.711 [n_buffer_merge.cpp:530][PASS]:[NBufferMerge.Config]:The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETTING between -1 and max hashOrder 0.
 
 ## 工作流程
 
 ### 步骤 1：问题复现
+
+**前置检查：**
+- 检查用户提供的执行命令是否有效
+- 检查是否已设置必要的调试选项
+- 检查是否有可用的 NPU 设备
 
 1. 如果用户执行的是python相关的脚本，开启图编译阶段调试模式开关：
 
@@ -70,25 +80,34 @@ license: 完整条款见 LICENSE.txt
     ```
 
 2. 设置日志相关环境变量：
-- 设置日志输出目录环境变量：`export ASCEND_PROCESS_LOG_PATH=$(pwd)/logs/$(date +%Y%m%d%H%M%S) `
-- 设置日志输出级别环境变量：`export ASCEND_GLOBAL_LOG_LEVEL=0 `
+   - 设置日志输出目录环境变量：`export ASCEND_PROCESS_LOG_PATH=$(pwd)/logs/$(date +%Y%m%d%H%M%S) `
+   - 设置日志输出级别环境变量：`export ASCEND_GLOBAL_LOG_LEVEL=0 `
 
 3. 根据用户提供的执行命令，复现用户问题
+
+4. **失败处理：**
+   - 如果问题无法复现，询问用户是否已有错误日志
+   - 如果已有错误日志，直接进入步骤 2
+   - 如果没有错误日志，引导用户提供更多信息
 
 **重要**: 上述步骤中的 `设置日志相关环境变量` 与 `根据用户提供的执行命令，复现用户问题`，必须同一个会话中完成，否则环境变量的设置无法生效。
 
 **验证检查点**：
-- [ ] 问题成功复现
-- [ ] 获得可复现的执行命令
+- [ ] 问题成功复现 或 已有错误日志
+- [ ] 获得可复现的执行命令或错误日志
 - [ ] 记录复现时的环境信息
 
 ### 步骤 2：获取日志内容
 
-按如下优先级查找日志文件，获取日志内容信息
+**日志查找策略：**
 ```
 1. 从 `$ASCEND_PROCESS_LOG_PATH/` 目录及其子目录下获取
    ↓
-2. 从 `$HOME/ascend/log/` 目录下及其子目录获取（如果上面目录没找到的话）
+2. 从 `$HOME/ascend/log/` 目录下及其子目录获取
+   ↓
+3. 从用户提供的错误日志中提取（如果有）
+   ↓
+4. 从标准错误输出中捕获（如果步骤 1 执行失败）
 ```
 
 **日志文件匹配模式**：
@@ -96,10 +115,16 @@ license: 完整条款见 LICENSE.txt
 - 错误日志：优先查找包含 "ERROR" 的日志文件
 - 指定进程日志：如果日志中包含进程ID，查找对应进程的日志
 
+**日志文件验证：**
+- 确认日志文件包含 [ERROR] 标记
+- 确认日志文件包含 [PASS] 标记
+- 确认日志文件包含文件路径和行号信息
+
 **验证检查点**：
-- [ ] 成功定位日志文件
-- [ ] 日志文件可读取
+- [ ] 成功定位日志文件或获得错误日志内容
+- [ ] 日志内容可读取
 - [ ] 日志内容包含错误信息
+- [ ] 日志内容包含 Pass 模块信息
 
 ### 步骤 3：解析日志关键信息
 
@@ -297,39 +322,124 @@ license: 完整条款见 LICENSE.txt
 ### 错误分析报告格式
 
 ```markdown
-## 错误分析报告
+## PyPTO Pass 错误分析报告
 
-### 基本信息
-- 错误级别：ERROR
-- 发生时间：2026-03-16 10:02:24.711
-- 进程ID：638465
+### 一、基本信息
+- **错误级别**: ERROR
+- **发生时间**: 2026-03-16 10:02:24.711
+- **进程ID**: 638465
+- **复现命令**: python3 build_ci.py -c -f=cpp -u=NBufferMergeTest.TestMode4
 
-### 错误位置
-- 文件：n_buffer_merge.cpp
-- 行号：530
-- Pass模块：NBufferMerge
-- Element类型：Config
+### 二、错误位置
+- **文件**: n_buffer_merge.cpp
+- **行号**: 530
+- **Pass模块**: NBufferMerge
+- **Element类型**: Config
 
-### 错误信息
+### 三、错误信息
+```
 The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETTING between -1 and max hashOrder 0.
+```
 
-### 错误原因分析
-1. 主要原因：参数配置错误
-2. 详细分析：VEC_NBUFFER_SETTING 参数值 -3 超出有效范围
-3. 影响范围：仅影响当前Pass模块
+### 四、错误原因分析
+1. **主要原因**: 参数配置错误
+2. **详细分析**: VEC_NBUFFER_SETTING 参数值 -3 超出有效范围
+3. **影响范围**: 仅影响当前Pass模块
+4. **相关代码片段**:
+   ```cpp
+   // n_buffer_merge.cpp:530
+   if (key < -1 || key > max_hash_order) {
+       GELOGE(INTERNAL_ERROR, "The VEC_NBUFFER_SETTING key %d is incorrect; Please set keys of VEC_NBUFFER_SETTING between -1 and max hashOrder %d.", key, max_hash_order);
+       return INTERNAL_ERROR;
+   }
+   ```
 
-### 修复建议
-1. 修复方案：调整 VEC_NBUFFER_SETTING 参数值
-2. 具体步骤：
+### 五、修复建议
+1. **修复方案**: 调整 VEC_NBUFFER_SETTING 参数值
+2. **具体步骤**:
    - 检查参数配置文件
    - 将参数值调整为有效范围（-1 到 0）
    - 重新执行测试用例
+3. **风险提示**:
+   - 修改参数可能影响性能
+   - 建议先在测试环境验证
 
-### 修复结果
-- 修复状态：成功
-- 测试结果：通过
-- 回归测试：通过
-```
+### 六、修复结果
+- **修复状态**: 成功/失败/跳过
+- **测试结果**: 通过/失败
+- **回归测试**: 通过/失败/未执行
+- **性能影响**: 无/轻微/显著
+
+### 七、附录
+- **完整日志**: [日志文件路径]
+- **相关文档**: [文档链接]
+- **参考案例**: [案例链接]
+
+## 错误处理机制
+
+### 全局错误处理
+
+1. **问题复现失败**
+   - 检查是否已有错误日志
+   - 引导用户提供更多信息
+   - 提供常见问题排查建议
+
+2. **日志文件未找到**
+   - 检查环境变量设置
+   - 提供日志目录查找建议
+   - 引导用户提供日志文件路径
+
+3. **日志解析失败**
+   - 检查日志格式是否正确
+   - 提供日志格式示例
+   - 尝试从日志中提取部分信息
+
+4. **Pass模块代码未找到**
+   - 检查 PyPTO 源代码目录
+   - 提供代码目录查找建议
+   - 基于日志信息提供修复建议
+
+5. **修复验证失败**
+   - 回滚修改
+   - 记录失败原因
+   - 提供替代修复方案
+
+### 降级处理策略
+
+当某些步骤无法完成时，提供降级处理方案：
+
+| 步骤 | 失败场景 | 降级方案 |
+|-----|---------|---------|
+| 问题复现 | 无法复现 | 使用已有错误日志 |
+| 获取日志 | 日志文件未找到 | 从用户提供的内容中提取 |
+| 解析日志 | 日志格式异常 | 手动解析或部分解析 |
+| 理解Pass | 代码未找到 | 基于日志信息提供建议 |
+| 理解计算图 | 计算图的 `.json` 文件未找到 | 跳过计算图分析 |
+| 理解IR | IR的 `.tifwkgr` 文件未找到 | 跳过IR分析 |
+| 修复验证 | 测试失败 | 提供手动验证建议 |
+
+## 约束条件
+
+### 操作约束
+- ⚠️ **只读分析**: 在问题定位阶段，只读取文件，不修改任何文件
+- ⚠️ **用户确认**: 所有修改操作必须经过用户确认
+- ⚠️ **备份机制**: 修改前必须备份原始文件
+- ⚠️ **回滚机制**: 修复失败时必须回滚到原始状态
+
+### 环境约束
+- ⚠️ **PyPTO 环境**: 必须在正确配置的 PyPTO 环境中执行
+- ⚠️ **权限要求**: 必须有读取日志和源代码的权限
+- ⚠️ **NPU 设备**: 如果需要复现问题，必须有可用的 NPU 设备
+
+### 数据约束
+- ⚠️ **日志格式**: 日志必须符合 PyPTO 日志格式规范
+- ⚠️ **代码路径**: 源代码必须在标准路径下（framework/src/passes）
+- ⚠️ **IR 格式**: IR 文件必须符合 .tifwkgr 格式规范
+
+### 性能约束
+- ⚠️ **大文件处理**: 日志文件可能很大，需要流式读取
+- ⚠️ **超时控制**: 长时间操作需要设置超时机制
+- ⚠️ **内存限制**: 大型计算图分析需要控制内存使用
 
 ## 版本兼容性
 
@@ -350,6 +460,83 @@ The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETT
 3. 使用多线程并行处理多个日志文件
 4. 缓存已解析的日志信息，避免重复解析
 
+## 使用示例
+
+### 示例 1：参数配置错误
+
+**用户输入：**
+```
+执行 python3 build_ci.py -c -f=cpp -u=NBufferMergeTest.TestMode4 异常，pass报错
+```
+
+**执行流程：**
+1. 设置调试选项和环境变量
+2. 执行命令复现问题
+3. 从日志中提取提取错误信息
+4. 定位到 NBufferMerge.Config Pass
+5. 分析参数配置错误
+6. 提供修复建议
+7. 用户确认修复
+8. 验证修复结果
+
+**输出：**
+```markdown
+## 错误分析报告
+
+### 错误位置
+- 文件: n_buffer_merge.cpp
+- 行号: 530
+- Pass模块: NBufferMerge
+- Element类型: Config
+
+### 错误信息
+The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETTING between -1 and max hashOrder 0.
+
+### 修复建议
+将 VEC_NBUFFER_SETTING 参数值从 -3 改为 -1
+```
+
+### 示例 2：已有错误日志
+
+**用户输入：**
+```
+[ERROR] PYPTO(638465):2026-03-16 10:02:24.711 [n_buffer_merge.cpp:530][PASS]:[NBufferMerge.Config]:The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETTING between -1 and max hashOrder 0.
+```
+
+**执行流程：**
+1. 从用户输入中提取错误信息
+2. 解析日志格式
+3. 定位错误位置
+4. 分析错误原因
+5. 提供修复建议
+
+### 示例 3：复杂错误场景
+
+**用户输入：**
+```
+执行 python3 test.py 异常，分析pass失败原因
+```
+
+**执行流程：**
+1. 复现问题失败
+2. 询问用户是否有错误日志
+3. 用户提供错误日志
+4. 解析多行错误信息
+5. 识别多个Pass相关错误
+6. 逐个分析错误
+7. 提供综合修复建议
 
 ## 参考文档
+
+### 核心文档
 - [查看计算图](docs/tools/computation_graph/查看计算图.md)
+- [PyPTO IR分析指导](references/ir-analysis-guide.md)
+- [计算图JSON解析指导](references/computation-graph-parse.md)
+
+### 相关技能
+- [pypto-environment-setup](../pypto-environment-setup/SKILL.md)
+- [pypto-pass-module-analyzer](../pypto-pass-module-analyzer/SKILL.md)
+- [pypto-pass-workflow-analyzer](../pypto-pass-workflow-analyzer/SKILL.md)
+
+### API文档
+- [Pass配置API](docs/api/config/pypto-set_pass_options.md)
