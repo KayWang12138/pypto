@@ -256,7 +256,8 @@ public:
         tensorNameInLoopToFullDim_.clear();
     }
 
-private:
+//private:
+public:
     std::shared_ptr<LogicalTensor> GetTensorByMagic(int magicNum) const;
     AllocKey CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const;
     AllocKey CreateAllocKey(int tensorMagicNum) const;

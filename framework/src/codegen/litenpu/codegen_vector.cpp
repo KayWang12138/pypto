@@ -806,325 +806,330 @@ namespace npu::tile_fwk {
 //     return oss.str();
 // }
 
-// std::string CodeGenOpLiteNPU::PrintVnchwconvStatic(const PrintUnaryTmpBuffParam &param) const {
-//     const std::string &s0Var = param.s0Var;
-//     const std::string &tmpVar = param.tmpVar;
-//     const std::string &dVar = param.dVar;
-//     const std::string &srcDtypeStr = param.srcDtypeStr;
-//     const std::string &tmpDtypeStr = param.tmpDtypeStr;
-//     const std::string &dstDtypeStr = param.dstDtypeStr;
-//     std::vector<int64_t> os0 = NormalizeShape(originShape[2], SHAPE_DIM5);
-//     std::vector<int64_t> s0 = NormalizeShape(rawShape[2], SHAPE_DIM5);
-//     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM5);
-//     std::ostringstream os;
-//     std::vector<std::string> paramList;
-//     // template param
-//     paramList.emplace_back(dstDtypeStr);
-//     for (int i = 0; i < SHAPE_DIM5; ++i) {
-//         paramList.emplace_back(std::to_string(os0[i]));
-//     }
-//     for (int i = 1; i < SHAPE_DIM5; ++i) {
-//         paramList.emplace_back(std::to_string(ds[i]));
-//     }
-//     for (int i = 1; i < SHAPE_DIM5; ++i) {
-//         paramList.emplace_back(std::to_string(s0[i]));
-//     }
-//     std::string templateParam = JoinString(paramList, ", ");
-//     paramList.clear();
-//     // func actual param
-//     std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
-//     std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
-//     std::string tmp = "(__ubuf__ " + tmpDtypeStr + "*)" + tmpVar;
-//     paramList.insert(paramList.end(), {dst, src, tmp});
-//     std::string tiloOpCallParam = JoinString(paramList, ", ");
-//     os << tileOpName.c_str() << "_<" << templateParam << ">"
-//        << "(" << tiloOpCallParam << ");\n";
-//     return os.str();
-// }
+std::string CodeGenOpLiteNPU::PrintVnchwconvStatic(const PrintUnaryTmpBuffParam &param) const {
+    const std::string &s0Var = param.s0Var;
+    const std::string &tmpVar = param.tmpVar;
+    const std::string &dVar = param.dVar;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &tmpDtypeStr = param.tmpDtypeStr;
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    std::vector<int64_t> os0 = NormalizeShape(originShape[2], SHAPE_DIM5);
+    std::vector<int64_t> s0 = NormalizeShape(rawShape[2], SHAPE_DIM5);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM5);
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    // template param
+    paramList.emplace_back(dstDtypeStr);
+    for (int i = 0; i < SHAPE_DIM5; ++i) {
+        paramList.emplace_back(std::to_string(os0[i]));
+    }
+    for (int i = 1; i < SHAPE_DIM5; ++i) {
+        paramList.emplace_back(std::to_string(ds[i]));
+    }
+    for (int i = 1; i < SHAPE_DIM5; ++i) {
+        paramList.emplace_back(std::to_string(s0[i]));
+    }
+    std::string templateParam = JoinString(paramList, ", ");
+    paramList.clear();
+    // func actual param
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    std::string tmp = "(__ubuf__ " + tmpDtypeStr + "*)" + tmpVar;
+    paramList.insert(paramList.end(), {dst, src, tmp});
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    os << tileOpName.c_str() << "_<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
+    return os.str();
+}
 
-// std::string CodeGenOpLiteNPU::PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam &param) const {
-//     const std::string &s0Var = param.s0Var;
-//     const std::string &tmpVar = param.tmpVar;
-//     const std::string &dVar = param.dVar;
-//     const std::string &srcDtypeStr = param.srcDtypeStr;
-//     const std::string &tmpDtypeStr = param.tmpDtypeStr;
-//     const std::string &dstDtypeStr = param.dstDtypeStr;
-//     std::vector<int64_t> s0 = NormalizeShape(rawShape[2], SHAPE_DIM5);
-//     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM5);
-//     auto newDynSrcValidShape = dynamicValidShape[2];
-//     FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcValidShape, SHAPE_DIM5 - dynamicValidShape[2].size(), 1);
+std::string CodeGenOpLiteNPU::PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam &param) const {
+    const std::string &s0Var = param.s0Var;
+    const std::string &tmpVar = param.tmpVar;
+    const std::string &dVar = param.dVar;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &tmpDtypeStr = param.tmpDtypeStr;
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    std::vector<int64_t> s0 = NormalizeShape(rawShape[2], SHAPE_DIM5);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM5);
+    auto newDynSrcValidShape = dynamicValidShape[2];
+    FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcValidShape, SHAPE_DIM5 - dynamicValidShape[2].size(), 1);
 
-//     std::ostringstream os;
-//     std::vector<std::string> paramList;
-//     paramList.emplace_back(dstDtypeStr);
-//     for (int i = 1; i < SHAPE_DIM5; ++i) {
-//         paramList.emplace_back(std::to_string(ds[i]));
-//     }
-//     for (int i = 1; i < SHAPE_DIM5; ++i) {
-//         paramList.emplace_back(std::to_string(s0[i]));
-//     }
-//     std::string templateParam = JoinString(paramList, ", ");
-//     paramList.clear();
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    for (int i = 1; i < SHAPE_DIM5; ++i) {
+        paramList.emplace_back(std::to_string(ds[i]));
+    }
+    for (int i = 1; i < SHAPE_DIM5; ++i) {
+        paramList.emplace_back(std::to_string(s0[i]));
+    }
+    std::string templateParam = JoinString(paramList, ", ");
+    paramList.clear();
 
-//     std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
-//     std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
-//     std::string tmp = "(__ubuf__ " + tmpDtypeStr + "*)" + tmpVar;
-//     paramList.insert(paramList.end(), {dst, src, tmp});
-//     for (auto dynShape : newDynSrcValidShape) {
-//         paramList.emplace_back(dynShape.Dump());
-//     }
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    std::string tmp = "(__ubuf__ " + tmpDtypeStr + "*)" + tmpVar;
+    paramList.insert(paramList.end(), {dst, src, tmp});
+    for (auto dynShape : newDynSrcValidShape) {
+        paramList.emplace_back(dynShape.Dump());
+    }
 
-//     std::string tiloOpCallParam = JoinString(paramList, ", ");
-//     os << tileOpName.c_str() << "_<" << templateParam << ">"
-//        << "(" << tiloOpCallParam << ");\n";
-//     return os.str();
-// }
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    os << tileOpName.c_str() << "_<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
+    return os.str();
+}
 
-// std::string CodeGenOpLiteNPU::PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const {
-//     if (isSupportDynamicUnaligned) {
-//         return PrintVnchwconvDynUnaligned(param);
-//     }
-//     return PrintVnchwconvStatic(param);
-// }
+std::string CodeGenOpLiteNPU::PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const {
+    if (!isSupportDynamicAligned) {
+        return PrintVnchwconvDynUnaligned(param);
+    }
+    return PrintVnchwconvStatic(param);
+}
 
-// std::string CodeGenOpLiteNPU::PrintCompactStatic(const PrintUnaryTmpBuffParam &param) const {
-//     const std::string &s0Var = param.s0Var;
-//     const std::string &tmpVar = param.tmpVar;
-//     const std::string &dVar = param.dVar;
-//     const std::string &srcDtypeStr = param.srcDtypeStr;
-//     const std::string &tmpDtypeStr = param.tmpDtypeStr;
-//     const std::string &dstDtypeStr = param.dstDtypeStr;
-//     std::vector<int64_t> srcRawShape = NormalizeShape(rawShape[2], SHAPE_DIM4);
-//     std::vector<int64_t> dstRawShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
-//     std::ostringstream oss;
-//     std::vector<std::string> paramList;
-//     paramList.emplace_back(dstDtypeStr);
-//     for (int i = 0; i < SHAPE_DIM4; ++i) {
-//         paramList.emplace_back(std::to_string(dstRawShape[i]));
-//     }
-//     for (int i = 0; i < SHAPE_DIM4; ++i) {
-//         paramList.emplace_back(std::to_string(srcRawShape[i]));
-//     }
-//     std::string templateParam = JoinString(paramList, ", ");
-//     paramList.clear();
+std::string CodeGenOpLiteNPU::PrintCompactStatic(const PrintUnaryTmpBuffParam &param) const {
+    const std::string &s0Var = param.s0Var;
+    const std::string &tmpVar = param.tmpVar;
+    const std::string &dVar = param.dVar;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &tmpDtypeStr = param.tmpDtypeStr;
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    std::vector<int64_t> srcRawShape = NormalizeShape(rawShape[2], SHAPE_DIM4);
+    std::vector<int64_t> dstRawShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
+    std::ostringstream oss;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(dstRawShape[i]));
+    }
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(srcRawShape[i]));
+    }
+    std::string templateParam = JoinString(paramList, ", ");
+    paramList.clear();
 
-//     std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
-//     std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
-//     std::string tmp = "(__ubuf__ " + tmpDtypeStr + "*)" + tmpVar;
-//     paramList.insert(paramList.end(), {dst, src, tmp});
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    std::string tmp = "(__ubuf__ " + tmpDtypeStr + "*)" + tmpVar;
+    paramList.insert(paramList.end(), {dst, src, tmp});
 
-//     std::string tiloOpCallParam = JoinString(paramList, ", ");
-//     oss << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
-//     return oss.str();
-// }
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    oss << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    return oss.str();
+}
 
-// std::string CodeGenOpLiteNPU::PrintCompact(const PrintUnaryTmpBuffParam &param) const {
-//     return PrintCompactStatic(param);
-// }
+std::string CodeGenOpLiteNPU::PrintCompact(const PrintUnaryTmpBuffParam &param) const {
+    return PrintCompactStatic(param);
+}
 
-// std::string CodeGenOpLiteNPU::GenUnaryOpWithTmpBuff() const {
-//     // In this scenario, frontend set tmp buffer in output to optimize ooo schedule result.
-//     auto kS0 = sm->CreateAllocKey(operandWithMagic[ID2]);
-//     auto kTmp = sm->CreateAllocKey(operandWithMagic[ID1]);
-//     auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
-//     std::string s0Var = sm->QueryVariableName(kS0);
-//     std::string tmpVar = sm->QueryVariableName(kTmp);
-//     std::string dVar = sm->QueryVariableName(kDst);
+std::string CodeGenOpLiteNPU::GenUnaryOpWithTmpBuff() const {
+    // In this scenario, frontend set tmp buffer in output to optimize ooo schedule result.
+    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID2]);
+    auto kTmp = sm->CreateAllocKey(operandWithMagic[ID1]);
+    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
+    std::string s0Var = sm->QueryVariableName(kS0);
+    std::string tmpVar = sm->QueryVariableName(kTmp);
+    std::string dVar = sm->QueryVariableName(kDst);
 
-//     std::vector srcShape = this->rawShape[2];
-//     ALOG_INFO_F("GenUnaryOpWithTmpBuff %s src raw shape: %s", tileOpName.c_str(), IntVecToStr(srcShape).c_str());
+    std::vector srcShape = this->rawShape[2];
+    ALOG_INFO_F("GenUnaryOpWithTmpBuff %s src raw shape: %s", tileOpName.c_str(), IntVecToStr(srcShape).c_str());
 
-//     std::vector dstShape = this->rawShape[0];
-//     ALOG_INFO_F("GenUnaryOpWithTmpBuff %s dst raw shape: %s", tileOpName.c_str(), IntVecToStr(dstShape).c_str());
+    std::vector dstShape = this->rawShape[0];
+    ALOG_INFO_F("GenUnaryOpWithTmpBuff %s dst raw shape: %s", tileOpName.c_str(), IntVecToStr(dstShape).c_str());
 
-//     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID2]);
-//     std::string tmpDtypeStr = DataType2CCEStr(operandDtype[ID1]);
-//     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID2]);
+    std::string tmpDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
-//     AppendLocalBufferVarOffset({&dVar, &tmpVar, &s0Var}, {0, 1, 2});
+    // AppendLocalBufferVarOffset({&dVar, &tmpVar, &s0Var}, {0, 1, 2});
+    std::map<unsigned, std::reference_wrapper<std::string>> vars;
+    vars.insert({static_cast<unsigned>(0), std::ref(dVar)});
+    vars.insert({static_cast<unsigned>(1), std::ref(tmpVar)});
+    vars.insert({static_cast<unsigned>(2), std::ref(s0Var)});
+    AppendLocalBufferVarOffset(vars);
 
-//     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-//     int ret = 0;
-//     if (opCode == Opcode::OP_TRANSPOSE_VNCHWCONV) {
-//         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
-//     }
+    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    int ret = 0;
+    if (opCode == Opcode::OP_TRANSPOSE_VNCHWCONV) {
+        return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
+    }
 
-//     if (opCode == Opcode::OP_ROWSUM_SINGLE || opCode == Opcode::OP_ROWMAX_SINGLE) {
-//         return PrintReduceLastAxis({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
-//     }
+    if (opCode == Opcode::OP_ROWSUM_SINGLE || opCode == Opcode::OP_ROWMAX_SINGLE) {
+        return PrintReduceLastAxis({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
+    }
 
-//     if (opCode == Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE || opCode == Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE) {
-//         std::vector<int64_t> dstOriginShape = NormalizeShape(originShape[0], SHAPE_DIM4);
-//         std::vector<int64_t> srcOriginShape = NormalizeShape(originShape[2], SHAPE_DIM4);
-//         std::vector<int64_t> srcRawShape = NormalizeShape(rawShape[2], SHAPE_DIM4);
-//         std::vector<int64_t> dstRawShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
-//         std::vector<int64_t> tmpRawShape = NormalizeShape(rawShape[1], SHAPE_DIM4);
-//         ret = sprintf_s(buffer, sizeof(buffer),
-//             "%s<%s, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ "
-//             "%s *)%s);\n",
-//             tileOpName.c_str(), dstDtypeStr.c_str(), srcOriginShape[ID0], srcOriginShape[ID1], srcOriginShape[ID2],
-//             srcOriginShape[ID3], dstRawShape[ID1], dstRawShape[ID2], dstRawShape[ID3], srcRawShape[ID1],
-//             srcRawShape[ID2], srcRawShape[ID3], tmpRawShape[ID3], dstDtypeStr.c_str(), dVar.c_str(),
-//             srcDtypeStr.c_str(), s0Var.c_str(), tmpDtypeStr.c_str(), tmpVar.c_str());
-//         ASSERT(ret >= 0) << "genUnaryOpWithTmpBuff sprintf_s failed ";
-//         return std::string(buffer);
-//     }
+    if (opCode == Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE || opCode == Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE) {
+        std::vector<int64_t> dstOriginShape = NormalizeShape(originShape[0], SHAPE_DIM4);
+        std::vector<int64_t> srcOriginShape = NormalizeShape(originShape[2], SHAPE_DIM4);
+        std::vector<int64_t> srcRawShape = NormalizeShape(rawShape[2], SHAPE_DIM4);
+        std::vector<int64_t> dstRawShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
+        std::vector<int64_t> tmpRawShape = NormalizeShape(rawShape[1], SHAPE_DIM4);
+        ret = sprintf_s(buffer, sizeof(buffer),
+            "%s<%s, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ "
+            "%s *)%s);\n",
+            tileOpName.c_str(), dstDtypeStr.c_str(), srcOriginShape[ID0], srcOriginShape[ID1], srcOriginShape[ID2],
+            srcOriginShape[ID3], dstRawShape[ID1], dstRawShape[ID2], dstRawShape[ID3], srcRawShape[ID1],
+            srcRawShape[ID2], srcRawShape[ID3], tmpRawShape[ID3], dstDtypeStr.c_str(), dVar.c_str(),
+            srcDtypeStr.c_str(), s0Var.c_str(), tmpDtypeStr.c_str(), tmpVar.c_str());
+        ASSERT(ret >= 0) << "genUnaryOpWithTmpBuff sprintf_s failed ";
+        return std::string(buffer);
+    }
 
-//     if (opCode == Opcode::OP_COMPACT) {
-//         return PrintCompact({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
-//     }
+    if (opCode == Opcode::OP_COMPACT) {
+        return PrintCompact({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
+    }
 
-//     std::string ostring(buffer);
-//     return ostring;
-// }
+    std::string ostring(buffer);
+    return ostring;
+}
 
-// std::string CodeGenOpLiteNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const {
-//     const std::string &s0Var = param.s0Var;
-//     const std::string &tmpVar = param.tmpVar;
-//     const std::string &dVar = param.dVar;
-//     const std::string &srcDtypeStr = param.srcDtypeStr;
-//     const std::string &tmpDtypeStr = param.tmpDtypeStr;
-//     const std::string &dstDtypeStr = param.dstDtypeStr;
+std::string CodeGenOpLiteNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const {
+    const std::string &s0Var = param.s0Var;
+    const std::string &tmpVar = param.tmpVar;
+    const std::string &dVar = param.dVar;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &tmpDtypeStr = param.tmpDtypeStr;
+    const std::string &dstDtypeStr = param.dstDtypeStr;
 
-//     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-//     int ret = 0;
+    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    int ret = 0;
 
-//     std::vector<int64_t> dstOriginShape = NormalizeShape(originShape[0], SHAPE_DIM4);
-//     std::vector<int64_t> srcOriginShape = NormalizeShape(originShape[2], SHAPE_DIM4);
-//     std::vector<int64_t> srcRawShape = NormalizeShape(rawShape[2], SHAPE_DIM4);
-//     std::vector<int64_t> dstRawShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
-//     std::vector<int64_t> tmpRawShape = NormalizeShape(rawShape[1], SHAPE_DIM4);
-//     ALOG_INFO_F("rawShape[2] is %s", IntVecToStr(rawShape[2]).c_str());
-//     ASSERT(dstOriginShape[ID3] == 1) << "Dst last axis length must be 1";
+    std::vector<int64_t> dstOriginShape = NormalizeShape(originShape[0], SHAPE_DIM4);
+    std::vector<int64_t> srcOriginShape = NormalizeShape(originShape[2], SHAPE_DIM4);
+    std::vector<int64_t> srcRawShape = NormalizeShape(rawShape[2], SHAPE_DIM4);
+    std::vector<int64_t> dstRawShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
+    std::vector<int64_t> tmpRawShape = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    ALOG_INFO_F("rawShape[2] is %s", IntVecToStr(rawShape[2]).c_str());
+    ASSERT(dstOriginShape[ID3] == 1) << "Dst last axis length must be 1";
 
-//     if (isSupportDynamicUnaligned) {
-//         auto newDynSrcValidShape = dynamicValidShape[2];
-//         FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcValidShape, SHAPE_DIM4 - dynamicValidShape[2].size(), 1);
-//         ret = sprintf_s(buffer, sizeof(buffer),
-//             "%s_<%s, %u, %u, %u, %u, %u, %u, %u>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s, %s, %s, "
-//             "%s, %s);\n",
-//             tileOpName.c_str(), dstDtypeStr.c_str(), dstRawShape[ID1], dstRawShape[ID2], dstRawShape[ID3],
-//             srcRawShape[ID1], srcRawShape[ID2], srcRawShape[ID3], tmpRawShape[ID3], dstDtypeStr.c_str(), dVar.c_str(),
-//             srcDtypeStr.c_str(), s0Var.c_str(), tmpDtypeStr.c_str(), tmpVar.c_str(),
-//             newDynSrcValidShape[0].Dump().c_str(), newDynSrcValidShape[1].Dump().c_str(),
-//             newDynSrcValidShape[2].Dump().c_str(), newDynSrcValidShape[3].Dump().c_str());
-//         ASSERT(ret >= 0) << "PrintReduceLastAxis" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed "
-//                          << ret;
-//         return buffer;
-//     }
+    if (!isSupportDynamicAligned) {
+        auto newDynSrcValidShape = dynamicValidShape[2];
+        FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcValidShape, SHAPE_DIM4 - dynamicValidShape[2].size(), 1);
+        ret = sprintf_s(buffer, sizeof(buffer),
+            "%s_<%s, %u, %u, %u, %u, %u, %u, %u>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s, %s, %s, "
+            "%s, %s);\n",
+            tileOpName.c_str(), dstDtypeStr.c_str(), dstRawShape[ID1], dstRawShape[ID2], dstRawShape[ID3],
+            srcRawShape[ID1], srcRawShape[ID2], srcRawShape[ID3], tmpRawShape[ID3], dstDtypeStr.c_str(), dVar.c_str(),
+            srcDtypeStr.c_str(), s0Var.c_str(), tmpDtypeStr.c_str(), tmpVar.c_str(),
+            newDynSrcValidShape[0].Dump().c_str(), newDynSrcValidShape[1].Dump().c_str(),
+            newDynSrcValidShape[2].Dump().c_str(), newDynSrcValidShape[3].Dump().c_str());
+        ASSERT(ret >= 0) << "PrintReduceLastAxis" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed "
+                         << ret;
+        return buffer;
+    }
 
-//     ret = sprintf_s(buffer, sizeof(buffer),
-//         "%s_<%s, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ "
-//         "%s *)%s);\n",
-//         tileOpName.c_str(), dstDtypeStr.c_str(), srcOriginShape[ID0], srcOriginShape[ID1], srcOriginShape[ID2],
-//         srcOriginShape[ID3], dstRawShape[ID1], dstRawShape[ID2], dstRawShape[ID3], srcRawShape[ID1], srcRawShape[ID2],
-//         srcRawShape[ID3], tmpRawShape[ID3], dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(), s0Var.c_str(),
-//         tmpDtypeStr.c_str(), tmpVar.c_str());
-//     ASSERT(ret >= 0) << "PrintReduceLastAxis" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed "
-//                      << ret;
-//     return buffer;
-// }
+    ret = sprintf_s(buffer, sizeof(buffer),
+        "%s_<%s, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ "
+        "%s *)%s);\n",
+        tileOpName.c_str(), dstDtypeStr.c_str(), srcOriginShape[ID0], srcOriginShape[ID1], srcOriginShape[ID2],
+        srcOriginShape[ID3], dstRawShape[ID1], dstRawShape[ID2], dstRawShape[ID3], srcRawShape[ID1], srcRawShape[ID2],
+        srcRawShape[ID3], tmpRawShape[ID3], dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(), s0Var.c_str(),
+        tmpDtypeStr.c_str(), tmpVar.c_str());
+    ASSERT(ret >= 0) << "PrintReduceLastAxis" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed "
+                     << ret;
+    return buffer;
+}
 
-// std::string CodeGenOpLiteNPU::PrintBinaryStatic(const PrintBinaryParam &param) const {
-//     const std::string &dstDtypeStr = param.dstDtypeStr;
-//     const std::string &src0DtypeStr = param.src0DtypeStr;
-//     const std::string &src1DtypeStr = param.src1DtypeStr;
-//     const std::string &dVar = param.dVar;
-//     const std::string &s0Var = param.s0Var;
-//     const std::string &s1Var = param.s1Var;
+std::string CodeGenOpLiteNPU::PrintBinaryStatic(const PrintBinaryParam &param) const {
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &src0DtypeStr = param.src0DtypeStr;
+    const std::string &src1DtypeStr = param.src1DtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &s0Var = param.s0Var;
+    const std::string &s1Var = param.s1Var;
 
-//     std::vector<int64_t> os0 = NormalizeShape(originShape[1], SHAPE_DIM4);
-//     std::vector<int64_t> s0 = NormalizeShape(rawShape[1], SHAPE_DIM4);
-//     std::vector<int64_t> s1 = NormalizeShape(rawShape[2], SHAPE_DIM4);
-//     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
+    std::vector<int64_t> os0 = NormalizeShape(originShape[1], SHAPE_DIM4);
+    std::vector<int64_t> s0 = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    std::vector<int64_t> s1 = NormalizeShape(rawShape[2], SHAPE_DIM4);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
 
-//     std::ostringstream os;
-//     std::vector<std::string> paramList;
-//     paramList.emplace_back(dstDtypeStr);
-//     paramList.emplace_back("/*OS0*/ " + std::to_string(os0[0]));
-//     for (int i = 1; i < SHAPE_DIM4; ++i) {
-//         paramList.emplace_back(std::to_string(os0[i]));
-//     }
-//     paramList.emplace_back("/*DS*/ " + std::to_string(ds[1]));
-//     for (int i = 2; i < SHAPE_DIM4; ++i) {
-//         paramList.emplace_back(std::to_string(ds[i]));
-//     }
-//     paramList.emplace_back("/*S0*/ " + std::to_string(s0[1]));
-//     for (int i = 2; i < SHAPE_DIM4; ++i) {
-//         paramList.emplace_back(std::to_string(s0[i]));
-//     }
-//     paramList.emplace_back("/*S1*/ " + std::to_string(s1[1]));
-//     for (int i = 2; i < SHAPE_DIM4; ++i) {
-//         paramList.emplace_back(std::to_string(s1[i]));
-//     }
-//     std::string templateParam = JoinString(paramList, ", ");
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    paramList.emplace_back("/*OS0*/ " + std::to_string(os0[0]));
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(os0[i]));
+    }
+    paramList.emplace_back("/*DS*/ " + std::to_string(ds[1]));
+    for (int i = 2; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(ds[i]));
+    }
+    paramList.emplace_back("/*S0*/ " + std::to_string(s0[1]));
+    for (int i = 2; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(s0[i]));
+    }
+    paramList.emplace_back("/*S1*/ " + std::to_string(s1[1]));
+    for (int i = 2; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(s1[i]));
+    }
+    std::string templateParam = JoinString(paramList, ", ");
 
-//     paramList.clear();
-//     std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
-//     std::string src0 = "(__ubuf__ " + src0DtypeStr + "*)" + s0Var;
-//     std::string src1 = "(__ubuf__ " + src1DtypeStr + "*)" + s1Var;
-//     paramList.emplace_back(dst);
-//     paramList.emplace_back(src0);
-//     paramList.emplace_back(src1);
-//     std::string tiloOpCallParam = JoinString(paramList, ", ");
-//     os << tileOpName.c_str() << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
-//     return os.str();
-// }
+    paramList.clear();
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src0 = "(__ubuf__ " + src0DtypeStr + "*)" + s0Var;
+    std::string src1 = "(__ubuf__ " + src1DtypeStr + "*)" + s1Var;
+    paramList.emplace_back(dst);
+    paramList.emplace_back(src0);
+    paramList.emplace_back(src1);
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    os << tileOpName.c_str() << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    return os.str();
+}
 
-// std::string CodeGenOpLiteNPU::PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const {
-//     const std::string &dstDtypeStr = param.dstDtypeStr;
-//     const std::string &src0DtypeStr = param.src0DtypeStr;
-//     const std::string &src1DtypeStr = param.src1DtypeStr;
-//     const std::string &dVar = param.dVar;
-//     const std::string &s0Var = param.s0Var;
-//     const std::string &s1Var = param.s1Var;
+std::string CodeGenOpLiteNPU::PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const {
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &src0DtypeStr = param.src0DtypeStr;
+    const std::string &src1DtypeStr = param.src1DtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &s0Var = param.s0Var;
+    const std::string &s1Var = param.s1Var;
 
-//     std::vector<int64_t> s0 = NormalizeShape(rawShape[1], SHAPE_DIM4);
-//     std::vector<int64_t> s1 = NormalizeShape(rawShape[2], SHAPE_DIM4);
-//     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
+    std::vector<int64_t> s0 = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    std::vector<int64_t> s1 = NormalizeShape(rawShape[2], SHAPE_DIM4);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
 
-//     auto dynSrcShape = dynamicValidShape[1];
-//     FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
+    auto dynSrcShape = dynamicValidShape[1];
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
 
-//     std::ostringstream os;
-//     std::vector<std::string> paramList;
-//     paramList.emplace_back(dstDtypeStr);
-//     paramList.emplace_back("/*DS*/ " + std::to_string(ds[1]));
-//     for (int i = 2; i < SHAPE_DIM4; ++i) {
-//         paramList.emplace_back(std::to_string(ds[i]));
-//     }
-//     paramList.emplace_back("/*S0*/ " + std::to_string(s0[1]));
-//     for (int i = 2; i < SHAPE_DIM4; ++i) {
-//         paramList.emplace_back(std::to_string(s0[i]));
-//     }
-//     paramList.emplace_back("/*S1*/ " + std::to_string(s1[1]));
-//     for (int i = 2; i < SHAPE_DIM4; ++i) {
-//         paramList.emplace_back(std::to_string(s1[i]));
-//     }
-//     std::string templateParam = JoinString(paramList, ", ");
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    paramList.emplace_back("/*DS*/ " + std::to_string(ds[1]));
+    for (int i = 2; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(ds[i]));
+    }
+    paramList.emplace_back("/*S0*/ " + std::to_string(s0[1]));
+    for (int i = 2; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(s0[i]));
+    }
+    paramList.emplace_back("/*S1*/ " + std::to_string(s1[1]));
+    for (int i = 2; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(s1[i]));
+    }
+    std::string templateParam = JoinString(paramList, ", ");
 
-//     paramList.clear();
-//     std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
-//     std::string src0 = "(__ubuf__ " + src0DtypeStr + "*)" + s0Var;
-//     std::string src1 = "(__ubuf__ " + src1DtypeStr + "*)" + s1Var;
-//     paramList.emplace_back(dst);
-//     paramList.emplace_back(src0);
-//     paramList.emplace_back(src1);
-//     for (auto dynShape : dynSrcShape) {
-//         paramList.emplace_back(dynShape.Dump());
-//     }
-//     std::string tiloOpCallParam = JoinString(paramList, ", ");
-//     os << tileOpName.c_str() << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    paramList.clear();
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src0 = "(__ubuf__ " + src0DtypeStr + "*)" + s0Var;
+    std::string src1 = "(__ubuf__ " + src1DtypeStr + "*)" + s1Var;
+    paramList.emplace_back(dst);
+    paramList.emplace_back(src0);
+    paramList.emplace_back(src1);
+    for (auto dynShape : dynSrcShape) {
+        paramList.emplace_back(dynShape.Dump());
+    }
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    os << tileOpName.c_str() << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
 
-//     return os.str();
-// }
+    return os.str();
+}
 
-// std::string CodeGenOpLiteNPU::PrintBinary(const PrintBinaryParam &param) const {
-//     if (isSupportDynamicUnaligned) {
-//         return PrintBinaryDynamicUnaligned(param);
-//     }
-//     return PrintBinaryStatic(param);
-// }
+std::string CodeGenOpLiteNPU::PrintBinary(const PrintBinaryParam &param) const {
+    if (!isSupportDynamicAligned) {
+        return PrintBinaryDynamicUnaligned(param);
+    }
+    return PrintBinaryStatic(param);
+}
 
 // std::string CodeGenOpLiteNPU::PrintBinaryBrcStatic(const PrintBinaryBrcParam &param) const {
 //     const std::string &dstDtypeStr = param.dstDtypeStr;
@@ -1243,98 +1248,103 @@ namespace npu::tile_fwk {
 //     return PrintBinaryBrcStatic(param);
 // }
 
-// std::string CodeGenOpLiteNPU::GenBinaryOp() const
-// {
-//     auto platform = ConfigManager::Instance().GetDeviceConfig("DEVICE_PLATFORM", "LITE_DEV");
-//     if (platform == "LITE_DEV") {
-//         std::vector<int64_t> fiveDShape = NormalizeShape(originShape[0], SHAPE_DIM5);
-//         constexpr const int maxBufSize = 512;
-//         char buffer[maxBufSize] = "CG_ERROR";
+std::string CodeGenOpLiteNPU::GenBinaryOp() const
+{
+    auto platform = ConfigManager::Instance().GetPlatformConfig("DEVICE_PLATFORM", "LITE_DEV");
+    if (platform == "LITE_DEV") {
+        std::vector<int64_t> fiveDShape = NormalizeShape(originShape[0], SHAPE_DIM5);
+        constexpr const int maxBufSize = 512;
+        char buffer[maxBufSize] = "CG_ERROR";
 
-//         int ret = sprintf_s(buffer,
-//             maxBufSize,
-//             "%s_<%s, %d, %d, %d, %d, %d>(%s);\n",
-//             tileOpName.c_str(),
-//             DataType2CCEStr(operandDtype[0]).c_str(),
-//             fiveDShape[ID0],
-//             fiveDShape[ID1],
-//             fiveDShape[ID2],
-//             fiveDShape[ID3],
-//             fiveDShape[ID4],
-//             GenParamsStr().c_str());
-//         ASSERT(ret >= 0) << "sprintf_s failed in genCopyInOp, return value:" << ret;
-//         return std::string(buffer);
-//     }
+        int ret = sprintf_s(buffer,
+            maxBufSize,
+            "%s_<%s, %d, %d, %d, %d, %d>(%s);\n",
+            tileOpName.c_str(),
+            DataType2CCEStr(operandDtype[0]).c_str(),
+            fiveDShape[ID0],
+            fiveDShape[ID1],
+            fiveDShape[ID2],
+            fiveDShape[ID3],
+            fiveDShape[ID4],
+            GenParamsStr().c_str());
+        ASSERT(ret >= 0) << "sprintf_s failed in genCopyInOp, return value:" << ret;
+        return std::string(buffer);
+    }
 
-//     auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
-//     auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
-//     std::string s0Var = sm->QueryVariableName(kS0);
-//     std::string dVar = sm->QueryVariableName(kDst);
+    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
+    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
+    std::string s0Var = sm->QueryVariableName(kS0);
+    std::string dVar = sm->QueryVariableName(kDst);
 
-//     std::vector src0RawShape = this->rawShape[ID1];
-//     std::vector src1RawShape = this->rawShape[ID2];
-//     ALOG_INFO << "genBinaryOp " << tileOpName.c_str() << " src0RawShape is [" << src0RawShape[ID0] << "," << src0RawShape[1];
+    std::vector src0RawShape = this->rawShape[ID1];
+    std::vector src1RawShape = this->rawShape[ID2];
+    ALOG_INFO << "genBinaryOp " << tileOpName.c_str() << " src0RawShape is [" << src0RawShape[ID0] << "," << src0RawShape[1];
 
-//     unsigned tShape0 = std::min(src0RawShape[ID0], shape[ID0][ID0]);
-//     unsigned tShape1 = std::min(src0RawShape[ID1], shape[ID0][ID1]);
-//     unsigned tShape2, tShape3;
-//     if (shape[0].size() == SHAPE_DIM3) {
-//         tShape2 = std::min(src0RawShape[2], shape[0][2]);
-//     } else if (shape[0].size() == SHAPE_DIM4) {
-//         tShape2 = std::min(src0RawShape[2], shape[0][2]);
-//         tShape3 = std::min(src0RawShape[3], shape[0][3]);
-//     }
+    unsigned tShape0 = std::min(src0RawShape[ID0], shape[ID0][ID0]);
+    unsigned tShape1 = std::min(src0RawShape[ID1], shape[ID0][ID1]);
+    unsigned tShape2, tShape3;
+    if (shape[0].size() == SHAPE_DIM3) {
+        tShape2 = std::min(src0RawShape[2], shape[0][2]);
+    } else if (shape[0].size() == SHAPE_DIM4) {
+        tShape2 = std::min(src0RawShape[2], shape[0][2]);
+        tShape3 = std::min(src0RawShape[3], shape[0][3]);
+    }
 
-//     char buffer[1024] = "CG_ERROR";
-//     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
-//     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
-//     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
+    char buffer[1024] = "CG_ERROR";
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
+    std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
 
-//     auto kS1 = sm->CreateAllocKey(operandWithMagic[ID2]);
-//     std::string s1Var = sm->QueryVariableName(kS1);
+    auto kS1 = sm->CreateAllocKey(operandWithMagic[ID2]);
+    std::string s1Var = sm->QueryVariableName(kS1);
+    //AppendLocalBufferVarOffset({&dVar, &s0Var, &s1Var}, {0, 1, 2});
+    std::map<unsigned, std::reference_wrapper<std::string>> vars;
+    vars.insert({static_cast<unsigned>(0), std::ref(dVar)});
+    vars.insert({static_cast<unsigned>(1), std::ref(s0Var)});
+    vars.insert({static_cast<unsigned>(2), std::ref(s1Var)});
+    AppendLocalBufferVarOffset(vars);
 
-//     AppendLocalBufferVarOffset({&dVar, &s0Var, &s1Var}, {0, 1, 2});
-//     int ret = 0;
-//     if(opCode == Opcode::OP_ADD || opCode == Opcode::OP_SUB || opCode == Opcode::OP_MUL || opCode == Opcode::OP_DIV ||
-//         opCode == Opcode::OP_MAXIMUM || opCode == Opcode::OP_PAIRMAX || opCode == Opcode::OP_PAIRSUM) {
-//         return PrintBinary({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
-//     } else {
-//         if (shape[0].size() == SHAPE_DIM2) {
-//             ret = sprintf_s(buffer,
-//                 sizeof(buffer),
-//                 "%s<%s, %u, %u>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n",
-//                 tileOpName.c_str(),
-//                 dstDtypeStr.c_str(),
-//                 tShape0,
-//                 tShape1,
-//                 dstDtypeStr.c_str(),
-//                 dVar.c_str(),
-//                 src0DtypeStr.c_str(),
-//                 s0Var.c_str(),
-//                 src1DtypeStr.c_str(),
-//                 s1Var.c_str());
-//         } else if (shape[0].size() == SHAPE_DIM4) {
-//             ret = sprintf_s(buffer,
-//                 sizeof(buffer),
-//                 "%s<%s, %u, %u, %u, %u>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n",
-//                 tileOpName.c_str(),
-//                 dstDtypeStr.c_str(),
-//                 tShape0,
-//                 tShape1,
-//                 tShape2,
-//                 tShape3,
-//                 dstDtypeStr.c_str(),
-//                 dVar.c_str(),
-//                 src0DtypeStr.c_str(),
-//                 s0Var.c_str(),
-//                 src1DtypeStr.c_str(),
-//                 s1Var.c_str());
-//         }
-//     }
-//     ASSERT(ret >= 0) << "GenBinaryOp sprintf_s failed ";
-//     std::string ostring(buffer);
-//     return ostring;
-// }
+    int ret = 0;
+    if(opCode == Opcode::OP_ADD || opCode == Opcode::OP_SUB || opCode == Opcode::OP_MUL || opCode == Opcode::OP_DIV ||
+        opCode == Opcode::OP_MAXIMUM || opCode == Opcode::OP_PAIRMAX || opCode == Opcode::OP_PAIRSUM || opCode == Opcode::OP_PAIRMIN) {
+        return PrintBinary({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
+    } else {
+        if (shape[0].size() == SHAPE_DIM2) {
+            ret = sprintf_s(buffer,
+                sizeof(buffer),
+                "%s<%s, %u, %u>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n",
+                tileOpName.c_str(),
+                dstDtypeStr.c_str(),
+                tShape0,
+                tShape1,
+                dstDtypeStr.c_str(),
+                dVar.c_str(),
+                src0DtypeStr.c_str(),
+                s0Var.c_str(),
+                src1DtypeStr.c_str(),
+                s1Var.c_str());
+        } else if (shape[0].size() == SHAPE_DIM4) {
+            ret = sprintf_s(buffer,
+                sizeof(buffer),
+                "%s<%s, %u, %u, %u, %u>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n",
+                tileOpName.c_str(),
+                dstDtypeStr.c_str(),
+                tShape0,
+                tShape1,
+                tShape2,
+                tShape3,
+                dstDtypeStr.c_str(),
+                dVar.c_str(),
+                src0DtypeStr.c_str(),
+                s0Var.c_str(),
+                src1DtypeStr.c_str(),
+                s1Var.c_str());
+        }
+    }
+    ASSERT(ret >= 0) << "GenBinaryOp sprintf_s failed ";
+    std::string ostring(buffer);
+    return ostring;
+}
 
 // std::string CodeGenOpLiteNPU::GenBinaryWithBrc() const {
 //     auto kS0 = sm->CreateAllocKey(operandWithMagic[ID2]);
