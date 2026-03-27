@@ -26,7 +26,6 @@
 
 #### 算子开发类
 - `pypto-operator-develop-workflow`: PyPTO 算子开发工作流程
-- `pypto-ascendc-operator-via-golden`: 基于PyTorch Golden驱动的PyPTO算子开发流程（推荐）
 
 #### 性能分析类
 - `pypto-operator-perf-analyzer`: 分析 PyPTO 算子的性能指标
@@ -59,7 +58,6 @@
 | :--- | :--- | :--- |
 | **算子开发** |||
 | pypto-operator-develop-workflow | 接收到算子开发任务时 | 详细开发流程及环境准备、运行测试等，确保开发过程规范、高效 |
-| pypto-ascendc-operator-via-golden | 基于AscendC开发PyPTO算子时 | 通过PyTorch Golden驱动，确保计算流一致性，包含需求、Golden、实现、调试、验证全流程 |
 | **性能分析** |||
 | pypto-operator-perf-analyzer | 需要分析算子性能指标时 | 从性能数据文件中提取关键指标，计算性能评级，提供优化建议 |
 | pypto-operator-perf-autotuner | 接收到算子性能统计及调优指令时 | 生成泳道图、分析性能数据、查看性能统计和提供优化建议 |
