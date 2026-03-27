@@ -405,33 +405,15 @@ private:
         context_->sendCnt_[(int)type]++;
     }
 
-    inline void PushReadyQue(CoreType type, aicoreTask_t *idList, uint32_t idCnt) const
-    {
-        auto taskQueue = taskQueue_[(int)type];
-        taskQueue->lock();
-        taskQueue->pushMany(idList, idCnt);
-        taskQueue->unlock();
-    }
-
-    inline void BatchPushReadyQueue() {
-        uint32_t aicIndex = static_cast<uint32_t>(CoreType::AIC);
-        uint32_t aivIndex = static_cast<uint32_t>(CoreType::AIV);
-
-        if (context_->readyCount[aicIndex] > 0) {
-            PushReadyQue(CoreType::AIC, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
-            TryBatchSendTask(CoreType::AIC);
-            context_->readyCount[aicIndex] = 0;
-        }
-
-        if (context_->readyCount[aivIndex] > 0) {
-            PushReadyQue(CoreType::AIV, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
-            TryBatchSendTask(CoreType::AIV);
-            context_->readyCount[aivIndex] = 0;
-        }
-    }
-
     inline void ResolveDepForAllAiCore(CoreType type)
     {
+        batchReadyTaskCount_[(int)CoreType::AIC] = 0;
+        batchReadyTaskCount_[(int)CoreType::AIV] = 0;
+        batchFreeACoreCount_[(int)type] = 0;
+        batchBusyACoreCount_[(int)type] = 0;
+        batchFreeBCoreCount_[(int)type] = 0;
+        batchBusyBCoreCount_[(int)type] = 0;
+
         // Handling Busy A queue pairings
         // if (busyACoreQueue_[(int)type]->tryLock() == true)
         {
@@ -468,7 +450,23 @@ private:
             // busyBCoreQueue_[(int)type]->unlock();
         }
 
-        BatchPushReadyQueue();
+        // Batch-pushing newly enabled AIC tasks to their proper queues
+        if (batchReadyTaskCount_[(int)CoreType::AIC] > 0)
+        {
+            auto taskQueue = taskQueue_[(int)CoreType::AIC];
+            taskQueue->lock();
+            taskQueue->pushMany(batchReadyTaskIds_[(int)CoreType::AIC], batchReadyTaskCount_[(int)CoreType::AIC]);
+            taskQueue->unlock();
+        }
+
+        // Batch-pushing newly enabled AIV tasks to their proper queues
+        if (batchReadyTaskCount_[(int)CoreType::AIV] > 0)
+        {
+            auto taskQueue = taskQueue_[(int)CoreType::AIV];
+            taskQueue->lock();
+            taskQueue->pushMany(batchReadyTaskIds_[(int)CoreType::AIV], batchReadyTaskCount_[(int)CoreType::AIV]);
+            taskQueue->unlock();
+        }
     }
 
     inline void ResolveBusyAQueuePair(CoreType type, const aicorePair_t pair)
@@ -565,7 +563,7 @@ private:
     }
 
     inline void PushReadyTask(int coreType, uint64_t taskId) {
-        context_->readyIds[coreType][context_->readyCount[coreType]++] = taskId;
+        batchReadyTaskIds_[coreType][batchReadyTaskCount_[coreType]++] = taskId;
     }
 
     inline void ResolveDynStitched(DynDeviceTask *dyntask, int origfunc, int origop) {
@@ -804,6 +802,19 @@ private:
     pairQueue_t* busyACoreQueue_[AICORE_TYPE_NUM];
     pairQueue_t* freeBCoreQueue_[AICORE_TYPE_NUM];
     pairQueue_t* busyBCoreQueue_[AICORE_TYPE_NUM];
+
+    aicoreTask_t batchReadyTaskIds_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
+    size_t batchReadyTaskCount_[AICORE_TYPE_NUM];
+
+    size_t  batchFreeACoreCount_[AICORE_TYPE_NUM];
+    size_t  batchBusyACoreCount_[AICORE_TYPE_NUM];
+    size_t  batchFreeBCoreCount_[AICORE_TYPE_NUM];
+    size_t  batchBusyBCoreCount_[AICORE_TYPE_NUM];
+
+    aicoreCore_t batchFreeACoreIds_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
+    aicorePair_t batchBusyACoreIds_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
+    aicorePair_t batchFreeBCoreIds_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
+    aicorePair_t batchBusyBCoreIds_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
 
     // Variable to scheduler lead and whether or not I am the lead
     bool isLeaderScheduler_;

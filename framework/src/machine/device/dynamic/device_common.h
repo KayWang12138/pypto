@@ -50,9 +50,6 @@ const int DEVICE_MAX_AICPU_NUM = 7;
 struct SchduleContext {
     uint64_t waitTaskCnt_[AICORE_TYPE_NUM]{0,0};
     uint64_t resolveHubCnt_{0};
-
-    uint32_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
-    uint32_t readyCount[AICORE_TYPE_NUM]{0,0};
     uint32_t sendCnt_[AICORE_TYPE_NUM]{0,0};
 };
 
