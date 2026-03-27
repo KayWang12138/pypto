@@ -164,7 +164,7 @@ def test_op_type_parameterizes_plugin_host_and_executor_cpp():
     assert ".FrameworkType(ONNX)" in plugin
     assert '.OriginOpType("MyOp")' in plugin
 
-    host = cpp_mod._generate_op_custom_def_cpp(op_type=op_type)
+    host = cpp_mod._generate_op_custom_def_cpp(op_type=op_type, dtypes=["torch.float16", "torch.float16"])
     assert "class MyOp : public OpDef" in host
     assert "explicit MyOp(const char *name)" in host
     assert "OP_ADD(MyOp)" in host
@@ -189,3 +189,20 @@ def test_invalid_op_type_raises():
         cpp_mod._generate_op_custom_plugin_cpp(
             "1Bad", framework_type=_FRAMEWORK_TYPE__ONNX
         )
+
+
+def test_generate_op_custom_def_cpp_builds_inputs_from_dtypes():
+    text = cpp_mod._generate_op_custom_def_cpp(
+        op_type="MyOp",
+        dtypes=["torch.float16", "torch.float32", "torch.bfloat16"],
+    )
+    assert 'this->Input("in0")' in text
+    assert 'this->Input("in1")' in text
+    assert 'this->Input("in2")' in text
+    assert 'this->Output("out0")' in text
+    assert text.count(".DataType({ge::DT_FLOAT16})") == 4
+
+
+def test_generate_op_custom_def_cpp_rejects_empty_dtypes():
+    with pytest.raises(ValueError, match="dtypes"):
+        cpp_mod._generate_op_custom_def_cpp(op_type="MyOp", dtypes=[])

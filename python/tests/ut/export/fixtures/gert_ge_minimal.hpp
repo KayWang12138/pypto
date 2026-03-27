@@ -41,6 +41,13 @@ private:
     Shape output_;
 };
 
+class InferDataTypeContext {
+public:
+    int GetInputDataType(int /*i*/) const { return 0; }
+
+    void SetOutputDataType(int /*idx*/, int /*dtype*/) {}
+};
+
 }  // namespace gert
 
 namespace ge {

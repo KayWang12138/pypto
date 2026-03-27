@@ -12,6 +12,8 @@ from pypto.export.helpers import (
     _camel_case_to_snake_case,
     _get_renamed_func_source,
     _snake_case_to_camel_case,
+    _torch_dtype_to_ge_dtype,
+    _torch_dtype_to_ir_dtype,
     _unwrap_decorated_func_name,
     _unwrap_decorated_func_source,
 )
@@ -98,3 +100,33 @@ def test_get_renamed_func_source_does_not_rename_later_occurrences_in_body():
     assert out.startswith("def new_name(")
     # Docstring still mentions old name; only first def name token is replaced once.
     assert "func_with_self_reference docstring" in out
+
+
+def test_torch_dtype_to_ge_dtype_float_variants_map_to_float16():
+    assert _torch_dtype_to_ge_dtype("torch.float16") == "ge::DT_FLOAT16"
+    assert _torch_dtype_to_ge_dtype("torch.float32") == "ge::DT_FLOAT16"
+    assert _torch_dtype_to_ge_dtype("torch.bfloat16") == "ge::DT_FLOAT16"
+
+
+@pytest.mark.parametrize("bad", ["float16", "fp16", "ge::DT_FLOAT16", "int"])
+def test_torch_dtype_to_ge_dtype_rejects_non_torch_prefix(bad: str):
+    with pytest.raises(ValueError, match="Unsupported dtype"):
+        _torch_dtype_to_ge_dtype(bad)
+
+
+def test_torch_dtype_to_ge_dtype_rejects_non_float_torch_dtype():
+    with pytest.raises(ValueError, match="Only torch float dtypes"):
+        _torch_dtype_to_ge_dtype("torch.int32")
+
+
+def test_torch_dtype_to_ir_dtype_matches_expected_members():
+    import pypto_ir
+
+    assert _torch_dtype_to_ir_dtype("torch.float16") == pypto_ir.DataType.FP16
+    assert _torch_dtype_to_ir_dtype("torch.float32") == pypto_ir.DataType.FP32
+    assert _torch_dtype_to_ir_dtype("torch.int32") == pypto_ir.DataType.INT32
+
+
+def test_torch_dtype_to_ir_dtype_rejects_non_torch_prefix():
+    with pytest.raises(ValueError, match="unsupported dtype"):
+        _torch_dtype_to_ir_dtype("float32")

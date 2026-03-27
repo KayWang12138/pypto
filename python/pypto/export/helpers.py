@@ -32,3 +32,33 @@ def _camel_case_to_snake_case(name: str) -> str:
     step1 = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", name)
     step2 = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", step1)
     return step2.lower()
+
+
+def _torch_dtype_to_ge_dtype(dtype) -> str:
+    """Map torch dtype-like values to GE dtype token string.
+
+    Temporary behavior: any torch float dtype maps to ``ge::DT_FLOAT16``.
+    """
+    dtype_name = str(dtype)
+    if not dtype_name.startswith("torch."):
+        raise ValueError(f"Unsupported dtype for GE mapping: {dtype!r}")
+    if "float" not in dtype_name:
+        raise ValueError(f"Only torch float dtypes are supported for now, got {dtype!r}")
+    return "ge::DT_FLOAT16"
+
+
+def _torch_dtype_to_ir_dtype(dtype):
+    """Map torch dtype-like values to ``pypto_ir.DataType`` enum."""
+    import pypto_ir
+
+    dtype_name = str(dtype)
+    if not dtype_name.startswith("torch."):
+        raise ValueError(f"unsupported dtype ::: {dtype}")
+    ir_dtype_name = (
+        dtype_name.replace("torch.", "")
+        .replace("float", "FP")
+        .replace("int", "INT")
+        .replace("_", "")
+        .upper()
+    )
+    return getattr(pypto_ir.DataType, ir_dtype_name)

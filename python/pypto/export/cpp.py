@@ -3,7 +3,12 @@ import re
 import typing
 from typing import Any, Callable, Optional, get_args, get_origin, get_type_hints
 
-from .helpers import _unwrap_decorated_func_source, _unwrap_decorated_func_name, _snake_case_to_camel_case
+from .helpers import (
+    _snake_case_to_camel_case,
+    _torch_dtype_to_ge_dtype,
+    _unwrap_decorated_func_name,
+    _unwrap_decorated_func_source,
+)
 
 # This module is WIP and subject to changes (pending requirement clarifications)
 
@@ -263,9 +268,33 @@ REGISTER_CUSTOM_OP("{op_type}")
 """
 
 
-def _generate_op_custom_def_cpp(infer_shape_func: Optional[Callable] = None, *, op_type: str) -> str:
+def _generate_op_custom_def_cpp(
+    infer_shape_func: Optional[Callable] = None,
+    *,
+    op_type: str,
+    dtypes: list[Any],
+) -> str:
     """GE OpDef TU under ``op_host``: OpDef stub plus optional InferShape via gert::Shape and embedded pybind."""
     _validate_op_type_identifier(op_type)
+    if not dtypes:
+        raise ValueError("dtypes must be a non-empty list")
+
+    input_defs = []
+    for i, dtype in enumerate(dtypes):
+        ge_dtype = _torch_dtype_to_ge_dtype(dtype)
+        input_defs.append(
+            f"""        this->Input("in{i}")
+            .ParamType(REQUIRED)
+            .DataType({{{ge_dtype}}})
+            .Format({{ge::FORMAT_ND}});"""
+        )
+    output_dtype = _torch_dtype_to_ge_dtype(dtypes[0])
+    output_def = f"""        this->Output("out0")
+            .ParamType(REQUIRED)
+            .DataType({{{output_dtype}}})
+            .Format({{ge::FORMAT_ND}});"""
+    io_defs = "\n".join(input_defs + [output_def])
+
     if infer_shape_func is None:
         infer_shape_ge_body = """    const gert::Shape* x1_shape = context->GetInputShape(0);
     gert::Shape* y_shape = context->GetOutputShape(0);
@@ -299,7 +328,7 @@ static ge::graphStatus InferShapeGeImpl(gert::InferShapeContext* context) {{
 }}
 
 static ge::graphStatus InferDataType(gert::InferDataTypeContext* context) {{
-    (void)context->GetInputDataType(0);
+    context->SetOutputDataType(0, context->GetInputDataType(0));
     return GRAPH_SUCCESS;
 }}
 
@@ -307,18 +336,7 @@ namespace ops {{
 class {op_type} : public OpDef {{
 public:
     explicit {op_type}(const char *name) : OpDef(name) {{
-        this->Input("x")
-            .ParamType(REQUIRED)
-            .DataType({{ge::DT_FLOAT16}})
-            .Format({{ge::FORMAT_ND}});
-        this->Input("y")
-            .ParamType(REQUIRED)
-            .DataType({{ge::DT_FLOAT16}})
-            .Format({{ge::FORMAT_ND}});
-        this->Output("z")
-            .ParamType(REQUIRED)
-            .DataType({{ge::DT_FLOAT16}})
-            .Format({{ge::FORMAT_ND}});
+{io_defs}
         this->SetInferShape(InferShapeGeImpl);
         this->SetInferDataType(InferDataType);
         this->AICore().AddConfig("kirinx90");
