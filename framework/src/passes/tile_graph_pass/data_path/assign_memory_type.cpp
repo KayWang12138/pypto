@@ -76,6 +76,7 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
     ProcessLargeTileToSamllTile(function);
 
     ProcessL0C2UBSmallToLarge(function);
+    ProcessL0C2UBLargeToSmall(function);
     // 插入convert op
     Status insertionStatus = inserter.DoInsertion(function);
     if (insertionStatus != SUCCESS) {
@@ -720,6 +721,60 @@ void AssignMemoryType::ProcessL0C2UBSmallToLarge(Function &function) {
                 "Set L0C->UB small to large for Assemble Op[%d], input tensor[%d] (L0C) -> output tensor[%d] (UB)",
                 op.GetOpMagic(), iOperand->magic, oOperand->magic);
         }
+    }
+}
+
+// 处理 L0C->UB 大搬小场景（Cube到Vector的切片）
+void AssignMemoryType::ProcessL0C2UBLargeToSmall(Function &function) {
+    for (auto &op : function.Operations()) {
+        auto opcode = op.GetOpcode();
+        if (opcode != Opcode::OP_VIEW) {
+            continue;
+        }
+        
+        auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+        if (viewOpAttribute == nullptr) {
+            continue;
+        }
+        
+        MemoryType attrToType = viewOpAttribute->GetTo();
+        if (attrToType != MEM_UB) {
+            continue;
+        }
+        
+        auto iOperand = op.GetIOperands().front();
+        auto oOperand = op.GetOOperands().front();
+        
+        // 检查输入是否为 L0C，输出是否为 UB
+        if (iOperand->GetMemoryTypeOriginal() != MEM_L0C) {
+            continue;
+        }
+        if (oOperand->GetMemoryTypeOriginal() != MEM_UB) {
+            continue;
+        }
+        
+        // 约束：仅支持2维
+        if (iOperand->GetShape().size() != 2 || oOperand->GetShape().size() != 2) {
+            continue;
+        }
+        
+        // 检查大搬小条件：srcDim0 >= dstDim0 且 srcDim1 >= dstDim1
+        const auto &srcShape = iOperand->GetShape();
+        const auto &dstShape = oOperand->GetShape();
+        
+        if (srcShape[0] < dstShape[0] || srcShape[1] < dstShape[1]) {
+            continue;
+        }
+        
+        // 检查整除关系：srcShape 应该是 dstShape 的整数倍
+        if (srcShape[0] % dstShape[0] != 0 || srcShape[1] % dstShape[1] != 0) {
+            continue;
+        }
+        inserter.UpdateTensorTobeMap(iOperand, op, MemoryType::MEM_L0C);
+        
+        APASS_LOG_DEBUG_F(Elements::Operation, 
+            "Set L0C->UB large to small for View Op[%d], input tensor[%d] (L0C) -> output tensor[%d] (UB)",
+            op.GetOpMagic(), iOperand->magic, oOperand->magic);
     }
 }
 
