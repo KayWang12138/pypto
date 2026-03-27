@@ -1553,7 +1553,7 @@ def gen_reduce_sum_op_golden(
         x = inputs[0]
         dims = params["dims"]
         keepdim = params.get("keepDim", True)
-        return [x.sum(axis=dims[0], keepdims=keepdim)]
+        return [x.sum(axis=dims[0], keepdims=keepdim, dtype=inputs[0].dtype)]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Sum", golden_func, output, case_index)
@@ -1612,7 +1612,7 @@ def gen_reduce_prod_op_golden(
         x = inputs[0]
         dims = params["dims"]
         keepdim = params.get("keepDim", True)
-        return [x.prod(axis=dims[0], keepdims=keepdim)]
+        return [x.prod(axis=dims[0], keepdims=keepdim, dtype=inputs[0].dtype)]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Prod", golden_func, output, case_index)
