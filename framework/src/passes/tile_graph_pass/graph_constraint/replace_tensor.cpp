@@ -948,28 +948,29 @@ void ReplaceTensor::FindNeedToCopyAssemble(std::unordered_set<Operation*> &needI
 void ReplaceTensor::InsertNeedCopy(Function &function) {
     std::unordered_set<int> visitedAssOps;
     std::unordered_set<Operation *> needInsertCopyAssOps;
+    
     for (auto &op : function.Operations()) {
-        if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE && visitedAssOps.insert(op.GetOpMagic()).second) {
             FindNeedToCopyAssemble(needInsertCopyAssOps, visitedAssOps, op);
         }
+        
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            auto producerOps = op.ProducerOps();
-            auto consumerOps = op.ConsumerOps();
-            bool flag = true;
-            for (auto consumerOp : consumerOps) {
-                if (consumerOp->GetOpcode() == Opcode::OP_COPY_IN) {
-                    flag = false;
-                    break;
+            const auto &consumerOps = op.ConsumerOps();
+            
+            bool hasCopyInConsumer = std::any_of(consumerOps.begin(), consumerOps.end(),
+                [](Operation *consumer) { return consumer->GetOpcode() == Opcode::OP_COPY_IN; });
+            
+            if (!hasCopyInConsumer) {
+                const auto &producerOps = op.ProducerOps();
+                bool hasViewProducer = std::any_of(producerOps.begin(), producerOps.end(),
+                    [](Operation *producer) { return producer->GetOpcode() == Opcode::OP_VIEW; });
+                
+                if (hasViewProducer) {
+                    needInsertCopyAssOps.insert(&op);
                 }
             }
-            if (flag) {
-                for (auto producesOp : producerOps) {
-                    if (producesOp->GetOpcode() == Opcode::OP_VIEW) {
-                        needInsertCopyAssOps.insert(&op);
-                    }
-                }
-            }
-            for (auto consumerOp : consumerOps) {
+            
+            for (Operation *consumerOp : consumerOps) {
                 if (consumerOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
                     needInsertCopyAssOps.insert(consumerOp);
                 }
