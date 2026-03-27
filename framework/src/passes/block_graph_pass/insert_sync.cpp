@@ -412,9 +412,6 @@ Status PipeSync::AdjustReshapeCfg(TileOpCfg &opcfg, Operation &op) {
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE3;
     }
-    if (op.HasAttribute(OpAttributeKey::isCube) && op.GetBoolAttribute(OpAttributeKey::isCube)) {
-        opcfg.coreType_ = CoreType::AIC;
-    }
     return SUCCESS;
 }
 
