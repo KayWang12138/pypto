@@ -730,6 +730,25 @@ class JitCallableWrapper:
                 self.compile(pto_tensors)
                 self._run_with_cpu(pto_tensors, [])
 
+    def build_kernel(self):
+        input_tensor_defs, _ = (
+            self.get_signature_high_performance(self._original_func)
+        )
+        self._get_or_create_kmodule({})
+        with pypto.options("jit_scope"):
+            self._set_config_option()
+            pypto_impl.DeviceInit()
+            self.compile(input_tensor_defs)
+        
+        from pathlib import Path
+        output_path = Path(pypto_impl.LogTopFolder()) / "kernel_aicore"
+        matches = list(output_path.glob("TENSOR*.o"))
+        if len(matches) != 1:
+            raise RuntimeError(f"Expected 1 kernel file, got {len(matches)}.")
+        kernel_file = matches[0]
+        return kernel_file
+
+
     def _check_input_defs_match_tensors(self, in_tensors: list, input_tensor_defs: list[pypto.Tensor]) -> None:
         """Check if the input tensor definitions match the input tensors.
         """
