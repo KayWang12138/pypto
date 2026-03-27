@@ -48,6 +48,7 @@ struct WrapInfo {
     uint32_t aivCoreIdxOne;
     uint32_t taskCnt {0};
     uint32_t mixResourceType;
+    uint32_t queueState {0}; // 0: idle, 1: queued, 2: running, 3: done
     ReadyCoreFunctionQueue tasklist;
 };
 
