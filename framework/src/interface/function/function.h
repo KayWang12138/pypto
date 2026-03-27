@@ -853,6 +853,9 @@ public:
 
     const std::unordered_set<std::string> &LoopIdxNameList() { return loopIdxNameList_; }
     bool InsertLoopIdxNameList(const std::string &idxName);
+
+    void SetMaxCVCoreUsage(std::pair<int, int> maxCVCores) { maxCVCoreUsage_ = maxCVCores; }
+    std::pair<int, int> GetMaxCVCoreUsage() { return maxCVCoreUsage_; }
 private:
     int functionMagic_{-1};
     std::string funcMagicName_; // Function name
@@ -862,6 +865,7 @@ private:
     size_t totalAivSubGraphCount_ = 0;
     size_t totalSubGraphCount_ = 0;
     int64_t stackWorkespaceSize_ = 0;
+    std::pair<int, int> maxCVCoreUsage_{10000, 10000}; 
     FunctionHash functionHash_{0};
     std::vector<std::string> calleeMagicNameList_;
     std::unordered_set<std::string> loopIdxNameList_;
