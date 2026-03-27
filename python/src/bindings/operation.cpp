@@ -409,6 +409,14 @@ void bind_operation(py::module &m) {
         },
         py::arg("operand"), py::arg("axis"), py::arg("descending") = false, "Tensor argsort.");
     m.def(
+        "ArgMax",
+        [](const Tensor &operand, int axis, bool keepDim) { return npu::tile_fwk::ArgMax(operand, axis, keepDim); },
+        py::arg("operand"), py::arg("axis") = -1, py::arg("keepDim") = false, "Tensor argmax.");
+    m.def(
+        "ArgMin",
+        [](const Tensor &operand, int axis, bool keepDim) { return npu::tile_fwk::ArgMin(operand, axis, keepDim); },
+        py::arg("operand"), py::arg("axis") = -1, py::arg("keepDim") = false, "Tensor argmin.");
+    m.def(
         "Matmul",
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
             bool c_matrix_nz) {
