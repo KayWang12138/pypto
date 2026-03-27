@@ -1841,6 +1841,68 @@ def floor_div(
 
 
 @op_wrapper
+def argmax(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
+    """
+    Returns the index of the maximum value in a tensor along a given dimension.
+    
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    dim : int, optional
+        The dimension along which to find the maximum value. Default is -1 (last dimension).
+    keepdim : bool, optional
+        Whether the output tensor has dim retained. Default is False.
+    
+    Returns
+    -------
+    Tensor
+        A new tensor containing the indices of the maximum values.
+    
+    Examples
+    --------
+    x = pypto.tensor([[1, 3, 2], [4, 1, 5]], pypto.DT_FP32)
+    y = pypto.argmax(x, dim=1)
+    
+    Input x:  [[1.0, 3.0, 2.0],
+              [4.0, 1.0, 5.0]]
+    Output y: [1, 2]
+    """
+    return pypto_impl.ArgMax(input, dim, keepdim)
+
+
+@op_wrapper
+def argmin(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
+    """
+    Returns the index of the minimum value in a tensor along a given dimension.
+    
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    dim : int, optional
+        The dimension along which to find the minimum value. Default is -1 (last dimension).
+    keepdim : bool, optional
+        Whether the output tensor has dim retained. Default is False.
+    
+    Returns
+    -------
+    Tensor
+        A new tensor containing the indices of the minimum values.
+    
+    Examples
+    --------
+    x = pypto.tensor([[1, 3, 2], [4, 1, 5]], pypto.DT_FP32)
+    y = pypto.argmin(x, dim=1)
+    
+    Input x:  [[1.0, 3.0, 2.0],
+              [4.0, 1.0, 5.0]]
+    Output y: [0, 1]
+    """
+    return pypto_impl.ArgMin(input, dim, keepdim)
+
+
+@op_wrapper
 def prelu(self: Tensor, weight: Tensor) -> Tensor:
     """
     Applies the element-wise parametric rectified linear unit (PReLU) function.

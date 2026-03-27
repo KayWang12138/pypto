@@ -206,8 +206,8 @@ LogicalTensorPtr TensorCompareOperationScalar(
     return result;
 }
 
-LogicalTensorPtr TensorCompareOperationScalar(Function& function, const Element& value, const Tensor& operand1,	 
-    OpType operation, OutType mode) {	 
+LogicalTensorPtr TensorCompareOperationScalar(Function& function, const Element& value, const Tensor& operand1,
+    OpType operation, OutType mode) {
     switch(operation) {
         case OpType::LT: operation = OpType::GT; break;
         case OpType::GT: operation = OpType::LT; break;

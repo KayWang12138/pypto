@@ -646,7 +646,7 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
 
     if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) &&
         (reduce == ScatterMode::ADD || reduce == ScatterMode::MULTIPLY)) {
-        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),	 
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
         result.GetStorage(), orgDtype, CastMode::CAST_RINT);
     }
     return result;
