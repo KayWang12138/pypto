@@ -2893,11 +2893,6 @@ def gen_quantize_op_golden(case_name: str, output: Path, case_index: int = None)
         params = config.get("params")
         input_tensor = from_numpy(inputs[0])
         scale = from_numpy(inputs[1])
-        
-        print("input_tensor")
-        print(input_tensor)
-        print("scale")
-        print(scale)
 
         # Get output dtype from config
         output_dtype = config.get("output_tensors")[0].get("dtype")
@@ -2913,9 +2908,6 @@ def gen_quantize_op_golden(case_name: str, output: Path, case_index: int = None)
                 quantized = ascend_tcvt_int8(input_tensor * scale[..., None, :])
         elif output_dtype == "uint8":
             zero_points = from_numpy(inputs[2])
-            print("zero_points")
-            print(zero_points)
-
             # Perform quantization: q = round(x * scale)
             if axis == -1:
                 quantized = ascend_tcvt_uint8(input_tensor * scale[..., None] + zero_points[..., None])
