@@ -97,7 +97,7 @@ public:
     int curDie1StartCpuId_{0};
     DieId dieId_{DieId::DIE_MIX};
 
-    uint32_t* coreIdxPosition_{nullptr};
+    uint8_t* coreIdxPosition_{nullptr};
     bool *wrapCoreAvail_{nullptr};
     AddReadyCoreIdxFunc AddReadyCoreIdx{nullptr};
 
@@ -151,7 +151,7 @@ public:
 
      inline void RemoveMixReadyCoreIdx(int coreIdx, int type) {
         uint32_t tail = --coreRunReadyCnt_[type];
-        uint32_t pos = coreIdxPosition_[coreIdx];
+        uint8_t pos = coreIdxPosition_[coreIdx];
         if (pos != tail) {
             runReadyCoreIdx_[type][pos] = runReadyCoreIdx_[type][tail];
             coreIdxPosition_[runReadyCoreIdx_[type][pos]] = pos;
@@ -162,7 +162,7 @@ public:
 
     inline void Init(DeviceTask* curDevTask, uint32_t* coreRunReadyCnt, uint32_t* runReadyCoreIdxZero,
         uint32_t* runReadyCoreIdxOne, uint32_t* corePendReadyCnt, uint32_t* pendingIds, uint32_t* runningIds,
-        int aicValidNum, uint32_t* coreIdxPosition, bool* wrapCoreAvail,
+        int aicValidNum, uint8_t* coreIdxPosition, bool* wrapCoreAvail,
         SendTaskToAiCoreFunc func, AddReadyCoreIdxFunc addReadyCoreIdxFunc) {
 
         if (archInfo != ArchInfo::DAV_3510) {
