@@ -220,7 +220,7 @@ void IndexOutCastInferFunc(Operation* op,
     for (auto output : op->GetOOperands()) {
         outValidShapes.push_back(outValidShape);
     }
-    
+
     auto indexOutCastOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
     if (indexOutCastOpAttribute == nullptr) {
         VECTOR_LOGW("IndexOutCast [%d] has no copyOpAttr.", op->GetOpMagic());
