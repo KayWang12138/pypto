@@ -23,7 +23,6 @@
 
 #define MODULE_NAME "PassUtils"
 
-
 namespace npu::tile_fwk {
 void FunctionUtils::RelinkOperationInput(Operation *op, const size_t inputIndex, const Operation *targetOp,
                                          const size_t outputIndex) {
