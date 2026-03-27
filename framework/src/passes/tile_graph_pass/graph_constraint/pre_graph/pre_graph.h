@@ -33,6 +33,11 @@ private:
     Status PostCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
     void UpdateCopyOpIsCube(Operation &op) const;
+
+    void InsertCopyUBOp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input);
+ 	void InsertCopyDDROp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input);
+ 	void FindNeedToCopyAssemble(std::unordered_set<Operation*> &needInsertCopyAssOps, std::unordered_set<int> &visitedAssOps, Operation &op);
+ 	void InsertNeedCopy(Function &function);
 };
 } // namespace npu::tile_fwk
 #endif // PRE_GRAPH_PASS_H
