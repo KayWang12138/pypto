@@ -366,16 +366,12 @@ def generate_final_report(all_results: Dict, output_dir: Path):
 
         operator_name = OPERATOR_NAMES[direction]
         lines.append(f"\n## {direction.upper()} 算子 ({operator_name})")
+        lines.append("")
+        lines.append("| Shape | 核心利用率 | 气泡率 | 执行时间(us) | 负载均衡 | 评级 |")
+        lines.append("|-------|-----------|--------|-------------|---------|------|")
 
-        for model_type, results in all_results[direction].items():
-            if not results:
-                continue
-
-            lines.append(f"\n### {model_type} 模型")
-            lines.append("")
-            lines.append("| Shape | 核心利用率 | 气泡率 | 执行时间(us) | 负载均衡 | 评级 |")
-            lines.append("|-------|-----------|--------|-------------|---------|------|")
-
+        for model_type in ["3B", "7B", "30B"]:
+            results = all_results[direction].get(model_type, [])
             for r in results:
                 if "metrics" in r:
                     m = r["metrics"]
