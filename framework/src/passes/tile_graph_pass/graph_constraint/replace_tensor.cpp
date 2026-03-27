@@ -934,6 +934,22 @@ void ReplaceTensor::InsertAssembleCopy(Function &function) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
             FindNeedToCopyAssemble(needInsertCopyAssOps, visitedAssOps, op);
         }
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            auto producerOps = op.ProducerOps();
+            auto consumerOps = op.ConsumerOps();
+            bool flag = true;
+            for (auto consumerOp : consumerOps) {
+                if (consumerOp->GetOpcode() == Opcode::OP_COPY_OUT) {
+                    flag = false;
+                    break;
+                }
+            }
+            for (auto producesOp : producerOps) {
+                if (flag && producesOp->GetOpcode() == Opcode::OP_VIEW) {
+                    needInsertCopyAssOps.insert(&op);
+                }
+            }
+        }
     }
     std::vector<Operation *> sortedOps(needInsertCopyAssOps.begin(), needInsertCopyAssOps.end());
     std::sort(sortedOps.begin(), sortedOps.end(),
