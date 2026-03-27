@@ -58,7 +58,7 @@ constexpr uint32_t REG_TASK_NUM = 2; // 一次寄存器task个数
 constexpr uint32_t AIV_CORE_COUNT = 48;
 constexpr uint32_t AIC_CORE_COUNT = 24;
 constexpr uint32_t TOTAL_CORE_COUNT = AIV_CORE_COUNT + AIC_CORE_COUNT;
-constexpr uint32_t TASK_BATCH_SIZE = 32;
+constexpr uint32_t TASK_BATCH_SIZE = 8;
 
 #define MAX_QUEUED_TASKS 4096
 
@@ -332,61 +332,59 @@ private:
         return freeACoreQueue_[(int)type]->size() + freeBCoreQueue_[(int)type]->size();
     }
 
-    inline uint64_t TryBatchSendTask(CoreType type)
+    inline void TryBatchSendTask(CoreType type)
     {
         auto taskQueue = taskQueue_[(int)type];
-        if (taskQueue->empty()) return 0;
+        if (taskQueue->empty()) return;
 
         uint32_t ready = GetReadyCoreNum(type);
-        if (ready == 0 ) return 0;
+        if (ready == 0 ) return;
+
+        // Checking free A cores
+        if (taskQueue->tryLock())
+        {
+            // freeACoreQueue_[(int)type]->lock();
+
+            const size_t availableCores = freeACoreQueue_[(int)type]->size();
+            const auto taskSet = taskQueue->pop(availableCores);
+            const aicoreTask_t* taskData = taskSet.first;
+            const size_t taskCount = taskSet.second;
+
+            for (size_t i = 0; i < taskCount; i++)
+            {
+                const auto core = freeACoreQueue_[(int)type]->pop();
+                const auto task = taskData[i];
+                const auto pair = encodePair(core, task);
+                SendTaskToAiCore(type, core, task);
+                busyACoreQueue_[(int)type]->push(pair);
+            }
+
+            // freeACoreQueue_[(int)type]->unlock();   
+            taskQueue->unlock();   
+        }
         
-        freeACoreQueue_[(int)type]->lock();
-        freeBCoreQueue_[(int)type]->lock();
-        taskQueue->lock();
+        // Checking free B cores
+        if (taskQueue->tryLock())
+        {
+            // freeBCoreQueue_[(int)type]->lock();
 
-        ready = GetReadyCoreNum(type);
+            const size_t availableCores = freeBCoreQueue_[(int)type]->size();
+            const auto taskSet = taskQueue->pop(availableCores);
+            const aicoreTask_t* taskData = taskSet.first;
+            const size_t taskCount = taskSet.second;
 
-        if (ready == 0 ) {
+            for (size_t i = 0; i < taskCount; i++)
+            {
+                const auto pair = freeBCoreQueue_[(int)type]->pop();
+                const auto core = decodePairCore(pair);
+                const auto task = taskData[i];
+                SendTaskToAiCore(type, core, task);
+                busyBCoreQueue_[(int)type]->push(pair);
+            }
+
+            // freeBCoreQueue_[(int)type]->unlock();
             taskQueue->unlock();
-            freeBCoreQueue_[(int)type]->unlock();
-            freeACoreQueue_[(int)type]->unlock();     
-            return 0;
         }
-        
-        const auto taskSet = taskQueue->pop(ready);
-        BatchSendTask(type, taskSet.first, taskSet.second);
-
-        taskQueue->unlock();
-        freeBCoreQueue_[(int)type]->unlock();
-        freeACoreQueue_[(int)type]->unlock();        
-
-        
-        return taskSet.second;
-    }
-
-    inline uint32_t BatchSendTask(CoreType type, uint32_t *newTask, uint32_t taskCount) {
-        uint32_t sendCnt = 0;
-
-        const auto freeACoreCount = freeACoreQueue_[(int)type]->size();
-        while (sendCnt < taskCount && sendCnt < freeACoreCount)
-        {
-            uint32_t coreId = freeACoreQueue_[(int)type]->pop();
-            SendTaskToAiCore(type, coreId, newTask[sendCnt]);
-            auto pair = encodePair(coreId, newTask[sendCnt]);
-            busyACoreQueue_[(int)type]->push(pair);
-            sendCnt++;
-        }
-
-        while (sendCnt < taskCount)
-        {
-            auto pair = freeBCoreQueue_[(int)type]->pop();
-            auto coreId = decodePairCore(pair);
-            SendTaskToAiCore(type, coreId, newTask[sendCnt]);
-            busyBCoreQueue_[(int)type]->push(pair);
-            sendCnt++;
-        }
-
-        return sendCnt;
     }
 
     inline void DispatchAiCoreTask(CoreType type) {
@@ -429,7 +427,7 @@ private:
     inline void ResolveDepForAllAiCore(CoreType type)
     {
         // Handling Busy A queue pairings
-        if (busyACoreQueue_[(int)type]->tryLock() == true)
+        // if (busyACoreQueue_[(int)type]->tryLock() == true)
         {
             size_t pairCount = busyACoreQueue_[(int)type]->size();
             for (size_t i = 0; i < pairCount; i++)
@@ -437,11 +435,11 @@ private:
                 const auto pair = busyACoreQueue_[(int)type]->pop();
                 ResolveBusyAQueuePair(type, pair);
             }
-            busyACoreQueue_[(int)type]->unlock();
+            // busyACoreQueue_[(int)type]->unlock();
         }
 
         // Handling Free B queue pairings
-        if (freeBCoreQueue_[(int)type]->tryLock() == true)
+        // if (freeBCoreQueue_[(int)type]->tryLock() == true)
         {
             size_t pairCount = freeBCoreQueue_[(int)type]->size();
             for (size_t i = 0; i < pairCount; i++)
@@ -449,11 +447,11 @@ private:
                 const auto pair = freeBCoreQueue_[(int)type]->pop();
                 ResolveFreeBQueuePair(type, pair);
             }
-            freeBCoreQueue_[(int)type]->unlock();
+            // freeBCoreQueue_[(int)type]->unlock();
         }
 
         // Handling Busy B queue pairings
-        if (busyBCoreQueue_[(int)type]->tryLock() == true)
+        // if (busyBCoreQueue_[(int)type]->tryLock() == true)
         {
             size_t pairCount = busyBCoreQueue_[(int)type]->size();
             for (size_t i = 0; i < pairCount; i++)
@@ -461,7 +459,7 @@ private:
                 const auto pair = busyBCoreQueue_[(int)type]->pop();
                 ResolveBusyBQueuePair(type, pair);
             }
-            busyBCoreQueue_[(int)type]->unlock();
+            // busyBCoreQueue_[(int)type]->unlock();
         }
 
         BatchPushReadyQueue();
