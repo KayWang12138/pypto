@@ -38,6 +38,14 @@ private:
     bool IsMergeable(std::unordered_set<Operation *> &moveFrontOp, size_t left, size_t right, PipeSync &ps, int groupNum);
     void MoveOpsForMerge(const std::unordered_set<Operation *> &moveFrontOp, size_t left, size_t right, int groupNum);
     void FindPipeVIdx(std::vector<size_t> &pipeVIdx, AIVCore coreType);
+    void AdjustUbCopyNd2NzOrder(PipeSync &ps);
+    void ProcessGroupUbCopyOrder(PipeSync &ps, std::vector<Operation *> &group);
+    void CollectGroupIndices(std::vector<Operation *> &group, std::vector<size_t> &ubCopyIndices,
+                             std::vector<size_t> &nonUbCopyIndices, std::vector<size_t> &groupIndices);
+    void JudgeNeedMoveUbCopy(PipeSync &ps, size_t ubCopyIdx, std::vector<size_t> &nonUbCopyIndices,
+                             std::vector<size_t> &needMoveFront, std::vector<size_t> &needMoveBack);
+    void MoveUbCopyOp(const std::vector<size_t> &needMoveFront, const std::vector<size_t> &needMoveBack,
+                      const std::vector<size_t> &nonUbCopyIndices);
     std::vector<std::vector<Operation *>> mergedOps;
     std::vector<Operation *> opList_;
 };
