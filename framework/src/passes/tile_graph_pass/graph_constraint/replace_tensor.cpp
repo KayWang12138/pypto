@@ -940,15 +940,44 @@ void ReplaceTensor::FindNeedToCopyAssemble(std::unordered_set<Operation*> &needI
  * Tensor1 ---> Assemble ---> Tensor2
  *         ---> Assemble ---> Tensor3
  *         ---> Assemble ---> Tensor4
+
+ * Tensor1 ---> Reshape ---> Assemble ---> Tensor2
+
+ * Tensor1 ---> View ---> Reshape ---> OP(非CopyOut) ---> Tensor2
  */
-void ReplaceTensor::InsertAssembleCopy(Function &function) {
+void ReplaceTensor::InsertNeedCopy(Function &function) {
     std::unordered_set<int> visitedAssOps;
     std::unordered_set<Operation *> needInsertCopyAssOps;
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
             FindNeedToCopyAssemble(needInsertCopyAssOps, visitedAssOps, op);
         }
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            auto producerOps = op.ProducerOps();
+            auto consumerOps = op.ConsumerOps();
+
+            bool flag = true;
+            for (auto consumerOp : consumerOps) {
+                if (consumerOp->GetOpcode() == Opcode::OP_COPY_OUT) {
+                    flag = false;
+                    break;
+                }
+            }
+
+            for (auto producesOp : producerOps) {
+                if (producesOp->GetOpcode() == Opcode::OP_VIEW && flag) {
+                    needInsertCopyAssOps.insert(&op);
+                }
+            }
+
+            for (auto consumerOp : consumerOps) {
+                if (consumerOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                    needInsertCopyAssOps.insert(consumerOp);
+                }
+            }
+        }
     }
+    
     std::vector<Operation *> sortedOps(needInsertCopyAssOps.begin(), needInsertCopyAssOps.end());
     std::sort(sortedOps.begin(), sortedOps.end(),
         [](const Operation *a, const Operation *b) { return a->GetOpMagic() < b->GetOpMagic(); });
@@ -964,7 +993,7 @@ void ReplaceTensor::InsertAssembleCopy(Function &function) {
 
 Status ReplaceTensor::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "===> Start ReplaceTensor.");
-    InsertAssembleCopy(function);
+    InsertNeedCopy(function);
     auto tensorToOrderIndex = BuildTensorOrderIndexMap(function);
     UnionFind uf(tensorToOrderIndex);
     UniteTensor(function, uf);
