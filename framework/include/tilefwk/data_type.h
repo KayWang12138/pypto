@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <unordered_map>
+#include <cstdint>
 
 #ifndef UNUSED
 #define UNUSED(n)       (void)(n)
