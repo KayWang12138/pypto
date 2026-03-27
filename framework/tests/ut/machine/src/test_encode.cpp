@@ -209,4 +209,30 @@ TEST_F(TestDevEncode, test_dev_func_dupped) {
     funcDuppped.DumpRawShape(&rawTensor, 0, lines, oss);
 }
 
+TEST_F(TestDevEncode, test_init_wrap_info) {
+    Program::GetInstance().Reset();
+    config::Reset();
+    config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
+    TileShape::Current().SetVecTile(32, 32);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
+    int s = 32;
+    Tensor t0(DT_FP32, {s, s}, "t0");
+    Tensor t1(DT_FP32, {s, s}, "t1");
+    Tensor out(DT_FP32, {s, s}, "out");
 
+    FUNCTION("test_wrap_info", {t0, t1}, {out}) {
+        auto temp = Add(t0, t1);
+        Assemble(temp, {0, 0}, out);
+    }
+
+    std::shared_ptr<DyndevFunctionAttribute> funcDynDev =
+        Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    ASSERT_NE(funcDynDev, nullptr);
+    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(funcDynDev->devProgBinary.data());
+    ASSERT_NE(devProg, nullptr);
+
+    DevAscendFunction *devFunc = devProg->GetFunction(0);
+    ASSERT_NE(devFunc, nullptr);
+
+    EXPECT_GE(devFunc->wrapIdNum_, 0);
+}
