@@ -181,9 +181,6 @@ Status OoOScheduler::PrintSpillFailedInfo(IssueEntryPtr allocIssue, bool isGenSp
 }
 
 void OoOScheduler::PrintDependencies() {
-    if (static_cast<int>(LoggerManager::GetManager().level) > static_cast<int>(LoggerLevel::DEBUG)) {
-        return;
-    }
     for (const auto &issue : issueEntries) {
         APASS_LOG_DEBUG_F(Elements::Operation, "%s, latency: %d.", issue->GetOpInfo().c_str(), issue->tileOp.GetLatency());
         for (const auto &preId : issue->predecessors) {

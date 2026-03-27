@@ -70,24 +70,6 @@ void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig) {
     const int near = input_param[12];
     const float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
 
-    ALOG_EVENT_F(R"(
-TestCmpAttnTopk params:
-    b=%d
-    s1=%d
-    n1=%d
-    dn=%d
-    dr=%d
-    n2=%d
-    blockSize=%d
-    cmpBlockSize=%d
-    cmpStride=%d
-    slcBlockSize=%d
-    topk=%d
-    front=%d
-    near=%d
-)",
-        b, s1, n1, dn, dr, n2, blockSize, cmpBlockSize, cmpStride, slcBlockSize, topk, front, near);
-
     DataType qType = dType;
     DataType kType = dType;
 

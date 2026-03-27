@@ -29,7 +29,7 @@
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "interface/tensor/symbolic_scalar.h"
-#include "interface/utils/log.h"
+
 #include "passes/pass_log/pass_log.h"
 
 #ifdef MODULE_NAME

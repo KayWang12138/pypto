@@ -15,7 +15,7 @@
 
 #include "pass_utils.h"
 #include <climits>
-#include "interface/utils/log.h"
+
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
 #include "tilefwk/platform.h"
