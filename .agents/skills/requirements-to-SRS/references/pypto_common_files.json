@@ -1,0 +1,305 @@
+{
+  "description": "PyPTO项目常用文件路径参考，包含核心头文件和源文件的路径及简要说明",
+  "version": "1.0",
+  "last_updated": "2026-03-26",
+  "categories": {
+    "pass_interface": {
+      "description": "Pass基类和接口定义",
+      "files": [
+        {
+          "path": "framework/src/passes/pass_interface/pass.h",
+          "description": "Pass基类定义，所有Pass需继承此类，核心方法包括Run、RunOnFunction、PreCheck、PostCheck",
+          "key_classes": ["Pass"],
+          "key_methods": ["Run", "RunOnFunction", "PreCheck", "PostCheck", "GetName", "SetPassConfigs"]
+        },
+        {
+          "path": "framework/src/passes/pass_interface/pass_type.h",
+          "description": "Pass类型枚举定义，包括PassType和PassName枚举",
+          "key_enums": ["PassType", "PassName"]
+        }
+      ]
+    },
+    "pass_manager": {
+      "description": "Pass管理和注册",
+      "files": [
+        {
+          "path": "framework/src/passes/pass_mgr/pass_manager.h",
+          "description": "PassManager单例类，管理所有Pass的注册和执行",
+          "key_classes": ["PassManager"],
+          "key_methods": ["Instance", "RunPass", "RegisterStrategy"]
+        },
+        {
+          "path": "framework/src/passes/pass_mgr/pass_registry.h",
+          "description": "Pass注册宏定义，通过PassRegistrar自动注册Pass",
+          "key_macros": ["PassRegistrar"]
+        },
+        {
+          "path": "framework/src/passes/pass_mgr/pass_dependency.h",
+          "description": "Pass依赖管理，检查Pass之间的执行顺序依赖",
+          "key_classes": ["PassDependency"]
+        }
+      ]
+    },
+    "tensor_graph_passes": {
+      "description": "Tensor Graph层面的优化Pass",
+      "files": [
+        {
+          "path": "framework/src/passes/tensor_graph_pass/remove_redundant_reshape.h",
+          "description": "消除冗余reshape Pass，移除恒等reshape操作",
+          "key_classes": ["RemoveRedundantReshape"]
+        },
+        {
+          "path": "framework/src/passes/tensor_graph_pass/remove_redundant_reshape.cpp",
+          "description": "RemoveRedundantReshape实现，包含CheckIOOperands和RemoveReshape方法",
+          "key_methods": ["CheckIOOperands", "RemoveReshape"]
+        },
+        {
+          "path": "framework/src/passes/tensor_graph_pass/set_heuristic_tile_shapes.h",
+          "description": "设置启发式Tile形状Pass",
+          "key_classes": ["SetHeuristicTileShapes"]
+        },
+        {
+          "path": "framework/src/passes/tensor_graph_pass/loop_unroll.h",
+          "description": "循环展开Pass",
+          "key_classes": ["LoopUnroll"]
+        },
+        {
+          "path": "framework/src/passes/tensor_graph_pass/expand_function.h",
+          "description": "函数展开Pass",
+          "key_classes": ["ExpandFunction"]
+        },
+        {
+          "path": "framework/src/passes/tensor_graph_pass/auto_cast.h",
+          "description": "自动类型转换Pass",
+          "key_classes": ["AutoCast"]
+        }
+      ]
+    },
+    "tile_graph_passes": {
+      "description": "Tile Graph层面的优化Pass",
+      "files": [
+        {
+          "path": "framework/src/passes/tile_graph_pass/graph_optimization/split_reshape.h",
+          "description": "Reshape拆分Pass，处理Tile层面的reshape操作",
+          "key_classes": ["SplitReshape"],
+          "key_structs": ["ReshapeTilePara", "CheckParam", "UpdatePara"]
+        },
+        {
+          "path": "framework/src/passes/tile_graph_pass/graph_optimization/split_reshape.cpp",
+          "description": "SplitReshape实现，包含复杂的reshape拆分逻辑"
+        },
+        {
+          "path": "framework/src/passes/tile_graph_pass/graph_optimization/remove_redundant_op.h",
+          "description": "消除冗余操作Pass",
+          "key_classes": ["RemoveRedundantOp"]
+        },
+        {
+          "path": "framework/src/passes/tile_graph_pass/subgraph_to_function.h",
+          "description": "子图转函数Pass，将子图转换为可执行函数",
+          "key_classes": ["SubgraphToFunction"]
+        }
+      ]
+    },
+    "pass_checkers": {
+      "description": "Pass验证器，用于PreCheck和PostCheck",
+      "files": [
+        {
+          "path": "framework/src/passes/pass_check/remove_redundant_reshape_checker.h",
+          "description": "RemoveRedundantReshape验证器",
+          "key_classes": ["RemoveRedundantReshapeChecker"]
+        },
+        {
+          "path": "framework/src/passes/pass_check/split_reshape_checker.h",
+          "description": "SplitReshape验证器",
+          "key_classes": ["SplitReshapeChecker"]
+        },
+        {
+          "path": "framework/src/passes/pass_check/checker.h",
+          "description": "验证器基类定义",
+          "key_classes": ["Checker"]
+        }
+      ]
+    },
+    "pass_utils": {
+      "description": "Pass工具类和辅助函数",
+      "files": [
+        {
+          "path": "framework/src/passes/pass_utils/pass_utils.h",
+          "description": "通用Pass工具函数",
+          "key_classes": ["CommonUtils"]
+        },
+        {
+          "path": "framework/src/passes/pass_utils/dead_operation_eliminate.h",
+          "description": "死操作消除工具",
+          "key_classes": ["DeadOperationEliminator"]
+        },
+        {
+          "path": "framework/src/passes/pass_utils/graph_utils.h",
+          "description": "图操作工具函数"
+        }
+      ]
+    },
+    "pass_log": {
+      "description": "Pass日志输出",
+      "files": [
+        {
+          "path": "framework/src/passes/pass_log/pass_log.h",
+          "description": "Pass日志宏定义，包括APASS_LOG_INFO、APASS_LOG_ERROR、APASS_LOG_DEBUG等",
+          "key_macros": ["APASS_LOG_INFO", "APASS_LOG_ERROR", "APASS_LOG_DEBUG", "APASS_LOG_INFO_F", "APASS_LOG_ERROR_F"]
+        }
+      ]
+    },
+    "core_interfaces": {
+      "description": "核心接口定义",
+      "files": [
+        {
+          "path": "framework/include/tilefwk/function.h",
+          "description": "Function类定义，计算图的核心抽象，包含FUNCTION宏定义",
+          "key_classes": ["Function", "RecordFunc", "RecordLoopFunc", "LoopRange"],
+          "key_enums": ["FunctionType"],
+          "key_macros": ["FUNCTION", "LOOP", "IF", "ELSE", "UNROLL"]
+        },
+        {
+          "path": "framework/include/tilefwk/tensor.h",
+          "description": "Tensor类定义，张量核心抽象",
+          "key_classes": ["Tensor", "LogicalTensor"]
+        },
+        {
+          "path": "framework/include/tilefwk/tilefwk.h",
+          "description": "PyPTO框架主头文件，包含所有核心头文件"
+        },
+        {
+          "path": "framework/include/tilefwk/platform.h",
+          "description": "平台相关定义，包括NPU架构类型",
+          "key_enums": ["NPUArch"]
+        },
+        {
+          "path": "framework/include/tilefwk/data_type.h",
+          "description": "数据类型定义",
+          "key_enums": ["DataType"]
+        },
+        {
+          "path": "framework/include/tilefwk/error.h",
+          "description": "错误码定义，Status类型",
+          "key_types": ["Status"]
+        },
+        {
+          "path": "framework/include/tilefwk/config.h",
+          "description": "配置相关定义，PassConfigs类型",
+          "key_types": ["PassConfigs"]
+        }
+      ]
+    },
+    "operation_interface": {
+      "description": "算子接口定义",
+      "files": [
+        {
+          "path": "framework/src/interface/operation/opcode.h",
+          "description": "Opcode枚举定义，包含所有算子类型如OP_RESHAPE、OP_ADD、OP_MUL等",
+          "key_enums": ["Opcode", "OpCoreType", "OpCalcType"],
+          "key_classes": ["OpcodeManager"]
+        },
+        {
+          "path": "framework/src/interface/function/function.h",
+          "description": "Function内部接口定义",
+          "key_classes": ["Function"]
+        }
+      ]
+    },
+    "config_interface": {
+      "description": "配置管理接口",
+      "files": [
+        {
+          "path": "framework/src/interface/configs/config_manager.h",
+          "description": "配置管理器，获取Pass配置参数",
+          "key_functions": ["GetPassConfig", "GetConfig"]
+        }
+      ]
+    },
+    "test_examples": {
+      "description": "测试用例示例，用于参考Pass测试编写",
+      "files": [
+        {
+          "path": "framework/tests/ut/passes/src/test_splitreshape.cpp",
+          "description": "SplitReshape Pass单元测试示例"
+        },
+        {
+          "path": "framework/tests/ut/passes/src/test_subgraph_to_function.cpp",
+          "description": "SubgraphToFunction Pass单元测试示例"
+        }
+      ]
+    },
+    "common_data_structures": {
+      "description": "常用数据结构",
+      "files": [
+        {
+          "path": "framework/src/passes/pass_utils/pass_common_defs.h",
+          "description": "Pass通用定义和数据结构"
+        },
+        {
+          "path": "framework/include/tilefwk/symbolic_scalar.h",
+          "description": "符号标量定义，用于动态形状",
+          "key_classes": ["SymbolicScalar"]
+        },
+        {
+          "path": "framework/include/tilefwk/tile_shape.h",
+          "description": "Tile形状定义",
+          "key_classes": ["TileShape"]
+        }
+      ]
+    }
+  },
+  "quick_reference": {
+    "common_patterns": [
+      {
+        "pattern": "创建新Pass",
+        "reference_file": "framework/src/passes/tensor_graph_pass/remove_redundant_reshape.h",
+        "steps": [
+          "继承Pass基类",
+          "构造函数调用Pass(\"PassName\")",
+          "实现RunOnFunction方法",
+          "可选实现PreCheck和PostCheck",
+          "通过PassRegistry注册"
+        ]
+      },
+      {
+        "pattern": "遍历算子",
+        "reference_file": "framework/src/passes/tensor_graph_pass/remove_redundant_reshape.cpp",
+        "code_pattern": "for (auto &op : function.Operations())"
+      },
+      {
+        "pattern": "判断算子类型",
+        "reference_file": "framework/src/interface/operation/opcode.h",
+        "code_pattern": "op.GetOpcode() == Opcode::OP_RESHAPE"
+      },
+      {
+        "pattern": "获取输入输出张量",
+        "reference_file": "framework/src/passes/tensor_graph_pass/remove_redundant_reshape.cpp",
+        "code_pattern": "op.GetIOperands(), op.GetOOperands()"
+      },
+      {
+        "pattern": "标记删除算子",
+        "reference_file": "framework/src/passes/tensor_graph_pass/remove_redundant_reshape.cpp",
+        "code_pattern": "op.SetAsDeleted(), function.EraseOperations(false)"
+      },
+      {
+        "pattern": "替换张量连接",
+        "reference_file": "framework/src/passes/tensor_graph_pass/remove_redundant_reshape.cpp",
+        "code_pattern": "consumerOp->ReplaceInput(newTensor, oldTensor)"
+      },
+      {
+        "pattern": "日志输出",
+        "reference_file": "framework/src/passes/pass_log/pass_log.h",
+        "code_pattern": "APASS_LOG_INFO_F(Elements::Operation, \"message\", args...)"
+      }
+    ],
+    "key_types": {
+      "Status": "framework/include/tilefwk/error.h",
+      "Function": "framework/include/tilefwk/function.h",
+      "Operation": "通过function.Operations()获取",
+      "LogicalTensor": "framework/include/tilefwk/tensor.h",
+      "Opcode": "framework/src/interface/operation/opcode.h",
+      "PassConfigs": "framework/include/tilefwk/config.h"
+    }
+  }
+}
