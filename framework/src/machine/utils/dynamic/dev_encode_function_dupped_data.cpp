@@ -56,7 +56,7 @@ std::string DevAscendFunctionDuppedData::Dump(int indent) const {
     return oss.str();
 }
 
-void DevAscendFunctionDupped::DumpTopo(std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary, bool enableVFFusion) const {
+void DevAscendFunctionDupped::DumpTopo(std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary, bool enableVFFusion, const DeviceTask *devTask) const {
     auto func = GetSource();
     for (size_t opIdx = 0; opIdx < DupData()->GetSource()->GetOperationSize(); opIdx++) {
         int cceIndex = func->GetOperationAttrCalleeIndex(opIdx);
@@ -64,9 +64,16 @@ void DevAscendFunctionDupped::DumpTopo(std::ofstream &os, int seqNo, int funcIdx
             cceIndex = (func->GetOperationAttrCalleeIndex(opIdx) + 1) / MAIN_BLOCK_SIZE;
         }
         auto &cceInfo = cceBinary[cceIndex];
+        int32_t wrapId = -1;
+        if (devTask != nullptr && devTask->mixTaskData.wrapIdNum > 0) {
+            auto opWrapList = reinterpret_cast<int32_t*>(devTask->mixTaskData.opWrapList[funcIdx]);
+            if (opWrapList != nullptr && opWrapList[opIdx] != -1) {
+                wrapId = static_cast<int32_t>(MakeMixWrapID(funcIdx, static_cast<uint32_t>(opWrapList[opIdx])));
+            }
+        }
         os << seqNo << "," << MakeTaskID(funcIdx, opIdx) << "," << func->funcKey << "," << func->rootHash << ","
             <<func->GetOperationDebugOpmagic(opIdx) << "," << cceIndex << ","
-            << cceInfo.funcHash << "," << cceInfo.coreType << "," << cceInfo.psgId << ",";
+            << cceInfo.funcHash << "," << cceInfo.coreType << "," << cceInfo.psgId << "," << wrapId << ",";
         auto &succList = func->GetOperationDepGraphSuccList(opIdx);
         for (size_t j = 0; j < succList.size(); j++) {
             os << "," << MakeTaskID(funcIdx, func->At(succList, j));
