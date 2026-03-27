@@ -73,9 +73,9 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
     auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
     auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
 
-    auto scaleStride0 = scaleLayout.template GetStrideDim<0, expectSize>();
     auto scaleStride1 = scaleLayout.template GetStrideDim<1, expectSize>();
     auto scaleStride2 = scaleLayout.template GetStrideDim<2, expectSize>();
+    auto scaleStride3 = scaleLayout.template GetStrideDim<3, expectSize>();
 
     // 获取 Tile 形状并计算对齐
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, expectSize>();
@@ -112,7 +112,8 @@ TILEOP void TQuantInt8Sym(T0 dst, T1 src, T2 scale) {
 
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                auto scaleOffset = n0Index * scaleStride0 + n1Index * scaleStride1 + n2Index * scaleStride2;
+                // scaleOffset should need to be shifted
+                auto scaleOffset = n0Index * scaleStride1 + n1Index * scaleStride2 + n2Index * scaleStride3;
 
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * sizeof(DstDtype)));
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * sizeof(SrcDtype)));
@@ -168,13 +169,13 @@ TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset) {
     auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
     auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
 
-    auto scaleStride0 = scaleLayout.template GetStrideDim<0, expectSize>();
     auto scaleStride1 = scaleLayout.template GetStrideDim<1, expectSize>();
     auto scaleStride2 = scaleLayout.template GetStrideDim<2, expectSize>();
+    auto scaleStride3 = scaleLayout.template GetStrideDim<3, expectSize>();
 
-    auto offsetStride0 = offsetLayout.template GetStrideDim<0, expectSize>();
     auto offsetStride1 = offsetLayout.template GetStrideDim<1, expectSize>();
     auto offsetStride2 = offsetLayout.template GetStrideDim<2, expectSize>();
+    auto offsetStride3 = offsetLayout.template GetStrideDim<3, expectSize>();
 
     // 获取 Tile 形状
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, expectSize>();
@@ -215,8 +216,9 @@ TILEOP void TQuantInt8Asym(T0 dst, T1 src, T2 scale, T3 offset) {
 
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                auto scaleOffset = n0Index * scaleStride0 + n1Index * scaleStride1 + n2Index * scaleStride2;
-                auto offsetOffset = n0Index * offsetStride0 + n1Index * offsetStride1 + n2Index * offsetStride2;
+                // scaleOffset & offsetOffset should need to be shifted
+                auto scaleOffset = n0Index * scaleStride1 + n1Index * scaleStride2 + n2Index * scaleStride3;
+                auto offsetOffset = n0Index * offsetStride1 + n1Index * offsetStride2 + n2Index * offsetStride3;
 
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * sizeof(DstDtype)));
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * sizeof(SrcDtype)));
