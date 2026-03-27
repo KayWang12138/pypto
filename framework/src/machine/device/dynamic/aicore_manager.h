@@ -347,49 +347,55 @@ private:
         if (ready == 0 ) return;
 
         // Checking free A cores
-        if (taskQueue->tryLock())
+        if (freeACoreQueue_[(int)type]->empty() == false && taskQueue->empty() == false)
         {
-            // freeACoreQueue_[(int)type]->lock();
-
-            const size_t availableCores = freeACoreQueue_[(int)type]->size();
-            const auto taskSet = taskQueue->pop(availableCores);
-            const aicoreTask_t* taskData = taskSet.first;
-            const size_t taskCount = taskSet.second;
-
-            for (size_t i = 0; i < taskCount; i++)
+            if (taskQueue->tryLock())
             {
-                const auto core = freeACoreQueue_[(int)type]->pop();
-                const auto task = taskData[i];
-                const auto pair = encodePair(core, task);
-                SendTaskToAiCore(type, core, task);
-                busyAPairQueue_[(int)type]->push(pair);
-            }
+                // freeACoreQueue_[(int)type]->lock();
 
-            // freeACoreQueue_[(int)type]->unlock();   
-            taskQueue->unlock();   
+                const size_t availableCores = freeACoreQueue_[(int)type]->size();
+                const auto taskSet = taskQueue->pop(availableCores);
+                const aicoreTask_t* taskData = taskSet.first;
+                const size_t taskCount = taskSet.second;
+
+                for (size_t i = 0; i < taskCount; i++)
+                {
+                    const auto core = freeACoreQueue_[(int)type]->pop();
+                    const auto task = taskData[i];
+                    const auto pair = encodePair(core, task);
+                    SendTaskToAiCore(type, core, task);
+                    busyAPairQueue_[(int)type]->push(pair);
+                }
+
+                // freeACoreQueue_[(int)type]->unlock();   
+                taskQueue->unlock();   
+            }
         }
         
         // Checking free B cores
-        if (taskQueue->tryLock())
+        if (freeBPairQueue_[(int)type]->empty() == false && taskQueue->empty() == false)
         {
-            // freeBPairQueue_[(int)type]->lock();
-
-            const size_t availableCores = freeBPairQueue_[(int)type]->size();
-            const auto taskSet = taskQueue->pop(availableCores);
-            const aicoreTask_t* taskData = taskSet.first;
-            const size_t taskCount = taskSet.second;
-
-            for (size_t i = 0; i < taskCount; i++)
+            if (taskQueue->tryLock())
             {
-                const auto pair = freeBPairQueue_[(int)type]->pop();
-                const auto core = decodePairCore(pair);
-                const auto task = taskData[i];
-                SendTaskToAiCore(type, core, task);
-                busyBPairQueue_[(int)type]->push(pair);
-            }
+                // freeBPairQueue_[(int)type]->lock();
 
-            // freeBPairQueue_[(int)type]->unlock();
-            taskQueue->unlock();
+                const size_t availableCores = freeBPairQueue_[(int)type]->size();
+                const auto taskSet = taskQueue->pop(availableCores);
+                const aicoreTask_t* taskData = taskSet.first;
+                const size_t taskCount = taskSet.second;
+
+                for (size_t i = 0; i < taskCount; i++)
+                {
+                    const auto pair = freeBPairQueue_[(int)type]->pop();
+                    const auto core = decodePairCore(pair);
+                    const auto task = taskData[i];
+                    SendTaskToAiCore(type, core, task);
+                    busyBPairQueue_[(int)type]->push(pair);
+                }
+
+                // freeBPairQueue_[(int)type]->unlock();
+                taskQueue->unlock();
+            }
         }
     }
 
@@ -415,7 +421,7 @@ private:
         batchBusyBPairCount_[(int)type] = 0;
 
         // Handling Busy A queue pairings
-        if (busyAPairQueue_[(int)type]->size() > 0)
+        if (busyAPairQueue_[(int)type]->empty() == false)
         {
             if (busyAPairQueue_[(int)type]->tryLock() == true)
             {
@@ -430,7 +436,7 @@ private:
         }
 
         // Handling Free B queue pairings
-        if (freeBPairQueue_[(int)type]->size() > 0)
+        if (freeBPairQueue_[(int)type]->empty() == false)
         {
             if (freeBPairQueue_[(int)type]->tryLock() == true)
             {
@@ -445,7 +451,7 @@ private:
         }
 
         // Handling Busy B queue pairings
-        if (busyBPairQueue_[(int)type]->size() > 0)
+        if (busyBPairQueue_[(int)type]->empty() == false)
         {
             if (busyBPairQueue_[(int)type]->tryLock() == true)
             {
