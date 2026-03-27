@@ -207,12 +207,15 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType dtype, int ax
 
         // Transpose input: [..., H, W] -> [..., W, H]
         Tensor transposedInput = Transpose(input, {secondLastDim, lastDim});
-        
-        // get tmp Tile for Tquant
+        // [TQuant] get tmp Tile for Tquant
         VecTile oriVectile = TileShape::Current().GetVecTile();
         VecTile tmpVectile = TileShape::Current().GetVecTile();
-        std::swap(tmpVectile.tile[secondLastDim], tmpVectile.tile[lastDim]);
+        std::swap(tmpVectile[secondLastDim], tmpVectile[lastDim]);
         TileShape::Current().SetVecTile(tmpVectile);
+        // [TQuant] get tmp validShape
+        auto tmpValidShape = input.GetStorage()->dynValidShape_;
+        std::swap(tmpValidShape[secondLastDim], tmpValidShape[lastDim]);
+        transposedInput.GetStorage()->UpdateDynValidShape(tmpValidShape);
         
         // init result
         Tensor quantizedResult;
@@ -224,20 +227,27 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType dtype, int ax
             quantizedResult = CALL(QuantizeAsymmetricOperation,
                 *Program::GetInstance().GetCurrentFunction(),
                 transposedInput.GetStorage(), scale.GetStorage(),
-                zeroPoints.GetStorage(), -1);
+                zeroPoints.GetStorage(), -2);
         } else {
             // Symmetric quantization with axis=-1
             ASSERT(dtype == DataType::DT_INT8)
                 << "Symmetric quantization output type should be INT8";
             quantizedResult = CALL(QuantizeSymmetricOperation,
                 *Program::GetInstance().GetCurrentFunction(),
-                transposedInput.GetStorage(), scale.GetStorage(), -1);
+                transposedInput.GetStorage(), scale.GetStorage(), -2);
         }
 
-        // get origin TileShape
+        // [Transpose] set tmp validShape
+        quantizedResult.GetStorage()->UpdateDynValidShape(tmpValidShape);
+        // [Transpose] set tmp VecTile
+        TileShape::Current().SetVecTile(tmpVectile);
+        // output back: [..., W, H] -> [..., H, W]
+        Tensor result = Transpose(quantizedResult, {secondLastDim, lastDim});
+        // [Tstore] get origin ValidShape
+        result.GetStorage()->UpdateDynValidShape(input.GetStorage()->dynValidShape_);
+        // [Tstore] get origin TileShape
         TileShape::Current().SetVecTile(oriVectile);
-        // Transpose output back: [..., W, H] -> [..., H, W]
-        return Transpose(quantizedResult, {secondLastDim, lastDim});
+        return result;
     }
 
     // axis=-1 case: direct quantization without transpose
