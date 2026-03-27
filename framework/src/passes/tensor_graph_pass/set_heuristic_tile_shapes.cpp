@@ -1856,8 +1856,6 @@ void CubeOutDepsProcessing(Operation *cubeOp, Operation *opBase) {
     auto &cubeTile = cubeOp->GetTileShape().GetCubeTile();
     int magicC = cubeOp->GetOOperands()[0]->magic;   
     std::vector<int64_t> vectorTilesC = {cubeTile.m[0], cubeTile.n[0]};
-
-    ASSERT(opBase->GetIOperands()[0]->magic == magicC);
     bool haveInp = false;
     for(auto inp: opBase->GetIOperands()) {
         if (inp->magic == magicC) {
