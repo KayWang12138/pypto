@@ -800,6 +800,14 @@ class Tensor:
         return pypto.amin(self, dim, keepdim)
 
     @source_location
+    def argmax(self, dim: int, keepdim: bool = False) -> 'Tensor':
+        return pypto.argmax(self, dim, keepdim)
+
+    @source_location
+    def argmin(self, dim: int, keepdim: bool = False) -> 'Tensor':
+        return pypto.argmin(self, dim, keepdim)
+
+    @source_location
     def sum(self, dim: int, keepdim: bool = False) -> 'Tensor':
         return pypto.sum(self, dim, keepdim)
 
