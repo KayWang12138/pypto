@@ -53,6 +53,7 @@ private:
     void ProcessLargeTileToSamllTile(Function &function);
     void ProcessL0C2UBSmallToLarge(Function &function);
     void ProcessL0C2UBLargeToSmall(Function &function);
+    void ProcessUB2L1LargeToSmall(Function &function);
     bool IsDimMultiple(const Shape &shape1, const Shape &shape2);
     int64_t CalcLineOffset(const Shape &shape, const Offset &offset);
     std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;

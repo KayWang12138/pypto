@@ -160,7 +160,8 @@ Status GenerateMoveOp::ProcessDefault(Function &function, Operation &op, ViewOpA
         return status;
     }
     if (op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
-        ProcessUB2L1(function, op);
+        // 对于大搬小场景，需要传入 fromOffset（从 UB 大块中取数据的起始位置）
+        ProcessUB2L1WithOffset(function, op, viewOpAttribute);
     }
     if (op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
         SetL0C2L1CopyAttr(op, op.GetOOperands()[0]->GetShape(),
@@ -242,6 +243,66 @@ void GenerateMoveOp::SetL0C2UBCopyAttr(Operation &op, const Shape &realShape,
     op.SetAttribute(OpAttributeKey::isCube, true);
 }
 
+void GenerateMoveOp::ProcessUB2L1WithOffset(Function &function, Operation &op, 
+    ViewOpAttribute *viewOpAttribute) const {
+    // 获取实际搬运的 shape（对于大搬小，应该是输出 shape）
+    auto outputTensor = op.oOperand.front();
+    auto copyShape = outputTensor->GetShape();  // 小块 shape
+    
+    APASS_LOG_INFO_F(Elements::Operation, 
+        "ProcessUB2L1WithOffset: Op[%d], copyShape=[%ld,%ld], fromOffset from view",
+        op.GetOpMagic(), copyShape[0], copyShape[1]);
+    
+    // 先处理 ND->NZ 转换
+    ProcessUB2L1(function, op);    
+    // 然后设置正确的 fromOffset（从 view 获取）
+    auto copyAttr = std::dynamic_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+    if (copyAttr) {
+        copyAttr->SetFromOffset(OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()));
+        APASS_LOG_DEBUG_F(Elements::Operation, 
+            "UB2L1: set fromOffset from view for Op[%d]", op.GetOpMagic());
+    }
+}
+
+void GenerateMoveOp::SetUB2L1CopyAttr(Operation &op, const Shape &copyShape,
+    const std::vector<OpImmediate> &fromOffset,
+    const std::vector<OpImmediate> &toOffset) const {
+    auto inputTensor = op.iOperand.front();
+    auto outputTensor = op.oOperand.front();
+    // 获取 input tensor 的 raw shape 作为 srcValidShape
+    auto rawShape = inputTensor->tensor->GetDynRawShape();
+    std::vector<OpImmediate> srcValidShape;
+    for (const auto &dim : rawShape) {
+        srcValidShape.push_back(OpImmediate::Specified(dim));
+    }
+    // 获取 output tensor 的实际 shape 作为 dstValidShape
+    std::vector<OpImmediate> dstValidShape;
+    for (auto dim : outputTensor->GetShape()) {
+        dstValidShape.push_back(OpImmediate::Specified(dim));
+    }
+    // 实际搬运的 shape
+    std::vector<OpImmediate> actualShape;
+    for (auto dim : copyShape) {
+        actualShape.push_back(OpImmediate::Specified(dim));
+    }
+    // 创建 CopyOpAttribute
+    auto copyAttr = std::make_shared<CopyOpAttribute>(
+        fromOffset,                          // fromOffset
+        outputTensor->GetMemoryTypeOriginal(), // to (L1)
+        actualShape,                         // shape (实际搬运的 shape)
+        srcValidShape,                       // rawShape (srcValidShape)
+        dstValidShape                        // toDynValidShape (dstValidShape)
+    );
+    if (!copyAttr) {
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "SetUB2L1CopyAttr: failed to create CopyOpAttribute for Op[%d]", op.GetOpMagic());
+        return;
+    }
+    copyAttr->SetToOffset(toOffset);
+    op.SetOpAttribute(copyAttr);
+}
+
+
 Status GenerateMoveOp::SetOpcodeByMemPath(Operation &op, MemoryType from, MemoryType to) const {
     std::pair<MemoryType, MemoryType> memPathPair = {from, to};
     auto it = platformPathMap.find(memPathPair);
@@ -309,6 +370,14 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op)
 }
 
 void GenerateMoveOp::ProcessUB2L1(Function &function, Operation &op) const {
+    // 获取实际搬运的 shape（对于大搬小，应该是输出 shape）
+    auto outputTensor = op.oOperand.front();
+    auto copyShape = outputTensor->GetShape();  // 小块 shape
+    
+    APASS_LOG_INFO_F(Elements::Operation, 
+        "ProcessUB2L1: Op[%d], copyShape=[%ld,%ld] (actual copy size), output shape=[%ld,%ld]",
+        op.GetOpMagic(), copyShape[0], copyShape[1],
+        outputTensor->GetShape()[0], outputTensor->GetShape()[1]);
     // 插入UB2L1节点（NZ2NZ)，并设置UBcopyL1的NZ属性
     op.SetAttribute(OP_ATTR_PREFIX + "is_nz", 1);
     op.SetAttribute(OpAttributeKey::isCube, false);
@@ -342,6 +411,9 @@ void GenerateMoveOp::ProcessUB2L1(Function &function, Operation &op) const {
         inputTensor->RemoveConsumer(op);
         ubNzTensor->AddConsumer(op);
     }
+    SetUB2L1CopyAttr(op, copyShape, 
+        OpImmediate::Specified(ZERO_OFFSET),  // fromOffset 后续从 view 获取
+        OpImmediate::Specified(ZERO_OFFSET));
 }
 
 Status GenerateMoveOp::CreateMoveOp(Function &function) const {
