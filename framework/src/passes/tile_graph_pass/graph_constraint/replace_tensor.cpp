@@ -955,7 +955,6 @@ void ReplaceTensor::InsertNeedCopy(Function &function) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             auto producerOps = op.ProducerOps();
             auto consumerOps = op.ConsumerOps();
-
             bool flag = true;
             for (auto consumerOp : consumerOps) {
                 if (consumerOp->GetOpcode() == Opcode::OP_COPY_OUT) {
@@ -963,13 +962,11 @@ void ReplaceTensor::InsertNeedCopy(Function &function) {
                     break;
                 }
             }
-
             for (auto producesOp : producerOps) {
                 if (producesOp->GetOpcode() == Opcode::OP_VIEW && flag) {
                     needInsertCopyAssOps.insert(&op);
                 }
             }
-
             for (auto consumerOp : consumerOps) {
                 if (consumerOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
                     needInsertCopyAssOps.insert(consumerOp);
@@ -977,7 +974,6 @@ void ReplaceTensor::InsertNeedCopy(Function &function) {
             }
         }
     }
-    
     std::vector<Operation *> sortedOps(needInsertCopyAssOps.begin(), needInsertCopyAssOps.end());
     std::sort(sortedOps.begin(), sortedOps.end(),
         [](const Operation *a, const Operation *b) { return a->GetOpMagic() < b->GetOpMagic(); });
