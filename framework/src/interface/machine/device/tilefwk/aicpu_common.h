@@ -177,6 +177,7 @@ struct DeviceArgs {
     uint64_t devDfxArgAddr{0};   // devDfx
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
     uint32_t leadSchedulerId{AICPU_LEAD_SCHEDULER_NULL}; // Indicates the  lead aicpu scheduler id
+    uint32_t readyAICPUsBarrier;
     volatile bool isDeviceInitialized; // A flag to indicate the device has been properly initialized by the lead AICPU scheduler
     int maxAicpuNum{0};
     bool enableVFFusion = false;

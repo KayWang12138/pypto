@@ -59,6 +59,7 @@ constexpr uint32_t AIV_CORE_COUNT = 48;
 constexpr uint32_t AIC_CORE_COUNT = 24;
 constexpr uint32_t TOTAL_CORE_COUNT = AIV_CORE_COUNT + AIC_CORE_COUNT;
 constexpr uint32_t TASK_BATCH_SIZE = 8;
+constexpr uint32_t AICPU_SCHEDULERS = 3;
 
 #define MAX_QUEUED_TASKS 4096
 
@@ -206,6 +207,11 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
 
     inline void RunTask(DeviceTaskCtrl *taskCtrl) {
         InitDevTask(taskCtrl);
+
+        // Making sure all schedulers are here for accurate timing -- this needs to be removed for production
+        auto readyAICPUsBarrierPtr = (std::atomic<uint32_t>*) &deviceArgs_->readyAICPUsBarrier;
+        readyAICPUsBarrierPtr->fetch_add(1);
+        while (readyAICPUsBarrierPtr->load() < AICPU_SCHEDULERS) { }
 
         const auto t0 = std::chrono::high_resolution_clock::now();
 
@@ -637,6 +643,7 @@ private:
         aicoreHal_.Init(deviceArgs);
         validGetPgMask_ = deviceArgs->validGetPgMask;
         isSendStop = false;
+        deviceArgs_ = deviceArgs;
 
         // Getting variable controlling who is the scheduler lead. The first to arrive here should take the lead so that this starts as fast as possible
         auto leadSchedulerId = (std::atomic<uint32_t>*) &deviceArgs->leadSchedulerId;
@@ -774,6 +781,7 @@ private:
     int aivStart_{0};
     int aivEnd_{0};
     bool validGetPgMask_{true};
+    DeviceArgs *deviceArgs_;
 
     DeviceTask* curDevTask_{nullptr};
     DeviceTaskCtrl* curTaskCtrl_{nullptr};

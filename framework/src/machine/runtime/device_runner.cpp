@@ -196,6 +196,7 @@ void DeviceRunner::InitMetaData(DeviceArgs &devArgs) {
     devArgs.taskWastTime = args_.taskWastTime;
     devArgs.pmuEventAddr = args_.pmuEventAddr;
     devArgs.leadSchedulerId = AICPU_LEAD_SCHEDULER_NULL;
+    devArgs.readyAICPUsBarrier = 0;
     devArgs.aicpuPerfAddr = args_.aicpuPerfAddr;
     GetModuleLogLevel(devArgs);
 }
