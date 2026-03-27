@@ -627,3 +627,191 @@ TEST_F(TestDeviceExecuteContext, test_runtime_call_set_loop_die_id) {
     EXPECT_EQ(result, nullptr);
     EXPECT_EQ(duppedData.loopDieId_, 12);
 }
+
+TEST_F(TestDeviceTaskContext, test_process_wrap_queue_nullptr) {
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    DeviceWorkspaceAllocator workspace(&devProg);
+    taskContext.InitAllocator(&devProg, workspace, &startArgs);
+
+    auto dyntask = std::make_unique<DynDeviceTask>(workspace);
+    CreateMockDynDeviceTask(dyntask.get(), 100);
+
+    taskContext.ProcessWrapQueue(dyntask.get(), 1, 0, 0, nullptr);
+}
+
+TEST_F(TestDeviceTaskContext, test_process_wrap_queue_add_new_wrap) {
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    constexpr size_t kControlFlowCacheSize = 64 * 1024;
+    auto controlFlowCacheBuf = std::make_unique<uint8_t[]>(kControlFlowCacheSize);
+
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    devProg.controlFlowCache.cacheData = DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
+    devProg.controlFlowCache.isRecording = true;
+
+    DeviceWorkspaceAllocator workspace(&devProg);
+    taskContext.InitAllocator(&devProg, workspace, &startArgs);
+
+    auto dyntask = std::make_unique<DynDeviceTask>(workspace);
+    CreateMockDynDeviceTask(dyntask.get(), 100);
+
+    DevAscendFunction devFunc;
+    devFunc.wrapIdNum_ = 1;
+    dyntask->dynFuncDataCacheList[0].devFunc = &devFunc;
+    dyntask->dynFuncDataCacheListSize = 1;
+    dyntask->devTask.mixTaskData.wrapIdNum = 1;
+
+    int calleeList[1] = {0};
+    dyntask->dynFuncDataCacheList[0].calleeList = calleeList;
+
+    DevCceBinary cceBinary[10] = {};
+    cceBinary[0].coreType = static_cast<uint32_t>(CoreType::AIC);
+    cceBinary[0].wrapVecId = 0;
+    cceBinary[0].mixResourceType = 0;
+    dyntask->cceBinary = cceBinary;
+
+    WrapInfoQueue *wrapQueue = taskContext.AllocWrapQueue(dyntask.get());
+    ASSERT_NE(wrapQueue, nullptr);
+
+    taskContext.ProcessWrapQueue(dyntask.get(), 1, 0, 0, wrapQueue);
+
+    EXPECT_EQ(wrapQueue->tail, 1);
+    EXPECT_EQ(wrapQueue->elem[0].wrapId, 1);
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIC], MakeTaskID(0, 0));
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIV0], AICORE_TASK_INIT);
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIV1], AICORE_TASK_INIT);
+}
+
+TEST_F(TestDeviceTaskContext, test_process_wrap_queue_update_existing_wrap) {
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    constexpr size_t kControlFlowCacheSize = 64 * 1024;
+    auto controlFlowCacheBuf = std::make_unique<uint8_t[]>(kControlFlowCacheSize);
+
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    devProg.controlFlowCache.cacheData = DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
+    devProg.controlFlowCache.isRecording = true;
+
+    DeviceWorkspaceAllocator workspace(&devProg);
+    taskContext.InitAllocator(&devProg, workspace, &startArgs);
+
+    auto dyntask = std::make_unique<DynDeviceTask>(workspace);
+    CreateMockDynDeviceTask(dyntask.get(), 100);
+
+    DevAscendFunction devFunc;
+    devFunc.wrapIdNum_ = 1;
+    dyntask->dynFuncDataCacheList[0].devFunc = &devFunc;
+    dyntask->dynFuncDataCacheListSize = 1;
+    dyntask->devTask.mixTaskData.wrapIdNum = 1;
+
+    int calleeList[1] = {0};
+    dyntask->dynFuncDataCacheList[0].calleeList = calleeList;
+
+    DevCceBinary cceBinary[10] = {};
+    cceBinary[0].coreType = static_cast<uint32_t>(CoreType::AIC);
+    cceBinary[0].wrapVecId = 0;
+    cceBinary[0].mixResourceType = 0;
+    dyntask->cceBinary = cceBinary;
+
+    WrapInfoQueue *wrapQueue = taskContext.AllocWrapQueue(dyntask.get());
+    ASSERT_NE(wrapQueue, nullptr);
+
+    taskContext.ProcessWrapQueue(dyntask.get(), 1, 0, 0, wrapQueue);
+    EXPECT_EQ(wrapQueue->tail, 1);
+
+    taskContext.ProcessWrapQueue(dyntask.get(), 1, 0, 0, wrapQueue);
+    EXPECT_EQ(wrapQueue->tail, 1);
+}
+
+TEST_F(TestDeviceTaskContext, test_process_wrap_queue_aiv0) {
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    constexpr size_t kControlFlowCacheSize = 64 * 1024;
+    auto controlFlowCacheBuf = std::make_unique<uint8_t[]>(kControlFlowCacheSize);
+
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    devProg.controlFlowCache.cacheData = DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
+    devProg.controlFlowCache.isRecording = true;
+
+    DeviceWorkspaceAllocator workspace(&devProg);
+    taskContext.InitAllocator(&devProg, workspace, &startArgs);
+
+    auto dyntask = std::make_unique<DynDeviceTask>(workspace);
+    CreateMockDynDeviceTask(dyntask.get(), 100);
+
+    DevAscendFunction devFunc;
+    devFunc.wrapIdNum_ = 1;
+    dyntask->dynFuncDataCacheList[0].devFunc = &devFunc;
+    dyntask->dynFuncDataCacheListSize = 1;
+    dyntask->devTask.mixTaskData.wrapIdNum = 1;
+
+    int calleeList[1] = {0};
+    dyntask->dynFuncDataCacheList[0].calleeList = calleeList;
+
+    DevCceBinary cceBinary[10] = {};
+    cceBinary[0].coreType = static_cast<uint32_t>(CoreType::AIV);
+    cceBinary[0].wrapVecId = 0;
+    cceBinary[0].mixResourceType = 0;
+    dyntask->cceBinary = cceBinary;
+
+    WrapInfoQueue *wrapQueue = taskContext.AllocWrapQueue(dyntask.get());
+    ASSERT_NE(wrapQueue, nullptr);
+
+    taskContext.ProcessWrapQueue(dyntask.get(), 1, 0, 0, wrapQueue);
+
+    EXPECT_EQ(wrapQueue->tail, 1);
+    EXPECT_EQ(wrapQueue->elem[0].wrapId, 1);
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIC], AICORE_TASK_INIT);
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIV0], MakeTaskID(0, 0));
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIV1], AICORE_TASK_INIT);
+}
+
+TEST_F(TestDeviceTaskContext, test_process_wrap_queue_aiv1) {
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    constexpr size_t kControlFlowCacheSize = 64 * 1024;
+    auto controlFlowCacheBuf = std::make_unique<uint8_t[]>(kControlFlowCacheSize);
+
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    devProg.controlFlowCache.cacheData = DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
+    devProg.controlFlowCache.isRecording = true;
+
+    DeviceWorkspaceAllocator workspace(&devProg);
+    taskContext.InitAllocator(&devProg, workspace, &startArgs);
+
+    auto dyntask = std::make_unique<DynDeviceTask>(workspace);
+    CreateMockDynDeviceTask(dyntask.get(), 100);
+
+    DevAscendFunction devFunc;
+    devFunc.wrapIdNum_ = 1;
+    dyntask->dynFuncDataCacheList[0].devFunc = &devFunc;
+    dyntask->dynFuncDataCacheListSize = 1;
+    dyntask->devTask.mixTaskData.wrapIdNum = 1;
+
+    int calleeList[1] = {0};
+    dyntask->dynFuncDataCacheList[0].calleeList = calleeList;
+
+    DevCceBinary cceBinary[10] = {};
+    cceBinary[0].coreType = static_cast<uint32_t>(CoreType::AIV);
+    cceBinary[0].wrapVecId = 1;
+    cceBinary[0].mixResourceType = 0;
+    dyntask->cceBinary = cceBinary;
+
+    WrapInfoQueue *wrapQueue = taskContext.AllocWrapQueue(dyntask.get());
+    ASSERT_NE(wrapQueue, nullptr);
+
+    taskContext.ProcessWrapQueue(dyntask.get(), 1, 0, 0, wrapQueue);
+
+    EXPECT_EQ(wrapQueue->tail, 1);
+    EXPECT_EQ(wrapQueue->elem[0].wrapId, 1);
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIC], AICORE_TASK_INIT);
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIV0], AICORE_TASK_INIT);
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIV1], MakeTaskID(0, 0));
+}
