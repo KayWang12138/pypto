@@ -438,25 +438,10 @@ static void SetTensorParamAddr(Operation &op, std::shared_ptr<LogicalTensor> &te
         op.GetOpMagic(), op.GetOpcodeStr().c_str(), isConst, GmTensorParamIdxInCallFunc, gmParamIdx);
 }
 
-// Handle SharedMemory operations - check MemoryTypeToBe
-static void HandleSharedMemoryOp(Operation &op, int GmTensorParamIdxInCallFunc) {
-    for (size_t i = 0; i < op.oOperand.size(); ++i) {
-        auto &tensor = op.oOperand[i];
-        if (tensor->GetMemoryTypeToBe() == MemoryType::MEM_DEVICE_DDR) {
-            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(i));
-        }
-    }
-    for (size_t i = 0; i < op.iOperand.size(); ++i) {
-        auto &tensor = op.iOperand[i];
-        if (tensor->GetMemoryTypeToBe() == MemoryType::MEM_DEVICE_DDR) {
-            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetIOpAttrOffset(i));
-        }
-    }
-}
-
 // Handle GATHER_IN_L1 and GATHER_IN_UB operations
-static void HandleGatherInOp(Operation &op, int GmTensorParamIdxInCallFunc) {
+static void HandleGatherInOp(Operation &op) {
     int ioAttrOffset = 0;
+    int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
     for (size_t i = 0; i < op.oOperand.size(); ++i) {
         auto &tensor = op.oOperand[i];
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
@@ -472,7 +457,8 @@ static void HandleGatherInOp(Operation &op, int GmTensorParamIdxInCallFunc) {
 }
 
 // Handle GATHER operation
-static void HandleGatherOp(Operation &op, int GmTensorParamIdxInCallFunc) {
+static void HandleGatherOp(Operation &op) {
+    int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
     for (size_t i = 0; i < op.iOperand.size() && i < 2; ++i) {
         auto &tensor = op.iOperand[i];
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
@@ -482,8 +468,9 @@ static void HandleGatherOp(Operation &op, int GmTensorParamIdxInCallFunc) {
 }
 
 // Handle CopyIn operation
-static void HandleCopyInOp(Operation &op, int GmTensorParamIdxInCallFunc) {
+static void HandleCopyInOp(Operation &op) {
     if (!op.iOperand.empty()) {
+        int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
         auto &tensor = op.iOperand[0];
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetIOpAttrOffset(0));
@@ -492,8 +479,9 @@ static void HandleCopyInOp(Operation &op, int GmTensorParamIdxInCallFunc) {
 }
 
 // Handle CopyOut operation
-static void HandleCopyOutOp(Operation &op, int GmTensorParamIdxInCallFunc) {
+static void HandleCopyOutOp(Operation &op) {
     if (!op.oOperand.empty()) {
+        int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
         auto &tensor = op.oOperand[0];
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0));
@@ -503,18 +491,14 @@ static void HandleCopyOutOp(Operation &op, int GmTensorParamIdxInCallFunc) {
 
 void DynAttrToStatic::BuildParamAddr(Operation &op) {
     Opcode opcode = op.GetOpcode();
-    int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
-
-    if (OpcodeManager::Inst().IsSharedMemory(opcode)) {
-        HandleSharedMemoryOp(op, GmTensorParamIdxInCallFunc);
-    } else if (opcode == Opcode::OP_GATHER_IN_L1 || opcode == Opcode::OP_GATHER_IN_UB) {
-        HandleGatherInOp(op, GmTensorParamIdxInCallFunc);
+    if (opcode == Opcode::OP_GATHER_IN_L1 || opcode == Opcode::OP_GATHER_IN_UB) {
+        HandleGatherInOp(op);
     } else if (opcode == Opcode::OP_GATHER) {
-        HandleGatherOp(op, GmTensorParamIdxInCallFunc);
+        HandleGatherOp(op);
     } else if (OpcodeManager::Inst().IsCopyIn(opcode)) {
-        HandleCopyInOp(op, GmTensorParamIdxInCallFunc);
+        HandleCopyInOp(op);
     } else if (OpcodeManager::Inst().IsCopyOut(opcode)) {
-        HandleCopyOutOp(op, GmTensorParamIdxInCallFunc);
+        HandleCopyOutOp(op);
     }
 }
 
