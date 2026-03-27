@@ -197,6 +197,24 @@ def prepare_workflow_data(infile, task_id_flag, output):
     labels_task_info = ["coreId", "seqNo", "subgraphId", "taskId", "startCycle", "endCycle"]
     task_info_data = np.empty((0, len(labels_task_info)), np.uint64)
 
+    min_start_time = float('inf')
+    max_end_time = 0
+    tasks_exist = False
+
+    for data in jdata:
+        if not data.get("tasks"):
+            continue
+        tasks_exist = True
+        for task in data["tasks"]:
+            min_start_time = min(min_start_time, task["execStart"])
+            max_end_time = max(max_end_time, task["execEnd"])
+
+    total_us = 0
+    if tasks_exist and max_end_time > min_start_time:
+        total_cycles = max_end_time - min_start_time
+        total_us = total_cycles / 48
+    print(f"Total execution time: {total_us:.2f} microseconds")
+
     cols_nr, core_nr = len(labels), len(jdata)
     ndata = np.zeros((core_nr, cols_nr)) # 创建一个形状为(len(labels), len(jdata))的全0数组
     task_ids = np.zeros_like(ndata, dtype=np.int32) # 创建一个和ndata有相同形状的int32数据类型的全0数组
