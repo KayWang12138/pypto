@@ -212,7 +212,6 @@ inline bool SkipInputCombineOps(Operation &op, int dimSize) {
 }
 
 Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
-    const std::set<Opcode> skipInputCombineOps = {Opcode::OP_BRCB};
     for (auto &subProgram : func.rootFunc_->programs_) {
         for (auto &op : subProgram.second->Operations(false)) {
             if (OpcodeManager::Inst().GetCoreType(op.GetOpcode()) != OpCoreType::AIV && !IsUBCopy(op)) {
