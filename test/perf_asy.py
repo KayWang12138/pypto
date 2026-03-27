@@ -207,6 +207,7 @@ class PerfBenchmark:
         self.project_root = Path(__file__).parent.parent
         self.temp_script_dir = self.output_base_dir / "temp_scripts"
         self.temp_script_dir.mkdir(exist_ok=True)
+        self.test_configs = TEST_CONFIGS  # 默认使用预设配置
 
     def run_single_shape_test(self, weight_shape: tuple, device_id: int) -> bool:
         """在子进程中运行单个shape的性能测试"""
@@ -309,12 +310,12 @@ class PerfBenchmark:
         print(f"算子: {self.operator_name}")
         print(f"{'='*60}\n")
 
-        if model_type not in TEST_CONFIGS:
+        if model_type not in self.test_configs:
             print(f"错误: 不支持的模型类型 {model_type}")
             return []
 
         results = []
-        configs = TEST_CONFIGS[model_type]
+        configs = self.test_configs[model_type]
 
         for idx, config in enumerate(configs, 1):
             weight_shape = config["weight_shape"]
@@ -370,7 +371,7 @@ def generate_final_report(all_results: Dict, output_dir: Path):
         lines.append("| Shape | 核心利用率 | 气泡率 | 执行时间(us) | 负载均衡 | 评级 |")
         lines.append("|-------|-----------|--------|-------------|---------|------|")
 
-        for model_type in ["3B", "7B", "30B"]:
+        for model_type in ["custom", "3B", "7B", "30B"]:
             results = all_results[direction].get(model_type, [])
             for r in results:
                 if "metrics" in r:
@@ -392,6 +393,31 @@ def generate_final_report(all_results: Dict, output_dir: Path):
     print(f"{'='*60}")
 
 
+def parse_shapes(shapes_str: str) -> List[Dict]:
+    """解析自定义shape字符串，格式: '1024x2048,768x3072' 或 '1024,2048;768,3072'"""
+    if not shapes_str:
+        return []
+
+    configs = []
+    shapes_str = shapes_str.strip().strip('"').strip("'")
+
+    for idx, part in enumerate(shapes_str.replace(';', ',').split(',')):
+        part = part.strip()
+        if 'x' in part:
+            dims = part.split('x')
+        else:
+            dims = part.split('X')
+
+        if len(dims) == 2:
+            n, m = int(dims[0].strip()), int(dims[1].strip())
+            configs.append({
+                "weight_shape": (n, m),
+                "description": f"{n}x{m}"
+            })
+
+    return configs
+
+
 def main():
     import argparse
 
@@ -399,9 +425,11 @@ def main():
     parser.add_argument('--direction', type=str, default="backward",
                         choices=["forward", "backward", "both"],
                         help="测试方向")
-    parser.add_argument('--model', type=str, default="3B",
+    parser.add_argument('--model', type=str, default=None,
                         choices=["3B", "7B", "30B", "all"],
-                        help="模型类型")
+                        help="模型类型预设 (与--shapes互斥)")
+    parser.add_argument('--shapes', type=str, default=None,
+                        help="自定义shape，格式: '1024x2048,768x3072'")
     parser.add_argument('--device_id', type=int, default=5,
                         help="NPU设备ID")
     args = parser.parse_args()
@@ -410,13 +438,26 @@ def main():
         print(f"设置 TILE_FWK_DEVICE_ID = {args.device_id}")
         os.environ['TILE_FWK_DEVICE_ID'] = str(args.device_id)
 
-    model_list = ["3B", "7B", "30B"] if args.model == "all" else [args.model]
-    all_results = {"forward": {}, "backward": {}}
+    # 确定测试配置
+    custom_configs = parse_shapes(args.shapes) if args.shapes else None
+
+    if custom_configs:
+        model_list = ["custom"]
+        all_results = {"forward": {}, "backward": {}}
+        test_configs = {"custom": custom_configs}
+    elif args.model:
+        model_list = ["3B", "7B", "30B"] if args.model == "all" else [args.model]
+        all_results = {"forward": {}, "backward": {}}
+        test_configs = TEST_CONFIGS
+    else:
+        print("错误: 请指定 --model 或 --shapes")
+        return
 
     directions = ["forward", "backward"] if args.direction == "both" else [args.direction]
 
     for direction in directions:
         benchmark = PerfBenchmark(direction, f"output_asym_{direction}_perf")
+        benchmark.test_configs = test_configs
         for model in model_list:
             results = benchmark.run_benchmark(model, args.device_id)
             all_results[direction][model] = results
