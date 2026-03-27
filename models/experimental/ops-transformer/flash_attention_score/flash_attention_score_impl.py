@@ -20,10 +20,7 @@ import math
 import pypto
 
 
-BATCH_SIZE = 4
 NUM_HEADS = 8
-SEQ_LEN_Q = 64
-SEQ_LEN_KV = 128
 HEAD_DIM = 64
 BLOCK_SIZE_KV = 16
 
@@ -40,25 +37,30 @@ BLOCK_SIZE_KV = 16
     }
 )
 def flash_attention_score_kernel_with_mask(
-    query: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16),
-    key: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM), pypto.DT_BF16),
-    value: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM), pypto.DT_BF16),
-    atten_mask: pypto.Tensor((SEQ_LEN_Q, SEQ_LEN_KV), pypto.DT_FP32),
-    output: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16),
+    query: pypto.Tensor([pypto.DYNAMIC, NUM_HEADS, pypto.DYNAMIC, HEAD_DIM], pypto.DT_BF16),
+    key: pypto.Tensor([pypto.DYNAMIC, NUM_HEADS, pypto.DYNAMIC, HEAD_DIM], pypto.DT_BF16),
+    value: pypto.Tensor([pypto.DYNAMIC, NUM_HEADS, pypto.DYNAMIC, HEAD_DIM], pypto.DT_BF16),
+    atten_mask: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC], pypto.DT_FP32),
+    output: pypto.Tensor([pypto.DYNAMIC, NUM_HEADS, pypto.DYNAMIC, HEAD_DIM], pypto.DT_BF16),
 ):
     """
     Flash Attention Score kernel with online softmax (with mask).
+    Dynamic axes: batch (dim 0), seq_len_q (dim 2), seq_len_kv (dim 3 for key/value, dim 1 for mask)
     """
+    batch_size = query.shape[0]
+    seq_len_q = query.shape[2]
+    seq_len_kv = key.shape[2]
+    
     scale = 1.0 / math.sqrt(HEAD_DIM)
     
     pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
     pypto.set_vec_tile_shapes(16, 128)
     
-    num_blocks_kv = (SEQ_LEN_KV + BLOCK_SIZE_KV - 1) // BLOCK_SIZE_KV
+    num_blocks_kv = (seq_len_kv + BLOCK_SIZE_KV - 1) // BLOCK_SIZE_KV
     
-    for b_idx in pypto.loop(0, BATCH_SIZE, 1, name="LOOP_B", idx_name="b_idx"):
+    for b_idx in pypto.loop(0, batch_size, 1, name="LOOP_B", idx_name="b_idx"):
         for n_idx in pypto.loop(0, NUM_HEADS, 1, name="LOOP_N", idx_name="n_idx"):
-            for q_idx in pypto.loop(0, SEQ_LEN_Q, 1, name="LOOP_Q", idx_name="q_idx"):
+            for q_idx in pypto.loop(0, seq_len_q, 1, name="LOOP_Q", idx_name="q_idx"):
                 oi_update = pypto.tensor([1, HEAD_DIM], pypto.DT_FP32, "oi_update")
                 li_update = pypto.tensor([1, 1], pypto.DT_FP32, "li_update")
                 mi_update = pypto.tensor([1, 1], pypto.DT_FP32, "mi_update")
@@ -73,7 +75,7 @@ def flash_attention_score_kernel_with_mask(
                                                          idx_name="kv_block_idx",
                                                          unroll_list={1}):
                     kv_start = kv_block_idx * BLOCK_SIZE_KV
-                    cur_block_size = pypto.min(BLOCK_SIZE_KV, SEQ_LEN_KV - kv_start)
+                    cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
                     
                     k_block = pypto.view(key, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
                                         [b_idx, n_idx, kv_start, 0],
