@@ -43,8 +43,9 @@ pull_number: 1276
 5. 对人工评论：通用理解 → 定位文件 → 生成修复方案
 6. 对 codecheck 失败：
    ├── 6a. 判定失败根因并提取报告 URL — 使用 scripts/extract_latest_codecheck_url.py
-   ├── 6b. 获取违规详情 — 使用 scripts/fetch_codecheck_violations.py
-   └── 6c. 匹配规则修复 — 使用 scripts/query_codecheck_rule.py
+   ├── 6b. 依赖检查 — 确保 playwright 和 chromium-headless-shell 已安装
+   ├── 6c. 获取违规详情 — 使用 scripts/fetch_codecheck_violations.py
+   └── 6d. 匹配规则修复 — 使用 scripts/query_codecheck_rule.py
 7. 用户确认修复方案
 8. 应用修复
 9. 本地预检 — 使用 scripts/local_codecheck.py 扫描
@@ -253,7 +254,36 @@ python scripts/extract_latest_codecheck_url.py \
 2. 脚本执行报错且无法修复
 3. 用户明确指定使用其他方式
 
-#### 步骤 2：获取违规详情
+#### 步骤 2：依赖检查（必须）
+
+**执行时机**：在调用 `scripts/fetch_codecheck_violations.py` 之前
+
+```bash
+# 检查 playwright 是否已安装
+python -c "import playwright; print(playwright.__version__)" 2>/dev/null || echo "NOT_INSTALLED"
+
+# 检查 chromium-headless-shell 是否已安装
+python -c "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); b = p.chromium.launch(headless=True); b.close(); p.stop()" 2>/dev/null || echo "BROWSER_NOT_INSTALLED"
+```
+
+**依赖安装**（如检查失败）：
+
+```bash
+pip install playwright
+playwright install chromium-headless-shell
+```
+
+**环境说明**：
+| 依赖 | 版本 | 安装命令 |
+|------|------|----------|
+| playwright | 1.58+ | `pip install playwright` |
+| Chromium Headless Shell | v1208 | `playwright install chromium-headless-shell` |
+
+> **注意**：ARM64 环境只能用 `chromium-headless-shell`，不能用完整 Chrome。
+
+**不可跳过**：此步骤确保 `fetch_codecheck_violations.py` 能正常运行，否则脚本会因为缺少依赖而失败。
+
+#### 步骤 3：获取违规详情
 
 使用 `scripts/fetch_codecheck_violations.py` 从 codecheck URL 获取违规列表：
 
@@ -270,7 +300,7 @@ python scripts/fetch_codecheck_violations.py "$CODECHECK_URL" --output json
 
 > **注意**：openlibing.com 是 SPA，受 WAF 保护，Playwright MCP 不支持 ARM64，脚本内部使用 Playwright Python 实现。
 
-#### 步骤 3：查询规则修复方案
+#### 步骤 4：查询规则修复方案
 
 使用 `scripts/query_codecheck_rule.py` 查询违规规则的修复方案：
 
@@ -289,12 +319,12 @@ python scripts/query_codecheck_rule.py \
 
 降级方案：查阅 `references/codecheck-rules.md` 或官方文档。
 
-#### 步骤 4：分类处理
+#### 步骤 5：分类处理
 
 - 可自动修复（格式类 G.FMT、命名类 G.NAM、日志类 G.LOG 等）→ 直接修复
 - 需人工判断（安全类 G.EDV、业务逻辑类 G.CTL 等）→ 生成修复建议
 
-#### 步骤 5：应用修复
+#### 步骤 6：应用修复
 
 根据分类结果应用修复。
 
@@ -318,16 +348,6 @@ python scripts/local_codecheck.py <repo_path> --output json
 
 ---
 
-
-### 环境依赖
-
-| 依赖 | 版本 | 安装命令 |
-|------|------|----------|
-| Python | 3.10+ | 系统自带 |
-| playwright | 1.58+ | `pip install playwright` |
-| Chromium Headless Shell | v1208 | `playwright install chromium-headless-shell` |
-
-**注意**：ARM64 环境只能用 `chromium-headless-shell`，不能用完整 Chrome。
 
 ### CodeCheck 规则参考
 
