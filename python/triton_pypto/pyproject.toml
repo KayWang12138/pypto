@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "triton_pypto"
+version = "0.1.0"
+description = "PyPTO Triton executor"
+dependencies = ["numpy", "typing_extensions"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["triton_pypto*"]
+
+[tool.pytest]
+addopts = ["-p", "no:logging"]
+python_files = ["*.py"]
+
+[tool.yapf]
+based_on_style = "pep8"
+column_limit = 120
+disable_split_list_with_comment = true
+each_dict_entry_on_separate_line = false
+split_before_named_assigns = false
+split_complex_comprehension = true
