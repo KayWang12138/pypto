@@ -121,8 +121,6 @@ public:
         readyAicCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
         readyAicpuFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAicpuFunctionQue);
-        memset_s(&context_->wrapCoreAvail_[aicStart_], sizeof(bool) * (aicEnd_ - aicStart_), true, sizeof(bool) * (aicEnd_ - aicStart_));
-        memset_s(&context_->wrapCoreAvail_[aivStart_], sizeof(bool) * (aivEnd_ - aivStart_), true, sizeof(bool) * (aivEnd_ - aivStart_));
         wrapManager_.Init(curDevTask_, context_->coreRunReadyCnt_, context_->runReadyCoreIdx_[CORE_IDX_AIV],
             context_->runReadyCoreIdx_[CORE_IDX_AIC], context_->corePendReadyCnt_, pendingIds_.data(),
             runningIds_.data(), aicValidNum_, context_->coreIdxPosition_, context_->wrapCoreAvail_,
