@@ -114,7 +114,6 @@ void TuneTileOpSeqForVF::CollectGroupIndices(std::vector<Operation *> &group, st
 void TuneTileOpSeqForVF::JudgeNeedMoveUbCopy(PipeSync &ps, size_t ubCopyIdx, std::vector<size_t> &nonUbCopyIndices, std::vector<size_t> &needMoveFront, std::vector<size_t> &needMoveBack) {
     size_t minIdx = nonUbCopyIndices.front();
     size_t maxIdx = nonUbCopyIndices.back();
-    Operation *ubCopyOp = opList_[ubCopyIdx];
     // 判断ubCopyOp是否能前移
     bool canMoveFront = true;
     for (size_t i = minIdx; i < ubCopyIdx; i++) {
