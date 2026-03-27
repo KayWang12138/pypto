@@ -89,17 +89,9 @@ tools:
 | stdout 或 stderr 含 `[PRECISION_FAIL]` | 精度失败 |
 | exit code 非 0 且无上述标记 | 运行失败 |
 
-### 失败子类型与处理
+### 运行失败分类
 
-当三态判定为「运行失败」时，按以下子类型区分处理：
-
-| 失败子类型 | 识别信号 | 处理策略 |
-|-----------|---------|---------|
-| 编译错误 | stderr 含 `compile`、`build` 相关错误 | Stage 5 内重试，将编译错误传入 skill |
-| Import 错误 | `ImportError` / `ModuleNotFoundError` | 区分：缺 PyPTO 模块 → 报告环境问题；缺自定义模块 → 修复引用 |
-| AiCore Error | stderr 含 `aicore` 错误标记 | 报告错误信息，建议 Orchestrator 评估是否需要 `pypto-aicore-error-locator` |
-| Shape 不匹配 | `shape mismatch`、`size mismatch` 相关错误 | Stage 5 内重试，将 shape 错误和 spec 中的 shape 约束传入 skill |
-| 其他运行时错误 | exit code ≠ 0 且不属于以上 | Stage 5 内重试，传入完整 stderr |
+当三态判定为「运行失败」时，在返回摘要中标注失败子类型（`compile`/`import`/`aicore`/`shape`/`other`），路由决策由 Orchestrator 负责。
 
 ### 返回摘要
 

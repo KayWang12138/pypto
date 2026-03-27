@@ -170,7 +170,7 @@ description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处�
 | 项目 | 说明 |
 |------|------|
 | **Skill** | `pypto-op-develop` |
-| **输入** | `spec.md` + `design.md` + `{op}_golden.py` |
+| **输入** | `spec.md` + `design.md` + `{op}_golden.py` + `api_report.md` |
 | **核心动作** | 环境准备（CANN / pto-isa / device_id）→ 代码生成（impl → test → README）→ 真实首跑验证 → 三态判定 |
 | **输出工件** | `{op}_impl.py`、`test_{op}.py`、`README.md` |
 | **完成标准** | 首跑完成并得到明确的三态判定结果 |
