@@ -47,6 +47,22 @@ class ConcurrentQueue
   }
 
   /**
+   * Function to push new objects in the queue. This is a thread-safe lock-free operation
+   *
+   * \param[in] obj The object to push into the queue.
+   */
+  inline void pushMany(const T* obj, const size_t n = 1)
+  {
+    for (size_t i = 0; i < n; i++) push(obj[i]);
+    
+    // memcpy(&_elements[_head], obj, remainingHeadSpace * sizeof(T));
+    // const auto remainingCount = n - remainingHeadSpace;
+    // if (remainingCount > 0 ) memcpy(&_elements[0], &obj[remainingHeadSpace], remainingCount * sizeof(T));
+    // _head = remainingCount;
+  }
+  
+
+  /**
    * Function to pop an object from the queue. Poping removes an object from the front of the queue and returns it to the caller. This is a thread-safe lock-free operation
    *
    * \return The until-now front object of the queue.

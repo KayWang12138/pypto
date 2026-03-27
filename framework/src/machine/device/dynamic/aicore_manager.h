@@ -415,39 +415,48 @@ private:
         batchBusyBPairCount_[(int)type] = 0;
 
         // Handling Busy A queue pairings
-        // if (busyAPairQueue_[(int)type]->tryLock() == true)
+        if (busyAPairQueue_[(int)type]->size() > 0)
         {
-            size_t pairCount = busyAPairQueue_[(int)type]->size();
-            for (size_t i = 0; i < pairCount; i++)
+            if (busyAPairQueue_[(int)type]->tryLock() == true)
             {
-                const auto pair = busyAPairQueue_[(int)type]->pop();
-                ResolveBusyAQueuePair(type, pair);
+                size_t pairCount = busyAPairQueue_[(int)type]->size();
+                for (size_t i = 0; i < pairCount; i++)
+                {
+                    const auto pair = busyAPairQueue_[(int)type]->pop();
+                    ResolveBusyAQueuePair(type, pair);
+                }
+                busyAPairQueue_[(int)type]->unlock();
             }
-            // busyAPairQueue_[(int)type]->unlock();
         }
 
         // Handling Free B queue pairings
-        // if (freeBPairQueue_[(int)type]->tryLock() == true)
+        if (freeBPairQueue_[(int)type]->size() > 0)
         {
-            size_t pairCount = freeBPairQueue_[(int)type]->size();
-            for (size_t i = 0; i < pairCount; i++)
+            if (freeBPairQueue_[(int)type]->tryLock() == true)
             {
-                const auto pair = freeBPairQueue_[(int)type]->pop();
-                ResolveFreeBQueuePair(type, pair);
+                size_t pairCount = freeBPairQueue_[(int)type]->size();
+                for (size_t i = 0; i < pairCount; i++)
+                {
+                    const auto pair = freeBPairQueue_[(int)type]->pop();
+                    ResolveFreeBQueuePair(type, pair);
+                }
+                freeBPairQueue_[(int)type]->unlock();
             }
-            // freeBPairQueue_[(int)type]->unlock();
         }
 
         // Handling Busy B queue pairings
-        // if (busyBPairQueue_[(int)type]->tryLock() == true)
+        if (busyBPairQueue_[(int)type]->size() > 0)
         {
-            size_t pairCount = busyBPairQueue_[(int)type]->size();
-            for (size_t i = 0; i < pairCount; i++)
+            if (busyBPairQueue_[(int)type]->tryLock() == true)
             {
-                const auto pair = busyBPairQueue_[(int)type]->pop();
-                ResolveBusyBQueuePair(type, pair);
+                size_t pairCount = busyBPairQueue_[(int)type]->size();
+                for (size_t i = 0; i < pairCount; i++)
+                {
+                    const auto pair = busyBPairQueue_[(int)type]->pop();
+                    ResolveBusyBQueuePair(type, pair);
+                }
+                busyBPairQueue_[(int)type]->unlock();
             }
-            // busyBPairQueue_[(int)type]->unlock();
         }
 
         // Batch-pushing newly enabled AIC tasks to their proper queues
@@ -471,35 +480,34 @@ private:
         // Batch-pushing free A cores
         if (batchFreeACoreCount_[(int)type] > 0)
         {
-            //lock
-            for (size_t i = 0; i < batchFreeACoreCount_[(int)type]; i++) freeACoreQueue_[(int)type]->push(batchFreeACores_[(int)type][i]);
-            //unlock
+            freeACoreQueue_[(int)type]->lock();
+            freeACoreQueue_[(int)type]->pushMany(batchFreeACores_[(int)type], batchFreeACoreCount_[(int)type]);
+            freeACoreQueue_[(int)type]->unlock();
         }
 
         // Batch-pushing busy A cores
         if (batchBusyAPairCount_[(int)type] > 0)
         {
-            //lock
-            for (size_t i = 0; i < batchBusyAPairCount_[(int)type]; i++) busyAPairQueue_[(int)type]->push(batchBusyAPairs_[(int)type][i]);
-            //unlock
+            busyAPairQueue_[(int)type]->lock();
+            busyAPairQueue_[(int)type]->pushMany(batchBusyAPairs_[(int)type], batchBusyAPairCount_[(int)type]);
+            busyAPairQueue_[(int)type]->unlock();
         }
         
         // Batch-pushing free B cores
         if (batchFreeBPairCount_[(int)type] > 0)
         {
-            //lock
-            for (size_t i = 0; i < batchFreeBPairCount_[(int)type]; i++) freeBPairQueue_[(int)type]->push(batchFreeBPairs_[(int)type][i]);
-            //unlock
+            freeBPairQueue_[(int)type]->lock();
+            freeBPairQueue_[(int)type]->pushMany(batchFreeBPairs_[(int)type], batchFreeBPairCount_[(int)type]);
+            freeBPairQueue_[(int)type]->unlock();
         }
 
         // Batch-pushing busy B cores
         if (batchBusyBPairCount_[(int)type] > 0)
         {
-            //lock
-            for (size_t i = 0; i < batchBusyBPairCount_[(int)type]; i++) busyBPairQueue_[(int)type]->push(batchBusyBPairs_[(int)type][i]);
-            //unlock
+            busyBPairQueue_[(int)type]->lock();
+            busyBPairQueue_[(int)type]->pushMany(batchBusyBPairs_[(int)type], batchBusyBPairCount_[(int)type]);
+            busyBPairQueue_[(int)type]->unlock();
         }
-        
     }
 
     inline void ResolveBusyAQueuePair(CoreType type, const aicorePair_t pair)
