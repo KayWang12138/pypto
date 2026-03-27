@@ -20,7 +20,6 @@
 #include <cstdint>
 #include <string>
 
-#include "interface/utils/log.h"
 #include "interface/utils/id_gen.h"
 #include "tilefwk/error.h"
 #include "interface/utils/common.h"

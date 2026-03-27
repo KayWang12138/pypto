@@ -21,7 +21,6 @@
 #include "codegen/utils/parallel_execute.h"
 #include "codegen_op_cloudnpu.h"
 #include "codegen/stmt_mgr/codegen_for_block.h"
-#include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"

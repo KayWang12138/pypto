@@ -20,7 +20,7 @@
 #include "interface/program/program.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/utils/common.h"
-#include "interface/utils/log.h"
+
 #include "interface/utils/matmul_error.h"
 #include "interface/utils/operator_tracer.h"
 #include "operation_impl.h"

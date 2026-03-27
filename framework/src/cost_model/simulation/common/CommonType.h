@@ -27,7 +27,6 @@
 #include "CommonData.h"
 #include "tilefwk/data_type.h"
 #include "interface/utils/common.h"
-#include "interface/utils/log.h"
 #include "tilefwk/error.h"
 
 #define PRIOR_SCHEDULING // comment it to disable PriorScheduling pass

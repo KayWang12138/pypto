@@ -15,6 +15,7 @@
 
 #include <climits>
 #include <queue>
+#include <fstream>
 #include "interface/operation/opcode.h"
 #include "interface/function/function.h"
 #include "interface/tensor/raw_tensor.h"

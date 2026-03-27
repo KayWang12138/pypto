@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
+#include <fstream>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
@@ -234,17 +235,10 @@ static bool resultCmpCast(const vector<Ts> &x, const vector<Td> &outDataValExp, 
 template <typename T>
 static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outDataValAct, size_t selectedCount,
     float ratio) {
-    size_t data_size = outDataValExp.size();
-    bool precision = true;
-
-    if (data_size != static_cast<size_t>(data_size)) {
-        return false;
-    }
-
     std::map<size_t, std::pair<std::vector<T>, std::vector<T>>> part_result_dict;
     std::map<size_t, std::pair<std::vector<T>, std::vector<T>>> all_result_dict;
 
-    for (size_t idx = 0; idx < data_size; ++idx) {
+    for (size_t idx = 0; idx < outDataValExp.size(); ++idx) {
         int32_t expVal = outDataValExp[idx];
         int32_t actVal = outDataValAct[idx];
         size_t part_index = static_cast<size_t>(idx / selectedCount);
@@ -264,6 +258,7 @@ static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outData
         all_result_dict[part_index].second.push_back(actVal);
     }
 
+    bool precision = true;
     for (const auto& [idx_index, result_pair]: part_result_dict) {
         (void)idx_index;
         std::vector<T> exp_list = result_pair.first;
@@ -294,7 +289,6 @@ static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outData
                 }
                 std::cout << "err idx: " << pos_idx << ", exp->" << expValue << ", act->" << act_list_ori[pos_idx] << std::endl;
             }
-            // break;
         }
     }
     std::cout << "result is " << (precision ? "\033[32m""PASS""\033[0m" : "\033[31m""FAILED""\033[0m") << std::endl;
@@ -304,7 +298,6 @@ static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outData
 template <typename T = float>
 static bool resultCmp(const T* outDataValExp, const T *outDataValAct, size_t eSize, float eps, size_t threshold = 0,
     size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0) {
-    //
     threshold = threshold == 0 ? static_cast<int>(eSize * eps) : threshold;
 
     float maxDiff = 0;
@@ -381,7 +374,6 @@ static bool resultCmp(const T* outDataValExp, const T *outDataValAct, size_t eSi
 template <typename T = float>
 static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, float eps, size_t threshold = 0,
     size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0) {
-    //
     threshold = threshold == 0 ? static_cast<int>(outDataValExp.size() * eps) : threshold;
 
     float maxDiff = 0;
