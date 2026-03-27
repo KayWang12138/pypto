@@ -23,8 +23,8 @@
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
 
 namespace npu::tile_fwk::dynamic {
-static int EmulationLaunchOnce(DeviceKernelArgs &kArgs) {
-    constexpr int threadNum = 7;
+static int EmulationLaunchOnce(DeviceKernelArgs &kArgs, bool isTripleStream) {
+    constexpr int threadNum = 8;
     std::thread aicpuThreadList[threadNum];
     int aicpuResultList[threadNum] = {0};
     std::atomic<int> idx{0};
@@ -33,7 +33,10 @@ static int EmulationLaunchOnce(DeviceKernelArgs &kArgs) {
     auto deviceTaskCtrlPoolAddr = devProg->GetRuntimeDataList()->GetRuntimeData() + DEV_ARGS_SIZE;
     (void)memset_s(reinterpret_cast<void*>(deviceTaskCtrlPoolAddr), shmSize, 0, shmSize);
     devProg->devArgs.aicpuPerfAddr = 0UL;
-    for (int i = 0; i < static_cast<int>(devProg->devArgs.nrAicpu); i++) {
+    int launchAiCpuNum = isTripleStream ?
+        static_cast<int>(devProg->devArgs.nrAicpu + dynamic::MAX_OTHER_AICPU_NUM) : static_cast<int>(devProg->devArgs.nrAicpu);
+    std::mutex runModeMutex;
+    for (int i = 0; i < launchAiCpuNum; i++) {
         aicpuThreadList[i] = std::thread([&](int threadIndex) {
             int tidx = idx++;
             cpu_set_t cpuset;
@@ -44,6 +47,11 @@ static int EmulationLaunchOnce(DeviceKernelArgs &kArgs) {
             MACHINE_LOGD("start thread: %s ", name);
             pthread_setname_np(pthread_self(), name);
             pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+            if (isTripleStream) {
+                std::lock_guard<std::mutex> lock(runModeMutex);
+                kArgs.parameter.runMode = tidx < static_cast<int>(dynamic::MAX_OTHER_AICPU_NUM) ?
+                    RUN_SPLITTED_STREAM_CTRL : RUN_SPLITTED_STREAM_SCHE;
+            }
             aicpuResultList[threadIndex] = DynTileFwkBackendKernelServer(&kArgs);
         }, i);
     }
@@ -71,7 +79,7 @@ int EmulationLauncher::EmulationLaunchOnceWithHostTensorData(
     DeviceLauncher::DeviceInitDistributedContext(memUtils, dynAttr->commGroupNames, kArgs);
     DeviceLauncher::DeviceInitTilingData(memUtils, kArgs, dynAttr->devProgBinary, ctrlCache, config, nullptr);
     DeviceLauncher::DeviceInitKernelInOuts(memUtils, kArgs, inputList, outputList, dynAttr->disableL2List);
-    int rc = EmulationLaunchOnce(kArgs);
+    int rc = EmulationLaunchOnce(kArgs, config.isTripleStream);
     return rc;
 }
 
@@ -128,7 +136,7 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     DeviceLauncher::DeviceInitDistributedContext(memUtils, dynAttr->commGroupNames, kArgs);
     DeviceLauncher::DeviceInitTilingData(memUtils, kArgs, dynAttr->devProgBinary, hostCtrlFlowCache, config, nullptr);
     DeviceLauncher::DeviceInitKernelInOuts(memUtils, kArgs, inputList, outputList, dynAttr->disableL2List);
-    int rc = EmulationLaunchOnce(kArgs);
+    int rc = EmulationLaunchOnce(kArgs, config.isTripleStream);
 
     hostCtrlFlowCache->isRecording = false;
     hostCtrlFlowCache->CalcUsedCacheSize();
