@@ -10,7 +10,7 @@ from numpy.testing import assert_allclose
 
 import os
 import argparse
-from typing import Optional, Callable
+from typing import Callable
 
 import pypto
 
@@ -30,15 +30,16 @@ def create_add_kernel(run_mode: int):
     def add_kernel(
         t0: pypto.Tensor(SHAPE, pypto.DT_FP32),
         t1: pypto.Tensor(SHAPE, pypto.DT_FP32),
-    ) -> pypto.Tensor(SHAPE, pypto.DT_FP32):
-        t2 = add_kernel_body(t0, t1)
-        return t2
+        out: pypto.Tensor(SHAPE, pypto.DT_FP32),
+    ):
+        out.move(add_kernel_body(t0, t1))
     return add_kernel
 
 @torch.library.custom_op("pypto::add_pypto", mutates_args=())
 def add_pypto(x0: torch.Tensor, x1: torch.Tensor, run_mode: int = 0) -> torch.Tensor:
     print("Goes through pypto npu kernel")
-    output_data = create_add_kernel(run_mode)(x0, x1)
+    output_data = torch.zeros_like(x0)
+    create_add_kernel(run_mode)(x0, x1, output_data)
     pypto.runtime._device_synchronize()
     print("Returned output_data")
     return output_data
@@ -80,6 +81,7 @@ def get_device_id():
     if "TILE_FWK_DEVICE_ID" not in os.environ:
         print("Please set TILE_FWK_DEVICE_ID variable before running this demo:")
         print("\texport TILE_FWK_DEVICE_ID=0")
+        return None
     try:
         device_id = int(os.environ["TILE_FWK_DEVICE_ID"])
         return device_id
@@ -88,7 +90,6 @@ def get_device_id():
         return None
 
 def export_demo(path: str, force_cpu: bool = False, force_sim: bool = False):
-    pypto.set_host_options(only_codegen=True)
     pypto.set_codegen_options(support_dynamic_aligned=True)
 
     model = CustomModel()

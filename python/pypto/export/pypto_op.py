@@ -9,7 +9,12 @@ import pypto_ir
 
 from . import cpp
 from . import cpp_layout
-from .helpers import _camel_case_to_snake_case, _get_renamed_func_source, _snake_case_to_camel_case
+from .helpers import (
+    _camel_case_to_snake_case,
+    _get_renamed_func_source,
+    _snake_case_to_camel_case,
+    _torch_dtype_to_ir_dtype,
+)
 from .kernel_utils import _find_kernel_binary_path, _find_kernel_pto_path
 from . import meta_schema
 from .meta_schema import _is_hidden, _is_user_defined
@@ -125,30 +130,22 @@ def _create_pypto_op_kernel_export(
     *,
     pypto_op_kernel,
     dump_meta,
-    extract_input_shapes_dtype,
+    extract_input_shapes_dtypes,
     framework_type: str,
 ):
     """Build the kernel export callable that runs the pipeline and returns op_context."""
-    def _export_ir(*input_nodes, _kernel_name, _kernel_fn, _tile_shapes, _extract_input_shapes_dtype):
+    def _export_ir(*, _kernel_name, _kernel_fn, _tile_shapes, _input_shapes, _dtypes):
         """Convert kernel to tile IR, compile to PTO, and return path to .pto file."""
-        def _convert_dtype(dtype):
-            """Map torch dtype string to pypto_ir.DataType."""
-            dtype_name = str(dtype)
-            if not dtype_name.startswith("torch."):
-                raise ValueError(f"unsupported dtype ::: {dtype}")
-            ir_dtype_name = dtype_name.replace("torch.", "").replace("float", "FP").replace("int", "INT").replace("_", "").upper()
-            return getattr(pypto_ir.DataType, ir_dtype_name)
-
-        # TODO can add explicit input checks: type, shape matching
-        input_shapes, dtype = _extract_input_shapes_dtype(*input_nodes)
+        if not _dtypes:
+            raise ValueError("dtypes cannot be empty")
         prog = convert_kernel_to_tile_ir(
             kernel_fn=_kernel_fn,
             program_name=_kernel_name,
             func_name=_kernel_name,
             vec_tile_shapes=_tile_shapes,
             cube_tile_shapes=_tile_shapes,
-            input_shapes=input_shapes,
-            dtype=_convert_dtype(dtype),
+            input_shapes=_input_shapes,
+            dtype=_torch_dtype_to_ir_dtype(_dtypes[0]),
         )
         # TODO check if can return path to .pto in compile_and_preview step so we don't have to look it up later
         compile_and_preview(prog, _kernel_name, pypto_ir.ir.OptimizationStrategy.PTOAS, pypto_ir.backend.BackendType.PTO)
@@ -159,6 +156,8 @@ def _create_pypto_op_kernel_export(
         kernel_name,
         op_type: str,
         framework_type: str,
+        *,
+        dtypes,
     ):
         """Write GE OpDef TU, executor, domi plugin, and cpp_layout.json; return path."""
         def _create_cpp_sources_dir(kernel_name):
@@ -193,7 +192,7 @@ def _create_pypto_op_kernel_export(
                     f"{stem}_executor": cpp._generate_custom_executor_cpp(op_type),
                 },
                 f"{stem}_def": cpp._generate_op_custom_def_cpp(
-                    infer_shape_fn, op_type=op_type
+                    infer_shape_fn, op_type=op_type, dtypes=dtypes
                 ),
             },
         }
@@ -217,6 +216,7 @@ def _create_pypto_op_kernel_export(
         cpp._validate_op_type_identifier(op_type)
         meta = getattr(pypto_op_kernel, "__pypto_meta__", {})
         kernel_name = str(meta.get(meta_schema._META_KEY__KERNEL_NAME))
+        input_shapes, dtypes = extract_input_shapes_dtypes(*input_nodes)
 
         # infer_shape C++ is embedded in op_host/<op_type_snake>_def.cpp (not a separate infer_shape.cpp).
         # calc_workspace stays on meta only (see pypto_op_calc_workspace); not emitted into cpp_sources_zip.
@@ -224,6 +224,7 @@ def _create_pypto_op_kernel_export(
             kernel_name,
             op_type=op_type,
             framework_type=framework_type,
+            dtypes=dtypes,
         )
         meta[meta_schema._META_KEY__CPP_SOURCES_ZIP] = _zip_cpp_sources_dir_to_b64(cpp_sources_dir)
         print(f"cpp sources path ::: {cpp_sources_dir}")
@@ -239,11 +240,11 @@ def _create_pypto_op_kernel_export(
 
         if incl_ir:
             ir_path = _export_ir(
-                *input_nodes,
                 _kernel_name=kernel_name,
                 _kernel_fn=pypto_op_kernel,
                 _tile_shapes=meta.get(meta_schema._META_KEY__TILE_SHAPES),
-                _extract_input_shapes_dtype=extract_input_shapes_dtype,
+                _input_shapes=input_shapes,
+                _dtypes=dtypes,
             )
             print(f"kernel IR path ::: {ir_path}")
             meta[meta_schema._META_KEY__KERNEL_IR_ZIP] = _zip_pto_file_to_b64(ir_path)
@@ -256,7 +257,7 @@ def _create_pypto_op_kernel_export(
 def _with_pypto_op_kernel_export(
     pypto_op_kernel,
     dump_meta,
-    extract_input_shapes_dtype,
+    extract_input_shapes_dtypes,
     framework_type: str,
 ):
     """Decorator that injects pypto_op_kernel_export into the wrapped function.
@@ -269,7 +270,7 @@ def _with_pypto_op_kernel_export(
             pypto_op_kernel_export = _create_pypto_op_kernel_export(
                 pypto_op_kernel=pypto_op_kernel,
                 dump_meta=dump_meta,
-                extract_input_shapes_dtype=extract_input_shapes_dtype,
+                extract_input_shapes_dtypes=extract_input_shapes_dtypes,
                 framework_type=framework_type,
             )
             return fn(*args, **kwargs, pypto_op_kernel_export=pypto_op_kernel_export)
@@ -298,18 +299,18 @@ def pypto_op_onnx_symbolic(*, pypto_op_kernel):
             op_context[f"{meta_schema._META_KEY__META_JSON}_s"] = meta_json
             return op_context
 
-        def _extract_input_shapes_dtype(*input_nodes):
-            """Return (list of shapes, dtype) from ONNX input nodes."""
+        def _extract_input_shapes_dtypes(*input_nodes):
+            """Return (list of shapes, list of dtypes) from ONNX input nodes."""
             if len(input_nodes) == 0:
                 raise ValueError("input_nodes cannot be empty")
             shapes = [node.type().sizes() for node in input_nodes]
-            dtype = input_nodes[0].type().dtype()  # TODO check a scenario with multiple dtypes
-            return (shapes, dtype)
+            dtypes = [node.type().dtype() for node in input_nodes]
+            return (shapes, dtypes)
 
         return _with_pypto_op_kernel_export(
             pypto_op_kernel,
             _dump_meta,
-            _extract_input_shapes_dtype,
+            _extract_input_shapes_dtypes,
             framework_type=_FRAMEWORK_TYPE__ONNX,
         )(fn)
     return decorator
@@ -353,18 +354,18 @@ def pypto_op_torchair_fx_node_ge_converter(*, pypto_op_kernel):
             op_context[meta_schema._META_KEY__META_JSON] = torchair.ge.attr.Str(meta_json)
             return op_context
 
-        def _extract_input_shapes_dtype(*input_nodes):
-            """Return (list of shapes, dtype) from TorchAir/GE input nodes."""
+        def _extract_input_shapes_dtypes(*input_nodes):
+            """Return (list of shapes, list of dtypes) from TorchAir/GE input nodes."""
             if len(input_nodes) == 0:
                 raise ValueError("input_nodes cannot be empty")
             shapes = [t.meta.size() for t in input_nodes]
-            dtype = input_nodes[0].meta.dtype  # TODO check a scenario with multiple dtypes
-            return (shapes, dtype)
+            dtypes = [t.meta.dtype for t in input_nodes]
+            return (shapes, dtypes)
 
         return _with_pypto_op_kernel_export(
             pypto_op_kernel,
             _dump_meta,
-            _extract_input_shapes_dtype,
+            _extract_input_shapes_dtypes,
             framework_type=_FRAMEWORK_TYPE__TORCHAIR_GE_STUB,
         )(fn)
     return decorator

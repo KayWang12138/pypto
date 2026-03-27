@@ -274,7 +274,10 @@ def _build_main(
     return "\n".join(lines)
 
 
-def _full_translation_unit(fn: Callable[..., Tuple[int, ...]], input_shapes: Sequence[Tuple[int, ...]]) -> str:
+def _full_infer_shape_translation_unit(
+    fn: Callable[..., Tuple[int, ...]],
+    input_shapes: Sequence[Tuple[int, ...]],
+) -> str:
     tu = cpp_mod._generate_infer_shape_host_tu_for_test(fn)
     main = _build_main(fn, input_shapes)
     return f"""#include "gert_ge_minimal.hpp"
@@ -282,6 +285,28 @@ def _full_translation_unit(fn: Callable[..., Tuple[int, ...]], input_shapes: Seq
 {tu}
 
 {main}
+"""
+
+
+def _full_op_custom_def_translation_unit(*, op_type: str, dtypes: Sequence[str]) -> str:
+    host = cpp_mod._generate_op_custom_def_cpp(op_type=op_type, dtypes=list(dtypes))
+    return f"""#include "gert_ge_minimal.hpp"
+#include "register/op_def_registry.h"
+
+{host}
+
+int main() {{
+  ge::ops::{op_type} op("x");
+  (void)op;
+  gert::InferShapeContext ctx;
+  ctx.SetInput(0, {{2, 3}});
+  ge::graphStatus st = ge::InferShapeGeImpl(&ctx);
+  if (st != ge::GRAPH_SUCCESS) return 1;
+  gert::InferDataTypeContext dt_ctx;
+  st = ge::InferDataType(&dt_ctx);
+  if (st != ge::GRAPH_SUCCESS) return 2;
+  return 0;
+}}
 """
 
 
@@ -295,7 +320,7 @@ def _full_translation_unit(fn: Callable[..., Tuple[int, ...]], input_shapes: Seq
     ],
 )
 def test_compile_and_run_infer_shape_host(fn, inputs):
-    src = _full_translation_unit(fn, inputs)
+    src = _full_infer_shape_translation_unit(fn, inputs)
     _compile_and_run(src, options=CppCompileOptions(embed_python=True))
 
 
@@ -305,3 +330,18 @@ def test_compile_and_run_infer_shape_host(fn, inputs):
 def test_compile_custom_executor_prepare_execute(n_inputs: int, op_type: str):
     src = _full_custom_executor_test_tu(n_inputs, op_type=op_type)
     _compile_and_run(src, options=CppCompileOptions())
+
+
+@pytest.mark.cpp_codegen
+@pytest.mark.parametrize("op_type", ["Add", "MyKernel"])
+@pytest.mark.parametrize(
+    "dtypes",
+    [
+        ("torch.float16",),
+        ("torch.float16", "torch.float32"),
+        ("torch.float16", "torch.float32", "torch.bfloat16"),
+    ],
+)
+def test_compile_and_run_full_op_custom_def_cpp(op_type: str, dtypes: Sequence[str]):
+    src = _full_op_custom_def_translation_unit(op_type=op_type, dtypes=dtypes)
+    _compile_and_run(src, options=CppCompileOptions(embed_python=True))
