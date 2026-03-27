@@ -114,7 +114,7 @@ struct CoaInfo {
 };
 
 struct IsConstMetric {
-    int isConst = 1;
+    int isConst = 3;
     int attrValue = -1;
 
     void MarkNotConst() {isConst = 2;}
@@ -427,10 +427,9 @@ static void SetTensorParamAddr(Operation &op, std::shared_ptr<LogicalTensor> &te
     }
     int rawMagic = tensor->GetRawMagic();
     int isConst = (rawMagic == SYMBOL_STACK_BASE) ? 2 : 3;
-    SymbolicScalar paramSymbol("param");
-    SymbolicScalar paramAddr = GET_PARAM_ADDR(
+    SymbolicScalar paramAddr = GET_PARAM_ADDR_MACRO(
         SymbolicScalar(static_cast<int64_t>(isConst)),
-        paramSymbol,
+        SymbolicScalar(static_cast<int64_t>(0)),
         SymbolicScalar(static_cast<int64_t>(GmTensorParamIdxInCallFunc)),
         SymbolicScalar(static_cast<int64_t>(gmParamIdx)));
     tensor->SetAttr<SymbolicScalar>("paramAddr", paramAddr);
