@@ -332,11 +332,12 @@ TILEOP void TMoveND2NZ(T& dst, U& src)
     constexpr int64_t staticNDW = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
     constexpr int64_t staticNZH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename T::TileShape>::type::value;
     constexpr int64_t staticNZW = Std::tuple_element<shapeSize - 1, typename T::TileShape>::type::value;
-    using tileNDTensor = pto::Tile<
-        pto::TileType::Vec, typename U::Type, staticNDH, staticNDW, pto::BLayout::RowMajor, staticNDH, staticNDW>;
-    using tileNZTensor = pto::Tile<
-        pto::TileType::Vec, typename T::Type, staticNZH, staticNZW, pto::BLayout::ColMajor, staticNZH, staticNZW,
-        pto::SLayout::RowMajor>;
+    using tileNDTensor = pto::Tile<pto::TileType::Vec, typename U::Type, staticNDH, staticNDW, pto::BLayout::RowMajor,
+                                   staticNDH, staticNDW>;
+    //staticNZH - 1 is for resolving bank conflicts
+    using tileNZTensor = pto::Tile<pto::TileType::Vec, typename T::Type, staticNZH, staticNZW, pto::BLayout::ColMajor,
+                                   staticNZH - 1, staticNZW, pto::SLayout::RowMajor, pto::TileConfig::fractalABSize,
+                                   pto::PadValue::Null, pto::CompactMode::RowPlusOne>;
     tileNDTensor srcTile;
     tileNZTensor dstTile;
     pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
@@ -347,8 +348,7 @@ TILEOP void TMoveND2NZ(T& dst, U& src)
 
 // Copy data from UB to L1 with NZ -> NZ format
 template <typename Coord, typename T, typename U>
-TILEOP void TExtract(T& dst, U& src, const Coord& coord)
-{
+TILEOP void TExtract(T &dst, U &src, const Coord &dstCoord, const Coord &srcCoord) {
     if (!CheckShapeValid(dst, src)) {
         return;
     }
@@ -357,24 +357,33 @@ TILEOP void TExtract(T& dst, U& src, const Coord& coord)
     constexpr int64_t c0Size = isB4 ? FP4_BLOCK_ALIGN_BYTE : BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
     static_assert(shapeSize == SHAPE_DIM2 && Std::tuple_size<Coord>::value == SHAPE_DIM2, "Shape Size should be 2 Dim");
     static_assert(T::FORMAT == Hardware::L1 && U::FORMAT == Hardware::UB);
-    int64_t offset0 = coord.GetValue();
-    int64_t offset1 = static_cast<const Std::tuple<size_t>&>(coord).GetValue();
+    int64_t srcOffset0 = srcCoord.GetValue();
+    int64_t srcOffset1 = static_cast<const Std::tuple<size_t> &>(srcCoord).GetValue();
+    int64_t dstOffset0 = dstCoord.GetValue();
+    int64_t dstOffset1 = static_cast<const Std::tuple<size_t> &>(dstCoord).GetValue();
     constexpr int64_t staticUBH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename U::TileShape>::type::value;
     constexpr int64_t staticUBW = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
     constexpr int64_t staticL1H = Std::tuple_element<shapeSize - SHAPE_DIM2, typename T::TileShape>::type::value;
     constexpr int64_t staticL1W = Std::tuple_element<shapeSize - 1, typename T::TileShape>::type::value;
 
-    using tileUBTensor = pto::Tile<
-        pto::TileType::Vec, typename U::Type, staticUBH, staticUBW, pto::BLayout::ColMajor, staticUBH, staticUBW,
-        pto::SLayout::RowMajor>;
-    using tileL1Tensor = pto::Tile<
-        pto::TileType::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::ColMajor, staticL1H, staticL1W,
-        pto::SLayout::RowMajor>;
-    tileUBTensor UBTile;
+    using tileL1Tensor = pto::Tile<pto::TileType::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::ColMajor,
+        staticL1H, staticL1W, pto::SLayout::RowMajor>;
     tileL1Tensor l1Tile;
-    pto::TASSIGN(UBTile, (uint64_t)src.GetAddr());
     pto::TASSIGN(l1Tile, (uint64_t)dst.GetAddr());
-    pto::TEXTRACT(l1Tile, UBTile, offset0, offset1);
+    if constexpr (staticUBH >= staticL1H && staticUBW >= staticL1W) {
+        using tileUBTensor = pto::Tile<pto::TileType::Vec, typename U::Type, staticUBH, staticUBW,
+        pto::BLayout::ColMajor, staticUBH, staticUBW, pto::SLayout::RowMajor>;
+        tileUBTensor UBTile;
+        pto::TASSIGN(UBTile, (uint64_t)src.GetAddr());
+        pto::TEXTRACT(l1Tile, UBTile, srcOffset0, srcOffset1);
+    } else {
+        //staticNZH - 1 is for resolving bank conflicts
+        using tileUBTensor = pto::Tile<pto::TileType::Vec, typename U::Type, staticUBH, staticUBW,
+        pto::BLayout::ColMajor, staticUBH - 1, staticUBW, pto::SLayout::RowMajor>;
+        tileUBTensor UBTile;
+        pto::TASSIGN(UBTile, (uint64_t)src.GetAddr());
+        pto::TINSERT<pto::TInsertMode::NZ_PLUS_1>(l1Tile, UBTile, dstOffset0, dstOffset1);
+    }
 }
 
 template <typename V>
