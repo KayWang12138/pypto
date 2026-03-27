@@ -42,6 +42,7 @@ void DeviceTaskContext::ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId
     info->aivCoreIdxOne = 0;
     info->taskCnt = opWrapTaskNumList[opIndex];
     info->mixResourceType = cceBinary[callList[opIndex]].mixResourceType;
+    info->queueState = 1; // queued
     info->tasklist.head = 0;
     info->tasklist.tail = 0;
     info->tasklist.capacity = opWrapTaskNumList[opIndex];
@@ -50,6 +51,9 @@ void DeviceTaskContext::ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId
     } else {
         WrapInfo *preQueueInfo = &wrapQueue->elem[wrapQueue->tail - 1];
         info->tasklist.elem = preQueueInfo->tasklist.elem + preQueueInfo->tasklist.capacity;
+    }
+    for (uint32_t i = 0; i < info->tasklist.capacity; i++) {
+        info->tasklist.elem[i] = 0xFFFFFFFFU;
     }
     info->tasklist.elem[info->tasklist.tail++] = MakeTaskID(funcIndex, opIndex);
     wrapQueue->tail++;
