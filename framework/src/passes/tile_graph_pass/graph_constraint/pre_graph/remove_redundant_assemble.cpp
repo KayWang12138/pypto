@@ -570,7 +570,7 @@ void RemoveRedundantAssemble::HanldeForMultiAssemble(Function &function, std::un
     }
 }
 
-bool RemoveRedundantAssemble::FindAssembleOut(Operation* con, int assembleOutMagic) {
+bool RemoveRedundantAssemble::FindAssembleOut(Operation* con, int assembleOutMagic) const {
     bool res = false;
     for (auto conOutput : con->GetOOperands()) {
         if (conOutput->GetMagic() == assembleOutMagic) {
