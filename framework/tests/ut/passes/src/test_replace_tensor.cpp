@@ -771,5 +771,58 @@ TEST_F(ReplaceTensorTest, UpdateCopyInAttrAfterBackAssemble) {
     EXPECT_EQ(copyInOpAttribute->GetFromOffset()[0].Dump(), copyInAttrNewOffset[0]);
     EXPECT_EQ(copyInOpAttribute->GetFromOffset()[1].Dump(), copyInAttrNewOffset[1]);
 }
+
+// ========== 测试用例：InsertNeedCopy - View + Reshape + Copyout 不插入拷贝 ==========
+TEST_F(ReplaceTensorTest, InsertNeedCopyViewReshapeCopyOut) {
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "InsertNeedCopyReshapeAssemble", "InsertNeedCopyReshapeAssemble", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("InsertNeedCopyReshapeAssemble", currFunctionPtr);
+
+    // 创建输入tensor
+    std::vector<int64_t> shape1 = {16, 64};
+    std::vector<int64_t> shape2 = {8, 64};
+    std::vector<int64_t> shape3 = {64, 8};
+    std::vector<int64_t> offset = {kNumZero, kNumZero};
+    auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    input->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    // 创建UB上的tensor
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    ubTensor1->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+    ubTensor2->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+
+    // 创建输出tensor
+    auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+    output->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    // 创建计算图Op操作
+    auto &view = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input}, {ubTensor1});
+    view.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset));
+    currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
+    currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor2}, {output});
+
+    currFunctionPtr->inCasts_.push_back(input);
+    currFunctionPtr->outCasts_.push_back(output);
+
+    // 调用InsertAssembleCopy
+    ReplaceTensor insertCopyTest;
+    insertCopyTest.InsertAssembleCopy(*currFunctionPtr);
+
+    // 验证没有插入拷贝序列
+    int copyInNumBer = 0;
+    int copyOutNumBer = 0;
+    for (const auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+            copyOutNumBer++;
+        } else if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+            copyInNumBer++;
+        }
+    }
+    
+    EXPECT_EQ(copyInNumBer, kNumZero) << "Should not insert COPY_IN operation";
+    EXPECT_EQ(copyOutNumBer, kNumOne) << "Should not insert COPY_OUT operation";
+}
 }
 }
