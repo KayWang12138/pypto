@@ -201,6 +201,16 @@ inline bool SkipInputCombineOps3510(Operation& op) {
     return true;
 }
 
+inline bool SkipInputCombineOps(Operation &op, int dimSize) {
+    if (op.GetOpcode() == Opcode::OP_BRCB) {
+        return false;
+    }
+    if (op.GetOpcode() == Opcode::OP_EXPAND) {
+        return op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM") == dimSize - NUM2;
+    }
+    return true;
+}
+
 Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
     const std::set<Opcode> skipInputCombineOps = {Opcode::OP_BRCB};
     for (auto &subProgram : func.rootFunc_->programs_) {
@@ -214,7 +224,8 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
             std::vector<bool> inputCombineAxis;
             LogicalTensors inputs = op.GetIOperands();
             for (size_t i = 0; i < inputs.size(); ++i) {
-                if (inputs[i]->tensor->rawshape.back() == 1 && skipInputCombineOps.count(op.GetOpcode()) == 0) {
+                if (inputs[i]->tensor->rawshape.back() == 1 &&
+                    SkipInputCombineOps(op, static_cast<int>(inputs[i]->tensor->rawshape.size()))) {
                     inputCombineAxis.push_back(true);
                 } else {
                     inputCombineAxis.push_back(false);
