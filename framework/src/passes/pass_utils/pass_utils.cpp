@@ -174,7 +174,7 @@ void SubfuncInvokeInfoTy::PrintInvokeInfo(const std::string &extraInfo) const {
         ss << ", ";
     }
     ss << "])\n";
-    ALOG_DEBUG_F("%s", ss.str().c_str());
+    APASS_LOG_DEBUG_F(Elements::Function, "%s", ss.str().c_str());
 }
 
 void SubfuncInvokeInfoTy::PrettyPrintInvokeInfo(const int subgraphId) const {
@@ -197,7 +197,7 @@ void SubfuncInvokeInfoTy::PrettyPrintInvokeInfo(const int subgraphId) const {
         ss << std::endl;
     }
     ss << std::endl;
-    ALOG_DEBUG_F("%s", ss.str().c_str());
+    APASS_LOG_DEBUG_F(Elements::Function, "%s", ss.str().c_str());
 }
 
 void SubfuncInvokeInfoTy::DumpInvokeInfo(int64_t invokeParamMemOffset, int64_t *invokeParamPtr) const {
@@ -309,7 +309,7 @@ void SubfuncInvokeInfoTy::Print(const std::string &extInfo) const {
     }
 
     ss << "\n\n";
-    ALOG_DEBUG_F("%s", ss.str().c_str());
+    APASS_LOG_DEBUG_F(Elements::Function, "%s", ss.str().c_str());
 }
 
 Json SubfuncInvokeInfoTy::DumpJson() const {
@@ -367,8 +367,8 @@ void SubfuncInvokeInfoTy::LoadIncastFromJson(const Json& incastJson, Function* b
     std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(
         incastJson["tensor"].get<int>());
     if (tensorPtr == nullptr) {
-        ALOG_ERROR_F("Tile FWK for incast %d op %d is nullptr, function type %d name %s",
-            incastJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
+        APASS_LOG_ERROR_F(Elements::Function, "Tile FWK for incast %d op %d is nullptr, function type %s name %s",
+            incastJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionTypeStr().c_str(),
             belongTo->GetMagicName().c_str());
         return;
     }
@@ -385,8 +385,8 @@ void SubfuncInvokeInfoTy::LoadOutcastFromJson(const Json& outcastJson, Function*
     std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(
         outcastJson["tensor"].get<int>());
     if (tensorPtr == nullptr) {
-        ALOG_ERROR_F("Tile FWK for outcast %d op %d is nullptr function type %d name %s",
-            outcastJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
+        APASS_LOG_ERROR_F(Elements::Function, "Tile FWK for outcast %d op %d is nullptr function type %s name %s",
+            outcastJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionTypeStr().c_str(),
             belongTo->GetMagicName().c_str());
         return;
     }
@@ -403,8 +403,8 @@ void SubfuncInvokeInfoTy::LoadTensorFromJson(const Json& tensorJson, Function* b
     std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(
         tensorJson["tensor"].get<int>());
     if (tensorPtr == nullptr) {
-        ALOG_ERROR_F("Tile FWK for tensor %d op %d is nullptr, function type %d name %s",
-            tensorJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
+        APASS_LOG_ERROR_F(Elements::Function, "Tile FWK for tensor %d op %d is nullptr, function type %s name %s",
+            tensorJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionTypeStr().c_str(),
             belongTo->GetMagicName().c_str());
         return;
     }
@@ -868,7 +868,7 @@ void SubfuncTopologyInfoTy::LoadJson(const Json &topoJson)
 std::unordered_map<MemoryType, int64_t> CommonUtils::GetLocalMemorySize() {
     std::unordered_map<MemoryType, int64_t> localMemorySize;
     auto &die = Platform::Instance().GetDie();
-    
+
     localMemorySize[MemoryType::MEM_UB] = die.GetMemoryLimit(MemoryType::MEM_UB);
     localMemorySize[MemoryType::MEM_L1] = die.GetMemoryLimit(MemoryType::MEM_L1);
     localMemorySize[MemoryType::MEM_L0A] = die.GetMemoryLimit(MemoryType::MEM_L0A);

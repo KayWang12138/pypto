@@ -1,0 +1,9 @@
+diff a/framework/src/passes/pass_utils/pass_utils.cpp b/framework/src/passes/pass_utils/pass_utils.cpp	(rejected hunks)
+@@ -24,6 +24,7 @@
+ #define MODULE_NAME "PassUtils"
+ 
+ namespace npu::tile_fwk {
++
+ void FunctionUtils::RelinkOperationInput(Operation *op, const size_t inputIndex, const Operation *targetOp,
+                                          const size_t outputIndex) {
+     if (op == nullptr || targetOp == nullptr) {
