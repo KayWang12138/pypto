@@ -170,18 +170,18 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
 
         freeACoreQueue_[(int)CoreType::AIV] = new coreQueue_t();
         freeACoreQueue_[(int)CoreType::AIC] = new coreQueue_t();
-        busyACoreQueue_[(int)CoreType::AIV] = new pairQueue_t();
-        busyACoreQueue_[(int)CoreType::AIC] = new pairQueue_t();
-        freeBCoreQueue_[(int)CoreType::AIV] = new pairQueue_t();
-        freeBCoreQueue_[(int)CoreType::AIC] = new pairQueue_t();
-        busyBCoreQueue_[(int)CoreType::AIV] = new pairQueue_t();
-        busyBCoreQueue_[(int)CoreType::AIC] = new pairQueue_t();
+        busyAPairQueue_[(int)CoreType::AIV] = new pairQueue_t();
+        busyAPairQueue_[(int)CoreType::AIC] = new pairQueue_t();
+        freeBPairQueue_[(int)CoreType::AIV] = new pairQueue_t();
+        freeBPairQueue_[(int)CoreType::AIC] = new pairQueue_t();
+        busyBPairQueue_[(int)CoreType::AIV] = new pairQueue_t();
+        busyBPairQueue_[(int)CoreType::AIC] = new pairQueue_t();
 
         for (int i = aivStart_; i < aivEnd_; i++) freeACoreQueue_[(int)CoreType::AIV]->push(i);
         for (int i = aicStart_; i < aicEnd_; i++) freeACoreQueue_[(int)CoreType::AIC]->push(i);
 
-        // DEV_ERROR(0, "[AICPU %d] Vector Ready: %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIV), freeACoreQueue_[(int)CoreType::AIV]->size(), busyACoreQueue_[(int)CoreType::AIV]->size());
-        // DEV_ERROR(0, "[AICPU %d] Cube Ready:   %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIC), freeACoreQueue_[(int)CoreType::AIC]->size(), busyACoreQueue_[(int)CoreType::AIC]->size());
+        // DEV_ERROR(0, "[AICPU %d] Vector Ready: %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIV), freeACoreQueue_[(int)CoreType::AIV]->size(), busyAPairQueue_[(int)CoreType::AIV]->size());
+        // DEV_ERROR(0, "[AICPU %d] Cube Ready:   %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIC), freeACoreQueue_[(int)CoreType::AIC]->size(), busyAPairQueue_[(int)CoreType::AIC]->size());
     }
 
     inline void CountSendTask(uint64_t &sentAic, uint64_t &sentAiv) {
@@ -335,7 +335,7 @@ private:
     }
 
     inline uint32_t GetReadyCoreNum(CoreType type) {
-        return freeACoreQueue_[(int)type]->size() + freeBCoreQueue_[(int)type]->size();
+        return freeACoreQueue_[(int)type]->size() + freeBPairQueue_[(int)type]->size();
     }
 
     inline void TryBatchSendTask(CoreType type)
@@ -362,7 +362,7 @@ private:
                 const auto task = taskData[i];
                 const auto pair = encodePair(core, task);
                 SendTaskToAiCore(type, core, task);
-                busyACoreQueue_[(int)type]->push(pair);
+                busyAPairQueue_[(int)type]->push(pair);
             }
 
             // freeACoreQueue_[(int)type]->unlock();   
@@ -372,23 +372,23 @@ private:
         // Checking free B cores
         if (taskQueue->tryLock())
         {
-            // freeBCoreQueue_[(int)type]->lock();
+            // freeBPairQueue_[(int)type]->lock();
 
-            const size_t availableCores = freeBCoreQueue_[(int)type]->size();
+            const size_t availableCores = freeBPairQueue_[(int)type]->size();
             const auto taskSet = taskQueue->pop(availableCores);
             const aicoreTask_t* taskData = taskSet.first;
             const size_t taskCount = taskSet.second;
 
             for (size_t i = 0; i < taskCount; i++)
             {
-                const auto pair = freeBCoreQueue_[(int)type]->pop();
+                const auto pair = freeBPairQueue_[(int)type]->pop();
                 const auto core = decodePairCore(pair);
                 const auto task = taskData[i];
                 SendTaskToAiCore(type, core, task);
-                busyBCoreQueue_[(int)type]->push(pair);
+                busyBPairQueue_[(int)type]->push(pair);
             }
 
-            // freeBCoreQueue_[(int)type]->unlock();
+            // freeBPairQueue_[(int)type]->unlock();
             taskQueue->unlock();
         }
     }
@@ -410,44 +410,44 @@ private:
         batchReadyTaskCount_[(int)CoreType::AIC] = 0;
         batchReadyTaskCount_[(int)CoreType::AIV] = 0;
         batchFreeACoreCount_[(int)type] = 0;
-        batchBusyACoreCount_[(int)type] = 0;
-        batchFreeBCoreCount_[(int)type] = 0;
-        batchBusyBCoreCount_[(int)type] = 0;
+        batchBusyAPairCount_[(int)type] = 0;
+        batchFreeBPairCount_[(int)type] = 0;
+        batchBusyBPairCount_[(int)type] = 0;
 
         // Handling Busy A queue pairings
-        // if (busyACoreQueue_[(int)type]->tryLock() == true)
+        // if (busyAPairQueue_[(int)type]->tryLock() == true)
         {
-            size_t pairCount = busyACoreQueue_[(int)type]->size();
+            size_t pairCount = busyAPairQueue_[(int)type]->size();
             for (size_t i = 0; i < pairCount; i++)
             {
-                const auto pair = busyACoreQueue_[(int)type]->pop();
+                const auto pair = busyAPairQueue_[(int)type]->pop();
                 ResolveBusyAQueuePair(type, pair);
             }
-            // busyACoreQueue_[(int)type]->unlock();
+            // busyAPairQueue_[(int)type]->unlock();
         }
 
         // Handling Free B queue pairings
-        // if (freeBCoreQueue_[(int)type]->tryLock() == true)
+        // if (freeBPairQueue_[(int)type]->tryLock() == true)
         {
-            size_t pairCount = freeBCoreQueue_[(int)type]->size();
+            size_t pairCount = freeBPairQueue_[(int)type]->size();
             for (size_t i = 0; i < pairCount; i++)
             {
-                const auto pair = freeBCoreQueue_[(int)type]->pop();
+                const auto pair = freeBPairQueue_[(int)type]->pop();
                 ResolveFreeBQueuePair(type, pair);
             }
-            // freeBCoreQueue_[(int)type]->unlock();
+            // freeBPairQueue_[(int)type]->unlock();
         }
 
         // Handling Busy B queue pairings
-        // if (busyBCoreQueue_[(int)type]->tryLock() == true)
+        // if (busyBPairQueue_[(int)type]->tryLock() == true)
         {
-            size_t pairCount = busyBCoreQueue_[(int)type]->size();
+            size_t pairCount = busyBPairQueue_[(int)type]->size();
             for (size_t i = 0; i < pairCount; i++)
             {
-                const auto pair = busyBCoreQueue_[(int)type]->pop();
+                const auto pair = busyBPairQueue_[(int)type]->pop();
                 ResolveBusyBQueuePair(type, pair);
             }
-            // busyBCoreQueue_[(int)type]->unlock();
+            // busyBPairQueue_[(int)type]->unlock();
         }
 
         // Batch-pushing newly enabled AIC tasks to their proper queues
@@ -467,6 +467,39 @@ private:
             taskQueue->pushMany(batchReadyTaskIds_[(int)CoreType::AIV], batchReadyTaskCount_[(int)CoreType::AIV]);
             taskQueue->unlock();
         }
+
+        // Batch-pushing free A cores
+        if (batchFreeACoreCount_[(int)type] > 0)
+        {
+            //lock
+            for (size_t i = 0; i < batchFreeACoreCount_[(int)type]; i++) freeACoreQueue_[(int)type]->push(batchFreeACores_[(int)type][i]);
+            //unlock
+        }
+
+        // Batch-pushing busy A cores
+        if (batchBusyAPairCount_[(int)type] > 0)
+        {
+            //lock
+            for (size_t i = 0; i < batchBusyAPairCount_[(int)type]; i++) busyAPairQueue_[(int)type]->push(batchBusyAPairs_[(int)type][i]);
+            //unlock
+        }
+        
+        // Batch-pushing free B cores
+        if (batchFreeBPairCount_[(int)type] > 0)
+        {
+            //lock
+            for (size_t i = 0; i < batchFreeBPairCount_[(int)type]; i++) freeBPairQueue_[(int)type]->push(batchFreeBPairs_[(int)type][i]);
+            //unlock
+        }
+
+        // Batch-pushing busy B cores
+        if (batchBusyBPairCount_[(int)type] > 0)
+        {
+            //lock
+            for (size_t i = 0; i < batchBusyBPairCount_[(int)type]; i++) busyBPairQueue_[(int)type]->push(batchBusyBPairs_[(int)type][i]);
+            //unlock
+        }
+        
     }
 
     inline void ResolveBusyAQueuePair(CoreType type, const aicorePair_t pair)
@@ -485,19 +518,19 @@ private:
             if (finTaskState == TASK_FIN_STATE)
             {
                 processFinishedTask(type, taskAId);
-                freeACoreQueue_[(int)type]->push(coreId);
+                batchFreeACores_[(int)type][batchFreeACoreCount_[(int)type]++] = coreId;
                 return;
             }
 
             if (finTaskState == TASK_ACK_STATE)
             {
-                freeBCoreQueue_[(int)type]->push(pair);
+                batchFreeBPairs_[(int)type][batchFreeBPairCount_[(int)type]++] = pair;
                 return;
             }
         }
         
         // Nothing has changed, put this pair back to its queue
-        busyACoreQueue_[(int)type]->push(pair);
+        busyAPairQueue_[(int)type]->push(pair);
     }
 
     inline void ResolveFreeBQueuePair(CoreType type, const aicorePair_t pair)
@@ -516,13 +549,13 @@ private:
             if (finTaskState == TASK_FIN_STATE)
             {
                 processFinishedTask(type, taskAId);
-                freeACoreQueue_[(int)type]->push(coreId);
+                batchFreeACores_[(int)type][batchFreeACoreCount_[(int)type]++] = coreId;
                 return;
             }
         }
         
         // Nothing has changed, put this pair back to its queue
-        freeBCoreQueue_[(int)type]->push(pair);
+        freeBPairQueue_[(int)type]->push(pair);
     }
 
     inline void ResolveBusyBQueuePair(CoreType type, const aicorePair_t pair)
@@ -548,18 +581,18 @@ private:
             if (finTaskState == TASK_FIN_STATE)
             {
                 processFinishedTask(type, taskBId);
-                freeACoreQueue_[(int)type]->push(coreId);
+                batchFreeACores_[(int)type][batchFreeACoreCount_[(int)type]++] = coreId;
                 return;
             }
 
             // Otherwise, set task B as task A and put it into the freeB queue to allow a new task B to be assigned to the core
             const auto newPair = encodePair(coreId, taskBId);
-            freeBCoreQueue_[(int)type]->push(newPair);
+            batchFreeBPairs_[(int)type][batchFreeBPairCount_[(int)type]++] = newPair;
             return;
         }
         
         // Nothing has changed, put this pair back into its queue
-        busyBCoreQueue_[(int)type]->push(pair);
+        busyBPairQueue_[(int)type]->push(pair);
     }
 
     inline void PushReadyTask(int coreType, uint64_t taskId) {
@@ -799,22 +832,22 @@ private:
     // Queues for managing tasks, cores and their pairing
     taskQueue_t* taskQueue_[AICORE_TYPE_NUM];
     coreQueue_t* freeACoreQueue_[AICORE_TYPE_NUM];
-    pairQueue_t* busyACoreQueue_[AICORE_TYPE_NUM];
-    pairQueue_t* freeBCoreQueue_[AICORE_TYPE_NUM];
-    pairQueue_t* busyBCoreQueue_[AICORE_TYPE_NUM];
+    pairQueue_t* busyAPairQueue_[AICORE_TYPE_NUM];
+    pairQueue_t* freeBPairQueue_[AICORE_TYPE_NUM];
+    pairQueue_t* busyBPairQueue_[AICORE_TYPE_NUM];
 
     aicoreTask_t batchReadyTaskIds_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
     size_t batchReadyTaskCount_[AICORE_TYPE_NUM];
 
     size_t  batchFreeACoreCount_[AICORE_TYPE_NUM];
-    size_t  batchBusyACoreCount_[AICORE_TYPE_NUM];
-    size_t  batchFreeBCoreCount_[AICORE_TYPE_NUM];
-    size_t  batchBusyBCoreCount_[AICORE_TYPE_NUM];
+    size_t  batchBusyAPairCount_[AICORE_TYPE_NUM];
+    size_t  batchFreeBPairCount_[AICORE_TYPE_NUM];
+    size_t  batchBusyBPairCount_[AICORE_TYPE_NUM];
 
-    aicoreCore_t batchFreeACoreIds_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
-    aicorePair_t batchBusyACoreIds_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
-    aicorePair_t batchFreeBCoreIds_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
-    aicorePair_t batchBusyBCoreIds_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
+    aicoreCore_t batchFreeACores_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
+    aicorePair_t batchBusyAPairs_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
+    aicorePair_t batchFreeBPairs_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
+    aicorePair_t batchBusyBPairs_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
 
     // Variable to scheduler lead and whether or not I am the lead
     bool isLeaderScheduler_;
