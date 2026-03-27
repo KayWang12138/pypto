@@ -24,6 +24,7 @@
 #define MODULE_NAME "PassUtils"
 
 namespace npu::tile_fwk {
+
 void FunctionUtils::RelinkOperationInput(Operation *op, const size_t inputIndex, const Operation *targetOp,
                                          const size_t outputIndex) {
     if (op == nullptr || targetOp == nullptr) {
@@ -880,6 +881,6 @@ std::unordered_map<MemoryType, int64_t> CommonUtils::GetLocalMemorySize() {
     localMemorySize[MemoryType::MEM_FIX] = die.GetMemoryLimit(MemoryType::MEM_FIX);
     localMemorySize[MemoryType::MEM_FIX_QUANT_PRE] = die.GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE);
 
-    return localMemorySize;
+    return localMemorySize; 
 }
 } // namespace npu::tile_fwk
