@@ -941,9 +941,9 @@ void ReplaceTensor::FindNeedToCopyAssemble(std::unordered_set<Operation*> &needI
  *         ---> Assemble ---> Tensor3
  *         ---> Assemble ---> Tensor4
 
- * Tensor1 ---> Reshape ---> Assemble ---> Tensor2
+ * Tensor1 ---> Reshape ---> Assemble ---> Tensor2(可能造成Rehape+Assemble+CopyOut的一些场景性能损失)
 
- * Tensor1 ---> View ---> Reshape ---> OP(非CopyOut) ---> Tensor2
+ * Tensor1 ---> View ---> Reshape ---> OP(非CopyIn) ---> Tensor2
  */
 void ReplaceTensor::InsertNeedCopy(Function &function) {
     std::unordered_set<int> visitedAssOps;
@@ -957,14 +957,16 @@ void ReplaceTensor::InsertNeedCopy(Function &function) {
             auto consumerOps = op.ConsumerOps();
             bool flag = true;
             for (auto consumerOp : consumerOps) {
-                if (consumerOp->GetOpcode() == Opcode::OP_COPY_OUT) {
+                if (consumerOp->GetOpcode() == Opcode::OP_COPY_IN) {
                     flag = false;
                     break;
                 }
             }
-            for (auto producesOp : producerOps) {
-                if (producesOp->GetOpcode() == Opcode::OP_VIEW && flag) {
-                    needInsertCopyAssOps.insert(&op);
+            if (flag) {
+                for (auto producesOp : producerOps) {
+                    if (producesOp->GetOpcode() == Opcode::OP_VIEW) {
+                        needInsertCopyAssOps.insert(&op);
+                    }
                 }
             }
             for (auto consumerOp : consumerOps) {

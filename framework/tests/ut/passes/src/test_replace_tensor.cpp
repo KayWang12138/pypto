@@ -749,8 +749,8 @@ TEST_F(ReplaceTensorTest, InsertNeedCopyReshapeAssemble) {
     currFunctionPtr->outCasts_.push_back(output);
 
     // 调用InsertAssembleCopy
-    ReplaceTensor commonOperationEliminateTest;
-    commonOperationEliminateTest.InsertNeedCopy(*currFunctionPtr);
+    ReplaceTensor replaceTensor;
+    replaceTensor.InsertNeedCopy(*currFunctionPtr);
 
     // 验证插入拷贝序列
     int copyInNumBer = 0;
@@ -767,12 +767,12 @@ TEST_F(ReplaceTensorTest, InsertNeedCopyReshapeAssemble) {
     EXPECT_EQ(copyOutNumBer, kNumOne) << "Should insert COPY_OUT operation";
 }
 
-// ========== 测试用例：InsertNeedCopy - View + Reshape + Copyout 不插入拷贝 ==========
+// ========== 测试用例：InsertNeedCopy - View + Reshape + CopyIn 不插入拷贝 ==========
 TEST_F(ReplaceTensorTest, InsertNeedCopyViewReshapeCopyOut) {
     auto currFunctionPtr = std::make_shared<Function>(
-        Program::GetInstance(), "InsertNeedCopyReshapeAssemble", "InsertNeedCopyReshapeAssemble", nullptr);
+        Program::GetInstance(), "InsertNeedCopyViewReshapeCopyOut", "InsertNeedCopyViewReshapeCopyOut", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    Program::GetInstance().InsertFuncToFunctionMap("InsertNeedCopyReshapeAssemble", currFunctionPtr);
+    Program::GetInstance().InsertFuncToFunctionMap("InsertNeedCopyViewReshapeCopyOut", currFunctionPtr);
 
     // 创建输入tensor
     std::vector<int64_t> shape1 = {16, 64};
@@ -796,14 +796,14 @@ TEST_F(ReplaceTensorTest, InsertNeedCopyViewReshapeCopyOut) {
     auto &view = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input}, {ubTensor1});
     view.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset));
     currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
-    currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor2}, {output});
+    currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {ubTensor2}, {output});
 
     currFunctionPtr->inCasts_.push_back(input);
     currFunctionPtr->outCasts_.push_back(output);
 
     // 调用InsertAssembleCopy
-    ReplaceTensor commonOperationEliminateTest;
-    commonOperationEliminateTest.InsertNeedCopy(*currFunctionPtr);
+    ReplaceTensor replaceTensor;
+    replaceTensor.InsertNeedCopy(*currFunctionPtr);
 
     // 验证没有插入拷贝序列
     int copyInNumBer = 0;
@@ -816,8 +816,8 @@ TEST_F(ReplaceTensorTest, InsertNeedCopyViewReshapeCopyOut) {
         }
     }
     
-    EXPECT_EQ(copyInNumBer, kNumZero) << "Should not insert COPY_IN operation";
-    EXPECT_EQ(copyOutNumBer, kNumOne) << "Should not insert COPY_OUT operation";
+    EXPECT_EQ(copyInNumBer, kNumOne) << "Should not insert COPY_IN operation";
+    EXPECT_EQ(copyOutNumBer, kNumZero) << "Should not insert COPY_OUT operation";
 }
 
 TEST_F(ReplaceTensorTest, UpdateCopyInAttrAfterBackAssemble) {
