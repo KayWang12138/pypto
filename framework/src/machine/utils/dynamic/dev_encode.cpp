@@ -1982,7 +1982,7 @@ void DevAscendProgram::InitCceCodeList(
             cceCodeList[index].psgId = cceInfo[index].psgId;
             cceCodeList[index].funcHash = cceInfo[index].funcHash;
             cceCodeList[index].wrapVecId = cceInfo[index].wrapVecId;
-            cceCodeList[index].mixResourceType = cceInfo[index].mixResourceType;
+            cceCodeList[index].mixResourceType = static_cast<uint8_t>(cceInfo[index].mixResourceType);
             auto dataLen = cceInfo[index].aicpuLeafCode.size();
             aicpuLeafCodeList[index].aicpuLeafCode.HostAssignRangeOffsetSize(aicpuLeafCodeDataList, offset, dataLen);
             (void)memcpy_s(
