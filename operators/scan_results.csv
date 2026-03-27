@@ -1,0 +1,4 @@
+op_name,source,status,complexity,category,dev_result,fail_count,fps_total,fps_confirmed,create_time,start_time,end_time,note
+softmax,auto_discovered,failed,medium,normalization,BLOCKED_ENV,1,2,1,2026-03-27T03:59:20,2026-03-27T03:59:35,2026-03-27T04:03:52,
+gelu,auto_discovered,failed,easy,activation,BLOCKED_API,1,2,2,2026-03-27T04:08:23,2026-03-27T04:08:41,2026-03-27T04:24:18,
+relu,auto_discovered,completed,easy,elementwise,SUCCESS,0,0,0,2026-03-28T01:15:09,2026-03-28T01:40:15,2026-03-28T01:43:55,
