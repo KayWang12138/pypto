@@ -1275,6 +1275,10 @@ void DefaultTileSetting(Operation *op, const std::vector<int64_t>& vectorTilesOl
 }
 
 void ExpandTileSetting(Operation *op, const std::vector<int64_t>& vectorTilesOld, std::vector<int64_t>& vectorTilesNew) {
+    size_t inputsNum = op->GetIOperands().size(); 
+    size_t outputsNum = op->GetOOperands().size(); 
+    uint32_t argsCount = inputsNum + outputsNum;
+    
     DataType inputType = op->GetIOperands()[0]->tensor->GetDataType();
     int64_t inputTypeSize = BytesOf(inputType);
     vectorTilesNew.resize(vectorTilesOld.size());
@@ -1283,7 +1287,7 @@ void ExpandTileSetting(Operation *op, const std::vector<int64_t>& vectorTilesOld
     if (vectorTilesNew[vectorTilesNew.size() - 1]  %  typedBlock != 0) {
         vectorTilesNew[vectorTilesNew.size() - 1] = (vectorTilesNew[vectorTilesNew.size() - 1] + typedBlock - 1) / typedBlock * typedBlock;
     }
-    AdjustTileToUB(op, vectorTilesNew);
+    AdjustTileToUB(argsCount, inputTypeSize, inputTypeSize, vectorTilesNew);
 }
 
 void ReduceTileSetting(Operation *op, std::vector<int64_t>& vectorTilesNew) {
@@ -1298,7 +1302,7 @@ void ReduceTileSetting(Operation *op, std::vector<int64_t>& vectorTilesNew) {
     int64_t maxTypeSize = std::max(inputTypeSize, outputTypeSize);
 
     const uint64_t UB_MAX_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB);
-    uint32_t argsCount = 4; //need to place output and temporal buffer up to input size for small shapes
+    uint32_t argsCount = 3; //need to place output and temporal buffer up to input size for small shapes
 
     int64_t tileSize = UB_MAX_SIZE / maxTypeSize / argsCount;
     
@@ -1330,7 +1334,7 @@ void ReduceTileSetting(Operation *op, std::vector<int64_t>& vectorTilesNew) {
         if (dim == reducedDim) {
             continue;
         }
-        curTile = ((reducedDim == (int32_t)(inputDims - 1))) ? (((maxInputShape[dim] != 1) && (!setBlock) /*&& (vectorTilesReduce[reducedDim] == maxInputShape[reducedDim])*/) ? (BLOCK_SIZE / inputTypeSize) : 1) : std::min(static_cast<int64_t>(std::pow(2, static_cast<int64_t>(std::log2(tileSize)))), static_cast<int64_t>(std::pow(2, static_cast<int64_t>(std::log2(maxInputShape[dim])))));
+        curTile = ((reducedDim == (int32_t)(inputDims - 1))) ? (((maxInputShape[dim] != 1) && (!setBlock) /*&& (vectorTilesReduce[reducedDim] == maxInputShape[reducedDim])*/) ? (static_cast<int64_t>(std::pow(2, static_cast<int64_t>(std::log2(tileSize))))) : 1) : std::min(static_cast<int64_t>(std::pow(2, static_cast<int64_t>(std::log2(tileSize)))), static_cast<int64_t>(std::pow(2, static_cast<int64_t>(std::log2(maxInputShape[dim])))));
         if (curTile == BLOCK_SIZE / inputTypeSize) {
             setBlock = true;
         }
