@@ -18,10 +18,6 @@
 #include "passes/pass_utils/pass_error.h"
 
 #define MODULE_NAME "GenerateMoveOp"
-#include "passes/pass_log/pass_log.h"
-#include "passes/pass_utils/pass_error.h"
-
-#define MODULE_NAME "GenerateMoveOp"
 
 namespace npu {
 namespace tile_fwk {
@@ -47,7 +43,6 @@ Status GenerateMoveOpChecker::DoPreCheck(Function &function) {
 }
 
 Status GenerateMoveOpChecker::DoPostCheck(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "Start Postcheck for GenerateMoveOp.");
     APASS_LOG_INFO_F(Elements::Operation, "Start Postcheck for GenerateMoveOp.");
     auto operations = function.Operations();
     for (auto &operation : operations) {
@@ -154,7 +149,6 @@ bool GenerateMoveOpChecker::CheckViewOutTensorMemType(const Operation &op) const
         auto convertOpAttribute = dynamic_cast<ConvertOpAttribute *>(op.GetOpAttribute().get());
         auto convertPath = convertOpAttribute->GetConvertPath();
         if (convertPath.first != MemoryType::MEM_DEVICE_DDR){
-            APASS_LOG_ERROR_C(OperationErr::OP_PRODUCER_CONSUMER, Elements::Operation, "View op [%d] consumer %s[%d] has invalid convert path.", op.GetOpMagic(),childOp->GetOpcodeStr().c_str(),childOp->GetOpMagic());
             APASS_LOG_ERROR_C(OperationErr::OP_PRODUCER_CONSUMER, Elements::Operation, "View op [%d] consumer %s[%d] has invalid convert path.", op.GetOpMagic(),childOp->GetOpcodeStr().c_str(),childOp->GetOpMagic());
             return false;
         }
