@@ -962,11 +962,9 @@ void ReplaceTensor::InsertNeedCopy(Function &function) {
                     break;
                 }
             }
-            if (flag) {
-                for (auto producesOp : producerOps) {
-                    if (producesOp->GetOpcode() == Opcode::OP_VIEW) {
-                        needInsertCopyAssOps.insert(&op);
-                    }
+            for (auto producesOp : producerOps) {
+                if (producesOp->GetOpcode() == Opcode::OP_VIEW && flag) {
+                    needInsertCopyAssOps.insert(&op);
                 }
             }
             for (auto consumerOp : consumerOps) {
