@@ -118,7 +118,6 @@ bool GenerateMoveOpChecker::ValidViewOp(const Operation &op) const {
     }
     return true;
 }
-
 bool GenerateMoveOpChecker::CheckViewOutTensorMemType(const Operation &op) const {
     // 校验view输出tensor内存是否合理
     if (op.GetOOperands().front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
