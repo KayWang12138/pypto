@@ -220,7 +220,7 @@ void IndexOutCastInferFunc(Operation* op,
     for (auto output : op->GetOOperands()) {
         outValidShapes.push_back(outValidShape);
     }
-    
+
     auto indexOutCastOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
     if (indexOutCastOpAttribute == nullptr) {
         VECTOR_LOGW("IndexOutCast [%d] has no copyOpAttr.", op->GetOpMagic());
@@ -608,6 +608,7 @@ void LoadL0C2L1InferFunc(Operation* op,
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_L0C_TO_L1, Opcode::OP_L0C_TO_L1, LoadL0C2L1InferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1, LoadL0C2L1InferFunc);
 
 void Load2L1InferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
@@ -623,7 +624,6 @@ void Load2L1InferFunc(Operation* op,
         outValidShapes.push_back(inputValidShapes[0]);
     }
 }
-REGISTER_INFER_SHAPE_FUNC(OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1, Load2L1InferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_UB_COPY_ND2NZ, Opcode::OP_UB_COPY_ND2NZ, Load2L1InferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_L0C_COPY_UB, Opcode::OP_L0C_COPY_UB, Load2L1InferFunc);
 

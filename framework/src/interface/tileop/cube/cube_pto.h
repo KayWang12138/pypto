@@ -320,7 +320,7 @@ TILEOP void TMoveND2NZ(T &dst, U &src) {
 
 // Copy data from UB to L1 with NZ -> NZ format
 template <typename Coord, typename T, typename U>
-TILEOP void TExtract(T &dst, U &src, const Coord &coord) {
+TILEOP void TExtract(T &dst, U &src, const Coord &dstCoord, const Coord &srcCoord) {
     if (!CheckShapeValid(dst, src)) {
         return;
     }
@@ -329,8 +329,10 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord) {
     constexpr int64_t c0Size = isB4 ? FP4_BLOCK_ALIGN_BYTE : BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
     static_assert(shapeSize == SHAPE_DIM2 && Std::tuple_size<Coord>::value == SHAPE_DIM2, "Shape Size should be 2 Dim");
     static_assert(T::FORMAT == Hardware::L1 && U::FORMAT == Hardware::UB);
-    int64_t offset0 = coord.GetValue();
-    int64_t offset1 = static_cast<const Std::tuple<size_t> &>(coord).GetValue();
+    int64_t srcOffset0 = srcCoord.GetValue();
+    int64_t srcOffset1 = static_cast<const Std::tuple<size_t> &>(srcCoord).GetValue();
+    int64_t dstOffset0 = dstCoord.GetValue();
+    int64_t dstOffset1 = static_cast<const Std::tuple<size_t> &>(dstCoord).GetValue();
     constexpr int64_t staticUBH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename U::TileShape>::type::value;
     constexpr int64_t staticUBW = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
     constexpr int64_t staticL1H = Std::tuple_element<shapeSize - SHAPE_DIM2, typename T::TileShape>::type::value;
@@ -344,7 +346,9 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord) {
     tileL1Tensor l1Tile;
     pto::TASSIGN(UBTile, (uint64_t)src.GetAddr());
     pto::TASSIGN(l1Tile, (uint64_t)dst.GetAddr());
-    pto::TEXTRACT(l1Tile, UBTile, offset0, offset1);
+    if constexpr (staticUBH >= staticL1H && staticUBW >= staticL1W) {
+        pto::TEXTRACT(l1Tile, UBTile, srcOffset0, srcOffset1);
+    }
 }
 
 template <typename V>
