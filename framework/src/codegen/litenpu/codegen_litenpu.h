@@ -35,7 +35,7 @@ public:
           isUnderDyn_(isUnderDyn),
           attr_(subFuncPair.second->GetLeafFuncAttribute()),
           isMainBlock_(ctx.isMainBlock) {
-        Init(topFunc, subFuncPair.first);
+         (topFunc, subFuncPair.first);
     };
     std::string GetCCEAbsPath() const { return cceAbsPath_; }
     void SetCCEAbsPath(const std::string &cceAbsPath) { cceAbsPath_ = cceAbsPath; }

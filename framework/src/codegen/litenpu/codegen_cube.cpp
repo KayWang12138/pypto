@@ -19,63 +19,47 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
-std::string CodeGenOpLiteNPU::GenCubeOp(bool zeroC) const {
-    // if (isSupportLayout) {
-    //     return PrintMatmulTileTensor(!zeroC);
-    // }
-    // shape: dst, src0, src1
-    bool isShapeValid = (shape[ID0][ID0] == shape[ID1][ID0]) &&
-                        (shape[ID0][ID1] == shape[ID2][ID1] || shape[ID0][ID1] == shape[ID2][ID0]) &&
-                        (shape[ID1][ID1] == shape[ID2][ID1] || shape[ID1][ID1] == shape[ID2][ID0]);
-    ASSERT(isShapeValid) << "CUBE: m k n is invalid.";
-    int64_t m = shape[ID0][ID0];
-    int64_t k = shape[ID1][ID1]; // NEXTNEXT assume A is not transposed for now
-    int64_t n = shape[ID0][ID1];
-    unsigned uf = 0;
-
-    std::string aVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
-    std::string bVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
-    std::string cVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
-
-    std::string aDtypeStr = DataType2CCEStr(operandDtype[ID1]);
-    std::string bDtypeStr = DataType2CCEStr(operandDtype[ID2]);
-    std::string cDtypeStr = DataType2CCEStr(operandDtype[ID0]);
-
+std::string CodeGenOpLiteNPU::PrintMatmulTileTensor(
+    bool isAcc, std::unordered_map<OperandType, std::string> &tensorWithMemType) const {
     std::ostringstream oss;
-
-    if (isDynamicFunction) {
-        auto l0cShapeDyn = dynamicValidShape[ID0];
-        auto l0aShapeDyn = dynamicValidShape[ID1];
-        auto l0bShapeDyn = dynamicValidShape[ID2];
-        auto mSymbol = l0cShapeDyn[ID0];
-        auto kSymbol = l0aShapeDyn[ID1];
-        auto nSymbol = l0cShapeDyn[ID1];
-        bool hasBias = 0;
-        if (opAttrs.count(OP_ATTR_PREFIX + "has_bias")) {
-            hasBias = AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "has_bias"));
-        }
-        std::string biasStr = ", " + std::to_string(hasBias);
-
-        oss << tileOpName << "<" << cDtypeStr << ", " << aDtypeStr << ", " << bDtypeStr << ", " << offset[ID0][ID0]
-            << ", " << offset[ID0][ID1] << biasStr << ">"
-            << "((" << GetAddrTypeByOperandType(operandType[ID0]) << " " << cDtypeStr << "*)" << cVar << ", "
-            << "(" << GetAddrTypeByOperandType(operandType[ID1]) << " " << aDtypeStr << "*)" << aVar << ", "
-            << "(" << GetAddrTypeByOperandType(operandType[ID2]) << " " << bDtypeStr << "*)" << bVar << ", "
-            << SymbolicExpressionTable::BuildExpression(mSymbol) << ", "
-            << SymbolicExpressionTable::BuildExpression(kSymbol) << ", "
-            << SymbolicExpressionTable::BuildExpression(nSymbol) << ", " << (zeroC ? "true" : "false") << ", " << uf
-            << ", " << SymbolicExpressionTable::BuildExpression(l0cShapeDyn[ID0]) << ", "
-            << SymbolicExpressionTable::BuildExpression(l0cShapeDyn[ID1]) << ");\n";
-    } else { // static function
-        oss << tileOpName << "<" << cDtypeStr << ", " << aDtypeStr << ", " << bDtypeStr << ", " << offset[ID0][ID0]
-            << ", " << offset[ID0][ID1] << ", " << shape[ID0][ID0] << ", " << shape[ID0][ID1] << ">"
-            << "((" << GetAddrTypeByOperandType(operandType[ID0]) << " " << cDtypeStr << "*)" << cVar << ", "
-            << "(" << GetAddrTypeByOperandType(operandType[ID1]) << " " << aDtypeStr << "*)" << aVar << ", "
-            << "(" << GetAddrTypeByOperandType(operandType[ID2]) << " " << bDtypeStr << "*)" << bVar << ", " << m
-            << ", " << k << ", " << n << ", " << (zeroC ? "true" : "false") << ", " << uf << ");\n";
+    bool hasBias = tensorWithMemType.count(OperandType::BUF_BT);
+    int64_t transModeNum = 0;
+    GetAttr(OpAttributeKey::transMode, transModeNum);
+    TransMode transMode = static_cast<TransMode>(transModeNum);
+    std::string transModeStr = "TransMode::CAST_NONE";
+    if (transMode == TransMode::CAST_RINT) {
+        transModeStr = "TransMode::CAST_RINT";
+    } else if (transMode == TransMode::CAST_ROUND) {
+        transModeStr = "TransMode::CAST_ROUND";
     }
-
+    std::vector<std::string> paramList = {tensorWithMemType[OperandType::BUF_L0C],
+        tensorWithMemType[OperandType::BUF_L0A], tensorWithMemType[OperandType::BUF_L0B]};
+    oss << tileOpName;
+    if (hasBias) {
+        paramList.emplace_back(tensorWithMemType[OperandType::BUF_BT]);
+        oss << WrapParamByAngleBrackets({transModeStr});
+        oss << WrapParamByParentheses(paramList) << ";\n";
+        return oss.str();
+    }
+    oss << WrapParamByAngleBrackets({std::to_string(isAcc), transModeStr});
+    oss << WrapParamByParentheses(paramList) << ";\n";
     return oss.str();
+}
+
+std::string CodeGenOpLiteNPU::PrintMatmulTileTensor(bool isAcc) const {
+    std::unordered_map<OperandType, std::string> tensorWithMemType;
+    for (int i = 0; i < operandCnt; i++) {
+        tensorWithMemType.emplace(operandType[i], QueryTileTensorNameByIdx(i));
+    }
+    return PrintMatmulTileTensor(isAcc, tensorWithMemType);
+}
+
+
+std::string CodeGenOpLiteNPU::GenCubeOp(bool zeroC) const {
+    if (isSupportLayout) {
+        return PrintMatmulTileTensor(!zeroC);
+    }
+    return "";
 }
 
 std::string CodeGenOpLiteNPU::GenCubeOpMatmul() const{
