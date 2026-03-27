@@ -53,12 +53,13 @@ class ConcurrentQueue
    */
   inline void pushMany(const T* obj, const size_t n = 1)
   {
-    for (size_t i = 0; i < n; i++) push(obj[i]);
+    const size_t realHeadPos = _head % N;
+    const size_t remainingHeadSpace = N - realHeadPos;
+    const size_t firstCopySize = std::min(n, remainingHeadSpace);
     
-    // memcpy(&_elements[_head], obj, remainingHeadSpace * sizeof(T));
-    // const auto remainingCount = n - remainingHeadSpace;
-    // if (remainingCount > 0 ) memcpy(&_elements[0], &obj[remainingHeadSpace], remainingCount * sizeof(T));
-    // _head = remainingCount;
+    memcpy(&_elements[realHeadPos], obj, firstCopySize * sizeof(T));
+    if (n > remainingHeadSpace)  memcpy(&_elements[0], &obj[remainingHeadSpace], (n - remainingHeadSpace) * sizeof(T));
+    _head += n;
   }
   
 

@@ -179,9 +179,6 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
 
         for (int i = aivStart_; i < aivEnd_; i++) freeACoreQueue_[(int)CoreType::AIV]->push(i);
         for (int i = aicStart_; i < aicEnd_; i++) freeACoreQueue_[(int)CoreType::AIC]->push(i);
-
-        // DEV_ERROR(0, "[AICPU %d] Vector Ready: %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIV), freeACoreQueue_[(int)CoreType::AIV]->size(), busyAPairQueue_[(int)CoreType::AIV]->size());
-        // DEV_ERROR(0, "[AICPU %d] Cube Ready:   %u, (%lu + %lu)", aicpuIdx_, GetReadyCoreNum(CoreType::AIC), freeACoreQueue_[(int)CoreType::AIC]->size(), busyAPairQueue_[(int)CoreType::AIC]->size());
     }
 
     inline void CountSendTask(uint64_t &sentAic, uint64_t &sentAiv) {
@@ -334,18 +331,11 @@ private:
         aicoreHal_.ResetShakeBuf(coreIdx);
     }
 
-    inline uint32_t GetReadyCoreNum(CoreType type) {
-        return freeACoreQueue_[(int)type]->size() + freeBPairQueue_[(int)type]->size();
-    }
 
     inline void TryBatchSendTask(CoreType type)
     {
         auto taskQueue = taskQueue_[(int)type];
-        if (taskQueue->empty()) return;
-
-        uint32_t ready = GetReadyCoreNum(type);
-        if (ready == 0 ) return;
-
+        
         // Checking free A cores
         if (freeACoreQueue_[(int)type]->empty() == false && taskQueue->empty() == false)
         {
