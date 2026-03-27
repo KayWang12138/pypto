@@ -227,14 +227,14 @@ Tensor Quantize(const Tensor &input, const Tensor &scale, DataType dtype, int ax
             quantizedResult = CALL(QuantizeAsymmetricOperation,
                 *Program::GetInstance().GetCurrentFunction(),
                 transposedInput.GetStorage(), scale.GetStorage(),
-                zeroPoints.GetStorage(), -2);
+                zeroPoints.GetStorage(), normalizedAxis);
         } else {
             // Symmetric quantization with axis=-1
             ASSERT(dtype == DataType::DT_INT8)
                 << "Symmetric quantization output type should be INT8";
             quantizedResult = CALL(QuantizeSymmetricOperation,
                 *Program::GetInstance().GetCurrentFunction(),
-                transposedInput.GetStorage(), scale.GetStorage(), -2);
+                transposedInput.GetStorage(), scale.GetStorage(), normalizedAxis);
         }
 
         // [Transpose] set tmp validShape
