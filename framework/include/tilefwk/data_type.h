@@ -61,6 +61,7 @@ enum class NodeType {
     LOCAL = 0,
     INCAST = 1,
     OUTCAST = 2,
+    SHARED = 3,
 };
 
 enum class TileOpFormat {

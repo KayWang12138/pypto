@@ -34,9 +34,61 @@ std::shared_ptr<ShmemTensorData> ShmemTensorData::CreateShared(
     shmemData->isCreator_ = isCreator;
 
     int flags = O_RDWR;
-    if (isCreator) {
-        flags |= O_CREAT | O_EXCL;
+        if (!isCreator) {
+        int retryCount = 0;
+        const int maxRetry = 100;
+        const int retryDelayMs = 10;
+        
+        while (retryCount < maxRetry) {
+            int fd = shm_open(shmName.c_str(), O_RDWR, 0666);
+            if (fd != -1) {
+                if (errno == ENOENT) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
+                    retryCount++;
+                    continue;
+                } else {
+                    close(fd);
+                    throw std::runtime_error("Failed to open shared memory: " + shmName);
+                }
+            }
+            close(fd);
+            break;
+        }
+        
+        if (retryCount >= maxRetry) {
+            throw std::runtime_error("Timeout waiting for shared memory: " + shmName);
+        }
     }
+
+if (isCreator) {
+        flags |= O_CREAT | O_EXCL;
+    }    if (!isCreator) {
+        int retryCount = 0;
+        const int maxRetry = 100;
+        const int retryDelayMs = 10;
+        
+        while (retryCount < maxRetry) {
+            int fd = shm_open(shmName.c_str(), O_RDWR, 0666);
+            if (fd != -1) {
+                if (errno == ENOENT) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
+                    retryCount++;
+                    continue;
+                } else {
+                    close(fd);
+                    throw std::runtime_error("Failed to open shared memory: " + shmName);
+                }
+            }
+            close(fd);
+            break;
+        }
+        
+        if (retryCount >= maxRetry) {
+            throw std::runtime_error("Timeout waiting for shared memory: " + shmName);
+        }
+    }
+
+
 
     shmemData->shmFd_ = shm_open(shmName.c_str(), flags, 0666);
     if (shmemData->shmFd_ == -1) {

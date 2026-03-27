@@ -23,6 +23,9 @@
 #include "calc.h"
 #include "interface/interpreter/verify_error.h"
 #include <algorithm>
+#include <cstdlib>
+#include <thread>
+#include <chrono>
 
 namespace npu::tile_fwk {
 
@@ -249,7 +252,19 @@ struct FunctionFrame {
         }
 
         auto raw = inplaceTensor ? inplaceTensor->GetRawTensor() : tensor->GetRawTensor();
-        bool isSpilled = false;
+        bool isSharedMemory = (tensor->GetNodeType() == NodeType::SHARED);
+        if (isSharedMemory) {
+            if (rawTensorDataDict.count(raw)) {
+                rawData = rawTensorDataDict[raw];
+            } else {
+                int rankId = GetRankId();
+                bool isCreator = (rankId == 0);
+                std::string shmName = GenerateShmName(raw->GetRawMagic());
+                rawData = RawTensorData::CreateFromSharedMemory(
+                    dtype, rawShape, shmName, rankId, isCreator);
+            }
+        } else {
+        } else {        bool isSpilled = false;
 
         std::string spillRawMaigc = "1056964608";
         std::string rawMagic = std::to_string(raw->GetRawMagic());
@@ -276,6 +291,23 @@ struct FunctionFrame {
         view->SetIsSpilled(isSpilled);
         DoAddTensorDataView(tensor, view);
         return view;
+    }
+
+    static int GetRankId() {
+        static int rankId = -1;
+        if (rankId == -1) {
+            const char* rankStr = std::getenv("PYPTO_RANK_ID");
+            if (rankStr != nullptr) {
+                rankId = std::atoi(rankStr);
+            } else {
+                rankId = 0;
+            }
+        }
+        return rankId;
+    }
+
+    static std::string GenerateShmName(int tensorMagic) {
+        return "/pypto_shmem_" + std::to_string(tensorMagic);
     }
 
 private:
