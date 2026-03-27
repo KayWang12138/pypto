@@ -159,10 +159,12 @@ void MoeDistributedCombineValidateGroup(const char* group)
 
 void MoeDistributedCombineValidateMoeEpWorldSize(int32_t epWorldSize)
 {
+    int32_t supportedEpWorldSize0 = 2;
     int32_t supportedEpWorldSize1 = 4;
     int32_t supportedEpWorldSize2 = 8;
-    CHECK((epWorldSize == supportedEpWorldSize1) || (epWorldSize == supportedEpWorldSize2)) << "epWorldSize only "
-        << "supports " << supportedEpWorldSize1 << " or " << supportedEpWorldSize2 << ", but got " << epWorldSize;
+    CHECK((epWorldSize == supportedEpWorldSize0) || (epWorldSize == supportedEpWorldSize1) ||
+        (epWorldSize == supportedEpWorldSize2)) << "epWorldSize only " << "supports " << supportedEpWorldSize1
+        << " or " << supportedEpWorldSize2 << ", but got " << epWorldSize;
 }
 
 void MoeDistributedCombineValidateMoeExpertNum(int32_t moeExpertNum)

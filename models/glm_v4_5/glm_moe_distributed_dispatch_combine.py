@@ -417,7 +417,7 @@ def moe_distributed_dispatch_kernel(
     check_cond(moe_expert_num == 160, f'moe_expert_num must be 160, but got {moe_expert_num}')
     check_cond(topk == 8, f'topk must be 8, but got {topk}')
     check_cond(data_type == pypto.DT_BF16, f'data_type must be pypto.DT_BF16, but got {data_type}')
-    check_cond(ep_world_size in (4, 8), f'ep_world_size must be 4 or 8, but got {ep_world_size}')
+    check_cond(ep_world_size in (2, 4, 8), f'ep_world_size must be 4 or 8, but got {ep_world_size}')
     check_cond(isinstance(group_name, str), f'type of group_name must be str, but got {type(group_name)}')
     check_cond(group_name.strip(), f"group_name can't be empty string")
     check_cond(
@@ -919,16 +919,16 @@ def moe_distributed_dispatch_combine(
     out_golden = operands.out_golden
     out_golden = out_golden.to(f'npu:{physical_device_id}')
     out = create_tensor_on_npu(out_golden, physical_device_id)
-    
+
     kernel = moe_distributed_combine_kernel(moe_case=moe_case, group_name=groups[0])
     kernel(expand_x_actual, assist_info_for_combine, recv_counts_actual, expert_scales, out)
 
     assert_allclose_with_eps(out_golden.cpu(), out.cpu())
 
-
-@pytest.mark.world_size(4)
+@pytest.mark.soc("950", "910")
+@pytest.mark.world_size(2)
 def test_moe_distributed_dispatch_combine() -> None:
-    config = DistributedConfig(world_size=4)
+    config = DistributedConfig(world_size=2)
     mp.set_start_method('spawn', force=True)
     processes = []
     moe_case = MoeCase(8, 5120, 160, 8, pypto.DT_BF16, config.world_size)
