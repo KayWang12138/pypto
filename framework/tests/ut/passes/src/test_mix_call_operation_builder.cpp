@@ -793,10 +793,9 @@ TEST_F(MixCallOperationBuilderTest, TestSameWrapIdForSameOriginalCallOp)
     createLeafFunctionsAndPointers(MS_NUM2, "leaf", leafFuncs, newFunctions);
     
     std::vector<uint64_t> newProgramIDs = createProgramIds(components.size());
-    std::vector<InternalDependencyInfo> emptyDeps;
     
     Status status = builder->CreateCallOps(*rootFunc, {originalCallOp}, originalMixFunc.get(), components,
-        newProgramIDs, subgraphToFunction, newFunctions, emptyDeps);
+        newProgramIDs, subgraphToFunction, newFunctions);
     
     EXPECT_EQ(status, SUCCESS) << "CreateCallOps should succeed";
     
@@ -842,10 +841,9 @@ TEST_F(MixCallOperationBuilderTest, TestDifferentWrapIdForDifferentOriginalCallO
     createLeafFunctionsAndPointers(MS_NUM2, "leaf", leafFuncs, newFunctions);
     
     std::vector<uint64_t> newProgramIDs = createProgramIds(components.size());
-    std::vector<InternalDependencyInfo> emptyDeps;
     
     Status status = builder->CreateCallOps(*rootFunc, {originalCallOp1, originalCallOp2}, originalMixFunc.get(),
-        components, newProgramIDs, subgraphToFunction, newFunctions, emptyDeps);
+        components, newProgramIDs, subgraphToFunction, newFunctions);
     
     EXPECT_EQ(status, SUCCESS) << "CreateCallOps should succeed";
     
@@ -889,10 +887,9 @@ TEST_F(MixCallOperationBuilderTest, TestGlobalTensorHandling)
     }
     
     std::vector<uint64_t> newProgramIDs = createProgramIds(components.size());
-    std::vector<InternalDependencyInfo> emptyDeps;
     
     Status status = builder->CreateCallOps(*rootFunc, {scenario.originalCallOp}, scenario.originalMixFunc.get(),
-        components, newProgramIDs, subgraphToFunction, newFunctions, emptyDeps);
+        components, newProgramIDs, subgraphToFunction, newFunctions);
     
     EXPECT_EQ(status, SUCCESS) << "CreateCallOps should succeed with global tensors";
     
@@ -925,14 +922,10 @@ TEST_F(MixCallOperationBuilderTest, TestInternalDependencies)
     std::vector<Function*> newFunctions;
     createLeafFunctionsAndPointers(MS_NUM2, "leaf", leafFuncs, newFunctions);
     
-    std::vector<InternalDependencyInfo> internalDeps = {
-        {COMPONENT_ID_0, COMPONENT_ID_1, ComponentType::C_SCOPE}
-    };
-    
     std::vector<uint64_t> newProgramIDs = createProgramIds(components.size());
     
     Status status = builder->CreateCallOps(*rootFunc, {originalCallOp}, originalMixFunc.get(), components,
-        newProgramIDs, subgraphToFunction, newFunctions, internalDeps);
+        newProgramIDs, subgraphToFunction, newFunctions);
     
     EXPECT_EQ(status, SUCCESS) << "CreateCallOps should succeed with internal dependencies";
 }
@@ -956,11 +949,9 @@ TEST_F(MixCallOperationBuilderTest, TestOffsets)
     createComponentsAndSubgraphInfo(componentTypes, scenario, components, leafFuncs, newFunctions, subgraphToFunction,
         newProgramIDs);
     
-    std::vector<InternalDependencyInfo> emptyDeps;
-    
     Status status = builder->CreateCallOps(*rootFunc, {scenario.originalCallOp},
         scenario.originalMixFunc.get(), components, newProgramIDs,
-        subgraphToFunction, newFunctions, emptyDeps);
+        subgraphToFunction, newFunctions);
     
     EXPECT_EQ(status, SUCCESS) << "CreateCallOps should succeed for different component types";
     
@@ -1018,11 +1009,10 @@ TEST_F(MixCallOperationBuilderTest, TestPropagatedIncastOutcast)
     
     // 执行测试
     std::vector<uint64_t> newProgramIDs = createProgramIds(components.size());
-    std::vector<InternalDependencyInfo> emptyDeps;
     
     Status status = builder->CreateCallOps(*rootFunc, {originalCallOp},
         originalMixFunc.get(), components, newProgramIDs, subgraphToFunction,
-        newFunctions, emptyDeps);
+        newFunctions);
     
     EXPECT_EQ(status, SUCCESS)
         << "CreateCallOps should succeed with mixed incast/outcast";
@@ -1046,10 +1036,9 @@ TEST_F(MixCallOperationBuilderTest, TestCreateCallOpWithNullCallAttribute)
 
     std::vector<uint64_t> newProgramIDs = {TEST_PROGRAM_ID};
     auto subgraphToFunction = createSubgraphToFunctionForComponents(1);
-    std::vector<InternalDependencyInfo> emptyDeps;
 
     Status status = builder->CreateCallOps(*rootFunc, {originalCallOp}, originalMixFunc.get(),
-        components, newProgramIDs, subgraphToFunction, newFunctions, emptyDeps);
+        components, newProgramIDs, subgraphToFunction, newFunctions);
 
     EXPECT_EQ(status, FAILED) << "CreateCallOps should fail with null CallOpAttribute";
 }
