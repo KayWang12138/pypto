@@ -31,6 +31,8 @@ constexpr int TT_NUM90 = 90;
 constexpr int TT_NUM100 = 100;
 constexpr int TT_NUM16 = 16;
 constexpr int TT_NUM5 = 5;
+constexpr int TT_NUM110 = 110;
+constexpr int TT_NUM120 = 120;
 
 class TuneTileopseqForVFTest : public ::testing::Test {
 public:
@@ -215,6 +217,378 @@ TEST_F(TuneTileopseqForVFTest, TestSkip) {
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestSkip", "TestSkip", nullptr);
     TuneTileOpSeqForVF tuneSync;
     EXPECT_EQ(tuneSync.RunOnFunction(*rootFuncPtr.get()), SUCCESS);
+}
+
+/*
+ * TestAdjustUbCopyNd2NzOrder_EmptyMergedOps
+ * 测试mergedOps为空时，AdjustUbCopyNd2NzOrder函数的行为
+ * 预期：函数正常执行，不做任何调整
+ */
+TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_EmptyMergedOps) {
+    TuneTileOpSeqForVF tuneTileop;
+    PipeSync ps;
+    tuneTileop.mergedOps.clear();
+    tuneTileop.AdjustUbCopyNd2NzOrder(ps);
+    EXPECT_TRUE(tuneTileop.mergedOps.empty());
+}
+
+/*
+ * TestAdjustUbCopyNd2NzOrder_NoUbCopyOp
+ * 测试组内无UB_COPY_ND2NZ op时，AdjustUbCopyNd2NzOrder函数的行为
+ * 预期：函数正常执行，不调整操作顺序
+ */
+TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_NoUbCopyOp) {
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestNoUbCopy", "TestNoUbCopy", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNoUbCopyLeaf", "TestNoUbCopyLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+
+    std::vector<int64_t> shape = {TT_NUM16, TT_NUM16};
+    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor1->memoryrange.start = 0;
+    tensor1->memoryrange.end = TT_NUM10;
+    auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor2->memoryrange.start = TT_NUM10;
+    tensor2->memoryrange.end = TT_NUM20;
+    auto tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor3->memoryrange.start = TT_NUM20;
+    tensor3->memoryrange.end = TT_NUM30;
+    auto tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor4->memoryrange.start = TT_NUM30;
+    tensor4->memoryrange.end = TT_NUM40;
+
+    auto &op1 = currFunctionPtr->AddRawOperation(Opcode::OP_EXP, {tensor1}, {tensor2});
+    auto &op2 = currFunctionPtr->AddRawOperation(Opcode::OP_SQRT, {tensor3}, {tensor4});
+
+    TuneTileOpSeqForVF tuneTileop;
+    PipeSync ps;
+    tuneTileop.opList_ = {&op1, &op2};
+    for (auto &op : tuneTileop.opList_) {
+        op->SetAIVCore(AIVCore::AIV0);
+        ps.BuildTensorRangeMap(op);
+    }
+    tuneTileop.mergedOps = {{&op1, &op2}};
+    tuneTileop.AdjustUbCopyNd2NzOrder(ps);
+
+    EXPECT_EQ(tuneTileop.opList_.size(), 2U);
+    EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_EXP);
+    EXPECT_EQ(tuneTileop.opList_[1]->GetOpcode(), Opcode::OP_SQRT);
+}
+
+/*
+ * TestAdjustUbCopyNd2NzOrder_NoNonUbCopyOp
+ * 测试组内只有UB_COPY_ND2NZ op时，AdjustUbCopyNd2NzOrder函数的行为
+ * 预期：函数正常执行，不调整操作顺序
+ */
+TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_NoNonUbCopyOp) {
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestNoNonUbCopy", "TestNoNonUbCopy", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNoNonUbCopyLeaf", "TestNoNonUbCopyLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+
+    std::vector<int64_t> shape = {TT_NUM16, TT_NUM16};
+    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor1->memoryrange.start = 0;
+    tensor1->memoryrange.end = TT_NUM10;
+    auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor2->memoryrange.start = TT_NUM10;
+    tensor2->memoryrange.end = TT_NUM20;
+    auto tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor3->memoryrange.start = TT_NUM20;
+    tensor3->memoryrange.end = TT_NUM30;
+    auto tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor4->memoryrange.start = TT_NUM30;
+    tensor4->memoryrange.end = TT_NUM40;
+
+    auto &ubCopyOp1 = currFunctionPtr->AddRawOperation(Opcode::OP_UB_COPY_ND2NZ, {tensor1}, {tensor2});
+    auto &ubCopyOp2 = currFunctionPtr->AddRawOperation(Opcode::OP_UB_COPY_ND2NZ, {tensor3}, {tensor4});
+
+    TuneTileOpSeqForVF tuneTileop;
+    PipeSync ps;
+    tuneTileop.opList_ = {&ubCopyOp1, &ubCopyOp2};
+    for (auto &op : tuneTileop.opList_) {
+        op->SetAIVCore(AIVCore::AIV0);
+        ps.BuildTensorRangeMap(op);
+    }
+    tuneTileop.mergedOps = {{&ubCopyOp1, &ubCopyOp2}};
+    tuneTileop.AdjustUbCopyNd2NzOrder(ps);
+
+    EXPECT_EQ(tuneTileop.opList_.size(), 2U);
+    EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_UB_COPY_ND2NZ);
+    EXPECT_EQ(tuneTileop.opList_[1]->GetOpcode(), Opcode::OP_UB_COPY_ND2NZ);
+}
+
+/*
+ * TestAdjustUbCopyNd2NzOrder_UbCopyMoveFront
+ * 测试UB_COPY_ND2NZ可以前移的情况
+ * 初始顺序：[VEC_OP1, UB_COPY_ND2NZ, VEC_OP2]
+ * 预期结果：[UB_COPY_ND2NZ, VEC_OP1, VEC_OP2]
+ */
+TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_UbCopyMoveFront) {
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestMoveFront", "TestMoveFront", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestMoveFrontLeaf", "TestMoveFrontLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+
+    std::vector<int64_t> shape = {TT_NUM16, TT_NUM16};
+    // VEC_OP1: tensor1 -> tensor2
+    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor1->memoryrange.start = 0;
+    tensor1->memoryrange.end = TT_NUM10;
+    auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor2->memoryrange.start = TT_NUM10;
+    tensor2->memoryrange.end = TT_NUM20;
+    // UB_COPY_ND2NZ: tensor3 -> tensor4 (无依赖)
+    auto tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor3->memoryrange.start = TT_NUM40;
+    tensor3->memoryrange.end = TT_NUM50;
+    auto tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor4->memoryrange.start = TT_NUM50;
+    tensor4->memoryrange.end = TT_NUM60;
+    // VEC_OP2: tensor5 -> tensor6
+    auto tensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor5->memoryrange.start = TT_NUM60;
+    tensor5->memoryrange.end = TT_NUM70;
+    auto tensor6 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor6->memoryrange.start = TT_NUM70;
+    tensor6->memoryrange.end = TT_NUM80;
+
+    auto &vecOp1 = currFunctionPtr->AddRawOperation(Opcode::OP_EXP, {tensor1}, {tensor2});
+    auto &ubCopyOp = currFunctionPtr->AddRawOperation(Opcode::OP_UB_COPY_ND2NZ, {tensor3}, {tensor4});
+    auto &vecOp2 = currFunctionPtr->AddRawOperation(Opcode::OP_SQRT, {tensor5}, {tensor6});
+
+    TuneTileOpSeqForVF tuneTileop;
+    PipeSync ps;
+    tuneTileop.opList_ = {&vecOp1, &ubCopyOp, &vecOp2};
+    for (auto &op : tuneTileop.opList_) {
+        op->SetAIVCore(AIVCore::AIV0);
+        ps.BuildTensorRangeMap(op);
+    }
+    tuneTileop.mergedOps = {{&vecOp1, &ubCopyOp, &vecOp2}};
+    tuneTileop.AdjustUbCopyNd2NzOrder(ps);
+
+    EXPECT_EQ(tuneTileop.opList_.size(), 3U);
+    EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_UB_COPY_ND2NZ);
+}
+
+/*
+ * TestAdjustUbCopyNd2NzOrder_UbCopyMoveBack
+ * 测试UB_COPY_ND2NZ可以后移的情况
+ * 初始顺序：[VEC_OP1, UB_COPY_ND2NZ, VEC_OP2]
+ * 当UB_COPY_ND2NZ与VEC_OP1存在依赖但与VEC_OP2无依赖时，UB_COPY_ND2NZ应后移
+ * 预期结果：[VEC_OP1, VEC_OP2, UB_COPY_ND2NZ]
+ */
+TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_UbCopyMoveBack) {
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestMoveBack", "TestMoveBack", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestMoveBackLeaf", "TestMoveBackLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+
+    std::vector<int64_t> shape = {TT_NUM16, TT_NUM16};
+    // VEC_OP1: tensor1 -> tensor2
+    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor1->memoryrange.start = 0;
+    tensor1->memoryrange.end = TT_NUM10;
+    auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor2->memoryrange.start = TT_NUM10;
+    tensor2->memoryrange.end = TT_NUM20;
+    // UB_COPY_ND2NZ: tensor2 -> tensor3 (依赖VEC_OP1的输出)
+    auto tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor3->memoryrange.start = TT_NUM20;
+    tensor3->memoryrange.end = TT_NUM30;
+    // VEC_OP2: tensor4 -> tensor5 (无依赖)
+    auto tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor4->memoryrange.start = TT_NUM40;
+    tensor4->memoryrange.end = TT_NUM50;
+    auto tensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor5->memoryrange.start = TT_NUM50;
+    tensor5->memoryrange.end = TT_NUM60;
+
+    auto &vecOp1 = currFunctionPtr->AddRawOperation(Opcode::OP_EXP, {tensor1}, {tensor2});
+    auto &ubCopyOp = currFunctionPtr->AddRawOperation(Opcode::OP_UB_COPY_ND2NZ, {tensor2}, {tensor3});
+    auto &vecOp2 = currFunctionPtr->AddRawOperation(Opcode::OP_SQRT, {tensor4}, {tensor5});
+
+    TuneTileOpSeqForVF tuneTileop;
+    PipeSync ps;
+    tuneTileop.opList_ = {&vecOp1, &ubCopyOp, &vecOp2};
+    for (auto &op : tuneTileop.opList_) {
+        op->SetAIVCore(AIVCore::AIV0);
+        ps.BuildTensorRangeMap(op);
+    }
+    tuneTileop.mergedOps = {{&vecOp1, &ubCopyOp, &vecOp2}};
+    tuneTileop.AdjustUbCopyNd2NzOrder(ps);
+
+    EXPECT_EQ(tuneTileop.opList_.size(), 3U);
+    EXPECT_EQ(tuneTileop.opList_[2]->GetOpcode(), Opcode::OP_UB_COPY_ND2NZ);
+}
+
+/*
+ * TestAdjustUbCopyNd2NzOrder_UbCopyCannotMove
+ * 测试UB_COPY_ND2NZ因数据依赖无法移动的情况
+ * 当UB_COPY_ND2NZ与前后的VEC_OP都有依赖时，无法移动
+ * 初始顺序：[VEC_OP1, UB_COPY_ND2NZ, VEC_OP2]
+ * 预期结果：顺序不变
+ */
+TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_UbCopyCannotMove) {
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestCannotMove", "TestCannotMove", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestCannotMoveLeaf", "TestCannotMoveLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+
+    std::vector<int64_t> shape = {TT_NUM16, TT_NUM16};
+    // VEC_OP1: tensor1 -> tensor2
+    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor1->memoryrange.start = 0;
+    tensor1->memoryrange.end = TT_NUM10;
+    auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor2->memoryrange.start = TT_NUM10;
+    tensor2->memoryrange.end = TT_NUM20;
+    // UB_COPY_ND2NZ: tensor2 -> tensor3 (依赖VEC_OP1的输出)
+    auto tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor3->memoryrange.start = TT_NUM20;
+    tensor3->memoryrange.end = TT_NUM30;
+    // VEC_OP2: tensor3 -> tensor4 (依赖UB_COPY_ND2NZ的输出)
+    auto tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor4->memoryrange.start = TT_NUM30;
+    tensor4->memoryrange.end = TT_NUM40;
+
+    auto &vecOp1 = currFunctionPtr->AddRawOperation(Opcode::OP_EXP, {tensor1}, {tensor2});
+    auto &ubCopyOp = currFunctionPtr->AddRawOperation(Opcode::OP_UB_COPY_ND2NZ, {tensor2}, {tensor3});
+    auto &vecOp2 = currFunctionPtr->AddRawOperation(Opcode::OP_SQRT, {tensor3}, {tensor4});
+
+    TuneTileOpSeqForVF tuneTileop;
+    PipeSync ps;
+    tuneTileop.opList_ = {&vecOp1, &ubCopyOp, &vecOp2};
+    for (auto &op : tuneTileop.opList_) {
+        op->SetAIVCore(AIVCore::AIV0);
+        ps.BuildTensorRangeMap(op);
+    }
+    tuneTileop.mergedOps = {{&vecOp1, &ubCopyOp, &vecOp2}};
+    tuneTileop.AdjustUbCopyNd2NzOrder(ps);
+
+    EXPECT_EQ(tuneTileop.opList_.size(), 3U);
+    EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_EXP);
+    EXPECT_EQ(tuneTileop.opList_[1]->GetOpcode(), Opcode::OP_UB_COPY_ND2NZ);
+    EXPECT_EQ(tuneTileop.opList_[2]->GetOpcode(), Opcode::OP_SQRT);
+}
+
+/*
+ * TestAdjustUbCopyNd2NzOrder_MultipleUbCopyOps
+ * 测试多个UB_COPY_ND2NZ操作的情况
+ * 初始顺序：[UB_COPY_ND2NZ_1, VEC_OP, UB_COPY_ND2NZ_2]
+ * 预期：UB_COPY_ND2NZ_1前移，UB_COPY_ND2NZ_2后移或保持
+ */
+TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_MultipleUbCopyOps) {
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestMultipleUbCopy", "TestMultipleUbCopy", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestMultipleUbCopyLeaf", "TestMultipleUbCopyLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+
+    std::vector<int64_t> shape = {TT_NUM16, TT_NUM16};
+    // UB_COPY_ND2NZ_1: tensor1 -> tensor2 (无依赖，可前移)
+    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor1->memoryrange.start = 0;
+    tensor1->memoryrange.end = TT_NUM10;
+    auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor2->memoryrange.start = TT_NUM10;
+    tensor2->memoryrange.end = TT_NUM20;
+    // VEC_OP: tensor3 -> tensor4
+    auto tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor3->memoryrange.start = TT_NUM30;
+    tensor3->memoryrange.end = TT_NUM40;
+    auto tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor4->memoryrange.start = TT_NUM40;
+    tensor4->memoryrange.end = TT_NUM50;
+    // UB_COPY_ND2NZ_2: tensor5 -> tensor6 (无依赖，可后移)
+    auto tensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor5->memoryrange.start = TT_NUM60;
+    tensor5->memoryrange.end = TT_NUM70;
+    auto tensor6 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor6->memoryrange.start = TT_NUM70;
+    tensor6->memoryrange.end = TT_NUM80;
+
+    auto &ubCopyOp1 = currFunctionPtr->AddRawOperation(Opcode::OP_UB_COPY_ND2NZ, {tensor1}, {tensor2});
+    auto &vecOp = currFunctionPtr->AddRawOperation(Opcode::OP_EXP, {tensor3}, {tensor4});
+    auto &ubCopyOp2 = currFunctionPtr->AddRawOperation(Opcode::OP_UB_COPY_ND2NZ, {tensor5}, {tensor6});
+
+    TuneTileOpSeqForVF tuneTileop;
+    PipeSync ps;
+    tuneTileop.opList_ = {&ubCopyOp1, &vecOp, &ubCopyOp2};
+    for (auto &op : tuneTileop.opList_) {
+        op->SetAIVCore(AIVCore::AIV0);
+        ps.BuildTensorRangeMap(op);
+    }
+    tuneTileop.mergedOps = {{&ubCopyOp1, &vecOp, &ubCopyOp2}};
+    tuneTileop.AdjustUbCopyNd2NzOrder(ps);
+
+    EXPECT_EQ(tuneTileop.opList_.size(), 3U);
+    // 验证UB_COPY_ND2NZ操作在VEC操作之前或之后
+    auto findVecOp = std::find(tuneTileop.opList_.begin(), tuneTileop.opList_.end(), &vecOp);
+    EXPECT_NE(findVecOp, tuneTileop.opList_.end());
+}
+
+/*
+ * TestAdjustUbCopyNd2NzOrder_MultipleGroups
+ * 测试多个融合组的情况
+ * 预期：每个组内的UB_COPY_ND2NZ操作都会被调整
+ */
+TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_MultipleGroups) {
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestMultipleGroups", "TestMultipleGroups", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestMultipleGroupsLeaf", "TestMultipleGroupsLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+
+    std::vector<int64_t> shape = {TT_NUM16, TT_NUM16};
+    // Group1: VEC_OP1, UB_COPY_ND2NZ_1
+    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor1->memoryrange.start = 0;
+    tensor1->memoryrange.end = TT_NUM10;
+    auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor2->memoryrange.start = TT_NUM10;
+    tensor2->memoryrange.end = TT_NUM20;
+    auto tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor3->memoryrange.start = TT_NUM20;
+    tensor3->memoryrange.end = TT_NUM30;
+    auto tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor4->memoryrange.start = TT_NUM30;
+    tensor4->memoryrange.end = TT_NUM40;
+
+    // Group2: VEC_OP2, UB_COPY_ND2NZ_2
+    auto tensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor5->memoryrange.start = TT_NUM50;
+    tensor5->memoryrange.end = TT_NUM60;
+    auto tensor6 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor6->memoryrange.start = TT_NUM60;
+    tensor6->memoryrange.end = TT_NUM70;
+    auto tensor7 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor7->memoryrange.start = TT_NUM70;
+    tensor7->memoryrange.end = TT_NUM80;
+    auto tensor8 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor8->memoryrange.start = TT_NUM80;
+    tensor8->memoryrange.end = TT_NUM90;
+
+    auto &vecOp1 = currFunctionPtr->AddRawOperation(Opcode::OP_EXP, {tensor1}, {tensor2});
+    auto &ubCopyOp1 = currFunctionPtr->AddRawOperation(Opcode::OP_UB_COPY_ND2NZ, {tensor3}, {tensor4});
+    auto &vecOp2 = currFunctionPtr->AddRawOperation(Opcode::OP_SQRT, {tensor5}, {tensor6});
+    auto &ubCopyOp2 = currFunctionPtr->AddRawOperation(Opcode::OP_UB_COPY_ND2NZ, {tensor7}, {tensor8});
+
+    TuneTileOpSeqForVF tuneTileop;
+    PipeSync ps;
+    tuneTileop.opList_ = {&vecOp1, &ubCopyOp1, &vecOp2, &ubCopyOp2};
+    for (auto &op : tuneTileop.opList_) {
+        op->SetAIVCore(AIVCore::AIV0);
+        ps.BuildTensorRangeMap(op);
+    }
+    tuneTileop.mergedOps = {{&vecOp1, &ubCopyOp1}, {&vecOp2, &ubCopyOp2}};
+    tuneTileop.AdjustUbCopyNd2NzOrder(ps);
+    EXPECT_EQ(tuneTileop.opList_.size(), 4U);
 }
 
 } // namespace tile_fwk
