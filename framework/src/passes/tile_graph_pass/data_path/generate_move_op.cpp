@@ -166,6 +166,7 @@ Status GenerateMoveOp::ProcessDefault(Function &function, Operation &op, ViewOpA
         SetL0C2L1CopyAttr(op, op.GetOOperands()[0]->GetShape(),
             OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()), OpImmediate::Specified(ZERO_OFFSET));
     } else if (op.GetOpcode() == Opcode::OP_L0C_COPY_UB) {
+        SetL0C2UBCopyAttr(op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()), OpImmediate::Specified(ZERO_OFFSET));
         op.SetAttribute(OpAttributeKey::isCube, true);
     } else {
         SetCopyAttr(op, viewOpAttribute);
@@ -221,6 +222,26 @@ void GenerateMoveOp::SetL0C2L1CopyAttr(Operation &op, const Shape &realShape,
     op.SetOpAttribute(copyAttr);
 }
 
+void GenerateMoveOp::SetL0C2UBCopyAttr(Operation &op, const Shape &realShape,
+    const std::vector<OpImmediate> &fromOffset, 
+    const std::vector<OpImmediate> &toOffset) const {
+    std::vector<SymbolicScalar> validShape;
+    for (auto dim : realShape) {
+        SymbolicScalar scal = SymbolicScalar(dim);
+        validShape.push_back(scal);
+    }
+    auto copyAttr = std::make_shared<CopyOpAttribute>(
+        fromOffset,
+        op.oOperand.front()->GetMemoryTypeOriginal(),
+        OpImmediate::Specified(realShape),
+        OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
+        OpImmediate::Specified(validShape)
+    );
+    copyAttr->SetToOffset(toOffset);
+    op.SetOpAttribute(copyAttr);
+    op.SetAttribute(OpAttributeKey::isCube, true);
+}
+
 Status GenerateMoveOp::SetOpcodeByMemPath(Operation &op, MemoryType from, MemoryType to) const {
     std::pair<MemoryType, MemoryType> memPathPair = {from, to};
     auto it = platformPathMap.find(memPathPair);
@@ -244,6 +265,13 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
     if (inputMemtype == MemoryType::MEM_L0C && outputMemtype == MemoryType::MEM_L1) {
         SetOpcodeByMemPath(op, inputMemtype, outputMemtype);
         SetL0C2L1CopyAttr(op, op.GetIOperands()[0]->GetShape(), OpImmediate::Specified(ZERO_OFFSET), OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()));
+        return;
+    }
+    if (inputMemtype == MemoryType::MEM_L0C && outputMemtype == MemoryType::MEM_UB) {
+        SetOpcodeByMemPath(op, inputMemtype, outputMemtype);
+        SetL0C2UBCopyAttr(op, op.GetIOperands()[0]->GetShape(), 
+            OpImmediate::Specified(ZERO_OFFSET), 
+            OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()));
         return;
     }
     if (inputMemtype == MemoryType::MEM_DEVICE_DDR || outputMemtype != MemoryType::MEM_DEVICE_DDR ||
