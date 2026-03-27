@@ -127,9 +127,8 @@ void OoOScheduler::UpdateOpInternalSubgraphID(Operation &op, IssueEntryPtr issue
 }
 
 void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor,
-        std::vector<int64_t> offset, IssueEntryPtr spillIssue, int64_t workspaceBaseOffset) {
+        std::vector<int64_t> offset, IssueEntryPtr spillIssue) {
     if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
-        op.SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceBaseOffset);
         op.SetOpAttribute(std::make_shared<CopyOpAttribute>(spillTensor->GetMemoryTypeOriginal(),
             OpImmediate::Specified(offset), OpImmediate::Specified(spillTensor->GetShape()),
             OpImmediate::Specified(spillTensor->GetRawTensor()->GetDynRawShape())));
@@ -138,7 +137,6 @@ void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr s
             op.SetOpAttribute(spillIssue->tileOp.GetOpAttribute()->Clone());
             op.inParamLocation_ = spillIssue->tileOp.inParamLocation_;
         } else {
-            op.SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceBaseOffset);
             op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
                 spillTensor->GetMemoryTypeOriginal(), OpImmediate::Specified(spillTensor->GetShape()),
                 OpImmediate::Specified(spillTensor->tensor->GetDynRawShape())));
@@ -273,11 +271,9 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     if (spillIssue->tileOp.GetOpcode() == Opcode::OP_COPY_IN) {
         spillCopyInOp.SetIOpAttrOffset(0, spillIssue->tileOp.GetIOpAttrOffset(0));
     }
-    int64_t base = 0;
-    GetWorkspaceBaseOffset(spillOutTensor, base);
     // 设置ODO copy_in op offset
-    UpdateOpAttr(spillAllocOp, 1, localTensor, {}, spillIssue, 0);
-    UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, localTensor, spillOutTensor->GetOffset(), spillIssue, base);
+    UpdateOpAttr(spillAllocOp, 1, localTensor, {}, spillIssue);
+    UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, localTensor, spillOutTensor->GetOffset(), spillIssue);
     // DDR->COPY_IN->spillTensor 场景不标记 copy_in_mode
     if (spillIssue->tileOp.GetOpcode() != Opcode::OP_COPY_IN && UpdateCopyInMode(spillCopyInOp) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateCopyInMode failed!");
@@ -375,9 +371,7 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, IssueEntry
     if (preIssue->tileOp.GetOpcode() == Opcode::OP_COPY_IN) {
         spillCopyInOp.SetIOpAttrOffset(0, preIssue->tileOp.GetIOpAttrOffset(0));
     }
-    int64_t base = 0;
-    GetWorkspaceBaseOffset(spillInfo.ddrTensor_, base);
-    UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, newTensor, spillInfo.ddrTensor_->GetOffset(), preIssue, base);
+    UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, newTensor, spillInfo.ddrTensor_->GetOffset(), preIssue);
     auto spillCopyInIssue = UpdateIssueAttr(spillCopyInOp, {reshapeTensor->memoryrange.memId}, allocIssue, bufNextUseOrder, isGenSpill);
     // A5 下 DDR->COPY_IN->L1->RESHAPE->L1 场景不标记 copy_in_mode
     if (preIssue->tileOp.GetOpcode() != Opcode::OP_COPY_IN && UpdateCopyInMode(spillCopyInOp) != SUCCESS) {
@@ -471,9 +465,9 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     std::shared_ptr<RawTensor> ddrRawTensor =
         (spillInfo.spillIssue_ != spillIssue && spillTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) ?
         std::make_shared<RawTensor>(spillInfo.spillTensor_->Datatype(), spillTensor->tensor->rawshape,
-        TileOpFormat::TILEOP_ND, "WorkspaceGm", SYMBOL_STACK_BASE) :
+        TileOpFormat::TILEOP_ND, "WorkspaceGm") :
         std::make_shared<RawTensor>(spillTensor->Datatype(), spillTensor->tensor->rawshape,
-        TileOpFormat::TILEOP_ND, "WorkspaceGm", SYMBOL_STACK_BASE);
+        TileOpFormat::TILEOP_ND, "WorkspaceGm");
     if (ddrRawTensor == nullptr) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Create DDR raw tensor failed!");
         return FAILED;
@@ -486,7 +480,8 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
         return FAILED;
     }
     // workspaceOffset 会在 UpdateTensorAttr 中被更新，但 UpdateOpAttr 需要使用当前的 workspaceOffset
-    int64_t workspaceOffsetTemp = workspaceOffset;
+    ddrTensor->SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceOffset);
+    ddrTensor->SetAttr("isWorkspaceGM", true);
     if (UpdateTensorAttr(ddrTensor, MEM_DEVICE_DDR, spillTensor, spillMemId) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Tensor, "UpdateTensorAttr DDR tensor failed!");
         return FAILED;
@@ -494,7 +489,7 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
 
     // 创建spill搬出所需的DDR OP_COPY_OUT
     Operation &spillOutOp = function_.AddRawOperation(Opcode::OP_COPY_OUT, {spillTensor}, {ddrTensor});
-    UpdateOpAttr(spillOutOp, DEFAULT_LATENCY, spillTensor, offset, spillIssue, workspaceOffsetTemp);
+    UpdateOpAttr(spillOutOp, DEFAULT_LATENCY, spillTensor, offset, spillIssue);
     if (spillInfo.spillIssue_ != spillIssue && spillTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
         // L0C_L1 上的 op_attr_scale_value 属性迁移至 L0C_COPY_OUT 上
         Element scaleValue = Element(DataType::DT_UINT64, 0);
@@ -736,15 +731,6 @@ int64_t OoOScheduler::CalcWorkspaceOffset(std::vector<int64_t> shape, std::vecto
         }
     }
     return result;
-}
-
-void OoOScheduler::GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t &base) {
-    for (auto* producer : ddrTensor->GetProducers()) {
-        if (producer->GetOpcode() == Opcode::OP_COPY_OUT) {
-            // 如果没有设置 workspaceBaseOffset，GetAttr 失败，base 默认为 0
-            producer->GetAttr(OpAttributeKey::workspaceBaseOffset, base);
-        }
-    }
 }
 
 LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,

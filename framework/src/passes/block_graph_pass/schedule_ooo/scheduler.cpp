@@ -1192,6 +1192,36 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
     return SUCCESS;
 }
 
+void OoOScheduler::AllocWorkspaceGM(const std::vector<Operation *> &operations) {
+    std::set<int> isVist;
+    for (auto &op : operations) {
+        for (auto &iOperand : op->GetIOperands()) {
+            if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
+            && !isVist.count(iOperand->tensor->GetRawMagic())
+            std::find(function_->GetIncast().begin(), function_->GetIncast().end(), iOperand) == function_->GetIncast().end()) {
+                iOperand->SetAttr("isWorkspaceGM", true);
+                isVist.insert(iOperand->tensor->GetRawMagic());
+                iOperand->SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceOffset);
+                iOperand->memoryrange =
+                    TileRange(workspaceOffset, workspaceOffset + iOperand->tensor->GetRawDataSize(), iOperand->tensor->GetRawMagic());
+                workspaceOffset += iOperand->tensor->GetRawDataSize();
+            }
+        }
+        for (auto &oOperand : op->GetOOperands()) {
+            if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
+            && !isVist.count(oOperand->tensor->GetRawMagic())
+            std::find(function_->GetOutcast().begin(), function_->GetOutcast().end(), oOperand) == function_->GetOutcast().end()) {
+                oOperand->SetAttr("isWorkspaceGM", true);
+                isVist.insert(oOperand->tensor->GetRawMagic());
+                oOperand->SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceOffset);
+                oOperand->memoryrange =
+                    TileRange(workspaceOffset, workspaceOffset + oOperand->tensor->GetRawDataSize(), oOperand->tensor->GetRawMagic());
+                workspaceOffset += oOperand->tensor->GetRawDataSize();
+            }
+        }
+    }
+}
+
 Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap,
     const std::unordered_map<OpCoreType, std::vector<int>> fixCoreConfig) {
     if (operations.empty()) {
@@ -1202,6 +1232,7 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const 
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!"); 
         return FAILED;
     }
+    AllocWorkspaceGM(operations);
     // 生成spill指令
     if (GenSpillSchedule() != SUCCESS) { 
         APASS_LOG_ERROR_F(Elements::Operation, "GenSpillSchedule failed!"); 
