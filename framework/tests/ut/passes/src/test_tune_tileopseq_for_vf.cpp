@@ -57,12 +57,13 @@ protected:
         return tensor;
     }
 
-    std::shared_ptr<Function> CreateFunction(const std::string &rootName, const std::string &leafName) {
+    std::pair<std::shared_ptr<Function>, std::shared_ptr<Function>> CreateFunctionPair(
+            const std::string &rootName, const std::string &leafName) {
         auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), rootName, rootName, nullptr);
         rootFuncPtr->rootFunc_ = rootFuncPtr.get();
         auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), leafName, leafName, rootFuncPtr.get());
         rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
-        return currFunctionPtr;
+        return {rootFuncPtr, currFunctionPtr};
     }
 
     void SetupAndRunAdjustUbCopyNd2NzOrder(TuneTileOpSeqForVF &tuneTileop, PipeSync &ps,
@@ -125,8 +126,11 @@ void BuildGraphForTest(std::shared_ptr<Function> currFunctionPtr, std::vector<Op
 }
 
 TEST_F(TuneTileopseqForVFTest, TestMergeForTuneTileop) {
-    auto currFunctionPtr = CreateFunction("TestFindDep", "TestFindDepLeaf");
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestFindDep", "TestFindDep", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestFindDepLeaf", "TestFindDepLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     std::vector<Operation *> opListPtr;
     BuildGraphForTest(currFunctionPtr, opListPtr);
     TuneTileOpSeqForVF tuneTileop;
@@ -141,8 +145,11 @@ TEST_F(TuneTileopseqForVFTest, TestMergeForTuneTileop) {
 }
 
 TEST_F(TuneTileopseqForVFTest, TestNotMergeForTuneTileop) {
-    auto currFunctionPtr = CreateFunction("TestTuneTileop", "TestTuneTileopLeaf");
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestTuneTileop", "TestTuneTileop", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestTuneTileopLeaf", "TestTuneTileopLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     std::vector<Operation *> opListPtr;
     BuildGraphForTest(currFunctionPtr, opListPtr);
     opListPtr[3]->GetIOperands()[0]->memoryrange.start = TT_NUM50;
@@ -165,9 +172,11 @@ TEST_F(TuneTileopseqForVFTest, TestNotMergeForTuneTileop) {
 }
 
 TEST_F(TuneTileopseqForVFTest, TestMainProcess) {
-    auto currFunctionPtr = CreateFunction("TestMainProcess", "TestMainProcessLeaf");
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainProcess", "TestMainProcess", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainProcessLeaf", "TestMainProcessLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    auto rootFuncPtr = currFunctionPtr->GetRootFunction();
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     std::vector<std::shared_ptr<LogicalTensor>> input;
     std::vector<std::shared_ptr<LogicalTensor>> output;
     currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {input}, {output});
@@ -211,8 +220,11 @@ void BuildGraphForNonGroup(std::shared_ptr<Function> currFunctionPtr, std::vecto
 }
 
 TEST_F(TuneTileopseqForVFTest, TestNonGroupCase) {
-    auto currFunctionPtr = CreateFunction("TestNonGroup", "TestNonGroupLeaf");
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestNonGroup", "TestNonGroup", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNonGroupLeaf", "TestNonGroupLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     std::vector<Operation *> opListPtr;
     BuildGraphForNonGroup(currFunctionPtr, opListPtr);
     TuneTileOpSeqForVF tuneTileop;
@@ -252,7 +264,7 @@ TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_EmptyMergedOps) {
  * 预期：函数正常执行，不调整操作顺序
  */
 TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_NoUbCopyOp) {
-    auto currFunctionPtr = CreateFunction("TestNoUbCopy", "TestNoUbCopyLeaf");
+    auto [rootFuncPtr, currFunctionPtr] = CreateFunctionPair("TestNoUbCopy", "TestNoUbCopyLeaf");
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     auto tensor1 = CreateTensor(*currFunctionPtr, 0, TT_NUM10);
@@ -278,7 +290,7 @@ TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_NoUbCopyOp) {
  * 预期：函数正常执行，不调整操作顺序
  */
 TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_NoNonUbCopyOp) {
-    auto currFunctionPtr = CreateFunction("TestNoNonUbCopy", "TestNoNonUbCopyLeaf");
+    auto [rootFuncPtr, currFunctionPtr] = CreateFunctionPair("TestNoNonUbCopy", "TestNoNonUbCopyLeaf");
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     auto tensor1 = CreateTensor(*currFunctionPtr, 0, TT_NUM10);
@@ -305,7 +317,7 @@ TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_NoNonUbCopyOp) {
  * 预期结果：[UB_COPY_ND2NZ, VEC_OP1, VEC_OP2]
  */
 TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_UbCopyMoveFront) {
-    auto currFunctionPtr = CreateFunction("TestMoveFront", "TestMoveFrontLeaf");
+    auto [rootFuncPtr, currFunctionPtr] = CreateFunctionPair("TestMoveFront", "TestMoveFrontLeaf");
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     auto tensor1 = CreateTensor(*currFunctionPtr, 0, TT_NUM10);
@@ -335,7 +347,7 @@ TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_UbCopyMoveFront) {
  * 预期结果：[VEC_OP1, VEC_OP2, UB_COPY_ND2NZ]
  */
 TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_UbCopyMoveBack) {
-    auto currFunctionPtr = CreateFunction("TestMoveBack", "TestMoveBackLeaf");
+    auto [rootFuncPtr, currFunctionPtr] = CreateFunctionPair("TestMoveBack", "TestMoveBackLeaf");
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     auto tensor1 = CreateTensor(*currFunctionPtr, 0, TT_NUM10);
@@ -364,7 +376,7 @@ TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_UbCopyMoveBack) {
  * 预期结果：顺序不变
  */
 TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_UbCopyCannotMove) {
-    auto currFunctionPtr = CreateFunction("TestCannotMove", "TestCannotMoveLeaf");
+    auto [rootFuncPtr, currFunctionPtr] = CreateFunctionPair("TestCannotMove", "TestCannotMoveLeaf");
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     auto tensor1 = CreateTensor(*currFunctionPtr, 0, TT_NUM10);
@@ -393,7 +405,7 @@ TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_UbCopyCannotMove) {
  * 预期：UB_COPY_ND2NZ_1前移，UB_COPY_ND2NZ_2后移或保持
  */
 TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_MultipleUbCopyOps) {
-    auto currFunctionPtr = CreateFunction("TestMultipleUbCopy", "TestMultipleUbCopyLeaf");
+    auto [rootFuncPtr, currFunctionPtr] = CreateFunctionPair("TestMultipleUbCopy", "TestMultipleUbCopyLeaf");
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     auto tensor1 = CreateTensor(*currFunctionPtr, 0, TT_NUM10);
@@ -423,7 +435,7 @@ TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_MultipleUbCopyOps) {
  * 预期：每个组内的UB_COPY_ND2NZ操作都会被调整
  */
 TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_MultipleGroups) {
-    auto currFunctionPtr = CreateFunction("TestMultipleGroups", "TestMultipleGroupsLeaf");
+    auto [rootFuncPtr, currFunctionPtr] = CreateFunctionPair("TestMultipleGroups", "TestMultipleGroupsLeaf");
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     auto tensor1 = CreateTensor(*currFunctionPtr, 0, TT_NUM10);
