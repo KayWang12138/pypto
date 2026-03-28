@@ -695,9 +695,7 @@ Status SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
             auto getTensorDataIOType = callList[0]->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE]->GetImmediateValue();
             auto getTensorDataIOTypeIndex = callList[0]->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX]->GetImmediateValue();
 
-            if (getTensorDataIOType == -1) {
-               continue;
-            }
+            if (getTensorDataIOType == -1) continue;
 
             std::shared_ptr<LogicalTensor> copyInSourceTensor;
             std::shared_ptr<CopyOpAttribute> copyInAttr;
