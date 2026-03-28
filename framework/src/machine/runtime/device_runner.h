@@ -125,6 +125,7 @@ private:
     rtBinHandle binHdl_;
     FileLock lock_;
     HostProf hostProf_;
+    aclrtEvent event_;
     std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
     bool isCapture_{false};
     bool initFlag_{false};
@@ -146,7 +147,6 @@ public:
     }
 private:
     HostProf hostProf_;
-    aclrtEvent event_;
 };
 } // namespace npu::tile_fwk
 #endif
