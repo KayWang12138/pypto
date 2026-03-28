@@ -23,24 +23,17 @@
 ### CANN 版本
 
 ```bash
-# 方法1：从环境变量获取
-echo $ASCEND_HOME_PATH | grep -oP 'cann-\K[\d.]+'
-
-# 方法2：从 npu-smi 获取
+# 备选方法：从 npu-smi 获取
 npu-smi info | grep Version
 
-# 方法3：从 CANN 安装目录
+# 备选方法：从 CANN 安装目录
 ls -d /usr/local/Ascend/ascend-toolkit/* | grep -oP '\d+\.\d+\.\d+'
 ```
 
 ### PyPTO Commit
 
 ```bash
-# 获取本地存在于 cann/pypto master 的最新commit
-# 优先使用 cann/pypto 远程，回退到 origin/master
-COMMIT=$(git merge-base HEAD $(git remote -v | grep 'gitcode.com/cann/pypto.git' | head -1 | cut -f1)/master 2>/dev/null || git merge-base HEAD origin/master 2>/dev/null) && git log -1 --format='%H %ci' $COMMIT || echo "Unknown"
-
-# 仅获取短哈希
+# 仅获取短哈希（不依赖 remote）
 git rev-parse --short HEAD
 
 # 获取分支信息
@@ -48,17 +41,6 @@ git branch --show-current
 ```
 
 ### 服务器/NPU 型号
-
-```bash
-# A3 检测 (d803 = A3)
-lspci -n -D | grep '19e5:d803' && echo "A3 detected"
-
-# A2 检测 (d802 = A2)
-lspci -n -D | grep '19e5:d802' && echo "A2 detected"
-
-# 综合检测
-lspci -n -D | grep '19e5:d80[23]' | sed 's/.*d80\([23]\).*/A\1/'
-```
 
 **设备ID说明**:
 
@@ -71,20 +53,11 @@ lspci -n -D | grep '19e5:d80[23]' | sed 's/.*d80\([23]\).*/A\1/'
 ### Python 版本
 
 ```bash
-# 完整版本
-python --version
-
 # 仅版本号
 python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")'
 
 # 检查 Python 路径
 which python
-
-# torch 版本
-python -c "import torch; print(torch.__version__)"
-
-# torch_npu 版本
-python -c "import torch_npu; print(torch_npu.__version__)"
 ```
 
 ### 操作系统
