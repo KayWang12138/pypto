@@ -113,6 +113,62 @@ std::string CodeGenOpCloudNPU::PrintVnchwconv(const PrintUnaryTmpBuffParam &para
     return PrintVnchwconvStatic(param);
 }
 
+std::string CodeGenOpCloudNPU::PrintPermuteTileTensor() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    
+    auto axis0Attr = opAttrs.at(OP_ATTR_PREFIX + "axis0");
+    auto axis1Attr = opAttrs.at(OP_ATTR_PREFIX + "axis1");
+    auto axis2Attr = opAttrs.at(OP_ATTR_PREFIX + "axis2");
+    auto axis3Attr = opAttrs.at(OP_ATTR_PREFIX + "axis3");
+    auto axis4Attr = opAttrs.at(OP_ATTR_PREFIX + "axis4");
+    auto dimCountAttr = opAttrs.at(OP_ATTR_PREFIX + "dimCount");
+    
+    int axis0 = axis0Attr.HasValue() ? AnyCast<int64_t>(axis0Attr) : -1;
+    int axis1 = axis1Attr.HasValue() ? AnyCast<int64_t>(axis1Attr) : -1;
+    int axis2 = axis2Attr.HasValue() ? AnyCast<int64_t>(axis2Attr) : -1;
+    int axis3 = axis3Attr.HasValue() ? AnyCast<int64_t>(axis3Attr) : -1;
+    int axis4 = axis4Attr.HasValue() ? AnyCast<int64_t>(axis4Attr) : -1;
+    int dimCount = dimCountAttr.HasValue() ? AnyCast<int64_t>(dimCountAttr) : 0;
+    
+    std::ostringstream oss;
+    oss << tileOpName << "<" << axis0 << ", " << axis1 << ", " << axis2 << ", " 
+        << axis3 << ", " << axis4 << ", " << dimCount << ">";
+    oss << "(" << dstTensor << ", " << srcTensor << ", " << tmpTensor << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintPermute([[maybe_unused]] const PrintUnaryTmpBuffParam &param) const {
+    if (isSupportLayout) {
+        return PrintPermuteTileTensor();
+    }
+    
+    std::ostringstream oss;
+    auto axis0Attr = opAttrs.at(OP_ATTR_PREFIX + "axis0");
+    auto axis1Attr = opAttrs.at(OP_ATTR_PREFIX + "axis1");
+    auto axis2Attr = opAttrs.at(OP_ATTR_PREFIX + "axis2");
+    auto axis3Attr = opAttrs.at(OP_ATTR_PREFIX + "axis3");
+    auto axis4Attr = opAttrs.at(OP_ATTR_PREFIX + "axis4");
+    auto dimCountAttr = opAttrs.at(OP_ATTR_PREFIX + "dimCount");
+
+    int dimCount = dimCountAttr.HasValue() ? AnyCast<int64_t>(dimCountAttr) : 0;
+    int axis0 = axis0Attr.HasValue() ? AnyCast<int64_t>(axis0Attr) : -1;
+    int axis1 = axis1Attr.HasValue() ? AnyCast<int64_t>(axis1Attr) : -1;
+    int axis2 = axis2Attr.HasValue() ? AnyCast<int64_t>(axis2Attr) : -1;
+    int axis3 = axis3Attr.HasValue() ? AnyCast<int64_t>(axis3Attr) : -1;
+    int axis4 = axis4Attr.HasValue() ? AnyCast<int64_t>(axis4Attr) : -1;
+
+    std::string dst = "(__ubuf__ " + param.dstDtypeStr + " *)" + param.dVar;
+    std::string src = "(__ubuf__ " + param.srcDtypeStr + " *)" + param.s0Var;
+    std::string tmp = "(__ubuf__ " + param.tmpDtypeStr + " *)" + param.tmpVar;
+
+    oss << tileOpName << "<" << axis0 << ", " << axis1 << ", " << axis2 << ", " 
+        << axis3 << ", " << axis4 << ", " << dimCount << ">";
+    oss << "(" << dst << ", " << src << ", " << tmp << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const {
     const std::string &s0Var = param.s0Var;
     const std::string &tmpVar = param.tmpVar;
@@ -493,6 +549,10 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
     if (opCode == Opcode::OP_TRANSPOSE_VNCHWCONV) {
         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
+    }
+
+    if (opCode == Opcode::OP_PERMUTE) {
+        return PrintPermute({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
     if (opCode == Opcode::OP_SIGN || opCode == Opcode::OP_SIGNBIT) {

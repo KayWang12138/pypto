@@ -42,6 +42,7 @@ enum class Opcode {
     OP_FLOOR,
     OP_TRUNC,
     OP_ROUND,
+    OP_ABS,
     OP_RECIPROCAL,
     OP_CAST,
     OP_EXPAND,
@@ -80,7 +81,7 @@ enum class Opcode {
     OP_TRANSPOSE_MOVEIN,
     OP_TRANSPOSE_MOVEOUT,
     OP_TRANSPOSE_VNCHWCONV,
-    OP_ABS,
+    OP_PERMUTE,
     OP_LN,
     OP_ISFINITE,
     OP_HUB,
@@ -573,7 +574,8 @@ const std::unordered_set<Opcode> UNARY_OPS{Opcode::OP_EXP, Opcode::OP_EXP2, Opco
 
 const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{Opcode::OP_COMPACT, Opcode::OP_ROWSUM_SINGLE,
     Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV,
-    Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWPROD_SINGLE};
+    Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWPROD_SINGLE,
+    Opcode::OP_PERMUTE};
 
 const std::unordered_set<Opcode> VECTOR_SCALAR_OPS{
     Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS,

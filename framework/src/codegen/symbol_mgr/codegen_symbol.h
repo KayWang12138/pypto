@@ -166,7 +166,8 @@ struct TileTensorUsing {
     std::vector<int64_t> rawShape;
 
     bool operator==(const TileTensorUsing &other) const {
-        bool baseCompare = dtype == other.dtype && bufType == other.bufType && rawShape == other.rawShape;
+        bool baseCompare =
+            dim == other.dim && dtype == other.dtype && bufType == other.bufType && rawShape == other.rawShape;
         return isConstant ? baseCompare && originShape == other.originShape : baseCompare;
     }
 
