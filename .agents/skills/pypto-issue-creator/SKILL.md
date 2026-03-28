@@ -44,8 +44,8 @@ description: 基于会话上下文智能创建 GitCode Issue。支持5种类型�
 阶段6: Issue 内容生成
     ↓
 阶段7: 最终确认与创建模式
-    ├─ 远程创建 → 使用 gitcode_create_issue
-    └─ 本地创建 → 保存为本地 markdown
+    ├─ 默认远程创建 → 使用 gitcode_create_issue（用户未明确指定本地时）
+    └─ 用户明确指定本地 → 保存为本地 markdown
         ├─ 确定保存路径（默认: ./issues/）
         ├─ 文件名格式: issue-{type}-{YYYYMMDDHHmmss}.md
         └─ 提示: "Issue 已保存至本地 {路径}，未提交远程"
@@ -181,5 +181,5 @@ gitcode_search_issues(query="repo:cann/pypto {english keywords}")
 - [ ] 环境信息已获取（Bug Report）
 - [ ] 信息来源已填写（Feature Request）
 - [ ] 内容符合模板规范（中英双语字段名、Mandatory/Optional 标注）
-- [ ] 创建模式已确认（远程 / 本地）
+- [ ] 创建模式已确认（未明确指定本地时默认远程创建）
 - [ ] 用户已确认
