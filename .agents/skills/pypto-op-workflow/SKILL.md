@@ -194,7 +194,7 @@ tag: [PyPTO, 算子开发]
 
 | 项目 | 说明 |
 |------|------|
-| **Skill** | `pypto-precision-debugger`（辅助：`pypto-binary-search-verify` / `pypto-binary-search-without-verify`） |
+| **Skill** | `pypto-precision-debugger`（辅助：`pypto-precision-verify` / `pypto-precision-binary-search`） |
 | **输入** | `{op}_impl.py` + `{op}_golden.py` + 精度失败的错误信息 |
 | **核心动作** | 基础检查（输入初始化 / tensor 连续性 / dtype）→ 内存排查（workspace / 内存重叠）→ 特性排除（unroll / 合轴 / submit_before_loop）→ 二分定位 → 修复 → 精度复验 |
 | **输出** | 修复后的 `{op}_impl.py`，精度复验通过 |
