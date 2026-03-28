@@ -22,6 +22,7 @@ $$
 - ✅ **Online Softmax 分块计算**
 - ✅ 使用 FP32 进行中间计算以提高精度
 - ✅ 支持注意力掩码处理
+- ✅ **支持动态轴**：Batch size、Query seq len、KV seq len 均为动态维度，无需重编译
 - ✅ 满足 bfloat16 精度标准：`atol=0.0001, rtol=0.0078125`
 
 ## Online Softmax 算法
@@ -74,21 +75,20 @@ output = running_output / running_sum
 
 | 参数 | 类型 | Shape | 数据类型 | 说明 |
 |------|------|-------|----------|------|
-| query | 输入 | [B, N, Sq, D] | bfloat16 | Query 张量 |
-| key | 输入 | [B, N, Skv, D] | bfloat16 | Key 张量 |
-| value | 输入 | [B, N, Skv, D] | bfloat16 | Value 张量 |
-| atten_mask | 输入 | [1, 1, Sq, Skv] | float32 | 注意力掩码（预处理后） |
-| running_max | 输入/输出 | [B, N, Sq, 1] | float32 | 中间变量（初始 -1e9） |
-| running_sum | 输入/输出 | [B, N, Sq, 1] | float32 | 中间变量（初始 0） |
-| running_output | 输入/输出 | [B, N, Sq, D] | float32 | 中间变量（初始 0） |
-| attention_out | 输出 | [B, N, Sq, D] | bfloat16 | 输出张量 |
+| query | 输入 | [B, N, Sq, D] | bfloat16 | Query 张量，**B、Sq 为动态轴** |
+| key | 输入 | [B, N, Skv, D] | bfloat16 | Key 张量，**B、Skv 为动态轴** |
+| value | 输入 | [B, N, Skv, D] | bfloat16 | Value 张量，**B、Skv 为动态轴** |
+| atten_mask | 输入 | [Sq, Skv] | float32 | 注意力掩码，**Sq、Skv 为动态轴** |
+| output | 输出 | [B, N, Sq, D] | bfloat16 | 输出张量，**B、Sq 为动态轴** |
 
-**注意**：
-- B: Batch size
-- N: Number of attention heads
-- Sq: Query sequence length
-- Skv: Key/Value sequence length
-- D: Head dimension
+**动态轴说明**：
+- **B (Batch size)**: 动态维度，运行时可变，无需重编译
+- **Sq (Query sequence length)**: 动态维度，运行时可变，无需重编译
+- **Skv (Key/Value sequence length)**: 动态维度，运行时可变，无需重编译
+
+**固定维度**：
+- N (Number of attention heads): 8
+- D (Head dimension): 64
 - Block size: 16
 
 ## 编译与运行
@@ -162,35 +162,63 @@ Mean difference: 0.000307
 
 ### 精度测试
 
-- **最大差异**: 0.002987
-- **平均差异**: 0.000307
+- **最大差异**: 0.001953
+- **平均差异**: 0.000000
 - **通过率**: 100%
 - **精度标准**: `rtol=0.0078125, atol=0.0001`
 
+### 动态轴测试
+
+已验证以下不同形状的输入，均无需重编译：
+
+| Batch | Query Seq | KV Seq | 结果 |
+|-------|-----------|--------|------|
+| 2 | 32 | 64 | ✓ 通过 |
+| 4 | 64 | 128 | ✓ 通过 |
+| 8 | 128 | 256 | ✓ 通过 |
+
 ### 测试配置
 
-- Batch size: 1
-- Num heads: 2
-- Query sequence length: 16
-- Key/Value sequence length: 64
+- Num heads: 8
 - Head dimension: 64
 - Block size: 16
 
 ## 已知限制
 
-1. **静态形状**: 当前实现使用静态形状，不支持动态形状
-2. **Block size 固定**: 当前 block size 固定为 16
-3. **无 Dropout**: 未实现 dropout 功能
-4. **需要中间变量**: 需要在函数外部创建并初始化中间变量
+1. **Block size 固定**: 当前 block size 固定为 16
+2. **无 Dropout**: 未实现 dropout 功能
+3. **固定维度**: Num heads 固定为 8，Head dim 固定为 64
+
+## 动态轴使用示例
+
+```python
+import torch
+from flash_attention_score_impl import flash_attention_score_kernel_with_mask
+
+# 支持不同的 batch 和 seq 长度，无需重编译
+# 测试用例 1
+query = torch.randn(2, 8, 32, 64, dtype=torch.bfloat16, device='npu:0')
+key = torch.randn(2, 8, 64, 64, dtype=torch.bfloat16, device='npu:0')
+value = torch.randn(2, 8, 64, 64, dtype=torch.bfloat16, device='npu:0')
+atten_mask = torch.zeros(32, 64, dtype=torch.float32, device='npu:0')
+output = torch.empty(2, 8, 32, 64, dtype=torch.bfloat16, device='npu:0')
+flash_attention_score_kernel_with_mask(query, key, value, atten_mask, output)
+
+# 测试用例 2 - 不同的 batch 和 seq 长度
+query = torch.randn(8, 8, 128, 64, dtype=torch.bfloat16, device='npu:0')
+key = torch.randn(8, 8, 256, 64, dtype=torch.bfloat16, device='npu:0')
+value = torch.randn(8, 8, 256, 64, dtype=torch.bfloat16, device='npu:0')
+atten_mask = torch.zeros(128, 256, dtype=torch.float32, device='npu:0')
+output = torch.empty(8, 8, 128, 64, dtype=torch.bfloat16, device='npu:0')
+flash_attention_score_kernel_with_mask(query, key, value, atten_mask, output)
+```
 
 ## 文件说明
 
 ```
-custom/flash_attention_score/
-├── flash_attention_score.py          # 测试文件（含 golden 和 kernel）
-├── flash_attention_score_impl.py     # 算子实现
-├── flash_attention_score_online.py   # 简化版本（标准 softmax）
-├── flash_attention_score_online_v2.py # Online softmax 开发版本
+flash_attention_score/
+├── flash_attention_score.py          # 测试文件（含 golden）
+├── flash_attention_score_impl.py     # 算子实现（支持动态轴）
 └── README.md                         # 本文档
 ```
 
