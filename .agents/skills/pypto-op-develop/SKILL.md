@@ -225,19 +225,45 @@ python3 custom/{op}/test_{op}.py
 10. **Element 用于固定标量 dtype**：当标量参与计算且 dtype 不能依赖隐式映射时，显式使用 `pypto.Element(dtype, value)`。
 11. **避免同图内回环读写**：同一 Tensor 不要在同一图里既 `view` 读取又 `assemble` 回写。
 12. 如果设计中已有 tiling / loop 约束，编码时优先遵循 `design.md`，不要临时拍脑袋改写。
+13. **二元操作必须保证 dtype 一致**：PyPTO 的二元操作（如 `+`、`-`、`*`、`/`）要求两个输入 tensor 的 dtype 必须相同，不支持隐式类型转换。当需要混合数据类型计算时，必须显式使用 `pypto.cast()` 进行类型转换。
+14. **SymbolicScalar 不能用作 Python list/tuple 索引**：`pypto.loop` 返回的 SymbolicScalar 是编译时符号值，不是 runtime Python 对象，不能用作 `list[i]`、`tuple[i]` 等索引。正确做法：使用 tensor slice、`pypto.view`/`pypto.assemble` 在编译时构建数据流。
+15. **tile shape 配置必须完整**：cube 操作（matmul 等）需要 `set_cube_tile_shapes`，vec 操作（cast/exp/sum 等）需要 `set_vec_tile_shapes`。错误信息 `F21004: op [XXX]tile shape not set` 表示缺少配置，应检查所有操作的 tile shape 需求。
 
 ---
 
 ## 常见问题与解决方案
 
-### 最常见的 6 类错误
+### 常见的 9 类错误
 
 1. **BFloat16 转 NumPy 失败**：必须先 `.float()` 再 `.numpy()`
 2. **环境变量未设置**：先运行 `bash scripts/list_idle_chip_ids.sh` 确认可用 chip id，再设置 `export TILE_FWK_DEVICE_ID=<空闲 chip id>`
 3. **动态轴定义位置错误**：必须在 jit 函数外部定义
-4. **Tile Shape 未设置**：matmul 前必须调用 `set_cube_tile_shapes`
+4. **Tile Shape 未设置**：matmul 前必须调用 `set_cube_tile_shapes`；vec 操作前需要 `set_vec_tile_shapes`
 5. **精度标准不合理**：bfloat16 使用 `atol=0.0001, rtol=0.0078125`
 6. **使用 PyTorch 作为 Golden**：使用 NumPy 实现 golden 函数时，bfloat16 数据类型转换不够准确；golden 必须独立在 `{op}_golden.py`，使用纯 torch 实现
+7. **混合 dtype 二元操作报错**：PyPTO 二元操作要求 dtype 必须相同，报错 `FC0000: The dtype of input tensors are not same`。解决方法：使用 `pypto.cast(tensor, target_dtype)` 显式转换类型
+8. **SymbolicScalar 用作 list 索引报错**：`TypeError: list indices must be integers or slices, not SymbolicScalar`。原因：`pypto.loop` 返回的是编译时符号值，不是 Python runtime 对象。解决方法：使用 tensor slice 或 `pypto.view`/`pypto.assemble` 构建数据流。
+9. **Tile Shape 配置不完整报错**：`F21004: op [XXX]tile shape not set`。原因：某些操作缺少 tile shape 配置。解决方法：cube 操作需要 `set_cube_tile_shapes`，vec 操作需要 `set_vec_tile_shapes`。
+
+### SymbolicScalar 不能用作 Python list/tuple 索引
+
+**问题**：`pypto.loop` 返回的 SymbolicScalar 是编译时符号值，不是 Python runtime 对象，不能用作 `list[i]` 索引。
+
+**依据**：`docs/api/controlflow/pypto-loop.md`
+
+**错误示例**：
+```python
+blocks[i]  # ❌ TypeError: list indices must be integers or slices, not SymbolicScalar
+```
+
+**正确写法**：使用 tensor slice 或 `pypto.view`/`pypto.assemble`
+```python
+for i in pypto.loop(num_blocks):
+    block = input[i*bs:(i+1)*bs, :]      # ✅ tensor slice
+    output[i*bs:(i+1)*bs, :] = process(block)
+```
+
+**参考示例**：`examples/02_intermediate/controlflow/loop/loop.py`
 
 ### 错误处理
 
