@@ -762,3 +762,138 @@ def test_symmetric_per_tensor(N, M, bit, eps) -> None:
 
 if __name__ == "__main__":
     test_asymmetric_per_group(1024, 2048, 128, 2, 0.0001, 0.99)
+
+
+# ---------------------------------------------------------------------------
+# Backward Test Cases
+# ---------------------------------------------------------------------------
+
+# ==================== Asymmetric Per-Group Backward Tests ====================
+
+def run_asymmetric_per_group_backward_test(N, M, group_size, bit, eps, clip_val, distribution, device_id):
+    """Run a single backward test case for asymmetric per-group quantization."""
+    device = f"npu:{device_id}"
+    seed = 33
+    weight_shape = (N, M)
+    groups_per_row = M // group_size
+    num_groups = N * groups_per_row
+    scale_shape = (num_groups, 1)
+    offset_shape = (num_groups, 1)
+
+    weight_bm = create_input(weight_shape, torch.bfloat16, device, distribution, seed).requires_grad_(True)
+    scale_bm = create_input(scale_shape, torch.bfloat16, device, distribution, seed).requires_grad_(True)
+    offset_bm = create_input(offset_shape, torch.bfloat16, device, distribution, seed).requires_grad_(True)
+
+    golden_inputs = [weight_bm, scale_bm, offset_bm]
+    pto_inputs = [weight_bm, scale_bm, offset_bm, group_size, bit, eps, clip_val]
+    golden = create_asymmetric_qat_golden(group_size, bit, eps, clip_val)
+    return backward_test_autograd(golden_inputs, pto_inputs, golden, ai_infra_qat_asymmetric_per_group_backward)
+
+
+@pytest.mark.parametrize(
+    ('N', 'M', 'group', 'bit', 'eps', 'clip_val'),
+    [
+        pytest.param(*test, id="N{}-M{}-group{}-bit{}-eps{}-clip_val{}".format(*test))
+        for test in [
+            (1024, 2048, 128, 2, 0.0001, 0.99),
+            (768, 2048, 128, 3, 0.0001, 0.99),
+        ]
+    ]
+)
+def test_asymmetric_per_group_backward(N, M, group, bit, eps, clip_val) -> None:
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    results = []
+    for dis in DISTRIBUTION:
+        compare_result = run_asymmetric_per_group_backward_test(N, M, group, bit, eps, clip_val, dis, device_id)
+        flattened_result = [str(item) for sublist in compare_result for item in sublist]
+        str_params = [str(param) for param in [N, M, group, bit, eps, clip_val, dis]]
+        results.append(str_params + flattened_result)
+    if collect_result:
+        with open("asymmetric_qat_backward_model.csv", "a", encoding="utf-8") as f:
+            for line in results:
+                f.write(",".join(line) + "\n")
+
+
+# ==================== Symmetric Per-Channel Backward Tests ====================
+
+def run_symmetric_per_channel_backward_test(N, M, bit, eps, distribution, device_id):
+    device = f"npu:{device_id}"
+    seed = 33
+    min_v = float(-2**(bit-1))
+    max_v = float(2**(bit-1) - 1)
+    weight_shape = (N, M)
+    scale_shape = (N, 1)
+    weight = create_input(weight_shape, torch.bfloat16, device, distribution, seed).requires_grad_(True)
+    scale = create_input(scale_shape, torch.bfloat16, device, distribution, seed).requires_grad_(True)
+    inputs = [weight, scale]
+    pto_inputs = [weight, scale, eps, min_v, max_v]
+    golden = create_symmetric_qat_nscale_golden(eps, min_v, max_v)
+    return backward_test_autograd(inputs, pto_inputs, golden, ai_infra_qat_symmetric_per_channel_backward)
+
+
+@pytest.mark.parametrize(
+    ('N', 'M', 'bit', 'eps'),
+    [
+        pytest.param(*test, id="N{}-M{}-bit{}-eps{}".format(*test))
+        for test in [
+            (153376, 2048, 4, 0.0001),
+            (38344, 2048, 4, 0.0001),
+        ]
+    ]
+)
+def test_symmetric_per_channel_backward(N, M, bit, eps) -> None:
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    results = []
+    for dis in DISTRIBUTION:
+        compare_result = run_symmetric_per_channel_backward_test(N, M, bit, eps, dis, device_id)
+        flattened_result = [str(item) for sublist in compare_result for item in sublist]
+        str_params = [str(param) for param in [N, M, bit, eps, dis]]
+        results.append(str_params + flattened_result)
+    if collect_result:
+        with open("symmetric_qat_backward_nscale_model.csv", "a", encoding="utf-8") as f:
+            for line in results:
+                f.write(",".join(line) + "\n")
+
+
+# ==================== Symmetric Per-Tensor Backward Tests ====================
+
+def run_symmetric_per_tensor_backward_test(N, M, bit, eps, distribution, device_id):
+    device = f"npu:{device_id}"
+    seed = 33
+    min_v = float(-2**(bit-1))
+    max_v = float(2**(bit-1) - 1)
+    weight_shape = (N, M)
+    scale_shape = (1, 1)
+    weight = create_input(weight_shape, torch.bfloat16, device, distribution, seed).requires_grad_(True)
+    scale = create_input(scale_shape, torch.bfloat16, device, distribution, seed).requires_grad_(True)
+    inputs = [weight, scale]
+    pto_inputs = [weight, scale, eps, min_v, max_v]
+    golden = create_symmetric_qat_golden(eps, min_v, max_v)
+    return backward_test_autograd(inputs, pto_inputs, golden, ai_infra_qat_symmetric_per_tensor_backward)
+
+
+@pytest.mark.parametrize(
+    ('N', 'M', 'bit', 'eps'),
+    [
+        pytest.param(*test, id="N{}-M{}-bit{}-eps{}".format(*test))
+        for test in [
+            (153376, 2048, 8, 0.0001),
+            (38344, 2048, 8, 0.0001),
+        ]
+    ]
+)
+def test_symmetric_per_tensor_backward(N, M, bit, eps) -> None:
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    results = []
+    for dis in DISTRIBUTION:
+        compare_result = run_symmetric_per_tensor_backward_test(N, M, bit, eps, dis, device_id)
+        flattened_result = [str(item) for sublist in compare_result for item in sublist]
+        str_params = [str(param) for param in [N, M, bit, eps, dis]]
+        results.append(str_params + flattened_result)
+    if collect_result:
+        with open("symmetric_qat_backward_model.csv", "a", encoding="utf-8") as f:
+            for line in results:
+                f.write(",".join(line) + "\n")
