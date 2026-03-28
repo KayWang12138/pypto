@@ -24,6 +24,9 @@ project(PTO_Framework
 get_filename_component(PTO_FWK_SRC_ROOT         "${CMAKE_CURRENT_SOURCE_DIR}"   REALPATH)
 get_filename_component(PTO_FWK_BIN_ROOT         "${CMAKE_CURRENT_BINARY_DIR}"   REALPATH)
 get_filename_component(PTO_FWK_BIN_OUTPUT_ROOT  "${PTO_FWK_BIN_ROOT}/output"    REALPATH)  # 二进制 BUILD 阶段输出路径
+file(MAKE_DIRECTORY ${PTO_FWK_BIN_OUTPUT_ROOT}/log/ub_log)
+file(MAKE_DIRECTORY ${PTO_FWK_BIN_OUTPUT_ROOT}/log_ca)
+file(MAKE_DIRECTORY ${PTO_FWK_BIN_OUTPUT_ROOT}/run_log)
 
 message(STATUS "PTO_FWK_SRC_ROOT=${PTO_FWK_SRC_ROOT}")
 message(STATUS "PTO_FWK_BIN_ROOT=${PTO_FWK_BIN_ROOT}")

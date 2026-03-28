@@ -529,7 +529,7 @@ private:
     };
 
     void SendStopToCore(int coreIdx, bool isLastDevTask, AicoreStatus *coreStatus, int &finishStopNum) {
-        DEV_IF_DEVICE {
+        DEV_IF_DEVICE_OR_ESL {
             if (isLastDevTask) {
                 NormalStopSingleCore(coreIdx);
                 coreStatus[coreIdx] = AicoreStatus::CORE_FINISH_STOP;
@@ -570,7 +570,7 @@ private:
         }
 
         if (!isLastDevTask) {
-            DEV_IF_DEVICE {
+            DEV_IF_DEVICE_OR_ESL {
                 if ((coreStatus[coreIdx] == AicoreStatus::CORE_SEND_STOP) &&
                     (aicoreHal_.GetFinishedTask(coreIdx) == ((static_cast<uint64_t>(curTaskId_) <<
                         REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP | AICORE_FIN_MASK)))) {
@@ -899,6 +899,7 @@ private:
         // dump input tensor
         aicoreDump_.DoDump(curDevTask_, "input", newTask, GetPhyIdByBlockId(coreIdx));
 #endif
+        DEV_VERBOSE_DEBUG("ESL MODEL TASK: %lu", newTask);
         aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF);
         pendingIds_[coreIdx] = newTask;
         pendingResolveIndexList_[coreIdx] = 0;

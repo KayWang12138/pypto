@@ -644,7 +644,7 @@ public:
         COMPILER_LOGE("triple stream %d sequence %ld workspace %p cfgcache %p",
                       tripleStream, sequence.load(), workspace, ctrlFlowCache);
 #endif
-        int ret = DeviceLauncher::LaunchSyncTask(aicoreStream, isCaptureMode);
+int ret = DeviceLauncher::LaunchSyncTask(aicoreStream, isCaptureMode);
         ASSERT(ret == RT_ERROR_NONE) << "launch pre sync failed: " << ret;
 
         DeviceLauncher::SetDevPerfAddr(debugEnable, isCaptureMode);
@@ -676,7 +676,7 @@ private:
         hostInfo.addrOffset = offsetof(dynamic::AiCpuArgs, kArgs.inputs);
         hostInfo.dataOffset = sizeof(dynamic::AiCpuArgs);
         rtAicpuArgs.hostInputInfoPtr = &hostInfo;
-        rtAicpuArgs.timeout = AICPU_EXECUTE_TIMEOUT;
+rtAicpuArgs.timeout = AICPU_EXECUTE_TIMEOUT;
         memset_s(&rtAicoreArgs, sizeof(rtArgsEx_t), 0, sizeof(rtArgsEx_t));
         kernelArgs.resize(7, nullptr); // see aicore.ascpp
         rtAicoreArgs.args = kernelArgs.data();
@@ -814,10 +814,15 @@ static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensor
         }
     }
     ASSERT(tensors.size()) << "No input tensors found";
-    if (py::getattr(device, "type").cast<std::string>() != "npu") {
-        throw std::runtime_error("Not npu device");
-    }
-    return py::getattr(device, "index").cast<int>();
+// #ifdef __ESL_SIMULATION__
+//     return 0;
+// #else
+//     if (py::getattr(device, "type").cast<std::string>() != "npu") {
+//         throw std::runtime_error("Not npu device");
+//     }
+//     return py::getattr(device, "index").cast<int>();
+// #endif
+return 0;
 }
 
 static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
@@ -863,16 +868,19 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
         wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
     }
     HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
-
-    DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
-    HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
+// #ifdef __ESL_SIMULATION__
+    DeviceRunOnceDataFromHost(tensors, {});
+// #else
+//     DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
+//     HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
     
-    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
-    HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
+//     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
+//     HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
 
-    kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
-    HOST_PERF_TRACE(TracePhase::Launch);
-    HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+//     kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+//     HOST_PERF_TRACE(TracePhase::Launch);
+//     HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+// #endif
 }
 
 void LaunchKernelTorch(py::object &module, int64_t stream, py::sequence &torchTensors,

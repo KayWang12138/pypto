@@ -24,12 +24,17 @@
 #include "acl/acl_rt.h"
 #endif
 
+#ifdef __ESL_SIMULATION__
+#include "machine/runtime/esl_memory_utils.h"
+#else
+#include "machine/runtime/device_memory_utils.h"
+#endif
+
 #include "machine/runtime/device_launcher_binding.h"
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
 #include "machine/utils/dynamic/dev_tensor_creator.h"
 #include "machine/device/dynamic/device_common.h"
-#include "machine/runtime/device_memory_utils.h"
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
@@ -181,9 +186,15 @@ public:
         devProg->devArgs.nrValidAic = config.blockdim;
         devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-
-        int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum());
-        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
+#ifdef __ESL_SIMULATION__
+    devProg->devArgs.nrAic = 32;
+    devProg->devArgs.nrAiv = 64;
+    devProg->devArgs.nrValidAic = 32;
+    int aiCpuNum = 7;
+#else
+    int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum());
+#endif
+        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(devProg->devArgs.nrValidAic, aiCpuNum, devProg->devArgs.archInfo);
         devProg->devArgs.maxAicpuNum = aiCpuNum;
         config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
         if (devProg->devArgs.archInfo == ArchInfo::DAV_3510) {
@@ -355,7 +366,11 @@ public:
         dataPtr += inputList.size();
         buildInouts(outputList, dataPtr, tensorIdx);
         if (devMem.IsDevice()) {
-            kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data());
+#ifdef __ESL_SIMULATION__
+    kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data() + sizeof(AiCpuArgs));
+#else
+    kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data());
+#endif
             kArgs.outputs = (int64_t *)allSize;
         } else {
             kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data() + sizeof(AiCpuArgs));
@@ -383,7 +398,7 @@ public:
             } else {
                 inputDeviceDataList.emplace_back(DT_UINT8, nullptr, shape);
             }
-        }
+                    }
         for (size_t k = 0; k < outputDataList.size(); k++) {
             auto &outputData = outputDataList[k];
             std::vector<int64_t> shape;
@@ -451,7 +466,7 @@ public:
     static void GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI &rtModel);
     static void AddAicpuStream(aclmdlRI &rtModel, bool tripleStream);
     static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, [[maybe_unused]]bool debugEnable, [[maybe_unused]]Function *function);
-    static int LaunchSyncTask(aclrtStream aicoreStream, bool isCaptureMode);
+static int LaunchSyncTask(aclrtStream aicoreStream, bool isCaptureMode);
     static int LaunchAicoreKernel(
         aclrtStream aicoreStream, void *kernel, rtArgsEx_t &rtArgs, rtTaskCfgInfo_t &rtTaskCfg, bool debugEnable);
     static int DeviceRunOnce(Function *function, DevControlFlowCache* hostCtrlCache = nullptr,
