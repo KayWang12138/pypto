@@ -398,7 +398,7 @@ public:
             } else {
                 inputDeviceDataList.emplace_back(DT_UINT8, nullptr, shape);
             }
-                    }
+        }
         for (size_t k = 0; k < outputDataList.size(); k++) {
             auto &outputData = outputDataList[k];
             std::vector<int64_t> shape;
@@ -466,7 +466,7 @@ public:
     static void GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI &rtModel);
     static void AddAicpuStream(aclmdlRI &rtModel, bool tripleStream);
     static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, [[maybe_unused]]bool debugEnable, [[maybe_unused]]Function *function);
-static int LaunchSyncTask(aclrtStream aicoreStream, bool isCaptureMode);
+    static int LaunchSyncTask(aclrtStream aicoreStream, bool isCaptureMode);
     static int LaunchAicoreKernel(
         aclrtStream aicoreStream, void *kernel, rtArgsEx_t &rtArgs, rtTaskCfgInfo_t &rtTaskCfg, bool debugEnable);
     static int DeviceRunOnce(Function *function, DevControlFlowCache* hostCtrlCache = nullptr,

@@ -87,7 +87,7 @@ public:
     bool GetEnableDumpDevPref() const;
     void StartMachinePerfTraceDumpThread();
     void StopMachinePerfTraceDumpThread();
-
+    int RunPreSync(rtStream_t aicpuStream, rtStream_t aicoreStream);
 private:
     DeviceRunner() = default;
     ~DeviceRunner();
@@ -103,7 +103,6 @@ private:
     int launchDynamicAiCore(rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs);
     int launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs *kArgs);
     int RunPrepare();
-    int RunPreSync(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArgs *kArgs);
     int InitAicpuServer();
@@ -147,6 +146,7 @@ public:
     }
 private:
     HostProf hostProf_;
+    aclrtEvent event_;
 };
 } // namespace npu::tile_fwk
 #endif

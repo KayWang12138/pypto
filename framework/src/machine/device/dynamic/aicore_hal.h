@@ -158,7 +158,6 @@ public:
 
     inline void WriteEslReg(int coreIdx, uint64_t regAddr, uint64_t *val) {
         auto coreInfo = GetSubCoreId(coreIdx);
-        printf("coreIdx: %d, primary: %d, subcoreIdx: %d, task: %lu.\n", coreIdx, coreInfo.first, coreInfo.second, *val);
         DEV_VERBOSE_DEBUG("coreIdx: %d, primary: %d, subcoreIdx: %d, task: %lu.\n", coreIdx, coreInfo.first, coreInfo.second, *val);
         caWriteReg64_(coreInfo.first, coreInfo.second, regAddr, val);
     }
