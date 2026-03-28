@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 def get_commentable_range(cce_file, error_in_t):
     logger.info("获取可注释行范围...")
-    logger.info(f"CCE 文件: {cce_file}")
-    logger.info(f"error_in_t: {error_in_t}")
+    logger.info("CCE 文件: {}".format(cce_file))
+    logger.info("error_in_t: {}".format(error_in_t))
     logger.info("")
 
     cce_lines = read_file(cce_file)
@@ -30,7 +30,7 @@ def get_commentable_range(cce_file, error_in_t):
     commentable_lines = get_commentable_lines(cce_lines, error_in_t)
     
     n = len(commentable_lines)
-    logger.info(f"可注释的行数: {n}")
+    logger.info("可注释的行数: {}".format(n))
     
     if n <= 0:
         logger.info("错误：没有可注释的行")
@@ -38,7 +38,7 @@ def get_commentable_range(cce_file, error_in_t):
     
     left = 0
     right = n - 1
-    logger.info(f"初始范围: left={left}, right={right}")
+    logger.info("初始范围: left={}, right={}".format(left, right))
     
     return left, right
 
@@ -72,8 +72,8 @@ def main():
     left, right = get_commentable_range(cce_file, error_in_t)
     
     if left is not None:
-        logger.info(f"LEFT {left}")
-        logger.info(f"RIGHT {right}")
+        logger.info("LEFT {}".format(left))
+        logger.info("RIGHT {}".format(right))
 
 
 if __name__ == "__main__":
