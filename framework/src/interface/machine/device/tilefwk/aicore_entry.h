@@ -49,7 +49,7 @@ __gm__ static bool g_is_open_dump_perf_trace_data = false;
 #endif
 #endif
 
-#define AICORE_DEVICE_TASK_RUN_TIMEOUT 3000000000
+#define AICORE_DEVICE_TASK_RUN_TIMEOUT 6000000000
 #define AICORE_DEVICE_TASK_WAIT_TIME_OUT 500000000
 #define AICORE_LEAF_TASK_RUN_TIMEOUT 3000000000
 #define AICORE_LEAF_TASK_WAIT_TIMEOUT 500000000
@@ -424,6 +424,7 @@ INLINE void KernelEntry(int64_t ffts_addr, int64_t inputs,
             } else if (curTaskIdx == AICORE_FUNC_STOP) {
                 DfxProcWhenDevTaskStop(&ctx, args, metric);
                 SendRegDevTaskStop(ctx.seqNo);
+                t0 = get_sys_cnt();
                 break;
             }
 
