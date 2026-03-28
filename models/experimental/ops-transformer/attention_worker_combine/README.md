@@ -79,11 +79,11 @@ export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch6
 ## 测试结果
 
 ```
-Strategy     BS     K      H      Result     Max Diff    
+Strategy     BS     K      H      Result     Max Diff
 ----------------------------------------------------------------------
-split_bs     8      2      32     PASS       0.00000000  
-split_h      8      2      32     PASS       0.00000000  
-split_k      8      2      32     PASS       0.00000000  
+split_bs     8      2      32     PASS       0.00000000
+split_h      8      2      32     PASS       0.00000000
+split_k      8      2      32     PASS       0.00000000
 ----------------------------------------------------------------------
 Total: 3/3 passed
 ```
@@ -116,4 +116,4 @@ custom/attention_worker_combine/
 
 - [需求分析](./needs_analysis.md)
 - [PyPTO API 文档](../../docs/api/)
-- [二分查找调试技能](../../.agents/skills/pypto-binary-search-verify/)
+- [二分查找调试技能](../../.agents/skills/pypto-precision-verify/)

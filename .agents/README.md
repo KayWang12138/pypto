@@ -266,15 +266,15 @@ Stage 7: 性能调优 → PerfTuner Subagent
 
 **常见问题**：workspace 不足、循环展开问题、合轴问题、并行执行问题、valid_shape 错误
 
-#### `pypto-binary-search-verify` — 二分精度定位（Verify 模式）
+#### `pypto-precision-verify` — 精度定位（Verify 模式）
 
-**适用场景**：利用精度工具通过二分查找定位算子精度问题
+**适用场景**：利用精度工具通过二进制数据文件对比定位算子精度问题
 
 **核心原理**：通过 `pass_verify_save` 在循环中条件性保存中间结果，对比精度
 
-#### `pypto-binary-search-without-verify` — 二分精度定位（Checkpoint 模式）
+#### `pypto-precision-binary-search` — 二分精度定位（返回值模式）
 
-**适用场景**：通过在 kernel 函数中添加检查点 tensor 进行原地修改，对比中间结果精度
+**适用场景**：通过在 kernel 函数中添加返回的检查点 tensor 进行原地修改，对比中间结果精度
 
 **核心原理**：检查点 tensor 作为输入参数，使用 `pypto.assemble` 保存中间结果
 
