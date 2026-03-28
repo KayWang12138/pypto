@@ -238,6 +238,7 @@ def matmul_allreduce_add_rmsnorm(
 
     return out_tensor, residual_out
 
+
 @pytest.mark.soc("950", "910")
 @pytest.mark.world_size(2)
 def test_matmul_allreduce_add_rmsnorm():
