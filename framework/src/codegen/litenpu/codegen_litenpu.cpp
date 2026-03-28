@@ -99,7 +99,6 @@ void CodeGenLiteNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ostr
         floatSpecValMgr.UpdateByOp(op);
 
         CodeGenOpLiteNPU cop({symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock});
-        cop.Init(op); // kirin needs init
         std::string tileOpSourceCode = cop.GenOpCode();
         ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
             << "Generate code of op failed, op is " << op.Dump();

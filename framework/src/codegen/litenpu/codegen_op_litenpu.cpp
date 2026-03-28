@@ -247,11 +247,15 @@ void CodeGenOpLiteNPU::UpdateTileTensorInfo() {
 
     auto iter = SUPPORT_TILETENSOR_OPS.find(opCode);
     if (iter == SUPPORT_TILETENSOR_OPS.end()) {
+        // std::cout<<"opCodeStr: "<< opCodeStr <<" not support tile tensor!\n";
         // ASSERT(iter != SUPPORT_TILETENSOR_OPS.end()) << "opCode: " << opCodeStr << " not support tile tensor!";
         return;
     }
 
+    std::cout<<"worked for opcode: "<<opCodeStr<<"\n";
     tileOpName = iter->second; // update tileOpName from SUPPORT_TILETENSOR_OPS
+    std::cout<<"updated opcode: "<<tileOpName<<"\n";
+
 
     for (int i = 0; i < operandCnt; ++i) {
         TileTensorUsing tileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],
