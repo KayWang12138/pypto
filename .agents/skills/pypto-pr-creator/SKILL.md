@@ -1,11 +1,11 @@
 ---
 name: pypto-pr-creator
-description: "将代码变更提交为 cann/pypto 仓库的 PR。覆盖 fork 验证、分支创建、commit 规范检查、PR 创建/更新和 CLA 检查。在用户提到创建 PR、提交代码、go、merge、代码合并，或任何需要将本地修改推送到 cann/pypto 的场景下使用。未安装 GitCode MCP 时按 gitcode-mcp-install skill 配置。"
+description: "将本地修改提交为 cann/pypto 仓库的 PR。覆盖 fork 验证、Git 认证、upstream 同步、commit 规范检查、PR 创建/更新和 CLA 检查。当用户提到创建 PR、提交代码、代码合并、推送到 cann/pypto，或已完成开发需要提交变更时使用此 skill。"
 ---
 
 # PyPTO PR Creator
 
-从用户 fork 仓库向 `cann/pypto` 创建跨 fork PR 的完整流程。
+从用户 fork 仓库向 `cann/pypto` 创建 PR 的完整流程。
 
 ```
 <username>/pypto  ──PR──▶  cann/pypto
@@ -15,7 +15,7 @@ description: "将代码变更提交为 cann/pypto 仓库的 PR。覆盖 fork 验
 ## 强制约束
 
 - PR 目标必须是 `cann/pypto`，不是用户 fork
-- 远程操作通过 GitCode MCP 完成，禁止直接使用 `GITCODE_TOKEN` 进行 API 调用
+- 远程操作通过 GitCode MCP 完成，禁止直接使用 `GITCODE_TOKEN` 进行 API 调用。未安装 GitCode MCP 时按 `gitcode-mcp-install` skill 完成配置
 - `origin` 指向用户 fork，禁止指向 `cann/pypto`
 - 禁止打印 `GITCODE_TOKEN`，包括屏幕、日志、调试信息
 - 创建分支、commit、push、创建/更新 PR 前必须获得用户明确确认
