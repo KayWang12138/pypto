@@ -4,6 +4,7 @@
 import os
 import subprocess
 import re
+import logging
 
 
 def validate_path(path, path_type="路径"):
@@ -13,7 +14,6 @@ def validate_path(path, path_type="路径"):
 
 
 def setup_logging():
-    import logging
     logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 
@@ -150,4 +150,19 @@ def parse_core_idx(event_str, pattern):
     match = re.search(pattern, event_str)
     if match:
         return int(match.group(1))
+    return None
+
+
+def find_aicore_entry_h(pypto_path, logger):
+    possible_paths = os.path.join(pypto_path, "framework/src/interface/machine/device/tilefwk/aicore_entry.h")
+
+    if os.path.exists(possible_paths):
+        return possible_paths
+    
+    # 递归搜索
+    for root, dirs, files in os.walk(pypto_path):
+        if "aicore_entry.h" in files:
+            return os.path.join(root, "aicore_entry.h")
+    
+    logger.info("错误：在 %s 下未找到 aicore_entry.h", pypto_path)
     return None
