@@ -8,11 +8,13 @@
 
 | 信息类型 | 命令 | 输出示例 |
 |---------|------|---------|
+| 服务器/NPU 型号 | `lspci -n -D \| grep '19e5:d80[23]' \| sed 's/.*d80\\([23]\\).*/A\\1/' \| head -n1` | `A3` |
 | CANN 版本 | `echo $ASCEND_HOME_PATH \| grep -oP 'cann-\\K[\\d.]+'` | `8.5.0` |
-| PyPTO Commit | `COMMIT=$(git merge-base HEAD $(git remote -v \| grep 'gitcode.com/cann/pypto.git' \| head -1 \| cut -f1)/master 2>/dev/null \|\| git merge-base HEAD origin/master 2>/dev/null) && git log -1 --format='%H %ci' $COMMIT \|\| echo "Unknown"` | `abc123... 2025-03-10 10:00:00 +0800` |
-| 服务器类型 | `lspci -n -D \| grep '19e5:d80[23]' \| sed 's/.*d80\\([23]\\).*/A\\1/'` | `A3` |
+| PyPTO Commit | `COMMIT=$(git merge-base HEAD $(git remote -v \| grep 'gitcode.com/cann/pypto.git' \| head -1 \| cut -f1)/master 2>/dev/null \|\| git merge-base HEAD origin/master 2>/dev/null) && git log -1 --format='%h %ci' $COMMIT \|\| echo "Unknown"` | `abc123... 2025-03-10 10:00:00` |
 | Python 版本 | `python --version` | `Python 3.10.12` |
 | 操作系统 | `cat /etc/os-release \| grep PRETTY_NAME` | `PRETTY_NAME="Ubuntu 22.04.3 LTS"` |
+| torch 版本 | `python -c "import torch; print(torch.__version__)"` | `2.6.0` |
+| torch_npu 版本 | `python -c "import torch_npu; print(torch_npu.__version__)"` | `2.6.0.post3` |
 
 ---
 
@@ -45,7 +47,7 @@ git rev-parse --short HEAD
 git branch --show-current
 ```
 
-### 服务器类型
+### 服务器/NPU 型号
 
 ```bash
 # A3 检测 (d803 = A3)
@@ -59,8 +61,12 @@ lspci -n -D | grep '19e5:d80[23]' | sed 's/.*d80\([23]\).*/A\1/'
 ```
 
 **设备ID说明**:
-- `19e5:d802` → A2 服务器
-- `19e5:d803` → A3 服务器
+
+建议统一使用写法：**Ascend 910B** 或 **Ascend 910C**
+
+- `19e5:d802` → A2 服务器（对应 Ascend 910B）
+- `19e5:d803` → A3 服务器（对应 Ascend 910C）
+
 
 ### Python 版本
 
@@ -73,6 +79,12 @@ python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}
 
 # 检查 Python 路径
 which python
+
+# torch 版本
+python -c "import torch; print(torch.__version__)"
+
+# torch_npu 版本
+python -c "import torch_npu; print(torch_npu.__version__)"
 ```
 
 ### 操作系统
@@ -88,8 +100,6 @@ uname -r
 uname -a
 ```
 
----
-
 ## 批量获取脚本
 
 ```bash
@@ -99,27 +109,16 @@ uname -a
 echo "=== 环境信息 ==="
 echo "CANN 版本: $(echo $ASCEND_HOME_PATH | grep -oP 'cann-\K[\d.]+')"
 echo "PyPTO Commit: $(COMMIT=$(git merge-base HEAD $(git remote -v | grep 'gitcode.com/cann/pypto.git' | head -1 | cut -f1)/master 2>/dev/null || git merge-base HEAD origin/master 2>/dev/null) && git log -1 --format='%h %ci' $COMMIT 2>/dev/null || echo 'Unknown')"
-echo "服务器类型: $(lspci -n -D 2>/dev/null | grep '19e5:d80[23]' | sed 's/.*d80\([23]\).*/A\1/' | head -1 || echo 'Unknown')"
+echo "服务器/NPU 型号: $(lspci -n -D 2>/dev/null | grep '19e5:d80[23]' | sed 's/.*d80\([23]\).*/A\1/' | head -1 || echo 'Unknown')"
 echo "Python 版本: $(python --version 2>&1)"
 echo "操作系统: $(cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d'"' -f2 || echo 'Unknown')"
+echo "torch 版本: $(python -c 'import torch; print(torch.__version__)' 2>/dev/null || echo 'Unknown')"
+echo "torch_npu 版本: $(python -c 'import torch_npu; print(torch_npu.__version__)' 2>/dev/null || echo 'Unknown')"
 ```
 
 ---
 
-## 环境信息获取策略
+## 注意
 
-1. **优先使用环境变量** - 最可靠的信息来源
-2. **验证命令可用性** - 使用 `command -v` 检查命令是否存在
-3. **优雅处理错误** - 命令失败时返回 "Unknown" 或 "N/A"
-4. **合并相关命令** - 减少工具调用次数
-
----
-
-## 在 Skill 中的使用
-
-Agent 应按以下优先级获取环境信息：
-
-1. **执行命令获取** - 使用上述命令获取
-2. **请求用户提供** - 无法自动获取时询问
-
-**重要**: 只有创建 Bug Report 类型 Issue 时才需要获取完整环境信息。其他类型 Issue 可根据需要选择性获取。
+- 本文件定义的所有环境信息字段名称与 [issue-templates.md](issue-templates.md) 中各模板的 Environment 章节保持一致
+- 哪些 Issue 类型需要获取环境信息、获取优先级策略由 [SKILL.md](../SKILL.md) 定义
