@@ -27,7 +27,6 @@
 #include "tilefwk/pypto_fwk_log.h"
 #include "interface/utils/common.h"
 #include "interface/utils/file_utils.h"
-#include "interface/utils/log.h"
 #include <unistd.h>
 namespace npu::tile_fwk {
 
@@ -211,7 +210,6 @@ void ConfigManager::ResetLog(const std::string &path) {
     } else {
         newLogFile = path + "/run.log";
     }
-    LoggerManager::FileLoggerReplace(globalConfigs_.logFile, newLogFile, true);
     globalConfigs_.logFile = std::move(newLogFile);
 }
 

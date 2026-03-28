@@ -22,6 +22,7 @@
 #include <list>
 #include <regex>
 #include <dlfcn.h>
+#include <fstream>
 #include "interface/utils/file_utils.h"
 #include "cost_model/simulation/pv/PvModel.h"
 #include "cost_model/simulation_pv/PvMemAllocator.h"

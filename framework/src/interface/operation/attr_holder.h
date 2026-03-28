@@ -22,7 +22,6 @@
 #include "tilefwk/symbolic_scalar.h"
 #include "interface/inner/any.h"
 #include "interface/utils/common.h"
-#include "interface/utils/log.h"
 #include "interface/utils/string_utils.h"
 #include "interface/utils/function_error.h"
 #include "interface/inner/element.h"

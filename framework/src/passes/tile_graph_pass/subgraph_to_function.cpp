@@ -14,6 +14,7 @@
  */
 
 #include "passes/tile_graph_pass/subgraph_to_function.h"
+#include <fstream>
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"

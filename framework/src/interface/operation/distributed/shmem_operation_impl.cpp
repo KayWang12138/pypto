@@ -24,7 +24,6 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/utils/common.h"
-#include "interface/utils/log.h"
 #include "interface/utils/distributed_error.h"
 
 namespace npu::tile_fwk::Distributed {

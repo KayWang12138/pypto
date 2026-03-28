@@ -22,7 +22,7 @@
 #include "interface/configs/config_manager.h"
 #include "interface/utils/common.h"
 #include "interface/utils/id_gen.h"
-#include "interface/utils/log.h"
+
 #include "gen_kv_slc.h"
 
 using namespace npu::tile_fwk;

@@ -17,46 +17,20 @@
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
+#include <fstream>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "machine/runtime/runtime.h"
-#include "tilefwk/tilefwk_op.h"
-#include "interface/tensor/float.h"
 #include "interface/tensor/logical_tensor.h"
 #include "cost_model/simulation/pv/PvData.h"
 #include "cost_model/simulation/emulator/SoftMemory.h"
 #include "interface/configs/config_manager.h"
+#include "test_common_types.h"
 
 using namespace npu::tile_fwk;
 using Json = nlohmann::json;
 using namespace std;
-
-const std::string TEST_TILE_OP_PATH = "framework/tests/st/interface/tile_op/src/";
-
-enum CpyMode { FULL, DIAG };
-
-template <typename T>
-DataType GetAstDtype() {
-    DataType astDtype = DataType::DT_BOTTOM;
-    if constexpr (std::is_same<T, npu::tile_fwk::float16>::value) {
-        astDtype = DataType::DT_FP16;
-    }
-    if constexpr (std::is_same<T, float>::value) {
-        astDtype = DataType::DT_FP32;
-    }
-    if constexpr (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
-        astDtype = DataType::DT_BF16;
-    }
-    if constexpr (std::is_same<T, int8_t>::value) {
-        astDtype = DT_INT8;
-    }
-    if constexpr (std::is_same<T, int32_t>::value) {
-        astDtype = DT_INT32;
-    }
-    EXPECT_NE(astDtype, DT_BOTTOM);
-    return astDtype;
-}
 
 template <typename T = float>
 static void readInput(std::string filename, vector<T> &inputData) {
@@ -596,65 +570,6 @@ void *readToDev(const std::string &path, int size) {
     return devPtr;
 }
 
-struct GMTensorInfoTest {
-    float *Addr{nullptr};
-    int64_t offset0{-1}; // TBD: should divide by TILESIZE or not? E.g . 128 or 128/128
-    int64_t offset1{-1}; // TBD: should divide by TILESIZE or not? E.g . 128 or 128/128
-};
-
-struct InvokeEntryTest {
-    int64_t SubGraphProgramId{-1};
-    GMTensorInfoTest GMTensor[2];
-};
-
-using IfaTestParam = std::unordered_map<std::string, int>;
-
-/* low latency params config */
-inline IfaTestParam lowLatencyParams = {
-    {            "b",   4},
-    {           "nq",  32},
-    {           "s2", 256},
-    {"timethreshold",  55},
-};
-
-inline IfaTileShapeConfig lowLatencyTileParams{
-    256, // block size
-    32, // nTile
-    {256, 128}, // v0 tile for qkv-view-concat, q-S1D:(32,64), k/v-S2D:(256,64), merge 2D to copy
-    {32, 32, 256, 256, 128, 128}, // c1 tile for S1D@S2D
-    {32, 256}, // v1 tile for S1S2
-    {32, 32, 256, 256, 128, 128}, // c2 tile for S1S2@S2D
-    {32, 256}, // v2 tile for S1D
-};
-
-/* hight throughput params param config */
-inline IfaTestParam hightThroughputParams = {
-    {            "b",   32},
-    {           "nq",  128},
-    {           "s2", 4096},
-    {"timethreshold",  280},
-};
-
-inline IfaTileShapeConfig hightThroughputTileParams{
-    512, // block size
-    128, // nTile
-    {256, 128}, // v0 tile for qkv-view-concat, q-S1D:(32,64), k/v-S2D:(256,64), merge 2D to copy
-    {128, 128, 128, 256, 128, 128}, // c1 tile for S1D@S2D
-    {32, 256}, // v1 tile for S1S2
-    {128, 128, 128, 256, 128, 128}, // c2 tile for S1S2@S2D
-    {32, 256}, // v2 tile for S1D
-};
-
-struct GraphInvokeInfoTest {
-    int64_t GraphInvokeCount{0};
-    InvokeEntryTest GraphInvokeList[40];
-};
-
-[[maybe_unused]] static std::string ParamLocToString(const int64_t &ParamLoc) {
-    return std::to_string(ParamLoc >> 28) + ":" + std::to_string((ParamLoc >> 16) & 0xFFF) + ":" +
-           std::to_string(ParamLoc & 0xFFFF);
-}
-
 [[maybe_unused]] static std::string GetGoldenDir() {
     const testing::TestInfo *testInfo = testing::UnitTest::GetInstance()->current_test_info();
     std::string fullName = std::string(testInfo->test_suite_name()) + "." + testInfo->name();
@@ -670,25 +585,7 @@ struct GraphInvokeInfoTest {
     return fullPath;
 }
 
-inline int calcOffset(std::vector<int> shape, std::vector<int> offset) {
-    int base = 1;
-    int res = 0;
-    for (int i = shape.size() - 1; i >= 0; i--) {
-        res += offset[i] * base;
-        base *= shape[i];
-    }
-    return res;
-}
-
-inline int GetDeviceIdByEnvVar() {
-    const char *devIdPtr = getenv("TILE_FWK_DEVICE_ID");
-    if (devIdPtr != nullptr) {
-        return std::stoi(devIdPtr);
-    }
-    return 0;
-}
-
-inline void SetInterpreterConfig(){
+inline void SetInterpreterConfig() {
 // 通过build_ci.py --enable_interpreter_config使能
 #ifdef ENABLE_STEST_INTERPRETER_CONFIG
     // config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
