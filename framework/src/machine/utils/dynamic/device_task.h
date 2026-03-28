@@ -34,7 +34,7 @@ struct DynDeviceTask : DynDeviceTaskBase {
 
     static uint32_t GetReadyQueueIndexByCoreType(CoreType coreType) {
         if (coreType == CoreType::AICPU) {
-            return static_cast<uint32_t>(READY_QUEUE_SIZE) - 1;
+            return static_cast<uint32_t>(READY_QUEUE_NUM) - 1;
         }
         return static_cast<uint32_t>(coreType);
     }

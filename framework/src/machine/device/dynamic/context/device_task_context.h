@@ -52,7 +52,7 @@ private:
         const predcount_t *dupPredCountList, size_t funcIndex);
     void InitReadyCoreFunctionQueue(ReadyCoreFunctionQueue *q, uint32_t capacity);
     int InitReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg,
-        ReadyCoreFunctionQueue* queue[READY_QUEUE_SIZE]);
+        ReadyCoreFunctionQueue* queue[READY_QUEUE_NUM]);
     int ProcessZeroPredTask(DynDeviceTask *dyntask, uint32_t *wrapTasklistAddr, WrapInfoQueue *wrapQueue, bool isNeedWrap);
     void InitDieReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg);
     void UpdateDeviceTaskQueueInfo(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *aicpuQueue, ReadyCoreFunctionQueue *aivQueue,

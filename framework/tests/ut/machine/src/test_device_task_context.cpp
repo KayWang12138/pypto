@@ -265,7 +265,7 @@ TEST_F(TestDeviceTaskContext, InitReadyQueues_ExceedsStitchSize_ReturnsError) {
     taskContext.InitAllocator(&devProg, workspace, &startArgs);
     auto dyntask = std::make_unique<DynDeviceTask>(workspace);
     CreateMockDynDeviceTask(dyntask.get(), 100U);
-    ReadyCoreFunctionQueue *queues[READY_QUEUE_SIZE] = {};
+    ReadyCoreFunctionQueue *queues[READY_QUEUE_NUM] = {};
     EXPECT_EQ(taskContext.InitReadyQueues(dyntask.get(), &devProg, queues), DEVICE_MACHINE_ERROR);
 }
 
@@ -561,11 +561,11 @@ TEST_F(TestDeviceTaskContext, DumpReadyQueue_CoversLoggingLines) {
     std::array<taskid_t, 4> bufAiv{};
     std::array<taskid_t, 4> bufAic{};
     std::array<taskid_t, 4> bufAicpu{};
-    ReadyCoreFunctionQueue qslot[READY_QUEUE_SIZE];
+    ReadyCoreFunctionQueue qslot[READY_QUEUE_NUM];
     InitReadyQueueSlot(qslot[0], bufAiv, 0, 1, MakeTaskID(0, 1));
     InitReadyQueueSlot(qslot[1], bufAic, 0, 1, MakeTaskID(0, 2));
     InitReadyQueueSlot(qslot[2], bufAicpu, 0, 1, MakeTaskID(0, 3));
-    for (size_t i = 0; i < READY_QUEUE_SIZE; ++i) {
+    for (size_t i = 0; i < READY_QUEUE_NUM; ++i) {
         dyntask->readyQueue[i] = &qslot[i];
     }
     DeviceTaskContext::DumpReadyQueue(dyntask.get(), "ut_cov");
@@ -584,11 +584,11 @@ TEST_F(TestDeviceTaskContext, DumpDepend_CoversHeadLoggingWithoutDupData) {
     std::array<taskid_t, 4> bufAiv{};
     std::array<taskid_t, 4> bufAic{};
     std::array<taskid_t, 4> bufAicpu{};
-    ReadyCoreFunctionQueue qslot[READY_QUEUE_SIZE];
+    ReadyCoreFunctionQueue qslot[READY_QUEUE_NUM];
     InitReadyQueueSlotMulti(qslot[0], bufAiv, 0, 2, {MakeTaskID(0, 0), MakeTaskID(0, 1)});
     InitReadyQueueSlot(qslot[1], bufAic, 0, 1, MakeTaskID(1, 0));
     InitReadyQueueSlot(qslot[2], bufAicpu, 0, 0, 0);
-    for (size_t i = 0; i < READY_QUEUE_SIZE; ++i) {
+    for (size_t i = 0; i < READY_QUEUE_NUM; ++i) {
         dyntask->readyQueue[i] = &qslot[i];
     }
 

@@ -84,19 +84,14 @@ void DeviceTaskContext::InitReadyCoreFunctionQueue(ReadyCoreFunctionQueue *q, ui
 }
 
 int DeviceTaskContext::InitReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg,
-    ReadyCoreFunctionQueue* queue[READY_QUEUE_SIZE]) {
-    uint32_t size = sizeof(ReadyCoreFunctionQueue) + dyntask->devTask.coreFunctionCnt * sizeof(taskid_t);
-    if (dyntask->devTask.coreFunctionCnt > devProg->stitchFunctionsize) {
-        DEV_ERROR(CtrlErr::DEVICE_TASK_BUILD_FAILED, "#ctrl.task.pre.queue.init: coreFunctionCnt (%lu) exceeds stitchFunctionsize (%u), cannot build ready queue.",
-        dyntask->devTask.coreFunctionCnt, devProg->stitchFunctionsize);
-        return DEVICE_MACHINE_ERROR;
-    }
-    DEV_ASSERT(CtrlErr::DEVICE_TASK_BUILD_FAILED, dyntask->devTask.coreFunctionCnt <= devProg->stitchFunctionsize);
-
-    for (size_t i = 0; i < READY_QUEUE_SIZE; ++i) {
+    ReadyCoreFunctionQueue* queue[READY_QUEUE_NUM]) {
+    uint32_t capacity = dyntask->devTask.coreFunctionCnt > READY_QUEUE_CAPACITY ?
+        READY_QUEUE_CAPACITY : dyntask->devTask.coreFunctionCnt;
+    uint32_t size = sizeof(ReadyCoreFunctionQueue) + capacity * sizeof(taskid_t);;
+    for (size_t i = 0; i < READY_QUEUE_NUM; ++i) {
         WsAllocation qalloc = ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::READY_QUE));
         ReadyCoreFunctionQueue *q = qalloc.As<ReadyCoreFunctionQueue>();
-        InitReadyCoreFunctionQueue(q, dyntask->devTask.coreFunctionCnt);
+        InitReadyCoreFunctionQueue(q, capacity);
         queue[i] = q;
         dyntask->readyQueue[i] = q;
     }
@@ -150,7 +145,7 @@ int DeviceTaskContext::ProcessZeroPredTask(DynDeviceTask *dyntask, uint32_t *wra
 int DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
     PerfBegin(PERF_EVT_READY_QUEUE_IN);
 
-    ReadyCoreFunctionQueue *queue[READY_QUEUE_SIZE];
+    ReadyCoreFunctionQueue *queue[READY_QUEUE_NUM];
     if (InitReadyQueues(dyntask, devProg, queue) != DEVICE_MACHINE_OK) {return DEVICE_MACHINE_ERROR;}
     ReadyCoreFunctionQueue *aicpuQueue = queue[DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AICPU)];
     ReadyCoreFunctionQueue *aivQueue = queue[DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIV)];
@@ -363,12 +358,12 @@ void DeviceTaskContext::DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *dev
     (void)devProg;
     (void)startArgs;
     int total = 0;
-    for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
+    for (size_t i = 0; i < READY_QUEUE_NUM; i++) {
         ReadyCoreFunctionQueue *q = dyntask->readyQueue[i];
         total += q->tail - q->head;
     }
     DEV_DEBUG("%s: ready total:%d", prefix, total);
-    for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
+    for (size_t i = 0; i < READY_QUEUE_NUM; i++) {
         ReadyCoreFunctionQueue *q = dyntask->readyQueue[i];
         for (uint32_t k = q->head; k < q->tail; k++) {
             uint32_t taskId = q->elem[k];

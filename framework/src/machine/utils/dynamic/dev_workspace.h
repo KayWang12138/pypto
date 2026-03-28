@@ -28,6 +28,7 @@
 namespace npu::tile_fwk::dynamic {
 inline constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
 inline constexpr uint32_t SUBMMIT_TASK_QUE_SIZE = 32;
+
 class DeviceWorkspaceAllocator {
 public:
     DeviceWorkspaceAllocator() = default;
@@ -787,12 +788,12 @@ private:
     }
 
     uint32_t ReadyQueSlabMemObjSize() {
-        return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
+        return sizeof(ReadyCoreFunctionQueue) + READY_QUEUE_CAPACITY * sizeof(uint32_t);
     }
 
     uint32_t DieReadyQueSlabMemObjSize() {
         if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
-            return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
+            return sizeof(ReadyCoreFunctionQueue) + READY_QUEUE_CAPACITY * sizeof(uint32_t);
         } else {
             return 1;
         }
@@ -800,7 +801,7 @@ private:
 
     uint32_t WrapQueSlabMemObjSize() {
         if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
-            return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
+            return sizeof(ReadyCoreFunctionQueue) + READY_QUEUE_CAPACITY * sizeof(uint32_t);
         } else {
             return 1;
         }
@@ -808,7 +809,7 @@ private:
 
     uint32_t WrapTasklistSlabMemObjSize() {
         if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
-            return devProg_-> stitchFunctionsize * sizeof(uint32_t);
+            return READY_QUEUE_CAPACITY * sizeof(uint32_t);
         } else {
             return 1;
         }
