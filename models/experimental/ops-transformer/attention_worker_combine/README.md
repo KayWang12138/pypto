@@ -80,12 +80,12 @@ export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch6
 ## 测试结果
 
 ```
-Strategy     BS     K      H      Result     Max Diff    
+Strategy     BS     K      H      Result     Max Diff
 ----------------------------------------------------------------------
-SplitBS      8      2      32     PASS       0.00000000  
-SplitH       8      2      32     PASS       0.00000000  
-SplitBS      16     2      32     PASS       0.00000000  
-SplitH       16     2      32     PASS       0.00000000  
+SplitBS      8      2      32     PASS       0.00000000
+SplitH       8      2      32     PASS       0.00000000
+SplitBS      16     2      32     PASS       0.00000000
+SplitH       16     2      32     PASS       0.00000000
 ----------------------------------------------------------------------
 Total: 4/4 passed (动态 batch 无需重编译)
 ```
