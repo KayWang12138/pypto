@@ -125,7 +125,7 @@ void DataDependencySearcher::CheckWAWSearchTree(Operation *opWait, std::set<int>
         auto tensor = opWait->GetOOperands()[outIdx];
         MemoryType currMemoryType = tensor->GetMemoryTypeOriginal();
         if (wawSearchTree_.count(currMemoryType) > 0) {
-            TileRange rg = currMemoryType == MemoryType::MEM_UB ? ubTensorRangeMap[tensor->GetMagic()] : tensor->memoryrange;
+            TileRange rg = currMemoryType == MemoryType::MEM_UB ? ubTensorRangeMap_[tensor->GetMagic()] : tensor->memoryrange;
             std::set<int> found = wawSearchTree_[currMemoryType].GetCovered(rg.start, rg.end);
             res.insert(found.begin(), found.end());
         }
@@ -142,7 +142,7 @@ void DataDependencySearcher::CheckRAWSearchTree(Operation *opWait, std::set<int>
             res.insert(found.begin(), found.end());
         }
         if (rawSearchTree_.count(readMemoryType) > 0) {
-            TileRange rg = readMemoryType == MemoryType::MEM_UB ? ubTensorRangeMap[tensor->GetMagic()] : tensor->memoryrange;
+            TileRange rg = readMemoryType == MemoryType::MEM_UB ? ubTensorRangeMap_[tensor->GetMagic()] : tensor->memoryrange;
             std::set<int> found = rawSearchTree_[readMemoryType].GetCovered(rg.start, rg.end);
             res.insert(found.begin(), found.end());
         }
@@ -159,7 +159,7 @@ void DataDependencySearcher::CheckWARSearchTree(Operation *opWait, std::set<int>
             res.insert(found.begin(), found.end());
         }
         if (warSearchTree_.count(writeMemoryType) > 0) {
-            TileRange rg = writeMemoryType == MemoryType::MEM_UB ? ubTensorRangeMap[tensor->GetMagic()] : tensor->memoryrange;
+            TileRange rg = writeMemoryType == MemoryType::MEM_UB ? ubTensorRangeMap_[tensor->GetMagic()] : tensor->memoryrange;
             std::set<int> found = warSearchTree_[writeMemoryType].GetCovered(rg.start, rg.end);
             res.insert(found.begin(), found.end());
         }
@@ -186,7 +186,7 @@ void DataDependencySearcher::InsertWAWSearchTree(const Operation *opSet, int idx
         if (wawSearchTree_.count(prevMemoryType) == 0) {
             wawSearchTree_[prevMemoryType] = RangeSearchTree();
         }
-        TileRange rg = prevMemoryType == MemoryType::MEM_UB ? ubTensorRangeMap[tensor->GetMagic()] : tensor->memoryrange;
+        TileRange rg = prevMemoryType == MemoryType::MEM_UB ? ubTensorRangeMap_[tensor->GetMagic()] : tensor->memoryrange;
         wawSearchTree_[prevMemoryType].Insert(rg.start, rg.end, idx);
     }
 }
@@ -205,7 +205,7 @@ void DataDependencySearcher::InsertRAWSearchTree(const Operation *opSet, int idx
         if (rawSearchTree_.count(writeMemoryType) == 0) {
             rawSearchTree_[writeMemoryType] = RangeSearchTree();
         }
-        TileRange rg = writeMemoryType == MemoryType::MEM_UB ? ubTensorRangeMap[tensor->GetMagic()] : tensor->memoryrange;
+        TileRange rg = writeMemoryType == MemoryType::MEM_UB ? ubTensorRangeMap_[tensor->GetMagic()] : tensor->memoryrange;
         rawSearchTree_[writeMemoryType].Insert(rg.start, rg.end,idx);
     }
 }
@@ -224,7 +224,7 @@ void DataDependencySearcher::InsertWARSearchTree(const Operation *opSet, int idx
         if (warSearchTree_.count(readMemoryType) == 0) {
             warSearchTree_[readMemoryType] = RangeSearchTree();
         }
-        TileRange rg = readMemoryType == MemoryType::MEM_UB ? ubTensorRangeMap[tensor->GetMagic()] : tensor->memoryrange;
+        TileRange rg = readMemoryType == MemoryType::MEM_UB ? ubTensorRangeMap_[tensor->GetMagic()] : tensor->memoryrange;
         warSearchTree_[readMemoryType].Insert(rg.start, rg.end,idx);
     }
 }
@@ -248,7 +248,7 @@ void PipeSync::BuildTensorRangeMap(Operation *op) {
     inOutTensors.insert(inOutTensors.end(), inTensors.begin(), inTensors.end());
     inOutTensors.insert(inOutTensors.end(), outTensors.begin(), outTensors.end());
     for (const auto &tensor : inOutTensors) {
-        if (ubTensorRangeMap.count(tensor->GetMagic()) || tensor->GetMemoryTypeOriginal() != MemoryType::MEM_UB) {
+        if (ubTensorRangeMap_.count(tensor->GetMagic()) || tensor->GetMemoryTypeOriginal() != MemoryType::MEM_UB) {
             continue;
         }
         TileRange tensorRange;
@@ -261,26 +261,26 @@ void PipeSync::BuildTensorRangeMap(Operation *op) {
             tensorRange.start = tensor->memoryrange.start + curUBSize;
             tensorRange.end = tensor->memoryrange.end + curUBSize;
         }
-        ubTensorRangeMap.emplace(std::make_pair(tensor->GetMagic(), tensorRange));
+        ubTensorRangeMap_.emplace(std::make_pair(tensor->GetMagic(), tensorRange));
     }
 }
 
-Status PipeSync::InsertSync(Function &function, std::vector<Operation *> &syncedOpLog) {
+Status PipeSync::InsertSync(Function &function, std::vector<Operation *> &syncedOpList) {
     std::vector<IndexOp> synced;
-    std::vector<Operation *> opLogPtr(function.Operations(false).DuplicatedOpList());
-    oriOpList_ = opLogPtr;
+    std::vector<Operation *> opList(function.Operations(false).DuplicatedOpList());
+    oriOpList_ = opList;
     uint64_t idxInput = 0;
-    for (const auto &op : opLogPtr) {
+    for (const auto &op : opList) {
         BuildTensorRangeMap(op);
         APASS_LOG_DEBUG_F(Elements::Operation, "Input operation %lu %lu: %s.", static_cast<unsigned long>(idxInput), static_cast<unsigned long>(op->GetOpMagic()), op->GetOpcodeStr().c_str());
         idxInput++;
     }
-    if (PipeDispatch(opLogPtr, synced) != SUCCESS) { 
+    if (PipeDispatch(opList, synced) != SUCCESS) { 
         APASS_LOG_ERROR_F(Elements::Operation, "InsertSync failed at function PipeDispatch.");
         return FAILED; 
     }
 
-    if (IssueOp(function, opLogPtr, synced) != SUCCESS) { 
+    if (IssueOp(function, opList, synced) != SUCCESS) { 
         APASS_LOG_ERROR_F(Elements::Operation, "InsertSync failed at function IssueOp.");
         return FAILED; 
     }
@@ -290,7 +290,7 @@ Status PipeSync::InsertSync(Function &function, std::vector<Operation *> &synced
     });
 
     for (auto &log : synced) {
-        syncedOpLog.push_back(&log.second.get());
+        syncedOpList.push_back(&log.second.get());
     }
     return SUCCESS;
 }
@@ -321,11 +321,11 @@ std::string PipeSync::DepOp::DumpDepOp(std::vector<Operation *> opLog) {
     return ss.str();
 }
 
-std::string PipeSync::IssueQueue::DumpIssueQueue(std::vector<Operation *> opLogPtr) {
+std::string PipeSync::IssueQueue::DumpIssueQueue(std::vector<Operation *> opList) {
     std::stringstream ss;
     ss << "pipe type: " << GetPipeTypeDict().Find(selfPipeCore.pipe) << ", Op in this pipe: {";
     for (auto op : ops) {
-        ss << opLogPtr[op]->GetOpMagic() << " " << opLogPtr[op]->GetOpcodeStr() << ", ";
+        ss << opList[op]->GetOpMagic() << " " << opList[op]->GetOpcodeStr() << ", ";
     }
     ss << "}";
     return ss.str();
@@ -426,12 +426,13 @@ Status PipeSync::AdjustCopyInCfg(TileOpCfg &opcfg, Operation &op) {
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
         opcfg.coreType_ = CoreType::AIC;
-        return SUCCESS;
-    } 
-    if (dstMemType == MemoryType::MEM_UB) {
+    } else if (dstMemType == MemoryType::MEM_UB){
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
         opcfg.coreType_ = CoreType::AIV;
+    } else {
+        APASS_LOG_ERROR_F(Elements::Operation, "%d COPYIN op dstMemType: %s, it didn't meet expectations.", op.GetOpMagic(), MemoryTypeToString(dstMemType).c_str());
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -447,18 +448,17 @@ Status PipeSync::AdjustCopyOutCfg(TileOpCfg &opcfg, Operation &op) {
         opcfg.pipeIdStart_ = PipeType::PIPE_FIX;
         opcfg.pipeIdEnd_ = PipeType::PIPE_FIX;
         opcfg.coreType_ = CoreType::AIC;
-        return SUCCESS;
-    }
-    if (srcMemType == MemoryType::MEM_UB) {
+    } else if (srcMemType == MemoryType::MEM_UB) {
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE3;
         opcfg.coreType_ = CoreType::AIV;
-        return SUCCESS;
-    }
-    if (srcMemType == MemoryType::MEM_L1) {
+    } else if (srcMemType == MemoryType::MEM_L1) {
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE3;
         opcfg.coreType_ = CoreType::AIC;
+    } else {
+        APASS_LOG_ERROR_F(Elements::Operation, "%d COPYOUT op srcMemType: %s, it didn't meet expectations.", op.GetOpMagic(), MemoryTypeToString(srcMemType).c_str());
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -485,23 +485,23 @@ Status PipeSync::AdjustOpCfg(TileOpCfg &opcfg, Operation &op) {
     return SUCCESS;
 }
 
-Status PipeSync::PipeDispatch(const std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog) {
+Status PipeSync::PipeDispatch(const std::vector<Operation *> opList, std::vector<IndexOp> &syncedOpList) {
     DataDependencySearcher dataDependencySearcher;
-    dataDependencySearcher.ubTensorRangeMap = ubTensorRangeMap;
-    for (size_t i = 0; i < opLogPtr.size(); i++) {
-        if (opLogPtr[i]->GetOpcodeStr().find("ALLOC") != std::string::npos) { 
-            APASS_LOG_ERROR_F(Elements::Operation, "%d ALLOC op should not appear in InsertSync, PipeDispatch failed.%s", opLogPtr[i]->GetOpMagic(), GetFormatBacktrace(opLogPtr[i]).c_str());
+    dataDependencySearcher.ubTensorRangeMap_ = ubTensorRangeMap_;
+    for (size_t i = 0; i < opList.size(); i++) {
+        if (opList[i]->GetOpcodeStr().find("ALLOC") != std::string::npos) { 
+            APASS_LOG_ERROR_F(Elements::Operation, "%d ALLOC op should not appear in InsertSync, PipeDispatch failed.%s", opList[i]->GetOpMagic(), GetFormatBacktrace(opList[i]).c_str());
             return FAILED;
         }
-        auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
-        if (AdjustOpCfg(opcfg, *opLogPtr[i]) != SUCCESS) { 
+        auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList[i]->GetOpcode());
+        if (AdjustOpCfg(opcfg, *opList[i]) != SUCCESS) { 
             APASS_LOG_ERROR_F(Elements::Operation, "PipeDispatch failed at function AdjustOpCfg.");
             return FAILED; 
         }
-        DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
-        DepOp &opRef = depOps_.emplace_back(op);
-        FindDep(opRef, opLogPtr, i, dataDependencySearcher);
-        EnqueueOp(opRef, opLogPtr, syncedOpLog);
+        DepOp opDepInfo(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
+        DepOp &opDepInfoRef = depInfoList_.emplace_back(opDepInfo);
+        FindDep(opDepInfoRef, opList, i, dataDependencySearcher);
+        EnqueueOp(opDepInfoRef, opList, syncedOpList);
     }
     return SUCCESS;
 }
@@ -512,25 +512,28 @@ void PipeSync::InitIssueQueue() {
     }
 }
 
-void PipeSync::EnqueueOp(DepOp &op, const std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog) {
-   if (opLogPtr[op.idx]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_VIEW ||
-        opLogPtr[op.idx]->GetOpcode() == Opcode::OP_NOP || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_HUB ||
-        opLogPtr[op.idx]->GetOpcode() == Opcode::OP_VIEW_TYPE) {
-        syncedOpLog.emplace_back(std::make_pair(op.idx * SEQUENCE_IDX, std::ref(*opLogPtr[op.idx])));
+void PipeSync::EnqueueOp(DepOp &opDepInfo, const std::vector<Operation *> opList, std::vector<IndexOp> &syncedOpList) {
+   if (opList[opDepInfo.idx]->GetOpcode() == Opcode::OP_ASSEMBLE || opList[opDepInfo.idx]->GetOpcode() == Opcode::OP_VIEW ||
+        opList[opDepInfo.idx]->GetOpcode() == Opcode::OP_NOP || opList[opDepInfo.idx]->GetOpcode() == Opcode::OP_HUB ||
+        opList[opDepInfo.idx]->GetOpcode() == Opcode::OP_VIEW_TYPE) {
+        syncedOpList.emplace_back(std::make_pair(opDepInfo.idx * SEQUENCE_IDX, std::ref(*opList[opDepInfo.idx])));
         return;
     }
-    PipeCoreReal opPipeCore(op.selfPipeCore.pipeEnd, op.selfPipeCore.core);
+    PipeCoreReal opPipeCore(opDepInfo.selfPipeCore.pipeEnd, opDepInfo.selfPipeCore.core);
     auto &issueQ = issueState_[static_cast<int>(GetPipeSeq(opPipeCore))];
-    issueQ.ops.emplace_back(op.idx);
-    op.idxInPipe = issueQ.ops.size() - 1;
+    issueQ.ops.emplace_back(opDepInfo.idx);
+    opDepInfo.idxInPipe = issueQ.ops.size() - 1;
     // 若op的pipeStart和pipeEnd不同, 进行记录
-    if (op.selfPipeCore.pipeStart != op.selfPipeCore.pipeEnd) {
-        PipeCoreReal opPipeCoreEnd(op.selfPipeCore.pipeEnd, op.selfPipeCore.core);
+    if (opDepInfo.selfPipeCore.pipeStart != opDepInfo.selfPipeCore.pipeEnd) {
+        PipeCoreReal opPipeCoreEnd(opDepInfo.selfPipeCore.pipeEnd, opDepInfo.selfPipeCore.core);
         PipePair pp{opPipeCore, opPipeCoreEnd};
-        int opMagic = opLogPtr[op.idx]->GetOpMagic();
-        doublePipeOp[pp].emplace_back(opMagic);
+        int opMagic = opList[opDepInfo.idx]->GetOpMagic();
+        APASS_LOG_DEBUG_F(Elements::Operation, "Op[%d] %s has dual pipes, idx: %zu, pipeStart: %s, pipeEnd: %s, pipeCore: %s",
+            opList[opDepInfo.idx]->GetOpMagic(), opList[opDepInfo.idx]->GetOpcodeStr().c_str(), opDepInfo.idx, GetPipeTypeDict().Find(opDepInfo.selfPipeCore.pipeStart).c_str(),
+            GetPipeTypeDict().Find(opDepInfo.selfPipeCore.pipeEnd).c_str(), GetCoreTypeDict().Find(opDepInfo.selfPipeCore.core).c_str());
+        doublePipeOp_[pp].emplace_back(opMagic);
     }
-    orderedOpList_.emplace(op.idx);
+    orderedOpList_.emplace(opDepInfo.idx);
 }
 
 void PipeSync::RemoveOpDep(DepOp &setOp, DepOp &waitOp) const {
@@ -565,8 +568,8 @@ Status PipeSync::AddOpDep(DepOp &setOp, DepOp &waitOp) {
             APASS_LOG_ERROR_F(Elements::Operation, "This dependency should not exist, AddOpDep failed.");
             return FAILED; 
         }
-        PipeCoreReal elePipeCore(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core);
-        PipeCoreReal waitOpPipeCore(depOps_[waitOpIdx].selfPipeCore.pipeStart, depOps_[waitOpIdx].selfPipeCore.core);
+        PipeCoreReal elePipeCore(depInfoList_[ele].selfPipeCore.pipeStart, depInfoList_[ele].selfPipeCore.core);
+        PipeCoreReal waitOpPipeCore(depInfoList_[waitOpIdx].selfPipeCore.pipeStart, depInfoList_[waitOpIdx].selfPipeCore.core);
         if (elePipeCore == waitOpPipeCore) {
             if (ele  <= waitOpIdx) { 
                 APASS_LOG_ERROR_F(Elements::Operation, "New waitidx should less than old, AddOpDep failed.");
@@ -578,7 +581,7 @@ Status PipeSync::AddOpDep(DepOp &setOp, DepOp &waitOp) {
     }
     //同一种pipecore，不需要存记录依赖关系
     if (depWaitIdx != static_cast<size_t>(-1)) {
-        RemoveOpDep(setOp, depOps_[depWaitIdx]);
+        RemoveOpDep(setOp, depInfoList_[depWaitIdx]);
     }
     setOp.setPipe.emplace_back(waitOpIdx);
     waitOp.waitPipe.emplace_back(setOpIdx);
@@ -587,7 +590,7 @@ Status PipeSync::AddOpDep(DepOp &setOp, DepOp &waitOp) {
 
 Status PipeSync::AdjustOpDep(DepOp &op, size_t waitOpIdx, IssueQueue &issueQ, bool &failedFlag) {
     //op为靠前的， waitOp为靠后的
-    auto &waitOp = depOps_[waitOpIdx];
+    auto &waitOp = depInfoList_[waitOpIdx];
 
     if (issueQ.currOp + 1 == issueQ.ops.size()) {
         failedFlag = true;
@@ -595,7 +598,7 @@ Status PipeSync::AdjustOpDep(DepOp &op, size_t waitOpIdx, IssueQueue &issueQ, bo
     }
 
     auto &nextOpIdx = issueQ.ops[issueQ.currOp + 1];
-    auto &nextOp = depOps_[nextOpIdx];
+    auto &nextOp = depInfoList_[nextOpIdx];
     RemoveOpDep(op, waitOp);
     if (AddOpDep(nextOp, waitOp) != SUCCESS) { 
         APASS_LOG_ERROR_F(Elements::Operation, "AdjustOpDep failed at function AddOpDep.");
@@ -604,15 +607,16 @@ Status PipeSync::AdjustOpDep(DepOp &op, size_t waitOpIdx, IssueQueue &issueQ, bo
     return SUCCESS;
 }
 
+
 Status PipeSync::HandleEventID(DepOp &op, IssueQueue &issueQ, IssueNum &issuenum, bool &deadlock, bool &res) {
     bool eventIdOk = true;
     bool failedFlag{false};
     for (auto ele : op.setPipe) {
-        if (op.selfPipeCore.pipeEnd == depOps_[ele].selfPipeCore.pipeStart) {
+        if (op.selfPipeCore.pipeEnd == depInfoList_[ele].selfPipeCore.pipeStart) {
             continue;
         }
         PipeCoreReal currPipeCore(op.selfPipeCore.pipeEnd, op.selfPipeCore.core);
-        PipeCoreReal elePipeCore(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core);
+        PipeCoreReal elePipeCore(depInfoList_[ele].selfPipeCore.pipeStart, depInfoList_[ele].selfPipeCore.core);
         PipePair pp{currPipeCore, elePipeCore};
         std::pair<CoreTypeDetail, CoreTypeDetail> setWaitCoreType;
         issuenum.maxIssueNum.emplace(pp, GetFreeEventIdQueue(pp, op.idx, ele, setWaitCoreType).size());
@@ -650,7 +654,7 @@ Status PipeSync::HandleEventID(DepOp &op, IssueQueue &issueQ, IssueNum &issuenum
 bool PipeSync::CheckIssuedOp(const DepOp &op) {
     // current op will be issued only when all of the waitop are issued
     for (const auto &waitOp : op.waitPipe) {
-        if (!depOps_[waitOp].issued) {
+        if (!depInfoList_[waitOp].issued) {
             return false;
         }
     }
@@ -664,7 +668,7 @@ Status PipeSync::PopFromQueue(IssueQueue &issueQ, std::vector<size_t> &poped, bo
         if (issueQ.currOp >= issueQ.ops.size()) {
             break;
         }
-        auto &op = depOps_[issueQ.ops[issueQ.currOp]];
+        auto &op = depInfoList_[issueQ.ops[issueQ.currOp]];
         if (op.idx != orderedOpList_.front()) {
             break;
         }
@@ -688,7 +692,7 @@ Status PipeSync::PopFromQueue(IssueQueue &issueQ, std::vector<size_t> &poped, bo
         orderedOpList_.pop();
         for (auto ele : op.setPipe) {
             PipeCoreReal currPipeCore(op.selfPipeCore.pipeEnd, op.selfPipeCore.core);
-            PipeCoreReal elePipeCore(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core);
+            PipeCoreReal elePipeCore(depInfoList_[ele].selfPipeCore.pipeStart, depInfoList_[ele].selfPipeCore.core);
             auto pp = PipePair{currPipeCore, elePipeCore};
             issuenum.currIssueNum[pp] = issuenum.currIssueNum[pp] + 1;
         }
@@ -697,15 +701,15 @@ Status PipeSync::PopFromQueue(IssueQueue &issueQ, std::vector<size_t> &poped, bo
     return SUCCESS;
 }
 
-Status PipeSync::InjectWaitFlag(Function &function, size_t idx, std::vector<IndexOp> &syncedOpLog) {
-    PipeCore currPipe = depOps_[idx].selfPipeCore;
+Status PipeSync::InjectWaitFlag(Function &function, size_t idx, std::vector<IndexOp> &syncedOpList) {
+    PipeCore currPipe = depInfoList_[idx].selfPipeCore;
     // serch the waitpipe of current op
     uint64_t waitIdx = idx == 0 ? 0 : idx * SEQUENCE_IDX - HALF_SEQUENCE_IDX;
-    for (const auto &ele : depOps_[idx].waitPipe) {
-        PipeCore setPipe = depOps_[ele].selfPipeCore;
+    for (const auto &ele : depInfoList_[idx].waitPipe) {
+        PipeCore setPipe = depInfoList_[ele].selfPipeCore;
         PipeCoreReal setPipeReal(setPipe.pipeEnd, setPipe.core);
         PipeCoreReal currPipeReal(currPipe.pipeStart, currPipe.core);
-        int eventId = setWaitPairMap_[{ele, idx}];
+        int eventId = setWaitPairMap_[std::make_pair(ele, idx)];
         std::vector<std::shared_ptr<LogicalTensor>> input;
         std::vector<std::shared_ptr<LogicalTensor>> output;
         Operation &syncOp = function.AddRawOperation(npu::tile_fwk::Opcode::OP_SYNC_DST, {input}, {output});
@@ -715,9 +719,9 @@ Status PipeSync::InjectWaitFlag(Function &function, size_t idx, std::vector<Inde
             continue;
         }
         // insert wait_flag
-        syncedOpLog.emplace_back(std::make_pair(++waitIdx, std::ref(syncOp)));
-        APASS_LOG_DEBUG_F(Elements::Operation, "Insert %d %s, setpipe: %s, waitpipe: %s, eventid: %d",
-            syncOp.GetOpMagic(), syncOp.GetOpcodeStr().c_str(), GetPipeTypeDict().Find(syncOp.syncQueue_.pipeId_).c_str(),
+        syncedOpList.emplace_back(std::make_pair(++waitIdx, std::ref(syncOp)));
+        APASS_LOG_DEBUG_F(Elements::Operation, "Insert wait flag for prevOpIdx: %zu, syncOp[%d] %s, setpipe: %s, waitpipe: %s, eventid: %d",
+            ele, syncOp.GetOpMagic(), syncOp.GetOpcodeStr().c_str(), GetPipeTypeDict().Find(syncOp.syncQueue_.pipeId_).c_str(),
             GetPipeTypeDict().Find(syncOp.syncQueue_.trigPipeId_).c_str(), syncOp.syncQueue_.eventId_);
         std::pair<CoreTypeDetail, CoreTypeDetail> setWaitCoreType;
         GetFreeEventIdQueue({setPipeReal, currPipeReal}, ele, idx, setWaitCoreType).push_back(eventId);
@@ -730,11 +734,11 @@ Status PipeSync::InjectWaitFlag(Function &function, size_t idx, std::vector<Inde
     return SUCCESS;
 }
 
-Status PipeSync::InjectSetFlag(Function &function, size_t idx, std::vector<IndexOp> &syncedOpLog) {
-    PipeCore currPipe = depOps_[idx].selfPipeCore;
+Status PipeSync::InjectSetFlag(Function &function, size_t idx, std::vector<IndexOp> &syncedOpList) {
+    PipeCore currPipe = depInfoList_[idx].selfPipeCore;
     uint64_t setIdx = idx * SEQUENCE_IDX;
-    for (const auto &ele : depOps_[idx].setPipe) {
-        PipeCore waitPipe = depOps_[ele].selfPipeCore;
+    for (const auto &ele : depInfoList_[idx].setPipe) {
+        PipeCore waitPipe = depInfoList_[ele].selfPipeCore;
         PipeCoreReal waitPipeReal(waitPipe.pipeStart, waitPipe.core);
         PipeCoreReal currPipeReal(currPipe.pipeEnd, currPipe.core);
         int eventId{0};
@@ -748,9 +752,9 @@ Status PipeSync::InjectSetFlag(Function &function, size_t idx, std::vector<Index
         bool res = GenSyncOp(currPipeReal, waitPipeReal, eventId, true, syncOp);
         if (res) {
             // insert set_flag
-            syncedOpLog.emplace_back(std::make_pair(++setIdx, std::ref(syncOp)));
-            APASS_LOG_DEBUG_F(Elements::Operation, "Insert %d %s, setpipe: %s, waitpipe: %s, eventid: %d",
-                syncOp.GetOpMagic(), syncOp.GetOpcodeStr().c_str(), GetPipeTypeDict().Find(syncOp.syncQueue_.pipeId_).c_str(),
+            syncedOpList.emplace_back(std::make_pair(++setIdx, std::ref(syncOp)));
+            APASS_LOG_DEBUG_F(Elements::Operation, "Insert set flag for successor opIdx: %zu, syncOp[%d] %s, setpipe: %s, waitpipe: %s, eventid: %d",
+                ele, syncOp.GetOpMagic(), syncOp.GetOpcodeStr().c_str(), GetPipeTypeDict().Find(syncOp.syncQueue_.pipeId_).c_str(),
                 GetPipeTypeDict().Find(syncOp.syncQueue_.trigPipeId_).c_str(), syncOp.syncQueue_.eventId_);
             setWaitPairMap_[{idx, ele}] = eventId;
             // 记录wait op 和 setflag的对应关系
@@ -763,7 +767,7 @@ Status PipeSync::InjectSetFlag(Function &function, size_t idx, std::vector<Index
     return SUCCESS;
 }
 
-Status PipeSync::InjectSync(Function &function, std::vector<Operation *> opLogPtr, size_t idx, std::vector<IndexOp> &syncedOpLog) {
+Status PipeSync::InjectSync(Function &function, std::vector<Operation *> opList, size_t idx, std::vector<IndexOp> &syncedOpList) {
     // check idx range
     if (idx > std::numeric_limits<uint64_t>::max() / SEQUENCE_IDX) {
         APASS_LOG_ERROR_F(Elements::Operation, "Operation index is out of range, InjectSync failed.");
@@ -771,15 +775,15 @@ Status PipeSync::InjectSync(Function &function, std::vector<Operation *> opLogPt
     }
 
     // insert wait_flag
-    InjectWaitFlag(function, idx, syncedOpLog);
+    InjectWaitFlag(function, idx, syncedOpList);
     
     // insert current operation
-    syncedOpLog.emplace_back(std::make_pair(idx * SEQUENCE_IDX, std::ref(*opLogPtr[idx])));
-    depOps_[idx].issued = true;
-    APASS_LOG_DEBUG_F(Elements::Operation, "Insert %d %s", opLogPtr[idx]->GetOpMagic(), opLogPtr[idx]->GetOpcodeStr().c_str());
+    syncedOpList.emplace_back(std::make_pair(idx * SEQUENCE_IDX, std::ref(*opList[idx])));
+    depInfoList_[idx].issued = true;
+    APASS_LOG_DEBUG_F(Elements::Operation, "Insert the op itself %d %s", opList[idx]->GetOpMagic(), opList[idx]->GetOpcodeStr().c_str());
 
     // insert set_flag
-    if (InjectSetFlag(function, idx, syncedOpLog) != SUCCESS) {
+    if (InjectSetFlag(function, idx, syncedOpList) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InjectSync failed at function InjectSetFlag.");
         return FAILED;
     }
@@ -788,21 +792,21 @@ Status PipeSync::InjectSync(Function &function, std::vector<Operation *> opLogPt
 
 int PipeSync::GetMaxEventId(const PipePair &pp) {
     PipePair ppReverse = {pp.second, pp.first};
-    auto it1 = doublePipeOp.find(pp);
-    auto it2 = doublePipeOp.find(ppReverse);
-    if (it1 == doublePipeOp.end() && it2 == doublePipeOp.end()) {
+    auto it1 = doublePipeOp_.find(pp);
+    auto it2 = doublePipeOp_.find(ppReverse);
+    if (it1 == doublePipeOp_.end() && it2 == doublePipeOp_.end()) {
         return EVENT_NUM;
     }
     return EVENT_ID7;
 }
 
-Status PipeSync::ProcessDeadLock(uint64_t &eventIdDeadlockEnterTimes, bool &eventIdDeadlock, std::vector<IndexOp> &syncedOpLog) {
+Status PipeSync::ProcessDeadLock(uint64_t &eventIdDeadlockEnterTimes, bool &eventIdDeadlock, std::vector<IndexOp> &syncedOpList) {
     eventIdDeadlockEnterTimes++;
     // eventID deadlock
     if (eventIdDeadlockEnterTimes > DEADLOCK_TIME_THRESHOLD) {
         eventIdDeadlock = true;
     }
-    if (RelaxFakeDataDep(syncedOpLog) != SUCCESS) { 
+    if (RelaxFakeDataDep(syncedOpList) != SUCCESS) { 
         APASS_LOG_ERROR_F(Elements::Operation, "ProcessDeadLock failed at function RelaxFakeDataDep.");
         return FAILED; 
     }
@@ -813,7 +817,7 @@ Status PipeSync::ProcessDeadLock(uint64_t &eventIdDeadlockEnterTimes, bool &even
     return SUCCESS;
 }
 
-Status PipeSync::IssueOpPipeSeq(Function &function, std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog, bool &eventIdDeadlock, size_t &issued) {
+Status PipeSync::IssueOpPipeSeq(Function &function, std::vector<Operation *> opList, std::vector<IndexOp> &syncedOpList, bool &eventIdDeadlock, size_t &issued) {
     for (int i = 0; i < static_cast<int>(PipeSeq::PIPE_END); i++) {
         std::vector<size_t> issuedOps;
         if (PopFromQueue(issueState_[i], issuedOps, eventIdDeadlock) != SUCCESS) {
@@ -822,7 +826,10 @@ Status PipeSync::IssueOpPipeSeq(Function &function, std::vector<Operation *> opL
         }
         issued += issuedOps.size();
         for (auto idx : issuedOps) {
-            if (InjectSync(function, opLogPtr, idx, syncedOpLog) != SUCCESS) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "Insert synchronization primitives for op[%d] %s, idx: %zu, pipeStart: %s, pipeEnd: %s, pipeCore: %s",
+                opList[idx]->GetOpMagic(), opList[idx]->GetOpcodeStr().c_str(), idx, GetPipeTypeDict().Find(depInfoList_[idx].selfPipeCore.pipeStart).c_str(),
+                GetPipeTypeDict().Find(depInfoList_[idx].selfPipeCore.pipeEnd).c_str(), GetCoreTypeDict().Find(depInfoList_[idx].selfPipeCore.core).c_str());
+            if (InjectSync(function, opList, idx, syncedOpList) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "IssueOp failed at function InjectSync.");
                 return FAILED;
             }
@@ -831,19 +838,19 @@ Status PipeSync::IssueOpPipeSeq(Function &function, std::vector<Operation *> opL
     return SUCCESS;
 }
 
-Status PipeSync::IssueSyncOp(Function &function, std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog, size_t &totalIssued, size_t &allIssued) {
+Status PipeSync::IssueSyncOp(Function &function, std::vector<Operation *> opList, std::vector<IndexOp> &syncedOpList, size_t &totalIssued, size_t &allIssued) {
     bool eventIdDeadlock = false;
     uint64_t eventIdDeadlockEnterTimes = 0;
     while (totalIssued < allIssued) {
         size_t issued = 0;
-        if (IssueOpPipeSeq(function, opLogPtr, syncedOpLog, eventIdDeadlock, issued) != SUCCESS) {
+        if (IssueOpPipeSeq(function, opList, syncedOpList, eventIdDeadlock, issued) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "IssueOp failed at function IssueOpPipeSeq.");
             return FAILED;
         }
         totalIssued += issued;
-        // eventIdDeadlockEnterTimes eventIdDeadlock syncedOpLog
+        // eventIdDeadlockEnterTimes eventIdDeadlock syncedOpList
         if (issued == 0) {
-            if (ProcessDeadLock(eventIdDeadlockEnterTimes, eventIdDeadlock, syncedOpLog) != SUCCESS) {
+            if (ProcessDeadLock(eventIdDeadlockEnterTimes, eventIdDeadlock, syncedOpList) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "IssueOp failed at function ProcessDeadLock.");
                 return FAILED;
             }
@@ -855,14 +862,14 @@ Status PipeSync::IssueSyncOp(Function &function, std::vector<Operation *> opLogP
     return SUCCESS;
 }
 
-Status PipeSync::IssueOp(Function &function, std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog) {
+Status PipeSync::IssueOp(Function &function, std::vector<Operation *> opList, std::vector<IndexOp> &syncedOpList) {
     size_t totalIssued = 0;
     size_t allIssued = 0;
     for (int i = 0; i < static_cast<int>(PipeSeq::PIPE_END); i++) {
         allIssued += issueState_[i].ops.size();
-        APASS_LOG_DEBUG_F(Elements::Operation, "Pipe seq %d: %s %s", i, PipeSeqName(static_cast<PipeSeq>(i)).c_str(), issueState_[i].DumpIssueQueue(opLogPtr).c_str());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Pipe seq %d: %s %s", i, PipeSeqName(static_cast<PipeSeq>(i)).c_str(), issueState_[i].DumpIssueQueue(opList).c_str());
     }
-    if (IssueSyncOp(function, opLogPtr, syncedOpLog, totalIssued, allIssued) != SUCCESS) {
+    if (IssueSyncOp(function, opList, syncedOpList, totalIssued, allIssued) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "IssueOp failed with IssueSyncOp.");
         return FAILED;
     }
@@ -956,8 +963,8 @@ std::vector<PipeSync::PipePair> PipeSync::dataDepPair = {
     {{PIPE_FIX, CoreType::AIC}, {PIPE_MTE3, CoreType::AIC}},
 };
 
-bool PipeSync::ConstructDepInfo(DataDepInfo &depInfo, std::vector<IndexOp> &syncedOpLog, int i) {
-    auto &log = syncedOpLog[i].second;
+bool PipeSync::ConstructDepInfo(DataDepInfo &depInfo, std::vector<IndexOp> &syncedOpList, int i) {
+    auto &log = syncedOpList[i].second;
     if (log.get().GetOpcodeStr() != "SYNC_SRC") {
         return false;
     }
@@ -978,25 +985,25 @@ bool PipeSync::ConstructDepInfo(DataDepInfo &depInfo, std::vector<IndexOp> &sync
     return true;
 }
 
-int PipeSync::GetSyncSrcLogIdx(std::vector<IndexOp> &syncedOpLog, int i) {
+int PipeSync::GetSyncSrcLogIdx(std::vector<IndexOp> &syncedOpList, int i) {
     int j = i - 1;
     for (; j >= 0; j--) {
-        if (syncedOpLog[j].second.get().GetOpcodeStr().find("SYNC") == std::string::npos &&
-            syncedOpLog[j].second.get().GetOpcodeStr().find("BAR") == std::string::npos) {
+        if (syncedOpList[j].second.get().GetOpcodeStr().find("SYNC") == std::string::npos &&
+            syncedOpList[j].second.get().GetOpcodeStr().find("BAR") == std::string::npos) {
             break;
         }
     }
-    return syncedOpLog[j].first;
+    return syncedOpList[j].first;
 }
 
-bool PipeSync::FindDataDep(DataDepInfo &depInfo, std::vector<IndexOp> &syncedOpLog, int i) {
-    if (!ConstructDepInfo(depInfo, syncedOpLog, i)) {
+bool PipeSync::FindDataDep(DataDepInfo &depInfo, std::vector<IndexOp> &syncedOpList, int i) {
+    if (!ConstructDepInfo(depInfo, syncedOpList, i)) {
         return false;
     }
-    int syncSrcLogIdx = GetSyncSrcLogIdx(syncedOpLog, i) / SEQUENCE_IDX;
-    DepOp &depOpSrc = depOps_[syncSrcLogIdx];
+    int syncSrcLogIdx = GetSyncSrcLogIdx(syncedOpList, i) / SEQUENCE_IDX;
+    DepOp &depOpSrc = depInfoList_[syncSrcLogIdx];
     for (auto syncDstLogIdx : depOpSrc.setPipe) { //setpipe中的op为该op之后的，依赖于该op的op id
-        DepOp &depOpDst = depOps_[syncDstLogIdx];
+        DepOp &depOpDst = depInfoList_[syncDstLogIdx];
         if (depOpDst.selfPipeCore.core == depInfo.waitc && depOpDst.selfPipeCore.pipeStart == depInfo.waitp) {
             depInfo.opDepList.push_back(std::make_pair(syncSrcLogIdx, syncDstLogIdx));
         }
@@ -1023,7 +1030,7 @@ bool PipeSync::FindMaxOverlap(DataDepInfo &depInfo, int &maxOverlapDepIdx) {
     return true;
 }
 
-Status PipeSync::SynDependency(int maxOverlapDepIdx, const DataDepInfo &depInfo, const PipePair &pipePair, std::vector<IndexOp> &syncedOpLog) {
+Status PipeSync::SynDependency(int maxOverlapDepIdx, const DataDepInfo &depInfo, const PipePair &pipePair, std::vector<IndexOp> &syncedOpList) {
     int set1 = depInfo.opDepList[maxOverlapDepIdx].first;
     int wait1 = depInfo.opDepList[maxOverlapDepIdx].second;
     int set2 = depInfo.opDepList[maxOverlapDepIdx + 1].first;
@@ -1035,9 +1042,9 @@ Status PipeSync::SynDependency(int maxOverlapDepIdx, const DataDepInfo &depInfo,
         APASS_LOG_ERROR_F(Elements::Operation, "Dependency error, RelaxFakeDataDep failed.");
         return FAILED;
     }
-    RemoveOpDep(depOps_[set1], depOps_[wait1]);
-    RemoveOpDep(depOps_[set2], depOps_[wait2]);
-    if (AddOpDep(depOps_[set2], depOps_[wait1]) != SUCCESS) {
+    RemoveOpDep(depInfoList_[set1], depInfoList_[wait1]);
+    RemoveOpDep(depInfoList_[set2], depInfoList_[wait2]);
+    if (AddOpDep(depInfoList_[set2], depInfoList_[wait1]) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "RelaxFakeDataDep failed at function AddOpDep.");
         return FAILED;
     }
@@ -1046,12 +1053,12 @@ Status PipeSync::SynDependency(int maxOverlapDepIdx, const DataDepInfo &depInfo,
     GetFreeEventIdQueue(pipePair, set1, wait1, setWaitCoreType).push_back(eventId1);
     setWaitPairMap_[{set2, wait1}] = eventId2;
     //将靠前的一对有依赖关系op中插入的SYNC_SRC op删除
-    syncedOpLog[syncOpIdx1].second.get().SetAsDeleted();
-    syncedOpLog.erase(syncedOpLog.begin() + syncOpIdx1);
+    syncedOpList[syncOpIdx1].second.get().SetAsDeleted();
+    syncedOpList.erase(syncedOpList.begin() + syncOpIdx1);
     return SUCCESS;
 }
 
-Status PipeSync::GetDepInfo(std::vector<IndexOp> &syncedOpLog, const PipePair &pipePair, DataDepInfo &depInfo) {
+Status PipeSync::GetDepInfo(std::vector<IndexOp> &syncedOpList, const PipePair &pipePair, DataDepInfo &depInfo) {
     depInfo.setp = pipePair.first.pipe;
     depInfo.setc = pipePair.first.core;
     depInfo.waitp = pipePair.second.pipe;
@@ -1060,8 +1067,8 @@ Status PipeSync::GetDepInfo(std::vector<IndexOp> &syncedOpLog, const PipePair &p
     // 说明该set pipe内肯定有8个set op已经发射，而wait pipe内对应的8个op一个都没发射。
     // 找到这8个setop的idx，对应的event id，以及对应的waitop idx
     auto eventNum = static_cast<std::vector<std::pair<int, int>>::size_type>(GetMaxEventId(pipePair));
-    for (int i = syncedOpLog.size() - 1; i >= 0; i--) {
-        if (!(FindDataDep(depInfo, syncedOpLog, i))) {
+    for (int i = syncedOpList.size() - 1; i >= 0; i--) {
+        if (!(FindDataDep(depInfo, syncedOpList, i))) {
             continue;
         }
         if (depInfo.setOpIdList.size() == eventNum) {
@@ -1079,7 +1086,7 @@ Status PipeSync::GetDepInfo(std::vector<IndexOp> &syncedOpLog, const PipePair &p
     return SUCCESS;
 }
 
-Status PipeSync::RelaxFakeDataDep(std::vector<IndexOp> &syncedOpLog) {
+Status PipeSync::RelaxFakeDataDep(std::vector<IndexOp> &syncedOpList) {
     // 合并阈值。只有前后两个set-wait对之间的重叠（以op数量度量）超过该阈值时，才对这两个set-wait对进行合并。
     for (const auto &pipePair : dataDepPair) {
         if (HasFreeEventId(pipePair)) {
@@ -1087,7 +1094,7 @@ Status PipeSync::RelaxFakeDataDep(std::vector<IndexOp> &syncedOpLog) {
         }
         // 找到free id exhausted的pipe pair
         DataDepInfo depInfo;
-        if (GetDepInfo(syncedOpLog, pipePair, depInfo) != SUCCESS) {
+        if (GetDepInfo(syncedOpList, pipePair, depInfo) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "GetDepInfo failed.");
             return FAILED;
         }
@@ -1097,7 +1104,7 @@ Status PipeSync::RelaxFakeDataDep(std::vector<IndexOp> &syncedOpLog) {
             continue;
         }
         // 合并依赖
-        if (SynDependency(maxOverlapDepIdx, depInfo, pipePair, syncedOpLog) != SUCCESS) {
+        if (SynDependency(maxOverlapDepIdx, depInfo, pipePair, syncedOpList) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "SynDependency failed.");
             return FAILED;
         }
@@ -1188,9 +1195,9 @@ bool PipeSync::CheckWawDependency(const Operation &opSet, const Operation &opWai
             int magic1 = opSet.GetOOperands()[setIdx]->GetMagic();
             int magic2 = opWait.GetOOperands()[waitIdx]->GetMagic();
             TileRange range1 = memType == MemoryType::MEM_UB ?
-                ubTensorRangeMap[magic1] : opSet.GetOOperands()[setIdx]->memoryrange;
+                ubTensorRangeMap_[magic1] : opSet.GetOOperands()[setIdx]->memoryrange;
             TileRange range2 = memType == MemoryType::MEM_UB ?
-                ubTensorRangeMap[magic2] : opWait.GetOOperands()[waitIdx]->memoryrange;
+                ubTensorRangeMap_[magic2] : opWait.GetOOperands()[waitIdx]->memoryrange;
             if (BufOverlap(range1, magic1, range2, magic2)) {
                 APASS_LOG_DEBUG_F(Elements::Operation, "%d %zu %s and %d %zu %s has WAW data dependency", opSet.GetOpMagic(), 
                     k, opSet.GetOpcodeStr().c_str(), opWait.GetOpMagic(), idx, opWait.GetOpcodeStr().c_str());
@@ -1211,9 +1218,9 @@ bool PipeSync::CheckRawDependency(const Operation &opSet, const Operation &opWai
             int magic1 = opWait.GetIOperands()[inIdx]->GetMagic();
             int magic2 = opSet.GetOOperands()[outIdx]->GetMagic();
             TileRange range1 = memType == MemoryType::MEM_UB ?
-                ubTensorRangeMap[magic1] : opWait.GetIOperands()[inIdx]->memoryrange;
+                ubTensorRangeMap_[magic1] : opWait.GetIOperands()[inIdx]->memoryrange;
             TileRange range2 = memType == MemoryType::MEM_UB ?
-                ubTensorRangeMap[magic2] : opSet.GetOOperands()[outIdx]->memoryrange;
+                ubTensorRangeMap_[magic2] : opSet.GetOOperands()[outIdx]->memoryrange;
             auto overlap = BufOverlap(range1, magic1, range2, magic2);
             auto ddrTensorSame = memType == MemoryType::MEM_DEVICE_DDR && range1.memId == range2.memId;
             if (overlap || ddrTensorSame) {
@@ -1236,9 +1243,9 @@ bool PipeSync::CheckWarDependency(const Operation &opSet, const Operation &opWai
             int magic1 = opSet.GetIOperands()[inIdx]->GetMagic();
             int magic2 = opWait.GetOOperands()[outIdx]->GetMagic();
             TileRange range1 = memType == MemoryType::MEM_UB ?
-                ubTensorRangeMap[magic1] : opSet.GetIOperands()[inIdx]->memoryrange;
+                ubTensorRangeMap_[magic1] : opSet.GetIOperands()[inIdx]->memoryrange;
             TileRange range2 = memType == MemoryType::MEM_UB ?
-                ubTensorRangeMap[magic2] : opWait.GetOOperands()[outIdx]->memoryrange;
+                ubTensorRangeMap_[magic2] : opWait.GetOOperands()[outIdx]->memoryrange;
             auto overlap = BufOverlap(range1, magic1, range2, magic2);
             auto ddrTensorSame = memType == MemoryType::MEM_DEVICE_DDR && range1.memId == range2.memId;
             if (overlap || ddrTensorSame) {
@@ -1294,6 +1301,8 @@ void PipeSync::UpdateDep(DepOp &currOp, DepOp &prevOp) {
         // no indirect dependency exist, save current dependency
         currOp.waitPipe.emplace_back(prevOp.idx);
         prevOp.setPipe.emplace_back(currOp.idx);
+        APASS_LOG_DEBUG_F(Elements::Operation, "Save dependency relationships in their respective pipe, prevOpIdx: %zu, prevPipeEnd: %s, currOpIdx: %zu, currPipeStart: %s",
+            prevOp.idx, GetPipeTypeDict().Find(prevOp.selfPipeCore.pipeEnd).c_str(), currOp.idx, GetPipeTypeDict().Find(currOp.selfPipeCore.pipeStart).c_str());
         currPipeDep.setPipes[prevPipe] = prevOp.idx;
         auto prevPipeDepIter = latestPipeDep_.find(prevPipe);
         auto prevWaitPipeIdx = prevPipeDepIter->second.waitIdx;
@@ -1316,45 +1325,48 @@ void PipeSync::UpdateDep(DepOp &currOp, DepOp &prevOp) {
     }
 }
 
-bool PipeSync::IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector<Operation *> opLogPtr) {
+bool PipeSync::IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector<Operation *> opList) {
     // true表示依赖关系可忽略，false表示依赖关系不可忽略
     // VIEW or ASSEMBLE data dependency can be ignored
-    if (opLogPtr[prev]->GetOpcode() == Opcode::OP_VIEW || opLogPtr[curr]->GetOpcode() == Opcode::OP_VIEW ||
-        opLogPtr[prev]->GetOpcode() == Opcode::OP_VIEW_TYPE || opLogPtr[curr]->GetOpcode() == Opcode::OP_VIEW_TYPE ||
-        opLogPtr[prev]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[curr]->GetOpcode() == Opcode::OP_ASSEMBLE ||
-        opLogPtr[prev]->GetOpcode() == Opcode::OP_NOP || opLogPtr[curr]->GetOpcode() == Opcode::OP_NOP ||
-        opLogPtr[prev]->GetOpcode() == Opcode::OP_HUB || opLogPtr[curr]->GetOpcode() == Opcode::OP_HUB) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "%d %s and %d %s dependency is ignorable because op is VIEW or ASSEMBLE or NOP",
-            opLogPtr[prev]->GetOpMagic(), opLogPtr[prev]->GetOpcodeStr().c_str(), opLogPtr[curr]->GetOpMagic(), opLogPtr[curr]->GetOpcodeStr().c_str());
+    if (opList[prev]->GetOpcode() == Opcode::OP_VIEW || opList[curr]->GetOpcode() == Opcode::OP_VIEW ||
+        opList[prev]->GetOpcode() == Opcode::OP_VIEW_TYPE || opList[curr]->GetOpcode() == Opcode::OP_ASSEMBLE ||
+        opList[prev]->GetOpcode() == Opcode::OP_ASSEMBLE || opList[curr]->GetOpcode() == Opcode::OP_ASSEMBLE ||
+        opList[prev]->GetOpcode() == Opcode::OP_NOP || opList[curr]->GetOpcode() == Opcode::OP_NOP ||
+        opList[prev]->GetOpcode() == Opcode::OP_HUB || opList[curr]->GetOpcode() == Opcode::OP_HUB) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "PrevOp[%d] %s and currOp[%d] %s dependency is ignorable.", opList[prev]->GetOpMagic(),
+            opList[prev]->GetOpcodeStr().c_str(), opList[curr]->GetOpMagic(), opList[curr]->GetOpcodeStr().c_str());
         return true;
     }
     return false;
 }
 
-// find depend op in opLog for 0 to idx
-void PipeSync::FindDep(DepOp &op, const std::vector<Operation *> opLogPtr, size_t idx, DataDependencySearcher& dataDependencySearcher) {
-    const auto currOp = opLogPtr[idx];
-    APASS_LOG_DEBUG_F(Elements::Operation, "=== OP: %d %zu %s ===", currOp->GetOpMagic(), idx, currOp->GetOpcodeStr().c_str());
+// find depend op in opLog for 0 to currOpIdx
+void PipeSync::FindDep(DepOp &currOpDepInfo, const std::vector<Operation *> opList, size_t currOpIdx, DataDependencySearcher& dataDependencySearcher) {
+    const auto currOp = opList[currOpIdx];
+    APASS_LOG_DEBUG_F(Elements::Operation, "Start searching for predecessor dependencies for op[%d] %s, idx: %zu, pipeStart: %s, pipeEnd: %s, pipeCore: %s",
+        currOp->GetOpMagic(), currOp->GetOpcodeStr().c_str(), currOpIdx, GetPipeTypeDict().Find(currOpDepInfo.selfPipeCore.pipeStart).c_str(),
+        GetPipeTypeDict().Find(currOpDepInfo.selfPipeCore.pipeEnd).c_str(), GetCoreTypeDict().Find(currOpDepInfo.selfPipeCore.core).c_str());
     // check dependency from latest op to oldest
     auto dataDependencySet = dataDependencySearcher.Find(currOp);
     for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
-        size_t k = *it;
-        const Operation *prevAOp = opLogPtr[k];
-        DepOp &prevOp = depOps_[k];
-        APASS_LOG_DEBUG_F(Elements::Operation, "Current process ops: %d %zu %s and %d %zu %s", prevAOp->GetOpMagic(), k, prevAOp->GetOpcodeStr().c_str(),
-            currOp->GetOpMagic(), idx, currOp->GetOpcodeStr().c_str());
+        size_t prevOpIdx = *it;
+        const Operation *prevOp = opList[prevOpIdx];
+        DepOp &prevOpDepInfo = depInfoList_[prevOpIdx];
+        APASS_LOG_DEBUG_F(Elements::Operation, "Handle dependencies on the predecessor op[%d] %s, idx: %zu, pipeStart: %s, pipeEnd: %s, pipeCore: %s",
+            prevOp->GetOpMagic(), prevOp->GetOpcodeStr().c_str(), prevOpIdx, GetPipeTypeDict().Find(prevOpDepInfo.selfPipeCore.pipeStart).c_str(),
+            GetPipeTypeDict().Find(prevOpDepInfo.selfPipeCore.pipeEnd).c_str(), GetCoreTypeDict().Find(prevOpDepInfo.selfPipeCore.core).c_str());
 
-        if (HasDataDependency(*prevAOp, *currOp, k, idx)) {
+        if (HasDataDependency(*prevOp, *currOp, prevOpIdx, currOpIdx)) {
             bool ignorable = false;
-            if (IgnorableIntraPipeDep(k, idx, opLogPtr)) {
+            if (IgnorableIntraPipeDep(prevOpIdx, currOpIdx, opList)) {
                 ignorable = true;
             }
             if (!ignorable) {
-                UpdateDep(op, prevOp);
+                UpdateDep(currOpDepInfo, prevOpDepInfo);
             }
         }
     }
-    dataDependencySearcher.Insert(currOp, idx);
+    dataDependencySearcher.Insert(currOp, currOpIdx);
 }
 
 std::pair<PipeSync::CoreTypeDetail, PipeSync::CoreTypeDetail> PipeSync::GetCorePairDetail(const PipePair &pp, size_t setIdx, size_t waitIdx, bool &isAIV1) {
