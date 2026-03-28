@@ -43,6 +43,7 @@ constexpr int32_t DIST_INDEX_ONE = 1;
 constexpr int32_t DIST_INDEX_TWO = 2;
 constexpr uint16_t COPY_BLOCK_BYTE_SIZE = 32;
 constexpr uint16_t SAME_ADDR_BYTE_SIZE = 512;
+constexpr uint64_t SHMEM_SIZE_ALIGN = 512;
 constexpr int32_t ROUTED_EXPET_NUM = 160;
 constexpr int32_t FFN_TILE_SIZE = 8;
 constexpr int32_t AIV_NUM = 4;
@@ -177,7 +178,7 @@ struct ShmemWaitUntilAttr {
 };
 
 struct ShmemSetAttr {
-    int64_t setType = 0;
+    bool isSetData{true};
     Shape setBufferShape;
     SymbolicScalar ownerRank;
 };
@@ -250,6 +251,21 @@ inline bool checkValidConfig(const MoeConfig &moeConfig, std::string &assertResu
         return false;
     }
     return true;
+}
+
+inline int64_t GetTotalTileNum(const VecTile& tileShape, const Shape& dataShape)
+{
+    ASSERT(DistributedErrorCode::INVALID_TENSOR_DIM, tileShape.size() == 2) << "Invalid dimensional: " <<
+        " tileShape dim must be 2, but got dimensional=" << tileShape.size();
+    ASSERT(DistributedErrorCode::INVALID_TENSOR_DIM, dataShape.size() >= 2) << "Invalid dimensional: " <<
+        " dataShape dim must >= 2, but got dimensional=" << dataShape.size();
+    auto totalRowShape = dataShape[dataShape.size() - 2];
+    auto totalColShape = dataShape[dataShape.size() - 1];
+    auto tileRowShape = tileShape[0];
+    auto tileColShape = tileShape[1];
+    auto tileRowNum = totalRowShape / tileRowShape + (totalRowShape % tileRowShape == 0 ? 0 : 1);
+    auto tileColNum = totalColShape / tileColShape + (totalColShape % tileColShape == 0 ? 0 : 1);
+    return tileRowNum * tileColNum;
 }
 } // namespace Distributed
 } // namespace npu::tile_fwk
