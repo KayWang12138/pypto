@@ -13,6 +13,7 @@
  * \brief
  */
 #include "tilefwk/platform.h"
+#include "machine/device/dynamic/device_common.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/host/main_block.h"
@@ -2586,7 +2587,7 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram* devProg)
         1,                              // DynFuncData
         1,                              // VecStitchList
         1,                              // DynDevTask
-        READY_QUEUE_SIZE,               // ReadyQue
+        READY_QUEUE_NUM,               // ReadyQue
         DIE_READY_QUEUE_SIZE * DIE_NUM, // DieReadyQue
         1,
         1,
@@ -2673,7 +2674,7 @@ void EncodeDevAscendProgram(Function* func, uint64_t& offset, DevAscendProgram* 
         }
         base->stitchFunctionNumStep = func->paramConfigs_.stitchFunctionNumStep_;
         base->stitchMaxFunctionNum = ExpectedMaxCachedNum();
-        base->stitchFunctionsize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
+        base->stitchFunctionsize = STITCH_FUNCTION_SIZE;
         base->memBudget.metadata.general = CalcGeneralMetadataSlotWorkspace(base);
         base->memBudget.metadata.general += CalcGeneralMetadataSlabWorkspace(base);
         base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);

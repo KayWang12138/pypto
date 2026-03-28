@@ -58,26 +58,28 @@ void DeviceTaskContext::ProcessWrapQueue(
     wrapQueue->tail++;
 }
 
-uint32_t* DeviceTaskContext::AllocWrapTasklist(DynDeviceTask* dyntask)
+uint32_t* DeviceTaskContext::AllocWrapTasklist(DynDeviceTask *dyntask)
 {
-    uint32_t size = dyntask->devTask.coreFunctionCnt * sizeof(uint32_t);
-    WsAllocation qalloc =
-        ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::WRAP_TASKLIST));
-    uint32_t* wrapTasklistAddr = qalloc.As<uint32_t>();
+    uint32_t capacity = dyntask->devTask.coreFunctionCnt > READY_QUEUE_CAPACITY ?
+        READY_QUEUE_CAPACITY : dyntask->devTask.coreFunctionCnt;
+    uint32_t size = capacity * sizeof(uint32_t);
+    WsAllocation qalloc = ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::WRAP_TASKLIST));
+    uint32_t *wrapTasklistAddr = qalloc.As<uint32_t>();
     return wrapTasklistAddr;
 }
 
-WrapInfoQueue* DeviceTaskContext::AllocWrapQueue(DynDeviceTask* dyntask)
+WrapInfoQueue* DeviceTaskContext::AllocWrapQueue(DynDeviceTask *dyntask)
 {
-    uint32_t size = sizeof(WrapInfoQueue) + dyntask->devTask.mixTaskData.wrapIdNum * sizeof(WrapInfo);
-    WsAllocation qalloc =
-        ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::WRAP_QUEUE));
-    WrapInfoQueue* q = qalloc.As<WrapInfoQueue>();
+    uint32_t capacity = dyntask->devTask.mixTaskData.wrapIdNum > READY_QUEUE_CAPACITY ?
+        READY_QUEUE_CAPACITY : dyntask->devTask.mixTaskData.wrapIdNum;
+    uint32_t size = sizeof(WrapInfoQueue) + capacity * sizeof(WrapInfo);
+    WsAllocation qalloc = ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::WRAP_QUEUE));
+    WrapInfoQueue *q = qalloc.As<WrapInfoQueue>();
     q->head = 0;
     q->tail = 0;
     q->lock = 0;
-    q->capacity = dyntask->devTask.mixTaskData.wrapIdNum;
-    q->elem = reinterpret_cast<WrapInfo*>(q + 1);
+    q->capacity = capacity;
+    q->elem = reinterpret_cast<WrapInfo *>(q + 1);
     return q;
 }
 
@@ -105,12 +107,14 @@ void DeviceTaskContext::InitDieReadyQueues(DynDeviceTask* dyntask, DevAscendProg
         return;
     }
     ReadyCoreFunctionQueue* queue[DIE_READY_QUEUE_SIZE * DIE_NUM];
-    uint32_t size = sizeof(ReadyCoreFunctionQueue) + dyntask->devTask.coreFunctionCnt * sizeof(taskid_t);
+    uint32_t capacity = dyntask->devTask.coreFunctionCnt > READY_QUEUE_CAPACITY ?
+        READY_QUEUE_CAPACITY : dyntask->devTask.coreFunctionCnt;
+    uint32_t size = sizeof(ReadyCoreFunctionQueue) + capacity * sizeof(taskid_t);
     for (size_t i = 0; i < DIE_READY_QUEUE_SIZE * DIE_NUM; ++i) {
         WsAllocation qalloc =
             ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::DIE_READY_QUE));
         ReadyCoreFunctionQueue* q = qalloc.As<ReadyCoreFunctionQueue>();
-        InitReadyCoreFunctionQueue(q, dyntask->devTask.coreFunctionCnt);
+        InitReadyCoreFunctionQueue(q, capacity);
         queue[i] = q;
     }
     for (size_t i = 0; i < DIE_NUM; i++) {

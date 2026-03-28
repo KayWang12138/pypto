@@ -30,7 +30,9 @@ namespace npu::tile_fwk::dynamic {
 #define ADDRESS_CACHE_KIND_COMM 3
 #define INVALID_STITCH_IDX (static_cast<uint32_t>(-1))
 
-constexpr size_t READY_QUEUE_SIZE = 3UL;
+constexpr size_t READY_QUEUE_NUM = 3UL;
+constexpr size_t READY_QUEUE_CAPACITY = 2000UL;
+
 constexpr size_t DIE_READY_QUEUE_SIZE = 2UL;
 inline constexpr size_t MAX_STITCH_FUNC_NUM = 1024;
 inline constexpr size_t MAX_STITCH_FUNC_NUM_LOWER = 128;
@@ -42,7 +44,7 @@ struct ReadyQueueCache {
         uint32_t tail;
         uint32_t capacity;
         uint32_t* elem;
-    } queueList[READY_QUEUE_SIZE];
+    } queueList[READY_QUEUE_NUM];
     uint32_t readyTaskNum;
 };
 
@@ -96,7 +98,7 @@ struct DynDeviceTaskBase {
     DeviceTask devTask;
     DynFuncHeader* dynFuncDataList{nullptr};
 
-    ReadyCoreFunctionQueue* readyQueue[READY_QUEUE_SIZE];
+    ReadyCoreFunctionQueue* readyQueue[READY_QUEUE_NUM];
     DynFuncDataCache dynFuncDataCacheList[MAX_STITCH_FUNC_NUM];
     uint64_t dynFuncDataCacheListSize;
 
@@ -391,7 +393,7 @@ struct DevControlFlowCache {
         }
         readyQueueBackup->coreFunctionCnt = base->devTask.coreFunctionCnt;
         uint32_t readyTaskNum = 0;
-        for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
+        for (size_t i = 0; i < READY_QUEUE_NUM; i++) {
             size_t backupSize = sizeof(uint32_t) * base->readyQueue[i]->capacity;
             uint32_t* readyQueueBackupElem = reinterpret_cast<uint32_t*>(AllocateCache(backupSize));
             if (readyQueueBackupElem == nullptr) {
@@ -414,7 +416,7 @@ struct DevControlFlowCache {
     {
         ReadyQueueCache* readyQueueBackup = base->readyQueueBackup;
         base->devTask.coreFunctionCnt = readyQueueBackup->coreFunctionCnt;
-        for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
+        for (size_t i = 0; i < READY_QUEUE_NUM; i++) {
             size_t backupSize = sizeof(uint32_t) * base->readyQueue[i]->capacity;
 
             base->readyQueue[i]->head = readyQueueBackup->queueList[i].head;
@@ -1065,7 +1067,7 @@ struct DevControlFlowCache {
             relocCtrlCache.Reloc(dynTaskBase->devTask.readyAicCoreFunctionQue);
             relocCtrlCache.Reloc(dynTaskBase->devTask.readyAicpuFunctionQue);
 
-            for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
+            for (size_t i = 0; i < READY_QUEUE_NUM; i++) {
                 ReadyCoreFunctionQueue*& readyQueueRef = dynTaskBase->readyQueue[i];
                 ReadyCoreFunctionQueue* readyQueue = RelocControlFlowCachePointer(readyQueueRef, relocCtrlCache);
                 relocCtrlCache.Reloc(readyQueue->elem);
@@ -1075,7 +1077,7 @@ struct DevControlFlowCache {
 
             ReadyQueueCache*& readyQueueBackupRef = dynTaskBase->readyQueueBackup;
             ReadyQueueCache* readyQueueBackup = RelocControlFlowCachePointer(readyQueueBackupRef, relocCtrlCache);
-            for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
+            for (size_t i = 0; i < READY_QUEUE_NUM; i++) {
                 relocCtrlCache.Reloc(readyQueueBackup->queueList[i].elem);
             }
 
