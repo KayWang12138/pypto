@@ -361,6 +361,12 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op)
     if (op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
         SetL0C2L1CopyAttr(op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(ZERO_OFFSET), OpImmediate::Specified(ZERO_OFFSET));
     }
+    if (op.GetOpcode() == Opcode::OP_L0C_COPY_UB) {
+        SetL0C2UBCopyAttr(op, op.GetOOperands()[0]->GetShape(), 
+            OpImmediate::Specified(ZERO_OFFSET), 
+            OpImmediate::Specified(ZERO_OFFSET));
+        op.SetAttribute(OpAttributeKey::isCube, true);
+    }
     if (status != SUCCESS) {
         return status;
     }
