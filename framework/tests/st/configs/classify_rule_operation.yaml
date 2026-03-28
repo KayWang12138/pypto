@@ -142,11 +142,14 @@ stest:
       - TestMuls/MulsOperationTest.TestMuls/15
       - TestAmin/AminOperationTest.TestAmin/0
       - TestAmin/AminOperationTest.TestAmin/1
+      - TestAmin/AminOperationTest.TestAmin/32
       - TestSum/SumOperationTest.TestSum/61
       - TestSum/SumOperationTest.TestSum/62
+      - TestSum/SumOperationTest.TestSum/75
       - TestAmax/AmaxOperationTest.TestAmax/65
       - TestAmax/AmaxOperationTest.TestAmax/64
       - TestAmax/AmaxOperationTest.TestAmax/63
+      - TestAmax/AmaxOperationTest.TestAmax/74
       - TestScatter/ScatterOperationTest.TestScatter/0
       - TestScatter/ScatterOperationTest.TestScatter/2
       - TestScatterTensor/ScatterTensorOperationTest.TestScatterTensor/8
@@ -249,6 +252,7 @@ stest:
       - TestCopySign/CopySignOperationTest.TestCopySign/5
       - TestProd/ProdOperationTest.TestProd/1
       - TestProd/ProdOperationTest.TestProd/9
+      - TestProd/ProdOperationTest.TestProd/30
       - TestRelu/ReluOperationTest.TestRelu/0
       - TestRelu/ReluOperationTest.TestRelu/3
       - TestHypot/HypotOperationTest.TestHypot/0

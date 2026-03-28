@@ -28,26 +28,20 @@ $$
 
 ### 1. SplitBS（默认）
 - **适用场景**：BS 较大，H 和 K 较小
-- **实现方式**：向量化实现，一次性计算所有 batch
+- **实现方式**：向量化实现，按 batch 维度切分
 - **特点**：最高效，推荐优先使用
+- **动态支持**：支持动态 batch 维度，不同 batch size 无需重编译
 
 ### 2. SplitH
 - **适用场景**：H 较大
 - **实现方式**：按 hidden 维度切分，每次处理 H_tile 个 hidden 元素
 - **特点**：适合大 hidden 维度场景
+- **动态支持**：支持动态 batch 维度
 
-### 3. SplitK
-- **适用场景**：K 较大
-- **实现方式**：向量化实现
-- **特点**：向量化求和，避免循环累加精度问题
+## 动态轴支持
 
-## 关键发现
-
-在开发过程中发现 PyPTO 框架的关键限制：
-
-**循环累加器问题**：
-- 问题：PyPTO 循环中的累加器更新存在精度问题
-- 解决方案：使用向量化实现替代循环累加
+- **Batch 维度**：使用 `pypto.DYNAMIC` 标记，支持运行时变化
+- **Hidden 维度**：通过参数 `h` 传入，编译时确定
 
 ## 使用方法
 
@@ -55,15 +49,22 @@ $$
 
 ```python
 import torch
-from attention_worker_combine_impl import attention_worker_combine
+from attention_worker_combine import (
+    attention_worker_combine_splitbs_kernel,
+    attention_worker_combine_splith_kernel
+)
 
 # 准备数据
 BS, K, H = 8, 2, 32
 token_data = torch.randn(BS, K + 1, H, dtype=torch.bfloat16, device='npu:14')
 expert_scales = torch.rand(BS, K, dtype=torch.float32, device='npu:14')
+y = torch.zeros(BS, H, dtype=torch.bfloat16, device='npu:14')
 
-# 执行计算
-y = attention_worker_combine(token_data, expert_scales, strategy="split_bs")
+# 执行计算 - SplitBS (推荐)
+attention_worker_combine_splitbs_kernel(token_data, expert_scales, y, h=H, tile_bs=8)
+
+# 或使用 SplitH
+# attention_worker_combine_splith_kernel(token_data, expert_scales, y, h=H, tile_bs=8)
 ```
 
 ### 环境要求
@@ -81,39 +82,36 @@ export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch6
 ```
 Strategy     BS     K      H      Result     Max Diff    
 ----------------------------------------------------------------------
-split_bs     8      2      32     PASS       0.00000000  
-split_h      8      2      32     PASS       0.00000000  
-split_k      8      2      32     PASS       0.00000000  
+SplitBS      8      2      32     PASS       0.00000000  
+SplitH       8      2      32     PASS       0.00000000  
+SplitBS      16     2      32     PASS       0.00000000  
+SplitH       16     2      32     PASS       0.00000000  
 ----------------------------------------------------------------------
-Total: 3/3 passed
+Total: 4/4 passed (动态 batch 无需重编译)
 ```
 
 ## 文件结构
 
 ```
-custom/attention_worker_combine/
-├── needs_analysis.md                      # 需求分析
-├── attention_worker_combine_golden.py     # Golden 实现
-├── attention_worker_combine_kernel.py     # PyPTO kernel 实现
-├── attention_worker_combine_impl.py       # Wrapper 函数
-├── test_attention_worker_combine.py       # 测试脚本
-└── README.md                              # 本文档
+attention_worker_combine/
+├── attention_worker_combine.py     # PyPTO kernel 实现 (动态 batch)
+└── README.md                       # 本文档
 ```
 
 ## 注意事项
 
 1. **H 必须是 16 的倍数**：BF16 类型需要 32 bytes 对齐，即 16 元素
 2. **只支持 BF16**：当前实现仅支持 bfloat16 数据类型
-3. **向量化实现**：为避免精度问题，所有策略均使用向量化实现
+3. **向量化实现**：所有策略均使用向量化实现
+4. **动态 Batch**：支持 batch 维度动态变化，无需重编译
 
 ## 开发历程
 
 1. **Golden 开发**：完成 PyTorch 参考实现并验证通过
 2. **SplitBS/SplitH 开发**：向量化实现，一次性通过
-3. **SplitK 调试**：发现循环累加器问题，使用二分法定位后改用向量化实现
+3. **动态轴支持**：添加 batch 维度动态支持，不同 batch size 无需重编译
 
 ## 相关文档
 
-- [需求分析](./needs_analysis.md)
-- [PyPTO API 文档](../../docs/api/)
-- [二分查找调试技能](../../.agents/skills/pypto-binary-search-verify/)
+- [PyPTO API 文档](../../../docs/api/)
+- [PyPTO 动态轴文档](../../../docs/api/pypto-DYNAMIC.md)

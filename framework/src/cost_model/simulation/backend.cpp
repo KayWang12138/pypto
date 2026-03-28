@@ -165,6 +165,7 @@ Json CostModelAgent::ParseDynTopo(std::string &path)
         taskJson["leafIndex"] = fields[leafIndexPos];
         taskJson["opmagic"] = fields[opmagicPos];
         taskJson["psgId"] = fields[psgIdPos];
+        taskJson["wrapId"] = fields[wrapIdPos];
         taskJson["funcHash"] = fields[funcHashPos];
         topoJson.push_back(taskJson);
     }
