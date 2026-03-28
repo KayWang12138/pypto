@@ -557,8 +557,8 @@ void CodeGenOpCloudNPU::UpdateTileTensorShapeAndStride(
 
 TileTensor CodeGenOpCloudNPU::BuildTileTensor(
     int paramIdx, const std::string &usingType, const ShapeInLoop &shapeInLoop) {
-    bool isSpillToGm{false};
-    GetTensorAttr(paramIdx, "isWorkspaceGM", isSpillToGm);
+    int64_t gmOffset{0};
+    bool isSpillToGm = GetTensorAttr(paramIdx, OpAttributeKey::workspaceBaseOffset, gmOffset);
 
     TileTensor tileTensor;
     tileTensor.isConstant = functionType == FunctionType::STATIC || isMainBlock;
