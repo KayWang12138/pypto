@@ -42,6 +42,7 @@ inline bool SignalTileOp::PollCompleted() const
         return false;
     }
     if (resetSignal_) {
+        DEV_ERROR(DistributedErrorCode::NULLPTR, "expectedSum_=%d", expectedSum_);
         addr_[0] = 0;
     }
     return true;
@@ -64,8 +65,10 @@ uint64_t ShmemWaitUntilImpl::GetRawAddr(const uint64_t addr)
     DEV_ASSERT(DistributedErrorCode::INVALID_GROUP_INDEX, groupIndex < commGroupNum_);
     uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);
     uint64_t memType = npu::tile_fwk::Distributed::GetVirtualAddrMemType(addr);
+    paramInfo_.maxTileNum = npu::tile_fwk::Distributed::GetVirtualMaxTileNum(addr);
     auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(hcclContextAddr_[groupIndex]);
-    uint64_t rankId = hcclOpParam->rankId;
+    paramInfo_.rankNum = hcclOpParam->rankNum;
+    auto rankId = hcclOpParam->rankId;
     auto winAddrOffset = (memType == 0) ? rankId : hcclOpParam->statusIndex + rankId;
     uint64_t rawAddr = hcclOpParam->winAddr[winAddrOffset] + offset;
     return rawAddr;
