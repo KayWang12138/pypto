@@ -87,7 +87,7 @@ public:
     bool GetEnableDumpDevPref() const;
     void StartMachinePerfTraceDumpThread();
     void StopMachinePerfTraceDumpThread();
-    int RunPreSync(rtStream_t aicpuStream, rtStream_t aicoreStream);
+    int RunPreSync(rtStream_t scheStream, rtStream_t ctrlStream, rtStream_t aicoreStream);
 private:
     DeviceRunner() = default;
     ~DeviceRunner();
