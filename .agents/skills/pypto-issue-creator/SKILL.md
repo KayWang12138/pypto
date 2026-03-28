@@ -144,13 +144,22 @@ gitcode_search_issues(query="repo:cann/pypto {english keywords}")
 
 **Bug Report 类型需要获取完整环境信息**。其他类型 Issue 可根据需要选择性获取。
 
-获取命令详见 [references/environment-commands.md](references/environment-commands.md)。
+运行采集脚本自动获取：
+```bash
+bash scripts/collect-env.sh
+```
 
-### 获取策略
+### 快速参考
 
-1. **优先从会话上下文推断** - 用户已提供则直接使用
-2. **执行命令获取** - 参考 [environment-commands.md](references/environment-commands.md) 中的命令
-3. **请求用户提供** - 无法自动获取时询问
+| 信息类型 | 命令 | 输出示例 |
+|---------|------|---------|
+| 服务器/NPU 型号 | `lspci -n -D \| grep -oE '19e5:d80[23]'` | `19e5:d803` |
+| CANN 版本 | `echo $ASCEND_HOME_PATH \| sed -n 's/.*cann-\([0-9.]*\).*/\1/p'` | `8.5.0` |
+| PyPTO Commit | `git log -1 --format='%h (%ci)' HEAD` | `abc1234 (2026-03-10 10:00:00 +0800)` |
+| Python 版本 | `python --version` | `Python 3.10.12` |
+| 操作系统 | `grep '^PRETTY_NAME=' /etc/os-release \| cut -d'=' -f2- \| tr -d '"'` | `Ubuntu 22.04.3 LTS` |
+| torch 版本 | `python -c "import torch; print(torch.__version__)"` | `2.6.0` |
+| torch_npu 版本 | `python -c "import torch_npu; print(torch_npu.__version__)"` | `2.6.0.post3` |
 
 ---
 
@@ -175,7 +184,7 @@ gitcode_search_issues(query="repo:cann/pypto {english keywords}")
 | 文件 | 内容 |
 |-----|------|
 | [issue-templates.md](references/issue-templates.md) | 5种Issue类型的完整模板 |
-| [environment-commands.md](references/environment-commands.md) | 环境信息获取命令详解 |
+| [collect-env.sh](scripts/collect-env.sh) | 环境信息自动采集脚本 |
 
 ---
 

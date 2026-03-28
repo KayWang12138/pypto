@@ -11,7 +11,6 @@
 3. [Documentation](#3-documentation)
 4. [Question](#4-question)
 5. [Task](#5-task)
-6. [标题前缀与标签映射](#标题前缀与标签映射)
 
 ---
 
@@ -182,6 +181,4 @@
 1. [目标1]
 2. [目标2]
 3. [目标3]
-```
-
 ```
