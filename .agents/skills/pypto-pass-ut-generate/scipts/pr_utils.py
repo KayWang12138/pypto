@@ -121,7 +121,7 @@ def get_pr_diff_via_api(owner: str, repo: str, pr_number: int) -> Optional[str]:
             diff_content = response.read().decode('utf-8')
         
         if not diff_content.strip():
-            print("⚠️ API 返回的 diff 内容为空")
+            logger.info("⚠️ API 返回的 diff 内容为空")
             return None
 
         logger.info("API 成功获取 diff，大小: {len(diff_content)} 字节")
@@ -135,13 +135,15 @@ def get_pr_diff_via_api(owner: str, repo: str, pr_number: int) -> Optional[str]:
         return None
 
 
-def get_pr_diff_via_git_fetch(owner: str, repo: str, pr_number: int, repo_dir: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
+def get_pr_diff_via_git_fetch(
+    owner: str, repo: str, pr_number: int, repo_dir: Optional[str] = None
+) -> Tuple[Optional[str], Optional[str]]:
     """通过 git fetch 获取 PR diff，返回 (diff_content, local_branch)"""
     work_dir = repo_dir if repo_dir else PROJECT_ROOT
     local_branch = f"pr{pr_number}_branch"
     
     try:
-        print(f"通过 git fetch 获取 PR #{pr_number} 的 diff...")
+        logger.info(f"通过 git fetch 获取 PR #{pr_number} 的 diff...")
         
         result = subprocess.run(
             ['git', 'remote', '-v'],
@@ -317,7 +319,7 @@ def checkout_or_fetch_pr_branch(
                 if result.returncode == 0 and result.stdout.strip():
                     return local_branch, local_branch, result.stdout
                 else:
-                    print("⚠️ 本地分支存在但无 diff，删除后重新获取")
+                    logger.info("⚠️ 本地分支存在但无 diff，删除后重新获取")
                     subprocess.run(['git', 'branch', '-D', local_branch], capture_output=True, cwd=repo_dir)
         
         remotes_with_urls = {}
@@ -332,7 +334,7 @@ def checkout_or_fetch_pr_branch(
                     remotes_with_urls[parts[0]] = parts[1]
         
         for remote_name, remote_url in remotes_with_urls.items():
-            print(f"尝试从 {remote_name} 获取 PR #{pr_number}...")
+            logger.info(f"尝试从 {remote_name} 获取 PR #{pr_number}...")
             result = subprocess.run(
                 ['git', 'fetch', remote_url, f'+refs/merge-requests/{pr_number}/head:{local_branch}'],
                 capture_output=True, text=True, cwd=repo_dir, timeout=60
@@ -481,8 +483,9 @@ def download_and_parse_coverage_report(coverage_url: str, pr_number: int) -> Dic
         result['message'] = '没有覆盖率报告链接'
         return result
     
+    extract_dir = None
     try:
-        print(f"\n下载覆盖率报告: {coverage_url[:80]}...")
+        logger.info(f"\n下载覆盖率报告: {coverage_url[:80]}...")
         
         with tempfile.NamedTemporaryFile(suffix='.tar.gz', delete=False) as tmp_file:
             tmp_path = tmp_file.name
@@ -494,6 +497,7 @@ def download_and_parse_coverage_report(coverage_url: str, pr_number: int) -> Dic
         
         logger.info("覆盖率报告下载成功: {tmp_path}")
         
+        extract_dir = None
         extract_dir = tempfile.mkdtemp(prefix=f'cov_pr{pr_number}_')
         
         with tarfile.open(tmp_path, 'r:gz') as tar:
@@ -510,6 +514,10 @@ def download_and_parse_coverage_report(coverage_url: str, pr_number: int) -> Dic
     except Exception as e:
         result['message'] = f'下载/解析覆盖率报告失败: {e}'
         logger.warning("{result['message']}")
+    
+    finally:
+        if extract_dir and os.path.exists(extract_dir):
+            shutil.rmtree(extract_dir, ignore_errors=True)
     
     return result
 
@@ -570,26 +578,26 @@ def apply_diff_to_repo(diff_file: str, repo_dir: str, auto_stash: bool = True) -
         stash_message = ""
         
         if uncommitted:
-            print("\n" + "="*60)
-            print("工作区有未提交的更改：")
+            logger.info("=" * 60)
+            logger.info("工作区有未提交的更改：")
             for line in uncommitted[:10]:
-                print(f"  {line}")
+                logger.info(f"  {line}")
             if len(uncommitted) > 10:
-                print(f"  ... 还有 {len(uncommitted) - 10} 个文件")
+                logger.info(f"  ... 还有 {len(uncommitted) - 10} 个文件")
             
             if auto_stash:
-                print("\n自动执行 git stash...")
+                logger.info("\n自动执行 git stash...")
                 result = subprocess.run(
                     ['git', 'stash', 'push', '-m', 'auto-stash-before-apply-diff'],
                     capture_output=True, text=True, cwd=repo_dir
                 )
                 if result.returncode == 0:
-                    print("✓ stash 成功")
+                    logger.info("✓ stash 成功")
                     stash_applied = True
                     stash_message = "（已自动 stash 当前更改）"
                 else:
                     logger.warning("stash 失败: {result.stderr.strip()}")
-                    print("将尝试直接 apply...")
+                    logger.info("将尝试直接 apply...")
             else:
                 return False, f"工作区有未提交的更改: {len(uncommitted)} 个文件"
         
@@ -607,9 +615,9 @@ def apply_diff_to_repo(diff_file: str, repo_dir: str, auto_stash: bool = True) -
             if result.returncode == 0:
                 return True, f"Diff 已成功应用到本地仓库 {stash_message}"
             else:
-                print("\n" + "="*60)
-                print("⚠️ Diff 应用发生冲突")
-                print("冲突文件:")
+                logger.info("=" * 60)
+                logger.info("⚠️ Diff 应用发生冲突")
+                logger.info("冲突文件:")
                 
                 conflict_files = []
                 result = subprocess.run(
@@ -619,7 +627,7 @@ def apply_diff_to_repo(diff_file: str, repo_dir: str, auto_stash: bool = True) -
                 for f in result.stdout.strip().split('\n'):
                     if f:
                         conflict_files.append(f)
-                        print(f"  - {f}")
+                        logger.info(f"  - {f}")
                 
                 choice = input("\n请选择操作：\n"
                               "  1 - 保留本地版本（丢弃 diff 变更）\n"
@@ -640,8 +648,8 @@ def apply_diff_to_repo(diff_file: str, repo_dir: str, auto_stash: bool = True) -
                     )
                     return True, "已接受 incoming 版本，冲突已解决"
                 else:
-                    print("请手动解决冲突后，运行以下命令继续：")
-                    print(f"  git add <resolved-files>")
+                    logger.info("请手动解决冲突后，运行以下命令继续：")
+                    logger.info(f"  git add <resolved-files>")
                     return False, "请手动解决冲突"
         else:
             conflict_info = result.stderr.strip()
@@ -665,9 +673,9 @@ def check_build_status(repo_dir: str, pass_files: List[str]) -> Tuple[bool, str]
     if not pass_files:
         return True, "无需检查编译（无 Pass 文件变更）"
     
-    print("\n" + "="*60)
-    print("检查编译状态...")
-    print("="*60)
+    logger.info("=" * 60)
+    logger.info("检查编译状态...")
+    logger.info("=" * 60)
     
     try:
         result = subprocess.run(
@@ -747,38 +755,18 @@ def analyze_changed_files(diff_content: str) -> Dict:
     return result
 
 
-def process_pr(
-    pr_input: str,
-    output_dir: Optional[str] = None,
-    repo_dir: Optional[str] = None,
-    use_api_for_comments: bool = True,
-    auto_stash: bool = True,
-    check_build: bool = True
-) -> Dict:
+def process_pr(config: PRProcessConfig) -> Dict:
     """
     处理 PR 的主函数
     
     参数:
-        pr_input: PR 编号或链接
-        output_dir: diff 文件输出目录
-        repo_dir: 仓库目录
-        use_api_for_comments: 是否使用 API 获取评论
-        auto_stash: 是否自动 stash 未提交的更改（默认 True）
-        check_build: 是否检查编译状态（默认 True）
+        config: PRProcessConfig 配置对象
     
     返回:
         包含处理结果的字典
     """
-    config = PRProcessConfig(
-        pr_input=pr_input,
-        output_dir=output_dir,
-        repo_dir=repo_dir,
-        use_api_for_comments=use_api_for_comments,
-        auto_stash=auto_stash,
-        check_build=check_build
-    )
-    work_output_dir = output_dir if output_dir else PROJECT_ROOT
-    work_repo_dir = repo_dir if repo_dir else PROJECT_ROOT
+    work_output_dir = config.output_dir if config.output_dir else PROJECT_ROOT
+    work_repo_dir = config.repo_dir if config.repo_dir else PROJECT_ROOT
 
     result = {
         'pr_info': None,
@@ -798,33 +786,33 @@ def process_pr(
     }
 
     try:
-        print("\n" + "="*60)
-        print("PR 处理工具 V8")
-        print("="*60)
+        logger.info("=" * 60)
+        logger.info("PR 处理工具 V8")
+        logger.info("=" * 60)
         
-        owner, repo, pr_number = parse_pr_info(pr_input)
-        print(f"PR编号: {pr_number}")
-        print(f"仓库: {owner}/{repo}")
+        owner, repo, pr_number = parse_pr_info(config.pr_input)
+        logger.info(f"PR编号: {pr_number}")
+        logger.info(f"仓库: {owner}/{repo}")
         result['pr_info'] = {'owner': owner, 'repo': repo, 'pr_number': pr_number}
 
         pr_info = get_pr_info_via_api(owner, repo, pr_number)
         if pr_info:
-            print(f"PR 标题: {pr_info.get('title', 'N/A')}")
-            print(f"PR 状态: {pr_info.get('state', 'N/A')}")
+            logger.info(f"PR 标题: {pr_info.get('title', 'N/A')}")
+            logger.info(f"PR 状态: {pr_info.get('state', 'N/A')}")
             base_ref = pr_info.get('base', {}).get('ref', 'master')
             head_ref = pr_info.get('head', {}).get('ref', '')
-            print(f"基分支: {base_ref}")
-            print(f"头分支: {head_ref}")
+            logger.info(f"基分支: {base_ref}")
+            logger.info(f"头分支: {head_ref}")
             result['pr_info']['base_branch'] = base_ref
             result['pr_info']['head_branch'] = head_ref
             result['pr_info']['author'] = pr_info.get('user', {}).get('login', '')
             result['pr_info']['author_repo'] = pr_info.get('head', {}).get('repo', {}).get('name', repo)
         else:
-            print("⚠️ 无法通过 API 获取 PR 信息，将尝试其他方式")
+            logger.info("⚠️ 无法通过 API 获取 PR 信息，将尝试其他方式")
 
-        print("\n" + "-"*60)
-        print("Step 1: 获取 UT-REPORT 状态")
-        print("-"*60)
+        logger.info("-" * 60)
+        logger.info("Step 1: 获取 UT-REPORT 状态")
+        logger.info("-" * 60)
         
         ut_result = {
             'found': False,
@@ -835,34 +823,39 @@ def process_pr(
             'message': '无法获取 UT-REPORT 评论'
         }
         
-        if use_api_for_comments:
+        if config.use_api_for_comments:
             try:
                 comments = get_pr_comments_via_api(owner, repo, pr_number)
                 if comments:
                     ut_result = parse_ut_report_from_comments(comments)
                     logger.info("通过 API 获取到 {len(comments)} 条评论")
                 else:
-                    print("⚠️ API 返回空评论列表")
+                    logger.info("⚠️ API 返回空评论列表")
             except Exception as e:
                 logger.warning("API 调用失败: {e}")
         
         result['ut_report'] = ut_result
         
-        print(f"\nUT 状态: {ut_result['status']}")
-        print(f"消息: {ut_result['message']}")
+        logger.info(f"\nUT 状态: {ut_result['status']}")
+        logger.info(f"消息: {ut_result['message']}")
         
         if ut_result['ut_tests']:
-            print("\nUT 测试任务状态:")
+            logger.info("\nUT 测试任务状态:")
             for task, status in sorted(ut_result['ut_tests'].items()):
-                icon = "✅" if "SUCCESS" in status.upper() or "✅" in status else ("❌" if "FAILED" in status.upper() or "❌" in status else "⚪")
-                print(f"  {icon} {task}: {status}")
+                if "SUCCESS" in status.upper() or "✅" in status:
+                    icon = "✅"
+                elif "FAILED" in status.upper() or "❌" in status:
+                    icon = "❌"
+                else:
+                    icon = "⚪"
+                logger.info(f"  {icon} {task}: {status}")
         
         if ut_result['coverage_url']:
-            print(f"\n覆盖率报告: {ut_result['coverage_url'][:80]}...")
+            logger.info(f"\n覆盖率报告: {ut_result['coverage_url'][:80]}...")
 
-        print("\n" + "-"*60)
-        print("Step 2: 获取 PR 代码变更")
-        print("-"*60)
+        logger.info("-" * 60)
+        logger.info("Step 2: 获取 PR 代码变更")
+        logger.info("-" * 60)
 
         diff_content = None
         pr_branch = None
@@ -877,7 +870,7 @@ def process_pr(
             result['diff_content'] = diff_content
 
         if not diff_content:
-            print("\n尝试通过 API 获取 diff...")
+            logger.info("\n尝试通过 API 获取 diff...")
             diff_content = get_pr_diff_via_api(owner, repo, pr_number)
             if diff_content:
                 result['method'] = 'api'
@@ -900,7 +893,7 @@ def process_pr(
                 f"  2. 确保网络可以访问 gitcode.com\n"
                 f"  3. 手动下载 PR diff 或让作者提供变更内容\n"
             )
-            print(f"\n❌ {error_msg}")
+            logger.info(f"\n❌ {error_msg}")
             result['error'] = error_msg
             return result
 
@@ -909,31 +902,33 @@ def process_pr(
         save_diff_to_file(diff_content, diff_filepath)
         result['diff_file'] = diff_filepath
         
-        print("\n" + "-"*60)
-        print("Step 3: 分析修改的代码")
-        print("-"*60)
+        logger.info("-" * 60)
+        logger.info("Step 3: 分析修改的代码")
+        logger.info("-" * 60)
         
         analysis = analyze_changed_files(diff_content)
         result['analysis'] = analysis
         
-        print(f"总修改文件数: {analysis['total_files']}")
+        logger.info(f"总修改文件数: {analysis['total_files']}")
         if analysis['pass_files']:
-            print(f"Pass 文件: {len(analysis['pass_files'])}")
+            logger.info(f"Pass 文件: {len(analysis['pass_files'])}")
             for f in analysis['pass_files'][:5]:
-                print(f"  - {f}")
+                logger.info(f"  - {f}")
             if len(analysis['pass_files']) > 5:
-                print(f"  ... 还有 {len(analysis['pass_files']) - 5} 个")
+                logger.info(f"  ... 还有 {len(analysis['pass_files']) - 5} 个")
         if analysis['test_files']:
-            print(f"测试文件: {len(analysis['test_files'])}")
+            logger.info(f"测试文件: {len(analysis['test_files'])}")
             for f in analysis['test_files'][:5]:
-                print(f"  - {f}")
+                logger.info(f"  - {f}")
 
-        print("\n" + "-"*60)
-        print("Step 4: 应用 diff 到本地仓库")
-        print("-"*60)
+        logger.info("-" * 60)
+        logger.info("Step 4: 应用 diff 到本地仓库")
+        logger.info("-" * 60)
         
-        print(f"自动 stash: {'开启' if auto_stash else '关闭'}")
-        apply_success, apply_msg = apply_diff_to_repo(diff_filepath, work_repo_dir, auto_stash=auto_stash)
+        logger.info(f"自动 stash: {'开启' if config.auto_stash else '关闭'}")
+        apply_success, apply_msg = apply_diff_to_repo(
+            diff_filepath, work_repo_dir, auto_stash=config.auto_stash
+        )
         if apply_success:
             logger.info("{apply_msg}")
             result['diff_applied'] = True
@@ -942,11 +937,11 @@ def process_pr(
             result['diff_applied'] = False
             result['diff_apply_error'] = apply_msg
 
-        print("\n" + "-"*60)
-        print("Step 5: 检查编译状态")
-        print("-"*60)
+        logger.info("-" * 60)
+        logger.info("Step 5: 检查编译状态")
+        logger.info("-" * 60)
         
-        if check_build and result['diff_applied']:
+        if config.check_build and result['diff_applied']:
             build_success, build_msg = check_build_status(work_repo_dir, analysis['pass_files'])
             if build_success:
                 logger.info("{build_msg}")
@@ -954,19 +949,19 @@ def process_pr(
                 logger.warning("{build_msg}")
             result['build_status'] = {'success': build_success, 'message': build_msg}
         else:
-            print("跳过编译检查")
+            logger.info("跳过编译检查")
             result['build_status'] = {'success': None, 'message': '跳过'}
 
-        print("\n" + "-"*60)
-        print("Step 6: 分析是否需要设计 UT")
-        print("-"*60)
+        logger.info("-" * 60)
+        logger.info("Step 6: 分析是否需要设计 UT")
+        logger.info("-" * 60)
         
         need_design_ut = False
         design_ut_reason = ""
         
         if ut_result['status'] == 'SUCCESS':
             design_ut_reason = "UT 测试全部通过，覆盖率满足要求"
-            print(f"✅ {design_ut_reason}")
+            logger.info(f"✅ {design_ut_reason}")
         elif ut_result['status'] == 'PARTIAL_FAILED':
             need_design_ut = True
             design_ut_reason = f"UT 测试部分失败: {', '.join(ut_result['failed_tests'])}"
@@ -983,20 +978,20 @@ def process_pr(
         if analysis['pass_files'] and ut_result['status'] != 'SUCCESS':
             need_design_ut = True
             design_ut_reason += f"\n  修改了 {len(analysis['pass_files'])} 个 Pass 文件，需要设计 UT"
-            print(f"\n⚠️ 修改了 Pass 文件，需要设计 UT 覆盖新代码")
+            logger.info(f"\n⚠️ 修改了 Pass 文件，需要设计 UT 覆盖新代码")
         
         result['need_design_ut'] = need_design_ut
         result['design_ut_reason'] = design_ut_reason
 
-        print("\n" + "="*60)
-        print("处理完成")
-        print("="*60)
+        logger.info("=" * 60)
+        logger.info("处理完成")
+        logger.info("=" * 60)
         result['success'] = True
         return result
 
     except Exception as e:
         result['error'] = str(e)
-        print(f"\n❌ 处理失败: {e}")
+        logger.info(f"\n❌ 处理失败: {e}")
         import traceback
         traceback.print_exc()
         return result
@@ -1037,9 +1032,9 @@ def process_offline_diff(diff_file: str) -> Dict:
         result['success'] = True
         
         logger.info("成功解析离线 diff 文件")
-        print(f"  文件路径: {diff_file}")
-        print(f"  变更文件数: {result['analysis']['total_files']}")
-        print(f"  Pass 文件数: {len(result['analysis']['pass_files'])}")
+        logger.info(f"  文件路径: {diff_file}")
+        logger.info(f"  变更文件数: {result['analysis']['total_files']}")
+        logger.info(f"  Pass 文件数: {len(result['analysis']['pass_files'])}")
         
         return result
         
@@ -1092,9 +1087,9 @@ def process_offline_ut_report(report_file: str) -> Dict:
         result['success'] = True
         
         logger.info("成功解析离线 UT-Report 文件")
-        print(f"  文件路径: {report_file}")
-        print(f"  总体覆盖率: {result['coverage_info'].get('overall_line_coverage', 'N/A')}")
-        print(f"  低覆盖率文件数: {len(result['low_coverage_files'])}")
+        logger.info(f"  文件路径: {report_file}")
+        logger.info(f"  总体覆盖率: {result['coverage_info'].get('overall_line_coverage', 'N/A')}")
+        logger.info(f"  低覆盖率文件数: {len(result['low_coverage_files'])}")
         
         return result
         
@@ -1126,21 +1121,21 @@ def analyze_offline_files(
         'success': False
     }
     
-    print("\n" + "="*60)
-    print("离线文件分析")
-    print("="*60)
+    logger.info("=" * 60)
+    logger.info("离线文件分析")
+    logger.info("=" * 60)
     
     if diff_file:
-        print(f"\n[1] 处理 Diff 文件: {diff_file}")
+        logger.info(f"\n[1] 处理 Diff 文件: {diff_file}")
         result['diff_result'] = process_offline_diff(diff_file)
     
     if report_file:
-        print(f"\n[2] 处理 UT-Report 文件: {report_file}")
+        logger.info(f"\n[2] 处理 UT-Report 文件: {report_file}")
         result['report_result'] = process_offline_ut_report(report_file)
     
     if result['diff_result'] and result['diff_result']['success']:
         if result['report_result'] and result['report_result']['success']:
-            print("\n[3] 关联分析...")
+            logger.info("\n[3] 关联分析...")
             
             from scripts.ut_coverage import (
                 correlate_coverage_with_diff,
@@ -1163,7 +1158,7 @@ def analyze_offline_files(
                 for s in suggestions
             ]
             
-            print(f"  ✓ 生成 {len(result['ut_design_items'])} 条 UT 设计建议")
+            logger.info(f"  ✓ 生成 {len(result['ut_design_items'])} 条 UT 设计建议")
     
     result['success'] = True
     return result
@@ -1212,14 +1207,13 @@ def main():
         )
         
         if args.json or args.output:
-            import json
             output = json.dumps(result, indent=2, ensure_ascii=False)
             if args.output:
                 with open(args.output, 'w') as f:
                     f.write(output)
-                print(f"\n结果已保存到: {args.output}")
+                logger.info(f"\n结果已保存到: {args.output}")
             else:
-                print(output)
+                logger.info(output)
         else:
             print_summary(result)
         
@@ -1228,32 +1222,38 @@ def main():
     if args.report_file:
         result = process_offline_ut_report(args.report_file)
         if args.json:
-            import json
-            print(json.dumps(result, indent=2, ensure_ascii=False))
+            logger.info(json.dumps(result, indent=2, ensure_ascii=False))
         return 0
     
     pr_input = args.pr_input or args.pr_number
     if not pr_input:
-        print("PR UT 生成工具 V8")
-        print("="*60)
-        print("使用方式：")
-        print("  python pr_utils.py <PR编号或链接>")
-        print("  python pr_utils.py --diff <diff文件>")
-        print("  python pr_utils.py --report <覆盖率报告>")
-        print("  python pr_utils.py --help 查看更多选项")
+        logger.info("PR UT 生成工具 V8")
+        logger.info("=" * 60)
+        logger.info("使用方式：")
+        logger.info("  python pr_utils.py <PR编号或链接>")
+        logger.info("  python pr_utils.py --diff <diff文件>")
+        logger.info("  python pr_utils.py --report <覆盖率报告>")
+        logger.info("  python pr_utils.py --help 查看更多选项")
         return 1
     
-    result = process_pr(pr_input)
+    config = PRProcessConfig(
+        pr_input=pr_input,
+        output_dir=args.output,
+        repo_dir=None,
+        use_api_for_comments=True,
+        auto_stash=True,
+        check_build=True
+    )
+    result = process_pr(config)
     
     if args.json or args.output:
-        import json
         output = json.dumps(result, indent=2, ensure_ascii=False)
         if args.output:
             with open(args.output, 'w') as f:
                 f.write(output)
-            print(f"\n结果已保存到: {args.output}")
+            logger.info(f"\n结果已保存到: {args.output}")
         else:
-            print(output)
+            logger.info(output)
     else:
         print_summary(result)
     
@@ -1262,46 +1262,46 @@ def main():
 
 def print_summary(result: Dict):
     """打印结果摘要"""
-    print("\n" + "="*60)
-    print("处理结果汇总")
-    print("="*60)
-    print(f"成功: {result.get('success', False)}")
+    logger.info("=" * 60)
+    logger.info("处理结果汇总")
+    logger.info("=" * 60)
+    logger.info(f"成功: {result.get('success', False)}")
     
     if result.get('pr_info'):
-        print(f"PR: #{result['pr_info']['pr_number']} ({result['pr_info']['owner']}/{result['pr_info']['repo']})")
+        logger.info(f"PR: #{result['pr_info']['pr_number']} ({result['pr_info']['owner']}/{result['pr_info']['repo']})")
     
     if result.get('method'):
-        print(f"处理方式: {result['method']}")
+        logger.info(f"处理方式: {result['method']}")
     
     if result.get('analysis'):
         analysis = result['analysis']
-        print(f"修改文件数: {analysis.get('total_files', 0)}")
-        print(f"Pass 文件数: {len(analysis.get('pass_files', []))}")
+        logger.info(f"修改文件数: {analysis.get('total_files', 0)}")
+        logger.info(f"Pass 文件数: {len(analysis.get('pass_files', []))}")
     
     if result.get('ut_report'):
         ut = result['ut_report']
-        print(f"\nUT 状态: {ut.get('status', 'N/A')}")
-        print(f"需要设计 UT: {result.get('need_design_ut', False)}")
+        logger.info(f"\nUT 状态: {ut.get('status', 'N/A')}")
+        logger.info(f"需要设计 UT: {result.get('need_design_ut', False)}")
         if ut.get('failed_tests'):
-            print(f"失败测试: {', '.join(ut['failed_tests'])}")
+            logger.info(f"失败测试: {', '.join(ut['failed_tests'])}")
     
     if result.get('diff_result'):
-        print(f"\nDiff 分析完成:")
-        print(f"  Pass 文件数: {len(result['diff_result']['analysis'].get('pass_files', []))}")
+        logger.info(f"\nDiff 分析完成:")
+        logger.info(f"  Pass 文件数: {len(result['diff_result']['analysis'].get('pass_files', []))}")
     
     if result.get('report_result'):
-        print(f"\nUT-Report 分析完成:")
-        print(f"  低覆盖率文件数: {len(result['report_result'].get('low_coverage_files', []))}")
+        logger.info(f"\nUT-Report 分析完成:")
+        logger.info(f"  低覆盖率文件数: {len(result['report_result'].get('low_coverage_files', []))}")
     
     if result.get('ut_design_items'):
-        print(f"\nUT 设计建议:")
+        logger.info(f"\nUT 设计建议:")
         for i, item in enumerate(result['ut_design_items'][:3], 1):
-            print(f"  {i}. [{item['priority'].upper()}] {item['file_path']}")
+            logger.info(f"  {i}. [{item['priority'].upper()}] {item['file_path']}")
         if len(result['ut_design_items']) > 3:
-            print(f"  ... 还有 {len(result['ut_design_items']) - 3} 条建议")
+            logger.info(f"  ... 还有 {len(result['ut_design_items']) - 3} 条建议")
     
     if result.get('error'):
-        print(f"\n错误: {result['error']}")
+        logger.info(f"\n错误: {result['error']}")
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@
 import sys
 import re
 import logging
+from common_utils import get_gitcode_token, make_api_request
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,8 +27,6 @@ logging.basicConfig(
     stream=sys.stdout
 )
 logger = logging.getLogger(__name__)
-
-from common_utils import get_gitcode_token, make_api_request
 
 
 def parse_ut_status_from_comments(comments: list) -> dict:
