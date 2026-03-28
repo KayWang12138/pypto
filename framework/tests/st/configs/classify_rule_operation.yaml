@@ -172,6 +172,8 @@ stest:
       - TestRound/RoundOperationTest.TestRound/2
       - TestRound/RoundOperationTest.TestRound/13
       - TestRound/RoundOperationTest.TestRound/14
+      - TestFloorDiv/FloorDivOperationTest.TestFloorDiv/0
+      - TestFloorDivs/FloorDivsOperationTest.TestFloorDivs/0
       - TestPows/PowsOperationTest.TestPows/12
       - TestPows/PowsOperationTest.TestPows/13
       - TestPows/PowsOperationTest.TestPows/14
