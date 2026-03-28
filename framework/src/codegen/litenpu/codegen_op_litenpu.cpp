@@ -117,32 +117,6 @@ std::string CodeGenOpLiteNPU::GenGmParamVar(unsigned gmParamIdx) const {
     return std::string("RealizedGM") + std::to_string(paramLocation[gmParamIdx]) + ".Addr";
 }
 
-// Used for parameter of GM shape and offset, e.g.
-// GET_PARAM_RAWSHAPE_2(param, 19, 9), GET_PARAM_OFFSET_2(param, 19, 9)
-// If dim is 2, the macro would be expanded into "shape0, shape1" which is implemented in aicore_runtime.h
-std::vector<std::string> CodeGenOpLiteNPU::GenGetParamMacroPacked(
-    unsigned gmParamIdx, int dim, const std::string &prefix) const {
-    std::vector<std::string> paramExpr;
-    std::ostringstream os;
-    os << "GET_PARAM_" << prefix << "_" << dim << "(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc
-       << ", " << paramLocation[gmParamIdx] << ")";
-    paramExpr.emplace_back(os.str());
-    return paramExpr;
-};
-
-std::vector<std::string> CodeGenOpLiteNPU::GenParamIdxExprByIndex(
-    unsigned gmParamIdx, int dim, const std::string &prefix) const {
-    std::vector<std::string> paramExpr;
-    std::ostringstream os;
-    for (int index = 0; index < dim; ++index) {
-        os << "GET_PARAM_" << prefix << "_BY_IDX(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
-           << paramLocation[gmParamIdx] << ", " << dim << ", " << index << ")";
-        paramExpr.emplace_back(os.str());
-        os.str("");
-    }
-    return paramExpr;
-}
-
 std::vector<std::string> CodeGenOpLiteNPU::GenSymbolicArgument(const std::vector<SymbolicScalar> &exprList) const {
     std::vector<std::string> argList;
     for (auto &expr : exprList) {
@@ -208,8 +182,8 @@ bool CodeGenOpLiteNPU::CombineAxis(std::vector<std::vector<int64_t> *> &shapes, 
     return true;
 }
 
-TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string &usingType) {
-    TileTensor tileTensor;
+TileTensorLiteNPU CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string &usingType) {
+    TileTensorLiteNPU tileTensor;
     tileTensor.magic = operandWithMagic[paramIdx];
     tileTensor.dim = dynamicValidShape[paramIdx].size();
     tileTensor.dtype = operandDtype[paramIdx];
@@ -223,8 +197,10 @@ TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string &us
     tileTensor.tensorName = BUFFER_TYPE_TO_PREFIX_LC.at(tileTensor.bufType) + "Tensor_" + std::to_string(tileTensor.magic);
 
     if (tileTensor.bufType == OperandType::BUF_DDR) {
-        tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
-        tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
+        // TODO...
+
+        // tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
+        // tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
     } else {
         for (const auto &s : dynamicValidShape[paramIdx]) {
             tileTensor.shape.emplace_back(s.Dump());
@@ -254,10 +230,10 @@ void CodeGenOpLiteNPU::UpdateTileTensorInfo() {
     tileOpName = iter->second; // update tileOpName from SUPPORT_TILETENSOR_OPS
 
     for (int i = 0; i < operandCnt; ++i) {
-        TileTensorUsing tileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],
+        TileTensorUsingLiteNPU tileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],
             operandType[i], static_cast<int>(rawShape[i].size()), originShape[i], rawShape[i]};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
-        TileTensor tileTensor = BuildTileTensor(i, usingType);
+        TileTensorLiteNPU tileTensor = BuildTileTensor(i, usingType);
         std::string tensorName = sm->AddTileTensor(tileTensor);
         tensorNames_[i] = tensorName;
         CODEGEN_LOGI(

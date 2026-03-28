@@ -20,6 +20,7 @@
 #include <unordered_set>
 
 #include "op_print_param_def.h"
+#include "tile_tensor_litenpu.h"
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
@@ -108,8 +109,6 @@ public:
     // // std::string GenMrgSortOp() const;
     // std::string GenExtractOp() const;
 
-    std::string GenParamsStr() const;
-
     // std::string GenDistOp() const;
     // std::string GetTemplateDType() const;
 
@@ -167,7 +166,7 @@ private:
 
     std::string QueryTileTensorNameByIdx(int paramIdx) const;
 
-    TileTensor BuildTileTensor(int paramIdx, const std::string& usingType);
+    TileTensorLiteNPU BuildTileTensor(int paramIdx, const std::string& usingType);
     
     std::vector<int64_t> GetTileShapeForMemTransfer(
         OperandType localType, std::vector<int64_t> gmShape, unsigned localIdx) const;
@@ -183,10 +182,6 @@ private:
     std::string GenGmParamVar(unsigned gmParamIdx) const;
 
     bool CombineAxis(std::vector<std::vector<int64_t> *> &shapes, bool secondLastAxis = false) const;
-
-    std::vector<std::string> GenGetParamMacroPacked(unsigned gmParamIdx, int dim, const std::string &prefix) const;
-
-    std::vector<std::string> GenParamIdxExprByIndex(unsigned gmParamIdx, int dim, const std::string &prefix) const;
 
     std::vector<std::string> GenSymbolicArgument(const std::vector<SymbolicScalar> &exprList) const;
 
@@ -227,7 +222,7 @@ private:
     std::string PrintMemCopyWithL0CTileTensor(const PrintMemCopyWithL0CParam &param) const;
 
     std::pair<std::string, std::string> GetOuterInnerValueStr(
-        unsigned gmIdx, const std::vector<int64_t> &gmShape, bool isSpillingToGM = false) const;
+        const std::vector<int64_t> &gmShape, bool isSpillingToGM = false) const;
     std::string PrintMemCopyWithL1(const PrintMemCopyWithL1Param &param) const;
     // std::string PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL1Param &param) const;
 

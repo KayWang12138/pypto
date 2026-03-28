@@ -166,7 +166,8 @@ std::vector<std::string> CodeGenOpLiteNPU::GetGmOffsetForTileTensor(unsigned gmI
         return GenSymbolicArgument(offsetFromAttr[gmIdx]);
     }
 
-    return GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_OFFSET);
+    return {""}; // TODO...
+    // return GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_OFFSET);
 }
 
 std::string CodeGenOpLiteNPU::PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam &param) const {
@@ -199,7 +200,7 @@ std::string CodeGenOpLiteNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyWi
     std::string src1Tensor = srcTensor;
     int64_t nzValue = 0;
     int64_t isAcc = 0;
-    auto [outerValueStr, innerValueStr] = GetOuterInnerValueStr(param.gmIdx, param.gmShape);
+    auto [outerValueStr, innerValueStr] = GetOuterInnerValueStr(param.gmShape);
     GetAttr(OP_ATTR_PREFIX + "atomic_add", isAcc);
     GetAttr("op_attr_is_nz", nzValue);
     std::string nzVar = nzValue ? "CopyOutMode::NZ2NZ" : "CopyOutMode::NZ2ND";
@@ -251,7 +252,7 @@ std::string CodeGenOpLiteNPU::PrintMemCopyInWithL1TileTensor(const PrintMemCopyW
     std::vector<std::string> tileOpParamList =
         GeTileOpParamForNormalCopyTileTensor(param.gmIdx, gmVarName, param.isSpillingToGM);
 
-    auto [outerValueStr, innerValueStr] = GetOuterInnerValueStr(param.gmIdx, param.gmShape, param.isSpillingToGM);
+    auto [outerValueStr, innerValueStr] = GetOuterInnerValueStr(param.gmShape, param.isSpillingToGM);
     if (opCode != Opcode::OP_L1_COPY_IN_A_SCALE && opCode != Opcode::OP_L1_COPY_IN_B_SCALE) {
         tileOpParamList.insert(tileOpParamList.end(), {outerValueStr, innerValueStr});
     }
@@ -296,24 +297,23 @@ std::string CodeGenOpLiteNPU::PrintMemCopyInWithL1TileTensor(const PrintMemCopyW
 }
 
 std::pair<std::string, std::string> CodeGenOpLiteNPU::GetOuterInnerValueStr(
-    unsigned gmIdx, const std::vector<int64_t> &gmShape, bool isSpillingToGM) const {
+    const std::vector<int64_t> &gmShape, bool isSpillingToGM) const {
     int64_t outerValue = 0;
     int64_t innerValue = 0;
     GetAttr("op_attr_outer_value", outerValue);
     GetAttr("op_attr_inner_value", innerValue);
 
     bool useStaticShape = functionType == FunctionType::STATIC || isSpillingToGM;
-    auto gmShapeExprByIndex = GenParamIdxExprByIndex(gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
 
-    auto getValueStr = [useStaticShape, &gmShapeExprByIndex](
-                           int64_t value, size_t idx, int64_t shapeValue) -> std::string {
+    auto getValueStr = [useStaticShape](
+                           int64_t value, int64_t shapeValue) -> std::string {
         if (value != 0) {
             return std::to_string(value);
         }
-        return useStaticShape ? std::to_string(shapeValue) : gmShapeExprByIndex[idx];
+        return std::to_string(shapeValue);
     };
 
-    return {getValueStr(outerValue, 0, gmShape[0]), getValueStr(innerValue, 1, gmShape[1])};
+    return {getValueStr(outerValue, gmShape[0]), getValueStr(innerValue, gmShape[1])};
 }
 
 // When ub tensor spilling to GM occurred, the spilling unit is entire raw shape of ub tensor.
