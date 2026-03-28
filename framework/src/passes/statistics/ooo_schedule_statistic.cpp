@@ -14,6 +14,7 @@
  */
 
 #include "ooo_schedule_statistic.h"
+#include <fstream>
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "OooScheduleStatistic"

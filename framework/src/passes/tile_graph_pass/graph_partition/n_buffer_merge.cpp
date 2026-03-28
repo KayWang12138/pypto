@@ -15,7 +15,7 @@
 
 #include "n_buffer_merge.h"
 #include "passes/pass_utils/reschedule_utils.h"
-#include "interface/utils/log.h"
+
 #include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_log/pass_log.h"
 #include <climits>
