@@ -321,6 +321,9 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_PRINT, Opcode::OP_PRINT, ExecutePrint);
 
 void ExecuteOpReshape(ExecuteOperationContext *ctx) {
+    if (ctx->op->GetOpMagic() == 10008) {
+        std::cout << "catch" << std::endl;
+    }
     ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
            ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
@@ -336,7 +339,7 @@ void ExecuteOpReshape(ExecuteOperationContext *ctx) {
             "Reshape: rawTensor shape/size mismatch in padding path: "
             "oop(raw) shape=%s size=%ld, iop(raw) shape=%s size=%ld",
             oopRawShapeStr.c_str(), oop->GetData()->GetSize(), iopRawShapeStr.c_str(), iop->GetData()->GetSize());
-        auto paddingRaw = std::make_shared<RawTensorData>(oop->GetData()->GetDataType(), oop->GetData()->GetShape());
+        auto paddingRaw = std::make_shared<RawTensorData>(oop->GetData()->GetDataType(), iop->GetShape());
         auto paddingIopView = std::make_shared<LogicalTensorData>(paddingRaw, iop->GetValidShape(), iop->GetValidShape(), iop->GetOffset());
         calc::Copy(paddingIopView, iopDataView);
         iopDataView = paddingIopView;
