@@ -75,7 +75,7 @@ def matmul_allreduce_add_rmsnorm_kernel(
             data_clear_out = pypto.distributed.shmem_clear_data(
                 shmem_tensor, shmem_shape, [0, 0, 0], pred=[in_tensor_tile])
             signal_clear_out = pypto.distributed.shmem_clear_signal(
-                shmem_tensor, shmem_shape, [0, 0, 0], pred=[in_tensor_tile])
+                shmem_tensor, pred=[in_tensor_tile])
             barrier_out = pypto.distributed.shmem_barrier_all(
                 shmem_barrier_signal, [data_clear_out, signal_clear_out])
 
