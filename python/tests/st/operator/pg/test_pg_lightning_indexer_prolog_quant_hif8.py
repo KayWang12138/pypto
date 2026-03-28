@@ -18,6 +18,8 @@ import torch_npu
 import pytest
 import pypto
 from torch._subclasses.fake_tensor import FakeTensor
+import torch.profiler as profiler
+from torch.profiler import profile, record_function, ProfilerActivity
 try:
     from torch._dynamo import allow_in_graph
 except Exception:
@@ -400,9 +402,39 @@ def lightning_indexer_prolog_quant_hif8_pypto(x, q_norm, q_norm_scale, w_qb, w_q
     if isinstance(x, FakeTensor):
         return q_hif8, q_scale, k_hif8, k_scale, weights
 
-    lightning_indexer_prolog_quant(x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj, gamma_k, cos_idx_rope,
+    # lightning_indexer_prolog_quant(x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj, gamma_k, cos_idx_rope,
+    #     sin_idx_rope, hadamard_q, hadamard_k, k_cache, k_scale_cache, k_cache_index, k_scale_cache_index, 
+    #     q_hif8, q_scale, k_hif8, k_scale, weights)
+        
+        
+    prof = torch.profiler.profile(
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+        ],
+        record_shapes=True,
+        profile_memory=True,
+        with_stack=True,
+        with_flops=True,
+        
+        # 采集策略：跳过前5次，采集10次
+        schedule=torch.profiler.schedule(
+            skip_first=5,    # 跳过编译/预热阶段
+            wait=0,
+            warmup=2,        # 预热2步
+            active=10,       # 性能采样10步
+            repeat=1
+        ),
+    )
+    prof.start()  # 启动采集
+
+    for _ in range(20):
+        lightning_indexer_prolog_quant(x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj, gamma_k, cos_idx_rope,
         sin_idx_rope, hadamard_q, hadamard_k, k_cache, k_scale_cache, k_cache_index, k_scale_cache_index, 
         q_hif8, q_scale, k_hif8, k_scale, weights)
+        prof.step()
+    prof.stop()
+    print("\n正在保存 profiling 数据到文件...")
+    prof.export_chrome_trace("./moe_profiling_result.json")
 
     k_hif8 = k_hif8.view(block_num, -1)[:, k_storage_offset: 
         k_storage_offset + block_size * n_kv * head_dim].view(block_num, block_size, n_kv, head_dim)
