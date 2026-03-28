@@ -19,6 +19,7 @@
 #include "interface/tensor/raw_tensor.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/interpreter/calc.h"
 using namespace npu::tile_fwk;
@@ -1355,6 +1356,23 @@ TEST_F(OperationImplTest, Test_Matmul_Bias) {
              npu::tile_fwk::Matrix::Matmul(DT_FP32, matA, matB, extendParam, false, false, false);
      }
  }
+
+TEST_F(OperationImplTest, Test_MatmulMX_Bias) {
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    Tensor matA(DT_FP8E5M2, {128, 256}, "matA");
+    Tensor matB(DT_FP8E5M2, {256, 128}, "matB");
+    Tensor scaleA(DT_FP8E8M0, {128, 4, 2}, "scaleA");
+    Tensor scaleB(DT_FP8E8M0, {4, 128, 2}, "scaleB");
+    Tensor matBias(DT_BF16, {1, 128}, "biasA");
+    Tensor result;
+    npu::tile_fwk::Matrix::MatmulExtendParam extendParam;
+    extendParam.biasTensor = matBias;
+    FUNCTION("TestMatmulMXBias") {
+        result = npu::tile_fwk::Matrix::MatmulMX(DT_FP32, matA, scaleA, matB, scaleB, extendParam,
+            false, false, false, false, false);
+    }
+}
 
 TEST_F(OperationImplTest, test_FillPad_1D) {
     TileShape::Current().SetVecTile(8);
