@@ -135,7 +135,6 @@ public:
         if (devConfig.aicpuNum == 0 || devConfig.aicpuNum > maxAicpuNum) {
             devConfig.aicpuNum = maxAicpuNum;
         }
-        devConfig.isTripleStream = config::GetRuntimeOption<bool>(CFG_TRIPLE_STREAM_SCHED);
     }
 
     template<typename DeviceMemoryTy>

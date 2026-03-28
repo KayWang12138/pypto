@@ -40,6 +40,7 @@
 #include "tilefwk/pypto_fwk_log.h"
 #include "machine/utils/machine_error.h"
 
+#include "machine/device/dynamic/device_common.h"
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
 
@@ -785,7 +786,7 @@ static bool IsNeedDumpAicpuKernel(const std::string &inputFile) {
 }
 static void OverCallOpMaxNum(Function *devRoot, DevAscendFunction *funcBin){
     uint32_t CallOpSize = funcBin->GetOperationSize();
-    uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
+    uint32_t CallOpmaxSize = STITCH_FUNCTION_SIZE;
     auto funcMagicName = devRoot->GetRawName() + "_" + std::to_string(devRoot->GetFuncMagic());
     MACHINE_LOGE(DevCommonErr::PARAM_CHECK_FAILED,
                    "the loop function operation: %s size is %u hitting the maxinum single-loop-operation limit:%u.\n",
@@ -985,7 +986,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         funcBin->getTensorDataCount = 0;
         EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, funcBin);
         funcBin->Reloc(-reinterpret_cast<int64_t>(funcBin), true);
-        uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
+        uint32_t CallOpmaxSize = STITCH_FUNCTION_SIZE;
         ASSERT(CallOpmaxSize <= STITCH_FUNCTION_MAX_SIZE) << " CallOpmaxSize set: "<< CallOpmaxSize
         << "exceeds the maximum allowed value of 65535.";
         if (funcBin->GetOperationSize() > CallOpmaxSize) {
