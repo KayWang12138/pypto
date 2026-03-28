@@ -147,10 +147,8 @@ std::string CodeGenLiteNPU::GenAllocForLocalBuffer(const Operation &op, const st
 }
 
 std::string CodeGenLiteNPU::GetParamType(const Function &func) const {
-    if (isUnderDynamicFunction_) {
-        return GM_PARAM_TYPE_FOR_DYN;
-    }
-    return func.GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH ? GM_PARAM_TYPE_FOR_DYN : GM_PARAM_TYPE_FOR_STATIC;
+    (void)func; // TODO...
+    return GM_PARAM_TYPE_FOR_STATIC;
 }
 
 void CodeGenLiteNPU::GenCode(

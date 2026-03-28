@@ -158,6 +158,11 @@ private:
         }
         return ret;
     }
+
+    std::string GenBarrier() const;
+    std::string GenSyncSetOp() const;
+    std::string GenSyncWaitOp() const;
+
     std::string GetLastUse() const;
 
     std::string QueryTileTensorNameByIdx(int paramIdx) const;
@@ -385,11 +390,11 @@ private:
         {               Opcode::OP_A_MULACC_BT,          [this]() { return GenCubeOpMatmulAcc(); }},
 
         // sync
-        // {                  Opcode::OP_SYNC_SRC,                [this]() { return GenSyncSetOp(); }},
-        // {                  Opcode::OP_SYNC_DST,               [this]() { return GenSyncWaitOp(); }},
-        // {                     Opcode::OP_BAR_V,                  [this]() { return GenBarrier(); }},
-        // {                     Opcode::OP_BAR_M,                  [this]() { return GenBarrier(); }},
-        // {                   Opcode::OP_BAR_ALL,                  [this]() { return GenBarrier(); }},
+        {                  Opcode::OP_SYNC_SRC,                [this]() { return GenSyncSetOp(); }},
+        {                  Opcode::OP_SYNC_DST,               [this]() { return GenSyncWaitOp(); }},
+        {                     Opcode::OP_BAR_V,                  [this]() { return GenBarrier(); }},
+        {                     Opcode::OP_BAR_M,                  [this]() { return GenBarrier(); }},
+        {                   Opcode::OP_BAR_ALL,                  [this]() { return GenBarrier(); }},
 
         // distribute op
         // {              Opcode::OP_WRITE_REMOTE,                   [this]() { return GenDistOp(); }},

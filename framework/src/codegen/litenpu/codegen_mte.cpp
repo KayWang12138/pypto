@@ -62,7 +62,6 @@ std::string CodeGenOpLiteNPU::PrintMemL1ToL0TileTensor() const {
     // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
     std::string coord = PrintCoord(coordSize, coordCp);
     std::ostringstream oss;
-    std::cout<<"PrintMemL1ToL0TileTensor tileopname: "<<tileOpName<<"\n";
     oss << tileOpName;
     if (opCode != Opcode::OP_L1_TO_L0A_SCALE && opCode != Opcode::OP_L1_TO_L0B_SCALE) {
         oss << WrapParamByAngleBrackets({std::to_string(isTrans)});

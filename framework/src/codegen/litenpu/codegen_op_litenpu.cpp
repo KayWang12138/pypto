@@ -241,21 +241,17 @@ TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string &us
 }
 
 void CodeGenOpLiteNPU::UpdateTileTensorInfo() {
-    // if (!isSupportLayout) {
-    //     return;
-    // }
-
-    auto iter = SUPPORT_TILETENSOR_OPS.find(opCode);
-    if (iter == SUPPORT_TILETENSOR_OPS.end()) {
-        // std::cout<<"opCodeStr: "<< opCodeStr <<" not support tile tensor!\n";
-        // ASSERT(iter != SUPPORT_TILETENSOR_OPS.end()) << "opCode: " << opCodeStr << " not support tile tensor!";
+    if (!isSupportLayout) {
         return;
     }
 
-    std::cout<<"worked for opcode: "<<opCodeStr<<"\n";
-    tileOpName = iter->second; // update tileOpName from SUPPORT_TILETENSOR_OPS
-    std::cout<<"updated opcode: "<<tileOpName<<"\n";
+    auto iter = SUPPORT_TILETENSOR_OPS.find(opCode);
+    if (iter == SUPPORT_TILETENSOR_OPS.end()) {
+        ASSERT(iter != SUPPORT_TILETENSOR_OPS.end()) << "opCode: " << opCodeStr << " not support tile tensor!";
+        return;
+    }
 
+    tileOpName = iter->second; // update tileOpName from SUPPORT_TILETENSOR_OPS
 
     for (int i = 0; i < operandCnt; ++i) {
         TileTensorUsing tileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],
