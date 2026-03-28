@@ -17,7 +17,6 @@
 #include <string>
 #include "codegen/codegen_common.h"
 #include "codegen_op_cloudnpu.h"
-#include "interface/utils/log.h"
 #include "securec.h"
 #include "interface/operation/distributed/distributed_common.h"
 
