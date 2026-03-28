@@ -3,21 +3,16 @@
 
 import os
 import sys
-import shutil
 import logging
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (
-    read_file,
-    write_file,
     get_commentable_lines,
-    comment_lines,
-    has_error,
-    run_test,
-    comment_special_lines,
+    comment_lines_by_indices,
     validate_path,
     setup_logging,
-    print_error_info
+    print_error_info,
+    backup_and_test
 )
 
 setup_logging()
@@ -26,35 +21,23 @@ logger = logging.getLogger(__name__)
 
 
 def test_cce_file(cce_file, test_cmd, run_dir):
-    logger.info(f"测试 CCE 文件: {cce_file}")
+    logger.info("测试 CCE 文件: {}".format(cce_file))
     
-    backup_file = cce_file + ".bak"
-    shutil.copy(cce_file, backup_file)
-    cce_lines = read_file(cce_file)
-    original_lines = cce_lines.copy()
+    def modify_func(cce_lines):
+        commentable_lines = get_commentable_lines(cce_lines)
+        logger.info("可注释的行数: {}".format(len(commentable_lines)))
+        
+        if not commentable_lines:
+            logger.info("错误：没有可注释的行")
+            return None
+        
+        logger.info("注释所有可注释的行...")
+        return comment_lines_by_indices(cce_lines.copy(), commentable_lines)
     
-    cce_lines = comment_special_lines(cce_lines)
+    error_exists, output, original_lines = backup_and_test(cce_file, test_cmd, run_dir, modify_func)
     
-    commentable_lines = get_commentable_lines(cce_lines)
-    logger.info(f"可注释的行数: {len(commentable_lines)}")
-    
-    if not commentable_lines:
-        logger.info("错误：没有可注释的行")
-        write_file(cce_file, original_lines)
-        os.remove(backup_file)
+    if original_lines is None:
         return False, None
-    
-    logger.info("注释所有可注释的行...")
-    current_lines = cce_lines.copy()
-    current_lines = comment_lines(current_lines, commentable_lines)
-    
-    write_file(cce_file, current_lines)
-    logger.info("运行测试...")
-    returncode, output = run_test(test_cmd, run_dir)
-    error_exists = has_error(returncode, output)
-    
-    write_file(cce_file, original_lines)
-    os.remove(backup_file)
     
     if error_exists:
         print_error_info(output, logger)
@@ -62,6 +45,7 @@ def test_cce_file(cce_file, test_cmd, run_dir):
         return False, None
     else:
         logger.info("结果: 注释所有行后运行成功（无 error），此文件可能是问题文件")
+        commentable_lines = get_commentable_lines(original_lines)
         return True, commentable_lines
 
 
