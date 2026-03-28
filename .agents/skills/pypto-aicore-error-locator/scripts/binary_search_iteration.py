@@ -3,8 +3,8 @@
 
 import os
 import sys
-import shutil
 import logging
+import shutil
 from dataclasses import dataclass
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -12,14 +12,13 @@ from common import (
     read_file,
     write_file,
     get_commentable_lines,
-    comment_lines,
-    uncomment_lines,
-    has_error,
-    run_test,
-    comment_special_lines,
+    comment_lines_by_indices,
+    uncomment_lines_by_indices,
     validate_path,
     setup_logging,
-    print_error_info
+    print_error_info,
+    has_error,
+    run_test
 )
 
 setup_logging()
@@ -45,6 +44,7 @@ def binary_search_iteration(params):
 
     backup_file = params.cce_file + ".bak"
     shutil.copy(params.cce_file, backup_file)
+    
     cce_lines = read_file(params.cce_file)
     original_lines = cce_lines.copy()
 
@@ -62,10 +62,10 @@ def binary_search_iteration(params):
     logger.info(commentable_lines[0:mid + 1])
 
     current_lines = cce_lines.copy()
-    current_lines = comment_lines(current_lines, commentable_lines)
+    current_lines = comment_lines_by_indices(current_lines, commentable_lines)
 
     lines_to_uncomment = commentable_lines[0:mid + 1]
-    current_lines = uncomment_lines(current_lines, lines_to_uncomment)
+    current_lines = uncomment_lines_by_indices(current_lines, lines_to_uncomment)
 
     write_file(params.cce_file, current_lines)
     logger.info("运行测试...")
@@ -128,9 +128,6 @@ def main():
     cce_file = os.path.abspath(cce_file)
     run_dir = os.path.abspath(run_dir)
 
-    valid = False
-    error_msg = None
-
     valid, error_msg = validate_path(cce_file, "CCE 文件")
     if not valid:
         logger.info(error_msg)
@@ -152,10 +149,10 @@ def main():
     new_left, new_right, problem_line = binary_search_iteration(params)
     
     if new_left is not None:
-        logger.info(f"NEXT_LEFT {new_left}")
-        logger.info(f"NEXT_RIGHT {new_right}")
+        logger.info("NEXT_LEFT {}".format(new_left))
+        logger.info("NEXT_RIGHT {}".format(new_right))
         if problem_line is not None:
-            logger.info(f"FOUND {problem_line}")
+            logger.info("FOUND {}".format(problem_line))
 
 
 if __name__ == "__main__":
