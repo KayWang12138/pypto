@@ -163,7 +163,7 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForSet() const {
     int64_t bufferEleNum = distOpAttr.setBufferShape[0];
     size_t shmemTensorDim = rawShape[shmemTensorIndex].size();
     ASSERT(GenCodeErr::TENSOR_DIM_UNSUPPORTED, shmemTensorDim >= 3) << "shmem tensor dim = " << shmemTensorDim << ", should >= 3.";
-    Shape actualRawShape = distOpAttr.isData ? rawShape[shmemTensorIndex] :
+    Shape actualRawShape = distOpAttr.isSetData ? rawShape[shmemTensorIndex] :
         Shape{rawShape[shmemTensorIndex][0], Distributed::MAX_TILE_NUM, Distributed::SHMEM_SIGNAL_STRIDE};
     oss << "<" << GetTemplateDType() << ", " << actualRawShape[0] << ", " << actualRawShape[1] << ", "
         << actualRawShape[2] << ", " << bufferEleNum << ">";
@@ -338,7 +338,7 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemSet() const {
     std::ostringstream oss;
     Distributed::ShmemSetAttr distOpAttr = AnyCast<Distributed::ShmemSetAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
     int32_t shmemTensorIndex = 3;
-    if (distOpAttr.isData) {
+    if (distOpAttr.isSetData) {
         oss << ", " << GenOffsets(shmemTensorIndex);
     } else {
         oss << ", " << GenOffsetsAndRawShapes(shmemTensorIndex) << ", "
