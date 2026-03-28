@@ -1316,7 +1316,6 @@ void OoOScheduler::AllocWorkspaceGM(const std::vector<Operation *> &operations) 
         for (auto &iOperand : op->GetIOperands()) {
             if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
                 !allocedRawmagic.count(iOperand->tensor->GetRawMagic())) {
-                iOperand->SetAttr("isWorkspaceGM", true);
                 allocedRawmagic.insert(iOperand->tensor->GetRawMagic());
                 iOperand->SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceOffset);
                 iOperand->memoryrange =
@@ -1327,7 +1326,6 @@ void OoOScheduler::AllocWorkspaceGM(const std::vector<Operation *> &operations) 
         for (auto &oOperand : op->GetOOperands()) {
             if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
                 !allocedRawmagic.count(oOperand->tensor->GetRawMagic())) {
-                oOperand->SetAttr("isWorkspaceGM", true);
                 allocedRawmagic.insert(oOperand->tensor->GetRawMagic());
                 oOperand->SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceOffset);
                 oOperand->memoryrange =
