@@ -102,7 +102,10 @@ public:
         return std::string{"CAN NOT HANDLE OP: " + opCodeStr + "\n"};
     }
     void UpdateTileTensorInfo();
+
 private:
+    std::string QueryTileTensorNameByIdx(int paramIdx) const;
+    std::shared_ptr<ForBlockManager> forBlkMgr_;
     template <typename T>
     bool GetAttr(const std::string &key, T &value) const {
         auto it = opAttrs.find(key);
@@ -118,7 +121,21 @@ private:
             typeid(T).name());
         return false;
     }
-
+    template <typename T = int64_t>
+    std::vector<T> GetVectorIntAttribute(const std::string &key) const {
+        static_assert(std::is_integral_v<T>);
+        std::vector<int64_t> val;
+        GetAttr(key, val);
+        if constexpr (std::is_same_v<T, int64_t>) {
+            return val;
+        }
+        std::vector<T> ret;
+        for (auto &x : val) {
+            ret.emplace_back(static_cast<T>(x));
+        }
+        return ret;
+    }
+    std::string GetLastUse() const;
     TileTensor BuildTileTensor(int paramIdx, const std::string& usingType);
     
     std::vector<int64_t> GetTileShapeForMemTransfer(
@@ -130,6 +147,7 @@ private:
 
     // update var offset when parent of this var is split by "view" operation. (used for ub var currently)
     void AppendLocalBufferVarOffset(const std::map<unsigned, std::reference_wrapper<std::string>> &vars) const;
+    SymbolicScalar GetOperandStartOffsetLite(int operandIdx) const;
 
     std::string GenGmParamVar(unsigned gmParamIdx) const;
 
@@ -221,6 +239,8 @@ private:
     std::string PrintBinaryStatic(const PrintBinaryParam &param) const;
     std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const;
     std::string PrintBinary(const PrintBinaryParam &param) const;
+    std::string PrintBinaryTileTensor() const;
+    std::string PrintUnaryWithTmpTileTensor() const;
 
     std::string PrintBinaryBrcStatic(const PrintBinaryBrcParam &param) const;
     std::string PrintBinaryBrcDynamicUnaligned(const PrintBinaryBrcParam &param) const;
@@ -253,7 +273,7 @@ private:
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool gmOffsetCond = true) const;
 
     std::string PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const;
-
+    std::string PrintReduceLastAxisTileTensor() const;
     const std::unordered_map<Opcode, std::function<std::string()>> opsGenMap_ = {
         // UB <-> GM
         {                Opcode::OP_UB_COPY_IN,                 [this]() { return GenUBCopyIn(); }},

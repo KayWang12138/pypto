@@ -22,6 +22,18 @@
 #include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
+std::string GetBrcOprandIdxStrLite(int64_t brcbOperandIdx) {
+    CODEGEN_LOGI("input brcbOperandIdx is %ld", static_cast<long>(brcbOperandIdx));
+    std::string ret = "TileOp::";
+    switch (brcbOperandIdx) {
+        case ToUnderlying(BroadcastOperand::NONE): ret.append("BroadcastOperand::NONE"); break;
+        case ToUnderlying(BroadcastOperand::LEFT_OPERAND): ret.append("BroadcastOperand::LEFT_OPERAND"); break;
+        case ToUnderlying(BroadcastOperand::RIGHT_OPERAND): ret.append("BroadcastOperand::RIGHT_OPERAND"); break;
+        default: ret.append("BroadcastOperand::NONE");
+    }
+    return ret;
+}
+
 // std::string CodeGenOpLiteNPU::GenCastOp() const {
 //     auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
 //     auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
@@ -806,6 +818,7 @@ namespace npu::tile_fwk {
 //     return oss.str();
 // }
 
+
 std::string CodeGenOpLiteNPU::PrintVnchwconvStatic(const PrintUnaryTmpBuffParam &param) const {
     const std::string &s0Var = param.s0Var;
     const std::string &tmpVar = param.tmpVar;
@@ -880,7 +893,19 @@ std::string CodeGenOpLiteNPU::PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuff
     return os.str();
 }
 
+std::string CodeGenOpLiteNPU::PrintUnaryWithTmpTileTensor() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::ostringstream oss;
+    oss << tileOpName << "(" << dstTensor << ", " << srcTensor << "," << tmpTensor << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpLiteNPU::PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const {
+    if (isSupportLayout) {
+        return PrintUnaryWithTmpTileTensor();
+    }
     if (!isSupportDynamicAligned) {
         return PrintVnchwconvDynUnaligned(param);
     }
@@ -980,6 +1005,22 @@ std::string CodeGenOpLiteNPU::GenUnaryOpWithTmpBuff() const {
     return ostring;
 }
 
+std::string CodeGenOpLiteNPU::PrintReduceLastAxisTileTensor() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
+    std::ostringstream oss;
+    std::vector<std::string> templateParamList;
+    std::string lastUse = GetLastUse();
+    oss << tileOpName;
+    if (!lastUse.empty()) {
+        oss << WrapParamByAngleBrackets({lastUse});
+    }
+    oss << WrapParamByParentheses({dstTensor, src0Tensor, tmpTensor});
+    oss << STMT_END;
+    return oss.str();
+}
+
 std::string CodeGenOpLiteNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const {
     const std::string &s0Var = param.s0Var;
     const std::string &tmpVar = param.tmpVar;
@@ -998,7 +1039,9 @@ std::string CodeGenOpLiteNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam &
     std::vector<int64_t> tmpRawShape = NormalizeShape(rawShape[1], SHAPE_DIM4);
     ALOG_INFO_F("rawShape[2] is %s", IntVecToStr(rawShape[2]).c_str());
     ASSERT(dstOriginShape[ID3] == 1) << "Dst last axis length must be 1";
-
+    if (isSupportLayout) {
+        return PrintReduceLastAxisTileTensor();
+    }
     if (!isSupportDynamicAligned) {
         auto newDynSrcValidShape = dynamicValidShape[2];
         FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcValidShape, SHAPE_DIM4 - dynamicValidShape[2].size(), 1);
@@ -1121,7 +1164,35 @@ std::string CodeGenOpLiteNPU::PrintBinaryDynamicUnaligned(const PrintBinaryParam
     return os.str();
 }
 
+std::string CodeGenOpLiteNPU::PrintBinaryTileTensor() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
+    std::vector<std::string> tileOpCallParamList = {dstTensor, src0Tensor, src1Tensor};
+
+    std::vector<std::string> templateParamList;
+    int64_t brcOperandIdx = 0;
+    std::string lastUse = GetLastUse();
+    if (!lastUse.empty()) {
+        templateParamList.emplace_back(lastUse);
+    }
+    if (GetAttr(OpAttributeKey::brcbIdx, brcOperandIdx)) {
+        templateParamList.emplace_back(GetBrcOprandIdxStrLite(brcOperandIdx));
+    }
+
+    std::ostringstream oss;
+    oss << tileOpName;
+    if (!templateParamList.empty()) {
+        oss << WrapParamByAngleBrackets(templateParamList);
+    }
+    oss << WrapParamByParentheses(tileOpCallParamList) << STMT_END;
+    return oss.str();
+}
+
 std::string CodeGenOpLiteNPU::PrintBinary(const PrintBinaryParam &param) const {
+    if (isSupportLayout) {
+        return PrintBinaryTileTensor();
+    }
     if (!isSupportDynamicAligned) {
         return PrintBinaryDynamicUnaligned(param);
     }
@@ -1244,101 +1315,127 @@ std::string CodeGenOpLiteNPU::PrintBinary(const PrintBinaryParam &param) const {
 //     }
 //     return PrintBinaryBrcStatic(param);
 // }
-
-std::string CodeGenOpLiteNPU::GenBinaryOp() const
-{
-    auto platform = ConfigManager::Instance().GetPlatformConfig("DEVICE_PLATFORM", "LITE_DEV");
-    if (platform == "LITE_DEV") {
-        std::vector<int64_t> fiveDShape = NormalizeShape(originShape[0], SHAPE_DIM5);
-        constexpr const int maxBufSize = 512;
-        char buffer[maxBufSize] = "CG_ERROR";
-
-        int ret = sprintf_s(buffer,
-            maxBufSize,
-            "%s_<%s, %d, %d, %d, %d, %d>(%s);\n",
-            tileOpName.c_str(),
-            DataType2CCEStr(operandDtype[0]).c_str(),
-            fiveDShape[ID0],
-            fiveDShape[ID1],
-            fiveDShape[ID2],
-            fiveDShape[ID3],
-            fiveDShape[ID4],
-            GenParamsStr().c_str());
-        ASSERT(ret >= 0) << "sprintf_s failed in genCopyInOp, return value:" << ret;
-        return std::string(buffer);
-    }
-
+std::string CodeGenOpLiteNPU::GenBinaryOp() const {
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
     std::vector src0RawShape = this->rawShape[ID1];
-    std::vector src1RawShape = this->rawShape[ID2];
-    ALOG_INFO << "genBinaryOp " << tileOpName.c_str() << " src0RawShape is [" << src0RawShape[ID0] << "," << src0RawShape[1];
+    CODEGEN_LOGI("genBinaryOp %s, src0RawShape is %s", tileOpName.c_str(), IntVecToStr(src0RawShape).c_str());
 
-    unsigned tShape0 = std::min(src0RawShape[ID0], shape[ID0][ID0]);
-    unsigned tShape1 = std::min(src0RawShape[ID1], shape[ID0][ID1]);
-    unsigned tShape2, tShape3;
-    if (shape[0].size() == SHAPE_DIM3) {
-        tShape2 = std::min(src0RawShape[2], shape[0][2]);
-    } else if (shape[0].size() == SHAPE_DIM4) {
-        tShape2 = std::min(src0RawShape[2], shape[0][2]);
-        tShape3 = std::min(src0RawShape[3], shape[0][3]);
-    }
-
-    char buffer[1024] = "CG_ERROR";
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
 
     std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
-    //AppendLocalBufferVarOffset({&dVar, &s0Var, &s1Var}, {0, 1, 2});
-    std::map<unsigned, std::reference_wrapper<std::string>> vars;
-    vars.insert({static_cast<unsigned>(0), std::ref(dVar)});
-    vars.insert({static_cast<unsigned>(1), std::ref(s0Var)});
-    vars.insert({static_cast<unsigned>(2), std::ref(s1Var)});
-    AppendLocalBufferVarOffset(vars);
 
-    int ret = 0;
-    if(opCode == Opcode::OP_ADD || opCode == Opcode::OP_SUB || opCode == Opcode::OP_MUL || opCode == Opcode::OP_DIV ||
-        opCode == Opcode::OP_MAXIMUM || opCode == Opcode::OP_PAIRMAX || opCode == Opcode::OP_PAIRSUM || opCode == Opcode::OP_PAIRMIN) {
-        return PrintBinary({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
-    } else {
-        if (shape[0].size() == SHAPE_DIM2) {
-            ret = sprintf_s(buffer,
-                sizeof(buffer),
-                "%s<%s, %u, %u>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n",
-                tileOpName.c_str(),
-                dstDtypeStr.c_str(),
-                tShape0,
-                tShape1,
-                dstDtypeStr.c_str(),
-                dVar.c_str(),
-                src0DtypeStr.c_str(),
-                s0Var.c_str(),
-                src1DtypeStr.c_str(),
-                s1Var.c_str());
-        } else if (shape[0].size() == SHAPE_DIM4) {
-            ret = sprintf_s(buffer,
-                sizeof(buffer),
-                "%s<%s, %u, %u, %u, %u>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n",
-                tileOpName.c_str(),
-                dstDtypeStr.c_str(),
-                tShape0,
-                tShape1,
-                tShape2,
-                tShape3,
-                dstDtypeStr.c_str(),
-                dVar.c_str(),
-                src0DtypeStr.c_str(),
-                s0Var.c_str(),
-                src1DtypeStr.c_str(),
-                s1Var.c_str());
-        }
+    auto offset0 = GetOperandStartOffsetLite(ID0);
+    auto offset1 = GetOperandStartOffsetLite(ID1);
+    auto offset2 = GetOperandStartOffsetLite(ID2);
+    if (!offset0.ConcreteValid() || offset0.Concrete() != 0) {
+        dVar += "+" + GetOperandStartOffsetLite(ID0).Dump();
     }
-    ASSERT(ret >= 0) << "GenBinaryOp sprintf_s failed ";
-    std::string ostring(buffer);
-    return ostring;
+    if (!offset1.ConcreteValid() || offset1.Concrete() != 0) {
+        s0Var += "+" + GetOperandStartOffsetLite(ID1).Dump();
+    }
+    if (!offset2.ConcreteValid() || offset2.Concrete() != 0) {
+        s1Var += "+" + GetOperandStartOffsetLite(ID2).Dump();
+    }
+    return PrintBinary({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
 }
+// std::string CodeGenOpLiteNPU::GenBinaryOp() const
+// {
+//     auto platform = ConfigManager::Instance().GetPlatformConfig("DEVICE_PLATFORM", "LITE_DEV");
+//     if (platform == "LITE_DEV") {
+//         std::vector<int64_t> fiveDShape = NormalizeShape(originShape[0], SHAPE_DIM5);
+//         constexpr const int maxBufSize = 512;
+//         char buffer[maxBufSize] = "CG_ERROR";
+
+//         int ret = sprintf_s(buffer,
+//             maxBufSize,
+//             "%s_<%s, %d, %d, %d, %d, %d>(%s);\n",
+//             tileOpName.c_str(),
+//             DataType2CCEStr(operandDtype[0]).c_str(),
+//             fiveDShape[ID0],
+//             fiveDShape[ID1],
+//             fiveDShape[ID2],
+//             fiveDShape[ID3],
+//             fiveDShape[ID4],
+//             GenParamsStr().c_str());
+//         ASSERT(ret >= 0) << "sprintf_s failed in genCopyInOp, return value:" << ret;
+//         return std::string(buffer);
+//     }
+
+//     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+//     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+
+//     std::vector src0RawShape = this->rawShape[ID1];
+//     std::vector src1RawShape = this->rawShape[ID2];
+//     ALOG_INFO << "genBinaryOp " << tileOpName.c_str() << " src0RawShape is [" << src0RawShape[ID0] << "," << src0RawShape[1];
+
+//     unsigned tShape0 = std::min(src0RawShape[ID0], shape[ID0][ID0]);
+//     unsigned tShape1 = std::min(src0RawShape[ID1], shape[ID0][ID1]);
+//     unsigned tShape2, tShape3;
+//     if (shape[0].size() == SHAPE_DIM3) {
+//         tShape2 = std::min(src0RawShape[2], shape[0][2]);
+//     } else if (shape[0].size() == SHAPE_DIM4) {
+//         tShape2 = std::min(src0RawShape[2], shape[0][2]);
+//         tShape3 = std::min(src0RawShape[3], shape[0][3]);
+//     }
+
+//     char buffer[1024] = "CG_ERROR";
+//     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+//     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
+//     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
+
+//     std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+//     //AppendLocalBufferVarOffset({&dVar, &s0Var, &s1Var}, {0, 1, 2});
+//     std::map<unsigned, std::reference_wrapper<std::string>> vars;
+//     vars.insert({static_cast<unsigned>(0), std::ref(dVar)});
+//     vars.insert({static_cast<unsigned>(1), std::ref(s0Var)});
+//     vars.insert({static_cast<unsigned>(2), std::ref(s1Var)});
+//     AppendLocalBufferVarOffset(vars);
+
+//     int ret = 0;
+//     if(opCode == Opcode::OP_ADD || opCode == Opcode::OP_SUB || opCode == Opcode::OP_MUL || opCode == Opcode::OP_DIV ||
+//         opCode == Opcode::OP_MAXIMUM || opCode == Opcode::OP_PAIRMAX || opCode == Opcode::OP_PAIRSUM || opCode == Opcode::OP_PAIRMIN) {
+//         return PrintBinary({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
+//     } else {
+//         if (shape[0].size() == SHAPE_DIM2) {
+//             ret = sprintf_s(buffer,
+//                 sizeof(buffer),
+//                 "%s<%s, %u, %u>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n",
+//                 tileOpName.c_str(),
+//                 dstDtypeStr.c_str(),
+//                 tShape0,
+//                 tShape1,
+//                 dstDtypeStr.c_str(),
+//                 dVar.c_str(),
+//                 src0DtypeStr.c_str(),
+//                 s0Var.c_str(),
+//                 src1DtypeStr.c_str(),
+//                 s1Var.c_str());
+//         } else if (shape[0].size() == SHAPE_DIM4) {
+//             ret = sprintf_s(buffer,
+//                 sizeof(buffer),
+//                 "%s<%s, %u, %u, %u, %u>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n",
+//                 tileOpName.c_str(),
+//                 dstDtypeStr.c_str(),
+//                 tShape0,
+//                 tShape1,
+//                 tShape2,
+//                 tShape3,
+//                 dstDtypeStr.c_str(),
+//                 dVar.c_str(),
+//                 src0DtypeStr.c_str(),
+//                 s0Var.c_str(),
+//                 src1DtypeStr.c_str(),
+//                 s1Var.c_str());
+//         }
+//     }
+//     ASSERT(ret >= 0) << "GenBinaryOp sprintf_s failed ";
+//     std::string ostring(buffer);
+//     return ostring;
+// }
 
 // std::string CodeGenOpLiteNPU::GenBinaryWithBrc() const {
 //     auto kS0 = sm->CreateAllocKey(operandWithMagic[ID2]);
