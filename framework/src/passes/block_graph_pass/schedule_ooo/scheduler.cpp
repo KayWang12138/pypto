@@ -1194,10 +1194,10 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
 
 void OoOScheduler::AllocWorkspaceGM(const std::vector<Operation *> &operations) {
     std::set<int> allocedRawmagic;
-    for (auto &inCast : function_->GetIncast()) {
+    for (auto &inCast : function_.GetIncast()) {
         allocedRawmagic.insert(inCast->tensor->GetRawMagic());
     }
-    for (auto &outCast : function_->GetOutcast()) {
+    for (auto &outCast : function_.GetOutcast()) {
         allocedRawmagic.insert(outCast->tensor->GetRawMagic());
     }
     for (auto &op : operations) {
