@@ -330,8 +330,8 @@ def lightning_indexer(case_name: str) -> bool:
         b, s1 = 4, 2  # batch size和query序列长度
         act_seq = [64 * 1024, 971, 32 * 1024 + 101, 16 * 1024 - 1] # 每个样本的实际序列长度
     elif case_name == "LightningIndexerSTest.lightning_indexer_quant_8_b_2_s1_64k_s2":
-        b, s1 = 9, 2
-        act_seq = [32767, 32656, 384, 2000, 64 * 1024, 971, 32 * 1024 + 101, 16 * 1024 - 1, 129090]
+        b, s1 = 8, 2
+        act_seq = [32767, 32656, 384, 2000, 64 * 1024, 971, 32 * 1024 + 101, 16 * 1024 - 1]
     else:
         logging.error("Fail to gen golden for Case(%s)", case_name)
         return False
