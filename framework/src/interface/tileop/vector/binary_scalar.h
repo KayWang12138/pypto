@@ -291,16 +291,16 @@ TILEOP void TFloorDivS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
     auto dstShape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
     auto dstShape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
     auto dstShape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
-    auto dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
-    auto dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
-    auto dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
-    auto dstStride3 = dstLayout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
 
     if (dstShape0 == 0 || dstShape1 == 0 || dstShape2 == 0 || dstShape3 == 0 || dstShape4 == 0) {
         return;
     }
 
-    constexpr auto tileH = TileOp::GetTensorTileShapeDim<T0, DIM_4TH, MAX_DIMS>();
+    auto dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    auto dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    auto dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+    auto dstStride3 = dstLayout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
+
     constexpr auto tileW = TileOp::GetTensorTileShapeDim<T0, DIM_5TH, MAX_DIMS>();
     constexpr auto dstTypeSize = sizeof(typename T0::Type);
 
@@ -310,13 +310,13 @@ TILEOP void TFloorDivS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
                 for (LoopVar n3Index = 0; n3Index < dstShape3; n3Index ++ ) {
                     auto offset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2 + n3Index * dstStride3;
                     #ifdef __DAV_V220
-                        using FloatTileDefine = pto::Tile<pto::TileType::Vec, float, 1, tileW, pto::BLayout::RowMajor, -1, -1>;
                         using IntTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, 1, tileW, pto::BLayout::RowMajor, -1, -1>;
+                        using FloatTileDefine = pto::Tile<pto::TileType::Vec, float, 1, tileW, pto::BLayout::RowMajor, -1, -1>;
 
-                        FloatTileDefine tmp0Tile(1, dstShape4);
-                        FloatTileDefine tmp1Tile(1, dstShape4);
                         IntTileDefine src0Tile(1, dstShape4);
                         IntTileDefine dstTile(1, dstShape4);
+                        FloatTileDefine tmp0Tile(1, dstShape4);
+                        FloatTileDefine tmp1Tile(1, dstShape4);
 
                         pto::TASSIGN(tmp0Tile, (uint64_t)(tmp.GetAddr()));
                         pto::TASSIGN(tmp1Tile, (uint64_t)(tmp.GetAddr() + tileW * dstTypeSize));
