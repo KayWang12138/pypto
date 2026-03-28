@@ -10,6 +10,7 @@
 - 支持变长序列处理
 - 支持多头注意力（Multi-head Attention）
 - 支持提前查看未来 N 个 token（通过 next_tokens 参数控制）
+- 支持动态 batch 维度（通过 `pypto.DYNAMIC` 实现）
 
 ## 数学公式
 
@@ -69,10 +70,10 @@ python3 dense_lightning_indexer_softmax_lse.py
 | `query` | FP16 | `[T1, N1, D]` | 查询向量，T1为序列长度，N1为头数，D为维度 |
 | `key` | FP16 | `[T2, N2, D]` | 键向量，T2为序列长度，N2为头数，D为维度 |
 | `weights` | FP16 | `[T1, N1]` | 权重矩阵 |
-| `s1_starts` | INT32 | `[B]` | 每个batch的查询序列起始位置 |
-| `s1_ends` | INT32 | `[B]` | 每个batch的查询序列结束位置 |
-| `s2_starts` | INT32 | `[B]` | 每个batch的键序列起始位置 |
-| `s2_ends` | INT32 | `[B]` | 每个batch的键序列结束位置 |
+| `s1_starts` | INT32 | `[pypto.DYNAMIC]` | 每个batch的查询序列起始位置（支持动态 batch） |
+| `s1_ends` | INT32 | `[pypto.DYNAMIC]` | 每个batch的查询序列结束位置（支持动态 batch） |
+| `s2_starts` | INT32 | `[pypto.DYNAMIC]` | 每个batch的键序列起始位置（支持动态 batch） |
+| `s2_ends` | INT32 | `[pypto.DYNAMIC]` | 每个batch的键序列结束位置（支持动态 batch） |
 | `causal_mask` | FP32 | `[T1, T2]` | 因果掩码矩阵，无效位置为 -1e9 |
 | `next_tokens` | INT | - | 允许提前查看的未来token数量 |
 
@@ -86,16 +87,30 @@ python3 dense_lightning_indexer_softmax_lse.py
 ## 测试结果
 
 测试配置：
-- 序列长度：T1 = T2 = 16
+- 序列长度：T1 = T2 = 32
 - 头数：N1 = 8, N2 = 1
 - 维度：D = 128
 - next_tokens = 2
+- batch size：B = 1, 2, 3（测试动态 batch 支持）
 
 测试输出：
 ```
+--- Test Config 1: B=1, T1=32, T2=32, next_tokens=2 ---
+Max diff (softmax_max): 0.000000
+Max diff (softmax_sum): 0.000002
+✓ Test config 1 passed!
+
+--- Test Config 2: B=2, T1=32, T2=32, next_tokens=2 ---
 Max diff (softmax_max): 0.000000
 Max diff (softmax_sum): 0.000000
-✓ Test passed with causal mask!
+✓ Test config 2 passed!
+
+--- Test Config 3: B=3, T1=32, T2=32, next_tokens=2 ---
+Max diff (softmax_max): 0.000000
+Max diff (softmax_sum): 0.000000
+✓ Test config 3 passed!
+
+✓ All tests passed with dynamic batch axis support!
 ```
 
 ## 实现细节
@@ -116,6 +131,35 @@ Max diff (softmax_sum): 0.000000
 
 对于每个 key head，处理 G = N1/N2 个 query heads，通过 `pypto.sum` 沿着 head 维度聚合权重。
 
+## 动态轴支持
+
+本算子支持动态 batch 维度，主要实现方式：
+
+1. **动态参数定义**：
+   - `s1_starts`/`s1_ends`/`s2_starts`/`s2_ends` 使用 `[pypto.DYNAMIC]` 形状定义
+   - kernel 内部通过 `B = s1_starts.shape[0]` 动态获取 batch 数量
+
+2. **固定序列长度**：
+   - T1 和 T2 保持固定值（32）
+   - 原因：PyPTO 的 `view` 和 `reshape` API 要求 shapes 参数为固定值
+   - 这是框架限制，无法为序列长度添加动态轴
+
+3. **使用方式**：
+   ```python
+   # 不同 batch 数量的调用示例
+   # B=1
+   s1_starts = torch.tensor([0], dtype=torch.int32)
+   s1_ends = torch.tensor([T1], dtype=torch.int32)
+   
+   # B=2
+   s1_starts = torch.tensor([0, 0], dtype=torch.int32)
+   s1_ends = torch.tensor([T1, T1], dtype=torch.int32)
+   ```
+
+4. **验证测试**：
+   - 测试了 B=1, 2, 3 三种场景
+   - 所有测试精度均满足要求（max diff < 1e-3）
+
 ## 性能优化
 
 - 使用 Cube 指令进行矩阵乘法加速（tile_shapes: [128, 128]）
@@ -125,8 +169,9 @@ Max diff (softmax_sum): 0.000000
 ## 已知限制
 
 1. 当前实现中掩码值使用 -1e9，在极端情况下可能存在精度损失
-2. 序列长度 T1 和 T2 在编译时固定，需要根据实际场景调整
+2. 序列长度 T1 和 T2 在编译时固定为 32，由于 PyPTO 框架限制，`view`/`reshape` 等 API 的 shapes 参数不支持动态值
 3. 仅支持 FP16 输入和 FP32 输出
+4. batch 维度已支持动态，可通过 `s1_starts`/`s1_ends` 等参数的长度动态调整 batch 数量
 
 ## 参考实现
 

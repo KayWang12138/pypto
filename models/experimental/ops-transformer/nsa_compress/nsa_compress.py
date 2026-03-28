@@ -32,9 +32,9 @@ HEAD_DIM = 32
 HEAD_NUM = 4
 COMPRESS_BLOCK_SIZE = 32
 COMPRESS_STRIDE = 16
-TOTAL_TOKENS = 64
-OUTPUT_TOKENS = 3
+T = pypto.DYNAMIC
 TOTAL_DIM = HEAD_NUM * HEAD_DIM
+TILE_T = 8
 
 
 @pypto.frontend.jit(
@@ -42,12 +42,14 @@ TOTAL_DIM = HEAD_NUM * HEAD_DIM
     debug_options={"runtime_debug_mode": 1}
 )
 def nsa_compress_kernel(
-    input: pypto.Tensor((TOTAL_TOKENS, TOTAL_DIM), pypto.DT_BF16),
-    weight: pypto.Tensor((COMPRESS_BLOCK_SIZE, HEAD_NUM), pypto.DT_BF16),
-    output: pypto.Tensor((OUTPUT_TOKENS, TOTAL_DIM), pypto.DT_BF16),
+    input: pypto.Tensor([T, TOTAL_DIM], pypto.DT_BF16),
+    weight: pypto.Tensor([COMPRESS_BLOCK_SIZE, HEAD_NUM], pypto.DT_BF16),
+    output: pypto.Tensor([T, TOTAL_DIM], pypto.DT_BF16),
 ):
     """
-    NSA Compress kernel
+    NSA Compress kernel (支持动态序列长度)
+    
+    注意：output tensor 的第一维度定义为 T（动态），但实际写入的元素数量为 OUTPUT_TOKENS
     
     计算流程：
         1. 遍历每个输出 token
@@ -55,9 +57,13 @@ def nsa_compress_kernel(
         3. 对窗口内数据与权重相乘后求和
         4. 除以 compressBlockSize 得到平均值
     """
+    pypto.set_codegen_options(support_dynamic_aligned=True)
     pypto.set_vec_tile_shapes(32, 64)
     
-    for token_idx in pypto.loop(0, OUTPUT_TOKENS, 1, name="LOOP_TOKEN", idx_name="token_idx"):
+    seq_len = input.shape[0]
+    output_tokens = (seq_len - COMPRESS_BLOCK_SIZE) // COMPRESS_STRIDE + 1
+    
+    for token_idx in pypto.loop(0, output_tokens, 1, name="LOOP_TOKEN", idx_name="token_idx"):
         result_fp32 = pypto.tensor([TOTAL_DIM], pypto.DT_FP32, "result_fp32")
         
         for row_idx in pypto.loop(0, COMPRESS_BLOCK_SIZE, 1, name="LOOP_ROW", idx_name="row_idx"):
@@ -87,7 +93,8 @@ def nsa_compress_kernel(
         
         avg_result = pypto.div(result_fp32, COMPRESS_BLOCK_SIZE)
         avg_bf16 = pypto.cast(avg_result, pypto.DT_BF16)
-        output[token_idx:token_idx+1, :] = pypto.reshape(avg_bf16, [1, TOTAL_DIM])
+        output_token = pypto.reshape(avg_bf16, [1, TOTAL_DIM])
+        pypto.assemble(output_token, [token_idx, 0], output)
 
 
 def nsa_compress_golden(
@@ -127,27 +134,29 @@ def nsa_compress_golden(
     return output
 
 
-def test_nsa_compress(device_id=None, run_mode: str = "npu"):
+def test_nsa_compress(device_id=None, run_mode: str = "npu", total_tokens: int = 64):
     print("=" * 60)
-    print("Test: NSA Compress")
+    print("Test: NSA Compress (Dynamic Sequence Length)")
     print("=" * 60)
     
     torch.manual_seed(42)
     
     device = f'npu:{device_id}' if device_id is not None else 'cpu'
     
+    output_tokens = max(0, (total_tokens - COMPRESS_BLOCK_SIZE) // COMPRESS_STRIDE + 1)
+    
     print(f"\n配置:")
-    print(f"  TOTAL_TOKENS: {TOTAL_TOKENS}")
+    print(f"  TOTAL_TOKENS (动态): {total_tokens}")
     print(f"  HEAD_NUM: {HEAD_NUM}")
     print(f"  HEAD_DIM: {HEAD_DIM}")
     print(f"  COMPRESS_BLOCK_SIZE: {COMPRESS_BLOCK_SIZE}")
     print(f"  COMPRESS_STRIDE: {COMPRESS_STRIDE}")
-    print(f"  OUTPUT_TOKENS: {OUTPUT_TOKENS}")
+    print(f"  OUTPUT_TOKENS (动态): {output_tokens}")
     
-    input_3d = torch.randn(TOTAL_TOKENS, HEAD_NUM, HEAD_DIM, dtype=torch.bfloat16, device=device)
-    input_tensor = input_3d.reshape(TOTAL_TOKENS, TOTAL_DIM)
+    input_3d = torch.randn(total_tokens, HEAD_NUM, HEAD_DIM, dtype=torch.bfloat16, device=device)
+    input_tensor = input_3d.reshape(total_tokens, TOTAL_DIM)
     weight_tensor = torch.randn(COMPRESS_BLOCK_SIZE, HEAD_NUM, dtype=torch.bfloat16, device=device)
-    output_tensor = torch.empty(OUTPUT_TOKENS, TOTAL_DIM, dtype=torch.bfloat16, device=device)
+    output_tensor = torch.empty(output_tokens, TOTAL_DIM, dtype=torch.bfloat16, device=device)
     
     print(f"\n输入 shape: {input_tensor.shape} (原始: {input_3d.shape})")
     print(f"权重 shape: {weight_tensor.shape}")
@@ -159,7 +168,7 @@ def test_nsa_compress(device_id=None, run_mode: str = "npu"):
         input_3d, weight_tensor,
         COMPRESS_BLOCK_SIZE, COMPRESS_STRIDE
     )
-    golden_output = golden_output.reshape(OUTPUT_TOKENS, TOTAL_DIM)
+    golden_output = golden_output.reshape(output_tokens, TOTAL_DIM)
     
     if run_mode == "npu":
         diff = (output_tensor - golden_output).abs().max().item()
@@ -178,10 +187,12 @@ def test_nsa_compress(device_id=None, run_mode: str = "npu"):
 def main():
     parser = argparse.ArgumentParser(description="PyPTO NSA Compress Kernel")
     parser.add_argument('--run_mode', type=str, default='npu', choices=["npu"])
+    parser.add_argument('--total_tokens', type=int, nargs='?', default=None, 
+                        help='Total tokens for testing. If not specified, tests multiple sequence lengths.')
     args = parser.parse_args()
     
     print("\n" + "=" * 60)
-    print("PyPTO NSA Compress Kernel")
+    print("PyPTO NSA Compress Kernel (Dynamic Sequence Length)")
     print("=" * 60 + "\n")
     
     device_id = None
@@ -193,7 +204,19 @@ def main():
         torch.npu.set_device(device_id)
         print(f"Running on NPU:{device_id}...")
     
-    test_nsa_compress(device_id, args.run_mode)
+    if args.total_tokens is not None:
+        test_nsa_compress(device_id, args.run_mode, args.total_tokens)
+    else:
+        test_seq_lens = [64, 128, 256]
+        for seq_len in test_seq_lens:
+            print(f"\n{'='*60}")
+            print(f"Testing with seq_len={seq_len}")
+            print(f"{'='*60}")
+            test_nsa_compress(device_id, args.run_mode, seq_len)
+        
+        print("\n" + "=" * 60)
+        print("All dynamic sequence length tests passed!")
+        print("=" * 60)
 
 
 if __name__ == "__main__":
