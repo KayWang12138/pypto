@@ -21,9 +21,7 @@
 #include <unistd.h>
 
 #include "interface/configs/config_manager.h"
-
 #include "codegen/codegen_common.h"
-#include "interface/utils/log.h"
 
 namespace npu::tile_fwk {
 std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsigned dim) {

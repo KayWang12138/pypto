@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 
 #include <math.h>
-#include "interface/utils/log.h"
+
 #include "interface/interpreter/thread_pool.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/tensor/float.h"

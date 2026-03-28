@@ -21,7 +21,7 @@
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/platform.h"
 #include "passes/pass_utils/pass_utils.h"
-#include "interface/utils/log.h"
+
 #include "interface/tensor/logical_tensor.h"
 
 namespace npu::tile_fwk {

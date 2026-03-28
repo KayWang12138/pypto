@@ -24,7 +24,7 @@
 #include "tilefwk/tensor.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/tensor/float.h"
-#include "interface/utils/log.h"
+
 #include "test_dev_func_runner.h"
 #include "test_data_prepare.h"
 
@@ -222,9 +222,6 @@ public:
     }
 
     void Dump() {
-        auto level = LoggerManager::GetManager().level;
-        LoggerManager::GetManager().ResetLevel(LoggerLevel::INFO);
-
         int index = 0;
         std::cout << "Input tensors: ";
         PrintTableDivider();
@@ -256,8 +253,6 @@ public:
             index++;
         }
         PrintTableDivider();
-
-        LoggerManager::GetManager().ResetLevel(level);
     }
 
     // 创建 Tensor 函数
