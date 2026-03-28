@@ -89,6 +89,10 @@ struct DeviceMemoryUtils {
         CopyFromDev(data.data(), data.GetDevPtr(), data.size());
     }
 
+    void FreeTensor(uint8_t *devAddr) {
+        machine::GetRA()->FreeTensor(devAddr);
+    }
+
     void Free(uint8_t* mem) {
         if (mem && (!isUseHugePage_)) {
             rtFree(mem);

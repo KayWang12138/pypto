@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <mutex>
 #include <limits.h>
+#include <sys/mman.h>
 #include "securec.h"
 #include "machine/runtime/runtime.h"
 #include "machine/runtime/device_launcher.h"
@@ -124,10 +125,15 @@ HostProf& DeviceRunner::GetHostProfInstance() {
 
 void *DeviceRunner::DevAlloc(int size) {
     uint8_t *devPtr = nullptr;
-    machine::GetRA()->AllocDevAddr(&devPtr, size);
+#ifdef __ESL_SIMULATION__
+    dynamic::EslModelMemoryUtils devMemory;
+#else
+    dynamic::DeviceMemoryUtils devMemory;
+#endif
+    devPtr = devMemory.AllocDev(size, nullptr);
     int rc = rtMemset(devPtr, size, 0, size);
     if (rc != 0) {
-        machine::GetRA()->FreeTensor(devPtr);
+        devMemory.FreeTensor(devPtr);
         MACHINE_LOGE(RtErr::RT_MEMSET_FAILED, "rtMemset failed size=%d rc=%d\n", size, rc);
         return nullptr;
     }
@@ -408,7 +414,7 @@ int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs *k
     hostInputInfo.addrOffset = reinterpret_cast<int8_t*>(&args->kArgs.inputs) - reinterpret_cast<int8_t*>(args);
     hostInputInfo.dataOffset = sizeof(dynamic::AiCpuArgs);
     rtArgs.hostInputInfoPtr = &hostInputInfo;
-    rtArgs.timeout = dynamic::AICPU_EXECUTE_TIMEOUT;
+rtArgs.timeout = dynamic::AICPU_EXECUTE_TIMEOUT;
     MACHINE_LOGI("Copy flow addrOffset %u argsSize %u", hostInputInfo.addrOffset, hostInputInfo.dataOffset);
     return rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_,
         &rtArgs, nullptr, aicpuStream, RT_KERNEL_USE_SPECIAL_TIMEOUT);
@@ -511,12 +517,12 @@ int DeviceRunner::RunPreSync(rtStream_t scheStream, rtStream_t ctrlStream, rtStr
         MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtRecordEvent failed %d\n", rc);
         return rc;
     }
-    rc = aclrtStreamWaitEvent(scheStream, event_);
+rc = aclrtStreamWaitEvent(scheStream, event_);
     if (rc < 0) {
         MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtStreamWaitEvent failed %d\n", rc);
         return rc;
     }
-    rc = aclrtStreamWaitEvent(ctrlStream, event_);
+rc = aclrtStreamWaitEvent(ctrlStream, event_);
     if (rc < 0) {
         MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtStreamWaitEvent failed %d\n", rc);
         return rc;
@@ -527,6 +533,67 @@ int DeviceRunner::RunPreSync(rtStream_t scheStream, rtStream_t ctrlStream, rtStr
 int DeviceRunner::RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     SyncStreams(aicpuStream, aicoreStream, true);
     return 0;
+}
+
+extern "C" int DynTileFwkBackendKernelServer(void *targ);
+extern "C" int PyptoKernelCtrlServer(void *targ);
+
+int DeviceRunner::DynamicKernelLaunchEsl(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kArgs, int blockdim) {
+        
+        auto rc = launchDynamicAiCore(aicoreStream, kArgs);
+        if (rc < 0) {
+            ALOG_ERROR_F("launch aicpu failed %d\n", rc);
+            return rc;
+        }
+        auto *devProg = (dynamic::DevAscendProgram *)(kArgs->cfgdata);
+        auto &inputDataList = ProgramData::GetInstance().GetInputDataList();
+        auto &outputDataList = ProgramData::GetInstance().GetOutputDataList();
+        
+        for (size_t k = 0; k < inputDataList.size(); k++) {
+            auto &inputData = inputDataList[k];
+            if (inputData) {
+                memcpy_s(inputData->GetDevPtr(), inputData->size(), (uint8_t *)inputData->data(), inputData->size());
+            }
+        }
+
+        for (size_t k = 0; k < outputDataList.size(); k++) {
+            auto &outputData = outputDataList[k];
+            if (outputData) {
+                memcpy_s(outputData->GetDevPtr(), outputData->size(), (uint8_t *)outputData->data(), outputData->size());
+            }
+        }
+
+
+        size_t shmSize = dynamic::DEVICE_TASK_CTRL_POOL_SIZE + dynamic::DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+        (void)memset_s(reinterpret_cast<void*>(devProg->devArgs.runtimeDataRingBufferAddr), shmSize, 0, shmSize);
+        int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
+        threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
+        std::vector<std::thread> aicpus(threadNum);
+        std::atomic<int> idx{0};
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        for (int i = 0; i < threadNum; i++) {
+            aicpus[i] = std::thread([&]() {
+                int tidx = idx++;
+                cpu_set_t cpuset;
+                CPU_ZERO(&cpuset);
+                CPU_SET(tidx, &cpuset);
+                std::string name = "aicput" + std::to_string(tidx);
+                pthread_setname_np(pthread_self(), name.c_str());
+                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+                (void)DynTileFwkBackendKernelServer(kArgs);
+            });
+        }
+
+        for (int i = 0; i < threadNum; i++) {
+            if (aicpus[i].joinable()) {
+                aicpus[i].join();
+            }
+        }
+        
+        (void) aicpuStream;
+        (void) aicoreStream;
+        (void) blockdim;
+        return 0;
 }
 
 int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim) {
@@ -680,7 +747,11 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
 
     ExchangeCaputerMode(isCapture_);
     if (ctrlStream == nullptr) {
+#ifdef __ESL_SIMULATION__
+        return DynamicKernelLaunchEsl(aicpuStream, aicoreStream, kernelArgs, blockDim_);
+#else
         return DynamicKernelLaunch(aicpuStream, aicoreStream, kernelArgs, blockDim_);
+#endif
     } else {
         if (isTripleStream) {
             return DynamicTripleStreamLaunch(aicpuStream, ctrlStream, aicoreStream, kernelArgs, blockDim_);
@@ -771,7 +842,7 @@ int DeviceRunner::Init(void) {
 
     InitializeErrorCallback();
 
-    if (aclrtCreateEventExWithFlag(&event_, ACL_EVENT_SYNC) < 0) {
+if (aclrtCreateEventExWithFlag(&event_, ACL_EVENT_SYNC) < 0) {
         MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtCreateEvent failed.");
         return -1;
     }
@@ -783,7 +854,9 @@ int DeviceRunner::Init(void) {
         MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "RegisterKernelBin failed\n");
         return -1;
     }
+#ifndef __ESL_SIMULATION__
     InitAicpuServer();
+#endif
     StartMachinePerfTraceDumpThread();
     return 0;
 }

@@ -39,3 +39,7 @@ python/pypto/pypto_impl*.so
 # 三方软件
 third_party_path/
 fusion_result.json
+
+log
+log_ca
+run_log
