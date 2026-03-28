@@ -206,7 +206,7 @@ inline bool SkipInputCombineOps(Operation &op, int dimSize) {
         return false;
     }
     if (op.GetOpcode() == Opcode::OP_EXPAND) {
-        return op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM") == dimSize - NUM2;
+        return op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM") != dimSize - NUM1; // 尾轴expand不支持换轴
     }
     return true;
 }
