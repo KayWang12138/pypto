@@ -1489,7 +1489,19 @@ Operation &Function::AddRawOperation(const Opcode opCode, const LogicalTensors &
     auto &op =
         operations_.emplace_back(std::make_shared<Operation>(*this, opCode, iOperands, oOperands, updateTensorMap));
     opPosition_.emplace(op.get(), operations_.size() - 1);
-    operations_.back()->SetScopeId(config::GetPassOption<int>(SG_SET_SCOPE));
+    auto scopeConfig = config::GetPassOption<std::vector<int64_t>>(SG_SET_SCOPE);
+    if (scopeConfig.size() == 4) {
+        Operation::ScopeInfo scopeInfo;
+        scopeInfo.scopeId = static_cast<int>(scopeConfig[0]);
+        scopeInfo.allowParallelMerge = static_cast<bool>(scopeConfig[1]);
+        scopeInfo.allowCrossScopeMerge = static_cast<bool>(scopeConfig[2]);
+        scopeInfo.mixId = static_cast<int>(scopeConfig[3]);
+        operations_.back()->SetScopeInfo(scopeInfo);
+    } else if (scopeConfig.size() == 1) {
+        operations_.back()->SetScopeId(static_cast<int>(scopeConfig[0]));
+    } else {
+        operations_.back()->SetScopeId(-1);
+    }
     return *operations_.back();
 }
 

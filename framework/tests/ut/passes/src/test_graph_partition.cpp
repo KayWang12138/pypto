@@ -745,5 +745,197 @@ TEST_F(GraphPartitionTest, TestMatMulViewNonL0C) {
     EXPECT_EQ(mulOp->GetSubgraphID(), viewL1Op->GetSubgraphID());
 }
 
+void GetParallelBranchGraph(ComputationalGraphBuilder &G) {
+    std::vector<int64_t> tileShape{32,32};
+    std::vector<std::string> inCast;
+    std::vector<std::string> outCast;
+    for (int i = 0; i < 4; i++) {
+        std::string br = std::to_string(i);
+        std::vector<std::string> tensorNames{"in" + br, "out" + br};
+        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, tensorNames), true);
+        EXPECT_EQ(G.AddOp(Opcode::OP_ABS, {"in" + br}, {"out" + br}, "ABS" + br, true), true);
+        inCast.push_back("in" + br);
+        outCast.push_back("out" + br);
+    }
+    EXPECT_EQ(G.SetInCast(inCast), true);
+    EXPECT_EQ(G.SetOutCast(outCast), true);
+}
+
+TEST_F(GraphPartitionTest, TestAllowParallelMergeTrue) {
+    ComputationalGraphBuilder G;
+    GetParallelBranchGraph(G);
+
+    Operation::ScopeInfo info;
+    info.scopeId = 1;
+    info.allowParallelMerge = true;
+    info.allowCrossScopeMerge = false;
+    info.mixId = -1;
+    G.GetOp("ABS0")->SetScopeInfo(info);
+    G.GetOp("ABS1")->SetScopeInfo(info);
+    G.GetOp("ABS2")->SetScopeInfo(info);
+    G.GetOp("ABS3")->SetScopeInfo(info);
+
+    Function *function = G.GetFunction();
+    const int cycleUB = 100000;
+    const int parallelTH = 20;
+    const int cycleLB = 0;
+    const int useNodeHash = false;
+    IsoPartitioner partitioner;
+    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+
+    std::unordered_set<int> subgraphIds;
+    for (const auto& opPair : G.operations_) {
+        subgraphIds.insert(opPair.second->GetSubgraphID());
+    }
+    EXPECT_EQ(subgraphIds.size(), 1);
+}
+
+TEST_F(GraphPartitionTest, TestAllowParallelMergeFalse) {
+    ComputationalGraphBuilder G;
+    GetParallelBranchGraph(G);
+
+    Operation::ScopeInfo info;
+    info.scopeId = 1;
+    info.allowParallelMerge = false;
+    info.allowCrossScopeMerge = false;
+    info.mixId = -1;
+    G.GetOp("ABS0")->SetScopeInfo(info);
+    G.GetOp("ABS1")->SetScopeInfo(info);
+    G.GetOp("ABS2")->SetScopeInfo(info);
+    G.GetOp("ABS3")->SetScopeInfo(info);
+
+    Function *function = G.GetFunction();
+    const int cycleUB = 100000;
+    const int parallelTH = 20;
+    const int cycleLB = 0;
+    const int useNodeHash = false;
+    IsoPartitioner partitioner;
+    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+
+    std::unordered_set<int> subgraphIds;
+    for (const auto& opPair : G.operations_) {
+        subgraphIds.insert(opPair.second->GetSubgraphID());
+    }
+    EXPECT_EQ(subgraphIds.size(), 4);
+}
+
+void GetCrossScopeGraph(ComputationalGraphBuilder &G) {
+    std::vector<int64_t> tileShape{32,32};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"in0", "in1", "mid1", "mid2", "out0", "out1"}), true);
+
+    EXPECT_EQ(G.AddOp(Opcode::OP_ABS, {"in0"}, {"mid1"}, "ABS1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ABS, {"in1"}, {"mid2"}, "ABS2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"mid1"}, {"out0"}, "MUL1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"mid2"}, {"out1"}, "MUL2", true), true);
+
+    EXPECT_EQ(G.SetInCast({"in0", "in1"}), true);
+    EXPECT_EQ(G.SetOutCast({"out0", "out1"}), true);
+}
+
+TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeTrue) {
+    ComputationalGraphBuilder G;
+    GetCrossScopeGraph(G);
+
+    Operation::ScopeInfo info1;
+    info1.scopeId = 1;
+    info1.allowParallelMerge = true;
+    info1.allowCrossScopeMerge = true;
+    info1.mixId = -1;
+    G.GetOp("ABS1")->SetScopeInfo(info1);
+    G.GetOp("MUL1")->SetScopeInfo(info1);
+
+    Operation::ScopeInfo info2;
+    info2.scopeId = 2;
+    info2.allowParallelMerge = true;
+    info2.allowCrossScopeMerge = true;
+    info2.mixId = -1;
+    G.GetOp("ABS2")->SetScopeInfo(info2);
+    G.GetOp("MUL2")->SetScopeInfo(info2);
+
+    Function *function = G.GetFunction();
+    const int cycleUB = 100000;
+    const int parallelTH = 20;
+    const int cycleLB = 0;
+    const int useNodeHash = false;
+    IsoPartitioner partitioner;
+    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+
+    EXPECT_EQ(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("MUL1")->GetSubgraphID());
+    EXPECT_EQ(G.GetOp("ABS2")->GetSubgraphID(), G.GetOp("MUL2")->GetSubgraphID());
+}
+
+TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeFalse) {
+    ComputationalGraphBuilder G;
+    GetCrossScopeGraph(G);
+
+    Operation::ScopeInfo info1;
+    info1.scopeId = 1;
+    info1.allowParallelMerge = true;
+    info1.allowCrossScopeMerge = false;
+    info1.mixId = -1;
+    G.GetOp("ABS1")->SetScopeInfo(info1);
+    G.GetOp("MUL1")->SetScopeInfo(info1);
+
+    Operation::ScopeInfo info2;
+    info2.scopeId = 2;
+    info2.allowParallelMerge = true;
+    info2.allowCrossScopeMerge = false;
+    info2.mixId = -1;
+    G.GetOp("ABS2")->SetScopeInfo(info2);
+    G.GetOp("MUL2")->SetScopeInfo(info2);
+
+    Function *function = G.GetFunction();
+    const int cycleUB = 100000;
+    const int parallelTH = 20;
+    const int cycleLB = 0;
+    const int useNodeHash = false;
+    IsoPartitioner partitioner;
+    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+
+    EXPECT_EQ(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("MUL1")->GetSubgraphID());
+    EXPECT_EQ(G.GetOp("ABS2")->GetSubgraphID(), G.GetOp("MUL2")->GetSubgraphID());
+    EXPECT_NE(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("ABS2")->GetSubgraphID());
+}
+
+TEST_F(GraphPartitionTest, TestCombinedScopeSwitches) {
+    ComputationalGraphBuilder G;
+    GetParallelBranchGraph(G);
+
+    Operation::ScopeInfo info1;
+    info1.scopeId = 1;
+    info1.allowParallelMerge = true;
+    info1.allowCrossScopeMerge = false;
+    info1.mixId = -1;
+    G.GetOp("ABS0")->SetScopeInfo(info1);
+    G.GetOp("ABS1")->SetScopeInfo(info1);
+
+    Operation::ScopeInfo info2;
+    info2.scopeId = 2;
+    info2.allowParallelMerge = true;
+    info2.allowCrossScopeMerge = true;
+    info2.mixId = -1;
+    G.GetOp("ABS2")->SetScopeInfo(info2);
+    G.GetOp("ABS3")->SetScopeInfo(info2);
+
+    Function *function = G.GetFunction();
+    const int cycleUB = 100000;
+    const int parallelTH = 20;
+    const int cycleLB = 0;
+    const int useNodeHash = false;
+    IsoPartitioner partitioner;
+    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+
+    std::unordered_set<int> subgraphIds;
+    for (const auto& opPair : G.operations_) {
+        subgraphIds.insert(opPair.second->GetSubgraphID());
+    }
+    EXPECT_EQ(subgraphIds.size(), 2);
+}
+
 } // namespace tile_fwk
 } // namespace npu
