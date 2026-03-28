@@ -290,7 +290,7 @@ static void Quantize4DOperationExeFunc(
 // 4D tensor quantization with axis=-1
 static void Quantize4DAsymmetricOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         auto args = static_cast<const QuantizeOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
