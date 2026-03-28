@@ -65,6 +65,54 @@ void CodeGenOpLiteNPU::AppendLocalBufferVarOffset(
     }
 }
 
+SymbolicScalar CodeGenOpLiteNPU::GetOperandStartOffsetLite(int operandIdx) const {
+    std::vector varOffset = offset[operandIdx];
+    if (varOffset.empty()) {
+        return 0;
+    }
+
+    const auto &dynOffset = dynamicOffset[operandIdx];
+    if (!dynOffset.empty()) {
+        std::vector varRawShape = rawShape[operandIdx]; // 内部应该不能出现dynRawShape，所以这里用立即数即可
+        ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
+        ASSERT(dynOffset.size() == varRawShape.size())
+            << "dynOffset " << SymbolicVecToStr(dynOffset) << ", size " << dynOffset.size() << " vs varRawShape "
+            << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
+
+        SymbolicScalar resOffset = 0;
+        for (size_t i = 0; i < dynOffset.size(); i++) {
+            resOffset = resOffset * varRawShape[i];
+            resOffset = resOffset + dynOffset[i];
+        }
+
+        ASSERT(operandIdx < operandCnt) << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
+        CODEGEN_LOGD(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
+        CODEGEN_LOGD(" varOffset: %s", SymbolicVecToStr(dynOffset).c_str());
+        CODEGEN_LOGD(" resOffset: %s", resOffset.Dump().c_str());
+        if (resOffset.ConcreteValid()) {
+            return resOffset.Concrete();
+        }
+        return SymbolicExpressionTable::BuildExpression(resOffset);
+    }
+
+    std::vector varRawShape = rawShape[operandIdx];
+    ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
+    ASSERT(varOffset.size() == varRawShape.size())
+        << "varOffset " << IntVecToStr(varOffset) << ", size " << varOffset.size() << " vs varRawShape "
+        << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
+
+    int64_t resOffset = CalcLinearOffset(varRawShape, varOffset);
+    if (resOffset == 0) {
+        return 0;
+    }
+
+    ASSERT(operandIdx < operandCnt) << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
+    CODEGEN_LOGD(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
+    CODEGEN_LOGD(" varOffset: %s", IntVecToStr(varOffset).c_str());
+    CODEGEN_LOGD(" resOffset: %ld", static_cast<long>(resOffset));
+    return resOffset;
+}
+
 std::string CodeGenOpLiteNPU::GenGmParamVar(unsigned gmParamIdx) const {
     return std::string("RealizedGM") + std::to_string(paramLocation[gmParamIdx]) + ".Addr";
 }
@@ -217,6 +265,20 @@ void CodeGenOpLiteNPU::UpdateTileTensorInfo() {
     }
 }
 
+
+std::string CodeGenOpLiteNPU::GetLastUse() const {
+    if (!opAttrs.count(OpAttributeKey::lastUse)) {
+        return "";
+    }
+    std::vector<int64_t> val = GetVectorIntAttribute(OpAttributeKey::lastUse);
+    int valSize = val.size();
+    ASSERT(valSize != 0) << "GetLastUse error!!!";
+    std::ostringstream oss;
+    oss << "LastUse" << valSize << "Dim";
+    oss << WrapParamByAngleBrackets(val);
+    return oss.str();
+}
+
 std::string CodeGenOpLiteNPU::QueryTileTensorNameByIdx(int paramIdx) const {
     std::vector<TileTensor> res;
     // bool isInLoop = forBlkMgr_ != nullptr && forBlkMgr_->IsInLoop();
@@ -227,21 +289,22 @@ std::string CodeGenOpLiteNPU::QueryTileTensorNameByIdx(int paramIdx) const {
     //         res = sm->QueryTileTensorByMagic(operandWithMagic[paramIdx]);
     //     }
     // } else {
-        res = sm->QueryTileTensorByMagic(operandWithMagic[paramIdx]);
+    res = sm->QueryTileTensorByMagic(operandWithMagic[paramIdx]);
     // }
 
     // if (res.size() == 1) { //TODO: figure out why this case has 2...
-        CODEGEN_LOGI("QueryTileTensorNameByIdx found: %s", res[0].tensorName.c_str());
-        return res[0].tensorName;
+    CODEGEN_LOGI("QueryTileTensorNameByIdx found: %s", res[0].tensorName.c_str());
+    return res[0].tensorName;
     // }
     // CODEGEN_LOGI("isInLoop: %d, paramIdx is %d, tensor magic is %d, res size is %zu", isInLoop, paramIdx,
     //     operandWithMagic[paramIdx], res.size());
-    CODEGEN_LOGI("paramIdx is %d, tensor magic is %d, res size is %zu", paramIdx,
-        operandWithMagic[paramIdx], res.size());
+    CODEGEN_LOGI(
+        "paramIdx is %d, tensor magic is %d, res size is %zu", paramIdx, operandWithMagic[paramIdx], res.size());
 
     // auto targetRawShape =
     //     isInLoop ? std::vector{*(rawShape[paramIdx].rbegin() + 1), rawShape[paramIdx].back()} : rawShape[paramIdx];
-    // CODEGEN_LOGI("isInLoop: %d,rawShape is %s, targetRawShape is %s", isInLoop, IntVecToStr(rawShape[paramIdx]).c_str(),
+    // CODEGEN_LOGI("isInLoop: %d,rawShape is %s, targetRawShape is %s", isInLoop,
+    // IntVecToStr(rawShape[paramIdx]).c_str(),
     //     IntVecToStr(targetRawShape).c_str());
     auto targetRawShape = rawShape[paramIdx];
     CODEGEN_LOGI("rawShape is %s, targetRawShape is %s", IntVecToStr(rawShape[paramIdx]).c_str(),
@@ -263,5 +326,4 @@ std::string CodeGenOpLiteNPU::QueryTileTensorNameByIdx(int paramIdx) const {
                   << " is not found !!! res size is " << res.size();
     return "";
 }
-
 } // namespace npu::tile_fwk
