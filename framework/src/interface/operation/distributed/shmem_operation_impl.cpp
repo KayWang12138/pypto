@@ -119,6 +119,13 @@ void ValidateShmemTensor(const ShmemTensor& t, bool hasData = false, bool hasSig
     }
 }
 
+static uint64_t GetSignalBufferSize(const ShmemTensor& t, uint64_t maxTileNum)
+{
+    ASSERT(DistributedErrorCode::INVALID_SHMEM_TENSOR, t.signal.GetStorage() != nullptr) <<
+        "shmem tensor's signal should not be empty";
+    return AlignUp(BytesOf(t.signal.GetDataType()) * t.worldSize * SHMEM_SIGNAL_STRIDE * maxTileNum, SHMEM_SIZE_ALIGN);
+}
+
 ShmemTensor CreateShmemTensor(const char* group, int64_t worldSize, DataType dataType, const Shape& shape)
 {
     ShmemTensor t;
@@ -144,7 +151,9 @@ void CreateShmemTensor(const char* group, int64_t worldSize, DataType dataType, 
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(t.data, SlotProperty::SHMEM_TENSOR);
     auto &dataOp = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {dataInner});
     dataOp.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 0,
-        AlignUp(BytesOf(dataType) * std::accumulate(dataShape.begin(), dataShape.end(), 1, std::multiplies<int64_t>()), 512)));
+        AlignUp(BytesOf(dataType) * std::accumulate(dataShape.begin(), dataShape.end(), 1, std::multiplies<int64_t>()),
+        SHMEM_SIZE_ALIGN)));
+    t.dataOp = &dataOp;
 
     Shape signalShape{worldSize};
     signalShape.insert(signalShape.end(), shape.begin(), shape.end());
@@ -152,8 +161,11 @@ void CreateShmemTensor(const char* group, int64_t worldSize, DataType dataType, 
     t.signal = signalInner;
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(t.signal, SlotProperty::SHMEM_TENSOR);
     auto &signalOp = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {signalInner});
-    signalOp.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 1,
-        BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
+    int64_t maxTileNum = 1;
+    signalOp.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 1, 
+        GetSignalBufferSize(t, maxTileNum), maxTileNum));
+    signalOp.SetAttribute(OpAttributeKey::maxTileNum, maxTileNum);
+    t.signalOp = &signalOp;
 
     ValidateShmemTensor(t, true, true);
 }
@@ -176,13 +188,16 @@ void CreateShmemSignal(const char* group, int64_t worldSize, ShmemTensor& t)
     t.worldSize = worldSize;
     auto &function = *Program::GetInstance().GetCurrentFunction();
     int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
-    Shape signalShape{worldSize, 1, 1, 8};
+    Shape signalShape{worldSize, 1, 1, SHMEM_SIGNAL_STRIDE};
     auto signalInner = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, signalShape);
     t.signal = signalInner;
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(t.signal, SlotProperty::SHMEM_TENSOR);
     auto &signalOp = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {signalInner});
-    signalOp.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 1,
-        BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
+    int64_t maxTileNum = 1;
+    signalOp.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 1, 
+        GetSignalBufferSize(t, maxTileNum), maxTileNum));
+    signalOp.SetAttribute(OpAttributeKey::maxTileNum, maxTileNum);
+    t.signalOp = &signalOp;
     ValidateShmemTensor(t, false, true);
 }
 
@@ -190,6 +205,9 @@ template<typename OffsetType, bool HasValidShape = false>
 ShmemTensor ShmemViewImpl(const ShmemTensor& operand, const std::vector<int64_t>& shapes,
     const std::vector<OffsetType>& offsets, const std::vector<SymbolicScalar>& validShapes = {})
 {
+    ASSERT(DistributedErrorCode::INVALID_SHMEM_VIEW_PARAM, operand.data.GetStorage() != nullptr) <<
+        "shmem tensor which has no valid data not support view";
+
     auto data = [&]() {
         if constexpr (HasValidShape) {
             return View(operand.data, shapes, validShapes, offsets);
@@ -209,7 +227,7 @@ ShmemTensor ShmemViewImpl(const ShmemTensor& operand, const std::vector<int64_t>
     std::vector<OffsetType> signalOffset(operand.signal.GetShape().size(), 0);
     std::copy(offsets.begin(), offsets.end(), signalOffset.end() - offsets.size());
     auto signal = View(operand.signal, signalShape, signalOffset);
-    return ShmemTensor{operand.group, operand.worldSize, data, signal};
+    return ShmemTensor{operand.group, operand.worldSize, data, signal, operand.dataOp, operand.signalOp};
 }
 
 ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets)
@@ -317,6 +335,19 @@ Tensor ShmemLoad(const ShmemTensor& src, const SymbolicScalar& srcRank, const Te
     return out;
 }
 
+static void UpdataSignalMaxTile(const ShmemTensor& src)
+{
+    const auto& vecTile = TileShape::Current().GetVecTile();
+    auto totalTileNum = GetTotalTileNum(vecTile, src.signal.GetShape());
+    int64_t cur = ((Operation*)src.signalOp)->GetIntAttribute(OpAttributeKey::maxTileNum);
+    if (totalTileNum > cur) {
+        auto hcclGroupIndex = static_cast<uint64_t>(CommGroupRecorder::GetInstance().Input(src.group));
+        ((Operation*)src.signalOp)->SetAttribute(OpAttributeKey::bindTensor,
+            BindTensor(hcclGroupIndex, 1, GetSignalBufferSize(src, totalTileNum), totalTileNum));
+        ((Operation*)src.signalOp)->SetAttribute(OpAttributeKey::maxTileNum, totalTileNum);
+    }
+}
+
 static Tensor ShmemSignalImpl(const ShmemTensor& src, const SymbolicScalar &srcRank, const SymbolicScalar &targetRank,
     int32_t signal, AtomicType sigOp, const Tensor& pred, bool notifyAll = false)
 {
@@ -340,6 +371,8 @@ static Tensor ShmemSignalImpl(const ShmemTensor& src, const SymbolicScalar &srcR
     distOpAttr.worldSize = src.worldSize;
     distOpAttr.ownerRank = targetRank;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+
+    UpdataSignalMaxTile(src);
     return out;
 }
 
@@ -393,7 +426,7 @@ static Tensor ShmemClearImpl(const ShmemTensor& src, Tensor &pred, bool clearDat
     auto& op = function.AddOperation(Opcode::OP_SHMEM_SET,
         {pred.GetStorage(), clearData ? src.data.GetStorage() : src.signal.GetStorage()}, {out});
     ShmemSetAttr distOpAttr;
-    distOpAttr.setType = clearData ? 0 : 1;
+    distOpAttr.isSetData = clearData;
     distOpAttr.ownerRank = GetHcclRankId(src.group);
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
