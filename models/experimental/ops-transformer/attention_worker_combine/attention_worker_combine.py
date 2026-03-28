@@ -86,11 +86,11 @@ def attention_worker_combine_splith_kernel(
     y: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
     h: int,
     tile_bs: int = 8,
-    h_tile: int = 16,
 ):
     """
     SplitH: 按 hidden 维度切分 (支持动态 batch 维度)
     """
+    h_tile = 16
     bs_dyn = token_data.shape[0]
     
     pypto.set_vec_tile_shapes(tile_bs, k + 1, h_tile)
