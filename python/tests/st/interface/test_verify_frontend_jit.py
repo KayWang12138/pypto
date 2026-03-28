@@ -130,4 +130,4 @@ def test_verify_set_options():
 
     cmp_where_kenrel2(*inputs, *outputs)
 
-    assert torch.allclose(outputs[0].cpu(), golden)
+    framework/src/machine/runtime/device_runner.cpp
