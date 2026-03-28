@@ -24,6 +24,9 @@ import pypto
 import torch
 import torch_npu
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'deepseek_v32_exp'))
+from utils.compare import compare
+
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
@@ -76,7 +79,7 @@ def mla_prolog_kernel(
     k_r_out: pypto.Tensor([T, DR], pypto.DT_BF16),
 ):
     pypto.set_codegen_options(support_dynamic_aligned=True)
-    pypto.set_cube_tile_shapes([32, 32], [32, 32], [32, 32])
+    pypto.set_cube_tile_shapes([16, 16], [16, 16], [16, 16])
     pypto.set_vec_tile_shapes(32, 64)
     
     seq_len = token_x.shape[0]
@@ -199,26 +202,29 @@ def mla_prolog_golden(
         out_odd = x_odd * cos_half + x_even * sin_half
         return torch.cat([out_even, out_odd], dim=-1)
     
-    mm_cq = torch.matmul(token_x.float(), params.weight_dq.float())
-    c_q = rms_norm(mm_cq, params.rmsnorm_gamma_cq.float(), params.epsilon_cq)
+    mm_cq = torch.matmul(token_x, params.weight_dq)
+    mm_cq_bf16 = mm_cq.bfloat16()
+    c_q = rms_norm(mm_cq_bf16.float(), params.rmsnorm_gamma_cq.float(), params.epsilon_cq)
+    c_q_bf16 = c_q.bfloat16()
     
-    mm_qc_qr = torch.matmul(c_q, params.weight_uq_qr.float())
+    mm_qc_qr = torch.matmul(c_q_bf16, params.weight_uq_qr)
+    mm_qc_qr_bf16 = mm_qc_qr.bfloat16()
     qc_qr_split = N * D
-    mm_qc = mm_qc_qr[:, : qc_qr_split]
-    mm_qr = mm_qc_qr[:, qc_qr_split:]
+    mm_qc = mm_qc_qr_bf16[:, : qc_qr_split]
+    mm_qr = mm_qc_qr_bf16[:, qc_qr_split:]
     
-    q0 = torch.matmul(mm_qc[:, 0 * D: 1 * D].float(), params.weight_uk[0, :, :].float())
-    q1 = torch.matmul(mm_qc[:, 1 * D: 2 * D].float(), params.weight_uk[1, :, :].float())
-    q2 = torch.matmul(mm_qc[:, 2 * D: 3 * D].float(), params.weight_uk[2, :, :].float())
-    q3 = torch.matmul(mm_qc[:, 3 * D: 4 * D].float(), params.weight_uk[3, :, :].float())
+    q0 = torch.matmul(mm_qc[:, 0 * D: 1 * D], params.weight_uk[0, :, :]).bfloat16()
+    q1 = torch.matmul(mm_qc[:, 1 * D: 2 * D], params.weight_uk[1, :, :]).bfloat16()
+    q2 = torch.matmul(mm_qc[:, 2 * D: 3 * D], params.weight_uk[2, :, :]).bfloat16()
+    q3 = torch.matmul(mm_qc[:, 3 * D: 4 * D], params.weight_uk[3, :, :]).bfloat16()
     
     q01 = torch.cat([q0, q1], dim=-1)
     q23 = torch.cat([q2, q3], dim=-1)
     q_all = torch.cat([q01, q23], dim=-1)
     query = q_all.reshape(seq_len, N, HCKV)
     
-    sin_h = params.rope_sin[:, : HALF_DR]
-    cos_h = params.rope_cos[:, : HALF_DR]
+    sin_h = params.rope_sin[:, : HALF_DR].bfloat16()
+    cos_h = params.rope_cos[:, : HALF_DR].bfloat16()
     
     def apply_rope_1d(x_1d):
         x_even = x_1d[:, : HALF_DR]
@@ -227,23 +233,24 @@ def mla_prolog_golden(
         out_odd = x_odd * cos_h + x_even * sin_h
         return torch.cat([out_even, out_odd], dim=-1)
     
-    qr0 = apply_rope_1d(mm_qr[:, 0 * DR: 1 * DR].float())
-    qr1 = apply_rope_1d(mm_qr[:, 1 * DR: 2 * DR].float())
-    qr2 = apply_rope_1d(mm_qr[:, 2 * DR: 3 * DR].float())
-    qr3 = apply_rope_1d(mm_qr[:, 3 * DR: 4 * DR].float())
+    qr0 = apply_rope_1d(mm_qr[:, 0 * DR: 1 * DR])
+    qr1 = apply_rope_1d(mm_qr[:, 1 * DR: 2 * DR])
+    qr2 = apply_rope_1d(mm_qr[:, 2 * DR: 3 * DR])
+    qr3 = apply_rope_1d(mm_qr[:, 3 * DR: 4 * DR])
     
     qr01 = torch.cat([qr0, qr1], dim=-1)
     qr23 = torch.cat([qr2, qr3], dim=-1)
     qr_all = torch.cat([qr01, qr23], dim=-1)
     query_rope = qr_all.reshape(seq_len, N, DR).bfloat16()
     
-    mm_ckv_kr = torch.matmul(token_x.float(), params.weight_dkv_kr.float())
+    mm_ckv_kr = torch.matmul(token_x, params.weight_dkv_kr)
+    mm_ckv_kr_bf16 = mm_ckv_kr.bfloat16()
     hckv_actual = params.weight_dkv_kr.shape[1] - DR
-    mm_ckv = mm_ckv_kr[:, : hckv_actual]
-    mm_kr = mm_ckv_kr[:, hckv_actual:]
+    mm_ckv = mm_ckv_kr_bf16[:, : hckv_actual]
+    mm_kr = mm_ckv_kr_bf16[:, hckv_actual:]
     
-    c_kv_normed = rms_norm(mm_ckv, params.rmsnorm_gamma_ckv.float(), params.epsilon_ckv)
-    k_r_rope = apply_rope(mm_kr, params.rope_sin.float(), params.rope_cos.float())
+    c_kv_normed = rms_norm(mm_ckv.float(), params.rmsnorm_gamma_ckv.float(), params.epsilon_ckv)
+    k_r_rope = apply_rope(mm_kr, params.rope_sin, params.rope_cos)
     
     return query.bfloat16(), query_rope.bfloat16(), c_kv_normed.bfloat16(), k_r_rope.bfloat16()
 
@@ -297,18 +304,11 @@ def test_mla_prolog(device_id=None, run_mode: str = "npu"):
         golden_query, golden_query_rope, golden_c_kv, golden_k_r = mla_prolog_golden(token_x, params)
         
         if run_mode == "npu":
-            query_diff = (query - golden_query).abs().max().item()
-            query_rope_diff = (query_rope - golden_query_rope).abs().max().item()
-            c_kv_diff = (c_kv_out - golden_c_kv).abs().max().item()
-            k_r_diff = (k_r_out - golden_k_r).abs().max().item()
-            
-            logging.info(f"  精度对比 (与 Golden 最大差异):")
-            logging.info(f"    query: {query_diff:.6f}")
-            logging.info(f"    query_rope: {query_rope_diff:.6f}")
-            logging.info(f"    c_kv_out: {c_kv_diff:.6f}")
-            logging.info(f"    k_r_out: {k_r_diff:.6f}")
-    
-    logging.info("\n✓ MLA Prolog kernel 动态序列长度测试通过")
+            compare(query.cpu(), golden_query.cpu(), "query", 0.005, 0.0078125, 0.005)
+            compare(query_rope.cpu(), golden_query_rope.cpu(), "query_rope", 0.005, 0.0078125, 0.05)
+            compare(c_kv_out.cpu(), golden_c_kv.cpu(), "c_kv_out", 0.005, 0.0078125, 0.005)
+            compare(k_r_out.cpu(), golden_k_r.cpu(), "k_r_out", 0.005, 0.0078125, 0.05)
+            logging.info(f"✓ seq_len={seq_len} 所有精度对比通过")
 
 
 def main():
