@@ -321,9 +321,6 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_PRINT, Opcode::OP_PRINT, ExecutePrint);
 
 void ExecuteOpReshape(ExecuteOperationContext *ctx) {
-    if (ctx->op->GetOpMagic() == 10008) {
-        std::cout << "catch" << std::endl;
-    }
     ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
            ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
