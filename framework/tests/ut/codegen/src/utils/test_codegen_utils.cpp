@@ -90,6 +90,21 @@ Function *GenMockFuncDyn(const std::string &funcName, const std::vector<int64_t>
     return function;
 }
 
+Function *GenMockFuncStatic(const std::string &funcName, const std::vector<int64_t> &shape) {
+    TileShape::Current().SetVecTile(shape);
+
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    return function;
+}
+
 std::shared_ptr<LogicalTensor> CreateConvTensor(Function &function, const DataType &dtype,
     const std::vector<int64_t> &shape, const MemoryType &memType, const bool &isCopyIn) {
     std::shared_ptr<LogicalTensor> tensorPtr = nullptr;

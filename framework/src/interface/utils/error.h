@@ -26,7 +26,9 @@ struct TerminateHandler {
         sa.sa_handler = TerminateHandler::SigAction;
         sigemptyset(&sa.sa_mask);
         sa.sa_flags = SA_RESTART;
-        sigaction(SIGSEGV, &sa, &ori);
+
+        sigaction(SIGSEGV, &sa, &ori[0]);
+        sigaction(SIGFPE, &sa, &ori[1]);
 
         std::set_terminate([] {
             try {
@@ -45,16 +47,25 @@ struct TerminateHandler {
 
     static void SigAction(int signo) {
         (void)signo;
-        auto &backtrace = GetBacktrace(0x2, 0x10)->Get();
-        FUNCTION_LOGE("segment fault!!!\n%s", backtrace.c_str());
-        std::cerr << "segment fault!!!\n" << backtrace << std::endl;
+        auto backtrace = GetBacktrace(0x2, 0x10)->Get();
+        auto msg = "ops !!!";
+        if (signo == SIGSEGV) {
+            msg = "segment fault !!!";
+        } else if (signo == SIGFPE) {
+            msg = "floating point exception !!!";
+        }
+        FUNCTION_LOGE("%s\n%s", msg, backtrace.c_str());
+        std::cerr << msg << "\n" << backtrace << std::endl;
         fflush(nullptr);
         _Exit(1);
     }
 
-    ~TerminateHandler() { sigaction(SIGSEGV, &ori, nullptr); }
+    ~TerminateHandler() {
+        sigaction(SIGSEGV, &ori[0], nullptr);
+        sigaction(SIGFPE, &ori[1], nullptr);
+    }
 
-    struct sigaction ori;
+    struct sigaction ori[2];
 };
 } // namespace npu::tile_fwk
 #endif

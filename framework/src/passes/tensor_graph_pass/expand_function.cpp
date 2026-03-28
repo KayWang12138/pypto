@@ -75,9 +75,9 @@ void ExpandFunction::ProcessForNotExpandOp(Function &function, Operation &op) co
     }
 }
 
-Status ExpandFunction::PreCheck(Function &function) {
+Status ExpandFunction::DefaultEnabledPreCheck(Function &function) {
     ExpandFunctionChecker checker;
-    return checker.DoPreCheck(function);
+    return checker.DoDefaultEnabledPreCheck(function);
 }
 
 Status ExpandFunction::PostCheck(Function &function) {
@@ -104,14 +104,15 @@ Status ExpandFunction::RunOnFunction(Function &function) {
         APASS_LOG_ERROR_F(Elements::Function, "Function[%s] ExpandFunction failed.", function.GetRawName().c_str());
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Function, "Function operation size is: %zu after expansion.", function.Operations().size());
+    APASS_LOG_INFO_F(Elements::Function, "Function[%s] operation size is: %zu after expansion.", function.GetMagicName().c_str(), function.Operations().size());
     APASS_LOG_INFO_F(Elements::Function, "End ExpandFunction function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
 Status ExpandFunction::Expandfunction(Function &function) const {
     if (!function.IsGraphType(GraphType::TENSOR_GRAPH)) {
-        APASS_LOG_INFO_F(Elements::Function, "Function %s is not static tensor graph, skip expanding.", function.GetRawName().c_str());
+        APASS_LOG_INFO_F(Elements::Function, "Function %s is not static tensor graph, skip expanding.",
+            function.GetRawName().c_str());
         return SUCCESS;
     }
     function.expandFunctionAccelerate = true;
@@ -161,12 +162,16 @@ Status ExpandFunction::Expandfunction(Function &function) const {
     return SUCCESS;
 }
 
-Status ExpandFunction::ExpandOperation(Function &function, Operation &op) const{
+Status ExpandFunction::ExpandOperation(Function &function, Operation &op) const {
     int scopeIdx = op.GetScopeId();
     if (scopeIdx >= 0) { // scopeIdx < 0 means no need to merge
         scopeMap_[scopeIdx].insert(op.GetCoreType());
-        if (!GraphUtils::IsCVMixPlatform() && scopeMap_[scopeIdx].find(CoreType::AIC) != scopeMap_[scopeIdx].end() && scopeMap_[scopeIdx].find(CoreType::AIV) != scopeMap_[scopeIdx].end()) {
-            APASS_LOG_ERROR_F(Elements::Function, "Cannot mix cube and vector op on a CV seperate platform in function: %s, please check your setting: sg_set_scope=%d", function.GetRawName().c_str(), scopeIdx);
+        if (!GraphUtils::IsCVMixPlatform() && scopeMap_[scopeIdx].find(CoreType::AIC) != scopeMap_[scopeIdx].end() &&
+            scopeMap_[scopeIdx].find(CoreType::AIV) != scopeMap_[scopeIdx].end()) {
+            APASS_LOG_ERROR_F(Elements::Function,
+                "Cannot mix cube and vector op on a CV seperate platform in function: %s, please check your setting: "
+                "sg_set_scope=%d",
+                function.GetRawName().c_str(), scopeIdx);
             return FAILED;
         }
     }

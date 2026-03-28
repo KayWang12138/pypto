@@ -116,20 +116,8 @@ TEST_F(TestCodegenScalar, TestScalarOp) {
 }
 
 TEST_F(TestCodegenScalar, TestPipeAll) {
-    const std::vector<int64_t> shape = {64, 64};
-    TileShape::Current().SetVecTile(shape);
-
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    std::string funcName = "ADD";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-
+    auto function = GenMockFuncStatic("TestPipeAll");
+    std::vector<int64_t> shape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto ddrTensor =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, dynValidShape});
@@ -150,20 +138,8 @@ TEST_F(TestCodegenScalar, TestPipeAll) {
 }
 
 TEST_F(TestCodegenScalar, TestAicpuCallOp) {
-    const std::vector<int64_t> shape = {64, 64};
-    TileShape::Current().SetVecTile(shape);
-
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    std::string funcName = "TestAicpuCallOp";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-
+    auto function = GenMockFuncStatic("TestAicpuCallOp");
+    std::vector<int64_t> shape = {64, 64};
     auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     Operation &op = function->AddOperation(npu::tile_fwk::Opcode::OP_AICPU_CALL_AIV, {ubTensor}, {});
     op.SetAttribute(OpAttributeKey::aicpuCall, 0);
@@ -181,19 +157,8 @@ TEST_F(TestCodegenScalar, TestAicpuCallOp) {
 }
 
 void TestCVSyncBody(Opcode syncOpcode) {
+    auto function = GenMockFuncStatic("TestCVSyncBody");
     std::vector<int64_t> shape = {64, 64};
-    TileShape::Current().SetVecTile(shape);
-    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    std::string funcName = "ADD";
-
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     const std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, shape, dynValidShape});
     auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L1, shape, dynValidShape});

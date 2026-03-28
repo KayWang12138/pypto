@@ -30,6 +30,7 @@
 #include "axis_combine_marker.h"
 
 namespace npu::tile_fwk {
+
 class AxisCombine : public Pass {
 public:
     AxisCombine() : Pass("AxisCombine") {}

@@ -67,6 +67,9 @@ const std::string FP16_NAN = "0x7C01";
 const std::string FP32_INF_POS = "0x7F800000";
 const std::string FP32_INF_NEG = "0xFF800000";
 const std::string FP32_NAN = "0x7FC00000";
+const std::string BF16_INF_POS = "0x7F80";
+const std::string BF16_INF_NEG = "0xFF80";
+const std::string BF16_NAN = "0x7FC0";
 
 // multi input single output
 enum class MISOIdx : unsigned {
@@ -145,12 +148,7 @@ const std::map<OperandType, std::string> BUFFER_TYPE_TO_PREFIX_LC = {
 
 enum class VecScalMode { VEC_MODE, SCALAR_MODE };
 
-enum class TransMode : int
-{
-    CAST_NONE = 0,
-    CAST_RINT = 1,
-    CAST_ROUND = 2
-};
+enum class TransMode : int { CAST_NONE = 0, CAST_RINT = 1, CAST_ROUND = 2 };
 
 enum class CopyOutMode : int {
     COPY_MOD_INVALID = -1,
@@ -167,7 +165,9 @@ struct CodeGenCtx {
     bool isDynamicAligned{false};
     CodeGenCtx() = default;
     CodeGenCtx(std::string inPath, std::string cmpPath, bool isMainBlk = false, bool isDynAligned = false)
-        : includePath(std::move(inPath)), cceDir(std::move(cmpPath)), isMainBlock(isMainBlk), 
+        : includePath(std::move(inPath)),
+          cceDir(std::move(cmpPath)),
+          isMainBlock(isMainBlk),
           isDynamicAligned(isDynAligned) {}
     bool IsCCEPathEmpty() const { return cceDir.empty(); }
     bool IsIncludePathEmpty() const { return includePath.empty(); }

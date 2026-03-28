@@ -355,10 +355,10 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryTmpBuffPara
 
     std::vector<std::string> paramList;
     paramList.emplace_back(param.dstDtypeStr);
-    FillParamWithFullShape(paramList, os);
-    FillParamWithShapeExceptFirst(paramList, srcShape);
-    FillParamWithShapeExceptFirst(paramList, dstShape);
-    FillParamWithShapeExceptFirst(paramList, tmpShape);
+    FillParamWithFullInput(paramList, os);
+    FillParamWithInputExceptFirst(paramList, srcShape);
+    FillParamWithInputExceptFirst(paramList, dstShape);
+    FillParamWithInputExceptFirst(paramList, tmpShape);
     paramList.emplace_back(std::to_string(reduceAxis));
     std::string templateParam = JoinString(paramList, CONN_COMMA);
 
@@ -478,10 +478,10 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
-    std::vector srcShape = this->rawShape[2];
+    std::vector srcShape = rawShape[2];
     CODEGEN_LOGI("GenUnaryOpWithTmpBuff %s src raw shape: %s", tileOpName.c_str(), IntVecToStr(srcShape).c_str());
 
-    std::vector dstShape = this->rawShape[0];
+    std::vector dstShape = rawShape[0];
     CODEGEN_LOGI("GenUnaryOpWithTmpBuff %s dst raw shape: %s", tileOpName.c_str(), IntVecToStr(dstShape).c_str());
 
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID2]);

@@ -97,6 +97,49 @@ TEST_F(DynamicOpsTest, FmodFp32) {
     EXPECT_NO_VERIFY_FAILED(logOutput);
 }
 
+TEST_F(DynamicOpsTest, FmodFp32ParallelLoop) {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+
+    int s = 32;
+    int n = 2;
+    int m = 1;
+    Tensor t0(DT_FP32, {n * s, m * s}, "t0");
+    Tensor t1(DT_FP32, {n * s, m * s}, "t1");
+    Tensor out(DT_FP32, {n * s, m * s}, "out");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 2.0),
+        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0),
+    });
+
+    FUNCTION("main", {t0, t1}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1), {}, false, true) {
+            (void)i;
+            auto t0a = View(t0, {s, s}, {0, 0});
+            auto t0b = View(t0, {s, s}, {s, 0});
+            auto t1a = View(t1, {s, s}, {0, 0});
+            auto t1b = View(t1, {s, s}, {s, 0});
+            auto t2a = Fmod(t0a, t1a);
+            auto t2b = Fmod(t0b, t1b);
+            std::vector<std::pair<Tensor, std::vector<int64_t>>> data = {
+                {t2a, {0, 0}},
+                {t2b, {s, 0}},
+            };
+            out = Assemble(data);
+        }
+    }
+    });
+    EXPECT_NO_VERIFY_FAILED(logOutput);
+}
+
 TEST_F(DynamicOpsTest, FillPad1DFp32) {
     std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
@@ -202,24 +245,24 @@ TEST_F(DynamicOpsTest, ExpandExpDifFp32) {
     }
 }
 
-TEST_F(DynamicOpsTest, RemainderFp32) {
+TEST_F(DynamicOpsTest, RemainderInt16) {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     int m = 32;
     int n = 32;
-    Tensor t0(DT_FP32, {m, n}, "t0");
-    Tensor t1(DT_FP32, {m, n}, "t1");
-    Tensor out(DT_FP32, {m, n}, "out");
+    Tensor t0(DT_INT16, {m, n}, "t0");
+    Tensor t1(DT_INT16, {m, n}, "t1");
+    Tensor out(DT_INT16, {m, n}, "out");
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(t0, 3.0),
-        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+        RawTensorData::CreateConstantTensor<int16_t>(t0, 3.0),
+        RawTensorData::CreateConstantTensor<int16_t>(t1, 2.0),
     });
     ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out, 0.0),
+        RawTensorData::CreateConstantTensor<int16_t>(out, 0.0),
     });
     ProgramData::GetInstance().AppendGoldens({
-        RawTensorData::CreateConstantTensor<float>(out, 1.0),
+        RawTensorData::CreateConstantTensor<int16_t>(out, 1.0),
     });
 
     FUNCTION("main", {t0, t1}, {out}) {
@@ -260,23 +303,23 @@ TEST_F(DynamicOpsTest, RemainderSFp32) {
     }
 }
 
-TEST_F(DynamicOpsTest, RemainderRSFp32) {
+TEST_F(DynamicOpsTest, RemainderRSInt16) {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     int m = 32;
     int n = 32;
-    Tensor t0(DT_FP32, {m, n}, "t0");
-    Element src(DT_FP32, 4.0);
-    Tensor out(DT_FP32, {m, n}, "out");
+    Tensor t0(DT_INT16, {m, n}, "t0");
+    Element src(DT_INT16, 4.0);
+    Tensor out(DT_INT16, {m, n}, "out");
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(t0, 3.0),
+        RawTensorData::CreateConstantTensor<int16_t>(t0, 3.0),
     });
     ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out, 0.0),
+        RawTensorData::CreateConstantTensor<int16_t>(out, 0.0),
     });
     ProgramData::GetInstance().AppendGoldens({
-        RawTensorData::CreateConstantTensor<float>(out, 1.0),
+        RawTensorData::CreateConstantTensor<int16_t>(out, 1.0),
     });
 
     FUNCTION("main", {t0}, {out}) {

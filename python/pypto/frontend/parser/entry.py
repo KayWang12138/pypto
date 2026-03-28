@@ -215,6 +215,10 @@ class JitCallableWrapper:
         "torch.bool": pypto.DataType.DT_BOOL,
     }
 
+    _special_dtype_dict = {
+        "torch.uint8": pypto.DataType.DT_HF8,
+    }
+
     _format_dict = {
         "ND": pypto.TileOpFormat.TILEOP_ND,
         "NZ": pypto.TileOpFormat.TILEOP_NZ,
@@ -398,14 +402,15 @@ class JitCallableWrapper:
             if param_name == "return":
                 continue
             ann = annotations.get(param_name)
-            if ann is not None and isinstance(ann, pypto.Tensor):
+            if ann is not None and hasattr(ann, 'to_tensor'):
                 if seen_non_tensor:
                     raise ValueError(
                         "Non-tensor parameters must come after all tensor parameters. "
                         f"Found tensor parameter '{param_name}' after non-tensor "
                         "parameter(s)."
                     )
-                input_tensor_list.append(ann)
+                tensor = ann.to_tensor(param_name)
+                input_tensor_list.append(tensor)
             else:
                 seen_non_tensor = True
                 non_tensor_param_names.append(param_name)
@@ -470,16 +475,44 @@ class JitCallableWrapper:
                 for i, dim in enumerate(tensor_def.shape)
                 if isinstance(dim, pypto.SymbolicScalar) or dim in (pypto.StatusType.DYN, pypto.StatusType.DYNAMIC)
             ]
-
+            # Use dtype from type annotation when provided; otherwise fallback to torch tensor dtype.
+            dtype = tensor_def.dtype if tensor_def.status_dtype is not None else None
             pto_tensors.append(
                 pypto.from_torch(
                     torch_tensor,
                     name=tensor_def.name,
-                    dynamic_axis=dynamic_axis if dynamic_axis else None
+                    dynamic_axis=dynamic_axis if dynamic_axis else None,
+                    dtype=dtype
                 )
             )
         return pto_tensors
 
+    @staticmethod
+    def _setup_verify_data(
+        pto_tensors
+    ) -> None:
+        """Set verify input/output/golden data for pass-level verification.
+
+        This mirrors the behavior of pypto.runtime._JIT.compile:
+        - Copy current input/output from NPU to Host
+        - Use golden data pre-injected via set_verify_golden_data
+        - Call SetVerifyData to register all three to the underlying ProgramData
+        """
+        if not pypto.get_verify_options().get("enable_pass_verify"):
+            return
+        
+        # Compile and load calculator
+        mgr = BuildOnlineManager()
+        mgr.build_and_load_calculator()
+
+        # Copy NPU Tensor to CPU, then convert to pypto.Tensor for constructing DeviceTensorData
+
+        host_pto_tensors, _ = _gen_pto_tensor(pto_tensors)
+        host_pto_t_datas = _pto_to_tensor_data(host_pto_tensors)
+        for i, dev_tensor in enumerate(_pto_to_tensor_data(pto_tensors)):
+            pypto_impl.CopyToHost(dev_tensor, host_pto_t_datas[i])
+        pypto_impl.SetVerifyData(
+            host_pto_t_datas, [], _pto_verify_datas.get_data())
 
     def compile(
         self,
@@ -508,12 +541,13 @@ class JitCallableWrapper:
         self._parser.parse()
         self._parser.input_pto_tensor = args
 
-        # Initialize backend for compilation
-        self._setup_verify_data(args)
 
         # Set options AFTER OperatorBegin() to match @pypto.jit behavior
 
         self._set_config_option()
+
+        # Initialize backend for compilation
+        self._setup_verify_data(args)
 
         # Bind dynamic dimensions from concrete inputs
         self._parser.bind_dynamic_dims_to_input_tensors()
@@ -737,10 +771,16 @@ class JitCallableWrapper:
                             does not match the shape of input tensor definition {input_tensor_def.shape}.")
 
             # Check the dtype of input tensors and input tensor definitions
-            if input_tensor_def.status_dtype is not None and \
-                    self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype:
-                raise ValueError(f"The dtype of {ordinal(idx)} input tensor {in_tensor.dtype} \
-                    does not match the dtype of input tensor definition {input_tensor_def.dtype}.")
+            if input_tensor_def.status_dtype is not None:
+                in_tensor_dtype = str(in_tensor.dtype)
+                normal_mapped_dtype = self._dtype_dict.get(in_tensor_dtype)
+                special_mapped_dtype = self._special_dtype_dict.get(in_tensor_dtype)
+                if (
+                    normal_mapped_dtype != input_tensor_def.dtype
+                    and special_mapped_dtype != input_tensor_def.dtype
+                ):
+                    raise ValueError(f"The dtype of {ordinal(idx)} input tensor {in_tensor.dtype} \
+                        does not match the dtype of input tensor definition {input_tensor_def.dtype}.")
 
             if in_tensor.device.type == "npu":
                 if self._format_dict[get_format(in_tensor)] != input_tensor_def.format:
@@ -910,36 +950,6 @@ class JitCallableWrapper:
             pypto.set_verify_options(**self._verify_options)
         if self._debug_options:
             pypto.set_debug_options(**self._debug_options)
-
-
-    def _setup_verify_data(
-        self,
-        pto_tensors
-    ) -> None:
-        """Set verify input/output/golden data for pass-level verification.
-
-        This mirrors the behavior of pypto.runtime._JIT.compile:
-        - Copy current input/output from NPU to Host
-        - Use golden data pre-injected via set_verify_golden_data
-        - Call SetVerifyData to register all three to the underlying ProgramData
-        """
-        if not (
-            isinstance(self._verify_options, dict)
-            and self._verify_options.get("enable_pass_verify")
-        ):
-            return
-        # Compile and load calculator
-        mgr = BuildOnlineManager()
-        mgr.build_and_load_calculator()
-
-        # Copy NPU Tensor to CPU, then convert to pypto.Tensor for constructing DeviceTensorData
-
-        host_pto_tensors, _ = _gen_pto_tensor(pto_tensors)
-        host_pto_t_datas = _pto_to_tensor_data(host_pto_tensors)
-        for i, dev_tensor in enumerate(_pto_to_tensor_data(pto_tensors)):
-            pypto_impl.CopyToHost(dev_tensor, host_pto_t_datas[i])
-        pypto_impl.SetVerifyData(
-            host_pto_t_datas, [], _pto_verify_datas.get_data())
 
     def _run(
         self,

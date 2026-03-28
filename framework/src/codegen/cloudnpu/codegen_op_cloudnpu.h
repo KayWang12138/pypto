@@ -17,6 +17,8 @@
 #define CODEGEN_OP_CLOUDNPU_H
 
 #include <utility>
+#include <map>
+#include <functional>
 #include <unordered_set>
 
 #include "op_print_param_def.h"
@@ -75,7 +77,6 @@ public:
     std::string GenReshapeCopyIn() const;
     std::string GenReshapeCopyOut() const;
 
-    std::string GenLoadOp() const;
     std::string PrintGatherInL1TileTensor() const;
     std::string GenGatherInL1() const;
     std::string GenGatherInUB() const;
@@ -136,6 +137,7 @@ public:
     std::string GenMrgSortOp() const;
     std::string GenExtractOp() const;
     std::string GenTiledMrgSortOp() const;
+    std::string GenSortOpWithParams(const std::set<int> &idx) const;
     std::string GenSortOp() const;
     std::string GenCompareAndSwapOp() const;
     std::string GenMergeOp() const;
@@ -194,6 +196,7 @@ private:
     std::string GenOffsetsAndRawShapesForFfnCombineInfo() const;
     std::string GenOffsetsAndRawShapesForShmemSet() const;
     std::string GenOffsetsAndRawShapesDefault() const;
+    std::string GenTargetRankStr() const;
 
     void UpdateTileTensorInfo();
     void UpdateLoopInfo();
@@ -260,6 +263,7 @@ private:
         tempKey = 0;
         AppendLocalBufVarOffsetInOrderImpl<T>(args...);
     }
+
     void AppendLocalBufferVarOffset(const std::map<unsigned, std::reference_wrapper<std::string>> &vars) const;
 
     // get start offset in total block
@@ -472,13 +476,14 @@ private:
     void InitAICPUOpsMap();
 
     std::string PrintCoord(size_t dim, const std::string &coord) const;
+    std::pair<std::string, std::string> PrintDstSrcCoordFromAttr() const;
     std::string PrintTensorForCopyBetweenGM(unsigned operandIdx, unsigned gmIdx, const std::string &gmVarName) const;
     template <typename T>
-    void FillParamWithFullShape(std::vector<std::string> &paramList, const std::vector<T> &input) const {
+    void FillParamWithFullInput(std::vector<std::string> &paramList, const std::vector<T> &input) const {
         FillParamWithInput(paramList, input, 0, input.size());
     }
     template <typename T>
-    void FillParamWithShapeExceptFirst(std::vector<std::string> &paramList, const std::vector<T> &input) const {
+    void FillParamWithInputExceptFirst(std::vector<std::string> &paramList, const std::vector<T> &input) const {
         FillParamWithInput(paramList, input, 1, input.size());
     }
 

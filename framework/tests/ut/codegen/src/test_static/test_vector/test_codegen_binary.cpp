@@ -48,17 +48,8 @@ public:
     void TearDown() override {}
 };
 
-void TestAddBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, std::string name, bool withBrc = false) {
-    TileShape::Current().SetVecTile(tile_shape);
-    Tensor input_a(DT_FP32, shape, "A");
-    Tensor input_b(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    FUNCTION(name, {input_a, input_b, output}) {
-        output = Add(input_a, input_b);
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
+void TestAddBody(std::vector<int64_t> shape, std::string name, bool withBrc = false) {
+    auto function = GenMockFuncStatic(name, shape);
 
     if (withBrc) {
         for (auto &subProgram : function->rootFunc_->programs_) {
@@ -75,15 +66,15 @@ void TestAddBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, st
 }
 
 TEST_F(TestCodegenBinary, TestCodegenAddDim2) {
-    TestAddBody({64, 64}, {64, 64}, "ADD_DIM2", true);
+    TestAddBody({64, 64}, "ADD_DIM2", true);
 }
 
 TEST_F(TestCodegenBinary, TestCodegenAddDim3) {
-    TestAddBody({8, 8, 8}, {8, 8, 8}, "ADD_DIM3");
+    TestAddBody({8, 8, 8}, "ADD_DIM3");
 }
 
 TEST_F(TestCodegenBinary, TestCodegenAddDim4) {
-    TestAddBody({2, 2, 16, 16}, {1, 1, 8, 8}, "ADD_DIM4");
+    TestAddBody({2, 2, 16, 16}, "ADD_DIM4");
 }
 
 void TestAddSBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, std::string name) {

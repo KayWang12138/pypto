@@ -189,7 +189,7 @@ INLINE void TLoadND2ND(T &dst, U &src, const int64_t &offset0, const int64_t &of
     using globalData = pto::GlobalTensor<typename U::Type, shapeDim2, strideDim2, pto::Layout::ND>;
     // 目前场景,ND2ND只搬运bias和fixpipe，大小均为1 * N，offset0默认均为0
     int64_t gmOffset = offset1 + offset0 * srcShape1;
-    globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset), shapeDim2(staticL1H, staticL1W),
+    globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset), shapeDim2(dstShape0, dstShape1),
         strideDim2(srcStride0, srcStride1));
     using tileData =
         pto::Tile<pto::TileType::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::RowMajor, -1, -1>;
@@ -304,12 +304,14 @@ TILEOP void TMoveND2NZ(T &dst, U &src) {
     constexpr int64_t shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM2, "Shape Size should be 2 Dim");
     static_assert(T::FORMAT == Hardware::UB && U::FORMAT == Hardware::UB);
-    constexpr int64_t staticVecH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename U::TileShape>::type::value;
-    constexpr int64_t staticVecW = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
-    using tileNDTensor = pto::Tile<pto::TileType::Vec, typename U::Type, staticVecH, staticVecW, pto::BLayout::RowMajor,
-                                   staticVecH, staticVecW>;
-    using tileNZTensor = pto::Tile<pto::TileType::Vec, typename T::Type, staticVecH, staticVecW, pto::BLayout::ColMajor,
-                                   staticVecH, staticVecW, pto::SLayout::RowMajor>;
+    constexpr int64_t staticNDH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename U::TileShape>::type::value;
+    constexpr int64_t staticNDW = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
+    constexpr int64_t staticNZH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename T::TileShape>::type::value;
+    constexpr int64_t staticNZW = Std::tuple_element<shapeSize - 1, typename T::TileShape>::type::value;
+    using tileNDTensor = pto::Tile<pto::TileType::Vec, typename U::Type, staticNDH, staticNDW, pto::BLayout::RowMajor,
+                                   staticNDH, staticNDW>;
+    using tileNZTensor = pto::Tile<pto::TileType::Vec, typename T::Type, staticNZH, staticNZW, pto::BLayout::ColMajor,
+                                   staticNZH, staticNZW, pto::SLayout::RowMajor>;
     tileNDTensor srcTile;
     tileNZTensor dstTile;
     pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
@@ -626,13 +628,14 @@ TILEOP void TMatmul(T &c, U &a, V &b) {
 
     validM = (validM + BLOCK_CUBE_M_N - 1) / BLOCK_CUBE_M_N * BLOCK_CUBE_M_N;
     tileL0ATensor l0a(validM, validK);
-    if constexpr (transMode != TransMode::CAST_NONE) {
-        l0a.SetMadTF32Mode(static_cast<pto::RoundMode>(transMode));
-    }
     tileL0BTensor l0b(validK, validN);
     tileL0CTensor l0c(validM, validN);
     if (std::is_same<typename tileL0ATensor::DType, float>::value) {
+        l0a.ResetMadMode();
         l0a.SetKAligned(true);
+    }
+    if constexpr (transMode != TransMode::CAST_NONE) {
+        l0a.SetMadTF32Mode(static_cast<pto::RoundMode>(transMode));
     }
 
     pto::TASSIGN(l0a, (uint64_t)a.GetAddr());
@@ -679,12 +682,15 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
 
     validM = (validM + BLOCK_CUBE_M_N - 1) / BLOCK_CUBE_M_N * BLOCK_CUBE_M_N;
     tileL0ATensor l0a(validM, validK);
-    if constexpr (transMode != TransMode::CAST_NONE) {
-        l0a.SetMadTF32Mode(static_cast<pto::RoundMode>(transMode));
-    }
     tileL0BTensor l0b(validK, validN);
     tileL0CTensor l0c(validM, validN);
     tileBiasTensor biasT(1, validN);
+    if (std::is_same<typename tileL0ATensor::DType, float>::value) {
+        l0a.ResetMadMode();
+    }
+    if constexpr (transMode != TransMode::CAST_NONE) {
+        l0a.SetMadTF32Mode(static_cast<pto::RoundMode>(transMode));
+    }
 
     pto::TASSIGN(l0a, (uint64_t)a.GetAddr());
     pto::TASSIGN(l0b, (uint64_t)b.GetAddr());

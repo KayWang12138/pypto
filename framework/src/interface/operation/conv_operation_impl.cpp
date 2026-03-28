@@ -319,7 +319,6 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     }
     uint64_t tileCinFmap = convTile.tileL1Info.tileCinFmap;
     uint64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
-    uint64_t kAL1 = ConvAlignB(tileCinFmap * kh * kw, k0);
     uint64_t kBL1 = ConvAlignB(tileCinWeight * kh * kw, k0);
     uint64_t weightL1Size = ConvAlignB(kBL1 * tileN * BytesOf(outType), ALIGN_SIZE_32);
 
@@ -331,7 +330,7 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     uint64_t kwDilated = (kw - 1) * dilationW + 1;
     uint64_t wiAL1 = std::min((tileWout - 1) * strideW + kwDilated, win);;
 
-    inputL1Size = ConvAlignB(hiAL1 * wiAL1 * kAL1 * BytesOf(outType), ALIGN_SIZE_32);
+    inputL1Size = ConvAlignB(hiAL1 * wiAL1 * tileCinFmap * BytesOf(outType), ALIGN_SIZE_32);
     uint64_t minL1LoadSize = biasL1Size + inputL1Size + weightL1Size;
     ASSERT(ConvOperationError::OVER_BUFFER_LIMIT, minL1LoadSize <= l1Size)
         << "MinL1LoadSize > L1size, current MinL1LoadSize: " << minL1LoadSize << ", L1size: " << l1Size << ".";
@@ -419,7 +418,7 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
         int paddingRight = paddings[i * 2 + 1];
         ASSERT(ConvOperationError::INPUT_INVALID, paddingLeft < weightVal && paddingRight < weightVal)
             << "The value of the " << dimNames[i]
-            << " dimension of weight must be >= padding.Current weight value:" << weightVal
+            << " dimension of weight must be > padding.Current weight value:" << weightVal
             << ",padding value:" << paddingLeft
             << " and " << paddingRight
             << ".";
@@ -618,7 +617,7 @@ void SetConvShapeInfo(const TileShape &tileShape, const ConvGraphNodes &tensorGr
 LogicalTensorPtr ConstructBiasTile(Function &function, const ConvGraphNodes &tensorGraphNodes, ConvIterInfo &iterInfo,
                                    ConvTileInfo &convTileInfo)
 {
-    std::vector<int64_t> dstBiasL1Shape = std::vector<int64_t>{1, ConvAlignB(iterInfo.nL0Size, MKN_N_VALUE)};
+    std::vector<int64_t> dstBiasL1Shape = std::vector<int64_t>{1, iterInfo.nL0Size};
     std::vector<int64_t> dstBiasL1Offset = std::vector<int64_t>{0,
         iterInfo.groupOffset * convTileInfo.coutPerGroup + iterInfo.nL1Offset + iterInfo.nL0Offset};
     LogicalTensorPtr dstBiasl1TensorPtr =
@@ -632,9 +631,8 @@ LogicalTensorPtr ConstructBiasTile(Function &function, const ConvGraphNodes &ten
             SymbolicScalar::FromConcrete(dstBiasL1Offset), dstBiasl1TensorPtr->GetDynValidShape());
     viewOpBiasL1.SetOpAttribute(viewAttributeBiasL1);
     viewOpBiasL1.SetAttribute(Matrix::A_MUL_B_COPY_IN_MODE, static_cast<int64_t>(Matrix::CopyInMode::ND2ND));
-    viewOpBiasL1.SetAttribute("isConv", true);
 
-    std::vector<int64_t> dstBiasBtShape = std::vector<int64_t>{1, ConvAlignB(iterInfo.nL0Size, MKN_N_VALUE)};
+    std::vector<int64_t> dstBiasBtShape = std::vector<int64_t>{1, iterInfo.nL0Size};
     std::vector<int64_t> dstBiasBtOffset = std::vector<int64_t>{0, iterInfo.nL0Offset};
     LogicalTensorPtr dstBiasBtTensorPtr =
         std::make_shared<LogicalTensor>(function, DataType::DT_FP32, dstBiasBtShape,
@@ -645,7 +643,6 @@ LogicalTensorPtr ConstructBiasTile(Function &function, const ConvGraphNodes &ten
     auto viewAttributeBiasBt = std::make_shared<ViewOpAttribute>(dstBiasBtOffset, MemoryType::MEM_BT,
             SymbolicScalar::FromConcrete(dstBiasBtOffset), dstBiasBtTensorPtr->GetDynValidShape());
     viewOpBiasBt.SetOpAttribute(viewAttributeBiasBt);
-    viewOpBiasBt.SetAttribute("isConv", true);
 
     return dstBiasBtTensorPtr;
 }

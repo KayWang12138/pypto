@@ -160,8 +160,15 @@ private:
 
     Status ForUpdateView(Operation *op);
     Status BackUpdateAssemble(Operation *op);
+    std::vector<OpImmediate> SumOffsetForCopyIn(const std::vector<OpImmediate> offset1, const std::vector<OpImmediate> offset2);
+    Status UpdateCopyInAttr(Operation *copyInOp);
 
     Status MarkTensorAsPartialMem(Function &function);
+
+    void InsertCopyUBOp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input);
+ 	void InsertCopyDDROp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input);
+ 	void FindNeedToCopyAssemble(std::unordered_set<Operation*> &needInsertCopyAssOps, std::unordered_set<int> &visitedAssOps, Operation &op);
+ 	void InsertNeedCopy(Function &function);
 
     std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
     std::queue<LogicalTensorPtr> backRoots;

@@ -601,8 +601,35 @@ public:
         return kernel->GetWorkspaceSize(tensors);
     }
 
+    void SetTensorData(const std::vector<DeviceTensorData> &tensors) {
+        Function *func = Program::GetInstance().GetLastFunction();
+        if (func == nullptr) {
+            return;
+        }
+        size_t inputSize = func->inCasts_.size();
+        size_t outputSize = func->outCasts_.size();
+        if (tensors.size() != (inputSize + outputSize)) {
+            return;
+        }
+        if (ProgramData::GetInstance().GetInputDataList().empty()) {
+            for (size_t i = 0; i < inputSize; i++) {
+                RawTensorDataPtr rawDataPtr =
+                    std::make_shared<RawTensorData>(tensors.at(i).GetDataType(), tensors.at(i).GetShape());
+                ProgramData::GetInstance().AppendInput(rawDataPtr);
+            }
+        }
+        if (ProgramData::GetInstance().GetOutputDataList().empty()) {
+            for (size_t i = inputSize; i < tensors.size(); i++) {
+                RawTensorDataPtr rawDataPtr =
+                    std::make_shared<RawTensorData>(tensors.at(i).GetDataType(), tensors.at(i).GetShape());
+                ProgramData::GetInstance().AppendOutput(rawDataPtr);
+            }
+        }
+    }
+
     void Launch(KernelBinary *kernel, aclrtStream aicoreStream, std::vector<DeviceTensorData> &tensors,
         uint8_t *ctrlFlowCache, int64_t *workspace) {
+        SetTensorData(tensors);
         auto [args, argsSize] = kernel->BuildKernelArgs(tensors);
         rtAicpuArgs.args = args;
         rtAicpuArgs.argsSize = argsSize;
@@ -617,8 +644,11 @@ public:
         COMPILER_LOGE("triple stream %d sequence %ld workspace %p cfgcache %p",
                       tripleStream, sequence.load(), workspace, ctrlFlowCache);
 #endif
+        int ret = DeviceLauncher::LaunchSyncTask(aicoreStream, isCaptureMode);
+        ASSERT(ret == RT_ERROR_NONE) << "launch pre sync failed: " << ret;
+
         DeviceLauncher::SetDevPerfAddr(debugEnable, isCaptureMode);
-        int ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
+        ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
@@ -646,7 +676,7 @@ private:
         hostInfo.addrOffset = offsetof(dynamic::AiCpuArgs, kArgs.inputs);
         hostInfo.dataOffset = sizeof(dynamic::AiCpuArgs);
         rtAicpuArgs.hostInputInfoPtr = &hostInfo;
-
+        rtAicpuArgs.timeout = AICPU_EXECUTE_TIMEOUT;
         memset_s(&rtAicoreArgs, sizeof(rtArgsEx_t), 0, sizeof(rtArgsEx_t));
         kernelArgs.resize(7, nullptr); // see aicore.ascpp
         rtAicoreArgs.args = kernelArgs.data();
@@ -797,6 +827,7 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
 
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
     aclmdlRI rtModel;
+    DeviceLauncher::SaveStream(aicoreStream);
     DeviceLauncher::GetCaptureInfo(aicoreStream, rtModel);
 
     HOST_PERF_TRACE(TracePhase::LaunchInit);

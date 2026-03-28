@@ -224,7 +224,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
           // hypot op
           {Opcode::OP_HYPOT, [this]() { return GenHypotOp(); }},
           {Opcode::OP_PAD, [this]() { return GenPadOp(); }},
-          {Opcode::OP_FILLPAD, [this]() { return GenPadOp(); }},          
+          {Opcode::OP_FILLPAD, [this]() { return GenPadOp(); }},
       }),
       sortOps_({
           // sort
@@ -528,10 +528,10 @@ void CodeGenOpCloudNPU::UpdateTileTensorShapeAndStride(
     // gm tensor
     if (tileTensor.bufType == OperandType::BUF_DDR) {
         if (isSpillToGm) {
-            for (auto s : shape[paramIdx]) {
+            for (auto s : shapeFromAttr[paramIdx]) {
                 tileTensor.shape.emplace_back(std::to_string(s));
             }
-            tileTensor.stride = BuildStride(shape[paramIdx]);
+            tileTensor.stride = BuildStride(shapeFromAttr[paramIdx]);
         } else {
             tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
             tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
@@ -689,6 +689,22 @@ std::string CodeGenOpCloudNPU::PrintCoord(size_t dim, const std::string &coord) 
     std::string ret = COORD;
     ret.append(std::to_string(dim)).append(DIM).append(coord);
     return ret;
+}
+
+std::pair<std::string, std::string> CodeGenOpCloudNPU::PrintDstSrcCoordFromAttr() const {
+    std::vector<std::string> dstOffset;
+    for (const auto &tmpOffset : offsetFromAttr[ToUnderlying(MISOIdx::DST_IDX)]) {
+        dstOffset.emplace_back(SymbolicExpressionTable::BuildExpression(tmpOffset));
+    }
+    std::vector<std::string> srcOffset;
+    for (const auto &tmpOffset : offsetFromAttr[ToUnderlying(MISOIdx::SRC0_IDX)]) {
+        srcOffset.emplace_back(SymbolicExpressionTable::BuildExpression(tmpOffset));
+    }
+    std::string coordCpDst = WrapParamByParentheses(dstOffset);
+    std::string coordDst = PrintCoord(rawShape[ToUnderlying(MISOIdx::DST_IDX)].size(), coordCpDst);
+    std::string coordCpSrc = WrapParamByParentheses(srcOffset);
+    std::string coordSrc = PrintCoord(rawShape[ToUnderlying(MISOIdx::SRC0_IDX)].size(), coordCpSrc);
+    return {coordDst, coordSrc};
 }
 
 TileTensor CodeGenOpCloudNPU::QueryTileTensorByIdx(int paramIdx) const {

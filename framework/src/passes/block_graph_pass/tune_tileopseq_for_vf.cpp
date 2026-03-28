@@ -90,6 +90,127 @@ void TuneTileOpSeqForVF::MoveOpsForMerge(const std::unordered_set<Operation *> &
     opList_.insert(insertPosL, moveLeft.begin(), moveLeft.end());
 }
 
+void TuneTileOpSeqForVF::CollectGroupIndices(std::vector<Operation *> &group, std::vector<size_t> &ubCopyIndices, std::vector<size_t> &nonUbCopyIndices, std::vector<size_t> &groupIndices) {
+    for (auto *op : group) {
+        auto it = std::find(opList_.begin(), opList_.end(), op);
+        if (it == opList_.end()) {
+            continue;
+        }
+        size_t idx = std::distance(opList_.begin(), it);
+        if (opList_[idx]->GetOpcode() == Opcode::OP_UB_COPY_ND2NZ) {
+            ubCopyIndices.push_back(idx);
+        } else {
+            nonUbCopyIndices.push_back(idx);
+        }
+        groupIndices.insert(groupIndices.end(), ubCopyIndices.begin(), ubCopyIndices.end());
+        groupIndices.insert(groupIndices.end(), nonUbCopyIndices.begin(), nonUbCopyIndices.end());
+        std::sort(ubCopyIndices.begin(), ubCopyIndices.end());
+        std::sort(nonUbCopyIndices.begin(), nonUbCopyIndices.end());
+        std::sort(groupIndices.begin(), groupIndices.end());
+    }
+}
+
+// return 0表示需要前移，return 1表示需要后移， return 2表示不能移动
+void TuneTileOpSeqForVF::JudgeNeedMoveUbCopy(PipeSync &ps, size_t ubCopyIdx, std::vector<size_t> &nonUbCopyIndices, std::vector<size_t> &needMoveFront, std::vector<size_t> &needMoveBack) {
+    size_t minIdx = nonUbCopyIndices.front();
+    size_t maxIdx = nonUbCopyIndices.back();
+    // 判断ubCopyOp是否能前移
+    bool canMoveFront = true;
+    for (size_t i = minIdx; i < ubCopyIdx; i++) {
+        if (ps.HasDataDependency(*opList_[i], *opList_[ubCopyIdx], i, ubCopyIdx)) {
+            auto it = std::find(needMoveFront.begin(), needMoveFront.end(), i);
+            if (it == needMoveFront.end()) {
+                canMoveFront = false;
+                break;
+            } 
+        }
+    }
+    if (canMoveFront) {
+        needMoveFront.emplace_back(ubCopyIdx);
+        return;
+    }
+    bool canMoveBack = true;
+    for (size_t i = ubCopyIdx + 1; i <= maxIdx; i++) {
+        if (ps.HasDataDependency(*opList_[ubCopyIdx], *opList_[i], ubCopyIdx, i)) {
+            auto it = std::find(needMoveBack.begin(), needMoveBack.end(), i);
+            if (it ==needMoveBack.end()) {
+                canMoveBack = false;
+                break;
+            }
+        }
+    }
+    if (canMoveBack) {
+        needMoveBack.emplace_back(ubCopyIdx);
+    }
+}
+
+void TuneTileOpSeqForVF::MoveUbCopyOp(const std::vector<size_t> &needMoveFront, const std::vector<size_t> &needMoveBack, const std::vector<size_t> &nonUbCopyIndices) {
+    if (needMoveFront.empty() && needMoveBack.empty()) {
+        return;
+    }
+    size_t minIdx = nonUbCopyIndices.front();
+    size_t maxIdx = nonUbCopyIndices.back();
+
+    // 收集需要移动的 op
+    std::vector<Operation *> needMoveFrontOp;
+    std::vector<Operation *> needMoveBackOp;
+    std::unordered_set<size_t> moveIdxSet;
+    for (auto idx : needMoveFront) {
+        needMoveFrontOp.emplace_back(opList_[idx]);
+        moveIdxSet.insert(idx);
+    }
+    for (auto idx : needMoveBack) {
+        needMoveBackOp.emplace_back(opList_[idx]);
+        moveIdxSet.insert(idx);
+    }
+
+    // 构建新的 opList，跳过需要移动的 op
+    std::vector<Operation *> newOpList;
+    for (size_t i = 0; i < opList_.size(); i++) {
+        if (i == minIdx) {
+            // 在 minIdx 前插入需要前移的 op
+            for (auto *op : needMoveFrontOp) {
+                newOpList.emplace_back(op);
+            }
+        }
+        if (moveIdxSet.find(i) == moveIdxSet.end()) {
+            newOpList.emplace_back(opList_[i]);
+        }
+        if (i == maxIdx) {
+            // 在 maxIdx 后插入需要后移的 op
+            for (auto *op : needMoveBackOp) {
+                newOpList.emplace_back(op);
+            }
+        }
+    }
+    opList_ = std::move(newOpList);
+}
+
+void TuneTileOpSeqForVF::ProcessGroupUbCopyOrder(PipeSync &ps, std::vector<Operation *> &group) {
+    std::vector<size_t> ubCopyIndices;
+    std::vector<size_t> nonUbCopyIndices;
+    std::vector<size_t> groupIndices;
+    CollectGroupIndices(group, ubCopyIndices, nonUbCopyIndices, groupIndices);
+    if (ubCopyIndices.empty() || nonUbCopyIndices.empty()) {
+        return;
+    }
+    
+    // 对group中的所有UB_COPY_ND2NZ, 判断其需要前移还是后移还是不能移动
+    std::vector<size_t> needMoveFront;
+    std::vector<size_t> needMoveBack;
+    for (size_t ubIdx : ubCopyIndices) {
+        JudgeNeedMoveUbCopy(ps, ubIdx, nonUbCopyIndices, needMoveFront, needMoveBack);
+    }
+    // 根据判断结果对其进行移动
+    MoveUbCopyOp(needMoveFront, needMoveBack, nonUbCopyIndices);   
+}
+
+void TuneTileOpSeqForVF::AdjustUbCopyNd2NzOrder(PipeSync &ps) {
+    for (auto &group : mergedOps) {
+        ProcessGroupUbCopyOrder(ps, group);
+    }
+}
+
 void TuneTileOpSeqForVF::FindPipeVIdx(std::vector<size_t> &pipeVIdx, AIVCore coreType) {
     PipeSync ps;
     for (size_t i = 0; i < opList_.size(); i++) {
@@ -158,6 +279,9 @@ void TuneTileOpSeqForVF::ChangeOpSeq(PipeSync &ps, bool isAIV1) {
         pipeVIdx.clear();
         FindPipeVIdx(pipeVIdx, coreType);
     }
+
+    // 调整UB_COPY_ND2NZ的顺序
+    AdjustUbCopyNd2NzOrder(ps);
 }
 
 Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
@@ -176,6 +300,9 @@ Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
             ps.BuildTensorRangeMap(op);
             auto opcfg = OpcodeManager::Inst().GetTileOpCfg(op->GetOpcode());
             if (opcfg.pipeIdStart_ != PipeType::PIPE_V) {
+                continue;
+            }
+            if (op->HasAttribute(OpAttributeKey::isCube) && op->GetBoolAttribute(OpAttributeKey::isCube)) {
                 continue;
             }
             // 假定：pipe_V的op的AIV类型只能是AIV0或AIV1

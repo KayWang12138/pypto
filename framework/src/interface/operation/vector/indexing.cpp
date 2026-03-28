@@ -122,8 +122,12 @@ void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, Ind
     }
 }
 
-void InnerTiledIndexAdd(size_t cur, Function &function, const TileShape &tileShape, const IndexAddPara indexaddPara,
+void InnerTiledIndexAdd(size_t cur,
+    Function &function,
+    const TileShape &tileShape,
+    const IndexAddPara indexaddPara,
     IndexAddTileInfoPara &indexaddTileInfo) {
+
     if (cur == indexaddPara.dstTensor->shape.size()) {
         IndexAddExpandFunc(function, indexaddPara, indexaddTileInfo);
         return;
@@ -131,26 +135,37 @@ void InnerTiledIndexAdd(size_t cur, Function &function, const TileShape &tileSha
 
     auto &vecTile = tileShape.GetVecTile();
     int64_t tmpTile = vecTile[cur];
-    // axis所在轴按照dstShape[axis]进行切分
+
+    // axis 维度不参与切分，也不循环
     if (static_cast<int>(cur) == indexaddPara.axis) {
-        tmpTile = indexaddPara.dstTensor->GetShape()[cur];
+        indexaddTileInfo.dstTileInfo.offset[cur] = 0;
+        indexaddTileInfo.dstTileInfo.shape[cur] = indexaddPara.dstTensor->GetShape()[cur];
+
+        indexaddTileInfo.selfTileInfo.offset[cur] = 0;
+        indexaddTileInfo.selfTileInfo.shape[cur] = indexaddPara.selfInput->GetShape()[cur];
+
+        indexaddTileInfo.srcTileInfo.offset[cur] = 0;
+        indexaddTileInfo.srcTileInfo.shape[cur] = indexaddPara.srcInput->GetShape()[cur];
+
+        InnerTiledIndexAdd(cur + 1, function, tileShape, indexaddPara, indexaddTileInfo);
+        return;
     }
-    // srcInput在axis的维度=indicesInput的维度，且可能比selfInput.shape[axis]大
-    for (int i = 0; i < indexaddPara.srcInput->GetShape()[cur]; i += tmpTile) {
-        if (static_cast<int>(cur) == indexaddPara.axis) {
-            // self和dst不切
-            indexaddTileInfo.dstTileInfo.offset[cur] = 0;
-            indexaddTileInfo.dstTileInfo.shape[cur] = indexaddPara.dstTensor->shape[cur];
-            indexaddTileInfo.selfTileInfo.offset[cur] = 0;
-            indexaddTileInfo.selfTileInfo.shape[cur] = indexaddPara.selfInput->shape[cur];
-        } else {
-            indexaddTileInfo.dstTileInfo.offset[cur] = i;
-            indexaddTileInfo.dstTileInfo.shape[cur] = std::min(indexaddPara.dstTensor->shape[cur] - i, tmpTile);
-            indexaddTileInfo.selfTileInfo.offset[cur] = i;
-            indexaddTileInfo.selfTileInfo.shape[cur] = std::min(indexaddPara.selfInput->shape[cur] - i, tmpTile);
-        }
+
+    // 非 axis 维度正常切分
+    for (int64_t i = 0; i < indexaddPara.srcInput->GetShape()[cur]; i += tmpTile) {
+
+        indexaddTileInfo.dstTileInfo.offset[cur] = i;
+        indexaddTileInfo.dstTileInfo.shape[cur] =
+            std::min(indexaddPara.dstTensor->GetShape()[cur] - i, tmpTile);
+
+        indexaddTileInfo.selfTileInfo.offset[cur] = i;
+        indexaddTileInfo.selfTileInfo.shape[cur] =
+            std::min(indexaddPara.selfInput->GetShape()[cur] - i, tmpTile);
+
         indexaddTileInfo.srcTileInfo.offset[cur] = i;
-        indexaddTileInfo.srcTileInfo.shape[cur] = std::min(indexaddPara.srcInput->GetShape()[cur] - i, tmpTile);
+        indexaddTileInfo.srcTileInfo.shape[cur] =
+            std::min(indexaddPara.srcInput->GetShape()[cur] - i, tmpTile);
+
         InnerTiledIndexAdd(cur + 1, function, tileShape, indexaddPara, indexaddTileInfo);
     }
 }
@@ -399,7 +414,7 @@ void TiledGatherElementOperation(Function &function, const TileShape &tileShape,
             indicesInput.tensor.GetStorage()->View(function, indicesInput.tileInfo.shape, indicesInput.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         Shape tmpShape({indicesTile->GetShape()[indicesTile->GetShape().size() - 1]});
-        tmpShape[0] = AlignUp(2 * tmpShape[0], BLOCK_SIZE / BytesOf(indicesTile->Datatype()));
+        tmpShape[0] = 2 * AlignUp(tmpShape[0], BLOCK_SIZE / BytesOf(indicesTile->Datatype()));
         auto tmpBuffer = std::make_shared<LogicalTensor>(function, indicesTile->Datatype(), tmpShape);
         auto &op = function.AddOperation(Opcode::OP_GATHER_ELEMENT, {paramsTile, indicesTile}, {resultTile, tmpBuffer});
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);

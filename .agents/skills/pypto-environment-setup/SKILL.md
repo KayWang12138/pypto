@@ -48,8 +48,7 @@ export PYPTO_REPO="$PWD/pypto"
 
 **运行环境诊断**：
 ```bash
-# 步骤 1.3：进入 skill 目录运行诊断脚本
-cd ${SKILL_DIR:-.opencode/skills/pypto-environment-setup}
+# 步骤 1.3：运行诊断脚本
 python3 scripts/diagnose_env.py --checklist
 ```
 
@@ -105,13 +104,13 @@ source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
 
 #### 步骤 4.2：检查可用的 NPU 卡 (务必在加载cann环境后检查)
 ```bash
-npu-smi info
+bash ${PYPTO_REPO}/.agents/skills/pypto-op-develop/scripts/list_idle_chip_ids.sh
 ```
 
 #### 步骤 4.3：设置环境变量
 ```bash
-# 设置 NPU 设备 ID（根据步骤 4.2 选择空闲卡）
-export TILE_FWK_DEVICE_ID=0
+# 设置 NPU 设备 ID（根据步骤 4.2 查找空闲 chip id）
+export TILE_FWK_DEVICE_ID=<空闲 chip id>
 
 
 # 设置 PTO-ISA 路径

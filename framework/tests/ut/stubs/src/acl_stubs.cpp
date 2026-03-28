@@ -101,10 +101,28 @@ aclError aclrtSetExceptionInfoCallback(aclrtExceptionInfoCallback callback)
     return 0;
 }
 
-aclError aclrtGetResInCurrentThread(aclrtDevResLimitType type, uint32_t *value)
+aclError aclrtGetStreamResLimit(aclrtStream stream, aclrtDevResLimitType type, uint32_t *value)
 {
+    (void)stream;
     (void)type;
     (void)value;
+    return 0;
+}
+
+aclError aclrtGetStreamAttribute(aclrtStream stream, aclrtStreamAttr stmAttrType, aclrtStreamAttrValue *value)
+{
+    (void)stream;
+    (void)stmAttrType;
+    if (value != nullptr) {
+        value->cacheOpInfoSwitch = 1;
+    }
+    return 0;
+}
+
+aclError aclrtCacheLastTaskOpInfo(const void * const infoPtr, size_t infoSize)
+{
+    (void)infoPtr;
+    (void)infoSize;
     return 0;
 }
 }

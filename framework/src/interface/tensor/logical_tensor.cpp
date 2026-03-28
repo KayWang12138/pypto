@@ -56,10 +56,6 @@ LogicalTensor::LogicalTensor(Function &function, DataType t, Shape tshape, std::
       nodetype(tnodetype),
       function_(&function)
 {
-    auto getTensorDataDict = GetTensorDataDict(tValidShape);
-    if (!tValidShape.empty() && getTensorDataDict.size() == 0) {
-        tensor->UpdateDynRawShape(tValidShape);
-    }
 }
 
 LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
@@ -530,7 +526,7 @@ std::vector<SymbolicScalar> npu::tile_fwk::GetViewValidShape(const std::vector<S
         return {};
     }
     FUNCTION_ASSERT(FError::INVALID_VAL, validShape.size() == viewShape.size())
-        << "Their size actually are " << validShape.size() << "and " << viewShape.size();
+        << "Their size actually are " << validShape.size() << " and " << viewShape.size();
 
     std::vector<SymbolicScalar> result;
     for (size_t i = 0; i < validShape.size(); i++) {

@@ -257,7 +257,7 @@ void CodeGenCloudNPU::GenCode(
         };
         tasks.push_back(task);
     }
-    unsigned threadNum = ConfigManager::Instance().GetCodeGenConfig(KEY_PARALLEL_COMPILE, 1u);
+    unsigned threadNum = GetCGThreadNum();
     ParallelExecuteAndWait(threadNum, tasks);
 
 #ifdef BUILD_WITH_CANN
@@ -658,12 +658,12 @@ void FloatSpecValMgr::UpdateByOp(const Operation &op) {
     }
 
     for (const auto &e : eles) {
-        if (e.GetDataType() != DataType::DT_FP16 && e.GetDataType() != DataType::DT_FP32) {
-            continue;
-        }
-        double value = e.Cast<float>();
-        if (std::isinf(value) || std::isnan(value)) {
-            floatSpecVals_.insert({e.GetDataType(), value});
+        if (e.GetDataType() == DataType::DT_FP16 || e.GetDataType() == DataType::DT_FP32 ||
+            e.GetDataType() == DataType::DT_BF16) {
+            double value = e.Cast<float>();
+            if (std::isinf(value) || std::isnan(value)) {
+                floatSpecVals_.insert({e.GetDataType(), value});
+            }
         }
     }
 }
@@ -739,7 +739,7 @@ void CodeGenCloudNPU::ExecuteParallelCompile(const Function &topFunc) {
     std::ostringstream makeCmd;
     makeCmd << "make -j";
 
-    unsigned parallelJobs = ConfigManager::Instance().GetCodeGenConfig(KEY_PARALLEL_COMPILE, 1u);
+    unsigned parallelJobs = GetCGThreadNum();
     makeCmd << std::to_string(parallelJobs);
 
     std::string makefilePath = GetOutputDir();

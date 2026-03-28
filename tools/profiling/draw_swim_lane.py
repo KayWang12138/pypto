@@ -57,6 +57,7 @@ class TaskInfo:
         self.func_hash = 0
         self.tensors = {}
         self.rawtensors = {}
+        self.wrap_id = -1
 
     def formal_name(self):
         seq_no = self.task_id >> 32
@@ -105,6 +106,7 @@ class TaskInfo:
         res["args"]["color"] = self.color_label
         res["args"]["taskId"] = self.origin_task_id
         res["args"]["seqNo"] = self.origin_seq_no
+        res["args"]["wrapId"] = self.wrap_id
         res["cat"] = "event"
         res["id"] = event_id
         res["name"] = self.get_task_name()
@@ -412,6 +414,7 @@ def build_swim_info(swim_data, topo_data, label_type: int = 0):
                 entry.color_label = decimal_to_26(entry.psg_id_in_dyn)
             entry.func_name = func_name
             entry.psg_id_within_static = topo_task.get("psgId", entry.psg_id_in_dyn)
+            entry.wrap_id = topo_task.get("wrapId", -1)
             entry.inoperand_label = f"{topo_task.get('inoperands', [])}"
             entry.outoperand_label = f"{topo_task.get('outoperands', [])}"
             entry.successors = topo_task["successors"]
@@ -740,10 +743,11 @@ def load_dyn_topo(file_path, func_data):
                 func_hash,
                 core_type,
                 psg_id_within_root,
-            ) = fields[:9]
+                wrap_id,
+            ) = fields[:10]
             root_index = get_func_index(root_hash, func_data)
             leaf_index = get_func_index(func_hash, func_data)
-            succs = fields[9:]
+            succs = fields[10:]
             topo.append(
                 {
                     "taskId": seq_no << 32 | task_id,
@@ -756,6 +760,7 @@ def load_dyn_topo(file_path, func_data):
                     "opMagic": opmagic,
                     "leafIndex": leaf_index,
                     "psgId": psg_id_within_root,
+                    "wrapId": wrap_id,
                     "funcHash": func_hash,
                     "semanticLabel": fcvt.get_sematic(
                         root_index, opmagic, func_data

@@ -61,9 +61,11 @@ public:
     static DeviceRunner &Get();
 
     uint64_t GetTasksTime() const;
-    int DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId, DeviceKernelArgs *kernelArgs, int blockdim, int launchAicpuNum);
+    int DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId,
+        DeviceKernelArgs *kernelArgs, int blockdim, int launchAicpuNum, bool isTripleStream);
     int DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream);
-    int DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId, DeviceKernelArgs *kernelArgs, int blockdim = 25, int launchAicpuNum = 5);
+    int DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId, 
+        DeviceKernelArgs *kernelArgs, int blockdim = 25, int launchAicpuNum = 5, bool isTripleStream = true);
     void InitDynamicArgs(DeviceArgs &args);
     int RegisterKernelBin(void **hdl, std::vector<uint8_t> *funcBinBuf = nullptr);
     static void SetBinData(const std::vector<uint8_t> &binBuf);
@@ -81,11 +83,11 @@ public:
     void InitMetaData(DeviceArgs &devArgs);
     void InitAiCpuSoBin(DeviceArgs &devArgs);
     bool GetValidGetPgMask() const;
-    void ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
+    void ReportHostProfInfo(rtStream_t stream, uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
     bool GetEnableDumpDevPref() const;
     void StartMachinePerfTraceDumpThread();
     void StopMachinePerfTraceDumpThread();
-
+    int RunPreSync(rtStream_t scheStream, rtStream_t ctrlStream, rtStream_t aicoreStream);
 private:
     DeviceRunner() = default;
     ~DeviceRunner();
@@ -101,12 +103,12 @@ private:
     int launchDynamicAiCore(rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs);
     int launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs *kArgs);
     int RunPrepare();
-    int RunPreSync(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArgs *kArgs);
     int InitAicpuServer();
     int DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
     int DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
+    int DynamicTripleStreamLaunch(rtStream_t schedStream, rtStream_t ctrlStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
     int ConstrutDeviceArgs(DeviceArgs &args, const std::vector<int64_t> &regs, const std::vector<int64_t> &regsPmu);
     void MachinePerfTraceDumpThread();
 private:
@@ -122,6 +124,7 @@ private:
     rtBinHandle binHdl_;
     FileLock lock_;
     HostProf hostProf_;
+    aclrtEvent event_;
     std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
     bool isCapture_{false};
     bool initFlag_{false};

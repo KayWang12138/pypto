@@ -43,7 +43,7 @@ int GetCfgBlockdim() {
     blk = blk > 0 ? blk : kMinDefaultDim;
 
     // 通过GetMaxBlockdim接口获取设置的最大核数，如果设置的最大核数大于硬件物理最大核数时，控核不生效
-    // 如果未进行控核，GetMaxBlockdim接口将通过aclrtGetResInCurrentThread函数返回硬件物理最大核数
+    // 如果未进行控核，GetMaxBlockdim接口将通过aclrtGetStreamResLimit函数返回硬件物理最大核数
     auto maxBlk = GetMaxBlockdim();
     blk = maxBlk < static_cast<int>(blk) ? maxBlk : blk;
     MACHINE_LOGD("Get blockdim[%zu].", blk);
@@ -57,9 +57,10 @@ int GetMaxBlockdim() {
 #ifdef BUILD_WITH_CANN
     uint32_t cubeBlockDim = 0;
     uint32_t vectorBlockDim = 0;
-    // 若未进行控核，aclrtGetResInCurrentThread返回的是满核
-    aclrtGetResInCurrentThread(ACL_RT_DEV_RES_CUBE_CORE, &cubeBlockDim);
-    aclrtGetResInCurrentThread(ACL_RT_DEV_RES_VECTOR_CORE, &vectorBlockDim);
+    // 若未进行控核，aclrtGetStreamResLimit返回的是满核
+    auto aicoreStream = machine::GetRA()->GetCurrentStream();
+    aclrtGetStreamResLimit(aicoreStream, ACL_RT_DEV_RES_CUBE_CORE, &cubeBlockDim);
+    aclrtGetStreamResLimit(aicoreStream, ACL_RT_DEV_RES_VECTOR_CORE, &vectorBlockDim);
     // 若不满足AIC和AIV的比例，手动处理成为符合AIC和AIV的比例最大值
     if (vectorBlockDim != cubeBlockDim * AICAIVRATIO) {
         auto rtsMaxBlockDim = std::min(cubeBlockDim, vectorBlockDim / AICAIVRATIO);
@@ -240,7 +241,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     HOST_PERF_TRACE(TracePhase::RunDevRegistKernelBin);
 
     DataDumpInit();
-    rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
+    rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum, config.isTripleStream);
     if (rc < 0) {
         return rc;
     }
@@ -618,6 +619,15 @@ void DeviceLauncher::AddAicpuStream(aclmdlRI &rtModel, bool tripleStream) {
 #endif
 }
 
+void DeviceLauncher::SaveStream(aclrtStream aicoreStream) {
+#ifdef BUILD_WITH_CANN
+    // 存储 current stream，后续控核接口需使用current stream
+    machine::GetRA()->SetCurrentStream(aicoreStream);
+#else
+    (void)aicoreStream;
+#endif
+}
+
 void DeviceLauncher::GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI &rtModel) {
 #ifdef BUILD_WITH_CANN
     SetCaptureMode(false);
@@ -695,6 +705,20 @@ void DeviceLauncher::SetDevPerfAddr([[maybe_unused]]const bool &debugEnable, [[m
 #endif
 }
 
+int DeviceLauncher::LaunchSyncTask(aclrtStream aicoreStream, bool isCaptureMode) {
+    if (isCaptureMode) {
+        return 0;
+    }
+#ifdef BUILD_WITH_CANN
+    auto schedStream = machine::GetRA()->GetScheStream();
+    auto ctrlStream = machine::GetRA()->GetCtrlStream();
+    return DeviceRunner::Get().RunPreSync(schedStream, ctrlStream, (rtStream_t)aicoreStream);
+#else
+    (void)aicoreStream;
+    return 0;
+#endif
+}
+
 int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream,
                                       [[maybe_unused]]bool debugEnable, [[maybe_unused]]Function *function) {
 #ifdef BUILD_WITH_CANN
@@ -704,36 +728,29 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
     devRunner.GetHostProfInstance().SetProfFunction(function);
     int ret = 0;
     auto args = (AiCpuArgs *)rtArgs.args;
-    int nrAicpu = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
+    const int nrAicpu = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
     if (tripleStream) {
         auto startTime = MsprofSysCycleTime();
         args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
-        ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 2, &rtArgs, nullptr, ctrlStream, 0);
-        devRunner.ReportHostProfInfo(startTime, 2, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+        ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 2, &rtArgs,
+            nullptr, ctrlStream, RT_KERNEL_USE_SPECIAL_TIMEOUT);
+        devRunner.ReportHostProfInfo(ctrlStream, startTime, 2, MSPROF_GE_TASK_TYPE_AI_CPU, false);
         if (ret != RT_ERROR_NONE) {
             return ret;
         }
         args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
         startTime = MsprofSysCycleTime();
         const int scheCpuNum = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.scheCpuNum);
-        if (scheCpuNum == 1) {
-            nrAicpu = 1;   // sche num is 1, no need lauch more aicpu in tripleStream
-            DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu = 1;
-            MACHINE_LOGE(HostLauncherErr::TRIPLE_STREAM_ERROR,
-                           "sche num is 1, no need lauch more aicpu in tripleStream, nrAicpu changed to %u",
-                           DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
-        }
-        ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs, nullptr, schedStream, 0);
-        devRunner.ReportHostProfInfo(startTime, scheCpuNum, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+        ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs,
+            nullptr, schedStream, RT_KERNEL_USE_SPECIAL_TIMEOUT);
+        devRunner.ReportHostProfInfo(schedStream, startTime, scheCpuNum, MSPROF_GE_TASK_TYPE_AI_CPU, false);
         return ret;
     } else {
         args->kArgs.parameter.runMode = RUN_UNIFIED_STREAM;
         auto startTime = MsprofSysCycleTime();
-        ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs, nullptr, schedStream, 0);
-        devRunner.ReportHostProfInfo(startTime, nrAicpu, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+        ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs,
+            nullptr, schedStream, RT_KERNEL_USE_SPECIAL_TIMEOUT);
+        devRunner.ReportHostProfInfo(schedStream, startTime, nrAicpu, MSPROF_GE_TASK_TYPE_AI_CPU, false);
         return ret;
     }
 #else
@@ -752,7 +769,7 @@ int DeviceLauncher::LaunchAicoreKernel(
     auto blockDim = dynamic::GetCfgBlockdim();
     auto startTime = MsprofSysCycleTime();
     auto ret = rtKernelLaunchWithHandleV2(kernel, tilingKey, blockDim, &rtArgs, nullptr, aicoreStream, &rtTaskCfg);
-    devRunner.ReportHostProfInfo(startTime, blockDim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+    devRunner.ReportHostProfInfo(aicoreStream, startTime, blockDim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
     if (debugEnable) {
         auto scheStream = (aclrtStream)machine::GetRA()->GetScheStream();
         int rc = DeviceRunner::Get().DynamicLaunchSynchronize(scheStream, nullptr, aicoreStream);

@@ -41,7 +41,7 @@ struct EmulationMemoryUtils {
     static bool IsDevice() { return false; }
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
-        if (size == 0 || size > 0x7FFFFFFF) {
+        if (size == 0 || size > 0x500000000) {
             MACHINE_LOGE(DevCommonErr::PARAM_INVALID, "AllocDev failed: size=%zu", size);
             return nullptr;
         }
@@ -105,7 +105,7 @@ public:
     static int EmulationLaunchDeviceTensorData(Function *function, const std::vector<DeviceTensorData> &inputList,
         const std::vector<DeviceTensorData> &outputList, const DeviceLauncherConfig &config = DeviceLauncherConfig());
     static int EmulationRunOnce(Function *function, DevControlFlowCache* ctrlCache, const DeviceLauncherConfig &config = DeviceLauncherConfig());
-
+    static int EmulationBuildControlFlowCache(DeviceKernelArgs &kArgs);
     static DevControlFlowCache* CreateHostCtrlFlowCache(DevAscendProgram *devProg, Function *function, EmulationMemoryUtils& memUtils);
     static int BuildControlFlowCacheWithEmulationTensorData(
             Function *function, const std::vector<DeviceTensorData> &inputList,

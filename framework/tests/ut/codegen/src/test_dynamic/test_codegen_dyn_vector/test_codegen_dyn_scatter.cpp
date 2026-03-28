@@ -30,13 +30,9 @@
 namespace npu::tile_fwk {
 class TestCodegenDynScatter : public ::testing::Test {
 public:
-    static void SetUpTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void SetUpTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
     void SetUp() override {
         Program::GetInstance().Reset();
@@ -50,24 +46,9 @@ public:
 
 TEST_F(TestCodegenDynScatter, TestDynOpScatterElement) {
     std::vector<int64_t> shape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
-    TileShape::Current().SetVecTile(shape);
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
+    auto function = GenMockFuncDyn("TestDynOpScatterElement");
 
     Element scalaVal(DataType::DT_FP32, 1.0);
-
-    std::string funcName = "TestDynOpScatterElement";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     std::vector<SymbolicScalar> dynValidShapeIdx = {32};
@@ -95,25 +76,9 @@ TEST_F(TestCodegenDynScatter, TestDynOpScatterElement) {
 }
 
 TEST_F(TestCodegenDynScatter, TestOpDynScatter) {
+    auto function = GenMockFuncDyn("TestOpDynScatter");
+
     std::vector<int64_t> shape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
-    TileShape::Current().SetVecTile(shape);
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    Element scalaVal(DataType::DT_FP32, 1.0);
-
-    std::string funcName = "TestOpDynScatter";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     std::vector<SymbolicScalar> dynValidShapeIdx = {32};
     auto localTensorSelf =
@@ -124,9 +89,8 @@ TEST_F(TestCodegenDynScatter, TestOpDynScatter) {
     auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_INT32, MemoryType::MEM_UB, {32}});
 
-    auto &op =
-        function->AddOperation(Opcode::OP_SCATTER, {localTensorSelf, localTensorIdx, localTensorSrc},
-        {localTensorDst, localTensorTmp});
+    auto &op = function->AddOperation(
+        Opcode::OP_SCATTER, {localTensorSelf, localTensorIdx, localTensorSrc}, {localTensorDst, localTensorTmp});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", 0);
     op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", 0);
 
