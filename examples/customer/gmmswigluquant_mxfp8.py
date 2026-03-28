@@ -1,3 +1,13 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright(c) 2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
 """
 Gmm Mxfp8 Examples for PyPTO
 
@@ -5,19 +15,23 @@ Usage:
     python3 gmm_mxfp8_pr.py
 """
 
-from dataclasses import dataclass
 import argparse
+import math
 import os
 import sys
-import pypto
+import time
+
+import numpy as np
 import torch
 import torch_npu
-import numpy as np
-import math
-import time
+
+from dataclasses import dataclass
 from numpy.testing import assert_allclose
 
+import pypto
+
 def compute_golden_result(x, weight, scaled_x_gloden, scaled_weight_gloden, a_trans, b_trans):
+    """Compute golden result for GMM SwiGLU quantization."""
     # 转置处理
     if a_trans:
         x = np.swapaxes(x, -1, -2)
@@ -81,12 +95,14 @@ def compute_golden_result(x, weight, scaled_x_gloden, scaled_weight_gloden, a_tr
     return quant_output, quant_scale_output
 
 def swiglu(gmm_out):
+    """Apply SwiGLU activation function."""
     c_temp4, gate = gmm_out.chunk(2, dim=-1)
     c_temp5 = c_temp4 * torch.sigmoid(c_temp4)
     c_temp6 = c_temp5 * gate
     return c_temp6
 
 def quant_pertoken(swiglu_out):
+    """Apply per-token quantization."""
     input_abs = torch.abs(swiglu_out)
     input_max = torch.amax(input_abs, dim=-1, keepdim=True)
     scale_max = torch.tensor(127.0, dtype=torch.float32, device=swiglu_out.device)
@@ -101,6 +117,7 @@ def quant_pertoken(swiglu_out):
     return output_data
 
 def gen_golden(a, b, scaled_a, scaled_b, group_list, a_trans, b_trans):
+    """Generate golden results for GMM SwiGLU quantization."""
     round = b.shape[0]
     gmmswigluquant_output = []
     gmmswigluquant_output_scale = []
@@ -140,6 +157,7 @@ def gen_golden(a, b, scaled_a, scaled_b, group_list, a_trans, b_trans):
 
 @dataclass
 class ShapeConfig:
+    """Configuration for tile shapes and matrix transposition."""
     ori_shape: list
     tile_size: int
     m_tile_shape: list
@@ -156,7 +174,9 @@ class ShapeConfig:
     debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 1},
     runtime_options={"device_sched_mode": 3},
 )
-def scaled_matmul_kernel(a: pypto.Tensor, b: pypto.Tensor, scaled_a: pypto.Tensor, scaled_b: pypto.Tensor, out: pypto.Tensor, out_quant: pypto.Tensor, group_list, tile_config) -> None:
+def scaled_matmul_kernel(a: pypto.Tensor, b: pypto.Tensor, scaled_a: pypto.Tensor, scaled_b: pypto.Tensor,
+                        out: pypto.Tensor, out_quant: pypto.Tensor, group_list, tile_config) -> None:
+    """Scaled matrix multiplication kernel with SwiGLU and quantization."""
     round = b.shape[0]
     n_size = b.shape[-1]
     begin = 0
@@ -199,6 +219,7 @@ def scaled_matmul_kernel(a: pypto.Tensor, b: pypto.Tensor, scaled_a: pypto.Tenso
         pypto.assemble(x_scale_quant, [begin, 0], out_quant)
         
 def gen_mxfp8(a, b, scaled_a, scaled_b, group_list, tile_config):
+    """Generate GMM SwiGLU quantization results using PyPTO."""
     a = a.npu()
     b = b.npu()
     scaled_a = scaled_a.npu()
@@ -231,6 +252,7 @@ def gen_mxfp8(a, b, scaled_a, scaled_b, group_list, tile_config):
     return out, out_quant
     
 def test_gmm_mxfp8(params):
+    """Test GMM SwiGLU quantization with given parameters."""
     m = params["m"]
     k = params["k"]
     n = params["n"]
@@ -268,6 +290,7 @@ def test_gmm_mxfp8(params):
     print("success")
     
 def get_params(case_name):
+    """Get test parameters for specified test case."""
     if case_name == "testcase6":
         params = {
         "m": 16, "k": 512, "n": 7168, "group_list": [7, 9], "a_trans": False, "b_trans": False,
