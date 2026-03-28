@@ -63,6 +63,16 @@ description: 基于会话上下文智能创建 GitCode Issue。支持5种类型�
 [英文类型|中文类型]: 具体描述
 ```
 
+仅允许以下 5 种前缀：
+
+| 前缀 | 对应类型 |
+|------|---------|
+| `[Bug-Report\|缺陷反馈]` | Bug Report |
+| `[Requirement\|需求建议]` | Feature Request |
+| `[Documentation\|文档反馈]` | Documentation |
+| `[Question\|问题咨询]` | Question |
+| `[Task\|任务跟踪]` | Task |
+
 ### 示例
 
 | 正确 ✅ | 错误 ❌ |
