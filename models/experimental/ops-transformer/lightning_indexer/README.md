@@ -51,6 +51,7 @@ def lightning_indexer_kernel(
 - 仅支持 BF16 数据类型
 - topk 值需要满足 TileShape 尾轴对齐要求（32 bytes 对齐）
 - 输入 tensors 需要是连续的（contiguous）
+- 支持动态 batch size（B 维度）
 
 ## 编译运行指南
 
@@ -76,7 +77,12 @@ pip install --force-reinstall build_out/pypto-0.1.1-cp310-cp310-linux_aarch64.wh
 
 ```bash
 cd /mnt/workspace/gitCode/cann/pypto/custom/lightning_indexer
+
+# 默认 batch size = 1
 python3 lightning_indexer.py
+
+# 指定 batch size（支持动态 batch）
+python3 lightning_indexer.py --batch_size 4
 ```
 
 ## 测试结果
@@ -110,9 +116,9 @@ Match ratio: 100.00% (4096/4096)
 
 ## 已知限制
 
-1. 当前实现仅支持静态 shape
-2. weights tensor 需要在传入前预先 transpose 并 expand 维度
-3. topk 操作需要 FP32 数据类型，内部会进行类型转换
+1. weights tensor 需要在传入前预先 transpose 并 expand 维度
+2. topk 操作需要 FP32 数据类型，内部会进行类型转换
+3. 其他维度（Sq, Skv, N, D）目前仍为静态维度
 
 ## API 映射关系
 
