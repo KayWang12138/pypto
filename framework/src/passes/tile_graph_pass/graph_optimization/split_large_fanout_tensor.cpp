@@ -254,15 +254,16 @@ void SplitLargeFanoutTensor::MoreSplit(Function &function, LogicalTensorPtr larg
                 viewOpOffset = fromTensorInfo.second;
             }
         }
-        CreateOpForMoreSplit(function, largeTensor, overlaps, gcdShape, dualOverlap, gcdTileOffsets, viewOpOffset);
+        CreateOpForMoreSplit(function, largeTensor, overlaps, gcdShape, dualOverlap, gcdTileOffsets, viewOpOffset, viewOp->GetScopeId());
     }
 }
 
-void SplitLargeFanoutTensor::CreateOpForMoreSplit(Function &function, LogicalTensorPtr largeTensor, LogicalTensors overlaps, Shape gcdShape, LogicalTensorPtr dualOverlap, std::vector<Shape> gcdTileOffsets, Offset viewOpOffset) {
+void SplitLargeFanoutTensor::CreateOpForMoreSplit(Function &function, LogicalTensorPtr largeTensor, LogicalTensors overlaps, Shape gcdShape, LogicalTensorPtr dualOverlap, std::vector<Shape> gcdTileOffsets, Offset viewOpOffset, int scopeId) {
     for (auto &gcdTileOffset : gcdTileOffsets) {
         auto newGcdTensor = std::make_shared<LogicalTensor>(function, largeTensor->Datatype(),
             gcdShape, largeTensor->Format());
         auto &newAssembleOp = function.AddOperation(Opcode::OP_ASSEMBLE, {newGcdTensor}, {dualOverlap});
+        newAssembleOp.SetScopeId(scopeId);
         newAssembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(largeTensor->GetMemoryTypeOriginal(), gcdTileOffset));
         APASS_LOG_INFO_F(Elements::Operation, "For more split situation, create an AssembleOp[%d], input is a newGcdTensor[%d], "
             "output is a dualOverlap[%d].", newAssembleOp.GetOpMagic(), newGcdTensor->GetMagic(), dualOverlap->GetMagic());
@@ -302,6 +303,7 @@ void SplitLargeFanoutTensor::CreateOpForMoreSplit(Function &function, LogicalTen
                     newViewOffset[j] -= oldAssembleOffset[j];
                 }
                 auto &newViewOp = function.AddOperation(Opcode::OP_VIEW, {overlapGcdTile}, {newGcdTensor});
+                newViewOp.SetScopeId(scopeId);
                 newViewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(newViewOffset, overlap->GetMemoryTypeOriginal()));
                 APASS_LOG_INFO_F(Elements::Operation, "For more split situation, create an ViewOp[%d], input is a "
                     "overlapGcdTile[%d], output is a newGcdTensor[%d].", newViewOp.GetOpMagic(), overlapGcdTile->GetMagic(), newGcdTensor->GetMagic());

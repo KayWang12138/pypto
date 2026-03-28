@@ -472,6 +472,7 @@ Status InferMemoryConflict::InsertPrecededCopys(Function &function) {
         LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(
             function, newRawTensor, newOffset, inputTensor->GetShape(), inputTensor->GetDynValidShape());
         auto &copyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
+        copyOp.SetScopeId(op->GetScopeId());
         APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d].", copyOp.GetOpMagic());
         Shape reshapeTile;
         if (op->GetOpcode() == Opcode::OP_RESHAPE) {
@@ -499,6 +500,7 @@ Status InferMemoryConflict::InsertPostCopys(Function &function) {
         LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(
             function, newRawTensor, newOffset, outputTensor->GetShape(), outputTensor->GetDynValidShape());
         auto &copyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {newTensor}, {outputTensor});
+        copyOp.SetScopeId(op->GetScopeId());
         APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d].", copyOp.GetOpMagic());
         Shape reshapeTile;
         if (ObtainReshapeTile(*op, ObtainTileShape(op->ProducerOps()).GetVecTile().tile, reshapeTile) != SUCCESS) {

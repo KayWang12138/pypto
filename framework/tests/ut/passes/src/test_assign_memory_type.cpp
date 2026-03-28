@@ -199,13 +199,16 @@ TEST_F(AssignMemoryTypeTest, AddReshape) {
 
     std::stringstream ssBefore;
     ssBefore << "Before_AssignMemoryType";
-
+    currFunctionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto3/b22.json");
     // Call the pass
     AssignMemoryType assignMemoryType;
     assignMemoryType.PreCheck(*currFunctionPtr);
     assignMemoryType.RunOnFunction(*currFunctionPtr);
     assignMemoryType.PostCheck(*currFunctionPtr);
-
+    currFunctionPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto3/a22.json");
+    currFunctionPtr->OperationLoopCheck("error");
+    EXPECT_TRUE(currFunctionPtr->OperationLoopCheck());
+    currFunctionPtr->GetSortedOperations();
     std::stringstream ss;
     ss << "After_AssignMemoryType";
 

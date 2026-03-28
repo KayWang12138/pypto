@@ -266,6 +266,10 @@ Status InferDiscontinuousInput::InferFromIncast() {
 }
 void InferDiscontinuousInput::InsertViewOp(Function &function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand) {
     auto &insertViewOp = function.AddRawOperation(Opcode::OP_VIEW, {iOperand}, {oOperand});
+    auto &producers = iOperand->GetProducers();
+    if (!producers.empty()) {
+        insertViewOp.SetScopeId((*producers.begin())->GetScopeId());
+    }
     insertViewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(iOperand->GetOffset(),
         oOperand->GetMemoryTypeOriginal(), iOperand->GetDynOffset(), iOperand->GetDynValidShape()));
     APASS_LOG_DEBUG_F(Elements::Operation, "Insert view op [%d].", insertViewOp.GetOpMagic());
@@ -273,6 +277,10 @@ void InferDiscontinuousInput::InsertViewOp(Function &function, LogicalTensorPtr 
 void InferDiscontinuousInput::InsertAssembleOp(
     Function &function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand) {
     auto &insertAssembleOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {iOperand}, {oOperand});
+    auto &producers = iOperand->GetProducers();
+    if (!producers.empty()) {
+        insertAssembleOp.SetScopeId((*producers.begin())->GetScopeId());
+    }
     insertAssembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(iOperand->GetMemoryTypeOriginal(),
         oOperand->GetOffset(), oOperand->GetDynOffset(), oOperand->GetDynValidShape()));
      APASS_LOG_DEBUG_F(Elements::Operation, "Insert assemble op [%d].", insertAssembleOp.GetOpMagic());

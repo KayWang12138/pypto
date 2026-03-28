@@ -94,6 +94,7 @@ Status MergeViewAssembleUtils::AppendMergedViewOperations(Function &function) {
             return FAILED;
         }
         auto &mergedViewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewOp.input}, {viewOp.output});
+        mergedViewOp.SetScopeId(viewOp.scopeId);
         mergedViewOp.SetOpAttribute(attr);
         // 继承op_attr_copy_in_mode属性
         if (viewOp.hasCopyInMode) {
@@ -111,6 +112,7 @@ Status MergeViewAssembleUtils::AppendMergedAssembleOperations(Function &function
             return FAILED;
         }
         auto &mergedAssembleOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {assembleOp.input}, {assembleOp.output});
+        mergedAssembleOp.SetScopeId(assembleOp.scopeId);
         mergedAssembleOp.SetOpAttribute(attr);
     }
     return SUCCESS;
@@ -295,7 +297,7 @@ void MergeViewAssembleUtils::RecordMergedViewOperation(Operation* lastViewOp, co
     // 清理消费者关系
     endTensor->GetProducers().clear();
     // 记录合并op
-    viewOpToAppend_.emplace_back(ViewOp{startTensor, endTensor, newOffset, newDynOffset, newDynValidShape, lastViewAttr->GetTo(), hasCopyInMode, std::move(copyInModeValue)});
+    viewOpToAppend_.emplace_back(ViewOp{startTensor, endTensor, newOffset, newDynOffset, newDynValidShape, lastViewAttr->GetTo(), hasCopyInMode, std::move(copyInModeValue), lastViewOp->GetScopeId()});
 }
 
 Status MergeViewAssembleUtils::MergeAssembleChain(Function &function, Operation &operation, std::vector<Operation *> &chain) {
@@ -386,7 +388,7 @@ Status MergeViewAssembleUtils::ProcessAssembleChainEnd(
     // 计算合并offset
     auto [newOffset, newDynOffset] = CalculateAssembleOffsets(chain, startTensor->offset.size());
     // 4. 记录并清理
-    RecordAssembleOperation(startTensor, endTensor, newOffset, newDynOffset);
+    RecordAssembleOperation(startTensor, endTensor, newOffset, newDynOffset, operation.GetScopeId());
     function.GetTensorMap().Erase(endTensor);
     operation.SetAsDeleted();
 
@@ -422,8 +424,8 @@ std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> MergeViewAssembleUt
 
 void MergeViewAssembleUtils::RecordAssembleOperation(const std::shared_ptr<LogicalTensor> &input,
     const std::shared_ptr<LogicalTensor> &output, const std::vector<int64_t> &offset,
-    const std::vector<SymbolicScalar> &dynOffset) {
-    assembleOpToAppend_.emplace_back(AssembleOp{input, output, offset, dynOffset});
+    const std::vector<SymbolicScalar> &dynOffset, int scopeId) {
+    assembleOpToAppend_.emplace_back(AssembleOp{input, output, offset, dynOffset, scopeId});
 }
 
 Status MergeViewAssembleUtils::EraseRedundantAssemble(Function &function) const {

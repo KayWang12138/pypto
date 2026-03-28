@@ -30,11 +30,13 @@ void InsertOpForViewAssemble::InsertViewAssemble(Function &function, Operation *
     std::vector<int64_t> offset(moveOutTensorPtr->GetShape().size(), 0);
     std::vector<SymbolicScalar> dynOffset(moveOutTensorPtr->GetShape().size(), 0);
     Operation &assemble = function.AddRawOperation(Opcode::OP_ASSEMBLE, {moveOutTensorPtr}, {ddrTensorPtr});
+    assemble.SetScopeId(assembleOp->GetScopeId());
     assemble.SetOpAttribute(std::make_shared<AssembleOpAttribute>(moveOutTensorPtr->GetMemoryTypeOriginal(), 
                                                                   offset, 
                                                                   dynOffset, 
                                                                   moveOutTensorPtr->GetDynValidShape()));
     Operation &view = function.AddRawOperation(Opcode::OP_VIEW, {ddrTensorPtr}, {moveInTensorPtr});
+    view.SetScopeId(viewOp->GetScopeId());
     view.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, 
                                                           moveOutTensorPtr->GetMemoryTypeOriginal(), 
                                                           dynOffset, 

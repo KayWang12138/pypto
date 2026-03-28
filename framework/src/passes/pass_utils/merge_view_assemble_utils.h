@@ -33,14 +33,16 @@ public:
         std::vector<SymbolicScalar> dynOffset;
         std::vector<SymbolicScalar> dynValidShape;
         MemoryType toType = MemoryType::MEM_UNKNOWN;
-        bool hasCopyInMode;     // 是否有copy_in_mode属性
-        npu::tile_fwk::Any copyInModeValue;    // copy_in_mode属性值
+        bool hasCopyInMode;
+        npu::tile_fwk::Any copyInModeValue;
+        int scopeId = -1;
     };
     struct AssembleOp {
         std::shared_ptr<LogicalTensor> input;
         std::shared_ptr<LogicalTensor> output;
         std::vector<int64_t> offset;
         std::vector<SymbolicScalar> dynOffset;
+        int scopeId = -1;
     };
 
     static Status MergeViewAssemble(Function &function);
@@ -140,7 +142,7 @@ public:
 
     void RecordAssembleOperation(const std::shared_ptr<LogicalTensor> &input,
         const std::shared_ptr<LogicalTensor> &output, const std::vector<int64_t> &offset,
-        const std::vector<SymbolicScalar> &dynOffset);
+        const std::vector<SymbolicScalar> &dynOffset, int scopeId);
 
     // Common methods
     Status Initialize();

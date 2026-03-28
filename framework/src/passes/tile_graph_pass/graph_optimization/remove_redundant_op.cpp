@@ -400,6 +400,7 @@ void RemoveRedundantOp::GenerateNewView(
     }
     // 新建一个view op
     auto &newViewOp = function.AddOperation(Opcode::OP_VIEW, {startTensor}, {newViewTensor});
+    newViewOp.SetScopeId(op.GetScopeId());
     // 获取view上的dynoffset属性
     std::shared_ptr<ViewOpAttribute> viewAttribute =
         std::make_shared<ViewOpAttribute>(newoffset, newDynoffset, newViewTensor->GetDynValidShape());

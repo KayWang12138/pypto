@@ -81,7 +81,7 @@ private:
         LogicalTensors overlaps, LogicalTensors dualOverlaps);
     void MoreSplit(Function &function, LogicalTensorPtr largeTensor, LogicalTensors overlaps, LogicalTensors dualOverlaps);
     void CreateOpForMoreSplit(Function &function, LogicalTensorPtr largeTensor, LogicalTensors overlaps,
-        Shape gcdShape, LogicalTensorPtr dualOverlap, std::vector<Shape> gcdTileOffsets, Offset viewOpOffset);
+        Shape gcdShape, LogicalTensorPtr dualOverlap, std::vector<Shape> gcdTileOffsets, Offset viewOpOffset, int scopeId);
     void CollectLargeTensor(Function &function);
     void SplitLargeTensor(Function &function);
     bool IsBeCovered(Function &function, LogicalTensorPtr largeTensor,

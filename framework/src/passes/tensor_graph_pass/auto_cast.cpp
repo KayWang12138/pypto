@@ -116,7 +116,7 @@ Status AutoCast::InsertInt32Fp16Cast(Function &function) {
         APASS_LOG_INFO_F(Elements::Operation, "Cast[%d] is cast between int32 and fp16.", op->GetOpMagic());
         auto fp32Tensor = std::make_shared<LogicalTensor>( 
             function, DataType::DT_FP32, tgtTensor->shape, tgtTensor->GetDynValidShape(), tgtTensor->Format());
-        InsertCastOp(function, srcTensor, fp32Tensor, op->GetTileShape());
+        InsertCastOp(function, srcTensor, fp32Tensor, op->GetTileShape(), op->GetScopeId());
         op->ReplaceInput(fp32Tensor, srcTensor);
     }
     return SUCCESS;
@@ -145,8 +145,9 @@ bool AutoCast::SupportFP16(Operation *op) {
 }
 
 void AutoCast::InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt, 
-                                       const TileShape &tileShape) {
+                                       const TileShape &tileShape, int scopeId) {
     Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {src}, {tgt});
+    newCast.SetScopeId(scopeId);
     newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
     newCast.UpdateTileShape(tileShape);
     addedCast_.insert(&newCast);
@@ -173,7 +174,7 @@ Status AutoCast::InsertBF16Cast(Function &function) {
                 continue;
             }
             auto newInput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, iop->shape, iop->GetDynValidShape(), iop->Format());
-            InsertCastOp(function, iop, newInput, op->GetTileShape());
+            InsertCastOp(function, iop, newInput, op->GetTileShape(), op->GetScopeId());
             op->ReplaceInput(newInput, iop);
             oldMagic2Input[iop->GetMagic()] = newInput;
             if (inCastConnectedTensors_.count(iop->GetMagic()) > 0) {
@@ -190,7 +191,7 @@ Status AutoCast::InsertBF16Cast(Function &function) {
             if (oop->Datatype() == DataType::DT_BF16) {
                 auto newOutput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, oop->shape, oop->GetDynValidShape(), oop->Format());
                 op->ReplaceOutput(newOutput, oop);
-                InsertCastOp(function, newOutput, oop, op->GetTileShape());
+                InsertCastOp(function, newOutput, oop, op->GetTileShape(), op->GetScopeId());
                 oldMagic2Input[oop->GetMagic()] = newOutput;
                 if (outCastConnectedTensors_.count(oop->GetMagic()) > 0) {
                     outCastConnectedTensors_.insert(newOutput->GetMagic());
@@ -222,7 +223,7 @@ Status AutoCast::InsertFP16Cast(Function &function) {
                 continue;
             }
             auto newInput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, iop->shape, iop->GetDynValidShape(), iop->Format());
-            InsertCastOp(function, iop, newInput, op->GetTileShape());
+            InsertCastOp(function, iop, newInput, op->GetTileShape(), op->GetScopeId());
             op->ReplaceInput(newInput, iop);
             oldMagic2Input[iop->GetMagic()] = newInput;
             if (inCastConnectedTensors_.count(iop->GetMagic()) > 0) {
@@ -238,7 +239,7 @@ Status AutoCast::InsertFP16Cast(Function &function) {
             visitedOOp.insert(oop->GetMagic());
             auto newOutput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, oop->shape, oop->GetDynValidShape(), oop->Format());
             op->ReplaceOutput(newOutput, oop);
-            InsertCastOp(function, newOutput, oop, op->GetTileShape());
+            InsertCastOp(function, newOutput, oop, op->GetTileShape(), op->GetScopeId());
             oldMagic2Input[oop->GetMagic()] = newOutput;
             if (outCastConnectedTensors_.count(oop->GetMagic()) > 0) {
                 outCastConnectedTensors_.insert(newOutput->GetMagic());
@@ -313,7 +314,8 @@ Status AutoCast::ShortenChain(Function &function, const std::vector<Operation *>
         if (i != 0 && IsLegalCast(srcType, tgtType)) {
             tgtTensor->RemoveProducer(tailOp);
             auto origTileShape = (*srcTensor->GetConsumers().begin()) -> GetTileShape();
-            InsertCastOp(function, srcTensor, tgtTensor, origTileShape);
+            int origScopeId = castChain[i]->GetScopeId();
+            InsertCastOp(function, srcTensor, tgtTensor, origTileShape, origScopeId);
             break;
         }
     }
