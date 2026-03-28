@@ -23,6 +23,7 @@
 #include "interface/interpreter/calc.h"
 #include "codegen/codegen.h"
 #include "codegen/litenpu/codegen_litenpu.h"
+#include "codegen/cloudnpu/codegen_cloudnpu.h"
 
 using namespace npu::tile_fwk;
 
@@ -54,5 +55,22 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_001) {
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_001");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMatmul, test_matmul_001_cloud_test) {
+    PROGRAM("MATMUL_001_CLOUD") {
+        Tensor a(DataType::DT_FP16, {16, 16}, "a");
+        Tensor b(DataType::DT_FP16, {16, 16}, "b");
+        auto c = Tensor(DataType::DT_FP16, {16, 16}, "c");
+        FUNCTION("MATMUL_001_CLOUD") {
+            TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {16, 16}, false, false);
+            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_001_CLOUD");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }

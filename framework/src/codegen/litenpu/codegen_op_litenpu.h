@@ -33,12 +33,25 @@
 #include "codegen/codegen_op.h"
 
 namespace npu::tile_fwk {
+struct CodeGenOpLiteNPUCtx : public CodeGenOpCtx {
+    const Operation &operation;
+
+    CodeGenOpLiteNPUCtx(std::shared_ptr<SymbolManager> sm, Function &tf, Function &sf, const Operation &op,
+        const std::map<int, int> &lto = {}, bool isMainBlk = false)
+        : CodeGenOpCtx(std::move(sm), tf, sf, lto, isMainBlk), operation(op) {}
+};
+
 class CodeGenOpLiteNPU : public CodeGenOp {
 public:
-    explicit CodeGenOpLiteNPU(const CodeGenOpCtx &ctx);
+    // explicit CodeGenOpLiteNPU(const CodeGenOpLiteNPUCtx &ctx);
+    // CodeGenOpLiteNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
+    //     const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false, bool isMainBlk = false)
+    //     : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc, isMainBlk){};
+    // ~CodeGenOpLiteNPU() override = default;
+
+    explicit CodeGenOpLiteNPU(const CodeGenOpLiteNPUCtx &ctx);
     CodeGenOpLiteNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
-        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false, bool isMainBlk = false)
-        : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc, isMainBlk){};
+        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false, bool isMainBlk = false);
     ~CodeGenOpLiteNPU() override = default;
 
     std::string GenMemL1CopyIn() const;
@@ -55,6 +68,10 @@ public:
 
     std::string GenBinaryOp() const;
     // std::string GenVectorScalarOp() const;
+
+    std::string PrintMatmulTileTensor(bool isAcc) const;
+    std::string PrintMatmulTileTensor(
+        bool isAcc, std::unordered_map<OperandType, std::string> &tensorWithMemType) const;
 
     std::string GenCubeOpMatmul() const ;
     std::string GenCubeOpMatmulAcc() const ;
@@ -104,8 +121,8 @@ public:
     void UpdateTileTensorInfo();
 
 private:
-    std::string QueryTileTensorNameByIdx(int paramIdx) const;
-    std::shared_ptr<ForBlockManager> forBlkMgr_;
+    // <parameter index, tensor name>
+    std::unordered_map<int, std::string> tensorNames_;
     template <typename T>
     bool GetAttr(const std::string &key, T &value) const {
         auto it = opAttrs.find(key);
@@ -121,6 +138,7 @@ private:
             typeid(T).name());
         return false;
     }
+
     template <typename T = int64_t>
     std::vector<T> GetVectorIntAttribute(const std::string &key) const {
         static_assert(std::is_integral_v<T>);
@@ -136,6 +154,9 @@ private:
         return ret;
     }
     std::string GetLastUse() const;
+
+    std::string QueryTileTensorNameByIdx(int paramIdx) const;
+
     TileTensor BuildTileTensor(int paramIdx, const std::string& usingType);
     
     std::vector<int64_t> GetTileShapeForMemTransfer(
@@ -164,10 +185,6 @@ private:
     std::string GenVectorScalarOpByMode(bool isUseScalar) const;
     std::string GenVectorScalarOpScalarMode() const;
     std::string GenCubeOp(bool zeroC) const;
-
-    std::string PrintMatmulTileTensor(bool isAcc) const;
-    std::string PrintMatmulTileTensor(
-        bool isAcc, std::unordered_map<OperandType, std::string> &tensorWithMemType) const;
 
     std::string PrintDupOp(const PrintDupOpParam &param) const;
     std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
