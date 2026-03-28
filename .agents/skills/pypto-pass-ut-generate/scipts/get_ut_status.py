@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
 """
 获取 PR 的 UT 测试状态（简化版）
 
@@ -8,6 +18,15 @@
 
 import sys
 import re
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s: %(message)s",
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
+
 from common_utils import get_gitcode_token, make_api_request
 
 
@@ -80,7 +99,8 @@ def get_pr_ut_status(owner: str, repo: str, pr_number: int) -> dict:
     if not token:
         return {'error': '未找到 GitCode Token'}
     
-    url = f"https://api.gitcode.com/api/v5/repos/{owner}/{repo}/pulls/{pr_number}/comments?per_page=100&access_token={token}"
+    url = (f"https://api.gitcode.com/api/v5/repos/{owner}/{repo}/pulls/"
+           f"{pr_number}/comments?per_page=100&access_token={token}")
     comments = make_api_request(url)
     
     if not comments:
@@ -94,19 +114,19 @@ def get_pr_ut_status(owner: str, repo: str, pr_number: int) -> dict:
 
 def main(pr_number: int):
     """主函数"""
-    print(f"获取 PR #{pr_number} 的 UT 状态...")
+    logger.info("获取 PR #%d 的 UT 状态...", pr_number)
     
     result = get_pr_ut_status('cann', 'pypto', pr_number)
     
     if 'error' in result:
-        print(f"Error: {result['error']}")
+        logger.info("Error: %s", result['error'])
         return
     
     if result:
-        print(f"\nUT_Test_report 状态: {result.get('status', 'N/A')}")
-        print(f"覆盖率报告: {result.get('coverage_url', 'N/A')}")
+        logger.info("\nUT_Test_report 状态: %s", result.get('status', 'N/A'))
+        logger.info("覆盖率报告: %s", result.get('coverage_url', 'N/A'))
     else:
-        print("未找到 UT_Test_report 信息")
+        logger.info("未找到 UT_Test_report 信息")
 
 
 if __name__ == "__main__":

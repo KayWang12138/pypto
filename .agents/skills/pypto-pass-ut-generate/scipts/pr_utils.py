@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
 """
 Pass UT 生成工具 - PR 处理模块
 
@@ -16,58 +26,74 @@ import subprocess
 import re
 import sys
 import json
+import logging
+import shutil
 import urllib.request
 import urllib.error
 import tarfile
 import tempfile
 from typing import Optional, List, Dict, Tuple
 from datetime import datetime
+from dataclasses import dataclass
 
-# 尝试导入公共模块
-try:
-    from common_utils import get_gitcode_token as _get_token
-    HAS_COMMON_UTILS = True
-except ImportError:
-    HAS_COMMON_UTILS = False
-    _get_token = None
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s: %(message)s",
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PRProcessConfig:
+    pr_input: str
+    output_dir: Optional[str] = None
+    repo_dir: Optional[str] = None
+    use_api_for_comments: bool = True
+    auto_stash: bool = True
+    check_build: bool = True
+
+
+@dataclass
+class FetchBranchConfig:
+    owner: str
+    repo: str
+    pr_number: int
+    repo_dir: str
+    author: str
+    author_repo: str
+    head_ref: str
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 
 GITCODE_API_BASE = "https://api.gitcode.com/api/v5"
-
-
-def get_gitcode_token() -> str:
-    """获取 GitCode Token"""
-    if HAS_COMMON_UTILS and _get_token:
-        return _get_token(print_hint=False)
-    return os.environ.get("GITCODE_TOKEN", "")
+GITCODE_TOKEN = os.environ.get("GITCODE_TOKEN", "")
 
 
 def make_gitcode_api_request(endpoint: str) -> Optional[Dict]:
     """通过 GitCode API 获取 JSON 数据"""
-    token = get_gitcode_token()
     url = f"{GITCODE_API_BASE}/{endpoint}"
     headers = {"Accept": "application/json"}
-    if token:
-        headers["PRIVATE-TOKEN"] = token
+    if GITCODE_TOKEN:
+        headers["PRIVATE-TOKEN"] = GITCODE_TOKEN
     
     try:
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=30) as response:
             return json.loads(response.read().decode('utf-8'))
     except urllib.error.HTTPError as e:
-        print(f"⚠️ HTTP 错误: {e.code} - {e.reason}")
+        logger.warning("HTTP 错误: %d - %s", e.code, e.reason)
         return None
     except Exception as e:
-        print(f"⚠️ API 请求失败: {e}")
+        logger.warning("API 请求失败: %s", e)
         return None
 
 
 def get_pr_info_via_api(owner: str, repo: str, pr_number: int) -> Optional[Dict]:
     """通过 GitCode API 获取 PR 信息"""
-    print(f"通过 GitCode API 获取 PR #{pr_number} 信息...")
+    logger.info("通过 GitCode API 获取 PR #%d 信息...", pr_number)
     return make_gitcode_api_request(f"repos/{owner}/{repo}/pulls/{pr_number}")
 
 
@@ -84,12 +110,11 @@ def get_pr_comments_via_api(owner: str, repo: str, pr_number: int) -> List[Dict]
 def get_pr_diff_via_api(owner: str, repo: str, pr_number: int) -> Optional[str]:
     """通过 GitCode API 获取 PR diff"""
     try:
-        print(f"通过 GitCode API 获取 PR #{pr_number} 的 diff...")
+        logger.info("通过 GitCode API 获取 PR #%d 的 diff...", pr_number)
         url = f"{GITCODE_API_BASE}/repos/{owner}/{repo}/pulls/{pr_number}/diff"
         headers = {"Accept": "text/plain"}
-        token = get_gitcode_token()
-        if token:
-            headers["PRIVATE-TOKEN"] = token
+        if GITCODE_TOKEN:
+            headers["PRIVATE-TOKEN"] = GITCODE_TOKEN
         
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=30) as response:
@@ -99,14 +124,14 @@ def get_pr_diff_via_api(owner: str, repo: str, pr_number: int) -> Optional[str]:
             print("⚠️ API 返回的 diff 内容为空")
             return None
 
-        print(f"✓ API 成功获取 diff，大小: {len(diff_content)} 字节")
+        logger.info("API 成功获取 diff，大小: {len(diff_content)} 字节")
         return diff_content
 
     except urllib.error.HTTPError as e:
-        print(f"⚠️ API 获取 diff 失败: {e.code} - {e.reason}")
+        logger.warning("API 获取 diff 失败: {e.code} - {e.reason}")
         return None
     except Exception as e:
-        print(f"⚠️ API 获取 diff 异常: {e}")
+        logger.warning("API 获取 diff 异常: {e}")
         return None
 
 
@@ -137,7 +162,7 @@ def get_pr_diff_via_git_fetch(owner: str, repo: str, pr_number: int, repo_dir: O
             )
             
             if result.returncode == 0:
-                print(f"✓ 成功从 {remote_name} 获取 PR 分支")
+                logger.info("成功从 {remote_name} 获取 PR 分支")
                 
                 result = subprocess.run(
                     ['git', 'log', '-1', '--format=%H', local_branch],
@@ -156,36 +181,28 @@ def get_pr_diff_via_git_fetch(owner: str, repo: str, pr_number: int, repo_dir: O
                     if result.returncode == 0:
                         diff_content = result.stdout
                         if diff_content.strip():
-                            print(f"✓ git fetch 成功获取 diff，大小: {len(diff_content)} 字节")
+                            logger.info("git fetch 成功获取 diff，大小: {len(diff_content)} 字节")
                             return diff_content, local_branch
                 break
             else:
-                print(f"⚠️ 从 {remote_name} fetch 失败: {result.stderr.strip()[:100]}")
+                logger.warning("从 {remote_name} fetch 失败: {result.stderr.strip()[:100]}")
         
         return None, None
         
     except Exception as e:
-        print(f"⚠️ git fetch 获取 diff 失败: {e}")
+        logger.warning("git fetch 获取 diff 失败: {e}")
         return None, None
 
 
-def fetch_pr_branch_from_author(
-    owner: str, 
-    repo: str, 
-    pr_number: int, 
-    repo_dir: str, 
-    author: str,
-    author_repo: str,
-    head_ref: str
-) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+def fetch_pr_branch_from_author(config: FetchBranchConfig) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """从 PR 作者的仓库获取分支"""
-    work_dir = repo_dir
-    local_branch = f"pr{pr_number}_branch"
+    work_dir = config.repo_dir
+    local_branch = f"pr{config.pr_number}_branch"
     
     try:
-        print(f"\n尝试从 PR 作者 ({author}) 仓库获取分支...")
+        logger.info("\n尝试从 PR 作者 (%s) 仓库获取分支...", config.author)
         
-        author_remote_name = f"pr_author_{author}"
+        author_remote_name = f"pr_author_{config.author}"
         
         result = subprocess.run(
             ['git', 'remote', '-v'],
@@ -201,36 +218,36 @@ def fetch_pr_branch_from_author(
                     break
         
         if not remote_url:
-            author_git_url = f"https://gitcode.com/{author}/{author_repo}.git"
-            print(f"添加作者 remote: {author_git_url}")
+            author_git_url = f"https://gitcode.com/{config.author}/{config.author_repo}.git"
+            logger.info("添加作者 remote: %s", author_git_url)
             result = subprocess.run(
                 ['git', 'remote', 'add', author_remote_name, author_git_url],
                 capture_output=True, text=True, cwd=work_dir
             )
             
             if result.returncode != 0 and 'already exists' not in result.stderr:
-                print(f"⚠️ 添加作者 remote 失败: {result.stderr.strip()[:100]}")
+                logger.warning("添加作者 remote 失败: %s", result.stderr.strip()[:100])
                 return None, None, None
             
             remote_url = author_git_url
         
-        print(f"从 {author_remote_name} fetch 分支 {head_ref}...")
+        logger.info("从 %s fetch 分支 %s...", author_remote_name, config.head_ref)
         result = subprocess.run(
-            ['git', 'fetch', author_remote_name, f'heads/{head_ref}:{local_branch}'],
+            ['git', 'fetch', author_remote_name, f'heads/{config.head_ref}:{local_branch}'],
             capture_output=True, text=True, cwd=work_dir, timeout=120
         )
         
         if result.returncode != 0:
-            print(f"⚠️ fetch 分支失败: {result.stderr.strip()[:100]}")
+            logger.warning("fetch 分支失败: %s", result.stderr.strip()[:100])
             
-            print("尝试通过 merge request refs 获取...")
+            logger.info("尝试通过 merge request refs 获取...")
             result = subprocess.run(
-                ['git', 'fetch', remote_url, f'+refs/merge-requests/{pr_number}/head:{local_branch}'],
+                ['git', 'fetch', remote_url, f'+refs/merge-requests/{config.pr_number}/head:{local_branch}'],
                 capture_output=True, text=True, cwd=work_dir, timeout=120
             )
             
             if result.returncode != 0:
-                print(f"⚠️ merge request refs fetch 也失败: {result.stderr.strip()[:100]}")
+                logger.warning("merge request refs fetch 也失败: %s", result.stderr.strip()[:100])
                 return None, None, None
         
         result = subprocess.run(
@@ -239,7 +256,7 @@ def fetch_pr_branch_from_author(
         )
         
         if result.returncode != 0:
-            print(f"⚠️ 无法获取本地分支 {local_branch}")
+            logger.warning("无法获取本地分支 %s", local_branch)
             return None, None, None
         
         commit = result.stdout.strip()
@@ -252,13 +269,13 @@ def fetch_pr_branch_from_author(
         
         if result.returncode == 0:
             diff_content = result.stdout
-            print(f"✓ 成功获取 PR diff，大小: {len(diff_content)} 字节")
+            logger.info("成功获取 PR diff，大小: %d 字节", len(diff_content))
             return diff_content, local_branch, local_branch
         
         return None, None, None
         
     except Exception as e:
-        print(f"⚠️ 从作者仓库获取分支失败: {e}")
+        logger.warning("从作者仓库获取分支失败: %s", e)
         return None, None, None
 
 
@@ -281,7 +298,7 @@ def checkout_or_fetch_pr_branch(
         )
         
         if result.returncode == 0:
-            print(f"✓ 本地分支 {local_branch} 已存在")
+            logger.info("本地分支 {local_branch} 已存在")
             
             result = subprocess.run(
                 ['git', 'log', '-1', '--format=%H', local_branch],
@@ -322,7 +339,7 @@ def checkout_or_fetch_pr_branch(
             )
             
             if result.returncode == 0:
-                print(f"✓ 成功从 {remote_name} 获取 PR 分支 {local_branch}")
+                logger.info("成功从 {remote_name} 获取 PR 分支 {local_branch}")
                 
                 result = subprocess.run(
                     ['git', 'log', '-1', '--format=%H', local_branch],
@@ -342,7 +359,7 @@ def checkout_or_fetch_pr_branch(
                         return local_branch, local_branch, result.stdout
                 break
             else:
-                print(f"⚠️ 从 {remote_name} fetch 失败: {result.stderr.strip()[:80]}")
+                logger.warning("从 {remote_name} fetch 失败: {result.stderr.strip()[:80]}")
         
         if pr_info:
             head_ref = pr_info.get('head', {}).get('ref', '')
@@ -350,16 +367,23 @@ def checkout_or_fetch_pr_branch(
             author_repo = pr_info.get('head', {}).get('repo', {}).get('name', repo)
             
             if head_ref and author:
-                diff_content, branch, _ = fetch_pr_branch_from_author(
-                    owner, repo, pr_number, repo_dir, author, author_repo, head_ref
+                config = FetchBranchConfig(
+                    owner=owner,
+                    repo=repo,
+                    pr_number=pr_number,
+                    repo_dir=repo_dir,
+                    author=author,
+                    author_repo=author_repo,
+                    head_ref=head_ref
                 )
+                diff_content, branch, _ = fetch_pr_branch_from_author(config)
                 if diff_content:
                     return branch, branch, diff_content
         
         return None, None, None
         
     except Exception as e:
-        print(f"⚠️ 分支操作失败: {e}")
+        logger.warning("分支操作失败: {e}")
         return None, None, None
 
 
@@ -468,14 +492,14 @@ def download_and_parse_coverage_report(coverage_url: str, pr_number: int) -> Dic
             with open(tmp_path, 'wb') as f:
                 f.write(response.read())
         
-        print(f"✓ 覆盖率报告下载成功: {tmp_path}")
+        logger.info("覆盖率报告下载成功: {tmp_path}")
         
         extract_dir = tempfile.mkdtemp(prefix=f'cov_pr{pr_number}_')
         
         with tarfile.open(tmp_path, 'r:gz') as tar:
             tar.extractall(extract_dir)
         
-        print(f"✓ 覆盖率报告解压到: {extract_dir}")
+        logger.info("覆盖率报告解压到: {extract_dir}")
         
         result['success'] = True
         result['extract_dir'] = extract_dir
@@ -485,7 +509,7 @@ def download_and_parse_coverage_report(coverage_url: str, pr_number: int) -> Dic
         
     except Exception as e:
         result['message'] = f'下载/解析覆盖率报告失败: {e}'
-        print(f"⚠️ {result['message']}")
+        logger.warning("{result['message']}")
     
     return result
 
@@ -516,10 +540,10 @@ def save_diff_to_file(diff_content: str, output_file: str) -> bool:
         os.makedirs(os.path.dirname(output_file) if os.path.dirname(output_file) else '.', exist_ok=True)
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(diff_content)
-        print(f"✓ Diff 已保存到: {output_file}")
+        logger.info("Diff 已保存到: {output_file}")
         return True
     except Exception as e:
-        print(f"⚠️ 保存 diff 文件失败: {e}")
+        logger.warning("保存 diff 文件失败: {e}")
         return False
 
 
@@ -564,7 +588,7 @@ def apply_diff_to_repo(diff_file: str, repo_dir: str, auto_stash: bool = True) -
                     stash_applied = True
                     stash_message = "（已自动 stash 当前更改）"
                 else:
-                    print(f"⚠️ stash 失败: {result.stderr.strip()}")
+                    logger.warning("stash 失败: {result.stderr.strip()}")
                     print("将尝试直接 apply...")
             else:
                 return False, f"工作区有未提交的更改: {len(uncommitted)} 个文件"
@@ -745,6 +769,14 @@ def process_pr(
     返回:
         包含处理结果的字典
     """
+    config = PRProcessConfig(
+        pr_input=pr_input,
+        output_dir=output_dir,
+        repo_dir=repo_dir,
+        use_api_for_comments=use_api_for_comments,
+        auto_stash=auto_stash,
+        check_build=check_build
+    )
     work_output_dir = output_dir if output_dir else PROJECT_ROOT
     work_repo_dir = repo_dir if repo_dir else PROJECT_ROOT
 
@@ -808,11 +840,11 @@ def process_pr(
                 comments = get_pr_comments_via_api(owner, repo, pr_number)
                 if comments:
                     ut_result = parse_ut_report_from_comments(comments)
-                    print(f"✓ 通过 API 获取到 {len(comments)} 条评论")
+                    logger.info("通过 API 获取到 {len(comments)} 条评论")
                 else:
                     print("⚠️ API 返回空评论列表")
             except Exception as e:
-                print(f"⚠️ API 调用失败: {e}")
+                logger.warning("API 调用失败: {e}")
         
         result['ut_report'] = ut_result
         
@@ -840,7 +872,7 @@ def process_pr(
         )
         
         if pr_branch and diff_content:
-            print(f"✓ 找到 PR 分支: {pr_branch}")
+            logger.info("找到 PR 分支: {pr_branch}")
             result['method'] = 'git_fetch'
             result['diff_content'] = diff_content
 
@@ -856,21 +888,17 @@ def process_pr(
                 result['method'] = 'git_fetch_legacy'
 
         if not diff_content:
-            token = get_gitcode_token()
             error_msg = (
                 f"无法获取 PR #{pr_number} 的代码变更。\n"
                 f"可能的原因：\n"
                 f"  1. 网络问题导致无法连接到 GitCode\n"
-                f"  2. API Token 未设置或权限不足 (当前: {'已设置' if token else '未设置'})\n"
+                f"  2. API Token 未设置或权限不足 (当前: {'已设置' if GITCODE_TOKEN else '未设置'})\n"
                 f"  3. PR 作者的仓库不可访问\n"
                 f"\n"
                 f"建议解决方法：\n"
-                f"  1. 在 opencode.json 中配置 GitCode Token\n"
+                f"  1. 设置环境变量: export GITCODE_TOKEN=your_token\n"
                 f"  2. 确保网络可以访问 gitcode.com\n"
                 f"  3. 手动下载 PR diff 或让作者提供变更内容\n"
-                f"\n"
-                f"离线分析方式：\n"
-                f"  python3 scipts/pr_utils.py --diff /path/to/diff.file\n"
             )
             print(f"\n❌ {error_msg}")
             result['error'] = error_msg
@@ -907,10 +935,10 @@ def process_pr(
         print(f"自动 stash: {'开启' if auto_stash else '关闭'}")
         apply_success, apply_msg = apply_diff_to_repo(diff_filepath, work_repo_dir, auto_stash=auto_stash)
         if apply_success:
-            print(f"✓ {apply_msg}")
+            logger.info("{apply_msg}")
             result['diff_applied'] = True
         else:
-            print(f"⚠️ {apply_msg}")
+            logger.warning("{apply_msg}")
             result['diff_applied'] = False
             result['diff_apply_error'] = apply_msg
 
@@ -921,9 +949,9 @@ def process_pr(
         if check_build and result['diff_applied']:
             build_success, build_msg = check_build_status(work_repo_dir, analysis['pass_files'])
             if build_success:
-                print(f"✓ {build_msg}")
+                logger.info("{build_msg}")
             else:
-                print(f"⚠️ {build_msg}")
+                logger.warning("{build_msg}")
             result['build_status'] = {'success': build_success, 'message': build_msg}
         else:
             print("跳过编译检查")
@@ -942,15 +970,15 @@ def process_pr(
         elif ut_result['status'] == 'PARTIAL_FAILED':
             need_design_ut = True
             design_ut_reason = f"UT 测试部分失败: {', '.join(ut_result['failed_tests'])}"
-            print(f"❌ {design_ut_reason}")
+            logger.error("{design_ut_reason}")
         elif ut_result['status'] == 'ABORT':
             need_design_ut = True
             design_ut_reason = "UT 测试部分中止，需要检查覆盖率"
-            print(f"⚠️ {design_ut_reason}")
+            logger.warning("{design_ut_reason}")
         else:
             need_design_ut = True
             design_ut_reason = "无法获取 UT 状态，建议设计 UT"
-            print(f"⚠️ {design_ut_reason}")
+            logger.warning("{design_ut_reason}")
         
         if analysis['pass_files'] and ut_result['status'] != 'SUCCESS':
             need_design_ut = True
@@ -1008,7 +1036,7 @@ def process_offline_diff(diff_file: str) -> Dict:
         result['analysis'] = analyze_changed_files(diff_content)
         result['success'] = True
         
-        print(f"✓ 成功解析离线 diff 文件")
+        logger.info("成功解析离线 diff 文件")
         print(f"  文件路径: {diff_file}")
         print(f"  变更文件数: {result['analysis']['total_files']}")
         print(f"  Pass 文件数: {len(result['analysis']['pass_files'])}")
@@ -1017,7 +1045,7 @@ def process_offline_diff(diff_file: str) -> Dict:
         
     except Exception as e:
         result['error'] = str(e)
-        print(f"⚠️ 处理离线 diff 文件失败: {e}")
+        logger.warning("处理离线 diff 文件失败: {e}")
         return result
 
 
@@ -1063,7 +1091,7 @@ def process_offline_ut_report(report_file: str) -> Dict:
         
         result['success'] = True
         
-        print(f"✓ 成功解析离线 UT-Report 文件")
+        logger.info("成功解析离线 UT-Report 文件")
         print(f"  文件路径: {report_file}")
         print(f"  总体覆盖率: {result['coverage_info'].get('overall_line_coverage', 'N/A')}")
         print(f"  低覆盖率文件数: {len(result['low_coverage_files'])}")
@@ -1072,7 +1100,7 @@ def process_offline_ut_report(report_file: str) -> Dict:
         
     except Exception as e:
         result['error'] = str(e)
-        print(f"⚠️ 处理离线 UT-Report 文件失败: {e}")
+        logger.warning("处理离线 UT-Report 文件失败: {e}")
         return result
 
 

@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
 """
 公共工具模块 - Pass UT 生成工具共用函数
 
@@ -7,10 +17,14 @@
 - Token 获取
 - 文件下载
 - HTTP 请求封装
+- 日志记录
 """
 
 import os
+import sys
 import json
+import logging
+import shutil
 import urllib.request
 import urllib.error
 import tarfile
@@ -20,6 +34,13 @@ from typing import Optional, Dict, List, Tuple, Any, Union
 
 
 GITCODE_API_BASE = "https://api.gitcode.com/api/v5"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s: %(message)s",
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
 
 
 def get_gitcode_token(print_hint: bool = True) -> str:
@@ -48,30 +69,18 @@ def get_gitcode_token(print_hint: bool = True) -> str:
             token = env_config.get("GITCODE_TOKEN", "")
             if token:
                 return token
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("读取配置文件失败: %s", e)
     
     if print_hint:
-        print("=" * 60)
-        print("⚠️ 未找到 GitCode Token")
-        print("=" * 60)
-        print("\n请选择以下方式之一配置 Token：")
-        print("\n方式一：在 opencode.json 中配置（推荐）")
-        print(f"  配置文件路径: {os.path.expanduser('~/.config/opencode/opencode.json')}")
-        print("  添加以下内容:")
-        print('  {')
-        print('    "mcp": {')
-        print('      "gitcode": {')
-        print('        "environment": {')
-        print('          "GITCODE_TOKEN": "your_token_here"')
-        print('        }')
-        print('      }')
-        print('    }')
-        print('  }')
-        print("\n方式二：手动提供离线文件")
-        print("  - 提供 .diff 文件: python3 scipts/pr_utils.py --diff /path/to/diff.file")
-        print("  - 提供覆盖率报告: python3 scipts/ut_coverage.py --report /path/to/coverage.html")
-        print("=" * 60)
+        logger.warning("未找到 GitCode Token")
+        logger.info("请选择以下方式之一配置 Token：")
+        logger.info("方式一：在 opencode.json 中配置（推荐）")
+        logger.info("  配置文件路径: %s", os.path.expanduser("~/.config/opencode/opencode.json"))
+        logger.info('  添加以下内容: {"mcp": {"gitcode": {"environment": {"GITCODE_TOKEN": "your_token_here"}}}}')
+        logger.info("方式二：手动提供离线文件")
+        logger.info("  - 提供 .diff 文件: python3 scipts/pr_utils.py --diff /path/to/diff.file")
+        logger.info("  - 提供覆盖率报告: python3 scipts/ut_coverage.py --report /path/to/coverage.html")
     
     return ""
 
@@ -110,10 +119,10 @@ def make_api_request(
                 return json.loads(content)
             return content
     except urllib.error.HTTPError as e:
-        print(f"⚠️ HTTP 错误: {e.code} - {e.reason}")
+        logger.error("HTTP 错误: %d - %s", e.code, e.reason)
         return None
     except Exception as e:
-        print(f"⚠️ API 请求失败: {e}")
+        logger.error("API 请求失败: %s", e)
         return None
 
 
@@ -150,7 +159,7 @@ def get_pr_comments(owner: str, repo: str, pr_number: int) -> List[Dict]:
 def get_pr_diff(owner: str, repo: str, pr_number: int) -> Optional[str]:
     """获取 PR diff"""
     if not get_gitcode_token():
-        print("⚠️ 需要 GitCode Token 才能获取 diff")
+        logger.warning("需要 GitCode Token 才能获取 diff")
         return None
     
     url = f"{GITCODE_API_BASE}/repos/{owner}/{repo}/pulls/{pr_number}/diff"
@@ -199,15 +208,17 @@ def download_file(
                     downloaded += len(buffer)
                     if total_size:
                         progress = int(downloaded * 100 / total_size)
-                        print(f"\r下载进度: {progress}%", end='', flush=True)
+                        logger.info("\r下载进度: %d%%", progress)
         
-        print(f"\n✓ 下载成功: {output_path}")
+        logger.info("下载成功: %s", output_path)
         return True, output_path
         
     except urllib.error.HTTPError as e:
-        return False, f"下载失败: HTTP {e.code}"
+        logger.error("下载失败: HTTP %d", e.code)
+        return False, "下载失败"
     except Exception as e:
-        return False, f"下载失败: {e}"
+        logger.error("下载失败: %s", e)
+        return False, "下载失败"
 
 
 def extract_tarball(tar_path: str, output_dir: Optional[str] = None) -> Tuple[bool, str]:
@@ -221,9 +232,11 @@ def extract_tarball(tar_path: str, output_dir: Optional[str] = None) -> Tuple[bo
     Returns:
         (是否成功, 消息/输出目录)
     """
+    created_dir = None
     try:
         if output_dir is None:
-            output_dir = tempfile.mkdtemp(prefix='extract_')
+            created_dir = tempfile.mkdtemp(prefix='extract_')
+            output_dir = created_dir
         
         os.makedirs(output_dir, exist_ok=True)
         
@@ -234,6 +247,9 @@ def extract_tarball(tar_path: str, output_dir: Optional[str] = None) -> Tuple[bo
         
     except Exception as e:
         return False, f"解压失败: {e}"
+    finally:
+        if created_dir and os.path.exists(created_dir):
+            shutil.rmtree(created_dir, ignore_errors=True)
 
 
 def run_git_command(
