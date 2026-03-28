@@ -71,8 +71,8 @@ std::string CodeGenOpCloudNPU::GenMemL0CCopyOut() const {
 
 std::string CodeGenOpCloudNPU::GenMemCopyCube(bool isLocalToGM, unsigned uf) const {
     unsigned gmIdx = isLocalToGM ? 0 : 1;
-    bool isSpillToGm{false};
-    GetTensorAttr(gmIdx, "isWorkspaceGM", isSpillToGm);
+    int64_t gmOffset{0};
+    bool isSpillToGm = GetTensorAttr(gmIdx, OpAttributeKey::workspaceBaseOffset, gmOffset);
     return GenMemCopyVar(isLocalToGM, isSpillToGm, uf);
 }
 
@@ -288,8 +288,8 @@ std::string CodeGenOpCloudNPU::GenMemL1ToBt() const {
 
 std::string CodeGenOpCloudNPU::GenMemUBTransfer(bool isCopyUBToGM) const {
     unsigned gmIdx = isCopyUBToGM ? 0 : 1;
-    bool isSpillToGm{false};
-    GetTensorAttr(gmIdx, "isWorkspaceGM", isSpillToGm);
+    int64_t gmOffset{0};
+    bool isSpillToGm = GetTensorAttr(gmIdx, OpAttributeKey::workspaceBaseOffset, gmOffset);
     return GenMemCopyVar(isCopyUBToGM, isSpillToGm);
 }
 
@@ -1086,9 +1086,8 @@ std::string CodeGenOpCloudNPU::GenMemL1ToFB() const {
 }
 
 std::string CodeGenOpCloudNPU::GenGMAddrExprWithOffset(unsigned gmParamIdx, const std::string &addrExpr) const {
-    // gm offset of spilling workspace is calculated by pass, the value is saved in dim 0.
-    int64_t gmOffset = 0;
-    // gmOffset Default to 0 when the attribute is not set
+    // gm offset of spilling workspace is calculated by pass.
+    int64_t gmOffset{0};
     GetTensorAttr(gmParamIdx, OpAttributeKey::workspaceBaseOffset, gmOffset);
     std::ostringstream oss;
     if (gmOffset == 0) {
