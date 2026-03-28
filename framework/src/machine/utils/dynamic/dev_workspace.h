@@ -28,6 +28,8 @@
 namespace npu::tile_fwk::dynamic {
 inline constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
 inline constexpr uint32_t SUBMMIT_TASK_QUE_SIZE = 32;
+constexpr uint32_t STITCH_FUNCTION_SIZE = 65535;
+
 class DeviceWorkspaceAllocator {
 public:
     DeviceWorkspaceAllocator() = default;
