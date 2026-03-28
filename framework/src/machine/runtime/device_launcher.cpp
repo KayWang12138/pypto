@@ -291,10 +291,6 @@ int DeviceLauncher::DeviceRunOnce(Function *function, DevControlFlowCache* hostC
     if (hostCtrlCache) {
         devCtrlCache = devMemoryNotHugePage.CopyToDev(reinterpret_cast<uint8_t *>(hostCtrlCache), hostCtrlCache->usedCacheSize, nullptr);
     }
-    for (size_t k = 0; k < inputDeviceDataList.size(); ++k) {
-                auto &tensorData = inputDeviceDataList[k];
-                uint64_t addr = reinterpret_cast<uint64_t>(tensorData.GetAddr());
-            }
     int rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList,
         aicpuStream, aicoreStream, true, nullptr, reinterpret_cast<DevControlFlowCache*>(devCtrlCache), config);
     CopyFromDev(devMemoryNotHugePage, outputDataList);
