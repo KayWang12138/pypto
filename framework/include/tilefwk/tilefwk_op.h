@@ -558,6 +558,7 @@ struct ShmemTensor {
     int64_t worldSize{0};
     Tensor data;
     Tensor signal;
+    void* signalOp{nullptr};
 };
 ShmemTensor CreateShmemTensor(const char* group, int64_t worldSize, DataType dataType, const Shape& shape);
 void CreateShmemTensor(const char* group, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor& t);

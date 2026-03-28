@@ -160,8 +160,15 @@ TILEOP uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end)
 
 TILEOP uint64_t GetVirtualAddrOffset(uint64_t val)
 {
-    constexpr uint64_t offsetStart = 0UL;
-    constexpr uint64_t offsetEnd = 53UL;
+    constexpr uint64_t offsetStart = 0UL; 
+    constexpr uint64_t offsetEnd = 41UL; 
+    return GetVirtualAddrBist(val, offsetStart, offsetEnd);
+}
+
+TILEOP uint64_t GetVirtualMaxTileNum(uint64_t val)
+{
+    constexpr uint64_t offsetStart = 42UL; 
+    constexpr uint64_t offsetEnd = 53UL; 
     return GetVirtualAddrBist(val, offsetStart, offsetEnd);
 }
 
