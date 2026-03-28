@@ -1,0 +1,6 @@
+# Local compile / run outputs (do not commit)
+kernel_aicore/
+kernel_aicpu/
+output/
+device_logs/
+logs/
