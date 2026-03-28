@@ -1305,14 +1305,19 @@ Status OoOScheduler::Init(
 }
 
 void OoOScheduler::AllocWorkspaceGM(const std::vector<Operation *> &operations) {
-    std::set<int> isVist;
+    std::set<int> allocedRawmagic;
+    for (auto &inCast : function_->GetIncast()) {
+        allocedRawmagic.insert(inCast->tensor->GetRawMagic());
+    }
+    for (auto &outCast : function_->GetOutcast()) {
+        allocedRawmagic.insert(outCast->tensor->GetRawMagic());
+    }
     for (auto &op : operations) {
         for (auto &iOperand : op->GetIOperands()) {
             if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
-            && !isVist.count(iOperand->tensor->GetRawMagic())
-            std::find(function_->GetIncast().begin(), function_->GetIncast().end(), iOperand) == function_->GetIncast().end()) {
+                !allocedRawmagic.count(iOperand->tensor->GetRawMagic())) {
                 iOperand->SetAttr("isWorkspaceGM", true);
-                isVist.insert(iOperand->tensor->GetRawMagic());
+                allocedRawmagic.insert(iOperand->tensor->GetRawMagic());
                 iOperand->SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceOffset);
                 iOperand->memoryrange =
                     TileRange(workspaceOffset, workspaceOffset + iOperand->tensor->GetRawDataSize(), iOperand->tensor->GetRawMagic());
@@ -1321,10 +1326,9 @@ void OoOScheduler::AllocWorkspaceGM(const std::vector<Operation *> &operations) 
         }
         for (auto &oOperand : op->GetOOperands()) {
             if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
-            && !isVist.count(oOperand->tensor->GetRawMagic())
-            std::find(function_->GetOutcast().begin(), function_->GetOutcast().end(), oOperand) == function_->GetOutcast().end()) {
+                !allocedRawmagic.count(oOperand->tensor->GetRawMagic())) {
                 oOperand->SetAttr("isWorkspaceGM", true);
-                isVist.insert(oOperand->tensor->GetRawMagic());
+                allocedRawmagic.insert(oOperand->tensor->GetRawMagic());
                 oOperand->SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceOffset);
                 oOperand->memoryrange =
                     TileRange(workspaceOffset, workspaceOffset + oOperand->tensor->GetRawDataSize(), oOperand->tensor->GetRawMagic());

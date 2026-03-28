@@ -1115,7 +1115,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToFB() const
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::GenGMAddrExprWithOffset(unsigned gmParamIdx, std::string &addrExpr) const {
+std::string CodeGenOpCloudNPU::GenGMAddrExprWithOffset(unsigned gmParamIdx, const std::string &addrExpr) const {
     // gm offset of spilling workspace is calculated by pass, the value is saved in dim 0.
     int64_t gmOffset = 0;
     // gmOffset Default to 0 when the attribute is not set

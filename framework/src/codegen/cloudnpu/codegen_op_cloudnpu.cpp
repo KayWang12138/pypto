@@ -446,7 +446,7 @@ std::string CodeGenOpCloudNPU::GenGmParamVar(unsigned gmParamIdx) const
         std::ostringstream os;
         os << "GET_PARAM_ADDR(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
            << paramLocation[gmParamIdx] << ")";
-        return os.str()
+        return os.str();
     }
 
     auto paramLoc = paramLocation[gmParamIdx];
