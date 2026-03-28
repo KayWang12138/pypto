@@ -71,6 +71,7 @@ description: 基于会话上下文智能创建 GitCode Issue。支持5种类型�
 | `[Task\|任务跟踪]: 分布式任务适配fixed_output_path` | `[Task] 分布式任务适配fixed_output_path` |
 | `[Requirement\|需求建议]: 支持动态shape的算子开发` | `[Feature-Request\|功能请求]: 支持动态shape的算子开发` |
 | `[Question\|问题咨询]: 如何跑framework用例` | `如何跑framework用例` |
+| `[Documentation\|文档反馈]: view文档中viewOp说明缺失` | `[docs] view文档中viewOp说明缺失` |
 
 ### 规则
 
@@ -78,8 +79,6 @@ description: 基于会话上下文智能创建 GitCode Issue。支持5种类型�
 2. 英文类型与中文类型之间用管道符 `|` 分隔
 3. 类型标签后使用冒号 `: ` 和空格分隔具体描述
 4. GitCode Label 按项目特性模块设置（如 Frontend、Operator、Passes 等），由 Maintainer/Committer 在分发阶段添加，不在标题中体现
-
-完整的类型-前缀-标签映射见 [references/issue-templates.md](references/issue-templates.md#标题前缀与标签映射)。
 
 ---
 

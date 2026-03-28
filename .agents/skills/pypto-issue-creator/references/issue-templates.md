@@ -184,30 +184,4 @@
 3. [目标3]
 ```
 
----
-
-## 标题前缀与标签映射
-
-### 标题前缀格式
-
-所有 Issue 标题必须遵循：
-
 ```
-[英文类型|中文类型]: 具体描述
-```
-
-### 完整映射
-
-| Issue 类型 | 标题前缀 |
-|-----------|---------|
-| Bug Report | `[Bug-Report\|缺陷反馈]:` |
-| Feature Request | `[Requirement\|需求建议]:` |
-| Documentation | `[Documentation\|文档反馈]:` |
-| Question | `[Question\|问题咨询]:` |
-| Task | `[Task\|任务跟踪]:` |
-
-### 注意
-
-- 标题中的类型标签使用 `[English|中文]: ` 格式
-- 标题前缀后的描述应为简洁的一句话概述
-- GitCode Label 按项目特性模块设置，由 Maintainer/Committer 在分发阶段添加，不在标题中体现。推荐的模块标签包括：Frontend、Operator、Operations、Passes、CodeGen、Machine、Distribute、Interpreter、Toolkits、Simulation、documentation、infrastructure
