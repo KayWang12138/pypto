@@ -2,7 +2,7 @@
 name: pypto-fracture-point-reproducer
 description: |
   复现断裂点报告中的问题场景，分析责任归属，并优化相关 skill。当用户提供断裂点报告文件（fracture-point-*.md）并要求复现、分析、优化时触发此 skill。
-  Triggers: 复现断裂点、断裂点复现、分析断裂点、优化 skill、fracture point reproduce。
+  Triggers: 复现断裂点、分析断裂点、fracture point reproduce。
 ---
 
 # PyPTO 断裂点复现与 Skill 优化
