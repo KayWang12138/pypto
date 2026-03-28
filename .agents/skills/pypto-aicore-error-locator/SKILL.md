@@ -1,6 +1,6 @@
 ---
 name: pypto-aicore-error-locator
-description: 定位测试案例中出现 aicore error 时的问题 CCE 文件和问题代码行。当用户说"aicore error"、"定位aicore error的原因"、"帮我定位aicore error报错"时使用此技能。
+description: 定位测试案例中出现 aicore error 时的问题 CCE 文件、问题代码行及对应的前端源代码。当用户说"aicore error"、"定位aicore error的原因"、"帮我定位aicore error报错"时使用此技能。
 license: 完整条款见 LICENSE.txt
 ---
 
@@ -16,8 +16,10 @@ license: 完整条款见 LICENSE.txt
 4. 重新编译和安装
 5. 清理日志并运行测试
 6. 分析追踪日志并定位 CCE 文件
+
 7. 二分查找定位问题代码行
-8. 输出结果
+8. 映射到前端源代码
+9. 输出结果
 
 ---
 
@@ -106,14 +108,28 @@ cd -
 
 ## 步骤 5：清理日志并运行测试
 
+### 5.1 运行测试
+
 进入 `run_path`，配置环境变量并运行测试。
 
 ```bash
-rm -rf device_log_path/* && rm -rf run_path/kernel_aic* && cd run_path && export ASCEND_PROCESS_LOG_PATH=device_log_path && export ASCEND_GLOBAL_LOG_LEVEL=0 && test_cmd
+rm -rf device_log_path/* && rm -rfrf run_path/kernel_aic* && cd run_path && export ASCEND_PROCESS_LOG_PATH=device_log_path && export ASCEND_GLOBAL_LOG_LEVEL=0 && test_cmd
 cd -
 ```
 
 **⚠️ 重要提示**: 运行测试的打屏日志中必须出现 aicore error，如果未出现，则不适用于该 SKILL，**停止执行后续步骤**
+
+### 5.2 获取 program.json 路径
+
+运行脚本获取最新的 program.json 路径：
+
+```bash
+python3 .agents/skills/pypto-aicore-error-locator/scripts/get_latest_program_json.py run_path/output
+```
+
+记录输出的 `program_json_path`，该路径将在步骤 8 中使用。
+
+**⚠️ 重要提示**: 若未找到 program.json 文件，请说明原因，**停止执行后续步骤**
 
 ---
 
@@ -181,12 +197,34 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/binary_search_iteratio
 
 ---
 
-## 步骤 8：输出结果
+## 步骤 8：映射到前端源代码
+
+使用以下命令将 CCE 问题代码行映射到前端源代码：
+
+```bash
+python3 .agents/skills/pypto-aicore-error-locator/scripts/locate_source_line.py <cce_file> <program_json_path> <problem_line>
+```
+
+**参数说明**:
+- `<cce_file>`: 步骤 6.2 输出的问题 CCE 文件路径
+- `<program_json_path>`: 步骤 5.2 输出的 program.json 文件路径
+- `<problem_line>`: 步骤 7 输出的问题代码行号
+
+**输出说明**:
+- 若匹配成功，将输出前端源代码文件路径和行号
+- 若匹配失败，将说明原因（例如：框架自动生成代码、操作数不匹配等）
+
+---
+
+## 步骤 9：输出结果
 
 输出以下信息：
 - 找到的 CCE 文件路径
 - 问题代码行号
 - 问题代码内容
+- 前端源代码文件路径（如果步骤 8 映射成功）
+- 前端源代码行号（如果步骤 8 映射成功）
+- 前端源代码内容（如果步骤 8 映射成功）
 
 ---
 
