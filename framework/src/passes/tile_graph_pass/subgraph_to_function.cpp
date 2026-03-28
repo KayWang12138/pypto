@@ -722,8 +722,7 @@ Status SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
                 copyInAttr = std::make_shared<CopyOpAttribute>(outcastAttr->GetToOffset(), MemoryType::MEM_UB, outcastAttr->GetShape(), outcastAttr->GetRawShape());
             } else {
                 // Impossible
-                APASS_LOG_ERROR_F(Elements::Function, "The operation is neither MOVE_IN nor MOVE_OUT in function %s. Please check whether the input graph is valid.", function.GetRawName().c_str());
-                return FAILED;
+                APASS_LOG_ERROR_F(Elements::Function, "The operation is neither MOVE_IN nor MOVE_OUT in function %s.", function.GetRawName().c_str()); return FAILED;
             }
 
             copyInTensor->UpdateSubgraphID(subgraphID);
