@@ -649,6 +649,9 @@ std::shared_ptr<LogicalTensor> GetTensorDataSubgraphTensor(Operation &refOp) {
         case Opcode::OP_VIEW:
             subgraphTensor = refOp.GetOOperands()[0];
             break;
+        case Opcode::OP_ASSEMBLE:
+            subgraphTensor = refOp.GetOOperands()[0];
+            break;
         default:
             break;
     }
@@ -692,6 +695,10 @@ Status SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
             auto getTensorDataIOType = callList[0]->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE]->GetImmediateValue();
             auto getTensorDataIOTypeIndex = callList[0]->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX]->GetImmediateValue();
 
+            if (getTensorDataIOType == -1) {
+                continue;
+            }
+
             std::shared_ptr<LogicalTensor> copyInSourceTensor;
             std::shared_ptr<CopyOpAttribute> copyInAttr;
             if (getTensorDataIOType == GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST) {
@@ -710,12 +717,12 @@ Status SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
                 auto outcastAttr = std::static_pointer_cast<CopyOpAttribute>(outcastDesc.copyout->GetOpAttribute());
                 copyInSourceTensor = outcastDesc.outcast;
                 copyInTensor = std::make_shared<LogicalTensor>(function, outcastDesc.outcast->Datatype(),
-                    outcastDesc.outcast->GetShape(), outcastDesc.outcast->Format());
+                outcastDesc.outcast->GetShape(), outcastDesc.outcast->Format());
                 GraphUtils::CopyDynStatus(copyInTensor, copyInSourceTensor);
                 copyInAttr = std::make_shared<CopyOpAttribute>(outcastAttr->GetToOffset(), MemoryType::MEM_UB, outcastAttr->GetShape(), outcastAttr->GetRawShape());
             } else {
                 // Impossible
-                APASS_LOG_ERROR_F(Elements::Function, "The operation is neither MOVE_IN nor MOVE_OUT in function %s. Please check whether the input graph is valid.", function.GetRawName().c_str()); return FAILED;
+                APASS_LOG_ERROR_F(Elements::Function, "The operation is neither MOVE_IN nor MOVE_OUT in function %s.", function.GetRawName().c_str()); return FAILED;
             }
 
             copyInTensor->UpdateSubgraphID(subgraphID);
