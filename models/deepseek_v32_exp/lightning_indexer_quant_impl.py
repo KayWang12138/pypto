@@ -205,7 +205,7 @@ def lightning_indexer_decode_compute(
                 for _ in pypto.loop(eff_seq >= selected_count, name="TOPK_GE_SC", idx_name="un_used"):
                     pypto.set_vec_tile_shapes(1, topk_tile)
                     eff_in = pypto.view(max_tensor, [1, MAX_LI_S2], [src_offset, 0], valid_shape=[1, eff_seq])
-                    _, res_index = pypto.topk(eff_in, k=selected_count, dim=-1, largest=True)
+                    _, res_index = pypto.topk(pypto.clone(eff_in), k=selected_count, dim=-1, largest=True)
                     pypto.set_vec_tile_shapes(1, 1, topk_tile)
                     eff_3d = pypto.reshape(res_index, [1, 1, selected_count])
                     pypto.assemble(pypto.clone(eff_3d), [dst_offset, 0, 0], topk_res)
