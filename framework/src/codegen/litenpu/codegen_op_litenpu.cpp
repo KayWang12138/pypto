@@ -197,12 +197,9 @@ void CodeGenOpLiteNPU::UpdateTileTensorInfo() {
     //     return;
     // }
 
-    std::cout<<"UpdateTileTensorInfo for: "<<opCodeStr<<"\n";
-
     auto iter = SUPPORT_TILETENSOR_OPS.find(opCode);
     if (iter == SUPPORT_TILETENSOR_OPS.end()) {
         // ASSERT(iter != SUPPORT_TILETENSOR_OPS.end()) << "opCode: " << opCodeStr << " not support tile tensor!";
-        std::cout<<"fail here: "<<opCodeStr<<"..\n";
         return;
     }
 
@@ -214,7 +211,6 @@ void CodeGenOpLiteNPU::UpdateTileTensorInfo() {
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType);
         std::string tensorName = sm->AddTileTensor(tileTensor);
-        std::cout<<"added tensorName: "<<tensorName<<"\n";
         tensorNames_[i] = tensorName;
         CODEGEN_LOGI(
             "AddTileTensor op idx: %d, result usingType: %s, tensorName: %s", i, usingType.c_str(), tensorName.c_str());
