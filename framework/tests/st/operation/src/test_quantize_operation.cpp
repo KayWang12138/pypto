@@ -273,7 +273,8 @@ static void Quantize4DOperationExeFunc(
                         // Scale shape: [..., H] for axis=-1 on 4D tensor
                         auto tileTensorScale = View(inputs[1], {firstViewShape, secondViewShape, paraViewShape},
                             {std::min(firstDim - idx0 * firstViewShape, firstViewShape),
-                                std::min(secondDim - idx1 * secondViewShape, secondViewShape), std::min(paraViewShapeTail, thirdViewShape)},
+                                std::min(secondDim - idx1 * secondViewShape, secondViewShape),
+                                    std::min(paraViewShapeTail, paraViewShape)},
                             {idx0 * firstViewShape, idx1 * secondViewShape, paraViewShapeBefore});
 
                         TileShape::Current().SetVecTile(args->tileShape_);
@@ -326,16 +327,18 @@ static void Quantize4DAsymmetricOperationExeFunc(
                         // Scale shape: [..., H] for axis=-1 on 4D tensor
                         auto tileTensorScale = View(inputs[1], {firstViewShape, secondViewShape, paraViewShape},
                             {std::min(firstDim - idx0 * firstViewShape, firstViewShape),
-                                std::min(secondDim - idx1 * secondViewShape, secondViewShape), std::min(paraViewShapeTail, thirdViewShape)},
+                                std::min(secondDim - idx1 * secondViewShape, secondViewShape),
+                                 std::min(paraViewShapeTail, paraViewShape)},
                             {idx0 * firstViewShape, idx1 * secondViewShape, paraViewShapeBefore});
-                        // Offset shape: [..., H] for axis=-1 on 4D tensor
-                        auto tileTensorOffset = View(inputs[2], {firstViewShape, secondViewShape, paraViewShape},
+                        // zeroPoints shape: [..., H] for axis=-1 on 4D tensor
+                        auto tileTensorZeroPoints = View(inputs[2], {firstViewShape, secondViewShape, paraViewShape},
                             {std::min(firstDim - idx0 * firstViewShape, firstViewShape),
-                                std::min(secondDim - idx1 * secondViewShape, secondViewShape), std::min(paraViewShapeTail, thirdViewShape)},
+                                std::min(secondDim - idx1 * secondViewShape, secondViewShape),
+                                 std::min(paraViewShapeTail, paraViewShape)},
                             {idx0 * firstViewShape, idx1 * secondViewShape, paraViewShapeBefore});
 
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = Quantize(tileTensorInput, tileTensorScale, dtype, axis, tileTensorOffset);
+                        auto res = Quantize(tileTensorInput, tileTensorScale, dtype, axis, tileTensorZeroPoints);
                         Assemble(res, {idx0 * firstViewShape, idx1 * secondViewShape, idx2 * thirdViewShape, idx3 * fourthViewShape}, outputs[0]);
                     }
                 }
