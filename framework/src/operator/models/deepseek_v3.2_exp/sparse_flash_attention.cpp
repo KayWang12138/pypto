@@ -25,7 +25,7 @@
 #include "interface/configs/config_manager.h"
 #include "interface/utils/common.h"
 #include "interface/utils/id_gen.h"
-#include "interface/utils/log.h"
+
 #include "sparse_flash_attention.h"
  
 using namespace npu::tile_fwk;

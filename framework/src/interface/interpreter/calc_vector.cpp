@@ -14,7 +14,6 @@
  */
 
 #include "interface/interpreter/function.h"
-#include "interface/utils/log.h"
 #include "interface/interpreter/operation.h"
 #include "interface/interpreter/verify_error.h"
 

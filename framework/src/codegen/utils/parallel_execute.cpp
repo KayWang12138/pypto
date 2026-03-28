@@ -20,8 +20,6 @@
 #include <optional>
 #include <deque>
 
-#include "interface/utils/log.h"
-
 namespace npu::tile_fwk {
 namespace {
 class ThreadSafeTaskQueue {

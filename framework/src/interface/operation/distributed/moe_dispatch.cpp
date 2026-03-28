@@ -22,7 +22,6 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/utils/common.h"
-#include "interface/utils/log.h"
 #include "distributed_common.h"
 #include "tilefwk/symbolic_distributed.h"
 #include "interface/function/function.h"

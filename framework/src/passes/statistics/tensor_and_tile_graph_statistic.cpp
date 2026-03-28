@@ -26,7 +26,7 @@
 #include <climits>
 #include <nlohmann/json.hpp>
 
-#include "interface/utils/log.h"
+
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
