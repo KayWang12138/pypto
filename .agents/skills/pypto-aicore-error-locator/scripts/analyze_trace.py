@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def find_trace_log_file(device_log_path):
-    logger.info("在 %s 下搜索包含 trace 的日志文件...", device_log_path)
+    logger.info("在 {} 下搜索包含 trace 的日志文件...".format(device_log_path))
     
     log_files = list(Path(device_log_path).rglob("*.log"))
     
@@ -34,10 +34,10 @@ def find_trace_log_file(device_log_path):
                     return str(log_file)
         except OSError as e:
             logger.warning("读取文件失败: %s, 原因: %s", log_file, e)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             logger.warning("处理文件时发生异常: %s, 原因: %s", log_file, e)
     
-    logger.info("错误：在 %s 下未找到包含 trace 的日志文件", device_log_path)
+    logger.info("错误：在 {} 下未找到包含 trace 的日志文件".format(device_log_path))
     return None
 
 
@@ -122,7 +122,7 @@ def find_cce_file(kernel_aicore_dir, leaf_index):
     for record_file in record_files:
         with open(record_file, 'r', encoding='utf-8') as f:
             content = f.read()
-            if f'case {leaf_index}:' in content:
+            if 'case {}:'.format(leaf_index) in content:
                 logger.info("\n在文件中找到 leafIndex %d: %s", leaf_index, record_file)
                 target_record_file = record_file
                 
@@ -131,7 +131,7 @@ def find_cce_file(kernel_aicore_dir, leaf_index):
                     core_type = match.group(1)
                     logger.info("Core type: %s", core_type)
                 
-                pattern = rf'case {leaf_index}:\s*\{{\s*(\w+)\('
+                pattern = r'case {}:\s*\{{\s*(\w+)\('.format(leaf_index)
                 match = re.search(pattern, content)
                 if match:
                     func_name = match.group(1)
@@ -148,7 +148,7 @@ def find_cce_file(kernel_aicore_dir, leaf_index):
             cce_id = match.group(1)
             id_val = match.group(2)
             func_hash = match.group(3)
-            cce_pre_name = func_name[:func_name.rfind(f'_{cce_id}_{id_val}_{func_hash}')]
+            cce_pre_name = func_name[:func_name.rfind('_{}_{}_{}'.format(cce_id, id_val, func_hash))]
             
             logger.info("\n从函数名提取信息:")
             logger.info("  函数名: %s", func_name)
@@ -157,8 +157,8 @@ def find_cce_file(kernel_aicore_dir, leaf_index):
             logger.info("  ID: %s", id_val)
             logger.info("  func_hash: %s", func_hash)
             
-            cce_pattern = f"{cce_pre_name}_{cce_id}_*_{id_val}_{core_type}.cpp"
-            cce_files = list(Path(kernel_aicore_dir).glob(f"**/{cce_pattern}"))
+            cce_pattern = "{}_{}_*_{}_{}.cpp".format(cce_pre_name, cce_id, id_val, core_type)
+            cce_files = list(Path(kernel_aicore_dir).glob("**/{}".format(cce_pattern)))
             
             logger.info("\n搜索 CCE 文件模式: %s", cce_pattern)
             logger.info("找到 %d 个匹配文件", len(cce_files))

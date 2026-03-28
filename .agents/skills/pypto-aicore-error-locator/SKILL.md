@@ -1,6 +1,6 @@
 ---
 name: pypto-aicore-error-locator
-description: 定位测试案例中出现 aicore error 时的问题 CCE 文件和问题代码行。当用户说"aicore error"、"定位aicore error的原因"、"帮我定位aicore error报错"时使用此技能。
+description: 定位测试案例中出现 aicore error 时的问题 CCE 文件、问题代码行及对应的前端源代码。当用户说"aicore error"、"定位aicore error的原因"、"帮我定位aicore error报错"时使用此技能。
 license: 完整条款见 LICENSE.txt
 ---
 
@@ -16,8 +16,10 @@ license: 完整条款见 LICENSE.txt
 4. 重新编译和安装
 5. 清理日志并运行测试
 6. 分析追踪日志并定位 CCE 文件
+
 7. 二分查找定位问题代码行
-8. 输出结果
+8. 映射到前端源代码
+9. 输出结果
 
 ---
 
@@ -40,10 +42,20 @@ license: 完整条款见 LICENSE.txt
 
 ### 2.1 注释 CallSubFuncTask
 
-进入 `pypto_path`，修改以下配置：
+使用脚本注释 `aicore_entry.h` 中的 CallSubFuncTask 部分：
 
-- **头文件**: 修改 `aicore_entry.h`
-  - 注释 `#if ENABLE_AICORE_PRINT`（它的下一行是`CoreFuncParam`）行及相邻的后6行（共7行），包含CallSubFuncTask函数
+```bash
+python3 .agents/skills/pypto-aicore-error-locator/scripts/modify_callsubfunctask.py comment pypto_path
+```
+
+**脚本参数说明**:
+- `comment`: 注释 CallSubFuncTask
+- `pypto-path`: pypto 项目的根目录路径（绝对路径或相对路径）
+
+**脚本功能**:
+- 在指定 pypto 目录中搜索 `aicore_entry.h` 文件
+- 找到 `CallSubFuncTask` 函数
+- 注释 `CallSubFuncTask` 及相关代码行
 
 ### 2.2 编译安装
 
@@ -66,13 +78,24 @@ cd -
 
 **⚠️ 重要提示**：
 - **若有aicore error**: 说明是 machine 调度框架的问题，已找到问题原因，**停止执行后续步骤！**
+- **若没有aicore error**: 说明问题在 kernel 代码中，**请继续执行后续步骤！**
 
 ### 2.4 取消注释 CallSubFuncTask
 
-进入 `pypto_path`，修改以下配置：
+使用脚本取消注释 `aicore_entry.h` 中的 CallSubFuncTask 部分：
 
-- **头文件**: 修改 `aicore_entry.h`
-  - 取消注释 2.1 中注释的行 （`#if ENABLE_AICORE_PRINT`（它的下一行是`CoreFuncParam`）行及相邻的后6行）
+```bash
+python3 .agents/skills/pypto-aicore-error-locator/scripts/modify_callsubfunctask.py uncomment pypto_path
+```
+
+**脚本参数说明**:
+- `uncomment`: 取消注释 CallSubFuncTask
+- `pypto-path`: pypto 项目的根目录路径（绝对路径或相对路径）
+
+**脚本功能**:
+- 在指定 pypto 目录中搜索 `aicore_entry.h` 文件
+- 找到 `CallSubFuncTask` 函数
+- 取消注释 `CallSubFuncTask` 及相关代码行
 
 ---
 
@@ -106,6 +129,8 @@ cd -
 
 ## 步骤 5：清理日志并运行测试
 
+### 5.1 运行测试
+
 进入 `run_path`，配置环境变量并运行测试。
 
 ```bash
@@ -114,6 +139,18 @@ cd -
 ```
 
 **⚠️ 重要提示**: 运行测试的打屏日志中必须出现 aicore error，如果未出现，则不适用于该 SKILL，**停止执行后续步骤**
+
+### 5.2 获取 program.json 路径
+
+运行脚本获取最新的 program.json 路径：
+
+```bash
+python3 .agents/skills/pypto-aicore-error-locator/scripts/get_latest_program_json.py run_path/output
+```
+
+记录输出的 `program_json_path`，该路径将在步骤 8 中使用。
+
+**⚠️ 重要提示**: 若未找到 program.json 文件，请说明原因，**停止执行后续步骤**
 
 ---
 
@@ -181,12 +218,34 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/binary_search_iteratio
 
 ---
 
-## 步骤 8：输出结果
+## 步骤 8：映射到前端源代码
+
+使用以下命令将 CCE 问题代码行映射到前端源代码：
+
+```bash
+python3 .agents/skills/pypto-aicore-error-locator/scripts/locate_source_line.py <cce_file> <program_json_path> <problem_line>
+```
+
+**参数说明**:
+- `<cce_file>`: 步骤 6.2 输出的问题 CCE 文件路径
+- `<program_json_path>`: 步骤 5.2 输出的 program.json 文件路径
+- `<problem_line>`: 步骤 7 输出的问题代码行号
+
+**输出说明**:
+- 若匹配成功，将输出前端源代码文件路径和行号
+- 若匹配失败，将说明原因（例如：框架自动生成代码、操作数不匹配等）
+
+---
+
+## 步骤 9：输出结果
 
 输出以下信息：
 - 找到的 CCE 文件路径
 - 问题代码行号
 - 问题代码内容
+- 前端源代码文件路径（如果步骤 8 映射成功）
+- 前端源代码行号（如果步骤 8 映射成功）
+- 前端源代码内容（如果步骤 8 映射成功）
 
 ---
 
