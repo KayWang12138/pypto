@@ -616,23 +616,23 @@ inline void UpdateScopeId(std::vector<Operation*> &opList) {
         if (allowParallelMerge) {
             for (auto &consumer : opList[i]->ConsumerOps()) {
                 if (consumer->GetScopeId() == -1 && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                    consumer->SetScopeInfo(opList[i]->scopeInfo_);
+                    consumer->SetScopeInfo(opList[i]->GetScopeInfo());
                 }
             }
             for (auto &producer : opList[i]->ProducerOps()) {
                 if (producer->GetScopeId() == -1 && producer->GetOpcode() == Opcode::OP_VIEW) {
-                    producer->SetScopeInfo(opList[i]->scopeInfo_);
+                    producer->SetScopeInfo(opList[i]->GetScopeInfo());
                 }
             }
         } else {
             for (auto &consumer : opList[i]->ConsumerOps()) {
                 if (consumer->GetScopeId() == -1 && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                    consumer->SetScopeId(targetScope);
+                    consumer->SetScopeInfo(opList[i]->GetScopeInfo());
                 }
             }
             for (auto &producer : opList[i]->ProducerOps()) {
                 if (producer->GetScopeId() == -1 && producer->GetOpcode() == Opcode::OP_VIEW) {
-                    producer->SetScopeId(targetScope);
+                    producer->SetScopeInfo(opList[i]->GetScopeInfo());
                 }
             }
         }

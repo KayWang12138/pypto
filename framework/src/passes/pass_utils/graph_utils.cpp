@@ -50,7 +50,7 @@ Operation &GraphUtils::AddViewOperation(Function &function, const ViewOp &view, 
 Operation &GraphUtils::AddAssembleOperation(Function &function, const AssembleOp &assemble, const std::vector<std::vector<SymbolicScalar>> &outDynShape) {
     auto &newOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {assemble.input}, {assemble.output});
     if (assemble.originOp != nullptr) {
-        newOp.SetScopeId(assemble.originOp->GetScopeId());
+        newOp.SetScopeInfo(assemble.originOp->GetScopeInfo());
         newOp.CopyAttrFrom(*assemble.originOp, "");
     }
     SetAssembleAttr(newOp, assemble);
@@ -62,7 +62,7 @@ Operation &GraphUtils::AddReshapeOperation(Function &function, const LogicalTens
     const ReshapeOp &reshapeOp, const std::vector<SymbolicScalar> &outDynShape) {
     auto &newOp = function.AddOperation(Opcode::OP_RESHAPE, {iOperand}, {oOperand});
     if (reshapeOp.originOpPtr != nullptr) {
-        newOp.SetScopeId(reshapeOp.originOpPtr->GetScopeId());
+        newOp.SetScopeInfo(reshapeOp.originOpPtr->GetScopeInfo());
         newOp.CopyAttrFrom(*reshapeOp.originOpPtr, "");
     }
     if (outDynShape.empty()) {
