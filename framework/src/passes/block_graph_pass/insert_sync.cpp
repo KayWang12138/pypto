@@ -1257,9 +1257,9 @@ bool PipeSync::HasDataDependency(const Operation &opSet, const Operation &opWait
 
     // check WAW
     bool checkWaw = true;
-    auto setCfg = OpcodeManager::Inst().GetTileOpCfg(opSet.GetOpcode());
-    auto waitCfg = OpcodeManager::Inst().GetTileOpCfg(opWait.GetOpcode());
-    if (waitCfg.pipeIdStart_ == setCfg.pipeIdStart_ && (opSetStr.find("CUBE_A_MUL") == std::string::npos || opWaitStr.find("CUBE_A_MUL") == std::string::npos)) {
+    auto setPipeStart = depOps_[k].selfPipeCore.pipeStart;
+    auto waitPipeStart = depOps_[idx].selfPipeCore.pipeStart;
+    if (setPipeStart == waitPipeStart && (opSetStr.find("CUBE_A_MUL") == std::string::npos || opWaitStr.find("CUBE_A_MUL") == std::string::npos)) {
         checkWaw = false;
     }
     if (checkWaw) {
