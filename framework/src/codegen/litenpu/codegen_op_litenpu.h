@@ -43,20 +43,24 @@ struct CodeGenOpLiteNPUCtx : public CodeGenOpCtx {
 
 class CodeGenOpLiteNPU : public CodeGenOp {
 public:
-    // explicit CodeGenOpLiteNPU(const CodeGenOpLiteNPUCtx &ctx);
-    // CodeGenOpLiteNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
-    //     const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false, bool isMainBlk = false)
-    //     : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc, isMainBlk){};
-    // ~CodeGenOpLiteNPU() override = default;
-
     explicit CodeGenOpLiteNPU(const CodeGenOpLiteNPUCtx &ctx);
     CodeGenOpLiteNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
         const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false, bool isMainBlk = false);
     ~CodeGenOpLiteNPU() override = default;
 
     std::string GenMemL1CopyIn() const;
-    // std::string GenMemL1CopyOut() const;
     std::string GenMemL0CCopyOut() const;
+
+    std::vector<std::string> GeTileOpParamForNormalCopyTileTensor(
+        unsigned gmIdx, const std::string &gmVarName, bool isSpillingToGM) const;
+
+    std::string PrintCoord(size_t dim, const std::string &coord) const;
+    std::string PrintTensorForCopyBetweenGM(unsigned operandIdx, unsigned gmIdx, const std::string &gmVarName) const;
+
+    std::string PrintMemCopyInWithL1TileTensor(const PrintMemCopyWithL1Param &param) const;
+    std::string PrintMemCopyWithL1TileTensor(const PrintMemCopyWithL1Param &param) const;
+
+    std::vector<std::string> GetGmOffsetForTileTensor(unsigned gmIdx, bool isSpillingToGM = false) const;
 
     std::string GenMemL1ToL0() const;
 
@@ -69,6 +73,7 @@ public:
     std::string GenBinaryOp() const;
     // std::string GenVectorScalarOp() const;
 
+    std::string PrintMemL1ToL0TileTensor() const;
     std::string PrintMatmulTileTensor(bool isAcc) const;
     std::string PrintMatmulTileTensor(
         bool isAcc, std::unordered_map<OperandType, std::string> &tensorWithMemType) const;
@@ -181,7 +186,7 @@ private:
     std::vector<std::string> GenSymbolicArgument(const std::vector<SymbolicScalar> &exprList) const;
 
     std::string GenMemUBTransfer(bool isCopyUBToGM) const;
-    std::string GenMemUBSpillIntoGM(bool isCopyUBToGM) const;
+    std::string PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam &param) const;
     std::string GenVectorScalarOpByMode(bool isUseScalar) const;
     std::string GenVectorScalarOpScalarMode() const;
     std::string GenCubeOp(bool zeroC) const;
@@ -203,14 +208,9 @@ private:
     std::string PrintVcopy(const PrintUnaryParam &param) const;
     std::string PrintVcopyStatic(const PrintUnaryParam &param) const;
 
-    // struct PrintUnaryTmpBuffParam {
-    //     const std::string &s0Var;
-    //     const std::string &tmpVar;
-    //     const std::string &dVar;
-    //     const std::string &srcDtypeStr;
-    //     const std::string &tmpDtypeStr;
-    //     const std::string &dstDtypeStr;
-    // };
+    std::string PrintIndexPut(const PrintIndexPutParam &param) const;
+    std::string PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
+
     std::string PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVnchwconvStatic(const PrintUnaryTmpBuffParam &param) const;
@@ -219,13 +219,11 @@ private:
     std::string PrintCompactStatic(const PrintUnaryTmpBuffParam &param) const;
 
     std::string PrintMemCopyWithL0C(const PrintMemCopyWithL0CParam &param) const;
-    std::string PrintMemCopyWithL0CStatic(const PrintMemCopyWithL0CParam &param) const;
-    std::string PrintMemCopyWithL0CDynamic(const PrintMemCopyWithL0CParam &param) const;
+    std::string PrintMemCopyWithL0CTileTensor(const PrintMemCopyWithL0CParam &param) const;
 
     std::pair<std::string, std::string> GetOuterInnerValueStr(
         unsigned gmIdx, const std::vector<int64_t> &gmShape, bool isSpillingToGM = false) const;
     std::string PrintMemCopyWithL1(const PrintMemCopyWithL1Param &param) const;
-    std::string PrintMemCopyWithL1Static(const PrintMemCopyWithL1Param &param) const;
     // std::string PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL1Param &param) const;
 
     std::string PrintMemCopyWithUB(PrintMemCopyWithUBParam &param) const;
@@ -263,12 +261,7 @@ private:
     std::string PrintBinaryBrcDynamicUnaligned(const PrintBinaryBrcParam &param) const;
     std::string PrintBinaryBrc(const PrintBinaryBrcParam &param) const;
 
-    struct PrintTransposeDataMoveParam {
-        const std::string &s0Var;
-        const std::vector<int64_t> &dstShape;
-        const std::string &srcDtypeStr;
-        const std::string &dstDtypeStr;
-    };
+    std::string GenIndexPutOp() const;
 
     std::string PrintTransposeDataMove(const PrintTransposeDataMoveParam &param) const;
     std::string PrintTransposeDataMoveStatic(const PrintTransposeDataMoveParam &param) const;
@@ -417,6 +410,9 @@ private:
 
         // // fused pool
         // {                  Opcode::OP_FUSED_OP,                  [this]() { return GenFusedOp(); }},
+
+        // indexput
+        {Opcode::OP_INDEX_PUT, [this]() { return GenIndexPutOp(); }},
 
         // for performace optimization
         {                    Opcode::OP_PHASE1,              []() { return "SUBKERNEL_PHASE1\n"; }},

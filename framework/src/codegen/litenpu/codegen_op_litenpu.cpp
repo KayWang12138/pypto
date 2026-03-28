@@ -279,6 +279,13 @@ std::string CodeGenOpLiteNPU::GetLastUse() const {
     return oss.str();
 }
 
+
+std::string CodeGenOpLiteNPU::PrintCoord(size_t dim, const std::string &coord) const {
+    std::string ret = COORD;
+    ret.append(std::to_string(dim)).append(DIM).append(coord);
+    return ret;
+}
+
 std::string CodeGenOpLiteNPU::QueryTileTensorNameByIdx(int paramIdx) const {
     std::vector<TileTensor> res;
     // bool isInLoop = forBlkMgr_ != nullptr && forBlkMgr_->IsInLoop();
