@@ -310,6 +310,8 @@ private:
     std::string PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVnchwconvStatic(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintPermute(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintPermuteTileTensor() const;
     std::string PrintUnaryWithTmpTileTensor() const;
 
     std::string PrintCompact(const PrintUnaryTmpBuffParam &param) const;
