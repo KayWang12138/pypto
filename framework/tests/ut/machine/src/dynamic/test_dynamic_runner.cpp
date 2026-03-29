@@ -1,0 +1,163 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_dynamic_runner.cpp
+ * \brief
+ */
+
+#include "gtest/gtest.h"
+#include <cstdlib>
+#include "machine/runtime/device_runner.h"
+#include "machine/runtime/device_launcher.h"
+#include "machine/runtime/host_prof.h"
+#include "interface/tensor/logical_tensor.h"
+#include "tilefwk/tilefwk.h"
+#include "tilefwk/platform.h"
+#include "interface/inner/tilefwk.h"
+#include "interface/configs/config_manager.h"
+#include "interface/operation/operation.h"
+#include "tilefwk/data_type.h"
+#include "machine/device/machine_interface/pypto_aicpu_interface.h"
+#include "machine/utils/machine_ws_intf.h"
+#include "interface/program/program.h"
+#include "interface/utils/file_utils.h"
+#include "tilefwk/aicpu_common.h"
+#include "machine/device/dynamic/device_utils.h"
+#include "machine/runtime/dump_device_perf.h"
+#define private public
+using namespace npu::tile_fwk;
+
+extern "C" uint32_t DynPyptoKernelServerNull(void *targ);
+extern "C" uint32_t DynTileFwkBackendKernelServer(void *targ);
+extern "C" uint32_t StaticTileFwkBackendKernelServer(void *targ);
+class TestDynamicDeviceRunner : public testing::Test {
+public:
+    static void SetUpTestCase() {
+    }
+
+    static void TearDownTestCase() {}
+
+    void SetUp() override {
+        Program::GetInstance().Reset();
+        config::Reset();
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
+    }
+
+    void TearDown() override {}
+};
+
+// 必须在加载 pypto server .so 的用例之前执行：ExecuteFunc 在符号未就绪时返回非 0，覆盖 pypto_aicpu_interface.cpp 中 DEV_ERROR 分支。
+TEST_F(TestDynamicDeviceRunner, DynPyptoKernelServer_ReturnsErrorWhenKernelNotLoaded) {
+    EXPECT_EQ(DynPyptoKernelServer(nullptr), 1U);
+}
+
+TEST_F(TestDynamicDeviceRunner, DynPyptoKernelServerInit_ReturnsErrorWhenKernelNotLoaded) {
+    EXPECT_EQ(DynPyptoKernelServerInit(nullptr), 1U);
+}
+
+TEST_F(TestDynamicDeviceRunner, TestInitArgs) {
+    auto &runner = DeviceRunner::Get();
+    [[maybe_unused]]DeviceArgs args;
+    args.nrAic = 2;
+    args.nrAiv = 2;
+    args.nrValidAic = args.nrAic;
+    runner.InitDynamicArgs(args);
+    runner.DumpAiCoreExecutionTimeData();
+    runner.DumpAiCorePmuData();
+    runner.SynchronizeDeviceToHostProfData();
+}
+
+TEST_F(TestDynamicDeviceRunner, TestDynamicRun) {
+    auto &runner = npu::tile_fwk::DeviceRunner::Get();
+    [[maybe_unused]]DeviceArgs args;
+    args.nrAic = 2;
+    args.nrAiv = 2;
+    runner.InitDynamicArgs(args);
+    [[maybe_unused]]npu::tile_fwk::DeviceKernelArgs taskArgs;
+    std::vector<uint8_t> tensorInfo(sizeof(dynamic::AiCpuArgs));
+    taskArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo.data());
+    taskArgs.outputs = 0;
+    runner.args_.nrAic = 2;
+    runner.args_.nrAiv = 2;
+    int ret = runner.DynamicRun(0, 0, 0, 0, &taskArgs, 2);
+    EXPECT_EQ(ret, 0);
+}
+
+TEST_F(TestDynamicDeviceRunner, TestRegisterDynamicKernel) {
+    [[maybe_unused]]rtBinHandle staticHdl_;
+    npu::tile_fwk::DeviceRunner runner;
+    runner.RegisterKernelBin(&staticHdl_);
+}
+
+TEST_F(TestDynamicDeviceRunner, test_pypto_kernel_server_null) {
+    DeviceKernelArgs pyptoKernelArgs;
+    DeviceArgs devKernelArgs;
+    devKernelArgs.aicpuSoLen = 2;
+    pyptoKernelArgs.cfgdata = static_cast<int64_t *>(static_cast<void *>(&devKernelArgs));
+    auto ret = DynPyptoKernelServerNull(&pyptoKernelArgs);
+    EXPECT_EQ(ret, 1);
+}
+
+TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
+    setenv("DUMP_DEVICE_PERF", "true", 1);
+    DeviceArgs devKernelArgs;
+    devKernelArgs.nrAic = 1;
+    devKernelArgs.nrAiv = 2;
+    devKernelArgs.nrValidAic = 1;
+    devKernelArgs.nrAicpu = 3;
+    config::SetOptionsNg<int64_t>("debug.runtime_debug_mode", 1);
+    npu::tile_fwk::DeviceRunner::Get().InitMetaData(devKernelArgs);
+    std::vector<void *> perfData;
+    Metrics *metr = static_cast<Metrics*>(malloc(sizeof(Metrics) + sizeof(TaskStat)));
+    TaskStat taskStat;
+    taskStat.execEnd =1;
+    metr->taskCount = 1;
+    metr->tasks[0] = taskStat;
+    metr->perfTrace[0][0][0] = 1;
+    metr->turnNum = 1;
+
+    MetricPerf aicpuMetPer;
+    aicpuMetPer.perfAicpuTraceDevTask[0][0][0] = 1;
+    aicpuMetPer.perfAicpuTraceDevTask[1][0][0] = 2;
+    aicpuMetPer.perfAicpuTraceDevTask[2][0][0] = 3;
+    devKernelArgs.aicpuPerfAddr = npu::tile_fwk::dynamic::PtrToValue(static_cast<void*>(&aicpuMetPer));
+
+    for (uint64_t i = 0; i < devKernelArgs.nrAic + devKernelArgs.nrAiv; i++) {
+        perfData.push_back(static_cast<void*>(metr));
+    }
+    npu::tile_fwk::dynamic::DumpAicoreTaskExectInfo(devKernelArgs, perfData);
+    free(metr);
+    std::string jsonPath = npu::tile_fwk::config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
+    EXPECT_EQ(IsPathExist(jsonPath), true);
+    setenv("DUMP_DEVICE_PERF", "true", 1);
+    npu::tile_fwk::dynamic::DumpDevTaskPerfData(devKernelArgs, perfData, true);
+    jsonPath = npu::tile_fwk::config::LogTopFolder() + "/machine_runtime_operator_trace.json";
+    unsetenv("DUMP_DEVICE_PERF");
+    EXPECT_EQ(IsPathExist(jsonPath), false);
+}
+
+TEST_F(TestDynamicDeviceRunner, test_launch_init) {
+    DeviceKernelArgs pyptoKernelArgs;
+    DeviceArgs devKernelArgs;
+    devKernelArgs.aicpuPerfAddr = 1;
+    pyptoKernelArgs.cfgdata = static_cast<int64_t *>(static_cast<void *>(&devKernelArgs));
+    auto ret = DynTileFwkBackendKernelServer(&pyptoKernelArgs);
+    EXPECT_EQ(ret, -1);
+}
+
+TEST_F(TestDynamicDeviceRunner, test_static) {
+    EXPECT_EQ(StaticTileFwkBackendKernelServer(nullptr), 0);
+}
+
+TEST_F(TestDynamicDeviceRunner, DynPyptoKernelServerNull_RejectsNullArgs) {
+    EXPECT_EQ(DynPyptoKernelServerNull(nullptr), 1U);
+}

@@ -1,0 +1,136 @@
+{
+    "pass": {
+        "pg_parallel_lower_bound": 20,
+        "pg_upper_bound": 10000,
+        "pg_lower_bound": 512,
+        "mg_copyin_upper_bound": 104857600,
+        "mg_vec_parallel_lb": 48,
+        "pg_skip_partition": false,
+        "copyout_resolve_coalescing": 0,
+        "sg_set_scope": -1,
+        "cube_l1_reuse_setting": [],
+        "cube_nbuffer_setting": [[-1, 1]],
+        "vec_nbuffer_setting": []
+    },
+    "runtime": {
+        "device_sched_mode": 0,
+        "stitch_function_inner_memory": 10,
+        "stitch_function_outcast_memory": 50,
+        "stitch_function_num_initial": 128,
+        "stitch_function_max_num": 0,
+        "stitch_function_num_step": 0,
+        "stitch_cfgcache_size": 0,
+        "stitch_function_size": 20000,
+        "triple_stream_sched": true,
+        "run_mode": 0,
+        "valid_shape_optimize": 0,
+        "ready_on_host_tensors": []
+    },
+    "host": {
+        "compile_stage": 0,
+        "compile_monitor_enable": false,
+        "compile_timeout": 600,
+        "compile_timeout_stage": -1,
+        "compile_monitor_print_interval": 60
+    },
+    "codegen": {
+        "support_dynamic_aligned": false
+    },
+    "verify": {
+        "enable_pass_verify": false,
+        "pass_verify_save_tensor": false,
+        "pass_verify_save_tensor_dir": "",
+        "pass_verify_pass_filter": ["ExpandFunction", "SplitK", "L1CopyInReuseMerge", "InferDynShape", "InferParamIndex", "CodegenPreproc"],
+        "pass_verify_error_tol": [1e-3, 1e-3]
+    },
+    "debug": {
+        "compile_debug_mode": 0,
+        "runtime_debug_mode": 0
+    },
+    "operation": {
+        "force_combine_axis" : false,
+        "combine_axis" : false
+    },
+    "global": {
+        "platform": {
+            "enable_cost_model": false,
+            "enable_dyn_cost_model": false,
+            "enable_aihac_backend": true,
+            "test_is_tig": false,
+            "dump_source_location": true,
+            "enable_checker": false,
+            "device_platform":"ASCEND_910B2",
+            "enable_prof_func": false,
+            "enable_prof_aicore_time": false,
+            "enable_prof_aicore_pmu": false
+        },
+        "host": {
+            "strategy": "PVC2_OOO"
+        },
+        "simulation": {
+            "debug_single_func": false,
+            "leaf_function": "DEBUG_LEAF_FUNC",
+            "draw_function_graph": true,
+            "build_task_based_topo": true,
+            "sim_mode": 0,
+            "accuracy_level": 1,
+            "pv_run_level": 0,
+            "log_level": 3,
+            "timeout_threshold": -1,
+            "json_path": "",
+            "agent_json_path": "",
+            "args" : [
+                "Model.statisticReportToFile=true",
+                "Model.deviceArch=A2A3",
+                "Model.useOOOPassSeq=true",
+                "Core.logLabelMode=0",
+                "Core.bufferBackPressure=false"
+            ]
+        },
+        "codegen": {
+            "parallel_compile" : 128,
+            "support_dynamic_aligned": false,
+            "fixed_output_path": false,
+            "force_overwrite": true,
+            "codegen_support_tile_tensor": true
+        },
+        "tensor_print": {
+            "edgeitems": 3,
+            "precision": 4,
+            "threshold": 1000,
+            "linewidth": 80
+        },
+        "pass": {
+            "enable_binary_cache": false,
+            "enable_pass_configs": true,
+            "enable_cv_fuse": false,
+            "pass_thread_num": 1,
+            "vf_opt_mark_for": false,
+            "enable_vf": true,
+            "default_pass_configs": {
+                "print_graph": false,
+                "print_program": false,
+                "dump_graph": false,
+                "dump_pass_time_cost": true,
+                "pre_check": false,
+                "post_check": false,
+                "expected_value_check": false,
+                "disable_pass": false,
+                "health_check": false,
+                "use_max_freq_label": false
+            }
+        },
+        "pass_strategies": {
+            "PVC2_OOO": {
+                "ExpandFunction": {
+                    "expected_value_check": false
+                },
+                "SubgraphToFunction": {
+                    "pre_check": false,
+                    "post_check": false,
+                    "use_max_freq_label": true
+                }
+            }
+        }
+    }
+}
