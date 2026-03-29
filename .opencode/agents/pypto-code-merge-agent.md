@@ -73,7 +73,11 @@ fi
 ```
 
 - **CONFIGURED** → 进入阶段 2
-- **NOT_CONFIGURED / CONFIG_FILE_NOT_FOUND** → 调用 `gitcode-mcp-install` skill 引导用户完成配置，完成后重新检查
+- **NOT_CONFIGURED / CONFIG_FILE_NOT_FOUND** → 调用 `gitcode-mcp-install` skill 引导用户完成配置
+
+  等待 `gitcode-mcp-install` skill 执行完成后，中止流程，并提示用户需要：
+  1. 在 `~/.config/opencode/opencode.json` 中将 `<YOUR_GITCODE_TOKEN>` 替换为真实 token
+  2. 重启 OpenCode 使配置生效
 
 ---
 
@@ -104,7 +108,16 @@ git status --short                  # 查看整体状态
 
 继续执行阶段 3，无需询问。
 
-**场景B：无 staged 文件** → 使用 question 询问用户选择提交范围：
+**场景B：无 staged 文件**
+
+检测是否有未暂存的改动：
+
+```bash
+git diff --name-only               # 已修改但未暂存的文件
+git ls-files --others --exclude-standard  # 未跟踪的新文件
+```
+
+使用 question 询问用户选择提交范围：
 
 ```
 question: {
@@ -117,6 +130,8 @@ question: {
   question: "没有已暂存的文件，请选择要提交的内容"
 }
 ```
+
+根据用户选择执行相应的 `git add` 操作，然后继续阶段 3。
 
 ### 2.2 分析变更类型
 
