@@ -22,6 +22,7 @@
 #include "ut_json/ut_json_tool.h"
 #include "interface/configs/config_manager.h"
 #include "passes/tile_graph_pass/graph_optimization/duplicate_op.h"
+#include "passes/pass_check/duplicate_op_checker.h"
 
 #define private public
 namespace npu {
@@ -817,5 +818,42 @@ TEST_F(TestDuplicateOpPass, TestCheck4)
     DuplicateOp duplicateoppass;
     EXPECT_NE(duplicateoppass.PostCheck(*currFunctionPtr), SUCCESS);
 }
-} // namespace tile_fwk
-} // namespace npu
+
+TEST_F(TestDuplicateOpPass, GatherIn_OOperandNull) {
+    PROGRAM("GenerateMoveOpPassTest") {
+        std::vector<int64_t> shape1{256, 256};
+        std::vector<int64_t> shape2{128, 128};
+        TileShape::Current().SetVecTile({128, 128});
+
+        Tensor input_1(DT_FP32, shape1, "input_1");
+        Tensor output(DT_FP32, shape2, "output");
+
+        Function* originFunction = nullptr;
+        config::SetBuildStatic(true);
+
+        FUNCTION("VIEW", {input_1, output}) {
+            auto tmp_view = View(input_1, shape2, {0, 0});
+            output = tmp_view;
+        }
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_VIEW");
+        ASSERT_NE(originFunction, nullptr);
+        for (auto& op : originFunction->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_VIEW) {
+                op.SetOpCode(Opcode::OP_GATHER_IN_L1);
+                auto& outputs = op.GetOOperands();
+                if (!outputs.empty()) {
+                    outputs[0] = nullptr;
+                }
+            }
+        }
+        DuplicateOpChecker duplicatePass;
+        for (auto& op : originFunction->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_GATHER_IN_L1) {
+                Status ret = duplicatePass.PreCheckGatherIn(op);
+                EXPECT_EQ(ret, FAILED);
+            }
+        }
+    }
+}
+}
+}
