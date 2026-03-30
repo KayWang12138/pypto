@@ -193,12 +193,7 @@ struct CalcOps {
     void (*BitwiseLeftShiftS)(const TensorData &, const TensorData &, const Element &);
     void (*SBitwiseRightShift)(const TensorData &, const Element &, const TensorData &);
     void (*SBitwiseLeftShift)(const TensorData &, const Element &, const TensorData &);
-    void (*BindTensor)(const TensorData &, uint64_t, uint64_t, uint64_t);
-    void (*Put)(const TensorData &, int);
-    void (*Get)(const TensorData &, int);
-    void (*WaitUntil)(int);
-    void (*Signal)(int);
-    void (*Set)(int);
+    void (*BindTensor)(const TensorData &, const std::string &, uint64_t, uint64_t);
 };
 
 extern "C" struct CalcOps *GetCalcOps();
