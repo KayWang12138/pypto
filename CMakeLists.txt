@@ -192,6 +192,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
                 framework/include/tilefwk/error.h
                 framework/include/tilefwk/lazy.h
                 framework/include/tilefwk/element.h
+                framework/include/tilefwk/comm_group_recorder.h
             DESTINATION ${PyPTO_WhlName}/lib/calculator/include/tilefwk
     )
     install(DIRECTORY framework/src/interface/interpreter/calculator/
