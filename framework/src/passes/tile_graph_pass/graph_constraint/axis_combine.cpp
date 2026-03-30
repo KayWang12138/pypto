@@ -118,7 +118,7 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function& function, 
             auto alignedTensor = CreateAlignedTensor(function, srcTensor, alignedShape);
             auto& expand = function.AddRawOperation(Opcode::OP_EXPAND, {srcTensor}, {alignedTensor});
             expand.SetAttribute(
-                OP_ATTR_PREFIX + "EXPANDDIM", GetExpandDim(srcTensor->GetShape(), otherTensor->GetShape()));
+                OP_ATTR_PREFIX + "EXPANDDIMS", GetExpandDim(srcTensor->GetShape(), otherTensor->GetShape()));
             SetValidShapeForExpand(expand, otherTensor);
             expand.UpdateSubgraphID(op.GetSubgraphID());
             UpdateOperand(op, idx, srcTensor, alignedTensor, inputTensor);

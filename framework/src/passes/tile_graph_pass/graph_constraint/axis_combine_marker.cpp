@@ -124,6 +124,7 @@ void UpdateExpandStatus(Operation* op, std::unordered_map<LogicalTensorPtr, Axis
         auto dimSize = static_cast<int>(inputTensor->GetShape().size());
         auto axes = op->GetVectorIntAttribute(OP_ATTR_PREFIX + "EXPANDDIMS");
         // 在尾轴为1的条件下，要求尾轴没有发生broadcast。[n, 1, 1]->expand->[n, 8, 1]??
+        // TODO: 这里尾轴交换场景可能会出问题
         bool hasTailExpand = false;
         for (auto axis : axes) {
             if (axis >= dimSize - 1) {

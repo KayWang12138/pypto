@@ -77,7 +77,7 @@ void ExpandTile(Function& function, const struct ExpandInfo& expandInfo)
     }
     auto srcTile = expandInfo.srcTensor->View(function, srcShape, srcOffset);
     auto& newOp = function.AddOperation("TILE_EXPAND", {srcTile}, {resultTile});
-    newOp.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", expandInfo.expandDim);
+    newOp.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", expandInfo.expandDim);
     newOp.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
 }
 

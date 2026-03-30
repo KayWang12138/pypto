@@ -80,6 +80,8 @@ bool NeedClearStatus(const Operation& op)
 
     //  Opcode::OP_EXPAND only support last axis or second last axis in for-loop
     if (opCode == Opcode::OP_EXPAND) {
+        // TODO: 这里的判断返回的逻辑还不清楚
+        // 单轴expand场景下，为什么判定expandAxis == 0或者1要返回true
         std::string axisKey = OP_ATTR_PREFIX + "EXPANDDIMS";
         ASSERT(op.HasAttr(axisKey)) << "attr " << axisKey << " not found";
         auto expandAxes = op.GetVectorIntAttribute(axisKey);

@@ -1239,7 +1239,7 @@ TEST_F(TestPadLocalBuffer, axiscombineEnable)
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 16}, MemoryType::MEM_UB, "t1"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24, 16}, MemoryType::MEM_UB, "t2"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_EXPAND, {"t1"}, {"t2"}, "expand", true), true);
-    graph.GetOp("expand")->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 0);
+    graph.GetOp("expand")->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", std::vector<int>(0));
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24, 1}, MemoryType::MEM_DEVICE_DDR, "gm"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24, 1}, MemoryType::MEM_UB, "t3"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"gm"}, {"t3"}, "copyin", true), true);
