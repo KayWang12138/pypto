@@ -190,7 +190,7 @@ pypto.set_vec_tile_shapes(64, 512)
 
 [Stitch](../appendix/glossary.md)配置决定了多少个root function被同时下发调度，即该参数控制一次stitch能处理的最大loop数量，会同时影响调度开销、控制流生成耗时以及 workspace 内存占用。因此Stitch设置较大后任务可以充分并行，通常性能更优。当泳道图中出现大量空隙时，可能是Stitch配置的值太小导致的。
 
-当前Stitch配置主要由[stitch_function_max_num](../../api/config/pypto-set_pass_options.md)参数决定，在jit装饰器中完成配置，可参考如下配置：
+当前Stitch配置主要由[stitch_function_max_num](../../api/config/pypto-jit.md#runtime_options_detail)参数决定，在jit装饰器中完成配置，可参考如下配置：
 
 ```python
     @pypto.frontend.jit(
@@ -314,7 +314,7 @@ Vector运算场景下通过[set_pass_options](../../api/config/pypto-set_pass_op
 PyPTO算子的核间的流水由AICPU对子图的调度确定，它基于子图间的依赖关系和核间任务的调度策略。可以尝试更改该调度策略以达到更优的算子性能。当上下游子图之间依赖较为简单，或下游子图输入Tensor的L2命中率较为重要时，推荐使用L2亲和调度，配置方式如下：
 
 ```python
-@pypto.jit(runtime_options={"device_sched_mode": 1})
+@pypto.frontend.jit(runtime_options={"device_sched_mode": 1})
 ```
 
 具体配置时应综合考虑L2复用与负载均衡的影响，不同场景的最佳配置策略不同，应结合泳道图具体分析。

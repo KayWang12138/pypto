@@ -16,11 +16,11 @@
 #include "function_cache.h"
 #include <elf.h>
 #include <cstdio>
+#include <fstream>
 #include "interface/utils/common.h"
 #include "interface/utils/file_utils.h"
 #include "securec.h"
 #include "topo_processor.h"
-#include "interface/utils/log.h"
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk {

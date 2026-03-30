@@ -14,7 +14,6 @@
  */
 
 #include "interface/interpreter/function.h"
-#include "interface/utils/log.h"
 #include "interface/interpreter/operation.h"
 #include "interface/interpreter/verify_error.h"
 
@@ -26,9 +25,9 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         opcode == Opcode::OP_DIV_BRC) {
         ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
                ctx->ooperandInplaceDataViewList->size() == SIZE_TWO);
-    } else if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_COPYSIGN || opcode == Opcode::OP_POW) {
-        ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-               ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    } else if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_COPYSIGN || opcode == Opcode::OP_POW ||
+               opcode == Opcode::OP_FLOORDIV || opcode == Opcode::OP_REM) {
+        ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     } else {
         ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
                ctx->ooperandInplaceDataViewList->size() == 1);
@@ -36,8 +35,31 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
     ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
            ctx->ioperandDataViewList->size() == SIZE_TWO);
     auto ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto lhs = ctx->ioperandDataViewList->at(0);
-    auto rhs = ctx->ioperandDataViewList->at(1);
+    auto tlhs = ctx->ioperandDataViewList->at(0);
+    auto lhs = tlhs;
+    auto trhs = ctx->ioperandDataViewList->at(1);
+    auto rhs = trhs;
+    auto lhsTensor = ctx->op->GetIOperands()[0];
+    auto rhsTensor = ctx->op->GetIOperands()[1];
+    bool lhsFromBrcb = !lhsTensor->GetProducers().empty() &&
+        (*lhsTensor->GetProducers().begin())->GetOpcode() == Opcode::OP_BRCB;
+    bool rhsFromBrcb = !rhsTensor->GetProducers().empty() &&
+        (*rhsTensor->GetProducers().begin())->GetOpcode() == Opcode::OP_BRCB;
+
+    if (lhsFromBrcb) {
+        lhs = tlhs->View({tlhs->GetShape()[0], 1}, tlhs->GetOffset());
+    } else if (rhsFromBrcb) {
+        rhs = trhs->View({trhs->GetShape()[0], 1}, trhs->GetOffset());
+    }
+
+    if (lhsFromBrcb || rhsFromBrcb) {
+        VERIFY_LOGW("AxisCombine: detected by BRCB, opcode=%s lhsFromBrcb=%d rhsFromBrcb=%d",
+            ctx->op->GetOpcodeStr().c_str(), static_cast<int>(lhsFromBrcb), static_cast<int>(rhsFromBrcb));
+        VERIFY_LOGW("AxisCombine: lhs(shape=%s validShape=%s offset=%s) rhs(shape=%s validShape=%s offset=%s)",
+            IntVecToStr(lhs->GetShape()).c_str(), IntVecToStr(lhs->GetValidShape()).c_str(),
+            IntVecToStr(lhs->GetOffset()).c_str(), IntVecToStr(rhs->GetShape()).c_str(),
+            IntVecToStr(rhs->GetValidShape()).c_str(), IntVecToStr(rhs->GetOffset()).c_str());
+    }
 
     if (opcode == Opcode::OP_ADD_BRC || opcode == Opcode::OP_SUB_BRC || opcode == Opcode::OP_MUL_BRC ||
         opcode == Opcode::OP_DIV_BRC) {
@@ -57,6 +79,7 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         case Opcode::OP_MUL_BRC: calc::Mul(ret, lhs, rhs); break;
         case Opcode::OP_DIV: calc::Div(ret, lhs, rhs); break;
         case Opcode::OP_DIV_BRC: calc::Div(ret, lhs, rhs); break;
+        case Opcode::OP_FLOORDIV: calc::FloorDiv(ret, lhs, rhs); break;
         case Opcode::OP_POW: calc::Pow(ret, lhs, rhs); break;
         case Opcode::OP_REM: calc::Remainder(ret, lhs, rhs); break;
         case Opcode::OP_S_MAX: calc::Max(ret, lhs, rhs); break;
@@ -81,6 +104,7 @@ REGISTER_CALC_OP(OP_MUL, Opcode::OP_MUL, ExecuteOpBinary<Opcode::OP_MUL>);
 REGISTER_CALC_OP(OP_MUL_BRC, Opcode::OP_MUL_BRC, ExecuteOpBinary<Opcode::OP_MUL_BRC>);
 REGISTER_CALC_OP(OP_DIV, Opcode::OP_DIV, ExecuteOpBinary<Opcode::OP_DIV>);
 REGISTER_CALC_OP(OP_DIV_BRC, Opcode::OP_DIV_BRC, ExecuteOpBinary<Opcode::OP_DIV_BRC>);
+REGISTER_CALC_OP(OP_FLOORDIV, Opcode::OP_FLOORDIV, ExecuteOpBinary<Opcode::OP_FLOORDIV>);
 REGISTER_CALC_OP(OP_POW, Opcode::OP_POW, ExecuteOpBinary<Opcode::OP_POW>);
 REGISTER_CALC_OP(OP_REM, Opcode::OP_REM, ExecuteOpBinary<Opcode::OP_REM>);
 REGISTER_CALC_OP(OP_S_ADD, Opcode::OP_S_ADD, ExecuteOpBinary<Opcode::OP_ADD>);
@@ -681,6 +705,17 @@ void ExecuteOpCumSum(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_CUM_SUM, Opcode::OP_CUM_SUM, ExecuteOpCumSum);
 
+void ExecuteOpCumProd(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &output = ctx->ooperandInplaceDataViewList->at(0);
+    auto &input = ctx->ioperandDataViewList->at(0);
+
+    int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
+    calc::CumProd(output, input, axis);
+}
+REGISTER_CALC_OP(OP_CUM_PROD, Opcode::OP_CUM_PROD, ExecuteOpCumProd);
+
 void ExecuteOpIndexPut(ExecuteOperationContext *ctx) {
     ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
            ctx->ooperandInplaceDataViewList->size() == 1);
@@ -823,9 +858,9 @@ REGISTER_CALC_OP(OP_REDUCE_ACC, Opcode::OP_REDUCE_ACC, ExecuteOpReduceAcc);
 
 template <Opcode opcode>
 void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
-    if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_REMRS) {
-        ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-               ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_REMRS || opcode == Opcode::OP_FLOORDIVS ||
+        opcode == Opcode::OP_REMS) {
+        ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     } else {
         ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
                ctx->ooperandInplaceDataViewList->size() == 1);
@@ -845,6 +880,7 @@ void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
         case Opcode::OP_MAXS: calc::MaxS(ret, lhs, element); break;
         case Opcode::OP_MINS: calc::MinS(ret, lhs, element); break;
         case Opcode::OP_DIVS: calc::DivS(ret, lhs, element, reverse); break;
+        case Opcode::OP_FLOORDIVS: calc::FloorDivS(ret, lhs, element, reverse); break;
         case Opcode::OP_REMS: calc::RemainderS(ret, lhs, element, reverse); break;
         case Opcode::OP_REMRS: calc::RemainderRS(ret, lhs, element, reverse); break;
         case Opcode::OP_S_MAXS: calc::MaxS(ret, lhs, element); break;
@@ -861,6 +897,7 @@ REGISTER_CALC_OP(OP_ADDS, Opcode::OP_ADDS, ExecuteOpBinaryScalar<Opcode::OP_ADDS
 REGISTER_CALC_OP(OP_SUBS, Opcode::OP_SUBS, ExecuteOpBinaryScalar<Opcode::OP_SUBS>);
 REGISTER_CALC_OP(OP_MULS, Opcode::OP_MULS, ExecuteOpBinaryScalar<Opcode::OP_MULS>);
 REGISTER_CALC_OP(OP_DIVS, Opcode::OP_DIVS, ExecuteOpBinaryScalar<Opcode::OP_DIVS>);
+REGISTER_CALC_OP(OP_FLOORDIVS, Opcode::OP_FLOORDIVS, ExecuteOpBinaryScalar<Opcode::OP_FLOORDIVS>);
 REGISTER_CALC_OP(OP_MAXS, Opcode::OP_MAXS, ExecuteOpBinaryScalar<Opcode::OP_MAXS>);
 REGISTER_CALC_OP(OP_MINS, Opcode::OP_MINS, ExecuteOpBinaryScalar<Opcode::OP_MINS>);
 REGISTER_CALC_OP(OP_LRELU, Opcode::OP_LRELU, ExecuteOpBinaryScalar<Opcode::OP_LRELU>);

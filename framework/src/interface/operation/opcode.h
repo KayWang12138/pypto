@@ -53,6 +53,8 @@ enum class Opcode {
     OP_ROWEXPMAX,
     OP_ROWEXPSUM,
     OP_ROWSUMLINE,
+    OP_ROWARGMAXLINE,
+    OP_ROWARGMINLINE,
     OP_ROWMAXLINE,
     OP_ROWMINLINE,
     OP_ROWPRODLINE,
@@ -129,6 +131,7 @@ enum class Opcode {
     OP_INDEX_ADD,
     OP_CONCAT,
     OP_CUM_SUM,
+    OP_CUM_PROD,
     OP_SCATTER_UPDATE,
     OP_SCATTER_SCALAR,
     OP_PAIRMAX,
@@ -138,6 +141,8 @@ enum class Opcode {
     OP_ROWMAX_SINGLE,
     OP_ROWMIN_SINGLE,
     OP_ROWSUM_SINGLE,
+    OP_ROWARGMAX_SINGLE,
+    OP_ROWARGMIN_SINGLE,
     OP_ROWPROD_SINGLE,
     OP_ROWMAX_COMBINE_AXIS_SINGLE,
     OP_ROWSUM_COMBINE_AXIS_SINGLE,
@@ -155,6 +160,9 @@ enum class Opcode {
     OP_BITWISEAND,
     OP_BITWISEOR,
     OP_BITWISEXOR,
+    OP_FLOORDIV,
+    OP_FLOORDIVS,
+
     // Cube
     OP_A_MUL_B,
     OP_A_MULACC_B,
@@ -554,6 +562,8 @@ const std::unordered_set<Opcode> BINARY_OPS{
     Opcode::OP_BITWISEXOR,
     Opcode::OP_EXPANDEXPDIF,
     Opcode::OP_COPYSIGN,
+    Opcode::OP_FLOORDIV,
+    Opcode::OP_FLOORDIVS,
 };
 
 const std::unordered_set<Opcode> BINARY_WITH_BRC_OPS{
@@ -572,8 +582,9 @@ const std::unordered_set<Opcode> UNARY_OPS{Opcode::OP_EXP, Opcode::OP_EXP2, Opco
     Opcode::OP_SIGN, Opcode::OP_ROWPRODLINE, Opcode::OP_SIGNBIT};
 
 const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{Opcode::OP_COMPACT, Opcode::OP_ROWSUM_SINGLE,
-    Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV,
-    Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWPROD_SINGLE};
+    Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV, Opcode::OP_ROWARGMAX_SINGLE, 
+    Opcode::OP_ROWARGMAXLINE, Opcode::OP_ROWARGMIN_SINGLE, Opcode::OP_ROWARGMINLINE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE,
+    Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWPROD_SINGLE};
 
 const std::unordered_set<Opcode> VECTOR_SCALAR_OPS{
     Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS,
@@ -600,7 +611,7 @@ const std::unordered_set<Opcode> INDEX_PUT_OPS{Opcode::OP_INDEX_PUT};
 const std::unordered_set<Opcode> CUM_SUM_OPS{Opcode::OP_CUM_SUM};
 
 const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE, Opcode::OP_TRANSPOSE_VNCHWCONV,
-    Opcode::OP_GATHER_ELEMENT, Opcode::OP_INDEX_ADD, Opcode::OP_CUM_SUM, Opcode::OP_TRIUL, Opcode::OP_COPY_IN,
+    Opcode::OP_GATHER_ELEMENT, Opcode::OP_INDEX_ADD, Opcode::OP_CUM_SUM, Opcode::OP_CUM_PROD, Opcode::OP_TRIUL, Opcode::OP_COPY_IN,
     Opcode::OP_UB_COPY_IN, Opcode::OP_L1_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_UB_COPY_OUT, Opcode::OP_L1_COPY_OUT,
     Opcode::OP_L0C_COPY_OUT, Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_INDEX_OUTCAST, Opcode::OP_ADD, Opcode::OP_SUB,
     Opcode::OP_MUL, Opcode::OP_DIV, Opcode::OP_EXP, Opcode::OP_EXP2, Opcode::OP_EXPM1, Opcode::OP_NEG, Opcode::OP_LN, Opcode::OP_HUB,
@@ -612,8 +623,8 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_ONEHOT, Opcode::OP_POW, Opcode::OP_INDEX_PUT, Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0B,
     Opcode::OP_L1_TO_L0_AT, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B, Opcode::OP_A_MUL_BT, Opcode::OP_AT_MUL_B,
     Opcode::OP_AT_MUL_BT, Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS, Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS,
-    Opcode::OP_ROWSUMLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC, Opcode::OP_MUL_BRC,
-    Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC, Opcode::OP_GATHER,
+    Opcode::OP_ROWSUMLINE, Opcode::OP_ROWARGMAXLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC, Opcode::OP_MUL_BRC,
+    Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC, Opcode::OP_GATHER, Opcode::OP_ROWARGMIN_SINGLE, Opcode::OP_ROWARGMINLINE, 
     Opcode::OP_HYPOT, Opcode::OP_S_ADDS, Opcode::OP_LRELU, Opcode::OP_REM, Opcode::OP_REMS, Opcode::OP_REMRS,
     Opcode::OP_S_SUBS, Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS, Opcode::OP_S_MINS, Opcode::OP_ROUND,
     Opcode::OP_BITSORT, Opcode::OP_MRGSORT, Opcode::OP_CMP, Opcode::OP_CMPS, Opcode::OP_EXTRACT, Opcode::OP_PRELU,
@@ -624,10 +635,10 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_L1_TO_FIX_QUANT_PRE, Opcode::OP_L1_TO_BT, Opcode::OP_BRCB, Opcode::OP_MOD, Opcode::OP_MODS,
     Opcode::OP_BITWISEAND, Opcode::OP_BITWISEOR, Opcode::OP_BITWISEXOR, Opcode::OP_BITWISEANDS, Opcode::OP_BITWISEORS,
     Opcode::OP_BITWISEXORS, Opcode::OP_EXPANDEXPDIF, Opcode::OP_BITWISENOT, Opcode::OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISELEFTSHIFT,
-    Opcode::OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS, Opcode::OP_SBITWISERIGHTSHIFT,
+    Opcode::OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS, Opcode::OP_SBITWISERIGHTSHIFT, Opcode::OP_ROWARGMAX_SINGLE,
     Opcode::OP_SBITWISELEFTSHIFT, Opcode::OP_COPYSIGN, Opcode::OP_TWOTILEMRGSORT, Opcode::OP_EXTRACT_SINGLE,
     Opcode::OP_SORT_UB, Opcode::OP_GATHER_MASK, Opcode::OP_GATHER_MASK_BUILDIN, Opcode::OP_PAIRPROD, Opcode::OP_ROWPROD_SINGLE,
-    Opcode::OP_ROWPRODLINE};
+    Opcode::OP_ROWPRODLINE, Opcode::OP_FLOORDIV, Opcode::OP_FLOORDIVS};
 
 const std::unordered_set<Opcode> UNSUPPORT_FP16_OPS{Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_REMRS, Opcode::OP_REMS, Opcode::OP_REM};
 
@@ -641,18 +652,19 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_R
     Opcode::OP_S_DIV, Opcode::OP_S_MAX, Opcode::OP_S_MIN,Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS, Opcode::OP_PRELU,
     Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS, Opcode::OP_ROWMAX, Opcode::OP_ROWSUM, Opcode::OP_ROWEXPMAX,
     Opcode::OP_ROWEXPSUM, Opcode::OP_ROWSUMLINE, Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE, Opcode::OP_ROWMAX_SINGLE,
-    Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_SIGN, Opcode::OP_SIGNBIT,
+    Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_SIGN,
     Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_BITWISEAND, Opcode::OP_BITWISEOR,
     Opcode::OP_BITWISEXOR, Opcode::OP_BITWISEANDS, Opcode::OP_BITWISEORS, Opcode::OP_BITWISEXORS, Opcode::OP_EXPANDEXPDIF, Opcode::OP_BITWISENOT,
     Opcode::OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISELEFTSHIFT, Opcode::OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS,
     Opcode::OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, Opcode::OP_COPYSIGN, Opcode::OP_LRELU, Opcode::OP_ROWPROD_SINGLE,
-    Opcode::OP_ROWPRODLINE};
+    Opcode::OP_ROWARGMIN_SINGLE, Opcode::OP_ROWARGMINLINE, Opcode::OP_ROWARGMAX_SINGLE, Opcode::OP_ROWARGMAXLINE,
+    Opcode::OP_ROWPRODLINE, Opcode::OP_FLOORDIV, Opcode::OP_FLOORDIVS};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_ARCH35_OPS{Opcode::OP_EXP, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_RELU,
     Opcode::OP_ABS, Opcode::OP_LOGICALNOT, Opcode::OP_LOGICALAND, Opcode::OP_DIVS, Opcode::OP_DIV, Opcode::OP_EXPANDEXPDIF,
-    Opcode::OP_ROWSUMLINE, Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_REMRS, Opcode::OP_REM,
+    Opcode::OP_ROWSUMLINE, Opcode::OP_ROWARGMAXLINE, Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_REMRS, Opcode::OP_REM,
     Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_PRELU, Opcode::OP_ROWPROD_SINGLE,
-    Opcode::OP_ROWPRODLINE, Opcode::OP_REMS, Opcode::OP_LRELU};
+    Opcode::OP_ROWPRODLINE, Opcode::OP_REMS, Opcode::OP_LRELU, Opcode::OP_ROWARGMIN_SINGLE, Opcode::OP_ROWARGMINLINE, Opcode::OP_ROWARGMAX_SINGLE};
 
 const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_L1_TO_FIX, Opcode::OP_L1_TO_FIX_QUANT_PRE,
     Opcode::OP_L1_TO_FIX_RELU_PRE, Opcode::OP_L1_TO_FIX_RELU_POST, Opcode::OP_L1_TO_FIX_QUANT_POST,
@@ -710,4 +722,5 @@ inline bool IsOpCodeSupportMultiProducers(Opcode opCode) {
 extern std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS;
 extern std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS;
 extern std::unordered_set<Opcode> SKIP_OPCODE_FOR_CODEGEN;
+extern std::unordered_set<Opcode> SUPPORT_BRCINLINE;
 } // namespace npu::tile_fwk

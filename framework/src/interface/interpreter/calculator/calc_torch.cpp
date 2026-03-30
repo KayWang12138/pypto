@@ -407,6 +407,19 @@ DEFINE_BINARY_S_OPS(BitwiseAndS, bitwise_and_out)
 DEFINE_BINARY_S_OPS(BitwiseOrS, bitwise_or_out)
 DEFINE_BINARY_S_OPS(BitwiseXorS, bitwise_xor_out)
 
+static void FloorDivS(const TensorData &out, const TensorData &self, const Element &scalar, bool reverse) {
+    auto tout = From(out);
+    auto tself = From(self);
+    auto tscalar = torch::full({}, From(scalar), tself.second.options());
+    if (reverse) {
+        torch::full_out(tout.second, out.shape, From(scalar));
+        torch::floor_divide_out(tout.second, tout.second, tself.second);
+    } else {
+        torch::floor_divide_out(tout.second, tself.second, tscalar);
+    }
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 static void Add(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tself = From(self);
     auto tother = From(other);
@@ -608,6 +621,7 @@ static void PReLU(const TensorData &out, const TensorData &self, const TensorDat
 
 DEFINE_BINARY_OPS(Remainder, remainder_out)
 DEFINE_BINARY_OPS(Gcd, gcd_out)
+DEFINE_BINARY_OPS(FloorDiv, floor_divide_out)
 
 static void Pow(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
@@ -1348,6 +1362,13 @@ void CumSum(const TensorData &out, const TensorData &in, int axis) {
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+void CumProd(const TensorData &out, const TensorData &in, int axis) {
+    auto tout = From(out);
+    auto input = From(in);
+    torch::cumprod_out(tout.second, input.second, axis);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 void IndexPut(const TensorData &out, const TensorData &self, const std::vector<TensorData> &indices, const TensorData &values, bool accumulate) {
     c10::List<c10::optional<at::Tensor>> indicesList;
     for (auto idx : indices) {
@@ -2076,6 +2097,7 @@ static struct CalcOps calcOps = {
     .SubS = SubS,
     .MulS = MulS,
     .DivS = DivS,
+    .FloorDivS = FloorDivS,
     .FmodS = FmodS,
     .RemainderS = RemainderS,
     .RemainderRS = RemainderRS,
@@ -2087,6 +2109,7 @@ static struct CalcOps calcOps = {
     .Sub = Sub,
     .Mul = Mul,
     .Div = Div,
+    .FloorDiv = FloorDiv,
     .Fmod = Fmod,
     .Remainder = Remainder,
     .Pow = Pow,
@@ -2123,6 +2146,7 @@ static struct CalcOps calcOps = {
     .TriU = TriU,
     .TriL = TriL,
     .CumSum = CumSum,
+    .CumProd = CumProd,
     .IndexPut = IndexPut,
     .Reshape = Reshape,
     .Permute = Permute,

@@ -35,7 +35,7 @@ namespace tile_fwk {
 constexpr int SUBGRAPHID0 = 0;
 constexpr int SUBGRAPHID1 = 1;
 constexpr int SUBGRAPHID2 = 2;
-constexpr int NUM3 = 3;
+constexpr int NUM5 = 5;
 constexpr int NUM10 = 10;
 constexpr int NUM128 = 128;
 void PrintGraphInfoPreGraph(Function* func, std::set<int>& tensorMagicWithColorSet) {
@@ -1304,6 +1304,185 @@ TEST_F(PreGraphTest, PreGraphReduceExpand) {
     // check after pass
     EXPECT_EQ(ddrTensor1->tensor->GetRawShapeSize(),outCast->tensor->GetRawShapeSize());
     EXPECT_EQ(function->Operations().size(), NUM4);
+}
+
+/*
+PreGraphSingleAssembleMutiConsumerExpand
+inCast{16,16}->copyin->ubTensor{16,16}->copyout->ddrTensor1{16,16}->Reshape->ddrTensor2{8,2,16}->Assemble->outCast{8,2,32}
+                                                                                                ->copyout    
+inCast{16,16}->copyin->ubTensor{16,16}->copyout->ddrTensor1{16,16}->Reshape->ddrTensor2{8,2,16}->Assemble->outCast{8,2,32}
+                                                                                                ->copyout   
+*/
+TEST_F(PreGraphTest, PreGraphMutiConsumerExpand) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {16, 16}, "inCast");
+    auto inCast = G.GetTensor("inCast");
+    inCast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {16, 16}, "ubTensor");
+    auto ubTensor = G.GetTensor("ubTensor");
+    ubTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    G.AddTensor(inputAstDtype, {16, 16}, "ddrTensor1");
+    auto ddrTensor1 = G.GetTensor("ddrTensor1");
+    ddrTensor1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {8, 2, 16}, "ddrTensor2");
+    auto ddrTensor2 = G.GetTensor("ddrTensor2");
+    ddrTensor2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {8, 2, 32}, "outCast");
+    auto outCast = G.GetTensor("outCast");
+    outCast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    ddrTensor1->tensor->UpdateRawShape({16, 16});
+    ddrTensor2->tensor->UpdateRawShape({8, 2, 32});
+    outCast->tensor->UpdateRawShape({8, 2, 32});
+    // add op
+    G.AddOp(Opcode::OP_COPY_IN, {"inCast"}, {"ubTensor"}, "COPYIN");
+    G.AddOp(Opcode::OP_COPY_OUT, {"ubTensor"}, {"ddrTensor1"}, "COPYOUT1");
+    G.AddOp(Opcode::OP_RESHAPE, {"ddrTensor1"}, {"ddrTensor2"}, "RESHAPE");
+    G.AddOp(Opcode::OP_COPY_OUT, {"ddrTensor2"}, {"outCast"}, "COPYOUT2");
+    auto attrCopyOut = std::make_shared<CopyOpAttribute>(MemoryType::MEM_DEVICE_DDR, OpImmediate::Specified({0, 0, 16}), 
+        OpImmediate::Specified(outCast->GetShape()), OpImmediate::Specified(outCast->tensor->GetRawShape()));
+    G.GetOp("COPYOUT2")->SetOpAttribute(attrCopyOut);
+    G.AddOp(Opcode::OP_ASSEMBLE, {"ddrTensor2"}, {"outCast"}, "ASSEMBLE");
+    auto assemble = G.GetOp("ASSEMBLE");
+    auto assembleAttr = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{0, 0, 0},
+        OpImmediate::ToSpecified(OpImmediate::Specified(std::vector<int64_t>{0, 0, 0})));
+    assemble->SetOpAttribute(assembleAttr);
+
+    // set incast and outcast
+    G.SetInCast({"inCast"});
+    G.SetOutCast({"outCast"});
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    PreGraphProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // check after pass
+    EXPECT_EQ(ddrTensor1->tensor->GetRawShapeSize(),outCast->tensor->GetRawShapeSize());
+    EXPECT_EQ(function->Operations().size(), NUM5);
+}
+
+/*
+PreGraphMutiConsumerReduce
+inCast{4,8,16}->copyin->ubTensor{4,8,16}->copyout->ddrTensor1{4,8,16}->Reshape->ddrTensor2{32,16}->Assemble->outCast{32,32}
+                                                                                                 ->copyout     
+inCast{4,8,16}->copyin->ubTensor{4,8,16}->copyout->ddrTensor1{4,8,16}->Reshape->ddrTensor2{32,16}->Assemble->outCast{32,32}
+                                                                                                 ->copyout   
+*/
+TEST_F(PreGraphTest, PreGraphMutiConsumerReduce) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {4, 8, 16}, "inCast");
+    auto inCast = G.GetTensor("inCast");
+    inCast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {4, 8, 16}, "ubTensor");
+    auto ubTensor = G.GetTensor("ubTensor");
+    ubTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    G.AddTensor(inputAstDtype, {4, 8, 16}, "ddrTensor1");
+    auto ddrTensor1 = G.GetTensor("ddrTensor1");
+    ddrTensor1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {32, 16}, "ddrTensor2");
+    auto ddrTensor2 = G.GetTensor("ddrTensor2");
+    ddrTensor2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {32, 32}, "outCast");
+    auto outCast = G.GetTensor("outCast");
+    outCast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    ddrTensor1->tensor->UpdateRawShape({4, 8, 16});
+    ddrTensor2->tensor->UpdateRawShape({32, 16});
+    outCast->tensor->UpdateRawShape({32, 32});
+    // add op
+    G.AddOp(Opcode::OP_COPY_IN, {"inCast"}, {"ubTensor"}, "COPYIN");
+    G.AddOp(Opcode::OP_COPY_OUT, {"ubTensor"}, {"ddrTensor1"}, "COPYOUT1");
+    G.AddOp(Opcode::OP_RESHAPE, {"ddrTensor1"}, {"ddrTensor2"}, "RESHAPE");
+    G.AddOp(Opcode::OP_COPY_OUT, {"ddrTensor2"}, {"outCast"}, "COPYOUT2");
+    auto attrCopyOut = std::make_shared<CopyOpAttribute>(MemoryType::MEM_DEVICE_DDR, OpImmediate::Specified({0, 16}), 
+        OpImmediate::Specified(outCast->GetShape()), OpImmediate::Specified(outCast->tensor->GetRawShape()));
+    G.GetOp("COPYOUT2")->SetOpAttribute(attrCopyOut);
+    G.AddOp(Opcode::OP_ASSEMBLE, {"ddrTensor2"}, {"outCast"}, "ASSEMBLE");
+    auto assemble = G.GetOp("ASSEMBLE");
+    auto assembleAttr = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{0, 0},
+        OpImmediate::ToSpecified(OpImmediate::Specified(std::vector<int64_t>{0, 0})));
+    assemble->SetOpAttribute(assembleAttr);
+
+    // set incast and outcast
+    G.SetInCast({"inCast"});
+    G.SetOutCast({"outCast"});
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    PreGraphProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // check after pass
+    EXPECT_EQ(ddrTensor1->tensor->GetRawShapeSize(),outCast->tensor->GetRawShapeSize());
+    EXPECT_EQ(function->Operations().size(), NUM5);
+}
+
+/*
+MutiConsumerDeleteSingleAssemble
+inCast{4,8,16}->copyin->ubTensor{4,8,16}->copyout->ddrTensor1{4,8,16}->Reshape->ddrTensor2{32,16}->Assemble->outCast1{32,32}
+                                                                                                 ->copyout ->outCast2{32,16}
+inCast{4,8,16}->copyin->ubTensor{4,8,16}->copyout->ddrTensor1{4,8,16}->Reshape->ddrTensor2{32,16}->Assemble->outCast1{32,32}
+                                                                                                 ->copyout ->outCast2{32,16}
+*/
+TEST_F(PreGraphTest, MutiConsumerDeleteSingleAssemble) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {4, 8, 16}, "inCast");
+    auto inCast = G.GetTensor("inCast");
+    inCast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {4, 8, 16}, "ubTensor");
+    auto ubTensor = G.GetTensor("ubTensor");
+    ubTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    G.AddTensor(inputAstDtype, {4, 8, 16}, "ddrTensor_1");
+    auto ddrTensor_1 = G.GetTensor("ddrTensor_1");
+    ddrTensor_1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {32, 16}, "ddrTensor_2");
+    auto ddrTensor_2 = G.GetTensor("ddrTensor_2");
+    ddrTensor_2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {32, 32}, "outCast_1");
+    auto outCast_1 = G.GetTensor("outCast_1");
+    outCast_1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {32, 16}, "outCast_2");
+    auto outCast_2 = G.GetTensor("outCast_2");
+    outCast_2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    ddrTensor_1->tensor->UpdateRawShape({4, 8, 16});
+    ddrTensor_2->tensor->UpdateRawShape({32, 16});
+    outCast_1->tensor->UpdateRawShape({32, 32});
+    outCast_2->tensor->UpdateRawShape({32, 16});
+    // add op
+    G.AddOp(Opcode::OP_COPY_IN, {"inCast"}, {"ubTensor"}, "COPYIN");
+    G.AddOp(Opcode::OP_COPY_OUT, {"ubTensor"}, {"ddrTensor_1"}, "COPYOUT_1");
+    G.AddOp(Opcode::OP_RESHAPE, {"ddrTensor_1"}, {"ddrTensor_2"}, "RESHAPE");
+    G.AddOp(Opcode::OP_COPY_OUT, {"ddrTensor_2"}, {"outCast_2"}, "COPYOUT_2");
+    auto attrCopyOut = std::make_shared<CopyOpAttribute>(MemoryType::MEM_DEVICE_DDR, OpImmediate::Specified({0, 0}), 
+        OpImmediate::Specified(outCast_2->GetShape()), OpImmediate::Specified(outCast_2->tensor->GetRawShape()));
+    G.GetOp("COPYOUT_2")->SetOpAttribute(attrCopyOut);
+    G.AddOp(Opcode::OP_ASSEMBLE, {"ddrTensor_2"}, {"outCast_1"}, "ASSEMBLE");
+    auto assemble = G.GetOp("ASSEMBLE");
+    auto assembleAttr = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{0, 0},
+        OpImmediate::ToSpecified(OpImmediate::Specified(std::vector<int64_t>{0, 0})));
+    assemble->SetOpAttribute(assembleAttr);
+
+    // set incast and outcast
+    G.SetInCast({"inCast"});
+    G.SetOutCast({"outCast_1"});
+    G.SetOutCast({"outCast_2"});
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    PreGraphProcess preGraph;
+    auto operationSize = function->Operations().size();
+    preGraph.Run(*function, "", "", 0);
+    // check after pass
+    EXPECT_EQ(function->Operations().size(), operationSize - 1);
 }
 } // namespace tile_fwk
 } // namespace npu

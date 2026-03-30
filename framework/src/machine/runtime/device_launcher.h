@@ -216,10 +216,10 @@ public:
         }
 #endif
         devProg->workspaceSize = devProg->memBudget.Total();
-        MACHINE_LOGI("Metadata=%lu, workspaceSize=%lu, tensor=%lu, aicoreSpillen=%lu, debug.DumpTensor=%lu, leafDumpWorkspace=%lu.",
+        MACHINE_LOGI("[workspaceSize] Metadata=%lu, workspaceSize=%lu, tensor=%lu, aicoreSpillen=%lu, debug.DumpTensor=%lu, leafDumpWorkspace=%lu.",
             devProg->memBudget.metadata.Total(), devProg->workspaceSize, devProg->memBudget.tensor.Total(),
             devProg->memBudget.aicoreSpilled, devProg->memBudget.debug.dumpTensor, devProg->memBudget.debug.leafDump);
-        MACHINE_LOGI("Tensor:rootInner=%lu, devTaskInnerOutCasts=%lu, slotted=%lux%lu(slots).",
+        MACHINE_LOGI("[workspaceSize] Tensor:rootInner=%lu, devTaskInnerOutCasts=%lu, slotted=%lux%lu(slots).",
             devProg->memBudget.tensor.rootInner,
             devProg->memBudget.tensor.devTaskInnerExclusiveOutcasts, devProg->memBudget.tensor.MaxOutcastMem(),
             devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
@@ -357,7 +357,7 @@ public:
         if (devMem.IsDevice()) {
             kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data());
             kArgs.outputs = (int64_t *)allSize;
-        } else {;
+        } else {
             kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data() + sizeof(AiCpuArgs));
             kArgs.outputs = kArgs.inputs + 1;
         }
@@ -451,6 +451,7 @@ public:
     static void GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI &rtModel);
     static void AddAicpuStream(aclmdlRI &rtModel, bool tripleStream);
     static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, [[maybe_unused]]bool debugEnable, [[maybe_unused]]Function *function);
+    static int LaunchSyncTask(aclrtStream aicoreStream, bool isCaptureMode);
     static int LaunchAicoreKernel(
         aclrtStream aicoreStream, void *kernel, rtArgsEx_t &rtArgs, rtTaskCfgInfo_t &rtTaskCfg, bool debugEnable);
     static int DeviceRunOnce(Function *function, DevControlFlowCache* hostCtrlCache = nullptr,

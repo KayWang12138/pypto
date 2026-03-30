@@ -434,7 +434,7 @@ auto stepStart = std::chrono::high_resolution_clock::now();
 
 auto stepEnd = std::chrono::high_resolution_clock::now();
 auto stepDuration = std::chrono::duration_cast<std::chrono::microseconds>(stepEnd - stepStart);
-ALOG_INFO_F("[{PassName}] Step {step_name} cost %ld us", stepDuration.count());
+PASS_LOGI("[{PassName}] Step {step_name} cost %ld us", stepDuration.count());
 ```
 
 **建议添加耗时统计的场景：**

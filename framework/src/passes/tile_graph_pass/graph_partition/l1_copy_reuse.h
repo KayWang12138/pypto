@@ -25,7 +25,7 @@
 #include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "interface/utils/log.h"
+
 #include "passes/statistics/tensor_and_tile_graph_statistic.h"
 #include "passes/pass_log/pass_log.h"
 

@@ -58,6 +58,7 @@ enum class BinaryOpType {
     EXPANDEXPDIF,
     COPYSIGN,
     GCD,
+    FLOORDIV,
 };
 
 template <BinaryOpType T>
@@ -89,6 +90,7 @@ std::string GetBinaryOpName() {
         case BinaryOpType::EXPANDEXPDIF: return "EXPANDEXPDIF";
         case BinaryOpType::COPYSIGN: return "COPYSIGN";
         case BinaryOpType::GCD: return "GCD";
+        case BinaryOpType::FLOORDIV: return "FLOORDIV";
         default: ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type"; return "";
     }
 }
@@ -118,6 +120,7 @@ Opcode GetBinaryOpNameCode() {
             CASE(BITWISEOR);
             CASE(BITWISEXOR);
             CASE(GCD);
+            CASE(FLOORDIV);
             case BinaryOpType::LRELU: return Opcode::OP_LRELU;
             default: ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type";
         }
@@ -165,6 +168,7 @@ Opcode GetBinaryOpNameCode() {
         CASE(EXPANDEXPDIF);
         CASE(COPYSIGN);
         CASE(GCD);
+        CASE(FLOORDIV);
         default: ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type";
     }
 #undef CASE
@@ -182,7 +186,7 @@ void BinaryOperationOperandCheck(
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand);
 void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTensorPtr &tensor2, std::string &op);
 void BroadcastOperandTensor(LogicalTensorPtr &operand, LogicalTensorPtr &other, LogicalTensorPtr result,
-                                      Function& function, const TileShape& tileShape);
+                                      Function& function, const TileShape& tileShape, std::vector<int64_t> dstShape = {});
 
 // OP_ADD OP_SUB OP_MUL OP_DIV OP_MAX OP_BITWISEAND OP_BITWISEOR OP_BITWISEXOR
 template <BinaryOpType T>
@@ -199,12 +203,13 @@ LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand
 
     std::vector<SymbolicScalar> resultValidShape;
     std::vector<int64_t> resultShape = BinaryOperationResultShape(oprandT1, oprandT2);
+    size_t shapeSize = resultShape.size();
     if ((!oprandT1->GetDynValidShape().empty()) && (!oprandT2->GetDynValidShape().empty())) {
-        for (size_t i = 0; i < resultShape.size(); ++i) {
+        for (size_t i = 0; i < shapeSize; ++i) {
             if (resultShape[i] == oprandT1->shape[i]) {
-                resultValidShape.push_back(operand1.GetStorage()->GetDynValidShape()[i]);
+                resultValidShape.push_back(oprandT1->GetDynValidShape()[i]);
             } else {
-                resultValidShape.push_back(operand2.GetStorage()->GetDynValidShape()[i]);
+                resultValidShape.push_back(oprandT2->GetDynValidShape()[i]);
             }
         }
     }

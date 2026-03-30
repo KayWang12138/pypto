@@ -15,7 +15,7 @@
 
 #include "passes/tile_graph_pass/graph_partition/reduce_copy.h"
 #include "interface/function/function.h"
-#include "interface/utils/log.h"
+
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_log/pass_log.h"
 #include <iostream>

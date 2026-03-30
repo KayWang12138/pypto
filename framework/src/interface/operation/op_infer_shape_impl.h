@@ -19,7 +19,7 @@
 #include <functional>
 #include "opcode.h"
 #include "operation.h"
-#include "interface/utils/log.h"
+
 namespace npu::tile_fwk {
 // params: operation*, validshape, symshapes
 using FuncType = std::function<void(Operation* op, std::vector<std::vector<SymbolicScalar>>&)>;

@@ -16,7 +16,7 @@
 #ifndef PASS_BUFFER_POOL_H_
 #define PASS_BUFFER_POOL_H_
 #include "tilefwk/data_type.h"
-#include "interface/utils/log.h"
+
 #include "interface/utils/common.h"
 #include "passes/pass_utils/pass_utils.h"
 
