@@ -27,11 +27,6 @@ class SymbolDemangler:
     def __init__(self):
         self.cxxfilt_available = self._check_cxxfilt()
 
-    def _check_cxxfilt(self) -> bool:
-        """检查 c++filt 工具是否可用"""
-        result = run_command(['which', 'c++filt'], capture=True)
-        return result.returncode == 0
-
     def demangle_symbol(self, mangled_symbol: str) -> str:
         """反混淆单个符号"""
         if not self.cxxfilt_available:
@@ -60,6 +55,12 @@ class SymbolDemangler:
             })
 
         return results
+
+    @staticmethod
+    def _check_cxxfilt() -> bool:
+        """检查 c++filt 工具是否可用"""
+        result = run_command(['which', 'c++filt'], capture=True)
+        return result.returncode == 0
 
 
 def main():

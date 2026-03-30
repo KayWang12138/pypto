@@ -42,7 +42,8 @@ class StackParser:
     def __init__(self):
         self.frames: List[StackFrame] = []
 
-    def parse_python_traceback(self, text: str) -> List[StackFrame]:
+    @staticmethod
+    def parse_python_traceback(text: str) -> List[StackFrame]:
         """解析 Python traceback 格式"""
         frames = []
         pattern = r'File "([^"]+)", line (\d+), in ([^\n]+)'
@@ -58,7 +59,8 @@ class StackParser:
 
         return frames
 
-    def parse_cpp_stacktrace(self, text: str) -> List[StackFrame]:
+    @staticmethod
+    def parse_cpp_stacktrace(text: str) -> List[StackFrame]:
         """解析 C++/C stack trace 格式（gdb、libunwind）"""
         frames = []
 
@@ -103,7 +105,8 @@ class StackParser:
 
         return frames
 
-    def parse_pypto_format(self, text: str) -> List[StackFrame]:
+    @staticmethod
+    def parse_pypto_format(text: str) -> List[StackFrame]:
         """解析 PyPTO 特定格式"""
         frames = []
 
@@ -122,7 +125,8 @@ class StackParser:
 
         return frames
 
-    def parse_generic_format(self, text: str) -> List[StackFrame]:
+    @staticmethod
+    def parse_generic_format(text: str) -> List[StackFrame]:
         """解析通用格式（基于正则表达式）"""
         frames = []
 
@@ -142,28 +146,29 @@ class StackParser:
 
         return frames
 
-    def parse(self, text: str) -> Tuple[List[StackFrame], str]:
+    @staticmethod
+    def parse(text: str) -> Tuple[List[StackFrame], str]:
         """自动检测并解析堆栈信息，返回帧列表和检测到的格式"""
         # 尝试 Python traceback
-        python_frames = self.parse_python_traceback(text)
+        python_frames = StackParser.parse_python_traceback(text)
         if python_frames:
             logger.info("检测到 Python traceback 格式")
             return python_frames, "python"
 
         # 尝试 PyPTO 格式
-        pypto_frames = self.parse_pypto_format(text)
+        pypto_frames = StackParser.parse_pypto_format(text)
         if pypto_frames:
             logger.info("检测到 PyPTO 格式")
             return pypto_frames, "pypto"
 
         # 尝试 C++/C stack trace
-        cpp_frames = self.parse_cpp_stacktrace(text)
+        cpp_frames = StackParser.parse_cpp_stacktrace(text)
         if cpp_frames:
             logger.info("检测到 C++/C stack trace 格式")
             return cpp_frames, "cpp"
 
         # 使用通用格式
-        generic_frames = self.parse_generic_format(text)
+        generic_frames = StackParser.parse_generic_format(text)
         if generic_frames:
             logger.info("使用通用格式解析")
             return generic_frames, "generic"

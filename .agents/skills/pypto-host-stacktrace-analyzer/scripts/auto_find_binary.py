@@ -28,49 +28,6 @@ class BinaryFinder:
     def __init__(self):
         self.search_paths = self._get_default_search_paths()
 
-    def _get_default_search_paths(self) -> List[Path]:
-        """获取默认搜索路径"""
-        paths = []
-
-        # 当前目录
-        paths.append(Path.cwd())
-
-        # PATH 环境变量
-        if 'PATH' in os.environ:
-            for path in os.environ['PATH'].split(':'):
-                paths.append(Path(path))
-
-        # PyPTO 安装路径
-        pypto_paths = [
-            Path.home() / '.local' / 'lib' / 'python3.*' / 'site-packages' / 'pypto',
-            Path('/usr/local/lib/python3.*') / 'site-packages' / 'pypto',
-        ]
-
-        # 扩展通配符
-        import glob
-        for pattern in pypto_paths:
-            for path in glob.glob(str(pattern)):
-                paths.append(Path(path))
-
-        # 常见库路径
-        paths.extend([
-            Path('/usr/lib'),
-            Path('/usr/local/lib'),
-            Path('/lib'),
-            Path('/lib64'),
-        ])
-
-        # 去重并过滤不存在的路径
-        unique_paths = []
-        seen = set()
-        for path in paths:
-            path = path.resolve()
-            if path not in seen and path.exists():
-                unique_paths.append(path)
-                seen.add(path)
-
-        return unique_paths
-
     def find_binary(self, binary_name: str, custom_paths: Optional[List[str]] = None) -> Optional[Path]:
         """查找二进制文件"""
         logger.info("查找二进制文件: %s", binary_name)
@@ -136,6 +93,50 @@ class BinaryFinder:
                         candidates.append(path)
 
         return candidates
+
+    @staticmethod
+    def _get_default_search_paths() -> List[Path]:
+        """获取默认搜索路径"""
+        paths = []
+
+        # 当前目录
+        paths.append(Path.cwd())
+
+        # PATH 环境变量
+        if 'PATH' in os.environ:
+            for path in os.environ['PATH'].split(':'):
+                paths.append(Path(path))
+
+        # PyPTO 安装路径
+        pypto_paths = [
+            Path.home() / '.local' / 'lib' / 'python3.*' / 'site-packages' / 'pypto',
+            Path('/usr/local/lib/python3.*') / 'site-packages' / 'pypto',
+        ]
+
+        # 扩展通配符
+        import glob
+        for pattern in pypto_paths:
+            for path in glob.glob(str(pattern)):
+                paths.append(Path(path))
+
+        # 常见库路径
+        paths.extend([
+            Path('/usr/lib'),
+            Path('/usr/local/lib'),
+            Path('/lib'),
+            Path('/lib64'),
+        ])
+
+        # 去重并过滤不存在的路径
+        unique_paths = []
+        seen = set()
+        for path in paths:
+            path = path.resolve()
+            if path not in seen and path.exists():
+                unique_paths.append(path)
+                seen.add(path)
+
+        return unique_paths
 
 
 def main():

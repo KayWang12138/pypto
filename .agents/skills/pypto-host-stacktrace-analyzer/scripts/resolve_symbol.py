@@ -30,14 +30,31 @@ class SymbolResolver:
         self.tools = check_required_tools()
         self._check_tools()
 
-    def _check_tools(self):
-        """检查必需的工具"""
-        if not self.tools.get('objdump'):
-            logger.error("未找到 objdump 工具")
-            logger.error("请安装 binutils 或 llvm-tools")
-            sys.exit(1)
+    @staticmethod
+    def format_results(results: List[Dict[str, Optional[str]]]) -> str:
+        """格式化输出结果"""
+        output = []
 
-        logger.info("使用 objdump 工具: %s", self.tools['objdump'])
+        output.append("=" * 80)
+        output.append("符号解析结果")
+        output.append("=" * 80)
+
+        for result in results:
+            output.append(f"地址: {result['address']}")
+
+            if result['success']:
+                if result['symbol']:
+                    output.append(f"  符号: {result['symbol']}")
+                if result['section']:
+                    output.append(f"  段: {result['section']}")
+                if result['offset']:
+                    output.append(f"  偏移: {result['offset']}")
+            else:
+                output.append("  状态: 解析失败")
+
+            output.append("")
+
+        return '\n'.join(output)
 
     def resolve_symbol(self, binary: str, address: str) -> Dict[str, Optional[str]]:
         """解析单个地址的符号信息"""
@@ -69,7 +86,34 @@ class SymbolResolver:
 
         return result
 
-    def _parse_symbol_table(self, table: str, address: str) -> Optional[Dict[str, Optional[str]]]:
+    def resolve_symbols(self, binary: str, addresses: List[str]) -> List[Dict[str, Optional[str]]]:
+        """解析多个地址的符号信息"""
+        results = []
+
+        logger.info("=" * 80)
+        logger.info("符号解析")
+        logger.info("=" * 80)
+        logger.info("二进制文件: %s", binary)
+        logger.info("地址数量: %d", len(addresses))
+
+        for idx, address in enumerate(addresses):
+            logger.info("解析符号 %d/%d: %s", idx + 1, len(addresses), address)
+            result = self.resolve_symbol(binary, address)
+            results.append(result)
+
+        return results
+
+    def _check_tools(self):
+        """检查必需的工具"""
+        if not self.tools.get('objdump'):
+            logger.error("未找到 objdump 工具")
+            logger.error("请安装 binutils 或 llvm-tools")
+            sys.exit(1)
+
+        logger.info("使用 objdump 工具: %s", self.tools['objdump'])
+
+    @staticmethod
+    def _parse_symbol_table(table: str, address: str) -> Optional[Dict[str, Optional[str]]]:
         """解析符号表"""
         # 移除 '0x' 前缀并转换为整数
         try:
@@ -108,48 +152,6 @@ class SymbolResolver:
                     }
 
         return best_match
-
-    def resolve_symbols(self, binary: str, addresses: List[str]) -> List[Dict[str, Optional[str]]]:
-        """解析多个地址的符号信息"""
-        results = []
-
-        logger.info("=" * 80)
-        logger.info("符号解析")
-        logger.info("=" * 80)
-        logger.info("二进制文件: %s", binary)
-        logger.info("地址数量: %d", len(addresses))
-
-        for idx, address in enumerate(addresses):
-            logger.info("解析符号 %d/%d: %s", idx + 1, len(addresses), address)
-            result = self.resolve_symbol(binary, address)
-            results.append(result)
-
-        return results
-
-    def format_results(self, results: List[Dict[str, Optional[str]]]) -> str:
-        """格式化输出结果"""
-        output = []
-
-        output.append("=" * 80)
-        output.append("符号解析结果")
-        output.append("=" * 80)
-
-        for result in results:
-            output.append(f"地址: {result['address']}")
-
-            if result['success']:
-                if result['symbol']:
-                    output.append(f"  符号: {result['symbol']}")
-                if result['section']:
-                    output.append(f"  段: {result['section']}")
-                if result['offset']:
-                    output.append(f"  偏移: {result['offset']}")
-            else:
-                output.append("  状态: 解析失败")
-
-            output.append("")
-
-        return '\n'.join(output)
 
 
 def main():

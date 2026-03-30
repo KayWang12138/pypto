@@ -29,7 +29,8 @@ class ErrorInfoExtractor:
     def __init__(self):
         self.error_info = {}
 
-    def extract_errcode(self, text: str) -> Optional[str]:
+    @staticmethod
+    def extract_errcode(text: str) -> Optional[str]:
         """提取错误码"""
         pattern = r'Errcode:\s*([A-F0-9]+)'
         match = re.search(pattern, text)
@@ -37,7 +38,8 @@ class ErrorInfoExtractor:
             return match.group(1)
         return None
 
-    def extract_error_location(self, text: str) -> Optional[Dict[str, str]]:
+    @staticmethod
+    def extract_error_location(text: str) -> Optional[Dict[str, str]]:
         """提取错误位置"""
         # 格式: file, line, func
         pattern = r'file\s+(\S+),\s+line\s+(\d+),\s+func\s+(\S+)'
@@ -50,7 +52,8 @@ class ErrorInfoExtractor:
             }
         return None
 
-    def extract_error_message(self, text: str) -> Optional[str]:
+    @staticmethod
+    def extract_error_message(text: str) -> Optional[str]:
         """提取错误消息"""
         # 尝试多种模式
         patterns = [
@@ -66,28 +69,30 @@ class ErrorInfoExtractor:
 
         return None
 
-    def extract_pypto_error_info(self, text: str) -> Optional[Dict[str, str]]:
+    @staticmethod
+    def extract_pypto_error_info(text: str) -> Optional[Dict[str, str]]:
         """提取 PyPTO 特定错误信息"""
         info = {}
 
         # 提取错误码
-        errcode = self.extract_errcode(text)
+        errcode = ErrorInfoExtractor.extract_errcode(text)
         if errcode:
             info['errcode'] = errcode
 
         # 提取错误位置
-        location = self.extract_error_location(text)
+        location = ErrorInfoExtractor.extract_error_location(text)
         if location:
             info['location'] = location
 
         # 提取错误消息
-        message = self.extract_error_message(text)
+        message = ErrorInfoExtractor.extract_error_message(text)
         if message:
             info['message'] = message
 
         return info if info else None
 
-    def format_error_info(self, error_info: Dict[str, str]) -> str:
+    @staticmethod
+    def format_error_info(error_info: Dict[str, str]) -> str:
         """格式化错误信息"""
         output = []
 

@@ -29,14 +29,30 @@ class AddressResolver:
         self.tools = check_required_tools()
         self._check_tools()
 
-    def _check_tools(self):
-        """检查必需的工具"""
-        if not self.tools.get('addr2line'):
-            logger.error("未找到 addr2line 工具")
-            logger.error("请安装 binutils 或 llvm-tools")
-            sys.exit(1)
+    @staticmethod
+    def format_results(results: List[Dict[str, Optional[str]]]) -> str:
+        """格式化输出结果"""
+        output = []
 
-        logger.info("使用 addr2line 工具: %s", self.tools['addr2line'])
+        output.append("=" * 80)
+        output.append("地址解析结果")
+        output.append("=" * 80)
+
+        for result in results:
+            output.append(f"地址: {result['address']}")
+
+            if result['success']:
+                if result['function']:
+                    output.append(f"  函数: {result['function']}")
+                if result['file']:
+                    line_str = f":{result['line']}" if result['line'] else ""
+                    output.append(f"  源码: {result['file']}{line_str}")
+            else:
+                output.append("  状态: 解析失败")
+
+            output.append("")
+
+        return '\n'.join(output)
 
     def resolve_address(self, binary: str, address: str) -> Dict[str, Optional[str]]:
         """解析单个地址"""
@@ -95,29 +111,14 @@ class AddressResolver:
 
         return results
 
-    def format_results(self, results: List[Dict[str, Optional[str]]]) -> str:
-        """格式化输出结果"""
-        output = []
+    def _check_tools(self):
+        """检查必需的工具"""
+        if not self.tools.get('addr2line'):
+            logger.error("未找到 addr2line 工具")
+            logger.error("请安装 binutils 或 llvm-tools")
+            sys.exit(1)
 
-        output.append("=" * 80)
-        output.append("地址解析结果")
-        output.append("=" * 80)
-
-        for result in results:
-            output.append(f"地址: {result['address']}")
-
-            if result['success']:
-                if result['function']:
-                    output.append(f"  函数: {result['function']}")
-                if result['file']:
-                    line_str = f":{result['line']}" if result['line'] else ""
-                    output.append(f"  源码: {result['file']}{line_str}")
-            else:
-                output.append("  状态: 解析失败")
-
-            output.append("")
-
-        return '\n'.join(output)
+        logger.info("使用 addr2line 工具: %s", self.tools['addr2line'])
 
 
 def main():

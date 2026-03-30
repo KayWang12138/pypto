@@ -49,6 +49,80 @@ class ComprehensiveAnalyzer:
         # 5. 分析符号
         self._analyze_symbols()
 
+    def generate_report(self) -> str:
+        """生成分析报告"""
+        report = []
+
+        # 标题
+        report.append("=" * 80)
+        report.append("综合堆栈分析报告")
+        report.append("=" * 80)
+        report.append("")
+
+        # 错误信息
+        if self.error_info:
+            report.append("## 错误信息")
+            report.append("")
+            if 'errcode' in self.error_info:
+                report.append(f"错误码: {self.error_info['errcode']}")
+            if 'location' in self.error_info:
+                loc = self.error_info['location']
+                report.append(f"位置: {loc['file']}:{loc['line']}")
+                report.append(f"函数: {loc['function']}")
+            if 'message' in self.error_info:
+                report.append(f"消息: {self.error_info['message']}")
+            report.append("")
+
+        # Python traceback
+        if self.python_frames:
+            report.append("## Python Traceback")
+            report.append("")
+            report.append(f"总帧数: {len(self.python_frames)}")
+            report.append("")
+
+            for idx, frame in enumerate(self.python_frames):
+                marker = " ⚠️ 错误触发点" if idx == len(self.python_frames) - 1 else ""
+                report.append(f"### 帧 #{idx}{marker}")
+                report.append(f"- 文件: {frame['file']}")
+                report.append(f"- 行号: {frame['line']}")
+                report.append(f"- 函数: {frame['function']}")
+                report.append("")
+
+        # C++ stack trace
+        if self.cpp_frames:
+            report.append("## C++ Stack Trace")
+            report.append("")
+            report.append(f"总帧数: {len(self.cpp_frames)}")
+            report.append("")
+
+            for idx, frame in enumerate(self.cpp_frames):
+                marker = " ⚠️ 错误发生点" if idx == 0 else ""
+                report.append(f"### 帧 #{idx}{marker}")
+                report.append(f"- 二进制: {frame['binary']}")
+
+                if 'symbol' in frame:
+                    report.append(f"- 符号: {frame['symbol']}")
+                    if 'demangled_symbol' in frame:
+                        report.append(f"- 反混淆: {frame['demangled_symbol']}")
+
+                if 'offset' in frame:
+                    report.append(f"- 偏移: {frame['offset']}")
+                if 'address' in frame:
+                    report.append(f"- 地址: {frame['address']}")
+                if 'source_location' in frame:
+                    report.append(f"- 源码: {frame['source_location']}")  # ⭐ 新增
+                report.append("")
+
+        # 二进制文件
+        if self.binary_files:
+            report.append("## 二进制文件")
+            report.append("")
+            for name, path in self.binary_files.items():
+                report.append(f"- {name}: {path}")
+            report.append("")
+
+        return '\n'.join(report)
+
     def _extract_error_info(self, text: str):
         """提取错误信息"""
         import re
@@ -154,80 +228,6 @@ class ComprehensiveAnalyzer:
                                     frame['source_location'] = lines[1]
                         except Exception as e:
                             logger.warning("源码行定位失败: %s, 错误: %s", frame['address'], e)
-
-    def generate_report(self) -> str:
-        """生成分析报告"""
-        report = []
-
-        # 标题
-        report.append("=" * 80)
-        report.append("综合堆栈分析报告")
-        report.append("=" * 80)
-        report.append("")
-
-        # 错误信息
-        if self.error_info:
-            report.append("## 错误信息")
-            report.append("")
-            if 'errcode' in self.error_info:
-                report.append(f"错误码: {self.error_info['errcode']}")
-            if 'location' in self.error_info:
-                loc = self.error_info['location']
-                report.append(f"位置: {loc['file']}:{loc['line']}")
-                report.append(f"函数: {loc['function']}")
-            if 'message' in self.error_info:
-                report.append(f"消息: {self.error_info['message']}")
-            report.append("")
-
-        # Python traceback
-        if self.python_frames:
-            report.append("## Python Traceback")
-            report.append("")
-            report.append(f"总帧数: {len(self.python_frames)}")
-            report.append("")
-
-            for idx, frame in enumerate(self.python_frames):
-                marker = " ⚠️ 错误触发点" if idx == len(self.python_frames) - 1 else ""
-                report.append(f"### 帧 #{idx}{marker}")
-                report.append(f"- 文件: {frame['file']}")
-                report.append(f"- 行号: {frame['line']}")
-                report.append(f"- 函数: {frame['function']}")
-                report.append("")
-
-        # C++ stack trace
-        if self.cpp_frames:
-            report.append("## C++ Stack Trace")
-            report.append("")
-            report.append(f"总帧数: {len(self.cpp_frames)}")
-            report.append("")
-
-            for idx, frame in enumerate(self.cpp_frames):
-                marker = " ⚠️ 错误发生点" if idx == 0 else ""
-                report.append(f"### 帧 #{idx}{marker}")
-                report.append(f"- 二进制: {frame['binary']}")
-
-                if 'symbol' in frame:
-                    report.append(f"- 符号: {frame['symbol']}")
-                    if 'demangled_symbol' in frame:
-                        report.append(f"- 反混淆: {frame['demangled_symbol']}")
-
-                if 'offset' in frame:
-                    report.append(f"- 偏移: {frame['offset']}")
-                if 'address' in frame:
-                    report.append(f"- 地址: {frame['address']}")
-                if 'source_location' in frame:
-                    report.append(f"- 源码: {frame['source_location']}")  # ⭐ 新增
-                report.append("")
-
-        # 二进制文件
-        if self.binary_files:
-            report.append("## 二进制文件")
-            report.append("")
-            for name, path in self.binary_files.items():
-                report.append(f"- {name}: {path}")
-            report.append("")
-
-        return '\n'.join(report)
 
 
 def main():
