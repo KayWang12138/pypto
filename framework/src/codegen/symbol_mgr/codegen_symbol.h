@@ -44,10 +44,7 @@ struct ShapeInLoop {
 };
 
 inline std::string GetLayoutType(BufferType bufType, int dim, bool isConst = false) {
-    // std::string prefix = bufType == BUF_DDR ? "Dyn" : isConst ? "Static" : "Local";
-    (void)bufType;
-    (void)isConst;
-    std::string prefix = isConst ? "Static" : "Local"; // TODO..
+    std::string prefix = bufType == BUF_DDR ? "Dyn" : isConst ? "Static" : "Local";
     std::ostringstream ss;
     ss << prefix << LAYOUT << dim << DIM;
     return ss.str();
@@ -144,7 +141,6 @@ struct TileTensor {
     }
 
     virtual std::string ToString() const {
-        std::cout<<"using base class ToString...\n";
         std::ostringstream oss;
         oss << usingType << " " << tensorName << GenInitParam() << STMT_END;
         return oss.str();
@@ -162,18 +158,18 @@ private:
 };
 
 struct TileTensorHash {
-    std::size_t operator()(const TileTensor &t) const noexcept {
+    std::size_t operator()(const std::shared_ptr<TileTensor>& tPtr) const noexcept {
         std::size_t seed = 0;
-        HashCombine(seed, t.dim);
-        HashCombine(seed, t.bufVar);
-        HashCombine(seed, ToUnderlying(t.dtype));
-        for (const auto &s : t.shape) {
+        HashCombine(seed, tPtr->dim);
+        HashCombine(seed, tPtr->bufVar);
+        HashCombine(seed, ToUnderlying(tPtr->dtype));
+        for (const auto &s : tPtr->shape) {
             HashCombine(seed, s);
         }
-        for (const auto &s : t.rawShape) {
+        for (const auto &s : tPtr->rawShape) {
             HashCombine(seed, s);
         }
-        for (const auto &s : t.localBufOffset) {
+        for (const auto &s : tPtr->localBufOffset) {
             HashCombine(seed, s);
         }
         return seed;
@@ -273,8 +269,8 @@ public:
 
     static std::string FormatAllocKey(const AllocKey &key);
 
-    std::string AddTileTensorUsing(const TileTensorUsing &tileTensorUsing);
-    std::string AddTileTensor(const TileTensor &tileTensor);
+    std::string AddTileTensorUsing(const std::shared_ptr<TileTensorUsing> &tileTensorUsing);
+    std::string AddTileTensor(const std::shared_ptr<TileTensor> &tileTensor);
     std::vector<TileTensor> QueryTileTensorByMagic(int magic);
     std::vector<TileTensor> QueryTileTensorInLoopByMagic(int magic);
     void InsertTensorNameInLoopToFullDim(const std::string &tensorName, const std::string &fullDimTensorName);
@@ -295,7 +291,7 @@ private:
     std::shared_ptr<LogicalTensor> GetTensorByMagic(int magicNum) const;
     AllocKey CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const;
     AllocKey CreateAllocKey(int tensorMagicNum) const;
-    std::string FindUsingName(const TileTensorUsing &tileTensorUsing) const;
+    std::string FindUsingName(const std::shared_ptr<TileTensorUsing> &tileTensorUsing) const;
 
     // <AllocKey, buffer variable name>
     std::map<AllocKey, std::string> key2VariableName_;
@@ -304,16 +300,16 @@ private:
     // <tensor magic, LogicalTensor>
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> tensorMap_;
     // <TileTensor, tensorName>
-    std::unordered_map<TileTensor, std::string, TileTensorHash> tileTensor_;
+    std::unordered_map<std::shared_ptr<TileTensor>, std::string, TileTensorHash> tileTensor_;
     // When use forcing axis merging feature under TileTensor mode,
     // we may encounter a situation where Tensors with the same magic ID have different Shapes.
     // <tensor magic, TileTensor>
-    std::multimap<int, TileTensor> tileTensorByMagic_;
-    std::multimap<int, TileTensor> tileTensorByMagicInLoop_;
+    std::multimap<int, std::shared_ptr<TileTensor>> tileTensorByMagic_;
+    std::multimap<int, std::shared_ptr<TileTensor>> tileTensorByMagicInLoop_;
     // <tensorName in for loop, tensorName with full dim out of loop>
     // both key and value are from same tile operation
     std::unordered_map<std::string, std::string> tensorNameInLoopToFullDim_;
     // <using type, TileTensorUsing>
-    std::unordered_map<std::string, TileTensorUsing> tileTensorUsing_;
+    std::unordered_map<std::string, std::shared_ptr<TileTensorUsing>> tileTensorUsing_;
 };
 } // namespace npu::tile_fwk
