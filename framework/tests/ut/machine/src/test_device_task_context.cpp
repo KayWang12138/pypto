@@ -374,6 +374,30 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_core_function_mix_arch)
     EXPECT_EQ(ret, DEVICE_MACHINE_OK);
 }
 
+TEST_F(TestDeviceTaskContext, test_build_device_task_data_and_ready_queue_esl_mode)
+{
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    constexpr size_t kControlFlowCacheSize = 64 * 1024;
+    auto controlFlowCacheBuf = std::make_unique<uint8_t[]>(kControlFlowCacheSize);
+
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    devProg.stitchFunctionsize = 15;
+    devProg.controlFlowCache.cacheData = DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
+    devProg.controlFlowCache.isRecording = true;
+
+    DeviceWorkspaceAllocator workspace(&devProg);
+    taskContext.InitAllocator(&devProg, workspace, &startArgs);
+
+    auto dyntask = std::make_unique<DynDeviceTask>(workspace);
+    CreateMockDynDeviceTask(dyntask.get(), 8);
+    devProg.devArgs.enableEslModel = true;
+    uint32_t taskId = 0;
+    int result = taskContext.BuildDeviceTaskDataAndReadyQueue(dyntask.get(), taskId, &devProg);
+    EXPECT_EQ(result, DEVICE_MACHINE_OK);
+}
+
 namespace {
 
 void InitReadyQueueSlot(
