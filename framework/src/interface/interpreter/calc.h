@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <string>
 
 #include "tilefwk/data_type.h"
 #include "tilefwk/element.h"
@@ -480,42 +481,10 @@ inline void AccMatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logic
     }
 }
 
-inline void BindTensor(LogicalTensorDataPtr out, uint64_t groupIndex, uint64_t memType, uint64_t slotSize) {
+inline void BindTensor(LogicalTensorDataPtr out, const std::string &groupName, uint64_t memType, uint64_t slotSize) {
     CalcOps *ops = GetCalcOps();
     ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
     TensorData oData = Trans(out);
-    ops->BindTensor(oData, groupIndex, memType, slotSize);
-}
-
-inline void Get(LogicalTensorDataPtr out, int srcRank) {
-    CalcOps *ops = GetCalcOps();
-    ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
-    TensorData oData = Trans(out);
-    ops->Get(oData, srcRank);
-}
-
-inline void Put(LogicalTensorDataPtr in, int dstRank) {
-    CalcOps *ops = GetCalcOps();
-    ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
-    TensorData iData = Trans(in);
-    ops->Put(iData, dstRank);
-}
-
-inline void Signal(int dstRank) {
-    CalcOps *ops = GetCalcOps();
-    ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
-    ops->Signal(dstRank);
-}
-
-inline void WaitUntil(int srcRank) {
-    CalcOps *ops = GetCalcOps();
-    ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
-    ops->WaitUntil(srcRank);
-}
-
-inline void Set(int dstRank) {
-    CalcOps *ops = GetCalcOps();
-    ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
-    ops->Set(dstRank);
+    ops->BindTensor(oData, groupName, memType, slotSize);
 }
 } // namespace npu::tile_fwk::calc

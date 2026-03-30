@@ -19,7 +19,6 @@
 #include <vector>
 #include <sstream>
 #include "tilefwk/error.h"
-#include "tilefwk/core_func_data.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
