@@ -42,14 +42,14 @@ Status Checker::DoDefaultEnabledPostCheck(Function &function) {
 }
 
 Status Checker::CheckConsumerProducer(const LogicalTensorPtr &tensor) {
-    for (const auto &producer : tensor->GetProducers()) {
-        if (producer == nullptr) {
+    for (const auto &producers : tensor->GetProducers()) {
+        if (producers == nullptr) {
             APASS_LOG_ERROR_C(TensorErr::TENSOR_NULL_POINTER, Elements::Operation, "Found null producer in tensor.");
             return FAILED;
         }
     }
-    for (const auto &consumer : tensor->GetConsumers()) {
-        if (consumer == nullptr) {
+    for (const auto &consumers : tensor->GetConsumers()) {
+        if (consumers == nullptr) {
             APASS_LOG_ERROR_C(TensorErr::TENSOR_NULL_POINTER, Elements::Operation, "Found null consumer in tensor.");
             return FAILED;
         }
