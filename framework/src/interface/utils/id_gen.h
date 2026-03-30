@@ -23,8 +23,6 @@ enum class IdType {
     FUNCTION,
     LOGICAL_TENSOR,
     TENSOR_INDEX,
-    CG_USING_NAME, // gen using name for codegen
-    CG_VAR_NAME,   // gen variable for codegen
 };
 
 template <IdType T>

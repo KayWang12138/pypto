@@ -42,8 +42,6 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -125,25 +123,25 @@ float __ubuf__ *UB_S0_E1024 = (float __ubuf__ *)get_imm(0x0); // size: 0x400
 float *UB_S0_E1024_T = (float *)get_imm(0x0); // size: 0x400
 float __ubuf__ *UB_S1024_E2048 = (float __ubuf__ *)get_imm(0x400); // size: 0x400
 float *UB_S1024_E2048_T = (float *)get_imm(0x400); // size: 0x400
-using GMTileTensorFP32Dim4_2 = TileTensor<__gm__ float, DynLayout4Dim, Hardware::GM>;
-using UBTileTensorFP32Dim4_1 = TileTensor<float, StaticLayout4Dim<1, 1, 16, 16, 1, 1, 16, 16>, Hardware::UB>;
-GMTileTensorFP32Dim4_2 gmTensor_11((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 2)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
-GMTileTensorFP32Dim4_2 gmTensor_4((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
-UBTileTensorFP32Dim4_1 ubTensor_3((uint64_t)UB_S1024_E2048_T);
-GMTileTensorFP32Dim4_2 gmTensor_2((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
-UBTileTensorFP32Dim4_1 ubTensor_1((uint64_t)UB_S0_E1024_T);
+using GMTileTensorFP32Dim4_1 = TileTensor<__gm__ float, DynLayout4Dim, Hardware::GM>;
+using UBTileTensorFP32Dim4_0 = TileTensor<float, StaticLayout4Dim<1, 1, 16, 16, 1, 1, 16, 16>, Hardware::UB>;
+GMTileTensorFP32Dim4_1 gmTensor_10((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 2)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
+GMTileTensorFP32Dim4_1 gmTensor_3((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
+UBTileTensorFP32Dim4_0 ubTensor_2((uint64_t)UB_S1024_E2048_T);
+GMTileTensorFP32Dim4_1 gmTensor_1((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
+UBTileTensorFP32Dim4_0 ubTensor_0((uint64_t)UB_S0_E1024_T);
 SUBKERNEL_PHASE1
-TLoad(ubTensor_1, gmTensor_2, Coord4Dim(0, 0, 0, 0));
-TLoad(ubTensor_3, gmTensor_4, Coord4Dim(0, 0, 0, 0));
+TLoad(ubTensor_0, gmTensor_1, Coord4Dim(0, 0, 0, 0));
+TLoad(ubTensor_2, gmTensor_3, Coord4Dim(0, 0, 0, 0));
 SUBKERNEL_PHASE2
 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-TAdd<LastUse3Dim<0, 0, 1>>(ubTensor_3, ubTensor_1, ubTensor_3);
+TAdd<LastUse3Dim<0, 0, 1>>(ubTensor_2, ubTensor_0, ubTensor_2);
 pipe_barrier(PIPE_V);
-TMul<LastUse3Dim<0, 1, 1>>(ubTensor_3, ubTensor_1, ubTensor_3);
+TMul<LastUse3Dim<0, 1, 1>>(ubTensor_2, ubTensor_0, ubTensor_2);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TStore(gmTensor_11, ubTensor_3, Coord4Dim(0, 0, 0, 0));
+TStore(gmTensor_10, ubTensor_2, Coord4Dim(0, 0, 0, 0));
 }
 )!!!";
     CheckStringExist(expect, res);
