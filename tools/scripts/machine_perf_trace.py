@@ -365,6 +365,24 @@ def get_task_cycle(
     return None
 
 
+def get_task_cycle_map(
+    tasks: List[Dict[str, Any]],
+    task_name: str,
+    round_id: Optional[int] = None,
+) -> Dict[int, float]:
+    cycle_map: Dict[int, float] = {}
+    for task in tasks:
+        base, task_round, num = parse_task_name(task.get("name", ""))
+        if base != task_name:
+            continue
+        if round_id is not None and task_round != round_id:
+            continue
+        if num is None:
+            continue
+        cycle_map[num] = float(task.get("end", 0))
+    return cycle_map
+
+
 def calc_duration_from_ends(start_end: Optional[float], end_end: Optional[float]) -> Optional[float]:
     if start_end is None or end_end is None:
         return None
@@ -421,10 +439,12 @@ def collect_aicore_exec_rows(aicpu_dev_pref: List[Dict[str, Any]], round_id: Opt
             continue
         tasks = core.get("tasks", [])
         begin = get_task_cycle(tasks, "BEGIN", None, round_id)
-        wait_first = get_task_cycle(tasks, "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK", 0, round_id)
-        all_exec = get_task_cycle(tasks, "DEV_TASK_ALL_CALLOP_TASK_EXEC", 0, round_id)
+        wait_first_map = get_task_cycle_map(tasks, "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK", round_id)
+        all_exec_map = get_task_cycle_map(tasks, "DEV_TASK_ALL_CALLOP_TASK_EXEC", round_id)
+        wait_first = wait_first_map.get(0)
+        all_exec = all_exec_map.get(0)
         wait_exit_notify = get_task_cycle(tasks, "WAIT_EXIT_NOTIFY", None, round_id)
-        if all_exec is None:
+        if not all_exec_map:
             continue
 
         callop_exec = calc_duration_from_ends(wait_first, all_exec)
@@ -438,6 +458,8 @@ def collect_aicore_exec_rows(aicpu_dev_pref: List[Dict[str, Any]], round_id: Opt
                 "freq": float(core.get("freq", 0)) or 1.0,
                 "wait_first": wait_first,
                 "all_exec": all_exec,
+                "wait_first_map": wait_first_map,
+                "all_exec_map": all_exec_map,
                 "begin_to_wait_first": begin_to_wait_first,
                 "callop_exec": callop_exec,
                 "exit_wait": exit_wait,
@@ -452,27 +474,41 @@ def calc_aicore_timing_summary(aicore_exec_rows: List[Dict[str, Any]]) -> Tuple[
     if not aicore_exec_rows:
         return "-", "-"
 
-    all_wait_first: List[float] = []
-    all_exec_done: List[float] = []
-    begin_to_exit_values: List[float] = []
-    ref_freq = float(aicore_exec_rows[0].get("freq", 1.0)) or 1.0
+    stitch_ids = set()
     for row in aicore_exec_rows:
-        wait_first = row.get("wait_first")
-        all_exec = row.get("all_exec")
+        stitch_ids.update(int(x) for x in row.get("all_exec_map", {}).keys())
+        stitch_ids.update(int(x) for x in row.get("wait_first_map", {}).keys())
+    if not stitch_ids:
+        stitch_ids.add(0)
+
+    e2e_per_stitch_us: List[Tuple[int, float]] = []
+    for stitch_id in sorted(stitch_ids):
+        wait_first_us: List[float] = []
+        all_exec_us: List[float] = []
+        for row in aicore_exec_rows:
+            freq = float(row.get("freq", 1.0)) or 1.0
+            wait_first = row.get("wait_first_map", {}).get(stitch_id)
+            all_exec = row.get("all_exec_map", {}).get(stitch_id)
+            if wait_first is None or all_exec is None or all_exec <= wait_first:
+                continue
+            wait_first_us.append(to_us(wait_first, freq))
+            all_exec_us.append(to_us(all_exec, freq))
+        if wait_first_us and all_exec_us:
+            e2e_per_stitch_us.append((stitch_id, max(all_exec_us) - min(wait_first_us)))
+
+    begin_to_exit_values: List[float] = []
+    for row in aicore_exec_rows:
         begin_to_exit = row.get("begin_to_exit")
-        if wait_first is not None and all_exec is not None and all_exec > wait_first:
-            all_wait_first.append(wait_first)
-            all_exec_done.append(all_exec)
         if begin_to_exit is not None and begin_to_exit > 0:
-            begin_to_exit_values.append(begin_to_exit)
+            freq = float(row.get("freq", 1.0)) or 1.0
+            begin_to_exit_values.append(to_us(begin_to_exit, freq))
 
     e2e_time = "-"
     total_runtime_max = "-"
-    if all_wait_first and all_exec_done:
-        e2e_cycles = max(all_exec_done) - min(all_wait_first)
-        e2e_time = f"{to_us(e2e_cycles, ref_freq):.2f}"
+    if e2e_per_stitch_us:
+        e2e_time = f"{sum(x[1] for x in e2e_per_stitch_us):.2f}"
     if begin_to_exit_values:
-        total_runtime_max = f"{to_us(max(begin_to_exit_values), ref_freq):.2f}"
+        total_runtime_max = f"{max(begin_to_exit_values):.2f}"
     return e2e_time, total_runtime_max
 
 
