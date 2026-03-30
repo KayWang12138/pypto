@@ -251,6 +251,145 @@ std::string CodeGenOpLiteNPU::GenUnaryOpWithTmpBuff() const {
     return ostring;
 }
 
+std::string CodeGenOpLiteNPU::PrintUnaryTileTensor() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+
+    std::ostringstream oss;
+    std::vector<std::string> templateParamList;
+    std::string lastUse = GetLastUse();
+    oss << tileOpName;
+    if (!lastUse.empty()) {
+        oss << WrapParamByAngleBrackets({lastUse});
+    }
+    oss << WrapParamByParentheses({dstTensor, srcTensor});
+    oss << ";\n";
+    return oss.str();
+}
+
+
+std::string CodeGenOpLiteNPU::PrintUnary() const {
+    std::cout<<"********** debug message"<<isSupportLayout << std::endl;
+    if (isSupportLayout) {
+        return PrintUnaryTileTensor();
+    }
+    return "";
+}
+
+std::string CodeGenOpLiteNPU::GenUnaryOp() const {
+    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+
+    std::cout<<"*******debug message********"<<s0Var <<"***********"<<dVar<<std::endl;
+
+    std::map<unsigned, std::reference_wrapper<std::string>> varsMap;
+    // AppendLocalBufVarOffsetInOrder(dVar, s0Var);
+    varsMap.insert(std::make_pair(0, std::ref(dVar)));
+    varsMap.insert(std::make_pair(1, std::ref(s0Var)));
+    AppendLocalBufferVarOffset(varsMap);
+
+    std::cout<<"*******debug message********"<<s0Var <<"***********"<<dVar<<std::endl;
+
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    if (opCode == Opcode::OP_COPY_UB_TO_UB) {
+        srcDtypeStr = GetTypeForB16B32(operandDtype[ID1]);
+        dstDtypeStr = GetTypeForB16B32(operandDtype[ID0]);
+    }
+
+    // if (opCode == Opcode::OP_EXPAND) {
+    //     return PrintExpand(s0Var, dVar, srcDtypeStr, dstDtypeStr);
+    // }   
+    if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS || opCode == Opcode::OP_RELU ||
+               opCode == Opcode::OP_RECIPROCAL || opCode == Opcode::OP_NEG || opCode == Opcode::OP_RSQRT ||
+               opCode == Opcode::OP_LN || opCode == Opcode::OP_LOGICALNOT || opCode == Opcode::OP_BRCB ||
+               opCode == Opcode::OP_CEIL|| opCode == Opcode::OP_FLOOR|| opCode == Opcode::OP_TRUNC || opCode == Opcode::OP_ISFINITE) {
+        return PrintUnary();
+    }  
+    CODEGEN_LOGI("unsupported tileop: %s", opCodeStr.c_str());
+    return "CG_ERROR";
+}
+
+
+std::string CodeGenOpLiteNPU::PrintCastTileTensor() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    auto mode = opAttrs.at(OP_ATTR_PREFIX + "mode");
+    int64_t modeEnum{0};
+    if (mode.HasValue()) {
+        modeEnum = AnyCast<int64_t>(mode);
+    }
+    std::ostringstream oss;
+    std::vector<std::string> templateParamList;
+    std::string lastUse = GetLastUse();
+    oss << tileOpName;
+    if (!lastUse.empty()) {
+        templateParamList.emplace_back(lastUse);
+    }
+    templateParamList.emplace_back(std::to_string(modeEnum));
+    oss << WrapParamByAngleBrackets(templateParamList);
+    oss << WrapParamByParentheses({dstTensor, srcTensor});
+    oss << ";\n";
+    return oss.str();
+}
+
+std::string CodeGenOpLiteNPU::GenCastOp() const {
+    if (isSupportLayout) {
+        return PrintCastTileTensor();
+    }
+    
+    return "";
+}
+
+
+std::string CodeGenOpLiteNPU::PrintDupTileTensor(const PrintDupOpParam &param) const {
+    const std::string &dupV = param.dupV;
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets({dstDtypeStr});
+    oss << WrapParamByParentheses({dstTensor, dupV});
+    oss << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpLiteNPU::PrintDupOp(const PrintDupOpParam &param) const {
+    if (isSupportLayout) {
+        return PrintDupTileTensor(param);
+    }
+
+    return "";
+}
+
+std::string CodeGenOpLiteNPU::GenDupOp() const {
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+
+    std::string dupV;
+    if (opAttrs.count(OpAttributeKey::dynScalar)) {
+        auto scalar = opAttrs.at(OpAttributeKey::dynScalar);
+        ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(SymbolicScalar)))
+            << AnyCast<SymbolicScalar>(scalar).IsValid() << "SCALAR attribute has to have symbolic value.";
+        auto scalarExpr = AnyCast<SymbolicScalar>(scalar);
+        dupV = SymbolicExpressionTable::BuildExpression(scalarExpr);
+    } else if (dstDtypeStr == "float" || dstDtypeStr == "half" || dstDtypeStr == "bfloat16_t") {
+        auto scalar = opAttrs.at(OpAttributeKey::scalar);
+        ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(Element)))
+            << AnyCast<Element>(scalar).IsFloat() << "SCALAR attribute has to have float value.";
+        dupV = FormatFloat(AnyCast<Element>(scalar).Cast<float>());
+    } else if (dstDtypeStr == "int32_t") {
+        auto scalar = opAttrs.at(OpAttributeKey::scalar);
+        ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(Element)))
+            << AnyCast<Element>(scalar).IsSigned() << "SCALAR attribute has to have int value.";
+        dupV = std::to_string(AnyCast<Element>(scalar).Cast<int>());
+    } else {
+        ASSERT(false) << "unsupported type";
+    }
+    return PrintDupOp({dVar, dstDtypeStr, dupV});
+}
+
 std::string CodeGenOpLiteNPU::PrintReduceLastAxisTileTensor() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));

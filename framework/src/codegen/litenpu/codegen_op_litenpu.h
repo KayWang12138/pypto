@@ -67,7 +67,7 @@ public:
     std::string GenUBCopyIn() const;
     std::string GenUBCopyOut() const;
 
-    // std::string GenUnaryOp() const;
+    std::string GenUnaryOp() const;
     std::string GenUnaryOpWithTmpBuff() const;
 
     std::string GenBinaryOp() const;
@@ -81,10 +81,10 @@ public:
     std::string GenCubeOpMatmul() const ;
     std::string GenCubeOpMatmulAcc() const ;
 
-    // std::string GenCastOp() const ;
+    std::string GenCastOp() const ;
     // std::string GenPadOp() const ;
 
-    // std::string GenDupOp() const ;
+    std::string GenDupOp() const ;
 
     // std::string GenTransposeDataMove() const ;
 
@@ -197,8 +197,7 @@ private:
     std::string GenCubeOp(bool zeroC) const;
 
     std::string PrintDupOp(const PrintDupOpParam &param) const;
-    std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
-    std::string PrintDupOpStatic(const PrintDupOpParam &param) const;
+    std::string PrintDupTileTensor(const PrintDupOpParam &param) const;
 
     std::string PrintRowSumline(const PrintUnaryParam &param) const;
     std::string PrintRowSumlineDynamicUnaligned(const PrintUnaryParam &param) const;
@@ -244,9 +243,10 @@ private:
     std::string PrintBinaryScalarDynamicUnaligned(const PrintBinaryScalarParam &param) const;
     std::string PrintBinaryScalarStatic(const PrintBinaryScalarParam &param) const;
 
-    std::string PrintUnary(const PrintUnaryParam &param) const;
-    std::string PrintUnaryDynamicUnaligned(const PrintUnaryParam &param) const;
-    std::string PrintUnaryStatic(const PrintUnaryParam &param) const;
+    std::string PrintUnary() const;
+    std::string PrintUnaryTileTensor() const;
+
+    std::string PrintCastTileTensor() const;
 
     // SortParam PrepareSortParam() const;
     // std::string PrintSortDynamicUnaligned(const SortParam &param) const;
@@ -281,8 +281,8 @@ private:
     std::string PrintIndexOutCastDynamic(const PrintIndexOutCastParam &param) const;
     std::string PrintIndexOutCastDynamicUnaligned(const PrintIndexOutCastParam &param) const;
 
-    std::string PrintExpand(const std::string &s0Var, const std::string &dVar, const std::string &srcDtypeStr,
-        const std::string &dstDtypeStr) const;
+    // std::string PrintExpand(const std::string &s0Var, const std::string &dVar, const std::string &srcDtypeStr,
+    //     const std::string &dstDtypeStr) const;
 
     DynamicParamPackMTE PrepareDynamicShapeInfo(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool gmOffsetCond = true) const;
@@ -307,7 +307,7 @@ private:
         {               Opcode::OP_L1_TO_L0_BT,                [this]() { return GenMemL1ToL0(); }},
 
         // // cast op
-        // {                      Opcode::OP_CAST,                   [this]() { return GenCastOp(); }},
+        {                      Opcode::OP_CAST,                   [this]() { return GenCastOp(); }},
         // // pad op
         // {                      Opcode::OP_PAD,                   [this]() { return GenPadOp(); }},
         // binary op: vector operations
@@ -342,17 +342,17 @@ private:
         // {                    Opcode::OP_S_MINS, [this]() { return GenVectorScalarOpScalarMode(); }},
 
         // // unary op
-        // {                       Opcode::OP_EXP,                  [this]() { return GenUnaryOp(); }},
-        // {                      Opcode::OP_SQRT,                  [this]() { return GenUnaryOp(); }},
+        {                       Opcode::OP_EXP,                  [this]() { return GenUnaryOp(); }},
+        {                      Opcode::OP_SQRT,                  [this]() { return GenUnaryOp(); }},
         // {                    Opcode::OP_EXPAND,                  [this]() { return GenUnaryOp(); }},
-        // {                Opcode::OP_RECIPROCAL,                  [this]() { return GenUnaryOp(); }},
+        {                Opcode::OP_RECIPROCAL,                  [this]() { return GenUnaryOp(); }},
         // {                    Opcode::OP_ROWSUM,                  [this]() { return GenUnaryOp(); }},
         // {                    Opcode::OP_ROWMAX,                  [this]() { return GenUnaryOp(); }},
         // {                 Opcode::OP_ROWEXPSUM,                  [this]() { return GenUnaryOp(); }},
         // {                 Opcode::OP_ROWEXPMAX,                  [this]() { return GenUnaryOp(); }},
         // {             Opcode::OP_COPY_UB_TO_UB,                  [this]() { return GenUnaryOp(); }},
         // {                Opcode::OP_ROWSUMLINE,                  [this]() { return GenUnaryOp(); }},
-        // {                       Opcode::OP_ABS,                  [this]() { return GenUnaryOp(); }},
+        {                       Opcode::OP_ABS,                  [this]() { return GenUnaryOp(); }},
 
         // // unary with temp buffer
         // {                   Opcode::OP_COMPACT,       [this]() { return GenUnaryOpWithTmpBuff(); }},
@@ -373,7 +373,7 @@ private:
         // {        Opcode::OP_TRANSPOSE_MOVEIN,        [this]() { return GenTransposeDataMove(); }},
 
         // // vector dup
-        // {                   Opcode::OP_VEC_DUP,                    [this]() { return GenDupOp(); }},
+        {                   Opcode::OP_VEC_DUP,                    [this]() { return GenDupOp(); }},
 
         // // index outcast
         // {             Opcode::OP_INDEX_OUTCAST,           [this]() { return GenIndexOutCastOp(); }},

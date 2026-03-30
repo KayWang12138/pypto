@@ -36,7 +36,7 @@ public:
     void SetUp() override {
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-
+        config::SwtBuildStatic(true);
     }
 
     void TearDown() override {}
