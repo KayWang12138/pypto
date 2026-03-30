@@ -71,6 +71,7 @@ enum class GenCodeErr : uint32_t {
     TENSOR_NOT_FOUND = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 13U,
     SYMBOL_NOT_FOUND = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 14U,
     PIPE_ID_NOT_FOUND = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 15U,
+    SYMBOL_ID_INVALID = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 16U,
 };
 
 // Compile CCE error scene

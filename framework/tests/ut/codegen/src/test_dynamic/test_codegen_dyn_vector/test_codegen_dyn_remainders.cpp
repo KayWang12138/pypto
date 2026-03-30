@@ -69,7 +69,7 @@ TEST_F(TestCodegenDynRemainderS, TestRemainderS)
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
-    std::string expect = R"!!!(TRemainderS<int16_t>(ubTensor_15, ubTensor_13, 2, ubTensor_16);)!!!";
+    std::string expect = R"!!!(TRemainderS<int16_t>(ubTensor_4, ubTensor_2, 2, ubTensor_5);)!!!";
     CheckStringExist(expect, res);
 }
 
@@ -100,7 +100,7 @@ TEST_F(TestCodegenDynRemainderS, TestRemainderRS)
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
-    std::string expect = R"!!!(TRemainderRS<float>(ubTensor_9, ubTensor_7, 10, ubTensor_10);)!!!";
+    std::string expect = R"!!!(TRemainderRS<float>(ubTensor_2, ubTensor_0, 10, ubTensor_3);)!!!";
     CheckStringExist(expect, res);
 }
 } // namespace npu::tile_fwk
