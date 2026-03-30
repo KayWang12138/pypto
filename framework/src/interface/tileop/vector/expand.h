@@ -60,6 +60,7 @@ TILEOP void TExpand(T0 dst, T1 src) {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
 
+    constexpr auto dstTile2 = TileOp::GetTensorTileShapeDim<T0, DIM_3RD, MAX_DIMS>();
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, DIM_4TH, MAX_DIMS>();
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, DIM_5TH, MAX_DIMS>();
     constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, DIM_4TH, MAX_DIMS>();
@@ -131,13 +132,10 @@ TILEOP void TExpand(T0 dst, T1 src) {
                 pto::Tile<pto::TileType::Vec, SrcDtype, minTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
             dstTileDefine dstTile(dstShape3, dstShape4);
             srcTileDefine srcTile(srcShape3, srcShape4);
-
-            constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
-            dstShape2 = shapeSize > 2 ? TileOp::GetTensorTileShapeDim<T0, shapeSize - 3>() : dstShape2;
             for (LoopVar i = 0; i < dstShape1; ++i) {
                 for (LoopVar j = 0; j < dstShape2; j++) {
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + (srcOffset + j * srcTileH * srcTileW) * typeSize));
-                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstShape2 * dstTileH * dstTileW
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstTile2 * dstTileH * dstTileW
                                                                         + j * dstTileH * dstTileW) * typeSize));
                     pto::TMOV(dstTile, srcTile);
                 }
