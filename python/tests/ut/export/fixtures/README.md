@@ -2,7 +2,7 @@
 
 `gert_ge_minimal.hpp` provides minimal `gert::Shape`, `gert::InferShapeContext`, and `ge::graphStatus` / `GRAPH_*` symbols matching usage in generated `InferShapeGeImpl` code.
 
-`sinkable_executor_minimal.hpp` provides minimal `SinkableExecuteOp`, `MockSinkableOpExecutionContext`, `SinkableOpIo`, and `REG_AUTO_MAPPING_OP` for compiling generated sinkable executors (class name comes from ``op_type`` / ``_custom_executor_class_cpp_for_test(op_type=...)`` in `pypto.export.cpp`).
+`sinkable_executor_minimal.hpp` provides minimal `SinkableExecuteOp`, `MockSinkableOpExecutionContext`, `SinkableOpIo`, and `REG_AUTO_MAPPING_OP` for compiling generated sinkable executors (class name comes from ``op_type`` / ``_custom_executor_class_cpp_for_test(op_type=...)`` in `pypto.export.cpp.codegen`).
 
 ## Optional compile tests (`@pytest.mark.cpp_codegen`)
 

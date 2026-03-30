@@ -6,30 +6,29 @@ from torchair.ge._ge_graph import GeGraph
 import argparse
 from pathlib import Path
 
-DOMAIN = "ai.onnx.contrib"
-OP_TYPE__ADD = "AddPyptoCustomOp"
-DOMAIN_OP_TYPE__ADD = f"{DOMAIN}::{OP_TYPE__ADD}"
 SHAPE = (32, 32, 1, 64)
 
-def load_demo(path: str):
+
+def load_demo(path: str, *, op_type: str, domain: str | None = None):
     path = Path(path)
     model_format = str(path.suffix[1:])
 
     print(f"\nLoading {model_format} model...")
 
     if model_format == "onnx":
+        assert domain is not None
         m = onnx.load(path)
         node = pypto.export.extract_node_from_onnx(
             onnx_model=m,
-            domain=DOMAIN,
-            op_type=OP_TYPE__ADD,
+            domain=domain,
+            op_type=op_type,
         )
     elif model_format == "air":
         with open(path, "rb") as f:
             ge = GeGraph(serialized_model_def=f.read())
             node = pypto.export.extract_node_from_ge_graph(
                 ge_graph=ge,
-                op_type=DOMAIN_OP_TYPE__ADD,
+                op_type=op_type,
             )
     else:
         raise ValueError(f"Unsupported file type: {path.suffix}")
@@ -46,18 +45,9 @@ def load_demo(path: str):
 
     infer_shape_source = pypto.export.extract_infer_shape_source(node)
     calc_workspace_source = pypto.export.extract_calc_workspace_source(node)
-    
-    namespace = DOMAIN_OP_TYPE__ADD # optional
-    x0_shape = SHAPE
-    x1_shape = SHAPE
 
     print(f"infer_shape() source:\n{infer_shape_source}\n")
-    infer_shape = pypto.export.register_infer_shape_fn(infer_shape_source, namespace=namespace)
-    print(f"infer_shape() call:\t{infer_shape(x0_shape, x1_shape)}\n")
-
     print(f"calc_workspace() source:\n{calc_workspace_source}\n")
-    calc_workspace = pypto.export.register_calc_workspace_fn(calc_workspace_source, namespace=namespace)
-    print(f"calc_workspace() call:\t{calc_workspace(x0_shape, x1_shape)}")
 
     print("\n----------------\n")
 
@@ -101,7 +91,19 @@ def load_demo(path: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=str, help="onnx or torch air model path")
+    parser.add_argument(
+        "--op-type",
+        type=str,
+        required=True,
+        help="Custom op type to extract (e.g. AddPyptoCustomOp)",
+    )
+    parser.add_argument(
+        "--domain",
+        type=str,
+        default="ai.onnx.contrib",
+        help="ONNX custom op domain (defaults to 'ai.onnx.contrib' for ONNX models)",
+    )
 
     args = parser.parse_args()
 
-    load_demo(args.path)
+    load_demo(args.path, op_type=args.op_type, domain=args.domain)

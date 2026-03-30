@@ -15,9 +15,13 @@ struct Shape {
 
     explicit Shape(std::initializer_list<int64_t> il) : dims_(il) {}
 
+    void SetDimNum(const size_t dim_num) { dims_.resize(dim_num); }
+
     size_t GetDimNum() const { return dims_.size(); }
 
-    int64_t operator[](size_t i) const { return dims_[i]; }
+    int64_t &operator[](size_t i) { return dims_[i]; }
+
+    const int64_t &operator[](const size_t i) const { return dims_[i]; }
 };
 
 class InferShapeContext {
