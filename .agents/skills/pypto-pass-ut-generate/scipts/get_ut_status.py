@@ -99,8 +99,8 @@ def get_pr_ut_status(owner: str, repo: str, pr_number: int) -> dict:
         return {'error': '未找到 GitCode Token'}
     
     url = (f"https://api.gitcode.com/api/v5/repos/{owner}/{repo}/pulls/"
-           f"{pr_number}/comments?per_page=100&access_token={token}")
-    comments = make_api_request(url)
+           f"{pr_number}/comments?per_page=100")
+    comments = make_api_request(url, token=token)
     
     if not comments:
         return {'error': '获取评论失败'}

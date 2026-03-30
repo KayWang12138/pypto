@@ -128,10 +128,10 @@ def get_pr_diff_via_api(owner: str, repo: str, pr_number: int) -> Optional[str]:
         return diff_content
 
     except urllib.error.HTTPError as e:
-        logger.warning("API 获取 diff 失败: {e.code} - {e.reason}")
+        logger.warning(f"API 获取 diff 失败: {e.code} - {e.reason}")
         return None
     except Exception as e:
-        logger.warning("API 获取 diff 异常: {e}")
+        logger.warning(f"API 获取 diff 异常: {e}")
         return None
 
 
@@ -187,12 +187,12 @@ def get_pr_diff_via_git_fetch(
                             return diff_content, local_branch
                 break
             else:
-                logger.warning("从 {remote_name} fetch 失败: {result.stderr.strip()[:100]}")
+                logger.warning(f"从 {remote_name} fetch 失败: {result.stderr.strip()[:100]}")
         
         return None, None
         
     except Exception as e:
-        logger.warning("git fetch 获取 diff 失败: {e}")
+        logger.warning(f"git fetch 获取 diff 失败: {e}")
         return None, None
 
 
@@ -341,7 +341,7 @@ def checkout_or_fetch_pr_branch(
             )
             
             if result.returncode == 0:
-                logger.info("成功从 {remote_name} 获取 PR 分支 {local_branch}")
+                logger.info(f"成功从 {remote_name} 获取 PR 分支 {local_branch}")
                 
                 result = subprocess.run(
                     ['git', 'log', '-1', '--format=%H', local_branch],
@@ -361,7 +361,7 @@ def checkout_or_fetch_pr_branch(
                         return local_branch, local_branch, result.stdout
                 break
             else:
-                logger.warning("从 {remote_name} fetch 失败: {result.stderr.strip()[:80]}")
+                logger.warning(f"从 {remote_name} fetch 失败: {result.stderr.strip()[:80]}")
         
         if pr_info:
             head_ref = pr_info.get('head', {}).get('ref', '')
@@ -385,7 +385,7 @@ def checkout_or_fetch_pr_branch(
         return None, None, None
         
     except Exception as e:
-        logger.warning("分支操作失败: {e}")
+        logger.warning(f"分支操作失败: {e}")
         return None, None, None
 
 
@@ -495,7 +495,7 @@ def download_and_parse_coverage_report(coverage_url: str, pr_number: int) -> Dic
             with open(tmp_path, 'wb') as f:
                 f.write(response.read())
         
-        logger.info("覆盖率报告下载成功: {tmp_path}")
+        logger.info(f"覆盖率报告下载成功: {tmp_path}")
         
         extract_dir = None
         extract_dir = tempfile.mkdtemp(prefix=f'cov_pr{pr_number}_')
@@ -503,7 +503,7 @@ def download_and_parse_coverage_report(coverage_url: str, pr_number: int) -> Dic
         with tarfile.open(tmp_path, 'r:gz') as tar:
             tar.extractall(extract_dir)
         
-        logger.info("覆盖率报告解压到: {extract_dir}")
+        logger.info(f"覆盖率报告解压到: {extract_dir}")
         
         result['success'] = True
         result['extract_dir'] = extract_dir
@@ -513,9 +513,7 @@ def download_and_parse_coverage_report(coverage_url: str, pr_number: int) -> Dic
         
     except Exception as e:
         result['message'] = f'下载/解析覆盖率报告失败: {e}'
-        logger.warning("{result['message']}")
-    
-    finally:
+        logger.warning(f"{result['message']}")
         if extract_dir and os.path.exists(extract_dir):
             shutil.rmtree(extract_dir, ignore_errors=True)
     
@@ -548,10 +546,10 @@ def save_diff_to_file(diff_content: str, output_file: str) -> bool:
         os.makedirs(os.path.dirname(output_file) if os.path.dirname(output_file) else '.', exist_ok=True)
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(diff_content)
-        logger.info("Diff 已保存到: {output_file}")
+        logger.info(f"Diff 已保存到: {output_file}")
         return True
     except Exception as e:
-        logger.warning("保存 diff 文件失败: {e}")
+        logger.warning(f"保存 diff 文件失败: {e}")
         return False
 
 
@@ -596,7 +594,7 @@ def apply_diff_to_repo(diff_file: str, repo_dir: str, auto_stash: bool = True) -
                     stash_applied = True
                     stash_message = "（已自动 stash 当前更改）"
                 else:
-                    logger.warning("stash 失败: {result.stderr.strip()}")
+                    logger.warning(f"stash 失败: {result.stderr.strip()}")
                     logger.info("将尝试直接 apply...")
             else:
                 return False, f"工作区有未提交的更改: {len(uncommitted)} 个文件"
@@ -828,11 +826,11 @@ def process_pr(config: PRProcessConfig) -> Dict:
                 comments = get_pr_comments_via_api(owner, repo, pr_number)
                 if comments:
                     ut_result = parse_ut_report_from_comments(comments)
-                    logger.info("通过 API 获取到 {len(comments)} 条评论")
+                    logger.info(f"通过 API 获取到 {len(comments)} 条评论")
                 else:
                     logger.info("⚠️ API 返回空评论列表")
             except Exception as e:
-                logger.warning("API 调用失败: {e}")
+                logger.warning(f"API 调用失败: {e}")
         
         result['ut_report'] = ut_result
         
@@ -865,7 +863,7 @@ def process_pr(config: PRProcessConfig) -> Dict:
         )
         
         if pr_branch and diff_content:
-            logger.info("找到 PR 分支: {pr_branch}")
+            logger.info(f"找到 PR 分支: {pr_branch}")
             result['method'] = 'git_fetch'
             result['diff_content'] = diff_content
 
@@ -930,10 +928,10 @@ def process_pr(config: PRProcessConfig) -> Dict:
             diff_filepath, work_repo_dir, auto_stash=config.auto_stash
         )
         if apply_success:
-            logger.info("{apply_msg}")
+            logger.info(f"{apply_msg}")
             result['diff_applied'] = True
         else:
-            logger.warning("{apply_msg}")
+            logger.warning(f"{apply_msg}")
             result['diff_applied'] = False
             result['diff_apply_error'] = apply_msg
 
@@ -944,9 +942,9 @@ def process_pr(config: PRProcessConfig) -> Dict:
         if config.check_build and result['diff_applied']:
             build_success, build_msg = check_build_status(work_repo_dir, analysis['pass_files'])
             if build_success:
-                logger.info("{build_msg}")
+                logger.info(f"{build_msg}")
             else:
-                logger.warning("{build_msg}")
+                logger.warning(f"{build_msg}")
             result['build_status'] = {'success': build_success, 'message': build_msg}
         else:
             logger.info("跳过编译检查")
@@ -965,15 +963,15 @@ def process_pr(config: PRProcessConfig) -> Dict:
         elif ut_result['status'] == 'PARTIAL_FAILED':
             need_design_ut = True
             design_ut_reason = f"UT 测试部分失败: {', '.join(ut_result['failed_tests'])}"
-            logger.error("{design_ut_reason}")
+            logger.error(f"{design_ut_reason}")
         elif ut_result['status'] == 'ABORT':
             need_design_ut = True
             design_ut_reason = "UT 测试部分中止，需要检查覆盖率"
-            logger.warning("{design_ut_reason}")
+            logger.warning(f"{design_ut_reason}")
         else:
             need_design_ut = True
             design_ut_reason = "无法获取 UT 状态，建议设计 UT"
-            logger.warning("{design_ut_reason}")
+            logger.warning(f"{design_ut_reason}")
         
         if analysis['pass_files'] and ut_result['status'] != 'SUCCESS':
             need_design_ut = True
@@ -1040,7 +1038,7 @@ def process_offline_diff(diff_file: str) -> Dict:
         
     except Exception as e:
         result['error'] = str(e)
-        logger.warning("处理离线 diff 文件失败: {e}")
+        logger.warning(f"处理离线 diff 文件失败: {e}")
         return result
 
 
@@ -1078,7 +1076,7 @@ def process_offline_ut_report(report_file: str) -> Dict:
         result['report_content'] = report_content
         
         if report_file.endswith('.html') or '<html' in report_content.lower():
-            from scripts.ut_coverage import parse_coverage_html, find_low_coverage_files
+            from scipts.ut_coverage import parse_coverage_html, find_low_coverage_files
             result['coverage_info'] = parse_coverage_html(report_content)
             result['low_coverage_files'] = find_low_coverage_files(result['coverage_info'], 80.0)
         else:
@@ -1095,7 +1093,7 @@ def process_offline_ut_report(report_file: str) -> Dict:
         
     except Exception as e:
         result['error'] = str(e)
-        logger.warning("处理离线 UT-Report 文件失败: {e}")
+        logger.warning(f"处理离线 UT-Report 文件失败: {e}")
         return result
 
 
@@ -1137,7 +1135,7 @@ def analyze_offline_files(
         if result['report_result'] and result['report_result']['success']:
             logger.info("\n[3] 关联分析...")
             
-            from scripts.ut_coverage import (
+            from scipts.ut_coverage import (
                 correlate_coverage_with_diff,
                 generate_ut_design_suggestions
             )

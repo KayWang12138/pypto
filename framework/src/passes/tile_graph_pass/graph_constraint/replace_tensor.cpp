@@ -943,7 +943,7 @@ void ReplaceTensor::FindNeedToCopyAssemble(std::unordered_set<Operation*> &needI
 
  * Tensor1 ---> View ---> Reshape ---> OP(非CopyIn) ---> Tensor2
 
- * Tensor1 ---> Reshape ---> Assemble ---> Tensor2(可能造成CopyOut+Rehape+Assemble的一些场景性能损失)
+ * Tensor1 ---> Reshape ---> Assemble ---> Tensor2(可能造成CopyOut+Reshape+Assemble的一些场景性能损失)
  */
 void ReplaceTensor::InsertNeedCopy(Function &function) {
     std::unordered_set<int> visitedAssOps;
