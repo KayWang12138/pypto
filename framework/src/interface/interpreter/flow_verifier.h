@@ -411,7 +411,7 @@ public:
         CompareDataRecursiveWithLeaf(compareResult, axis, goldenOffset, outputOffset, goldenDataView, outputDataView,
             [](CompareResult &cr, size_t lastAxisLen, int64_t outOff, int64_t gOff,
                 const std::shared_ptr<LogicalTensorData> &gv, const std::shared_ptr<LogicalTensorData> &ov) {
-                CompareData<DataType, T>(cr, lastAxisLen, outOff, &gv->Get<DataType>(gOff), &ov->Get<DataType>(gOff));
+                CompareData<DataType, T>(cr, lastAxisLen, outOff, &gv->Get<DataType>(gOff), &ov->Get<DataType>(outOff));
             });
     }
 

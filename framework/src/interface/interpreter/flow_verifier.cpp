@@ -111,7 +111,7 @@ FlowVerifier::CompareResult FlowVerifier::CompareFp8TensorData(
         [&](CompareResult &cr, size_t lastCount, int64_t outOff, int64_t gOff,
             const std::shared_ptr<LogicalTensorData> &gv, const std::shared_ptr<LogicalTensorData> &ov) {
             const uint8_t *gp = &gv->Get<uint8_t>(gOff);
-            const uint8_t *op = &ov->Get<uint8_t>(gOff);
+            const uint8_t *op = &ov->Get<uint8_t>(outOff);
             for (size_t i = 0; i < lastCount; i++) {
                 CompareScalarPair(cr, outOff + static_cast<int64_t>(i), Fp8StorageToDouble(gp[i], fp8Format),
                     Fp8StorageToDouble(op[i], fp8Format));
