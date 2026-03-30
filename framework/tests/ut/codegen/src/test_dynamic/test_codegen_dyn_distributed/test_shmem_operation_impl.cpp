@@ -193,7 +193,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemDataSet)
     uint32_t worldSize = 4;
 
     std::string functionName = "ShmemClearData";
-    Shape shmemDataShape = {1, 64, 256};
+    Shape shmemDataShape = {64, 256};
     FUNCTION(functionName + "Main", {predToken}, {out}) {
         TileShape::Current().SetVecTile({64, 256});
         auto shmemTensor = CreateShmemTensor(group, worldSize, DT_BF16, shmemDataShape);
@@ -210,7 +210,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemDataSet)
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TileOp::Distributed::ShmemSet<bfloat16_t, 1, 64, 256, 8192>)!!!";
+        R"!!!(TileOp::Distributed::ShmemSet<bfloat16_t, 64, 256, 8192>)!!!";
     CheckStringExist(expect, res);
 }
 
