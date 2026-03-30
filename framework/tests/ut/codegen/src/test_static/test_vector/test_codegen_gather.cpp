@@ -39,8 +39,6 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -89,7 +87,7 @@ TEST_F(TestCodegenGather, TestGatherEleTileTensor)
 {
     Function& func = testGatherEle(true, "GATHER_ELEMET_TILETENSOR");
     std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(TgatherElement<4>(ubTensor_13, ubTensor_6, ubTensor_11, ubTensor_14);
+    std::string expect = R"!!!(TgatherElement<4>(ubTensor_12, ubTensor_5, ubTensor_10, ubTensor_13);
 )!!!";
     CheckStringExist(expect, res);
 }
