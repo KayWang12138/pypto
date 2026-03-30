@@ -69,6 +69,7 @@ Status ExpandFunction::ClearIOOperand(const std::vector<OperationPtr> &tensorOpe
 void ExpandFunction::ProcessForNotExpandOp(Function &function, Operation &op) const {
     auto &newOp = function.AddOperation(op.GetOpcode(), op.GetIOperands(), op.GetOOperands());
     newOp.SetOpAttribute(op.GetOpAttribute());
+    newOp.SetScopeId(op.GetScopeId());
     newOp.CopyAttrFrom(op, OP_EMUOP_PREFIX);
     if (op.HasAttribute(OpAttributeKey::inplaceIdx)) {
         newOp.SetAttribute(OpAttributeKey::inplaceIdx, op.GetIntAttribute(OpAttributeKey::inplaceIdx));
