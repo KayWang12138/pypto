@@ -23,11 +23,11 @@ inline std::string FormatElapsed(double seconds) {
         oss << std::fixed << std::setprecision(1) << seconds << "s";
         return oss.str();
     }
-    
+
     int total_sec = static_cast<int>(seconds);
     int min = total_sec / 60;
     int sec = total_sec % 60;
-    
+
     std::ostringstream oss;
     if (min >= 60) {
         int hour = min / 60;

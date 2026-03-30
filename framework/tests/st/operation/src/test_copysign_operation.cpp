@@ -43,7 +43,7 @@ int BroadcastAxis(const std::vector<SymbolicScalar> &inputsShape, const std::vec
     return brcAxis;
 }
 
-int BroadcastTensor(const std::vector<SymbolicScalar> &firstInputsShape, const std::vector<SymbolicScalar> &secondInputsShape, 
+int BroadcastTensor(const std::vector<SymbolicScalar> &firstInputsShape, const std::vector<SymbolicScalar> &secondInputsShape,
                     const std::vector<SymbolicScalar> &outputsShape) {
     for (size_t i = 0; i < firstInputsShape.size(); i++) {
         if (firstInputsShape[i] != outputsShape[i]) {
@@ -56,7 +56,7 @@ int BroadcastTensor(const std::vector<SymbolicScalar> &firstInputsShape, const s
     return -1;
 }
 
-void UpdateInputBrcViewShape(std::vector<int64_t> &inputBrcViewShape, const std::vector<SymbolicScalar> &inputsShape, 
+void UpdateInputBrcViewShape(std::vector<int64_t> &inputBrcViewShape, const std::vector<SymbolicScalar> &inputsShape,
                              const std::vector<SymbolicScalar> &outputsShape) {
     for (size_t i = 0; i < inputsShape.size(); i++) {
         if (inputsShape[i] != outputsShape[i]) {
@@ -94,7 +94,7 @@ static void CopySignOperationExeFunc2Dims(
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 firstInputValidShape = {std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
-                                        std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1])}; 
+                                        std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1])};
                 secondInputValidShape = {std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
                                          std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1])};
                 firstOffset = {bIdx * firstInputViewShape[0], sIdx * firstInputViewShape[1]};
@@ -149,7 +149,7 @@ static void CopySignOperationExeFunc3Dims(
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
                     firstInputValidShape = {std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
                                             std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1]),
-                                            std::min(firstInputsShape[2] - nIdx * firstInputViewShape[2], firstInputViewShape[2])}; 
+                                            std::min(firstInputsShape[2] - nIdx * firstInputViewShape[2], firstInputViewShape[2])};
                     secondInputValidShape = {std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
                                              std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1]),
                                              std::min(secondInputsShape[2] - nIdx * secondInputViewShape[2], secondInputViewShape[2])};
@@ -209,7 +209,7 @@ static void CopySignOperationExeFunc4Dims(
                         firstInputValidShape = {std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
                                                 std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1]),
                                                 std::min(firstInputsShape[2] - nIdx * firstInputViewShape[2], firstInputViewShape[2]),
-                                                std::min(firstInputsShape[3] - mIdx * firstInputViewShape[3], firstInputViewShape[3])}; 
+                                                std::min(firstInputsShape[3] - mIdx * firstInputViewShape[3], firstInputViewShape[3])};
                         secondInputValidShape = {std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
                                                  std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1]),
                                                  std::min(secondInputsShape[2] - nIdx * secondInputViewShape[2], secondInputViewShape[2]),

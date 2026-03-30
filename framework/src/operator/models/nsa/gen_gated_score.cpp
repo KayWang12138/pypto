@@ -30,7 +30,7 @@ void GenGatedScoreComputePrefillPlus(const Tensor &x, const Tensor &gateW1, cons
     int L = 64;
 
     SymbolicScalar bLoop = b / tileB;
-    
+
     LOOP("LOOP_L0_bIdx_gen_gated_score", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
         SymbolicScalar block_num = s / L;
 

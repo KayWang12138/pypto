@@ -241,7 +241,7 @@ int EmulationLauncher::EmulationLaunchDeviceTensorData(Function *function,
     const std::vector<DeviceTensorData> &inDevList, const std::vector<DeviceTensorData> &outDevList,
     const DeviceLauncherConfig &config) {
     EmulationMemoryUtils memUtils;
-    DeviceLauncher::ChangeCaptureModeRelax(); 
+    DeviceLauncher::ChangeCaptureModeRelax();
     auto inList = toHostTensorData(inDevList, true);
     auto outList = toHostTensorData(outDevList, false);
     DeviceLauncher::ChangeCaptureModeGlobal();

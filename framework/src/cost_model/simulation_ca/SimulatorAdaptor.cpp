@@ -25,8 +25,8 @@ namespace CostModel
         std::istringstream stream(input);
         std::string token;
 
-        while (std::getline(stream, token, ' ')) { 
-            if (!token.empty()) { 
+        while (std::getline(stream, token, ' ')) {
+            if (!token.empty()) {
                 result.push_back(token);
             }
         }
@@ -70,10 +70,9 @@ namespace CostModel
                 }
             }
             ln += ")";
-            
+
             np.push_back(ln);
         }
         return np;
     }
 } // namespace CostModel
-

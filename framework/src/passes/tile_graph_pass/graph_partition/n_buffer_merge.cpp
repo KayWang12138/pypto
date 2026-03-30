@@ -52,8 +52,8 @@ void NBufferMerge::GetOpHashReverse(std::vector<uint64_t> &hashList, const std::
     hashList[idx] = hash;
 }
 
-void UpdateOpColor(OperationsViewer &opOriList, 
-                   int &color, 
+void UpdateOpColor(OperationsViewer &opOriList,
+                   int &color,
                    std::vector<int> &colorCycles,
                    std::vector<std::vector<int>> &colorNode) {
     std::vector<int> oriColor2NewColor(color);
@@ -75,9 +75,9 @@ void UpdateOpColor(OperationsViewer &opOriList,
     }
 }
 
-Status NBufferMerge::ColorTopo(int &color1, 
-                                   std::vector<std::vector<int>> &inputColor, 
-                                   std::vector<std::vector<int>> &outputColor, 
+Status NBufferMerge::ColorTopo(int &color1,
+                                   std::vector<std::vector<int>> &inputColor,
+                                   std::vector<std::vector<int>> &outputColor,
                                    OperationsViewer &opOriList) {
     std::vector<int> colorQueue(color1);
     std::vector<int> colorInDegree(color1);
@@ -120,8 +120,8 @@ Status NBufferMerge::ColorTopo(int &color1,
     return SUCCESS;
 }
 
-Status NBufferMerge::CheckAndFixColorOrder(OperationsViewer &opOriList, 
-                                            int &color1, 
+Status NBufferMerge::CheckAndFixColorOrder(OperationsViewer &opOriList,
+                                            int &color1,
                                             std::vector<int> &colorCycles1,
                                             std::vector<std::vector<int>> &colorNode1) {
     UpdateOpColor(opOriList, color1, colorCycles1, colorNode1);
@@ -237,7 +237,7 @@ std::map<uint64_t, size_t> NBufferMerge::GetIsoColorMergeNum(const std::map<uint
         if (hashCoreNum.find(entry.first) == hashCoreNum.end()) {
             hashCoreNum[entry.first] = mgVecParallelLb_;
         }
-        APASS_LOG_DEBUG_F(Elements::Operation, "Subgraph hash: %lu, size %zu, core num: %zu.", 
+        APASS_LOG_DEBUG_F(Elements::Operation, "Subgraph hash: %lu, size %zu, core num: %zu.",
                     entry.first, entry.second.size(), hashCoreNum[entry.first]);
         if (entry.second.size() <= hashCoreNum[entry.first]) {
             hashCoreNum[entry.first] = 1U;
@@ -255,7 +255,7 @@ std::map<uint64_t, size_t> NBufferMerge::GetIsoColorMergeNum(const std::map<uint
     return hashCoreNum;
 }
 
-void NBufferMerge::GetColorHash(const OperationsViewer &opOriList, 
+void NBufferMerge::GetColorHash(const OperationsViewer &opOriList,
                                  std::vector<uint64_t> &hashColor,
                                  std::map<uint64_t, std::vector<int>> &hashMap) {
     std::vector<uint64_t> hashTileOp(opOriList.size(), 0);
@@ -347,7 +347,7 @@ std::vector<std::vector<int>> NBufferMerge::SortColorWithInput(std::vector<int> 
         }
     }
     std::vector<std::vector<int>> res;
-    std::map<int, std::vector<int>> colorWithSameInOut = 
+    std::map<int, std::vector<int>> colorWithSameInOut =
         (inColorToOutColor.size() <= outColorToInColor.size()) ? inColorToOutColor : outColorToInColor;
     std::set<int> visitedColorSet;
     for (auto &entry : colorWithSameInOut) {
@@ -365,9 +365,9 @@ std::vector<std::vector<int>> NBufferMerge::SortColorWithInput(std::vector<int> 
     return res;
 }
 
-void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors, 
-                                     const OperationsViewer &opOriList, 
-                                     std::vector<uint64_t> &hashColor, 
+void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors,
+                                     const OperationsViewer &opOriList,
+                                     std::vector<uint64_t> &hashColor,
                                      size_t &numDBmerge) {
     int pingColor = -1;
     for (auto &input2Color : sortedColors) {
@@ -398,7 +398,7 @@ void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors,
     }
 }
 
-Status NBufferMerge::MergeProcessForMulityInOut(const OperationsViewer &opOriList, const std::map<uint64_t, std::vector<int>> &hashMap, 
+Status NBufferMerge::MergeProcessForMulityInOut(const OperationsViewer &opOriList, const std::map<uint64_t, std::vector<int>> &hashMap,
     const std::map<uint64_t, size_t> &hashMergeNum, std::vector<uint64_t> &hashColor) {
     std::vector<uint64_t> hashMapKeys;
     for (const auto &entry : hashMap) {
@@ -424,9 +424,9 @@ Status NBufferMerge::MergeProcessForMulityInOut(const OperationsViewer &opOriLis
     return SUCCESS;
 }
 
-Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList, 
-                                      std::map<uint64_t, std::vector<int>> &hashMap, 
-                                      std::map<uint64_t, size_t> &hashMergeNum, 
+Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList,
+                                      std::map<uint64_t, std::vector<int>> &hashMap,
+                                      std::map<uint64_t, size_t> &hashMergeNum,
                                       std::vector<uint64_t> &hashColor) {
     std::vector<uint64_t> hashMapKeys;
     for (const auto &entry : hashMap) {
@@ -515,7 +515,7 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
             return FAILED;
         }
     }
-    
+
     if (CheckAndFixColorOrder(opOriList, color_, colorCycles_, colorNode_) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Operation, "CheckAndFixColorOrder failed; Please check the CheckAndFixColorOrder method.");
         return FAILED;

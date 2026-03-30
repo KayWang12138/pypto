@@ -222,7 +222,7 @@ TILEOP void TRowProdLine(T0 dst, T1 src) {
     TRowMaxMinProdLineDynamic<ReduceOp::PROD, axis>(dst, src);
 }
 
-template <int axis, ReduceOp op, typename DstTileDefine, typename SrcTileDefine, typename TmpTileDefine, typename T0, typename T1, typename T2>	 
+template <int axis, ReduceOp op, typename DstTileDefine, typename SrcTileDefine, typename TmpTileDefine, typename T0, typename T1, typename T2>
  TILEOP void ColReduceWithTmpImp(T0 dst, T1 src, T2 tmp) {
     constexpr size_t expectSize = 5;
     constexpr auto typeSize = sizeof(typename T1::Type);

@@ -120,7 +120,7 @@ inline constexpr const char *PassNameStr(PassName name){
         case PassName::TUNE_TILEOP_SEQ_FOR_VF: return "TuneTileOpSeqForVF";
         case PassName::TUNE_SYNC_FOR_VF: return "TuneSyncForVF";
         case PassName::NOT_DEFINED: return "NotDefined";
-        default: 
+        default:
             ASSERT(false) << "[PassDependency][Manager][ERROR]: PassName not defined.";
             return "Invalid";
     }

@@ -52,7 +52,7 @@ Status RangeSearchTree::InsertInterval(const Interval &interval) {
     std::vector<IntervalTreeNode*> intervalStack;
     if (treeRoot == nullptr) {
         treeRoot = new IntervalTreeNode(interval);
-        if (treeRoot == nullptr) { 
+        if (treeRoot == nullptr) {
             APASS_LOG_ERROR_F(Elements::Tensor, "TreeRoot is nullptr, InsertInterval failed.");
             return FAILED;
         }
@@ -62,9 +62,9 @@ Status RangeSearchTree::InsertInterval(const Interval &interval) {
     while (intervalStack.size() > 0) {
         IntervalTreeNode *currPtr = intervalStack.back();
         intervalStack.pop_back();
-        if (ProcessTreeNode(interval, currPtr, intervalStack) != SUCCESS) { 
+        if (ProcessTreeNode(interval, currPtr, intervalStack) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Tensor, "InsertInterval failed at function ProcessTreeNode.");
-            return FAILED; 
+            return FAILED;
         }
         if (currPtr->max < interval.end) {
             currPtr->max = interval.end;
@@ -275,14 +275,14 @@ Status PipeSync::InsertSync(Function &function, std::vector<Operation *> &synced
         APASS_LOG_DEBUG_F(Elements::Operation, "Input operation %lu %lu: %s.", static_cast<unsigned long>(idxInput), static_cast<unsigned long>(op->GetOpMagic()), op->GetOpcodeStr().c_str());
         idxInput++;
     }
-    if (PipeDispatch(opLogPtr, synced) != SUCCESS) { 
+    if (PipeDispatch(opLogPtr, synced) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InsertSync failed at function PipeDispatch.");
-        return FAILED; 
+        return FAILED;
     }
 
-    if (IssueOp(function, opLogPtr, synced) != SUCCESS) { 
+    if (IssueOp(function, opLogPtr, synced) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InsertSync failed at function IssueOp.");
-        return FAILED; 
+        return FAILED;
     }
 
     std::sort(synced.begin(), synced.end(), [](const IndexOp &a, const IndexOp &b) {
@@ -414,7 +414,7 @@ Status PipeSync::AdjustCopyInCfg(TileOpCfg &opcfg, const Operation &op) {
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
         opcfg.coreType_ = CoreType::AIC;
         return SUCCESS;
-    } 
+    }
     if (dstMemType == MemoryType::MEM_UB) {
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
@@ -470,14 +470,14 @@ Status PipeSync::PipeDispatch(const std::vector<Operation *> opLogPtr, std::vect
     DataDependencySearcher dataDependencySearcher;
     dataDependencySearcher.ubTensorRangeMap = ubTensorRangeMap;
     for (size_t i = 0; i < opLogPtr.size(); i++) {
-        if (opLogPtr[i]->GetOpcodeStr().find("ALLOC") != std::string::npos) { 
+        if (opLogPtr[i]->GetOpcodeStr().find("ALLOC") != std::string::npos) {
             APASS_LOG_ERROR_F(Elements::Operation, "%d ALLOC op should not appear in InsertSync, PipeDispatch failed.%s", opLogPtr[i]->GetOpMagic(), GetFormatBacktrace(opLogPtr[i]).c_str());
             return FAILED;
         }
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
-        if (AdjustOpCfg(opcfg, *opLogPtr[i]) != SUCCESS) { 
+        if (AdjustOpCfg(opcfg, *opLogPtr[i]) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "PipeDispatch failed at function AdjustOpCfg.");
-            return FAILED; 
+            return FAILED;
         }
         DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
         DepOp &opRef = depOps_.emplace_back(op);
@@ -542,16 +542,16 @@ Status PipeSync::AddOpDep(DepOp &setOp, DepOp &waitOp) {
 
     size_t depWaitIdx = static_cast<size_t>(-1);
     for (auto ele : setOp.setPipe) {
-        if (ele == waitOpIdx) { 
+        if (ele == waitOpIdx) {
             APASS_LOG_ERROR_F(Elements::Operation, "This dependency should not exist, AddOpDep failed.");
-            return FAILED; 
+            return FAILED;
         }
         PipeCoreReal elePipeCore(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core);
         PipeCoreReal waitOpPipeCore(depOps_[waitOpIdx].selfPipeCore.pipeStart, depOps_[waitOpIdx].selfPipeCore.core);
         if (elePipeCore == waitOpPipeCore) {
-            if (ele  <= waitOpIdx) { 
+            if (ele  <= waitOpIdx) {
                 APASS_LOG_ERROR_F(Elements::Operation, "New waitidx should less than old, AddOpDep failed.");
-                return FAILED; 
+                return FAILED;
             }
             depWaitIdx = ele;
             break;
@@ -578,9 +578,9 @@ Status PipeSync::AdjustOpDep(DepOp &op, size_t waitOpIdx, IssueQueue &issueQ, bo
     auto &nextOpIdx = issueQ.ops[issueQ.currOp + 1];
     auto &nextOp = depOps_[nextOpIdx];
     RemoveOpDep(op, waitOp);
-    if (AddOpDep(nextOp, waitOp) != SUCCESS) { 
+    if (AddOpDep(nextOp, waitOp) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "AdjustOpDep failed at function AddOpDep.");
-        return FAILED; 
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -753,7 +753,7 @@ Status PipeSync::InjectSync(Function &function, std::vector<Operation *> opLogPt
 
     // insert wait_flag
     InjectWaitFlag(function, idx, syncedOpLog);
-    
+
     // insert current operation
     syncedOpLog.emplace_back(std::make_pair(idx * SEQUENCE_IDX, std::ref(*opLogPtr[idx])));
     depOps_[idx].issued = true;
@@ -783,13 +783,13 @@ Status PipeSync::ProcessDeadLock(uint64_t &eventIdDeadlockEnterTimes, bool &even
     if (eventIdDeadlockEnterTimes > DEADLOCK_TIME_THRESHOLD) {
         eventIdDeadlock = true;
     }
-    if (RelaxFakeDataDep(syncedOpLog) != SUCCESS) { 
+    if (RelaxFakeDataDep(syncedOpLog) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "ProcessDeadLock failed at function RelaxFakeDataDep.");
-        return FAILED; 
+        return FAILED;
     }
-    if (eventIdDeadlockEnterTimes >= EVENTID_DEADLOCK_ENTER_TIME) { 
+    if (eventIdDeadlockEnterTimes >= EVENTID_DEADLOCK_ENTER_TIME) {
         APASS_LOG_ERROR_F(Elements::Operation, "Unbreakable deadlock detected, ProcessDeadLock failed.");
-        return FAILED; 
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -1125,9 +1125,9 @@ Status PipeSync::GetEventId(const PipePair &pp, size_t setIdx, size_t waitIdx, i
 
     std::pair<CoreTypeDetail, CoreTypeDetail> setWaitCoreType;
     auto &eventQ = GetFreeEventIdQueue(pp, setIdx, waitIdx, setWaitCoreType);
-    if (eventQ.empty()) { 
+    if (eventQ.empty()) {
         APASS_LOG_ERROR_F(Elements::Operation, "Eventid exhausted, GetEventId failed.");
-        return FAILED; 
+        return FAILED;
     }
 
     eventId = eventQ.front();
@@ -1173,7 +1173,7 @@ bool PipeSync::CheckWawDependency(const Operation &opSet, const Operation &opWai
             TileRange range2 = memType == MemoryType::MEM_UB ?
                 ubTensorRangeMap[magic2] : opWait.GetOOperands()[waitIdx]->memoryrange;
             if (BufOverlap(range1, magic1, range2, magic2)) {
-                APASS_LOG_DEBUG_F(Elements::Operation, "%d %zu %s and %d %zu %s has WAW data dependency", opSet.GetOpMagic(), 
+                APASS_LOG_DEBUG_F(Elements::Operation, "%d %zu %s and %d %zu %s has WAW data dependency", opSet.GetOpMagic(),
                     k, opSet.GetOpcodeStr().c_str(), opWait.GetOpMagic(), idx, opWait.GetOpcodeStr().c_str());
                 return true;
             }
@@ -1198,7 +1198,7 @@ bool PipeSync::CheckRawDependency(const Operation &opSet, const Operation &opWai
             auto overlap = BufOverlap(range1, magic1, range2, magic2);
             auto ddrTensorSame = memType == MemoryType::MEM_DEVICE_DDR && range1.memId == range2.memId;
             if (overlap || ddrTensorSame) {
-                APASS_LOG_DEBUG_F(Elements::Operation, "%d %zu %s and %d %zu %s has RAW data dependency", opSet.GetOpMagic(), 
+                APASS_LOG_DEBUG_F(Elements::Operation, "%d %zu %s and %d %zu %s has RAW data dependency", opSet.GetOpMagic(),
                     k, opSet.GetOpcodeStr().c_str(), opWait.GetOpMagic(), idx, opWait.GetOpcodeStr().c_str());
                 return true;
             }
@@ -1223,7 +1223,7 @@ bool PipeSync::CheckWarDependency(const Operation &opSet, const Operation &opWai
             auto overlap = BufOverlap(range1, magic1, range2, magic2);
             auto ddrTensorSame = memType == MemoryType::MEM_DEVICE_DDR && range1.memId == range2.memId;
             if (overlap || ddrTensorSame) {
-                APASS_LOG_DEBUG_F(Elements::Operation, "%d %zu %s and %d %zu %s has WAR data dependency", opSet.GetOpMagic(), 
+                APASS_LOG_DEBUG_F(Elements::Operation, "%d %zu %s and %d %zu %s has WAR data dependency", opSet.GetOpMagic(),
                     k, opSet.GetOpcodeStr().c_str(), opWait.GetOpMagic(), idx, opWait.GetOpcodeStr().c_str());
                 return true;
             }
@@ -1532,7 +1532,7 @@ Status PipeSync::ProcessViewOrder(Operation &op, std::vector<Operation *> &opLog
     for (auto &consumer : consumers) {
         auto it = std::find(opLog.begin(), opLog.end(), consumer);
         if (it == opLog.end()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Consumer of VIEW op: %d %s is not in the subgraph, ProcessViewAssembleOrder failed", 
+            APASS_LOG_ERROR_F(Elements::Operation, "Consumer of VIEW op: %d %s is not in the subgraph, ProcessViewAssembleOrder failed",
                 consumer->GetOpMagic(), consumer->GetOpcodeStr().c_str());
             return FAILED;
         }

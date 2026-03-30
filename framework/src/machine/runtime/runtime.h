@@ -127,7 +127,7 @@ public:
     }
 
     void FreeDevAddr(uint8_t *devAddr) {
-        if (!devAddr) return; 
+        if (!devAddr) return;
         memPool_.FreeDevAddr(devAddr);
     }
 
@@ -158,7 +158,7 @@ public:
 
     // Only used in test case.
     void *MapAiCoreReg();
-    
+
     bool GetValidGetPgMask() const {
         return validGetPgMask;
     }

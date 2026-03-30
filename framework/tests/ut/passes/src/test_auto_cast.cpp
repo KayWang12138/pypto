@@ -140,7 +140,7 @@ TEST_F(AutoCastTest, PostCheckNormal) {
     ASSERT_NE(function, nullptr); // 确保function有效
 
     AutoCast autoCast;
-    EXPECT_EQ(autoCast.PostCheck(*function), FAILED); 
+    EXPECT_EQ(autoCast.PostCheck(*function), FAILED);
 }
 
 TEST_F(AutoCastTest, InvalidOutputNum) {
@@ -311,7 +311,7 @@ TEST_F(AutoCastTest, RedundantCastWithLoopChain) {
 
 TEST_F(AutoCastTest, UnsupportedFP16Input) {
     ComputationalGraphBuilder G;
-    EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t1"), true); 
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t1"), true);
     EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t2"), true);
     std::vector<Opcode> opCodes;
     opCodes.push_back(Opcode::OP_MOD); // 关键：FP16不支持的OP
@@ -329,7 +329,7 @@ TEST_F(AutoCastTest, UnsupportedFP16Input) {
 TEST_F(AutoCastTest, UnsupportedFP16Output) {
     ComputationalGraphBuilder G;
     EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t1"), true);
-    EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t2"), true); 
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t2"), true);
     std::vector<Opcode> opCodes;
     opCodes.push_back(Opcode::OP_MOD); // 关键：FP16不支持的OP
     std::vector<std::vector<std::string>> ioperands{{"t1"}};

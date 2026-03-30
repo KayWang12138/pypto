@@ -133,7 +133,7 @@ inline void SparateCore(int total, int idx, int part, const int &offset, std::ve
     }
 }
 
-inline void ConstructAicorePerfInfo(json &tasksArr, Metrics *aicoreMetric, const uint32_t &turnNum) { 
+inline void ConstructAicorePerfInfo(json &tasksArr, Metrics *aicoreMetric, const uint32_t &turnNum) {
     uint64_t curCycle = 0;
     for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
         for (uint32_t turnIdx = g_last_turn_num; turnIdx < turnNum; turnIdx++) {
@@ -190,7 +190,7 @@ inline MetricPerf GetAicpuPrefAddr(const DeviceArgs &args, const uint32_t &turnI
         MACHINE_LOGW("Aicpu per ptr is null");
         return aicpuMetric;
     }
-    
+
     auto ret = rtMemcpy(PtrToPtr<MetricPerf, void>(&aicpuMetric), sizeof(MetricPerf), aicpuPer,
                         sizeof(MetricPerf), RT_MEMCPY_DEVICE_TO_HOST);
     if (ret != 0) {
@@ -252,7 +252,7 @@ void DumpAicpuPerfInfo(DeviceArgs &args, const std::vector<void *> &perfData, ui
     json aicpuPrefArray = json::array();
     DumpAicpuDevTask(args, aicpuPrefArray, freq, sumTurnNum);
     DumpAicoreDevTask(args, aicpuPrefArray, perfData, freq, sumTurnNum);
-    
+
     std::string aicpuPerfilePath = npu::tile_fwk::config::LogTopFolder() +
                                    "/machine_trace_perf_data_" + std::to_string(g_last_turn_num) + ".json";
     if (!DumpFile(aicpuPrefArray.dump(DUMP_LEVEL_FOUR), aicpuPerfilePath)) {

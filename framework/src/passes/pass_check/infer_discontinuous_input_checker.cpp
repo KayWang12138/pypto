@@ -127,7 +127,7 @@ Status InferDisContinuousInputChecker::DoPostCheck(Function &function) {
             if (checkTensor(logicalTensor) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Tensor(%d) CheckTensor Failed.", logicalTensor->GetMagic());
                 return FAILED;
-            } 
+            }
         }
     }
 

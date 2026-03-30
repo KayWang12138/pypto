@@ -34,4 +34,3 @@ struct AicpuOpConfig {
 
 void GenAicpuOpInfoJson(Json &opConfigJson, const std::vector<AicpuOpConfig> &opConfigs);
 #endif
-

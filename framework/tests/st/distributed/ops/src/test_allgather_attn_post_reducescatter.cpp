@@ -89,7 +89,7 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam& testParam, std::string
         }
         LOOP("REDUCESCATTER", FunctionType::DYNAMIC_LOOP, unusedIndex, LoopRange(1)) {
             (void) unusedIndex;
-            DataType shmemDataType = (attnOut.GetDataType() == DT_BF16 || attnOut.GetDataType() == DT_FP16) 
+            DataType shmemDataType = (attnOut.GetDataType() == DT_BF16 || attnOut.GetDataType() == DT_FP16)
                 ? DT_FP32 : attnOut.GetDataType();
             ShmemTensor shmemTensor = CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, {1, outRow, h});
             TileShape::Current().SetVecTile({16, h});

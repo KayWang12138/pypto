@@ -1089,8 +1089,8 @@ struct EncodeDevAscendFunctionInfo {
  	  	                 tensor->magic, tensor->GetRawMagic());
  	  	}
         ASSERT(cellMatchStride[0] < MAX_CELLMATCHSSTRIDE) << " Assemble outcast " << tensor->magic << " raw " << tensor->GetRawMagic()
- 	         <<"stitch results in excessive memory consumption," 
- 	         << "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape."; 
+ 	         <<"stitch results in excessive memory consumption,"
+ 	         << "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape.";
     }
 
     void RecordRawTensor(const std::shared_ptr<LogicalTensor> &tensor) {
@@ -2344,7 +2344,7 @@ static void ProcessDevFunctionOutcasts(Function *func, DevAscendFunction *devFun
         devFunc->exclusiveOutcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
     MACHINE_LOGD("[worskspaceSize] RootInnerTensorWsMemoryRequirement is %lu, funcDevTaskInnerExclusiveOutcastMem is %lu.",
                   devFunc->rootInnerTensorWsMemoryRequirement, devFunc->exclusiveOutcastWsMemoryRequirement);
-    
+
     maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
     maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
     MACHINE_LOGD("[workspaceSize] MaxRootInnerMem is %lu, maxDevTaskInnerExclusiveOutcastMem is %lu.",
@@ -2413,7 +2413,7 @@ static uint64_t CalcGeneralMetadataSlotWorkspace(DevAscendProgram *devProg) {
     MACHINE_LOGD("[workspaceSize] ItemPoolMemSize is: %lu, vectorMemSize is: %lu, slotAllocatorMemSize is %lu.,",
                   itemPoolMemSize, vectorMemSize, slotAllocatorMemSize);
     static constexpr uint64_t AICPU_SLOT_STATIC_MEMSIZE = 2 * MEBI;
-    generalMetadataSlotSize = itemPoolMemSize + vectorMemSize + 
+    generalMetadataSlotSize = itemPoolMemSize + vectorMemSize +
                               slotAllocatorMemSize + AICPU_SLOT_STATIC_MEMSIZE;
     MACHINE_LOGD("[workspaceSize] Workspace of generalMetadataSlotSize is %lu., ", generalMetadataSlotSize);
     return generalMetadataSlotSize;

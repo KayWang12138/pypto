@@ -448,21 +448,21 @@ void ConstructGrapgForReusePreMulMem(ComputationalGraphBuilder& G) {
     // add tensor
     DataType dateType = DataType::DT_FP16;
     Shape shape = {16, 16};
-    std::vector<std::string> tensorNames{"matA1DDR", "matA2DDR", "matB1DDR", "matA1L1", "matA2L1", 
+    std::vector<std::string> tensorNames{"matA1DDR", "matA2DDR", "matB1DDR", "matA1L1", "matA2L1",
         "matB1L1", "matB2L1", "matA1L0A", "matA2L0A", "matB1L0B", "matB2L0B", "matC1L0C", "matC2L0C", "outcast"};
-    std::vector<MemoryType> tensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,  MemoryType::MEM_DEVICE_DDR, 
-        MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0A, MemoryType::MEM_L0B, 
+    std::vector<MemoryType> tensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,  MemoryType::MEM_DEVICE_DDR,
+        MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0A, MemoryType::MEM_L0B,
         MemoryType::MEM_L0B, MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR};
     EXPECT_EQ(G.AddTensors(dateType, shape, tensorMemoryType, tensorNames, 0), true);
     // add operation
-    std::vector<Opcode> opCodes{Opcode::OP_L1_COPY_IN, Opcode::OP_L1_COPY_IN, Opcode::OP_L1_TO_L0A, 
-        Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_COPY_IN, 
+    std::vector<Opcode> opCodes{Opcode::OP_L1_COPY_IN, Opcode::OP_L1_COPY_IN, Opcode::OP_L1_TO_L0A,
+        Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_COPY_IN,
         Opcode::OP_L1_TO_L0A, Opcode::OP_A_MUL_B, Opcode::OP_L0C_COPY_OUT};
-    std::vector<std::string> opNames{"CopyIn1", "CopyIn2", "L1ToL0A1", "L1ToL0B1", "Mul1", "L0CToL11", "L1ToL0B2", "CopyIn3", 
+    std::vector<std::string> opNames{"CopyIn1", "CopyIn2", "L1ToL0A1", "L1ToL0B1", "Mul1", "L0CToL11", "L1ToL0B2", "CopyIn3",
         "L1ToL0A2", "Mul2", "L0CCopyOut1"};
-    std::vector<std::vector<std::string>> iOperands{{"matA1DDR"}, {"matB1DDR"}, {"matA1L1"}, {"matB1L1"}, {"matA1L0A","matB1L0B"}, {"matC1L0C"}, 
+    std::vector<std::vector<std::string>> iOperands{{"matA1DDR"}, {"matB1DDR"}, {"matA1L1"}, {"matB1L1"}, {"matA1L0A","matB1L0B"}, {"matC1L0C"},
         {"matB2L1"}, {"matA2DDR"}, {"matA2L1"}, {"matA2L0A","matB2L0B"}, {"matC2L0C"}};
-    std::vector<std::vector<std::string>> oOperands{{"matA1L1"}, {"matB1L1"}, {"matA1L0A"}, {"matB1L0B"}, {"matC1L0C"}, {"matB2L1"}, 
+    std::vector<std::vector<std::string>> oOperands{{"matA1L1"}, {"matB1L1"}, {"matA1L0A"}, {"matB1L0B"}, {"matC1L0C"}, {"matB2L1"},
         {"matB2L0B"}, {"matA2L1"}, {"matA2L0A"}, {"matC2L0C"}, {"outcast"}};
     EXPECT_EQ(G.AddOps(opCodes, iOperands, oOperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"matA1DDR", "matB1DDR", "matA2DDR"}), true);
@@ -483,7 +483,7 @@ TEST_F(MergeSrcDstBufferTest, DircetReusePreMulL0BMemory) {
 
     auto firstMulOp = G.GetOp("Mul1");
     auto secondMulOp = G.GetOp("Mul2");
-    int srcMemId = -1;    
+    int srcMemId = -1;
     for (auto inputTensor : firstMulOp->GetIOperands()) {
         if (inputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
             EXPECT_NE(inputTensor->memoryrange.memId, -1);
@@ -510,15 +510,15 @@ void ConstructGrapgForUnReuseMultiCons(ComputationalGraphBuilder& G) {
         MemoryType::MEM_L0B, MemoryType::MEM_L0B, MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR};
     EXPECT_EQ(G.AddTensors(dateType, shape, tensorMemoryType, tensorNames, 0), true);
     // add operation
-    std::vector<Opcode> opCodes{Opcode::OP_L1_COPY_IN, Opcode::OP_L1_COPY_IN, Opcode::OP_L1_TO_L0A, 
-        Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_COPY_IN, 
+    std::vector<Opcode> opCodes{Opcode::OP_L1_COPY_IN, Opcode::OP_L1_COPY_IN, Opcode::OP_L1_TO_L0A,
+        Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_COPY_IN,
         Opcode::OP_L1_TO_L0A, Opcode::OP_A_MUL_B, Opcode::OP_L0C_COPY_OUT, Opcode::OP_L1_COPY_IN, Opcode::OP_L1_TO_L0A,
         Opcode::OP_A_MUL_B, Opcode::OP_L0C_COPY_OUT};
-    std::vector<std::string> opNames{"CopyIn1", "CopyIn2", "L1ToL0A1", "L1ToL0B1", "Mul1", "L0CToL11", "L1ToL0B2", "CopyIn3", 
+    std::vector<std::string> opNames{"CopyIn1", "CopyIn2", "L1ToL0A1", "L1ToL0B1", "Mul1", "L0CToL11", "L1ToL0B2", "CopyIn3",
         "L1ToL0A2", "Mul2", "L0CCopyOut1", "CopyIn4", "L1ToL0A3", "Mul3", "L0CCopyOut2"};
-    std::vector<std::vector<std::string>> iOperands{{"matA1DDR"}, {"matB1DDR"}, {"matA1L1"}, {"matB1L1"}, {"matA1L0A","matB1L0B"}, {"matC1L0C"}, 
+    std::vector<std::vector<std::string>> iOperands{{"matA1DDR"}, {"matB1DDR"}, {"matA1L1"}, {"matB1L1"}, {"matA1L0A","matB1L0B"}, {"matC1L0C"},
         {"matB2L1"}, {"matA2DDR"}, {"matA2L1"}, {"matA2L0A","matB2L0B"}, {"matC2L0C"}, {"matA3DDR"}, {"matA3L1"}, {"matA3L0A","matB1L0B"}, {"matC3L0C"}};
-    std::vector<std::vector<std::string>> oOperands{{"matA1L1"}, {"matB1L1"}, {"matA1L0A"}, {"matB1L0B"}, {"matC1L0C"}, {"matB2L1"}, 
+    std::vector<std::vector<std::string>> oOperands{{"matA1L1"}, {"matB1L1"}, {"matA1L0A"}, {"matB1L0B"}, {"matC1L0C"}, {"matB2L1"},
         {"matB2L0B"}, {"matA2L1"}, {"matA2L0A"}, {"matC2L0C"}, {"outcast1"}, {"matA3L1"}, {"matA3L0A"}, {"matC3L0C"}, {"outcast2"}};
     EXPECT_EQ(G.AddOps(opCodes, iOperands, oOperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"matA1DDR", "matB1DDR", "matA2DDR", "matA3DDR"}), true);
@@ -540,7 +540,7 @@ TEST_F(MergeSrcDstBufferTest, UnReusePreMulL0BMemoryForMultiConsumers) {
     auto firstMulOp = G.GetOp("Mul1");
     auto secondMulOp = G.GetOp("Mul2");
     auto thirdMulOp = G.GetOp("Mul3");
-    int srcMemId = -1;    
+    int srcMemId = -1;
     for (auto inputTensor : firstMulOp->GetIOperands()) {
         if (inputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
             EXPECT_NE(inputTensor->memoryrange.memId, -1);
@@ -570,19 +570,19 @@ void ConstructGraphForDisableReuseMultiPath(ComputationalGraphBuilder& G) {
     std::vector<std::string> tensorNames{"matA1DDR", "matA2DDR", "matA3DDR", "matB1DDR", "matA1L1", "matA2L1", "matA3L1", "matB1L1", "matB2L1",
         "matA1L0A", "matA2L0A", "matA3L0A", "matB1L0B", "matB2L0B", "matB3L0B", "matC1L0C", "matC2L0C", "matC3L0C", "outcast1", "outcast2"};
     std::vector<MemoryType> tensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,  MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
-        MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0A, MemoryType::MEM_L0A, 
+        MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0A, MemoryType::MEM_L0A,
         MemoryType::MEM_L0B, MemoryType::MEM_L0B, MemoryType::MEM_L0B, MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR};
     EXPECT_EQ(G.AddTensors(dateType, shape, tensorMemoryType, tensorNames, 0), true);
     // add operation
-    std::vector<Opcode> opCodes{Opcode::OP_L1_COPY_IN, Opcode::OP_L1_COPY_IN, Opcode::OP_L1_TO_L0A, 
-        Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_COPY_IN, 
-        Opcode::OP_L1_TO_L0A, Opcode::OP_A_MUL_B, Opcode::OP_L0C_COPY_OUT, Opcode::OP_L1_COPY_IN, Opcode::OP_L1_TO_L0A, 
+    std::vector<Opcode> opCodes{Opcode::OP_L1_COPY_IN, Opcode::OP_L1_COPY_IN, Opcode::OP_L1_TO_L0A,
+        Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_COPY_IN,
+        Opcode::OP_L1_TO_L0A, Opcode::OP_A_MUL_B, Opcode::OP_L0C_COPY_OUT, Opcode::OP_L1_COPY_IN, Opcode::OP_L1_TO_L0A,
         Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B, Opcode::OP_L0C_COPY_OUT};
-    std::vector<std::string> opNames{"CopyIn1", "CopyIn2", "L1ToL0A1", "L1ToL0B1", "Mul1", "L0CToL11", "L1ToL0B2", "CopyIn3", 
+    std::vector<std::string> opNames{"CopyIn1", "CopyIn2", "L1ToL0A1", "L1ToL0B1", "Mul1", "L0CToL11", "L1ToL0B2", "CopyIn3",
         "L1ToL0A2", "Mul2", "L0CCopyOut1", "CopyIn4", "L1ToL0A3", "L1ToL0B3", "Mul3", "L0CCopyOut2"};
-    std::vector<std::vector<std::string>> iOperands{{"matA1DDR"}, {"matB1DDR"}, {"matA1L1"}, {"matB1L1"}, {"matA1L0A","matB1L0B"}, {"matC1L0C"}, 
+    std::vector<std::vector<std::string>> iOperands{{"matA1DDR"}, {"matB1DDR"}, {"matA1L1"}, {"matB1L1"}, {"matA1L0A","matB1L0B"}, {"matC1L0C"},
         {"matB2L1"}, {"matA2DDR"}, {"matA2L1"}, {"matA2L0A","matB2L0B"}, {"matC2L0C"}, {"matA3DDR"}, {"matA3L1"}, {"matB2L1"}, {"matA3L0A", "matB3L0B"}, {"matC3L0C"}};
-    std::vector<std::vector<std::string>> oOperands{{"matA1L1"}, {"matB1L1"}, {"matA1L0A"}, {"matB1L0B"}, {"matC1L0C"}, {"matB2L1"}, 
+    std::vector<std::vector<std::string>> oOperands{{"matA1L1"}, {"matB1L1"}, {"matA1L0A"}, {"matB1L0B"}, {"matC1L0C"}, {"matB2L1"},
         {"matB2L0B"}, {"matA2L1"}, {"matA2L0A"}, {"matC2L0C"}, {"outcast1"}, {"matA3L1"}, {"matA3L0A"}, {"matB3L0B"}, {"matC3L0C"}, {"outcast2"}};
     EXPECT_EQ(G.AddOps(opCodes, iOperands, oOperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"matA1DDR", "matB1DDR", "matA2DDR", "matA3DDR"}), true);
@@ -604,21 +604,21 @@ TEST_F(MergeSrcDstBufferTest, DisableReuseWhenMultiSubPath) {
     auto firstMulOp = G.GetOp("Mul1");
     auto secondMulOp = G.GetOp("Mul2");
     auto thirdMulOp = G.GetOp("Mul3");
-    int firstMemId = -1;    
+    int firstMemId = -1;
     for (auto inputTensor : firstMulOp->GetIOperands()) {
         if (inputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
             EXPECT_NE(inputTensor->memoryrange.memId, -1);
             firstMemId = inputTensor->memoryrange.memId;
         }
     }
-    int secondMemId = -1;    
+    int secondMemId = -1;
     for (auto inputTensor : secondMulOp->GetIOperands()) {
         if (inputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
             EXPECT_NE(inputTensor->memoryrange.memId, -1);
             secondMemId = inputTensor->memoryrange.memId;
         }
     }
-    int thirdMemId = -1;    
+    int thirdMemId = -1;
     for (auto inputTensor : thirdMulOp->GetIOperands()) {
         if (inputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
             EXPECT_NE(inputTensor->memoryrange.memId, -1);

@@ -340,7 +340,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest10) {
     ubTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "outCast", NodeType::OUTCAST);
     outCast->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &view = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor});
     view.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset));
     auto &assemble = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor}, {outCast});
@@ -391,13 +391,13 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest11) {
     ubTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2, TileOpFormat::TILEOP_ND, "outCast", NodeType::OUTCAST);
     outCast->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &view1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast1}, {ubTensor});
     view1.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset1));
     auto &view2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast2}, {ubTensor});
     view2.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset2));
     currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor}, {outCast});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast1);
     currFunctionPtr->inCasts_.push_back(inCast2);
     currFunctionPtr->outCasts_.push_back(outCast);
@@ -547,7 +547,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest2) {
     }
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
-    
+
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
         { "AssignMemoryType",  PassName::ASSIGN_MEMORY_TYPE},
         {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
@@ -610,7 +610,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest3) {
         {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantOpTestStrategy"), SUCCESS);
-    
+
     // ================== Verify the effect of the Pass ==================
     int assemble_after = kNumZero;
     for (const auto &op : func->Operations()) {
@@ -911,7 +911,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest17) {
     ubTensor2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "outCast", NodeType::OUTCAST);
     outCast->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &view = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor1});
     view.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset));
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
@@ -973,7 +973,7 @@ TEST_F(TestRemoveRedundantOpPass, TestRemoveMoreAssembleSpecialCase) {
     currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor1}, {ubTensor3});
     currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor2}, {ubTensor3});
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor3}, {outCast});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
     RemoveRedundantOp RemoveRedundantOpPass;
@@ -993,7 +993,7 @@ TEST_F(TestRemoveRedundantOpPass, TestRemoveMoreAssembleSpecialCase) {
 /*
 TestRemoveAssembleDynSpecialCase
 inCast{8,16}->exp->Tensor1{8,16} ->Reshape->Tensor2{8,16} ->assemble-> outCast{8,16}
-            
+
 inCast{8,16}->exp->Tensor1{8,16} ->Reshape->Tensor2{16,8} ->assemble-> outCast{8,16}
 */
 TEST_F(TestRemoveRedundantOpPass, TestRemoveMoreAssembleDynSpecialCase) {
@@ -1018,7 +1018,7 @@ TEST_F(TestRemoveRedundantOpPass, TestRemoveMoreAssembleDynSpecialCase) {
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {inCast}, {ubTensor1});
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
     currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor2}, {outCast});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
     RemoveRedundantOp RemoveRedundantOpPass;
@@ -1048,12 +1048,12 @@ TestGenerateViewSpecialCase
 inCast1{8,16}->view->Tensor1{4,16}->assemble->outCast{16,16}
              ->view->Tensor2{4,16}->assemble->
 inCast2{8,16}->mul->Tenosr3{8,16}->assemble->
-inCast3{8,16}  
+inCast3{8,16}
 
 inCast1{8,16}->view->Tensor1{4,16}->assemble->outCast{16,16}
              ->view->Tensor2{4,16}->assemble->
 inCast2{8,16}->mul->Tenosr3{8,16}->assemble->
-inCast3{8,16}    
+inCast3{8,16}
 */
 TEST_F(TestRemoveRedundantOpPass, TestGenerateViewSpecialCase) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
@@ -1095,7 +1095,7 @@ TEST_F(TestRemoveRedundantOpPass, TestGenerateViewSpecialCase) {
     currFunctionPtr->inCasts_.push_back(inCast2);
     currFunctionPtr->inCasts_.push_back(inCast3);
     currFunctionPtr->outCasts_.push_back(outCast);
-    
+
     RemoveRedundantOp RemoveRedundantOpPass;
     EXPECT_EQ(RemoveRedundantOpPass.RunOnFunction(*currFunctionPtr), SUCCESS);
 
@@ -1116,7 +1116,7 @@ TEST_F(TestRemoveRedundantOpPass, TestGenerateViewSpecialCase) {
 /*
 TestGenerateViewDynOffsetCase
 inCast{8,16}->view->Tensor1{4,16}->assemble->Tensor2{4,16}->exp->outCast{4,16}
-  
+
 inCast{8,16}->view->Tensor1{4,16}->exp->outCast{4,16}
 */
 TEST_F(TestRemoveRedundantOpPass, TestGenerateViewDynOffsetCase) {
@@ -1146,7 +1146,7 @@ TEST_F(TestRemoveRedundantOpPass, TestGenerateViewDynOffsetCase) {
 
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
-    
+
     RemoveRedundantOp RemoveRedundantOpPass;
     EXPECT_EQ(RemoveRedundantOpPass.RunOnFunction(*currFunctionPtr), SUCCESS);
 
@@ -1232,7 +1232,7 @@ TEST_F(TestRemoveRedundantOpPass, DynamicOutcast) {
     ubTensor2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3, TileOpFormat::TILEOP_ND, "outCast", NodeType::OUTCAST);
     outCast->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 

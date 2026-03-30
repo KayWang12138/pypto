@@ -341,7 +341,7 @@ void ExecuteOpPad(ExecuteOperationContext *ctx) {
            ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
            ctx->ioperandDataViewList->size() == 1);
-    
+
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop_input = ctx->ioperandDataViewList->at(0);
     auto element = Element(DT_FP32, 0.0f);
@@ -355,7 +355,7 @@ void ExecuteOpFillPad(ExecuteOperationContext *ctx) {
            ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
            ctx->ioperandDataViewList->size() == 1);
-    
+
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop_input = ctx->ioperandDataViewList->at(0);
     auto element = Element(DT_FP32, 0.0f);
@@ -601,7 +601,7 @@ void ExecuteOpCmps(ExecuteOperationContext *ctx) {
     auto iop_self = ctx->ioperandDataViewList->at(0);
     auto element = Element(DT_FP32, 0.0f);
     ctx->op->GetAttr(OpAttributeKey::scalar, element);
-    
+
     auto operation = static_cast<CmpOperationType>(
         ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation")
     );

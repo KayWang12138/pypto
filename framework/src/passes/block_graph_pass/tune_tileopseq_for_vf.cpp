@@ -122,7 +122,7 @@ void TuneTileOpSeqForVF::JudgeNeedMoveUbCopy(PipeSync &ps, size_t ubCopyIdx, std
             if (it == needMoveFront.end()) {
                 canMoveFront = false;
                 break;
-            } 
+            }
         }
     }
     if (canMoveFront) {
@@ -194,7 +194,7 @@ void TuneTileOpSeqForVF::ProcessGroupUbCopyOrder(PipeSync &ps, std::vector<Opera
     if (ubCopyIndices.empty() || nonUbCopyIndices.empty()) {
         return;
     }
-    
+
     // 对group中的所有UB_COPY_ND2NZ, 判断其需要前移还是后移还是不能移动
     std::vector<size_t> needMoveFront;
     std::vector<size_t> needMoveBack;
@@ -202,7 +202,7 @@ void TuneTileOpSeqForVF::ProcessGroupUbCopyOrder(PipeSync &ps, std::vector<Opera
         JudgeNeedMoveUbCopy(ps, ubIdx, nonUbCopyIndices, needMoveFront, needMoveBack);
     }
     // 根据判断结果对其进行移动
-    MoveUbCopyOp(needMoveFront, needMoveBack, nonUbCopyIndices);   
+    MoveUbCopyOp(needMoveFront, needMoveBack, nonUbCopyIndices);
 }
 
 void TuneTileOpSeqForVF::AdjustUbCopyNd2NzOrder(PipeSync &ps) {
@@ -245,7 +245,7 @@ void TuneTileOpSeqForVF::ChangeOpSeq(PipeSync &ps, bool isAIV1) {
         size_t right = pipeVIdx[idx + 1];
         APASS_LOG_DEBUG_F(Elements::Operation, "Try to merge %d %s and %d %s", opList_[left]->GetOpMagic(), opList_[left]->GetOpcodeStr().c_str(),
             opList_[right]->GetOpMagic(), opList_[right]->GetOpcodeStr().c_str());
-        
+
         // 先看vecTileop0是否已经在mergedOps中
         int groupNum = -1;
         for (size_t i = 0; i < mergedOps.size(); i++) {

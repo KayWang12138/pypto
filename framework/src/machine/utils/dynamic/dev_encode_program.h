@@ -169,7 +169,7 @@ struct DevAscendProgram {
     void DumpPartialUpdate(const int indent, std::ostringstream& oss) const;
 
     void DumpInputSymbols(const int indent, std::ostringstream& oss) const;
-    
+
     std::string Dump(const int indent = 0, const bool dumpAddr = false) const;
 
     void DumpFile(const std::string &filePath) const;

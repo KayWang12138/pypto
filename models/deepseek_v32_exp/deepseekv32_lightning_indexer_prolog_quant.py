@@ -390,7 +390,7 @@ def do_test_lighting_indexer_prolog_quant(case_name, configs):
     tensors = [tensor for _, tensor in vars(inputs).items()] + \
               [tensor for _, tensor in vars(outputs).items()]
     lightning_indexer_prolog_quant(*tensors, configs, attrs)
-    
+
     compare(outputs.q_int8.cpu(), q_int8_golden, "q_int8", 1, 0, 0)
     compare(outputs.q_scale.cpu(), q_scale_golden, "q_scale", 0.000025, 0, 0.005)
     compare(outputs.k_int8.cpu(), k_cache_golden, "k_int8", 1, 0, 0)

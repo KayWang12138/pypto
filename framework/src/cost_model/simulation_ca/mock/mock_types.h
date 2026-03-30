@@ -84,7 +84,7 @@ typedef enum {
   QF322FP8_PRE = 13,
   VQF322F32_PRE = 14,
   QF322F32_PRE = 15,
-#else 
+#else
   VSHIFTS322S16 = 12,
   SHIFTS322S16 = 13,
 #endif // if (defined __DAV_C310__)
@@ -194,13 +194,13 @@ public:
     half& operator=(const half& other)
     {
         value_ = other.value_;
-        return *this; 
+        return *this;
     }
 
     half& operator=(const double& other)
     {
         value_ = other;
-        return *this; 
+        return *this;
     }
 
     friend std::ostream& operator<<(std::ostream& out, const half& c)
@@ -221,13 +221,13 @@ public:
     bfloat16_t& operator=(const bfloat16_t& other)
     {
         value_ = other.value_;
-        return *this; 
+        return *this;
     }
 
     bfloat16_t& operator=(const double& other)
     {
         value_ = other;
-        return *this; 
+        return *this;
     }
 
     friend std::ostream& operator<<(std::ostream& out, const bfloat16_t& c)

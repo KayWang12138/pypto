@@ -138,7 +138,7 @@ TEST_F(TestExpandFunctionPass, TestCVSeperate2) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> tile_shape = {kNumExpFive, kNumExpFive};
-    std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};    
+    std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};
     TileShape::Current().SetVecTile(kNumExpFive, kNumExpFive);
     TileShape::Current().SetCubeTile({kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, false);
 
@@ -186,7 +186,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     auto op_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{kNumZero, kNumZero});
     currFunctionPtr->AddOperation(Opcode::OP_NOP, {inCast}, {ubTensor1});
     currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor1}, {outCast});
-    
+
     std::shared_ptr<Operation> nop_op, view_op;
     for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex){
         auto op = currFunctionPtr->Operations().operations_[uIndex];
@@ -195,7 +195,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     }
 
     view_op->SetOpAttribute(op_attr);
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
@@ -236,7 +236,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest3) {
     std::vector<SymbolicScalar> symbol = {SymbolicScalar("sym")};
     auto op_attr = std::make_shared<AssembleOpAttribute>(toOffset, symbol);
     currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {inCast}, {outCast});
-    
+
     std::shared_ptr<Operation> assemble_op;
     for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex){
         if (currFunctionPtr->Operations().operations_[uIndex]->GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -580,7 +580,7 @@ TEST_F(TestExpandFunctionPass, PreCheckForDisorderIndexOutcast) {
     std::vector<std::vector<std::string>> oOperands{{"result1"}, {"result2"}, {"outcast1"}, {"tensor1"}, {"outcast2"}};
     std::vector<std::string> opNames{"OP_INDEX_OUTCAST_1", "OP_INDEX_OUTCAST_2", "OP_ASSEMBLE_1", "OP_ADDS_1", "OP_ASSEMBLE_2"};
     EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
-    
+
     EXPECT_EQ(G.SetInCast({"src", "index1", "dst", "index2"}), true);
     EXPECT_EQ(G.SetOutCast({"outcast1", "outcast2"}), true);
 

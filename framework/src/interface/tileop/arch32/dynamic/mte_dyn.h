@@ -233,7 +233,7 @@ TILEOP void DynTIndexoutcast(__gm__ T *dst, __ubuf__ T *src, __ubuf__ T2 *index,
                 curSrc += nd_32aligned;
                 dstIdx++;
             }
-            
+
         }
         curSrc += (src0rawShape1 - s1) * nd_32aligned;
         dstIdx += s1_32aligned - s1;
@@ -244,7 +244,7 @@ TILEOP void DynTIndexoutcast(__gm__ T *dst, __ubuf__ T *src, __ubuf__ T2 *index,
 template <typename T, typename T2, unsigned src0OriShape0, unsigned src0OriShape1, unsigned src0OriShape3,
     unsigned src0rawShape1, unsigned src0rawShape2, unsigned src0rawShape3, unsigned src1OriShape0,
     unsigned src1OriShape1, unsigned src1rawShape3, unsigned cacheMode, unsigned blockSize>
-TILEOP void DynTIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, unsigned GmShape0, unsigned GmShape1, 
+TILEOP void DynTIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, unsigned GmShape0, unsigned GmShape1,
     unsigned GmShape2, unsigned GmShape3, unsigned Offset0, unsigned Offset1, unsigned Offset2, unsigned Offset3) {
     if (src0OriShape0 == 0 || src0OriShape1 == 0 || src0OriShape3 == 0 || src1OriShape0 == 0 || src1OriShape1 == 0) {
         return;

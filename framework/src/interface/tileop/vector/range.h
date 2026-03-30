@@ -7,21 +7,21 @@
  	  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  	  * See LICENSE in the root of the software repository for the full text of the License.
  	  */
- 	 
+
  	 /*!
  	  * \file range.h
  	  * \brief
  	  */
- 	 
+
  	 #ifndef TILEOP_TILE_OPERATOR_VEC_RANGE__H
  	 #define TILEOP_TILE_OPERATOR_VEC_RANGE__H
  	 #include "utils/layout.h"
  	 #include "utils/tile_tensor.h"
- 	 
+
  	 const int32_t DEFAULT_REPEAT_STRIDE = 8;
  	 const int32_t NUM_EIGHT = 8;
  	 const int32_t ONE_BLK_SIZE = 32;
- 	 
+
  	 template <typename T, int Unit>
  	 TILEOP inline void TRangePropagate(__ubuf__ T* base, int32_t loopN, int32_t tailSize, T offset) {
  	     if (loopN > 0) {
@@ -47,17 +47,17 @@
  	         #endif
  	     }
  	 }
- 	 
+
  	 template <typename TileType>
  	 TILEOP void TRange(TileType dst, unsigned size, typename TileType::Type start, typename TileType::Type step, int64_t tileIdx) {
  	     using T = typename TileType::Type;
  	     const T baseStart = start + step * static_cast<T>(tileIdx);
  	     constexpr int32_t kBlkElems = ONE_BLK_SIZE / sizeof(T);
  	     constexpr int32_t kRepElems = (ONE_BLK_SIZE * DEFAULT_REPEAT_STRIDE) / sizeof(T);
- 	 
+
  	     __ubuf__ T* dst_ptr = reinterpret_cast<__ubuf__ T*>(dst.GetAddr());
  	     unsigned N = size;
- 	 
+
  	     // block 1
  	     if (N <= static_cast<unsigned>(kBlkElems)) {
  	         for (int32_t j = 0; j < static_cast<int32_t>(N); ++j) {
@@ -67,11 +67,11 @@
  	         wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
  	         return;
  	     }
- 	 
+
  	     for (int32_t j = 0; j < kBlkElems; ++j) {
  	         dst_ptr[j] = baseStart + step * static_cast<T>(j);
  	     }
- 	 
+
  	     // blocks 2~8
  	     int32_t loopN = 0, tailSize = 0;
  	     if (N >= static_cast<unsigned>(kRepElems)) {
@@ -84,11 +84,11 @@
  	     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
  	     TRangePropagate<T, ONE_BLK_SIZE / sizeof(T)>(
  	         dst_ptr, loopN, tailSize, step * static_cast<T>(kBlkElems));
- 	 
+
  	     if (N <= static_cast<unsigned>(kRepElems)) {
  	         return;
  	     }
- 	 
+
  	     // repeat
  	     loopN = static_cast<int32_t>(N) / kRepElems - 1;
  	     tailSize = static_cast<int32_t>(N) % kRepElems;

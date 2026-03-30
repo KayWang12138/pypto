@@ -119,12 +119,12 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
         BinaryBrcDispatch<op, brcmode, LastUse>(dstTile, src0Tile, src1Tile);
         return;
     }
-    
+
     if constexpr (brcmode == BrcMode::BRC_HW) {
         BinaryMixBrcCompute<op, WBrcSide, Src0TileInfo, Src1TileInfo, LastUse>(dst, src0, src1, info);
         return;
     }
-    
+
     using Src0PtoTile = typename std::conditional<(Src0TileInfo::tileW == 1 && WBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND),
         PtoTile<T1, pto::BLayout::ColMajor>, PtoTile<T1>>::type;
     using Src1PtoTile = typename std::conditional<(Src1TileInfo::tileW == 1 && WBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND),
@@ -242,7 +242,7 @@ TILEOP int gcd(int a, int b) {
 
 #define OP_TILE_OP_GCD TGcd
 template <TileOp::BroadcastOperand WBrcSide = TileOp::BroadcastOperand::NONE,
-          TileOp::PenuBroadcastOperand HBrcSide = TileOp::PenuBroadcastOperand::NONE, 
+          TileOp::PenuBroadcastOperand HBrcSide = TileOp::PenuBroadcastOperand::NONE,
           typename T0, typename T1, typename T2>
 TILEOP void TGcd(T0 dst, T1 src0, T2 src1) {
     const auto dstLayout = dst.GetLayout();
@@ -419,7 +419,7 @@ TILEOP void BinaryTmpComputeImpl(T0 dst, T1 src0, T2 src1, T3 tmp) {
     if constexpr (op == BinaryOp::REM) {
         pto::TREM(dst, src0, src1, tmp);
         return;
-    } 
+    }
 }
 
 template <BinaryOp op, TileOp::BroadcastOperand WBrcSide, TileOp::PenuBroadcastOperand HBrcSide, typename T0, typename T1, typename T2, typename T3>
@@ -569,7 +569,7 @@ TILEOP void TFloorDiv(T0 dst, T1 src0, T2 src1, T3 tmp) {
                         pto::TADD(src0Tile, tmp1DataTile, src0Tile); // rem
 
                         pto::TCMPS(tmp1MaskTile, src0Tile, 0, CmpMode::NE);
-                        pto::TAND(tmp0MaskTile, tmp0MaskTile, tmp1MaskTile); 
+                        pto::TAND(tmp0MaskTile, tmp0MaskTile, tmp1MaskTile);
                         pto::TADDS(src0Tile, dstTile, -1);
                         pto::TSEL(dstTile, tmp0MaskTile, src0Tile, dstTile, tmp1DataTile);
                     #endif

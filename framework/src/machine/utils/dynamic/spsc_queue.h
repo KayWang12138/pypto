@@ -80,7 +80,7 @@ public:
     inline bool IsEmpty() {
         return (head_ == tail_);
     }
-    
+
     inline void ResetEmpty() {
         head_ = 0;
         tail_ = 0;

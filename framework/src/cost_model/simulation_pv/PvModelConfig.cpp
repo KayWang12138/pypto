@@ -1367,7 +1367,7 @@ void PvModelCaseConfigBase::SetCoreType(uint64_t coreType)
     subcoreId_ = coreType;
 }
 
-std::uint64_t PvModelCaseConfigBase::GetCoreType() 
+std::uint64_t PvModelCaseConfigBase::GetCoreType()
 {
     return subcoreId_;
 }
@@ -1389,7 +1389,7 @@ void PvModelCaseConfig::Dump(std::string path) {
     std::fstream file(path, std::ios::out);
 
     if (!file.is_open()) {
-        SIMULATION_LOGE("ErrCode: F%u, [PVMODEL]open config file error: %s", 
+        SIMULATION_LOGE("ErrCode: F%u, [PVMODEL]open config file error: %s",
                     static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_OPEN_FAILED), path.c_str());
         return;
     }

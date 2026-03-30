@@ -12,7 +12,7 @@
  * \file r2_selected_attention.cpp
  * \brief
  */
- 
+
 #include "interface/operation/operation_impl.h"
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
@@ -27,9 +27,9 @@
 #include "interface/utils/id_gen.h"
 
 #include "sparse_flash_attention.h"
- 
+
 using namespace npu::tile_fwk;
- 
+
 namespace npu::tile_fwk {
 /**
  * normal attention: q=qNope+qRope, kv是连续的
@@ -48,23 +48,23 @@ void SparseFlashAttentionCompute(const Tensor &qNope, const Tensor &qRope, const
     int dN = qNope.GetShape()[1];
     int dR = qRope.GetShape()[1];
     int group = nQ / nKv;
- 
+
     int gTile = tileConfig.gTile;
     int s2Tile = tileConfig.sKvTile;
     auto c1Tile = tileConfig.c1TileShape;
     auto v1Tile = tileConfig.v1TileShape;
     auto c2Tile = tileConfig.c2TileShape;
     auto v2Tile = tileConfig.v2TileShape;
- 
+
     /******** tune params ********/
     SymbolicScalar n2Sym = nKv; // n2
     SymbolicScalar batchSizeSym = GetInputShape(kvSlcActSeqs, 0); // b
     SymbolicScalar s1N2GSym = GetInputShape(qNope, 0) / batchSizeSym; // s1n2
     SymbolicScalar s1S2Sym = GetInputShape(kSlc, 0) / batchSizeSym; // s1s2
- 
+
     SymbolicScalar s1Sym = s1N2GSym / nQ; // s1
     SymbolicScalar gLoopSym = group / gTile;
- 
+
     SymbolicScalar s2Sym = s1S2Sym / s1Sym; // s2
     LOOP("LOOP_L0_b_SA", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeSym, 1), {}, true) {
         SymbolicScalar curKvSlcSeq = GetTensorData(kvSlcActSeqs, {bIdx});
@@ -72,40 +72,40 @@ void SparseFlashAttentionCompute(const Tensor &qNope, const Tensor &qRope, const
             SymbolicScalar curSeq = std::min(std::max(curKvSlcSeq - s1Sym + 1 + s1Idx, 0), topk); // for MTP s1!= 1 casual计算, 并且与topk取min
             curSeq.AsIntermediateVariable();
             SymbolicScalar bnPerBatch = (curSeq + s2Tile - 1) / s2Tile;
- 
+
             LOOP("LOOP_L2_n2_SA", FunctionType::DYNAMIC_LOOP, n2Idx, LoopRange(0, n2Sym, 1)) { // GQA场景
                 LOOP("LOOP_L3_g_SA", FunctionType::DYNAMIC_LOOP, gIdx, LoopRange(0, gLoopSym, 1)) {
                     int curGTile = gTile;
                     Tensor oiUpdate(DT_FP32, {curGTile, dN}, "oiUpdate");
                     Tensor liUpdate(DT_FP32, {curGTile, 1}, "liUpdate");
                     Tensor miUpdate(DT_FP32, {curGTile, 1}, "miUpdate");
- 
+
                     SymbolicScalar curOffset = bIdx * s1N2GSym + s1Idx * nQ + n2Idx * group + gIdx * curGTile;
                     std::vector<SymbolicScalar> oiOffset = {bIdx, s1Idx, n2Idx * group + gIdx * curGTile, 0}; // 按最终结果(B,S1,N1,D)进行assemble
- 
+
                     LOOP("LOOP_L4_s2_SA", FunctionType::DYNAMIC_LOOP, s2Idx, LoopRange(0, bnPerBatch, 1), PowersOf2(1)) {
                         int curS2Tile = s2Tile;
                         SymbolicScalar curKvOffset = bIdx * s1S2Sym + s1Idx * s2Sym + s2Idx * curS2Tile;
- 
+
                         config::SetSemanticLabel("Sa");
                         auto qn = View(qNope, {curGTile, dN}, {curGTile, dN}, {curOffset, 0});
                         auto qr = View(qRope, {curGTile, dR}, {curGTile, dR}, {curOffset, 0});
                         Tensor qi(dtype, {curGTile, dN + dR}, "qi");
                         Assemble(qn, {0, 0}, qi);
                         Assemble(qr, {0, dN}, qi);
- 
+
                         auto kj = View(kSlc, {curS2Tile, dN + dR}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN + dR},
                                         {curKvOffset, 0}); // kSlc已经合并了rope和nope
                         auto vj = View(vSlc, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN},
                                         {curKvOffset, 0});
- 
+
                         // C1
                         TileShape::Current().SetCubeTile(
                             {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
                         config::SetSemanticLabel("Sa_QkMM");
                         TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
                         auto sij = Matrix::Matmul(DataType::DT_FP32, qi, kj, false, true);
- 
+
                         // V1
                         config::SetSemanticLabel("Sa_Qkvec1");
                         TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
@@ -115,7 +115,7 @@ void SparseFlashAttentionCompute(const Tensor &qNope, const Tensor &qRope, const
                         auto tildaPij = Exp(tsub);  // (curGTile, curS2Tile) -> (curGTile, curS2Tile)
                         auto tildaPijF16 = Cast(tildaPij, dtype);
                         auto tildaLij = Sum(tildaPij, -1, true);
- 
+
                         IF (IsLoopBegin(s2Idx, 0)) {
                             // C2
                             TileShape::Current().SetCubeTile(
@@ -142,7 +142,7 @@ void SparseFlashAttentionCompute(const Tensor &qNope, const Tensor &qRope, const
                             auto oi = oiUpdate;
                             auto li = liUpdate;
                             auto mi = miUpdate;
- 
+
                             auto miNew = Maximum(mi, tildaMij);
                             auto t1 = Sub(mi, miNew);
                             auto t2 = Exp(t1);
@@ -151,7 +151,7 @@ void SparseFlashAttentionCompute(const Tensor &qNope, const Tensor &qRope, const
                             auto t5 = Mul(t4, tildaLij);
                             auto t6 = Mul(t2, li);
                             auto liNew = Add(t6, t5);
- 
+
                             auto q3 = Mul(oi, t2);
                             TileShape::Current().SetCubeTile(
                                 {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
@@ -179,12 +179,12 @@ void SparseFlashAttentionCompute(const Tensor &qNope, const Tensor &qRope, const
         }
     }
 }
- 
+
 void SparseFlashAttention(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc, const Tensor &vSlc, const Tensor &kvSlcActSeqs, int nQ, int nKv,
     float softmaxScale, int topk, Tensor &attentionOut, SaTileShapeConfig tileConfig) {
     FUNCTION("R2_SA_MAIN", {qNope, qRope, kSlc, vSlc, kvSlcActSeqs}, {attentionOut}) {
         SparseFlashAttentionCompute(qNope, qRope, kSlc, vSlc, kvSlcActSeqs, nQ, nKv, softmaxScale, topk, attentionOut, tileConfig);
     }
 }
- 
+
 } // namespace npu::tile_fwk

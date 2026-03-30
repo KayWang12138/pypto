@@ -237,7 +237,7 @@ ScalarImmediateType EvaluateSymbol::EvaluateSymbolicCall(
         {"RUNTIME_GetTensorDataInt32Dim3",      EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim3},
         {"RUNTIME_COA_GET_PARAM_ADDR",          EvaluateSymbolicCallGetParaAddr},
     };
-    using CallWithLinerArgsEntry = ScalarImmediateType (*)(EvaluateSymbol *, const std::vector<ScalarImmediateType> &dataList, 
+    using CallWithLinerArgsEntry = ScalarImmediateType (*)(EvaluateSymbol *, const std::vector<ScalarImmediateType> &dataList,
         const std::vector<SymbolicScalar> &linearArgList);
     static std::unordered_map<std::string, CallWithLinerArgsEntry> CallWithLinerArgsEntryDict = {
         {"RUNTIME_COA_GET_PARAM_VALID_SHAPE",   EvaluateSymbolicCallRuntimeCoaGetValidShape},

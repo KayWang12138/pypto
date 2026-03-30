@@ -350,7 +350,7 @@ void CostModelPipe::CalcLoad3d(PInstrParam &instr)
 }
 
 void CostModelPipe::CalcFixL0cOut(PInstrParam &instr)
-{ 
+{
     uint32_t latency = 1;
     uint32_t uopNum = 1;
     auto mlen = instr->param.at(static_cast<uint32_t>(FixpParam::M));

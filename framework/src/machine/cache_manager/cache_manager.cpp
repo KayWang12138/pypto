@@ -76,7 +76,7 @@ bool CacheManager::MatchBinCache(const std::string &cacheKey) const {
     std::string customSoPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
                                         CACHE_CUSTOM_BIN_FILE_SUFFIX;
     std::string customJsonPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
-                                        CACHE_CUSTOM_JSON_FILE_SUFFIX;                                    
+                                        CACHE_CUSTOM_JSON_FILE_SUFFIX;
     std::lock_guard<std::mutex> lock_guard(cacheMutex_);
     // check whether both json and bin file is existed
     bool ret = !RealPath(cacheBinFile).empty() && !RealPath(customSoPath).empty() &&

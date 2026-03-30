@@ -229,7 +229,7 @@ def lightning_indexer_compute(input_data_map, params):
             # cur_k形状为(tail_seq, d)
             cur_k = key[cur_block_idx * block_size: (cur_block_idx * block_size + tail_seq), :]
             # 使用随路量化计算，qk_dot形状为(s1 * n1, tail_seq)
-            qk_dot = torch.matmul(cur_q.to(torch.int32), 
+            qk_dot = torch.matmul(cur_q.to(torch.int32),
                                   cur_k.transpose(1, 0).to(torch.int32)).to(torch.float32).relu()
             qk_dot = qk_dot * avoid_fp32_to_fp16_overflow_scale
             qk_dot = qk_dot.to(torch.float16)

@@ -811,7 +811,7 @@ private:
         }
         return ret;
     }
-    
+
     #define RAW_TENSOR_ADDR_MASK ((1UL << 63) - 1)
     inline DynFuncData* GetDynFuncData(uint64_t taskId) {
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
@@ -890,14 +890,14 @@ private:
             auto opInfo = duppedData->GetSource()->GetOperationOOperandInfo(opIdx, i);
             DEV_TRACE_DEBUG(LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex),
                 LActOutcast(SchemaGetShape(dynFuncData, attrBase, opInfo), SchemaGetOffset(dynFuncData, attrBase, opInfo), Range(base, base + size))));
-        }  
+        }
     }
 
     inline void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask) {
         DEV_IF_VERBOSE_DEBUG {
             DumpSchemaOperationInfo(coreIdx, newTask);
         }
-        
+
 #if ENABLE_TENSOR_DUMP
         // dump input tensor
         aicoreDump_.DoDump(curDevTask_, "input", newTask, GetPhyIdByBlockId(coreIdx));

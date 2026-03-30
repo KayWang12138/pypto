@@ -170,23 +170,23 @@ void CoreMachine::StepQueue()
         sim->calendarCounter[sim->taskSetMap[executingTaskId]]++;
         if ((number == calendarSecondSet) && (sim->calendarCounter[sim->taskSetMap[executingTaskId]] !=
                               sim->taskSetExpectMap[executingTaskId])) {
-            SIMULATION_LOGE("[Cycle: %lu][CoreMachine][StepQueue] task id %lu after set counter %d calendar value is %d expect value is %d", 
-                        static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(executingTaskId), sim->taskSetMap[executingTaskId], 
-                        sim->calendarCounter[sim->taskSetMap[executingTaskId]], 
+            SIMULATION_LOGE("[Cycle: %lu][CoreMachine][StepQueue] task id %lu after set counter %d calendar value is %d expect value is %d",
+                        static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(executingTaskId), sim->taskSetMap[executingTaskId],
+                        sim->calendarCounter[sim->taskSetMap[executingTaskId]],
                         sim->taskSetExpectMap[executingTaskId]);
 
         } else if ((number == calendarFirstSet) && (sim->calendarCounter[sim->taskSetMap[executingTaskId]] !=
                                      sim->taskFirstSetMap[executingTaskId])) {
-            SIMULATION_LOGE("[Cycle: %lu][CoreMachine][StepQueue] task id %lu after first set counter %d calendar value is %d expect value is %d", 
-                        static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(executingTaskId), 
-                        sim->taskSetMap[executingTaskId], sim->calendarCounter[sim->taskSetMap[executingTaskId]], 
+            SIMULATION_LOGE("[Cycle: %lu][CoreMachine][StepQueue] task id %lu after first set counter %d calendar value is %d expect value is %d",
+                        static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(executingTaskId),
+                        sim->taskSetMap[executingTaskId], sim->calendarCounter[sim->taskSetMap[executingTaskId]],
                         sim->taskFirstSetMap[executingTaskId]);
 
         }
 
-        SIMULATION_LOGI("[Cycle: %lu][CoreMachine][StepQueue] task id %lu set counter %d value before %d value after %d", 
-                    static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(executingTaskId), sim->taskSetMap[executingTaskId], 
-                    sim->calendarCounter[sim->taskSetMap[executingTaskId]] - 1, 
+        SIMULATION_LOGI("[Cycle: %lu][CoreMachine][StepQueue] task id %lu set counter %d value before %d value after %d",
+                    static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(executingTaskId), sim->taskSetMap[executingTaskId],
+                    sim->calendarCounter[sim->taskSetMap[executingTaskId]] - 1,
                     sim->calendarCounter[sim->taskSetMap[executingTaskId]]);
     }
 }
@@ -269,7 +269,7 @@ bool CoreMachine::CalendarCountReady(const TaskPack &packetHead)
         int counterId = wait.first;
         int expectValue = wait.second;
         if (sim->calendarCounter[counterId] < expectValue) {
-            SIMULATION_LOGI("[Cycle: %lu][CoreMachine][ReceivePacket] task id%lu counter %d expectValue %d current value %d", 
+            SIMULATION_LOGI("[Cycle: %lu][CoreMachine][ReceivePacket] task id%lu counter %d expectValue %d current value %d",
                 static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(packetHead.taskId), counterId, expectValue, sim->calendarCounter[counterId]);
 
             return false;
@@ -954,7 +954,7 @@ int ReadyQueue::Front()
 
 int ReadyQueue::Pop()
 {
-    ASSERT(!readyQueue.empty()) << "[SIMULATION]: " << "readyQueue is empty";    
+    ASSERT(!readyQueue.empty()) << "[SIMULATION]: " << "readyQueue is empty";
     int idx = readyQueue.front();
     readyQueue.pop_front();
     return idx;

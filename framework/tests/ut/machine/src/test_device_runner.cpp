@@ -168,7 +168,7 @@ TEST_F(TestDeviceRunner, test_create_proflevel) {
     ProfConfig config6 = ProfConfig::AICPU_FUNC | ProfConfig::AICORE_TIME;
     config6.Remove(ProfConfig::AICPU_FUNC);
     EXPECT_EQ(config6.value, ProfConfig::AICORE_TIME);
-    
+
     config6.Remove(ProfConfig::AICORE_TIME);
     EXPECT_EQ(config6.value, 0);
 

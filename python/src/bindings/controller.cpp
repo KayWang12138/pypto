@@ -88,7 +88,7 @@ void bind_controller_set_tile(py::module &m) {
             std::copy(nvec.begin(), nvec.end(), narr.begin());
             TileShape::Current().SetCubeTile(marr, karr, narr, enableSplitK);
         },
-        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("enable_split_k"), 
+        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("enable_split_k"),
         "Set cube tile shapes with specified dimensions");
     m.def("GetCubeTile", []() {
         auto cubeTile = TileShape::Current().GetCubeTile();
@@ -96,7 +96,7 @@ void bind_controller_set_tile(py::module &m) {
     });
     py::class_<Conv::TileL1Info>(m, "TileL1Info")
         .def(py::init<>())
-        .def(py::init<int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t>(), 
+        .def(py::init<int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t>(),
             py::arg("tileHin"), py::arg("tileHout"),py::arg("tileWin"), py::arg("tileWout"),
             py::arg("tileCinFmap"), py::arg("tileCinWeight"),py::arg("tileN"), py::arg("tileBatch"))
         .def_readwrite("tileHin", &Conv::TileL1Info::tileHin)
@@ -109,7 +109,7 @@ void bind_controller_set_tile(py::module &m) {
         .def_readwrite("tileBatch", &Conv::TileL1Info::tileBatch);
     py::class_<Conv::TileL0Info>(m, "TileL0Info")
         .def(py::init<>())
-        .def(py::init<int64_t, int64_t, int64_t, int64_t>(), 
+        .def(py::init<int64_t, int64_t, int64_t, int64_t>(),
             py::arg("tileH"), py::arg("tileW"), py::arg("tileK"),py::arg("tileN"))
         .def_readwrite("tileH", &Conv::TileL0Info::tileH)
         .def_readwrite("tileW", &Conv::TileL0Info::tileW)
@@ -329,7 +329,7 @@ void bind_controller_scope_classes(py::module &m) {
             [](const ConfigScope &scope) -> py::dict {
                 py::dict result;
                 auto config_map = scope.GetAllConfig();
-                
+
                 for (const auto &[key, val] : config_map) {
                     try {
                         result[py::str(key)] = AnyToPyObject(val);

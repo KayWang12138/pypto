@@ -1221,7 +1221,7 @@ inline void AssembleViewAddOp(ComputationalGraphBuilder &G) {
         OpImmediate::Specified({0, 0}), MemoryType::MEM_DEVICE_DDR,
         OpImmediate::Specified(G.GetTensor("vec_in_3")->GetShape()), OpImmediate::Specified(G.GetTensor("vec_in_3")->tensor->GetRawShape()));
     G.GetOp("copy_3")->SetOpAttribute(attrCopy_3);
-    
+
     G.AddOp(Opcode::OP_ASSEMBLE, {"copy_in_0"}, {"assemble_out_0"}, "assemble_0");
     std::vector<int64_t> offestAssemble_0= {0, 0};
     auto attrAssemble_0 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble_0);

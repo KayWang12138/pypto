@@ -82,7 +82,7 @@ void TiledBitwiseShiftOperation(Function &function, const TileShape &tileShape, 
         auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto inputTile2 = input2.tensor->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        
+
         Shape tmpShape = resultTileInfo.shape;
         auto alignSize = BLOCK_SIZE / static_cast<int64_t>(BytesOf(result->Datatype()));
         tmpShape[tmpShape.size() - 1] = AlignUp(tmpShape[tmpShape.size() - 1], alignSize);

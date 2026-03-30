@@ -403,22 +403,22 @@ TILEOP void TStoreConv(T &dst, U &src, const int64_t &offset0, const int64_t &of
 
 template<bool isConv3D, typename U, int64_t elements, int64_t c0Size>
 using select_srcTensor = std::conditional_t<isConv3D,
-    pto::ConvTile<pto::TileType::Mat, 
-                    typename U::Type, 
-                    elements * c0Size * sizeof(typename U::Type), 
-                    pto::Layout::NDC1HWC0, 
+    pto::ConvTile<pto::TileType::Mat,
+                    typename U::Type,
+                    elements * c0Size * sizeof(typename U::Type),
+                    pto::Layout::NDC1HWC0,
                     pto::ConvTileShape<-1, -1, -1, -1, -1, c0Size>>,
-    pto::ConvTile<pto::TileType::Mat, 
-                    typename U::Type, 
-                    elements * sizeof(typename U::Type), 
-                    pto::Layout::NC1HWC0, 
+    pto::ConvTile<pto::TileType::Mat,
+                    typename U::Type,
+                    elements * sizeof(typename U::Type),
+                    pto::Layout::NC1HWC0,
                     pto::ConvTileShape<-1, -1, -1, -1, -1>>
 >;
 
 template <bool isConv3D, typename T, typename U>
-TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos, 
-                    const int64_t &padLeft, const int64_t &padRight, const int64_t &padTop, const int64_t &padBottom, const int64_t &padValue, 
-                    const int64_t &filterH, const int64_t &filterW, const int64_t &dilationH, const int64_t &dilationW, 
+TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos,
+                    const int64_t &padLeft, const int64_t &padRight, const int64_t &padTop, const int64_t &padBottom, const int64_t &padValue,
+                    const int64_t &filterH, const int64_t &filterW, const int64_t &dilationH, const int64_t &dilationW,
                     const int64_t &strideH, const int64_t &strideW) {
     // 2D： n c1 h w c0
     // 3D： n d c1 h w

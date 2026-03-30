@@ -65,7 +65,7 @@ void ViewTypeEntry(const std::vector<int64_t>& mkn) {
     std::vector<RawTensorDataPtr> inputDataList = {xData};
     std::vector<RawTensorDataPtr> outputDataList = {resultData};
 
-    ViewTypeFunc(x, result, dstDtype);  
+    ViewTypeFunc(x, result, dstDtype);
 
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);

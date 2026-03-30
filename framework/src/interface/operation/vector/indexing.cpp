@@ -646,7 +646,7 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
 
     if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) &&
         (reduce == ScatterMode::ADD || reduce == ScatterMode::MULTIPLY)) {
-        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),	 
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
         result.GetStorage(), orgDtype, CastMode::CAST_RINT);
     }
     return result;
@@ -807,7 +807,7 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int
     axis = axis < 0 ? operandSelfCast.GetShape().size() + axis : axis;
     CheckScatterParamsInvalid(operandSelfCast, indices, operandSrcCast, axis, reduce);
     Tensor result(operandSelfCast.GetStorage()->tensor->datatype, operandSelfCast.GetShape());
-    CALL(Scatter, *Program::GetInstance().GetCurrentFunction(), 
+    CALL(Scatter, *Program::GetInstance().GetCurrentFunction(),
         {result.GetStorage(), operandSelfCast.GetStorage(), indices.GetStorage(), operandSrcCast.GetStorage(), axis,
             static_cast<int>(reduce)});
 
@@ -1211,7 +1211,7 @@ void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const Logi
 
 void IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate) {
     DECLARE_TRACER();
-    
+
     std::vector<LogicalTensorPtr> indicesLogical;
     for (size_t i = 0; i < indices.size(); i++) {
         indicesLogical.push_back(indices[i].GetStorage());
@@ -1394,7 +1394,7 @@ Tensor Range(const Element &start, const Element &end, const Element &step) {
     }
     DataType outputDataType = DT_INT32;
     outputDataType = GetOutputDataType(start, end, step);
-    
+
     Element realStart = GetElementWithDataType(start, dataType);
     Element realEnd = GetElementWithDataType(end, dataType);
     Element realStep = GetElementWithDataType(step, dataType);

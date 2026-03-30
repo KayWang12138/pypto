@@ -111,7 +111,7 @@ void ParallelTool::Parallel_for(int start, int end, int step, std::function<void
     Parallel_for(start,end,step,numThread,body);
 }
 
-void ParallelTool::Parallel_for(int start, int end, int step, int numWork, std::function<void(int, int, int)> body) { 
+void ParallelTool::Parallel_for(int start, int end, int step, int numWork, std::function<void(int, int, int)> body) {
     if (numThread <= 1){
         body(start, end, 0);
         return;

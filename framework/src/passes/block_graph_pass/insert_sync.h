@@ -109,7 +109,7 @@ public:
 private:
     friend class TuneTileOpSeqForVF;
     friend class TuneSyncForVF;
-    
+
     struct PipeCoreReal {
         PipeCoreReal(PipeType p, CoreType c) :pipe(p), core(c) {}
         PipeType pipe;

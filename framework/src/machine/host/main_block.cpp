@@ -157,7 +157,7 @@ SymbolicScalar MainBlockCondBulider::BuildMainBlockExpression()
     for (const auto &iter : mainBlockCondGroup_) {
         cond = runtimeAnd(cond, iter);
     }
-    
+
     cond = runtimeSelect(cond, 1, 0);
     return cond;
 }
@@ -182,5 +182,3 @@ const std::unordered_set<std::string>& MainBlockCondBulider::GetCondStrSet() con
     return mainBlockStrSet_;
 }
 }
-
-    

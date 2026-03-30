@@ -31,7 +31,7 @@ void DeadOperationEliminator::EliminateDeadOperationBackward(Function &function)
     for (auto &op : function.Operations()) {
         op.SetAsNotDeleted();
     }
-    EliminateOperation(function); 
+    EliminateOperation(function);
 }
 
 std::set<Operation *, LogicalTensor::CompareOp> FindProducers(

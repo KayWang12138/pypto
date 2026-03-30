@@ -193,7 +193,7 @@ private:
     Status DefaultEnabledPreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
     SplitReshapeChecker checker_;
-    
+
     std::unordered_map<int, std::set<LogicalTensorPtr, TensorPtrComparator>> assembleOutToInput_;
     std::unordered_map<std::pair<int, int>, std::vector<int64_t>, PairHash> mapOffset_;
     std::unordered_map<std::pair<int, int>, int, PairHash> mapAssembleOpMagic_;

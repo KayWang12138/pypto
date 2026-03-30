@@ -106,7 +106,7 @@ inCast{8,16}->view->ubTensor{1,8,16}->exp->outCast1{1,8,16}
                                     ->view->outCast2{8,16}
                                     ->sqrt->outCast3{1,8,16}
 inCast{8,16}->view->ubTensor{1,8,16}->view->outCast2{8,16}
-            ->view->viewTensor1{1,8,16}->exp->outCast1{1,8,16}                        
+            ->view->viewTensor1{1,8,16}->exp->outCast1{1,8,16}
             ->view->viewTensor2{1,8,16}->sqrt->outCast3{1,8,16}
 */
 TEST_F(TestDuplicateOpPass, DuplicateViewUTest2) {
@@ -248,9 +248,9 @@ TEST_F(TestDuplicateOpPass, TestDupViewL1) {
     auto &expOp2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast2});
     (void) expOp1;
     (void) expOp2;
-    auto viewAttr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, 
-                                                       MEM_L1, 
-                                                       std::vector<SymbolicScalar>(), 
+    auto viewAttr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0},
+                                                       MEM_L1,
+                                                       std::vector<SymbolicScalar>(),
                                                        std::vector<SymbolicScalar>());
     viewOp.SetOpAttribute(viewAttr);
     currFunctionPtr->inCasts_.push_back(incast);
@@ -555,7 +555,7 @@ TEST_F(TestDuplicateOpPass, DuplicateViewGatherInUTest2) {
     currFunctionPtr->outCasts_.push_back(outCast1);
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast2);
-    
+
     DuplicateOp duplicateoppass;
     EXPECT_EQ(duplicateoppass.PreCheck(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(duplicateoppass.RunOnFunction(*currFunctionPtr), SUCCESS);
@@ -654,9 +654,9 @@ TEST_F(TestDuplicateOpPass, TestCheck1) {
     currFunctionPtr->AddOperation(Opcode::OP_SQRT, {tensor1}, {tensor2});
     currFunctionPtr->AddOperation(Opcode::OP_SQRT, {tensor1}, {outcast1});
     auto &gatherinOp = currFunctionPtr->AddOperation(Opcode::OP_GATHER_IN_L1, {tensor2}, {tensor3});
-    auto viewAttr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, 
-                                                       MEM_L1, 
-                                                       std::vector<SymbolicScalar>(), 
+    auto viewAttr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0},
+                                                       MEM_L1,
+                                                       std::vector<SymbolicScalar>(),
                                                        std::vector<SymbolicScalar>());
     gatherinOp.SetAttribute(OpAttributeKey::startOffset, i);
     viewOp.SetOpAttribute(viewAttr);
@@ -708,9 +708,9 @@ TEST_F(TestDuplicateOpPass, TestCheck2) {
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor3}, {outcast3});
     currFunctionPtr->AddOperation(Opcode::OP_SQRT, {tensor1}, {tensor2});
     currFunctionPtr->AddOperation(Opcode::OP_SQRT, {tensor1}, {outcast1});
-    auto viewAttr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, 
-                                                       MEM_VECTOR_REG, 
-                                                       std::vector<SymbolicScalar>(), 
+    auto viewAttr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0},
+                                                       MEM_VECTOR_REG,
+                                                       std::vector<SymbolicScalar>(),
                                                        std::vector<SymbolicScalar>());
     auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {tensor2}, {tensor3});
     viewOp.SetOpAttribute(viewAttr);
@@ -740,7 +740,7 @@ TEST_F(TestDuplicateOpPass, TestCheck2) {
 }
 
 /* ERROR
-incast    ->view  -> tensor1 -> exp - >output1 
+incast    ->view  -> tensor1 -> exp - >output1
 */
 TEST_F(TestDuplicateOpPass, TestCheck3) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPostCheck", "TestPostCheck", nullptr);
@@ -758,7 +758,7 @@ TEST_F(TestDuplicateOpPass, TestCheck3) {
 }
 
 /* ERROR
-incast    ->view  -> tensor1 -> exp - >output1 
+incast    ->view  -> tensor1 -> exp - >output1
                              -> exp - >output2
 */
 TEST_F(TestDuplicateOpPass, TestCheck4) {

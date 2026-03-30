@@ -66,7 +66,7 @@ public:
 
     void silence() {
         if (is_silenced) return;
-        
+
         int dev_null = open(NULL_DEVICE, O_WRONLY);
         if (dev_null != -1) {
             DUP2(dev_null, FILENO(stdout));
@@ -77,7 +77,7 @@ public:
 
     void restore() {
         if (!is_silenced) return;
-        
+
         fflush(stdout); // 恢复前先清空缓冲区，防止内容错乱
         DUP2(saved_stdout, FILENO(stdout));
         is_silenced = false;

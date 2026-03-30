@@ -410,7 +410,7 @@ TEST_F(TorchAdaptorTest, UnaryOps) {
             calc::Cast(out, self);
             ASSERT_ALLCLOSE(out, golden);
         }
-        // brcb 
+        // brcb
         {
             std::vector<float> sdata = {1.0f, 2.0f, 3.0f, 4.0f};
             std::vector<float> gdata = {1.0f, 1.0f, 1.0f,
@@ -451,7 +451,7 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
         auto golden = makeTensorData(DT_FP32, {16, 16}, 5.0f);
         calc::Add(out, self, other);
         ASSERT_ALLCLOSE(out, golden);
-    }   
+    }
     {
         // sub
         auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
@@ -847,7 +847,7 @@ TEST_F(TorchAdaptorTest, BinaryOpsS) {
     }
     {
         auto self = makeTensorData(DT_INT16, {16, 16}, static_cast<int16_t>(5));
-        auto elem = Element(DT_INT16, 2); 
+        auto elem = Element(DT_INT16, 2);
         auto out = makeTensorData(DT_INT16, {16, 16}, static_cast<int16_t>(0));
         auto golden = makeTensorData(DT_INT16, {16, 16}, static_cast<int16_t>(0));
         calc::BitwiseAndS(out, self, elem, true);

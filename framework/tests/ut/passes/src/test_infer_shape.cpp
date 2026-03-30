@@ -525,7 +525,7 @@ TEST_F(InferShapeTest, TestSHMEM_GET_GM2UB) {
 
     auto &shmemGetGm2UB_op = currFunctionPtr->AddOperation(Opcode::OP_SHMEM_GET_GM2UB, {incast0, incast1}, {shmemGetGm2UBOut0, shmemGetGm2UBOut1});
     currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {shmemGetGm2UBOut0}, {outcast});
-    
+
     auto shmemGetGm2UB_Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
                                                          MEM_UB,
                                                          shapeImme,
@@ -536,7 +536,7 @@ TEST_F(InferShapeTest, TestSHMEM_GET_GM2UB) {
                                              OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
     shmemGetGm2UB_Attr->SetToDynValidShape(toValidShape);
     shmemGetGm2UB_op.SetOpAttribute(shmemGetGm2UB_Attr);
-    
+
     currFunctionPtr->inCasts_.push_back(incast0);
     currFunctionPtr->inCasts_.push_back(incast1);
     currFunctionPtr->outCasts_.push_back(outcast);
@@ -674,7 +674,7 @@ TEST_F(InferShapeTest, TestIndexOutCast) {
         OpImmediate::Specified(inshape1),
         OpImmediate::Specified(incast2->tensor->GetDynRawShape()));
     indexoutcastOp.SetOpAttribute(indexoutcastOpAttr);
-    
+
     currFunctionPtr->inCasts_.push_back(incast0);
     currFunctionPtr->inCasts_.push_back(incast1);
     currFunctionPtr->inCasts_.push_back(incast2);

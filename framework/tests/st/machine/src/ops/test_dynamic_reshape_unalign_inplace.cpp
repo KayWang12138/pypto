@@ -94,7 +94,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, merge_two_dynamic_dim) {
             }
         }
     }
-    
+
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real.GetStorage()->GetDataSize()));
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -133,7 +133,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_exchange_dim) {
             Assemble(tmp, {loopIdx, 0, 0}, out);
         }
     }
-    
+
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real.GetStorage()->GetDataSize()));
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -147,7 +147,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_reshape_special) {
     int d = -1;
     int m = 8;
     std::vector<int64_t> qShape3Dim = {sq, d, m}; // (8, -1(2), 8)
-    std::vector<int64_t> qShape2Dim = {4, 4, m}; // (4, -1(4), 8) 
+    std::vector<int64_t> qShape2Dim = {4, 4, m}; // (4, -1(4), 8)
 
     Tensor q(DT_FP32, qShape3Dim, "q");
     Tensor out(DT_FP32, qShape2Dim, "out");
@@ -171,7 +171,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_reshape_special) {
             Assemble(tmp, {loopIdx, 0, 0}, out);
         }
     }
-    
+
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real.GetStorage()->GetDataSize()));
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -196,7 +196,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_op_reshape_op) {
     Tensor out_real(DT_FP32, {b * sq, d});
     std::vector<float> golden = genDateAndExe(q_real, out_real, 2);
 
-    FUNCTION("main", {q}, {out}) {   
+    FUNCTION("main", {q}, {out}) {
         // op
         Tensor addTmp(DT_FP32, {b, GetInputShape(q, 1), d});
         LOOP("L1", FunctionType::DYNAMIC_LOOP, sqIdx, LoopRange(GetInputShape(q, 1))) {
@@ -219,7 +219,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_op_reshape_op) {
             Assemble(tmp, {loopIdx * offSet, 0}, out);
         }
     }
-    
+
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real.GetStorage()->GetDataSize()));
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -239,7 +239,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_src_op_dst_op) {
     Tensor q(DT_FP32, qShape3Dim, "q");
     Tensor outSrc(DT_FP32, qShape3Dim, "outSrc");
     Tensor outDst(DT_FP32, qShape2Dim, "outDst");
-    
+
     d = 5;
     Tensor qReal(DT_FP32, {sq, d, m});
     Tensor outSrcReal(DT_FP32, {sq, d, m});

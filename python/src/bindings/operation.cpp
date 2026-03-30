@@ -125,7 +125,7 @@ void bind_operation(py::module &m) {
         py::arg("input"),
         py::arg("mode") = "constant",
         py::arg("value") = 0.0f
-    );    
+    );
     m.def(
         "Round", [](const Tensor &self, int decimals) { return npu::tile_fwk::Round(self, decimals); }, py::arg("self"),
         py::arg("decimals") = 0, "Tensor round.");

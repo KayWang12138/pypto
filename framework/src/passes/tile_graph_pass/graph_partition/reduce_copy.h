@@ -45,7 +45,7 @@ public:
 class ReduceCopyRunner {
 public:
     Status ReduceCopy(Function &func);
-    Status Init(Function &func); 
+    Status Init(Function &func);
     Status MergePrepare(std::vector<std::tuple<int, int, size_t>> &candidates, std::map<int, int> &rootToDense);
     Status MergeLoop(std::vector<std::tuple<int, int, size_t>> &candidates, const std::pair<double, double> &thres,
     bool &mergedInLoop, std::map<int, int> &rootToDense);

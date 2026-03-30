@@ -71,7 +71,7 @@ namespace CostModel
     {
         std::ofstream os(fileName);
         if (!os.is_open()) {
-            SIMULATION_LOGE("ErrCode: F%u, Error: fail to open file: %s", 
+            SIMULATION_LOGE("ErrCode: F%u, Error: fail to open file: %s",
                             static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_OPEN_FAILED), fileName.c_str());
             return false;
         }

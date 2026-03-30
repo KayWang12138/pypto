@@ -193,17 +193,17 @@ TEST_F(ControlFlowTest, TensorRecycleDestruct) {
         static void Entry(void *inspector_, DeviceExecuteContext *execCtx, DynDeviceTask *task) {
             (void)execCtx;
             Inspector *inspector = reinterpret_cast<Inspector *>(inspector_);
-            
+
             DynFuncDataCache *cacheList = task->GetDynFuncDataCacheList();
             DevAscendFunctionDuppedData *dup0 = cacheList->At(0).duppedData;
             DevAscendFunctionDuppedData *dup1 = cacheList->At(0x4 * 0x4 + 0x1).duppedData;
-            
+
             CapturedTaskData data;
             data.isAddr0Valid = dup0->GetOutcastAddress(0).IsAddress();
             data.isAddr1Valid = dup1->GetOutcastAddress(0).IsAddress();
             data.addr0Value = dup0->GetOutcastAddress(0).GetAddressValue();
             data.addr1Value = dup1->GetOutcastAddress(0).GetAddressValue();
-            
+
             inspector->dataList.push_back(data);
         }
     };
@@ -214,9 +214,9 @@ TEST_F(ControlFlowTest, TensorRecycleDestruct) {
     DeviceLauncherConfig config;
     config.blockdim = 25;
     EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), nullptr, config));
-    
+
     EXPECT_EQ(1, inspector.dataList.size());
-    
+
     const auto& data = inspector.dataList[0];
     EXPECT_TRUE(data.isAddr0Valid);
     EXPECT_TRUE(data.isAddr1Valid);

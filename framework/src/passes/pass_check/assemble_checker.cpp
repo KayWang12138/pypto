@@ -72,7 +72,7 @@ Status AssembleChecker::CheckAssembleOverlap(Function &function) {
             bool dynSkip = false;
             if (CheckDynSkip(outputTensor, dynSkip) == FAILED) {
                 return FAILED;
-            } 
+            }
 
             if (dynSkip) {
                 continue;

@@ -68,4 +68,3 @@ pypto.assemble([(x, offsets), (y, [2, 2])], out)
               [0, 0, 1, 1],
               [0, 0, 1, 1]]
 ```
-

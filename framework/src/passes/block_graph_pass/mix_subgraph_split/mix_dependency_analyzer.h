@@ -83,7 +83,7 @@ public:
     void EliminateRedundantDependencies();
 
     // 基于可达性移除冗余的外部依赖
-    void EliminateRedundantOuterDeps(const std::vector<std::vector<bool>> &innerDeps, 
+    void EliminateRedundantOuterDeps(const std::vector<std::vector<bool>> &innerDeps,
                                     std::unordered_map<int, std::vector<SimpleTensorParam>> &allTensors);
     // 基于可达性移除冗余的内部依赖
     void EliminateRedundantInnerDeps(std::vector<std::vector<bool>> &innerDeps);
@@ -103,7 +103,7 @@ private:
     // 构建可达阵的转置（即反向的可达阵）
     void PropagateIncastDependencies(const std::set<int> &targets, const std::vector<SimpleTensorParam> &tensorParams);
     void PropagateOutcastDependencies(int targetComp, int sourceComp);
-    
+
     void Reset();
     std::vector<std::vector<bool>> Transpose(const std::vector<std::vector<bool>> &matrix);
     bool IsTensorInComponentIncasts(int compId, const LogicalTensorPtr& tensor) const;

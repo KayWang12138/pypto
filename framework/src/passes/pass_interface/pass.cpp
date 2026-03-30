@@ -75,7 +75,7 @@ Status Pass::Run(Function &function, const std::string &strategy,
     if (PreRun(function) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Function, "PreRun pass [%s] failed.", identifier_.c_str());
         return FAILED;
-    } 
+    }
     if (RunOnFunction(function) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Function, "Run pass [%s] failed.", identifier_.c_str());
         return FAILED;

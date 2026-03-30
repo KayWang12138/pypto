@@ -163,10 +163,10 @@ public:
                 total *= dim;
             }
             if (offset >= total) {
-                throw std::out_of_range("Offset " + std::to_string(offset) + 
+                throw std::out_of_range("Offset " + std::to_string(offset) +
                                         " exceeds total size " + std::to_string(total));
             }
-            
+
             std::vector<int64_t> indices(shape_.size());
             int64_t remaining = offset;
 
@@ -183,7 +183,7 @@ public:
             for (size_t k = 0; k < count; k++) {
                 auto [isError, index, goldenValue, outputValue, absDiff, relDiff, tolerance] = (*this)[k];
                 (void)isError;
-                oss << "firstk," 
+                oss << "firstk,"
                     << k << ","
                     << index << ","
                     << FunctionInterpreter::ShapeToString(GetOffsetRaw(index)) << ","
@@ -197,7 +197,7 @@ public:
             for (size_t k = 0; k < count; k++) {
                 auto [isError, index, goldenValue, outputValue, absDiff, relDiff, tolerance] = (*this)[k];
                 (void)isError;
-                oss << "topk_re," 
+                oss << "topk_re,"
                     << k << ","
                     << index << ","
                     << FunctionInterpreter::ShapeToString(GetOffsetRaw(index)) << ","
@@ -327,7 +327,7 @@ public:
     static void CompareData(CompareResult &compareResult, size_t count, int64_t offset, const DataType *goldenValueList,
                             const DataType *outputValueList) {
         for (size_t index = 0; index < count; index++) {
-            auto goldenValue = static_cast<T>(goldenValueList[index]);       
+            auto goldenValue = static_cast<T>(goldenValueList[index]);
             auto outputValue = static_cast<T>(outputValueList[index]);
             compareResult.goldenMax_ = std::max(compareResult.goldenMax_, static_cast<double>(goldenValue));
             compareResult.outputMax_ = std::max(compareResult.outputMax_, static_cast<double>(outputValue));
@@ -411,7 +411,7 @@ public:
         const std::string &key, const std::string tensorNameList,
         const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
         const std::vector<std::shared_ptr<LogicalTensorData>> &tensorDataViewList, float rtol, float atol);
-    
+
     std::string ParseErrorMsg(std::string errorMsg);
 
     void WriteUserGolden(const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList);

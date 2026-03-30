@@ -272,7 +272,7 @@ public:
                 kArgs.commContexts = it->second;
                 return;
             }
-        }    
+        }
         std::vector<uint64_t> commContexts = devMem.IsDevice() ? DistributedContext::GetCommContext(groupNames) :
             DistributedContext::GetCommContextToHost(groupNames);
         commContexts.insert(commContexts.begin(), commContexts.size());

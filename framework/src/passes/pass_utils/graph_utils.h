@@ -79,7 +79,7 @@ public:
      *                 should inherit attribute and scope id from.
      * @param outDynShape the DynValidShape of each output. The default value is {}.
      *                    If outDynShape is empty, uses SetDynShape to calculate the DynValidShape of each output.
-     *                    The AssembleOpAttribute does not require dynamic attributes for output, so the SetDynShape is executed at last. 
+     *                    The AssembleOpAttribute does not require dynamic attributes for output, so the SetDynShape is executed at last.
      * @return the operation to be added
      */
     static Operation &AddAssembleOperation(Function &function, const AssembleOp &assemble, const std::vector<std::vector<SymbolicScalar>> &outDynShape = {});

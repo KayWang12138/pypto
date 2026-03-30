@@ -65,8 +65,8 @@ private:
         uint32_t unPopAllocatedObjCount{0};
 
         SlabCache() {}
-        SlabCache(uint32_t size, SlabWsAllocator* alloc) 
-            : objSize(size), freeList(nullptr), activeSlab(nullptr), 
+        SlabCache(uint32_t size, SlabWsAllocator* alloc)
+            : objSize(size), freeList(nullptr), activeSlab(nullptr),
               allocator(alloc), stageAllocHead(nullptr), stageAllocTail(nullptr),
               slabCount(0), totalObjCount(0), allocatedObjCount(0), unPopAllocatedObjCount(0)  {}
     };
@@ -78,7 +78,7 @@ private:
     };
 public:
     SlabWsAllocator() = default;
-    
+
     void Init(void* baseAddr, uint32_t totalSize, uint32_t alignSize) {
         memBaseaddr_ = static_cast<uint8_t*>(baseAddr);
         totalMemSize_ = totalSize;
@@ -97,7 +97,7 @@ public:
         if (type >= SLAB_ALLOCATOR_MAX_CACHES || objSize == 0) {
             return false;
         }
-        
+
         if (caches_[type].objSize != 0) {
             if (caches_[type].objSize >= objSize) {
                 DEV_DEBUG("[SlabWsAllocator]Slab cache exists: objsize=%u, cacheType=%u.\n", objSize, type);
@@ -142,7 +142,7 @@ public:
         if (cacheType >= SLAB_ALLOCATOR_MAX_CACHES) {
             return nullptr;
         }
-        
+
         SlabCache& cache = caches_[cacheType];
         uint32_t objSize = cache.objSize;
         if (objSize == 0) {
@@ -159,7 +159,7 @@ public:
             DEV_VERBOSE_DEBUG("[SlabWsAllocator]Alloc from slab free list: objsize = %u .\n", objSize);
         } else if (cache.activeSlab && cache.activeSlab->allocatedCount < cache.activeSlab->totalCount) {
             SlabHeader* slab = cache.activeSlab;
-            obj = static_cast<uint8_t*>(static_cast<void*>(slab)) + 
+            obj = static_cast<uint8_t*>(static_cast<void*>(slab)) +
                    sizeof(SlabHeader) + slab->allocatedCount * (sizeof(void*) + objSize);
             slab->allocatedCount++;
             DEV_VERBOSE_DEBUG("[SlabWsAllocator]Alloc from active slab: slab = %p, objsize = %u, allocCnt=%u .\n",
@@ -181,12 +181,12 @@ public:
             header->totalCount = (slabAlignSize_ - sizeof(SlabHeader)) / (sizeof(void*) + objSize);
             cache.activeSlab = header;
             obj = static_cast<uint8_t*>(slabMem) + sizeof(SlabHeader);
-            
+
             // Update statistics for new slab
             cache.slabCount++;
             cache.totalObjCount += header->totalCount;
             allocatedSlabCount_++;
-            
+
             DEV_VERBOSE_DEBUG("[SlabWsAllocator]Alloc from new slab: slab = %p, objsize = %u, totalCnt=%u .\n",
                 header, objSize, header->totalCount);
         }
@@ -235,7 +235,7 @@ public:
                 caches_[i].unPopAllocatedObjCount = 1;
             }
         }
-        
+
         return info;
     }
 
@@ -282,7 +282,7 @@ public:
         stats.allocatedSlabCount = allocatedSlabCount_;
         stats.freeSlabCount = totalSlabCount_ - allocatedSlabCount_;
         stats.slabSize = slabAlignSize_;
-        stats.usage = totalSlabCount_ > 0 ? 
+        stats.usage = totalSlabCount_ > 0 ?
             (static_cast<double>(stats.allocatedSlabCount) / stats.totalSlabCount) : 0.0;
         return stats;
     }
@@ -301,7 +301,7 @@ public:
         if (cacheType >= SLAB_ALLOCATOR_MAX_CACHES) {
             return CacheStats{};
         }
-        
+
         const SlabCache& cache = caches_[cacheType];
         CacheStats stats;
         stats.objSize = cache.objSize;
@@ -309,7 +309,7 @@ public:
         stats.totalObjCount = cache.totalObjCount;
         stats.allocatedObjCount = cache.allocatedObjCount;
         stats.freeObjCount = cache.totalObjCount - cache.allocatedObjCount;
-        stats.usage = cache.totalObjCount > 0 ? 
+        stats.usage = cache.totalObjCount > 0 ?
             (static_cast<double>(cache.allocatedObjCount) / cache.totalObjCount) : 0.0;
         return stats;
     }
@@ -329,9 +329,9 @@ public:
         AllocatorStats allocStats = GetAllocatorStats();
         DEV_WARN("Slab allocator Stats: BaseMemAddr=%p, TotalSize=%u, TotalSlabs=%u,"
                  "AllocatedSlabs=%u, FreeSlabs=%u, SlabSize=%u, Usage=%.2f%%\n",
-                 memBaseaddr_, totalMemSize_, allocStats.totalSlabCount, allocStats.allocatedSlabCount, 
+                 memBaseaddr_, totalMemSize_, allocStats.totalSlabCount, allocStats.allocatedSlabCount,
                  allocStats.freeSlabCount, allocStats.slabSize, allocStats.usage * percent);
-        
+
         // Dump cache-level statistics
         for (int i = 0; i < SLAB_ALLOCATOR_MAX_CACHES; i++) {
             if (caches_[i].objSize == 0) continue;
@@ -381,7 +381,7 @@ private:
 
     SlabCache caches_[SLAB_ALLOCATOR_MAX_CACHES];
     int numCaches_{0};
-    
+
     // Allocator-level statistics
     uint32_t totalSlabCount_{0};
     uint32_t allocatedSlabCount_{0};

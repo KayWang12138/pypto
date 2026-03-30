@@ -164,7 +164,7 @@ TILEOP void BrcbCompute(T0 dst, T1 src) {
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, DIM_5TH, MAX_DIMS>();
 
     using DstTileDefine =pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor>;
-    using SrcTileDefine = typename std::conditional<(srcTileW == 1), 
+    using SrcTileDefine = typename std::conditional<(srcTileW == 1),
         pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::ColMajor>,
         pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileW, srcTileH, pto::BLayout::ColMajor>>::type;
 
@@ -209,7 +209,7 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
     constexpr size_t tileSrcW = TileOp::GetTensorTileShapeDim<SrcTileTensor, DIM_5TH, MAX_DIMS>();
     constexpr size_t tileDstH = GetMergedAxisIfNeed<DstTileTensor, true>();
     constexpr size_t tileDstW = TileOp::GetTensorTileShapeDim<DstTileTensor, DIM_5TH, MAX_DIMS>();
-    
+
     constexpr int validH = GetValidHeight<SrcTileTensor, true>();
     constexpr int validW = GetValidWidth<SrcTileTensor>();
 

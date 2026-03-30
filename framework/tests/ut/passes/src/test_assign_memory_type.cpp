@@ -461,7 +461,7 @@ TEST_F(AssignMemoryTypeTest, TestCubeToVec) {
                 ++afterViewNum;
                 auto viewOpAttr = std::dynamic_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
                 EXPECT_TRUE(viewOpAttr->GetTo() == MemoryType::MEM_L1 || viewOpAttr->GetTo() == MemoryType::MEM_UB
-                 || viewOpAttr->GetTo() == MemoryType::MEM_L0A || viewOpAttr->GetTo() == MemoryType::MEM_L0B) << 
+                 || viewOpAttr->GetTo() == MemoryType::MEM_L0A || viewOpAttr->GetTo() == MemoryType::MEM_L0B) <<
                     "View to either l1, ub, l0a or l0b";
             }
         }
@@ -798,7 +798,7 @@ void AssignViewTensorWithAttr (std::shared_ptr<Function> &currFunctionPtr) {
     auto viewAttribute8 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
     viewAttribute8->SetToType(MemoryType::MEM_L0B);
     view_op8.SetOpAttribute(viewAttribute7);
-    
+
     currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {view_out3,view_out4,view_out1,view_out2}, {output});
 
     currFunctionPtr->inCasts_.push_back(view_in1);
@@ -833,7 +833,7 @@ TEST_F(AssignMemoryTypeTest, TestViewWithAttr) {
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
-            MemoryType attrToType = viewOpAttribute->GetTo();   
+            MemoryType attrToType = viewOpAttribute->GetTo();
             auto output = op.GetOOperands().front();
             auto outputMemOri = output->GetMemoryTypeOriginal();
             auto outputMemTobe = output->GetMemoryTypeToBe();
@@ -861,7 +861,7 @@ TEST_F(AssignMemoryTypeTest, TestPostcheckFailWhenPathUnreachable) {
     std::vector<int64_t> shape2{NUM_64, NUM_64};
     std::vector<int64_t> shape3{NUM_128, NUM_128};
     ComputationalGraphBuilder G;
-    
+
     G.AddTensor(DataType::DT_FP32, shape3, "input");
     auto tensorInput = G.GetTensor("input");
     tensorInput->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
@@ -881,7 +881,7 @@ TEST_F(AssignMemoryTypeTest, TestPostcheckFailWhenPathUnreachable) {
     G.GetOp("view2")->SetOpAttribute(std::make_shared<ViewOpAttribute>(shape2, MemoryType::MEM_DEVICE_DDR));
     G.AddOp(Opcode::OP_ASSEMBLE, {"b"}, {"output"}, "assemble1");
     G.GetOp("assemble1")->SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, shape2));
-    
+
     G.SetInCast({"input"});
     G.SetOutCast({"output"});
 

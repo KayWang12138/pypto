@@ -44,10 +44,10 @@ private:
     bool CanSrcDstReuse(const Operation &ops, std::shared_ptr<LogicalTensor> iOperand, std::shared_ptr<LogicalTensor> oOperand);
     bool IsL1ToL0Transfer(const Operation& op);
     bool IsL0CToL1Transfer(const Operation& op);
-    Status ProcessInplaceReuse(const Operation &oriOps, const Operation &ops, 
+    Status ProcessInplaceReuse(const Operation &oriOps, const Operation &ops,
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, bool& hasFound);
     Status ProcessL0MemoryReuse(const Operation& op, std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, bool& hasFound);
-    Status FindReuseableL0Tensor(const Operation& op, std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, 
+    Status FindReuseableL0Tensor(const Operation& op, std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors,
         LogicalTensorPtr needReplacedTensor, bool& hasFound);
 
     std::map<int, std::set<int>> tensorConsumers_;

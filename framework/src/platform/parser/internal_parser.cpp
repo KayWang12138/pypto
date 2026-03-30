@@ -132,8 +132,8 @@ bool InternalParser::GetDataPath(std::vector<std::pair<MemoryType, MemoryType>> 
         }
         dataPath.emplace_back(std::make_pair(StringToMemoryType(secondSplit[0]), StringToMemoryType(secondSplit[1])));
     }
-    return true; 
+    return true;
 }
- 
+
 }  // namespace tile_fwk
 }  // namespace npu

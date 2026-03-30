@@ -59,7 +59,7 @@ TILEOP void TPRelu(T0 dst, T1 src, T2 weight, T3 tmp) {
 
     constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, expectSize>();
     constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, expectSize>();
-    
+
     if constexpr (axis == 4) {
         // For 2D input (N, C), weight is (C,)
         constexpr size_t ALIGN_SIZE = 32;
@@ -80,14 +80,14 @@ TILEOP void TPRelu(T0 dst, T1 src, T2 weight, T3 tmp) {
         SrcTileDefine weightTile(1, srcShape4);
         pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));
         pto::TASSIGN(weightTile, (uint64_t)(weight.GetAddr()));
-        
+
         for (LoopVar n3Index = 0; n3Index < dstShape3; ++n3Index) {
             auto dstOffset = n3Index * dstStride3;
             auto srcOffset = n3Index * srcStride3;
-            
+
             pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
             pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-            
+
             pto::TPRELU(dstTile, srcTile, weightTile, tmpTile);
         }
     } else if constexpr (axis == 3) {
@@ -101,16 +101,16 @@ TILEOP void TPRelu(T0 dst, T1 src, T2 weight, T3 tmp) {
         auto weightAddr = (__ubuf__ typename T2::Type *)((uint64_t)(weight.GetAddr()));
         set_flag(PIPE_V, PIPE_S, EVENT_ID3);
         wait_flag(PIPE_V, PIPE_S, EVENT_ID3);
-        
+
         for (LoopVar n3Index = 0; n3Index < dstShape3; ++n3Index) {
             auto negative_slope = *(weightAddr + n3Index);
             for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
                 auto dstOffset = n2Index * dstStride2 + n3Index * dstStride3;
                 auto srcOffset = n2Index * srcStride2 + n3Index * srcStride3;
-                
+
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                
+
                 pto::TLRELU(dstTile, srcTile, negative_slope);
             }
         }
@@ -126,16 +126,16 @@ TILEOP void TPRelu(T0 dst, T1 src, T2 weight, T3 tmp) {
         auto weightAddr = (__ubuf__ typename T2::Type *)((uint64_t)(weight.GetAddr()));
         set_flag(PIPE_V, PIPE_S, EVENT_ID2);
         wait_flag(PIPE_V, PIPE_S, EVENT_ID2);
-        
+
         for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
             auto negative_slope = *(weightAddr + n2Index);
             for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
                 auto dstOffset = n1Index * dstStride1 + n2Index * dstStride2;
                 auto srcOffset = n1Index * srcStride1 + n2Index * srcStride2;
-                
+
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                
+
                 pto::TLRELU(dstTile, srcTile, negative_slope);
             }
         }

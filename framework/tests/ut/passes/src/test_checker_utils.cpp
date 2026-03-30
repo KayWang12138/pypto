@@ -44,7 +44,7 @@ TEST_F(TestCheckerUtils, TestOpChecker) {
     std::vector<int64_t> shape3 = {NUM_32, NUM_8};
 
     Program::GetInstance().InsertFuncToFunctionMap("TestOpChecker", currFunctionPtr);
-    
+
     std::shared_ptr<LogicalTensor> incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     std::shared_ptr<LogicalTensor> incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     std::shared_ptr<LogicalTensor> L1A = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
@@ -56,10 +56,10 @@ TEST_F(TestCheckerUtils, TestOpChecker) {
     std::shared_ptr<LogicalTensor> L0B = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto &l1ToL0A = currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0A, {L1A}, {L0A});
     auto &l1ToL0B = currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0B, {L1B}, {L0B});
-    
+
     std::shared_ptr<LogicalTensor> L0C = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     auto &aMulB = currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {L0A, L0B}, {L0C});
-    
+
     std::shared_ptr<LogicalTensor> outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     auto &copyout = currFunctionPtr->AddRawOperation(Opcode::OP_L0C_COPY_OUT, {L0C}, {outcast1});
 

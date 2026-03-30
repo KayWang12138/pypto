@@ -30,14 +30,14 @@ void InsertOpForViewAssemble::InsertViewAssemble(Function &function, Operation *
     std::vector<int64_t> offset(moveOutTensorPtr->GetShape().size(), 0);
     std::vector<SymbolicScalar> dynOffset(moveOutTensorPtr->GetShape().size(), 0);
     Operation &assemble = function.AddRawOperation(Opcode::OP_ASSEMBLE, {moveOutTensorPtr}, {ddrTensorPtr});
-    assemble.SetOpAttribute(std::make_shared<AssembleOpAttribute>(moveOutTensorPtr->GetMemoryTypeOriginal(), 
-                                                                  offset, 
-                                                                  dynOffset, 
+    assemble.SetOpAttribute(std::make_shared<AssembleOpAttribute>(moveOutTensorPtr->GetMemoryTypeOriginal(),
+                                                                  offset,
+                                                                  dynOffset,
                                                                   moveOutTensorPtr->GetDynValidShape()));
     Operation &view = function.AddRawOperation(Opcode::OP_VIEW, {ddrTensorPtr}, {moveInTensorPtr});
-    view.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, 
-                                                          moveOutTensorPtr->GetMemoryTypeOriginal(), 
-                                                          dynOffset, 
+    view.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset,
+                                                          moveOutTensorPtr->GetMemoryTypeOriginal(),
+                                                          dynOffset,
                                                           moveOutTensorPtr->GetDynValidShape()));
     assembleOp->ReplaceInput(moveInTensorPtr, moveOutTensorPtr);
 }
@@ -133,7 +133,7 @@ Status InsertOpForViewAssemble::JudgedViewAssemble(Function &function) {
             continue;
         }
         if (prodOp->GetOpcode() == Opcode::OP_VIEW && assembleOutSet_.find(op.GetOOperands()[0]) == assembleOutSet_.end() &&
-            prodOp->GetIOperands()[0]->GetMemoryTypeOriginal() == prodOp->GetOOperands()[0]->GetMemoryTypeOriginal() && 
+            prodOp->GetIOperands()[0]->GetMemoryTypeOriginal() == prodOp->GetOOperands()[0]->GetMemoryTypeOriginal() &&
             notProcessOut_.find(op.GetOOperands()[0]) == notProcessOut_.end()) {
             assembleOutSet_.insert(op.GetOOperands()[0]);
             APASS_LOG_INFO_F(Elements::Operation, "assembleOutSet_ insert oOperand %d", op.GetOOperands()[0]->GetMagic());

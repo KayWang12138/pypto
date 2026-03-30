@@ -36,7 +36,7 @@ TILEOP constexpr BrcMode GetBrcMode() {
     } else if constexpr (WBrcSide == TileOp::BroadcastOperand::NONE &&
                   HBrcSide != TileOp::PenuBroadcastOperand::NONE) {
         return BrcMode::BRC_H;
-    } else if constexpr ((WBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND && HBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) 
+    } else if constexpr ((WBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND && HBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND)
                     || (WBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND && HBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND)) {
         return BrcMode::BRC_HW;
     } else if constexpr (WBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND &&
@@ -68,7 +68,7 @@ TILEOP BinaryLayoutInfo ExtractLayoutInfo(const T0& dst, const T1& src0, const T
     info.shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
     info.shape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
     info.shape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
-    
+
     info.dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
     info.dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
     info.dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
@@ -136,7 +136,7 @@ TILEOP void BinaryColExpandComputeImpl(T0 dst, T1 src0, T2 src1) {
     }
 }
 
-template <BinaryOp op, TileOp::BroadcastOperand WBrcSide, 
+template <BinaryOp op, TileOp::BroadcastOperand WBrcSide,
           typename Src0TileInfo, typename Src1TileInfo,
           typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1, const BinaryLayoutInfo &info) {

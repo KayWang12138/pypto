@@ -107,7 +107,7 @@ def pad(input: Tensor, pad: Sequence[int], mode: str = "constant", value: float 
     The padding size by which to pad some dimensions of input are described starting from
     the last dimension and moving forward.
     For pad has format (d_last_dim, d_last_dim-1, ..., d_last_dim-k).
-    Current implementation supports padding the last 2 dimensions (Right and Bottom) with 
+    Current implementation supports padding the last 2 dimensions (Right and Bottom) with
     constant values.
 
     Parameters
@@ -143,12 +143,12 @@ def pad(input: Tensor, pad: Sequence[int], mode: str = "constant", value: float 
     t4d = pypto.tensor([1, 1, 2, 2], pypto.DT_FP32)
     # Pad last dim by (0, 1) -> Right pad 1
     # Pad 2nd to last dim by (0, 1) -> Bottom pad 1
-    p1 = (0, 1, 0, 1) 
+    p1 = (0, 1, 0, 1)
     out = pypto.pad(t4d, p1, "constant", 0.0)
 
     Input t4d: [[[[0.0, 1.0],
                 [2.0, 3.0]]]]
-    
+
     Output out: [[[[0.0, 1.0, 0.0],
                 [2.0, 3.0, 0.0],
                 [0.0, 0.0, 0.0]]]]
@@ -199,7 +199,7 @@ def fillpad(input: Tensor, mode: str = "constant", value: float = 0.0) -> Tensor
               [3.0, 4.0, 0.0, 0.0],
               [0.0, 0.0, 0.0, 0.0],
               [0.0, 0.0, 0.0, 0.0]]
-    
+
     Output out: [[1.0, 2.0, -inf, -inf],
                  [3.0, 4.0, -inf, -inf],
                  [-inf, -inf, -inf, -inf],

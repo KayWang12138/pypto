@@ -199,7 +199,7 @@ void FunctionInterpreter::DumpTensorBinary(
     if (std::any_of(validShape.begin(), validShape.end(), [](const int64_t& val) {return val <= 0;})) {
         return;
     }
-    
+
     auto stride = dataView->GetData()->GetStride();
     if (offset.size() != validShape.size() || stride.size() != validShape.size()) {
         return;

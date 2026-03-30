@@ -22,7 +22,7 @@ namespace npu {
 namespace tile_fwk {
 Status CommonOperationEliminateChecker::DoPreCheck(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "PreCheck for CommonOperationEliminate.");
-    
+
     for (auto &op : function.Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_SHMEM_GET_GM2UB) {
             continue;
@@ -46,7 +46,7 @@ Status CommonOperationEliminateChecker::DoPreCheck(Function &function) {
             }
             auto& ioperands = op->GetIOperands();
             const int opMagic = op->GetOpMagic();
-            
+
             if (ioperands.size() != 1) {
                 APASS_LOG_ERROR_F(Elements::Operation,
                                  "View or Copy_In Operation %d with not one input operand.",

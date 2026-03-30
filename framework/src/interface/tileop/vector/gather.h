@@ -78,7 +78,7 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1, T3 tmp) {
                     }
                     for (LoopVar m = 0; m < n4IdxShape; ++m) {
                         auto dstOffset = i * n0DstStride + j * n1DstStride + k * n2DstStride + l * n3DstStride + m;
-                        auto orgIdxValue = 
+                        auto orgIdxValue =
                             *(idxAddr + i * n0IdxStride + j * n1IdxStride + k * n2IdxStride + l * n3IdxStride + m);
                         if constexpr (axis == 0) {
                             newIdxValue =

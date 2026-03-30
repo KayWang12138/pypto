@@ -66,31 +66,31 @@ def get_commentable_lines(lines, error_in_t=False):
 
 def comment_lines(lines, line_indices):
     lines_to_comment = set(line_indices)
-    
+
     for line_num in sorted(lines_to_comment, reverse=True):
         line_idx = line_num - 1
         lines[line_idx] = '// ' + lines[line_idx]
-    
+
     return lines
 
 
 def uncomment_lines(lines, line_indices):
     lines_to_uncomment = set(line_indices)
-    
+
     for line_num in sorted(lines_to_uncomment):
         line_idx = line_num - 1
         if lines[line_idx].strip().startswith('//'):
             lines[line_idx] = lines[line_idx][3:]
-    
+
     return lines
 
 
 def has_error(returncode, output):
     if returncode != 0:
         return True
-    
+
     output_lower = output.lower()
-    
+
     true_error_keywords = [
         ' error',
         'error ',
@@ -98,14 +98,14 @@ def has_error(returncode, output):
         'segmentation fault',
         'core dump',
     ]
-    
+
     for keyword in true_error_keywords:
         if keyword in output_lower and "aicore error" not in output_lower:
             raise RuntimeError(f"检测到非 aicore error: {output_lower}")
-        
+
         if keyword in output_lower:
             return True
-    
+
     return False
 
 

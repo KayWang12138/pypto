@@ -263,7 +263,7 @@ void RecordLoopFunc::BeginLoopFunction() {
         std::shared_ptr<LoopRange> newRange = std::make_shared<LoopRange>(prevRange->End(), newRangeEnd, currentStep);
         rangeOfEaceUnroll_.push_back(newRange);
     }
-    
+
     auto range = rangeOfEaceUnroll_.back();
     range->End().AsIntermediateVariable();
 

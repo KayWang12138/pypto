@@ -12,12 +12,12 @@
  * \file test_Compare_operation.cpp
  * \brief
  */
- 
+
 #include "test_operation.h"
- 
+
 using namespace tile_fwk::test_operation;
 namespace {
- 
+
 struct CompareOpFuncArgs : public OpFuncArgs {
     CompareOpFuncArgs(const std::vector<int64_t> &viewShape,
                   const std::vector<int64_t> tileShape,
@@ -25,7 +25,7 @@ struct CompareOpFuncArgs : public OpFuncArgs {
                   OutType modeType)
         : viewShape_(viewShape), tileShape_(tileShape),
           cmpOp_(opType), cmpMode_(modeType) {}
- 
+
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
     OpType cmpOp_;
@@ -36,30 +36,30 @@ struct CompareOpFuncArgs : public OpFuncArgs {
 struct CompareOpMetaData {
     explicit CompareOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
         : opFunc_(opFunc), test_data_(test_data) {}
- 
+
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
 static void CompareOperationExeFunc2Dims(
-    const std::vector<Tensor> &inputs, 
-    std::vector<Tensor> &outputs, 
+    const std::vector<Tensor> &inputs,
+    std::vector<Tensor> &outputs,
     const OpFuncArgs *opArgs) {
     auto args = static_cast<const CompareOpFuncArgs *>(opArgs);
     SymbolicScalar firstDim = std::max(inputs[0].GetShape()[0], inputs[1].GetShape()[0]);
     SymbolicScalar secondDim = std::max(inputs[0].GetShape()[1], inputs[1].GetShape()[1]);
     const int firstViewShape = args->viewShape_[0];
     const int secondViewShape = args->viewShape_[1];
-    const int broadcastFlag = 1; 
+    const int broadcastFlag = 1;
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, 
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx,
              LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, 
-                 LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) { 
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
+                 LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) {
                 Tensor tileTensor0, tileTensor1;
                 if (inputs[1].GetShape()[1] == broadcastFlag &&
                     inputs[0].GetShape()[1] != broadcastFlag) {
-                    tileTensor0 = View(inputs[0], 
+                    tileTensor0 = View(inputs[0],
                         {firstViewShape, secondViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                          std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
@@ -82,7 +82,7 @@ static void CompareOperationExeFunc2Dims(
                         {0, sIdx * secondViewShape});
                 }
                 // 第一个张量在第二维广播
-                else if (inputs[0].GetShape()[1] == broadcastFlag && 
+                else if (inputs[0].GetShape()[1] == broadcastFlag &&
                         inputs[1].GetShape()[1] != broadcastFlag) {
                     tileTensor0 = View(inputs[0],
                         {firstViewShape, 1},
@@ -113,7 +113,7 @@ static void CompareOperationExeFunc2Dims(
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                          std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape});
-                    tileTensor1 = View(inputs[1], 
+                    tileTensor1 = View(inputs[1],
                         {firstViewShape, secondViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                          std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
@@ -128,10 +128,10 @@ static void CompareOperationExeFunc2Dims(
         }
     }
 }
- 
+
 static void CompareOperationExeFunc3Dims(
-    const std::vector<Tensor> &inputs, 
-    std::vector<Tensor> &outputs, 
+    const std::vector<Tensor> &inputs,
+    std::vector<Tensor> &outputs,
     const OpFuncArgs *opArgs) {
     // 解析参数
     auto args = static_cast<const CompareOpFuncArgs *>(opArgs);
@@ -142,19 +142,19 @@ static void CompareOperationExeFunc3Dims(
     const int secondViewShape = args->viewShape_[1];
     const int thirdViewShape = args->viewShape_[2];
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, 
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx,
              LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, 
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
                  LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, 
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx,
                      LoopRange(0, CeilDiv(thirdDim, thirdViewShape), 1)) {
-                    auto tileTensor0 = View(inputs[0], 
+                    auto tileTensor0 = View(inputs[0],
                         {firstViewShape, secondViewShape, thirdViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                          std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                          std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
-                    auto tileTensor1 = View(inputs[1], 
+                    auto tileTensor1 = View(inputs[1],
                         {firstViewShape, secondViewShape, thirdViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                          std::min(secondDim - sIdx * secondViewShape, secondViewShape),
@@ -171,8 +171,8 @@ static void CompareOperationExeFunc3Dims(
     }
 }
 static void CompareOperationExeFunc4Dims(
-    const std::vector<Tensor> &inputs, 
-    std::vector<Tensor> &outputs, 
+    const std::vector<Tensor> &inputs,
+    std::vector<Tensor> &outputs,
     const OpFuncArgs *opArgs) {
     // 解析参数
     auto args = static_cast<const CompareOpFuncArgs *>(opArgs);
@@ -186,49 +186,49 @@ static void CompareOperationExeFunc4Dims(
     const int fourthViewShape = args->viewShape_[3];
     const int broadcastFlag = 1;
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, 
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx,
              LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, 
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
                  LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) {
-                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, 
+                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx,
                      LoopRange(0, CeilDiv(thirdDim, thirdViewShape), 1)) {
-                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, 
+                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx,
                          LoopRange(0, CeilDiv(fourthDim, fourthViewShape), 1)) {
                         Tensor tileTensor0, tileTensor1;
-                        if (inputs[1].GetShape()[2] == broadcastFlag && 
+                        if (inputs[1].GetShape()[2] == broadcastFlag &&
                             inputs[0].GetShape()[2] != broadcastFlag) {
-                            tileTensor0 = View(inputs[0], 
+                            tileTensor0 = View(inputs[0],
                                 {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
                                 {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                  std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                                  std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
                                  std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
-                                {bIdx * firstViewShape, sIdx * secondViewShape, 
-                                 mIdx * thirdViewShape, nIdx * fourthViewShape}); 
-                            tileTensor1 = View(inputs[1], 
+                                {bIdx * firstViewShape, sIdx * secondViewShape,
+                                 mIdx * thirdViewShape, nIdx * fourthViewShape});
+                            tileTensor1 = View(inputs[1],
                                 {firstViewShape, secondViewShape, 1, fourthViewShape},
                                 {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                  std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                                  1,
                                  std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
-                                {bIdx * firstViewShape, sIdx * secondViewShape, 
+                                {bIdx * firstViewShape, sIdx * secondViewShape,
                                  0, nIdx * fourthViewShape});
                         } else {
-                            tileTensor0 = View(inputs[0], 
+                            tileTensor0 = View(inputs[0],
                                 {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
                                 {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                  std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                                  std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
                                  std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
-                                {bIdx * firstViewShape, sIdx * secondViewShape, 
+                                {bIdx * firstViewShape, sIdx * secondViewShape,
                                  mIdx * thirdViewShape, nIdx * fourthViewShape});
-                            tileTensor1 = View(inputs[1], 
+                            tileTensor1 = View(inputs[1],
                                 {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
                                 {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                  std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                                  std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
                                  std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
-                                {bIdx * firstViewShape, sIdx * secondViewShape, 
+                                {bIdx * firstViewShape, sIdx * secondViewShape,
                                  mIdx * thirdViewShape, nIdx * fourthViewShape});
                         }
                         TileShape::Current().SetVecTile(args->tileShape_);
@@ -243,13 +243,13 @@ static void CompareOperationExeFunc4Dims(
         }
     }
 }
- 
+
 class CompareOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<CompareOpMetaData> {};
- 
+
 INSTANTIATE_TEST_SUITE_P(TestCompare, CompareOperationTest,
     ::testing::ValuesIn(GetOpMetaData<CompareOpMetaData>(
         {CompareOperationExeFunc2Dims, CompareOperationExeFunc3Dims, CompareOperationExeFunc4Dims}, "Compare")));
- 
+
 TEST_P(CompareOperationTest, TestCompare) {
     auto test_data = GetParam().test_data_;
     std::string opStr = GetValueByName<std::string>(test_data, "compare_op");

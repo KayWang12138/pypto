@@ -17,7 +17,7 @@ $$
 ## 函数原型
 
 ```python
-var(input: Tensor, dim: Union[int, List[int], Tuple[int]] = None, *, correction: float = 1, keepdim: bool = False) 
+var(input: Tensor, dim: Union[int, List[int], Tuple[int]] = None, *, correction: float = 1, keepdim: bool = False)
 ```
 
 ## 参数说明

@@ -135,7 +135,7 @@ TEST_F(CalcCommonTest, VecDupClampFp32FromLargeDouble) {
     auto inoutDataPair = std::make_shared<FunctionIODataPair>();
     FunctionFrame frame(func.get(), nullptr, nullptr, inoutDataPair, 0);
     OperationInterpreter opInter;
-    std::vector<LogicalTensorDataPtr> ioperandDataViewList; 
+    std::vector<LogicalTensorDataPtr> ioperandDataViewList;
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputDataView};
 
     ExecuteOperationContext ctx = {

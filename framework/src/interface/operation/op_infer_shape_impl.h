@@ -32,12 +32,12 @@ public:
         static InferShapeRegistry instance;
         return instance;
     }
- 
+
     // 注册默认函数
     void RegisterInferShapeFunc(const Opcode opcode, FuncType func) {
         inferShapeFuncs_[opcode] = func;
     }
-    
+
     // 调用场景对应的函数
     void CallInferShapeFunc(Operation* op) {
         const Opcode opcode = op->GetOpcode();
@@ -69,7 +69,7 @@ public:
 private:
     std::unordered_map<Opcode, FuncType> inferShapeFuncs_;
 };
- 
+
 #define REGISTER_INFER_SHAPE_FUNC(OpCoreStr, OpType, FuncName) \
 class OpCoreStr##Register { \
 public: \

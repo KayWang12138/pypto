@@ -96,7 +96,7 @@ void PmuCommon::InitPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>&
         MACHINE_LOGW("Invalid PROF_PMU_EVENT_TYPE value [%s], use default PIPE_UTILIZATION. error: %s",
                     eventTypeStr.c_str(), e.what());
     }
-    
+
     if (archInfo == ArchInfo::DAV_2201) {
         SetPmuEventTypeDAV2201(profPmuType, pmuEvtType);
     } else if (archInfo == ArchInfo::DAV_3510) {

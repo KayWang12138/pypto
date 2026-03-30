@@ -26,11 +26,11 @@ namespace CostModel {
 
     private:
         TileCalculator() : seq(0) {}
-        static TileCalculator instance;  
+        static TileCalculator instance;
 
     public:
-        TileCalculator(const TileCalculator&) = delete;  
-        TileCalculator& operator=(const TileCalculator&) = delete;  
+        TileCalculator(const TileCalculator&) = delete;
+        TileCalculator& operator=(const TileCalculator&) = delete;
         static TileCalculator& Self() {
             return instance;
         }

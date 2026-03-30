@@ -51,5 +51,3 @@ enum class CalculatorErrorScene : uint32_t {
 };
 
 } // namespace npu::tile_fwk::calc_error
-
-

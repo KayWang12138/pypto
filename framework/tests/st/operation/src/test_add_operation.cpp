@@ -33,7 +33,7 @@ struct AddOpMetaData {
     nlohmann::json test_data_;
 };
 
-void UpdateInputBrcViewShape(std::vector<int64_t> &inputBrcViewShape, const std::vector<SymbolicScalar> &inputsShape, 
+void UpdateInputBrcViewShape(std::vector<int64_t> &inputBrcViewShape, const std::vector<SymbolicScalar> &inputsShape,
                              const std::vector<SymbolicScalar> &outputsShape) {
     for (size_t i = 0; i < inputsShape.size(); i++) {
         if (inputsShape[i] == 1 && outputsShape[i] != 1) {
@@ -42,7 +42,7 @@ void UpdateInputBrcViewShape(std::vector<int64_t> &inputBrcViewShape, const std:
     }
 }
 
-void UpdateInputBrcVaildShape(std::vector<SymbolicScalar> &inputValidShape, const std::vector<SymbolicScalar> &inputsShape, 
+void UpdateInputBrcVaildShape(std::vector<SymbolicScalar> &inputValidShape, const std::vector<SymbolicScalar> &inputsShape,
                              const std::vector<SymbolicScalar> &outputsShape) {
     for (size_t i = 0; i < inputsShape.size(); i++) {
         if (inputsShape[i] == 1 && outputsShape[i] != 1) {
@@ -51,7 +51,7 @@ void UpdateInputBrcVaildShape(std::vector<SymbolicScalar> &inputValidShape, cons
     }
 }
 
-void UpdateOffset(std::vector<SymbolicScalar> &offset, const std::vector<SymbolicScalar> &inputsShape, 
+void UpdateOffset(std::vector<SymbolicScalar> &offset, const std::vector<SymbolicScalar> &inputsShape,
                              const std::vector<SymbolicScalar> &outputsShape) {
     for (size_t i = 0; i < inputsShape.size(); i++) {
         if (inputsShape[i] == 1 && outputsShape[i] != 1) {
@@ -78,9 +78,9 @@ static void AddOperationExeFunc2Dims(
         const int sloop = CeilDiv(outputsShape[1], viewShape[1]);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                std::vector<SymbolicScalar> firstInputValidShape = 
+                std::vector<SymbolicScalar> firstInputValidShape =
                     {std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
-                     std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1])}; 
+                     std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1])};
                 std::vector<SymbolicScalar> secondInputValidShape =
                     {std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
                      std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1])};
@@ -121,17 +121,17 @@ static void AddOperationExeFunc3Dims(
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    std::vector<SymbolicScalar> firstInputValidShape = 
+                    std::vector<SymbolicScalar> firstInputValidShape =
                         {std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
                          std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1]),
-                         std::min(firstInputsShape[2] - nIdx * firstInputViewShape[2], firstInputViewShape[2])}; 
-                    std::vector<SymbolicScalar> secondInputValidShape = 
+                         std::min(firstInputsShape[2] - nIdx * firstInputViewShape[2], firstInputViewShape[2])};
+                    std::vector<SymbolicScalar> secondInputValidShape =
                         {std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
                          std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1]),
                          std::min(secondInputsShape[2] - nIdx * secondInputViewShape[2], secondInputViewShape[2])};
-                    std::vector<SymbolicScalar> firstOffset = 
+                    std::vector<SymbolicScalar> firstOffset =
                         {bIdx * firstInputViewShape[0], sIdx * firstInputViewShape[1], nIdx * firstInputViewShape[2]};
-                    std::vector<SymbolicScalar> secondOffset = 
+                    std::vector<SymbolicScalar> secondOffset =
                         {bIdx * secondInputViewShape[0], sIdx * secondInputViewShape[1], nIdx * secondInputViewShape[2]};
 
                     UpdateInputBrcVaildShape(firstInputValidShape, firstInputsShape, outputsShape);
@@ -175,7 +175,7 @@ static void AddOperationExeFunc4Dims(
                             {std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
                              std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1]),
                              std::min(firstInputsShape[2] - nIdx * firstInputViewShape[2], firstInputViewShape[2]),
-                             std::min(firstInputsShape[3] - mIdx * firstInputViewShape[3], firstInputViewShape[3])}; 
+                             std::min(firstInputsShape[3] - mIdx * firstInputViewShape[3], firstInputViewShape[3])};
                         std::vector<SymbolicScalar> secondInputValidShape =
                             {std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
                              std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1]),
@@ -235,7 +235,7 @@ static void AddOperationExeFunc5Dims(
                                 std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1]),
                                 std::min(firstInputsShape[2] - nIdx * firstInputViewShape[2], firstInputViewShape[2]),
                                 std::min(firstInputsShape[3] - mIdx * firstInputViewShape[3], firstInputViewShape[3]),
-                                std::min(firstInputsShape[4] - qIdx * firstInputViewShape[4], firstInputViewShape[4])}; 
+                                std::min(firstInputsShape[4] - qIdx * firstInputViewShape[4], firstInputViewShape[4])};
                             std::vector<SymbolicScalar> secondInputValidShape =
                                 {std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
                                 std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1]),
@@ -255,8 +255,8 @@ static void AddOperationExeFunc5Dims(
                             Tensor tileTensor1 = View(inputs[1], secondInputViewShape, secondInputValidShape, secondOffset);
                             TileShape::Current().SetVecTile(args->tileShape_);
                             auto res = Add(tileTensor0, tileTensor1);
-                            Assemble(res, 
-                                {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2],  mIdx * viewShape[3], qIdx * viewShape[4]}, 
+                            Assemble(res,
+                                {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2],  mIdx * viewShape[3], qIdx * viewShape[4]},
                                 outputs[0]);
                         }
                     }

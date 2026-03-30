@@ -114,7 +114,7 @@ Status AutoCast::InsertInt32Fp16Cast(Function &function) {
             continue;
         }
         APASS_LOG_INFO_F(Elements::Operation, "Cast[%d] is cast between int32 and fp16.", op->GetOpMagic());
-        auto fp32Tensor = std::make_shared<LogicalTensor>( 
+        auto fp32Tensor = std::make_shared<LogicalTensor>(
             function, DataType::DT_FP32, tgtTensor->shape, tgtTensor->GetDynValidShape(), tgtTensor->Format());
         InsertCastOp(function, srcTensor, fp32Tensor, op->GetTileShape());
         op->ReplaceInput(fp32Tensor, srcTensor);
@@ -144,7 +144,7 @@ bool AutoCast::SupportFP16(Operation *op) {
     return true;
 }
 
-void AutoCast::InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt, 
+void AutoCast::InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt,
                                        const TileShape &tileShape) {
     Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {src}, {tgt});
     newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
@@ -248,7 +248,7 @@ Status AutoCast::InsertFP16Cast(Function &function) {
     return SUCCESS;
 }
 
-bool AutoCast::IsLegalCast(DataType ds, DataType dt) {    
+bool AutoCast::IsLegalCast(DataType ds, DataType dt) {
     if (legalCastPair.count(std::make_pair(ds, dt)) > 0) {
         return true;
     }

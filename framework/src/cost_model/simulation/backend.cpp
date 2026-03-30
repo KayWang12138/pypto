@@ -143,7 +143,7 @@ Json CostModelAgent::ParseDynTopo(std::string &path)
             } catch (const std::invalid_argument& e) {
                 // ignore
             } catch (const std::out_of_range& e) {
-                SIMULATION_LOGE("ErrCode: F%u, Out of range: %s", 
+                SIMULATION_LOGE("ErrCode: F%u, Out of range: %s",
                                 static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_CONTENT_ERROR), e.what());
             }
         }

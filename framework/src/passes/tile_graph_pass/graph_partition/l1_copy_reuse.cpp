@@ -51,7 +51,7 @@ inline std::vector<uint64_t> GetGMInputFeature(const Operation &op) { // 提取G
 }
 
 inline bool CanReuse(const Operation &op) {
-    if (op.GetIOperands().size() != 0 && op.GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
+    if (op.GetIOperands().size() != 0 && op.GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
         op.GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
         if (op.GetOpcode() == Opcode::OP_VIEW || op.GetOpcode() == Opcode::OP_CONVERT) {
             return true;
@@ -81,7 +81,7 @@ Status L1CopyInReuseRunner::GetDuplicateOps(std::vector<Operation *> &opOriList,
         auto outputMagic = opOriList[i]->GetOOperands()[0]->GetRawTensor()->GetRawMagic();
         auto feature = GetGMInputFeature(*opOriList[i]);
         if (feature.size() == 0) {
-            APASS_LOG_ERROR_F(Elements::Operation, "GetDuplicateOps: op %s %d GetGMInputFeature failed. %s", 
+            APASS_LOG_ERROR_F(Elements::Operation, "GetDuplicateOps: op %s %d GetGMInputFeature failed. %s",
                             opOriList[i]->GetOpcodeStr().c_str(), opOriList[i]->GetOpMagic(), GetFormatBacktrace(*opOriList[i]).c_str());
             return FAILED;
         }
@@ -95,8 +95,8 @@ Status L1CopyInReuseRunner::GetDuplicateOps(std::vector<Operation *> &opOriList,
     return SUCCESS;
 }
 
-void L1CopyInReuseRunner::TackleOp(int i, Operation *op, 
-                                   std::vector<std::vector<int>> &replacedInputs, 
+void L1CopyInReuseRunner::TackleOp(int i, Operation *op,
+                                   std::vector<std::vector<int>> &replacedInputs,
                                    std::vector<std::vector<int>> &replacedOutputs) {
     if (CanReuse(*op)) {
         auto allocedL1BufId = op->GetOOperands()[0]->GetRawTensor()->GetRawMagic();
@@ -162,7 +162,7 @@ Status L1CopyInReuseRunner::MergeDupL1CopyIn(Function &func, std::vector<std::ve
         }
         // 重新连边
         for (auto &replacedInput : replacedInputs) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Relink op [%d] input [%d] to op [%d] output [%d].", 
+            APASS_LOG_DEBUG_F(Elements::Operation, "Relink op [%d] input [%d] to op [%d] output [%d].",
                             oriList[replacedInput[0]]->GetOpMagic(), replacedInput[1],
                             oriList[replacedInput[2]]->GetOpMagic(), replacedInput[3]);
             FunctionUtils::RelinkOperationInput(oriList[replacedInput[0]], replacedInput[1],
@@ -180,8 +180,8 @@ Status L1CopyInReuseRunner::MergeDupL1CopyIn(Function &func, std::vector<std::ve
     return SUCCESS;
 }
 
-int L1CopyInReuseRunner::GetMaxInColor(const std::vector<int> &nodes, 
-                                       const OperationsViewer &opOriList, 
+int L1CopyInReuseRunner::GetMaxInColor(const std::vector<int> &nodes,
+                                       const OperationsViewer &opOriList,
                                        int curColor) {
     int maxInColor = -1;
     for (int j : nodes) {
@@ -195,8 +195,8 @@ int L1CopyInReuseRunner::GetMaxInColor(const std::vector<int> &nodes,
     return maxInColor;
 }
 
-inline std::vector<int> GetCopyIn(const OperationsViewer &opOriList, 
-                                  int color, 
+inline std::vector<int> GetCopyIn(const OperationsViewer &opOriList,
+                                  int color,
                                   std::vector<std::vector<int>> &colorNode) {
     // 获取子图L1CopyIn数据量
     std::vector<int> colorCopyIn(color, 0);
@@ -256,8 +256,8 @@ void L1CopyInReuseRunner::GetColorHash(const OperationsViewer &opOriList, std::v
     }
 }
 
-inline void HashUpdate(std::unordered_map<uint64_t, std::vector<int>> &hashMap, 
-                       std::unordered_map<uint64_t, int> &hashOrder, 
+inline void HashUpdate(std::unordered_map<uint64_t, std::vector<int>> &hashMap,
+                       std::unordered_map<uint64_t, int> &hashOrder,
                        int color, std::vector<uint64_t> hashColor) {
     // 更新子图哈希
     for (auto entry = hashMap.begin(); entry != hashMap.end();) {
@@ -276,11 +276,11 @@ inline void HashUpdate(std::unordered_map<uint64_t, std::vector<int>> &hashMap,
         }
     }
     for (auto& entry : hashMap) {
-        APASS_LOG_INFO_F(Elements::Operation, "Subgraph hash: %lu, Subgraph ID: %s.", 
+        APASS_LOG_INFO_F(Elements::Operation, "Subgraph hash: %lu, Subgraph ID: %s.",
                       entry.first, IntVecToStr(entry.second).c_str());
     }
     for (auto& entry : hashOrder) {
-        APASS_LOG_INFO_F(Elements::Operation, "Subgraph hash: %lu, Hash order: %d.", 
+        APASS_LOG_INFO_F(Elements::Operation, "Subgraph hash: %lu, Hash order: %d.",
                       entry.first, entry.second);
     }
 }
@@ -334,7 +334,7 @@ Status L1CopyInReuseRunner::L1MergeProcess(OperationsViewer &opOriList, std::vec
         }
         auto vec = GetGMInputFeature(opOriList[opIdx]);
         if (vec.size() == 0) {
-            APASS_LOG_ERROR_F(Elements::Operation, "L1MergeProcess: op %d %s GetGMInputFeature failed. %s", 
+            APASS_LOG_ERROR_F(Elements::Operation, "L1MergeProcess: op %d %s GetGMInputFeature failed. %s",
                             opOriList[i].GetOpMagic(), opOriList[i].GetOpcodeStr().c_str(), GetFormatBacktrace(opOriList[i]).c_str());
             return FAILED;
         }
@@ -389,7 +389,7 @@ bool L1CopyInReuseRunner::GetMergedL1(int maxInColor, std::vector<int> &mergedNu
                                     std::map<std::vector<uint64_t>, int> &l1InputList, std::vector<uint64_t> &vec, std::vector<int> &colorCopyIn,
                                     std::map<uint64_t, int> &mgRem, uint64_t idx) {
     auto copyId = l1InputList.find(vec);
-    if (copyId != l1InputList.end() && copyId->second >= maxInColor && 
+    if (copyId != l1InputList.end() && copyId->second >= maxInColor &&
         colorCopyIn[copyId->second] + colorCopyIn[i] <= mgCopyInUpperBound_ &&
         mergedNum[copyId->second] > 0 && (mergedNum[copyId->second] < maxMergeNum || (mergedNum[copyId->second] == maxMergeNum && mgRem[idx] > 0))) {
         tmpColor = copyId->second;
@@ -409,7 +409,7 @@ Status L1CopyInReuseRunner::Phase1(Function &func, int color, std::vector<std::v
     if (SetNumLR(numLRList) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Config, "Invalid configuration: %s.", "cubeL1ReuseSetting");
         return FAILED;
-    } 
+    }
     std::vector<int> mergedNum(color, 1);
     std::vector<std::pair<int, int>> opOrder(color);
     std::map<uint64_t, int> mgRem;
@@ -427,7 +427,7 @@ Status L1CopyInReuseRunner::Phase1(Function &func, int color, std::vector<std::v
             }
             auto vec = GetGMInputFeature(opOriList[opIdx]);
             if (vec.size() == 0) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Phase1: op %s %d GetGMInputFeature failed. %s", 
+                APASS_LOG_ERROR_F(Elements::Operation, "Phase1: op %s %d GetGMInputFeature failed. %s",
                                 opOriList[i].GetOpcodeStr().c_str(), opOriList[i].GetOpMagic(), GetFormatBacktrace(opOriList[i]).c_str());
                 return FAILED;
             }
@@ -582,7 +582,7 @@ Status L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vect
     if (SetNumDB(hashMergeNum) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Config, "Invalid configuration: %s.", "cubeNBufferSetting");
         return FAILED;
-    } 
+    }
     CubeMergeProcess(colorNode, opOriList, hashMergeNum, colorCopyIn);
     MergeProcessIdUpdate(func, colorNode, color);
     for (auto &op : func.Operations()) {
@@ -652,7 +652,7 @@ Status L1CopyInReuseMerge::InitColorNode(Function &func, std::vector<std::vector
 Status L1CopyInReuseMerge::CheckOpListValid(Function &func) const {
     auto opOriList = func.Operations();
     for (size_t i = 0; i < opOriList.size(); i++) {
-        if (opOriList[i].GetIOperands().size() != 0 && opOriList[i].GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
+        if (opOriList[i].GetIOperands().size() != 0 && opOriList[i].GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
         opOriList[i].GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
             if (opOriList[i].GetOpcode() == Opcode::OP_VIEW || opOriList[i].GetOpcode() == Opcode::OP_CONVERT || opOriList[i].GetOpcode() == Opcode::OP_L1_COPY_IN_CONV) {
                 //符合预期且合法

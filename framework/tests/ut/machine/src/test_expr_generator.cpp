@@ -52,7 +52,7 @@ TEST_F(TestExprBatchGenerator, CalculateBatches) {
     ExprBatchGenerator generator2(testDir_, 2, 2500);
     // Test with less than EXPRS_PER_BATCH expressions
     ExprBatchGenerator generator3(testDir_, 3, 500);
-    
+
     // We can't directly access the private batches_ vector, but we can test the behavior
     // by checking the generated files later
 }
@@ -61,17 +61,17 @@ TEST_F(TestExprBatchGenerator, CalculateBatches) {
 TEST_F(TestExprBatchGenerator, HeaderFileGeneration) {
     ExprBatchGenerator generator(testDir_, 1, 100);
     std::ostringstream exprHeaderOss;
-    
+
     // Test HeaderFileBegin
     generator.HeaderFileBegin(exprHeaderOss);
-    
+
     // Test HeaderFileEnd
     generator.HeaderFileEnd(exprHeaderOss);
-    
+
     // Check if header file was created
     std::string headerPath = testDir_ + "/control_flow_expr_table.h";
     ASSERT_TRUE(FileExists(headerPath));
-    
+
     // Check header file content
     std::ifstream headerFile(headerPath);
     std::string headerContent((std::istreambuf_iterator<char>(headerFile)),
@@ -84,14 +84,14 @@ TEST_F(TestExprBatchGenerator, HeaderFileGeneration) {
 TEST_F(TestExprBatchGenerator, LinkScriptGeneration) {
     ExprBatchGenerator generator(testDir_, 1, 100);
     std::ostringstream exprHeaderOss;
-    
+
     // Link script is generated in HeaderFileBegin
     generator.HeaderFileBegin(exprHeaderOss);
-    
+
     // Check if link script was created
     std::string scriptPath = testDir_ + "/merge.link";
     ASSERT_TRUE(FileExists(scriptPath));
-    
+
     // Check link script content
     std::ifstream scriptFile(scriptPath);
     std::string scriptContent((std::istreambuf_iterator<char>(scriptFile)),

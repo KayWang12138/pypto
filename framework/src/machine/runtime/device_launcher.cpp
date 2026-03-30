@@ -77,7 +77,7 @@ int GetMaxBlockdim() {
     return kMinDefaultDim;
 #endif
 }
- 	 
+
 void (*forceLinkLibraryCompiler)() = &npu::tile_fwk::ForceLinkLibraryCompiler;
 
 DeviceLauncherContext &DeviceLauncherContext::Get() {
@@ -473,7 +473,7 @@ uint32_t GetProcessId() {
     } else {
         MACHINE_LOGW("drvGetProcessSign is nullptr, falling back to getpid()");
     }
-    
+
     uint32_t pid = static_cast<uint32_t>(getpid());
     MACHINE_LOGD("Using getpid(): pid=%u", pid);
     return pid;
@@ -605,7 +605,7 @@ void DeviceLauncher::AddAicpuStream(aclmdlRI &rtModel, bool tripleStream) {
 #ifdef BUILD_WITH_CANN
     auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
     auto schedtream = (aclrtStream)machine::GetRA()->GetScheStream();
-    
+
     if (IsCaptureMode()) {
         if (tripleStream) {
             rtStreamAddToModel(ctrlStream, rtModel);

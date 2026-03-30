@@ -91,7 +91,7 @@ Function* FunctionClone::CloneFunctionByComponent(const InternalComponentInfo& c
     cloneFunc->SetUnderDynamicFunction(isUnderDynamicFunction);
     APASS_LOG_DEBUG_F(Elements::Function, "Set isUnderDynamicFunction=%s for leaf function programID=%d",
                     isUnderDynamicFunction ? "true" : "false", cloneFunc->GetProgramId());
-    
+
     auto* resultFunc = cloneFunc.get();
     return resultFunc;
 }

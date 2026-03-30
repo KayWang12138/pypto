@@ -52,7 +52,7 @@ public:
 TEST_F(TestInsertCopyPass, TestNormalCase) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNormalCase", "TestNormalCase", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    /* 
+    /*
                | ------- view --- t0 --- assemble ------- |
              | ------- view --- t1 --- assemble  ---------- |
     inTensor [16, 16]                                         outTensor [16, 16]
@@ -107,7 +107,7 @@ TEST_F(TestInsertCopyPass, TestNormalCase) {
 TEST_F(TestInsertCopyPass, TestNoEqualSize) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNormalCase", "TestNormalCase", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    /* 
+    /*
                | ------- view --- t0 --- assemble ------- |
              | ------- view --- t1 --- assemble  ---------- |
     inTensor [16, 16]                                         outTensor [16, 64]
@@ -162,12 +162,12 @@ TEST_F(TestInsertCopyPass, TestNoEqualSize) {
 TEST_F(TestInsertCopyPass, TestInsert) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNormalCase", "TestNormalCase", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    /* 
-               
+    /*
+
              | ------- view ---------- t1 ----------- assemble  ---------- |
     inTensor [16, 16]                                                       outTensor [16, 16]
              | ------- view --- t2 --- EXP --- t3 --- assemble  ---------- |
-               
+
  */
     std::vector<int64_t> shape = {kNumExpFour, kNumExpFour};
     std::vector<int64_t> midShape = {kNumExpFour, kSizeEight};
@@ -179,11 +179,11 @@ TEST_F(TestInsertCopyPass, TestInsert) {
     auto outTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     outTensor->SetMemoryTypeOriginal(MemoryType::MEM_UB, true);
     auto midTensor0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, midShape);
-    midTensor0->SetMemoryTypeOriginal(MemoryType::MEM_UB, true); 
+    midTensor0->SetMemoryTypeOriginal(MemoryType::MEM_UB, true);
     auto midTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, midShape);
-    midTensor1->SetMemoryTypeOriginal(MemoryType::MEM_UB, true); 
+    midTensor1->SetMemoryTypeOriginal(MemoryType::MEM_UB, true);
     auto midTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, midShape);
-    midTensor2->SetMemoryTypeOriginal(MemoryType::MEM_UB, true); 
+    midTensor2->SetMemoryTypeOriginal(MemoryType::MEM_UB, true);
 
     auto &viewOp0 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inTensor}, {midTensor0});
     viewOp0.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset0, MemoryType::MEM_UB));

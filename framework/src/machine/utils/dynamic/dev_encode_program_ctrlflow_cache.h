@@ -61,7 +61,7 @@ struct MixTaskDataCache {
     WrapInfoQueue queue;
     uint32_t* wrapTasklist;
     uint64_t wrapIdNum;
-    uint64_t opWrapList[MAX_STITCH_FUNC_NUM_LOWER];	 
+    uint64_t opWrapList[MAX_STITCH_FUNC_NUM_LOWER];
     uint64_t opWrapTaskNumList[MAX_STITCH_FUNC_NUM_LOWER];
 };
 
@@ -736,7 +736,7 @@ struct DevControlFlowCache {
             }
         }
     }
- 	 
+
     void IncastOutcastAddrReloc(
             uint64_t srcWorkspace, uint64_t dstWorkspace,
             DevStartArgsBase *devStartArgs) {

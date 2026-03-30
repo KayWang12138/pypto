@@ -28,13 +28,13 @@ namespace CostModel {
         workspaceBase_ += size;
         return addr;
     }
-    
+
     uint64_t PvMemAllocator::AllocArg(uint64_t size) {
         uint64_t addr = argBase_;
         argBase_ += ((size + 128 - 1) / 128 * 128);
         return addr;
     }
-    
+
     uint64_t PvMemAllocator::AllocCode(uint64_t size) {
         (void)size;
         uint64_t addr = codeBase_;

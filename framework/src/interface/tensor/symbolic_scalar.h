@@ -450,8 +450,8 @@ public:
 
         if (hasImm) {
             nonImm.emplace_back(std::make_shared<RawSymbolicImmediate>(immExt));
-        } 
-        
+        }
+
         if (nonImm.empty()) {
             return std::make_shared<RawSymbolicImmediate>(immExt);
         } else if (nonImm.size() == 1) {
@@ -523,7 +523,7 @@ public:
         }
     }
 
-    static RawSymbolicScalarPtr Create(SymbolicOpcode opcode, 
+    static RawSymbolicScalarPtr Create(SymbolicOpcode opcode,
                                             const std::vector<RawSymbolicScalarPtr>& operandList) {
         if (AllImmediate(operandList)) {
             auto imm = ToImmediateList(operandList);

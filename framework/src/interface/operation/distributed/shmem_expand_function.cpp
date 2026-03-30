@@ -230,7 +230,7 @@ void TiledShmemPutUB2GM(Function& function, const TileShape& tileShape,
     auto shmemData = iOperand[1];
     auto barrierDummy = iOperand[2]; // operand 2
     auto dummy = oOperand[0];
-    
+
     DummyTileFunc barrierDummyTileFunc = GetDummyTileFunc(barrierDummy, shmemData, tileShape.GetVecTile(), function);
     DummyTileFunc dummyTileFunc = GetDummyTileFunc(dummy, shmemData, tileShape.GetVecTile(), function);
     DfsTiling(tileShape.GetVecTile(), shmemData, [&](uint32_t tileIndex, Input& input) {
@@ -249,7 +249,7 @@ void TiledShmemPutUB2GM(Function& function, const TileShape& tileShape,
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
     });
-    
+
 }
 
 void TiledShmemSignal(Function& function, const TileShape& tileShape,

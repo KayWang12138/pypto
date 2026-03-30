@@ -25,7 +25,7 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicCastTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 // 设置测试张量
-void SetupTestTensors(int b, int sq, int d, DataType iType, DataType oType, 
+void SetupTestTensors(int b, int sq, int d, DataType iType, DataType oType,
                       Tensor& q, Tensor& actSeqs, Tensor& out, bool ready_on_host) {
     std::vector<int64_t> qShape = {b * sq, d};
     std::vector<int64_t> outShape = {b * sq, d};
@@ -33,7 +33,7 @@ void SetupTestTensors(int b, int sq, int d, DataType iType, DataType oType,
     q = Tensor(iType, qShape, "q");
     actSeqs = Tensor(DT_INT32, {b, 1}, "actual_seq");
     out = Tensor(oType, outShape, "out");
-    
+
     if (ready_on_host) {
         config::SetRuntimeOption<std::vector<std::string>>(READY_ON_HOST_TENSORS, {"actual_seq"});
     }
@@ -43,7 +43,7 @@ void SetupTestTensors(int b, int sq, int d, DataType iType, DataType oType,
 void PrepareTestData(int b, int sq, int d, std::vector<int>& actSeqsData, std::vector<int32_t>& golden) {
     actSeqsData.resize(b, 20);
     golden.resize(b * sq * d, 0);
-    
+
     for (int bidx = 0; bidx < b; ++bidx) {
         for (int seq = 0; seq < actSeqsData[bidx]; ++seq) {
             for (int dim = 0; dim < d; ++dim) {
@@ -55,7 +55,7 @@ void PrepareTestData(int b, int sq, int d, std::vector<int>& actSeqsData, std::v
 }
 
 // 构建计算图
-void BuildComputeGraph(const Tensor& q, const Tensor& actSeqs, Tensor& out, 
+void BuildComputeGraph(const Tensor& q, const Tensor& actSeqs, Tensor& out,
                        int sq, int d, DataType oType) {
     FUNCTION("main", {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
@@ -81,7 +81,7 @@ void VerifyResults(int b, int sq, int d, const std::vector<int32_t>& golden) {
 void CheckGeneratedCode(bool ready_on_host) {
     std::string aicpuDirPath = config::LogTopFolder() + "/kernel_aicpu";
     bool foundWaitAicoreStart = false;
-    
+
     std::vector<std::string> cppFiles = GetFiles(aicpuDirPath, "cpp");
     for (const auto& fileName : cppFiles) {
         if (fileName.substr(0, 15) == "controlFlow_dev") {
@@ -94,7 +94,7 @@ void CheckGeneratedCode(bool ready_on_host) {
             }
         }
     }
-    
+
     if (ready_on_host) {
         EXPECT_FALSE(foundWaitAicoreStart);
     } else {

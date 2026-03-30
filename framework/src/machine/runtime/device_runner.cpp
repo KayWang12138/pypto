@@ -95,7 +95,7 @@ void SyncStreams(rtStream_t aicpuStream, rtStream_t aicoreStream, bool useSyncFl
     } else {
         rc = aclrtCreateEvent(&event);
     }
-    
+
     if (rc < 0) {
         MACHINE_LOGI("CreateEvent failed rc=%d, useSyncFlag=%d", rc, useSyncFlag);
     }
@@ -164,7 +164,7 @@ void DeviceRunner::InitDynamicArgs(DeviceArgs &args) {
     }
 
     if (GetEnvVar("DUMP_DEVICE_PERF") == "true") {
-        auto aicpuDevPtr = MachinePerfTraceDevMalloc(MAX_TURN_NUM * sizeof(MetricPerf));  
+        auto aicpuDevPtr = MachinePerfTraceDevMalloc(MAX_TURN_NUM * sizeof(MetricPerf));
         if (aicpuDevPtr == 0) {
             MACHINE_LOGW("Aicpu per addr malloc failed");
             return;
@@ -809,7 +809,7 @@ void DeviceRunner::StopMachinePerfTraceDumpThread() {
         dumpThread_.join();
     }
     MACHINE_LOGD("Dump thread stopped");
-    
+
     if (args_.aicpuPerfAddr != 0) {
         void *ptr = npu::tile_fwk::dynamic::ValueToPtr(args_.aicpuPerfAddr);
         if (ptr != nullptr) {
