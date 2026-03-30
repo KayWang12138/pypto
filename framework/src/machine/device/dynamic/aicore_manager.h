@@ -123,8 +123,8 @@ public:
         return isValid;
     }
 
-inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
-{
+    inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
+    {
         curTaskCtrl_ = taskCtrl;
         curDevTask_ = taskCtrl->devTask;
         curTaskId_ = taskCtrl->taskId;
@@ -295,7 +295,6 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
         });
     }
 
-
     inline void RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         Init(threadIdx, deviceArgs, schedIdx);
         DeviceTaskCtrl *taskCtrl = nullptr;
@@ -324,11 +323,6 @@ private:
         preFetchNextDevTaskCtrl_ = nullptr;
         preFetchSuccess_ = prefetchedTaskQueue_->TryDequeue(preFetchNextDevTaskCtrl_);
         return preFetchSuccess_;
-    }
-
-    inline void NormalStopSingleCore(int coreIdx) {
-        aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1);
-        aicoreHal_.ResetShakeBuf(coreIdx);
     }
 
     inline void TryBatchSendTask(CoreType type)
@@ -789,11 +783,6 @@ private:
         for (int i = aivStart_; i < aivEnd_; ++i) {
             func(i);
         }
-    }
-
-    inline void AbnormalStop() {
-        ResetRegAll();
-        CheckAndResetReg();
     }
 
     inline void NormalStop() {
