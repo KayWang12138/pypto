@@ -162,7 +162,7 @@ void OoOScheduler::ReplaceTensorMemId(IssueEntryPtr &issue, int oldMemId, int ne
 
 Status OoOScheduler::UpdateRemainOpBufId(int oldMemId, int newMemId) {
     if (bufRefCount_.find(oldMemId) == bufRefCount_.end()) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "bufRefCount cannot find Tensor[%d]. ", oldMemId);
+        APASS_LOG_ERROR_F(Elements::Tensor, "bufRefCount cannot find Tensor[%d].", oldMemId);
         return FAILED;
     }
     bufRefCount_[newMemId] = bufRefCount_[oldMemId] + TWO_ISSUE;
@@ -606,7 +606,10 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr 
         APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill! %s", GetFormatBacktrace(spillIssue->tileOp).c_str());
         return FAILED;
     }
-    bufLastUseOrder = GetBufLastUseOrder(allocIssue, actualSpillTensor->memoryrange.memId);
+    auto spillIssueIdx = std::find(newOperations_.begin(), newOperations_.end(), &(spillIssue->tileOp));
+    newOperations_.insert(spillIssueIdx + 1, &(spillCopyout->tileOp));
+    APASS_LOG_DEBUG_F(Elements::Operation, "Insert op: %s.", spillCopyout->GetOpInfo().c_str());
+    bufLastUseOrder = spillIssue->execOrder;
     return SUCCESS;
 }
 
@@ -648,7 +651,7 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, s
     if (isGenSpill) {
         pcIdx++;
         numTotalIssues++;
-    } else {
+    } else if (std::find(newOperations_.begin(), newOperations_.end(), &(spillCopyout->tileOp)) == newOperations_.end()) {
         newOperations_.push_back(&(spillCopyout->tileOp));
         APASS_LOG_DEBUG_F(Elements::Operation, "Insert op: %s.", spillCopyout->GetOpInfo().c_str());
     }
