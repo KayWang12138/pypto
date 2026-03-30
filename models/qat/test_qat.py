@@ -24,15 +24,15 @@ Example:
     python ai_infra_pypto_qat.py
 """
 
-import os
+import logging
 import math
+import os
 import re
+from typing import Any, Tuple, Union
+import numpy as np
+import pytest
 import torch
 import torch_npu
-import pytest
-import numpy as np
-import logging
-from typing import Tuple, Union, Any
 from numpy.testing import assert_allclose
 
 from qat_impl import (
@@ -47,17 +47,10 @@ from qat_impl import (
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
-collect_result = False
 
 
 DISTRIBUTION = [
     "uniform_large",
-    # "uniform_small",
-    # "uniform[-10, 10]",
-    # "uniform[-10, 0]",
-    # "uniform[0, 10]",
-    # "normal",
-    # "outlier",
 ]
 
 
@@ -108,7 +101,7 @@ def create_input(
     Parameters
     ----------
     shape : tuple or list of ints
-        Desired tensor shape, e.g. (N, M).
+        Desired tensor shape, e.g. (n, m).
     dtype : str, optional
         Torch dtype name (default "float32").
     device : str, optional
@@ -155,7 +148,8 @@ def create_input(
         tensor_fp32 = _outlier(shape)
     else:
         raise ValueError(
-            f"Unsupported distribution '{distribution}'. Supported: uniform[low,high], uniform_small, uniform_large, normal, outlier"
+            f"Unsupported distribution '{distribution}'. "
+            "Supported: uniform[low,high], uniform_small, uniform_large, normal, outlier"
         )
 
     tensor = tensor_fp32.to(dtype)
@@ -274,7 +268,12 @@ def precision_compare_triple(pto_data, bm_data, golden_data, thres=(2, 1.2, 1.2)
     is_mere_acceptable = mere_matrix <= thres[1]
     is_rmse_acceptable = rmse_matrix <= thres[2]
 
-    if small_value_matrix <= 2 and is_mare_acceptable and is_mere_acceptable and is_rmse_acceptable:
+    if all([
+        small_value_matrix <= 2,
+        is_mare_acceptable,
+        is_mere_acceptable,
+        is_rmse_acceptable
+    ]):
         result = "PASS"
     else:
         result = "FAILED"
@@ -388,7 +387,7 @@ def forward_test(inputs: Tuple[Any, ...], pto_inputs, golden_func, pto_func):
     assert len(bm_out) == len(kernel_out)
 
     compare_results = []
-    for i in range(len(bm_out)):
+    for i, _ in enumerate(bm_out):
         logger.info(f"=== Forward Output[{i}] ===")
         try:
             assert_allclose(kernel_out[i].float().cpu(), bm_out[i].float().cpu(), rtol=1e-3, atol=1e-3)
@@ -496,7 +495,7 @@ def create_asymmetric_qat_golden(group_size, bit, eps=1e-4, clip_val=0.99):
         """PyTorch reference implementation for Enhanced LSQ+ asymmetric quantization (BF16 I/O, FP32 compute).
 
         Args:
-            weight: Input weight tensor (N, M) in BF16
+            weight: Input weight tensor (n, m) in BF16
             scale: Quantization scale tensor (num_groups, 1) in BF16
             offset: Quantization offset tensor (num_groups, 1) in BF16
             group_size: Number of elements per group (default: 128)
@@ -558,8 +557,8 @@ def create_symmetric_qat_nscale_golden(eps, min_v, max_v):
         """PyTorch reference implementation for embedding head quantization (BF16 I/O, FP32 compute).
 
         Args:
-            weight: Input weight tensor (N, M) in BF16
-            scale: Quantization scale tensor (N, 1) in BF16
+            weight: Input weight tensor (n, m) in BF16
+            scale: Quantization scale tensor (n, 1) in BF16
             eps: Minimum scale threshold (default: 1e-4)
             min_v: Quantization lower bound (default: -128.0)
             max_v: Quantization upper bound (default: 127.0)
@@ -594,7 +593,7 @@ def create_symmetric_qat_golden(eps, min_v, max_v):
         """PyTorch reference implementation for embedding head quantization (BF16 I/O, FP32 compute).
 
         Args:
-            weight: Input weight tensor (N, M) in BF16
+            weight: Input weight tensor (n, m) in BF16
             scale: Quantization scale tensor (1, 1) scalar in BF16
             eps: Minimum scale threshold (default: 1e-4)
             min_v: Quantization lower bound (default: -128.0)
@@ -631,13 +630,13 @@ def create_symmetric_qat_golden(eps, min_v, max_v):
 
 # ==================== Asymmetric Per-Group Tests ====================
 
-def run_asymmetric_per_group_test(N, M, group_size, bit, eps, clip_val, distribution, device_id):
+def run_asymmetric_per_group_test(n, m, group_size, bit, eps, clip_val, distribution, device_id):
     """Run a single test case for asymmetric per-group quantization."""
     device = f"npu:{device_id}"
     seed = 33
-    weight_shape = (N, M)
-    groups_per_row = M // group_size
-    num_groups = N * groups_per_row
+    weight_shape = (n, m)
+    groups_per_row = m // group_size
+    num_groups = n * groups_per_row
     scale_shape = (num_groups, 1)
     offset_shape = (num_groups, 1)
 
@@ -652,39 +651,35 @@ def run_asymmetric_per_group_test(N, M, group_size, bit, eps, clip_val, distribu
 
 
 @pytest.mark.parametrize(
-    ('N', 'M', 'group', 'bit', 'eps', 'clip_val'),
+    ('n', 'm', 'group', 'bit', 'eps', 'clip_val'),
     [
-        pytest.param(*test, id="N{}-M{}-group{}-bit{}-eps{}-clip_val{}".format(*test))
-        for test in [
-            # (1024, 2048, 128, 2, 0.0001, 0.99),
-            (768, 2048, 128, 3, 0.0001, 0.99),
-        ]
+        pytest.param(1024, 2048, 128, 2, 0.0001, 0.99,
+                     id="N1024-M2048-group128-bit2-eps0.0001-clip_val0.99",
+                     marks=pytest.mark.skip(reason="temporarily disabled")),
+        pytest.param(768, 2048, 128, 3, 0.0001, 0.99,
+                     id="N768-M2048-group128-bit3-eps0.0001-clip_val0.99"),
     ]
 )
-def test_asymmetric_per_group(N, M, group, bit, eps, clip_val) -> None:
+def test_asymmetric_per_group(n, m, group, bit, eps, clip_val) -> None:
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     results = []
     for dis in DISTRIBUTION:
-        compare_result = run_asymmetric_per_group_test(N, M, group, bit, eps, clip_val, dis, device_id)
+        compare_result = run_asymmetric_per_group_test(n, m, group, bit, eps, clip_val, dis, device_id)
         flattened_result = [str(item) for sublist in compare_result for item in sublist]
-        str_params = [str(param) for param in [N, M, group, bit, eps, clip_val, dis]]
+        str_params = [str(param) for param in [n, m, group, bit, eps, clip_val, dis]]
         results.append(str_params + flattened_result)
-    if collect_result:
-        with open("asymmetric_qat_model.csv", "a", encoding="utf-8") as f:
-            for line in results:
-                f.write(",".join(line) + "\n")
 
 
 # ==================== Symmetric Per-Channel Tests ====================
 
-def run_symmetric_per_channel_test(N, M, bit, eps, distribution, device_id):
+def run_symmetric_per_channel_test(n, m, bit, eps, distribution, device_id):
     device = f"npu:{device_id}"
     seed = 33
-    min_v = float(-2**(bit-1))
+    min_v = float(-2 ** (bit - 1))
     max_v = float(2**(bit-1) - 1)
-    weight_shape = (N, M)
-    scale_shape = (N, 1)
+    weight_shape = (n, m)
+    scale_shape = (n, 1)
     weight = create_input(weight_shape, torch.bfloat16, device, distribution, seed)
     scale = create_input(scale_shape, torch.bfloat16, device, distribution, seed)
     golden_inputs = [weight, scale]
@@ -694,38 +689,34 @@ def run_symmetric_per_channel_test(N, M, bit, eps, distribution, device_id):
 
 
 @pytest.mark.parametrize(
-    ('N', 'M', 'bit', 'eps'),
+    ('n', 'm', 'bit', 'eps'),
     [
-        pytest.param(*test, id="N{}-M{}-bit{}-eps{}".format(*test))
-        for test in [
-            # (153376, 2048, 4, 0.0001),
-            (38344, 2048, 4, 0.0001),
-        ]
+        pytest.param(153376, 2048, 4, 0.0001,
+                     id="N153376-M2048-bit4-eps0.0001",
+                     marks=pytest.mark.skip(reason="temporarily disabled")),
+        pytest.param(38344, 2048, 4, 0.0001,
+                     id="N38344-M2048-bit4-eps0.0001"),
     ]
 )
-def test_symmetric_per_channel(N, M, bit, eps) -> None:
+def test_symmetric_per_channel(n, m, bit, eps) -> None:
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     results = []
     for dis in DISTRIBUTION:
-        compare_result = run_symmetric_per_channel_test(N, M, bit, eps, dis, device_id)
+        compare_result = run_symmetric_per_channel_test(n, m, bit, eps, dis, device_id)
         flattened_result = [str(item) for sublist in compare_result for item in sublist]
-        str_params = [str(param) for param in [N, M, bit, eps, dis]]
+        str_params = [str(param) for param in [n, m, bit, eps, dis]]
         results.append(str_params + flattened_result)
-    if collect_result:
-        with open("symmetric_qat_nscale_model.csv", "a", encoding="utf-8") as f:
-            for line in results:
-                f.write(",".join(line) + "\n")
 
 
 # ==================== Symmetric Per-Tensor Tests ====================
 
-def run_symmetric_per_tensor_test(N, M, bit, eps, distribution, device_id):
+def run_symmetric_per_tensor_test(n, m, bit, eps, distribution, device_id):
     device = f"npu:{device_id}"
     seed = 33
-    min_v = float(-2**(bit-1))
+    min_v = float(-2 ** (bit - 1))
     max_v = float(2**(bit-1) - 1)
-    weight_shape = (N, M)
+    weight_shape = (n, m)
     scale_shape = (1, 1)
     weight = create_input(weight_shape, torch.bfloat16, device, distribution, seed)
     scale = create_input(scale_shape, torch.bfloat16, device, distribution, seed)
@@ -736,28 +727,24 @@ def run_symmetric_per_tensor_test(N, M, bit, eps, distribution, device_id):
 
 
 @pytest.mark.parametrize(
-    ('N', 'M', 'bit', 'eps'),
+    ('n', 'm', 'bit', 'eps'),
     [
-        pytest.param(*test, id="N{}-M{}-bit{}-eps{}".format(*test))
-        for test in [
-            # (153376, 2048, 8, 0.0001),
-            (38344, 2048, 8, 0.0001),
-        ]
+        pytest.param(153376, 2048, 8, 0.0001,
+                     id="N153376-M2048-bit8-eps0.0001",
+                     marks=pytest.mark.skip(reason="temporarily disabled")),
+        pytest.param(38344, 2048, 8, 0.0001,
+                     id="N38344-M2048-bit8-eps0.0001"),
     ]
 )
-def test_symmetric_per_tensor(N, M, bit, eps) -> None:
+def test_symmetric_per_tensor(n, m, bit, eps) -> None:
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     results = []
     for dis in DISTRIBUTION:
-        compare_result = run_symmetric_per_tensor_test(N, M, bit, eps, dis, device_id)
+        compare_result = run_symmetric_per_tensor_test(n, m, bit, eps, dis, device_id)
         flattened_result = [str(item) for sublist in compare_result for item in sublist]
-        str_params = [str(param) for param in [N, M, bit, eps, dis]]
+        str_params = [str(param) for param in [n, m, bit, eps, dis]]
         results.append(str_params + flattened_result)
-    if collect_result:
-        with open("symmetric_qat_model.csv", "a", encoding="utf-8") as f:
-            for line in results:
-                f.write(",".join(line) + "\n")
 
 
 if __name__ == "__main__":
@@ -770,13 +757,13 @@ if __name__ == "__main__":
 
 # ==================== Asymmetric Per-Group Backward Tests ====================
 
-def run_asymmetric_per_group_backward_test(N, M, group_size, bit, eps, clip_val, distribution, device_id):
+def run_asymmetric_per_group_backward_test(n, m, group_size, bit, eps, clip_val, distribution, device_id):
     """Run a single backward test case for asymmetric per-group quantization."""
     device = f"npu:{device_id}"
     seed = 33
-    weight_shape = (N, M)
-    groups_per_row = M // group_size
-    num_groups = N * groups_per_row
+    weight_shape = (n, m)
+    groups_per_row = m // group_size
+    num_groups = n * groups_per_row
     scale_shape = (num_groups, 1)
     offset_shape = (num_groups, 1)
 
@@ -791,39 +778,35 @@ def run_asymmetric_per_group_backward_test(N, M, group_size, bit, eps, clip_val,
 
 
 @pytest.mark.parametrize(
-    ('N', 'M', 'group', 'bit', 'eps', 'clip_val'),
+    ('n', 'm', 'group', 'bit', 'eps', 'clip_val'),
     [
-        pytest.param(*test, id="N{}-M{}-group{}-bit{}-eps{}-clip_val{}".format(*test))
-        for test in [
-            # (1024, 2048, 128, 2, 0.0001, 0.99),
-            (768, 2048, 128, 3, 0.0001, 0.99),
-        ]
+        pytest.param(1024, 2048, 128, 2, 0.0001, 0.99,
+                     id="N1024-M2048-group128-bit2-eps0.0001-clip_val0.99",
+                     marks=pytest.mark.skip(reason="temporarily disabled")),
+        pytest.param(768, 2048, 128, 3, 0.0001, 0.99,
+                     id="N768-M2048-group128-bit3-eps0.0001-clip_val0.99"),
     ]
 )
-def test_asymmetric_per_group_backward(N, M, group, bit, eps, clip_val) -> None:
+def test_asymmetric_per_group_backward(n, m, group, bit, eps, clip_val) -> None:
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     results = []
     for dis in DISTRIBUTION:
-        compare_result = run_asymmetric_per_group_backward_test(N, M, group, bit, eps, clip_val, dis, device_id)
+        compare_result = run_asymmetric_per_group_backward_test(n, m, group, bit, eps, clip_val, dis, device_id)
         flattened_result = [str(item) for sublist in compare_result for item in sublist]
-        str_params = [str(param) for param in [N, M, group, bit, eps, clip_val, dis]]
+        str_params = [str(param) for param in [n, m, group, bit, eps, clip_val, dis]]
         results.append(str_params + flattened_result)
-    if collect_result:
-        with open("asymmetric_qat_backward_model.csv", "a", encoding="utf-8") as f:
-            for line in results:
-                f.write(",".join(line) + "\n")
 
 
 # ==================== Symmetric Per-Channel Backward Tests ====================
 
-def run_symmetric_per_channel_backward_test(N, M, bit, eps, distribution, device_id):
+def run_symmetric_per_channel_backward_test(n, m, bit, eps, distribution, device_id):
     device = f"npu:{device_id}"
     seed = 33
-    min_v = float(-2**(bit-1))
+    min_v = float(-2 ** (bit - 1))
     max_v = float(2**(bit-1) - 1)
-    weight_shape = (N, M)
-    scale_shape = (N, 1)
+    weight_shape = (n, m)
+    scale_shape = (n, 1)
     weight = create_input(weight_shape, torch.bfloat16, device, distribution, seed).requires_grad_(True)
     scale = create_input(scale_shape, torch.bfloat16, device, distribution, seed).requires_grad_(True)
     inputs = [weight, scale]
@@ -833,38 +816,34 @@ def run_symmetric_per_channel_backward_test(N, M, bit, eps, distribution, device
 
 
 @pytest.mark.parametrize(
-    ('N', 'M', 'bit', 'eps'),
+    ('n', 'm', 'bit', 'eps'),
     [
-        pytest.param(*test, id="N{}-M{}-bit{}-eps{}".format(*test))
-        for test in [
-            # (153376, 2048, 4, 0.0001),
-            (38344, 2048, 4, 0.0001),
-        ]
+        pytest.param(153376, 2048, 4, 0.0001,
+                     id="N153376-M2048-bit4-eps0.0001",
+                     marks=pytest.mark.skip(reason="temporarily disabled")),
+        pytest.param(38344, 2048, 4, 0.0001,
+                     id="N38344-M2048-bit4-eps0.0001"),
     ]
 )
-def test_symmetric_per_channel_backward(N, M, bit, eps) -> None:
+def test_symmetric_per_channel_backward(n, m, bit, eps) -> None:
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     results = []
     for dis in DISTRIBUTION:
-        compare_result = run_symmetric_per_channel_backward_test(N, M, bit, eps, dis, device_id)
+        compare_result = run_symmetric_per_channel_backward_test(n, m, bit, eps, dis, device_id)
         flattened_result = [str(item) for sublist in compare_result for item in sublist]
-        str_params = [str(param) for param in [N, M, bit, eps, dis]]
+        str_params = [str(param) for param in [n, m, bit, eps, dis]]
         results.append(str_params + flattened_result)
-    if collect_result:
-        with open("symmetric_qat_backward_nscale_model.csv", "a", encoding="utf-8") as f:
-            for line in results:
-                f.write(",".join(line) + "\n")
 
 
 # ==================== Symmetric Per-Tensor Backward Tests ====================
 
-def run_symmetric_per_tensor_backward_test(N, M, bit, eps, distribution, device_id):
+def run_symmetric_per_tensor_backward_test(n, m, bit, eps, distribution, device_id):
     device = f"npu:{device_id}"
     seed = 33
-    min_v = float(-2**(bit-1))
+    min_v = float(-2 ** (bit - 1))
     max_v = float(2**(bit-1) - 1)
-    weight_shape = (N, M)
+    weight_shape = (n, m)
     scale_shape = (1, 1)
     weight = create_input(weight_shape, torch.bfloat16, device, distribution, seed).requires_grad_(True)
     scale = create_input(scale_shape, torch.bfloat16, device, distribution, seed).requires_grad_(True)
@@ -875,25 +854,21 @@ def run_symmetric_per_tensor_backward_test(N, M, bit, eps, distribution, device_
 
 
 @pytest.mark.parametrize(
-    ('N', 'M', 'bit', 'eps'),
+    ('n', 'm', 'bit', 'eps'),
     [
-        pytest.param(*test, id="N{}-M{}-bit{}-eps{}".format(*test))
-        for test in [
-            # (153376, 2048, 8, 0.0001),
-            (38344, 2048, 8, 0.0001),
-        ]
+        pytest.param(153376, 2048, 8, 0.0001,
+                     id="N153376-M2048-bit8-eps0.0001",
+                     marks=pytest.mark.skip(reason="temporarily disabled")),
+        pytest.param(38344, 2048, 8, 0.0001,
+                     id="N38344-M2048-bit8-eps0.0001"),
     ]
 )
-def test_symmetric_per_tensor_backward(N, M, bit, eps) -> None:
+def test_symmetric_per_tensor_backward(n, m, bit, eps) -> None:
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     results = []
     for dis in DISTRIBUTION:
-        compare_result = run_symmetric_per_tensor_backward_test(N, M, bit, eps, dis, device_id)
+        compare_result = run_symmetric_per_tensor_backward_test(n, m, bit, eps, dis, device_id)
         flattened_result = [str(item) for sublist in compare_result for item in sublist]
-        str_params = [str(param) for param in [N, M, bit, eps, dis]]
+        str_params = [str(param) for param in [n, m, bit, eps, dis]]
         results.append(str_params + flattened_result)
-    if collect_result:
-        with open("symmetric_qat_backward_model.csv", "a", encoding="utf-8") as f:
-            for line in results:
-                f.write(",".join(line) + "\n")

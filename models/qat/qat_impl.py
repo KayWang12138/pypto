@@ -48,7 +48,7 @@ def ai_infra_qat_asymmetric_per_group_kernel(
     shift
 ):
     pypto.experimental.set_operation_options(combine_axis=True)
-    unroll_list=[512, 256]
+    unroll_list = [512, 256]
     num_groups = scale.shape[0]
     group_size = weight.shape[1]
     pypto.set_vec_tile_shapes(128, 128)
@@ -148,7 +148,7 @@ def ai_infra_qat_asymmetric_per_group_backward_kernel(
         0, num_groups, 1,
         name="LOOP_GROUPS",
         idx_name="g_offset",
-        unroll_list=[512, 256]
+        unroll_list = [512, 256]
     ):
         tile_groups = unroll_length
         pypto.set_vec_tile_shapes(64, 128)
@@ -188,8 +188,8 @@ def ai_infra_qat_asymmetric_per_group_backward_kernel(
         one = pypto.full(is_out.shape, 1.0, is_out.dtype)
         mask_f32 = pypto.sub(one, is_out)
 
-        one_tileG_gs = pypto.full([tile_groups, group_size], 1.0, pypto.DT_FP32)
-        inv_mask_f32 = pypto.sub(one_tileG_gs, mask_f32)
+        one_tile_group_gs = pypto.full([tile_groups, group_size], 1.0, pypto.DT_FP32)
+        inv_mask_f32 = pypto.sub(one_tile_group_gs, mask_f32)
 
         # 判断 scale 是否合法（> eps），用于过滤 scale 梯度
         scale_diff = pypto.sub(scale_fp32, eps)
@@ -225,7 +225,8 @@ def ai_infra_qat_asymmetric_per_group_backward_kernel(
         pypto.assemble(grad_o_bf16, [g_offset, 0], grad_offset_out)
 
 
-def ai_infra_qat_asymmetric_per_group_backward(grad_output, weight_pto, scale_pto, offset_pto, group_size=128, bit=4, eps=1e-4, clip_val=0.99):
+def ai_infra_qat_asymmetric_per_group_backward(grad_output, weight_pto, scale_pto, offset_pto, 
+                                            group_size=128, bit=4, eps=1e-4, clip_val=0.99):
     n_levels = 2 ** (bit - 1)
     shift = 0.5
     neg_clip_val = -clip_val
@@ -278,7 +279,7 @@ def ai_infra_qat_symmetric_per_channel_kernel(
         0, n, 1,
         name="LOOP_N_UNROLL",
         idx_name="n_offset",
-        unroll_list=[512, 32, 8]
+        unroll_list = [512, 32, 8]
     ):
         tile_n = unroll_length
 
@@ -338,7 +339,7 @@ def ai_infra_qat_symmetric_per_channel_backward_kernel(
         0, n, 1,
         name="BACKWARD_LOOP_N_UNROLL",
         idx_name="n_offset",
-        unroll_list=[512, 32, 8]
+        unroll_list = [512, 32, 8]
     ):
         tile_n = unroll_length
 
