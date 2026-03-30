@@ -16,7 +16,6 @@
 #include "codegen_symbol.h"
 #include "codegen/codegen_common.h"
 #include "interface/configs/config_manager.h"
-#include "/mnt/workspace/gitCode/GBowen666/pypto/framework/src/codegen/litenpu/tile_tensor_litenpu.h"
 
 namespace npu::tile_fwk {
 AllocKey SymbolManager::CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const {
