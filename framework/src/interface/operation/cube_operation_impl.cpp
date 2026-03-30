@@ -478,7 +478,7 @@ void CheckA5BiasParam(DataType inDtype, const MatmulExtendParam &param = {}) {
         DataType::DT_FP4_E1M2X2, DataType::DT_FP16, DataType::DT_BF16, DataType::DT_FP32};
     std::vector<DataType> floatBiasDtype = {DataType::DT_FP16, DataType::DT_BF16, DataType::DT_FP32};
     bool isfloatInDtype = std::find(floatInDtype.begin(), floatInDtype.end(), inDtype) != floatInDtype.end();
-    bool isfloatBiasDtype = std::find(floatBiasDtype.begin(), floatBiasDtype.end(), biasDtype) != floatInDtype.end();
+    bool isfloatBiasDtype = std::find(floatBiasDtype.begin(), floatBiasDtype.end(), biasDtype) != floatBiasDtype.end();
     ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, param.biasTensor.Format() == TileOpFormat::TILEOP_ND)
         << "Only support TILEOP_ND.";
     if (isfloatInDtype) {
