@@ -1,0 +1,32 @@
+{
+  "operator_name": "layer_norm",
+  "current_stage": 3,
+  "stage_status": {
+    "1": "completed",
+    "2": "completed",
+    "3": "in_progress",
+    "4": "pending",
+    "5": "pending",
+    "6": "pending",
+    "7": "pending"
+  },
+  "stage_retry_count": {
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 0,
+    "6": 0,
+    "7": 0
+  },
+  "perf_iteration": {
+    "count": 0,
+    "last_improvement": 0.0,
+    "consecutive_no_improvement": 0
+  },
+  "special_requirements": {
+    "dynamic_axis": true,
+    "dynamic_axis_note": "Must support batch, seq_len dimensions"
+  },
+  "last_updated": "2026-03-28T05:40:00Z"
+}

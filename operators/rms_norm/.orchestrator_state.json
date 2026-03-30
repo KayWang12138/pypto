@@ -1,0 +1,40 @@
+{
+  "operator_name": "rms_norm",
+  "current_stage": 5,
+  "stage_status": {
+    "1": "completed",
+    "2": "completed",
+    "3": "completed",
+    "4": "completed",
+    "5": "completed_with_issues",
+    "6": "pending",
+    "7": "pending"
+  },
+  "stage_retry_count": {
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 2,
+    "6": 0,
+    "7": 0
+  },
+  "perf_iteration": {
+    "count": 0,
+    "last_improvement": 0.0,
+    "consecutive_no_improvement": 0
+  },
+  "last_updated": "2026-03-28T00:00:00Z",
+  "final_status": "BLOCKED_IMPL",
+  "issues": [
+    {
+      "stage": 5,
+      "description": "3D tensor 的 pypto.assemble offset 维度限制",
+      "error": "RuntimeError: CHECK FAILED: dest.GetShape().size() == dynOffset.size()",
+      "workaround": "2D tensor 测试通过，3D 需要框架修复或文档说明",
+      "fracture_points": 2,
+      "fps_confirmed": 1
+    }
+  ],
+  "fracture_point_report": "operators/rms_norm/fracture-point-2026-03-29-021900.md"
+}
