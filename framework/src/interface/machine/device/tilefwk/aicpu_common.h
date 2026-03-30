@@ -120,6 +120,8 @@ struct ProfConfig : public BitmaskBase<ProfConfig, uint32_t> {
 
 struct ToSubMachineConfig {
     ProfConfig profConfig{ProfConfig::OFF};
+    /** Host AICPU: when true, use sync resolve path (serial per-core scheduling) regardless of prof level. */
+    bool forceSerialAicoreSchedule{false};
 };
 
 enum DeviceKernelRunMode : uint32_t {
