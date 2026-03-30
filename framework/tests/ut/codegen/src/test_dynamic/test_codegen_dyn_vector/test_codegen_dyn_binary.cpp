@@ -21,7 +21,6 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/operation/operation.h"
-#include "interface/utils/id_gen.h"
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
@@ -46,8 +45,6 @@ public:
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -125,7 +122,7 @@ TEST_F(TestCodegenDynBinary, TestAddSTileTensorInfPos)
 {
     std::vector<std::string> expect = {
         R"!!!(union {float f; uint32_t u;} float_inf_pos = {.u = 0x7F800000};)!!!",
-        R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_1, ubTensor_1, float_inf_pos.f);)!!!"};
+        R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_0, ubTensor_0, float_inf_pos.f);)!!!"};
     TestAddSDynBody("TestAddSTileTensorInfPos", 1.0f / 0.0f, true, expect);
 }
 
@@ -133,7 +130,7 @@ TEST_F(TestCodegenDynBinary, TestAddSTileTensorInfNeg)
 {
     std::vector<std::string> expect = {
         R"!!!(union {float f; uint32_t u;} float_inf_neg = {.u = 0xFF800000};)!!!",
-        R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_1, ubTensor_1, float_inf_neg.f);)!!!"};
+        R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_0, ubTensor_0, float_inf_neg.f);)!!!"};
     TestAddSDynBody("TestAddSTileTensorInfNeg", -1.0f / 0.0f, true, expect);
 }
 
@@ -141,7 +138,7 @@ TEST_F(TestCodegenDynBinary, TestAddSTileTensorNAN)
 {
     std::vector<std::string> expect = {
         R"!!!(union {float f; uint32_t u;} float_nan = {.u = 0x7FC00000};)!!!",
-        R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_1, ubTensor_1, float_nan.f);)!!!"};
+        R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_0, ubTensor_0, float_nan.f);)!!!"};
     TestAddSDynBody("TestAddSTileTensorNAN", 0.0f / 0.0f, true, expect);
 }
 
@@ -212,7 +209,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor)
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    std::string expect = R"!!!(TgatherElement<4>(ubTensor_15, ubTensor_11, ubTensor_13, ubTensor_16);
+    std::string expect = R"!!!(TgatherElement<4>(ubTensor_4, ubTensor_0, ubTensor_2, ubTensor_5);
 )!!!";
     CheckStringExist(expect, res);
 }
@@ -286,23 +283,23 @@ uint64_t sym_76_dim_0 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 10, 0)); //GET_PAR
 uint64_t sym_76_dim_1 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 10, 1)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
 uint64_t sym_77_dim_0 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 1, 0)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
 uint64_t sym_77_dim_1 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 1, 1)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
-using GMTileTensorFP32Dim2_2 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
-using UBTileTensorFP32Dim2_1 = TileTensor<float, LocalLayout2Dim<64, 64>, Hardware::UB>;
-GMTileTensorFP32Dim2_2 gmTensor_8((__gm__ float*)GET_PARAM_ADDR(param, 2, 19), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 2, 19)), Stride2Dim(GET_PARAM_STRIDE_2(param, 2, 19))));
-GMTileTensorFP32Dim2_2 gmTensor_4((__gm__ float*)GET_PARAM_ADDR(param, 0, 1), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 0, 1)), Stride2Dim(GET_PARAM_STRIDE_2(param, 0, 1))));
-UBTileTensorFP32Dim2_1 ubTensor_3((uint64_t)UB_S16384_E32768_T, (Shape2Dim(sym_77_dim_0, sym_77_dim_1)));
-GMTileTensorFP32Dim2_2 gmTensor_2((__gm__ float*)GET_PARAM_ADDR(param, 1, 10), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 1, 10)), Stride2Dim(GET_PARAM_STRIDE_2(param, 1, 10))));
-UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)UB_S0_E16384_T, (Shape2Dim(sym_76_dim_0, sym_76_dim_1)));
+using GMTileTensorFP32Dim2_1 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
+using UBTileTensorFP32Dim2_0 = TileTensor<float, LocalLayout2Dim<64, 64>, Hardware::UB>;
+GMTileTensorFP32Dim2_1 gmTensor_7((__gm__ float*)GET_PARAM_ADDR(param, 2, 19), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 2, 19)), Stride2Dim(GET_PARAM_STRIDE_2(param, 2, 19))));
+GMTileTensorFP32Dim2_1 gmTensor_3((__gm__ float*)GET_PARAM_ADDR(param, 0, 1), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 0, 1)), Stride2Dim(GET_PARAM_STRIDE_2(param, 0, 1))));
+UBTileTensorFP32Dim2_0 ubTensor_2((uint64_t)UB_S16384_E32768_T, (Shape2Dim(sym_77_dim_0, sym_77_dim_1)));
+GMTileTensorFP32Dim2_1 gmTensor_1((__gm__ float*)GET_PARAM_ADDR(param, 1, 10), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 1, 10)), Stride2Dim(GET_PARAM_STRIDE_2(param, 1, 10))));
+UBTileTensorFP32Dim2_0 ubTensor_0((uint64_t)UB_S0_E16384_T, (Shape2Dim(sym_76_dim_0, sym_76_dim_1)));
 SUBKERNEL_PHASE1
-TLoad(ubTensor_1, gmTensor_2, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 1))));
-TLoad(ubTensor_3, gmTensor_4, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 1))));
+TLoad(ubTensor_0, gmTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 1))));
+TLoad(ubTensor_2, gmTensor_3, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 1))));
 SUBKERNEL_PHASE2
 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-TAdd<LastUse3Dim<0, 1, 1>>(ubTensor_1, ubTensor_1, ubTensor_3);
+TAdd<LastUse3Dim<0, 1, 1>>(ubTensor_0, ubTensor_0, ubTensor_2);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TStore(gmTensor_8, ubTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 1))));
+TStore(gmTensor_7, ubTensor_0, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 1))));
 }
 )!!!";
 #else
@@ -370,11 +367,11 @@ TEST_F(TestCodegenDynBinary, TestAddTileTensor)
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
     std::string res = cop.GenOpCode();
-    std::string expect = R"!!!(TAdd<LastUse2Dim<0, 0>>(ubTensor_1, ubTensor_1, ubTensor_1);
+    std::string expect = R"!!!(TAdd<LastUse2Dim<0, 0>>(ubTensor_0, ubTensor_0, ubTensor_0);
 )!!!";
     EXPECT_EQ(res, expect);
 
-    expect = "UBTileTensorFP16Dim2_1";
+    expect = "UBTileTensorFP16Dim2_0";
     res = symbolManager->QueryTileTensorTypeByBufVar("UB_S0_E0_T");
     EXPECT_EQ(res, expect);
 

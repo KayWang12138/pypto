@@ -43,8 +43,6 @@ public:
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -61,7 +59,7 @@ TEST_F(TestCodegenDynCalcInteger, TestDynOpCeil)
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TCeil(ubTensor_1, ubTensor_1);
+        R"!!!(TCeil(ubTensor_0, ubTensor_0);
 )!!!";
     CheckStringExist(expect, res);
 }
@@ -77,7 +75,7 @@ TEST_F(TestCodegenDynCalcInteger, TestDynOpFloor)
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TFloor(ubTensor_1, ubTensor_1);
+        R"!!!(TFloor(ubTensor_0, ubTensor_0);
 )!!!";
     CheckStringExist(expect, res);
 }
@@ -93,7 +91,7 @@ TEST_F(TestCodegenDynCalcInteger, TestDynOpTrunc)
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TTrunc(ubTensor_1, ubTensor_1);
+        R"!!!(TTrunc(ubTensor_0, ubTensor_0);
 )!!!";
     CheckStringExist(expect, res);
 }
