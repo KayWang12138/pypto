@@ -1255,29 +1255,6 @@ TEST_F(AssignMemoryTypeTest, TestMultiDataLoad2) {
     MultiDataLoadCheck(func);
 }
 
-TEST_F(AssignMemoryTypeTest, CheckAmulBInputProducers_InvalidProducer) {
-    auto func = std::make_shared<Function>(
-        Program::GetInstance(),
-        "TestInvalidInputProducer",
-        "TestInvalidInputProducer",
-        nullptr
-    );
-    EXPECT_TRUE(func != nullptr);
-    std::vector<int64_t> shape = {16, 16};
-    auto input = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
-    auto temp = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
-    auto output = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
-    func->AddOperation(Opcode::OP_ADD, {input}, {temp});
-    auto& testOp = func->AddOperation(Opcode::OP_MODS, {temp}, {output});
-
-    func->inCasts_.push_back(input);
-    func->outCasts_.push_back(output);
-    AssignMemoryType assignMemoryType;
-    Status ret = assignMemoryType.CheckAmulBInputProducers(testOp);
-
-    EXPECT_EQ(ret, FAILED);
-}
-
 TEST_F(AssignMemoryTypeTest, TestAmulBInputInvalidProducer) {
     ComputationalGraphBuilder G;
     Shape s{NUM_128, NUM_128};
