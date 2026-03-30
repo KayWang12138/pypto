@@ -228,15 +228,15 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     CheckDeviceId();
     DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
-    DeviceMemoryUtils devMemoryUtilis;
-    DeviceInitDistributedContext(devMemoryUtilis, dynAttr->commGroupNames, kArgs);
+ 	DeviceMemoryUtils devMemory;
+ 	DeviceInitDistributedContext(devMemory, dynAttr->commGroupNames, kArgs);
 
     HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
-    DeviceInitTilingData(devMemoryUtilis, kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
+    DeviceInitTilingData(devMemory, kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
     HOST_PERF_TRACE(TracePhase::RunDevInitTiling);
 
-    DeviceRunCacheKernelSet(function, (uint8_t*)kArgs.cfgdata);
-    DeviceInitKernelInOuts(devMemoryUtilis, kArgs, inputList, outputList, dynAttr->disableL2List);
+    DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
+    DeviceInitKernelInOuts(devMemory, kArgs, inputList, outputList, dynAttr->disableL2List);
 
     HOST_PERF_TRACE(TracePhase::RunDevInitInOutTensor);
 
@@ -288,25 +288,22 @@ int DeviceLauncher::DeviceRunOnce(
     auto aicoreStream = machine::GetRA()->GetStream();
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
-    DeviceMemoryUtils devMemoryUtilis(true);
-    std::tie(inputDeviceDataList, outputDeviceDataList) =
-        BuildInputOutputFromHost(devMemoryUtilis, inputDataList, outputDataList);
+    DeviceMemoryUtils devMemoryHugePage(true);
+    DeviceMemoryUtils devMemoryNotHugePage(false);
+ 	std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(devMemoryHugePage, inputDataList, outputDataList);
 
-    DeviceMemoryUtils devMemory(false);
     uint8_t* devCtrlCache = nullptr;
     if (hostCtrlCache) {
-        devCtrlCache =
-            devMemory.CopyToDev(reinterpret_cast<uint8_t*>(hostCtrlCache), hostCtrlCache->usedCacheSize, nullptr);
+        devCtrlCache = devMemoryNotHugePage.CopyToDev(reinterpret_cast<uint8_t *>(hostCtrlCache), hostCtrlCache->usedCacheSize, nullptr);
     }
 
-    int rc = DeviceLaunchOnceWithDeviceTensorData(
-        function, inputDeviceDataList, outputDeviceDataList, aicpuStream, aicoreStream, true, nullptr,
-        reinterpret_cast<DevControlFlowCache*>(devCtrlCache), config);
-    CopyFromDev(DeviceMemoryUtils(), outputDataList);
+    int rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList,
+        aicpuStream, aicoreStream, true, nullptr, reinterpret_cast<DevControlFlowCache*>(devCtrlCache), config);
+    CopyFromDev(devMemoryNotHugePage, outputDataList);
     if (HasInplaceArgs(function) || outputDataList.size() == 0) {
-        CopyFromDev(DeviceMemoryUtils(), inputDataList);
+        CopyFromDev(devMemoryNotHugePage, inputDataList);
     }
-    devMemory.Free(devCtrlCache);
+    devMemoryNotHugePage.Free(devCtrlCache);
     return rc;
 #else
     (void)hostCtrlCache;

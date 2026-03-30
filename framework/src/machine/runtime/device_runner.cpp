@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <mutex>
 #include <limits.h>
+#include <sys/mman.h>
 #include "securec.h"
 #include "machine/runtime/runtime.h"
 #include "machine/runtime/device_launcher.h"
@@ -45,6 +46,8 @@
 #include "log_types.h"
 #include "tilefwk/pypto_fwk_log.h"
 #include "interface/machine/host/host_machine.h"
+
+
 
 using json = nlohmann::json;
 
@@ -130,7 +133,7 @@ void* DeviceRunner::DevAlloc(int size)
     machine::GetRA()->AllocDevAddr(&devPtr, size);
     int rc = rtMemset(devPtr, size, 0, size);
     if (rc != 0) {
-        machine::GetRA()->FreeTensor(devPtr);
+        devMemory.FreeTensor(devPtr);
         MACHINE_LOGE(RtErr::RT_MEMSET_FAILED, "rtMemset failed size=%d rc=%d\n", size, rc);
         return nullptr;
     }
@@ -709,7 +712,11 @@ int DeviceRunner::DynamicLaunch(
 
     ExchangeCaputerMode(isCapture_);
     if (ctrlStream == nullptr) {
+#ifdef __ESL_SIMULATION__
+        return DynamicKernelLaunchEsl(aicpuStream, aicoreStream, kernelArgs, blockDim_);
+#else
         return DynamicKernelLaunch(aicpuStream, aicoreStream, kernelArgs, blockDim_);
+#endif
     } else {
         if (isTripleStream) {
             return DynamicTripleStreamLaunch(aicpuStream, ctrlStream, aicoreStream, kernelArgs, blockDim_);
@@ -820,7 +827,9 @@ int DeviceRunner::Init(void)
         MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "RegisterKernelBin failed\n");
         return -1;
     }
-    InitAicpuServer();
+#ifndef __ESL_SIMULATION__
+ 	InitAicpuServer();
+#endif
     StartMachinePerfTraceDumpThread();
     return 0;
 }

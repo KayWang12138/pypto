@@ -110,6 +110,7 @@ private:
     int RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArgs* kArgs);
     int InitAicpuServer();
+<<<<<<< HEAD
     int DynamicKernelLaunch(
         rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs* kernelArgs, int blockdim);
     int DynamicSeparateLaunch(
@@ -119,6 +120,13 @@ private:
         rtStream_t schedStream, rtStream_t ctrlStream, rtStream_t aicoreStream, DeviceKernelArgs* kernelArgs,
         int blockdim);
     int ConstrutDeviceArgs(DeviceArgs& args, const std::vector<int64_t>& regs, const std::vector<int64_t>& regsPmu);
+=======
+    int DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
+    int DynamicKernelLaunchEsl(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
+    int DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
+    int DynamicTripleStreamLaunch(rtStream_t schedStream, rtStream_t ctrlStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
+    int ConstrutDeviceArgs(DeviceArgs &args, const std::vector<int64_t> &regs, const std::vector<int64_t> &regsPmu);
+>>>>>>> fbf54181 (Add esl model for simulation)
     void MachinePerfTraceDumpThread();
 
 private:
