@@ -165,16 +165,17 @@ Status IsomorphismGraphGroup::BuildGraphGroup(std::shared_ptr<OperationGraphInfo
     subVisitedNodeSet_.insert(expandCandidate.begin(), expandCandidate.end());
     currentNodeSet.insert(expandCandidate.begin(), expandCandidate.end());
 
-    // 获取 allowCrossScopeMerge 值（从第一个 op）
+    // 从所有候选节点获取 allowCrossScopeMerge，任一节点允许则该组允许
     bool allowCrossScopeMerge = false;
-    if (!expandCandidate.empty()) {
-        int32_t firstNodeIdx = expandCandidate[0];
-        // 从第一个节点对应的 operation 获取 allowCrossScopeMerge
-        for (int32_t opIdx : superNodeInfo->node2Op_[firstNodeIdx]) {
-            allowCrossScopeMerge = operationInfo->opList_[opIdx]->GetAllowCrossScopeMerge();
-            if (allowCrossScopeMerge) {
+    for (int32_t nodeIdx : expandCandidate) {
+        for (int32_t opIdx : superNodeInfo->node2Op_[nodeIdx]) {
+            if (operationInfo->opList_[opIdx]->GetAllowCrossScopeMerge()) {
+                allowCrossScopeMerge = true;
                 break;
             }
+        }
+        if (allowCrossScopeMerge) {
+            break;
         }
     }
 
@@ -505,39 +506,25 @@ std::vector<int32_t> IsoPartitioner::GetCandidateMergeColors(int32_t currColor,
 
 bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor, bool nonIsoGraphsMerge) const
 {
-    // ... 原有代码 ...
-
-    // 检查开关2：是否允许跨 scope 合并
-    bool currHasScope = false;
-    bool mergeHasScope = false;
-    bool currAllowCrossMerge = false;
-    bool mergeAllowCrossMerge = false;
-
+    // Scope 隔离检查：每个 group 独立判断——"有 scope 且不允许跨 scope → 拒绝合并"
+    // allowCrossScopeMerge=false（默认）：与原行为一致，有 scope 的 subgraph 不与其他 subgraph 合并
+    // allowCrossScopeMerge=true：允许该 subgraph 与任意其他 subgraph 合并（实现跨 scope 合并功能）
     for (auto graphPtr : isoSubGroups_[currColor]->isoGraphs_) {
-        if (graphPtr->scopeId_ != -1) {
-            currHasScope = true;
-            // 使用新的 GetAllowCrossScopeMerge 接口
-            currAllowCrossMerge = graphPtr->GetAllowCrossScopeMerge();
-        }
-    }
-    for (auto graphPtr : isoSubGroups_[mergeColor]->isoGraphs_) {
-        if (graphPtr->scopeId_ != -1) {
-            mergeHasScope = true;
-            // 使用新的 GetAllowCrossScopeMerge 接口
-            mergeAllowCrossMerge = graphPtr->GetAllowCrossScopeMerge();
-        }
-    }
-
-    // 如果两个 supernode 都有 scopeId，且至少有一个不允许跨 scope 合并，则不允许合并
-    if (currHasScope && mergeHasScope) {
-        if (!currAllowCrossMerge || !mergeAllowCrossMerge) {
-            APASS_LOG_INFO_F(Elements::Operation, "Cannot merge supernodes with scopeId (currAllowCrossMerge=%d, mergeAllowCrossMerge=%d)",
-                currAllowCrossMerge, mergeAllowCrossMerge);
+        if (graphPtr->scopeId_ != -1 && !graphPtr->GetAllowCrossScopeMerge()) {
+            APASS_LOG_INFO_F(Elements::Operation,
+                "Cannot merge: curr group has scopeId=%d with allowCrossScopeMerge=false.",
+                graphPtr->scopeId_);
             return false;
         }
     }
-
-    // ... 原有代码 ...
+    for (auto graphPtr : isoSubGroups_[mergeColor]->isoGraphs_) {
+        if (graphPtr->scopeId_ != -1 && !graphPtr->GetAllowCrossScopeMerge()) {
+            APASS_LOG_INFO_F(Elements::Operation,
+                "Cannot merge: merge group has scopeId=%d with allowCrossScopeMerge=false.",
+                graphPtr->scopeId_);
+            return false;
+        }
+    }
     std::set<OpCoreType> opcoreTypes{isoSubGroups_[currColor]->GetSubGraph(0)->coreType_,
                                      isoSubGroups_[mergeColor]->GetSubGraph(0)->coreType_};
     bool coreTypeMergable = operationInfo_->CoreTypeMergeable(opcoreTypes);
