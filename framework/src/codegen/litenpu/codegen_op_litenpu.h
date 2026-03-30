@@ -211,7 +211,7 @@ private:
     std::string PrintIndexPut(const PrintIndexPutParam &param) const;
     std::string PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
 
-    std::string PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintVnchwconv() const;
     std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVnchwconvStatic(const PrintUnaryTmpBuffParam &param) const;
 
@@ -251,9 +251,9 @@ private:
     // std::string PrintMrgSortDynamicUnaligned(const SortParam &param) const;
     // std::string PrintMrgSortStatic(const SortParam &param) const;
 
-    std::string PrintBinaryStatic(const PrintBinaryParam &param) const;
-    std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const;
-    std::string PrintBinary(const PrintBinaryParam &param) const;
+    // std::string PrintBinaryStatic(const PrintBinaryParam &param) const;
+    // std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const;
+    std::string PrintBinary() const;
     std::string PrintBinaryTileTensor() const;
     std::string PrintUnaryWithTmpTileTensor() const;
 
@@ -282,7 +282,7 @@ private:
     DynamicParamPackMTE PrepareDynamicShapeInfo(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool gmOffsetCond = true) const;
 
-    std::string PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintReduceLastAxis() const;
     std::string PrintReduceLastAxisTileTensor() const;
     const std::unordered_map<Opcode, std::function<std::string()>> opsGenMap_ = {
         // UB <-> GM
