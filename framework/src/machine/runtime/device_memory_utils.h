@@ -94,7 +94,7 @@ struct DeviceMemoryUtils {
 
     void CopyFromDev(RawTensorData& data) { CopyFromDev(data.data(), data.GetDevPtr(), data.size()); }
 
-    void Free(uint8_t* mem)
+    void Free(uint8_t* mem) 
     {
         if (mem && (!isUseHugePage_)) {
             rtFree(mem);
