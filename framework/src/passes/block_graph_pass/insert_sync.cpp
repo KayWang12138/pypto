@@ -402,19 +402,6 @@ PipeSync::PipeCoreReal PipeSync::GetPipeFromSeq(PipeSeq seq) {
     return seq2pipe.at(seq);
 }
 
-Status PipeSync::AdjustReshapeCfg(TileOpCfg &opcfg, const Operation &op) {
-    if (op.GetIOperands().size() < 1 || op.GetOOperands().size() < 1) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%d RESHAPE op operands size is 0, AdjustOpCfg failed.%s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
-        return FAILED;
-    }
-    if (op.GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-        op.GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-        opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
-        opcfg.pipeIdEnd_ = PipeType::PIPE_MTE3;
-    }
-    return SUCCESS;
-}
-
 Status PipeSync::AdjustCopyInCfg(TileOpCfg &opcfg, const Operation &op) {
     if (op.GetOpAttribute() == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation, "%d COPYIN op attr is nullptr, AdjustOpCfg failed.%s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
@@ -464,12 +451,6 @@ Status PipeSync::AdjustCopyOutCfg(TileOpCfg &opcfg, const Operation &op) {
 }
 
 Status PipeSync::AdjustOpCfg(TileOpCfg &opcfg, const Operation &op) {
-    if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-        if (AdjustReshapeCfg(opcfg, op) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "AdjustReshapeCfg failed.");
-            return FAILED;
-        }
-    }
     if (op.GetOpcode() == Opcode::OP_COPY_IN) {
         if (AdjustCopyInCfg(opcfg, op) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "AdjustCopyInCfg failed.");
@@ -515,7 +496,7 @@ void PipeSync::InitIssueQueue() {
 void PipeSync::EnqueueOp(DepOp &op, const std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog) {
    if (opLogPtr[op.idx]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_VIEW ||
         opLogPtr[op.idx]->GetOpcode() == Opcode::OP_NOP || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_HUB ||
-        opLogPtr[op.idx]->GetOpcode() == Opcode::OP_VIEW_TYPE) {
+        opLogPtr[op.idx]->GetOpcode() == Opcode::OP_VIEW_TYPE || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_RESHAPE) {
         syncedOpLog.emplace_back(std::make_pair(op.idx * SEQUENCE_IDX, std::ref(*opLogPtr[op.idx])));
         return;
     }
@@ -1325,8 +1306,9 @@ bool PipeSync::IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector
         opLogPtr[prev]->GetOpcode() == Opcode::OP_VIEW_TYPE || opLogPtr[curr]->GetOpcode() == Opcode::OP_VIEW_TYPE ||
         opLogPtr[prev]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[curr]->GetOpcode() == Opcode::OP_ASSEMBLE ||
         opLogPtr[prev]->GetOpcode() == Opcode::OP_NOP || opLogPtr[curr]->GetOpcode() == Opcode::OP_NOP ||
-        opLogPtr[prev]->GetOpcode() == Opcode::OP_HUB || opLogPtr[curr]->GetOpcode() == Opcode::OP_HUB) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "%d %s and %d %s dependency is ignorable because op is VIEW or ASSEMBLE or NOP",
+        opLogPtr[prev]->GetOpcode() == Opcode::OP_HUB || opLogPtr[curr]->GetOpcode() == Opcode::OP_HUB ||
+        opLogPtr[prev]->GetOpcode() == Opcode::OP_RESHAPE || opLogPtr[curr]->GetOpcode() == Opcode::OP_RESHAPE) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "%d %s and %d %s dependency is ignorable because op is VIEW or ASSEMBLE or NOP or HUB or RESHAPE",
             opLogPtr[prev]->GetOpMagic(), opLogPtr[prev]->GetOpcodeStr().c_str(), opLogPtr[curr]->GetOpMagic(), opLogPtr[curr]->GetOpcodeStr().c_str());
         return true;
     }
