@@ -14,6 +14,7 @@
  */
 
 #include "machine/device/dynamic/context/device_task_context.h"
+#include "machine/device/dynamic/eslmodel_aicore_hal.h"
 
 namespace npu::tile_fwk::dynamic {
 namespace {
@@ -568,6 +569,14 @@ int DeviceTaskContext::BuildDeviceTaskDataAndReadyQueue(
     DEV_DEBUG("Finish build a new device task");
 
     DEV_IF_NONDEVICE { dyntask->DumpTopo(devProg->devArgs.enableVFFusion); }
+
+    DEV_IF_NONDEVICE {
+        if (devProg->devArgs.enableEslModel) {
+            EslAicoreHal eslAicoreHal;
+            eslAicoreHal.Init();
+            eslAicoreHal.SendDynFuncData(dyntask, dyntask->stitchedList.size(), dynFuncDataSize);
+        }
+    }
 
 #if DEBUG_INFINITE_LIFETIME
     DEV_IF_DEVICE { dyntask->DumpTensorAddrInfo(workspace_->DumpTensorWsBaseAddr(), workspace_->DumpTensorWsSize()); }
