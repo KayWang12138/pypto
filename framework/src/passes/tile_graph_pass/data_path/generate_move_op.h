@@ -71,10 +71,9 @@ private:
     Status ProcessL0AMX(Operation &op, ViewOpAttribute *viewOpAttribute) const;
     Status ProcessL0BMX(Operation &op, ViewOpAttribute *viewOpAttribute) const;
     Status ProcessDefault(Function &function, Operation &op, ViewOpAttribute *viewOpAttribute) const;
-    void CreateMoveOpForAssemble(Operation &op) const;
+    void CreateMoveOpForAssemble(Function &function, Operation &op) const;
     Status CreateMoveOpForConvert(Function &function, Operation &op) const;
     void ProcessUB2L1(Function &function, Operation &op) const;
-    void ProcessUB2L1WithOffset(Function &function, Operation &op, ViewOpAttribute *viewOpAttribute) const;
     static int64_t PadUB(int64_t dim, int64_t padValue);
 };
 }

@@ -480,6 +480,13 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
                 operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
             continue;
         }
+        if (operation.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
+            tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+            APASS_LOG_DEBUG_F(Elements::Operation, 
+                "%s[%d] skip setting since input origin MEM_UB and output origin MEM_L1",
+                operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
+            continue;
+        }
         tensor->SetMemoryTypeOriginal(fromType, true);
         auto assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(operation.GetOpAttribute());
         assembleOpAttribute->SetFromType(fromType);
