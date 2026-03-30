@@ -570,17 +570,18 @@ void RemoveRedundantAssemble::HanldeForMultiAssemble(Function &function, std::un
     }
 }
 
-bool RemoveRedundantAssemble::FindAssembleOut(Operation* con, int assembleOutMagic) const {
+bool RemoveRedundantAssemble::FindSameOut(Operation* con, std::unordered_set<int>& existedTensorMagic) const {
     bool res = false;
     for (auto conOutput : con->GetOOperands()) {
-        if (conOutput->GetMagic() == assembleOutMagic) {
+        if (existedTensorMagic.find(conOutput->GetMagic()) != existedTensorMagic.end()) {
             return true;
         }
+        existedTensorMagic.insert(conOutput->GetMagic());
         if (conOutput->GetConsumers().size() == 0) {
             continue;
         }
         for (auto outputCon : conOutput->GetConsumers()) {
-            res = res || FindAssembleOut(outputCon, assembleOutMagic);
+            res = res || FindSameOut(outputCon, existedTensorMagic);
             if (res) {
                 return res;
             }
@@ -593,19 +594,12 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(Function &function, Logi
     auto producersBackup = input->GetProducers();
     auto &consumers = input->GetConsumers();
     LogicalTensorPtr oriOutputBackUp = nullptr;
-    int assembleOutMagic = 0;
-    for (auto cons : consumers) {
-        if (cons->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            assembleOutMagic = cons->GetOOperands()[0]->GetMagic();
-        }
-    }
     bool hasSameOutput = false; 
     for (auto &cons : consumers) {
-        if (cons->GetOpcode() != Opcode::OP_ASSEMBLE) {
-            hasSameOutput = FindAssembleOut(cons, assembleOutMagic);
-            if (hasSameOutput) {
-                break;
-            }
+        std::unordered_set<int> existedTensorMagic;
+        hasSameOutput = FindSameOut(cons, existedTensorMagic);
+        if (hasSameOutput) {
+            break;
         }
     }
     if (!hasSameOutput) {

@@ -31,7 +31,8 @@ public:
         std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const;
     void HandleForReshapeToOutcast(Function &function) const;
     void HanldeForMultiAssemble(Function &function, std::unordered_set<Operation *>& concurrentAssembles) const;
-    bool FindAssembleOut(Operation* con, int assembleOutMagic) const;
+    bool FindSameOut(Operation* con, std::unordered_set<int>& existedTensorMagic) const;
+
     Status HanldeForSingleAssemble(Function &function, LogicalTensorPtr input, LogicalTensorPtr output, Operation &op) const;
     Status ProcessView(Function &function) const;
 
