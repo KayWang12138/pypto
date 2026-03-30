@@ -367,9 +367,6 @@ std::string CodeGenOpCloudNPU::PrintExpand(
     const std::string& s0Var, const std::string& dVar, const std::string& srcDtypeStr,
     const std::string& dstDtypeStr) const
 {
-    char buffer[256] = "CG_ERROR";
-    int ret = 0;
-    int expandAxis{-1};
     std::vector<int64_t> dos = NormalizeShape(originShape[0], SHAPE_DIM4);
     std::vector<int64_t> os = NormalizeShape(originShape[1], SHAPE_DIM4);
     std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
