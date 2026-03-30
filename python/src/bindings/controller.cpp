@@ -223,28 +223,17 @@ std::map<std::string, npu::tile_fwk::Any> ConvertPyDictToCppMap(const py::dict &
         } else if (py::isinstance<py::list>(value) || py::isinstance<py::tuple>(value)) {
             py::list lst = py::cast<py::list>(value);
             if (lst.size() > 0) {
-                // 检查第一个元素类型
                 if (py::isinstance<py::int_>(lst[0])) {
-                    // 转换为 int64_t vector
+                    // 手动逐元素转换：sg_set_scope 包含 bool+int 混合类型，直接 cast 会失败
                     std::vector<int64_t> intVec;
                     for (auto elem : lst) {
                         intVec.push_back(py::cast<int64_t>(elem));
                     }
                     cpp_values[key] = intVec;
                 } else if (py::isinstance<py::str>(lst[0])) {
-                    // 转换为 string vector
-                    std::vector<std::string> strVec;
-                    for (auto elem : lst) {
-                        strVec.push_back(py::cast<std::string>(elem));
-                    }
-                    cpp_values[key] = strVec;
+                    cpp_values[key] = value.cast<std::vector<std::string>>();
                 } else if (py::isinstance<py::float_>(lst[0])) {
-                    // 转换为 double vector
-                    std::vector<double> doubleVec;
-                    for (auto elem : lst) {
-                        doubleVec.push_back(py::cast<double>(elem));
-                    }
-                    cpp_values[key] = doubleVec;
+                    cpp_values[key] = value.cast<std::vector<double>>();
                 } else {
                     throw py::type_error("Unsupported list element type for key: " + key);
                 }
