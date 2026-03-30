@@ -15,6 +15,9 @@
 
 #pragma once
 
+#ifdef __ESL_SIMULATION__
+#include <dlfcn.h>
+#endif
 #include "tilefwk/aicpu_common.h"
 #include "machine/device/dynamic/aicore_constants.h"
 #include "machine/device/dynamic/aicore_prof.h"
@@ -52,6 +55,17 @@ namespace DAV_3510 {
     const uint32_t REG_SPR_COND = 0x5108;
 }
 
+#ifdef __ESL_SIMULATION__
+const int REG_SPR_DATA_MAIN_BASE_ADDR = 0x000000D0;
+const int REG_SPR_COND_ADDR = 0x00005108;
+const int SUBBLOCKDIM_NUM = 2;
+const int BLOCKDIM = 32;
+using CaReadReg64Func = uint32_t (*)(uint32_t coreId, uint32_t subcoreId, uint64_t addr, uint64_t *data);
+using CaWriteReg64Func = uint32_t (*)(uint32_t coreId, uint32_t subcoreId, uint64_t addr, uint64_t *data);
+using BusDirectReadFunc = uint32_t (*)(void *ptr, uint64_t size, uint64_t address, uint32_t devIdx);
+using BusDirectWriteFunc = uint32_t (*)(uint64_t address, uint64_t size, void *ptr, uint32_t devIdx);
+#endif
+
 class AicoreHAL {
 public:
     inline void Init(DeviceArgs *deviceArgs, AiCoreProf *aicoreProf) {
@@ -69,6 +83,13 @@ public:
             regSprCond_ = DAV_3510::REG_SPR_COND;
             isNeedWriteRegForFastPath_ = false;
         }
+#ifdef __ESL_SIMULATION__
+        void *eslDriverHandle = dlopen("libnpu_drv.so", RTLD_LAZY | RTLD_NOLOAD);
+        caReadReg64_ = reinterpret_cast<CaReadReg64Func>(dlsym(eslDriverHandle, "ca_read_reg64"));
+        caWriteReg64_ = reinterpret_cast<CaWriteReg64Func>(dlsym(eslDriverHandle, "ca_write_reg64"));
+        busDirectRead_ = reinterpret_cast<BusDirectReadFunc>(dlsym(eslDriverHandle, "ca_read_ddr"));
+        busDirectWrite_ = reinterpret_cast<BusDirectWriteFunc>(dlsym(eslDriverHandle, "ca_write_ddr"));
+#endif     
     }
 
     inline uint32_t GetRegSprDataMainBase() {
@@ -125,14 +146,40 @@ public:
         return taskId == AICORE_TASK_INIT || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP;
     }
 
+#ifdef __ESL_SIMULATION__
+    inline std::pair<int, int> GetSubCoreId(int coreIdx) {
+        if (coreIdx < BLOCKDIM) {
+            return { coreIdx, 0 };
+        }
+        int primaryCoreIdx = (coreIdx - BLOCKDIM) / SUBBLOCKDIM_NUM;
+        int subCoreIdx = (coreIdx - BLOCKDIM - (primaryCoreIdx * 2)) % 2 + 1;
+        return { primaryCoreIdx, subCoreIdx };
+    }
+
+    inline void WriteEslReg(int coreIdx, uint64_t regAddr, uint64_t *val) {
+        auto coreInfo = GetSubCoreId(coreIdx);
+        DEV_VERBOSE_DEBUG("coreIdx: %d, primary: %d, subcoreIdx: %d, task: %lu.\n", coreIdx, coreInfo.first, coreInfo.second, *val);
+        caWriteReg64_(coreInfo.first, coreInfo.second, regAddr, val);
+    }
+
+    inline void ReadEslReg(int coreIdx, uint64_t regAddr, uint64_t *val) {
+        auto coreInfo = GetSubCoreId(coreIdx);
+        caReadReg64_(coreInfo.first, coreInfo.second, regAddr, val);
+    }
+#endif
+
     inline void SetReadyQueue(int coreIdx, uint64_t value) {
         if constexpr (IsDeviceMode()) {
             *readyRegQueues_[GetPhyIdByBlockId(coreIdx)] = value;
         } else {
-            DEV_VERBOSE_DEBUG("set coreidx %d value %lx.", coreIdx, value);
-            auto taskId = value - 1;
-            if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP) return;
-            CostModelSendTask(coreIdx, taskId);
+#ifdef __ESL_SIMULATION__
+ 	    WriteEslReg(coreIdx, REG_SPR_DATA_MAIN_BASE_ADDR, &value);
+#else
+ 	    DEV_VERBOSE_DEBUG("set coreidx %d value %lx.", coreIdx, value);
+ 	    auto taskId = value - 1;
+ 	    if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP) return;
+ 	    CostModelSendTask(coreIdx, taskId);
+#endif
         }
     }
 
@@ -285,7 +332,13 @@ public:
         if constexpr (IsDeviceMode()) {
             return *(finishRegQueues_[GetPhyIdByBlockId(coreIdx)]);
         } else {
-            return CostModelGetTask(coreIdx);
+ #ifdef __ESL_SIMULATION__
+ 	    uint64_t value;
+ 	    ReadEslReg(coreIdx, REG_SPR_COND_ADDR, &value);
+ 	    return value;
+#else
+ 	    return CostModelGetTask(coreIdx);
+#endif
         }
     }
 
@@ -446,10 +499,25 @@ public:
             __sync_synchronize();
 #endif
             arg->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = funcdata;
+#ifdef __ESL_SIMULATION__
+ 	    arg->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = 0;
+#endif
         } else {
-            if (costModel_) {
-                costModel_->InitData(coreIdx, funcdata);
-            }
+#ifdef __ESL_SIMULATION__
+        if (args_[coreIdx] == nullptr) {
+            args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+        }
+        volatile KernelArgs *arg = args_[coreIdx];
+        arg->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = funcdata;
+        arg->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = 0;
+        busDirectWrite_(reinterpret_cast<uint64_t>(&arg->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX]), sizeof(funcdata), &funcdata, 0);
+        uint64_t val = 0;
+        busDirectWrite_(reinterpret_cast<uint64_t>(&arg->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX]), sizeof(uint64_t), &val, 0);
+#else 
+        if (costModel_) {
+            costModel_->InitData(coreIdx, funcdata);
+        }
+#endif
         }
     }
 
@@ -483,6 +551,12 @@ public:
         args_[coreIdx]->shakeBuffer[0] = 0;
         args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
         args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = AICORE_SAY_GOODBYE;
+#ifdef __ESL_SIMULATION__
+        uint64_t val = 0;
+        busDirectWrite_(reinterpret_cast<uint64_t>(&args_[coreIdx]->shakeBuffer[0]), sizeof(uint64_t), &val, 0);
+        val = AICORE_SAY_GOODBYE;
+        busDirectWrite_(reinterpret_cast<uint64_t>(&args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX]), sizeof(uint64_t), &val, 0);
+#endif
         return;
     }
 
@@ -519,5 +593,11 @@ private:
     bool isNeedWriteRegForFastPath_{true};
     AiCoreProf *aicoreProf_{nullptr};
     CostModel::AiCoreModel *costModel_{nullptr};
+ #ifdef __ESL_SIMULATION__
+    CaReadReg64Func caReadReg64_;
+    CaWriteReg64Func caWriteReg64_;
+    BusDirectReadFunc busDirectRead_;
+    BusDirectWriteFunc busDirectWrite_;
+#endif
 };
 }
