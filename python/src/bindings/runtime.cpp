@@ -814,10 +814,14 @@ static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensor
         }
     }
     ASSERT(tensors.size()) << "No input tensors found";
+#ifdef __ESL_SIMULATION__
+    return 0;
+#else
     if (py::getattr(device, "type").cast<std::string>() != "npu") {
         throw std::runtime_error("Not npu device");
     }
     return py::getattr(device, "index").cast<int>();
+#endif
 }
 
 static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
@@ -864,6 +868,9 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     }
     HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
 
+#ifdef __ESL_SIMULATION__
+    DeviceRunOnceDataFromHost(tensors, {});
+#else
     DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
     HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
     
@@ -873,6 +880,7 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
     HOST_PERF_TRACE(TracePhase::Launch);
     HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+#endif
 }
 
 void LaunchKernelTorch(py::object &module, int64_t stream, py::sequence &torchTensors,
