@@ -65,6 +65,83 @@ def scaled_matmul_kernel(
 
 ---
 
+## gmmswigluquant_mxfp8
+
+### 功能说明
+
+`gmmswigluquant_mxfp8` 算子实现了分组矩阵乘法、SwiGLU 激活与逐 token INT8 量化的融合计算，主要用于 MoE/FFN 类推理场景中的高效前向处理。
+
+该算子的核心特性：
+
+1. **分组计算**：支持将输入矩阵按不同分组使用不同的权重矩阵进行计算
+2. **MXFP8 量化输入**：输入和权重使用 MXFP8 格式，数据使用 E4M3FN 格式，缩放因子使用 E8M0FNU 格式
+3. **SwiGLU 融合**：在分组矩阵乘法后直接执行 SwiGLU 激活
+4. **逐 token 量化**：对 SwiGLU 输出按 token 计算缩放因子，并量化为 INT8 输出
+
+**说明：**
+<blockquote>该算子先通过 <code>scaled_mm</code> 完成带缩放因子的分组矩阵乘法，再将输出沿最后一维一分为二，分别作为 SwiGLU 的 value 和 gate。激活结果随后以每个 token 独立缩放的方式量化为 INT8，并输出对应的反量化 scale。</blockquote>
+
+### 计算公式
+
+对于输入矩阵 $A$ 和权重矩阵组 $\{W_1, W_2, ..., W_g\}$：
+
+$$
+Y_i = (A_i \otimes S_{A_i}) \cdot (W_i \otimes S_{W_i})
+$$
+
+对每个分组输出 $Y_i$，沿最后一维均分为 $V_i$ 和 $G_i$，执行：
+
+$$
+\text{SwiGLU}(Y_i) = \text{SiLU}(V_i) \odot G_i
+$$
+
+其中：
+
+$$
+\text{SiLU}(x) = x \cdot \sigma(x)
+$$
+
+随后对每个 token 独立量化：
+
+$$
+\text{scale} = \frac{\max(|X|)}{127}, \quad
+Q = \text{clip}(\text{round}(X / \text{scale}), -127, 127)
+$$
+
+最终输出为所有分组量化结果的拼接，以及对应的量化 scale。
+
+### 函数原型
+
+```python
+def scaled_matmul_kernel(
+    a: pypto.Tensor,
+    b: pypto.Tensor,
+    scaled_a: pypto.Tensor,
+    scaled_b: pypto.Tensor,
+    out: pypto.Tensor,
+    out_quant: pypto.Tensor,
+    group_list: list,
+    tile_config: ShapeConfig
+) -> None
+```
+
+### 参数说明
+
+| 参数名 | 输入/输出 | 描述 | 使用说明 | 数据类型 | 数据格式 | 维度(shape) |
+|--------|-----------|------|----------|----------|----------|-------------|
+| a | 输入 | 输入矩阵 | 按 group_list 在 M 维切分 | float8_e4m3fn | ND | [M, K] |
+| b | 输入 | 权重矩阵组 | 根据 b_trans 决定形状 | float8_e4m3fn | ND | [num_groups, K, N] 或 [num_groups, N, K] |
+| scaled_a | 输入 | 输入缩放因子 | 每 64 个元素共享一个缩放因子 | float8_e8m0fnu | ND | [M, K//64, 2] |
+| scaled_b | 输入 | 权重缩放因子 | 每 64 个元素共享一个缩放因子 | float8_e8m0fnu | ND | [num_groups, K//64, N, 2] 或 [num_groups, N, K//64, 2] |
+| out | 输出 | 量化输出矩阵 | SwiGLU 后逐 token 量化得到的 INT8 结果 | int8 | ND | [M, N//2] |
+| out_quant | 输出 | 量化缩放因子 | 每个 token 对应一个 FP32 scale | float32 | ND | [M, 1] |
+
+### 调用示例
+
+- 详见 [gmmswigluquant_mxfp8.py](./gmmswigluquant_mxfp8.py)
+
+---
+
 ## quant_matmul_reduce_sum
 
 ### 功能说明
