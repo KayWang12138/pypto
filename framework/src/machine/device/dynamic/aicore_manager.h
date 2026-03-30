@@ -319,12 +319,6 @@ private:
     static inline uint64_t decodePairTask(const aicorePair_t pair) { return pair >> 32; }
     static inline uint64_t decodePairCore(const aicorePair_t pair) { return pair & 0x00000000FFFFFFFFUL; }
 
-    inline bool PreFetchNextDevTask() {
-        preFetchNextDevTaskCtrl_ = nullptr;
-        preFetchSuccess_ = prefetchedTaskQueue_->TryDequeue(preFetchNextDevTaskCtrl_);
-        return preFetchSuccess_;
-    }
-
     inline void TryBatchSendTask(CoreType type)
     {
         auto taskQueue = taskQueue_[(int)type];
@@ -684,25 +678,6 @@ private:
         preFetchNextDevTaskCtrl_ = nullptr;
     }
 
-    inline void HandShakeTryPreFetchDevTask() {
-        if (!preFetchSuccess_ && PreFetchNextDevTask()) {
-            preFetchNextDevTaskCtrl_->isFirstDevTask = true;
-            SendDevTaskModel(preFetchNextDevTaskCtrl_->devTask);
-            InitDevTask(preFetchNextDevTaskCtrl_);
-        }
-    }
-
-    inline void HandShakePostProc() {
-        if (preFetchSuccess_) {
-            uint64_t sentAic = 0;
-            uint64_t sentAiv = 0;
-            CountSendTask(sentAic, sentAiv);
-            if (sentAic + sentAiv > 0) {
-                preFetchNextDevTaskCtrl_->finishedFunctionCnt.fetch_add(sentAic + sentAiv, std::memory_order_relaxed);
-            }
-        }
-    }
-
     inline void HandShake() {
         int handShakeNum = 0;
         int mngAicoreNum = aicEnd_ - aicStart_ + aivEnd_ - aivStart_;
@@ -714,8 +689,6 @@ private:
         int aivSucessCnt = 0;
         
         while (handShakeNum < mngAicoreNum) {
-            HandShakeTryPreFetchDevTask();
-
             bool curIterAllAicSuccess = true;
             bool curIterAllAivSuccess = true;
             for (int i = aicEnd_ - 1; (!aicAllSuccess) && i >= aicStart_; i--) {
@@ -751,8 +724,6 @@ private:
                 return;
             }
         }
-
-        HandShakePostProc();
     }
 
     /* assign aic and aiv core index section for this aicpu */
