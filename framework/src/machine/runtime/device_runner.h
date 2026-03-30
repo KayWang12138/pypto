@@ -87,7 +87,6 @@ public:
     bool GetEnableDumpDevPref() const;
     void StartMachinePerfTraceDumpThread();
     void StopMachinePerfTraceDumpThread();
-
 private:
     DeviceRunner() = default;
     ~DeviceRunner();
