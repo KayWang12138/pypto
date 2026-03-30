@@ -583,8 +583,7 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(
 
     tileTensor.usingType = usingType;
 
-    tileTensor.tensorName = BUFFER_TYPE_TO_PREFIX_LC.at(tileTensor.bufType) + "Tensor_" +
-                            std::to_string(IdGen<IdType::CG_VAR_NAME>::Inst().NewId());
+    tileTensor.tensorName = sm->GenTensorName(tileTensor.bufType);
     if (shapeInLoop.loopDepth != 0) {
         std::string tensorName = tensorNames_[paramIdx];
         if (!tensorName.empty()) {
