@@ -46,6 +46,8 @@
 #include "tilefwk/pypto_fwk_log.h"
 #include "interface/machine/host/host_machine.h"
 
+
+
 using json = nlohmann::json;
 
 constexpr int32_t AICORE_ADDR_TYPE = 2; // nocache Addr type for aicore/aicpu map
@@ -820,7 +822,9 @@ int DeviceRunner::Init(void)
         MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "RegisterKernelBin failed\n");
         return -1;
     }
-    InitAicpuServer();
+    if (config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) {
+        InitAicpuServer();
+    }
     StartMachinePerfTraceDumpThread();
     return 0;
 }
