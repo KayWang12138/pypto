@@ -228,8 +228,8 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     CheckDeviceId();
     DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
-    DeviceMemoryUtils devMemoryUtilis;
-    DeviceInitDistributedContext(devMemoryUtilis, dynAttr->commGroupNames, kArgs);
+ 	DeviceMemoryUtils devMemoryUtilis;
+ 	DeviceInitDistributedContext(devMemoryUtilis, dynAttr->commGroupNames, kArgs);
 
     HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
     DeviceInitTilingData(devMemoryUtilis, kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
@@ -289,7 +289,7 @@ int DeviceLauncher::DeviceRunOnce(
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
     DeviceMemoryUtils devMemoryUtilis(true);
-    std::tie(inputDeviceDataList, outputDeviceDataList) =
+ 	std::tie(inputDeviceDataList, outputDeviceDataList) = 
         BuildInputOutputFromHost(devMemoryUtilis, inputDataList, outputDataList);
 
     DeviceMemoryUtils devMemory(false);
@@ -302,9 +302,9 @@ int DeviceLauncher::DeviceRunOnce(
     int rc = DeviceLaunchOnceWithDeviceTensorData(
         function, inputDeviceDataList, outputDeviceDataList, aicpuStream, aicoreStream, true, nullptr,
         reinterpret_cast<DevControlFlowCache*>(devCtrlCache), config);
-    CopyFromDev(DeviceMemoryUtils(), outputDataList);
+    CopyFromDev(DevMemoryUtils(), outputDataList);
     if (HasInplaceArgs(function) || outputDataList.size() == 0) {
-        CopyFromDev(DeviceMemoryUtils(), inputDataList);
+        CopyFromDev(DevMemoryUtils(), inputDataList);
     }
     devMemory.Free(devCtrlCache);
     return rc;
