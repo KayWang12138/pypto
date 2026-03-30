@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
-from .helpers import _camel_case_to_snake_case
+from ..helpers import _camel_case_to_snake_case
 
 __all__ = ("load_cpp_layout",)
 

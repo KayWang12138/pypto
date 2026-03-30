@@ -24,3 +24,8 @@ def infer_shape_sum_last(
         x0_shape[1],
         x0_shape[2] + x1_shape[2],
     )
+
+
+def infer_shape_nd_identity(x_shape: tuple[int, ...]) -> tuple[int, ...]:
+    """Dynamic rank: output shape equals input shape."""
+    return x_shape

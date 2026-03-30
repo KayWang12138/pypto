@@ -3,6 +3,10 @@ import re
 
 __all__: tuple[str, ...] = ()
 
+# Consider moving elsewhere
+_FUNC_NAME__INFER_SHAPE = "infer_shape"
+_FUNC_NAME__CALC_WORKSPACE = "calc_workspace"
+
 
 def _unwrap_decorated_func_source(source: str) -> str:
     """Return the def ... body of a function, stripping decorator lines."""
@@ -37,14 +41,35 @@ def _camel_case_to_snake_case(name: str) -> str:
 def _torch_dtype_to_ge_dtype(dtype) -> str:
     """Map torch dtype-like values to GE dtype token string.
 
-    Temporary behavior: any torch float dtype maps to ``ge::DT_FLOAT16``.
+    Rules (by torch dtype name):
+
+    - ``torch.float32`` -> ``ge::DT_FLOAT``
+    - ``torch.float16`` -> ``ge::DT_FLOAT16``
+    - ``torch.int{8,16,32,64}`` -> ``ge::DT_INT{8,16,32,64}``
+    - ``torch.uint{8,16,32,64}`` -> ``ge::DT_UINT{8,16,32,64}``
+    - ``torch.bool`` -> ``ge::DT_BOOL``
+    - ``torch.bfloat16`` -> ``ge::DT_BF16``
     """
     dtype_name = str(dtype)
     if not dtype_name.startswith("torch."):
         raise ValueError(f"Unsupported dtype for GE mapping: {dtype!r}")
-    if "float" not in dtype_name:
-        raise ValueError(f"Only torch float dtypes are supported for now, got {dtype!r}")
-    return "ge::DT_FLOAT16"
+    base = dtype_name.replace("torch.", "")
+    if base == "float32":
+        return "ge::DT_FLOAT"
+    if base == "float16":
+        return "ge::DT_FLOAT16"
+    if base == "bool":
+        return "ge::DT_BOOL"
+    if base == "bfloat16":
+        return "ge::DT_BF16"
+    import re
+    m = re.fullmatch(r"(u?)int(8|16|32|64)", base)
+    if m:
+        signed = m.group(1) == ""
+        bits = m.group(2)
+        kind = "INT" if signed else "UINT"
+        return f"ge::DT_{kind}{bits}"
+    raise ValueError(f"Unsupported torch dtype for GE mapping: {dtype!r}")
 
 
 def _torch_dtype_to_ir_dtype(dtype):

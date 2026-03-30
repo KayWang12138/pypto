@@ -6,9 +6,22 @@
 
 namespace ge {
 
+// Minimal GE dtype / format constants used by export codegen tests.
+inline constexpr int DT_FLOAT = 0;
 inline constexpr int DT_FLOAT16 = 1;
-inline constexpr int FORMAT_ND = 2;
-inline constexpr int REQUIRED = 3;
+inline constexpr int DT_BF16 = 2;
+inline constexpr int DT_INT8 = 3;
+inline constexpr int DT_INT16 = 4;
+inline constexpr int DT_INT32 = 5;
+inline constexpr int DT_INT64 = 6;
+inline constexpr int DT_UINT8 = 7;
+inline constexpr int DT_UINT16 = 8;
+inline constexpr int DT_UINT32 = 9;
+inline constexpr int DT_UINT64 = 10;
+inline constexpr int DT_BOOL = 11;
+
+inline constexpr int FORMAT_ND = 20;
+inline constexpr int REQUIRED = 21;
 
 class OpDef {
 public:

@@ -102,21 +102,36 @@ def test_get_renamed_func_source_does_not_rename_later_occurrences_in_body():
     assert "func_with_self_reference docstring" in out
 
 
-def test_torch_dtype_to_ge_dtype_float_variants_map_to_float16():
+def test_torch_dtype_to_ge_dtype_mappings():
+    # Floats
     assert _torch_dtype_to_ge_dtype("torch.float16") == "ge::DT_FLOAT16"
-    assert _torch_dtype_to_ge_dtype("torch.float32") == "ge::DT_FLOAT16"
-    assert _torch_dtype_to_ge_dtype("torch.bfloat16") == "ge::DT_FLOAT16"
+    assert _torch_dtype_to_ge_dtype("torch.float32") == "ge::DT_FLOAT"
+    # bfloat16 maps to BF16 in GE
+    assert _torch_dtype_to_ge_dtype("torch.bfloat16") == "ge::DT_BF16"
+    # Signed ints
+    assert _torch_dtype_to_ge_dtype("torch.int8") == "ge::DT_INT8"
+    assert _torch_dtype_to_ge_dtype("torch.int16") == "ge::DT_INT16"
+    assert _torch_dtype_to_ge_dtype("torch.int32") == "ge::DT_INT32"
+    assert _torch_dtype_to_ge_dtype("torch.int64") == "ge::DT_INT64"
+    # Unsigned ints
+    assert _torch_dtype_to_ge_dtype("torch.uint8") == "ge::DT_UINT8"
+    assert _torch_dtype_to_ge_dtype("torch.uint16") == "ge::DT_UINT16"
+    assert _torch_dtype_to_ge_dtype("torch.uint32") == "ge::DT_UINT32"
+    assert _torch_dtype_to_ge_dtype("torch.uint64") == "ge::DT_UINT64"
+    # Bool
+    assert _torch_dtype_to_ge_dtype("torch.bool") == "ge::DT_BOOL"
 
 
 @pytest.mark.parametrize("bad", ["float16", "fp16", "ge::DT_FLOAT16", "int"])
 def test_torch_dtype_to_ge_dtype_rejects_non_torch_prefix(bad: str):
-    with pytest.raises(ValueError, match="Unsupported dtype"):
+    with pytest.raises(ValueError, match="Unsupported dtype for GE mapping"):
         _torch_dtype_to_ge_dtype(bad)
 
 
-def test_torch_dtype_to_ge_dtype_rejects_non_float_torch_dtype():
-    with pytest.raises(ValueError, match="Only torch float dtypes"):
-        _torch_dtype_to_ge_dtype("torch.int32")
+def test_torch_dtype_to_ge_dtype_rejects_unsupported_torch_dtype():
+    # complex and quantized dtypes should still be rejected
+    with pytest.raises(ValueError, match="Unsupported torch dtype for GE mapping"):
+        _torch_dtype_to_ge_dtype("torch.complex64")
 
 
 def test_torch_dtype_to_ir_dtype_matches_expected_members():

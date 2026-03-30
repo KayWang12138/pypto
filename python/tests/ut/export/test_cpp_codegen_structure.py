@@ -1,6 +1,6 @@
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: LicenseRef-CANN-Open-Software-License-Agreement-Version-2.0
-"""Python-only structural checks for pypto.export.cpp codegen (infer_shape + domi plugin + custom executor)."""
+"""Python-only structural checks for pypto.export.cpp.codegen (infer_shape + domi plugin + custom executor)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from pypto.export import cpp as cpp_mod
+from pypto.export.cpp import codegen as cpp_mod
 from pypto.export.pypto_op import _FRAMEWORK_TYPE__ONNX
 
 _SAMPLES_PATH = Path(__file__).resolve().parent / "infer_shape_samples.py"
@@ -33,13 +33,22 @@ samples = _load_samples()
         (samples.infer_shape_two_by_two, [2, 2], 2),
         (samples.infer_shape_4d_broadcast, [4, 4], 4),
         (samples.infer_shape_sum_last, [3, 3], 3),
+        (samples.infer_shape_nd_identity, [None], None),
     ],
 )
 def test_parse_infer_shape_metadata(fn, expected_in_dims, expected_out_dims):
     meta = cpp_mod._parse_infer_shape_for_codegen(fn)
-    assert meta["input_dims"] == expected_in_dims
-    assert meta["output_dims"] == expected_out_dims
-    assert meta["cpp_bind_name"] == "inferShape"
+    assert meta.input_dims == expected_in_dims
+    assert meta.output_dims == expected_out_dims
+    assert meta.cpp_bind_name == "inferShape"
+
+
+def test_parse_infer_shape_variadic_modes_and_elem_cpp():
+    meta = cpp_mod._parse_infer_shape_for_codegen(samples.infer_shape_nd_identity)
+    assert meta.input_modes == ["variadic"]
+    assert meta.input_elem_cpp == ["int64_t"]
+    assert meta.output_mode == "variadic"
+    assert meta.output_elem_cpp == "int64_t"
 
 
 # TODO confirm the fields to verify
@@ -47,16 +56,26 @@ def test_parse_infer_shape_metadata(fn, expected_in_dims, expected_out_dims):
 def test_infer_shape_ge_impl_body_contains_expected_ops(fn):
     meta = cpp_mod._parse_infer_shape_for_codegen(fn)
     body = cpp_mod._infer_shape_ge_impl_body(meta)
-    n_in = len(meta["input_dims"])
+    n_in = len(meta.input_modes)
     for i in range(n_in):
         assert f"context->GetInputShape({i})" in body
         assert f"in{i}_shape->GetDimNum()" in body
         assert "std::make_tuple" in body
     assert "context->GetOutputShape(0)" in body
     assert "gert::Shape{" in body
-    assert f"{meta['cpp_bind_name']}(" in body
+    assert f"{meta.cpp_bind_name}(" in body
     assert "GRAPH_SUCCESS" in body
     assert "GRAPH_FAILED" in body
+
+
+def test_infer_shape_ge_impl_body_variadic_uses_vector_and_setdims():
+    meta = cpp_mod._parse_infer_shape_for_codegen(samples.infer_shape_nd_identity)
+    body = cpp_mod._infer_shape_ge_impl_body(meta)
+    assert "std::vector<int64_t> in0_vec" in body
+    assert "in0_vec.push_back" in body
+    assert "SetDimNum(out_vec.size())" in body
+    assert "(*out_shape)[j]" in body
+    assert "std::make_tuple" not in body
 
 
 # TODO confirm the fields to verify
@@ -70,9 +89,17 @@ def test_embedded_pybind_contains_exec_and_cast_tuple():
     assert "py::gil_scoped_acquire" in block
 
 
+def test_embedded_pybind_variadic_casts_vector():
+    fn = samples.infer_shape_nd_identity
+    block = cpp_mod._generate_infer_shape_pybind_embedded(fn, embed_in_host=True)
+    assert ".cast<std::vector<int64_t>>" in block
+
+
 def test_to_cpp_type_int_and_tuple():
     assert cpp_mod._to_cpp_type(int) == "int64_t"
     assert cpp_mod._to_cpp_type(typing.Tuple[int, int]) == "std::tuple<int64_t, int64_t>"
+    assert cpp_mod._to_cpp_type(typing.Tuple[int, ...]) == "std::vector<int64_t>"
+    assert cpp_mod._to_cpp_type(typing.Tuple[float, ...]) == "std::vector<float>"
 
 
 def test_infer_shape_host_tu_for_test_is_single_ge_namespace():
@@ -200,7 +227,10 @@ def test_generate_op_custom_def_cpp_builds_inputs_from_dtypes():
     assert 'this->Input("in1")' in text
     assert 'this->Input("in2")' in text
     assert 'this->Output("out0")' in text
-    assert text.count(".DataType({ge::DT_FLOAT16})") == 4
+    # Input dtypes come from _torch_dtype_to_ge_dtype; output dtype matches the first input.
+    assert '.DataType({ge::DT_FLOAT16})' in text  # input 0 and output
+    assert '.DataType({ge::DT_FLOAT})' in text    # input 1
+    assert '.DataType({ge::DT_BF16})' in text     # input 2
 
 
 def test_generate_op_custom_def_cpp_rejects_empty_dtypes():

@@ -7,10 +7,12 @@ import random
 import torchair
 import pypto_ir
 
-from . import cpp
-from . import cpp_layout
+from .cpp import codegen
+from .cpp import layout
 from .helpers import (
     _camel_case_to_snake_case,
+    _FUNC_NAME__CALC_WORKSPACE,
+    _FUNC_NAME__INFER_SHAPE,
     _get_renamed_func_source,
     _snake_case_to_camel_case,
     _torch_dtype_to_ir_dtype,
@@ -28,9 +30,6 @@ KERNEL_FORMAT__SOURCE = "source"
 KERNEL_FORMAT__BINARY = "binary"
 KERNEL_FORMAT__IR = "ir"
 KERNEL_FORMAT__MULTI = "multi"
-
-_FUNC_NAME__INFER_SHAPE = "infer_shape"
-_FUNC_NAME__CALC_WORKSPACE = "calc_workspace"
 
 _OPTIONS_KEY__INCL_BINARY = "incl_binary"
 _OPTIONS_KEY__INCL_IR = "incl_ir"
@@ -104,7 +103,7 @@ def pypto_op_infer_shape(*, pypto_op_kernel):
         pypto_op_kernel.__pypto_meta__[meta_schema._META_KEY__INFER_SHAPE_SOURCE] = \
             _get_renamed_func_source(fn, _FUNC_NAME__INFER_SHAPE)
         pypto_op_kernel.__pypto_meta__[meta_schema._META_KEY__INFER_SHAPE_SOURCE_CPP] = \
-            cpp._generate_pybind_wrapper(fn, _snake_case_to_camel_case(_FUNC_NAME__INFER_SHAPE))
+            codegen._generate_pybind_wrapper(fn, _snake_case_to_camel_case(_FUNC_NAME__INFER_SHAPE))
         pypto_op_kernel.__pypto_infer_shape_fn__ = fn
         return fn
     return decorator
@@ -121,7 +120,7 @@ def pypto_op_calc_workspace(*, pypto_op_kernel):
         pypto_op_kernel.__pypto_meta__[meta_schema._META_KEY__CALC_WORKSPACE_SOURCE] = \
             _get_renamed_func_source(fn, _FUNC_NAME__CALC_WORKSPACE)
         pypto_op_kernel.__pypto_meta__[meta_schema._META_KEY__CALC_WORKSPACE_SOURCE_CPP] = \
-            cpp._generate_pybind_wrapper(fn, _snake_case_to_camel_case(_FUNC_NAME__CALC_WORKSPACE))
+            codegen._generate_pybind_wrapper(fn, _snake_case_to_camel_case(_FUNC_NAME__CALC_WORKSPACE))
         return fn
     return decorator
 
@@ -182,24 +181,24 @@ def _create_pypto_op_kernel_export(
         cpp_sources = {
             "framework": {
                 "onnx_plugin": {
-                    f"{stem}_plugin": cpp._generate_op_custom_plugin_cpp(
+                    f"{stem}_plugin": codegen._generate_op_custom_plugin_cpp(
                         op_type=op_type, framework_type=framework_type,
                     ),
                 },
             },
             "op_host": {
                 "src": {
-                    f"{stem}_executor": cpp._generate_custom_executor_cpp(op_type),
+                    f"{stem}_executor": codegen._generate_custom_executor_cpp(op_type),
                 },
-                f"{stem}_def": cpp._generate_op_custom_def_cpp(
+                f"{stem}_def": codegen._generate_op_custom_def_cpp(
                     infer_shape_fn, op_type=op_type, dtypes=dtypes
                 ),
             },
         }
         cpp_sources_dir = _create_cpp_sources_dir(kernel_name)
         _write_recursively(cpp_sources, cpp_sources_dir)
-        manifest = cpp_layout._build_cpp_layout_manifest(op_type=op_type)
-        layout_path = cpp_sources_dir / cpp_layout._CPP_LAYOUT_FILENAME
+        manifest = layout._build_cpp_layout_manifest(op_type=op_type)
+        layout_path = cpp_sources_dir / layout._CPP_LAYOUT_FILENAME
         with open(layout_path, "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2)
         return cpp_sources_dir
@@ -213,7 +212,7 @@ def _create_pypto_op_kernel_export(
             sinkable executor class, and ``REG_AUTO_MAPPING_OP`` (must match your ONNX / GE op type
             string without domain, e.g. ``AddPyptoCustomOp``).
         """
-        cpp._validate_op_type_identifier(op_type)
+        codegen._validate_op_type_identifier(op_type)
         meta = getattr(pypto_op_kernel, "__pypto_meta__", {})
         kernel_name = str(meta.get(meta_schema._META_KEY__KERNEL_NAME))
         input_shapes, dtypes = extract_input_shapes_dtypes(*input_nodes)

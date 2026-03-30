@@ -34,7 +34,7 @@ class CppCompileOptions:
     extra_ldflags: tuple[str, ...] = ()
     """Extra linker flags (e.g. ``-lfoo``); appended before Python ldflags when embedding."""
 
-from pypto.export import cpp as cpp_mod
+from pypto.export.cpp import codegen as cpp_mod
 
 _SAMPLES_PATH = Path(__file__).resolve().parent / "infer_shape_samples.py"
 _FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
@@ -317,6 +317,7 @@ int main() {{
         (samples.infer_shape_two_by_two, ((32, 64), (10, 20))),
         (samples.infer_shape_4d_broadcast, ((1, 2, 3, 4), (1, 2, 3, 4))),
         (samples.infer_shape_sum_last, ((2, 3, 5), (2, 3, 7))),
+        (samples.infer_shape_nd_identity, ((1, 2, 3, 4),)),
     ],
 )
 def test_compile_and_run_infer_shape_host(fn, inputs):
