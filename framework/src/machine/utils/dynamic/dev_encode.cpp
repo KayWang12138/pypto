@@ -259,8 +259,8 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAs
     int64_t nelm = std::max(GetShapeSizeSafe(rawTensor->oriRawshape), GetShapeSizeSafe(rawTensor->rawshape));
     encoded->maxStaticMemReq = AlignUp(nelm * BytesOf(rawTensor->GetDataType()), TENSOR_ADDR_ALIGNMENT);
     if (nelm > MAX_SHAPE_WARN_THRESHOLE) {
-        MACHINE_LOGW("Root=[%s], symbol=[%s]: staticMemReq=[%lu] is too larger, which might indicate an error",
-            rootName.c_str(), rawTensor->symbol.c_str(), encoded->maxStaticMemReq);
+        MACHINE_LOGW("[workspaceSize] Root=[%s], symbol=[%s],rawmagic=[%d]: staticMemReq=[%lu] is too larger, which might indicate an error",
+ 	                  rootName.c_str(), rawTensor->symbol.c_str(), rawTensor->GetRawMagic(),encoded->maxStaticMemReq);
     }
 }
 
@@ -2347,8 +2347,8 @@ static void ProcessDevFunctionOutcasts(Function *func, DevAscendFunction *devFun
     
     maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
     maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
-    MACHINE_LOGD("[workspaceSize] MaxRootInnerMem is %lu, maxDevTaskInnerExclusiveOutcastMem is %lu.",
-                  maxRootInnerMem, maxDevTaskInnerExclusiveOutcastMem);
+    MACHINE_LOGD("[workspaceSize] Rootfunction: %s ->MaxRootInnerMem is %lu, maxDevTaskInnerExclusiveOutcastMem is %lu.",
+ 	               devFunc->GetRawName(), maxRootInnerMem, maxDevTaskInnerExclusiveOutcastMem);
     maxPerCoreSpilledMem = std::max(maxPerCoreSpilledMem, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
 }
 
