@@ -217,6 +217,8 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
         const auto tf = std::chrono::high_resolution_clock::now();
         const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(tf - t0).count();
         DEV_ERROR(0, "[AICPU %d] Running Time: %ldns", aicpuIdx_, ns);
+
+        NormalStop();
     }
 
     inline void ExecuteTask(DeviceTaskCtrl *taskCtrl) {
@@ -238,12 +240,10 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl)
     {
         for (auto i = aicStart_; i < aicEnd_; i++) {
             while (checkCoreFinished(i) == false) { /* busy wait */}
-            NormalStopSingleCore(i);
         }
 
         for (auto i = aivStart_; i < aivEnd_; i++) {
             while (checkCoreFinished(i) == false) { /* busy wait */}
-            NormalStopSingleCore(i);
         }
 
         __sync_synchronize();
@@ -330,7 +330,6 @@ private:
         aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1);
         aicoreHal_.ResetShakeBuf(coreIdx);
     }
-
 
     inline void TryBatchSendTask(CoreType type)
     {
@@ -795,6 +794,17 @@ private:
     inline void AbnormalStop() {
         ResetRegAll();
         CheckAndResetReg();
+    }
+
+    inline void NormalStop() {
+        DEV_INFO("aicore manager[%d] try normal stop.", aicpuIdx_);
+        ForEachManageAicore([this](auto coreIdx) { aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1) ; });
+        /* write to MAINBASE reg must be done before close 0x18 */
+        __sync_synchronize();
+        ForEachManageAicore([this](auto coreIdx) {
+            aicoreHal_.ResetShakeBuf(coreIdx);
+        });
+        DEV_INFO("aicore manager[%d] normal stopped.", aicpuIdx_);
     }
 
     inline int GetAllAiCoreNum() { return aicNum_ + aivNum_; }
