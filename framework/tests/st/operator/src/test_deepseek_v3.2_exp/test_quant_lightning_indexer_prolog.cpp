@@ -233,13 +233,12 @@ void TestQuantLightningIndexerProlog(QuantIndexerConfigs &configs) {
 
     std::cout << "kInt8 ====== " << std::endl;
     EXPECT_TRUE(resultCmp<int8_t>(
-        outputGolden.kInt8Golden, (int8_t *)inputData.kCacheData->data(), 1, 0, error_count_threshold, false, true,
-        0));
+        outputGolden.kInt8Golden, (int8_t *)inputData.kCacheData->data(), 1, 0, error_count_threshold, false, true, 0));
 
     std::cout << "kScale ====== " << std::endl;
     EXPECT_TRUE(resultCmp<npu::tile_fwk::float16>(outputGolden.kScaleGolden,
-        (npu::tile_fwk::float16 *)inputData.kCacheScaleData->data(), error_threshold, 0, error_count_threshold,
-        false, true, 0));
+        (npu::tile_fwk::float16 *)inputData.kCacheScaleData->data(), error_threshold, 0, error_count_threshold, false,
+        true, 0));
 
     std::cout << "weight ======" << std::endl;
     EXPECT_TRUE(resultCmp<npu::tile_fwk::float16>(outputGolden.weightsGolden,
@@ -292,7 +291,8 @@ TEST_F(QuantLightningIndexerPrologSTest, b128_s1_4_s2_8k) {
     configs.tSubTile = 2;
     configs.chunkSize = 1;
     configs.l1ReuseParam = {
-        {1, 4}, {3, 4}
+        {1, 4},
+        {3, 4}
     };
 
     config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, 512);

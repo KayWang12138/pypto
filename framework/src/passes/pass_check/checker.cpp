@@ -18,7 +18,7 @@
 
 #define MODULE_NAME "Checker"
 
-namespace npu{
+namespace npu {
 namespace tile_fwk {
 Status Checker::DoPreCheck(Function &function) {
     (void)function;
@@ -84,7 +84,8 @@ Status Checker::CheckOpIOValid(Function &function) {
                 return FAILED;
             }
             if (CheckConsumerProducer(output) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "CheckConsumerProducer for op[%d]'s output failed!", op->opmagic);
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "CheckConsumerProducer for op[%d]'s output failed!", op->opmagic);
                 return FAILED;
             }
         }
@@ -99,7 +100,8 @@ Status Checker::CheckCompleteness(Function &function) {
     }
     for (const auto &incast : function.GetIncast()) {
         if (incast == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Function, "The function[%d] contains incast which is null.", function.GetFuncMagic());
+            APASS_LOG_ERROR_F(
+                Elements::Function, "The function[%d] contains incast which is null.", function.GetFuncMagic());
             return FAILED;
         }
         if (incast->GetConsumers().empty()) {
@@ -113,7 +115,8 @@ Status Checker::CheckCompleteness(Function &function) {
     }
     for (const auto &outcast : function.GetOutcast()) {
         if (outcast == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Function, "The function[%d] contains outcast which is null.", function.GetFuncMagic());
+            APASS_LOG_ERROR_F(
+                Elements::Function, "The function[%d] contains outcast which is null.", function.GetFuncMagic());
             return FAILED;
         }
         if (outcast->GetProducers().empty()) {
@@ -126,11 +129,13 @@ Status Checker::CheckCompleteness(Function &function) {
 
 Status Checker::CheckGraphLoop(Function &function) {
     if (function.GetTotalSubGraphCount() == 0 && !function.OperationLoopCheck()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "OperationLoopCheck failed, there is a loop in function[%d].", function.GetFuncMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "OperationLoopCheck failed, there is a loop in function[%d].",
+            function.GetFuncMagic());
         return FAILED;
     }
     if (!function.LoopCheck().empty()) {
-        APASS_LOG_ERROR_F(Elements::Function, "Loopcheck failed, there is a loop in function[%d].", function.GetFuncMagic());
+        APASS_LOG_ERROR_F(
+            Elements::Function, "Loopcheck failed, there is a loop in function[%d].", function.GetFuncMagic());
         return FAILED;
     }
     return SUCCESS;
@@ -187,12 +192,14 @@ Status Checker::CheckDynAttrForView(Function &function) {
         auto viewAttr = std::static_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
         std::vector<SymbolicScalar> &viewFromDynOffset = viewAttr->GetFromDynOffset();
         if (viewFromDynOffset.empty()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CheckDynAttrForView failed, fromDynOffset_ of op[%d] in function[%d] is empty.", opMagic, funcMagic);
+            APASS_LOG_ERROR_F(Elements::Operation,
+                "CheckDynAttrForView failed, fromDynOffset_ of op[%d] in function[%d] is empty.", opMagic, funcMagic);
             return FAILED;
         }
         std::vector<SymbolicScalar> &viewToDynValidShape = viewAttr->GetToDynValidShape();
         if (viewToDynValidShape.empty()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CheckDynAttrForView failed, toDynValidShape_ of op[%d] in function[%d] is empty.", opMagic, funcMagic);
+            APASS_LOG_ERROR_F(Elements::Operation,
+                "CheckDynAttrForView failed, toDynValidShape_ of op[%d] in function[%d] is empty.", opMagic, funcMagic);
             return FAILED;
         }
     }
@@ -207,7 +214,9 @@ Status Checker::CheckToDynOffsetForAssemble(Function &function) {
         auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(op->GetOpAttribute());
         std::vector<SymbolicScalar> &assembleToDynOffset = assembleAttr->GetToDynOffset();
         if (assembleToDynOffset.empty()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CheckToDynOffsetForAssemble failed, toDynOffset_ of op[%d] in function[%d] is empty.", opMagic, funcMagic);
+            APASS_LOG_ERROR_F(Elements::Operation,
+                "CheckToDynOffsetForAssemble failed, toDynOffset_ of op[%d] in function[%d] is empty.", opMagic,
+                funcMagic);
             return FAILED;
         }
     }
@@ -219,11 +228,14 @@ Status Checker::CheckLocalTensor(Function &function) {
     for (const auto &op : opList) {
         for (auto &iOperand : op->GetIOperands()) {
             if (iOperand == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "The iOperand of op[%d][%s] is null", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "The iOperand of op[%d][%s] is null", op->GetOpMagic(),
+                    op->GetOpcodeStr().c_str());
                 return FAILED;
             }
             if (iOperand->GetProducers().empty() && iOperand->nodetype != NodeType::INCAST) {
-                APASS_LOG_ERROR_F(Elements::Operation, "A locally defined temporary tensor[%d] cannot be used as an input to an operation[%d].", iOperand->GetMagic(), op->GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                    "A locally defined temporary tensor[%d] cannot be used as an input to an operation[%d].",
+                    iOperand->GetMagic(), op->GetOpMagic());
                 return FAILED;
             }
         }

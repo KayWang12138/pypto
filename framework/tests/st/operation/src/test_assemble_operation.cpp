@@ -1677,7 +1677,7 @@ TEST_F(AssembleTest, test_inner_assemble_with_concat) {
     EXPECT_TRUE(resultCmp(dstGolden, (float *)dstResult->data(), eps));
 }
 
-template<typename T>
+template <typename T>
 void TestInnerAssemble() {
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -1755,9 +1755,18 @@ void TestInnerAssemble() {
             auto len = GetTensorData(lens, {idx});
             auto defaultValue = Full(Element(dType, startValue), dType, {1, M}, {1, len}); // full不支持fp16
             auto aView = View(a, {1, M}, {1, M - len}, {idx, len});
-            Assemble({{defaultValue, {0, 0}}, {Assign(aView), {0, len}}}, tmp, true);
+            Assemble(
+                {
+                    { defaultValue,   {0, 0}},
+                    {Assign(aView), {0, len}}
+            },
+                tmp, true);
             tmp = Add(tmp, tmp);
-            Assemble({{tmp, {idx, 0}}}, dst, true);
+            Assemble(
+                {
+                    {tmp, {idx, 0}}
+            },
+                dst, true);
         }
     }
 
@@ -1784,7 +1793,7 @@ TEST_F(AssembleTest, test_inner_assemble_fp32) {
     TestInnerAssemble<float>();
 }
 
-template<typename T>
+template <typename T>
 void TestInnerAssembleByFrameWork() {
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -1854,7 +1863,11 @@ void TestInnerAssembleByFrameWork() {
             auto c = Add(b, b);
             TileShape::Current().SetVecTile(1, 512);
             auto d = Mul(c, b);
-            Assemble({{d, {idx, 0}}}, dst, true);
+            Assemble(
+                {
+                    {d, {idx, 0}}
+            },
+                dst, true);
         }
     }
 
@@ -1881,7 +1894,7 @@ TEST_F(AssembleTest, test_inner_assemble_by_framework_fp32) {
     TestInnerAssembleByFrameWork<float>();
 }
 
-template<typename T>
+template <typename T>
 void TestInnerAssembleMultiLine() {
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -1907,7 +1920,7 @@ void TestInnerAssembleMultiLine() {
     int row = N / 5;
     auto SimuResult = [&row](const std::vector<T> &a, const std::vector<int> &lens, T startValue) {
         ASSERT(a.size() == N * M);
-        ASSERT(lens.size()  * 5 == N);
+        ASSERT(lens.size() * 5 == N);
         std::vector<T> out(N * M, -5.0f);
         for (int i = 0; i < row; i++) {
             for (int j = 0; j < 5; j++) {
@@ -1918,7 +1931,6 @@ void TestInnerAssembleMultiLine() {
                     out[(i * 5 + j) * M + k] = a[(i * 5 + j) * M + k];
                 }
             }
-
         }
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < M; j++) {
@@ -1963,9 +1975,18 @@ void TestInnerAssembleMultiLine() {
             auto len = GetTensorData(lens, {idx});
             auto defaultValue = Full(Element(dType, startValue), dType, {5, M}, {5, len}); // full不支持fp16
             auto aView = View(a, {5, M}, {5, M - len}, {idx * 5, len});
-            Assemble({{defaultValue, {0, 0}}, {Assign(aView), {0, len}}}, tmp, true);
+            Assemble(
+                {
+                    { defaultValue,   {0, 0}},
+                    {Assign(aView), {0, len}}
+            },
+                tmp, true);
             tmp = Add(tmp, tmp);
-            Assemble({{tmp, {idx * 5, 0}}}, dst, true);
+            Assemble(
+                {
+                    {tmp, {idx * 5, 0}}
+            },
+                dst, true);
         }
     }
 
@@ -1992,7 +2013,7 @@ TEST_F(AssembleTest, test_inner_assemble_multi_line_fp32) {
     TestInnerAssembleMultiLine<float>();
 }
 
-template<typename T>
+template <typename T>
 void TestInnerAssembleMultiView() {
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -2101,9 +2122,19 @@ void TestInnerAssembleMultiView() {
             auto aView = View(a, {5, M}, {5, len1}, {idx * 5, 0});
             auto bView = View(b, {5, M}, {5, len2 - len1}, {idx * 5, len1});
             auto cView = View(c, {5, M}, {5, M - len2}, {idx * 5, len2});
-            Assemble({{Assign(aView), {0, 0}}, {Assign(bView), {0, len1}}, {Assign(cView), {0, len2}}}, tmp, true);
+            Assemble(
+                {
+                    {Assign(aView),    {0, 0}},
+                    {Assign(bView), {0, len1}},
+                    {Assign(cView), {0, len2}}
+            },
+                tmp, true);
             tmp = Add(tmp, tmp);
-            Assemble({{tmp, {idx * 5, 0}}}, dst, true);
+            Assemble(
+                {
+                    {tmp, {idx * 5, 0}}
+            },
+                dst, true);
         }
         config::SetPassOption(PG_SKIP_PARTITION, false);
     }

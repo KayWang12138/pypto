@@ -35,7 +35,7 @@ TEST_F(AbsOnBoardTest, test_abs_8_4608) {
     int dstCapacity = dstShape[0] * dstShape[1];
 
     uint64_t outputSize = dstCapacity * sizeof(uint16_t);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("ABS") {
         void *x_ptr = readToDev(GetGoldenDir() + "/abs_x.bin", srcCapacity);
@@ -76,7 +76,7 @@ TEST_F(AbsOnBoardTest, test_abs_8_4609) {
     int dstCapacity = dstShape[0] * dstShape[1];
 
     uint64_t outputSize = dstCapacity * sizeof(uint16_t);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("ABS") {
         void *x_ptr = readToDev(GetGoldenDir() + "/abs_x_not_align.bin", srcCapacity);

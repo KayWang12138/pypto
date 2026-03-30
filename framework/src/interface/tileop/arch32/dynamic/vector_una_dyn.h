@@ -45,7 +45,8 @@ TILEOP void T_UNA(__ubuf__ T *dst, __ubuf__ T *src, unsigned T0, unsigned T1) {
     if (numRemainPerLine) {
         unsigned numLoop = T0 / REPEAT_MAX;
         unsigned remainAfterLoop = T0 % REPEAT_MAX;
-        constexpr bool strideOverFlag = (DS / nElemPerBlock > REPEAT_STRIDE_MAX) || (SS / nElemPerBlock > REPEAT_STRIDE_MAX);
+        constexpr bool strideOverFlag =
+            (DS / nElemPerBlock > REPEAT_STRIDE_MAX) || (SS / nElemPerBlock > REPEAT_STRIDE_MAX);
         SetContinuousMask(numRemainPerLine);
         if (numLoop) {
             for (int i = 0; i < numLoop; i++) {

@@ -202,8 +202,8 @@ std::tuple<Tensor, Tensor> DeepseekAttention::QkvPreCv(Tensor hiddenStates) {
     DataType dType = hiddenStates.GetStorage()->Datatype();
 
     TileShape::Current().SetVecTile(NUM_128, NUM_64);
-    Tensor qAProjW1 = Unsqueeze(qAProjW, 0); // [NUM_256,NUM_512]
-    Tensor qBProjW1 = Unsqueeze(qBProjW, 0); // [NUM_512,2*192]
+    Tensor qAProjW1 = Unsqueeze(qAProjW, 0);                 // [NUM_256,NUM_512]
+    Tensor qBProjW1 = Unsqueeze(qBProjW, 0);                 // [NUM_512,2*192]
     Tensor kvAProjWithMqaW1 = Unsqueeze(kvAProjWithMqaW, 0); // [NUM_256,576]
 
     TileShape::Current().SetCubeTile(
@@ -246,21 +246,21 @@ std::vector<Tensor> DeepseekAttention::QkvPre2(Tensor hiddenStates, bool isQuant
     DataType dTypeQuantOut = isQuant ? DataType::DT_INT32 : dType;
     std::vector<Tensor> qkvPre2Res;
 
-    Tensor input = Reshape(hiddenStates, {bs, h});  // [b,s,h] -> [b*s,h]
+    Tensor input = Reshape(hiddenStates, {bs, h}); // [b,s,h] -> [b*s,h]
 
     int c0 = NUM_16;
     int m = (std::min(NUM_32, bs) + c0 - 1) / c0 * c0;
     int tileM = std::min(NUM_16, m);
     TileShape::Current().SetCubeTile({tileM, tileM}, {NUM_256, NUM_256}, {NUM_128, NUM_128});
     // [b*s,h] * [h,qLoraRank] = [b*s,qLoraRank]
-    Tensor qAProj = Matrix::Matmul(dType, input, qAProjW, false, false);  // bf16
+    Tensor qAProj = Matrix::Matmul(dType, input, qAProjW, false, false); // bf16
 
     TileShape::Current().SetVecTile(std::min(NUM_16, bs), NUM_128);
     Tensor qAProjNorm = RmsNorm(qAProj);
 
     Tensor qAProjNormScaleDequant;
     if (isQuant) {
-        auto qAProjNormQuantRes = Quant(qAProjNorm);    //int8
+        auto qAProjNormQuantRes = Quant(qAProjNorm); // int8
         qAProjNorm = std::get<0>(qAProjNormQuantRes);
         qAProjNormScaleDequant = std::get<1>(qAProjNormQuantRes);
         TileShape::Current().SetCubeTile({tileM, tileM}, {NUM_256, NUM_256}, {NUM_256, NUM_256});
@@ -268,12 +268,12 @@ std::vector<Tensor> DeepseekAttention::QkvPre2(Tensor hiddenStates, bool isQuant
         TileShape::Current().SetCubeTile({m, m}, {NUM_256, NUM_256}, {NUM_64, NUM_64});
     }
     // [b*s,qLoraRank] * [qLoraRank, N*qHeadDim] = [b*s, N*qHeadDim]
-    Tensor q = Matrix::Matmul(dTypeQuantOut, qAProjNorm, qBProjW, false, false);  // bf16  // quant  A8W8O32  ->  bf16
+    Tensor q = Matrix::Matmul(dTypeQuantOut, qAProjNorm, qBProjW, false, false); // bf16  // quant  A8W8O32  ->  bf16
     qkvPre2Res.emplace_back(q);
 
     TileShape::Current().SetCubeTile({m, m}, {NUM_256, NUM_256}, {NUM_64, NUM_64});
     // [b*s,h] * [h,kvLoraRank+qkRopeHeadDim] = [b*s,kvLoraRank+qkRopeHeadDim]
-    Tensor compressedKv = Matrix::Matmul(dType, input, kvAProjWithMqaW, false, false);  // bf16
+    Tensor compressedKv = Matrix::Matmul(dType, input, kvAProjWithMqaW, false, false); // bf16
     Tensor compressedKvRes = Reshape(compressedKv, {b, s, kvLoraRank + qkRopeHeadDim});
     qkvPre2Res.emplace_back(compressedKvRes);
 
@@ -291,38 +291,37 @@ std::tuple<Tensor, Tensor> DeepseekAttention::QkvPreFp32(Tensor hiddenStates) {
     int bs = b * s;
     DataType dType = hiddenStates.GetStorage()->Datatype();
 
-    Tensor input = Reshape(hiddenStates, {bs, h});  // [b,s,h] -> [b*s,h]
+    Tensor input = Reshape(hiddenStates, {bs, h}); // [b,s,h] -> [b*s,h]
 
     TileShape::Current().SetCubeTile(
         {std::min(NUM_64, bs), std::min(NUM_64, bs)}, {NUM_256, NUM_256}, {NUM_128, NUM_128});
     // [b*s,h] * [h,qLoraRank] = [b*s,qLoraRank]
     // [NUM_32*1,NUM_256] * [NUM_256,NUM_512] = [NUM_32*1,NUM_512]
-    Tensor qAProjFp32 = Matrix::Matmul(DataType::DT_FP32, input, qAProjW, false, false);  // fp32
+    Tensor qAProjFp32 = Matrix::Matmul(DataType::DT_FP32, input, qAProjW, false, false); // fp32
 
     TileShape::Current().SetVecTile(NUM_32, NUM_128);
-    Tensor qAProjNormFp32 = RmsNorm(qAProjFp32);  // fp32
+    Tensor qAProjNormFp32 = RmsNorm(qAProjFp32); // fp32
 
     std::vector<int64_t> tileShape = {NUM_32, NUM_128};
     TileShape::Current().SetVecTile(tileShape);
-    Tensor qAProjNorm = Cast(qAProjNormFp32, dType);  // bf16
+    Tensor qAProjNorm = Cast(qAProjNormFp32, dType); // bf16
 
     TileShape::Current().SetCubeTile(
         {std::min(NUM_64, bs), std::min(NUM_64, bs)}, {NUM_256, NUM_256}, {NUM_64, NUM_64});
     // [b*s,qLoraRank] * [qLoraRank, N*qHeadDim] = [b*s, N*qHeadDim]
     // [NUM_32*1,NUM_512] * [NUM_512, 2*192] = [NUM_32*1, 2*192]
-    Tensor qFp32 = Matrix::Matmul(DataType::DT_FP32, qAProjNorm, qBProjW, false, false);  // fp32
+    Tensor qFp32 = Matrix::Matmul(DataType::DT_FP32, qAProjNorm, qBProjW, false, false); // fp32
     Tensor qRes = Reshape(qFp32, {b, s, numHeads, qHeadDim});
 
     TileShape::Current().SetCubeTile(
         {std::min(NUM_64, bs), std::min(NUM_64, bs)}, {NUM_256, NUM_256}, {NUM_64, NUM_64});
     // [b*s,h] * [h,kvLoraRank+qkRopeHeadDim] = [b*s,kvLoraRank+qkRopeHeadDim]
     // [NUM_32*1,NUM_256] * [NUM_256,NUM_512+NUM_64] = [NUM_32*1,NUM_512+NUM_64]
-    Tensor compressedKvFp32 = Matrix::Matmul(DataType::DT_FP32, input, kvAProjWithMqaW, false, false);  // fp32
+    Tensor compressedKvFp32 = Matrix::Matmul(DataType::DT_FP32, input, kvAProjWithMqaW, false, false); // fp32
     Tensor compressedKvRes = Reshape(compressedKvFp32, {b, s, kvLoraRank + qkRopeHeadDim});
 
     return std::tie(qRes, compressedKvRes);
 }
-
 
 // mm/bmm: bf16 in, bf16 out
 Tensor DeepseekAttention::Forward(Tensor hiddenStates, Tensor attenMask, Tensor positionIds, Tensor cos, Tensor sin,
@@ -346,7 +345,7 @@ Tensor DeepseekAttention::Forward(Tensor hiddenStates, Tensor attenMask, Tensor 
 
     // 先View kPe,防止compress_kv变化影响k_pe
     Tensor kPe = View(compressedKv, {b, s, qkRopeHeadDim}, {0, 0, kvLoraRank}); // (b,s,qkRopeHeadDim)
-    compressedKv = View(compressedKv, {b, s, kvLoraRank}, {0, 0, 0});              // (b,s,kvLoraRank)
+    compressedKv = View(compressedKv, {b, s, kvLoraRank}, {0, 0, 0});           // (b,s,kvLoraRank)
     // [b,s, qkRopeHeadDim] -> [b,s, 1,qkRopeHeadDim] -> [b,1,s,qkRopeHeadDim]
     TileShape::Current().SetVecTile(1, NUM_128, NUM_64);
     kPe = Reshape(kPe, {b, 1, s, qkRopeHeadDim}); // setTileShapes 4维
@@ -383,7 +382,7 @@ Tensor DeepseekAttention::Forward(Tensor hiddenStates, Tensor attenMask, Tensor 
     TileShape::Current().SetVecTile(1, 1, NUM_128, NUM_64);
 
     Tensor queryStates = Cat({qNopeNew2, qPeRope}, -1); // (b,numHeads,s, kvLoraRank + qkRopeHeadDim)
-    Tensor keyStates = Cat({kNope, kPeRope}, -1);        // (b,1,s, kvLoraRank + qkRopeHeadDim)
+    Tensor keyStates = Cat({kNope, kPeRope}, -1);       // (b,1,s, kvLoraRank + qkRopeHeadDim)
 
     // pastKeyStates: [b,1,s2, kvLoraRank + qkRopeHeadDim]
     auto pastKeyStatesNew = ScatterUpdate(pastKeyStates, kvLen, keyStates, -2); // 增量
@@ -394,7 +393,7 @@ Tensor DeepseekAttention::Forward(Tensor hiddenStates, Tensor attenMask, Tensor 
 }
 
 // mm/bmm: bf16 in, bf16 out
-std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForward(Tensor hiddenStates, Tensor attenMask,
+std::tuple<Tensor, Tensor> DeepseekAttention::AtentionPreForward(Tensor hiddenStates, Tensor attenMask,
     Tensor positionIds, Tensor cos, Tensor sin, Tensor kvLen, Tensor pastKeyStates,
     const RoPETileShapeConfig &ropeTileShapeConfig) {
     (void)attenMask;
@@ -417,7 +416,7 @@ std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForward(Tensor hiddenS
 
     // 先View kPe,防止compress_kv变化影响k_pe
     Tensor kPe = View(compressedKv, {b, s, qkRopeHeadDim}, {0, 0, kvLoraRank}); // (b,s,qkRopeHeadDim)
-    compressedKv = View(compressedKv, {b, s, kvLoraRank}, {0, 0, 0});              // (b,s,kvLoraRank)
+    compressedKv = View(compressedKv, {b, s, kvLoraRank}, {0, 0, 0});           // (b,s,kvLoraRank)
     // [b,s, qkRopeHeadDim] -> [b,s, 1,qkRopeHeadDim] -> [b,1,s,qkRopeHeadDim]
     TileShape::Current().SetVecTile(1, NUM_128, NUM_64);
     kPe = Reshape(kPe, {b, 1, s, qkRopeHeadDim}); // setTileShapes 4维
@@ -454,7 +453,7 @@ std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForward(Tensor hiddenS
     TileShape::Current().SetVecTile(1, 1, NUM_128, NUM_64);
 
     Tensor queryStates = Cat({qNopeNew2, qPeRope}, -1); // (b,numHeads,s, kvLoraRank + qkRopeHeadDim)
-    Tensor keyStates = Cat({kNope, kPeRope}, -1);        // (b,1,s, kvLoraRank + qkRopeHeadDim)
+    Tensor keyStates = Cat({kNope, kPeRope}, -1);       // (b,1,s, kvLoraRank + qkRopeHeadDim)
 
     // pastKeyStates: [b,1,s2, kvLoraRank + qkRopeHeadDim]
     auto pastKeyStatesNew = ScatterUpdate(pastKeyStates, kvLen, keyStates, -2); // 增量
@@ -463,8 +462,9 @@ std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForward(Tensor hiddenS
 }
 
 // mm/bmm: bf16 in, bf16 out
-std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForwardCv(Tensor hiddenStates, Tensor attenMask, Tensor positionIds,
-        Tensor cos, Tensor sin, Tensor kvLen, Tensor pastKeyStates, const RoPETileShapeConfig &ropeTileShapeConfig) {
+std::tuple<Tensor, Tensor> DeepseekAttention::AtentionPreForwardCv(Tensor hiddenStates, Tensor attenMask,
+    Tensor positionIds, Tensor cos, Tensor sin, Tensor kvLen, Tensor pastKeyStates,
+    const RoPETileShapeConfig &ropeTileShapeConfig) {
     (void)attenMask;
     // hiddenStates: (b,s,h), attention_mask: (b,1,s,s2), positionIds: (b,s)
     int b = hiddenStates.GetShape()[0];
@@ -475,17 +475,17 @@ std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForwardCv(Tensor hidde
     /*** prepare q k v ***/
     // 2_1_32_192 2_1_576
     auto qKv = QkvPreCv(hiddenStates);
-    Tensor q = std::get<0>(qKv); //2_1_32_192
-    Tensor compressedKv = std::get<1>(qKv); //2_1_576
+    Tensor q = std::get<0>(qKv);            // 2_1_32_192
+    Tensor compressedKv = std::get<1>(qKv); // 2_1_576
 
-    Tensor qNope = View(q, {b, s, numHeads, qkNopeHeadDim}, {0, 0, 0, 0}); // 2_1_32_128
+    Tensor qNope = View(q, {b, s, numHeads, qkNopeHeadDim}, {0, 0, 0, 0});           // 2_1_32_128
     Tensor qPe = View(q, {b, s, numHeads, qkRopeHeadDim}, {0, 0, 0, qkNopeHeadDim}); // 2_1_32_64
     TileShape::Current().SetVecTile(NUM_2, 1, NUM_32, NUM_64);
     qPe = Transpose(qPe, {1, 2}); // setTileShapes 4维 2_32_1_64
 
     // 先View kPe,防止compress_kv变化影响k_pe
     Tensor kPe = View(compressedKv, {b, s, qkRopeHeadDim}, {0, 0, kvLoraRank}); // (b,s,qkRopeHeadDim) 2_1_64
-    compressedKv = View(compressedKv, {b, s, kvLoraRank}, {0, 0, 0});              // (b,s,kvLoraRank) 2_1_512
+    compressedKv = View(compressedKv, {b, s, kvLoraRank}, {0, 0, 0});           // (b,s,kvLoraRank) 2_1_512
     // [b,s, qkRopeHeadDim] -> [b,s, 1,qkRopeHeadDim] -> [b,1,s,qkRopeHeadDim]
     TileShape::Current().SetVecTile(NUM_2, 1, NUM_64);
     kPe = Reshape(kPe, {b, 1, s, qkRopeHeadDim}); // setTileShapes 4维 2_1_1_64
@@ -507,7 +507,7 @@ std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForwardCv(Tensor hidde
     TileShape::Current().SetVecTile(1, NUM_32, NUM_512);
     qNopeNew2 = Reshape(qNopeNew2, {b, s, numHeads, kvLoraRank}); // 2_1_32_512
     TileShape::Current().SetVecTile(NUM_2, 1, NUM_32, NUM_256);
-    qNopeNew2 = Transpose(qNopeNew2, {1, 2}); //2_32_1_512
+    qNopeNew2 = Transpose(qNopeNew2, {1, 2}); // 2_32_1_512
 
     TileShape::Current().SetVecTile(NUM_2, 1, NUM_512);
     Tensor kNope = RmsNorm(compressedKv); // (b,s,kvLoraRank) 2_1_512
@@ -522,8 +522,8 @@ std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForwardCv(Tensor hidde
     TileShape::Current().SetVecTile(NUM_2, NUM_32, 1, NUM_64);
     // 2_32_1_512 + 2_32_1_64 = 2_32_1_576
     Tensor queryStates = Cat({qNopeNew2, qPeRope}, -1); // (b,numHeads,s, kvLoraRank + qkRopeHeadDim)
-    //2_32_1_512 + 2_32_1_64 = 2_32_1_576
-    Tensor keyStates = Cat({kNope, kPeRope}, -1);        // (b,1,s, kvLoraRank + qkRopeHeadDim)
+    // 2_32_1_512 + 2_32_1_64 = 2_32_1_576
+    Tensor keyStates = Cat({kNope, kPeRope}, -1); // (b,1,s, kvLoraRank + qkRopeHeadDim)
 
     // pastKeyStates: [b,1,s2, kvLoraRank + qkRopeHeadDim]
     // 2_1_256_576
@@ -541,9 +541,9 @@ std::tuple<Tensor, Tensor> DeepseekAttention::MlaPrologAbForward(Tensor hiddenSt
 
     auto qKv = QkvPre2(hiddenStates, isQuant);
     Tensor q = qKv[0];     // [b,s,n,qHeadDim]
-    Tensor kvTmp = qKv[1];    // [b,s,kvLoraRank+qkRopeHeadDim]
+    Tensor kvTmp = qKv[1]; // [b,s,kvLoraRank+qkRopeHeadDim]
 
-    //dequant int32 -> fp32  -> *scale  -> fp16/bf16
+    // dequant int32 -> fp32  -> *scale  -> fp16/bf16
     if (isQuant) {
         std::vector<int64_t> tileShape = {std::min(NUM_32, bs), NUM_64};
         TileShape::Current().SetVecTile(tileShape);
@@ -573,7 +573,7 @@ std::tuple<Tensor, Tensor> DeepseekAttention::MlaPrologAbForward(Tensor hiddenSt
 
     tileShape = {NUM_16, NUM_2, kvLoraRank};
     TileShape::Current().SetVecTile(tileShape);
-    Tensor qNopeNewT = Transpose(qNopeNew, {0, 1}); // [bs,n,kvLoraRank]
+    Tensor qNopeNewT = Transpose(qNopeNew, {0, 1});                      // [bs,n,kvLoraRank]
     Tensor qNopeNewR = Reshape(qNopeNewT, {b, s, numHeads, kvLoraRank}); // [b,s,n,kvLoraRank]
     tileShape = {NUM_2, 1, NUM_32, kvLoraRank};
     TileShape::Current().SetVecTile(tileShape);
@@ -586,9 +586,8 @@ std::tuple<Tensor, Tensor> DeepseekAttention::MlaPrologAbForward(Tensor hiddenSt
     return {queryStates, kvTmp};
 }
 
-
 std::vector<Tensor> DeepseekAttention::MlaPrologFoward(Tensor hiddenStates, Tensor positionIds, Tensor cos, Tensor sin,
-        Tensor kvLen, Tensor pastKeyStates, const RoPETileShapeConfig &ropeTileShapeConfig, bool isQuant) {
+    Tensor kvLen, Tensor pastKeyStates, const RoPETileShapeConfig &ropeTileShapeConfig, bool isQuant) {
     // hiddenStates: (b,s,h), positionIds: (b,s)
     int b = hiddenStates.GetShape()[0];
     int s = hiddenStates.GetShape()[1];
@@ -597,9 +596,9 @@ std::vector<Tensor> DeepseekAttention::MlaPrologFoward(Tensor hiddenStates, Tens
 
     auto qKv = QkvPre2(hiddenStates, isQuant);
     Tensor q = qKv[0];     // [b,s,n,qHeadDim]
-    Tensor kvTmp = qKv[1];    // [b,s,kvLoraRank+qkRopeHeadDim]
+    Tensor kvTmp = qKv[1]; // [b,s,kvLoraRank+qkRopeHeadDim]
 
-    //dequant int32 -> fp32  -> *scale  -> fp16/bf16
+    // dequant int32 -> fp32  -> *scale  -> fp16/bf16
     if (isQuant) {
         std::vector<int64_t> tileShape = {std::min(NUM_32, bs), NUM_64};
         TileShape::Current().SetVecTile(tileShape);
@@ -629,7 +628,7 @@ std::vector<Tensor> DeepseekAttention::MlaPrologFoward(Tensor hiddenStates, Tens
 
     tileShape = {NUM_16, NUM_2, kvLoraRank};
     TileShape::Current().SetVecTile(tileShape);
-    Tensor qNopeNewT = Transpose(qNopeNew, {0, 1}); // [bs,n,kvLoraRank]
+    Tensor qNopeNewT = Transpose(qNopeNew, {0, 1});                      // [bs,n,kvLoraRank]
     Tensor qNopeNewR = Reshape(qNopeNewT, {b, s, numHeads, kvLoraRank}); // [b,s,n,kvLoraRank]
     tileShape = {NUM_2, 1, NUM_32, kvLoraRank};
     TileShape::Current().SetVecTile(tileShape);
@@ -639,7 +638,7 @@ std::vector<Tensor> DeepseekAttention::MlaPrologFoward(Tensor hiddenStates, Tens
     Tensor compressedKv = View(kvTmp, {b, s, kvLoraRank}, {0, 0, 0}); // [b,s,kvLoraRank]
     tileShape = {NUM_2, 1, NUM_512};
     TileShape::Current().SetVecTile(tileShape);
-    Tensor compressedKvNorm = RmsNorm(compressedKv); // [b,s,kvLoraRank]
+    Tensor compressedKvNorm = RmsNorm(compressedKv);                 // [b,s,kvLoraRank]
     Tensor kNope = Reshape(compressedKvNorm, {b, 1, s, kvLoraRank}); // [b,1,s,kvLoraRank]
 
     /******** RoPE ********/
@@ -655,7 +654,7 @@ std::vector<Tensor> DeepseekAttention::MlaPrologFoward(Tensor hiddenStates, Tens
     Tensor kPeR = Reshape(kPe, {b, 1, s, qkRopeHeadDim}); // [b,1,s,qkRopeHeadDim]
 
     Tensor qPeRope(qPeT.GetStorage()->Datatype(), {b, numHeads, s, qkRopeHeadDim}, "qPeRope"); // [b,n,s,qkRopeHeadDim]
-    Tensor kPeRope(kPeR.GetStorage()->Datatype(), {b, 1, s, qkRopeHeadDim}, "kPeRope"); // [b,1,s,qkRopeHeadDim]
+    Tensor kPeRope(kPeR.GetStorage()->Datatype(), {b, 1, s, qkRopeHeadDim}, "kPeRope");        // [b,1,s,qkRopeHeadDim]
     ApplyRotaryPosEmb(qPeT, kPeR, cos, sin, positionIds, qPeRope, kPeRope, 1, ropeTileShapeConfig);
 
     /******** output q & kv ********/
@@ -677,7 +676,7 @@ std::vector<Tensor> DeepseekAttention::MlaPrologFoward(Tensor hiddenStates, Tens
 }
 
 Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2,
-        Tensor ffnWeight3, int nRoutedExperts) {
+    Tensor ffnWeight3, int nRoutedExperts) {
     // x: (b*s, h), topkIds, topkWeight: (b*s, num_experts_per_tok)
     int bs = topkIds.GetShape(0);
     int expertPerTok = topkIds.GetShape(1);
@@ -694,13 +693,13 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
 
     TileShape::Current().SetVecTile(NUM_128);
     // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
-    Tensor idxs = ArgSort(Reshape(topkIds, { bs * expertPerTok }), -1, false); // (b*s*num_experts_per_tok)
+    Tensor idxs = ArgSort(Reshape(topkIds, {bs * expertPerTok}), -1, false); // (b*s*num_experts_per_tok)
 
     TileShape::Current().SetVecTile({NUM_128, NUM_128});
 
-    Tensor sortedTokens = TensorIndex(x,  Cast(Div(Cast(idxs, DataType::DT_FP32),
-        Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
-        DataType::DT_INT32, CAST_TRUNC));
+    Tensor sortedTokens = TensorIndex(
+        x, Cast(Div(Cast(idxs, DataType::DT_FP32), Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
+               DataType::DT_INT32, CAST_TRUNC));
 
     auto &sortedTokensShape = sortedTokens.GetShape();
 
@@ -721,23 +720,24 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
         }
         const int endIdx = startIdx + numTokens;
         // sortedTokens只有两维
-        Tensor tokensForThisExpert = View(sortedTokens,  { numTokens, sortedTokensShape[1] }, { startIdx, 0 }); // 选出[B, H]
-        std::cout<<"=numTokens===="<<numTokens<<std::endl;
-        for (auto n : tokensForThisExpert.GetShape()){
-            std::cout<<"=tokensForThisExpert.GetShape()"<< n <<std::endl;
+        Tensor tokensForThisExpert = View(sortedTokens, {numTokens, sortedTokensShape[1]}, {startIdx, 0}); // 选出[B, H]
+        std::cout << "=numTokens====" << numTokens << std::endl;
+        for (auto n : tokensForThisExpert.GetShape()) {
+            std::cout << "=tokensForThisExpert.GetShape()" << n << std::endl;
         }
 
         // 这里没有选对应的expert，默认infer模式下所有的expert相同
-        // (numTokens[i], h),每次沿着b*s*num_experts_per_tok的方向不间隔选取num_tokens的大小;最终需要累计选b*s*num_experts_per_tok否则后续计算无法计算
+        // (numTokens[i],
+        // h),每次沿着b*s*num_experts_per_tok的方向不间隔选取num_tokens的大小;最终需要累计选b*s*num_experts_per_tok否则后续计算无法计算
         auto expertOut = expert.Forward(tokensForThisExpert, ffnWeight1, ffnWeight2, ffnWeight3);
         outputs.emplace_back(expertOut);
         startIdx = endIdx;
     }
 
-    Tensor outs = Cat(outputs, 0); // (all_sum_num_tokens, h) = (b*s*num_experts_per_tok, h)
+    Tensor outs = Cat(outputs, 0);                    // (all_sum_num_tokens, h) = (b*s*num_experts_per_tok, h)
     Tensor newX(outs.GetDataType(), outs.GetShape()); // (b*s*num_experts_per_tok, h)
 
-    for (auto n: outs.GetShape()){
+    for (auto n : outs.GetShape()) {
         std::cout << "=outs.GetShape()" << n << std::endl;
     }
     // newX[idxs] = outs  -->index_put: (b*s*num_experts_per_tok, h)[b*s*num_experts_per_tok] =
@@ -752,7 +752,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
 
     std::vector<int64_t> newShape = {bs, expertPerTok, newXSize / (bs * expertPerTok)};
     // (b*s, expertPerTok, h)
-    auto newXShape = Reshape(newX, newShape);  // [128,256] -> [16,8,256]
+    auto newXShape = Reshape(newX, newShape); // [128,256] -> [16,8,256]
     TileShape::Current().SetVecTile(NUM_16, NUM_128, NUM_128);
 
     auto wShapes = topkWeight.GetShape();
@@ -761,8 +761,8 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
     auto newMul = Mul(newXShape, newW);
     // (b*s, expertPerTok, h) * (b*s, expertPerTok, 1) = (b*s, expertPerTok, h)
     auto reduceRes = Sum(newMul, 1, true); // reudce轴1 ->(b*s, 1, h)
-    for (auto n: reduceRes.GetShape()){
-        std::cout << "=reduceRes.GetShape().shape" << n <<std::endl;
+    for (auto n : reduceRes.GetShape()) {
+        std::cout << "=reduceRes.GetShape().shape" << n << std::endl;
     }
 
     auto fOut = Reshape(reduceRes, {bs, newXSize / (bs * expertPerTok)});
@@ -770,8 +770,8 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
     return fOut;
 }
 
-Tensor DeepseekV2MoE::MoeInferSingleMlp(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2,
-        Tensor ffnWeight3, int nRoutedExperts) {
+Tensor DeepseekV2MoE::MoeInferSingleMlp(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1,
+    Tensor ffnWeight2, Tensor ffnWeight3, int nRoutedExperts) {
     // x: (b*s, h), topkIds, topkWeight: (b*s, num_experts_per_tok)
     (void)topkWeight;
     int bs = topkIds.GetShape(0);
@@ -789,15 +789,15 @@ Tensor DeepseekV2MoE::MoeInferSingleMlp(Tensor x, Tensor topkIds, Tensor topkWei
 
     TileShape::Current().SetVecTile(NUM_128);
     // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
-    Tensor idxs = ArgSort(Reshape(topkIds, { bs * expertPerTok }), -1, false); // (b*s*num_experts_per_tok)
+    Tensor idxs = ArgSort(Reshape(topkIds, {bs * expertPerTok}), -1, false); // (b*s*num_experts_per_tok)
 
     TileShape::Current().SetVecTile({NUM_128, NUM_128});
 
     // Tensor((b*s, h))[Tensor(b*s*num_experts_per_tok)] = (b*s*num_experts_per_tok, h)
     // 没有int类型除法 只能先cast成float做完除法再cast回int
-    Tensor sortedTokens = TensorIndex(x,  Cast(Div(Cast(idxs, DataType::DT_FP32),
-        Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
-        DataType::DT_INT32, CAST_TRUNC));
+    Tensor sortedTokens = TensorIndex(
+        x, Cast(Div(Cast(idxs, DataType::DT_FP32), Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
+               DataType::DT_INT32, CAST_TRUNC));
 
     auto &sortedTokensShape = sortedTokens.GetShape();
 
@@ -818,14 +818,15 @@ Tensor DeepseekV2MoE::MoeInferSingleMlp(Tensor x, Tensor topkIds, Tensor topkWei
         }
         const int endIdx = startIdx + numTokens;
         // sortedTokens只有两维
-        Tensor tokensForThisExpert = View(sortedTokens,  { numTokens, sortedTokensShape[1] }, { startIdx, 0 }); // 选出[B, H]
-        std::cout<<"=numTokens===="<<numTokens<<std::endl;
-        for (auto n : tokensForThisExpert.GetShape()){
-            std::cout<<"=tokensForThisExpert.GetShape().shape"<< n <<std::endl;
+        Tensor tokensForThisExpert = View(sortedTokens, {numTokens, sortedTokensShape[1]}, {startIdx, 0}); // 选出[B, H]
+        std::cout << "=numTokens====" << numTokens << std::endl;
+        for (auto n : tokensForThisExpert.GetShape()) {
+            std::cout << "=tokensForThisExpert.GetShape().shape" << n << std::endl;
         }
 
         // 这里没有选对应的expert，默认infer模式下所有的expert相同
-        // (numTokens[i], h),每次沿着b*s*num_experts_per_tok的方向不间隔选取num_tokens的大小;最终需要累计选b*s*num_experts_per_tok否则后续计算无法计算
+        // (numTokens[i],
+        // h),每次沿着b*s*num_experts_per_tok的方向不间隔选取num_tokens的大小;最终需要累计选b*s*num_experts_per_tok否则后续计算无法计算
         auto expertOut = expert.Forward(tokensForThisExpert, ffnWeight1, ffnWeight2, ffnWeight3);
         outputs.emplace_back(expertOut);
         startIdx = endIdx;
@@ -835,8 +836,9 @@ Tensor DeepseekV2MoE::MoeInferSingleMlp(Tensor x, Tensor topkIds, Tensor topkWei
     return outs;
 }
 
-Tensor DeepseekV2MoE::MoeInferSingleMlpQuant(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2,
-        Tensor ffnWeight3, Tensor ffnwight1Scale, Tensor ffnwight2Scale,Tensor ffnwight3Scale, int nRoutedExperts) {
+Tensor DeepseekV2MoE::MoeInferSingleMlpQuant(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1,
+    Tensor ffnWeight2, Tensor ffnWeight3, Tensor ffnwight1Scale, Tensor ffnwight2Scale, Tensor ffnwight3Scale,
+    int nRoutedExperts) {
     (void)topkWeight;
     int bs = topkIds.GetShape(0);
     int expertPerTok = topkIds.GetShape(1);
@@ -853,15 +855,15 @@ Tensor DeepseekV2MoE::MoeInferSingleMlpQuant(Tensor x, Tensor topkIds, Tensor to
 
     TileShape::Current().SetVecTile(NUM_128);
     // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
-    Tensor idxs = ArgSort(Reshape(topkIds, { bs * expertPerTok }), -1, false); // (b*s*num_experts_per_tok)
+    Tensor idxs = ArgSort(Reshape(topkIds, {bs * expertPerTok}), -1, false); // (b*s*num_experts_per_tok)
 
     TileShape::Current().SetVecTile({NUM_32, NUM_512});
 
     // Tensor((b*s, h))[Tensor(b*s*num_experts_per_tok)] = (b*s*num_experts_per_tok, h)
     // 没有int类型除法 只能先cast成float做完除法再cast回int
-    Tensor sortedTokens = TensorIndex(x,  Cast(Div(Cast(idxs, DataType::DT_FP32),
-        Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
-        DataType::DT_INT32, CAST_TRUNC));
+    Tensor sortedTokens = TensorIndex(
+        x, Cast(Div(Cast(idxs, DataType::DT_FP32), Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
+               DataType::DT_INT32, CAST_TRUNC));
 
     TileShape::Current().SetVecTile({NUM_256, NUM_256});
     auto &sortedTokensShape = sortedTokens.GetShape();
@@ -883,15 +885,17 @@ Tensor DeepseekV2MoE::MoeInferSingleMlpQuant(Tensor x, Tensor topkIds, Tensor to
         }
         const int endIdx = startIdx + numTokens;
         // sortedTokens只有两维
-        Tensor tokensForThisExpert = View(sortedTokens,  { numTokens, sortedTokensShape[1] }, { startIdx, 0 }); // 选出[B, H]
-        std::cout<<"=numTokens===="<<numTokens<<std::endl;
-        for (auto n : tokensForThisExpert.GetShape()){
-            std::cout<<"=tokensForThisExpert.GetShape().shape"<< n <<std::endl;
+        Tensor tokensForThisExpert = View(sortedTokens, {numTokens, sortedTokensShape[1]}, {startIdx, 0}); // 选出[B, H]
+        std::cout << "=numTokens====" << numTokens << std::endl;
+        for (auto n : tokensForThisExpert.GetShape()) {
+            std::cout << "=tokensForThisExpert.GetShape().shape" << n << std::endl;
         }
 
         // 这里没有选对应的expert，默认infer模式下所有的expert相同
-        // (numTokens[i], h),每次沿着b*s*num_experts_per_tok的方向不间隔选取num_tokens的大小;最终需要累计选b*s*num_experts_per_tok否则后续计算无法计算
-        auto expertOut = expert.ForwardWithQuant(tokensForThisExpert, ffnWeight1, ffnWeight2, ffnWeight3, ffnwight1Scale, ffnwight2Scale, ffnwight3Scale);
+        // (numTokens[i],
+        // h),每次沿着b*s*num_experts_per_tok的方向不间隔选取num_tokens的大小;最终需要累计选b*s*num_experts_per_tok否则后续计算无法计算
+        auto expertOut = expert.ForwardWithQuant(
+            tokensForThisExpert, ffnWeight1, ffnWeight2, ffnWeight3, ffnwight1Scale, ffnwight2Scale, ffnwight3Scale);
         outputs.emplace_back(expertOut);
         startIdx = endIdx;
     }
@@ -900,8 +904,8 @@ Tensor DeepseekV2MoE::MoeInferSingleMlpQuant(Tensor x, Tensor topkIds, Tensor to
     return outs;
 }
 
-Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2, Tensor ffnWeight3,
-        Tensor &idxs, Tensor &sortedTokens, Tensor &outs, int nRoutedExperts) {
+Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2,
+    Tensor ffnWeight3, Tensor &idxs, Tensor &sortedTokens, Tensor &outs, int nRoutedExperts) {
     // x: (b*s, h), topkIds, topkWeight: (b*s, numExpertsPerTok)
     int bs = topkIds.GetShape(0);
     int expertPerTok = topkIds.GetShape(1);
@@ -918,13 +922,13 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
 
     TileShape::Current().SetVecTile(NUM_128);
     // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
-    idxs = ArgSort(Reshape(topkIds, { bs * expertPerTok }), -1, false); // (b*s*numExpertsPerTok)
+    idxs = ArgSort(Reshape(topkIds, {bs * expertPerTok}), -1, false); // (b*s*numExpertsPerTok)
 
     TileShape::Current().SetVecTile({NUM_64, NUM_64});
 
-    sortedTokens = TensorIndex(x,  Cast(Div(Cast(idxs, DataType::DT_FP32),
-        Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
-        DataType::DT_INT32, CAST_TRUNC));
+    sortedTokens = TensorIndex(
+        x, Cast(Div(Cast(idxs, DataType::DT_FP32), Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
+               DataType::DT_INT32, CAST_TRUNC));
 
     auto &sortedTokensShape = sortedTokens.GetShape();
 
@@ -945,24 +949,25 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
         }
         const int endIdx = startIdx + numTokens;
         // sorted_tokens只有两维
-        Tensor tokensForThisExpert = View(sortedTokens,  { numTokens, sortedTokensShape[1] }, { startIdx, 0 }); // 选出[B, H]
-        std::cout<<"=numTokens===="<<numTokens<<std::endl;
+        Tensor tokensForThisExpert = View(sortedTokens, {numTokens, sortedTokensShape[1]}, {startIdx, 0}); // 选出[B, H]
+        std::cout << "=numTokens====" << numTokens << std::endl;
         for (auto n : tokensForThisExpert.GetShape()) {
-            std::cout<<"=tokensForThisExpert.GetShape().shape"<< n <<std::endl;
+            std::cout << "=tokensForThisExpert.GetShape().shape" << n << std::endl;
         }
 
         // 这里没有选对应的expert，默认infer模式下所有的expert相同
-        // (numTokens[i], h),每次沿着b*s*num_experts_per_tok的方向不间隔选取num_tokens的大小;最终需要累计选b*s*num_experts_per_tok否则后续计算无法计算
+        // (numTokens[i],
+        // h),每次沿着b*s*num_experts_per_tok的方向不间隔选取num_tokens的大小;最终需要累计选b*s*num_experts_per_tok否则后续计算无法计算
         auto expertOut = expert.Forward(tokensForThisExpert, ffnWeight1, ffnWeight2, ffnWeight3);
         outputs.emplace_back(expertOut);
         startIdx = endIdx;
     }
 
-    outs = Cat(outputs, 0); // (all_sum_num_tokens, h) = (b*s*numExpertsPerTok, h)
+    outs = Cat(outputs, 0);                           // (all_sum_num_tokens, h) = (b*s*numExpertsPerTok, h)
     Tensor newX(outs.GetDataType(), outs.GetShape()); // (b*s*numExpertsPerTok, h)
 
-    for (auto n : outs.GetShape()){
-        std::cout<<"=outs.GetShape().shape"<< n <<std::endl;
+    for (auto n : outs.GetShape()) {
+        std::cout << "=outs.GetShape().shape" << n << std::endl;
     }
     TileShape::Current().SetVecTile({NUM_128, NUM_128});
     // newX[idxs] = outs  -->index_put: (b*s*numExpertsPerTok, h)[b*s*numExpertsPerTok] =
@@ -973,11 +978,11 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
 
     int newXSize = std::accumulate(
         newX.GetShape().begin(), newX.GetShape().end(), 1, [](const int &a, const int &b) { return a * b; });
-    std::cout<<"===newXSize"<<newXSize<<std::endl;
+    std::cout << "===newXSize" << newXSize << std::endl;
 
     std::vector<int64_t> newShape = {bs, expertPerTok, newXSize / (bs * expertPerTok)};
     // (b*s, expertPerTok, h)
-    auto newXShape = Reshape(newX, newShape);  // [128,256] -> [16,8,256]
+    auto newXShape = Reshape(newX, newShape); // [128,256] -> [16,8,256]
     TileShape::Current().SetVecTile(NUM_16, NUM_64, NUM_64);
 
     auto wShape = topkWeight.GetShape();
@@ -986,8 +991,8 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
     auto newMul = Mul(newXShape, newW);
     // (b*s, expertPerTok, h) * (b*s, expertPerTok, 1) = (b*s, expertPerTok, h)
     auto reduceRes = Sum(newMul, 1, true); // reudce轴1 ->(b*s, 1, h)
-    for (auto n : reduceRes.GetShape()){
-        std::cout<<"=reduceRes.GetShape().shape"<< n <<std::endl;
+    for (auto n : reduceRes.GetShape()) {
+        std::cout << "=reduceRes.GetShape().shape" << n << std::endl;
     }
 
     auto fOut = Reshape(reduceRes, {bs, newXSize / (bs * expertPerTok)});
@@ -1015,7 +1020,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, int 
 
     // Tensor((b*s, h))[Tensor(b*s*numExpertsPerTok)] = (b*s*numExpertsPerTok, h)
     Tensor sortedTokens = TensorIndex(x, Div(idxs, Element(DataType::DT_FP32,
-        static_cast<double>(expertPerTok)))); // int64除法
+                                                       static_cast<double>(expertPerTok)))); // int64除法
     auto &sortedTokensShape = sortedTokens.GetShape();
 
     // tokensPerExpertCpu = tokensPerExpert.cpu().numpy(); 手动设置规避动态图
@@ -1045,7 +1050,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, int 
     }
 
     // newX = torch.empty_like(outs)
-    auto outs = Cat(outputs, 0); // (all_sum_num_tokens, h) = (b*s*numExpertsPerTok, h)
+    auto outs = Cat(outputs, 0);                      // (all_sum_num_tokens, h) = (b*s*numExpertsPerTok, h)
     Tensor newX(outs.GetDataType(), outs.GetShape()); // (b*s*numExpertsPerTok, h)
 
     // newX[idxs] = outs  -->index_put: (b*s*numExpertsPerTok, h)[b*s*numExpertsPerTok] =
@@ -1067,7 +1072,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, int 
     auto newMul = Mul(newl, newW);
     // (b*s, expertPerTok, h) * (b*s, expertPerTok, 1) = (b*s, expertPerTok, h)
     auto fOut = Cast(Sum(newMul, 1, true), newX.GetDataType()); // reudce轴1 ->(b*s, h)
-    TileShape::Current().SetVecTile(NUM_128, NUM_64);              // for Assemble
+    TileShape::Current().SetVecTile(NUM_128, NUM_64);           // for Assemble
 
     return fOut;
 }
@@ -1076,13 +1081,13 @@ Tensor DeepseekV2MoE::Forward(Tensor hiddenStates) {
     const Tensor identity = hiddenStates;
     const std::vector<int64_t> &origShape = hiddenStates.GetShape();
 
-    auto moeGateRes = moeGate.Forward(hiddenStates);   // hiddenStates: (b*s, h)
+    auto moeGateRes = moeGate.Forward(hiddenStates);    // hiddenStates: (b*s, h)
     const Tensor &topkIdx = std::get<0>(moeGateRes);    // (b*s, numExpertsPerTok)
     const Tensor &topkWeight = std::get<1>(moeGateRes); // (b*s, numExpertsPerTok)
 
     // MoeInfer
     Tensor inferRes = MoeInfer(hiddenStates, topkIdx, topkWeight);
-    inferRes = Reshape(inferRes, origShape); // (b*s, h)
+    inferRes = Reshape(inferRes, origShape);                  // (b*s, h)
     const Tensor &sharedMlp = sharedExpert.Forward(identity); // (b, s, h)
 
     return Add(inferRes, sharedMlp);
@@ -1093,8 +1098,9 @@ std::tuple<Tensor, Tensor> MoEGate::Forward(const Tensor &hiddenStates) {
     int bs = hiddenStates.GetShape()[0];
 
     /* compute gating score */
-    auto logits = Matrix::Matmul(DataType::DT_FP32, hiddenStates, weight, false, true); // [b*s,h] @ [nRoutedExperts,h].t -> [b*s,256]
-    auto scores = Sigmoid(logits);                          // [b*s,256]
+    auto logits = Matrix::Matmul(
+        DataType::DT_FP32, hiddenStates, weight, false, true); // [b*s,h] @ [nRoutedExperts,h].t -> [b*s,256]
+    auto scores = Sigmoid(logits);                             // [b*s,256]
 
     /* select top-k experts */
     auto scoresForChoice = Add(scores, eScoreCorrectionBias);
@@ -1102,8 +1108,7 @@ std::tuple<Tensor, Tensor> MoEGate::Forward(const Tensor &hiddenStates) {
     // groupScores = (View(scoresForChoice, bsz * seq_len, self.nGroup, -1).topk(2, dim=-1)[0].sum())
     // groupIdx = torch.topk(groupScores, k=self.topkGroup, dim=-1, sorted=False)[1]
     std::vector<int64_t> shape = {
-        scoresForChoice.GetShape()[0] * nGroup, scoresForChoice.GetShape()[1] / nGroup
-    }; // [b*s,256]->[b*s*8,32]
+        scoresForChoice.GetShape()[0] * nGroup, scoresForChoice.GetShape()[1] / nGroup}; // [b*s,256]->[b*s*8,32]
     auto scoresForChoiceNewShape = Reshape(scoresForChoice, shape);
     auto scoresForChoiceIndex = std::get<0>(TopK(scoresForChoiceNewShape, 2, -1));
     // [b*s*8,32]->[b*s*8,2]
@@ -1121,8 +1126,9 @@ std::tuple<Tensor, Tensor> MoEGate::Forward(const Tensor &hiddenStates) {
     // scoreMask
     int dim0 = groupMaskScatter.GetShape()[0] * groupMaskScatter.GetShape()[1];
 
-    auto scoreMask = Expand(Reshape(groupMaskScatter, {dim0, 1}), {dim0, nRoutedExperts / nGroup}); // [b*s*8,1] -> [b*s*8,32]
-    scoreMask = Reshape(scoreMask, {bs, nRoutedExperts}); // [b*s*8,32]->[b*s,256]
+    auto scoreMask =
+        Expand(Reshape(groupMaskScatter, {dim0, 1}), {dim0, nRoutedExperts / nGroup}); // [b*s*8,1] -> [b*s*8,32]
+    scoreMask = Reshape(scoreMask, {bs, nRoutedExperts});                              // [b*s*8,32]->[b*s,256]
     auto scoreMaskNot = Mul(scoreMask, Element(DataType::DT_FP32, F_NEGA_1));
 
     // // tmpScores = scoresForChoice.masked_fill(~scoreMask.bool(), 0.0)
@@ -1135,7 +1141,7 @@ std::tuple<Tensor, Tensor> MoEGate::Forward(const Tensor &hiddenStates) {
 
     /* norm gate to sum 1 */
     // denominator = topkWeight.sum(dim=-1, keepdim=True) + 1e-20
-    auto topkWeightSum = Sum(topkWeight, 1, true);      // [b*s,8]->[b*s,1]
+    auto topkWeightSum = Sum(topkWeight, 1, true);                               // [b*s,8]->[b*s,1]
     auto denominator = Add(topkWeightSum, Element(DataType::DT_FP32, DF_1E_20)); // [b*s,1]
     // topkWeight = topkWeight / denominator
     topkWeight = Div(topkWeight, denominator); // [b*s,numExpertsPerTok]
@@ -1149,16 +1155,15 @@ std::tuple<Tensor, Tensor> MoEGate::Forward(const Tensor &hiddenStates) {
 Tensor DeepseekV2MLP::Forward(Tensor x) {
     // x 可能多维
     auto &xShape = x.GetShape();
-    auto mSize =
-        std::accumulate(xShape.begin(), xShape.end() - 1, 1, [](const int &a, const int &b) { return a * b; });
+    auto mSize = std::accumulate(xShape.begin(), xShape.end() - 1, 1, [](const int &a, const int &b) { return a * b; });
 
     if (xShape.size() > NUM_2) {
         x = Reshape(x, {mSize, xShape[xShape.size() - 1]});
     }
     const Tensor &gateProj = Matrix::Matmul(DataType::DT_FP32, x, gateProjW, false, false);
     // Silu
-    const Tensor &gateSilu = Div(gateProj, Add(Exp(Mul(gateProj, Element(DataType::DT_FP32, F_NEGA_1))),
-        Element(DataType::DT_FP32, F_1)));
+    const Tensor &gateSilu =
+        Div(gateProj, Add(Exp(Mul(gateProj, Element(DataType::DT_FP32, F_NEGA_1))), Element(DataType::DT_FP32, F_1)));
     const Tensor &upProj = Matrix::Matmul(DataType::DT_FP32, x, upProjW, false, false);
     const Tensor &mul = Mul(gateSilu, upProj);
     // (x.shape[:-1], intermediateSize) * (intermediateSize, hiddenSize) = (x.shape[:-1], hiddenSize)
@@ -1167,12 +1172,13 @@ Tensor DeepseekV2MLP::Forward(Tensor x) {
         downProj = Reshape(downProj, xShape);
     }
     return downProj;
-    }
+}
 
 Tensor DeepseekV2MLP::Forward(Tensor x, Tensor ffnWeight1, Tensor ffnWeight2, Tensor ffnWeight3) {
     // static ffn
     auto castRes = Cast(x, DataType::DT_FP16);
-    auto gate = Matrix::Matmul(DataType::DT_FP32, castRes, ffnWeight1, false, false);  // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
+    auto gate =
+        Matrix::Matmul(DataType::DT_FP32, castRes, ffnWeight1, false, false); // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
 
     // swish: x / (1 + e^(-x))
     auto swish = Mul(gate, Element(DataType::DT_FP32, F_NEGA_1));
@@ -1181,17 +1187,20 @@ Tensor DeepseekV2MLP::Forward(Tensor x, Tensor ffnWeight1, Tensor ffnWeight2, Te
     swish = Div(gate, swish);
 
     // upProj
-    auto up = Matrix::Matmul(DataType::DT_FP32, castRes, ffnWeight2, false, false);  // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
+    auto up =
+        Matrix::Matmul(DataType::DT_FP32, castRes, ffnWeight2, false, false); // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
     swish = Mul(swish, up);
     auto swishFp16 = Cast(swish, DataType::DT_FP16);
 
     // downProj
-    Tensor res = Matrix::Matmul(DataType::DT_FP32, swishFp16, ffnWeight3, false, true);  // [b*s, n*d*3] [n*d, n*d*3]^T => [b*s, n*d]
+    Tensor res = Matrix::Matmul(
+        DataType::DT_FP32, swishFp16, ffnWeight3, false, true); // [b*s, n*d*3] [n*d, n*d*3]^T => [b*s, n*d]
 
     return res;
 }
 
-Tensor DeepseekV2MLP::ForwardWithQuant(Tensor x, Tensor ffnWeight1, Tensor ffnWeight2, Tensor ffnWeight3, Tensor ffnwight1Scale, Tensor ffnwight2Scale,Tensor ffnwight3Scale) {
+Tensor DeepseekV2MLP::ForwardWithQuant(Tensor x, Tensor ffnWeight1, Tensor ffnWeight2, Tensor ffnWeight3,
+    Tensor ffnwight1Scale, Tensor ffnwight2Scale, Tensor ffnwight3Scale) {
     // static ffn
     // quant
     TileShape::Current().SetVecTile({NUM_32, NUM_512});

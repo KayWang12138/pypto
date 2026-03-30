@@ -29,40 +29,34 @@ struct MockLogger {
     LogContext ctx{};
     std::string buffer;
 
-    static void PrintInt(LogContext *c, __gm__ const char ** /*fmt*/, int64_t val)
-    {
+    static void PrintInt(LogContext *c, __gm__ const char ** /*fmt*/, int64_t val) {
         auto self = reinterpret_cast<MockLogger *>(c);
         self->buffer += std::to_string(val);
     }
 
-    static void PrintFp32(LogContext *c, __gm__ const char ** /*fmt*/, float val)
-    {
+    static void PrintFp32(LogContext *c, __gm__ const char ** /*fmt*/, float val) {
         auto self = reinterpret_cast<MockLogger *>(c);
         self->buffer += std::to_string(val);
     }
 
-    static void PrintBf16(LogContext *c, __gm__ const char ** /*fmt*/, uint16_t rawBits)
-    {
+    static void PrintBf16(LogContext *c, __gm__ const char ** /*fmt*/, uint16_t rawBits) {
         auto self = reinterpret_cast<MockLogger *>(c);
         self->buffer += std::to_string(DecodeBf16(rawBits));
     }
 
-    static void PrintFp16(LogContext *c, __gm__ const char ** /*fmt*/, uint16_t rawBits)
-    {
+    static void PrintFp16(LogContext *c, __gm__ const char ** /*fmt*/, uint16_t rawBits) {
         auto self = reinterpret_cast<MockLogger *>(c);
         self->buffer += std::to_string(DecodeF16(rawBits));
     }
 
-    static void Print(LogContext *c, __gm__ const char *fmt)
-    {
+    static void Print(LogContext *c, __gm__ const char *fmt) {
         auto self = reinterpret_cast<MockLogger *>(c);
         if (fmt != nullptr) {
             self->buffer += fmt;
         }
     }
 
-    MockLogger()
-    {
+    MockLogger() {
         ctx.PrintInt = &MockLogger::PrintInt;
         ctx.PrintFp32 = &MockLogger::PrintFp32;
         ctx.PrintBf16 = &MockLogger::PrintBf16;
@@ -73,8 +67,7 @@ struct MockLogger {
 
 } // namespace
 
-TEST(AiCorePrintUTest, DecodeF16BasicValues)
-{
+TEST(AiCorePrintUTest, DecodeF16BasicValues) {
     // 0.0
     EXPECT_FLOAT_EQ(0.0f, DecodeF16(0x0000u));
     // 1.0 -> 0x3C00
@@ -83,8 +76,7 @@ TEST(AiCorePrintUTest, DecodeF16BasicValues)
     EXPECT_NEAR(-2.0f, DecodeF16(0xC000u), 1e-6f);
 }
 
-TEST(AiCorePrintUTest, DecodeBf16BasicValues)
-{
+TEST(AiCorePrintUTest, DecodeBf16BasicValues) {
     // 0.0
     EXPECT_FLOAT_EQ(0.0f, DecodeBf16(0x0000u));
     // 1.0f -> 0x3F80 for BF16 (high 16 bits of 0x3F800000)
@@ -93,8 +85,7 @@ TEST(AiCorePrintUTest, DecodeBf16BasicValues)
     EXPECT_NEAR(-1.0f, DecodeBf16(0xBF80u), 1e-6f);
 }
 
-TEST(AiCorePrintUTest, PrintFp16DecodedValue)
-{
+TEST(AiCorePrintUTest, PrintFp16DecodedValue) {
     MockLogger logger;
 
     // 1.5 in FP16: sign=0, exp=15+1, mant=0x200 -> bits 0x3E00
@@ -104,12 +95,10 @@ TEST(AiCorePrintUTest, PrintFp16DecodedValue)
     AiCoreLogF(&logger.ctx, "%f", v);
 
     // Expect that printed value is close to 1.5
-    EXPECT_NE(std::string::npos, logger.buffer.find("1.5"))
-        << "buffer: " << logger.buffer;
+    EXPECT_NE(std::string::npos, logger.buffer.find("1.5")) << "buffer: " << logger.buffer;
 }
 
-TEST(AiCorePrintUTest, PrintBf16DecodedValue)
-{
+TEST(AiCorePrintUTest, PrintBf16DecodedValue) {
     MockLogger logger;
 
     // 2.0f -> BF16 0x4000 (high 16 bits of 0x40000000)
@@ -119,12 +108,10 @@ TEST(AiCorePrintUTest, PrintBf16DecodedValue)
     AiCoreLogF(&logger.ctx, "%f", v);
 
     // Expect that printed value is close to 2.0
-    EXPECT_NE(std::string::npos, logger.buffer.find("2"))
-        << "buffer: " << logger.buffer;
+    EXPECT_NE(std::string::npos, logger.buffer.find("2")) << "buffer: " << logger.buffer;
 }
 
-TEST(AiCorePrintUTest, PrintIntAndFloat)
-{
+TEST(AiCorePrintUTest, PrintIntAndFloat) {
     MockLogger logger;
     const char *dummyFmt = "%d";
     __gm__ const char *fmtPtr = dummyFmt;
@@ -139,8 +126,7 @@ TEST(AiCorePrintUTest, PrintIntAndFloat)
     EXPECT_NE(std::string::npos, logger.buffer.find("3.5"));
 }
 
-TEST(AiCorePrintUTest, AiCorePrintGmTensorFloat)
-{
+TEST(AiCorePrintUTest, AiCorePrintGmTensorFloat) {
     MockLogger logger;
 
     float data[3] = {1.0f, 2.0f, 3.5f};
@@ -155,8 +141,7 @@ TEST(AiCorePrintUTest, AiCorePrintGmTensorFloat)
 }
 
 #if defined(__TILE_FWK_AICORE__) && defined(TILEOP_UTILS_TUPLE_H)
-TEST(AiCorePrintUTest, AiCorePrintShape2D)
-{
+TEST(AiCorePrintUTest, AiCorePrintShape2D) {
     MockLogger logger;
     TileOp::Shape<int64_t, int64_t> shape = {3, 5};
 

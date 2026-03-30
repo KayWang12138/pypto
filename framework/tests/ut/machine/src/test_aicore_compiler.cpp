@@ -39,14 +39,12 @@ const std::string TEST_TMP_DIR = "/tmp/test_aicore_compiler";
 class TestAicoreCompiler : public testing::Test {
 public:
     void SetUp() override {}
-    static void SetUpTestCase() {
-        CreateMultiLevelDir(TEST_TMP_DIR);
-    }
+    static void SetUpTestCase() { CreateMultiLevelDir(TEST_TMP_DIR); }
 
     void TearDown() override {}
     static void TearDownTestCase() {
         std::string cmd = "rm -rf " + TEST_TMP_DIR;
-        [[maybe_unused]]int ret = system(cmd.c_str());
+        [[maybe_unused]] int ret = system(cmd.c_str());
     }
 };
 

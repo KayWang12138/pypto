@@ -37,7 +37,8 @@ public:
     const std::vector<SymbolicScalar> &GetDynOffset() const { return dynOffset_; }
     template <typename Tret, typename Tlhs, typename Trhs>
     static std::vector<Tret> AddRaw(const std::vector<Tlhs> &lhs, const std::vector<Trhs> &rhs) {
-        FUNCTION_ASSERT(FError::INVALID_VAL, lhs.size() == rhs.size()) << "lhs.size():" << lhs.size() << ", rhs.size():" << rhs.size();
+        FUNCTION_ASSERT(FError::INVALID_VAL, lhs.size() == rhs.size())
+            << "lhs.size():" << lhs.size() << ", rhs.size():" << rhs.size();
         std::vector<Tret> ret(lhs.size());
         for (size_t k = 0; k < lhs.size(); k++) {
             ret[k] = lhs[k] + rhs[k];
@@ -48,12 +49,10 @@ public:
     static std::vector<int64_t> Add(const std::vector<int64_t> &lhs, const std::vector<int64_t> &rhs) {
         return AddRaw<int64_t, int64_t, int64_t>(lhs, rhs);
     }
-    static std::vector<SymbolicScalar> Add(
-            const std::vector<SymbolicScalar> &lhs, const std::vector<int64_t> &rhs) {
+    static std::vector<SymbolicScalar> Add(const std::vector<SymbolicScalar> &lhs, const std::vector<int64_t> &rhs) {
         return AddRaw<SymbolicScalar, SymbolicScalar, int64_t>(lhs, rhs);
     }
-    static std::vector<SymbolicScalar> Add(
-            const std::vector<int64_t> &lhs, const std::vector<SymbolicScalar> &rhs) {
+    static std::vector<SymbolicScalar> Add(const std::vector<int64_t> &lhs, const std::vector<SymbolicScalar> &rhs) {
         return AddRaw<SymbolicScalar, int64_t, SymbolicScalar>(lhs, rhs);
     }
     static std::vector<SymbolicScalar> Add(
@@ -84,7 +83,8 @@ public:
     }
 
     static std::vector<int64_t> Sub(const std::vector<int64_t> &lhs, const std::vector<int64_t> &rhs) {
-        FUNCTION_ASSERT(FError::INVALID_VAL, lhs.size() == rhs.size()) << "lhs.size():" << lhs.size() << ", rhs.size():" << rhs.size();
+        FUNCTION_ASSERT(FError::INVALID_VAL, lhs.size() == rhs.size())
+            << "lhs.size():" << lhs.size() << ", rhs.size():" << rhs.size();
         std::vector<int64_t> result(lhs.size());
         std::transform(lhs.begin(), lhs.end(), rhs.begin(), result.begin(), [](int a, int b) { return a - b; });
         return result;
@@ -94,7 +94,8 @@ public:
         if (lhs.size() == 0) {
             return {};
         }
-        FUNCTION_ASSERT(FError::INVALID_VAL, lhs.size() == rhs.size()) << "lhs.size():" << lhs.size() << ", rhs.size():" << rhs.size();
+        FUNCTION_ASSERT(FError::INVALID_VAL, lhs.size() == rhs.size())
+            << "lhs.size():" << lhs.size() << ", rhs.size():" << rhs.size();
         std::vector<SymbolicScalar> result(lhs.size());
         std::transform(
             lhs.begin(), lhs.end(), rhs.begin(), result.begin(), [](const SymbolicScalar &a, int b) { return a - b; });
@@ -105,4 +106,4 @@ public:
     const std::vector<int64_t> &offset_;
     const std::vector<SymbolicScalar> &dynOffset_;
 };
-}
+} // namespace npu::tile_fwk

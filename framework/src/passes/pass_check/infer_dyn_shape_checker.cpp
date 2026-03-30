@@ -22,7 +22,7 @@ namespace npu {
 namespace tile_fwk {
 Status InferDynShapeChecker::DoPostCheck(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "PostCheck for InferDynShape.");
-    for (const auto& op : function.Operations()) {
+    for (const auto &op : function.Operations()) {
         if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode())) {
             const std::shared_ptr<OpAttribute> &attr = op.GetOpAttribute();
             if (attr == nullptr) {
@@ -31,12 +31,12 @@ Status InferDynShapeChecker::DoPostCheck(Function &function) {
             }
             std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
             if (copyAttr->GetToDynValidShape().empty()) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Op %s[%d] has no dyn to shape attr.",
-                    op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "Op %s[%d] has no dyn to shape attr.", op.GetOpcodeStr().c_str(),
+                    op.GetOpMagic());
                 return FAILED;
             }
         }
-        for (const auto& opOut : op.GetOOperands()) {
+        for (const auto &opOut : op.GetOOperands()) {
             if (opOut->GetDynValidShape().empty()) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Op %s[%d] output [%d] has no dynamic valid shape.",
                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), opOut->GetMagic());

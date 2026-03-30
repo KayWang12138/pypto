@@ -57,16 +57,16 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
     auto kDtype = cmpKvCache.GetStorage()->Datatype();
 
     const int b = cmpBlockTable.GetShape()[SHAPE_DIM0];
-    ASSERT(n1 !=0) << "n1 can't be zero!";
+    ASSERT(n1 != 0) << "n1 can't be zero!";
     const int s1 = qNope.GetShape()[SHAPE_DIM0] / b / n1;
 
     const int dN = qNope.GetShape()[SHAPE_DIM1];
     const int dR = qRope.GetShape()[SHAPE_DIM1];
     const int dQK = dN + dR;
     const int maxCmpBlock = cmpBlockTable.GetShape()[SHAPE_DIM1];
-    ASSERT(cmpStride !=0) << "n1 can't be zero!";
+    ASSERT(cmpStride != 0) << "n1 can't be zero!";
     const int slcSize = slcBlockSize / cmpStride;
-    ASSERT(slcSize !=0) << "slcSize can't be zero!";
+    ASSERT(slcSize != 0) << "slcSize can't be zero!";
     const int blockSlcNum = blockSize / slcSize;
     const int cmpSize = cmpBlockSize / cmpStride;
     const int slcWindow = slcSize + cmpSize - 1;
@@ -88,9 +88,9 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
         SymbolicScalar curSeq = GetTensorData(actSeq, {bIdx});
         LOOP("CMP_ATTN_LOOP_S1", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(s1), {}, true) {
             // 因果推理，注意可用实际的s2长度
-            ASSERT(cmpStride !=0) << "cmpStride can't be zero!";
+            ASSERT(cmpStride != 0) << "cmpStride can't be zero!";
             auto casCmpSeq = (curSeq - (s1 - s1Idx - 1) - cmpBlockSize) / cmpStride + 1;
-            ASSERT(blockSize !=0) << "blockSize can't be zero!";
+            ASSERT(blockSize != 0) << "blockSize can't be zero!";
             auto curCmpBlock = (casCmpSeq + blockSize - 1) / blockSize;
             auto slcLoop = (casCmpSeq + slcSize - 1) / slcSize;
             auto qOffset = bIdx * s1 * n1 + s1Idx * n1;
@@ -129,12 +129,12 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                     curQAttn.SetName("curQAttn");
 
                     // 注意这里需要申请对齐的shape，因为不确定尾块多大
-                    auto cmpKvCache2D =
-                        Reshape(cmpKvCache, {cmpKvCache.GetShape()[0] * cmpKvCache.GetShape()[1] * cmpKvCache.GetShape()[2], dN});
+                    auto cmpKvCache2D = Reshape(cmpKvCache,
+                        {cmpKvCache.GetShape()[0] * cmpKvCache.GetShape()[1] * cmpKvCache.GetShape()[2], dN});
                     auto curCmpKv =
                         View(cmpKvCache2D, {blockSize, dN}, {curValidSeq, dN}, {curBlockIdx * blockSize, 0});
-                    auto cmpKrCache2D =
-                        Reshape(cmpKrCache, {cmpKrCache.GetShape()[0] * cmpKrCache.GetShape()[1] * cmpKrCache.GetShape()[2], dR});
+                    auto cmpKrCache2D = Reshape(cmpKrCache,
+                        {cmpKrCache.GetShape()[0] * cmpKrCache.GetShape()[1] * cmpKrCache.GetShape()[2], dR});
                     auto curCmpKr =
                         View(cmpKrCache2D, {blockSize, dR}, {curValidSeq, dR}, {curBlockIdx * blockSize, 0});
                     auto curKAttn = Assemble({
@@ -148,8 +148,8 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                     config::SetSemanticLabel("Cmp-Attn-C1");
                     TileShape::Current().SetCubeTile(
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
-                    auto sij = Matrix::Matmul(
-                        DataType::DT_FP32, curKAttn, curQAttn, false, true); // (blockSize, dQK), (n1, dQK)-> (blockSize, n1)
+                    auto sij = Matrix::Matmul(DataType::DT_FP32, curKAttn, curQAttn, false,
+                        true); // (blockSize, dQK), (n1, dQK)-> (blockSize, n1)
                     sij.SetName("sij");
 
                     TileShape::Current().SetVecTile(vecTile, vecTile);
@@ -157,17 +157,17 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                     config::SetSemanticLabel("Cmp-Attn-V1");
                     auto sijScale = Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (blockSize, n1)
                     // reduceMax首轴不支持切分
-                    auto tildaMij = Amax(sijScale, 0, true); // (1, n1)
+                    auto tildaMij = Amax(sijScale, 0, true);   // (1, n1)
                     auto tsub = Sub(sijScale, tildaMij);       // (blockSize, n1) - (1, n1) -> (blockSize, n1)
                     auto tildaPij = Exp(tsub);                 // (blockSize, n1)
                     auto tildaPijB16 = Cast(tildaPij, kDtype); // (blockSize, n1)
-                    auto tildaLij = Sum(tildaPij, 0, true); // (1, n1)
+                    auto tildaLij = Sum(tildaPij, 0, true);    // (1, n1)
                     IF(IsLoopBegin(blockIdx, 0)) {
                         config::SetSemanticLabel("Cmp-Attn-First-Block-C2");
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
-                        auto oiTmp = Matrix::Matmul(DataType::DT_FP32, tildaPijB16,
-                            curVAttn, true, false); // (n1, blockSize), (blockSize, dN) -> (n1, dN)
+                        auto oiTmp = Matrix::Matmul(DataType::DT_FP32, tildaPijB16, curVAttn, true,
+                            false); // (n1, blockSize), (blockSize, dN) -> (n1, dN)
                         oiTmp.SetName("oiTmp");
                         config::SetSemanticLabel("Cmp-Attn-First-Block-V2");
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
@@ -205,8 +205,8 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
 
                         auto tildaPijB16T = Transpose(tildaPijB16, {0, 1}); // (blockSize, n1) -> (n1, blockSize)
-                        auto q1 = Matrix::Matmul(DataType::DT_FP32, tildaPijB16T,
-                            curVAttn, false, false); // (n1, blockSize), (blockSize, dN) -> (n1, dN)
+                        auto q1 = Matrix::Matmul(DataType::DT_FP32, tildaPijB16T, curVAttn, false,
+                            false); // (n1, blockSize), (blockSize, dN) -> (n1, dN)
                         q1.SetName("q1");
                         config::SetSemanticLabel("Cmp-Attn-Other-Update-V2");
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
@@ -266,8 +266,8 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                         auto modifyTensorReduce = Sum(modifyTensor, 0, true); // (1, n1)
                         auto preViewTensor = View(slcPre, {1, n1}, {blockSlcNum - 1, 0});
                         preViewTensor = Add(preViewTensor, modifyTensor); // (1, n1)
-                        Assemble(Assign(View(slcPre, {blockSlcNum - 1, n1}, {0, 0})),
-                            {(blockIdx - 1) * blockSlcNum, 0}, slcBeforeGReduce);
+                        Assemble(Assign(View(slcPre, {blockSlcNum - 1, n1}, {0, 0})), {(blockIdx - 1) * blockSlcNum, 0},
+                            slcBeforeGReduce);
                         Assemble(preViewTensor, {blockIdx * blockSlcNum - 1, 0}, slcBeforeGReduce);
                         slcPre = Assign(slcCur);
                     }
@@ -288,8 +288,8 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                 }
                 ELSE {
                     auto rowMaxBlock = View(localMaxGather, {1, n1}, {blockIdx, 0}); // (1, n1)
-                    auto subTmp = Sub(rowMaxBlock, miUpdate);                         // (1, n1)
-                    auto expTmp = Exp(subTmp);                                        // (1, n1)
+                    auto subTmp = Sub(rowMaxBlock, miUpdate);                        // (1, n1)
+                    auto expTmp = Exp(subTmp);                                       // (1, n1)
                     slcBeforeGReduceBlock =
                         Mul(slcBeforeGReduceBlock, expTmp); // (blockSlcNum, n1), (1, n1) -> (blockSlcNum, n1)
                     slcBeforeGReduceBlock =
@@ -306,8 +306,8 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                     (void)ubReshapeIdx;
                     auto slcBeforeGReduceActual =
                         View(slcBeforeGReduce2, {maxCmpBlock * blockSlcNum, n1}, {slcLoop, n1}, {0, 0});
-                    auto slcReduce = Sum(
-                        slcBeforeGReduceActual, -1, true); // (maxSlcLoop, n1) - > (maxSlcLoop, 1), 有效数据为(slcLoop, 1)
+                    auto slcReduce = Sum(slcBeforeGReduceActual, -1,
+                        true); // (maxSlcLoop, n1) - > (maxSlcLoop, 1), 有效数据为(slcLoop, 1)
                     TileShape::Current().SetVecTile(tileConfig.topkTile);
                     slcReShape = Reshape(slcReduce, {1, 1, maxCmpBlock * blockSlcNum}, {1, 1, slcLoop});
                     slcReShape = Add(slcReShape, Element(DT_FP32, 0.0f));
@@ -316,8 +316,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                 LOOP("AVOID_LOOP_6", FunctionType::DYNAMIC_LOOP, ubReshapeIdx, LoopRange(1), {}) {
                     (void)ubReshapeIdx;
                     IF(slcLoop < topk) {
-                        auto curIdx =
-                            View(topkNumIdx, {1, 1, maxCmpBlock * blockSlcNum}, {1, 1, slcLoop}, {0, 0, 0});
+                        auto curIdx = View(topkNumIdx, {1, 1, maxCmpBlock * blockSlcNum}, {1, 1, slcLoop}, {0, 0, 0});
                         curIdx = Cast(curIdx, DT_INT32);
                         Assemble(curIdx, {bIdx, s1Idx, 0}, topkRes);
                     }

@@ -34,7 +34,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_32) {
     int dstCapacity = dstShape[0] * dstShape[1];
 
     uint64_t outputSize = dstCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("EXPAND") {
         void *x_ptr = readToDev(GetGoldenDir() + "/expand_x.bin", srcCapacity);
@@ -54,7 +54,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_32) {
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/expand_res.bin", golden);
     for (size_t i = 0; i < res.size(); i++) {
-        cout<<"res["<<i<<"]="<<res[i]<<" golden["<<i<<"]="<<golden[i]<<endl;
+        cout << "res[" << i << "]=" << res[i] << " golden[" << i << "]=" << golden[i] << endl;
     }
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -77,7 +77,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_32) {
     int dstCapacity = dstShape[0] * dstShape[1] * dstShape[2];
 
     uint64_t outputSize = dstCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("EXPAND") {
         void *x_ptr = readToDev(GetGoldenDir() + "/expand_x.bin", srcCapacity);
@@ -115,7 +115,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_23) {
     int dstCapacity = dstShape[0] * dstShape[1];
 
     uint64_t outputSize = dstCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("EXPAND") {
         void *x_ptr = readToDev(GetGoldenDir() + "/expand_x.bin", srcCapacity);
@@ -154,7 +154,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_23) {
     int dstCapacity = dstShape[0] * dstShape[1] * dstShape[2];
 
     uint64_t outputSize = dstCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("EXPAND") {
         void *x_ptr = readToDev(GetGoldenDir() + "/expand_x.bin", srcCapacity);
@@ -188,7 +188,7 @@ TEST_F(ExpandOnBoardTest, test_expand_for_4_dim) {
     int dstCapacity = dstShape[0] * dstShape[1] * dstShape[2] * dstShape[3];
 
     uint64_t outputSize = dstCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("EXPAND") {
         void *x_ptr = readToDev(GetGoldenDir() + "/expand_x.bin", srcCapacity);

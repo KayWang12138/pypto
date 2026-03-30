@@ -24,7 +24,7 @@ namespace npu {
 namespace tile_fwk {
 // assemble存在dynOffset和输入存在dynValidShape场景暂不判断。
 Status CheckDynSkip(const LogicalTensorPtr &outputTensor, bool &needSkip) {
-    for (const auto &producerOp : outputTensor->GetProducers()){
+    for (const auto &producerOp : outputTensor->GetProducers()) {
         if (producerOp->GetOpcode() != Opcode::OP_ASSEMBLE) {
             needSkip = true;
             return SUCCESS;
@@ -66,7 +66,7 @@ Status AssembleChecker::CheckAssembleOverlap(Function &function) {
     };
     for (const auto &tMap : function.GetTensorMap().tensorMap_) {
         for (const auto &outputTensor : tMap.second) {
-            if (outputTensor->GetProducers().size() == 0){
+            if (outputTensor->GetProducers().size() == 0) {
                 continue;
             }
             bool dynSkip = false;
@@ -82,28 +82,33 @@ Status AssembleChecker::CheckAssembleOverlap(Function &function) {
                 if (assembleOp->GetOpcode() != Opcode::OP_ASSEMBLE) {
                     continue;
                 }
-                auto assembleOffset = dynamic_cast<AssembleOpAttribute *>(assembleOp->GetOpAttribute().get())->GetToOffset();
+                auto assembleOffset =
+                    dynamic_cast<AssembleOpAttribute *>(assembleOp->GetOpAttribute().get())->GetToOffset();
                 auto inputTensor = assembleOp->GetIOperands().front();
                 auto inputShape = inputTensor->GetShape();
-                if (needSkip(inputShape) || needSkip(assembleOffset)){
+                if (needSkip(inputShape) || needSkip(assembleOffset)) {
                     continue;
                 }
                 std::vector<std::pair<int64_t, int64_t>> curInputArea;
-                if(assembleOffset.size() != inputShape.size()) {
-                    APASS_LOG_ERROR_F(Elements::Tensor, "Dimension of assemble op[%d]'s toOffset(%s) "
+                if (assembleOffset.size() != inputShape.size()) {
+                    APASS_LOG_ERROR_F(Elements::Tensor,
+                        "Dimension of assemble op[%d]'s toOffset(%s) "
                         "varies from its input[%d]'s shape(%s); Please check the function graph.",
                         assembleOp->GetOpMagic(), CommonUtils::ContainerToStr(assembleOffset).c_str(),
                         inputTensor->GetMagic(), CommonUtils::ContainerToStr(inputShape).c_str());
                     return FAILED;
                 }
-                for (size_t i = 0; i < inputShape.size(); i++){
+                for (size_t i = 0; i < inputShape.size(); i++) {
                     curInputArea.emplace_back(assembleOffset[i], assembleOffset[i] + inputShape[i] - 1);
                 }
 
                 // 判断是否有重叠
                 if (OverlapCurInput(curInputArea)) {
-                    APASS_LOG_ERROR_F(Elements::Tensor, "Overlap input2: shape:%s offset:%s; Please check the function graph; Please check Tensor[%d] and its input.",
-                        CommonUtils::ContainerToStr(inputShape).c_str(), CommonUtils::ContainerToStr(assembleOffset).c_str(), outputTensor->GetMagic());
+                    APASS_LOG_ERROR_F(Elements::Tensor,
+                        "Overlap input2: shape:%s offset:%s; Please check the function graph; Please check Tensor[%d] "
+                        "and its input.",
+                        CommonUtils::ContainerToStr(inputShape).c_str(),
+                        CommonUtils::ContainerToStr(assembleOffset).c_str(), outputTensor->GetMagic());
                     return FAILED;
                 }
 
@@ -116,22 +121,21 @@ Status AssembleChecker::CheckAssembleOverlap(Function &function) {
 }
 
 bool AssembleChecker::OverlapCurInput(const std::vector<std::pair<int64_t, int64_t>> &curInputArea) {
-    for (const auto& recordedArea : coveredAreas_) {
-        bool overlap = std::equal(curInputArea.begin(), curInputArea.end(),
-            recordedArea.begin(),
-            [](const auto& a, const auto& b) {
-                return a.second >= b.first && a.first <= b.second;
-            });
+    for (const auto &recordedArea : coveredAreas_) {
+        bool overlap = std::equal(curInputArea.begin(), curInputArea.end(), recordedArea.begin(),
+            [](const auto &a, const auto &b) { return a.second >= b.first && a.first <= b.second; });
         if (overlap) {
             // 计算重叠的input的shape和offset
             Shape recordedShape;
             Shape recordedOffset;
-            for (const auto& recordedDim : recordedArea){
+            for (const auto &recordedDim : recordedArea) {
                 recordedOffset.emplace_back(recordedDim.first);
                 recordedShape.emplace_back(recordedDim.second + 1 - recordedDim.first);
             }
-            APASS_LOG_ERROR_F(Elements::Tensor, "Tensor produced by assemble has overlap inputs. Overlap input1: shape:%s offset:%s.",
-                CommonUtils::ContainerToStr(recordedShape).c_str(), CommonUtils::ContainerToStr(recordedOffset).c_str());
+            APASS_LOG_ERROR_F(Elements::Tensor,
+                "Tensor produced by assemble has overlap inputs. Overlap input1: shape:%s offset:%s.",
+                CommonUtils::ContainerToStr(recordedShape).c_str(),
+                CommonUtils::ContainerToStr(recordedOffset).c_str());
             return true;
         }
     }

@@ -36,7 +36,6 @@ struct LReLUOpMetaData {
 
 static void LReLUOperationExeFuncDoubleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -62,7 +61,6 @@ static void LReLUOperationExeFuncDoubleCut(
 
 static void LReLUOperationExeFuncTripleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -94,7 +92,6 @@ static void LReLUOperationExeFuncTripleCut(
 
 static void LReLUOperationExeFuncQuadrupleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];

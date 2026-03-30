@@ -26,7 +26,8 @@ namespace tile_fwk {
 constexpr size_t DST_TILE_INPUT_PARAM_INDEX = 2;
 
 /*
-    pypto.scatter_update()约束需要原地写法x = pypto.scatter_update(x, -2, y, z)，多个scatter_update()操作同一个x时计算图中对应的INDEX_OUTCAST应该有先后顺序
+    pypto.scatter_update()约束需要原地写法x = pypto.scatter_update(x, -2, y,
+   z)，多个scatter_update()操作同一个x时计算图中对应的INDEX_OUTCAST应该有先后顺序
     否则将会因操作顺序丢失导致第二次的scatter_update没有基于第一次的计算结果继续处理，而是基于原始结果处理，导致第一次的操作结果丢失。
 */
 Status IndexOutcastChecker::CheckIndexOutcastDisorderedCoverage(Function &function) {
@@ -37,12 +38,14 @@ Status IndexOutcastChecker::CheckIndexOutcastDisorderedCoverage(Function &functi
                 if (consumerOp->GetOpcode() != Opcode::OP_INDEX_OUTCAST) {
                     continue;
                 }
-                if (consumerOp->GetIOperands().size() <= DST_TILE_INPUT_PARAM_INDEX || consumerOp->GetIOperands()[DST_TILE_INPUT_PARAM_INDEX]->GetMagic() != tensor->GetMagic()) {
+                if (consumerOp->GetIOperands().size() <= DST_TILE_INPUT_PARAM_INDEX ||
+                    consumerOp->GetIOperands()[DST_TILE_INPUT_PARAM_INDEX]->GetMagic() != tensor->GetMagic()) {
                     continue;
                 }
                 indexOutcastConsumers.insert(consumerOp);
                 if (indexOutcastConsumers.size() > 1) {
-                    APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%d] has multiple OP_INDEX_OUTCAST consumers.", tensor->GetMagic());
+                    APASS_LOG_ERROR_F(
+                        Elements::Tensor, "Tensor[%d] has multiple OP_INDEX_OUTCAST consumers.", tensor->GetMagic());
                     return FAILED;
                 }
             }

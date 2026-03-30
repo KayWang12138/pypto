@@ -23,9 +23,8 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
-template<typename T>
-void TestReduceScatter(OpTestParam& testParam, std::string& goldenDir)
-{
+template <typename T>
+void TestReduceScatter(OpTestParam &testParam, std::string &goldenDir) {
     constexpr size_t paramsSize = 5;
     auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(goldenDir + "/params.bin");
     CHECK(testParam.rankSize > 0) << "testParam.rankSize must be > 0, but got: " << testParam.rankSize;
@@ -34,10 +33,10 @@ void TestReduceScatter(OpTestParam& testParam, std::string& goldenDir)
     Tensor in(dType, {row, col}, "in");
     Tensor out(dType, {rowOut, col}, "out");
 
-    std::vector<T> inData = ReadToVector<T>(
-        goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+    std::vector<T> inData =
+        ReadToVector<T>(goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
-    Shape shmemDataShape {1, rowOut, col};
+    Shape shmemDataShape{1, rowOut, col};
     FUNCTION("ShmemReduceScatter", {in}, {out}) {
         DataType shmemDataType = in.GetDataType();
         shmemDataType = (shmemDataType == DT_BF16) || (shmemDataType == DT_FP16) ? DT_FP32 : shmemDataType;
@@ -58,12 +57,13 @@ void TestReduceScatter(OpTestParam& testParam, std::string& goldenDir)
     });
     RunTest();
     auto outPut = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
+    EXPECT_TRUE(
+        CompareWithGolden<uint8_t *>(dType, goldenDir + "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
 }
 
-template void TestReduceScatter<int32_t>(OpTestParam& testParam, std::string& goldenDir);
-template void TestReduceScatter<float>(OpTestParam& testParam, std::string& goldenDir);
-template void TestReduceScatter<float16>(OpTestParam& testParam, std::string& goldenDir);
-template void TestReduceScatter<bfloat16>(OpTestParam& testParam, std::string& goldenDir);
+template void TestReduceScatter<int32_t>(OpTestParam &testParam, std::string &goldenDir);
+template void TestReduceScatter<float>(OpTestParam &testParam, std::string &goldenDir);
+template void TestReduceScatter<float16>(OpTestParam &testParam, std::string &goldenDir);
+template void TestReduceScatter<bfloat16>(OpTestParam &testParam, std::string &goldenDir);
 } // namespace Distributed
 } // namespace npu::tile_fwk

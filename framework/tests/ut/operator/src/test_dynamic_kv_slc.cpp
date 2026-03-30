@@ -27,7 +27,8 @@ public:
         config::Reset();
     }
 
-    void TearDown() override { config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);}
+    void TearDown() override { config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend); }
+
 protected:
     bool oriEnableAihacBackend = false;
 };
@@ -66,6 +67,6 @@ TEST_F(DynamicKvSlcUtTest, test_kv_slc) { // b_n_s_s2_h_q_lora_rank
     Tensor k_slcOut(DT_FP16, {b * s * n2 * topK * l_prime, rope_dim + kv_lora_rank}, "k_slcOut");
     Tensor v_slcOut(DT_FP16, {b * s * n2 * topK * l_prime, kv_lora_rank}, "v_slcOut");
     Tensor kvSlcActSeqs(DT_INT32, {b, s}, "kvSlcActSeqs");
-    GenKvSlc(topk_tensor, topk_tensor_shape, kvNopeCache, kRopeCache, kvActSeqs, front, near, topK, l_prime,
-            n2, blockTable, blockSize, k_slcOut, v_slcOut, kvSlcActSeqs, tileConfig);
+    GenKvSlc(topk_tensor, topk_tensor_shape, kvNopeCache, kRopeCache, kvActSeqs, front, near, topK, l_prime, n2,
+        blockTable, blockSize, k_slcOut, v_slcOut, kvSlcActSeqs, tileConfig);
 }

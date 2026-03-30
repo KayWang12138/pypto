@@ -57,6 +57,7 @@ public:
      * \return Status, indicating whether the function passes the postcheck.
      */
     virtual Status DoDefaultEnabledPostCheck(Function &function);
+
 protected:
     /**
      * \brief Check whether consumers and producers of the tensor are valid (not null).
@@ -117,4 +118,4 @@ protected:
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // CHECKER_H
+#endif // CHECKER_H

@@ -47,18 +47,16 @@ void CopyToDev(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) 
     CopyHostToDev(devTensor, hostTensor);
 }
 
-void SetVerifyData(const std::vector<DeviceTensorData> &inputs,
-                   const std::vector<DeviceTensorData> &outputs,
-                   const std::vector<DeviceTensorData> &goldens) {
+void SetVerifyData(const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs,
+    const std::vector<DeviceTensorData> &goldens) {
     ProgramData::GetInstance().Reset();
     for (size_t i = 0; i < inputs.size(); i++) {
-        auto rawData = RawTensorData::CreateTensor(
-            inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t *)inputs[i].GetAddr());
+        auto rawData =
+            RawTensorData::CreateTensor(inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t *)inputs[i].GetAddr());
         ProgramData::GetInstance().AppendInput(rawData);
     }
     for (size_t i = 0; i < outputs.size(); i++) {
-        auto rawData = std::make_shared<RawTensorData>(
-            outputs[i].GetDataType(), outputs[i].GetShape());
+        auto rawData = std::make_shared<RawTensorData>(outputs[i].GetDataType(), outputs[i].GetShape());
         ProgramData::GetInstance().AppendOutput(rawData);
     }
     for (size_t i = 0; i < goldens.size(); i++) {
@@ -66,14 +64,14 @@ void SetVerifyData(const std::vector<DeviceTensorData> &inputs,
             ProgramData::GetInstance().AppendGolden(nullptr);
         } else {
             auto rawData = RawTensorData::CreateTensor(
-            goldens[i].GetDataType(), goldens[i].GetShape(), (uint8_t *)goldens[i].GetAddr());
+                goldens[i].GetDataType(), goldens[i].GetShape(), (uint8_t *)goldens[i].GetAddr());
             ProgramData::GetInstance().AppendGolden(rawData);
         }
     }
 }
 
-static std::string ValidateFunctionAndIO(Function *func, const std::vector<DeviceTensorData> &inputs,
-                                   const std::vector<DeviceTensorData> &outputs) {
+static std::string ValidateFunctionAndIO(
+    Function *func, const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
     if (!func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC, GraphType::TENSOR_GRAPH)) {
         return "Invalid function format";
     }
@@ -91,10 +89,11 @@ static std::string ValidateFunctionAndIO(Function *func, const std::vector<Devic
     return "";
 }
 
-static void InitializeInputOutputData(const std::vector<DeviceTensorData> &inputs,
-                               const std::vector<DeviceTensorData> &outputs) {
+static void InitializeInputOutputData(
+    const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
     for (size_t i = 0; i < inputs.size(); i++) {
-        auto rawData = RawTensorData::CreateTensor(inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t *)inputs[i].GetAddr());
+        auto rawData =
+            RawTensorData::CreateTensor(inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t *)inputs[i].GetAddr());
         ProgramData::GetInstance().AppendInput(rawData);
     }
     for (size_t i = 0; i < outputs.size(); i++) {
@@ -117,7 +116,7 @@ std::string DeviceRunOnceDataFromHost(
 
     InitializeInputOutputData(inputs, outputs);
 
-    DevControlFlowCache* hostCache = nullptr;
+    DevControlFlowCache *hostCache = nullptr;
     EmulationMemoryUtils memUtils;
     if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
         DeviceLauncherConfig config;
@@ -125,11 +124,12 @@ std::string DeviceRunOnceDataFromHost(
         EmulationLauncher::BuildControlFlowCache(func, memUtils, inputs, outputs, &hostCache, config);
     }
 
-    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 && EmulationLauncher::EmulationRunOnce(func, hostCache) != 0) {
+    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 &&
+        EmulationLauncher::EmulationRunOnce(func, hostCache) != 0) {
         return "emulation run failed";
     }
 
-    if (DeviceRunOnce(func, reinterpret_cast<uint8_t*>(hostCache)) != 0) {
+    if (DeviceRunOnce(func, reinterpret_cast<uint8_t *>(hostCache)) != 0) {
         return "device run failed";
     }
 
@@ -148,10 +148,9 @@ std::string DeviceRunOnceDataFromHost(
 }
 
 std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ pythonOperatorPython,
-    [[maybe_unused]] const std::vector<DeviceTensorData> &inputs, [[maybe_unused]] const std::vector<DeviceTensorData> &outputs,
-    [[maybe_unused]] py::int_ incomingStreamPython, [[maybe_unused]] py::int_ workspaceData,
-    [[maybe_unused]] py::int_ devCtrlCache) {
-
+    [[maybe_unused]] const std::vector<DeviceTensorData> &inputs,
+    [[maybe_unused]] const std::vector<DeviceTensorData> &outputs, [[maybe_unused]] py::int_ incomingStreamPython,
+    [[maybe_unused]] py::int_ workspaceData, [[maybe_unused]] py::int_ devCtrlCache) {
     if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_ALL_COMPLETE) {
         return "";
     }
@@ -188,9 +187,8 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     auto aicpuStream = DeviceGetAicpuStream();
     auto workspaceDataAddr = static_cast<uintptr_t>(workspaceData);
     auto ctrlCache = static_cast<uintptr_t>(devCtrlCache);
-    int rc = ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs,
-        aicpuStream, aicoreStream, false, reinterpret_cast<uint8_t*>(ctrlCache),
-        DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr));
+    int rc = ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs, aicpuStream, aicoreStream, false,
+        reinterpret_cast<uint8_t *>(ctrlCache), DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr));
     if (rc < 0) {
         return "device run failed";
     }
@@ -200,8 +198,8 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     return "";
 }
 
-uint64_t GetWorkSpaceSize(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputs,
-    const std::vector<DeviceTensorData> &outputs) {
+uint64_t GetWorkSpaceSize(
+    uintptr_t opAddr, const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
     if (op) {
         return op->GetWorkSpaceSize(inputs, outputs);
@@ -245,18 +243,18 @@ std::string OperatorEnd(uintptr_t opAddr) {
 }
 
 int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputList,
-        const std::vector<DeviceTensorData> &outputList, [[maybe_unused]] bool isCapturing) {
+    const std::vector<DeviceTensorData> &outputList, [[maybe_unused]] bool isCapturing) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
     if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        uint8_t* ctrlCache = op->FindCtrlFlowCache(inputList, outputList);
+        uint8_t *ctrlCache = op->FindCtrlFlowCache(inputList, outputList);
         EmulationMemoryUtils memUtils;
         if (ctrlCache == nullptr) {
             HOST_PERF_EVT_BEGIN(EventPhase::BuildCtrlFlowCache);
-            DevControlFlowCache* hostCache = nullptr;
-            if (EmulationLauncher::BuildControlFlowCache(op->GetFunction(), memUtils,
-                inputList, outputList, &hostCache, config) != 0) {
+            DevControlFlowCache *hostCache = nullptr;
+            if (EmulationLauncher::BuildControlFlowCache(
+                    op->GetFunction(), memUtils, inputList, outputList, &hostCache, config) != 0) {
                 return 0;
             }
 
@@ -266,15 +264,15 @@ int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputL
             }
 
             if (hostCache) {
-                ctrlCache = CopyHostToDev(reinterpret_cast<uint8_t*>(hostCache),
-                    reinterpret_cast<DevControlFlowCache*>(hostCache)->usedCacheSize);
+                ctrlCache = CopyHostToDev(reinterpret_cast<uint8_t *>(hostCache),
+                    reinterpret_cast<DevControlFlowCache *>(hostCache)->usedCacheSize);
             }
 
             if (isCapturing) {
                 ChangeCaptureModeGlobal();
             }
 #else
-            ctrlCache = reinterpret_cast<uint8_t*>(hostCache);
+            ctrlCache = reinterpret_cast<uint8_t *>(hostCache);
 #endif
 
             if (ctrlCache) {
@@ -339,7 +337,7 @@ public:
 
     uint8_t *FindCtrlFlowCache(std::vector<std::vector<int64_t>> &inputs, bool isOriginShape) {
         int64_t inHash = ControlFlowCache::Hash(inputs);
-        auto& caches = isOriginShape ? originShapeCaches : inferShapeCaches;
+        auto &caches = isOriginShape ? originShapeCaches : inferShapeCaches;
         for (auto &cache : caches) {
             if (cache.hash == inHash) {
                 return cache.devCache;
@@ -350,7 +348,7 @@ public:
 
     uint8_t *FindCtrlFlowCache(std::vector<DeviceTensorData> &inputs, bool isOriginShape) {
         int64_t inHash = ControlFlowCache::Hash(inputs);
-        auto& caches = isOriginShape ? originShapeCaches : inferShapeCaches;
+        auto &caches = isOriginShape ? originShapeCaches : inferShapeCaches;
         for (auto &cache : caches) {
             if (cache.hash == inHash) {
                 return cache.devCache;
@@ -385,7 +383,7 @@ public:
 #endif
         if (isOriginShape) {
             originShapeCaches.emplace_back(inputs, devCache);
-        } else{
+        } else {
             inferShapeCaches.emplace_back(inputs, devCache);
         }
         return devCache;
@@ -641,8 +639,8 @@ public:
         bool debugEnable = !isCaptureMode && isDebugMode;
 
 #if ENABALE_VERBOSE_LOG
-        COMPILER_LOGE("triple stream %d sequence %ld workspace %p cfgcache %p",
-                      tripleStream, sequence.load(), workspace, ctrlFlowCache);
+        COMPILER_LOGE("triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(),
+            workspace, ctrlFlowCache);
 #endif
         int ret = DeviceLauncher::LaunchSyncTask(aicoreStream, isCaptureMode);
         ASSERT(ret == RT_ERROR_NONE) << "launch pre sync failed: " << ret;
@@ -652,7 +650,8 @@ public:
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
-        ret = DeviceLauncher::LaunchAicoreKernel(aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
+        ret = DeviceLauncher::LaunchAicoreKernel(
+            aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
     }
 
@@ -708,7 +707,8 @@ private:
             auto host_options = module.attr("_host_options").cast<py::dict>();
             if (host_options.contains("compile_stage")) {
                 auto stage = host_options["compile_stage"];
-                int64_t stageValue = py::hasattr(stage, "value") ? stage.attr("value").cast<int64_t>() : stage.cast<int64_t>();
+                int64_t stageValue =
+                    py::hasattr(stage, "value") ? stage.attr("value").cast<int64_t>() : stage.cast<int64_t>();
                 compileStageAllComplete = (stageValue == CS_ALL_COMPLETE);
             }
             if (host_options.contains("compile_monitor_enable")) {
@@ -725,8 +725,8 @@ private:
             }
         }
 #if ENABALE_VERBOSE_LOG
-        COMPILER_LOGE("triple_stream_sched: %d, stitch_cfgcache_size: %ld, infer_cache_shape: %d",
-                     tripleStream, stitchCfgCacheSize, inferCacheShape);
+        COMPILER_LOGE("triple_stream_sched: %d, stitch_cfgcache_size: %ld, infer_cache_shape: %d", tripleStream,
+            stitchCfgCacheSize, inferCacheShape);
 #endif
     }
 
@@ -752,8 +752,8 @@ private:
         }
     }
 
-    bool InferCacheShape(py::object &module, std::vector<DeviceTensorData> &tensors,
-        std::vector<std::vector<int64_t>> &shapes) {
+    bool InferCacheShape(
+        py::object &module, std::vector<DeviceTensorData> &tensors, std::vector<std::vector<int64_t>> &shapes) {
         auto infershape = py::getattr(module, "_infer_controlflow_shape", py::none());
         if (infershape.is_none()) {
             return false;
@@ -820,8 +820,7 @@ static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensor
     return py::getattr(device, "index").cast<int>();
 }
 
-static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
-    std::vector<DeviceTensorData> &tensors,
+static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId, std::vector<DeviceTensorData> &tensors,
     std::function<KernelBinary *(KernelModulePtr)> compile_fn) {
     DeviceGuard devGuard(devId);
 
@@ -875,8 +874,7 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     HOST_PERF_EVT_END(EventPhase::LaunchKernel);
 }
 
-void LaunchKernelTorch(py::object &module, int64_t stream, py::sequence &torchTensors,
-                       py::sequence &tensorDefs) {
+void LaunchKernelTorch(py::object &module, int64_t stream, py::sequence &torchTensors, py::sequence &tensorDefs) {
     HOST_PERF_TRACE_START();
     HOST_PERF_EVT_BEGIN(EventPhase::LaunchKernel);
     auto aicoreStream = (aclrtStream)stream;
@@ -898,15 +896,14 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
     std::vector<DeviceTensorData> tensors;
     auto devId = GetInputTensors(args, tensors);
 
-    DoLaunch(module, aicoreStream, devId, tensors,
-        [&](KernelModulePtr km) { return km->Compile(module, args); });
+    DoLaunch(module, aicoreStream, devId, tensors, [&](KernelModulePtr km) { return km->Compile(module, args); });
 }
 #else
-void LaunchKernel(py::object &, int64_t, py::args &) { }
-void LaunchKernelTorch(py::object &, int64_t, py::sequence &, py::sequence &) { }
+void LaunchKernel(py::object &, int64_t, py::args &) {}
+void LaunchKernelTorch(py::object &, int64_t, py::sequence &, py::sequence &) {}
 class KernelModule {
 public:
-    KernelModule(py::object &) { }
+    KernelModule(py::object &) {}
 };
 using KernelModulePtr = std::shared_ptr<KernelModule>;
 #endif

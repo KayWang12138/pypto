@@ -41,7 +41,6 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 
 template <typename T = npu::tile_fwk::bfloat16>
 void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig) {
-
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
         dType = DT_BF16;
@@ -128,8 +127,8 @@ void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig) {
         qNopeData, qRopeData, cmpKvCacheData, cmpKrCacheData, cmpBlockTableData, actSeqData, auxData};
     std::vector<RawTensorDataPtr> outputDataList = {cmpAttnData, topkResData};
 
-    FUNCTION("CompressAttentionWithTopK",
-        {qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor}, {cmpAttn, topkRes}) {
+    FUNCTION("CompressAttentionWithTopK", {qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor},
+        {cmpAttn, topkRes}) {
         CompressAttentionWithTopK(qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor, cmpAttn,
             topkRes, blockSize, cmpBlockSize, cmpStride, slcBlockSize, softmaxScale, n1, topk, front, near, tileConfig);
     }
@@ -147,7 +146,6 @@ void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig) {
 }
 
 void CommonTestConfig() {
-
     CmpAttnTopkTile config;
     config.topkTile = {1, 1, 128};
     config.cmpTile.c1Tile = {128, 128, 128, 128, 128, 128};

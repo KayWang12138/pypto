@@ -26,7 +26,7 @@ using json = nlohmann::json;
 namespace npu::tile_fwk {
 
 struct PathResult {
-    int maxLength = 0;  // Maximum path length found
+    int maxLength = 0; // Maximum path length found
 };
 
 struct ConcurrencyStats {

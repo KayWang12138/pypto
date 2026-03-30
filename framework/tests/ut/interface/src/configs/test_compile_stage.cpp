@@ -26,12 +26,8 @@ class TestConfigRunmode : public testing::Test {
 public:
     static void SetUpTestCase() {}
     static void TearDownTestCase() {}
-    void SetUp() override {
-        Program::GetInstance().Reset();
-    }
-    void TearDown() override {
-        Program::GetInstance().Reset();
-    }
+    void SetUp() override { Program::GetInstance().Reset(); }
+    void TearDown() override { Program::GetInstance().Reset(); }
 };
 
 TEST_F(TestConfigRunmode, COMPILE_STAGE_TENSOR_GRAPH) {

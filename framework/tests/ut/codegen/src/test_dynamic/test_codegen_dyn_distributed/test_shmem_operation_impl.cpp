@@ -33,8 +33,7 @@ namespace npu::tile_fwk::Distributed {
 
 class TestDistributedShmemImpl : public ::testing::Test {
 private:
-    DataType GetType(const Tensor& in)
-    {
+    DataType GetType(const Tensor &in) {
         DataType shmemDataType = in.GetDataType();
         if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
             shmemDataType = DT_FP32;
@@ -42,8 +41,7 @@ private:
         return shmemDataType;
     }
 
-    std::string getTimeStamp()
-    {
+    std::string getTimeStamp() {
         auto now = std::chrono::high_resolution_clock::now();
         auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         auto us = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count() % 1000000;
@@ -60,8 +58,7 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override
-    {
+    void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -76,8 +73,7 @@ public:
     void TearDown() override {}
 };
 
-std::string GetFunctionRawName(const std::string& functionName)
-{
+std::string GetFunctionRawName(const std::string &functionName) {
     std::string functionRawName = FUNCTION_PREFIX + functionName + SUB_FUNC_SUFFIX;
 #if ENABLE_HIDDENLOOP
     functionRawName += HIDDEN_FUNC_SUFFIX;
@@ -85,8 +81,7 @@ std::string GetFunctionRawName(const std::string& functionName)
     return functionRawName;
 }
 
-TEST_F(TestDistributedShmemImpl, TestAllGather)
-{
+TEST_F(TestDistributedShmemImpl, TestAllGather) {
     const char *group = "hcom123";
     uint32_t worldSize = 4;
     Tensor in(DT_FP16, {16, 32}, "in");
@@ -109,8 +104,7 @@ TEST_F(TestDistributedShmemImpl, TestAllGather)
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestDistributedShmemImpl, TestReduceScatter)
-{
+TEST_F(TestDistributedShmemImpl, TestReduceScatter) {
     const char *group = "hcom123";
     uint32_t worldSize = 4;
     Tensor in(DT_FP16, {64, 256}, "in");
@@ -134,8 +128,7 @@ TEST_F(TestDistributedShmemImpl, TestReduceScatter)
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestDistributedShmemImpl, TestTwoShotAllReduce)
-{
+TEST_F(TestDistributedShmemImpl, TestTwoShotAllReduce) {
     const char *group = "hcom123";
     uint32_t worldSize = 4;
     Tensor in(DT_FP16, {64, 256}, "in");
@@ -159,8 +152,7 @@ TEST_F(TestDistributedShmemImpl, TestTwoShotAllReduce)
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestDistributedShmemImpl, TestOneShotAllReduce)
-{
+TEST_F(TestDistributedShmemImpl, TestOneShotAllReduce) {
     const char *group = "hcom123";
 
     uint32_t worldSize = 4;
@@ -185,8 +177,7 @@ TEST_F(TestDistributedShmemImpl, TestOneShotAllReduce)
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestDistributedShmemImpl, TestShmemDataSet)
-{
+TEST_F(TestDistributedShmemImpl, TestShmemDataSet) {
     Tensor predToken(DT_INT32, {1, 1}, "pred");
     Tensor out(DT_INT32, {1, 1}, "out");
     const char *group = "hcom123";
@@ -209,13 +200,11 @@ TEST_F(TestDistributedShmemImpl, TestShmemDataSet)
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
-    std::string expect =
-        R"!!!(TileOp::Distributed::ShmemSet<bfloat16_t, 1, 64, 256, 8192>)!!!";
+    std::string expect = R"!!!(TileOp::Distributed::ShmemSet<bfloat16_t, 1, 64, 256, 8192>)!!!";
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestDistributedShmemImpl, TestShmemSignalSet)
-{
+TEST_F(TestDistributedShmemImpl, TestShmemSignalSet) {
     Tensor predToken(DT_INT32, {1, 1}, "predToken");
     Tensor out(DT_INT32, {1, 1}, "out");
     const char *group = "hcom123";
@@ -238,14 +227,12 @@ TEST_F(TestDistributedShmemImpl, TestShmemSignalSet)
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
-    std::string expect =
-        R"!!!(TileOp::Distributed::ShmemSet<int32_t, 1, 1024, 8, 4096>)!!!";
+    std::string expect = R"!!!(TileOp::Distributed::ShmemSet<int32_t, 1, 1024, 8, 4096>)!!!";
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestDistributedShmemImpl, TestShmemBarrier)
-{
-    const char* group = "hcom123";
+TEST_F(TestDistributedShmemImpl, TestShmemBarrier) {
+    const char *group = "hcom123";
     uint32_t worldSize = 4;
     int64_t row = 16;
     int64_t col = 32;
@@ -257,7 +244,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemBarrier)
         TileShape::Current().SetVecTile({row, col});
         auto shmemBarrier1ShmemSignal = CreateShmemSignal(group, worldSize);
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void) index;
+            (void)index;
             out = ShmemBarrier(shmemBarrier1ShmemSignal, predToken);
         }
     }
@@ -273,8 +260,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemBarrier)
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
-{
+TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub) {
     Tensor out(DT_BF16, {4, 64}, "out");
     Tensor predToken(DT_INT32, {1, 1}, "predToken");
     std::string functionName = "ShmemLoad";
@@ -282,7 +268,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
         TileShape::Current().SetVecTile({4, 64});
         auto shmemTensor = CreateShmemTensor("hcom123", 4, DT_BF16, {1, 4, 64});
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void) index;
+            (void)index;
             out = ShmemLoad(shmemTensor, 0, predToken);
         }
     }
@@ -297,8 +283,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestDistributedShmemImpl, TestShmemPutUb2Gm)
-{
+TEST_F(TestDistributedShmemImpl, TestShmemPutUb2Gm) {
     int64_t row = 16;
     int64_t col = 32;
     Tensor in(DT_FP32, {row, col}, "in");
@@ -309,7 +294,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemPutUb2Gm)
         TileShape::Current().SetVecTile({row, col});
         auto shmemTensor = CreateShmemTensor("hcom123", 4, DT_FP32, {1, row, col});
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void) index;
+            (void)index;
             out = ShmemStore(in, shmemTensor, 0, AtomicType::ADD, predToken);
         }
     }
@@ -323,4 +308,4 @@ TEST_F(TestDistributedShmemImpl, TestShmemPutUb2Gm)
         R"!!!(TileOp::Distributed::ShmemPutUb2Gm<float, 16, 32, 32, TileOp::Distributed::AtomicType::ADD>)!!!";
     CheckStringExist(expect, res);
 }
-}
+} // namespace npu::tile_fwk::Distributed

@@ -33,12 +33,12 @@
 #include "machine/utils/dynamic/item_pool.h"
 
 namespace npu::tile_fwk::dynamic {
-using  int32v8 = int32_t __attribute__((vector_size(32)));
-using  int32v4 = int32_t __attribute__((vector_size(16)));
-using  uint32v8 = uint32_t __attribute__((vector_size(32)));
-using  uint32v4 = uint32_t __attribute__((vector_size(16)));
-using  uint16v4 = uint16_t __attribute__((vector_size(8)));
-using  uint16v8 = uint16_t __attribute__((vector_size(16)));
+using int32v8 = int32_t __attribute__((vector_size(32)));
+using int32v4 = int32_t __attribute__((vector_size(16)));
+using uint32v8 = uint32_t __attribute__((vector_size(32)));
+using uint32v4 = uint32_t __attribute__((vector_size(16)));
+using uint16v4 = uint16_t __attribute__((vector_size(8)));
+using uint16v8 = uint16_t __attribute__((vector_size(16)));
 
 constexpr uint32_t IDENT_SIZE = 2;
 constexpr uint32_t IDENT2_SIZE = 4;
@@ -65,9 +65,8 @@ inline bool IsTaskFinish(uint32_t id, uint32_t finValue) {
     return (id | AICORE_FIN_MASK) == finValue;
 }
 
-inline int64_t AlignUp(int64_t val, int64_t align)
-{
-    return (((val) + (align) - 1) & ~((align) - 1));
+inline int64_t AlignUp(int64_t val, int64_t align) {
+    return (((val) + (align)-1) & ~((align)-1));
 }
 
 using uintdevptr_t = uint64_t;
@@ -91,19 +90,17 @@ inline void DeviceRelocMaybeNull(T *&ptr, intdevptr_t shift) {
 struct RelocRange {
     RelocRange(uintdevptr_t src, uintdevptr_t dst) : src_(src), dst_(dst) {}
 
-    template<typename T>
+    template <typename T>
     inline void RelocNullable(T *&ptr) const {
         if (ptr != nullptr) {
             Reloc(ptr);
         }
     }
-    template<typename T>
+    template <typename T>
     inline void Reloc(T *&ptr) const {
         DeviceReloc(ptr, dst_ - src_);
     }
-    inline void Reloc(uint64_t &addr) const {
-        addr += dst_ - src_;
-    }
+    inline void Reloc(uint64_t &addr) const { addr += dst_ - src_; }
     inline void RelocNullable(uint64_t &addr) const {
         if (addr != 0) {
             Reloc(addr);
@@ -111,6 +108,7 @@ struct RelocRange {
     }
 
     uintdevptr_t GetDst() const { return dst_; }
+
 private:
     uintdevptr_t src_;
     uintdevptr_t dst_;
@@ -145,14 +143,16 @@ struct DevRelocVector {
 
     T &operator[](size_t idx) {
         if (idx >= size_) {
-            DEV_ERROR(DevDataErr::DEV_RELOC_VECTOR_INDEX_OOB, "#data.valid: Index out of bounds: idx=%zu, size=%zu", idx, size_);
+            DEV_ERROR(DevDataErr::DEV_RELOC_VECTOR_INDEX_OOB, "#data.valid: Index out of bounds: idx=%zu, size=%zu",
+                idx, size_);
         }
         DEV_ASSERT(DevDataErr::DEV_RELOC_VECTOR_INDEX_OOB, idx < size_);
         return data_[idx];
     }
     const T &operator[](size_t idx) const {
         if (idx >= size_) {
-            DEV_ERROR(DevDataErr::DEV_RELOC_VECTOR_INDEX_OOB, "#data.valid: Index out of bounds: idx=%zu, size=%zu", idx, size_);
+            DEV_ERROR(DevDataErr::DEV_RELOC_VECTOR_INDEX_OOB, "#data.valid: Index out of bounds: idx=%zu, size=%zu",
+                idx, size_);
         }
         DEV_ASSERT(DevDataErr::DEV_RELOC_VECTOR_INDEX_OOB, idx < size_);
         return data_[idx];
@@ -246,8 +246,8 @@ struct DevCceBinary {
     uint32_t coreType;
     uint32_t psgId;
     uint64_t funcHash;
-    int32_t wrapVecId {-1};
-    uint32_t mixResourceType {0};
+    int32_t wrapVecId{-1};
+    uint32_t mixResourceType{0};
 };
 static_assert(sizeof(DynFuncBin) == sizeof(DevCceBinary));
 
@@ -303,15 +303,15 @@ struct AddressDescriptor {
     union {
         struct {
             uint64_t rtOutcastIter : 63;
-            uint64_t isRtOutcast : 1;
+            uint64_t isRtOutcast   : 1;
         };
         struct {
             uint64_t addr : 63;
-            uint64_t : 1;
+            uint64_t      : 1;
         };
         struct {
             uint64_t cacheValue : 60;
-            uint64_t cacheKind : 4;
+            uint64_t cacheKind  : 4;
         };
     };
 
@@ -374,4 +374,4 @@ public:
         return ss.str();
     }
 };
-}
+} // namespace npu::tile_fwk::dynamic

@@ -29,7 +29,7 @@
 
 namespace npu::tile_fwk {
 struct ShapeDimComparator {
-    bool operator()(const Shape& a, const Shape& b) const {
+    bool operator()(const Shape &a, const Shape &b) const {
         if (a.size() != b.size()) {
             return a.size() < b.size();
         }
@@ -67,28 +67,29 @@ private:
     Status LCM(int64_t x, int64_t y, int64_t &lcm);
     Status CalLcmShape(const Shape &toShape, const Shape &fromShape, Shape &lcmShape);
     Status CalGcdShape(const Shape &toShape, const Shape &fromShape, Shape &lcmShape);
-    void GenerateOffset(const Shape &maxs, const Shape &steps,
-        Shape &current, std::vector<Shape> &result, size_t dim);
+    void GenerateOffset(const Shape &maxs, const Shape &steps, Shape &current, std::vector<Shape> &result, size_t dim);
     void CollectLargeTensorToInfo(const LogicalTensorPtr &largeTensor);
     void CollectLargeTensorFromInfo(const LogicalTensorPtr &largeTensor);
     void CollectOverlaps(const Shape &lcmTileShape, const Offset &lcmTileOffset,
         const std::vector<std::pair<LogicalTensorPtr, Offset>> &toTensorInfos,
-        const std::vector<std::pair<LogicalTensorPtr, Offset>> &fromTensorInfos,
-        LogicalTensors &overlaps, LogicalTensors &dualOverlaps);
+        const std::vector<std::pair<LogicalTensorPtr, Offset>> &fromTensorInfos, LogicalTensors &overlaps,
+        LogicalTensors &dualOverlaps);
     void CreateOpFor1toM(Function &function, LogicalTensorPtr largeTensor, Shape lcmTileShape, Offset lcmTileOffset,
         LogicalTensors overlaps, LogicalTensors dualOverlaps);
     void CreateOpForMtoM(Function &function, LogicalTensorPtr largeTensor, Shape lcmTileShape, Offset lcmTileOffset,
         LogicalTensors overlaps, LogicalTensors dualOverlaps);
-    void MoreSplit(Function &function, LogicalTensorPtr largeTensor, LogicalTensors overlaps, LogicalTensors dualOverlaps);
-    void CreateOpForMoreSplit(Function &function, LogicalTensorPtr largeTensor, LogicalTensors overlaps,
-        Shape gcdShape, LogicalTensorPtr dualOverlap, std::vector<Shape> gcdTileOffsets, Offset viewOpOffset);
+    void MoreSplit(
+        Function &function, LogicalTensorPtr largeTensor, LogicalTensors overlaps, LogicalTensors dualOverlaps);
+    void CreateOpForMoreSplit(Function &function, LogicalTensorPtr largeTensor, LogicalTensors overlaps, Shape gcdShape,
+        LogicalTensorPtr dualOverlap, std::vector<Shape> gcdTileOffsets, Offset viewOpOffset);
     void CollectLargeTensor(Function &function);
     void SplitLargeTensor(Function &function);
     bool IsBeCovered(Function &function, LogicalTensorPtr largeTensor,
         std::vector<std::pair<LogicalTensorPtr, Offset>> toTensorInfos);
     bool HasDuplicateToTile(std::vector<std::pair<LogicalTensorPtr, Offset>> toTensorInfos);
     void TryToSplitLargeTensor(Function &function, const Shape &lcmShape, const LogicalTensorPtr &largeTensor);
-    void GetOffsets(std::set<Shape, ShapeDimComparator> &tileOffsets, const Shape &lcmShape, const LogicalTensorPtr &largeTensor);
+    void GetOffsets(
+        std::set<Shape, ShapeDimComparator> &tileOffsets, const Shape &lcmShape, const LogicalTensorPtr &largeTensor);
     void SetEnableMoreSplit(bool enableMoreSplit);
     std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> toInfoMap_;
     std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> fromInfoMap_;

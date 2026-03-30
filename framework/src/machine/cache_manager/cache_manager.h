@@ -20,10 +20,7 @@
 #include "interface/function/function.h"
 
 namespace npu::tile_fwk {
-enum class CacheMode {
-    Disable = 0,
-    Enable
-};
+enum class CacheMode { Disable = 0, Enable };
 class CacheManager {
 public:
     CacheManager(const CacheManager &) = delete;
@@ -42,6 +39,7 @@ public:
     CacheMode GetCacheMode() const { return cacheMode_; }
 
     bool IsCahceEnable() const { return cacheMode_ == CacheMode::Enable; }
+
 private:
     CacheManager() : isInit_(false), cacheMode_(CacheMode::Disable) {}
     ~CacheManager() {
@@ -54,4 +52,4 @@ private:
     mutable std::mutex cacheMutex_;
     std::string cacheDirPath_;
 };
-};
+}; // namespace npu::tile_fwk

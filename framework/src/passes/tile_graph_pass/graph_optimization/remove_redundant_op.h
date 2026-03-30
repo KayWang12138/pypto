@@ -37,6 +37,7 @@ class RemoveRedundantOp : public Pass {
 public:
     RemoveRedundantOp() : Pass("RemoveRedundantOp") {}
     ~RemoveRedundantOp() override = default;
+
 private:
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
@@ -47,7 +48,8 @@ private:
     Status RemoveDummyOps(Function &function);
     void ProcessPerfectMatch(Function &function, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor);
     void RemoveViewAssembleForOutcast(Function &function, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor);
-    void CalculateViewOffset(Operation &op, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor, std::vector<long> &newoffset, std::vector<SymbolicScalar> &newDynoffset);
+    void CalculateViewOffset(Operation &op, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor,
+        std::vector<long> &newoffset, std::vector<SymbolicScalar> &newDynoffset);
     void GenerateNewView(Function &function, Operation &op, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor);
     bool IsNotSameViewInput(LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor) const;
     bool IsDataReplace(LogicalTensorPtr &endTensor) const;
@@ -60,4 +62,4 @@ private:
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // REMOVE_REDUNDANT_OP_H
+#endif // REMOVE_REDUNDANT_OP_H

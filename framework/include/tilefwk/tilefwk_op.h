@@ -69,7 +69,7 @@ struct PrintHelper {
 void Print(SymbolicScalar cond, const std::string &format, const std::vector<Tensor> &tensors,
     const std::vector<SymbolicScalar> &scalars);
 
-template<bool isB, bool isTrans>
+template <bool isB, bool isTrans>
 Tensor GatherInL1(const Tensor &src, const Tensor &offsets, const Tensor &blockTable, int blockSize, int size);
 Tensor GatherInUB(const Tensor &params, const Tensor &indices, const Tensor &blockTable, int blockSize, int axis);
 } // namespace experimental
@@ -96,12 +96,14 @@ void PrintIf(SymbolicScalar cond, Args... args) {
  * \param fname filename, {S} can be used as scalar placeholder
  * \param scalars scalars to dump
  */
-void ToFile(const Tensor &operand, const std::string &fname, const std::vector<SymbolicScalar> &scalars = {}, SymbolicScalar cond = 1);
+void ToFile(const Tensor &operand, const std::string &fname, const std::vector<SymbolicScalar> &scalars = {},
+    SymbolicScalar cond = 1);
 
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets);
 Tensor View(const Tensor &operand, const DataType dstDataType);
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets);
-Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::initializer_list<SymbolicScalar> &newOffsets);
+Tensor View(
+    const Tensor &operand, const std::vector<int64_t> &shapes, const std::initializer_list<SymbolicScalar> &newOffsets);
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,
     const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets);
 
@@ -115,8 +117,10 @@ struct AssembleItem {
 
 void Assemble(const std::vector<AssembleItem> &items, Tensor &src, bool parallelInAssemble = false);
 
-Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape={}, const bool inplace=false);
-Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dstshape, const std::initializer_list<SymbolicScalar> &validShape={}, const bool inplace=false);
+Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape,
+    const std::vector<SymbolicScalar> &validShape = {}, const bool inplace = false);
+Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dstshape,
+    const std::initializer_list<SymbolicScalar> &validShape = {}, const bool inplace = false);
 Tensor Reshape(const Tensor &operand, const std::vector<SymbolicScalar> &dstShape, const bool inplace);
 
 void Reshape(const Tensor &operand, Tensor &dst);
@@ -126,7 +130,8 @@ Tensor Full(const Element &src, DataType dtype, const std::vector<int64_t> &dstS
 Tensor Full(const SymbolicScalar &src, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape = {});
 Tensor Transpose(const Tensor &self, std::vector<int> perm);
-Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE, SaturationMode satmode = SaturationMode::OFF);
+Tensor Cast(
+    const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE, SaturationMode satmode = SaturationMode::OFF);
 
 Tensor Exp(const Tensor &self);
 Tensor Exp2(const Tensor &self);
@@ -175,21 +180,22 @@ enum class ScatterMode {
  * \param reduce : scatter reduction mode to be applied. Support NONE, ADD, MULTIPLY. NONE is default.
  * \return Tensor
  */
-Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, int axis,
-    ScatterMode reduce = ScatterMode::NONE);
-Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int axis,
-    ScatterMode reduce = ScatterMode::NONE);
+Tensor Scatter(
+    const Tensor &self, const Tensor &indices, const Element &src, int axis, ScatterMode reduce = ScatterMode::NONE);
+Tensor Scatter(
+    const Tensor &self, const Tensor &indices, const Tensor &src, int axis, ScatterMode reduce = ScatterMode::NONE);
 void IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate = false);
-Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element(DT_FP32, 1.0f));
+Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis,
+    const Element &alpha = Element(DT_FP32, 1.0f));
 Tensor RowSumExpand(const Tensor &operand);
 Tensor RowMaxExpand(const Tensor &operand);
 
-Tensor Sum(const Tensor &self, int axis = -1, bool keepDim=false);
-Tensor Amax(const Tensor &self, int axis = -1, bool keepDim=false);
-Tensor ArgMax(const Tensor &self, int axis = -1, bool keepDim=false);
-Tensor ArgMin(const Tensor &self, int axis = -1, bool keepDim=false);
-Tensor Amin(const Tensor &self, int axis = -1, bool keepDim=false);
-Tensor Prod(const Tensor &self, int axis = -1, bool keepDim=false);
+Tensor Sum(const Tensor &self, int axis = -1, bool keepDim = false);
+Tensor Amax(const Tensor &self, int axis = -1, bool keepDim = false);
+Tensor ArgMax(const Tensor &self, int axis = -1, bool keepDim = false);
+Tensor ArgMin(const Tensor &self, int axis = -1, bool keepDim = false);
+Tensor Amin(const Tensor &self, int axis = -1, bool keepDim = false);
+Tensor Prod(const Tensor &self, int axis = -1, bool keepDim = false);
 
 Tensor Compact(const Tensor &operand);
 
@@ -387,9 +393,9 @@ void PageAttentionAddS(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
     Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut, Tensor &postOut,
     PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1);
 
-void PageAttentionAddSSingleOutput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
-    Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut, Tensor &postOut,
-    PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1);
+void PageAttentionAddSSingleOutput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope,
+    Tensor &kRopeCache, Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut,
+    Tensor &postOut, PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1);
 
 void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
     Tensor &blockTable, Tensor &actSeqs, Tensor &weightUV, Tensor &weightO, int blockSize, float softmaxScale,
@@ -397,18 +403,9 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
 
 namespace Matrix {
 
-enum class ReLuType : int64_t
-{
-    NoReLu = 0,
-    ReLu = 1
-};
+enum class ReLuType : int64_t { NoReLu = 0, ReLu = 1 };
 
-enum class TransMode : int64_t
-{
-    CAST_NONE = 0,
-    CAST_RINT = 1,
-    CAST_ROUND = 2
-};
+enum class TransMode : int64_t { CAST_NONE = 0, CAST_RINT = 1, CAST_ROUND = 2 };
 
 struct MatmulExtendParam {
     Tensor biasTensor{Tensor()};
@@ -461,31 +458,32 @@ struct TileL1Info {
     int64_t tileN{0};
     int64_t tileBatch{0};
 
-    TileL1Info(int64_t hin, int64_t hout, int64_t win, int64_t wout,
-                int64_t cinFmap, int64_t cinWeight, int64_t cout, int64_t n)
-        : tileHin(hin), tileHout(hout), tileWin(win), tileWout(wout),
-            tileCinFmap(cinFmap), tileCinWeight(cinWeight), tileN(cout), tileBatch(n) {}
+    TileL1Info(int64_t hin, int64_t hout, int64_t win, int64_t wout, int64_t cinFmap, int64_t cinWeight, int64_t cout,
+        int64_t n)
+        : tileHin(hin),
+          tileHout(hout),
+          tileWin(win),
+          tileWout(wout),
+          tileCinFmap(cinFmap),
+          tileCinWeight(cinWeight),
+          tileN(cout),
+          tileBatch(n) {}
 
     TileL1Info() = default;
 };
 
-struct TileL0Info{
+struct TileL0Info {
     int64_t tileH{0};
     int64_t tileW{0};
     int64_t tileK{0};
     int64_t tileN{0};
 
-    TileL0Info(int64_t h, int64_t w, int64_t k, int64_t n)
-        : tileH(h), tileW(w), tileK(k), tileN(n) {}
+    TileL0Info(int64_t h, int64_t w, int64_t k, int64_t n) : tileH(h), tileW(w), tileK(k), tileN(n) {}
 
     TileL0Info() = default;
 };
 
-enum class ReLuType : int64_t
-{
-    NoReLu = 0,
-    ReLu = 1
-};
+enum class ReLuType : int64_t { NoReLu = 0, ReLu = 1 };
 
 struct ConvExtendParam {
     Tensor biasTensor{Tensor()};
@@ -494,19 +492,16 @@ struct ConvExtendParam {
     ReLuType reluType{ReLuType::NoReLu};
 
     ConvExtendParam(Tensor bias, Tensor scale, float scaleVal, ReLuType relu)
-        : biasTensor(std::move(bias)),
-          scaleTensor(std::move(scale)),
-          scaleValue(scaleVal),
-          reluType(relu) {}
+        : biasTensor(std::move(bias)), scaleTensor(std::move(scale)), scaleValue(scaleVal), reluType(relu) {}
 
     ConvExtendParam() = default;
 };
 
-Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const std::vector<int64_t> &strides,
-            const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const ConvExtendParam &extendParam,
-            const int64_t groups = 1);
+Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor,
+    const std::vector<int64_t> &strides, const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations,
+    const ConvExtendParam &extendParam, const int64_t groups = 1);
 
-}
+} // namespace Conv
 
 namespace Distributed {
 enum class DistReduceType {
@@ -515,21 +510,18 @@ enum class DistReduceType {
     DIST_REDUCE_MIN,
 };
 
-enum class AtomicType {
-    SET,
-    ADD
-};
+enum class AtomicType { SET, ADD };
 
 struct MoeConfig {
     int32_t routedExpertNum{0};
     int32_t expertNumPerRank{0};
     int32_t rankNum{0};
 };
-void MoeDistributedDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
-    Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
-void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
-    const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
-    uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out);
+void MoeDistributedDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tensor &expandX,
+    Tensor &validCnt, Tensor &combineInfo, const char *group, const MoeConfig &moeConfig);
+void MoeDistributedCombine(const Tensor &expandX, const Tensor &assistInfoForCombine, const Tensor &recvCounts,
+    const Tensor &expertScales, const char *group, uint32_t epWorldSize, uint32_t moeExpertNum,
+    uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor &out);
 
 struct ShmemTensor {
     std::string group;
@@ -537,37 +529,48 @@ struct ShmemTensor {
     Tensor data;
     Tensor signal;
 };
-ShmemTensor CreateShmemTensor(const char* group, int64_t worldSize, DataType dataType, const Shape& shape);
-void CreateShmemTensor(const char* group, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor &t);
-ShmemTensor CreateShmemSignal(const char* group, int64_t worldSize);
-void CreateShmemSignal(const char* group, int64_t worldSize, ShmemTensor &t);
-ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets);
-ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &offsets);
-ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets);
-ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::initializer_list<SymbolicScalar> &newOffsets);
-Tensor ShmemPut(const Tensor &src, const ShmemTensor &dst, const SymbolicScalar &dstRank, AtomicType putOp, const Tensor& pred);
-Tensor ShmemGet(const ShmemTensor &src, const SymbolicScalar &srcRank, const Tensor& pred, DataType targetDataType = DataType::DT_BOTTOM);
-Tensor ShmemSignal(const ShmemTensor& src, const SymbolicScalar &srcRank, const SymbolicScalar &targetRank, int32_t signal, AtomicType sigOp, const Tensor& pred);
-Tensor ShmemSignalAll(const ShmemTensor& src, const SymbolicScalar &srcRank, int32_t signal, AtomicType sigOp, const Tensor& pred);
-Tensor ShmemWaitUntil(const ShmemTensor& src, const SymbolicScalar &srcRank, OpType cmp, int32_t cmpValue, bool clearSignal, const Tensor &pred);
-Tensor ShmemClearData(const ShmemTensor& src, Tensor &pred);
-Tensor ShmemClearSignal(const ShmemTensor& src, Tensor &pred);
+ShmemTensor CreateShmemTensor(const char *group, int64_t worldSize, DataType dataType, const Shape &shape);
+void CreateShmemTensor(const char *group, int64_t worldSize, DataType dataType, const Shape &shape, ShmemTensor &t);
+ShmemTensor CreateShmemSignal(const char *group, int64_t worldSize);
+void CreateShmemSignal(const char *group, int64_t worldSize, ShmemTensor &t);
+ShmemTensor ShmemView(
+    const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets);
+ShmemTensor ShmemView(
+    const ShmemTensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &offsets);
+ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes,
+    const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets);
+ShmemTensor ShmemView(const ShmemTensor &operand, const std::vector<int64_t> &shapes,
+    const std::initializer_list<SymbolicScalar> &newOffsets);
+Tensor ShmemPut(
+    const Tensor &src, const ShmemTensor &dst, const SymbolicScalar &dstRank, AtomicType putOp, const Tensor &pred);
+Tensor ShmemGet(const ShmemTensor &src, const SymbolicScalar &srcRank, const Tensor &pred,
+    DataType targetDataType = DataType::DT_BOTTOM);
+Tensor ShmemSignal(const ShmemTensor &src, const SymbolicScalar &srcRank, const SymbolicScalar &targetRank,
+    int32_t signal, AtomicType sigOp, const Tensor &pred);
+Tensor ShmemSignalAll(
+    const ShmemTensor &src, const SymbolicScalar &srcRank, int32_t signal, AtomicType sigOp, const Tensor &pred);
+Tensor ShmemWaitUntil(const ShmemTensor &src, const SymbolicScalar &srcRank, OpType cmp, int32_t cmpValue,
+    bool clearSignal, const Tensor &pred);
+Tensor ShmemClearData(const ShmemTensor &src, Tensor &pred);
+Tensor ShmemClearSignal(const ShmemTensor &src, Tensor &pred);
 Tensor ShmemBarrier(const ShmemTensor &src, const Tensor &pred);
-Tensor ShmemLoad(const ShmemTensor &src, const SymbolicScalar &srcRank, const Tensor& pred, DataType targetDataType = DataType::DT_BOTTOM);
-Tensor ShmemStore(const Tensor &src, const ShmemTensor &dst, const SymbolicScalar &dstRank, AtomicType putOp, const Tensor &pred);
+Tensor ShmemLoad(const ShmemTensor &src, const SymbolicScalar &srcRank, const Tensor &pred,
+    DataType targetDataType = DataType::DT_BOTTOM);
+Tensor ShmemStore(
+    const Tensor &src, const ShmemTensor &dst, const SymbolicScalar &dstRank, AtomicType putOp, const Tensor &pred);
 
-void AllGather(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
-void ReduceScatter(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor,
-    DistReduceType reduceType, Tensor& out);
-void OneShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out);
-void TwoShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out);
+void AllGather(const Tensor &predToken, const Tensor &in, ShmemTensor &shmemTensor, Tensor &out);
+void ReduceScatter(
+    const Tensor &predToken, const Tensor &in, ShmemTensor &shmemTensor, DistReduceType reduceType, Tensor &out);
+void OneShotAllReduce(const Tensor &predToken, const Tensor &in, ShmemTensor &shmemTensor, Tensor &out);
+void TwoShotAllReduce(const Tensor &predToken, const Tensor &in, ShmemTensor &shmemTensor, Tensor &out);
 
-void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const char* group,
-    uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& expandX,
-    Tensor& assistInfoForCombine, Tensor& expertTokenNums, Tensor& recvCounts);
-void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
-    const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
-    uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out);
+void MoeDistributedDispatchV2(const Tensor &x, const Tensor &expertIds, const char *group, uint32_t epWorldSize,
+    uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor &expandX,
+    Tensor &assistInfoForCombine, Tensor &expertTokenNums, Tensor &recvCounts);
+void MoeDistributedCombineV2(const Tensor &expandX, const Tensor &assistInfoForCombine, const Tensor &recvCounts,
+    const Tensor &expertScales, const char *group, uint32_t epWorldSize, uint32_t moeExpertNum,
+    uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor &out);
 
 } // namespace Distributed
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart);

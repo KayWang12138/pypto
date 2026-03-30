@@ -46,7 +46,7 @@ const std::unordered_map<std::string, NPUArch> npuArchMap = {
     {"3510", NPUArch::DAV_3510},
 };
 
-NPUArch StringToNPUArch(const std::string& npuArch) {
+NPUArch StringToNPUArch(const std::string &npuArch) {
     auto it = npuArchMap.find(npuArch);
     if (it != npuArchMap.end()) {
         PLATFORM_LOGD("Set NpuArch as %s.", npuArch.c_str());
@@ -66,14 +66,14 @@ size_t Core::GetMemorySize(MemoryType type) const {
 size_t Die::GetMemoryLimit(MemoryType type) const {
     size_t aic_limit = core_wrap_.GetAICMemorySize(type);
     size_t aiv_limit = core_wrap_.GetAIVMemorySize(type);
-    if(aic_limit == 0 && aiv_limit == 0) {
+    if (aic_limit == 0 && aiv_limit == 0) {
         // ERROR Note
         return 0;
     }
     return aic_limit == 0 ? aiv_limit : aic_limit;
 }
 
-bool Die::SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>>& dataPaths) {
+bool Die::SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>> &dataPaths) {
     for (const auto &pathDesc : dataPaths) {
         if (pathDesc.first != MemoryType::MEM_UNKNOWN && pathDesc.second != MemoryType::MEM_UNKNOWN) {
             memoryGraph_.AddPath(pathDesc.first, pathDesc.second);
@@ -91,11 +91,11 @@ bool Die::FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType
     return false;
 }
 
-void SoC::SetNPUArch(const std::string& versionStr) {
+void SoC::SetNPUArch(const std::string &versionStr) {
     version_ = StringToNPUArch(versionStr);
 }
 
-void SoC::SetCCECVersion(const std::unordered_map<std::string, std::string>& ver) {
+void SoC::SetCCECVersion(const std::unordered_map<std::string, std::string> &ver) {
     for (const auto &pair : ver) {
         if (pair.first == "AIC") {
             GetAICCore().SetCCECVersion(pair.second);
@@ -152,7 +152,8 @@ std::shared_ptr<MemoryNode> MemoryGraph::GetNode(MemoryType type) {
     return node;
 }
 
-void MemoryGraph::DFS(MemoryType target, const std::shared_ptr<MemoryNode> &node, std::vector<MemoryType> &candidate, std::vector<MemoryType> &paths) const {
+void MemoryGraph::DFS(MemoryType target, const std::shared_ptr<MemoryNode> &node, std::vector<MemoryType> &candidate,
+    std::vector<MemoryType> &paths) const {
     for (auto &dest : node->dests) {
         if (std::find(candidate.begin(), candidate.end(), dest) != candidate.end()) {
             continue;
@@ -288,4 +289,4 @@ void Platform::ObtainPlatformInfo() {
     PLATFORM_LOGD("Loaded platform info.");
     initialized = true;
 }
-}
+} // namespace npu::tile_fwk

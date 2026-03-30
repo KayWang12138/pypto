@@ -32,22 +32,16 @@ using namespace npu::tile_fwk;
 
 class FunctionCoverageTest : public testing::Test {
 public:
-    static void SetUpTestCase() {
-        std::cout << "FunctionCoverageTest SetUpTestCase" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "FunctionCoverageTest SetUpTestCase" << std::endl; }
 
-    static void TearDownTestCase() {
-        std::cout << "FunctionCoverageTest TearDownTestCase" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "FunctionCoverageTest TearDownTestCase" << std::endl; }
 
     void SetUp() override {
         std::cout << "FunctionCoverageTest SetUp" << std::endl;
         Program::GetInstance().Reset();
     }
 
-    void TearDown() override {
-        std::cout << "FunctionCoverageTest TearDown" << std::endl;
-    }
+    void TearDown() override { std::cout << "FunctionCoverageTest TearDown" << std::endl; }
 };
 
 TEST_F(FunctionCoverageTest, ConverageCase1) {
@@ -229,7 +223,7 @@ TEST_F(FunctionCoverageTest, TestReuseTensorCase1) {
     Operation *re_op = nullptr;
     Operation *sqrt_op = nullptr;
     for (auto &op : func->Operations()) {
-        std::cout << "Op:" << op.opmagic<< " " <<  op.GetOpcodeStr() << std::endl;
+        std::cout << "Op:" << op.opmagic << " " << op.GetOpcodeStr() << std::endl;
         std::cout << "input operation:";
         for (const std::shared_ptr<LogicalTensor> &input_tensor : op.GetIOperands()) {
             for (const auto &item_op : input_tensor->GetProducers()) {

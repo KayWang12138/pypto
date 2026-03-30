@@ -132,7 +132,6 @@ static void SubsOperationExeFuncQuadrupleCut(
     }
 }
 
-
 class SubsOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<SubsOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestSubs, SubsOperationTest,

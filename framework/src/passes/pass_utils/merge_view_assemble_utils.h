@@ -33,8 +33,8 @@ public:
         std::vector<SymbolicScalar> dynOffset;
         std::vector<SymbolicScalar> dynValidShape;
         MemoryType toType = MemoryType::MEM_UNKNOWN;
-        bool hasCopyInMode;     // 是否有copy_in_mode属性
-        npu::tile_fwk::Any copyInModeValue;    // copy_in_mode属性值
+        bool hasCopyInMode;                 // 是否有copy_in_mode属性
+        npu::tile_fwk::Any copyInModeValue; // copy_in_mode属性值
     };
     struct AssembleOp {
         std::shared_ptr<LogicalTensor> input;
@@ -69,13 +69,10 @@ public:
      * @param chainEnd a flag indicating whether the chain has ended.
      * @return Status indicating success or failed.
      */
-    Status ProcessConsumerChain(Function &function,
-                              const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
-                              std::vector<Operation *> &chain,
-                              bool &chainEnd);
+    Status ProcessConsumerChain(Function &function, const std::set<Operation *, LogicalTensor::CompareOp> &consumers,
+        std::vector<Operation *> &chain, bool &chainEnd);
 
-    Status ProcessChainEnd(Function &function,
-                         std::vector<Operation *> &chain);
+    Status ProcessChainEnd(Function &function, std::vector<Operation *> &chain);
 
     /**
      * @brief Calculate the merged offsets and dynamic vaildshapes for the chain of a view.
@@ -99,7 +96,7 @@ public:
      * @param newDynOffset the calculated newDynOffset.
      * @param newDynValidShape the calculated newDynValidShape.
      */
-    void RecordMergedViewOperation(Operation* lastViewOp, const std::shared_ptr<LogicalTensor> &startTensor,
+    void RecordMergedViewOperation(Operation *lastViewOp, const std::shared_ptr<LogicalTensor> &startTensor,
         const std::shared_ptr<LogicalTensor> &endTensor, const std::vector<int64_t> &newOffset,
         const std::vector<SymbolicScalar> &newDynOffset, const std::vector<SymbolicScalar> &newDynValidShape);
 
@@ -127,13 +124,10 @@ public:
      * @return Status indicating success or failed.
      */
     Status ProcessAssembleConsumers(Function &function,
-                                  const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
-                                  std::vector<Operation *> &chain,
-                                  bool &chainEnd, bool& hasAssembleConsumer);
+        const std::set<Operation *, LogicalTensor::CompareOp> &consumers, std::vector<Operation *> &chain,
+        bool &chainEnd, bool &hasAssembleConsumer);
 
-    Status ProcessAssembleChainEnd(Function &function,
-                                 std::vector<Operation *> &chain,
-                                 Operation &operation);
+    Status ProcessAssembleChainEnd(Function &function, std::vector<Operation *> &chain, Operation &operation);
 
     std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> CalculateAssembleOffsets(
         const std::vector<Operation *> &chain, size_t offsetSize);
@@ -160,5 +154,5 @@ public:
     std::vector<ViewOp> viewOpToAppend_;
     std::vector<AssembleOp> assembleOpToAppend_;
 };
-}
+} // namespace npu::tile_fwk
 #endif // PASS_MERGE_VIEW_ASSEMBLE_IMPL_H_

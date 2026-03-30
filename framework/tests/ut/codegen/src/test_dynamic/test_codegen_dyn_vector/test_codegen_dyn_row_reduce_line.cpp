@@ -135,7 +135,8 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowProdLine) {
             output = Prod(input_a, 0, true);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
@@ -173,7 +174,8 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowProdSingleTileTensor) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(output, 0.001f),
     });
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -205,7 +207,8 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowArgMaxLine) {
             output = ArgMax(input_a, 0, true);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
@@ -243,7 +246,8 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowArgMaxSingleTileTensor) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(output, 0.001f),
     });
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -275,7 +279,8 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowArgMinLine) {
             output = ArgMin(input_a, 0, true);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
@@ -313,7 +318,8 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowArgMinSingleTileTensor) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(output, 0.001f),
     });
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

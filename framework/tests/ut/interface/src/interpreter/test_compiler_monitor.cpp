@@ -27,8 +27,7 @@ public:
 
     static void SetUpTestCase() {}
 
-    void SetUp() override {
-    }
+    void SetUp() override {}
 
     void TearDown() override {}
 };
@@ -42,7 +41,7 @@ TEST_F(CompilerMonitor, CompilerMonitorInitial) {
 }
 
 TEST_F(CompilerMonitor, CompilerMonitorImpl) {
-    MonitorImpl* impl_ = new MonitorImpl(&(MonitorManager::Instance()));
+    MonitorImpl *impl_ = new MonitorImpl(&(MonitorManager::Instance()));
     MonitorManager::Instance().Initialize(true, 2, 4, 5);
     MonitorManager::Instance().SetTotalFunctionCount(5);
     MonitorManager::Instance().SetCurrentFunctionIndex(3);
@@ -56,7 +55,7 @@ TEST_F(CompilerMonitor, CompilerMonitorImpl) {
 }
 
 TEST_F(CompilerMonitor, CompilerMonitorTestPrint) {
-    MonitorImpl* impl_ = new MonitorImpl(&(MonitorManager::Instance()));
+    MonitorImpl *impl_ = new MonitorImpl(&(MonitorManager::Instance()));
     MonitorManager::Instance().Initialize(true, 2, 4, 5);
     MonitorManager::Instance().SetTotalFunctionCount(5);
     MonitorManager::Instance().SetCurrentFunctionIndex(3);

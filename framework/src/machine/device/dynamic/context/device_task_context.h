@@ -20,11 +20,11 @@
 
 namespace npu::tile_fwk::dynamic {
 struct DeviceTaskContext {
-    void InitAllocator(DevAscendProgram *devProg, DeviceWorkspaceAllocator &workspace,
-                       npu::tile_fwk::DevStartArgsBase *startArgs);
+    void InitAllocator(
+        DevAscendProgram *devProg, DeviceWorkspaceAllocator &workspace, npu::tile_fwk::DevStartArgsBase *startArgs);
 
-    DynDeviceTask *BuildDeviceTaskData(DeviceStitchContext &stitchContext, uint32_t taskId, DevAscendProgram *devProg,
-                                       bool withoutTail);
+    DynDeviceTask *BuildDeviceTaskData(
+        DeviceStitchContext &stitchContext, uint32_t taskId, DevAscendProgram *devProg, bool withoutTail);
 
     void ReleaseFinishedTasks(int perfEvtReleaseFinishTask, int perfEvtDeallocateTask);
 
@@ -33,36 +33,41 @@ struct DeviceTaskContext {
     void ShowStats();
 
     void UpdateReadyTaskNum(uint64_t cnt) { readyTaskNum += cnt; }
+
 private:
     uint64_t stitchedFuncNum{0};
     uint64_t rootFuncNum{0};
     uint64_t leafFuncNum{0};
-    uint64_t readyTaskNum {0};
-    uint64_t dynFuncDataSize {0};
-    uint64_t leafFuncDataSize {0};
+    uint64_t readyTaskNum{0};
+    uint64_t dynFuncDataSize{0};
+    uint64_t leafFuncDataSize{0};
+
 private:
     DevAscendProgram *devProg_{nullptr};
     DeviceWorkspaceAllocator *workspace_{nullptr};
     npu::tile_fwk::DevStartArgsBase *startArgs_{nullptr};
+
 private:
     int BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram *devProg);
-    void BuildReadyQueueForFunc(DynDeviceTask *dyntask, size_t funcIndex, bool isNeedWrap,
-         WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr, int &wrapTaskNum);
+    void BuildReadyQueueForFunc(DynDeviceTask *dyntask, size_t funcIndex, bool isNeedWrap, WrapInfoQueue *wrapQueue,
+        uint32_t *wrapTasklistAddr, int &wrapTaskNum);
     void ProcessAivBatchTasks(ReadyCoreFunctionQueue *aivQueue, size_t totalZeroPredAIVBatchEnd,
         const predcount_t *dupPredCountList, size_t funcIndex);
     void InitReadyCoreFunctionQueue(ReadyCoreFunctionQueue *q, uint32_t capacity);
-    int InitReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg,
-        ReadyCoreFunctionQueue* queue[READY_QUEUE_SIZE]);
-    int ProcessZeroPredTask(DynDeviceTask *dyntask, uint32_t *wrapTasklistAddr, WrapInfoQueue *wrapQueue, bool isNeedWrap);
+    int InitReadyQueues(
+        DynDeviceTask *dyntask, DevAscendProgram *devProg, ReadyCoreFunctionQueue *queue[READY_QUEUE_SIZE]);
+    int ProcessZeroPredTask(
+        DynDeviceTask *dyntask, uint32_t *wrapTasklistAddr, WrapInfoQueue *wrapQueue, bool isNeedWrap);
     void InitDieReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg);
-    void UpdateDeviceTaskQueueInfo(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *aicpuQueue, ReadyCoreFunctionQueue *aivQueue,
-        ReadyCoreFunctionQueue *aicQueue, WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr);
-    int BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId,
-        DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize);
+    void UpdateDeviceTaskQueueInfo(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *aicpuQueue,
+        ReadyCoreFunctionQueue *aivQueue, ReadyCoreFunctionQueue *aicQueue, WrapInfoQueue *wrapQueue,
+        uint32_t *wrapTasklistAddr);
+    int BuildDynFuncData(
+        DynDeviceTask *dyntask, uint32_t taskId, DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize);
 
     // mix subgraph schedule
-    uint32_t* AllocWrapTasklist(DynDeviceTask *dyntask);
-    WrapInfoQueue* AllocWrapQueue(DynDeviceTask *dyntask);
+    uint32_t *AllocWrapTasklist(DynDeviceTask *dyntask);
+    WrapInfoQueue *AllocWrapQueue(DynDeviceTask *dyntask);
     void ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId, int funcIndex, size_t opIndex,
         WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr);
     bool IsMixArch(DevAscendProgram *devProg);
@@ -76,18 +81,20 @@ private:
         if (coreType == static_cast<int>(CoreType::HUB)) {
             ResolveEarlyDepends(dyntask, funcIdx, succIdx);
         } else {
-            int32_t* opWrapList = reinterpret_cast<int32_t *>(dyntask->devTask.mixTaskData.opWrapList[funcIdx]);
+            int32_t *opWrapList = reinterpret_cast<int32_t *>(dyntask->devTask.mixTaskData.opWrapList[funcIdx]);
             if (dyntask->devTask.mixTaskData.wrapIdNum > 0 && opWrapList[succIdx] != -1) {
-                ProcessWrapQueue(dyntask, MakeMixWrapID(funcIdx, static_cast<uint32_t>(opWrapList[succIdx])), funcIdx, succIdx,
-                    reinterpret_cast<WrapInfoQueue *>(dyntask->devTask.mixTaskData.readyWrapCoreFunctionQue),
+                ProcessWrapQueue(dyntask, MakeMixWrapID(funcIdx, static_cast<uint32_t>(opWrapList[succIdx])), funcIdx,
+                    succIdx, reinterpret_cast<WrapInfoQueue *>(dyntask->devTask.mixTaskData.readyWrapCoreFunctionQue),
                     reinterpret_cast<uint32_t *>(dyntask->devTask.mixTaskData.wrapTasklist));
             } else if (IsMultiDie(devProg_) && (GetLoopDieId(dyntask, funcIdx) >= 0)) {
                 auto dieId = GetLoopDieId(dyntask, funcIdx);
-                auto q = reinterpret_cast<ReadyCoreFunctionQueue *>(dyntask->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[dieId]);
+                auto q = reinterpret_cast<ReadyCoreFunctionQueue *>(
+                    dyntask->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[dieId]);
                 if (coreType == static_cast<int>(CoreType::AIV)) {
-                    q = reinterpret_cast<ReadyCoreFunctionQueue *>(dyntask->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[dieId]);
+                    q = reinterpret_cast<ReadyCoreFunctionQueue *>(
+                        dyntask->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[dieId]);
                 }
-                 q->elem[q->tail++] = MakeTaskID(funcIdx, succIdx);
+                q->elem[q->tail++] = MakeTaskID(funcIdx, succIdx);
             } else {
                 auto q = dyntask->readyQueue[dyntask->GetReadyQueueIndexByCoreType(static_cast<CoreType>(coreType))];
                 q->elem[q->tail++] = MakeTaskID(funcIdx, succIdx);
@@ -103,7 +110,8 @@ private:
 public:
     static void DumpReadyQueue(DynDeviceTask *dynTask, const char *prefix);
 
-    static void DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *devProg, DevStartArgs *startArgs, const char *prefix);
+    static void DumpDepend(
+        DynDeviceTask *dyntask, DevAscendProgram *devProg, DevStartArgs *startArgs, const char *prefix);
 
     int BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg);
 
@@ -116,4 +124,4 @@ public:
         return loopDieId;
     }
 };
-}
+} // namespace npu::tile_fwk::dynamic

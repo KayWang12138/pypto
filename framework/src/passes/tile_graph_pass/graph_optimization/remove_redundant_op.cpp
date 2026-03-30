@@ -208,15 +208,16 @@ Status RemoveRedundantOp::ProcessViewAssemble(Function &function) {
     return SUCCESS;
 }
 
-void RemoveRedundantOp::RemoveViewAssembleForOutcast(Function &function, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor) {
+void RemoveRedundantOp::RemoveViewAssembleForOutcast(
+    Function &function, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor) {
     bool canRemove;
     std::set<Operation *> removeOp;
-    for (auto &startConsumer: startTensor->GetConsumers()) {
+    for (auto &startConsumer : startTensor->GetConsumers()) {
         if (startConsumer->GetOpcode() != Opcode::OP_VIEW) {
             continue;
         }
         canRemove = true;
-        for (auto &endProducer: startConsumer->ConsumerOps()) {
+        for (auto &endProducer : startConsumer->ConsumerOps()) {
             if (endProducer->GetOOperands().front() != endTensor || endProducer->GetOpcode() != Opcode::OP_ASSEMBLE) {
                 canRemove = false;
             } else {
@@ -275,7 +276,9 @@ bool RemoveRedundantOp::IsNotSameViewInput(LogicalTensorPtr &startTensor, Logica
                 if (inTensor != startTensor) {
                     return true;
                 }
-                if (producerOp->GetOpcode() != Opcode::OP_VIEW) {continue;}
+                if (producerOp->GetOpcode() != Opcode::OP_VIEW) {
+                    continue;
+                }
             }
         }
     }
@@ -327,7 +330,8 @@ bool RemoveRedundantOp::IsValidViewAssemble(LogicalTensorPtr &startTensor, Logic
     bool isDataRepalce = IsDataReplace(endTensor); // true表示assemble后数据重排布
     if (isDataRepalce) {
         APASS_LOG_DEBUG_F(Elements::Tensor,
-            "OP_ASSEMBLE'S output endTensor[%d] is repalced comparing with startTesnor[%d].", startTensor->magic, endTensor->magic);
+            "OP_ASSEMBLE'S output endTensor[%d] is repalced comparing with startTesnor[%d].", startTensor->magic,
+            endTensor->magic);
         return false;
     }
     return true;

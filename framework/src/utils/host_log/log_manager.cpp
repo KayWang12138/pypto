@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -42,12 +42,11 @@ constexpr const char *kModulePrefix = "PYPTO=";
 constexpr const char *kHostLogFilePrefix = "pypto-log-";
 constexpr const char *kDevLogFilePrefix = "pypto-simulation-";
 constexpr const char *kLogFileSuffix = ".log";
-constexpr int64_t kMaxLogFileSize = 20 * 1024 * 1024;  // 10MB
+constexpr int64_t kMaxLogFileSize = 20 * 1024 * 1024; // 10MB
 
 const std::string kLogLevelNoneStr = "[NONE] ";
 const std::array<std::string, static_cast<size_t>(LogLevel::NONE)> kLogLevelStrArray = {
-    "[DEBUG]", "[INFO ]", "[WARN ]", "[ERROR]", "[EVENT]"
-};
+    "[DEBUG]", "[INFO ]", "[WARN ]", "[ERROR]", "[EVENT]"};
 
 uint64_t GetTid() {
     thread_local uint64_t tid = static_cast<uint64_t>(syscall(__NR_gettid));
@@ -58,9 +57,10 @@ int64_t GetPid() {
     return getpid();
 }
 
-const std::string& GetLogLevelStr(const LogLevel logLevel) {
+const std::string &GetLogLevelStr(const LogLevel logLevel) {
     return (logLevel >= LogLevel::DEBUG && logLevel < LogLevel::NONE) ?
-        kLogLevelStrArray[static_cast<size_t>(logLevel)] : kLogLevelNoneStr;
+               kLogLevelStrArray[static_cast<size_t>(logLevel)] :
+               kLogLevelNoneStr;
 }
 
 bool GetEnvStr(const char *envName, std::string &envValue) {
@@ -76,7 +76,7 @@ bool GetEnvStr(const char *envName, std::string &envValue) {
 std::string GetCurrentTime() {
     auto now = std::chrono::system_clock::now();
     auto nowTime = std::chrono::system_clock::to_time_t(now);
-    std::tm* nowTm = std::localtime(&nowTime);
+    std::tm *nowTm = std::localtime(&nowTime);
     std::stringstream ss;
     ss << std::put_time(nowTm, "%Y-%m-%d %H:%M:%S");
     auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
@@ -87,7 +87,7 @@ std::string GetCurrentTime() {
 std::string GetCurrentTimeStr() {
     auto now = std::chrono::system_clock::now();
     auto nowTime = std::chrono::system_clock::to_time_t(now);
-    std::tm* nowTm = std::localtime(&nowTime);
+    std::tm *nowTm = std::localtime(&nowTime);
     std::stringstream ss;
     ss << std::put_time(nowTm, "%Y%m%d%H%M%S");
     auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
@@ -98,9 +98,9 @@ std::string GetCurrentTimeStr() {
 int ParseStrToInt(const std::string &str) {
     try {
         return std::stoi(str);
-    } catch (const std::invalid_argument& ia) {
+    } catch (const std::invalid_argument &ia) {
         std::cerr << "Invalid argument: " << ia.what() << '\n';
-    } catch (const std::out_of_range& oor) {
+    } catch (const std::out_of_range &oor) {
         std::cerr << "Out of Range error: " << oor.what() << '\n';
     }
     return -1;
@@ -130,7 +130,7 @@ void RemoveRedundantLogFiles(const size_t maxLogFileNum, std::queue<std::string>
         logFilesQueue.pop();
     }
 }
-}
+} // namespace
 LogManager &LogManager::Instance() {
     static LogManager instance;
     return instance;
@@ -249,7 +249,7 @@ void LogManager::ConstructMessage(const LogLevel logLevel, const char *fmt, va_l
 
 void LogManager::ConstructMsgHeader(const LogLevel logLevel, LogMsg &logMsg) {
     int ret = snprintf_s(logMsg.msg, MAX_MSG_LENGTH, MAX_MSG_LENGTH - 1, "%s %s(%lu):%s ",
-                         GetLogLevelStr(logLevel).c_str(), kModuleName, GetTid(), GetCurrentTime().c_str());
+        GetLogLevelStr(logLevel).c_str(), kModuleName, GetTid(), GetCurrentTime().c_str());
     if (ret < 0) {
         std::cerr << "Construct log msg hader failed: " << ret << std::endl;
         return;
@@ -296,7 +296,7 @@ void LogManager::WriteToFile(const LogMsg &logMsg) {
     }
     // write log into file
     if (!currentFileStream.is_open()) {
-        std::cerr << "Failed to open file: " <<  GetLogFilesQueue().back() << std::endl;
+        std::cerr << "Failed to open file: " << GetLogFilesQueue().back() << std::endl;
         return;
     }
     currentFileStream << logMsg.msg;
@@ -309,7 +309,7 @@ void LogManager::CreateAndOpenNewLogFile() {
     std::ostringstream oss;
     const std::string &logFilePrefix = attr_.isDevice ? kDevLogFilePrefix : kHostLogFilePrefix;
     oss << GetLogDir() << "/" << logFilePrefix << GetPid() << "_" << GetCurrentTimeStr() << kLogFileSuffix;
-    std::string newLogFileName =  oss.str();
+    std::string newLogFileName = oss.str();
     GetCurrentFileStream().open(newLogFileName);
     AddNewLogFile(newLogFileName);
 }
@@ -318,7 +318,7 @@ void LogManager::AddNewLogFile(const std::string &newLogFileName) {
     std::queue<std::string> &logFilesQueue = GetLogFilesQueue();
     logFilesQueue.push(newLogFileName);
     while (logFilesQueue.size() > maxLogFileNum_) {
-        RemoveFile(logFilesQueue.front()); //remove file
+        RemoveFile(logFilesQueue.front()); // remove file
         logFilesQueue.pop();
     }
 }
@@ -330,4 +330,4 @@ void LogManager::CheckAndCloseLogFile(std::ofstream &currentFileStream) {
     }
     currentFileStream.close();
 }
-}
+} // namespace npu::tile_fwk

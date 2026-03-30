@@ -62,9 +62,12 @@ static void GetBatchMatmulTileParam(
     tileParam.transB = args->param_.transB;
     size_t inputDim = inputs[0].GetShape().size();
     const size_t DIM_OFFSET_2 = 2;
-    tileParam.mDim = tileParam.transA ? inputs[0].GetShape()[inputDim - 1] : inputs[0].GetShape()[inputDim - DIM_OFFSET_2];
-    tileParam.kDim = tileParam.transA ? inputs[0].GetShape()[inputDim - DIM_OFFSET_2] : inputs[0].GetShape()[inputDim - 1];
-    tileParam.nDim = tileParam.transB ? inputs[1].GetShape()[inputDim - DIM_OFFSET_2] : inputs[1].GetShape()[inputDim - 1];
+    tileParam.mDim =
+        tileParam.transA ? inputs[0].GetShape()[inputDim - 1] : inputs[0].GetShape()[inputDim - DIM_OFFSET_2];
+    tileParam.kDim =
+        tileParam.transA ? inputs[0].GetShape()[inputDim - DIM_OFFSET_2] : inputs[0].GetShape()[inputDim - 1];
+    tileParam.nDim =
+        tileParam.transB ? inputs[1].GetShape()[inputDim - DIM_OFFSET_2] : inputs[1].GetShape()[inputDim - 1];
     tileParam.mView = args->viewShape_[inputDim - DIM_OFFSET_2];
     tileParam.nView = args->viewShape_[inputDim - 1UL];
 
@@ -296,7 +299,8 @@ TEST_P(BatchMatmulOperationTest, TestBatchMatmul) {
     TestExecutor::runTest(testCase);
 }
 
-class BatchMatmulVerifyOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<BatchMatmulOpMetaData> {};
+class BatchMatmulVerifyOperationTest
+    : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<BatchMatmulOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestBatchMatmulVerify, BatchMatmulVerifyOperationTest,
     ::testing::ValuesIn(GetOpMetaData<BatchMatmulOpMetaData>({BatchMatmulOperationExeFunc}, "BatchMatmulVerify")));

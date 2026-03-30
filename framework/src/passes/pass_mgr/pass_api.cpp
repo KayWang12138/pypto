@@ -18,4 +18,4 @@ extern "C" bool RunPass(Program &program, Function &function, const std::string 
 extern "C" std::string GetResumePath(const std::string &strategy) {
     return PassManager::Instance().GetResumePath(strategy);
 }
-}
+} // namespace npu::tile_fwk

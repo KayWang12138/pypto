@@ -85,7 +85,8 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
                     std::vector<int64_t> liOffset = {(bIdx * n + nIdx) * s + s1Idx * singleM, 0};
                     std::vector<int64_t> miOffset = {(bIdx * n + nIdx) * s + s1Idx * singleM, 0};
                     SetC1CubeConfig(cubeCfg);
-                    auto sij = Matrix::Matmul(DataType::DT_FP32, qi, kj, false, true); // [128, 128], [128, 1024] => [128, 1024]
+                    auto sij = Matrix::Matmul(
+                        DataType::DT_FP32, qi, kj, false, true); // [128, 128], [128, 1024] => [128, 1024]
 
                     TileShape::Current().SetVecTile(vecCfg.softmaxTileX, vecCfg.softmaxTileY);
 
@@ -199,7 +200,8 @@ Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &de
     Tensor mlpRes(DataType::DT_FP32, shape);
 
     auto a = Cast(hiddenStates, DataType::DT_FP16);
-    auto gate = Matrix::Matmul(DataType::DT_FP32, a, ffnWeight, false, false); // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
+    auto gate =
+        Matrix::Matmul(DataType::DT_FP32, a, ffnWeight, false, false); // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
 
     // swish: x / (1 + e^(-x))
     auto swish = Mul(gate, Element(DataType::DT_FP32, F_NEGA_1));

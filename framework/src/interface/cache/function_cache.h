@@ -23,7 +23,6 @@
 #include "interface/cache/hash.h"
 #include "tilefwk/core_func_data.h"
 
-
 namespace npu::tile_fwk {
 // 保存CoreFunction在CoreFunctionTopo列表里的偏移
 using CoreFunctionTopoOffsets = uint64_t[0];
@@ -31,7 +30,7 @@ using CoreFunctionTopoOffsets = uint64_t[0];
 struct CoreFunctionTopoCache {
     uint64_t dataSize;
     CoreFunctionTopoOffsets coreFunctionTopoOffsets; // 保存CoreFunctionTopo在CoreFunctionTopo_列表里的偏移
-    CoreFunctionTopo coreFunctionTopo[0]; // CoreFunctionTopo列表
+    CoreFunctionTopo coreFunctionTopo[0];            // CoreFunctionTopo列表
 };
 
 // 保存CoreFunctionBin的偏移
@@ -50,10 +49,10 @@ struct ReadyCoreFunctionCache {
 
 using HashKey = FunctionHash;
 struct CacheHeader {
-    uint64_t coreFunctionNum;  // CoreFunction的个数，通过此值可以分配xxOffset的内存
+    uint64_t coreFunctionNum; // CoreFunction的个数，通过此值可以分配xxOffset的内存
     uint64_t virtualFunctionNum{0};
-    uint64_t readyCoreFunctionNum; //对应ReadyCoreFunctionCache -> ReadyCoreFunction个数
-    uint64_t programFuncionNum; // 同构后function个数，对应CoreFunctionBinCache -> CoreFunctionBin个数
+    uint64_t readyCoreFunctionNum; // 对应ReadyCoreFunctionCache -> ReadyCoreFunction个数
+    uint64_t programFuncionNum;    // 同构后function个数，对应CoreFunctionBinCache -> CoreFunctionBin个数
 };
 
 struct CacheValue {
@@ -63,24 +62,20 @@ struct CacheValue {
     std::shared_ptr<CoreFunctionBinCache> binCache = nullptr;
     std::shared_ptr<ReadyCoreFunctionCache> readyListCache = nullptr;
 
-    Function* GetFunction() {
-        return cacheFunction;
-    }
+    Function *GetFunction() { return cacheFunction; }
 
-    void SetCacheFunction(Function* func) {
-        cacheFunction = func;
-    }
- public:
-    template<typename T>
+    void SetCacheFunction(Function *func) { cacheFunction = func; }
+
+public:
+    template <typename T>
     static std::shared_ptr<T> CreateCache(size_t size) {
-        T* data = reinterpret_cast<T*>(new uint8_t[size]);
-        auto ptr = std::shared_ptr<T>(data, [](T* p) {
-            delete[] reinterpret_cast<uint8_t*>(p);
-        });
+        T *data = reinterpret_cast<T *>(new uint8_t[size]);
+        auto ptr = std::shared_ptr<T>(data, [](T *p) { delete[] reinterpret_cast<uint8_t *>(p); });
         return ptr;
     }
+
 private:
-    Function* cacheFunction = nullptr;
+    Function *cacheFunction = nullptr;
 };
 #pragma pack()
 
@@ -90,7 +85,7 @@ public:
 
     std::optional<CacheValue> Get(HashKey key);
 
-    void Insert(const HashKey& key, Function& func);
+    void Insert(const HashKey &key, Function &func);
 
     size_t Size();
 
@@ -114,8 +109,9 @@ public:
             BuildHashDict(func->GetRootFunction(), hashDict);
         }
     }
+
 private:
-    void Insert(const HashKey& key, CacheValue value);
+    void Insert(const HashKey &key, CacheValue value);
     void UpdateTopoCache(const Function &func, CacheValue &value);
     void UpdateBinCache(const Function &func, CacheValue &value);
     void UpdateReadyFunction(const Function &func, CacheValue &value);
@@ -123,7 +119,7 @@ private:
 private:
     std::unordered_map<HashKey, CacheValue> cache_;
     std::mutex lock_;
-    int64_t getCnt_ {0};
-    int64_t hitCnt_ {0};
+    int64_t getCnt_{0};
+    int64_t hitCnt_{0};
 };
 } // namespace npu::tile_fwk

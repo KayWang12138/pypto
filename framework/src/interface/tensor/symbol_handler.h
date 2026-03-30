@@ -41,22 +41,22 @@ enum class SymbolHandlerId : uint64_t {
 };
 
 const std::unordered_map<std::string, SymbolHandlerId> symbolHandlerIndexDict = {
-    {"GetInputShapeDimSize", SymbolHandlerId::GetInputShapeDimSize},
-    {"GetInputShapeDim",  SymbolHandlerId::GetInputShapeDim},
-    {"GetInputDataInt32Dim1", SymbolHandlerId::GetInputDataInt32Dim1},
-    {"GetInputDataInt32Dim2", SymbolHandlerId::GetInputDataInt32Dim2},
-    {"GetInputDataInt32Dim3", SymbolHandlerId::GetInputDataInt32Dim3},
-    {"GetInputDataInt32Dim4", SymbolHandlerId::GetInputDataInt32Dim4},
+    {  "GetInputShapeDimSize",   SymbolHandlerId::GetInputShapeDimSize},
+    {      "GetInputShapeDim",       SymbolHandlerId::GetInputShapeDim},
+    { "GetInputDataInt32Dim1",  SymbolHandlerId::GetInputDataInt32Dim1},
+    { "GetInputDataInt32Dim2",  SymbolHandlerId::GetInputDataInt32Dim2},
+    { "GetInputDataInt32Dim3",  SymbolHandlerId::GetInputDataInt32Dim3},
+    { "GetInputDataInt32Dim4",  SymbolHandlerId::GetInputDataInt32Dim4},
     {"GetTensorDataInt32Dim1", SymbolHandlerId::GetTensorDataInt32Dim1},
     {"GetTensorDataInt32Dim2", SymbolHandlerId::GetTensorDataInt32Dim2},
     {"GetTensorDataInt32Dim3", SymbolHandlerId::GetTensorDataInt32Dim3},
     {"GetTensorDataInt32Dim4", SymbolHandlerId::GetTensorDataInt32Dim4},
-    {"GetViewValidShapeDim", SymbolHandlerId::GetViewValidShapeDim},
-    {"IsLoopBegin", SymbolHandlerId::IsLoopBegin},
-    {"IsLoopEnd", SymbolHandlerId::IsLoopEnd},
-    {"TernaryOP", SymbolHandlerId::TernaryOP},
-    {"GetHcclRankId", SymbolHandlerId::GetHcclRankId},
-    {"BindTensor", SymbolHandlerId::BindTensor},
+    {  "GetViewValidShapeDim",   SymbolHandlerId::GetViewValidShapeDim},
+    {           "IsLoopBegin",            SymbolHandlerId::IsLoopBegin},
+    {             "IsLoopEnd",              SymbolHandlerId::IsLoopEnd},
+    {             "TernaryOP",              SymbolHandlerId::TernaryOP},
+    {         "GetHcclRankId",          SymbolHandlerId::GetHcclRankId},
+    {            "BindTensor",             SymbolHandlerId::BindTensor},
 };
 
 struct SymbolHandler {

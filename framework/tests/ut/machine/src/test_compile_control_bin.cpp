@@ -29,13 +29,12 @@ using namespace npu::tile_fwk;
 using Json = nlohmann::json;
 
 namespace npu::tile_fwk {
-void GenCustomOpInfo(const std::string &funcName, const std::string &controlAicpuPath,
-                     const std::string &constrolSoName);
+void GenCustomOpInfo(
+    const std::string &funcName, const std::string &controlAicpuPath, const std::string &constrolSoName);
 bool GenTilingFunc(const std::string &funcName, const std::string &controlAicpuPath);
 bool TieFwkAicpuPreCompile(std::string &preCompileO, std::string &controlAicpuPath);
-bool SharedAicpuCompile(const std::string &funcName, const std::string &aicpuDirPath,
-                        const std::string &preCompileO);
-}
+bool SharedAicpuCompile(const std::string &funcName, const std::string &aicpuDirPath, const std::string &preCompileO);
+} // namespace npu::tile_fwk
 
 namespace {
 const std::string TEST_TMP_DIR = "/tmp/test_compile_control_bin";
@@ -43,13 +42,11 @@ const std::string TEST_TMP_DIR = "/tmp/test_compile_control_bin";
 
 class TestCompileControlBin : public testing::Test {
 public:
-    static void SetUpTestCase() {
-        CreateMultiLevelDir(TEST_TMP_DIR);
-    }
+    static void SetUpTestCase() { CreateMultiLevelDir(TEST_TMP_DIR); }
 
     static void TearDownTestCase() {
         std::string cmd = "rm -rf " + TEST_TMP_DIR;
-        [[maybe_unused]]int ret = system(cmd.c_str());
+        [[maybe_unused]] int ret = system(cmd.c_str());
     }
 
     void SetUp() override {

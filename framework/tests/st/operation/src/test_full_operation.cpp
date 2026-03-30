@@ -75,11 +75,11 @@ static void FullOperationExeFunc3Dims(
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    auto tileTensor = Full(args->value_, outputs[0].GetDataType(),
-                        {firstViewShape, secondViewShape, thirdViewShape},
-                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)});
+                    auto tileTensor =
+                        Full(args->value_, outputs[0].GetDataType(), {firstViewShape, secondViewShape, thirdViewShape},
+                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)});
                     Assemble(
                         tileTensor, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
@@ -129,14 +129,11 @@ static void FullOperationExeFunc4Dims(
     }
 }
 
-class FullOperationTest
-    : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<FullOpMetaData> {};
+class FullOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<FullOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestFull, FullOperationTest,
     ::testing::ValuesIn(GetOpMetaData<FullOpMetaData>(
-        {FullOperationExeFunc2Dims, FullOperationExeFunc3Dims,
-            FullOperationExeFunc4Dims},
-        "Full")));
+        {FullOperationExeFunc2Dims, FullOperationExeFunc3Dims, FullOperationExeFunc4Dims}, "Full")));
 
 TEST_P(FullOperationTest, TestFull) {
     auto test_data = GetParam().test_data_;

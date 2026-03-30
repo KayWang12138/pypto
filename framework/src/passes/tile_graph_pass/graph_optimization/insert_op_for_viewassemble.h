@@ -35,6 +35,7 @@ class InsertOpForViewAssemble : public Pass {
 public:
     InsertOpForViewAssemble() : Pass("InsertOpForViewAssemble") {}
     ~InsertOpForViewAssemble() override = default;
+
 private:
     Status RunOnFunction(Function &function) override;
     Status JudgedViewAssemble(Function &function);
@@ -44,7 +45,7 @@ private:
 
     std::unordered_set<LogicalTensorPtr> assembleOutSet_;
     std::unordered_set<LogicalTensorPtr> notProcessOut_;
-    std::vector<std::pair<Operation*, Operation*>> recordOpPair_;
+    std::vector<std::pair<Operation *, Operation *>> recordOpPair_;
 };
 } // namespace tile_fwk
 } // namespace npu

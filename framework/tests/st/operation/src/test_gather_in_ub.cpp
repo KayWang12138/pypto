@@ -223,7 +223,6 @@ void gather_golden(const std::vector<typename Config::IndexType> &topk_indices,
     }
 }
 
-
 class GatherInUBTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
     void SetUp() override {
         TestSuite_STest_Ops_Aihac::SetUp();
@@ -250,7 +249,7 @@ void BasicGatherTest(Config &cfg) {
     std::string err;
     if (!validate_config<Config>(cfg, err)) {
         std::cerr << "配置非法: " << err << "\n";
-        return ;
+        return;
     }
     auto srcData = make_buffer<Config>(cfg);
     auto offsetsData = make_topk_indices<Config>(cfg, /*seed=*/123);
@@ -302,7 +301,7 @@ void BasicGatherTest(Config &cfg) {
 TEST_F(GatherInUBTest, gather_in_a_) {
     using Config = PageAttentionTestConfig<int32_t, float16>;
     Config cfg;
-    cfg.topk_count = 8;         //topk结果
+    cfg.topk_count = 8;         // topk结果
     cfg.num_logical_blocks = 3; // 逻辑块个数
     cfg.num_buffer_tokens = 32; // buffer token 维度（物理 token 容量）
     cfg.hidden_dim = 4;         // 隐藏维度大小
@@ -312,8 +311,8 @@ TEST_F(GatherInUBTest, gather_in_a_) {
 TEST_F(GatherInUBTest, gather_in_a) {
     using Config = PageAttentionTestConfig<int32_t, float16>;
     Config cfg;
-    cfg.topk_count = 512;      // topk 结果
-    cfg.num_logical_blocks = 8; // 逻辑块个数，
+    cfg.topk_count = 512;         // topk 结果
+    cfg.num_logical_blocks = 8;   // 逻辑块个数，
     cfg.num_buffer_tokens = 2048; // buffer token 维度（物理 token 容量）
     cfg.hidden_dim = 256;         // 隐藏维度大小
     cfg.block_size = 128;         // 每个块的 token 数

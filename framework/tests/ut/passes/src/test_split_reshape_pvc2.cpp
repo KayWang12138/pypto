@@ -38,8 +38,7 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
-    void TearDown() override {
-    }
+    void TearDown() override {}
 };
 
 TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1to1) {
@@ -56,7 +55,7 @@ TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1to1) {
         currentFunction = Program::GetInstance().GetCurrentFunction();
     }
     EXPECT_NE(currentFunction, nullptr);
-    std::vector<int64_t> expiInShape = {8,  8,  8};
+    std::vector<int64_t> expiInShape = {8, 8, 8};
     std::vector<int64_t> expOutShape = {8, 8, 1, 8};
     for (auto &op : currentFunction->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {

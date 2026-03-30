@@ -40,9 +40,8 @@ static std::vector<T> GetGoldenVec(std::vector<int64_t> shape, std::string fileN
     return golden;
 }
 
-template<typename InputT, typename OutputT>
-void ViewTypeEntry(const std::vector<int64_t>& mkn) {
-
+template <typename InputT, typename OutputT>
+void ViewTypeEntry(const std::vector<int64_t> &mkn) {
     int64_t m = mkn[0];
     int64_t k = mkn[1];
     int64_t n = mkn[2];
@@ -74,9 +73,8 @@ void ViewTypeEntry(const std::vector<int64_t>& mkn) {
 #endif
 }
 
-template<typename InputT, typename OutputT>
-void ViewTypeQuantTestEntry(const std::vector<int64_t>& mkn) {
-
+template <typename InputT, typename OutputT>
+void ViewTypeQuantTestEntry(const std::vector<int64_t> &mkn) {
     int64_t m = mkn[0];
     int64_t k = mkn[1];
     int64_t n = mkn[2];
@@ -107,9 +105,8 @@ void ViewTypeQuantTestEntry(const std::vector<int64_t>& mkn) {
 #endif
 }
 
-template<typename InputT, typename OutputT>
-void ViewTypeDequantTestEntry(const std::vector<int64_t>& mkn) {
-
+template <typename InputT, typename OutputT>
+void ViewTypeDequantTestEntry(const std::vector<int64_t> &mkn) {
     int64_t m = mkn[0];
     int64_t k = mkn[1];
     int64_t n = mkn[2];

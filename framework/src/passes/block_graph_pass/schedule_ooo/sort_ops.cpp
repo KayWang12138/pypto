@@ -21,8 +21,7 @@
 namespace npu::tile_fwk {
 
 Status DFSVisit(std::unordered_set<int> &visited, std::vector<int32_t> &tasks, std::vector<int> &visitEntrySeq,
-        std::vector<std::set<int32_t>> &entryInGraph)
-{
+    std::vector<std::set<int32_t>> &entryInGraph) {
     while (tasks.size() > 0) {
         int currTask = tasks.back();
         if (visited.count(currTask) > 0) {
@@ -46,8 +45,7 @@ Status DFSVisit(std::unordered_set<int> &visited, std::vector<int32_t> &tasks, s
 }
 
 std::vector<int32_t> GetLayerTasks(std::map<int, std::set<int>> &depthToEntries,
-                                   std::vector<std::set<int>> &entryOutGraph, int lastDepth, int currDepth)
-{
+    std::vector<std::set<int>> &entryOutGraph, int lastDepth, int currDepth) {
     std::vector<int32_t> tasks;
     for (int dp = lastDepth; dp < currDepth; dp++) {
         for (int entryIdx : depthToEntries[dp]) {
@@ -68,7 +66,7 @@ Status EntryInOutGraph(std::vector<IssueEntryPtr> &issueEntries, std::vector<std
     entryOutGraph.clear();
     entryInGraph.resize(issueEntries.size());
     entryOutGraph.resize(issueEntries.size());
-    std::unordered_map<IssueEntry*, int> entryPtr2Idx;
+    std::unordered_map<IssueEntry *, int> entryPtr2Idx;
     for (int ptrIdx = 0; ptrIdx < static_cast<int>(issueEntries.size()); ptrIdx++) {
         entryPtr2Idx[issueEntries[ptrIdx].get()] = ptrIdx;
     }
@@ -83,8 +81,7 @@ Status EntryInOutGraph(std::vector<IssueEntryPtr> &issueEntries, std::vector<std
 }
 
 Status EntryTopoSort(std::vector<std::set<int32_t>> &entryInGraph, std::vector<std::set<int32_t>> &entryOutGraph,
-    std::vector<int32_t> &seqToColor, std::vector<int32_t> &colorToSeq)
-{
+    std::vector<int32_t> &seqToColor, std::vector<int32_t> &colorToSeq) {
     seqToColor.clear();
     colorToSeq.resize(entryInGraph.size());
     std::vector<int> inLinkNum(entryInGraph.size());
@@ -112,9 +109,8 @@ Status EntryTopoSort(std::vector<std::set<int32_t>> &entryInGraph, std::vector<s
 }
 
 Status OutputFixBasedDepth(std::vector<int32_t> &depth, std::vector<std::set<int32_t>> &entryInGraph,
-        std::vector<std::set<int32_t>> &entryOutGraph, std::vector<int32_t> &seqToColor)
-{
-    for (int idx = static_cast<int>(entryInGraph.size())-1; idx >= 0; idx--) {
+    std::vector<std::set<int32_t>> &entryOutGraph, std::vector<int32_t> &seqToColor) {
+    for (int idx = static_cast<int>(entryInGraph.size()) - 1; idx >= 0; idx--) {
         int currEntryIdx = seqToColor[idx];
         if (entryOutGraph[currEntryIdx].size() == 0) {
             continue;
@@ -129,8 +125,7 @@ Status OutputFixBasedDepth(std::vector<int32_t> &depth, std::vector<std::set<int
 }
 
 Status InputFixBasedDepth(std::vector<int32_t> &depth, std::vector<std::set<int32_t>> &entryInGraph,
-        std::vector<std::set<int32_t>> &entryOutGraph, std::vector<int32_t> &seqToColor)
-{
+    std::vector<std::set<int32_t>> &entryOutGraph, std::vector<int32_t> &seqToColor) {
     (void)entryOutGraph;
     for (int idx = 0; idx < static_cast<int>(entryInGraph.size()); idx++) {
         int currEntryIdx = seqToColor[idx];
@@ -146,8 +141,7 @@ Status InputFixBasedDepth(std::vector<int32_t> &depth, std::vector<std::set<int3
     return SUCCESS;
 }
 
-Status OoOScheduler::LayerBasedDFS(int layerDepth)
-{
+Status OoOScheduler::LayerBasedDFS(int layerDepth) {
     std::vector<std::set<int>> entryInGraph;
     std::vector<std::set<int>> entryOutGraph;
     EntryInOutGraph(issueEntries, entryInGraph, entryOutGraph, issueEntryMap);
@@ -190,26 +184,26 @@ Status OoOScheduler::LayerBasedDFS(int layerDepth)
 }
 
 void OoOScheduler::UpdatePreNodeQueue(std::unordered_set<IssueEntryPtr> &curr,
-    std::unordered_set<IssueEntryPtr> &preNodeTotal, std::map<IssueEntryPtr, bool>& visited) {
+    std::unordered_set<IssueEntryPtr> &preNodeTotal, std::map<IssueEntryPtr, bool> &visited) {
     std::unordered_set<IssueEntryPtr> next;
-    for (auto& curIssue : curr) {
-        for (auto& preIssueId : curIssue->predecessors) {
+    for (auto &curIssue : curr) {
+        for (auto &preIssueId : curIssue->predecessors) {
             auto preIssue = issueEntryMap[preIssueId];
             if (!visited[preIssue] && preNodeTotal.find(preIssue) == preNodeTotal.end()) {
                 next.insert(preIssue);
             }
         }
     }
-    for (auto& nextIssue : next) {
+    for (auto &nextIssue : next) {
         preNodeTotal.insert(nextIssue);
     }
     curr.swap(next);
 }
 
-int OoOScheduler::GetNumUnvisitPreNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool>& visited) {
+int OoOScheduler::GetNumUnvisitPreNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool> &visited) {
     std::unordered_set<IssueEntryPtr> preNodeTotal;
     std::unordered_set<IssueEntryPtr> curr;
-    for (auto& preIssueId : issue->predecessors) {
+    for (auto &preIssueId : issue->predecessors) {
         auto preIssue = issueEntryMap[preIssueId];
         if (!visited[preIssue]) {
             curr.insert(preIssue);
@@ -226,7 +220,7 @@ IssueEntryPtr OoOScheduler::FindNodeMinNumUnvisitedPreNode(
     std::map<IssueEntryPtr, bool> visited, std::vector<IssueEntryPtr> outNodeQueue) {
     IssueEntryPtr res = nullptr;
     int minUnvisitedNode = INT_MAX;
-    for (auto& outNode : outNodeQueue) {
+    for (auto &outNode : outNodeQueue) {
         if (visited[outNode]) {
             continue;
         }
@@ -254,7 +248,7 @@ int OoOScheduler::GetDepth(IssueEntryPtr issue) {
     }
 
     int maxDepth = 0;
-    for (const auto& preId : issue->predecessors) {
+    for (const auto &preId : issue->predecessors) {
         auto preIssue = issueEntryMap[preId];
         maxDepth = std::max(maxDepth, GetDepth(preIssue));
     }
@@ -264,10 +258,10 @@ int OoOScheduler::GetDepth(IssueEntryPtr issue) {
     return depth;
 }
 
-void OoOScheduler::QueueNotReadyPreNode(IssueEntryPtr curIssue, std::map<IssueEntryPtr, bool>& visited,
+void OoOScheduler::QueueNotReadyPreNode(IssueEntryPtr curIssue, std::map<IssueEntryPtr, bool> &visited,
     std::unordered_map<Opcode, int> preNodePriority, std::deque<IssueEntryPtr> &queue) {
     std::vector<IssueEntryPtr> notReadyPreNode;
-    for (auto& preIssueId : curIssue->predecessors) {
+    for (auto &preIssueId : curIssue->predecessors) {
         auto preIssue = issueEntryMap[preIssueId];
         if (!visited[preIssue]) {
             notReadyPreNode.push_back(preIssue);
@@ -287,16 +281,16 @@ void OoOScheduler::QueueNotReadyPreNode(IssueEntryPtr curIssue, std::map<IssueEn
             return depA < depB;
         }
     });
-    for (auto& preIssue : notReadyPreNode) {
+    for (auto &preIssue : notReadyPreNode) {
         queue.push_front(preIssue);
     }
 }
 
-void OoOScheduler::ForwardDfs(IssueEntryPtr curIssue, std::vector<IssueEntryPtr>& newIssueEntries,
-    std::map<IssueEntryPtr, bool>& visited, std::unordered_map<Opcode, int> preNodePriority,
+void OoOScheduler::ForwardDfs(IssueEntryPtr curIssue, std::vector<IssueEntryPtr> &newIssueEntries,
+    std::map<IssueEntryPtr, bool> &visited, std::unordered_map<Opcode, int> preNodePriority,
     std::deque<IssueEntryPtr> &queue) {
     bool ready = true;
-    for (auto& preIssueId : curIssue->predecessors) {
+    for (auto &preIssueId : curIssue->predecessors) {
         auto preIssue = issueEntryMap[preIssueId];
         if (!visited[preIssue]) {
             ready = false;
@@ -313,8 +307,8 @@ void OoOScheduler::ForwardDfs(IssueEntryPtr curIssue, std::vector<IssueEntryPtr>
     }
 }
 
-void OoOScheduler::DFSFromSingleNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool>& visited,
-    std::vector<IssueEntryPtr>& newIssueEntries, std::unordered_map<Opcode, int> preNodePriority) {
+void OoOScheduler::DFSFromSingleNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool> &visited,
+    std::vector<IssueEntryPtr> &newIssueEntries, std::unordered_map<Opcode, int> preNodePriority) {
     if (visited[issue]) {
         return;
     }
@@ -335,7 +329,7 @@ Status OoOScheduler::DFSFromOutNode(std::vector<IssueEntryPtr> outNodeQueue,
     std::unordered_map<Opcode, int> preNodePriority, std::map<IssueEntryPtr, bool> &visited) {
     std::vector<IssueEntryPtr> newIssueEntries;
     if (outNodeQueue.size() != 0) {
-       DFSFromSingleNode(outNodeQueue[0], visited, newIssueEntries, preNodePriority);
+        DFSFromSingleNode(outNodeQueue[0], visited, newIssueEntries, preNodePriority);
     } else {
         APASS_LOG_ERROR_F(Elements::Operation, "Subgraph must have operation with outdegree 0.");
         return FAILED;
@@ -382,16 +376,18 @@ void OoOScheduler::GetIssueIdx(IssueEntryPtr issue, size_t &index) {
 }
 
 // rollBackIssue 和 backTraceIssue 是否存在前后序依赖
-bool OoOScheduler::HasDependency(IssueEntryPtr rollBackIssue,  IssueEntryPtr backIssue) {
+bool OoOScheduler::HasDependency(IssueEntryPtr rollBackIssue, IssueEntryPtr backIssue) {
     size_t n = issueEntries.size();
     std::vector<bool> visited(n, false);
     size_t start;
     size_t target;
     GetIssueIdx(rollBackIssue, start);
     GetIssueIdx(backIssue, target);
-    std::function<bool(size_t)> dfs = [&](size_t node) ->bool{
-        if (node == target) return true;
-        if (visited[node]) return false;
+    std::function<bool(size_t)> dfs = [&](size_t node) -> bool {
+        if (node == target)
+            return true;
+        if (visited[node])
+            return false;
 
         visited[node] = true;
         for (auto succId : issueEntryMap[node]->successors) {
@@ -405,12 +401,12 @@ bool OoOScheduler::HasDependency(IssueEntryPtr rollBackIssue,  IssueEntryPtr bac
 }
 
 // 在 curIssueEntries 中将 advanceIndexList 中的序列提前到 rollBackIndex 之前,更新 curIssueEntries
-void OoOScheduler::ReplaceIndex(std::vector<IssueEntryPtr> &curIssueEntries,
-    std::set<size_t> advanceIndexList, size_t rollBackIndex) {
+void OoOScheduler::ReplaceIndex(
+    std::vector<IssueEntryPtr> &curIssueEntries, std::set<size_t> advanceIndexList, size_t rollBackIndex) {
     std::vector<IssueEntryPtr> moveIssueEntries;
     for (auto i : advanceIndexList) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "advance index: %zu, issue: %s",
-                i, curIssueEntries[i]->GetOpInfo().c_str());
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "advance index: %zu, issue: %s", i, curIssueEntries[i]->GetOpInfo().c_str());
         moveIssueEntries.push_back(curIssueEntries[i]);
     }
     for (auto it = advanceIndexList.rbegin(); it != advanceIndexList.rend(); ++it) {
@@ -422,11 +418,12 @@ void OoOScheduler::ReplaceIndex(std::vector<IssueEntryPtr> &curIssueEntries,
 void OoOScheduler::GetPreNode(size_t i, std::vector<IssueEntryPtr> curIssueEntries, size_t rollBackIndex,
     size_t backTraceIndex, std::set<size_t> &dependencyIndexList) {
     dependencyIndexList.insert(i);
-    APASS_LOG_DEBUG_F(Elements::Operation, "dependencyIndexList push index: %zu, issue: %s",
-        i, curIssueEntries[i]->GetOpInfo().c_str());
+    APASS_LOG_DEBUG_F(Elements::Operation, "dependencyIndexList push index: %zu, issue: %s", i,
+        curIssueEntries[i]->GetOpInfo().c_str());
     for (auto preId : curIssueEntries[i]->predecessors) {
         auto issue = issueEntryMap[preId];
-        auto it = std::find(curIssueEntries.begin() + rollBackIndex + 1, curIssueEntries.begin() + backTraceIndex, issue);
+        auto it =
+            std::find(curIssueEntries.begin() + rollBackIndex + 1, curIssueEntries.begin() + backTraceIndex, issue);
         if (it != curIssueEntries.begin() + backTraceIndex) {
             auto index = std::distance(curIssueEntries.begin(), it);
             GetPreNode(index, curIssueEntries, rollBackIndex, backTraceIndex, dependencyIndexList);
@@ -446,15 +443,15 @@ void OoOScheduler::GetListToAdvance(size_t rollBackIndex, size_t backTraceIndex,
     for (size_t i = rollBackIndex + 1; i <= backTraceIndex; i++) {
         if (dependencyIndexList.count(i) == 0) {
             advanceIndexList.insert(i);
-            APASS_LOG_DEBUG_F(Elements::Operation, "advanceIndexList push index: %zu, issue: %s",
-                i, curIssueEntries[i]->GetOpInfo().c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "advanceIndexList push index: %zu, issue: %s", i,
+                curIssueEntries[i]->GetOpInfo().c_str());
         }
     }
 }
 
 // curBackTrace 位置回退
-Status OoOScheduler::RollBack(size_t &startIndex,
-    std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap) {
+Status OoOScheduler::RollBack(
+    size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap) {
     APASS_LOG_DEBUG_F(Elements::Operation, "=====> Start RollBack.");
     curIssueEntries = backTraceIssueEntries[backTraceIssue].second;
     MemoryType memType = recordIssueBuffer[backTraceIssue];
@@ -466,7 +463,8 @@ Status OoOScheduler::RollBack(size_t &startIndex,
     while (rollBackIndex < curIssueEntries.size() && rollBackIndex > 0) {
         rollBackIndex--;
         IssueEntryPtr rollBackIssue = curIssueEntries[rollBackIndex];
-        if (recordIssueBuffer[rollBackIssue] != memType || !(rollBackIssue->isAlloc) || HasDependency(rollBackIssue, backTraceIssue)) {
+        if (recordIssueBuffer[rollBackIssue] != memType || !(rollBackIssue->isAlloc) ||
+            HasDependency(rollBackIssue, backTraceIssue)) {
             continue;
         }
         rollBackNodeIssue = rollBackIssue;
@@ -481,11 +479,15 @@ Status OoOScheduler::RollBack(size_t &startIndex,
         startIndex = rollBackIndex;
         APASS_LOG_DEBUG_F(Elements::Operation, "RollBack==>change startIndex: %zu", startIndex);
         if (rollBackIndex != 0) {
-            curMemoryMap = recordBufferAllocate[curIssueEntries[rollBackIndex-1]];
+            curMemoryMap = recordBufferAllocate[curIssueEntries[rollBackIndex - 1]];
             RecoverSymbol(startIndex - 1, curIssueEntries);
             return SUCCESS;
         }
-        curMemoryMap = {{MemoryType::MEM_L0A, 0}, {MemoryType::MEM_L0B, 0}, {MemoryType::MEM_L0C, 0}};
+        curMemoryMap = {
+            {MemoryType::MEM_L0A, 0},
+            {MemoryType::MEM_L0B, 0},
+            {MemoryType::MEM_L0C, 0}
+        };
         issueEntries = curIssueEntries;
         for (auto issue : curIssueEntries) {
             visitedIssue[issue] = false;
@@ -498,14 +500,15 @@ Status OoOScheduler::RollBack(size_t &startIndex,
 }
 
 // 在 curIssueEntries 中将 preIssue 中的序列提前到 startIndex 之后，更新 curIssueEntries
-void OoOScheduler::ReorderIssue(std::vector<size_t> &preIdx, std::vector<IssueEntryPtr> &curIssueEntries,
-    size_t startIndex) {
+void OoOScheduler::ReorderIssue(
+    std::vector<size_t> &preIdx, std::vector<IssueEntryPtr> &curIssueEntries, size_t startIndex) {
     // 对 perIssue 排序，再进行插入
     std::sort(preIdx.begin(), preIdx.end());
     std::vector<IssueEntryPtr> moveIssueEntries;
     APASS_LOG_DEBUG_F(Elements::Operation, "current index: %zu, preIdx size: %zu", startIndex, preIdx.size());
     for (auto i : preIdx) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "preidx : %zu, curIssue: %s", i, curIssueEntries[i]->GetOpInfo().c_str());
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "preidx : %zu, curIssue: %s", i, curIssueEntries[i]->GetOpInfo().c_str());
         moveIssueEntries.push_back(curIssueEntries[i]);
     }
     for (auto it = preIdx.rbegin(); it != preIdx.rend(); ++it) {
@@ -524,7 +527,8 @@ void OoOScheduler::FindIndex(IssueEntryPtr issue, std::vector<IssueEntryPtr> cur
 }
 
 // 在curIssueEntries中，向前遍历找到consumerIndex的前序未被访问的节点，并放入preIssue中
-Status OoOScheduler::FindConsumerList(size_t consumerIndex, std::vector<size_t> &preIssue, std::vector<IssueEntryPtr> &curIssueEntries) {
+Status OoOScheduler::FindConsumerList(
+    size_t consumerIndex, std::vector<size_t> &preIssue, std::vector<IssueEntryPtr> &curIssueEntries) {
     if (curIssueEntries[consumerIndex] == backTraceIssue) {
         APASS_LOG_WARN_F(Elements::Operation, "backTraceIssue is one of the predecessor node.");
         return FAILED;
@@ -535,13 +539,15 @@ Status OoOScheduler::FindConsumerList(size_t consumerIndex, std::vector<size_t> 
     }
     visitedIssue[curIssueEntries[consumerIndex]] = true;
     preIssue.push_back(consumerIndex);
-    APASS_LOG_DEBUG_F(Elements::Operation, "unvisited consumer idx: %zu, issue: %s", consumerIndex, curIssueEntries[consumerIndex]->GetOpInfo().c_str());
+    APASS_LOG_DEBUG_F(Elements::Operation, "unvisited consumer idx: %zu, issue: %s", consumerIndex,
+        curIssueEntries[consumerIndex]->GetOpInfo().c_str());
     for (auto preId : curIssueEntries[consumerIndex]->predecessors) {
-        auto issue =  issueEntryMap[preId];
+        auto issue = issueEntryMap[preId];
         if (visitedIssue[issue] == false) {
             size_t index;
             FindIndex(issue, curIssueEntries, index);
-            APASS_LOG_DEBUG_F(Elements::Operation, "consumer preIdx: %zu, issue: %s", index, issue->GetOpInfo().c_str());
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "consumer preIdx: %zu, issue: %s", index, issue->GetOpInfo().c_str());
             if (FindConsumerList(index, preIssue, curIssueEntries) != SUCCESS) {
                 APASS_LOG_WARN_F(Elements::Operation, "FindConsumerList failed");
                 return FAILED;
@@ -552,8 +558,8 @@ Status OoOScheduler::FindConsumerList(size_t consumerIndex, std::vector<size_t> 
 }
 
 // 将 consumersGroup 和其前序依赖按原有顺序放入 preIssue
-Status OoOScheduler::UpdateOOperandPreDependence(size_t startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
-    std::vector<IssueEntryPtr> consumersGroup) {
+Status OoOScheduler::UpdateOOperandPreDependence(
+    size_t startIndex, std::vector<IssueEntryPtr> &curIssueEntries, std::vector<IssueEntryPtr> consumersGroup) {
     // curIssueEntries 中向后找
     std::vector<size_t> preIssue;
     size_t index = startIndex;
@@ -573,7 +579,8 @@ Status OoOScheduler::UpdateOOperandPreDependence(size_t startIndex, std::vector<
 
 // 回溯后，将队列 startIndex 位置之后的 issue 的 visitedIssue 状态还原回 false
 void OoOScheduler::RecoverSymbol(size_t startIndex, std::vector<IssueEntryPtr> curIssueEntries) {
-    APASS_LOG_DEBUG_F(Elements::Operation, "RecoverSymbol  startIdx: %zu, curIssue: %s", startIndex, curIssueEntries[startIndex]->GetOpInfo().c_str());
+    APASS_LOG_DEBUG_F(Elements::Operation, "RecoverSymbol  startIdx: %zu, curIssue: %s", startIndex,
+        curIssueEntries[startIndex]->GetOpInfo().c_str());
     bufRefCount_ = recordBufRefCount[curIssueEntries[startIndex]];
     for (size_t i = 0; i < curIssueEntries.size(); i++) {
         if (i > startIndex) {
@@ -594,8 +601,8 @@ void OoOScheduler::GetConsumerGroup(std::vector<IssueEntryPtr> consumers, std::v
     }
 }
 
-void OoOScheduler::GetStackTop(size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
-    std::map<MemoryType, int64_t> &curMemoryMap) {
+void OoOScheduler::GetStackTop(
+    size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap) {
     auto topNode = needFreeIssueStack.top();
     needFreeIssueStack.pop();
     curIssueEntries = recordIssueEntries[topNode.first].second;
@@ -603,21 +610,23 @@ void OoOScheduler::GetStackTop(size_t &startIndex, std::vector<IssueEntryPtr> &c
     curMemoryMap = recordBufferAllocate[topNode.first];
 }
 
-Status OoOScheduler::BacktraceOnMemoryExceeded(size_t &startIndex,
-    std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap) {
+Status OoOScheduler::BacktraceOnMemoryExceeded(
+    size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap) {
     MemoryType memType = curIssueEntries[startIndex]->tileOp.GetOutputOperand(0)->GetMemoryTypeOriginal();
     while (startIndex < curIssueEntries.size() && startIndex > 0) {
         startIndex--;
         IssueEntryPtr issue = curIssueEntries[startIndex];
         if (!needFreeIssueStack.empty() && needFreeIssueStack.top().first == curIssueEntries[startIndex]) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Having traversed %s, the stack needs to be popped", curIssueEntries[startIndex]->GetOpInfo().c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "Having traversed %s, the stack needs to be popped",
+                curIssueEntries[startIndex]->GetOpInfo().c_str());
             break;
         }
         if (recordIssueBuffer[issue] != memType || issue->isAlloc) {
             continue;
         }
         std::vector<IssueEntryPtr> consumers;
-        APASS_LOG_DEBUG_F(Elements::Operation, "=====>start to find unvisited consumer, current index： %zu", startIndex);
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "=====>start to find unvisited consumer, current index： %zu", startIndex);
         for (auto succIdx : issue->successors) {
             consumers.push_back(issueEntryMap[succIdx]);
             APASS_LOG_DEBUG_F(Elements::Operation, "consumer: %s", issueEntryMap[succIdx]->GetOpInfo().c_str());
@@ -670,7 +679,8 @@ bool OoOScheduler::IsBufferFull(std::map<MemoryType, int64_t> curMemoryMap, Memo
 }
 
 // 修改内存
-Status OoOScheduler::ModifyBuffer(std::map<MemoryType, int64_t> &curMemoryMap, MemoryType memType, int64_t size, bool isAdd) {
+Status OoOScheduler::ModifyBuffer(
+    std::map<MemoryType, int64_t> &curMemoryMap, MemoryType memType, int64_t size, bool isAdd) {
     if (memType != MemoryType::MEM_L0A && memType != MemoryType::MEM_L0B && memType != MemoryType::MEM_L0C) {
         APASS_LOG_DEBUG_F(Elements::Operation, "MemoryType is not L0A, L0B, or L0C.");
         return SUCCESS;
@@ -681,7 +691,8 @@ Status OoOScheduler::ModifyBuffer(std::map<MemoryType, int64_t> &curMemoryMap, M
             return FAILED;
         }
         curMemoryMap[memType] = curMemoryMap[memType] + size;
-        APASS_LOG_DEBUG_F(Elements::Operation, "Increase %d-memType memory, size: %ld, total memory %ld", static_cast<int>(memType), static_cast<long>(size), static_cast<long>(curMemoryMap[memType]));
+        APASS_LOG_DEBUG_F(Elements::Operation, "Increase %d-memType memory, size: %ld, total memory %ld",
+            static_cast<int>(memType), static_cast<long>(size), static_cast<long>(curMemoryMap[memType]));
         return SUCCESS;
     }
     if (curMemoryMap[memType] - size < 0) {
@@ -689,7 +700,8 @@ Status OoOScheduler::ModifyBuffer(std::map<MemoryType, int64_t> &curMemoryMap, M
         return FAILED;
     }
     curMemoryMap[memType] = curMemoryMap[memType] - size;
-    APASS_LOG_DEBUG_F(Elements::Operation, "Reduce %d-memType memory, size: %ld, total memory %ld", static_cast<int>(memType), static_cast<long>(size), static_cast<long>(curMemoryMap[memType]));
+    APASS_LOG_DEBUG_F(Elements::Operation, "Reduce %d-memType memory, size: %ld, total memory %ld",
+        static_cast<int>(memType), static_cast<long>(size), static_cast<long>(curMemoryMap[memType]));
     return SUCCESS;
 }
 
@@ -702,7 +714,8 @@ Status OoOScheduler::RetireIssueBuffer(std::map<MemoryType, int64_t> &curMemoryM
         }
         if (bufRefCount_[memId] == 0) {
             APASS_LOG_DEBUG_F(Elements::Operation, "Start to free memory:");
-            if (ModifyBuffer(curMemoryMap, localBufferMap[memId]->memType, localBufferMap[memId]->size, false) != SUCCESS) {
+            if (ModifyBuffer(curMemoryMap, localBufferMap[memId]->memType, localBufferMap[memId]->size, false) !=
+                SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Free tensor[%d] failed.", memId);
                 return FAILED;
             }
@@ -724,13 +737,15 @@ Status OoOScheduler::AllocExecute(IssueEntryPtr issue, std::vector<IssueEntryPtr
     APASS_LOG_DEBUG_F(Elements::Operation, "alloc issue: %s", issue->GetOpInfo().c_str());
     auto allocBuffer = localBufferMap[issue->reqMemIds[0]];
     if (IsBufferFull(curMemoryMap, allocBuffer->memType, allocBuffer->size)) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "The memory of %s needs to be released", std::to_string(allocBuffer->memType).c_str());
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "The memory of %s needs to be released", std::to_string(allocBuffer->memType).c_str());
         backTraceIssue = curIssueEntries[startIndex];
         backTraceBufferAllocate = recordBufferAllocate;
         backTraceIssueEntries = recordIssueEntries;
         backTraceBufRefCount = recordBufRefCount;
         APASS_LOG_DEBUG_F(Elements::Operation, "backTraceIssue: %s, backTraceIndex: %zu, memType: %d",
-            backTraceIssue->GetOpInfo().c_str(), backTraceIssueEntries[backTraceIssue].first, static_cast<int>(recordIssueBuffer[backTraceIssue]));
+            backTraceIssue->GetOpInfo().c_str(), backTraceIssueEntries[backTraceIssue].first,
+            static_cast<int>(recordIssueBuffer[backTraceIssue]));
         APASS_LOG_DEBUG_F(Elements::Operation, "=====> Need backtrace.");
         if (BacktraceOnMemoryExceeded(startIndex, curIssueEntries, curMemoryMap) != SUCCESS) {
             if (RollBack(startIndex, curIssueEntries, curMemoryMap) != SUCCESS) {
@@ -746,8 +761,8 @@ Status OoOScheduler::AllocExecute(IssueEntryPtr issue, std::vector<IssueEntryPtr
     return SUCCESS;
 }
 
-Status OoOScheduler::IssueEntriesExecute(std::vector<IssueEntryPtr> &curIssueEntries,
-    std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex) {
+Status OoOScheduler::IssueEntriesExecute(
+    std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex) {
     APASS_LOG_DEBUG_F(Elements::Operation, "===>Start issueEntriesExecute, startIndex: %zu", startIndex);
     if (curIssueEntries.empty()) {
         curIssueEntries = issueEntries;
@@ -758,7 +773,7 @@ Status OoOScheduler::IssueEntriesExecute(std::vector<IssueEntryPtr> &curIssueEnt
         APASS_LOG_DEBUG_F(Elements::Operation, "execute issue: %s, index: %zu", issue->GetOpInfo().c_str(), startIndex);
         if (issue->isAlloc) {
             bool isContinue = false;
-            if (AllocExecute(issue, curIssueEntries, curMemoryMap,  startIndex, isContinue) != SUCCESS) {
+            if (AllocExecute(issue, curIssueEntries, curMemoryMap, startIndex, isContinue) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "AllocExecute failed.");
                 return FAILED;
             }
@@ -787,13 +802,16 @@ Status OoOScheduler::IssueEntriesExecute(std::vector<IssueEntryPtr> &curIssueEnt
 
 Status OoOScheduler::ExecuteIssue() {
     std::vector<IssueEntryPtr> curIssueEntries;
-    std::map<MemoryType, int64_t> curMemoryMap = {{MemoryType::MEM_L0A, 0}, {MemoryType::MEM_L0B, 0},
-        {MemoryType::MEM_L0C, 0}};
+    std::map<MemoryType, int64_t> curMemoryMap = {
+        {MemoryType::MEM_L0A, 0},
+        {MemoryType::MEM_L0B, 0},
+        {MemoryType::MEM_L0C, 0}
+    };
     size_t startIndex{0};
     for (auto &issue : issueEntries) {
         visitedIssue[issue] = false;
     }
-    while(!issueFinish) {
+    while (!issueFinish) {
         if (IssueEntriesExecute(curIssueEntries, curMemoryMap, startIndex) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "IssueEntriesExecute failed.");
             return FAILED;
@@ -820,18 +838,34 @@ Status OoOScheduler::SortOps() {
     if (sortMethodStr == "PriorDFS") {
         std::unordered_map<Opcode, int> preNodePriority = {
             // ALLOC 节点优先级最高，因为一个节点的前序ALLOC节点要在最靠近该节点的地方访问。
-            {Opcode::OP_UB_ALLOC, 0}, {Opcode::OP_L1_ALLOC, 0}, {Opcode::OP_L0A_ALLOC, 0}, {Opcode::OP_L0B_ALLOC, 0},
-            {Opcode::OP_L0C_ALLOC, 0}, {Opcode::OP_BT_ALLOC, 0}, {Opcode::OP_FIX_ALLOC, 0},
+            {            Opcode::OP_UB_ALLOC, 0},
+            {            Opcode::OP_L1_ALLOC, 0},
+            {           Opcode::OP_L0A_ALLOC, 0},
+            {           Opcode::OP_L0B_ALLOC, 0},
+            {           Opcode::OP_L0C_ALLOC, 0},
+            {            Opcode::OP_BT_ALLOC, 0},
+            {           Opcode::OP_FIX_ALLOC, 0},
             // 其次是L0级数据搬运Op。
-            {Opcode::OP_L1_TO_L0A, 1}, {Opcode::OP_L1_TO_L0B, 1}, {Opcode::OP_L1_TO_L0_AT, 1},
-            {Opcode::OP_L1_TO_L0_BT, 1}, {Opcode::OP_L1_TO_FIX, 1}, {Opcode::OP_L1_TO_FIX_QUANT_PRE, 1},
-            {Opcode::OP_L1_TO_FIX_RELU_PRE, 1}, {Opcode::OP_L1_TO_FIX_RELU_POST, 1},
-            {Opcode::OP_L1_TO_FIX_QUANT_POST, 1}, {Opcode::OP_L1_TO_FIX_ELT_ANTIQ, 1},
-            {Opcode::OP_L1_TO_FIX_MTE2_ANTIQ, 1}, {Opcode::OP_L1_TO_BT, 1},
+            {           Opcode::OP_L1_TO_L0A, 1},
+            {           Opcode::OP_L1_TO_L0B, 1},
+            {         Opcode::OP_L1_TO_L0_AT, 1},
+            {         Opcode::OP_L1_TO_L0_BT, 1},
+            {           Opcode::OP_L1_TO_FIX, 1},
+            { Opcode::OP_L1_TO_FIX_QUANT_PRE, 1},
+            {  Opcode::OP_L1_TO_FIX_RELU_PRE, 1},
+            { Opcode::OP_L1_TO_FIX_RELU_POST, 1},
+            {Opcode::OP_L1_TO_FIX_QUANT_POST, 1},
+            { Opcode::OP_L1_TO_FIX_ELT_ANTIQ, 1},
+            {Opcode::OP_L1_TO_FIX_MTE2_ANTIQ, 1},
+            {            Opcode::OP_L1_TO_BT, 1},
             // 再其次是L1级数据搬运Op。
-            {Opcode::OP_COPY_IN, 2}, {Opcode::OP_UB_COPY_IN, 2}, {Opcode::OP_L1_COPY_IN, 2},
-            {Opcode::OP_L1_COPY_IN_FRACTAL_Z, 2}, {Opcode::OP_L1_COPY_UB, 2},
-            {Opcode::OP_L0C_COPY_UB, 2}, {Opcode::OP_UB_COPY_L1, 2},
+            {             Opcode::OP_COPY_IN, 2},
+            {          Opcode::OP_UB_COPY_IN, 2},
+            {          Opcode::OP_L1_COPY_IN, 2},
+            {Opcode::OP_L1_COPY_IN_FRACTAL_Z, 2},
+            {          Opcode::OP_L1_COPY_UB, 2},
+            {         Opcode::OP_L0C_COPY_UB, 2},
+            {          Opcode::OP_UB_COPY_L1, 2},
             // 最后访问其它计算节点（其它节点默认的优先级为10）。
         };
         if (PriorDFS(preNodePriority) != SUCCESS) {

@@ -20,8 +20,7 @@
 
 #define OP_TILE_OP_EXPANDEXPDIF TExpandExpDif
 template <TileOp::BroadcastOperand WBrcSide = TileOp::BroadcastOperand::NONE,
-          TileOp::PenuBroadcastOperand HBrcSide = TileOp::PenuBroadcastOperand::NONE,
-          typename T0, typename T1, typename T2>
+    TileOp::PenuBroadcastOperand HBrcSide = TileOp::PenuBroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TExpandExpDif(T0 dst, T1 src0, T2 src1) {
     if constexpr (WBrcSide == TileOp::BroadcastOperand::NONE) {
         const auto src0Layout = src0.GetLayout();

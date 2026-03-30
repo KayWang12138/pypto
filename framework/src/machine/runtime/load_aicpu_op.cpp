@@ -28,18 +28,18 @@
 using Json = nlohmann::json;
 
 namespace {
-    const std::string ControlFlowLaunchKernelName = "batchLoadsoFrombuf";
-    const std::string ControlFlowKernelSoName = "libcontrol_flow.so";
-    const std::string BuiltInKernelInitName = "DynPyptoKernelServerInit";
-    const std::string BuiltInKernelRunName = "DynPyptoKernelServer";
-    const std::string BuiltInKernelNullName = "DynPyptoKernelServerNull";
+const std::string ControlFlowLaunchKernelName = "batchLoadsoFrombuf";
+const std::string ControlFlowKernelSoName = "libcontrol_flow.so";
+const std::string BuiltInKernelInitName = "DynPyptoKernelServerInit";
+const std::string BuiltInKernelRunName = "DynPyptoKernelServer";
+const std::string BuiltInKernelNullName = "DynPyptoKernelServerNull";
 
-    const std::string BuiltInSoName = "libtilefwk_backend_server.so";
-    const std::string KfcKernerLib = "KFCKernel";
-    const std::string AicpuKernerLib = "AICPUKernel";
-    constexpr int BuiltInOpNum = 3;
-    std::string BuiltInFunName[BuiltInOpNum] = {"PyptoInit", "PyptoRun", "PyptoNull"};
-}
+const std::string BuiltInSoName = "libtilefwk_backend_server.so";
+const std::string KfcKernerLib = "KFCKernel";
+const std::string AicpuKernerLib = "AICPUKernel";
+constexpr int BuiltInOpNum = 3;
+std::string BuiltInFunName[BuiltInOpNum] = {"PyptoInit", "PyptoRun", "PyptoNull"};
+} // namespace
 
 namespace npu::tile_fwk {
 
@@ -90,7 +90,8 @@ void LoadAicpuOp::CustomAiCpuSoLoad() {
     if (customBinHandle_ != nullptr) {
         return;
     }
-    auto ret = rtsBinaryLoadFromFile(customOpJsonPath.c_str(), &optionCfg, reinterpret_cast<void**>(&customBinHandle_));
+    auto ret =
+        rtsBinaryLoadFromFile(customOpJsonPath.c_str(), &optionCfg, reinterpret_cast<void **>(&customBinHandle_));
     if (ret != 0) {
         MACHINE_LOGE(RtErr::RT_LOAD_FAILED, "Load aicpu json failed ret is %d", ret);
     }
@@ -98,8 +99,8 @@ void LoadAicpuOp::CustomAiCpuSoLoad() {
 #endif
 }
 
-int LoadAicpuOp::AicpuKernelLaunch([[maybe_unused]]void* funcHandle, [[maybe_unused]]const rtStream_t &stream,
- 	                                     [[maybe_unused]]DeviceKernelArgs *kArgs, [[maybe_unused]]const uint32_t &blockDim) {
+int LoadAicpuOp::AicpuKernelLaunch([[maybe_unused]] void *funcHandle, [[maybe_unused]] const rtStream_t &stream,
+    [[maybe_unused]] DeviceKernelArgs *kArgs, [[maybe_unused]] const uint32_t &blockDim) {
 #ifdef BUILD_WITH_NEW_CANN
     rtFuncHandle aicpuFuncHandle = static_cast<rtFuncHandle>(funcHandle);
     rtAicpuArgsEx_t rtArgs;
@@ -119,14 +120,14 @@ int LoadAicpuOp::AicpuKernelLaunch([[maybe_unused]]void* funcHandle, [[maybe_unu
 #endif
 }
 
-int LoadAicpuOp::LaunchCustomOp([[maybe_unused]]rtStream_t stream, [[maybe_unused]]DeviceKernelArgs *kArgs, [[maybe_unused]]std::string &OpType) {
+int LoadAicpuOp::LaunchCustomOp([[maybe_unused]] rtStream_t stream, [[maybe_unused]] DeviceKernelArgs *kArgs,
+    [[maybe_unused]] std::string &OpType) {
 #ifdef BUILD_WITH_NEW_CANN
     ASSERT(customBinHandle_ != nullptr) << "customBinHandle cannot be null";
     rtFuncHandle custFuncHandle;
     auto ret = rtsFuncGetByName(customBinHandle_, OpType.c_str(), &custFuncHandle);
     if (ret != 0) {
-        MACHINE_LOGE(RtErr::RT_GET_FUNC_FAILED, "Get OpType[%s] funcHandle failed ret[%d]",
-                       OpType.c_str(), ret);
+        MACHINE_LOGE(RtErr::RT_GET_FUNC_FAILED, "Get OpType[%s] funcHandle failed ret[%d]", OpType.c_str(), ret);
         return ret;
     }
     return AicpuKernelLaunch(custFuncHandle, stream, kArgs, 1);
@@ -149,7 +150,7 @@ int LoadAicpuOp::GetBuiltInOpBinHandle() {
     optionCfg.options->value.cpuKernelMode = 0;
     optionCfg.numOpt = 1;
     void *binHandle;
-    auto ret = rtsBinaryLoadFromFile(builtInOpJsonPath_.c_str(), &optionCfg, reinterpret_cast<void**>(&binHandle));
+    auto ret = rtsBinaryLoadFromFile(builtInOpJsonPath_.c_str(), &optionCfg, reinterpret_cast<void **>(&binHandle));
     if (ret != 0) {
         MACHINE_LOGE(RtErr::RT_LOAD_FAILED, "Get built in bin handle failed");
         return -1;
@@ -159,8 +160,8 @@ int LoadAicpuOp::GetBuiltInOpBinHandle() {
         rtFuncHandle funcHandle;
         ret = rtsFuncGetByName(binHandle, BuiltInFunName[i].c_str(), &funcHandle);
         if (ret != 0) {
-            MACHINE_LOGE(RtErr::RT_GET_FUNC_FAILED,
-                           "Get BuiltIn FuncName[%s] funcHandle failed ret[%d]", BuiltInFunName[i].c_str(), ret);
+            MACHINE_LOGE(RtErr::RT_GET_FUNC_FAILED, "Get BuiltIn FuncName[%s] funcHandle failed ret[%d]",
+                BuiltInFunName[i].c_str(), ret);
             return ret;
         }
         builtInFuncMap_[BuiltInFunName[i]] = funcHandle;
@@ -169,8 +170,8 @@ int LoadAicpuOp::GetBuiltInOpBinHandle() {
     return 0;
 }
 
-int LoadAicpuOp::LaunchBuiltInOp([[maybe_unused]]rtStream_t stream, [[maybe_unused]]DeviceKernelArgs *kArgs, [[maybe_unused]]const int &aicpuNum,
-                                 [[maybe_unused]]const std::string &funcName) {
+int LoadAicpuOp::LaunchBuiltInOp([[maybe_unused]] rtStream_t stream, [[maybe_unused]] DeviceKernelArgs *kArgs,
+    [[maybe_unused]] const int &aicpuNum, [[maybe_unused]] const std::string &funcName) {
 #ifdef BUILD_WITH_NEW_CANN
     rtFuncHandle funcHandle;
     auto it = builtInFuncMap_.find(funcName);
@@ -185,5 +186,5 @@ int LoadAicpuOp::LaunchBuiltInOp([[maybe_unused]]rtStream_t stream, [[maybe_unus
     return 0;
 #endif
 }
-}// namespace
+} // namespace npu::tile_fwk
 #endif

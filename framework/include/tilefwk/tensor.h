@@ -179,14 +179,14 @@ public:
      *              NO_CACHEABLE will only effect function input and output.
      *              Two policy can not apply in one tensor.
      */
-     void SetCachePolicy(CachePolicy policy, bool value);
+    void SetCachePolicy(CachePolicy policy, bool value);
 
     /**
-    * \brief Get tensor cache policy.
-    *
-    * \param policy : CachePolicy enum.
-    * \return bool : policy value.
-    */
+     * \brief Get tensor cache policy.
+     *
+     * \param policy : CachePolicy enum.
+     * \return bool : policy value.
+     */
     bool GetCachePolicy(CachePolicy policy) const;
 
     /**
@@ -210,7 +210,6 @@ public:
      * \return int : The shape of the specified axis.
      */
     int32_t GetShape(int axis) const;
-
 
     /**
      * \brief Get the valid shape of the tensor.
@@ -266,7 +265,7 @@ public:
      */
     uint64_t Dim() const;
 
-     /**
+    /**
      * \brief Check if the tensor is empty.
      *
      * \return true : If the tensor is empty.

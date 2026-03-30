@@ -42,9 +42,7 @@ public:
     friend class MixCallOperationBuilder; // 提供接口规避编译错误，后续整改
     friend class MixDependencyAnalyzer;
 
-    void SetupStaticProcessor() {
-        staticProcessor_.SetNList(nLIST);
-    }
+    void SetupStaticProcessor() { staticProcessor_.SetNList(nLIST); }
 
 private:
     Status PreCheck(Function &function) override;
@@ -57,10 +55,11 @@ private:
 
     void DoHealthCheckAfter(Function &function, const std::string &folderPath) override;
 
-    Status ProcessSubgraph(Function& function, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList);
-    Status ProcessCacheResult(const std::tuple<Function*, Operation*, bool>& result, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList, Operation& callOp);
-    void SetSemanticLabel(const std::vector<std::shared_ptr<Operation>>& subgraph, Operation& callOp);
-    void InitializeRootFunction(Function& function, Function& rootFunc);
+    Status ProcessSubgraph(Function &function, size_t i, size_t &programIdx, std::vector<Function *> &outputFuncList);
+    Status ProcessCacheResult(const std::tuple<Function *, Operation *, bool> &result, size_t i, size_t &programIdx,
+        std::vector<Function *> &outputFuncList, Operation &callOp);
+    void SetSemanticLabel(const std::vector<std::shared_ptr<Operation>> &subgraph, Operation &callOp);
+    void InitializeRootFunction(Function &function, Function &rootFunc);
     Status IslandToFunction(Function &function);
     void ConstructnList(Function &function);
 
@@ -71,23 +70,24 @@ private:
     void RecordConnectionWithProducers(RecordInfo recordInfo, SubfuncInvokeInfoTy &iter);
     void RecordEsgOutcast(Function &function, size_t i, size_t j, size_t k);
     void RecordEsgIncastOutcast(Function &function);
-    void InsertParameter(size_t i, Function& leafFunc);
+    void InsertParameter(size_t i, Function &leafFunc);
     void ConstructParamMap(Function &function);
     void RecordOutcastInfo(Function &function, RecordInfo recordInfo, SubfuncInvokeInfoTy &iter);
 
     // 符号化相关函数
-    void ProcessInputOperands(Function& rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& iParamLoc) const;
-    void ProcessOutputOperands(Function& rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& oParamLoc) const;
+    void ProcessInputOperands(
+        Function &rootFunc, Operation &tileOp, SubfuncParam &pSgParamInfo, int &tParamLoc, int &iParamLoc) const;
+    void ProcessOutputOperands(
+        Function &rootFunc, Operation &tileOp, SubfuncParam &pSgParamInfo, int &tParamLoc, int &oParamLoc) const;
     void ProcessCopyInOperand(Operation &tileOp, std::vector<int64_t> &offset, std::vector<int64_t> &shape) const;
     void ProcessCopyOutOperand(Operation &tileOp, std::vector<int64_t> &offset, std::vector<int64_t> &shape) const;
     void SymbolizeEachFunction(Function &rootFunc, std::vector<Function *> &mergedFuncList1, size_t i) const;
-    void SymbolizeFunction(Function &rootFunc, std::vector<Function*> &mergedFuncList1) const;
+    void SymbolizeFunction(Function &rootFunc, std::vector<Function *> &mergedFuncList1) const;
     std::string FindSymbolName(std::shared_ptr<LogicalTensor> op, int magic) const;
 
-    void GenerateAndExportCombinedReport(Function& func,
-    const std::multimap<int, int>& psgToESgMapParam,
-    const std::vector<std::vector<OperationPtr>>& subgraphGroups,
-    const std::string& filename="ExecuteGraph_Health_Report.json");
+    void GenerateAndExportCombinedReport(Function &func, const std::multimap<int, int> &psgToESgMapParam,
+        const std::vector<std::vector<OperationPtr>> &subgraphGroups,
+        const std::string &filename = "ExecuteGraph_Health_Report.json");
 
     // 在子图生成前将View转成CopyIn用于coa记录，子图生成后转回View
     Status TransViewToCopyInBeforeGenSubgraph(Function &function);

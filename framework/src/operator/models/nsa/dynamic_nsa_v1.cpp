@@ -123,35 +123,66 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
     const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos, const Tensor &cacheIndex,
     Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs, const MlaTileConfig &mlaTileConfig,
     float epsilonCq, float epsilonCkv, std::string cacheMode, // prolog
-    Tensor &topkIndices, Tensor &kvActSeqs, Tensor &blockTable, int front, int near, int topk,
-    int slcBlockSize, int blockSize, float softmaxScale,
-    SATileShapeConfig saTileConfig, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1,
-    GateMode gateMode, Tensor &cmpAtten, int winSize,
-    WinAttenTileShapeConfig &winAttntileConfig,                  // gen win
-    PostTensors &postTensors, const PostTileConfig &postConfig,  // post
+    Tensor &topkIndices, Tensor &kvActSeqs, Tensor &blockTable, int front, int near, int topk, int slcBlockSize,
+    int blockSize, float softmaxScale, SATileShapeConfig saTileConfig, const Tensor &gateW1, const Tensor &gateW2,
+    const Tensor &gateSimW1, GateMode gateMode, Tensor &cmpAtten, int winSize,
+    WinAttenTileShapeConfig &winAttntileConfig,                 // gen win
+    PostTensors &postTensors, const PostTileConfig &postConfig, // post
     Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &postOut, const Tensor &cmpKvCache, const Tensor &cmpKrCache,
     const Tensor &cmpBlockTable, const Tensor &actSeqLen, const Tensor &actCmpSeqLen, const Tensor &mlpWk1,
     const Tensor &mlpWk2, const Tensor &mlpCos, const Tensor &mlpSin, Tensor &cmpAttnOut, Tensor &cmpSoftmax,
     Tensor &fullK, Tensor &cmpK, Tensor &firstRope, Tensor &firstRopeInput, Tensor &topkRes, Tensor &topkInput,
-    const int cmpBlockSize, const int cmpStride, CmpAttnTile &tileConfig_v2,bool debug) {
+    const int cmpBlockSize, const int cmpStride, CmpAttnTile &tileConfig_v2, bool debug) {
     ASSERT(gateMode == standard); // 当前仅支持standard模式
 
     FUNCTION("main",
         {
-            x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache,
+            x,
+            wDq,
+            wUqQr,
+            wUk,
+            wDkvKr,
+            gammaCq,
+            gammaCkv,
+            sin,
+            cos,
+            cacheIndex,
+            kvCache,
+            krCache,
 
-            cmpKvCache, cmpKrCache, blockTable, cmpBlockTable, actSeqLen, actCmpSeqLen, mlpWk1, mlpWk2, mlpCos, mlpSin,
-            quantInputs.dequantScaleWUqQr, quantInputs.smoothScalesCq, // prolog
-            topkIndices, kvActSeqs, // genKvSlc
-            gateW1, gateW2, gateSimW1, // gatedScore
+            cmpKvCache,
+            cmpKrCache,
+            blockTable,
+            cmpBlockTable,
+            actSeqLen,
+            actCmpSeqLen,
+            mlpWk1,
+            mlpWk2,
+            mlpCos,
+            mlpSin,
+            quantInputs.dequantScaleWUqQr,
+            quantInputs.smoothScalesCq, // prolog
+            topkIndices,
+            kvActSeqs, // genKvSlc
+            gateW1,
+            gateW2,
+            gateSimW1, // gatedScore
             cmpAtten, // genAttn
-            postTensors.weightUV, postTensors.weightO, postTensors.weightUvScale, postTensors.smoothScalesWUv,
-            postTensors.weightOScale, postTensors.smoothScalesWo,      //  paPost
+            postTensors.weightUV,
+            postTensors.weightO,
+            postTensors.weightUvScale,
+            postTensors.smoothScalesWUv,
+            postTensors.weightOScale,
+            postTensors.smoothScalesWo, //  paPost
     },
         {postOut, cmpAttnOut, cmpSoftmax, fullK, cmpK, topkRes, topkInput},
         {{kvCacheOut, kvCache}, {krCacheOut, krCache}}) {
-        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, NUM_4}});
-        config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});
+        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{
+                                                         {-1, NUM_4}
+        });
+        config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{
+                                                        {NUM_3, NUM_4}
+        });
         config::SetPassOption(MG_COPYIN_UPPER_BOUND, NUM_2 * NUM_1024 * NUM_1024);
 
         int b = x.GetShape()[0];
@@ -223,13 +254,13 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
         if (debug) {
             FusedCompressKvSelectCompute(qNope, qRope, kvCacheOut, krCacheOut, cmpKvCache, cmpKrCache, blockTable,
                 cmpBlockTable, actSeqLen, actCmpSeqLen, mlpWk1, mlpWk2, mlpCos, mlpSin, cmpAttnOut, cmpAttnOut16Tmp,
-                cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput, topkResTmp, topkInput, blockSize, cmpBlockSize, cmpStride,
-                softmaxScale, n1, n2, tileConfig_v2);
+                cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput, topkResTmp, topkInput, blockSize, cmpBlockSize,
+                cmpStride, softmaxScale, n1, n2, tileConfig_v2);
         } else {
             FusedCompressKvSelectCompute(qNope, qRope, kvCacheOut, krCacheOut, cmpKvCache, cmpKrCache, blockTable,
                 cmpBlockTable, actSeqLen, actCmpSeqLen, mlpWk1, mlpWk2, mlpCos, mlpSin, cmpAttnOut, cmpAttnOut16Tmp,
-                cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput, topkRes, topkInput, blockSize, cmpBlockSize, cmpStride,
-                softmaxScale, n1, n2, tileConfig_v2);
+                cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput, topkRes, topkInput, blockSize, cmpBlockSize,
+                cmpStride, softmaxScale, n1, n2, tileConfig_v2);
         }
 
         // subgraph-4
@@ -255,7 +286,9 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
         GenAttn(gatingScore, cmpAttnOut16Tmp, slcAttn, winAtten, attentionOut); // [b,s,n1,vDim] fp16
 
         config::SetPassOption(SG_PG_UPPER_BOUND, 500000); // 500000
-        config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{0, 4}});
+        config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{
+                                                        {0, 4}
+        });
         // Loop_barrier
         // subgraph-7: postOut [b,s,h]
         PostCompute(attentionOut, postTensors, postConfig, postOut);

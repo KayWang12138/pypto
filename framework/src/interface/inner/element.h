@@ -34,18 +34,18 @@ inline std::string to_string(npu::tile_fwk::float16 data) {
 }
 } // namespace std
 
-#define DISPATCH_DATA_TYPE(f, ...)                       \
-    f(DT_INT8, int8_t, int64_t, ##__VA_ARGS__);        \
-    f(DT_INT16, int16_t, int64_t, ##__VA_ARGS__);      \
-    f(DT_INT32, int32_t, int64_t, ##__VA_ARGS__);      \
-    f(DT_INT64, int64_t, int64_t, ##__VA_ARGS__);      \
-    f(DT_FP16, npu::tile_fwk::float16, double, ##__VA_ARGS__);      \
-    f(DT_FP32, float, double, ##__VA_ARGS__);          \
+#define DISPATCH_DATA_TYPE(f, ...)                              \
+    f(DT_INT8, int8_t, int64_t, ##__VA_ARGS__);                 \
+    f(DT_INT16, int16_t, int64_t, ##__VA_ARGS__);               \
+    f(DT_INT32, int32_t, int64_t, ##__VA_ARGS__);               \
+    f(DT_INT64, int64_t, int64_t, ##__VA_ARGS__);               \
+    f(DT_FP16, npu::tile_fwk::float16, double, ##__VA_ARGS__);  \
+    f(DT_FP32, float, double, ##__VA_ARGS__);                   \
     f(DT_BF16, npu::tile_fwk::bfloat16, double, ##__VA_ARGS__); \
-    f(DT_UINT8, uint8_t, uint64_t, ##__VA_ARGS__);     \
-    f(DT_UINT16, uint16_t, uint64_t, ##__VA_ARGS__);   \
-    f(DT_UINT32, uint32_t, uint64_t, ##__VA_ARGS__);   \
-    f(DT_UINT64, uint64_t, uint64_t, ##__VA_ARGS__);   \
+    f(DT_UINT8, uint8_t, uint64_t, ##__VA_ARGS__);              \
+    f(DT_UINT16, uint16_t, uint64_t, ##__VA_ARGS__);            \
+    f(DT_UINT32, uint32_t, uint64_t, ##__VA_ARGS__);            \
+    f(DT_UINT64, uint64_t, uint64_t, ##__VA_ARGS__);            \
     f(DT_DOUBLE, double, double, ##__VA_ARGS__)
 
 namespace npu::tile_fwk {
@@ -85,7 +85,8 @@ struct ElementDump {
     }
     void DumpElement(uint64_t v) {
         Clear();
-        data.size = snprintf_s(data.data, sizeof(data.data), sizeof(data.data) - 1, "%lu", static_cast<unsigned long>(v));
+        data.size =
+            snprintf_s(data.data, sizeof(data.data), sizeof(data.data) - 1, "%lu", static_cast<unsigned long>(v));
     }
     void DumpElement(double v) {
         Clear();

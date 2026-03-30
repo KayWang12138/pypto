@@ -32,7 +32,7 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicSlcTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template <typename T = npu::tile_fwk::float16, DataType tensorType = DataType::DT_FP16>
-void testSlc(KvSlcTileShapeConfig& tileConfig) {
+void testSlc(KvSlcTileShapeConfig &tileConfig) {
     SetInterpreterConfig();
     int paramsSize = 10;
     std::vector<int> input_param(paramsSize);
@@ -77,8 +77,8 @@ void testSlc(KvSlcTileShapeConfig& tileConfig) {
     std::vector<int32_t> blockTableData(b * maxBlockNumPerBatch, 0);
     std::vector<int32_t> kvSlcActSeqsData(b * s, 0);
 
-    GenKvSlc(topk_tensor, topk_tensor_shape, kvNopeCache, kRopeCache, kvActSeqs, front, near, topK, l_prime,
-            n2, blockTable, blockSize, k_slcOut, v_slcOut, kvSlcActSeqs, tileConfig);
+    GenKvSlc(topk_tensor, topk_tensor_shape, kvNopeCache, kRopeCache, kvActSeqs, front, near, topK, l_prime, n2,
+        blockTable, blockSize, k_slcOut, v_slcOut, kvSlcActSeqs, tileConfig);
 
     readInput<int32_t>(GetGoldenDir() + "/topk_tensor.bin", topkTensorData);
     readInput<int32_t>(GetGoldenDir() + "/topk_tensor_shape.bin", topkTensorShapeData);

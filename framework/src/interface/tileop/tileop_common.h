@@ -25,7 +25,7 @@
 #endif
 
 #ifndef __aicore_host__
-#define __aicore_host__ [host, aicore]
+#define __aicore_host__ [ host, aicore ]
 #endif
 
 #ifndef TILEOP
@@ -63,39 +63,15 @@
     wait_flag(PIPE_MTE1, PIPE_MTE2, EVENT_ID7)
 #endif
 
-enum class CopyInMode : int64_t {
-    ND2ND = 0,
-    ND2NZ = 1,
-    NZ2NZ = 2,
-    DN2NZ = 3
-};
+enum class CopyInMode : int64_t { ND2ND = 0, ND2NZ = 1, NZ2NZ = 2, DN2NZ = 3 };
 
-enum class CopyOutMode : int64_t
-{
-    NZ2ND = 0,
-    NZ2NZ = 1,
-    ND2ND = 2,
-    NZ2DN = 3
-};
+enum class CopyOutMode : int64_t { NZ2ND = 0, NZ2NZ = 1, ND2ND = 2, NZ2DN = 3 };
 
-enum class TransMode : int64_t
-{
-    CAST_NONE = 0,
-    CAST_RINT = 1,
-    CAST_ROUND = 2
-};
+enum class TransMode : int64_t { CAST_NONE = 0, CAST_RINT = 1, CAST_ROUND = 2 };
 
-enum class PaddingMode : int64_t {
-    NO_PADDING = 0,
-    PADDING_OUTER = 1,
-    PADDING_INNER = 2
-};
+enum class PaddingMode : int64_t { NO_PADDING = 0, PADDING_OUTER = 1, PADDING_INNER = 2 };
 
-enum class ReLuType : int64_t
-{
-    NoReLu = 0,
-    ReLu = 1
-};
+enum class ReLuType : int64_t { NoReLu = 0, ReLu = 1 };
 
 namespace TileOp {
 enum CastMode {
@@ -109,8 +85,8 @@ enum CastMode {
 };
 
 enum class TileOperand : int64_t {
-    NONE          = 0,
-    LEFT_OPERAND  = 1,
+    NONE = 0,
+    LEFT_OPERAND = 1,
     RIGHT_OPERAND = 2,
 };
 
@@ -195,7 +171,7 @@ TILEOP bool IsInteger(float f) {
     uint32_t bits = converter.u;
     uint32_t exponent = (bits >> 23) & 0xFF;
     uint32_t fraction = bits & 0x7FFFFF;
-    //NaN or Inf
+    // NaN or Inf
     if (exponent == 0xFF) {
         return false;
     }
@@ -241,7 +217,7 @@ INLINE unsigned CalcLinearOffset(
 INLINE unsigned CalcLinearOffset(unsigned GmShape1, unsigned Offset0, unsigned Offset1) {
     return Offset1 + Offset0 * GmShape1;
 }
-}
+} // namespace TileOp
 
 template <bool b>
 struct BoolInst {

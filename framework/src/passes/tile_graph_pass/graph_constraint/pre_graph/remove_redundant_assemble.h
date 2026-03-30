@@ -30,9 +30,10 @@ public:
     void HandleForAssembleFromInOut(Function &function, Operation &AssembleOp,
         std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const;
     void HandleForReshapeToOutcast(Function &function) const;
-    void HanldeForMultiAssemble(Function &function, std::unordered_set<Operation *>& concurrentAssembles) const;
-    bool FindAssembleOut(Operation* con, int assembleOutMagic) const;
-    Status HanldeForSingleAssemble(Function &function, LogicalTensorPtr input, LogicalTensorPtr output, Operation &op) const;
+    void HanldeForMultiAssemble(Function &function, std::unordered_set<Operation *> &concurrentAssembles) const;
+    bool FindAssembleOut(Operation *con, int assembleOutMagic) const;
+    Status HanldeForSingleAssemble(
+        Function &function, LogicalTensorPtr input, LogicalTensorPtr output, Operation &op) const;
     Status ProcessView(Function &function) const;
 
 private:
@@ -43,7 +44,8 @@ private:
         std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const;
     Status RemoveViewMultiReshape(const std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const;
     Status RemoveViewSingleReshape(Function &function) const;
-    Status HandleDynOffsetForReshape(Operation &assembleOp, const std::set<Operation *, LogicalTensor::CompareOp> &producers) const;
+    Status HandleDynOffsetForReshape(
+        Operation &assembleOp, const std::set<Operation *, LogicalTensor::CompareOp> &producers) const;
 };
 } // namespace npu::tile_fwk
 #endif // PASS_REMOVE_REDUNDANT_ASSEMBLE_H

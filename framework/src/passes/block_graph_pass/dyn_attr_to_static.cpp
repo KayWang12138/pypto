@@ -25,18 +25,18 @@ struct CoaInfo {
     int idx = -1;
 
     static bool ParseParamOffset(const std::string &coaExpr, std::smatch &match) {
-         static std::regex pattern("RUNTIME_COA_GET_PARAM_OFFSET\\((\\d+), (\\d+), (\\d+)\\)");
-         return std::regex_search(coaExpr, match, pattern);
+        static std::regex pattern("RUNTIME_COA_GET_PARAM_OFFSET\\((\\d+), (\\d+), (\\d+)\\)");
+        return std::regex_search(coaExpr, match, pattern);
     }
 
     static bool ParseParamValidShape(const std::string &coaExpr, std::smatch &match) {
-         static std::regex pattern("RUNTIME_COA_GET_PARAM_VALID_SHAPE\\((\\d+), (\\d+), (\\d+)\\)");
-         return std::regex_search(coaExpr, match, pattern);
+        static std::regex pattern("RUNTIME_COA_GET_PARAM_VALID_SHAPE\\((\\d+), (\\d+), (\\d+)\\)");
+        return std::regex_search(coaExpr, match, pattern);
     }
 
     static bool ParseParam(const std::string &coaExpr, std::smatch &match) {
-            static std::regex pattern("RUNTIME_COA_GET_PARAM\\((\\d+)\\)");
-            return std::regex_search(coaExpr, match, pattern);
+        static std::regex pattern("RUNTIME_COA_GET_PARAM\\((\\d+)\\)");
+        return std::regex_search(coaExpr, match, pattern);
     }
 
     Status SToIParamShapeAndOffset(const std::smatch &match) {
@@ -60,29 +60,36 @@ struct CoaInfo {
         if (ParseParamOffset(coaExpr, match)) {
             macroType = CoaType::PARAM_OFFSET;
             if (SToIParamShapeAndOffset(match) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ParseCoaString failed to convert indices,"
-                    "CoaType::PARAM_OFFSET, input coaExpr %s.", coaExpr.c_str());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                    "ParseCoaString failed to convert indices,"
+                    "CoaType::PARAM_OFFSET, input coaExpr %s.",
+                    coaExpr.c_str());
                 return FAILED;
             }
         } else if (ParseParamValidShape(coaExpr, match)) {
             macroType = CoaType::PARAM_VALID_SHAPE;
             if (SToIParamShapeAndOffset(match) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ParseCoaString failed to convert indices,"
-                    "CoaType::PARAM_VALID_SHAPE, input coaExpr %s.", coaExpr.c_str());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                    "ParseCoaString failed to convert indices,"
+                    "CoaType::PARAM_VALID_SHAPE, input coaExpr %s.",
+                    coaExpr.c_str());
                 return FAILED;
             }
         } else if (ParseParam(coaExpr, match)) {
             macroType = CoaType::PARAM;
             if (SToIWrapper(match[INPUT_PARAM_POS_ONE].str(), idx) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ParseCoaString failed to convert indices,"
-                    "CoaType::PARAM, input coaExpr %s.", coaExpr.c_str());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                    "ParseCoaString failed to convert indices,"
+                    "CoaType::PARAM, input coaExpr %s.",
+                    coaExpr.c_str());
                 return FAILED;
             }
         } else if (coaExpr.find(MAYBE_CONST_POSTFIX) != std::string::npos) {
             APASS_LOG_ERROR_F(Elements::Operation, "This coaExpr %s has been processed", coaExpr.c_str());
             return FAILED;
         } else {
-            APASS_LOG_ERROR_F(Elements::Operation, "ParseCoaString input coaExpr %s is not recognized.", coaExpr.c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "ParseCoaString input coaExpr %s is not recognized.", coaExpr.c_str());
             return FAILED;
         }
         return SUCCESS;
@@ -117,9 +124,9 @@ struct IsConstMetric {
     int isConst = 1;
     int attrValue = -1;
 
-    void MarkNotConst() {isConst = 0;}
-    int GetIsConst() {return isConst;}
-    int GetAttrValue() {return attrValue;}
+    void MarkNotConst() { isConst = 0; }
+    int GetIsConst() { return isConst; }
+    int GetAttrValue() { return attrValue; }
     bool TryInitAndCheckEqual(int newValue) {
         if (attrValue == -1) {
             attrValue = newValue;
@@ -134,7 +141,7 @@ struct IsConstMetric {
     }
 };
 
-Status SToIWrapper(const std::string str, int& result) {
+Status SToIWrapper(const std::string str, int &result) {
     try {
         result = std::stoi(str);
         return SUCCESS;
@@ -144,17 +151,15 @@ Status SToIWrapper(const std::string str, int& result) {
     return FAILED;
 }
 
-void DynAttrToStatic::RefSpecifiedValue(std::vector<SymbolicScalar> &oriList,
-    std::vector<std::reference_wrapper<SymbolicScalar>> &newList) const
-{
+void DynAttrToStatic::RefSpecifiedValue(
+    std::vector<SymbolicScalar> &oriList, std::vector<std::reference_wrapper<SymbolicScalar>> &newList) const {
     for (auto &value : oriList) {
         newList.push_back(std::reference_wrapper<SymbolicScalar>(value));
     }
 }
 
-void DynAttrToStatic::FilterSpecifiedValue(std::vector<OpImmediate> &oriList,
-    std::vector<std::reference_wrapper<SymbolicScalar>> &newList) const
-{
+void DynAttrToStatic::FilterSpecifiedValue(
+    std::vector<OpImmediate> &oriList, std::vector<std::reference_wrapper<SymbolicScalar>> &newList) const {
     for (auto &value : oriList) {
         if (value.IsSpecified()) {
             newList.push_back(std::reference_wrapper<SymbolicScalar>(value.GetSpecifiedValue()));
@@ -165,7 +170,7 @@ void DynAttrToStatic::FilterSpecifiedValue(std::vector<OpImmediate> &oriList,
 std::vector<std::reference_wrapper<SymbolicScalar>> DynAttrToStatic::GetOpDynamicAttributeList(Operation &op) {
     std::vector<std::reference_wrapper<SymbolicScalar>> dynamicAttributeList;
     auto opcode = op.GetOpcode();
-    if(opcode == Opcode::OP_VIEW) {
+    if (opcode == Opcode::OP_VIEW) {
         auto viewAttr = std::static_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
         if (viewAttr != nullptr) {
             RefSpecifiedValue(viewAttr->GetFromDynOffset(), dynamicAttributeList);
@@ -174,7 +179,7 @@ std::vector<std::reference_wrapper<SymbolicScalar>> DynAttrToStatic::GetOpDynami
         return dynamicAttributeList;
     }
 
-    if(opcode == Opcode::OP_ASSEMBLE) {
+    if (opcode == Opcode::OP_ASSEMBLE) {
         auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(op.GetOpAttribute());
         if (assembleAttr != nullptr) {
             RefSpecifiedValue(assembleAttr->GetToDynOffset(), dynamicAttributeList);
@@ -210,7 +215,8 @@ Status DynAttrToStatic::GetCallee(const Operation &callop, Function *&callFunc) 
     auto callopAttr = std::static_pointer_cast<CallOpAttribute>(callop.GetOpAttribute());
     callFunc = Program::GetInstance().GetFunctionByMagicName(callopAttr->GetCalleeMagicName());
     if (callFunc == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Get callee function %s failed.", callopAttr->GetCalleeMagicName().c_str());
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "Get callee function %s failed.", callopAttr->GetCalleeMagicName().c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -218,12 +224,14 @@ Status DynAttrToStatic::GetCallee(const Operation &callop, Function *&callFunc) 
 
 Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
     if (func->IsFunctionTypeAndGraphType(
-        {FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH}, GraphType::TENSOR_GRAPH)) {
+            {FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH},
+            GraphType::TENSOR_GRAPH)) {
         for (auto callop : func->GetCallopList()) {
             Function *nextFunc = nullptr;
             if (GetCallee(*callop, nextFunc) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "BuildLeafToCaller at %s, %s[%d] GetCallee failed.%s",
-                    func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic(), GetFormatBacktrace(callop).c_str());
+                    func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic(),
+                    GetFormatBacktrace(callop).c_str());
                 return FAILED;
             }
             if (BuildLeafToCaller(nextFunc) != SUCCESS) {
@@ -241,7 +249,8 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
             Function *leafFunc = nullptr;
             if (GetCallee(*callop, leafFunc) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "BuildLeafToCaller at %s, %s[%d] GetCallee failed.%s",
-                    func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic(), GetFormatBacktrace(callop).c_str());
+                    func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic(),
+                    GetFormatBacktrace(callop).c_str());
                 return FAILED;
             }
             leaf2Caller[leafFunc].push_back(callop);
@@ -254,9 +263,7 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
 }
 
 Status DynAttrToStatic::BuildNewCoa(
-        std::reference_wrapper<SymbolicScalar>& dynScalar,
-        std::vector<std::vector<SymbolicScalar>>& callopArglistOneDim)
-{
+    std::reference_wrapper<SymbolicScalar> &dynScalar, std::vector<std::vector<SymbolicScalar>> &callopArglistOneDim) {
     // 1. 拆解dynScalar到对应的COA表达式
     std::string dynParamExpr = SymbolicExpressionTable::BuildExpression(dynScalar);
     if (dynParamExpr.find(COA_PREFIX) != 1) { // dynParamExpr格式是"(RUNTIME_GET_COA_XXX"
@@ -272,8 +279,8 @@ Status DynAttrToStatic::BuildNewCoa(
 
     // 2. 遍历不同caller下的取值，确认是否是常数
     IsConstMetric scalarValue;
-    for (auto& argList : callopArglistOneDim) {
-        auto& callopAttr = argList[coaIndex];
+    for (auto &argList : callopArglistOneDim) {
+        auto &callopAttr = argList[coaIndex];
         if (!callopAttr.IsImmediate()) {
             scalarValue.MarkNotConst();
             break;
@@ -293,21 +300,22 @@ Status DynAttrToStatic::BuildNewCoa(
 
 inline int GetCoaIndex(const DynParamInfo &paramInfo) {
     if (paramInfo.type == DynParamInfoType::VALID_SHAPE) {
-        return ((paramInfo.tensorBaseAddrCoaIndex + 1) + VALID_SHAPE_INDEX_ORDER * paramInfo.dimSize + paramInfo.dimIndex);
+        return (
+            (paramInfo.tensorBaseAddrCoaIndex + 1) + VALID_SHAPE_INDEX_ORDER * paramInfo.dimSize + paramInfo.dimIndex);
     }
     if (paramInfo.type == DynParamInfoType::OFFSET) {
-       return ((paramInfo.tensorBaseAddrCoaIndex + 1) + OFFSET_INDEX_ORDER * paramInfo.dimSize + paramInfo.dimIndex);
+        return ((paramInfo.tensorBaseAddrCoaIndex + 1) + OFFSET_INDEX_ORDER * paramInfo.dimSize + paramInfo.dimIndex);
     }
     return paramInfo.dimIndex;
 }
 
 void ReplaceCommonSymbol(Function *leafFunc, std::vector<std::vector<SymbolicScalar>> &callopArglistOneDim) {
     VectorParamConsistencyChecker checker;
-    for (auto& argList : callopArglistOneDim) {
+    for (auto &argList : callopArglistOneDim) {
         checker.RegisterCall(argList);
     }
     auto allRes1 = checker.GetAllConsistentIndexGroups();
-    APASS_LOG_DEBUG_F(Elements::Operation, "Get all condicate params: %s.",checker.PrintIndexGroups(allRes1).c_str());
+    APASS_LOG_DEBUG_F(Elements::Operation, "Get all condicate params: %s.", checker.PrintIndexGroups(allRes1).c_str());
     std::map<size_t, size_t> index2GroupId;
     std::map<size_t, std::vector<size_t>> groupId2Index;
     for (size_t i = 0; i < allRes1.size(); i++) {
@@ -337,8 +345,9 @@ void ReplaceCommonSymbol(Function *leafFunc, std::vector<std::vector<SymbolicSca
                     coaIdx, index2GroupId[coaIdx], symbolStr.c_str());
             } else {
                 leafFunc->GetMutableDynParam(symbolStr).replacedSymbol = index2BaseSymbol[index2GroupId[coaIdx]];
-                APASS_LOG_INFO_F(Elements::Operation, "Replace coaIndex[%d] groupId[%zu] symbolStr[%s] with baseParam[%s]",
-                    coaIdx, index2GroupId[coaIdx], symbolStr.c_str(), index2BaseSymbol[index2GroupId[coaIdx]].c_str());
+                APASS_LOG_INFO_F(Elements::Operation,
+                    "Replace coaIndex[%d] groupId[%zu] symbolStr[%s] with baseParam[%s]", coaIdx, index2GroupId[coaIdx],
+                    symbolStr.c_str(), index2BaseSymbol[index2GroupId[coaIdx]].c_str());
             }
         }
     }
@@ -346,10 +355,12 @@ void ReplaceCommonSymbol(Function *leafFunc, std::vector<std::vector<SymbolicSca
 
 inline SymbolicScalar BuildMaybeConstCoa(int attrValue, const DynParamInfo &paramInfo) {
     if (paramInfo.type == DynParamInfoType::OFFSET) {
-        return MAYBE_CONST_COA_GetOffset(1, attrValue, paramInfo.dimSize, paramInfo.tensorBaseAddrCoaIndex, paramInfo.dimIndex);
+        return MAYBE_CONST_COA_GetOffset(
+            1, attrValue, paramInfo.dimSize, paramInfo.tensorBaseAddrCoaIndex, paramInfo.dimIndex);
     }
     if (paramInfo.type == DynParamInfoType::VALID_SHAPE) {
-        return MAYBE_CONST_COA_GetValidShape(1, attrValue,paramInfo.dimSize, paramInfo.tensorBaseAddrCoaIndex, paramInfo.dimIndex);
+        return MAYBE_CONST_COA_GetValidShape(
+            1, attrValue, paramInfo.dimSize, paramInfo.tensorBaseAddrCoaIndex, paramInfo.dimIndex);
     }
     return MAYBE_CONST_COA_GetParam(1, attrValue, paramInfo.dimIndex);
 }
@@ -370,7 +381,7 @@ void ReBuildConcreteParam(Function *leafFunc, std::vector<std::vector<SymbolicSc
         APASS_LOG_DEBUG_F(Elements::Operation, "Get concrete symbols %s idx %d", dynParam.first.c_str(), coaIdx);
         IsConstMetric scalarValue;
         auto isConstParam = [&callopArglistOneDim, &scalarValue](int argIdx) {
-            for (auto& calleeArgs : callopArglistOneDim) {
+            for (auto &calleeArgs : callopArglistOneDim) {
                 auto callopAttr = calleeArgs[argIdx];
                 if (!callopAttr.IsImmediate()) {
                     return false;
@@ -389,7 +400,7 @@ void ReBuildConcreteParam(Function *leafFunc, std::vector<std::vector<SymbolicSc
     }
 }
 
-Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operation*> callList) {
+Status DynAttrToStatic::TryRemoveDynAttr(Function *leafFunc, std::vector<Operation *> callList) {
     // 1. 为leafFunc拿到它所有caller的一维的callopArglistOneDim
     std::vector<std::vector<SymbolicScalar>> callopArglistOneDim;
     for (size_t i = 0; i < callList.size(); i++) {
@@ -404,8 +415,9 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
         std::vector<std::reference_wrapper<SymbolicScalar>> dynScalarList = GetOpDynamicAttributeList(op);
         for (auto dynScalar : dynScalarList) {
             if (BuildNewCoa(dynScalar, callopArglistOneDim) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "TryRemoveDynAttr failed to execute BuildNewCoa for op [%d][%s].",
-                    op.GetOpMagic(), op.GetOpcodeStr().c_str());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                    "TryRemoveDynAttr failed to execute BuildNewCoa for op [%d][%s].", op.GetOpMagic(),
+                    op.GetOpcodeStr().c_str());
                 return FAILED;
             }
         }
@@ -417,7 +429,6 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
     return SUCCESS;
 }
 
-
 Status DynAttrToStatic::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "==============> Start DynAttrToStatic.");
     // 1. 遍历所有rootFunc，找到每个leaf的所有caller，生成leaf2Caller map
@@ -427,9 +438,10 @@ Status DynAttrToStatic::RunOnFunction(Function &function) {
     }
 
     // 2. 遍历leaf2Caller，尝试为每个leaf消除动态attributes
-    for (const auto& pair : leaf2Caller) {
+    for (const auto &pair : leaf2Caller) {
         if (TryRemoveDynAttr(pair.first, pair.second) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Failed to call TryRemoveDynAttr for leafFunc %s.", pair.first->GetRawName().c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "Failed to call TryRemoveDynAttr for leafFunc %s.",
+                pair.first->GetRawName().c_str());
             return FAILED;
         }
     }
@@ -438,7 +450,7 @@ Status DynAttrToStatic::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
-Status DynAttrToStatic::GetTileFunction(Function* function, std::unordered_set<Function*> &tileFunctionSet) {
+Status DynAttrToStatic::GetTileFunction(Function *function, std::unordered_set<Function *> &tileFunctionSet) {
     for (auto callop : function->GetCallopList()) {
         Function *nextFunc = nullptr;
         if (GetCallee(*callop, nextFunc) != SUCCESS) {
@@ -446,13 +458,14 @@ Status DynAttrToStatic::GetTileFunction(Function* function, std::unordered_set<F
                 function->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic());
             return FAILED;
         }
-        APASS_LOG_DEBUG_F(Elements::Function, "GetTileFunction, %s --%s[%d]--> %s",
-            function->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic(), nextFunc->GetRawName().c_str());
+        APASS_LOG_DEBUG_F(Elements::Function, "GetTileFunction, %s --%s[%d]--> %s", function->GetRawName().c_str(),
+            callop->GetOpcodeStr().c_str(), callop->GetOpMagic(), nextFunc->GetRawName().c_str());
         if (nextFunc->GetGraphType() == GraphType::TILE_GRAPH) {
             tileFunctionSet.emplace(nextFunc);
         } else {
-            if(GetTileFunction(nextFunc, tileFunctionSet) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "GetTileFunction, currFunc: %s, nextFunc: %s, recursive search failed",
+            if (GetTileFunction(nextFunc, tileFunctionSet) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation,
+                    "GetTileFunction, currFunc: %s, nextFunc: %s, recursive search failed",
                     function->GetRawName().c_str(), nextFunc->GetRawName().c_str());
                 return FAILED;
             }
@@ -461,8 +474,8 @@ Status DynAttrToStatic::GetTileFunction(Function* function, std::unordered_set<F
     return SUCCESS;
 }
 
-Status DynAttrToStatic::DumpFunctionJson(Function& function, const std::string &logFolder, bool beforeFunction) {
-    std::unordered_set<Function*> tileFunctionSet;
+Status DynAttrToStatic::DumpFunctionJson(Function &function, const std::string &logFolder, bool beforeFunction) {
+    std::unordered_set<Function *> tileFunctionSet;
     if (GetTileFunction(&function, tileFunctionSet) != SUCCESS) {
         return FAILED;
     }
@@ -475,8 +488,8 @@ Status DynAttrToStatic::DumpFunctionJson(Function& function, const std::string &
     return SUCCESS;
 }
 
-Status DynAttrToStatic::PrintFunction(Function& function, const std::string &logFolder, bool beforeFunction) {
-    std::unordered_set<Function*> tileFunctionSet;
+Status DynAttrToStatic::PrintFunction(Function &function, const std::string &logFolder, bool beforeFunction) {
+    std::unordered_set<Function *> tileFunctionSet;
     if (GetTileFunction(&function, tileFunctionSet) != SUCCESS) {
         return FAILED;
     }

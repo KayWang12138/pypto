@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2026 Huawei Technologies Co., Ltd.
-* This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-* CANN Open Software License Agreement Version 2.0 (the "License").
-* Please refer to the License for details. You may not use this file except in compliance with the License.
-* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-* INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
-* See LICENSE in the root of the software repository for the full text of the License.
-*/
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 /*!
-* \file distributed.cpp
-* \brief
-*/
+ * \file distributed.cpp
+ * \brief
+ */
 
 #include "pybind_common.h"
 
@@ -19,7 +19,7 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::Distributed;
 
 namespace pypto {
-void BindDistributed(py::module& m) {
+void BindDistributed(py::module &m) {
     py::class_<ShmemTensor>(m, "ShmemTensor")
         .def(py::init<>())
         .def_readwrite("group", &ShmemTensor::group)
@@ -29,17 +29,18 @@ void BindDistributed(py::module& m) {
 
     m.def(
         "CreateShmemTensor",
-        [](const char* group, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor &t) {
+        [](const char *group, int64_t worldSize, DataType dataType, const Shape &shape, ShmemTensor &t) {
             return Distributed::CreateShmemTensor(group, worldSize, dataType, shape, t);
         },
-        py::arg("group"), py::arg("worldSize"), py::arg("dataType"), py::arg("shape"), py::arg("t"), "Create shmem data.");
+        py::arg("group"), py::arg("worldSize"), py::arg("dataType"), py::arg("shape"), py::arg("t"),
+        "Create shmem data.");
 
     m.def(
         "CreateShmemSignal",
-        [](const char* group, int64_t worldSize, ShmemTensor &t) {
+        [](const char *group, int64_t worldSize, ShmemTensor &t) {
             return Distributed::CreateShmemSignal(group, worldSize, t);
         },
-        py::arg("group"), py::arg("worldSize"),  py::arg("t"), "Create shmem signal data.");
+        py::arg("group"), py::arg("worldSize"), py::arg("t"), "Create shmem signal data.");
 
     m.def(
         "ShmemView",
@@ -91,15 +92,13 @@ void BindDistributed(py::module& m) {
     m.def(
         "ShmemPut",
         [](const Tensor &src, const ShmemTensor &dst, const SymbolicScalar &dstRank, Distributed::AtomicType putOp,
-            const Tensor& pred) {
-            return Distributed::ShmemPut(src, dst, dstRank, putOp, pred);
-        },
+            const Tensor &pred) { return Distributed::ShmemPut(src, dst, dstRank, putOp, pred); },
         py::arg("src"), py::arg("dst"), py::arg("dstRank"), py::arg("putOp"), py::arg("pred"),
         "Put tensor to shmem with rank.");
 
     m.def(
         "ShmemGet",
-        [](const ShmemTensor &src, const SymbolicScalar &srcRank, const Tensor& pred,
+        [](const ShmemTensor &src, const SymbolicScalar &srcRank, const Tensor &pred,
             DataType targetDataType = DataType::DT_BOTTOM) {
             return Distributed::ShmemGet(src, srcRank, pred, targetDataType);
         },
@@ -108,55 +107,42 @@ void BindDistributed(py::module& m) {
 
     m.def(
         "ShmemSignal",
-        [](const ShmemTensor& src, const SymbolicScalar &srcRank, const SymbolicScalar &targetRank, int32_t signal,
-            Distributed::AtomicType sigOp, const Tensor& pred) {
-            return Distributed::ShmemSignal(src, srcRank, targetRank, signal, sigOp, pred);
-        },
+        [](const ShmemTensor &src, const SymbolicScalar &srcRank, const SymbolicScalar &targetRank, int32_t signal,
+            Distributed::AtomicType sigOp,
+            const Tensor &pred) { return Distributed::ShmemSignal(src, srcRank, targetRank, signal, sigOp, pred); },
         py::arg("src"), py::arg("srcRank"), py::arg("targetRank"), py::arg("signal"), py::arg("sigOp"), py::arg("pred"),
         "Signal shmem with consumer rank.");
 
     m.def(
         "ShmemSignalAll",
-        [](const ShmemTensor& src, const SymbolicScalar &srcRank, int32_t signal, Distributed::AtomicType sigOp,
-            const Tensor& pred) {
-            return Distributed::ShmemSignalAll(src, srcRank, signal, sigOp, pred);
-        },
+        [](const ShmemTensor &src, const SymbolicScalar &srcRank, int32_t signal, Distributed::AtomicType sigOp,
+            const Tensor &pred) { return Distributed::ShmemSignalAll(src, srcRank, signal, sigOp, pred); },
         py::arg("src"), py::arg("srcRank"), py::arg("signal"), py::arg("sigOp"), py::arg("pred"),
         "Signal all ranks in shmem.");
 
     m.def(
         "ShmemWaitUntil",
-        [](const ShmemTensor& src, const SymbolicScalar &srcRank, OpType cmp, int32_t cmpValue,
-            bool clearSignal, const Tensor &pred) {
-            return Distributed::ShmemWaitUntil(src, srcRank, cmp, cmpValue, clearSignal, pred);
-        },
-        py::arg("src"), py::arg("srcRank"), py::arg("cmp"), py::arg("cmpValue"),
-        py::arg("clearSignal"), py::arg("pred"), "Wait shmem signal.");
+        [](const ShmemTensor &src, const SymbolicScalar &srcRank, OpType cmp, int32_t cmpValue, bool clearSignal,
+            const Tensor &pred) { return Distributed::ShmemWaitUntil(src, srcRank, cmp, cmpValue, clearSignal, pred); },
+        py::arg("src"), py::arg("srcRank"), py::arg("cmp"), py::arg("cmpValue"), py::arg("clearSignal"),
+        py::arg("pred"), "Wait shmem signal.");
 
     m.def(
-        "ShmemClearData",
-        [](const ShmemTensor& src, Tensor &pred) {
-            return Distributed::ShmemClearData(src, pred);
-        },
+        "ShmemClearData", [](const ShmemTensor &src, Tensor &pred) { return Distributed::ShmemClearData(src, pred); },
         py::arg("src"), py::arg("pred"), "Clear shmem data.");
 
     m.def(
         "ShmemClearSignal",
-        [](const ShmemTensor& src, Tensor &pred) {
-            return Distributed::ShmemClearSignal(src, pred);
-        },
-        py::arg("src"), py::arg("pred"), "Clear shmem signal.");
+        [](const ShmemTensor &src, Tensor &pred) { return Distributed::ShmemClearSignal(src, pred); }, py::arg("src"),
+        py::arg("pred"), "Clear shmem signal.");
 
     m.def(
-        "ShmemBarrier",
-        [](const ShmemTensor &src, const Tensor &pred) {
-            return Distributed::ShmemBarrier(src, pred);
-        },
+        "ShmemBarrier", [](const ShmemTensor &src, const Tensor &pred) { return Distributed::ShmemBarrier(src, pred); },
         py::arg("src"), py::arg("pred"), "Barrier on shmem.");
 
     m.def(
         "ShmemLoad",
-        [](const ShmemTensor &src, const SymbolicScalar &srcRank, const Tensor& pred,
+        [](const ShmemTensor &src, const SymbolicScalar &srcRank, const Tensor &pred,
             DataType nonShmemDataType = DataType::DT_BOTTOM) {
             return Distributed::ShmemLoad(src, srcRank, pred, nonShmemDataType);
         },
@@ -165,9 +151,8 @@ void BindDistributed(py::module& m) {
 
     m.def(
         "ShmemStore",
-        [](const Tensor &src, const ShmemTensor &dst, const SymbolicScalar &dstRank, Distributed::AtomicType putOp, const Tensor &pred) {
-            return Distributed::ShmemStore(src, dst, dstRank, putOp, pred);
-        },
+        [](const Tensor &src, const ShmemTensor &dst, const SymbolicScalar &dstRank, Distributed::AtomicType putOp,
+            const Tensor &pred) { return Distributed::ShmemStore(src, dst, dstRank, putOp, pred); },
         py::arg("src"), py::arg("dst"), py::arg("dstRank"), py::arg("putOp"), py::arg("pred"),
         "Store local tensor to shmem.");
 

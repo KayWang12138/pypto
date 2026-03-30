@@ -23,10 +23,8 @@
 
 namespace npu::tile_fwk {
 void ExecuteOpAssemble(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() <= NUM_VALUE_2);
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() <= NUM_VALUE_2);
     ASSERT(ExecuteOperationScene::CTX_OP_NULL, ctx->op != nullptr);
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto &iop = ctx->ioperandDataViewList->at(0);
@@ -59,21 +57,18 @@ REGISTER_CALC_OP(OP_CV_SYNC_DST, Opcode::OP_CV_SYNC_DST, ExecuteOpNone);
 void ExecuteOpViewType(ExecuteOperationContext *ctx) {
     ASSERT(ExecuteOperationScene::CTX_NULL, ctx != nullptr);
     ASSERT(ExecuteOperationScene::CTX_OP_NULL, ctx->op != nullptr);
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
 
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto &iop = ctx->ioperandDataViewList->at(0);
     ASSERT(ExecuteOperationScene::CTX_OUTPUT_VIEW_NULL, oop != nullptr);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_VIEW_NULL,  iop != nullptr);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_VIEW_NULL, iop != nullptr);
 
     auto inData = iop->GetData();
     auto outData = oop->GetData();
     // OP_VIEW_TYPE 专属：要求输入输出底层 RawTensorData 都存在
-    ASSERT(ExecuteOperationScene::VIEWTYPE_BYTES_MISMATCH,
-           inData != nullptr && outData != nullptr);
+    ASSERT(ExecuteOperationScene::VIEWTYPE_BYTES_MISMATCH, inData != nullptr && outData != nullptr);
 
     const int64_t inElemSize = inData->GetElementSize();
     const int64_t outElemSize = outData->GetElementSize();
@@ -96,10 +91,8 @@ void ExecuteOpViewType(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_VIEW_TYPE, Opcode::OP_VIEW_TYPE, ExecuteOpViewType);
 
 void ExecuteOpView(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     ASSERT(ExecuteOperationScene::CTX_NULL, ctx != nullptr);
     ASSERT(ExecuteOperationScene::CTX_OP_NULL, ctx->op != nullptr);
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
@@ -132,13 +125,11 @@ REGISTER_CALC_OP(OP_VIEW, Opcode::OP_VIEW, ExecuteOpView);
 void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
     ASSERT(ExecuteOperationScene::CTX_NULL, ctx != nullptr);
     ASSERT(ExecuteOperationScene::CTX_OP_NULL, ctx->op != nullptr);
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() <= NUM_VALUE_2);
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() <= NUM_VALUE_2);
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop = ctx->ioperandDataViewList->at(0);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_VIEW_NULL,  iop != nullptr);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_VIEW_NULL, iop != nullptr);
     ASSERT(ExecuteOperationScene::CTX_OUTPUT_VIEW_NULL, oop != nullptr);
 
     auto copyout = std::static_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute());
@@ -158,9 +149,10 @@ void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
     if (from == MemoryType::MEM_L0C) {
         if (iop->GetDataType() == DataType::DT_INT32 && oop->GetDataType() == DataType::DT_FP16) {
             uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ?
-                ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;
-            int relu = (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ?
-                ctx->op->GetIntAttribute(Matrix::A_MUL_B_RELU_ATTR) : 0;
+                                 ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() :
+                                 0;
+            int relu =
+                (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ? ctx->op->GetIntAttribute(Matrix::A_MUL_B_RELU_ATTR) : 0;
             LogicalTensorDataPtr scalePtr = nullptr;
             if (ctx->ioperandDataViewList->size() > 1) {
                 scalePtr = ctx->ioperandDataViewList->at(1);
@@ -180,8 +172,7 @@ void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_COPY_OUT, Opcode::OP_COPY_OUT, ExecuteOpCopyOut);
 
 void ExecuteOpCopyIn(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto &iop = ctx->ioperandDataViewList->at(0);
 
@@ -194,7 +185,8 @@ void ExecuteOpCopyIn(ExecuteOperationContext *ctx) {
     if (outputCombineAxisDone && oopShape.size() == SIZE_TWO) {
         std::vector<int64_t> transShape = {oopShape[1], oopShape[0]};
         std::vector<int64_t> transRawShape = {oop->GetData()->GetShape()[1], oop->GetData()->GetShape()[0]};
-        oopTrans = LogicalTensorData::CreateEmpty(oop->GetDataType(), transShape, std::vector<int64_t>(0), transRawShape);
+        oopTrans =
+            LogicalTensorData::CreateEmpty(oop->GetDataType(), transShape, std::vector<int64_t>(0), transRawShape);
     }
 
     // HACK: copyin's default attribute should be full tensor
@@ -204,7 +196,8 @@ void ExecuteOpCopyIn(ExecuteOperationContext *ctx) {
         std::vector<int64_t> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetShape());
         std::vector<int64_t> rawShape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetRawShape());
         std::vector<int64_t> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetFromOffset());
-        std::vector<int64_t> dynvalidshape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetToDynValidShape());
+        std::vector<int64_t> dynvalidshape =
+            ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetToDynValidShape());
         if (dynvalidshape.empty()) {
             dynvalidshape = shape;
         }
@@ -224,8 +217,7 @@ void ExecuteOpCopyIn(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_COPY_IN, Opcode::OP_COPY_IN, ExecuteOpCopyIn);
 
 void ExecuteOpCopy(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto &iop = ctx->ioperandDataViewList->at(0);
     calc::Copy(oop, iop);
@@ -250,7 +242,7 @@ std::string FormatString(const std::string &s, OperationInterpreter *opInter,
                     ss << (*iopDataView)[tpos++]->ToString();
                 else
                     ss << "???";
-            } else if ( symbol == "S") {
+            } else if (symbol == "S") {
                 if (scalars && spos < scalars->size())
                     ss << opInter->EvaluateSymbolicScalar((*scalars)[spos++]);
                 else
@@ -274,7 +266,7 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
     }
 
     std::vector<SymbolicScalar> *scalars = nullptr;
-    scalars = ctx->op->GetAttr<std::vector<SymbolicScalar> >(OP_ATTR_PREFIX + "scalars");
+    scalars = ctx->op->GetAttr<std::vector<SymbolicScalar>>(OP_ATTR_PREFIX + "scalars");
     if (ctx->op->HasAttribute(OP_ATTR_PREFIX + "fname")) {
         auto fname = ctx->op->GetStringAttribute(OP_ATTR_PREFIX + "fname");
         uint64_t ts = 0;
@@ -308,8 +300,7 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
             csv << "element_count," << oop->GetData()->GetDataSize() / oop->GetData()->GetElementSize() << "\n";
             csv.close();
         } else {
-            VERIFY_LOGE_FULL_E(OpDumpScene::DUMP_OPEN_FILE_FAILED,
-                               "open csv file %s failed!!!!", csvPath.c_str());
+            VERIFY_LOGE_FULL_E(OpDumpScene::DUMP_OPEN_FILE_FAILED, "open csv file %s failed!!!!", csvPath.c_str());
         }
     }
 
@@ -321,10 +312,8 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_PRINT, Opcode::OP_PRINT, ExecutePrint);
 
 void ExecuteOpReshape(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto &iop = ctx->ioperandDataViewList->at(0);
     auto iopDataView = iop->View(iop->GetValidShape(), iop->GetOffset());
@@ -332,12 +321,12 @@ void ExecuteOpReshape(ExecuteOperationContext *ctx) {
     if (oop->GetData()->GetSize() > iop->GetData()->GetSize()) {
         auto oopRawShapeStr = IntVecToStr(oop->GetData()->GetShape());
         auto iopRawShapeStr = IntVecToStr(iop->GetData()->GetShape());
-        VERIFY_LOGW(
-            "Reshape: rawTensor shape/size mismatch in padding path: "
-            "oop(raw) shape=%s size=%ld, iop(raw) shape=%s size=%ld",
+        VERIFY_LOGW("Reshape: rawTensor shape/size mismatch in padding path: "
+                    "oop(raw) shape=%s size=%ld, iop(raw) shape=%s size=%ld",
             oopRawShapeStr.c_str(), oop->GetData()->GetSize(), iopRawShapeStr.c_str(), iop->GetData()->GetSize());
         auto paddingRaw = std::make_shared<RawTensorData>(oop->GetData()->GetDataType(), oop->GetData()->GetShape());
-        auto paddingIopView = std::make_shared<LogicalTensorData>(paddingRaw, iop->GetValidShape(), iop->GetValidShape(), iop->GetOffset());
+        auto paddingIopView = std::make_shared<LogicalTensorData>(
+            paddingRaw, iop->GetValidShape(), iop->GetValidShape(), iop->GetOffset());
         calc::Copy(paddingIopView, iopDataView);
         iopDataView = paddingIopView;
     }
@@ -345,7 +334,8 @@ void ExecuteOpReshape(ExecuteOperationContext *ctx) {
     auto actualOop = std::make_shared<LogicalTensorData>(oopDataView->GetData());
     if (oopDataView->GetSize() > iopDataView->GetSize()) {
         VERIFY_LOGW("%s", ctx->op->Dump().c_str());
-        VERIFY_LOGW("iop validShape: %s ---> oop validShape: %s", IntVecToStr(iop->GetShape()).c_str(), IntVecToStr(oop->GetShape()).c_str());
+        VERIFY_LOGW("iop validShape: %s ---> oop validShape: %s", IntVecToStr(iop->GetShape()).c_str(),
+            IntVecToStr(oop->GetShape()).c_str());
         VERIFY_LOGW("Reshape: input tensor is not enough to reshape to output tensor");
         calc::Reshape(oopDataView, actualIop);
     } else if (oopDataView->GetSize() < iopDataView->GetSize()) {
@@ -357,4 +347,4 @@ void ExecuteOpReshape(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_RESHAPE, Opcode::OP_RESHAPE, ExecuteOpReshape);
 REGISTER_CALC_OP(OP_RESHAPE_COPY_OUT, Opcode::OP_RESHAPE_COPY_OUT, ExecuteOpCopyOut);
 REGISTER_CALC_OP(OP_RESHAPE_COPY_IN, Opcode::OP_RESHAPE_COPY_IN, ExecuteOpCopyIn);
-}
+} // namespace npu::tile_fwk

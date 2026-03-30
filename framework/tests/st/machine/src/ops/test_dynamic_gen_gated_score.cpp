@@ -40,9 +40,8 @@ static std::vector<T> GetGoldenVec(std::vector<int64_t> shape, std::string fileN
     return golden;
 }
 
-template<typename T = npu::tile_fwk::float16>
-void GenGatedScoreEntryPrefill(const std::vector<int64_t>& bnsh) {
-
+template <typename T = npu::tile_fwk::float16>
+void GenGatedScoreEntryPrefill(const std::vector<int64_t> &bnsh) {
     int64_t b = bnsh[0];
     int64_t n = bnsh[1];
     int64_t s = bnsh[2];

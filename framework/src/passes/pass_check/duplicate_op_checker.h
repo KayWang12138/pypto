@@ -28,6 +28,7 @@ class DuplicateOpChecker : Checker {
 public:
     Status DoPreCheck(Function &function) override;
     Status DoPostCheck(Function &function) override;
+
 private:
     Status PreCheckGatherIn(const Operation &op);
     Status ProcessPreCheck(const Operation &op);
@@ -37,4 +38,4 @@ private:
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // DUPLICATE_OP_CHECKER_H
+#endif // DUPLICATE_OP_CHECKER_H

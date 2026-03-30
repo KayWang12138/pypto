@@ -37,9 +37,7 @@ public:
         InternalInit(workspaceAddr, workspaceSize, WsAllocatorProperty::TENSOR_MEM);
     }
 
-    bool CanAllocate(uint64_t memReq) const {
-        return allocated_ + memReq <= workspaceSize_;
-    }
+    bool CanAllocate(uint64_t memReq) const { return allocated_ + memReq <= workspaceSize_; }
 
     template <typename T>
     WsAllocation Allocate(uint64_t count, WsMemCategory category = WsMemCategory::UNCLASSIFIED) {
@@ -47,8 +45,10 @@ public:
     }
 
     WsAllocation Malloc(uint64_t memReq, WsMemCategory category = WsMemCategory::UNCLASSIFIED) {
-        DEV_ASSERT_MSG(WsErr::WORKSPACE_INIT_RESOURCE_ERROR, CanAllocate(memReq), "Memory not enough(alloc %lu), WsProperty:%s, WsAddr:%lu, WsSize:%lu,"
-            "AllocatedCnt:%lu, ResetTimes:%u", memReq, GetWsAllocatorPropertyName(property_), workspaceAddr_, workspaceSize_, allocated_, resetTimes_);
+        DEV_ASSERT_MSG(WsErr::WORKSPACE_INIT_RESOURCE_ERROR, CanAllocate(memReq),
+            "Memory not enough(alloc %lu), WsProperty:%s, WsAddr:%lu, WsSize:%lu,"
+            "AllocatedCnt:%lu, ResetTimes:%u",
+            memReq, GetWsAllocatorPropertyName(property_), workspaceAddr_, workspaceSize_, allocated_, resetTimes_);
 
         WsAllocation allocation;
         allocation.ptr = workspaceAddr_ + allocated_;
@@ -77,9 +77,7 @@ public:
         resetTimes_++;
     }
 
-    uint32_t ResetTimes() const {
-        return resetTimes_;
-    }
+    uint32_t ResetTimes() const { return resetTimes_; }
 
     // Call me after initialization memory allocations
     void ResetCounter() {

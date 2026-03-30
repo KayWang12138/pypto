@@ -27,8 +27,7 @@
 #include "interface/utils/common.h"
 
 namespace npu::tile_fwk {
-inline int64_t CalcShapeSizeFunc (const std::vector<int64_t>& shape)
-{
+inline int64_t CalcShapeSizeFunc(const std::vector<int64_t> &shape) {
     int64_t size = 1;
     for (auto &i : shape) {
         size *= i;
@@ -37,7 +36,7 @@ inline int64_t CalcShapeSizeFunc (const std::vector<int64_t>& shape)
 }
 
 struct InvokeParaOffset {
-    uint8_t* rawTensorAddr{nullptr}; // 原始input output tensor基地址, 如果是子图间workspace incast outcast 则为null
+    uint8_t *rawTensorAddr{nullptr}; // 原始input output tensor基地址, 如果是子图间workspace incast outcast 则为null
     uint64_t offset{0};
     uint64_t rawTensorOffset{0};
     bool isTensorParam{false};
@@ -61,11 +60,7 @@ struct InvokeParaOffset {
     }
 };
 
-enum class CacheReuseType {
-    None = 0,
-    Function,
-    Bin
-};
+enum class CacheReuseType { None = 0, Function, Bin };
 
 class MachineTask {
 public:
@@ -77,19 +72,20 @@ public:
     void SetFunction(Function *func) { function_ = func; }
     CacheReuseType GetCacheReuseType() const { return cacheReuseType_; }
     void SetCacheReuseType(const CacheReuseType cacheReuseType) { cacheReuseType_ = cacheReuseType; }
-    const std::string& GetCacheKey() const { return cacheKey_; }
+    const std::string &GetCacheKey() const { return cacheKey_; }
     void SetCacheKey(const std::string &cacheKey) { cacheKey_ = cacheKey; }
     void SetError(std::string msg) { error = std::move(msg); }
     const std::string &Error() { return error; }
     int GetFunctionIndex() const { return function_index_; }
     void SetFunctionIndex(int idx) { function_index_ = idx; }
+
 private:
     uint64_t taskId_;
     Function *function_;
     std::string cacheKey_;
     CacheReuseType cacheReuseType_;
     std::string error;
-    int function_index_{0};  // 1-based index for compiler monitor progress (k/N)
+    int function_index_{0}; // 1-based index for compiler monitor progress (k/N)
 };
-}
+} // namespace npu::tile_fwk
 #endif // MACHINE_TASK_H

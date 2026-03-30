@@ -90,8 +90,8 @@ bool CalculateNewRawShapeReduce(
     return true;
 }
 
-void RemoveRedundantAssemble::HandleForAssembleFromInOut(Function &function, Operation &assembleOp,
-    std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const {
+void RemoveRedundantAssemble::HandleForAssembleFromInOut(
+    Function &function, Operation &assembleOp, std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const {
     LogicalTensorPtr inOrOutTensor = nullptr;
     if (function.IsFromInCast(assembleOp.iOperand[0]) || function.IsFromOutCast(assembleOp.iOperand[0])) {
         inOrOutTensor = assembleOp.iOperand[0];
@@ -99,7 +99,8 @@ void RemoveRedundantAssemble::HandleForAssembleFromInOut(Function &function, Ope
     if (inOrOutTensor == nullptr) {
         return;
     }
-    APASS_LOG_DEBUG_F(Elements::Tensor, "Find incast or outcast, tensor magic: %d, raw magic: %d.", inOrOutTensor->magic, inOrOutTensor->GetRawMagic());
+    APASS_LOG_DEBUG_F(Elements::Tensor, "Find incast or outcast, tensor magic: %d, raw magic: %d.",
+        inOrOutTensor->magic, inOrOutTensor->GetRawMagic());
     for (const auto &producer : producersBackup) {
         producer->oOperand[0]->tensor = inOrOutTensor->tensor;
         for (auto &cons : producer->oOperand[0]->GetConsumers()) {
@@ -199,29 +200,38 @@ RESHAPE -> COPYIN
 */
 Status RemoveRedundantAssemble::RemoveViewSingleReshape(Function &function) const {
     for (auto &op : function.Operations()) {
-        if (op.GetOpcode() != Opcode::OP_RESHAPE) continue;
+        if (op.GetOpcode() != Opcode::OP_RESHAPE)
+            continue;
         auto &reshapeOp = op;
-        if (!MatchReshapePattern(reshapeOp.GetIOperands().front(), reshapeOp.GetOOperands().front())) continue;
+        if (!MatchReshapePattern(reshapeOp.GetIOperands().front(), reshapeOp.GetOOperands().front()))
+            continue;
         auto producers = reshapeOp.GetIOperands().front()->GetProducers();
         if (producers.empty()) {
-            APASS_LOG_INFO_F(Elements::Operation, "No producers found for RESHAPE op's input %d.", reshapeOp.GetOpMagic());
-            continue;;
+            APASS_LOG_INFO_F(
+                Elements::Operation, "No producers found for RESHAPE op's input %d.", reshapeOp.GetOpMagic());
+            continue;
+            ;
         }
         auto producerOp = *producers.begin();
-        if (producerOp == nullptr || producers.size() != 1 || producerOp->GetOpcode() != Opcode::OP_VIEW) continue;
+        if (producerOp == nullptr || producers.size() != 1 || producerOp->GetOpcode() != Opcode::OP_VIEW)
+            continue;
         auto viewInput = producerOp->GetIOperands().front();
         for (auto reshapeConsumer : reshapeOp.GetOOperands().front()->GetConsumers()) {
-            if (reshapeConsumer->GetOpcode() != Opcode::OP_COPY_IN) return SUCCESS;
+            if (reshapeConsumer->GetOpcode() != Opcode::OP_COPY_IN)
+                return SUCCESS;
         }
         auto opAttr = std::dynamic_pointer_cast<ViewOpAttribute>(producerOp->GetOpAttribute());
         if (opAttr == nullptr) {
             APASS_LOG_INFO_F(Elements::Operation, "Op %d Attribute is nullptr.", producerOp->GetOpMagic());
-            continue;;
+            continue;
+            ;
         }
         auto &offset = opAttr->GetFromDynOffset();
         Shape newRawShape = reshapeOp.GetOOperands().front()->shape;
-        if (!CalculateNewRawShapeExpand(reshapeOp.GetOOperands().front()->shape, viewInput->tensor->GetRawShape(), newRawShape)) return SUCCESS;
-                std::vector<SymbolicScalar> newDynOffset;
+        if (!CalculateNewRawShapeExpand(
+                reshapeOp.GetOOperands().front()->shape, viewInput->tensor->GetRawShape(), newRawShape))
+            return SUCCESS;
+        std::vector<SymbolicScalar> newDynOffset;
         GetDynOffsetBeforeReshape(offset, viewInput->shape, newRawShape, newDynOffset);
         APASS_LOG_DEBUG_F(Elements::Operation, "Process View[%d] Tensor[%d]: newRawshape: %s, newOffset: %s.",
             producerOp->GetOpMagic(), reshapeOp.GetOOperands().front()->GetMagic(), IntVecToStr(newRawShape).c_str(),
@@ -259,7 +269,8 @@ bool RemoveViewMultiReshapePattern(const LogicalTensorPtr &reshapeInput, const L
     }
 
     // 维度数一致或太小（小于1）则失败
-    if (longerRawShape.size() == shorterRawShape.size() || std::min(longerRawShape.size(), shorterRawShape.size()) < 1) {
+    if (longerRawShape.size() == shorterRawShape.size() ||
+        std::min(longerRawShape.size(), shorterRawShape.size()) < 1) {
         return false;
     }
 
@@ -347,7 +358,8 @@ Status RemoveRedundantAssemble::ProcessReshape(Function &function, Operation *&o
     for (auto &consumer : consumers) {
         if (consumer == nullptr) {
             APASS_LOG_ERROR_F(Elements::Tensor,
-                "Null consumer detected while iterating over the consumers of the output operand [%d].", oOperand->magic);
+                "Null consumer detected while iterating over the consumers of the output operand [%d].",
+                oOperand->magic);
             return FAILED;
         }
         if (consumer->GetOpcode() == Opcode::OP_COPY_IN) {
@@ -414,15 +426,16 @@ Status RemoveRedundantAssemble::RemoveViewMultiReshape(
 /*
 生效场景:
 Assemble拆分了最高轴，认为可以透传，不需要拷贝，前序在ExpandFunction中做了判断，属性NeedCopy=false
-Copy_Out --> tensor(GM) --> Reshape --> oriBackUp [16, 16] --> Assemble(offset, dynOffset) --> OCAST(offset, dynOffset) [16, 64]
-因此需要: 重新计算Reshape输入的RawShape, offset, dynOffset
+Copy_Out --> tensor(GM) --> Reshape --> oriBackUp [16, 16] --> Assemble(offset, dynOffset) --> OCAST(offset, dynOffset)
+[16, 64] 因此需要: 重新计算Reshape输入的RawShape, offset, dynOffset
 */
 Status RemoveRedundantAssemble::HandleDynOffsetForReshape(
     Operation &assembleOp, const std::set<Operation *, LogicalTensor::CompareOp> &producers) const {
     std::vector<SymbolicScalar> newDynOffset;
     std::vector<int64_t> newRawShape;
     auto opAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(assembleOp.GetOpAttribute());
-    if (opAttr == nullptr) return FAILED;
+    if (opAttr == nullptr)
+        return FAILED;
     auto dynOffset = opAttr->GetToDynOffset();
     if (dynOffset.empty()) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] does not have DynOffset attributes",
@@ -436,24 +449,27 @@ Status RemoveRedundantAssemble::HandleDynOffsetForReshape(
     }
     auto producer = *(producers.begin());
     if (producer->GetOpcode() != Opcode::OP_RESHAPE) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Producer op:%s[%d] is not Reshape",
-            producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Producer op:%s[%d] is not Reshape", producer->GetOpcodeStr().c_str(),
+            producer->GetOpMagic());
         return SUCCESS;
     }
     auto &assembleOutShape = assembleOp.GetOOperands()[0]->tensor->rawshape;
     bool isReduce = assembleOutShape.size() < producer->GetIOperands()[0]->shape.size();
-    bool isSuccess = isReduce
-        ? CalculateNewRawShapeReduce(producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape)
-        : CalculateNewRawShapeExpand(producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape);
-    if (!isSuccess) return SUCCESS;
+    bool isSuccess = isReduce ?
+                         CalculateNewRawShapeReduce(producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape) :
+                         CalculateNewRawShapeExpand(producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape);
+    if (!isSuccess)
+        return SUCCESS;
     GetDynOffsetBeforeReshape(dynOffset, assembleOutShape, newRawShape, newDynOffset);
     APASS_LOG_DEBUG_F(Elements::Operation, "Process Assemble %d Tensor[%d]: newRawshape: %s, newOffset: %s.",
         assembleOp.GetOpMagic(), producer->GetIOperands()[0]->GetMagic(), IntVecToStr(newRawShape).c_str(),
         IntVecToStr(newDynOffset).c_str());
     for (auto copyOut : producer->GetIOperands()[0]->GetProducers()) {
-        if (!IsCopyOut(copyOut->GetOpcode())) return SUCCESS;
+        if (!IsCopyOut(copyOut->GetOpcode()))
+            return SUCCESS;
         const std::shared_ptr<OpAttribute> &attr = copyOut->GetOpAttribute();
-        if (attr == nullptr) return FAILED;
+        if (attr == nullptr)
+            return FAILED;
         std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
         auto oriCopyOffset = copyAttr->GetToOffset();
         std::vector<OpImmediate> newOffset = OpImmediate::Specified(newDynOffset);
@@ -531,8 +547,8 @@ op1 --> tensor1 ---> Assemble1-2 --> OCAST
                 /--> Assemble2-1 --> Tensor
 op2 --> tensor2 ---> Assemble2-2 --> OCAST
 */
-void RemoveRedundantAssemble::HandleForAssembleToOutcast(Function &function, Operation& assembleOp,
-    std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const {
+void RemoveRedundantAssemble::HandleForAssembleToOutcast(
+    Function &function, Operation &assembleOp, std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const {
     int outCastMagic = -1;
     if (function.IsFromOutCast(assembleOp.oOperand[0]) && assembleOp.oOperand[0]->nodetype == NodeType::OUTCAST) {
         outCastMagic = assembleOp.oOperand[0]->GetMagic();
@@ -546,7 +562,8 @@ void RemoveRedundantAssemble::HandleForAssembleToOutcast(Function &function, Ope
     }
 }
 
-void RemoveRedundantAssemble::HanldeForMultiAssemble(Function &function, std::unordered_set<Operation *>& concurrentAssembles) const {
+void RemoveRedundantAssemble::HanldeForMultiAssemble(
+    Function &function, std::unordered_set<Operation *> &concurrentAssembles) const {
     LogicalTensorPtr replaceTensor = nullptr;
     for (auto &assemble : concurrentAssembles) {
         if (function.IsFromInCast(assemble->iOperand[0]) || function.IsFromOutCast(assemble->iOperand[0])) {
@@ -561,8 +578,9 @@ void RemoveRedundantAssemble::HanldeForMultiAssemble(Function &function, std::un
             break;
         }
     }
-    for (auto& assemble : concurrentAssembles) {
-        if (replaceTensor == nullptr) replaceTensor = assemble->oOperand[0];
+    for (auto &assemble : concurrentAssembles) {
+        if (replaceTensor == nullptr)
+            replaceTensor = assemble->oOperand[0];
         auto &input = assemble->GetIOperands().front();
         auto &output = assemble->GetOOperands().front();
         input->tensor = replaceTensor->tensor;
@@ -570,7 +588,7 @@ void RemoveRedundantAssemble::HanldeForMultiAssemble(Function &function, std::un
     }
 }
 
-bool RemoveRedundantAssemble::FindAssembleOut(Operation* con, int assembleOutMagic) const {
+bool RemoveRedundantAssemble::FindAssembleOut(Operation *con, int assembleOutMagic) const {
     bool res = false;
     for (auto conOutput : con->GetOOperands()) {
         if (conOutput->GetMagic() == assembleOutMagic) {
@@ -589,7 +607,8 @@ bool RemoveRedundantAssemble::FindAssembleOut(Operation* con, int assembleOutMag
     return res;
 }
 
-Status RemoveRedundantAssemble::HanldeForSingleAssemble(Function &function, LogicalTensorPtr input, LogicalTensorPtr output, Operation &op) const {
+Status RemoveRedundantAssemble::HanldeForSingleAssemble(
+    Function &function, LogicalTensorPtr input, LogicalTensorPtr output, Operation &op) const {
     auto producersBackup = input->GetProducers();
     auto &consumers = input->GetConsumers();
     LogicalTensorPtr oriOutputBackUp = nullptr;
@@ -622,7 +641,8 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(Function &function, Logi
                 oriOutputBackUp = producer->oOperand[0]; // producer --> oriOutputBackUp(input) --> op
                 producer->ReplaceOutput(output, oriOutputBackUp);
                 output->isSubGraphBoundary = true;
-                if (!IsCopyOut(producer->GetOpcode())) continue;
+                if (!IsCopyOut(producer->GetOpcode()))
+                    continue;
                 APASS_LOG_DEBUG_F(Elements::Operation, "The producer op:[%d] is copyOut, update its CopyOpAttr. %s",
                     producer->GetOpMagic(), producer->GetOpcodeStr().c_str());
                 UpdateCopyOutAttr(*producer, *cons);
@@ -665,11 +685,12 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) cons
             }
         }
         if (concurrentAssembles.size() > 1) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] has %zu parallel assemble op",
-                op.GetOpcodeStr().c_str(), op.GetOpMagic(), concurrentAssembles.size());
+            APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] has %zu parallel assemble op", op.GetOpcodeStr().c_str(),
+                op.GetOpMagic(), concurrentAssembles.size());
             HanldeForMultiAssemble(function, concurrentAssembles);
         } else {
-            if (HanldeForSingleAssemble(function, input, output, op) != SUCCESS) return FAILED;
+            if (HanldeForSingleAssemble(function, input, output, op) != SUCCESS)
+                return FAILED;
         }
     }
     if (ProcessView(function) != SUCCESS) {

@@ -36,7 +36,7 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_32_64_1_32) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("TensorIndex") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
@@ -82,7 +82,7 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_64_256_1_64) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("TensorIndex") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
@@ -127,7 +127,7 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_1_64_32_1) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("TensorIndex") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
@@ -175,7 +175,7 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_64_512_16_64) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("TensorIndex") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
@@ -220,7 +220,7 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_8_7168_64_moe) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("TensorIndex") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);

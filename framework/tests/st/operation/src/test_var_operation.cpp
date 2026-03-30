@@ -21,15 +21,15 @@ struct VarOpFuncArgs : public OpFuncArgs {
     VarOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> &tileShape,
         const std::vector<int> &dim, float correction, bool keepDim)
         : viewShape_(viewShape), tileShape_(tileShape), dim_(dim), correction_(correction), keepDim_(keepDim) {
-            dimReduceFlag_.resize(viewShape_.size(), false);
-            if (dim_.empty()) {
-                std::fill(dimReduceFlag_.begin(), dimReduceFlag_.end(), true);
-            }
-            for (auto i : dim_) {
-                int index = (i < 0) ? i + static_cast<int>(viewShape_.size()) : i;
-                dimReduceFlag_[index] = true;
-            }
+        dimReduceFlag_.resize(viewShape_.size(), false);
+        if (dim_.empty()) {
+            std::fill(dimReduceFlag_.begin(), dimReduceFlag_.end(), true);
         }
+        for (auto i : dim_) {
+            int index = (i < 0) ? i + static_cast<int>(viewShape_.size()) : i;
+            dimReduceFlag_[index] = true;
+        }
+    }
 
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
@@ -47,9 +47,8 @@ struct VarOpMetaData {
     nlohmann::json test_data_;
 };
 
-static void VarSetTileShapeBeforeAssemble(const std::vector<int64_t> &oriTileShape, const std::vector<int> &oriDim,
-    bool keepDim, DataType dtype)
-{
+static void VarSetTileShapeBeforeAssemble(
+    const std::vector<int64_t> &oriTileShape, const std::vector<int> &oriDim, bool keepDim, DataType dtype) {
     if (keepDim) {
         return;
     }
@@ -96,13 +95,16 @@ static void VarOperationExeFunc2Dims(
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = Var(tileTensor, args->dim_, args->correction_, args->keepDim_);
                 VarSetTileShapeBeforeAssemble(args->tileShape_, args->dim_, args->keepDim_, inputs[0].GetDataType());
-                IF (args->keepDim_) {
+                IF(args->keepDim_) {
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
-                } ELSE IF(dimFlag[0] && dimFlag[1]) {
+                }
+                ELSE IF(dimFlag[0] && dimFlag[1]) {
                     Assemble(res, {0}, outputs[0]);
-                } ELSE IF(dimFlag[0]) {
+                }
+                ELSE IF(dimFlag[0]) {
                     Assemble(res, {sIdx * secondViewShape}, outputs[0]);
-                } ELSE IF(dimFlag[1]) {
+                }
+                ELSE IF(dimFlag[1]) {
                     Assemble(res, {bIdx * firstViewShape}, outputs[0]);
                 }
             }
@@ -135,22 +137,31 @@ static void VarOperationExeFunc3Dims(
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = Var(tileTensor, args->dim_, args->correction_, args->keepDim_);
-                    VarSetTileShapeBeforeAssemble(args->tileShape_, args->dim_, args->keepDim_, inputs[0].GetDataType());
-                    IF (args->keepDim_) {
-                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
-                    } ELSE IF(dimFlag[0] && dimFlag[1] && dimFlag[2]) {
+                    VarSetTileShapeBeforeAssemble(
+                        args->tileShape_, args->dim_, args->keepDim_, inputs[0].GetDataType());
+                    IF(args->keepDim_) {
+                        Assemble(
+                            res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                    }
+                    ELSE IF(dimFlag[0] && dimFlag[1] && dimFlag[2]) {
                         Assemble(res, {0}, outputs[0]);
-                    } ELSE IF(dimFlag[0] && dimFlag[1]) {
+                    }
+                    ELSE IF(dimFlag[0] && dimFlag[1]) {
                         Assemble(res, {nIdx * thirdViewShape}, outputs[0]);
-                    } ELSE IF(dimFlag[0] && dimFlag[2]) {
+                    }
+                    ELSE IF(dimFlag[0] && dimFlag[2]) {
                         Assemble(res, {sIdx * secondViewShape}, outputs[0]);
-                    } ELSE IF(dimFlag[1] && dimFlag[2]) {
+                    }
+                    ELSE IF(dimFlag[1] && dimFlag[2]) {
                         Assemble(res, {bIdx * firstViewShape}, outputs[0]);
-                    } ELSE IF(dimFlag[0]) {
+                    }
+                    ELSE IF(dimFlag[0]) {
                         Assemble(res, {sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
-                    } ELSE IF(dimFlag[1]) {
+                    }
+                    ELSE IF(dimFlag[1]) {
                         Assemble(res, {bIdx * firstViewShape, nIdx * thirdViewShape}, outputs[0]);
-                    } ELSE {
+                    }
+                    ELSE {
                         Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
                     }
                 }
@@ -191,37 +202,59 @@ static void VarOperationExeFunc4Dims(
                                     nIdx * fourthViewShape});
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = Var(tileTensor, args->dim_, args->correction_, args->keepDim_);
-                        VarSetTileShapeBeforeAssemble(args->tileShape_, args->dim_, args->keepDim_, inputs[0].GetDataType());
-                        IF (args->keepDim_) {
-                            Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape, nIdx * fourthViewShape}, outputs[0]);
-                        } ELSE IF(dimFlag[0] && dimFlag[1] && dimFlag[2] && dimFlag[3]) {
+                        VarSetTileShapeBeforeAssemble(
+                            args->tileShape_, args->dim_, args->keepDim_, inputs[0].GetDataType());
+                        IF(args->keepDim_) {
+                            Assemble(res,
+                                {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                    nIdx * fourthViewShape},
+                                outputs[0]);
+                        }
+                        ELSE IF(dimFlag[0] && dimFlag[1] && dimFlag[2] && dimFlag[3]) {
                             Assemble(res, {0}, outputs[0]);
-                        } ELSE IF(dimFlag[0] && dimFlag[1] && dimFlag[2]) {
+                        }
+                        ELSE IF(dimFlag[0] && dimFlag[1] && dimFlag[2]) {
                             Assemble(res, {nIdx * fourthViewShape}, outputs[0]);
-                        } ELSE IF(dimFlag[0] && dimFlag[1] && dimFlag[3]) {
+                        }
+                        ELSE IF(dimFlag[0] && dimFlag[1] && dimFlag[3]) {
                             Assemble(res, {mIdx * thirdViewShape}, outputs[0]);
-                        } ELSE IF(dimFlag[0] && dimFlag[2] && dimFlag[3]) {
+                        }
+                        ELSE IF(dimFlag[0] && dimFlag[2] && dimFlag[3]) {
                             Assemble(res, {sIdx * secondViewShape}, outputs[0]);
-                        } ELSE IF(dimFlag[0] && dimFlag[1]) {
+                        }
+                        ELSE IF(dimFlag[0] && dimFlag[1]) {
                             Assemble(res, {mIdx * thirdViewShape, nIdx * fourthViewShape}, outputs[0]);
-                        } ELSE IF(dimFlag[0] && dimFlag[2]) {
+                        }
+                        ELSE IF(dimFlag[0] && dimFlag[2]) {
                             Assemble(res, {sIdx * secondViewShape, nIdx * fourthViewShape}, outputs[0]);
-                        } ELSE IF(dimFlag[0] && dimFlag[3]) {
+                        }
+                        ELSE IF(dimFlag[0] && dimFlag[3]) {
                             Assemble(res, {sIdx * secondViewShape, nIdx * fourthViewShape}, outputs[0]);
-                        } ELSE IF(dimFlag[1] && dimFlag[2]) {
+                        }
+                        ELSE IF(dimFlag[1] && dimFlag[2]) {
                             Assemble(res, {bIdx * firstViewShape, nIdx * fourthViewShape}, outputs[0]);
-                        } ELSE IF(dimFlag[1] && dimFlag[3]) {
+                        }
+                        ELSE IF(dimFlag[1] && dimFlag[3]) {
                             Assemble(res, {bIdx * firstViewShape, mIdx * thirdViewShape}, outputs[0]);
-                        } ELSE IF(dimFlag[2] && dimFlag[3]) {
+                        }
+                        ELSE IF(dimFlag[2] && dimFlag[3]) {
                             Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
-                        } ELSE IF(dimFlag[0]) {
-                            Assemble(res, {sIdx * secondViewShape, mIdx * thirdViewShape, nIdx * fourthViewShape}, outputs[0]);
-                        } ELSE IF(dimFlag[1]) {
-                            Assemble(res, {bIdx * firstViewShape, mIdx * thirdViewShape, nIdx * fourthViewShape}, outputs[0]);
-                        } ELSE IF(dimFlag[2]) {
-                            Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * fourthViewShape}, outputs[0]);
-                        } ELSE {
-                            Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape}, outputs[0]);
+                        }
+                        ELSE IF(dimFlag[0]) {
+                            Assemble(res, {sIdx * secondViewShape, mIdx * thirdViewShape, nIdx * fourthViewShape},
+                                outputs[0]);
+                        }
+                        ELSE IF(dimFlag[1]) {
+                            Assemble(res, {bIdx * firstViewShape, mIdx * thirdViewShape, nIdx * fourthViewShape},
+                                outputs[0]);
+                        }
+                        ELSE IF(dimFlag[2]) {
+                            Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * fourthViewShape},
+                                outputs[0]);
+                        }
+                        ELSE {
+                            Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape},
+                                outputs[0]);
                         }
                     }
                 }

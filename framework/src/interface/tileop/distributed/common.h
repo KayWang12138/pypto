@@ -11,7 +11,7 @@
 /*!
  * \file common.h
  * \brief
-*/
+ */
 
 #ifndef DISTRIBUTED_COMMON_H
 #define DISTRIBUTED_COMMON_H
@@ -19,17 +19,14 @@
 #include "comm_context.h"
 #include "../tileop_common.h"
 
-#define PIPE_SYNC_EVENT(from, to, eventId) \
-    do { \
-        set_flag((from), (to), (eventId)); \
+#define PIPE_SYNC_EVENT(from, to, eventId)  \
+    do {                                    \
+        set_flag((from), (to), (eventId));  \
         wait_flag((from), (to), (eventId)); \
     } while (0)
 
 namespace TileOp::Distributed {
-enum class AtomicType {
-    SET,
-    ADD
-};
+enum class AtomicType { SET, ADD };
 
 struct CopyParams {
     uint16_t nBurst;
@@ -38,8 +35,10 @@ struct CopyParams {
     uint16_t dstStride;
 };
 
-constexpr uint32_t ATOMIC_ADD_BLOCK_BYTE_SIZE = 32; // AtomicAdd 每次操作 32B 的数据，对同一 32B 的数据进行 AtomicAdd 需要排队
-constexpr uint32_t FLAG_BYTE_SIZE = ATOMIC_ADD_BLOCK_BYTE_SIZE * 4; // 为了消除 AtomicAdd 并发，以 32B 为最小单位，视情况调节每个 flag 占用的字节数
+constexpr uint32_t ATOMIC_ADD_BLOCK_BYTE_SIZE =
+    32; // AtomicAdd 每次操作 32B 的数据，对同一 32B 的数据进行 AtomicAdd 需要排队
+constexpr uint32_t FLAG_BYTE_SIZE =
+    ATOMIC_ADD_BLOCK_BYTE_SIZE * 4; // 为了消除 AtomicAdd 并发，以 32B 为最小单位，视情况调节每个 flag 占用的字节数
 constexpr uint32_t MOE_COMBINE_SIGNAL_OFFSET = 512 / sizeof(int32_t); // 每 512B 放一个 signal，避免同地址访问性能下降
 constexpr uint32_t MOE_COMBINE_INFO_NUM = 3; // combine info 每行有 3 个元素：rankId, tokenId, kOffset
 constexpr uint16_t COPY_BLOCK_BYTE_SIZE = 32;
@@ -71,21 +70,19 @@ struct SumParams {
     uint16_t srcRepeatStride;
 };
 
-constexpr uint32_t MASK_SELECT_SEND_FLAG = 0x1010101; // 每 8 个数取第一个
-constexpr uint32_t MASK_SELECT_SEND_COUNT = 0x2020202; // 每 8 个数取第二个
+constexpr uint32_t MASK_SELECT_SEND_FLAG = 0x1010101;      // 每 8 个数取第一个
+constexpr uint32_t MASK_SELECT_SEND_COUNT = 0x2020202;     // 每 8 个数取第二个
 constexpr uint32_t MASK_SELECT_RECV_TOKEN_CNT = 0x1010101; // 每 8 个数取第一个
 
 template <typename T>
-constexpr TILEOP T AlignUp(const T value, const T alignment)
-{
+constexpr TILEOP T AlignUp(const T value, const T alignment) {
     if (alignment == 0) {
         return value;
     }
     return (value + alignment - 1) / alignment * alignment;
 }
 
-TILEOP void DevWinLog(__gm__ int64_t *hcclContext, __ubuf__ uint8_t *tmpBuf, size_t len, size_t offset = 0)
-{
+TILEOP void DevWinLog(__gm__ int64_t *hcclContext, __ubuf__ uint8_t *tmpBuf, size_t len, size_t offset = 0) {
     pipe_barrier(PIPE_ALL);
     __gm__ CommContext *winContext = (__gm__ CommContext *)(hcclContext[0]);
     GM_ADDR winBaseAddr = (GM_ADDR)(winContext->winAddr[winContext->debugIndex + winContext->rankId]);
@@ -99,8 +96,8 @@ TILEOP void DevWinLog(__gm__ int64_t *hcclContext, __ubuf__ uint8_t *tmpBuf, siz
     pipe_barrier(PIPE_ALL);
 }
 
-TILEOP void DevWinLog(__gm__ int64_t *hcclContext, __gm__ uint8_t *srcGm, __ubuf__ uint8_t *tmpBuf, size_t len, size_t offset = 0)
-{
+TILEOP void DevWinLog(
+    __gm__ int64_t *hcclContext, __gm__ uint8_t *srcGm, __ubuf__ uint8_t *tmpBuf, size_t len, size_t offset = 0) {
     pipe_barrier(PIPE_ALL);
     __gm__ CommContext *winContext = (__gm__ CommContext *)(hcclContext[0]);
     GM_ADDR winBaseAddr = (GM_ADDR)(winContext->winAddr[winContext->debugIndex + winContext->rankId]);
@@ -118,8 +115,7 @@ TILEOP void DevWinLog(__gm__ int64_t *hcclContext, __gm__ uint8_t *srcGm, __ubuf
 }
 
 template <typename T>
-TILEOP void SetAttomicType()
-{
+TILEOP void SetAttomicType() {
     if constexpr (std::is_same_v<T, float>) {
         set_atomic_f32();
     } else if constexpr (std::is_same_v<T, half>) {
@@ -153,49 +149,43 @@ struct DispatchInfo {
     int expertIndex;
 };
 
-TILEOP uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end)
-{
+TILEOP uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end) {
     return (((val) >> (start)) & ((1UL << ((end) - (start) + 1UL)) - 1UL));
 }
 
-TILEOP uint64_t GetVirtualAddrOffset(uint64_t val)
-{
+TILEOP uint64_t GetVirtualAddrOffset(uint64_t val) {
     constexpr uint64_t offsetStart = 0UL;
     constexpr uint64_t offsetEnd = 53UL;
     return GetVirtualAddrBist(val, offsetStart, offsetEnd);
 }
 
-TILEOP uint64_t GetVirtualAddrGroupIndex(uint64_t val)
-{
+TILEOP uint64_t GetVirtualAddrGroupIndex(uint64_t val) {
     constexpr uint64_t groupIndexStart = 54UL;
     constexpr uint64_t groupIndexEnd = 55UL;
     return GetVirtualAddrBist(val, groupIndexStart, groupIndexEnd);
 }
 
-TILEOP uint64_t GetVirtualAddrMemType(uint64_t val)
-{
+TILEOP uint64_t GetVirtualAddrMemType(uint64_t val) {
     constexpr uint64_t memTypeStart = 56UL;
     constexpr uint64_t memTypeEnd = 57UL;
     return GetVirtualAddrBist(val, memTypeStart, memTypeEnd);
 }
 
-template<typename T>
-TILEOP __gm__ T* MapVirtualAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, uint32_t dstRankId)
-{
+template <typename T>
+TILEOP __gm__ T *MapVirtualAddr(__gm__ int64_t *hcclContext, __gm__ T *vAddr, uint32_t dstRankId) {
     auto groupIndex = GetVirtualAddrGroupIndex((uint64_t)vAddr);
     auto offset = GetVirtualAddrOffset((uint64_t)vAddr);
     auto memType = GetVirtualAddrMemType((uint64_t)vAddr);
-    __gm__ TileOp::CommContext* commCtxParam = (__gm__ TileOp::CommContext*)hcclContext[groupIndex];
+    __gm__ TileOp::CommContext *commCtxParam = (__gm__ TileOp::CommContext *)hcclContext[groupIndex];
     if (memType == 0) {
-        return (__gm__ T*)(commCtxParam->winAddr[dstRankId] + offset);
+        return (__gm__ T *)(commCtxParam->winAddr[dstRankId] + offset);
     } else {
-        return (__gm__ T*)(commCtxParam->winAddr[commCtxParam->statusIndex + dstRankId] + offset);
+        return (__gm__ T *)(commCtxParam->winAddr[commCtxParam->statusIndex + dstRankId] + offset);
     }
 }
 
 /* UB 清 0 */
-TILEOP void ClearFlagBuf(__ubuf__ int32_t *flagBuf)
-{
+TILEOP void ClearFlagBuf(__ubuf__ int32_t *flagBuf) {
     /*
     每次处理 8 个 block，8 * 32 = 256B，所以使用 vector_dup 时建议 flag 内存对齐 256B
     BlockStride 是每次迭代内 block 的距离（stride，前一个头和后一个头，0 会按照 1 来处理），单位是 block
@@ -211,9 +201,8 @@ TILEOP void ClearFlagBuf(__ubuf__ int32_t *flagBuf)
     vector_dup(flagBuf, src, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
 }
 
-TILEOP void GatherMask(__ubuf__ uint32_t *dst, __ubuf__ uint32_t *src0, __ubuf__ uint32_t *src1,
-    GatherMaskParams &gatherMaskParams)
-{
+TILEOP void GatherMask(
+    __ubuf__ uint32_t *dst, __ubuf__ uint32_t *src0, __ubuf__ uint32_t *src1, GatherMaskParams &gatherMaskParams) {
     set_mask_norm();
     set_vector_mask(-1, -1);
     vreducev2(dst, src0, src1, gatherMaskParams.repeat, gatherMaskParams.src0BlockStride, gatherMaskParams.patternMode,
@@ -222,20 +211,18 @@ TILEOP void GatherMask(__ubuf__ uint32_t *dst, __ubuf__ uint32_t *src0, __ubuf__
     set_vector_mask(-1, -1); // 重置 mask
 }
 
-TILEOP void Sum(__ubuf__ float *result, __ubuf__ float *src, SumParams &sumParams, uint32_t cnt)
-{
-    set_mask_count(); // 设置 counter mode
+TILEOP void Sum(__ubuf__ float *result, __ubuf__ float *src, SumParams &sumParams, uint32_t cnt) {
+    set_mask_count();        // 设置 counter mode
     set_vector_mask(0, cnt); // 只计算 cnt 个
-    vcadd(result, src, sumParams.repeat, sumParams.dstRepeatStride, sumParams.srcBlockStride,
-        sumParams.srcRepeatStride, 0);
-    set_mask_norm(); // 重置 mode
+    vcadd(result, src, sumParams.repeat, sumParams.dstRepeatStride, sumParams.srcBlockStride, sumParams.srcRepeatStride,
+        0);
+    set_mask_norm();         // 重置 mode
     set_vector_mask(-1, -1); // 重置 mask
 }
 
 template <typename T>
 TILEOP void GatherMaskAndSum(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ uint32_t *src1, __ubuf__ uint32_t *dst,
-    uint32_t mask, uint32_t cnt, __gm__ int64_t *hcclContext)
-{
+    uint32_t mask, uint32_t cnt, __gm__ int64_t *hcclContext) {
     ClearFlagBuf(reinterpret_cast<__ubuf__ int32_t *>(src1));
     ClearFlagBuf(reinterpret_cast<__ubuf__ int32_t *>(dst));
 
@@ -247,12 +234,13 @@ TILEOP void GatherMaskAndSum(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ ui
     GatherMaskParams gatherMaskParams;
     uint32_t gatherMaskRepeat = (cnt * 32 + 255) / 256; // 重复次数，向上对齐 256B（gather 每次处理 256B）
     gatherMaskParams.repeat = gatherMaskRepeat; // 重复次数，最多只会处理 8 个数，每 8 个取一个，正好 64 个，256B
-    // 单次迭代内 blk stride，表示 mask 后 32 个数相对前 32 个数的 stride（u32 类型），1 表示连续，0 表示两次处理同一块，一般取 1
+    // 单次迭代内 blk stride，表示 mask 后 32 个数相对前 32 个数的 stride（u32 类型），1 表示连续，0
+    // 表示两次处理同一块，一般取 1
     gatherMaskParams.src0BlockStride = 1;
     gatherMaskParams.patternMode = 0; // 自定义模式需为 0
     // 可能可以调为 1，winFlag 搬运进 UB 的时候可以按照 32B 对齐，不搬运全部 512B 大小
     gatherMaskParams.src0RepeatStride = 16; // 迭代间 stride，16 * 32 = 512B，符合 dispatch 的 flag 排序要求
-    gatherMaskParams.src1RepeatStride = 0; // 迭代间 stride，0 表示每次 repeat 都取同样的 src1 mask
+    gatherMaskParams.src1RepeatStride = 0;  // 迭代间 stride，0 表示每次 repeat 都取同样的 src1 mask
     set_flag(PIPE_S, PIPE_V, EVENT_ID0);
     wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
     GatherMask(dst, src0, src1, gatherMaskParams);
@@ -264,18 +252,17 @@ TILEOP void GatherMaskAndSum(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ ui
     __ubuf__ float *sumDst = reinterpret_cast<__ubuf__ float *>(src1);
 
     SumParams sumParams;
-    sumParams.repeat = 1; // 只计算一次
-    sumParams.dstRepeatStride = 8; // 不重要
-    sumParams.srcBlockStride = 1; // 表示 src 连续取值
-    sumParams.srcRepeatStride = 8; // 不重要
+    sumParams.repeat = 1;                // 只计算一次
+    sumParams.dstRepeatStride = 8;       // 不重要
+    sumParams.srcBlockStride = 1;        // 表示 src 连续取值
+    sumParams.srcRepeatStride = 8;       // 不重要
     Sum(sumDst, sumSrc, sumParams, cnt); // sum 的输出这里是一个 float 值
     set_flag(PIPE_V, PIPE_S, EVENT_ID0);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
 }
 
-TILEOP void CalcOccurrences(__ubuf__ int32_t *expertTable, uint32_t dstExpertId, uint32_t cnt,
-    __ubuf__ int32_t *result)
-{
+TILEOP void CalcOccurrences(
+    __ubuf__ int32_t *expertTable, uint32_t dstExpertId, uint32_t cnt, __ubuf__ int32_t *result) {
     (*result) = 0;
     if (cnt == 0) {
         return;
@@ -290,9 +277,8 @@ TILEOP void CalcOccurrences(__ubuf__ int32_t *expertTable, uint32_t dstExpertId,
     }
 }
 
-TILEOP int32_t CalcOccurrencesVector(__ubuf__ int32_t *expertTable, uint32_t dstExpertId, uint32_t cnt,
-    __ubuf__ int32_t *tmpBuf)
-{
+TILEOP int32_t CalcOccurrencesVector(
+    __ubuf__ int32_t *expertTable, uint32_t dstExpertId, uint32_t cnt, __ubuf__ int32_t *tmpBuf) {
     if (cnt == 0) {
         return 0;
     }
@@ -307,21 +293,22 @@ TILEOP int32_t CalcOccurrencesVector(__ubuf__ int32_t *expertTable, uint32_t dst
     // dst, srcImm, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride
     vector_dup(tmpBuf, dstExpertId, repeatCnt, 1, 1, 8, 8);
     pipe_barrier(PIPE_V);
-    // dst, src0, src1, repeat, dstBlockStride, src0BlockStride, src1BlockStride, dstRepeatStride, src0RepeatStride, src1RepeatStride
+    // dst, src0, src1, repeat, dstBlockStride, src0BlockStride, src1BlockStride, dstRepeatStride, src0RepeatStride,
+    // src1RepeatStride
     vsub(subBuf, expertTable, tmpBuf, repeatCnt, 1, 1, 1, 8, 8, 8);
     pipe_barrier(PIPE_V);
     // dst, src, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride
-    vabs((__ubuf__ float*)tmpBuf, (__ubuf__ float*)subBuf, repeatCnt, 1, 1, 8, 8);
+    vabs((__ubuf__ float *)tmpBuf, (__ubuf__ float *)subBuf, repeatCnt, 1, 1, 8, 8);
     pipe_barrier(PIPE_V);
     // dst, src0, src1, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride
     vmins(subBuf, tmpBuf, 1, repeatCnt, 1, 1, 8, 8);
     pipe_barrier(PIPE_V);
 
     // 求和
-    set_mask_count(); // 设置 counter mode
+    set_mask_count();        // 设置 counter mode
     set_vector_mask(0, cnt); // 只计算 cnt 个
     // dst, src, repeat, dstRepeatStride, srcBlockStride, srcRepeatStride
-    vcadd((__ubuf__ float*)tmpBuf, (__ubuf__ float*)subBuf, 1, 8, 1, 8, 0);
+    vcadd((__ubuf__ float *)tmpBuf, (__ubuf__ float *)subBuf, 1, 8, 1, 8, 0);
     set_mask_norm();
     set_vector_mask(-1, -1);
     pipe_barrier(PIPE_V);
@@ -332,17 +319,16 @@ TILEOP int32_t CalcOccurrencesVector(__ubuf__ int32_t *expertTable, uint32_t dst
 
 template <typename T>
 TILEOP void WaitFlagV2(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ uint32_t *src1, __ubuf__ uint32_t *dst,
-    uint32_t cnt, __gm__ int64_t *hcclContext)
-{
+    uint32_t cnt, __gm__ int64_t *hcclContext) {
     GatherMaskAndSum(out, src0, src1, dst, MASK_SELECT_SEND_FLAG, cnt, hcclContext);
 }
 
-TILEOP void ClearFlagV2(__ubuf__ int32_t *flag, uint32_t offset, uint32_t repeat,
-    __gm__ int64_t *hcclContext, DispatchInfo &dispatchInfo, __gm__ int32_t *shmemFlagBaseAddr)
-{
+TILEOP void ClearFlagV2(__ubuf__ int32_t *flag, uint32_t offset, uint32_t repeat, __gm__ int64_t *hcclContext,
+    DispatchInfo &dispatchInfo, __gm__ int32_t *shmemFlagBaseAddr) {
     __gm__ CommContext *winContext = (__gm__ CommContext *)(hcclContext[dispatchInfo.groupIndex]);
     uint32_t localUsrRankId = winContext->rankId;
-    GM_ADDR winFlagBaseAddr = (GM_ADDR)MapVirtualAddr<int32_t>(hcclContext, shmemFlagBaseAddr, localUsrRankId); // flag 在 win 区的基地址
+    GM_ADDR winFlagBaseAddr =
+        (GM_ADDR)MapVirtualAddr<int32_t>(hcclContext, shmemFlagBaseAddr, localUsrRankId); // flag 在 win 区的基地址
     GM_ADDR winFlagReadStartAddr = winFlagBaseAddr + offset;
 
     ClearFlagBuf(flag);
@@ -351,9 +337,9 @@ TILEOP void ClearFlagV2(__ubuf__ int32_t *flag, uint32_t offset, uint32_t repeat
     flag[0] = -1;
     DataCopyParams dataCopyParams;
     dataCopyParams.sid = 0;
-    dataCopyParams.nBurst = 1; // 搬运次数
-    dataCopyParams.lenBurst = 1; // 每次搬运的数据量大小，32B 为单位，1 表示每次搬运 32B
-    dataCopyParams.srcStride = 0; // 前一个尾巴和下一个的开头，gap
+    dataCopyParams.nBurst = 1;     // 搬运次数
+    dataCopyParams.lenBurst = 1;   // 每次搬运的数据量大小，32B 为单位，1 表示每次搬运 32B
+    dataCopyParams.srcStride = 0;  // 前一个尾巴和下一个的开头，gap
     dataCopyParams.dstStride = 15; // 前一个尾巴和下一个开头，gap
     set_atomic_s32();
     for (int i = 0; i < repeat; i++) {
@@ -366,21 +352,21 @@ TILEOP void ClearFlagV2(__ubuf__ int32_t *flag, uint32_t offset, uint32_t repeat
     set_atomic_none();
 }
 
-template<typename T>
-TILEOP void ReadFlagV2(__ubuf__ uint32_t *flag, uint32_t offset, uint32_t repeat,
-    __gm__ int64_t *hcclContext, __gm__ T* shmemFlagBaseAddr, DispatchInfo &dispatchInfo)
-{
+template <typename T>
+TILEOP void ReadFlagV2(__ubuf__ uint32_t *flag, uint32_t offset, uint32_t repeat, __gm__ int64_t *hcclContext,
+    __gm__ T *shmemFlagBaseAddr, DispatchInfo &dispatchInfo) {
     __gm__ CommContext *winContext = (__gm__ CommContext *)(hcclContext[dispatchInfo.groupIndex]);
     uint32_t localUsrRankId = winContext->rankId;
-    __gm__ T* winFlagBaseAddr = MapVirtualAddr<T>(hcclContext, shmemFlagBaseAddr, localUsrRankId); // flag 在 win 区的基地址
-    GM_ADDR winFlagReadStartAddr = (GM_ADDR) winFlagBaseAddr + static_cast<uint32_t>(offset);
+    __gm__ T *winFlagBaseAddr =
+        MapVirtualAddr<T>(hcclContext, shmemFlagBaseAddr, localUsrRankId); // flag 在 win 区的基地址
+    GM_ADDR winFlagReadStartAddr = (GM_ADDR)winFlagBaseAddr + static_cast<uint32_t>(offset);
 
     DataCopyParams dataCopyParams;
     dataCopyParams.sid = 0;
     dataCopyParams.nBurst = repeat; // 搬运次数
-    dataCopyParams.lenBurst = 1; // 每次搬运的数据量大小，32B 为单位，1 表示每次搬运 32B
-    dataCopyParams.srcStride = 15; // 前一个尾巴和下一个的开头，gap，15 * 32 = 480B
-    dataCopyParams.dstStride = 0; // 前一个尾巴和下一个开头，gap，搬到 UB 上需要连续
+    dataCopyParams.lenBurst = 1;    // 每次搬运的数据量大小，32B 为单位，1 表示每次搬运 32B
+    dataCopyParams.srcStride = 15;  // 前一个尾巴和下一个的开头，gap，15 * 32 = 480B
+    dataCopyParams.dstStride = 0;   // 前一个尾巴和下一个开头，gap，搬到 UB 上需要连续
     set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
     wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
     copy_gm_to_ubuf(flag, winFlagReadStartAddr, dataCopyParams.sid, dataCopyParams.nBurst, dataCopyParams.lenBurst,
@@ -389,9 +375,8 @@ TILEOP void ReadFlagV2(__ubuf__ uint32_t *flag, uint32_t offset, uint32_t repeat
     wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
 }
 
-TILEOP void CumSum(__ubuf__ uint32_t *dst, __ubuf__ uint32_t *src, __ubuf__ uint32_t *gatherMaskDst, uint32_t mask,
-    uint32_t cnt)
-{
+TILEOP void CumSum(
+    __ubuf__ uint32_t *dst, __ubuf__ uint32_t *src, __ubuf__ uint32_t *gatherMaskDst, uint32_t mask, uint32_t cnt) {
     __ubuf__ uint32_t *gatherMask = reinterpret_cast<__ubuf__ uint32_t *>(dst);
     // 主逻辑
     gatherMask[0] = mask; // 每 8 个数挑一个，一次处理 64 个数，256B，一共需要处理 32 * 48 / 256 = 6 次
@@ -399,9 +384,10 @@ TILEOP void CumSum(__ubuf__ uint32_t *dst, __ubuf__ uint32_t *src, __ubuf__ uint
     pipe_barrier(PIPE_ALL);
     GatherMaskParams gatherMaskParams;
     gatherMaskParams.repeat = (cnt * 32 + 255) / 256; // 重复次数，只搬运所需要的部分
-    // 单次迭代内 blk stride，表示 mask 后 32 个数相对前 32 个数的 stride（u32 类型），单位应该是 128B，1 表示连续，0 表示两次处理同一块，一般取 1
+    // 单次迭代内 blk stride，表示 mask 后 32 个数相对前 32 个数的 stride（u32 类型），单位应该是 128B，1 表示连续，0
+    // 表示两次处理同一块，一般取 1
     gatherMaskParams.src0BlockStride = 1;
-    gatherMaskParams.patternMode = 0; // 自定义模式需为 0
+    gatherMaskParams.patternMode = 0;      // 自定义模式需为 0
     gatherMaskParams.src0RepeatStride = 8; // 迭代间 stride，搬运进 UB 后调整为 32B 间隔，64 个数 * 4 = 256B / 32 = 8
     gatherMaskParams.src1RepeatStride = 0; // 迭代间 stride，0 表示每次 repeat 都取同样的 src1 mask
     set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
@@ -417,31 +403,30 @@ TILEOP void CumSum(__ubuf__ uint32_t *dst, __ubuf__ uint32_t *src, __ubuf__ uint
     __ubuf__ float *sumDst = reinterpret_cast<__ubuf__ float *>(dst); // GatherMask 的 mask 复用为 Sum 的输出
 
     SumParams sumParams;
-    sumParams.repeat = 1; // 只计算一次
-    sumParams.dstRepeatStride = 8; // 不重要
-    sumParams.srcBlockStride = 1; // 表示 src 连续取值
-    sumParams.srcRepeatStride = 8; // 不重要
+    sumParams.repeat = 1;                // 只计算一次
+    sumParams.dstRepeatStride = 8;       // 不重要
+    sumParams.srcBlockStride = 1;        // 表示 src 连续取值
+    sumParams.srcRepeatStride = 8;       // 不重要
     Sum(sumDst, sumSrc, sumParams, cnt); // sum 的输出这里是一个 float 值
     set_flag(PIPE_V, PIPE_S, EVENT_ID0);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
 }
 
 TILEOP void CopyGmToGm(__gm__ void *dst, __gm__ void *src, __ubuf__ void *tmpUbuf, DataCopyParams gmToUbParams,
-    DataCopyParams ubToGmParams)
-{
+    DataCopyParams ubToGmParams) {
     set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
     wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-    copy_gm_to_ubuf(tmpUbuf, src, gmToUbParams.sid, gmToUbParams.nBurst, gmToUbParams.lenBurst,
-        gmToUbParams.srcStride, gmToUbParams.dstStride);
+    copy_gm_to_ubuf(tmpUbuf, src, gmToUbParams.sid, gmToUbParams.nBurst, gmToUbParams.lenBurst, gmToUbParams.srcStride,
+        gmToUbParams.dstStride);
     set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
     wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
 
-    copy_ubuf_to_gm(dst, tmpUbuf, ubToGmParams.sid, ubToGmParams.nBurst, ubToGmParams.lenBurst,
-        ubToGmParams.srcStride, ubToGmParams.dstStride);
+    copy_ubuf_to_gm(dst, tmpUbuf, ubToGmParams.sid, ubToGmParams.nBurst, ubToGmParams.lenBurst, ubToGmParams.srcStride,
+        ubToGmParams.dstStride);
     set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
     wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
     set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
     wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
 }
-}
+} // namespace TileOp::Distributed
 #endif

@@ -29,8 +29,8 @@ py::object GetTorchToDlpack() {
     }
 }
 
-void ParseTensorData(py::object &torchTensor, py::object &tensorDef, py::object &toDlpack,
-                     uintptr_t &dataPtr, std::vector<int64_t> &shape, DataType &dtype) {
+void ParseTensorData(py::object &torchTensor, py::object &tensorDef, py::object &toDlpack, uintptr_t &dataPtr,
+    std::vector<int64_t> &shape, DataType &dtype) {
     if (!pypto::TryParseDlpack(torchTensor, dataPtr, shape, dtype, toDlpack)) {
         try {
             dataPtr = static_cast<uintptr_t>(py::cast<int64_t>(torchTensor.attr("data_ptr")()));
@@ -54,15 +54,15 @@ void ParseTensorData(py::object &torchTensor, py::object &tensorDef, py::object 
     if (!tensorDef.is_none() && !tensorDef.attr("status_dtype").is_none()) {
         dtype = tensorDef.attr("_base").cast<Tensor &>().GetDataType();
     }
-
 }
 
-}  // namespace
+} // namespace
 
 namespace pypto {
-bool ParseDlpackCapsule(py::object &cap, uintptr_t &dataPtr, std::vector<int64_t> &shape,
-                        npu::tile_fwk::DataType &dtypeOut) {
-    if (cap.is_none()) return false;
+bool ParseDlpackCapsule(
+    py::object &cap, uintptr_t &dataPtr, std::vector<int64_t> &shape, npu::tile_fwk::DataType &dtypeOut) {
+    if (cap.is_none())
+        return false;
     void *ptr = PyCapsule_GetPointer(cap.ptr(), "dltensor");
     if (!ptr) {
         PyErr_Clear();
@@ -85,9 +85,11 @@ bool ParseDlpackCapsule(py::object &cap, uintptr_t &dataPtr, std::vector<int64_t
 }
 
 bool TryParseDlpack(py::object &torchTensor, uintptr_t &dataPtr, std::vector<int64_t> &shape,
-                    npu::tile_fwk::DataType &dtypeOut, py::object toDlpack) {
-    if (toDlpack.is_none()) toDlpack = GetTorchToDlpack();
-    if (toDlpack.is_none()) return false;
+    npu::tile_fwk::DataType &dtypeOut, py::object toDlpack) {
+    if (toDlpack.is_none())
+        toDlpack = GetTorchToDlpack();
+    if (toDlpack.is_none())
+        return false;
     py::object cap;
     try {
         cap = toDlpack(torchTensor);
@@ -142,7 +144,6 @@ int TorchTensorConverter::Convert(py::sequence &tensors, py::sequence &tensor_de
             dtype = t.GetDataType();
         }
 
-
         tensors_data.emplace_back(dtype, dataPtr, shape, format);
 
         if (device.is_none()) {
@@ -165,4 +166,4 @@ size_t ValidateInputs(py::sequence &tensors, py::sequence &tensorDefs) {
     return n;
 }
 
-}  // namespace pypto
+} // namespace pypto

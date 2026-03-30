@@ -42,7 +42,7 @@ TEST(FileTest, NullptrTest) {
     EXPECT_EQ(LockAndOpenFile(""), nullptr);
 }
 
-constexpr const char* TEST_LOG_PATH = "/tmp/test_file.log";
+constexpr const char *TEST_LOG_PATH = "/tmp/test_file.log";
 TEST(FileTest, ReadBytesFromFileTest) {
     std::vector<char> data;
 

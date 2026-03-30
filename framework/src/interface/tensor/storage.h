@@ -29,8 +29,7 @@ public:
     uint64_t length_ = 0; // bytes
     Storage(MemoryType type, int64_t id, uint64_t length) : type_(type), id_(id), length_(length) {}
 
-    nlohmann::json DumpJson() const
-    {
+    nlohmann::json DumpJson() const {
         nlohmann::json ret;
         ret["type"] = type_;
         ret["id"] = id_;
@@ -39,8 +38,7 @@ public:
         return ret;
     }
 
-    static std::shared_ptr<Storage> LoadJson(const nlohmann::json &json)
-    {
+    static std::shared_ptr<Storage> LoadJson(const nlohmann::json &json) {
         std::shared_ptr<Storage> ret = std::make_shared<Storage>(MemoryType::MEM_UNKNOWN, -1, 0);
         ret->type_ = static_cast<MemoryType>(json["type"].get<int>());
         ret->id_ = json["id"].get<int64_t>();
@@ -49,4 +47,4 @@ public:
         return ret;
     }
 };
-}
+} // namespace npu::tile_fwk

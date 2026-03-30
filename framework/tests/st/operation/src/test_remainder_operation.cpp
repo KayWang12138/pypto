@@ -146,8 +146,10 @@ static void RemainderOperationExeFunc4Dims(
                             std::min(outputShape[1] - sIdx * viewShape[1], viewShape[1]),
                             std::min(outputShape[2] - nIdx * viewShape[2], viewShape[2]),
                             std::min(outputShape[3] - qIdx * viewShape[3], viewShape[3])};
-                        Tensor tileTensor0 = GetBrcViewTensor(inputs[0], outputShape, viewShape, validShape, dynOffsets);
-                        Tensor tileTensor1 = GetBrcViewTensor(inputs[1], outputShape, viewShape, validShape, dynOffsets);
+                        Tensor tileTensor0 =
+                            GetBrcViewTensor(inputs[0], outputShape, viewShape, validShape, dynOffsets);
+                        Tensor tileTensor1 =
+                            GetBrcViewTensor(inputs[1], outputShape, viewShape, validShape, dynOffsets);
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = Remainder(tileTensor0, tileTensor1);
                         Assemble(res, dynOffsets, outputs[0]);
@@ -181,8 +183,10 @@ static void RemainderOperationExeFunc5Dims(
                                 std::min(outputShape[2] - nIdx * viewShape[2], viewShape[2]),
                                 std::min(outputShape[3] - qIdx * viewShape[3], viewShape[3]),
                                 std::min(outputShape[4] - rIdx * viewShape[4], viewShape[4])};
-                            Tensor tileTensor0 = GetBrcViewTensor(inputs[0], outputShape, viewShape, validShape, dynOffsets);
-                            Tensor tileTensor1 = GetBrcViewTensor(inputs[1], outputShape, viewShape, validShape, dynOffsets);
+                            Tensor tileTensor0 =
+                                GetBrcViewTensor(inputs[0], outputShape, viewShape, validShape, dynOffsets);
+                            Tensor tileTensor1 =
+                                GetBrcViewTensor(inputs[1], outputShape, viewShape, validShape, dynOffsets);
                             TileShape::Current().SetVecTile(args->tileShape_);
                             auto res = Remainder(tileTensor0, tileTensor1);
                             Assemble(res, dynOffsets, outputs[0]);

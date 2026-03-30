@@ -17,8 +17,7 @@
 
 #include <iostream>
 
-void ModelStats::Reset()
-{
+void ModelStats::Reset() {
     cycles = 0;
     stepCount = 0;
     hostMachineNum = 0;
@@ -37,8 +36,7 @@ void ModelStats::Reset()
     coreUseCycles.clear();
 }
 
-void ModelStats::Report(std::string &name)
-{
+void ModelStats::Report(std::string &name) {
     rpt->ReportTitle(name);
     rpt->ReportVal("Total Cycles", cycles);
     rpt->ReportVal("Total Steps", stepCount);

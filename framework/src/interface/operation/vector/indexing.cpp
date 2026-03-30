@@ -122,12 +122,8 @@ void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, Ind
     }
 }
 
-void InnerTiledIndexAdd(size_t cur,
-    Function &function,
-    const TileShape &tileShape,
-    const IndexAddPara indexaddPara,
+void InnerTiledIndexAdd(size_t cur, Function &function, const TileShape &tileShape, const IndexAddPara indexaddPara,
     IndexAddTileInfoPara &indexaddTileInfo) {
-
     if (cur == indexaddPara.dstTensor->shape.size()) {
         IndexAddExpandFunc(function, indexaddPara, indexaddTileInfo);
         return;
@@ -153,18 +149,14 @@ void InnerTiledIndexAdd(size_t cur,
 
     // 非 axis 维度正常切分
     for (int64_t i = 0; i < indexaddPara.srcInput->GetShape()[cur]; i += tmpTile) {
-
         indexaddTileInfo.dstTileInfo.offset[cur] = i;
-        indexaddTileInfo.dstTileInfo.shape[cur] =
-            std::min(indexaddPara.dstTensor->GetShape()[cur] - i, tmpTile);
+        indexaddTileInfo.dstTileInfo.shape[cur] = std::min(indexaddPara.dstTensor->GetShape()[cur] - i, tmpTile);
 
         indexaddTileInfo.selfTileInfo.offset[cur] = i;
-        indexaddTileInfo.selfTileInfo.shape[cur] =
-            std::min(indexaddPara.selfInput->GetShape()[cur] - i, tmpTile);
+        indexaddTileInfo.selfTileInfo.shape[cur] = std::min(indexaddPara.selfInput->GetShape()[cur] - i, tmpTile);
 
         indexaddTileInfo.srcTileInfo.offset[cur] = i;
-        indexaddTileInfo.srcTileInfo.shape[cur] =
-            std::min(indexaddPara.srcInput->GetShape()[cur] - i, tmpTile);
+        indexaddTileInfo.srcTileInfo.shape[cur] = std::min(indexaddPara.srcInput->GetShape()[cur] - i, tmpTile);
 
         InnerTiledIndexAdd(cur + 1, function, tileShape, indexaddPara, indexaddTileInfo);
     }
@@ -602,7 +594,9 @@ void TensorScatterElementS(Function &function, const ScatterElementSPara &scatte
     op.SetAttribute(OP_ATTR_PREFIX + "axis", scatterPara.axis);
     op.SetAttribute(OpAttributeKey::scalar, scatterPara.scalar);
     op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", scatterPara.scatterMode);
-    std::map<int, int> inplaceInfo = {{0, 0}};
+    std::map<int, int> inplaceInfo = {
+        {0, 0}
+    };
     op.SetAttr(OpAttributeKey::inplaceInfo, inplaceInfo);
 }
 
@@ -646,8 +640,8 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
 
     if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) &&
         (reduce == ScatterMode::ADD || reduce == ScatterMode::MULTIPLY)) {
-        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
-        result.GetStorage(), orgDtype, CastMode::CAST_RINT);
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(),
+            orgDtype, CastMode::CAST_RINT);
     }
     return result;
 }
@@ -758,7 +752,9 @@ void TensorScatter(Function &function, const ScatterPara &scatterPara) {
         {scatterPara.selfInput, scatterPara.idxInput, scatterPara.srcInput}, {scatterPara.dstTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", scatterPara.axis);
     op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", scatterPara.scatterMode);
-    std::map<int, int> inplaceInfo = {{0, 0}};
+    std::map<int, int> inplaceInfo = {
+        {0, 0}
+    };
     op.SetAttr(OpAttributeKey::inplaceInfo, inplaceInfo);
 }
 
@@ -813,8 +809,8 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int
 
     if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) &&
         (reduce == ScatterMode::ADD || reduce == ScatterMode::MULTIPLY)) {
-        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
-            result.GetStorage(), orgDtype, CastMode::CAST_RINT);
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(),
+            orgDtype, CastMode::CAST_RINT);
     }
     return result;
 }
@@ -1107,13 +1103,16 @@ void TiledIndexPut(Function &function, const TileShape &tileShape, Input &inputS
     size_t valuesDim = inputValues.tileInfo.shape.size();
     size_t indicesCount = inputIndices.size();
     if (cur == valuesDim) {
-        auto inputSelfTile = inputSelf.tensor.GetStorage()->View(function, inputSelf.tileInfo.shape, inputSelf.tileInfo.offset);
-        auto inputValuesTile = inputValues.tensor.GetStorage()->View(function, inputValues.tileInfo.shape, inputValues.tileInfo.offset);
+        auto inputSelfTile =
+            inputSelf.tensor.GetStorage()->View(function, inputSelf.tileInfo.shape, inputSelf.tileInfo.offset);
+        auto inputValuesTile =
+            inputValues.tensor.GetStorage()->View(function, inputValues.tileInfo.shape, inputValues.tileInfo.offset);
         std::vector<LogicalTensorPtr> inputsTile;
         inputsTile.push_back(inputSelfTile);
         inputsTile.push_back(inputValuesTile);
         for (size_t j = 0; j < indicesCount; j++) {
-            auto inputIndicesTile = inputIndices[j].tensor.GetStorage()->View(function, inputIndices[j].tileInfo.shape, inputIndices[j].tileInfo.offset);
+            auto inputIndicesTile = inputIndices[j].tensor.GetStorage()->View(
+                function, inputIndices[j].tileInfo.shape, inputIndices[j].tileInfo.offset);
             inputsTile.push_back(inputIndicesTile);
         }
         auto &newOp = function.AddOperation(Opcode::OP_INDEX_PUT, inputsTile, {result});
@@ -1145,8 +1144,9 @@ void TiledIndexPut(Function &function, const TileShape &tileShape, Input &inputS
     }
 }
 
-void TiledIndexPut(Function &function, const TileShape &tileShape, const LogicalTensorPtr &self, const LogicalTensorPtr &values,
-    const std::vector<LogicalTensorPtr> &indices, const LogicalTensorPtr &result, bool accumulate) {
+void TiledIndexPut(Function &function, const TileShape &tileShape, const LogicalTensorPtr &self,
+    const LogicalTensorPtr &values, const std::vector<LogicalTensorPtr> &indices, const LogicalTensorPtr &result,
+    bool accumulate) {
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self->GetShape().size() == self->GetOffset().size());
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, values->GetShape().size() == values->GetOffset().size());
     for (size_t i = 0; i < indices.size(); i++) {
@@ -1169,8 +1169,8 @@ void TiledIndexPut(Function &function, const TileShape &tileShape, const Logical
     TiledIndexPut(function, tileShape, inputSelf, inputValues, inputIndices, result, accumulate, 0);
 }
 
-void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const LogicalTensors &indices, const LogicalTensorPtr &values,
-    const LogicalTensorPtr &dst, bool accumulate) {
+void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const LogicalTensors &indices,
+    const LogicalTensorPtr &values, const LogicalTensorPtr &dst, bool accumulate) {
     Shape selfShape(self->shape);
     Shape valuesShape(values->shape);
     size_t dimSelf = selfShape.size();
@@ -1217,8 +1217,8 @@ void IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &v
         indicesLogical.push_back(indices[i].GetStorage());
     }
     Tensor dst(self.GetDataType(), self.GetShape());
-    CALL(IndexPut, *Program::GetInstance().GetCurrentFunction(),
-        self.GetStorage(), indicesLogical, values.GetStorage(), dst.GetStorage(), accumulate);
+    CALL(IndexPut, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), indicesLogical, values.GetStorage(),
+        dst.GetStorage(), accumulate);
     Program::GetInstance().GetCurrentFunction()->SetSameMemId(self.GetStorage(), dst.GetStorage());
     self = dst;
 }
@@ -1317,7 +1317,8 @@ Tensor RealRange(Element &start, Element &end, Element &step) {
 }
 
 bool IsDataTypeUnsupport(DataType dType) {
-    return dType != DT_FP32 && dType != DT_INT64 && dType != DT_INT32 && dType != DT_FP16 && dType != DT_BF16 && dType != DT_INT16;
+    return dType != DT_FP32 && dType != DT_INT64 && dType != DT_INT32 && dType != DT_FP16 && dType != DT_BF16 &&
+           dType != DT_INT16;
 }
 
 DataType GetComputeDataType(const Element &start, const Element &end, const Element &step) {
@@ -1438,7 +1439,7 @@ Tensor GatherMask(const Tensor &self, const uint8_t patternMode) {
         for (auto dim : self.GetStorage()->GetDynValidShape()) {
             outValidShape.push_back(dim);
         }
-        if (patternMode == 1 || patternMode == 2){
+        if (patternMode == 1 || patternMode == 2) {
             outValidShape[outValidShape.size() - 1] = outValidShape[outValidShape.size() - 1] / 2;
         } else if (patternMode == 3 || patternMode == 4 || patternMode == 5 || patternMode == 6) {
             outValidShape[outValidShape.size() - 1] = outValidShape[outValidShape.size() - 1] / 4;
@@ -1469,11 +1470,11 @@ void TiledGatherMaskBuildIn(Function &function, const TileShape &tileShape, size
         if ((cur == input.tensor.GetShape().size() - 1) && (patternMode == 1 || patternMode == 2)) {
             resultTileInfo.offset[cur] = i / 2;
             resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur] / 2);
-        }else if ((cur == input.tensor.GetShape().size() - 1) && (
-            patternMode == 3 || patternMode == 4 || patternMode == 5 || patternMode == 6)) {
+        } else if ((cur == input.tensor.GetShape().size() - 1) &&
+                   (patternMode == 3 || patternMode == 4 || patternMode == 5 || patternMode == 6)) {
             resultTileInfo.offset[cur] = i / 4;
             resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur] / 4);
-        }else{
+        } else {
             resultTileInfo.offset[cur] = i;
             resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
         }
@@ -1566,6 +1567,7 @@ REGISTER_OPERATION_TILED_FUNC(OP_SCATTER, Opcode::OP_SCATTER, ScatterOperationTi
 REGISTER_OPERATION_TILED_FUNC(OP_INDEX_PUT, Opcode::OP_INDEX_PUT, IndexPutOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, IndexOutcastOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_RANGE, Opcode::OP_RANGE, RangeOperationTileFunc);
-REGISTER_OPERATION_TILED_FUNC(OP_GATHER_MASK_BUILDIN, Opcode::OP_GATHER_MASK_BUILDIN, GatherMaskBuildInOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(
+    OP_GATHER_MASK_BUILDIN, Opcode::OP_GATHER_MASK_BUILDIN, GatherMaskBuildInOperationTileFunc);
 
 } // namespace npu::tile_fwk

@@ -80,10 +80,8 @@ protected:
         devProg->stitchFunctionsize = 100;
     }
 
-    DevAscendFunction* CreateDevAscendFunctionBuffer(std::unique_ptr<uint8_t[]>& funcBuffer,
-                                                     uint8_t*& funcDataPtr,
-                                                     size_t kOpCount,
-                                                     size_t kFuncBufferSize) {
+    DevAscendFunction *CreateDevAscendFunctionBuffer(
+        std::unique_ptr<uint8_t[]> &funcBuffer, uint8_t *&funcDataPtr, size_t kOpCount, size_t kFuncBufferSize) {
         (void)kOpCount;
         funcBuffer = std::make_unique<uint8_t[]>(kFuncBufferSize);
         memset_s(funcBuffer.get(), kFuncBufferSize, 0, kFuncBufferSize);
@@ -99,14 +97,11 @@ protected:
         return devFunc;
     }
 
-    void SetupDevAscendFunctionData(DevAscendFunction *devFunc,
-                                     uint8_t* funcDataPtr,
-                                     uint8_t* funcBuffer,
-                                     size_t kOpCount) {
+    void SetupDevAscendFunctionData(
+        DevAscendFunction *devFunc, uint8_t *funcDataPtr, uint8_t *funcBuffer, size_t kOpCount) {
         size_t currentOffset = sizeof(DevAscendFunction);
-        auto alignUp = [&currentOffset](size_t alignment) {
-            currentOffset = (currentOffset + alignment - 1) & ~(alignment - 1);
-        };
+        auto alignUp = [&currentOffset](
+                           size_t alignment) { currentOffset = (currentOffset + alignment - 1) & ~(alignment - 1); };
 
         alignUp(alignof(SymInt));
         devFunc->operationAttrList_.AssignOffsetSize(currentOffset, kOpCount);
@@ -132,7 +127,7 @@ protected:
         for (size_t i = 0; i < kOpCount; i++) {
             new (&ops[i]) DevAscendOperation();
             ops[i].debugOpmagic = static_cast<uint64_t>(i + 1);
-            size_t attrOffset = reinterpret_cast<uint8_t*>(attrData + i) - funcBuffer;
+            size_t attrOffset = reinterpret_cast<uint8_t *>(attrData + i) - funcBuffer;
             ops[i].attrList.AssignOffsetSize(attrOffset, 1);
             ops[i].depGraphSuccList.AssignOffsetSize(0, 0);
             ops[i].depGraphPredCount = 0;
@@ -140,12 +135,8 @@ protected:
         }
     }
 
-    DevAscendFunctionDuppedData* CreateDevAscendFunctionDuppedData(
-            std::unique_ptr<uint8_t[]>& duppedDataBuffer,
-            uint8_t*& duppedDataPtr,
-            DevAscendFunction *devFunc,
-            size_t kOpCount,
-            size_t kDuppedDataBufferSize) {
+    DevAscendFunctionDuppedData *CreateDevAscendFunctionDuppedData(std::unique_ptr<uint8_t[]> &duppedDataBuffer,
+        uint8_t *&duppedDataPtr, DevAscendFunction *devFunc, size_t kOpCount, size_t kDuppedDataBufferSize) {
         duppedDataBuffer = std::make_unique<uint8_t[]>(kDuppedDataBufferSize);
         memset_s(duppedDataBuffer.get(), kDuppedDataBufferSize, 0, kDuppedDataBufferSize);
         duppedDataPtr = duppedDataBuffer.get();
@@ -156,7 +147,8 @@ protected:
         duppedData->source_ = devFunc;
         duppedData->operationList_.size = kOpCount;
         duppedData->operationList_.predCountBase = static_cast<uint32_t>(duppedDataPtr - duppedDataBuffer.get());
-        duppedData->operationList_.stitchBase = duppedData->operationList_.predCountBase + kOpCount * sizeof(predcount_t);
+        duppedData->operationList_.stitchBase =
+            duppedData->operationList_.predCountBase + kOpCount * sizeof(predcount_t);
         duppedData->operationList_.stitchCount = 1;
 
         predcount_t *predCounts = reinterpret_cast<predcount_t *>(duppedDataPtr);
@@ -179,10 +171,8 @@ protected:
         return duppedData;
     }
 
-    void SetupTestEnvironment(DeviceTask& devTask,
-                               std::unique_ptr<int32_t[]>& opWrapListData,
-                               DevCceBinary* cceBinary,
-                               size_t kOpCount) {
+    void SetupTestEnvironment(
+        DeviceTask &devTask, std::unique_ptr<int32_t[]> &opWrapListData, DevCceBinary *cceBinary, size_t kOpCount) {
         opWrapListData = std::make_unique<int32_t[]>(kOpCount);
         for (size_t i = 0; i < kOpCount; i++) {
             opWrapListData[i] = static_cast<int32_t>(i);
@@ -196,7 +186,7 @@ protected:
         cceBinary[0].funcHash = 0xABCDEF00;
     }
 
-    void VerifyDumpTopoOutput(const std::string& testFilePath, size_t expectedLineCount) {
+    void VerifyDumpTopoOutput(const std::string &testFilePath, size_t expectedLineCount) {
         std::ifstream inFile(testFilePath);
         ASSERT_TRUE(inFile.is_open());
         std::string line;
@@ -220,8 +210,7 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_calls_wrap_functions) {
     DevAscendProgram devProg;
     CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
     devProg.stitchFunctionsize = 100;
-    devProg.controlFlowCache.cacheData =
-        DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
+    devProg.controlFlowCache.cacheData = DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
     devProg.controlFlowCache.isRecording = true;
 
     DeviceWorkspaceAllocator workspace(&devProg);
@@ -277,8 +266,7 @@ TEST_F(TestDeviceTaskContext, test_init_die_ready_queues_mix_arch) {
 
     DevAscendProgram devProg;
     CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
-    devProg.controlFlowCache.cacheData =
-        DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
+    devProg.controlFlowCache.cacheData = DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
     devProg.controlFlowCache.isRecording = true;
 
     DeviceWorkspaceAllocator workspace(&devProg);
@@ -317,8 +305,7 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_core_function_mix_arch) {
     DevAscendProgram devProg;
     CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
     devProg.stitchFunctionsize = 10;
-    devProg.controlFlowCache.cacheData =
-        DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
+    devProg.controlFlowCache.cacheData = DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
     devProg.controlFlowCache.isRecording = true;
 
     DeviceWorkspaceAllocator workspace(&devProg);
@@ -345,9 +332,8 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_core_function_mix_arch) {
 
 namespace {
 
-void InitReadyQueueSlot(ReadyCoreFunctionQueue &q, std::array<taskid_t, 4> &elemBuf, uint32_t head,
-    uint32_t tail, taskid_t firstId)
-{
+void InitReadyQueueSlot(
+    ReadyCoreFunctionQueue &q, std::array<taskid_t, 4> &elemBuf, uint32_t head, uint32_t tail, taskid_t firstId) {
     q.lock = 0;
     q.head = head;
     q.tail = tail;
@@ -358,9 +344,8 @@ void InitReadyQueueSlot(ReadyCoreFunctionQueue &q, std::array<taskid_t, 4> &elem
     }
 }
 
-void InitReadyQueueSlotMulti(ReadyCoreFunctionQueue &q, std::array<taskid_t, 4> &elemBuf, uint32_t head,
-    uint32_t tail, const std::vector<taskid_t> &ids)
-{
+void InitReadyQueueSlotMulti(ReadyCoreFunctionQueue &q, std::array<taskid_t, 4> &elemBuf, uint32_t head, uint32_t tail,
+    const std::vector<taskid_t> &ids) {
     q.lock = 0;
     q.head = head;
     q.tail = tail;
@@ -371,8 +356,7 @@ void InitReadyQueueSlotMulti(ReadyCoreFunctionQueue &q, std::array<taskid_t, 4> 
     }
 }
 
-DevAscendProgram *BuildTinyProgramForDumpDepend()
-{
+DevAscendProgram *BuildTinyProgramForDumpDepend() {
     // 与 test_machine_encode_coverage 一致，避免 UT POST_BUILD 再次触发 aicore 编译
     int s = 8;
     Tensor t0(DT_FP32, {s, s}, "t0");
@@ -396,22 +380,20 @@ DevAscendProgram *BuildTinyProgramForDumpDepend()
     devProg->controlFlowCache.RuntimeAddrRelocWorkspace(ws, 0, nullptr, nullptr, nullptr);
     devProg->controlFlowCache.RuntimeAddrRelocProgram(reinterpret_cast<uint64_t>(devProg), 0);
     devProg->controlFlowCache.TaskAddrRelocWorkspace(ws, 0, nullptr);
-    devProg->controlFlowCache.TaskAddrRelocProgramAndCtrlCache(reinterpret_cast<uint64_t>(devProg),
-        reinterpret_cast<uint64_t>(&devProg->controlFlowCache), 0, 0);
+    devProg->controlFlowCache.TaskAddrRelocProgramAndCtrlCache(
+        reinterpret_cast<uint64_t>(devProg), reinterpret_cast<uint64_t>(&devProg->controlFlowCache), 0, 0);
     return devProg;
 }
 
 void ControlFlowSetError(struct DeviceExecuteContext *ctx, int64_t *symbolTable,
-    RuntimeCallEntryType runtimeCallList[T_RUNTIME_CALL_MAX], DevStartArgsBase *startArgsBase)
-{
+    RuntimeCallEntryType runtimeCallList[T_RUNTIME_CALL_MAX], DevStartArgsBase *startArgsBase) {
     (void)symbolTable;
     (void)runtimeCallList;
     (void)startArgsBase;
     ctx->SetErrorState(DEVICE_MACHINE_ERROR);
 }
 
-void RunDuppedDataDumpMismatchPath()
-{
+void RunDuppedDataDumpMismatchPath() {
     DevAscendProgram *devProg = BuildTinyProgramForDumpDepend();
     ASSERT_NE(devProg, nullptr);
     DevAscendFunction *root = devProg->GetFunction(0);
@@ -422,8 +404,7 @@ void RunDuppedDataDumpMismatchPath()
     (void)dup.Dump(0);
 }
 
-void RunCheckStitchMismatchPath()
-{
+void RunCheckStitchMismatchPath() {
     DevAscendProgram *devProg2 = BuildTinyProgramForDumpDepend();
     ASSERT_NE(devProg2, nullptr);
     DevAscendFunction *root2 = devProg2->GetFunction(0);
@@ -434,8 +415,7 @@ void RunCheckStitchMismatchPath()
     DeviceStitchContext::CheckStitch(nullptr, 0, &dup);
 }
 
-void RunHandleOneStitchInvalidProducerPath()
-{
+void RunHandleOneStitchInvalidProducerPath() {
     DevAscendProgram *devProg3 = BuildTinyProgramForDumpDepend();
     ASSERT_NE(devProg3, nullptr);
     DevAscendFunction *root3 = devProg3->GetFunction(0);
@@ -444,12 +424,11 @@ void RunHandleOneStitchInvalidProducerPath()
     auto producer = workspace.DuplicateRoot(root3);
     auto consumer = workspace.DuplicateRoot(root3);
     DevAscendFunctionDuppedStitchList stitch;
-    DeviceStitchContext::HandleOneStitch(producer, consumer, stitch, 999999UL, 0UL, 0UL, &workspace,
-        DeviceStitchContext::StitchKind::StitchDefault, 0);
+    DeviceStitchContext::HandleOneStitch(
+        producer, consumer, stitch, 999999UL, 0UL, 0UL, &workspace, DeviceStitchContext::StitchKind::StitchDefault, 0);
 }
 
-void RunHandleOneStitchInvalidConsumerPath()
-{
+void RunHandleOneStitchInvalidConsumerPath() {
     DevAscendProgram *devProg4 = BuildTinyProgramForDumpDepend();
     ASSERT_NE(devProg4, nullptr);
     DevAscendFunction *root4 = devProg4->GetFunction(0);
@@ -458,12 +437,11 @@ void RunHandleOneStitchInvalidConsumerPath()
     auto producer = workspace.DuplicateRoot(root4);
     auto consumer = workspace.DuplicateRoot(root4);
     DevAscendFunctionDuppedStitchList stitch;
-    DeviceStitchContext::HandleOneStitch(producer, consumer, stitch, 0UL, 0UL, 999999UL, &workspace,
-        DeviceStitchContext::StitchKind::StitchDefault, 0);
+    DeviceStitchContext::HandleOneStitch(
+        producer, consumer, stitch, 0UL, 0UL, 999999UL, &workspace, DeviceStitchContext::StitchKind::StitchDefault, 0);
 }
 
-void RunDumpDependWithEncodedDuppedData(DevAscendProgram *devProg5)
-{
+void RunDumpDependWithEncodedDuppedData(DevAscendProgram *devProg5) {
     ASSERT_NE(devProg5, nullptr);
     DevAscendFunction *root5 = devProg5->GetFunction(0);
     ASSERT_NE(root5, nullptr);
@@ -504,8 +482,7 @@ void RunDumpDependWithEncodedDuppedData(DevAscendProgram *devProg5)
     DeviceTaskContext::DumpDepend(dt, devProg5, &startArgs, "ut_dump_depend");
 }
 
-void RunDumpDependEncodedDeathChildBody()
-{
+void RunDumpDependEncodedDeathChildBody() {
     Program::GetInstance().Reset();
     config::Reset();
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
@@ -519,8 +496,7 @@ void RunDumpDependEncodedDeathChildBody()
     _exit(0);
 }
 
-void FillInputOutputInplacePathImpl(DeviceSlotContext &slotCtx, DevAscendProgram &devProg)
-{
+void FillInputOutputInplacePathImpl(DeviceSlotContext &slotCtx, DevAscendProgram &devProg) {
     uint64_t inputSlotIdxBuf[1] = {0};
     uint64_t outputSlotIdxBuf[2] = {1, 2};
     uint64_t inplaceSlotIdxBuf[2] = {UINT64_MAX, 0};
@@ -538,8 +514,7 @@ void FillInputOutputInplacePathImpl(DeviceSlotContext &slotCtx, DevAscendProgram
     slotCtx.FillInputOutputSlot(&devProg, &args);
 }
 
-void RunBuildDynFuncDataCceUnalignedPath()
-{
+void RunBuildDynFuncDataCceUnalignedPath() {
     DeviceTaskContext taskContext;
     DevStartArgsBase startArgs{};
     DevAscendProgram devProg{};
@@ -638,7 +613,7 @@ TEST_F(TestDeviceTaskContext, DeviceExecuteRuntimeCallShmemAllocator_ExceedsWinS
     TileOp::CommContext hc{};
     hc.winDataSize = 64;
     hc.winStatusSize = 32;
-    int64_t commPtrs[1] = { reinterpret_cast<int64_t>(&hc) };
+    int64_t commPtrs[1] = {reinterpret_cast<int64_t>(&hc)};
 
     DevStartArgs args{};
     args.commGroupNum = 1;
@@ -647,7 +622,7 @@ TEST_F(TestDeviceTaskContext, DeviceExecuteRuntimeCallShmemAllocator_ExceedsWinS
     ctx->shmemAddrOffset[0] = 0;
     ctx->shmemAddrOffset[1] = 0;
 
-    uint64_t payload[3] = { 0, 0, 128 };
+    uint64_t payload[3] = {0, 0, 128};
     (void)DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(ctx, reinterpret_cast<uint64_t>(payload));
 }
 
@@ -675,8 +650,7 @@ TEST_F(TestDeviceTaskContext, BuildDynFuncData_CceBinaryUnaligned_ReturnsError) 
 
 class TestMachineEncodeCoverage : public testing::Test {
 protected:
-    void SetUp() override
-    {
+    void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
@@ -684,8 +658,7 @@ protected:
         TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     }
 
-    void TearDown() override
-    {
+    void TearDown() override {
         Program::GetInstance().Reset();
         config::Reset();
     }
@@ -779,8 +752,8 @@ TEST_F(TestDeviceTaskContext, test_dev_ascend_function_dupped_dump_topo) {
 
     std::unique_ptr<uint8_t[]> duppedDataBuffer;
     uint8_t *duppedDataPtr;
-    DevAscendFunctionDuppedData *duppedData = CreateDevAscendFunctionDuppedData(
-        duppedDataBuffer, duppedDataPtr, devFunc, kOpCount, kDuppedDataBufferSize);
+    DevAscendFunctionDuppedData *duppedData =
+        CreateDevAscendFunctionDuppedData(duppedDataBuffer, duppedDataPtr, devFunc, kOpCount, kDuppedDataBufferSize);
 
     DevAscendFunctionDupped funcDupped;
     WsAllocation tinyAlloc;

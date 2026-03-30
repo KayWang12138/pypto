@@ -30,7 +30,7 @@ std::string GetCurSharedLibPath() {
     }
 
     Dl_info info;
-    if (dladdr(reinterpret_cast<void*>(GetCurSharedLibPath), &info)) {
+    if (dladdr(reinterpret_cast<void *>(GetCurSharedLibPath), &info)) {
         curLibPath = std::string(info.dli_fname);
         auto pos = curLibPath.rfind('/');
         if (pos != std::string::npos) {
@@ -40,7 +40,7 @@ std::string GetCurSharedLibPath() {
     return curLibPath;
 }
 
-std::vector<std::string> SplitByDelimiter(const std::string& str, const std::string& delimiter) {
+std::vector<std::string> SplitByDelimiter(const std::string &str, const std::string &delimiter) {
     std::vector<std::string> res;
     size_t start = 0;
     size_t pos = str.find(delimiter);
@@ -54,15 +54,15 @@ std::vector<std::string> SplitByDelimiter(const std::string& str, const std::str
 }
 
 // helper function
-MemoryType StringToMemoryType(const std::string& memType) {
+MemoryType StringToMemoryType(const std::string &memType) {
     static const std::unordered_map<std::string, MemoryType> memTypeMap = {
         {"MEM_DEVICE_DDR", MemoryType::MEM_DEVICE_DDR},
-        {"MEM_L1", MemoryType::MEM_L1},
-        {"MEM_L0A", MemoryType::MEM_L0A},
-        {"MEM_L0B", MemoryType::MEM_L0B},
-        {"MEM_L0C", MemoryType::MEM_L0C},
-        {"MEM_UB", MemoryType::MEM_UB},
-        {"MEM_BT", MemoryType::MEM_BT}
+        {        "MEM_L1",         MemoryType::MEM_L1},
+        {       "MEM_L0A",        MemoryType::MEM_L0A},
+        {       "MEM_L0B",        MemoryType::MEM_L0B},
+        {       "MEM_L0C",        MemoryType::MEM_L0C},
+        {        "MEM_UB",         MemoryType::MEM_UB},
+        {        "MEM_BT",         MemoryType::MEM_BT}
     };
     auto it = memTypeMap.find(memType);
     if (it != memTypeMap.end()) {
@@ -119,13 +119,13 @@ bool InternalParser::GetDataPath(std::vector<std::pair<MemoryType, MemoryType>> 
     if (it == data_.end() || it->second.empty()) {
         return false;
     }
-    const std::string& currentPath = it->second;
+    const std::string &currentPath = it->second;
     if (currentPath.empty()) {
         return false;
     }
     dataPath.clear();
     auto firstSplit = SplitByDelimiter(currentPath, comma);
-    for (const auto& subStr : firstSplit) {
+    for (const auto &subStr : firstSplit) {
         auto secondSplit = SplitByDelimiter(subStr, "->");
         if (secondSplit.size() != 2) {
             continue;
@@ -135,5 +135,5 @@ bool InternalParser::GetDataPath(std::vector<std::pair<MemoryType, MemoryType>> 
     return true;
 }
 
-}  // namespace tile_fwk
-}  // namespace npu
+} // namespace tile_fwk
+} // namespace npu

@@ -48,8 +48,7 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
-    void TearDown() override {
-    }
+    void TearDown() override {}
 };
 
 /*
@@ -76,8 +75,8 @@ TEST_F(TestAxisCombineMarker, basic_copyin_enable) {
     // Verify the tensor is marked as ENABLE
     auto t1 = graph.GetTensor("t1");
     auto t2 = graph.GetTensor("t2");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t1), false);  // DDR tensor should not be marked
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t2), true);   // UB tensor with last dim=1 should be enabled
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t1), false); // DDR tensor should not be marked
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t2), true);  // UB tensor with last dim=1 should be enabled
 }
 
 /*
@@ -104,8 +103,8 @@ TEST_F(TestAxisCombineMarker, basic_copyin_unknown) {
     // Verify the tensor is marked as UNKNOWN
     auto t1 = graph.GetTensor("t1");
     auto t2 = graph.GetTensor("t2");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t1), false);  // DDR tensor should not be marked
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t2), false);   // UB tensor with last dim != 1 should be unknown
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t1), false); // DDR tensor should not be marked
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t2), false); // UB tensor with last dim != 1 should be unknown
 }
 
 /*
@@ -136,7 +135,7 @@ TEST_F(TestAxisCombineMarker, view_enable) {
 
     // Verify the tensor is marked as ENABLE
     auto t3 = graph.GetTensor("t3");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false);   // View output with last dim=1 should be enabled
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false); // View output with last dim=1 should be enabled
 }
 
 /*
@@ -167,7 +166,7 @@ TEST_F(TestAxisCombineMarker, view_unknown) {
 
     // Verify the tensor is marked as UNKNOWN
     auto t3 = graph.GetTensor("t3");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false);   // View output with last dim != 1 should be unknown
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false); // View output with last dim != 1 should be unknown
 }
 
 /*
@@ -198,7 +197,7 @@ TEST_F(TestAxisCombineMarker, assemble_enable) {
 
     // Verify the tensor is marked as ENABLE
     auto t3 = graph.GetTensor("t3");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), true);   // Assemble output with same shape should be enabled
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), true); // Assemble output with same shape should be enabled
 }
 
 /*
@@ -230,8 +229,8 @@ TEST_F(TestAxisCombineMarker, assemble_disable) {
     // Verify the tensor is marked as DISABLE
     auto t2 = graph.GetTensor("t2");
     auto t3 = graph.GetTensor("t3");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t2), false);   // Assemble input should be disabled
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false);   // Assemble output should be disabled
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t2), false); // Assemble input should be disabled
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false); // Assemble output should be disabled
 }
 
 /*
@@ -256,7 +255,7 @@ TEST_F(TestAxisCombineMarker, expand_non_last_axis) {
     EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"t1"}, {"t2"}, "copy_in", true), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_EXPAND, {"t2"}, {"t3"}, "expand", true), true);
     auto expand_op = graph.GetOp("expand");
-    expand_op->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 0);  // Expand non-last axis
+    expand_op->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 0); // Expand non-last axis
 
     auto *rootFuncPtr = graph.GetFunction();
     AxisCombineMarker marker;
@@ -264,7 +263,7 @@ TEST_F(TestAxisCombineMarker, expand_non_last_axis) {
 
     // Verify the tensor is marked as ENABLE
     auto t3 = graph.GetTensor("t3");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), true);   // Expand on non-last axis should be enabled
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), true); // Expand on non-last axis should be enabled
 }
 
 /*
@@ -289,7 +288,7 @@ TEST_F(TestAxisCombineMarker, expand_last_axis) {
     EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"t1"}, {"t2"}, "copy_in", true), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_EXPAND, {"t2"}, {"t3"}, "expand", true), true);
     auto expand_op = graph.GetOp("expand");
-    expand_op->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 1);  // Expand last axis
+    expand_op->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 1); // Expand last axis
 
     auto *rootFuncPtr = graph.GetFunction();
     AxisCombineMarker marker;
@@ -298,8 +297,8 @@ TEST_F(TestAxisCombineMarker, expand_last_axis) {
     // Verify the tensor is marked correctly
     auto t2 = graph.GetTensor("t2");
     auto t3 = graph.GetTensor("t3");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t2), false);   // Input should be disabled
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false);   // Output should be unknown (not enabled)
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t2), false); // Input should be disabled
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false); // Output should be unknown (not enabled)
 }
 
 /*
@@ -324,7 +323,7 @@ TEST_F(TestAxisCombineMarker, reduce_last_axis) {
     EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"t1"}, {"t2"}, "copy_in", true), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, {"t2"}, {"t3"}, "reduce", true), true);
     auto reduce_op = graph.GetOp("reduce");
-    reduce_op->SetAttribute(OP_ATTR_PREFIX + "AXIS", 2);  // Reduce last axis
+    reduce_op->SetAttribute(OP_ATTR_PREFIX + "AXIS", 2); // Reduce last axis
 
     auto *rootFuncPtr = graph.GetFunction();
     AxisCombineMarker marker;
@@ -332,7 +331,7 @@ TEST_F(TestAxisCombineMarker, reduce_last_axis) {
 
     // Verify the tensor is marked as ENABLE
     auto t3 = graph.GetTensor("t3");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), true);   // Reduce on last axis should be enabled
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), true); // Reduce on last axis should be enabled
 }
 
 /*
@@ -357,7 +356,7 @@ TEST_F(TestAxisCombineMarker, reduce_second_last_axis) {
     EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"t1"}, {"t2"}, "copy_in", true), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, {"t2"}, {"t3"}, "reduce", true), true);
     auto reduce_op = graph.GetOp("reduce");
-    reduce_op->SetAttribute(OP_ATTR_PREFIX + "AXIS", 1);  // Reduce second last axis
+    reduce_op->SetAttribute(OP_ATTR_PREFIX + "AXIS", 1); // Reduce second last axis
 
     auto *rootFuncPtr = graph.GetFunction();
     AxisCombineMarker marker;
@@ -365,7 +364,7 @@ TEST_F(TestAxisCombineMarker, reduce_second_last_axis) {
 
     // Verify the tensor is marked as DISABLE
     auto t3 = graph.GetTensor("t3");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false);   // Reduce on second last axis should be disabled
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false); // Reduce on second last axis should be disabled
 }
 
 /*
@@ -399,7 +398,7 @@ TEST_F(TestAxisCombineMarker, elewise_enable) {
 
     // Verify the tensor is marked as ENABLE
     auto t5 = graph.GetTensor("t5");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t5), true);   // Elewise output with last dim=1 should be enabled
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t5), true); // Elewise output with last dim=1 should be enabled
 }
 
 /*
@@ -433,7 +432,7 @@ TEST_F(TestAxisCombineMarker, elewise_unknown) {
 
     // Verify the tensor is marked as UNKNOWN
     auto t5 = graph.GetTensor("t5");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t5), false);   // Elewise output with last dim != 1 should be unknown
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t5), false); // Elewise output with last dim != 1 should be unknown
 }
 
 /*
@@ -520,10 +519,10 @@ TEST_F(TestAxisCombineMarker, complex_graph_disable) {
     auto t4 = graph.GetTensor("t4");
     auto t5 = graph.GetTensor("t5");
     auto t6 = graph.GetTensor("t6");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false);  // Should be disabled due to assemble
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t4), false);  // Should be disabled due to assemble
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t5), false);  // Should be disabled due to assemble
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t6), false);  // Should be disabled
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false); // Should be disabled due to assemble
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t4), false); // Should be disabled due to assemble
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t5), false); // Should be disabled due to assemble
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t6), false); // Should be disabled
 }
 
 /*
@@ -552,10 +551,10 @@ TEST_F(TestAxisCombineMarker, expand_reduce_chain) {
     EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"t1"}, {"t2"}, "copy_in", true), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_EXPAND, {"t2"}, {"t3"}, "expand", true), true);
     auto expand_op = graph.GetOp("expand");
-    expand_op->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 0);  // Expand non-last axis
+    expand_op->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 0); // Expand non-last axis
     EXPECT_EQ(graph.AddOp(Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, {"t3"}, {"t4"}, "reduce", true), true);
     auto reduce_op = graph.GetOp("reduce");
-    reduce_op->SetAttribute(OP_ATTR_PREFIX + "AXIS", 0);  // Reduce last axis
+    reduce_op->SetAttribute(OP_ATTR_PREFIX + "AXIS", 0); // Reduce last axis
 
     auto *rootFuncPtr = graph.GetFunction();
     AxisCombineMarker marker;
@@ -598,7 +597,7 @@ TEST_F(TestAxisCombineMarker, unhandled_op) {
 
     // Verify the tensor is marked as UNKNOWN
     auto t3 = graph.GetTensor("t3");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false);   // Unhandled op should be unknown
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false); // Unhandled op should be unknown
 }
 
 TEST_F(TestAxisCombineMarker, cast_op) {
@@ -639,7 +638,7 @@ TEST_F(TestAxisCombineMarker, qaCase) {
     EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"gm2"}, {"t2"}, "copy_in2", true), true);
 
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {64, 1}, MemoryType::MEM_UB, "b1"), true);
-    EXPECT_EQ(graph.AddOp(Opcode::OP_PAIRSUM, {"t1","t2"}, {"b1"}, "pairsum", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_PAIRSUM, {"t1", "t2"}, {"b1"}, "pairsum", true), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 1}, MemoryType::MEM_UB, "t3"), true);
 
     EXPECT_EQ(graph.AddOp(Opcode::OP_ROWSUMLINE, {"b1"}, {"t3"}, "rowsumline", true), true);

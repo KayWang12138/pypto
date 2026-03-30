@@ -23,9 +23,8 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
-template<typename T>
-void TestAllGather(OpTestParam& testParam, std::string& goldenDir)
-{
+template <typename T>
+void TestAllGather(OpTestParam &testParam, std::string &goldenDir) {
     constexpr size_t paramsSize = 5;
     auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(goldenDir + "/params.bin");
 
@@ -36,36 +35,33 @@ void TestAllGather(OpTestParam& testParam, std::string& goldenDir)
     Tensor in(dType, shape, "in");
     Tensor out(dType, outShape, "out");
 
-    std::vector<T> inPtr = ReadToVector<T>(goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
+    std::vector<T> inPtr =
+        ReadToVector<T>(goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
 
     Shape shmemDataShape{testParam.rankSize, row, col};
     FUNCTION("ALLGATHER", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
         ShmemTensor shmemTensor;
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-             (void)index;
-             CreateShmemTensor(testParam.group, testParam.rankSize, dType, shmemDataShape, shmemTensor);
-         }
+            (void)index;
+            CreateShmemTensor(testParam.group, testParam.rankSize, dType, shmemDataShape, shmemTensor);
+        }
         AllGather(in, in, shmemTensor, out);
     }
 
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<T>(in, inPtr)
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateTensorZero(out)
-    });
+    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<T>(in, inPtr)});
+    ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
 
     RunTest();
     auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
     int32_t outSize = row * col * testParam.rankSize;
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, outPtr, testParam));
+    EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, goldenDir + "/output_rank_", outSize, outPtr, testParam));
 }
 
-template void TestAllGather<int32_t>(OpTestParam &testParam, std::string& goldenDir);
-template void TestAllGather<float>(OpTestParam &testParam, std::string& goldenDir);
-template void TestAllGather<float16>(OpTestParam &testParam, std::string& goldenDir);
-template void TestAllGather<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
+template void TestAllGather<int32_t>(OpTestParam &testParam, std::string &goldenDir);
+template void TestAllGather<float>(OpTestParam &testParam, std::string &goldenDir);
+template void TestAllGather<float16>(OpTestParam &testParam, std::string &goldenDir);
+template void TestAllGather<bfloat16>(OpTestParam &testParam, std::string &goldenDir);
 
 } // namespace Distributed
 } // namespace npu::tile_fwk

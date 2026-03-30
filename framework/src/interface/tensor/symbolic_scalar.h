@@ -39,9 +39,9 @@ using Json = nlohmann::json;
 namespace npu::tile_fwk {
 
 constexpr int INVALID_SCALAR_IMMEDIATE = -1;
-constexpr const char* const SPECIAL_SYMBOL_NAME_RUNTIME_PREFIX = "RUNTIME_";
-constexpr const char* const SPECIAL_SYMBOL_NAME_RUNTIME_COA_PREFIX = "RUNTIME_COA_";
-constexpr const char* const SPECIAL_SYMBOL_NAME_ARG_PREFIX = "ARG_";
+constexpr const char *const SPECIAL_SYMBOL_NAME_RUNTIME_PREFIX = "RUNTIME_";
+constexpr const char *const SPECIAL_SYMBOL_NAME_RUNTIME_COA_PREFIX = "RUNTIME_COA_";
+constexpr const char *const SPECIAL_SYMBOL_NAME_ARG_PREFIX = "ARG_";
 using ScalarImmediateType = long long;
 
 enum class SymbolicScalarKind {
@@ -53,18 +53,10 @@ enum class SymbolicScalarKind {
 inline std::string SymbolicScalarKind2Name(SymbolicScalarKind kind) {
     std::string name;
     switch (kind) {
-    case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE:
-        name = "immediate";
-        break;
-    case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL:
-        name = "symbol";
-        break;
-    case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION:
-        name = "expression";
-        break;
-    default:
-        FUNCTION_ASSERT(false) << " undefined kind.";
-        break;
+        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE: name = "immediate"; break;
+        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL: name = "symbol"; break;
+        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: name = "expression"; break;
+        default: FUNCTION_ASSERT(false) << " undefined kind."; break;
     }
     return name;
 }
@@ -126,7 +118,8 @@ public:
 
     std::string Dump() const;
 
-    static void FlattenOperands(const std::vector<RawSymbolicScalarPtr> &inOperandList, SymbolicOpcode objOpcode, std::vector<RawSymbolicScalarPtr> &outOperandList);
+    static void FlattenOperands(const std::vector<RawSymbolicScalarPtr> &inOperandList, SymbolicOpcode objOpcode,
+        std::vector<RawSymbolicScalarPtr> &outOperandList);
 
 private:
     friend class SymbolicScalar;
@@ -231,16 +224,13 @@ public:
     }
 
 #define RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_UOP(name, uop) \
-        static ScalarImmediateType name(const ScalarImmediateType &val) \
-        { \
-            return uop val; \
-        }
+    static ScalarImmediateType name(const ScalarImmediateType &val) { return uop val; }
     RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_UOP(CalcUopPos, +)
     RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_UOP(CalcUopNeg, -)
     RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_UOP(CalcUopNot, !)
-#undef  RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_UOP
+#undef RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_UOP
 
-#define RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOP(name, bop)                                                \
+#define RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOP(name, bop)                                            \
     static ScalarImmediateType name(const ScalarImmediateType &lhs, const ScalarImmediateType &rhs) { \
         return lhs bop rhs;                                                                           \
     }
@@ -256,18 +246,17 @@ public:
     RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOP(CalcBopLe, <=)
     RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOP(CalcBopGt, >)
     RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOP(CalcBopGe, >=)
-#undef  RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOP
+#undef RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOP
 
-#define RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOPF(name, bfn) \
-        static ScalarImmediateType name(const ScalarImmediateType &lhs, const ScalarImmediateType &rhs) \
-        { \
-            return bfn(lhs, rhs); \
-        }
+#define RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOPF(name, bfn)                                           \
+    static ScalarImmediateType name(const ScalarImmediateType &lhs, const ScalarImmediateType &rhs) { \
+        return bfn(lhs, rhs);                                                                         \
+    }
     RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOPF(CalcBopMin, std::min)
     RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOPF(CalcBopMax, std::max)
-#undef  RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOPF
+#undef RAW_SYMBOLIC_EXPRESSION_CALC_DEFINE_BOPF
 
-    using SymbolicCalcUnary = ScalarImmediateType (*) (const ScalarImmediateType &);
+    using SymbolicCalcUnary = ScalarImmediateType (*)(const ScalarImmediateType &);
     static SymbolicCalcUnary GetSymbolicCalcUnary(SymbolicOpcode opcode) {
         static const RawSymbolicExpression::SymbolicCalcUnary CALC_LIST[] = {
             RawSymbolicExpression::CalcUopPos,
@@ -302,18 +291,18 @@ public:
 
     using SymbolicCalcMop = ScalarImmediateType (*)(const std::vector<ScalarImmediateType> &);
 
-    static ScalarImmediateType CalcMopMin(const std::vector<ScalarImmediateType>& immediateList) {
+    static ScalarImmediateType CalcMopMin(const std::vector<ScalarImmediateType> &immediateList) {
         FUNCTION_ASSERT(!immediateList.empty());
         return std::accumulate(immediateList.begin() + 1, immediateList.end(), immediateList[0],
-            [](const ScalarImmediateType& lhs, const ScalarImmediateType& rhs) {
+            [](const ScalarImmediateType &lhs, const ScalarImmediateType &rhs) {
                 return RawSymbolicExpression::CalcBopMin(lhs, rhs);
             });
     }
 
-    static ScalarImmediateType CalcMopMax(const std::vector<ScalarImmediateType>& immediateList) {
+    static ScalarImmediateType CalcMopMax(const std::vector<ScalarImmediateType> &immediateList) {
         FUNCTION_ASSERT(!immediateList.empty());
         return std::accumulate(immediateList.begin() + 1, immediateList.end(), immediateList[0],
-            [](const ScalarImmediateType& lhs, const ScalarImmediateType& rhs) {
+            [](const ScalarImmediateType &lhs, const ScalarImmediateType &rhs) {
                 return RawSymbolicExpression::CalcBopMax(lhs, rhs);
             });
     }
@@ -354,25 +343,30 @@ public:
         ScalarImmediateType result = 0;
         switch (immediateList.size()) {
             // 1 func with not arguments
-            case 1: result = reinterpret_cast<ScalarImmediateType(*)()>(immediateList[0])(); break;
+            case 1: result = reinterpret_cast<ScalarImmediateType (*)()>(immediateList[0])(); break;
             // 2 func with unary operand
-            case 2: result = reinterpret_cast<ScalarImmediateType(*)(ScalarImmediateType)>(immediateList[0])(immediateList[1]); break;
+            case 2:
+                result =
+                    reinterpret_cast<ScalarImmediateType (*)(ScalarImmediateType)>(immediateList[0])(immediateList[1]);
+                break;
             // 3 func with binary operands
             case 3:
-                result = reinterpret_cast<ScalarImmediateType(*)(ScalarImmediateType, ScalarImmediateType)>(immediateList[0])(
-                    immediateList[1], immediateList[2]); // 2 is arg index
+                result = reinterpret_cast<ScalarImmediateType (*)(ScalarImmediateType, ScalarImmediateType)>(
+                    immediateList[0])(immediateList[1], immediateList[2]); // 2 is arg index
                 break;
             // 4 func with ternary operands
             case 4:
-                result = reinterpret_cast<ScalarImmediateType(*)(ScalarImmediateType, ScalarImmediateType, ScalarImmediateType)>(
-                    immediateList[0])(immediateList[1], immediateList[2], immediateList[3]); // 2 and 3 is arg index
+                result = reinterpret_cast<ScalarImmediateType (*)(
+                    ScalarImmediateType, ScalarImmediateType, ScalarImmediateType)>(immediateList[0])(
+                    immediateList[1], immediateList[2], immediateList[3]); // 2 and 3 is arg index
                 break;
             default: FUNCTION_ASSERT(false) << "immediateList.size(): " << immediateList.size(); break;
         }
         return result;
     }
 
-    static void Handle2NonzeroOperand(RawSymbolicScalarPtr& raw, SymbolicOpcode opcode, std::vector<RawSymbolicScalarPtr>& nonzeroOperandList) {
+    static void Handle2NonzeroOperand(
+        RawSymbolicScalarPtr &raw, SymbolicOpcode opcode, std::vector<RawSymbolicScalarPtr> &nonzeroOperandList) {
         constexpr int size2 = 2;
         FUNCTION_ASSERT(nonzeroOperandList.size() == size2)
             << "Lvalue: " << nonzeroOperandList.size() << ", Rvalue: " << size2;
@@ -409,7 +403,8 @@ public:
         }
     }
 
-    static RawSymbolicScalarPtr CreateRuntimeExtrema(SymbolicOpcode opcode, const std::vector<RawSymbolicScalarPtr> &operandList) {
+    static RawSymbolicScalarPtr CreateRuntimeExtrema(
+        SymbolicOpcode opcode, const std::vector<RawSymbolicScalarPtr> &operandList) {
         std::vector<RawSymbolicScalarPtr> flatOperands;
         flatOperands.reserve(operandList.size());
         FlattenOperands(operandList, opcode, flatOperands);
@@ -425,7 +420,7 @@ public:
             return (opcode == SymbolicOpcode::T_MOP_MAX) ? std::max(a, b) : std::min(a, b);
         };
 
-        for (auto& operand : flatOperands) {
+        for (auto &operand : flatOperands) {
             if (operand->IsImmediate()) {
                 auto value = std::static_pointer_cast<RawSymbolicImmediate>(operand)->Immediate();
                 if (!hasImm) {
@@ -461,23 +456,21 @@ public:
         }
     }
 
-    static bool AllImmediate(const std::vector<RawSymbolicScalarPtr>& ops) {
+    static bool AllImmediate(const std::vector<RawSymbolicScalarPtr> &ops) {
         FUNCTION_ASSERT(!ops.empty());
-        return std::all_of(ops.begin(), ops.end(),
-            [](const RawSymbolicScalarPtr& o){ return o->IsImmediate(); });
+        return std::all_of(ops.begin(), ops.end(), [](const RawSymbolicScalarPtr &o) { return o->IsImmediate(); });
     }
 
-    static std::vector<ScalarImmediateType> ToImmediateList(const std::vector<RawSymbolicScalarPtr>& ops) {
+    static std::vector<ScalarImmediateType> ToImmediateList(const std::vector<RawSymbolicScalarPtr> &ops) {
         std::vector<ScalarImmediateType> imm(ops.size());
-        std::transform(ops.begin(), ops.end(), imm.begin(),
-            [](const RawSymbolicScalarPtr& v) {
-                return std::static_pointer_cast<RawSymbolicImmediate>(v)->Immediate();
-            });
+        std::transform(ops.begin(), ops.end(), imm.begin(), [](const RawSymbolicScalarPtr &v) {
+            return std::static_pointer_cast<RawSymbolicImmediate>(v)->Immediate();
+        });
         return imm;
     }
 
-    static ScalarImmediateType FoldAllImmediate(SymbolicOpcode opcode,
-                                                const std::vector<ScalarImmediateType>& immediateList) {
+    static ScalarImmediateType FoldAllImmediate(
+        SymbolicOpcode opcode, const std::vector<ScalarImmediateType> &immediateList) {
         if (SymbolicOpcode::T_UOP_BEGIN <= opcode && opcode < SymbolicOpcode::T_UOP_END) {
             FUNCTION_ASSERT(immediateList.size() == 1) << "immediateList.size():  " << immediateList.size();
             return RawSymbolicExpression::GetSymbolicCalcUnary(opcode)(immediateList[0]);
@@ -495,25 +488,24 @@ public:
         return 0;
     }
 
-    static RawSymbolicScalarPtr MakeAddWithZeroOpt(const std::vector<RawSymbolicScalarPtr>& ops) {
+    static RawSymbolicScalarPtr MakeAddWithZeroOpt(const std::vector<RawSymbolicScalarPtr> &ops) {
         std::vector<RawSymbolicScalarPtr> nonzero;
         nonzero.reserve(ops.size());
-        for (auto& op : ops) {
-            if (op->IsImmediate() &&
-                std::static_pointer_cast<RawSymbolicImmediate>(op)->Immediate() == 0) {
+        for (auto &op : ops) {
+            if (op->IsImmediate() && std::static_pointer_cast<RawSymbolicImmediate>(op)->Immediate() == 0) {
                 continue;
             }
             nonzero.push_back(op);
         }
-        if (nonzero.size() == 1) return nonzero[0];
+        if (nonzero.size() == 1)
+            return nonzero[0];
 
         RawSymbolicScalarPtr raw;
         Handle2NonzeroOperand(raw, SymbolicOpcode::T_BOP_ADD, nonzero);
         return raw;
     }
 
-    static RawSymbolicScalarPtr CreateRuntime(SymbolicOpcode opcode,
-                                            const std::vector<RawSymbolicScalarPtr>& ops) {
+    static RawSymbolicScalarPtr CreateRuntime(SymbolicOpcode opcode, const std::vector<RawSymbolicScalarPtr> &ops) {
         if (opcode == SymbolicOpcode::T_BOP_ADD) {
             return MakeAddWithZeroOpt(ops);
         } else if (opcode == SymbolicOpcode::T_MOP_MAX || opcode == SymbolicOpcode::T_MOP_MIN) {
@@ -523,8 +515,7 @@ public:
         }
     }
 
-    static RawSymbolicScalarPtr Create(SymbolicOpcode opcode,
-                                            const std::vector<RawSymbolicScalarPtr>& operandList) {
+    static RawSymbolicScalarPtr Create(SymbolicOpcode opcode, const std::vector<RawSymbolicScalarPtr> &operandList) {
         if (AllImmediate(operandList)) {
             auto imm = ToImmediateList(operandList);
             auto result = FoldAllImmediate(opcode, imm);
@@ -533,17 +524,16 @@ public:
         return CreateRuntime(opcode, operandList);
     }
 
-#define RAW_SYMBOLIC_EXPRESSION_DEFINE_UOP(name, uop) \
-        static RawSymbolicScalarPtr name(const RawSymbolicScalarPtr &val) \
-        { \
-            RawSymbolicScalarPtr result = Create(uop, {val}); \
-            return result; \
-        }
+#define RAW_SYMBOLIC_EXPRESSION_DEFINE_UOP(name, uop)                   \
+    static RawSymbolicScalarPtr name(const RawSymbolicScalarPtr &val) { \
+        RawSymbolicScalarPtr result = Create(uop, {val});               \
+        return result;                                                  \
+    }
     RAW_SYMBOLIC_EXPRESSION_DEFINE_UOP(CreateUopPos, SymbolicOpcode::T_UOP_POS)
     RAW_SYMBOLIC_EXPRESSION_DEFINE_UOP(CreateUopNeg, SymbolicOpcode::T_UOP_NEG)
     RAW_SYMBOLIC_EXPRESSION_DEFINE_UOP(CreateUopNot, SymbolicOpcode::T_UOP_NOT)
-#undef  RAW_SYMBOLIC_EXPRESSION_DEFINE_UOP
-#define RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(name, bop) \
+#undef RAW_SYMBOLIC_EXPRESSION_DEFINE_UOP
+#define RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(name, bop)                                                    \
     static RawSymbolicScalarPtr name(const RawSymbolicScalarPtr &lhs, const RawSymbolicScalarPtr &rhs) { \
         RawSymbolicScalarPtr result = Create(bop, {lhs, rhs});                                           \
         return result;                                                                                   \
@@ -560,15 +550,15 @@ public:
     RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopLe, SymbolicOpcode::T_BOP_LE)
     RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopGt, SymbolicOpcode::T_BOP_GT)
     RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopGe, SymbolicOpcode::T_BOP_GE)
-#undef  RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP
-#define RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP(name, mop) \
+#undef RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP
+#define RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP(name, mop)                                     \
     static RawSymbolicScalarPtr name(const std::vector<RawSymbolicScalarPtr> &operands) { \
-        RawSymbolicScalarPtr result = Create(mop, operands);                                           \
-        return result;                                                                                   \
+        RawSymbolicScalarPtr result = Create(mop, operands);                              \
+        return result;                                                                    \
     }
     RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP(CreateMopMax, SymbolicOpcode::T_MOP_MAX)
     RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP(CreateMopMin, SymbolicOpcode::T_MOP_MIN)
-#undef  RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP
+#undef RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP
 
     static RawSymbolicScalarPtr CreateMopCall(const RawSymbolicScalarPtr &callee) {
         RawSymbolicScalarPtr result = Create(SymbolicOpcode::T_MOP_CALL, {callee});
@@ -670,7 +660,8 @@ private:
             } break;
             case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL: {
                 auto symbol = std::dynamic_pointer_cast<RawSymbolicSymbol>(raw);
-                FUNCTION_ASSERT(symbolValueDict->count(symbol->Name())) << symbol->Name() << " has not been found in symbolValueDict";
+                FUNCTION_ASSERT(symbolValueDict->count(symbol->Name()))
+                    << symbol->Name() << " has not been found in symbolValueDict";
                 result = symbolValueDict->find(symbol->Name())->second;
             } break;
             case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
@@ -727,9 +718,7 @@ struct SymbolicExpressionTableX {
         return expressionIndexTable.find(str)->second;
     }
 
-    void InsertExpressionIndex(const std::string &expr, int index) {
-        expressionIndexTable[expr] = index;
-    }
+    void InsertExpressionIndex(const std::string &expr, int index) { expressionIndexTable[expr] = index; }
 };
 
 struct SymbolicSymbolTable {
@@ -860,20 +849,18 @@ struct SymbolicExpressionTable {
 
     int LookupPrimaryExpressionIndex(const SymbolicScalar &ss) const {
         std::string str = BuildExpressionByRaw(ss.Raw(), {});
-        FUNCTION_ASSERT(primaryExpressionDict_.count(str))  << str << " has not been found in primaryExpressionDict_.";
+        FUNCTION_ASSERT(primaryExpressionDict_.count(str)) << str << " has not been found in primaryExpressionDict_.";
         auto raw = primaryExpressionDict_.find(str)->second;
-        FUNCTION_ASSERT(primaryExpressionSet.count(raw))  << raw << " has not been found in primaryExpressionSet.";
+        FUNCTION_ASSERT(primaryExpressionSet.count(raw)) << raw << " has not been found in primaryExpressionSet.";
         return primaryExpressionSet.GetIndex(raw);
     }
 
     int GetPrimaryExpressionSize() const { return primaryExpressionSet.size(); }
-    const OrderedSet<RawSymbolicScalarPtr> &GetPrimaryExpressionSet() const {
-        return primaryExpressionSet;
-    }
+    const OrderedSet<RawSymbolicScalarPtr> &GetPrimaryExpressionSet() const { return primaryExpressionSet; }
 
     std::string Dump() const {
         std::ostringstream oss;
-        for (auto &expr: primaryExpressionDict_) {
+        for (auto &expr : primaryExpressionDict_) {
             oss << "expr:" << BuildExpressionByRaw(expr.second, {}) << "\n";
         }
         return oss.str();
@@ -883,24 +870,43 @@ struct SymbolicExpressionTable {
     std::string BuildExpressionTempVarInit(int indent);
 
     static std::string GetExprKeyLoopBes(int funcKey) { return "EXPR_LOOP_BES_" + std::to_string(funcKey); }
-    static std::string GetExprKeyLoopPathCond(int funcKey, int condKey) { return "EXPR_LOOP_PATHCOND_" + std::to_string(funcKey) + "_" + std::to_string(condKey); }
+    static std::string GetExprKeyLoopPathCond(int funcKey, int condKey) {
+        return "EXPR_LOOP_PATHCOND_" + std::to_string(funcKey) + "_" + std::to_string(condKey);
+    }
     static std::string GetExprKeyDevRootCoa(int funcKey) { return "EXPR_DEV_ROOT_COA_" + std::to_string(funcKey); }
-    static std::string GetExprKeyDevLeafOp(int funcKey, int opKey) { return "EXPR_DEV_LEAF_OP_" + std::to_string(funcKey) + "_" + std::to_string(opKey); }
+    static std::string GetExprKeyDevLeafOp(int funcKey, int opKey) {
+        return "EXPR_DEV_LEAF_OP_" + std::to_string(funcKey) + "_" + std::to_string(opKey);
+    }
 
-    static std::string GetExprNameTempVarFlag(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_TEMP_VAR_FLAG"; }
-    static std::string GetExprNameTempVar(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_TEMP_VAR"; }
-    static std::string GetExprNameTempVarInit(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_TEMP_INIT"; }
-    static std::string GetExprNameCalc(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_CALC"; }
-    static std::string GetExprNameUse(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_USE"; }
+    static std::string GetExprNameTempVarFlag(const std::string &exprKey, int index) {
+        return exprKey + "_" + std::to_string(index) + "_TEMP_VAR_FLAG";
+    }
+    static std::string GetExprNameTempVar(const std::string &exprKey, int index) {
+        return exprKey + "_" + std::to_string(index) + "_TEMP_VAR";
+    }
+    static std::string GetExprNameTempVarInit(const std::string &exprKey, int index) {
+        return exprKey + "_" + std::to_string(index) + "_TEMP_INIT";
+    }
+    static std::string GetExprNameCalc(const std::string &exprKey, int index) {
+        return exprKey + "_" + std::to_string(index) + "_CALC";
+    }
+    static std::string GetExprNameUse(const std::string &exprKey, int index) {
+        return exprKey + "_" + std::to_string(index) + "_USE";
+    }
 
-    static std::string BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
+    static std::string BuildExpressionByRaw(
+        const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
     static std::string BuildExpression(const SymbolicScalar &ss);
     static std::string BuildExpression(const RawSymbolicScalarPtr &ss);
-    static bool CheckExprDependCore(const RawSymbolicScalarPtr &ss, const std::unordered_map<std::string, bool> &tensorNameToDependCore,
+    static bool CheckExprDependCore(const RawSymbolicScalarPtr &ss,
+        const std::unordered_map<std::string, bool> &tensorNameToDependCore,
         std::unordered_map<RawSymbolicScalarPtr, bool> &valDependMap);
+
 private:
-    static void BuildExtremaExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict, std::ostringstream &oss);
-    static std::string BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
+    static void BuildExtremaExpressionCode(const RawSymbolicExpPtr &expr,
+        const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict, std::ostringstream &oss);
+    static std::string BuildExpressionCode(
+        const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
 
     void AddExpression(const RawSymbolicScalarPtr &raw) {
         switch (raw->Kind()) {
@@ -919,16 +925,16 @@ private:
     }
 };
 
-std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::string &sourceFilePath, const std::string &aicpuPath,
-    std::vector<std::string> &exprSrcFiles, const std::string &gcc, const std::string &ld, const std::string &objcopy,
-    const std::string &sectionName, bool needDump, const std::string &extraCflag="");
+std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::string &sourceFilePath,
+    const std::string &aicpuPath, std::vector<std::string> &exprSrcFiles, const std::string &gcc, const std::string &ld,
+    const std::string &objcopy, const std::string &sectionName, bool needDump, const std::string &extraCflag = "");
 
-void CompileAndLink(const std::string &code, const std::string &sourceFilePath,
-        const std::string &gcc, bool isStaticLink, bool isBenchmark, bool useMakefile);
+void CompileAndLink(const std::string &code, const std::string &sourceFilePath, const std::string &gcc,
+    bool isStaticLink, bool isBenchmark, bool useMakefile);
 
-std::string CompileCopyLink(const std::string &code, const std::string &sourceFilePath,
-        const std::string &gcc, const std::string &objcopy, bool isStaticLink, bool isBenchmark,
-        const std::map<std::string, std::string> &sectionDataDict);
+std::string CompileCopyLink(const std::string &code, const std::string &sourceFilePath, const std::string &gcc,
+    const std::string &objcopy, bool isStaticLink, bool isBenchmark,
+    const std::map<std::string, std::string> &sectionDataDict);
 
 void RunMake(const std::string &makefilePath);
 

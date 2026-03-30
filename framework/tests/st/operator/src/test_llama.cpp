@@ -32,7 +32,9 @@ public:
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_ALL_COMPLETE);
         config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
-        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, LLMA_L1REUSE_THRESHOLD}});
+        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{
+                                                         {-1, LLMA_L1REUSE_THRESHOLD}
+        });
         config::SetPassOption(SG_PG_LOWER_BOUND, LLMA_CYCLE_THRESHOLD);
         rtSetDevice(GetDeviceIdByEnvVar());
     }
@@ -53,14 +55,14 @@ void RunLLamaLayer(const AttentionDims &dimsCfg, float threadhold = 0.001f) {
     void *fw_ptr = readToDev<uint16_t>(basepath + "/ffnWeight.bin", size1 * 3);
     readInput(basepath + "/llama_layer_golden_res.bin", golden);
     uint64_t outputSize = size0 * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("LLAMALAYER") {
         Tensor H(DataType::DT_FP32, {b * s, n * d}, (uint8_t *)h_ptr, "H");
         Tensor AW(DataType::DT_FP16, {n * d, n * d * 3}, (uint8_t *)aw_ptr, "AW");
         Tensor DW(DataType::DT_FP16, {n * d, n * d}, (uint8_t *)dw_ptr, "DW");
         Tensor FW(DataType::DT_FP16, {n * d, n * d * 3}, (uint8_t *)fw_ptr, "FW");
-        Tensor Res(DataType::DT_FP32, {b * s, n * d},  out_ptr, "Res");
+        Tensor Res(DataType::DT_FP32, {b * s, n * d}, out_ptr, "Res");
         ConfigManager::Instance();
         config::SetBuildStatic(true);
         FUNCTION("LLAMA", {H, AW, DW, FW, Res}) {
@@ -75,31 +77,26 @@ void RunLLamaLayer(const AttentionDims &dimsCfg, float threadhold = 0.001f) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(LLamaLayerTest, llama_1_1_128_128)
-{
+TEST_F(LLamaLayerTest, llama_1_1_128_128) {
     AttentionDims dimsCfg = {1, 1, 128, 128, DFT_SINGLE_M, DFT_SINGLE_N};
     RunLLamaLayer(dimsCfg, 0.005f);
 }
 
-TEST_F(LLamaLayerTest, llama_1_1_256_128)
-{
+TEST_F(LLamaLayerTest, llama_1_1_256_128) {
     AttentionDims dimsCfg = {1, 1, 256, 128, DFT_SINGLE_M, DFT_SINGLE_N};
     RunLLamaLayer(dimsCfg, 0.005f);
 }
 
-TEST_F(LLamaLayerTest, llama_1_1_512_128)
-{
+TEST_F(LLamaLayerTest, llama_1_1_512_128) {
     AttentionDims dimsCfg = {1, 1, 512, 128, DFT_SINGLE_M, DFT_SINGLE_N};
     RunLLamaLayer(dimsCfg, 0.005f);
 }
 
-TEST_F(LLamaLayerTest, llama_1_1_1024_128)
-{
+TEST_F(LLamaLayerTest, llama_1_1_1024_128) {
     AttentionDims dimsCfg = {1, 1, 1024, 128, DFT_SINGLE_M, DFT_SINGLE_N};
     RunLLamaLayer(dimsCfg, 0.005f);
 }
-TEST_F(LLamaLayerTest, llama_1_1_4096_128)
-{
+TEST_F(LLamaLayerTest, llama_1_1_4096_128) {
     AttentionDims dimsCfg = {1, 1, 4096, 128, DFT_SINGLE_M, 1024};
     RunLLamaLayer(dimsCfg, 0.005f);
 }

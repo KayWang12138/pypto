@@ -42,7 +42,7 @@ void AxisCombineMarker::Init(Function &function) {
     opInGraph_.resize(opList_.size());
     opOutGraph_.resize(opList_.size());
     for (size_t opIdx = 0; opIdx < opList_.size(); opIdx++) {
-        const auto& op = opList_[opIdx];
+        const auto &op = opList_[opIdx];
         for (const auto producer : op->ProducerOpsOrdered()) {
             opInGraph_[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[producer->GetOpMagic()]);
         }
@@ -88,7 +88,7 @@ void UpdateViewStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisRe
         return;
     }
     tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;
-    tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;  // DDR场景，不涉及。
+    tensorStatus[outputTensor] = AxisReorderStatus::DISABLE; // DDR场景，不涉及。
 }
 
 void UpdateAssembleStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
@@ -98,7 +98,7 @@ void UpdateAssembleStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Ax
         if (tensorStatus[inputTensor] == AxisReorderStatus::ENABLE) {
             if (inputTensor->GetShape().back() != outputTensor->GetShape().back()) {
                 tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
-                tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;  // 如果尾轴有assemble，那么不能支持合轴
+                tensorStatus[inputTensor] = AxisReorderStatus::DISABLE; // 如果尾轴有assemble，那么不能支持合轴
             } else {
                 tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
             }
@@ -168,7 +168,8 @@ void UpdateElewiseStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axi
         return;
     }
     for (auto inputTensor : op->GetIOperands()) {
-        if (tensorStatus.find(inputTensor) != tensorStatus.end() && tensorStatus[inputTensor] == AxisReorderStatus::DISABLE) {
+        if (tensorStatus.find(inputTensor) != tensorStatus.end() &&
+            tensorStatus[inputTensor] == AxisReorderStatus::DISABLE) {
             tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
             return;
         }
@@ -223,7 +224,7 @@ void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx) {
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
         OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST ||
         ((op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE) &&
-          outputTensor->GetShape().back() == op->GetIOperands()[0]->GetShape().back())) {
+            outputTensor->GetShape().back() == op->GetIOperands()[0]->GetShape().back())) {
         if (tensorStatus_[outputTensor] == AxisReorderStatus::DISABLE) {
             for (auto inputTensor : op->GetIOperands()) {
                 tensorStatus_[inputTensor] = AxisReorderStatus::DISABLE;
@@ -250,8 +251,7 @@ void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx) {
     }
 }
 
-void AxisCombineMarker::ForwardVisit()
-{
+void AxisCombineMarker::ForwardVisit() {
     std::queue<size_t> procOpQueue;
     std::vector<size_t> inDegree(opList_.size(), 0);
     for (size_t j = 0; j < opInGraph_.size(); ++j) {
@@ -274,8 +274,7 @@ void AxisCombineMarker::ForwardVisit()
     }
 }
 
-void AxisCombineMarker::BackwardVisit()
-{
+void AxisCombineMarker::BackwardVisit() {
     std::queue<size_t> procOpQueue;
     std::vector<size_t> outDegree(opList_.size(), 0);
     for (size_t j = 0; j < opOutGraph_.size(); ++j) {
@@ -297,5 +296,5 @@ void AxisCombineMarker::BackwardVisit()
         }
     }
 }
-}
-}
+} // namespace tile_fwk
+} // namespace npu

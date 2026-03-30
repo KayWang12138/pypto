@@ -47,7 +47,6 @@ static std::shared_ptr<RawTensorData> CreateTensorData(
 }
 
 void TestLightningIndexer(LightningIndexerConfigs &tileConfig) {
-
     int paramsSize = 9;
     std::vector<int> input_param(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_params.bin", input_param);
@@ -113,8 +112,8 @@ void TestLightningIndexer(LightningIndexerConfigs &tileConfig) {
     std::vector<RawTensorDataPtr> outputDataList = {topkResData, firstMmData, mmData, topkValueData};
 
     std::set<int> unrollList = {32, 16, 8, 4, 1};
-    FUNCTION(
-        "LightningIndexer", {query, qScale, key, kScale, weights, actSeq, blockTable}, {topkRes, firstMm, mmOut, topkValue}) {
+    FUNCTION("LightningIndexer", {query, qScale, key, kScale, weights, actSeq, blockTable},
+        {topkRes, firstMm, mmOut, topkValue}) {
         LightningIndexerImpl(query, qScale, key, kScale, weights, actSeq, blockTable, selectedCount, topkRes,
             tileConfig, unrollList, &firstMm, &mmOut, &topkValue);
     }
@@ -125,7 +124,8 @@ void TestLightningIndexer(LightningIndexerConfigs &tileConfig) {
     constexpr int TOPK_COUNT = 100;
     constexpr float ratio = 5e-3f;
     std::cout << "=======================firstMm===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(firstMmGolden, (npu::tile_fwk::float16 *)firstMmData->data(), PRE_TAIL, 0, TOPK_COUNT, false, false));
+    EXPECT_TRUE(
+        resultCmp(firstMmGolden, (npu::tile_fwk::float16 *)firstMmData->data(), PRE_TAIL, 0, TOPK_COUNT, false, false));
     std::cout << "=======================mmOut===============================" << std::endl;
     EXPECT_TRUE(resultCmp(mmGolden, (float *)mmData->data(), PRE_TAIL, 0, TOPK_COUNT, false, false));
     std::cout << "=======================topkValue===============================" << std::endl;
@@ -143,7 +143,7 @@ TEST_F(LightningIndexerSTest, lightning_indexer_quant_4_b_2_s1_64k_s2) {
     config.c2Tile = {64, 64, 128, 128, 128, 128};   // (m, M), (k, K), (n, N)
     config.extendParam.reluType = npu::tile_fwk::Matrix::ReLuType::ReLu;
     float scale = 2048.0;
-    config.extendParam.scaleValue = static_cast<uint64_t>(*reinterpret_cast<int32_t*>(&scale));
+    config.extendParam.scaleValue = static_cast<uint64_t>(*reinterpret_cast<int32_t *>(&scale));
 
     TestLightningIndexer(config);
 }

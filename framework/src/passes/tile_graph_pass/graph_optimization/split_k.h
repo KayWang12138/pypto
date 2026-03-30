@@ -41,5 +41,5 @@ public:
     Status RunOnFunction(Function &function) override;
     Status EliminateReduceAcc(Function &function);
 };
-}
+} // namespace npu::tile_fwk
 #endif // CUBE_PROCESS_H

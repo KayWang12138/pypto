@@ -31,15 +31,21 @@ Status GraphPartitionChecker::DoPreCheck(Function &function) {
 
 Status GraphPartitionChecker::DoPostCheck(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "PostCheck for GraphPartition.");
-    std::vector<std::vector<Operation*>> subgraphs(function.GetTotalSubGraphCount());
+    std::vector<std::vector<Operation *>> subgraphs(function.GetTotalSubGraphCount());
     for (auto &op : function.Operations()) {
         int32_t curSubgraphID = op.GetSubgraphID();
         if (curSubgraphID == -1) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Operation (opmagic: %d) is not in any subgraph; Please review the error messages generated during the processing procedure.%s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation,
+                "Operation (opmagic: %d) is not in any subgraph; Please review the error messages generated during the "
+                "processing procedure.%s",
+                op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (curSubgraphID < 0 || curSubgraphID >= static_cast<int32_t>(function.GetTotalSubGraphCount())) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Operation (opmagic: %d) has illegal SubgraphID; Please review the error messages generated during the processing procedure.%s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation,
+                "Operation (opmagic: %d) has illegal SubgraphID; Please review the error messages generated during the "
+                "processing procedure.%s",
+                op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         subgraphs[curSubgraphID].push_back(&op);
@@ -77,10 +83,12 @@ Status GraphPartitionChecker::PostOperationCheck(Function &function) {
             }
         }
         if (isStartNodeInSubgraph) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Operation (opmagic: %d) is start node in subgraph.", op.GetOpMagic());
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "Operation (opmagic: %d) is start node in subgraph.", op.GetOpMagic());
             if (op.GetOpcode() == Opcode::OP_ASSEMBLE || op.GetOpcode() == Opcode::OP_COPY_OUT) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Operation (opmagic: %d) is the start node of the subgraph, opcode should not be %s.%s",
-                             op.GetOpMagic(), op.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                    "Operation (opmagic: %d) is the start node of the subgraph, opcode should not be %s.%s",
+                    op.GetOpMagic(), op.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
         }
@@ -99,8 +107,9 @@ Status GraphPartitionChecker::PostOperationCheck(Function &function) {
         if (isEndNodeInSubgraph) {
             APASS_LOG_DEBUG_F(Elements::Operation, "Operation (opmagic: %d) is end node in subgraph.", op.GetOpMagic());
             if (op.GetOpcode() == Opcode::OP_VIEW || op.GetOpcode() == Opcode::OP_COPY_IN) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Operation (opmagic: %d) is the end node of the subgraph, opcode should not be %s.%s",
-                             op.GetOpMagic(), op.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                    "Operation (opmagic: %d) is the end node of the subgraph, opcode should not be %s.%s",
+                    op.GetOpMagic(), op.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
         }

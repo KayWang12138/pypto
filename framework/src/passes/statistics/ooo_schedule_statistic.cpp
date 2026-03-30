@@ -32,7 +32,8 @@ void OoOSchedulerCheck::HealthCheckSpillInfo() {
         spillDetails["spillEventIdx"] = spillIdx++;
         spillDetails["spillBufferType"] = MemoryTypeToString(spillInfo.spillType);
         spillDetails["bufferCurrentUsage"] = spillInfo.bufferCurrUsage;
-        spillDetails["bufferCurrentUsageRate"] = static_cast<float>(spillInfo.bufferCurrUsage) / Platform::Instance().GetDie().GetMemoryLimit(spillInfo.spillType);
+        spillDetails["bufferCurrentUsageRate"] = static_cast<float>(spillInfo.bufferCurrUsage) /
+                                                 Platform::Instance().GetDie().GetMemoryLimit(spillInfo.spillType);
         spillDetails["bufferOccupiedByAllocSize"] = spillInfo.allocOccupiedSize;
         spillDetails["spillTensorSize"] = spillInfo.spillTensorSize;
         spillDetails["spillTensorMagic"] = spillInfo.spillTensorMagic;
@@ -67,17 +68,24 @@ Status OoOSchedulerCheck::HealthCheckOoOSchedule() {
         APASS_LOG_ERROR_F(Elements::Function, "Clock is 0, HealthCheckOoOSchedule failed!");
         return FAILED;
     }
-    pipeUsageRate["PIPE_S_Usage_Rate"] = FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_S)) / clock * percent);
-    pipeUsageRate["PIPE_V_Usage_Rate"] = FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_V)) / clock * percent);
-    pipeUsageRate["PIPE_M_Usage_Rate"] = FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_M)) / clock * percent);
-    pipeUsageRate["PIPE_MTE1_Usage_Rate"] = FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_MTE1)) / clock * percent);
-    pipeUsageRate["PIPE_MTE2_Usage_Rate"] = FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_MTE2)) / clock * percent);
-    pipeUsageRate["PIPE_MTE3_Usage_Rate"] = FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_MTE3)) / clock * percent);
-    pipeUsageRate["PIPE_FIX_Usage_Rate"] = FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_FIX)) / clock * percent);
+    pipeUsageRate["PIPE_S_Usage_Rate"] =
+        FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_S)) / clock * percent);
+    pipeUsageRate["PIPE_V_Usage_Rate"] =
+        FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_V)) / clock * percent);
+    pipeUsageRate["PIPE_M_Usage_Rate"] =
+        FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_M)) / clock * percent);
+    pipeUsageRate["PIPE_MTE1_Usage_Rate"] =
+        FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_MTE1)) / clock * percent);
+    pipeUsageRate["PIPE_MTE2_Usage_Rate"] =
+        FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_MTE2)) / clock * percent);
+    pipeUsageRate["PIPE_MTE3_Usage_Rate"] =
+        FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_MTE3)) / clock * percent);
+    pipeUsageRate["PIPE_FIX_Usage_Rate"] =
+        FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_FIX)) / clock * percent);
     report["pipeUsageRate"] = pipeUsageRate;
 
     uint64_t maxUsage = 0;
-    for (const auto& entry : pipeUsageCount) {
+    for (const auto &entry : pipeUsageCount) {
         if (entry.second > maxUsage) {
             maxUsage = entry.second;
         }
@@ -85,16 +93,26 @@ Status OoOSchedulerCheck::HealthCheckOoOSchedule() {
     report["theoreticalMinimumCycles"] = maxUsage;
     // Memory Usage
     Json memoryUsage;
-    memoryUsage["MEM_UB_Peak_Usage"] = FormatUsageRate(static_cast<double>(bufferMaxUsage.at(MemoryType::MEM_UB)) / maxUBSize * percent);
-    memoryUsage["MEM_UB_Average_Usage"] = FormatUsageRate(static_cast<double>(bufferTotalUsage.at(MemoryType::MEM_UB)) / clock / maxUBSize * percent);
-    memoryUsage["MEM_L1_Peak_Usage"] = FormatUsageRate(static_cast<double>(bufferMaxUsage.at(MemoryType::MEM_L1)) / maxL1Size * percent);
-    memoryUsage["MEM_L1_Average_Usage"] = FormatUsageRate(static_cast<double>(bufferTotalUsage.at(MemoryType::MEM_L1)) / clock / maxL1Size * percent);
-    memoryUsage["MEM_L0A_Peak_Usage"] = FormatUsageRate(static_cast<double>(bufferMaxUsage.at(MemoryType::MEM_L0A)) / maxL0ASize * percent);
-    memoryUsage["MEM_L0A_Average_Usage"] = FormatUsageRate(static_cast<double>(bufferTotalUsage.at(MemoryType::MEM_L0A)) / clock / maxL0ASize * percent);
-    memoryUsage["MEM_L0B_Peak_Usage"] = FormatUsageRate(static_cast<double>(bufferMaxUsage.at(MemoryType::MEM_L0B)) / maxL0BSize * percent);
-    memoryUsage["MEM_L0B_Average_Usage"] = FormatUsageRate(static_cast<double>(bufferTotalUsage.at(MemoryType::MEM_L0B)) / clock / maxL0BSize * percent);
-    memoryUsage["MEM_L0C_Peak_Usage"] = FormatUsageRate(static_cast<double>(bufferMaxUsage.at(MemoryType::MEM_L0C)) / maxL0CSize * percent);
-    memoryUsage["MEM_L0C_Average_Usage"] = FormatUsageRate(static_cast<double>(bufferTotalUsage.at(MemoryType::MEM_L0C)) / clock / maxL0CSize * percent);
+    memoryUsage["MEM_UB_Peak_Usage"] =
+        FormatUsageRate(static_cast<double>(bufferMaxUsage.at(MemoryType::MEM_UB)) / maxUBSize * percent);
+    memoryUsage["MEM_UB_Average_Usage"] =
+        FormatUsageRate(static_cast<double>(bufferTotalUsage.at(MemoryType::MEM_UB)) / clock / maxUBSize * percent);
+    memoryUsage["MEM_L1_Peak_Usage"] =
+        FormatUsageRate(static_cast<double>(bufferMaxUsage.at(MemoryType::MEM_L1)) / maxL1Size * percent);
+    memoryUsage["MEM_L1_Average_Usage"] =
+        FormatUsageRate(static_cast<double>(bufferTotalUsage.at(MemoryType::MEM_L1)) / clock / maxL1Size * percent);
+    memoryUsage["MEM_L0A_Peak_Usage"] =
+        FormatUsageRate(static_cast<double>(bufferMaxUsage.at(MemoryType::MEM_L0A)) / maxL0ASize * percent);
+    memoryUsage["MEM_L0A_Average_Usage"] =
+        FormatUsageRate(static_cast<double>(bufferTotalUsage.at(MemoryType::MEM_L0A)) / clock / maxL0ASize * percent);
+    memoryUsage["MEM_L0B_Peak_Usage"] =
+        FormatUsageRate(static_cast<double>(bufferMaxUsage.at(MemoryType::MEM_L0B)) / maxL0BSize * percent);
+    memoryUsage["MEM_L0B_Average_Usage"] =
+        FormatUsageRate(static_cast<double>(bufferTotalUsage.at(MemoryType::MEM_L0B)) / clock / maxL0BSize * percent);
+    memoryUsage["MEM_L0C_Peak_Usage"] =
+        FormatUsageRate(static_cast<double>(bufferMaxUsage.at(MemoryType::MEM_L0C)) / maxL0CSize * percent);
+    memoryUsage["MEM_L0C_Average_Usage"] =
+        FormatUsageRate(static_cast<double>(bufferTotalUsage.at(MemoryType::MEM_L0C)) / clock / maxL0CSize * percent);
     report["memoryUsage"] = memoryUsage;
     // Spill Info
     report["spillCount"] = spillInfoVec.size();

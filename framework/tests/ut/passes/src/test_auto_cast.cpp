@@ -48,7 +48,9 @@ TEST_F(AutoCastTest, AddBF16) {
     EXPECT_EQ(G.AddTensor(DataType::DT_BF16, {16, 16}, "t2"), true);
     EXPECT_EQ(G.AddTensor(DataType::DT_BF16, {16, 16}, "t3"), true);
     std::vector<Opcode> opCodes{Opcode::OP_ADD};
-    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1", "t2"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}};
     std::vector<std::string> opNames{"ADD"};
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
@@ -69,7 +71,10 @@ TEST_F(AutoCastTest, AddCascadeBF16) {
     EXPECT_EQ(G.AddTensor(DataType::DT_BF16, {16, 16}, "t3"), true);
     EXPECT_EQ(G.AddTensor(DataType::DT_BF16, {16, 16}, "t4"), true);
     std::vector<Opcode> opCodes{Opcode::OP_ADD, Opcode::OP_ADD};
-    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}, {"t3", "t3"}};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1", "t2"},
+        {"t3", "t3"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}};
     std::vector<std::string> opNames{"ADD1", "ADD2"};
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
@@ -111,7 +116,9 @@ TEST_F(AutoCastTest, InsertFP16Cast) {
     EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t2"), true);
     EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t3"), true);
     std::vector<Opcode> opCodes{Opcode::OP_MOD};
-    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1", "t2"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}};
     std::vector<std::string> opNames{"Fmod"};
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
@@ -132,7 +139,9 @@ TEST_F(AutoCastTest, PostCheckNormal) {
     EXPECT_EQ(G.AddTensor(DataType::DT_BF16, {16, 16}, "t2"), true);
     EXPECT_EQ(G.AddTensor(DataType::DT_BF16, {16, 16}, "t3"), true);
     std::vector<Opcode> opCodes{Opcode::OP_ADD};
-    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1", "t2"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}};
     std::vector<std::string> opNames{"ADD"};
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
@@ -150,7 +159,9 @@ TEST_F(AutoCastTest, InvalidOutputNum) {
     EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t3"), true);
     std::vector<Opcode> opCodes{Opcode::OP_CAST};
     std::vector<std::vector<std::string>> ioperands{{"t1"}};
-    std::vector<std::vector<std::string>> ooperands{{"t2", "t3"}};
+    std::vector<std::vector<std::string>> ooperands{
+        {"t2", "t3"}
+    };
     std::vector<std::string> opNames{"Cast"};
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = G.GetFunction();
@@ -167,7 +178,9 @@ TEST_F(AutoCastTest, BF16UnsupportedInput) {
     EXPECT_EQ(G2.AddTensor(DataType::DT_FP32, {16, 16}, "t2"), true);
     EXPECT_EQ(G2.AddTensor(DataType::DT_FP32, {16, 16}, "t3"), true);
     std::vector<Opcode> opCodes2{Opcode::OP_MUL};
-    std::vector<std::vector<std::string>> ioperands2{{"t1", "t2"}};
+    std::vector<std::vector<std::string>> ioperands2{
+        {"t1", "t2"}
+    };
     std::vector<std::vector<std::string>> ooperands2{{"t3"}};
     std::vector<std::string> opNames2{"MUL"};
     EXPECT_EQ(G2.AddOps(opCodes2, ioperands2, ooperands2, opNames2, true), true);
@@ -218,7 +231,9 @@ TEST_F(AutoCastTest, CastInvalidInputNum) {
     EXPECT_EQ(G.AddTensor(DataType::DT_INT32, {16, 16}, "t2"), true);
     EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t3"), true);
     std::vector<Opcode> opCodes{Opcode::OP_CAST};
-    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1", "t2"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}};
     std::vector<std::string> opNames{"Cast"};
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
@@ -255,7 +270,9 @@ TEST_F(AutoCastTest, UnsupportedBF16WithAbnormalTensor) {
     EXPECT_EQ(G.AddTensor(DataType::DT_BF16, {16, 16}, "t3"), true);
 
     std::vector<Opcode> opCodes{Opcode::OP_MUL};
-    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1", "t2"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}};
     std::vector<std::string> opNames{"Mul1"};
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
@@ -315,7 +332,9 @@ TEST_F(AutoCastTest, UnsupportedFP16Input) {
     EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t2"), true);
     std::vector<Opcode> opCodes;
     opCodes.push_back(Opcode::OP_MOD); // 关键：FP16不支持的OP
-    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}}; // t1是FP16输入
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1", "t2"}
+    }; // t1是FP16输入
     std::vector<std::vector<std::string>> ooperands{{"t2"}};
     std::vector<std::string> opNames{"Mod"};
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);

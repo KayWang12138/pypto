@@ -26,7 +26,7 @@ struct TopKParams {
     bool isLargest;
 };
 
-void TopKOnBoardFunc(TopKParams& params){
+void TopKOnBoardFunc(TopKParams &params) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     int32_t shape0 = params.shape0;
@@ -36,8 +36,8 @@ void TopKOnBoardFunc(TopKParams& params){
 
     uint64_t inputSize = shape0 * shape1 * sizeof(float);
     uint64_t outputSize = shape0 * k * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
-    uint8_t* out_ptr1 = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("TOPK") {
         std::vector<int64_t> input_shape = {shape0, shape1};
         std::vector<int64_t> output_shape = {shape0, k};
@@ -46,7 +46,7 @@ void TopKOnBoardFunc(TopKParams& params){
         TileShape::Current().SetVecTile({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         auto output = std::make_tuple(Tensor(DataType::DT_FP32, output_shape, out_ptr, "npu_val"),
-                                      Tensor(DataType::DT_FP32, output_shape, out_ptr1, "resDics"));
+            Tensor(DataType::DT_FP32, output_shape, out_ptr1, "resDics"));
 
         config::SetBuildStatic(true);
         FUNCTION("TOPK_T", {input_a, std::get<0>(output), std::get<1>(output)}) {

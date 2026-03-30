@@ -176,7 +176,8 @@ TILEOP void DynUBCopyOut(__gm__ T *dst, __ubuf__ T *src, unsigned GMS0, unsigned
     }
 }
 
-template <typename T, typename T2, unsigned src0OriShape1, unsigned src1OriShape1, unsigned src0rawShape1, unsigned cacheMode, unsigned blockSize>
+template <typename T, typename T2, unsigned src0OriShape1, unsigned src1OriShape1, unsigned src0rawShape1,
+    unsigned cacheMode, unsigned blockSize>
 TILEOP void TIndexoutcastBase(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, unsigned GmShape1) {
     for (auto i = 0; i < src1OriShape1; i++) {
         set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
@@ -197,7 +198,8 @@ TILEOP void TIndexoutcastBase(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1
             __gm__ T *new_dst = dst + blockCount * blockSize * GmShape1 + index * 32 / sizeof(T);
             set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
             wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
-            copy_ubuf_to_gm(new_dst, src0 + i * src0OriShape1, 0 /*sid*/, src0OriShape1 / 32 * sizeof(T), 1, 0, blockSize - 1);
+            copy_ubuf_to_gm(
+                new_dst, src0 + i * src0OriShape1, 0 /*sid*/, src0OriShape1 / 32 * sizeof(T), 1, 0, blockSize - 1);
         } else {
             __gm__ T *new_dst = dst + curValue * GmShape1;
             set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
@@ -209,7 +211,8 @@ TILEOP void TIndexoutcastBase(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1
 
 template <typename T, typename T2>
 TILEOP void DynTIndexoutcast(__gm__ T *dst, __ubuf__ T *src, __ubuf__ T2 *index, unsigned src1OriShape0,
-    unsigned src1OriShape1, unsigned src1rawShape1, unsigned src0OriShape3, unsigned src0rawShape1, unsigned src0rawShape3) {
+    unsigned src1OriShape1, unsigned src1rawShape1, unsigned src0OriShape3, unsigned src0rawShape1,
+    unsigned src0rawShape3) {
     unsigned b = src1OriShape0;
     unsigned s1 = src1OriShape1;
     unsigned s1_32aligned = src1rawShape1;
@@ -225,15 +228,14 @@ TILEOP void DynTIndexoutcast(__gm__ T *dst, __ubuf__ T *src, __ubuf__ T2 *index,
         for (int j = 0; j < s1; ++j) {
             int64_t idxVal = static_cast<int64_t>(*dstIdx);
             if (idxVal >= 0) {
-                curDst = dst +  *dstIdx * nd;                                        // dst [index[i][j]] [n][d]
+                curDst = dst + *dstIdx * nd; // dst [index[i][j]] [n][d]
                 set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
                 wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
-                copy_ubuf_to_gm_align_b32(
-                    curDst, curSrc, 0 /*sid*/, 1, nd * sizeof(T), 0, 0, (nd_32aligned - nd) * sizeof(T) / BLOCK_SIZE, 0);
+                copy_ubuf_to_gm_align_b32(curDst, curSrc, 0 /*sid*/, 1, nd * sizeof(T), 0, 0,
+                    (nd_32aligned - nd) * sizeof(T) / BLOCK_SIZE, 0);
                 curSrc += nd_32aligned;
                 dstIdx++;
             }
-
         }
         curSrc += (src0rawShape1 - s1) * nd_32aligned;
         dstIdx += s1_32aligned - s1;
@@ -250,8 +252,8 @@ TILEOP void DynTIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1,
         return;
     }
     if (cacheMode == 2) {
-        DynTIndexoutcast<T, T2>(dst, src0, src1, src1OriShape0, src1OriShape1, src1rawShape3,
-            src0OriShape3, src0rawShape1, src0rawShape3);
+        DynTIndexoutcast<T, T2>(
+            dst, src0, src1, src1OriShape0, src1OriShape1, src1rawShape3, src0OriShape3, src0rawShape1, src0rawShape3);
         return;
     }
     dst += CalcLinearOffset(GmShape1, GmShape2, GmShape3, Offset0, Offset1, Offset2, Offset3);
@@ -262,8 +264,8 @@ TILEOP void DynTIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1,
     int alignSrc1 = src1rawShape3;                   // 修改对 src1 的大小计算
     for (int i = 0; i < src0OriShape0; ++i) {
         for (int j = 0; j < src0OriShape1; ++j) {
-            TileOp::TIndexoutcastBase<T, T2, src0OriShape3,
-                src1OriShape1, src0rawShape3, cacheMode, blockSize>(dst, src0, src1, GmShape3);
+            TileOp::TIndexoutcastBase<T, T2, src0OriShape3, src1OriShape1, src0rawShape3, cacheMode, blockSize>(
+                dst, src0, src1, GmShape3);
         }
         src0 += alignTS2TS3;
         src1 += alignSrc1;
@@ -332,14 +334,14 @@ TILEOP void UBCopyInBase(
             }
             if (length > 0) {
                 if constexpr (sizeof(T) == 1) {
-                    copy_gm_to_ubuf_align_b8(dst + dstStartOffset + startOffset, src + startOffset, 0 /*sid*/, 1, lenBurst,
-                        0 /*left padding count*/, 0 /*right padding count*/, 0, 0);
+                    copy_gm_to_ubuf_align_b8(dst + dstStartOffset + startOffset, src + startOffset, 0 /*sid*/, 1,
+                        lenBurst, 0 /*left padding count*/, 0 /*right padding count*/, 0, 0);
                 } else if constexpr (sizeof(T) == 2) {
-                    copy_gm_to_ubuf_align_b16(dst + dstStartOffset + startOffset, src + startOffset, 0 /*sid*/, 1, lenBurst,
-                        0 /*left padding count*/, 0 /*right padding count*/, 0, 0);
+                    copy_gm_to_ubuf_align_b16(dst + dstStartOffset + startOffset, src + startOffset, 0 /*sid*/, 1,
+                        lenBurst, 0 /*left padding count*/, 0 /*right padding count*/, 0, 0);
                 } else {
-                    copy_gm_to_ubuf_align_b32(dst + dstStartOffset + startOffset, src + startOffset, 0 /*sid*/, 1, lenBurst,
-                        0 /*left padding count*/, 0 /*right padding count*/, 0, 0);
+                    copy_gm_to_ubuf_align_b32(dst + dstStartOffset + startOffset, src + startOffset, 0 /*sid*/, 1,
+                        lenBurst, 0 /*left padding count*/, 0 /*right padding count*/, 0, 0);
                 }
             }
             dstStartOffset += UBS;
@@ -631,7 +633,8 @@ TILEOP void TIndexoutcastBase(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1
             set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
             wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
 
-            copy_ubuf_to_gm(new_dst, src0 + i * src0OriShape1, 0 /*sid*/, src0OriShape1 / 32 * sizeof(T), 1, 0, blockSize - 1);//ok
+            copy_ubuf_to_gm(new_dst, src0 + i * src0OriShape1, 0 /*sid*/, src0OriShape1 / 32 * sizeof(T), 1, 0,
+                blockSize - 1); // ok
         } else {
             __gm__ T *new_dst = dst + curValue * GmShape1;
             set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
@@ -645,15 +648,15 @@ TILEOP void TIndexoutcastBase(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1
 template <typename T, typename T2, unsigned src0rawShape1, unsigned src0rawShape2, unsigned src0rawShape3,
     unsigned src1rawShape3, unsigned cacheMode, unsigned blockSize>
 TILEOP void DynTIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, unsigned src0OriShape0,
-    unsigned src0OriShape1, unsigned src0OriShape3, unsigned src1OriShape0, unsigned src1OriShape1,
-    unsigned GmShape0, unsigned GmShape1, unsigned GmShape2, unsigned GmShape3,
-    unsigned Offset0, unsigned Offset1, unsigned Offset2, unsigned Offset3) {
+    unsigned src0OriShape1, unsigned src0OriShape3, unsigned src1OriShape0, unsigned src1OriShape1, unsigned GmShape0,
+    unsigned GmShape1, unsigned GmShape2, unsigned GmShape3, unsigned Offset0, unsigned Offset1, unsigned Offset2,
+    unsigned Offset3) {
     if (src0OriShape0 == 0 || src0OriShape1 == 0 || src0OriShape3 == 0 || src1OriShape0 == 0 || src1OriShape1 == 0) {
         return;
     }
     if (cacheMode == 2) {
-        DynTIndexoutcast<T, T2>(dst, src0, src1, src1OriShape0, src1OriShape1, src1rawShape3,
-            src0OriShape3, src0rawShape1, src0rawShape3);
+        DynTIndexoutcast<T, T2>(
+            dst, src0, src1, src1OriShape0, src1OriShape1, src1rawShape3, src0OriShape3, src0rawShape1, src0rawShape3);
         return;
     }
     dst += CalcLinearOffset(GmShape1, GmShape2, GmShape3, Offset0, Offset1, Offset2, Offset3);
@@ -662,8 +665,8 @@ TILEOP void DynTIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1,
     int alignSrc1 = src1rawShape3;                   // 修改对 src1 的大小计算
     for (int i = 0; i < src0OriShape0; ++i) {
         for (int j = 0; j < src0OriShape1; ++j) {
-            TileOp::TIndexoutcastBase<T, T2, src0rawShape3, cacheMode, blockSize>
-                (dst, src0, src1, src0OriShape3, src1OriShape1, GmShape3);
+            TileOp::TIndexoutcastBase<T, T2, src0rawShape3, cacheMode, blockSize>(
+                dst, src0, src1, src0OriShape3, src1OriShape1, GmShape3);
         }
         src0 += alignTS2TS3;
         src1 += alignSrc1;
@@ -671,30 +674,20 @@ TILEOP void DynTIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1,
     }
 }
 
-template <typename T, unsigned UBS1, unsigned UBS2, unsigned UBS3, unsigned UBS4     /*dst shape*/>
-TILEOP void DynReshapeCopyIn(__ubuf__ T *dst, __gm__ T *tmp,
-    unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned T4,
-    unsigned GMS0, unsigned GMS1, unsigned GMS2, unsigned GMS3, unsigned GMS4,
-    unsigned Offset0, unsigned Offset1, unsigned Offset2, unsigned Offset3, unsigned Offset4) {
+template <typename T, unsigned UBS1, unsigned UBS2, unsigned UBS3, unsigned UBS4 /*dst shape*/>
+TILEOP void DynReshapeCopyIn(__ubuf__ T *dst, __gm__ T *tmp, unsigned T0, unsigned T1, unsigned T2, unsigned T3,
+    unsigned T4, unsigned GMS0, unsigned GMS1, unsigned GMS2, unsigned GMS3, unsigned GMS4, unsigned Offset0,
+    unsigned Offset1, unsigned Offset2, unsigned Offset3, unsigned Offset4) {
     // DynUBCopyIn
-    TileOp::DynUBCopyIn<T, UBS1, UBS2, UBS3, UBS4>(
-        dst, tmp,
-        T0, T1, T2, T3, T4,
-        T0, T1, T2, T3, T4,
-        0, 0, 0, 0, 0);
+    TileOp::DynUBCopyIn<T, UBS1, UBS2, UBS3, UBS4>(dst, tmp, T0, T1, T2, T3, T4, T0, T1, T2, T3, T4, 0, 0, 0, 0, 0);
 }
 
-template <typename T, unsigned UBS1, unsigned UBS2, unsigned UBS3, unsigned UBS4>    /*src shape*/
-TILEOP void DynReshapeCopyOut(__gm__ T *tmp, __ubuf__ T *src,
-    unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned T4,
-    unsigned GMS0, unsigned GMS1, unsigned GMS2, unsigned GMS3, unsigned GMS4,
-    unsigned Offset0, unsigned Offset1, unsigned Offset2, unsigned Offset3, unsigned Offset4) {
+template <typename T, unsigned UBS1, unsigned UBS2, unsigned UBS3, unsigned UBS4> /*src shape*/
+TILEOP void DynReshapeCopyOut(__gm__ T *tmp, __ubuf__ T *src, unsigned T0, unsigned T1, unsigned T2, unsigned T3,
+    unsigned T4, unsigned GMS0, unsigned GMS1, unsigned GMS2, unsigned GMS3, unsigned GMS4, unsigned Offset0,
+    unsigned Offset1, unsigned Offset2, unsigned Offset3, unsigned Offset4) {
     // DynUBCopyOut
-    TileOp::DynUBCopyOut<T, UBS1, UBS2, UBS3, UBS4>(
-        tmp, src,
-        T0, T1, T2, T3, T4,
-        T0, T1, T2, T3, T4,
-        0, 0, 0, 0, 0);
+    TileOp::DynUBCopyOut<T, UBS1, UBS2, UBS3, UBS4>(tmp, src, T0, T1, T2, T3, T4, T0, T1, T2, T3, T4, 0, 0, 0, 0, 0);
 }
 
 } // namespace TileOp

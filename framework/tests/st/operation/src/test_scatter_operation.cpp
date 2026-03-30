@@ -19,8 +19,8 @@ using namespace tile_fwk::test_operation;
 namespace ScatterOperation {
 struct ScatterOpFuncArgs : public OpFuncArgs {
     ScatterOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape, int axis,
-        Element &value, ScatterMode reduce) :
-        viewShape_(viewShape), tileShape_(tileShape), axis_(axis), value_(value), reduce_(reduce) {}
+        Element &value, ScatterMode reduce)
+        : viewShape_(viewShape), tileShape_(tileShape), axis_(axis), value_(value), reduce_(reduce) {}
 
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
@@ -37,10 +37,10 @@ struct ScatterOpMetaData {
     nlohmann::json test_data_;
 };
 
-// Tensor Scatter(const Tensor &src, const Tensor &idx, const Element &scalar, int axis, const std::string &reduce = "None")
+// Tensor Scatter(const Tensor &src, const Tensor &idx, const Element &scalar, int axis, const std::string &reduce =
+// "None")
 static void ScatterOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
@@ -52,7 +52,8 @@ static void ScatterOperationExeFunc2Dims(
 
         /* 根据当前Scatter实现，做tile切分时，axis轴取对应输入的axis轴的shape大小，即axis轴不做切分
          * 和设置的tileshape大小无关，以此来保证tile快内按indices的索引访问内存不会越界，其他轴可以正常切分
-         * 因此，需要保证设置的viewshape axis轴的shape大小和src的axis轴shape大小一致 viewshape dim[axis] = src dim[axis] */
+         * 因此，需要保证设置的viewshape axis轴的shape大小和src的axis轴shape大小一致 viewshape dim[axis] = src dim[axis]
+         */
         const int64_t bloop = CeilDiv(idx_firstDim, firstViewShape);
         const int64_t sloop = CeilDiv(idx_secondDim, secondViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
@@ -76,7 +77,6 @@ static void ScatterOperationExeFunc2Dims(
 
 static void ScatterOperationExeFunc2DimsNoReduceOp(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
@@ -88,7 +88,8 @@ static void ScatterOperationExeFunc2DimsNoReduceOp(
 
         /* 根据当前Scatter实现，做tile切分时，axis轴取对应输入的axis轴的shape大小，即axis轴不做切分
          * 和设置的tileshape大小无关，以此来保证tile快内按indices的索引访问内存不会越界，其他轴可以正常切分
-         * 因此，需要保证设置的viewshape axis轴的shape大小和src的axis轴shape大小一致 viewshape dim[axis] = src dim[axis] */
+         * 因此，需要保证设置的viewshape axis轴的shape大小和src的axis轴shape大小一致 viewshape dim[axis] = src dim[axis]
+         */
         const int64_t bloop = CeilDiv(idx_firstDim, firstViewShape);
         const int64_t sloop = CeilDiv(idx_secondDim, secondViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
@@ -112,7 +113,6 @@ static void ScatterOperationExeFunc2DimsNoReduceOp(
 
 static void ScatterOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
@@ -127,7 +127,8 @@ static void ScatterOperationExeFunc3Dims(
 
         /* 根据当前Scatter实现，做tile切分时，axis轴取对应输入的axis轴的shape大小，即axis轴不做切分
          * 和设置的tileshape大小无关，以此来保证tile快内按indices的索引访问内存不会越界，其他轴可以正常切分
-         * 因此，需要保证设置的viewshape axis轴的shape大小和src的axis轴shape大小一致 viewshape dim[axis] = src dim[axis] */
+         * 因此，需要保证设置的viewshape axis轴的shape大小和src的axis轴shape大小一致 viewshape dim[axis] = src dim[axis]
+         */
         const int64_t bloop = CeilDiv(idx_firstDim, firstViewShape);
         const int64_t sloop = CeilDiv(idx_secondDim, secondViewShape);
         const int64_t nloop = CeilDiv(idx_thirdDim, thirdViewShape);
@@ -137,12 +138,12 @@ static void ScatterOperationExeFunc3Dims(
                     auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
                         {std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(src_secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(src_thirdDim - nIdx * thirdViewShape, thirdViewShape) },
+                            std::min(src_thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     auto tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape},
                         {std::min(idx_firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(idx_secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(idx_thirdDim - nIdx * thirdViewShape, thirdViewShape) },
+                            std::min(idx_thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
 
                     TileShape::Current().SetVecTile(args->tileShape_);
@@ -154,7 +155,8 @@ static void ScatterOperationExeFunc3Dims(
     }
 }
 
-static void ScatterOperationExeFunc4Dims(const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+static void ScatterOperationExeFunc4Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
@@ -178,24 +180,28 @@ static void ScatterOperationExeFunc4Dims(const std::vector<Tensor> &inputs, std:
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
                     LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                        auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
-                            {std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(src_secondDim - sIdx * secondViewShape, secondViewShape),
-                                std::min(src_thirdDim - mIdx * thirdViewShape, thirdViewShape),
-                                std::min(src_fourthDim - nIdx * fourthViewShape, fourthViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
-                                nIdx * fourthViewShape});
-                        auto tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
-                            {std::min(idx_firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(idx_secondDim - sIdx * secondViewShape, secondViewShape),
-                                std::min(idx_thirdDim - mIdx * thirdViewShape, thirdViewShape),
-                                std::min(idx_fourthDim - nIdx * fourthViewShape, fourthViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
-                                nIdx * fourthViewShape});
+                        auto tileTensor0 =
+                            View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                {std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(src_secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(src_thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                    std::min(src_fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                    nIdx * fourthViewShape});
+                        auto tileTensor1 =
+                            View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                {std::min(idx_firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(idx_secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(idx_thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                    std::min(idx_fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                    nIdx * fourthViewShape});
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = Scatter(tileTensor0, tileTensor1, args->value_, args->axis_, args->reduce_);
-                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
-                            nIdx * fourthViewShape}, outputs[0]);
+                        Assemble(res,
+                            {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                nIdx * fourthViewShape},
+                            outputs[0]);
                     }
                 }
             }
@@ -206,16 +212,16 @@ static void ScatterOperationExeFunc4Dims(const std::vector<Tensor> &inputs, std:
 class ScatterOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<ScatterOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestScatter, ScatterOperationTest,
-    ::testing::ValuesIn(GetOpMetaData<ScatterOpMetaData>(
-        {ScatterOperationExeFunc2Dims, ScatterOperationExeFunc3Dims, ScatterOperationExeFunc4Dims,
-        ScatterOperationExeFunc2DimsNoReduceOp},
-        "Scatter")));
+    ::testing::ValuesIn(
+        GetOpMetaData<ScatterOpMetaData>({ScatterOperationExeFunc2Dims, ScatterOperationExeFunc3Dims,
+                                             ScatterOperationExeFunc4Dims, ScatterOperationExeFunc2DimsNoReduceOp},
+            "Scatter")));
 
 const std::map<std::string, ScatterMode> &GetScatterModeMap() {
     static const std::map<std::string, ScatterMode> scatterModeMap = {
-        {"", ScatterMode::NONE},
-        {"None", ScatterMode::NONE},
-        {"add", ScatterMode::ADD},
+        {        "",     ScatterMode::NONE},
+        {    "None",     ScatterMode::NONE},
+        {     "add",      ScatterMode::ADD},
         {"multiply", ScatterMode::MULTIPLY},
     };
     return scatterModeMap;
@@ -232,4 +238,4 @@ TEST_P(ScatterOperationTest, TestScatter) {
     testCase.args = &args;
     TestExecutor::runTest(testCase);
 }
-} // namespace
+} // namespace ScatterOperation

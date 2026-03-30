@@ -43,8 +43,9 @@ public:
 
 TEST_F(TestExpandFunction, ExpandFunctionTest) {
     PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
-        {   "RemoveRedundantReshape",  PassName::REMOVE_REDUNDANT_RESHAPE},
+    passManager.RegisterStrategy(
+        "ExpandFunctionTestStrategy", {
+                                          {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
     });
 
     std::vector<int64_t> shape{64, 64};
@@ -67,7 +68,7 @@ TEST_F(TestExpandFunction, ExpandFunctionTest) {
     Json readData = LoadJsonFile(jsonFilePath);
     Program::GetInstance().LoadJson(readData);
 
-    Function* currentFunction = Program::GetInstance().GetCurrentFunction();
+    Function *currentFunction = Program::GetInstance().GetCurrentFunction();
 
     auto opListBefore = currentFunction->Operations().DuplicatedOpList();
     int divNumBefore = 0;

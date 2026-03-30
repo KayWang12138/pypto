@@ -31,23 +31,15 @@
 
 namespace npu::tile_fwk {
 
-enum class ScheduleCoreType {
-    AIC = 0,
-    AIV = 1
-};
+enum class ScheduleCoreType { AIC = 0, AIV = 1 };
 
-enum class TargetCoreType {
-    AIC = 0,
-    AIV0 = 1,
-    AIV1 = 2,
-    UNKNOWN = 3
-};
+enum class TargetCoreType { AIC = 0, AIV0 = 1, AIV1 = 2, UNKNOWN = 3 };
 
 // 切分后的AIC或AIV子图
 class TaskNode {
 public:
-    TaskNode(const std::string &taskName, int index, ScheduleCoreType taskCoreType, int taskLatency) :
-        name(taskName), idx(index), coreType(taskCoreType), latency(taskLatency) {}
+    TaskNode(const std::string &taskName, int index, ScheduleCoreType taskCoreType, int taskLatency)
+        : name(taskName), idx(index), coreType(taskCoreType), latency(taskLatency) {}
     std::string name;
     int idx;
     ScheduleCoreType coreType;
@@ -77,12 +69,15 @@ public:
 // 用于将切分后的AIC和AIV子图调度到AIC,AIV0和AIV1核心上
 class CoreScheduler {
 public:
-    void FindEarliestSlot(std::vector<std::pair<int,int>> &timeSlot, int earliestStart, int latency, int &currentIdx, std::pair<int,int> &currentInterval);
-    void UpdateInterval(std::vector<std::pair<int,int>> &timeSlot, int &insertIdx, std::pair<int,int> &insertInterval);
+    void FindEarliestSlot(std::vector<std::pair<int, int>> &timeSlot, int earliestStart, int latency, int &currentIdx,
+        std::pair<int, int> &currentInterval);
+    void UpdateInterval(
+        std::vector<std::pair<int, int>> &timeSlot, int &insertIdx, std::pair<int, int> &insertInterval);
     std::vector<int> GetDFSTopoSeq(TaskGraph &taskGraph);
     void EFTWithInsertSchedule(TaskGraph &taskGraph, std::vector<int> &topoSeq);
     void EFTSchedule(TaskGraph &taskGraph, std::vector<int> &topoSeq);
-    void BruteForceScheduleRecursiveStep(std::vector<bool> &visited, int recursiveLevel, TaskGraph &taskGraph, std::vector<int> &topoList);
+    void BruteForceScheduleRecursiveStep(
+        std::vector<bool> &visited, int recursiveLevel, TaskGraph &taskGraph, std::vector<int> &topoList);
     void Schedule(TaskGraph &taskGraph, int bruteForceThreshold);
 };
 
@@ -111,9 +106,10 @@ public:
     void MergeTaskByTargetCoreType();
     void MarkInternalSubgraphID();
     void CombineSCC(std::vector<int> &clusterIds, std::vector<ScheduleCoreType> &clusterCoreTypes,
-        std::vector<std::set<int>> &inGraph, std::vector<std::set<int>> &outGraph, std::vector<std::vector<int>> &sccResult);
-    TaskGraph &GetTaskGraph() {return taskGraph_;}
-    std::vector<Operation*> GetMergedOperations();
+        std::vector<std::set<int>> &inGraph, std::vector<std::set<int>> &outGraph,
+        std::vector<std::vector<int>> &sccResult);
+    TaskGraph &GetTaskGraph() { return taskGraph_; }
+    std::vector<Operation *> GetMergedOperations();
     std::vector<Operation *> opList_;
     std::vector<ScheduleCoreType> opCoreTypes_;
     std::vector<std::set<int>> opInGraph_;
@@ -131,8 +127,8 @@ public:
 // 使用TarJan算法寻找强连通分量
 class StrongConnectionComponentFinder {
 public:
-    void Find(std::vector<std::set<int>> &inGraph,
-        std::vector<std::set<int>> &outGraph, std::vector<std::vector<int>> &sccResult);
+    void Find(std::vector<std::set<int>> &inGraph, std::vector<std::set<int>> &outGraph,
+        std::vector<std::vector<int>> &sccResult);
     void TarJanAlg(int idx, std::vector<std::set<int>> &outGraph, std::vector<std::vector<int>> &sccResult);
     std::vector<std::vector<int>> strongConnectionComponent_;
     int index_;

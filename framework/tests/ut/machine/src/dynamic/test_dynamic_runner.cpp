@@ -40,8 +40,7 @@ extern "C" uint32_t DynTileFwkBackendKernelServer(void *targ);
 extern "C" uint32_t StaticTileFwkBackendKernelServer(void *targ);
 class TestDynamicDeviceRunner : public testing::Test {
 public:
-    static void SetUpTestCase() {
-    }
+    static void SetUpTestCase() {}
 
     static void TearDownTestCase() {}
 
@@ -55,7 +54,8 @@ public:
     void TearDown() override {}
 };
 
-// 必须在加载 pypto server .so 的用例之前执行：ExecuteFunc 在符号未就绪时返回非 0，覆盖 pypto_aicpu_interface.cpp 中 DEV_ERROR 分支。
+// 必须在加载 pypto server .so 的用例之前执行：ExecuteFunc 在符号未就绪时返回非 0，覆盖 pypto_aicpu_interface.cpp 中
+// DEV_ERROR 分支。
 TEST_F(TestDynamicDeviceRunner, DynPyptoKernelServer_ReturnsErrorWhenKernelNotLoaded) {
     EXPECT_EQ(DynPyptoKernelServer(nullptr), 1U);
 }
@@ -66,7 +66,7 @@ TEST_F(TestDynamicDeviceRunner, DynPyptoKernelServerInit_ReturnsErrorWhenKernelN
 
 TEST_F(TestDynamicDeviceRunner, TestInitArgs) {
     auto &runner = DeviceRunner::Get();
-    [[maybe_unused]]DeviceArgs args;
+    [[maybe_unused]] DeviceArgs args;
     args.nrAic = 2;
     args.nrAiv = 2;
     args.nrValidAic = args.nrAic;
@@ -78,13 +78,13 @@ TEST_F(TestDynamicDeviceRunner, TestInitArgs) {
 
 TEST_F(TestDynamicDeviceRunner, TestDynamicRun) {
     auto &runner = npu::tile_fwk::DeviceRunner::Get();
-    [[maybe_unused]]DeviceArgs args;
+    [[maybe_unused]] DeviceArgs args;
     args.nrAic = 2;
     args.nrAiv = 2;
     runner.InitDynamicArgs(args);
-    [[maybe_unused]]npu::tile_fwk::DeviceKernelArgs taskArgs;
+    [[maybe_unused]] npu::tile_fwk::DeviceKernelArgs taskArgs;
     std::vector<uint8_t> tensorInfo(sizeof(dynamic::AiCpuArgs));
-    taskArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo.data());
+    taskArgs.inputs = reinterpret_cast<int64_t *>(tensorInfo.data());
     taskArgs.outputs = 0;
     runner.args_.nrAic = 2;
     runner.args_.nrAiv = 2;
@@ -93,7 +93,7 @@ TEST_F(TestDynamicDeviceRunner, TestDynamicRun) {
 }
 
 TEST_F(TestDynamicDeviceRunner, TestRegisterDynamicKernel) {
-    [[maybe_unused]]rtBinHandle staticHdl_;
+    [[maybe_unused]] rtBinHandle staticHdl_;
     npu::tile_fwk::DeviceRunner runner;
     runner.RegisterKernelBin(&staticHdl_);
 }
@@ -117,9 +117,9 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     config::SetOptionsNg<int64_t>("debug.runtime_debug_mode", 1);
     npu::tile_fwk::DeviceRunner::Get().InitMetaData(devKernelArgs);
     std::vector<void *> perfData;
-    Metrics *metr = static_cast<Metrics*>(malloc(sizeof(Metrics) + sizeof(TaskStat)));
+    Metrics *metr = static_cast<Metrics *>(malloc(sizeof(Metrics) + sizeof(TaskStat)));
     TaskStat taskStat;
-    taskStat.execEnd =1;
+    taskStat.execEnd = 1;
     metr->taskCount = 1;
     metr->tasks[0] = taskStat;
     metr->perfTrace[0][0][0] = 1;
@@ -129,10 +129,10 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     aicpuMetPer.perfAicpuTraceDevTask[0][0][0] = 1;
     aicpuMetPer.perfAicpuTraceDevTask[1][0][0] = 2;
     aicpuMetPer.perfAicpuTraceDevTask[2][0][0] = 3;
-    devKernelArgs.aicpuPerfAddr = npu::tile_fwk::dynamic::PtrToValue(static_cast<void*>(&aicpuMetPer));
+    devKernelArgs.aicpuPerfAddr = npu::tile_fwk::dynamic::PtrToValue(static_cast<void *>(&aicpuMetPer));
 
     for (uint64_t i = 0; i < devKernelArgs.nrAic + devKernelArgs.nrAiv; i++) {
-        perfData.push_back(static_cast<void*>(metr));
+        perfData.push_back(static_cast<void *>(metr));
     }
     npu::tile_fwk::dynamic::DumpAicoreTaskExectInfo(devKernelArgs, perfData);
     free(metr);

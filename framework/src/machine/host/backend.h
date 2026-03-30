@@ -25,16 +25,15 @@ struct Linker {
     DyndevFunctionAttribute::FunctionGroup &funcGroup_;
     DyndevFunctionAttribute::ExpressionTableDictGroup &exprTableDictGroup_;
 
-    Linker(SymbolicSymbolTable &symbolTable,
-           DyndevFunctionAttribute::FunctionGroup &funcGroup,
-           DyndevFunctionAttribute::ExpressionTableDictGroup &exprTableDictGroup)
+    Linker(SymbolicSymbolTable &symbolTable, DyndevFunctionAttribute::FunctionGroup &funcGroup,
+        DyndevFunctionAttribute::ExpressionTableDictGroup &exprTableDictGroup)
         : symbolTable_(symbolTable), funcGroup_(funcGroup), exprTableDictGroup_(exprTableDictGroup) {}
 
-    void AddSymbol(SymbolicScalar &ss) {
-        symbolTable_.AddSymbol(ss);
-    }
+    void AddSymbol(SymbolicScalar &ss) { symbolTable_.AddSymbol(ss); }
 
-    const DyndevFunctionAttribute::ExpressionTableDictGroup &GetExpressionTableDictGroup() const { return exprTableDictGroup_; }
+    const DyndevFunctionAttribute::ExpressionTableDictGroup &GetExpressionTableDictGroup() const {
+        return exprTableDictGroup_;
+    }
     DyndevFunctionAttribute::ExpressionTableDictGroup &GetExpressionTableDictGroup() { return exprTableDictGroup_; }
 
     static std::string GetTitle(Function *func) {
@@ -42,7 +41,7 @@ struct Linker {
         return title;
     }
 
-    void AddPrimaryExpressionForLoopBes(Function*func, const SymbolicScalar &ss) {
+    void AddPrimaryExpressionForLoopBes(Function *func, const SymbolicScalar &ss) {
         AddSymbolFromExpression(ss);
 
         auto funcKey = funcGroup_.loopList.InsertAndGetIndex(func);
@@ -93,9 +92,9 @@ struct Linker {
     }
 
     void SetMainBlockExpressionForDevRootCoa(Function *func, const SymbolicScalar &ss) {
- 	    auto &exprTable = exprTableDictGroup_.devRootCoaDict[func];
- 	    exprTable.mainBlockScalar_ = ss;
- 	}
+        auto &exprTable = exprTableDictGroup_.devRootCoaDict[func];
+        exprTable.mainBlockScalar_ = ss;
+    }
 
     SymbolicExpressionTable *LookupDevRootCoa(Function *func) {
         if (exprTableDictGroup_.devRootCoaDict.count(func)) {
@@ -105,14 +104,10 @@ struct Linker {
         }
     }
 
-    SymbolicSymbolTable *GetSymbolTable() {
-        return &symbolTable_;
-    }
+    SymbolicSymbolTable *GetSymbolTable() { return &symbolTable_; }
 
 private:
-    void AddSymbolFromExpression(const SymbolicScalar &ss) {
-        symbolTable_.AddSymbolFromExpression(ss);
-    }
+    void AddSymbolFromExpression(const SymbolicScalar &ss) { symbolTable_.AddSymbolFromExpression(ss); }
 };
 
 // Force link library compiler as nothing depends on it.
@@ -122,4 +117,4 @@ struct ValDependTensorMeta {
     std::unordered_map<std::string, bool> tensorNameToDependCore;
     std::unordered_map<RawSymbolicScalarPtr, bool> valDependMap;
 };
-}
+} // namespace npu::tile_fwk

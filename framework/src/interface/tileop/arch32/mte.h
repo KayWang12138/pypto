@@ -140,7 +140,8 @@ TILEOP void TIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1) {
             __gm__ T *new_dst = dst + blockCount * blockSize * GmShape1 + index * 32 / sizeof(T);
             set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
             wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
-            copy_ubuf_to_gm(new_dst, src0 + i * src0OriShape1, 0 /*sid*/, src0OriShape1 / 32 * sizeof(T), 1, 0, blockSize - 1);
+            copy_ubuf_to_gm(
+                new_dst, src0 + i * src0OriShape1, 0 /*sid*/, src0OriShape1 / 32 * sizeof(T), 1, 0, blockSize - 1);
         } else {
             __gm__ T *new_dst = dst + curValue * GmShape1;
             set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
@@ -155,9 +156,9 @@ template <typename T, typename T2, unsigned src1OriShape0, unsigned src1OriShape
 TILEOP void TIndexoutcast(__gm__ T *dst, __ubuf__ T *src, __ubuf__ T2 *index) {
     constexpr unsigned b = src1OriShape0;
     constexpr unsigned s1 = src1OriShape1;
-    constexpr unsigned s1_32aligned = src1rawShape1;  // 倒数第5个 4
+    constexpr unsigned s1_32aligned = src1rawShape1; // 倒数第5个 4
     constexpr unsigned nd = src0OriShape3;
-    constexpr unsigned nd_32aligned = src0rawShape3;  // 倒数第七个 32
+    constexpr unsigned nd_32aligned = src0rawShape3; // 倒数第七个 32
 
     set_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
@@ -166,7 +167,7 @@ TILEOP void TIndexoutcast(__gm__ T *dst, __ubuf__ T *src, __ubuf__ T2 *index) {
     __ubuf__ T *curSrc = src;
     for (int i = 0; i < b; ++i) {
         for (int j = 0; j < s1; ++j) {
-            curDst = dst +  *dstIdx * nd;                                        // dst [index[i][j]] [n][d]
+            curDst = dst + *dstIdx * nd; // dst [index[i][j]] [n][d]
             set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
             wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
             copy_ubuf_to_gm_align_b32(
@@ -182,12 +183,12 @@ TILEOP void TIndexoutcast(__gm__ T *dst, __ubuf__ T *src, __ubuf__ T2 *index) {
 // src1=index [1,2] , src0: [TShape0,TShape1,TShape2,TShape3],  dst [GmShape0,GmShape1,GmShape2,GmShape3]
 template <typename T, typename T2, unsigned src0OriShape0, unsigned src0OriShape1, unsigned src0OriShape3,
     unsigned src0rawShape1, unsigned src0rawShape2, unsigned src0rawShape3, unsigned src1OriShape0,
-    unsigned src1OriShape1, unsigned src1rawShape3, unsigned GmShape2, unsigned GmShape3,
-    unsigned cacheMode, unsigned blockSize>
+    unsigned src1OriShape1, unsigned src1rawShape3, unsigned GmShape2, unsigned GmShape3, unsigned cacheMode,
+    unsigned blockSize>
 TILEOP void TIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1) {
     if (cacheMode == 2) {
-        TIndexoutcast<T, T2, src1OriShape0, src1OriShape1, src1rawShape3,
-            src0OriShape3, src0rawShape1, src0rawShape3, cacheMode>(dst, src0, src1);
+        TIndexoutcast<T, T2, src1OriShape0, src1OriShape1, src1rawShape3, src0OriShape3, src0rawShape1, src0rawShape3,
+            cacheMode>(dst, src0, src1);
         return;
     }
     static_assert(src0OriShape1 == 1, "src0OriShape1 now only support 1");
@@ -196,8 +197,8 @@ TILEOP void TIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1) {
     int alignSrc1 = src1rawShape3;                   // 修改对 src1 的大小计算
     for (int i = 0; i < src0OriShape0; ++i) {
         for (int j = 0; j < src0OriShape1; ++j) {
-            TileOp::TIndexoutcast<T, T2, src0OriShape3, src1OriShape1, GmShape3,
-                src0rawShape3, cacheMode, blockSize>(dst, src0, src1);
+            TileOp::TIndexoutcast<T, T2, src0OriShape3, src1OriShape1, GmShape3, src0rawShape3, cacheMode, blockSize>(
+                dst, src0, src1);
         }
         src0 += alignTS2TS3;
         src1 += alignSrc1;
@@ -229,18 +230,19 @@ TILEOP void Load(__ubuf__ T1 *dst, __gm__ T1 *src, __ubuf__ T2 *offsets, int64_t
 }
 
 template <typename T1, typename T2, int64_t rawShape1, int64_t rawShape2>
-TILEOP void Load(__ubuf__ T1 *dst, __gm__ T1 *src, __ubuf__ T2 *offsets, int64_t originShape0, int64_t originShape1, int64_t originShape2) {
+TILEOP void Load(__ubuf__ T1 *dst, __gm__ T1 *src, __ubuf__ T2 *offsets, int64_t originShape0, int64_t originShape1,
+    int64_t originShape2) {
     static_assert(std::is_same_v<T2, int32_t> || std::is_same_v<T2, int64_t>);
     pipe_barrier(PIPE_ALL);
     if (rawShape1 == originShape1 && rawShape2 == originShape2) {
         int64_t total = originShape0 * originShape1 * originShape2;
-        for (int64_t i = 0; i < total; i ++) {
+        for (int64_t i = 0; i < total; i++) {
             dst[i] = src[offsets[i]];
         }
     } else {
         int64_t idx = 0;
-        for (int64_t i = 0; i < originShape0; i ++) {
-            for (int64_t j = 0; j < originShape1; j ++) {
+        for (int64_t i = 0; i < originShape0; i++) {
+            for (int64_t j = 0; j < originShape1; j++) {
                 for (int64_t k = 0; k < originShape2; k++) {
                     dst[idx] = src[offsets[idx]];
                     idx++;

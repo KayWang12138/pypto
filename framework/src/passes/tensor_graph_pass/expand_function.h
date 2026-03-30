@@ -28,6 +28,7 @@ public:
     ~ExpandFunction() override = default;
     Status DefaultEnabledPreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
+
 private:
     Status RunOnFunction(Function &function) override;
     Status Expandfunction(Function &function) const;
@@ -39,5 +40,5 @@ private:
     mutable std::unordered_map<int, std::unordered_set<CoreType>> scopeMap_;
     static const std::unordered_set<Opcode> kNotNeedExpandOps;
 };
-}
+} // namespace npu::tile_fwk
 #endif // PASS_EXPAND_FUNCTION_H_

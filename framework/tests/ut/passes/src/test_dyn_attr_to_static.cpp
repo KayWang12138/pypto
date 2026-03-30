@@ -47,34 +47,39 @@ public:
 
 struct TempDirCleanup {
     std::string path;
-    TempDirCleanup(const std::string& p) : path(p) {}
+    TempDirCleanup(const std::string &p) : path(p) {}
     ~TempDirCleanup() { (void)!system(("rm -rf " + path).c_str()); }
 };
 
-void CountFilesByExtension(const std::string& dir, size_t& jsonCnt, size_t& tifwkgrCnt) {
+void CountFilesByExtension(const std::string &dir, size_t &jsonCnt, size_t &tifwkgrCnt) {
     jsonCnt = 0;
     tifwkgrCnt = 0;
-    DIR* dirp = opendir(dir.c_str());
-    if (dirp == nullptr) return;
-    struct dirent* entry;
+    DIR *dirp = opendir(dir.c_str());
+    if (dirp == nullptr)
+        return;
+    struct dirent *entry;
     while ((entry = readdir(dirp)) != nullptr) {
-        if (entry->d_type != DT_REG) continue;
+        if (entry->d_type != DT_REG)
+            continue;
         std::string filename = entry->d_name;
         size_t pos = filename.rfind('.');
-        if (pos == std::string::npos) continue;
+        if (pos == std::string::npos)
+            continue;
         std::string ext = filename.substr(pos);
-        if (ext == ".json") jsonCnt++;
-        else if (ext == ".tifwkgr") tifwkgrCnt++;
+        if (ext == ".json")
+            jsonCnt++;
+        else if (ext == ".tifwkgr")
+            tifwkgrCnt++;
     }
     closedir(dirp);
 }
 
 const std::string LEFT_BRACKER = "(";
 
-bool VerifyNewMacroExpr(std::reference_wrapper<SymbolicScalar>& dynScalar) {
+bool VerifyNewMacroExpr(std::reference_wrapper<SymbolicScalar> &dynScalar) {
     std::string dynParamExpr = SymbolicExpressionTable::BuildExpression(dynScalar);
     // COA类型宏格式是"(RUNTIME_GET_COA_XXX("
-    if (dynParamExpr.find(COA_PREFIX) != 1) {// 只保留COA类型宏，进行下一步检查
+    if (dynParamExpr.find(COA_PREFIX) != 1) { // 只保留COA类型宏，进行下一步检查
         return true;
     }
 
@@ -125,8 +130,8 @@ TEST_F(DynAttrToStaticTest, TestGetTensorData) {
         LOOP("loop", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             Tensor t0 = Add(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
-            SymbolicScalar v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
-            SymbolicScalar v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
+            SymbolicScalar v0 = GetTensorData(t0, {0, 1});          // t0[0, 1] -> 0 * n + 1 + 2 -> 3
+            SymbolicScalar v1 = GetTensorData(t0, {0, 2});          // t0[0, 2] -> 0 * n + 2 + 2 -> 4
             auto t2 = View(inputC, {n, n}, {0, v0 * n});
             auto t3 = View(inputC, {n, n}, {0, v1 * n});
             output = Mul(t2, t3);
@@ -134,7 +139,7 @@ TEST_F(DynAttrToStaticTest, TestGetTensorData) {
     }
 
     // Call the pass
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_test_coa");
+    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_test_coa");
     npu::tile_fwk::DynAttrToStatic passDynAttrToStatic;
     passDynAttrToStatic.RunOnFunction(*func);
 
@@ -144,15 +149,16 @@ TEST_F(DynAttrToStaticTest, TestGetTensorData) {
 #else
     std::string loopPathFuncName = "TENSOR_loop_Unroll1_PATH0";
 #endif
-    Function* loopPathFunc = Program::GetInstance().GetFunctionByRawName(loopPathFuncName);
-    Function* rootFunc = loopPathFunc->rootFunc_;
+    Function *loopPathFunc = Program::GetInstance().GetFunctionByRawName(loopPathFuncName);
+    Function *rootFunc = loopPathFunc->rootFunc_;
     ASSERT_NE(rootFunc, nullptr);
     for (auto it = rootFunc->programs_.begin(); it != rootFunc->programs_.end(); it++) {
-        Function* leafFunc = it->second;
+        Function *leafFunc = it->second;
         auto operationViewer = leafFunc->Operations(false);
         for (size_t j = 0; j < operationViewer.size(); j++) {
             auto &op = operationViewer[j];
-            std::vector<std::reference_wrapper<SymbolicScalar>> dynScalarList = passDynAttrToStatic.GetOpDynamicAttributeList(op);
+            std::vector<std::reference_wrapper<SymbolicScalar>> dynScalarList =
+                passDynAttrToStatic.GetOpDynamicAttributeList(op);
             for (auto dynScalar : dynScalarList) {
                 EXPECT_EQ(VerifyNewMacroExpr(dynScalar), true);
             }
@@ -171,8 +177,7 @@ TEST_F(DynAttrToStaticTest, TestSetTensorData) {
         outputGolden[i] = i;
     }
 
-    ProgramData::GetInstance().AppendInputs({
-    });
+    ProgramData::GetInstance().AppendInputs({});
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
     });
@@ -188,7 +193,7 @@ TEST_F(DynAttrToStaticTest, TestSetTensorData) {
     }
 
     // Call the pass
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_test_coa");
+    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_test_coa");
     npu::tile_fwk::DynAttrToStatic passDynAttrToStatic;
     passDynAttrToStatic.RunOnFunction(*func);
 
@@ -198,15 +203,16 @@ TEST_F(DynAttrToStaticTest, TestSetTensorData) {
 #else
     std::string loopPathFuncName = "TENSOR_Step1_Unroll1_PATH0";
 #endif
-    Function* loopPathFunc = Program::GetInstance().GetFunctionByRawName(loopPathFuncName);
-    Function* rootFunc = loopPathFunc->rootFunc_;
+    Function *loopPathFunc = Program::GetInstance().GetFunctionByRawName(loopPathFuncName);
+    Function *rootFunc = loopPathFunc->rootFunc_;
     ASSERT_NE(rootFunc, nullptr);
     for (auto it = rootFunc->programs_.begin(); it != rootFunc->programs_.end(); it++) {
-        Function* leafFunc = it->second;
+        Function *leafFunc = it->second;
         auto operationViewer = leafFunc->Operations(false);
         for (size_t j = 0; j < operationViewer.size(); j++) {
             auto &op = operationViewer[j];
-            std::vector<std::reference_wrapper<SymbolicScalar>> dynScalarList = passDynAttrToStatic.GetOpDynamicAttributeList(op);
+            std::vector<std::reference_wrapper<SymbolicScalar>> dynScalarList =
+                passDynAttrToStatic.GetOpDynamicAttributeList(op);
             for (auto dynScalar : dynScalarList) {
                 EXPECT_EQ(VerifyNewMacroExpr(dynScalar), true);
             }
@@ -242,7 +248,7 @@ TEST_F(DynAttrToStaticTest, TestDynExpression) {
     }
 
     // Call the pass
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_test_coa");
+    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_test_coa");
     npu::tile_fwk::DynAttrToStatic passDynAttrToStatic;
     passDynAttrToStatic.RunOnFunction(*func);
 
@@ -252,14 +258,14 @@ TEST_F(DynAttrToStaticTest, TestDynExpression) {
 #else
     std::string loopPathFuncName = "TENSOR_L0_Unroll1_PATH0";
 #endif
-    Function* loopPathFunc = Program::GetInstance().GetFunctionByRawName(loopPathFuncName);
-    Function* rootFunc = loopPathFunc->rootFunc_;
+    Function *loopPathFunc = Program::GetInstance().GetFunctionByRawName(loopPathFuncName);
+    Function *rootFunc = loopPathFunc->rootFunc_;
     ASSERT_NE(rootFunc, nullptr);
     for (auto it = rootFunc->programs_.begin(); it != rootFunc->programs_.end(); it++) {
-        Function* leafFunc = it->second;
+        Function *leafFunc = it->second;
         for (const auto &dynParam : leafFunc->GetDynParamTable()) {
             if (dynParam.second.replacedSymbol.empty() && dynParam.second.dim.IsValid()) {
-                std::reference_wrapper<SymbolicScalar> dynExpr = const_cast<SymbolicScalar&>(dynParam.second.dim);
+                std::reference_wrapper<SymbolicScalar> dynExpr = const_cast<SymbolicScalar &>(dynParam.second.dim);
                 EXPECT_EQ(VerifyNewMacroExpr(dynExpr), true);
             }
         }
@@ -329,15 +335,17 @@ TEST_F(DynAttrToStaticTest, IntBasicCases) {
     EXPECT_TRUE(checker.RegisterCall({SymbolicScalar(5), SymbolicScalar(6), SymbolicScalar(5)}));
     allGroups = checker.GetAllConsistentIndexGroups();
     ASSERT_EQ(allGroups.size(), 1);
-    std::vector<std::vector<size_t>> groups = {{0,1}, {2}};
+    std::vector<std::vector<size_t>> groups = {
+        {0, 1},
+        {2}
+    };
     std::string output = checker.PrintIndexGroups(groups);
-    std::string expected =
-        "\nALL Consistent Index Group:  {\n"
-        "Consistent Index Group: 1{0, 1, }"
-        "\n"
-        "Consistent Index Group: 2{2, }"
-        "\n"
-        "}";
+    std::string expected = "\nALL Consistent Index Group:  {\n"
+                           "Consistent Index Group: 1{0, 1, }"
+                           "\n"
+                           "Consistent Index Group: 2{2, }"
+                           "\n"
+                           "}";
     EXPECT_EQ(output, expected);
 }
 
@@ -358,7 +366,7 @@ TEST_F(DynAttrToStaticTest, DumpAndPrintFunction) {
             }
         }
     }
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_test_dump_and_print");
+    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_test_dump_and_print");
     ASSERT_NE(func, nullptr);
     npu::tile_fwk::DynAttrToStatic passDynAttrToStatic;
     std::string dir = "/tmp/dyn_attr_to_static_test" + std::to_string(::getpid());

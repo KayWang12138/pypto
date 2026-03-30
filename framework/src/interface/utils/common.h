@@ -617,17 +617,8 @@ const std::string A_MUL_B_COPY_IN_MODE = OP_ATTR_PREFIX + "copy_in_mode";
 
 enum class CopyInMode : int64_t { ND2ND = 0, ND2NZ = 1, NZ2NZ = 2, DN2NZ = 3 };
 
-enum class CopyOutMode : int64_t {
-    NZ2ND = 0,
-    NZ2NZ = 1,
-    ND2ND = 2,
-    NZ2DN = 3
-};
+enum class CopyOutMode : int64_t { NZ2ND = 0, NZ2NZ = 1, ND2ND = 2, NZ2DN = 3 };
 
-enum class PaddingMode : int64_t {
-    NO_PADDING = 0,
-    PADDING_OUTER = 1,
-    PADDING_INNER = 2
-};
+enum class PaddingMode : int64_t { NO_PADDING = 0, PADDING_OUTER = 1, PADDING_INNER = 2 };
 } // namespace Matrix
 } // namespace npu::tile_fwk

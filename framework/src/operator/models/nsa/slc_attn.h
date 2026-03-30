@@ -32,11 +32,13 @@ struct SaTileShapeConfig {
     std::array<int, TILE_VEC_DIMS> v2TileShape;
 };
 
-void SlcAttn(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc, const Tensor &vSlc, const Tensor &kvSlcActSeqs, int nQ, int nKv,
-    float softmaxScale, Tensor &attentionOut, SaTileShapeConfig tileConfig={});
+void SlcAttn(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc, const Tensor &vSlc,
+    const Tensor &kvSlcActSeqs, int nQ, int nKv, float softmaxScale, Tensor &attentionOut,
+    SaTileShapeConfig tileConfig = {});
 
-void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc, const Tensor &vSlc, const Tensor &kvSlcActSeqs, int nQ, int nKv,
-    float softmaxScale, Tensor &attentionOut, SaTileShapeConfig tileConfig={});
+void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc, const Tensor &vSlc,
+    const Tensor &kvSlcActSeqs, int nQ, int nKv, float softmaxScale, Tensor &attentionOut,
+    SaTileShapeConfig tileConfig = {});
 
 } // namespace npu::tile_fwk
 

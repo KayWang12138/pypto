@@ -41,7 +41,7 @@ struct ExecuteOperationContext {
     std::string Dump() const;
 };
 
-using Funcs = std::function<void(ExecuteOperationContext*)>;
+using Funcs = std::function<void(ExecuteOperationContext *)>;
 
 class OperationInterpreter {
 public:
@@ -52,14 +52,14 @@ public:
     ScalarImmediateType EvaluateSymbolicScalar(const SymbolicScalar &ss) {
         return evaluateSymbol->EvaluateSymbolicScalar(ss);
     }
-    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset,
-            const std::vector<SymbolicScalar> &linearArgList = {}) {
+    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset,
+        const std::vector<SymbolicScalar> &dynOffset, const std::vector<SymbolicScalar> &linearArgList = {}) {
         return evaluateSymbol->EvaluateOffset(offset, dynOffset, linearArgList);
     }
     std::vector<int64_t> EvaluateOpImmediate(FunctionFrame *frame, const std::vector<OpImmediate> &opImmList);
 
-    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape,
-            const std::vector<SymbolicScalar> &linearArgList = {}) {
+    std::vector<int64_t> EvaluateValidShape(
+        const std::vector<SymbolicScalar> &dynValidShape, const std::vector<SymbolicScalar> &linearArgList = {}) {
         return evaluateSymbol->EvaluateValidShape(dynValidShape, linearArgList);
     }
 
@@ -71,6 +71,7 @@ public:
     static void RegisterFunc(const Opcode opcode, Funcs func) {
         operationInterpreterFuncs_()[opcode] = std::move(func);
     }
+
 private:
     // 调用场景对应的函数 CallOperationInterpreterFunc
     void CallOperationInterpreterFunc(ExecuteOperationContext *ctx) {
@@ -80,8 +81,7 @@ private:
             it->second(ctx);
         } else {
             ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false)
-                << "opcode [" << ctx->op->GetOpcodeStr()
-                << "]'s torch interface implementation is not registered";
+                << "opcode [" << ctx->op->GetOpcodeStr() << "]'s torch interface implementation is not registered";
         }
     }
 
@@ -99,7 +99,7 @@ private:
         return result;
     }
 
-    static std::unordered_map<Opcode, Funcs>& operationInterpreterFuncs_() {
+    static std::unordered_map<Opcode, Funcs> &operationInterpreterFuncs_() {
         static std::unordered_map<Opcode, Funcs> instance;
         return instance;
     }
@@ -110,14 +110,12 @@ private:
 // LogTensorList 用於在執行 Operation 出錯時打印張量資訊
 void LogTensorList(const char *role, Operation *op, const LogicalTensors &tensors);
 
-#define REGISTER_CALC_OP(OpCoreStr, OpType, FuncName) \
-class OpCoreStr##ClacOpRegister { \
-public: \
-    OpCoreStr##ClacOpRegister() { \
-        OperationInterpreter::RegisterFunc(OpType, FuncName); \
-    } \
-}; \
-static OpCoreStr##ClacOpRegister OpCoreStr##_calcop_register
+#define REGISTER_CALC_OP(OpCoreStr, OpType, FuncName)                                         \
+    class OpCoreStr##ClacOpRegister {                                                         \
+    public:                                                                                   \
+        OpCoreStr##ClacOpRegister() { OperationInterpreter::RegisterFunc(OpType, FuncName); } \
+    };                                                                                        \
+    static OpCoreStr##ClacOpRegister OpCoreStr##_calcop_register
 
 #undef CASE_DATA_TYPE_DIS
 #undef CASE_DATA_TYPE

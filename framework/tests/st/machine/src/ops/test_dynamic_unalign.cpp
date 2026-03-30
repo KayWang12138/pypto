@@ -50,8 +50,11 @@ void TestLoopTailBlock(const Tensor &t0, const Tensor &blockTable, Tensor &out, 
 TEST_F(DynamicUnalignTest, TestTailBlock) {
     int s = 64;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
-    Tensor blockTable{DT_INT32, {n, 1}, "blockTable"};
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [32*8, 32]
+    Tensor blockTable{
+        DT_INT32, {n, 1},
+         "blockTable"
+    };
     Tensor out(DT_FP32, {n * s, s}, "out");
     TestLoopTailBlock(t0, blockTable, out, s);
 
@@ -61,7 +64,7 @@ TEST_F(DynamicUnalignTest, TestTailBlock) {
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(t0, 1.0),
-        RawTensorData::CreateTensor<int>(blockTable, tblData),  // value: [0,1,2,...,7]
+        RawTensorData::CreateTensor<int>(blockTable, tblData), // value: [0,1,2,...,7]
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
@@ -169,7 +172,7 @@ TEST_F(DynamicUnalignTest, test_mm_unalign) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.005f));
-// #endif
+    // #endif
 }
 
 TEST_F(DynamicUnalignTest, test_mm2_unalign) {
@@ -184,7 +187,7 @@ TEST_F(DynamicUnalignTest, test_mm2_unalign) {
     int d = 64;
 
     std::vector<int64_t> qShape = {b * nq * s1, nk * s2}; // {32, 128}
-    std::vector<int64_t> kShape = {b * nk * s2, d}; // 128 64
+    std::vector<int64_t> kShape = {b * nk * s2, d};       // 128 64
 
     std::vector<int64_t> outShape = {b * nq * s1, d};
 
@@ -233,7 +236,7 @@ TEST_F(DynamicUnalignTest, test_mm2_unalign) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.005f));
-// #endif
+    // #endif
 }
 
 TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
@@ -243,8 +246,8 @@ TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
     int b = 1;
     int nTile = 32;
     int blockSize = 256;
-    std::vector<int64_t> qShape = {b * nTile , blockSize};
-    std::vector<int64_t> outshape = {b * nTile , 1};
+    std::vector<int64_t> qShape = {b * nTile, blockSize};
+    std::vector<int64_t> outshape = {b * nTile, 1};
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
@@ -334,7 +337,6 @@ TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
         }
     }
 
-
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
@@ -361,11 +363,9 @@ TEST_F(DynamicUnalignTest, test_unary_unalign) {
         int offset = bidx * sq * d;
         std::fill(golden.begin() + offset, golden.begin() + offset + actSeqsData[bidx] * d, exp(1.0));
     }
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(q, 1.0),
-        RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsData),
-        RawTensorData::CreateConstantTensor<float>(out, 0.001f)
-    });
+    ProgramData::GetInstance().AppendInputs(
+        {RawTensorData::CreateConstantTensor<float>(q, 1.0), RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsData),
+            RawTensorData::CreateConstantTensor<float>(out, 0.001f)});
 
     ProgramData::GetInstance().AppendGoldens({
         RawTensorData::CreateTensor<float>(out, golden),

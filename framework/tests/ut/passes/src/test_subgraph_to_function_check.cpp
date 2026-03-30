@@ -35,15 +35,17 @@ using namespace std;
 
 static const std::vector<int64_t> kShape88 = {8, 8};
 
-static void RunPreCheckTest(const std::string& funcName, Opcode opcode,
-    const std::vector<std::string>& iops, const std::vector<std::string>& oops, const std::string& opName,
-    int opSubGraphId, int totalSubGraphCount, Status expectedStatus) {
+static void RunPreCheckTest(const std::string &funcName, Opcode opcode, const std::vector<std::string> &iops,
+    const std::vector<std::string> &oops, const std::string &opName, int opSubGraphId, int totalSubGraphCount,
+    Status expectedStatus) {
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     auto f = std::make_shared<Function>(Program::GetInstance(), funcName, funcName, nullptr);
     Program::GetInstance().InsertFuncToFunctionMap(funcName, f);
     ComputationalGraphBuilder G(f.get());
-    for (const auto& t : iops) EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, t));
-    for (const auto& t : oops) EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, t));
+    for (const auto &t : iops)
+        EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, t));
+    for (const auto &t : oops)
+        EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, t));
     EXPECT_TRUE(G.AddOp(opcode, iops, oops, opName));
     G.GetOp(opName)->UpdateSubgraphID(opSubGraphId);
     G.GetFunction()->SetTotalSubGraphCount(totalSubGraphCount);
@@ -51,16 +53,14 @@ static void RunPreCheckTest(const std::string& funcName, Opcode opcode,
     EXPECT_EQ(checker.DoPreCheck(*G.GetFunction()), expectedStatus);
 }
 
-static void RunColorOutGraphCheckTest(const std::string& funcName,
-    const std::vector<std::vector<int>>& colorInGraph,
-    const std::vector<std::vector<int>>& colorOutGraph,
-    Status expectedPostCheckStatus,
-    bool threeOpFork = false) {
+static void RunColorOutGraphCheckTest(const std::string &funcName, const std::vector<std::vector<int>> &colorInGraph,
+    const std::vector<std::vector<int>> &colorOutGraph, Status expectedPostCheckStatus, bool threeOpFork = false) {
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     auto f = std::make_shared<Function>(Program::GetInstance(), funcName, funcName, nullptr);
     Program::GetInstance().InsertFuncToFunctionMap(funcName, f);
     ComputationalGraphBuilder G(f.get());
-    for (const auto& t : {"a", "b", "c"}) EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, t));
+    for (const auto &t : {"a", "b", "c"})
+        EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, t));
     EXPECT_TRUE(G.AddOp(Opcode::OP_ADD, {"a"}, {"b"}, "add1"));
     EXPECT_TRUE(G.AddOp(Opcode::OP_ADD, {"b"}, {"c"}, "add2"));
     if (threeOpFork) {
@@ -74,8 +74,10 @@ static void RunColorOutGraphCheckTest(const std::string& funcName,
     G.GetTensor("a")->subGraphID = G.GetTensor("b")->subGraphID = 0;
     G.GetTensor("c")->subGraphID = 1;
     G.GetTensor("b")->isSubGraphBoundary = true;
-    for (const auto& t : {"a", "b", "c"}) G.GetTensor(t)->SetMemoryTypeBoth(MemoryType::MEM_UB);
-    if (threeOpFork) G.GetTensor("d")->SetMemoryTypeBoth(MemoryType::MEM_UB);
+    for (const auto &t : {"a", "b", "c"})
+        G.GetTensor(t)->SetMemoryTypeBoth(MemoryType::MEM_UB);
+    if (threeOpFork)
+        G.GetTensor("d")->SetMemoryTypeBoth(MemoryType::MEM_UB);
     G.GetFunction()->SetTotalSubGraphCount(threeOpFork ? 3 : 2);
     G.GetFunction()->SetFunctionType(FunctionType::STATIC);
     SubGraphToFuncChecker checker;
@@ -158,13 +160,14 @@ TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphTopo_SubGraphIdOutOfRange_Fail)
     RunPreCheckTest("OutOfRangeTest", Opcode::OP_ADD, {"a"}, {"b"}, "add_op", 1, 1, FAILED);
 }
 
-static void RunPreCheck2OpTest(const std::string& funcName,
-    int add1SgId, int add2SgId, int totalSubGraphCount, Status expectedStatus) {
+static void RunPreCheck2OpTest(
+    const std::string &funcName, int add1SgId, int add2SgId, int totalSubGraphCount, Status expectedStatus) {
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     auto f = std::make_shared<Function>(Program::GetInstance(), funcName, funcName, nullptr);
     Program::GetInstance().InsertFuncToFunctionMap(funcName, f);
     ComputationalGraphBuilder G(f.get());
-    for (const auto& t : {"a", "b", "c"}) EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, t));
+    for (const auto &t : {"a", "b", "c"})
+        EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, t));
     EXPECT_TRUE(G.AddOp(Opcode::OP_ADD, {"a"}, {"b"}, "add1"));
     EXPECT_TRUE(G.AddOp(Opcode::OP_ADD, {"b"}, {"c"}, "add2"));
     G.GetOp("add1")->UpdateSubgraphID(add1SgId);
@@ -180,7 +183,9 @@ TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphTopo_ParentSubGraphIdGreater_Fa
 
 TEST_F(SubgraphToFunctionCheckTest, InAndOutGraphConsistencyCheck_ParentSeqNoExceeds_Fail) {
     SubGraphToFuncChecker checker;
-    std::vector<std::vector<size_t>> inGraph = {{0, 0}};
+    std::vector<std::vector<size_t>> inGraph = {
+        {0, 0}
+    };
     std::vector<std::vector<size_t>> outGraph = {{0}};
     EXPECT_NE(checker.InAndOutGraphConsistencyCheck(inGraph, outGraph), SUCCESS);
 }
@@ -197,5 +202,12 @@ TEST_F(SubgraphToFunctionCheckTest, ColorOutGraphCheck_EdgeMissedInColorOutGraph
 }
 
 TEST_F(SubgraphToFunctionCheckTest, ColorOutGraphCheck_EdgeInColorNotInOutGraph_Fail) {
-    RunColorOutGraphCheckTest("ColorTest_EdgeInColor", {{}, {0}, {0}, {0}}, {{1, 2, 3}, {}, {}, {}}, FAILED, true);
+    RunColorOutGraphCheckTest("ColorTest_EdgeInColor",
+        {
+            {},
+            {0},
+            {0},
+            {0}
+    },
+        {{1, 2, 3}, {}, {}, {}}, FAILED, true);
 }

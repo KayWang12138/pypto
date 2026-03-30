@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -99,7 +99,8 @@ public:
             pos = expectStr.find("+", pos + 2);
         }
 
-        std::string regexStr = "\\[INFO \\] PYPTO\\(\\d+\\):\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}.\\d{3} " + expectStr + "\n";
+        std::string regexStr =
+            "\\[INFO \\] PYPTO\\(\\d+\\):\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}.\\d{3} " + expectStr + "\n";
         std::regex logMsgRegex(regexStr);
         ret = std::regex_match(retStr, logMsgRegex);
         if (!ret) {
@@ -128,9 +129,12 @@ TEST_F(TestHostLog, test_tilefwk_log_case0) {
 
 namespace {
 void FunctionWithNoReturn() {
-    PYPTO_HOST_LOG(DLOG_ERROR, MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
-    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
-    PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_LOG(
+        DLOG_ERROR, MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_SPLIT_LOG(
+        DLOG_ERROR, MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(
+        DLOG_INFO, MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
     std::ostringstream oss;
     for (size_t i = 0; i < 200; i++) {
         oss << "0123456789";
@@ -138,9 +142,12 @@ void FunctionWithNoReturn() {
     PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, MACHINE, "Hello %s", oss.str().c_str());
 }
 int FunctionWithReturn() {
-    PYPTO_HOST_LOG(DLOG_ERROR, MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
-    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
-    PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_LOG(
+        DLOG_ERROR, MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_SPLIT_LOG(
+        DLOG_ERROR, MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(
+        DLOG_INFO, MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
     std::ostringstream oss;
     for (size_t i = 0; i < 200; i++) {
         oss << "0123456789";
@@ -148,7 +155,7 @@ int FunctionWithReturn() {
     PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, MACHINE, "Hello %s", oss.str().c_str());
     return 0;
 }
-}
+} // namespace
 TEST_F(TestHostLog, test_tilefwk_log_case1) {
     setenv("ASCEND_SLOG_PRINT_TO_STDOUT", "1", 1);
     FunctionWithNoReturn();
@@ -221,7 +228,7 @@ TEST_F(TestHostLog, test_log_manager_case5) {
     EXPECT_EQ(log_manager.enableStdOut_, false);
     EXPECT_EQ(log_manager.maxLogFileNum_, 10);
     for (size_t i = 0; i < 200000; ++i) {
-        if (i%2 == 0) {
+        if (i % 2 == 0) {
             log_manager.EnableHostLog();
         } else {
             log_manager.EnableDeviceLog();
@@ -301,7 +308,8 @@ TEST_F(TestHostLog, test_log_construct_case0) {
     int32_t int32_val2 = 567;
     uint32_t uint32_val = 432;
     CheckLogContent("-234,-234,+567,432", "%d,%+d,%+d,%u", int32_val, int32_val, int32_val2, uint32_val);
-    CheckLogContent("37777777426,0660,ffffff16,1B0,0xffffff16,0X1B0", "%o,%#o,%x,%X,%#x,%#X", int32_val, uint32_val, int32_val, uint32_val, int32_val, uint32_val);
+    CheckLogContent("37777777426,0660,ffffff16,1B0,0xffffff16,0X1B0", "%o,%#o,%x,%X,%#x,%#X", int32_val, uint32_val,
+        int32_val, uint32_val, int32_val, uint32_val);
 
     std::ostringstream oss1;
     oss1 << std::hex << &int32_val << "," << &uint32_val;
@@ -309,7 +317,8 @@ TEST_F(TestHostLog, test_log_construct_case0) {
 
     int64_t int64_val = -789;
     uint64_t uint64_val = 987;
-    CheckLogContent("-789,987,fffffffffffffceb,3DB,0xfffffffffffffceb,0X3DB", "%ld,%lu,%lx,%lX,%#lx,%#lX", int64_val, uint64_val, int64_val, uint64_val, int64_val, uint64_val);
+    CheckLogContent("-789,987,fffffffffffffceb,3DB,0xfffffffffffffceb,0X3DB", "%ld,%lu,%lx,%lX,%#lx,%#lX", int64_val,
+        uint64_val, int64_val, uint64_val, int64_val, uint64_val);
 
     float float_val = 123.456f;
     CheckLogContent("123.456001,123.46, 123.45600", "%f,%.2f,%10.5f", float_val, float_val, float_val);
@@ -423,4 +432,4 @@ TEST_F(TestHostLog, test_log_module_manager_case4) {
     EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::VERIFY), -1);
     EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::COMPILER_MONITOR), -1);
 }
-}
+} // namespace npu::tile_fwk

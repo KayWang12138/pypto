@@ -35,7 +35,7 @@ TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_fp32) {
     int dstCapacity = dstShape[0] * dstShape[1];
 
     uint64_t outputSize = dstCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("LOGICALNOT") {
         void *x_ptr = readToDev(GetGoldenDir() + "/logicalnotdim2_x.bin", srcCapacity);
@@ -76,7 +76,7 @@ TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_32_fp16) {
     int dstCapacity = dstShape[0] * dstShape[1] * dstShape[2];
 
     uint64_t outputSize = dstCapacity * sizeof(uint16_t);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("LOGICALNOT") {
         void *x_ptr = readToDev(GetGoldenDir() + "/logicalnotdim3_x.bin", srcCapacity);

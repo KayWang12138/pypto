@@ -80,10 +80,12 @@ static void MSplitFunc(
             Tensor dyn_a;
             if (transA) {
                 dyn_a = View(tensor_a, {aShape[0], aShape[1], viewShape[1]},
-                    {aShape[0], aShape[1], std::min(aShape[2] - viewShape[1] * mIdx, viewShape[1])}, {0, 0, mIdx * viewShape[1]});
+                    {aShape[0], aShape[1], std::min(aShape[2] - viewShape[1] * mIdx, viewShape[1])},
+                    {0, 0, mIdx * viewShape[1]});
             } else {
                 dyn_a = View(tensor_a, {aShape[0], viewShape[1], aShape[2]},
-                    {aShape[0], std::min(aShape[1] - viewShape[1] * mIdx, viewShape[1]), aShape[2]}, {0, mIdx * viewShape[1], 0});
+                    {aShape[0], std::min(aShape[1] - viewShape[1] * mIdx, viewShape[1]), aShape[2]},
+                    {0, mIdx * viewShape[1], 0});
             }
             Tensor dyn_b = View(tensor_b, bShape, bValidShape, {0, 0, 0});
             TileShape::Current().SetMatrixSize({m, k, n});
@@ -107,15 +109,18 @@ static void NSplitFunc(
 
     FUNCTION("testNSplit", {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx,
-            LoopRange(0, CeilDivSymbolicScalar(transB ? bShape[1] : bShape[BMM_SHAPE_N_DIM], viewShape[BMM_SHAPE_N_DIM]), 1)) {
+            LoopRange(0,
+                CeilDivSymbolicScalar(transB ? bShape[1] : bShape[BMM_SHAPE_N_DIM], viewShape[BMM_SHAPE_N_DIM]), 1)) {
             Tensor dyn_a = View(tensor_a, aShape, aValidShape, {0, 0, 0});
             Tensor dyn_b;
             if (!transB) {
                 dyn_b = View(tensor_b, {bShape[0], bShape[1], viewShape[2]},
-                    {bShape[0], bShape[1], std::min(bShape[2] - viewShape[2] * nIdx, viewShape[2])}, {0, 0, nIdx * viewShape[2]});
+                    {bShape[0], bShape[1], std::min(bShape[2] - viewShape[2] * nIdx, viewShape[2])},
+                    {0, 0, nIdx * viewShape[2]});
             } else {
                 dyn_b = View(tensor_b, {bShape[0], viewShape[2], bShape[2]},
-                    {bShape[0], std::min(bShape[1] - viewShape[2] * nIdx, viewShape[2]), bShape[2]}, {0, nIdx * viewShape[2], 0});
+                    {bShape[0], std::min(bShape[1] - viewShape[2] * nIdx, viewShape[2]), bShape[2]},
+                    {0, nIdx * viewShape[2], 0});
             }
             TileShape::Current().SetMatrixSize({m, k, n});
             Tensor res = Matrix::BatchMatmul(GetAstDtype<outputDtype>(), dyn_a, dyn_b, transA, transB, isCNz);
@@ -140,7 +145,9 @@ static void MNSplitFunc(
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx,
             LoopRange(0, CeilDivSymbolicScalar(transA ? aShape[BMM_SHAPE_N_DIM] : aShape[1], viewShape[1]), 1)) {
             LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx,
-                LoopRange(0, CeilDivSymbolicScalar(transB ? bShape[1] : bShape[BMM_SHAPE_N_DIM], viewShape[BMM_SHAPE_N_DIM]), 1)) {
+                LoopRange(0,
+                    CeilDivSymbolicScalar(transB ? bShape[1] : bShape[BMM_SHAPE_N_DIM], viewShape[BMM_SHAPE_N_DIM]),
+                    1)) {
                 Tensor dyn_a;
                 if (transA) {
                     dyn_a = View(tensor_a, {aShape[0], aShape[1], viewShape[1]},
@@ -170,8 +177,8 @@ static void MNSplitFunc(
 }
 
 template <typename inputDtype, typename outputDtype, bool transA, bool transB, bool isCNz>
-void TestDynBatchMatmul(
-    const std::vector<int64_t>& mmShape, bool isANz, bool isBNz, const std::vector<int64_t> &viewShape, string dataPath) {
+void TestDynBatchMatmul(const std::vector<int64_t> &mmShape, bool isANz, bool isBNz,
+    const std::vector<int64_t> &viewShape, string dataPath) {
     SetInterpreterConfig();
 
     if (mmShape.size() != BMM_SHAPE_SIZE || viewShape.size() != BMM_VIEW_SHAPE_SIZE) {
@@ -290,4 +297,4 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_At_Bt_ANZ_BND_fp16) {
     TestDynBatchMatmul<npu::tile_fwk::float16, float, true, true, false>(
         {b, m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
-}// namespace
+} // namespace

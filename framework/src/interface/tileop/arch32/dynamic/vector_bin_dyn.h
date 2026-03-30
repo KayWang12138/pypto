@@ -73,8 +73,9 @@ TILEOP void T_BIN_PAIR(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsi
     if (numRemainPerLine) {
         unsigned numLoop = T0 / REPEAT_MAX;
         unsigned remainAfterLoop = T0 % REPEAT_MAX;
-        constexpr bool strideOverFlag = (DS / blockSizeElem > REPEAT_STRIDE_MAX) || (SS0 / blockSizeElem > REPEAT_STRIDE_MAX) ||
-                              (SS1 / blockSizeElem > REPEAT_STRIDE_MAX);
+        constexpr bool strideOverFlag = (DS / blockSizeElem > REPEAT_STRIDE_MAX) ||
+                                        (SS0 / blockSizeElem > REPEAT_STRIDE_MAX) ||
+                                        (SS1 / blockSizeElem > REPEAT_STRIDE_MAX);
         SetContinuousMask(numRemainPerLine);
         if (numLoop) {
             for (int i = 0; i < numLoop; i++) {
@@ -108,8 +109,8 @@ TILEOP void T_BIN_PAIR(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsi
 // dim4
 template <typename T, unsigned DS0, unsigned DS1, unsigned DS2, unsigned DS3, unsigned S0S0, unsigned S0S1,
     unsigned S0S2, unsigned S0S3, unsigned S1S0, unsigned S1S1, unsigned S1S2, unsigned S1S3>
-TILEOP void T_BIN_PAIR(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned src0T0, unsigned src0T1, unsigned src0T2,
-    unsigned src0T3, unsigned src1T0, unsigned src1T1, unsigned src1T2, unsigned src1T3) {
+TILEOP void T_BIN_PAIR(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned src0T0, unsigned src0T1,
+    unsigned src0T2, unsigned src0T3, unsigned src1T0, unsigned src1T1, unsigned src1T2, unsigned src1T3) {
     static_assert((DS3 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((S0S3 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((S1S3 * sizeof(T)) % BLOCK_SIZE == 0);
@@ -120,13 +121,13 @@ TILEOP void T_BIN_PAIR(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsi
         pipe_barrier(PIPE_V);
         return;
     } else if ((src0T0 == 0 || src0T1 == 0 || src0T2 == 0 || src0T3 == 0) &&
-        (src1T0 != 0 && src1T1 != 0 && src1T2 != 0 && src1T3 != 0)) {
+               (src1T0 != 0 && src1T1 != 0 && src1T2 != 0 && src1T3 != 0)) {
         uint16_t lenBurst = (S1S1 * S1S2 * S1S3 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE;
         copy_ubuf_to_ubuf(dst, src1, 0, S1S0, lenBurst, 0, 0);
         pipe_barrier(PIPE_V);
         return;
     } else if ((src0T0 == 0 || src0T1 == 0 || src0T2 == 0 || src0T3 == 0) &&
-        (src1T0 == 0 || src1T1 == 0 || src1T2 == 0 || src1T3 == 0)) {
+               (src1T0 == 0 || src1T1 == 0 || src1T2 == 0 || src1T3 == 0)) {
         return;
     }
     if ((S0S0 != 1 || S1S0 != 1) && src0T0 != src1T0) {
@@ -223,8 +224,8 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
                 if (remainAfterLoop) {
                     V_BIN_FUNC(dst + i * DS + numLoop * elementsPerRepeat * REPEAT_MAX,
                         src0 + i * src0Row + numLoop * src0RowOffset * REPEAT_MAX,
-                        src1 + i * src1Row + numLoop * src1RowOffset * REPEAT_MAX, remainAfterLoop, 1,
-                        src0BlockStride, src1BlockStride, 8, src0RepeatStride, src1RepeatStride);
+                        src1 + i * src1Row + numLoop * src1RowOffset * REPEAT_MAX, remainAfterLoop, 1, src0BlockStride,
+                        src1BlockStride, 8, src0RepeatStride, src1RepeatStride);
                 }
             }
         } else {
@@ -244,8 +245,9 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
                     if (remainAfterLoop) {
                         V_BIN_FUNC(dst + i * elementsPerRepeat + numLoop * REPEAT_MAX * DS,
                             src0 + i * src0RowOffset + numLoop * src0Row * REPEAT_MAX,
-                            src1 + i * src1RowOffset + numLoop * src1Row * REPEAT_MAX, remainAfterLoop, 1, src0BlockStride,
-                            src1BlockStride, DS / blockSizeElem, src0Row / blockSizeElem, src1Row / blockSizeElem);
+                            src1 + i * src1RowOffset + numLoop * src1Row * REPEAT_MAX, remainAfterLoop, 1,
+                            src0BlockStride, src1BlockStride, DS / blockSizeElem, src0Row / blockSizeElem,
+                            src1Row / blockSizeElem);
                     }
                 }
             }
@@ -303,8 +305,8 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
     static_assert((DS3 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((S0S3 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((S1S3 * sizeof(T)) % BLOCK_SIZE == 0);
-    if (src0T0 == 0 || src0T1 == 0 || src0T2 == 0 || src0T3 == 0 ||
-        src1T0 == 0 || src1T1 == 0 || src1T2 == 0 || src1T3 == 0) {
+    if (src0T0 == 0 || src0T1 == 0 || src0T2 == 0 || src0T3 == 0 || src1T0 == 0 || src1T1 == 0 || src1T2 == 0 ||
+        src1T3 == 0) {
         return;
     }
 
@@ -367,8 +369,8 @@ TILEOP void T_BIN_VS(__ubuf__ T *dst, __ubuf__ T *src0, T src1, unsigned T0, uns
     if (numRemainPerLine) {
         unsigned numLoop = T0 / REPEAT_MAX;
         unsigned remainAfterLoop = T0 % REPEAT_MAX;
-        constexpr bool strideOverFlag = (DS / blockSizeElem > REPEAT_STRIDE_MAX) ||
-                                        (SS0 / blockSizeElem > REPEAT_STRIDE_MAX);
+        constexpr bool strideOverFlag =
+            (DS / blockSizeElem > REPEAT_STRIDE_MAX) || (SS0 / blockSizeElem > REPEAT_STRIDE_MAX);
         SetContinuousMask(numRemainPerLine);
         if (numLoop) {
             for (int i = 0; i < numLoop; i++) {

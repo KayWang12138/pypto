@@ -22,6 +22,7 @@
 template <typename T, int N>
 class SPSCQueue {
     constexpr static int ALIGN_SIZE = 512;
+
 public:
     inline void Enqueue(const T &val) {
         while (!TryEnqueue(val))
@@ -57,7 +58,7 @@ public:
         return true;
     }
 
-    inline bool FreeUntil(std::function<bool(const T&)> checker) {
+    inline bool FreeUntil(std::function<bool(const T &)> checker) {
         bool checkerSucc = false;
         while (true) {
             auto head = head_.load(std::memory_order_relaxed);
@@ -66,7 +67,7 @@ public:
                 break;
             }
 
-            const T& elem = pools_[head % N];
+            const T &elem = pools_[head % N];
             if (!checker(elem)) {
                 break;
             }
@@ -77,9 +78,7 @@ public:
         return checkerSucc;
     }
 
-    inline bool IsEmpty() {
-        return (head_ == tail_);
-    }
+    inline bool IsEmpty() { return (head_ == tail_); }
 
     inline void ResetEmpty() {
         head_ = 0;

@@ -26,17 +26,17 @@ namespace npu::tile_fwk {
 
 void MlaPrologQuantV32Compute(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr,
     const Tensor &dequantScaleWUqQr, const Tensor &wUk, const Tensor &wDkvKr, const Tensor &rmsnormGammaCq,
-    const Tensor &rmsnormGammaCkv, const Tensor &ropeCos, const Tensor &ropeSin, const Tensor &cacheIndex, Tensor &kvCache,
-    Tensor &krCache, Tensor &kScaleCache, Tensor &qNormOut, Tensor &qNormScaleOut, Tensor &qNopeOut, Tensor &qRopeOut,
-    Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &kScaleCacheOut, float rmsnormEpsilonCq,
+    const Tensor &rmsnormGammaCkv, const Tensor &ropeCos, const Tensor &ropeSin, const Tensor &cacheIndex,
+    Tensor &kvCache, Tensor &krCache, Tensor &kScaleCache, Tensor &qNormOut, Tensor &qNormScaleOut, Tensor &qNopeOut,
+    Tensor &qRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &kScaleCacheOut, float rmsnormEpsilonCq,
     float rmsnormEpsilonCkv, const std::string &layoutKey, const MlaTileConfig &tileConfig);
 
-void MlaPrologQuantV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr,
-    const Tensor &dequantScaleWUqQr, const Tensor &wUk, const Tensor &wDkvKr, const Tensor &rmsnormGammaCq,
-    const Tensor &rmsnormGammaCkv, const Tensor &ropeCos, const Tensor &ropeSin, const Tensor &cacheIndex, Tensor &kvCache,
-    Tensor &krCache, Tensor &kScaleCache, Tensor &qNormOut, Tensor &qNormScaleOut, Tensor &qNopeOut, Tensor &qRopeOut,
+void MlaPrologQuantV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &dequantScaleWUqQr,
+    const Tensor &wUk, const Tensor &wDkvKr, const Tensor &rmsnormGammaCq, const Tensor &rmsnormGammaCkv,
+    const Tensor &ropeCos, const Tensor &ropeSin, const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache,
+    Tensor &kScaleCache, Tensor &qNormOut, Tensor &qNormScaleOut, Tensor &qNopeOut, Tensor &qRopeOut,
     Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &kScaleCacheOut, float rmsnormEpsilonCq, float rmsnormEpsilonCkv,
-    const std::string &layoutKey,const MlaTileConfig &tileConfig);
+    const std::string &layoutKey, const MlaTileConfig &tileConfig);
 
 } // namespace npu::tile_fwk
 

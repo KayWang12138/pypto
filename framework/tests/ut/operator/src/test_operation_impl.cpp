@@ -829,25 +829,25 @@ TEST_F(OperationImplTest, test_FloorDivs_int32) {
 }
 
 TEST_F(OperationImplTest, test_Reciprocal_FP32) {
- 	     constexpr int TILE_SHAPE = 32;
- 	     constexpr int SHAPE = 128;
- 	     TileShape::Current().SetVecTile(TILE_SHAPE, TILE_SHAPE);
- 	     Tensor operand1(DT_FP32, {SHAPE, SHAPE}, "operand1");
- 	     Tensor result;
- 	     FUNCTION("TestReciprocal") {
- 	         result = Reciprocal(operand1);
- 	     }
+    constexpr int TILE_SHAPE = 32;
+    constexpr int SHAPE = 128;
+    TileShape::Current().SetVecTile(TILE_SHAPE, TILE_SHAPE);
+    Tensor operand1(DT_FP32, {SHAPE, SHAPE}, "operand1");
+    Tensor result;
+    FUNCTION("TestReciprocal") {
+        result = Reciprocal(operand1);
+    }
 }
 
 TEST_F(OperationImplTest, test_Relu_FP32) {
- 	     constexpr int TILE_SHAPE = 32;
- 	     constexpr int SHAPE = 128;
- 	     TileShape::Current().SetVecTile(TILE_SHAPE, TILE_SHAPE);
- 	     Tensor operand1(DT_FP32, {SHAPE, SHAPE}, "operand1");
- 	     Tensor result;
- 	     FUNCTION("TestRelu") {
- 	         result = Relu(operand1);
- 	     }
+    constexpr int TILE_SHAPE = 32;
+    constexpr int SHAPE = 128;
+    TileShape::Current().SetVecTile(TILE_SHAPE, TILE_SHAPE);
+    Tensor operand1(DT_FP32, {SHAPE, SHAPE}, "operand1");
+    Tensor result;
+    FUNCTION("TestRelu") {
+        result = Relu(operand1);
+    }
 }
 
 TEST_F(OperationImplTest, TestIndexPut_) {
@@ -1280,8 +1280,7 @@ TEST_F(OperationImplTest, Test_Conv2d_FP16) {
     Tensor result;
     Conv::ConvExtendParam convExtendParam;
     FUNCTION("TestConv") {
-        result =
-            npu::tile_fwk::Conv::Conv(DT_FP16, fmap, weight, {1, 1}, {1, 1, 1, 1}, {1, 1}, convExtendParam, 1);
+        result = npu::tile_fwk::Conv::Conv(DT_FP16, fmap, weight, {1, 1}, {1, 1, 1, 1}, {1, 1}, convExtendParam, 1);
     }
 }
 
@@ -1294,8 +1293,7 @@ TEST_F(OperationImplTest, Test_Conv2d_FP32) {
     Tensor result;
     Conv::ConvExtendParam convExtendParam;
     FUNCTION("TestConv") {
-        result =
-            npu::tile_fwk::Conv::Conv(DT_FP32, fmap, weight, {1, 1}, {1, 1, 1, 1}, {1, 1}, convExtendParam, 1);
+        result = npu::tile_fwk::Conv::Conv(DT_FP32, fmap, weight, {1, 1}, {1, 1, 1, 1}, {1, 1}, convExtendParam, 1);
     }
 }
 
@@ -1308,8 +1306,7 @@ TEST_F(OperationImplTest, Test_Conv2d_BF16_Groups) {
     Tensor result;
     Conv::ConvExtendParam convExtendParam;
     FUNCTION("TestConv") {
-        result =
-            npu::tile_fwk::Conv::Conv(DT_BF16, fmap, weight, {1, 1}, {1, 1, 1, 1}, {1, 1}, convExtendParam, 2);
+        result = npu::tile_fwk::Conv::Conv(DT_BF16, fmap, weight, {1, 1}, {1, 1, 1, 1}, {1, 1}, convExtendParam, 2);
     }
 }
 
@@ -1319,13 +1316,16 @@ TEST_F(OperationImplTest, Test_Conv1d_FP16_Bias) {
     TileShape::Current().SetConvTile(l1TileShape, l0TileShape, true);
     Tensor fmap(DT_FP16, {1, 32, 64}, "fmap");
     Tensor weight(DT_FP16, {32, 32, 3}, "weight");
-    Tensor bias(DT_FP16, {32,}, "bias");
+    Tensor bias(DT_FP16,
+        {
+            32,
+        },
+        "bias");
     Tensor result;
     Conv::ConvExtendParam convExtendParam;
     convExtendParam.biasTensor = bias;
     FUNCTION("TestConv") {
-        result =
-            npu::tile_fwk::Conv::Conv(DT_FP16, fmap, weight, {1}, {1, 1}, {1}, convExtendParam, 1);
+        result = npu::tile_fwk::Conv::Conv(DT_FP16, fmap, weight, {1}, {1, 1}, {1}, convExtendParam, 1);
     }
 }
 
@@ -1335,13 +1335,17 @@ TEST_F(OperationImplTest, Test_Conv3d_FP16_Bias) {
     TileShape::Current().SetConvTile(l1TileShape, l0TileShape, true);
     Tensor fmap(DT_FP16, {1, 32, 2, 2, 64}, "fmap");
     Tensor weight(DT_FP16, {32, 32, 2, 3, 3}, "weight");
-    Tensor bias(DT_FP16, {32,}, "bias");
+    Tensor bias(DT_FP16,
+        {
+            32,
+        },
+        "bias");
     Tensor result;
     Conv::ConvExtendParam convExtendParam;
     convExtendParam.biasTensor = bias;
     FUNCTION("TestConv") {
-        result =
-            npu::tile_fwk::Conv::Conv(DT_FP16, fmap, weight, {1, 1, 1}, {0, 0 ,1, 1, 1, 1}, {1, 1, 1}, convExtendParam, 1);
+        result = npu::tile_fwk::Conv::Conv(
+            DT_FP16, fmap, weight, {1, 1, 1}, {0, 0, 1, 1, 1, 1}, {1, 1, 1}, convExtendParam, 1);
     }
 }
 
@@ -1372,8 +1376,7 @@ TEST_F(OperationImplTest, Test_Matmul_Bias) {
     npu::tile_fwk::Matrix::MatmulExtendParam extendParam;
     extendParam.biasTensor = matBias;
     FUNCTION("TestMatmulBias") {
-        result =
-            npu::tile_fwk::Matrix::Matmul(DT_FP32, matA, matB, extendParam, false, false, false);
+        result = npu::tile_fwk::Matrix::Matmul(DT_FP32, matA, matB, extendParam, false, false, false);
     }
 }
 
@@ -1389,8 +1392,8 @@ TEST_F(OperationImplTest, Test_MatmulMX_Bias) {
     npu::tile_fwk::Matrix::MatmulExtendParam extendParam;
     extendParam.biasTensor = matBias;
     FUNCTION("TestMatmulMXBias") {
-        result = npu::tile_fwk::Matrix::MatmulMX(DT_FP32, matA, scaleA, matB, scaleB, extendParam,
-            false, false, false, false, false);
+        result = npu::tile_fwk::Matrix::MatmulMX(
+            DT_FP32, matA, scaleA, matB, scaleB, extendParam, false, false, false, false, false);
     }
 }
 
@@ -1413,23 +1416,21 @@ TEST_F(OperationImplTest, test_FillPad_2D) {
 }
 
 TEST_F(OperationImplTest, Test_Matmul_SFA) {
-     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-     Tensor matA(DT_BF16, {128, 576}, "matA");
-     Tensor matB(DT_BF16, {576, 2048}, "matB");
-     Tensor result;
-     FUNCTION("TestMatmulSFA") {
-         result =
-             npu::tile_fwk::Matrix::Matmul(DT_FP32, matA, matB, false, false, false);
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    Tensor matA(DT_BF16, {128, 576}, "matA");
+    Tensor matB(DT_BF16, {576, 2048}, "matB");
+    Tensor result;
+    FUNCTION("TestMatmulSFA") {
+        result = npu::tile_fwk::Matrix::Matmul(DT_FP32, matA, matB, false, false, false);
     }
 }
 
 TEST_F(OperationImplTest, Test_Matmul_SFA_T) {
-     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-     Tensor matA(DT_BF16, {576, 128}, "matA");
-     Tensor matB(DT_BF16, {576, 2048}, "matB");
-     Tensor result;
-     FUNCTION("TestMatmulSFAT") {
-         result =
-             npu::tile_fwk::Matrix::Matmul(DT_FP32, matA, matB, true, false, false);
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    Tensor matA(DT_BF16, {576, 128}, "matA");
+    Tensor matB(DT_BF16, {576, 2048}, "matB");
+    Tensor result;
+    FUNCTION("TestMatmulSFAT") {
+        result = npu::tile_fwk::Matrix::Matmul(DT_FP32, matA, matB, true, false, false);
     }
 }

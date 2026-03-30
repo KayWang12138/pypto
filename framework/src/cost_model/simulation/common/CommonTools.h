@@ -21,36 +21,32 @@
 #include "cost_model/simulation/common/CommonType.h"
 
 #ifdef _WIN32
-    #include <io.h>
-    #define DUP _dup
-    #define DUP2 _dup2
-    #define FILENO _fileno
-    #define NULL_DEVICE "NUL"
+#include <io.h>
+#define DUP _dup
+#define DUP2 _dup2
+#define FILENO _fileno
+#define NULL_DEVICE "NUL"
 #else
-    #include <unistd.h>
-    #define DUP dup
-    #define DUP2 dup2
-    #define FILENO fileno
-    #define NULL_DEVICE "/dev/null"
+#include <unistd.h>
+#define DUP dup
+#define DUP2 dup2
+#define FILENO fileno
+#define NULL_DEVICE "/dev/null"
 #endif
-
 
 namespace CostModel {
 
 const int PROCESS_ID_OFFSET = 10000;
 
-inline uint64_t GetProcessID(CostModel::MachineType type, size_t sequence)
-{
+inline uint64_t GetProcessID(CostModel::MachineType type, size_t sequence) {
     return (static_cast<uint64_t>(type) * PROCESS_ID_OFFSET) + sequence;
 }
 
-inline int GetMachineType(CostModel::Pid pid)
-{
+inline int GetMachineType(CostModel::Pid pid) {
     return (pid / PROCESS_ID_OFFSET);
 }
 
-inline int GetMachineSeq(CostModel::Pid pid)
-{
+inline int GetMachineSeq(CostModel::Pid pid) {
     return (pid % PROCESS_ID_OFFSET);
 }
 
@@ -60,12 +56,11 @@ private:
     bool is_silenced;
 
 public:
-    OutputSilencer() : is_silenced(false) {
-        saved_stdout = DUP(FILENO(stdout));
-    }
+    OutputSilencer() : is_silenced(false) { saved_stdout = DUP(FILENO(stdout)); }
 
     void silence() {
-        if (is_silenced) return;
+        if (is_silenced)
+            return;
 
         int dev_null = open(NULL_DEVICE, O_WRONLY);
         if (dev_null != -1) {
@@ -76,7 +71,8 @@ public:
     }
 
     void restore() {
-        if (!is_silenced) return;
+        if (!is_silenced)
+            return;
 
         fflush(stdout); // 恢复前先清空缓冲区，防止内容错乱
         DUP2(saved_stdout, FILENO(stdout));
@@ -90,4 +86,4 @@ public:
         }
     }
 };
-}
+} // namespace CostModel

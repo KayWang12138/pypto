@@ -148,8 +148,10 @@ bool GenerateMoveOpChecker::CheckViewOutTensorMemType(const Operation &op) const
         }
         auto convertOpAttribute = dynamic_cast<ConvertOpAttribute *>(op.GetOpAttribute().get());
         auto convertPath = convertOpAttribute->GetConvertPath();
-        if (convertPath.first != MemoryType::MEM_DEVICE_DDR){
-            APASS_LOG_ERROR_C(OperationErr::OP_PRODUCER_CONSUMER, Elements::Operation, "View op [%d] consumer %s[%d] has invalid convert path.", op.GetOpMagic(),childOp->GetOpcodeStr().c_str(),childOp->GetOpMagic());
+        if (convertPath.first != MemoryType::MEM_DEVICE_DDR) {
+            APASS_LOG_ERROR_C(OperationErr::OP_PRODUCER_CONSUMER, Elements::Operation,
+                "View op [%d] consumer %s[%d] has invalid convert path.", op.GetOpMagic(),
+                childOp->GetOpcodeStr().c_str(), childOp->GetOpMagic());
             return false;
         }
     }

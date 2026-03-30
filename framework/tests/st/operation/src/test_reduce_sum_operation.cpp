@@ -23,9 +23,9 @@ const unsigned IDX_DIM2 = 2;
 const unsigned IDX_DIM3 = 3;
 
 struct SumOpFuncArgs : public OpFuncArgs {
-    SumOpFuncArgs(
-        std::vector<int64_t> viewShape, const std::vector<int64_t> tileShape, std::vector<int64_t> dims, const bool keepDim)
-        : viewShape_(viewShape), tileShape_(tileShape), dims_(dims), keepDim_(keepDim)  {}
+    SumOpFuncArgs(std::vector<int64_t> viewShape, const std::vector<int64_t> tileShape, std::vector<int64_t> dims,
+        const bool keepDim)
+        : viewShape_(viewShape), tileShape_(tileShape), dims_(dims), keepDim_(keepDim) {}
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
     std::vector<int64_t> dims_;
@@ -42,13 +42,11 @@ struct SumOpMetadata {
 void AdjustTileShapeForReduce(const int dim, const Tensor &result, std::vector<int64_t> tileshape) {
     tileshape.erase(tileshape.begin() + dim);
     const int alignNum = BLOCK_SIZE / BytesOf(result.GetStorage()->tensor->datatype);
-    tileshape[tileshape.size() - 1] = (tileshape[tileshape.size() - 1] + alignNum - 1
-        ) / alignNum * alignNum;
+    tileshape[tileshape.size() - 1] = (tileshape[tileshape.size() - 1] + alignNum - 1) / alignNum * alignNum;
     TileShape::Current().SetVecTile(tileshape);
 }
 
-void SumOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                const OpFuncArgs* opArgs) {
+void SumOperationExeFunc(const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     auto args = static_cast<const SumOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
@@ -63,14 +61,9 @@ void SumOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>&
         const int batch = CeilDiv(inputs[0].GetShape()[1 - dim], viewShape[1 - dim]);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(batch)) {
             auto viewTensor = View(inputs[0],
-                {
-                    viewShape[0] == 0 ? firstDim : viewShape[0],
-                    viewShape[1] == 0 ? secondDim : viewShape[1]
-                },
-                {
-                    viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
-                    viewShape[1] == 0 ? secondDim : std::min(secondDim - bIdx * viewShape[1], viewShape[1])
-                },
+                {viewShape[0] == 0 ? firstDim : viewShape[0], viewShape[1] == 0 ? secondDim : viewShape[1]},
+                {viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
+                    viewShape[1] == 0 ? secondDim : std::min(secondDim - bIdx * viewShape[1], viewShape[1])},
                 {bIdx * viewShape[0], bIdx * viewShape[1]});
             TileShape::Current().SetVecTile(args->tileShape_);
             std::vector<SymbolicScalar> offset = {bIdx * viewShape[0], bIdx * viewShape[1]};
@@ -84,8 +77,7 @@ void SumOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>&
     }
 }
 
-void Sum3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                 const OpFuncArgs* opArgs) {
+void Sum3DOperationExeFunc(const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     auto args = static_cast<const SumOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
@@ -97,18 +89,14 @@ void Sum3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor
             dim = static_cast<int>(inputs[0].GetShape().size()) + dim;
         }
         SymbolicScalar viewShape[] = {args->viewShape_[0], args->viewShape_[1], args->viewShape_[2]};
-        int loops[] = {
-            CeilDiv(inputs[0].GetShape()[0], viewShape[0]),
-            CeilDiv(inputs[0].GetShape()[1], viewShape[1]),
-            CeilDiv(inputs[0].GetShape()[2], viewShape[2])
-        };
+        int loops[] = {CeilDiv(inputs[0].GetShape()[0], viewShape[0]), CeilDiv(inputs[0].GetShape()[1], viewShape[1]),
+            CeilDiv(inputs[0].GetShape()[2], viewShape[2])};
         viewShape[dim] = 0;
         loops[dim] = 1;
         if (dim == IDX_DIM0) {
             viewShape[IDX_DIM1] = 0;
             loops[IDX_DIM1] = 1;
-        }
-        else{
+        } else {
             viewShape[IDX_DIM0] = 0;
             loops[IDX_DIM0] = 1;
         }
@@ -116,19 +104,15 @@ void Sum3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor
             LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loops[IDX_DIM1])) {
                 LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loops[IDX_DIM2])) {
                     auto viewTensor = View(inputs[0],
-                        {
-                            viewShape[0] == 0 ? firstDim : viewShape[0],
-                            viewShape[1] == 0 ? secondDim : viewShape[1],
-                            viewShape[2] == 0 ? lastDim : viewShape[2]
-                        },
-                        {
-                            viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
+                        {viewShape[0] == 0 ? firstDim : viewShape[0], viewShape[1] == 0 ? secondDim : viewShape[1],
+                            viewShape[2] == 0 ? lastDim : viewShape[2]},
+                        {viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
                             viewShape[1] == 0 ? secondDim : std::min(secondDim - sIdx * viewShape[1], viewShape[1]),
-                            viewShape[2] == 0 ? lastDim : std::min(lastDim - nIdx * viewShape[2], viewShape[2])
-                        },
+                            viewShape[2] == 0 ? lastDim : std::min(lastDim - nIdx * viewShape[2], viewShape[2])},
                         {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]});
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    std::vector<SymbolicScalar> offset = {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]};
+                    std::vector<SymbolicScalar> offset = {
+                        bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]};
                     auto res = Sum(viewTensor, args->dims_[0], keepDim);
                     if (!keepDim) {
                         offset.erase(offset.begin() + dim);
@@ -141,8 +125,7 @@ void Sum3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor
     }
 }
 
-void Sum4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                 const OpFuncArgs* opArgs) {
+void Sum4DOperationExeFunc(const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     auto args = static_cast<const SumOpFuncArgs *>(opArgs);
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
@@ -155,15 +138,9 @@ void Sum4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor
             dim = static_cast<int>(inputs[0].GetShape().size()) + dim;
         }
         SymbolicScalar viewShape[] = {
-            args->viewShape_[0], args->viewShape_[1],
-            args->viewShape_[2], args->viewShape_[3]
-        };
-        int loops[] = {
-            CeilDiv(inputs[0].GetShape()[0], viewShape[0]),
-            CeilDiv(inputs[0].GetShape()[1], viewShape[1]),
-            CeilDiv(inputs[0].GetShape()[2], viewShape[2]),
-            CeilDiv(inputs[0].GetShape()[3], viewShape[3])
-        };
+            args->viewShape_[0], args->viewShape_[1], args->viewShape_[2], args->viewShape_[3]};
+        int loops[] = {CeilDiv(inputs[0].GetShape()[0], viewShape[0]), CeilDiv(inputs[0].GetShape()[1], viewShape[1]),
+            CeilDiv(inputs[0].GetShape()[2], viewShape[2]), CeilDiv(inputs[0].GetShape()[3], viewShape[3])};
         viewShape[dim] = 0;
         loops[dim] = 1;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loops[IDX_DIM0])) {
@@ -171,21 +148,15 @@ void Sum4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor
                 LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loops[IDX_DIM2])) {
                     LOOP("LOOP_L3_bIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(loops[IDX_DIM3])) {
                         std::vector<SymbolicScalar> offset = {
-                            bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2], qIdx * viewShape[3]
-                        };
+                            bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2], qIdx * viewShape[3]};
                         auto viewTensor = View(inputs[0],
-                            {
-                                viewShape[0] == 0 ? firstDim : viewShape[0],
-                                viewShape[1] == 0 ? secondDim : viewShape[1],
+                            {viewShape[0] == 0 ? firstDim : viewShape[0], viewShape[1] == 0 ? secondDim : viewShape[1],
                                 viewShape[2] == 0 ? thirdDim : viewShape[2],
-                                viewShape[3] == 0 ? lastDim : viewShape[3]
-                            },
-                            {
-                                viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
+                                viewShape[3] == 0 ? lastDim : viewShape[3]},
+                            {viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
                                 viewShape[1] == 0 ? secondDim : std::min(secondDim - sIdx * viewShape[1], viewShape[1]),
                                 viewShape[2] == 0 ? thirdDim : std::min(thirdDim - nIdx * viewShape[2], viewShape[2]),
-                                viewShape[3] == 0 ? lastDim : std::min(lastDim - qIdx * viewShape[3], viewShape[3])
-                            },
+                                viewShape[3] == 0 ? lastDim : std::min(lastDim - qIdx * viewShape[3], viewShape[3])},
                             offset);
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = Sum(viewTensor, args->dims_[0], keepDim);
@@ -203,14 +174,14 @@ void Sum4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor
 
 class SumOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<SumOpMetadata> {};
 
-INSTANTIATE_TEST_SUITE_P(TestSum, SumOperationTest, ::testing::ValuesIn(
-    GetOpMetaData<SumOpMetadata>({SumOperationExeFunc, Sum3DOperationExeFunc, Sum4DOperationExeFunc}, "Sum")));
+INSTANTIATE_TEST_SUITE_P(TestSum, SumOperationTest,
+    ::testing::ValuesIn(
+        GetOpMetaData<SumOpMetadata>({SumOperationExeFunc, Sum3DOperationExeFunc, Sum4DOperationExeFunc}, "Sum")));
 
 TEST_P(SumOperationTest, TestSum) {
     auto test_data = GetParam().test_data_;
     auto args = SumOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data),
-        GetValueByName<std::vector<int64_t>>(test_data, "dims"),
-        GetValueByName<bool>(test_data, "keepDim"));
+        GetValueByName<std::vector<int64_t>>(test_data, "dims"), GetValueByName<bool>(test_data, "keepDim"));
     auto testCase = CreateTestCaseDesc<SumOpMetadata>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }

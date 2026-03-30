@@ -52,8 +52,7 @@ struct SaConfig {
 };
 
 template <typename T = npu::tile_fwk::float16>
-void TestSaUT(std::vector<int> &input_param, SaTileShapeConfig& tileConfig, SaConfig config) {
-
+void TestSaUT(std::vector<int> &input_param, SaTileShapeConfig &tileConfig, SaConfig config) {
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::float16>::value) {
         dType = DT_FP16;
@@ -92,14 +91,14 @@ void TestSaUT(std::vector<int> &input_param, SaTileShapeConfig& tileConfig, SaCo
 
 TEST_F(SlcAttnUtest, slc_attn_fp16) {
     SaTileShapeConfig tileConfig;
-    const int gTile = 128; // for gLoop split
+    const int gTile = 128;  // for gLoop split
     const int sTile = 1024; // for s2Loop split
     tileConfig.gTile = gTile;
     tileConfig.sKvTile = sTile;
     tileConfig.c1TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
-    tileConfig.v1TileShape = {16, 256}; // (n1, s2Tile)
+    tileConfig.v1TileShape = {16, 256};                        // (n1, s2Tile)
     tileConfig.c2TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
-    tileConfig.v2TileShape = {16, 256}; // (n1, d)
+    tileConfig.v2TileShape = {16, 256};                        // (n1, d)
 
     std::vector<int> input_param = {32, 1, 128, 1, 512, 64, 1024};
     SaConfig config;

@@ -360,9 +360,10 @@ using DynLayout2Dim = TileOp::Layout<Shape2Dim, Stride2Dim, TileOp::TileShape<si
 using DynLayout3Dim = TileOp::Layout<Shape3Dim, Stride3Dim, TileOp::TileShape<size_t, size_t, size_t>>;
 using DynLayout4Dim = TileOp::Layout<Shape4Dim, Stride4Dim, TileOp::TileShape<size_t, size_t, size_t, size_t>>;
 using DynLayout5Dim = TileOp::Layout<Shape5Dim, Stride5Dim, TileOp::TileShape<size_t, size_t, size_t, size_t, size_t>>;
-using DynLayout6Dim = TileOp::Layout<Shape6Dim, Stride6Dim, TileOp::TileShape<size_t, size_t, size_t, size_t, size_t, size_t>>;
+using DynLayout6Dim =
+    TileOp::Layout<Shape6Dim, Stride6Dim, TileOp::TileShape<size_t, size_t, size_t, size_t, size_t, size_t>>;
 
- // common lastuse
+// common lastuse
 template <size_t TileW = 0>
 using LastUse1Dim = TileOp::LastUse<Std::Int<TileW>>;
 
@@ -376,11 +377,12 @@ template <size_t TileN = 0, size_t TileD = 0, size_t TileH = 0, size_t TileW = 0
 using LastUse4Dim = TileOp::LastUse<Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>;
 
 template <size_t TileS = 0, size_t TileN = 0, size_t TileD = 0, size_t TileH = 0, size_t TileW = 0>
-using LastUse5Dim = TileOp::LastUse<Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>;
+using LastUse5Dim =
+    TileOp::LastUse<Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>;
 
 template <size_t TileB = 0, size_t TileS = 0, size_t TileN = 0, size_t TileD = 0, size_t TileH = 0, size_t TileW = 0>
-using LastUse6Dim = TileOp::LastUse<Std::Int<TileB>, Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>,
-    Std::Int<TileH>, Std::Int<TileW>>;
+using LastUse6Dim = TileOp::LastUse<Std::Int<TileB>, Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>,
+    Std::Int<TileW>>;
 
 // common Local layouts
 template <size_t TileW>
@@ -409,7 +411,8 @@ template <size_t TileB, size_t TileS, size_t TileN, size_t TileD, size_t TileH, 
 using LocalLayout6Dim = TileOp::Layout<Shape6Dim,
     TileOp::Stride<Std::Int<TileS * TileN * TileD * TileH * TileW>, Std::Int<TileN * TileD * TileH * TileW>,
         Std::Int<TileD * TileH * TileW>, Std::Int<TileH * TileW>, Std::Int<TileW>, Std::Int<1>>,
-    TileOp::TileShape<Std::Int<TileB>, Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>>;
+    TileOp::TileShape<Std::Int<TileB>, Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>,
+        Std::Int<TileW>>>;
 
 // common static layouts
 template <size_t W, size_t TileW>
@@ -439,12 +442,12 @@ using StaticLayout5Dim = TileOp::Layout<TileOp::Shape<Std::Int<S>, Std::Int<N>, 
 
 template <size_t B, size_t S, size_t N, size_t D, size_t H, size_t W, size_t TileB, size_t TileS, size_t TileN,
     size_t TileD, size_t TileH, size_t TileW>
-using StaticLayout6Dim = TileOp::Layout<TileOp::Shape<Std::Int<B>, Std::Int<S>, Std::Int<N>, Std::Int<D>, Std::Int<H>,
-        Std::Int<W>>,
-    TileOp::Stride<Std::Int<TileS * TileN * TileD * TileH * TileW>, Std::Int<TileN * TileD * TileH * TileW>,
-        Std::Int<TileD * TileH * TileW>, Std::Int<TileH * TileW>, Std::Int<TileW>, Std::Int<1>>,
-    TileOp::TileShape<Std::Int<TileB>, Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>,
-        Std::Int<TileW>>>;
+using StaticLayout6Dim =
+    TileOp::Layout<TileOp::Shape<Std::Int<B>, Std::Int<S>, Std::Int<N>, Std::Int<D>, Std::Int<H>, Std::Int<W>>,
+        TileOp::Stride<Std::Int<TileS * TileN * TileD * TileH * TileW>, Std::Int<TileN * TileD * TileH * TileW>,
+            Std::Int<TileD * TileH * TileW>, Std::Int<TileH * TileW>, Std::Int<TileW>, Std::Int<1>>,
+        TileOp::TileShape<Std::Int<TileB>, Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>,
+            Std::Int<TileW>>>;
 
 // used to loop dim of tensor
 #ifdef __DAV_V310

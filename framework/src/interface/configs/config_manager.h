@@ -28,7 +28,6 @@
 #include "interface/utils/common.h"
 #include "interface/utils/function_error.h"
 
-
 namespace npu::tile_fwk {
 using JsonExpcetion = nlohmann::json::exception;
 
@@ -85,13 +84,11 @@ const std::string KEY_PASS_THREAD_NUM = "pass_thread_num";
 const std::string KEY_VF_OPT_MARK_FOR = "vf_opt_mark_for";
 const std::string KEY_ENABLE_VF = "enable_vf";
 
-
 /* CodeGen KEYs */
 const std::string KEY_PARALLEL_COMPILE = "parallel_compile";
 const std::string KEY_FIXED_OUTPUT_PATH = "fixed_output_path"; // if true, dump cce to output directory
-const std::string KEY_FORCE_OVERWRITE = "force_overwrite"; // if true, don't dump cce when file exists
-const std::string KEY_CODEGEN_SUPPORT_TILE_TENSOR = "codegen_support_tile_tensor";       // if true, gen code with layout mode
-
+const std::string KEY_FORCE_OVERWRITE = "force_overwrite";     // if true, don't dump cce when file exists
+const std::string KEY_CODEGEN_SUPPORT_TILE_TENSOR = "codegen_support_tile_tensor"; // if true, gen code with layout mode
 
 enum class DPlatform {
     ASCEND_910B1,
@@ -104,10 +101,10 @@ enum class DPlatform {
 
 inline DPlatform StringToDpaltform(std::string platform) {
     std::unordered_map<std::string, DPlatform> mappings = {
-        {"ASCEND_910B1", DPlatform::ASCEND_910B1},
-        {"ASCEND_910B2", DPlatform::ASCEND_910B2},
-        {"ASCEND_910B3", DPlatform::ASCEND_910B3},
-        {"ASCEND_910B4", DPlatform::ASCEND_910B4},
+        {     "ASCEND_910B1",      DPlatform::ASCEND_910B1},
+        {     "ASCEND_910B2",      DPlatform::ASCEND_910B2},
+        {     "ASCEND_910B3",      DPlatform::ASCEND_910B3},
+        {     "ASCEND_910B4",      DPlatform::ASCEND_910B4},
         {"ASCEND_950PR_9579", DPlatform::ASCEND_950PR_9579},
     };
 
@@ -169,7 +166,6 @@ public:
     auto GetHostConfig(const std::string &key, const T &defaultValue) {
         return GetConfig(json_, {"global", "host", key}, defaultValue);
     }
-
 
     template <typename T>
     auto GetSimConfig(const std::string &key, const T &defaultValue) {
@@ -235,9 +231,7 @@ public:
         SetConfig(json_, {"global", "codegen", key}, value);
     }
 
-    const nlohmann::json* GetPrintOptions() {
-        return GetJsonNode(json_, {"global", "tensor_print"});
-    }
+    const nlohmann::json *GetPrintOptions() { return GetJsonNode(json_, {"global", "tensor_print"}); }
 
     void Reset() { json_ = originJson_; }
 
@@ -328,7 +322,6 @@ auto GetHostConfig(const std::string &key, const T &defaultValue) {
     return ConfigManager::Instance().GetHostConfig(key, defaultValue);
 }
 
-
 template <typename T>
 auto GetPassConfig(
     const std::string &strategy, const std::string &identifier, const std::string &key, const T &defaultValue) {
@@ -347,7 +340,7 @@ auto GetPassGlobalConfig(const std::string &key, const T &defaultValue) {
 
 template <typename T>
 auto SetPassGlobalConfig(const std::string &key, const T &value) {
-     ConfigManager::Instance().SetPassGlobalConfig(key, value);
+    ConfigManager::Instance().SetPassGlobalConfig(key, value);
 }
 
 template <typename T>
@@ -357,7 +350,7 @@ auto GetPassDefaultConfig(const std::string &key, const T &defaultValue) {
 
 template <typename T>
 auto SetPassDefaultConfig(const std::string &key, const T &value) {
-     ConfigManager::Instance().SetPassDefaultConfig(key, value);
+    ConfigManager::Instance().SetPassDefaultConfig(key, value);
 }
 
 template <typename T>
@@ -435,7 +428,6 @@ void SetSemanticLabel(std::shared_ptr<SemanticLabel> label);
 PrintOptions &GetPrintOptions();
 
 void SetRunDataOption(const std::string &key, const std::string &value);
-
 
 } // namespace config
 

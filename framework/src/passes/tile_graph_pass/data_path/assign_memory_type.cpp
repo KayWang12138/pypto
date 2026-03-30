@@ -100,7 +100,8 @@ void AssignMemoryType::RunOnOperation(Operation &operation) {
     for (size_t i = 0; i < operation.iOperand.size(); ++i) {
         auto &tensor = operation.iOperand[i];
         if (i >= inputsMemType.size()) {
-            APASS_LOG_INFO_F(Elements::Operation,"%s[%d] input %zu magic %d mem original is NOT Defined in opcode.cpp.",
+            APASS_LOG_INFO_F(Elements::Operation,
+                "%s[%d] input %zu magic %d mem original is NOT Defined in opcode.cpp.",
                 operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), i, tensor->magic);
             continue;
         }
@@ -443,18 +444,22 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
 
             int64_t lineOffset = CalcLineOffset(tensor->GetRawTensor()->rawshape, opAttr->GetToOffset());
             if (lineOffset == -1) {
-                APASS_LOG_WARN_F(Elements::Operation, "Op[%d]'s offset size and Tensor[%d]'s rawshape size is not equal.", outputProducer->GetOpMagic(), tensor->GetMagic());
+                APASS_LOG_WARN_F(Elements::Operation,
+                    "Op[%d]'s offset size and Tensor[%d]'s rawshape size is not equal.", outputProducer->GetOpMagic(),
+                    tensor->GetMagic());
                 continue;
             }
             int64_t tensorBytes = static_cast<int64_t>(BytesOf(tensor->Datatype()));
             int64_t byteOffset = tensorBytes * lineOffset;
 
-            APASS_LOG_DEBUG_F(Elements::Tensor,"Op's input tensor, lineOffset is %ld, tensorBytes is %ld, byteOffset is %ld.",
+            APASS_LOG_DEBUG_F(Elements::Tensor,
+                "Op's input tensor, lineOffset is %ld, tensorBytes is %ld, byteOffset is %ld.",
                 static_cast<long>(lineOffset), static_cast<long>(tensorBytes), static_cast<long>(byteOffset));
             // 对齐检查，根据assemble的offset和assemble输出tensor的rawshape计算线性offset，如果非32B对齐，则将assemble输出tensor推导为DDR类型
             static constexpr int UB_ALIGN_BYTES = 32;
             if (byteOffset % UB_ALIGN_BYTES != 0) {
-                APASS_LOG_DEBUG_F(Elements::Tensor, "Set op %d 's output original memoryType to DDR.", outputProducer->GetOpMagic());
+                APASS_LOG_DEBUG_F(
+                    Elements::Tensor, "Set op %d 's output original memoryType to DDR.", outputProducer->GetOpMagic());
                 hasDdr = true;
                 break;
             }
@@ -472,7 +477,8 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
         tensor->SetMemoryTypeOriginal(fromType, true);
         auto assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(operation.GetOpAttribute());
         assembleOpAttribute->SetFromType(fromType);
-        APASS_LOG_DEBUG_F(Elements::Operation, "Set %s[%d]'s output %d originial memoryType %s --> %s during AssignMoveOpForAssemble.",
+        APASS_LOG_DEBUG_F(Elements::Operation,
+            "Set %s[%d]'s output %d originial memoryType %s --> %s during AssignMoveOpForAssemble.",
             operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), tensor->magic,
             BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
             BriefMemoryTypeToString(fromType).c_str());

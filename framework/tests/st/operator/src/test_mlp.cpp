@@ -23,8 +23,7 @@ class MlpTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 constexpr float F_1 = 1.0;
 constexpr float F_NEGA_1 = -1.0;
 
-TEST_F(MlpTest, test_16_7168_tileop)
-{
+TEST_F(MlpTest, test_16_7168_tileop) {
     // 初始化
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
@@ -46,7 +45,7 @@ TEST_F(MlpTest, test_16_7168_tileop)
     int input1Capacity = shape1 * shape2;
     int outputCapacity = shape0 * shape1;
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     // 创建PROGRAM
     PROGRAM("MLP") {
@@ -69,7 +68,7 @@ TEST_F(MlpTest, test_16_7168_tileop)
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "E");
 
         config::SetBuildStatic(true);
-        FUNCTION("MLP_T", {hiddenStates, ffnweigth1, ffnweigth2, ffnweigth3, output})     {
+        FUNCTION("MLP_T", {hiddenStates, ffnweigth1, ffnweigth2, ffnweigth3, output}) {
             auto castRes = Cast(hiddenStates, DataType::DT_FP16);
             auto gate = Matrix::Matmul(DataType::DT_FP32, castRes, ffnweigth1, false, false, true);
 
@@ -81,13 +80,15 @@ TEST_F(MlpTest, test_16_7168_tileop)
 
             // up_proj
             // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
-            auto up = Matrix::Matmul(DataType::DT_FP32, castRes, Cast(ffnweigth2, DataType::DT_FP16), false, false, true);
+            auto up =
+                Matrix::Matmul(DataType::DT_FP32, castRes, Cast(ffnweigth2, DataType::DT_FP16), false, false, true);
             swish = Mul(swish, up);
             auto swish_fp16 = Cast(swish, DataType::DT_FP16);
 
             // down_proj
             // [b*s, n*d*3] [n*d, n*d*3]^T => [b*s, n*d]
-            output = Matrix::Matmul(DataType::DT_FP32, swish_fp16, Cast(ffnweigth3, DataType::DT_FP16), false, true, true);
+            output =
+                Matrix::Matmul(DataType::DT_FP32, swish_fp16, Cast(ffnweigth3, DataType::DT_FP16), false, true, true);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

@@ -28,6 +28,7 @@ class AutoCastChecker : Checker {
 public:
     Status DoDefaultEnabledPreCheck(Function &function) override;
     Status DoPostCheck(Function &function) override;
+
 private:
     Status PreCheckReshape(const LogicalTensorPtr &in);
     Status ProcessPreCheck(const Operation *op);
@@ -36,4 +37,4 @@ private:
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // AUTO_CAST_CHECKER_H
+#endif // AUTO_CAST_CHECKER_H

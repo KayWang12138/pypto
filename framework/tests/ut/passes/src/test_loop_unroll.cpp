@@ -89,11 +89,10 @@ TEST_F(LoopUnrollTest, TestInnerLoopOrder) {
 
 // Test GetTileShape
 TEST_F(LoopUnrollTest, test_only_reshape2) {
-
     int b = 1;
     int sq = 128;
     int d = 64;
-    int bSq = (b == -1) ? -1 : b*sq;
+    int bSq = (b == -1) ? -1 : b * sq;
     std::vector<int64_t> qShape = {b, sq, d};
 
     Tensor q(DT_FP32, qShape, "q");
@@ -101,8 +100,8 @@ TEST_F(LoopUnrollTest, test_only_reshape2) {
 
     FUNCTION("main", {q}, {out}) {
         Tensor qReshape(DT_FP32, {bSq, d}, "qReshape");
-        LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0,1,1), {}, true) {
-            (void) batchId;
+        LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0, 1, 1), {}, true) {
+            (void)batchId;
             qReshape = Reshape(q, {bSq, d}, true);
         }
 
@@ -155,13 +154,16 @@ TEST_F(LoopUnrollTest, TestLoopIfWithRank) {
             IF(i < three) {
                 IF(IsLoopEnd(i, len)) {
                     r0 = Add(r0, Element(DataType::DT_FP32, 1.0));
-                } ELSE {
+                }
+                ELSE {
                     r0 = Add(r0, Element(DataType::DT_FP32, 1.0));
                 }
-            } ELSE {
+            }
+            ELSE {
                 IF(i < six) {
                     r0 = Add(r0, Element(DataType::DT_FP32, 0.0));
-                } ELSE {
+                }
+                ELSE {
                     Tensor t0v = View(t0, {s, s}, {s * i, 0});
                     r0 = Add(t0v, r0);
                 }

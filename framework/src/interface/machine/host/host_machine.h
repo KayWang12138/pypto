@@ -37,8 +37,8 @@ namespace npu::tile_fwk {
 #endif
 
 enum class HostMachineMode {
-    SERVER = 0,  // server扩展模式，host machine内部完成端到端调度上板执行，submit task & compile & run 不对外暴露
-    API = 1, // api 模式，当前torch对接使用此模式，对外暴露submit task  & compile & run api供外部调用
+    SERVER = 0, // server扩展模式，host machine内部完成端到端调度上板执行，submit task & compile & run 不对外暴露
+    API = 1,    // api 模式，当前torch对接使用此模式，对外暴露submit task  & compile & run api供外部调用
 };
 
 template <typename T>
@@ -78,20 +78,21 @@ private:
 
 class HostMachine {
 public:
-    static HostMachine& GetInstance();
+    static HostMachine &GetInstance();
 
     bool Init(const HostMachineMode mode); // init resource & launch device machine core machine
-    void Destroy(); // release resource & stop device machine core machine
+    void Destroy();                        // release resource & stop device machine core machine
 
-    void SubTask(Function* function);
+    void SubTask(Function *function);
     void WaitTaskFinish(); // wait all task finish
 
-    void StashTask(Function* function);
+    void StashTask(Function *function);
     void SubAllStashedTask();
 
     void ClearStashFuncQueue();
+
 public: // api mode
-    MachineTask* Compile(MachineTask* task = nullptr) const;
+    MachineTask *Compile(MachineTask *task = nullptr) const;
 
 private:
     HostMachine() : initialized_(false), mode_(HostMachineMode::SERVER) {}
@@ -99,7 +100,7 @@ private:
     void InitThread();
     void DestroyThread();
 
-    void CompileFunction(Function* func) const;
+    void CompileFunction(Function *func) const;
     /* 线程处理函数 */
     void CompileThreadFunc();
     void AgentThreadFunc();
@@ -112,7 +113,7 @@ private:
 private:
     std::atomic<bool> initialized_;
     HostMachineMode mode_;
-    MachineTask* curTask;
+    MachineTask *curTask;
 
     std::atomic<uint64_t> curTaskId_{0};
     std::atomic<bool> stopFlag_{false};
@@ -128,10 +129,11 @@ private:
     std::vector<std::thread> compileThreads_;
     std::vector<std::thread> agentThreads_;
     SafeQueue<std::unique_ptr<MachineTask>> compileQueue_; // 待编译任务
-    SafeQueue<std::unique_ptr<MachineTask>> agentQueue_; // 待device agent处理任务
-    SafeQueue<std::unique_ptr<MachineTask>> finishQueue_; // device machine 处理结束任务
+    SafeQueue<std::unique_ptr<MachineTask>> agentQueue_;   // 待device agent处理任务
+    SafeQueue<std::unique_ptr<MachineTask>> finishQueue_;  // device machine 处理结束任务
     SafeQueue<std::tuple<Function *, std::shared_ptr<ConfigScope>, InternalGlobalConfig,
-                         nlohmann::json>> stashedFuncQueue_; // stash func
+        nlohmann::json>>
+        stashedFuncQueue_; // stash func
 };
 
 } // namespace npu::tile_fwk

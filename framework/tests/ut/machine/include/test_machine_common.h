@@ -36,8 +36,7 @@ protected:
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
     }
 
-    void TearDown() override {
-    }
+    void TearDown() override {}
 };
 
 extern "C" int PyptoKernelCtrlServerRegisterTaskInspector(DeviceTaskInspectorEntry inspectorEntry, void *inspector);

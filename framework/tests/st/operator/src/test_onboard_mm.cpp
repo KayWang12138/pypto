@@ -20,7 +20,7 @@ using namespace npu::tile_fwk;
 
 class MatmulOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-template<typename InputT, typename OnputT>
+template <typename InputT, typename OnputT>
 void TestMatmul(int m, int k, int n, string dataPath) {
     std::vector<int64_t> shape_a = {m, k};
     std::vector<int64_t> shape_b = {k, n};
@@ -32,10 +32,9 @@ void TestMatmul(int m, int k, int n, string dataPath) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_c * sizeof(OnputT);
-    uint8_t* c_ptr = allocDevAddr(outputSize);
+    uint8_t *c_ptr = allocDevAddr(outputSize);
     auto InputAstDtype = GetAstDtype<InputT>();
     auto OutputAstDtype = GetAstDtype<OnputT>();
-
 
     PROGRAM("Matmul") {
         void *a_ptr = readToDev<InputT>(dataPath + "/a.bin", capacity_a);
@@ -47,7 +46,7 @@ void TestMatmul(int m, int k, int n, string dataPath) {
 
         config::SetBuildStatic(true);
         FUNCTION("Matmul_T", {mat_a, mat_b, mat_c}) {
-            mat_c = npu::tile_fwk::Matrix::Matmul(OutputAstDtype, mat_a, mat_b, false, false);  // result dtype
+            mat_c = npu::tile_fwk::Matrix::Matmul(OutputAstDtype, mat_a, mat_b, false, false); // result dtype
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -61,7 +60,7 @@ void TestMatmul(int m, int k, int n, string dataPath) {
     EXPECT_EQ(ret, true);
 }
 
-template<typename InputT, typename OnputT>
+template <typename InputT, typename OnputT>
 void TestMatmulTrans(int m, int k, int n, string dataPath) {
     std::vector<int64_t> shape_a = {m, k};
     std::vector<int64_t> shape_b = {n, k};
@@ -73,10 +72,9 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_c * sizeof(OnputT);
-    uint8_t* c_ptr = allocDevAddr(outputSize);
+    uint8_t *c_ptr = allocDevAddr(outputSize);
     auto InputAstDtype = GetAstDtype<InputT>();
     auto OutputAstDtype = GetAstDtype<OnputT>();
-
 
     PROGRAM("Matmul") {
         void *a_ptr = readToDev<InputT>(dataPath + "/a.bin", capacity_a);
@@ -88,7 +86,7 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
 
         config::SetBuildStatic(true);
         FUNCTION("Matmul_T", {mat_a, mat_b, mat_c}) {
-            mat_c = npu::tile_fwk::Matrix::Matmul(OutputAstDtype, mat_a, mat_b, false, true);  // result dtype
+            mat_c = npu::tile_fwk::Matrix::Matmul(OutputAstDtype, mat_a, mat_b, false, true); // result dtype
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -100,7 +98,7 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
     EXPECT_EQ(ret, true);
 }
 
-template<typename InputT, typename OnputT>
+template <typename InputT, typename OnputT>
 void TestMatmulACC(int m, int k, int n, string dataPath) {
     std::vector<int64_t> shape_a = {m, k};
     std::vector<int64_t> shape_b = {k, n};
@@ -112,11 +110,10 @@ void TestMatmulACC(int m, int k, int n, string dataPath) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_c * sizeof(OnputT);
-    uint8_t* c_ptr = allocDevAddr(outputSize);
+    uint8_t *c_ptr = allocDevAddr(outputSize);
     // uint8_t* c_ptr2 = allocDevAddr(outputSize);
     auto InputAstDtype = GetAstDtype<InputT>();
     auto OutputAstDtype = GetAstDtype<OnputT>();
-
 
     PROGRAM("Matmul") {
         void *a_ptr = readToDev<InputT>(dataPath + "/a.bin", capacity_a);
@@ -138,7 +135,7 @@ void TestMatmulACC(int m, int k, int n, string dataPath) {
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), c_ptr, outputSize);
     readInput(dataPath + "/c_golden.bin", golden);
     int ret = resultCmp(golden, dev_res, 0.001f);
-    std::cout <<"golden = "<< golden[0] << " result = " << dev_res[0] << std::endl;
+    std::cout << "golden = " << golden[0] << " result = " << dev_res[0] << std::endl;
     EXPECT_EQ(ret, true);
 }
 
@@ -341,7 +338,9 @@ TEST_F(MatmulOnBoardTest, test_mm_unalign_float32_8_64_64_bt) {
 
 TEST_F(MatmulOnBoardTest, test_mm_int8_32_16384_7168) {
     TileShape::Current().SetCubeTile({16, 16}, {128, 128}, {128, 128});
-    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
-    config::SetPassOption(MG_COPYIN_UPPER_BOUND, 32*1024*1024);
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{
+                                                     {-1, 4}
+    });
+    config::SetPassOption(MG_COPYIN_UPPER_BOUND, 32 * 1024 * 1024);
     TestMatmul<int8_t, int32_t>(32, 16384, 7168, GetGoldenDir());
 }

@@ -41,16 +41,8 @@ constexpr int32_t DIM_FIVE = 5;
 constexpr int32_t LAST_TWO_DIM = 2;
 constexpr int32_t UB_BLOCK_SIZE = 32;
 
-const std::unordered_set<Opcode> USE_LESS_OPS2 = {
-    Opcode::OP_NOP,
-    Opcode::OP_RESHAPE,
-    Opcode::OP_SHMEM_WAIT_UNTIL,
-    Opcode::OP_VIEW,
-    Opcode::OP_ASSEMBLE,
-    Opcode::OP_BIND_TENSOR,
-    Opcode::OP_VIEW_TYPE,
-    Opcode::OP_HUB
-};
+const std::unordered_set<Opcode> USE_LESS_OPS2 = {Opcode::OP_NOP, Opcode::OP_RESHAPE, Opcode::OP_SHMEM_WAIT_UNTIL,
+    Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_BIND_TENSOR, Opcode::OP_VIEW_TYPE, Opcode::OP_HUB};
 
 inline int BytesPerElement2(DataType dataType) {
     return BytesOf(dataType);
@@ -65,22 +57,23 @@ public:
     ScheduleBase() {}
     ~ScheduleBase() {}
 
-    std::unordered_map<Operation*, std::unordered_set<Operation*>> inGraph;
-    std::unordered_map<Operation*, std::unordered_set<Operation*>> outGraph;
+    std::unordered_map<Operation *, std::unordered_set<Operation *>> inGraph;
+    std::unordered_map<Operation *, std::unordered_set<Operation *>> outGraph;
     std::unordered_map<int, int> bufRefCount_;
-    std::unordered_map<MemoryType, int64_t> localMemSize; //内存剩余情况
+    std::unordered_map<MemoryType, int64_t> localMemSize; // 内存剩余情况
     std::unordered_map<MemoryType, int64_t> localMemoryCurrentSize;
-    std::unordered_map<int, LocalBufferPtr> localBufferMap_; //memid:local
-    std::unordered_map<Operation*, std::unordered_set<Operation*>> opConsumers;
-    std::unordered_map<Operation*, std::unordered_set<Operation*>> opProducers;
-    std::unordered_map<Operation*, LogicalTensors> inOutOperandsCache_;
+    std::unordered_map<int, LocalBufferPtr> localBufferMap_; // memid:local
+    std::unordered_map<Operation *, std::unordered_set<Operation *>> opConsumers;
+    std::unordered_map<Operation *, std::unordered_set<Operation *>> opProducers;
+    std::unordered_map<Operation *, LogicalTensors> inOutOperandsCache_;
 
     //  初始依赖的list序列
-    std::vector<Operation*> operations;
+    std::vector<Operation *> operations;
 
-    const LogicalTensors& GetInOutOperandCached(Operation* op) {
+    const LogicalTensors &GetInOutOperandCached(Operation *op) {
         auto it = inOutOperandsCache_.find(op);
-        if (it != inOutOperandsCache_.end()) return it->second;
+        if (it != inOutOperandsCache_.end())
+            return it->second;
 
         LogicalTensors inOutOperand;
         inOutOperand.reserve(op->GetOOperands().size() + op->GetIOperands().size());
@@ -99,7 +92,7 @@ public:
     }
 
     void InitOpConsumerAndProducer() {
-        std::unordered_set<Operation*> operationList;
+        std::unordered_set<Operation *> operationList;
         for (auto op : operations) {
             operationList.insert(op);
         }
@@ -121,9 +114,12 @@ public:
         if (oOperand->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
             return SUCCESS;
         }
-        if (static_cast<uint64_t>(oOperand->tensor->GetRawDataSize()) != ShapeCeilAlign(oOperand->tensor->rawshape, oOperand->tensor->datatype)) {
-            APASS_LOG_WARN_F(Elements::Tensor, "InitLocalBuffer Failed at ShapeCeilAlign! "
-                "Please ensure that the rawTensor[%d] shapes are aligned.", oOperand->GetRawMagic());
+        if (static_cast<uint64_t>(oOperand->tensor->GetRawDataSize()) !=
+            ShapeCeilAlign(oOperand->tensor->rawshape, oOperand->tensor->datatype)) {
+            APASS_LOG_WARN_F(Elements::Tensor,
+                "InitLocalBuffer Failed at ShapeCeilAlign! "
+                "Please ensure that the rawTensor[%d] shapes are aligned.",
+                oOperand->GetRawMagic());
         }
         if (localBufferMap_.find(memId) == localBufferMap_.end()) {
             localBufferMap_[memId] = std::make_shared<LocalBuffer>(
@@ -135,9 +131,7 @@ public:
         return SUCCESS;
     }
 
-    std::string GetOpInfo(Operation* op) {
-        return op->GetOpcodeStr() + "[" + std::to_string(op->GetOpMagic()) + "]";
-    }
+    std::string GetOpInfo(Operation *op) { return op->GetOpcodeStr() + "[" + std::to_string(op->GetOpMagic()) + "]"; }
 
     Status DelBufRefCount(const int memId) {
         if (bufRefCount_.find(memId) == bufRefCount_.end()) {
@@ -220,12 +214,13 @@ public:
         }
     }
 
-    Status InitAllocDependencies(Operation* op, std::unordered_map<int, Operation*> &tensor2AllocMap) {
+    Status InitAllocDependencies(Operation *op, std::unordered_map<int, Operation *> &tensor2AllocMap) {
         for (auto &tensor : op->GetOOperands()) {
             int memId = tensor->memoryrange.memId;
             if (tensor->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
                 if (tensor2AllocMap.find(memId) == tensor2AllocMap.end()) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "Tensor[%d] must have alloc. magic: %d, op: %s", memId, tensor->GetMagic(), GetOpInfo(op).c_str());
+                    APASS_LOG_ERROR_F(Elements::Operation, "Tensor[%d] must have alloc. magic: %d, op: %s", memId,
+                        tensor->GetMagic(), GetOpInfo(op).c_str());
                     return FAILED;
                 }
                 AddDependency(tensor2AllocMap[memId], op, true);
@@ -234,21 +229,21 @@ public:
         return SUCCESS;
     }
 
-    bool IsOpAlloc(Operation* op) {
+    bool IsOpAlloc(Operation *op) {
         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
             return true;
         }
         return false;
     }
 
-    void AddDependency(Operation* preOp, Operation* postOp, bool isAlloc) {
+    void AddDependency(Operation *preOp, Operation *postOp, bool isAlloc) {
         if (isAlloc || (!IsOpAlloc(preOp) && !IsOpAlloc(postOp))) {
             outGraph[preOp].insert(postOp);
             inGraph[postOp].insert(preOp);
         }
     }
 
-    void FindDependencies(Operation* op) {
+    void FindDependencies(Operation *op) {
         for (auto &producer : opProducers[op]) {
             AddDependency(producer, op, false);
         }
@@ -258,7 +253,7 @@ public:
     }
 
     Status InitDependencies() {
-        std::unordered_map<int, Operation*> tensor2AllocMap;
+        std::unordered_map<int, Operation *> tensor2AllocMap;
         for (const auto &op : operations) {
             inGraph[op].clear();
             outGraph[op].clear();
@@ -291,9 +286,11 @@ public:
                 continue;
             }
             const auto &shape = tensor->tensor->GetRawShape();
-            if (std::any_of(shape.begin(), shape.end(), [](int64_t d) {return d <= 0;})) {
-                APASS_LOG_ERROR_F(Elements::Tensor, "Dynamic axis detected in %s, "
-                    "OoOSchedule requires static rawShape!", tensor->Dump().c_str());
+            if (std::any_of(shape.begin(), shape.end(), [](int64_t d) { return d <= 0; })) {
+                APASS_LOG_ERROR_F(Elements::Tensor,
+                    "Dynamic axis detected in %s, "
+                    "OoOSchedule requires static rawShape!",
+                    tensor->Dump().c_str());
                 return FAILED;
             }
             if (memIdMap.find(tensor->memoryrange.memId) == memIdMap.end()) {
@@ -331,7 +328,8 @@ public:
     Status CheckOpBufferSize(Operation *op) {
         std::map<MemoryType, int64_t> bufferSizeMap;
         std::set<int> memIdMap;
-        if (CalcBufferSize(op->GetIOperands(), bufferSizeMap, memIdMap) != SUCCESS || CalcBufferSize(op->GetOOperands(), bufferSizeMap, memIdMap) != SUCCESS) {
+        if (CalcBufferSize(op->GetIOperands(), bufferSizeMap, memIdMap) != SUCCESS ||
+            CalcBufferSize(op->GetOOperands(), bufferSizeMap, memIdMap) != SUCCESS) {
             return FAILED;
         }
         for (auto &bufferPair : bufferSizeMap) {
@@ -343,9 +341,11 @@ public:
             }
             if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Alloc tensor [%d] size [%ld] exceeds %s size [%ld]! %s",
-                    op->GetOutputOperand(0)->GetMagic(), bufferPair.second, MemoryTypeToString(bufferPair.first).c_str(),
-                    localMemSize[bufferPair.first], GetFormatBacktrace(*op).c_str());
-                APASS_LOG_ERROR_F(Elements::Operation, "Tensor [%d] producer info:", op->GetOutputOperand(0)->GetMagic());
+                    op->GetOutputOperand(0)->GetMagic(), bufferPair.second,
+                    MemoryTypeToString(bufferPair.first).c_str(), localMemSize[bufferPair.first],
+                    GetFormatBacktrace(*op).c_str());
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "Tensor [%d] producer info:", op->GetOutputOperand(0)->GetMagic());
                 for (auto producer : op->GetOutputOperand(0)->GetProducers()) {
                     if (producer == op) {
                         continue;
@@ -354,8 +354,8 @@ public:
                 }
             } else {
                 APASS_LOG_ERROR_F(Elements::Operation, "OP %s[%d] in/output total size [%ld] exceeds %s size [%ld]!",
-                    op->GetOpcodeStr().c_str(), op->GetOpMagic(), bufferPair.second, MemoryTypeToString(bufferPair.first).c_str(),
-                    localMemSize[bufferPair.first]);
+                    op->GetOpcodeStr().c_str(), op->GetOpMagic(), bufferPair.second,
+                    MemoryTypeToString(bufferPair.first).c_str(), localMemSize[bufferPair.first]);
                 APASS_LOG_ERROR_F(Elements::Operation, " %s.", DumpOpInfo(*op).c_str());
             }
             return FAILED;
@@ -363,7 +363,7 @@ public:
         return SUCCESS;
     }
 
-    void UpdateAllocMap(Operation* op, std::map<int, Operation*> &tensorAllocMap) {
+    void UpdateAllocMap(Operation *op, std::map<int, Operation *> &tensorAllocMap) {
         for (auto outTensor : op->GetOOperands()) {
             if (outTensor->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
                 continue;
@@ -384,13 +384,13 @@ public:
         }
     }
 
-    Status CheckAllocOp(std::vector<Operation*> list) {
-        std::map<int, Operation*> tensorAllocMap;
+    Status CheckAllocOp(std::vector<Operation *> list) {
+        std::map<int, Operation *> tensorAllocMap;
         for (const auto &op : list) {
             if (IsOpAlloc(op)) {
                 if (GetInOutOperandCached(op).size() != 1) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "%s InOutOperand size not equal to 1.",
-                        GetOpInfo(op).c_str());
+                    APASS_LOG_ERROR_F(
+                        Elements::Operation, "%s InOutOperand size not equal to 1.", GetOpInfo(op).c_str());
                     return FAILED;
                 }
                 UpdateAllocMap(op, tensorAllocMap);
@@ -411,13 +411,13 @@ public:
         return SUCCESS;
     }
 
-    Status Init(std::vector<Operation*> &opList) {
+    Status Init(std::vector<Operation *> &opList) {
         // 初始化芯片各buffer大小
         localMemSize = CommonUtils::GetLocalMemorySize();
- 	    localMemoryCurrentSize = localMemSize;
+        localMemoryCurrentSize = localMemSize;
         operations = opList;
         InitOpConsumerAndProducer();
-        for (auto& op : operations) {
+        for (auto &op : operations) {
             if (CheckOpBufferSize(op) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] checkOpBufferSize failed! %s",
                     op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
@@ -434,32 +434,25 @@ public:
         opList = operations;
         return SUCCESS;
     }
-
 };
 
 struct OpQueue {
     bool busy{false};
-    Operation* curOp = nullptr;
+    Operation *curOp = nullptr;
     int curOpRetireCycle{-1};
-    std::deque<Operation*> queue;
+    std::deque<Operation *> queue;
 
     OpQueue() {}
     ~OpQueue() {}
 
-    void Insert(Operation* op) {
-        queue.push_back(op);
-    }
+    void Insert(Operation *op) { queue.push_back(op); }
 
-    bool Empty() {
-        return queue.empty();
-    }
+    bool Empty() { return queue.empty(); }
 
-    Operation* Front() {
-        return queue[0];
-    }
+    Operation *Front() { return queue[0]; }
 
-    Operation* PopFront() {
-        Operation* op = queue.front();
+    Operation *PopFront() {
+        Operation *op = queue.front();
         queue.pop_front();
         return op;
     }

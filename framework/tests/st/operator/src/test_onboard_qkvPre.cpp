@@ -60,13 +60,11 @@ void TestQkvPre(std::vector<int> &params, string dataPath) {
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize0 = capacity_q * sizeof(T);
     uint64_t outputSize1 = capacity_kv * sizeof(T);
-    uint8_t* q_out_ptr = allocDevAddr(outputSize0);
-    uint8_t* kv_out_ptr = allocDevAddr(outputSize1);
-
+    uint8_t *q_out_ptr = allocDevAddr(outputSize0);
+    uint8_t *kv_out_ptr = allocDevAddr(outputSize1);
 
     ConfigManager::Instance();
     PROGRAM("QkvPre") {
-
         void *x_ptr = readToDev<T>(dataPath + "/x.bin", capacity_x);
         void *w_qa_ptr = readToDev<T>(dataPath + "/w_qa.bin", capacity_w_qa);
         void *w_qb_ptr = readToDev<T>(dataPath + "/w_qb.bin", capacity_w_qb);
@@ -83,9 +81,9 @@ void TestQkvPre(std::vector<int> &params, string dataPath) {
         aw.qAProjW = w_qa;
         aw.qBProjW = w_qb;
         aw.kvAProjWithMqaW = w_kv_a;
-        Tensor kvBProjWK;  // not used in qkvPre
-        Tensor kvBProjWV;  // not used in qkvPre
-        Tensor oProjW;       // not used in qkvPre
+        Tensor kvBProjWK; // not used in qkvPre
+        Tensor kvBProjWV; // not used in qkvPre
+        Tensor oProjW;    // not used in qkvPre
         aw.kvBProjWK = kvBProjWK;
         aw.kvBProjWV = kvBProjWV;
         aw.oProjW = oProjW;
@@ -119,144 +117,115 @@ void TestQkvPre(std::vector<int> &params, string dataPath) {
     EXPECT_EQ(ret1, true);
 }
 
-TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_4_2_1_256_256_512) {  // b_n_s_s2_h_q_lora_rank
-    int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
-    int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
-    int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
-    int& qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
-    int& kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    int& vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
-    int& qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
+TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_4_2_1_256_256_512) { // b_n_s_s2_h_q_lora_rank
+    int &h = std::get<int>(g_deepseekConfig["hiddenSize"]);
+    int &n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
+    int &qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
+    int &qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
+    int &kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
+    int &vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
+    int &qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
 
-    int b = 4;  //
+    int b = 4; //
     int s = 1;
     int s2 = 256;
-    h = 256;  //
-    n = 2;  //
-    qLoraRank = 512;  //
+    h = 256;         //
+    n = 2;           //
+    qLoraRank = 512; //
     qkNopeHeadDim = 128;
     qkRopeHeadDim = 64;
     kvLoraRank = 512;
     vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestQkvPre<npu::tile_fwk::float16>(params, GetGoldenDir());
 }
 
-TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_32_2_1_256_256_512) {  // b_n_s_s2_h_q_lora_rank
-    int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
-    int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
-    int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
-    int& qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
-    int& kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    int& vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
-    int& qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
+TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_32_2_1_256_256_512) { // b_n_s_s2_h_q_lora_rank
+    int &h = std::get<int>(g_deepseekConfig["hiddenSize"]);
+    int &n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
+    int &qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
+    int &qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
+    int &kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
+    int &vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
+    int &qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
 
     int b = 32;
     int s = 1;
     int s2 = 256;
-    h = 256;  //
-    n = 2;  //
-    qLoraRank = 512;  //
+    h = 256;         //
+    n = 2;           //
+    qLoraRank = 512; //
     qkNopeHeadDim = 128;
     qkRopeHeadDim = 64;
     kvLoraRank = 512;
     vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestQkvPre<npu::tile_fwk::float16>(params, GetGoldenDir());
 }
 
-TEST_F(QkvPreOnBoardTest, test_qkvPre_bfloat16_32_2_1_256_256_512) {  // b_n_s_s2_h_q_lora_rank, bfloat16
-    int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
-    int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
-    int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
-    int& qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
-    int& kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    int& vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
-    int& qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
+TEST_F(QkvPreOnBoardTest, test_qkvPre_bfloat16_32_2_1_256_256_512) { // b_n_s_s2_h_q_lora_rank, bfloat16
+    int &h = std::get<int>(g_deepseekConfig["hiddenSize"]);
+    int &n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
+    int &qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
+    int &qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
+    int &kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
+    int &vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
+    int &qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
 
     int b = 32;
     int s = 1;
     int s2 = 256;
-    h = 256;  //
-    n = 2;  //
-    qLoraRank = 512;  //
+    h = 256;         //
+    n = 2;           //
+    qLoraRank = 512; //
     qkNopeHeadDim = 128;
     qkRopeHeadDim = 64;
     kvLoraRank = 512;
     vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestQkvPre<npu::tile_fwk::bfloat16>(params, GetGoldenDir());
 }
 
-TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_32_32_1_256_256_512) {  // b_n_s_s2_h_q_lora_rank
-    int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
-    int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
-    int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
-    int& qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
-    int& kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    int& vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
-    int& qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
+TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_32_32_1_256_256_512) { // b_n_s_s2_h_q_lora_rank
+    int &h = std::get<int>(g_deepseekConfig["hiddenSize"]);
+    int &n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
+    int &qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
+    int &qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
+    int &kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
+    int &vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
+    int &qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
 
     int b = 32;
     int s = 1;
     int s2 = 256;
-    h = 256;  //
+    h = 256; //
     n = 32;
-    qLoraRank = 512;  //
+    qLoraRank = 512; //
     qkNopeHeadDim = 128;
     qkRopeHeadDim = 64;
     kvLoraRank = 512;
     vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestQkvPre<npu::tile_fwk::float16>(params, GetGoldenDir());
 }
 
-TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_32_32_1_256_256_1536) {  // b_n_s_s2_h_q_lora_rank
-    int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
-    int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
-    int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
-    int& qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
-    int& kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    int& vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
-    int& qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
+TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_32_32_1_256_256_1536) { // b_n_s_s2_h_q_lora_rank
+    int &h = std::get<int>(g_deepseekConfig["hiddenSize"]);
+    int &n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
+    int &qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
+    int &qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
+    int &kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
+    int &vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
+    int &qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
 
     int b = 32;
     int s = 1;
     int s2 = 256;
-    h = 256;  //
-    n = 32;
-    qLoraRank = 1536;
-    qkNopeHeadDim = 128;
-    qkRopeHeadDim = 64;
-    kvLoraRank = 512;
-    vHeadDim = 128;
-
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
-    TestQkvPre<npu::tile_fwk::float16>(params, GetGoldenDir());
-}
-
-TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_32_32_1_256_1024_1536) {  // b_n_s_s2_h_q_lora_rank
-    int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
-    int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
-    int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
-    int& qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
-    int& kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    int& vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
-    int& qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
-
-    int b = 32;
-    int s = 1;
-    int s2 = 256;
-    h = 1024;  //
+    h = 256; //
     n = 32;
     qLoraRank = 1536;
     qkNopeHeadDim = 128;
@@ -264,19 +233,42 @@ TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_32_32_1_256_1024_1536) {  // b_n_s
     kvLoraRank = 512;
     vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestQkvPre<npu::tile_fwk::float16>(params, GetGoldenDir());
 }
 
-TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_32_32_1_256_7168_1536) {  // b_n_s_s2_h_q_lora_rank
-    int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
-    int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
-    int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
-    int& qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
-    int& kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    int& vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
-    int& qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
+TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_32_32_1_256_1024_1536) { // b_n_s_s2_h_q_lora_rank
+    int &h = std::get<int>(g_deepseekConfig["hiddenSize"]);
+    int &n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
+    int &qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
+    int &qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
+    int &kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
+    int &vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
+    int &qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
+
+    int b = 32;
+    int s = 1;
+    int s2 = 256;
+    h = 1024; //
+    n = 32;
+    qLoraRank = 1536;
+    qkNopeHeadDim = 128;
+    qkRopeHeadDim = 64;
+    kvLoraRank = 512;
+    vHeadDim = 128;
+
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
+    TestQkvPre<npu::tile_fwk::float16>(params, GetGoldenDir());
+}
+
+TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_32_32_1_256_7168_1536) { // b_n_s_s2_h_q_lora_rank
+    int &h = std::get<int>(g_deepseekConfig["hiddenSize"]);
+    int &n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
+    int &qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
+    int &qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
+    int &kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
+    int &vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
+    int &qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
 
     int b = 32;
     int s = 1;
@@ -289,19 +281,18 @@ TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_32_32_1_256_7168_1536) {  // b_n_s
     kvLoraRank = 512;
     vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestQkvPre<npu::tile_fwk::float16>(params, GetGoldenDir());
 }
 
-TEST_F(QkvPreOnBoardTest, test_qkvPre_bfloat16_32_32_1_256_7168_1536) {  // b_n_s_s2_h_q_lora_rank, bfloat16
-    int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
-    int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
-    int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
-    int& qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
-    int& kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    int& vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
-    int& qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
+TEST_F(QkvPreOnBoardTest, test_qkvPre_bfloat16_32_32_1_256_7168_1536) { // b_n_s_s2_h_q_lora_rank, bfloat16
+    int &h = std::get<int>(g_deepseekConfig["hiddenSize"]);
+    int &n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
+    int &qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
+    int &qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
+    int &kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
+    int &vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
+    int &qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
 
     int b = 32;
     int s = 1;
@@ -314,19 +305,18 @@ TEST_F(QkvPreOnBoardTest, test_qkvPre_bfloat16_32_32_1_256_7168_1536) {  // b_n_
     kvLoraRank = 512;
     vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestQkvPre<npu::tile_fwk::bfloat16>(params, GetGoldenDir());
 }
 
-TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_4_32_1_256_7168_1536) {  // b_n_s_s2_h_q_lora_rank
-    int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
-    int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
-    int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
-    int& qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
-    int& kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    int& vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
-    int& qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
+TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_4_32_1_256_7168_1536) { // b_n_s_s2_h_q_lora_rank
+    int &h = std::get<int>(g_deepseekConfig["hiddenSize"]);
+    int &n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
+    int &qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
+    int &qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
+    int &kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
+    int &vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
+    int &qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
 
     int b = 4;
     int s = 1;
@@ -339,19 +329,18 @@ TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_4_32_1_256_7168_1536) {  // b_n_s_
     kvLoraRank = 512;
     vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestQkvPre<npu::tile_fwk::float16>(params, GetGoldenDir());
 }
 
-TEST_F(QkvPreOnBoardTest, test_qkvPre_bfloat16_4_32_1_256_7168_1536) {  // b_n_s_s2_h_q_lora_rank, bfloat16
-    int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
-    int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
-    int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
-    int& qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
-    int& kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    int& vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
-    int& qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
+TEST_F(QkvPreOnBoardTest, test_qkvPre_bfloat16_4_32_1_256_7168_1536) { // b_n_s_s2_h_q_lora_rank, bfloat16
+    int &h = std::get<int>(g_deepseekConfig["hiddenSize"]);
+    int &n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
+    int &qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
+    int &qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
+    int &kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
+    int &vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
+    int &qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
 
     int b = 4;
     int s = 1;
@@ -364,8 +353,7 @@ TEST_F(QkvPreOnBoardTest, test_qkvPre_bfloat16_4_32_1_256_7168_1536) {  // b_n_s
     kvLoraRank = 512;
     vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestQkvPre<npu::tile_fwk::bfloat16>(params, GetGoldenDir());
 }
 
@@ -408,9 +396,8 @@ void TestQkvPreFp32(std::vector<int> &params, string dataPath) {
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize0 = capacity_q * sizeof(float);
     uint64_t outputSize1 = capacity_kv * sizeof(float);
-    uint8_t* q_out_ptr = allocDevAddr(outputSize0);
-    uint8_t* kv_out_ptr = allocDevAddr(outputSize1);
-
+    uint8_t *q_out_ptr = allocDevAddr(outputSize0);
+    uint8_t *kv_out_ptr = allocDevAddr(outputSize1);
 
     ConfigManager::Instance();
     PROGRAM("QkvPreFp32") {
@@ -430,9 +417,9 @@ void TestQkvPreFp32(std::vector<int> &params, string dataPath) {
         aw.qAProjW = w_qa;
         aw.qBProjW = w_qb;
         aw.kvAProjWithMqaW = w_kv_a;
-        Tensor kvBProjWK;  // not used in qkvPre
-        Tensor kvBProjWV;  // not used in qkvPre
-        Tensor oProjW;       // not used in qkvPre
+        Tensor kvBProjWK; // not used in qkvPre
+        Tensor kvBProjWV; // not used in qkvPre
+        Tensor oProjW;    // not used in qkvPre
         aw.kvBProjWK = kvBProjWK;
         aw.kvBProjWV = kvBProjWV;
         aw.oProjW = oProjW;
@@ -466,64 +453,62 @@ void TestQkvPreFp32(std::vector<int> &params, string dataPath) {
     EXPECT_EQ(ret1, true);
 }
 
-TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_32_2_1_256_256_512_fp32) {  // b_n_s_s2_h_q_lora_rank
-    int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
-    int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
-    int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
-    int& qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
-    int& kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    int& vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
-    int& qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
+TEST_F(QkvPreOnBoardTest, test_qkvPre_float16_32_2_1_256_256_512_fp32) { // b_n_s_s2_h_q_lora_rank
+    int &h = std::get<int>(g_deepseekConfig["hiddenSize"]);
+    int &n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
+    int &qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
+    int &qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
+    int &kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
+    int &vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
+    int &qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
 
     int b = 32;
     int s = 1;
     int s2 = 256;
-    h = 256;  //
-    n = 2;  //
-    qLoraRank = 512;  //
+    h = 256;         //
+    n = 2;           //
+    qLoraRank = 512; //
     qkNopeHeadDim = 128;
     qkRopeHeadDim = 64;
     kvLoraRank = 512;
     vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestQkvPreFp32<npu::tile_fwk::float16>(params, GetGoldenDir());
 }
 
-TEST_F(QkvPreOnBoardTest, test_qkvPre_bfloat16_32_2_1_256_256_512_fp32) {  // b_n_s_s2_h_q_lora_rank, bfloat16
-    int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
-    int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
-    int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
-    int& qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
-    int& kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    int& vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
-    int& qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
+TEST_F(QkvPreOnBoardTest, test_qkvPre_bfloat16_32_2_1_256_256_512_fp32) { // b_n_s_s2_h_q_lora_rank, bfloat16
+    int &h = std::get<int>(g_deepseekConfig["hiddenSize"]);
+    int &n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
+    int &qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
+    int &qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
+    int &kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
+    int &vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
+    int &qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
 
     int b = 32;
     int s = 1;
     int s2 = 256;
-    h = 256;  //
-    n = 2;  //
-    qLoraRank = 512;  //
+    h = 256;         //
+    n = 2;           //
+    qLoraRank = 512; //
     qkNopeHeadDim = 128;
     qkRopeHeadDim = 64;
     kvLoraRank = 512;
     vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestQkvPreFp32<npu::tile_fwk::bfloat16>(params, GetGoldenDir());
 }
 
-TEST_F(QkvPreOnBoardTest, test_qkvPre_bfloat16_32_32_1_256_7168_1536_fp32) {  // b_n_s_s2_h_q_lora_rank, bfloat16
-    int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
-    int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
-    int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
-    int& qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
-    int& kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    int& vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
-    int& qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
+TEST_F(QkvPreOnBoardTest, test_qkvPre_bfloat16_32_32_1_256_7168_1536_fp32) { // b_n_s_s2_h_q_lora_rank, bfloat16
+    int &h = std::get<int>(g_deepseekConfig["hiddenSize"]);
+    int &n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
+    int &qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
+    int &qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
+    int &kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
+    int &vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
+    int &qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
 
     int b = 32;
     int s = 1;
@@ -536,7 +521,6 @@ TEST_F(QkvPreOnBoardTest, test_qkvPre_bfloat16_32_32_1_256_7168_1536_fp32) {  //
     kvLoraRank = 512;
     vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestQkvPreFp32<npu::tile_fwk::bfloat16>(params, GetGoldenDir());
 }

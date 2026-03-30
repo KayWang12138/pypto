@@ -28,10 +28,10 @@ Status InferDynShape::PostCheck(Function &function) {
     return checker.DoPostCheck(function);
 }
 
-Status InferDynShape::InferShape(Function& function){
+Status InferDynShape::InferShape(Function &function) {
     size_t i = 0U;
     std::map<int, size_t> opMagic2Idx;
-    std::vector<Operation*> opList = function.Operations().DuplicatedOpList();
+    std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
     for (const auto op : opList) {
         opMagic2Idx[op->GetOpMagic()] = i;
         i++;
@@ -39,7 +39,7 @@ Status InferDynShape::InferShape(Function& function){
     std::vector<std::vector<size_t>> opInGraph(opList.size());
     std::vector<std::vector<size_t>> opOutGraph(opList.size());
     for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
-        const auto& op = opList[opIdx];
+        const auto &op = opList[opIdx];
         for (const auto producer : op->ProducerOpsOrdered()) {
             opInGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[producer->GetOpMagic()]);
         }
@@ -52,8 +52,7 @@ Status InferDynShape::InferShape(Function& function){
     return SUCCESS;
 }
 
-Status InferDynShape::RunOnFunction(Function &function)
-{
+Status InferDynShape::RunOnFunction(Function &function) {
     // 遍历每一个op，调用对应的infershape函数
     // 遍历顺序，按照入度解依赖
     APASS_LOG_INFO_F(Elements::Function, "===> Start InferDynShape.");
@@ -65,5 +64,5 @@ Status InferDynShape::RunOnFunction(Function &function)
     APASS_LOG_INFO_F(Elements::Function, "===> End InferDynShape.");
     return SUCCESS;
 }
-}
-} // namespace npu::tile_fwk
+} // namespace tile_fwk
+} // namespace npu

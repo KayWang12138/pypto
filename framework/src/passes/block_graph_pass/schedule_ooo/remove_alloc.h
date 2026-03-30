@@ -42,7 +42,6 @@ private:
     void RemoveAllocCall(Function &function) const;
 };
 
-
 } // namespace npu::tile_fwk
 
 #endif // PASS_REMOVE_ALLOC_H

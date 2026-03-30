@@ -24,4 +24,4 @@ struct EnvConfig : public Config {
     EnvConfig();
     std::string cPlusPlus = "g++";
 };
-}
+} // namespace CostModel

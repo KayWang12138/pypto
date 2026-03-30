@@ -63,8 +63,7 @@ Tensor RotateHalfValidShape(const Tensor &input) {
     Tensor x2 = View(input, shape, validShape, offset2);
 
     // cat((-x2, x1), -1)
-    return Cat(
-        {Mul(x2, Element(x2.GetDataType(), -1.0)), Add(x1, Element(x1.GetDataType(), 0.0))}, -1);
+    return Cat({Mul(x2, Element(x2.GetDataType(), -1.0)), Add(x1, Element(x1.GetDataType(), 0.0))}, -1);
 }
 
 Tensor Rope3D(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeTileShapeConfig &tileConfig) {
@@ -144,7 +143,7 @@ void LightningIndexerPrologCompute(
     Tensor lnBias2D(inputs.lnBias.GetStorage()->Datatype(), {1, inputs.lnBias.GetShape()[0]});
 
     LOOP("LOOP_RESHAPE_IN", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
-        (void) batchId;
+        (void)batchId;
         x2D = Reshape(inputs.x, {b * seq, dim}, true);
         qr2D = Reshape(inputs.qr, {b * seq, qLoraRank}, true);
         cos2D = Reshape(inputs.cos, {b * seq, ropeHeadDim}, true);
@@ -194,22 +193,27 @@ void LightningIndexerPrologCompute(
                 Tensor kNope =
                     View(k, {tileBS, headDim - ropeHeadDim}, {actBS, headDim - ropeHeadDim}, {0, ropeHeadDim});
 
-                TileShape::Current().SetVecTile(
-                    v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1], v1Tile[NUM_VALUE_2]);
+                TileShape::Current().SetVecTile(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1], v1Tile[NUM_VALUE_2]);
                 auto cos2DView = View(cos2D, {tileBS, ropeHeadDim}, {actBS, ropeHeadDim}, {bsIdx, 0});
                 auto sin2DView = View(sin2D, {tileBS, ropeHeadDim}, {actBS, ropeHeadDim}, {bsIdx, 0});
 
                 config::SetSemanticLabel("QRope");
                 // qRope{tileBS * headNum, ropeHeadDim}  cos{tileBS, ropeHeadDim}   sin{tileBS, ropeHeadDim}
                 config::SetSemanticLabel("KRope");
-                auto qRoped = Rope3D(qRope, cos2DView, sin2DView, params.ropeTileConfigs); // {tileBS, headNum, ropeHeadDim}
+                auto qRoped =
+                    Rope3D(qRope, cos2DView, sin2DView, params.ropeTileConfigs); // {tileBS, headNum, ropeHeadDim}
                 TileShape::Current().SetVecTile(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
                 // kRope{tileBS, ropeHeadDim}  cos{tileBS, ropeHeadDim}   sin{tileBS, ropeHeadDim}
                 auto kRoped = Rope(kRope, cos2DView, sin2DView, params.ropeTileConfigs); // {tileBS, ropeHeadDim}
 
                 config::SetSemanticLabel("KAssemble");
                 TileShape::Current().SetVecTile(NUM_1, NUM_32, NUM_128, NUM_128);
-                Assemble({{qRoped, {bsIdx, 0, 0}}, {qNope, {bsIdx, 0, ropeHeadDim}}}, outputs.query, true);
+                Assemble(
+                    {
+                        {qRoped,           {bsIdx, 0, 0}},
+                        { qNope, {bsIdx, 0, ropeHeadDim}}
+                },
+                    outputs.query, true);
 
                 TileShape::Current().SetVecTile(tileBS, NUM_256);
                 auto kType = kNope.GetDataType();

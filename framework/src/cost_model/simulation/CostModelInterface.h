@@ -30,14 +30,13 @@ public:
     ~CostModelInterface() = default;
 
     int BuildCostModel(std::vector<std::string> &inputConfigs);
-    void GetInput(std::vector<npu::tile_fwk::Function *> &inputFuncs, bool topoFromRootFunc,
-                  std::string &startFuncName);
-    void Submit(std::vector<npu::tile_fwk::Function *> &inputFuncs, bool topoFromRootFunc,
-                std::string startFuncName);
+    void GetInput(
+        std::vector<npu::tile_fwk::Function *> &inputFuncs, bool topoFromRootFunc, std::string &startFuncName);
+    void Submit(std::vector<npu::tile_fwk::Function *> &inputFuncs, bool topoFromRootFunc, std::string startFuncName);
     void SubmitSingleFunction(npu::tile_fwk::Function *func);
     void Run();
     void RunPerformance();
     void RunFunctional();
     void Report();
 };
-}
+} // namespace CostModel

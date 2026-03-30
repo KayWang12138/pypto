@@ -28,9 +28,8 @@ namespace npu::tile_fwk {
 class AssignMemoryType : public Pass {
 public:
     AssignMemoryType() : Pass("AssignMemoryType") {}
-    void SpecialCallInterfaceToBeDeleted(Function &function) {
-        RunOnFunction(function);
-    }
+    void SpecialCallInterfaceToBeDeleted(Function &function) { RunOnFunction(function); }
+
 private:
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
@@ -40,7 +39,7 @@ private:
     void AssignMoveOpForView(Operation &operation);
     void RunOnOperation(Operation &operation);
     void AssignMemUnknown(Function &function);
-    void ProcessAmulBInput(Operation &operation,LogicalTensorPtr &tensor);
+    void ProcessAmulBInput(Operation &operation, LogicalTensorPtr &tensor);
     void ProcessAssemblewithSpecificMem(Operation &operation);
     void ProcessViewwithSpecificMem(Operation &operation);
     void AssignSpecialOpMemtype(Operation &op, bool &infoBufferSize);
@@ -53,7 +52,7 @@ private:
     void ProcessLargeTileToSamllTile(Function &function);
     bool IsDimMultiple(const Shape &shape1, const Shape &shape2);
     int64_t CalcLineOffset(const Shape &shape, const Offset &offset);
-    std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;
+    std::string PrintTensorMem(std::shared_ptr<LogicalTensor> &tensor) const;
     ConvertInserter inserter;
     AssignMemoryTypeChecker checker;
 };

@@ -21,4 +21,4 @@ AicoreEmulationManager &AicoreEmulationManager::GetInstance() {
     return manager;
 }
 
-}
+} // namespace npu::tile_fwk::machine

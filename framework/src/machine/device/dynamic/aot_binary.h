@@ -24,24 +24,23 @@
 #include "tilefwk/aikernel_data.h"
 
 #ifndef STR
-#define STR_(n)         #n
-#define STR(n)          STR_(n)
+#define STR_(n) #n
+#define STR(n) STR_(n)
 #endif
 
-#define AOT_CODE_POOL_CODE_SIZE     (4096 * 0x800)
+#define AOT_CODE_POOL_CODE_SIZE (4096 * 0x800)
 extern uint8_t aotCodePoolCode[];
 
 namespace npu::tile_fwk::dynamic {
-asm(
-    "\n\t.pushsection .bss." STR(aotCodePoolCode) ",\"axwG\",@nobits," STR(aotCodePoolCode) ",comdat"
-    "\n\t.p2align 12"
-    "\n\t.weak " STR(aotCodePoolCode)
-    "\n\t.type " STR(aotCodePoolCode) ", @gnu_unique_object"
-    "\n\t.size " STR(aotCodePoolCode) ", " STR(AOT_CODE_POOL_CODE_SIZE)
-    "\n" STR(aotCodePoolCode) ":"
-    "\n\t.zero " STR(AOT_CODE_POOL_CODE_SIZE)
-    "\n\t.popsection"
-);
+asm("\n\t.pushsection .bss." STR(aotCodePoolCode) ",\"axwG\",@nobits," STR(
+    aotCodePoolCode) ",comdat"
+                     "\n\t.p2align 12"
+                     "\n\t.weak " STR(aotCodePoolCode) "\n\t.type " STR(
+                         aotCodePoolCode) ", @gnu_unique_object"
+                                          "\n\t.size " STR(aotCodePoolCode) ", " STR(AOT_CODE_POOL_CODE_SIZE) "\n" STR(
+                                              aotCodePoolCode) ":"
+                                                               "\n\t.zero " STR(
+                                                                   AOT_CODE_POOL_CODE_SIZE) "\n\t.popsection");
 
 const size_t TUBLE_INDEX_2 = 2;
 const size_t TUBLE_INDEX_3 = 3;
@@ -73,9 +72,7 @@ struct AOTBinary {
         code_ = reinterpret_cast<unsigned char *>(pool.base);
         size_ = size;
     }
-    void InitCode(const void *data) {
-        code_ = reinterpret_cast<const unsigned char *>(data);
-    }
+    void InitCode(const void *data) { code_ = reinterpret_cast<const unsigned char *>(data); }
 
     const unsigned char *code_{nullptr};
     size_t size_{0};
@@ -84,9 +81,8 @@ struct AOTBinary {
 struct DeviceExecuteContext;
 
 struct AOTBinaryControlFlow : AOTBinary {
-    typedef void (*controlFlowEntry)(
-            struct DeviceExecuteContext *ctx, int64_t *symbolTable,
-            RuntimeCallEntryType runtimeCallList[T_RUNTIME_CALL_MAX], DevStartArgsBase *startArgsBase);
+    typedef void (*controlFlowEntry)(struct DeviceExecuteContext *ctx, int64_t *symbolTable,
+        RuntimeCallEntryType runtimeCallList[T_RUNTIME_CALL_MAX], DevStartArgsBase *startArgsBase);
 
     AOTBinaryControlFlow() = default;
 
@@ -104,10 +100,10 @@ struct AOTBinaryControlFlow : AOTBinary {
         }
     }
 
-    void CallControlFlow(
-            struct DeviceExecuteContext *ctx, int64_t *symbolTable,
-            RuntimeCallEntryType runtimeCallList[T_RUNTIME_CALL_MAX], DevStartArgsBase *startArgsBase) {
-        (reinterpret_cast<controlFlowEntry>(const_cast<unsigned char *>(code_)))(ctx, symbolTable, runtimeCallList, startArgsBase);
+    void CallControlFlow(struct DeviceExecuteContext *ctx, int64_t *symbolTable,
+        RuntimeCallEntryType runtimeCallList[T_RUNTIME_CALL_MAX], DevStartArgsBase *startArgsBase) {
+        (reinterpret_cast<controlFlowEntry>(const_cast<unsigned char *>(code_)))(
+            ctx, symbolTable, runtimeCallList, startArgsBase);
     }
 };
 
@@ -136,11 +132,10 @@ struct DeviceExecuteProgram {
     DeviceExecuteProgram() {}
     DeviceExecuteProgram(DevAscendProgram *prog_, AOTBinaryControlFlow::controlFlowEntry entry = nullptr)
         : prog(prog_),
-          controlFlowBinary(IsDeviceMode() ? prog_->GetDevControlFlowBinary() : prog_->GetHostControlFlowBinary(), entry),
+          controlFlowBinary(
+              IsDeviceMode() ? prog_->GetDevControlFlowBinary() : prog_->GetHostControlFlowBinary(), entry),
           exprBinary(prog_->GetExpressionTableBinary()) {}
 
-    const void *GetControlFlowEntry() {
-        return controlFlowBinary.code_;
-    }
+    const void *GetControlFlowEntry() { return controlFlowBinary.code_; }
 };
-}
+} // namespace npu::tile_fwk::dynamic

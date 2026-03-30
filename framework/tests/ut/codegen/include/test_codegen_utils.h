@@ -123,7 +123,6 @@ Function *GenMockFuncDynBinary(const std::string &funcName, const MockFuncDynBin
     return function;
 }
 
-
 std::shared_ptr<LogicalTensor> CreateConvTensor(Function &function, const DataType &dtype,
     const std::vector<int64_t> &shape, const MemoryType &memType, const bool &isCopyIn = true);
 

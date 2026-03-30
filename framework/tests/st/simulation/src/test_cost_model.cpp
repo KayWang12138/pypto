@@ -50,18 +50,14 @@ public:
         config::SetPlatformConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
     }
 
-    void EnablePVModel(int level)
-    {
+    void EnablePVModel(int level) {
         CostModel::PvData::Instance().Enable();
         CostModel::SoftMemory::Instance().Enable();
         oriPvLevel = config::GetSimConfig(KEY_PV_LEVEL, 0);
         config::SetSimConfig(KEY_PV_LEVEL, level);
     }
 
-    void ResetPVModelConfig()
-    {
-        config::SetSimConfig(KEY_PV_LEVEL, oriPvLevel);
-    }
+    void ResetPVModelConfig() { config::SetSimConfig(KEY_PV_LEVEL, oriPvLevel); }
 
 protected:
     bool oriEnableAihacBackend = false;
@@ -70,7 +66,7 @@ protected:
     int oriPvLevel = 0;
 };
 
-template<typename InputT, typename OnputT>
+template <typename InputT, typename OnputT>
 void TestMatmulTrans(int m, int k, int n, string dataPath) {
     std::vector<int64_t> shape_a = {m, k};
     std::vector<int64_t> shape_b = {n, k};
@@ -82,10 +78,9 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_c * sizeof(OnputT);
-    uint8_t* c_ptr = allocDevAddr(outputSize);
+    uint8_t *c_ptr = allocDevAddr(outputSize);
     auto InputDtype = GetAstDtype<InputT>();
     auto OutputDtype = GetAstDtype<OnputT>();
-
 
     std::cout << "####:" << dataPath << "/a.bin" << std::endl;
 
@@ -99,7 +94,7 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
 
         npu::tile_fwk::config::SetBuildStatic(true);
         FUNCTION("Matmul_T", {mat_a, mat_b, mat_c}) {
-            mat_c = npu::tile_fwk::Matrix::Matmul(OutputDtype, mat_a, mat_b, false, true);  // result dtype
+            mat_c = npu::tile_fwk::Matrix::Matmul(OutputDtype, mat_a, mat_b, false, true); // result dtype
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -118,7 +113,6 @@ TEST_F(CostModelTest, test_mm_float32_64_64_64_bt) {
     TestMatmulTrans<npu::tile_fwk::float16, float>(64, 64, 64, GetGoldenDir());
     ResetPVModelConfig();
 }
-
 
 class CostModelDynTest : public testing::Test {
 public:
@@ -140,16 +134,12 @@ public:
         ResetPVModelConfig();
     }
 
-    void EnablePVModel(int level)
-    {
+    void EnablePVModel(int level) {
         oriPvLevel = config::GetSimConfig(KEY_PV_LEVEL, 0);
         config::SetSimConfig(KEY_PV_LEVEL, level);
     }
 
-    void ResetPVModelConfig()
-    {
-        config::SetSimConfig(KEY_PV_LEVEL, oriPvLevel);
-    }
+    void ResetPVModelConfig() { config::SetSimConfig(KEY_PV_LEVEL, oriPvLevel); }
 
 protected:
     bool oriEnableAihacBackend = false;
@@ -163,11 +153,11 @@ void CostModelTestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Ten
             SymbolicScalar idx = GetTensorData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
 
-            Tensor qi(DT_FP32, {s, 2*s}, "qi");
+            Tensor qi(DT_FP32, {s, 2 * s}, "qi");
             Assemble(t1, {0, 0}, qi);
             Assemble(t0s, {0, s}, qi);
 
-            Tensor ki(DT_FP32, {s, 2*s}, "ki");
+            Tensor ki(DT_FP32, {s, 2 * s}, "ki");
             Assemble(t0s, {0, 0}, ki);
             Assemble(t1, {0, s}, ki);
 
@@ -191,8 +181,8 @@ TEST_F(CostModelDynTest, TestDD) {
 
     int s = 32;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
-    Tensor t1(DT_FP32, {s, s}, "t1");  // [32, 32]
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [32*8, 32]
+    Tensor t1(DT_FP32, {s, s}, "t1");     // [32, 32]
     Tensor blockTable{
         DT_INT32, {n, 1},
          "blockTable"
@@ -207,7 +197,7 @@ TEST_F(CostModelDynTest, TestDD) {
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(t0, 1.0),
         RawTensorData::CreateConstantTensor<float>(t1, 2.0),
-        RawTensorData::CreateTensor<int>(blockTable, tblData),  // value: [0,1,2,...,7]
+        RawTensorData::CreateTensor<int>(blockTable, tblData), // value: [0,1,2,...,7]
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
@@ -239,7 +229,10 @@ TEST_F(CostModelDynTest, TestGG) {
     Tensor t3(DT_FP32, {32, 32}, "t3");
 
     FUNCTION("main",
-        {t0, t1}, {t3}, {{t2, t0}}) {
+        {
+            t0, t1
+    },
+        {t3}, {{t2, t0}}) {
         LOOP("l0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             UNUSED(i);
             t3 = Add(t0, t1);
@@ -263,4 +256,4 @@ TEST_F(CostModelDynTest, TestGG) {
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 #endif
 }
-}
+} // namespace CostModel

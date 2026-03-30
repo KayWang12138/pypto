@@ -36,24 +36,24 @@ private:
     static std::string deviceIdList_;
 
     static void initialize() {
-        const char* envPath = std::getenv("MPI_HOME");
+        const char *envPath = std::getenv("MPI_HOME");
         if (envPath) {
             mpiHomePath_ = envPath;
         }
 
-        const char* envDeviceList = std::getenv("TILE_FWK_DEVICE_ID_LIST");
+        const char *envDeviceList = std::getenv("TILE_FWK_DEVICE_ID_LIST");
         if (envDeviceList) {
             deviceIdList_ = envDeviceList;
         }
     }
 
 public:
-    static const std::string& getMPIHomePath() {
+    static const std::string &getMPIHomePath() {
         std::call_once(initFlag_, initialize);
         return mpiHomePath_;
     }
 
-    static const std::string& getDeviceIdList() {
+    static const std::string &getDeviceIdList() {
         std::call_once(initFlag_, initialize);
         return deviceIdList_;
     }
@@ -70,41 +70,35 @@ using MPI_Datatype = int;
 #define MPI_CHAR ((MPI_Datatype)0x4c000101)
 
 // 定义MPI函数类型
-using MpiInitFunc = int(*)(int*, char***);
-using MpiCommSizeFunc = int(*)(MPI_Comm, int*);
-using MpiCommRankFunc = int(*)(MPI_Comm, int*);
-using MpiBcastFunc = int(*)(void*, int, MPI_Datatype, int, MPI_Comm);
-using MpiBarrierFunc = int(*)(MPI_Comm);
+using MpiInitFunc = int (*)(int *, char ***);
+using MpiCommSizeFunc = int (*)(MPI_Comm, int *);
+using MpiCommRankFunc = int (*)(MPI_Comm, int *);
+using MpiBcastFunc = int (*)(void *, int, MPI_Datatype, int, MPI_Comm);
+using MpiBarrierFunc = int (*)(MPI_Comm);
 using MpiAbortFunc = int (*)(MPI_Comm, int);
 using MpiFinalizeFunc = int (*)();
 
 // Try several common MPI library paths/names so the test can find MPICH/MPILib without
 // requiring system-level changes (e.g., no sudo inside container).
-static void* TryOpen(const std::string& path, int flags = RTLD_NOW) {
-    void* h = dlopen(path.c_str(), flags);
-    if (h) return h;
+static void *TryOpen(const std::string &path, int flags = RTLD_NOW) {
+    void *h = dlopen(path.c_str(), flags);
+    if (h)
+        return h;
     return nullptr;
 }
 
-std::vector<std::string> BuildMpiCandidatePaths()
-{
+std::vector<std::string> BuildMpiCandidatePaths() {
     std::vector<std::string> candidates;
 
     // First, try paths from MPI_HOME environment variable (highest priority)
-    const std::string& mpiHome = ThreadSafeEnv::getMPIHomePath();
+    const std::string &mpiHome = ThreadSafeEnv::getMPIHomePath();
     if (!mpiHome.empty()) {
         DISTRIBUTED_LOGI("Searching MPI libraries in MPI_HOME: %s", mpiHome.c_str());
 
-        std::vector<std::string> mpiHomePaths = {
-            mpiHome + "/lib/libmpi.so",
-            mpiHome + "/lib/libmpich.so",
-            mpiHome + "/lib/libmpich.so.12",
-            mpiHome + "/lib64/libmpi.so",
-            mpiHome + "/lib64/libmpich.so",
-            mpiHome + "/lib64/libmpich.so.12",
-            mpiHome + "/lib/aarch64-linux-gnu/libmpi.so",
-            mpiHome + "/lib/x86_64-linux-gnu/libmpi.so"
-        };
+        std::vector<std::string> mpiHomePaths = {mpiHome + "/lib/libmpi.so", mpiHome + "/lib/libmpich.so",
+            mpiHome + "/lib/libmpich.so.12", mpiHome + "/lib64/libmpi.so", mpiHome + "/lib64/libmpich.so",
+            mpiHome + "/lib64/libmpich.so.12", mpiHome + "/lib/aarch64-linux-gnu/libmpi.so",
+            mpiHome + "/lib/x86_64-linux-gnu/libmpi.so"};
         candidates.insert(candidates.end(), mpiHomePaths.begin(), mpiHomePaths.end());
     }
 
@@ -130,14 +124,13 @@ std::vector<std::string> BuildMpiCandidatePaths()
     return candidates;
 }
 
-void* GetLibHandle()
-{
+void *GetLibHandle() {
     static std::vector<std::string> candidates = BuildMpiCandidatePaths();
-    static auto handle = []() -> void* {
-        for (const auto& path : candidates) {
+    static auto handle = []() -> void * {
+        for (const auto &path : candidates) {
             // If absolute path, try RTLD_NOW|RTLD_NOLOAD first to see if already loaded via that path
             if (!path.empty() && path.front() == '/') {
-                void* h = TryOpen(path, RTLD_NOW | RTLD_NOLOAD);
+                void *h = TryOpen(path, RTLD_NOW | RTLD_NOLOAD);
                 if (h) {
                     DISTRIBUTED_LOGI("Found already-loaded MPI library: %s", path.c_str());
                     return h;
@@ -149,7 +142,7 @@ void* GetLibHandle()
                 }
             } else {
                 // symbolic name: let the dynamic loader resolve it using standard search paths
-                void* h = TryOpen(path, RTLD_NOW);
+                void *h = TryOpen(path, RTLD_NOW);
                 if (h) {
                     DISTRIBUTED_LOGI("Loaded MPI library by name: %s", path.c_str());
                     return h;
@@ -158,18 +151,17 @@ void* GetLibHandle()
         }
 
         DISTRIBUTED_LOGE("Failed to load MPI library from common candidate paths/names");
-        return static_cast<void*>(nullptr);
+        return static_cast<void *>(nullptr);
     }();
     return handle;
 }
 
 // 消除reinterpret_cast
-template<typename FuncType>
+template <typename FuncType>
 struct FunctionConverter {
-    static auto Convert(void* ptr) -> FuncType
-    {
+    static auto Convert(void *ptr) -> FuncType {
         union {
-            void* from;
+            void *from;
             FuncType to;
         } converter;
 
@@ -178,9 +170,8 @@ struct FunctionConverter {
     }
 };
 
-template<typename FuncType>
-auto GetFunction(const std::string& funcName) -> FuncType
-{
+template <typename FuncType>
+auto GetFunction(const std::string &funcName) -> FuncType {
     auto handle = GetLibHandle();
     if (!handle) {
         DISTRIBUTED_LOGE("Failed to load MPI library");
@@ -196,8 +187,7 @@ auto GetFunction(const std::string& funcName) -> FuncType
 }
 } // namespace
 
-void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int &physicalDeviceId)
-{
+void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int &physicalDeviceId) {
     // 获取MPI函数指针（类型安全）
     auto mpiInit = GetFunction<MpiInitFunc>("MPI_Init");
     CHECK(mpiInit != nullptr) << "MpiInitFunc ptr not found";
@@ -217,7 +207,7 @@ void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int
     mpiCommRank(MPI_COMM_WORLD, &testParam.rankId);
 
     // 获取物理卡id - 使用线程安全的环境变量访问
-    const std::string& dev_list_str = ThreadSafeEnv::getDeviceIdList();
+    const std::string &dev_list_str = ThreadSafeEnv::getDeviceIdList();
     if (!dev_list_str.empty()) {
         std::vector<int> device_list;
         std::stringstream ss(dev_list_str);
@@ -232,11 +222,11 @@ void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int
     }
 
     // ACL、NPU初始化与绑定
-    CHECK(aclInit(NULL) == 0) << "aclInit falied";   // 设备资源初始化
+    CHECK(aclInit(NULL) == 0) << "aclInit falied"; // 设备资源初始化
     if (testParam.rankId == 0) {
-        CHECK(rtSetDevice(physicalDeviceId) == 0) << "Set device falied";   // 将当前进程绑定到指定的物理NPU
+        CHECK(rtSetDevice(physicalDeviceId) == 0) << "Set device falied"; // 将当前进程绑定到指定的物理NPU
     }
-    CHECK(aclrtSetDevice(physicalDeviceId) == 0) << "Set device falied";   // 指定集合通信操作使用的设备
+    CHECK(aclrtSetDevice(physicalDeviceId) == 0) << "Set device falied"; // 指定集合通信操作使用的设备
 
     // 在 rootRank 获取 rootInfo
     hcomTestParam.rootRank = 0;
@@ -246,8 +236,9 @@ void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int
     // 将root_info广播到通信域内的其他rank, 初始化集合通信域
     mpiBcast(&hcomTestParam.rootInfo, HCCL_ROOT_INFO_BYTES, MPI_CHAR, hcomTestParam.rootRank, MPI_COMM_WORLD);
     mpiBarrier(MPI_COMM_WORLD);
-    CHECK(HcclCommInitRootInfo(testParam.rankSize, &hcomTestParam.rootInfo, testParam.rankId,
-        &hcomTestParam.hcclComm) == 0) << "HcclCommInitRootInfo failed";
+    CHECK(HcclCommInitRootInfo(
+              testParam.rankSize, &hcomTestParam.rootInfo, testParam.rankId, &hcomTestParam.hcclComm) == 0)
+        << "HcclCommInitRootInfo failed";
 
     // 获取 group name
     CHECK(HcclGetCommName(hcomTestParam.hcclComm, testParam.group) == 0) << "HcclGetCommName failed";
@@ -260,25 +251,21 @@ void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int
     return;
 }
 
-void TestFrameworkDestroy(int32_t timeout)
-{
+void TestFrameworkDestroy(int32_t timeout) {
     auto mpiAbort = GetFunction<MpiAbortFunc>("MPI_Abort");
     CHECK(mpiAbort != nullptr) << "MpiAbortFunc ptr not found";
-    std::future<void> finalizeTask = std::async(
-        [] {
-            auto mpiFinalize = GetFunction<MpiFinalizeFunc>("MPI_Finalize");
-            CHECK(mpiFinalize != nullptr) << "MpiFinalizeFunc ptr not found";
-            mpiFinalize();
-        }
-    );
+    std::future<void> finalizeTask = std::async([] {
+        auto mpiFinalize = GetFunction<MpiFinalizeFunc>("MPI_Finalize");
+        CHECK(mpiFinalize != nullptr) << "MpiFinalizeFunc ptr not found";
+        mpiFinalize();
+    });
     if (finalizeTask.wait_for(std::chrono::seconds(timeout)) == std::future_status::timeout) {
         DISTRIBUTED_LOGE("MPI_Finalize timeout, forcing exit");
         mpiAbort(MPI_COMM_WORLD, 1);
     }
 }
 
-std::string getTimeStamp()
-{
+std::string getTimeStamp() {
     auto now = std::chrono::high_resolution_clock::now();
     auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     auto us = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count() % 1000000;

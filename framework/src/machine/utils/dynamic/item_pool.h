@@ -32,13 +32,9 @@ public:
         char buf[sizeof(T)];
         ItemPoolIter freeListNextIndex;
 
-        T &Item() {
-            return *reinterpret_cast<T *>(buf);
-        }
+        T &Item() { return *reinterpret_cast<T *>(buf); }
 
-        const T &Item() const {
-            return *reinterpret_cast<const T *>(buf);
-        }
+        const T &Item() const { return *reinterpret_cast<const T *>(buf); }
     };
 
 public:
@@ -76,7 +72,7 @@ public:
         freeCount_ = count_;
     }
 
-    template <typename ...Args>
+    template <typename... Args>
     T *Create(Args &&...args) {
         DEV_ASSERT_MSG(DevDataErr::ITEM_POOL_FREE_LIST_INVALID, freeListHeadIndex_ != ITEM_POOL_INVALID_INDEX,
             "Available items: %zu/%zu", freeCount_, count_);
@@ -86,11 +82,11 @@ public:
         freeCount_--;
 
         T *newItem = reinterpret_cast<T *>(item->buf);
-        new(newItem) T(std::forward<Args>(args)...);
+        new (newItem) T(std::forward<Args>(args)...);
         return newItem;
     }
 
-    template <typename ...Args>
+    template <typename... Args>
     ItemPoolIter Allocate(Args &&...args) {
         T *item = Create(args...);
         return reinterpret_cast<ItemBlock *>(item) - &ItemAt(0);
@@ -100,22 +96,16 @@ public:
         item->~T();
         ItemBlock *block = (ItemBlock *)item;
         DEV_ASSERT_MSG(DevDataErr::ITEM_POOL_FREE_LIST_INVALID, block->freeListNextIndex == ITEM_POOL_NON_FREE_INDEX,
-                       "Double free detected in ItemPool");
+            "Double free detected in ItemPool");
         AppendFreeList(block);
         freeCount_++;
     }
 
-    T &At(ItemPoolIter index) {
-        return ItemAt(index).Item();
-    }
+    T &At(ItemPoolIter index) { return ItemAt(index).Item(); }
 
-    void DestroyAt(ItemPoolIter index) {
-        Destroy(&At(index));
-    }
+    void DestroyAt(ItemPoolIter index) { Destroy(&At(index)); }
 
-    size_t FreeItemNum() const {
-        return freeCount_;
-    }
+    size_t FreeItemNum() const { return freeCount_; }
 
 private:
     inline void AppendFreeList(ItemBlock *block) {

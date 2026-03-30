@@ -36,7 +36,8 @@ public:
         config::Reset();
     }
 
-    void TearDown() override { config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);}
+    void TearDown() override { config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend); }
+
 protected:
     bool oriEnableAihacBackend = false;
 };
@@ -48,7 +49,7 @@ struct GenAttenConfig {
     int dimSize = 0;
 };
 
-template<typename T = npu::tile_fwk::float16>
+template <typename T = npu::tile_fwk::float16>
 void genAtten(GenAttenTileShapeConfig &tileConfig) {
     config::SetRuntimeOption(DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
 
@@ -75,11 +76,11 @@ void genAtten(GenAttenTileShapeConfig &tileConfig) {
     Tensor gatingScore(dType, shape_gatingScore, "gatingScore");
     Tensor out_npu(dType, shape_attentionOut, "out_npu");
 
-    std::vector<T>cmpAttenData(B * S1 * N * D);
-    std::vector<T>selAttenData(B * S1 * N * D);
-    std::vector<T>winAttenData(B * S1 * N * D);
-    std::vector<T>gatingScoreData(B * S1 * N * NUM_3);
-    std::vector<T>out_goldenData(B * S1 * N * D);
+    std::vector<T> cmpAttenData(B * S1 * N * D);
+    std::vector<T> selAttenData(B * S1 * N * D);
+    std::vector<T> winAttenData(B * S1 * N * D);
+    std::vector<T> gatingScoreData(B * S1 * N * NUM_3);
+    std::vector<T> out_goldenData(B * S1 * N * D);
 
     GenAttention(cmpAtten, selAtten, winAtten, gatingScore, out_npu, tileConfig);
 }

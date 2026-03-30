@@ -46,27 +46,28 @@ void FunctionCache::UpdateTopoCache(const Function &func, CacheValue &value) {
     }
     size_t topoSize = totalSize + sizeof(uint64_t);
     value.topoCache = CacheValue::CreateCache<CoreFunctionTopoCache>(topoSize);
-    uint8_t* topoCachePtr = reinterpret_cast<uint8_t*>(value.topoCache.get());
-    *reinterpret_cast<uint64_t*>(topoCachePtr) = totalSize;
+    uint8_t *topoCachePtr = reinterpret_cast<uint8_t *>(value.topoCache.get());
+    *reinterpret_cast<uint64_t *>(topoCachePtr) = totalSize;
 
-    uint64_t* offsetPtr = reinterpret_cast<uint64_t*>(topoCachePtr + sizeof(uint64_t));
-    uint8_t* topoPtr = reinterpret_cast<uint8_t*>(reinterpret_cast<uint64_t*>(topoCachePtr) + topoNum + 1);
+    uint64_t *offsetPtr = reinterpret_cast<uint64_t *>(topoCachePtr + sizeof(uint64_t));
+    uint8_t *topoPtr = reinterpret_cast<uint8_t *>(reinterpret_cast<uint64_t *>(topoCachePtr) + topoNum + 1);
     uint64_t curCoreFuncOffset = sizeof(uint64_t) + topoNum * sizeof(uint64_t);
     for (uint32_t i = 0; i < topoNum; i++) {
         offsetPtr[i] = curCoreFuncOffset;
-        CoreFunctionTopo* tempPtr = reinterpret_cast<CoreFunctionTopo*>(topoPtr);
+        CoreFunctionTopo *tempPtr = reinterpret_cast<CoreFunctionTopo *>(topoPtr);
         tempPtr->coreType = static_cast<uint64_t>(func.GetSubFuncInvokeInfo(i).GetGraphType());
         ASSERT((tempPtr->coreType == static_cast<uint64_t>(CoreType::AIV)) ||
                (tempPtr->coreType == static_cast<uint64_t>(CoreType::AIC)) ||
                (tempPtr->coreType == static_cast<uint64_t>(CoreType::HUB)) ||
-               (tempPtr->coreType == static_cast<uint64_t>(CoreType::AICPU)))<<"Invalid core type: "<<tempPtr->coreType;
+               (tempPtr->coreType == static_cast<uint64_t>(CoreType::AICPU)))
+            << "Invalid core type: " << tempPtr->coreType;
         tempPtr->psgId = func.GetSubFuncInvokeInfo(i).GetProgramId();
         tempPtr->readyCount = func.topoInfo_.topology_[i].readyState;
         tempPtr->depNum = func.topoInfo_.topology_[i].outGraph.size();
         tempPtr->extParamNum = func.topoInfo_.topology_[i].extParamNum;
         tempPtr->extType = func.topoInfo_.topology_[i].extType;
-        MACHINE_LOGD("[function cache]topo %u, readycount:%ld, depnum:%lu, coreType:%lu, extType:%u",
-            i, tempPtr->readyCount, tempPtr->depNum, tempPtr->coreType, tempPtr->extType);
+        MACHINE_LOGD("[function cache]topo %u, readycount:%ld, depnum:%lu, coreType:%lu, extType:%u", i,
+            tempPtr->readyCount, tempPtr->depNum, tempPtr->coreType, tempPtr->extType);
         uint32_t j = 0;
         for (auto &ele : func.topoInfo_.topology_[i].outGraph) {
             tempPtr->depIds[j] = ele;
@@ -81,7 +82,7 @@ void FunctionCache::UpdateTopoCache(const Function &func, CacheValue &value) {
         topoPtr += tempLength;
     }
     value.header.coreFunctionNum = topoNum;
-    ASSERT(topoNum != 0)<<"Invalid topoNum: "<<topoNum;
+    ASSERT(topoNum != 0) << "Invalid topoNum: " << topoNum;
 
     TopoProcessor processor(value.topoCache, topoNum);
     std::tuple<std::shared_ptr<CoreFunctionTopoCache>, uint64_t> newTopo = processor.MergeBatchDepend(10, 1);
@@ -124,7 +125,7 @@ void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
     uint64_t totalSize = 0;
     for (auto &ele : func.programs_) {
         auto leafFuncAttr = ele.second->GetLeafFuncAttribute();
-        ASSERT(leafFuncAttr != nullptr)<<"Leaf function attr not found";
+        ASSERT(leafFuncAttr != nullptr) << "Leaf function attr not found";
         auto binPath = leafFuncAttr->binPath;
         if (!RealPath(binPath).empty()) {
             auto binData = LoadBinData(binPath);
@@ -146,7 +147,7 @@ void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
 
     size_t binSize = totalSize + sizeof(uint64_t);
     value.binCache = CacheValue::CreateCache<CoreFunctionBinCache>(binSize);
-    uint8_t* buf = reinterpret_cast<uint8_t*>(value.binCache.get());
+    uint8_t *buf = reinterpret_cast<uint8_t *>(value.binCache.get());
 
     value.header.programFuncionNum = progNum;
     value.binCache->dataSize = totalSize;
@@ -168,8 +169,8 @@ void FunctionCache::UpdateReadyFunction(const Function &func, CacheValue &value)
     uint64_t totalSize = readyNum * sizeof(ReadyCoreFunction);
     size_t size = totalSize + sizeof(uint64_t);
     value.readyListCache = CacheValue::CreateCache<ReadyCoreFunctionCache>(size);
-    uint8_t* readyFuncPtr = reinterpret_cast<uint8_t*>(value.readyListCache.get());
-    ReadyCoreFunction* listPtr = reinterpret_cast<ReadyCoreFunction*>(reinterpret_cast<uint64_t*>(readyFuncPtr) + 1);
+    uint8_t *readyFuncPtr = reinterpret_cast<uint8_t *>(value.readyListCache.get());
+    ReadyCoreFunction *listPtr = reinterpret_cast<ReadyCoreFunction *>(reinterpret_cast<uint64_t *>(readyFuncPtr) + 1);
     // ReadyCoreFunctionCache
     size_t index = 0;
     for (size_t i = 0; i < func.GetReadySubGraphCount(CoreType::AIC); i++) {
@@ -190,13 +191,15 @@ void FunctionCache::UpdateReadyFunction(const Function &func, CacheValue &value)
         index++;
     }
     value.header.readyCoreFunctionNum = readyNum;
-    ASSERT(value.header.readyCoreFunctionNum != 0)<<"readyCoreFunctionNum is 0, value.header.readyCoreFunctionNum="<<value.header.readyCoreFunctionNum;
+    ASSERT(value.header.readyCoreFunctionNum != 0)
+        << "readyCoreFunctionNum is 0, value.header.readyCoreFunctionNum=" << value.header.readyCoreFunctionNum;
 }
 
-
-void FunctionCache::Insert(const HashKey& key, Function &func) {
+void FunctionCache::Insert(const HashKey &key, Function &func) {
     CacheValue cacheVal;
-    if (func.IsFunctionTypeAndGraphType({FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH, FunctionType::STATIC}, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
+    if (func.IsFunctionTypeAndGraphType(
+            {FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH, FunctionType::STATIC},
+            {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
         if (func.rootFunc_ && func.GetFunctionType() == FunctionType::STATIC) {
             UpdateTopoCache(*func.rootFunc_, cacheVal);
             UpdateBinCache(*func.rootFunc_, cacheVal);
@@ -213,7 +216,7 @@ void FunctionCache::Insert(const HashKey& key, Function &func) {
     Insert(key, cacheVal);
 }
 
-void FunctionCache::Insert(const HashKey& key, CacheValue value) {
+void FunctionCache::Insert(const HashKey &key, CacheValue value) {
     std::lock_guard<std::mutex> cLockGuard(lock_);
     cache_[key] = value;
 }
@@ -242,7 +245,7 @@ Function *FunctionCache::GetCacheFunction(const HashKey &key) {
 
 void FunctionCache::Reset() {
     std::lock_guard<std::mutex> cLockGuard(lock_);
-    for (auto& ele : cache_) {
+    for (auto &ele : cache_) {
         ele.second.topoCache = nullptr;
         ele.second.binCache = nullptr;
         ele.second.readyListCache = nullptr;

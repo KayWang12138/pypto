@@ -23,13 +23,9 @@ class DistributedTest : public testing::TestWithParam<OpMetaData> {
 public:
     static void TearDownTestCase() {}
 
-    static void SetUpTestCase()
-    {
-        GegisterOps();
-    }
+    static void SetUpTestCase() { GegisterOps(); }
 
-    void SetUp() override
-    {
+    void SetUp() override {
         Distributed::TestFrameworkInit(testParam, hcomTestParam, physicalDeviceId);
         std::string outputDir = "output";
         bool res = CreateDir(outputDir);
@@ -40,21 +36,16 @@ public:
         Program::GetInstance().Reset();
     }
 
-    void TearDown() override
-    {
+    void TearDown() override {
         DistributedTestDestroy();
         Distributed::TestFrameworkDestroy(timeout);
     }
 
     // 暴露超时设置接口
-    void SetDestroyTimeout(int32_t destroyTimeout)
-    {
-        timeout = destroyTimeout;
-    }
+    void SetDestroyTimeout(int32_t destroyTimeout) { timeout = destroyTimeout; }
 
     // 通用测试入口
-    void RunDistributedTestGeneric(const nlohmann::json& testData, const std::string& fileName)
-    {
+    void RunDistributedTestGeneric(const nlohmann::json &testData, const std::string &fileName) {
         if (!testData.contains("input_tensors") || testData["input_tensors"].empty()) {
             FAIL() << "No input tensors in testData: " << testData.dump();
         }
@@ -63,13 +54,12 @@ public:
         std::string caseName = testData["case_name"].get<std::string>();
         std::string goldenDir = GetGoldenDirPath(testData, fileName);
         DisOpRegister::GetRegister().Run(opName, testParam, dtype, goldenDir);
-        DISTRIBUTED_LOGI("test case finished successfully: op=%s, case=%s, json file=%s.",
-            opName.c_str(), caseName.c_str(), fileName.c_str());
+        DISTRIBUTED_LOGI("test case finished successfully: op=%s, case=%s, json file=%s.", opName.c_str(),
+            caseName.c_str(), fileName.c_str());
     }
 
 protected:
-    void DistributedTestDestroy()
-    {
+    void DistributedTestDestroy() {
         // 销毁集合通信域
         CHECK(HcclCommDestroy(hcomTestParam.hcclComm) == 0) << "HcclCommDestroy failed";
         // 重置设备
@@ -84,42 +74,37 @@ protected:
     int physicalDeviceId = 0;
 };
 
-
 // 注册所有算子
-void GegisterOps()
-{
-    auto& reg = DisOpRegister::GetRegister();
+void GegisterOps() {
+    auto &reg = DisOpRegister::GetRegister();
     // 模板算子
-    reg.RegisterOp("AllGather", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+    reg.RegisterOp("AllGather", []<typename T>(OpTestParam &testParam, std::string &goldenDir) {
         Distributed::TestAllGather<T>(testParam, goldenDir);
     });
-    reg.RegisterOp("ReduceScatter", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+    reg.RegisterOp("ReduceScatter", []<typename T>(OpTestParam &testParam, std::string &goldenDir) {
         Distributed::TestReduceScatter<T>(testParam, goldenDir);
     });
-    reg.RegisterOp("AllReduce", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+    reg.RegisterOp("AllReduce", []<typename T>(OpTestParam &testParam, std::string &goldenDir) {
         Distributed::TestAllReduce<T>(testParam, goldenDir);
     });
-    reg.RegisterOp("AllReduceAddAllReduce", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+    reg.RegisterOp("AllReduceAddAllReduce", []<typename T>(OpTestParam &testParam, std::string &goldenDir) {
         Distributed::TestAllReduceAddAllReduce<T>(testParam, goldenDir);
     });
-    reg.RegisterOp("MoeDistributedCombine", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+    reg.RegisterOp("MoeDistributedCombine", []<typename T>(OpTestParam &testParam, std::string &goldenDir) {
         Distributed::TestMoeDistributedCombine<T>(testParam, goldenDir);
     });
-    reg.RegisterOp("MoeDispatch", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+    reg.RegisterOp("MoeDispatch", []<typename T>(OpTestParam &testParam, std::string &goldenDir) {
         Distributed::TestShmemMoeDispatch<T>(testParam, goldenDir);
     });
-    reg.disRegisterMap["AllGatherAttnPostReduceScatter"] = [](OpTestParam& testParam, const std::string&, std::string& goldenDir) {
+    reg.disRegisterMap["AllGatherAttnPostReduceScatter"] = [](OpTestParam &testParam, const std::string &,
+                                                               std::string &goldenDir) {
         Distributed::TestAllGatherAttentionPostReducescatter(testParam, goldenDir);
     };
     // 后续按照上面格式增加算子
-
 }
 
-
-INSTANTIATE_TEST_SUITE_P(TestDistributedOps, DistributedTest,
-    ::testing::ValuesIn(GetOpMetaData<OpMetaData>()));
-TEST_P(DistributedTest, TestOps)
-{
+INSTANTIATE_TEST_SUITE_P(TestDistributedOps, DistributedTest, ::testing::ValuesIn(GetOpMetaData<OpMetaData>()));
+TEST_P(DistributedTest, TestOps) {
     RunDistributedTestGeneric(GetParam().testData_, GetParam().fileName_);
 }
 } // namespace npu::tile_fwk::Distributed

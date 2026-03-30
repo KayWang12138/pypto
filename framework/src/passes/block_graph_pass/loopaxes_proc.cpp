@@ -65,13 +65,12 @@ bool NeedClearStatus(const Operation &op) {
     }
 
     if (SUPPORT_BRCINLINE.find(opCode) != SUPPORT_BRCINLINE.end()) {
-        for (const auto& oper : op.GetIOperands()) {
+        for (const auto &oper : op.GetIOperands()) {
             auto rawShape = oper->GetRawTensor()->GetRawShape();
             bool hasOneAxis = std::find(rawShape.begin(), rawShape.end(), 1) != rawShape.end();
             if (hasOneAxis) {
                 return true;
             }
-
         }
     }
 
@@ -171,13 +170,13 @@ bool LoopaxesProc::SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes, 
     for (size_t i = 0; i < curLoopAxes.size(); ++i) {
         auto curExpr = SymbolicExpressionTable::BuildExpression(curLoopAxes[i]);
         auto prevExpr = SymbolicExpressionTable::BuildExpression(previousLoopAxes[i]);
-        if (dynParamTable.find(curExpr) != dynParamTable.end() &&
-            dynParamTable.find(prevExpr) != dynParamTable.end()) {
+        if (dynParamTable.find(curExpr) != dynParamTable.end() && dynParamTable.find(prevExpr) != dynParamTable.end()) {
             auto curParamInfo = dynParamTable[curExpr];
             auto preParamInfo = dynParamTable[prevExpr];
             if (!curParamInfo.replacedSymbol.empty() && !preParamInfo.replacedSymbol.empty() &&
                 curParamInfo.replacedSymbol == preParamInfo.replacedSymbol) {
-                APASS_LOG_INFO_F(Elements::Operation, "%s & %s has same replacedSymbol.", curExpr.c_str(), prevExpr.c_str());
+                APASS_LOG_INFO_F(
+                    Elements::Operation, "%s & %s has same replacedSymbol.", curExpr.c_str(), prevExpr.c_str());
                 return true;
             }
         }

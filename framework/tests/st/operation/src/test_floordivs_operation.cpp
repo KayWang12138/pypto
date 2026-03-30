@@ -1,23 +1,24 @@
 /**
-* Copyright (c) 2026 Huawei Technologies Co., Ltd.
-* This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-* CANN Open Software License Agreement Version 2.0 (the "License").
-* Please refer to the License for details. You may not use this file except in compliance with the License.
-* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-* INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
-* See LICENSE in the root of the software repository for the full text of the License.
-*/
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 /*!
-* \file test_floordivs_operation.cpp
-* \brief
-*/
+ * \file test_floordivs_operation.cpp
+ * \brief
+ */
 #include "test_operation.h"
 
 using namespace tile_fwk::test_operation;
 namespace {
 struct FloorDivsOpFuncArgs : public OpFuncArgs {
-    FloorDivsOpFuncArgs(const Element &value, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
+    FloorDivsOpFuncArgs(
+        const Element &value, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
         : value_(value), viewShape_(viewShape), tileShape_(tileShape) {}
 
     Element value_;
@@ -135,7 +136,8 @@ class FloorDivsOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_
 
 INSTANTIATE_TEST_SUITE_P(TestFloorDivs, FloorDivsOperationTest,
     ::testing::ValuesIn(GetOpMetaData<FloorDivsOpMetaData>(
-        {FloorDivsOperationExeFuncDoubleCut, FloorDivsOperationExeFuncTripleCut, FloorDivsOperationExeFuncQuadrupleCut}, "FloorDivs")));
+        {FloorDivsOperationExeFuncDoubleCut, FloorDivsOperationExeFuncTripleCut, FloorDivsOperationExeFuncQuadrupleCut},
+        "FloorDivs")));
 
 TEST_P(FloorDivsOperationTest, TestFloorDivs) {
     auto test_data = GetParam().test_data_;

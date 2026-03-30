@@ -34,13 +34,14 @@ struct MlaQuantInputs {
 };
 
 std::vector<Tensor> QkvPre(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wDkvKr,
-    const Tensor &gammaCq, float epsilonCq, MlaQuantInputs quantInputs,bool splitReduceLastDim=true, bool splitK=false);
+    const Tensor &gammaCq, float epsilonCq, MlaQuantInputs quantInputs, bool splitReduceLastDim = true,
+    bool splitK = false);
 
 void MlaProlog(Tensor tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk, const Tensor &wDkvKr,
     const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos, const Tensor &cacheIndex,
     Tensor &kvCache, Tensor &krCache, MlaQuantInputs quantInputs, const RoPETileShapeConfigNew &ropeConfig,
     Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, float epsilonCq = 1e-5f,
-    float epsilonCkv = 1e-5f, std::string cacheMode = "BNSD",bool splitReduceLastDim=true, bool splitK=false);
+    float epsilonCkv = 1e-5f, std::string cacheMode = "BNSD", bool splitReduceLastDim = true, bool splitK = false);
 
 } // namespace npu::tile_fwk
 

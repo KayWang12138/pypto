@@ -276,16 +276,15 @@ private:
         npu::tile_fwk::CoreType coreType;
         std::string srcPath;
         std::string binPath;
-        PvModelCceBin(uint32_t p, uint64_t h, npu::tile_fwk::CoreType t, std::string s = "", std::string b = "") : psgId(p), funcHash(h), coreType(t), srcPath(s), binPath(b) {
-        }
+        PvModelCceBin(uint32_t p, uint64_t h, npu::tile_fwk::CoreType t, std::string s = "", std::string b = "")
+            : psgId(p), funcHash(h), coreType(t), srcPath(s), binPath(b) {}
     };
     std::vector<PvModelCceBin> cceBin;
     uint64_t subcoreId_ = 0;
     uint64_t coreId_ = 0;
 
 public:
-    using PvInitFunc = void (*)(
-        int pv_mode, int hj_switch, int pv_wrap, const char *out_dir, uint32_t core_id);
+    using PvInitFunc = void (*)(int pv_mode, int hj_switch, int pv_wrap, const char *out_dir, uint32_t core_id);
     using PvLaunchSubCoreFunc = void (*)(uint64_t pc, const char *bin_file, uint32_t sub_core_id, uint32_t core_id);
     using PvStepFunc = uint32_t (*)(uint32_t pipe_id, uint32_t sub_core_id, uint32_t core_id, uint32_t warp_id);
     using PvMemWriteFunc = void (*)(
@@ -307,13 +306,14 @@ public:
 
     void InitPv() {
         auto archType = npu::tile_fwk::Platform::Instance().GetSoc().GetNPUArch();
-        const char* ascendHome = std::getenv("ASCEND_HOME_PATH");
+        const char *ascendHome = std::getenv("ASCEND_HOME_PATH");
         if (ascendHome == nullptr) {
             throw std::runtime_error("ASCEND_HOME_PATH environment variable not set");
         }
         std::string archTypeStr = NPUArchToString(archType);
         std::transform(archTypeStr.begin(), archTypeStr.end(), archTypeStr.begin(), ::tolower);
-        std::string soPath = std::string(ascendHome) + "/toolkit/tools/simulator/" + archTypeStr + "/lib/libpem_davinci.so";
+        std::string soPath =
+            std::string(ascendHome) + "/toolkit/tools/simulator/" + archTypeStr + "/lib/libpem_davinci.so";
         void *handle = dlopen((soPath.c_str()), RTLD_LAZY);
         if (!handle) {
             throw std::runtime_error("can not load library: " + soPath);
@@ -328,8 +328,8 @@ public:
         this->pv_set_toml_ = (PvSetTomalFunc)load_symbol(handle, "set_toml");
     }
 
-    void* load_symbol(void* handle, std::string symbol) {
-        void* func = dlsym(handle, symbol.c_str());
+    void *load_symbol(void *handle, std::string symbol) {
+        void *func = dlsym(handle, symbol.c_str());
         if (!func) {
             dlclose(handle);
             throw std::runtime_error("Cannot load symbol: " + symbol);
@@ -347,7 +347,7 @@ public:
         for (size_t i = 0; i < attr->funcGroup.devRootList.size(); i++) {
             npu::tile_fwk::Function *devRoot = attr->funcGroup.devRootList[i];
             for (auto &[hash, leaf] : devRoot->programs_) {
-                (void) hash;
+                (void)hash;
                 if (!leafDict.count(leaf->GetFunctionHash().GetHash())) {
                     leafDict[leaf->GetFunctionHash().GetHash()] = leaf;
                 }
@@ -358,9 +358,10 @@ public:
         int Len2 = 2;
         int Len3 = 3;
         for (auto &[name, leaf] : leafDict) {
-            (void) name;
+            (void)name;
             if (leaf->IsDummyFunction()) {
-                cceBin.emplace_back(PvModelCceBin(leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), npu::tile_fwk::CoreType::HUB));
+                cceBin.emplace_back(PvModelCceBin(
+                    leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), npu::tile_fwk::CoreType::HUB));
             } else {
                 auto leafFuncAttr = leaf->GetLeafFuncAttribute();
                 auto binPath = leafFuncAttr == nullptr ? "" : leafFuncAttr->binPath;
@@ -383,7 +384,8 @@ public:
                 binPath = srcPath.substr(0, srcPath.length() - Len3) + "bin";
                 constexpr int cmdLen = 2048;
                 char cmd[cmdLen];
-                (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd)-1, "llvm-objcopy -O binary -j .text %s %s", objPath.c_str(), binPath.c_str());
+                (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd) - 1, "llvm-objcopy -O binary -j .text %s %s",
+                    objPath.c_str(), binPath.c_str());
 
                 int ret = std::system(cmd);
                 if (ret != 0) {
@@ -428,12 +430,15 @@ public:
     void Run(npu::tile_fwk::DynFuncData *funcdata, int coreId, int funcId, int taskId);
 
 private:
-    void LoadPvConfig(npu::tile_fwk::DynFuncData *funcdata, uint64_t opAttrOffset, npu::tile_fwk::DynFuncData *dupData, uint64_t hbm_para_start_addr);
-    void SetUp(PvModelCceBin *cce, npu::tile_fwk::DynFuncData *funcdata, uint64_t opAttrOffset, std::string dir, npu::tile_fwk::DynFuncData *dupData);
+    void LoadPvConfig(npu::tile_fwk::DynFuncData *funcdata, uint64_t opAttrOffset, npu::tile_fwk::DynFuncData *dupData,
+        uint64_t hbm_para_start_addr);
+    void SetUp(PvModelCceBin *cce, npu::tile_fwk::DynFuncData *funcdata, uint64_t opAttrOffset, std::string dir,
+        npu::tile_fwk::DynFuncData *dupData);
     void RunModel();
     void CopyToHost(uint64_t hostAddr, uint64_t devAddr, uint64_t size);
     void TearDown();
-    void BuildFuncData(npu::tile_fwk::DynFuncData *funcdata, npu::tile_fwk::DynFuncData *dupData, uint64_t *refAddr, uint64_t *refSize, std::vector<uint8_t> *ref_data);
+    void BuildFuncData(npu::tile_fwk::DynFuncData *funcdata, npu::tile_fwk::DynFuncData *dupData, uint64_t *refAddr,
+        uint64_t *refSize, std::vector<uint8_t> *ref_data);
     void BuildFuncDataWorkSpace(npu::tile_fwk::DynFuncData *funcdata, npu::tile_fwk::DynFuncData *dupData);
     uint64_t LookupWorkspace(uint64_t addr);
     uint64_t LookupData(uint64_t addr);

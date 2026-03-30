@@ -95,7 +95,8 @@ void UnaryOperationOperandCheck(
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand);
 
 template <UnaryOpType T>
-LogicalTensorPtr TensorUnaryOperation(Function &function, LogicalTensorPtr operand, std::optional<DataType> datatype = std::nullopt) {
+LogicalTensorPtr TensorUnaryOperation(
+    Function &function, LogicalTensorPtr operand, std::optional<DataType> datatype = std::nullopt) {
     auto opName = GetUnaryOpName<T>();
     CheckTensorShape(operand, opName);
     datatype = datatype.value_or(operand->tensor->datatype);

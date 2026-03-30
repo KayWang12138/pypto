@@ -53,11 +53,11 @@ std::set<Operation *, LogicalTensor::CompareOp> FindProducers(
 
 inline void EliminateOperationCommon(Function &function, bool sorted, bool sortAfterErase) {
     std::queue<Operation *> q;
-    std::unordered_set<Operation*> visited;
+    std::unordered_set<Operation *> visited;
     std::unordered_set<std::shared_ptr<LogicalTensor>> visitedOperands;
     for (auto &op : function.Operations(sorted)) {
         bool dontTouch = op.GetBoolAttribute(OpAttributeKey::dontTouch);
-        if(dontTouch){
+        if (dontTouch) {
             visited.emplace(&op);
             q.emplace(&op);
         }
@@ -106,4 +106,4 @@ void DeadOperationEliminator::EliminateOperation(Function &function, bool sorted
 void DeadOperationEliminator::EliminateOperationAndNotSortAfterErase(Function &function, bool sorted) {
     EliminateOperationCommon(function, sorted, false);
 }
-} // namespace
+} // namespace npu::tile_fwk

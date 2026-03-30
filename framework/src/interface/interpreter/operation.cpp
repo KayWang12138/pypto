@@ -58,15 +58,8 @@ void LogTensorList(const char *role, Operation *op, const LogicalTensors &tensor
         VERIFY_LOGE_FULL_E(ExecuteOperationScene::RUNTIME_EXCEPTION,
             "ExecuteOperation error: op %s (magic=%d) %s[%zu] tensorMagic=%d, "
             "shape=%s, offset=%s, dynValidShape=%s, dynOffset=%s",
-            op->GetOpcodeStr().c_str(),
-            op->GetOpMagic(),
-            role,
-            i,
-            tensor->magic,
-            shapeStr.c_str(),
-            offsetStr.c_str(),
-            dynValidShapeStr.c_str(),
-            dynOffsetStr.c_str());
+            op->GetOpcodeStr().c_str(), op->GetOpMagic(), role, i, tensor->magic, shapeStr.c_str(), offsetStr.c_str(),
+            dynValidShapeStr.c_str(), dynOffsetStr.c_str());
     }
 }
 
@@ -134,9 +127,9 @@ void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
         if (pos != std::string::npos) {
             errMsg = errMsg.substr(0, pos);
         }
-        throw std::runtime_error(std::to_string(ctx->frame->rootFuncHash) + ", " + std::to_string(ctx->frame->funcHash)
-                                + ", " + std::to_string(op->GetOpMagic()) + ", " + op->GetOpcodeStr()
-                                + "OpError\n" + ctx->Dump() + errMsg);
+        throw std::runtime_error(std::to_string(ctx->frame->rootFuncHash) + ", " +
+                                 std::to_string(ctx->frame->funcHash) + ", " + std::to_string(op->GetOpMagic()) + ", " +
+                                 op->GetOpcodeStr() + "OpError\n" + ctx->Dump() + errMsg);
     }
 }
 
@@ -164,4 +157,4 @@ std::string ExecuteOperationContext::Dump() const {
     ss << "\n";
     return ss.str();
 }
-}
+} // namespace npu::tile_fwk

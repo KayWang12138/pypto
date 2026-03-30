@@ -34,9 +34,7 @@ const std::string CM_TEST_TMP_DIR = "/tmp/test_cache_manager_log";
 
 class TestCacheManagerLog : public testing::Test {
 public:
-    static void SetUpTestCase() {
-        CreateMultiLevelDir(CM_TEST_TMP_DIR);
-    }
+    static void SetUpTestCase() { CreateMultiLevelDir(CM_TEST_TMP_DIR); }
 
     static void TearDownTestCase() {
         std::string cmd = "rm -rf " + CM_TEST_TMP_DIR;

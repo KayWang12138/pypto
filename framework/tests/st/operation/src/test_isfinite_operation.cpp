@@ -19,7 +19,7 @@ using namespace tile_fwk::test_operation;
 namespace {
 struct IsFiniteOpFuncArgs : public OpFuncArgs {
     IsFiniteOpFuncArgs(std::vector<int64_t> shape, std::vector<int64_t> vecTileShapes)
-        : viewShape_(shape), tileShape_(vecTileShapes){}
+        : viewShape_(shape), tileShape_(vecTileShapes) {}
 
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
@@ -158,15 +158,15 @@ static void IsFiniteOperationExeFunc5DCut(
                 LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
                     LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
                         LOOP("LOOP_L4_nIdx", FunctionType::DYNAMIC_LOOP, kIdx, LoopRange(0, kloop, 1)) {
-                            Tensor tileTensor0 =
-                                View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape, fifthViewShape},
-                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                        std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
-                                        std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape),
-                                        std::min(fifthDim - kIdx * fifthViewShape, fifthViewShape)},
-                                    {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
-                                        nIdx * fourthViewShape, kIdx * fifthViewShape});
+                            Tensor tileTensor0 = View(inputs[0],
+                                {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape, fifthViewShape},
+                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                    std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape),
+                                    std::min(fifthDim - kIdx * fifthViewShape, fifthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                    nIdx * fourthViewShape, kIdx * fifthViewShape});
                             TileShape::Current().SetVecTile(args->tileShape_);
                             auto res = IsFinite(tileTensor0);
                             Assemble(res,
@@ -184,8 +184,10 @@ static void IsFiniteOperationExeFunc5DCut(
 class IsFiniteOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<IsFiniteOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestIsFinite, IsFiniteOperationTest,
-    ::testing::ValuesIn(GetOpMetaData<IsFiniteOpMetaData>(
-        {IsFiniteOperationExeFuncDoubleCut, IsFiniteOperationExeFuncTripleCut, IsFiniteOperationExeFuncQuadrupleCut, IsFiniteOperationExeFunc5DCut}, "IsFinite")));
+    ::testing::ValuesIn(
+        GetOpMetaData<IsFiniteOpMetaData>({IsFiniteOperationExeFuncDoubleCut, IsFiniteOperationExeFuncTripleCut,
+                                              IsFiniteOperationExeFuncQuadrupleCut, IsFiniteOperationExeFunc5DCut},
+            "IsFinite")));
 
 TEST_P(IsFiniteOperationTest, TestIsFinite) {
     auto test_data = GetParam().test_data_;

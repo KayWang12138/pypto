@@ -37,7 +37,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_70_8_40_1) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("GatherElement") {
         void *params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
@@ -80,7 +80,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_8_32_1) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("GatherElement") {
         void *params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
@@ -124,7 +124,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_1) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("GatherElement") {
         void *params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
@@ -168,7 +168,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_0) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("GatherElement") {
         void *params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);

@@ -19,11 +19,9 @@
 using namespace npu::tile_fwk::dynamic;
 class ItemPoolTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-    }
+    void SetUp() override {}
 
-    void TearDown() override {
-    }
+    void TearDown() override {}
 };
 
 #define BASE 10000
@@ -33,12 +31,8 @@ struct Object {
         return destructorCount;
     }
     int value;
-    Object(int n) {
-        value = BASE + n;
-    }
-    ~Object() {
-        GetDestructorCount()++;
-    }
+    Object(int n) { value = BASE + n; }
+    ~Object() { GetDestructorCount()++; }
 };
 
 TEST_F(ItemPoolTest, FreeList) {

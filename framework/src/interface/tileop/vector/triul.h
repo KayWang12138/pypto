@@ -45,9 +45,9 @@ TILEOP void TTriUL(DstTensor dst, SrcTensor src, int diagonal) {
                 pto::TASSIGN(dstTile, (uint64_t)(dstAddr + tileOffsets));
                 pto::TASSIGN(srcTile, (uint64_t)(srcAddr + tileOffsets));
                 pto::TTRI<dstTileDefine, isUpper>(dstTile, diagonal);
-                #ifdef __DAV_V220
+#ifdef __DAV_V220
                 pipe_barrier(PIPE_V);
-                #endif
+#endif
                 pto::TMUL(dstTile, dstTile, srcTile);
             }
         }

@@ -25,18 +25,15 @@
 namespace npu::tile_fwk {
 class Program {
 public: // public api for torch
-
     std::vector<Function *> functionSequence_;
     Program();
     ~Program();
 
     static Program &GetInstance();
     void Reset();
-    bool BeginFunction(const std::string &funcName,
-        const FunctionType funcType = FunctionType::STATIC,
+    bool BeginFunction(const std::string &funcName, const FunctionType funcType = FunctionType::STATIC,
         const GraphType graphType = GraphType::TENSOR_GRAPH,
-        const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs = {},
-        bool isHiddenFunction = false);
+        const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs = {}, bool isHiddenFunction = false);
     std::tuple<Function *, Operation *, bool> EndFunction(const std::string &funcName, bool generateCall = true);
 
     Operation &ConnectCallerGusket(Function &caller, FunctionCallArgs &args) const;
@@ -90,7 +87,8 @@ public: // public api for torch
     // Return current containing dynamic function.
     Function *GetCurrentDynamicFunction() const { return currentDynamicFunctionPtr_; }
     void SetCurrentDynamicFunction(Function *dynFunc) {
-        ASSERT(currentDynamicFunctionPtr_ != dynFunc) << "Under: " << currentDynamicFunctionPtr_->GetRawName() << " " << dynFunc->GetRawName();
+        ASSERT(currentDynamicFunctionPtr_ != dynFunc)
+            << "Under: " << currentDynamicFunctionPtr_->GetRawName() << " " << dynFunc->GetRawName();
         currentDynamicFunctionPtr_ = dynFunc;
     }
 
@@ -102,12 +100,12 @@ public: // public api for torch
     Function *GetLastFunction() const { return lastFunc_; }
 
     std::optional<CacheValue> TryHitCahce(const FunctionHash &functionHash) { return functionCache_.Get(functionHash); }
-    FunctionCache& GetFunctionCache() { return functionCache_; }
-    std::shared_ptr<npu::tile_fwk::Function> GetFunctionSharedPtr(Function* rawPtr);
+    FunctionCache &GetFunctionCache() { return functionCache_; }
+    std::shared_ptr<npu::tile_fwk::Function> GetFunctionSharedPtr(Function *rawPtr);
 
     // 动静归一
     void CreateCallerCalleeLink(Function *caller, Function *callee);
-    void RefillCompileQueue(Function* func);
+    void RefillCompileQueue(Function *func);
     void UpdateCompileTask();
     void ClearEmptyHiddenFunction();
 

@@ -19,20 +19,17 @@
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace CostModel {
-void GenCalendar::InitTaskTopoInfo(TaskMap &taskMap)
-{
+void GenCalendar::InitTaskTopoInfo(TaskMap &taskMap) {
     for (auto &task : taskMap) {
         taskTopoInfo[task.first] = CalendarEntry(task.second);
     }
 }
 
-void GenCalendar::InitAICore(uint64_t machineId)
-{
+void GenCalendar::InitAICore(uint64_t machineId) {
     machineStatus[machineId] = CoreInfoStatus(machineId);
 }
 
-void GenCalendar::LogTaskComplete(uint64_t taskId, uint64_t machineId, uint64_t sTime, uint64_t eTime)
-{
+void GenCalendar::LogTaskComplete(uint64_t taskId, uint64_t machineId, uint64_t sTime, uint64_t eTime) {
     CoreInfoStatus &status = machineStatus[machineId];
     taskTopoInfo[taskId].exeMachineId = machineId;
     taskTopoInfo[taskId].startTime = sTime;
@@ -46,8 +43,7 @@ void GenCalendar::LogTaskComplete(uint64_t taskId, uint64_t machineId, uint64_t 
     StatWatiTime(taskId, machineId);
 }
 
-void GenCalendar::StatWatiTime(uint64_t taskId, uint64_t machineId)
-{
+void GenCalendar::StatWatiTime(uint64_t taskId, uint64_t machineId) {
     CoreInfoStatus &status = machineStatus[machineId];
     auto &taskEntry = taskTopoInfo[taskId];
     for (auto &srcTaskId : taskEntry.task->predecessors) {
@@ -63,8 +59,7 @@ void GenCalendar::StatWatiTime(uint64_t taskId, uint64_t machineId)
     totalCycles = std::max(totalCycles, taskTopoInfo[taskId].endTime);
 }
 
-void GenCalendar::AllocIncCounter()
-{
+void GenCalendar::AllocIncCounter() {
     // Alloc counter for each core.
     for (auto &task : taskTopoInfo) {
         task.second.incCounterId = GetMachineSeq(task.second.exeMachineId);
@@ -74,14 +69,13 @@ void GenCalendar::AllocIncCounter()
     }
 }
 
-void GenCalendar::GenTaskDependency(uint64_t taskId)
-{
+void GenCalendar::GenTaskDependency(uint64_t taskId) {
     auto &entry = taskTopoInfo[taskId];
     if (entry.task->predecessors.empty()) {
         return;
     }
     CoreInfoStatus &status = machineStatus[entry.exeMachineId];
-    std::map<uint64_t, uint64_t> counterToReqMap; // Key: counterId, value: expected value.
+    std::map<uint64_t, uint64_t> counterToReqMap;    // Key: counterId, value: expected value.
     std::map<uint64_t, uint64_t> counterToTaskIdMap; // Key: counterId, value: expected value.
 
     for (auto &preTaskId : entry.task->predecessors) {
@@ -127,8 +121,7 @@ void GenCalendar::GenTaskDependency(uint64_t taskId)
     entry.waitSCBVal = status.waitRespCounter;
 }
 
-void GenCalendar::GenCounterDepencency()
-{
+void GenCalendar::GenCounterDepencency() {
     for (auto &status : machineStatus) {
         for (auto &taskId : status.second.completedTasks) {
             GenTaskDependency(taskId);
@@ -139,7 +132,7 @@ void GenCalendar::GenCounterDepencency()
 struct SetHash {
     std::size_t shift1 = 6;
     std::size_t shift2 = 2;
-    std::size_t operator()(const std::set<uint64_t>& s) const {
+    std::size_t operator()(const std::set<uint64_t> &s) const {
         std::size_t seed = 0;
         for (uint64_t val : s) {
             // hash_combine pattern
@@ -149,18 +142,15 @@ struct SetHash {
     }
 };
 
-void GenCalendar::RemoveBarrierCounter()
-{
+void GenCalendar::RemoveBarrierCounter() {
     // WaitSrcId to task map.
     using WaitSrcTaskIdT = std::set<uint64_t>;
-    using WaitSrcTaskIdToTaskIdMap =
-        std::unordered_map<WaitSrcTaskIdT, std::vector<uint64_t>, SetHash>;
+    using WaitSrcTaskIdToTaskIdMap = std::unordered_map<WaitSrcTaskIdT, std::vector<uint64_t>, SetHash>;
 
     // First sort all waiting tasks.
     WaitSrcTaskIdToTaskIdMap waitToTaskMap;
     for (auto &task : taskTopoInfo) {
-        WaitSrcTaskIdT x(task.second.waitSrcTaskIds.begin(),
-                         task.second.waitSrcTaskIds.end());
+        WaitSrcTaskIdT x(task.second.waitSrcTaskIds.begin(), task.second.waitSrcTaskIds.end());
         if (x.empty()) {
             continue;
         }
@@ -198,13 +188,9 @@ void GenCalendar::RemoveBarrierCounter()
         // Make all the consumer wait for the barrier counter.
         for (auto &dst_task_id : x.second) {
             auto &entry = taskTopoInfo[dst_task_id];
-            entry.waitBarrierCounterIds.emplace_back(
-                barrierCounterId, x.first.size()
-            );
+            entry.waitBarrierCounterIds.emplace_back(barrierCounterId, x.first.size());
             // Clear the original
-            entry.redundantSrcTaskIds.insert(
-                entry.redundantSrcTaskIds.end(), x.first.begin(), x.first.end()
-            );
+            entry.redundantSrcTaskIds.insert(entry.redundantSrcTaskIds.end(), x.first.begin(), x.first.end());
             entry.waitSrcTaskIds.clear();
         }
 
@@ -222,8 +208,7 @@ void GenCalendar::RemoveBarrierCounter()
     }
 }
 
-void GenCalendar::PrintTask(CalendarEntry &entry, std::ofstream &os)
-{
+void GenCalendar::PrintTask(CalendarEntry &entry, std::ofstream &os) {
     if (!entry.waitSrcTaskIds.empty() || !entry.waitBarrierCounterIds.empty()) {
         for (auto &srcTaskId : entry.waitSrcTaskIds) {
             auto &srcEntry = taskTopoInfo[srcTaskId];
@@ -256,8 +241,7 @@ void GenCalendar::PrintTask(CalendarEntry &entry, std::ofstream &os)
     }
 }
 
-void GenCalendar::PrintStat(std::ofstream &os)
-{
+void GenCalendar::PrintStat(std::ofstream &os) {
     os << "/*" << std::endl;
     os << "Total Tasks:" << std::dec << totalCompleteTasks.size() << std::endl;
     for (auto &status : machineStatus) {
@@ -278,8 +262,7 @@ void GenCalendar::PrintStat(std::ofstream &os)
     os << "*/" << std::endl;
 }
 
-void GenCalendar::OutputCalendar(std::ofstream &os)
-{
+void GenCalendar::OutputCalendar(std::ofstream &os) {
     for (auto &status : machineStatus) {
         auto machineType = static_cast<MachineType>(GetMachineType(status.first));
         auto machineIdx = GetMachineSeq(status.first);
@@ -292,8 +275,7 @@ void GenCalendar::OutputCalendar(std::ofstream &os)
     }
 }
 
-void GenCalendar::GenCalendarCpp(std::string &path)
-{
+void GenCalendar::GenCalendarCpp(std::string &path) {
     AllocIncCounter();
     GenCounterDepencency();
     RemoveBarrierCounter();
@@ -304,11 +286,10 @@ void GenCalendar::GenCalendarCpp(std::string &path)
     os.close();
 }
 
-std::string CalendarEntry::GetInfoLabel()
-{
+std::string CalendarEntry::GetInfoLabel() {
     std::stringstream oss;
     oss << "[srcTask:" << task->taskId;
     oss << ", core:" << GetMachineSeq(exeMachineId) << "]";
     return oss.str();
 }
-}
+} // namespace CostModel

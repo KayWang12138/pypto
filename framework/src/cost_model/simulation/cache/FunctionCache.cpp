@@ -21,8 +21,7 @@
 
 namespace CostModel {
 
-void FunctionCache::Insert(FunctionPtr func)
-{
+void FunctionCache::Insert(FunctionPtr func) {
     // Key is Function hash
     uint64_t index = func->functionHash;
     funcNameToKey[func->funcName] = index;
@@ -34,21 +33,21 @@ void FunctionCache::Insert(FunctionPtr func)
     }
 }
 
-void FunctionCache::CountFunctionCache(uint64_t key, CostModel::Pid pid, CostModel::Tid tid, bool hit)
-{
+void FunctionCache::CountFunctionCache(uint64_t key, CostModel::Pid pid, CostModel::Tid tid, bool hit) {
     if (pid != LLONG_MAX) {
         if (hit) {
             GetSim()->GetLogger()->AddCounterEvent(pid, tid, CostModel::CounterType::CACHE_HIT);
         } else {
             GetSim()->GetLogger()->AddCounterEvent(pid, tid, CostModel::CounterType::CACHE_MISS);
 
-            SIMULATION_LOGI("[Cycle: %lu][CoreMachine][ReceivePacket] CoreMachine: %lu Function Not Exist In Function Cache.", GetSim()->GetCycles(), key);
+            SIMULATION_LOGI(
+                "[Cycle: %lu][CoreMachine][ReceivePacket] CoreMachine: %lu Function Not Exist In Function Cache.",
+                GetSim()->GetCycles(), key);
         }
     }
 }
 
-bool FunctionCache::Lookup(uint64_t key, CostModel::Pid pid, CostModel::Tid tid)
-{
+bool FunctionCache::Lookup(uint64_t key, CostModel::Pid pid, CostModel::Tid tid) {
     bool hit = !inCacheFunction.empty() && funcLastUseTime[key] >= inCacheFunction.begin()->first;
     if (hit) {
         inCacheFunction.erase({funcLastUseTime[key], key});
@@ -62,8 +61,7 @@ bool FunctionCache::Lookup(uint64_t key, CostModel::Pid pid, CostModel::Tid tid)
     return hit;
 }
 
-bool FunctionCache::LookupCache(uint64_t key)
-{
+bool FunctionCache::LookupCache(uint64_t key) {
     auto it = cache.find(key);
     if (it == cache.end()) {
         return false;
@@ -72,28 +70,23 @@ bool FunctionCache::LookupCache(uint64_t key)
     }
 }
 
-FunctionPtr FunctionCache::GetFunction(uint64_t key)
-{
+FunctionPtr FunctionCache::GetFunction(uint64_t key) {
     return cache.at(key);
 }
 
-std::shared_ptr<SimSys> FunctionCache::GetSim()
-{
+std::shared_ptr<SimSys> FunctionCache::GetSim() {
     return sim;
 }
 
-void FunctionCache::SetSim(std::shared_ptr<CostModel::SimSys> simPtr)
-{
+void FunctionCache::SetSim(std::shared_ptr<CostModel::SimSys> simPtr) {
     sim = std::move(simPtr);
 }
 
-void FunctionCache::SetMaxCacheSize(uint64_t cacheSize)
-{
+void FunctionCache::SetMaxCacheSize(uint64_t cacheSize) {
     maxCacheSize = cacheSize;
 }
 
-uint64_t FunctionCache::GetMaxCacheSize() const
-{
+uint64_t FunctionCache::GetMaxCacheSize() const {
     return maxCacheSize;
 }
-}
+} // namespace CostModel

@@ -103,7 +103,7 @@ const std::unordered_map<std::string, std::unordered_map<DataType, int>> INTRIN_
      {DataType::DT_FP16, 23},
      {DataType::DT_FP32, 20},
      }},
-    {    "UB_MAXIMUM",
+    {      "UB_MAXIMUM",
      {
      {DataType::DT_FP16, 4},
      {DataType::DT_FP32, 4},
@@ -311,7 +311,7 @@ const std::unordered_map<std::string, std::unordered_map<DataType, int>> INTRIN_
      {DataType::DT_FP16, 128},
      {DataType::DT_FP32, 64},
      }},
-    {    "UB_MAXIMUM",
+    {      "UB_MAXIMUM",
      {
      {DataType::DT_FP16, 128},
      {DataType::DT_FP32, 64},
@@ -436,7 +436,8 @@ const std::unordered_map<std::string, int> SYNC_OP_CYCLES{
 };
 
 int64_t CalcUBCompactCycles(const std::vector<std::vector<int64_t>> &shape, DataType dtype);
-const std::unordered_map<std::string, std::function<int64_t(const std::vector<std::vector<int64_t>> &shape, DataType dtype)>>
+const std::unordered_map<std::string,
+    std::function<int64_t(const std::vector<std::vector<int64_t>> &shape, DataType dtype)>>
     COMINE_INTRIN_CYCLES_IN_OP = {
         {"UB_COMPACT", [](const std::vector<std::vector<int64_t>> &shape, DataType dtype) {
              return CalcUBCompactCycles(shape, dtype);

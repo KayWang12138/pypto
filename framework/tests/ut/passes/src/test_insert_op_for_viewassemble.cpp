@@ -13,7 +13,7 @@
  * \brief Unit test for InsertOpForViewAssemble pass.
  */
 
- #include <gtest/gtest.h>
+#include <gtest/gtest.h>
 #include <vector>
 #include <string>
 #include "interface/function/function.h"
@@ -26,7 +26,7 @@
 #include "passes/tile_graph_pass/graph_optimization/insert_op_for_viewassemble.h"
 
 namespace npu {
-namespace tile_fwk{
+namespace tile_fwk {
 static const size_t kSizeZero = 0UL;
 static const uint16_t kNumFour = 4u;
 static const size_t kSizeEight = 8UL;
@@ -50,7 +50,8 @@ public:
 };
 
 TEST_F(TestInsertCopyPass, TestNormalCase) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNormalCase", "TestNormalCase", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestNormalCase", "TestNormalCase", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     /*
                | ------- view --- t0 --- assemble ------- |
@@ -105,7 +106,8 @@ TEST_F(TestInsertCopyPass, TestNormalCase) {
 }
 
 TEST_F(TestInsertCopyPass, TestNoEqualSize) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNormalCase", "TestNormalCase", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestNormalCase", "TestNormalCase", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     /*
                | ------- view --- t0 --- assemble ------- |
@@ -160,7 +162,8 @@ TEST_F(TestInsertCopyPass, TestNoEqualSize) {
 }
 
 TEST_F(TestInsertCopyPass, TestInsert) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNormalCase", "TestNormalCase", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestNormalCase", "TestNormalCase", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     /*
 
@@ -200,5 +203,5 @@ TEST_F(TestInsertCopyPass, TestInsert) {
     const int result = 7;
     EXPECT_EQ(currFunctionPtr->Operations().size(), result);
 }
-}
-}
+} // namespace tile_fwk
+} // namespace npu

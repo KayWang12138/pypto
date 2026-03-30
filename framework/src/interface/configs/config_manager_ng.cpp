@@ -84,10 +84,13 @@ struct TypeInfo {
         }
     }
 
-    void parse_range_info(const nlohmann::json &jData, const std::string &prefix, const std::string &min_key, const std::string &max_key) {
+    void parse_range_info(const nlohmann::json &jData, const std::string &prefix, const std::string &min_key,
+        const std::string &max_key) {
         int64_t minBound = jData.contains(min_key) ? jData[min_key].get<int64_t>() : INT_MIN;
         int64_t maxBound = jData.contains(max_key) ? jData[max_key].get<int64_t>() : INT_MAX;
-        rangeInfos.insert({prefix, {minBound, maxBound}});
+        rangeInfos.insert({
+            prefix, {minBound, maxBound}
+        });
     }
 
     void parse_array_type(const nlohmann::json &jData, const std::string &prefix) {
@@ -139,7 +142,6 @@ void ConfigScope::Clear() {
     values_.clear();
     FUNCTION_LOGD("Clear config scope successfully");
 }
-
 
 const std::type_info &ConfigScope::Type(const std::string &key) const {
     return ConfigManagerNg::GetInstance().Type(key);
@@ -212,24 +214,18 @@ void DumpValues(std::stringstream &os, const std::map<std::string, Any> &values,
     }
 }
 
-void DumpRange(
-    std::stringstream &os,
-    const std::type_info &type,
-    const std::string &key,
+void DumpRange(std::stringstream &os, const std::type_info &type, const std::string &key,
     const std::map<std::string, std::pair<int64_t, int64_t>> &rangeInfos) {
     os << "Range: ";
     if (type == typeid(std::map<int64_t, int64_t>)) {
-        os << "{[" << rangeInfos.at(key + "_key").first <<
-            ", " << rangeInfos.at(key + "_key").second <<
-            "], [" << rangeInfos.at(key + "_val").first <<
-            ", " << rangeInfos.at(key + "_val").second << "]}";
+        os << "{[" << rangeInfos.at(key + "_key").first << ", " << rangeInfos.at(key + "_key").second << "], ["
+           << rangeInfos.at(key + "_val").first << ", " << rangeInfos.at(key + "_val").second << "]}";
     } else {
-        os << "[" << rangeInfos.at(key).first <<
-            ", " << rangeInfos.at(key).second << "]";
+        os << "[" << rangeInfos.at(key).first << ", " << rangeInfos.at(key).second << "]";
     }
 }
 
-std::string ConfigScope::ToString() const{
+std::string ConfigScope::ToString() const {
     auto values = GetAllConfig();
     std::stringstream os;
     DumpValues(os, values, "");
@@ -237,7 +233,7 @@ std::string ConfigScope::ToString() const{
     return os.str();
 }
 
-const std::map<std::string, Any> ConfigScope::GetAllConfig() const{
+const std::map<std::string, Any> ConfigScope::GetAllConfig() const {
     std::map<std::string, Any> values;
     auto scope = this;
     while (scope) {
@@ -298,12 +294,12 @@ struct ConfigManagerImpl {
     }
 
     inline bool IntervalJudge(const int64_t &stand, const int64_t &lf, const int64_t &rf) const {
-        return stand >= lf && stand <=rf;
+        return stand >= lf && stand <= rf;
     }
 
     bool IsWithinRange(const std::string &properties, const int64_t &value) const {
-        return IntervalJudge(value, typeInfo.rangeInfos.at(properties).first,
-                             typeInfo.rangeInfos.at(properties).second);
+        return IntervalJudge(
+            value, typeInfo.rangeInfos.at(properties).first, typeInfo.rangeInfos.at(properties).second);
     }
 
     bool IsWithinRange(const std::string &properties, const std::map<int64_t, int64_t> &value) const {
@@ -359,7 +355,8 @@ struct ConfigManagerImpl {
                 root->AddValue(it.first, it.second);
                 FUNCTION_LOGD("Set option successfully. Key: %s", it.first.c_str());
             } catch (const std::exception &e) {
-                FUNCTION_LOGE_E(FError::INVALID_VAL, "Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
+                FUNCTION_LOGE_E(
+                    FError::INVALID_VAL, "Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
             }
         }
     }
@@ -467,8 +464,8 @@ ConfigManagerNg::ScopedRestore::~ScopedRestore() {
     ConfigManagerNg::GetInstance().EndScope();
 }
 
-ConfigManagerNg::JitScopeGuard::JitScopeGuard(const std::string &name, std::map<std::string, Any> &&values,
-    const char *file, int lino) {
+ConfigManagerNg::JitScopeGuard::JitScopeGuard(
+    const std::string &name, std::map<std::string, Any> &&values, const char *file, int lino) {
     ConfigManagerNg::GetInstance().BeginScope(name, std::move(values), file, lino);
 }
 
@@ -504,8 +501,8 @@ bool ConfigManagerNg::IsWithinRange(const std::string &properties, Any &value) c
             return impl_->IsWithinRange(properties, AnyCast<int64_t>(value));
         }
     } catch (const std::out_of_range &e) {
-        FUNCTION_LOGE_E(FError::INVALID_VAL,
-            "key[%s] has been not loaded form tile_fwk_config_schema.json.", properties.c_str());
+        FUNCTION_LOGE_E(
+            FError::INVALID_VAL, "key[%s] has been not loaded form tile_fwk_config_schema.json.", properties.c_str());
         return false;
     }
     return true;
@@ -534,10 +531,10 @@ ConfigManagerNg &ConfigManagerNg::GetInstance() {
 
 ConfigManagerNg::~ConfigManagerNg() = default;
 
-namespace config{
+namespace config {
 
 template <typename T>
-void SetOptionsNg(const std::string &key, const T &value){
+void SetOptionsNg(const std::string &key, const T &value) {
     ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
 }
 
@@ -553,10 +550,9 @@ template void SetOptionsNg<std::vector<int>>(const std::string &key, const std::
 template void SetOptionsNg<std::vector<std::string>>(const std::string &key, const std::vector<std::string> &value);
 template void SetOptionsNg<std::vector<double>>(const std::string &key, const std::vector<double> &value);
 
-
 std::shared_ptr<ConfigScope> Duplicate() {
     return ConfigManagerNg::CurrentScope();
 }
 
-}  // namespace config
+} // namespace config
 } // namespace npu::tile_fwk

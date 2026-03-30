@@ -9,9 +9,9 @@
  */
 
 /*!
-* \file test_tune_tileopseq_for_vf.cpp
-* \brief Unit test for TuneTileOpSeqForVF.
-*/
+ * \file test_tune_tileopseq_for_vf.cpp
+ * \brief Unit test for TuneTileOpSeqForVF.
+ */
 #include <gtest/gtest.h>
 #include <algorithm>
 #include "tilefwk/platform.h"
@@ -58,17 +58,17 @@ protected:
     }
 
     std::pair<std::shared_ptr<Function>, std::shared_ptr<Function>> CreateFunctionPair(
-            const std::string &rootName, const std::string &leafName) {
+        const std::string &rootName, const std::string &leafName) {
         auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), rootName, rootName, nullptr);
         rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-        auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), leafName, leafName, rootFuncPtr.get());
+        auto currFunctionPtr =
+            std::make_shared<Function>(Program::GetInstance(), leafName, leafName, rootFuncPtr.get());
         rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
         return {rootFuncPtr, currFunctionPtr};
     }
 
     void SetupAndRunAdjustUbCopyNd2NzOrder(TuneTileOpSeqForVF &tuneTileop, PipeSync &ps,
-                                           const std::vector<Operation *> &ops,
-                                           const std::vector<std::vector<Operation *>> &mergedGroups) {
+        const std::vector<Operation *> &ops, const std::vector<std::vector<Operation *>> &mergedGroups) {
         tuneTileop.opList_ = ops;
         for (auto &op : tuneTileop.opList_) {
             op->SetAIVCore(AIVCore::AIV0);
@@ -128,7 +128,8 @@ void BuildGraphForTest(std::shared_ptr<Function> currFunctionPtr, std::vector<Op
 TEST_F(TuneTileopseqForVFTest, TestMergeForTuneTileop) {
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestFindDep", "TestFindDep", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestFindDepLeaf", "TestFindDepLeaf", rootFuncPtr.get());
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestFindDepLeaf", "TestFindDepLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     std::vector<Operation *> opListPtr;
@@ -147,7 +148,8 @@ TEST_F(TuneTileopseqForVFTest, TestMergeForTuneTileop) {
 TEST_F(TuneTileopseqForVFTest, TestNotMergeForTuneTileop) {
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestTuneTileop", "TestTuneTileop", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestTuneTileopLeaf", "TestTuneTileopLeaf", rootFuncPtr.get());
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestTuneTileopLeaf", "TestTuneTileopLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     std::vector<Operation *> opListPtr;
@@ -172,9 +174,11 @@ TEST_F(TuneTileopseqForVFTest, TestNotMergeForTuneTileop) {
 }
 
 TEST_F(TuneTileopseqForVFTest, TestMainProcess) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainProcess", "TestMainProcess", nullptr);
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestMainProcess", "TestMainProcess", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainProcessLeaf", "TestMainProcessLeaf", rootFuncPtr.get());
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestMainProcessLeaf", "TestMainProcessLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     std::vector<std::shared_ptr<LogicalTensor>> input;
@@ -222,7 +226,8 @@ void BuildGraphForNonGroup(std::shared_ptr<Function> currFunctionPtr, std::vecto
 TEST_F(TuneTileopseqForVFTest, TestNonGroupCase) {
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestNonGroup", "TestNonGroup", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNonGroupLeaf", "TestNonGroupLeaf", rootFuncPtr.get());
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestNonGroupLeaf", "TestNonGroupLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     std::vector<Operation *> opListPtr;
@@ -277,7 +282,11 @@ TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_NoUbCopyOp) {
 
     TuneTileOpSeqForVF tuneTileop;
     PipeSync ps;
-    SetupAndRunAdjustUbCopyNd2NzOrder(tuneTileop, ps, {&op1, &op2}, {{&op1, &op2}});
+    SetupAndRunAdjustUbCopyNd2NzOrder(tuneTileop, ps,
+        {
+            &op1, &op2
+    },
+        {{&op1, &op2}});
 
     EXPECT_EQ(tuneTileop.opList_.size(), 2U);
     EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_EXP);
@@ -303,7 +312,11 @@ TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_NoNonUbCopyOp) {
 
     TuneTileOpSeqForVF tuneTileop;
     PipeSync ps;
-    SetupAndRunAdjustUbCopyNd2NzOrder(tuneTileop, ps, {&ubCopyOp1, &ubCopyOp2}, {{&ubCopyOp1, &ubCopyOp2}});
+    SetupAndRunAdjustUbCopyNd2NzOrder(tuneTileop, ps,
+        {
+            &ubCopyOp1, &ubCopyOp2
+    },
+        {{&ubCopyOp1, &ubCopyOp2}});
 
     EXPECT_EQ(tuneTileop.opList_.size(), 2U);
     EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_UB_COPY_ND2NZ);
@@ -333,7 +346,11 @@ TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_UbCopyMoveFront) {
 
     TuneTileOpSeqForVF tuneTileop;
     PipeSync ps;
-    SetupAndRunAdjustUbCopyNd2NzOrder(tuneTileop, ps, {&vecOp1, &ubCopyOp, &vecOp2}, {{&vecOp1, &ubCopyOp, &vecOp2}});
+    SetupAndRunAdjustUbCopyNd2NzOrder(tuneTileop, ps,
+        {
+            &vecOp1, &ubCopyOp, &vecOp2
+    },
+        {{&vecOp1, &ubCopyOp, &vecOp2}});
 
     EXPECT_EQ(tuneTileop.opList_.size(), 3U);
     EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_UB_COPY_ND2NZ);
@@ -362,7 +379,11 @@ TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_UbCopyMoveBack) {
 
     TuneTileOpSeqForVF tuneTileop;
     PipeSync ps;
-    SetupAndRunAdjustUbCopyNd2NzOrder(tuneTileop, ps, {&vecOp1, &ubCopyOp, &vecOp2}, {{&vecOp1, &ubCopyOp, &vecOp2}});
+    SetupAndRunAdjustUbCopyNd2NzOrder(tuneTileop, ps,
+        {
+            &vecOp1, &ubCopyOp, &vecOp2
+    },
+        {{&vecOp1, &ubCopyOp, &vecOp2}});
 
     EXPECT_EQ(tuneTileop.opList_.size(), 3U);
     EXPECT_EQ(tuneTileop.opList_[2]->GetOpcode(), Opcode::OP_UB_COPY_ND2NZ);
@@ -390,7 +411,11 @@ TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_UbCopyCannotMove) {
 
     TuneTileOpSeqForVF tuneTileop;
     PipeSync ps;
-    SetupAndRunAdjustUbCopyNd2NzOrder(tuneTileop, ps, {&vecOp1, &ubCopyOp, &vecOp2}, {{&vecOp1, &ubCopyOp, &vecOp2}});
+    SetupAndRunAdjustUbCopyNd2NzOrder(tuneTileop, ps,
+        {
+            &vecOp1, &ubCopyOp, &vecOp2
+    },
+        {{&vecOp1, &ubCopyOp, &vecOp2}});
 
     EXPECT_EQ(tuneTileop.opList_.size(), 3U);
     EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_EXP);
@@ -421,7 +446,11 @@ TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_MultipleUbCopyOps) {
 
     TuneTileOpSeqForVF tuneTileop;
     PipeSync ps;
-    SetupAndRunAdjustUbCopyNd2NzOrder(tuneTileop, ps, {&ubCopyOp1, &vecOp, &ubCopyOp2}, {{&ubCopyOp1, &vecOp, &ubCopyOp2}});
+    SetupAndRunAdjustUbCopyNd2NzOrder(tuneTileop, ps,
+        {
+            &ubCopyOp1, &vecOp, &ubCopyOp2
+    },
+        {{&ubCopyOp1, &vecOp, &ubCopyOp2}});
 
     EXPECT_EQ(tuneTileop.opList_.size(), 3U);
     // 验证UB_COPY_ND2NZ操作在VEC操作之前或之后
@@ -454,8 +483,11 @@ TEST_F(TuneTileopseqForVFTest, TestAdjustUbCopyNd2NzOrder_MultipleGroups) {
 
     TuneTileOpSeqForVF tuneTileop;
     PipeSync ps;
-    SetupAndRunAdjustUbCopyNd2NzOrder(tuneTileop, ps, {&vecOp1, &ubCopyOp1, &vecOp2, &ubCopyOp2},
-                                      {{&vecOp1, &ubCopyOp1}, {&vecOp2, &ubCopyOp2}});
+    SetupAndRunAdjustUbCopyNd2NzOrder(tuneTileop, ps,
+        {
+            &vecOp1, &ubCopyOp1, &vecOp2, &ubCopyOp2
+    },
+        {{&vecOp1, &ubCopyOp1}, {&vecOp2, &ubCopyOp2}});
     EXPECT_EQ(tuneTileop.opList_.size(), 4U);
 }
 

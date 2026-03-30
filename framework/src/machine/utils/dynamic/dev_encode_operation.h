@@ -53,7 +53,10 @@ struct DevAscendFunctionCallOperandUse {
 
     DevAscendFunctionCallOperandUse() = default;
     DevAscendFunctionCallOperandUse(int operationIdx_, int operandIdx_, int offsetAttrIdx_, int shapeAttrIdx_)
-        : operationIdx(operationIdx_), operandIdx(operandIdx_), offsetAttrIdx(offsetAttrIdx_), shapeAttrIdx(shapeAttrIdx_) {}
+        : operationIdx(operationIdx_),
+          operandIdx(operandIdx_),
+          offsetAttrIdx(offsetAttrIdx_),
+          shapeAttrIdx(shapeAttrIdx_) {}
 };
 
 struct DevAscendFunctionIncast {
@@ -115,4 +118,4 @@ struct DevAscendFunctionDuppedVector {
     uint32_t size;
     uint32_t base;
 };
-}
+} // namespace npu::tile_fwk::dynamic

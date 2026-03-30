@@ -26,7 +26,6 @@
 #include <climits>
 #include <nlohmann/json.hpp>
 
-
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
@@ -57,9 +56,10 @@ void CalcOperatorInfo(Function &function, json &report) {
     report["totalOpCount"] = operationViewer.size();
 
     // 非静态场景下 无法计算size 直接返回
-    if(function.GetFunctionType() != FunctionType::STATIC) {
-        APASS_LOG_INFO_F(Elements::Function, "PeakMemory can't be calculated; because functiontype is not static, name %s, hash %lu.",
-                     function.GetMagicName().c_str(), function.GetFunctionHash().GetHash());
+    if (function.GetFunctionType() != FunctionType::STATIC) {
+        APASS_LOG_INFO_F(Elements::Function,
+            "PeakMemory can't be calculated; because functiontype is not static, name %s, hash %lu.",
+            function.GetMagicName().c_str(), function.GetFunctionHash().GetHash());
         return;
     }
     uint64_t totalCopySize = 0;
@@ -85,7 +85,7 @@ void CalcOperatorInfo(Function &function, json &report) {
 
     // 写出memoryMetric和copyMetric
     report["peakMemory"] = {
-        {"peakMemoryUsage", memoryMetric.GetMaxSize()},
+        {   "peakMemoryUsage",   memoryMetric.GetMaxSize()},
         {"peakMemoryUsageOps", *memoryMetric.GetMaxNodes()}
     };
     report["copyDataCount"] = totalCopySize;
@@ -111,9 +111,8 @@ void CalcTensorInfo(Function &function, json &report) {
     report["maxproducerTensors"] = *producerMetric.GetMaxNodes();
 }
 
-void GetOpConnectionMap(Function &function,
-    std::vector<std::vector<int>> &inMap, std::vector<std::vector<int>> &outMap, std::vector<bool> &actualMagic)
-{
+void GetOpConnectionMap(Function &function, std::vector<std::vector<int>> &inMap, std::vector<std::vector<int>> &outMap,
+    std::vector<bool> &actualMagic) {
     // 找到最大的magic编号
     MetricData magicNum;
     auto operationViewer = function.Operations();
@@ -154,8 +153,7 @@ void TraversePathUp(const int parent, const std::vector<std::vector<int>> &outMa
 }
 
 void CalcGraphMetrics(const std::vector<std::vector<int>> &inMap, const std::vector<std::vector<int>> &outMap,
-    const std::vector<bool> &actualVertex, json &report)
-{
+    const std::vector<bool> &actualVertex, json &report) {
     MetricData inDegreeMetric;
     MetricData outDegreeMetric;
     std::vector<int> layerMap = std::vector<int>(inMap.size(), 0);
@@ -178,7 +176,7 @@ void CalcGraphMetrics(const std::vector<std::vector<int>> &inMap, const std::vec
     std::vector<int> layerCount = std::vector<int>(maxLayerNum, 0);
     for (size_t i = 0; i < inMap.size(); i++) {
         if (actualVertex[i]) {
-            layerCount[layerMap[i]] ++;
+            layerCount[layerMap[i]]++;
         }
     }
     int maxLayerWidth = *std::max_element(layerCount.begin(), layerCount.end());
@@ -196,7 +194,8 @@ void CalShapeInt(Operation *copyin, std::vector<OpImmediate> &shape, std::vector
     for (auto s : shape) {
         SymbolicScalar &value = s.GetSpecifiedValue();
         if (value.Raw()->Kind() != SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE) {
-            APASS_LOG_WARN_F(Elements::Operation, "%d COPYIN Shape is dynamic, CalShapeInt not support!", copyin->GetOpMagic());
+            APASS_LOG_WARN_F(
+                Elements::Operation, "%d COPYIN Shape is dynamic, CalShapeInt not support!", copyin->GetOpMagic());
             continueFlag = true;
             return;
         }
@@ -205,11 +204,13 @@ void CalShapeInt(Operation *copyin, std::vector<OpImmediate> &shape, std::vector
     }
 }
 
-void CalOffsetInt(Operation *copyin, std::vector<OpImmediate> &offset, std::vector<int> &offsetInt, bool &continueFlag) {
+void CalOffsetInt(
+    Operation *copyin, std::vector<OpImmediate> &offset, std::vector<int> &offsetInt, bool &continueFlag) {
     for (auto o : offset) {
         SymbolicScalar &value = o.GetSpecifiedValue();
         if (value.Raw()->Kind() != SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE) {
-            APASS_LOG_WARN_F(Elements::Operation, "%d COPYIN Offset is dynamic, CalOffsetInt not support!", copyin->GetOpMagic());
+            APASS_LOG_WARN_F(
+                Elements::Operation, "%d COPYIN Offset is dynamic, CalOffsetInt not support!", copyin->GetOpMagic());
             continueFlag = true;
             return;
         }
@@ -219,8 +220,8 @@ void CalOffsetInt(Operation *copyin, std::vector<OpImmediate> &offset, std::vect
 }
 
 std::unordered_map<std::string, int> redundantCopyMemoryMap = {
-    {"MEM_UB", 0},
-    {"MEM_L1", 0},
+    { "MEM_UB", 0},
+    { "MEM_L1", 0},
     {"MEM_L0A", 0},
     {"MEM_L0B", 0},
     {"MEM_L0C", 0}
@@ -230,14 +231,16 @@ Status CalRedundantCopy(Function &function, json &report) {
     for (auto &[magic, tensor] : function.GetTensorMap().inverseMap_) {
         (void)magic;
         auto dataSize = BytesOf(tensor->Datatype());
-        std::unordered_map<MemoryType, HypercubeOverlapChecker<Operation*>> overlapChecker;
+        std::unordered_map<MemoryType, HypercubeOverlapChecker<Operation *>> overlapChecker;
         for (auto &consumer : tensor->GetConsumers()) {
             if (consumer->GetOpcodeStr().find("COPY_IN") != std::string::npos) {
                 if (consumer->GetOpAttribute() == nullptr) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "%d COPYIN op attr is nullptr, CalRedundantCopy failed!", consumer->GetOpMagic());
+                    APASS_LOG_ERROR_F(Elements::Operation, "%d COPYIN op attr is nullptr, CalRedundantCopy failed!",
+                        consumer->GetOpMagic());
                     return FAILED;
                 }
-                std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(consumer->GetOpAttribute());
+                std::shared_ptr<CopyOpAttribute> attr =
+                    std::static_pointer_cast<CopyOpAttribute>(consumer->GetOpAttribute());
                 auto shape = attr->GetShape();
                 auto offset = attr->GetCopyInAttr().first;
                 auto dstMemType = attr->GetCopyInAttr().second;
@@ -271,7 +274,7 @@ Status CalRedundantCopy(Function &function, json &report) {
     return SUCCESS;
 }
 
-void WriteHealthReport(const json& report, const std::string &reportPath, const std::string& filename) {
+void WriteHealthReport(const json &report, const std::string &reportPath, const std::string &filename) {
     if (!CreateMultiLevelDir(reportPath)) {
         APASS_LOG_ERROR_F(Elements::Operation, "Failed to create directory for health report");
     }
@@ -289,7 +292,8 @@ Status CheckTileShapeAIV(Operation *op, std::vector<int> &res) {
     for (auto input : op->GetIOperands()) {
         auto tensorShape = input->GetShape();
         if (tileSize.size() != tensorShape.size()) {
-            APASS_LOG_WARN_F(Elements::Tensor, "%d Tensorshape size %zu is not equal to %d %s tileshape size %zu, CheckTileShapeAIV failed!",
+            APASS_LOG_WARN_F(Elements::Tensor,
+                "%d Tensorshape size %zu is not equal to %d %s tileshape size %zu, CheckTileShapeAIV failed!",
                 input->GetMagic(), tensorShape.size(), op->GetOpMagic(), op->GetOpcodeStr().c_str(), tileSize.size());
             return FAILED;
         }
@@ -307,7 +311,7 @@ Status CheckTileShapeAIV(Operation *op, std::vector<int> &res) {
     return SUCCESS;
 }
 
-Status CheckTileShapeAIC(Operation *op, std::vector<int> &res)  {
+Status CheckTileShapeAIC(Operation *op, std::vector<int> &res) {
     auto tileSize = op->GetTileShape().GetCubeTile();
     auto mL1 = tileSize.m[1];
     auto kL1A = tileSize.k[1];
@@ -317,13 +321,17 @@ Status CheckTileShapeAIC(Operation *op, std::vector<int> &res)  {
     auto kL0 = tileSize.k[0];
     auto nL0 = tileSize.n[0];
     if (op->GetIOperands().size() != CUDE_IOPERAND_NUM2 && op->GetIOperands().size() != CUDE_IOPERAND_NUM3) {
-        APASS_LOG_WARN_F(Elements::Operation, "Cube operation %d %s ioperands size is %zu, should be 2 or 3, CheckTileShapeAIC failed!", op->GetOpMagic(), op->GetOpcodeStr().c_str(), op->GetIOperands().size());
+        APASS_LOG_WARN_F(Elements::Operation,
+            "Cube operation %d %s ioperands size is %zu, should be 2 or 3, CheckTileShapeAIC failed!", op->GetOpMagic(),
+            op->GetOpcodeStr().c_str(), op->GetIOperands().size());
         return FAILED;
     }
     auto TensorA = op->GetIOperands()[0];
     auto TensorB = op->GetIOperands()[1];
     if (TensorA->GetShape().size() != NUM2 || TensorB->GetShape().size() != NUM2) {
-        APASS_LOG_WARN_F(Elements::Operation, "Cube operation %d %s input tensor shape size is not 2, CheckTileShapeAIC failed!", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+        APASS_LOG_WARN_F(Elements::Operation,
+            "Cube operation %d %s input tensor shape size is not 2, CheckTileShapeAIC failed!", op->GetOpMagic(),
+            op->GetOpcodeStr().c_str());
         return FAILED;
     }
     bool L1A = false;
@@ -351,7 +359,8 @@ Status CheckTileShapeAIC(Operation *op, std::vector<int> &res)  {
 void FindShapeNotdevisibleOp(Function &function, json &report) {
     std::vector<int> res;
     for (auto op : function.Operations().DuplicatedOpList()) {
-        if (op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE || op->GetOpcode() == Opcode::OP_RESHAPE) {
+        if (op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE ||
+            op->GetOpcode() == Opcode::OP_RESHAPE) {
             continue;
         }
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(op->GetOpcode());

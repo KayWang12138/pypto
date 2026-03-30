@@ -23,7 +23,8 @@ using namespace npu::tile_fwk::dynamic;
 class ParallelSortSTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(
+    Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> values(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, values);
@@ -43,7 +44,7 @@ int64_t Capacity(std::vector<int64_t> &shape) {
 }
 
 template <typename T = float, typename idxT = int>
-void SortStaticTest(int tileSize){
+void SortStaticTest(int tileSize) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
@@ -55,8 +56,8 @@ void SortStaticTest(int tileSize){
     std::vector<int64_t> shape = {1, length};
 
     void *xPtr = readToDev<uint32_t>(GetGoldenDir() + "/x.bin", Capacity(shape));
-    uint8_t* yPtr = allocDevAddr(Capacity(shape) * sizeof(float));
-    uint8_t* yIdxPtr = allocDevAddr(Capacity(shape) * sizeof(float));
+    uint8_t *yPtr = allocDevAddr(Capacity(shape) * sizeof(float));
+    uint8_t *yIdxPtr = allocDevAddr(Capacity(shape) * sizeof(float));
 
     Tensor x(DataType::DT_FP32, shape, (uint8_t *)xPtr, "x");
     Tensor y(DataType::DT_FP32, shape, (uint8_t *)yPtr, "y");
@@ -76,7 +77,7 @@ void SortStaticTest(int tileSize){
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     uint64_t taskTime = DeviceRunner::Get().GetTasksTime();
-    std::cout<<"Sort Cost Time is: "<< taskTime << std::endl;
+    std::cout << "Sort Cost Time is: " << taskTime << std::endl;
 
     std::vector<float> yResult(Capacity(shape));
     std::vector<float> yIdxResult(Capacity(shape));
@@ -90,8 +91,7 @@ void SortStaticTest(int tileSize){
 }
 
 template <typename T = float, typename idxT = int>
-void SortTest(int tileSize){
-
+void SortTest(int tileSize) {
     std::vector<int> params(2);
     readInput<int>(GetGoldenDir() + "/params.bin", params);
     int32_t length = params[0];
@@ -122,7 +122,7 @@ void SortTest(int tileSize){
         LOOP("LOOP_1", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1)) {
             UNUSED(bIdx);
             TileShape::Current().SetVecTile({1, tileSize});
-            std::tie(y, yIdx)  = Sort(x, descending);
+            std::tie(y, yIdx) = Sort(x, descending);
         }
     }
 
@@ -134,8 +134,7 @@ void SortTest(int tileSize){
 }
 
 template <typename T = float, typename idxT = int>
-void SortWithIndexTest(int tileSize){
-
+void SortWithIndexTest(int tileSize) {
     std::vector<int> params(2);
     readInput<int>(GetGoldenDir() + "/params.bin", params);
     int32_t length = params[0];
@@ -180,8 +179,7 @@ void SortWithIndexTest(int tileSize){
 }
 
 template <typename T = float, typename idxT = int>
-void TopKTest(int tileSize){
-
+void TopKTest(int tileSize) {
     std::vector<int> params(3);
     readInput<int>(GetGoldenDir() + "/params.bin", params);
     int32_t length = params[0];

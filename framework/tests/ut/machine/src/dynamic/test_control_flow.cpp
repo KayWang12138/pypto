@@ -61,7 +61,8 @@ TEST_F(ControlFlowTest, RunDeviceContext) {
         std::vector<DevAscendFunction *> rootList;
         static void Entry(void *inspector_, DeviceExecuteContext *execCtx, DynDeviceTask *task) {
             Inspector *inspector = reinterpret_cast<Inspector *>(inspector_);
-            (void)execCtx; (void)task;
+            (void)execCtx;
+            (void)task;
             inspector->count++;
             DynFuncDataCache *cacheList = task->GetDynFuncDataCacheList();
             for (size_t k = 0; k < task->dynFuncDataCacheListSize; k++) {
@@ -91,9 +92,12 @@ TEST_F(ControlFlowTest, TestDD) {
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     int s = 32;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
-    Tensor t1(DT_FP32, {s, s}, "t1");  // [32, 32]
-    Tensor blockTable{DT_INT32, {n, 1}, "blockTable"};
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [32*8, 32]
+    Tensor t1(DT_FP32, {s, s}, "t1");     // [32, 32]
+    Tensor blockTable{
+        DT_INT32, {n, 1},
+         "blockTable"
+    };
     Tensor out(DT_FP32, {n * s, s}, "out");
 
     std::vector<int> tblData;
@@ -105,7 +109,7 @@ TEST_F(ControlFlowTest, TestDD) {
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(t0, 1.0),
         RawTensorData::CreateConstantTensor<float>(t1, 2.0),
-        RawTensorData::CreateTensor<int>(blockTable, tblData),  // value: [0,1,2,...,7]
+        RawTensorData::CreateTensor<int>(blockTable, tblData), // value: [0,1,2,...,7]
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
@@ -119,11 +123,11 @@ TEST_F(ControlFlowTest, TestDD) {
             SymbolicScalar idx = GetTensorData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
 
-            Tensor qi(DT_FP32, {s, 2*s}, "qi");
+            Tensor qi(DT_FP32, {s, 2 * s}, "qi");
             Assemble(t1, {0, 0}, qi);
             Assemble(t0s, {0, s}, qi);
 
-            Tensor ki(DT_FP32, {s, 2*s}, "ki");
+            Tensor ki(DT_FP32, {s, 2 * s}, "ki");
             Assemble(t0s, {0, 0}, ki);
             Assemble(t1, {0, s}, ki);
 
@@ -171,9 +175,10 @@ TEST_F(ControlFlowTest, TensorRecycleDestruct) {
             }
             LOOP("sum", FunctionType::DYNAMIC_LOOP, _, LoopRange(0x1)) {
                 (void)_;
-                IF (k == 0) {
+                IF(k == 0) {
                     output = Add(mid, Element(DT_INT32, 0));
-                } ELSE {
+                }
+                ELSE {
                     output = Add(output, mid);
                 }
             }
@@ -217,7 +222,7 @@ TEST_F(ControlFlowTest, TensorRecycleDestruct) {
 
     EXPECT_EQ(1, inspector.dataList.size());
 
-    const auto& data = inspector.dataList[0];
+    const auto &data = inspector.dataList[0];
     EXPECT_TRUE(data.isAddr0Valid);
     EXPECT_TRUE(data.isAddr1Valid);
     EXPECT_NE(data.addr0Value, data.addr1Value);
@@ -235,13 +240,21 @@ TEST_F(ControlFlowTest, CtrlFlowPartialCache) {
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x4);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
-    int tiling = 32; int n = tiling * 4;
+    int tiling = 32;
+    int n = tiling * 4;
     TileShape::Current().SetVecTile(tiling, tiling);
 
-    Tensor input1(DT_INT32, {n, n}, "A"); Tensor input2(DT_INT32, {n, n}, "B"); Tensor output(DT_INT32, {n, n}, "O");
+    Tensor input1(DT_INT32, {n, n}, "A");
+    Tensor input2(DT_INT32, {n, n}, "B");
+    Tensor output(DT_INT32, {n, n}, "O");
 
-    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateConstantTensor<int32_t>(input1, 1), RawTensorData::CreateConstantTensor<int32_t>(input2, 2),});
-    ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateConstantTensor<int32_t>(output, 0),});
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<int32_t>(input1, 1),
+        RawTensorData::CreateConstantTensor<int32_t>(input2, 2),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
 
     // 17 root func in total
     FUNCTION("main", {input1, input2}, {output}) {
@@ -264,8 +277,9 @@ TEST_F(ControlFlowTest, CtrlFlowPartialCache) {
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
     EmulationMemoryUtils memUtils;
-    DevControlFlowCache* ctrolCache = nullptr;
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), memUtils, inputList, outputList, &ctrolCache, config));
+    DevControlFlowCache *ctrolCache = nullptr;
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(
+                     Program::GetInstance().GetLastFunction(), memUtils, inputList, outputList, &ctrolCache, config));
     DevAscendProgram *devProg = DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction());
 
     EXPECT_EQ(0x3, ctrolCache->deviceTaskCount);
@@ -322,9 +336,10 @@ TEST_F(ControlFlowTest, TestMainBlock) {
 
             LOOP("sum", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
                 (void)_;
-                IF (loop_idx == 0) {
+                IF(loop_idx == 0) {
                     output_tensor = Add(middle_tensor, Element(DT_INT32, 0));
-                } else {
+                }
+                else {
                     output_tensor = Add(output_tensor, middle_tensor);
                 }
             }

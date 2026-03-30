@@ -35,11 +35,11 @@ using Scalar = std::variant<int, float, double, bool, std::string>;
 constexpr int COLUMN_WIDTH = 20;
 
 namespace {
-std::string ShapeToString(const Shape& shape) {
+std::string ShapeToString(const Shape &shape) {
     std::ostringstream oss;
     oss << "(";
     for (size_t i = 0; i < shape.size(); ++i) {
-        if(i != 0)
+        if (i != 0)
             oss << ", ";
         oss << shape[i];
     }
@@ -52,11 +52,10 @@ void PrintTableRow(int index, const Tensor &tensor) {
     std::string shapeStr = ShapeToString(tensor.GetShape());
     std::string typeStr = DataType2String(tensor.GetDataType());
     std::string formatStr = tensor.GetStorage()->Format() == TileOpFormat::TILEOP_ND ? "TILEOP_ND" : "TILEOP_NZ";
-    std::cout << "| " << std::setw(COLUMN_WIDTH / 2) << std::left << index
-              << " | " << std::setw(COLUMN_WIDTH) << std::left << name
-              << " | " << std::setw(COLUMN_WIDTH) << std::left << shapeStr
-              << " | " << std::setw(COLUMN_WIDTH / 2) << std::left << typeStr
-              << " | " << std::setw(COLUMN_WIDTH / 2) << std::left << formatStr << " |" << std::endl;
+    std::cout << "| " << std::setw(COLUMN_WIDTH / 2) << std::left << index << " | " << std::setw(COLUMN_WIDTH)
+              << std::left << name << " | " << std::setw(COLUMN_WIDTH) << std::left << shapeStr << " | "
+              << std::setw(COLUMN_WIDTH / 2) << std::left << typeStr << " | " << std::setw(COLUMN_WIDTH / 2)
+              << std::left << formatStr << " |" << std::endl;
 }
 
 void PrintTableDivider() {
@@ -78,15 +77,14 @@ Scalar ConvertJsonToScalar(const nlohmann::json &value) {
 }
 
 bool IsValidWeightFormat(int value) {
-    return value == static_cast<int>(TileOpFormat::TILEOP_ND) ||
-           value == static_cast<int>(TileOpFormat::TILEOP_NZ);
+    return value == static_cast<int>(TileOpFormat::TILEOP_ND) || value == static_cast<int>(TileOpFormat::TILEOP_NZ);
     // 如有新的合法格式可以继续添加
 }
-}
+} // namespace
 
 class TestDataLoader {
 public:
-    TestDataLoader(const std::string& path) : configPath(path) {
+    TestDataLoader(const std::string &path) : configPath(path) {
         // 读取JSON
         std::ifstream configFile(this->configPath);
         if (!configFile.is_open()) {
@@ -107,23 +105,24 @@ public:
 
     // 获取数据函数
     auto GetParams() { return params; }
-    auto Param(const std::string& name) { return params.at(name); }
-    Tensor &InputTensor(const std::string& name) { return inputTensors.at(name); }
-    Tensor &OutputTensor(const std::string& name) { return outputTensors.at(name); }
-    const std::vector<std::reference_wrapper<const Tensor>>& GetInputTensorList() const { return inputTensorList; }
-    const std::vector<std::reference_wrapper<const Tensor>>& GetOutputTensorList() const { return outputTensorList; }
+    auto Param(const std::string &name) { return params.at(name); }
+    Tensor &InputTensor(const std::string &name) { return inputTensors.at(name); }
+    Tensor &OutputTensor(const std::string &name) { return outputTensors.at(name); }
+    const std::vector<std::reference_wrapper<const Tensor>> &GetInputTensorList() const { return inputTensorList; }
+    const std::vector<std::reference_wrapper<const Tensor>> &GetOutputTensorList() const { return outputTensorList; }
     std::vector<RawTensorDataPtr> GetInputDataList() { return inputDataList; }
     std::vector<RawTensorDataPtr> GetOutputDataList() { return outputDataList; }
-    RawTensorDataPtr GoldenData(const std::string& name) { return goldens.at(name); }
-    int GetInputNameToIdx(const std::string& name) { return inputNameToIdx.at(name); }
-    int GetOutputNameToIdx(const std::string& name) { return outputNameToIdx.at(name); }
+    RawTensorDataPtr GoldenData(const std::string &name) { return goldens.at(name); }
+    int GetInputNameToIdx(const std::string &name) { return inputNameToIdx.at(name); }
+    int GetOutputNameToIdx(const std::string &name) { return outputNameToIdx.at(name); }
 
-    Tensor& InputTensorCheck(const std::string& name, const DataType dtype, const Shape& shape, const TileOpFormat format = TileOpFormat::TILEOP_ND) {
+    Tensor &InputTensorCheck(const std::string &name, const DataType dtype, const Shape &shape,
+        const TileOpFormat format = TileOpFormat::TILEOP_ND) {
         // 用户传入需要的input tensor的DataType,Shape,weightFormat进行校验，正确返回tensor&
 
         // 检查inoutTensors是否存在name
         auto it = this->inputTensors.find(name);
-        if(it == this->inputTensors.end()){
+        if (it == this->inputTensors.end()) {
             throw std::runtime_error("Tensor " + name + " not found in input tensors.");
         }
 
@@ -133,33 +132,34 @@ public:
         const TileOpFormat curOpFormat = it->second.GetStorage()->Format();
 
         // 校验DataType
-        if(dtype != curDType) {
+        if (dtype != curDType) {
             throw std::runtime_error("Data type mismatch for inputTensor " + name);
         }
 
         // 校验Shape
-        if(shape.size() != curShape.size()) {
+        if (shape.size() != curShape.size()) {
             throw std::runtime_error("Shape size mismatch for inputTensor " + name);
         }
-        for (size_t i = 0; i < shape.size(); ++i){
-            if(curShape[i] != -1 && shape[i] != curShape[i]) {
+        for (size_t i = 0; i < shape.size(); ++i) {
+            if (curShape[i] != -1 && shape[i] != curShape[i]) {
                 throw std::runtime_error("Shape mismatch for inputTensor " + name);
             }
         }
 
-        if(format != curOpFormat) {
+        if (format != curOpFormat) {
             throw std::runtime_error("Weight format mismatch for inputTensor " + name);
         }
 
         return inputTensors.at(name);
     }
 
-    Tensor& OutputTensorCheck(const std::string& name, const DataType dtype, const Shape& shape, const TileOpFormat format = TileOpFormat::TILEOP_ND) {
+    Tensor &OutputTensorCheck(const std::string &name, const DataType dtype, const Shape &shape,
+        const TileOpFormat format = TileOpFormat::TILEOP_ND) {
         // 用户传入需要的output tensor的DataType,Shape,weightFormat进行校验，正确返回tensor&
 
         // 检查outputTensors是否存在name
         auto it = this->outputTensors.find(name);
-        if(it == this->outputTensors.end()){
+        if (it == this->outputTensors.end()) {
             throw std::runtime_error("Tensor " + name + " not found in output tensors.");
         }
 
@@ -169,33 +169,33 @@ public:
         const TileOpFormat curOpFormat = it->second.GetStorage()->Format();
 
         // 校验DataType
-        if(dtype != curDType) {
+        if (dtype != curDType) {
             throw std::runtime_error("Data type mismatch for outputTensor " + name);
         }
 
         // 校验Shape
-        if(shape.size() != curShape.size()) {
+        if (shape.size() != curShape.size()) {
             throw std::runtime_error("Shape size mismatch for outputTensor " + name);
         }
-        for (size_t i = 0; i < shape.size(); ++i){
-            if(curShape[i] != -1 && shape[i] != curShape[i]) {
+        for (size_t i = 0; i < shape.size(); ++i) {
+            if (curShape[i] != -1 && shape[i] != curShape[i]) {
                 throw std::runtime_error("Shape mismatch for outputTensor " + name);
             }
         }
 
-        if(format != curOpFormat) {
+        if (format != curOpFormat) {
             throw std::runtime_error("Weight format mismatch for outputTensor " + name);
         }
 
         return outputTensors.at(name);
     }
 
-    RawTensorDataPtr GoldenDataCheck(const std::string& name, const DataType dtype, const Shape &shape) {
+    RawTensorDataPtr GoldenDataCheck(const std::string &name, const DataType dtype, const Shape &shape) {
         // 用户传入需要的goldens的DataType,Shape进行校验，正确返回tensor&
 
         // 检查RawTensorDataPtr是否存在
         auto it = this->goldens.find(name);
-        if(it == this->goldens.end()){
+        if (it == this->goldens.end()) {
             throw std::runtime_error("Golden tensor " + name + " not found.");
         }
 
@@ -204,16 +204,16 @@ public:
         const Shape &curShape = it->second->GetShape();
 
         // 校验DataType
-        if(dtype != curDType) {
+        if (dtype != curDType) {
             throw std::runtime_error("Data type mismatch for Golden " + name);
         }
 
         // 校验Shape
-        if(shape.size() != curShape.size()) {
+        if (shape.size() != curShape.size()) {
             throw std::runtime_error("Shape size mismatch for Golden " + name);
         }
-        for (size_t i = 0; i < shape.size(); ++i){
-            if(shape[i] != curShape[i]) {
+        for (size_t i = 0; i < shape.size(); ++i) {
+            if (shape[i] != curShape[i]) {
                 throw std::runtime_error("Shape mismatch for Golden " + name);
             }
         }
@@ -225,12 +225,13 @@ public:
         int index = 0;
         std::cout << "Input tensors: ";
         PrintTableDivider();
-        std::cout << "| " <<std::setw(COLUMN_WIDTH / 2) <<std::left << "Index"
-                  << " | " <<std::setw(COLUMN_WIDTH) <<std::left << "Name"
-                  << " | " <<std::setw(COLUMN_WIDTH) <<std::left << "Shape"
-                  << " | " <<std::setw(COLUMN_WIDTH / 2) <<std::left << "Datatype"
-                  << " | " <<std::setw(COLUMN_WIDTH / 2) <<std::left << "OpFormat"
-                  << " |" << std::endl;;
+        std::cout << "| " << std::setw(COLUMN_WIDTH / 2) << std::left << "Index"
+                  << " | " << std::setw(COLUMN_WIDTH) << std::left << "Name"
+                  << " | " << std::setw(COLUMN_WIDTH) << std::left << "Shape"
+                  << " | " << std::setw(COLUMN_WIDTH / 2) << std::left << "Datatype"
+                  << " | " << std::setw(COLUMN_WIDTH / 2) << std::left << "OpFormat"
+                  << " |" << std::endl;
+        ;
         PrintTableDivider();
         for (const auto &tensor : inputTensorList) {
             PrintTableRow(index, tensor);
@@ -241,11 +242,11 @@ public:
         index = 0;
         std::cout << "Output tensors: ";
         PrintTableDivider();
-        std::cout << "| " <<std::setw(COLUMN_WIDTH / 2) <<std::left << "Index"
-                  << " | " <<std::setw(COLUMN_WIDTH) <<std::left << "Name"
-                  << " | " <<std::setw(COLUMN_WIDTH) <<std::left << "Shape"
-                  << " | " <<std::setw(COLUMN_WIDTH / 2) <<std::left << "Datatype"
-                  << " | " <<std::setw(COLUMN_WIDTH / 2) <<std::left << "OpFormat"
+        std::cout << "| " << std::setw(COLUMN_WIDTH / 2) << std::left << "Index"
+                  << " | " << std::setw(COLUMN_WIDTH) << std::left << "Name"
+                  << " | " << std::setw(COLUMN_WIDTH) << std::left << "Shape"
+                  << " | " << std::setw(COLUMN_WIDTH / 2) << std::left << "Datatype"
+                  << " | " << std::setw(COLUMN_WIDTH / 2) << std::left << "OpFormat"
                   << " |" << std::endl;
         PrintTableDivider();
         for (const auto &tensor : outputTensorList) {
@@ -256,21 +257,23 @@ public:
     }
 
     // 创建 Tensor 函数
-    static std::pair<Tensor, RawTensorDataPtr> CreateTensor(const std::string& name, const std::string& dtype, const Shape& shape,
-        const std::string& fileName, const TileOpFormat format = TileOpFormat::TILEOP_ND) {
-        Tensor t(CostModel::ToDataType(const_cast<string&>(dtype)), shape, name, format);
+    static std::pair<Tensor, RawTensorDataPtr> CreateTensor(const std::string &name, const std::string &dtype,
+        const Shape &shape, const std::string &fileName, const TileOpFormat format = TileOpFormat::TILEOP_ND) {
+        Tensor t(CostModel::ToDataType(const_cast<string &>(dtype)), shape, name, format);
         auto dataPtr = CreateHelper(dtype, t, fileName);
         return std::make_pair(t, dataPtr);
     }
 
-    static RawTensorDataPtr CreateHelper(const std::string& dtype, const Tensor& tensor, const std::string& fileName) {
-        static const std::unordered_map<std::string, std::function<RawTensorDataPtr(const Tensor &, const std::string&)>> creators = {
-            {"DT_INT8",TestDataLoader::CreateTensorData<int8_t>},
-            {"DT_INT32",TestDataLoader::CreateTensorData<int32_t>},
-            {"DT_INT64",TestDataLoader::CreateTensorData<int64_t>},
-            {"DT_FP16",TestDataLoader::CreateTensorData<npu::tile_fwk::float16>},
-            {"DT_FP32",TestDataLoader::CreateTensorData<float>},
-            {"DT_BF16",TestDataLoader::CreateTensorData<npu::tile_fwk::bfloat16>},
+    static RawTensorDataPtr CreateHelper(const std::string &dtype, const Tensor &tensor, const std::string &fileName) {
+        static const std::unordered_map<std::string,
+            std::function<RawTensorDataPtr(const Tensor &, const std::string &)>>
+            creators = {
+                { "DT_INT8",                  TestDataLoader::CreateTensorData<int8_t>},
+                {"DT_INT32",                 TestDataLoader::CreateTensorData<int32_t>},
+                {"DT_INT64",                 TestDataLoader::CreateTensorData<int64_t>},
+                { "DT_FP16",  TestDataLoader::CreateTensorData<npu::tile_fwk::float16>},
+                { "DT_FP32",                   TestDataLoader::CreateTensorData<float>},
+                { "DT_BF16", TestDataLoader::CreateTensorData<npu::tile_fwk::bfloat16>},
         };
 
         auto it = creators.find(dtype);
@@ -282,13 +285,13 @@ public:
     }
 
     template <typename T>
-    static RawTensorDataPtr CreateTensorData(const Tensor& tensor, const std::string& fileName);
+    static RawTensorDataPtr CreateTensorData(const Tensor &tensor, const std::string &fileName);
 
     // 设置动态 shape
-    Tensor& SetInputDynAxis(const std::string& name, const std::vector<int>& dynAxises) {
+    Tensor &SetInputDynAxis(const std::string &name, const std::vector<int> &dynAxises) {
         auto &tensor = this->inputTensors.at(name);
         Shape dynamicShape = tensor.GetShape();
-        for(int axis : dynAxises) {
+        for (int axis : dynAxises) {
             ASSERT(axis >= 0 && (size_t)axis < dynamicShape.size());
             dynamicShape[axis] = -1;
         }
@@ -300,11 +303,11 @@ public:
         return it->second;
     }
 
-    Tensor& SetOutputDynAxis(const std::string& name, const std::vector<SymbolicScalar>& dynShape) {
+    Tensor &SetOutputDynAxis(const std::string &name, const std::vector<SymbolicScalar> &dynShape) {
         auto &tensor = this->outputTensors.at(name);
         ASSERT(tensor.GetShape().size() == dynShape.size());
         Tensor dynamicT(tensor.GetDataType(), dynShape, tensor.GetName(), tensor.GetStorage()->Format());
-        auto [it, is_inserted] =  this->outputTensors.insert_or_assign(name, dynamicT);
+        auto [it, is_inserted] = this->outputTensors.insert_or_assign(name, dynamicT);
         ASSERT(is_inserted);
         this->outputTensorList[this->outputNameToIdx.at(name)] = std::cref(it->second);
 
@@ -341,7 +344,7 @@ private:
 
             // 检查bin格式
             std::string binFile = tensorConfig["bin_file"];
-            if(binFile.empty()) {
+            if (binFile.empty()) {
                 throw std::runtime_error("Missing 'bin_file' in tensor configuration: " + tensorName);
             }
             binFile = GetFullPath(binFile);
@@ -357,11 +360,12 @@ private:
             // 检查TileOpFormat格式
             TileOpFormat opFormat;
             if (tensorConfig.contains("opFormat") && tensorConfig["opFormat"].is_number_integer()) {
-                int  value = tensorConfig["opFormat"].get<int>();
-                if(IsValidWeightFormat(value)) {
+                int value = tensorConfig["opFormat"].get<int>();
+                if (IsValidWeightFormat(value)) {
                     opFormat = static_cast<TileOpFormat>(value);
                 } else {
-                    throw std::runtime_error("Undefined 'opFormat' value in tensor configuration: '" + tensorName + "': " + std::to_string(value));
+                    throw std::runtime_error("Undefined 'opFormat' value in tensor configuration: '" + tensorName +
+                                             "': " + std::to_string(value));
                 }
             } else {
                 throw std::runtime_error("Missing or invalid 'opFormat' in tensor configuration: " + tensorName);
@@ -385,7 +389,7 @@ private:
 
     void LoadGoldenTensors() {
         size_t index = 0;
-        for(auto &[name, value]: this->meta["golden_outputs"].items()) {
+        for (auto &[name, value] : this->meta["golden_outputs"].items()) {
             auto binFile = value["bin_file"].get<std::string>();
             auto shape = value["shape"].get<Shape>();
             auto dtype = value["dtype"].get<std::string>();
@@ -404,7 +408,7 @@ private:
         }
     }
 
-    std::string GetFullPath(const std::string& relativePath) {
+    std::string GetFullPath(const std::string &relativePath) {
         size_t pos = this->configPath.find_last_of('/');
         ASSERT(pos != std::string::npos);
         std::string fullPath = this->configPath.substr(0, pos + 1) + relativePath;
@@ -414,20 +418,20 @@ private:
     nlohmann::json meta;
     std::string configPath;
     std::unordered_map<std::string, Scalar> params;
-    std::unordered_map<std::string, Tensor> inputTensors;       // 输入 Tensor
-    std::unordered_map<std::string, Tensor> outputTensors;      // 接受计算结果 Tensor
+    std::unordered_map<std::string, Tensor> inputTensors;  // 输入 Tensor
+    std::unordered_map<std::string, Tensor> outputTensors; // 接受计算结果 Tensor
     std::unordered_map<std::string, RawTensorDataPtr> goldens;
 
-    std::unordered_map<std::string, int> inputNameToIdx;                    // 用于查找 tensor 对应的数据
-    std::vector<std::reference_wrapper<const Tensor>> inputTensorList;      // 保证 TensorList 和 DataList 顺序一致
+    std::unordered_map<std::string, int> inputNameToIdx;               // 用于查找 tensor 对应的数据
+    std::vector<std::reference_wrapper<const Tensor>> inputTensorList; // 保证 TensorList 和 DataList 顺序一致
     std::vector<RawTensorDataPtr> inputDataList;
-    std::unordered_map<std::string, int> outputNameToIdx;                   // 用于查找 tensor 对应的数据
+    std::unordered_map<std::string, int> outputNameToIdx; // 用于查找 tensor 对应的数据
     std::vector<std::reference_wrapper<const Tensor>> outputTensorList;
     std::vector<RawTensorDataPtr> outputDataList;
 };
 
 template <typename T>
-RawTensorDataPtr TestDataLoader::CreateTensorData(const Tensor& tensor, const std::string& fileName) {
+RawTensorDataPtr TestDataLoader::CreateTensorData(const Tensor &tensor, const std::string &fileName) {
     auto shape = tensor.GetShape();
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> values(capacity, 0);

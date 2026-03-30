@@ -34,7 +34,6 @@ namespace npu::tile_fwk {
                  << "CHECK FAILED: " #cond << "\n"                \
                  << "location: " << npu::tile_fwk::SourceLocation::GetLocationString() << "\n"
 
-
 constexpr int32_t NUM_VALUE_0 = 0;
 constexpr int32_t NUM_VALUE_1 = 1;
 constexpr int32_t NUM_VALUE_2 = 2;
@@ -98,13 +97,11 @@ private:
     std::unordered_map<Opcode, TiledFuncType> tiledFuncs_;
 };
 
-#define REGISTER_OPERATION_TILED_FUNC(OpCoreStr, OpType, FuncName)                \
-    class OpCoreStr##TiledRegister {                                              \
-    public:                                                                       \
-        OpCoreStr##TiledRegister() {                                              \
-            TiledFuncRegistry::GetInstance().RegisterTiledFunc(OpType, FuncName); \
-        }                                                                         \
-    };                                                                            \
+#define REGISTER_OPERATION_TILED_FUNC(OpCoreStr, OpType, FuncName)                                           \
+    class OpCoreStr##TiledRegister {                                                                         \
+    public:                                                                                                  \
+        OpCoreStr##TiledRegister() { TiledFuncRegistry::GetInstance().RegisterTiledFunc(OpType, FuncName); } \
+    };                                                                                                       \
     static OpCoreStr##TiledRegister OpCoreStr##_tiled_register
 
 class OpSyncQueue {

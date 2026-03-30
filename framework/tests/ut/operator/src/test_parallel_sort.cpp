@@ -24,9 +24,7 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
-        Program::GetInstance().Reset();
-    }
+    void SetUp() override { Program::GetInstance().Reset(); }
 
     void TearDown() override {}
 };
@@ -38,7 +36,7 @@ struct SortParams {
 };
 
 template <typename T = float, typename idxT = int>
-void SortTest(const SortParams &params){
+void SortTest(const SortParams &params) {
     int length = params.length;
     int tileSize = params.tileSize;
     int descending = params.descending;
@@ -59,7 +57,7 @@ void SortTest(const SortParams &params){
 }
 
 template <typename T = float, typename idxT = int>
-void SortWithIndexTest(const SortParams &params){
+void SortWithIndexTest(const SortParams &params) {
     int length = params.length;
     int tileSize = params.tileSize;
     int descending = params.descending;

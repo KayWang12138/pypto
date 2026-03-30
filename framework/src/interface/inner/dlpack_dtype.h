@@ -85,7 +85,8 @@ typedef enum {
  * \return true if conversion succeeded, false otherwise
  */
 inline bool DlpackDtypeToDataType(uint8_t code, uint8_t bits, uint16_t lanes, DataType *out) {
-    if (lanes != 1) return false;
+    if (lanes != 1)
+        return false;
     switch (code) {
         case kDLInt:
             switch (bits) {
@@ -111,20 +112,31 @@ inline bool DlpackDtypeToDataType(uint8_t code, uint8_t bits, uint16_t lanes, Da
                 default: return false;
             }
         case kDLBfloat:
-            if (bits == 16) { *out = DT_BF16; return true; }
+            if (bits == 16) {
+                *out = DT_BF16;
+                return true;
+            }
             return false;
         case kDLBool:
-            if (bits == 8) { *out = DT_BOOL; return true; }
+            if (bits == 8) {
+                *out = DT_BOOL;
+                return true;
+            }
             return false;
         case kDLFloat8_e5m2:
-            if (bits == 8) { *out = DT_FP8E5M2; return true; }
+            if (bits == 8) {
+                *out = DT_FP8E5M2;
+                return true;
+            }
             return false;
         case kDLFloat8_e4m3:
-            if (bits == 8) { *out = DT_FP8E4M3; return true; }
+            if (bits == 8) {
+                *out = DT_FP8E4M3;
+                return true;
+            }
             return false;
-        default:
-            return false;
+        default: return false;
     }
 }
 
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

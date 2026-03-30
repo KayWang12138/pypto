@@ -24,8 +24,7 @@
 
 namespace CostModel {
 
-void ModelVisualizer::DrawTile(std::ofstream &os, TilePtr tensor, bool debug) const
-{
+void ModelVisualizer::DrawTile(std::ofstream &os, TilePtr tensor, bool debug) const {
     std::string label = "\"Tile\\n" + tensor->Dump();
     std::string fillColor = GetColor(tensor->magic);
     std::string fontColor = GetReverseColor(tensor->magic);
@@ -39,8 +38,7 @@ void ModelVisualizer::DrawTile(std::ofstream &os, TilePtr tensor, bool debug) co
     os << "];" << std::endl;
 }
 
-void ModelVisualizer::DrawTileOp(std::ofstream &os, TileOpPtr tileop, FunctionPtr func, bool debug) const
-{
+void ModelVisualizer::DrawTileOp(std::ofstream &os, TileOpPtr tileop, FunctionPtr func, bool debug) const {
     std::string label = "\"TileOp\\nopmagic:" + std::to_string(tileop->magic) + "\\nopcode:" + tileop->opcode;
     std::string fillColor = GetColor(tileop->magic);
     std::string fontColor = GetReverseColor(tileop->magic);
@@ -58,8 +56,7 @@ void ModelVisualizer::DrawTileOp(std::ofstream &os, TileOpPtr tileop, FunctionPt
     os << "];" << std::endl;
 }
 
-void ModelVisualizer::DrawTask(std::ofstream &os, std::shared_ptr<Task> task, bool detail)
-{
+void ModelVisualizer::DrawTask(std::ofstream &os, std::shared_ptr<Task> task, bool detail) {
     std::string label = "\"TaskID:" + std::to_string(task->taskId);
     if (detail) {
         label += "_detail";
@@ -75,8 +72,7 @@ void ModelVisualizer::DrawTask(std::ofstream &os, std::shared_ptr<Task> task, bo
     os << "];" << std::endl;
 }
 
-void ModelVisualizer::DrawFunction(FunctionPtr func, const std::string &outdir, bool debug) const
-{
+void ModelVisualizer::DrawFunction(FunctionPtr func, const std::string &outdir, bool debug) const {
     std::string path = outdir + "/" + func->funcName + "_graph.dot";
     std::ofstream os(path);
 
@@ -102,8 +98,7 @@ void ModelVisualizer::DrawFunction(FunctionPtr func, const std::string &outdir, 
 }
 
 void ModelVisualizer::DebugFunction(FunctionPtr func, std::unordered_map<int, TilePtr> &tiles,
-                                     std::unordered_map<int, TileOpPtr> &tileOps, const std::string &outdir) const
-{
+    std::unordered_map<int, TileOpPtr> &tileOps, const std::string &outdir) const {
     std::string path = outdir + "/" + func->funcName + ".deadlock_debug_graph.dot";
     std::ofstream os(path);
 
@@ -128,8 +123,7 @@ void ModelVisualizer::DebugFunction(FunctionPtr func, std::unordered_map<int, Ti
     SIMULATION_LOGW("Path: %s", path.c_str());
 }
 
-void ModelVisualizer::DrawTasks(const TaskMap &taskMap, bool drawDetail, std::string outPath)
-{
+void ModelVisualizer::DrawTasks(const TaskMap &taskMap, bool drawDetail, std::string outPath) {
     std::string globalLabel = drawDetail ? "Tasks Graph" : "Tasks Thumbnail Graph";
     std::ofstream os(outPath);
 
@@ -151,86 +145,51 @@ void ModelVisualizer::DrawTasks(const TaskMap &taskMap, bool drawDetail, std::st
     os.close();
 }
 
-std::string ModelVisualizer::GetColor(uint64_t color) const
-{
+std::string ModelVisualizer::GetColor(uint64_t color) const {
     uint64_t randColor = color % uint64_t(Modulor::MODULOR_NUM);
     switch (static_cast<Modulor>(randColor)) {
-        case Modulor::MODULOR_0:
-            return "azure3";
-        case Modulor::MODULOR_1:
-            return "plum3";
-        case Modulor::MODULOR_2:
-            return "#a9def9";
-        case Modulor::MODULOR_3:
-            return "#005f73";
-        case Modulor::MODULOR_4:
-            return "#F1766D";
-        case Modulor::MODULOR_5:
-            return "#839DD1";
-        case Modulor::MODULOR_6:
-            return "orange1";
-        case Modulor::MODULOR_7:
-            return "#9932CC";
-        case Modulor::MODULOR_8:
-            return "royalblue1";
-        case Modulor::MODULOR_9:
-            return "cyan";
-        case Modulor::MODULOR_10:
-            return "aquamarine";
-        case Modulor::MODULOR_11:
-            return "#d0f4de";
-        case Modulor::MODULOR_12:
-            return "#9FD4AE";
-        case Modulor::MODULOR_13:
-            return "#FDD379";
-        case Modulor::MODULOR_14:
-            return "#7A70B5";
-        default:
-            return "#4a5759";
+        case Modulor::MODULOR_0: return "azure3";
+        case Modulor::MODULOR_1: return "plum3";
+        case Modulor::MODULOR_2: return "#a9def9";
+        case Modulor::MODULOR_3: return "#005f73";
+        case Modulor::MODULOR_4: return "#F1766D";
+        case Modulor::MODULOR_5: return "#839DD1";
+        case Modulor::MODULOR_6: return "orange1";
+        case Modulor::MODULOR_7: return "#9932CC";
+        case Modulor::MODULOR_8: return "royalblue1";
+        case Modulor::MODULOR_9: return "cyan";
+        case Modulor::MODULOR_10: return "aquamarine";
+        case Modulor::MODULOR_11: return "#d0f4de";
+        case Modulor::MODULOR_12: return "#9FD4AE";
+        case Modulor::MODULOR_13: return "#FDD379";
+        case Modulor::MODULOR_14: return "#7A70B5";
+        default: return "#4a5759";
     }
 }
 
-std::string ModelVisualizer::GetReverseColor(uint64_t color) const
-{
+std::string ModelVisualizer::GetReverseColor(uint64_t color) const {
     uint64_t randColor = color % uint64_t(Modulor::MODULOR_NUM);
     switch (static_cast<Modulor>(randColor)) {
-        case Modulor::MODULOR_0:
-            return "black";
-        case Modulor::MODULOR_1:
-            return "black";
-        case Modulor::MODULOR_2:
-            return "black";
-        case Modulor::MODULOR_3:
-            return "white";
-        case Modulor::MODULOR_4:
-            return "black";
-        case Modulor::MODULOR_5:
-            return "white";
-        case Modulor::MODULOR_6:
-            return "black";
-        case Modulor::MODULOR_7:
-            return "white";
-        case Modulor::MODULOR_8:
-            return "white";
-        case Modulor::MODULOR_9:
-            return "black";
-        case Modulor::MODULOR_10:
-            return "black";
-        case Modulor::MODULOR_11:
-            return "black";
-        case Modulor::MODULOR_12:
-            return "white";
-        case Modulor::MODULOR_13:
-            return "black";
-        case Modulor::MODULOR_14:
-            return "white";
-        default:
-            return "white";
+        case Modulor::MODULOR_0: return "black";
+        case Modulor::MODULOR_1: return "black";
+        case Modulor::MODULOR_2: return "black";
+        case Modulor::MODULOR_3: return "white";
+        case Modulor::MODULOR_4: return "black";
+        case Modulor::MODULOR_5: return "white";
+        case Modulor::MODULOR_6: return "black";
+        case Modulor::MODULOR_7: return "white";
+        case Modulor::MODULOR_8: return "white";
+        case Modulor::MODULOR_9: return "black";
+        case Modulor::MODULOR_10: return "black";
+        case Modulor::MODULOR_11: return "black";
+        case Modulor::MODULOR_12: return "white";
+        case Modulor::MODULOR_13: return "black";
+        case Modulor::MODULOR_14: return "white";
+        default: return "white";
     }
 }
 
-std::string ModelVisualizer::GetTaskColor(MachineType type, uint64_t taskId)
-{
+std::string ModelVisualizer::GetTaskColor(MachineType type, uint64_t taskId) {
     auto query = taskColorMap.find(type);
     if (query != taskColorMap.end()) {
         uint64_t idx = taskId % uint64_t(query->second.size());
@@ -239,8 +198,7 @@ std::string ModelVisualizer::GetTaskColor(MachineType type, uint64_t taskId)
     return "gray";
 }
 
-std::string ModelVisualizer::GetTaskFontColor(CostModel::MachineType type, uint64_t taskId)
-{
+std::string ModelVisualizer::GetTaskFontColor(CostModel::MachineType type, uint64_t taskId) {
     auto query = taskFontColorMap.find(type);
     if (query != taskFontColorMap.end()) {
         uint64_t idx = taskId % uint64_t(query->second.size());
@@ -248,4 +206,4 @@ std::string ModelVisualizer::GetTaskFontColor(CostModel::MachineType type, uint6
     }
     return "white";
 }
-}  // namespace CostModel
+} // namespace CostModel

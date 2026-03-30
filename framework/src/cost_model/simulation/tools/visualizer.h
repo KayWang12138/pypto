@@ -63,7 +63,7 @@ public:
     void DrawTask(std::ofstream &os, std::shared_ptr<Task> task, bool detail);
     void DrawFunction(FunctionPtr func, const std::string &outdir, bool debug = false) const;
     void DebugFunction(FunctionPtr func, std::unordered_map<int, TilePtr> &tiles,
-                       std::unordered_map<int, TileOpPtr> &tileOps, const std::string &outdir) const;
+        std::unordered_map<int, TileOpPtr> &tileOps, const std::string &outdir) const;
     void DrawTasks(const TaskMap &taskMap, bool drawDetail, std::string outPath);
     std::string GetColor(uint64_t color) const;
     std::string GetReverseColor(uint64_t color) const;
@@ -71,4 +71,4 @@ public:
     std::string GetTaskFontColor(MachineType type, uint64_t taskId);
 };
 
-}  // namespace CostModel
+} // namespace CostModel

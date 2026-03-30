@@ -54,12 +54,10 @@ std::string FixedFloat(float value) {
 class SheetFormatter {
 public:
     explicit SheetFormatter(const std::vector<std::string> &titles, char boundary = '=', char separator = '-')
-        : columnTitles_(titles),
-          boundary_(boundary),
-          separator_(separator) {}
+        : columnTitles_(titles), boundary_(boundary), separator_(separator) {}
 
     template <typename... Args>
-    void AddRow(Args &&... args) {
+    void AddRow(Args &&...args) {
         DEV_ASSERT_MSG(DevDataErr::SHEET_COLUMN_MISMATCH, sizeof...(Args) == columnTitles_.size(),
             "sizeof...(Args)=%zu != columnTitles_.size()=%zu", sizeof...(Args), columnTitles_.size());
         rows_.emplace_back();
@@ -80,7 +78,7 @@ public:
         DEV_ASSERT_MSG(DevDataErr::SHEET_COLUMN_INDEX_OUT_OF_RANGE, fromColumn < columnTitles_.size(),
             "fromColumn=%zu >= columnTitles_.size()=%zu", fromColumn, columnTitles_.size());
         if (!rows_.empty()) {
-            rowSeparators_.push_back(RowSeparator { rows_.size(), fromColumn, c });
+            rowSeparators_.push_back(RowSeparator{rows_.size(), fromColumn, c});
         }
     }
 

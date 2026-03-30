@@ -36,7 +36,7 @@ constexpr int PMU_EVENT_TYPE_MAX_DAV3510 = 10;
 
 class PmuCommon {
 public:
-    static void InitPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>& pmuEvtType);
+    static void InitPmuEventType(const ArchInfo &archInfo, std::vector<int64_t> &pmuEvtType);
 };
 
 } // namespace npu::tile_fwk

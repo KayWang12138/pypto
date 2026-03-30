@@ -29,7 +29,7 @@ constexpr int32_t ATTR_STRIDE_OFFSET = 1;
 constexpr int32_t ATTR_TILEROW_OFFSET = 3;
 constexpr int32_t ATTR_TILECOL_OFFSET = 4;
 struct SignalTileOp {
-    void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal) {
+    void Init(uint64_t taskId, int32_t *addr, int32_t expectedSum, bool resetSignal) {
         taskId_ = taskId;
         addr_ = addr;
         expectedSum_ = expectedSum;
@@ -37,12 +37,12 @@ struct SignalTileOp {
     }
     bool PollCompleted() const;
 
-    SignalTileOp* next{nullptr};
+    SignalTileOp *next{nullptr};
     uint64_t taskId_{0};
-    int32_t* addr_{nullptr};
+    int32_t *addr_{nullptr};
     int32_t expectedSum_{0};
     bool resetSignal_{false};
-    TaskStat* profData_{nullptr};
+    TaskStat *profData_{nullptr};
 };
 
 class HashMap {
@@ -53,36 +53,36 @@ public:
         taskCount = 0;
     }
 
-    uint32_t Hash(uint32_t taskId) {
-        return taskId & AICPU_TASK_ARRAY_SIZE_MOD;
-    }
+    uint32_t Hash(uint32_t taskId) { return taskId & AICPU_TASK_ARRAY_SIZE_MOD; }
 
-    SignalTileOp* CreateTaskData(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
+    SignalTileOp *CreateTaskData(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
         if (taskCount >= AICPU_TASK_ARRAY_SIZE) {
-            DEV_ERROR(DistributedErrorCode::AICPU_TASK_NUM_EXCEED_LIMIT, "ctrl.task.pre.task.create#: taskCount=%u >= AICPU_TASK_ARRAY_SIZE=%lu", taskCount, AICPU_TASK_ARRAY_SIZE);
+            DEV_ERROR(DistributedErrorCode::AICPU_TASK_NUM_EXCEED_LIMIT,
+                "ctrl.task.pre.task.create#: taskCount=%u >= AICPU_TASK_ARRAY_SIZE=%lu", taskCount,
+                AICPU_TASK_ARRAY_SIZE);
             return nullptr;
         }
-        SignalTileOp* newTask = &taskArray[taskCount];
+        SignalTileOp *newTask = &taskArray[taskCount];
         newTask->Init(taskId, addr, expectSum, resetSignal);
         taskCount++;
         return newTask;
     }
 
     int32_t InsertTask(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
-        SignalTileOp* newTask = CreateTaskData(taskId, addr, expectSum, resetSignal);
+        SignalTileOp *newTask = CreateTaskData(taskId, addr, expectSum, resetSignal);
         if (newTask == nullptr) {
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         uint32_t index = Hash(taskId);
-        SignalTileOp* current = hashTable[index];
+        SignalTileOp *current = hashTable[index];
         hashTable[index] = newTask;
         newTask->next = current;
         return dynamic::DEVICE_MACHINE_OK;
     }
 
-    SignalTileOp* FindTask(uint32_t taskId) {
+    SignalTileOp *FindTask(uint32_t taskId) {
         uint32_t index = Hash(taskId);
-        SignalTileOp* current = hashTable[index];
+        SignalTileOp *current = hashTable[index];
         while (current != nullptr) {
             if (current->taskId_ == taskId) {
                 return current;
@@ -95,26 +95,25 @@ public:
 private:
     SignalTileOp taskArray[AICPU_TASK_ARRAY_SIZE];
     uint32_t taskCount{0};
-    SignalTileOp* hashTable[AICPU_TASK_ARRAY_SIZE];
+    SignalTileOp *hashTable[AICPU_TASK_ARRAY_SIZE];
 };
 
 class CircularQueue {
 public:
     CircularQueue() = default;
 
-    inline int32_t Enqueue(SignalTileOp* task) {
+    inline int32_t Enqueue(SignalTileOp *task) {
         queue_[rear_] = task;
         rear_ = (rear_ + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
         if (rear_ == front_) {
-            DEV_ERROR(DistributedErrorCode::AICPU_TASK_NUM_EXCEED_LIMIT, "ctrl.task.pre.task.enqueue#: SignalTileOp queue_ is full, front=%u, rear=%u", front_, rear_);
+            DEV_ERROR(DistributedErrorCode::AICPU_TASK_NUM_EXCEED_LIMIT,
+                "ctrl.task.pre.task.enqueue#: SignalTileOp queue_ is full, front=%u, rear=%u", front_, rear_);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         return dynamic::DEVICE_MACHINE_OK;
     }
 
-    inline bool IsEmpty() const {
-        return front_ == rear_;
-    }
+    inline bool IsEmpty() const { return front_ == rear_; }
 
     inline int32_t Dequeue() {
         if (IsEmpty()) {
@@ -125,17 +124,14 @@ public:
         return dynamic::DEVICE_MACHINE_OK;
     }
 
-    inline const SignalTileOp* operator[](uint16_t index) const {
-        return queue_[index];
-    }
+    inline const SignalTileOp *operator[](uint16_t index) const { return queue_[index]; }
 
     inline int32_t Remove(uint16_t index) {
         queue_[index] = queue_[front_];
         return Dequeue();
     }
 
-    int32_t PollCompleted(std::function<int32_t(SignalTileOp*)> processor)
-    {
+    int32_t PollCompleted(std::function<int32_t(SignalTileOp *)> processor) {
         uint16_t current = front_;
         uint16_t end = rear_;
         if (current > end) {
@@ -143,7 +139,7 @@ public:
         }
         for (uint16_t i = current; i < end; ++i) {
             uint16_t actualIndex = i & AICPU_TASK_ARRAY_SIZE_MOD;
-            SignalTileOp* task = queue_[actualIndex];
+            SignalTileOp *task = queue_[actualIndex];
             if (task->PollCompleted()) {
                 if (task->profData_ != nullptr) {
                     task->profData_->execEnd = dynamic::GetCycles();
@@ -162,7 +158,7 @@ public:
     }
 
 private:
-    SignalTileOp* queue_[AICPU_TASK_ARRAY_SIZE];
+    SignalTileOp *queue_[AICPU_TASK_ARRAY_SIZE];
     uint16_t front_{0};
     uint16_t rear_{0};
 };
@@ -171,16 +167,17 @@ class ShmemWaitUntilImpl {
 public:
     inline void Init(npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask) {
         dynDeviceTask_ = dynDeviceTask;
-        funcDataList_ = reinterpret_cast<DynFuncData*>(&dynDeviceTask->GetDynFuncDataList()->At(0));
+        funcDataList_ = reinterpret_cast<DynFuncData *>(&dynDeviceTask->GetDynFuncDataList()->At(0));
         hcclContextAddr_ = funcDataList_->startArgs->commContexts;
         commGroupNum_ = funcDataList_->startArgs->commGroupNum;
         hashMap_.Init();
     }
 
-    inline int32_t EnqueueOp(uint64_t taskId, TaskStat* taskStat) {
-        SignalTileOp* task = hashMap_.FindTask(taskId);
+    inline int32_t EnqueueOp(uint64_t taskId, TaskStat *taskStat) {
+        SignalTileOp *task = hashMap_.FindTask(taskId);
         if (task == nullptr) {
-            DEV_ERROR(DistributedErrorCode::AICPU_TASKID_NOT_IN_MAP, "ctrl.task.pre.task.enqueue#: taskId=%lu not found", taskId);
+            DEV_ERROR(DistributedErrorCode::AICPU_TASKID_NOT_IN_MAP,
+                "ctrl.task.pre.task.enqueue#: taskId=%lu not found", taskId);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         if (taskStat != nullptr) {
@@ -207,14 +204,17 @@ public:
         int32_t tileIndex = tileRow * tileCols + tileCol;
         int32_t totalTileNum = tileRows * tileCols;
 
-        // info.offset[0]代表src的rankId=offset[0]的shmemSignal版图, info.offset[1]代表srcRankId, info.offset[2]代表row offset, info.offset[3]代表col offset
+        // info.offset[0]代表src的rankId=offset[0]的shmemSignal版图, info.offset[1]代表srcRankId, info.offset[2]代表row
+        // offset, info.offset[3]代表col offset
         DEV_DEBUG("ShmemWaitUntilImpl::EnqueueOp srcShmemSignalId=%u, srcRankId=%u, dimRow=%u, dimCol=%u, "
-            "tileShapeRow=%u, tileShapeCol=%u, rawShapeRow=%u, rawShapeCol=%u, tileIndex=%d, totalTileNum=%d",
-            info.offset[SRC_SHMEM_SIGNAL_ID], info.offset[SRC_RANK_ID], info.offset[SHMEM_DIM_ROW], info.offset[SHMEM_DIM_COL],
-            paramInfo_.tileShapeRow, paramInfo_.tileShapeCol, paramInfo_.rawShapeRow, paramInfo_.rawShapeCol, tileIndex, totalTileNum);
+                  "tileShapeRow=%u, tileShapeCol=%u, rawShapeRow=%u, rawShapeCol=%u, tileIndex=%d, totalTileNum=%d",
+            info.offset[SRC_SHMEM_SIGNAL_ID], info.offset[SRC_RANK_ID], info.offset[SHMEM_DIM_ROW],
+            info.offset[SHMEM_DIM_COL], paramInfo_.tileShapeRow, paramInfo_.tileShapeCol, paramInfo_.rawShapeRow,
+            paramInfo_.rawShapeCol, tileIndex, totalTileNum);
 
-        int32_t* addr = reinterpret_cast<int32_t*>(info.rawAddr) + info.offset[SRC_SHMEM_SIGNAL_ID] * paramInfo_.rawRankShape * totalTileNum * stride +
-            (info.offset[SRC_RANK_ID] * totalTileNum + tileIndex) * stride;
+        int32_t *addr = reinterpret_cast<int32_t *>(info.rawAddr) +
+                        info.offset[SRC_SHMEM_SIGNAL_ID] * paramInfo_.rawRankShape * totalTileNum * stride +
+                        (info.offset[SRC_RANK_ID] * totalTileNum + tileIndex) * stride;
         return hashMap_.InsertTask(taskId, addr, expectedSum, resetSignal);
     }
 

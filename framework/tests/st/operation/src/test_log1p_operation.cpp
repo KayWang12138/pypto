@@ -44,8 +44,7 @@ static void Log1pOperationExeFunc1Dims(
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             auto tileTensor = View(inputs[0], {firstViewShape},
-                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)},
-                {bIdx * firstViewShape});
+                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)}, {bIdx * firstViewShape});
             TileShape::Current().SetVecTile(args->tileShape_);
             auto res = Log1p(tileTensor);
             Assemble(res, {bIdx * firstViewShape}, outputs[0]);
@@ -155,8 +154,9 @@ static void Log1pOperationExeFunc4Dims(
 class Log1pOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<Log1pOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestLog1p, Log1pOperationTest,
-    ::testing::ValuesIn(GetOpMetaData<Log1pOpMetaData>(
-        {Log1pOperationExeFunc2Dims, Log1pOperationExeFunc3Dims, Log1pOperationExeFunc4Dims, Log1pOperationExeFunc1Dims}, "Log1p")));
+    ::testing::ValuesIn(GetOpMetaData<Log1pOpMetaData>({Log1pOperationExeFunc2Dims, Log1pOperationExeFunc3Dims,
+                                                           Log1pOperationExeFunc4Dims, Log1pOperationExeFunc1Dims},
+        "Log1p")));
 
 TEST_P(Log1pOperationTest, TestLog1p) {
     auto test_data = GetParam().test_data_;

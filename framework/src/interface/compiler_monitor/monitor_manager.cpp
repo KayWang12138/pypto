@@ -227,10 +227,10 @@ void MonitorManager::PrintCompilationFinished() {
         std::ostringstream stage_msg;
         for (const auto &[stage, sec] : stage_elapsed_totals_) {
             if (stage == "Pass" || stage == "CodeGen") {
-                stage_msg << " " << ("[" + stage + "]:") << std::fixed <<std::setprecision(1) << sec << "s" << " ";
+                stage_msg << " " << ("[" + stage + "]:") << std::fixed << std::setprecision(1) << sec << "s" << " ";
             } else {
-                stage_msg << " " << ("[" + stage + "]:") << std::fixed << std::setprecision(1) << sec
-                          << "s  (sum over " << n << " functions)\n";
+                stage_msg << " " << ("[" + stage + "]:") << std::fixed << std::setprecision(1) << sec << "s  (sum over "
+                          << n << " functions)\n";
             }
         }
         COMPILER_LOGI("[Compiler Monitor] Stage timing (aggregated by stage):%s", stage_msg.str().c_str());

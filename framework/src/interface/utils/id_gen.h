@@ -24,7 +24,7 @@ enum class IdType {
     LOGICAL_TENSOR,
     TENSOR_INDEX,
     CG_USING_NAME, // gen using name for codegen
-    CG_VAR_NAME, // gen variable for codegen
+    CG_VAR_NAME,   // gen variable for codegen
 };
 
 template <IdType T>
@@ -35,13 +35,9 @@ public:
         return inst;
     }
 
-    auto NewId() {
-        return id_.fetch_add(1, std::memory_order_relaxed);
-    }
+    auto NewId() { return id_.fetch_add(1, std::memory_order_relaxed); }
 
-    auto CurId() const {
-        return id_.load(std::memory_order_acquire);
-    }
+    auto CurId() const { return id_.load(std::memory_order_acquire); }
 
     void Reset() {
         std::lock_guard<std::mutex> lock(mutex_);

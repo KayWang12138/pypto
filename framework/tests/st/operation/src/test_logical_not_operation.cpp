@@ -136,7 +136,8 @@ class LogicalNotOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops
 
 INSTANTIATE_TEST_SUITE_P(TestLogicalNot, LogicalNotOperationTest,
     ::testing::ValuesIn(GetOpMetaData<LogicalNotOpMetaData>(
-        {LogicalNotOperationExeFunc2Dims, LogicalNotOperationExeFunc3Dims, LogicalNotOperationExeFunc4Dims}, "LogicalNot")));
+        {LogicalNotOperationExeFunc2Dims, LogicalNotOperationExeFunc3Dims, LogicalNotOperationExeFunc4Dims},
+        "LogicalNot")));
 
 TEST_P(LogicalNotOperationTest, TestLogicalNot) {
     auto test_data = GetParam().test_data_;

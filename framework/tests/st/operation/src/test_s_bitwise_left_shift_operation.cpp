@@ -18,7 +18,8 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct SBitwiseLeftShiftOpFuncArgs : public OpFuncArgs {
-    SBitwiseLeftShiftOpFuncArgs(const Element &value, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
+    SBitwiseLeftShiftOpFuncArgs(
+        const Element &value, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
         : value_(value), viewShape_(viewShape), tileShape_(tileShape) {}
 
     Element value_;
@@ -36,7 +37,6 @@ struct SBitwiseLeftShiftOpMetaData {
 
 static void SBitwiseLeftShiftOperationExeFuncDoubleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -62,7 +62,6 @@ static void SBitwiseLeftShiftOperationExeFuncDoubleCut(
 
 static void SBitwiseLeftShiftOperationExeFuncTripleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -94,7 +93,6 @@ static void SBitwiseLeftShiftOperationExeFuncTripleCut(
 
 static void SBitwiseLeftShiftOperationExeFuncQuadrupleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -135,11 +133,14 @@ static void SBitwiseLeftShiftOperationExeFuncQuadrupleCut(
     }
 }
 
-class SBitwiseLeftShiftOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<SBitwiseLeftShiftOpMetaData> {};
+class SBitwiseLeftShiftOperationTest
+    : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<SBitwiseLeftShiftOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestSBitwiseLeftShift, SBitwiseLeftShiftOperationTest,
     ::testing::ValuesIn(GetOpMetaData<SBitwiseLeftShiftOpMetaData>(
-        {SBitwiseLeftShiftOperationExeFuncDoubleCut, SBitwiseLeftShiftOperationExeFuncTripleCut, SBitwiseLeftShiftOperationExeFuncQuadrupleCut}, "SBitwiseLeftShift")));
+        {SBitwiseLeftShiftOperationExeFuncDoubleCut, SBitwiseLeftShiftOperationExeFuncTripleCut,
+            SBitwiseLeftShiftOperationExeFuncQuadrupleCut},
+        "SBitwiseLeftShift")));
 
 TEST_P(SBitwiseLeftShiftOperationTest, TestSBitwiseLeftShift) {
     auto test_data = GetParam().test_data_;

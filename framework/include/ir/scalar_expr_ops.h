@@ -54,28 +54,29 @@ enum class ScalarCategory {
     FLOAT,
 };
 
-inline ScalarCategory GetNumericCategory(const DataType &dtype, const std::string &opName, const Span &span = Span::Unknown()) {
+inline ScalarCategory GetNumericCategory(
+    const DataType &dtype, const std::string &opName, const Span &span = Span::Unknown()) {
     if (dtype.IsFloat()) {
         return ScalarCategory::FLOAT;
     }
     if (dtype.IsInt()) {
         return ScalarCategory::INT;
     }
-    CHECK(false) << "Operator '" << opName << "' requires numeric scalar dtype, got " << dtype.ToString()
-                 << " at " << span.ToString();
-    return ScalarCategory::INT;  // unreachable, suppress compiler warning
+    CHECK(false) << "Operator '" << opName << "' requires numeric scalar dtype, got " << dtype.ToString() << " at "
+                 << span.ToString();
+    return ScalarCategory::INT; // unreachable, suppress compiler warning
 }
 
-inline DataType PromoteSameCategoryDtype(
-    const DataType &leftDtype, const DataType &rightDtype, const std::string &opName, const Span &span = Span::Unknown()) {
+inline DataType PromoteSameCategoryDtype(const DataType &leftDtype, const DataType &rightDtype,
+    const std::string &opName, const Span &span = Span::Unknown()) {
     CHECK(!IsBoolDtype(leftDtype) && !IsBoolDtype(rightDtype))
         << "Operator '" << opName << "' does not accept bool dtype"
         << " at " << span.ToString();
     auto leftCategory = GetNumericCategory(leftDtype, opName, span);
     auto rightCategory = GetNumericCategory(rightDtype, opName, span);
-    CHECK(leftCategory == rightCategory)
-        << "Operator '" << opName << "' requires same numeric dtype category, got " << leftDtype.ToString()
-        << " and " << rightDtype.ToString() << " at " << span.ToString();
+    CHECK(leftCategory == rightCategory) << "Operator '" << opName << "' requires same numeric dtype category, got "
+                                         << leftDtype.ToString() << " and " << rightDtype.ToString() << " at "
+                                         << span.ToString();
     size_t leftBits = leftDtype.GetBit();
     size_t rightBits = rightDtype.GetBit();
     if (leftBits > rightBits) {
@@ -224,8 +225,8 @@ inline ExprPtr MakeNeg(const ExprPtr &operand, const Span &span = Span::Unknown(
 
 inline ExprPtr MakeBitNot(const ExprPtr &operand, const Span &span = Span::Unknown()) {
     DataType dtype = GetScalarDtype(operand, span);
-    CHECK(dtype.IsInt()) << "Operator 'bit_not' requires integer dtype, got " << dtype.ToString()
-                         << " at " << span.ToString();
+    CHECK(dtype.IsInt()) << "Operator 'bit_not' requires integer dtype, got " << dtype.ToString() << " at "
+                         << span.ToString();
     return std::make_shared<BitNot>(operand, dtype, span);
 }
 

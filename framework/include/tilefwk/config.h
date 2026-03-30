@@ -41,7 +41,6 @@ enum class MachineScheduleConfig {
 
 namespace config {
 
-
 template <typename T>
 void SetOptionsNg(const std::string &key, const T &value);
 
@@ -133,8 +132,7 @@ void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth)
  * \param label semantic label
  * \note label will be attached to subsequent operations
  */
-void SetSemanticLabel(const std::string &label, const char *filename = __builtin_FILE(),
-                      int lineno = __builtin_LINE());
+void SetSemanticLabel(const std::string &label, const char *filename = __builtin_FILE(), int lineno = __builtin_LINE());
 
 /**
  * \brief Set the Build static function or not

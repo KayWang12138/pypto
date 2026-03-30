@@ -33,14 +33,15 @@ public:
     inline T *back() { return &data_[size_]; }
     inline T *data() { return &data_.data(); }
 
-    inline void push_back(T val) { data_[size_++] = val;}
+    inline void push_back(T val) { data_[size_++] = val; }
     inline void CopyTo(T *ptr, int n, int offset = 0) const {
         memcpy_s(ptr, n * sizeof(T), data_.data() + offset, n * sizeof(T));
     }
 
     inline void resize(size_t size) {
         if (size > N) {
-            DEV_ERROR(DevDataErr::SMALL_ARRAY_RESIZE_OOB, "#array.resize: resize %zu exceeds maximum allowed value %zu\n", size, N);
+            DEV_ERROR(DevDataErr::SMALL_ARRAY_RESIZE_OOB,
+                "#array.resize: resize %zu exceeds maximum allowed value %zu\n", size, N);
         }
         DEV_ASSERT(DevDataErr::SMALL_ARRAY_RESIZE_OOB, size <= N);
         size_ = size;

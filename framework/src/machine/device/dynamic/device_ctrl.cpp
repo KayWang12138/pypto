@@ -21,12 +21,11 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
 namespace {
-    DeviceCtrlMachine g_ctrl_machine;
+DeviceCtrlMachine g_ctrl_machine;
 }
 
 extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerRegisterTaskInspector(
-        DeviceTaskInspectorEntry inspectorEntry,
-        void *inspector) {
+    DeviceTaskInspectorEntry inspectorEntry, void *inspector) {
     g_ctrl_machine.RegisterTaskInspector(inspectorEntry, inspector);
     return 0;
 }

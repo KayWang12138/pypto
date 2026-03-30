@@ -21,12 +21,16 @@
 #define MODULE_NAME "RecheduleUtils"
 
 namespace npu::tile_fwk {
-bool RescheduleUtils::isAllocOp(Operation* op) {
+bool RescheduleUtils::isAllocOp(Operation *op) {
     static std::unordered_set<Opcode> allocOpcodes = {
-        Opcode::OP_L1_ALLOC,                    Opcode::OP_UB_ALLOC,
-        Opcode::OP_L0A_ALLOC,                   Opcode::OP_L0B_ALLOC,
-        Opcode::OP_L0C_ALLOC,                   Opcode::OP_BT_ALLOC,
-        Opcode::OP_FIX_ALLOC,                   Opcode::OP_REG_ALLOC,
+        Opcode::OP_L1_ALLOC,
+        Opcode::OP_UB_ALLOC,
+        Opcode::OP_L0A_ALLOC,
+        Opcode::OP_L0B_ALLOC,
+        Opcode::OP_L0C_ALLOC,
+        Opcode::OP_BT_ALLOC,
+        Opcode::OP_FIX_ALLOC,
+        Opcode::OP_REG_ALLOC,
     };
     return allocOpcodes.find(op->GetOpcode()) != allocOpcodes.end();
 }
@@ -74,8 +78,7 @@ std::vector<std::vector<std::vector<int>>> RescheduleUtils::GetInOutGraphs(
     return inOutGraph;
 }
 
-
-PipeType RescheduleUtils::GetOpPipeType(const Operation* op) {
+PipeType RescheduleUtils::GetOpPipeType(const Operation *op) {
     auto opcfg = OpcodeManager::Inst().GetTileOpCfg(op->GetOpcode());
     if (op->GetOpcode() == Opcode::OP_RESHAPE) {
         if (op->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
@@ -109,20 +112,20 @@ PipeType RescheduleUtils::GetOpPipeType(const Operation* op) {
     return opcfg.pipeIdStart_;
 }
 
-void GetConvOpAttrStr(std::stringstream& ss, const Operation* op) {
+void GetConvOpAttrStr(std::stringstream &ss, const Operation *op) {
     ss << "<" << op->GetIntAttribute(ConvOpAttributeKey::cin) << ",";
     ss << op->GetIntAttribute(ConvOpAttributeKey::cout) << ",",
-    ss << op->GetIntAttribute(ConvOpAttributeKey::paddingLeft) << ",";
+        ss << op->GetIntAttribute(ConvOpAttributeKey::paddingLeft) << ",";
     ss << op->GetIntAttribute(ConvOpAttributeKey::paddingTop) << ",";
     ss << op->GetIntAttribute(ConvOpAttributeKey::paddingRight) << ",";
     ss << op->GetIntAttribute(ConvOpAttributeKey::paddingBottom) << ",";
     ss << op->GetIntAttribute(ConvOpAttributeKey::strideh) << ",";
     ss << op->GetIntAttribute(ConvOpAttributeKey::stridew) << ",";
     ss << op->GetIntAttribute(ConvOpAttributeKey::hposX) << ",",
-    ss << op->GetIntAttribute(ConvOpAttributeKey::hsteP) << ",",
-    ss << op->GetIntAttribute(ConvOpAttributeKey::wposX) << ",",
-    ss << op->GetIntAttribute(ConvOpAttributeKey::wstep) << ",",
-    ss << op->GetIntAttribute(ConvOpAttributeKey::hoffsetY) << ",";
+        ss << op->GetIntAttribute(ConvOpAttributeKey::hsteP) << ",",
+        ss << op->GetIntAttribute(ConvOpAttributeKey::wposX) << ",",
+        ss << op->GetIntAttribute(ConvOpAttributeKey::wstep) << ",",
+        ss << op->GetIntAttribute(ConvOpAttributeKey::hoffsetY) << ",";
     ss << op->GetIntAttribute(ConvOpAttributeKey::woffsetY) << ",";
     ss << op->GetIntAttribute(ConvOpAttributeKey::reluType) << ",";
     ss << op->GetIntAttribute(ConvOpAttributeKey::reluAlpha) << ",";
@@ -154,19 +157,14 @@ unsigned long RescheduleUtils::ComputeOperationHash(const Operation *op) {
         case Opcode::OP_PHASE1:
         case Opcode::OP_PHASE2:
         case Opcode::OP_BAR_V:
-        case Opcode::OP_BAR_M:
-            return 0;
-        default:
-            break;
+        case Opcode::OP_BAR_M: return 0;
+        default: break;
     }
 
     switch (op->GetOpcode()) {
         case Opcode::OP_CONV:
-        case Opcode::OP_CONV_ADD:
-            GetConvOpAttrStr(ss, op);
-            break;
-        default:
-            break;
+        case Opcode::OP_CONV_ADD: GetConvOpAttrStr(ss, op); break;
+        default: break;
     }
 
     for (const auto &inp : op->GetIOperands()) {
@@ -190,8 +188,8 @@ unsigned long RescheduleUtils::ComputeOperationHash(const Operation *op) {
     return result;
 }
 
-void RescheduleUtils::EraseOpsBelongToFunc(std::set<Operation*, LogicalTensor::CompareOp> &ops, Function *funcPtr) {
-    for (auto it = ops.begin(); it != ops.end(); ) {
+void RescheduleUtils::EraseOpsBelongToFunc(std::set<Operation *, LogicalTensor::CompareOp> &ops, Function *funcPtr) {
+    for (auto it = ops.begin(); it != ops.end();) {
         if ((*it)->BelongTo() == funcPtr) {
             it = ops.erase(it);
         } else {
@@ -200,8 +198,8 @@ void RescheduleUtils::EraseOpsBelongToFunc(std::set<Operation*, LogicalTensor::C
     }
 }
 
-void RescheduleUtils::ClearInputConsProd(Operation &op, Function *funcPtr,
-    const std::unordered_set<LogicalTensorPtr> &incastSet) {
+void RescheduleUtils::ClearInputConsProd(
+    Operation &op, Function *funcPtr, const std::unordered_set<LogicalTensorPtr> &incastSet) {
     for (auto &inOperand : op.GetIOperands()) {
         if (incastSet.count(inOperand) == 0) {
             auto &prods = inOperand->GetProducers();
@@ -212,8 +210,8 @@ void RescheduleUtils::ClearInputConsProd(Operation &op, Function *funcPtr,
     }
 }
 
-void RescheduleUtils::ClearOutputConsProd(Operation &op, Function *funcPtr,
-    const std::unordered_set<LogicalTensorPtr> &outcastSet) {
+void RescheduleUtils::ClearOutputConsProd(
+    Operation &op, Function *funcPtr, const std::unordered_set<LogicalTensorPtr> &outcastSet) {
     for (auto &outOperand : op.GetOOperands()) {
         auto &prods = outOperand->GetProducers();
         EraseOpsBelongToFunc(prods, funcPtr);

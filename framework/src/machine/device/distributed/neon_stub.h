@@ -16,13 +16,13 @@
 #ifndef NEON_STUB_H
 #define NEON_STUB_H
 
-//#ifdef NO_NEON_SUPPORT
-#if  defined(NO_NEON_SUPPORT) || !defined(__aarch64__)
+// #ifdef NO_NEON_SUPPORT
+#if defined(NO_NEON_SUPPORT) || !defined(__aarch64__)
 #include <cstdint>
 using uint8x16_t = int8_t;
 using uint64x2_t = int64_t;
 
-inline uint8x16_t vld1q_u8(uint8_t const * ptr) {
+inline uint8x16_t vld1q_u8(uint8_t const *ptr) {
     (void)ptr;
     return 0;
 }

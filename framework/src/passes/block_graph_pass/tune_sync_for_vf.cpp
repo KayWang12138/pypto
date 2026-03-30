@@ -21,7 +21,8 @@
 
 namespace npu {
 namespace tile_fwk {
-bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *setFlag) {
+bool TuneSyncForVF::NeedAdjustSetFlag(
+    Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *setFlag) {
     PipeType pipeX = setFlag->syncQueue_.trigPipeId_;
     float tv = static_cast<float>(subGraphFunc->pipeEndTime[PipeType::PIPE_V]);
     float tx = static_cast<float>(subGraphFunc->pipeEndTime[pipeX]);
@@ -37,7 +38,8 @@ bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTile
     return false;
 }
 
-bool TuneSyncForVF::NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *waitFlag) {
+bool TuneSyncForVF::NeedAdjustWaitFlag(
+    Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *waitFlag) {
     PipeType pipeX = waitFlag->syncQueue_.pipeId_;
     float tv = static_cast<float>(subGraphFunc->pipeEndTime[PipeType::PIPE_V]);
     float tx = static_cast<float>(subGraphFunc->pipeEndTime[pipeX]);
@@ -90,7 +92,8 @@ size_t TuneSyncForVF::MoveOpsForMerge(size_t vecTileOp0Idx, size_t vecTileOp1Idx
     return mergedSize;
 }
 
-Status TuneSyncForVF::UpdatePipeVTime(Operation *vecTileOp1, int groupNum, size_t mergedSize, int &curVFStartTime, int &curVecTileOp1EndTime) {
+Status TuneSyncForVF::UpdatePipeVTime(
+    Operation *vecTileOp1, int groupNum, size_t mergedSize, int &curVFStartTime, int &curVecTileOp1EndTime) {
     curVFStartTime = mergedOps[groupNum][0]->cycleStart; // 当前vf融合op开始时间
     int prevEndTime = curVFStartTime;
     int preVectileOp1EndTime = mergedOps[groupNum][mergedOps[groupNum].size() - 1]->cycleEnd;
@@ -119,13 +122,15 @@ Status TuneSyncForVF::UpdatePipeVTime(Operation *vecTileOp1, int groupNum, size_
     }
     if (!findFlag) {
         APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, UpdatePipeVTime falied.",
-            vecTileOp1->GetOpMagic(), vecTileOp1->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(PipeType::PIPE_V).c_str());
+            vecTileOp1->GetOpMagic(), vecTileOp1->GetOpcodeStr().c_str(),
+            GetPipeTypeDict().Find(PipeType::PIPE_V).c_str());
         return FAILED;
     }
     return SUCCESS;
 }
 
-Status TuneSyncForVF::UpdateSetPipeTime(Function *subGraphFunc, std::vector<Operation *> &setFlagList,  const int &curVecTileOp1EndTime) {
+Status TuneSyncForVF::UpdateSetPipeTime(
+    Function *subGraphFunc, std::vector<Operation *> &setFlagList, const int &curVecTileOp1EndTime) {
     for (auto &setFlag : setFlagList) {
         bool findFlag = false;
         auto pipeX = setFlag->syncQueue_.trigPipeId_;
@@ -139,7 +144,7 @@ Status TuneSyncForVF::UpdateSetPipeTime(Function *subGraphFunc, std::vector<Oper
                 if (k == 0) {
                     preOpEndTime = pipeXops[0]->cycleStart;
                 } else {
-                    preOpEndTime = pipeXops[k-1]->cycleEnd;
+                    preOpEndTime = pipeXops[k - 1]->cycleEnd;
                 }
                 auto tileOpZNewStartTime = std::max(preOpEndTime, curVecTileOp1EndTime);
                 int moveDist = tileOpZ->cycleStart - tileOpZNewStartTime;
@@ -159,8 +164,8 @@ Status TuneSyncForVF::UpdateSetPipeTime(Function *subGraphFunc, std::vector<Oper
     return SUCCESS;
 }
 
-Status TuneSyncForVF::UpdateWaitPipeTime(Function *subGraphFunc, std::vector<Operation *> &waitFlagList,
-    const int &curVFStartTime, int &maxMoveBackDist) {
+Status TuneSyncForVF::UpdateWaitPipeTime(
+    Function *subGraphFunc, std::vector<Operation *> &waitFlagList, const int &curVFStartTime, int &maxMoveBackDist) {
     for (auto &waitFlag : waitFlagList) {
         bool findFlag = false;
         auto pipeX = waitFlag->syncQueue_.pipeId_;
@@ -206,14 +211,14 @@ Status TuneSyncForVF::MoveBackPipeVOps(int groupNum, const int &maxMoveBackDist)
 }
 
 Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operation *> &setFlagList,
-        std::vector<Operation *> &waitFlagList, size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum) {
+    std::vector<Operation *> &waitFlagList, size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum) {
     auto vecTileOp1 = opList_[vecTileOp1Idx];
     // 改变opList执行顺序
     size_t mergedSize = MoveOpsForMerge(vecTileOp0Idx, vecTileOp1Idx, groupNum, setFlagList, waitFlagList);
 
     // 更新各pipe上op的时间戳
     // pipe_v
-    int curVFStartTime; // 当前vf融合op开始时间
+    int curVFStartTime;       // 当前vf融合op开始时间
     int curVecTileOp1EndTime; // 当前vf融合op结束时间
     if (UpdatePipeVTime(vecTileOp1, groupNum, mergedSize, curVFStartTime, curVecTileOp1EndTime) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "AdjustSetWaitFlag failed at UpdatePipeVTime.");
@@ -253,7 +258,8 @@ void TuneSyncForVF::FindPipeVIdx(std::vector<size_t> &pipeVIdx, AIVCore coreType
     }
 }
 
-bool TuneSyncForVF::IsMergeable(size_t left, size_t right, std::vector<Operation *> &setFlagList, std::vector<Operation *> &waitFlagList) {
+bool TuneSyncForVF::IsMergeable(
+    size_t left, size_t right, std::vector<Operation *> &setFlagList, std::vector<Operation *> &waitFlagList) {
     // 判断两个pipeV op间是否有SYNC_SRC或者SYNC_DST或者既不是SYNC_SRC也不是SYNC_DST
     bool hasNonSetWaitOp = false;
     for (size_t k = left + 1; k < right; k++) {
@@ -327,8 +333,9 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
     for (size_t idx = 0; idx + 1 < pipeVIdx.size(); idx++) {
         size_t left = pipeVIdx[idx];
         size_t right = pipeVIdx[idx + 1];
-        APASS_LOG_DEBUG_F(Elements::Operation, "Try to merge %d %s and %d %s", opList_[left]->GetOpMagic(), opList_[left]->GetOpcodeStr().c_str(),
-            opList_[right]->GetOpMagic(), opList_[right]->GetOpcodeStr().c_str());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Try to merge %d %s and %d %s", opList_[left]->GetOpMagic(),
+            opList_[left]->GetOpcodeStr().c_str(), opList_[right]->GetOpMagic(),
+            opList_[right]->GetOpcodeStr().c_str());
 
         // 判断是否可以进行调整
         std::vector<Operation *> setFlagList;
@@ -370,14 +377,21 @@ Status TuneSyncForVF::RunOnFunction(Function &function) {
         opList_ = opList;
         APASS_LOG_DEBUG_F(Elements::Function, "=======================function %zu ======================", funcId);
         for (const auto &op : opList_) {
-            if (op->GetOpcodeStr().find("SYNC_SRC") != std::string::npos || op->GetOpcodeStr().find("SYNC_DST") != std::string::npos
-                || op->GetOpcode() == Opcode::OP_BAR_V || op->GetOpcode() == Opcode::OP_BAR_M) {
-                APASS_LOG_DEBUG_F(Elements::Operation, "Input operation %d: %s, setpipe type: %s, setcore type: %s, waitpipe type: %s, waitcore type: %s, eventid: %d",
-                    op->GetOpMagic(), op->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(op->syncQueue_.pipeId_).c_str(), GetCoreTypeDict().Find(op->syncQueue_.coreType_).c_str(),
-                    GetPipeTypeDict().Find(op->syncQueue_.trigPipeId_).c_str(), GetCoreTypeDict().Find(op->syncQueue_.trigCoreType_).c_str(), op->syncQueue_.eventId_);
+            if (op->GetOpcodeStr().find("SYNC_SRC") != std::string::npos ||
+                op->GetOpcodeStr().find("SYNC_DST") != std::string::npos || op->GetOpcode() == Opcode::OP_BAR_V ||
+                op->GetOpcode() == Opcode::OP_BAR_M) {
+                APASS_LOG_DEBUG_F(Elements::Operation,
+                    "Input operation %d: %s, setpipe type: %s, setcore type: %s, waitpipe type: %s, waitcore type: %s, "
+                    "eventid: %d",
+                    op->GetOpMagic(), op->GetOpcodeStr().c_str(),
+                    GetPipeTypeDict().Find(op->syncQueue_.pipeId_).c_str(),
+                    GetCoreTypeDict().Find(op->syncQueue_.coreType_).c_str(),
+                    GetPipeTypeDict().Find(op->syncQueue_.trigPipeId_).c_str(),
+                    GetCoreTypeDict().Find(op->syncQueue_.trigCoreType_).c_str(), op->syncQueue_.eventId_);
                 continue;
             }
-            APASS_LOG_DEBUG_F(Elements::Operation, "Input operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "Input operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
         }
         GenPipeOpMap(program.second);
         // AIV0和AIV1各调整一次
@@ -393,14 +407,21 @@ Status TuneSyncForVF::RunOnFunction(Function &function) {
         program.second->ScheduleBy(opList_, true);
         APASS_LOG_DEBUG_F(Elements::Function, "---------------------------------------------------");
         for (const auto &op : opList_) {
-            if (op->GetOpcodeStr().find("SYNC_SRC") != std::string::npos || op->GetOpcodeStr().find("SYNC_DST") != std::string::npos
-                || op->GetOpcode() == Opcode::OP_BAR_V || op->GetOpcode() == Opcode::OP_BAR_M) {
-                APASS_LOG_DEBUG_F(Elements::Operation, "Output operation %d: %s, setpipe type: %s, setcore type: %s, waitpipe type: %s, waitcore type: %s, eventid: %d",
-                    op->GetOpMagic(), op->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(op->syncQueue_.pipeId_).c_str(), GetCoreTypeDict().Find(op->syncQueue_.coreType_).c_str(),
-                    GetPipeTypeDict().Find(op->syncQueue_.trigPipeId_).c_str(), GetCoreTypeDict().Find(op->syncQueue_.trigCoreType_).c_str(), op->syncQueue_.eventId_);
+            if (op->GetOpcodeStr().find("SYNC_SRC") != std::string::npos ||
+                op->GetOpcodeStr().find("SYNC_DST") != std::string::npos || op->GetOpcode() == Opcode::OP_BAR_V ||
+                op->GetOpcode() == Opcode::OP_BAR_M) {
+                APASS_LOG_DEBUG_F(Elements::Operation,
+                    "Output operation %d: %s, setpipe type: %s, setcore type: %s, waitpipe type: %s, waitcore type: "
+                    "%s, eventid: %d",
+                    op->GetOpMagic(), op->GetOpcodeStr().c_str(),
+                    GetPipeTypeDict().Find(op->syncQueue_.pipeId_).c_str(),
+                    GetCoreTypeDict().Find(op->syncQueue_.coreType_).c_str(),
+                    GetPipeTypeDict().Find(op->syncQueue_.trigPipeId_).c_str(),
+                    GetCoreTypeDict().Find(op->syncQueue_.trigCoreType_).c_str(), op->syncQueue_.eventId_);
                 continue;
             }
-            APASS_LOG_DEBUG_F(Elements::Operation, "Output operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "Output operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
         }
         funcId++;
     }

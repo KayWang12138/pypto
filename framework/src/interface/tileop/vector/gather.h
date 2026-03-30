@@ -52,7 +52,8 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1, T3 tmp) {
     constexpr bool scalarFlag = (sizeof(typename T2::Type) == 8) ? true : false;
     constexpr auto dstTypeSize = sizeof(typename T0::Type);
     constexpr auto srcTileShape1 = TileOp::GetOutterAxisMergeResult<shapeSize, typename T1::TileShape>();
-    using srcTileDefine = pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileShape1, srcTileW, pto::BLayout::RowMajor>;
+    using srcTileDefine =
+        pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileShape1, srcTileW, pto::BLayout::RowMajor>;
     using idxTileDefine = pto::Tile<pto::TileType::Vec, typename T2::Type, 1, idxTileW, pto::BLayout::RowMajor, -1, -1>;
     using dstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, 1, dstTileW, pto::BLayout::RowMajor, -1, -1>;
     srcTileDefine srcTile;
@@ -63,10 +64,10 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1, T3 tmp) {
         set_flag(PIPE_V, PIPE_S, EVENT_ID7);
         wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     }
-    auto srcAddr = (__ubuf__ typename T1::Type*)((uint64_t)(src0.GetAddr()));
-    auto idxAddr = (__ubuf__ typename T2::Type*)((uint64_t)(src1.GetAddr()));
-    auto dstAddr = (__ubuf__ typename T0::Type*)((uint64_t)(dst.GetAddr()));
-    auto tmpAddr = (__ubuf__ typename T2::Type*)((uint64_t)(tmp.GetAddr()));
+    auto srcAddr = (__ubuf__ typename T1::Type *)((uint64_t)(src0.GetAddr()));
+    auto idxAddr = (__ubuf__ typename T2::Type *)((uint64_t)(src1.GetAddr()));
+    auto dstAddr = (__ubuf__ typename T0::Type *)((uint64_t)(dst.GetAddr()));
+    auto tmpAddr = (__ubuf__ typename T2::Type *)((uint64_t)(tmp.GetAddr()));
     auto newIdxValue = 0;
     for (LoopVar i = 0; i < n0IdxShape; ++i) {
         for (LoopVar j = 0; j < n1IdxShape; ++j) {
@@ -82,19 +83,19 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1, T3 tmp) {
                             *(idxAddr + i * n0IdxStride + j * n1IdxStride + k * n2IdxStride + l * n3IdxStride + m);
                         if constexpr (axis == 0) {
                             newIdxValue =
-                                orgIdxValue * n0SrcStride  + j * n1SrcStride + k * n2SrcStride + l * n3SrcStride + m;
+                                orgIdxValue * n0SrcStride + j * n1SrcStride + k * n2SrcStride + l * n3SrcStride + m;
                         } else if constexpr (axis == 1) {
                             newIdxValue =
-                                i * n0SrcStride  + orgIdxValue * n1SrcStride + k * n2SrcStride + l * n3SrcStride + m;
+                                i * n0SrcStride + orgIdxValue * n1SrcStride + k * n2SrcStride + l * n3SrcStride + m;
                         } else if constexpr (axis == 2) {
                             newIdxValue =
-                                i * n0SrcStride  + j * n1SrcStride + orgIdxValue * n2SrcStride + l * n3SrcStride + m;
+                                i * n0SrcStride + j * n1SrcStride + orgIdxValue * n2SrcStride + l * n3SrcStride + m;
                         } else if constexpr (axis == 3) {
                             newIdxValue =
-                                i * n0SrcStride  + j * n1SrcStride + k * n2SrcStride + orgIdxValue * n3SrcStride + m;
+                                i * n0SrcStride + j * n1SrcStride + k * n2SrcStride + orgIdxValue * n3SrcStride + m;
                         } else {
                             newIdxValue =
-                                i * n0SrcStride  + j * n1SrcStride + k * n2SrcStride + l * n3SrcStride + orgIdxValue;
+                                i * n0SrcStride + j * n1SrcStride + k * n2SrcStride + l * n3SrcStride + orgIdxValue;
                         }
                         if constexpr (scalarFlag) {
                             dstAddr[dstOffset] = srcAddr[newIdxValue];
@@ -319,7 +320,7 @@ INLINE T2 CalaOffset2PageAttention(__gm__ T3 *blockTable, T2 index) {
  * GMIndicesStride* ,步长，用于计算偏移
  * blocktable[e,f] e batch的维度  f ceil(maxtoken/blockSize)
  */
-template <unsigned blockSize,typename T0, typename T1, typename T2, typename T3, typename C1, typename C2, typename C3>
+template <unsigned blockSize, typename T0, typename T1, typename T2, typename T3, typename C1, typename C2, typename C3>
 TILEOP void TgatherInUB(
     T0 dst, T1 param, T2 indices, T3 blockTable, C1 paramCoordinate, C2 indicesCoordinate, C3 blockTableCoordinate) {
     constexpr size_t paramExpectSize = 2;
@@ -426,10 +427,10 @@ TILEOP void TGatherMask(T0 dst, T1 src) {
         for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
             for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
                 for (LoopVar n3Index = 0; n3Index < dstShape3; ++n3Index) {
-                    using DstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, 1, dstTileW,
-                        pto::BLayout::RowMajor, -1, -1>;
-                    using SrcTileDefine = pto::Tile<pto::TileType::Vec, typename T1::Type, 1, srcTileW,
-                        pto::BLayout::RowMajor, -1, -1>;
+                    using DstTileDefine =
+                        pto::Tile<pto::TileType::Vec, typename T0::Type, 1, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+                    using SrcTileDefine =
+                        pto::Tile<pto::TileType::Vec, typename T1::Type, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
                     DstTileDefine dstTile(1, dstShape4);
                     SrcTileDefine srcTile(1, srcTileW);
                     auto dstOffset =
@@ -446,9 +447,9 @@ TILEOP void TGatherMask(T0 dst, T1 src) {
                                              (patternMode == 6) ? pto::MaskPattern::P1000 :
                                                                   pto::MaskPattern::P1111;
                     pto::TGATHER<DstTileDefine, SrcTileDefine, pattern>(dstTile, srcTile);
-                #ifdef __DAV_V220
-                pipe_barrier(PIPE_V);
-                #endif
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
                 }
             }
         }

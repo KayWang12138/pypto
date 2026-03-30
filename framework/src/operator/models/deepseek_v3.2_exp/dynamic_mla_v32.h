@@ -58,10 +58,10 @@ struct SimpleParams {
         SimpleParams params;
         params.n2 = 1;
         params.s = 1;
-        params.h = 7168; // 7168
-        params.q_lora_rank = 1536; // 1536
-        params.kv_lora_rank = 512; // 512
-        params.qk_rope_head_dim = 64; // 64
+        params.h = 7168;               // 7168
+        params.q_lora_rank = 1536;     // 1536
+        params.kv_lora_rank = 512;     // 512
+        params.qk_rope_head_dim = 64;  // 64
         params.qk_nope_head_dim = 128; // 128
         params.q_head_dim = params.qk_rope_head_dim + params.qk_nope_head_dim;
         params.cacheMode = "BNSD";
@@ -71,16 +71,16 @@ struct SimpleParams {
 
     static SimpleParams getLowParams() {
         SimpleParams params = getCommonParams();
-        params.b = 4; // 4
-        params.n = 32; // 32
+        params.b = 4;    // 4
+        params.n = 32;   // 32
         params.s2 = 256; // 256
         return params;
     }
 
     static SimpleParams getHighParams() {
         SimpleParams params = getCommonParams();
-        params.b = 32; // 32
-        params.n = 128; // 128
+        params.b = 32;    // 32
+        params.n = 128;   // 128
         params.s2 = 4096; // 4096
         return params;
     }
@@ -97,11 +97,11 @@ void MlaPrologComputeV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &
     const MlaTileConfig &tileConfig, Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut,
     Tensor &rmsRes, float epsilonCq, float epsilonCkv, std::string cacheMode);
 
-void MlaPrologV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk,
-    const Tensor &wDkvKr, const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos,
-    const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs,
-    const MlaTileConfig &tileConfig, Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut,
-    float epsilonCq = 1e-5f, float epsilonCkv = 1e-5f, std::string cacheMode = "PA_NZ");
+void MlaPrologV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk, const Tensor &wDkvKr,
+    const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos, const Tensor &cacheIndex,
+    Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs, const MlaTileConfig &tileConfig,
+    Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, float epsilonCq = 1e-5f,
+    float epsilonCkv = 1e-5f, std::string cacheMode = "PA_NZ");
 
 } // namespace npu::tile_fwk
 

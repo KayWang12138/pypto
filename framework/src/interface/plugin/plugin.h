@@ -28,6 +28,7 @@ public:
     PluginBase(PluginKind kind, const std::string &name) : kind_(kind), name_(name) {}
     PluginKind GetKind() { return kind_; }
     const std::string &GetName() const { return name_; }
+
 private:
     PluginKind kind_;
     std::string name_;
@@ -38,11 +39,13 @@ public:
     static constexpr PluginKind kind = PluginKind::CODEGEN_SRC;
     typedef std::function<std::string(const std::string &filepath, const std::string &source)> EntryType;
 
-    PluginCodegenSrc(const std::string &name, std::shared_ptr<EntryType> entryHandler) : PluginBase(PluginKind::CODEGEN_SRC, name), entryHandler_(entryHandler) {}
+    PluginCodegenSrc(const std::string &name, std::shared_ptr<EntryType> entryHandler)
+        : PluginBase(PluginKind::CODEGEN_SRC, name), entryHandler_(entryHandler) {}
 
     std::string Call(const std::string &filepath, const std::string &source) {
         return (*entryHandler_)(filepath, source);
     }
+
 private:
     std::shared_ptr<EntryType> entryHandler_;
 };
@@ -53,7 +56,7 @@ public:
 
     void ClearPlugin();
 
-    template<typename TPlugin>
+    template <typename TPlugin>
     std::vector<std::shared_ptr<TPlugin>> GetPlugin() {
         std::vector<std::shared_ptr<PluginBase>> &pluginBaseList = pluginListDict_[TPlugin::kind];
 
@@ -75,4 +78,4 @@ private:
     std::unordered_map<std::string, std::shared_ptr<PluginBase>> pluginDict_;
 };
 
-}
+} // namespace npu::tile_fwk

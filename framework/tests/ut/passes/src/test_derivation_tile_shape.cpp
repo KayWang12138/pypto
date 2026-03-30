@@ -74,15 +74,16 @@ static void BuildShapeAndCheckSucc(Function *function, const Shape &inShape, con
             continue;
         }
         auto op = opList[i];
-        auto status = derivationTileShapePass.DerivationReshapeTileShape(op, inShape, outShape, inTileShape, outTileShape);
+        auto status =
+            derivationTileShapePass.DerivationReshapeTileShape(op, inShape, outShape, inTileShape, outTileShape);
 
         EXPECT_EQ(status, SUCCESS);
         EXPECT_EQ(outTileShape, resultTileShape);
     }
 }
 
-static void BuildShapeAndCheckFail(Function *function, const Shape &inShape, const Shape &outShape,
-    const std::vector<int64_t> &inTileShape) {
+static void BuildShapeAndCheckFail(
+    Function *function, const Shape &inShape, const Shape &outShape, const std::vector<int64_t> &inTileShape) {
     std::vector<int64_t> outTileShape;
     DerivationTileShape derivationTileShapePass;
     auto opList = function->Operations().DuplicatedOpList();
@@ -91,7 +92,8 @@ static void BuildShapeAndCheckFail(Function *function, const Shape &inShape, con
             continue;
         }
         auto op = opList[i];
-        auto status = derivationTileShapePass.DerivationReshapeTileShape(op, inShape, outShape, inTileShape, outTileShape);
+        auto status =
+            derivationTileShapePass.DerivationReshapeTileShape(op, inShape, outShape, inTileShape, outTileShape);
 
         EXPECT_EQ(status, WARNING);
     }

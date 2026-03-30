@@ -44,7 +44,6 @@ bool ParallelQueue::Get(WorkItem *workItem) {
     return true;
 }
 
-
 void ParallelTool::Init() {
     if (parallelToolPtr == nullptr) {
         const int default_concurrency = config::GetPassGlobalConfig(KEY_PASS_THREAD_NUM, 1);
@@ -57,9 +56,9 @@ ParallelTool &ParallelTool::Instance() {
     return *parallelToolPtr;
 }
 
-ParallelTool::ParallelTool(unsigned int num_threads) : taskReadys(num_threads), numThread(num_threads),
-                                                       waiting_mtx(num_threads), waiting_cv(num_threads){
-    if (num_threads <= 1){
+ParallelTool::ParallelTool(unsigned int num_threads)
+    : taskReadys(num_threads), numThread(num_threads), waiting_mtx(num_threads), waiting_cv(num_threads) {
+    if (num_threads <= 1) {
         return;
     }
     for (int i = 0; i < static_cast<int>(num_threads); i++) {
@@ -84,7 +83,7 @@ ParallelTool::ParallelTool(unsigned int num_threads) : taskReadys(num_threads), 
 }
 
 ParallelTool::~ParallelTool() {
-    if(numThread > 1){
+    if (numThread > 1) {
         killThreads = true;
         for (int i = 0; i < numThread; i++) {
             waiting_cv[i].notify_one();
@@ -96,23 +95,23 @@ ParallelTool::~ParallelTool() {
 }
 
 void ParallelTool::ExecTaskVec(int threadIdx) {
-    (void) threadIdx;
+    (void)threadIdx;
     WorkItem workItem;
     while (workQueue.Get(&workItem)) {
         (*workItem.bodyPtr_)(workItem.start_, workItem.end_, threadIdx);
     }
 }
 
-int ParallelTool::GetThreadNum(){
+int ParallelTool::GetThreadNum() {
     return numThread;
 }
 
 void ParallelTool::Parallel_for(int start, int end, int step, std::function<void(int, int, int)> body) {
-    Parallel_for(start,end,step,numThread,body);
+    Parallel_for(start, end, step, numThread, body);
 }
 
 void ParallelTool::Parallel_for(int start, int end, int step, int numWork, std::function<void(int, int, int)> body) {
-    if (numThread <= 1){
+    if (numThread <= 1) {
         body(start, end, 0);
         return;
     }
@@ -141,11 +140,9 @@ void ParallelTool::Parallel_for(int start, int end, int step, int numWork, std::
     for (int i = 0; i < numThread; i++) {
         waiting_cv[i].notify_one();
     }
-    completion_cv.wait(lock, [this]() {
-        return workingThreads == 0;
-    });
+    completion_cv.wait(lock, [this]() { return workingThreads == 0; });
 }
 
 std::unique_ptr<ParallelTool> ParallelTool::parallelToolPtr = nullptr;
 
-}
+} // namespace npu::tile_fwk

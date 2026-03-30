@@ -38,9 +38,7 @@ public:
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     }
 
-    void TearDown() override {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    void TearDown() override { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 };
 
 constexpr const int SCATER_SHAPE0 = 128;

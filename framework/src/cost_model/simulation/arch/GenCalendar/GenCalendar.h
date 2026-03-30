@@ -95,4 +95,4 @@ public:
 
     void RemoveBarrierCounter();
 };
-}
+} // namespace CostModel

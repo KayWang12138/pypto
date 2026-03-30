@@ -21,7 +21,7 @@
 
 namespace npu {
 namespace tile_fwk {
-class IndexOutcastChecker : Checker{
+class IndexOutcastChecker : Checker {
 public:
     Status CheckIndexOutcastDisorderedCoverage(Function &function);
 };

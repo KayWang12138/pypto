@@ -29,8 +29,7 @@ namespace CostModel {
 
 class AICPUThreadState {
 public:
-    explicit AICPUThreadState(int numThreads)
-    {
+    explicit AICPUThreadState(int numThreads) {
         batchProcessing.resize(numThreads, false);
         threadDone.resize(numThreads, false);
         completionDone.resize(numThreads, false);
@@ -72,10 +71,10 @@ public:
     void StatSubmit(std::shared_ptr<Machine> submachine);
     void DispatchPacket();
     void RecordDependency(std::shared_ptr<Task> task);
-    void ResolveDependence(const std::shared_ptr<CoreMachine> &core, uint64_t threadId,
-                           std::vector<uint64_t> &threadCompletionCycles);
+    void ResolveDependence(
+        const std::shared_ptr<CoreMachine> &core, uint64_t threadId, std::vector<uint64_t> &threadCompletionCycles);
     void WakeupSuccessors(uint64_t threadId, uint64_t &resCycles, std::vector<uint64_t> successors,
-                          std::vector<uint64_t> &threadCompletionCycles);
+        std::vector<uint64_t> &threadCompletionCycles);
     void CheckDeadlock();
 
     Task taskInfo;
@@ -97,12 +96,12 @@ public:
     uint64_t GetQueueNextCycles();
     void StatTaskType(const MachineType &type, uint64_t &threadId);
     void SendTask(uint64_t taskId, std::shared_ptr<Machine> subMachine, uint64_t delay, uint64_t threadId);
-    void DispatchTasksForThread(uint64_t threadId, std::vector<uint64_t>& threadSchedulerCycles,
-                                std::vector<uint64_t>& currentCycle);
-    void DispatchTasksInReplayMode(uint64_t threadId, std::vector<uint64_t>& threadSchedulerCycles,
-                                   std::vector<uint64_t>& currentCycle, uint64_t delayCycle);
-    void DispatchTasksInNormalMode(uint64_t threadId, std::vector<uint64_t>& threadSchedulerCycles,
-                                                std::vector<uint64_t>& currentCycle, uint64_t delayCycle);
+    void DispatchTasksForThread(
+        uint64_t threadId, std::vector<uint64_t> &threadSchedulerCycles, std::vector<uint64_t> &currentCycle);
+    void DispatchTasksInReplayMode(uint64_t threadId, std::vector<uint64_t> &threadSchedulerCycles,
+        std::vector<uint64_t> &currentCycle, uint64_t delayCycle);
+    void DispatchTasksInNormalMode(uint64_t threadId, std::vector<uint64_t> &threadSchedulerCycles,
+        std::vector<uint64_t> &currentCycle, uint64_t delayCycle);
 
     void DispatchHUBTask();
     void DispatchHUBTaskInReplay();
@@ -112,4 +111,4 @@ public:
     uint64_t GetTaskLoad(MachineType type);
 };
 
-}  // namespace CostModel
+} // namespace CostModel

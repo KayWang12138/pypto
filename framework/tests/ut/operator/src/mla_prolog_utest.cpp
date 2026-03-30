@@ -32,9 +32,7 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
-        Program::GetInstance().Reset();
-    }
+    void SetUp() override { Program::GetInstance().Reset(); }
 
     void TearDown() override {}
 };
@@ -52,7 +50,7 @@ struct TestShapeParams {
     int blockSize;
 };
 
-template <typename T = npu::tile_fwk::float16,  typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true,
+template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true,
     bool isSmooth = true, bool nz = true, bool usePrefetch = true>
 void TestMlaPrologUt(const TestShapeParams &params, const MlaTileConfig &tileConfig, std::string cacheMode = "PA_NZ") {
     int b = params.b;

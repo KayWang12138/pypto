@@ -31,7 +31,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single) {
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowMaxSingle") {
         TileShape::Current().SetVecTile({128, 64});
@@ -69,7 +69,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single) {
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowSumSingle") {
         TileShape::Current().SetVecTile({128, 64});
@@ -108,7 +108,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim) {
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowMaxSingle") {
         TileShape::Current().SetVecTile({2, 1, 64});
@@ -148,7 +148,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNor
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowSumSingle") {
         TileShape::Current().SetVecTile({8, 1, 128});
@@ -189,7 +189,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax) {
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowMaxSingle") {
         TileShape::Current().SetVecTile({1, 64, 1, 64});
@@ -230,7 +230,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_un
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowMaxSingle") {
         TileShape::Current().SetVecTile({1, 64, 1, 64});
@@ -271,7 +271,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax) {
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowSumSingle") {
         TileShape::Current().SetVecTile({1, 64, 1, 128});
@@ -294,7 +294,6 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax) {
 
     readInput(GetGoldenDir() + "/32_128_1_256/sum_res.bin", golden);
 
-
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
 }
@@ -312,7 +311,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe) {
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Reduce") {
         TileShape::Current().SetVecTile({2, 8, 512});
 
@@ -350,7 +349,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe) {
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Reduce") {
         TileShape::Current().SetVecTile({1, 8, 512});
 
@@ -388,7 +387,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe) {
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Reduce") {
         TileShape::Current().SetVecTile({8, 256});
 

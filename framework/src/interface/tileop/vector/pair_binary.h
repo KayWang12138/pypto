@@ -159,11 +159,11 @@ TILEOP void InnerPairBinaryCompute(T0 dst, T1 src0, T2 src1) {
         int dstShape3;
         int src0Shape3;
         int src1Shape3;
-        if constexpr (shapeSize !=1 ) {
+        if constexpr (shapeSize != 1) {
             dstShape3 = GetHeightValidSize<reduceAxisIndex, shapeSize, T0>(dst);
             src0Shape3 = GetHeightValidSize<reduceAxisIndex, shapeSize, T1>(src0);
             src1Shape3 = GetHeightValidSize<reduceAxisIndex, shapeSize, T2>(src1);
-        }else {
+        } else {
             dstShape3 = 1;
             src0Shape3 = 1;
             src1Shape3 = 1;

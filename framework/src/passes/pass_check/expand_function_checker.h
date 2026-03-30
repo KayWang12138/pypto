@@ -32,4 +32,4 @@ public:
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // EXPAND_FUNCTION_CHECKER_H
+#endif // EXPAND_FUNCTION_CHECKER_H

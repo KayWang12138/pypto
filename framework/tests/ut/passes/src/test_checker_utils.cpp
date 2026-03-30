@@ -19,7 +19,7 @@
 
 using namespace npu::tile_fwk;
 
-namespace npu{
+namespace npu {
 namespace tile_fwk {
 const int NUM_8 = 8;
 const int NUM_16 = 16;
@@ -37,7 +37,8 @@ public:
 };
 
 TEST_F(TestCheckerUtils, TestOpChecker) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestOpChecker", "TestOpChecker", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestOpChecker", "TestOpChecker", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape1 = {NUM_32, NUM_16};
     std::vector<int64_t> shape2 = {NUM_16, NUM_8};
@@ -66,13 +67,15 @@ TEST_F(TestCheckerUtils, TestOpChecker) {
     EXPECT_TRUE(OpChecker::check(aMulB, OpChecker::CalcTypeChecker(OpCalcType::MATMUL)));
     EXPECT_FALSE(OpChecker::check(aMulB, OpChecker::CoreTypeChecker(OpCoreType::AIV)));
     EXPECT_TRUE(OpChecker::check(l1ToL0A, OpChecker::CalcTypeChecker(OpCalcType::MOVE_LOCAL),
-        OpChecker::InputMemTypeChecker(MemoryType::MEM_L1), OpChecker::OutputMemTypeChecker({MemoryType::MEM_L0A, MemoryType::MEM_L0B})));
+        OpChecker::InputMemTypeChecker(MemoryType::MEM_L1),
+        OpChecker::OutputMemTypeChecker({MemoryType::MEM_L0A, MemoryType::MEM_L0B})));
     EXPECT_FALSE(OpChecker::check(l1ToL0B, OpChecker::CalcTypeChecker(OpCalcType::MOVE_LOCAL),
         OpChecker::InputMemTypeChecker(MemoryType::MEM_L1), OpChecker::OutputMemTypeChecker(MemoryType::MEM_L0C)));
     EXPECT_TRUE(OpChecker::check(viewA, OpChecker::CalcTypeChecker(OpCalcType::MOVE_LOCAL)));
     EXPECT_FALSE(OpChecker::check(viewB, OpChecker::CalcTypeChecker(OpCalcType::MATMUL)));
     EXPECT_TRUE(OpChecker::check(copyout, OpChecker::CalcTypeChecker(OpCalcType::MOVE_OUT),
-        OpChecker::InputMemTypeChecker(MemoryType::MEM_L0C), OpChecker::OutputMemTypeChecker({MemoryType::MEM_DEVICE_DDR})));
+        OpChecker::InputMemTypeChecker(MemoryType::MEM_L0C),
+        OpChecker::OutputMemTypeChecker({MemoryType::MEM_DEVICE_DDR})));
 }
 } // namespace tile_fwk
 } // namespace npu

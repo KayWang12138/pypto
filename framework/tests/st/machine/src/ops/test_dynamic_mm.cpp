@@ -147,7 +147,8 @@ static void NonSplitFuncWithBiasAndScale(SplitFuncParam &splitFuncParam) {
 template <typename outputDtype, bool transA, bool transB, bool isCNz>
 static void NonSplitFunc(SplitFuncParam &splitFuncParam) {
     if (splitFuncParam.param.biasTensor.GetStorage() != nullptr ||
-        splitFuncParam.param.scaleTensor.GetStorage() != nullptr || fabs(splitFuncParam.param.scaleValue - 0) > EPSILON) {
+        splitFuncParam.param.scaleTensor.GetStorage() != nullptr ||
+        fabs(splitFuncParam.param.scaleValue - 0) > EPSILON) {
         NonSplitFuncWithBiasAndScale<outputDtype, transA, transB, isCNz>(splitFuncParam);
         return;
     }
@@ -339,8 +340,7 @@ void TestDynMatmul(MatrixOpParams &opParams) {
 
     float scaleValue = (opParams.quant_mode == QUANT_PERTENSOR) ? opParams.scaleValue : 0.0f;
     Matrix::ReLuType reluType = (opParams.relu_type == NO_RELU) ? Matrix::ReLuType::NoReLu : Matrix::ReLuType::ReLu;
-    SplitFuncParam funcParam = {
-        Matrix::MatmulExtendParam(tensor_bias, tensor_scale, scaleValue, reluType),
+    SplitFuncParam funcParam = {Matrix::MatmulExtendParam(tensor_bias, tensor_scale, scaleValue, reluType),
         opParams.viewShape, tensor_a, tensor_b, tensor_c};
 
     if (viewM > 0 && viewN > 0) {

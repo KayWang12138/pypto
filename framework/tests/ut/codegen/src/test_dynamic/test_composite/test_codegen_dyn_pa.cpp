@@ -43,7 +43,6 @@ public:
 };
 
 void testPa(PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1) {
-
     int b = 4;
     int sq = 1;
     int nq = 32;

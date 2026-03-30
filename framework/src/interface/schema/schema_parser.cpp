@@ -72,21 +72,19 @@ struct Parser {
                 case ']':
                 case '{':
                 case '}': {
-                        if (curr.size() != 0) {
-                            tokenList.emplace_back(Token::id, curr);
-                            curr.clear();
-                        }
-                        tokenList.emplace_back(text[idx]);
-                    } break;
+                    if (curr.size() != 0) {
+                        tokenList.emplace_back(Token::id, curr);
+                        curr.clear();
+                    }
+                    tokenList.emplace_back(text[idx]);
+                } break;
                 case ' ': {
-                        if (curr.size() != 0) {
-                            tokenList.emplace_back(Token::id, curr);
-                            curr.clear();
-                        }
-                    } break;
-                default:
-                    curr.push_back(text[idx]);
-                    break;
+                    if (curr.size() != 0) {
+                        tokenList.emplace_back(Token::id, curr);
+                        curr.clear();
+                    }
+                } break;
+                default: curr.push_back(text[idx]); break;
             }
         }
         if (curr.size() != 0) {
@@ -96,15 +94,9 @@ struct Parser {
     }
 
     int pos = 0;
-    Token &Current() {
-        return tokenList[pos];
-    }
-    bool Accessible() {
-        return pos < (int)tokenList.size();
-    }
-    void MoveNext() {
-        pos++;
-    }
+    Token &Current() { return tokenList[pos]; }
+    bool Accessible() { return pos < (int)tokenList.size(); }
+    void MoveNext() { pos++; }
 
     std::shared_ptr<SchemaNode> ParseNode() {
         std::shared_ptr<SchemaNode> curr;
@@ -192,14 +184,16 @@ std::vector<std::shared_ptr<SchemaNode>> SchemaNode::ParseSchema(const std::vect
     return nodeList;
 }
 
-static void BuildSchemaDict(std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>> &dict, const std::shared_ptr<SchemaNode> &node) {
+static void BuildSchemaDict(
+    std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>> &dict, const std::shared_ptr<SchemaNode> &node) {
     dict[node->GetName()].push_back(node);
     for (auto &child : *node) {
         BuildSchemaDict(dict, child);
     }
 }
 
-std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>> SchemaNode::BuildDict(const std::vector<std::shared_ptr<SchemaNode>> &nodeList) {
+std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>> SchemaNode::BuildDict(
+    const std::vector<std::shared_ptr<SchemaNode>> &nodeList) {
     std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>> dict;
     for (auto &node : nodeList) {
         BuildSchemaDict(dict, node);
@@ -207,4 +201,4 @@ std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>> SchemaNode::Buil
     return dict;
 }
 
-} // namespace npu::tile_fwk
+} // namespace npu::tile_fwk::schema

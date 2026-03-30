@@ -62,7 +62,8 @@ TILEOP void T_BIN_PAIR(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1) {
         constexpr unsigned numLoop = T0 / REPEAT_MAX;
         constexpr unsigned remainAfterLoop = T0 % REPEAT_MAX;
         constexpr bool strideOverFlag = (DS / blockSizeElem > REPEAT_STRIDE_MAX) ||
-         (SS0 / blockSizeElem > REPEAT_STRIDE_MAX) || (SS1 / blockSizeElem > REPEAT_STRIDE_MAX);
+                                        (SS0 / blockSizeElem > REPEAT_STRIDE_MAX) ||
+                                        (SS1 / blockSizeElem > REPEAT_STRIDE_MAX);
         SetContinuousMask(numRemainPerLine);
         if constexpr (numLoop) {
             for (int i = 0; i < numLoop; i++) {
@@ -94,11 +95,9 @@ TILEOP void T_BIN_PAIR(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1) {
 }
 
 // dim4
-template <typename T, unsigned S0T0, unsigned S0T1, unsigned S0T2, unsigned S0T3,
-         unsigned S1T0, unsigned S1T1, unsigned S1T2, unsigned S1T3,
-         unsigned DS0, unsigned DS1, unsigned DS2, unsigned DS3,
-         unsigned S0S0, unsigned S0S1, unsigned S0S2, unsigned S0S3,
-         unsigned S1S0, unsigned S1S1, unsigned S1S2, unsigned S1S3>
+template <typename T, unsigned S0T0, unsigned S0T1, unsigned S0T2, unsigned S0T3, unsigned S1T0, unsigned S1T1,
+    unsigned S1T2, unsigned S1T3, unsigned DS0, unsigned DS1, unsigned DS2, unsigned DS3, unsigned S0S0, unsigned S0S1,
+    unsigned S0S2, unsigned S0S3, unsigned S1S0, unsigned S1S1, unsigned S1S2, unsigned S1S3>
 TILEOP void T_BIN_PAIR(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1) {
     static_assert((DS3 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((S0S3 * sizeof(T)) % BLOCK_SIZE == 0);
@@ -168,8 +167,8 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1) {
                 if constexpr (remainAfterLoop) {
                     V_BIN_FUNC(dst + i * DS + numLoop * elementsPerRepeat * REPEAT_MAX,
                         src0 + i * src0Row + numLoop * src0RowOffset * REPEAT_MAX,
-                        src1 + i * src1Row + numLoop * src1RowOffset * REPEAT_MAX, remainAfterLoop, 1,
-                        src0BlockStride, src1BlockStride, 8, src0RepeatStride, src1RepeatStride);
+                        src1 + i * src1Row + numLoop * src1RowOffset * REPEAT_MAX, remainAfterLoop, 1, src0BlockStride,
+                        src1BlockStride, 8, src0RepeatStride, src1RepeatStride);
                 }
             }
         } else {

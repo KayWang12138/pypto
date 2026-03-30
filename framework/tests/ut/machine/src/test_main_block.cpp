@@ -28,9 +28,7 @@ using namespace npu::tile_fwk;
 
 class TestMainBlockLog : public testing::Test {
 public:
-    void SetUp() override {
-        Program::GetInstance().Reset();
-    }
+    void SetUp() override { Program::GetInstance().Reset(); }
     void TearDown() override {}
 };
 

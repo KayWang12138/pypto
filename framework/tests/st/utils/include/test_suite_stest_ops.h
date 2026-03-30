@@ -24,7 +24,7 @@
 #include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk::stest {
-template<typename TestBase>
+template <typename TestBase>
 class TestSuiteBase : public TestBase {
 public:
     static void SetUpTestCase() {}
@@ -70,7 +70,7 @@ protected:
 #endif
 };
 
-template<typename T>
+template <typename T>
 class TestSuite_STest_Ops_Aihac_param : public TestSuiteBase<testing::TestWithParam<T>> {};
 
 class TestSuite_STest_Ops_Aihac : public TestSuiteBase<testing::Test> {};

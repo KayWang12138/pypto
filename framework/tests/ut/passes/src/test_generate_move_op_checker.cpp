@@ -45,10 +45,9 @@ public:
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
-
 };
 
-template<typename OpType>
+template <typename OpType>
 OpType *FindOpByOpcode(Function *function, Opcode targetOpcode) {
     OpType *targetOp = nullptr;
     for (auto &op : function->Operations()) {
@@ -137,8 +136,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_MoreThanOneOutput) {
 }
 
 TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_OutputHasNullConsumer) {
-    auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "TestViewOutputHasNullConsumer", "TestViewOutputHasNullConsumer", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestViewOutputHasNullConsumer", "TestViewOutputHasNullConsumer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> shape = {16, 48};
@@ -153,8 +152,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_OutputHasNullConsumer) {
     auto viewAttr = std::make_shared<ViewOpAttribute>(viewShape);
     viewOp.SetOpAttribute(viewAttr);
 
-    using ConsumerSetType = std::set<Operation*, LogicalTensor::CompareOp>;
-    auto& consumers = const_cast<ConsumerSetType&>(t02Tensor->GetConsumers());
+    using ConsumerSetType = std::set<Operation *, LogicalTensor::CompareOp>;
+    auto &consumers = const_cast<ConsumerSetType &>(t02Tensor->GetConsumers());
     consumers.clear();
     consumers.insert(nullptr);
 
@@ -169,15 +168,15 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_OutputHasNullConsumer) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             auto outputTensor = op.GetOOperands().front();
             ASSERT_NE(outputTensor, nullptr);
-            const auto& targetConsumers = outputTensor->GetConsumers();
+            const auto &targetConsumers = outputTensor->GetConsumers();
             EXPECT_TRUE(std::find(targetConsumers.begin(), targetConsumers.end(), nullptr) != targetConsumers.end());
         }
     }
 }
 
 TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_ConsumerNotSupportDDR) {
-    auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "TestViewConsumerNotSupportDDR", "TestViewConsumerNotSupportDDR", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestViewConsumerNotSupportDDR", "TestViewConsumerNotSupportDDR", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> shape = {16, 16};
@@ -192,8 +191,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_ConsumerNotSupportDDR) {
     std::vector<int64_t> viewShape{16, 16};
     auto viewAttr = std::make_shared<ViewOpAttribute>(viewShape);
     viewOp.SetOpAttribute(viewAttr);
-    using ConsumerSetType = std::set<Operation*, LogicalTensor::CompareOp>;
-    auto& consumers = const_cast<ConsumerSetType&>(t2Tensor->GetConsumers());
+    using ConsumerSetType = std::set<Operation *, LogicalTensor::CompareOp>;
+    auto &consumers = const_cast<ConsumerSetType &>(t2Tensor->GetConsumers());
     consumers.insert(&mulOp);
     currFunctionPtr->inCasts_.push_back(t1Tensor);
     currFunctionPtr->outCasts_.push_back(t3Tensor);
@@ -207,14 +206,15 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_ConsumerNotSupportDDR) {
             auto outputTensor = op.GetOOperands().front();
             ASSERT_NE(outputTensor, nullptr);
             EXPECT_EQ(outputTensor->GetMemoryTypeOriginal(), MemoryType::MEM_DEVICE_DDR);
-            const auto& targetConsumers = outputTensor->GetConsumers();
+            const auto &targetConsumers = outputTensor->GetConsumers();
             EXPECT_TRUE(targetConsumers.find(&mulOp) != targetConsumers.end());
         }
     }
 }
 
 TEST_F(TestGenerateMoveOpChecker, ViewOp_ConvertPathInvalid) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestViewConvertPathInvalid", "TestViewConvertPathInvalid", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestViewConvertPathInvalid", "TestViewConvertPathInvalid", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {16, 16};
 
@@ -230,8 +230,8 @@ TEST_F(TestGenerateMoveOpChecker, ViewOp_ConvertPathInvalid) {
     auto viewAttr = std::make_shared<ViewOpAttribute>(shape);
     viewOp.SetOpAttribute(viewAttr);
 
-    using ConsumerSetType = std::set<Operation*, LogicalTensor::CompareOp>;
-    auto& consumers = const_cast<ConsumerSetType&>(t2Tensor->GetConsumers());
+    using ConsumerSetType = std::set<Operation *, LogicalTensor::CompareOp>;
+    auto &consumers = const_cast<ConsumerSetType &>(t2Tensor->GetConsumers());
     consumers.clear();
     consumers.insert(&convertOp);
     currFunctionPtr->inCasts_.push_back(t1Tensor);
@@ -239,14 +239,15 @@ TEST_F(TestGenerateMoveOpChecker, ViewOp_ConvertPathInvalid) {
 
     GenerateMoveOp generateMoveOp;
     Status preCheckStatus = FAILED;
-    auto convertAttrPtr = dynamic_cast<ConvertOpAttribute*>(convertOp.GetOpAttribute().get());
+    auto convertAttrPtr = dynamic_cast<ConvertOpAttribute *>(convertOp.GetOpAttribute().get());
     ASSERT_NE(convertAttrPtr, nullptr);
     EXPECT_NE(convertAttrPtr->GetConvertPath().first, MemoryType::MEM_DEVICE_DDR);
     EXPECT_EQ(preCheckStatus, FAILED);
 }
 
 TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_AttrNull) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestAssembleOpAttrNull", "TestAssembleOpAttrNull", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestAssembleOpAttrNull", "TestAssembleOpAttrNull", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {16, 32};
     auto t1Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -261,7 +262,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_AttrNull) {
 }
 
 TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_MoreThanOneInput) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestAssembleOpMoreThanOneInput", "TestAssembleOpMoreThanOneInput", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestAssembleOpMoreThanOneInput", "TestAssembleOpMoreThanOneInput", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {16, 16};
     auto t1Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -280,7 +282,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_MoreThanOneInput) {
 }
 
 TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_MoreThanOneOutput) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestAssembleOpMoreThanOneOutput", "TestAssembleOpMoreThanOneOutput", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestAssembleOpMoreThanOneOutput", "TestAssembleOpMoreThanOneOutput", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {16, 32};
     auto t0Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -298,7 +301,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_MoreThanOneOutput) {
 }
 
 TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_MoreThanOneInput) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestConvertOpMoreThanOneInput", "TestConvertOpMoreThanOneInput", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestConvertOpMoreThanOneInput", "TestConvertOpMoreThanOneInput", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {16, 16};
     auto t1Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -316,7 +320,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_MoreThanOneInput) {
 }
 
 TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_MoreThanOneOutput) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestConvertOpMoreThanOneOutput", "TestConvertOpMoreThanOneOutput", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestConvertOpMoreThanOneOutput", "TestConvertOpMoreThanOneOutput", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {16, 16};
     auto t1Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -334,7 +339,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_MoreThanOneOutput) {
 }
 
 TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_SameMemType) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestConvertOpSameMemType", "TestConvertOpSameMemType", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestConvertOpSameMemType", "TestConvertOpSameMemType", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {16, 32};
     auto t1Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -353,7 +359,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_SameMemType) {
 }
 
 TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_DiffShape) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestConvertOpDiffShape", "TestConvertOpDiffShape", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestConvertOpDiffShape", "TestConvertOpDiffShape", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape1{16, 32};
     std::vector<int64_t> shape2{32, 64};
@@ -371,7 +378,8 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_DiffShape) {
 }
 
 TEST_F(TestGenerateMoveOpChecker, PostCheck_View_InputInvalid) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "PostCheckViewInputInvalid", "PostCheckViewInputInvalid", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "PostCheckViewInputInvalid", "PostCheckViewInputInvalid", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> shape = {16, 16};
@@ -389,7 +397,8 @@ TEST_F(TestGenerateMoveOpChecker, PostCheck_View_InputInvalid) {
 }
 
 TEST_F(TestGenerateMoveOpChecker, PostCheck_View_OutputInvalid) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "PostCheckViewOutputInvalid", "PostCheckViewOutputInvalid", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "PostCheckViewOutputInvalid", "PostCheckViewOutputInvalid", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> shape = {16, 16};
@@ -407,7 +416,8 @@ TEST_F(TestGenerateMoveOpChecker, PostCheck_View_OutputInvalid) {
 }
 
 TEST_F(TestGenerateMoveOpChecker, PostCheck_DuplicateOp_Invalid) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "PostCheckDupInvalid", "PostCheckDupInvalid", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "PostCheckDupInvalid", "PostCheckDupInvalid", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> shape = {16, 16};
@@ -423,7 +433,8 @@ TEST_F(TestGenerateMoveOpChecker, PostCheck_DuplicateOp_Invalid) {
 }
 
 TEST_F(TestGenerateMoveOpChecker, PostCheck_ConvertOp_Invalid) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "PostCheckConvertInvalid", "PostCheckConvertInvalid", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "PostCheckConvertInvalid", "PostCheckConvertInvalid", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> shape = {16, 16};
@@ -439,7 +450,8 @@ TEST_F(TestGenerateMoveOpChecker, PostCheck_ConvertOp_Invalid) {
 }
 
 TEST_F(TestGenerateMoveOpChecker, View_MemoryTypeMismatch) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "PostCheckViewMemMismatch", "PostCheckViewMemMismatch", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "PostCheckViewMemMismatch", "PostCheckViewMemMismatch", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> shape = {16, 16};
@@ -469,17 +481,18 @@ TEST_F(TestGenerateMoveOpChecker, ViewInputNullCheck) {
         Tensor output(DT_FP32, shape2, "output");
 
         PassManager &passManager = PassManager::Instance();
-        passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            { "GenerateMoveOp", PassName::GENERATE_MOVE_OP },
+        passManager.RegisterStrategy(
+            "GenerateMoveOpPassTestStrategy", {
+                                                  {"GenerateMoveOp", PassName::GENERATE_MOVE_OP},
         });
         ConfigManager::Instance();
 
-        Function* originFunction = nullptr;
+        Function *originFunction = nullptr;
         std::vector<int> originOpmagic;
         config::SetBuildStatic(true);
         FUNCTION("VIEW", {input_1, input_2, output}) {
             config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
-            auto tmp_view = View(input_1, shape2, {0,0});
+            auto tmp_view = View(input_1, shape2, {0, 0});
             output = tmp_view;
         }
 
@@ -494,9 +507,9 @@ TEST_F(TestGenerateMoveOpChecker, ViewInputNullCheck) {
 
         originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_VIEW");
         ASSERT_NE(originFunction, nullptr);
-        for (auto& op : originFunction->Operations()) {
+        for (auto &op : originFunction->Operations()) {
             if (op.GetOpcode() == Opcode::OP_VIEW) {
-                auto& inputs = op.GetIOperands();
+                auto &inputs = op.GetIOperands();
                 if (!inputs.empty()) {
                     inputs[0] = nullptr;
                 }
@@ -521,18 +534,19 @@ TEST_F(TestGenerateMoveOpChecker, ViewOutputNullCheck) {
         Tensor output2(DT_FP32, shape2, "output2");
 
         PassManager &passManager = PassManager::Instance();
-        passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            { "GenerateMoveOp", PassName::GENERATE_MOVE_OP },
+        passManager.RegisterStrategy(
+            "GenerateMoveOpPassTestStrategy", {
+                                                  {"GenerateMoveOp", PassName::GENERATE_MOVE_OP},
         });
         ConfigManager::Instance();
 
-        Function* originFunction = nullptr;
+        Function *originFunction = nullptr;
         std::vector<int> originOpmagic;
         config::SetBuildStatic(true);
 
         FUNCTION("VIEW", {input_aa, input_bb, output, output2}) {
             config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
-            auto tmp_view = View(input_aa, shape2, {0,0});
+            auto tmp_view = View(input_aa, shape2, {0, 0});
             output = tmp_view;
             output2 = tmp_view;
         }
@@ -548,9 +562,9 @@ TEST_F(TestGenerateMoveOpChecker, ViewOutputNullCheck) {
 
         originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_VIEW");
         ASSERT_NE(originFunction, nullptr);
-        for (auto& op : originFunction->Operations()) {
+        for (auto &op : originFunction->Operations()) {
             if (op.GetOpcode() == Opcode::OP_VIEW) {
-                auto& outputs = op.GetOOperands();
+                auto &outputs = op.GetOOperands();
                 if (!outputs.empty()) {
                     outputs[0] = nullptr;
                 }
@@ -575,18 +589,22 @@ TEST_F(TestGenerateMoveOpChecker, AssembleInputNullCheck) {
         Tensor output(DT_FP32, shape2, "output");
 
         PassManager &passManager = PassManager::Instance();
-        passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            { "GenerateMoveOp", PassName::GENERATE_MOVE_OP },
+        passManager.RegisterStrategy(
+            "GenerateMoveOpPassTestStrategy", {
+                                                  {"GenerateMoveOp", PassName::GENERATE_MOVE_OP},
         });
         ConfigManager::Instance();
 
-        Function* originFunction = nullptr;
+        Function *originFunction = nullptr;
         config::SetBuildStatic(true);
 
         FUNCTION("ASSEMBLE", {input_m, input_n, output}) {
             config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
 
-            Assemble({{input_m, {0, 0}}, {input_n, {128, 0}}});
+            Assemble({
+                {input_m,   {0, 0}},
+                {input_n, {128, 0}}
+            });
         }
 
         std::string jsonFilePath = "./assemble_null_check.json";
@@ -595,9 +613,9 @@ TEST_F(TestGenerateMoveOpChecker, AssembleInputNullCheck) {
         Program::GetInstance().LoadJson(readData);
         originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_ASSEMBLE");
 
-        for (auto& op : originFunction->Operations()) {
+        for (auto &op : originFunction->Operations()) {
             if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-                auto& inputs = op.GetIOperands();
+                auto &inputs = op.GetIOperands();
                 inputs[0] = nullptr;
             }
         }
@@ -618,15 +636,19 @@ TEST_F(TestGenerateMoveOpChecker, AssembleOutputNullCheck) {
         Tensor input_d(DT_FP32, shape1, "input_d");
         Tensor output2(DT_FP32, shape2, "output2");
         PassManager &passManager = PassManager::Instance();
-        passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            { "GenerateMoveOp", PassName::GENERATE_MOVE_OP },
+        passManager.RegisterStrategy(
+            "GenerateMoveOpPassTestStrategy", {
+                                                  {"GenerateMoveOp", PassName::GENERATE_MOVE_OP},
         });
         ConfigManager::Instance();
-        Function* originFunction = nullptr;
+        Function *originFunction = nullptr;
         config::SetBuildStatic(true);
         FUNCTION("ASSEMBLE", {input_c, input_d, output2}) {
             config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
-            Assemble({{input_c, {0, 0}}, {input_d, {128, 0}}});
+            Assemble({
+                {input_c,   {0, 0}},
+                {input_d, {128, 0}}
+            });
         }
         std::string jsonFilePath = "./assemble_output_null_check.json";
         DumpJsonFile(Program::GetInstance().DumpJson(), jsonFilePath);
@@ -634,9 +656,9 @@ TEST_F(TestGenerateMoveOpChecker, AssembleOutputNullCheck) {
         Program::GetInstance().LoadJson(readData);
         originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_ASSEMBLE");
 
-        for (auto& op : originFunction->Operations()) {
+        for (auto &op : originFunction->Operations()) {
             if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-                auto& outputs = op.GetOOperands();
+                auto &outputs = op.GetOOperands();
                 outputs[0] = nullptr;
             }
         }
@@ -649,14 +671,14 @@ TEST_F(TestGenerateMoveOpChecker, AssembleOutputNullCheck) {
 }
 
 TEST_F(TestGenerateMoveOpChecker, ConvertOp_ShapeMismatch) {
-    auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "TestConvertShapeMismatch", "TestConvertShapeMismatch", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestConvertShapeMismatch", "TestConvertShapeMismatch", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
-    std::vector<int64_t> shape_in  = {16, 16};
+    std::vector<int64_t> shape_in = {16, 16};
     std::vector<int64_t> shape_out = {32, 32};
 
-    auto inTensor  = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape_in);
+    auto inTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape_in);
     auto outTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape_out);
     inTensor->SetMemoryTypeOriginal(MEM_DEVICE_DDR);
     outTensor->SetMemoryTypeOriginal(MEM_UB);

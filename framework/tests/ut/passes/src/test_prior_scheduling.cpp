@@ -44,7 +44,8 @@ public:
 TEST_F(TestPriorScheduling, TestMainSchedule) {
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootFuncPtr.get());
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
@@ -59,13 +60,13 @@ TEST_F(TestPriorScheduling, TestMainSchedule) {
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
     auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
-    (void) copy_op1;
+    (void)copy_op1;
     auto &copy_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast2}, {ubTensor2});
-    (void) copy_op2;
-    auto& add_op = currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {ubTensor1, ubTensor2}, {ubTensor3});
-    (void) add_op;
-    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {outCast});
-    (void) copy_out_op;
+    (void)copy_op2;
+    auto &add_op = currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {ubTensor1, ubTensor2}, {ubTensor3});
+    (void)add_op;
+    auto &copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {outCast});
+    (void)copy_out_op;
     currFunctionPtr->inCasts_.push_back(incast1);
     currFunctionPtr->inCasts_.push_back(incast2);
     currFunctionPtr->outCasts_.push_back(outCast);
@@ -74,4 +75,4 @@ TEST_F(TestPriorScheduling, TestMainSchedule) {
     EXPECT_TRUE(true);
 }
 
-} // namespace acend
+} // namespace npu::tile_fwk

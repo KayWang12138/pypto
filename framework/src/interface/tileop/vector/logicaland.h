@@ -81,8 +81,8 @@ TILEOP void SelectLogicalResult(T &dst, U &src1, U &src2, TMP &tmp) {
 }
 
 template <typename T, typename U1, typename U2, typename L, typename Res, typename Cvt, typename V>
-TILEOP void LogicalAndImpl(
-    T &dst, U1 &src1, U2 &src2, L &tmp1, L &tmp2, L &ones, L &zeros, Res &res1, Res &res2, Cvt &cvt, V &startAddrUBTile) {
+TILEOP void LogicalAndImpl(T &dst, U1 &src1, U2 &src2, L &tmp1, L &tmp2, L &ones, L &zeros, Res &res1, Res &res2,
+    Cvt &cvt, V &startAddrUBTile) {
     CalculateSrcLogicalTile(tmp1, src1, zeros, ones, res1, cvt, startAddrUBTile);
 #ifdef __DAV_V220
     pipe_barrier(PIPE_V);

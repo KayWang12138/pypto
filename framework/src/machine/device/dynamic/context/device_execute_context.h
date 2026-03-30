@@ -71,10 +71,10 @@ struct DeviceExecuteContext {
     static uint64_t GetInputShapeDim(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t n);
     static int64_t GetInputDataInt32Dim1(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0);
     static int64_t GetInputDataInt32Dim2(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1);
-    static int64_t GetInputDataInt32Dim3(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1,
-        uint64_t off2);
-    static int64_t GetInputDataInt32Dim4(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1,
-        uint64_t off2, uint64_t off3);
+    static int64_t GetInputDataInt32Dim3(
+        DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1, uint64_t off2);
+    static int64_t GetInputDataInt32Dim4(
+        DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1, uint64_t off2, uint64_t off3);
 
     static void *SymbolHandlerIdToHandler(SymbolHandlerId id);
 
@@ -116,12 +116,8 @@ struct DeviceExecuteContext {
 
     void MarkSlotNeedAlloc(int slotIndex);
     void SetLoopDieId(int8_t rootKey);
-    int GetErrorState() const {
-        return errorState_;
-    }
-    void SetErrorState(int errorState) {
-        errorState_ = errorState;
-    }
+    int GetErrorState() const { return errorState_; }
+    void SetErrorState(int errorState) { errorState_ = errorState; }
 
 private:
     static void *DeviceExecuteRuntimeCallRootAlloc(void *ctx_, uint64_t rootKey);
@@ -133,9 +129,9 @@ private:
     static void *DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, uint64_t value);
 
     static void *DeviceExecuteRuntimeCallSlotMarkNeedAlloc(void *ctx_, uint64_t slotIndex);
-    static void *DeviceExecuteRuntimeCallGetLoopDieId(void *ctx_,  uint64_t rootKey);
+    static void *DeviceExecuteRuntimeCallGetLoopDieId(void *ctx_, uint64_t rootKey);
 
     static void *DeviceExecuteRuntimeCallSetLoopDieId(void *ctx_, uint64_t rootKey);
     int errorState_{DEVICE_MACHINE_OK};
 };
-}
+} // namespace npu::tile_fwk::dynamic

@@ -60,19 +60,20 @@ public:
     // 仅AICPU_0会调用
     inline int32_t Init(DynDeviceTask *deviceTask, bool profSwitch) {
         curDevTask_ = deviceTask;
-        funcDataList_ = reinterpret_cast<DynFuncData*>(&deviceTask->GetDynFuncDataList()->At(0));
+        funcDataList_ = reinterpret_cast<DynFuncData *>(&deviceTask->GetDynFuncDataList()->At(0));
         readyQueue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(deviceTask->devTask.readyAicpuFunctionQue);
         shmemWaitUntil_.Init(deviceTask);
         if (profSwitch) {
             KernelArgs *args = (KernelArgs *)(sharedBuffer_ + (aicNum_ + aivNum_) * SHARED_BUFFER_SIZE);
-            aicpuTaskStat_ = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+            aicpuTaskStat_ = (Metrics *)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
         }
         return PrepareAicpuTask();
     }
 
     // 仅AICPU_0会调用
     inline int32_t TaskProcess(uint64_t &taskCount) {
-        if (__atomic_load_n(&readyQueue_->tail, __ATOMIC_RELAXED) == __atomic_load_n(&readyQueue_->head, __ATOMIC_RELAXED)) {
+        if (__atomic_load_n(&readyQueue_->tail, __ATOMIC_RELAXED) ==
+            __atomic_load_n(&readyQueue_->head, __ATOMIC_RELAXED)) {
             return DEVICE_MACHINE_OK;
         }
         ReadyQueueLock();
@@ -89,23 +90,20 @@ public:
         return DEVICE_MACHINE_OK;
     }
 
-    inline int32_t TaskPoll(AiCoreManager *aiCoreManager) {
-        return shmemWaitUntil_.PollCompleted(aiCoreManager);
-    }
+    inline int32_t TaskPoll(AiCoreManager *aiCoreManager) { return shmemWaitUntil_.PollCompleted(aiCoreManager); }
 
-    inline bool Finished() {
-        return shmemWaitUntil_.runingTaskQueue_.IsEmpty();
-    }
+    inline bool Finished() { return shmemWaitUntil_.runingTaskQueue_.IsEmpty(); }
 
     inline int32_t SyncAicpuTaskFinish(AiCoreManager *aiCoreManager) {
         int64_t start_cycles = GetCycles();
-        while(!Finished()) {
+        while (!Finished()) {
             auto ret = TaskPoll(aiCoreManager);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
             if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
-                DEV_ERROR(DistributedErrorCode::AICPU_TASK_TIMEOUT, "#sche.task.end.sync.timeout: SyncAicpuTaskFinish timeout.");
+                DEV_ERROR(DistributedErrorCode::AICPU_TASK_TIMEOUT,
+                    "#sche.task.end.sync.timeout: SyncAicpuTaskFinish timeout.");
                 return DEVICE_MACHINE_TIMEOUT_SYNC_AICPU_FINISH;
             }
         }
@@ -140,7 +138,7 @@ private:
         int32_t ret = DEVICE_MACHINE_OK;
         auto taskType = GetTaskType(taskId);
         if (taskType < TaskType::TASK_TYPE_NUM) {
-            TaskStat* taskStat = nullptr;
+            TaskStat *taskStat = nullptr;
             if (aicpuTaskStat_ != nullptr) {
                 taskStat = &(aicpuTaskStat_->tasks[aicpuTaskStat_->taskCount]);
                 ++aicpuTaskStat_->taskCount;
@@ -153,7 +151,8 @@ private:
     inline int32_t PrepareAicpuTask() {
         for (uint64_t funcId = 0; funcId < curDevTask_->dynFuncDataCacheListSize; ++funcId) {
             auto callList = curDevTask_->dynFuncDataCacheList[funcId].calleeList;
-            for (size_t opIndex = 0; opIndex < curDevTask_->dynFuncDataCacheList[funcId].devFunc->GetOperationSize(); ++opIndex) {
+            for (size_t opIndex = 0; opIndex < curDevTask_->dynFuncDataCacheList[funcId].devFunc->GetOperationSize();
+                ++opIndex) {
                 auto coreType = curDevTask_->cceBinary[callList[opIndex]].coreType;
                 if (unlikely(coreType != static_cast<int>(MachineType::AICPU))) {
                     continue;
@@ -174,9 +173,9 @@ private:
     npu::tile_fwk::Distributed::ShmemWaitUntilImpl shmemWaitUntil_;
     DynDeviceTask *curDevTask_;
     DynFuncData *funcDataList_;
-    Metrics* aicpuTaskStat_;
+    Metrics *aicpuTaskStat_;
     uint64_t sharedBuffer_;
     uint32_t aicNum_;
     uint32_t aivNum_;
 };
-} // namespace npu::tile_fwk
+} // namespace npu::tile_fwk::dynamic

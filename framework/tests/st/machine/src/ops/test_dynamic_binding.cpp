@@ -34,11 +34,9 @@ public:
     void SetUp() override {
         DeviceLauncherContext::Get().DeviceInit();
         rtSetDevice(GetDeviceIdByEnvVar());
-     }
-
-    void TearDown() override {
-        DeviceLauncherContext::Get().DeviceFini();
     }
+
+    void TearDown() override { DeviceLauncherContext::Get().DeviceFini(); }
 };
 
 namespace {
@@ -120,9 +118,10 @@ TEST_F(DynamicBindingTest, TestDeviceRunDataFromHost) {
     TileShape::Current().SetVecTile(tiling32, tiling32);
     FUNCTION("main", {input}, {output}) {
         LOOP("s0", FunctionType::DYNAMIC_LOOP, k, LoopRange(10)) {
-            IF (k == 0) {
+            IF(k == 0) {
                 output = Add(input, input);
-            } ELSE {
+            }
+            ELSE {
                 output = Add(input, output);
             }
         }
@@ -204,11 +203,12 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
 
     auto aicpuStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetScheStream());
     auto aicoreStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetStream());
-    EXPECT_EQ(0, ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputList, outputList, aicpuStream, aicoreStream, true));
+    EXPECT_EQ(0, ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(
+                     op, inputList, outputList, aicpuStream, aicoreStream, true));
 
     agent->CopyFromDev((uint8_t *)outputData.data(), outputDevAddr, outputData.size() * sizeof(int32_t));
 
     EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputData.data(), 0.001f));
 }
 
-}
+} // namespace

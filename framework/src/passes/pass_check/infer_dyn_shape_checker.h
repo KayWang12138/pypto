@@ -30,4 +30,4 @@ public:
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // INFER_DYN_CHECKER_H
+#endif // INFER_DYN_CHECKER_H

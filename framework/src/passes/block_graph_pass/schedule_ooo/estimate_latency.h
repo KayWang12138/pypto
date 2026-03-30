@@ -23,29 +23,29 @@ namespace npu::tile_fwk {
 class LatencyEstimator : public ScheduleBase {
 public:
     LatencyEstimator() {}
-    LatencyEstimator(std::vector<Operation*>& newTaskList, std::vector<Operation*>& newOperations) : ScheduleBase(), taskList(newTaskList),
-        operations(newOperations) {
+    LatencyEstimator(std::vector<Operation *> &newTaskList, std::vector<Operation *> &newOperations)
+        : ScheduleBase(), taskList(newTaskList), operations(newOperations) {
         InitMemWithoutAlloc();
         Init(taskList);
     }
     ~LatencyEstimator() {}
 
-    std::map<MemoryType, OpQueue> allocIssueQueue; //alloc执行 顺序
+    std::map<MemoryType, OpQueue> allocIssueQueue; // alloc执行 顺序
     std::map<PipeType, OpQueue> opQueues;
-    std::map<Operation*, bool> opRetiredInfo;
+    std::map<Operation *, bool> opRetiredInfo;
     int clock{0};
     uint64_t numTotalIssues{0};
-    std::vector<Operation*> taskList;
-    std::vector<Operation*> operations;
+    std::vector<Operation *> taskList;
+    std::vector<Operation *> operations;
     std::set<int> spillblockMemIds;
 
     void LaunchReadyIssue();
-    Status FreeBuffer(Operation* op);
-    Status RetireOpAndAwakeSucc(Operation* op, uint64_t& commitCnt);
-    Status RetireIssueStage(uint64_t& commitCnt, int& nextCycle);
+    Status FreeBuffer(Operation *op);
+    Status RetireOpAndAwakeSucc(Operation *op, uint64_t &commitCnt);
+    Status RetireIssueStage(uint64_t &commitCnt, int &nextCycle);
     Status ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType, OpQueue &pipe);
     Status BufferAllocStage(uint64_t &commitCnt);
-    Status LaunchIssueStage(int& nextCycle);
+    Status LaunchIssueStage(int &nextCycle);
     Status SpillOnBlock();
     void initLatencyEstimatorOpQueues();
     void InitMemWithoutAlloc();

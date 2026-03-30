@@ -32,4 +32,4 @@ public:
     /* \brief reset */
     virtual std::shared_ptr<SimSys> GetSim() = 0;
 };
-}
+} // namespace CostModel

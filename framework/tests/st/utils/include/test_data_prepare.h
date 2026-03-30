@@ -26,7 +26,7 @@ template <typename T>
 static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName) {
     auto shape = tensor.GetShape();
     int64_t capacity = 1;
-    for(size_t i = 0; i < shape.size(); i++){
+    for (size_t i = 0; i < shape.size(); i++) {
         capacity = capacity * shape[i];
     }
     std::vector<T> values(capacity, 0);
@@ -37,7 +37,7 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 template <typename T>
 static std::shared_ptr<RawTensorData> LoadTensorData(const Shape &shape, DataType dType, std::string fileName) {
     int64_t capacity = 1;
-    for(size_t i = 0; i < shape.size(); i++){
+    for (size_t i = 0; i < shape.size(); i++) {
         capacity = capacity * shape[i];
     }
     std::vector<T> values(capacity, 0);
@@ -53,7 +53,7 @@ static std::shared_ptr<RawTensorData> LoadTensorData(const Tensor &t, std::strin
 template <typename T>
 static std::vector<T> GetGoldenVec(std::vector<int64_t> shape, std::string fileName) {
     int64_t capacity = 1;
-    for(size_t i = 0; i < shape.size(); i++){
+    for (size_t i = 0; i < shape.size(); i++) {
         capacity = capacity * shape[i];
     }
     std::vector<T> golden(capacity, 0);
@@ -78,16 +78,17 @@ struct QuantTensorWithData {
     TensorWithData scale;
     TensorWithData smooth;
 
-QuantTensorWithData(bool isQuantT, bool isSmoothT, std::vector<int64_t> scaleShapeT, std::vector<int64_t> smoothShapeT,
-    std::string scaleName, std::string smoothName, std::string scalePath, std::string smoothPath)
-    : isQuant(isQuantT),
-      isSmooth(isSmoothT),
-      scaleShape(scaleShapeT),
-      smoothShape(smoothShapeT),
-      scaleTensorName(scaleName),
-      smoothTensorName(smoothName),
-      scaleDataPath(scalePath),
-      smoothDataPath(smoothPath) {}
+    QuantTensorWithData(bool isQuantT, bool isSmoothT, std::vector<int64_t> scaleShapeT,
+        std::vector<int64_t> smoothShapeT, std::string scaleName, std::string smoothName, std::string scalePath,
+        std::string smoothPath)
+        : isQuant(isQuantT),
+          isSmooth(isSmoothT),
+          scaleShape(scaleShapeT),
+          smoothShape(smoothShapeT),
+          scaleTensorName(scaleName),
+          smoothTensorName(smoothName),
+          scaleDataPath(scalePath),
+          smoothDataPath(smoothPath) {}
 };
 
 inline void CreateQuantTensorAndData(QuantTensorWithData &quant) {
@@ -105,25 +106,28 @@ inline void CreateQuantTensorAndData(QuantTensorWithData &quant) {
 }
 
 template <typename T>
-TensorWithData CreateTensorAndData(const std::vector<int64_t> &shape, DataType dType, std::string name, TileOpFormat format, std::string binPath, const std::vector<int> &dynamicAxises = {}) {
-     std::vector<int64_t> dynamicShape = shape;
-     for (int axis : dynamicAxises) {
+TensorWithData CreateTensorAndData(const std::vector<int64_t> &shape, DataType dType, std::string name,
+    TileOpFormat format, std::string binPath, const std::vector<int> &dynamicAxises = {}) {
+    std::vector<int64_t> dynamicShape = shape;
+    for (int axis : dynamicAxises) {
         ASSERT(axis >= 0 && (size_t)axis < dynamicShape.size());
         dynamicShape[axis] = -1;
-     }
+    }
 
-     Tensor dynamicT(dType, dynamicShape, name, format);
-     RawTensorDataPtr data = LoadTensorData<T>(shape, dType, binPath);
-     return TensorWithData{dynamicT, data};
+    Tensor dynamicT(dType, dynamicShape, name, format);
+    RawTensorDataPtr data = LoadTensorData<T>(shape, dType, binPath);
+    return TensorWithData{dynamicT, data};
 }
 
 template <typename T>
-TensorWithData CreateTensorAndData(const std::vector<int64_t> &shape, DataType dType, std::string name, std::string binPath, const std::vector<int> &dynamicAxises = {}) {
-     return CreateTensorAndData<T>(shape, dType, name, TileOpFormat::TILEOP_ND, binPath, dynamicAxises);
+TensorWithData CreateTensorAndData(const std::vector<int64_t> &shape, DataType dType, std::string name,
+    std::string binPath, const std::vector<int> &dynamicAxises = {}) {
+    return CreateTensorAndData<T>(shape, dType, name, TileOpFormat::TILEOP_ND, binPath, dynamicAxises);
 }
 
 template <typename T>
-TensorWithData CreateDynamicOutputTensor(const std::vector<int64_t> &shape, DataType dType, std::string name, std::string binPath, const std::vector<SymbolicScalar> &dynamicShape = {}) {
+TensorWithData CreateDynamicOutputTensor(const std::vector<int64_t> &shape, DataType dType, std::string name,
+    std::string binPath, const std::vector<SymbolicScalar> &dynamicShape = {}) {
     ASSERT(dynamicShape.size() == 0 || dynamicShape.size() == shape.size());
 
     if (dynamicShape.empty()) {
@@ -138,7 +142,8 @@ TensorWithData CreateDynamicOutputTensor(const std::vector<int64_t> &shape, Data
 }
 
 template <typename T>
-TensorWithData CreateConstantDynamicOutputTensor(const std::vector<int64_t> &shape, DataType dType, std::string name, T value, const std::vector<SymbolicScalar> &dynamicShape = {}) {
+TensorWithData CreateConstantDynamicOutputTensor(const std::vector<int64_t> &shape, DataType dType, std::string name,
+    T value, const std::vector<SymbolicScalar> &dynamicShape = {}) {
     ASSERT(dynamicShape.size() == 0 || dynamicShape.size() == shape.size());
 
     if (dynamicShape.empty()) {
@@ -153,14 +158,15 @@ TensorWithData CreateConstantDynamicOutputTensor(const std::vector<int64_t> &sha
 }
 
 template <typename T>
-TensorWithData CreateConstantTensorAndData(const std::vector<int64_t> &shape, DataType dType, std::string name, T value, const std::vector<int> &dynamicAxises = {}) {
-     std::vector<int64_t> dynamicShape = shape;
-     for (int axis : dynamicAxises) {
+TensorWithData CreateConstantTensorAndData(const std::vector<int64_t> &shape, DataType dType, std::string name, T value,
+    const std::vector<int> &dynamicAxises = {}) {
+    std::vector<int64_t> dynamicShape = shape;
+    for (int axis : dynamicAxises) {
         ASSERT(axis >= 0 && (size_t)axis < dynamicShape.size());
         dynamicShape[axis] = -1;
-     }
+    }
 
-     Tensor dynamicT(dType, dynamicShape, name);
-     RawTensorDataPtr data = RawTensorData::CreateConstantTensorData<T>(shape, dType, value);
-     return TensorWithData{dynamicT, data};
+    Tensor dynamicT(dType, dynamicShape, name);
+    RawTensorDataPtr data = RawTensorData::CreateConstantTensorData<T>(shape, dType, value);
+    return TensorWithData{dynamicT, data};
 }

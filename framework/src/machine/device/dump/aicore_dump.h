@@ -31,7 +31,7 @@ __attribute__((weak)) IdeErrorT IdeDumpEnd(IDE_SESSION session);
 };
 
 struct IdeDumpChunk {
-    char  *fileName;           /**< absolute path */
+    char *fileName;           /**< absolute path */
     unsigned char *dataBuf;   /**< Buffer of input data */
     unsigned int bufLen;      /**< Buffer Length of input data */
     unsigned int isLastChunk; /**< isLastChunk data   0:Not last; 1：Is last */
@@ -45,7 +45,7 @@ struct DumpTensorInfo {
     uint32_t taskId;
     uint32_t callopMagic;
     int32_t coreId;
-    int32_t dataType;  // INT8...
+    int32_t dataType; // INT8...
     int32_t rawMagic;
     int32_t dims;
     int64_t exeStart;
@@ -66,7 +66,7 @@ struct DumpTensorData {
     uint64_t dataOffset{0};
 
     void TraverseAllAhapeIndexCombinations(const uint64_t shape[], const uint64_t stride[], const uint64_t offset[],
-                                           uint32_t idx, uint32_t dims, uint64_t tensorAddr) {
+        uint32_t idx, uint32_t dims, uint64_t tensorAddr) {
         if (idx != dims - 1) {
             for (uint64_t k = 0; k < shape[idx]; k++) {
                 auto newAddr = tensorAddr + offset[idx] * dataByte * stride[idx] + k * stride[idx] * dataByte;
@@ -74,7 +74,7 @@ struct DumpTensorData {
             }
         } else {
             auto ret = memcpy_s(reinterpret_cast<uint8_t *>(data) + dataOffset, shape[idx] * dataByte,
-                        reinterpret_cast<const uint8_t *>(tensorAddr) + offset[idx] * dataByte, shape[idx] * dataByte);
+                reinterpret_cast<const uint8_t *>(tensorAddr) + offset[idx] * dataByte, shape[idx] * dataByte);
             if (ret != 0) {
                 DEV_ERROR(DevCommonErr::MEMCPY_FAILED, "#sche.dump.prep: memcpy_s failed, ret=%d.", ret);
             }
@@ -107,13 +107,12 @@ struct DumpTensorData {
         DEV_DEBUG("TensorInfoSize=%zu, TensorDataSize=%lu.", sizeof(DumpTensorInfo), datasize);
         return datasize;
     }
-
 };
 
 class AicoreDump {
 public:
-    AicoreDump(){};
-    ~AicoreDump(){};
+    AicoreDump() {};
+    ~AicoreDump() {};
     uint64_t dataSize_{0};
     void Init(DevStartArgs *startArgs, int schedIdx) {
         auto devProg = startArgs->devProg;
@@ -122,14 +121,16 @@ public:
         if (enableDump_) {
             deviceId_ = deviceArgs->deviceId;
             uint64_t baseAddr = startArgs->contextWorkspaceAddr;
-            baseAddr += devProg->memBudget.aicoreSpilled + devProg->memBudget.tensor.Total() + devProg->memBudget.debug.dumpTensor;
+            baseAddr += devProg->memBudget.aicoreSpilled + devProg->memBudget.tensor.Total() +
+                        devProg->memBudget.debug.dumpTensor;
 
             dataAddr = baseAddr + schedIdx * DEV_DUMP_DATA_SIZE;
             DEV_DEBUG("DataAddr=%#lx.", dataAddr);
         }
     }
 
-    void DoDump(DeviceTask* devTask, std::string iOinfo, int32_t taskId, int32_t coreId, int64_t execStart = 0, int64_t execEnd = 0) {
+    void DoDump(DeviceTask *devTask, std::string iOinfo, int32_t taskId, int32_t coreId, int64_t execStart = 0,
+        int64_t execEnd = 0) {
         if (IsEnableDump()) {
             DumpInit(taskId, coreId, execStart, execEnd);
             DoDump(devTask, iOinfo);
@@ -168,16 +169,15 @@ public:
         return ideState == 0;
     }
 
-    void Dump(const IDE_SESSION &ideSession, DumpTensorInfo dumpTensorInfo, std::string &fileName,
-        bool isLast) {
+    void Dump(const IDE_SESSION &ideSession, DumpTensorInfo dumpTensorInfo, std::string &fileName, bool isLast) {
         DumpTensorData dumpTensorData(dumpTensorInfo, dataAddr);
         dataSize_ = dumpTensorData.GetDumpSize();
         if (dataSize_ > DEV_DUMP_DATA_SIZE) {
             DEV_WARN("Tensor dataSize=%lu is larger than dumpSize=%lu.", dataSize_, DEV_DUMP_DATA_SIZE);
             return;
         }
-        bool ret = DumpData(ideSession, fileName, reinterpret_cast<uint8_t *>(&dumpTensorInfo),
-            dumpTensorInfo.headSize, isLast);
+        bool ret = DumpData(
+            ideSession, fileName, reinterpret_cast<uint8_t *>(&dumpTensorInfo), dumpTensorInfo.headSize, isLast);
         if (!ret) {
             DEV_WARN("#sche.dump.info: Dump Tensor info not successful.");
             return;
@@ -197,8 +197,7 @@ public:
         shapeInfo = oss.str();
     }
 
-    uint64_t GetRawTensorAddr(DevAscendRawTensor* rawTensor, DevAscendFunctionDuppedData* dupData) const {
-
+    uint64_t GetRawTensorAddr(DevAscendRawTensor *rawTensor, DevAscendFunctionDuppedData *dupData) const {
         uint64_t addr = 0ULL;
         if (rawTensor->ioProperty == DevIOProperty::ROOT_INCAST) {
             AddressDescriptor incast = dupData->GetIncastAddress(rawTensor->ioIndex);
@@ -213,13 +212,13 @@ public:
         return addr;
     }
 
-    DumpTensorInfo GetDumpTensorInfo(DynDeviceTask* dyntask, std::string iOinfo, int32_t tensorIdx) {
+    DumpTensorInfo GetDumpTensorInfo(DynDeviceTask *dyntask, std::string iOinfo, int32_t tensorIdx) {
         auto opIdx = TaskID(taskId_);
         auto func = dyntask->dynFuncDataCacheList[FuncID(taskId_)].devFunc;
         auto dupData = dyntask->dynFuncDataCacheList[FuncID(taskId_)].duppedData;
         DumpTensorInfo dumpTensorInfo;
 
-        auto setDumpTensorInfo = [&](DevAscendRawTensor* rawTensor, int32_t idx, bool isIOperand) {
+        auto setDumpTensorInfo = [&](DevAscendRawTensor *rawTensor, int32_t idx, bool isIOperand) {
             uint32_t dimSize = rawTensor->GetDim();
             dumpTensorInfo.headSize = sizeof(DumpTensorInfo);
             dumpTensorInfo.funcId = FuncID(taskId_);
@@ -234,7 +233,7 @@ public:
             dumpTensorInfo.rootHash = func->rootHash;
             dumpTensorInfo.funcHash = dyntask->cceBinary[func->GetOperationAttrCalleeIndex(opIdx)].funcHash;
             GetTensorOffsetAndShape<false>(func, dumpTensorInfo.offset, dumpTensorInfo.shape,
-                    &(dupData->GetExpression(0)), dimSize, opIdx, idx, isIOperand);
+                &(dupData->GetExpression(0)), dimSize, opIdx, idx, isIOperand);
             dumpTensorInfo.tensorAddr = GetRawTensorAddr(rawTensor, dupData);
             for (uint32_t i = 0; i < dimSize; i++) {
                 dumpTensorInfo.rawShape[i] = rawTensor->shape.At(i, dupData->GetExpressionAddr());
@@ -253,22 +252,21 @@ public:
         return dumpTensorInfo;
     }
 
-    void DoDump(DeviceTask* devTask, std::string iOinfo) {
+    void DoDump(DeviceTask *devTask, std::string iOinfo) {
         auto dyntask = reinterpret_cast<DynDeviceTask *>(devTask);
         auto func = dyntask->dynFuncDataCacheList[FuncID(taskId_)].devFunc;
         auto opIdx = TaskID(taskId_);
-        int32_t tensorNum = (iOinfo == "input") ? func->GetOperationIOperandSize(opIdx) :
-            func->GetOperationOOperandSize(opIdx);
+        int32_t tensorNum =
+            (iOinfo == "input") ? func->GetOperationIOperandSize(opIdx) : func->GetOperationOOperandSize(opIdx);
         if (!IdeDumpStart || !IdeDumpData || !IdeDumpEnd) {
             DEV_WARN("#sche.dump.prep: IdeDumpStart, IdeDumpData, IdeDumpEnd function not found.");
             return;
         }
 
-        std::string dumpPath = "output/dump_tensor_" + std::to_string(hostPid_) + "/device_"
-                                + std::to_string(deviceId_) + "/";
+        std::string dumpPath =
+            "output/dump_tensor_" + std::to_string(hostPid_) + "/device_" + std::to_string(deviceId_) + "/";
         // ip: port only matches parameter rules with code, without communication funciton
-        const std::string privateInfo =
-            "127.0.0.1:22118;" + std::to_string(deviceId_) + ";" + std::to_string(hostPid_);
+        const std::string privateInfo = "127.0.0.1:22118;" + std::to_string(deviceId_) + ";" + std::to_string(hostPid_);
         const IDE_SESSION ideSession = IdeDumpStart(privateInfo.c_str()); // 建立通道过程 device
         DEV_DEBUG("Pid=%d, deviceId=%u, privateInfo=%s.", (int)hostPid_, deviceId_, privateInfo.c_str());
 
@@ -280,10 +278,11 @@ public:
         for (int i = 0; i < tensorNum; i++) {
             auto info = GetDumpTensorInfo(dyntask, iOinfo, i);
             bool isLast = (i == tensorNum - 1) ? true : false;
-            std::string tensorInfos = std::to_string(taskId_) + "_" + std::to_string(seqNo) + "_"+ std::to_string(info.callopMagic) + "_" +
-                                      std::to_string(info.rootHash) + "_" + std::to_string(info.funcHash) + "_" +
-                                      std::to_string(info.rawMagic) + "_" + std::to_string(timeStamp_) + "_" +
-                                      DataType2CCEStr(static_cast<DataType>(info.dataType)) + "_" + iOinfo + std::to_string(i) + ".tdump";
+            std::string tensorInfos =
+                std::to_string(taskId_) + "_" + std::to_string(seqNo) + "_" + std::to_string(info.callopMagic) + "_" +
+                std::to_string(info.rootHash) + "_" + std::to_string(info.funcHash) + "_" +
+                std::to_string(info.rawMagic) + "_" + std::to_string(timeStamp_) + "_" +
+                DataType2CCEStr(static_cast<DataType>(info.dataType)) + "_" + iOinfo + std::to_string(i) + ".tdump";
             std::string fileName = dumpPath + tensorInfos;
             Dump(ideSession, info, fileName, isLast);
         }
@@ -305,5 +304,5 @@ private:
     uint64_t dataAddr;
     bool enableDump_{false};
 };
-} // namespace npu::tile_fwk
+} // namespace npu::tile_fwk::dynamic
 #endif

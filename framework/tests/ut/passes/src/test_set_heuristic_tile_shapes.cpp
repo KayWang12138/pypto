@@ -47,7 +47,8 @@ public:
 };
 
 TEST_F(TestSetHeuristicTileShapes, TestCube) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
@@ -72,7 +73,8 @@ TEST_F(TestSetHeuristicTileShapes, TestCube) {
 }
 
 TEST_F(TestSetHeuristicTileShapes, TestVector) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
@@ -107,9 +109,9 @@ TEST_F(TestSetHeuristicTileShapes, TestVector) {
     EXPECT_EQ(status, SUCCESS);
 }
 
-
 TEST_F(TestSetHeuristicTileShapes, TestSemanticLabel) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
@@ -124,9 +126,9 @@ TEST_F(TestSetHeuristicTileShapes, TestSemanticLabel) {
     currFunctionPtr->AddOperation(Opcode::OP_A_MUL_B, {inputA, inputB}, {outputC});
 
     std::shared_ptr<SemanticLabel> label = std::make_shared<SemanticLabel>("test", "test", 10);
-    std::cout<<currFunctionPtr->GetSortedOperations().size()<<std::endl;
+    std::cout << currFunctionPtr->GetSortedOperations().size() << std::endl;
 
-    for(auto &op: currFunctionPtr->GetSortedOperations()){
+    for (auto &op : currFunctionPtr->GetSortedOperations()) {
         op->SetSemanticLabel(label);
     }
 
@@ -141,7 +143,8 @@ TEST_F(TestSetHeuristicTileShapes, TestSemanticLabel) {
 }
 
 TEST_F(TestSetHeuristicTileShapes, TestPythonJsonGeneration) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
@@ -156,9 +159,8 @@ TEST_F(TestSetHeuristicTileShapes, TestPythonJsonGeneration) {
     TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
     currFunctionPtr->SetGraphType(GraphType::TILE_GRAPH);
     SourceLocation::SetLocation("noexist.cpp", 1);
-    auto& add_op = currFunctionPtr->AddOperation(Opcode::OP_A_MUL_B, {inputA, inputB}, {outputC});
+    auto &add_op = currFunctionPtr->AddOperation(Opcode::OP_A_MUL_B, {inputA, inputB}, {outputC});
     add_op.tileShape_.SetCubeTile({64, 64}, {64, 64}, {64, 64});
-
 
     currFunctionPtr->inCasts_.push_back(inputA);
     currFunctionPtr->inCasts_.push_back(inputB);
@@ -170,6 +172,4 @@ TEST_F(TestSetHeuristicTileShapes, TestPythonJsonGeneration) {
     EXPECT_EQ(status, SUCCESS);
 }
 
-
-
-} // namespace acend
+} // namespace npu::tile_fwk

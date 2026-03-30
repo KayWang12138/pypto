@@ -9,9 +9,9 @@
  */
 
 /*!
-* \file memory_pool.h
-* \brief
-*/
+ * \file memory_pool.h
+ * \brief
+ */
 
 #pragma once
 
@@ -49,16 +49,15 @@ inline uint64_t MemSizeAlign(const uint64_t bytes, const uint32_t aligns = 512U)
 }
 
 struct MemoryBlock {
-    void* base_addr;
+    void *base_addr;
     size_t block_size;
     size_t used_size;
     bool is_huge_1g;
 
     std::map<uintptr_t, size_t> free_map;
 
-    MemoryBlock(void* addr, size_t size, bool is_huge)
-        : base_addr(addr), block_size(size), used_size(0),
-        is_huge_1g(is_huge) {
+    MemoryBlock(void *addr, size_t size, bool is_huge)
+        : base_addr(addr), block_size(size), used_size(0), is_huge_1g(is_huge) {
         Init();
     }
 
@@ -70,15 +69,15 @@ struct MemoryBlock {
         }
     }
 
-    void* Allocate(uint64_t alignSize) {
+    void *Allocate(uint64_t alignSize) {
         if (!is_huge_1g) {
             if (used_size == 0 && block_size >= alignSize) {
                 used_size = block_size;
                 return base_addr;
             } else {
                 MACHINE_LOGE(DevCommonErr::ALLOC_FAILED,
-                               "Logic Error: 2MB block allocation failed. (used_size=%zu, block_size=%zu, req=%lu)",
-                               used_size, block_size, alignSize);
+                    "Logic Error: 2MB block allocation failed. (used_size=%zu, block_size=%zu, req=%lu)", used_size,
+                    block_size, alignSize);
                 return nullptr;
             }
         }
@@ -88,7 +87,7 @@ struct MemoryBlock {
             size_t chunk_size = it->second;
 
             if (chunk_size >= alignSize) {
-                void* use_ptr = reinterpret_cast<void*>(chunk_addr);
+                void *use_ptr = reinterpret_cast<void *>(chunk_addr);
                 size_t remaining = chunk_size - alignSize;
 
                 free_map.erase(it);
@@ -98,17 +97,17 @@ struct MemoryBlock {
                 }
 
                 used_size += alignSize;
-                MACHINE_LOGI("Allocate in 1GB block: ptr=%p, chunkSize=%zu, alignSize=%lu.", use_ptr, chunk_size, alignSize);
+                MACHINE_LOGI(
+                    "Allocate in 1GB block: ptr=%p, chunkSize=%zu, alignSize=%lu.", use_ptr, chunk_size, alignSize);
                 return use_ptr;
             }
         }
         return nullptr;
     }
 
-    void Free(void* ptr, size_t size) {
+    void Free(void *ptr, size_t size) {
         if (!is_huge_1g) {
-            MACHINE_LOGE(DevCommonErr::FREE_FAILED,
-                           "Logic Error: 2MB block should not call Free()");
+            MACHINE_LOGE(DevCommonErr::FREE_FAILED, "Logic Error: 2MB block should not call Free()");
             return;
         }
 
@@ -118,7 +117,8 @@ struct MemoryBlock {
         used_size -= size;
 
         auto it = free_map.find(addr);
-        if (it == free_map.end()) return;
+        if (it == free_map.end())
+            return;
 
         auto next_it = std::next(it);
         if (next_it != free_map.end()) {
@@ -150,7 +150,8 @@ public:
     }
 
     bool AllocDevAddrInPool(uint8_t **devAddr, uint64_t size) {
-        if (size == 0) return false;
+        if (size == 0)
+            return false;
         if (devAddr == nullptr) {
             MACHINE_LOGE(DevCommonErr::NULLPTR, "devAddr is nullptr");
             return false;
@@ -160,21 +161,21 @@ public:
             alignSize += SENTINEL_MEM_SIZE;
         }
 
-        for (auto& block : memoryBlocks_) {
-            void* ptr = block->Allocate(alignSize);
+        for (auto &block : memoryBlocks_) {
+            void *ptr = block->Allocate(alignSize);
             if (ptr != nullptr) {
-                *devAddr = static_cast<uint8_t*>(ptr);
+                *devAddr = static_cast<uint8_t *>(ptr);
                 RecordAllocation(ptr, block, alignSize);
                 PutSentinelAddr(*devAddr, size);
                 return true;
             }
         }
 
-        MemoryBlock* newBlock = CreateNewBlock(alignSize);
+        MemoryBlock *newBlock = CreateNewBlock(alignSize);
         if (newBlock != nullptr) {
-            void* ptr = newBlock->Allocate(alignSize);
+            void *ptr = newBlock->Allocate(alignSize);
             if (ptr != nullptr) {
-                *devAddr = static_cast<uint8_t*>(ptr);
+                *devAddr = static_cast<uint8_t *>(ptr);
                 RecordAllocation(ptr, newBlock, alignSize);
                 PutSentinelAddr(*devAddr, size);
                 return true;
@@ -185,12 +186,12 @@ public:
         return false;
     }
 
-    void FreeDevAddr(void* ptr) {
+    void FreeDevAddr(void *ptr) {
         if (ptr == nullptr) {
             MACHINE_LOGE(DevCommonErr::NULLPTR, "Freeing nullptr");
             return;
         }
-        CheckSentinel(static_cast<uint8_t*>(ptr), true);
+        CheckSentinel(static_cast<uint8_t *>(ptr), true);
 
         auto it = addrToBlock_.find(ptr);
         if (it == addrToBlock_.end()) {
@@ -198,7 +199,7 @@ public:
             return;
         }
 
-        MemoryBlock* block = it->second;
+        MemoryBlock *block = it->second;
         size_t size = allocSizes_[ptr];
 
         if (block->is_huge_1g) {
@@ -221,7 +222,8 @@ public:
     void PutSentinelAddr(uint8_t *baseAddr, uint64_t baseSize) {
         if (needMemCheck_) {
             uint8_t *sentinelAddr = baseAddr + baseSize;
-            if (rtMemcpy(sentinelAddr, SENTINEL_MEM_SIZE, sentinelVec_.data(), SENTINEL_MEM_SIZE, RT_MEMCPY_HOST_TO_DEVICE) != 0) {
+            if (rtMemcpy(sentinelAddr, SENTINEL_MEM_SIZE, sentinelVec_.data(), SENTINEL_MEM_SIZE,
+                    RT_MEMCPY_HOST_TO_DEVICE) != 0) {
                 MACHINE_LOGW("Memory copy sentinel value failed! Do not check memory.");
                 return;
             }
@@ -250,7 +252,7 @@ public:
 
     void PrintSentinelVal(std::vector<uint64_t> &sentinelVal, uint8_t *sentinelAddr) {
         std::ostringstream oss;
-        uint8_t* byte_ptr = reinterpret_cast<uint8_t*>(sentinelVal.data());
+        uint8_t *byte_ptr = reinterpret_cast<uint8_t *>(sentinelVal.data());
         oss << "Print Sentinel val in hex with ori val[" << std::hex << "0x" << SENTINEL_VALUE << "]" << std::endl;
         MACHINE_LOGW("%s", oss.str().c_str());
         oss.str("");
@@ -274,13 +276,12 @@ public:
             return true;
         }
         // UT no need check sentinel
-        if (baseAddr == reinterpret_cast<uint8_t*>(0x12345678)) {
+        if (baseAddr == reinterpret_cast<uint8_t *>(0x12345678)) {
             return true;
         }
         auto iter = sentinelValMap_.find(baseAddr);
         if (iter == sentinelValMap_.end()) {
-            MACHINE_LOGE(DevCommonErr::PARAM_CHECK_FAILED,
-                           "Base addr %p not found in map, need check code.", baseAddr);
+            MACHINE_LOGE(DevCommonErr::PARAM_CHECK_FAILED, "Base addr %p not found in map, need check code.", baseAddr);
             return false;
         }
         std::vector<uint64_t> sentinelVal(SENTINEL_NUM, 0);
@@ -288,7 +289,8 @@ public:
         auto &sentinelVec = iter->second;
         for (auto sentinelAddr : sentinelVec) {
             MACHINE_LOGI("Check Sentinel: baseAddr=%p, sentinelAddr=%p.", baseAddr, sentinelAddr);
-            if (rtMemcpy(sentinelVal.data(), SENTINEL_MEM_SIZE, sentinelAddr, SENTINEL_MEM_SIZE, RT_MEMCPY_DEVICE_TO_HOST) != 0) {
+            if (rtMemcpy(sentinelVal.data(), SENTINEL_MEM_SIZE, sentinelAddr, SENTINEL_MEM_SIZE,
+                    RT_MEMCPY_DEVICE_TO_HOST) != 0) {
                 MACHINE_LOGW("Memory copy D2H failed! Do not check memory.");
                 break;
             }
@@ -298,8 +300,7 @@ public:
             }
         }
         if (!allGood) {
-            MACHINE_LOGE(DevCommonErr::PARAM_CHECK_FAILED,
-                           "BaseAddr:%p check sentinel failed.", baseAddr);
+            MACHINE_LOGE(DevCommonErr::PARAM_CHECK_FAILED, "BaseAddr:%p check sentinel failed.", baseAddr);
         } else {
             MACHINE_LOGI("BaseAddr:%p check sentinel Ok.", baseAddr);
         }
@@ -323,7 +324,7 @@ public:
     }
 
     void DestroyPool() {
-        for (auto& block : memoryBlocks_) {
+        for (auto &block : memoryBlocks_) {
             if (block != nullptr) {
                 FreeMemBlock(block);
             }
@@ -340,21 +341,23 @@ public:
 
         MACHINE_LOGI("========== [Memory Pool Status] ==========");
         for (size_t i = 0; i < memoryBlocks_.size(); ++i) {
-            auto* blk = memoryBlocks_[i];
-            if (blk->is_huge_1g) cnt_1g++; else cnt_2m++;
+            auto *blk = memoryBlocks_[i];
+            if (blk->is_huge_1g)
+                cnt_1g++;
+            else
+                cnt_2m++;
             total += blk->block_size;
             used += blk->used_size;
 
             double rate = blk->block_size ? (double)blk->used_size * 100.0 / blk->block_size : 0;
-            MACHINE_LOGI("Block[%lu] %s | Addr: %p | Used: %.1f%% | Fragments: %lu",
-                i, blk->is_huge_1g ? "1G" : "2M", blk->base_addr, rate, blk->free_map.size());
+            MACHINE_LOGI("Block[%lu] %s | Addr: %p | Used: %.1f%% | Fragments: %lu", i, blk->is_huge_1g ? "1G" : "2M",
+                blk->base_addr, rate, blk->free_map.size());
         }
-        MACHINE_LOGI("Summary: 1G x %lu, 2M x %lu | Used/Total: %lu/%lu MB",
-            cnt_1g, cnt_2m, used>>20, total>>20);
+        MACHINE_LOGI("Summary: 1G x %lu, 2M x %lu | Used/Total: %lu/%lu MB", cnt_1g, cnt_2m, used >> 20, total >> 20);
     }
 
 private:
-    void FreeMemBlock(MemoryBlock* block) {
+    void FreeMemBlock(MemoryBlock *block) {
         if (block == nullptr) {
             return;
         }
@@ -368,23 +371,23 @@ private:
         block = nullptr;
     }
 
-    void RecordAllocation(void* ptr, MemoryBlock* block, size_t size) {
+    void RecordAllocation(void *ptr, MemoryBlock *block, size_t size) {
         addrToBlock_[ptr] = block;
         allocSizes_[ptr] = size;
     }
 
-    MemoryBlock* CreateNewBlock(uint64_t alignSize) {
+    MemoryBlock *CreateNewBlock(uint64_t alignSize) {
         uint8_t *devAddr = nullptr;
         size_t size1G = ((alignSize - 1) / ONT_GB_SIZE + 1) * ONT_GB_SIZE;
 
-        if (rtMalloc((void**)&devAddr, size1G, ONG_GB_HUGE_PAGE_FLAGS, 0) == RTMALLOC_SUCCESS) {
-            MemoryBlock* block = new MemoryBlock(devAddr, size1G, true);
+        if (rtMalloc((void **)&devAddr, size1G, ONG_GB_HUGE_PAGE_FLAGS, 0) == RTMALLOC_SUCCESS) {
+            MemoryBlock *block = new MemoryBlock(devAddr, size1G, true);
             memoryBlocks_.push_back(block);
             return block;
         }
 
-        if (rtMalloc((void**)&devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0) == RTMALLOC_SUCCESS) {
-            MemoryBlock* block = new MemoryBlock(devAddr, alignSize, false);
+        if (rtMalloc((void **)&devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0) == RTMALLOC_SUCCESS) {
+            MemoryBlock *block = new MemoryBlock(devAddr, alignSize, false);
             memoryBlocks_.push_back(block);
             return block;
         }
@@ -393,13 +396,13 @@ private:
         return nullptr;
     }
 
-    std::vector<MemoryBlock*> memoryBlocks_;
-    std::unordered_map<void*, MemoryBlock*> addrToBlock_;
-    std::unordered_map<void*, size_t> allocSizes_;
+    std::vector<MemoryBlock *> memoryBlocks_;
+    std::unordered_map<void *, MemoryBlock *> addrToBlock_;
+    std::unordered_map<void *, size_t> allocSizes_;
 
     bool needMemCheck_{false};
     std::vector<uint64_t> sentinelVec_;
-    std::unordered_map<uint8_t*, std::vector<uint8_t*>> sentinelValMap_;
+    std::unordered_map<uint8_t *, std::vector<uint8_t *>> sentinelValMap_;
 };
 #endif
 } // namespace npu::tile_fwk

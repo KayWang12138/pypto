@@ -48,7 +48,6 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 
 template <typename T = npu::tile_fwk::bfloat16>
 void TestCmpKvSel(CmpAttnTile &tileConfig) {
-
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
         dType = DT_BF16;
@@ -158,7 +157,6 @@ void TestCmpKvSel(CmpAttnTile &tileConfig) {
     auto cosData_v3 = CreateTensorData<T>(mlpCos_v2, "/mlp_cos_compress.bin");
     auto sinData_v3 = CreateTensorData<T>(mlpSin_v2, "/mlp_sin_compress.bin");
 
-
     auto cmpAttn_v3 = RawTensorData::CreateConstantTensor<float>(cmpAttn, 0.0f);
     auto cmpAttn16_v3 = RawTensorData::CreateConstantTensor<T>(cmpAttn16, 0.0f);
     auto cmpSoftmax_v3 = RawTensorData::CreateConstantTensor<float>(cmpSoftmax, 0.0f);
@@ -169,16 +167,16 @@ void TestCmpKvSel(CmpAttnTile &tileConfig) {
     auto topkRes_v3 = RawTensorData::CreateConstantTensor<uint32_t>(topkRes, 0.0f);
     auto topkInputData = RawTensorData::CreateConstantTensor<float>(topkInput, 0.0f);
 
-
-    std::vector<RawTensorDataPtr> inputDataList = {
-        qNopeData_v3, qRopeData_v3, kvCacheData_v3, krCacheData_v3, cmpKvCacheData_v3, cmpKrCacheData_v3, blockTableData_v3,
-        cmpBlockTableData_v3, actSeqData_v3, actCmpSeqData_v3, wk1Data_v3, wk2Data_v3, cosData_v3, sinData_v3};
-    std::vector<RawTensorDataPtr> outputDataList =
-        {cmpAttn_v3, cmpAttn16_v3, cmpSoftmax_v3, fullK_v3, cmpK_v3, firstRope_v3, firstRopeInput_v3, topkRes_v3, topkInputData};
+    std::vector<RawTensorDataPtr> inputDataList = {qNopeData_v3, qRopeData_v3, kvCacheData_v3, krCacheData_v3,
+        cmpKvCacheData_v3, cmpKrCacheData_v3, blockTableData_v3, cmpBlockTableData_v3, actSeqData_v3, actCmpSeqData_v3,
+        wk1Data_v3, wk2Data_v3, cosData_v3, sinData_v3};
+    std::vector<RawTensorDataPtr> outputDataList = {cmpAttn_v3, cmpAttn16_v3, cmpSoftmax_v3, fullK_v3, cmpK_v3,
+        firstRope_v3, firstRopeInput_v3, topkRes_v3, topkInputData};
 
     FusedCompressKvSelect(qNope_v2, qRope_v2, kvCache_v2, krCache_v2, cmpKvCache_v2, cmpKrCache_v2, blockTable_v2,
         cmpBlockTable_v2, actSeqLen_v2, actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpAttn16,
-        cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput,topkRes, topkInput, blockSize, cmpBlockSize, cmpStride, softmaxScale, n1, n2, tileConfig);
+        cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput, topkRes, topkInput, blockSize, cmpBlockSize, cmpStride,
+        softmaxScale, n1, n2, tileConfig);
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
 
@@ -196,7 +194,6 @@ void TestCmpKvSel(CmpAttnTile &tileConfig) {
     EXPECT_TRUE(resultCmp(attn16Golden, (T *)cmpAttn16_v3->data(), 0.005f, 100));
     std::cout << "=======================topkRes===============================" << std::endl;
     EXPECT_TRUE(resultCmp(topkIndicesGolden, (uint32_t *)topkRes_v3->data(), 0.008f, 0, 16, false, false, 32));
-
 }
 
 TEST_F(DynamicCmpKvSel, dynamic_NSA_case_no_flash) {
@@ -222,14 +219,13 @@ TEST_F(DynamicCmpKvSel, dynamic_NSA_case_no_flash) {
     config.mlpCmpTile.v2TileShape = {1, 1, 128};                  // (1, n2, d)
     // CmpAttn
     config.attnTile.c1TileShape = {16, 16, 128, 128, 128, 128}; // (g, effSeq)
-    config.attnTile.v1TileShape = {16, 128};                     // (g, effSeq)
+    config.attnTile.v1TileShape = {16, 128};                    // (g, effSeq)
     config.attnTile.c2TileShape = {16, 16, 128, 128, 128, 128}; // (g, dN)
 
     TestCmpKvSel<npu::tile_fwk::float16>(config);
 }
 
 TEST_F(DynamicCmpKvSel, debug_dynamic_NSA_case_no_flash) {
-
     CmpAttnTile config;
     // Block concat tile
     config.castTile = {128, 64}; // {blockSize, n2 * d}
@@ -246,7 +242,7 @@ TEST_F(DynamicCmpKvSel, debug_dynamic_NSA_case_no_flash) {
     config.mlpCmpTile.v2TileShape = {1, 1, 128};                  // (1, n2, d)
     // CmpAttn
     config.attnTile.c1TileShape = {16, 16, 128, 128, 128, 128}; // (g, effSeq)
-    config.attnTile.v1TileShape = {16, 128};                     // (g, effSeq)
+    config.attnTile.v1TileShape = {16, 128};                    // (g, effSeq)
     config.attnTile.c2TileShape = {16, 16, 128, 128, 128, 128}; // (g, dN)
 
     TestCmpKvSel<npu::tile_fwk::float16>(config);

@@ -608,8 +608,8 @@ struct CumOperationPara {
     const bool is_sum;
 };
 
-void InnerTiledCumOperation(size_t cur, Function &function, const TileShape &tileShape, const CumOperationPara &cumOperationPara,
-    CumOperationTileInfoPara &cumOperationTileInfo) {
+void InnerTiledCumOperation(size_t cur, Function &function, const TileShape &tileShape,
+    const CumOperationPara &cumOperationPara, CumOperationTileInfoPara &cumOperationTileInfo) {
     const LogicalTensorPtr &input = cumOperationPara.input;
     const LogicalTensorPtr &dstTensor = cumOperationPara.dstTensor;
     const int axis = cumOperationPara.axis;
@@ -617,8 +617,10 @@ void InnerTiledCumOperation(size_t cur, Function &function, const TileShape &til
     auto &vecTile = tileShape.GetVecTile();
 
     if (cur == dstTensor->shape.size()) {
-        auto dstTile = dstTensor->View(function, cumOperationTileInfo.dstTileInfo.shape, cumOperationTileInfo.dstTileInfo.offset);
-        auto inputTile = input->View(function, cumOperationTileInfo.inputTileInfo.shape, cumOperationTileInfo.inputTileInfo.offset);
+        auto dstTile =
+            dstTensor->View(function, cumOperationTileInfo.dstTileInfo.shape, cumOperationTileInfo.dstTileInfo.offset);
+        auto inputTile =
+            input->View(function, cumOperationTileInfo.inputTileInfo.shape, cumOperationTileInfo.inputTileInfo.offset);
 
         LogicalTensorPtr srcTile = std::make_shared<LogicalTensor>(function, dstTile->Datatype(), dstTile->GetShape());
         if (is_sum) {
@@ -662,8 +664,8 @@ void InnerTiledCumOperation(size_t cur, Function &function, const TileShape &til
 }
 
 void TiledCumOperation(Function &function, const TileShape &tileShape, const CumOperationPara &cumOperationPara) {
-    ASSERT(
-        VectorErrorCode::ERR_PARAM_INVALID, cumOperationPara.input->GetShape().size() == cumOperationPara.input->GetOffset().size())
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID,
+        cumOperationPara.input->GetShape().size() == cumOperationPara.input->GetOffset().size())
         << "Shape size and offset size should be equal";
 
     CumOperationTileInfoPara cumOperationTileInfo{
@@ -719,11 +721,13 @@ void TensorCumOperation(Function &function, const CumOperationPara &cumOperation
         return;
     } else {
         if (cumOperationPara.is_sum) {
-            auto &op = function.AddOperation(Opcode::OP_CUM_SUM, {cumOperationPara.input}, {cumOperationPara.dstTensor});
+            auto &op =
+                function.AddOperation(Opcode::OP_CUM_SUM, {cumOperationPara.input}, {cumOperationPara.dstTensor});
             op.SetAttribute(OP_ATTR_PREFIX + "axis", cumOperationPara.axis);
             op.SetAttribute(OP_ATTR_PREFIX + "flag", cumOperationPara.is_sum);
         } else {
-            auto &op = function.AddOperation(Opcode::OP_CUM_PROD, {cumOperationPara.input}, {cumOperationPara.dstTensor});
+            auto &op =
+                function.AddOperation(Opcode::OP_CUM_PROD, {cumOperationPara.input}, {cumOperationPara.dstTensor});
             op.SetAttribute(OP_ATTR_PREFIX + "axis", cumOperationPara.axis);
             op.SetAttribute(OP_ATTR_PREFIX + "flag", cumOperationPara.is_sum);
         }
@@ -738,8 +742,8 @@ void CheckCumOperation(const Tensor &input, const int &axis, const bool &is_sum)
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM4)
         << "The shape.size() only support 1~4";
     if (is_sum) {
-        std::vector<DataType> CUMSUM_SUPPORT_DATATYPES = {DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32,
-            DataType::DT_INT16, DataType::DT_BF16};
+        std::vector<DataType> CUMSUM_SUPPORT_DATATYPES = {
+            DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16, DataType::DT_BF16};
         ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED,
             std::find(CUMSUM_SUPPORT_DATATYPES.begin(), CUMSUM_SUPPORT_DATATYPES.end(), dataType) !=
                 CUMSUM_SUPPORT_DATATYPES.end())

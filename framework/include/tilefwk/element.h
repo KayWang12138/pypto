@@ -48,15 +48,15 @@ public:
     }
 
     bool IsSigned() const {
-        return type_ == DT_INT4 || type_ == DT_INT8 || type_ == DT_INT16 || type_ == DT_INT32 ||
-               type_ == DT_INT64 || type_ == DT_BOOL;
+        return type_ == DT_INT4 || type_ == DT_INT8 || type_ == DT_INT16 || type_ == DT_INT32 || type_ == DT_INT64 ||
+               type_ == DT_BOOL;
     }
     bool IsUnsigned() const {
         return type_ == DT_UINT8 || type_ == DT_UINT16 || type_ == DT_UINT32 || type_ == DT_UINT64;
     }
     bool IsFloat() const {
-        return type_ == DT_FP8 || type_ == DT_FP16 || type_ == DT_FP32 || type_ == DT_BF16 ||
-               type_ == DT_HF4 || type_ == DT_HF8 || type_ == DT_DOUBLE;
+        return type_ == DT_FP8 || type_ == DT_FP16 || type_ == DT_FP32 || type_ == DT_BF16 || type_ == DT_HF4 ||
+               type_ == DT_HF8 || type_ == DT_DOUBLE;
     }
 
     template <typename T>

@@ -29,7 +29,6 @@
 #include "interface/tensor/tensor_offset.h"
 #include "interface/interpreter/verify_error.h"
 
-
 namespace npu::tile_fwk {
 
 template <typename T, std::size_t Align>
@@ -38,20 +37,23 @@ public:
     using value_type = T;
 
     template <class U>
-    struct rebind { using other = AlignedAllocator<U, Align>; };
+    struct rebind {
+        using other = AlignedAllocator<U, Align>;
+    };
 
     AlignedAllocator() = default;
     template <class U>
-    AlignedAllocator(const AlignedAllocator<U, Align>&) noexcept {}
+    AlignedAllocator(const AlignedAllocator<U, Align> &) noexcept {}
 
-    T* allocate(std::size_t n) {
-        if (n > std::size_t(-1) / sizeof(T)) throw std::bad_alloc();
-        void* p = nullptr;
+    T *allocate(std::size_t n) {
+        if (n > std::size_t(-1) / sizeof(T))
+            throw std::bad_alloc();
+        void *p = nullptr;
         if (::posix_memalign(&p, Align, n * sizeof(T)) != 0)
             throw std::bad_alloc();
-        return static_cast<T*>(p);
+        return static_cast<T *>(p);
     }
-    void deallocate(T* p, std::size_t) noexcept { std::free(p); }
+    void deallocate(T *p, std::size_t) noexcept { std::free(p); }
 };
 
 struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>> {
@@ -136,16 +138,13 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
             DISPATCH_DATA_TYPE(CASE_DATA_TYPE_DIS, index);
 #undef CASE_DATA_TYPE_DIS
             case DT_BOOL: return Element(DT_BOOL, Get<bool>(index));
-            default:
-                ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
-                return Element();
+            default: ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false); return Element();
         }
     }
 
     Element GetElement(int64_t *coords, size_t n) const {
         int64_t index = 0;
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_SHAPE,
-               n == shape_.size());
+        ASSERT(ExecuteOperationScene::INVALID_TENSOR_SHAPE, n == shape_.size());
         index = std::inner_product(coords, coords + n, stride_.begin(), 0);
         return GetElement(index);
     }
@@ -165,9 +164,7 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
             case DT_UINT32: return std::to_string(Get<uint32_t>(index));
             case DT_UINT64: return std::to_string(Get<uint64_t>(index));
             case DT_DOUBLE: return std::to_string(Get<double>(index));
-            default:
-                ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
-                return "";
+            default: ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false); return "";
         }
     }
 
@@ -186,8 +183,7 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
             case DT_UINT32: dump->DumpElement(static_cast<uint64_t>(Get<uint32_t>(index))); break;
             case DT_UINT64: dump->DumpElement(static_cast<uint64_t>(Get<uint64_t>(index))); break;
             case DT_DOUBLE: dump->DumpElement(static_cast<double>(Get<double>(index))); break;
-            default:
-                ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
+            default: ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
         }
     }
 
@@ -196,8 +192,7 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
         auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
 
         T *data = reinterpret_cast<T *>(tensorData->data());
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
-               sizeof(T) == tensorData->GetElementSize())
+        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, sizeof(T) == tensorData->GetElementSize())
             << "ConstantTensor's dtype and value's type don't match!";
         for (size_t i = 0; i < tensorData->nelem; i++) {
             data[i] = value;
@@ -209,8 +204,7 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
     static std::shared_ptr<RawTensorData> CreateTensor(const Tensor &t, const std::vector<T> &values) {
         auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
         T *data = reinterpret_cast<T *>(tensorData->data());
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
-               sizeof(T) == tensorData->GetElementSize())
+        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, sizeof(T) == tensorData->GetElementSize())
             << "CreateTensor's dtype and value's type don't match!";
         StringUtils::DataCopy(data, tensorData->GetDataSize(), values.data(), values.size() * sizeof(T));
         return tensorData;
@@ -221,8 +215,7 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
         auto tensorData = std::make_shared<RawTensorData>(dType, shape);
 
         T *data = reinterpret_cast<T *>(tensorData->data());
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
-               sizeof(T) == tensorData->GetElementSize())
+        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, sizeof(T) == tensorData->GetElementSize())
             << "ConstantTensor's dtype and value's type don't match!";
         for (size_t i = 0; i < tensorData->nelem; i++) {
             data[i] = value;
@@ -231,17 +224,18 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
     }
 
     template <typename T>
-    static std::shared_ptr<RawTensorData> CreateTensorData(const Shape &shape, DataType dType, const std::vector<T> &values) {
+    static std::shared_ptr<RawTensorData> CreateTensorData(
+        const Shape &shape, DataType dType, const std::vector<T> &values) {
         auto tensorData = std::make_shared<RawTensorData>(dType, shape);
         T *data = reinterpret_cast<T *>(tensorData->data());
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE,
-               sizeof(T) == tensorData->GetElementSize())
+        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, sizeof(T) == tensorData->GetElementSize())
             << "CreateTensor's dtype and value's type don't match!";
         StringUtils::DataCopy(data, tensorData->GetDataSize(), values.data(), values.size() * sizeof(T));
         return tensorData;
     }
 
-    static std::shared_ptr<RawTensorData> CreateTensor(DataType dtype, const std::vector<int64_t> &shape, uint8_t *data) {
+    static std::shared_ptr<RawTensorData> CreateTensor(
+        DataType dtype, const std::vector<int64_t> &shape, uint8_t *data) {
         auto tensorData = std::make_shared<RawTensorData>(dtype, shape);
         StringUtils::DataCopy(tensorData->data(), tensorData->GetDataSize(), data, tensorData->GetDataSize());
         return tensorData;
@@ -261,16 +255,13 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
     void ToFile(const std::string &path) const {
         std::ofstream ofile(path, std::ios::out | std::ios::binary);
         if (!ofile) {
-            VERIFY_LOGE_FULL_E(OpDumpScene::DUMP_OPEN_FILE_FAILED,
-                               "open file %s failed!!!!", path.c_str());
+            VERIFY_LOGE_FULL_E(OpDumpScene::DUMP_OPEN_FILE_FAILED, "open file %s failed!!!!", path.c_str());
         }
         ofile.write(reinterpret_cast<const char *>(data()), size());
         ofile.close();
     }
 
-    size_t GetDataSize() const {
-        return nelem * elemSize_;
-    }
+    size_t GetDataSize() const { return nelem * elemSize_; }
 
 private:
     uint8_t *devPtr_{nullptr};
@@ -316,7 +307,11 @@ struct LogicalTensorData {
     RawTensorDataPtr GetData() { return data_; }
 
     const Shape &GetShape() const { return shape_; }
-    int64_t GetShape(int axis) const { if (axis < 0) axis += shape_.size(); return shape_[axis]; }
+    int64_t GetShape(int axis) const {
+        if (axis < 0)
+            axis += shape_.size();
+        return shape_[axis];
+    }
     const Shape &GetValidShape() const { return validShape_; }
     const Stride &GetStride() const { return stride_; }
     int64_t GetStride(int axis) const { return stride_[axis]; }
@@ -326,7 +321,7 @@ struct LogicalTensorData {
     int GetSize() const { return size_; }
     DataType GetDataType() const { return GetData()->GetDataType(); }
 
-    void UpdateValidShape(std::vector<int64_t> shape) {validShape_ = shape;}
+    void UpdateValidShape(std::vector<int64_t> shape) { validShape_ = shape; }
     int64_t GetStorageOffset() const {
         auto &strides = data_->GetStride();
         int64_t offset = 0;
@@ -390,14 +385,15 @@ struct LogicalTensorData {
         return std::make_shared<LogicalTensorData>(tensorData);
     }
 
-    static std::shared_ptr<LogicalTensorData> CreateEmpty(
-        DataType dataType, const std::vector<int64_t> &shape, const std::vector<int64_t> &validShape, const std::vector<int64_t> &rawShape) {
+    static std::shared_ptr<LogicalTensorData> CreateEmpty(DataType dataType, const std::vector<int64_t> &shape,
+        const std::vector<int64_t> &validShape, const std::vector<int64_t> &rawShape) {
         auto tensorData = std::make_shared<RawTensorData>(dataType, rawShape);
         return std::make_shared<LogicalTensorData>(
             tensorData, shape, validShape, std::vector<int64_t>(shape.size(), 0));
     }
 
-    std::shared_ptr<LogicalTensorData> View(const std::vector<int64_t> &viewShape, const std::vector<int64_t> &viewOffset) {
+    std::shared_ptr<LogicalTensorData> View(
+        const std::vector<int64_t> &viewShape, const std::vector<int64_t> &viewOffset) {
         return std::make_shared<LogicalTensorData>(GetData(), viewShape, viewShape, viewOffset);
     }
 
@@ -423,14 +419,14 @@ struct LogicalTensorData {
 private:
     template <typename T>
     void HandleSave(FILE *fdata, int totalSize, int rowSize) const {
-        if(fdata == nullptr){
+        if (fdata == nullptr) {
             ASSERT(OpDumpScene::DUMP_OPEN_FILE_FAILED, false);
         }
         for (int k = 0; k < totalSize / rowSize; k++) {
             size_t result = fwrite(&Get<T>(k), sizeof(T), rowSize, fdata);
             if (result != static_cast<size_t>(rowSize)) {
                 ASSERT(OpDumpScene::DUMP_WRITE_FILE_FAILED, false);
-        }
+            }
         }
     }
 
@@ -452,8 +448,8 @@ private:
 using LogicalTensorDataPtr = std::shared_ptr<LogicalTensorData>;
 
 template <>
-inline std::shared_ptr<RawTensorData> RawTensorData::CreateTensor<uint8_t>(const Tensor &t,
-                                                const std::vector<uint8_t> &values) {
+inline std::shared_ptr<RawTensorData> RawTensorData::CreateTensor<uint8_t>(
+    const Tensor &t, const std::vector<uint8_t> &values) {
     auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
     uint8_t *data = reinterpret_cast<uint8_t *>(tensorData->data());
     StringUtils::DataCopy(data, tensorData->GetDataSize(), values.data(), values.size());
@@ -505,8 +501,8 @@ struct ProgramData {
         AppendGoldens(goldenDataList);
     }
 
-    void CopyTo(std::vector<std::shared_ptr<LogicalTensorData>> &dataViewList,
-        const std::vector<RawTensorDataPtr> &dataList) {
+    void CopyTo(
+        std::vector<std::shared_ptr<LogicalTensorData>> &dataViewList, const std::vector<RawTensorDataPtr> &dataList) {
         for (auto data : dataList) {
             if (data) {
                 auto shape = data->GetShape();

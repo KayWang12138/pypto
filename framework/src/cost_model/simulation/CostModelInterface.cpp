@@ -26,8 +26,7 @@
 namespace CostModel {
 using namespace std;
 
-int CostModelInterface::BuildCostModel(std::vector<std::string> &inputConfigs)
-{
+int CostModelInterface::BuildCostModel(std::vector<std::string> &inputConfigs) {
     // Get Input Config Parameter
     CostModel::ParseArgs argParser;
     string filename;
@@ -96,15 +95,15 @@ int CostModelInterface::BuildCostModel(std::vector<std::string> &inputConfigs)
         sim->config.aicpuMachineNumber = 1;
         sim->config.cubeMachineNumberPerAICPU = 1;
         sim->config.vecMachineNumberPerAICPU = 1;
-        sim->config.coreMachineNumberPerAICPU = sim->config.cubeMachineNumberPerAICPU + sim->config.vecMachineNumberPerAICPU;
+        sim->config.coreMachineNumberPerAICPU =
+            sim->config.cubeMachineNumberPerAICPU + sim->config.vecMachineNumberPerAICPU;
         sim->BuildSystem();
     }
     return 0;
 }
 
-void CostModelInterface::GetInput(std::vector<npu::tile_fwk::Function *> &inputFuncs, bool topoFromRootFunc,
-                               std::string &startFuncName)
-{
+void CostModelInterface::GetInput(
+    std::vector<npu::tile_fwk::Function *> &inputFuncs, bool topoFromRootFunc, std::string &startFuncName) {
     if (IsNeedInput(sim->mode)) {
         if (!startFuncName.empty()) {
             sim->config.startFunctionLabel = startFuncName;
@@ -125,20 +124,17 @@ void CostModelInterface::GetInput(std::vector<npu::tile_fwk::Function *> &inputF
     }
 }
 
-void CostModelInterface::Submit(std::vector<npu::tile_fwk::Function *> &inputFuncs, bool topoFromRootFunc,
-                             std::string startFuncName)
-{
+void CostModelInterface::Submit(
+    std::vector<npu::tile_fwk::Function *> &inputFuncs, bool topoFromRootFunc, std::string startFuncName) {
     GetInput(inputFuncs, topoFromRootFunc, startFuncName);
 }
 
-void CostModelInterface::SubmitSingleFunction(npu::tile_fwk::Function *func)
-{
+void CostModelInterface::SubmitSingleFunction(npu::tile_fwk::Function *func) {
     parser.ParseSingleFunction(sim, func);
     sim->InitCoreTask();
 }
 
-void CostModelInterface::Run()
-{
+void CostModelInterface::Run() {
     if (sim->mode == SimMode::EMULATOR) {
         RunFunctional();
     } else {
@@ -146,8 +142,7 @@ void CostModelInterface::Run()
     }
 }
 
-void CostModelInterface::RunPerformance()
-{
+void CostModelInterface::RunPerformance() {
     // Simulation System Work
     auto start = std::chrono::high_resolution_clock::now();
     for (auto &device : sim->machineGroup[static_cast<int>(MachineType::DEVICE)]) {
@@ -168,13 +163,12 @@ void CostModelInterface::RunPerformance()
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
     if (sim->IsDeadlock()) {
         SIMULATION_LOGE("ErrCode: F%u, Simulation is deadlock at cycle %lu !!!!!!!!!",
-                        static_cast<unsigned>(CostModel::ForwardSimErrorScene::DEAD_LOCK), sim->globalCycles);
+            static_cast<unsigned>(CostModel::ForwardSimErrorScene::DEAD_LOCK), sim->globalCycles);
     }
     SIMULATION_LOGW("CostModel Simulation Runtime: %ld(s)", duration.count());
 }
 
-void CostModelInterface::RunFunctional()
-{
+void CostModelInterface::RunFunctional() {
     auto start = std::chrono::high_resolution_clock::now();
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -182,14 +176,13 @@ void CostModelInterface::RunFunctional()
     SIMULATION_LOGW("CostModel Functional Simulation Runtime: %ld(s)", duration.count());
 }
 
-void CostModelInterface::Report()
-{
+void CostModelInterface::Report() {
     if (sim->mode == SimMode::NORMAL) {
         sim->OutputTrace();
         sim->OutputPerfettoTrace();
         sim->OutputLogForSwimLane();
         sim->OutputCalendarScheduleCpp();
-    }  else if (sim->mode == SimMode::LEAF_FUNCTION) {
+    } else if (sim->mode == SimMode::LEAF_FUNCTION) {
         sim->OutputTrace();
         sim->OutputPerfettoTrace();
         sim->DumpFunctionExecuteTime();
@@ -202,4 +195,4 @@ void CostModelInterface::Report()
         throw std::invalid_argument("Simulation Deadlock Error");
     }
 }
-}
+} // namespace CostModel

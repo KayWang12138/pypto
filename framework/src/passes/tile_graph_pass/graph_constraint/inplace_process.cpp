@@ -31,12 +31,14 @@ bool InplaceProcess::HasSameConsecutive(Operation &op) {
 Status InplaceProcess::PreCheck(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "PreCheck for InplaceProcess.");
     if (!function.LoopCheck().empty()) {
-        APASS_LOG_ERROR_F(Elements::Function, "Loopcheck failed before PreGraph; Please check whether there is a loop.");
+        APASS_LOG_ERROR_F(
+            Elements::Function, "Loopcheck failed before PreGraph; Please check whether there is a loop.");
         return FAILED;
     }
     for (auto &op : function.Operations()) {
         if (op.GetSubgraphID() == NOT_IN_SUBGRAPH) {
-            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] is not partitioned; Please check subGraphIDs. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] is not partitioned; Please check subGraphIDs. %s",
+                op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if ((op.GetOpcode() != Opcode::OP_ASSEMBLE) && (op.GetOpcode() != Opcode::OP_VIEW) &&
@@ -44,15 +46,17 @@ Status InplaceProcess::PreCheck(Function &function) {
             continue;
         }
         if (HasSameConsecutive(op)) {
-            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has the same Opcode child op; Plese check child ops. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has the same Opcode child op; Plese check child ops. %s",
+                op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         auto tensorIn = op.GetIOperands().front();
         auto tensorOut = op.GetOOperands().front();
         if (tensorIn->GetMemoryTypeOriginal() != tensorOut->GetMemoryTypeOriginal()) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "unmatched input output memory type for reshape opmagic: %d, input mem type: %s, output mem type: %s; Please check the input ans output.",
-                op.opmagic,
-                MemoryTypeToString(tensorIn->GetMemoryTypeOriginal()).c_str(),
+            APASS_LOG_ERROR_F(Elements::Tensor,
+                "unmatched input output memory type for reshape opmagic: %d, input mem type: %s, output mem type: %s; "
+                "Please check the input ans output.",
+                op.opmagic, MemoryTypeToString(tensorIn->GetMemoryTypeOriginal()).c_str(),
                 MemoryTypeToString(tensorOut->GetMemoryTypeOriginal()).c_str());
             return FAILED;
         }
@@ -61,29 +65,35 @@ Status InplaceProcess::PreCheck(Function &function) {
     return SUCCESS;
 }
 
-Status InplaceProcess::InplaceProcessAssemble(Function &function, Operation &op){
+Status InplaceProcess::InplaceProcessAssemble(Function &function, Operation &op) {
     if (ValidMeaninglessOp(op) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Invalid assemble operation; Please check operands size and memory type. %s", GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "Invalid assemble operation; Please check operands size and memory type. %s",
+            GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     auto assembleOut = op.GetOOperands().front();
     // 校验Assemble输出的汇聚后tensor大小是否超过UB上限
     const int UB_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB);
-    if (assembleOut->GetMemoryTypeOriginal() == MemoryType::MEM_UB && (assembleOut->tensor->GetRawDataSize() > UB_SIZE)) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Local Buffer Assemble Result Oversized, %d, tensor: %d, size: %ld B; Please check the result size.", op.opmagic,
-            assembleOut->magic, assembleOut->tensor->GetRawDataSize());
+    if (assembleOut->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
+        (assembleOut->tensor->GetRawDataSize() > UB_SIZE)) {
+        APASS_LOG_ERROR_F(Elements::Tensor,
+            "Local Buffer Assemble Result Oversized, %d, tensor: %d, size: %ld B; Please check the result size.",
+            op.opmagic, assembleOut->magic, assembleOut->tensor->GetRawDataSize());
         return FAILED;
     }
     ProcessAssemble(function, op);
     return SUCCESS;
 }
 
-Status InplaceProcess::ProcessOp(Function &function){
+Status InplaceProcess::ProcessOp(Function &function) {
     auto opList = function.Operations();
     for (auto &op : opList) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             if (ValidMeaninglessOp(op) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Invalid view operation; Please check operands size and memory type. %s", GetFormatBacktrace(op).c_str());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                    "Invalid view operation; Please check operands size and memory type. %s",
+                    GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
             ProcessView(function, op);
@@ -91,7 +101,8 @@ Status InplaceProcess::ProcessOp(Function &function){
         }
         if (op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
             if (ValidMeaninglessOp(op) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Invalid view operation; Please check operands size and memory type.");
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "Invalid view operation; Please check operands size and memory type.");
                 return FAILED;
             }
             if (ProcessViewType(function, op) == FAILED) {
@@ -100,11 +111,12 @@ Status InplaceProcess::ProcessOp(Function &function){
             continue;
         }
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            if (std::find(hubRelatedAssembleOpMagics.begin(), hubRelatedAssembleOpMagics.end(), op.GetOpMagic()) != hubRelatedAssembleOpMagics.end()) {
+            if (std::find(hubRelatedAssembleOpMagics.begin(), hubRelatedAssembleOpMagics.end(), op.GetOpMagic()) !=
+                hubRelatedAssembleOpMagics.end()) {
                 APASS_LOG_ERROR_F(Elements::Operation, "skip processing HUB-related ASSEMBLE[%d]", op.GetOpMagic());
                 continue;
             }
-            if (InplaceProcessAssemble(function, op)!= SUCCESS) {
+            if (InplaceProcessAssemble(function, op) != SUCCESS) {
                 return FAILED;
             }
             continue;
@@ -114,14 +126,17 @@ Status InplaceProcess::ProcessOp(Function &function){
         }
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             if (ValidMeaninglessOp(op) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Invalid reshape operation; Please check operands size and memory type. %s", GetFormatBacktrace(op).c_str());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                    "Invalid reshape operation; Please check operands size and memory type. %s",
+                    GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
             ProcessReshape(function, op);
             continue;
         }
         if (ProcessInplaceOp(function, op) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Processing inplace op %s[%d] failed. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "Processing inplace op %s[%d] failed. %s", op.GetOpcodeStr().c_str(),
+                op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
@@ -153,8 +168,8 @@ void InplaceProcess::ProcessHub(Function &function, Operation &op) {
     APASS_LOG_DEBUG_F(Elements::Operation, "Processing HUB node %d.", op.GetOpMagic());
 
     // 获取 HUB 的输入和输出 tensor
-    auto hubInput = op.GetIOperands()[0];   // HUB 的输入 tensor
-    auto hubOutput = op.GetOOperands()[0];  // HUB 的输出 tensor
+    auto hubInput = op.GetIOperands()[0];  // HUB 的输入 tensor
+    auto hubOutput = op.GetOOperands()[0]; // HUB 的输出 tensor
 
     // 1. 查找 HUB 输出的所有消费者（应该是 ASSEMBLE 节点）
     auto consumers = hubOutput->GetConsumers();
@@ -166,7 +181,7 @@ void InplaceProcess::ProcessHub(Function &function, Operation &op) {
     auto producers = hubInput->GetProducers();
     for (auto producer : producers) {
         if (OpcodeManager::Inst().IsCopyOut(producer->GetOpcode())) {
-            auto copyAttr = dynamic_cast<CopyOpAttribute*>(producer->GetOpAttribute().get());
+            auto copyAttr = dynamic_cast<CopyOpAttribute *>(producer->GetOpAttribute().get());
             if (copyAttr) {
                 auto attrOffset = copyAttr->GetToOffset(); // OpImm
                 auto tensorOffset = OpImmediate::Specified(hubInput->GetTensorOffset());
@@ -180,15 +195,13 @@ void InplaceProcess::ProcessHub(Function &function, Operation &op) {
     }
 }
 
-void InplaceProcess::ProcessHubAssembleChain(Function &function, Operation &hubOp,
-                                           Operation &assembleOp,
-                                           std::shared_ptr<LogicalTensor> hubInput,
-                                           std::shared_ptr<LogicalTensor> hubOutput) {
+void InplaceProcess::ProcessHubAssembleChain(Function &function, Operation &hubOp, Operation &assembleOp,
+    std::shared_ptr<LogicalTensor> hubInput, std::shared_ptr<LogicalTensor> hubOutput) {
     auto assembleInput = assembleOp.GetIOperands()[0];
     auto assembleOutput = assembleOp.GetOOperands()[0];
     if (assembleInput.get() != hubOutput.get()) {
         APASS_LOG_WARN_F(Elements::Tensor, "Assemble input[%d] is not HUB output[%d], chain may be broken",
-                    assembleInput->GetMagic(), hubOutput->GetMagic());
+            assembleInput->GetMagic(), hubOutput->GetMagic());
         return;
     }
     bool isExactOutcast = false;
@@ -200,17 +213,19 @@ void InplaceProcess::ProcessHubAssembleChain(Function &function, Operation &hubO
         }
     }
     if (!isExactOutcast) {
-        APASS_LOG_WARN_F(Elements::Operation, "Assemble[%d] output is not exact outcast, skip HUB memory reuse processing.", assembleOp.GetOpMagic());
+        APASS_LOG_WARN_F(Elements::Operation,
+            "Assemble[%d] output is not exact outcast, skip HUB memory reuse processing.", assembleOp.GetOpMagic());
         return;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "Found exact HUB-ASSEMBLE-OUTCAST chain: HUB[%d] -> ASSEMBLE[%d] -> OUTCAST[%d]",
-                hubOp.GetOpMagic(), assembleOp.GetOpMagic(), assembleOutput->GetMagic());
+    APASS_LOG_INFO_F(Elements::Operation,
+        "Found exact HUB-ASSEMBLE-OUTCAST chain: HUB[%d] -> ASSEMBLE[%d] -> OUTCAST[%d]", hubOp.GetOpMagic(),
+        assembleOp.GetOpMagic(), assembleOutput->GetMagic());
     auto hubInputMemType = hubInput->GetMemoryTypeOriginal();
     auto hubOutputMemType = hubOutput->GetMemoryTypeOriginal();
     auto assembleOutputMemType = assembleOutput->GetMemoryTypeOriginal();
     if (hubInputMemType != hubOutputMemType || hubInputMemType != assembleOutputMemType) {
         APASS_LOG_WARN_F(Elements::Tensor, "Memory type mismatch: HUB input=%d, HUB output=%d, ASSEMBLE output=%d",
-                    hubInputMemType, hubOutputMemType, assembleOutputMemType);
+            hubInputMemType, hubOutputMemType, assembleOutputMemType);
         return;
     }
     hubInput->tensor = assembleOutput->tensor;
@@ -219,20 +234,23 @@ void InplaceProcess::ProcessHubAssembleChain(Function &function, Operation &hubO
     hubOutput->tensor = assembleOutput->tensor;
     hubOutput->UpdateOffset(assembleOpAttribute->GetToTensorOffset());
     hubRelatedAssembleOpMagics.push_back(assembleOp.GetOpMagic());
-    APASS_LOG_INFO_F(Elements::Tensor, "Complete memory reuse established: all tensors share HUB input[%d] memory", hubInput->GetMagic());
+    APASS_LOG_INFO_F(Elements::Tensor, "Complete memory reuse established: all tensors share HUB input[%d] memory",
+        hubInput->GetMagic());
 }
 
 Status InplaceProcess::ValidMeaninglessOp(const Operation &op) const {
     // 校验单输入单输出，且输入输出mem类型相同
-    if ((op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
-        (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr) ||
+    if ((op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) || (op.GetIOperands().front() == nullptr) ||
+        (op.GetOOperands().front() == nullptr) ||
         (op.GetIOperands().front()->GetMemoryTypeOriginal() != op.GetOOperands().front()->GetMemoryTypeOriginal())) {
-        APASS_LOG_ERROR_F(Elements::Operation, "InplaceProcess %s[%d] Invalid: IOperands.size is %zu; OOperands.size is %zu; "
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "InplaceProcess %s[%d] Invalid: IOperands.size is %zu; OOperands.size is %zu; "
             "IOperands.front is nullptr (%d); OOperands.front is nullptr (%d); IOperands.front.MemoryType is %d; "
             "OOperands.front.MemoryType is %d. %s",
             (op.GetOpcodeStr().c_str()), (op.GetOpMagic()), (op.GetIOperands().size()), (op.GetOOperands().size()),
             (op.GetIOperands().front() == nullptr), (op.GetOOperands().front() == nullptr),
-            (op.GetIOperands().front()->GetMemoryTypeOriginal()), (op.GetOOperands().front()->GetMemoryTypeOriginal()), GetFormatBacktrace(op).c_str());
+            (op.GetIOperands().front()->GetMemoryTypeOriginal()), (op.GetOOperands().front()->GetMemoryTypeOriginal()),
+            GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -282,14 +300,14 @@ Status InplaceProcess::ProcessViewType(Function &function, Operation &op) const 
     auto viewTypeOut = op.GetOOperands()[0];
     if (function.IsFromInCast(viewTypeIn)) {
         viewTypeOut->tensor->actualRawmagic = viewTypeIn->GetRawMagic();
-        if(AdjustOffsetAndRawShape(viewTypeIn, viewTypeOut) == FAILED) {
+        if (AdjustOffsetAndRawShape(viewTypeIn, viewTypeOut) == FAILED) {
             return FAILED;
         }
         return AlignCopyInConsumer(viewTypeOut);
     }
     if (function.IsFromOutCast(viewTypeOut)) {
         viewTypeIn->tensor->actualRawmagic = viewTypeOut->GetRawMagic();
-        if(AdjustOffsetAndRawShape(viewTypeOut, viewTypeIn) == FAILED) {
+        if (AdjustOffsetAndRawShape(viewTypeOut, viewTypeIn) == FAILED) {
             return FAILED;
         }
         return AlignCopyOutProducer(viewTypeIn);
@@ -304,7 +322,8 @@ Status InplaceProcess::AdjustOffsetAndRawShape(LogicalTensorPtr &fromView, Logic
     auto inEntry = viewTypeTable.find(fromType);
     auto outEntry = viewTypeTable.find(toType);
     if (inEntry == viewTypeTable.end() || outEntry == viewTypeTable.end()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
         return FAILED;
     }
     int inSize = inEntry->second;
@@ -342,14 +361,17 @@ Status InplaceProcess::AlignCopyInConsumer(std::shared_ptr<LogicalTensor> tensor
     APASS_LOG_DEBUG_F(Elements::Tensor, "InplaceProcess::AlignCopyInConsumer tensor[%d].", tensorGm->magic);
     for (auto &consumerOp : tensorGm->GetConsumers()) {
         if (consumerOp->GetOpcode() == Opcode::OP_COPY_IN) {
-            std::shared_ptr<CopyOpAttribute> opAttr = std::static_pointer_cast<CopyOpAttribute>(consumerOp->GetOpAttribute());
+            std::shared_ptr<CopyOpAttribute> opAttr =
+                std::static_pointer_cast<CopyOpAttribute>(consumerOp->GetOpAttribute());
             if (opAttr == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "InplaceProcess::AlignCopyInConsumer OP_COPY_IN %d has no Attribute.", consumerOp->GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                    "InplaceProcess::AlignCopyInConsumer OP_COPY_IN %d has no Attribute.", consumerOp->GetOpMagic());
                 return FAILED;
             }
             std::vector<OpImmediate> newFromOffset;
             for (size_t i = 0; i < opAttr->GetFromOffset().size(); i++) {
-                newFromOffset.push_back(opAttr->GetFromOffset()[i] + OpImmediate::Specified(SymbolicScalar(tensorGm->offset[i])));
+                newFromOffset.push_back(
+                    opAttr->GetFromOffset()[i] + OpImmediate::Specified(SymbolicScalar(tensorGm->offset[i])));
             }
             opAttr->SetFromOffset(newFromOffset);
             opAttr->SetRawShape(OpImmediate::Specified(tensorGm->tensor->GetRawShape()));
@@ -362,14 +384,17 @@ Status InplaceProcess::AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tenso
     APASS_LOG_DEBUG_F(Elements::Tensor, "InplaceProcess::AlignCopyOutProducer tensor[%d].", tensorGm->magic);
     for (auto &producerOp : tensorGm->GetProducers()) {
         if (producerOp->GetOpcode() == Opcode::OP_COPY_OUT) {
-            std::shared_ptr<CopyOpAttribute> opAttr = std::static_pointer_cast<CopyOpAttribute>(producerOp->GetOpAttribute());
+            std::shared_ptr<CopyOpAttribute> opAttr =
+                std::static_pointer_cast<CopyOpAttribute>(producerOp->GetOpAttribute());
             if (opAttr == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "InplaceProcess::AlignCopyOutProducer OP_COPY_OUT %d has no Attribute.", producerOp->GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                    "InplaceProcess::AlignCopyOutProducer OP_COPY_OUT %d has no Attribute.", producerOp->GetOpMagic());
                 return FAILED;
             }
             std::vector<OpImmediate> newToOffset;
             for (size_t i = 0; i < opAttr->GetToOffset().size(); i++) {
-                newToOffset.push_back(opAttr->GetToOffset()[i] + OpImmediate::Specified(SymbolicScalar(tensorGm->offset[i])));
+                newToOffset.push_back(
+                    opAttr->GetToOffset()[i] + OpImmediate::Specified(SymbolicScalar(tensorGm->offset[i])));
             }
             opAttr->SetToOffset(newToOffset);
             opAttr->SetRawShape(OpImmediate::Specified(tensorGm->tensor->GetRawShape()));
@@ -383,8 +408,8 @@ Status InplaceProcess::AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tenso
 void InplaceProcess::ReplaceRawTensor(Function &function, std::shared_ptr<LogicalTensor> logicalTensor,
     const std::shared_ptr<LogicalTensor> targetTensor, const Operation &op) {
     if (function.IsFromInCast(logicalTensor)) {
-        APASS_LOG_WARN_F(Elements::Tensor, "InplaceProcess::ProcessAssemble: OP_ASSEMBLE iOperand tensor[%d] is inCast.",
-            logicalTensor->GetMagic());
+        APASS_LOG_WARN_F(Elements::Tensor,
+            "InplaceProcess::ProcessAssemble: OP_ASSEMBLE iOperand tensor[%d] is inCast.", logicalTensor->GetMagic());
         return;
     }
     logicalTensor->tensor = targetTensor->tensor;
@@ -398,8 +423,8 @@ void InplaceProcess::ReplaceRawTensor(Function &function, std::shared_ptr<Logica
     for (const auto &producerOp : logicalTensor->GetProducers()) {
         if (ProcessInplaceOp(function, *producerOp) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "Processing inplace op %s[%d] failed after updating %s[%d]. %s",
-                producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(),
-                op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+                producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(), op.GetOpcodeStr().c_str(),
+                op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         }
     }
     APASS_LOG_DEBUG_F(Elements::Tensor, "update the offset for Tensor %d.", logicalTensor->magic);
@@ -436,11 +461,13 @@ void InplaceProcess::ProcessReshape(Function &function, Operation &op) const {
         return;
     }
     if (function.IsFromOutCast(reshapeOut)) {
-        APASS_LOG_WARN_F(Elements::Operation, "InplaceProcess::ProcessReshape: OP_RESHAPE oOperand tensor[%d] is outCast.", reshapeOut->GetMagic());
+        APASS_LOG_WARN_F(Elements::Operation,
+            "InplaceProcess::ProcessReshape: OP_RESHAPE oOperand tensor[%d] is outCast.", reshapeOut->GetMagic());
         return;
     }
     reshapeOut->tensor->actualRawmagic = reshapeIn->GetRawMagic();
-    APASS_LOG_DEBUG_F(Elements::Operation, "Update reshape opmagic %d, output's actualRaw: %d.", op.opmagic, reshapeOut->GetRawMagic());
+    APASS_LOG_DEBUG_F(Elements::Operation, "Update reshape opmagic %d, output's actualRaw: %d.", op.opmagic,
+        reshapeOut->GetRawMagic());
 }
 
 Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const {
@@ -457,7 +484,8 @@ Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const
         auto inputIdx = reusePair.first;
         auto outputIdx = reusePair.second;
         if (inputIdx >= op.GetIOperands().size() || outputIdx >= op.GetOOperands().size()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Invalid inplace op info for %s[%d]. Please check op inputs&outputs, supported inplace info "
+            APASS_LOG_ERROR_F(Elements::Operation,
+                "Invalid inplace op info for %s[%d]. Please check op inputs&outputs, supported inplace info "
                 "can be found in inplace_process.h."
                 "\n|----detect input size: %zu, recorded inplace input idx: %zu."
                 "\n|----detect output size: %zu, recorded inplace output idx: %zu. %s",
@@ -468,23 +496,29 @@ Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const
         auto tensorIn = op.GetIOperands()[inputIdx];
         auto tensorOut = op.GetOOperands()[outputIdx];
         if (tensorIn == nullptr || tensorOut == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "%s[%d] inplace input or output is nullptr.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Tensor, "%s[%d] inplace input or output is nullptr.", op.GetOpcodeStr().c_str(),
+                op.GetOpMagic());
             return FAILED;
         }
         if (function.IsFromOutCast(tensorOut) && function.IsFromInCast(tensorIn)) {
-            APASS_LOG_WARN_F(Elements::Tensor, "InplaceProcess::ProcessInplaceOp: inplaceOp iOperand tensor[%d] is inCast and oOperand "
-                        "tensor[%d] is outCast.", tensorIn->GetMagic(), tensorOut->GetMagic());
+            APASS_LOG_WARN_F(Elements::Tensor,
+                "InplaceProcess::ProcessInplaceOp: inplaceOp iOperand tensor[%d] is inCast and oOperand "
+                "tensor[%d] is outCast.",
+                tensorIn->GetMagic(), tensorOut->GetMagic());
             continue;
         }
-        APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d] output %zu reuses input %zu.", op.GetOpcodeStr().c_str(), op.GetOpMagic(), outputIdx, inputIdx);
+        APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d] output %zu reuses input %zu.", op.GetOpcodeStr().c_str(),
+            op.GetOpMagic(), outputIdx, inputIdx);
         if (function.IsFromOutCast(tensorOut)) {
             if ((tensorIn->tensor->symbol != "") && (tensorOut->tensor->symbol == "")) {
                 tensorOut->tensor->symbol = tensorIn->tensor->symbol;
             }
             tensorIn->tensor = tensorOut->tensor;
             tensorIn->UpdateOffset(tensorOut->GetOffset());
-            APASS_LOG_DEBUG_F(Elements::Tensor, "Output magic: %d, raw maigc: %d.", tensorOut->magic, tensorOut->tensor->GetRawMagic());
-            APASS_LOG_DEBUG_F(Elements::Tensor, "Input magic: %d, raw maigc: %d.", tensorIn->magic, tensorIn->tensor->GetRawMagic());
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Output magic: %d, raw maigc: %d.", tensorOut->magic,
+                tensorOut->tensor->GetRawMagic());
+            APASS_LOG_DEBUG_F(
+                Elements::Tensor, "Input magic: %d, raw maigc: %d.", tensorIn->magic, tensorIn->tensor->GetRawMagic());
             continue;
         }
         if ((tensorIn->tensor->symbol == "") && (tensorOut->tensor->symbol != "")) {
@@ -493,18 +527,22 @@ Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const
         function.UpdateLinkMap(tensorOut, tensorIn);
         tensorOut->tensor = tensorIn->tensor;
         tensorOut->UpdateOffset(tensorIn->GetOffset());
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Output magic: %d, raw maigc: %d.", tensorOut->magic, tensorOut->tensor->GetRawMagic());
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Input magic: %d, raw maigc: %d.", tensorIn->magic, tensorIn->tensor->GetRawMagic());
+        APASS_LOG_DEBUG_F(
+            Elements::Tensor, "Output magic: %d, raw maigc: %d.", tensorOut->magic, tensorOut->tensor->GetRawMagic());
+        APASS_LOG_DEBUG_F(
+            Elements::Tensor, "Input magic: %d, raw maigc: %d.", tensorIn->magic, tensorIn->tensor->GetRawMagic());
     }
     return SUCCESS;
 }
 
-LogicalTensorPtr FindInplaceSource(Function &function, Operation &op, std::unordered_map<Operation *, LogicalTensorPtr> &visited) {
+LogicalTensorPtr FindInplaceSource(
+    Function &function, Operation &op, std::unordered_map<Operation *, LogicalTensorPtr> &visited) {
     if (visited.count(&op) > 0) {
         return visited.at(&op);
     }
     auto inplaceIdx = op.GetIntAttribute(OpAttributeKey::inplaceIdx);
-    ASSERT(inplaceIdx >= 0 && inplaceIdx < static_cast<int>(op.GetIOperands().size())) << "Invalid inplaceIdx " << inplaceIdx << " for operation " << op.GetOpMagic();
+    ASSERT(inplaceIdx >= 0 && inplaceIdx < static_cast<int>(op.GetIOperands().size()))
+        << "Invalid inplaceIdx " << inplaceIdx << " for operation " << op.GetOpMagic();
     auto inplaceIOperand = op.GetInputOperand(inplaceIdx);
     LogicalTensorPtr res = nullptr;
     for (const auto producer : inplaceIOperand->GetProducers()) {
@@ -515,7 +553,8 @@ LogicalTensorPtr FindInplaceSource(Function &function, Operation &op, std::unord
         if (res == nullptr) {
             res = tmp;
         } else {
-            ASSERT(res == tmp) << "Inconsistent inplace source for operation " << op.GetOpMagic(); // inplace路径应总是交汇于同一起点
+            ASSERT(res == tmp) << "Inconsistent inplace source for operation "
+                               << op.GetOpMagic(); // inplace路径应总是交汇于同一起点
         }
     }
     if (res == nullptr) {
@@ -528,19 +567,22 @@ LogicalTensorPtr FindInplaceSource(Function &function, Operation &op, std::unord
 Status InplaceProcess::RefactorViewConnectForInplace(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "===> Start RefactorViewConnectForInplace.");
     for (auto &op : function.Operations()) {
-        if (op.GetOpcode() != Opcode::OP_VIEW) continue;
+        if (op.GetOpcode() != Opcode::OP_VIEW)
+            continue;
         if (op.GetInputOperand(0)->GetRawTensor() == op.GetOutputOperand(0)->GetRawTensor()) {
             op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
         }
     }
     std::unordered_map<Operation *, LogicalTensorPtr> visited;
     for (Operation &op : function.Operations()) {
-        if (!op.HasAttribute(OpAttributeKey::inplaceIdx) || visited.count(&op) > 0) continue;
+        if (!op.HasAttribute(OpAttributeKey::inplaceIdx) || visited.count(&op) > 0)
+            continue;
         FindInplaceSource(function, op, visited);
     }
 
     for (auto &[op, srcTensor] : visited) {
-        if (op->GetOpcode() != Opcode::OP_VIEW) continue; // 仅重构View连接
+        if (op->GetOpcode() != Opcode::OP_VIEW)
+            continue; // 仅重构View连接
         auto inplaceIdx = op->GetIntAttribute(OpAttributeKey::inplaceIdx);
         if (inplaceIdx != 0) {
             APASS_LOG_ERROR_F(Elements::Operation, "Inconsistent inplaceIdx for opsration %d", op->GetOpMagic());
@@ -548,13 +590,16 @@ Status InplaceProcess::RefactorViewConnectForInplace(Function &function) {
         }
         auto iOperand = op->GetInputOperand(inplaceIdx);
         auto oOperand = op->GetOutputOperand(0);
-        if (iOperand == srcTensor) continue; // 开头的VIEW不需要插入NOP来控制顺序
+        if (iOperand == srcTensor)
+            continue; // 开头的VIEW不需要插入NOP来控制顺序
         if (iOperand->GetRawTensor() != srcTensor->GetRawTensor()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "RawTensor mismatch for input operand of operation %d", op->GetOpMagic());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "RawTensor mismatch for input operand of operation %d", op->GetOpMagic());
             return FAILED;
         }
         if (oOperand->GetRawTensor() != srcTensor->GetRawTensor()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "RawTensor mismatch for output operand of operation %d", op->GetOpMagic());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "RawTensor mismatch for output operand of operation %d", op->GetOpMagic());
             return FAILED;
         }
         op->ReplaceIOperand(0, srcTensor);
@@ -567,7 +612,8 @@ Status InplaceProcess::RefactorViewConnectForInplace(Function &function) {
         nop.UpdateSubgraphID(op->GetSubgraphID());
         auto consumers = oOperand->GetConsumers(); // deep copy
         for (auto consumer : consumers) {
-            if (consumer->GetOpcode() == Opcode::OP_NOP || !consumer->HasAttribute(OpAttributeKey::inplaceIdx)) continue;
+            if (consumer->GetOpcode() == Opcode::OP_NOP || !consumer->HasAttribute(OpAttributeKey::inplaceIdx))
+                continue;
             consumer->ReplaceIOperand(consumer->GetIntAttribute(OpAttributeKey::inplaceIdx), nopOutput);
         }
     }

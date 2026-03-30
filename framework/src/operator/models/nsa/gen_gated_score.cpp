@@ -103,4 +103,4 @@ void GenGatedScoreFuncPrefill(const Tensor &x, const Tensor &gateW1, const Tenso
     }
 }
 
-} // namespace tile_fwk
+} // namespace npu::tile_fwk

@@ -49,7 +49,7 @@ Json OpImmediate::DumpDynJson() {
     Json res = Json::array();
     res.push_back(static_cast<int>(kind_));
     switch (kind_) {
-        case OpImmediateKind::T_SCALAR_SPECIFIED:  {
+        case OpImmediateKind::T_SCALAR_SPECIFIED: {
             SymbolicScalar value = specifiedValue_;
             res.push_back(ToJson(value));
         } break;
@@ -61,7 +61,7 @@ Json OpImmediate::DumpDynJson() {
     return res;
 }
 
-OpImmediate OpImmediate::DeserializeFrom(const Json& attrJson, size_t &despos) {
+OpImmediate OpImmediate::DeserializeFrom(const Json &attrJson, size_t &despos) {
     OpImmediate result;
     switch (static_cast<OpImmediateKind>(attrJson[despos++])) {
         case OpImmediateKind::T_SCALAR_SPECIFIED: {
@@ -142,8 +142,8 @@ Json ViewOpAttribute::DumpDynJson() {
     return res;
 }
 
-std::shared_ptr<ViewOpAttribute> ViewOpAttribute::DeserializeFrom(const Json& attrJson,
-    [[maybe_unused]] Function *function) {
+std::shared_ptr<ViewOpAttribute> ViewOpAttribute::DeserializeFrom(
+    const Json &attrJson, [[maybe_unused]] Function *function) {
     int despos = 0;
     auto memType = attrJson[despos++];
     int offsetSize = attrJson[despos++];
@@ -161,7 +161,8 @@ std::shared_ptr<ViewOpAttribute> ViewOpAttribute::DeserializeFrom(const Json& at
     for (int i = 0; i < dynValidShapeSize; i++) {
         toDynValidShape.push_back(LoadSymbolicScalar(attrJson[despos++]));
     }
-    return std::make_shared<ViewOpAttribute>(fromOffset, static_cast<MemoryType>(memType), fromDynOffset, toDynValidShape);
+    return std::make_shared<ViewOpAttribute>(
+        fromOffset, static_cast<MemoryType>(memType), fromDynOffset, toDynValidShape);
 }
 
 std::shared_ptr<OpAttribute> ViewOpAttribute::Clone() const {
@@ -227,8 +228,8 @@ Json AssembleOpAttribute::DumpDynJson() {
     return res;
 }
 
-std::shared_ptr<AssembleOpAttribute> AssembleOpAttribute::DeserializeFrom(const Json& attrJson,
-    [[maybe_unused]] Function *function) {
+std::shared_ptr<AssembleOpAttribute> AssembleOpAttribute::DeserializeFrom(
+    const Json &attrJson, [[maybe_unused]] Function *function) {
     int despos = 0;
     auto memType = attrJson[despos++];
     int offsetSize = attrJson[despos++];
@@ -246,18 +247,22 @@ std::shared_ptr<AssembleOpAttribute> AssembleOpAttribute::DeserializeFrom(const 
     for (int i = 0; i < dynValidShapeSize; i++) {
         fromDynValidShape.push_back(LoadSymbolicScalar(attrJson[despos++]));
     }
-    return std::make_shared<AssembleOpAttribute>(static_cast<MemoryType>(memType), toOffset, toDynOffset, fromDynValidShape);
+    return std::make_shared<AssembleOpAttribute>(
+        static_cast<MemoryType>(memType), toOffset, toDynOffset, fromDynValidShape);
 }
 
 std::shared_ptr<OpAttribute> AssembleOpAttribute::Clone() const {
     return std::make_shared<AssembleOpAttribute>(from_, toOffset_, toDynOffset_, fromDynValidShape_);
 }
 
-CallOpAttribute::CallOpAttribute(const FunctionHash &calleeHash, const std::vector<std::vector<SymbolicScalar>> &argList,
-        const std::string &calleMagicName, const std::map<int, SymbolicScalar> &outIndexToExpr,
-        const std::vector<SymbolicScalar> &linearArgList)
-    : invokeInfo_(std::make_shared<SubfuncInvokeInfoTy>()), calleeHash_(calleeHash), argList_(argList),
-    linearArgList_(linearArgList), outIndexToExpr_(outIndexToExpr) {
+CallOpAttribute::CallOpAttribute(const FunctionHash &calleeHash,
+    const std::vector<std::vector<SymbolicScalar>> &argList, const std::string &calleMagicName,
+    const std::map<int, SymbolicScalar> &outIndexToExpr, const std::vector<SymbolicScalar> &linearArgList)
+    : invokeInfo_(std::make_shared<SubfuncInvokeInfoTy>()),
+      calleeHash_(calleeHash),
+      argList_(argList),
+      linearArgList_(linearArgList),
+      outIndexToExpr_(outIndexToExpr) {
     // Make dump happy
     calleeBracketName_ = calleeHash_.Data() + "[" + calleeHash_.Data() + "]";
     calleMagicName_ = calleMagicName;
@@ -321,8 +326,7 @@ std::string CallOpAttribute::DumpAttr(int idx) const {
         ss << "]";
     } else {
         FUNCTION_ASSERT(static_cast<size_t>(idx) < argList_.size())
-            << "idx: " << static_cast<size_t>(idx)
-            << "argList.size(): " << argList_.size();
+            << "idx: " << static_cast<size_t>(idx) << "argList.size(): " << argList_.size();
         ss << "attr[" << idx << "][";
         for (size_t j = 0; j < argList_[idx].size(); j++) {
             if (j != 0) {
@@ -361,7 +365,7 @@ std::vector<int64_t> CallOpAttribute::GetLinearImmediateArgList(int begin, int e
                 return {};
             } else {
                 FUNCTION_ASSERT(false) << "Invalid Immediate in " << Dump() << " index " << i << " = "
-                              << linearArgList[i].Dump();
+                                       << linearArgList[i].Dump();
             }
         }
     }
@@ -369,8 +373,8 @@ std::vector<int64_t> CallOpAttribute::GetLinearImmediateArgList(int begin, int e
     return result;
 }
 
-std::shared_ptr<CallOpAttribute> CallOpAttribute::DeserializeFrom(const Json& attrJson,
-    [[maybe_unused]] Function *function) {
+std::shared_ptr<CallOpAttribute> CallOpAttribute::DeserializeFrom(
+    const Json &attrJson, [[maybe_unused]] Function *function) {
     // CallOp特殊：attrJson为整体的Json而不是单独的attr Json
     auto &attrJsonReal = attrJson["attr"];
     int despos = 0;
@@ -398,12 +402,10 @@ std::shared_ptr<CallOpAttribute> CallOpAttribute::DeserializeFrom(const Json& at
 }
 
 std::shared_ptr<OpAttribute> CallOpAttribute::Clone() const {
-    return std::make_shared<CallOpAttribute>(calleeHash_, argList_, calleMagicName_, outIndexToExpr_,
-        linearArgList_);
+    return std::make_shared<CallOpAttribute>(calleeHash_, argList_, calleMagicName_, outIndexToExpr_, linearArgList_);
 }
 
-Json CallOpAttribute::DumpInvokeInfoJson()
-{
+Json CallOpAttribute::DumpInvokeInfoJson() {
     return invokeInfo_->DumpJson();
 }
 
@@ -422,11 +424,10 @@ std::pair<MemoryType, MemoryType> ConvertOpAttribute::GetConvertPath() const {
     return {from_, to_};
 }
 
-std::shared_ptr<ConvertOpAttribute> ConvertOpAttribute::DeserializeFrom(const Json& attrJson,
-    [[maybe_unused]] Function *function) {
+std::shared_ptr<ConvertOpAttribute> ConvertOpAttribute::DeserializeFrom(
+    const Json &attrJson, [[maybe_unused]] Function *function) {
     HashBuffer buffer = attrJson.get<HashBuffer>();
-    return std::make_shared<ConvertOpAttribute>(
-        static_cast<MemoryType>(buffer[0]), static_cast<MemoryType>(buffer[1]));
+    return std::make_shared<ConvertOpAttribute>(static_cast<MemoryType>(buffer[0]), static_cast<MemoryType>(buffer[1]));
 }
 
 std::shared_ptr<OpAttribute> ConvertOpAttribute::Clone() const {
@@ -590,8 +591,8 @@ bool CopyOpAttribute::IsDynOffset(const std::vector<OpImmediate> &offset) const 
     return false;
 }
 
-std::shared_ptr<CopyOpAttribute> CopyOpAttribute::DeserializeFrom(const Json& attrJson,
-    [[maybe_unused]] Function *function) {
+std::shared_ptr<CopyOpAttribute> CopyOpAttribute::DeserializeFrom(
+    const Json &attrJson, [[maybe_unused]] Function *function) {
     if (attrJson.size() <= VALUE3) {
         std::vector<OpImmediate> vec;
         auto res = std::make_shared<CopyOpAttribute>(MemoryType::MEM_UNKNOWN, vec, vec, vec);
@@ -627,7 +628,8 @@ std::shared_ptr<CopyOpAttribute> CopyOpAttribute::DeserializeFrom(const Json& at
         for (size_t i = 0; i < validShapeSize; i++) {
             dynValidShape.push_back(OpImmediate::DeserializeFrom(attrJson, despos));
         };
-        result = std::make_shared<CopyOpAttribute>(static_cast<MemoryType>(from), offset, shape, rawShape, dynValidShape);
+        result =
+            std::make_shared<CopyOpAttribute>(static_cast<MemoryType>(from), offset, shape, rawShape, dynValidShape);
     } else {
         auto to = attrJson[despos++];
         auto size = attrJson[despos++];

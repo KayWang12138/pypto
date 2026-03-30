@@ -51,23 +51,24 @@ TEST_F(TestDevEncode, test_dev_encode_program) {
     Tensor t2(DT_FP32, {s, s}, "t2");
     Tensor out(DT_FP32, {LOOP_COUNT_INNER * s, s}, "out");
 
-    //clc
+    // clc
     FUNCTION("main_LoopUnroll2", {t0, t1, t2}, {out}) {
         LOOP("main_LoopUnroll2_L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT_INNER)) {
             auto temp = Add(t0, t0);
             SymbolicScalar s_min = std::ternary(i < 2, i, i + 1);
 
-            IF(s_min == i){
+            IF(s_min == i) {
                 temp = Add(temp, t1);
             }
-            ELSE IF(s_min == i + 1){
+            ELSE IF(s_min == i + 1) {
                 temp = Add(temp, t2);
             }
             Assemble(temp, {i * s, 0}, out);
         }
     }
 
-    std::shared_ptr<DyndevFunctionAttribute> funcDynDev = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    std::shared_ptr<DyndevFunctionAttribute> funcDynDev =
+        Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     ASSERT_NE(funcDynDev, nullptr);
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(funcDynDev->devProgBinary.data());
     ASSERT_NE(devProg, nullptr);
@@ -79,7 +80,8 @@ TEST_F(TestDevEncode, test_dev_encode_program) {
     devProg->controlFlowCache.RuntimeAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr, nullptr, nullptr);
     devProg->controlFlowCache.RuntimeAddrRelocProgram(reinterpret_cast<uint64_t>(devProg), 0);
     devProg->controlFlowCache.TaskAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr);
-    devProg->controlFlowCache.TaskAddrRelocProgramAndCtrlCache(reinterpret_cast<uint64_t>(devProg), reinterpret_cast<uint64_t>(&devProg->controlFlowCache), 0, 0);
+    devProg->controlFlowCache.TaskAddrRelocProgramAndCtrlCache(
+        reinterpret_cast<uint64_t>(devProg), reinterpret_cast<uint64_t>(&devProg->controlFlowCache), 0, 0);
     devProg->controlFlowCache.isActivated = true;
 
     devProg->Dump(0, true);
@@ -116,8 +118,7 @@ TEST_F(TestDevEncode, test_dev_encode_program) {
 
     devProg->ResetFromLaunch();
 }
-static DevAscendProgram *BuildAndGetDevProgForExpectedMaxCachedNum()
-{
+static DevAscendProgram *BuildAndGetDevProgForExpectedMaxCachedNum() {
     constexpr int LOOP_COUNT_INNER = 4;
     int s = 32;
     TileShape::Current().SetVecTile(32, 32);
@@ -198,7 +199,6 @@ TEST_F(TestDevEncode, test_max_stitch_function_num) {
     DevAscendProgram *devProg4 = BuildAndGetDevProgForExpectedMaxCachedNum();
     ASSERT_NE(devProg4, nullptr);
     EXPECT_EQ(devProg4->stitchMaxFunctionNum, 512u);
-
 }
 
 TEST_F(TestDevEncode, test_dev_func_dupped) {

@@ -126,7 +126,7 @@ public:
         std::string result;
         if (it->second.Type() == typeid(int64_t)) {
             result = std::to_string(npu::tile_fwk::AnyCast<int64_t>(it->second));
-        }  else if (it->second.Type() == typeid(float)) {
+        } else if (it->second.Type() == typeid(float)) {
             result = std::to_string(npu::tile_fwk::AnyCast<float>(it->second));
         } else if (it->second.Type() == typeid(double)) {
             result = std::to_string(npu::tile_fwk::AnyCast<double>(it->second));
@@ -134,7 +134,7 @@ public:
             result = npu::tile_fwk::AnyCast<std::string>(it->second);
         } else if (it->second.Type() == typeid(bool)) {
             result = std::to_string(npu::tile_fwk::AnyCast<bool>(it->second));
-        } else if (it->second.Type() == typeid(std::vector<int64_t>)){
+        } else if (it->second.Type() == typeid(std::vector<int64_t>)) {
             result = IntVecToStr(npu::tile_fwk::AnyCast<std::vector<int64_t>>(it->second));
         } else if (it->second.Type() == typeid(Element)) {
             auto tensorElement = npu::tile_fwk::AnyCast<Element>(it->second);

@@ -152,9 +152,8 @@ static void MNSplitFunc(
 }
 
 template <typename inputDtype, typename outputDtype, bool transA, bool transB, bool isCNz>
-void TestDynMatmul(
-    const std::vector<int64_t>& mmShape, bool isANz, bool isBNz, const std::vector<int64_t> &viewShape, string dataPath) {
-
+void TestDynMatmul(const std::vector<int64_t> &mmShape, bool isANz, bool isBNz, const std::vector<int64_t> &viewShape,
+    string dataPath) {
     SetInterpreterConfig();
 
     if (mmShape.size() != MM_SHAPE_SIZE || viewShape.size() != MM_VIEW_SHAPE_SIZE) {

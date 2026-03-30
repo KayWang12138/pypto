@@ -18,8 +18,7 @@
 namespace CostModel {
 using namespace std;
 
-std::string CachePacket::Dump() const
-{
+std::string CachePacket::Dump() const {
     std::stringstream oss;
     oss << "pid:" << dec << pid;
     oss << ", tid:" << tid;
@@ -28,4 +27,4 @@ std::string CachePacket::Dump() const
     oss << ", size:" << dec << size << "(Bytes)";
     return oss.str();
 }
-}
+} // namespace CostModel

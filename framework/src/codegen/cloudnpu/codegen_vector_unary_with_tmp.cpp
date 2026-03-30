@@ -515,7 +515,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     }
     if (opCode == Opcode::OP_ROWSUM_SINGLE || opCode == Opcode::OP_ROWMAX_SINGLE ||
         opCode == Opcode::OP_ROWMIN_SINGLE || opCode == Opcode::OP_ROWPROD_SINGLE ||
-        opCode == Opcode::OP_ROWARGMAX_SINGLE || opCode == Opcode::OP_ROWARGMIN_SINGLE ) {
+        opCode == Opcode::OP_ROWARGMAX_SINGLE || opCode == Opcode::OP_ROWARGMIN_SINGLE) {
         return PrintReduceLastAxis({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 

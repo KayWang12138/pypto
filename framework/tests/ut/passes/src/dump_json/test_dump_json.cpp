@@ -99,7 +99,7 @@ TEST_F(JsonOutputValidationTest, VerifyFunctionStructure) {
     json data = loadJsonFile();
     json functions = data["functions"];
 
-    for (const auto& func : functions) {
+    for (const auto &func : functions) {
         // Check required function fields
         EXPECT_TRUE(func.contains(T_FIELD_KIND)) << "Function missing kind field";
         EXPECT_EQ(func[T_FIELD_KIND], static_cast<int>(Kind::T_KIND_FUNCTION)) << "Incorrect function kind";
@@ -126,10 +126,10 @@ TEST_F(JsonOutputValidationTest, VerifyTensorStructure) {
     json data = loadJsonFile();
     json functions = data["functions"];
 
-    for (const auto& func : functions) {
+    for (const auto &func : functions) {
         // Check if tensor tables exist when useTable is true
         if (func.contains("tensors") && func["tensors"].is_array()) {
-            for (const auto& tensor : func["tensors"]) {
+            for (const auto &tensor : func["tensors"]) {
                 EXPECT_TRUE(tensor.contains(T_FIELD_KIND)) << "Tensor missing kind field";
                 EXPECT_EQ(tensor[T_FIELD_KIND], static_cast<int>(Kind::T_KIND_TENSOR)) << "Incorrect tensor kind";
                 EXPECT_TRUE(tensor.contains("offset")) << "Tensor missing offset field";
@@ -142,9 +142,10 @@ TEST_F(JsonOutputValidationTest, VerifyTensorStructure) {
 
         // Check raw tensors if present
         if (func.contains("rawtensors") && func["rawtensors"].is_array()) {
-            for (const auto& rawTensor : func["rawtensors"]) {
+            for (const auto &rawTensor : func["rawtensors"]) {
                 EXPECT_TRUE(rawTensor.contains(T_FIELD_KIND)) << "RawTensor missing kind field";
-                EXPECT_EQ(rawTensor[T_FIELD_KIND], static_cast<int>(Kind::T_KIND_RAW_TENSOR)) << "Incorrect raw tensor kind";
+                EXPECT_EQ(rawTensor[T_FIELD_KIND], static_cast<int>(Kind::T_KIND_RAW_TENSOR))
+                    << "Incorrect raw tensor kind";
                 EXPECT_TRUE(rawTensor.contains("datatype")) << "RawTensor missing datatype field";
                 EXPECT_TRUE(rawTensor.contains("rawshape")) << "RawTensor missing rawshape field";
                 EXPECT_TRUE(rawTensor.contains("rawmagic")) << "RawTensor missing rawmagic field";
@@ -163,8 +164,8 @@ TEST_F(JsonOutputValidationTest, VerifyOperationStructure) {
     json data = loadJsonFile();
     json functions = data["functions"];
 
-    for (const auto& func : functions) {
-        for (const auto& op : func["operations"]) {
+    for (const auto &func : functions) {
+        for (const auto &op : func["operations"]) {
             EXPECT_TRUE(op.contains(T_FIELD_KIND)) << "Operation missing kind field";
             EXPECT_EQ(op[T_FIELD_KIND], static_cast<int>(Kind::T_KIND_OPERATION)) << "Incorrect operation kind";
             EXPECT_TRUE(op.contains("ioperands")) << "Operation missing ioperands field";

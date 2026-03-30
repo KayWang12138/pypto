@@ -141,7 +141,8 @@ class ReciprocalOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops
 
 INSTANTIATE_TEST_SUITE_P(TestReciprocal, ReciprocalOperationTest,
     ::testing::ValuesIn(GetOpMetaData<ReciprocalOpMetaData>(
-        {ReciprocalOperationExeFunc2Dims, ReciprocalOperationExeFunc3Dims, ReciprocalOperationExeFunc4Dims}, "Reciprocal")));
+        {ReciprocalOperationExeFunc2Dims, ReciprocalOperationExeFunc3Dims, ReciprocalOperationExeFunc4Dims},
+        "Reciprocal")));
 
 TEST_P(ReciprocalOperationTest, TestReciprocal) {
     auto test_data = GetParam().test_data_;

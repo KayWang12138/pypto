@@ -18,15 +18,14 @@
 using namespace std;
 
 namespace CostModel {
-EnvConfig::EnvConfig()
-{
+EnvConfig::EnvConfig() {
     Config::prefix = "Env";
     Config::dispatcher = {
-        {"cPlusPlus", [&](string v){ cPlusPlus = ParseString(v); }},
+        {"cPlusPlus", [&](string v) { cPlusPlus = ParseString(v); }},
     };
 
     Config::recorder = {
-        {"cPlusPlus", [&](){ return "cPlusPlus = " + cPlusPlus; }},
+        {"cPlusPlus", [&]() { return "cPlusPlus = " + cPlusPlus; }},
     };
 }
-}
+} // namespace CostModel

@@ -45,19 +45,16 @@ struct GatherMaskOpMetaData {
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             auto tileTensor0 = View(inputs[0], {firstViewShape},
-                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)},
-                {bIdx * firstViewShape});
+                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)}, {bIdx * firstViewShape});
             TileShape::Current().SetVecTile(args->tileShape_);
             auto res = GatherMask(tileTensor0, args->patternMode_);
             Assemble(res, {bIdx * firstViewShape}, outputs[0]);
-
         }
     }
 }
 
 static void GatherMaskOperationExeFuncDoubleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -83,7 +80,6 @@ static void GatherMaskOperationExeFuncDoubleCut(
 
 static void GatherMaskOperationExeFuncTripleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -115,7 +111,6 @@ static void GatherMaskOperationExeFuncTripleCut(
 
 static void GatherMaskOperationExeFuncQuadrupleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -159,10 +154,10 @@ static void GatherMaskOperationExeFuncQuadrupleCut(
 class GatherMaskOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<GatherMaskOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestGatherMask, GatherMaskOperationTest,
-    ::testing::ValuesIn(GetOpMetaData<GatherMaskOpMetaData>(
-        {GatherMaskOperationExeFuncDoubleCut, GatherMaskOperationExeFuncTripleCut,
-            GatherMaskOperationExeFuncQuadrupleCut},
-        "GatherMask")));
+    ::testing::ValuesIn(
+        GetOpMetaData<GatherMaskOpMetaData>({GatherMaskOperationExeFuncDoubleCut, GatherMaskOperationExeFuncTripleCut,
+                                                GatherMaskOperationExeFuncQuadrupleCut},
+            "GatherMask")));
 
 TEST_P(GatherMaskOperationTest, TestGatherMask) {
     auto test_data = GetParam().test_data_;

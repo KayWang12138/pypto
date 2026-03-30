@@ -109,58 +109,55 @@ void RegPass() {
 }
 
 void PassManager::RegDefaultStrategy() {
-    RegisterStrategy(
-        "PVC2_OOO", {
-            {   "RemoveRedundantReshape",      PassName::REMOVE_REDUNDANT_RESHAPE},
-            {                 "AutoCast",                     PassName::AUTO_CAST},
-            {      "InferMemoryConflict",         PassName::INFER_MEMORY_CONFLICT},
-            {       "RemoveUndrivenView",          PassName::REMOVE_UNDRIVEN_VIEW},
-            {           "ExpandFunction",               PassName::EXPAND_FUNCTION},
-            {        "MergeViewAssemble",           PassName::MERGE_VIEW_ASSEMBLE},
-            {             "SplitReshape",                 PassName::SPLIT_RESHAPE},
-            {           "SplitRawTensor",              PassName::SPLIT_RAW_TENSOR},
-            {   "SplitLargeFanoutTensor",     PassName::SPLIT_LARGE_FANOUT_TENSOR},
-            {              "DuplicateOp",                  PassName::DUPLICATE_OP},
-            {         "AssignMemoryType",            PassName::ASSIGN_MEMORY_TYPE},
-            {  "InferDiscontinuousInput",     PassName::INFER_DISCONTINUOUS_INPUT},
-            {        "RemoveRedundantOp",           PassName::REMOVE_REDUNDANT_OP},
-            {  "InsertOpForViewAssemble",    PassName::INSERT_OP_FOR_VIEWASSEMBLE},
-            {                   "SplitK",                       PassName::SPLIT_K},
-            {           "GraphPartition",               PassName::GRAPH_PARTITION},
-            {          "ReduceCopyMerge",             PassName::REDUCE_COPY_MERGE},
-            {             "NBufferMerge",                PassName::N_BUFFER_MERGE},
-            {       "L1CopyInReuseMerge",        PassName::L1_COPY_IN_REUSE_MERGE},
-            {     "IntraSubgraphAdapter",        PassName::INTRA_SUBGRAPH_ADAPTER},
-            {           "GenerateMoveOp",              PassName::GENERATE_MOVE_OP},
-            { "CommonOperationEliminate",    PassName::COMMON_OPERATION_ELIMINATE},
-            {              "AxisCombine",                  PassName::AXIS_COMBINE},
-            {           "PadLocalBuffer",              PassName::PAD_LOCAL_BUFFER},
-            {   "RemoveUnalignedReshape",      PassName::REMOVE_UNALIGNED_RESHAPE},
-            {            "ReplaceTensor",                PassName::REPLACE_TENSOR},
-            {          "PreGraphProcess",             PassName::PRE_GRAPH_PROCESS},
-            {            "InferDynShape",               PassName::INFER_DYN_SHAPE},
-            {       "SubgraphToFunction",          PassName::SUBGRAPH_TO_FUNCTION},
-            {          "InferParamIndex",             PassName::INFER_PARAM_INDEX},
-            {        "SrcDstBufferMerge",          PassName::SRC_DST_BUFFER_MERGE},
-            {                 "AddAlloc",                     PassName::ADD_ALLOC},
-            {              "OoOSchedule",                  PassName::OOO_SCHEDULE},
-            {       "TuneTileOpSeqForVF",        PassName::TUNE_TILEOP_SEQ_FOR_VF},
-            {              "RemoveAlloc",                  PassName::REMOVE_ALLOC},
-            {           "CopyOutResolve",              PassName::COPY_OUT_RESOLVE},
-            {               "InsertSync",                   PassName::INSERT_SYNC},
-            {            "TuneSyncForVF",              PassName::TUNE_SYNC_FOR_VF},
-            {         "MixSubgraphSplit",            PassName::MIX_SUBGRAPH_SPLIT},
-            {        "GlobalMemoryReuse",           PassName::GLOBAL_MEMORY_REUSE},
-            {             "LoopaxesProc",                 PassName::LOOPAXES_PROC},
-            {           "CodegenPreproc",               PassName::CODEGEN_PREPROC},
+    RegisterStrategy("PVC2_OOO", {
+                                     {  "RemoveRedundantReshape",   PassName::REMOVE_REDUNDANT_RESHAPE},
+                                     {                "AutoCast",                  PassName::AUTO_CAST},
+                                     {     "InferMemoryConflict",      PassName::INFER_MEMORY_CONFLICT},
+                                     {      "RemoveUndrivenView",       PassName::REMOVE_UNDRIVEN_VIEW},
+                                     {          "ExpandFunction",            PassName::EXPAND_FUNCTION},
+                                     {       "MergeViewAssemble",        PassName::MERGE_VIEW_ASSEMBLE},
+                                     {            "SplitReshape",              PassName::SPLIT_RESHAPE},
+                                     {          "SplitRawTensor",           PassName::SPLIT_RAW_TENSOR},
+                                     {  "SplitLargeFanoutTensor",  PassName::SPLIT_LARGE_FANOUT_TENSOR},
+                                     {             "DuplicateOp",               PassName::DUPLICATE_OP},
+                                     {        "AssignMemoryType",         PassName::ASSIGN_MEMORY_TYPE},
+                                     { "InferDiscontinuousInput",  PassName::INFER_DISCONTINUOUS_INPUT},
+                                     {       "RemoveRedundantOp",        PassName::REMOVE_REDUNDANT_OP},
+                                     { "InsertOpForViewAssemble", PassName::INSERT_OP_FOR_VIEWASSEMBLE},
+                                     {                  "SplitK",                    PassName::SPLIT_K},
+                                     {          "GraphPartition",            PassName::GRAPH_PARTITION},
+                                     {         "ReduceCopyMerge",          PassName::REDUCE_COPY_MERGE},
+                                     {            "NBufferMerge",             PassName::N_BUFFER_MERGE},
+                                     {      "L1CopyInReuseMerge",     PassName::L1_COPY_IN_REUSE_MERGE},
+                                     {    "IntraSubgraphAdapter",     PassName::INTRA_SUBGRAPH_ADAPTER},
+                                     {          "GenerateMoveOp",           PassName::GENERATE_MOVE_OP},
+                                     {"CommonOperationEliminate", PassName::COMMON_OPERATION_ELIMINATE},
+                                     {             "AxisCombine",               PassName::AXIS_COMBINE},
+                                     {          "PadLocalBuffer",           PassName::PAD_LOCAL_BUFFER},
+                                     {  "RemoveUnalignedReshape",   PassName::REMOVE_UNALIGNED_RESHAPE},
+                                     {           "ReplaceTensor",             PassName::REPLACE_TENSOR},
+                                     {         "PreGraphProcess",          PassName::PRE_GRAPH_PROCESS},
+                                     {           "InferDynShape",            PassName::INFER_DYN_SHAPE},
+                                     {      "SubgraphToFunction",       PassName::SUBGRAPH_TO_FUNCTION},
+                                     {         "InferParamIndex",          PassName::INFER_PARAM_INDEX},
+                                     {       "SrcDstBufferMerge",       PassName::SRC_DST_BUFFER_MERGE},
+                                     {                "AddAlloc",                  PassName::ADD_ALLOC},
+                                     {             "OoOSchedule",               PassName::OOO_SCHEDULE},
+                                     {      "TuneTileOpSeqForVF",     PassName::TUNE_TILEOP_SEQ_FOR_VF},
+                                     {             "RemoveAlloc",               PassName::REMOVE_ALLOC},
+                                     {          "CopyOutResolve",           PassName::COPY_OUT_RESOLVE},
+                                     {              "InsertSync",                PassName::INSERT_SYNC},
+                                     {           "TuneSyncForVF",           PassName::TUNE_SYNC_FOR_VF},
+                                     {        "MixSubgraphSplit",         PassName::MIX_SUBGRAPH_SPLIT},
+                                     {       "GlobalMemoryReuse",        PassName::GLOBAL_MEMORY_REUSE},
+                                     {            "LoopaxesProc",              PassName::LOOPAXES_PROC},
+                                     {          "CodegenPreproc",            PassName::CODEGEN_PREPROC},
     });
-    RegisterStrategy(
-        "FunctionUnroll", {
-            {               "LoopUnroll",                   PassName::LOOP_UNROLL}
+    RegisterStrategy("FunctionUnroll", {
+                                           {"LoopUnroll", PassName::LOOP_UNROLL}
     });
-    RegisterStrategy(
-        "ExecuteGraph", {
-            {          "DynAttrToStatic",            PassName::DYN_ATTR_TO_STATIC},
+    RegisterStrategy("ExecuteGraph", {
+                                         {"DynAttrToStatic", PassName::DYN_ATTR_TO_STATIC},
     });
 }
 
@@ -205,21 +202,21 @@ std::vector<PassManager::PassEntry> PassManager::GetStrategyPasses(const std::st
         return emptyPass;
     }
     NPUArch currArch = Platform::Instance().GetSoc().GetNPUArch();
- 	auto selectedPass = std::vector<PassManager::PassEntry>();
- 	for (auto &currPassEntry : it->second) {
- 	    const auto &passName = PassNameStr(currPassEntry.passName);
- 	    auto pass = PassRegistry::GetInstance().CreatePass(passName);
- 	    if (pass == nullptr) {
+    auto selectedPass = std::vector<PassManager::PassEntry>();
+    for (auto &currPassEntry : it->second) {
+        const auto &passName = PassNameStr(currPassEntry.passName);
+        auto pass = PassRegistry::GetInstance().CreatePass(passName);
+        if (pass == nullptr) {
             APASS_LOG_WARN_F(Elements::Function, "Pass %s does not exist.", passName);
- 	        continue;
- 	    }
- 	    std::vector<NPUArch> &arches = pass->GetSupportedArches();
- 	    if ((!arches.empty()) && (std::find(arches.begin(), arches.end(), currArch) == arches.end())) {
- 	        continue;
- 	    }
- 	    selectedPass.push_back(currPassEntry);
- 	}
- 	return selectedPass;
+            continue;
+        }
+        std::vector<NPUArch> &arches = pass->GetSupportedArches();
+        if ((!arches.empty()) && (std::find(arches.begin(), arches.end(), currArch) == arches.end())) {
+            continue;
+        }
+        selectedPass.push_back(currPassEntry);
+    }
+    return selectedPass;
 }
 
 std::string PassManager::GetResumePath(const std::string &strategy) {
@@ -240,8 +237,8 @@ std::string PassManager::GetResumePath(const std::string &strategy) {
 
 static bool ShouldTerminateAtStage(const std::string &identifier) {
     static const std::unordered_map<std::string, int64_t> kPassToStageMap = {
-            {"ExpandFunction", CS_TENSOR_GRAPH},
-            {"SubgraphToFunction", CS_TILE_GRAPH},
+        {    "ExpandFunction", CS_TENSOR_GRAPH},
+        {"SubgraphToFunction",   CS_TILE_GRAPH},
     };
     auto it = kPassToStageMap.find(identifier);
     if (it != kPassToStageMap.end() && it->second == config::GetHostOption<int64_t>(COMPILE_STAGE)) {
@@ -255,8 +252,8 @@ static void LogPassRuntime(const std::string &identifier, Program &program, Func
     const std::chrono::time_point<std::chrono::high_resolution_clock> &start) {
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    APASS_LOG_INFO_F(Elements::Function, "The Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(),
-        program.Name().c_str(), function.GetMagicName().c_str(), duration.count());
+    APASS_LOG_INFO_F(Elements::Function, "The Runtime of pass %s for program %s function %s is %ld us.",
+        identifier.c_str(), program.Name().c_str(), function.GetMagicName().c_str(), duration.count());
 }
 
 Status PassManager::RunPass(Program &program, Function &function, const std::string &strategy) const {
@@ -283,7 +280,8 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
             passDfxCfg.dumpGraph = true;
         }
         pass->SetPassConfigs(passDfxCfg);
-        APASS_LOG_INFO_F(Elements::Function, "Apply pass <%s> on function: %s.", identifier.c_str(), function.GetMagicName().c_str());
+        APASS_LOG_INFO_F(Elements::Function, "Apply pass <%s> on function: %s.", identifier.c_str(),
+            function.GetMagicName().c_str());
         auto start = std::chrono::high_resolution_clock::now();
         if (pass->Run(function, strategy, identifier, i) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "Run pass <%s> failed.", identifier.c_str());

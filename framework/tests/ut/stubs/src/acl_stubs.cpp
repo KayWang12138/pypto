@@ -19,98 +19,81 @@
 
 extern "C" {
 
-aclError aclFinalize()
-{
+aclError aclFinalize() {
     return 0;
 }
 
-aclError aclrtStreamWaitEvent(aclrtStream stream, aclrtEvent event)
-{
+aclError aclrtStreamWaitEvent(aclrtStream stream, aclrtEvent event) {
     (void)stream;
     (void)event;
     return 0;
 }
 
-aclError aclrtCreateEventWithFlag(aclrtEvent *event, uint32_t flag)
-{
+aclError aclrtCreateEventWithFlag(aclrtEvent *event, uint32_t flag) {
     (void)event;
     (void)flag;
     return 0;
 }
 
-aclError aclrtRecordEvent(aclrtEvent event, aclrtStream stream)
-{
+aclError aclrtRecordEvent(aclrtEvent event, aclrtStream stream) {
     (void)event;
     (void)stream;
     return 0;
 }
 
-aclError aclrtCreateEvent(aclrtEvent *event)
-{
+aclError aclrtCreateEvent(aclrtEvent *event) {
     (void)event;
     return 0;
 }
 
-aclError aclrtCreateEventExWithFlag(aclrtEvent *event, uint32_t flag)
-{
+aclError aclrtCreateEventExWithFlag(aclrtEvent *event, uint32_t flag) {
     (void)event;
     (void)flag;
     return 0;
 }
 
-aclError aclInit(const char *configPath)
-{
+aclError aclInit(const char *configPath) {
     (void)configPath;
     return 0;
 }
 
-
-
-aclError aclrtSetDevice(int32_t deviceId)
-{
+aclError aclrtSetDevice(int32_t deviceId) {
     (void)deviceId;
     return 0;
 }
 
-aclError aclrtMalloc(void **devPtr, size_t size, aclrtMemMallocPolicy policy)
-{
+aclError aclrtMalloc(void **devPtr, size_t size, aclrtMemMallocPolicy policy) {
     (void)devPtr;
     (void)size;
     (void)policy;
     return 0;
 }
 
-aclError aclmdlRICaptureGetInfo(aclrtStream stream, aclmdlRICaptureStatus *status,
-                                aclmdlRI *modelRI)
-{
+aclError aclmdlRICaptureGetInfo(aclrtStream stream, aclmdlRICaptureStatus *status, aclmdlRI *modelRI) {
     (void)stream;
     (void)status;
     (void)modelRI;
     return 0;
 }
 
-aclError aclmdlRICaptureThreadExchangeMode(aclmdlRICaptureMode *mode)
-{
+aclError aclmdlRICaptureThreadExchangeMode(aclmdlRICaptureMode *mode) {
     (void)mode;
     return 0;
 }
 
-aclError aclrtSetExceptionInfoCallback(aclrtExceptionInfoCallback callback)
-{
+aclError aclrtSetExceptionInfoCallback(aclrtExceptionInfoCallback callback) {
     (void)callback;
     return 0;
 }
 
-aclError aclrtGetStreamResLimit(aclrtStream stream, aclrtDevResLimitType type, uint32_t *value)
-{
+aclError aclrtGetStreamResLimit(aclrtStream stream, aclrtDevResLimitType type, uint32_t *value) {
     (void)stream;
     (void)type;
     (void)value;
     return 0;
 }
 
-aclError aclrtGetStreamAttribute(aclrtStream stream, aclrtStreamAttr stmAttrType, aclrtStreamAttrValue *value)
-{
+aclError aclrtGetStreamAttribute(aclrtStream stream, aclrtStreamAttr stmAttrType, aclrtStreamAttrValue *value) {
     (void)stream;
     (void)stmAttrType;
     if (value != nullptr) {
@@ -119,8 +102,7 @@ aclError aclrtGetStreamAttribute(aclrtStream stream, aclrtStreamAttr stmAttrType
     return 0;
 }
 
-aclError aclrtCacheLastTaskOpInfo(const void * const infoPtr, size_t infoSize)
-{
+aclError aclrtCacheLastTaskOpInfo(const void *const infoPtr, size_t infoSize) {
     (void)infoPtr;
     (void)infoSize;
     return 0;

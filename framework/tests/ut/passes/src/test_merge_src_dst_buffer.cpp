@@ -73,41 +73,41 @@ TEST_F(MergeSrcDstBufferTest, AppointInplace) {
     tensor5->SetMemoryTypeOriginal(MEM_UB);
     tensor5->SetMemoryTypeToBe(MEM_UB);
 
-    auto &alloc1 = function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor3}));
+    auto &alloc1 =
+        function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor3}));
     alloc1.UpdateLatency(1);
-    auto &copyin1 =
-        function.AddOperation(Opcode::OP_COPY_IN, std::vector<std::shared_ptr<LogicalTensor>>({tensor1}),
-                              std::vector<std::shared_ptr<LogicalTensor>>({tensor3}));
+    auto &copyin1 = function.AddOperation(Opcode::OP_COPY_IN, std::vector<std::shared_ptr<LogicalTensor>>({tensor1}),
+        std::vector<std::shared_ptr<LogicalTensor>>({tensor3}));
     copyin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            OpImmediate::Specified(offset), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>()));
+        OpImmediate::Specified(offset), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>()));
 
-    auto &alloc2 = function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor4}));
+    auto &alloc2 =
+        function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor4}));
     alloc2.UpdateLatency(1);
-    auto &copyin2 =
-        function.AddOperation(Opcode::OP_COPY_IN, std::vector<std::shared_ptr<LogicalTensor>>({tensor2}),
-                              std::vector<std::shared_ptr<LogicalTensor>>({tensor4}));
+    auto &copyin2 = function.AddOperation(Opcode::OP_COPY_IN, std::vector<std::shared_ptr<LogicalTensor>>({tensor2}),
+        std::vector<std::shared_ptr<LogicalTensor>>({tensor4}));
     copyin2.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            OpImmediate::Specified(offset), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>()));
+        OpImmediate::Specified(offset), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>()));
 
-    auto &alloc3 = function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor5}));
+    auto &alloc3 =
+        function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor5}));
     alloc3.UpdateLatency(1);
-    auto &add1 =
-        function.AddOperation(Opcode::OP_ADD, std::vector<std::shared_ptr<LogicalTensor>>({tensor3, tensor4}),
-                              std::vector<std::shared_ptr<LogicalTensor>>({tensor5}));
+    auto &add1 = function.AddOperation(Opcode::OP_ADD, std::vector<std::shared_ptr<LogicalTensor>>({tensor3, tensor4}),
+        std::vector<std::shared_ptr<LogicalTensor>>({tensor5}));
     add1.SetAttribute(OpAttributeKey::inplaceIdx, 0);
 
     SrcDstBufferMergeImpl srcDstMerge;
     Function func(Program::GetInstance(), "", "", nullptr);
     Function func1(Program::GetInstance(), "", "", nullptr);
     Function *rootFunc = &func1;
-    rootFunc->programs_.insert(std::pair<uint64_t, Function*>(1, &function));
+    rootFunc->programs_.insert(std::pair<uint64_t, Function *>(1, &function));
     func.rootFunc_ = rootFunc;
     srcDstMerge.Run(func);
 }
 
 void MergeSrcDstBufferTest::StubInputOutput(Function *function) {
     Function *rootFunc = function;
-    rootFunc->programs_.insert(std::pair<uint64_t, Function*>(1, function));
+    rootFunc->programs_.insert(std::pair<uint64_t, Function *>(1, function));
     function->rootFunc_ = rootFunc;
 }
 
@@ -115,7 +115,12 @@ TEST_F(MergeSrcDstBufferTest, AddReplaced) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6"};
     std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_ADD, Opcode::OP_COPY_OUT};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3","t4"}, {"t5"}};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1"},
+        {"t2"},
+        {"t3", "t4"},
+        {"t5"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}};
     std::vector<std::string> opNames{"COPYIN1", "COPYIN2", "ADD", "COPYOUT"};
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
@@ -142,8 +147,7 @@ TEST_F(MergeSrcDstBufferTest, AddReplaced) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
             EXPECT_NE(outputTensor->memoryrange.memId, -1);
-            EXPECT_EQ(outputTensor->memoryrange.memId,
-                inputTensor->memoryrange.memId);
+            EXPECT_EQ(outputTensor->memoryrange.memId, inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -153,7 +157,12 @@ TEST_F(MergeSrcDstBufferTest, AddHasInReplaced) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6"};
     std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_ADD, Opcode::OP_COPY_OUT};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3","t4"}, {"t5"}};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1"},
+        {"t2"},
+        {"t3", "t4"},
+        {"t5"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}};
     std::vector<std::string> opNames{"COPYIN1", "COPYIN2", "ADD", "COPYOUT"};
     EXPECT_EQ(G.AddTensors(DataType::DT_INT32, {32, 32}, tensorNames), true);
@@ -183,8 +192,7 @@ TEST_F(MergeSrcDstBufferTest, AddHasInReplaced) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
             EXPECT_NE(outputTensor->memoryrange.memId, -1);
-            EXPECT_EQ(outputTensor->memoryrange.memId,
-                inputTensor->memoryrange.memId);
+            EXPECT_EQ(outputTensor->memoryrange.memId, inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -215,8 +223,7 @@ TEST_F(MergeSrcDstBufferTest, CopyInNotReplaced) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
             EXPECT_NE(outputTensor->memoryrange.memId, -1);
-            EXPECT_NE(outputTensor->memoryrange.memId,
-                inputTensor->memoryrange.memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -251,8 +258,7 @@ TEST_F(MergeSrcDstBufferTest, PairMaxNotReplaced) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
             EXPECT_NE(outputTensor->memoryrange.memId, -1);
-            EXPECT_NE(outputTensor->memoryrange.memId,
-                inputTensor->memoryrange.memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -289,8 +295,7 @@ TEST_F(MergeSrcDstBufferTest, IsCubeNotReplaced) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
             EXPECT_NE(outputTensor->memoryrange.memId, -1);
-            EXPECT_NE(outputTensor->memoryrange.memId,
-                inputTensor->memoryrange.memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -300,7 +305,12 @@ TEST_F(MergeSrcDstBufferTest, AddDiffMemTypeNotReplaced) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6"};
     std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_SUB, Opcode::OP_COPY_OUT};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3","t4"}, {"t5"}};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1"},
+        {"t2"},
+        {"t3", "t4"},
+        {"t5"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}};
     std::vector<std::string> opNames{"COPYIN1", "COPYIN2", "SUB", "COPYOUT"};
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
@@ -335,8 +345,7 @@ TEST_F(MergeSrcDstBufferTest, AddDiffMemTypeNotReplaced) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
             EXPECT_NE(outputTensor->memoryrange.memId, -1);
-            EXPECT_NE(outputTensor->memoryrange.memId,
-                inputTensor->memoryrange.memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -347,7 +356,12 @@ TEST_F(MergeSrcDstBufferTest, AddDiffShapeNotReplaced) {
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
     std::vector<std::string> tensorNames1{"t5", "t6"};
     std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_MUL, Opcode::OP_COPY_OUT};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3","t4"}, {"t5"}};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1"},
+        {"t2"},
+        {"t3", "t4"},
+        {"t5"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}};
     std::vector<std::string> opNames{"COPYIN1", "COPYIN2", "MUL", "COPYOUT"};
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
@@ -369,8 +383,7 @@ TEST_F(MergeSrcDstBufferTest, AddDiffShapeNotReplaced) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
             EXPECT_NE(outputTensor->memoryrange.memId, -1);
-            EXPECT_NE(outputTensor->memoryrange.memId,
-                inputTensor->memoryrange.memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -379,9 +392,16 @@ TEST_F(MergeSrcDstBufferTest, AddDiffShapeNotReplaced) {
 TEST_F(MergeSrcDstBufferTest, AddMultiConsumerNotReplaced) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
-    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN,
-        Opcode::OP_DIV, Opcode::OP_SUB, Opcode::OP_MUL};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}, {"t4","t5"}, {"t4","t6"}, {"t7","t8"}};
+    std::vector<Opcode> opCodes{
+        Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_DIV, Opcode::OP_SUB, Opcode::OP_MUL};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1"},
+        {"t2"},
+        {"t3"},
+        {"t4", "t5"},
+        {"t4", "t6"},
+        {"t7", "t8"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t4"}, {"t5"}, {"t6"}, {"t7"}, {"t8"}, {"t9"}};
     std::vector<std::string> opNames{"COPYIN1", "COPYIN2", "COPYIN3", "DIV", "SUB", "MUL"};
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
@@ -402,8 +422,7 @@ TEST_F(MergeSrcDstBufferTest, AddMultiConsumerNotReplaced) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
             EXPECT_NE(outputTensor->memoryrange.memId, -1);
-            EXPECT_NE(outputTensor->memoryrange.memId,
-                inputTensor->memoryrange.memId);
+            EXPECT_NE(outputTensor->memoryrange.memId, inputTensor->memoryrange.memId);
             break;
         }
     }
@@ -413,8 +432,16 @@ TEST_F(MergeSrcDstBufferTest, ReplaceOnBitWidthMatch) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
     std::vector<std::string> tensorNames1{"t5", "t6", "t7", "t8"};
-    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_CAST, Opcode::OP_CAST, Opcode::OP_ADD, Opcode::OP_COPY_OUT};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}, {"t4"}, {"t5", "t6"}, {"t7"}};
+    std::vector<Opcode> opCodes{
+        Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_CAST, Opcode::OP_CAST, Opcode::OP_ADD, Opcode::OP_COPY_OUT};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1"},
+        {"t2"},
+        {"t3"},
+        {"t4"},
+        {"t5", "t6"},
+        {"t7"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"t8"}};
     std::vector<std::string> opNames{"COPYIN1", "COPYIN2", "CAST1", "CAST2", "ADD", "COPYOUT"};
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
@@ -437,33 +464,44 @@ TEST_F(MergeSrcDstBufferTest, ReplaceOnBitWidthMatch) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
             EXPECT_NE(outputTensor->memoryrange.memId, -1);
-            EXPECT_EQ(outputTensor->memoryrange.memId,
-                inputTensor->memoryrange.memId);
+            EXPECT_EQ(outputTensor->memoryrange.memId, inputTensor->memoryrange.memId);
             break;
         }
     }
 }
 
-void ConstructGrapgForReusePreMulMem(ComputationalGraphBuilder& G) {
+void ConstructGrapgForReusePreMulMem(ComputationalGraphBuilder &G) {
     // add tensor
     DataType dateType = DataType::DT_FP16;
     Shape shape = {16, 16};
-    std::vector<std::string> tensorNames{"matA1DDR", "matA2DDR", "matB1DDR", "matA1L1", "matA2L1",
-        "matB1L1", "matB2L1", "matA1L0A", "matA2L0A", "matB1L0B", "matB2L0B", "matC1L0C", "matC2L0C", "outcast"};
-    std::vector<MemoryType> tensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,  MemoryType::MEM_DEVICE_DDR,
-        MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0A, MemoryType::MEM_L0B,
-        MemoryType::MEM_L0B, MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR};
+    std::vector<std::string> tensorNames{"matA1DDR", "matA2DDR", "matB1DDR", "matA1L1", "matA2L1", "matB1L1", "matB2L1",
+        "matA1L0A", "matA2L0A", "matB1L0B", "matB2L0B", "matC1L0C", "matC2L0C", "outcast"};
+    std::vector<MemoryType> tensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
+        MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1,
+        MemoryType::MEM_L0A, MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_L0B, MemoryType::MEM_L0C,
+        MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR};
     EXPECT_EQ(G.AddTensors(dateType, shape, tensorMemoryType, tensorNames, 0), true);
     // add operation
     std::vector<Opcode> opCodes{Opcode::OP_L1_COPY_IN, Opcode::OP_L1_COPY_IN, Opcode::OP_L1_TO_L0A,
         Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_COPY_IN,
         Opcode::OP_L1_TO_L0A, Opcode::OP_A_MUL_B, Opcode::OP_L0C_COPY_OUT};
-    std::vector<std::string> opNames{"CopyIn1", "CopyIn2", "L1ToL0A1", "L1ToL0B1", "Mul1", "L0CToL11", "L1ToL0B2", "CopyIn3",
-        "L1ToL0A2", "Mul2", "L0CCopyOut1"};
-    std::vector<std::vector<std::string>> iOperands{{"matA1DDR"}, {"matB1DDR"}, {"matA1L1"}, {"matB1L1"}, {"matA1L0A","matB1L0B"}, {"matC1L0C"},
-        {"matB2L1"}, {"matA2DDR"}, {"matA2L1"}, {"matA2L0A","matB2L0B"}, {"matC2L0C"}};
-    std::vector<std::vector<std::string>> oOperands{{"matA1L1"}, {"matB1L1"}, {"matA1L0A"}, {"matB1L0B"}, {"matC1L0C"}, {"matB2L1"},
-        {"matB2L0B"}, {"matA2L1"}, {"matA2L0A"}, {"matC2L0C"}, {"outcast"}};
+    std::vector<std::string> opNames{"CopyIn1", "CopyIn2", "L1ToL0A1", "L1ToL0B1", "Mul1", "L0CToL11", "L1ToL0B2",
+        "CopyIn3", "L1ToL0A2", "Mul2", "L0CCopyOut1"};
+    std::vector<std::vector<std::string>> iOperands{
+        {"matA1DDR"},
+        {"matB1DDR"},
+        {"matA1L1"},
+        {"matB1L1"},
+        {"matA1L0A", "matB1L0B"},
+        {"matC1L0C"},
+        {"matB2L1"},
+        {"matA2DDR"},
+        {"matA2L1"},
+        {"matA2L0A", "matB2L0B"},
+        {"matC2L0C"}
+    };
+    std::vector<std::vector<std::string>> oOperands{{"matA1L1"}, {"matB1L1"}, {"matA1L0A"}, {"matB1L0B"}, {"matC1L0C"},
+        {"matB2L1"}, {"matB2L0B"}, {"matA2L1"}, {"matA2L0A"}, {"matC2L0C"}, {"outcast"}};
     EXPECT_EQ(G.AddOps(opCodes, iOperands, oOperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"matA1DDR", "matB1DDR", "matA2DDR"}), true);
     EXPECT_EQ(G.SetOutCast({"outcast"}), true);
@@ -496,30 +534,48 @@ TEST_F(MergeSrcDstBufferTest, DircetReusePreMulL0BMemory) {
             EXPECT_EQ(inputTensor->memoryrange.memId, srcMemId);
         }
     }
-
 }
 
-void ConstructGrapgForUnReuseMultiCons(ComputationalGraphBuilder& G) {
+void ConstructGrapgForUnReuseMultiCons(ComputationalGraphBuilder &G) {
     // add tensor
     DataType dateType = DataType::DT_FP16;
     Shape shape = {16, 16};
-    std::vector<std::string> tensorNames{"matA1DDR", "matA2DDR", "matA3DDR", "matB1DDR", "matA1L1", "matA2L1", "matA3L1",
-        "matB1L1", "matB2L1", "matA1L0A", "matA2L0A", "matA3L0A", "matB1L0B", "matB2L0B", "matC1L0C", "matC2L0C", "matC3L0C", "outcast1", "outcast2"};
-    std::vector<MemoryType> tensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,  MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
-        MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0A, MemoryType::MEM_L0A,
-        MemoryType::MEM_L0B, MemoryType::MEM_L0B, MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR};
+    std::vector<std::string> tensorNames{"matA1DDR", "matA2DDR", "matA3DDR", "matB1DDR", "matA1L1", "matA2L1",
+        "matA3L1", "matB1L1", "matB2L1", "matA1L0A", "matA2L0A", "matA3L0A", "matB1L0B", "matB2L0B", "matC1L0C",
+        "matC2L0C", "matC3L0C", "outcast1", "outcast2"};
+    std::vector<MemoryType> tensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
+        MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_L1,
+        MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0A,
+        MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_L0B, MemoryType::MEM_L0C, MemoryType::MEM_L0C,
+        MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR};
     EXPECT_EQ(G.AddTensors(dateType, shape, tensorMemoryType, tensorNames, 0), true);
     // add operation
     std::vector<Opcode> opCodes{Opcode::OP_L1_COPY_IN, Opcode::OP_L1_COPY_IN, Opcode::OP_L1_TO_L0A,
         Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_COPY_IN,
         Opcode::OP_L1_TO_L0A, Opcode::OP_A_MUL_B, Opcode::OP_L0C_COPY_OUT, Opcode::OP_L1_COPY_IN, Opcode::OP_L1_TO_L0A,
         Opcode::OP_A_MUL_B, Opcode::OP_L0C_COPY_OUT};
-    std::vector<std::string> opNames{"CopyIn1", "CopyIn2", "L1ToL0A1", "L1ToL0B1", "Mul1", "L0CToL11", "L1ToL0B2", "CopyIn3",
-        "L1ToL0A2", "Mul2", "L0CCopyOut1", "CopyIn4", "L1ToL0A3", "Mul3", "L0CCopyOut2"};
-    std::vector<std::vector<std::string>> iOperands{{"matA1DDR"}, {"matB1DDR"}, {"matA1L1"}, {"matB1L1"}, {"matA1L0A","matB1L0B"}, {"matC1L0C"},
-        {"matB2L1"}, {"matA2DDR"}, {"matA2L1"}, {"matA2L0A","matB2L0B"}, {"matC2L0C"}, {"matA3DDR"}, {"matA3L1"}, {"matA3L0A","matB1L0B"}, {"matC3L0C"}};
-    std::vector<std::vector<std::string>> oOperands{{"matA1L1"}, {"matB1L1"}, {"matA1L0A"}, {"matB1L0B"}, {"matC1L0C"}, {"matB2L1"},
-        {"matB2L0B"}, {"matA2L1"}, {"matA2L0A"}, {"matC2L0C"}, {"outcast1"}, {"matA3L1"}, {"matA3L0A"}, {"matC3L0C"}, {"outcast2"}};
+    std::vector<std::string> opNames{"CopyIn1", "CopyIn2", "L1ToL0A1", "L1ToL0B1", "Mul1", "L0CToL11", "L1ToL0B2",
+        "CopyIn3", "L1ToL0A2", "Mul2", "L0CCopyOut1", "CopyIn4", "L1ToL0A3", "Mul3", "L0CCopyOut2"};
+    std::vector<std::vector<std::string>> iOperands{
+        {"matA1DDR"},
+        {"matB1DDR"},
+        {"matA1L1"},
+        {"matB1L1"},
+        {"matA1L0A", "matB1L0B"},
+        {"matC1L0C"},
+        {"matB2L1"},
+        {"matA2DDR"},
+        {"matA2L1"},
+        {"matA2L0A", "matB2L0B"},
+        {"matC2L0C"},
+        {"matA3DDR"},
+        {"matA3L1"},
+        {"matA3L0A", "matB1L0B"},
+        {"matC3L0C"}
+    };
+    std::vector<std::vector<std::string>> oOperands{{"matA1L1"}, {"matB1L1"}, {"matA1L0A"}, {"matB1L0B"}, {"matC1L0C"},
+        {"matB2L1"}, {"matB2L0B"}, {"matA2L1"}, {"matA2L0A"}, {"matC2L0C"}, {"outcast1"}, {"matA3L1"}, {"matA3L0A"},
+        {"matC3L0C"}, {"outcast2"}};
     EXPECT_EQ(G.AddOps(opCodes, iOperands, oOperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"matA1DDR", "matB1DDR", "matA2DDR", "matA3DDR"}), true);
     EXPECT_EQ(G.SetOutCast({"outcast1", "outcast2"}), true);
@@ -563,27 +619,47 @@ TEST_F(MergeSrcDstBufferTest, UnReusePreMulL0BMemoryForMultiConsumers) {
     }
 }
 
-void ConstructGraphForDisableReuseMultiPath(ComputationalGraphBuilder& G) {
+void ConstructGraphForDisableReuseMultiPath(ComputationalGraphBuilder &G) {
     // add tensor
     DataType dateType = DataType::DT_FP16;
     Shape shape = {16, 16};
-    std::vector<std::string> tensorNames{"matA1DDR", "matA2DDR", "matA3DDR", "matB1DDR", "matA1L1", "matA2L1", "matA3L1", "matB1L1", "matB2L1",
-        "matA1L0A", "matA2L0A", "matA3L0A", "matB1L0B", "matB2L0B", "matB3L0B", "matC1L0C", "matC2L0C", "matC3L0C", "outcast1", "outcast2"};
-    std::vector<MemoryType> tensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,  MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
-        MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0A, MemoryType::MEM_L0A,
-        MemoryType::MEM_L0B, MemoryType::MEM_L0B, MemoryType::MEM_L0B, MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR};
+    std::vector<std::string> tensorNames{"matA1DDR", "matA2DDR", "matA3DDR", "matB1DDR", "matA1L1", "matA2L1",
+        "matA3L1", "matB1L1", "matB2L1", "matA1L0A", "matA2L0A", "matA3L0A", "matB1L0B", "matB2L0B", "matB3L0B",
+        "matC1L0C", "matC2L0C", "matC3L0C", "outcast1", "outcast2"};
+    std::vector<MemoryType> tensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
+        MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_L1,
+        MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0A,
+        MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_L0B, MemoryType::MEM_L0B, MemoryType::MEM_L0C,
+        MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR};
     EXPECT_EQ(G.AddTensors(dateType, shape, tensorMemoryType, tensorNames, 0), true);
     // add operation
     std::vector<Opcode> opCodes{Opcode::OP_L1_COPY_IN, Opcode::OP_L1_COPY_IN, Opcode::OP_L1_TO_L0A,
         Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_COPY_IN,
         Opcode::OP_L1_TO_L0A, Opcode::OP_A_MUL_B, Opcode::OP_L0C_COPY_OUT, Opcode::OP_L1_COPY_IN, Opcode::OP_L1_TO_L0A,
         Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B, Opcode::OP_L0C_COPY_OUT};
-    std::vector<std::string> opNames{"CopyIn1", "CopyIn2", "L1ToL0A1", "L1ToL0B1", "Mul1", "L0CToL11", "L1ToL0B2", "CopyIn3",
-        "L1ToL0A2", "Mul2", "L0CCopyOut1", "CopyIn4", "L1ToL0A3", "L1ToL0B3", "Mul3", "L0CCopyOut2"};
-    std::vector<std::vector<std::string>> iOperands{{"matA1DDR"}, {"matB1DDR"}, {"matA1L1"}, {"matB1L1"}, {"matA1L0A","matB1L0B"}, {"matC1L0C"},
-        {"matB2L1"}, {"matA2DDR"}, {"matA2L1"}, {"matA2L0A","matB2L0B"}, {"matC2L0C"}, {"matA3DDR"}, {"matA3L1"}, {"matB2L1"}, {"matA3L0A", "matB3L0B"}, {"matC3L0C"}};
-    std::vector<std::vector<std::string>> oOperands{{"matA1L1"}, {"matB1L1"}, {"matA1L0A"}, {"matB1L0B"}, {"matC1L0C"}, {"matB2L1"},
-        {"matB2L0B"}, {"matA2L1"}, {"matA2L0A"}, {"matC2L0C"}, {"outcast1"}, {"matA3L1"}, {"matA3L0A"}, {"matB3L0B"}, {"matC3L0C"}, {"outcast2"}};
+    std::vector<std::string> opNames{"CopyIn1", "CopyIn2", "L1ToL0A1", "L1ToL0B1", "Mul1", "L0CToL11", "L1ToL0B2",
+        "CopyIn3", "L1ToL0A2", "Mul2", "L0CCopyOut1", "CopyIn4", "L1ToL0A3", "L1ToL0B3", "Mul3", "L0CCopyOut2"};
+    std::vector<std::vector<std::string>> iOperands{
+        {"matA1DDR"},
+        {"matB1DDR"},
+        {"matA1L1"},
+        {"matB1L1"},
+        {"matA1L0A", "matB1L0B"},
+        {"matC1L0C"},
+        {"matB2L1"},
+        {"matA2DDR"},
+        {"matA2L1"},
+        {"matA2L0A", "matB2L0B"},
+        {"matC2L0C"},
+        {"matA3DDR"},
+        {"matA3L1"},
+        {"matB2L1"},
+        {"matA3L0A", "matB3L0B"},
+        {"matC3L0C"}
+    };
+    std::vector<std::vector<std::string>> oOperands{{"matA1L1"}, {"matB1L1"}, {"matA1L0A"}, {"matB1L0B"}, {"matC1L0C"},
+        {"matB2L1"}, {"matB2L0B"}, {"matA2L1"}, {"matA2L0A"}, {"matC2L0C"}, {"outcast1"}, {"matA3L1"}, {"matA3L0A"},
+        {"matB3L0B"}, {"matC3L0C"}, {"outcast2"}};
     EXPECT_EQ(G.AddOps(opCodes, iOperands, oOperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"matA1DDR", "matB1DDR", "matA2DDR", "matA3DDR"}), true);
     EXPECT_EQ(G.SetOutCast({"outcast1", "outcast2"}), true);

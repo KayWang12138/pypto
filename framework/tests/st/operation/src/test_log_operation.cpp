@@ -45,8 +45,7 @@ static void LogOperationExeFunc1Dims(
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             auto tileTensor = View(inputs[0], {firstViewShape},
-                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)},
-                {bIdx * firstViewShape});
+                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)}, {bIdx * firstViewShape});
             TileShape::Current().SetVecTile(args->tileShape_);
             auto res = Log(tileTensor, args->base_);
             Assemble(res, {bIdx * firstViewShape}, outputs[0]);
@@ -157,7 +156,8 @@ class LogOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_
 
 INSTANTIATE_TEST_SUITE_P(TestLog, LogOperationTest,
     ::testing::ValuesIn(GetOpMetaData<LogOpMetaData>(
-        {LogOperationExeFunc2Dims, LogOperationExeFunc3Dims, LogOperationExeFunc4Dims, LogOperationExeFunc1Dims}, "Log")));
+        {LogOperationExeFunc2Dims, LogOperationExeFunc3Dims, LogOperationExeFunc4Dims, LogOperationExeFunc1Dims},
+        "Log")));
 
 TEST_P(LogOperationTest, TestLog) {
     auto test_data = GetParam().test_data_;
@@ -170,7 +170,7 @@ TEST_P(LogOperationTest, TestLog) {
     } else if (baseStr == "10") {
         base = LogBaseType::LOG_10;
     } else {
-       assert(false && "unsupported base");
+        assert(false && "unsupported base");
     }
     auto args = LogOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), base);
     auto testCase = CreateTestCaseDesc<LogOpMetaData>(GetParam(), &args);

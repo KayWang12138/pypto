@@ -19,28 +19,27 @@ namespace npu::tile_fwk::dynamic {
 namespace {
 const size_t WIDTH = 16;
 const int ADDRESS_MIN_WIDTH = 6;
-}
-void DevAscendProgram::DumpCce(std::ostringstream& oss, int indent) const {
+} // namespace
+void DevAscendProgram::DumpCce(std::ostringstream &oss, int indent) const {
     std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     std::string INDENTINNERINNER(indent + IDENT2_SIZE, ' ');
     oss << INDENTINNER << "#cce:" << cceCodeList.size() << "\n";
     for (size_t i = 1; i < cceCodeList.size(); i++) {
         const DevCceBinary &cceCode = At(cceCodeList, i);
-        oss << INDENTINNER << "#cce-" << i << " #CoreType:" << cceCode.coreType
-            << " #FuncHash:" << cceCode.funcHash;
+        oss << INDENTINNER << "#cce-" << i << " #CoreType:" << cceCode.coreType << " #FuncHash:" << cceCode.funcHash;
         oss << "\n";
     }
 }
 
-void DevAscendProgram::DumpControlFlow(const int indent, const bool dumpAddr, std::ostringstream& oss) const {
+void DevAscendProgram::DumpControlFlow(const int indent, const bool dumpAddr, std::ostringstream &oss) const {
     std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     std::string INDENTINNERINNER(indent + IDENT2_SIZE, ' ');
     oss << "====\n"; // Dump control flow code (begin)
 
     oss << INDENTINNER << "#HostControlCodeSize:" << hostControlFlowBinary.size();
     if (dumpAddr) {
-        oss << " #HostControlCodeAddr:" <<
-            AddressDescriptor::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(hostControlFlowBinary, 0)));
+        oss << " #HostControlCodeAddr:"
+            << AddressDescriptor::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(hostControlFlowBinary, 0)));
     }
     oss << "\n";
 
@@ -56,8 +55,8 @@ void DevAscendProgram::DumpControlFlow(const int indent, const bool dumpAddr, st
 
     oss << INDENTINNER << "#DevControlCodeSize:" << devControlFlowBinary.size();
     if (dumpAddr) {
-        oss << " #DevControlCodeAddr:" <<
-            AddressDescriptor::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(devControlFlowBinary, 0)));
+        oss << " #DevControlCodeAddr:"
+            << AddressDescriptor::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(devControlFlowBinary, 0)));
     }
     oss << "\n";
 
@@ -72,7 +71,7 @@ void DevAscendProgram::DumpControlFlow(const int indent, const bool dumpAddr, st
     oss << "====\n"; // Dump control flow code (ends)
 }
 
-void DevAscendProgram::DumpExpressionTable(const int indent, const bool dumpAddr, std::ostringstream& oss) const {
+void DevAscendProgram::DumpExpressionTable(const int indent, const bool dumpAddr, std::ostringstream &oss) const {
     std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     std::string INDENTINNERINNER(indent + IDENT2_SIZE, ' ');
     oss << INDENTINNER << "#ExprCount:" << expressionTableSize << "\n";
@@ -80,7 +79,8 @@ void DevAscendProgram::DumpExpressionTable(const int indent, const bool dumpAddr
     oss << INDENTINNER << "#ExprCodeSize:" << expressionTableBinary.size();
     if (dumpAddr) {
         if (expressionTableBinary.size() != 0) {
-            oss << " #ExprCodeAddr:" << AddressDescriptor::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(expressionTableBinary, 0)));
+            oss << " #ExprCodeAddr:"
+                << AddressDescriptor::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(expressionTableBinary, 0)));
         }
     }
     oss << "\n";
@@ -100,7 +100,7 @@ void DevAscendProgram::DumpExpressionTable(const int indent, const bool dumpAddr
     }
 }
 
-void DevAscendProgram::DumpBasicInfo(const int indent, std::ostringstream& oss) const {
+void DevAscendProgram::DumpBasicInfo(const int indent, std::ostringstream &oss) const {
     std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     oss << INDENTINNER << "#tensorMemBudget:" << memBudget.tensor.Total() << "\n";
     oss << INDENTINNER << "#metadataMemBudget:" << memBudget.metadata.Total() << "\n";
@@ -112,7 +112,7 @@ void DevAscendProgram::DumpBasicInfo(const int indent, std::ostringstream& oss) 
     oss << INDENTINNER << "#assembleSlot{" << assembleSlotSize << "}\n";
 }
 
-void DevAscendProgram::DumpSymbolTable(const int indent, std::ostringstream& oss) const {
+void DevAscendProgram::DumpSymbolTable(const int indent, std::ostringstream &oss) const {
     std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     oss << INDENTINNER << "#symbolCount:" << symbolTable.size() << "\n";
     for (size_t i = 0; i < symbolTable.size(); i++) {
@@ -121,7 +121,7 @@ void DevAscendProgram::DumpSymbolTable(const int indent, std::ostringstream& oss
     }
 }
 
-void DevAscendProgram::DumpInputOutputSlots(const int indent, std::ostringstream& oss) const {
+void DevAscendProgram::DumpInputOutputSlots(const int indent, std::ostringstream &oss) const {
     std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     oss << INDENTINNER << "#inputCount:" << startArgsInputTensorSlotIndexList.size() << "\n";
     for (size_t i = 0; i < startArgsInputTensorSlotIndexList.size(); i++) {
@@ -133,7 +133,7 @@ void DevAscendProgram::DumpInputOutputSlots(const int indent, std::ostringstream
     }
 }
 
-void DevAscendProgram::DumpAssembleAndInplaceSlots(const int indent, std::ostringstream& oss) const {
+void DevAscendProgram::DumpAssembleAndInplaceSlots(const int indent, std::ostringstream &oss) const {
     std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     oss << INDENTINNER << "#assembleSlotCount:" << assembleSlotIndexList.size() << "\n";
     for (size_t i = 0; i < assembleSlotIndexList.size(); i++) {
@@ -145,7 +145,7 @@ void DevAscendProgram::DumpAssembleAndInplaceSlots(const int indent, std::ostrin
     }
 }
 
-void DevAscendProgram::DumpPartialUpdate(const int indent, std::ostringstream& oss) const {
+void DevAscendProgram::DumpPartialUpdate(const int indent, std::ostringstream &oss) const {
     std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     for (size_t i = 0; i < partialUpdateList.size(); i++) {
         auto &partialUpdate = At(partialUpdateList, i);
@@ -158,7 +158,7 @@ void DevAscendProgram::DumpPartialUpdate(const int indent, std::ostringstream& o
     }
 }
 
-void DevAscendProgram::DumpInputSymbols(const int indent, std::ostringstream& oss) const {
+void DevAscendProgram::DumpInputSymbols(const int indent, std::ostringstream &oss) const {
     std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     for (size_t i = 0; i < startArgsInputSymbolIndexList.size(); i++) {
         oss << INDENTINNER << "#symbol:" << i << " -> #symbolTable:" << At(startArgsInputSymbolIndexList, i) << "\n";
@@ -189,4 +189,4 @@ void DevAscendProgram::DumpFile(const std::string &filePath) const {
     ofs << Dump();
     ofs.close();
 }
-}
+} // namespace npu::tile_fwk::dynamic

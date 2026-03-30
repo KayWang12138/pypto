@@ -26,7 +26,7 @@
 #include "passes/pass_utils/dead_operation_eliminate.h"
 
 namespace npu {
-namespace tile_fwk{
+namespace tile_fwk {
 static const uint16_t kNumZero = 0u;
 static const uint16_t kNumOne = 1u;
 static const uint16_t kNumEight = 8u;
@@ -55,7 +55,8 @@ inCast{8,8}->view->outCast{8,8}
 inCast{8,8}->view->outCast{8,8}
 */
 TEST_F(TestDeadOperationEliminatePass, DeadOperationEliminateUTest1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDeadOperationEliminate", "TestDeadOperationEliminate", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestDeadOperationEliminate", "TestDeadOperationEliminate", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
@@ -87,5 +88,5 @@ TEST_F(TestDeadOperationEliminatePass, DeadOperationEliminateUTest1) {
     EXPECT_EQ(operations.Contains(view1), false);
     EXPECT_EQ(view_num, kNumOne);
 }
-}
-}
+} // namespace tile_fwk
+} // namespace npu

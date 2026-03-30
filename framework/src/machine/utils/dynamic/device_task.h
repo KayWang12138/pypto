@@ -114,7 +114,8 @@ struct DynDeviceTask : DynDeviceTaskBase {
 };
 
 #define DYN_DEVICE_TASK_EXT_SIZE 0x300
-static_assert(sizeof(DynDeviceTask) < sizeof(DynDeviceTaskBase) + DYN_DEVICE_TASK_EXT_SIZE, "Invalid dyn device task extension");
+static_assert(
+    sizeof(DynDeviceTask) < sizeof(DynDeviceTaskBase) + DYN_DEVICE_TASK_EXT_SIZE, "Invalid dyn device task extension");
 
 struct DeviceTaskCtrl {
     int taskType{0};
@@ -122,10 +123,10 @@ struct DeviceTaskCtrl {
     DeviceTask *devTask{nullptr};
     uint64_t initAicFuncNum{0};
     uint64_t initAivFuncNum{0};
-    uint64_t finishedAicFunctionCnt{0}; // 所有aicpu处理完成的aic function个数，多线程增加修改
-    uint64_t finishedAivFunctionCnt{0}; // 所有aicpu处理完成的aiv function个数，多线程增加修改
+    uint64_t finishedAicFunctionCnt{0};   // 所有aicpu处理完成的aic function个数，多线程增加修改
+    uint64_t finishedAivFunctionCnt{0};   // 所有aicpu处理完成的aiv function个数，多线程增加修改
     uint64_t finishedAicpuFunctionCnt{0}; // 所有aicpu处理完成的aicpu function个数，多线程增加修改
-    uint64_t finishedHubFunctionCnt{0}; // 所有aicpu处理完成的hub function个数，多线程增加修改
+    uint64_t finishedHubFunctionCnt{0};   // 所有aicpu处理完成的hub function个数，多线程增加修改
     // 这些原子变量跨进程了，不能sche与ctrl间两边同时写
     std::atomic<uint64_t> finishedFunctionCnt{0};
     std::atomic<bool> runFlag{false};
@@ -145,11 +146,12 @@ struct DeviceTaskCtrl {
         int cnt = runcnt.fetch_sub(1, std::memory_order_acq_rel);
         if (cnt == 1) {
             runFlag.store(false, std::memory_order_release); // set finish
-            auto *dynTask = reinterpret_cast<DynDeviceTask*>(devTask);
+            auto *dynTask = reinterpret_cast<DynDeviceTask *>(devTask);
             dynTask->taskStageAllocMem.canFree.store(true);
         } else {
             // wait finish
-            while (runFlag.load(std::memory_order_acquire)) {}
+            while (runFlag.load(std::memory_order_acquire)) {
+            }
         }
     }
 };
@@ -157,7 +159,7 @@ struct DeviceTaskCtrl {
 constexpr uint32_t DEFAULT_QUEUE_SIZE = 64;
 using DeviceTaskCtrlQueue = SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE>;
 
-const uint64_t DEV_ARGS_SIZE = 1024;  // sizeof(DevStartArgs) is enough, tmp for test GE graph
+const uint64_t DEV_ARGS_SIZE = 1024; // sizeof(DevStartArgs) is enough, tmp for test GE graph
 
 const uint64_t DEVICE_TASK_CTRL_POOL_SIZE = AlignUp((MAX_DEVICE_TASK_NUM * sizeof(DeviceTaskCtrl)), 512);
 
@@ -177,4 +179,4 @@ static inline void FillDeviceRuntimeOffset(DevAscendProgram *devProg, uint64_t c
     offset.count = count;
 }
 
-}
+} // namespace npu::tile_fwk::dynamic

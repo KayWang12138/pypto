@@ -31,7 +31,8 @@ using namespace npu::tile_fwk::dynamic;
 
 class DynamicPATest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-static void readBlockTableFromFile(const std::string& filename, int rows, int cols, std::vector<std::vector<int>> & blockTable) {
+static void readBlockTableFromFile(
+    const std::string &filename, int rows, int cols, std::vector<std::vector<int>> &blockTable) {
     std::ifstream inFile(filename, std::ios::binary);
     if (!inFile) {
         std::cerr << "Error opening file for reading!" << std::endl;
@@ -39,7 +40,7 @@ static void readBlockTableFromFile(const std::string& filename, int rows, int co
     }
 
     for (int i = 0; i < rows; ++i) {
-        inFile.read(reinterpret_cast<char*>(blockTable[i].data()), cols * sizeof(int));
+        inFile.read(reinterpret_cast<char *>(blockTable[i].data()), cols * sizeof(int));
     }
 
     inFile.close();
@@ -54,7 +55,7 @@ struct PaConfig {
     bool isImmediateSymScalar{false};
 };
 
-void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
+void testPa(PaTileShapeConfig &tileConfig, PaConfig config) {
     SetInterpreterConfig();
 
     std::vector<uint8_t> devProgBinary;
@@ -137,7 +138,7 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
             RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(vNopeCache, vNopeCacheData),
             RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qRope, qRopeData),
             RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kRopeCache, kRopeCacheData),
-            });
+        });
     }
 
     ProgramData::GetInstance().AppendOutputs({
@@ -148,20 +149,21 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
     });
 
     if (config.onlyBatchLoop) {
-        PageAttentionHighThroughput(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
-            tileConfig, config.maxUnrollTimes);
+        PageAttentionHighThroughput(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize,
+            softmaxScale, paOut, tileConfig, config.maxUnrollTimes);
     } else {
-         if (!config.manualUnroll) {
+        if (!config.manualUnroll) {
             if (!config.isImmediateSymScalar) {
-                PageAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
-                    tileConfig, config.maxUnrollTimes, config.isNzFormat);
+                PageAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize,
+                    softmaxScale, paOut, tileConfig, config.maxUnrollTimes, config.isNzFormat);
             } else {
-                PageAttentionWithImmScalar(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTableVector/*vector*/, seq/*vector*/, blockSize, softmaxScale, paOut,
-                    tileConfig, config.maxUnrollTimes, config.isNzFormat);
+                PageAttentionWithImmScalar(qNope, kNopeCache, vNopeCache, qRope, kRopeCache,
+                    blockTableVector /*vector*/, seq /*vector*/, blockSize, softmaxScale, paOut, tileConfig,
+                    config.maxUnrollTimes, config.isNzFormat);
             }
         } else {
-            PageAttentionWithManualUnroll(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
-                tileConfig, config.maxUnrollTimes);
+            PageAttentionWithManualUnroll(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs,
+                blockSize, softmaxScale, paOut, tileConfig, config.maxUnrollTimes);
         }
     }
 

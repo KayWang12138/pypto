@@ -47,8 +47,9 @@ Status StaticSubgraphProcessor::BuildInGraph(Function &function) {
             for (auto &parentOp : inOperand->GetProducers()) {
                 auto [parentSeqNo, found] = operationViewer.FindOpPosition(*parentOp);
                 if (EdgeIndexCheck(found, parentSeqNo, inGraph.size()) != SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "Error inserting op magic %d in function %d %s to inGraph. %s", parentOp->GetOpMagic(), function.GetFuncMagic(),
-                        function.GetRawName().c_str(), GetFormatBacktrace(parentOp).c_str());
+                    APASS_LOG_ERROR_F(Elements::Operation,
+                        "Error inserting op magic %d in function %d %s to inGraph. %s", parentOp->GetOpMagic(),
+                        function.GetFuncMagic(), function.GetRawName().c_str(), GetFormatBacktrace(parentOp).c_str());
                     return FAILED;
                 }
                 inGraph[i].push_back(parentSeqNo);
@@ -58,8 +59,9 @@ Status StaticSubgraphProcessor::BuildInGraph(Function &function) {
         for (const auto &inControlOp : operationViewer[i].GetInCtrlOperations()) {
             auto [parentSeqNo, found] = operationViewer.FindOpPosition(*inControlOp);
             if (EdgeIndexCheck(found, parentSeqNo, inGraph.size()) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Error inserting op magic %d in function %d %s to inGraph. %s", inControlOp->GetOpMagic(), function.GetFuncMagic(),
-                    function.GetRawName().c_str(), GetFormatBacktrace(inControlOp).c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "Error inserting op magic %d in function %d %s to inGraph. %s",
+                    inControlOp->GetOpMagic(), function.GetFuncMagic(), function.GetRawName().c_str(),
+                    GetFormatBacktrace(inControlOp).c_str());
                 return FAILED;
             }
             inGraph[i].push_back(parentSeqNo);
@@ -74,7 +76,8 @@ Status StaticSubgraphProcessor::EdgeIndexCheck(const bool found, const int newIn
         return FAILED;
     }
     if (static_cast<size_t>(newIndex) >= graphSize) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Parent index %d is larger than operations_ size %zu.", newIndex, graphSize);
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "Parent index %d is larger than operations_ size %zu.", newIndex, graphSize);
         return FAILED;
     }
     return SUCCESS;
@@ -96,23 +99,24 @@ SubfuncTopologyInfoTy StaticSubgraphProcessor::ConstructSubgraphTopologyInfo(
         int eSgId = i;
         bool skip = isReshape[i];
         succESgs.clear();
-        if (!skip){
+        if (!skip) {
             for (size_t j = 0; j < colorOutGraph[i].size(); j++) {
                 succESgs.insert(colorOutGraph[i][j]);
             }
         }
-        maxOutDegree = static_cast<int>(succESgs.size()) > maxOutDegree ? static_cast<int>(succESgs.size()) : maxOutDegree;
+        maxOutDegree =
+            static_cast<int>(succESgs.size()) > maxOutDegree ? static_cast<int>(succESgs.size()) : maxOutDegree;
         int realOutDegree = 0;
         for (auto &item : colorInGraph[i]) {
-            if (!isReshape[item]){
+            if (!isReshape[item]) {
                 realOutDegree++;
             }
         }
         UpdateTopoEntry(i, eSgId, realOutDegree, succESgs, topo);
         // Add subgTopoParamOffsets for simcpu
-        int64_t offSize = sizeof(int64_t) +                             // ProgramSubgraph Id size
-                          sizeof(int64_t) +                             // ReadyOrNot size
-                          sizeof(int64_t) +                             // outDependEsgIdList.size
+        int64_t offSize = sizeof(int64_t) +                                          // ProgramSubgraph Id size
+                          sizeof(int64_t) +                                          // ReadyOrNot size
+                          sizeof(int64_t) +                                          // outDependEsgIdList.size
                           sizeof(int64_t) * (static_cast<int64_t>(succESgs.size())); // outDependEsgIdList
         subgTopoParamOffsets.emplace_back(subgTopoParamOffsets.back() + offSize);
     }
@@ -149,20 +153,20 @@ void StaticSubgraphProcessor::PrintColorGraph(const Function &function) {
     APASS_LOG_DEBUG_F(Elements::Operation, "Total in: %d, total out: %d.", inCount, outCount);
 }
 
-inline void findAllReachableNodes(int start_node, std::vector<std::vector<int>>& outGraph,
-                                         std::vector<std::unordered_set<int>>& reachable, std::vector<int>& visited) {
-     visited[start_node] = 1;
-     reachable[start_node].insert(start_node);
-     for (int v : outGraph[start_node]) {
-         if (visited[v] == 0) {
-             findAllReachableNodes(v, outGraph, reachable, visited);
-         }
-         reachable[start_node].insert(reachable[v].begin(), reachable[v].end());
-     }
- }
+inline void findAllReachableNodes(int start_node, std::vector<std::vector<int>> &outGraph,
+    std::vector<std::unordered_set<int>> &reachable, std::vector<int> &visited) {
+    visited[start_node] = 1;
+    reachable[start_node].insert(start_node);
+    for (int v : outGraph[start_node]) {
+        if (visited[v] == 0) {
+            findAllReachableNodes(v, outGraph, reachable, visited);
+        }
+        reachable[start_node].insert(reachable[v].begin(), reachable[v].end());
+    }
+}
 
-void StaticSubgraphProcessor::FindRedundantEdges(int colorNum, std::vector<std::vector<int>>& redundantColorInGraph,
-            std::vector<std::vector<int>>& redundantColorOutGraph) {
+void StaticSubgraphProcessor::FindRedundantEdges(int colorNum, std::vector<std::vector<int>> &redundantColorInGraph,
+    std::vector<std::vector<int>> &redundantColorOutGraph) {
     std::vector<std::unordered_set<int>> reachable(colorNum);
     std::vector<int> visited(colorNum, 0);
     for (int i = 0; i < colorNum; ++i) {
@@ -198,7 +202,8 @@ void StaticSubgraphProcessor::EraseRedundantColorEdges(const Function &function)
     // Erase redundant edges
     for (size_t i = 0; i < colorNum; i++) {
         std::sort(redundantColorOutGraph[i].begin(), redundantColorOutGraph[i].end());
-        APASS_LOG_INFO_F(Elements::Operation, "Redundant outgraph of %zu is %s.", i, IntVecToStr(redundantColorOutGraph[i]).c_str());
+        APASS_LOG_INFO_F(
+            Elements::Operation, "Redundant outgraph of %zu is %s.", i, IntVecToStr(redundantColorOutGraph[i]).c_str());
         std::vector<int> newGraph;
         // update color_in_graph
         size_t j = 0U;
@@ -246,24 +251,24 @@ void StaticSubgraphProcessor::SetColorGraph(size_t i, const OperationsViewer &li
 
 void StaticSubgraphProcessor::ProcessColorGraph(Function &function) {
     for (size_t i = 0; i < function.GetTotalSubGraphCount(); i++) {
-        auto& nList = GetNList();
-        if (nList[i].size() == 1UL && colorInGraph[i].size() == 0 && nList[i][0]->GetOpcode() == Opcode::OP_RESHAPE){
+        auto &nList = GetNList();
+        if (nList[i].size() == 1UL && colorInGraph[i].size() == 0 && nList[i][0]->GetOpcode() == Opcode::OP_RESHAPE) {
             isReshape[i] = true;
         }
         std::sort(colorInGraph[i].begin(), colorInGraph[i].end());
-        colorInGraph[i].resize(std::unique(colorInGraph[i].begin(), colorInGraph[i].end()) -
-                            colorInGraph[i].begin());
+        colorInGraph[i].resize(std::unique(colorInGraph[i].begin(), colorInGraph[i].end()) - colorInGraph[i].begin());
 
         std::sort(colorOutGraph[i].begin(), colorOutGraph[i].end());
-        colorOutGraph[i].resize(std::unique(colorOutGraph[i].begin(), colorOutGraph[i].end()) -
-                            colorOutGraph[i].begin());
+        colorOutGraph[i].resize(
+            std::unique(colorOutGraph[i].begin(), colorOutGraph[i].end()) - colorOutGraph[i].begin());
     }
 }
 
-Status StaticSubgraphProcessor::SetReadySubGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType) {
+Status StaticSubgraphProcessor::SetReadySubGraphType(Function *rootFunc, size_t i, const CoreType &esgGraphType) {
     // Verify topology index is valid
     if (i >= rootFunc->topoInfo_.topology_.size()) {
-        APASS_LOG_ERROR_F(Elements::Function, "Topology index %zu out of bounds (total topology entries: %zu).", i, rootFunc->topoInfo_.topology_.size());
+        APASS_LOG_ERROR_F(Elements::Function, "Topology index %zu out of bounds (total topology entries: %zu).", i,
+            rootFunc->topoInfo_.topology_.size());
         return FAILED;
     }
     if (rootFunc->topoInfo_.topology_[i].readyState != 0) {
@@ -290,11 +295,12 @@ Status StaticSubgraphProcessor::SetReadySubGraphType(Function* rootFunc, size_t 
     return SUCCESS;
 }
 
-void StaticSubgraphProcessor::UpdateTopoEntry(size_t i, int eSgId, int realOutDegree, const setType &succESgs, SubfuncTopologyInfoTy &topo) {
+void StaticSubgraphProcessor::UpdateTopoEntry(
+    size_t i, int eSgId, int realOutDegree, const setType &succESgs, SubfuncTopologyInfoTy &topo) {
     int readyOrNot = -1 * realOutDegree;
     topo.AddEntry(eSgId, readyOrNot, succESgs);
-    auto& nList = GetNList();
-    if ((nList[i].size() == 1UL) && (nList[i][0]->GetCoreType() == CoreType::AICPU)){
+    auto &nList = GetNList();
+    if ((nList[i].size() == 1UL) && (nList[i][0]->GetCoreType() == CoreType::AICPU)) {
         auto &op = nList[i][0];
         const std::string extParamKey = OP_ATTR_PREFIX + "distributed";
         if (op->HasAttr(extParamKey)) {
@@ -303,11 +309,12 @@ void StaticSubgraphProcessor::UpdateTopoEntry(size_t i, int eSgId, int realOutDe
             APASS_LOG_DEBUG_F(Elements::Graph, "UpdateEntry size=%lu.", extParams.size());
         }
     }
-    APASS_LOG_DEBUG_F(Elements::Graph, "AddEntry ESgId %d ReadyOrNot %d %zu %d.", eSgId, readyOrNot, topo.readyIds_.size(),
-        topo.readyIds_[0]);
+    APASS_LOG_DEBUG_F(Elements::Graph, "AddEntry ESgId %d ReadyOrNot %d %zu %d.", eSgId, readyOrNot,
+        topo.readyIds_.size(), topo.readyIds_[0]);
 }
 
-Status StaticSubgraphProcessor::SetESGGraphType(int32_t cubeOpCnt, int32_t vecOpCnt, int32_t aicpuOpCnt, CoreType &esgGraphType) {
+Status StaticSubgraphProcessor::SetESGGraphType(
+    int32_t cubeOpCnt, int32_t vecOpCnt, int32_t aicpuOpCnt, CoreType &esgGraphType) {
     if (aicpuOpCnt > 0) {
         esgGraphType = CoreType::AICPU;
         return SUCCESS;
@@ -343,22 +350,25 @@ Status StaticSubgraphProcessor::DetermineGraphType(size_t i, CoreType &esgGraphT
         APASS_LOG_ERROR_F(Elements::Graph, "SetESGGraphType failed.");
         return FAILED;
     }
-    if(GetNList()[i].size() == 1 && GetNList()[i][0]->GetOpcode() == Opcode::OP_RESHAPE && colorInGraph[i].size() != 0){
+    if (GetNList()[i].size() == 1 && GetNList()[i][0]->GetOpcode() == Opcode::OP_RESHAPE &&
+        colorInGraph[i].size() != 0) {
         esgGraphType = CoreType::HUB;
     }
     return SUCCESS;
 }
 
-Status StaticSubgraphProcessor::SetCallAttrGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType) {
+Status StaticSubgraphProcessor::SetCallAttrGraphType(Function *rootFunc, size_t i, const CoreType &esgGraphType) {
     // Get the operation and verify it exists
     if (i >= rootFunc->Operations().size()) {
-        APASS_LOG_ERROR_F(Elements::Function, "Operation index %zu out of bounds (total operations: %zu).", i, rootFunc->Operations().size());
+        APASS_LOG_ERROR_F(Elements::Function, "Operation index %zu out of bounds (total operations: %zu).", i,
+            rootFunc->Operations().size());
         return FAILED;
     }
-    auto& op = rootFunc->Operations()[i];
+    auto &op = rootFunc->Operations()[i];
     auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
     if (callAttr == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Failed to get CallOpAttribute for operation %zu (opcode: %s). %s", i, op.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to get CallOpAttribute for operation %zu (opcode: %s). %s", i,
+            op.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     callAttr->invokeInfo_->SetGraphType(esgGraphType);
@@ -383,13 +393,13 @@ bool IsAICPUOp(Operation &op) {
 }
 
 Status StaticSubgraphProcessor::CalOpCnt(size_t i, int32_t &cubeOpCnt, int32_t &vecOpCnt, int32_t &aicpuOpCnt) {
-    auto& nList = GetNList();
+    auto &nList = GetNList();
     for (size_t j = 0; j < nList[i].size(); j++) {
         if (IsCubeOp(*nList[i][j])) {
             cubeOpCnt += 1;
             continue;
         }
-        if(IsAICPUOp(*nList[i][j])){
+        if (IsAICPUOp(*nList[i][j])) {
             aicpuOpCnt += 1;
             continue;
         }
@@ -398,12 +408,12 @@ Status StaticSubgraphProcessor::CalOpCnt(size_t i, int32_t &cubeOpCnt, int32_t &
     return SUCCESS;
 }
 
-Status StaticSubgraphProcessor::HandleReadyStates(Function* rootFunc) {
+Status StaticSubgraphProcessor::HandleReadyStates(Function *rootFunc) {
     if (rootFunc == nullptr) {
         APASS_LOG_ERROR_F(Elements::Function, "Root function is nullptr.");
         return FAILED;
     }
-    auto& nList = GetNList();
+    auto &nList = GetNList();
     for (size_t i = 0; i < nList.size(); i++) {
         CoreType esgGraphType = CoreType::AIV;
         if (DetermineGraphType(i, esgGraphType) != SUCCESS) {
@@ -421,4 +431,4 @@ Status StaticSubgraphProcessor::HandleReadyStates(Function* rootFunc) {
     }
     return SUCCESS;
 }
-}
+} // namespace npu::tile_fwk

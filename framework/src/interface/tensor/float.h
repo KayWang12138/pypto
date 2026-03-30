@@ -26,7 +26,7 @@ constexpr int EXP_BIT_EIGHT = 8;
 constexpr int FRAC_BIT_SEVEN = 7;
 
 namespace npu::tile_fwk {
-template<typename TBase, uint32_t signBit, uint32_t expBit, uint32_t fracBit>
+template <typename TBase, uint32_t signBit, uint32_t expBit, uint32_t fracBit>
 class Float {
     TBase value;
 
@@ -60,9 +60,7 @@ class Float {
     static_assert(sizeof(TBase) * static_cast<uint32_t>(FloatExp::bitOfByte) >= signBit + expBit + fracBit,
         "Invalid bit for float");
 
-    static constexpr uint32_t BitOf(uint32_t n) {
-        return (1 << n) - 1;
-    }
+    static constexpr uint32_t BitOf(uint32_t n) { return (1 << n) - 1; }
 
     static constexpr uint32_t BaseFromFp32DivRound(uint32_t frac, uint32_t shift) {
         return (frac >> shift) + ((frac >> (shift - 1)) & 0x1);
@@ -92,9 +90,9 @@ class Float {
                 X < Hex half-ULP : Round down (keep the original high 7 bits)
                 X = Hex half-ULP : Round to the nearest even number
             */
-            constexpr uint32_t floatToBf16FracShift  = (static_cast<uint32_t>(FloatExp::fp32FracBit) - fracBit); // 16
+            constexpr uint32_t floatToBf16FracShift = (static_cast<uint32_t>(FloatExp::fp32FracBit) - fracBit); // 16
             uint32_t fracLastBit = (v32 >> floatToBf16FracShift) & 0x1;
-            uint32_t hexHalfUlp = (0x1 << (static_cast<uint32_t>(FloatExp::fp32FracBit) - fracBit - 1)) - 0x1;   // 0x7fff
+            uint32_t hexHalfUlp = (0x1 << (static_cast<uint32_t>(FloatExp::fp32FracBit) - fracBit - 1)) - 0x1; // 0x7fff
             uint32_t roundingBias = hexHalfUlp + fracLastBit;
             v32 += roundingBias;
             return (v32 >> floatToBf16FracShift);
@@ -117,7 +115,8 @@ class Float {
              */
             exp = 0;
             frac = 0;
-        } else if (exp32 < static_cast<uint32_t>(FloatExp::fp32ExpZero) + 1 - static_cast<uint32_t>(FloatExp::expZero)) {
+        } else if (exp32 <
+                   static_cast<uint32_t>(FloatExp::fp32ExpZero) + 1 - static_cast<uint32_t>(FloatExp::expZero)) {
             /*  Subnormal number:
              *      format: 0bS X...X 0...0 == 0bS 0...1 0...00
              *                  (fp32)            (fp)
@@ -125,16 +124,17 @@ class Float {
              *          ==>: X = fp32ExpZero + 1 - expZero
              *
              *      value: 0bS X...X Y...Y = 0bS 0...0 Z...Z
-             *      compute: (2 ^ (fp32FracBit) + Y) * 2 ^ (-fp32FracBit) * 2 ^ (X - fp32ExpZero) = Z * 2 ^ (-expZero + 1) * 2 ^ (-fracBit)
-             *          ==>: Z = (2 ^ (fp32FracBit) + Y) * 2 ^ (-fp32FracBit) * 2 ^ (X - fp32ExpZero) * 2 ^ (expZero - 1) * 2 ^(fracBit)
-             *                 = (2 ^ (fp32FracBit) + Y) * 2 ^ (-fp32FracBit + X - fp32ExpZero + expZero - 1 + fracBit)
-             *                 = (2 ^ (fp32FracBit) + Y) * 2 ^ -(fp32FracBit - X + fp32ExpZero - expZero + 1 - fracBit)
+             *      compute: (2 ^ (fp32FracBit) + Y) * 2 ^ (-fp32FracBit) * 2 ^ (X - fp32ExpZero) = Z * 2 ^ (-expZero +
+             * 1) * 2 ^ (-fracBit)
+             *          ==>: Z = (2 ^ (fp32FracBit) + Y) * 2 ^ (-fp32FracBit) * 2 ^ (X - fp32ExpZero) * 2 ^ (expZero -
+             * 1) * 2 ^(fracBit) = (2 ^ (fp32FracBit) + Y) * 2 ^ (-fp32FracBit + X - fp32ExpZero + expZero - 1 +
+             * fracBit) = (2 ^ (fp32FracBit) + Y) * 2 ^ -(fp32FracBit - X + fp32ExpZero - expZero + 1 - fracBit)
              */
             exp = 0;
             auto shift = static_cast<uint32_t>(FloatExp::fp32FracBit) - exp32 +
                          static_cast<uint32_t>(FloatExp::fp32ExpZero) - static_cast<uint32_t>(FloatExp::expZero) + 1 -
                          fracBit;
-            frac = BaseFromFp32DivRound((1 << static_cast<uint32_t>(FloatExp::fp32FracBit)) | frac32,  shift);
+            frac = BaseFromFp32DivRound((1 << static_cast<uint32_t>(FloatExp::fp32FracBit)) | frac32, shift);
         } else if (exp32 < static_cast<uint32_t>(FloatExp::fp32ExpZero) + BitOf(expBit) -
                                static_cast<uint32_t>(FloatExp::expZero)) {
             /*  Normal number:
@@ -235,9 +235,7 @@ public:
         InitFromFloat(static_cast<float>(fv));
     }
 
-    operator float() const {
-        return ToFloat();
-    }
+    operator float() const { return ToFloat(); }
 
     template <typename T>
     Float operator+(T fv) {
@@ -291,10 +289,9 @@ public:
             otherBase = fv.value;
         } else {
             float temp = static_cast<float>(fv);
-            otherBase = BaseFromFp32(*reinterpret_cast<const uint32_t*>(&temp));
+            otherBase = BaseFromFp32(*reinterpret_cast<const uint32_t *>(&temp));
         }
-        if ((thisBase & ~(1 << (expBit + fracBit))) == 0 &&
-            (otherBase & ~(1 << (expBit + fracBit))) == 0) {
+        if ((thisBase & ~(1 << (expBit + fracBit))) == 0 && (otherBase & ~(1 << (expBit + fracBit))) == 0) {
             return true;
         }
         if (isNaN(thisBase) || isNaN(otherBase)) {
@@ -332,4 +329,4 @@ public:
 using bfloat16 = Float<uint16_t, SIGN_BIT_ONE, EXP_BIT_EIGHT, FRAC_BIT_SEVEN>;
 using float16 = Float<uint16_t, SIGN_BIT_ONE, EXP_BIT_FIVE, FRAC_BIT_TEN>;
 
-}
+} // namespace npu::tile_fwk

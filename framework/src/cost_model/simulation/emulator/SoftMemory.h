@@ -31,18 +31,16 @@ public:
         size_t size;
         bool isFree;
         std::string regionType; // "heap", "stack", "data"
-        MemoryBlock(uintptr_t addr, size_t sz, bool free, const std::string& type)
+        MemoryBlock(uintptr_t addr, size_t sz, bool free, const std::string &type)
             : startAddr(addr), size(sz), isFree(free), regionType(type) {}
     };
-    static SoftMemory &Instance()
-    {
+    static SoftMemory &Instance() {
         static SoftMemory softMemory;
         return softMemory;
     }
 
     // 构造函数，初始化内存布局
-    SoftMemory()
-    {
+    SoftMemory() {
         // 模拟Linux内存布局
         // 0x00000000 - 0x08048000: 保留区域
         // 0x08048000 - 0x08049000: 代码段
@@ -71,8 +69,7 @@ public:
     }
 
     // 分配堆内存
-    uintptr_t AllocateHeap(size_t size)
-    {
+    uintptr_t AllocateHeap(size_t size) {
         if (!enable) {
             return 0;
         }
@@ -93,8 +90,7 @@ public:
     }
 
     // 分配栈内存
-    uintptr_t AllocateStack(size_t size)
-    {
+    uintptr_t AllocateStack(size_t size) {
         if (!enable) {
             return 0;
         }
@@ -116,8 +112,7 @@ public:
     }
 
     // 分配数据块
-    uintptr_t AllocateData(size_t size, const std::vector<uint8_t>& data)
-    {
+    uintptr_t AllocateData(size_t size, const std::vector<uint8_t> &data) {
         if (!enable) {
             return 0;
         }
@@ -126,14 +121,12 @@ public:
 
         // 按地址排序内存块
         std::sort(memoryBlocks.begin(), memoryBlocks.end(),
-            [](const MemoryBlock& a, const MemoryBlock& b) {
-                return a.startAddr < b.startAddr;
-            });
+            [](const MemoryBlock &a, const MemoryBlock &b) { return a.startAddr < b.startAddr; });
 
         // 寻找合适的空闲区域
         for (size_t i = 0; i < memoryBlocks.size() - 1; ++i) {
             uintptr_t gapStart = memoryBlocks[i].startAddr + memoryBlocks[i].size;
-            uintptr_t gapEnd = memoryBlocks[i+1].startAddr;
+            uintptr_t gapEnd = memoryBlocks[i + 1].startAddr;
             size_t gapSize = gapEnd - gapStart;
 
             if (gapSize >= size) {
@@ -160,12 +153,11 @@ public:
     }
 
     // 释放内存
-    void Deallocate(uintptr_t addr)
-    {
+    void Deallocate(uintptr_t addr) {
         auto it = memoryMap.find(addr);
         if (it != memoryMap.end()) {
             // 标记为空闲
-            for (auto& block : memoryBlocks) {
+            for (auto &block : memoryBlocks) {
                 if (block.startAddr == addr) {
                     block.isFree = true;
                     break;
@@ -178,24 +170,19 @@ public:
     }
 
     // 打印内存布局
-    void PrintMemoryLayout() const
-    {
+    void PrintMemoryLayout() const {
         std::cout << "Memory Layout:\n";
         std::cout << "--------------------------------------------------\n";
 
         // 按地址排序内存块
         std::vector<MemoryBlock> sorted_blocks = memoryBlocks;
         std::sort(sorted_blocks.begin(), sorted_blocks.end(),
-            [](const MemoryBlock& a, const MemoryBlock& b) {
-                return a.startAddr < b.startAddr;
-            });
+            [](const MemoryBlock &a, const MemoryBlock &b) { return a.startAddr < b.startAddr; });
 
-        for (const auto& block : sorted_blocks) {
-            std::cout << "0x" << std::hex << block.startAddr << " - 0x"
-                        << (block.startAddr + block.size) << " ("
-                        << std::dec << block.size << " bytes) "
-                        << block.regionType
-                        << (block.isFree ? " [FREE]" : " [USED]") << "\n";
+        for (const auto &block : sorted_blocks) {
+            std::cout << "0x" << std::hex << block.startAddr << " - 0x" << (block.startAddr + block.size) << " ("
+                      << std::dec << block.size << " bytes) " << block.regionType
+                      << (block.isFree ? " [FREE]" : " [USED]") << "\n";
         }
 
         std::cout << "--------------------------------------------------\n";
@@ -204,10 +191,8 @@ public:
         std::cout << "--------------------------------------------------\n";
     }
 
-    void Enable()
-    {
-        enable = true;
-    }
+    void Enable() { enable = true; }
+
 private:
     std::map<uintptr_t, std::vector<uint8_t>> memoryMap;
     std::vector<MemoryBlock> memoryBlocks;
@@ -217,4 +202,4 @@ private:
     uintptr_t stackEnd;
     bool enable = false;
 };
-}
+} // namespace CostModel

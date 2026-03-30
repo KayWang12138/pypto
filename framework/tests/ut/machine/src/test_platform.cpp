@@ -34,13 +34,9 @@ public:
         unsetenv("ASCEND_AICPU_PATH");
     }
 
-    void SetUp() override {
-        std::cout << "PlatformTest SetUp" << std::endl;
-    }
+    void SetUp() override { std::cout << "PlatformTest SetUp" << std::endl; }
 
-    void TearDown() override {
-        std::cout << "PlatformTest TearDown" << std::endl;
-    }
+    void TearDown() override { std::cout << "PlatformTest TearDown" << std::endl; }
 };
 
 TEST_F(PlatformTest, TestPlatfromCase1) {

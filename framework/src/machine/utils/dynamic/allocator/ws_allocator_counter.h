@@ -63,13 +63,9 @@ public:
         dumpInfo.memReqCounter[std::make_pair(allocation.category_, allocation.rawMemReq_)]++;
     }
 
-    void Rewind() {
-        currWindowIdx_ = 0;
-    }
+    void Rewind() { currWindowIdx_ = 0; }
 
-    void MarkAsNewStitchWindow() {
-        currWindowIdx_++;
-    }
+    void MarkAsNewStitchWindow() { currWindowIdx_++; }
 
     void DumpStitchWindowMemoryUsage() const {
         DEV_MEM_DUMP("Stitch Window Memory Usage:\n");
@@ -103,14 +99,10 @@ public:
                     sheet.AddRowSeparator(1);
                 }
                 for (auto &&[memInfo, cnt] : dumpInfo.memReqCounter) {
-                    sheet.AddRow(
-                        isFirstLine ? rangeToString(i, lastEqual) : std::string{},
+                    sheet.AddRow(isFirstLine ? rangeToString(i, lastEqual) : std::string{},
                         isFirstLine2 ? rootFuncName : std::string{},
-                        isFirstLine2 ? sheet::Integer(dumpInfo.cnt) : std::string{},
-                        GetCategoryName(memInfo.first),
-                        memInfo.second,
-                        cnt
-                    );
+                        isFirstLine2 ? sheet::Integer(dumpInfo.cnt) : std::string{}, GetCategoryName(memInfo.first),
+                        memInfo.second, cnt);
                     isFirstLine = false;
                     isFirstLine2 = false;
                 }
@@ -122,14 +114,9 @@ public:
                 }
                 bool isFirstLine2 = true;
                 for (auto &&[memInfo, cnt] : windowInfo.aicpuMemInfo) {
-                    sheet.AddRow(
-                        isFirstLine ? rangeToString(i, lastEqual) : std::string{},
-                        isFirstLine2 ? "N/A (Metadata)" : "",
-                        isFirstLine2 ? "N/A" : "",
-                        GetCategoryName(memInfo.first),
-                        memInfo.second,
-                        cnt
-                    );
+                    sheet.AddRow(isFirstLine ? rangeToString(i, lastEqual) : std::string{},
+                        isFirstLine2 ? "N/A (Metadata)" : "", isFirstLine2 ? "N/A" : "", GetCategoryName(memInfo.first),
+                        memInfo.second, cnt);
                     isFirstLine = false;
                     isFirstLine2 = false;
                 }
@@ -171,9 +158,7 @@ public:
         statistics_.totalMemReq += allocation.rawMemReq_;
     }
 
-    void LogDealloc(WsAllocation allocation) {
-        statistics_.totalMemReq -= allocation.rawMemReq_;
-    }
+    void LogDealloc(WsAllocation allocation) { statistics_.totalMemReq -= allocation.rawMemReq_; }
 
     void Merge(const WsAllocatorCounter &oth) {
         for (auto &&[key, value] : oth.memReqCounter_) {
@@ -182,13 +167,9 @@ public:
         statistics_.totalMemReq += oth.statistics_.totalMemReq;
     }
 
-    size_t TotalMemReq() const {
-        return statistics_.totalMemReq;
-    }
+    size_t TotalMemReq() const { return statistics_.totalMemReq; }
 
-    void Reset() {
-        memReqCounter_.clear();
-    }
+    void Reset() { memReqCounter_.clear(); }
 
     void DelayedDumpAsRootFuncAndReset(DelayedDumper &dumper, const char *rootFuncName) {
         dumper.AddRootFuncDump(rootFuncName, std::move(memReqCounter_));
@@ -217,9 +198,7 @@ public:
         (void)memReqs;
     }
 
-    void AddAicpuMemDump(const std::map<std::pair<WsMemCategory, size_t>, uint32_t> &memReqs) {
-        (void)memReqs;
-    }
+    void AddAicpuMemDump(const std::map<std::pair<WsMemCategory, size_t>, uint32_t> &memReqs) { (void)memReqs; }
 
     void LogTensorMalloc(std::string name, WsAllocation allocation) {
         (void)name;
@@ -235,17 +214,11 @@ public:
 
 class WsAllocatorCounter {
 public:
-    void LogMalloc(WsAllocation allocation) {
-        (void)allocation;
-    }
+    void LogMalloc(WsAllocation allocation) { (void)allocation; }
 
-    void LogDealloc(WsAllocation allocation) {
-        (void)allocation;
-    }
+    void LogDealloc(WsAllocation allocation) { (void)allocation; }
 
-    void Merge(const WsAllocatorCounter &oth) {
-        (void)oth;
-    }
+    void Merge(const WsAllocatorCounter &oth) { (void)oth; }
 
     size_t TotalMemReq() const { return 0; }
 
@@ -256,9 +229,7 @@ public:
         (void)rootFuncName;
     }
 
-    void DelayedDumpAsAicpuCounterAndReset(DelayedDumper &dumper) {
-        (void)dumper;
-    }
+    void DelayedDumpAsAicpuCounterAndReset(DelayedDumper &dumper) { (void)dumper; }
 };
 
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL

@@ -206,8 +206,8 @@ static bool resultCmpCast(const vector<Ts> &x, const vector<Td> &outDataValExp, 
 }
 
 template <typename T>
-static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outDataValAct, size_t selectedCount,
-    float ratio) {
+static bool resultCmp4TopK(
+    const std::vector<T> &outDataValExp, const T *outDataValAct, size_t selectedCount, float ratio) {
     size_t data_size = outDataValExp.size();
     bool precision = true;
 
@@ -225,20 +225,20 @@ static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outData
 
         if (expVal != actVal) {
             if (part_result_dict.find(part_index) == part_result_dict.end()) {
-                part_result_dict[part_index] = { {}, {} };
+                part_result_dict[part_index] = {{}, {}};
             }
             part_result_dict[part_index].first.push_back(expVal);
             part_result_dict[part_index].second.push_back(actVal);
         }
 
         if (idx % selectedCount == 0) {
-            all_result_dict[part_index] = { {}, {} };
+            all_result_dict[part_index] = {{}, {}};
         }
         all_result_dict[part_index].first.push_back(expVal);
         all_result_dict[part_index].second.push_back(actVal);
     }
 
-    for (const auto& [idx_index, result_pair]: part_result_dict) {
+    for (const auto &[idx_index, result_pair] : part_result_dict) {
         (void)idx_index;
         std::vector<T> exp_list = result_pair.first;
         std::vector<T> act_list = result_pair.second;
@@ -248,7 +248,7 @@ static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outData
 
         size_t error_count = 0;
         std::vector<T> error_list;
-        for (T tok_id: exp_list) {
+        for (T tok_id : exp_list) {
             if (std::find(act_list.begin(), act_list.end(), tok_id) == act_list.end()) {
                 error_count++;
                 error_list.push_back(tok_id);
@@ -266,17 +266,25 @@ static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outData
                 if (it != exp_list_ori.end()) {
                     pos_idx = std::distance(exp_list_ori.begin(), it);
                 }
-                std::cout << "err idx: " << pos_idx << ", exp->" << expValue << ", act->" << act_list_ori[pos_idx] << std::endl;
+                std::cout << "err idx: " << pos_idx << ", exp->" << expValue << ", act->" << act_list_ori[pos_idx]
+                          << std::endl;
             }
             // break;
         }
     }
-    std::cout << "result is " << (precision ? "\033[32m""PASS""\033[0m" : "\033[31m""FAILED""\033[0m") << std::endl;
+    std::cout << "result is "
+              << (precision ? "\033[32m"
+                              "PASS"
+                              "\033[0m" :
+                              "\033[31m"
+                              "FAILED"
+                              "\033[0m")
+              << std::endl;
     return precision;
 }
 
 template <typename T = float>
-static bool resultCmp(const T* outDataValExp, const T *outDataValAct, size_t eSize, float eps, size_t threshold = 0,
+static bool resultCmp(const T *outDataValExp, const T *outDataValAct, size_t eSize, float eps, size_t threshold = 0,
     size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0) {
     //
     threshold = threshold == 0 ? static_cast<int>(eSize * eps) : threshold;
@@ -432,13 +440,13 @@ static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, fl
 
 template <typename T = float>
 static bool resultCmpPrint(const vector<T> &outDataValExp, const T *outDataValAct, float eps, size_t testNum = 0) {
-    return resultCmp(outDataValExp, outDataValAct,eps,8,1000,false,false,testNum);
+    return resultCmp(outDataValExp, outDataValAct, eps, 8, 1000, false, false, testNum);
 }
 
 template <typename T = float>
-static bool resultCmpAbsDelta(const vector<T> &outDataValExp, const T *outDataValAct, float absDelta, size_t threshold = 0,
-    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0) {
-
+static bool resultCmpAbsDelta(const vector<T> &outDataValExp, const T *outDataValAct, float absDelta,
+    size_t threshold = 0, size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false,
+    size_t testNum = 0) {
     float maxDiff = 0;
     float maxDiffRatio = 0;
     size_t zeroCount = 0;
@@ -464,8 +472,8 @@ static bool resultCmpAbsDelta(const vector<T> &outDataValExp, const T *outDataVa
         }
 
         if ((printAll) || (eErr && printErr) || (testNum > 0)) {
-            std::cout << "abs diff threshold: " << absDelta << ", idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal
-                      << ", diff->" << diff << ", diff ratio->" << relRatio << ", zero count->" << zeroCount
+            std::cout << "abs diff threshold: " << absDelta << ", idx: " << eIdx << ", exp->" << expVal << ", act->"
+                      << actVal << ", diff->" << diff << ", diff ratio->" << relRatio << ", zero count->" << zeroCount
                       << ", zero threshold->" << zeroCountThreshold << std::endl;
         }
         rst = !((errCount > threshold || zeroCount > zeroCountThreshold));
@@ -499,8 +507,8 @@ static bool resultCmpAbsDelta(const vector<T> &outDataValExp, const T *outDataVa
         }
 
         if (eErr) {
-            std::cout << "abs diff threshold: " << absDelta << ", idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal
-                      << ", diff->" << diff << ", diff ratio->" << relRatio << ", zero count->" << zeroCount
+            std::cout << "abs diff threshold: " << absDelta << ", idx: " << eIdx << ", exp->" << expVal << ", act->"
+                      << actVal << ", diff->" << diff << ", diff ratio->" << relRatio << ", zero count->" << zeroCount
                       << ", zero threshold->" << zeroCountThreshold << std::endl;
         }
         rst = !((errCount > threshold || zeroCount > zeroCountThreshold));

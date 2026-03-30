@@ -69,7 +69,8 @@ size_t BufferPool::ObtainStartAddr(size_t i, const std::vector<std::tuple<int, s
     return std::get<START_ADDR_IDX>(allocatedBufs[i - 1]);
 }
 
-size_t BufferPool::UpdateIdx(size_t &i, size_t sizeNeedSpill, size_t startAddr, const std::vector<std::tuple<int, size_t, size_t>> &allocatedBufs) {
+size_t BufferPool::UpdateIdx(size_t &i, size_t sizeNeedSpill, size_t startAddr,
+    const std::vector<std::tuple<int, size_t, size_t>> &allocatedBufs) {
     size_t j = i;
     while (j < allocatedBufs.size() && (std::get<1>(allocatedBufs[j]) - startAddr) < sizeNeedSpill) {
         j += 1;
@@ -122,7 +123,7 @@ std::vector<int> BufferPool::GetBufferSlices() {
     return res;
 }
 
-Status BufferPool::MakeBufferSlice(LocalBufferPtr tensor, BufferSlice& newSlice) {
+Status BufferPool::MakeBufferSlice(LocalBufferPtr tensor, BufferSlice &newSlice) {
     newSlice.size = tensor->size;
     if (bufferSlices.find(tensor->id) != bufferSlices.end()) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%d] already alloc in bufferSlices.", tensor->id);
@@ -131,12 +132,13 @@ Status BufferPool::MakeBufferSlice(LocalBufferPtr tensor, BufferSlice& newSlice)
     bufferSlices[tensor->id] = newSlice;
     tensor->start = newSlice.offset;
     tensor->end = newSlice.offset + newSlice.size;
-    APASS_LOG_DEBUG_F(Elements::Tensor, " Allocate Tensor[%d], range [%lu, %lu].",
-        tensor->id, newSlice.offset, newSlice.size + newSlice.offset);
+    APASS_LOG_DEBUG_F(Elements::Tensor, " Allocate Tensor[%d], range [%lu, %lu].", tensor->id, newSlice.offset,
+        newSlice.size + newSlice.offset);
     return SUCCESS;
 }
 
-void BufferPool::SelectHeadAndTail(LocalBufferPtr tensor, bool &head, bool &tail, std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals) {
+void BufferPool::SelectHeadAndTail(
+    LocalBufferPtr tensor, bool &head, bool &tail, std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals) {
     for (auto &interval : freeIntervals) {
         if (interval.first < tensor->size) {
             continue;
@@ -152,12 +154,12 @@ void BufferPool::SelectHeadAndTail(LocalBufferPtr tensor, bool &head, bool &tail
     }
 }
 
-
 Status BufferPool::Allocate(LocalBufferPtr tensor) {
     std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals = FindFreeIntervals();
     // size, {begin, end}
     // 创建新的bufferSlice
-    if (tensor->memType == MemoryType::MEM_L0A || tensor->memType == MemoryType::MEM_L0B || tensor->memType == MemoryType::MEM_L0C) {
+    if (tensor->memType == MemoryType::MEM_L0A || tensor->memType == MemoryType::MEM_L0B ||
+        tensor->memType == MemoryType::MEM_L0C) {
         bool headFree = false;
         bool tailFree = false;
         SelectHeadAndTail(tensor, headFree, tailFree, freeIntervals);
@@ -202,9 +204,8 @@ std::vector<int> BufferPool::GetAddrSortedBufs() {
         (void)slice;
         memIds.push_back(memId);
     }
-    std::sort(memIds.begin(), memIds.end(), [&](int a, int b) {
-        return bufferSlices[a].offset < bufferSlices[b].offset;
-    });
+    std::sort(
+        memIds.begin(), memIds.end(), [&](int a, int b) { return bufferSlices[a].offset < bufferSlices[b].offset; });
     return memIds;
 }
 
@@ -275,7 +276,7 @@ bool BufferPool::CheckBufferSlicesOverlap() {
     }
     std::vector<BufferSlice> items;
     items.reserve(bufferSlices.size());
-    for (const auto& kv : bufferSlices) {
+    for (const auto &kv : bufferSlices) {
         items.push_back(kv.second);
     }
     std::sort(items.begin(), items.end(), [](BufferSlice &a, BufferSlice &b) {
@@ -321,10 +322,7 @@ Status BufferPool::CompactBufferSlices(std::unordered_map<int, LocalBufferPtr> &
     }
     // 收集并按原 size 从大到小排序
     std::vector<std::pair<int, BufferSlice>> items(bufferSlices.begin(), bufferSlices.end());
-    std::sort(items.begin(), items.end(),
-              [](const auto &a, const auto &b) {
-                  return a.second.size > b.second.size;
-              });
+    std::sort(items.begin(), items.end(), [](const auto &a, const auto &b) { return a.second.size > b.second.size; });
 
     // 紧凑重排
     uint64_t cursor = 0;
@@ -348,7 +346,8 @@ Status BufferPool::CompactBufferSlices(std::unordered_map<int, LocalBufferPtr> &
             localBuffer->start = newOff;
             localBuffer->end = newOff + localBuffer->size;
         } else {
-            APASS_LOG_WARN_F(Elements::Tensor, "CompactBufferSlices: missing LocalBufferPtr for memId=%d, only updated bufferSlices offset", memId);
+            APASS_LOG_WARN_F(Elements::Tensor,
+                "CompactBufferSlices: missing LocalBufferPtr for memId=%d, only updated bufferSlices offset", memId);
         }
     }
     if (CheckBufferSlicesOverlap()) {
@@ -357,31 +356,29 @@ Status BufferPool::CompactBufferSlices(std::unordered_map<int, LocalBufferPtr> &
     return SUCCESS;
 }
 
-
 void BufferPool::PrintStatus() {
     std::vector<int> memIdList;
     for (auto &[memId, slice] : bufferSlices) {
         (void)slice;
         memIdList.push_back(memId);
     }
-    std::sort(memIdList.begin(), memIdList.end(), [&](int a, int b) {
-        return bufferSlices[a].offset < bufferSlices[b].offset;
-    });
+    std::sort(memIdList.begin(), memIdList.end(),
+        [&](int a, int b) { return bufferSlices[a].offset < bufferSlices[b].offset; });
 
     uint64_t lastEnd = 0;
     for (auto memId : memIdList) {
         auto &slice = bufferSlices[memId];
         if (slice.offset != lastEnd) {
-            APASS_LOG_DEBUG_F(Elements::Tensor, "      |--- Space : [%lu, %lu], Size : %lu",
-                lastEnd, slice.offset, slice.offset - lastEnd);
+            APASS_LOG_DEBUG_F(Elements::Tensor, "      |--- Space : [%lu, %lu], Size : %lu", lastEnd, slice.offset,
+                slice.offset - lastEnd);
         }
-        APASS_LOG_DEBUG_F(Elements::Tensor, "  |--- MemId : %d, Span : [%lu, %lu], Size : %lu", memId,
-            slice.offset, slice.offset + slice.size, slice.size);
+        APASS_LOG_DEBUG_F(Elements::Tensor, "  |--- MemId : %d, Span : [%lu, %lu], Size : %lu", memId, slice.offset,
+            slice.offset + slice.size, slice.size);
         lastEnd = slice.offset + slice.size;
     }
     if (lastEnd != memSize_) {
-        APASS_LOG_DEBUG_F(Elements::Tensor, "      |--- Space : [%lu, %lu], Size : %lu",
-            lastEnd, memSize_, memSize_ - lastEnd);
+        APASS_LOG_DEBUG_F(
+            Elements::Tensor, "      |--- Space : [%lu, %lu], Size : %lu", lastEnd, memSize_, memSize_ - lastEnd);
     }
 }
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

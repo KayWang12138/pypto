@@ -73,7 +73,8 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
 
     if (mode == OutType::BIT && cur == result->shape.size() - 1) {
         step = vecTile[cur] / NUM_VALUE_8;
-        if (step < 1) step = 1;
+        if (step < 1)
+            step = 1;
 
         int64_t actualInputStep = step * NUM_VALUE_8;
 
@@ -206,9 +207,9 @@ LogicalTensorPtr TensorCompareOperationScalar(
     return result;
 }
 
-LogicalTensorPtr TensorCompareOperationScalar(Function& function, const Element& value, const Tensor& operand1,
-    OpType operation, OutType mode) {
-    switch(operation) {
+LogicalTensorPtr TensorCompareOperationScalar(
+    Function &function, const Element &value, const Tensor &operand1, OpType operation, OutType mode) {
+    switch (operation) {
         case OpType::LT: operation = OpType::GT; break;
         case OpType::GT: operation = OpType::LT; break;
         case OpType::LE: operation = OpType::GE; break;
@@ -271,7 +272,8 @@ void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size
 
     if (mode == OutType::BIT && cur == result->shape.size() - 1) {
         step = vecTile[cur] / NUM_VALUE_8;
-        if (step < 1) step = 1;
+        if (step < 1)
+            step = 1;
 
         int64_t actualInputStep = step * NUM_VALUE_8;
 

@@ -28,16 +28,17 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
     Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut,
     PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1, bool isNzFormat = false);
 
-void PageAttentionWithImmScalar(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
-    std::vector<std::vector<int>>  &blockTable, std::vector<int> &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut,
-    PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1, bool isNzFormat = false);
+void PageAttentionWithImmScalar(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope,
+    Tensor &kRopeCache, std::vector<std::vector<int>> &blockTable, std::vector<int> &actSeqs, int blockSize,
+    float softmaxScale, Tensor &attentionOut, PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1,
+    bool isNzFormat = false);
 
-void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
-    Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut,
+void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope,
+    Tensor &kRopeCache, Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut,
     PaTileShapeConfig &tileConfig, int maxUnrollTimes);
 
-void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
-    Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut,
+void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope,
+    Tensor &kRopeCache, Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut,
     PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1);
 } // namespace npu::tile_fwk
 

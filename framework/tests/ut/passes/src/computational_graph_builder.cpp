@@ -18,9 +18,8 @@
 namespace npu {
 namespace tile_fwk {
 
-bool ComputationalGraphBuilder::AddTensor(DataType dataType, const std::vector<int64_t>& tileShape,
-                                          const std::string& name)
-{
+bool ComputationalGraphBuilder::AddTensor(
+    DataType dataType, const std::vector<int64_t> &tileShape, const std::string &name) {
     if (tensors_.count(name) > 0) {
         return false;
     }
@@ -32,10 +31,9 @@ bool ComputationalGraphBuilder::AddTensor(DataType dataType, const std::vector<i
     return true;
 }
 
-bool ComputationalGraphBuilder::AddTensor(DataType dataType, const std::vector<int64_t>& tileShape,
-                                          MemoryType memType, const std::string& name, int subGraphID)
-{
-    (void) subGraphID;
+bool ComputationalGraphBuilder::AddTensor(DataType dataType, const std::vector<int64_t> &tileShape, MemoryType memType,
+    const std::string &name, int subGraphID) {
+    (void)subGraphID;
     if (!AddTensor(dataType, tileShape, name)) {
         return false;
     }
@@ -47,9 +45,8 @@ bool ComputationalGraphBuilder::AddTensor(DataType dataType, const std::vector<i
     return true;
 }
 
-bool ComputationalGraphBuilder::AddTensors(DataType dataType, const std::vector<int64_t>& tileShape,
-                                           const std::vector<std::string>& names)
-{
+bool ComputationalGraphBuilder::AddTensors(
+    DataType dataType, const std::vector<int64_t> &tileShape, const std::vector<std::string> &names) {
     for (auto &name : names) {
         if (!AddTensor(dataType, tileShape, name)) {
             return false;
@@ -58,10 +55,8 @@ bool ComputationalGraphBuilder::AddTensors(DataType dataType, const std::vector<
     return true;
 }
 
-bool ComputationalGraphBuilder::AddTensors(DataType dataType, const std::vector<int64_t>& tileShape,
-                                           const std::vector<MemoryType>& memTypes,
-                                           const std::vector<std::string>& names, int subGraphID)
-{
+bool ComputationalGraphBuilder::AddTensors(DataType dataType, const std::vector<int64_t> &tileShape,
+    const std::vector<MemoryType> &memTypes, const std::vector<std::string> &names, int subGraphID) {
     if (memTypes.size() != names.size()) {
         return false;
     }
@@ -73,10 +68,8 @@ bool ComputationalGraphBuilder::AddTensors(DataType dataType, const std::vector<
     return true;
 }
 
-bool ComputationalGraphBuilder::AddOp(Opcode opcode, const std::vector<std::string>& ioperands,
-                                      const std::vector<std::string>& ooperands, const std::string& name,
-                                      bool updateFunctionMap)
-{
+bool ComputationalGraphBuilder::AddOp(Opcode opcode, const std::vector<std::string> &ioperands,
+    const std::vector<std::string> &ooperands, const std::string &name, bool updateFunctionMap) {
     if (operations_.count(name) > 0) {
         return false;
     }
@@ -97,23 +90,20 @@ bool ComputationalGraphBuilder::AddOp(Opcode opcode, const std::vector<std::stri
     Operation &op = function->AddRawOperation(opcode, itensors, otensors, updateFunctionMap);
     if (op.GetOpcode() == Opcode::OP_COPY_IN) {
         auto shapeImme = OpImmediate::Specified(itensors[0]->GetShape());
-        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            OpImmediate::Specified({0, 0}), otensors[0]->GetMemoryTypeOriginal(), shapeImme, shapeImme,
-            std::vector<OpImmediate>()));
+        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
+            otensors[0]->GetMemoryTypeOriginal(), shapeImme, shapeImme, std::vector<OpImmediate>()));
     } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
         auto shapeImme = OpImmediate::Specified(itensors[0]->GetShape());
-        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(itensors[0]->GetMemoryTypeOriginal(),
-            OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
+        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+            itensors[0]->GetMemoryTypeOriginal(), OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
     }
     operations_[name] = &op;
     return true;
 }
 
-bool ComputationalGraphBuilder::AddOps(const std::vector<Opcode>& opcodes,
-                                      const std::vector<std::vector<std::string>>& ioperandss,
-                                      const std::vector<std::vector<std::string>>& ooperandss,
-                                      const std::vector<std::string>& names, bool updateFunctionMap)
-{
+bool ComputationalGraphBuilder::AddOps(const std::vector<Opcode> &opcodes,
+    const std::vector<std::vector<std::string>> &ioperandss, const std::vector<std::vector<std::string>> &ooperandss,
+    const std::vector<std::string> &names, bool updateFunctionMap) {
     if (opcodes.size() != ioperandss.size() || opcodes.size() != ooperandss.size() || opcodes.size() != names.size()) {
         return false;
     }
@@ -125,8 +115,7 @@ bool ComputationalGraphBuilder::AddOps(const std::vector<Opcode>& opcodes,
     return true;
 }
 
-bool ComputationalGraphBuilder::SetInCast(std::vector<std::string> ioperands)
-{
+bool ComputationalGraphBuilder::SetInCast(std::vector<std::string> ioperands) {
     std::vector<std::shared_ptr<LogicalTensor>> itensors;
     for (auto iop : ioperands) {
         if (tensors_.count(iop) == 0) {
@@ -139,8 +128,7 @@ bool ComputationalGraphBuilder::SetInCast(std::vector<std::string> ioperands)
     return true;
 }
 
-bool ComputationalGraphBuilder::SetOutCast(std::vector<std::string> ooperands)
-{
+bool ComputationalGraphBuilder::SetOutCast(std::vector<std::string> ooperands) {
     std::vector<std::shared_ptr<LogicalTensor>> otensors;
     for (auto oop : ooperands) {
         if (tensors_.count(oop) == 0) {
@@ -153,21 +141,18 @@ bool ComputationalGraphBuilder::SetOutCast(std::vector<std::string> ooperands)
     return true;
 }
 
-Function *ComputationalGraphBuilder::GetFunction()
-{
+Function *ComputationalGraphBuilder::GetFunction() {
     return function;
 }
 
-Operation *ComputationalGraphBuilder::GetOp(const std::string& name)
-{
+Operation *ComputationalGraphBuilder::GetOp(const std::string &name) {
     if (operations_.count(name) == 0) {
         return nullptr;
     }
     return operations_[name];
 }
 
-std::shared_ptr<LogicalTensor> ComputationalGraphBuilder::GetTensor(const std::string& name)
-{
+std::shared_ptr<LogicalTensor> ComputationalGraphBuilder::GetTensor(const std::string &name) {
     if (tensors_.count(name) == 0) {
         return nullptr;
     }

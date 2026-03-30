@@ -61,7 +61,7 @@ inline int GetExpandDim(const std::vector<int64_t> &lhsShape, const std::vector<
     return -1;
 }
 
-Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, Operation &op) {
+Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function &function, Operation &op) {
     auto inputTensor = op.GetIOperands();
     auto inTensor0 = inputTensor[0];
     auto inTensor1 = inputTensor[1];
@@ -85,17 +85,20 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, O
                 if (AlignedIfNeed(alignedShape.back(), padValue) != SUCCESS) {
                     return FAILED;
                 }
-                auto alignedTensor = std::make_shared<LogicalTensor>(function, srcTensor->Datatype(), alignedShape, srcTensor->Format());
+                auto alignedTensor =
+                    std::make_shared<LogicalTensor>(function, srcTensor->Datatype(), alignedShape, srcTensor->Format());
                 alignedTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
                 auto &brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
                 if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor)) {
                     brcb.SetOpCode(Opcode::OP_EXPAND);
-                    brcb.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", GetExpandDim(srcTensor->GetShape(), inputTensor[idx ^ 1]->GetShape()));
+                    brcb.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM",
+                        GetExpandDim(srcTensor->GetShape(), inputTensor[idx ^ 1]->GetShape()));
                     needMarkBrcInput = false;
                     if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
                         brcb.SetAttribute(OP_ATTR_PREFIX + "validShape", inputTensor[idx ^ 1]->GetDynValidShape());
                     } else {
-                        brcb.SetAttribute(OP_ATTR_PREFIX + "validShape", SymbolicScalar::FromConcrete(inputTensor[idx ^ 1]->GetShape()));
+                        brcb.SetAttribute(OP_ATTR_PREFIX + "validShape",
+                            SymbolicScalar::FromConcrete(inputTensor[idx ^ 1]->GetShape()));
                     }
                 }
                 brcb.UpdateSubgraphID(op.GetSubgraphID());
@@ -115,8 +118,9 @@ Status AxisCombine::Process(Function &function) {
     for (auto &op : function.Operations()) {
         if (InsertCondition(op.GetOpcode()) && op.GetIOperands().size() == INPUT_SIZE) {
             if (AlignBroadCastOpInputs(function, op) != SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "operation %d's aligned faild. %s", op.GetOpMagic(), op.GetOpcodeStr().c_str());
-                    return FAILED;
+                APASS_LOG_ERROR_F(Elements::Operation, "operation %d's aligned faild. %s", op.GetOpMagic(),
+                    op.GetOpcodeStr().c_str());
+                return FAILED;
             }
         }
     }

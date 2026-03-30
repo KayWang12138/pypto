@@ -28,11 +28,9 @@ using namespace npu::tile_fwk::dynamic;
 
 class RuntimeOutcastTensorTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-    }
+    void SetUp() override {}
 
-    void TearDown() override {
-    }
+    void TearDown() override {}
 };
 
 TEST_F(RuntimeOutcastTensorTest, ConstructAndFields) {
@@ -57,24 +55,25 @@ TEST_F(RuntimeOutcastTensorTest, DumpFormatWithZeroAddr) {
 
 TEST_F(RuntimeOutcastTensorTest, GetRuntimeTensorMemPropertyNameMatchesEnum) {
     EXPECT_STREQ(GetRuntimeTensorMemPropertyName(RuntimeTensorMemProperty::EXTERNAL), "EXTERNAL");
-    EXPECT_STREQ(GetRuntimeTensorMemPropertyName(RuntimeTensorMemProperty::DEVTASK_INNER_OUTCAST), "DEVTASK_INNER_OUTCAST");
+    EXPECT_STREQ(
+        GetRuntimeTensorMemPropertyName(RuntimeTensorMemProperty::DEVTASK_INNER_OUTCAST), "DEVTASK_INNER_OUTCAST");
     EXPECT_STREQ(GetRuntimeTensorMemPropertyName(RuntimeTensorMemProperty::BOUNDARY_OUTCAST), "BOUNDARY_OUTCAST");
 }
 
 // Helper to construct and initialize a DeviceWorkspaceAllocator with reasonable
 // metadata budgets so `InitAicpuStitchSlabAllocator` won't assert.
-static void InitDeviceWorkspaceAllocatorForTest(DeviceWorkspaceAllocator &d, DevAscendProgram &devProg,
-                                                std::vector<uint8_t> &workspace) {
+static void InitDeviceWorkspaceAllocatorForTest(
+    DeviceWorkspaceAllocator &d, DevAscendProgram &devProg, std::vector<uint8_t> &workspace) {
     DevStartArgs args;
 
     // Ensure stitch pool and general metadata are non-zero and large enough
-    devProg.memBudget.metadata.general = 1u << 18; // 256KB
+    devProg.memBudget.metadata.general = 1u << 18;    // 256KB
     devProg.memBudget.metadata.stitchPool = 1u << 16; // 64KB
 
     args.deviceRuntimeDataDesc.generalAddr = reinterpret_cast<uint64_t>(workspace.data());
     // Put stitch pool at an offset within the same workspace region
-    args.deviceRuntimeDataDesc.stitchPoolAddr = reinterpret_cast<uint64_t>(workspace.data()) +
-            devProg.memBudget.metadata.general; // offset 256KB
+    args.deviceRuntimeDataDesc.stitchPoolAddr =
+        reinterpret_cast<uint64_t>(workspace.data()) + devProg.memBudget.metadata.general; // offset 256KB
 
     devProg.devArgs.nrAic = 1;
     devProg.devArgs.nrAiv = 1;
@@ -550,10 +549,10 @@ TEST_F(RuntimeOutcastTensorTest, MixedSafeAndUnsafeOperations) {
     ItemPoolIter invalid = ITEM_POOL_INVALID_INDEX;
 
     // Mix safe and unsafe operations
-    d.RuntimeOutcastTensorRef(valid); // unsafe, should work
-    d.RuntimeOutcastTensorRefSafe(invalid); // safe, should not crash
+    d.RuntimeOutcastTensorRef(valid);         // unsafe, should work
+    d.RuntimeOutcastTensorRefSafe(invalid);   // safe, should not crash
     d.RuntimeOutcastTensorDerefSafe(invalid); // safe, should not crash
-    d.RuntimeOutcastTensorDeref(valid); // unsafe, should work
+    d.RuntimeOutcastTensorDeref(valid);       // unsafe, should work
 
     auto &t = d.GetRuntimeOutcastTensor(valid);
     EXPECT_EQ(t.refCnt, 1u);

@@ -33,9 +33,7 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
-        Program::GetInstance().Reset();
-    }
+    void SetUp() override { Program::GetInstance().Reset(); }
 
     void TearDown() override {}
 };
@@ -82,12 +80,12 @@ void TestAttentionPostUt(const TestPostParams &params, const PostTileConfig &til
     Tensor smoothWo;
     Tensor postOut(dType, outShape, "postOut");
 
-    if(isQuantWUv) {
+    if (isQuantWUv) {
         Tensor scale(DT_FP32, wUvScaleShape, "wUvScale");
-        wUvScale =scale;
-        if(isSmoothWuv) {
+        wUvScale = scale;
+        if (isSmoothWuv) {
             Tensor smooth(DT_FP32, smoothWUvShape, "smoothWUv");
-            smoothWUv =smooth;
+            smoothWUv = smooth;
         }
     }
     if (isQuantWo) {

@@ -132,7 +132,7 @@ Status GenerateMoveOp::ProcessL0AMX(Operation &op, ViewOpAttribute *viewOpAttrib
         prodOp->SetOpCode(Opcode::OP_L1_COPY_IN_A_SCALE);
         prodOp->SetCoreType(CoreType::AIC);
     }
-    SetCopyAttr(op,viewOpAttribute);
+    SetCopyAttr(op, viewOpAttribute);
     return SUCCESS;
 }
 
@@ -145,7 +145,7 @@ Status GenerateMoveOp::ProcessL0BMX(Operation &op, ViewOpAttribute *viewOpAttrib
         prodOp->SetOpCode(Opcode::OP_L1_COPY_IN_B_SCALE);
         prodOp->SetCoreType(CoreType::AIC);
     }
-    SetCopyAttr(op,viewOpAttribute);
+    SetCopyAttr(op, viewOpAttribute);
     return SUCCESS;
 }
 
@@ -178,21 +178,16 @@ Status GenerateMoveOp::A5CreateMoveOpForView(Function &function, Operation &op) 
     bool isGmInput = op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
     bool isGmOutput = op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
     if (isGmInput) {
-        //case1: VIEW转copyIn
+        // case1: VIEW转copyIn
         return ProcessGmInput(isGmOutput, op, viewOpAttribute);
     } else {
         auto dstMemType = op.oOperand.front()->GetMemoryTypeOriginal();
         switch (dstMemType) {
-            case MemoryType::MEM_L0A:
-                return ProcessL0A(op, viewOpAttribute);
-            case MemoryType::MEM_L0B:
-                return ProcessL0B(op, viewOpAttribute);
-            case MemoryType::MEM_L0AMX:
-                return ProcessL0AMX(op, viewOpAttribute);
-            case MemoryType::MEM_L0BMX:
-                return ProcessL0BMX(op, viewOpAttribute);
-            default:
-                return ProcessDefault(function, op, viewOpAttribute);
+            case MemoryType::MEM_L0A: return ProcessL0A(op, viewOpAttribute);
+            case MemoryType::MEM_L0B: return ProcessL0B(op, viewOpAttribute);
+            case MemoryType::MEM_L0AMX: return ProcessL0AMX(op, viewOpAttribute);
+            case MemoryType::MEM_L0BMX: return ProcessL0BMX(op, viewOpAttribute);
+            default: return ProcessDefault(function, op, viewOpAttribute);
         }
     }
     return SUCCESS;
@@ -243,7 +238,8 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
     auto outputMemtype = op.oOperand.front()->GetMemoryTypeOriginal();
     if (inputMemtype == MemoryType::MEM_L0C && outputMemtype == MemoryType::MEM_L1) {
         SetOpcodeByMemPath(op, inputMemtype, outputMemtype);
-        SetL0C2L1CopyAttr(op, op.GetIOperands()[0]->GetShape(), OpImmediate::Specified(ZERO_OFFSET), OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()));
+        SetL0C2L1CopyAttr(op, op.GetIOperands()[0]->GetShape(), OpImmediate::Specified(ZERO_OFFSET),
+            OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()));
         return;
     }
     if (inputMemtype == MemoryType::MEM_DEVICE_DDR || outputMemtype != MemoryType::MEM_DEVICE_DDR ||
@@ -270,7 +266,8 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op)
         ProcessUB2L1(function, op);
     }
     if (op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
-        SetL0C2L1CopyAttr(op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(ZERO_OFFSET), OpImmediate::Specified(ZERO_OFFSET));
+        SetL0C2L1CopyAttr(op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(ZERO_OFFSET),
+            OpImmediate::Specified(ZERO_OFFSET));
     }
     if (status != SUCCESS) {
         return status;
@@ -316,11 +313,15 @@ Status GenerateMoveOp::CreateMoveOp(Function &function) const {
             case Opcode::OP_VIEW: {
                 if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
                     Status status = A5CreateMoveOpForView(function, op);
-                    if(status != SUCCESS) {return status;}
+                    if (status != SUCCESS) {
+                        return status;
+                    }
                     break;
                 }
                 Status status = A23CreateMoveOpForView(function, op);
-                if(status != SUCCESS) {return status;}
+                if (status != SUCCESS) {
+                    return status;
+                }
                 break;
             }
             case Opcode::OP_CONVERT: {

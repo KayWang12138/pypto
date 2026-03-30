@@ -51,8 +51,7 @@ constexpr int NUM_512 = 512;
 constexpr int NUM_1024 = 1024;
 
 template <typename T = npu::tile_fwk::float16>
-void TestWinAttenUt(WinAttenTileShapeConfig& tileConfig) {
-
+void TestWinAttenUt(WinAttenTileShapeConfig &tileConfig) {
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::float16>::value) {
         dType = DT_FP16;
@@ -76,9 +75,9 @@ void TestWinAttenUt(WinAttenTileShapeConfig& tileConfig) {
     int maxBlock = (sMax + blockSize - 1) / blockSize;
     std::vector<int64_t> qNopeShape = {b * sQ * nQ, dN};
     std::vector<int64_t> qRopeShape = {b * sQ * nQ, dR};
-    std::vector<int64_t> vNopeCacheShape = {b * maxBlock * blockSize , nKV * dN};
-    std::vector<int64_t> kRopeCacheShape = {b * maxBlock * blockSize , nKV * dR};
-    std::vector<int64_t> attentionOutShape = {b ,sQ ,nQ, dN};
+    std::vector<int64_t> vNopeCacheShape = {b * maxBlock * blockSize, nKV * dN};
+    std::vector<int64_t> kRopeCacheShape = {b * maxBlock * blockSize, nKV * dR};
+    std::vector<int64_t> attentionOutShape = {b, sQ, nQ, dN};
     std::vector<int64_t> blockTableShape = {b, maxBlock};
 
     Tensor actSeqs(DT_INT32, {b}, "actSeqs");
@@ -89,8 +88,8 @@ void TestWinAttenUt(WinAttenTileShapeConfig& tileConfig) {
     Tensor blockTable(DT_INT32, blockTableShape, "blockTable");
     Tensor attentionOut(DT_FP32, attentionOutShape, "attentionOut");
 
-    WinAttentionDebug(qNope, vNopeCache, qRope, kRopeCache, nQ, nKV, blockTable, actSeqs, windowSize,
-        blockSize, softmaxScale, attentionOut, tileConfig);
+    WinAttentionDebug(qNope, vNopeCache, qRope, kRopeCache, nQ, nKV, blockTable, actSeqs, windowSize, blockSize,
+        softmaxScale, attentionOut, tileConfig);
 }
 
 TEST_F(DynamicTestWinAttenDebugUt, TestOnboardWinAttnTest_FP16) {
@@ -100,10 +99,12 @@ TEST_F(DynamicTestWinAttenDebugUt, TestOnboardWinAttnTest_FP16) {
     tileConfig.vNopeTileShape = {NUM_16, NUM_256};
     tileConfig.vRopeTileShape = {NUM_128, NUM_64};
     tileConfig.outTileShape = {NUM_16, NUM_256};
-    tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (s2Tile, dN+dR) -> (n1, s2Tile)
-    tileConfig.v1TileShape = {NUM_16, NUM_256}; // (n1, s2Tile)
-    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, s2Tile) @ (s2Tile, dN) -> (n1, d)
-    tileConfig.v2TileShape = {NUM_16, NUM_256}; // (n1, d)
+    tileConfig.c1TileShape = {
+        gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (s2Tile, dN+dR) -> (n1, s2Tile)
+    tileConfig.v1TileShape = {NUM_16, NUM_256};                  // (n1, s2Tile)
+    tileConfig.c2TileShape = {
+        gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, s2Tile) @ (s2Tile, dN) -> (n1, d)
+    tileConfig.v2TileShape = {NUM_16, NUM_256};                  // (n1, d)
     // WinConfig config;
     TestWinAttenUt<npu::tile_fwk::float16>(tileConfig);
 }

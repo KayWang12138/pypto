@@ -29,19 +29,24 @@ class SourceLocation {
 public:
     SourceLocation() = default;
     SourceLocation(const std::string &fname, int lineno) : fname_(fname), lineno_(lineno) {}
-    SourceLocation(const std::string &fname, int lineno, const std::string &backtrace) : fname_(fname), lineno_(lineno), backtrace_(backtrace){}
-    explicit SourceLocation(uint64_t pc) : fname_("??"), lineno_(-1), pc_(pc){};
+    SourceLocation(const std::string &fname, int lineno, const std::string &backtrace)
+        : fname_(fname), lineno_(lineno), backtrace_(backtrace) {}
+    explicit SourceLocation(uint64_t pc) : fname_("??"), lineno_(-1), pc_(pc) {};
 
     int GetLineno() const;
-    const std::string& GetFileName() const;
-    const std::string& GetBacktrace() const;
+    const std::string &GetFileName() const;
+    const std::string &GetBacktrace() const;
     std::string ToString() const { return GetFileName() + ":" + std::to_string(GetLineno()); }
 
 public:
     static void SetLocation(const void *pc) { callStack.push(GetLocation(reinterpret_cast<uint64_t>(pc))); }
     static void SetLocation(std::shared_ptr<SourceLocation> loc) { callStack.push(loc); }
-    static void SetLocation(const std::string &fname, int lineno) { callStack.push(std::make_shared<SourceLocation>(fname, lineno)); }
-    static void SetLocation(const std::string &fname, int lineno, const std::string &backtrace) { callStack.push(std::make_shared<SourceLocation>(fname, lineno, backtrace)); }
+    static void SetLocation(const std::string &fname, int lineno) {
+        callStack.push(std::make_shared<SourceLocation>(fname, lineno));
+    }
+    static void SetLocation(const std::string &fname, int lineno, const std::string &backtrace) {
+        callStack.push(std::make_shared<SourceLocation>(fname, lineno, backtrace));
+    }
     static void ClearLocation() { callStack.pop(); }
     static auto GetLocation() { return callStack.size() > 0 ? callStack.top() : nullptr; }
     static std::string GetLocationString() {

@@ -59,7 +59,9 @@ struct TopKParams {
     bool isLargest;
 };
 void TopKOnBoardFunc(TopKParams &params) {
-    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 1}});
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{
+                                                     {-1, 1}
+    });
 
     int32_t shape0 = params.shape0;
     int32_t shape1 = params.shape1;

@@ -22,7 +22,7 @@
 
 namespace TileOp {
 
-#define GET_CURRENT_TASKID()            ((param)->taskId)
+#define GET_CURRENT_TASKID() ((param)->taskId)
 
 #define AICPU_CALL_NUM_COPYOUT_RESOLVE 1
 #define AICPU_CALL_NUM_BIT 16

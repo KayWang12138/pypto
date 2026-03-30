@@ -36,37 +36,20 @@ constexpr int FUNCTION_MAX_INCASTS = 10000;
 
 inline const BiMap<FunctionType> &GetFunctionTypeNameDict() {
     static BiMap<FunctionType> dict{
-        {
-         {FunctionType::INVALID,                 "INVALID"},
-         {FunctionType::EAGER,                   "EAGER"},
-         {FunctionType::STATIC,                  "STATIC"},
-         {FunctionType::DYNAMIC,                 "DYNAMIC"},
-         {FunctionType::DYNAMIC_LOOP,            "DYNAMIC_LOOP"},
-         {FunctionType::DYNAMIC_LOOP_PATH,       "DYNAMIC_LOOP_PATH"}
-         }
+        {{FunctionType::INVALID, "INVALID"}, {FunctionType::EAGER, "EAGER"}, {FunctionType::STATIC, "STATIC"},
+         {FunctionType::DYNAMIC, "DYNAMIC"}, {FunctionType::DYNAMIC_LOOP, "DYNAMIC_LOOP"},
+         {FunctionType::DYNAMIC_LOOP_PATH, "DYNAMIC_LOOP_PATH"}}
     };
     return dict;
 }
 
-enum class GraphType {
-    TENSOR_GRAPH,
-    TILE_GRAPH,
-    EXECUTE_GRAPH,
-    BLOCK_GRAPH,
-    LEAF_VF_GRAPH,
-    INVALID
-};
+enum class GraphType { TENSOR_GRAPH, TILE_GRAPH, EXECUTE_GRAPH, BLOCK_GRAPH, LEAF_VF_GRAPH, INVALID };
 
 inline const BiMap<GraphType> &GetGraphTypeNameDict() {
     static BiMap<GraphType> dict{
-        {
-         {GraphType::TENSOR_GRAPH,     "TENSOR_GRAPH"},
-         {GraphType::TILE_GRAPH,       "TILE_GRAPH"},
-         {GraphType::EXECUTE_GRAPH,       "EXECUTE_GRAPH"},
-         {GraphType::BLOCK_GRAPH,       "BLOCK_GRAPH"},
-         {GraphType::LEAF_VF_GRAPH,    "LEAF_VF_GRAPH"},
-         {GraphType::INVALID,          "INVALID"}
-         }
+        {{GraphType::TENSOR_GRAPH, "TENSOR_GRAPH"}, {GraphType::TILE_GRAPH, "TILE_GRAPH"},
+         {GraphType::EXECUTE_GRAPH, "EXECUTE_GRAPH"}, {GraphType::BLOCK_GRAPH, "BLOCK_GRAPH"},
+         {GraphType::LEAF_VF_GRAPH, "LEAF_VF_GRAPH"}, {GraphType::INVALID, "INVALID"}}
     };
     return dict;
 }
@@ -90,14 +73,9 @@ struct FunctionCallArgs {
 
 using OperationDeleter = std::function<bool(std::shared_ptr<Operation> &, Function &)>;
 
-using TensorGraphInfo = std::tuple<
-    std::vector<LogicalTensors>,
-    std::vector<LogicalTensors>,
-    std::set<std::shared_ptr<Operation>>,
-    std::set<std::shared_ptr<Operation>>,
-    std::set<std::shared_ptr<LogicalTensor>>,
-    std::set<std::shared_ptr<LogicalTensor>>
->;
+using TensorGraphInfo = std::tuple<std::vector<LogicalTensors>, std::vector<LogicalTensors>,
+    std::set<std::shared_ptr<Operation>>, std::set<std::shared_ptr<Operation>>,
+    std::set<std::shared_ptr<LogicalTensor>>, std::set<std::shared_ptr<LogicalTensor>>>;
 
 class OperationsViewer {
     friend class SubgraphToFunction;
@@ -142,7 +120,7 @@ public:
     [[nodiscard]] std::vector<Operation *> DuplicatedOpList() const;
 
     [[nodiscard]] bool Contains(const Operation &op) const { return opPosition_.count(&op) > 0; }
-    [[nodiscard]]int GetOpPosition(const Operation &op) const {
+    [[nodiscard]] int GetOpPosition(const Operation &op) const {
         auto it = opPosition_.find(&op);
         if (it == opPosition_.end()) {
             ASSERT(false) << "Magic[" << op.opmagic << "] Op has not been found in opPosition.";
@@ -161,7 +139,8 @@ public:
             << "&op: " << reinterpret_cast<uintptr_t>(&op);
         return {it->second, true};
     }
-    [[nodiscard]] bool IsEmpty()const{ return operations_.empty(); }
+    [[nodiscard]] bool IsEmpty() const { return operations_.empty(); }
+
 private:
     const std::vector<std::shared_ptr<Operation>> &operations_;
     const std::unordered_map<const Operation *, int> &opPosition_;
@@ -169,16 +148,16 @@ private:
 
 struct LeafFuncAttribute {
     static constexpr int32_t INVALID_MIX_ID = -1;
-    std::string kernelName;    // 异构子图kernel函数名
+    std::string kernelName;             // 异构子图kernel函数名
     std::string kernelNameMainBlock;    // 异构子图kernel函数名(运行时选择主尾块场景中的主块)
     std::string binPath;                // 异构子图二进制文件路径
     std::string binPathMainBlock;       // 异构子图二进制文件路径(运行时选择主尾块场景中的主块)
-    std::string kernelDeclare; // 异构子图代码的kernel声明，用于后续整体调用
+    std::string kernelDeclare;          // 异构子图代码的kernel声明，用于后续整体调用
     std::string kernelDeclareMainBlock; // 异构子图代码的kernel声明，用于后续整体调用(运行时选择主尾块场景中的主块)
     CoreType coreType{CoreType::INVALID};
-    AIVCore aivCore{AIVCore::UNSPECIFIED};  // 表示Mix子图切完的vector子图放在AIV0核还是AIV1核，0=AIV0, 1=AIV1, -1=未指定
-    int32_t mixId{INVALID_MIX_ID};  // 表示哪些切完的leafFunction是从一个Mix子图切出来的
-    MixResourceType mixResourceType{MixResourceType::UNKNOWN};  // mix任务资源诉求是1c2v还是1c1v
+    AIVCore aivCore{AIVCore::UNSPECIFIED}; // 表示Mix子图切完的vector子图放在AIV0核还是AIV1核，0=AIV0, 1=AIV1, -1=未指定
+    int32_t mixId{INVALID_MIX_ID};         // 表示哪些切完的leafFunction是从一个Mix子图切出来的
+    MixResourceType mixResourceType{MixResourceType::UNKNOWN}; // mix任务资源诉求是1c2v还是1c1v
     std::vector<int32_t> aicpuLeafCode;
     std::vector<int> outcastCopyOutResolveCounterList;
     int copyOutResolveSize{0};
@@ -199,7 +178,8 @@ struct DynloopFunctionPathCondition {
     int GetLine() const { return line_; }
 
     DynloopFunctionPathCondition() {}
-    DynloopFunctionPathCondition(bool isSat, bool isConst, const SymbolicScalar &cond, const std::string &file, int line)
+    DynloopFunctionPathCondition(
+        bool isSat, bool isConst, const SymbolicScalar &cond, const std::string &file, int line)
         : isSat_(isSat), isConst_(isConst), cond_(cond), file_(file), line_(line) {}
 };
 
@@ -208,7 +188,8 @@ struct DynloopFunctionPath {
     std::vector<DynloopFunctionPathCondition> pathCondList;
     Operation *callop;
 
-    DynloopFunctionPath(Function *pathRoot, const std::vector<DynloopFunctionPathCondition> &pathConds, Operation *operation)
+    DynloopFunctionPath(
+        Function *pathRoot, const std::vector<DynloopFunctionPathCondition> &pathConds, Operation *operation)
         : root(pathRoot), pathCondList(pathConds), callop(operation) {}
 
     const std::vector<DynloopFunctionPathCondition> &GetPathCondList() const { return pathCondList; }
@@ -241,9 +222,13 @@ struct DynloopFunctionAttribute {
     std::vector<Operation *> underDynLoopCallOpGroup_;
     size_t currIndex{0};
 
-    DynloopFunctionAttribute(
-        const std::string &symbolName, const LoopRange &range, const LoopRange &originRange, bool submit = false, bool parallelMode = false)
- 	         : iterSymbolName(symbolName), loopRange(range), originalRange(originRange), submitBeforeLoop(submit), parallel(parallelMode) {}
+    DynloopFunctionAttribute(const std::string &symbolName, const LoopRange &range, const LoopRange &originRange,
+        bool submit = false, bool parallelMode = false)
+        : iterSymbolName(symbolName),
+          loopRange(range),
+          originalRange(originRange),
+          submitBeforeLoop(submit),
+          parallel(parallelMode) {}
 
     const std::string &IterSymbolName() { return iterSymbolName; }
     const SymbolicScalar &Begin() { return loopRange.Begin(); }
@@ -253,9 +238,7 @@ struct DynloopFunctionAttribute {
 
     std::shared_ptr<DynloopFunctionPathNode> BuildPathNode();
     std::string DumpBranch() const;
-    void IterationBegin() {
-        CreateCurrCond();
-    }
+    void IterationBegin() { CreateCurrCond(); }
 
     static bool IsLoopBeginCall(const SymbolicScalar &symbol) {
         if (!symbol.IsExpression()) {
@@ -292,10 +275,12 @@ struct DynloopFunctionAttribute {
         auto expr = std::static_pointer_cast<RawSymbolicExpression>(symbol.Raw());
         return expr->IsLoopBeginCall() || expr->IsLoopEndCall();
     }
-    std::vector<DynloopFunctionPathCondition> GenCondWithBeginEnd(const std::vector<DynloopFunctionPathCondition> &conds) const;
+    std::vector<DynloopFunctionPathCondition> GenCondWithBeginEnd(
+        const std::vector<DynloopFunctionPathCondition> &conds) const;
     bool IterationEnd(int unroll, Function *pathFunc, Operation *operation);
     bool AppendCond(const SymbolicScalar &cond, const std::string &file, int line);
     bool GuessCondResult(const SymbolicScalar &cond, bool &result);
+
 private:
     void CreateCurrCond();
 };
@@ -307,8 +292,8 @@ struct CceCodeInfo {
     uint32_t psgId;
     uint64_t funcHash;
     std::vector<int32_t> aicpuLeafCode;
-    int32_t wrapVecId {-1};
-    uint32_t mixResourceType {0};
+    int32_t wrapVecId{-1};
+    uint32_t mixResourceType{0};
 };
 
 struct OriArgInfo {
@@ -378,7 +363,8 @@ struct DyndevFunctionAttribute {
 
     struct ExpressionTableDictGroup {
         std::unordered_map<Function *, SymbolicExpressionTable> loopBesDict;
-        std::unordered_map<Function *, std::unordered_map<RawSymbolicScalarPtr, SymbolicExpressionTable>> loopPathCondDict;
+        std::unordered_map<Function *, std::unordered_map<RawSymbolicScalarPtr, SymbolicExpressionTable>>
+            loopPathCondDict;
         std::unordered_map<Function *, SymbolicExpressionTable> devRootCoaDict;
         std::unordered_map<Function *, std::unordered_map<Operation *, SymbolicExpressionTable>> devLeafOpDict;
     } exprTableDictGroup;
@@ -434,10 +420,9 @@ struct DyndevFunctionAttribute {
     std::map<int, uint64_t> devLeafIndex2Hash;
 };
 
+enum class DynParamInfoType { VALID_SHAPE, OFFSET, END };
 
-enum class DynParamInfoType{VALID_SHAPE, OFFSET, END};
-
-struct DynParamInfo{
+struct DynParamInfo {
     int dimSize;
     int tensorIndex;
     int tensorBaseAddrCoaIndex;
@@ -452,7 +437,7 @@ struct ParamConfigs {
     int sgPgUpperBound{1};
     int sgPgLowerBound{1};
     int sgParallelNum{1};
-    int sgMgCopyInUpperBound{2*1024*1024};
+    int sgMgCopyInUpperBound{2 * 1024 * 1024};
     uint8_t machineConfig_{0}; // machine config
     uint16_t stitchFunctionNumInitial_{0};
     uint16_t stitchFunctionNumStep_{0};
@@ -468,7 +453,7 @@ struct ParamConfigs {
 };
 
 struct FunctionParamInfo {
-    const Tensor *key;          // 显式指定参数时所指定参数的Tensor信息
+    const Tensor *key;           // 显式指定参数时所指定参数的Tensor信息
     LogicalTensorPtr beginValue; // Begin Function时Tensor指向的 LogicalTensor
     LogicalTensorPtr endValue;   // End Function时Tensor指向的 LogicalTensor
 };
@@ -484,13 +469,13 @@ public:
     friend class ExpandFunction;
     friend class VFFusionPass;
 
-    std::vector<std::shared_ptr<LogicalTensor>> inCasts_; // Input tensors
+    std::vector<std::shared_ptr<LogicalTensor>> inCasts_;  // Input tensors
     std::vector<std::shared_ptr<LogicalTensor>> outCasts_; // Output tensors
 
     int opSeed_{FUNCTION_MAX_INCASTS};
-    SubfuncTopologyInfoTy topoInfo_; // root function持有，对应1.0的SubgraphTopologyInfoTy
-    std::map<uint64_t, Function*> programs_; // root function持有，所有异构的leaf function
-    Function *rootFunc_ = nullptr; // TileGraph和RootGraph都需要保留，且需要映射关系
+    SubfuncTopologyInfoTy topoInfo_;          // root function持有，对应1.0的SubgraphTopologyInfoTy
+    std::map<uint64_t, Function *> programs_; // root function持有，所有异构的leaf function
+    Function *rootFunc_ = nullptr;            // TileGraph和RootGraph都需要保留，且需要映射关系
     ParamConfigs paramConfigs_;
     // vf融合适配需要pass间传递的参数
     std::unordered_map<PipeType, int> pipeEndTime; // function中每个pipe执行结束的时间
@@ -551,9 +536,10 @@ public:
     Operation &AddRawOperation(const Opcode opCode, const LogicalTensors &iOperands, const LogicalTensors &oOperands,
         bool updateTensorMap = true);
 
-    std::map<std::shared_ptr<RawTensor>, std::shared_ptr<RawTensor>> outIncastLinkMap; //记录outcast 共享地址的 incast
+    std::map<std::shared_ptr<RawTensor>, std::shared_ptr<RawTensor>> outIncastLinkMap; // 记录outcast 共享地址的 incast
     void SetSameMemId(const LogicalTensorPtr &operand, LogicalTensorPtr &dst);
-    void UpdateLinkMap(const std::shared_ptr<LogicalTensor> &oriLogicalTensor, const std::shared_ptr<LogicalTensor> &newLogicalTensor, const bool isOutCast=false);
+    void UpdateLinkMap(const std::shared_ptr<LogicalTensor> &oriLogicalTensor,
+        const std::shared_ptr<LogicalTensor> &newLogicalTensor, const bool isOutCast = false);
 
     std::vector<Operation *> GetAllInputOperations(const Operation &op) const;
     std::vector<Operation *> GetAllOutputOperations(const Operation &op) const;
@@ -574,8 +560,7 @@ public:
     Json DumpJson(bool useTable = true);
     static std::shared_ptr<Function> LoadJson(Program &belongTo, const Json &funcDump);
 
-    std::vector<std::vector<SymbolicScalar>> NormalizeCoa(
-        std::vector<int> &iOffset, std::vector<int> &oOffset);
+    std::vector<std::vector<SymbolicScalar>> NormalizeCoa(std::vector<int> &iOffset, std::vector<int> &oOffset);
     void NormalizeCoaForInCasts(std::vector<int> &iOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
         int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
         const std::unordered_map<int, Operation *> &opmagicToOp);
@@ -585,11 +570,11 @@ public:
     void NormalizeCoaForNormalOperands(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex,
         std::unordered_map<LogicalTensorPtr, int> &processedOperands);
     void NormalizeCoaForSpecialInfo(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex);
-    void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
+    void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar> &tabel);
 
     void DumpTopoFile(const std::string &fileName) const;
     std::string DumpSSA() const;
-    std::string Dump() const;                                    // Serialize brief format
+    std::string Dump() const; // Serialize brief format
     void DumpFile(const std::string &filePath) const;
 
     LogicalTensors MakeIncasts(const std::shared_ptr<TensorSlotScope> &scope);
@@ -602,8 +587,8 @@ public:
 
     DyndevFunctionAttribute::ValueDependDesc LookupValueDepend();
 
-    std::shared_ptr<OpAttribute> CreateCallOpAttribute(const std::vector<std::vector<SymbolicScalar>> &argList,
-        const std::map<int, SymbolicScalar> &outIndexToExpr);
+    std::shared_ptr<OpAttribute> CreateCallOpAttribute(
+        const std::vector<std::vector<SymbolicScalar>> &argList, const std::map<int, SymbolicScalar> &outIndexToExpr);
 
     bool IsEager() const { return functionType_ == FunctionType::EAGER; }
     bool IsStatic() const { return functionType_ == FunctionType::STATIC; }
@@ -659,10 +644,10 @@ public:
         return funcRawName + "_leaf_" + std::to_string(subgraphId);
     }
 
-    void BeginFunction(const std::vector<std::reference_wrapper<const Tensor>>& explicitOpArgs);
+    void BeginFunction(const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs);
     FunctionCallArgs EndFunction(const std::shared_ptr<TensorSlotScope> &scope);
     /* -------------------------常用改图接口------------------------------ */
-    Operation* GetOpByOpMagic(const int opMagic) const;
+    Operation *GetOpByOpMagic(const int opMagic) const;
     int GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor);
     void *GetParamAddress(int index);
 
@@ -671,8 +656,7 @@ public:
     std::set<Operation *, LogicalTensor::CompareOp> FindProducers(const Operation &op) const;
     const SubfuncInvokeInfoTy &GetSubFuncInvokeInfo(const size_t i) const;
     void GetAnIslandIncastsOutcasts(const std::map<int, int> &opToSubgraph, const int subgraphID,
-        const std::vector<Operation *> &operations,
-        std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
+        const std::vector<Operation *> &operations, std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
         std::vector<std::shared_ptr<LogicalTensor>> &oOperands) const;
 
     void SetDynloopAttribute(const std::shared_ptr<DynloopFunctionAttribute> &attr) { dynloopAttr_ = attr; }
@@ -707,9 +691,9 @@ public:
         for (size_t i = 0UL; i < operations_.size(); i++) {
             if ((operations_[i]->GetOpcode() != Opcode::OP_VIEW) &&
                 (operations_[i]->GetCoreType() != CoreType::AICPU)) {
-                    return std::make_pair(false, Opcode::OP_UNKNOWN);
+                return std::make_pair(false, Opcode::OP_UNKNOWN);
             } else if (operations_[i]->GetCoreType() == CoreType::AICPU) {
-                   code = operations_[i]->GetOpcode();
+                code = operations_[i]->GetOpcode();
             }
         }
         return std::make_pair(true, code);
@@ -719,32 +703,22 @@ public:
         return std::all_of(operations_.begin(), operations_.end(), [](auto &op) {
             Opcode opcode = op->GetOpcode();
             // 扩展支持的算子类型：RESHAPE、VIEW、ASSEMBLE
-            return opcode == Opcode::OP_RESHAPE ||
-                opcode == Opcode::OP_VIEW ||
-                opcode == Opcode::OP_ASSEMBLE ||
-                opcode == Opcode::OP_BIND_TENSOR;
+            return opcode == Opcode::OP_RESHAPE || opcode == Opcode::OP_VIEW || opcode == Opcode::OP_ASSEMBLE ||
+                   opcode == Opcode::OP_BIND_TENSOR;
         });
     }
 
-    const std::map<std::string, DynParamInfo> &GetDynParamTable() const {
-        return dynParamTable_;
-    }
-    void InsertDynParam(std::string dim, DynParamInfo &info) {
-        dynParamTable_.emplace(dim, info);
-    }
+    const std::map<std::string, DynParamInfo> &GetDynParamTable() const { return dynParamTable_; }
+    void InsertDynParam(std::string dim, DynParamInfo &info) { dynParamTable_.emplace(dim, info); }
 
-    DynParamInfo &GetMutableDynParam(std::string dim){
-        return dynParamTable_[dim];
-    }
+    DynParamInfo &GetMutableDynParam(std::string dim) { return dynParamTable_[dim]; }
 
     bool IsUnderDynamicFunction() const { return isUnderDynamicFunction_; }
     void SetUnderDynamicFunction(bool underDynamicFunciton) { isUnderDynamicFunction_ = underDynamicFunciton; }
 
     bool expandFunctionAccelerate{false};
 
-    void AddLoopCallToOrderGroup(Operation * callOp) {
-        loopCallOrderGroup_.push_back(callOp);
-    }
+    void AddLoopCallToOrderGroup(Operation *callOp) { loopCallOrderGroup_.push_back(callOp); }
 
     void ApplyLoopCallOrderGroup() {
         if (!loopCallOrderGroup_.empty()) {
@@ -798,7 +772,7 @@ public:
     size_t GetReadySubGraphCount(CoreType coreType) const {
         auto it = readySubGraphIds_.find(coreType);
         if (it == readySubGraphIds_.end()) {
-            return 0;  // 返回 0 而不是抛出异常
+            return 0; // 返回 0 而不是抛出异常
         }
         return it->second.size();
     }
@@ -831,8 +805,8 @@ public:
         for (Operation &op : function->Operations()) {
             int subgraphId = op.GetSubgraphID();
             for (std::shared_ptr<LogicalTensor> tensor : op.GetOOperands()) {
-                std::pair<int,int> tensorAndSubgraph{tensor->GetMagic(), subgraphId};
-                 tensorAndSubgraphToProducer_[tensorAndSubgraph].insert(&op);
+                std::pair<int, int> tensorAndSubgraph{tensor->GetMagic(), subgraphId};
+                tensorAndSubgraphToProducer_[tensorAndSubgraph].insert(&op);
             }
         }
     }
@@ -841,9 +815,7 @@ public:
     void GetTensorDataRefreshIO(const GetTensorDataIODescDict &descDict);
     void UpdateTensorDataUsage(Operation &op);
 
-    void SetSourceLocation(std::shared_ptr<SourceLocation> sourceLocation) {
-        sourceLocation_ = sourceLocation;
-    }
+    void SetSourceLocation(std::shared_ptr<SourceLocation> sourceLocation) { sourceLocation_ = sourceLocation; }
 
     std::shared_ptr<SourceLocation> GetSourceLocation() const { return sourceLocation_; }
     void CleanRedundantOutCast();
@@ -853,6 +825,7 @@ public:
 
     const std::unordered_set<std::string> &LoopIdxNameList() { return loopIdxNameList_; }
     bool InsertLoopIdxNameList(const std::string &idxName);
+
 private:
     int functionMagic_{-1};
     std::string funcMagicName_; // Function name
@@ -875,18 +848,19 @@ private:
     std::map<int, int> opmagicToOutcastIdx_;
     std::vector<std::pair<int, int>> outcastPosition;
 
-    TensorMap tensorMap_; // TensorMap to register tensors
+    TensorMap tensorMap_;                                              // TensorMap to register tensors
     std::unordered_set<std::shared_ptr<LogicalTensor>> globalTensors_; // global tensors
 
     // -----------------------子图信息------------------------
     SubfuncParam parameter_; // 每一个异构子图的形参
-    int programId_; // 异构子图的id
+    int programId_;          // 异构子图的id
 
     // we use int instead of int64 to reduce memory usage and cache miss on aicpu
     std::map<CoreType, std::vector<int>> readySubGraphIds_;
 
     std::vector<std::vector<Operation *>> operationGroups_;
-    std::vector<std::shared_ptr<Operation>> operations_; // operation的获取必须要使用Operations函数，来获取到符合拓扑序的List
+    std::vector<std::shared_ptr<Operation>>
+        operations_; // operation的获取必须要使用Operations函数，来获取到符合拓扑序的List
     std::unordered_map<const Operation *, int> opPosition_; // position of operation in Operation.operations_
     std::vector<std::shared_ptr<Operation>> operationsAfterOOO_;
     std::unordered_map<const Operation *, int> opPositionAfterOOO_; // position of operation sequence after OOO schedule
@@ -919,20 +893,19 @@ private:
     void RemoveOriginIncastConsumer(const std::shared_ptr<LogicalTensor> &originIncast) const;
     std::shared_ptr<LogicalTensor> CreateIncastTensor(const std::shared_ptr<LogicalTensor> &inArgument);
     void CreateFromIncast(const std::shared_ptr<LogicalTensor> &symbol, const std::shared_ptr<LogicalTensor> &newIncast,
-                          const std::shared_ptr<LogicalTensor> &originIncast);
-    void ReplaceMaybeParams(const std::shared_ptr<LogicalTensor> &newIncast,
-                            const std::shared_ptr<LogicalTensor> &originIncast);
+        const std::shared_ptr<LogicalTensor> &originIncast);
+    void ReplaceMaybeParams(
+        const std::shared_ptr<LogicalTensor> &newIncast, const std::shared_ptr<LogicalTensor> &originIncast);
     static void AddWhenNotExistOrAssert(const std::shared_ptr<LogicalTensor> &tensor,
-                                        std::map<int, int> &magicToRawMagic,
-                                        std::map<int, std::shared_ptr<LogicalTensor>> &magicToLogicalTensor);
-    static void MagicLookup(const Function* function, const std::vector<LogicalTensorPtr> &operand, const int subGraphId, int &index,
-                            std::unordered_map<int, int> &magic2index, std::stringstream &ss);
+        std::map<int, int> &magicToRawMagic, std::map<int, std::shared_ptr<LogicalTensor>> &magicToLogicalTensor);
+    static void MagicLookup(const Function *function, const std::vector<LogicalTensorPtr> &operand,
+        const int subGraphId, int &index, std::unordered_map<int, int> &magic2index, std::stringstream &ss);
     static void ProducerMagicLookup(const Function *function, const LogicalTensorPtr &tensor,
         const std::set<Operation *, LogicalTensor::CompareOp> &producers, const int subGraphId, int &index,
         std::unordered_map<int, int> &magic2index, std::stringstream &ss);
     static void LoadTensorJson(const std::shared_ptr<Function> &func, const Json &funcDump,
-                               const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict,
-                               std::unordered_map<int, std::shared_ptr<LogicalTensor>> &tensorDict);
+        const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict,
+        std::unordered_map<int, std::shared_ptr<LogicalTensor>> &tensorDict);
 
     std::string DumpSSATitle() const;
     std::string DumpSSARawTensor(int indent = 2) const;

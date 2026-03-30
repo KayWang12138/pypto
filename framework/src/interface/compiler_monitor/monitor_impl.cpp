@@ -22,7 +22,7 @@
 
 namespace npu::tile_fwk {
 
-MonitorImpl::MonitorImpl(MonitorManager* manager) : manager_(manager) {}
+MonitorImpl::MonitorImpl(MonitorManager *manager) : manager_(manager) {}
 
 MonitorImpl::~MonitorImpl() {
     Stop();
@@ -50,11 +50,11 @@ void MonitorImpl::Stop() {
     thread_.reset();
 }
 
-bool IsEnabledImmediate(MonitorManager* manager_) {
+bool IsEnabledImmediate(MonitorManager *manager_) {
     return manager_->IsEnabled();
 }
 
-int GetTimeoutSecImmediate(MonitorManager* manager_) {
+int GetTimeoutSecImmediate(MonitorManager *manager_) {
     int stage_timeout_sec = manager_->GetTimeoutSec();
     if (stage_timeout_sec <= 0) {
         if (stage_timeout_sec == 0) {
@@ -68,7 +68,7 @@ int GetTimeoutSecImmediate(MonitorManager* manager_) {
     return stage_timeout_sec;
 }
 
-int GetTotalTimeoutSecImmediate(MonitorManager* manager_) {
+int GetTotalTimeoutSecImmediate(MonitorManager *manager_) {
     int total_timeout_sec = manager_->GetTotalTimeoutSec();
     if (total_timeout_sec <= 0) {
         if (total_timeout_sec < 0) {
@@ -81,7 +81,7 @@ int GetTotalTimeoutSecImmediate(MonitorManager* manager_) {
     return total_timeout_sec;
 }
 
-int GetIntervalSecImmediate(MonitorManager* manager_) {
+int GetIntervalSecImmediate(MonitorManager *manager_) {
     int interval_sec = manager_->GetIntervalSec();
     if (interval_sec <= 0) {
         interval_sec = 60;
@@ -94,7 +94,7 @@ void MonitorImpl::StartMonitoring() {
         std::lock_guard<std::mutex> lock(mutex_);
         stage_start_flag_.store(true);
     }
-    cv_.notify_all();  // 唤醒等待的线程
+    cv_.notify_all(); // 唤醒等待的线程
 }
 
 void MonitorImpl::StopMonitoring() {
@@ -102,7 +102,7 @@ void MonitorImpl::StopMonitoring() {
         std::lock_guard<std::mutex> lock(mutex_);
         stage_start_flag_.store(false);
     }
-    cv_.notify_all();  // 唤醒等待的线程
+    cv_.notify_all(); // 唤醒等待的线程
 }
 
 void MonitorImpl::PrintTotalTimeOut(double total_elapsed, int total_timeout_sec) {
@@ -110,8 +110,8 @@ void MonitorImpl::PrintTotalTimeOut(double total_elapsed, int total_timeout_sec)
         manager_->SetStageTimeoutFlag("Total");
         std::string warm_msg;
         warm_msg = "[Compiler Monitor] | [== WARNING ==] Total elapsed [" + FormatElapsed(total_elapsed) +
-            "] exceeded the total time threshold [" + FormatElapsed(static_cast<double>(total_timeout_sec)) +
-            "], you can terminate the process by pressing Ctrl+C !!!";
+                   "] exceeded the total time threshold [" + FormatElapsed(static_cast<double>(total_timeout_sec)) +
+                   "], you can terminate the process by pressing Ctrl+C !!!";
         COMPILER_LOGI("%s", warm_msg.c_str());
         (void)fprintf(stdout, "%s\n", warm_msg.c_str());
         (void)fflush(stdout);
@@ -189,12 +189,11 @@ void MonitorImpl::MonitorLoop() {
             if (curr_stage_elapsed >= static_cast<double>(stage_timeout_sec) &&
                 manager_->GetStageTimeoutFlag(stage) == false) {
                 manager_->SetStageTimeoutFlag(stage);
-                warm_msg = "[Compiler Monitor] | [** WARNING **] Functions: " +
-                    std::to_string(current_k) + "/" + std::to_string(total_n) + " | Stage [" + stage +
-                    "] elapsed [" + FormatElapsed(curr_stage_elapsed) +
-                    "] exceeded the current stage total time threshold [" +
-                    FormatElapsed(static_cast<double>(stage_timeout_sec)) +
-                    "], you can terminate the process by pressing Ctrl+C !!!";
+                warm_msg = "[Compiler Monitor] | [** WARNING **] Functions: " + std::to_string(current_k) + "/" +
+                           std::to_string(total_n) + " | Stage [" + stage + "] elapsed [" +
+                           FormatElapsed(curr_stage_elapsed) + "] exceeded the current stage total time threshold [" +
+                           FormatElapsed(static_cast<double>(stage_timeout_sec)) +
+                           "], you can terminate the process by pressing Ctrl+C !!!";
                 (void)fprintf(stdout, "%s\n", warm_msg.c_str());
                 (void)fflush(stdout);
                 COMPILER_LOGI("%s", warm_msg.c_str());
@@ -203,9 +202,10 @@ void MonitorImpl::MonitorLoop() {
             if (stage == "Pass") {
                 if (curr_stage_elapsed >= pre_cost) {
                     interval_msg = "  |__ [Compiler Monitor] Function: " + std::to_string(current_k) + "/" +
-                        std::to_string(total_n) + " | Stage: " + stage + "(processing) | Stage elapsed: " +
-                        FormatElapsed(curr_stage_elapsed) + " | Total elapsed: " +
-                        FormatElapsed(total_elapsed) + " | Func:[" + current_func + "]";
+                                   std::to_string(total_n) + " | Stage: " + stage +
+                                   "(processing) | Stage elapsed: " + FormatElapsed(curr_stage_elapsed) +
+                                   " | Total elapsed: " + FormatElapsed(total_elapsed) + " | Func:[" + current_func +
+                                   "]";
                     (void)fprintf(stdout, "%s\n", interval_msg.c_str());
                     (void)fflush(stdout);
                     COMPILER_LOGI("%s", interval_msg.c_str());
@@ -213,9 +213,9 @@ void MonitorImpl::MonitorLoop() {
             } else {
                 // CodeGen
                 if (curr_stage_elapsed >= pre_cost) {
-                    interval_msg = "  |__ [Compiler Monitor] Stage: " + stage + "(processing) | Stage elapsed: " +
-                        FormatElapsed(curr_stage_elapsed) + " | Total elapsed: " +
-                        FormatElapsed(total_elapsed);
+                    interval_msg = "  |__ [Compiler Monitor] Stage: " + stage +
+                                   "(processing) | Stage elapsed: " + FormatElapsed(curr_stage_elapsed) +
+                                   " | Total elapsed: " + FormatElapsed(total_elapsed);
                     (void)fprintf(stdout, "%s\n", interval_msg.c_str());
                     (void)fflush(stdout);
                     COMPILER_LOGI("%s", interval_msg.c_str());
@@ -226,20 +226,20 @@ void MonitorImpl::MonitorLoop() {
             if (curr_stage_elapsed >= static_cast<double>(stage_timeout_sec) &&
                 manager_->GetStageTimeoutFlag(stage) == false) {
                 manager_->SetStageTimeoutFlag(stage);
-                warm_msg = "[Compiler Monitor] | [** WARNING **] Stage [" + stage +
-                    "] elapsed [" + FormatElapsed(curr_stage_elapsed) +
-                    "] exceeded the current stage total time threshold [" +
-                    FormatElapsed(static_cast<double>(stage_timeout_sec)) +
-                    "], you can terminate the process by pressing Ctrl+C !!!";
+                warm_msg = "[Compiler Monitor] | [** WARNING **] Stage [" + stage + "] elapsed [" +
+                           FormatElapsed(curr_stage_elapsed) + "] exceeded the current stage total time threshold [" +
+                           FormatElapsed(static_cast<double>(stage_timeout_sec)) +
+                           "], you can terminate the process by pressing Ctrl+C !!!";
                 (void)fprintf(stdout, "%s\n", warm_msg.c_str());
                 (void)fflush(stdout);
                 COMPILER_LOGI("%s", warm_msg.c_str());
             }
 
             if (curr_stage_elapsed >= pre_cost) {
-                interval_msg = "  |__ [Compiler Monitor] Stage: " + stage + "(processing) | Stashed function: " +
-                    std::to_string(total_n) + " | Stage elapsed: " + FormatElapsed(curr_stage_elapsed) +
-                    " | Total elapsed: " + FormatElapsed(total_elapsed);
+                interval_msg = "  |__ [Compiler Monitor] Stage: " + stage +
+                               "(processing) | Stashed function: " + std::to_string(total_n) +
+                               " | Stage elapsed: " + FormatElapsed(curr_stage_elapsed) +
+                               " | Total elapsed: " + FormatElapsed(total_elapsed);
                 (void)fprintf(stdout, "%s\n", interval_msg.c_str());
                 (void)fflush(stdout);
                 COMPILER_LOGI("%s", interval_msg.c_str());
@@ -248,4 +248,4 @@ void MonitorImpl::MonitorLoop() {
     }
 }
 
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

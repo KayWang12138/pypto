@@ -38,15 +38,9 @@ using setType = std::conditional<false, std::unordered_set<int>, std::set<int>>:
 #endif
 
 namespace CostModel {
-enum class SimMode {
-    NORMAL = 0,
-    EMULATOR,
-    LEAF_FUNCTION,
-    PV_MODEL
-};
+enum class SimMode { NORMAL = 0, EMULATOR, LEAF_FUNCTION, PV_MODEL };
 
-inline bool IsNeedInput(CostModel::SimMode simMode)
-{
+inline bool IsNeedInput(CostModel::SimMode simMode) {
     if (simMode == CostModel::SimMode::NORMAL || simMode == CostModel::SimMode::LEAF_FUNCTION ||
         simMode == CostModel::SimMode::EMULATOR) {
         return true;
@@ -54,37 +48,31 @@ inline bool IsNeedInput(CostModel::SimMode simMode)
     return false;
 }
 
-enum class PVModelLevel {
-    PV_NON = 0,
-    PV_UT,
-    PV_EXECUTE
-};
+enum class PVModelLevel { PV_NON = 0, PV_UT, PV_EXECUTE };
 
 enum class NodeType { LOCAL, INCAST, OUTCAST };
 
 using namespace npu::tile_fwk;
 
-inline CostModel::OperandType BufferNameToType(std::string &name)
-{
+inline CostModel::OperandType BufferNameToType(std::string &name) {
     static const std::unordered_map<std::string, CostModel::OperandType> bufferMap = {
-        {"MEM_UB", OperandType::BUF_UB},
-        {"MEM_L1", OperandType::BUF_L1},
-        {"MEM_L0A", OperandType::BUF_L0A},
-        {"MEM_L0B", OperandType::BUF_L0B},
-        {"MEM_L0C", OperandType::BUF_L0C},
-        {"MEM_FIX", OperandType::BUF_FIX},
-        {"MEM_BT", OperandType::BUF_BT},
-        {"MEM_DEVICE_DDR", OperandType::BUF_DDR},
-        {"MEM_L0AMX", OperandType::BUF_L0AMX},
-        {"MEM_L0BMX", OperandType::BUF_L0BMX},
+        {        "MEM_UB",    OperandType::BUF_UB},
+        {        "MEM_L1",    OperandType::BUF_L1},
+        {       "MEM_L0A",   OperandType::BUF_L0A},
+        {       "MEM_L0B",   OperandType::BUF_L0B},
+        {       "MEM_L0C",   OperandType::BUF_L0C},
+        {       "MEM_FIX",   OperandType::BUF_FIX},
+        {        "MEM_BT",    OperandType::BUF_BT},
+        {"MEM_DEVICE_DDR",   OperandType::BUF_DDR},
+        {     "MEM_L0AMX", OperandType::BUF_L0AMX},
+        {     "MEM_L0BMX", OperandType::BUF_L0BMX},
     };
 
     auto it = bufferMap.find(name);
     return (it != bufferMap.end()) ? it->second : OperandType::BUF_UNKNOWN;
 }
 
-inline NodeType ToNodeType(std::string &type)
-{
+inline NodeType ToNodeType(std::string &type) {
     if (type == "INCAST") {
         return NodeType::INCAST;
     } else if (type == "OUTCAST") {
@@ -94,29 +82,28 @@ inline NodeType ToNodeType(std::string &type)
     }
 }
 
-inline DataType ToDataType(std::string &name)
-{
+inline DataType ToDataType(std::string &name) {
     static std::unordered_map<std::string, DataType> type_map = {
-        {"DT_INT4", DataType::DT_INT4},
-        {"DT_INT8", DataType::DT_INT8},
-        {"DT_INT16", DataType::DT_INT16},
-        {"DT_INT32", DataType::DT_INT32},
-        {"DT_INT64", DataType::DT_INT64},
-        {"DT_FP8", DataType::DT_FP8},
-        {"DT_FP16", DataType::DT_FP16},
-        {"DT_FP32", DataType::DT_FP32},
-        {"DT_BF16", DataType::DT_BF16},
-        {"DT_HF4", DataType::DT_HF4},
-        {"DT_HF8", DataType::DT_HF8},
-        {"DT_UINT8", DataType::DT_UINT8},
-        {"DT_UINT16", DataType::DT_UINT16},
-        {"DT_UINT32", DataType::DT_UINT32},
-        {"DT_UINT64", DataType::DT_UINT64},
-        {"DT_BOOL", DataType::DT_BOOL},
-        {"DT_DOUBLE", DataType::DT_DOUBLE},
-        {"DT_FP8E5M2", DataType::DT_FP8E5M2},
-        {"DT_FP8E4M3", DataType::DT_FP8E4M3},
-        {"DT_FP8E8M0", DataType::DT_FP8E8M0},
+        {      "DT_INT4",       DataType::DT_INT4},
+        {      "DT_INT8",       DataType::DT_INT8},
+        {     "DT_INT16",      DataType::DT_INT16},
+        {     "DT_INT32",      DataType::DT_INT32},
+        {     "DT_INT64",      DataType::DT_INT64},
+        {       "DT_FP8",        DataType::DT_FP8},
+        {      "DT_FP16",       DataType::DT_FP16},
+        {      "DT_FP32",       DataType::DT_FP32},
+        {      "DT_BF16",       DataType::DT_BF16},
+        {       "DT_HF4",        DataType::DT_HF4},
+        {       "DT_HF8",        DataType::DT_HF8},
+        {     "DT_UINT8",      DataType::DT_UINT8},
+        {    "DT_UINT16",     DataType::DT_UINT16},
+        {    "DT_UINT32",     DataType::DT_UINT32},
+        {    "DT_UINT64",     DataType::DT_UINT64},
+        {      "DT_BOOL",       DataType::DT_BOOL},
+        {    "DT_DOUBLE",     DataType::DT_DOUBLE},
+        {   "DT_FP8E5M2",    DataType::DT_FP8E5M2},
+        {   "DT_FP8E4M3",    DataType::DT_FP8E4M3},
+        {   "DT_FP8E8M0",    DataType::DT_FP8E8M0},
         {"DT_FP4_E2M1X2", DataType::DT_FP4_E2M1X2},
         {"DT_FP4_E1M2X2", DataType::DT_FP4_E1M2X2}
     };
@@ -125,7 +112,7 @@ inline DataType ToDataType(std::string &name)
         std::cout << "Unrecognized DataType" << name << std::endl;
         return DataType::DT_FP16;
     }
-    return it -> second;
+    return it->second;
 }
 
 // CostModel
@@ -137,19 +124,18 @@ enum class CorePipeType {
     PIPE_CUBE_BMU_L0A,
     PIPE_CUBE_BMU_L0B,
     PIPE_CUBE_BMU_L0C,
-    PIPE_MTE_IN,  // FOR TILE_COPY_IN
-    PIPE_MTE1,    // FOR L1 TO L0A/B
+    PIPE_MTE_IN, // FOR TILE_COPY_IN
+    PIPE_MTE1,   // FOR L1 TO L0A/B
     PIPE_VECTOR_ALU,
     PIPE_CUBE,
-    PIPE_MTE_OUT,  // FOR TILE_COPY_OUT
-    PIPE_S, // FOR VIEW,ASSEMBLE,RESHAPE
+    PIPE_MTE_OUT, // FOR TILE_COPY_OUT
+    PIPE_S,       // FOR VIEW,ASSEMBLE,RESHAPE
     PIPE_CALL,
     PIPE_FIX,
     TOTAL_CORE_PIPE_TYPE
 };
 
-inline bool IsTileAlloc(CorePipeType type)
-{
+inline bool IsTileAlloc(CorePipeType type) {
     if (type == CorePipeType::PIPE_TILE_ALLOC || type == CorePipeType::PIPE_VECTOR_BMU ||
         type == CorePipeType::PIPE_CUBE_BMU_L1 || type == CorePipeType::PIPE_CUBE_BMU_L0A ||
         type == CorePipeType::PIPE_CUBE_BMU_L0B || type == CorePipeType::PIPE_CUBE_BMU_L0C) {
@@ -158,8 +144,7 @@ inline bool IsTileAlloc(CorePipeType type)
     return false;
 }
 
-inline bool IsTileBufferAlloc(CorePipeType type)
-{
+inline bool IsTileBufferAlloc(CorePipeType type) {
     if (type == CorePipeType::PIPE_VECTOR_BMU || type == CorePipeType::PIPE_CUBE_BMU_L1 ||
         type == CorePipeType::PIPE_CUBE_BMU_L0A || type == CorePipeType::PIPE_CUBE_BMU_L0B ||
         type == CorePipeType::PIPE_CUBE_BMU_L0C) {
@@ -168,95 +153,64 @@ inline bool IsTileBufferAlloc(CorePipeType type)
     return false;
 }
 
-inline bool IsReadCache(CorePipeType type)
-{
+inline bool IsReadCache(CorePipeType type) {
     if (type == CorePipeType::PIPE_MTE_IN) {
         return true;
     }
     return false;
 }
 
-inline bool IsWriteCache(CorePipeType type)
-{
+inline bool IsWriteCache(CorePipeType type) {
     if (type == CorePipeType::PIPE_MTE_OUT) {
         return true;
     }
     return false;
 }
 
-inline bool IsMTEPipe(CorePipeType type)
-{
+inline bool IsMTEPipe(CorePipeType type) {
     if (type == CorePipeType::PIPE_MTE_IN || type == CorePipeType::PIPE_MTE1 || type == CorePipeType::PIPE_MTE_OUT) {
         return true;
     }
     return false;
 }
 
-inline std::string CorePipeName(CorePipeType type)
-{
+inline std::string CorePipeName(CorePipeType type) {
     switch (type) {
-        case CorePipeType::PIPE_TILE_ALLOC:
-            return "TILE_ALLOC";
-        case CorePipeType::PIPE_VECTOR_BMU:
-            return "VECTOR_BMU";
-        case CorePipeType::PIPE_CUBE_BMU_L1:
-            return "CUBE_BMU_L1";
-        case CorePipeType::PIPE_CUBE_BMU_L0A:
-            return "CUBE_BMU_L0A";
-        case CorePipeType::PIPE_CUBE_BMU_L0B:
-            return "CUBE_BMU_L0B";
-        case CorePipeType::PIPE_CUBE_BMU_L0C:
-            return "CUBE_BMU_L0C";
-        case CorePipeType::PIPE_MTE_IN:
-            return "MTE_IN";
-        case CorePipeType::PIPE_MTE1:
-            return "MTE1";
-        case CorePipeType::PIPE_MTE_OUT:
-            return "MTE_OUT";
-        case CorePipeType::PIPE_VECTOR_ALU:
-            return "VECTOR_ALU";
-        case CorePipeType::PIPE_CUBE:
-            return "CUBE";
-        case CorePipeType::PIPE_CALL:
-            return "SIM_CALL";
-        case CorePipeType::PIPE_S:
-            return "PIPE_S";
-        case CorePipeType::PIPE_FIX:
-            return "PIPE_FIX";
-        default:
-            return "ILLEGAL";
+        case CorePipeType::PIPE_TILE_ALLOC: return "TILE_ALLOC";
+        case CorePipeType::PIPE_VECTOR_BMU: return "VECTOR_BMU";
+        case CorePipeType::PIPE_CUBE_BMU_L1: return "CUBE_BMU_L1";
+        case CorePipeType::PIPE_CUBE_BMU_L0A: return "CUBE_BMU_L0A";
+        case CorePipeType::PIPE_CUBE_BMU_L0B: return "CUBE_BMU_L0B";
+        case CorePipeType::PIPE_CUBE_BMU_L0C: return "CUBE_BMU_L0C";
+        case CorePipeType::PIPE_MTE_IN: return "MTE_IN";
+        case CorePipeType::PIPE_MTE1: return "MTE1";
+        case CorePipeType::PIPE_MTE_OUT: return "MTE_OUT";
+        case CorePipeType::PIPE_VECTOR_ALU: return "VECTOR_ALU";
+        case CorePipeType::PIPE_CUBE: return "CUBE";
+        case CorePipeType::PIPE_CALL: return "SIM_CALL";
+        case CorePipeType::PIPE_S: return "PIPE_S";
+        case CorePipeType::PIPE_FIX: return "PIPE_FIX";
+        default: return "ILLEGAL";
     }
 }
 
-enum class MachineType { UNKNOWN, DEVICE, CPU, AIC, AIV, MIXAICORE, PIPE, CACHE, HUB,
-                         TOTAL_MACHINE_TYPE };
+enum class MachineType { UNKNOWN, DEVICE, CPU, AIC, AIV, MIXAICORE, PIPE, CACHE, HUB, TOTAL_MACHINE_TYPE };
 
-inline std::string MachineName(MachineType type)
-{
+inline std::string MachineName(MachineType type) {
     switch (type) {
-        case MachineType::DEVICE:
-            return "DEVICE";
-        case MachineType::CPU:
-            return "AICPU";
-        case MachineType::AIV:
-            return "AIV";
-        case MachineType::AIC:
-            return "AIC";
-        case MachineType::MIXAICORE:
-            return "MIXAICORE";
-        case MachineType::PIPE:
-            return "PIPE";
-        case MachineType::CACHE:
-            return "CACHE";
-        case MachineType::HUB:
-            return "HUB";
-        default:
-            return "ILLEGAL";
+        case MachineType::DEVICE: return "DEVICE";
+        case MachineType::CPU: return "AICPU";
+        case MachineType::AIV: return "AIV";
+        case MachineType::AIC: return "AIC";
+        case MachineType::MIXAICORE: return "MIXAICORE";
+        case MachineType::PIPE: return "PIPE";
+        case MachineType::CACHE: return "CACHE";
+        case MachineType::HUB: return "HUB";
+        default: return "ILLEGAL";
     }
 }
 
-inline bool IsCoreMachine(MachineType type)
-{
+inline bool IsCoreMachine(MachineType type) {
     if (type == MachineType::AIC || type == MachineType::AIV || type == MachineType::MIXAICORE ||
         type == MachineType::HUB) {
         return true;
@@ -264,14 +218,12 @@ inline bool IsCoreMachine(MachineType type)
     return false;
 }
 
-inline bool IsCoreMachine(int type)
-{
+inline bool IsCoreMachine(int type) {
     return IsCoreMachine(static_cast<MachineType>(type));
 }
 
 // convert string to MachineType
-inline MachineType ToMachineType(const std::string& machineTypeStr)
-{
+inline MachineType ToMachineType(const std::string &machineTypeStr) {
     if (machineTypeStr == "AIV") {
         return MachineType::AIV;
     } else if (machineTypeStr == "AIC") {
@@ -287,30 +239,24 @@ inline MachineType ToMachineType(const std::string& machineTypeStr)
 enum class CalendarMode { DEVICE, GLOBAL_COUNTER, OPTIONAL_COUNTERS };
 
 const std::map<MachineType, std::set<CorePipeType>> MACHINE_PIPE_SET = {
-    {MachineType::AIV,
-     {CorePipeType::PIPE_VECTOR_BMU, CorePipeType::PIPE_MTE_IN, CorePipeType::PIPE_VECTOR_ALU,
-      CorePipeType::PIPE_MTE_OUT}},
-    {MachineType::AIC,
-     {CorePipeType::PIPE_CUBE_BMU_L1, CorePipeType::PIPE_CUBE_BMU_L0A, CorePipeType::PIPE_CUBE_BMU_L0B,
-      CorePipeType::PIPE_CUBE_BMU_L0C, CorePipeType::PIPE_MTE_IN, CorePipeType::PIPE_MTE1, CorePipeType::PIPE_CUBE,
-      CorePipeType::PIPE_MTE_OUT}},
+    {      MachineType::AIV,                       {CorePipeType::PIPE_VECTOR_BMU, CorePipeType::PIPE_MTE_IN, CorePipeType::PIPE_VECTOR_ALU,
+                       CorePipeType::PIPE_MTE_OUT}                            },
+    {      MachineType::AIC, {CorePipeType::PIPE_CUBE_BMU_L1, CorePipeType::PIPE_CUBE_BMU_L0A,
+ CorePipeType::PIPE_CUBE_BMU_L0B, CorePipeType::PIPE_CUBE_BMU_L0C, CorePipeType::PIPE_MTE_IN,
+ CorePipeType::PIPE_MTE1, CorePipeType::PIPE_CUBE, CorePipeType::PIPE_MTE_OUT}},
     {MachineType::MIXAICORE,
      {CorePipeType::PIPE_CUBE_BMU_L1, CorePipeType::PIPE_CUBE_BMU_L0A, CorePipeType::PIPE_CUBE_BMU_L0B,
-      CorePipeType::PIPE_CUBE_BMU_L0C, CorePipeType::PIPE_MTE_IN, CorePipeType::PIPE_MTE1, CorePipeType::PIPE_CUBE,
-      CorePipeType::PIPE_VECTOR_ALU, CorePipeType::PIPE_MTE_OUT}},
+     CorePipeType::PIPE_CUBE_BMU_L0C, CorePipeType::PIPE_MTE_IN, CorePipeType::PIPE_MTE1,
+     CorePipeType::PIPE_CUBE, CorePipeType::PIPE_VECTOR_ALU, CorePipeType::PIPE_MTE_OUT}                  },
 };
 
 enum class CacheType { FUNCTION_CACHE, L2CACHE, TOTAL_CACHE_TYPE };
 
-inline std::string CacheName(CacheType type)
-{
+inline std::string CacheName(CacheType type) {
     switch (type) {
-        case CacheType::FUNCTION_CACHE:
-            return "FunctionCache";
-        case CacheType::L2CACHE:
-            return "L2CACHE";
-        default:
-            return "ILLEGAL";
+        case CacheType::FUNCTION_CACHE: return "FunctionCache";
+        case CacheType::L2CACHE: return "L2CACHE";
+        default: return "ILLEGAL";
     }
 }
 
@@ -325,25 +271,19 @@ enum class CacheRequestType {
     DATA_WRITE_REQ,
 };
 
-inline std::string CacheRequestName(CacheRequestType type)
-{
+inline std::string CacheRequestName(CacheRequestType type) {
     switch (type) {
-        case CacheRequestType::FUNCTION_REQ:
-            return "Function_Read";
-        case CacheRequestType::DATA_READ_REQ:
-            return "Data_Read";
-        case CacheRequestType::DATA_WRITE_REQ:
-            return "Data_Write";
-        default:
-            return "ILLEGAL";
+        case CacheRequestType::FUNCTION_REQ: return "Function_Read";
+        case CacheRequestType::DATA_READ_REQ: return "Data_Read";
+        case CacheRequestType::DATA_WRITE_REQ: return "Data_Write";
+        default: return "ILLEGAL";
     }
 }
 
-const std::vector<std::string> LETTERS = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
-                                          "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"};
+const std::vector<std::string> LETTERS = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o",
+    "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"};
 
-inline std::string DecimalTo26(int num)
-{
+inline std::string DecimalTo26(int num) {
     num = std::abs(num);
     int baseDivisor = 26;
     if (num == 0) {
@@ -368,7 +308,7 @@ public:
     uint64_t sCycles;
     uint64_t eCycles;
     ReplayTaskEntry(uint64_t seq, uint64_t id, uint64_t sTime, uint64_t eTime)
-    : seqNo(seq), taskId(id), sCycles(sTime), eCycles(eTime) {}
+        : seqNo(seq), taskId(id), sCycles(sTime), eCycles(eTime) {}
 };
 
 class Task {
@@ -400,8 +340,7 @@ public:
     uint64_t rootIndex = 0;
     uint64_t uniqueKey = 0;
 
-    std::string GetColorLabel(uint64_t mode)
-    {
+    std::string GetColorLabel(uint64_t mode) {
         std::string colorLabel;
         if (mode == 1) {
             colorLabel = semanticLabel;
@@ -414,8 +353,7 @@ public:
         return colorLabel;
     }
 
-    std::string GetFormalName()
-    {
+    std::string GetFormalName() {
         std::ostringstream os;
         uint64_t funcIdStitch = ((taskId >> TASK_ID_OFFSET20) & ((1 << TASK_ID_OFFSET11) - 1));
         uint64_t opIndex = (taskId & ((1 << TASK_ID_OFFSET20) - 1));
@@ -423,13 +361,11 @@ public:
         return os.str();
     }
 
-    std::string GetTaskName()
-    {
+    std::string GetTaskName() {
         return GetFormalName() + "-" + std::to_string(rootIndex) + "-" + std::to_string(psgId);
     }
 
-    std::string GetTaskFullName()
-    {
+    std::string GetTaskFullName() {
         std::ostringstream os;
         os << "[" << GetTaskName() << "] Executing SeqNo:" << seqNo << " TaskId:" << taskId << " pSgId:" << psgId;
         os << " Function:" << functionName << ", hash:" << functionHash;
@@ -456,21 +392,16 @@ struct AICoreWorkLoadStatus {
     std::vector<std::vector<size_t>> smtGroupIndexs;
     size_t maxLevel = 0;
     size_t groups = 0;
-    AICoreWorkLoadStatus()
-    {
+    AICoreWorkLoadStatus() {
         smtGroupIndexs.clear();
         maxLevel = 0;
     }
 
-    void AddMachineGroup()
-    {
+    void AddMachineGroup() {
         smtGroupIndexs.emplace_back();
         groups++;
     }
 
-    void AddMachineIndex(size_t index)
-    {
-        smtGroupIndexs[groups - 1].emplace_back(index);
-    }
+    void AddMachineIndex(size_t index) { smtGroupIndexs[groups - 1].emplace_back(index); }
 };
-}
+} // namespace CostModel

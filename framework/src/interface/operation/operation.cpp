@@ -58,7 +58,7 @@ const std::string OpAttributeKey::inplaceIdx = "INPLACE_IDX";
 const std::string OpAttributeKey::inplaceInfo = "INPLACE_INFO";
 const std::string OpAttributeKey::cacheMode = "CACHE_MODE";
 const std::string OpAttributeKey::panzBlockSize = "PA_NZ_BLOCK_SIZE";
-const std::string OpAttributeKey::inputCombineAxisDone = "input_combine_axis_done"; // only for flow verify tool
+const std::string OpAttributeKey::inputCombineAxisDone = "input_combine_axis_done";   // only for flow verify tool
 const std::string OpAttributeKey::outputCombineAxisDone = "output_combine_axis_done"; // flow verify tool only
 const std::string OpAttributeKey::requiresBoundaryCopy = "requires_boundary_copy";
 const std::string OpAttributeKey::excludeBufferReuse = "exclude_buffer_reuse";
@@ -403,7 +403,8 @@ Json Operation::DumpJson(bool dumpTensor) const {
         opDump["out_param_loc"] = outLocation;
         opDump["static"]["out_param_loc"] = opDump["out_param_loc"];
     }
-    if (opcode_ == Opcode::OP_CALL && BelongTo()->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::EXECUTE_GRAPH)) {
+    if (opcode_ == Opcode::OP_CALL &&
+        BelongTo()->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::EXECUTE_GRAPH)) {
         auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
         auto programId = callAttr->invokeInfo_->GetProgramId();
         auto programIter = function_->programs_.find(programId);
@@ -471,14 +472,15 @@ std::shared_ptr<Operation> Operation::LoadJson(
     int opMagic = opDump["opmagic"].get<int>();
     std::shared_ptr<Operation> op = std::make_shared<Operation>(cur, opcode, ioperands, ooperands, true, opMagic);
 
-    if (opDump.count("semantic_label") ) {
+    if (opDump.count("semantic_label")) {
         auto jlabel = opDump["semantic_label"];
         op->semanticLabel_ = std::make_shared<SemanticLabel>(
             jlabel["label"].get<std::string>(), jlabel["filename"].get<std::string>(), jlabel["lineno"].get<int>());
     }
 
     if (opDump.count("file")) {
-        op->location_ = std::make_shared<SourceLocation>(opDump["file"].get<std::string>(), opDump["line"].get<int>(), opDump["backtrace"].get<std::string>());
+        op->location_ = std::make_shared<SourceLocation>(
+            opDump["file"].get<std::string>(), opDump["line"].get<int>(), opDump["backtrace"].get<std::string>());
     }
 
     int subgraphid = opDump["subgraphid"].get<int>();
@@ -887,7 +889,7 @@ void Operation::ReplaceInput(
 
 void Operation::ReplaceOutput(
     const std::shared_ptr<LogicalTensor> &newOutput, const std::shared_ptr<LogicalTensor> &oldOutput) {
-    for (int i = 0;  static_cast<size_t>(i) < oOperand.size(); ++i) {
+    for (int i = 0; static_cast<size_t>(i) < oOperand.size(); ++i) {
         if (oOperand[i]->magic == oldOutput->magic) {
             ReplaceOOperand(i, newOutput);
             break;
@@ -919,8 +921,7 @@ bool Operation::IsNeedStackGM() const {
 std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttributeList() {
     std::vector<std::reference_wrapper<SymbolicScalar>> dynamicAttributeList;
     switch (GetOpcode()) {
-        case Opcode::OP_VIEW:
-            {
+        case Opcode::OP_VIEW: {
             auto viewAttr = std::static_pointer_cast<ViewOpAttribute>(GetOpAttribute());
             if (viewAttr != nullptr) {
                 std::vector<SymbolicScalar> &viewFromDynOffset = viewAttr->GetFromDynOffset();
@@ -932,12 +933,11 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                     dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape));
                 }
             }
-                for (auto &shape: oOperand[0]->GetDynValidShape()) {
+            for (auto &shape : oOperand[0]->GetDynValidShape()) {
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape));
             }
         } break;
-        case Opcode::OP_ASSEMBLE:
-            {
+        case Opcode::OP_ASSEMBLE: {
             auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(GetOpAttribute());
             if (assembleAttr != nullptr) {
                 std::vector<SymbolicScalar> &assembleToDynOffset = assembleAttr->GetToDynOffset();
@@ -949,53 +949,53 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                     dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape));
                 }
             }
-                for (auto &shape: iOperand[0]->GetDynValidShape()) {
+            for (auto &shape : iOperand[0]->GetDynValidShape()) {
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape));
             }
         } break;
         case Opcode::OP_COPY_IN: [[fallthrough]];
-        case Opcode::OP_UB_COPY_IN:
-            {
+        case Opcode::OP_UB_COPY_IN: {
             auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(GetOpAttribute());
             if (copyAttr != nullptr) {
                 for (auto &offset : copyAttr->GetFromOffset()) {
                     if (offset.IsSpecified()) {
-                            dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
+                        dynamicAttributeList.push_back(
+                            std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
                     }
                 }
                 for (auto &shape : copyAttr->GetToDynValidShape()) {
                     if (shape.IsSpecified()) {
-                            dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+                        dynamicAttributeList.push_back(
+                            std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
                     }
                 }
             }
         } break;
         case Opcode::OP_COPY_OUT: [[fallthrough]];
-        case Opcode::OP_UB_COPY_OUT:
-            {
+        case Opcode::OP_UB_COPY_OUT: {
             auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(GetOpAttribute());
             if (copyAttr) {
                 for (auto &offset : copyAttr->GetToOffset()) {
                     if (offset.IsSpecified()) {
-                            dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
+                        dynamicAttributeList.push_back(
+                            std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
                     }
                 }
                 for (auto &shape : copyAttr->GetFromDynValidShape()) {
                     if (shape.IsSpecified()) {
-                            dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+                        dynamicAttributeList.push_back(
+                            std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
                     }
                 }
             }
         } break;
-        case Opcode::OP_VEC_DUP:
-            {
+        case Opcode::OP_VEC_DUP: {
             auto scalar = GetAttr<SymbolicScalar>(OpAttributeKey::dynScalar);
             if (scalar) {
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(*scalar));
             }
         } break;
-        case Opcode::OP_PRINT:
-            {
+        case Opcode::OP_PRINT: {
             auto cond = GetAttr<SymbolicScalar>(OP_ATTR_PREFIX + "cond");
             if (cond) {
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(*cond));
@@ -1007,8 +1007,7 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                 }
             }
         } break;
-        case Opcode::OP_BIND_TENSOR:
-            {
+        case Opcode::OP_BIND_TENSOR: {
             auto &attrDict = GetAllAttr();
             auto it = attrDict.find(OpAttributeKey::bindTensor);
             if (it != attrDict.end()) {
@@ -1016,8 +1015,7 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(value));
             }
         } break;
-        case Opcode::OP_CALL:
-            {
+        case Opcode::OP_CALL: {
             auto callAttr = std::static_pointer_cast<CallOpAttribute>(GetOpAttribute());
             if (callAttr != nullptr) {
                 for (auto &arg : callAttr->GetLinearArgList()) {
@@ -1025,8 +1023,7 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                 }
             }
         } break;
-        case Opcode::OP_SHMEM_GET_GM2UB:
-            {
+        case Opcode::OP_SHMEM_GET_GM2UB: {
             auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(GetOpAttribute());
             if (copyAttr == nullptr) {
                 break;
@@ -1038,8 +1035,7 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
             }
         } break;
-        default:
-            break;
+        default: break;
     }
     return dynamicAttributeList;
 }

@@ -24,12 +24,9 @@
 #include "machine/utils/device_log.h"
 #include "tilefwk/error.h"
 
-#define ALIGN_UP_PTR(ptr, al) \
-  (reinterpret_cast<decltype(ptr)>( \
-    ( \
-      reinterpret_cast<uintptr_t>(ptr) + static_cast<uintptr_t>((al) - 1) \
-    ) & ~static_cast<uintptr_t>((al) - 1) \
-  ))
+#define ALIGN_UP_PTR(ptr, al)         \
+    (reinterpret_cast<decltype(ptr)>( \
+        (reinterpret_cast<uintptr_t>(ptr) + static_cast<uintptr_t>((al) - 1)) & ~static_cast<uintptr_t>((al) - 1)))
 constexpr int64_t CACHE_LINE_SIZE = 64;
 constexpr int64_t INVALID_SLOT_ID = -1;
 
@@ -62,8 +59,8 @@ public:
         nextSlot_ = reinterpret_cast<int32_t *>(naddr); // nextSlot_ takes a whole cache line
         size -= naddr - addr + CACHE_LINE_SIZE;
         nrSlot_ = size / sizeof(struct Slot);
-        slots_ = reinterpret_cast<Slot*>(naddr + CACHE_LINE_SIZE);
-        ASSERT(nrSlot_ > 0 && "size too small")<<"nrSlot_= "<<nrSlot_<<", expected >0";
+        slots_ = reinterpret_cast<Slot *>(naddr + CACHE_LINE_SIZE);
+        ASSERT(nrSlot_ > 0 && "size too small") << "nrSlot_= " << nrSlot_ << ", expected >0";
         DEV_DEBUG("nrSlot addr: nextSlot=%p, nrSlot=%ld\n", nextSlot_, nrSlot_);
 
         reset();
@@ -101,7 +98,7 @@ public:
     }
 
     void sync(int slotId) {
-        ASSERT(slotId < nrSlot_)<<"slotId="<<slotId<<" >= nrSlot_="<<nrSlot_;
+        ASSERT(slotId < nrSlot_) << "slotId=" << slotId << " >= nrSlot_=" << nrSlot_;
         while (!trySync(slotId)) {
             cpuRelax();
         }
@@ -158,13 +155,13 @@ public:
         nextSlot_ = reinterpret_cast<int32_t *>(naddr); // nextSlot_ takes a whole cache line
         size -= naddr - addr + CACHE_LINE_SIZE;
         nrSlot_ = size / sizeof(struct Slot);
-        slots_ = reinterpret_cast<Slot*>(naddr + CACHE_LINE_SIZE);
-        ASSERT(nrSlot_ > 0 && "size too small")<<", nrSlot_="<<nrSlot_<<", expected >0";
+        slots_ = reinterpret_cast<Slot *>(naddr + CACHE_LINE_SIZE);
+        ASSERT(nrSlot_ > 0 && "size too small") << ", nrSlot_=" << nrSlot_ << ", expected >0";
         DEV_DEBUG("nrSlot addr: nextSlot=%p, nrSlot=%ld\n", nextSlot_, nrSlot_);
     }
 
     void Finish(int64_t slot) {
-        ASSERT(slot < nrSlot_)<<"slot="<<slot<<" >= nrSlot_="<<nrSlot_;
+        ASSERT(slot < nrSlot_) << "slot=" << slot << " >= nrSlot_=" << nrSlot_;
 
         DEV_DEBUG("fin: taskId=%lx, slot=%ld\n", slots_[slot].taskId, slot);
         std::lock_guard<SpinLock> lock(lock_);
@@ -202,4 +199,4 @@ private:
     Slot *slots_;
     int64_t nrSlot_;
 };
-} // namespace npu::tile_fwk
+} // namespace npu::tile_fwk::dynamic

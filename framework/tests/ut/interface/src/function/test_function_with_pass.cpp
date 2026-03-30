@@ -28,9 +28,9 @@ using namespace npu::tile_fwk;
 
 class FunctionWithPass : public testing::Test {
 public:
-    static void TearDownTestCase() { }
+    static void TearDownTestCase() {}
 
-    static void SetUpTestCase() { }
+    static void SetUpTestCase() {}
 
     void SetUp() override {
         std::cout << "-----------------------------SetUp-------------------------------" << std::endl;
@@ -148,7 +148,7 @@ TEST_F(FunctionWithPass, TestContinuous) {
         {{2, 2}, {2, 2}},
         {{4, 1}, {0, 4}},
         {{1, 4}, {4, 0}},
-        {{1, 1}, {4, 4}} // 添加一个 1x1 的矩形填补缝隙
+        {{1, 1}, {4, 4}}  // 添加一个 1x1 的矩形填补缝隙
     };
     EXPECT_EQ(TestContinuous(tensors_2d_irregular_fixed), true);
 
@@ -691,7 +691,6 @@ TEST_F(FunctionWithPass, AssignRoundingModes_int16) {
     fp = iVal;
     // 预期结果根据具体计算确定
     EXPECT_NE(fp.value, 0);
-
 }
 
 TEST_F(FunctionWithPass, AssignZero_uint16) {
@@ -791,8 +790,10 @@ TEST_F(FunctionWithPass, Constructor) {
 }
 
 TEST_F(FunctionWithPass, GetSymbolicCalcBinary) {
-    EXPECT_EQ(RawSymbolicExpression::GetSymbolicCalcBinary(SymbolicOpcode::T_BOP_ADD), &RawSymbolicExpression::CalcBopAdd);
-    EXPECT_EQ(RawSymbolicExpression::GetSymbolicCalcBinary(SymbolicOpcode::T_BOP_SUB), &RawSymbolicExpression::CalcBopSub);
+    EXPECT_EQ(
+        RawSymbolicExpression::GetSymbolicCalcBinary(SymbolicOpcode::T_BOP_ADD), &RawSymbolicExpression::CalcBopAdd);
+    EXPECT_EQ(
+        RawSymbolicExpression::GetSymbolicCalcBinary(SymbolicOpcode::T_BOP_SUB), &RawSymbolicExpression::CalcBopSub);
     // 类似地测试其他操作码
 }
 
@@ -889,4 +890,4 @@ TEST_F(FunctionWithPass, DumpBuffer) {
     EXPECT_EQ(buffer.str(), "(5+3)");
 }
 
-}  // namespace
+} // namespace

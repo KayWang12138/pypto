@@ -51,7 +51,7 @@ inline std::vector<TensorData> TransVec(std::vector<LogicalTensorDataPtr> datas)
     std::vector<TensorData> result;
     result.reserve(datas.size());
 
-    for (const auto& data : datas) {
+    for (const auto &data : datas) {
         result.push_back(Trans(data));
     }
     return result;
@@ -66,7 +66,8 @@ inline bool AllClose(LogicalTensorDataPtr self, LogicalTensorDataPtr other, doub
 inline void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode mode = CAST_NONE) {
     GetCalcOps()->Cast(Trans(out), Trans(self), mode);
 }
-inline void QuantPreCompute(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
+inline void QuantPreCompute(
+    LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
     CalcOps *ops = GetCalcOps();
     ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
     if (scalePtr == nullptr) {
@@ -118,10 +119,10 @@ inline void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Relu(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Relu(Trans(out), Trans(self));
 }
-inline void Pad(LogicalTensorDataPtr out, LogicalTensorDataPtr input, const Element& padValue) {
+inline void Pad(LogicalTensorDataPtr out, LogicalTensorDataPtr input, const Element &padValue) {
     GetCalcOps()->Pad(Trans(out), Trans(input), padValue);
 }
-inline void FillPad(LogicalTensorDataPtr out, LogicalTensorDataPtr input, const Element& padValue) {
+inline void FillPad(LogicalTensorDataPtr out, LogicalTensorDataPtr input, const Element &padValue) {
     GetCalcOps()->FillPad(Trans(out), Trans(input), padValue);
 }
 inline void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
@@ -171,8 +172,8 @@ inline void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
     CmpOperationType operation, CmpModeType mode) {
     GetCalcOps()->Compare(Trans(out), Trans(self), Trans(other), operation, mode);
 }
-inline void Cmps(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar,
-    CmpOperationType operation, CmpModeType mode) {
+inline void Cmps(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, CmpOperationType operation,
+    CmpModeType mode) {
     GetCalcOps()->Cmps(Trans(out), Trans(self), scalar, operation, mode);
 }
 inline void Hypot(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
@@ -197,7 +198,8 @@ inline void MulS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 inline void DivS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->DivS(Trans(out), Trans(self), scalar, reverse);
 }
-inline void FloorDivS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
+inline void FloorDivS(
+    LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->FloorDivS(Trans(out), Trans(self), scalar, reverse);
 }
 inline void FmodS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
@@ -206,19 +208,24 @@ inline void FmodS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Ele
 inline void GcdS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
     GetCalcOps()->GcdS(Trans(out), Trans(self), scalar);
 }
-inline void RemainderS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
+inline void RemainderS(
+    LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->RemainderS(Trans(out), Trans(self), scalar, reverse);
 }
-inline void RemainderRS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = true) {
+inline void RemainderRS(
+    LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = true) {
     GetCalcOps()->RemainderRS(Trans(out), Trans(self), scalar, reverse);
 }
-inline void BitwiseAndS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
+inline void BitwiseAndS(
+    LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->BitwiseAndS(Trans(out), Trans(self), scalar, reverse);
 }
-inline void BitwiseOrS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
+inline void BitwiseOrS(
+    LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->BitwiseOrS(Trans(out), Trans(self), scalar, reverse);
 }
-inline void BitwiseXorS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
+inline void BitwiseXorS(
+    LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->BitwiseXorS(Trans(out), Trans(self), scalar, reverse);
 }
 inline void Add(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
@@ -349,8 +356,7 @@ inline void GatherElements(
     LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int axis) {
     GetCalcOps()->GatherElements(Trans(out), Trans(params), Trans(indices), axis);
 }
-inline void GatherMask(
-    LogicalTensorDataPtr out, LogicalTensorDataPtr self, int patternMode) {
+inline void GatherMask(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int patternMode) {
     GetCalcOps()->GatherMask(Trans(out), Trans(self), patternMode);
 }
 inline void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr src,
@@ -402,7 +408,8 @@ inline void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
     LogicalTensorDataPtr src, int axis, int reduce) {
     GetCalcOps()->Scatter(Trans(out), Trans(self), Trans(index), Trans(src), axis, reduce);
 }
-inline void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending, int64_t offset) {
+inline void BitSort(
+    LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending, int64_t offset) {
     GetCalcOps()->BitSort(Trans(out), Trans(self), axis, descending, offset);
 }
 inline void TiledMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr src1, LogicalTensorDataPtr src2,
@@ -431,12 +438,13 @@ inline void MrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t
     GetCalcOps()->MrgSort(Trans(out), Trans(self), axis, k);
 }
 
-inline void TopK(LogicalTensorDataPtr outValue, LogicalTensorDataPtr outIndex, LogicalTensorDataPtr self, int k, int axis, bool descending) {
+inline void TopK(LogicalTensorDataPtr outValue, LogicalTensorDataPtr outIndex, LogicalTensorDataPtr self, int k,
+    int axis, bool descending) {
     GetCalcOps()->TopK(Trans(outValue), Trans(outIndex), Trans(self), k, axis, descending);
 }
 
-inline void TopkSort(LogicalTensorDataPtr outValue, LogicalTensorDataPtr outTemp,
-                     LogicalTensorDataPtr self, int startIndex) {
+inline void TopkSort(
+    LogicalTensorDataPtr outValue, LogicalTensorDataPtr outTemp, LogicalTensorDataPtr self, int startIndex) {
     GetCalcOps()->TopkSort(Trans(outValue), Trans(outTemp), Trans(self), startIndex);
 }
 
@@ -452,7 +460,8 @@ inline void TwoTileMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self) 
     GetCalcOps()->TwoTileMrgSort(Trans(out), Trans(self));
 }
 
-inline void Sort(LogicalTensorDataPtr value, LogicalTensorDataPtr index, LogicalTensorDataPtr self, int64_t axis, bool descending) {
+inline void Sort(
+    LogicalTensorDataPtr value, LogicalTensorDataPtr index, LogicalTensorDataPtr self, int64_t axis, bool descending) {
     GetCalcOps()->Sort(Trans(value), Trans(index), Trans(self), axis, descending);
 }
 

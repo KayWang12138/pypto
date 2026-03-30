@@ -28,7 +28,7 @@ TEST_F(VecdupTest, TestVecDup) {
     Element src(DataType::DT_FP32, 2.0);
     int outputCapacity = 32 * 32;
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("VECDUP") {
         TileShape::Current().SetVecTile({16, 1, 16});
 
@@ -36,7 +36,7 @@ TEST_F(VecdupTest, TestVecDup) {
 
         config::SetBuildStatic(true);
         FUNCTION("VECDUP_T", {output}) {
-                output = npu::tile_fwk::Full(src, DT_FP32, shape);
+            output = npu::tile_fwk::Full(src, DT_FP32, shape);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -67,7 +67,7 @@ TEST_F(VecdupTest, TestVecDupUnaligned) {
 
         config::SetBuildStatic(true);
         FUNCTION("VECDUP_T", {output}) {
-                output = npu::tile_fwk::Full(src, DT_FP32, shape);
+            output = npu::tile_fwk::Full(src, DT_FP32, shape);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

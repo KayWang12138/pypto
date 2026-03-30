@@ -13,10 +13,11 @@
  * \brief
  */
 
- #include "machine/device/dynamic/context/device_task_context.h"
+#include "machine/device/dynamic/context/device_task_context.h"
 
 namespace npu::tile_fwk::dynamic {
-void DeviceTaskContext::ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId, int funcIndex, size_t opIndex, WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr) {
+void DeviceTaskContext::ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId, int funcIndex, size_t opIndex,
+    WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr) {
     DEV_VERBOSE_DEBUG("add task to wrap queue, wrapId = %u, funcIndex = %d, opIndex = %lu", wrapId, funcIndex, opIndex);
     if (wrapQueue == nullptr || wrapTasklistAddr == nullptr) {
         DEV_VERBOSE_DEBUG("wrapQueue or wrapTasklistAddr = nullptr");
@@ -25,12 +26,12 @@ void DeviceTaskContext::ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId
 
     for (uint32_t idx = wrapQueue->head; idx < wrapQueue->tail; idx++) {
         if (wrapQueue->elem[idx].wrapId == wrapId) {
-            ReadyCoreFunctionQueue* tasklist = &wrapQueue->elem[idx].tasklist;
+            ReadyCoreFunctionQueue *tasklist = &wrapQueue->elem[idx].tasklist;
             tasklist->elem[tasklist->tail++] = MakeTaskID(funcIndex, opIndex);
             return;
         }
     }
-    auto opWrapTaskNumList = reinterpret_cast<int32_t*>(dyntask->devTask.mixTaskData.opWrapTaskNumList[funcIndex]);
+    auto opWrapTaskNumList = reinterpret_cast<int32_t *>(dyntask->devTask.mixTaskData.opWrapTaskNumList[funcIndex]);
     auto cceBinary = dyntask->cceBinary;
     auto callList = dyntask->dynFuncDataCacheList[funcIndex].calleeList;
 
@@ -55,16 +56,18 @@ void DeviceTaskContext::ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId
     wrapQueue->tail++;
 }
 
-uint32_t* DeviceTaskContext::AllocWrapTasklist(DynDeviceTask *dyntask) {
+uint32_t *DeviceTaskContext::AllocWrapTasklist(DynDeviceTask *dyntask) {
     uint32_t size = dyntask->devTask.coreFunctionCnt * sizeof(uint32_t);
-    WsAllocation qalloc = ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::WRAP_TASKLIST));
+    WsAllocation qalloc =
+        ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::WRAP_TASKLIST));
     uint32_t *wrapTasklistAddr = qalloc.As<uint32_t>();
     return wrapTasklistAddr;
 }
 
-WrapInfoQueue* DeviceTaskContext::AllocWrapQueue(DynDeviceTask *dyntask) {
+WrapInfoQueue *DeviceTaskContext::AllocWrapQueue(DynDeviceTask *dyntask) {
     uint32_t size = sizeof(WrapInfoQueue) + dyntask->devTask.mixTaskData.wrapIdNum * sizeof(WrapInfo);
-    WsAllocation qalloc = ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::WRAP_QUEUE));
+    WsAllocation qalloc =
+        ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::WRAP_QUEUE));
     WrapInfoQueue *q = qalloc.As<WrapInfoQueue>();
     q->head = 0;
     q->tail = 0;
@@ -96,10 +99,11 @@ void DeviceTaskContext::InitDieReadyQueues(DynDeviceTask *dyntask, DevAscendProg
     if (!IsMultiDie(devProg)) {
         return;
     }
-    ReadyCoreFunctionQueue* queue[DIE_READY_QUEUE_SIZE * DIE_NUM];
+    ReadyCoreFunctionQueue *queue[DIE_READY_QUEUE_SIZE * DIE_NUM];
     uint32_t size = sizeof(ReadyCoreFunctionQueue) + dyntask->devTask.coreFunctionCnt * sizeof(taskid_t);
     for (size_t i = 0; i < DIE_READY_QUEUE_SIZE * DIE_NUM; ++i) {
-        WsAllocation qalloc = ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::DIE_READY_QUE));
+        WsAllocation qalloc =
+            ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::DIE_READY_QUE));
         ReadyCoreFunctionQueue *q = qalloc.As<ReadyCoreFunctionQueue>();
         InitReadyCoreFunctionQueue(q, dyntask->devTask.coreFunctionCnt);
         queue[i] = q;
@@ -110,4 +114,4 @@ void DeviceTaskContext::InitDieReadyQueues(DynDeviceTask *dyntask, DevAscendProg
     }
 }
 
-}
+} // namespace npu::tile_fwk::dynamic

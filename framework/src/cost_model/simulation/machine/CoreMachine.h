@@ -37,10 +37,7 @@ public:
     CorePipeType iqType = CorePipeType::TOTAL_CORE_PIPE_TYPE;
     std::deque<int> readyQueue;
 
-    ReadyQueue(CorePipeType type, int id) : iqId(id), iqType(type)
-    {
-        readyQueue.clear();
-    };
+    ReadyQueue(CorePipeType type, int id) : iqId(id), iqType(type) { readyQueue.clear(); };
 
     void Insert(int idx);
     bool Empty() const;
@@ -77,7 +74,7 @@ public:
     std::unordered_map<int, TilePtr> tiles;
     std::unordered_map<int, TileOpPtr> tileOps;
     std::vector<std::vector<int>> tileAllocSequence;
-    bool                                coreNextNeedStep = false;
+    bool coreNextNeedStep = false;
 
     // local stat
     std::unordered_map<CostModel::CorePipeType, uint64_t> leafPipeExecuteTime;
@@ -142,4 +139,4 @@ public:
     uint64_t GetQueueNextCycles();
     void SetTileState(std::shared_ptr<TileState> &state);
 };
-}  // namespace CostModel
+} // namespace CostModel

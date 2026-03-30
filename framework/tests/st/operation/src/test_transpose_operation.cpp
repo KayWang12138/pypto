@@ -66,7 +66,7 @@ static void TransposeOperationExeFunc3Dims(
     int first_dim = transposeInfo->first_dim_ < 0 ? transposeInfo->first_dim_ + transposeInfo->viewShape_.size() :
                                                     transposeInfo->first_dim_;
     int second_dim = transposeInfo->second_dim_ < 0 ? transposeInfo->second_dim_ + transposeInfo->viewShape_.size() :
-                                                    transposeInfo->second_dim_;
+                                                      transposeInfo->second_dim_;
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -103,7 +103,7 @@ static void TransposeOperationExeFunc4Dims(
     int first_dim = transposeInfo->first_dim_ < 0 ? transposeInfo->first_dim_ + transposeInfo->viewShape_.size() :
                                                     transposeInfo->first_dim_;
     int second_dim = transposeInfo->second_dim_ < 0 ? transposeInfo->second_dim_ + transposeInfo->viewShape_.size() :
-                                                    transposeInfo->second_dim_;
+                                                      transposeInfo->second_dim_;
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -148,7 +148,7 @@ static void TransposeOperationExeFunc5Dims(
     int first_dim = transposeInfo->first_dim_ < 0 ? transposeInfo->first_dim_ + transposeInfo->viewShape_.size() :
                                                     transposeInfo->first_dim_;
     int second_dim = transposeInfo->second_dim_ < 0 ? transposeInfo->second_dim_ + transposeInfo->viewShape_.size() :
-                                                    transposeInfo->second_dim_;
+                                                      transposeInfo->second_dim_;
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];

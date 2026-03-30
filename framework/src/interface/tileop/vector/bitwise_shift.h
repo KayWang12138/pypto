@@ -49,46 +49,46 @@ TILEOP void BitwiseShiftScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
 template <size_t MAX_SHIFT_NUM, typename T, typename U, typename V>
 TILEOP void GetValidShiftTile(T &dst, U &src1, V &tmp) {
     pto::TEXPANDS(tmp, MAX_SHIFT_NUM);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TSUB(tmp, tmp, src1);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TOR(tmp, tmp, src1);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TSHRS(tmp, tmp, MAX_SHIFT_NUM);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TNOT(dst, tmp);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TAND(src1, src1, dst);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TEXPANDS(dst, MAX_SHIFT_NUM);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TAND(tmp, tmp, dst);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TOR(src1, src1, tmp);
 }
 
 template <BitwiseShiftOp op, size_t MAX_SHIFT_NUM, typename T0, typename T1, typename T2, typename T3>
 TILEOP void BitwiseShiftImpl(T0 &dst, T1 &src0, T2 &src1, T3 &tmp) {
     GetValidShiftTile<MAX_SHIFT_NUM>(dst, src1, tmp);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     BitwiseShiftComputeImpl<op>(dst, src0, src1);
 }
 
@@ -145,13 +145,13 @@ TILEOP void BitwiseShiftScalarCompute(T0 dst, T1 src0, Scalar src1) {
 template <BitwiseShiftOp op, size_t MAX_SHIFT_NUM, typename T0, typename Scalar, typename T1, typename T2>
 TILEOP void ScalarBitwiseShiftImpl(T0 &dst, Scalar &src0, T1 &src1, T2 &tmp) {
     GetValidShiftTile<MAX_SHIFT_NUM>(dst, src1, tmp);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TEXPANDS(dst, src0);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     BitwiseShiftComputeImpl<op>(dst, dst, src1);
 }
 

@@ -49,38 +49,38 @@ int64_t DeviceExecuteContext::GetInputDataInt32Dim1(DeviceExecuteContext *ctx, u
     return (reinterpret_cast<int32_t *>(input->address))[off0];
 }
 
-int64_t DeviceExecuteContext::GetInputDataInt32Dim2(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1) {
+int64_t DeviceExecuteContext::GetInputDataInt32Dim2(
+    DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1) {
     DevTensorData *input = &ctx->args->devTensorList[inputIndex];
     return (reinterpret_cast<int32_t *>(input->address))[off0 * input->shape.dim[1] + off1];
 }
 
-int64_t DeviceExecuteContext::GetInputDataInt32Dim3(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1, uint64_t off2) {
+int64_t DeviceExecuteContext::GetInputDataInt32Dim3(
+    DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1, uint64_t off2) {
     DevTensorData *input = &ctx->args->devTensorList[inputIndex];
-    return (reinterpret_cast<int32_t *>(input->address))[off0 * input->shape.dim[1] * input->shape.dim[2] + off1 * input->shape.dim[2] + off2]; // 2: dim 2
+    return (reinterpret_cast<int32_t *>(input->address))[off0 * input->shape.dim[1] * input->shape.dim[2] +
+                                                         off1 * input->shape.dim[2] + off2]; // 2: dim 2
 }
 
-int64_t DeviceExecuteContext::GetInputDataInt32Dim4(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1,
-    uint64_t off2, uint64_t off3) {
+int64_t DeviceExecuteContext::GetInputDataInt32Dim4(
+    DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1, uint64_t off2, uint64_t off3) {
     DevTensorData *input = &ctx->args->devTensorList[inputIndex];
-    return (reinterpret_cast<int32_t *>(input->address))[((off0 * input->shape.dim[1] + off1) * input->shape.dim[2] + off2) * input->shape.dim[3] + off3]; // 2: dim 2, 3: dim 3
+    return (reinterpret_cast<int32_t *>(
+        input->address))[((off0 * input->shape.dim[1] + off1) * input->shape.dim[2] + off2) * input->shape.dim[3] +
+                         off3]; // 2: dim 2, 3: dim 3
 }
 
 void *DeviceExecuteContext::SymbolHandlerIdToHandler(SymbolHandlerId id) {
     switch (id) {
-        case SymbolHandlerId::GetInputShapeDimSize:
-            return reinterpret_cast<void *>(GetInputShapeDimSize);
-        case SymbolHandlerId::GetInputShapeDim:
-            return reinterpret_cast<void *>(GetInputShapeDim);
-        case SymbolHandlerId::GetInputDataInt32Dim1:
-            return reinterpret_cast<void *>(GetInputDataInt32Dim1);
-        case SymbolHandlerId::GetInputDataInt32Dim2:
-            return reinterpret_cast<void *>(GetInputDataInt32Dim2);
-        case SymbolHandlerId::GetInputDataInt32Dim3:
-            return reinterpret_cast<void *>(GetInputDataInt32Dim3);
-        case SymbolHandlerId::GetInputDataInt32Dim4:
-            return reinterpret_cast<void *>(GetInputDataInt32Dim4);
+        case SymbolHandlerId::GetInputShapeDimSize: return reinterpret_cast<void *>(GetInputShapeDimSize);
+        case SymbolHandlerId::GetInputShapeDim: return reinterpret_cast<void *>(GetInputShapeDim);
+        case SymbolHandlerId::GetInputDataInt32Dim1: return reinterpret_cast<void *>(GetInputDataInt32Dim1);
+        case SymbolHandlerId::GetInputDataInt32Dim2: return reinterpret_cast<void *>(GetInputDataInt32Dim2);
+        case SymbolHandlerId::GetInputDataInt32Dim3: return reinterpret_cast<void *>(GetInputDataInt32Dim3);
+        case SymbolHandlerId::GetInputDataInt32Dim4: return reinterpret_cast<void *>(GetInputDataInt32Dim4);
         default:
-            DEV_ERROR(DevCommonErr::PARAM_INVALID, "#ctrl.task.pre.handler: Invalid SymbolHandlerId: %lu", static_cast<uint64_t>(id));
+            DEV_ERROR(DevCommonErr::PARAM_INVALID, "#ctrl.task.pre.handler: Invalid SymbolHandlerId: %lu",
+                static_cast<uint64_t>(id));
             DEV_ASSERT(DevCommonErr::PARAM_INVALID, 0);
             return nullptr;
     }
@@ -95,7 +95,8 @@ int DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTa
 
     workspace.Init(startArgs);
     if (devProg->stitchFunctionNumInitial > 0) {
-        stitchTaskLoopNumThreshold = std::min<uint16_t>(devProg->stitchFunctionNumInitial, devProg->stitchMaxFunctionNum);
+        stitchTaskLoopNumThreshold =
+            std::min<uint16_t>(devProg->stitchFunctionNumInitial, devProg->stitchMaxFunctionNum);
         DEV_INFO("First stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
     }
 
@@ -144,7 +145,8 @@ DeviceExecuteContext::DeviceExecuteContext(DevStartArgs *startArgs) {
     }
 
     PerfBegin(PERF_EVT_CONTROL_FLOW_MAPEXE);
-    execProg = DeviceExecuteProgram(devProg, reinterpret_cast<AOTBinaryControlFlow::controlFlowEntry>(const_cast<void *>(startArgs->controlFlowEntry)));
+    execProg = DeviceExecuteProgram(devProg,
+        reinterpret_cast<AOTBinaryControlFlow::controlFlowEntry>(const_cast<void *>(startArgs->controlFlowEntry)));
     AOTCodePool::GetCodePool().MapExec();
     PerfEnd(PERF_EVT_CONTROL_FLOW_MAPEXE);
     PerfEnd(PERF_EVT_INIT);
@@ -169,7 +171,8 @@ void DeviceExecuteContext::GELaunchRunCached(DevStartArgs *startArgs, PushTaskEn
     PerfMtTrace(PERF_TRACE_INIT, CTRL_CPU_THREAD_IDX);
     PerfBegin(PERF_EVT_CONTROL_FLOW);
     for (size_t index = 0; index < devProg->ctrlFlowCacheAnchor->deviceTaskCount; index++) {
-        DynDeviceTask *dynTask = reinterpret_cast<DynDeviceTask *>(devProg->ctrlFlowCacheAnchor->deviceTaskCacheList[index].dynTaskBase);
+        DynDeviceTask *dynTask =
+            reinterpret_cast<DynDeviceTask *>(devProg->ctrlFlowCacheAnchor->deviceTaskCacheList[index].dynTaskBase);
         devProg->ctrlFlowCacheAnchor->PredCountDataRestore(dynTask);
         devProg->ctrlFlowCacheAnchor->ReadyQueueDataRestore(dynTask);
         devProg->ctrlFlowCacheAnchor->DieReadyQueueDataRestore(dynTask);
@@ -200,7 +203,8 @@ int DeviceExecuteContext::RunControlFlow(DevStartArgs *startArgs) {
     execProg.controlFlowBinary.CallControlFlow(this, symbolTable.data(), runtimeCallList, startArgs);
     int finalErrorState = this->GetErrorState();
     if (finalErrorState != originalErrorState && finalErrorState != DEVICE_MACHINE_OK) {
-        DEV_ERROR(CtrlErr::CTRL_FLOW_EXEC_FAILED, "#ctrl.ctrlflow.leave: Control flow execution failed with error code: %d", finalErrorState);
+        DEV_ERROR(CtrlErr::CTRL_FLOW_EXEC_FAILED,
+            "#ctrl.ctrlflow.leave: Control flow execution failed with error code: %d", finalErrorState);
         return finalErrorState;
     }
     PerfEnd(PERF_EVT_CONTROL_FLOW);
@@ -244,11 +248,13 @@ int DeviceExecuteContext::GELaunch(DevStartArgs *startArgs, PushTaskEntry tPushT
 
 int DeviceExecuteContext::GELaunchPartialCache(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
     int ret = DEVICE_MACHINE_OK;
-    DEV_TRACE_DEBUG(CtrlEvent(none(), Workspace(Range(startArgs->contextWorkspaceAddr, startArgs->contextWorkspaceAddr + startArgs->contextWorkspaceSize))));
+    DEV_TRACE_DEBUG(CtrlEvent(none(), Workspace(Range(startArgs->contextWorkspaceAddr,
+                                          startArgs->contextWorkspaceAddr + startArgs->contextWorkspaceSize))));
 
     if (devProg->ctrlFlowCacheAnchor->IsActivatedPartialCache(startArgs)) {
         controlFlowCacheActivated = true;
-        DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCachePartRunCache(devProg->ctrlFlowCacheAnchor->deviceTaskCount, devProg->ctrlFlowCacheAnchor->rootTaskCount)));
+        DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCachePartRunCache(devProg->ctrlFlowCacheAnchor->deviceTaskCount,
+                                              devProg->ctrlFlowCacheAnchor->rootTaskCount)));
         GELaunchRunCached(startArgs, tPushTask);
     }
     DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCacheFullRunControl()));
@@ -268,26 +274,32 @@ bool DeviceExecuteContext::AiCoreFree() {
 }
 
 void DeviceExecuteContext::DumpDeviceTask(uint64_t taskId, DynDeviceTask *deviceTask) {
-    DEV_IF_VERBOSE_DEBUG {
-    } else {
+    DEV_IF_VERBOSE_DEBUG {}
+    else {
         return;
     }
     for (uint64_t dupIdx = 0; dupIdx < deviceTask->dynFuncDataCacheListSize; dupIdx++) {
         DevAscendFunctionDuppedData *dupped = deviceTask->dynFuncDataCacheList[dupIdx].duppedData;
-        DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), dupped->SchemaGetWorkspace()));
+        DEV_TRACE_DEBUG(
+            REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), dupped->SchemaGetWorkspace()));
         size_t incastSize = dupped->GetSource()->GetIncastSize();
         DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActIncastCount(incastSize)));
         for (size_t i = 0; i < incastSize; ++i) {
-            DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActIncast(i, dupped->SchemaGetIncastRange(i))));
+            DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()),
+                RActIncast(i, dupped->SchemaGetIncastRange(i))));
         }
 
         size_t outcastSize = dupped->GetSource()->GetOutcastSize();
-        DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActOutcastCount(outcastSize)));
+        DEV_TRACE_DEBUG(
+            REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActOutcastCount(outcastSize)));
         for (size_t i = 0; i < outcastSize; ++i) {
-            DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActOutcast(i, dupped->SchemaGetOutcastRange(i))));
+            DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()),
+                RActOutcast(i, dupped->SchemaGetOutcastRange(i))));
         }
-        DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActExpressionCount(dupped->GetExpressionSize())));
-        DEV_TRACE_DEBUG_SPLIT(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), expr(dupped->SchemaGetExpressionList())));
+        DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()),
+            RActExpressionCount(dupped->GetExpressionSize())));
+        DEV_TRACE_DEBUG_SPLIT(
+            REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), expr(dupped->SchemaGetExpressionList())));
     }
 }
 
@@ -300,8 +312,9 @@ void DeviceExecuteContext::ProcessControlFlowCacheRecord(DynDeviceTask *dynTask)
             devProg->ctrlFlowCacheAnchor->MixTaskDataBackup(dynTask);
             devProg->ctrlFlowCacheAnchor->IncastOutcastAddrBackup(dynTask);
             devProg->ctrlFlowCacheAnchor->TaskAddrBackupWorkspace(dynTask);
-            devProg->ctrlFlowCacheAnchor->RuntimeAddrBackup(slotContext.GetSlotList(), workspace.GetRuntimeOutcastTensorPoolBase(),
-                devProg->slotSize, devProg->runtimeOutcastPoolSize, workspace.GetTensorAllocator());
+            devProg->ctrlFlowCacheAnchor->RuntimeAddrBackup(slotContext.GetSlotList(),
+                workspace.GetRuntimeOutcastTensorPoolBase(), devProg->slotSize, devProg->runtimeOutcastPoolSize,
+                workspace.GetTensorAllocator());
         }
         devProg->ctrlFlowCacheAnchor->AppendDeviceTask(dynTask);
     }
@@ -320,17 +333,21 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
     PROF_STAGE_BEGIN(PERF_EVT_DECIDE_SLOT_ADDRESS, "slotaddr.before\n");
     stitchContext.DecideSlotAddress(slotContext.GetSlotList(), slotContext.GetSlotSize());
     PROF_STAGE_END(PERF_EVT_DECIDE_SLOT_ADDRESS, "slotaddr.after\n");
-    if (unlikely(ret != DEVICE_MACHINE_OK)) { return DEVICE_MACHINE_ERROR;}
+    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+        return DEVICE_MACHINE_ERROR;
+    }
 
     PROF_STAGE_BEGIN(PERF_EVT_DECIDE_INCAST_ADDRESS, "incastaddr.before\n");
     ret = stitchContext.DecideIncastOutcast(taskId);
     PROF_STAGE_END(PERF_EVT_DECIDE_INCAST_ADDRESS, "incastaddr.after\n");
-    if (unlikely(ret != DEVICE_MACHINE_OK)) { return DEVICE_MACHINE_ERROR;}
+    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+        return DEVICE_MACHINE_ERROR;
+    }
 
     DEV_IF_VERBOSE_DEBUG {
-            stitchContext.DumpStitchInfo();
+        stitchContext.DumpStitchInfo();
 #if !DEBUG_INFINITE_LIFETIME
-            stitchContext.VerifyStitchedListMemory(*args);
+        stitchContext.VerifyStitchedListMemory(*args);
 #endif
     }
 
@@ -399,15 +416,14 @@ void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
         stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > devProg->stitchFunctionsize) {
         DEV_INFO("[Stitch Finish] Stitch Limit Exceeded. rootKey=%lu, func=%s, "
                  "#task=%zu+1 (limit=%u), #callop=%u+%zu (limit=%u).",
-            rootKey, devRoot->GetRawName(),
-            stitchContext.Size(), stitchTaskLoopNumThreshold,
+            rootKey, devRoot->GetRawName(), stitchContext.Size(), stitchTaskLoopNumThreshold,
             stitchContext.stitchedCallOpSize(), devRoot->GetOperationSize(), devProg->stitchFunctionsize);
         ret = SubmitToAicoreAndRecycleMemory(false);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return RUNTIME_FUNCKEY_ERROR;
         }
-        auto nextThreshold =
-            std::min<uint16_t>(stitchTaskLoopNumThreshold + devProg->stitchFunctionNumStep, devProg->stitchMaxFunctionNum);
+        auto nextThreshold = std::min<uint16_t>(
+            stitchTaskLoopNumThreshold + devProg->stitchFunctionNumStep, devProg->stitchMaxFunctionNum);
         stitchTaskLoopNumThreshold = nextThreshold;
     }
     DEV_TRACE_DEBUG(REvent(GetRuid(rootKey), RActDup(devRoot->GetRawName())));
@@ -473,7 +489,8 @@ void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
 }
 
 void DeviceExecuteContext::MarkSlotNeedAlloc(int slotIndex) {
-    DEV_ASSERT_MSG(DevCommonErr::PARAM_INVALID, slotIndex >= 0 && slotIndex < static_cast<int>(slotContext.GetSlotSize()),
+    DEV_ASSERT_MSG(DevCommonErr::PARAM_INVALID,
+        slotIndex >= 0 && slotIndex < static_cast<int>(slotContext.GetSlotSize()),
         "MarkSlotNeedAlloc: Invalid slot index %d.", slotIndex);
     slotContext.GetSlotList()[slotIndex].isAssembleSlotNeedAlloc = true;
     return;
@@ -496,7 +513,8 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootAlloc(void *ctx_, uint64
     void *result = nullptr;
     if (ctx->DuppedRootCached()) {
         result = nullptr;
-    } else if (ctx->devProg->ctrlFlowCacheAnchor->IsRecording() && ctx->devProg->ctrlFlowCacheAnchor->IsRecordingStopped()) {
+    } else if (ctx->devProg->ctrlFlowCacheAnchor->IsRecording() &&
+               ctx->devProg->ctrlFlowCacheAnchor->IsRecordingStopped()) {
         result = nullptr;
     } else {
         result = ctx->CallRootFunctionAlloc(rootKey);
@@ -528,7 +546,7 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootStitch(void *ctx_, uint6
     if (ctx->DuppedRootCached()) {
         result = nullptr;
     } else if (ctx->devProg->ctrlFlowCacheAnchor->IsRecording() &&
-        ctx->devProg->ctrlFlowCacheAnchor->IsRecordingStopped()) {
+               ctx->devProg->ctrlFlowCacheAnchor->IsRecordingStopped()) {
         result = nullptr;
     } else {
         result = ctx->CallRootFunctionStitch(rootKey);
@@ -545,10 +563,11 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootStitch(void *ctx_, uint6
     if (ctx->DuppedRootUpdateAndCachedAllSubmitted()) {
         DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCachePartRunControlContinue()));
         // forcely break device task
-        ctx->devProg->ctrlFlowCacheAnchor->RuntimeAddrRestore(ctx->slotContext.GetSlotList(), ctx->workspace.GetRuntimeOutcastTensorPoolBase(),
-            ctx->devProg->slotSize, ctx->devProg->runtimeOutcastPoolSize, ctx->workspace.GetTensorAllocator());
-        ctx->devProg->ctrlFlowCacheAnchor->RuntimeAddrRelocWorkspace(0, ctx->args->contextWorkspaceAddr,
-            ctx->args, ctx->slotContext.GetSlotList(), ctx->workspace.GetRuntimeOutcastTensorPoolBase());
+        ctx->devProg->ctrlFlowCacheAnchor->RuntimeAddrRestore(ctx->slotContext.GetSlotList(),
+            ctx->workspace.GetRuntimeOutcastTensorPoolBase(), ctx->devProg->slotSize,
+            ctx->devProg->runtimeOutcastPoolSize, ctx->workspace.GetTensorAllocator());
+        ctx->devProg->ctrlFlowCacheAnchor->RuntimeAddrRelocWorkspace(0, ctx->args->contextWorkspaceAddr, ctx->args,
+            ctx->slotContext.GetSlotList(), ctx->workspace.GetRuntimeOutcastTensorPoolBase());
     }
     return result;
 }
@@ -560,9 +579,9 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallLog(void *ctx_, uint64_t val
 }
 
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, uint64_t value) {
-    uint64_t groupIndex = (reinterpret_cast<uint64_t*>(value))[0];
-    uint64_t memType = (reinterpret_cast<uint64_t*>(value))[1];
-    uint64_t size = (reinterpret_cast<uint64_t*>(value))[2];
+    uint64_t groupIndex = (reinterpret_cast<uint64_t *>(value))[0];
+    uint64_t memType = (reinterpret_cast<uint64_t *>(value))[1];
+    uint64_t size = (reinterpret_cast<uint64_t *>(value))[2];
     constexpr uint64_t memTypeCount = 2;
     constexpr uint64_t OFFSET_BITS = 54UL;
     constexpr uint64_t GROUP_BITS = 2UL;
@@ -571,18 +590,20 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, u
     constexpr uint64_t MEMTYPE_SHIFT = GROUP_SHIFT + GROUP_BITS;
     constexpr uint64_t FILL_SHIFT = MEMTYPE_SHIFT + MEMTYPE_BITS;
     DEV_ASSERT(DevCommonErr::PARAM_CHECK_FAILED, memType < memTypeCount);
-    DeviceExecuteContext* ctx = (DeviceExecuteContext*)ctx_;
+    DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
     DEV_ASSERT(DevCommonErr::PARAM_CHECK_FAILED, groupIndex < ctx->args->commGroupNum);
-    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(ctx->args->commContexts[groupIndex]);
+    auto hcclOpParam = reinterpret_cast<TileOp::CommContext *>(ctx->args->commContexts[groupIndex]);
     uint64_t winSize = memType == 0 ? hcclOpParam->winDataSize : hcclOpParam->winStatusSize;
     uint64_t shmemAddrEndOffset = ctx->shmemAddrOffset[memType] + size;
     if (shmemAddrEndOffset > winSize) {
         ctx->shmemAddrOffset[memType] = 0UL;
-        DEV_ERROR(DevCommonErr::PARAM_CHECK_FAILED, "#ctrl.unknown: Exceeds winSize limit. Maximum allowed: %lu, got: %lu", winSize, shmemAddrEndOffset);
+        DEV_ERROR(DevCommonErr::PARAM_CHECK_FAILED,
+            "#ctrl.unknown: Exceeds winSize limit. Maximum allowed: %lu, got: %lu", winSize, shmemAddrEndOffset);
     }
-    uint64_t vaddr = ctx->shmemAddrOffset[memType] | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
+    uint64_t vaddr =
+        ctx->shmemAddrOffset[memType] | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
     ctx->shmemAddrOffset[memType] += size;
-    return reinterpret_cast<void*>(vaddr);
+    return reinterpret_cast<void *>(vaddr);
 }
 
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallSlotMarkNeedAlloc(void *ctx_, uint64_t slotIndex) {
@@ -591,17 +612,17 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallSlotMarkNeedAlloc(void *ctx_
     return nullptr;
 }
 
-void *DeviceExecuteContext::DeviceExecuteRuntimeCallGetLoopDieId(void *ctx_,  uint64_t rootKey) {
+void *DeviceExecuteContext::DeviceExecuteRuntimeCallGetLoopDieId(void *ctx_, uint64_t rootKey) {
     (void)rootKey;
     DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
-    return static_cast<void*>(&ctx->loopDieId_);
+    return static_cast<void *>(&ctx->loopDieId_);
 }
 
-void *DeviceExecuteContext::DeviceExecuteRuntimeCallSetLoopDieId(void *ctx_,  uint64_t rootKey) {
+void *DeviceExecuteContext::DeviceExecuteRuntimeCallSetLoopDieId(void *ctx_, uint64_t rootKey) {
     (void)rootKey;
     DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
     ctx->SetLoopDieId(ctx->loopDieId_);
     DEV_VERBOSE_DEBUG("Set loop die id:%d:", ctx->loopDieId_);
     return nullptr;
 }
-}
+} // namespace npu::tile_fwk::dynamic

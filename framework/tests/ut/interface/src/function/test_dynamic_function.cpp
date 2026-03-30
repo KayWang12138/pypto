@@ -40,15 +40,15 @@ public:
 };
 
 namespace {
-    // Constants to replace magic numbers
-    constexpr int LOOP_COUNT = 8;
-    constexpr int SECOND_LOOP_COUNT = 2;
-    constexpr int CONDITION_THRESHOLD = 6;
-}
+// Constants to replace magic numbers
+constexpr int LOOP_COUNT = 8;
+constexpr int SECOND_LOOP_COUNT = 2;
+constexpr int CONDITION_THRESHOLD = 6;
+} // namespace
 
-static bool HasDuplicateElem(const std::vector<std::vector<int>>& vec) {
+static bool HasDuplicateElem(const std::vector<std::vector<int>> &vec) {
     std::set<std::vector<int>> seen;
-    for (const auto& subvec : vec) {
+    for (const auto &subvec : vec) {
         if (seen.find(subvec) != seen.end()) {
             return true;
         }
@@ -183,7 +183,7 @@ struct MopCall {
     static long long func3(long long arg0, long long arg1, long long arg2) { return arg0 + arg1 + arg2; }
 };
 
-#define PTR_TO_ULONG(p) reinterpret_cast<int64_t>(reinterpret_cast<void *> (p))
+#define PTR_TO_ULONG(p) reinterpret_cast<int64_t>(reinterpret_cast<void *>(p))
 
 TEST_F(DynamicFunctionTest, MopCall) {
     SymbolicScalar arg0("arg0", 1);
@@ -288,7 +288,8 @@ TEST_F(DynamicFunctionTest, TestOnlyExpression) {
     EXPECT_EQ(rootFunc->GetCallopAttrList().size(), 1);
     auto attr = rootFunc->GetCallopAttrList().front();
     FUNCTION_LOGI("%s", attr->DumpAttr().c_str());
-    EXPECT_EQ(attr->DumpAttr(2), "attr[2][  0,  0,(k*16), 16, 16, 16, 64, 16,RUNTIME_GetViewValidShapeDim(64,(k*16),16)]]");
+    EXPECT_EQ(
+        attr->DumpAttr(2), "attr[2][  0,  0,(k*16), 16, 16, 16, 64, 16,RUNTIME_GetViewValidShapeDim(64,(k*16),16)]]");
 }
 
 TEST_F(DynamicFunctionTest, TestOnlySymbol) {
@@ -381,7 +382,8 @@ void TestHybridLoopIf2(
             r0 = Mul(r0, t1); // +t0, +t1
             IF(i < CONDITION_THRESHOLD) {
                 r0 = Sub(r0, t2); // +t2 * 6
-            } ELSE {
+            }
+            ELSE {
                 r0 = Sub(r0, t3); // +t3 * 8
             }
             out = Add(r0, t4);
@@ -389,8 +391,8 @@ void TestHybridLoopIf2(
     }
 }
 
-void TestStaticLoopStatic(const Tensor &t0, const Tensor &t1, const Tensor &t2, const Tensor &t3, const Tensor &t4,
-    Tensor &out, int s) {
+void TestStaticLoopStatic(
+    const Tensor &t0, const Tensor &t1, const Tensor &t2, const Tensor &t3, const Tensor &t4, Tensor &out, int s) {
     SymbolicScalar GetInt32Value1("GetInt32Value1");
     SymbolicScalar GetInt32Value2("GetInt32Value2");
     SymbolicScalar blockTableAddr("blockTableAddr");
@@ -421,14 +423,14 @@ void TestStaticLoopStatic(const Tensor &t0, const Tensor &t1, const Tensor &t2, 
             out = Sub(r0, t4);
         }
     }
-    auto& functions = Program::GetInstance().GetFunctionMap();
-    for (auto& [name, function] : functions) {
+    auto &functions = Program::GetInstance().GetFunctionMap();
+    for (auto &[name, function] : functions) {
         if (name == "PROGRAM_ENTRY" || !function->IsGraphType(GraphType::TENSOR_GRAPH)) {
             continue;
         }
         size_t incastSize = function->inCasts_.size();
         size_t outcastSize = function->outCasts_.size();
-        auto& scope = function->GetSlotScope();
+        auto &scope = function->GetSlotScope();
         EXPECT_EQ(scope->ioslot.incastSlot.size(), incastSize);
         EXPECT_EQ(scope->ioslot.outcastSlot.size(), outcastSize);
         EXPECT_EQ(HasSameIoSlots(function), false);
@@ -514,14 +516,14 @@ TEST_F(DynamicFunctionTest, TestHybridLoopIf) {
     auto programJson3 = Program::GetInstance().DumpJson();
     EXPECT_EQ(programJson3.dump(), programJson2.dump());
 
-    auto& functions = Program::GetInstance().GetFunctionMap();
-    for (auto& [name, function] : functions) {
+    auto &functions = Program::GetInstance().GetFunctionMap();
+    for (auto &[name, function] : functions) {
         if (name == "PROGRAM_ENTRY" || !function->IsGraphType(GraphType::TENSOR_GRAPH)) {
             continue;
         }
         size_t incastSize = function->inCasts_.size();
         size_t outcastSize = function->outCasts_.size();
-        auto& scope = function->GetSlotScope();
+        auto &scope = function->GetSlotScope();
         bool ret = HasSameIoSlots(function);
         EXPECT_EQ(scope->ioslot.incastSlot.size(), incastSize);
         EXPECT_EQ(scope->ioslot.outcastSlot.size(), outcastSize);
@@ -551,13 +553,16 @@ Tensor TestLoopIfWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int 
             IF(IsLoopBegin(i, 0)) {
                 IF(IsLoopEnd(i, len)) {
                     r0 = Add(r0, Element(DataType::DT_FP32, 1.0));
-                } ELSE {
+                }
+                ELSE {
                     r0 = Add(r0, Element(DataType::DT_FP32, 2.0));
                 }
-            } ELSE {
+            }
+            ELSE {
                 IF(IsLoopEnd(i, len)) {
                     r0 = Add(r0, Element(DataType::DT_FP32, 0.0));
-                } ELSE {
+                }
+                ELSE {
                     Tensor t0v = View(t0, {s, s}, {s * i, 0});
                     r0 = Add(t0v, r0);
                 }
@@ -731,7 +736,8 @@ TEST_F(DynamicFunctionTest, TestLoopWithManualRank) {
             auto loopAttr = subFunc->GetDynloopAttribute();
             EXPECT_NE(loopAttr, nullptr);
             EXPECT_EQ(loopAttr->unrollTimes, ranks[idx++]);
-            FUNCTION_LOGE_E(FError::UNKNOWN, "unrollTimes: %d range: %s", loopAttr->unrollTimes, loopAttr->loopRange.Dump().c_str());
+            FUNCTION_LOGE_E(FError::UNKNOWN, "unrollTimes: %d range: %s", loopAttr->unrollTimes,
+                loopAttr->loopRange.Dump().c_str());
             EXPECT_EQ(loopAttr->pathList.size(), 1);
         }
     }
@@ -744,7 +750,7 @@ TEST_F(DynamicFunctionTest, TestSymbolicScalarDumpLoad) {
 }
 
 #if ENABLE_HIDDENLOOP
-TEST_F(DynamicFunctionTest, HiddenLoop){
+TEST_F(DynamicFunctionTest, HiddenLoop) {
     TileShape::Current().SetVecTile(512, 512);
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
 
@@ -756,70 +762,73 @@ TEST_F(DynamicFunctionTest, HiddenLoop){
     Tensor t3(DT_FP32, {n * s, m * s}, "t3");
     Tensor out(DT_FP32, {n * s, m * s}, "out");
 
-    FUNCTION("Main", { t1, t2, t3}, {out}) {
+    FUNCTION("Main", {t1, t2, t3}, {out}) {
         // LOOP("L0", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
         //     (void)_;
-            Tensor r0(DT_FP32, {n * s, m * s}, "r0");
-            LOOP("L01",FunctionType::DYNAMIC_LOOP,idx1,LoopRange(LOOP_COUNT)){
-                (void)idx1;
-                t2 = Add(t2,t3);
-                out = Add(out,t1);//out=0+20*8=160
-            }
-            // LOOP("L02",FunctionType::DYNAMIC_LOOP,idx2,LoopRange(1)){
-            //     (void)idx2;
-                r0 = Add(t1, t2);
-                out = Add(r0, t2);
+        Tensor r0(DT_FP32, {n * s, m * s}, "r0");
+        LOOP("L01", FunctionType::DYNAMIC_LOOP, idx1, LoopRange(LOOP_COUNT)) {
+            (void)idx1;
+            t2 = Add(t2, t3);
+            out = Add(out, t1); // out=0+20*8=160
+        }
+        // LOOP("L02",FunctionType::DYNAMIC_LOOP,idx2,LoopRange(1)){
+        //     (void)idx2;
+        r0 = Add(t1, t2);
+        out = Add(r0, t2);
         //     }
         // }
     }
 
     auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_Main_2"); // outest function
     EXPECT_NE(mainFunc, nullptr);
-    EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(),1); // one hidden loop
+    EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(), 1); // one hidden loop
 
-    auto outerLoopFunc=mainFunc->GetCalleeFunctionList()[0];
+    auto outerLoopFunc = mainFunc->GetCalleeFunctionList()[0];
     EXPECT_EQ(outerLoopFunc->GetMagicName(), "TENSOR_TENSOR_Main_loop_Unroll1_3");
     EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 1);
 
     auto innerLoopFunc1 = outerLoopFunc->GetCalleeFunctionList()[0];
-    std::vector<std::string> LoopPathFuncNames1 = {"TENSOR_L01_Unroll1_6","TENSOR_TENSOR_Main_loop_Unroll1_PATH0_hiddenfunc1_9"};
+    std::vector<std::string> LoopPathFuncNames1 = {
+        "TENSOR_L01_Unroll1_6", "TENSOR_TENSOR_Main_loop_Unroll1_PATH0_hiddenfunc1_9"};
     int idx = 0;
     for (auto &LoopPathFuc1 : innerLoopFunc1->GetCalleeFunctionList()) {
         FUNCTION_LOGI("LoopPathFuc: %s", LoopPathFuc1->GetMagicName().c_str());
         EXPECT_EQ(LoopPathFuc1->GetMagicName(), LoopPathFuncNames1[idx++]);
     }
 
-    auto innerLoopFunc2 = Program::GetInstance().GetFunctionByMagicName("TENSOR_L01_Unroll1_PATH0_7"); // one of the innermost loops
+    auto innerLoopFunc2 =
+        Program::GetInstance().GetFunctionByMagicName("TENSOR_L01_Unroll1_PATH0_7"); // one of the innermost loops
     EXPECT_NE(innerLoopFunc2, nullptr);
-    EXPECT_EQ(innerLoopFunc2->GetCalleeFunctionList().size(),1); // Excessive hidden loop
+    EXPECT_EQ(innerLoopFunc2->GetCalleeFunctionList().size(), 1); // Excessive hidden loop
 }
 
-void HiddenLoopWithIf(Tensor &t0, Tensor &t1, Tensor &out){
+void HiddenLoopWithIf(Tensor &t0, Tensor &t1, Tensor &out) {
     FUNCTION("Main", {t0, t1}, {out}) {
         // LOOP("L0",FunctionType::DYNAMIC_LOOP,_,LoopRange(1)){
         //     (void)_;
         //     LOOP("L01",FunctionType::DYNAMIC_LOOP,idx1,LoopRange(1)){
         //         (void)idx1;
-                out = Add(t0,t1);
+        out = Add(t0, t1);
         //     }
-            IF(SymbolicScalar(0) < SymbolicScalar("x")) {
-                LOOP("L02", FunctionType::DYNAMIC_LOOP, _, LoopRange(SECOND_LOOP_COUNT)) {
-                    (void)_;
-                    t0 = Add(t0, t1);
-                    out = Add(t0, out);
-                }
-            } ELSE {
-                LOOP("L03", FunctionType::DYNAMIC_LOOP, _, LoopRange(SECOND_LOOP_COUNT)) {
-                    (void)_;
-                    t0 = Add(t0, t1);
-                    out = Sub(t0, out);
-                }
+        IF(SymbolicScalar(0) < SymbolicScalar("x")) {
+            LOOP("L02", FunctionType::DYNAMIC_LOOP, _, LoopRange(SECOND_LOOP_COUNT)) {
+                (void)_;
+                t0 = Add(t0, t1);
+                out = Add(t0, out);
             }
+        }
+        ELSE {
+            LOOP("L03", FunctionType::DYNAMIC_LOOP, _, LoopRange(SECOND_LOOP_COUNT)) {
+                (void)_;
+                t0 = Add(t0, t1);
+                out = Sub(t0, out);
+            }
+        }
         // }
     }
 }
 
-TEST_F(DynamicFunctionTest, HiddenLoopWithIf){
+TEST_F(DynamicFunctionTest, HiddenLoopWithIf) {
     TileShape::Current().SetVecTile(512, 512);
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
 
@@ -834,14 +843,15 @@ TEST_F(DynamicFunctionTest, HiddenLoopWithIf){
 
     auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_Main_2");
     EXPECT_NE(mainFunc, nullptr);
-    EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(),1); // one hidden loop
+    EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(), 1); // one hidden loop
 
-    auto outerLoopFunc=mainFunc->GetCalleeFunctionList()[0];
+    auto outerLoopFunc = mainFunc->GetCalleeFunctionList()[0];
     EXPECT_EQ(outerLoopFunc->GetMagicName(), "TENSOR_TENSOR_Main_loop_Unroll1_3");
     EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 2); // one hidden loop has two path
 
     int idx1 = 0;
-    std::vector<std::string> LoopPathFuncNames = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4", "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_10"};
+    std::vector<std::string> LoopPathFuncNames = {
+        "TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4", "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_10"};
     for (auto &LoopPathFuc : outerLoopFunc->GetCalleeFunctionList()) {
         FUNCTION_LOGI("LoopPathFuc: %s", LoopPathFuc->GetMagicName().c_str());
         EXPECT_EQ(LoopPathFuc->GetMagicName(), LoopPathFuncNames[idx1++]);
@@ -850,10 +860,11 @@ TEST_F(DynamicFunctionTest, HiddenLoopWithIf){
 
     auto innerLoopFunc1 = Program::GetInstance().GetFunctionByMagicName("TENSOR_TENSOR_Main_loop_Unroll1_PATH1_10");
     EXPECT_NE(innerLoopFunc1, nullptr);
-    EXPECT_EQ(innerLoopFunc1->GetCalleeFunctionList().size(),2);
+    EXPECT_EQ(innerLoopFunc1->GetCalleeFunctionList().size(), 2);
 
     int idx2 = 0;
-    std::vector<std::string> innerLoopPathFuncNames1 = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH1_hiddenfunc0_11", "TENSOR_L02_Unroll1_12"};
+    std::vector<std::string> innerLoopPathFuncNames1 = {
+        "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_hiddenfunc0_11", "TENSOR_L02_Unroll1_12"};
     for (auto &innerLoopPathFuc : innerLoopFunc1->GetCalleeFunctionList()) {
         FUNCTION_LOGI("LoopPathFuc: %s", innerLoopPathFuc->GetMagicName().c_str());
         EXPECT_EQ(innerLoopPathFuc->GetMagicName(), innerLoopPathFuncNames1[idx2++]);
@@ -861,10 +872,11 @@ TEST_F(DynamicFunctionTest, HiddenLoopWithIf){
 
     auto innerLoopFunc2 = Program::GetInstance().GetFunctionByMagicName("TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4");
     EXPECT_NE(innerLoopFunc2, nullptr);
-    EXPECT_EQ(innerLoopFunc2->GetCalleeFunctionList().size(),2);
+    EXPECT_EQ(innerLoopFunc2->GetCalleeFunctionList().size(), 2);
 
     int idx3 = 0;
-    std::vector<std::string> innerLoopPathFuncNames2 = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_hiddenfunc0_5", "TENSOR_L03_Unroll1_6"};
+    std::vector<std::string> innerLoopPathFuncNames2 = {
+        "TENSOR_TENSOR_Main_loop_Unroll1_PATH0_hiddenfunc0_5", "TENSOR_L03_Unroll1_6"};
     for (auto &innerLoopPathFuc : innerLoopFunc2->GetCalleeFunctionList()) {
         FUNCTION_LOGI("LoopPathFuc: %s", innerLoopPathFuc->GetMagicName().c_str());
         EXPECT_EQ(innerLoopPathFuc->GetMagicName(), innerLoopPathFuncNames2[idx3++]);
@@ -872,10 +884,10 @@ TEST_F(DynamicFunctionTest, HiddenLoopWithIf){
 
     auto innerLoopFunc3 = Program::GetInstance().GetFunctionByMagicName("TENSOR_L02_Unroll1_PATH0_13");
     EXPECT_NE(innerLoopFunc3, nullptr);
-    EXPECT_EQ(innerLoopFunc3->GetCalleeFunctionList().size(),1); // Excessive hidden loop
+    EXPECT_EQ(innerLoopFunc3->GetCalleeFunctionList().size(), 1); // Excessive hidden loop
 }
 
-TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIf){
+TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIf) {
     TileShape::Current().SetVecTile(512, 512);
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
 
@@ -892,44 +904,47 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIf){
     FUNCTION("Main", {t0, t1, t2, t3, t4}, {out}) {
         // LOOP("L0", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
         //     (void)_;
-            // LOOP("L01",FunctionType::DYNAMIC_LOOP,idx1,LoopRange(1)){
-            //     (void)idx1;
-                IF(SymbolicScalar(0) < SymbolicScalar("x")){
-                    t0 = Add(t1,t1);
-                }ELSE{
-                    t0 = Add(t2,t2);
-                }
-            //}
-            LOOP("L02",FunctionType::DYNAMIC_LOOP,idx2,LoopRange(LOOP_COUNT)){
-                (void)idx2;
-                t0 = Add(t0,t4);
-            }
-            // LOOP("L03",FunctionType::DYNAMIC_LOOP,idx3,LoopRange(1)){
-            //     (void)idx3;
-                IF(SymbolicScalar(0) < SymbolicScalar("x")){
-                    t3 = Mul(t0,t2);
-                }ELSE{
-                    t3 = Sub(t0,t2);
-                }
-                if (SymbolicScalar(0) < 1) {
-                    out = Sub(t3, t0);
-                }
-            //}
+        // LOOP("L01",FunctionType::DYNAMIC_LOOP,idx1,LoopRange(1)){
+        //     (void)idx1;
+        IF(SymbolicScalar(0) < SymbolicScalar("x")) {
+            t0 = Add(t1, t1);
+        }
+        ELSE {
+            t0 = Add(t2, t2);
+        }
+        //}
+        LOOP("L02", FunctionType::DYNAMIC_LOOP, idx2, LoopRange(LOOP_COUNT)) {
+            (void)idx2;
+            t0 = Add(t0, t4);
+        }
+        // LOOP("L03",FunctionType::DYNAMIC_LOOP,idx3,LoopRange(1)){
+        //     (void)idx3;
+        IF(SymbolicScalar(0) < SymbolicScalar("x")) {
+            t3 = Mul(t0, t2);
+        }
+        ELSE {
+            t3 = Sub(t0, t2);
+        }
+        if (SymbolicScalar(0) < 1) {
+            out = Sub(t3, t0);
+        }
+        //}
         //  }
     }
 
     auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_Main_2");
     EXPECT_NE(mainFunc, nullptr);
-    EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(),1); // one hidden loop
+    EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(), 1); // one hidden loop
 
-    auto outerLoopFunc=mainFunc->GetCalleeFunctionList()[0];
+    auto outerLoopFunc = mainFunc->GetCalleeFunctionList()[0];
     EXPECT_EQ(outerLoopFunc->GetMagicName(), "TENSOR_TENSOR_Main_loop_Unroll1_3");
     // const and duplicate cond will be optimized
     EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 2);
 
     int idx = 0;
-    std::vector<std::string> LoopPathFuncNames = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4", "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_10",
-        "TENSOR_TENSOR_Main_loop_Unroll1_PATH2_16","TENSOR_TENSOR_Main_loop_Unroll1_PATH3_22"};
+    std::vector<std::string> LoopPathFuncNames = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4",
+        "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_10", "TENSOR_TENSOR_Main_loop_Unroll1_PATH2_16",
+        "TENSOR_TENSOR_Main_loop_Unroll1_PATH3_22"};
     for (auto &LoopPathFuc : outerLoopFunc->GetCalleeFunctionList()) {
         FUNCTION_LOGI("LoopPathFuc: %s", LoopPathFuc->GetMagicName().c_str());
         EXPECT_EQ(LoopPathFuc->GetMagicName(), LoopPathFuncNames[idx++]);
@@ -938,10 +953,10 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIf){
 
     auto innerLoopFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_L02_Unroll1_PATH0_7");
     EXPECT_NE(innerLoopFunc, nullptr);
-    EXPECT_EQ(innerLoopFunc->GetCalleeFunctionList().size(),1); // Excessive hidden loop
+    EXPECT_EQ(innerLoopFunc->GetCalleeFunctionList().size(), 1); // Excessive hidden loop
 }
 
-TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIfComplex){
+TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIfComplex) {
     TileShape::Current().SetVecTile(512, 512);
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
 
@@ -958,40 +973,42 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIfComplex){
     FUNCTION("Main", {t0, t1, t2, t3, t4}, {out}) {
         // LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
         //    (void)i;
-            IF(SymbolicScalar(0) < SymbolicScalar("x")) {
-                t0 = Add(t1, t1);
-            } ELSE {
-                t0 = Add(t2, t2);
-            }
-            LOOP("L02", FunctionType::DYNAMIC_LOOP, k, LoopRange(LOOP_COUNT)) {
-                (void)k;
-                t3 = Mul(t0, t2);
-            }
-            // LOOP("L03", FunctionType::DYNAMIC_LOOP, l, LoopRange(1)) {
-            //      (void)l;
-                out = Sub(t3, t0);
-            // }
-            LOOP("L04", FunctionType::DYNAMIC_LOOP, h, LoopRange(LOOP_COUNT)) {
-                (void)h;
-                t0 = Mul(t0, t2);
-            }
-            // LOOP("L05", FunctionType::DYNAMIC_LOOP, q, LoopRange(1)) {
-            //     (void)q;
-                out=Add(out,t0);
-            //}
-      //  }
+        IF(SymbolicScalar(0) < SymbolicScalar("x")) {
+            t0 = Add(t1, t1);
+        }
+        ELSE {
+            t0 = Add(t2, t2);
+        }
+        LOOP("L02", FunctionType::DYNAMIC_LOOP, k, LoopRange(LOOP_COUNT)) {
+            (void)k;
+            t3 = Mul(t0, t2);
+        }
+        // LOOP("L03", FunctionType::DYNAMIC_LOOP, l, LoopRange(1)) {
+        //      (void)l;
+        out = Sub(t3, t0);
+        // }
+        LOOP("L04", FunctionType::DYNAMIC_LOOP, h, LoopRange(LOOP_COUNT)) {
+            (void)h;
+            t0 = Mul(t0, t2);
+        }
+        // LOOP("L05", FunctionType::DYNAMIC_LOOP, q, LoopRange(1)) {
+        //     (void)q;
+        out = Add(out, t0);
+        //}
+        //  }
     }
 
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_Main_2");// outest function
+    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_Main_2"); // outest function
     EXPECT_NE(mainFunc, nullptr);
-    EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(),1); // one hidden loop
+    EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(), 1); // one hidden loop
 
-    auto outerLoopFunc=mainFunc->GetCalleeFunctionList()[0];
+    auto outerLoopFunc = mainFunc->GetCalleeFunctionList()[0];
     EXPECT_EQ(outerLoopFunc->GetMagicName(), "TENSOR_TENSOR_Main_loop_Unroll1_3");
     EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 2); // one hidden loop has two paths
 
     int idx = 0;
-    std::vector<std::string> LoopPathFuncNames = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4", "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_14"};
+    std::vector<std::string> LoopPathFuncNames = {
+        "TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4", "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_14"};
     for (auto &LoopPathFuc : outerLoopFunc->GetCalleeFunctionList()) {
         FUNCTION_LOGI("LoopPathFuc: %s", LoopPathFuc->GetMagicName().c_str());
         EXPECT_EQ(LoopPathFuc->GetMagicName(), LoopPathFuncNames[idx++]);
@@ -1000,7 +1017,7 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIfComplex){
 
     auto innerLoopFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_L02_Unroll1_PATH0_7");
     EXPECT_NE(innerLoopFunc, nullptr);
-    EXPECT_EQ(innerLoopFunc->GetCalleeFunctionList().size(),1); // Excessive hidden loop
+    EXPECT_EQ(innerLoopFunc->GetCalleeFunctionList().size(), 1); // Excessive hidden loop
 }
 #endif
 
@@ -1011,7 +1028,7 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {
     int s = 32;
     int n = 1;
     int m = 1;
-    Tensor t5(DT_INT32, {2 , n * s, m * s}, "t5");
+    Tensor t5(DT_INT32, {2, n * s, m * s}, "t5");
     Tensor out(DT_INT32, {n * s, m * s}, "out");
 
     ProgramData::GetInstance().AppendInputs({
@@ -1024,7 +1041,10 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {
     SymbolicScalar loopCount = 0;
 
     FUNCTION("main", {t5}, {out}) {
-        LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetTensorData(t5,  {npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"), npu::tile_fwk::SymbolicScalar("2")}) / s)) {
+        LOOP("s1", FunctionType::DYNAMIC_LOOP, i,
+            LoopRange(GetTensorData(t5, {npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"),
+                                            npu::tile_fwk::SymbolicScalar("2")}) /
+                      s)) {
             loopCount = loopCount + i;
             out = Add(t5, Element(DataType::DT_FP32, static_cast<double>(1.0)));
         }
@@ -1041,7 +1061,7 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim4) {
     int k = 1;
     int n = 1;
     int m = 1;
-    Tensor t5(DT_INT32, {2 , k * s, n * s, m * s}, "t5");
+    Tensor t5(DT_INT32, {2, k * s, n * s, m * s}, "t5");
     Tensor out(DT_FP32, {k * s, n * s, m * s}, "out");
 
     ProgramData::GetInstance().AppendInputs({
@@ -1054,7 +1074,10 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim4) {
     SymbolicScalar loopCount = 0;
 
     FUNCTION("main", {t5}, {out}) {
-        LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetTensorData(t5, {npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"), npu::tile_fwk::SymbolicScalar("2"), npu::tile_fwk::SymbolicScalar("3")}) / s)) {
+        LOOP("s1", FunctionType::DYNAMIC_LOOP, i,
+            LoopRange(GetTensorData(t5, {npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"),
+                                            npu::tile_fwk::SymbolicScalar("2"), npu::tile_fwk::SymbolicScalar("3")}) /
+                      s)) {
             loopCount = loopCount + i;
             out = Add(t5, Element(DataType::DT_FP32, static_cast<double>(1.0)));
         }

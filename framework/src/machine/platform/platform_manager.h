@@ -23,15 +23,15 @@
 #include <functional>
 
 namespace npu::tile_fwk {
-#define GENERATE_GET_INTPARAM_FUNC(FUNC_NAME, PARAM_ITEM)                  \
-int64_t Get##FUNC_NAME() const {                                       \
-  return pmIntItemArray_[static_cast<size_t>(PmIntItem::PARAM_ITEM)];  \
-}
+#define GENERATE_GET_INTPARAM_FUNC(FUNC_NAME, PARAM_ITEM)                   \
+    int64_t Get##FUNC_NAME() const {                                        \
+        return pmIntItemArray_[static_cast<size_t>(PmIntItem::PARAM_ITEM)]; \
+    }
 
-#define GENERATE_GET_STRPARAM_FUNC(FUNC_NAME, PARAM_ITEM)                  \
-const std::string& Get##FUNC_NAME() const {                            \
-  return pmStrItemArray_[static_cast<size_t>(PmStrItem::PARAM_ITEM)];  \
-}
+#define GENERATE_GET_STRPARAM_FUNC(FUNC_NAME, PARAM_ITEM)                   \
+    const std::string &Get##FUNC_NAME() const {                             \
+        return pmStrItemArray_[static_cast<size_t>(PmStrItem::PARAM_ITEM)]; \
+    }
 
 class PlatformManager {
 public:
@@ -44,11 +44,11 @@ public:
 
     void Finalize();
 
-    const std::map<std::string, std::vector<std::string>>& GetAiCoreIntrinsicDtypeMap() const {
+    const std::map<std::string, std::vector<std::string>> &GetAiCoreIntrinsicDtypeMap() const {
         return aiCoreIntrinsicDtypeMap_;
     }
 
-    const std::map<std::string, std::vector<std::string>>& GetVectorCoreIntrinsicDtypeMap() const {
+    const std::map<std::string, std::vector<std::string>> &GetVectorCoreIntrinsicDtypeMap() const {
         return vectorCoreIntrinsicDtypeMap_;
     }
 
@@ -56,9 +56,7 @@ public:
 
     bool GetVectorCoreIntrinsicDtype(const std::string &intrinsic, std::vector<std::string> &dtypeVec) const;
 
-    std::string GetFilePath() const {
-        return platformFile_;
-    }
+    std::string GetFilePath() const { return platformFile_; }
 
     GENERATE_GET_INTPARAM_FUNC(AiCoreCnt, AICORE_CNT)
     GENERATE_GET_INTPARAM_FUNC(VecCoreCnt, VECCORE_CNT)
@@ -114,23 +112,19 @@ private:
         AICORE_L2_WRITE_RATE,
         ITEM_BOTTOM
     };
-    enum class PmStrItem {
-        SOC_VERSION = 0,
-        SHORT_SOC_VERSION,
-        AIC_VERSION,
-        ITEM_BOTTOM
-    };
+    enum class PmStrItem { SOC_VERSION = 0, SHORT_SOC_VERSION, AIC_VERSION, ITEM_BOTTOM };
     PlatformManager();
     ~PlatformManager();
     void Reset();
-    static bool ReadFileContent(const std::string &filePath,
-                                std::map<std::string, std::map<std::string, std::string>> &contentMap);
+    static bool ReadFileContent(
+        const std::string &filePath, std::map<std::string, std::map<std::string, std::string>> &contentMap);
     void ParseStrItem(const std::map<std::string, std::map<std::string, std::string>> &contentMap);
     void ParseIntItem(const std::map<std::string, std::map<std::string, std::string>> &contentMap);
     void ParseInstrDtypeMap(std::map<std::string, std::map<std::string, std::string>> &contentMap);
     static void MappingInstrDtypeMap(const std::map<std::string, std::string> &contentMap,
-                                     std::map<std::string, std::vector<std::string>> &instrDtypeMap);
+        std::map<std::string, std::vector<std::string>> &instrDtypeMap);
     static int64_t ParseIntValue(const std::string &value);
+
 private:
     bool isInit_;
     std::string platformFile_;
@@ -142,4 +136,4 @@ private:
     static const std::map<PmIntItem, std::tuple<std::string, std::string, PmItemParseFunc>> kPmIntItemParseFuncMap;
     static const std::map<PmStrItem, std::tuple<std::string, std::string>> kPmStrItemMap;
 };
-}
+} // namespace npu::tile_fwk

@@ -38,7 +38,8 @@ struct TestShapeParams {
 };
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(
+    Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> values(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, values);
@@ -53,10 +54,10 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
     return golden;
 }
 
-template <typename T = npu::tile_fwk::float16,  typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true, bool nz = true>
+template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true,
+    bool nz = true>
 void TestMlaPrologQuantV32(
     const TestShapeParams &params, const MlaTileConfig &tileConfig, std::string layoutKey = "PA_NZ") {
-
     int b = params.b;
     int s = params.s;
     int s2 = params.s2;
@@ -100,7 +101,6 @@ void TestMlaPrologQuantV32(
     std::vector<int64_t> qRopeOutShape = {b * s, n1, qkRopeHeadDim};
     std::vector<int64_t> qNormOutShape = {b * s, qLoraRank};
     std::vector<int64_t> qNormScaleOutShape = {b * s, 1};
-
 
     Tensor tokenX(dType, tokenXShape, "tokenX");
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
@@ -179,27 +179,24 @@ void TestMlaPrologQuantV32(
     } else {
         dequantScaleWUqQrData = nullptr;
     }
-    std::vector<RawTensorDataPtr> inputDataList = {tokenXData, wDqData, wUqQrData, dequantScaleWUqQrData, wUkData, wDkvKrData,
-        rmsnormGammaCqData, rmsnormGammaCkvData, ropeCosData, ropeSinData, cacheIndexData, kvCacheData, krCacheData, kScaleCacheData};
+    std::vector<RawTensorDataPtr> inputDataList = {tokenXData, wDqData, wUqQrData, dequantScaleWUqQrData, wUkData,
+        wDkvKrData, rmsnormGammaCqData, rmsnormGammaCkvData, ropeCosData, ropeSinData, cacheIndexData, kvCacheData,
+        krCacheData, kScaleCacheData};
     ProgramData::GetInstance().AppendInputs({inputDataList});
 
-    std::vector<RawTensorDataPtr> outputDataList = {outputQNormData, outputQNormScaleData, outputQNopeData, outputQRopeData};
+    std::vector<RawTensorDataPtr> outputDataList = {
+        outputQNormData, outputQNormScaleData, outputQNopeData, outputQRopeData};
     ProgramData::GetInstance().AppendOutputs({outputDataList});
 
-    std::vector<RawTensorDataPtr> goldenDataList = {
-        RawTensorData::CreateTensor<kvDtype>(outputQNorm, golden6),
+    std::vector<RawTensorDataPtr> goldenDataList = {RawTensorData::CreateTensor<kvDtype>(outputQNorm, golden6),
         RawTensorData::CreateTensor<float>(outputQNormScale, golden7),
-        RawTensorData::CreateTensor<T>(outputQNope, golden1),
-        RawTensorData::CreateTensor<T>(outputQRope, golden2)
-    };
+        RawTensorData::CreateTensor<T>(outputQNope, golden1), RawTensorData::CreateTensor<T>(outputQRope, golden2)};
     ProgramData::GetInstance().AppendGoldens({goldenDataList});
 
     MlaPrologQuantV32(dynamicTokenX, wDq, wUqQr, dequantScaleWUqQr, wUk, wDkvKr, rmsnormGammaCq, rmsnormGammaCkv,
-        dynamicRopeCos, dynamicRopeSin, dynamicCacheIndex, kvCache, krCache, kScaleCache,
-        dynamicOutputQNorm, dynamicOutputQNormScale,
-        dynamicOutputQNope, dynamicOutputQRope,
-        outputKvCache, outputKrCache, outputKScaleCache,
-        1e-5f, 1e-5f, layoutKey, tileConfig);
+        dynamicRopeCos, dynamicRopeSin, dynamicCacheIndex, kvCache, krCache, kScaleCache, dynamicOutputQNorm,
+        dynamicOutputQNormScale, dynamicOutputQNope, dynamicOutputQRope, outputKvCache, outputKrCache,
+        outputKScaleCache, 1e-5f, 1e-5f, layoutKey, tileConfig);
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     std::cout << "qNope ====== " << std::endl;

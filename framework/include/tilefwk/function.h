@@ -28,7 +28,7 @@ namespace npu::tile_fwk {
 // Forward declaration for types used in this file
 class Function;
 struct SourceLocation;
-}
+} // namespace npu::tile_fwk
 
 // Helper macros to count arguments
 #define RECORD_FUNC_VAR_NAME_COUNTER_HELPER(var, cnt) var##cnt
@@ -41,9 +41,10 @@ struct SourceLocation;
  * @param explicitOpArgs: The inputs and outputs of the function. Be effective in static shape scen.
  * @param startArgsInputTensorList: The inputs of the function. Be effective in dynamic shape scen.
  * @param startArgsOutputTensorList: The outputs of the function. Be effective in dynamic shape scen.
- * @param inplaceArgs: A inpute and a output have same addr. Be effective in dynamic shape scen. optional, default is empty;
+ * @param inplaceArgs: A inpute and a output have same addr. Be effective in dynamic shape scen. optional, default is
+ * empty;
  */
-#define FUNCTION(name, ...)                                                                       \
+#define FUNCTION(name, ...) \
     for ([[maybe_unused]] auto &RECORD_FUNC_VAR_NAME(recordFunc) : npu::tile_fwk::RecordFunc(name, ##__VA_ARGS__))
 
 /**
@@ -106,8 +107,7 @@ public:
     explicit LoopRange(const SymbolicScalar &rangeBegin, const SymbolicScalar &rangeEnd)
         : LoopRange(rangeBegin, rangeEnd, 1) {}
 
-    explicit LoopRange(const SymbolicScalar &rangeEnd)
-        : LoopRange(0, rangeEnd, 1) {}
+    explicit LoopRange(const SymbolicScalar &rangeEnd) : LoopRange(0, rangeEnd, 1) {}
 
     SymbolicScalar &Begin() { return begin_; }
     const SymbolicScalar &Begin() const { return begin_; }
@@ -185,7 +185,7 @@ public:
     size_t UnrollTimesSize() const { return unrollTimes_.size(); }
     int CurUnrollTimes() const;
     void NextUnrollTimes();
-    bool Getparallel() const {return parallel_;}
+    bool Getparallel() const { return parallel_; }
 
     bool CustomUnrollTimesMatched() const { return customUnrollTimes_.count(CurUnrollTimes()) > 0; }
     static bool MatchUnrollTimes(int unrollTimes);
@@ -219,20 +219,16 @@ public:
         RecordFunc &func_;
         std::optional<RecordLoopFunc::IteratorEnd> wrappedEnd;
 
-        IteratorEnd(RecordFunc &func, RecordLoopFunc::IteratorEnd end)
-            : func_(func), wrappedEnd(end) {}
+        IteratorEnd(RecordFunc &func, RecordLoopFunc::IteratorEnd end) : func_(func), wrappedEnd(end) {}
 
-        IteratorEnd(RecordFunc &func)
-            : func_(func), wrappedEnd(std::nullopt) {}
+        IteratorEnd(RecordFunc &func) : func_(func), wrappedEnd(std::nullopt) {}
     };
 
     class Iterator {
     public:
-        Iterator(RecordFunc &func, RecordLoopFunc::Iterator iter)
-            : func_(func), wrappedIter_(iter), cur_(0) {}
+        Iterator(RecordFunc &func, RecordLoopFunc::Iterator iter) : func_(func), wrappedIter_(iter), cur_(0) {}
 
-        Iterator(RecordFunc &func)
-            : func_(func), wrappedIter_(std::nullopt), cur_(0) {}
+        Iterator(RecordFunc &func) : func_(func), wrappedIter_(std::nullopt), cur_(0) {}
 
         Iterator operator++();
         bool operator!=(const IteratorEnd &rhs);
@@ -261,11 +257,15 @@ public:
     RecordFunc(const std::string &name,
         const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
         const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
-        const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs = {});
+        const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>>
+            &inplaceArgs = {});
 
     void EndFunction();
 
-    ~RecordFunc() { if (!isEnd_) EndFunction(); }
+    ~RecordFunc() {
+        if (!isEnd_)
+            EndFunction();
+    }
 
     Iterator begin();
     IteratorEnd end();
@@ -273,7 +273,8 @@ public:
 private:
     void RecordDynFuncInner(const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
         const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
-        const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs);
+        const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>>
+            &inplaceArgs);
     Function *dynFunc_{nullptr};
     std::string funcName;
     std::unique_ptr<RecordLoopFunc> recordLoopFunc_;

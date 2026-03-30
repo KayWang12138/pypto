@@ -29,14 +29,13 @@ Status DuplicateOp::PreCheck(Function &function) {
 }
 
 Status DuplicateOp::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Function,
-    "===> Start %s for function [%s].", MODULE_NAME, function.GetRawName().c_str());
+    APASS_LOG_INFO_F(
+        Elements::Function, "===> Start %s for function [%s].", MODULE_NAME, function.GetRawName().c_str());
     if (Process(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Process failed.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Function,
-    "===> End %s for function [%s].", MODULE_NAME, function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "===> End %s for function [%s].", MODULE_NAME, function.GetRawName().c_str());
     return SUCCESS;
 }
 
@@ -49,8 +48,9 @@ Status DuplicateOp::ProcessGatherIn(Function &function, Operation &operation) co
     for (const auto &oOperand : operation.GetOOperands()) {
         if (oOperand == nullptr) {
             APASS_LOG_ERROR_F(Elements::Operation,
-            "%s[%d]'s oOperand cannot be nullptr; Please check if the oOperand of %s[%d] is nullptr.%s",
-            operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), GetFormatBacktrace(operation).c_str());
+                "%s[%d]'s oOperand cannot be nullptr; Please check if the oOperand of %s[%d] is nullptr.%s",
+                operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), operation.GetOpcodeStr().c_str(),
+                operation.GetOpMagic(), GetFormatBacktrace(operation).c_str());
             return FAILED;
         }
         bool isFirst = true;
@@ -59,13 +59,16 @@ Status DuplicateOp::ProcessGatherIn(Function &function, Operation &operation) co
         for (auto &consumer : consumers) {
             if (consumer == nullptr) {
                 APASS_LOG_ERROR_F(Elements::Tensor,
-                "OP_GATHER_IN_L1's consumer cannot be nullptr; Please check if the output of OP_GATHER_IN_L1[%d]'s consumer is nullptr.", oOperand->GetMagic());
+                    "OP_GATHER_IN_L1's consumer cannot be nullptr; Please check if the output of OP_GATHER_IN_L1[%d]'s "
+                    "consumer is nullptr.",
+                    oOperand->GetMagic());
                 return FAILED;
             }
             if (consumer->GetOpcode() == Opcode::OP_GATHER_IN_L1) {
                 APASS_LOG_ERROR_F(Elements::Tensor,
-                "OP_GATHER_IN_L1's consumer cannot be OP_GATHER_IN_L1; Please check if the type output of OP_GATHER_IN_L1[%d]'s consumer is OP_GATHER_IN_L1.",
-                oOperand->GetMagic());
+                    "OP_GATHER_IN_L1's consumer cannot be OP_GATHER_IN_L1; Please check if the type output of "
+                    "OP_GATHER_IN_L1[%d]'s consumer is OP_GATHER_IN_L1.",
+                    oOperand->GetMagic());
                 return FAILED;
             }
             if (isFirst) {
@@ -75,7 +78,8 @@ Status DuplicateOp::ProcessGatherIn(Function &function, Operation &operation) co
             auto dst = oOperand->Clone(function, true);
             if (dst == nullptr) {
                 APASS_LOG_ERROR_F(Elements::Tensor,
-                "Clone OP_GATHER_IN_L1's oOperand[%d] failed; Please check if dst is nullptr.", oOperand->GetMagic());
+                    "Clone OP_GATHER_IN_L1's oOperand[%d] failed; Please check if dst is nullptr.",
+                    oOperand->GetMagic());
                 return FAILED;
             }
             consumer->ReplaceInput(dst, oOperand);
@@ -95,8 +99,9 @@ Status DuplicateOp::ProcessView(Function &function, Operation &operation) const 
     auto iOperand = operation.iOperand[0];
     for (const auto &oOperand : operation.oOperand) {
         if (oOperand == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Null output operand detected while iterating over the output operands of the operation [%d].%s",
-            operation.opmagic, GetFormatBacktrace(operation).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation,
+                "Null output operand detected while iterating over the output operands of the operation [%d].%s",
+                operation.opmagic, GetFormatBacktrace(operation).c_str());
             return FAILED;
         }
         if (oOperand->GetConsumers().size() == 1) {
@@ -105,7 +110,9 @@ Status DuplicateOp::ProcessView(Function &function, Operation &operation) const 
         auto consumers = oOperand->GetConsumers();
         for (auto &consumer : consumers) {
             if (consumer == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Tensor, "Null consumer detected while iterating over the consumers of the output operand [%d].", oOperand->magic);
+                APASS_LOG_ERROR_F(Elements::Tensor,
+                    "Null consumer detected while iterating over the consumers of the output operand [%d].",
+                    oOperand->magic);
                 return FAILED;
             }
             if (consumer->GetOpcode() == Opcode::OP_VIEW) {

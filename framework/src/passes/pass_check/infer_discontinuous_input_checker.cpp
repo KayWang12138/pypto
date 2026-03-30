@@ -21,7 +21,8 @@
 
 namespace npu {
 namespace tile_fwk {
-std::unordered_set<Opcode> inplaceNodes{Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_INDEX_OUTCAST};
+std::unordered_set<Opcode> inplaceNodes{
+    Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_INDEX_OUTCAST};
 
 Status checkAssemble(const std::unordered_map<LogicalTensorPtr, int64_t> &tensorMap,
     const std::unordered_map<LogicalTensorPtr, std::pair<Offset, Offset>> &offsetMap,
@@ -75,7 +76,7 @@ Status checkView(Operation *op) {
     return SUCCESS;
 }
 
-Status checkTensor(const LogicalTensorPtr& tensor) {
+Status checkTensor(const LogicalTensorPtr &tensor) {
     std::unordered_map<int64_t, int64_t> rawTensorSize;
     std::unordered_map<LogicalTensorPtr, int64_t> tensorMap;
     std::unordered_map<LogicalTensorPtr, std::pair<Offset, Offset>> offsetMap;

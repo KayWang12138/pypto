@@ -29,7 +29,7 @@ namespace {
 const int FILE_AUTHORITY = 0640;
 }
 
-bool GetFileSize(const std::string& fPath, uint32_t &fileSize) {
+bool GetFileSize(const std::string &fPath, uint32_t &fileSize) {
     if (RealPath(fPath).empty()) {
         return false;
     }
@@ -42,14 +42,14 @@ bool GetFileSize(const std::string& fPath, uint32_t &fileSize) {
     return true;
 }
 
-uint32_t GetFileSize(const std::string& fPath) {
+uint32_t GetFileSize(const std::string &fPath) {
     uint32_t fileSize = 0;
-    (void) GetFileSize(fPath, fileSize);
+    (void)GetFileSize(fPath, fileSize);
     return fileSize;
 }
 
 bool CreateDir(const std::string &directoryPath) {
-    int32_t ret = mkdir(directoryPath.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);  // 755
+    int32_t ret = mkdir(directoryPath.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH); // 755
     if (ret != 0 && errno != EEXIST) {
         FUNCTION_LOGW("Create dir[%s] failed, reason is %s", directoryPath.c_str(), strerror(errno));
         return false;
@@ -61,7 +61,7 @@ bool JudgeEmptyAndCreateDir(char tmpDirPath[], const std::string &directoryPath)
     std::string realPath = RealPath(tmpDirPath);
     if (realPath.empty()) {
         int32_t ret = 0;
-        ret = mkdir(tmpDirPath, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);  // 755
+        ret = mkdir(tmpDirPath, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH); // 755
         if (ret != 0 && errno != EEXIST) {
             FUNCTION_LOGW("Create dir[%s] failed, reason is %s", directoryPath.c_str(), strerror(errno));
             return false;
@@ -90,7 +90,7 @@ bool CreateMultiLevelDir(const std::string &directoryPath) {
         }
     }
 
-    ret = mkdir(directoryPath.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);  // 755
+    ret = mkdir(directoryPath.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH); // 755
     if (ret != 0 && errno != EEXIST) {
         FUNCTION_LOGW("Create dir[%s] failed, reason is: %s", directoryPath.c_str(), strerror(errno));
         return false;
@@ -100,8 +100,7 @@ bool CreateMultiLevelDir(const std::string &directoryPath) {
     return true;
 }
 
-void DeleteFile(const std::string &path)
-{
+void DeleteFile(const std::string &path) {
     if (path.empty()) {
         FUNCTION_LOGW("File name is empty.");
         return;
@@ -145,8 +144,7 @@ bool ReadJsonFile(const std::string &file, nlohmann::json &jsonObj) {
     return true;
 }
 
-bool ReadBytesFromFile(const std::string &fPath, std::vector<char> &buffer)
-{
+bool ReadBytesFromFile(const std::string &fPath, std::vector<char> &buffer) {
     std::string realPath = RealPath(fPath);
     if (realPath.empty()) {
         FUNCTION_LOGW("Bin file path[%s] is not valid.", fPath.c_str());
@@ -173,7 +171,7 @@ bool ReadBytesFromFile(const std::string &fPath, std::vector<char> &buffer)
         FUNCTION_LOGD("Release file(%s) handle.", realPath.c_str());
         ifStream.close();
         FUNCTION_LOGD("Read size: %ld.", size);
-    } catch (const std::ifstream::failure& e) {
+    } catch (const std::ifstream::failure &e) {
         FUNCTION_LOGW("Fail to read file %s. Exception: %s.", fPath.c_str(), e.what());
         ifStream.close();
         return false;
@@ -181,15 +179,15 @@ bool ReadBytesFromFile(const std::string &fPath, std::vector<char> &buffer)
     return true;
 }
 
-std::vector<std::string> GetFiles(const std::string& path, const std::string& ext) {
+std::vector<std::string> GetFiles(const std::string &path, const std::string &ext) {
     std::vector<std::string> files;
-    DIR* dir = opendir(path.c_str());
+    DIR *dir = opendir(path.c_str());
     if (dir == nullptr) {
         FUNCTION_LOGW("Open directory [%s] failed", path.c_str());
         return files;
     }
 
-    struct dirent* ent;
+    struct dirent *ent;
     while ((ent = readdir(dir)) != nullptr) {
         std::string fileName = ent->d_name;
         if (fileName == "." || fileName == "..") {
@@ -200,7 +198,7 @@ std::vector<std::string> GetFiles(const std::string& path, const std::string& ex
         if (!ext.empty()) {
             size_t pos = fileName.rfind('.');
             if (pos == std::string::npos) {
-                continue;  // 没有扩展名
+                continue; // 没有扩展名
             }
             std::string fileExt = fileName.substr(pos + 1);
             // 转换为小写进行比较
@@ -298,7 +296,7 @@ std::vector<uint8_t> LoadFile(const std::string &fPath) {
     return binary;
 }
 
-static int RemoveFile(const char* path, const struct stat* sb, int flag, struct FTW* ftwbuf) {
+static int RemoveFile(const char *path, const struct stat *sb, int flag, struct FTW *ftwbuf) {
     (void)sb;
     (void)ftwbuf;
     if (flag == FTW_F) {
@@ -309,7 +307,7 @@ static int RemoveFile(const char* path, const struct stat* sb, int flag, struct 
     return 0;
 }
 
-bool DeleteDir(const std::string& directoryPath) {
+bool DeleteDir(const std::string &directoryPath) {
     constexpr int limit = 64;
     int ret = nftw(directoryPath.c_str(), RemoveFile, limit, FTW_DEPTH | FTW_PHYS);
     if (ret != 0) {
@@ -330,7 +328,7 @@ bool FcntlLockFile(const int fd, const int type) {
     return fcntl(fd, F_SETLK, &lock) == 0;
 }
 
-FILE* LockAndOpenFile(const std::string &lockFilePath) {
+FILE *LockAndOpenFile(const std::string &lockFilePath) {
     FILE *fp = fopen(lockFilePath.c_str(), "a+");
     if (fp == nullptr) {
         return nullptr;
@@ -376,7 +374,7 @@ std::string GetCurrentSharedLibPath() {
     }
 
     Dl_info info;
-    if (dladdr(reinterpret_cast<void*>(GetCurrentSharedLibPath), &info)) {
+    if (dladdr(reinterpret_cast<void *>(GetCurrentSharedLibPath), &info)) {
         currentLibPath = std::string(info.dli_fname);
         int32_t pos = currentLibPath.rfind('/');
         if (pos >= 0) {
@@ -427,4 +425,4 @@ void RemoveOldestDirs(const std::string &path, const std::string &prefix, int le
         DeleteDir(it->second);
     }
 }
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

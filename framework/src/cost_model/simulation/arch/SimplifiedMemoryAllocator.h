@@ -30,4 +30,4 @@ private:
     int memoryId = 0;
 };
 
-} // CostModel
+} // namespace CostModel

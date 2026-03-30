@@ -71,8 +71,8 @@ public:
 
     TileRange memoryrange;
 
-    LogicalTensor(Function &function, DataType t, Shape tshape, TileOpFormat tformat = TileOpFormat::TILEOP_ND, std::string tname = "",
-        NodeType tnodetype = NodeType::LOCAL);
+    LogicalTensor(Function &function, DataType t, Shape tshape, TileOpFormat tformat = TileOpFormat::TILEOP_ND,
+        std::string tname = "", NodeType tnodetype = NodeType::LOCAL);
     LogicalTensor(Function &function, DataType t, Shape tshape, std::vector<SymbolicScalar> tValidShape,
         TileOpFormat tformat = TileOpFormat::TILEOP_ND, std::string tname = "", NodeType tnodetype = NodeType::LOCAL);
     LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
@@ -93,7 +93,8 @@ public:
 
     /* By default, RawTensor is dumped. In whole function dumping, we only dump the magic */
     Json DumpJson(bool dumpRawTensor = true) const;
-    static std::shared_ptr<LogicalTensor> LoadJson(Function &function, const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict, const Json &tensorDump);
+    static std::shared_ptr<LogicalTensor> LoadJson(Function &function,
+        const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict, const Json &tensorDump);
 
     std::string DumpSSA(bool showFrom = true, bool showMem = false, bool showType = true) const;
 
@@ -136,14 +137,10 @@ public:
         this->offset = tensorOffset.GetOffset();
         this->dynOffset_ = tensorOffset.GetDynOffset();
     }
-    const TensorOffset GetTensorOffset() const {
-        return TensorOffset(offset, dynOffset_);
-    }
-    void UpdateDynValidShape(const std::vector<SymbolicScalar> &dynValidShape) {
-        dynValidShape_ = dynValidShape;
-    }
+    const TensorOffset GetTensorOffset() const { return TensorOffset(offset, dynOffset_); }
+    void UpdateDynValidShape(const std::vector<SymbolicScalar> &dynValidShape) { dynValidShape_ = dynValidShape; }
     struct CompareOp {
-        bool operator() (const Operation *a, const Operation *b) const;
+        bool operator()(const Operation *a, const Operation *b) const;
     };
 
     auto &GetProducers() { return producers_; }
@@ -185,15 +182,15 @@ public:
     std::vector<SymbolicScalar> &GetDynValidShape() { return dynValidShape_; }
 
     void SetCachePolicy(CachePolicy policy, bool value) {
-      if (tensor != nullptr) {
-        tensor->SetCachePolicy(policy, value);
-      }
+        if (tensor != nullptr) {
+            tensor->SetCachePolicy(policy, value);
+        }
     }
     bool GetCachePolicy(CachePolicy policy) const {
-      if (tensor != nullptr) {
-        return tensor->GetCachePolicy(policy);
-      }
-      return false;
+        if (tensor != nullptr) {
+            return tensor->GetCachePolicy(policy);
+        }
+        return false;
     }
 
     bool IsGetTensorDataOutcast();
@@ -225,15 +222,14 @@ Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offse
 void TensorInsert(const Tensor &src, const std::vector<SymbolicScalar> &offset, Tensor &dst);
 
 SymbolicScalar GetViewValidShapeDim(
-    const SymbolicScalar &validShapeDim,
-    const SymbolicScalar &viewOffsetDim,
-    const SymbolicScalar &viewShapeDim);
+    const SymbolicScalar &validShapeDim, const SymbolicScalar &viewOffsetDim, const SymbolicScalar &viewShapeDim);
 std::vector<SymbolicScalar> GetViewValidShape(const std::vector<SymbolicScalar> &validShape, const Offset &viewOffset,
     const std::vector<SymbolicScalar> &viewDynOffset, const Shape &viewShape);
 
 std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const SymbolicScalar &dimOffset);
 std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const std::vector<SymbolicScalar> &offset);
-std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const std::vector<std::reference_wrapper<SymbolicScalar>> &offset);
+std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(
+    const std::vector<std::reference_wrapper<SymbolicScalar>> &offset);
 
 struct GetTensorDataIODesc {
     int ioType{-1};
@@ -241,7 +237,8 @@ struct GetTensorDataIODesc {
     // encode both incast & outcast
     SymbolicScalar address;
     GetTensorDataIODesc() = default;
-    GetTensorDataIODesc(int ioType_, int ioTypeIndex_, SymbolicScalar address_) : ioType(ioType_), ioTypeIndex(ioTypeIndex_), address(address_) {}
+    GetTensorDataIODesc(int ioType_, int ioTypeIndex_, SymbolicScalar address_)
+        : ioType(ioType_), ioTypeIndex(ioTypeIndex_), address(address_) {}
 };
 
 int GetTensorDataGetIndex(const Operation *op);

@@ -44,11 +44,9 @@ std::tuple<Tensor, Tensor> Quant(
         // 优先级低
         auto maxValue = Amax(inputFp32, -1, true);
         auto minValue = Amin(inputFp32, -1, true);
-        auto scaleDeQuant = ScalarMaxS(ScalarDivS(ScalarSub(maxValue, minValue),
-            Element(DataType::DT_FP32, F_255)),
+        auto scaleDeQuant = ScalarMaxS(ScalarDivS(ScalarSub(maxValue, minValue), Element(DataType::DT_FP32, F_255)),
             Element(DataType::DT_FP32, F_1E_12));
-        auto offset = ScalarSubS(ScalarDiv(maxValue, scaleDeQuant),
-            Element(DataType::DT_FP32, F_127), true);
+        auto offset = ScalarSubS(ScalarDiv(maxValue, scaleDeQuant), Element(DataType::DT_FP32, F_127), true);
         auto scaleQuant = ScalarDivS(scaleDeQuant, Element(DataType::DT_FP32, F_1), true);
         auto outFp32 = Mul(inputFp32, scaleQuant);
         auto outInt32 = Cast(outFp32, DataType::DT_INT32, CAST_RINT);

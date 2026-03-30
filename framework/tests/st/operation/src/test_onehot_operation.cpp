@@ -48,8 +48,7 @@ static void OneHotOperationExeFunc2Dims(
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 auto tileTensor = View(inputs[0], {firstViewShape},
-                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape)},
-                    {bIdx * firstViewShape});
+                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape)}, {bIdx * firstViewShape});
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = OneHot(tileTensor, args->numClasses_);
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
@@ -110,12 +109,11 @@ static void OneHotOperationExeFunc4Dims(
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
                     LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                        Tensor tileTensor =
-                            View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
-                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                    std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape)},
-                                {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape});
+                        Tensor tileTensor = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape)},
+                            {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape});
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = OneHot(tileTensor, args->numClasses_);
                         Assemble(res,

@@ -36,9 +36,10 @@ struct SchemaNode : std::vector<std::shared_ptr<SchemaNode>> {
 
     static std::vector<std::shared_ptr<SchemaNode>> ParseSchema(const std::string &schema);
     static std::vector<std::shared_ptr<SchemaNode>> ParseSchema(const std::vector<std::string> &schemaList);
-    static std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>> BuildDict(const std::vector<std::shared_ptr<SchemaNode>> &nodeList);
+    static std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>> BuildDict(
+        const std::vector<std::shared_ptr<SchemaNode>> &nodeList);
 };
 
-}
+} // namespace npu::tile_fwk::schema
 
-#endif//SCHEMA_TRACE_H
+#endif // SCHEMA_TRACE_H

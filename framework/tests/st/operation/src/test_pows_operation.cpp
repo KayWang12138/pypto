@@ -45,8 +45,7 @@ static void PowsOperationExeFunc1Dims(
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             auto tileTensor = View(inputs[0], {firstViewShape},
-                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)},
-                {bIdx * firstViewShape});
+                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)}, {bIdx * firstViewShape});
             TileShape::Current().SetVecTile(args->tileShape_);
             auto res = Pow(tileTensor, args->value_);
             Assemble(res, {bIdx * firstViewShape}, outputs[0]);
@@ -157,7 +156,8 @@ class PowsOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac
 
 INSTANTIATE_TEST_SUITE_P(TestPows, PowsOperationTest,
     ::testing::ValuesIn(GetOpMetaData<PowsOpMetaData>(
-        {PowsOperationExeFunc2Dims, PowsOperationExeFunc3Dims, PowsOperationExeFunc4Dims, PowsOperationExeFunc1Dims}, "Pows")));
+        {PowsOperationExeFunc2Dims, PowsOperationExeFunc3Dims, PowsOperationExeFunc4Dims, PowsOperationExeFunc1Dims},
+        "Pows")));
 
 TEST_P(PowsOperationTest, TestPows) {
     auto test_data = GetParam().test_data_;

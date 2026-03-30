@@ -47,10 +47,8 @@ public:
     void TearDown() override {}
 };
 
-void TestBitwiseTensorDynBody(const std::vector<int64_t> &shape,
-                          const std::vector<int64_t> &tile_shape,
-                          const std::string &name,
-                          const std::string &expect) {
+void TestBitwiseTensorDynBody(const std::vector<int64_t> &shape, const std::vector<int64_t> &tile_shape,
+    const std::string &name, const std::string &expect) {
     // 设置Tile形状
     TileShape::Current().SetVecTile(tile_shape);
 
@@ -61,7 +59,7 @@ void TestBitwiseTensorDynBody(const std::vector<int64_t> &shape,
     FUNCTION(name, {input_a, input_b}, {output}) {
         LOOP(name, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-             if (name == "BitwiseAnd") {
+            if (name == "BitwiseAnd") {
                 output = BitwiseAnd(input_a, input_b);
             } else if (name == "BitwiseOr") {
                 output = BitwiseOr(input_a, input_b);
@@ -71,7 +69,8 @@ void TestBitwiseTensorDynBody(const std::vector<int64_t> &shape,
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -81,10 +80,8 @@ void TestBitwiseTensorDynBody(const std::vector<int64_t> &shape,
     CheckStringExist(expect, res);
 }
 
-void TestBitwiseScalarDynBody(const std::vector<int64_t> &shape,
-                          const std::vector<int64_t> &tile_shape,
-                          const std::string &name,
-                          const std::string &expect) {
+void TestBitwiseScalarDynBody(const std::vector<int64_t> &shape, const std::vector<int64_t> &tile_shape,
+    const std::string &name, const std::string &expect) {
     // 设置Tile形状
     TileShape::Current().SetVecTile(tile_shape);
 
@@ -105,7 +102,8 @@ void TestBitwiseScalarDynBody(const std::vector<int64_t> &shape,
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -131,7 +129,7 @@ TEST_F(TestCodegenDynBitwiseBinary, BitwiseXorLayout) {
 }
 
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseAndsLayout) {
-const std::string expect = R"(TBitwiseAndS<LastUse2Dim<0, 1>, int16_t>(ubTensor_2, ubTensor_0, 2);)";
+    const std::string expect = R"(TBitwiseAndS<LastUse2Dim<0, 1>, int16_t>(ubTensor_2, ubTensor_0, 2);)";
     TestBitwiseScalarDynBody({32, 32}, {16, 16}, "BitwiseAnds", expect);
 }
 

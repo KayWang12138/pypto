@@ -39,43 +39,39 @@ public:
     Config() = default;
     virtual ~Config() = default;
 
-    virtual void OverrideDefaultConfig(std::vector<std::string> *cfgs) final
-    {
+    virtual void OverrideDefaultConfig(std::vector<std::string> *cfgs) final {
         std::regex r{"([\\w.]+)=(\\S+)"};
         std::smatch sm;
         size_t parameterNum = 3;
         for (auto &c : *cfgs) {
             regex_match(c, sm, r);
-            ASSERT(sm.size() == parameterNum) << "ErrCode: F" <<  static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG)
-                    << ",[SIMULATION]: " << "the config regex size is 3. the format is error: " << c;
+            ASSERT(sm.size() == parameterNum)
+                << "ErrCode: F" << static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG)
+                << ",[SIMULATION]: " << "the config regex size is 3. the format is error: " << c;
             std::string cfgName{sm.str(1)};
             std::string cfgValue{sm.str(2)};
             ParseConfig(cfgName, cfgValue);
         }
     }
 
-    void ParseConfig(std::string const &cfgName, std::string const &cfgValue)
-    {
+    void ParseConfig(std::string const &cfgName, std::string const &cfgValue) {
         if (cfgName.substr(0, prefix.size()) == prefix) {
-            ASSERT(cfgName[prefix.size()] == '.') << "ErrCode: F" <<  static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG)
-                    << ",[SIMULATION]: " << "cfgName format is error: " << cfgName;
+            ASSERT(cfgName[prefix.size()] == '.')
+                << "ErrCode: F" << static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG)
+                << ",[SIMULATION]: " << "cfgName format is error: " << cfgName;
             auto it = dispatcher.find(cfgName.substr(prefix.size() + 1));
             if (it != dispatcher.end()) {
                 it->second(cfgValue);
             } else {
                 SIMULATION_LOGE("ErrCode: F%u, Invalid config name: %s",
-                                static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG_NAME), cfgName.c_str());
+                    static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG_NAME), cfgName.c_str());
             }
         }
     }
 
-    virtual std::string const &ParseString(std::string const &v) final
-    {
-        return v;
-    }
+    virtual std::string const &ParseString(std::string const &v) final { return v; }
 
-    virtual uint64_t ParseInteger(std::string const &v) final
-    {
+    virtual uint64_t ParseInteger(std::string const &v) final {
         int readWidth = 16;
         if (v[0] == '0' && (v[1] == 'x' || v[1] == 'X')) {
             return stoull(v, nullptr, readWidth);
@@ -84,8 +80,7 @@ public:
         }
     }
 
-    virtual bool ParseBoolean(std::string const &v) final
-    {
+    virtual bool ParseBoolean(std::string const &v) final {
         if (v == "false") {
             return false;
         } else if (v == "true") {
@@ -94,8 +89,7 @@ public:
         return false;
     }
 
-    virtual void ParseIntVec(std::string const &v, std::vector<uint64_t> &array) final
-    {
+    virtual void ParseIntVec(std::string const &v, std::vector<uint64_t> &array) final {
         std::size_t pos = 0;
         array.clear();
         std::string vv = v;
@@ -106,8 +100,7 @@ public:
         array.push_back(stoull(vv.substr(0, pos)));
     }
 
-    virtual void ParseStrVec(std::string const &v, std::vector<std::string> &array) final
-    {
+    virtual void ParseStrVec(std::string const &v, std::vector<std::string> &array) final {
         std::size_t pos = 0;
         array.clear();
         std::string vv = v;
@@ -118,18 +111,11 @@ public:
         array.push_back(vv.substr(0, pos));
     }
 
-    virtual std::string ParameterToStr(bool parameter) final
-    {
-        return std::to_string(parameter);
-    }
+    virtual std::string ParameterToStr(bool parameter) final { return std::to_string(parameter); }
 
-    virtual std::string ParameterToStr(uint64_t parameter) final
-    {
-        return std::to_string(parameter);
-    }
+    virtual std::string ParameterToStr(uint64_t parameter) final { return std::to_string(parameter); }
 
-    virtual std::string ParameterToStr(std::vector<uint64_t> &parameter) final
-    {
+    virtual std::string ParameterToStr(std::vector<uint64_t> &parameter) final {
         std::stringstream oss;
         oss << "[";
         for (auto &it : parameter) {
@@ -139,13 +125,9 @@ public:
         return oss.str();
     }
 
-    virtual std::string ParameterToStr(const std::string &parameter) final
-    {
-        return parameter;
-    }
+    virtual std::string ParameterToStr(const std::string &parameter) final { return parameter; }
 
-    virtual std::string ParameterToStr(std::vector<std::string> &parameter) final
-    {
+    virtual std::string ParameterToStr(std::vector<std::string> &parameter) final {
         std::stringstream oss;
         oss << "[";
         for (size_t i = 0; i < parameter.size(); ++i) {
@@ -158,8 +140,7 @@ public:
         return oss.str();
     }
 
-    virtual std::string DumpParameters() final
-    {
+    virtual std::string DumpParameters() final {
         std::stringstream oss;
         oss << "[" << prefix << "]" << std::endl;
         for (auto &it : recorder) {
@@ -170,4 +151,4 @@ public:
     }
 };
 
-}
+} // namespace CostModel

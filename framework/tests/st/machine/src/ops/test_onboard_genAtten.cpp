@@ -39,7 +39,7 @@ constexpr int NUM_32 = 32;
 constexpr int NUM_128 = 128;
 constexpr int NUM_512 = 512;
 
-void GenAttentionCompute(TestDataLoader& data, GenAttenTileShapeConfig &tileConfig) {
+void GenAttentionCompute(TestDataLoader &data, GenAttenTileShapeConfig &tileConfig) {
     int b = std::get<int>(data.Param("b"));
     int s1 = std::get<int>(data.Param("s1"));
     int n = std::get<int>(data.Param("n"));
@@ -47,18 +47,18 @@ void GenAttentionCompute(TestDataLoader& data, GenAttenTileShapeConfig &tileConf
     std::string dTypeStr = std::get<string>(data.Param("dtype"));
     DataType dType = CostModel::ToDataType(dTypeStr);
 
-    GenAttentionCompute(
-        data.InputTensorCheck("cmp_atten", dType, {b, s1, n, d}),       // 也可以使用 data.InputTensor("cmp_atten"), 不做二次校验
+    GenAttentionCompute(data.InputTensorCheck("cmp_atten", dType,
+                            {b, s1, n, d}), // 也可以使用 data.InputTensor("cmp_atten"), 不做二次校验
         data.InputTensorCheck("sel_atten", dType, {b, s1, n, d}),
         data.InputTensorCheck("win_atten", dType, {b, s1, n, d}),
         data.InputTensorCheck("gating_score", dType, {b, s1, n, NUM_3}),
-        data.OutputTensorCheck("attention_out", dType, {b, s1, n, d}),  // 也可以使用 data.OutputTensor("attention_out"), 不做二次校验
-        tileConfig
-    );
+        data.OutputTensorCheck(
+            "attention_out", dType, {b, s1, n, d}), // 也可以使用 data.OutputTensor("attention_out"), 不做二次校验
+        tileConfig);
 }
 
-template<typename T = npu::tile_fwk::float16>
-void genAtten(TestDataLoader& data, GenAttenTileShapeConfig &tileConfig) {
+template <typename T = npu::tile_fwk::float16>
+void genAtten(TestDataLoader &data, GenAttenTileShapeConfig &tileConfig) {
     SetInterpreterConfig();
     config::SetRuntimeOption(DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
 
@@ -68,13 +68,14 @@ void genAtten(TestDataLoader& data, GenAttenTileShapeConfig &tileConfig) {
     int d = std::get<int>(data.Param("d"));
     std::string dTypeStr = std::get<string>(data.Param("dtype"));
     DataType dType = CostModel::ToDataType(dTypeStr);
-    data.Dump();    // 打印 tensor 信息
+    data.Dump(); // 打印 tensor 信息
 
     FUNCTION("GenAtten", data.GetInputTensorList(), data.GetOutputTensorList()) {
         GenAttentionCompute(data, tileConfig);
     }
 
-    auto goldenData = data.GoldenDataCheck("attention_out", dType, {b, s1, n, d});  // 也可以使用 data.GoldenData("attention_out")
+    auto goldenData =
+        data.GoldenDataCheck("attention_out", dType, {b, s1, n, d}); // 也可以使用 data.GoldenData("attention_out")
     auto outputData = data.GetOutputDataList()[data.GetOutputNameToIdx("attention_out")];
 
 #ifdef BUILD_WITH_CANN

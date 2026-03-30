@@ -70,13 +70,14 @@ TILEOP void L1CopyIn(__cbuf__ L1T *dst, __gm__ GMT *src, int reserved) { // ND2N
     }
 }
 
-template <typename GMT, typename L1T, unsigned TShape0, unsigned TShape1, unsigned GmOffset0, unsigned GmOffset1, unsigned GmShape0, unsigned GmShape1>
+template <typename GMT, typename L1T, unsigned TShape0, unsigned TShape1, unsigned GmOffset0, unsigned GmOffset1,
+    unsigned GmShape0, unsigned GmShape1>
 TILEOP void L1CopyIn(__cbuf__ L1T *dst, __gm__ GMT *src, int reserved) { // ND2NZ
     constexpr uint16_t ndNum = 1;
-    constexpr uint16_t nValue = (GmShape0 - GmOffset0) < TShape0 ? (GmShape0 - GmOffset0) : TShape0;      // n
-    constexpr uint16_t dValue = (GmShape1 - GmOffset1) < TShape1 ? (GmShape1 - GmOffset1) : TShape1;      // n
-    constexpr uint16_t srcNdMatrixStride = 0; //
-    constexpr uint16_t srcDValue = GmShape1;  // D
+    constexpr uint16_t nValue = (GmShape0 - GmOffset0) < TShape0 ? (GmShape0 - GmOffset0) : TShape0; // n
+    constexpr uint16_t dValue = (GmShape1 - GmOffset1) < TShape1 ? (GmShape1 - GmOffset1) : TShape1; // n
+    constexpr uint16_t srcNdMatrixStride = 0;                                                        //
+    constexpr uint16_t srcDValue = GmShape1;                                                         // D
     auto c0Size = 32 / sizeof(GMT);
     constexpr uint16_t dstNzC0Stride = TShape0; // n
     constexpr uint16_t dstNzNStride = 1;
@@ -170,8 +171,9 @@ TILEOP void L1ToL0B(__cb__ T *dst, __cbuf__ T *src) {
             auto srcStride = 1;
             auto dstGap = (nBlockSize * dstN - nBlockSize * 16) / (16 * nBlockSize);
             auto dstFracGap = 0;
-            load_cbuf_to_cb_transpose(dst + index * nBlockSize * nBlockSize, src + Offset0 * nBlockSize + Offset1 * srcK + index * nBlockSize * srcK, 0,
-                repeatTimes, srcStride, dstGap, inc, dstFracGap);
+            load_cbuf_to_cb_transpose(dst + index * nBlockSize * nBlockSize,
+                src + Offset0 * nBlockSize + Offset1 * srcK + index * nBlockSize * srcK, 0, repeatTimes, srcStride,
+                dstGap, inc, dstFracGap);
         }
         return;
     }
@@ -190,14 +192,13 @@ TILEOP void L1ToL0B(__cb__ T *dst, __cbuf__ T *src) {
     // L1 n1k1k0no   -> l0b  k1n1n0k0
     int64_t frac_num = 32 / sizeof(T);
     int64_t k_frac = dstK / frac_num; // B32
-    uint8_t repeat = dstN / 16; //
+    uint8_t repeat = dstN / 16;       //
     uint16_t srcStride = srcK / frac_num;
     uint16_t dstStride = 0; // gap;
 
     for (int64_t k_idx = 0; k_idx < k_frac; ++k_idx) {
-        load_cbuf_to_cb(dst + k_idx * frac_num * dstN,
-            src + k_idx * 16 * frac_num + (Offset0 * 16 + Offset1 * srcK), 0, repeat, srcStride, dstStride, 0, 1,
-            inc);
+        load_cbuf_to_cb(dst + k_idx * frac_num * dstN, src + k_idx * 16 * frac_num + (Offset0 * 16 + Offset1 * srcK), 0,
+            repeat, srcStride, dstStride, 0, 1, inc);
     }
 }
 

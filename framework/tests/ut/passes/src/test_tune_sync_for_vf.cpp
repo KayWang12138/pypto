@@ -9,9 +9,9 @@
  */
 
 /*!
-* \file test_tune_sync_for_vf.cpp
-* \brief Unit test for TuneSyncForVF.
-*/
+ * \file test_tune_sync_for_vf.cpp
+ * \brief Unit test for TuneSyncForVF.
+ */
 #include <gtest/gtest.h>
 #include "tilefwk/platform.h"
 #include "passes/block_graph_pass/tune_sync_for_vf.h"
@@ -115,7 +115,8 @@ TEST_F(TuneSyncForVFTest, TestTuneSyncForVF) {
     // Build Graph
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestTuneSync", "TestTuneSync", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestTuneSyncLeaf", "TestTuneSyncLeaf", rootFuncPtr.get());
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestTuneSyncLeaf", "TestTuneSyncLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     std::vector<Operation *> opListPtr;
@@ -132,9 +133,11 @@ TEST_F(TuneSyncForVFTest, TestTuneSyncForVF) {
 }
 
 TEST_F(TuneSyncForVFTest, TestMainProcess) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainSchedule", "TestMainSchedule", nullptr);
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestMainSchedule", "TestMainSchedule", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainScheduleLeaf", "TestMainScheduleLeaf", rootFuncPtr.get());
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestMainScheduleLeaf", "TestMainScheduleLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     std::vector<std::shared_ptr<LogicalTensor>> input;
@@ -154,7 +157,8 @@ TEST_F(TuneSyncForVFTest, TestMainProcess) {
 
 TEST_F(TuneSyncForVFTest, TestSkip) {
     config::SetPassGlobalConfig(KEY_ENABLE_VF, false);
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainSchedule", "TestMainSchedule", nullptr);
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestMainSchedule", "TestMainSchedule", nullptr);
     TuneSyncForVF tuneSync;
     EXPECT_EQ(tuneSync.RunOnFunction(*rootFuncPtr.get()), SUCCESS);
 }

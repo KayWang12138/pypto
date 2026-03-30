@@ -25,8 +25,8 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicCastTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 // 设置测试张量
-void SetupTestTensors(int b, int sq, int d, DataType iType, DataType oType,
-                      Tensor& q, Tensor& actSeqs, Tensor& out, bool ready_on_host) {
+void SetupTestTensors(
+    int b, int sq, int d, DataType iType, DataType oType, Tensor &q, Tensor &actSeqs, Tensor &out, bool ready_on_host) {
     std::vector<int64_t> qShape = {b * sq, d};
     std::vector<int64_t> outShape = {b * sq, d};
 
@@ -40,7 +40,7 @@ void SetupTestTensors(int b, int sq, int d, DataType iType, DataType oType,
 }
 
 // 准备测试数据
-void PrepareTestData(int b, int sq, int d, std::vector<int>& actSeqsData, std::vector<int32_t>& golden) {
+void PrepareTestData(int b, int sq, int d, std::vector<int> &actSeqsData, std::vector<int32_t> &golden) {
     actSeqsData.resize(b, 20);
     golden.resize(b * sq * d, 0);
 
@@ -55,8 +55,7 @@ void PrepareTestData(int b, int sq, int d, std::vector<int>& actSeqsData, std::v
 }
 
 // 构建计算图
-void BuildComputeGraph(const Tensor& q, const Tensor& actSeqs, Tensor& out,
-                       int sq, int d, DataType oType) {
+void BuildComputeGraph(const Tensor &q, const Tensor &actSeqs, Tensor &out, int sq, int d, DataType oType) {
     FUNCTION("main", {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
             SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0});
@@ -68,7 +67,7 @@ void BuildComputeGraph(const Tensor& q, const Tensor& actSeqs, Tensor& out,
 }
 
 // 验证测试结果
-void VerifyResults(int b, int sq, int d, const std::vector<int32_t>& golden) {
+void VerifyResults(int b, int sq, int d, const std::vector<int32_t> &golden) {
     std::vector<float> x(b * sq * d);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     std::vector<int32_t> outVec(reinterpret_cast<int32_t *>(outs->data()),
@@ -83,7 +82,7 @@ void CheckGeneratedCode(bool ready_on_host) {
     bool foundWaitAicoreStart = false;
 
     std::vector<std::string> cppFiles = GetFiles(aicpuDirPath, "cpp");
-    for (const auto& fileName : cppFiles) {
+    for (const auto &fileName : cppFiles) {
         if (fileName.substr(0, 15) == "controlFlow_dev") {
             std::string controlFlowFile = aicpuDirPath + "/" + fileName;
             std::ifstream file(controlFlowFile);

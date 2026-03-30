@@ -45,13 +45,14 @@ static std::tuple<Tensor, Tensor> kNopeQuant(const Tensor &input) {
 // s: 1, 2
 void MlaPrologQuantV32Compute(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr,
     const Tensor &dequantScaleWUqQr, const Tensor &wUk, const Tensor &wDkvKr, const Tensor &rmsnormGammaCq,
-    const Tensor &rmsnormGammaCkv, const Tensor &ropeCos, const Tensor &ropeSin, const Tensor &cacheIndex, Tensor &kvCache,
-    Tensor &krCache, Tensor &kScaleCache, Tensor &qNormOut, Tensor &qNormScaleOut, Tensor &qNopeOut, Tensor &qRopeOut,
-    Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &kScaleCacheOut, float rmsnormEpsilonCq,
-    float rmsnormEpsilonCkv,const std::string& layoutKey, const MlaTileConfig &tileConfig) {
+    const Tensor &rmsnormGammaCkv, const Tensor &ropeCos, const Tensor &ropeSin, const Tensor &cacheIndex,
+    Tensor &kvCache, Tensor &krCache, Tensor &kScaleCache, Tensor &qNormOut, Tensor &qNormScaleOut, Tensor &qNopeOut,
+    Tensor &qRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &kScaleCacheOut, float rmsnormEpsilonCq,
+    float rmsnormEpsilonCkv, const std::string &layoutKey, const MlaTileConfig &tileConfig) {
     // params check
-    assert(tokenX.GetShape().size() == 3 && wUk.GetShape().size() == 3 && ropeSin.GetShape().size() == 3); // shape dim 3
-    assert(kvCache.GetShape().size() == 4 && krCache.GetShape().size() == 4); // shape dim 4
+    assert(
+        tokenX.GetShape().size() == 3 && wUk.GetShape().size() == 3 && ropeSin.GetShape().size() == 3); // shape dim 3
+    assert(kvCache.GetShape().size() == 4 && krCache.GetShape().size() == 4);                           // shape dim 4
     assert(layoutKey == "PA_BSND" || layoutKey == "PA_NZ");
     DataType dType = tokenX.GetDataType();
     int h = tokenX.GetShape()[2]; // 2
@@ -70,25 +71,25 @@ void MlaPrologQuantV32Compute(const Tensor &tokenX, const Tensor &wDq, const Ten
 
     int tileBS = tileConfig.tileBS;
 
-    RopeTileShapeConfig ropeCfg {
+    RopeTileShapeConfig ropeCfg{
         {128, 128}, // 128
         {32, 128, 128}, // 32, 128
-        {16, 128, 128, 128} // 16, 128
+        {16, 128, 128, 128}  // 16, 128
     };
 
     SymbolicScalar b = GetInputShape(tokenX, 0);
     SymbolicScalar s = GetInputShape(tokenX, 1);
-    SymbolicScalar bsLoop  = (b * s + tileBS - 1 ) / tileBS;
+    SymbolicScalar bsLoop = (b * s + tileBS - 1) / tileBS;
 
     Tensor tokenX2D(tokenX.GetDataType(), {b * s, h}, "x2D");
     Tensor ropeCos2D(ropeCos.GetDataType(), {b * s, qkRopeHeadDim}, "ropeCos2D");
     Tensor ropeSin2D(ropeSin.GetDataType(), {b * s, qkRopeHeadDim}, "ropeSin2D");
     Tensor kCacheIndex2D(cacheIndex.GetDataType(), {b * s, 1}, "kCacheIndex2D");
 
-    MlaQuantInputs quantInputs ;
+    MlaQuantInputs quantInputs;
     LOOP("MLA_IN_RESHAPE_LOOP", FunctionType::DYNAMIC_LOOP, unused, LoopRange(1)) {
-        (void) unused;
-        Reshape(tokenX,tokenX2D);
+        (void)unused;
+        Reshape(tokenX, tokenX2D);
         Reshape(ropeCos, ropeCos2D);
         Reshape(ropeSin, ropeSin2D);
         Reshape(cacheIndex, kCacheIndex2D);
@@ -109,46 +110,46 @@ void MlaPrologQuantV32Compute(const Tensor &tokenX, const Tensor &wDq, const Ten
             TileShape::Current().SetVecTile({tileBS, 128}); // 128
             auto tokenX2DView = View(tokenX2D, {tileBS, h}, {bsOffset, 0});
             auto qKv = PreCompute2D(tokenX2DView, wDq, wUqQr, wDkvKr, rmsnormGammaCq, rmsnormEpsilonCq, quantInputs);
-            Tensor q = qKv[0];      // [b*s, n*qHeadDim]
-            Tensor kvTmp = qKv[1];  // [b*s, kvLoraRank+qkRopeHeadDim]
+            Tensor q = qKv[0];     // [b*s, n*qHeadDim]
+            Tensor kvTmp = qKv[1]; // [b*s, kvLoraRank+qkRopeHeadDim]
 
             /******** qNorm ********/
             config::SetSemanticLabel("Assemble_qNorm");
             Tensor qNorm = qKv[2];
             TileShape::Current().SetVecTile({tileBS, qLoraRank});
-            Assemble(qNorm, {bsOffset, 0}, qNormOut);  // output
+            Assemble(qNorm, {bsOffset, 0}, qNormOut); // output
             Tensor qNormScale = qKv[3];
-            TileShape::Current().SetVecTile({tileBS, 1});  // 32, 64
-            Assemble(qNormScale, {bsOffset, 0}, qNormScaleOut);  // output
+            TileShape::Current().SetVecTile({tileBS, 1});       // 32, 64
+            Assemble(qNormScale, {bsOffset, 0}, qNormScaleOut); // output
 
             /******** q ********/
             auto qTmp = Reshape(q, {tileBS, n1, qHeadDim});
             config::SetSemanticLabel("Prepare_qNope");
-            Tensor qNope = View(qTmp, {tileBS, n1, qkNopeHeadDim}, {0, 0, 0});  // [b,s,n,qkNopeHeadDim]
-            std::vector<int64_t> tileShape = {std::min(32, tileBS), 32, qkNopeHeadDim};  // 32
+            Tensor qNope = View(qTmp, {tileBS, n1, qkNopeHeadDim}, {0, 0, 0});          // [b,s,n,qkNopeHeadDim]
+            std::vector<int64_t> tileShape = {std::min(32, tileBS), 32, qkNopeHeadDim}; // 32
             TileShape::Current().SetVecTile(tileShape);
-            Tensor qNopeTrans = Transpose(qNope, {0, 1});  // [n,bs,qkNopeHeadDim]
+            Tensor qNopeTrans = Transpose(qNope, {0, 1}); // [n,bs,qkNopeHeadDim]
 
-            int c0 = 16;                                        // 16
-            int m = (std::min(32, tileBS) + c0 - 1) / c0 * c0;  // 32
+            int c0 = 16;                                       // 16
+            int m = (std::min(32, tileBS) + c0 - 1) / c0 * c0; // 32
             config::SetSemanticLabel("Matmul_qNope_wUk");
-            TileShape::Current().SetCubeTile({m, m}, {128, 128}, {128, 128});  // 128
+            TileShape::Current().SetCubeTile({m, m}, {128, 128}, {128, 128}); // 128
             // bmm: (n,bs,qkNopeHeadDim) @ (n, qkNopeHeadDim, kvLoraRank) = (n, bs, kvLoraRank)
             Tensor qNopeNew = Matrix::BatchMatmul(dType, qNopeTrans, wUk);
 
-            tileShape = {1, std::min(32, tileBS), kvLoraRank};  // 32
+            tileShape = {1, std::min(32, tileBS), kvLoraRank}; // 32
             TileShape::Current().SetVecTile(tileShape);
-            Tensor qNopeNewTrans = Transpose(qNopeNew, {0, 1});  // [bs,n,kvLoraRank]
+            Tensor qNopeNewTrans = Transpose(qNopeNew, {0, 1}); // [bs,n,kvLoraRank]
             config::SetSemanticLabel("Assemble_queryOut");
-            TileShape::Current().SetVecTile({1, 32, 128});  // 32, 128
-            Assemble(qNopeNewTrans, outputOffset, qNopeOut);   // output1
+            TileShape::Current().SetVecTile({1, 32, 128});   // 32, 128
+            Assemble(qNopeNewTrans, outputOffset, qNopeOut); // output1
 
             Tensor qPeView = View(qTmp, {tileBS, n1, qkRopeHeadDim}, {0, 0, qkNopeHeadDim});
             Tensor ropeCosView = View(ropeCos2D, {tileBS, qkRopeHeadDim}, {bsOffset, 0});
             Tensor ropeSinView = View(ropeSin2D, {tileBS, qkRopeHeadDim}, {bsOffset, 0});
             auto qRopeView = Rope3DV2(qPeView, ropeCosView, ropeSinView, ropeCfg);
             config::SetSemanticLabel("Assemble_qRope");
-            TileShape::Current().SetVecTile({1, 32, 64});  // 32, 64
+            TileShape::Current().SetVecTile({1, 32, 64}); // 32, 64
             Assemble(qRopeView, outputOffset, qRopeOut);  // output2
 
             /******** RoPE ********/
@@ -159,16 +160,16 @@ void MlaPrologQuantV32Compute(const Tensor &tokenX, const Tensor &wDq, const Ten
 
             /******** kNope ********/
             Tensor compressedKv = View(kvTmp, {tileBS, kvLoraRank}, {0, 0}); // [b*s,kvLoraRank]
-            tileShape = {2, 512}; // 2, 512
+            tileShape = {2, 512};                                            // 2, 512
             config::SetSemanticLabel("RmsNorm_compressedKv");
             TileShape::Current().SetVecTile(tileShape);
             Tensor kNope = RmsNorm(compressedKv, rmsnormGammaCkv, rmsnormEpsilonCkv); // [b*s,kvLoraRank]
             /******** kNope Quant ********/
             // no smooth
             config::SetSemanticLabel("Quant_kNope");
-            TileShape::Current().SetVecTile(32, kvLoraRank); // 32
-            Tensor kNopeSplit = Reshape(kNope, {tileBS, 4, kvLoraRank / 4}); //4
-            TileShape::Current().SetVecTile(32, 4, kvLoraRank / 4); // 32, 4
+            TileShape::Current().SetVecTile(32, kvLoraRank);                 // 32
+            Tensor kNopeSplit = Reshape(kNope, {tileBS, 4, kvLoraRank / 4}); // 4
+            TileShape::Current().SetVecTile(32, 4, kvLoraRank / 4);          // 32, 4
             auto kNopeQuantRes = kNopeQuant(kNopeSplit);
             Tensor kNopeQuant = std::get<0>(kNopeQuantRes);
             Tensor kNopeScale = std::get<1>(kNopeQuantRes);
@@ -193,15 +194,15 @@ void MlaPrologQuantV32Compute(const Tensor &tokenX, const Tensor &wDq, const Ten
             auto index = View(kCacheIndex2D, {tileBS, 1}, {bsOffset, 0});
             // krCache: [blockNum, blockSize, n2, qkRopeHeadDim]
             config::SetSemanticLabel("ScatterUpdate_krCache");
-            TileShape::Current().SetVecTile(32, qkRopeHeadDim); // 32
+            TileShape::Current().SetVecTile(32, qkRopeHeadDim);                                // 32
             krCacheOut2D = ScatterUpdate(krCache2D, index, kRope2D, -2, layoutKey, blockSize); // -2
             // kvCache: [blockNum, blockSize, n2, kvLoraRank]
             config::SetSemanticLabel("ScatterUpdate_kvCache");
-            TileShape::Current().SetVecTile(32, kvLoraRank); // 32
+            TileShape::Current().SetVecTile(32, kvLoraRank);                                   // 32
             kvCacheOut2D = ScatterUpdate(kvCache2D, index, kNope2D, -2, layoutKey, blockSize); // -2
             // kScaleCache: [blockNum, blockSize, n2, 4]
             config::SetSemanticLabel("ScatterUpdate_kScaleCache");
-            TileShape::Current().SetVecTile(32, 4); // 32, 4
+            TileShape::Current().SetVecTile(32, 4);                                             // 32, 4
             kScaleCacheOut2D = ScatterUpdate(kScaleCache2D, index, kScale2D, -2, layoutKey, 4); // -2, 4
         }
 
@@ -214,24 +215,31 @@ void MlaPrologQuantV32Compute(const Tensor &tokenX, const Tensor &wDq, const Ten
     }
 }
 
-void MlaPrologQuantV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr,
-    const Tensor &dequantScaleWUqQr, const Tensor &wUk, const Tensor &wDkvKr, const Tensor &rmsnormGammaCq,
-    const Tensor &rmsnormGammaCkv, const Tensor &ropeCos, const Tensor &ropeSin, const Tensor &cacheIndex, Tensor &kvCache,
-    Tensor &krCache, Tensor &kScaleCache, Tensor &qNormOut, Tensor &qNormScaleOut,  Tensor &qNopeOut, Tensor &qRopeOut,
+void MlaPrologQuantV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &dequantScaleWUqQr,
+    const Tensor &wUk, const Tensor &wDkvKr, const Tensor &rmsnormGammaCq, const Tensor &rmsnormGammaCkv,
+    const Tensor &ropeCos, const Tensor &ropeSin, const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache,
+    Tensor &kScaleCache, Tensor &qNormOut, Tensor &qNormScaleOut, Tensor &qNopeOut, Tensor &qRopeOut,
     Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &kScaleCacheOut, float rmsnormEpsilonCq, float rmsnormEpsilonCkv,
-    const std::string &layoutKey,const MlaTileConfig &tileConfig) {
-    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, NUM_4}});
-    config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{3, 4}});
+    const std::string &layoutKey, const MlaTileConfig &tileConfig) {
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{
+                                                     {-1, NUM_4}
+    });
+    config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{
+                                                    {3, 4}
+    });
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, NUM_2 * NUM_1024 * NUM_1024);
 
     FUNCTION("main",
-        {tokenX, wDq, wUqQr, dequantScaleWUqQr, wUk, wDkvKr, rmsnormGammaCq, rmsnormGammaCkv,  ropeCos, ropeSin, cacheIndex, kvCache, krCache, kScaleCache},
+        {
+            tokenX, wDq, wUqQr, dequantScaleWUqQr, wUk, wDkvKr, rmsnormGammaCq, rmsnormGammaCkv, ropeCos, ropeSin,
+            cacheIndex, kvCache, krCache, kScaleCache
+    },
         {qNormOut, qNormScaleOut, qNopeOut, qRopeOut},
         {{kvCacheOut, kvCache}, {krCacheOut, krCache}, {kScaleCacheOut, kScaleCache}}) {
         // compute
-        MlaPrologQuantV32Compute(tokenX, wDq, wUqQr, dequantScaleWUqQr, wUk, wDkvKr, rmsnormGammaCq, rmsnormGammaCkv, ropeCos, ropeSin, cacheIndex,
-            kvCache, krCache, kScaleCache, qNormOut, qNormScaleOut, qNopeOut, qRopeOut, kvCacheOut,
-            krCacheOut, kScaleCacheOut, rmsnormEpsilonCq, rmsnormEpsilonCkv, layoutKey, tileConfig);
+        MlaPrologQuantV32Compute(tokenX, wDq, wUqQr, dequantScaleWUqQr, wUk, wDkvKr, rmsnormGammaCq, rmsnormGammaCkv,
+            ropeCos, ropeSin, cacheIndex, kvCache, krCache, kScaleCache, qNormOut, qNormScaleOut, qNopeOut, qRopeOut,
+            kvCacheOut, krCacheOut, kScaleCacheOut, rmsnormEpsilonCq, rmsnormEpsilonCkv, layoutKey, tileConfig);
     }
 }
 

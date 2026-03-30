@@ -92,7 +92,6 @@ constexpr int64_t CFG_DEBUG_ALL = 1;
 const std::string KEY_FORCE_COMBINE_AXIS = "force_combine_axis";
 const std::string KEY_COMBINE_AXIS = "combine_axis";
 
-
 class ConfigScope;
 struct ConfigManagerImpl;
 using ConfigScopePtr = std::shared_ptr<ConfigScope>;
@@ -176,7 +175,7 @@ public:
      * \brief Retrieves the CubeTile configuration.
      */
     CubeTile GetCubeTile() const {
-        const Any& value = GetAnyConfig("cube_tile_shapes");
+        const Any &value = GetAnyConfig("cube_tile_shapes");
         return AnyCast<CubeTile>(value);
     }
 
@@ -184,7 +183,7 @@ public:
      * \brief Retrieves the ConvTile configuration.
      */
     ConvTile GetConvTile() const {
-        const Any& value = GetAnyConfig("conv_tile_shapes");
+        const Any &value = GetAnyConfig("conv_tile_shapes");
         return AnyCast<ConvTile>(value);
     }
 
@@ -192,16 +191,16 @@ public:
      * \brief Retrieves the VecTile configuration as a VecTile structure.
      */
     VecTile GetVecTile() const {
-        const Any& value = GetAnyConfig("vec_tile_shapes");
+        const Any &value = GetAnyConfig("vec_tile_shapes");
 
         return VecTile{AnyCast<std::vector<int64_t>>(value)};
-}
+    }
 
     /**
      * \brief Retrieves the matrix size configuration as a vector of integers.
      */
     std::vector<int64_t> GetMatrixSize() const {
-        const Any& value = GetAnyConfig("matrix_size");
+        const Any &value = GetAnyConfig("matrix_size");
         return AnyCast<std::vector<int64_t>>(value);
     }
 
@@ -262,6 +261,7 @@ public:
 
     ConfigScope(ConfigScopePtr parent);
     ~ConfigScope();
+
 private:
     friend struct ConfigManagerImpl;
     std::shared_ptr<ConfigScope> Clone();
@@ -282,7 +282,7 @@ private:
             return Any(value);
         } else if constexpr (std::is_integral_v<T>) {
             return Any(static_cast<int64_t>(value));
-        } else if constexpr (std::is_same_v<T, const char*>) {
+        } else if constexpr (std::is_same_v<T, const char *>) {
             return Any(std::string(value));
         } else {
             return Any(value);
@@ -297,8 +297,8 @@ public:
      *
      * \param values
      */
-    void BeginScope(const std::string &name, std::map<std::string, Any> &&values,
-        const char *file = __builtin_FILE(), int line = __builtin_LINE());
+    void BeginScope(const std::string &name, std::map<std::string, Any> &&values, const char *file = __builtin_FILE(),
+        int line = __builtin_LINE());
 
     /**
      * \brief End the current scope.
@@ -307,13 +307,13 @@ public:
     void EndScope(const char *file = __builtin_FILE(), int line = __builtin_LINE());
 
     /**
-    * @brief RAII guard: BeginScope on construction, EndScope on destruction.
-    * Use instead of manual BeginScope + EndScope pair for exception safety.
-    */
+     * @brief RAII guard: BeginScope on construction, EndScope on destruction.
+     * Use instead of manual BeginScope + EndScope pair for exception safety.
+     */
     class JitScopeGuard {
     public:
         JitScopeGuard(const std::string &name, std::map<std::string, Any> &&values = {},
-                        const char *file = __builtin_FILE(), int line = __builtin_LINE());
+            const char *file = __builtin_FILE(), int line = __builtin_LINE());
         ~JitScopeGuard();
         JitScopeGuard(const JitScopeGuard &) = delete;
         JitScopeGuard &operator=(const JitScopeGuard &) = delete;
@@ -348,8 +348,8 @@ public:
      *
      * @param values
      */
-    void SetScope(std::map<std::string, Any> &&values,
-        const char *file = __builtin_FILE(), int line = __builtin_LINE());
+    void SetScope(
+        std::map<std::string, Any> &&values, const char *file = __builtin_FILE(), int line = __builtin_LINE());
 
     /**
      * @brief Get the Current Scope object
@@ -382,8 +382,8 @@ public:
     const std::map<std::string, std::pair<int64_t, int64_t>> &Range() const;
 
     /**
-    * \brief Check if the value is within the specified range.
-    */
+     * \brief Check if the value is within the specified range.
+     */
     bool IsWithinRange(const std::string &properties, Any &value) const;
 
     static ConfigManagerNg &GetInstance();

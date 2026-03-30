@@ -35,11 +35,9 @@ public:
     void SetUp() override {
         DeviceLauncherContext::Get().DeviceInit();
         rtSetDevice(GetDeviceIdByEnvVar());
-     }
-
-    void TearDown() override {
-        DeviceLauncherContext::Get().DeviceFini();
     }
+
+    void TearDown() override { DeviceLauncherContext::Get().DeviceFini(); }
 };
 
 namespace {
@@ -91,9 +89,10 @@ TEST_F(DynamicOutcastTensorTest, TensorAllocateIntermediate) {
             }
             LOOP("sum", FunctionType::DYNAMIC_LOOP, _, LoopRange(0x1)) {
                 (void)_;
-                IF (k == 0) {
+                IF(k == 0) {
                     output = Add(mid, Element(DT_INT32, 0));
-                } ELSE {
+                }
+                ELSE {
                     output = Add(output, mid);
                 }
             }
@@ -109,4 +108,4 @@ TEST_F(DynamicOutcastTensorTest, TensorAllocateIntermediate) {
 #endif
 }
 
-}
+} // namespace

@@ -55,4 +55,4 @@ std::string PluginManager::RunPluginCodegenSrc(const std::string &filepath, cons
     return sourceResult;
 }
 
-}
+} // namespace npu::tile_fwk

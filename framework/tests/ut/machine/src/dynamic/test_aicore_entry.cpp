@@ -13,7 +13,6 @@
  * \brief
  */
 
-
 #include "interface/utils/string_utils.h"
 #include "interface/utils/common.h"
 
@@ -42,8 +41,7 @@ TEST_F(AicoreTest, InitGoodbye) {
 class MemoryEmulation {
 public:
     MemoryEmulation(int aicpuCount, int aicCount, int aivCount)
-      : aicpuCount_(aicpuCount), aicCount_(aicCount), aivCount_(aivCount) {
-    }
+        : aicpuCount_(aicpuCount), aicCount_(aicCount), aivCount_(aivCount) {}
 
     void Setup() {
         int sharedBufferSize = (aicCount_ + aivCount_) * sizeof(KernelSharedBuffer);
@@ -58,6 +56,7 @@ public:
     int GetAicpuCount() const { return aicpuCount_; }
     int GetAicCount() const { return aicCount_; }
     int GetAivCount() const { return aivCount_; }
+
 private:
     int aicpuCount_;
     int aicCount_;
@@ -67,8 +66,7 @@ private:
 };
 
 struct MultipleCore : ThreadAicoreEmulation {
-    MultipleCore(std::shared_ptr<MemoryEmulation> memory_)
-        : memory(memory_) {
+    MultipleCore(std::shared_ptr<MemoryEmulation> memory_) : memory(memory_) {
         memset_s(&devArgs, sizeof(devArgs), 0, sizeof(devArgs));
         devArgs.sharedBuffer = (uint64_t)(uintptr_t)memory->GetSharedBuffer();
         devDfxArgs = std::make_unique<DevDfxArgs>();
@@ -87,12 +85,14 @@ struct MultipleCore : ThreadAicoreEmulation {
         KernelEntry(0, 0, 0, 0, 0, (uint64_t)(uintptr_t)&devArgs);
     }
 
-    static void StartKernelEntry(std::shared_ptr<MultipleCore> aicore) {
-        aicore->WaitAndStartKernelEntry();
-    }
+    static void StartKernelEntry(std::shared_ptr<MultipleCore> aicore) { aicore->WaitAndStartKernelEntry(); }
 
-    virtual void AicoreCallSubFuncTask(uint64_t funcIdx, CoreFuncParam *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext) override {
-        UNUSED(funcIdx); UNUSED(param); UNUSED(gmStackAddr); UNUSED(hcclContext);
+    virtual void AicoreCallSubFuncTask(
+        uint64_t funcIdx, CoreFuncParam *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext) override {
+        UNUSED(funcIdx);
+        UNUSED(param);
+        UNUSED(gmStackAddr);
+        UNUSED(hcclContext);
         std::lock_guard<std::mutex> guard(traceMutex);
         traceList.emplace_back(GetAicoreInfoByThread()->GetCoreIdx(), funcIdx, *param);
     }
@@ -120,7 +120,7 @@ struct MultipleCore : ThreadAicoreEmulation {
             dataList->At(k).opAttrs = devFuncAttrList.data();
             dataList->At(k).opAtrrOffsets = devFuncAttrOffsetList.data();
             dataList->At(k).startArgs = &startArgs;
-            dataList->At(k).exprTbl = reinterpret_cast<uint64_t*>(devFuncExprTbl.data());
+            dataList->At(k).exprTbl = reinterpret_cast<uint64_t *>(devFuncExprTbl.data());
         }
 
         KernelSharedBuffer *buffer = memory->GetSharedBuffer();
@@ -150,6 +150,7 @@ struct MultipleCore : ThreadAicoreEmulation {
     }
 
     DynFuncHeader *GetDataList() { return reinterpret_cast<DynFuncHeader *>(dynFuncDataList.data()); }
+
 public:
     std::shared_ptr<MemoryEmulation> memory;
     DeviceArgs devArgs;

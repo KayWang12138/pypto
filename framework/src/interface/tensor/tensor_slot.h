@@ -61,9 +61,7 @@ private:
 
 template <>
 struct std::hash<npu::tile_fwk::TensorSlot> {
-    std::size_t operator()(const npu::tile_fwk::TensorSlot &t) const {
-        return std::hash<int64_t>()(t.GetId());
-    }
+    std::size_t operator()(const npu::tile_fwk::TensorSlot &t) const { return std::hash<int64_t>()(t.GetId()); }
 };
 
 namespace npu::tile_fwk {
@@ -139,8 +137,10 @@ struct TensorSlotScope {
     std::vector<std::unordered_set<TensorSlot>> oriIncastReadSlotSet;
     std::vector<std::unordered_set<TensorSlot>> oriOutcastWriteSlotSet;
 
-    std::unordered_map<std::shared_ptr<LogicalTensor>, std::unordered_set<std::shared_ptr<LogicalTensor>>> incastToInOriginalDict;
-    std::unordered_map<std::shared_ptr<LogicalTensor>, std::unordered_set<std::shared_ptr<LogicalTensor>>> outcastToOutOriginalDict;
+    std::unordered_map<std::shared_ptr<LogicalTensor>, std::unordered_set<std::shared_ptr<LogicalTensor>>>
+        incastToInOriginalDict;
+    std::unordered_map<std::shared_ptr<LogicalTensor>, std::unordered_set<std::shared_ptr<LogicalTensor>>>
+        outcastToOutOriginalDict;
 
     std::unordered_map<LogicalTensorPtr, int> partialUpdateOutcastDict;
 
@@ -271,7 +271,7 @@ struct TensorSlotManager {
 
     void MarkInput(const Tensor &tensor);
     void MarkOutput(const Tensor &tensor);
-    void MarkInplace(const Tensor &out , const Tensor &in);
+    void MarkInplace(const Tensor &out, const Tensor &in);
 
     const std::vector<std::string> &GetInputNameList() const { return inputNameList; }
     const std::vector<std::string> &GetOutputNameList() const { return outputNameList; }
@@ -283,13 +283,14 @@ struct TensorSlotManager {
     void Checkpoint();
     void Restore();
 
-    void UpdateReshapeInplaceSlots(IncastOutcastLink& link);
+    void UpdateReshapeInplaceSlots(IncastOutcastLink &link);
     void SetSameSlot(const Tensor &operand, const Tensor &dst);
     IncastOutcastLink BuildIncastOutcastLink(const std::string &rawname = "");
 
     static bool HasSameSlot(const std::vector<int> &slots1, const std::vector<int> &slots2);
 
     std::string Dump() const;
+
 private:
     void LogOperation(const TensorSlot &slot, const std::string &op);
     void InsertLiveSlot(const TensorSlot &slot);

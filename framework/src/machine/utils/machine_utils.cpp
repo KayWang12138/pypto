@@ -13,7 +13,6 @@
  * \brief
  */
 
-
 #include <vector>
 #include "machine_utils.h"
 

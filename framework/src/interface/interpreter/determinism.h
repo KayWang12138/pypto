@@ -35,6 +35,7 @@ public:
     uintptr_t GetEnd() const { return end_; }
 
     bool operator==(const TraceMemoryRange &rhs) const { return begin_ == rhs.begin_ && end_ == rhs.end_; }
+
 private:
     uintptr_t begin_{0};
     uintptr_t end_{0};
@@ -43,7 +44,8 @@ private:
 class TraceRawTensorMemory {
 public:
     TraceRawTensorMemory() = default;
-    TraceRawTensorMemory(const TraceMemoryRange &memoryRange, const std::vector<int64_t> &shape) : memoryRange_(memoryRange), shape_(shape) {}
+    TraceRawTensorMemory(const TraceMemoryRange &memoryRange, const std::vector<int64_t> &shape)
+        : memoryRange_(memoryRange), shape_(shape) {}
 
     const TraceMemoryRange &GetMemoryRange() const { return memoryRange_; }
     const std::vector<int64_t> &GetShape() const { return shape_; }
@@ -59,7 +61,7 @@ private:
 class TraceCopy {
 public:
     TraceCopy(bool isCopyOut, const std::shared_ptr<TraceRawTensorMemory> &rawTensor,
-              const std::vector<int64_t> &offset, const std::vector<int64_t> &shape, bool isAtomicAdd = false)
+        const std::vector<int64_t> &offset, const std::vector<int64_t> &shape, bool isAtomicAdd = false)
         : isCopyOut_(isCopyOut), rawTensor_(rawTensor), offset_(offset), shape_(shape), isAtomicAdd_(isAtomicAdd) {}
 
     bool IsCopyOut() const { return isCopyOut_; };
@@ -73,6 +75,7 @@ public:
     void SetIsAtomicAdd(bool isAtomicAdd) { isAtomicAdd_ = isAtomicAdd; }
 
     static bool Overlap(const TraceCopy &src, const TraceCopy &dst);
+
 private:
     bool isCopyOut_;
     std::shared_ptr<TraceRawTensorMemory> rawTensor_;
@@ -84,8 +87,13 @@ private:
 class TraceLeafTaskUid {
 public:
     TraceLeafTaskUid() = default;
-    TraceLeafTaskUid(int64_t deviceTaskIndex, int64_t dupIndex, int64_t rootIndex, int64_t operationIndex, int64_t leafIndex)
-        : deviceTaskIndex_(deviceTaskIndex), dupIndex_(dupIndex), rootIndex_(rootIndex), operationIndex_(operationIndex), leafIndex_(leafIndex) {}
+    TraceLeafTaskUid(
+        int64_t deviceTaskIndex, int64_t dupIndex, int64_t rootIndex, int64_t operationIndex, int64_t leafIndex)
+        : deviceTaskIndex_(deviceTaskIndex),
+          dupIndex_(dupIndex),
+          rootIndex_(rootIndex),
+          operationIndex_(operationIndex),
+          leafIndex_(leafIndex) {}
 
     int64_t GetDeviceTaskIndex() const { return deviceTaskIndex_; }
     int64_t GetDupIndex() const { return dupIndex_; }
@@ -95,6 +103,7 @@ public:
 
     bool operator<(const TraceLeafTaskUid &uid) const;
     std::string Dump() const;
+
 private:
     int64_t deviceTaskIndex_{-1};
     int64_t dupIndex_{-1};
@@ -115,6 +124,7 @@ public:
 
     bool operator<(const TraceRootTaskUid &uid) const;
     std::string Dump() const;
+
 private:
     int64_t deviceTaskIndex_{-1};
     int64_t dupIndex_{-1};
@@ -124,13 +134,13 @@ private:
 class TraceDeviceTaskUid {
 public:
     TraceDeviceTaskUid() = default;
-    TraceDeviceTaskUid(int64_t deviceTaskIndex)
-        : deviceTaskIndex_(deviceTaskIndex) {}
+    TraceDeviceTaskUid(int64_t deviceTaskIndex) : deviceTaskIndex_(deviceTaskIndex) {}
 
     int64_t GetDeviceTaskIndex() const { return deviceTaskIndex_; }
 
     bool operator<(const TraceDeviceTaskUid &uid) const;
     std::string Dump() const;
+
 private:
     int64_t deviceTaskIndex_{-1};
 };
@@ -142,6 +152,7 @@ public:
     bool IsExpr() const { return isExpr_; }
 
     bool operator==(const TraceCoa &coa) const { return isExpr_ == coa.isExpr_ && value_ == coa.value_; }
+
 private:
     uint64_t value_;
     bool isExpr_;
@@ -169,6 +180,7 @@ public:
     const std::set<TraceLeafTaskUid> &GetSuccSet() const { return succSet_; }
     void AddPred(const TraceLeafTaskUid &pred) { predSet_.insert(pred); }
     void AddSucc(const TraceLeafTaskUid &succ) { succSet_.insert(succ); }
+
 private:
     TraceLeafTaskUid uid_;
     Function *leafFunc_{nullptr};
@@ -182,10 +194,12 @@ private:
 class TraceRootTaskRawTensorDesc {
 public:
     TraceRootTaskRawTensorDesc() {}
-    TraceRootTaskRawTensorDesc(int64_t location, uint64_t offsetOrIndex, uint64_t size) : location_(location), offsetOrIndex_(offsetOrIndex), size_(size) {}
+    TraceRootTaskRawTensorDesc(int64_t location, uint64_t offsetOrIndex, uint64_t size)
+        : location_(location), offsetOrIndex_(offsetOrIndex), size_(size) {}
     int64_t GetLocation() const { return location_; }
     uint64_t GetOffsetOrIndex() const { return offsetOrIndex_; }
     uint64_t GetSize() const { return size_; }
+
 private:
     int64_t location_{-1};
     uint64_t offsetOrIndex_{0};
@@ -218,6 +232,7 @@ public:
 
     const TraceMemoryRange &GetWorkspaceMemoryRange() const { return workspaceMemoryRange_; }
     TraceMemoryRange &GetWorkspaceMemoryRange() { return workspaceMemoryRange_; }
+
 private:
     TraceRootTaskUid uid_;
     Function *tileFunc_{nullptr};
@@ -232,10 +247,8 @@ private:
 static constexpr int INVALID_TRACE_TASK_DEPEND_INDEX = -1;
 class TraceDependGraph {
 public:
-    TraceDependGraph(
-        const std::vector<std::shared_ptr<TraceLeafTask>> &leafTaskList,
-        const std::map<TraceLeafTaskUid, int> &leafTaskDependIndexDict,
-        const std::vector<std::vector<int>> &reachDict)
+    TraceDependGraph(const std::vector<std::shared_ptr<TraceLeafTask>> &leafTaskList,
+        const std::map<TraceLeafTaskUid, int> &leafTaskDependIndexDict, const std::vector<std::vector<int>> &reachDict)
         : leafTaskList_(leafTaskList), leafTaskDependIndexDict_(leafTaskDependIndexDict), reachDict_(reachDict) {}
 
     int GetLeafTaskSize() const { return (int)leafTaskList_.size(); }
@@ -244,9 +257,8 @@ public:
     const std::vector<std::vector<int>> &GetReachDict() const { return reachDict_; }
     std::vector<std::vector<int>> &GetReachDict() { return reachDict_; }
 
-    bool Reach(int src, int dst) const {
-        return reachDict_[src][dst] != INVALID_TRACE_TASK_DEPEND_INDEX;
-    }
+    bool Reach(int src, int dst) const { return reachDict_[src][dst] != INVALID_TRACE_TASK_DEPEND_INDEX; }
+
 private:
     std::vector<std::shared_ptr<TraceLeafTask>> leafTaskList_;
     std::map<TraceLeafTaskUid, int> leafTaskDependIndexDict_;
@@ -262,11 +274,12 @@ enum class TraceRaceKind {
 };
 struct TraceRacePart {
     TraceRacePart(const std::shared_ptr<TraceLeafTask> &leafTask, bool isCopyOut, int copyIndex)
-      : leafTask_(leafTask), isCopyOut_(isCopyOut), copyIndex_(copyIndex) {}
+        : leafTask_(leafTask), isCopyOut_(isCopyOut), copyIndex_(copyIndex) {}
 
     std::shared_ptr<TraceLeafTask> GetLeafTask() const { return leafTask_; }
     bool IsCopyOut() const { return isCopyOut_; }
     int GetCopyIndex() const { return copyIndex_; }
+
 private:
     std::shared_ptr<TraceLeafTask> leafTask_;
     bool isCopyOut_;
@@ -275,11 +288,12 @@ private:
 class TraceRace {
 public:
     TraceRace(TraceRaceKind kind, const TraceRacePart &src, const TraceRacePart &dst)
-    : kind_(kind), src_(src), dst_(dst) {}
+        : kind_(kind), src_(src), dst_(dst) {}
 
     TraceRaceKind GetKind() const { return kind_; }
     const TraceRacePart &GetSrc() const { return src_; }
     const TraceRacePart &GetDst() const { return dst_; }
+
 private:
     TraceRaceKind kind_;
     TraceRacePart src_;
@@ -298,6 +312,7 @@ public:
 
     TraceDependGraph BuildDependGraph() const;
     std::vector<TraceRace> CheckRace(const TraceDependGraph &graph) const;
+
 private:
     TraceDeviceTaskUid uid_;
     std::map<TraceRootTaskUid, std::shared_ptr<TraceRootTask>> rootTaskDict_;
@@ -313,7 +328,9 @@ public:
     const std::map<TraceRootTaskUid, std::shared_ptr<TraceRootTask>> &GetRootTaskDict() const { return rootTaskDict_; }
     std::map<TraceRootTaskUid, std::shared_ptr<TraceRootTask>> &GetRootTaskDict() { return rootTaskDict_; }
 
-    const std::map<TraceDeviceTaskUid, std::shared_ptr<TraceDeviceTask>> &GetDeviceTaskDict() const { return deviceTaskDict_; }
+    const std::map<TraceDeviceTaskUid, std::shared_ptr<TraceDeviceTask>> &GetDeviceTaskDict() const {
+        return deviceTaskDict_;
+    }
     std::map<TraceDeviceTaskUid, std::shared_ptr<TraceDeviceTask>> &GetDeviceTaskDict() { return deviceTaskDict_; }
 
     std::shared_ptr<TraceLeafTask> GetLeafTask(const TraceLeafTaskUid &luid);
@@ -326,6 +343,7 @@ public:
     void InitLeafList(OrderedSet<Function *> &devLeafList) { devLeafList_ = devLeafList; }
 
     void LoadTrace(const std::string &trace);
+
 private:
     std::map<TraceLeafTaskUid, std::shared_ptr<TraceLeafTask>> leafTaskDict_;
     std::map<TraceRootTaskUid, std::shared_ptr<TraceRootTask>> rootTaskDict_;
@@ -336,4 +354,4 @@ private:
     OrderedSet<Function *> devLeafList_;
 };
 
-}
+} // namespace npu::tile_fwk

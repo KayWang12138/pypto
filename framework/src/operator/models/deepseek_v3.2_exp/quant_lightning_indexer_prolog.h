@@ -65,7 +65,6 @@ struct QuantIndexerConfigs {
     int64_t tSubTile = 1;
 };
 
-
 struct QuantIndexerPrologInput {
     const Tensor &x;          // BF16, (t, h)
     const Tensor &qNorm;      // INT8, (t, qLoraRank)

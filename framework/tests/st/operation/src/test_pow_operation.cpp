@@ -55,7 +55,6 @@ static inline void CalcWillBroadcast(bool willBroadcast[][shapeDim], const std::
 
 static void PowOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         constexpr size_t shapeDim = 2;
         constexpr size_t inputSize = 2;
@@ -68,39 +67,31 @@ static void PowOperationExeFunc2Dims(
         const int64_t firstViewShape = args->viewShape_[0];
         const int64_t secondViewShape = args->viewShape_[1];
         const std::vector<int64_t> shape0 = {
-            willBroadcast[0][0] ? 1 : firstViewShape,
-            willBroadcast[0][1] ? 1 : secondViewShape
-        };
+            willBroadcast[0][0] ? 1 : firstViewShape, willBroadcast[0][1] ? 1 : secondViewShape};
         const std::vector<int64_t> shape1 = {
-            willBroadcast[1][0] ? 1 : firstViewShape,
-            willBroadcast[1][1] ? 1 : secondViewShape
-        };
+            willBroadcast[1][0] ? 1 : firstViewShape, willBroadcast[1][1] ? 1 : secondViewShape};
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                std::vector<SymbolicScalar> offset0 = {
-                    willBroadcast[0][0] ? SymbolicScalar(0) : bIdx * firstViewShape,
-                    willBroadcast[0][1] ? SymbolicScalar(0) : sIdx * secondViewShape
-                };
-                std::vector<SymbolicScalar> offset1 = {
-                    willBroadcast[1][0] ? SymbolicScalar(0) : bIdx * firstViewShape,
-                    willBroadcast[1][1] ? SymbolicScalar(0) : sIdx * secondViewShape
-                };
-                std::vector<SymbolicScalar> offset2 = {
-                    bIdx * firstViewShape,
-                    sIdx * secondViewShape
-                };
+                std::vector<SymbolicScalar> offset0 = {willBroadcast[0][0] ? SymbolicScalar(0) : bIdx * firstViewShape,
+                    willBroadcast[0][1] ? SymbolicScalar(0) : sIdx * secondViewShape};
+                std::vector<SymbolicScalar> offset1 = {willBroadcast[1][0] ? SymbolicScalar(0) : bIdx * firstViewShape,
+                    willBroadcast[1][1] ? SymbolicScalar(0) : sIdx * secondViewShape};
+                std::vector<SymbolicScalar> offset2 = {bIdx * firstViewShape, sIdx * secondViewShape};
                 std::vector<SymbolicScalar> validShape0 = {
-                    willBroadcast[0][0] ? SymbolicScalar(1) : std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                    willBroadcast[0][1] ? SymbolicScalar(1) : std::min(secondDim - sIdx * secondViewShape, secondViewShape)
-                };
+                    willBroadcast[0][0] ? SymbolicScalar(1) :
+                                          std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                    willBroadcast[0][1] ? SymbolicScalar(1) :
+                                          std::min(secondDim - sIdx * secondViewShape, secondViewShape)};
                 std::vector<SymbolicScalar> validShape1 = {
-                    willBroadcast[1][0] ? SymbolicScalar(1) : std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                    willBroadcast[1][1] ? SymbolicScalar(1) : std::min(secondDim - sIdx * secondViewShape, secondViewShape)
-                };
+                    willBroadcast[1][0] ? SymbolicScalar(1) :
+                                          std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                    willBroadcast[1][1] ? SymbolicScalar(1) :
+                                          std::min(secondDim - sIdx * secondViewShape, secondViewShape)};
                 TileShape::Current().SetVecTile(args->tileShape_);
-                DoPow(shape0, shape1, validShape0, validShape1, offset0, offset1, offset2, inputs[0], inputs[1], outputs[0]);
+                DoPow(shape0, shape1, validShape0, validShape1, offset0, offset1, offset2, inputs[0], inputs[1],
+                    outputs[0]);
             }
         }
     }
@@ -108,7 +99,6 @@ static void PowOperationExeFunc2Dims(
 
 static void PowOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         constexpr size_t shapeDim = 3;
         constexpr size_t inputSize = 2;
@@ -122,16 +112,10 @@ static void PowOperationExeFunc3Dims(
         const int64_t firstViewShape = args->viewShape_[0];
         const int64_t secondViewShape = args->viewShape_[1];
         const int64_t thirdViewShape = args->viewShape_[2];
-        const std::vector<int64_t> shape0 = {
-            willBroadcast[0][0] ? 1 : firstViewShape,
-            willBroadcast[0][1] ? 1 : secondViewShape,
-            willBroadcast[0][2] ? 1 : thirdViewShape
-        };
-        const std::vector<int64_t> shape1 = {
-            willBroadcast[1][0] ? 1 : firstViewShape,
-            willBroadcast[1][1] ? 1 : secondViewShape,
-            willBroadcast[1][2] ? 1 : thirdViewShape
-        };
+        const std::vector<int64_t> shape0 = {willBroadcast[0][0] ? 1 : firstViewShape,
+            willBroadcast[0][1] ? 1 : secondViewShape, willBroadcast[0][2] ? 1 : thirdViewShape};
+        const std::vector<int64_t> shape1 = {willBroadcast[1][0] ? 1 : firstViewShape,
+            willBroadcast[1][1] ? 1 : secondViewShape, willBroadcast[1][2] ? 1 : thirdViewShape};
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
         const int mloop = CeilDiv(thirdDim, thirdViewShape);
@@ -141,30 +125,30 @@ static void PowOperationExeFunc3Dims(
                     std::vector<SymbolicScalar> offset0 = {
                         willBroadcast[0][0] ? SymbolicScalar(0) : bIdx * firstViewShape,
                         willBroadcast[0][1] ? SymbolicScalar(0) : sIdx * secondViewShape,
-                        willBroadcast[0][2] ? SymbolicScalar(0) : mIdx * thirdViewShape
-                    };
+                        willBroadcast[0][2] ? SymbolicScalar(0) : mIdx * thirdViewShape};
                     std::vector<SymbolicScalar> offset1 = {
                         willBroadcast[1][0] ? SymbolicScalar(0) : bIdx * firstViewShape,
                         willBroadcast[1][1] ? SymbolicScalar(0) : sIdx * secondViewShape,
-                        willBroadcast[1][2] ? SymbolicScalar(0) : mIdx * thirdViewShape
-                    };
+                        willBroadcast[1][2] ? SymbolicScalar(0) : mIdx * thirdViewShape};
                     std::vector<SymbolicScalar> offset2 = {
-                        bIdx * firstViewShape,
-                        sIdx * secondViewShape,
-                        mIdx * thirdViewShape
-                    };
+                        bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape};
                     std::vector<SymbolicScalar> validShape0 = {
-                        willBroadcast[0][0] ? SymbolicScalar(1) : std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        willBroadcast[0][1] ? SymbolicScalar(1) : std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                        willBroadcast[0][2] ? SymbolicScalar(1) : std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape)
-                    };
+                        willBroadcast[0][0] ? SymbolicScalar(1) :
+                                              std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                        willBroadcast[0][1] ? SymbolicScalar(1) :
+                                              std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                        willBroadcast[0][2] ? SymbolicScalar(1) :
+                                              std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape)};
                     std::vector<SymbolicScalar> validShape1 = {
-                        willBroadcast[1][0] ? SymbolicScalar(1) : std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        willBroadcast[1][1] ? SymbolicScalar(1) : std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                        willBroadcast[1][2] ? SymbolicScalar(1) : std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape)
-                    };
+                        willBroadcast[1][0] ? SymbolicScalar(1) :
+                                              std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                        willBroadcast[1][1] ? SymbolicScalar(1) :
+                                              std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                        willBroadcast[1][2] ? SymbolicScalar(1) :
+                                              std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape)};
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    DoPow(shape0, shape1, validShape0, validShape1, offset0, offset1, offset2, inputs[0], inputs[1], outputs[0]);
+                    DoPow(shape0, shape1, validShape0, validShape1, offset0, offset1, offset2, inputs[0], inputs[1],
+                        outputs[0]);
                 }
             }
         }
@@ -173,7 +157,6 @@ static void PowOperationExeFunc3Dims(
 
 static void PowOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         constexpr size_t shapeDim = 4;
         constexpr size_t inputSize = 2;
@@ -189,18 +172,12 @@ static void PowOperationExeFunc4Dims(
         const int64_t secondViewShape = args->viewShape_[1];
         const int64_t thirdViewShape = args->viewShape_[2];
         const int64_t fourthViewShape = args->viewShape_[3];
-        const std::vector<int64_t> shape0 = {
-            willBroadcast[0][0] ? 1 : firstViewShape,
-            willBroadcast[0][1] ? 1 : secondViewShape,
-            willBroadcast[0][2] ? 1 : thirdViewShape,
-            willBroadcast[0][3] ? 1 : fourthViewShape
-        };
-        const std::vector<int64_t> shape1 = {
-            willBroadcast[1][0] ? 1 : firstViewShape,
-            willBroadcast[1][1] ? 1 : secondViewShape,
-            willBroadcast[1][2] ? 1 : thirdViewShape,
-            willBroadcast[1][3] ? 1 : fourthViewShape
-        };
+        const std::vector<int64_t> shape0 = {willBroadcast[0][0] ? 1 : firstViewShape,
+            willBroadcast[0][1] ? 1 : secondViewShape, willBroadcast[0][2] ? 1 : thirdViewShape,
+            willBroadcast[0][3] ? 1 : fourthViewShape};
+        const std::vector<int64_t> shape1 = {willBroadcast[1][0] ? 1 : firstViewShape,
+            willBroadcast[1][1] ? 1 : secondViewShape, willBroadcast[1][2] ? 1 : thirdViewShape,
+            willBroadcast[1][3] ? 1 : fourthViewShape};
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
         const int mloop = CeilDiv(thirdDim, thirdViewShape);
@@ -213,34 +190,35 @@ static void PowOperationExeFunc4Dims(
                             willBroadcast[0][0] ? SymbolicScalar(0) : bIdx * firstViewShape,
                             willBroadcast[0][1] ? SymbolicScalar(0) : sIdx * secondViewShape,
                             willBroadcast[0][2] ? SymbolicScalar(0) : mIdx * thirdViewShape,
-                            willBroadcast[0][3] ? SymbolicScalar(0) : nIdx * fourthViewShape
-                        };
+                            willBroadcast[0][3] ? SymbolicScalar(0) : nIdx * fourthViewShape};
                         std::vector<SymbolicScalar> offset1 = {
                             willBroadcast[1][0] ? SymbolicScalar(0) : bIdx * firstViewShape,
                             willBroadcast[1][1] ? SymbolicScalar(0) : sIdx * secondViewShape,
                             willBroadcast[1][2] ? SymbolicScalar(0) : mIdx * thirdViewShape,
-                            willBroadcast[1][3] ? SymbolicScalar(0) : nIdx * fourthViewShape
-                        };
-                        std::vector<SymbolicScalar> offset2 = {
-                            bIdx * firstViewShape,
-                            sIdx * secondViewShape,
-                            mIdx * thirdViewShape,
-                            nIdx * fourthViewShape
-                        };
+                            willBroadcast[1][3] ? SymbolicScalar(0) : nIdx * fourthViewShape};
+                        std::vector<SymbolicScalar> offset2 = {bIdx * firstViewShape, sIdx * secondViewShape,
+                            mIdx * thirdViewShape, nIdx * fourthViewShape};
                         std::vector<SymbolicScalar> validShape0 = {
-                            willBroadcast[0][0] ? SymbolicScalar(1) : std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                            willBroadcast[0][1] ? SymbolicScalar(1) : std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                            willBroadcast[0][2] ? SymbolicScalar(1) : std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
-                            willBroadcast[0][3] ? SymbolicScalar(1) : std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)
-                        };
+                            willBroadcast[0][0] ? SymbolicScalar(1) :
+                                                  std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            willBroadcast[0][1] ? SymbolicScalar(1) :
+                                                  std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                            willBroadcast[0][2] ? SymbolicScalar(1) :
+                                                  std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                            willBroadcast[0][3] ? SymbolicScalar(1) :
+                                                  std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)};
                         std::vector<SymbolicScalar> validShape1 = {
-                            willBroadcast[1][0] ? SymbolicScalar(1) : std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                            willBroadcast[1][1] ? SymbolicScalar(1) : std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                            willBroadcast[1][2] ? SymbolicScalar(1) : std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
-                            willBroadcast[1][3] ? SymbolicScalar(1) : std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)
-                        };
+                            willBroadcast[1][0] ? SymbolicScalar(1) :
+                                                  std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            willBroadcast[1][1] ? SymbolicScalar(1) :
+                                                  std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                            willBroadcast[1][2] ? SymbolicScalar(1) :
+                                                  std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                            willBroadcast[1][3] ? SymbolicScalar(1) :
+                                                  std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)};
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        DoPow(shape0, shape1, validShape0, validShape1, offset0, offset1, offset2, inputs[0], inputs[1], outputs[0]);
+                        DoPow(shape0, shape1, validShape0, validShape1, offset0, offset1, offset2, inputs[0], inputs[1],
+                            outputs[0]);
                     }
                 }
             }

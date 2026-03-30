@@ -100,8 +100,8 @@ public:
         // Note: Must use dynamic_pointer_cast here because this header is included before
         // the TypePtr overload of As<> is defined in kind_traits.h
         auto scalarType = std::dynamic_pointer_cast<const ScalarType>(GetType());
-        INTERNAL_CHECK(scalarType) << "ConstInt is expected to have ScalarType type, but got "
-                                    << GetType()->TypeName() << " at " << span_.ToString();
+        INTERNAL_CHECK(scalarType) << "ConstInt is expected to have ScalarType type, but got " << GetType()->TypeName()
+                                   << " at " << span_.ToString();
         return scalarType->dtype_;
     }
 };
@@ -145,7 +145,7 @@ public:
         // the TypePtr overload of As<> is defined in kind_traits.h
         auto scalarType = std::dynamic_pointer_cast<const ScalarType>(GetType());
         INTERNAL_CHECK(scalarType) << "ConstFloat is expected to have ScalarType type, but got "
-                                    << GetType()->TypeName() << " at " << span_.ToString();
+                                   << GetType()->TypeName() << " at " << span_.ToString();
         return scalarType->dtype_;
     }
 };
@@ -226,12 +226,8 @@ using BinaryExprPtr = std::shared_ptr<const BinaryExpr>;
     public:                                                                                       \
         OpName(ExprPtr left, ExprPtr right, DataType dtype, Span span)                            \
             : BinaryExpr(std::move(left), std::move(right), std::move(dtype), std::move(span)) {} \
-        [[nodiscard]] ObjectKind GetKind() const override {                                       \
-            return ObjectKind::OpName;                                                            \
-        }                                                                                         \
-        [[nodiscard]] std::string TypeName() const override {                                     \
-            return #OpName;                                                                       \
-        }                                                                                         \
+        [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::OpName; }          \
+        [[nodiscard]] std::string TypeName() const override { return #OpName; }                   \
     };                                                                                            \
                                                                                                   \
     using OpName##Ptr = std::shared_ptr<const OpName>;
@@ -290,12 +286,8 @@ using UnaryExprPtr = std::shared_ptr<const UnaryExpr>;
     class OpName : public UnaryExpr {                                                                                 \
     public:                                                                                                           \
         OpName(ExprPtr operand, DataType dtype, Span span) : UnaryExpr(std::move(operand), dtype, std::move(span)) {} \
-        [[nodiscard]] ObjectKind GetKind() const override {                                                           \
-            return ObjectKind::OpName;                                                                                \
-        }                                                                                                             \
-        [[nodiscard]] std::string TypeName() const override {                                                         \
-            return #OpName;                                                                                           \
-        }                                                                                                             \
+        [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::OpName; }                              \
+        [[nodiscard]] std::string TypeName() const override { return #OpName; }                                       \
     };                                                                                                                \
                                                                                                                       \
     using OpName##Ptr = std::shared_ptr<const OpName>;

@@ -29,5 +29,5 @@ public:
     void EliminateOperationAndNotSortAfterErase(Function &function, bool sorted = false);
     static Status EliminateDeadOperation(Function &function);
 };
-}
+} // namespace npu::tile_fwk
 #endif // PASS_DEAD_OPERATION_ELIMINATE_H_

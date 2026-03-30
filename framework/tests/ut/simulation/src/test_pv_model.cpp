@@ -122,4 +122,4 @@ extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::Dyn
 )!!!";
     EXPECT_EQ(expect, content);
 }
-}
+} // namespace CostModel

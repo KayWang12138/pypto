@@ -25,8 +25,8 @@
 
 namespace npu::tile_fwk {
 
-void FunctionUtils::RelinkOperationInput(Operation *op, const size_t inputIndex, const Operation *targetOp,
-                                         const size_t outputIndex) {
+void FunctionUtils::RelinkOperationInput(
+    Operation *op, const size_t inputIndex, const Operation *targetOp, const size_t outputIndex) {
     if (op == nullptr || targetOp == nullptr) {
         return;
     }
@@ -42,7 +42,7 @@ void FunctionUtils::RelinkOperationInput(Operation *op, const size_t inputIndex,
     op->ReplaceInputOperand(inputTenosr, targetOutputTenosr);
 }
 
-bool IsOverlapping(const LogicalTensor& a, const LogicalTensor& b) {
+bool IsOverlapping(const LogicalTensor &a, const LogicalTensor &b) {
     for (size_t i = 0; i < a.shape.size(); ++i) {
         int aStart = a.offset[i];
         int aEnd = aStart + a.shape[i];
@@ -58,7 +58,7 @@ bool IsOverlapping(const LogicalTensor& a, const LogicalTensor& b) {
 }
 
 // 计算矩形的体积（面积、体积等）
-int CalculateVolume(const LogicalTensor& tensor) {
+int CalculateVolume(const LogicalTensor &tensor) {
     int volume = 1;
     for (int dim : tensor.shape) {
         volume *= dim;
@@ -78,7 +78,7 @@ bool FunctionUtils::IsContinuous(const std::vector<std::shared_ptr<LogicalTensor
     std::vector<int64_t> minCoords(numDims, INT_MAX);
     std::vector<int64_t> maxCoords(numDims, INT_MIN);
 
-    for (const auto& tensor : tensors) {
+    for (const auto &tensor : tensors) {
         for (size_t i = 0; i < numDims; ++i) {
             minCoords[i] = std::min(minCoords[i], tensor->offset[i]);
             maxCoords[i] = std::max(maxCoords[i], tensor->offset[i] + tensor->shape[i]);
@@ -93,7 +93,7 @@ bool FunctionUtils::IsContinuous(const std::vector<std::shared_ptr<LogicalTensor
 
     // 计算所有矩形的总体积
     int sumVolume = 0;
-    for (const auto& tensor : tensors) {
+    for (const auto &tensor : tensors) {
         sumVolume += CalculateVolume(*tensor);
     }
 
@@ -141,8 +141,7 @@ void SubfuncInvokeInfoTy::ConstructActualInvokeParam(int esgId) {
         // accordinarly.
         incastTensorParamList_.emplace_back(
             IncastParamPackTy{iParamLoc, inCastInfo.realIncastDDRId, inCastInfo.offset, inCastInfo.shape,
-                              inCastInfo.rawShape, inCastInfo.dType, inCastInfo.tensor, inCastInfo.opMagic,
-                              inCastInfo.operandIdx});
+                inCastInfo.rawShape, inCastInfo.dType, inCastInfo.tensor, inCastInfo.opMagic, inCastInfo.operandIdx});
         iParamLoc++;
     }
 
@@ -221,7 +220,7 @@ void SubfuncInvokeInfoTy::DumpInvokeInfo(int64_t invokeParamMemOffset, int64_t *
     }
 
     (void)memcpy_s(invokeParamPtr + invokeParamMemOffset / sizeof(int64_t), invokeParam.size() * sizeof(int64_t),
-                   invokeParam.data(), invokeParam.size() * sizeof(int64_t));
+        invokeParam.data(), invokeParam.size() * sizeof(int64_t));
 }
 
 std::tuple<int, int, int> SubfuncInvokeInfoTy::LookupInvokeArgs(const int paramLoc) const {
@@ -229,8 +228,7 @@ std::tuple<int, int, int> SubfuncInvokeInfoTy::LookupInvokeArgs(const int paramL
         case ParamLocTensor:
             for (auto &tensorParam : tensorParamList_) {
                 if (tensorParam.paramLoc == paramLoc) {
-                    return std::tuple<int, int, int>{tensorParam.ddrId, tensorParam.offset[0],
-                                                     tensorParam.offset[1]};
+                    return std::tuple<int, int, int>{tensorParam.ddrId, tensorParam.offset[0], tensorParam.offset[1]};
                 }
             }
             assert(0 && "not found param");
@@ -239,8 +237,8 @@ std::tuple<int, int, int> SubfuncInvokeInfoTy::LookupInvokeArgs(const int paramL
         case ParamLocIncast:
             for (auto &incastTensorParam : incastTensorParamList_) {
                 if (incastTensorParam.paramLoc == paramLoc) {
-                    return std::tuple<int, int, int>{incastTensorParam.ddrId, incastTensorParam.offset[0],
-                                                     incastTensorParam.offset[1]};
+                    return std::tuple<int, int, int>{
+                        incastTensorParam.ddrId, incastTensorParam.offset[0], incastTensorParam.offset[1]};
                 }
             }
             assert(0 && "not found param");
@@ -249,8 +247,8 @@ std::tuple<int, int, int> SubfuncInvokeInfoTy::LookupInvokeArgs(const int paramL
         case ParamLocOutcast:
             for (auto &outcastTensorParam : outcastTensorParamList_) {
                 if (outcastTensorParam.paramLoc == paramLoc) {
-                    return std::tuple<int, int, int>{outcastTensorParam.ddrId, outcastTensorParam.offset[0],
-                                                     outcastTensorParam.offset[1]};
+                    return std::tuple<int, int, int>{
+                        outcastTensorParam.ddrId, outcastTensorParam.offset[0], outcastTensorParam.offset[1]};
                 }
             }
             assert(0 && "not found param");
@@ -361,12 +359,12 @@ Json SubfuncInvokeInfoTy::DumpJson() const {
     return ret;
 }
 
-void SubfuncInvokeInfoTy::LoadIncastFromJson(const Json& incastJson, Function* belongTo) {
+void SubfuncInvokeInfoTy::LoadIncastFromJson(const Json &incastJson, Function *belongTo) {
     int paramLoc = incastJson["param_loc"].get<int>();
     int opMagic = incastJson["op_magic"].get<int>();
     int operandIdx = incastJson["operandIdx"].get<int>();
-    std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(
-        incastJson["tensor"].get<int>());
+    std::shared_ptr<LogicalTensor> tensorPtr =
+        belongTo->GetTensorMap().GetTensorByMagic(incastJson["tensor"].get<int>());
     if (tensorPtr == nullptr) {
         APASS_LOG_ERROR_F(Elements::Function, "Tile FWK for incast %d op %d is nullptr, function type %s name %s",
             incastJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionTypeStr().c_str(),
@@ -378,13 +376,13 @@ void SubfuncInvokeInfoTy::LoadIncastFromJson(const Json& incastJson, Function* b
         tensorPtr->tensor->rawshape, tensorPtr->tensor->GetDataType(), tensorPtr, opMagic, operandIdx));
 }
 
-void SubfuncInvokeInfoTy::LoadOutcastFromJson(const Json& outcastJson, Function* belongTo) {
+void SubfuncInvokeInfoTy::LoadOutcastFromJson(const Json &outcastJson, Function *belongTo) {
     int paramLoc = outcastJson["param_loc"].get<int>();
     int refCount = outcastJson["ref_count"].get<int>();
     int opMagic = outcastJson["op_magic"].get<int>();
     int operandIdx = outcastJson["operandIdx"].get<int>();
-    std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(
-        outcastJson["tensor"].get<int>());
+    std::shared_ptr<LogicalTensor> tensorPtr =
+        belongTo->GetTensorMap().GetTensorByMagic(outcastJson["tensor"].get<int>());
     if (tensorPtr == nullptr) {
         APASS_LOG_ERROR_F(Elements::Function, "Tile FWK for outcast %d op %d is nullptr function type %s name %s",
             outcastJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionTypeStr().c_str(),
@@ -397,12 +395,12 @@ void SubfuncInvokeInfoTy::LoadOutcastFromJson(const Json& outcastJson, Function*
         operandIdx));
 }
 
-void SubfuncInvokeInfoTy::LoadTensorFromJson(const Json& tensorJson, Function* belongTo) {
+void SubfuncInvokeInfoTy::LoadTensorFromJson(const Json &tensorJson, Function *belongTo) {
     int paramLoc = tensorJson["param_loc"].get<int>();
     int opMagic = tensorJson["op_magic"].get<int>();
     int operandIdx = tensorJson["operandIdx"].get<int>();
-    std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(
-        tensorJson["tensor"].get<int>());
+    std::shared_ptr<LogicalTensor> tensorPtr =
+        belongTo->GetTensorMap().GetTensorByMagic(tensorJson["tensor"].get<int>());
     if (tensorPtr == nullptr) {
         APASS_LOG_ERROR_F(Elements::Function, "Tile FWK for tensor %d op %d is nullptr, function type %s name %s",
             tensorJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionTypeStr().c_str(),
@@ -478,8 +476,7 @@ Json SubfuncInvokeInfoTy::ToJson() const {
     return j;
 }
 
-bool SubfuncInvokeInfoTy::operator==(const SubfuncInvokeInfoTy &other) const
-{
+bool SubfuncInvokeInfoTy::operator==(const SubfuncInvokeInfoTy &other) const {
     auto &thisTensorList = tensorParamList_;
     auto &otherTensorList = other.GetTensorParamList();
     if (thisTensorList.size() != otherTensorList.size()) {
@@ -515,8 +512,7 @@ bool SubfuncInvokeInfoTy::operator==(const SubfuncInvokeInfoTy &other) const
     return true;
 }
 
-bool SubfuncInvokeInfoTy::operator!=(const SubfuncInvokeInfoTy &other) const
-{
+bool SubfuncInvokeInfoTy::operator!=(const SubfuncInvokeInfoTy &other) const {
     if (*this == other) {
         return false;
     }
@@ -537,8 +533,8 @@ void SubfuncInvokeInfoTy::TensorParamPackTy::DumpTensor(std::vector<int64_t> &in
 bool SubfuncInvokeInfoTy::TensorParamPackTy::operator==(const TensorParamPackTy &other) const {
     if (paramLoc != other.paramLoc || ddrId != other.ddrId || offset != other.offset || shape != other.shape ||
         rawShape != other.rawShape || dType != other.dType || isOutputToGM != other.isOutputToGM ||
-        tensor->GetMagic() != other.tensor->GetMagic() ||
-        tensor->GetRawMagic() != other.tensor->GetRawMagic() || opMagic != other.opMagic) {
+        tensor->GetMagic() != other.tensor->GetMagic() || tensor->GetRawMagic() != other.tensor->GetRawMagic() ||
+        opMagic != other.opMagic) {
         return false;
     }
     return true;
@@ -643,7 +639,7 @@ Json SubfuncParam::ToJson() const {
     return j;
 }
 
-void SubfuncParam::FromJson(const Json& params) {
+void SubfuncParam::FromJson(const Json &params) {
     inCastArgs_.clear();
     tensorsArgs_.clear();
     outCastArgs_.clear();
@@ -695,8 +691,7 @@ void SubfuncParam::InCastParamTy::Print(std::ostream &osm) const {
 }
 
 bool SubfuncParam::InCastParamTy::CompareParam(const SubfuncInvokeInfoTy::IncastParamPackTy &esgParam) const {
-    return (paramLoc == esgParam.paramLoc) && (shape == esgParam.shape) &&
-           (dataType == esgParam.dType);
+    return (paramLoc == esgParam.paramLoc) && (shape == esgParam.shape) && (dataType == esgParam.dType);
 }
 
 void SubfuncParam::OutCastParamTy::Print(std::ostream &osm) const {
@@ -708,8 +703,8 @@ void SubfuncParam::OutCastParamTy::Print(std::ostream &osm) const {
 }
 
 bool SubfuncParam::OutCastParamTy::CompareParam(const SubfuncInvokeInfoTy::OutcastParamPackTy &esgParam) const {
-    return (paramLoc == esgParam.paramLoc) && (refCount == esgParam.refCount) &&
-           (shape == esgParam.shape) && (dataType == esgParam.dType);
+    return (paramLoc == esgParam.paramLoc) && (refCount == esgParam.refCount) && (shape == esgParam.shape) &&
+           (dataType == esgParam.dType);
 }
 
 void SubfuncParam::TensorParamTy::Print(std::ostream &osm) const {
@@ -719,8 +714,7 @@ void SubfuncParam::TensorParamTy::Print(std::ostream &osm) const {
 }
 
 bool SubfuncParam::TensorParamTy::CompareParam(const SubfuncInvokeInfoTy::TensorParamPackTy &esgParam) const {
-    return (paramLoc == esgParam.paramLoc) &&
-        (shape == esgParam.shape) && (dataType == esgParam.dType);
+    return (paramLoc == esgParam.paramLoc) && (shape == esgParam.shape) && (dataType == esgParam.dType);
 }
 namespace {
 const int32_t MAGIC_NUM_TWO = 2;
@@ -737,7 +731,8 @@ void SubfuncTopologyInfoTy::AddEntry(const int esgId, const int readState, const
     }
 }
 
-void SubfuncTopologyInfoTy::UpdateEntry(const uint32_t extType, const uint32_t extParamNum, const std::vector<int64_t> &extParams) {
+void SubfuncTopologyInfoTy::UpdateEntry(
+    const uint32_t extType, const uint32_t extParamNum, const std::vector<int64_t> &extParams) {
     auto &entry = topology_.back();
     entry.extType = extType;
     entry.extParamNum = extParamNum;
@@ -796,8 +791,8 @@ void SubfuncTopologyInfoTy::Print(std::ostream &osm) const {
     }
 }
 
-void SubfuncTopologyInfoTy::DumpEachEntryInfo(int esgId, CoreType coreType, int64_t entryOffset,
-    int64_t *entryParamPtr, int32_t *readyStatePtr) const { // dump each entry
+void SubfuncTopologyInfoTy::DumpEachEntryInfo(int esgId, CoreType coreType, int64_t entryOffset, int64_t *entryParamPtr,
+    int32_t *readyStatePtr) const { // dump each entry
     std::vector<int64_t> entryParam;
     entryParam.clear();
 
@@ -809,7 +804,7 @@ void SubfuncTopologyInfoTy::DumpEachEntryInfo(int esgId, CoreType coreType, int6
         entryParam.emplace_back(static_cast<int64_t>(num));
     }
     (void)memcpy_s(entryParamPtr + entryOffset / sizeof(int64_t), entryParam.size() * sizeof(int64_t),
-                   entryParam.data(), entryParam.size() * sizeof(int64_t));
+        entryParam.data(), entryParam.size() * sizeof(int64_t));
     *(readyStatePtr + static_cast<int32_t>(esgId) * MAGIC_NUM_TWO) = static_cast<int32_t>(topology_[esgId].readyState);
     *(readyStatePtr + static_cast<int32_t>(esgId) * MAGIC_NUM_TWO + 1) = static_cast<int32_t>(coreType);
 }
@@ -829,8 +824,7 @@ std::vector<int> SubfuncTopologyInfoTy::GetSuccs(int esgId) const {
     return succs;
 }
 
-Json SubfuncTopologyInfoTy::DumpJson() const
-{
+Json SubfuncTopologyInfoTy::DumpJson() const {
     Json ret;
     ret["entrys"] = Json::array();
     auto &entrys = ret["entrys"];
@@ -852,8 +846,7 @@ Json SubfuncTopologyInfoTy::DumpJson() const
     return ret;
 }
 
-void SubfuncTopologyInfoTy::LoadJson(const Json &topoJson)
-{
+void SubfuncTopologyInfoTy::LoadJson(const Json &topoJson) {
     topology_.clear();
     readyIds_.clear();
     for (auto &ele : topoJson["entrys"]) {

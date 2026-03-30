@@ -62,12 +62,12 @@ INLINE int64_t CalNZOffset(const int64_t &srcShape0, const int64_t &srcShape1, c
 
 template <typename T>
 constexpr INLINE bool CheckIsB4() {
-    #if defined PTO_NPU_ARCH_A5
-        return std::is_same<typename T::Type, float4_e2m1x2_t>::value ||
-                  std::is_same<typename T::Type, float4_e1m2x2_t>::value;
-    #else
-        return false;
-    #endif
+#if defined PTO_NPU_ARCH_A5
+    return std::is_same<typename T::Type, float4_e2m1x2_t>::value ||
+           std::is_same<typename T::Type, float4_e1m2x2_t>::value;
+#else
+    return false;
+#endif
 }
 
 template <typename T, typename U>
@@ -229,17 +229,15 @@ TILEOP void TLoadAMX(T &dst, U &src, const Coord &coord) {
     if constexpr (mode == CopyInMode::ND2NZ) {
         int64_t gmOffset = offset1 * SHAPE_DIM2 + offset0 * srcShape1 * SHAPE_DIM2;
         using globalData = pto::GlobalTensor<typename U::Type, shapeDim2, strideDim3, pto::Layout::MX_A_ND>;
-        globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
-            shapeDim2(dstShape0, dstShape1),
+        globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset), shapeDim2(dstShape0, dstShape1),
             strideDim3(srcShape0 * srcShape1 * SHAPE_DIM2, srcShape0 * srcShape1 * SHAPE_DIM2, srcShape1 * SHAPE_DIM2));
         tileData dstL1(dstShape0, dstShape1 * SHAPE_DIM2);
         pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
         pto::TLOAD(dstL1, src0Global);
     } else if constexpr (mode == CopyInMode::DN2NZ) {
-        int64_t gmOffset = offset1 * SHAPE_DIM2  + offset0 * SHAPE_DIM2 * srcShape1;
+        int64_t gmOffset = offset1 * SHAPE_DIM2 + offset0 * SHAPE_DIM2 * srcShape1;
         using globalData = pto::GlobalTensor<typename U::Type, shapeDim2, strideDim3, pto::Layout::MX_A_DN>;
-        globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
-            shapeDim2(dstShape0, dstShape1),
+        globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset), shapeDim2(dstShape0, dstShape1),
             strideDim3(srcShape0 * srcShape1 * SHAPE_DIM2, srcShape0 * srcShape1 * SHAPE_DIM2, srcShape1 * SHAPE_DIM2));
         tileData dstL1(dstShape0, dstShape1 * SHAPE_DIM2);
         pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
@@ -277,8 +275,7 @@ TILEOP void TLoadBMX(T &dst, U &src, const Coord &coord) {
     if constexpr (mode == CopyInMode::ND2NZ) {
         int64_t gmOffset = offset1 * SHAPE_DIM2 + offset0 * SHAPE_DIM2 * srcShape1;
         using globalData = pto::GlobalTensor<typename U::Type, shapeDim2, strideDim3, pto::Layout::MX_B_ND>;
-        globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
-            shapeDim2(dstShape0, dstShape1),
+        globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset), shapeDim2(dstShape0, dstShape1),
             strideDim3(srcShape0 * srcShape1 * SHAPE_DIM2, srcShape0 * srcShape1 * SHAPE_DIM2, srcShape1 * SHAPE_DIM2));
         tileData dstL1(dstShape0 * SHAPE_DIM2, dstShape1);
         pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
@@ -286,8 +283,7 @@ TILEOP void TLoadBMX(T &dst, U &src, const Coord &coord) {
     } else if constexpr (mode == CopyInMode::DN2NZ) {
         int64_t gmOffset = offset1 * SHAPE_DIM2 + offset0 * srcShape1 * SHAPE_DIM2;
         using globalData = pto::GlobalTensor<typename U::Type, shapeDim2, strideDim3, pto::Layout::MX_B_DN>;
-        globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
-            shapeDim2(dstShape0, dstShape1),
+        globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset), shapeDim2(dstShape0, dstShape1),
             strideDim3(srcShape0 * srcShape1 * SHAPE_DIM2, srcShape0 * srcShape1 * SHAPE_DIM2, srcShape1 * SHAPE_DIM2));
         tileData dstL1(dstShape0 * SHAPE_DIM2, dstShape1);
         pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
@@ -309,9 +305,9 @@ TILEOP void TMoveND2NZ(T &dst, U &src) {
     constexpr int64_t staticNZH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename T::TileShape>::type::value;
     constexpr int64_t staticNZW = Std::tuple_element<shapeSize - 1, typename T::TileShape>::type::value;
     using tileNDTensor = pto::Tile<pto::TileType::Vec, typename U::Type, staticNDH, staticNDW, pto::BLayout::RowMajor,
-                                   staticNDH, staticNDW>;
+        staticNDH, staticNDW>;
     using tileNZTensor = pto::Tile<pto::TileType::Vec, typename T::Type, staticNZH, staticNZW, pto::BLayout::ColMajor,
-                                   staticNZH, staticNZW, pto::SLayout::RowMajor>;
+        staticNZH, staticNZW, pto::SLayout::RowMajor>;
     tileNDTensor srcTile;
     tileNZTensor dstTile;
     pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
@@ -521,14 +517,13 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord) {
 
 // Copy data from L1 to L0A_MX scale or L0B_MX scale
 template <typename Coord, typename T, typename U>
-TILEOP void TExtractMX(T &dst, U &src, const Coord &coord)
-{
+TILEOP void TExtractMX(T &dst, U &src, const Coord &coord) {
     if (!CheckShapeValid(dst, src)) {
         return;
     }
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM3 && Std::tuple_size<Coord>::value == SHAPE_DIM3,
-                  "[TExtractMX Error]: L0A_MX scale or L0B_MX scale Shape Size should be 3 Dim");
+        "[TExtractMX Error]: L0A_MX scale or L0B_MX scale Shape Size should be 3 Dim");
     static_assert((T::FORMAT == Hardware::L0A_MX || T::FORMAT == Hardware::L0B_MX) && U::FORMAT == Hardware::L1);
     int64_t offset0 = TileOp::GetTupleElement<Coord, DIM_1ST, SHAPE_DIM3, 0>(coord);
     int64_t offset1 = TileOp::GetTupleElement<Coord, DIM_2ND, SHAPE_DIM3, 0>(coord);
@@ -541,13 +536,13 @@ TILEOP void TExtractMX(T &dst, U &src, const Coord &coord)
     int64_t srcShape0 = GetShape<0>(src);
     int64_t srcShape1 = GetShape<1>(src);
     using tileL1Tensor = std::conditional_t<T::FORMAT == Hardware::L0A_MX,
-          pto::Tile<pto::TileType::Mat, typename U::Type, staticL1H, staticL1W * SHAPE_DIM2, pto::BLayout::RowMajor, -1,
-              -1, pto::SLayout::RowMajor, pto::TileConfig::alignedSize>,
-          pto::Tile<pto::TileType::Mat, typename U::Type, staticL1H * SHAPE_DIM2, staticL1W, pto::BLayout::ColMajor, -1,
-              -1, pto::SLayout::ColMajor, pto::TileConfig::alignedSize>>;
+        pto::Tile<pto::TileType::Mat, typename U::Type, staticL1H, staticL1W * SHAPE_DIM2, pto::BLayout::RowMajor, -1,
+            -1, pto::SLayout::RowMajor, pto::TileConfig::alignedSize>,
+        pto::Tile<pto::TileType::Mat, typename U::Type, staticL1H * SHAPE_DIM2, staticL1W, pto::BLayout::ColMajor, -1,
+            -1, pto::SLayout::ColMajor, pto::TileConfig::alignedSize>>;
     using tileL0MXTensor = std::conditional_t<T::FORMAT == Hardware::L0A_MX,
-          pto::TileLeftScaleCompact<typename T::Type, staticL0H, staticL0W * SHAPE_DIM2, -1, -1>,
-          pto::TileRightScaleCompact<typename T::Type, staticL0H * SHAPE_DIM2, staticL0W, -1, -1>>;
+        pto::TileLeftScaleCompact<typename T::Type, staticL0H, staticL0W * SHAPE_DIM2, -1, -1>,
+        pto::TileRightScaleCompact<typename T::Type, staticL0H * SHAPE_DIM2, staticL0W, -1, -1>>;
     if constexpr (T::FORMAT == Hardware::L0A_MX) {
         tileL1Tensor l1Tile(srcShape0, srcShape1 * SHAPE_DIM2);
         tileL0MXTensor l0MXTile(dstShape0, dstShape1 * SHAPE_DIM2);
@@ -704,8 +699,7 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
 
 #if defined PTO_NPU_ARCH_A5
 template <bool isZeroC, typename T0, typename T1, typename T2, typename T3, typename T4>
-TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale)
-{
+TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale) {
     constexpr auto shapeSizeC = Std::tuple_size<typename T0::Shape>::value;
     constexpr auto shapeSizeA = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto shapeSizeAScale = Std::tuple_size<typename T2::Shape>::value;
@@ -760,8 +754,7 @@ TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale)
 }
 
 template <typename T0, typename T1, typename T2, typename T3, typename T4, typename T5>
-TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale, T5 &bias)
-{
+TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale, T5 &bias) {
     constexpr auto shapeSizeC = Std::tuple_size<typename T0::Shape>::value;
     constexpr auto shapeSizeA = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto shapeSizeAScale = Std::tuple_size<typename T2::Shape>::value;
@@ -769,7 +762,7 @@ TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale, T5 &bias)
     constexpr auto shapeSizeBScale = Std::tuple_size<typename T4::Shape>::value;
     static_assert(shapeSizeC == SHAPE_DIM2 && shapeSizeA == SHAPE_DIM2 && shapeSizeAScale == SHAPE_DIM3 &&
                       shapeSizeB == SHAPE_DIM2 && shapeSizeBScale == SHAPE_DIM3,
-                  "[MatmulMX ERROR]: Shape dim size shoulde be 2 and Scale Shape dim size shoulde be 3");
+        "[MatmulMX ERROR]: Shape dim size shoulde be 2 and Scale Shape dim size shoulde be 3");
 
     constexpr auto staticL0CH = Std::tuple_element<shapeSizeC - SHAPE_DIM2, typename T0::TileShape>::type::value;
     constexpr auto staticL0CW = Std::tuple_element<shapeSizeC - 1, typename T0::TileShape>::type::value;
@@ -843,8 +836,7 @@ INLINE void TStoreExecute(globalData dstGlobal, tileData srcL0C, V &fixbuf, uint
         }
     } else {
         pto::TSTORE<tileData, globalData, config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone,
-            config::kReluMode == 0 ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu>(
-            dstGlobal, srcL0C);
+            config::kReluMode == 0 ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu>(dstGlobal, srcL0C);
     }
 }
 
@@ -929,8 +921,7 @@ TILEOP void TStore(
 // L1 spill
 // When L1 space is insufficient, spill to GM. (Supported on A2/A3 only.)
 template <typename config, typename Coord, typename T, typename U>
-TILEOP void TStore(T &dst, U &src, const Coord &coord)
-{
+TILEOP void TStore(T &dst, U &src, const Coord &coord) {
     constexpr auto shapeSize = Std::tuple_size<typename U::Shape>::value;
     constexpr auto staticL1H = Std::tuple_element<shapeSize - SHAPE_DIM2, typename U::TileShape>::type::value;
     constexpr auto staticL1W = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
@@ -946,15 +937,16 @@ TILEOP void TStore(T &dst, U &src, const Coord &coord)
         using globalData = pto::GlobalTensor<typename T::Type, shapeDim2, strideDim2, pto::Layout::ND>;
         using tileData =
             pto::Tile<pto::TileType::Mat, typename U::Type, staticL1H, staticL1W, pto::BLayout::RowMajor, -1, -1>;
-        globalData dstGlobal((__gm__ typename T::Type *)(dst.GetAddr()),
-            shapeDim2(srcShape0, srcShape1), strideDim2(dstStride0, dstStride1));
+        globalData dstGlobal((__gm__ typename T::Type *)(dst.GetAddr()), shapeDim2(srcShape0, srcShape1),
+            strideDim2(dstStride0, dstStride1));
         tileData srcL1(srcShape0, srcShape1);
         pto::TASSIGN(srcL1, (uint64_t)src.GetAddr());
         pto::TSTORE<tileData, globalData>(dstGlobal, srcL1);
     }
 }
 
-template <int64_t blockSize, typename globalData, typename tileData, typename DstT, typename SrcT, typename BlockT, typename OffsetT>
+template <int64_t blockSize, typename globalData, typename tileData, typename DstT, typename SrcT, typename BlockT,
+    typename OffsetT>
 INLINE void GatherExecute(DstT dst, SrcT src, BlockT block, OffsetT offset, uint64_t offsetsStartOffset,
     uint64_t srcColumnStartOffset, uint64_t GMBlockTableOffset, int64_t srcShape0, int64_t srcShape1,
     int64_t srcStride0, int64_t srcStride1, int64_t dstShape0, int64_t dstShape1, int64_t srcCol, int64_t loop,
@@ -1003,17 +995,19 @@ TILEOP void TGatherInL1(DstT dst, SrcT src, BlockT block, OffsetT offset, SrcCoo
     if (dstShape1 % c0Size > 0) {
         using tileData = pto::Tile<pto::TileType::Mat, typename DstT::Type, staticL1H, staticL1W,
             pto::BLayout::ColMajor, -1, -1, pto::SLayout::RowMajor>;
-        GatherExecute<blockSize, globalData, tileData>(dst, src, block, offset, offsetsStartOffset, srcColumnStartOffset, GMBlockTableOffset,
-            1, staticL1W, srcStride0, srcStride1, dstShape0, dstShape1, srcShape1, dstShape0, c0Size);
+        GatherExecute<blockSize, globalData, tileData>(dst, src, block, offset, offsetsStartOffset,
+            srcColumnStartOffset, GMBlockTableOffset, 1, staticL1W, srcStride0, srcStride1, dstShape0, dstShape1,
+            srcShape1, dstShape0, c0Size);
     } else {
         using tileData = pto::Tile<pto::TileType::Mat, typename DstT::Type, staticL1W / c0Size, staticL1H * c0Size,
             pto::BLayout::RowMajor, -1, -1>;
         // 这里需要采用性能更高的ND2ND的搬运方式。
         // GM上将(1, dstShape1)的数据，转变为(dstShape1 / c0Size, c0Size)。
-        // L1上将(staticL1W / c0Size, staticL1H / 16, 16, c0Size)的NZ数据，对每c0Size列做展平为一行，得到(staticL1W / c0Size, staticL1H * c0Size)的ND格式。
-        // 那么L1上有效数据就是(dstShape1 / c0Size, c0Size)。
-        GatherExecute<blockSize, globalData, tileData>(dst, src, block, offset, offsetsStartOffset, srcColumnStartOffset, GMBlockTableOffset,
-            dstShape1 / c0Size, c0Size, c0Size, 1, dstShape1 / c0Size, c0Size, srcShape1, dstShape0, c0Size);
+        // L1上将(staticL1W / c0Size, staticL1H / 16, 16, c0Size)的NZ数据，对每c0Size列做展平为一行，得到(staticL1W /
+        // c0Size, staticL1H * c0Size)的ND格式。 那么L1上有效数据就是(dstShape1 / c0Size, c0Size)。
+        GatherExecute<blockSize, globalData, tileData>(dst, src, block, offset, offsetsStartOffset,
+            srcColumnStartOffset, GMBlockTableOffset, dstShape1 / c0Size, c0Size, c0Size, 1, dstShape1 / c0Size, c0Size,
+            srcShape1, dstShape0, c0Size);
     }
 }
 #endif // TILEOP_TILE_OPERATOR_CUBE_PTO__H

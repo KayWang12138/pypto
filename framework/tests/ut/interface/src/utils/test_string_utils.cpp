@@ -21,10 +21,10 @@
 using namespace npu::tile_fwk;
 
 TEST(StringUtils, basic) {
-  std::string s = "abc";
-  EXPECT_TRUE(StringUtils::StartsWith(s, ""));
-  EXPECT_TRUE(StringUtils::StartsWith(s, "a"));
-  EXPECT_TRUE(StringUtils::StartsWith(s, "ab"));
-  EXPECT_TRUE(StringUtils::StartsWith(s, "abc"));
-  EXPECT_FALSE(StringUtils::StartsWith(s, "abcd"));
+    std::string s = "abc";
+    EXPECT_TRUE(StringUtils::StartsWith(s, ""));
+    EXPECT_TRUE(StringUtils::StartsWith(s, "a"));
+    EXPECT_TRUE(StringUtils::StartsWith(s, "ab"));
+    EXPECT_TRUE(StringUtils::StartsWith(s, "abc"));
+    EXPECT_FALSE(StringUtils::StartsWith(s, "abcd"));
 }

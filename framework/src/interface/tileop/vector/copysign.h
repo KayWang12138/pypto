@@ -25,7 +25,7 @@ using select_bit = std::conditional_t<sizeof(typename U::Type) == 4, uint32_t, u
 
 template <size_t STRIDE, typename T0, typename T1>
 TILEOP void TAND16B(T0 &src, T1 &tmp) {
-    static_assert(T0::isRowMajor && T1::isRowMajor,"layout of src and tmp must be pto::BLayout::RowMajor.");
+    static_assert(T0::isRowMajor && T1::isRowMajor, "layout of src and tmp must be pto::BLayout::RowMajor.");
     if constexpr (std::is_same_v<typename T0::DType, uint16_t>) {
         pto::TAND(src, src, tmp);
     } else {
@@ -41,7 +41,7 @@ TILEOP void TAND16B(T0 &src, T1 &tmp) {
 
 template <size_t STRIDE, typename T0, typename T1, typename T2>
 TILEOP void TOR16B(T0 &dst, T1 &src0, T2 &src1) {
-    static_assert(T0::isRowMajor && T1::isRowMajor,"layout of src and tmp must be pto::BLayout::RowMajor.");
+    static_assert(T0::isRowMajor && T1::isRowMajor, "layout of src and tmp must be pto::BLayout::RowMajor.");
     if constexpr (std::is_same_v<typename T0::DType, uint16_t>) {
         pto::TOR(dst, src0, src1);
     } else {
@@ -58,10 +58,9 @@ TILEOP void TOR16B(T0 &dst, T1 &src0, T2 &src1) {
     }
 }
 
-
 template <uint16_t MASK_16B, uint32_t MASK_32B, typename T>
 TILEOP void TMASKS(T &tmpMask) {
-    if constexpr (std::is_same_v<typename T::DType, uint32_t>){
+    if constexpr (std::is_same_v<typename T::DType, uint32_t>) {
         pto::TEXPANDS(tmpMask, MASK_32B);
     } else {
         pto::TEXPANDS(tmpMask, MASK_16B);
@@ -90,7 +89,6 @@ TILEOP void TCopysign(T0 dst, T1 src0, T2 src1, T3 tmp) {
     using T = select_bit<T0>;
     constexpr auto STRIDE = sizeof(typename T0::Type) / 2;
 
-
     using dstTileDefine = pto::Tile<pto::TileType::Vec, T, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
     using src0TileDefine = pto::Tile<pto::TileType::Vec, T, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
     using src1TileDefine = pto::Tile<pto::TileType::Vec, T, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
@@ -106,7 +104,7 @@ TILEOP void TCopysign(T0 dst, T1 src0, T2 src1, T3 tmp) {
     src1TileDefine src1Tile(shape3, shape4);
     TmpMaskDefine tmpTile(shape3, shape4);
 
-    if(shape3 == 0 || shape4 == 0) {
+    if (shape3 == 0 || shape4 == 0) {
         return;
     }
 
@@ -119,21 +117,21 @@ TILEOP void TCopysign(T0 dst, T1 src0, T2 src1, T3 tmp) {
                 pto::TASSIGN(src1Tile, (uint64_t)(src1Addr + tileOffsets));
                 pto::TASSIGN(tmpTile, (uint64_t)(tmpAddr + tileOffsets));
                 TMASKS<VALUEMASK16B, VALUEMASK32B>(tmpTile);
-                #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                #endif
+#ifdef __DAV_V220
+                pipe_barrier(PIPE_V);
+#endif
                 TAND16B<STRIDE>(src0Tile, tmpTile);
-                #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                #endif
+#ifdef __DAV_V220
+                pipe_barrier(PIPE_V);
+#endif
                 TMASKS<SIGNMASK16B, SIGNMASK32B>(tmpTile);
-                #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                #endif
+#ifdef __DAV_V220
+                pipe_barrier(PIPE_V);
+#endif
                 TAND16B<STRIDE>(src1Tile, tmpTile);
-                #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                #endif
+#ifdef __DAV_V220
+                pipe_barrier(PIPE_V);
+#endif
                 TOR16B<STRIDE>(dstTile, src0Tile, src1Tile);
             }
         }

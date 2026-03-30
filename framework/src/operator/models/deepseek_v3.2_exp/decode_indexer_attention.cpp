@@ -42,13 +42,13 @@ IndexerShapeParams GetindexParamsFromDSASimpleParams(const DSIASimpleParams &par
     return indexParams;
 }
 
-void DecodeIndexerAttention(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk, const Tensor &wDkvKr,
-    const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos, const Tensor &cacheIndex,
-    Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs, Tensor &blockTable, Tensor &actSeqs,
-    const Tensor &qW, const Tensor &kW, const Tensor &projW, const Tensor &lnW, const Tensor &lnBias,
-    const Tensor &indexKCache, Tensor &attentionOut,
-    Tensor &gatherResTmp, Tensor &topkInputTmp, Tensor &indexerTopkResTmp, Tensor &rowSumOutTmp, Tensor &rmsResOutTmp,
-    Tensor &queryOutTmp,Tensor &weightOutTmp, Tensor &qNopeOutTmp,Tensor &qRopeOutTmp,const DSIASimpleParams &params) {
+void DecodeIndexerAttention(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk,
+    const Tensor &wDkvKr, const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos,
+    const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs, Tensor &blockTable,
+    Tensor &actSeqs, const Tensor &qW, const Tensor &kW, const Tensor &projW, const Tensor &lnW, const Tensor &lnBias,
+    const Tensor &indexKCache, Tensor &attentionOut, Tensor &gatherResTmp, Tensor &topkInputTmp,
+    Tensor &indexerTopkResTmp, Tensor &rowSumOutTmp, Tensor &rmsResOutTmp, Tensor &queryOutTmp, Tensor &weightOutTmp,
+    Tensor &qNopeOutTmp, Tensor &qRopeOutTmp, const DSIASimpleParams &params) {
     auto dType = x.GetDataType();
     int blockSize = params.blockSize;
     int n1 = params.n1;
@@ -56,24 +56,23 @@ void DecodeIndexerAttention(const Tensor &x, const Tensor &wDq, const Tensor &wU
     int dn = params.kv_lora_rank;
     int dr = params.rope_dim;
     int idx_head_dim = params.idx_head_dim;
-    Tensor kvCacheOut(dType, {GetInputShape(kvCache, 0) , blockSize , n2, dn}, "kvCacheOuTmp");
-    Tensor krCacheOut(dType, {GetInputShape(krCache, 0) , blockSize , n2, dr}, "krCacheOuTmp");
+    Tensor kvCacheOut(dType, {GetInputShape(kvCache, 0), blockSize, n2, dn}, "kvCacheOuTmp");
+    Tensor krCacheOut(dType, {GetInputShape(krCache, 0), blockSize, n2, dr}, "krCacheOuTmp");
     Tensor indexKCacheOut(dType, {GetInputShape(indexKCache, 0), blockSize, n2, idx_head_dim}, "indexKCacheOut");
     Tensor kNope2D(dType, {GetInputShape(kvCache, 0) * blockSize * n2, dn}, "kNope2D");
     Tensor kRope2D(dType, {GetInputShape(krCache, 0) * blockSize * n2, dr}, "kRope2D");
-    FUNCTION(
-        "main",
+    FUNCTION("main",
         {
             x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache, blockTable, actSeqs,
             qW, kW, projW, lnW, lnBias, indexKCache,
 #if DSIA_DEBUG == 1
             topkInputTmp
 #endif
-        },
+    },
         {attentionOut,
 #if DSIA_DEBUG == 1
-            rmsResOutTmp, queryOutTmp, weightOutTmp, qNopeOutTmp, qRopeOutTmp,
-                rowSumOutTmp, indexerTopkResTmp, gatherResTmp
+            rmsResOutTmp, queryOutTmp, weightOutTmp, qNopeOutTmp, qRopeOutTmp, rowSumOutTmp, indexerTopkResTmp,
+            gatherResTmp
 #endif
         },
         {{kvCacheOut, kvCache}, {krCacheOut, krCache}, {indexKCacheOut, indexKCache}}) {
@@ -88,7 +87,7 @@ void DecodeIndexerAttention(const Tensor &x, const Tensor &wDq, const Tensor &wU
             params.eps, params.cacheMode);
 
         LOOP("LOOP_RESHAPE_IN12", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
-            (void) batchId;
+            (void)batchId;
             kNope2D = Reshape(kvCacheOut, {GetInputShape(kvCache, 0) * blockSize * n2, dn}, true);
             kRope2D = Reshape(krCacheOut, {GetInputShape(krCache, 0) * blockSize * n2, dr}, true);
         }
@@ -112,23 +111,25 @@ void DecodeIndexerAttention(const Tensor &x, const Tensor &wDq, const Tensor &wU
 
         std::set<int> indexerUnrollList = {64, 32, 16, 8, 4, 1};
 #if DSIA_DEBUG == 1
-        LightningIndexerTopkImpl(queryOut4D, indexKCacheOut, false, nullptr, nullptr, weightOut4D, actSeqs, blockTable, indexerTopkResTmp, params.topk, params.indexTileCfg, indexerUnrollList, &rowSumOutTmp);
+        LightningIndexerTopkImpl(queryOut4D, indexKCacheOut, false, nullptr, nullptr, weightOut4D, actSeqs, blockTable,
+            indexerTopkResTmp, params.topk, params.indexTileCfg, indexerUnrollList, &rowSumOutTmp);
         GatherAfterPrologCompute(topkInputTmp, kNope2D, kRope2D, blockTable, actSeqs, gatherResTmp, params, b, s1);
 #else
-        LightningIndexerTopk(queryOut4D, indexKCacheOut, weightOut4D, actSeqs, blockTable, indexerTopkResTmp, params.topk, params.indexTileCfg, indexerUnrollList);
+        LightningIndexerTopk(queryOut4D, indexKCacheOut, weightOut4D, actSeqs, blockTable, indexerTopkResTmp,
+            params.topk, params.indexTileCfg, indexerUnrollList);
         GatherAfterPrologCompute(indexerTopkResTmp, kNope2D, kRope2D, blockTable, actSeqs, gatherResTmp, params, b, s1);
 #endif
 
         Tensor qNope(dType, {b * s1 * n1, dn}, "qNope");
         Tensor qRope(dType, {b * s1 * n1, dr}, "qRope");
         LOOP("LOOP_RESHAPE_SEL_ATTN", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
-            (void) batchId;
+            (void)batchId;
             qNope = Reshape(queryNopeOut, {b * s1 * n1, dn}, true);
             qRope = Reshape(queryRopeOut, {b * s1 * n1, dr}, true);
         }
 
-        SparseFlashAttentionCompute(qNope, qRope, gatherResTmp, gatherResTmp, actSeqs, n1, n2, softmaxScale, params.topk,
-            attentionOut, params.salTileCfg);
+        SparseFlashAttentionCompute(qNope, qRope, gatherResTmp, gatherResTmp, actSeqs, n1, n2, softmaxScale,
+            params.topk, attentionOut, params.salTileCfg);
     }
 }
 

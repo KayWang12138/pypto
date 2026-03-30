@@ -30,13 +30,10 @@ class ThreadPool {
         Task() {};
         Task(void *ctx, void (*entry)(void *)) : ctx_(ctx), entry_(entry) {}
 
-        void Run() {
-            entry_(ctx_);
-        }
+        void Run() { entry_(ctx_); }
 
-        bool Empty() const {
-            return ctx_ == nullptr && entry_ == nullptr;
-        }
+        bool Empty() const { return ctx_ == nullptr && entry_ == nullptr; }
+
     private:
         void *ctx_ = nullptr;
         void (*entry_)(void *ctx) = nullptr;
@@ -60,10 +57,12 @@ class ThreadPool {
             }
             return t;
         }
+
     private:
         std::deque<Task> taskList_;
         std::mutex taskListMutex_;
     };
+
 private:
     enum class State {
         T_STARTING,
@@ -71,15 +70,14 @@ private:
         T_RUNNING,
         T_JOINING,
     };
+
 public:
     ThreadPool(int threadCount) : threadCount_(threadCount), stateList_(threadCount_) {
         for (int i = 0; i < threadCount; i++) {
             stateList_[i] = static_cast<int>(State::T_STARTING);
         }
         for (int i = 0; i < threadCount; i++) {
-            threadList_.emplace_back([this, i](){
-                this->Run(i);
-            });
+            threadList_.emplace_back([this, i]() { this->Run(i); });
         }
     }
     ~ThreadPool() {
@@ -88,17 +86,11 @@ public:
             threadList_[i].join();
         }
     }
-    void SubmitTask(void *ctx, void (*entry)(void *ctx)) {
-        taskQueue_.Push(Task(ctx, entry));
-    }
+    void SubmitTask(void *ctx, void (*entry)(void *ctx)) { taskQueue_.Push(Task(ctx, entry)); }
 
-    void NotifyAll() {
-        taskReadyNotifier_.notify_all();
-    }
+    void NotifyAll() { taskReadyNotifier_.notify_all(); }
 
-    static void Yield() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(0));
-    }
+    static void Yield() { std::this_thread::sleep_for(std::chrono::milliseconds(0)); }
 
     void WaitForAll() {
         waiting_ = true;

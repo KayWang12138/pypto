@@ -44,7 +44,7 @@ public:
 };
 
 template <typename T>
-std::shared_ptr<OpAttribute> DeserializeFrom(const Json& attrJson, Function *function = nullptr) {
+std::shared_ptr<OpAttribute> DeserializeFrom(const Json &attrJson, Function *function = nullptr) {
     return std::static_pointer_cast<OpAttribute>(T::DeserializeFrom(attrJson, function));
 }
 
@@ -63,7 +63,9 @@ public:
     OpImmediate(const OpImmediate &) = default;
     OpImmediate &operator=(const OpImmediate &) = default;
 
-    static OpImmediate Specified(const SymbolicScalar &value) { return OpImmediate(OpImmediateKind::T_SCALAR_SPECIFIED, value); }
+    static OpImmediate Specified(const SymbolicScalar &value) {
+        return OpImmediate(OpImmediateKind::T_SCALAR_SPECIFIED, value);
+    }
     static std::vector<OpImmediate> Specified(const std::initializer_list<int64_t> &init) {
         std::vector<int64_t> value(init);
         return Specified(value);
@@ -107,7 +109,8 @@ public:
         return res;
     }
 
-    static void NormalizeValue(SymbolicScalar &arg, OpImmediate &opImm, const SymbolicScalar &normCall, bool valueToIndex) {
+    static void NormalizeValue(
+        SymbolicScalar &arg, OpImmediate &opImm, const SymbolicScalar &normCall, bool valueToIndex) {
         ASSERT(opImm.IsSpecified());
         SymbolicScalar value = opImm.GetSpecifiedValue();
         if (valueToIndex) {
@@ -175,7 +178,7 @@ public:
 
     std::string Dump() const;
     Json DumpDynJson();
-    static OpImmediate DeserializeFrom(const Json& attrJson, size_t &despos);
+    static OpImmediate DeserializeFrom(const Json &attrJson, size_t &despos);
 
 private:
     OpImmediateKind kind_{OpImmediateKind::T_SCALAR_INVALID};
@@ -219,12 +222,9 @@ public:
 
     auto &GetToDynValidShape() { return toDynValidShape_; }
 
-    void SetToDynValidShape(const std::vector<SymbolicScalar> &toDynValidShape) {
-        toDynValidShape_ = toDynValidShape;
-    }
+    void SetToDynValidShape(const std::vector<SymbolicScalar> &toDynValidShape) { toDynValidShape_ = toDynValidShape; }
 
-    static std::shared_ptr<ViewOpAttribute> DeserializeFrom(const Json& attrJson,
-        [[maybe_unused]] Function *function);
+    static std::shared_ptr<ViewOpAttribute> DeserializeFrom(const Json &attrJson, [[maybe_unused]] Function *function);
 
 private:
     MemoryType to_;
@@ -257,12 +257,14 @@ public:
         toDynOffset_ = toDynOffset;
     }
     auto &GetFromDynValidShape() { return fromDynValidShape_; }
-    void SetFromDynValidShape(std::vector<SymbolicScalar> &fromDynValidShape) { fromDynValidShape_ = std::move(fromDynValidShape); }
+    void SetFromDynValidShape(std::vector<SymbolicScalar> &fromDynValidShape) {
+        fromDynValidShape_ = std::move(fromDynValidShape);
+    }
 
     TensorOffset GetToTensorOffset() const { return TensorOffset(toOffset_, toDynOffset_); }
 
-    static std::shared_ptr<AssembleOpAttribute> DeserializeFrom(const Json& attrJson,
-        [[maybe_unused]] Function *function);
+    static std::shared_ptr<AssembleOpAttribute> DeserializeFrom(
+        const Json &attrJson, [[maybe_unused]] Function *function);
 
 private:
     MemoryType from_;
@@ -330,10 +332,9 @@ public:
 
     std::shared_ptr<SubfuncInvokeInfoTy> invokeInfo_;
 
-    static std::shared_ptr<CallOpAttribute> DeserializeFrom(const Json& attrJson,
-        [[maybe_unused]] Function *function);
+    static std::shared_ptr<CallOpAttribute> DeserializeFrom(const Json &attrJson, [[maybe_unused]] Function *function);
     // coreTask被调度到哪个wrap
-    int32_t wrapId {-1};
+    int32_t wrapId{-1};
 
 private:
     std::string calleMagicName_;
@@ -354,8 +355,8 @@ public:
     virtual std::shared_ptr<OpAttribute> Clone() const override;
     Json DumpDynJson() override;
     std::pair<MemoryType, MemoryType> GetConvertPath() const;
-    static std::shared_ptr<ConvertOpAttribute> DeserializeFrom(const Json& attrJson,
-        [[maybe_unused]] Function *function);
+    static std::shared_ptr<ConvertOpAttribute> DeserializeFrom(
+        const Json &attrJson, [[maybe_unused]] Function *function);
 
 private:
     MemoryType from_;
@@ -365,24 +366,21 @@ private:
 class CopyOpAttribute : public OpAttribute {
 public:
     // Copy Out ops, from -> CopyOp -> DDR
-    CopyOpAttribute(MemoryType from, std::vector<OpImmediate> toOffset, std::vector<OpImmediate> shape, std::vector<OpImmediate> rawShape, std::vector<OpImmediate> fromDynValidShape = {})
-        : CopyOpAttribute(
-              {OpImmediate(), OpImmediate()}, std::move(toOffset), {from, MemoryType::MEM_DEVICE_DDR}, std::move(shape),
-              std::move(rawShape), {}, std::move(fromDynValidShape), true) {}
+    CopyOpAttribute(MemoryType from, std::vector<OpImmediate> toOffset, std::vector<OpImmediate> shape,
+        std::vector<OpImmediate> rawShape, std::vector<OpImmediate> fromDynValidShape = {})
+        : CopyOpAttribute({OpImmediate(), OpImmediate()}, std::move(toOffset), {from, MemoryType::MEM_DEVICE_DDR},
+              std::move(shape), std::move(rawShape), {}, std::move(fromDynValidShape), true) {}
     // Copy In ops, DDR -> CopyOp -> to
     CopyOpAttribute(std::vector<OpImmediate> fromOffset, MemoryType to, std::vector<OpImmediate> shape,
         std::vector<OpImmediate> rawShape, std::vector<OpImmediate> toDynValidShape = {})
-        : CopyOpAttribute(
-              std::move(fromOffset), {OpImmediate(), OpImmediate()}, {MemoryType::MEM_DEVICE_DDR, to}, std::move(shape),
-              std::move(rawShape), std::move(toDynValidShape), {}, false) {}
+        : CopyOpAttribute(std::move(fromOffset), {OpImmediate(), OpImmediate()}, {MemoryType::MEM_DEVICE_DDR, to},
+              std::move(shape), std::move(rawShape), std::move(toDynValidShape), {}, false) {}
 
     [[nodiscard]] std::string Dump() const override;
     void LoadJson([[maybe_unused]] const Json &attrJson) override {};
     virtual std::shared_ptr<OpAttribute> Clone() const override;
 
-    void SetFromOffset(std::vector<OpImmediate> fromOffset) {
-        fromOffset_ = std::move(fromOffset);
-    }
+    void SetFromOffset(std::vector<OpImmediate> fromOffset) { fromOffset_ = std::move(fromOffset); }
     void SetToOffset(std::vector<OpImmediate> toOffset) { toOffset_ = std::move(toOffset); }
     const std::vector<OpImmediate> &GetFromOffset() const { return fromOffset_; }
     std::vector<OpImmediate> &GetFromOffset() { return fromOffset_; }
@@ -392,8 +390,7 @@ public:
     [[nodiscard]] std::pair<MemoryType, std::vector<OpImmediate>> GetCopyOutAttr() const;
     [[nodiscard]] std::pair<std::vector<OpImmediate>, MemoryType> GetCopyInAttr() const;
     [[nodiscard]] bool IsCopyOut() const { return isCopyOut_; }
-    [[nodiscard]] std::vector<OpImmediate> GetShape() const {
-        return tensorShape_; }
+    [[nodiscard]] std::vector<OpImmediate> GetShape() const { return tensorShape_; }
     [[nodiscard]] std::vector<OpImmediate> GetRawShape() const { return rawShape_; }
     [[nodiscard]] const std::vector<OpImmediate> &GetToDynValidShape() const { return toDynValidShape_; }
     [[nodiscard]] std::vector<OpImmediate> &GetToDynValidShape() { return toDynValidShape_; }
@@ -403,17 +400,17 @@ public:
     void SetShape(std::vector<OpImmediate> shape) { tensorShape_ = std::move(shape); }
     void SetRawShape(std::vector<OpImmediate> rawShape) { rawShape_ = std::move(rawShape); }
     void SetToDynValidShape(std::vector<OpImmediate> toDynValidShape) { toDynValidShape_ = std::move(toDynValidShape); }
-    void SetFromDynValidShape(std::vector<OpImmediate> fromDynValidShape) { fromDynValidShape_ = std::move(fromDynValidShape); }
+    void SetFromDynValidShape(std::vector<OpImmediate> fromDynValidShape) {
+        fromDynValidShape_ = std::move(fromDynValidShape);
+    }
     bool IsDynToOffset() const;
     bool IsDynOffset(const std::vector<OpImmediate> &offset) const;
-    bool IsDynFromOffset() const {
-        return IsDynOffset(fromOffset_);
-    }
+    bool IsDynFromOffset() const { return IsDynOffset(fromOffset_); }
 
     Json DumpDynJson() override;
 
-    static std::shared_ptr<CopyOpAttribute> DeserializeFrom(const Json& attrJson,
-        [[maybe_unused]] Function *function);
+    static std::shared_ptr<CopyOpAttribute> DeserializeFrom(const Json &attrJson, [[maybe_unused]] Function *function);
+
 private:
     CopyOpAttribute(std::vector<OpImmediate> fromOffset, std::vector<OpImmediate> toOffset,
         std::pair<MemoryType, MemoryType> memTypes, std::vector<OpImmediate> tensorShape,

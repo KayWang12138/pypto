@@ -37,7 +37,9 @@ std::string GetPenuBrcOprandIdxStr(int64_t PenuBrcbOperandIdx) {
     switch (PenuBrcbOperandIdx) {
         case ToUnderlying(PenuBroadcastOperand::NONE): ret.append("PenuBroadcastOperand::NONE"); break;
         case ToUnderlying(PenuBroadcastOperand::LEFT_OPERAND): ret.append("PenuBroadcastOperand::LEFT_OPERAND"); break;
-        case ToUnderlying(PenuBroadcastOperand::RIGHT_OPERAND): ret.append("PenuBroadcastOperand::RIGHT_OPERAND"); break;
+        case ToUnderlying(PenuBroadcastOperand::RIGHT_OPERAND):
+            ret.append("PenuBroadcastOperand::RIGHT_OPERAND");
+            break;
         default: ret.append("PenuBroadcastOperand::NONE");
     }
     return ret;

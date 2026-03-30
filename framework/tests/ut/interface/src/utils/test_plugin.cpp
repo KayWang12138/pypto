@@ -9,9 +9,9 @@
  */
 
 /*!
-* \file test_plugin.cpp
-* \brief
-*/
+ * \file test_plugin.cpp
+ * \brief
+ */
 
 #include <gtest/gtest.h>
 #include <string>

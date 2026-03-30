@@ -94,15 +94,10 @@ private:
 
 namespace npu::tile_fwk {
 namespace {
-enum class StashType {
-    Function = 0,
-    ProgramConfig,
-    InternalConfig,
-    ConfigJson
-};
+enum class StashType { Function = 0, ProgramConfig, InternalConfig, ConfigJson };
 }
 
-HostMachine& HostMachine::GetInstance() {
+HostMachine &HostMachine::GetInstance() {
     static HostMachine sHostMachine;
     return sHostMachine;
 }
@@ -172,13 +167,14 @@ void HostMachine::DestroyThread() {
     agentThreads_.clear();
 }
 
-void HostMachine::CompileFunction(Function* func) const {
+void HostMachine::CompileFunction(Function *func) const {
     auto &backend = Backend::GetBackend();
     if (!func->HasCallOperation() && backend.runPass) {
         MACHINE_LOGI("RunPass function %s", func->GetMagicName().c_str());
         ASSERT(backend.runPass(Program::GetInstance(), *func, config::GetPassStrategy())) << "Run pass failed.";
     }
-    if (func->IsFunctionType(FunctionType::DYNAMIC) || func->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
+    if (func->IsFunctionType(FunctionType::DYNAMIC) ||
+        func->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         auto path = config::GetAbsoluteTopFolder() + "/program.json";
         Program::GetInstance().DumpJsonFile(path);
         config::SetRunDataOption(KEY_PROGRAM_PATH, path);
@@ -234,15 +230,13 @@ void HostMachine::WaitTaskFinish() {
     }
 }
 
-void HostMachine::StashTask(Function* function) {
+void HostMachine::StashTask(Function *function) {
     if (function == nullptr) {
         return;
     }
 
     std::lock_guard<std::mutex> lock(stashQueueMutex_);
-    stashedFuncQueue_.Push(std::make_tuple(function,
-        config::Duplicate(),
-        ConfigManager::Instance().GetInternalConfig(),
+    stashedFuncQueue_.Push(std::make_tuple(function, config::Duplicate(), ConfigManager::Instance().GetInternalConfig(),
         ConfigManager::Instance().GetJsonData()));
     MonitorManager::Instance().SetTotalFunctionCount(static_cast<int>(stashedFuncQueue_.Size()));
     COMPILER_LOGI("Stashed function queue size:%lu, push function: %s .", stashedFuncQueue_.Size(),
@@ -278,8 +272,8 @@ std::string HostMachine::GetCacheKeyFromFunction(Function *function) {
     if (function->BelongTo().GetLastFunction() != nullptr &&
         function->BelongTo().GetLastFunction()->GetFunctionType() == FunctionType::DYNAMIC) {
         cacheKey = function->BelongTo().GetLastFunction()->GetFunctionHash().Data();
-        OpInfoManager::GetInstance().GetOpFuncName() = function->BelongTo().GetLastFunction()->GetMagicName() +
-                                                        cacheKey;
+        OpInfoManager::GetInstance().GetOpFuncName() =
+            function->BelongTo().GetLastFunction()->GetMagicName() + cacheKey;
     } else {
         cacheKey = function->GetFunctionHash().Data();
     }

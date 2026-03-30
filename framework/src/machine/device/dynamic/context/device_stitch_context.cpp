@@ -34,7 +34,8 @@ void DeviceStitchContext::DumpStitchInfo() {
     DumpStitchInfo(stitchedList_.data(), stitchedList_.size());
 }
 
-void DeviceStitchContext::CheckStitch(DevAscendFunctionDupped *stitchedList, int size, DevAscendFunctionDupped *nextDup) {
+void DeviceStitchContext::CheckStitch(
+    DevAscendFunctionDupped *stitchedList, int size, DevAscendFunctionDupped *nextDup) {
     DEV_IF_NONDEVICE {
         uint32_t dynPredCount = 0;
         uint32_t dynSuccCount = 0;
@@ -59,7 +60,9 @@ void DeviceStitchContext::CheckStitch(DevAscendFunctionDupped *stitchedList, int
             }
         }
         if (dynPredCount != dynSuccCount) {
-            DEV_ERROR(ProgEncodeErr::STITCH_PRED_SUCC_MISMATCH, "#ctrl.task.pre.stitch.check: dynPredCount %u does not match dynSuccCount %u", dynPredCount, dynSuccCount);
+            DEV_ERROR(ProgEncodeErr::STITCH_PRED_SUCC_MISMATCH,
+                "#ctrl.task.pre.stitch.check: dynPredCount %u does not match dynSuccCount %u", dynPredCount,
+                dynSuccCount);
         }
         DEV_ASSERT(ProgEncodeErr::STITCH_PRED_SUCC_MISMATCH, dynPredCount == dynSuccCount);
     }
@@ -71,8 +74,8 @@ void DeviceStitchContext::CheckStitch(DynDeviceTask *dyntask) {
     CheckStitch(stitchedList, stitchedSize, nullptr);
 }
 
-uint64_t DeviceStitchContext::Stitch(DeviceSlotContext &slotContext, DevAscendFunctionDupped &nextDup, size_t devTaskId,
-                                     size_t devNextIdx) {
+uint64_t DeviceStitchContext::Stitch(
+    DeviceSlotContext &slotContext, DevAscendFunctionDupped &nextDup, size_t devTaskId, size_t devNextIdx) {
     uint64_t count = FastStitch(slotContext.GetSlotList(), slotContext.GetSlotSize(), nextDup, devTaskId, devNextIdx);
     if (stitchedList_.capacity() == 0) {
         /* This stitchedList_ vector can only allocate sufficient space once,
@@ -109,8 +112,7 @@ void DeviceStitchContext::DumpSlotInfo(const char *label, DeviceExecuteSlot *slo
                 continue;
             }
             [[maybe_unused]] auto &outcastDesc = workspace_->GetRuntimeOutcastTensor(slotList[slotIdx].rtOutcastIter);
-            DEV_DEBUG("[DecideSlotAddress]   Slot [%3lu]: %s%s",
-                slotIdx, outcastDesc.Dump().c_str(), extraAttr);
+            DEV_DEBUG("[DecideSlotAddress]   Slot [%3lu]: %s%s", slotIdx, outcastDesc.Dump().c_str(), extraAttr);
         }
     }
 }
@@ -123,7 +125,8 @@ void DeviceStitchContext::DecideSlotAddress(DeviceExecuteSlot *slotList, size_t 
     for (size_t slotIdx = 0; slotIdx < slotSize; ++slotIdx) {
         auto &slot = slotList[slotIdx];
         if (slot.rtOutcastIter != ITEM_POOL_INVALID_INDEX &&
-            workspace_->GetRuntimeOutcastTensor(slot.rtOutcastIter).property == RuntimeTensorMemProperty::DEVTASK_INNER_OUTCAST) {
+            workspace_->GetRuntimeOutcastTensor(slot.rtOutcastIter).property ==
+                RuntimeTensorMemProperty::DEVTASK_INNER_OUTCAST) {
             workspace_->RuntimeOutcastTensorReplaceAddrWithoutRecycle(
                 slot.rtOutcastIter, workspace_->AllocateSlot(), RuntimeTensorMemProperty::BOUNDARY_OUTCAST);
         }
@@ -168,15 +171,17 @@ int DeviceStitchContext::MoveTo(DynDeviceTask *dynTask) {
     stitchedCallOpSize_ = 0;
 
     if (dynTask->stitchedList.size() > MAX_STITCH_FUNC_NUM) {
-        DEV_ERROR(ProgEncodeErr::STITCH_LIST_TOO_LARGE, "#ctrl.stitch.toomany_root: Stitch list size:%u exceeds maximum allowed cached function number:%zu.", dynTask->stitchedList.size(), MAX_STITCH_FUNC_NUM);
+        DEV_ERROR(ProgEncodeErr::STITCH_LIST_TOO_LARGE,
+            "#ctrl.stitch.toomany_root: Stitch list size:%u exceeds maximum allowed cached function number:%zu.",
+            dynTask->stitchedList.size(), MAX_STITCH_FUNC_NUM);
         return DEVICE_MACHINE_ERROR;
     }
     DEV_ASSERT(ProgEncodeErr::STITCH_LIST_TOO_LARGE, dynTask->stitchedList.size() <= MAX_STITCH_FUNC_NUM);
     int size = static_cast<int>(dynTask->stitchedList.size());
     for (int i = 0; i < size; ++i) {
         auto &funcDup = dynTask->stitchedList[i];
-        dynTask->dynFuncDataCacheList[i] = {
-            funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0), funcDup.GetSource()->GetCalleeIndexAddr(), funcDup.DupDataForDynFuncData()};
+        dynTask->dynFuncDataCacheList[i] = {funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0),
+            funcDup.GetSource()->GetCalleeIndexAddr(), funcDup.DupDataForDynFuncData()};
         dynTask->devTask.mixTaskData.opWrapList[i] = PtrToValue(funcDup.GetSource()->GetOpWrapListAddr());
         dynTask->devTask.mixTaskData.opWrapTaskNumList[i] = PtrToValue(funcDup.GetSource()->GetOpWrapTaskNumListAddr());
     }
@@ -184,12 +189,9 @@ int DeviceStitchContext::MoveTo(DynDeviceTask *dynTask) {
     return DEVICE_MACHINE_OK;
 }
 
-void DeviceStitchContext::HandleOneStitch(
-        DevAscendFunctionDupped &producerDup, DevAscendFunctionDupped &consumerDup,
-        DevAscendFunctionDuppedStitchList &producerStitchList, size_t producerOperationIdx,
-        size_t consumerIdx, size_t consumerOperationIdx,
-        DeviceWorkspaceAllocator *workspace,
-        StitchKind debugStitchKind, int debugSlotIdx) {
+void DeviceStitchContext::HandleOneStitch(DevAscendFunctionDupped &producerDup, DevAscendFunctionDupped &consumerDup,
+    DevAscendFunctionDuppedStitchList &producerStitchList, size_t producerOperationIdx, size_t consumerIdx,
+    size_t consumerOperationIdx, DeviceWorkspaceAllocator *workspace, StitchKind debugStitchKind, int debugSlotIdx) {
     (void)debugStitchKind;
     (void)debugSlotIdx;
 
@@ -198,31 +200,35 @@ void DeviceStitchContext::HandleOneStitch(
 
     DEV_IF_NONDEVICE {
         if (producerOperationIdx >= producerDup.GetSource()->GetOperationSize()) {
-            DEV_ERROR(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, "#ctrl.task.pre.stitch.handle: producerOperationIdx %zu exceeds the size of GetOperation %zu", producerOperationIdx, producerDup.GetSource()->GetOperationSize());
+            DEV_ERROR(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE,
+                "#ctrl.task.pre.stitch.handle: producerOperationIdx %zu exceeds the size of GetOperation %zu",
+                producerOperationIdx, producerDup.GetSource()->GetOperationSize());
         }
         if (consumerOperationIdx >= consumerDup.GetSource()->GetOperationSize()) {
-            DEV_ERROR(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, "#ctrl.task.pre.stitch.handle: consumerOperationIdx %zu exceeds the size of GetOperation %zu", consumerOperationIdx, consumerDup.GetSource()->GetOperationSize());
+            DEV_ERROR(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE,
+                "#ctrl.task.pre.stitch.handle: consumerOperationIdx %zu exceeds the size of GetOperation %zu",
+                consumerOperationIdx, consumerDup.GetSource()->GetOperationSize());
         }
-        DEV_ASSERT(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, producerOperationIdx < producerDup.GetSource()->GetOperationSize());
-        DEV_ASSERT(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, consumerOperationIdx < consumerDup.GetSource()->GetOperationSize());
-        DEV_VERBOSE_DEBUG("[Stitch] slot:%d kind:%s dupIdx:%d funcKey:%d,op:%d -> funcKey:%d,op:%d\n",
-                    debugSlotIdx, GetStitchKindName(debugStitchKind).c_str(), (int)consumerIdx,
-                    producerDup.GetSource()->GetFuncKey(), (int)producerOperationIdx,
-                    consumerDup.GetSource()->GetFuncKey(), (int)consumerOperationIdx);
+        DEV_ASSERT(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE,
+            producerOperationIdx < producerDup.GetSource()->GetOperationSize());
+        DEV_ASSERT(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE,
+            consumerOperationIdx < consumerDup.GetSource()->GetOperationSize());
+        DEV_VERBOSE_DEBUG("[Stitch] slot:%d kind:%s dupIdx:%d funcKey:%d,op:%d -> funcKey:%d,op:%d\n", debugSlotIdx,
+            GetStitchKindName(debugStitchKind).c_str(), (int)consumerIdx, producerDup.GetSource()->GetFuncKey(),
+            (int)producerOperationIdx, consumerDup.GetSource()->GetFuncKey(), (int)consumerOperationIdx);
     }
 }
 
-void DeviceStitchContext::HandleOneStitch(
-        DevAscendFunctionDupped &producerDup, DevAscendFunctionDupped &consumerDup,
-        size_t producerOperationIdx, size_t consumerIdx, size_t consumerOperationIdx,
-        DeviceWorkspaceAllocator *workspace, StitchKind debugStitchKind, int debugSlotIdx) {
+void DeviceStitchContext::HandleOneStitch(DevAscendFunctionDupped &producerDup, DevAscendFunctionDupped &consumerDup,
+    size_t producerOperationIdx, size_t consumerIdx, size_t consumerOperationIdx, DeviceWorkspaceAllocator *workspace,
+    StitchKind debugStitchKind, int debugSlotIdx) {
     auto &producerStitchList = producerDup.GetOperationStitch(producerOperationIdx, false);
-    HandleOneStitch(producerDup, consumerDup, producerStitchList, producerOperationIdx,
-        consumerIdx, consumerOperationIdx, workspace, debugStitchKind, debugSlotIdx);
+    HandleOneStitch(producerDup, consumerDup, producerStitchList, producerOperationIdx, consumerIdx,
+        consumerOperationIdx, workspace, debugStitchKind, debugSlotIdx);
 }
 
 uint64_t DeviceStitchContext::PartialUpdateStitch(DevAscendFunctionDupped &nextDup, size_t devTaskId, size_t devNextIdx,
-        DeviceExecuteSlot& slot, int slotIdx, DevAscendFunctionIncast& incast) {
+    DeviceExecuteSlot &slot, int slotIdx, DevAscendFunctionIncast &incast) {
     uint64_t matchCount = 0;
     auto *nextSrc = nextDup.GetSource();
     auto expressionList = &nextDup.GetExpression(0);
@@ -230,19 +236,19 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(DevAscendFunctionDupped &nextD
     auto partialUpdateTableData = &slot.partialUpdate->cellMatchRuntimePartialUpdateTable[0];
     struct HandleCellMatchPartial {
         static inline void Process(int index, uint64_t *cellMatchTableData, uint64_t *matchCount,
-                DevAscendFunctionDupped *stitchingList, int stitchingSize, DevAscendFunctionDupped *nextDup,
-                size_t devTaskId, size_t devNextIdx, int consumerOperationIdx,
-                DeviceWorkspaceAllocator *workspace,
-                int debugSlotIdx) {
+            DevAscendFunctionDupped *stitchingList, int stitchingSize, DevAscendFunctionDupped *nextDup,
+            size_t devTaskId, size_t devNextIdx, int consumerOperationIdx, DeviceWorkspaceAllocator *workspace,
+            int debugSlotIdx) {
             uint64_t id = cellMatchTableData[index];
             if (id != AICORE_TASK_INIT && devTaskId == static_cast<uint32_t>(id >> TASKID_SHIFT32)) {
                 auto funcId = FuncID(static_cast<uint32_t>(id));
                 auto producerOperationIdx = TaskID(static_cast<uint32_t>(id));
                 DevAscendFunctionDupped &prevDup = stitchingList[funcId];
                 (*matchCount)++;
-                DEV_VERBOSE_DEBUG("nextindex %lu stitch depend slot table cell[%d] = taskid(%u ! %u),", devNextIdx, index, funcId, producerOperationIdx);
-                DeviceStitchContext::HandleOneStitch(prevDup, *nextDup, producerOperationIdx, devNextIdx, consumerOperationIdx,
-                    workspace, StitchKind::StitchPartial, debugSlotIdx);
+                DEV_VERBOSE_DEBUG("nextindex %lu stitch depend slot table cell[%d] = taskid(%u ! %u),", devNextIdx,
+                    index, funcId, producerOperationIdx);
+                DeviceStitchContext::HandleOneStitch(prevDup, *nextDup, producerOperationIdx, devNextIdx,
+                    consumerOperationIdx, workspace, StitchKind::StitchPartial, debugSlotIdx);
                 DeviceStitchContext::CheckStitch(stitchingList, stitchingSize, nextDup);
             }
         }
@@ -251,26 +257,26 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(DevAscendFunctionDupped &nextD
         auto &consumer = nextSrc->At(incast.consumerList, n);
         uint64_t consumerOffset[DEV_SHAPE_DIM_MAX];
         uint64_t consumerShape[DEV_SHAPE_DIM_MAX];
-        GetTensorOffsetAndShape<false>(
-                nextSrc, consumerOffset, consumerShape, expressionList, incast.dim, consumer.operationIdx, consumer.operandIdx, true);
+        GetTensorOffsetAndShape<false>(nextSrc, consumerOffset, consumerShape, expressionList, incast.dim,
+            consumer.operationIdx, consumer.operandIdx, true);
 
         DEV_IF_VERBOSE_DEBUG {
             for (int j = 0; j < cellMatchTableDesc.GetDimensionSize(); j++) {
-                DEV_VERBOSE_DEBUG("PartialUpdateStitch cell match, operation[%d] -> dimension[%d] = (offset:%lu ,shape:%lu, cellshape:%d)",
-                        consumer.operationIdx, j, consumerOffset[j], consumerShape[j], cellMatchTableDesc.cellShape.dim[j]);
+                DEV_VERBOSE_DEBUG("PartialUpdateStitch cell match, operation[%d] -> dimension[%d] = (offset:%lu "
+                                  ",shape:%lu, cellshape:%d)",
+                    consumer.operationIdx, j, consumerOffset[j], consumerShape[j], cellMatchTableDesc.cellShape.dim[j]);
             }
         }
 
-        CellMatchHandle<HandleCellMatchPartial>(
-                consumerOffset, consumerShape, cellMatchTableDesc,
-                partialUpdateTableData, &matchCount, stitchedList_.data(), stitchedList_.size(), &nextDup,
-                devTaskId, devNextIdx, consumer.operationIdx, workspace_, slotIdx);
+        CellMatchHandle<HandleCellMatchPartial>(consumerOffset, consumerShape, cellMatchTableDesc,
+            partialUpdateTableData, &matchCount, stitchedList_.data(), stitchedList_.size(), &nextDup, devTaskId,
+            devNextIdx, consumer.operationIdx, workspace_, slotIdx);
     }
     return matchCount;
 }
 
 uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx,
-    DeviceExecuteSlot& slot, int slotIdx, DevAscendFunctionIncast& incast) {
+    DeviceExecuteSlot &slot, int slotIdx, DevAscendFunctionIncast &incast) {
     uint64_t matchCount = 0;
     DevAscendFunctionDupped &prevDup = stitchedList_[slot.stitchDupIdx];
     auto *prevSrc = prevDup.GetSource();
@@ -280,23 +286,20 @@ uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(DevAscendFunctionDupp
     auto &cellMatchTableDesc = outcast.cellMatchTableDesc;
     auto fullUpdateTableData = &prevSrc->At(outcast.cellMatchRuntimeFullUpdateTable, 0);
     struct HandleCellMatchFull {
-        static inline void Process(
-                int index,
-                uint32_t *cellMatchTableData,
-                uint64_t *matchCount,
-                DevAscendFunctionDupped *prevDup, DevAscendFunctionDupped *nextDup,
-                size_t devNextIdx, int consumerOperationIdx,
-                DeviceWorkspaceAllocator *workspace,
-                int debugSlotIdx) {
+        static inline void Process(int index, uint32_t *cellMatchTableData, uint64_t *matchCount,
+            DevAscendFunctionDupped *prevDup, DevAscendFunctionDupped *nextDup, size_t devNextIdx,
+            int consumerOperationIdx, DeviceWorkspaceAllocator *workspace, int debugSlotIdx) {
             auto producerOperationIdx = cellMatchTableData[index];
             if (producerOperationIdx != static_cast<uint32_t>(-1)) {
                 (*matchCount)++;
-                DEV_TRACE_DEBUG(DEvent(DUid(none()), DActStitchEdge(
-                    Producer(LUid(none(), 0, none(), producerOperationIdx, none()), none(), none(), debugSlotIdx, none(), none()),
-                    Consumer(LUid(none(), 0, none(), consumerOperationIdx, none()), none(), none(), debugSlotIdx, none(), none()),
-                    StitchReasonUniqueMatch())));
-                DeviceStitchContext::HandleOneStitch(*prevDup, *nextDup, producerOperationIdx, devNextIdx, consumerOperationIdx,
-                    workspace, StitchKind::StitchDefault, debugSlotIdx);
+                DEV_TRACE_DEBUG(
+                    DEvent(DUid(none()), DActStitchEdge(Producer(LUid(none(), 0, none(), producerOperationIdx, none()),
+                                                            none(), none(), debugSlotIdx, none(), none()),
+                                             Consumer(LUid(none(), 0, none(), consumerOperationIdx, none()), none(),
+                                                 none(), debugSlotIdx, none(), none()),
+                                             StitchReasonUniqueMatch())));
+                DeviceStitchContext::HandleOneStitch(*prevDup, *nextDup, producerOperationIdx, devNextIdx,
+                    consumerOperationIdx, workspace, StitchKind::StitchDefault, debugSlotIdx);
             }
         }
     };
@@ -304,23 +307,17 @@ uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(DevAscendFunctionDupp
         auto &consumer = nextSrc->At(incast.consumerList, n);
         uint64_t consumerOffset[DEV_SHAPE_DIM_MAX];
         uint64_t consumerShape[DEV_SHAPE_DIM_MAX];
-        GetTensorOffsetAndShape<false>(
-                nextSrc, consumerOffset, consumerShape, expressionList, incast.dim, consumer.operationIdx, consumer.operandIdx, true);
-        CellMatchHandle<HandleCellMatchFull>(
-                consumerOffset, consumerShape, cellMatchTableDesc,
-                fullUpdateTableData,
-                &matchCount,
-                &prevDup, &nextDup,
-                devNextIdx, consumer.operationIdx,
-                workspace_,
-                slotIdx);
+        GetTensorOffsetAndShape<false>(nextSrc, consumerOffset, consumerShape, expressionList, incast.dim,
+            consumer.operationIdx, consumer.operandIdx, true);
+        CellMatchHandle<HandleCellMatchFull>(consumerOffset, consumerShape, cellMatchTableDesc, fullUpdateTableData,
+            &matchCount, &prevDup, &nextDup, devNextIdx, consumer.operationIdx, workspace_, slotIdx);
         DeviceStitchContext::CheckStitch(stitchedList_.data(), stitchedList_.size(), &nextDup);
     }
     return matchCount;
 }
 
 uint64_t DeviceStitchContext::FullCoverUpdateStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx,
-    DeviceExecuteSlot& slot, int slotIdx, DevAscendFunctionIncast& incast) {
+    DeviceExecuteSlot &slot, int slotIdx, DevAscendFunctionIncast &incast) {
     DevAscendFunctionDupped &prevDup = stitchedList_[slot.stitchDupIdx];
     auto *prevSrc = prevDup.GetSource();
     auto &outcast = prevSrc->GetOutcast(slot.stitchOutcastIdx);
@@ -328,15 +325,15 @@ uint64_t DeviceStitchContext::FullCoverUpdateStitch(DevAscendFunctionDupped &nex
     DEV_VERBOSE_DEBUG("outcast %lu is %d, cellMatchStaticOutcastTable is %s\n", (unsigned long)slot.stitchOutcastIdx,
         outcast.stitchByAllFullMatch, IntVecToStr(prevDup, outcast.cellMatchStaticOutcastTable).c_str());
     DEV_VERBOSE_DEBUG("=================FullCoverUpdateStitch %zu %zu %zu %zu %d %d===========================\n",
-        outcast.producerList.size(), incast.consumerList.size(),
-        outcast.cellMatchStaticOutcastTable.size(), incast.cellMatchStaticIncastTable.size(),
-        outcast.stitchByAllFullMatch, incast.stitchByAllFullMatch);
+        outcast.producerList.size(), incast.consumerList.size(), outcast.cellMatchStaticOutcastTable.size(),
+        incast.cellMatchStaticIncastTable.size(), outcast.stitchByAllFullMatch, incast.stitchByAllFullMatch);
 
     // stitchPolicyFullCover hub
     auto producerHubOpIdx = outcast.stitchPolicyFullCoverProducerHubOpIdx;
     if (producerHubOpIdx != -1) {
         auto consumerAllOpIdxList = &nextSrc->At(incast.stitchPolicyFullCoverConsumerAllOpIdxList, 0);
-        for (size_t conIndex = 0, conSize = incast.stitchPolicyFullCoverConsumerAllOpIdxList.size(); conIndex < conSize; conIndex++) {
+        for (size_t conIndex = 0, conSize = incast.stitchPolicyFullCoverConsumerAllOpIdxList.size(); conIndex < conSize;
+            conIndex++) {
             auto &consumerOpIdx = consumerAllOpIdxList[conIndex];
             DeviceStitchContext::HandleOneStitch(prevDup, nextDup, producerHubOpIdx, devNextIdx, consumerOpIdx,
                 workspace_, StitchKind::StitchFullCover, slotIdx);
@@ -346,11 +343,13 @@ uint64_t DeviceStitchContext::FullCoverUpdateStitch(DevAscendFunctionDupped &nex
         // stitchPolicyFullCover producer
         auto producerList = &prevSrc->At(outcast.stitchPolicyFullCoverProducerList, 0);
         auto consumerAllOpIdxList = &nextSrc->At(incast.stitchPolicyFullCoverConsumerAllOpIdxList, 0);
-        for (size_t prodIndex = 0, prodSize = outcast.stitchPolicyFullCoverProducerList.size(); prodIndex < prodSize; prodIndex++) {
+        for (size_t prodIndex = 0, prodSize = outcast.stitchPolicyFullCoverProducerList.size(); prodIndex < prodSize;
+            prodIndex++) {
             auto &producer = producerList[prodIndex];
             auto producerOperationIdx = producer.operationIdx;
 
-            for (size_t conIndex = 0, conSize = incast.stitchPolicyFullCoverConsumerAllOpIdxList.size(); conIndex < conSize; conIndex++) {
+            for (size_t conIndex = 0, conSize = incast.stitchPolicyFullCoverConsumerAllOpIdxList.size();
+                conIndex < conSize; conIndex++) {
                 auto &consumerOpIdx = consumerAllOpIdxList[conIndex];
                 DeviceStitchContext::HandleOneStitch(prevDup, nextDup, producerOperationIdx, devNextIdx, consumerOpIdx,
                     workspace_, StitchKind::StitchFullCover, slotIdx);
@@ -402,24 +401,28 @@ void DeviceStitchContext::ReuseStitch(DevAscendFunctionDupped &nextDup, size_t d
     };
 
     auto skipBefore = [](int result) { return result == NO_DEP || result == SKIP_EMPTY; };
-    for (; skipBefore(needsDependency(stitchReuseContext_.firstDupIdx)); stitchReuseContext_.firstDupIdx++) {}
+    for (; skipBefore(needsDependency(stitchReuseContext_.firstDupIdx)); stitchReuseContext_.firstDupIdx++) {
+    }
 
     if (needsDependency(stitchReuseContext_.firstDupIdx) == NEEDS_DEP) {
-        for (uint32_t prevIdx = stitchReuseContext_.firstDupIdx; ; prevIdx++) {
+        for (uint32_t prevIdx = stitchReuseContext_.firstDupIdx;; prevIdx++) {
             int res = needsDependency(prevIdx);
             if (res == NO_DEP || res == INVALID_TOO_AHEAD) {
                 break;
             }
             if (res != SKIP_EMPTY) {
                 auto &prevDup = stitchedList_[prevIdx];
-                StitchForWorkspaceReuse(stitchedList_.data(), stitchedList_.size(), prevDup, nextDup, devNextIdx, workspace_);
-                stitchReuseContext_.firstDupIdx = prevIdx; // Risk on time complexity: Duplicated access to empty-workspace funcs
+                StitchForWorkspaceReuse(
+                    stitchedList_.data(), stitchedList_.size(), prevDup, nextDup, devNextIdx, workspace_);
+                stitchReuseContext_.firstDupIdx =
+                    prevIdx; // Risk on time complexity: Duplicated access to empty-workspace funcs
             }
         }
     } else {
         if (stitchReuseContext_.lastNonEmptyDupIdx != -1) {
             auto &prevDup = stitchedList_[stitchReuseContext_.lastNonEmptyDupIdx];
-            StitchForWorkspaceReuse(stitchedList_.data(), stitchedList_.size(), prevDup, nextDup, devNextIdx, workspace_);
+            StitchForWorkspaceReuse(
+                stitchedList_.data(), stitchedList_.size(), prevDup, nextDup, devNextIdx, workspace_);
         }
     }
 }
@@ -443,13 +446,14 @@ uint64_t DeviceStitchContext::FastStitch(DeviceExecuteSlot *slotList, size_t slo
         for (size_t j = 0; j < incast.fromSlotList.size(); ++j) {
             auto slotIdx = nextSrc->At(incast.fromSlotList, j);
             if (slotIdx >= (int)slotSize) {
-                DEV_ERROR(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE, "#ctrl.stitch.invalid_slot: slotIdx %d is larger than slotSize %zu!.", slotIdx, slotSize);
+                DEV_ERROR(ProgEncodeErr::STITCH_HANDLE_INDEX_OUT_OF_RANGE,
+                    "#ctrl.stitch.invalid_slot: slotIdx %d is larger than slotSize %zu!.", slotIdx, slotSize);
                 continue;
             }
 
             auto &slot = slotList[slotIdx];
-            DEV_VERBOSE_DEBUG("FastStitch slot %d, incastindex %zu, ispartial %d, stitchDupIdx %u",
-                slotIdx, incastIdx, slot.isPartialUpdateStitch, slot.stitchDupIdx);
+            DEV_VERBOSE_DEBUG("FastStitch slot %d, incastindex %zu, ispartial %d, stitchDupIdx %u", slotIdx, incastIdx,
+                slot.isPartialUpdateStitch, slot.stitchDupIdx);
             if (slot.stitchDupIdx == INVALID_STITCH_IDX) {
                 // Slot never output
                 continue;
@@ -463,8 +467,8 @@ uint64_t DeviceStitchContext::FastStitch(DeviceExecuteSlot *slotList, size_t slo
             if (slot.rtOutcastIter == ITEM_POOL_INVALID_INDEX) {
                 continue;
             }
-            DEV_VERBOSE_DEBUG("incast %zu is %d, cellMatchStaticIncastTable is %s\n", incastIdx, incast.stitchByAllFullMatch,
-                IntVecToStr(nextDup, incast.cellMatchStaticIncastTable).c_str());
+            DEV_VERBOSE_DEBUG("incast %zu is %d, cellMatchStaticIncastTable is %s\n", incastIdx,
+                incast.stitchByAllFullMatch, IntVecToStr(nextDup, incast.cellMatchStaticIncastTable).c_str());
             matchCount = FullCoverUpdateStitch(nextDup, devNextIdx, slot, slotIdx, incast);
         }
     }
@@ -492,8 +496,8 @@ void DeviceStitchContext::DumpStitchInfo(DevAscendFunctionDupped *stitchedList, 
 }
 
 void DeviceStitchContext::StitchForWorkspaceReuse(DevAscendFunctionDupped *stitchingList, int stitchingSize,
-    DevAscendFunctionDupped &prevDup, DevAscendFunctionDupped &currDup,
-    size_t devCurrIdx, DeviceWorkspaceAllocator *workspace) {
+    DevAscendFunctionDupped &prevDup, DevAscendFunctionDupped &currDup, size_t devCurrIdx,
+    DeviceWorkspaceAllocator *workspace) {
     // Add dependency between root functions
     auto *prevSrc = prevDup.GetSource();
     auto *currSrc = currDup.GetSource();
@@ -511,13 +515,15 @@ void DeviceStitchContext::StitchForWorkspaceReuse(DevAscendFunctionDupped *stitc
         auto &stitch = prevDup.GetOperationStitch(prevNoSucc);
         for (size_t j = 0; j < currNoPredOpSize; ++j) {
             int currNoPred = currSrc->GetNoPredOpIdx(j);
-            DEV_TRACE_DEBUG(DEvent(DUid(none()), DActStitchEdge(
-                Producer(LUid(none(), 0, none(), prevNoSucc, none()), none(), none(), none(), none(), none()),
-                Consumer(LUid(none(), 0, none(), currNoPred, none()), none(), none(), none(), none(), none()),
-                StitchReasonWorkspaceReuse())));
-            DeviceStitchContext::HandleOneStitch(prevDup, currDup, stitch, prevNoSucc, devCurrIdx, currNoPred, workspace, DeviceStitchContext::StitchKind::StitchReuse, -1);
+            DEV_TRACE_DEBUG(DEvent(DUid(none()),
+                DActStitchEdge(
+                    Producer(LUid(none(), 0, none(), prevNoSucc, none()), none(), none(), none(), none(), none()),
+                    Consumer(LUid(none(), 0, none(), currNoPred, none()), none(), none(), none(), none(), none()),
+                    StitchReasonWorkspaceReuse())));
+            DeviceStitchContext::HandleOneStitch(prevDup, currDup, stitch, prevNoSucc, devCurrIdx, currNoPred,
+                workspace, DeviceStitchContext::StitchKind::StitchReuse, -1);
             DeviceStitchContext::CheckStitch(stitchingList, stitchingSize, &currDup);
         }
     }
 }
-}
+} // namespace npu::tile_fwk::dynamic

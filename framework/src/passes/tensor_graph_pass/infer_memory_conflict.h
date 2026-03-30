@@ -34,14 +34,16 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override;
-    Status Init(Function& function);
+    Status Init(Function &function);
     Status ForwardPropagation(Function &function);
-    Status UpdateForwardTensor(Function &function, const LogicalTensorPtr &curTensor, Operation* consumer, std::queue<LogicalTensorPtr> &curTensors);
+    Status UpdateForwardTensor(Function &function, const LogicalTensorPtr &curTensor, Operation *consumer,
+        std::queue<LogicalTensorPtr> &curTensors);
     Status BackwardPropagation(Function &function);
-    Status UpdateBackwardTensor(const LogicalTensorPtr &curTensor, Operation* producer, std::queue<LogicalTensorPtr> &curTensors);
+    Status UpdateBackwardTensor(
+        const LogicalTensorPtr &curTensor, Operation *producer, std::queue<LogicalTensorPtr> &curTensors);
     Status InsertPrecededCopys(Function &function);
     Status InsertPostCopys(Function &function);
-    Status InsertCopys(Function& function);
+    Status InsertCopys(Function &function);
     Status ObtainReshapeTile(Operation &op, Shape &inTileShape, Shape &outTileShape);
     Status InferTileShape(Operation &op, const LogicalTensorPtr &tensor, TileShape parentTile, Shape &reshapeTile);
     Status SetDefaultShape(const LogicalTensorPtr &tensor, std::vector<int64_t> &defaultTile);
@@ -56,10 +58,15 @@ private:
     bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOut);
     bool MatMulPattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOut);
 
-    std::set<Operation*> preregcopys;
-    std::set<Operation*> postregcopys;
+    std::set<Operation *> preregcopys;
+    std::set<Operation *> postregcopys;
     std::unordered_map<LogicalTensorPtr, LogicalTensorPtr> memoryInfo;
-    std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
+    std::unordered_map<DataType, int> viewTypeTable = {
+        {DT_INT8, 1},
+        {DT_BF16, 2},
+        {DT_FP16, 2},
+        {DT_FP32, 4}
+    };
 };
 } // namespace tile_fwk
 } // namespace npu

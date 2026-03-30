@@ -31,13 +31,9 @@ namespace npu::tile_fwk {
 
 class TestCodegenDynRound : public ::testing::Test {
 public:
-    static void SetUpTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void SetUpTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
     void SetUp() override {
         Program::GetInstance().Reset();
@@ -55,9 +51,8 @@ public:
 
 TEST_F(TestCodegenDynRound, TestDynOpRound) {
     std::vector<int64_t> shape = {64, 64};
-    auto function = GenMockFuncDynUnary("TestDynOpRound", {shape}, [](Tensor &input, Tensor &output) {
-        output = Round(input, 1);
-    });
+    auto function =
+        GenMockFuncDynUnary("TestDynOpRound", {shape}, [](Tensor &input, Tensor &output) { output = Round(input, 1); });
 
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});

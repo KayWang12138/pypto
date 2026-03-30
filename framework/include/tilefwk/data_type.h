@@ -22,7 +22,7 @@
 #include <unordered_map>
 
 #ifndef UNUSED
-#define UNUSED(n)       (void)(n)
+#define UNUSED(n) (void)(n)
 #endif
 
 namespace npu::tile_fwk {
@@ -215,50 +215,50 @@ inline std::string DataType2VectorRegStr(DataType t) {
 }
 
 const std::unordered_map<std::string, DataType> STR_DATA_TYPE_MAP = {
-    {"int4",     DT_INT4},
-    {"int8",     DT_INT8},
-    {"int16",    DT_INT16},
-    {"int32",    DT_INT32},
-    {"int",      DT_INT32},
-    {"int64",    DT_INT64},
-    {"fp8",      DT_FP8},
-    {"float8",   DT_FP8},
-    {"fp16",     DT_FP16},
-    {"float16",  DT_FP16},
-    {"float",    DT_FP32},
-    {"float32",  DT_FP32},
-    {"bf16",     DT_BF16},
-    {"bfloat16", DT_BF16},
-    {"hf4",      DT_HF4},
-    {"hf8",      DT_HF8},
-    {"uint8",    DT_UINT8},
-    {"uint16",   DT_UINT16},
-    {"uint32",   DT_UINT32},
-    {"uint64",   DT_UINT64},
-    {"bool",     DT_BOOL},
-    {"double",   DT_DOUBLE},
-    {"fp8e4m3",  DT_FP8E4M3},
-    {"fp8e5m2",  DT_FP8E5M2},
-    {"fp8e8m0",  DT_FP8E8M0},
-    {"fp4_e2m1x2",  DT_FP4_E2M1X2},
-    {"fp4_e1m2x2",  DT_FP4_E1M2X2}
+    {      "int4",       DT_INT4},
+    {      "int8",       DT_INT8},
+    {     "int16",      DT_INT16},
+    {     "int32",      DT_INT32},
+    {       "int",      DT_INT32},
+    {     "int64",      DT_INT64},
+    {       "fp8",        DT_FP8},
+    {    "float8",        DT_FP8},
+    {      "fp16",       DT_FP16},
+    {   "float16",       DT_FP16},
+    {     "float",       DT_FP32},
+    {   "float32",       DT_FP32},
+    {      "bf16",       DT_BF16},
+    {  "bfloat16",       DT_BF16},
+    {       "hf4",        DT_HF4},
+    {       "hf8",        DT_HF8},
+    {     "uint8",      DT_UINT8},
+    {    "uint16",     DT_UINT16},
+    {    "uint32",     DT_UINT32},
+    {    "uint64",     DT_UINT64},
+    {      "bool",       DT_BOOL},
+    {    "double",     DT_DOUBLE},
+    {   "fp8e4m3",    DT_FP8E4M3},
+    {   "fp8e5m2",    DT_FP8E5M2},
+    {   "fp8e8m0",    DT_FP8E8M0},
+    {"fp4_e2m1x2", DT_FP4_E2M1X2},
+    {"fp4_e1m2x2", DT_FP4_E1M2X2}
 };
 
 const std::array<uint32_t, static_cast<size_t>(DataType::DT_BOTTOM)> DATA_TYPE_CANN_ARRAY = {
     29, //  DT_INT4 = 0,
-     2, //  DT_INT8 = 1,
-     6, //  DT_INT16 = 2,
-     3, //  DT_INT32 = 3,
-     9, //  DT_INT64 = 4,
+    2,  //  DT_INT8 = 1,
+    6,  //  DT_INT16 = 2,
+    3,  //  DT_INT32 = 3,
+    9,  //  DT_INT64 = 4,
     28, //  DT_FP8 = 5,
-     1, //  DT_FP16 = 6,
-     0, //  DT_FP32 = 7,
+    1,  //  DT_FP16 = 6,
+    0,  //  DT_FP32 = 7,
     27, //  DT_BF16 = 8,
     28, //  DT_HF4 = 9,
     34, //  DT_HF8 = 10,
-     4, //  DT_UINT8 = 11,
-     7, //  DT_UINT16 = 12,
-     8, //  DT_UINT32 = 13,
+    4,  //  DT_UINT8 = 11,
+    7,  //  DT_UINT16 = 12,
+    8,  //  DT_UINT32 = 13,
     10, //  DT_UINT64 = 14,
     12, //  DT_BOOL = 15,
     11, //  DT_DOUBLE = 16,
@@ -359,11 +359,7 @@ inline size_t BytesOf(DataType t) {
     }
 }
 
-enum class CachePolicy {
-    PREFETCH,
-    NONE_CACHEABLE,
-    MAX_NUM
-};
+enum class CachePolicy { PREFETCH, NONE_CACHEABLE, MAX_NUM };
 } // namespace npu::tile_fwk
 
 namespace std {

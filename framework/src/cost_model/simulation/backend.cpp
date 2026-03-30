@@ -28,8 +28,7 @@ const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
 
 namespace npu::tile_fwk {
 
-void CostModelAgent::BuildCostModel()
-{
+void CostModelAgent::BuildCostModel() {
     SIMULATION_LOGI("Init CostModel Simulation.");
     SIMULATION_LOGI("Using Config A2A3.");
     costModel = std::make_shared<CostModel::CostModelInterface>();
@@ -84,8 +83,7 @@ void CostModelAgent::BuildCostModel()
     costModel->BuildCostModel(configs);
 }
 
-void CostModelAgent::SubmitToCostModel(Function *rootFunc)
-{
+void CostModelAgent::SubmitToCostModel(Function *rootFunc) {
     if (costModel == nullptr) {
         BuildCostModel();
     }
@@ -124,8 +122,7 @@ void CostModelAgent::SubmitLeafFunctionsToCostModel() {
     costModel->Submit(funcs, false, "");
 }
 
-Json CostModelAgent::ParseDynTopo(std::string &path)
-{
+Json CostModelAgent::ParseDynTopo(std::string &path) {
     Json topoJson = Json::array();
     std::ifstream file(path);
     std::string line;
@@ -140,11 +137,11 @@ Json CostModelAgent::ParseDynTopo(std::string &path)
             try {
                 uint64_t num = std::stoull(item);
                 fields.push_back(num);
-            } catch (const std::invalid_argument& e) {
+            } catch (const std::invalid_argument &e) {
                 // ignore
-            } catch (const std::out_of_range& e) {
+            } catch (const std::out_of_range &e) {
                 SIMULATION_LOGE("ErrCode: F%u, Out of range: %s",
-                                static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_CONTENT_ERROR), e.what());
+                    static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_CONTENT_ERROR), e.what());
             }
         }
         uint64_t seqNo = fields[seqPos];
@@ -161,7 +158,7 @@ Json CostModelAgent::ParseDynTopo(std::string &path)
         auto coreType = static_cast<npu::tile_fwk::CoreType>(fields[coreTypePos]);
         taskJson["coreType"] = npu::tile_fwk::GetCoreTypeDict().Find(coreType);
         taskJson["rootIndex"] = fields[rootIndexPos];
-        taskJson["rootHash"] =  fields[rootHashpos];
+        taskJson["rootHash"] = fields[rootHashpos];
         taskJson["leafIndex"] = fields[leafIndexPos];
         taskJson["opmagic"] = fields[opmagicPos];
         taskJson["psgId"] = fields[psgIdPos];
@@ -172,8 +169,7 @@ Json CostModelAgent::ParseDynTopo(std::string &path)
     return topoJson;
 }
 
-void CostModelAgent::SubmitTopo(std::string &path)
-{
+void CostModelAgent::SubmitTopo(std::string &path) {
     Json res = ParseDynTopo(path);
     topoJsonPath = config::LogTopFolder() + "/tmp_topo_json.json";
     std::ofstream file(topoJsonPath);
@@ -181,8 +177,7 @@ void CostModelAgent::SubmitTopo(std::string &path)
     file.close();
 }
 
-uint64_t CostModelAgent::GetLeafFunctionTimeCost(uint64_t hash)
-{
+uint64_t CostModelAgent::GetLeafFunctionTimeCost(uint64_t hash) {
     if (costModel == nullptr) {
         return 0;
     }
@@ -193,8 +188,7 @@ uint64_t CostModelAgent::GetLeafFunctionTimeCost(uint64_t hash)
     return 0;
 }
 
-void CostModelAgent::SubmitSingleFuncToCostModel(Function *func)
-{
+void CostModelAgent::SubmitSingleFuncToCostModel(Function *func) {
     if (costModel == nullptr) {
         BuildCostModel();
     }
@@ -202,8 +196,7 @@ void CostModelAgent::SubmitSingleFuncToCostModel(Function *func)
     costModel->SubmitSingleFunction(func);
 }
 
-void CostModelAgent::RunCostModel()
-{
+void CostModelAgent::RunCostModel() {
     if (costModel == nullptr) {
         return;
     }
@@ -212,16 +205,14 @@ void CostModelAgent::RunCostModel()
     SIMULATION_LOGI("End CostModel Run Simulation");
 }
 
-void CostModelAgent::TerminateCostModel()
-{
+void CostModelAgent::TerminateCostModel() {
     if (costModel == nullptr) {
         return;
     }
     costModel->Report();
 }
 
-void CostModelAgent::DebugSingleFunc(Function *func)
-{
+void CostModelAgent::DebugSingleFunc(Function *func) {
     auto debugFuncName = config::GetSimConfig(KEY_DEBUG_SINGLE_FUNCNAME, "");
     for (auto &leafFunc : func->programs_) {
         if (leafFunc.second->GetMagicName() == debugFuncName) {
@@ -233,23 +224,21 @@ void CostModelAgent::DebugSingleFunc(Function *func)
     }
 }
 
-void CostModelAgent::GetFunctionFromJson(const std::string &jsonPath)
-{
+void CostModelAgent::GetFunctionFromJson(const std::string &jsonPath) {
     std::ifstream file(jsonPath);
-    CHECK(file.good()) << "ErrCode: F" <<  static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_OPEN_FAILED)
-                        << "[SIMULATION]: " << "Json file: " << jsonPath << " open failed!!!";
+    CHECK(file.good()) << "ErrCode: F" << static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_OPEN_FAILED)
+                       << "[SIMULATION]: " << "Json file: " << jsonPath << " open failed!!!";
     Json jsonData;
     try {
         file >> jsonData;
     } catch (const std::exception &e) {
-        CHECK(false) << "ErrCode: F" <<  static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_FORMAT_ERROR)
-                    << "[SIMULATION]: " << "Json file: " << jsonPath << " parsing error: " << e.what();
+        CHECK(false) << "ErrCode: F" << static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_FORMAT_ERROR)
+                     << "[SIMULATION]: " << "Json file: " << jsonPath << " parsing error: " << e.what();
     }
     Program::GetInstance().LoadJson(jsonData);
 }
 
-extern "C" int32_t ExecuteSimulation(const MachineTask *task, FunctionCache &cache)
-{
+extern "C" int32_t ExecuteSimulation(const MachineTask *task, FunctionCache &cache) {
     (void)cache;
     if (!config::GetPlatformConfig(KEY_ENABLE_COST_MODEL, true)) {
         return 0;

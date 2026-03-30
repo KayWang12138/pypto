@@ -25,8 +25,7 @@ namespace npu::tile_fwk {
 // and does not distinguish INF from finite overflow; NaNs are only produced explicitly in tests.
 
 // Round to nearest integer, ties to even, for non‑negative inputs.
-static inline int RoundToNearestEvenFloatPos(float x)
-{
+static inline int RoundToNearestEvenFloatPos(float x) {
     // Assume x >= 0 on all call sites.
     float floorVal = std::floor(x);
     float frac = x - floorVal;
@@ -132,8 +131,7 @@ torch::Tensor Fp8ToFloat32(const torch::Tensor &self, DataType actualType) {
 
 // Float32 to FP8 E4M3. E4M3 value range is approximately [2^-9, 240].
 // Implements round-to-nearest with ties-to-even under the decode defined in Fp8E4M3ToFloat32.
-static inline uint8_t EncodeFloatToFp8E4M3(float v)
-{
+static inline uint8_t EncodeFloatToFp8E4M3(float v) {
     constexpr float kMinSubnormal = 1.0f / 512.0f; // 2^-9: smallest positive subnormal (mant=1, exp=0)
     constexpr float kMinNormal = 1.0f / 64.0f;     // 2^-6: exp=1, mant=0
     constexpr float kMaxVal = 240.0f;              // max finite value produced by Fp8E4M3ToFloat32
@@ -245,8 +243,7 @@ static torch::Tensor Float32ToFp8E4M3(const torch::Tensor &self) {
 }
 
 // Float32 to FP8 E5M2. E5M2 range: [2^-16, 57344]. Round to nearest.
-static inline uint8_t EncodeFloatToFp8E5M2(float v)
-{
+static inline uint8_t EncodeFloatToFp8E5M2(float v) {
     constexpr float kMinSubnormal = 1.0f / 65536.0f; // 2^-16
     constexpr float kMinNormal = 1.0f / 16384.0f;    // 2^-14
     constexpr float kMaxVal = 57344.0f;              // 2^15 * 1.75

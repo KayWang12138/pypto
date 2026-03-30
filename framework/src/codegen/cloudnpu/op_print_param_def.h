@@ -21,8 +21,8 @@
 
 namespace npu::tile_fwk {
 enum class TileOperand : int64_t {
-    NONE          = 0,
-    LEFT_OPERAND  = 1,
+    NONE = 0,
+    LEFT_OPERAND = 1,
     RIGHT_OPERAND = 2,
 };
 

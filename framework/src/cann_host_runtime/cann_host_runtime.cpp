@@ -67,7 +67,7 @@ CannHostRuntime &CannHostRuntime::Instance() {
     return instance;
 }
 
-bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
+bool CannHostRuntime::GetSocVersion(std::string &socVersion) {
 #ifdef BUILD_WITH_CANN
     int ret = 1;
     char socVer[kMaxLength] = {0x00};
@@ -84,7 +84,7 @@ bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
     return false;
 }
 
-bool CannHostRuntime::GetSocSpec(const std::string& column, const std::string& key, std::string& val) {
+bool CannHostRuntime::GetSocSpec(const std::string &column, const std::string &key, std::string &val) {
 #ifdef BUILD_WITH_CANN
     int ret = 1;
     char charVal[kMaxLength] = {0};
@@ -118,5 +118,5 @@ bool CannHostRuntime::GetAICPUCnt(size_t &aiCpuCnt) {
     (void)aiCpuCnt;
     return false;
 }
-}  // namespace tile_fwk
-}  // namespace npu
+} // namespace tile_fwk
+} // namespace npu

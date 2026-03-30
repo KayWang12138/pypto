@@ -20,7 +20,8 @@
 
 namespace npu {
 namespace tile_fwk {
-std::vector<int64_t> SplitRawTensor::UpdateOffset(std::vector<int64_t> &offset, const std::vector<int64_t> &diff) const {
+std::vector<int64_t> SplitRawTensor::UpdateOffset(
+    std::vector<int64_t> &offset, const std::vector<int64_t> &diff) const {
     std::vector<int64_t> result = offset;
     for (size_t i = 0; i < offset.size(); i++) {
         if (offset[i] >= diff[i]) {
@@ -41,8 +42,7 @@ std::vector<SymbolicScalar> SplitRawTensor::UpdateDynOffset(
     return result;
 }
 
-void SplitRawTensor::UpdateConsumerView(
-    Function &function, const LogicalTensorPtr &logicalTensor) const {
+void SplitRawTensor::UpdateConsumerView(Function &function, const LogicalTensorPtr &logicalTensor) const {
     /* All the consumer View op's attr offset should be corret */
     /* 1. 更新View相关的属性 */
     TensorOffset tensorOffset = logicalTensor->GetTensorOffset();
@@ -52,7 +52,9 @@ void SplitRawTensor::UpdateConsumerView(
         }
         auto &output = viewOp->oOperand[0];
         if (function.IsFromOutCast(output)) {
-            APASS_LOG_WARN_F(Elements::Tensor, "OP_VIEW oOperand tensor[%d] is outCast; Please check if it is an external output.", output->GetMagic());
+            APASS_LOG_WARN_F(Elements::Tensor,
+                "OP_VIEW oOperand tensor[%d] is outCast; Please check if it is an external output.",
+                output->GetMagic());
             continue;
         }
         auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(viewOp->GetOpAttribute().get());
@@ -74,8 +76,7 @@ void SplitRawTensor::UpdateConsumerView(
     }
 }
 
-void SplitRawTensor::UpdateProducerAssemble(
-    Function &function, const LogicalTensorPtr &logicalTensor) const {
+void SplitRawTensor::UpdateProducerAssemble(Function &function, const LogicalTensorPtr &logicalTensor) const {
     /* 1. 更新Assemble相关的属性 */
     // Assemble1 ->
     //              logicalTensor(UB) -> Reshape -> UB
@@ -87,7 +88,8 @@ void SplitRawTensor::UpdateProducerAssemble(
         }
         auto &input = assembleOp->iOperand[0];
         if (function.IsFromInCast(input)) {
-            APASS_LOG_WARN_F(Elements::Operation, "OP_ASSEMBLE iOperand tensor[%d] is inCast; Please check if it is an external input.",
+            APASS_LOG_WARN_F(Elements::Operation,
+                "OP_ASSEMBLE iOperand tensor[%d] is inCast; Please check if it is an external input.",
                 input->GetMagic());
             continue;
         }
@@ -117,7 +119,9 @@ bool SplitRawTensor::ShouldProcessTensor(Function &function, const LogicalTensor
     }
     // 检查是否为InCast或OutCast
     if (function.IsFromOutCast(singleTensor) || function.IsFromInCast(singleTensor)) {
-        APASS_LOG_WARN_F(Elements::Tensor, "Tensor[%d] is inCast or outCast; Please check if it is an external input/output", singleTensor->GetMagic());
+        APASS_LOG_WARN_F(Elements::Tensor,
+            "Tensor[%d] is inCast or outCast; Please check if it is an external input/output",
+            singleTensor->GetMagic());
         return false;
     }
     return true;
@@ -146,10 +150,10 @@ void SplitRawTensor::SplitRaw(Function &function) const {
                 continue;
             }
             /* 创建新的rawTensor，并将其后接的View以及view的Consumer的rawtensor刷新为新的rawTensor */
-            singleLogicalTensor->tensor = std::make_shared<RawTensor>(
-                singleLogicalTensor->tensor->datatype, singleLogicalTensor->GetShape(),
-                singleLogicalTensor->Format(), singleLogicalTensor->Symbol());
-            APASS_LOG_DEBUG_F(Elements::Operation, "SplitRawTensor::SplitRaw: tensor[%d] updated new raw tensor[%d] with the same raw shape.",
+            singleLogicalTensor->tensor = std::make_shared<RawTensor>(singleLogicalTensor->tensor->datatype,
+                singleLogicalTensor->GetShape(), singleLogicalTensor->Format(), singleLogicalTensor->Symbol());
+            APASS_LOG_DEBUG_F(Elements::Operation,
+                "SplitRawTensor::SplitRaw: tensor[%d] updated new raw tensor[%d] with the same raw shape.",
                 singleLogicalTensor->GetMagic(), singleLogicalTensor->GetRawMagic());
             if (singleLogicalTensor->tensor == nullptr) {
                 continue;
@@ -187,7 +191,7 @@ Status SplitRawTensor::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> End SplitRaw.");
     return SUCCESS;
 }
-Status SplitRawTensor::PostCheck(Function &function){
+Status SplitRawTensor::PostCheck(Function &function) {
     return checker.DoPostCheck(function);
 }
 } // namespace tile_fwk

@@ -48,7 +48,7 @@ auto ShapeSize(const std::vector<T> &shapes) {
     return res;
 }
 
-template<typename T>
+template <typename T>
 void TestInnerView() {
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -117,7 +117,11 @@ void TestInnerView() {
             TileShape::Current().SetVecTile(1, 2048);
             auto e = View(d, {1, M}, {5 * idx, 0});
             auto f = Add(e, e);
-            Assemble({{f, {5 * idx, 0}}}, dst, true);
+            Assemble(
+                {
+                    {f, {5 * idx, 0}}
+            },
+                dst, true);
         }
         config::SetPassOption(PG_SKIP_PARTITION, false);
     }

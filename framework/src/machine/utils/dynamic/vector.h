@@ -35,8 +35,7 @@ public:
     Vector() = default;
     explicit Vector(WsAllocator_T &allocator) : allocator_{&allocator} {}
 
-    Vector(const Vector &oth)
-        : allocator_(oth.allocator_) {
+    Vector(const Vector &oth) : allocator_(oth.allocator_) {
         if (oth.empty()) {
             return;
         }
@@ -45,17 +44,14 @@ public:
             memcpy_s(data(), sizeof(value_type) * oth.size_, oth.data(), sizeof(value_type) * oth.size_);
         } else {
             for (size_type i = 0; i < oth.size_; i++) {
-                new(data() + i) value_type(oth[i]);
+                new (data() + i) value_type(oth[i]);
             }
         }
         size_ = oth.size_;
     }
 
     Vector(Vector &&oth)
-        : allocator_(oth.allocator_),
-          dataAllocation_(oth.dataAllocation_),
-          capacity_(oth.capacity_),
-          size_(oth.size_) {
+        : allocator_(oth.allocator_), dataAllocation_(oth.dataAllocation_), capacity_(oth.capacity_), size_(oth.size_) {
         oth.dataAllocation_.Invalidate();
         oth.capacity_ = 0;
         oth.size_ = 0;
@@ -75,7 +71,7 @@ public:
         }
 
         this->~Vector();
-        new(this) Vector(oth);
+        new (this) Vector(oth);
 
         return *this;
     }
@@ -86,7 +82,7 @@ public:
         }
 
         this->~Vector();
-        new(this) Vector(std::move(oth));
+        new (this) Vector(std::move(oth));
 
         return *this;
     }
@@ -115,11 +111,23 @@ public:
     value_type *end() { return data() + size_; }
     const value_type *end() const { return data() + size_; }
 
-    value_type &front() { DEV_ASSERT(DevDataErr::VECTOR_EMPTY_ACCESS, !empty()); return *begin(); }
-    const value_type &front() const { DEV_ASSERT(DevDataErr::VECTOR_EMPTY_ACCESS, !empty()); return *begin(); }
+    value_type &front() {
+        DEV_ASSERT(DevDataErr::VECTOR_EMPTY_ACCESS, !empty());
+        return *begin();
+    }
+    const value_type &front() const {
+        DEV_ASSERT(DevDataErr::VECTOR_EMPTY_ACCESS, !empty());
+        return *begin();
+    }
 
-    value_type &back() { DEV_ASSERT(DevDataErr::VECTOR_EMPTY_ACCESS, !empty()); return *(end() - 1); }
-    const value_type &back() const { DEV_ASSERT(DevDataErr::VECTOR_EMPTY_ACCESS, !empty()); return *(end() - 1); }
+    value_type &back() {
+        DEV_ASSERT(DevDataErr::VECTOR_EMPTY_ACCESS, !empty());
+        return *(end() - 1);
+    }
+    const value_type &back() const {
+        DEV_ASSERT(DevDataErr::VECTOR_EMPTY_ACCESS, !empty());
+        return *(end() - 1);
+    }
 
     size_type capacity() const { return capacity_; }
     size_type size() const { return size_; }
@@ -136,7 +144,7 @@ public:
         if constexpr (sizeof...(Args) == 0 && std::is_trivially_default_constructible_v<value_type>) {
             memset_s(data() + size_, sizeof(value_type), 0, sizeof(value_type));
         } else {
-            new(data() + size_) value_type(std::forward<Args>(args)...);
+            new (data() + size_) value_type(std::forward<Args>(args)...);
         }
         size_++;
     }
@@ -173,9 +181,7 @@ public:
         }
     }
 
-    void clear() {
-        InternalPopBack(size_);
-    }
+    void clear() { InternalPopBack(size_); }
 
 private:
     void ExpandCapacity(size_type capacityReq) {
@@ -199,7 +205,7 @@ private:
                 memcpy_s(newData, sizeof(value_type) * size_, oldData, sizeof(value_type) * size_);
             } else {
                 for (size_type i = 0; i < size_; i++) {
-                    new(newData + i) value_type(std::move(oldData[i]));
+                    new (newData + i) value_type(std::move(oldData[i]));
                 }
             }
             if constexpr (!std::is_trivially_destructible_v<value_type>) {
@@ -226,9 +232,9 @@ private:
         if constexpr (sizeof...(Args) == 0 && std::is_trivially_default_constructible_v<value_type>) {
             memset_s(data() + size_, sizeof(value_type) * n, 0, sizeof(value_type) * n);
         } else {
-            new(data() + size_) value_type(std::forward<Args>(args)...);
+            new (data() + size_) value_type(std::forward<Args>(args)...);
             for (size_type i = size_ + 1; i < size_ + n; i++) {
-                new(data() + i) value_type(data()[size_]);
+                new (data() + i) value_type(data()[size_]);
             }
         }
         size_ += n;

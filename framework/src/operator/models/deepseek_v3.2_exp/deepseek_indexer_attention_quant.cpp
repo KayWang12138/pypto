@@ -23,19 +23,17 @@
 
 namespace npu::tile_fwk {
 
-void DeepSeekIndexerAttentionQuant(
-    const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk, const Tensor &wDkvKr,
-    const Tensor &rmsnormGammaCq, const Tensor &rmsnormGammaCkv, const Tensor &cos, const Tensor &sin,
-    const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache, Tensor &kScaleCache, const Tensor &dequantScaleWUqQr,
-    const Tensor &wQb, const Tensor &wQbScale, const Tensor &wK, const Tensor &wProj,
+void DeepSeekIndexerAttentionQuant(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk,
+    const Tensor &wDkvKr, const Tensor &rmsnormGammaCq, const Tensor &rmsnormGammaCkv, const Tensor &cos,
+    const Tensor &sin, const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache, Tensor &kScaleCache,
+    const Tensor &dequantScaleWUqQr, const Tensor &wQb, const Tensor &wQbScale, const Tensor &wK, const Tensor &wProj,
     const Tensor &layernormGammaK, const Tensor &layernormBetaK, const Tensor &hadamardQ, const Tensor &hadamardK,
     const Tensor &idxKCache, const Tensor &idxKScaleCache, const Tensor &actualSeqLengthsKey, const Tensor &blockTable,
     Tensor &attentionOut, DiaQuantAttr &attrs, const DSIASimpleParams &params,
     // debug
     Tensor &debugQNopeOut, Tensor &debugQRopeOut, Tensor &debugRmsNormOut, Tensor &debugRmsNormScaleOut,
-    Tensor &debugQInt8Out, Tensor &debugQScaleOut, Tensor &debugWeightsOut,
-    [[maybe_unused]] Tensor &indexerTopkResTmp, Tensor &topkValueTmp, Tensor &topkTmpOut
-) {
+    Tensor &debugQInt8Out, Tensor &debugQScaleOut, Tensor &debugWeightsOut, [[maybe_unused]] Tensor &indexerTopkResTmp,
+    Tensor &topkValueTmp, Tensor &topkTmpOut) {
 #if QUANT_DSIA_DEBUG == 0
     (void)debugQNopeOut;
     (void)debugQRopeOut;
@@ -67,27 +65,46 @@ void DeepSeekIndexerAttentionQuant(
     Tensor idxKCacheOut(DT_INT8, {GetInputShape(idxKCache, 0), blockSize, n2, idx_head_dim}, "idxKCacheOut");
     Tensor idxKScaleCacheOut(DT_FP16, {GetInputShape(idxKScaleCache, 0), blockSize, n2, 1}, "idxKScaleCacheOut");
 
-    FUNCTION(
-        "main",
-        { // input
-            tokenX, wDq, wUqQr, wUk, wDkvKr, rmsnormGammaCq, rmsnormGammaCkv, cos, sin, kvCache,
-            krCache, kScaleCache, dequantScaleWUqQr, wQb, wQbScale, wK, wProj,
-            layernormGammaK, layernormBetaK, hadamardQ, hadamardK,
-            idxKCache, idxKScaleCache, blockTable, cacheIndex, actualSeqLengthsKey,
-        },
-        { // output
+    FUNCTION("main",
+        {
+            // input
+            tokenX,
+            wDq,
+            wUqQr,
+            wUk,
+            wDkvKr,
+            rmsnormGammaCq,
+            rmsnormGammaCkv,
+            cos,
+            sin,
+            kvCache,
+            krCache,
+            kScaleCache,
+            dequantScaleWUqQr,
+            wQb,
+            wQbScale,
+            wK,
+            wProj,
+            layernormGammaK,
+            layernormBetaK,
+            hadamardQ,
+            hadamardK,
+            idxKCache,
+            idxKScaleCache,
+            blockTable,
+            cacheIndex,
+            actualSeqLengthsKey,
+    },
+        {// output
             attentionOut,
 #if QUANT_DSIA_DEBUG == 1
-            debugQNopeOut, debugQRopeOut, debugRmsNormOut, debugRmsNormScaleOut,
-            debugQInt8Out, debugQScaleOut, debugWeightsOut,
-            indexerTopkResTmp, topkValueTmp, topkTmpOut
+            debugQNopeOut, debugQRopeOut, debugRmsNormOut, debugRmsNormScaleOut, debugQInt8Out, debugQScaleOut,
+            debugWeightsOut, indexerTopkResTmp, topkValueTmp, topkTmpOut
 #endif
         },
-        { // inplace
-            {kvCacheOut, kvCache}, {krCacheOut, krCache}, {kScaleCacheOut, kScaleCache},
-            {idxKCacheOut, idxKCache}, {idxKScaleCacheOut, idxKScaleCache}
-        })
-    {
+        {// inplace
+            {kvCacheOut, kvCache}, {krCacheOut, krCache}, {kScaleCacheOut, kScaleCache}, {idxKCacheOut, idxKCache},
+            {idxKScaleCacheOut, idxKScaleCache}}) {
         //============= mla prolog ================
         auto b = GetInputShape(tokenX, 0);
         auto s1 = GetInputShape(tokenX, 1);
@@ -97,10 +114,10 @@ void DeepSeekIndexerAttentionQuant(
         Tensor rmsRes(DT_INT8, {t, params.q_lora_rank}, "rmsRes");
         Tensor rmsScaleRes(DT_FP32, {t, 1}, "rmsScaleRes");
 
-        MlaPrologQuantV32Compute(
-            tokenX, wDq, wUqQr, dequantScaleWUqQr, wUk, wDkvKr, rmsnormGammaCq, rmsnormGammaCkv, cos, sin, cacheIndex,
-            kvCache, krCache, kScaleCache, rmsRes, rmsScaleRes, queryNopeOut, queryRopeOut, kvCacheOut, krCacheOut,
-            kScaleCacheOut, attrs.rmsnormEpsilonCq, attrs.rmsnormEpsilonCkv, attrs.layeroutKey, params.mlaTileCfg);
+        MlaPrologQuantV32Compute(tokenX, wDq, wUqQr, dequantScaleWUqQr, wUk, wDkvKr, rmsnormGammaCq, rmsnormGammaCkv,
+            cos, sin, cacheIndex, kvCache, krCache, kScaleCache, rmsRes, rmsScaleRes, queryNopeOut, queryRopeOut,
+            kvCacheOut, krCacheOut, kScaleCacheOut, attrs.rmsnormEpsilonCq, attrs.rmsnormEpsilonCkv, attrs.layeroutKey,
+            params.mlaTileCfg);
 
 #if QUANT_DSIA_DEBUG == 1
         LOOP("Mla_Prolog_Post", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, b * s1, 1), {}, true) {
@@ -135,10 +152,8 @@ void DeepSeekIndexerAttentionQuant(
             Reshape(cacheIndex, cacheIndex2D);
         }
 
-        QuantIndexerPrologInput inputs = {
-            x2D, rmsRes, rmsScaleRes, wQb, wQbScale, wK, wProj, layernormGammaK, layernormBetaK,
-            cos2D, sin2D, hadamardQ, hadamardK, idxKCache, idxKScaleCache, cacheIndex2D
-        };
+        QuantIndexerPrologInput inputs = {x2D, rmsRes, rmsScaleRes, wQb, wQbScale, wK, wProj, layernormGammaK,
+            layernormBetaK, cos2D, sin2D, hadamardQ, hadamardK, idxKCache, idxKScaleCache, cacheIndex2D};
         QuantIndexerPrologOutput outputs = {qInt8Out, qScaleOut, idxKCacheOut, idxKScaleCacheOut, weightOut};
 
         QuantIndexerConfigs configs;
@@ -171,14 +186,16 @@ void DeepSeekIndexerAttentionQuant(
         config::SetPassOption(MG_COPYIN_UPPER_BOUND, NUM_100 * NUM_1024 * NUM_1024);
         config::SetPassOption(SG_PG_LOWER_BOUND, NUM_1024);
         config::SetPassOption(SG_PG_UPPER_BOUND, NUM_1024 * NUM_1024);
-        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, NUM_32}});
+        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{
+                                                         {-1, NUM_32}
+        });
         config::SetPassOption(SG_PARALLEL_NUM, NUM_2);
         config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{
-            {-1, 16}
+                                                       {-1, 16}
         });
         config::SetRuntimeOption<uint8_t>(
             DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH) |
-                                static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH));
+                                   static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH));
         config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, NUM_128);
         config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, NUM_128);
 
@@ -195,14 +212,13 @@ void DeepSeekIndexerAttentionQuant(
         std::set<int> indexerUnrollList = {64, 32, 16, 8, 4, 1};
 #if QUANT_DSIA_DEBUG == 1
         Tensor &indexerTopkRes = indexerTopkResTmp;
-        LightningIndexerTopkImpl(queryOut4D, idxKCacheOut, true, &qScaleOut4D, &idxKScaleCacheOut,
-            weightOut4D, actualSeqLengthsKey, blockTable, indexerTopkRes,
-            selectedCount, params.indexTileCfg, indexerUnrollList, &topkTmpOut, &topkValueTmp);
+        LightningIndexerTopkImpl(queryOut4D, idxKCacheOut, true, &qScaleOut4D, &idxKScaleCacheOut, weightOut4D,
+            actualSeqLengthsKey, blockTable, indexerTopkRes, selectedCount, params.indexTileCfg, indexerUnrollList,
+            &topkTmpOut, &topkValueTmp);
 #else
         Tensor indexerTopkRes(DT_INT32, {b, s1, n2, selectedCount}, "indexerTopkResTmp");
-        LightningIndexerTopkQuant(queryOut4D, idxKCacheOut, qScaleOut4D, idxKScaleCacheOut,
-            weightOut4D, actualSeqLengthsKey, blockTable, indexerTopkRes,
-            selectedCount, params.indexTileCfg, indexerUnrollList);
+        LightningIndexerTopkQuant(queryOut4D, idxKCacheOut, qScaleOut4D, idxKScaleCacheOut, weightOut4D,
+            actualSeqLengthsKey, blockTable, indexerTopkRes, selectedCount, params.indexTileCfg, indexerUnrollList);
 #endif
 
         //=================== gather selected attention ======================
@@ -214,16 +230,19 @@ void DeepSeekIndexerAttentionQuant(
 
         // reset the previous config
         config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{});
-        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 0}});
+        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{
+                                                         {-1, 0}
+        });
         config::SetPassOption(SG_PARALLEL_NUM, NUM_20);
         config::SetPassOption(MG_COPYIN_UPPER_BOUND, 1 * NUM_1024 * NUM_1024);
         config::SetPassOption(SG_PG_UPPER_BOUND, NUM_20000);
         config::SetPassOption(SG_PG_LOWER_BOUND, NUM_512);
         // set config for attention
-        config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
+        config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{
+                                                       {-1, 2}
+        });
 
-        config::SetRuntimeOption<uint8_t>(
-            DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH));
+        config::SetRuntimeOption<uint8_t>(DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH));
         config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, NUM_128);
         config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, NUM_128);
 
@@ -233,7 +252,7 @@ void DeepSeekIndexerAttentionQuant(
         Tensor krCache2D(dType, {blockNum * blockSize, n2 * dr}, "krCache2D");
         Tensor kScaleCache2D(DT_FP32, {blockNum * blockSize, n2 * 4}, "kScaleCache2D");
         LOOP("LOOP_RESHAPE_SEL_ATTN", FunctionType::DYNAMIC_LOOP, unUsedIdx, LoopRange(1)) {
-            (void) unUsedIdx;
+            (void)unUsedIdx;
             Reshape(queryNopeOut, qNope2D);
             Reshape(queryRopeOut, qRope2D);
             Reshape(kvCacheOut, kvCache2D);
@@ -241,10 +260,9 @@ void DeepSeekIndexerAttentionQuant(
             Reshape(kScaleCacheOut, kScaleCache2D);
         }
 
-        SelectedAttentionComputeV2(
-            qNope2D, qRope2D, kvCache2D, krCache2D, kScaleCache2D, topkRes2D, blockTable, actualSeqLengthsKey, n1, n2,
-            softmaxScale, selectedCount, blockSize, maxBlockNumPerBatch, attentionOut, params.salTileCfg
-        );
+        SelectedAttentionComputeV2(qNope2D, qRope2D, kvCache2D, krCache2D, kScaleCache2D, topkRes2D, blockTable,
+            actualSeqLengthsKey, n1, n2, softmaxScale, selectedCount, blockSize, maxBlockNumPerBatch, attentionOut,
+            params.salTileCfg);
     }
 }
 } // namespace npu::tile_fwk

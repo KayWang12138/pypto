@@ -53,8 +53,8 @@ static inline std::string InterpLogTestGetThreadLogPrefix() {
     return std::string(kInterpLogTestHostLogFilePrefix) + std::to_string(getpid()) + "_";
 }
 
-static inline std::map<std::string, size_t> InterpLogTestListHostLogFilesWithSize(const std::string &dir,
-                                                                                  const std::string &threadPrefix) {
+static inline std::map<std::string, size_t> InterpLogTestListHostLogFilesWithSize(
+    const std::string &dir, const std::string &threadPrefix) {
     std::map<std::string, size_t> result;
     DIR *d = opendir(dir.c_str());
     if (d == nullptr) {
@@ -175,14 +175,14 @@ static inline std::string CaptureStdoutAndEcho(std::function<void()> func) {
 }
 
 // 仅检查 [VERIFY] 日志行中是否出现 FAILED，其他模块日志不参与判断
-inline bool VerifyLogContainsFailed(const std::string& logOutput) {
+inline bool VerifyLogContainsFailed(const std::string &logOutput) {
     // 匹配形如："...[VERIFY]...FAILED..."，且 [VERIFY] 与 FAILED 必须在同一行（中间不允许换行）
     static const std::regex kVerifyFailedPattern(R"(\[VERIFY][^\n]*FAILED)");
     return std::regex_search(logOutput, kVerifyFailedPattern);
 }
 
 // 仅检查 [VERIFY] 日志行中 index 0 是否出现 FAILED，用于 Topk 用例
-inline bool VerifyLogContainsIndex0Failed(const std::string& logOutput) {
+inline bool VerifyLogContainsIndex0Failed(const std::string &logOutput) {
     // 只关心 flow_verifier 打印的 index 0 结果行：
     // "... [VERIFY]: ... Verify for ... index 0 result FAILED"
     static const std::regex kVerifyIndex0FailedPattern(R"(\[VERIFY][^\n]*index 0 result FAILED)");

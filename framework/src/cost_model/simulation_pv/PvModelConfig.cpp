@@ -1357,18 +1357,15 @@ title = "PV Config"
     return;
 }
 
-void PvModelCaseConfigBase::SetTitle(std::string title)
-{
+void PvModelCaseConfigBase::SetTitle(std::string title) {
     title_ = title;
 }
 
-void PvModelCaseConfigBase::SetCoreType(uint64_t coreType)
-{
+void PvModelCaseConfigBase::SetCoreType(uint64_t coreType) {
     subcoreId_ = coreType;
 }
 
-std::uint64_t PvModelCaseConfigBase::GetCoreType()
-{
+std::uint64_t PvModelCaseConfigBase::GetCoreType() {
     return subcoreId_;
 }
 
@@ -1390,7 +1387,7 @@ void PvModelCaseConfig::Dump(std::string path) {
 
     if (!file.is_open()) {
         SIMULATION_LOGE("ErrCode: F%u, [PVMODEL]open config file error: %s",
-                    static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_OPEN_FAILED), path.c_str());
+            static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_OPEN_FAILED), path.c_str());
         return;
     }
 

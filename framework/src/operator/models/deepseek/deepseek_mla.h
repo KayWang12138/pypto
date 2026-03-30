@@ -52,55 +52,55 @@ constexpr float F_NEGA_1 = -1.0;
 constexpr double DF_1E_20 = 1e-20;
 
 static std::map<std::string, std::variant<bool, int, float, std::string>> g_deepseekConfig = {
-    {          "architectures", "DeepseekForCausalLM"},
-    {         "attention_bias",                 false},
-    {      "attentionDropout",                     0},
-    {             "AutoConfig",      "DeepseekConfig"},
-    {              "AutoModel",       "DeepseekModel"},
-    {   "AutoModelForCausalLM", "DeepseekForCausalLM"},
+    {        "architectures", "DeepseekForCausalLM"},
+    {       "attention_bias",                 false},
+    {     "attentionDropout",                     0},
+    {           "AutoConfig",      "DeepseekConfig"},
+    {            "AutoModel",       "DeepseekModel"},
+    { "AutoModelForCausalLM", "DeepseekForCausalLM"},
     {         "auxLossAlpha",                0.001f},
     {           "bosTokenId",                100000},
     {           "eosTokenId",                100001},
-    {                "epSize",                     1},
-    {  "firstKDenseReplace",                     3},
-    {             "hiddenAct",                "silu"},
-    {            "hiddenSize",                  7168},
-    {      "initializerRange",                 0.02f},
-    {      "intermediateSize",                 18432},
+    {               "epSize",                     1},
+    {   "firstKDenseReplace",                     3},
+    {            "hiddenAct",                "silu"},
+    {           "hiddenSize",                  7168},
+    {     "initializerRange",                 0.02f},
+    {     "intermediateSize",                 18432},
     {           "kvLoraRank",                   512},
-    {                "lmHead",                 false},
+    {               "lmHead",                 false},
     {"maxPositionEmbeddings",                  4096},
-    {             "modelType",         "deepseek_v3"},
+    {            "modelType",         "deepseek_v3"},
     {  "moeIntermediateSize",                  2048},
     {         "moeLayerFreq",                     1},
-    {                "nGroup",                     8},
+    {               "nGroup",                     8},
     {       "nRoutedExperts",                   256},
     {       "nSharedExperts",                     1},
     {         "normTopkProb",                  true},
     {    "numAttentionHeads",                   128},
-    {    "numExpertsPerTok",                     8},
+    {     "numExpertsPerTok",                     8},
     {      "numHiddenLayers",                    61},
-    {    "numKeyValueHeads",                   128},
-    {         "pretrainingTp",                     1},
+    {     "numKeyValueHeads",                   128},
+    {        "pretrainingTp",                     1},
     {            "qLoraRank",                  1536},
-    {       "qkNopeHeadDim",                   128},
-    {       "qkRopeHeadDim",                    64},
-    {                "rmHead",                 false},
+    {        "qkNopeHeadDim",                   128},
+    {        "qkRopeHeadDim",                    64},
+    {               "rmHead",                 false},
     {           "rmsNormEps",                1e-06f},
-    {           "ropeScaling",                     1},
-    {             "ropeTheta",                 10000},
+    {          "ropeScaling",                     1},
+    {            "ropeTheta",                 10000},
     {  "routedScalingFactor",                  2.5f},
-    {           "scoringFunc",             "sigmoid"},
-    {                "seqAux",                  true},
+    {          "scoringFunc",             "sigmoid"},
+    {               "seqAux",                  true},
     {    "tieWordEmbeddings",                 false},
-    {             "topkGroup",                     4},
-    {            "topkMethod",            "noaux_tc"},
-    {            "torchDtype",            "bfloat16"},
-    {   "transformersVersion",              "4.33.1"},
-    {              "useCache",                  true},
+    {            "topkGroup",                     4},
+    {           "topkMethod",            "noaux_tc"},
+    {           "torchDtype",            "bfloat16"},
+    {  "transformersVersion",              "4.33.1"},
+    {             "useCache",                  true},
     {             "vHeadDim",                   128},
-    {             "vocabSize",                129280},
-    {             "fp8Format",                "e4m3"},
+    {            "vocabSize",                129280},
+    {            "fp8Format",                "e4m3"},
     {        "initFp8Params",                  true}
 };
 
@@ -122,8 +122,8 @@ struct AttentionW {
 
 class DeepseekAttention {
 public:
-    DeepseekAttention(std::map<std::string, std::variant<bool, int, float, std::string>> config,
-        AttentionW aw, const int inLayerIdx);
+    DeepseekAttention(
+        std::map<std::string, std::variant<bool, int, float, std::string>> config, AttentionW aw, const int inLayerIdx);
     Tensor Attention(Tensor q, Tensor kv, Tensor attenMask);
     Tensor AttentionPost(Tensor attenRes);
     Tensor AttentionPost2(Tensor attenRes);
@@ -131,16 +131,15 @@ public:
     std::tuple<Tensor, Tensor> QkvPreCv(Tensor hiddenStates);
     std::vector<Tensor> QkvPre2(Tensor hiddenStates, bool isQuant = false);
     std::tuple<Tensor, Tensor> QkvPreFp32(Tensor hiddenStates);
-    Tensor Forward(Tensor hiddenStates, Tensor attenMask, Tensor positionIds, Tensor cos, Tensor sin, Tensor
-        kvLen, Tensor pastKeyStates, const RoPETileShapeConfig &ropeTileShapeConfig);
-    std::tuple<Tensor, Tensor>  AtentionPreForward(Tensor hiddenStates, Tensor attenMask, Tensor positionIds, Tensor cos, Tensor sin, Tensor
-        kvLen, Tensor pastKeyStates, const RoPETileShapeConfig &ropeTileShapeConfig);
-    std::tuple<Tensor, Tensor>  AtentionPreForwardCv(Tensor hiddenStates, Tensor attenMask, Tensor positionIds, Tensor cos, Tensor sin, Tensor
-        kvLen, Tensor pastKeyStates, const RoPETileShapeConfig &ropeTileShapeConfig);
+    Tensor Forward(Tensor hiddenStates, Tensor attenMask, Tensor positionIds, Tensor cos, Tensor sin, Tensor kvLen,
+        Tensor pastKeyStates, const RoPETileShapeConfig &ropeTileShapeConfig);
+    std::tuple<Tensor, Tensor> AtentionPreForward(Tensor hiddenStates, Tensor attenMask, Tensor positionIds, Tensor cos,
+        Tensor sin, Tensor kvLen, Tensor pastKeyStates, const RoPETileShapeConfig &ropeTileShapeConfig);
+    std::tuple<Tensor, Tensor> AtentionPreForwardCv(Tensor hiddenStates, Tensor attenMask, Tensor positionIds,
+        Tensor cos, Tensor sin, Tensor kvLen, Tensor pastKeyStates, const RoPETileShapeConfig &ropeTileShapeConfig);
     std::tuple<Tensor, Tensor> MlaPrologAbForward(Tensor hiddenStates, Tensor qPeRope, bool isQuant = false);
-    std::vector<Tensor> MlaPrologFoward(Tensor hiddenStates, Tensor positionIds,
-        Tensor cos, Tensor sin, Tensor kvLen, Tensor pastKeyStates,
-        const RoPETileShapeConfig &ropeTileShapeConfig, bool isQuant = false);
+    std::vector<Tensor> MlaPrologFoward(Tensor hiddenStates, Tensor positionIds, Tensor cos, Tensor sin, Tensor kvLen,
+        Tensor pastKeyStates, const RoPETileShapeConfig &ropeTileShapeConfig, bool isQuant = false);
 
 private:
     int layerIdx = 0;
@@ -184,7 +183,8 @@ public:
 
     Tensor Forward(Tensor x);
     Tensor Forward(Tensor x, Tensor ffnWeight1, Tensor ffnWeight2, Tensor ffnWeight3);
-    Tensor ForwardWithQuant(Tensor x, Tensor ffnWeight1, Tensor ffnWeight2, Tensor ffnWeight3, Tensor ffnwight1Scale, Tensor ffnwight2Scale,Tensor ffnwight3Scale);
+    Tensor ForwardWithQuant(Tensor x, Tensor ffnWeight1, Tensor ffnWeight2, Tensor ffnWeight3, Tensor ffnwight1Scale,
+        Tensor ffnwight2Scale, Tensor ffnwight3Scale);
 
 private:
     int hiddenSize = 0;
@@ -216,7 +216,7 @@ private:
     int topkGroup = 0;
     int numExpertsPerTok = 0;
 
-    Tensor weight;                  // [nRoutedExperts, hiddenSize]
+    Tensor weight;               // [nRoutedExperts, hiddenSize]
     Tensor eScoreCorrectionBias; // [nRoutedExperts]
 };
 
@@ -233,12 +233,14 @@ public:
         epRank = 0;
     }
 
-    Tensor MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2, Tensor ffnWeight3, int nRoutedExperts);
-    Tensor MoeInferSingleMlp(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2, Tensor ffnWeight3, int nRoutedExperts);
+    Tensor MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2,
+        Tensor ffnWeight3, int nRoutedExperts);
+    Tensor MoeInferSingleMlp(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2,
+        Tensor ffnWeight3, int nRoutedExperts);
     Tensor MoeInferSingleMlpQuant(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2,
-        Tensor ffnWeight3, Tensor ffnwight1Scale, Tensor ffnwight2Scale,Tensor ffnwight3Scale, int nRoutedExperts);
-    Tensor MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2, Tensor ffnWeight3,
-                        Tensor &idxs, Tensor &sortedTokens, Tensor &outs, int nRoutedExperts);
+        Tensor ffnWeight3, Tensor ffnwight1Scale, Tensor ffnwight2Scale, Tensor ffnwight3Scale, int nRoutedExperts);
+    Tensor MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2,
+        Tensor ffnWeight3, Tensor &idxs, Tensor &sortedTokens, Tensor &outs, int nRoutedExperts);
     Tensor MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, int nRoutedExperts = 256);
     Tensor Forward(Tensor hiddenStates);
 
@@ -246,7 +248,8 @@ private:
     int numExpertsPerTok = 0;
     int epSize = 0;
     int expertsPerRank = 0;
-    int epRank = 0;;
+    int epRank = 0;
+    ;
     DeepseekV2MLP expert;
     MoEGate moeGate;
     DeepseekV2MLP sharedExpert;

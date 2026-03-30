@@ -96,15 +96,17 @@ void TiledBitwiseShiftOperation(Function &function, const TileShape &tileShape, 
         input1.tileInfo.offset[cur] = i % input1.tensor->GetShape()[cur];
         input2.tileInfo.offset[cur] = i % input2.tensor->GetShape()[cur];
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
-        input1.tileInfo.shape[cur] = std::min(input1.tensor->GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
-        input2.tileInfo.shape[cur] = std::min(input2.tensor->GetShape()[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
+        input1.tileInfo.shape[cur] =
+            std::min(input1.tensor->GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
+        input2.tileInfo.shape[cur] =
+            std::min(input2.tensor->GetShape()[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
         TiledBitwiseShiftOperation<T>(function, tileShape, cur + 1, input1, input2, result, resultTileInfo);
     }
 }
 
-
 template <BitwiseShiftOpType T>
-void TiledBitwiseShiftOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1, LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
+void TiledBitwiseShiftOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1,
+    LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
     CheckBinOpOperandsValid(operand1, operand2);
     BroadcastOperandTensor(operand1, operand2, result, function, tileShape);
     BroadcastOperandTensor(operand2, operand1, result, function, tileShape);
@@ -141,7 +143,8 @@ LogicalTensorPtr TensorBitwiseShiftOperation(Function &function, const Tensor &s
             }
         }
     }
-    auto result = std::make_shared<LogicalTensor>(function, operand1->Datatype(), resultShape, resultValidShape, operand1->Format());
+    auto result = std::make_shared<LogicalTensor>(
+        function, operand1->Datatype(), resultShape, resultValidShape, operand1->Format());
     function.AddOperation(GetBitwiseShiftOpNameCode<T>(), {operand1, operand2}, {result});
     return result;
 }
@@ -162,8 +165,7 @@ void TiledBitwiseShiftOperationScalar(Function &function, const TileShape &tileS
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
         self.tileInfo.offset[cur] = i % self.tensor->GetShape()[cur];
-        self.tileInfo.shape[cur] =
-            std::min(self.tensor->GetShape()[cur] - self.tileInfo.offset[cur], vecTile[cur]);
+        self.tileInfo.shape[cur] = std::min(self.tensor->GetShape()[cur] - self.tileInfo.offset[cur], vecTile[cur]);
 
         TiledBitwiseShiftOperationScalar<T>(
             function, tileShape, cur + 1, self, value, result, resultTileInfo, reverseOperand);
@@ -180,7 +182,8 @@ void TiledBitwiseShiftOperationScalar(Function &function, const TileShape &tileS
 }
 
 template <BitwiseShiftOpType T>
-LogicalTensorPtr TensorBitwiseShiftOperationScalar(Function &function, const LogicalTensorPtr& self, const Element &other) {
+LogicalTensorPtr TensorBitwiseShiftOperationScalar(
+    Function &function, const LogicalTensorPtr &self, const Element &other) {
     auto opName = GetBitwiseShiftOpName<T>();
     CheckTensorShape(self, opName);
     auto result = std::make_shared<LogicalTensor>(function, self->Datatype(), self->shape, self->GetDynValidShape());
@@ -211,8 +214,7 @@ void TiledBitwiseShiftOperationSelfScalar(Function &function, const TileShape &t
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
         other.tileInfo.offset[cur] = i % other.tensor->GetShape()[cur];
-        other.tileInfo.shape[cur] =
-            std::min(other.tensor->GetShape()[cur] - other.tileInfo.offset[cur], vecTile[cur]);
+        other.tileInfo.shape[cur] = std::min(other.tensor->GetShape()[cur] - other.tileInfo.offset[cur], vecTile[cur]);
 
         TiledBitwiseShiftOperationSelfScalar<T>(
             function, tileShape, cur + 1, value, other, result, resultTileInfo, reverseOperand);
@@ -220,16 +222,18 @@ void TiledBitwiseShiftOperationSelfScalar(Function &function, const TileShape &t
 }
 
 template <BitwiseShiftOpType T>
-void TiledBitwiseShiftOperationSelfScalar(Function &function, const TileShape &tileShape, Element value, LogicalTensorPtr operand,
-    const LogicalTensorPtr &result, bool reverseOperand = false) {
+void TiledBitwiseShiftOperationSelfScalar(Function &function, const TileShape &tileShape, Element value,
+    LogicalTensorPtr operand, const LogicalTensorPtr &result, bool reverseOperand = false) {
     TileInfo tileInfo(result->shape.size(), result->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
     auto other = LogicalInput{operand, tileInfo};
-    TiledBitwiseShiftOperationSelfScalar<T>(function, tileShape, 0, value, other, result, resultTileInfo, reverseOperand);
+    TiledBitwiseShiftOperationSelfScalar<T>(
+        function, tileShape, 0, value, other, result, resultTileInfo, reverseOperand);
 }
 
 template <BitwiseShiftOpType T>
-LogicalTensorPtr TensorBitwiseShiftOperationSelfScalar(Function &function, const Element &self, const LogicalTensorPtr& other) {
+LogicalTensorPtr TensorBitwiseShiftOperationSelfScalar(
+    Function &function, const Element &self, const LogicalTensorPtr &other) {
     auto opName = GetBitwiseShiftOpName<T>();
     CheckTensorShape(other, opName);
     auto result = std::make_shared<LogicalTensor>(function, other->Datatype(), other->shape, other->GetDynValidShape());
@@ -241,7 +245,8 @@ LogicalTensorPtr TensorBitwiseShiftOperationSelfScalar(Function &function, const
 Tensor BitwiseRightShift(const Tensor &self, const Tensor &other) {
     DECLARE_TRACER();
     CheckBitwiseShiftDtype(self.GetDataType(), other.GetDataType());
-    RETURN_CALL(BitwiseShiftOperation<BitwiseShiftOpType::BITWISERIGHTSHIFT>, *Program::GetInstance().GetCurrentFunction(), self, other);
+    RETURN_CALL(BitwiseShiftOperation<BitwiseShiftOpType::BITWISERIGHTSHIFT>,
+        *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
 Tensor BitwiseRightShift(const Tensor &self, const Element &other) {
@@ -251,7 +256,8 @@ Tensor BitwiseRightShift(const Tensor &self, const Element &other) {
     if (self.GetDataType() != other.GetDataType()) {
         newOther = Element(self.GetDataType(), other.Cast<int32_t>());
     }
-    RETURN_CALL(BitwiseShiftOperationScalar<BitwiseShiftOpType::BITWISERIGHTSHIFT>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), newOther);
+    RETURN_CALL(BitwiseShiftOperationScalar<BitwiseShiftOpType::BITWISERIGHTSHIFT>,
+        *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), newOther);
 }
 
 Tensor BitwiseRightShift(const Element &self, const Tensor &other) {
@@ -261,12 +267,14 @@ Tensor BitwiseRightShift(const Element &self, const Tensor &other) {
     if (self.GetDataType() != other.GetDataType()) {
         newSelf = Element(other.GetDataType(), self.Cast<int32_t>());
     }
-    RETURN_CALL(BitwiseShiftOperationSelfScalar<BitwiseShiftOpType::SBITWISERIGHTSHIFT>, *Program::GetInstance().GetCurrentFunction(), newSelf, other.GetStorage());
+    RETURN_CALL(BitwiseShiftOperationSelfScalar<BitwiseShiftOpType::SBITWISERIGHTSHIFT>,
+        *Program::GetInstance().GetCurrentFunction(), newSelf, other.GetStorage());
 }
 Tensor BitwiseLeftShift(const Tensor &self, const Tensor &other) {
     DECLARE_TRACER();
     CheckBitwiseShiftDtype(self.GetDataType(), other.GetDataType());
-    RETURN_CALL(BitwiseShiftOperation<BitwiseShiftOpType::BITWISELEFTSHIFT>, *Program::GetInstance().GetCurrentFunction(), self, other);
+    RETURN_CALL(BitwiseShiftOperation<BitwiseShiftOpType::BITWISELEFTSHIFT>,
+        *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
 Tensor BitwiseLeftShift(const Tensor &self, const Element &other) {
@@ -276,7 +284,8 @@ Tensor BitwiseLeftShift(const Tensor &self, const Element &other) {
     if (self.GetDataType() != other.GetDataType()) {
         newOther = Element(self.GetDataType(), other.Cast<int32_t>());
     }
-    RETURN_CALL(BitwiseShiftOperationScalar<BitwiseShiftOpType::BITWISELEFTSHIFT>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), newOther);
+    RETURN_CALL(BitwiseShiftOperationScalar<BitwiseShiftOpType::BITWISELEFTSHIFT>,
+        *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), newOther);
 }
 
 Tensor BitwiseLeftShift(const Element &self, const Tensor &other) {
@@ -286,7 +295,8 @@ Tensor BitwiseLeftShift(const Element &self, const Tensor &other) {
     if (self.GetDataType() != other.GetDataType()) {
         newSelf = Element(other.GetDataType(), self.Cast<int32_t>());
     }
-    RETURN_CALL(BitwiseShiftOperationSelfScalar<BitwiseShiftOpType::SBITWISELEFTSHIFT>, *Program::GetInstance().GetCurrentFunction(), newSelf, other.GetStorage());
+    RETURN_CALL(BitwiseShiftOperationSelfScalar<BitwiseShiftOpType::SBITWISELEFTSHIFT>,
+        *Program::GetInstance().GetCurrentFunction(), newSelf, other.GetStorage());
 }
 
 template <BitwiseShiftOpType T>
@@ -301,22 +311,30 @@ template <BitwiseShiftOpType T>
 void BitwiseShiftOperationScalarTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
     [[maybe_unused]] const Operation &op) {
-    TiledBitwiseShiftOperationScalar<T>(function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0]);
+    TiledBitwiseShiftOperationScalar<T>(
+        function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0]);
 }
 
 template <BitwiseShiftOpType T>
 void BitwiseShiftOperationSelfScalarTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
     [[maybe_unused]] const Operation &op) {
-    TiledBitwiseShiftOperationSelfScalar<T>(function, tileShape, op.GetElementAttribute(OpAttributeKey::scalar), iOperand[0], oOperand[0]);
+    TiledBitwiseShiftOperationSelfScalar<T>(
+        function, tileShape, op.GetElementAttribute(OpAttributeKey::scalar), iOperand[0], oOperand[0]);
 }
 
-REGISTER_OPERATION_TILED_FUNC(OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISERIGHTSHIFT, BitwiseShiftOperationTileFunc<BitwiseShiftOpType::BITWISERIGHTSHIFT>);
-REGISTER_OPERATION_TILED_FUNC(OP_BITWISELEFTSHIFT, Opcode::OP_BITWISELEFTSHIFT, BitwiseShiftOperationTileFunc<BitwiseShiftOpType::BITWISELEFTSHIFT>);
+REGISTER_OPERATION_TILED_FUNC(OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISERIGHTSHIFT,
+    BitwiseShiftOperationTileFunc<BitwiseShiftOpType::BITWISERIGHTSHIFT>);
+REGISTER_OPERATION_TILED_FUNC(OP_BITWISELEFTSHIFT, Opcode::OP_BITWISELEFTSHIFT,
+    BitwiseShiftOperationTileFunc<BitwiseShiftOpType::BITWISELEFTSHIFT>);
 
-REGISTER_OPERATION_TILED_FUNC(OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISERIGHTSHIFTS, BitwiseShiftOperationScalarTileFunc<BitwiseShiftOpType::BITWISERIGHTSHIFT>);
-REGISTER_OPERATION_TILED_FUNC(OP_BITWISELEFTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS, BitwiseShiftOperationScalarTileFunc<BitwiseShiftOpType::BITWISELEFTSHIFT>);
+REGISTER_OPERATION_TILED_FUNC(OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISERIGHTSHIFTS,
+    BitwiseShiftOperationScalarTileFunc<BitwiseShiftOpType::BITWISERIGHTSHIFT>);
+REGISTER_OPERATION_TILED_FUNC(OP_BITWISELEFTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS,
+    BitwiseShiftOperationScalarTileFunc<BitwiseShiftOpType::BITWISELEFTSHIFT>);
 
-REGISTER_OPERATION_TILED_FUNC(OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISERIGHTSHIFT, BitwiseShiftOperationSelfScalarTileFunc<BitwiseShiftOpType::SBITWISERIGHTSHIFT>);
-REGISTER_OPERATION_TILED_FUNC(OP_SBITWISELEFTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, BitwiseShiftOperationSelfScalarTileFunc<BitwiseShiftOpType::SBITWISELEFTSHIFT>);
+REGISTER_OPERATION_TILED_FUNC(OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISERIGHTSHIFT,
+    BitwiseShiftOperationSelfScalarTileFunc<BitwiseShiftOpType::SBITWISERIGHTSHIFT>);
+REGISTER_OPERATION_TILED_FUNC(OP_SBITWISELEFTSHIFT, Opcode::OP_SBITWISELEFTSHIFT,
+    BitwiseShiftOperationSelfScalarTileFunc<BitwiseShiftOpType::SBITWISELEFTSHIFT>);
 } // namespace npu::tile_fwk

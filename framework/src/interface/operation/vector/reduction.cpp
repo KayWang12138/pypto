@@ -187,8 +187,9 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
                     newOp.SetAttribute(OP_ATTR_PREFIX + "AXIS", axis);
                 } else {
                     tmpShape[0] = (op == "ARGMAX" || op == "ARGMIN") ? 1 : (sourceReg->shape[axis] + 1) / NUM2;
-                    tmpShape[1] = (op == "ARGMAX" || op == "ARGMIN") ? REPEAT_BYTE / BytesOf(in->Datatype()) * NUM3 :
-                        (sourceReg->shape[in->shape.size() - 1] + BLOCK_NUM - 1) / BLOCK_NUM * BLOCK_NUM;
+                    tmpShape[1] = (op == "ARGMAX" || op == "ARGMIN") ?
+                                      REPEAT_BYTE / BytesOf(in->Datatype()) * NUM3 :
+                                      (sourceReg->shape[in->shape.size() - 1] + BLOCK_NUM - 1) / BLOCK_NUM * BLOCK_NUM;
                     auto tempTensor = std::make_shared<LogicalTensor>(function, in->Datatype(), tmpShape);
                     tempTensor->dynValidShape_ = SymbolicScalar::FromConcrete(tmpShape);
                     auto &newOp = function.AddOperation("TILE_ROW" + op + "LINE", {sourceReg}, {result, tempTensor});
@@ -230,8 +231,8 @@ void ReduceSingle(size_t cur, const std::string &op, Input &input, const Logical
 void TiledReduceSingle(Function &function, const TileShape &tileShape, const std::string &op,
     const LogicalTensorPtr &operand, const LogicalTensorPtr &result, int axis) {
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, op == "MAX" || op == "MIN" || op == "SUM" || op == "PROD" ||
-                                               op == "ARGMAX" || op == "ARGMIN" ||
-                                               op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS")
+                                                   op == "ARGMAX" || op == "ARGMIN" || op == "MAX_COMBINE_AXIS" ||
+                                                   op == "SUM_COMBINE_AXIS")
         << "Not support op:" << op;
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand->shape.size() == operand->offset.size())
         << "The shape size of operand and offset should be equal";
@@ -254,8 +255,8 @@ void TiledReduceSingle(Function &function, const TileShape &tileShape, const std
 [[maybe_unused]] void TensorReduceSingle(
     Function &function, const std::string &op, const Tensor &operand, Tensor &result, int axis) {
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, op == "MAX" || op == "MIN" || op == "SUM" || op == "PROD" ||
-                                            op == "ARGMAX" || op == "ARGMIN" ||
-                                            op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS")
+                                                   op == "ARGMAX" || op == "ARGMIN" || op == "MAX_COMBINE_AXIS" ||
+                                                   op == "SUM_COMBINE_AXIS")
         << "Not support op:" << op;
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand.GetShape().size() == operand.GetStorage()->offset.size())
         << "The shape size of operand and offset should be equal";

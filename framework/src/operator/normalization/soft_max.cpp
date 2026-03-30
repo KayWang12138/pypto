@@ -58,7 +58,7 @@ void SoftmaxDynamicCompute(Tensor &input, Tensor &output) {
     int n1 = input.GetShape()[1];
     int n2 = input.GetShape()[2];
     int dim = input.GetShape()[3];
-    //设置Loop处理的batch大小及循环次数
+    // 设置Loop处理的batch大小及循环次数
     int tileB = 1;
     SymbolicScalar bLoop = b / tileB;
     // 定义循环，用于处理每个batch块，每个batch块为(1, 32, 1, 256)

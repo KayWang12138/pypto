@@ -136,7 +136,8 @@ class BitwiseNotOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops
 
 INSTANTIATE_TEST_SUITE_P(TestBitwiseNot, BitwiseNotOperationTest,
     ::testing::ValuesIn(GetOpMetaData<BitwiseNotOpMetaData>(
-        {BitwiseNotOperationExeFunc2Dims, BitwiseNotOperationExeFunc3Dims, BitwiseNotOperationExeFunc4Dims}, "BitwiseNot")));
+        {BitwiseNotOperationExeFunc2Dims, BitwiseNotOperationExeFunc3Dims, BitwiseNotOperationExeFunc4Dims},
+        "BitwiseNot")));
 
 TEST_P(BitwiseNotOperationTest, TestBitwiseNot) {
     auto test_data = GetParam().test_data_;

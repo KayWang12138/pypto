@@ -25,26 +25,25 @@ namespace {
 
 std::vector<int32_t> InitializeShmemSignal(std::vector<uint32_t> shmemSignalRawShape,
     std::vector<uint32_t> shmemSignalOffset, std::vector<uint32_t> tileShape, uint32_t shmemSignalStride,
-    int32_t expectedValue)
-{
+    int32_t expectedValue) {
     uint32_t tileRowNum = (shmemSignalRawShape[3] + tileShape[0] - 1) / tileShape[0];
     uint32_t tileColNum = (shmemSignalRawShape[4] + tileShape[1] - 1) / tileShape[1];
     uint32_t tileRowIndex = shmemSignalOffset[3] / tileShape[0];
     uint32_t tileColIndex = shmemSignalOffset[4] / tileShape[1];
     uint32_t totalTileNum = tileRowNum * tileColNum;
     uint32_t tileIndex = tileRowIndex * tileColNum + tileColIndex;
-    uint32_t size = std::accumulate(shmemSignalRawShape.begin() + 1, shmemSignalRawShape.end(), 1,
-        std::multiplies<uint32_t>());
+    uint32_t size =
+        std::accumulate(shmemSignalRawShape.begin() + 1, shmemSignalRawShape.end(), 1, std::multiplies<uint32_t>());
     std::vector<int32_t> shmemSignal(size, 0);
-    uint32_t index = (shmemSignalOffset[1] * shmemSignalRawShape[2] * totalTileNum + shmemSignalOffset[2] *
-        totalTileNum + tileIndex) * shmemSignalStride;
+    uint32_t index = (shmemSignalOffset[1] * shmemSignalRawShape[2] * totalTileNum +
+                         shmemSignalOffset[2] * totalTileNum + tileIndex) *
+                     shmemSignalStride;
     shmemSignal[index] = expectedValue;
     return shmemSignal;
 }
 
 auto InitializeAicpuCode(std::vector<uint32_t> shmemSignalRawShape, std::vector<uint32_t> tileShape,
-    uint32_t shmemSignalStride, int32_t expectedValue, uint32_t shmemSignalAttrOffset)
-{
+    uint32_t shmemSignalStride, int32_t expectedValue, uint32_t shmemSignalAttrOffset) {
     std::vector<uint32_t> shmemSignalShape = shmemSignalRawShape;
     constexpr size_t codeSize = 26;
     uint32_t paramSizePerOperand = 2; // 每个 operand 都保存 dim 和 attrOffset，总共 2 个 param
@@ -73,15 +72,15 @@ auto InitializeAicpuCode(std::vector<uint32_t> shmemSignalRawShape, std::vector<
     return std::make_tuple(std::move(data), std::move(aicpuCode));
 }
 
-auto InitializeTaskData(npu::tile_fwk::dynamic::DynDeviceTask* task) {
+auto InitializeTaskData(npu::tile_fwk::dynamic::DynDeviceTask *task) {
     size_t headerSize = sizeof(npu::tile_fwk::DynFuncHeader);
     size_t dataSize = sizeof(npu::tile_fwk::DynFuncData);
-    std::unique_ptr<void, decltype(&free)> buffer(malloc(headerSize + dataSize +
-        sizeof(npu::tile_fwk::DevStartArgsBase) + sizeof(int64_t)), free);
-    auto* header = new(buffer.get())npu::tile_fwk::DynFuncHeader();
-    auto* funcData = new(header + 1)npu::tile_fwk::DynFuncData();
-    auto* startArgs = new(funcData + 1)npu::tile_fwk::DevStartArgsBase();
-    auto* commContext = new(startArgs + 1)int64_t;
+    std::unique_ptr<void, decltype(&free)> buffer(
+        malloc(headerSize + dataSize + sizeof(npu::tile_fwk::DevStartArgsBase) + sizeof(int64_t)), free);
+    auto *header = new (buffer.get()) npu::tile_fwk::DynFuncHeader();
+    auto *funcData = new (header + 1) npu::tile_fwk::DynFuncData();
+    auto *startArgs = new (funcData + 1) npu::tile_fwk::DevStartArgsBase();
+    auto *commContext = new (startArgs + 1) int64_t;
     startArgs->commContexts = commContext;
     funcData->startArgs = startArgs;
 
@@ -94,7 +93,7 @@ auto InitializeTaskData(npu::tile_fwk::dynamic::DynDeviceTask* task) {
     return std::make_tuple(std::move(buffer), funcData);
 }
 
-auto ConfigureFuncData(npu::tile_fwk::DynFuncData* funcData, uint64_t rawAddr) {
+auto ConfigureFuncData(npu::tile_fwk::DynFuncData *funcData, uint64_t rawAddr) {
     constexpr size_t exprTblSize = 50;
     auto exprTbl = std::make_unique<uint64_t[]>(exprTblSize);
     funcData->exprTbl = exprTbl.get();
@@ -115,9 +114,8 @@ auto ConfigureFuncData(npu::tile_fwk::DynFuncData* funcData, uint64_t rawAddr) {
     auto opAttrs = std::make_unique<uint64_t[]>(opAttrsLength);
     std::fill_n(opAttrs.get(), opAttrsLength, 0);
 
-    return std::make_tuple(std::move(exprTbl), std::move(hcclParam),
-                          std::move(rawTensorAddrHolder), std::move(rawTensorDescHolder),
-                          std::move(opAttrs));
+    return std::make_tuple(std::move(exprTbl), std::move(hcclParam), std::move(rawTensorAddrHolder),
+        std::move(rawTensorDescHolder), std::move(opAttrs));
 }
 
 auto InitializeTestEnvironment() {
@@ -125,18 +123,18 @@ auto InitializeTestEnvironment() {
     uint32_t shmemSignalRawShape2 = 1;
     uint32_t shmemSignalRawShape3 = 64;
     uint32_t shmemSignalRawShape4 = 5120;
-    std::vector<uint32_t> shmemSignalRawShape{worldSize, worldSize, shmemSignalRawShape2, shmemSignalRawShape3,
-        shmemSignalRawShape4};
+    std::vector<uint32_t> shmemSignalRawShape{
+        worldSize, worldSize, shmemSignalRawShape2, shmemSignalRawShape3, shmemSignalRawShape4};
     std::vector<uint32_t> shmemSignalOffset(shmemSignalRawShape.size());
     std::vector<uint32_t> tileShape{1, shmemSignalRawShape4};
     uint32_t shmemSignalStride = 8;
     int32_t expectedValue = 8;
-    std::vector<int32_t> rawAddr = InitializeShmemSignal(shmemSignalRawShape, shmemSignalOffset, tileShape,
-        shmemSignalStride, expectedValue);
+    std::vector<int32_t> rawAddr =
+        InitializeShmemSignal(shmemSignalRawShape, shmemSignalOffset, tileShape, shmemSignalStride, expectedValue);
 
     uint32_t shmemSignalAttrOffset = 0;
-    auto [data, aicpuCode] = InitializeAicpuCode(shmemSignalRawShape, tileShape, shmemSignalStride, expectedValue,
-        shmemSignalAttrOffset);
+    auto [data, aicpuCode] =
+        InitializeAicpuCode(shmemSignalRawShape, tileShape, shmemSignalStride, expectedValue, shmemSignalAttrOffset);
 
     auto allocator = std::make_unique<npu::tile_fwk::dynamic::DeviceWorkspaceAllocator>();
     auto task = std::make_unique<npu::tile_fwk::dynamic::DynDeviceTask>(*allocator);
@@ -148,14 +146,14 @@ auto InitializeTestEnvironment() {
         ConfigureFuncData(funcData, reinterpret_cast<uint64_t>(rawAddr.data()));
     shmemWaitUntil->Init(task.get());
     return std::make_tuple(std::move(rawAddr), std::move(data), std::move(allocator), std::move(task),
-                          std::move(shmemWaitUntil), std::move(buffer), std::move(exprTbl), std::move(hcclParam),
-                          std::move(rawTensorAddrHolder), std::move(rawTensorDescHolder), std::move(opAttrs),
-                          std::move(aicpuCode), funcData);
+        std::move(shmemWaitUntil), std::move(buffer), std::move(exprTbl), std::move(hcclParam),
+        std::move(rawTensorAddrHolder), std::move(rawTensorDescHolder), std::move(opAttrs), std::move(aicpuCode),
+        funcData);
 }
 
-void PrepareTasks(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntilImpl* shmemWaitUntil,
-    const npu::tile_fwk::dynamic::DevRelocVector<int32_t>& aicpuCode, npu::tile_fwk::DynFuncData* funcData,
-    uint64_t* opAttrsPtr) {
+void PrepareTasks(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntilImpl *shmemWaitUntil,
+    const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode, npu::tile_fwk::DynFuncData *funcData,
+    uint64_t *opAttrsPtr) {
     constexpr size_t opAttrsLength = 17;
     std::vector<std::unique_ptr<int32_t[]>> opAtrrOffsetsHolder;
     std::vector<std::unique_ptr<uint64_t[]>> opAttrsCopyHolder;
@@ -177,8 +175,8 @@ void PrepareTasks(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUnt
     }
 }
 
-void RunTests(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntilImpl* shmemWaitUntil) {
-    TaskStat* taskStat{nullptr};
+void RunTests(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntilImpl *shmemWaitUntil) {
+    TaskStat *taskStat{nullptr};
     for (uint32_t taskId = 0; taskId < tileOpCount; ++taskId) {
         shmemWaitUntil->EnqueueOp(taskId, taskStat);
         shmemWaitUntil->PollCompleted(nullptr);
@@ -186,8 +184,8 @@ void RunTests(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntilIm
 }
 
 void TestShmemWaitUntil(const uint32_t tileOpCount) {
-    auto [rawAddr, data, allocator, task, shmemWaitUntil, buffer, exprTbl, hcclParam,
-          rawTensorAddrHolder, rawTensorDescHolder, opAttrs, aicpuCode, funcData] = InitializeTestEnvironment();
+    auto [rawAddr, data, allocator, task, shmemWaitUntil, buffer, exprTbl, hcclParam, rawTensorAddrHolder,
+        rawTensorDescHolder, opAttrs, aicpuCode, funcData] = InitializeTestEnvironment();
 
     PrepareTasks(tileOpCount, shmemWaitUntil.get(), aicpuCode, funcData, opAttrs.get());
 

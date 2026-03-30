@@ -53,9 +53,8 @@ void TestCodegenIsFiniteBody() {
     std::vector<int64_t> vecTileShape = {5, 9};
     std::vector<int64_t> shape{12, 14};
 
-    auto function = GenMockFuncDynUnary("IsFinite", {shape, vecTileShape}, [](Tensor &input, Tensor &output) {
-        output = IsFinite(input);
-    });
+    auto function = GenMockFuncDynUnary(
+        "IsFinite", {shape, vecTileShape}, [](Tensor &input, Tensor &output) { output = IsFinite(input); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

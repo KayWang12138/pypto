@@ -34,39 +34,23 @@ inline uint64_t CeilAlign(uint64_t a, int b) {
     return ((a + b - 1) / b) * b;
 }
 
-inline bool IsViewOp(const Operation& op) {
+inline bool IsViewOp(const Operation &op) {
     const auto opc = op.GetOpcode();
     return opc == Opcode::OP_VIEW || opc == Opcode::OP_VIEW_TYPE;
 }
 
 using LocalBufferPtr = std::shared_ptr<LocalBuffer>;
 
-const std::unordered_set<Opcode> USE_LESS_OPS = {
-    Opcode::OP_NOP,
-    Opcode::OP_RESHAPE,
-    Opcode::OP_VIEW,
-    Opcode::OP_ASSEMBLE,
-    Opcode::OP_SHMEM_WAIT_UNTIL,
-    Opcode::OP_BIND_TENSOR,
-    Opcode::OP_VIEW_TYPE,
-    Opcode::OP_HUB
-};
+const std::unordered_set<Opcode> USE_LESS_OPS = {Opcode::OP_NOP, Opcode::OP_RESHAPE, Opcode::OP_VIEW,
+    Opcode::OP_ASSEMBLE, Opcode::OP_SHMEM_WAIT_UNTIL, Opcode::OP_BIND_TENSOR, Opcode::OP_VIEW_TYPE, Opcode::OP_HUB};
 
-const std::unordered_set<Opcode> COPY_IN_OPS = {
-    Opcode::OP_COPY_IN,
-    Opcode::OP_UB_COPY_IN,
-    Opcode::OP_L1_COPY_IN,
-    Opcode::OP_L1_COPY_IN_FRACTAL_Z,
-    Opcode::OP_L1_COPY_IN_DMA,
-    Opcode::OP_L1_COPY_UB,
-    Opcode::OP_L0C_COPY_UB,
-    Opcode::OP_UB_COPY_L1,
-    Opcode::OP_UB_COPY_L1_ND
-};
+const std::unordered_set<Opcode> COPY_IN_OPS = {Opcode::OP_COPY_IN, Opcode::OP_UB_COPY_IN, Opcode::OP_L1_COPY_IN,
+    Opcode::OP_L1_COPY_IN_FRACTAL_Z, Opcode::OP_L1_COPY_IN_DMA, Opcode::OP_L1_COPY_UB, Opcode::OP_L0C_COPY_UB,
+    Opcode::OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1_ND};
 
 const std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS_HARDWARE_TWO = {
     {OpCoreType::AIV, {0, 1}},
-    {OpCoreType::AIC, {0}}
+    {OpCoreType::AIC,    {0}}
 };
 
 const std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS_HARDWARE_ONE = {
@@ -74,7 +58,7 @@ const std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS_HARDWAR
     {OpCoreType::AIC, {0}}
 };
 
-const std::unordered_map<OpCoreType, std::pair<OpCoreType, int>> opCoreTypeMap {
+const std::unordered_map<OpCoreType, std::pair<OpCoreType, int>> opCoreTypeMap{
     {OpCoreType::AIV, std::make_pair(OpCoreType::AIV, 0)},
     {OpCoreType::AIC, std::make_pair(OpCoreType::AIC, 0)}
 };
@@ -86,7 +70,7 @@ struct IssueEntry {
     PipeType type{PipeType::PIPE_ALL};
     bool isAlloc{false};
     bool isRetired{false};
-    std::vector<Operation*> viewOps;
+    std::vector<Operation *> viewOps;
     std::pair<OpCoreType, int> coreLocation;
 
     // 当前op的前序op
@@ -102,10 +86,10 @@ struct IssueEntry {
     void Clear();
     int GetOOperandIdx(int curMemId);
     void UpdateTensorInput(std::shared_ptr<IssueEntry> &spillSrcIssue, LogicalTensorPtr tensor) const;
-    void UpdateTensorInputForOperand(size_t index, std::shared_ptr<IssueEntry> &spillSrcIssue,
-        LogicalTensorPtr tensor) const;
-    void UpdateTensorInputForView(Operation& op, std::shared_ptr<IssueEntry> &spillSrcIssue,
-        LogicalTensorPtr tensor) const;
+    void UpdateTensorInputForOperand(
+        size_t index, std::shared_ptr<IssueEntry> &spillSrcIssue, LogicalTensorPtr tensor) const;
+    void UpdateTensorInputForView(
+        Operation &op, std::shared_ptr<IssueEntry> &spillSrcIssue, LogicalTensorPtr tensor) const;
     std::string GetOpInfo();
 };
 
@@ -122,22 +106,17 @@ struct IssueQueue {
 
     void Insert(IssueEntryPtr op) {
         queue.push_back(op);
-        std::push_heap(queue.begin(), queue.end(),
-            [](IssueEntryPtr &a, IssueEntryPtr &b) { return a->execOrder > b->execOrder; });
+        std::push_heap(
+            queue.begin(), queue.end(), [](IssueEntryPtr &a, IssueEntryPtr &b) { return a->execOrder > b->execOrder; });
     }
 
-    bool Empty() {
-        return queue.size() == 0;
-    }
+    bool Empty() { return queue.size() == 0; }
 
-    IssueEntryPtr Front() {
-        return queue[0];
-    }
+    IssueEntryPtr Front() { return queue[0]; }
 
     IssueEntryPtr PopFront() {
-        std::pop_heap(queue.begin(), queue.end(), [](IssueEntryPtr& a, IssueEntryPtr& b){
-            return a->execOrder > b->execOrder;
-        });
+        std::pop_heap(
+            queue.begin(), queue.end(), [](IssueEntryPtr &a, IssueEntryPtr &b) { return a->execOrder > b->execOrder; });
         IssueEntryPtr op = queue.back();
         queue.pop_back();
         return op;
@@ -203,16 +182,18 @@ private:
     int GetMaxDepthSimple(IssueEntryPtr issue);
     // scheduler
     Status Init(const std::vector<Operation *> &operations,
-        const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap = std::unordered_map<Operation*, std::pair<OpCoreType, int>>(),
+        const std::unordered_map<Operation *, std::pair<OpCoreType, int>> &opCoreMap =
+            std::unordered_map<Operation *, std::pair<OpCoreType, int>>(),
         const std::unordered_map<OpCoreType, std::vector<int>> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
-    Status InitIssueEntry(Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
+    Status InitIssueEntry(Operation *op, const std::unordered_map<Operation *, std::pair<OpCoreType, int>> &opCoreMap);
     void InitCoreConfig(const std::vector<Operation *> &operations);
-    Status InitIssueCoreType(IssueEntryPtr issue, Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
+    Status InitIssueCoreType(IssueEntryPtr issue, Operation *op,
+        const std::unordered_map<Operation *, std::pair<OpCoreType, int>> &opCoreMap);
     Status CheckOpBufferSize(Operation *op);
     std::string dumpOpInfo(Operation &op);
     Status CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap);
     Status InitDependencies();
-    void FindDependencies(IssueEntryPtr issue, std::unordered_map<Operation*, IssueEntryPtr> &op2IssueEntryMap);
+    void FindDependencies(IssueEntryPtr issue, std::unordered_map<Operation *, IssueEntryPtr> &op2IssueEntryMap);
     void AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue, bool isAlloc);
     Status InitAllocDependencies(IssueEntryPtr issue, std::unordered_map<int, IssueEntryPtr> &tensor2AllocMap);
     Status InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
@@ -226,18 +207,17 @@ private:
     Status GenSpillSchedule();
     Status ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx);
     Status RetireIssue(IssueEntryPtr issue);
-    bool IsInIssueEntries(Operation* op);
+    bool IsInIssueEntries(Operation *op);
     Status ScheduleMainLoop();
     void LaunchReadyIssue();
-    Status RetireCoreIssue(OpCoreType coreType, int idx, uint64_t& commitCnt, int& nextCycle);
-    Status RetireIssueStage(uint64_t& commitCnt, int& nextCycle);
-    Status RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitCnt);
+    Status RetireCoreIssue(OpCoreType coreType, int idx, uint64_t &commitCnt, int &nextCycle);
+    Status RetireIssueStage(uint64_t &commitCnt, int &nextCycle);
+    Status RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t &commitCnt);
     Status FreeBuffer(IssueEntryPtr issue);
-    Status BufferAllocStage(uint64_t& commitCnt);
-    Status ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType,
-        IssueQueue &pipe);
+    Status BufferAllocStage(uint64_t &commitCnt);
+    Status ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType, IssueQueue &pipe);
     void HandleViewOp(IssueEntryPtr issue);
-    Status LaunchIssueStage(int& nextCycle);
+    Status LaunchIssueStage(int &nextCycle);
     Status AllocTensorMemRange(IssueEntryPtr issue);
     Status AllocViewTensorMemRange(Operation &operation);
     Status SpillOnBlock();
@@ -257,45 +237,47 @@ private:
     Status SortOps();
     Status PriorDFS(std::unordered_map<Opcode, int> preNodePriority);
     int GetDepth(IssueEntryPtr issue);
-    Status DFSFromOutNode(std::vector<IssueEntryPtr> outNodeQueue,
-    std::unordered_map<Opcode, int> preNodePriority, std::map<IssueEntryPtr, bool> &visited);
-    void DFSFromSingleNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool>& visited,
-        std::vector<IssueEntryPtr>& newIssueEntries, std::unordered_map<Opcode, int> preNodePriority);
-    void ForwardDfs(IssueEntryPtr curIssue, std::vector<IssueEntryPtr>& newIssueEntries,
-        std::map<IssueEntryPtr, bool>& visited, std::unordered_map<Opcode, int> preNodePriority,
+    Status DFSFromOutNode(std::vector<IssueEntryPtr> outNodeQueue, std::unordered_map<Opcode, int> preNodePriority,
+        std::map<IssueEntryPtr, bool> &visited);
+    void DFSFromSingleNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool> &visited,
+        std::vector<IssueEntryPtr> &newIssueEntries, std::unordered_map<Opcode, int> preNodePriority);
+    void ForwardDfs(IssueEntryPtr curIssue, std::vector<IssueEntryPtr> &newIssueEntries,
+        std::map<IssueEntryPtr, bool> &visited, std::unordered_map<Opcode, int> preNodePriority,
         std::deque<IssueEntryPtr> &queue);
-    void QueueNotReadyPreNode(IssueEntryPtr curIssue, std::map<IssueEntryPtr, bool>& visited,
-    std::unordered_map<Opcode, int> preNodePriority, std::deque<IssueEntryPtr> &queue);
+    void QueueNotReadyPreNode(IssueEntryPtr curIssue, std::map<IssueEntryPtr, bool> &visited,
+        std::unordered_map<Opcode, int> preNodePriority, std::deque<IssueEntryPtr> &queue);
     int GetNodePriority(std::unordered_map<Opcode, int> preNodePriority, IssueEntryPtr issue);
     IssueEntryPtr FindNodeMinNumUnvisitedPreNode(
         std::map<IssueEntryPtr, bool> visited, std::vector<IssueEntryPtr> outNodeQueue);
-    int GetNumUnvisitPreNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool>& visited);
-    void UpdatePreNodeQueue(std::unordered_set<IssueEntryPtr> &curr,
-        std::unordered_set<IssueEntryPtr> &preNodeTotal, std::map<IssueEntryPtr, bool>& visited);
+    int GetNumUnvisitPreNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool> &visited);
+    void UpdatePreNodeQueue(std::unordered_set<IssueEntryPtr> &curr, std::unordered_set<IssueEntryPtr> &preNodeTotal,
+        std::map<IssueEntryPtr, bool> &visited);
 
-    Status RollBack(size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
-        std::map<MemoryType, int64_t> &curMemoryMap);
-    void GetListToAdvance(size_t rollBackIndex, size_t backTraceIndex,
-        std::vector<IssueEntryPtr> curIssueEntries, std::set<size_t> &AdvanceIndexList);
-    void ReplaceIndex(std::vector<IssueEntryPtr> &curIssueEntries,
-        std::set<size_t> AdvanceIndexList, size_t rollBackIndex);
+    Status RollBack(
+        size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap);
+    void GetListToAdvance(size_t rollBackIndex, size_t backTraceIndex, std::vector<IssueEntryPtr> curIssueEntries,
+        std::set<size_t> &AdvanceIndexList);
+    void ReplaceIndex(
+        std::vector<IssueEntryPtr> &curIssueEntries, std::set<size_t> AdvanceIndexList, size_t rollBackIndex);
     bool HasDependency(IssueEntryPtr rollBackIssue, IssueEntryPtr backIssue);
     void GetIssueIdx(IssueEntryPtr issue, size_t &index);
-    void GetPreNode(size_t i, std::vector<IssueEntryPtr> curIssueEntries, size_t rollBackIndex,
-    size_t backTraceIndex, std::set<size_t> &dependencyIndexList);
+    void GetPreNode(size_t i, std::vector<IssueEntryPtr> curIssueEntries, size_t rollBackIndex, size_t backTraceIndex,
+        std::set<size_t> &dependencyIndexList);
 
     Status LayerBasedDFS(int layerDepth);
 
     void ReorderIssue(std::vector<size_t> &preIdx, std::vector<IssueEntryPtr> &curIssueEntries, size_t startIndex);
     void FindIndex(IssueEntryPtr issue, std::vector<IssueEntryPtr> curIssueEntries, size_t &index);
-    Status FindConsumerList(size_t consumerIndex, std::vector<size_t> &preIssue, std::vector<IssueEntryPtr> &curIssueEntries);
-    Status UpdateOOperandPreDependence(size_t startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
-        std::vector<IssueEntryPtr> consumersGroup);
+    Status FindConsumerList(
+        size_t consumerIndex, std::vector<size_t> &preIssue, std::vector<IssueEntryPtr> &curIssueEntries);
+    Status UpdateOOperandPreDependence(
+        size_t startIndex, std::vector<IssueEntryPtr> &curIssueEntries, std::vector<IssueEntryPtr> consumersGroup);
     void RecoverSymbol(size_t startIndex, std::vector<IssueEntryPtr> curIssueEntries);
     void GetConsumerGroup(std::vector<IssueEntryPtr> consumers, std::vector<IssueEntryPtr> &consumersGroup);
-    void GetStackTop(size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap);
-    Status BacktraceOnMemoryExceeded(size_t &startIndex,
-        std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap);
+    void GetStackTop(
+        size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap);
+    Status BacktraceOnMemoryExceeded(
+        size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap);
     bool IsBufferFull(std::map<MemoryType, int64_t> curMemoryMap, MemoryType memType, int64_t size);
     Status ModifyBuffer(std::map<MemoryType, int64_t> &curMemoryMap, MemoryType memType, int64_t size, bool isAdd);
     Status RetireIssueBuffer(std::map<MemoryType, int64_t> &curMemoryMap, IssueEntryPtr issue);
@@ -303,17 +285,17 @@ private:
         std::map<MemoryType, int64_t> curMemoryMap);
     Status AllocExecute(IssueEntryPtr issue, std::vector<IssueEntryPtr> &curIssueEntries,
         std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex, bool &isContinue);
-    Status IssueEntriesExecute(std::vector<IssueEntryPtr> &curIssueEntries,
-        std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex);
+    Status IssueEntriesExecute(
+        std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex);
     Status ExecuteIssue();
 
     // gen spill
     Status GenSpillOp(size_t &pcIdx);
     Status GenBufferSpill(IssueEntryPtr allocIssue);
-    Status SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPtr issue,
-        std::vector<int> &spillGroup, bool isGenSpill);
-    Status GetGroupNextUseOrder(std::vector<int> group, IssueEntryPtr allocIssue,
-        std::vector<int> &groupNextUseTime, std::unordered_map<int, size_t> &nextUseTimeCache, bool isGenSpill);
+    Status SelectSpillBuffers(
+        LocalBufferPtr allocBuffer, IssueEntryPtr issue, std::vector<int> &spillGroup, bool isGenSpill);
+    Status GetGroupNextUseOrder(std::vector<int> group, IssueEntryPtr allocIssue, std::vector<int> &groupNextUseTime,
+        std::unordered_map<int, size_t> &nextUseTimeCache, bool isGenSpill);
     IssueEntryPtr GetSpillIssue(IssueEntryPtr allocIssue, int memId, bool isGenSpill);
     bool CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue);
     bool CheckParallelL0C2L1(IssueEntryPtr spillIssue);
@@ -324,15 +306,17 @@ private:
         LocalBufferPtr allocBuffer, bool isGenSpill);
     Status GetSpillInfo(IssueEntryPtr allocIssue, int spillMemId, bool isGenSpill, SpillInfo &spillInfo);
     Status GetSpillTensor(IssueEntryPtr spillIssue, int spillMemId, LogicalTensorPtr &spillTensor);
-    Status SpillBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, size_t &pcIdx,
-        LocalBufferPtr allocBuffer, bool isGenSpill);
+    Status SpillBuffer(
+        SpillInfo &spillInfo, IssueEntryPtr allocIssue, size_t &pcIdx, LocalBufferPtr allocBuffer, bool isGenSpill);
     Status SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, size_t &pcIdx, bool isGenSpill);
-    Status CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr &spillCopyout, int &bufLastUseOrder, bool &isFinish);
+    Status CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr &spillCopyout,
+        int &bufLastUseOrder, bool &isFinish);
     Status CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorPtr spillTensor, int spillMemId,
         IssueEntryPtr &spillCopyout, const SpillInfo &spillInfo);
     Status SpillInBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, MemoryType bufferType, bool isGenSpill);
     Status SpillInReshapeBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, bool isGenSpill);
-    Status SpillReshapeParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, LogicalTensorPtr reshapeTensor, bool isGenSpill);
+    Status SpillReshapeParticalBuffer(
+        SpillInfo &spillInfo, IssueEntryPtr allocIssue, LogicalTensorPtr reshapeTensor, bool isGenSpill);
     LogicalTensorPtr CreateReshapeL1Tensor(LogicalTensorPtr iOperand, LogicalTensorPtr reshapeTensor);
     Status UpdateReshapeDependAndBuf(IssueEntryPtr allocIssue, SpillInfo &spillInfo, LogicalTensorPtr reshapeTensor);
     Status CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor, LogicalTensorPtr spillTensor,
@@ -349,16 +333,17 @@ private:
     int GetBufNextUseOrder(IssueEntryPtr issue, int curMemId);
     int GetBufLastUseOrder(IssueEntryPtr issue, int curMemId);
     IssueEntryPtr GetBufLastWriteIssue(IssueEntryPtr issue, int curMemId);
-    OoOSchedulerCheck::SpillInfo RecordSpillInfo(MemoryType bufferType, int memId, LocalBufferPtr allocIssue,
-        LogicalTensorPtr spillOutTensor, bool needCopyOut);
+    OoOSchedulerCheck::SpillInfo RecordSpillInfo(
+        MemoryType bufferType, int memId, LocalBufferPtr allocIssue, LogicalTensorPtr spillOutTensor, bool needCopyOut);
     bool HasEnoughBuffer(IssueEntryPtr allocIssue, MemoryType memType);
     bool CanAllocateAll(std::vector<LocalBufferPtr> tensors, MemoryType memType);
     int GetMemidAllocPriority(int memId);
-    Status SpillAssembleBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, size_t &pcIdx,
-        LocalBufferPtr allocBuffer, bool isGenSpill);
+    Status SpillAssembleBuffer(
+        SpillInfo &spillInfo, IssueEntryPtr allocIssue, size_t &pcIdx, LocalBufferPtr allocBuffer, bool isGenSpill);
     Status SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr assemble,
         LogicalTensorPtr assembleTensor, bool &isFirst, bool isGenSpill);
-    IssueEntryPtr UpdateIssueAttr(Operation &newOp, std::vector<int> memIds, IssueEntryPtr allocIssue, int &bufNextUseOrder, bool isGenSpill);
+    IssueEntryPtr UpdateIssueAttr(
+        Operation &newOp, std::vector<int> memIds, IssueEntryPtr allocIssue, int &bufNextUseOrder, bool isGenSpill);
     Status FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vector<IssueEntryPtr> &assembleList);
     Status UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr allocBuffer, LogicalTensorPtr assembleTensor);
     LogicalTensorPtr CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
@@ -369,19 +354,24 @@ private:
     Status UpdateCopyInMode(Operation &copyInOp);
 
     // buffer rearrange
-    Status RearrangeBuffer(IssueEntryPtr allocIssue, MemoryType memType, std::pair<OpCoreType, int> corePair, bool isGenSpill);
+    Status RearrangeBuffer(
+        IssueEntryPtr allocIssue, MemoryType memType, std::pair<OpCoreType, int> corePair, bool isGenSpill);
     Status RearrangeBuffers(IssueEntryPtr issue, bool isGenSpillStage, bool &rearrangeUBBF16);
     Status GenRearrangeCopyOp(IssueEntryPtr issue, MemoryType memType, int memId, int &newMemId, bool &rearrangeUBBF16);
     Status UpdateMemId(int oldMemId, int newMemId);
     void UpdateMoveOpAttr(Operation &moveOp, Operation &occupyOp);
-    void ProcessMoveIssue(IssueEntryPtr moveIssuePtr, IssueEntryPtr AllocIssue, MemoryType memType, int oldMemId, int newMemId);
+    void ProcessMoveIssue(
+        IssueEntryPtr moveIssuePtr, IssueEntryPtr AllocIssue, MemoryType memType, int oldMemId, int newMemId);
     Status UpdateRange(int newMemId, size_t offset, MemoryType memType, BufferPool &bufferManager);
-    Status FindMoveFromTensor(Operation &occupyOp, int oldMemId, MemoryType memType, bool &rearrangeUBBF16, LogicalTensorPtr &moveFromTensor);
-    Status GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor, LogicalTensorPtr &moveFromTensor);
+    Status FindMoveFromTensor(
+        Operation &occupyOp, int oldMemId, MemoryType memType, bool &rearrangeUBBF16, LogicalTensorPtr &moveFromTensor);
+    Status GetMoveOpInTensor(
+        Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor, LogicalTensorPtr &moveFromTensor);
 
 public:
     Status Schedule(const std::vector<Operation *> &operations,
-        const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap = std::unordered_map<Operation*, std::pair<OpCoreType, int>>(),
+        const std::unordered_map<Operation *, std::pair<OpCoreType, int>> &opCoreMap =
+            std::unordered_map<Operation *, std::pair<OpCoreType, int>>(),
         const std::unordered_map<OpCoreType, std::vector<int>> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
     OoOScheduler(Function &function) : function_(function) {}
 

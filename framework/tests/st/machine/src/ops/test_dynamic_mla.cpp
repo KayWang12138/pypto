@@ -23,18 +23,21 @@ class DyMla : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 namespace {
 
-void pre() {
-
-}
+void pre() {}
 
 void performanceConfig() {
-    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
-    config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{3, 4}});
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{
+                                                     {-1, 4}
+    });
+    config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{
+                                                    {3, 4}
+    });
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 2 * 1024 * 1024);
 }
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(
+    Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> values(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, values);

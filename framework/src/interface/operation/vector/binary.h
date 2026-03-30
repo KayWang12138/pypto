@@ -74,10 +74,10 @@ std::string GetBinaryOpName() {
         case BinaryOpType::MINIMUM: return "MINIMUM";
         case BinaryOpType::LRELU: return "LRELU";
         case BinaryOpType::POW: return "POW";
-        case BinaryOpType::MOD:return "MOD";
+        case BinaryOpType::MOD: return "MOD";
         case BinaryOpType::REM: return "REM";
-        case BinaryOpType::REMR:return "REMR";
-        case BinaryOpType::CMP:return "CMP";
+        case BinaryOpType::REMR: return "REMR";
+        case BinaryOpType::CMP: return "CMP";
         case BinaryOpType::S_ADD: return "S_ADD";
         case BinaryOpType::S_SUB: return "S_SUB";
         case BinaryOpType::S_MUL: return "S_MUL";
@@ -186,7 +186,7 @@ void BinaryOperationOperandCheck(
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand);
 void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTensorPtr &tensor2, std::string &op);
 void BroadcastOperandTensor(LogicalTensorPtr &operand, LogicalTensorPtr &other, LogicalTensorPtr result,
-                                      Function& function, const TileShape& tileShape, std::vector<int64_t> dstShape = {});
+    Function &function, const TileShape &tileShape, std::vector<int64_t> dstShape = {});
 
 // OP_ADD OP_SUB OP_MUL OP_DIV OP_MAX OP_BITWISEAND OP_BITWISEOR OP_BITWISEXOR
 template <BinaryOpType T>

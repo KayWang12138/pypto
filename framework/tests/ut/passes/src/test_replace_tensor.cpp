@@ -53,7 +53,8 @@ public:
 };
 
 TEST_F(ReplaceTensorTest, TestViewAssemble) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestViewAssemble", "TestViewAssemble", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestViewAssemble", "TestViewAssemble", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     std::vector<int64_t> shape = {kNumEight, kNumEight};
@@ -142,7 +143,8 @@ TEST_F(ReplaceTensorTest, TestReshape) {
 }
 
 TEST_F(ReplaceTensorTest, TestIndexOutCast) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestIndexOutCast", "TestIndexOutCast", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestIndexOutCast", "TestIndexOutCast", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     std::vector<int64_t> shape = {kNumEight, kNumEight};
@@ -200,7 +202,8 @@ TEST_F(ReplaceTensorTest, TestViewType) {
 }
 
 TEST_F(ReplaceTensorTest, TestComplexMultiBranch) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestComplexMultiBranch", "TestComplexMultiBranch", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestComplexMultiBranch", "TestComplexMultiBranch", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // 准备复杂的多分支图结构
@@ -228,7 +231,7 @@ TEST_F(ReplaceTensorTest, TestComplexMultiBranch) {
 
         auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {viewOut});
         auto &viewTypeOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW_TYPE, {viewOut}, {viewTypeOut});
-        (void) viewTypeOp;
+        (void)viewTypeOp;
         auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {viewTypeOut}, {reshapeOut});
         auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {assembleOut}, {outcast});
 
@@ -247,8 +250,9 @@ TEST_F(ReplaceTensorTest, TestComplexMultiBranch) {
         auto assembleOut = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shapeHalf);
 
         auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {viewOut});
-        auto &indexOp = currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {incast, helperTensor, indexOut}, {indexOut});
-        (void) indexOp;
+        auto &indexOp =
+            currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {incast, helperTensor, indexOut}, {indexOut});
+        (void)indexOp;
         auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {assembleOut}, {outcast});
 
         auto viewAttr = std::make_shared<ViewOpAttribute>(offset1);
@@ -267,8 +271,8 @@ TEST_F(ReplaceTensorTest, TestComplexMultiBranch) {
 }
 
 TEST_F(ReplaceTensorTest, TestHasSameConsecutive_True) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestHasSameConsecutive_True",
-                                                     "TestHasSameConsecutive_True", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestHasSameConsecutive_True", "TestHasSameConsecutive_True", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> shape = {kNumEight, kNumEight};
@@ -289,8 +293,8 @@ TEST_F(ReplaceTensorTest, TestHasSameConsecutive_True) {
 }
 
 TEST_F(ReplaceTensorTest, TestHasSameConsecutive_False) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestHasSameConsecutive_False",
-                                                     "TestHasSameConsecutive_False", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestHasSameConsecutive_False", "TestHasSameConsecutive_False", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> shape = {kNumEight, kNumEight};
@@ -311,8 +315,8 @@ TEST_F(ReplaceTensorTest, TestHasSameConsecutive_False) {
 }
 
 TEST_F(ReplaceTensorTest, TestPreCheck_FailNoSubgraphID) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPreCheck_FailNoSubgraphID",
-                                                     "TestPreCheck_FailNoSubgraphID", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestPreCheck_FailNoSubgraphID", "TestPreCheck_FailNoSubgraphID", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> shape = {kNumEight, kNumEight};
@@ -334,7 +338,8 @@ TEST_F(ReplaceTensorTest, TestPreCheck_FailNoSubgraphID) {
             \————> copy ————> view ————> viewtype ————> assemble /
 */
 TEST_F(ReplaceTensorTest, TestBackView) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestViewAssemble", "TestViewAssemble", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestViewAssemble", "TestViewAssemble", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     std::vector<int64_t> shape = {kNumEight, kNumEight};
@@ -395,8 +400,8 @@ TEST_F(ReplaceTensorTest, TestBackView) {
 }
 
 TEST_F(ReplaceTensorTest, TestProcessHubAssembleOp_Success) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestProcessHubAssembleOp_Success",
-                                                     "TestProcessHubAssembleOp_Success", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestProcessHubAssembleOp_Success", "TestProcessHubAssembleOp_Success", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // 准备HUB-ASSEMBLE-OUTCAST链
@@ -442,7 +447,7 @@ TEST_F(ReplaceTensorTest, TestProcessHubAssembleOp_Success) {
 
 TEST_F(ReplaceTensorTest, TestA_MULACC_B) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestProcessHubAssembleOp_BrokenChain",
-                                                     "TestProcessHubAssembleOp_BrokenChain", nullptr);
+        "TestProcessHubAssembleOp_BrokenChain", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     std::vector<int64_t> mulAccshape = {kNumEight, kNumEight};
@@ -470,7 +475,8 @@ TEST_F(ReplaceTensorTest, TestA_MULACC_B) {
 }
 
 TEST_F(ReplaceTensorTest, TestSameAssembleOut) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSameAssembleOut", "TestSameAssembleOut", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestSameAssembleOut", "TestSameAssembleOut", nullptr);
     EXPECT_NE(currFunctionPtr, nullptr);
     // Prepare the graph
     std::vector<int64_t> shape = {kNumEight, kNumEight};
@@ -503,10 +509,7 @@ TEST_F(ReplaceTensorTest, TestSameAssembleOut) {
     auto &assOp2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {copyInOut}, {outcast1});
     // Init Attribute
     auto copyInAttr = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified(offset0),
-        MEM_UB,
-        OpImmediate::Specified(shape),
-        OpImmediate::Specified(shape));
+        OpImmediate::Specified(offset0), MEM_UB, OpImmediate::Specified(shape), OpImmediate::Specified(shape));
     auto assAttr0 = std::make_shared<AssembleOpAttribute>(MEM_UB, offset0);
     auto assAttr1 = std::make_shared<AssembleOpAttribute>(MEM_UB, offset1);
     auto assAttr2 = std::make_shared<AssembleOpAttribute>(MEM_UB, offset0);
@@ -526,7 +529,8 @@ TEST_F(ReplaceTensorTest, TestSameAssembleOut) {
 }
 
 TEST_F(ReplaceTensorTest, TestNotInplaceReshape) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNotInplaceReshape", "TestNotInplaceReshape", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestNotInplaceReshape", "TestNotInplaceReshape", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     std::vector<int64_t> shape = {kNumFour, kNumEight};
@@ -821,7 +825,8 @@ TEST_F(ReplaceTensorTest, InsertNeedCopyViewReshapeCopyOut) {
 }
 
 TEST_F(ReplaceTensorTest, UpdateCopyInAttrAfterBackAssemble) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "UpdateCopyInAttrAfterBackAssemble", "UpdateCopyInAttrAfterBackAssemble", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "UpdateCopyInAttrAfterBackAssemble", "UpdateCopyInAttrAfterBackAssemble", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
@@ -852,15 +857,13 @@ TEST_F(ReplaceTensorTest, UpdateCopyInAttrAfterBackAssemble) {
     currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyInout2}, {outcast2});
 
     Offset assembleToOffset = {4, 0};
-    auto assembleOpAttribute = std::make_shared<AssembleOpAttribute>(assembleToOffset, SymbolicScalar::FromConcrete(assembleToOffset));
+    auto assembleOpAttribute =
+        std::make_shared<AssembleOpAttribute>(assembleToOffset, SymbolicScalar::FromConcrete(assembleToOffset));
     assembleOp.SetOpAttribute(assembleOpAttribute);
     Offset copyIn2FromOffset = {2, 0};
-    auto copyInOpAttribute = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified(copyIn2FromOffset),
-        MEM_UB, OpImmediate::Specified(copyInout2->GetShape()),
-        OpImmediate::Specified(copyInout2->tensor->GetDynRawShape()),
-        OpImmediate::Specified(copyInout2->GetDynValidShape())
-        );
+    auto copyInOpAttribute = std::make_shared<CopyOpAttribute>(OpImmediate::Specified(copyIn2FromOffset), MEM_UB,
+        OpImmediate::Specified(copyInout2->GetShape()), OpImmediate::Specified(copyInout2->tensor->GetDynRawShape()),
+        OpImmediate::Specified(copyInout2->GetDynValidShape()));
     copyInOp.SetOpAttribute(copyInOpAttribute);
 
     currFunctionPtr->inCasts_.push_back(incast);
@@ -871,9 +874,9 @@ TEST_F(ReplaceTensorTest, UpdateCopyInAttrAfterBackAssemble) {
     replaceTensorPass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(copyOutout1->GetOffset()[0] == assembleToOffset[0], true);
     EXPECT_EQ(copyOutout1->GetOffset()[1] == assembleToOffset[1], true);
-    std::vector<std::string> copyInAttrNewOffset = {"6", "0"} ;
+    std::vector<std::string> copyInAttrNewOffset = {"6", "0"};
     EXPECT_EQ(copyInOpAttribute->GetFromOffset()[0].Dump(), copyInAttrNewOffset[0]);
     EXPECT_EQ(copyInOpAttribute->GetFromOffset()[1].Dump(), copyInAttrNewOffset[1]);
 }
-}
-}
+} // namespace tile_fwk
+} // namespace npu

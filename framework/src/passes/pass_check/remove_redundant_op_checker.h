@@ -28,6 +28,7 @@ class RemoveRedundantOpChecker : Checker {
 public:
     Status DoPreCheck(Function &function) override;
     Status DoPostCheck(Function &function) override;
+
 private:
     Status PreCheckAssemble(Function &function, const Operation &op, const LogicalTensorPtr &in);
     Status PreCheckView(Function &function, const Operation &op, const LogicalTensorPtr &in);
@@ -42,4 +43,4 @@ private:
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // REMOVE_REDUNDANT_OP_CHECKER_H
+#endif // REMOVE_REDUNDANT_OP_CHECKER_H

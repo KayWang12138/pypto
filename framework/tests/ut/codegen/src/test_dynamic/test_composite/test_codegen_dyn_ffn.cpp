@@ -40,7 +40,6 @@ public:
 };
 
 void testffnquant() {
-
     TileShape::Current().SetVecTile(32, 128);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
 

@@ -44,27 +44,25 @@ Status Pass::CreateLogFolder(const std::string &topFolder, size_t i) const {
     passFolder_ = passFolder_ + "/Pass_" + ss.str() + "_" + name_;
     bool res = CreateDir(passFolder_);
     if (res == false) {
-        APASS_LOG_ERROR_F(Elements::Function, "Failed to create directory: [%s].",
-        passFolder_.c_str());
+        APASS_LOG_ERROR_F(Elements::Function, "Failed to create directory: [%s].", passFolder_.c_str());
         return FAILED;
     }
     return SUCCESS;
 }
 
 void Pass::DoHealthCheckBefore(Function &function, const std::string &folderPath) {
-    (void) function;
-    (void) folderPath;
+    (void)function;
+    (void)folderPath;
     return;
 }
 
 void Pass::DoHealthCheckAfter(Function &function, const std::string &folderPath) {
-    (void) function;
-    (void) folderPath;
+    (void)function;
+    (void)folderPath;
     return;
 }
 
-Status Pass::Run(Function &function, const std::string &strategy,
-                 const std::string &identifier, size_t runtimeIdx) {
+Status Pass::Run(Function &function, const std::string &strategy, const std::string &identifier, size_t runtimeIdx) {
     identifier_ = identifier;
     strategy_ = strategy;
     passRuntimeIndex_ = runtimeIdx;
@@ -89,7 +87,7 @@ Status Pass::Run(Function &function, const std::string &strategy,
     return SUCCESS;
 }
 
-std::string Pass::GetDumpFilePrefix(Function& function, bool before, Function* subFunction, int subFuncId) {
+std::string Pass::GetDumpFilePrefix(Function &function, bool before, Function *subFunction, int subFuncId) {
     constexpr int printWide = 3;
     constexpr int funcPrintWide = 2;
     const auto &filePrefix = identifier_ + "_" + function.GetMagicName();
@@ -100,13 +98,12 @@ std::string Pass::GetDumpFilePrefix(Function& function, bool before, Function* s
         ss << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix;
         return ss.str();
     }
-    ss << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix
-          << "_LEAF_program_id_" << std::setw(funcPrintWide) << std::setfill('0') << subFuncId << "_"
-            << subFunction->GetFunctionHash().GetHash();
+    ss << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix << "_LEAF_program_id_"
+       << std::setw(funcPrintWide) << std::setfill('0') << subFuncId << "_" << subFunction->GetFunctionHash().GetHash();
     return ss.str();
 }
 
-Status Pass::PrintFunction(Function& function, const std::string &logFolder, bool beforeFunction = true) {
+Status Pass::PrintFunction(Function &function, const std::string &logFolder, bool beforeFunction = true) {
     std::string stageName = beforeFunction ? "Before" : "After";
     APASS_LOG_INFO_F(Elements::Function, "Dump function %s pass [%s].", stageName.c_str(), identifier_.c_str());
     if (function.rootFunc_ != nullptr) {
@@ -140,7 +137,7 @@ Status Pass::PrintFunction(Function& function, const std::string &logFolder, boo
     return SUCCESS;
 }
 
-Status Pass::DumpFunctionJson(Function& function, const std::string &logFolder, bool beforeFunction = true) {
+Status Pass::DumpFunctionJson(Function &function, const std::string &logFolder, bool beforeFunction = true) {
     std::string stageName = beforeFunction ? "Before" : "After";
     APASS_LOG_INFO_F(Elements::Function, "Dump function %s pass [%s].", stageName.c_str(), identifier_.c_str());
     std::stringstream ss;
@@ -159,7 +156,7 @@ Status Pass::DumpFunctionJson(Function& function, const std::string &logFolder, 
     return SUCCESS;
 }
 
-Status Pass::DumpGraphJson(Function& function, const std::string &fileName) {
+Status Pass::DumpGraphJson(Function &function, const std::string &fileName) {
     if (fileName.find("BlockGraph") == std::string::npos) {
         function.DumpJsonFile(fileName + ".json");
         return SUCCESS;
@@ -279,7 +276,8 @@ Status Pass::PostRun(Function &function) {
         }
     }
     if (DefaultEnabledPostCheck(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "Postcheck the necessary items of pass [%s] failed.", identifier_.c_str());
+        APASS_LOG_ERROR_F(
+            Elements::Function, "Postcheck the necessary items of pass [%s] failed.", identifier_.c_str());
         return FAILED;
     }
     if (passDfxconfigs_.postCheck) {

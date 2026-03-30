@@ -37,7 +37,7 @@
 constexpr int CORE_DEFAULT_NUM = 70;
 namespace npu::tile_fwk {
 struct FileLock {
-    FileLock() : fd(-1){};
+    FileLock() : fd(-1) {};
 
     bool Init(const char *path) {
         fd = open(path, O_RDWR | O_CREAT, S_IRWXU | S_IRUSR | S_IXUSR | S_IROTH | S_IXOTH);
@@ -69,10 +69,8 @@ public:
     void InitDynamicArgs(DeviceArgs &args);
     int RegisterKernelBin(void **hdl, std::vector<uint8_t> *funcBinBuf = nullptr);
     static void SetBinData(const std::vector<uint8_t> &binBuf);
-    HostProf& GetHostProfInstance();
-    inline void SetCaptureFlag(bool isCapture) {
-        isCapture_ = isCapture;
-    }
+    HostProf &GetHostProfInstance();
+    inline void SetCaptureFlag(bool isCapture) { isCapture_ = isCapture; }
 
     void SetDebugEnable();
     void ResetMetrics(const uint32_t &coreId);
@@ -83,11 +81,13 @@ public:
     void InitMetaData(DeviceArgs &devArgs);
     void InitAiCpuSoBin(DeviceArgs &devArgs);
     bool GetValidGetPgMask() const;
-    void ReportHostProfInfo(rtStream_t stream, uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
+    void ReportHostProfInfo(
+        rtStream_t stream, uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
     bool GetEnableDumpDevPref() const;
     void StartMachinePerfTraceDumpThread();
     void StopMachinePerfTraceDumpThread();
     int RunPreSync(rtStream_t scheStream, rtStream_t ctrlStream, rtStream_t aicoreStream);
+
 private:
     DeviceRunner() = default;
     ~DeviceRunner();
@@ -106,11 +106,15 @@ private:
     int RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArgs *kArgs);
     int InitAicpuServer();
-    int DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
-    int DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
-    int DynamicTripleStreamLaunch(rtStream_t schedStream, rtStream_t ctrlStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
+    int DynamicKernelLaunch(
+        rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
+    int DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream,
+        DeviceKernelArgs *kernelArgs, int blockdim);
+    int DynamicTripleStreamLaunch(rtStream_t schedStream, rtStream_t ctrlStream, rtStream_t aicoreStream,
+        DeviceKernelArgs *kernelArgs, int blockdim);
     int ConstrutDeviceArgs(DeviceArgs &args, const std::vector<int64_t> &regs, const std::vector<int64_t> &regsPmu);
     void MachinePerfTraceDumpThread();
+
 private:
     int devId_;
     int aicpuNum_{5};
@@ -125,7 +129,8 @@ private:
     FileLock lock_;
     HostProf hostProf_;
     aclrtEvent event_;
-    std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
+    std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t> &, std::vector<int64_t> &)>>
+        addressMappingTable_;
     bool isCapture_{false};
     bool initFlag_{false};
     bool enableDumpMachinePerfTrace_{false};
@@ -133,7 +138,7 @@ private:
     std::thread dumpThread_;
     std::atomic<bool> dumpThreadStopFlag_{false};
 };
-}
+} // namespace npu::tile_fwk
 #else
 namespace npu::tile_fwk {
 class DeviceRunner {
@@ -141,9 +146,8 @@ public:
     static DeviceRunner &Get();
     void InitMetaData(DeviceArgs &devArgs);
     bool GetValidGetPgMask() const;
-    HostProf &GetHostProfInstance() {
-        return hostProf_;
-    }
+    HostProf &GetHostProfInstance() { return hostProf_; }
+
 private:
     HostProf hostProf_;
 };

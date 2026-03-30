@@ -52,10 +52,7 @@ constexpr float F_0 = 0.0;
 constexpr float F_NEGA_1 = -1.0;
 constexpr double DF_1E_20 = 1e-20;
 
-enum GateMode {
-    standard,
-    simple
-};
+enum GateMode { standard, simple };
 
 struct MlaTileConfig {
     int tileB = 8; // tileB is 8
@@ -178,7 +175,6 @@ struct NSASimpleParams {
         return params;
     }
 };
-
 
 } // namespace npu::tile_fwk
 

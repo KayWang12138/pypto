@@ -18,7 +18,8 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct WhereOpFuncArgs : public OpFuncArgs {
-    WhereOpFuncArgs(const int flag, const Element &x_scalar, const Element &y_scalar, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
+    WhereOpFuncArgs(const int flag, const Element &x_scalar, const Element &y_scalar,
+        const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
         : flag_(flag), x_scalar_(x_scalar), y_scalar_(y_scalar), viewShape_(viewShape), tileShape_(tileShape) {}
     int flag_;
     Element x_scalar_;
@@ -37,215 +38,218 @@ struct WhereOpMetaData {
 
 static void WhereOperationExeFuncDoubleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
-        FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
-            SymbolicScalar firstDim = max(inputs[0].GetShape()[0], max(inputs[1].GetShape()[0], inputs[2].GetShape()[0]));
-            SymbolicScalar secondDim = max(inputs[0].GetShape()[1], max(inputs[1].GetShape()[1], inputs[2].GetShape()[1]));
-            auto args = static_cast<const WhereOpFuncArgs *>(opArgs);
-            const int firstViewShape = args->viewShape_[0];
-            const int secondViewShape = args->viewShape_[1];
-            int bloop = CeilDiv(firstDim, firstViewShape);
-            int sloop = CeilDiv(secondDim, secondViewShape);
-            const int broadcastFlag = 1;
-            auto conditionDtype = inputs[0].GetDataType();
-            int byteSize = 8;
-            LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-                LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                    Tensor tileTensor0;
-                    Tensor tileTensor1;
-                    Tensor tileTensor2;
-                    if(conditionDtype == DT_BOOL && inputs[0].GetShape()[1] != broadcastFlag && inputs[1].GetShape()[1] != broadcastFlag && inputs[2].GetShape()[1] == broadcastFlag) {
-                        tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                        tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                        tileTensor2 = View(inputs[2], {firstViewShape, 1},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
-                    }
-                    else if (conditionDtype == DT_BOOL && inputs[0].GetShape()[0] != broadcastFlag && inputs[1].GetShape()[0] != broadcastFlag && inputs[2].GetShape()[0] == broadcastFlag) {
-                        tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                        tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                        tileTensor2 = View(inputs[2], {1, secondViewShape},
-                            {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {0, sIdx * secondViewShape});
-                    }
-                    else if (conditionDtype == DT_BOOL && inputs[0].GetShape()[1] != broadcastFlag && inputs[1].GetShape()[1] == broadcastFlag && inputs[2].GetShape()[1] != broadcastFlag) {
-                        tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                        tileTensor1 = View(inputs[1], {firstViewShape, 1},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
-                        tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                    }
-                    else if (conditionDtype == DT_BOOL && inputs[0].GetShape()[0] != broadcastFlag && inputs[1].GetShape()[0] == broadcastFlag && inputs[2].GetShape()[0] != broadcastFlag) {
-                        tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                        tileTensor1 = View(inputs[1], {1, secondViewShape},
-                            {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {0, sIdx * secondViewShape});
-                        tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                    }
-                    else if (conditionDtype == DT_BOOL && inputs[0].GetShape()[1] == broadcastFlag && inputs[1].GetShape()[1] != broadcastFlag && inputs[2].GetShape()[1] != broadcastFlag) {
-                        tileTensor0 = View(inputs[0], {firstViewShape, 1},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
-                        tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                        tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                    }
-                    else if (conditionDtype == DT_BOOL && inputs[0].GetShape()[0] == broadcastFlag && inputs[1].GetShape()[0] != broadcastFlag && inputs[2].GetShape()[0] != broadcastFlag) {
-                        tileTensor0 = View(inputs[0], {1, secondViewShape},
-                            {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {0, sIdx * secondViewShape});
-                        tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                        tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                    }
-                    else if (conditionDtype == DT_BOOL) {
-                        tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                        tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                        tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                    }
-                    else if(conditionDtype == DT_UINT8 && inputs[0].GetShape()[1] != broadcastFlag && inputs[1].GetShape()[1] != broadcastFlag && inputs[2].GetShape()[1] == broadcastFlag) {
-                        tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape / byteSize},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim / byteSize - sIdx * secondViewShape / byteSize, secondViewShape / byteSize)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape / byteSize});
-                        tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                        tileTensor2 = View(inputs[2], {firstViewShape, 1},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
-                    }
-                    else if (conditionDtype == DT_UINT8 && inputs[0].GetShape()[0] != broadcastFlag && inputs[1].GetShape()[0] != broadcastFlag && inputs[2].GetShape()[0] == broadcastFlag) {
-                        tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape / byteSize},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim / byteSize - sIdx * secondViewShape / byteSize, secondViewShape / byteSize)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape / byteSize});
-                        tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                        tileTensor2 = View(inputs[2], {1, secondViewShape},
-                            {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {0, sIdx * secondViewShape});
-                    }
-                    else if (conditionDtype == DT_UINT8 && inputs[0].GetShape()[1] != broadcastFlag && inputs[1].GetShape()[1] == broadcastFlag && inputs[2].GetShape()[1] != broadcastFlag) {
-                        tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape / byteSize},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim / byteSize - sIdx * secondViewShape / byteSize, secondViewShape / byteSize)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape / byteSize});
-                        tileTensor1 = View(inputs[1], {firstViewShape, 1},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
-                        tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                    }
-                    else if (conditionDtype == DT_UINT8 && inputs[0].GetShape()[0] != broadcastFlag && inputs[1].GetShape()[0] == broadcastFlag && inputs[2].GetShape()[0] != broadcastFlag) {
-                        tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape / byteSize},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim / byteSize - sIdx * secondViewShape / byteSize, secondViewShape / byteSize)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape / byteSize});
-                        tileTensor1 = View(inputs[1], {1, secondViewShape},
-                            {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {0, sIdx * secondViewShape});
-                        tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                    }
-                    else if (conditionDtype == DT_UINT8 && inputs[0].GetShape()[0] == broadcastFlag && inputs[1].GetShape()[0] != broadcastFlag && inputs[2].GetShape()[0] != broadcastFlag) {
-                        tileTensor0 = View(inputs[0], {1, secondViewShape / byteSize},
-                            {1, std::min(secondDim / byteSize - sIdx * secondViewShape / byteSize, secondViewShape / byteSize)},
-                            {0, sIdx * secondViewShape / byteSize});
-                        tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                        tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                    }
-                    else if (conditionDtype == DT_UINT8) {
-                        tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape / byteSize},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim / byteSize - sIdx * secondViewShape / byteSize, secondViewShape / byteSize)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape / byteSize});
-                        tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                        tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape});
-                    }
-                    int TT = 0;
-                    int TS = 1;
-                    int ST = 2;
-                    int SS = 3;
-                    TileShape::Current().SetVecTile(args->tileShape_);
-                    if (args->flag_ == TT) {
-                        auto res = Where(tileTensor0, tileTensor1, tileTensor2);
-                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
-                    } else if (args->flag_ == TS) {
-                        auto res = Where(tileTensor0, tileTensor1, args->y_scalar_);
-                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
-                    } else if (args->flag_ == ST) {
-                        auto res = Where(tileTensor0, args->x_scalar_, tileTensor2);
-                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
-                    } else if (args->flag_ == SS) {
-                        auto res = Where(tileTensor0, args->x_scalar_, args->y_scalar_);
-                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
-                    }
+    FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
+        SymbolicScalar firstDim = max(inputs[0].GetShape()[0], max(inputs[1].GetShape()[0], inputs[2].GetShape()[0]));
+        SymbolicScalar secondDim = max(inputs[0].GetShape()[1], max(inputs[1].GetShape()[1], inputs[2].GetShape()[1]));
+        auto args = static_cast<const WhereOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        int bloop = CeilDiv(firstDim, firstViewShape);
+        int sloop = CeilDiv(secondDim, secondViewShape);
+        const int broadcastFlag = 1;
+        auto conditionDtype = inputs[0].GetDataType();
+        int byteSize = 8;
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                Tensor tileTensor0;
+                Tensor tileTensor1;
+                Tensor tileTensor2;
+                if (conditionDtype == DT_BOOL && inputs[0].GetShape()[1] != broadcastFlag &&
+                    inputs[1].GetShape()[1] != broadcastFlag && inputs[2].GetShape()[1] == broadcastFlag) {
+                    tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor2 = View(inputs[2], {firstViewShape, 1},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
+                } else if (conditionDtype == DT_BOOL && inputs[0].GetShape()[0] != broadcastFlag &&
+                           inputs[1].GetShape()[0] != broadcastFlag && inputs[2].GetShape()[0] == broadcastFlag) {
+                    tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor2 = View(inputs[2], {1, secondViewShape},
+                        {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {0, sIdx * secondViewShape});
+                } else if (conditionDtype == DT_BOOL && inputs[0].GetShape()[1] != broadcastFlag &&
+                           inputs[1].GetShape()[1] == broadcastFlag && inputs[2].GetShape()[1] != broadcastFlag) {
+                    tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor1 = View(inputs[1], {firstViewShape, 1},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
+                    tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                } else if (conditionDtype == DT_BOOL && inputs[0].GetShape()[0] != broadcastFlag &&
+                           inputs[1].GetShape()[0] == broadcastFlag && inputs[2].GetShape()[0] != broadcastFlag) {
+                    tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor1 = View(inputs[1], {1, secondViewShape},
+                        {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {0, sIdx * secondViewShape});
+                    tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                } else if (conditionDtype == DT_BOOL && inputs[0].GetShape()[1] == broadcastFlag &&
+                           inputs[1].GetShape()[1] != broadcastFlag && inputs[2].GetShape()[1] != broadcastFlag) {
+                    tileTensor0 = View(inputs[0], {firstViewShape, 1},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
+                    tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                } else if (conditionDtype == DT_BOOL && inputs[0].GetShape()[0] == broadcastFlag &&
+                           inputs[1].GetShape()[0] != broadcastFlag && inputs[2].GetShape()[0] != broadcastFlag) {
+                    tileTensor0 = View(inputs[0], {1, secondViewShape},
+                        {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {0, sIdx * secondViewShape});
+                    tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                } else if (conditionDtype == DT_BOOL) {
+                    tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                } else if (conditionDtype == DT_UINT8 && inputs[0].GetShape()[1] != broadcastFlag &&
+                           inputs[1].GetShape()[1] != broadcastFlag && inputs[2].GetShape()[1] == broadcastFlag) {
+                    tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape / byteSize},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(
+                                secondDim / byteSize - sIdx * secondViewShape / byteSize, secondViewShape / byteSize)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape / byteSize});
+                    tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor2 = View(inputs[2], {firstViewShape, 1},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
+                } else if (conditionDtype == DT_UINT8 && inputs[0].GetShape()[0] != broadcastFlag &&
+                           inputs[1].GetShape()[0] != broadcastFlag && inputs[2].GetShape()[0] == broadcastFlag) {
+                    tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape / byteSize},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(
+                                secondDim / byteSize - sIdx * secondViewShape / byteSize, secondViewShape / byteSize)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape / byteSize});
+                    tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor2 = View(inputs[2], {1, secondViewShape},
+                        {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {0, sIdx * secondViewShape});
+                } else if (conditionDtype == DT_UINT8 && inputs[0].GetShape()[1] != broadcastFlag &&
+                           inputs[1].GetShape()[1] == broadcastFlag && inputs[2].GetShape()[1] != broadcastFlag) {
+                    tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape / byteSize},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(
+                                secondDim / byteSize - sIdx * secondViewShape / byteSize, secondViewShape / byteSize)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape / byteSize});
+                    tileTensor1 = View(inputs[1], {firstViewShape, 1},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
+                    tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                } else if (conditionDtype == DT_UINT8 && inputs[0].GetShape()[0] != broadcastFlag &&
+                           inputs[1].GetShape()[0] == broadcastFlag && inputs[2].GetShape()[0] != broadcastFlag) {
+                    tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape / byteSize},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(
+                                secondDim / byteSize - sIdx * secondViewShape / byteSize, secondViewShape / byteSize)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape / byteSize});
+                    tileTensor1 = View(inputs[1], {1, secondViewShape},
+                        {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {0, sIdx * secondViewShape});
+                    tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                } else if (conditionDtype == DT_UINT8 && inputs[0].GetShape()[0] == broadcastFlag &&
+                           inputs[1].GetShape()[0] != broadcastFlag && inputs[2].GetShape()[0] != broadcastFlag) {
+                    tileTensor0 = View(inputs[0], {1, secondViewShape / byteSize},
+                        {1, std::min(
+                                secondDim / byteSize - sIdx * secondViewShape / byteSize, secondViewShape / byteSize)},
+                        {0, sIdx * secondViewShape / byteSize});
+                    tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                } else if (conditionDtype == DT_UINT8) {
+                    tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape / byteSize},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(
+                                secondDim / byteSize - sIdx * secondViewShape / byteSize, secondViewShape / byteSize)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape / byteSize});
+                    tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                }
+                int TT = 0;
+                int TS = 1;
+                int ST = 2;
+                int SS = 3;
+                TileShape::Current().SetVecTile(args->tileShape_);
+                if (args->flag_ == TT) {
+                    auto res = Where(tileTensor0, tileTensor1, tileTensor2);
+                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+                } else if (args->flag_ == TS) {
+                    auto res = Where(tileTensor0, tileTensor1, args->y_scalar_);
+                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+                } else if (args->flag_ == ST) {
+                    auto res = Where(tileTensor0, args->x_scalar_, tileTensor2);
+                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+                } else if (args->flag_ == SS) {
+                    auto res = Where(tileTensor0, args->x_scalar_, args->y_scalar_);
+                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
                 }
             }
         }
+    }
 }
 
 static void WhereOperationExeFuncTripleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[1].GetShape()[0];
         SymbolicScalar secondDim = inputs[1].GetShape()[1];
@@ -266,17 +270,18 @@ static void WhereOperationExeFuncTripleCut(
                     Tensor tileTensor0;
                     Tensor tileTensor1;
                     Tensor tileTensor2;
-                    if(conditionDtype == DT_BOOL) {
+                    if (conditionDtype == DT_BOOL) {
                         tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
                             {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                 std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                                 std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                             {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
-                    } else if(conditionDtype == DT_UINT8) {
+                    } else if (conditionDtype == DT_UINT8) {
                         tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape / byteSize},
                             {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                 std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                std::min(thirdDim / byteSize - nIdx * thirdViewShape / byteSize, thirdViewShape / byteSize)},
+                                std::min(
+                                    thirdDim / byteSize - nIdx * thirdViewShape / byteSize, thirdViewShape / byteSize)},
                             {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape / byteSize});
                     }
                     tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape},
@@ -296,16 +301,20 @@ static void WhereOperationExeFuncTripleCut(
                     int SS = 3;
                     if (args->flag_ == TT) {
                         auto res = Where(tileTensor0, tileTensor1, tileTensor2);
-                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                        Assemble(
+                            res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                     } else if (args->flag_ == TS) {
                         auto res = Where(tileTensor0, tileTensor1, args->y_scalar_);
-                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                        Assemble(
+                            res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                     } else if (args->flag_ == ST) {
                         auto res = Where(tileTensor0, args->x_scalar_, tileTensor2);
-                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                        Assemble(
+                            res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                     } else if (args->flag_ == SS) {
                         auto res = Where(tileTensor0, args->x_scalar_, args->y_scalar_);
-                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                        Assemble(
+                            res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                     }
                 }
             }
@@ -315,7 +324,6 @@ static void WhereOperationExeFuncTripleCut(
 
 static void WhereOperationExeFuncQuadrupleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[1].GetShape()[0];
         SymbolicScalar secondDim = inputs[1].GetShape()[1];
@@ -340,7 +348,7 @@ static void WhereOperationExeFuncQuadrupleCut(
                         Tensor tileTensor0;
                         Tensor tileTensor1;
                         Tensor tileTensor2;
-                        if(conditionDtype == DT_BOOL) {
+                        if (conditionDtype == DT_BOOL) {
                             tileTensor0 =
                                 View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
                                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
@@ -349,15 +357,16 @@ static void WhereOperationExeFuncQuadrupleCut(
                                         std::min(fourthDim - qIdx * fourthViewShape, fourthViewShape)},
                                     {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
                                         qIdx * fourthViewShape});
-                        } else if(conditionDtype == DT_UINT8) {
-                            tileTensor0 =
-                                View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape / byteSize},
-                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                        std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
-                                        std::min(fourthDim / byteSize - qIdx * fourthViewShape / byteSize, fourthViewShape / byteSize)},
-                                    {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                        qIdx * fourthViewShape / byteSize});
+                        } else if (conditionDtype == DT_UINT8) {
+                            tileTensor0 = View(inputs[0],
+                                {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape / byteSize},
+                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
+                                    std::min(fourthDim / byteSize - qIdx * fourthViewShape / byteSize,
+                                        fourthViewShape / byteSize)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                    qIdx * fourthViewShape / byteSize});
                         }
                         tileTensor1 =
                             View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
@@ -383,23 +392,27 @@ static void WhereOperationExeFuncQuadrupleCut(
                         if (args->flag_ == TT) {
                             auto res = Where(tileTensor0, tileTensor1, tileTensor2);
                             Assemble(res,
-                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                qIdx * fourthViewShape}, outputs[0]);
+                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                    qIdx * fourthViewShape},
+                                outputs[0]);
                         } else if (args->flag_ == TS) {
                             auto res = Where(tileTensor0, tileTensor1, args->y_scalar_);
                             Assemble(res,
-                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                qIdx * fourthViewShape}, outputs[0]);
+                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                    qIdx * fourthViewShape},
+                                outputs[0]);
                         } else if (args->flag_ == ST) {
                             auto res = Where(tileTensor0, args->x_scalar_, tileTensor2);
                             Assemble(res,
-                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                qIdx * fourthViewShape}, outputs[0]);
+                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                    qIdx * fourthViewShape},
+                                outputs[0]);
                         } else if (args->flag_ == SS) {
                             auto res = Where(tileTensor0, args->x_scalar_, args->y_scalar_);
                             Assemble(res,
-                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                qIdx * fourthViewShape}, outputs[0]);
+                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                    qIdx * fourthViewShape},
+                                outputs[0]);
                         }
                     }
                 }

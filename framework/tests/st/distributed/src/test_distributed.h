@@ -26,27 +26,24 @@
 namespace npu::tile_fwk::Distributed {
 
 struct OpMetaData {
-    explicit OpMetaData(const nlohmann::json &testData,
-        std::string& fileName) : testData_(testData), fileName_(fileName) {}
+    explicit OpMetaData(const nlohmann::json &testData, std::string &fileName)
+        : testData_(testData), fileName_(fileName) {}
     nlohmann::json testData_;
     std::string fileName_;
 };
 
 struct DisOpRegister {
-    using opFunc = std::function<void(OpTestParam&, const std::string&, std::string& goldenDir)>;
+    using opFunc = std::function<void(OpTestParam &, const std::string &, std::string &goldenDir)>;
     std::unordered_map<std::string, opFunc> disRegisterMap;
 
-    static DisOpRegister& GetRegister()
-    {
+    static DisOpRegister &GetRegister() {
         static DisOpRegister disOpRegister;
         return disOpRegister;
     }
 
     template <typename TFunc>
-    void RegisterOp(const std::string& opName, TFunc func)
-    {
-        disRegisterMap[opName] = [func](OpTestParam &testParam, const std::string &dtype, std::string& goldenDir)
-        {
+    void RegisterOp(const std::string &opName, TFunc func) {
+        disRegisterMap[opName] = [func](OpTestParam &testParam, const std::string &dtype, std::string &goldenDir) {
             if (dtype == "int32") {
                 func.template operator()<int32_t>(testParam, goldenDir);
             } else if (dtype == "float16") {
@@ -61,9 +58,7 @@ struct DisOpRegister {
         };
     }
 
-    void Run(const std::string &opName, OpTestParam &testParam, const std::string &dtype,
-            std::string& goldenDir)
-    {
+    void Run(const std::string &opName, OpTestParam &testParam, const std::string &dtype, std::string &goldenDir) {
         if (!disRegisterMap.count(opName)) {
             FAIL() << "Unsupported op: " << opName;
         }
@@ -72,12 +67,10 @@ struct DisOpRegister {
 };
 
 template <typename T>
-std::vector<T> GetOpMetaDataFromFile(const std::filesystem::path& filePath)
-{
+std::vector<T> GetOpMetaDataFromFile(const std::filesystem::path &filePath) {
     std::ifstream jsonFile(filePath);
     if (!jsonFile.is_open()) {
-        DISTRIBUTED_LOGE("Failed to open Json file for Path: %s",
-            std::filesystem::absolute(filePath).string().c_str());
+        DISTRIBUTED_LOGE("Failed to open Json file for Path: %s", std::filesystem::absolute(filePath).string().c_str());
         return {};
     }
     std::string fileName = filePath.stem().string();
@@ -87,30 +80,29 @@ std::vector<T> GetOpMetaDataFromFile(const std::filesystem::path& filePath)
         testCaseList.emplace_back(tc, fileName);
     }
     if (testCaseList.empty()) {
-        DISTRIBUTED_LOGE("No test cases found in json for File: %s",
-            std::filesystem::absolute(filePath).string().c_str());
+        DISTRIBUTED_LOGE(
+            "No test cases found in json for File: %s", std::filesystem::absolute(filePath).string().c_str());
     }
     return testCaseList;
 }
 
 template <typename T>
-std::vector<T> GetOpMetaDataFromDir(const std::filesystem::path& dirPath)
-{
+std::vector<T> GetOpMetaDataFromDir(const std::filesystem::path &dirPath) {
     static std::vector<T> allTestCases;
     std::vector<std::filesystem::path> jsonFiles;
-    for (const auto& file : std::filesystem::directory_iterator(dirPath)) {
-        if (file.path().extension() != ".json") continue;
+    for (const auto &file : std::filesystem::directory_iterator(dirPath)) {
+        if (file.path().extension() != ".json")
+            continue;
         jsonFiles.push_back(file.path());
     }
-    std::sort(jsonFiles.begin(), jsonFiles.end(),
-    [](const auto& a, const auto& b) {
+    std::sort(jsonFiles.begin(), jsonFiles.end(), [](const auto &a, const auto &b) {
         auto aLower = a.filename().string();
         auto bLower = b.filename().string();
         std::transform(aLower.begin(), aLower.end(), aLower.begin(), ::tolower);
         std::transform(bLower.begin(), bLower.end(), bLower.begin(), ::tolower);
         return aLower < bLower;
     });
-    for (const auto& file : jsonFiles) {
+    for (const auto &file : jsonFiles) {
         auto testCases = GetOpMetaDataFromFile<T>(file);
         allTestCases.insert(allTestCases.end(), testCases.begin(), testCases.end());
     }
@@ -118,9 +110,8 @@ std::vector<T> GetOpMetaDataFromDir(const std::filesystem::path& dirPath)
 }
 
 template <typename T>
-std::vector<T> GetOpMetaData()
-{
-    const char* jsonPath = std::getenv("JSON_PATH");
+std::vector<T> GetOpMetaData() {
+    const char *jsonPath = std::getenv("JSON_PATH");
     std::filesystem::path casePath;
     if (jsonPath != nullptr) {
         casePath = std::filesystem::path(jsonPath);
@@ -140,8 +131,7 @@ std::vector<T> GetOpMetaData()
     return {};
 }
 
-std::string GetGoldenDirPath(const nlohmann::json& testData, const std::string& fileName)
-{
+std::string GetGoldenDirPath(const nlohmann::json &testData, const std::string &fileName) {
     std::filesystem::path goldenDir = GetGoldenDir();
     goldenDir = goldenDir.parent_path().parent_path();
     std::string operation = testData["operation"].get<std::string>();

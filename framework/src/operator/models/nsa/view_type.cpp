@@ -35,7 +35,7 @@ void ViewTypeFunc(const Tensor &x, Tensor &result, DataType dstDtype) {
             auto resultView = View(xView, dstDtype);
             auto resultRes = resultView;
 
-            if(dstDtype == DT_FP32) {
+            if (dstDtype == DT_FP32) {
                 resultRes = Add(resultView, Element(dstDtype, float(0)));
             }
             Assemble(resultRes, {mOffset, 0, 0}, result);
@@ -75,13 +75,13 @@ void ViewTypeQuantTestFunc(const Tensor &x, Tensor &result) {
             TileShape::Current().SetVecTile({tileM, k, n});
             auto xView = View(x, {tileM, k, n}, {mOffset, 0, 0});
             TileShape::Current().SetVecTile({tileM, k, n});
-            auto xReshape = Reshape(xView, {tileM, k, 4, n/4});
-            TileShape::Current().SetVecTile({tileM, k, 4, n/4});
+            auto xReshape = Reshape(xView, {tileM, k, 4, n / 4});
+            TileShape::Current().SetVecTile({tileM, k, 4, n / 4});
             std::tuple<Tensor, Tensor> xQuant = MyPrologQuant(xReshape);
             auto outInt8 = std::get<0>(xQuant);
             auto scaleDeQuant = std::get<1>(xQuant);
 
-            TileShape::Current().SetVecTile({tileM, k, 4, n/4});
+            TileShape::Current().SetVecTile({tileM, k, 4, n / 4});
             auto outInt8Reshape = Reshape(outInt8, {tileM, k, n});
             TileShape::Current().SetVecTile({tileM, k, 8});
             auto scaleDeQuantReshape = Reshape(scaleDeQuant, {tileM, k, 4});
@@ -139,4 +139,4 @@ void ViewTypeDequantTestFunc(const Tensor &x, Tensor &result) {
     }
 }
 
-} // namespace tile_fwk
+} // namespace npu::tile_fwk

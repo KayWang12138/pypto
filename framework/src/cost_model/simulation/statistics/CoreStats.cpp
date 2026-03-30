@@ -20,8 +20,7 @@
 #include <map>
 #include <vector>
 
-void CoreStats::Reset()
-{
+void CoreStats::Reset() {
     completedTaskNum = 0;
     retiredTileOpNum = 0;
     retiredTileAllocNum = 0;
@@ -29,8 +28,7 @@ void CoreStats::Reset()
     intervalPipeUseCycles = std::map<int, uint64_t>();
 }
 
-void CoreStats::Report(std::string &name)
-{
+void CoreStats::Report(std::string &name) {
     rpt->ReportTitle("CoreMachine " + name + " Statistics");
     rpt->ReportVal("Completed Packet Count", completedTaskNum);
     rpt->ReportVal("Retire Tile Alloc Count", retiredTileAllocNum);

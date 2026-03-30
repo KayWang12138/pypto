@@ -30,7 +30,7 @@ using OutputMaigc = int;
 using OverlaprawMagic = int;
 
 struct PairHash {
-    size_t operator()(const std::pair<int, int>& p) const noexcept {
+    size_t operator()(const std::pair<int, int> &p) const noexcept {
         // 把两个32-bit打包到64-bit,再进行hash
         uint64_t key = (uint64_t(uint32_t(p.first)) << 32) | uint64_t(uint32_t(p.second));
         return std::hash<uint64_t>{}(key);
@@ -145,6 +145,7 @@ class SplitReshape : public Pass, public DeadOperationEliminator {
 public:
     SplitReshape() : Pass("SplitReshape") {}
     ~SplitReshape() override = default;
+
 private:
     Status RunOnFunction(Function &function) override;
     Status Init();
@@ -155,20 +156,24 @@ private:
     Status SetMemoryType(Function &function);
 
     Status ObtainReshapeSource(Function &function, const OpPara &para, LogicalTensorPtr &newReshapeSource);
-    Status ObtainCopyOutTile(Function &function, const copyOutTilePara &copyOutTile, LogicalTensors &overlaps, LogicalTensors &newOverlaps);
-    Status ConstructShapeOffset(const ReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<int64_t> &newOffset, std::vector<int64_t> &newShape);
+    Status ObtainCopyOutTile(
+        Function &function, const copyOutTilePara &copyOutTile, LogicalTensors &overlaps, LogicalTensors &newOverlaps);
+    Status ConstructShapeOffset(const ReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<int64_t> &newOffset,
+        std::vector<int64_t> &newShape);
 
     Status CalcTileInfo(const CalcOverlapPara &para, std::vector<int64_t> &newShape, std::vector<int64_t> &newOffset,
         std::vector<int64_t> &reshapeTileShape, std::vector<int64_t> &reshapeTileOffset);
     Status CheckValidOp(const CheckParam &para, CheckOutputParam &checkOutputParam);
     Status CheckOp(Function &function, Operation &op);
-    Status UpdateReshapeOp(Function &function, Operation &op, const OverlapStatus &status, const CalcOverlapPara &calcpara);
+    Status UpdateReshapeOp(
+        Function &function, Operation &op, const OverlapStatus &status, const CalcOverlapPara &calcpara);
     Status ProcessPerfectlyMatch(Function &function, Operation &op, const PerfectlyMatchPara &para);
     Status ProcessOnetoOne(Function &function, Operation &op, const CalcOverlapPara &para);
     Status ProcessBeCovered(Function &function, Operation &op, const BeCoveredPara &para);
     Status ProcessOnetoMulti(Function &function, Operation &op, const CalcOverlapPara &para);
     Status ProcessPerfectlyMatchWithAll(Function &function, Operation &op, const PerfectlyMatchWithAllPara &para);
-    Status UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para, const ReshapeSourcePara &sourcePara);
+    Status UpdateForPerfectlyMatchWithAll(
+        Function &function, Operation &op, const CalcOverlapPara &para, const ReshapeSourcePara &sourcePara);
     Status ProcessMultitoOne(Function &function, Operation &op, const CalcOverlapPara &para);
     Status AddReshapeRawInputs(const int overlapRawMagic, const LogicalTensorPtr overlap);
 
@@ -178,17 +183,24 @@ private:
     unsigned long ComputeReshapeHashOrderless(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
     std::vector<int64_t> ObtainMapOffset(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
 
-    Status AddAssembleOp(const MemoryType &memoryType, const std::vector<int64_t> &outputOffset, const LogicalTensorPtr &input, const LogicalTensorPtr &output, const Operation *originOp);
-    Status GetAssembleDynShape(const LogicalTensorPtr &input, const LogicalTensorPtr &output, const std::vector<int64_t> &toOffset, std::vector<SymbolicScalar> &dynValidShape);
+    Status AddAssembleOp(const MemoryType &memoryType, const std::vector<int64_t> &outputOffset,
+        const LogicalTensorPtr &input, const LogicalTensorPtr &output, const Operation *originOp);
+    Status GetAssembleDynShape(const LogicalTensorPtr &input, const LogicalTensorPtr &output,
+        const std::vector<int64_t> &toOffset, std::vector<SymbolicScalar> &dynValidShape);
     Status GetReshapeDynShape(const std::shared_ptr<ReshapeOp> &op, std::vector<SymbolicScalar> &dynValidShape);
     Status GroupReshapeOffset(const std::shared_ptr<ReshapeOp> &isAddReshapeop, const std::vector<int64_t> &offset);
-    Status UpdateDynShape(const std::shared_ptr<ReshapeOp> &reshapeOp, const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynShape);
-    Status ObtainChangingAxis(std::vector<int64_t> alignedShape, std::vector<int64_t> input, std::vector<bool> &ChangingAxis);
-    Status CheckDynStatus(std::vector<int64_t> alignedShape, std::vector<int64_t> input, std::vector<int64_t> output, std::vector<SymbolicScalar> dynOutput);
+    Status UpdateDynShape(const std::shared_ptr<ReshapeOp> &reshapeOp, const std::vector<int64_t> &offset,
+        const std::vector<SymbolicScalar> &dynShape);
+    Status ObtainChangingAxis(
+        std::vector<int64_t> alignedShape, std::vector<int64_t> input, std::vector<bool> &ChangingAxis);
+    Status CheckDynStatus(std::vector<int64_t> alignedShape, std::vector<int64_t> input, std::vector<int64_t> output,
+        std::vector<SymbolicScalar> dynOutput);
     Status UpdateShapeOffset(UpdatePara &para, bool &flag, int &currentShape, int &currentOffset);
     Status ShapeAlign(std::vector<int64_t> shape1, std::vector<int64_t> shape2, std::vector<int64_t> &alignedShape);
-    Status RawToAlign(const ReshapeTilePara &shapePara, std::vector<int64_t> &newOffset, std::vector<int64_t> &newShape);
-    Status AlignToRaw(const ReshapeTilePara &shapePara, std::vector<int64_t> &newOffset, std::vector<int64_t> &newShape);
+    Status RawToAlign(
+        const ReshapeTilePara &shapePara, std::vector<int64_t> &newOffset, std::vector<int64_t> &newShape);
+    Status AlignToRaw(
+        const ReshapeTilePara &shapePara, std::vector<int64_t> &newOffset, std::vector<int64_t> &newShape);
 
     Status DefaultEnabledPreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
@@ -208,7 +220,8 @@ private:
     std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> reshapeRawInputs_;
     // 记录所有op_reshape的指针，键值为reshape的输出Operand的magic。
     std::unordered_map<int, const Operation *> reshapeOpPtrs_;
-    // 记录满足后续op为reshape的op_assemble的指针，第一个map的键值为assemble输入Operand的magic, 第二个map的键值为后续op_reshape的输出Operand的magic。
+    // 记录满足后续op为reshape的op_assemble的指针，第一个map的键值为assemble输入Operand的magic,
+    // 第二个map的键值为后续op_reshape的输出Operand的magic。
     std::unordered_map<int, std::unordered_map<int, const Operation *>> assembleOpPtrs_;
     std::unordered_map<std::pair<int, int>, AlignResult, PairHash> rawToAlignCache_;
     std::unordered_map<LogicalTensorPtr, bool> sameRawInputCache_;

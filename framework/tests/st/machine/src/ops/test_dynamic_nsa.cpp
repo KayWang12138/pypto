@@ -23,8 +23,12 @@ using namespace npu::tile_fwk::dynamic;
 class DyNsa : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
-        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, NUM_4}});
-        config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});
+        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{
+                                                         {-1, NUM_4}
+        });
+        config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{
+                                                        {NUM_3, NUM_4}
+        });
         config::SetPassOption(MG_COPYIN_UPPER_BOUND, NUM_2 * NUM_1024 * NUM_1024);
         rtSetDevice(GetDeviceIdByEnvVar());
     }
@@ -78,7 +82,10 @@ void TestNsa(const SimpleParams &params) {
     auto outputData = RawTensorData::CreateConstantTensor<outputT>(output, 0.0);
 
     ProgramData::GetInstance().AppendInputs({
-        xData, w1Data, w2Data, simW1Data,
+        xData,
+        w1Data,
+        w2Data,
+        simW1Data,
     });
 
     ProgramData::GetInstance().AppendOutputs({
@@ -267,8 +274,8 @@ void TestGenslc(const SimpleParams &params, int topk_actual_len = 0, bool isGenS
     }
 
 #ifdef BUILD_WITH_CANN
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),
-        {xData}, {trans0Data, reduce0Data, trans1Data, reduce1Data, topkIndData, topkValData, resZeroData});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData},
+        {trans0Data, reduce0Data, trans1Data, reduce1Data, topkIndData, topkValData, resZeroData});
     if (isGenSlc) {
         std::cout << "trans0 ====== " << std::endl;
         EXPECT_TRUE(resultCmp<T>(trans0Golden, (T *)trans0Data->data(), 0.008f, NUM_16));

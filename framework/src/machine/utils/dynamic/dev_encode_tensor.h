@@ -55,12 +55,8 @@ struct DevAscendStride {
             }
         }
     }
-    void SetShape(const std::vector<int> &shape) {
-        SetShape(shape.data(), (int)shape.size());
-    }
-    void SetShape(const DevShape &shape) {
-        SetShape(shape.dim, shape.dimSize);
-    }
+    void SetShape(const std::vector<int> &shape) { SetShape(shape.data(), (int)shape.size()); }
+    void SetShape(const DevShape &shape) { SetShape(shape.dim, shape.dimSize); }
 };
 
 static inline std::string DumpStride(const DevAscendStride &stride) {
@@ -90,9 +86,7 @@ struct DevCellMatchTableDesc {
             cellShape.dim[i] = shape[i];
         }
     }
-    void SetStrideShape(const std::vector<int> &shape) {
-        stride.SetShape(shape);
-    }
+    void SetStrideShape(const std::vector<int> &shape) { stride.SetShape(shape); }
 };
 
 static inline std::string DumpCellMatchTableDesc(const DevCellMatchTableDesc &desc) {
@@ -130,12 +124,12 @@ struct DevAscendRawTensor {
     uint64_t addrOffset{UINT64_MAX};
     uint64_t memoryRequirement; // Only available for incast/outcast
                                 // For workspace tensors, the memoryRequirement property is deprecated
-    uint64_t maxStaticMemReq; // 0 if cannot find a non-symbolic raw shape
+    uint64_t maxStaticMemReq;   // 0 if cannot find a non-symbolic raw shape
     DataType dataType;
     DevSymShape shape;
     DevIOProperty ioProperty{DevIOProperty::NONE};
     int32_t ioIndex;
-    int32_t linkedIncastId; //outcast shared same addr with incast
+    int32_t linkedIncastId; // outcast shared same addr with incast
     int rawMagic;
 
     int GetDim() const { return shape.dimSize; }
@@ -193,4 +187,4 @@ struct DevAscendRawTensor {
 struct DevAscendTensor {
     uint64_t rawIndex;
 };
-}
+} // namespace npu::tile_fwk::dynamic

@@ -31,28 +31,28 @@ TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstTile, tempTileDefine tem
         wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
         if (abs(static_cast<float>(alpha) - 1) > TileOp::EPSILON) {
             pto::TMULS(src1Tile, src1Tile, alpha);
-            #ifdef __DAV_V220
+#ifdef __DAV_V220
             pipe_barrier(PIPE_V);
-            #endif
-            pto::TCVT(tempTile, src1Tile, pto::RoundMode::CAST_RINT); //fp32->bf16
-            #ifdef __DAV_V220
+#endif
+            pto::TCVT(tempTile, src1Tile, pto::RoundMode::CAST_RINT); // fp32->bf16
+#ifdef __DAV_V220
             pipe_barrier(PIPE_V);
-            #endif
-            pto::TCVT(src1Tile, tempTile, pto::RoundMode::CAST_NONE); //bf16->fp32
-            #ifdef __DAV_V220
+#endif
+            pto::TCVT(src1Tile, tempTile, pto::RoundMode::CAST_NONE); // bf16->fp32
+#ifdef __DAV_V220
             pipe_barrier(PIPE_V);
-            #endif
+#endif
         }
         pto::TADD(dstTile, dstTile, src1Tile);
         // 当alpha不为1或index为int32类型时，需要在每一步运算后转换为bf16类型
         if (Std::is_same_v<typename T3::Type, int32_t> || abs(static_cast<float>(alpha) - 1) > TileOp::EPSILON) {
-            #ifdef __DAV_V220
+#ifdef __DAV_V220
             pipe_barrier(PIPE_V);
-            #endif
+#endif
             pto::TCVT(tempTile, dstTile, pto::RoundMode::CAST_RINT); // fp32->bf16
-            #ifdef __DAV_V220
+#ifdef __DAV_V220
             pipe_barrier(PIPE_V);
-            #endif
+#endif
             pto::TCVT(dstTile, tempTile, pto::RoundMode::CAST_NONE); // bf16->fp32
         }
     } else {
@@ -60,9 +60,9 @@ TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstTile, tempTileDefine tem
         wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
         if (abs(static_cast<float>(alpha) - 1) > TileOp::EPSILON) {
             pto::TMULS(src1Tile, src1Tile, alpha);
-            #ifdef __DAV_V220
+#ifdef __DAV_V220
             pipe_barrier(PIPE_V);
-            #endif
+#endif
         }
         pto::TADD(dstTile, dstTile, src1Tile);
     }
@@ -87,11 +87,9 @@ TILEOP void IndexAddLastAxisCompute(T0 dst, T2 src1, T3 src2, Scalar alpha, size
                         for (LoopVar idx = 0; idx < src1Shape4; ++idx) {
                             auto index = *(idxAddr + idx);
                             dstOffset = i * dstStride0 + j * dstStride1 + k * dstStride2 + l * dstStride3 + index;
-                            src1Offset =
-                                i * src1Stride0 + j * src1Stride1 + k * src1Stride2 + l * src1Stride3 + idx;
+                            src1Offset = i * src1Stride0 + j * src1Stride1 + k * src1Stride2 + l * src1Stride3 + idx;
                             if constexpr (Std::is_same_v<Scalar, half>) { // half
-                                float mulsResult =
-                                    static_cast<float>(src1Addr[src1Offset]) * static_cast<float>(alpha);
+                                float mulsResult = static_cast<float>(src1Addr[src1Offset]) * static_cast<float>(alpha);
                                 src1Addr[src1Offset] = static_cast<half>(mulsResult);
                             } else if constexpr (Std::is_same_v<Scalar, bfloat16_t>) { // bf16
                                 float mulsResult = src1Addr[src1Offset] * TileOp::Bf16ToFp32(alpha);

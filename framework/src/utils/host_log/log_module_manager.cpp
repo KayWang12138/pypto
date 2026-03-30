@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -26,15 +26,15 @@ namespace {
 constexpr int32_t kInvalidModuleLogLevel = -1;
 constexpr const char *kEnvModuleLogLevel = "ASCEND_MODULE_LOG_LEVEL";
 const std::map<std::string, LogModule> kLogModuleMap = {
-    {"FUNCTION", LogModule::FUNCTION},
-    {"PASS", LogModule::PASS},
-    {"CODEGEN", LogModule::CODEGEN},
-    {"MACHINE", LogModule::MACHINE},
-    {"DISTRIBUTED", LogModule::DISTRIBUTED},
-    {"SIMULATION", LogModule::SIMULATION},
-    {"VERIFY", LogModule::VERIFY},
+    {        "FUNCTION",         LogModule::FUNCTION},
+    {            "PASS",             LogModule::PASS},
+    {         "CODEGEN",          LogModule::CODEGEN},
+    {         "MACHINE",          LogModule::MACHINE},
+    {     "DISTRIBUTED",      LogModule::DISTRIBUTED},
+    {      "SIMULATION",       LogModule::SIMULATION},
+    {          "VERIFY",           LogModule::VERIFY},
     {"COMPILER_MONITOR", LogModule::COMPILER_MONITOR},
-    {"PLATFORM", LogModule::PLATFORM}
+    {        "PLATFORM",         LogModule::PLATFORM}
 };
 
 inline bool IsLogLevelValid(const int32_t logLevel) {
@@ -58,9 +58,9 @@ bool GetEnvStr(const char *envName, std::string &envValue) {
 int ParseStrToInt(const std::string &str) {
     try {
         return std::stoi(str);
-    } catch (const std::invalid_argument& ia) {
+    } catch (const std::invalid_argument &ia) {
         std::cerr << "Invalid argument: " << ia.what() << std::endl;
-    } catch (const std::out_of_range& oor) {
+    } catch (const std::out_of_range &oor) {
         std::cerr << "Out of Range error: " << oor.what() << std::endl;
     }
     return -1;
@@ -96,7 +96,7 @@ void ParseModuleLogLevel(const std::string &levelStr, std::map<std::string, int>
         moduleLogLevel.emplace(subModuleName, ParseStrToInt(subLevelStr.substr(subPos + 1)));
     }
 }
-}
+} // namespace
 LogModuleManager &LogModuleManager::Instance() {
     static LogModuleManager logModuleManager;
     return logModuleManager;
@@ -142,4 +142,4 @@ int32_t LogModuleManager::GetLowestLogLevel() const {
     }
     return lowestLogLevel;
 }
-}
+} // namespace npu::tile_fwk

@@ -18,8 +18,7 @@
 #include <climits>
 #include <iostream>
 
-void AICPUStats::Report(std::string &name)
-{
+void AICPUStats::Report(std::string &name) {
     if (threadSubmitNum.size() > 1) {
         rpt->ReportTitle("AICPUMachine " + name + " Thread Details");
         rpt->ReportMap("Thread Submit Detail:", threadSubmitNum);
@@ -28,8 +27,7 @@ void AICPUStats::Report(std::string &name)
     }
 }
 
-void AICPUStats::Reset()
-{
+void AICPUStats::Reset() {
     totalSubmitNum = 0;
     cubeSubmitNum = 0;
     vectorSubmitNum = 0;

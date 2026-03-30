@@ -124,7 +124,8 @@ Status AutoCast::InsertInt32Fp16Cast(Function &function) {
 
 bool AutoCast::SupportBF16(Operation *op) {
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-        if (UNSUPPORT_BF16_ARCH35_OPS.count(op->GetOpcode()) > 0) return false;
+        if (UNSUPPORT_BF16_ARCH35_OPS.count(op->GetOpcode()) > 0)
+            return false;
     } else {
         if (UNSUPPORT_BF16_OPS.count(op->GetOpcode()) > 0) {
             APASS_LOG_INFO_F(Elements::Operation, "Op[%d] can find in UNSUPPORT_BF16_OPS.", op->GetOpMagic());
@@ -144,8 +145,8 @@ bool AutoCast::SupportFP16(Operation *op) {
     return true;
 }
 
-void AutoCast::InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt,
-                                       const TileShape &tileShape) {
+void AutoCast::InsertCastOp(
+    Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt, const TileShape &tileShape) {
     Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {src}, {tgt});
     newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
     newCast.UpdateTileShape(tileShape);
@@ -172,7 +173,8 @@ Status AutoCast::InsertBF16Cast(Function &function) {
                 op->ReplaceInput(newInput, iop);
                 continue;
             }
-            auto newInput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, iop->shape, iop->GetDynValidShape(), iop->Format());
+            auto newInput = std::make_shared<LogicalTensor>(
+                function, DataType::DT_FP32, iop->shape, iop->GetDynValidShape(), iop->Format());
             InsertCastOp(function, iop, newInput, op->GetTileShape());
             op->ReplaceInput(newInput, iop);
             oldMagic2Input[iop->GetMagic()] = newInput;
@@ -188,7 +190,8 @@ Status AutoCast::InsertBF16Cast(Function &function) {
             }
             visitedOOp.insert(oop->GetMagic());
             if (oop->Datatype() == DataType::DT_BF16) {
-                auto newOutput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, oop->shape, oop->GetDynValidShape(), oop->Format());
+                auto newOutput = std::make_shared<LogicalTensor>(
+                    function, DataType::DT_FP32, oop->shape, oop->GetDynValidShape(), oop->Format());
                 op->ReplaceOutput(newOutput, oop);
                 InsertCastOp(function, newOutput, oop, op->GetTileShape());
                 oldMagic2Input[oop->GetMagic()] = newOutput;
@@ -221,7 +224,8 @@ Status AutoCast::InsertFP16Cast(Function &function) {
                 op->ReplaceInput(newInput, iop);
                 continue;
             }
-            auto newInput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, iop->shape, iop->GetDynValidShape(), iop->Format());
+            auto newInput = std::make_shared<LogicalTensor>(
+                function, DataType::DT_FP32, iop->shape, iop->GetDynValidShape(), iop->Format());
             InsertCastOp(function, iop, newInput, op->GetTileShape());
             op->ReplaceInput(newInput, iop);
             oldMagic2Input[iop->GetMagic()] = newInput;
@@ -236,7 +240,8 @@ Status AutoCast::InsertFP16Cast(Function &function) {
                 continue;
             }
             visitedOOp.insert(oop->GetMagic());
-            auto newOutput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, oop->shape, oop->GetDynValidShape(), oop->Format());
+            auto newOutput = std::make_shared<LogicalTensor>(
+                function, DataType::DT_FP32, oop->shape, oop->GetDynValidShape(), oop->Format());
             op->ReplaceOutput(newOutput, oop);
             InsertCastOp(function, newOutput, oop, op->GetTileShape());
             oldMagic2Input[oop->GetMagic()] = newOutput;
@@ -255,14 +260,12 @@ bool AutoCast::IsLegalCast(DataType ds, DataType dt) {
     return false;
 }
 
-std::vector<Operation *> AutoCast::GetCastChain(Operation *tailOp)
-{
+std::vector<Operation *> AutoCast::GetCastChain(Operation *tailOp) {
     std::vector<Operation *> tailToHeadChain;
     bool isFront = false;
     Operation *currOp = tailOp;
     while (!isFront) {
-        if (currOp->ProducerOps().size() != 1 ||
-            (*currOp->ProducerOps().begin())->GetOpcode() != Opcode::OP_CAST ||
+        if (currOp->ProducerOps().size() != 1 || (*currOp->ProducerOps().begin())->GetOpcode() != Opcode::OP_CAST ||
             addedCast_.count(*currOp->ProducerOps().begin()) == 0) {
             isFront = true;
             tailToHeadChain.push_back(currOp);
@@ -274,8 +277,7 @@ std::vector<Operation *> AutoCast::GetCastChain(Operation *tailOp)
     return tailToHeadChain;
 }
 
-Status AutoCast::ShortenChain(Function &function, const std::vector<Operation *> &castChain, Operation *tailOp)
-{
+Status AutoCast::ShortenChain(Function &function, const std::vector<Operation *> &castChain, Operation *tailOp) {
     std::shared_ptr<LogicalTensor> tgtTensor = *(tailOp->GetOOperands().begin());
     DataType tgtType = tgtTensor->Datatype();
     bool isTgtOut = (tgtTensor->nodetype == NodeType::OUTCAST);
@@ -312,7 +314,7 @@ Status AutoCast::ShortenChain(Function &function, const std::vector<Operation *>
         }
         if (i != 0 && IsLegalCast(srcType, tgtType)) {
             tgtTensor->RemoveProducer(tailOp);
-            auto origTileShape = (*srcTensor->GetConsumers().begin()) -> GetTileShape();
+            auto origTileShape = (*srcTensor->GetConsumers().begin())->GetTileShape();
             InsertCastOp(function, srcTensor, tgtTensor, origTileShape);
             break;
         }

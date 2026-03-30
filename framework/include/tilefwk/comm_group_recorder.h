@@ -41,7 +41,7 @@ public:
 
 private:
     CommGroupRecorder() = default;
-    ~CommGroupRecorder() =default;
+    ~CommGroupRecorder() = default;
 
     std::unordered_map<std::string, uint32_t> name2Index_;
     std::vector<std::string> index2Name_;

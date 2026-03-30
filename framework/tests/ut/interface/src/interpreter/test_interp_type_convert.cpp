@@ -31,8 +31,7 @@ static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t
 }
 
 template <typename T>
-static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t> &shape,
-                                           const std::vector<T> &vals) {
+static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t> &shape, const std::vector<T> &vals) {
     Tensor data(t, shape);
     return std::make_shared<LogicalTensorData>(RawTensorData::CreateTensor(data, vals));
 }
@@ -43,12 +42,13 @@ static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t
 #define ASSERT_ALLCLOSE_ATOL(lhs, rhs, atol) \
     ASSERT(calc::AllClose(lhs, rhs, atol, 1e-5)) << "lhs:\n" << lhs->ToString() << "\nrhs:\n" << rhs->ToString() << "\n"
 
-// Compare FP8 output with golden: Cast FP8 to FP32 first to avoid GetElement crash on FP8 (raw_tensor_data lacks FP8 support)
-#define ASSERT_FP8_ALLCLOSE_ATOL(fp8_out, golden, atol) \
-    do { \
+// Compare FP8 output with golden: Cast FP8 to FP32 first to avoid GetElement crash on FP8 (raw_tensor_data lacks FP8
+// support)
+#define ASSERT_FP8_ALLCLOSE_ATOL(fp8_out, golden, atol)                     \
+    do {                                                                    \
         auto _out_f32 = makeTensorData(DT_FP32, fp8_out->GetShape(), 0.0f); \
-        calc::Cast(_out_f32, fp8_out); \
-        ASSERT_ALLCLOSE_ATOL(_out_f32, golden, atol); \
+        calc::Cast(_out_f32, fp8_out);                                      \
+        ASSERT_ALLCLOSE_ATOL(_out_f32, golden, atol);                       \
     } while (0)
 
 class InterpTypeConvertTest : public testing::Test {
@@ -86,8 +86,8 @@ TEST_F(InterpTypeConvertTest, Fp8SameBitsDifferentFormats) {
         float expect_e5m2;
         float expect_e8m0;
     } cases[] = {
-        {0x55, 13.0f, 80.0f, 4194304.0f},
-        {0x38, 1.0f, 0.5f, std::exp2(-7.0f)},
+        {0x55,   13.0f,             80.0f,         4194304.0f},
+        {0x38,    1.0f,              0.5f,   std::exp2(-7.0f)},
         {0xA0, -0.125f, -std::exp2(-7.0f), -std::exp2(-31.0f)},
     };
 
@@ -137,9 +137,9 @@ TEST_F(InterpTypeConvertTest, Fp8SubnormalSameBitsDifferentFormats) {
         float expect_e5m2;
         float expect_e8m0;
     } cases[] = {
-        {0x01,  1.0f / 512.0f,   1.0f / 65536.0f,  std::exp2(-62.0f)},
-        {0x02,  2.0f / 512.0f,   2.0f / 65536.0f,  std::exp2(-61.0f)},
-        {0x81, -1.0f / 512.0f,  -1.0f / 65536.0f, -std::exp2(-62.0f)},
+        {0x01,  1.0f / 512.0f,  1.0f / 65536.0f,  std::exp2(-62.0f)},
+        {0x02,  2.0f / 512.0f,  2.0f / 65536.0f,  std::exp2(-61.0f)},
+        {0x81, -1.0f / 512.0f, -1.0f / 65536.0f, -std::exp2(-62.0f)},
     };
 
     for (const auto &c : cases) {
@@ -237,11 +237,11 @@ TEST_F(InterpTypeConvertTest, Fp8E4M3SpecialValues) {
         float expected;
         bool is_nan;
     } cases[] = {
-        {0x00, 0.0f, false},
-        {0x80, -0.0f, false},
-        {0x7E, 240.0f, false},
+        {0x00,    0.0f, false},
+        {0x80,   -0.0f, false},
+        {0x7E,  240.0f, false},
         {0xFE, -240.0f, false},
-        {0x7F, 240.0f, false},
+        {0x7F,  240.0f, false},
     };
 
     for (const auto &c : cases) {
@@ -268,11 +268,11 @@ TEST_F(InterpTypeConvertTest, Fp8E5M2SpecialValues) {
         bool is_nan;
         bool is_inf;
     } cases[] = {
-        {0x00, 0.0f, false, false},
-        {0x80, -0.0f, false, false},
-        {0x7C, std::numeric_limits<float>::infinity(), false, true},   // +Inf
-        {0xFC, -std::numeric_limits<float>::infinity(), false, true},  // -Inf
-        {0x7F, 0.0f, true, false},                                     // NaN
+        {0x00,                                    0.0f, false, false},
+        {0x80,                                   -0.0f, false, false},
+        {0x7C,  std::numeric_limits<float>::infinity(), false,  true}, // +Inf
+        {0xFC, -std::numeric_limits<float>::infinity(), false,  true}, // -Inf
+        {0x7F,                                    0.0f,  true, false}, // NaN
     };
 
     for (const auto &c : cases) {
@@ -300,4 +300,4 @@ TEST_F(InterpTypeConvertTest, Fp8E5M2SpecialValues) {
         }
     }
 }
-}
+} // namespace npu::tile_fwk

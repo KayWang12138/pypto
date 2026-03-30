@@ -27,8 +27,7 @@ TILEOP void SyncV() {
 #endif
 }
 
-
-template<typename DType>
+template <typename DType>
 TILEOP constexpr bool IsIntegralType() {
     return std::is_same_v<DType, int32_t> || std::is_same_v<DType, uint32_t> || std::is_same_v<DType, int8_t> ||
            std::is_same_v<DType, uint8_t> || std::is_same_v<DType, int16_t> || std::is_same_v<DType, uint16_t> ||
@@ -78,7 +77,8 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
 }
 
 template <typename T, typename HalfTileDefineSrc, typename TileDefineDst, typename B16TileDefineSrc>
-TILEOP void IsFiniteCalcImpl(TileDefineDst dst, B16TileDefineSrc src, B16TileDefineSrc bufferB16, HalfTileDefineSrc bufferFP16) {
+TILEOP void IsFiniteCalcImpl(
+    TileDefineDst dst, B16TileDefineSrc src, B16TileDefineSrc bufferB16, HalfTileDefineSrc bufferFP16) {
     int16_t mask = 0;
     if constexpr (std::is_same_v<T, bfloat16_t>) {
         mask = 0x7F80;
@@ -97,7 +97,7 @@ TILEOP void IsFiniteCalcImpl(TileDefineDst dst, B16TileDefineSrc src, B16TileDef
     SyncV();
 }
 
-template<typename T, typename HalfTileDefineSrc, bool CombineAxis, typename TileDefineDst, typename B16TileDefineSrc>
+template <typename T, typename HalfTileDefineSrc, bool CombineAxis, typename TileDefineDst, typename B16TileDefineSrc>
 TILEOP void IsFiniteComputeImpl(TileDefineDst dst, B16TileDefineSrc src, HalfTileDefineSrc buffer) {
     if constexpr (!CombineAxis) {
         HalfTileDefineSrc bufferFP16(src.GetValidRow(), src.GetValidCol());
@@ -163,7 +163,7 @@ TILEOP void BrcbCompute(T0 dst, T1 src) {
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, DIM_4TH, MAX_DIMS>();
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, DIM_5TH, MAX_DIMS>();
 
-    using DstTileDefine =pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor>;
+    using DstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor>;
     using SrcTileDefine = typename std::conditional<(srcTileW == 1),
         pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::ColMajor>,
         pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileW, srcTileH, pto::BLayout::ColMajor>>::type;
@@ -202,7 +202,8 @@ TILEOP void TSqrt(T0 dst, T1 src) {
 
 template <typename DstTileTensor, typename SrcTileTensor, typename BufferTileTensor>
 TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buffer) {
-    using DstType = std::conditional_t<std::is_same_v<typename DstTileTensor::Type, bool>, uint8_t, typename DstTileTensor::Type>;
+    using DstType =
+        std::conditional_t<std::is_same_v<typename DstTileTensor::Type, bool>, uint8_t, typename DstTileTensor::Type>;
     using SrcType = typename SrcTileTensor::Type;
 
     constexpr size_t tileSrcH = GetMergedAxisIfNeed<SrcTileTensor, true>();
@@ -214,7 +215,8 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
     constexpr int validW = GetValidWidth<SrcTileTensor>();
 
     if constexpr (IsIntegralType<SrcType>()) {
-        using TileDefineDst = pto::Tile<pto::TileType::Vec, int16_t, tileDstH, (tileDstW + 1) / 2, pto::BLayout::RowMajor, validH, (validW + 1) / 2>;
+        using TileDefineDst = pto::Tile<pto::TileType::Vec, int16_t, tileDstH, (tileDstW + 1) / 2,
+            pto::BLayout::RowMajor, validH, (validW + 1) / 2>;
         TileDefineDst dstTile;
         pto::TASSIGN(dstTile, dst.GetAddr());
         int16_t mask = 0x0101;
@@ -225,9 +227,12 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
         return;
     }
 
-    using TileDefineDst = pto::Tile<pto::TileType::Vec, DstType, tileDstH, tileDstW, pto::BLayout::RowMajor, validH, validW>;
-    using HalfTileDefineSrc = pto::Tile<pto::TileType::Vec, half, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(half), pto::BLayout::RowMajor, validH, validW>;
-    using B16TileDefineSrc = pto::Tile<pto::TileType::Vec, int16_t, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(int16_t), pto::BLayout::RowMajor, validH, validW>;
+    using TileDefineDst =
+        pto::Tile<pto::TileType::Vec, DstType, tileDstH, tileDstW, pto::BLayout::RowMajor, validH, validW>;
+    using HalfTileDefineSrc = pto::Tile<pto::TileType::Vec, half, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(half),
+        pto::BLayout::RowMajor, validH, validW>;
+    using B16TileDefineSrc = pto::Tile<pto::TileType::Vec, int16_t, tileSrcH,
+        tileSrcW * sizeof(SrcType) / sizeof(int16_t), pto::BLayout::RowMajor, validH, validW>;
 
     HalfTileDefineSrc bufferTile;
     TileDefineDst dstTile;
@@ -237,7 +242,8 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
     pto::TASSIGN(srcTile, src.GetAddr());
 
     if constexpr (std::is_same_v<SrcType, float>) {
-        using FP32TileDefineSrc = pto::Tile<pto::TileType::Vec, float, tileSrcH, tileSrcW, pto::BLayout::RowMajor, validH, validW>;
+        using FP32TileDefineSrc =
+            pto::Tile<pto::TileType::Vec, float, tileSrcH, tileSrcW, pto::BLayout::RowMajor, validH, validW>;
         FP32TileDefineSrc srcFP32;
         HalfTileDefineSrc srcFP16;
         pto::TASSIGN(srcFP32, src.GetAddr());
@@ -251,7 +257,8 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
 
 template <typename DstTileTensor, typename SrcTileTensor>
 TILEOP void TIsFinite4Integral(DstTileTensor dst, SrcTileTensor src) {
-    using DstType = std::conditional_t<std::is_same_v<typename DstTileTensor::Type, bool>, uint8_t, typename DstTileTensor::Type>;
+    using DstType =
+        std::conditional_t<std::is_same_v<typename DstTileTensor::Type, bool>, uint8_t, typename DstTileTensor::Type>;
     using SrcType = typename SrcTileTensor::Type;
     constexpr size_t tileSrcH = GetMergedAxisIfNeed<SrcTileTensor, false>();
     constexpr size_t tileSrcW = TileOp::GetTensorTileShapeDim<SrcTileTensor, DIM_5TH, MAX_DIMS>();
@@ -261,7 +268,8 @@ TILEOP void TIsFinite4Integral(DstTileTensor dst, SrcTileTensor src) {
     int validH = src.GetLayout().template GetShapeDim<DIM_4TH, MAX_DIMS>();
     int validW = src.GetLayout().template GetShapeDim<DIM_5TH, MAX_DIMS>();
 
-    using TileDefineDst = pto::Tile<pto::TileType::Vec, int16_t, tileDstH, tileDstW / 2, pto::BLayout::RowMajor, -1, -1>;
+    using TileDefineDst =
+        pto::Tile<pto::TileType::Vec, int16_t, tileDstH, tileDstW / 2, pto::BLayout::RowMajor, -1, -1>;
     TileDefineDst dstTile(validH, (validW + 1) / 2);
     pto::TASSIGN(dstTile, dst.GetAddr());
     const auto dstLayout = dst.GetLayout();

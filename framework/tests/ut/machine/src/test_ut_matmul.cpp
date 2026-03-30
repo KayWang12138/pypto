@@ -106,7 +106,7 @@ TEST_F(DynamicMatmulUTest, mm_A_B_ND_bf16) {
     int n = 512;
     using TestMatmulType = MatmulImpl<float, float, MatrixInputs<false, false, false, false, false>>;
     Matrix::MatmulExtendParam param;
-    TestDynMatmul<TestMatmulType> (m, k, n, param);
+    TestDynMatmul<TestMatmulType>(m, k, n, param);
 }
 
 TEST_F(DynamicMatmulUTest, mm_A_B_ND_bf16_C_NZ) {
@@ -136,7 +136,7 @@ TEST_F(DynamicMatmulUTest, mm_A_B_ND_KSplit_bf16) {
     int n = 512;
     using TestMatmulType = MatmulImpl<float, float, MatrixInputs<false, false, false, false, false>>;
     Matrix::MatmulExtendParam param;
-    TestDynMatmul<TestMatmulType> (m, k, n, param);
+    TestDynMatmul<TestMatmulType>(m, k, n, param);
 }
 
 TEST_F(DynamicMatmulUTest, mm_A_B_ND_pertensor) {
@@ -147,7 +147,7 @@ TEST_F(DynamicMatmulUTest, mm_A_B_ND_pertensor) {
     Matrix::MatmulExtendParam param;
     param.scaleValue = 2.0f;
     using TestMatmulType = MatmulImpl<int8_t, npu::tile_fwk::float16, MatrixInputs<false, false, false, false, false>>;
-    TestDynMatmul<TestMatmulType> (m, k, n, param);
+    TestDynMatmul<TestMatmulType>(m, k, n, param);
 }
 
 TEST_F(DynamicMatmulUTest, mm_A_B_ND_perchannel_with_bias) {
@@ -159,20 +159,19 @@ TEST_F(DynamicMatmulUTest, mm_A_B_ND_perchannel_with_bias) {
     param.biasTensor = Tensor(DT_INT32, {1, n}, "bias_tensor", TileOpFormat::TILEOP_ND);
     param.scaleTensor = Tensor(DT_UINT64, {1, n}, "scale_tensor", TileOpFormat::TILEOP_ND);
     using TestMatmulType = MatmulImpl<int8_t, npu::tile_fwk::float16, MatrixInputs<false, false, false, false, false>>;
-    TestDynMatmul<TestMatmulType> (m, k, n, param);
+    TestDynMatmul<TestMatmulType>(m, k, n, param);
 }
 
 TEST_F(DynamicMatmulUTest, mm_A_B_ND_config) {
     std::shared_ptr<ConfigScope> scope = ConfigManagerNg::GetInstance().CurrentScope();
     ASSERT(scope != nullptr);
     const TileShape &tileScope = scope->GenerateTileShape();
-    if (tileScope.GetCubeTile().enableSplitK == false){
+    if (tileScope.GetCubeTile().enableSplitK == false) {
         return;
     }
 }
 
 TEST_F(DynamicMatmulUTest, transposed_batchmatmul_test) {
-
     int64_t b = 4;
     int64_t m = 16;
     int64_t k = 128;
@@ -223,7 +222,7 @@ TEST_F(DynamicMatmulUTest, mm_A_B_ND_KSplit_int8) {
     int n = 512;
     using TestMatmulType = MatmulImpl<int8_t, int32_t, MatrixInputs<false, false, false, false, false>>;
     Matrix::MatmulExtendParam param;
-    TestDynMatmul<TestMatmulType> (m, k, n, param);
+    TestDynMatmul<TestMatmulType>(m, k, n, param);
 }
 
 } // namespace

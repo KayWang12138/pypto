@@ -29,7 +29,7 @@ TEST_F(ConcatOnBoardTest, test_concat_dim4_float32) {
     int cap = shape[0] * shape[1] * shape[2] * shape[3];
     int resCap = cap * 2;
     uint64_t outputSize = resCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Concat") {
         void *x_ptr = readToDev(GetGoldenDir() + "/concat_2_2_64_64_operand1.bin", cap);
         void *y_ptr = readToDev(GetGoldenDir() + "/concat_2_2_64_64_operand2.bin", cap);
@@ -63,14 +63,14 @@ TEST_F(ConcatOnBoardTest, test_concat_exp_dim4_float32) {
     int cap = shape[0] * shape[1] * shape[2] * shape[3];
     int resCap = cap * 2;
     uint64_t outputSize = resCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Concat") {
         void *x_ptr = readToDev(GetGoldenDir() + "/concat_exp_2_2_32_32_operand1.bin", cap);
         void *y_ptr = readToDev(GetGoldenDir() + "/concat_exp_2_2_32_32_operand2.bin", cap);
         TileShape::Current().SetVecTile({2, 2, 32, 32});
         Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
         Tensor input_y(dtype, shape, (uint8_t *)y_ptr, "y");
-        //Tensor output1(dtype, resShape, "z");
+        // Tensor output1(dtype, resShape, "z");
         Tensor output2(dtype, resShape, out_ptr, "res");
 
         config::SetBuildStatic(true);
@@ -98,14 +98,14 @@ TEST_F(ConcatOnBoardTest, test_exp_concat_dim4_float32) {
     int cap = shape[0] * shape[1] * shape[2] * shape[3];
     int resCap = cap * 2;
     uint64_t outputSize = resCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Concat") {
         void *x_ptr = readToDev(GetGoldenDir() + "/concat_exp_2_2_32_32_operand1.bin", cap);
         void *y_ptr = readToDev(GetGoldenDir() + "/concat_exp_2_2_32_32_operand2.bin", cap);
         TileShape::Current().SetVecTile({2, 2, 32, 32});
         Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
         Tensor input_y(dtype, shape, (uint8_t *)y_ptr, "y");
-        //Tensor output1(dtype, resShape, "z");
+        // Tensor output1(dtype, resShape, "z");
         Tensor output2(dtype, resShape, out_ptr, "res");
 
         config::SetBuildStatic(true);
@@ -137,14 +137,14 @@ TEST_F(ConcatOnBoardTest, test_concat_sqrt_dim4_float32) {
     int cap2 = shape2[0] * shape2[1] * shape2[2] * shape2[3];
     int resCap = resShape[0] * resShape[1] * resShape[2] * resShape[3];
     uint64_t outputSize = resCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Concat") {
         void *x_ptr = readToDev(GetGoldenDir() + "/concat_sqrt_fp32_operand1.bin", cap1);
         void *y_ptr = readToDev(GetGoldenDir() + "/concat_sqrt_fp32_operand2.bin", cap2);
         TileShape::Current().SetVecTile({2, 2, 32, 32});
         Tensor input_x(dtype, shape1, (uint8_t *)x_ptr, "x");
         Tensor input_y(dtype, shape2, (uint8_t *)y_ptr, "y");
-        //Tensor output1(dtype, resShape, "z");
+        // Tensor output1(dtype, resShape, "z");
         Tensor output2(dtype, resShape, out_ptr, "res");
 
         config::SetBuildStatic(true);
@@ -165,7 +165,6 @@ TEST_F(ConcatOnBoardTest, test_concat_sqrt_dim4_float32) {
     EXPECT_EQ(ret, true);
 }
 
-
 TEST_F(ConcatOnBoardTest, test_concat_100_inputs_float32) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
@@ -175,7 +174,7 @@ TEST_F(ConcatOnBoardTest, test_concat_100_inputs_float32) {
     int resCap = resShape[0] * resShape[1] * resShape[2] * resShape[3];
     DataType dtype = DataType::DT_FP32;
     uint64_t outputSize = resCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Concat") {
         std::vector<Tensor> inputs;
         void *x_ptr = nullptr;
@@ -213,7 +212,7 @@ TEST_F(ConcatOnBoardTest, test_concat_128_inputs_float32) {
     int resCap = resShape[0] * resShape[1] * resShape[2] * resShape[3];
     DataType dtype = DataType::DT_FP32;
     uint64_t outputSize = resCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Concat") {
         std::vector<Tensor> inputs;
         void *x_ptr = nullptr;
@@ -253,7 +252,7 @@ TEST_F(ConcatOnBoardTest, test_concat_dim2_float32_moe) {
     int cap1 = shape1[0] * shape1[1];
     int resCap = resShape[0] * resShape[1];
     uint64_t outputSize = resCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Concat") {
         void *x_ptr = readToDev(GetGoldenDir() + "/concat_3_7168_operand1.bin", cap0);
         void *y_ptr = readToDev(GetGoldenDir() + "/concat_64_7168_operand2.bin", cap1);

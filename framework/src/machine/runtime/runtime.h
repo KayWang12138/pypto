@@ -69,13 +69,7 @@ typedef enum tagProcType {
     PROCESS_CPTYPE_MAX
 } processType_t;
 
-enum res_map_type {
-    RES_AICORE = 0,
-    RES_HSCB_AICORE,
-    RES_L2BUFF,
-    RES_C2C,
-    RES_MAP_TYPE_MAX
-};
+enum res_map_type { RES_AICORE = 0, RES_HSCB_AICORE, RES_L2BUFF, RES_C2C, RES_MAP_TYPE_MAX };
 
 struct res_map_info {
     processType_t target_proc_type;
@@ -107,8 +101,8 @@ inline int32_t GetUserDeviceId() {
 inline int32_t GetLogDeviceId() {
     int32_t logicDeviceId = 0;
     int32_t userDeviceId = GetUserDeviceId();
-    ASSERT(rtGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_ERROR_NONE) << "Trans usrDeviceId: " <<
-           userDeviceId << " to logDevId not success";
+    ASSERT(rtGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_ERROR_NONE)
+        << "Trans usrDeviceId: " << userDeviceId << " to logDevId not success";
     MACHINE_LOGD("Current userDeviceId=%d, logicDeviceId=%d.", userDeviceId, logicDeviceId);
     return logicDeviceId;
 }
@@ -118,8 +112,7 @@ public:
     void AllocDevAddr(uint8_t **devAddr, uint64_t size) {
         bool success = memPool_.AllocDevAddrInPool(devAddr, size);
         if (!success) {
-            MACHINE_LOGE(DevCommonErr::ALLOC_FAILED,
-                           "RuntimeAgent::AllocDevAddrInPool failed for size %lu", size);
+            MACHINE_LOGE(DevCommonErr::ALLOC_FAILED, "RuntimeAgent::AllocDevAddrInPool failed for size %lu", size);
             devAddr = nullptr;
         } else {
             MACHINE_LOGI("RuntimeAgentMemory: Alloc success %p", *devAddr);
@@ -127,21 +120,16 @@ public:
     }
 
     void FreeDevAddr(uint8_t *devAddr) {
-        if (!devAddr) return;
+        if (!devAddr)
+            return;
         memPool_.FreeDevAddr(devAddr);
     }
 
-    void DynamicRecycle() {
-        memPool_.DynamicRecycle();
-    }
+    void DynamicRecycle() { memPool_.DynamicRecycle(); }
 
-    void PrintPoolStatus() {
-        memPool_.PrintPoolStatus();
-    }
+    void PrintPoolStatus() { memPool_.PrintPoolStatus(); }
 
-    bool CheckAllSentinels() {
-        return memPool_.CheckAllSentinels();
-    }
+    bool CheckAllSentinels() { return memPool_.CheckAllSentinels(); }
 
     static void CopyToDev(uint8_t *devDstAddr, uint8_t *hostSrcAddr, uint64_t size) {
         rtMemcpy(devDstAddr, size, hostSrcAddr, size, RT_MEMCPY_HOST_TO_DEVICE);
@@ -159,14 +147,11 @@ public:
     // Only used in test case.
     void *MapAiCoreReg();
 
-    bool GetValidGetPgMask() const {
-        return validGetPgMask;
-    }
+    bool GetValidGetPgMask() const { return validGetPgMask; }
 
 protected:
-    void DestroyMemory() {
-        memPool_.DestroyPool();
-    }
+    void DestroyMemory() { memPool_.DestroyPool(); }
+
 private:
     bool validGetPgMask = true;
     DevMemoryPool memPool_;
@@ -194,6 +179,7 @@ public:
         rtStreamDestroy(raStreamInstanceSche);
         rtStreamDestroy(raStreamInstanceCtrl);
     }
+
 private:
     rtStream_t raStreamInstance{0};
     rtStream_t raStreamInstanceCtrl{0};
@@ -226,7 +212,7 @@ public:
     ~RuntimeAgent() { Finalize(); }
 
 public:
-    static uint64_t GetL2Offset () {
+    static uint64_t GetL2Offset() {
         uint64_t offset = 0;
         int32_t userDeviceId = GetUserDeviceId();
         rtGetL2CacheOffset(userDeviceId, &offset);

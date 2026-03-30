@@ -39,12 +39,10 @@ struct CacheInfo {
 struct MemoryInfo {
     MemoryType type;
     size_t size;
-    size_t validSize;    // 实际可用size
+    size_t validSize; // 实际可用size
     CacheInfo cache;
     bool operator==(const MemoryType &s) const { return type == s; }
-    MemoryInfo() {
-        type = MemoryType::MEM_UNKNOWN;
-    }
+    MemoryInfo() { type = MemoryType::MEM_UNKNOWN; }
     MemoryInfo(MemoryType memtype, size_t sz) : type(memtype), size(sz) {}
 };
 
@@ -79,9 +77,7 @@ enum class InstCategory {
 struct MemoryNode {
     MemoryType type;
     std::set<MemoryType> dests;
-    void AddDest(const std::shared_ptr<MemoryNode> &to) {
-        dests.insert({to->type});
-    }
+    void AddDest(const std::shared_ptr<MemoryNode> &to) { dests.insert({to->type}); }
 };
 
 struct MemoryGraph {
@@ -91,9 +87,7 @@ struct MemoryGraph {
     void DFS(MemoryType target, const std::shared_ptr<MemoryNode> &node, std::vector<MemoryType> &candidate,
         std::vector<MemoryType> &paths) const;
     bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
-    void Reset() {
-        nodes.clear();
-    }
+    void Reset() { nodes.clear(); }
 };
 
 class PlatformParser {
@@ -101,26 +95,25 @@ public:
     PlatformParser() = default;
     virtual ~PlatformParser() = default;
 
-    virtual bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const = 0;
+    virtual bool GetStringVal(const std::string &column, const std::string &key, std::string &val) const = 0;
 
-    bool GetSizeVal(const std::string& column, const std::string& key, size_t& val) const;
-    bool GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const;
-    bool FilterCCECVersion(const std::string& key, std::string &coreType) const;
+    bool GetSizeVal(const std::string &column, const std::string &key, size_t &val) const;
+    bool GetCCECVersion(std::unordered_map<std::string, std::string> &ccecVersion) const;
+    bool FilterCCECVersion(const std::string &key, std::string &coreType) const;
 };
 
 class Inst {
 public:
     int id = -1;
 
-    size_t cycle_cnt;   // costmodle/ooo
-    size_t event_cnt;   // codegen/ooo
+    size_t cycle_cnt; // costmodle/ooo
+    size_t event_cnt; // codegen/ooo
     size_t time_;
 
-    std::string name;                    // Intrinsic_vadd
-    std::vector<InstVariant> variants;   // "|"后面的datatype
+    std::string name;                  // Intrinsic_vadd
+    std::vector<InstVariant> variants; // "|"后面的datatype
     InstCategory category = InstCategory::Unknown;
 };
-
 
 class Core {
 protected:
@@ -128,16 +121,17 @@ protected:
     std::vector<Inst> instructions_;
     std::string version;
     std::string ccec_version;
+
 private:
     size_t num_ = 0;
     std::vector<Pipe> pipes_;
 
 public:
     virtual ~Core() = default;
-    void AddMemory(const MemoryInfo& mem_info) { memories_[mem_info.type] = mem_info; }
+    void AddMemory(const MemoryInfo &mem_info) { memories_[mem_info.type] = mem_info; }
     void SetNum(size_t num) { num_ = num; }
-    void SetVersion(const std::string &ver) { version = ver;}
-    void SetCCECVersion(const std::string &ver) { ccec_version = ver;}
+    void SetVersion(const std::string &ver) { version = ver; }
+    void SetCCECVersion(const std::string &ver) { ccec_version = ver; }
 
     std::string GetVersion() const { return version; }
     std::string GetCCECVersion() const { return ccec_version; }
@@ -145,9 +139,9 @@ public:
     size_t GetMemorySize(MemoryType type) const;
 };
 
-class AivCore : public Core{
+class AivCore : public Core {
 public:
-    AivCore() { }
+    AivCore() {}
 
     // [VectorCoreSpec]
     void SetVecFreq(int freq) { vec_freq_ = freq; }
@@ -176,9 +170,9 @@ private:
     int wide_reg_width_ = 0;
 };
 
-class AicCore : public Core{
+class AicCore : public Core {
 public:
-    AicCore() { }
+    AicCore() {}
     void SetCubeFreq(int freq) { cube_freq_ = freq; }
     void SetFixPipeSupport(bool support) { support_fixpipe_ = support; }
     std::string Dump() const {
@@ -192,6 +186,7 @@ public:
         ss << "}\n";
         return ss.str();
     };
+
 private:
     int cube_freq_ = 0;
     bool support_fixpipe_ = false;
@@ -212,6 +207,7 @@ public:
         ss << "}\n";
         return ss.str();
     };
+
 private:
     bool aicpu_sync_by_sw_ = false;
     bool tscpu_sync_by_sw_ = false;
@@ -229,16 +225,17 @@ private:
     AivCore aiv_core_;
     size_t aic_cnt_;
     size_t aiv_cnt_;
+
 public:
     size_t GetAICNum() const { return aic_cnt_; }
     size_t GetAIVNum() const { return aiv_cnt_; }
-    size_t GetAICMemorySize(MemoryType type) const { return aic_core_.GetMemorySize(type);}
-    size_t GetAIVMemorySize(MemoryType type) const { return aiv_core_.GetMemorySize(type);}
-    AicCore& GetAICCore() { return aic_core_; };
-    AivCore& GetAIVCore() { return aiv_core_; };
+    size_t GetAICMemorySize(MemoryType type) const { return aic_core_.GetMemorySize(type); }
+    size_t GetAIVMemorySize(MemoryType type) const { return aiv_core_.GetMemorySize(type); }
+    AicCore &GetAICCore() { return aic_core_; };
+    AivCore &GetAIVCore() { return aiv_core_; };
 
-    void SetAICCore(const AicCore& core) { aic_core_ = core; }
-    void SetAIVCore(const AivCore& core) { aiv_core_ = core; }
+    void SetAICCore(const AicCore &core) { aic_core_ = core; }
+    void SetAIVCore(const AivCore &core) { aiv_core_ = core; }
     void SetAICNum(size_t num) { aic_cnt_ = num; }
     void SetAIVNum(size_t num) { aiv_cnt_ = num; }
 
@@ -248,11 +245,11 @@ public:
         ss << "CORE_WRAP_INFO : {\n";
         ss << "    AIC_CORE : {\n";
         ss << "        \"VERSION\" : \"" << aic_core_.GetVersion() << "\",\n";
-        ss << "        \"NUM\" : "     << aic_cnt_ << "\n";
+        ss << "        \"NUM\" : " << aic_cnt_ << "\n";
         ss << "    },\n";
         ss << "    AIV_CORE : {\n";
         ss << "        \"VERSION\" : \"" << aiv_core_.GetVersion() << "\",\n";
-        ss << "        \"NUM\" : "     << aiv_cnt_ << "\n";
+        ss << "        \"NUM\" : " << aiv_cnt_ << "\n";
         ss << "    },\n";
         ss << "},\n";
         ss << "}\n";
@@ -263,7 +260,7 @@ public:
 class Die {
 private:
     size_t mem_device_ddr_size_ = 0;
-    size_t mem_host1_size_      = 0;
+    size_t mem_host1_size_ = 0;
 
     CoreWrap core_wrap_;
     AICPU aicpu_;
@@ -281,9 +278,9 @@ public:
     size_t GetMemoryLimit(MemoryType type) const;
 
     void SetMemDeviceDDRSize(size_t size) { mem_device_ddr_size_ = size; }
-    void SetMemHost1Size(size_t size)     { mem_host1_size_      = size; }
+    void SetMemHost1Size(size_t size) { mem_host1_size_ = size; }
 
-    bool SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>>& dataPaths);
+    bool SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>> &dataPaths);
     bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
 
     std::string Dump() const {
@@ -292,13 +289,13 @@ public:
         ss << "DIE_INFO : {\n";
         // MEMORY_LIMITS
         ss << "        \"MEMORY_LIMITS\" : {\n";
-        ss << "          \"MEM_UB\" : "        << GetMemoryLimit(MemoryType::MEM_UB)  << ",\n";
-        ss << "          \"MEM_L1\" : "        << GetMemoryLimit(MemoryType::MEM_L1)  << ",\n";
-        ss << "          \"MEM_L0A\" : "       << GetMemoryLimit(MemoryType::MEM_L0A) << ",\n";
-        ss << "          \"MEM_L0B\" : "       << GetMemoryLimit(MemoryType::MEM_L0B) << ",\n";
-        ss << "          \"MEM_L0C\" : "       << GetMemoryLimit(MemoryType::MEM_L0C) << ",\n";
-        ss << "          \"MEM_DEVICE_DDR\" : " << mem_device_ddr_size_  << ",\n";
-        ss << "          \"MEM_HOST1\" : "      << mem_host1_size_       << "\n";
+        ss << "          \"MEM_UB\" : " << GetMemoryLimit(MemoryType::MEM_UB) << ",\n";
+        ss << "          \"MEM_L1\" : " << GetMemoryLimit(MemoryType::MEM_L1) << ",\n";
+        ss << "          \"MEM_L0A\" : " << GetMemoryLimit(MemoryType::MEM_L0A) << ",\n";
+        ss << "          \"MEM_L0B\" : " << GetMemoryLimit(MemoryType::MEM_L0B) << ",\n";
+        ss << "          \"MEM_L0C\" : " << GetMemoryLimit(MemoryType::MEM_L0C) << ",\n";
+        ss << "          \"MEM_DEVICE_DDR\" : " << mem_device_ddr_size_ << ",\n";
+        ss << "          \"MEM_HOST1\" : " << mem_host1_size_ << "\n";
         ss << "        },\n";
         ss << "    },\n";
         ss << "}\n";
@@ -306,18 +303,13 @@ public:
     }
 
     // Get下层参数
-    CoreWrap& GetCoreWrap() { return core_wrap_; }
-    AICPU& GetAICPU() { return aicpu_; }
-    AicCore& GetAICCore() { return core_wrap_.GetAICCore(); }
-    AivCore& GetAIVCore() { return core_wrap_.GetAIVCore(); }
+    CoreWrap &GetCoreWrap() { return core_wrap_; }
+    AICPU &GetAICPU() { return aicpu_; }
+    AicCore &GetAICCore() { return core_wrap_.GetAICCore(); }
+    AivCore &GetAIVCore() { return core_wrap_.GetAIVCore(); }
 };
 
-enum class NPUArch{
-    DAV_1001 = 1001,
-    DAV_2201 = 2201,
-    DAV_3510 = 3510,
-    DAV_UNKNOWN
-};
+enum class NPUArch { DAV_1001 = 1001, DAV_2201 = 2201, DAV_3510 = 3510, DAV_UNKNOWN };
 
 inline std::string NPUArchToString(NPUArch npu_arch) {
     switch (npu_arch) {
@@ -338,15 +330,16 @@ private:
     size_t cube_core_cnt_;
     size_t vector_core_cnt_;
     size_t ai_cpu_cnt_;
-public:
-    void SetDie(const Die& die) { die_ = die; }
-    void SetNPUArch(NPUArch version) { version_ = version; }
-    void SetNPUArch(const std::string& version);
-    void SetShortSocVersion(const std::string& version) { short_soc_ver_ = version;}
-    void SetDiesNum(size_t cnt) { dies_cnt_ = cnt; }
-    void SetCCECVersion(const std::unordered_map<std::string, std::string>& ver);
 
-    Die& GetDies() { return die_; }
+public:
+    void SetDie(const Die &die) { die_ = die; }
+    void SetNPUArch(NPUArch version) { version_ = version; }
+    void SetNPUArch(const std::string &version);
+    void SetShortSocVersion(const std::string &version) { short_soc_ver_ = version; }
+    void SetDiesNum(size_t cnt) { dies_cnt_ = cnt; }
+    void SetCCECVersion(const std::unordered_map<std::string, std::string> &ver);
+
+    Die &GetDies() { return die_; }
     NPUArch GetNPUArch() const { return version_; }
     size_t GetDiesNum() const { return dies_cnt_; }
     std::string GetShortSocVersion() const { return short_soc_ver_; }
@@ -364,10 +357,10 @@ public:
     void SetAIVCoreNum(size_t num) { vector_core_cnt_ = num; }
 
     // Get下层参数
-    Die& GetDie() { return die_; }
-    CoreWrap& GetCoreWrap() { return die_.GetCoreWrap(); }
-    AicCore& GetAICCore() { return GetCoreWrap().GetAICCore(); }
-    AivCore& GetAIVCore() { return GetCoreWrap().GetAIVCore(); }
+    Die &GetDie() { return die_; }
+    CoreWrap &GetCoreWrap() { return die_.GetCoreWrap(); }
+    AicCore &GetAICCore() { return GetCoreWrap().GetAICCore(); }
+    AivCore &GetAIVCore() { return GetCoreWrap().GetAIVCore(); }
 
     std::string Dump() const {
         std::stringstream ss;
@@ -390,14 +383,15 @@ class Cluster {
 private:
     SoC SoC_;
     size_t soc_cnt_;
+
 public:
-    void SetSoC(const SoC& SoC) { SoC_ = SoC; }
+    void SetSoC(const SoC &SoC) { SoC_ = SoC; }
     void SetSoCNum(size_t cnt) { soc_cnt_ = cnt; }
 
     size_t GetSoCNum() const { return soc_cnt_; }
 
     // Get下层参数
-    SoC& GetSoC() { return SoC_; }
+    SoC &GetSoC() { return SoC_; }
 
     std::string Dump() const {
         std::stringstream ss;
@@ -410,25 +404,26 @@ public:
     }
 };
 
-class Host{};
+class Host {};
 
 class Platform {
 private:
     Platform();
-    ~Platform() =default;
+    ~Platform() = default;
 
     Cluster cluster_;
     Host host_;
     size_t cluster_cnt_;
     size_t host_cnt_;
+
 public:
     static Platform &Instance();
 
-    Platform(const Platform&) = delete;
-    Platform& operator=(const Platform&) = delete;
+    Platform(const Platform &) = delete;
+    Platform &operator=(const Platform &) = delete;
 
-    void SetCluster(const Cluster& cluster) { cluster_ = cluster; }
-    void SetHost(const Host& host) { host_ = host; }
+    void SetCluster(const Cluster &cluster) { cluster_ = cluster; }
+    void SetHost(const Host &host) { host_ = host; }
     void SetClusterNum(size_t cnt) { cluster_cnt_ = cnt; }
     void SetHostNum(size_t cnt) { host_cnt_ = cnt; }
 
@@ -436,13 +431,13 @@ public:
     size_t GetHostNum() const { return host_cnt_; }
 
     // Get下层参数
-    Cluster& GetCluster() {return cluster_; }
-    Host& GetHost() { return host_; }
-    SoC& GetSoc() { return cluster_.GetSoC(); }
-    Die& GetDie() { return GetSoc().GetDie(); }
-    CoreWrap& GetCoreWrap() { return GetDie().GetCoreWrap(); }
-    AicCore& GetAICCore() { return GetCoreWrap().GetAICCore(); }
-    AivCore& GetAIVCore() { return GetCoreWrap().GetAIVCore(); }
+    Cluster &GetCluster() { return cluster_; }
+    Host &GetHost() { return host_; }
+    SoC &GetSoc() { return cluster_.GetSoC(); }
+    Die &GetDie() { return GetSoc().GetDie(); }
+    CoreWrap &GetCoreWrap() { return GetDie().GetCoreWrap(); }
+    AicCore &GetAICCore() { return GetCoreWrap().GetAICCore(); }
+    AivCore &GetAIVCore() { return GetCoreWrap().GetAIVCore(); }
 
     void SetMemoryLimit(const PlatformParser &parser);
     void LoadPlatformInfo(const PlatformParser &parser);
@@ -459,7 +454,7 @@ public:
         ss << "  },\n";
 
         auto appendInlineObject = [&](const std::string &child_dump, bool with_trailing_comma) {
-            constexpr size_t kLeftWrapLen  = std::char_traits<char>::length("{");
+            constexpr size_t kLeftWrapLen = std::char_traits<char>::length("{");
             constexpr size_t kRightWrapLen = std::char_traits<char>::length("}");
             if (child_dump.size() <= kLeftWrapLen + kRightWrapLen) {
                 return;

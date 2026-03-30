@@ -39,7 +39,7 @@ protected:
 };
 
 // Helper function to check if file exists
-bool FileExists(const std::string& path) {
+bool FileExists(const std::string &path) {
     std::ifstream file(path);
     return file.good();
 }
@@ -74,8 +74,7 @@ TEST_F(TestExprBatchGenerator, HeaderFileGeneration) {
 
     // Check header file content
     std::ifstream headerFile(headerPath);
-    std::string headerContent((std::istreambuf_iterator<char>(headerFile)),
-                              std::istreambuf_iterator<char>());
+    std::string headerContent((std::istreambuf_iterator<char>(headerFile)), std::istreambuf_iterator<char>());
     ASSERT_TRUE(headerContent.find("#pragma once") != std::string::npos);
     ASSERT_TRUE(headerContent.find("namespace npu::tile_fwk") != std::string::npos);
 }
@@ -94,8 +93,7 @@ TEST_F(TestExprBatchGenerator, LinkScriptGeneration) {
 
     // Check link script content
     std::ifstream scriptFile(scriptPath);
-    std::string scriptContent((std::istreambuf_iterator<char>(scriptFile)),
-                              std::istreambuf_iterator<char>());
+    std::string scriptContent((std::istreambuf_iterator<char>(scriptFile)), std::istreambuf_iterator<char>());
     ASSERT_TRUE(scriptContent.find("SECTIONS") != std::string::npos);
     ASSERT_TRUE(scriptContent.find(".pypto") != std::string::npos);
 }
@@ -112,15 +110,16 @@ TEST_F(TestExprBatchGenerator, CheckExprDependCoreTest) {
     RawSymbolicScalarPtr arg1 = RawSymbolicSymbol::Create(testTensorName);
     RawSymbolicScalarPtr arg2 = RawSymbolicImmediate::Create(0);
     std::vector<RawSymbolicScalarPtr> operands = {callee, arg1, arg2};
-    RawSymbolicScalarPtr getInputDataExpr = std::make_shared<RawSymbolicExpression>(SymbolicOpcode::T_MOP_CALL, operands);
-    bool dependsCore = SymbolicExpressionTable::CheckExprDependCore(getInputDataExpr, valDependTensorMeta.tensorNameToDependCore,
-        valDependTensorMeta.valDependMap);
+    RawSymbolicScalarPtr getInputDataExpr =
+        std::make_shared<RawSymbolicExpression>(SymbolicOpcode::T_MOP_CALL, operands);
+    bool dependsCore = SymbolicExpressionTable::CheckExprDependCore(
+        getInputDataExpr, valDependTensorMeta.tensorNameToDependCore, valDependTensorMeta.valDependMap);
     ASSERT_TRUE(dependsCore);
 
     valDependTensorMeta.tensorNameToDependCore[testTensorName] = false;
     valDependTensorMeta.valDependMap.clear();
-    dependsCore = SymbolicExpressionTable::CheckExprDependCore(getInputDataExpr, valDependTensorMeta.tensorNameToDependCore,
-        valDependTensorMeta.valDependMap);
+    dependsCore = SymbolicExpressionTable::CheckExprDependCore(
+        getInputDataExpr, valDependTensorMeta.tensorNameToDependCore, valDependTensorMeta.valDependMap);
     ASSERT_FALSE(dependsCore);
 }
 
@@ -141,18 +140,17 @@ TEST_F(TestExprBatchGenerator, BatchFileGeneration) {
     }
 
     // Generate batch files
-    generator.GenerateBatchFile(&exprTable, controlFlowOss, exprHeaderOss, "test_exp.h", expressions,
-        exprSrcFiles, 1, 1);
+    generator.GenerateBatchFile(
+        &exprTable, controlFlowOss, exprHeaderOss, "test_exp.h", expressions, exprSrcFiles, 1, 1);
 
     // Check if batch files were created
     ASSERT_EQ(exprSrcFiles.size(), 2);
-    for (const auto& filePath : exprSrcFiles) {
+    for (const auto &filePath : exprSrcFiles) {
         ASSERT_TRUE(FileExists(filePath));
 
         // Check file content
         std::ifstream batchFile(filePath);
-        std::string fileContent((std::istreambuf_iterator<char>(batchFile)),
-                               std::istreambuf_iterator<char>());
+        std::string fileContent((std::istreambuf_iterator<char>(batchFile)), std::istreambuf_iterator<char>());
         ASSERT_TRUE(fileContent.find("RUNTIME_SetExpr") != std::string::npos);
     }
 

@@ -39,4 +39,4 @@ inline std::string FormatElapsed(double seconds) {
     return oss.str();
 }
 
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

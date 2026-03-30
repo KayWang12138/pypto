@@ -41,9 +41,10 @@ private:
     void UpdateConsumerView(Function &function, const LogicalTensorPtr &logicalTensor) const;
     void UpdateProducerAssemble(Function &function, const LogicalTensorPtr &logicalTensor) const;
     void SplitRaw(Function &function) const;
-    bool ShouldProcessTensor(Function& function, const LogicalTensorPtr& singleTensor) const;
+    bool ShouldProcessTensor(Function &function, const LogicalTensorPtr &singleTensor) const;
     std::vector<int64_t> UpdateOffset(std::vector<int64_t> &offset, const std::vector<int64_t> &diff) const;
-    std::vector<SymbolicScalar> UpdateDynOffset(std::vector<SymbolicScalar> &offset, const std::vector<SymbolicScalar> &diff) const;
+    std::vector<SymbolicScalar> UpdateDynOffset(
+        std::vector<SymbolicScalar> &offset, const std::vector<SymbolicScalar> &diff) const;
 
     Status PostCheck(Function &function) override;
     SplitRawTensorChecker checker;

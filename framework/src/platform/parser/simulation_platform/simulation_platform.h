@@ -29,6 +29,7 @@ public:
     ~SimulationPlatform() = default;
 
     bool GetCostModelPlatformRealPath(std::string &realPath);
+
 private:
     static std::string GetCurrentSharedLibPath();
 };

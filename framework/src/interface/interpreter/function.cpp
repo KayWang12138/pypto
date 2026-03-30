@@ -21,11 +21,11 @@
 
 namespace npu::tile_fwk {
 constexpr int MAX_IDENT_LEVEL = 20;
-const std::unordered_set<std::string> copyOpCode = {"COPY_IN", "COPY_OUT", "L1_TO_L0A",
-    "L1_TO_L0B", "L1_TO_L0At", "FIX_COPY_IN_QUANT_PRE", "L1_TO_L0Bt", "L0C_COPY_L1", "L1_TO_BT",
-    "TRANSPOSE_MOVEIN", "TRANSPOSE_MOVEOUT", "INDEX_OUTCAST", "RESHAPE_COPY_IN", "RESHAPE_COPY_OUT"};
+const std::unordered_set<std::string> copyOpCode = {"COPY_IN", "COPY_OUT", "L1_TO_L0A", "L1_TO_L0B", "L1_TO_L0At",
+    "FIX_COPY_IN_QUANT_PRE", "L1_TO_L0Bt", "L0C_COPY_L1", "L1_TO_BT", "TRANSPOSE_MOVEIN", "TRANSPOSE_MOVEOUT",
+    "INDEX_OUTCAST", "RESHAPE_COPY_IN", "RESHAPE_COPY_OUT"};
 const std::unordered_set<std::string> convertOpCode = {
- 	"L0C_COPY_UB", "CONVERT", "UB_COPY_ND2NZ", "UB_COPY_L1_ND", "UB_COPY_L1"};
+    "L0C_COPY_UB", "CONVERT", "UB_COPY_ND2NZ", "UB_COPY_L1_ND", "UB_COPY_L1"};
 
 static std::string HtmlEscape(const std::string &src, bool escapeLineBreak = true) {
     std::string ret;
@@ -140,11 +140,12 @@ static void DumpDataViewParallel(const std::shared_ptr<LogicalTensorData> &dataV
 }
 
 std::string FunctionInterpreter::DumpDataView(const std::shared_ptr<LogicalTensorData> &dataView) {
-   DumpDataViewParallel(dataView, execDumpElementList, &operationInterpreter->GetPool());
-   return dataView->Dump(&execDumpElementList);
+    DumpDataViewParallel(dataView, execDumpElementList, &operationInterpreter->GetPool());
+    return dataView->Dump(&execDumpElementList);
 }
 
-std::string FunctionInterpreter::GetDumpFilePath(const std::string &lv0, const std::string &lv1, const std::string &filename) {
+std::string FunctionInterpreter::GetDumpFilePath(
+    const std::string &lv0, const std::string &lv1, const std::string &filename) {
     std::string baseDirName = lv0 + "/" + lv1;
     if (!IsPathExist(baseDirName)) {
         CreateDir(baseDirName);
@@ -152,14 +153,14 @@ std::string FunctionInterpreter::GetDumpFilePath(const std::string &lv0, const s
     return baseDirName + "/" + filename;
 }
 
-void FunctionInterpreter::DumpBinary(std::vector<int64_t> &shape, std::vector<int64_t> &stride, std::vector<int64_t> &offset,
-        FILE *fdata, uint8_t *data, size_t dtypeSize) {
-    if(shape.size() > 1) {
+void FunctionInterpreter::DumpBinary(std::vector<int64_t> &shape, std::vector<int64_t> &stride,
+    std::vector<int64_t> &offset, FILE *fdata, uint8_t *data, size_t dtypeSize) {
+    if (shape.size() > 1) {
         for (int64_t k = 0; k < shape[0]; k++) {
             auto newOffset = std::vector<int64_t>(offset.begin() + 1, offset.end());
             auto newStride = std::vector<int64_t>(stride.begin() + 1, stride.end());
             auto newShape = std::vector<int64_t>(shape.begin() + 1, shape.end());
-            auto newData = data + offset[0] * dtypeSize * stride[0] +  k * stride[0] * dtypeSize;
+            auto newData = data + offset[0] * dtypeSize * stride[0] + k * stride[0] * dtypeSize;
             DumpBinary(newShape, newStride, newOffset, fdata, newData, dtypeSize);
         }
     } else {
@@ -171,8 +172,7 @@ void FunctionInterpreter::DumpBinary(std::vector<int64_t> &shape, std::vector<in
 }
 
 void FunctionInterpreter::DumpTensorBinary(
-        const std::shared_ptr<LogicalTensor> &tensor,
-        const std::shared_ptr<LogicalTensorData> &dataView) {
+    const std::shared_ptr<LogicalTensor> &tensor, const std::shared_ptr<LogicalTensorData> &dataView) {
     if (execDumpLevel < EXEC_DUMP_LEVEL_TENSOR || !execDumpFile)
         return;
     std::string dumpTensorDirName = GetDumpFrameDirName();
@@ -182,11 +182,10 @@ void FunctionInterpreter::DumpTensorBinary(
 }
 
 void FunctionInterpreter::DumpTensorBinary(
-        const std::shared_ptr<LogicalTensorData> &dataView,
-        std::string dumpTensorFileName, bool isRaw) {
+    const std::shared_ptr<LogicalTensorData> &dataView, std::string dumpTensorFileName, bool isRaw) {
     std::string dumpTensorFilePath = execDumpDir + "/" + dumpTensorFileName;
     auto rawShape = dataView->GetData()->GetShape();
-    if (std::any_of(rawShape.begin(), rawShape.end(), [](const int64_t& val) {return val <= 0;})) {
+    if (std::any_of(rawShape.begin(), rawShape.end(), [](const int64_t &val) { return val <= 0; })) {
         VERIFY_LOGW("The tensor size is not greater than 0.");
         return;
     }
@@ -196,7 +195,7 @@ void FunctionInterpreter::DumpTensorBinary(
         validShape = rawShape;
         std::fill(offset.begin(), offset.end(), 0);
     }
-    if (std::any_of(validShape.begin(), validShape.end(), [](const int64_t& val) {return val <= 0;})) {
+    if (std::any_of(validShape.begin(), validShape.end(), [](const int64_t &val) { return val <= 0; })) {
         return;
     }
 
@@ -210,13 +209,12 @@ void FunctionInterpreter::DumpTensorBinary(
 }
 
 std::shared_ptr<LogicalTensorData> FunctionInterpreter::LoadTensorBinary(
-        const std::shared_ptr<LogicalTensor> &tensor,
-        const std::string filepath) {
+    const std::shared_ptr<LogicalTensor> &tensor, const std::string filepath) {
     if (!FileExist(filepath)) {
         return nullptr;
     }
     std::vector<int64_t> shape = tensor->GetShape();
-    if (std::any_of(shape.begin(), shape.end(), [](int64_t num) {return num <= 0;})) {
+    if (std::any_of(shape.begin(), shape.end(), [](int64_t num) { return num <= 0; })) {
         return nullptr;
     }
     FILE *fdata = fopen(filepath.c_str(), "rb");
@@ -230,7 +228,8 @@ std::shared_ptr<LogicalTensorData> FunctionInterpreter::LoadTensorBinary(
     return dataView;
 }
 
-void FunctionInterpreter::DumpTensorList(const std::string &name, const std::vector<std::shared_ptr<LogicalTensor>> *tensorList,
+void FunctionInterpreter::DumpTensorList(const std::string &name,
+    const std::vector<std::shared_ptr<LogicalTensor>> *tensorList,
     const std::vector<std::shared_ptr<LogicalTensorData>> *dataViewList) {
     if (execDumpLevel < EXEC_DUMP_LEVEL_TENSOR || !execDumpFile)
         return;
@@ -284,7 +283,8 @@ void FunctionInterpreter::DumpTensorList(const std::string &name, const std::vec
     fclose(dumpTensorFile);
 }
 
-void FunctionInterpreter::FillOperationBasicInfo(Operation *op, FunctionFrame *frame, std::vector<std::string> &opInfo) {
+void FunctionInterpreter::FillOperationBasicInfo(
+    Operation *op, FunctionFrame *frame, std::vector<std::string> &opInfo) {
     opInfo[toIndex(OpInfoCsvHeader::rootFuncID)] = std::to_string(frame->rootFuncIndex);
     opInfo[toIndex(OpInfoCsvHeader::rootFuncHash)] = "'" + std::to_string(frame->rootFuncHash);
     opInfo[toIndex(OpInfoCsvHeader::rootFuncType)] = frame->rootFuncType;
@@ -306,9 +306,8 @@ void FunctionInterpreter::FillOperationBasicInfo(Operation *op, FunctionFrame *f
 }
 
 void FunctionInterpreter::FillOperationOffsetInfo(Operation *op, FunctionFrame *frame,
-                                                  const std::vector<SymbolicScalar> &linearArgList,
-                                                  std::vector<std::string> &opInfo) {
-    if (convertOpCode.count(op->GetOpcodeStr())) {  // convert op has no offset
+    const std::vector<SymbolicScalar> &linearArgList, std::vector<std::string> &opInfo) {
+    if (convertOpCode.count(op->GetOpcodeStr())) { // convert op has no offset
         return;
     }
     auto opAttr = std::static_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
@@ -331,8 +330,7 @@ void FunctionInterpreter::FillOperationOffsetInfo(Operation *op, FunctionFrame *
 }
 
 void FunctionInterpreter::FillOperationInputInfo(Operation *op, FunctionFrame *frame,
-                                                 const std::vector<std::shared_ptr<LogicalTensorData>> *ioperandDataViewList,
-                                                 std::vector<std::string> &opInfo) {
+    const std::vector<std::shared_ptr<LogicalTensorData>> *ioperandDataViewList, std::vector<std::string> &opInfo) {
     auto iopSize = op->GetIOperands().size();
     for (size_t k = 0; k < iopSize; k++) {
         if (k >= ioperandDataViewList->size()) {
@@ -351,16 +349,16 @@ void FunctionInterpreter::FillOperationInputInfo(Operation *op, FunctionFrame *f
         if (op->GetOpcode() == Opcode::OP_COPY_IN) {
             auto itTmp = frame->callopDataViewTensorDict.find(dataView);
             if (itTmp != frame->callopDataViewTensorDict.end()) {
-                opInfo[toIndex(OpInfoCsvHeader::callopRawMagic)] = std::to_string(itTmp->second->GetRawTensor()->GetRawMagic());
+                opInfo[toIndex(OpInfoCsvHeader::callopRawMagic)] =
+                    std::to_string(itTmp->second->GetRawTensor()->GetRawMagic());
             }
         }
     }
 }
 
 void FunctionInterpreter::FillOperationOutputInfo(Operation *op, FunctionFrame *frame,
-                                                  const std::vector<std::shared_ptr<LogicalTensorData>> *ooperandDataViewList,
-                                                  const std::vector<SymbolicScalar> &linearArgList,
-                                                  int indent, std::vector<std::string> &opInfo) {
+    const std::vector<std::shared_ptr<LogicalTensorData>> *ooperandDataViewList,
+    const std::vector<SymbolicScalar> &linearArgList, int indent, std::vector<std::string> &opInfo) {
     auto oopSize = op->GetOOperands().size();
     for (size_t k = 0; k < oopSize; k++) {
         if (k < ooperandDataViewList->size()) {
@@ -375,23 +373,27 @@ void FunctionInterpreter::FillOperationOutputInfo(Operation *op, FunctionFrame *
 
             frame->tensorDataBinDict[op->GetOOperands()[k]] = dumpTensorFileName;
             opInfo[toIndex(OpInfoCsvHeader::tensorMagic)] = std::to_string(op->GetOOperands()[k]->GetMagic());
-            opInfo[toIndex(OpInfoCsvHeader::rawTensorMagic)] = std::to_string(op->GetOOperands()[k]->GetRawTensor()->GetRawMagic());
+            opInfo[toIndex(OpInfoCsvHeader::rawTensorMagic)] =
+                std::to_string(op->GetOOperands()[k]->GetRawTensor()->GetRawMagic());
             opInfo[toIndex(OpInfoCsvHeader::outputShape)] = ShapeToString(dataView->GetShape());
             opInfo[toIndex(OpInfoCsvHeader::outputRawShape)] = ShapeToString(dataView->GetData()->GetShape());
             opInfo[toIndex(OpInfoCsvHeader::outputValidShape)] = ShapeToString(dataView->GetValidShape());
-            opInfo[toIndex(OpInfoCsvHeader::outputDynValidShape)] = ShapeToString(EvaluateValidShape((op->GetOOperands()[k]->GetDynValidShape()), linearArgList));
+            opInfo[toIndex(OpInfoCsvHeader::outputDynValidShape)] =
+                ShapeToString(EvaluateValidShape((op->GetOOperands()[k]->GetDynValidShape()), linearArgList));
             opInfo[toIndex(OpInfoCsvHeader::outputDtype)] = BriefDataType2String(dataView->GetDataType());
             opInfo[toIndex(OpInfoCsvHeader::tensorOffset)] = ShapeToString(dataView->GetOffset());
             opInfo[toIndex(OpInfoCsvHeader::outputTensor)] = dumpTensorFileName;
             opInfo[toIndex(OpInfoCsvHeader::timeStamp)] = std::to_string(ts);
             opInfo[toIndex(OpInfoCsvHeader::outputSymbol)] = op->GetOOperands()[k]->GetRawTensor()->GetSymbol();
-            opInfo[toIndex(OpInfoCsvHeader::outputFormat)] = std::to_string(op->GetOOperands()[k]->GetRawTensor()->format);
+            opInfo[toIndex(OpInfoCsvHeader::outputFormat)] =
+                std::to_string(op->GetOOperands()[k]->GetRawTensor()->format);
             opInfo[toIndex(OpInfoCsvHeader::ioflag)] = "output" + std::to_string(k);
 
             if (op->GetOpcode() == Opcode::OP_COPY_OUT) {
                 auto itTmp = frame->callopDataViewTensorDict.find(dataView);
                 if (itTmp != frame->callopDataViewTensorDict.end()) {
-                    opInfo[toIndex(OpInfoCsvHeader::callopRawMagic)] = std::to_string(itTmp->second->GetRawTensor()->GetRawMagic());
+                    opInfo[toIndex(OpInfoCsvHeader::callopRawMagic)] =
+                        std::to_string(itTmp->second->GetRawTensor()->GetRawMagic());
                 }
             }
         }
@@ -418,9 +420,8 @@ void FunctionInterpreter::DumpOperationTensor(Operation *op, FunctionFrame *fram
     FillOperationOutputInfo(op, frame, ooperandDataViewList, linearArgList, indent, opInfo);
 }
 
-void FunctionInterpreter::DumpPassTensorDiff(
-        const std::shared_ptr<FunctionCaptureExecution> &captureExecution,
-        const std::shared_ptr<FunctionCaptureExecution> &captureGolden) {
+void FunctionInterpreter::DumpPassTensorDiff(const std::shared_ptr<FunctionCaptureExecution> &captureExecution,
+    const std::shared_ptr<FunctionCaptureExecution> &captureGolden) {
     if (execDumpLevel < EXEC_DUMP_LEVEL_TENSOR)
         return;
     if (captureExecution->GetFrameList().size() != captureGolden->GetFrameList().size())
@@ -495,7 +496,8 @@ void FunctionInterpreter::DumpBegin() {
     <link rel="stylesheet" type="text/css" href="entry_%s.css">
     </head>
     <body>
-)HTML", std::to_string(captureIndex).c_str());
+)HTML",
+        std::to_string(captureIndex).c_str());
 }
 
 void FunctionInterpreter::DumpEnd() {

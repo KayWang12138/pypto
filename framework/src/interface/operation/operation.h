@@ -103,7 +103,6 @@ public:
     static const std::string ownerRank;
 };
 
-
 class ConvOpAttributeKey {
 public:
     static const std::string cin;
@@ -169,11 +168,11 @@ public:
         AIVCore aivCore{AIVCore::UNSPECIFIED};
     };
     friend class Function;
-    LogicalTensors iOperand; // Input operands (now actual objects, not shared_ptr)
-    LogicalTensors oOperand; // Output operands (now actual objects, not shared_ptr)
+    LogicalTensors iOperand;      // Input operands (now actual objects, not shared_ptr)
+    LogicalTensors oOperand;      // Output operands (now actual objects, not shared_ptr)
     LogicalTensors dependOperand; // Depend Operands
-    int opmagic; // The magic number for the operation, default value -1
-    int programFuncMagic_; // function magic of leafFunction
+    int opmagic;                  // The magic number for the operation, default value -1
+    int programFuncMagic_;        // function magic of leafFunction
     int outcastRefcount{0};
 
     int cycles{0};
@@ -190,7 +189,7 @@ public:
     Operation(Function &cur, Opcode opcode, LogicalTensors iOperands, LogicalTensors oOperands,
         bool updateTensorMap = true, int opMagic = -1);
 
-    Operation(Function &cur, Opcode opcode): Operation(cur, opcode, {}, {}, false) {}
+    Operation(Function &cur, Opcode opcode) : Operation(cur, opcode, {}, {}, false) {}
 
     Operation(Function &cur, const std::string &op, const LogicalTensors &input, const LogicalTensors &output,
         bool updateTensormap = true)
@@ -230,7 +229,7 @@ public:
     std::vector<Element> GetVectorElementAttribute(const std::string &key) const;
     void SetAttribute(const std::string &key, Element value);
 
-    template<typename T = int64_t>
+    template <typename T = int64_t>
     std::vector<T> GetVectorIntAttribute(const std::string &key) const {
         static_assert(std::is_integral_v<T>);
         std::vector<int64_t> val;
@@ -245,7 +244,7 @@ public:
         return ret;
     }
 
-    template<typename T = int64_t>
+    template <typename T = int64_t>
     void SetAttribute(const std::string &key, const std::vector<T> &value) {
         static_assert(std::is_integral_v<T>);
         if constexpr (std::is_same_v<T, int64_t>) {
@@ -269,17 +268,15 @@ public:
     void SetAttribute(const std::string &key, const std::vector<SymbolicScalar> &value);
     void SetAttribute(const std::string &key, const std::vector<Element> &value);
 
-    [[nodiscard]] bool HasAttribute(const std::string &key) const {
-        return HasAttr(key);
-    }
+    [[nodiscard]] bool HasAttribute(const std::string &key) const { return HasAttr(key); }
 
     [[nodiscard]] std::map<std::string, npu::tile_fwk::Any> GetAllAttribute() const;
 
     Json DumpJson(bool dumpTensor = true) const;
-    static std::shared_ptr<Operation> LoadJson(Function &cur,
-        const std::unordered_map<int, std::shared_ptr<LogicalTensor>> &tensorDict, const Json &opDump);
+    static std::shared_ptr<Operation> LoadJson(
+        Function &cur, const std::unordered_map<int, std::shared_ptr<LogicalTensor>> &tensorDict, const Json &opDump);
 
-    [[nodiscard]] std::string DumpSSA(const std::string &prefix="") const;
+    [[nodiscard]] std::string DumpSSA(const std::string &prefix = "") const;
 
     [[nodiscard]] std::string Dump() const;
 
@@ -338,7 +335,7 @@ public:
     void ClearOutCtrlOperations() { outputCtrlOps.clear(); }
 
     int scopeId_{-1};
-    void SetScopeId(int scopeId) {scopeId_ = scopeId; };
+    void SetScopeId(int scopeId) { scopeId_ = scopeId; };
     int GetScopeId() const { return scopeId_; };
 
     void AddInCtrlOperation(Operation &operation);
@@ -372,16 +369,14 @@ public:
     void SetOpAttribute(const std::shared_ptr<OpAttribute> &attr) {
         opAttribute_ = attr;
         static std::unordered_set<Opcode> copyOpAttrOpTypes{Opcode::OP_L1_COPY_IN, Opcode::OP_L1_COPY_OUT,
-            Opcode::OP_COPY_IN, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_BT, Opcode::OP_L1_TO_FIX_QUANT_PRE, Opcode::OP_L1_TO_L0A,
-            Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_BT, Opcode::OP_UB_COPY_L1, Opcode::OP_COPY_OUT,
-            Opcode::OP_RESHAPE_COPY_IN, Opcode::OP_RESHAPE_COPY_OUT, Opcode::OP_INDEX_OUTCAST,
-            Opcode::OP_INDEX_PUT,
-            Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING,
-            Opcode::OP_FFN_COMBINEINFO, Opcode::OP_FFN_VALIDCNT, Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_PUT_UB2GM,
-            Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET, Opcode::OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_SET,
-            Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
-            Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
-            Opcode::OP_GATHER_IN_UB, Opcode::OP_COPY_TO_LOCAL_EXPERT,
+            Opcode::OP_COPY_IN, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_BT, Opcode::OP_L1_TO_FIX_QUANT_PRE,
+            Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_BT,
+            Opcode::OP_UB_COPY_L1, Opcode::OP_COPY_OUT, Opcode::OP_RESHAPE_COPY_IN, Opcode::OP_RESHAPE_COPY_OUT,
+            Opcode::OP_INDEX_OUTCAST, Opcode::OP_INDEX_PUT, Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEOUT,
+            Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING, Opcode::OP_FFN_COMBINEINFO, Opcode::OP_FFN_VALIDCNT,
+            Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_PUT_UB2GM, Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET,
+            Opcode::OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_SET, Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
+            Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, Opcode::OP_GATHER_IN_UB, Opcode::OP_COPY_TO_LOCAL_EXPERT,
             Opcode::OP_L1_COPY_IN_A_SCALE, Opcode::OP_L1_COPY_IN_B_SCALE, Opcode::OP_L1_TO_L0A_SCALE,
             Opcode::OP_L1_TO_L0B_SCALE, Opcode::OP_L1_COPY_IN_CONV, Opcode::OP_L0C_COPY_OUT_CONV};
         if (copyOpAttrOpTypes.count(opcode_) > 0) {
@@ -442,7 +437,8 @@ public:
     void EraseInput(const std::shared_ptr<LogicalTensor> &input);
     void EraseDependTensor(const std::shared_ptr<LogicalTensor> &dependTensor);
     void ReplaceInput(const std::shared_ptr<LogicalTensor> &newInput, const std::shared_ptr<LogicalTensor> &oldInput);
-    void ReplaceOutput(const std::shared_ptr<LogicalTensor> &newOutput, const std::shared_ptr<LogicalTensor> &oldOutput);
+    void ReplaceOutput(
+        const std::shared_ptr<LogicalTensor> &newOutput, const std::shared_ptr<LogicalTensor> &oldOutput);
 
     Opcode GetOpcode() const { return opcode_; }
 
@@ -482,7 +478,8 @@ public:
     }
     void SetAIVCore(AIVCore aivCore) {
         ensureMixSubgraphFields();
-        mixSubgraphFields_->aivCore = aivCore; }
+        mixSubgraphFields_->aivCore = aivCore;
+    }
 
     void SetSubFuncInvokeInfo(const SubfuncInvokeInfoTy &invokeInfo);
 
@@ -496,12 +493,8 @@ public:
 
     bool IsNeedStackGM() const;
 
-    int GetIOpAttrOffset(int pos) const {
-        return iOpAttrOffset.empty() ? -1 : iOpAttrOffset[pos];
-    }
-    int GetOOpAttrOffset(int pos) const {
-        return oOpAttrOffset.empty() ? -1 : oOpAttrOffset[pos];
-    }
+    int GetIOpAttrOffset(int pos) const { return iOpAttrOffset.empty() ? -1 : iOpAttrOffset[pos]; }
+    int GetOOpAttrOffset(int pos) const { return oOpAttrOffset.empty() ? -1 : oOpAttrOffset[pos]; }
     void SetIOpAttrOffset(int pos, int offset) {
         if (iOpAttrOffset.empty())
             iOpAttrOffset.resize(iOperand.size(), -1);
@@ -516,18 +509,10 @@ public:
         iOpAttrOffset = iOffset;
         oOpAttrOffset = oOffset;
     }
-    std::vector<int>& GetIOpAttrOffsets() {
-        return iOpAttrOffset;
-    }
-    std::vector<int>& GetOOpAttrOffsets() {
-        return oOpAttrOffset;
-    }
-    const std::vector<int>& GetIOpAttrOffsets() const {
-        return iOpAttrOffset;
-    }
-    const std::vector<int>& GetOOpAttrOffsets() const {
-        return oOpAttrOffset;
-    }
+    std::vector<int> &GetIOpAttrOffsets() { return iOpAttrOffset; }
+    std::vector<int> &GetOOpAttrOffsets() { return oOpAttrOffset; }
+    const std::vector<int> &GetIOpAttrOffsets() const { return iOpAttrOffset; }
+    const std::vector<int> &GetOOpAttrOffsets() const { return oOpAttrOffset; }
 
     std::vector<std::reference_wrapper<SymbolicScalar>> GetDynamicAttributeList();
     SourceLocationPtr GetLocation() const { return location_; }
@@ -553,7 +538,7 @@ private:
     mutable size_t groupID_{NON_GROUP};
     bool isDeleted_{false};
 
-    SourceLocationPtr location_ {nullptr};
+    SourceLocationPtr location_{nullptr};
     std::shared_ptr<SemanticLabel> semanticLabel_;
     Function *function_;
 

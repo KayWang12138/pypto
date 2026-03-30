@@ -26,7 +26,6 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 
-
 using namespace npu::tile_fwk;
 
 class TestRemoveUnalignedReshapeOp : public ::testing::Test {
@@ -41,14 +40,13 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
-    void TearDown() override {
-    }
+    void TearDown() override {}
 };
 
 inline void ConstructGraph1(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
     std::vector<int64_t> shape = {7, 15};
-    std::vector<int64_t> reshape_shape = {15,7};
+    std::vector<int64_t> reshape_shape = {15, 7};
     std::vector<int64_t> expect_shape = {7, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -59,14 +57,16 @@ inline void ConstructGraph1(std::shared_ptr<Function> &currFunctionPtr) {
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshape_shape);
     outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
     auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
-    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
-    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {
+        OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
     copyin1Attr->SetToDynValidShape(toValidShape);
     copy_op1.SetOpAttribute(copyin1Attr);
-    auto& reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
-    (void) reshape_op;
-    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor2}, {outCast});
-    (void) copy_out_op;
+    auto &reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
+    (void)reshape_op;
+    auto &copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor2}, {outCast});
+    (void)copy_out_op;
     currFunctionPtr->inCasts_.push_back(incast1);
     currFunctionPtr->outCasts_.push_back(outCast);
 }
@@ -74,7 +74,7 @@ inline void ConstructGraph1(std::shared_ptr<Function> &currFunctionPtr) {
 inline void ConstructGraph2(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
     std::vector<int64_t> shape = {8, 16};
-    std::vector<int64_t> reshape_shape = {16,8};
+    std::vector<int64_t> reshape_shape = {16, 8};
     std::vector<int64_t> expect_shape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -85,14 +85,16 @@ inline void ConstructGraph2(std::shared_ptr<Function> &currFunctionPtr) {
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshape_shape);
     outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
     auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
-    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
-    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {
+        OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
     copyin1Attr->SetToDynValidShape(toValidShape);
     copy_op1.SetOpAttribute(copyin1Attr);
-    auto& reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
-    (void) reshape_op;
-    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor2}, {outCast});
-    (void) copy_out_op;
+    auto &reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
+    (void)reshape_op;
+    auto &copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor2}, {outCast});
+    (void)copy_out_op;
     currFunctionPtr->inCasts_.push_back(incast1);
     currFunctionPtr->outCasts_.push_back(outCast);
 }
@@ -100,7 +102,7 @@ inline void ConstructGraph2(std::shared_ptr<Function> &currFunctionPtr) {
 inline void ConstructGraph3(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
     std::vector<int64_t> shape = {8, 16};
-    std::vector<int64_t> reshape_shape = {16,8};
+    std::vector<int64_t> reshape_shape = {16, 8};
     std::vector<int64_t> expect_shape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -109,16 +111,16 @@ inline void ConstructGraph3(std::shared_ptr<Function> &currFunctionPtr) {
     ubTensor1->SetMemoryTypeBoth(MEM_UB);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshape_shape);
     outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
-    auto& reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {incast1}, {ubTensor1});
-    (void) reshape_op;
-    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor1}, {outCast});
-    (void) copy_out_op;
+    auto &reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {incast1}, {ubTensor1});
+    (void)reshape_op;
+    auto &copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor1}, {outCast});
+    (void)copy_out_op;
 }
 
 inline void ConstructGraph4(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
     std::vector<int64_t> shape = {64, 1};
-    std::vector<int64_t> reshape_shape = {1,64};
+    std::vector<int64_t> reshape_shape = {1, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     incast1->SetMemoryTypeBoth(MEM_DEVICE_DDR);
@@ -126,10 +128,10 @@ inline void ConstructGraph4(std::shared_ptr<Function> &currFunctionPtr) {
     ubTensor1->SetMemoryTypeBoth(MEM_UB);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshape_shape);
     outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
-    auto& reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {incast1}, {ubTensor1});
-    (void) reshape_op;
-    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor1}, {outCast});
-    (void) copy_out_op;
+    auto &reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {incast1}, {ubTensor1});
+    (void)reshape_op;
+    auto &copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor1}, {outCast});
+    (void)copy_out_op;
 }
 /*
 before:
@@ -159,10 +161,11 @@ after:
     [15,7]
 */
 TEST_F(TestRemoveUnalignedReshapeOp, reshaped_padded_ub) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {7, 15};
-    std::vector<int64_t> reshape_shape = {15,7};
+    std::vector<int64_t> reshape_shape = {15, 7};
     std::vector<int64_t> expect_shape = {7, 16};
     ConstructGraph1(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
@@ -217,10 +220,11 @@ after:
     [16,8]
 */
 TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {8, 16};
-    std::vector<int64_t> reshape_shape = {16,8};
+    std::vector<int64_t> reshape_shape = {16, 8};
     std::vector<int64_t> expect_shape = {8, 16};
     ConstructGraph2(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
@@ -275,10 +279,11 @@ after:
     [16,8]
 */
 TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub_gm) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {8, 16};
-    std::vector<int64_t> reshape_shape = {16,8};
+    std::vector<int64_t> reshape_shape = {16, 8};
     std::vector<int64_t> expect_shape = {8, 16};
     ConstructGraph3(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
@@ -330,10 +335,11 @@ after:
     [1, 64]
 */
 TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub_gm_last_dim_1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {64, 1};
-    std::vector<int64_t> reshape_shape = {1,64};
+    std::vector<int64_t> reshape_shape = {1, 64};
     ConstructGraph4(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
@@ -371,7 +377,8 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub_gm_last_dim_1) {
 // in - COPYIN - COPYOUT - COPYIN - RESHAPECOPYOUT - RESHAPE - RESHAPECOPYIN - COPYOUT - COPYIN - COPYOUT - out
 //                                                           - RESHAPECOPYIN - COPYOUT - COPYIN - COPYOUT - out
 TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopyOnL1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopy", "TestCopyToReshapeCopy", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopy", "TestCopyToReshapeCopy", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
@@ -419,7 +426,8 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopyOnL1) {
 // in - COPYIN - RESHAPECOPYOUT - RESHAPE - RESHAPECOPYIN - COPYOUT - out
 //                                        - RESHAPECOPYIN - COPYOUT - out
 TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopyOnUB) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopy", "TestCopyToReshapeCopy", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopy", "TestCopyToReshapeCopy", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
@@ -469,7 +477,8 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopyOnUB) {
 
 // 不变
 TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeBeforeMultCopyOutOnL1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopy", "TestCopyToReshapeCopy", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopy", "TestCopyToReshapeCopy", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
@@ -521,7 +530,8 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeBeforeMultCopyOutOnL1) {
 
 // 不变
 TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeConsumerAssembleOnL1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopy", "TestCopyToReshapeCopy", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopy", "TestCopyToReshapeCopy", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph

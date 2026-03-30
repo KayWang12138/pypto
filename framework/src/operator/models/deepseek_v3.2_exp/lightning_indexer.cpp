@@ -231,21 +231,36 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
 
                         auto ax = View(localSum, {1, length2K}, {1, effSeq}, {0, 0});
                         auto bx = Full(Element(xdtype, padValue), xdtype, {1, length2K}, {1, length2K - effSeq});
-                        Assemble({{Assign(ax), {0, 0}}, {bx, {0, effSeq}}}, padX2K, true);
+                        Assemble(
+                            {
+                                {Assign(ax),      {0, 0}},
+                                {        bx, {0, effSeq}}
+                        },
+                            padX2K, true);
                         auto [resValue, resIdx] = TopK(padX2K, selectedCount, 1);
                         TileShape::Current().SetVecTile(tileConfig.addsTile);
-                        auto topk4D = Reshape(
-                            View(resIdx, {1, selectedCount}, {1, effSeq}, {0, 0}), {1, 1, 1, selectedCount}, {1, 1, 1, effSeq});
-                        auto topkIndicesPad = Full(
-                            Element(idxdtype, padIdxValue), idxdtype, {1, 1, 1, selectedCount}, {1, 1, 1, selectedCount - effSeq});
-                        Assemble({{topk4D, {bIdx, s1Idx, n2Idx, 0}}, {topkIndicesPad, {bIdx, s1Idx, n2Idx, effSeq}}}, topkRes, true);
+                        auto topk4D = Reshape(View(resIdx, {1, selectedCount}, {1, effSeq}, {0, 0}),
+                            {1, 1, 1, selectedCount}, {1, 1, 1, effSeq});
+                        auto topkIndicesPad = Full(Element(idxdtype, padIdxValue), idxdtype, {1, 1, 1, selectedCount},
+                            {1, 1, 1, selectedCount - effSeq});
+                        Assemble(
+                            {
+                                {        topk4D,      {bIdx, s1Idx, n2Idx, 0}},
+                                {topkIndicesPad, {bIdx, s1Idx, n2Idx, effSeq}}
+                        },
+                            topkRes, true);
 
                         if (topkValue != nullptr) {
                             auto topk4DValue = Reshape(View(resValue, {1, selectedCount}, {1, effSeq}, {0, 0}),
                                 {1, 1, 1, selectedCount}, {1, 1, 1, effSeq});
-                            auto topkValuePad = Full(
-                                Element(DT_FP32, padValue), DT_FP32, {1, 1, 1, selectedCount}, {1, 1, 1, selectedCount - effSeq});
-                            Assemble({{topk4DValue, {bIdx, s1Idx, n2Idx, 0}}, {topkValuePad, {bIdx, s1Idx, n2Idx, effSeq}}}, *topkValue, true);
+                            auto topkValuePad = Full(Element(DT_FP32, padValue), DT_FP32, {1, 1, 1, selectedCount},
+                                {1, 1, 1, selectedCount - effSeq});
+                            Assemble(
+                                {
+                                    { topk4DValue,      {bIdx, s1Idx, n2Idx, 0}},
+                                    {topkValuePad, {bIdx, s1Idx, n2Idx, effSeq}}
+                            },
+                                *topkValue, true);
                         }
                         TileShape::Current().SetVecTile({1, tileSize});
                     }
@@ -258,15 +273,28 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                         Tensor padX8K(xdtype, {1, length8K}, "padX8K");
                         auto ax = View(localSum, {1, length8K}, {1, effSeq}, {0, 0});
                         auto bx = Full(Element(xdtype, padValue), xdtype, {1, length8K}, {1, length8K - effSeq});
-                        Assemble({{Assign(ax), {0, 0}}, {bx, {0, effSeq}}}, padX8K, true);
+                        Assemble(
+                            {
+                                {Assign(ax),      {0, 0}},
+                                {        bx, {0, effSeq}}
+                        },
+                            padX8K, true);
                         auto [resValue, resIdx] = TopK(padX8K, selectedCount, 1);
                         TileShape::Current().SetVecTile(tileConfig.addsTile);
                         auto topk4D = Reshape(resIdx, {1, 1, 1, selectedCount});
-                        Assemble({{topk4D, {bIdx, s1Idx, n2Idx, 0}}}, topkRes);
+                        Assemble(
+                            {
+                                {topk4D, {bIdx, s1Idx, n2Idx, 0}}
+                        },
+                            topkRes);
                         if (topkValue != nullptr) {
                             TileShape::Current().SetVecTile(tileConfig.addsTile);
                             auto topk4DValue = Reshape(resValue, {1, 1, 1, selectedCount});
-                            Assemble({{topk4DValue, {bIdx, s1Idx, n2Idx, 0}}}, *topkValue);
+                            Assemble(
+                                {
+                                    {topk4DValue, {bIdx, s1Idx, n2Idx, 0}}
+                            },
+                                *topkValue);
                         }
                         TileShape::Current().SetVecTile({1, tileSize});
                     }
@@ -279,16 +307,29 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                         Tensor padX64K(xdtype, {1, length64K}, "padX64K");
                         auto ax = View(localSum, {1, length64K}, {1, effSeq}, {0, 0});
                         auto bx = Full(Element(xdtype, padValue), xdtype, {1, length64K}, {1, length64K - effSeq});
-                        Assemble({{Assign(ax), {0, 0}}, {bx, {0, effSeq}}}, padX64K, true);
+                        Assemble(
+                            {
+                                {Assign(ax),      {0, 0}},
+                                {        bx, {0, effSeq}}
+                        },
+                            padX64K, true);
 
                         auto [resValue, resIdx] = TopK(padX64K, selectedCount, 1);
                         TileShape::Current().SetVecTile(tileConfig.addsTile);
                         auto topk4D = Reshape(resIdx, {1, 1, 1, selectedCount});
-                        Assemble({{topk4D, {bIdx, s1Idx, n2Idx, 0}}}, topkRes);
+                        Assemble(
+                            {
+                                {topk4D, {bIdx, s1Idx, n2Idx, 0}}
+                        },
+                            topkRes);
                         if (topkValue != nullptr) {
                             TileShape::Current().SetVecTile(tileConfig.addsTile);
                             auto topk4DValue = Reshape(resValue, {1, 1, 1, selectedCount});
-                            Assemble({{topk4DValue, {bIdx, s1Idx, n2Idx, 0}}}, *topkValue);
+                            Assemble(
+                                {
+                                    {topk4DValue, {bIdx, s1Idx, n2Idx, 0}}
+                            },
+                                *topkValue);
                         }
                         TileShape::Current().SetVecTile({1, tileSize});
                     }
@@ -299,16 +340,29 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                         Tensor padX128K(xdtype, {1, length128K}, "padX128K");
                         auto ax = View(localSum, {1, length128K}, {1, effSeq}, {0, 0});
                         auto bx = Full(Element(xdtype, padValue), xdtype, {1, length128K}, {1, length128K - effSeq});
-                        Assemble({{Assign(ax), {0, 0}}, {bx, {0, effSeq}}}, padX128K, true);
+                        Assemble(
+                            {
+                                {Assign(ax),      {0, 0}},
+                                {        bx, {0, effSeq}}
+                        },
+                            padX128K, true);
 
                         auto [resValue, resIdx] = TopK(padX128K, selectedCount, 1);
                         TileShape::Current().SetVecTile(tileConfig.addsTile);
                         auto topk4D = Reshape(resIdx, {1, 1, 1, selectedCount});
-                        Assemble({{topk4D, {bIdx, s1Idx, n2Idx, 0}}}, topkRes);
+                        Assemble(
+                            {
+                                {topk4D, {bIdx, s1Idx, n2Idx, 0}}
+                        },
+                            topkRes);
                         if (topkValue != nullptr) {
                             TileShape::Current().SetVecTile(tileConfig.addsTile);
                             auto topk4DValue = Reshape(resValue, {1, 1, 1, selectedCount});
-                            Assemble({{topk4DValue, {bIdx, s1Idx, n2Idx, 0}}}, *topkValue);
+                            Assemble(
+                                {
+                                    {topk4DValue, {bIdx, s1Idx, n2Idx, 0}}
+                            },
+                                *topkValue);
                         }
                         TileShape::Current().SetVecTile({1, tileSize});
                     }
@@ -427,8 +481,8 @@ void LightningIndexerImpl(const Tensor &idxQuery, const Tensor &idxQueryScale, c
                                 {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
                             if (false) {
                                 // use fixpipe
-                                auto qkDot = Matrix::Matmul(DataType::DT_FP16, curQ, kBlock,
-                                    configs.extendParam, false, true); // (s1Tile * idxNHeads, blockSize)
+                                auto qkDot = Matrix::Matmul(DataType::DT_FP16, curQ, kBlock, configs.extendParam, false,
+                                    true); // (s1Tile * idxNHeads, blockSize)
                                 firstMmCollect.emplace_back(qkDot);
                                 if (firstMm != nullptr) {
                                     Assemble(qkDot, {qOffset, idxInBlock * blockSize},

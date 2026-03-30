@@ -19,7 +19,7 @@
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
 
-namespace npu{
+namespace npu {
 namespace tile_fwk {
 class OpChecker {
 public:
@@ -31,6 +31,7 @@ public:
 
     class CalcTypeChecker : public BaseChecker {
         std::vector<OpCalcType> conditions;
+
     public:
         CalcTypeChecker(std::vector<OpCalcType> calcTypes) : conditions(std::move(calcTypes)) {}
         CalcTypeChecker(OpCalcType calcType) : conditions({calcType}) {}
@@ -39,6 +40,7 @@ public:
 
     class CoreTypeChecker : public BaseChecker {
         std::vector<OpCoreType> conditions;
+
     public:
         CoreTypeChecker(std::vector<OpCoreType> coreTypes) : conditions(std::move(coreTypes)) {}
         CoreTypeChecker(OpCoreType coreType) : conditions({coreType}) {}
@@ -47,6 +49,7 @@ public:
 
     class InputMemTypeChecker : public BaseChecker {
         std::vector<MemoryType> conditions;
+
     public:
         InputMemTypeChecker(std::vector<MemoryType> inputMemTypes) : conditions(std::move(inputMemTypes)) {}
         InputMemTypeChecker(MemoryType inputMemType) : conditions({inputMemType}) {}
@@ -55,19 +58,20 @@ public:
 
     class OutputMemTypeChecker : public BaseChecker {
         std::vector<MemoryType> conditions;
+
     public:
         OutputMemTypeChecker(std::vector<MemoryType> outputMemTypes) : conditions(std::move(outputMemTypes)) {}
         OutputMemTypeChecker(MemoryType outputMemType) : conditions({outputMemType}) {}
         bool check(Operation *op) const override;
     };
 
-    template<typename...Checkers>
-    static bool check(Operation *op, Checkers&&... checkers) {
+    template <typename... Checkers>
+    static bool check(Operation *op, Checkers &&...checkers) {
         return (checkers.check(op) && ...);
     }
 
-    template<typename...Checkers>
-    static bool check(Operation &op, Checkers&&... checkers) {
+    template <typename... Checkers>
+    static bool check(Operation &op, Checkers &&...checkers) {
         return check(&op, std::forward<Checkers>(checkers)...);
     }
 };

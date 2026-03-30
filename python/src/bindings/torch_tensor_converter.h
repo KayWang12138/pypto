@@ -24,12 +24,11 @@
 #include <vector>
 namespace pypto {
 
-bool ParseDlpackCapsule(py::object &cap, uintptr_t &dataPtr, std::vector<int64_t> &shape,
-                       npu::tile_fwk::DataType &dtypeOut);
+bool ParseDlpackCapsule(
+    py::object &cap, uintptr_t &dataPtr, std::vector<int64_t> &shape, npu::tile_fwk::DataType &dtypeOut);
 
 bool TryParseDlpack(py::object &torchTensor, uintptr_t &dataPtr, std::vector<int64_t> &shape,
-                    npu::tile_fwk::DataType &dtypeOut,
-                    py::object toDlpack = py::none());
+    npu::tile_fwk::DataType &dtypeOut, py::object toDlpack = py::none());
 
 class TorchTensorConverter {
 public:
@@ -39,4 +38,4 @@ public:
 
 size_t ValidateInputs(py::sequence &tensors, py::sequence &tensorDefs);
 
-}  // namespace pypto
+} // namespace pypto

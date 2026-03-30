@@ -30,18 +30,15 @@ using namespace npu::tile_fwk;
 namespace {
 const std::string PM_TEST_TMP_DIR = "/tmp/test_platform_manager_log";
 
-std::string PlatformConfigDir()
-{
+std::string PlatformConfigDir() {
     return PM_TEST_TMP_DIR + "/data/platform_config";
 }
 
-std::string PlatformIniPath(const std::string &socVersion)
-{
+std::string PlatformIniPath(const std::string &socVersion) {
     return PlatformConfigDir() + "/" + socVersion + ".ini";
 }
 
-void WriteMinimalPlatformIni(const std::string &path)
-{
+void WriteMinimalPlatformIni(const std::string &path) {
     std::ofstream ofs(path, std::ios::out | std::ios::trunc);
     ASSERT_TRUE(ofs.is_open());
     ofs << "[version]\n";
@@ -56,9 +53,7 @@ void WriteMinimalPlatformIni(const std::string &path)
 
 class TestPlatformManagerLog : public testing::Test {
 public:
-    static void SetUpTestCase() {
-        CreateMultiLevelDir(PM_TEST_TMP_DIR);
-    }
+    static void SetUpTestCase() { CreateMultiLevelDir(PM_TEST_TMP_DIR); }
 
     static void TearDownTestCase() {
         std::string cmd = "rm -rf " + PM_TEST_TMP_DIR;

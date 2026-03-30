@@ -29,7 +29,7 @@ struct LocalBuffer {
     size_t end{0};
     size_t size{0};
     MemoryType memType{MemoryType::MEM_UNKNOWN};
-    bool operator<(const LocalBuffer& other) const {
+    bool operator<(const LocalBuffer &other) const {
         if (size < other.size) {
             return true;
         }
@@ -40,9 +40,9 @@ struct LocalBuffer {
     }
 
     LocalBuffer(int tensorId, uint64_t shapeSize, MemoryType type) {
-       id = tensorId;
-       size = shapeSize;
-       memType = type;
+        id = tensorId;
+        size = shapeSize;
+        memType = type;
     }
 };
 
@@ -54,14 +54,12 @@ struct BufferSlice {
 
     BufferSlice() = default;
 
-    BufferSlice(uint64_t offset_, uint64_t size_)
-        : offset(offset_), size(size_) {}
+    BufferSlice(uint64_t offset_, uint64_t size_) : offset(offset_), size(size_) {}
 };
 
 class BufferPool {
-  public:
-    BufferPool(const MemoryType mem, const uint64_t memSize)
-        : memType_(mem), memSize_(memSize) {}
+public:
+    BufferPool(const MemoryType mem, const uint64_t memSize) : memType_(mem), memSize_(memSize) {}
     BufferPool() {}
     ~BufferPool() = default;
     // 返回tensorid 到 bufferblock的映射关系，value是bufferblock的index不是bufferblock的magic
@@ -75,7 +73,8 @@ class BufferPool {
     uint64_t GetMemSize();
 
     size_t ObtainStartAddr(size_t i, const std::vector<std::tuple<int, size_t, size_t>> &allocatedBufs);
-    size_t UpdateIdx(size_t &i, size_t sizeNeedSpill, size_t startAddr, const std::vector<std::tuple<int, size_t, size_t>> &allocatedBufs);
+    size_t UpdateIdx(size_t &i, size_t sizeNeedSpill, size_t startAddr,
+        const std::vector<std::tuple<int, size_t, size_t>> &allocatedBufs);
     Status GetSpillGroup(size_t sizeNeedSpill, std::vector<std::vector<int>> &canSpillGroups);
     std::vector<int> GetBufferSlices();
     std::vector<int> GetAddrSortedBufs();
@@ -86,16 +85,17 @@ class BufferPool {
     Status ModifyBufferRange(LocalBufferPtr localBuffer, size_t offset);
     bool CheckBufferSlicesOverlap();
     void PrintStatus();
-    Status MakeBufferSlice(LocalBufferPtr tensor, BufferSlice& newSlice);
-    void SelectHeadAndTail(LocalBufferPtr tensor, bool &head, bool &tail, std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals);
+    Status MakeBufferSlice(LocalBufferPtr tensor, BufferSlice &newSlice);
+    void SelectHeadAndTail(
+        LocalBufferPtr tensor, bool &head, bool &tail, std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals);
     Status CompactBufferSlices(std::unordered_map<int, LocalBufferPtr> &localBufferMap);
 
-  private:
+private:
     MemoryType memType_{MemoryType::MEM_UNKNOWN};
     uint64_t memSize_{0};
     std::map<int, BufferSlice> bufferSlices;
     std::unordered_map<int, int> tensorIdToBuffer_;
 };
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk
 
 #endif

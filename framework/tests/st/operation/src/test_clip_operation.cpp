@@ -25,7 +25,7 @@ constexpr const unsigned ID3 = 3;
 std::vector<std::reference_wrapper<const Tensor>> AsRef(const std::vector<Tensor> &tensors) {
     std::vector<std::reference_wrapper<const Tensor>> results;
     results.reserve(tensors.size());
-    for (const Tensor &tensor: tensors) {
+    for (const Tensor &tensor : tensors) {
         results.emplace_back(std::cref(tensor));
     }
     return results;
@@ -59,7 +59,8 @@ std::vector<int> GetBroadCastOffsetRatio(const Tensor &self, const Tensor &other
     return result;
 }
 
-std::vector<SymbolicScalar> GetValidShape(const Shape &originShapes, const Shape &viewShapes, const std::vector<SymbolicScalar> loopVars) {
+std::vector<SymbolicScalar> GetValidShape(
+    const Shape &originShapes, const Shape &viewShapes, const std::vector<SymbolicScalar> loopVars) {
     if (loopVars.size() != viewShapes.size() || originShapes.size() != viewShapes.size()) {
         throw std::invalid_argument("Length of `originShapes`/`viewShapes`/`loopVars` should be the same!");
     }
@@ -70,7 +71,8 @@ std::vector<SymbolicScalar> GetValidShape(const Shape &originShapes, const Shape
     return validShapes;
 }
 
-std::vector<SymbolicScalar> GetOffsets(const Shape &viewShapes, const std::vector<SymbolicScalar> loopVars, std::vector<int> ratios = {}) {
+std::vector<SymbolicScalar> GetOffsets(
+    const Shape &viewShapes, const std::vector<SymbolicScalar> loopVars, std::vector<int> ratios = {}) {
     if (loopVars.size() != viewShapes.size()) {
         throw std::invalid_argument("Length of `loopVars` and `viewShapes` should be the same!");
     }
@@ -84,7 +86,8 @@ std::vector<SymbolicScalar> GetOffsets(const Shape &viewShapes, const std::vecto
     return offsets;
 }
 
-Tensor BroadCastView(const Tensor &needBroadCast, const Tensor &broadCasted, const Shape &viewShapes, const std::vector<SymbolicScalar> loopVars) {
+Tensor BroadCastView(const Tensor &needBroadCast, const Tensor &broadCasted, const Shape &viewShapes,
+    const std::vector<SymbolicScalar> loopVars) {
     const Shape &tileViewShape = GetBroadCastViewShape(needBroadCast, broadCasted, viewShapes);
     const std::vector<int> &tile0OffsetRatio = GetBroadCastOffsetRatio(needBroadCast, broadCasted, viewShapes);
     std::vector<SymbolicScalar> validShapes = GetValidShape(broadCasted.GetShape(), tileViewShape, loopVars);
@@ -93,7 +96,7 @@ Tensor BroadCastView(const Tensor &needBroadCast, const Tensor &broadCasted, con
     return result;
 }
 
-enum class TestType: int {
+enum class TestType : int {
     NotDefault2D = 0,
     NotDefault3D = 1,
     NotDefault4D = 2,
@@ -107,14 +110,14 @@ enum class TestType: int {
 };
 
 struct ClipOpFuncArgs : public OpFuncArgs {
-    ClipOpFuncArgs(
-        const std::vector<int64_t> &viewShape,
-        const std::vector<int64_t> &tileShape,
-        int type,
-        const Element &min = {},
-        const Element &max = {},
-        bool isElement=false)
-    : viewShape_(viewShape), tileShape_(tileShape), type_(static_cast<TestType>(type)), min_(min), max_(max), isElement_(isElement) {}
+    ClipOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> &tileShape, int type,
+        const Element &min = {}, const Element &max = {}, bool isElement = false)
+        : viewShape_(viewShape),
+          tileShape_(tileShape),
+          type_(static_cast<TestType>(type)),
+          min_(min),
+          max_(max),
+          isElement_(isElement) {}
 
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
@@ -134,8 +137,7 @@ struct ClipOpMetaData {
 
 Tensor ProcessElementModeClip(const Tensor &tileTensor0, const ClipOpFuncArgs *args) {
     Tensor res;
-    switch (args->type_)
-    {
+    switch (args->type_) {
         case TestType::NotDefault2D:
         case TestType::NotDefault3D:
         case TestType::NotDefault4D: {
@@ -162,10 +164,10 @@ Tensor ProcessElementModeClip(const Tensor &tileTensor0, const ClipOpFuncArgs *a
     return res;
 }
 
-Tensor ProcessTensorModeClip(const Tensor &tileTensor0, const std::vector<Tensor> &inputs, const ClipOpFuncArgs *args, const std::vector<SymbolicScalar> loopVars) {
+Tensor ProcessTensorModeClip(const Tensor &tileTensor0, const std::vector<Tensor> &inputs, const ClipOpFuncArgs *args,
+    const std::vector<SymbolicScalar> loopVars) {
     Tensor res;
-    switch (args->type_)
-    {
+    switch (args->type_) {
         case TestType::NotDefault2D:
         case TestType::NotDefault3D:
         case TestType::NotDefault4D: {
@@ -197,7 +199,7 @@ Tensor ProcessTensorModeClip(const Tensor &tileTensor0, const std::vector<Tensor
 }
 
 static void ClipOperationExeFuncDoubleCut(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const  OpFuncArgs *opArgs) {
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     auto inputRefs = AsRef(inputs);
     FUNCTION("main", inputRefs, {outputs[ID0]}) {
         SymbolicScalar firstDim = inputs[ID0].GetShape()[ID0];
@@ -214,7 +216,8 @@ static void ClipOperationExeFuncDoubleCut(
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 std::vector<SymbolicScalar> loopVars = {bIdx, sIdx};
                 std::vector<SymbolicScalar> offsets = GetOffsets(viewShapes, loopVars);
-                auto tileTensor0 = View(inputs[ID0], viewShapes, GetValidShape(inputs[ID0].GetShape(), viewShapes, loopVars), offsets);
+                auto tileTensor0 =
+                    View(inputs[ID0], viewShapes, GetValidShape(inputs[ID0].GetShape(), viewShapes, loopVars), offsets);
                 TileShape::Current().SetVecTile(args->tileShape_);
                 Tensor res;
                 if (args->isElement_) {
@@ -250,8 +253,8 @@ static void ClipOperationExeFuncTripleCut(
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
                     std::vector<SymbolicScalar> loopVars = {bIdx, sIdx, nIdx};
                     std::vector<SymbolicScalar> offsets = GetOffsets(viewShapes, loopVars);
-                    Tensor tileTensor0 = View(inputs[ID0], viewShapes,
-                        GetValidShape(inputs[ID0].GetShape(), viewShapes, loopVars), offsets);
+                    Tensor tileTensor0 = View(
+                        inputs[ID0], viewShapes, GetValidShape(inputs[ID0].GetShape(), viewShapes, loopVars), offsets);
                     TileShape::Current().SetVecTile(args->tileShape_);
                     Tensor res;
                     if (args->isElement_) {
@@ -362,8 +365,7 @@ TEST_P(ClipOperationTest, TestClip) {
         testType == ToUnderlying(TestType::ElementNotDefaultMinDefaultMax) ||
         (testType == ToUnderlying(TestType::NotDefault2D) && isElement) ||
         (testType == ToUnderlying(TestType::NotDefault3D) && isElement) ||
-        (testType == ToUnderlying(TestType::NotDefault4D) && isElement)
-    ) {
+        (testType == ToUnderlying(TestType::NotDefault4D) && isElement)) {
         if (!minDtypeStr.empty()) {
             DataType minDtype = GetDataType(minDtypeStr);
             min = GetElementByType(minDtype, test_data, "min_value");

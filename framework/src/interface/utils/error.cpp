@@ -39,7 +39,7 @@ public:
         auto funcOffset = strchr(line, '+');
         auto libname = strrchr(line, '/');
         if (funcName == nullptr || funcOffset == nullptr) {
-            ss << line <<'\n';
+            ss << line << '\n';
             return;
         }
 

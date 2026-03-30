@@ -76,7 +76,8 @@ std::string TensorSlot::Dump() const {
     return oss.str();
 }
 
-std::unordered_set<TensorSlot> TensorSlotScope::LookupIncastReadFrom(const std::shared_ptr<LogicalTensor> &tensor) const {
+std::unordered_set<TensorSlot> TensorSlotScope::LookupIncastReadFrom(
+    const std::shared_ptr<LogicalTensor> &tensor) const {
     std::unordered_set<TensorSlot> tensorSlot;
     for (auto &[slot, access] : accessRecord) {
         /* Match by raw tensor */
@@ -87,7 +88,8 @@ std::unordered_set<TensorSlot> TensorSlotScope::LookupIncastReadFrom(const std::
     return tensorSlot;
 }
 
-std::unordered_set<TensorSlot> TensorSlotScope::LookupOutcastWriteTo(const std::shared_ptr<LogicalTensor> &tensor) const {
+std::unordered_set<TensorSlot> TensorSlotScope::LookupOutcastWriteTo(
+    const std::shared_ptr<LogicalTensor> &tensor) const {
     std::unordered_set<TensorSlot> tensorSlot;
     for (auto &[slot, access] : accessRecord) {
         /* Match by raw tensor */
@@ -182,10 +184,11 @@ void TensorSlotScope::BuildIncastOutcastSlot(const std::unordered_map<TensorSlot
 std::string TensorSlotScope::Dump() const {
     std::string INDENT = "  ";
     std::ostringstream oss;
-    oss << "scope {\n"
-        << INDENT << "#name:" << tensorFunc->GetMagicName() << "\n";
+    oss << "scope {\n" << INDENT << "#name:" << tensorFunc->GetMagicName() << "\n";
     for (auto &[slot, access] : accessRecord) {
-        oss << INDENT << "slot:" << slot.GetSlot() << " id "<< Program::GetInstance().GetTensorSlotManager()->slotIndexDict[slot]  << " access:"  << access.Dump() << "\n";
+        oss << INDENT << "slot:" << slot.GetSlot() << " id "
+            << Program::GetInstance().GetTensorSlotManager()->slotIndexDict[slot] << " access:" << access.Dump()
+            << "\n";
     }
     for (auto &[incast, inarg] : incastToInArgumentDict) {
         oss << INDENT << "incast:" << incast->Dump() << " inarg:" << inarg->Dump() << "\n";
@@ -252,8 +255,7 @@ TensorSlotUsage &TensorSlotManager::GetTensorSlotUsage(const TensorSlot &slot) {
 static Function *GetCurrentNonHiddenFunction() {
     Function *currNonHiddenFunction = Program::GetInstance().GetCurrentFunction();
     while (currNonHiddenFunction && currNonHiddenFunction->IsHiddenFunction()) {
-        FUNCTION_ASSERT(currNonHiddenFunction->HasParent())
-            << "currNonHiddenFunction doesn't have parent func.";
+        FUNCTION_ASSERT(currNonHiddenFunction->HasParent()) << "currNonHiddenFunction doesn't have parent func.";
         currNonHiddenFunction = &currNonHiddenFunction->Parent();
     }
     FUNCTION_ASSERT(currNonHiddenFunction != nullptr);
@@ -379,7 +381,8 @@ std::vector<int> TensorSlotManager::LookupSlotIndex(const std::vector<std::refer
     return indexList;
 }
 
-std::vector<int> TensorSlotManager::LookupSlotIndexConst(const std::vector<std::reference_wrapper<const Tensor>> &tensorList) {
+std::vector<int> TensorSlotManager::LookupSlotIndexConst(
+    const std::vector<std::reference_wrapper<const Tensor>> &tensorList) {
     std::vector<int> indexList;
     for (auto &tensor : tensorList) {
         TensorSlot slot = TensorSlot::CreateTensor(tensor);
@@ -417,8 +420,7 @@ void TensorSlotManager::MarkInput(const Tensor &tensor) {
     inputSlotList.push_back(slot);
     auto logicalTensor = tensor.GetStorage();
 
-    std::string inputName =
-        logicalTensor ? logicalTensor->tensor->symbol : "untitled";
+    std::string inputName = logicalTensor ? logicalTensor->tensor->symbol : "untitled";
     AddNameSuffix(inputName, nameDict);
     inputNameList.push_back(inputName);
     FUNCTION_LOGD("MarkInput push input name[%s].", inputName.c_str());
@@ -434,8 +436,7 @@ void TensorSlotManager::MarkOutput(const Tensor &tensor) {
     outputSlotList.push_back(slot);
     auto logicalTensor = tensor.GetStorage(false);
 
-    std::string outputName =
-        logicalTensor ? logicalTensor->tensor->symbol : "untitled";
+    std::string outputName = logicalTensor ? logicalTensor->tensor->symbol : "untitled";
     AddNameSuffix(outputName, nameDict);
     outputNameList.push_back(outputName);
     FUNCTION_LOGD("MarkOutput push output name[%s].", outputName.c_str());
@@ -554,8 +555,10 @@ std::string TensorSlotManager::Dump() const {
             oss << std::setw(width2) << (assemble ? 'A' : ' ');
             oss << std::setw(width2) << (shmemTensor ? 'S' : ' ');
             oss << std::setw(width2) << (parial ? 'P' : ' ');
-            oss << std::setw(width6) << (input ? "in:" + std::to_string(inputSlotDict.find(slotList[i])->second) : std::string(" "));
-            oss << std::setw(width7) << (output ? "out:" + std::to_string(outputSlotDict.find(slotList[i])->second) : std::string(" "));
+            oss << std::setw(width6)
+                << (input ? "in:" + std::to_string(inputSlotDict.find(slotList[i])->second) : std::string(" "));
+            oss << std::setw(width7)
+                << (output ? "out:" + std::to_string(outputSlotDict.find(slotList[i])->second) : std::string(" "));
             if (live) {
                 oss << " " << slotList[i].Dump() << "\n";
             } else {
@@ -567,7 +570,7 @@ std::string TensorSlotManager::Dump() const {
     return oss.str();
 }
 
-void TensorSlotManager::UpdateReshapeInplaceSlots(IncastOutcastLink& link) {
+void TensorSlotManager::UpdateReshapeInplaceSlots(IncastOutcastLink &link) {
     for (auto &[slotIn, slotOut] : reshapeInplaceDict) {
         FUNCTION_ASSERT(slotIndexDict.find(slotIn) != slotIndexDict.end())
             << "slotIn[" << slotIn.GetSymbolName() << "]is not in slotIndexDict";
@@ -576,7 +579,7 @@ void TensorSlotManager::UpdateReshapeInplaceSlots(IncastOutcastLink& link) {
 
         for (auto &iter : link.ioslotDict) {
             auto &ioslot = iter.second;
-            //update incast for all funcs
+            // update incast for all funcs
             for (std::vector<int> &slotsIdxIn : ioslot.incastSlot) {
                 for (auto &slotIdxIn : slotsIdxIn) {
                     if (slotIdxIn == slotIndexDict[slotIn]) {
@@ -588,7 +591,7 @@ void TensorSlotManager::UpdateReshapeInplaceSlots(IncastOutcastLink& link) {
 
             for (std::vector<int> &slotsIdxOut : ioslot.outcastSlot) {
                 for (auto &slotIdxOut : slotsIdxOut) {
-                    if (slotIdxOut == slotIndexDict[slotIn]){
+                    if (slotIdxOut == slotIndexDict[slotIn]) {
                         FUNCTION_LOGD("replace slot %d to %d.", slotIdxOut, slotIndexDict[slotOut]);
                         slotIdxOut = slotIndexDict[slotOut];
                     }
@@ -598,7 +601,7 @@ void TensorSlotManager::UpdateReshapeInplaceSlots(IncastOutcastLink& link) {
     }
 }
 
-IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]]const std::string &rawname) {
+IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]] const std::string &rawname) {
     IncastOutcastLink link(slotIndexDict.size());
 
     for (auto &scope : scopeList) {

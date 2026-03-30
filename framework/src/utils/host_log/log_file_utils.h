@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ bool CreateSingleLevelDir(const char *dirPath) {
     std::string realPath = GetRealPath(dirPath);
     if (realPath.empty()) {
         int32_t ret = 0;
-        ret = mkdir(dirPath, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);  // 755
+        ret = mkdir(dirPath, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH); // 755
         if (ret != 0 && errno != EEXIST) {
             return false;
         }
@@ -90,7 +90,7 @@ void RemoveFile(const std::string &path) {
 }
 
 void LoadFileFromDir(const std::string &dirPath, const std::string &filePrefix, const std::string &fileSuffix,
-                     std::queue<std::string> &files) {
+    std::queue<std::string> &files) {
     DIR *dir = opendir(dirPath.c_str());
     if (dir == nullptr) {
         return;
@@ -111,4 +111,4 @@ void LoadFileFromDir(const std::string &dirPath, const std::string &filePrefix, 
     }
     closedir(dir);
 }
-}
+} // namespace npu::tile_fwk

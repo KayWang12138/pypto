@@ -75,13 +75,14 @@ void BindTensor(py::module &m) {
                 return t.GetDataType();
             })
         .def_property_readonly("shape",
-            [] (const Tensor &t) -> std::vector<int64_t> {
+            [](const Tensor &t) -> std::vector<int64_t> {
                 if (t.IsEmpty()) {
                     throw py::value_error("Empty tensor.");
                 }
                 return t.GetShape();
             })
-        .def("GetShape",
+        .def(
+            "GetShape",
             [](const Tensor &t) -> std::vector<int64_t> {
                 if (t.IsEmpty()) {
                     throw py::value_error("Empty tensor.");
@@ -90,20 +91,22 @@ void BindTensor(py::module &m) {
             },
             "Get the shape of the tensor.")
         .def("GetValidShape",
-            [] (const Tensor &t) -> std::vector<SymbolicScalar> {
+            [](const Tensor &t) -> std::vector<SymbolicScalar> {
                 if (t.IsEmpty()) {
                     throw py::value_error("Empty tensor.");
                 }
                 return t.GetValidShape();
             })
-        .def("Move",
-            [](Tensor &self, Tensor &other) -> Tensor& {
+        .def(
+            "Move",
+            [](Tensor &self, Tensor &other) -> Tensor & {
                 self = std::move(other);
                 return self;
             },
             "Assigns from another tensor by moving its content. The source tensor is left in an empty state.",
             py::arg("other"), py::return_value_policy::reference_internal)
-        .def("SetCachePolicy",
+        .def(
+            "SetCachePolicy",
             [](Tensor &t, CachePolicy policy, bool value) {
                 if (t.IsEmpty()) {
                     throw py::value_error("Empty tensor.");
@@ -111,7 +114,8 @@ void BindTensor(py::module &m) {
                 t.SetCachePolicy(policy, value);
             },
             py::arg("policy"), py::arg("value"))
-        .def("GetCachePolicy",
+        .def(
+            "GetCachePolicy",
             [](const Tensor &t, CachePolicy policy) {
                 if (t.IsEmpty()) {
                     throw py::value_error("Empty tensor.");
@@ -119,7 +123,8 @@ void BindTensor(py::module &m) {
                 return t.GetCachePolicy(policy);
             },
             py::arg("policy"))
-        .def("SetName",
+        .def(
+            "SetName",
             [](Tensor &t, const std::string &name) {
                 if (t.IsEmpty()) {
                     throw py::value_error("Empty tensor.");
@@ -127,7 +132,8 @@ void BindTensor(py::module &m) {
                 t.SetName(name);
             },
             py::arg("name"))
-        .def("GetName",
+        .def(
+            "GetName",
             [](const Tensor &t) {
                 if (t.IsEmpty()) {
                     throw py::value_error("Empty tensor.");
@@ -135,7 +141,8 @@ void BindTensor(py::module &m) {
                 return t.GetName();
             },
             "Get the name of the tensor.")
-        .def("Dim",
+        .def(
+            "Dim",
             [](const Tensor &t) {
                 if (t.IsEmpty()) {
                     throw py::value_error("Empty tensor.");
@@ -143,7 +150,8 @@ void BindTensor(py::module &m) {
                 return t.Dim();
             },
             "Get the number of dimensions of the tensor.")
-        .def("Format",
+        .def(
+            "Format",
             [](const Tensor &t) {
                 if (t.IsEmpty()) {
                     throw py::value_error("Empty tensor.");
@@ -152,16 +160,17 @@ void BindTensor(py::module &m) {
             },
             "Get the format of the tensor.");
 
-    m.def("GetInputShape",
+    m.def(
+        "GetInputShape",
         [](const Tensor &t, int axis) {
             if (t.IsEmpty()) {
                 throw py::value_error("Empty tensor.");
             }
             return npu::tile_fwk::GetInputShape(t, axis);
         },
-        py::arg("t"), py::arg("axis"),
-        "Get the shape of the input at the specified axis.");
-    m.def("GetInputShape",
+        py::arg("t"), py::arg("axis"), "Get the shape of the input at the specified axis.");
+    m.def(
+        "GetInputShape",
         [](const Tensor &t) {
             if (t.IsEmpty()) {
                 throw py::value_error("Empty tensor.");
@@ -169,16 +178,17 @@ void BindTensor(py::module &m) {
             return npu::tile_fwk::GetInputShape(t);
         },
         "Get the shape of the input.", py::arg("t"));
-    m.def("GetTensorData",
+    m.def(
+        "GetTensorData",
         [](const Tensor &t, std::vector<SymbolicScalar> offset) {
             if (t.IsEmpty()) {
                 throw py::value_error("Empty tensor.");
             }
             return npu::tile_fwk::GetTensorData(t, offset);
         },
-        py::arg("tensor"), py::arg("offset"),
-        "Get the tensor data at the specified offsets.");
-    m.def("SetTensorData",
+        py::arg("tensor"), py::arg("offset"), "Get the tensor data at the specified offsets.");
+    m.def(
+        "SetTensorData",
         [](const SymbolicScalar &value, std::vector<SymbolicScalar> offset, Tensor &dst) {
             if (dst.IsEmpty()) {
                 throw py::value_error("Empty tensor.");

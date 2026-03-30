@@ -61,10 +61,10 @@ void CopyOutResolve::CheckOutcastProducer(Function *leafFunc) const {
     }
 }
 
-template<typename T>
+template <typename T>
 static std::vector<T *> DecreaseDictCount(std::unordered_map<T *, int> &dict) {
     std::vector<T *> zeroCountList;
-    for (auto &[key, distance]: dict) {
+    for (auto &[key, distance] : dict) {
         distance -= 1;
         if (distance == 0) {
             zeroCountList.push_back(key);
@@ -109,9 +109,11 @@ void CopyOutResolve::InsertCopyOutResolveForLeaf(int copyOutResolveCoalescing, F
             opList.push_back(op);
 
             Opcode opcode = leafFunc->IsCube() ? Opcode::OP_AICPU_CALL_AIC : Opcode::OP_AICPU_CALL_AIV;
-            auto &aicpuCall = leafFunc->AddOperation(opcode, std::vector<std::shared_ptr<LogicalTensor>>({outcast}), {});
+            auto &aicpuCall =
+                leafFunc->AddOperation(opcode, std::vector<std::shared_ptr<LogicalTensor>>({outcast}), {});
             aicpuCall.UpdateSubgraphID(subgraphID);
-            aicpuCall.SetAttribute(OpAttributeKey::aicpuCall, (int64_t)(uint32_t)((AICPU_CALL_NUM_COPYOUT_RESOLVE << AICPU_CALL_ARG_BIT) + copyOutResolveCounter));
+            aicpuCall.SetAttribute(OpAttributeKey::aicpuCall,
+                (int64_t)(uint32_t)((AICPU_CALL_NUM_COPYOUT_RESOLVE << AICPU_CALL_ARG_BIT) + copyOutResolveCounter));
             aicpuCall.GetCommentList().push_back("aicpuCall: " + oss.str());
             aicpuCallCopyOutFinishDistanceDict[&aicpuCall] = copyOutScheduleDefaultDistance;
 
@@ -137,8 +139,8 @@ void CopyOutResolve::InsertCopyOutResolveForLeaf(int copyOutResolveCoalescing, F
     for (auto &[aicpuCall, dis] : aicpuCallCopyOutFinishDistanceDict) {
         (void)dis;
         opList.push_back(aicpuCall);
-        // tailing call should be ignored. However, because the op is already added by AddOperation, we have to firstly add it,
-        // and then remove it.
+        // tailing call should be ignored. However, because the op is already added by AddOperation, we have to firstly
+        // add it, and then remove it.
         aicpuCall->SetAsDeleted();
     }
 

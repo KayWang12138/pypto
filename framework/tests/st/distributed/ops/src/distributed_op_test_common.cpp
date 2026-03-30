@@ -17,8 +17,7 @@
 
 namespace npu::tile_fwk {
 namespace Distributed {
-int64_t GetEleNumFromShape(std::vector<int64_t>& shape)
-{
+int64_t GetEleNumFromShape(std::vector<int64_t> &shape) {
     int64_t eleNum = 1;
     for (int num : shape) {
         eleNum *= num;
@@ -26,11 +25,10 @@ int64_t GetEleNumFromShape(std::vector<int64_t>& shape)
     return eleNum;
 }
 
-Tensor CreateTensorFromFile(std::vector<int64_t>& shape, DataType dtype, std::string& file, std::string tname)
-{
+Tensor CreateTensorFromFile(std::vector<int64_t> &shape, DataType dtype, std::string &file, std::string tname) {
     int eleNum = GetEleNumFromShape(shape);
     uint64_t byteSize = eleNum * BytesOf(dtype);
-    uint8_t* ptr = (uint8_t*)readToDev(GetGoldenDir() + file, byteSize / sizeof(float));
+    uint8_t *ptr = (uint8_t *)readToDev(GetGoldenDir() + file, byteSize / sizeof(float));
     Tensor tensor(dtype, shape, ptr, tname);
     return tensor;
 }

@@ -41,12 +41,7 @@
 namespace npu {
 namespace tile_fwk {
 
-enum class CoaType {
-    PARAM_OFFSET,
-    PARAM_VALID_SHAPE,
-    PARAM,
-    INVALID
-};
+enum class CoaType { PARAM_OFFSET, PARAM_VALID_SHAPE, PARAM, INVALID };
 
 static const std::string COA_PREFIX = "RUNTIME_COA_GET_PARAM";
 static const std::string MAYBE_CONST_POSTFIX = "MAYBE_CONST";
@@ -55,8 +50,7 @@ static const SymbolicScalar MAYBE_CONST_COA_GetOffset = AddRuntimeCoaPrefix("GET
 static const SymbolicScalar MAYBE_CONST_COA_GetValidShape = AddRuntimeCoaPrefix("GET_PARAM_VALID_SHAPE_MAYBE_CONST");
 static const SymbolicScalar MAYBE_CONST_COA_GetParam = AddRuntimeCoaPrefix("GET_PARAM_MAYBE_CONST");
 
-Status SToIWrapper(const std::string str, int& result);
-
+Status SToIWrapper(const std::string str, int &result);
 
 constexpr int OFFSET_INDEX_ORDER = 0;
 constexpr int SHAPE_INDEX_ORDER = 1;
@@ -76,8 +70,9 @@ public:
      * @param args 本次调用的vector实参
      * @return 注册是否成功（长度非法时失败）
      */
-    bool RegisterCall(const std::vector<SymbolicScalar>& args) {
-        if (args.empty()) return false; // 空vector无意义
+    bool RegisterCall(const std::vector<SymbolicScalar> &args) {
+        if (args.empty())
+            return false; // 空vector无意义
 
         // 首次调用：记录vector长度，后续调用需保持长度一致
         if (callCount_ == 0) {
@@ -96,8 +91,8 @@ public:
         // 步骤2：更新候选索引组（首次调用初始化，后续调用筛选）
         if (callCount_ == 0) {
             // 首次调用：所有非空索引列表都作为候选组（去重+排序）
-            for (auto& pair : currValIdxs) {
-                const auto& values = pair.second;
+            for (auto &pair : currValIdxs) {
+                const auto &values = pair.second;
                 if (!values.empty()) {
                     // 索引组排序（保证相同索引组合的一致性，避免重复）
                     std::vector<size_t> vec{values.begin(), values.end()};
@@ -109,7 +104,7 @@ public:
         } else {
             // 非首次调用：筛选候选组（仅保留在本次调用中值相同的索引组）
             std::vector<std::vector<size_t>> newCandidates;
-            for (const auto& candidate : candidateGroups_) {
+            for (const auto &candidate : candidateGroups_) {
                 // 检查候选组是否在本次调用的某值索引列表中（子集判断）
                 if (IsCandidateValidInCurrCall(candidate, currValIdxs)) {
                     newCandidates.push_back(candidate);
@@ -147,7 +142,7 @@ public:
         return candidateGroups_;
     }
 
-    std::string PrintIndexGroups(const std::vector<std::vector<size_t>>& groups) const {
+    std::string PrintIndexGroups(const std::vector<std::vector<size_t>> &groups) const {
         std::stringstream ss;
         ss << std::endl << "ALL Consistent Index Group:  {" << std::endl;
         if (groups.empty()) {
@@ -167,7 +162,7 @@ public:
     /**
      * @brief 重置校验器（清空所有调用记录）
      */
-    void Reset()  {
+    void Reset() {
         callCount_ = 0;
         vecLen_ = 0;
         isValid_ = true;
@@ -181,13 +176,14 @@ private:
      * @param currValIdxs 本次调用的「值-索引列表」
      * @return 是否有效
      */
-    bool IsCandidateValidInCurrCall(
-        const std::vector<size_t>& candidate, const std::unordered_map<std::string, std::set<size_t>>& currValIdxs) const {
+    bool IsCandidateValidInCurrCall(const std::vector<size_t> &candidate,
+        const std::unordered_map<std::string, std::set<size_t>> &currValIdxs) const {
         // 步骤1：查找第一个索引在当前args所在的索引组
-        if (candidate.empty()) return false;
+        if (candidate.empty())
+            return false;
         size_t firstIdx = candidate[0];
-        for (const auto& pair : currValIdxs) {
-            const auto& values = pair.second;
+        for (const auto &pair : currValIdxs) {
+            const auto &values = pair.second;
             if (values.count(firstIdx)) {
                 // 步骤2：校验候选组中的索引在新的索引组中是否全部存在
                 for (size_t idx : candidate) {
@@ -205,22 +201,23 @@ private:
      * @brief 对索引组列表去重（避免重复的索引组合）
      * @param groups 待去重的索引组列表
      */
-    void DeduplicateGroups(std::vector<std::vector<size_t>>& groups) {
-        if (groups.empty()) return;
+    void DeduplicateGroups(std::vector<std::vector<size_t>> &groups) {
+        if (groups.empty())
+            return;
         // 步骤1：先对每个索引组内部排序（保证 {3,1} 和 {1,3} 视为同一组）
-        for (auto& group : groups) {
+        for (auto &group : groups) {
             std::sort(group.begin(), group.end());
         }
         // 步骤2：对索引组列表排序，便于去重
-        std::sort(groups.begin(), groups.end(),
-            [](const std::vector<size_t>& a, const std::vector<size_t>& b) {
-                if (a.size() != b.size()) return a.size() < b.size();
-                for (size_t i = 0; i < a.size(); ++i) {
-                    if (a[i] != b[i]) return a[i] < b[i];
-                }
-                return false;
+        std::sort(groups.begin(), groups.end(), [](const std::vector<size_t> &a, const std::vector<size_t> &b) {
+            if (a.size() != b.size())
+                return a.size() < b.size();
+            for (size_t i = 0; i < a.size(); ++i) {
+                if (a[i] != b[i])
+                    return a[i] < b[i];
             }
-        );
+            return false;
+        });
         // 步骤3：去重
         auto last = std::unique(groups.begin(), groups.end());
         groups.erase(last, groups.end());
@@ -237,24 +234,24 @@ class DynAttrToStatic : public Pass {
 public:
     DynAttrToStatic() : Pass("DynAttrToStatic") {}
     ~DynAttrToStatic() override = default;
+
 private:
-    std::unordered_map<Function*, std::vector<Operation*>> leaf2Caller;
+    std::unordered_map<Function *, std::vector<Operation *>> leaf2Caller;
 
     Status RunOnFunction(Function &function) override;
     std::vector<std::reference_wrapper<SymbolicScalar>> GetOpDynamicAttributeList(Operation &op);
     Status GetCallee(const Operation &callop, Function *&callFunc);
-    void RefSpecifiedValue(std::vector<SymbolicScalar> &oriList,
-        std::vector<std::reference_wrapper<SymbolicScalar>> &newList) const;
-    void FilterSpecifiedValue(std::vector<OpImmediate> &oriList,
-        std::vector<std::reference_wrapper<SymbolicScalar>> &newList) const;
+    void RefSpecifiedValue(
+        std::vector<SymbolicScalar> &oriList, std::vector<std::reference_wrapper<SymbolicScalar>> &newList) const;
+    void FilterSpecifiedValue(
+        std::vector<OpImmediate> &oriList, std::vector<std::reference_wrapper<SymbolicScalar>> &newList) const;
     Status BuildLeafToCaller(Function *func);
-    Status BuildNewCoa(
-        std::reference_wrapper<SymbolicScalar>& dynScalar,
-        std::vector<std::vector<SymbolicScalar>>& callopArglistOneDim);
-    Status TryRemoveDynAttr(Function* leafFunc, std::vector<Operation*> callList);
-    Status GetTileFunction(Function* function, std::unordered_set<Function*> &tileFunctionSet);
-    Status DumpFunctionJson(Function& function, const std::string &logFolder, bool beforeFunction = true) override;
-    Status PrintFunction(Function& function, const std::string &logFolder, bool beforeFunction = true) override;
+    Status BuildNewCoa(std::reference_wrapper<SymbolicScalar> &dynScalar,
+        std::vector<std::vector<SymbolicScalar>> &callopArglistOneDim);
+    Status TryRemoveDynAttr(Function *leafFunc, std::vector<Operation *> callList);
+    Status GetTileFunction(Function *function, std::unordered_set<Function *> &tileFunctionSet);
+    Status DumpFunctionJson(Function &function, const std::string &logFolder, bool beforeFunction = true) override;
+    Status PrintFunction(Function &function, const std::string &logFolder, bool beforeFunction = true) override;
 };
 } // namespace tile_fwk
 } // namespace npu

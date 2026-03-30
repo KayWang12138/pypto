@@ -33,11 +33,9 @@ public:
     void SetUp() override {
         DeviceLauncherContext::Get().DeviceInit();
         rtSetDevice(GetDeviceIdByEnvVar());
-     }
-
-    void TearDown() override {
-        DeviceLauncherContext::Get().DeviceFini();
     }
+
+    void TearDown() override { DeviceLauncherContext::Get().DeviceFini(); }
 };
 
 namespace {
@@ -46,9 +44,13 @@ TEST_F(DynamicResolveTest, TestResolve) {
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 100 * 1024 * 1024);
     config::SetPassOption(SG_PG_LOWER_BOUND, 1024);
     config::SetPassOption(SG_PG_UPPER_BOUND, 1024);
-    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 32}});
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{
+                                                     {-1, 32}
+    });
     config::SetPassOption(SG_PARALLEL_NUM, 2);
-    config::SetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING, {{-1, 16}});
+    config::SetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING, {
+                                                                               {-1, 16}
+    });
     config::SetPassOption<int>(COPYOUT_RESOLVE_COALESCING, 10);
 
     static constexpr int v64 = 64;
@@ -85,7 +87,7 @@ TEST_F(DynamicResolveTest, TestResolve) {
             (void)i;
             std::vector<Tensor> tensorList;
             for (int j = 0; j < v64; j++) {
-                auto t = View(inputB, {v128, v128}, {0, v128 * j}); // <128 x 128 x FP32>
+                auto t = View(inputB, {v128, v128}, {0, v128 * j});                  // <128 x 128 x FP32>
                 auto mm = Matrix::Matmul(DataType::DT_FP32, inputA, t, false, true); // <64 x 128 x FP32>
                 tensorList.emplace_back(mm);
             }
@@ -103,4 +105,4 @@ TEST_F(DynamicResolveTest, TestResolve) {
 #endif
 }
 
-}
+} // namespace

@@ -25,7 +25,8 @@ namespace npu::tile_fwk {
 
 Tensor MlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpRopeTile &tileConfig) {
     // x: [cmpBlockSize, dR], cos: [1, cmpBlockSize, dR], sin: [1, cmpBlockSize, dR]
-    ASSERT(x.GetShape().size() == SHAPE_DIM3 && cos.GetShape().size() == SHAPE_DIM3 && sin.GetShape().size() == SHAPE_DIM3);
+    ASSERT(x.GetShape().size() == SHAPE_DIM3 && cos.GetShape().size() == SHAPE_DIM3 &&
+           sin.GetShape().size() == SHAPE_DIM3);
 
     auto cmpSize = x.GetShape()[NUM_VALUE_0];
     auto n2 = x.GetShape()[NUM_VALUE_1];
@@ -63,7 +64,8 @@ Tensor MlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpR
 
 Tensor BatchMlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpRopeTile &tileConfig) {
     (void)tileConfig;
-    assert(x.GetShape().size() == SHAPE_DIM2 && cos.GetShape().size() == SHAPE_DIM3 && sin.GetShape().size() == SHAPE_DIM3);
+    assert(x.GetShape().size() == SHAPE_DIM2 && cos.GetShape().size() == SHAPE_DIM3 &&
+           sin.GetShape().size() == SHAPE_DIM3);
 
     auto cmpSize = x.GetShape()[NUM_VALUE_0];
     auto dR = x.GetShape()[NUM_VALUE_1];
@@ -174,7 +176,7 @@ std::tuple<Tensor, Tensor> CmpAttn(
     auto mm1 = Matrix::Matmul(DT_FP32, q, k, false, true); // (g, effSeq)
     TileShape::Current().SetVecTile(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
     config::SetSemanticLabel("CmpAttention-Softmax");
-    auto softmaxRes = SoftmaxNew(mm1);                         // (g, effSeq)
+    auto softmaxRes = SoftmaxNew(mm1);                        // (g, effSeq)
     auto scaleRes = Mul(softmaxRes, Element(DT_FP32, scale)); // (g, effSeq)
     auto castScale = Cast(scaleRes, qDtype);
     config::SetSemanticLabel("CmpAttention-MatMul2");
@@ -234,9 +236,9 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
     const int maxBlockNum = blockTable.GetShape()[SHAPE_DIM1];
     const int maxCmpBlockNum = cmpBlockTable.GetShape()[SHAPE_DIM1];
     int group = n1 / n2;
-    int n = NUM_128;                           // NUM_128
+    int n = NUM_128;                               // NUM_128
     int s_cmp = cmpSoftmax.GetShape()[SHAPE_DIM1]; // 511
-    int s_slc = (s_cmp + 3) / 4;               // NUM_128
+    int s_slc = (s_cmp + 3) / 4;                   // NUM_128
     int loop = s_slc;
     int out_loop = 4;    // 4
     int actualTopk = 13; // 13
@@ -344,8 +346,8 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                 auto curVCast2 = Cast(curVRe, kDtype);
 
                 auto res = CmpAttn(curQAttn, curKCast2, curVCast2, softmaxScale, tileConfig.attnTile);
-                auto curSoftmax = std::get<0>(res);                    // (g, effSeq)
-                auto curRes = std::get<1>(res);                        // (g, dN)
+                auto curSoftmax = std::get<0>(res);                   // (g, effSeq)
+                auto curRes = std::get<1>(res);                       // (g, dN)
                 Assemble(curSoftmax, {qOffset, 0}, cmpSoftmax);       // (b*s1*n1, sCmpMax)
                 Assemble(curRes, {qOffset, 0}, cmpAttnOut);           // (b*s1*n1, dN)
                 Assemble(curSoftmax, {n2Idx * group, 0}, softmaxTmp); // (b*s1*n1, sCmpMax)
@@ -372,7 +374,7 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                     auto reduce0 = Sum(view0, 0, true); // 1,NUM_128
                     if (maxLen1 > 0) {
                         auto view1 = View(tmpTrans, {maxLen1, n}, {i * out_loop + 1, 0}); // 4,NUM_128
-                        auto reduce1 = Sum(view1, 0, true);                            // 1,NUM_128
+                        auto reduce1 = Sum(view1, 0, true);                               // 1,NUM_128
                         auto sum = Add(reduce0, reduce1);                                 // 1,NUM_128
                         Assemble(sum, {i, 0}, abc);
                     } else {

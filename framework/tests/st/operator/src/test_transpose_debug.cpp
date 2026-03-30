@@ -33,7 +33,7 @@ namespace {
 int capacity;
 PyObject *pFunc;
 PyObject *pModule;
-}
+} // namespace
 
 using namespace npu::tile_fwk;
 
@@ -47,9 +47,9 @@ int python(std::string goldenPath, std::string goldenName, std::string caseName)
     PyRun_SimpleString("print('Hello from Python!')");
 
     // 3️⃣ 导入 Python 脚本
-    PyObject* sysPath = PySys_GetObject("path");
+    PyObject *sysPath = PySys_GetObject("path");
     PyList_Append(sysPath, PyUnicode_FromString(goldenPath.c_str()));
-    pModule = PyImport_ImportModule(goldenName.c_str());  // 加载 script.py
+    pModule = PyImport_ImportModule(goldenName.c_str()); // 加载 script.py
     if (!pModule) {
         std::cerr << "Failed to load script.py\n";
         Py_Finalize();
@@ -69,13 +69,12 @@ int python(std::string goldenPath, std::string goldenName, std::string caseName)
     return 0;
 }
 
-int finishPython(PyObject* args){
-
-    PyObject* pValue = PyObject_CallObject(pFunc, args);  // 执行 add(10, 20)
+int finishPython(PyObject *args) {
+    PyObject *pValue = PyObject_CallObject(pFunc, args); // 执行 add(10, 20)
 
     if (pValue) {
         long result = PyLong_AsLong(pValue);
-        std::cout << "Result from Python: " << result << std::endl;  // 输出 30
+        std::cout << "Result from Python: " << result << std::endl; // 输出 30
         Py_DECREF(pValue);
     } else {
         std::cerr << "Function call failed!\n";
@@ -92,14 +91,14 @@ int finishPython(PyObject* args){
     return 0;
 }
 
-void TransposePre(uint8_t** out_ptr, uint64_t* outsize) {
+void TransposePre(uint8_t **out_ptr, uint64_t *outsize) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     *outsize = capacity * sizeof(float);
     *out_ptr = allocDevAddr(*outsize);
 }
 
-void TransposePost(uint8_t* outputGmAddr, uint64_t outputSize) {
+void TransposePost(uint8_t *outputGmAddr, uint64_t outputSize) {
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
     std::vector<float> input(capacity);
@@ -109,7 +108,6 @@ void TransposePost(uint8_t* outputGmAddr, uint64_t outputSize) {
     int ret = resultCmp(golden, res, 0.001f, 64);
     EXPECT_EQ(ret, true);
 }
-
 
 TEST_F(TransposeDebugTest, TestTranspose_BNSD_BSND) {
     int b = 2;
@@ -122,7 +120,7 @@ TEST_F(TransposeDebugTest, TestTranspose_BNSD_BSND) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNSD_BSND");
     PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -149,7 +147,7 @@ TEST_F(TransposeDebugTest, TestTranspose_ABC_BAC) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_ABC_BAC");
     PyObject *args = PyTuple_Pack(3, PyLong_FromLong(bs), PyLong_FromLong(n), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -171,13 +169,13 @@ TEST_F(TransposeDebugTest, TestTranspose_BNSD2_BNS2D_small) {
     int n = 4;
     int s = 32;
     int d = 64;
-    std::vector<int64_t> shape{b, n, s, d/2, 2};
-    std::vector<int64_t> resShape{b, n, s, 2, d/2};
+    std::vector<int64_t> shape{b, n, s, d / 2, 2};
+    std::vector<int64_t> resShape{b, n, s, 2, d / 2};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNSD2_BNS2D_small");
     PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -199,13 +197,13 @@ TEST_F(TransposeDebugTest, TestTranspose_ROPE_5D) {
     int n = 64;
     int s = 1;
     int d = 64;
-    std::vector<int64_t> shape{b, n, s, d/2, 2};
-    std::vector<int64_t> resShape{b, n, s, 2, d/2};
+    std::vector<int64_t> shape{b, n, s, d / 2, 2};
+    std::vector<int64_t> resShape{b, n, s, 2, d / 2};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNSD2_BNS2D_small");
     PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -233,7 +231,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_0) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_ABC_BAC");
     PyObject *args = PyTuple_Pack(3, PyLong_FromLong(bs), PyLong_FromLong(n), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -260,7 +258,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_1) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_ABC_BAC");
     PyObject *args = PyTuple_Pack(3, PyLong_FromLong(bs), PyLong_FromLong(n), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -288,7 +286,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_0) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNSD_BSND");
     PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -316,7 +314,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_1) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNSD_BSND");
     PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -344,7 +342,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_2) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNSD_BSND");
     PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -372,7 +370,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_3) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_ADD_DEBUG_BNSD_BSND");
     PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -402,7 +400,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_4) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_ADD_DEBUG_BNSD_BSND");
     PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -433,7 +431,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_5) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNDS_BNSD");
     PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -461,7 +459,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_50) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNDS_BNSD");
     PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -489,7 +487,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_51) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNDS_BNSD");
     PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -518,7 +516,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_6) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNSD_BSND");
     PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -536,7 +534,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_6) {
     TransposePost(out_ptr, outSize);
 }
 
-//ok
+// ok
 TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_2) {
     int bs = 32;
     int n = 32;
@@ -547,7 +545,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_2) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_ABC_BAC");
     PyObject *args = PyTuple_Pack(3, PyLong_FromLong(bs), PyLong_FromLong(n), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
@@ -575,7 +573,7 @@ TEST_F(TransposeDebugTest, TestTranspose_BNDS_BNSD) {
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNDS_BNSD");
     PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
-    uint8_t* out_ptr = nullptr;
+    uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {

@@ -51,7 +51,7 @@ struct CubeTile {
     std::array<int64_t, MAX_M_DIM_SIZE> m;
     std::array<int64_t, MAX_K_DIM_SIZE> k;
     std::array<int64_t, MAX_N_DIM_SIZE> n;
-    bool enableSplitK {false};
+    bool enableSplitK{false};
 
     bool valid() const;
 
@@ -79,7 +79,7 @@ struct DistTile {
     std::array<int, MAX_DIST_DIM_SIZE> row;
     std::array<int, MAX_DIST_DIM_SIZE> col;
     std::array<int, MAX_DIST_DIM_SIZE> rank;
-    int rankId {INT16_MAX};
+    int rankId{INT16_MAX};
 
     bool valid() const;
 
@@ -101,13 +101,8 @@ enum class TileType {
 struct TileShape {
     TileShape();
 
-    TileShape(
-        const std::vector<int64_t>& vTile,
-        const CubeTile& cTile,
-        const ConvTile& cvTile,
-        const DistTile& dTile,
-        const std::vector<int64_t>& mSize
-    );
+    TileShape(const std::vector<int64_t> &vTile, const CubeTile &cTile, const ConvTile &cvTile, const DistTile &dTile,
+        const std::vector<int64_t> &mSize);
 
     /**
      * \brief Set the Vec Tile
@@ -138,7 +133,7 @@ struct TileShape {
      * \param n
      */
     void SetCubeTile(const std::array<int64_t, MAX_M_DIM_SIZE> &m, const std::array<int64_t, MAX_K_DIM_SIZE> &k,
-        const std::array<int64_t, MAX_N_DIM_SIZE> &n, bool enableSplitK = false) ;
+        const std::array<int64_t, MAX_N_DIM_SIZE> &n, bool enableSplitK = false);
 
     /**
      * \brief Get the Cube Tile
@@ -154,7 +149,7 @@ struct TileShape {
      * \param setL0Tile
      */
     void SetConvTile(const npu::tile_fwk::Conv::TileL1Info &tileL1Info,
-        const npu::tile_fwk::Conv::TileL0Info &tileL0Info, bool setL0Tile = false) ;
+        const npu::tile_fwk::Conv::TileL0Info &tileL0Info, bool setL0Tile = false);
 
     /**
      * \brief Get the Conv Tile
@@ -169,9 +164,7 @@ struct TileShape {
      * \param col
      * \param rank
      */
-    void SetDistTile(
-        const std::array<int, MAX_DIST_DIM_SIZE> &row,
-        const std::array<int, MAX_DIST_DIM_SIZE> &col,
+    void SetDistTile(const std::array<int, MAX_DIST_DIM_SIZE> &row, const std::array<int, MAX_DIST_DIM_SIZE> &col,
         const std::array<int, MAX_DIST_DIM_SIZE> &rank);
 
     /**
@@ -250,19 +243,27 @@ struct TileShape {
      */
     void Reset() {
         vecTile = {};
-        cubeTile = {{0, 0}, {0, 0, 0}, {0, 0}};
-        distTile = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, INT16_MAX};
+        cubeTile = {
+            {0, 0},
+            {0, 0, 0},
+            {0, 0}
+        };
+        distTile = {
+            {0, 0, 0},
+            {0, 0, 0},
+            {0, 0, 0},
+            INT16_MAX
+        };
     }
 
-    void SetMatrixSize(const std::vector<int64_t> &size) ;
+    void SetMatrixSize(const std::vector<int64_t> &size);
 
-    const std::vector<int64_t> &GetMatrixSize() const {
-        return matrixSize;
-    }
+    const std::vector<int64_t> &GetMatrixSize() const { return matrixSize; }
 
     void UpdateScopeDistTile();
 
     std::string ToString(TileType type = TileType::MAX) const;
+
 private:
     VecTile vecTile;
     CubeTile cubeTile;

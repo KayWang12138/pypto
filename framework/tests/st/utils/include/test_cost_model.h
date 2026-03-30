@@ -89,16 +89,14 @@ struct MemoryH {
     bool isTest_{true};
 };
 
-class AiCorePvModelImpl : public AiCoreModel
-{
+class AiCorePvModelImpl : public AiCoreModel {
 private:
     std::shared_ptr<DynPvModel> pv_;
     std::unordered_map<int, uint64_t> funcdata_;
     std::mutex mtx_;
 
 public:
-    explicit AiCorePvModelImpl(std::shared_ptr<DynPvModel> pv) : pv_(pv) {
-    }
+    explicit AiCorePvModelImpl(std::shared_ptr<DynPvModel> pv) : pv_(pv) {}
 
     void InitData(int coreIdx, int64_t funcdata) {
         std::lock_guard<std::mutex> lock(mtx_);
@@ -107,27 +105,27 @@ public:
 
     void SendTask(int coreIdx, uint64_t taskId) {
         auto funcdata = funcdata_[coreIdx];
-        DynFuncHeader *header = reinterpret_cast<DynFuncHeader*>(funcdata);
-        DynFuncData *data = reinterpret_cast<DynFuncData*>(header + 1);
+        DynFuncHeader *header = reinterpret_cast<DynFuncHeader *>(funcdata);
+        DynFuncData *data = reinterpret_cast<DynFuncData *>(header + 1);
         pv_->Run(data, coreIdx, FuncID(taskId), TaskID(taskId));
     }
 };
 
 class CostModelDynFuncRunner {
 public:
-    CostModelDynFuncRunner(Function *func): func_(func), devProg_(func->GetDyndevAttribute()->devProgBinary) {
+    CostModelDynFuncRunner(Function *func) : func_(func), devProg_(func->GetDyndevAttribute()->devProgBinary) {
         pv_ = CostModel::PvModelFactory::CreateDyn();
         model_ = std::make_shared<AiCorePvModelImpl>(pv_);
     }
 
-    static void Run(Function* func,
-        const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
-            auto runner = CostModelDynFuncRunner(func);
-            runner.RunModel(inputs, outputs);
+    static void Run(
+        Function *func, const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
+        auto runner = CostModelDynFuncRunner(func);
+        runner.RunModel(inputs, outputs);
     }
 
     // Run with incast/outcast from ProgramData
-    static void Run(Function* func) {
+    static void Run(Function *func) {
         auto runner = CostModelDynFuncRunner(func);
         auto &inputs = ProgramData::GetInstance().GetInputDataList();
         auto &outputs = ProgramData::GetInstance().GetOutputDataList();
@@ -135,29 +133,28 @@ public:
     }
 
 private:
-
     void RunModel(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
-            auto funcop = func_->GetDyndevAttribute();
-            KernelLaunchPrecheck(funcop);
-            pv_->Codegen(func_);
+        auto funcop = func_->GetDyndevAttribute();
+        KernelLaunchPrecheck(funcop);
+        pv_->Codegen(func_);
 
-            for (int i = 0; i < 1; i++) {
-                DeviceKernelArgs kArgs = BuildKernelArgs(inputs, outputs);
-                std::cout << "!!! Run CostModel " << i << "\n";
-                RunTestMode(&kArgs);
-            }
+        for (int i = 0; i < 1; i++) {
+            DeviceKernelArgs kArgs = BuildKernelArgs(inputs, outputs);
+            std::cout << "!!! Run CostModel " << i << "\n";
+            RunTestMode(&kArgs);
+        }
     }
 
     bool HasInplaceArgs() {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProg_.data()));
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t *>(devProg_.data()));
         return devProg->outputInplaceSlotList.size() != 0;
     }
 
     void AssignMetaAddr(DevAscendProgram *devProg, MemoryH &h) {
         uint64_t generalSize = devProg->memBudget.metadata.general;
         uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
-        size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum +
-            generalSize + stitchPoolSize;
+        size_t shmSize =
+            DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum + generalSize + stitchPoolSize;
         uint64_t shmAddr = (uint64_t)h.AllocDev(shmSize);
         devProg->devArgs.runtimeDataRingBufferAddr = shmAddr;
         shmAddr += DEV_ARGS_SIZE;
@@ -188,7 +185,7 @@ private:
     }
 
     void RunTestMode(DeviceKernelArgs *kArgs) {
-        (void) kArgs;
+        (void)kArgs;
         InitTilingData(kArgs, true);
         constexpr int threadNum = 6;
         std::thread aicpus[threadNum];
@@ -221,15 +218,15 @@ private:
         }
     }
 
-    DeviceKernelArgs BuildKernelArgs(const std::vector<RawTensorDataPtr> &inputs,
-        const std::vector<RawTensorDataPtr> &outputs) {
+    DeviceKernelArgs BuildKernelArgs(
+        const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
         DeviceKernelArgs kArgs;
 
         auto buildInouts = [&](auto &tensorList) {
             std::vector<DevTensorData> geTensors;
             for (auto &t : tensorList) {
                 if (t) {
-                    auto addrs = pv_->CopyTensorToDev((uint8_t*)t->data(), t->size());
+                    auto addrs = pv_->CopyTensorToDev((uint8_t *)t->data(), t->size());
                     geTensors.emplace_back(DevAscendTensorDataCreator::Create((uint64_t)addrs, t->GetShape()));
                 } else {
                     std::vector<int> shape;
@@ -237,21 +234,21 @@ private:
                 }
             }
             auto outs = DevAscendTensorDataCreator::Encode(geTensors);
-            return (int64_t*)pv_->CopyToDev((uint8_t *)outs.data(), outs.size()*sizeof(int64_t));
+            return (int64_t *)pv_->CopyToDev((uint8_t *)outs.data(), outs.size() * sizeof(int64_t));
         };
 
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProg_.data()));
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t *>(devProg_.data()));
         devProg->devArgs.nrAic = 25;
         devProg->devArgs.nrAiv = 50;
         devProg->devArgs.nrAicpu = 6;
         devProg->devArgs.nrValidAic = 24;
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
         devProg->devArgs.runtimeDataRingBufferAddr = (uint64_t)pv_->AllocWorkspaceDev(DEV_ARGS_SIZE);
-        for (auto &input: inputs) {
+        for (auto &input : inputs) {
             if (input)
                 input->SetDevPtr(nullptr);
         }
-        for (auto &output: outputs) {
+        for (auto &output : outputs) {
             if (output)
                 output->SetDevPtr(nullptr);
         }
@@ -260,7 +257,7 @@ private:
         kArgs.outputs = buildInouts(outputs);
         kArgs.workspace = (int64_t *)pv_->AllocWorkspaceDev(devProg->memBudget.Total());
         kArgs.cfgdata = (int64_t *)pv_->CopyToDev(devProg_.data(), devProg_.size());
-        kArgs.machineConfig  = devProg->devArgs.machineConfig;
+        kArgs.machineConfig = devProg->devArgs.machineConfig;
         kArgs.aicoreModel = model_.get();
         return kArgs;
     }

@@ -27,7 +27,7 @@ TEST_F(OnBoardIFATest, test_32_128_sub_32_1) {
     rtSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 128;
     uint64_t outputSize = outCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("SUB") {
         std::vector<int64_t> shape1 = {32, 128};
         std::vector<int64_t> shape2 = {32, 1};
@@ -60,7 +60,7 @@ TEST_F(OnBoardIFATest, test_32_1_sub_32_1) {
     rtSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 1;
     uint64_t outputSize = outCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("SUB") {
         std::vector<int64_t> shape1 = {32, 1};
         std::vector<int64_t> shape2 = {32, 1};
@@ -93,7 +93,7 @@ TEST_F(OnBoardIFATest, test_32_512_add_32_1) {
     rtSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 512;
     uint64_t outputSize = outCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
         std::vector<int64_t> shape1 = {32, 512};
         std::vector<int64_t> shape2 = {32, 1};
@@ -120,14 +120,13 @@ TEST_F(OnBoardIFATest, test_32_512_add_32_1) {
     EXPECT_EQ(ret, true);
 }
 
-
 // mul (32, 1), (32, 1)
 TEST_F(OnBoardIFATest, test_32_1_mul_32_1) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 1;
     uint64_t outputSize = outCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("MUL") {
         std::vector<int64_t> shape1 = {32, 1};
         std::vector<int64_t> shape2 = {32, 1};
@@ -160,7 +159,7 @@ TEST_F(OnBoardIFATest, test_32_512_mul_32_1) {
     rtSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 512;
     uint64_t outputSize = outCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("MUL") {
         std::vector<int64_t> shape1 = {32, 512};
         std::vector<int64_t> shape2 = {32, 512};
@@ -195,7 +194,7 @@ TEST_F(OnBoardIFATest, test_32_128_tileop_exp) {
     rtSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 128;
     uint64_t outputSize = outCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("EXP") {
         std::vector<int64_t> shape = {32, 128};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCap);
@@ -225,7 +224,7 @@ TEST_F(OnBoardIFATest, test_32_1_tileop_exp) {
     rtSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 1;
     uint64_t outputSize = outCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("EXP") {
         std::vector<int64_t> shape = {32, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCap);
@@ -254,7 +253,7 @@ TEST_F(OnBoardIFATest, test_32_1_tileop_log1p) {
     rtSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 1;
     uint64_t outputSize = outCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Log1p") {
         std::vector<int64_t> shape = {32, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCap);
@@ -284,7 +283,7 @@ TEST_F(OnBoardIFATest, test_32_1_maximum) {
     rtSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 1;
     uint64_t outputSize = outCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Max") {
         std::vector<int64_t> shape1 = {32, 1};
         std::vector<int64_t> shape2 = {32, 1};
@@ -317,7 +316,7 @@ TEST_F(OnBoardIFATest, test_32_1_reciprocal) {
     rtSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 1;
     uint64_t outputSize = outCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Max") {
         std::vector<int64_t> shape1 = {32, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCap);
@@ -347,7 +346,7 @@ TEST_F(OnBoardIFATest, test_32_1_relu) {
     rtSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 1;
     uint64_t outputSize = outCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Relu") {
         std::vector<int64_t> shape1 = {32, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCap);
@@ -371,7 +370,6 @@ TEST_F(OnBoardIFATest, test_32_1_relu) {
     EXPECT_EQ(ret, true);
 }
 
-
 // rowmaxsingle (32, 128)
 TEST_F(OnBoardIFATest, test_operation_32_128_row_max_single) {
     aclInit(nullptr);
@@ -384,7 +382,7 @@ TEST_F(OnBoardIFATest, test_operation_32_128_row_max_single) {
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowMaxSingle") {
         TileShape::Current().SetVecTile({8, 32});
@@ -421,7 +419,7 @@ TEST_F(OnBoardIFATest, test_operation_32_128_row_sum_single) {
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowSumSingle") {
         TileShape::Current().SetVecTile({8, 32});
@@ -453,7 +451,7 @@ TEST_F(OnBoardIFATest, test_32_1_sign) {
     rtSetDevice(GetDeviceIdByEnvVar());
     int outCapa = 32 * 1;
     uint64_t outputSize = outCapa * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Sign") {
         std::vector<int64_t> shape1 = {32, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCapa);
@@ -484,7 +482,7 @@ TEST_F(OnBoardIFATest, test_32_1_signbit) {
     rtSetDevice(GetDeviceIdByEnvVar());
     int outCapa = 32 * 1;
     uint64_t outputSize = outCapa * sizeof(bool);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Signbit") {
         std::vector<int64_t> shape1 = {32, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCapa);
@@ -518,7 +516,7 @@ TEST_F(OnBoardIFATest, test_concat_32_512_32_64) {
     int shape2Cap = 32 * 64;
 
     uint64_t outputSize = outCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     std::vector<int64_t> shape1 = {32, 512};
     std::vector<int64_t> shape2 = {32, 64};
@@ -556,12 +554,12 @@ TEST_F(OnBoardIFATest, test_concat_32_tensor) {
     int tensorNum = 32;
 
     uint64_t outputSize = outCap * sizeof(float);
-    uint8_t* out_ptr = allocDevAddr(outputSize);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
 
     std::vector<int64_t> shape = {32, 512};
     std::vector<int64_t> outShape = {32 * 32, 512};
     PROGRAM("CONCAT") {
-        void* x_ptr[32];
+        void *x_ptr[32];
         std::vector<Tensor> inputTensors(32);
         for (int i = 0; i < tensorNum; ++i) {
             x_ptr[i] = readToDev(GetGoldenDir() + "/x" + std::to_string(i) + ".bin", shapeCap);

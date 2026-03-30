@@ -42,7 +42,8 @@ Tensor::~Tensor() {
     storage_->tensor->AddRefCount(-1);
 }
 
-Tensor::Tensor(std::shared_ptr<LogicalTensor> s) : storage_(std::move(s)), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
+Tensor::Tensor(std::shared_ptr<LogicalTensor> s)
+    : storage_(std::move(s)), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
     FUNCTION_ASSERT(FError::INVALID_PTR, storage_ != nullptr);
     FUNCTION_ASSERT(FError::INVALID_PTR, storage_->tensor != nullptr);
     Program::GetInstance().InsertAliveTensor(this);
@@ -73,12 +74,14 @@ void CheckShapeValid(DataType &dataType, const Shape &shape, TileOpFormat &forma
     if (format == TileOpFormat::TILEOP_NZ) {
         size_t alignSize = isB4 ? ALIGN_SIZE_64 : ALIGN_SIZE_32;
         const bool dataBytesAlign = ((shape.back() * BytesOf(dataType)) % alignSize == 0);
-        ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, dataBytesAlign) << "Current inner axis: " << (size_t)shape.back()
+        ASSERT(MatmulErrorCode::ERR_CONFIG_ALIGNMENT, dataBytesAlign)
+            << "Current inner axis: " << (size_t)shape.back()
             << ", when input is NZ format, inner axis shape must be 32-byte aligned(4bit dtype must be aligned to 64)";
     }
     if (format == TileOpFormat::TILEOP_ND && isB4) {
         const bool inputIsEven = ((shape.back() & 1) == 0);
-        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, inputIsEven) << "Current inner axis: " << (size_t)shape.back()
+        ASSERT(MatmulErrorCode::ERR_PARAM_INVALID, inputIsEven)
+            << "Current inner axis: " << (size_t)shape.back()
             << ", when input is ND format and 4bit dtype, inner axis must be even number";
     }
 }
@@ -124,16 +127,14 @@ LogicalTensor &Tensor::operator*() {
     return *storage_;
 }
 
-const std::shared_ptr<LogicalTensor> &Tensor::GetStorage(bool readSlot) const
-{
+const std::shared_ptr<LogicalTensor> &Tensor::GetStorage(bool readSlot) const {
     if (readSlot) {
         Program::GetInstance().GetTensorSlotManager()->TensorRead(*this);
     }
     return storage_;
 }
 
-std::shared_ptr<LogicalTensor> &Tensor::GetStorage(bool readSlot)
-{
+std::shared_ptr<LogicalTensor> &Tensor::GetStorage(bool readSlot) {
     if (readSlot) {
         Program::GetInstance().GetTensorSlotManager()->TensorRead(*this);
     }
@@ -209,7 +210,8 @@ Tensor::Tensor(const Tensor &rhs) : storage_(rhs.GetStorage()), index_(IdGen<IdT
     }
 }
 
-Tensor::Tensor(Tensor &&rhs) : storage_(std::move(rhs.GetStorage())), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
+Tensor::Tensor(Tensor &&rhs)
+    : storage_(std::move(rhs.GetStorage())), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
     Program::GetInstance().InsertAliveTensor(this);
     SetData(rhs.GetData());
     rhs.SetData(nullptr);
@@ -230,8 +232,7 @@ const Shape &Tensor::GetShape() const {
 uint64_t Tensor::Dim() const {
     if (storage_ != nullptr) {
         return storage_->shape.size();
-    }
-    else {
+    } else {
         return 0;
     }
 }
@@ -287,22 +288,21 @@ SymbolicScalar npu::tile_fwk::GetInputShape(const Tensor &t, int n) {
     return rawTensor->GetDynRawShape(n);
 }
 
-const std::vector<SymbolicScalar>& npu::tile_fwk::GetInputShape(const Tensor &t) {
+const std::vector<SymbolicScalar> &npu::tile_fwk::GetInputShape(const Tensor &t) {
     auto rawTensor = t.GetStorage(false)->GetRawTensor();
     return rawTensor->GetDynRawShape();
 }
 
 namespace npu::tile_fwk {
 
-static
-SymbolicScalar GetInputDataInt32Dim1(const Tensor &t, SymbolicScalar off0) {
+static SymbolicScalar GetInputDataInt32Dim1(const Tensor &t, SymbolicScalar off0) {
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     slotManager->TensorRead(t);
 
     std::string getInputDataInt32Dim1Name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputDataInt32Dim1);
     int inputIndex = slotManager->GetInputIndex(t);
-    FUNCTION_ASSERT(FError::NOT_EXIST,
-        inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size())
+    FUNCTION_ASSERT(
+        FError::NOT_EXIST, inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size())
         << "Tensor " << t.GetStorage(false)->GetRawTensor()->GetSymbol() << " is not in input tensor list!";
     std::string inputName = slotManager->GetInputNameList()[inputIndex];
 
@@ -314,15 +314,14 @@ SymbolicScalar GetInputDataInt32Dim1(const Tensor &t, SymbolicScalar off0) {
     return getInputDataInt32Dim1(input, off0);
 }
 
-static
-SymbolicScalar GetInputDataInt32Dim2(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1) {
+static SymbolicScalar GetInputDataInt32Dim2(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1) {
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     slotManager->TensorRead(t);
 
     std::string getInputDataInt32Dim2Name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputDataInt32Dim2);
     int inputIndex = slotManager->GetInputIndex(t);
-    FUNCTION_ASSERT(FError::NOT_EXIST,
-        inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size())
+    FUNCTION_ASSERT(
+        FError::NOT_EXIST, inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size())
         << "Tensor " << t.GetStorage(false)->GetRawTensor()->GetSymbol() << " is not in input tensor list!";
     std::string inputName = slotManager->GetInputNameList()[inputIndex];
 
@@ -334,15 +333,15 @@ SymbolicScalar GetInputDataInt32Dim2(const Tensor &t, SymbolicScalar off0, Symbo
     return getInputDataInt32Dim2(input, off0, off1);
 }
 
-static
-SymbolicScalar GetInputDataInt32Dim3(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1, SymbolicScalar off2) {
+static SymbolicScalar GetInputDataInt32Dim3(
+    const Tensor &t, SymbolicScalar off0, SymbolicScalar off1, SymbolicScalar off2) {
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     slotManager->TensorRead(t);
 
     std::string getInputDataInt32Dim3Name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputDataInt32Dim3);
     int inputIndex = slotManager->GetInputIndex(t);
-    FUNCTION_ASSERT(FError::NOT_EXIST,
-        inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size())
+    FUNCTION_ASSERT(
+        FError::NOT_EXIST, inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size())
         << "Tensor " << t.GetStorage(false)->GetRawTensor()->GetSymbol() << " is not in input tensor list!";
     std::string inputName = slotManager->GetInputNameList()[inputIndex];
 
@@ -354,16 +353,15 @@ SymbolicScalar GetInputDataInt32Dim3(const Tensor &t, SymbolicScalar off0, Symbo
     return getInputDataInt32Dim3(input, off0, off1, off2);
 }
 
-static
-SymbolicScalar GetInputDataInt32Dim4(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1,
-    SymbolicScalar off2, SymbolicScalar off3) {
+static SymbolicScalar GetInputDataInt32Dim4(
+    const Tensor &t, SymbolicScalar off0, SymbolicScalar off1, SymbolicScalar off2, SymbolicScalar off3) {
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     slotManager->TensorRead(t);
 
     std::string getInputDataInt32Dim4Name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputDataInt32Dim4);
     int inputIndex = slotManager->GetInputIndex(t);
-    FUNCTION_ASSERT(FError::NOT_EXIST,
-        inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size())
+    FUNCTION_ASSERT(
+        FError::NOT_EXIST, inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size())
         << "Tensor " << t.GetStorage(false)->GetRawTensor()->GetSymbol() << " is not in input tensor list!";
     std::string inputName = slotManager->GetInputNameList()[inputIndex];
 
@@ -381,20 +379,17 @@ SymbolicScalar GetInputData(const Tensor &t, const std::vector<SymbolicScalar> &
     FUNCTION_ASSERT(t.Dim() > 0 && t.Dim() <= 0x4) << "t.Dim(): " << t.Dim() << ", limit: [1, 4]";
     if (t.Dim() == 0x1) {
         return GetInputDataInt32Dim1(t, offset[0]);
-    }
-    else if (t.Dim() == 0x2) {
+    } else if (t.Dim() == 0x2) {
         return GetInputDataInt32Dim2(t, offset[0], offset[1]);
-    }
-    else if (t.Dim() == 0x3){
+    } else if (t.Dim() == 0x3) {
         return GetInputDataInt32Dim3(t, offset[0], offset[1], offset[2]);
-    }
-    else {
+    } else {
         return GetInputDataInt32Dim4(t, offset[0], offset[1], offset[2], offset[3]);
     }
 }
 
-static
-SymbolicScalar DoGetTensorDataInt32(SymbolHandlerId handlerId, const Tensor &t, const std::vector<SymbolicScalar> &offset) {
+static SymbolicScalar DoGetTensorDataInt32(
+    SymbolHandlerId handlerId, const Tensor &t, const std::vector<SymbolicScalar> &offset) {
     FUNCTION_ASSERT(FError::INVALID_VAL, t.GetShape().size() == offset.size())
         << "Mismatch dimension: " << t.GetShape().size() << " vs " << offset.size() << "\n";
     Program::GetInstance().GetTensorSlotManager()->TensorRead(t);
@@ -425,7 +420,7 @@ SymbolicScalar DoGetTensorDataInt32(SymbolHandlerId handlerId, const Tensor &t, 
     return getRuntimeHandler(argList);
 }
 
-static std::vector<std::reference_wrapper<const Tensor>>::iterator FindTensor (
+static std::vector<std::reference_wrapper<const Tensor>>::iterator FindTensor(
     const Tensor &key, std::vector<std::reference_wrapper<const Tensor>> &vec) {
     for (auto it = vec.begin(); it != vec.end(); ++it) {
         if (&key == &(it->get())) {
@@ -449,12 +444,12 @@ SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> 
     FUNCTION_LOGD("Tensor[%s] has not been found in inputTensorList.", t.GetName().c_str());
     CHECK(FError::OUT_OF_RANGE, offset.size() <= MAX_GET_TENSOR_DATA_DIM)
         << "Offset.size() must be less than " << MAX_GET_TENSOR_DATA_DIM;
-    SymbolHandlerId handlerId = static_cast<SymbolHandlerId>(static_cast<int>(SymbolHandlerId::GetTensorDataInt32Dim1) + offset.size() - 1) ;
+    SymbolHandlerId handlerId =
+        static_cast<SymbolHandlerId>(static_cast<int>(SymbolHandlerId::GetTensorDataInt32Dim1) + offset.size() - 1);
     return DoGetTensorDataInt32(handlerId, t, offset);
 }
 
-static
-void DoSetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &t) {
+static void DoSetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &t) {
     CHECK(FError::INVALID_VAL, t.GetShape().size() == off.size())
         << "Mismatch dimen:" << t.GetShape().size() << " vs " << off.size() << "\n";
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(t);

@@ -47,19 +47,20 @@ struct DevAscendProgram {
             uint64_t rootInner;
             // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
             uint64_t devTaskInnerExclusiveOutcasts;
-            // root func outcasts & non-dassemble-dst & DeviceTask boundary outcasts: MaxOutcastMem() * devTaskBoundaryOutcastNum
+            // root func outcasts & non-dassemble-dst & DeviceTask boundary outcasts: MaxOutcastMem() *
+            // devTaskBoundaryOutcastNum
             uint64_t maxStaticOutcastMem;
             uint64_t maxDynamicAssembleOutcastMem;
             uint64_t devTaskBoundaryOutcastNum;
 
-            uint64_t MaxOutcastMem() const {
-                return std::max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem);
-            }
+            uint64_t MaxOutcastMem() const { return std::max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem); }
 
             uint64_t Total() const {
-                uint64_t total = rootInner +                     // root func inner tensors
-                    devTaskInnerExclusiveOutcasts +              // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
-                    MaxOutcastMem() * devTaskBoundaryOutcastNum; // root func outcasts & non-dassemble-dst & DeviceTask boundary outcasts
+                uint64_t total =
+                    rootInner +                     // root func inner tensors
+                    devTaskInnerExclusiveOutcasts + // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
+                    MaxOutcastMem() * devTaskBoundaryOutcastNum; // root func outcasts & non-dassemble-dst & DeviceTask
+                                                                 // boundary outcasts
                 static constexpr uint64_t ALIGNMENT_32K = 32 * 1024;
                 return AlignUp(total, ALIGNMENT_32K);
             }
@@ -69,18 +70,14 @@ struct DevAscendProgram {
             uint64_t general;
             uint64_t stitchPool;
 
-            uint64_t Total() const {
-                return general + stitchPool;
-            }
+            uint64_t Total() const { return general + stitchPool; }
         } metadata;
         struct {
             uint64_t dumpTensor;
             uint64_t leafDump;
         } debug;
 
-        uint64_t Total() const {
-            return tensor.Total() + aicoreSpilled + debug.dumpTensor + debug.leafDump;
-        }
+        uint64_t Total() const { return tensor.Total() + aicoreSpilled + debug.dumpTensor + debug.leafDump; }
     } memBudget;
     DeviceRuntimeOffset deviceRuntimeOffset;
     const void *controlFlowBinaryAddr{nullptr};
@@ -96,8 +93,8 @@ struct DevAscendProgram {
     DevRelocVector<uint64_t> expressionTableOffsetList;
     DevRelocVector<uint8_t> preGuardPage;
     DevRelocVector<uint8_t> expressionTableBinary;
-    DevRelocVector<uint8_t> hostControlFlowBinary;  // compiled by system gcc (host arch)
-    DevRelocVector<uint8_t> devControlFlowBinary;   // compiled by CANN gcc (ARM arch)
+    DevRelocVector<uint8_t> hostControlFlowBinary; // compiled by system gcc (host arch)
+    DevRelocVector<uint8_t> devControlFlowBinary;  // compiled by CANN gcc (ARM arch)
     DevRelocVector<uint8_t> postGuardPage;
     DevRelocVector<DevRelocVector<uint8_t>> devEncodeList;
     DevRelocVector<uint8_t> devEncodeDataList;
@@ -116,7 +113,7 @@ struct DevAscendProgram {
     DevRelocVector<uint8_t> disableL2List;
     DevControlFlowCache *ctrlFlowCacheAnchor{nullptr};
     DevControlFlowCache controlFlowCache;
-#define programLastField                              controlFlowCache.cacheData
+#define programLastField controlFlowCache.cacheData
     uint64_t dataSize;
     uint8_t data[0];
 
@@ -136,12 +133,14 @@ struct DevAscendProgram {
      *      uint64_t startArgsInputSymbolIndexListData[]
      *      SymbolHandler startArgsSymbolHandlerListData[]
      *      uint64_t assembleSlotIndexList[]
-	 *      uint64_t outputInplaceSlotList[];
+     *      uint64_t outputInplaceSlotList[];
      *      DevAscendProgramPartialUpdate partialUpdateList[]
      *      DevAscendProgramSlot slotList[]
      */
 
-    RuntimeDataRingBufferHead *GetRuntimeDataList() { return reinterpret_cast<RuntimeDataRingBufferHead *>(devArgs.runtimeDataRingBufferAddr); }
+    RuntimeDataRingBufferHead *GetRuntimeDataList() {
+        return reinterpret_cast<RuntimeDataRingBufferHead *>(devArgs.runtimeDataRingBufferAddr);
+    }
 
     template <typename T>
     const T &At(const DevRelocVector<T> &localvec, int index) const {
@@ -152,23 +151,23 @@ struct DevAscendProgram {
         return localvec[index];
     }
 
-    void DumpCce(std::ostringstream& oss, int indent) const;
+    void DumpCce(std::ostringstream &oss, int indent) const;
 
-    void DumpControlFlow(const int indent, const bool dumpAddr, std::ostringstream& oss) const;
+    void DumpControlFlow(const int indent, const bool dumpAddr, std::ostringstream &oss) const;
 
-    void DumpExpressionTable(const int indent, const bool dumpAddr, std::ostringstream& oss) const;
+    void DumpExpressionTable(const int indent, const bool dumpAddr, std::ostringstream &oss) const;
 
-    void DumpBasicInfo(const int indent, std::ostringstream& oss) const;
+    void DumpBasicInfo(const int indent, std::ostringstream &oss) const;
 
-    void DumpSymbolTable(const int indent, std::ostringstream& oss) const;
+    void DumpSymbolTable(const int indent, std::ostringstream &oss) const;
 
-    void DumpInputOutputSlots(const int indent, std::ostringstream& oss) const;
+    void DumpInputOutputSlots(const int indent, std::ostringstream &oss) const;
 
-    void DumpAssembleAndInplaceSlots(const int indent, std::ostringstream& oss) const;
+    void DumpAssembleAndInplaceSlots(const int indent, std::ostringstream &oss) const;
 
-    void DumpPartialUpdate(const int indent, std::ostringstream& oss) const;
+    void DumpPartialUpdate(const int indent, std::ostringstream &oss) const;
 
-    void DumpInputSymbols(const int indent, std::ostringstream& oss) const;
+    void DumpInputSymbols(const int indent, std::ostringstream &oss) const;
 
     std::string Dump(const int indent = 0, const bool dumpAddr = false) const;
 
@@ -206,21 +205,17 @@ struct DevAscendProgram {
 
     std::tuple<const void *, uint64_t> GetDevControlFlowBinary() const {
         return std::make_tuple(
-            reinterpret_cast<const void *>(devControlFlowBinary.Data()),
-            (uint64_t)devControlFlowBinary.size());
+            reinterpret_cast<const void *>(devControlFlowBinary.Data()), (uint64_t)devControlFlowBinary.size());
     }
 
     std::tuple<const void *, uint64_t> GetHostControlFlowBinary() const {
         return std::make_tuple(
-            reinterpret_cast<const void *>(hostControlFlowBinary.Data()),
-            (uint64_t)hostControlFlowBinary.size());
+            reinterpret_cast<const void *>(hostControlFlowBinary.Data()), (uint64_t)hostControlFlowBinary.size());
     }
 
     std::tuple<const void *, uint64_t, const uint64_t *, uint64_t> GetExpressionTableBinary() const {
-        return std::make_tuple(
-            reinterpret_cast<const void *>(expressionTableBinary.Data()),
-            static_cast<uint64_t>(expressionTableBinary.size()),
-            expressionTableOffsetList.Data(),
+        return std::make_tuple(reinterpret_cast<const void *>(expressionTableBinary.Data()),
+            static_cast<uint64_t>(expressionTableBinary.size()), expressionTableOffsetList.Data(),
             static_cast<uint64_t>(expressionTableOffsetList.size()));
     }
 
@@ -249,7 +244,7 @@ struct DevAscendProgram {
 
     DevControlFlowCache *GetControlFlowCache() { return ctrlFlowCacheAnchor; }
 
-    template<typename Ty>
+    template <typename Ty>
     typename Ty::ElementType *RelocOffset(intptr_t shift, void *&offset, Ty &list) {
         typename Ty::ElementType *ptr = reinterpret_cast<typename Ty::ElementType *>(offset);
         offset = (void *)((uintptr_t)(offset) + list.ElementSize() * list.size());
@@ -324,7 +319,7 @@ struct DevAscendProgram {
         ArchInfo archInfo;
     };
 
-    DevArgsPreservedParams BackupDevArgsParams(const DeviceArgs& src) {
+    DevArgsPreservedParams BackupDevArgsParams(const DeviceArgs &src) {
         DevArgsPreservedParams params;
         params.nrAic = src.nrAic;
         params.nrAiv = src.nrAiv;
@@ -335,7 +330,7 @@ struct DevAscendProgram {
         return params;
     }
 
-    void RestoreDevArgsParams(DeviceArgs& dst, const DevArgsPreservedParams& params) {
+    void RestoreDevArgsParams(DeviceArgs &dst, const DevArgsPreservedParams &params) {
         dst.nrAic = params.nrAic;
         dst.nrAiv = params.nrAiv;
         dst.nrAicpu = params.nrAicpu;
@@ -363,8 +358,9 @@ struct DevAscendProgram {
     }
 
     struct DevRelocRange {
-        template<typename T>
-        DevRelocRange(const DevRelocVector<T> &v) : begin(reinterpret_cast<uintptr_t>(v.begin())), end(reinterpret_cast<uintptr_t>(v.end())) {}
+        template <typename T>
+        DevRelocRange(const DevRelocVector<T> &v)
+            : begin(reinterpret_cast<uintptr_t>(v.begin())), end(reinterpret_cast<uintptr_t>(v.end())) {}
 
         uintptr_t begin;
         uintptr_t end;
@@ -372,8 +368,8 @@ struct DevAscendProgram {
 
     void RuntimeVerify(uintptr_t workspaceBegin, uintptr_t workspaceEnd) const {
         (void)workspaceBegin, (void)workspaceEnd;
-        DEV_IF_VERBOSE_DEBUG {
-        } else {
+        DEV_IF_VERBOSE_DEBUG {}
+        else {
             return;
         }
         std::vector<DevRelocRange> rangeList = {
@@ -404,76 +400,74 @@ struct DevAscendProgram {
             controlFlowCache.cacheData,
         };
         if ((uintptr_t)data != rangeList[0].begin) {
-            DEV_ERROR(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, "#ctrl.program.verify: Assertion failed: data (0x%p) != rangeList[0].begin (0x%p)", data, (void*)rangeList[0].begin);
+            DEV_ERROR(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED,
+                "#ctrl.program.verify: Assertion failed: data (0x%p) != rangeList[0].begin (0x%p)", data,
+                (void *)rangeList[0].begin);
         }
         DEV_ASSERT(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, (uintptr_t)data == rangeList[0].begin);
         if (rangeList[0].begin > rangeList[0].end) {
-            DEV_ERROR(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, "#ctrl.program.verify: Assertion failed: rangeList[0].begin (0x%p) > rangeList[0].end (0x%p)",
-                      (void*)rangeList[0].begin, (void*)rangeList[0].end);
+            DEV_ERROR(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED,
+                "#ctrl.program.verify: Assertion failed: rangeList[0].begin (0x%p) > rangeList[0].end (0x%p)",
+                (void *)rangeList[0].begin, (void *)rangeList[0].end);
         }
         DEV_ASSERT(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, rangeList[0].begin <= rangeList[0].end);
         for (size_t k = 1; k < rangeList.size(); k++) {
             if (rangeList[k - 1].end > rangeList[k].begin) {
-                DEV_ERROR(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, "#ctrl.program.verify: Ranges overlap: range[%d].end (0x%p) > range[%d].begin (0x%p)",
-                      (int)(k - 1), (void*)rangeList[k - 1].end,
-                      (int)k, (void*)rangeList[k].begin);
+                DEV_ERROR(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED,
+                    "#ctrl.program.verify: Ranges overlap: range[%d].end (0x%p) > range[%d].begin (0x%p)", (int)(k - 1),
+                    (void *)rangeList[k - 1].end, (int)k, (void *)rangeList[k].begin);
             }
             if (rangeList[k].begin > rangeList[k].end) {
-                DEV_ERROR(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, "#ctrl.program.verify: Invalid range: range[%d].begin (0x%p) > range[%d].end (0x%p)",
-                      (int)k, (void*)rangeList[k].begin,
-                      (int)k, (void*)rangeList[k].end);
+                DEV_ERROR(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED,
+                    "#ctrl.program.verify: Invalid range: range[%d].begin (0x%p) > range[%d].end (0x%p)", (int)k,
+                    (void *)rangeList[k].begin, (int)k, (void *)rangeList[k].end);
             }
-            DEV_ASSERT_MSG(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, rangeList[k - 1].end <= rangeList[k].begin, "range:%d->%d", (int)(k - 1), (int)(k));
-            DEV_ASSERT_MSG(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, rangeList[k].begin <= rangeList[k].end, "range:%d", (int)k);
+            DEV_ASSERT_MSG(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, rangeList[k - 1].end <= rangeList[k].begin,
+                "range:%d->%d", (int)(k - 1), (int)(k));
+            DEV_ASSERT_MSG(
+                ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, rangeList[k].begin <= rangeList[k].end, "range:%d", (int)k);
         }
         uintptr_t lastEnd = rangeList.back().end;
         uintptr_t dataEnd = (uintptr_t)(&data[dataSize]);
         if (lastEnd != dataEnd) {
-            DEV_ERROR(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, "#ctrl.program.verify: Last range end does not match data end: rangeList.back().end (0x%p) != dataEnd (0x%p)",
-                      (void*)lastEnd, (void*)dataEnd);
+            DEV_ERROR(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED,
+                "#ctrl.program.verify: Last range end does not match data end: rangeList.back().end (0x%p) != dataEnd "
+                "(0x%p)",
+                (void *)lastEnd, (void *)dataEnd);
         }
         DEV_ASSERT(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, lastEnd == dataEnd);
     }
 
-    uint64_t GetSize() const { return reinterpret_cast<uintptr_t>(programLastField.End()) - reinterpret_cast<uintptr_t>(this); }
+    uint64_t GetSize() const {
+        return reinterpret_cast<uintptr_t>(programLastField.End()) - reinterpret_cast<uintptr_t>(this);
+    }
 
     const DeviceRuntimeOffset &GetDeviceRuntimeOffset() const { return deviceRuntimeOffset; }
 
 private:
     friend struct EncodeDevAscendProgramInfo;
 
-    void InitSymbolTable(
-            uintdevptr_t &initOffset, SymbolicSymbolTable *symbolTableInput, bool fillContent);
-    void InitExpressionTableBinary(
-            uintdevptr_t &initOffset, const std::vector<std::vector<uint8_t>> &expressionTableBinaryListInput, bool fillContent);
-    void InitControlFlowBinary(
-            uintdevptr_t &initOffset,
-            const std::vector<uint8_t> &hostControlFlowBinaryInput,
-            const std::vector<uint8_t> &devControlFlowBinaryInput,
-            bool fillContent);
+    void InitSymbolTable(uintdevptr_t &initOffset, SymbolicSymbolTable *symbolTableInput, bool fillContent);
+    void InitExpressionTableBinary(uintdevptr_t &initOffset,
+        const std::vector<std::vector<uint8_t>> &expressionTableBinaryListInput, bool fillContent);
+    void InitControlFlowBinary(uintdevptr_t &initOffset, const std::vector<uint8_t> &hostControlFlowBinaryInput,
+        const std::vector<uint8_t> &devControlFlowBinaryInput, bool fillContent);
     void InitDevEncodeList(
-            uintdevptr_t &initOffset, const std::vector<std::vector<uint8_t>> &devEncodeListInput, bool fillContent);
+        uintdevptr_t &initOffset, const std::vector<std::vector<uint8_t>> &devEncodeListInput, bool fillContent);
     void InitCceCodeList(uintdevptr_t &initOffset, const std::vector<CceCodeInfo> &cceInfo, bool fillContent);
-    void InitPrefetchInfoList(
-            uintdevptr_t &initOffset, const std::vector<L2Info> &l2InfoList, bool fillContent);
+    void InitPrefetchInfoList(uintdevptr_t &initOffset, const std::vector<L2Info> &l2InfoList, bool fillContent);
     void InitDisableL2List(uintdevptr_t &initOffset, const std::vector<uint8_t> &disableL2, bool fillContent);
     void InitStartArgsABIParamList(uintdevptr_t &initOffset, const std::vector<int> &tStartArgsInputTensorSlotIndexList,
         const std::vector<int> &tStartArgsOutputTensorSlotIndexList,
         const std::vector<int> &tStartArgsInputSymbolIndexList,
-        const std::vector<SymbolHandler> &tStartArgsSymbolHandlerList,
-        const std::vector<int> &tAsembleSlotIndexList,
+        const std::vector<SymbolHandler> &tStartArgsSymbolHandlerList, const std::vector<int> &tAsembleSlotIndexList,
         const std::vector<int> &tInplaceSlotIndexList, bool fillContent);
-    void InitPartialUpdateSlot(
-            uintdevptr_t &initOffset,
-            const std::vector<std::vector<uint8_t>> &devEncodeListInput,
-            const std::unordered_map<Function *, int> &rootFuncKeyDict,
-            const std::unordered_map<int, std::unordered_map<Function *, int>> &slotRootIncastDict,
-            const std::unordered_map<int, std::unordered_map<Function *, int>> &slotRootOutcastDict,
-            const std::vector<int> &tPartialUpdateSlotIndexList,
-            bool fillContent);
+    void InitPartialUpdateSlot(uintdevptr_t &initOffset, const std::vector<std::vector<uint8_t>> &devEncodeListInput,
+        const std::unordered_map<Function *, int> &rootFuncKeyDict,
+        const std::unordered_map<int, std::unordered_map<Function *, int>> &slotRootIncastDict,
+        const std::unordered_map<int, std::unordered_map<Function *, int>> &slotRootOutcastDict,
+        const std::vector<int> &tPartialUpdateSlotIndexList, bool fillContent);
     void InitControlFlowCache(
-            uintdevptr_t &initOffset,
-            const std::shared_ptr<DyndevFunctionAttribute> &dyndevAttr,
-            bool fillContent);
+        uintdevptr_t &initOffset, const std::shared_ptr<DyndevFunctionAttribute> &dyndevAttr, bool fillContent);
 };
-}
+} // namespace npu::tile_fwk::dynamic

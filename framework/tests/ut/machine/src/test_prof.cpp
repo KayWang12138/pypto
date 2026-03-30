@@ -38,8 +38,7 @@ using namespace npu::tile_fwk::dynamic;
 
 class TestPro : public testing::Test {
 public:
-    static void SetUpTestCase() {
-    }
+    static void SetUpTestCase() {}
 
     static void TearDownTestCase() {}
 
@@ -104,8 +103,7 @@ TEST_F(TestPro, test_ini) {
     free(oriRegAddrs_);
 }
 
-static void *AllocAligned(size_t alignment, size_t size)
-{
+static void *AllocAligned(size_t alignment, size_t size) {
     void *ptr = nullptr;
     int ret = posix_memalign(&ptr, alignment, size);
     if (ret != 0) {

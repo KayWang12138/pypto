@@ -18,15 +18,15 @@
 namespace npu::tile_fwk {
 void SetBoundary::InsertTemporaryCopyIn(Function &function, Operation &op) const {
     if (!OpcodeManager::Inst().HasStaticAttribute(op.GetOpcode(), OpAttributeKey::requiresBoundaryCopy)) {
-          return;
+        return;
     }
     for (auto &input : op.GetIOperands()) {
         if (input->GetProducers().size() == 0 && input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
             // insert Copy_In before the op
             input->isSubGraphBoundary = false;
             LogicalTensors operandGm;
-            LogicalTensorPtr tensorGM = std::make_shared<LogicalTensor>(function, input->Datatype(),
-                input->shape, input->Format());
+            LogicalTensorPtr tensorGM =
+                std::make_shared<LogicalTensor>(function, input->Datatype(), input->shape, input->Format());
             GraphUtils::CopyDynStatus(tensorGM, input);
             tensorGM->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
             tensorGM->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
@@ -40,10 +40,10 @@ void SetBoundary::InsertTemporaryCopyIn(Function &function, Operation &op) const
 
             // add UB_Alloc && UB_COPY_IN
             auto &ubCopyIn = function.AddRawOperation(Opcode::OP_COPY_IN, operandGm, operandUb);
-            ubCopyIn.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-                OpImmediate::Specified(input->GetTensorOffset()), MemoryType::MEM_UB,
-                OpImmediate::Specified(input->GetShape()), OpImmediate::Specified(input->tensor->GetDynRawShape()),
-                OpImmediate::Specified(input->GetDynValidShape())));
+            ubCopyIn.SetOpAttribute(
+                std::make_shared<CopyOpAttribute>(OpImmediate::Specified(input->GetTensorOffset()), MemoryType::MEM_UB,
+                    OpImmediate::Specified(input->GetShape()), OpImmediate::Specified(input->tensor->GetDynRawShape()),
+                    OpImmediate::Specified(input->GetDynValidShape())));
             ubCopyIn.SetAttribute(OpAttributeKey::isCube, false);
             ubCopyIn.UpdateSubgraphID(op.GetSubgraphID());
         }
@@ -122,7 +122,8 @@ void SetBoundary::SetTensorBoundary(Function &function) const {
             bool isBoundary = (reshapeOut->isSubGraphBoundary || reshapeIn->isSubGraphBoundary);
             reshapeIn->isSubGraphBoundary = isBoundary;
             reshapeOut->isSubGraphBoundary = isBoundary;
-            if (reshapeIn->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && reshapeOut->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            if (reshapeIn->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+                reshapeOut->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
                 reshapeOut->isSubGraphBoundary = true;
             }
         }

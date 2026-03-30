@@ -45,8 +45,7 @@ protected:
     bool oriEnableAihacBackend = false;
 };
 
-std::string MoeDistributedGetFunctionRawName(const std::string& functionName)
-{
+std::string MoeDistributedGetFunctionRawName(const std::string &functionName) {
     std::string functionRawName = FUNCTION_PREFIX + functionName + SUB_FUNC_SUFFIX;
 #if ENABLE_HIDDENLOOP
     functionRawName += HIDDEN_FUNC_SUFFIX;
@@ -64,8 +63,8 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatchV2) {
     int rankSize = 4;
 
     int32_t expandXRowShape = topK * rankSize < routingExpertNum ?
-        static_cast<int32_t>(batchSize) * static_cast<int32_t>(topK) * rankSize :
-        static_cast<int32_t>(batchSize) * routingExpertNum;
+                                  static_cast<int32_t>(batchSize) * static_cast<int32_t>(topK) * rankSize :
+                                  static_cast<int32_t>(batchSize) * routingExpertNum;
 
     Shape xShape{batchSize, hiddenSize};
     Shape expertIdsShape{batchSize, topK};
@@ -82,8 +81,8 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatchV2) {
     Tensor recvCounts(DataType::DT_INT32, recvCountsShape, "recvCounts");
 
     FUNCTION("DISPATCH_F", {x, expertIds}, {expandX, assistInfoForCombine, expertTokenNums, recvCounts}) {
-        Distributed::MoeDistributedDispatchV2(x, expertIds, groupName,
-            rankSize, routingExpertNum, 0, 0, expandX, assistInfoForCombine, expertTokenNums, recvCounts);
+        Distributed::MoeDistributedDispatchV2(x, expertIds, groupName, rankSize, routingExpertNum, 0, 0, expandX,
+            assistInfoForCombine, expertTokenNums, recvCounts);
     }
 
     auto functionRawName = MoeDistributedGetFunctionRawName("MoeDistributedDispatchPrepare");
@@ -103,8 +102,8 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatch) {
     int rankSize = 4;
 
     int32_t expandXRowShape = topK * rankSize < routingExpertNum ?
-        static_cast<int32_t>(bs) * static_cast<int32_t>(topK) * rankSize :
-        static_cast<int32_t>(bs) * routingExpertNum;
+                                  static_cast<int32_t>(bs) * static_cast<int32_t>(topK) * rankSize :
+                                  static_cast<int32_t>(bs) * routingExpertNum;
 
     Shape tokenTensorShape{bs, hiddenSize};
     Shape tokenExpertTableShape{bs, topK};
@@ -121,7 +120,8 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatch) {
     MoeConfig moeConfig{routingExpertNum, routingExpertNum / rankSize, rankSize};
 
     FUNCTION("DISPATCH_F", {tokenTensor, tokenExpertTable}, {expandX, validCnt, combineInfo}) {
-        Distributed::MoeDistributedDispatch(tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, group, moeConfig);
+        Distributed::MoeDistributedDispatch(
+            tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, group, moeConfig);
     }
 
     auto functionRawName = MoeDistributedGetFunctionRawName("L0");
@@ -131,9 +131,10 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatch) {
     codeGen.GenCode(*function, {});
 }
 
-void TestMoeDistributedCombineFunc(std::function<void(const Tensor&, const Tensor&, const Tensor&, const Tensor&,
-    const char*, uint32_t, uint32_t, uint32_t, uint32_t, Tensor&)> func, std::string loopName)
-{
+void TestMoeDistributedCombineFunc(std::function<void(const Tensor &, const Tensor &, const Tensor &, const Tensor &,
+                                       const char *, uint32_t, uint32_t, uint32_t, uint32_t, Tensor &)>
+                                       func,
+    std::string loopName) {
     const char *group = "hcom123";
     int32_t batchSize = 8;
     int32_t hiddenSize = 5120;
@@ -160,13 +161,11 @@ void TestMoeDistributedCombineFunc(std::function<void(const Tensor&, const Tenso
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestMoeDistributed, TestMoeDistributedCombine)
-{
+TEST_F(TestMoeDistributed, TestMoeDistributedCombine) {
     TestMoeDistributedCombineFunc(Distributed::MoeDistributedCombine, "MoeDistributedCombine");
 }
 
-TEST_F(TestMoeDistributed, TestMoeDistributedCombineV2)
-{
+TEST_F(TestMoeDistributed, TestMoeDistributedCombineV2) {
     TestMoeDistributedCombineFunc(Distributed::MoeDistributedCombineV2, "MoeDistributedCombineSend");
 }
 

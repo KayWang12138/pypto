@@ -43,14 +43,14 @@ constexpr int32_t AICORE_COREID_MASK = 0x0FFF;
 constexpr int32_t AICORE_BLOCKID_MASK = 0x0FFF;
 
 namespace DAV_2201 {
-    const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0;
-    const uint32_t REG_SPR_COND = 0x4C8;
-}
+const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0;
+const uint32_t REG_SPR_COND = 0x4C8;
+} // namespace DAV_2201
 
 namespace DAV_3510 {
-    const uint32_t REG_SPR_DATA_MAIN_BASE = 0xD0;
-    const uint32_t REG_SPR_COND = 0x5108;
-}
+const uint32_t REG_SPR_DATA_MAIN_BASE = 0xD0;
+const uint32_t REG_SPR_COND = 0x5108;
+} // namespace DAV_3510
 
 class AicoreHAL {
 public:
@@ -71,9 +71,7 @@ public:
         }
     }
 
-    inline uint32_t GetRegSprDataMainBase() {
-        return regSprDataMainBase_;
-    }
+    inline uint32_t GetRegSprDataMainBase() { return regSprDataMainBase_; }
 
     inline void SetMngCoreBlockId(int aicStart, int aicEnd, int aivStart, int aivEnd) {
         aicStart_ = aicStart;
@@ -82,9 +80,7 @@ public:
         aivEnd_ = aivEnd;
     }
 
-    inline void SetModel(uint64_t costModel) {
-        costModel_ = reinterpret_cast<CostModel::AiCoreModel*>(costModel);
-    }
+    inline void SetModel(uint64_t costModel) { costModel_ = reinterpret_cast<CostModel::AiCoreModel *>(costModel); }
 
     int64_t *GetRegAddrs() const { return regAddrs_; }
     uint32_t GetregNum() const { return regNum_; }
@@ -92,7 +88,7 @@ public:
     inline uint32_t ReadReg32(int coreIdx, int offset) {
         auto idx = GetPhyIdByBlockId(coreIdx);
         if (idx != -1) {
-          return *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset));
+            return *(reinterpret_cast<volatile uint32_t *>(regAddrs_[idx] + offset));
         }
         return 0;
     }
@@ -108,7 +104,7 @@ public:
     inline void WriteReg32(int coreIdx, int offset, uint32_t val) {
         auto idx = GetPhyIdByBlockId(coreIdx);
         if (idx != -1) {
-          *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset)) = val;
+            *(reinterpret_cast<volatile uint32_t *>(regAddrs_[idx] + offset)) = val;
         }
         return;
     }
@@ -131,7 +127,8 @@ public:
         } else {
             DEV_VERBOSE_DEBUG("set coreidx %d value %lx.", coreIdx, value);
             auto taskId = value - 1;
-            if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP) return;
+            if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP)
+                return;
             CostModelSendTask(coreIdx, taskId);
         }
     }
@@ -151,29 +148,14 @@ public:
                 *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val;
             }
             switch (n & CORE_QUEUE_MODE_NUM_7) {
-                case CORE_QUEUE_MODE_NUM_7:
-                    *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_6:
-                    *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_5:
-                    *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_4:
-                    *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_3:
-                    *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_2:
-                    *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_1:
-                    *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val;
-                    [[fallthrough]];
-                default:
-                    break;
+                case CORE_QUEUE_MODE_NUM_7: *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_6: *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_5: *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_4: *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_3: *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_2: *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_1: *readyRegQueues_[GetPhyIdByBlockId(idx++)] = val; [[fallthrough]];
+                default: break;
             }
         }
     }
@@ -191,29 +173,14 @@ public:
                 *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
             }
             switch (n & CORE_QUEUE_MODE_NUM_7) {
-                case CORE_QUEUE_MODE_NUM_7:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_6:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_5:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_4:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_3:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_2:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_1:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                default:
-                    break;
+                case CORE_QUEUE_MODE_NUM_7: *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_6: *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_5: *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_4: *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_3: *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_2: *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_1: *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++; [[fallthrough]];
+                default: break;
             }
         } else {
             for (int i = 0; i < n; i++) {
@@ -238,29 +205,14 @@ public:
                 *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)];
             }
             switch (n & CORE_QUEUE_MODE_NUM_7) {
-                case CORE_QUEUE_MODE_NUM_7:
-                    *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)];
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_6:
-                    *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)];
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_5:
-                    *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)];
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_4:
-                    *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)];
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_3:
-                    *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)];
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_2:
-                    *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)];
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_1:
-                    *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)];
-                    [[fallthrough]];
-                default:
-                    break;
+                case CORE_QUEUE_MODE_NUM_7: *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)]; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_6: *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)]; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_5: *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)]; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_4: *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)]; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_3: *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)]; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_2: *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)]; [[fallthrough]];
+                case CORE_QUEUE_MODE_NUM_1: *vals++ = *finishRegQueues_[GetPhyIdByBlockId(*coreIdx++)]; [[fallthrough]];
+                default: break;
             }
         } else {
             for (int i = 0; i < n; i++) {
@@ -274,7 +226,8 @@ public:
             uint64_t startCycle = GetCycles();
             while (*finishRegQueues_[GetPhyIdByBlockId(idx)] != val) {
                 if (GetCycles() - startCycle > TIMEOUT_CYCLES) {
-                    DEV_ERROR(SchedErr::TASK_WAIT_TIMEOUT, "#sche.aicore.wait_finish: CoreId=%d cannot get finish Flag", idx);
+                    DEV_ERROR(
+                        SchedErr::TASK_WAIT_TIMEOUT, "#sche.aicore.wait_finish: CoreId=%d cannot get finish Flag", idx);
                     return;
                 }
             }
@@ -294,7 +247,8 @@ public:
     uint64_t CostModelGetTask(int coreIdx) {
         auto currentTime = GetCycles();
         DEV_DEBUG("CostModel AICore polling: aicoreIdx=%d, time=%lu.", coreIdx, currentTime);
-        if (taskIds[coreIdx].empty()) return AICORE_FUNC_STOP | AICORE_FIN_MASK;
+        if (taskIds[coreIdx].empty())
+            return AICORE_FUNC_STOP | AICORE_FIN_MASK;
         uint64_t taskId = 0;
         while (!taskIds[coreIdx].empty() && currentTime >= taskTimes[coreIdx].front()) {
             taskId = taskIds[coreIdx].front();
@@ -302,11 +256,12 @@ public:
             taskIds[coreIdx].pop_front();
         }
         if (taskIds[coreIdx].empty()) {
-            DEV_DEBUG("CostModel AICore finish task: aicoreIdx=%d, taskId=%#lx, currentTime=%lu.", coreIdx, taskId, currentTime);
+            DEV_DEBUG("CostModel AICore finish task: aicoreIdx=%d, taskId=%#lx, currentTime=%lu.", coreIdx, taskId,
+                currentTime);
             return taskId | AICORE_FIN_MASK;
         }
-        DEV_DEBUG("CostModel AICore running task: aicoreIdx=%d, taskId=%#lx, currentTime=%lu, finishTime=%lu.",
-                  coreIdx, taskIds[coreIdx].front(), currentTime, taskTimes[coreIdx].front());
+        DEV_DEBUG("CostModel AICore running task: aicoreIdx=%d, taskId=%#lx, currentTime=%lu, finishTime=%lu.", coreIdx,
+            taskIds[coreIdx].front(), currentTime, taskTimes[coreIdx].front());
         return taskIds[coreIdx].front();
     }
 
@@ -318,8 +273,8 @@ public:
         if (costModel_) {
             costModel_->SendTask(coreIdx, taskId);
         }
-        DEV_DEBUG("CostModel AICore add task: aicoreIdx=%d, taskId=%#lx, newQueueSize=%lu, finishTime=%lu.",
-                  coreIdx, taskId, taskIds[coreIdx].size(), time + timeCost);
+        DEV_DEBUG("CostModel AICore add task: aicoreIdx=%d, taskId=%#lx, newQueueSize=%lu, finishTime=%lu.", coreIdx,
+            taskId, taskIds[coreIdx].size(), time + timeCost);
     }
 
     int64_t GetSharedBuffer() { return sharedBuffer_; }
@@ -340,17 +295,15 @@ public:
         }
     }
 
-    inline int &GetPhyIdByBlockId(int coreIdx) {
-        return blockIdToPhyCoreId_[coreIdx];
-    }
+    inline int &GetPhyIdByBlockId(int coreIdx) { return blockIdToPhyCoreId_[coreIdx]; }
 
-    Metrics* GetMetrics(int coreIdx) {
+    Metrics *GetMetrics(int coreIdx) {
         volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        volatile Metrics*  metric = reinterpret_cast<Metrics *>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+        volatile Metrics *metric = reinterpret_cast<Metrics *>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
         DEV_INFO("aicoreIdx=%d host alloc metric memory: %p.", coreIdx, metric);
         if (metric == nullptr) {
             DEV_ERROR(DevCommonErr::NULLPTR, "#sche.prof.aicore.getaddr: aicoreIdx=%d null metric.", coreIdx);
-           return nullptr;
+            return nullptr;
         }
 
         uint64_t cycles_start = GetCycles();
@@ -365,7 +318,7 @@ public:
     }
 
     int DumpTaskProf(int coreIdx) {
-        Metrics* metric =  GetMetrics(coreIdx);
+        Metrics *metric = GetMetrics(coreIdx);
         if (metric == nullptr) {
             return DEVICE_MACHINE_ERROR;
         }
@@ -374,19 +327,19 @@ public:
         for (int i = 0; i < metric->taskCount; i++) {
             volatile TaskStat *stat = &metric->tasks[i];
             aicoreProf_->ProfGet(coreIdx, stat->subGraphId, stat->taskId, &(metric)->tasks[i]);
-            DEV_VERBOSE_DEBUG("  Dump prof for task %d, execstart: %ld execend :%ld.",
-                     stat->taskId, stat->execStart, stat->execEnd);
+            DEV_VERBOSE_DEBUG(
+                "  Dump prof for task %d, execstart: %ld execend :%ld.", stat->taskId, stat->execStart, stat->execEnd);
         }
         return 0;
     }
 
-    int DumpAicorePerfTrace(int aicpuIdx, int coreIdx, CoreType coretype, std::ostringstream& oss) {
+    int DumpAicorePerfTrace(int aicpuIdx, int coreIdx, CoreType coretype, std::ostringstream &oss) {
         (void)coreIdx;
         (void)coretype;
         (void)oss;
         (void)aicpuIdx;
 #if ENABLE_PERF_TRACE
-        Metrics* metric =  GetMetrics(coreIdx);
+        Metrics *metric = GetMetrics(coreIdx);
         if (metric == nullptr) {
             return DEVICE_MACHINE_ERROR;
         }
@@ -406,11 +359,13 @@ public:
                     oss << "(" << metric->perfTraceDevTaskId[turnNumIdx][type][cnt] << ")";
                 }
                 oss << "\",\"end\":" << curCycle << "}"
-                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[turnNumIdx][type] - 1)) ? "" : ",");
+                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt == metric->perfTraceCnt[turnNumIdx][type] - 1)) ?
+                               "" :
+                               ",");
             }
         }
         oss << "]}";
- #endif
+#endif
         return DEVICE_MACHINE_OK;
     }
 
@@ -419,12 +374,13 @@ public:
         DEV_VERBOSE_DEBUG("!!***********************aicore %d last status **************************!!", coreIdx);
         DEV_VERBOSE_DEBUG("hello status %ld.", arg->shakeBuffer[0]);
         DEV_VERBOSE_DEBUG("last_taskId %ld task status [%ld, %ld, %ld, %ld].", arg->shakeBuffer[NUM_ONE],
-            arg->shakeBuffer[NUM_TWO], arg->shakeBuffer[NUM_THREE], arg->shakeBuffer[NUM_FOUR], arg->shakeBuffer[NUM_FIVE]);
+            arg->shakeBuffer[NUM_TWO], arg->shakeBuffer[NUM_THREE], arg->shakeBuffer[NUM_FOUR],
+            arg->shakeBuffer[NUM_FIVE]);
 
         for (size_t i = 0; i < sizeof(arg->taskStat) / sizeof(TaskStat); i++) {
             DEV_VERBOSE_DEBUG("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.", i,
-                arg->taskStat[i].taskId, arg->taskStat[i].subGraphId,
-                arg->taskStat[i].execStart, arg->taskStat[i].execEnd);
+                arg->taskStat[i].taskId, arg->taskStat[i].subGraphId, arg->taskStat[i].execStart,
+                arg->taskStat[i].execEnd);
         }
     }
 
@@ -438,7 +394,8 @@ public:
         (void)buffer;
         if constexpr (IsDeviceMode()) {
             if (args_[coreIdx] == nullptr) {
-                args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+                args_[coreIdx] = reinterpret_cast<KernelArgs *>(
+                    (static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
             }
             volatile KernelArgs *arg = args_[coreIdx];
 #if ENABLE_AICORE_PRINT
@@ -455,7 +412,7 @@ public:
 
     bool TryHandShakeByGm(int coreIdx, int64_t dotStatus) {
         auto args =
-            reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+            reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
         volatile int64_t *shakeBuffer = args->shakeBuffer;
         if ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
             return false;
@@ -493,7 +450,7 @@ public:
 
 private:
     int64_t sharedBuffer_;
-    int64_t* regAddrs_{nullptr};
+    int64_t *regAddrs_{nullptr};
     int aicStart_{0};
     int aicEnd_{0};
     int aivStart_{0};
@@ -501,10 +458,10 @@ private:
     uint32_t regNum_{0};
     uint64_t freq_{50};
 
-    std::array<volatile KernelArgs*, MAX_AICORE_NUM> args_;
+    std::array<volatile KernelArgs *, MAX_AICORE_NUM> args_;
 
-    std::array<volatile uint64_t*, MAX_AICORE_NUM> readyRegQueues_;
-    std::array<volatile uint64_t*, MAX_AICORE_NUM> finishRegQueues_;
+    std::array<volatile uint64_t *, MAX_AICORE_NUM> readyRegQueues_;
+    std::array<volatile uint64_t *, MAX_AICORE_NUM> finishRegQueues_;
 
     // cost model aicore
     std::function<uint64_t(uint64_t, uint64_t, uint64_t)> getTaskTimeCost{nullptr};
@@ -520,4 +477,4 @@ private:
     AiCoreProf *aicoreProf_{nullptr};
     CostModel::AiCoreModel *costModel_{nullptr};
 };
-}
+} // namespace npu::tile_fwk::dynamic

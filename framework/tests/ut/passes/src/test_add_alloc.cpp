@@ -26,7 +26,7 @@
 #include "computational_graph_builder.h"
 
 namespace npu {
-namespace tile_fwk{
+namespace tile_fwk {
 class AddAllocTest : public testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -41,9 +41,19 @@ TEST_F(AddAllocTest, TestAddAlloc) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
-        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB};
-    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_COPY_OUT};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3", "t4"}, {"t3", "t4"}, {"t4", "t6"}, {"t5", "t8"}, {"t9"}};
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
+        MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD,
+        Opcode::OP_ADD, Opcode::OP_COPY_OUT};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1"},
+        {"t2"},
+        {"t3", "t4"},
+        {"t3", "t4"},
+        {"t4", "t6"},
+        {"t5", "t8"},
+        {"t9"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t8"}, {"t9"}, {"t7"}};
     std::vector<std::string> opNames{"Copyin1", "Copyin2", "Add1", "Add2", "Add3", "Add4", "Copyout1"};
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
@@ -60,11 +70,20 @@ TEST_F(AddAllocTest, TestAddAlloc) {
 TEST_F(AddAllocTest, TestAddAllocInplace) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"};
-    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
-        MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB,
-        MemoryType::MEM_UB, MemoryType::MEM_UB};
-    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}, {"t4"}, {"t5", "t6"}, {"t7", "t8"}, {"t9", "t10"}};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
+        MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB,
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN,
+        Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1"},
+        {"t2"},
+        {"t3"},
+        {"t4"},
+        {"t5", "t6"},
+        {"t7", "t8"},
+        {"t9", "t10"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t5"}, {"t6"}, {"t7"}, {"t8"}, {"t10"}, {"t9"}, {"t11"}};
     std::vector<std::string> opNames{"Copyin1", "Copyin2", "Copyin3", "Copyin4", "Add1", "Add2", "Add3"};
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
@@ -74,11 +93,9 @@ TEST_F(AddAllocTest, TestAddAllocInplace) {
 
     EXPECT_NE(subGraph.GetTensor("t11"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t10");
-    tensor1->memoryrange.memId =
-        subGraph.GetTensor("t5")->memoryrange.memId;
+    tensor1->memoryrange.memId = subGraph.GetTensor("t5")->memoryrange.memId;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t11");
-    tensor2->memoryrange.memId =
-        subGraph.GetTensor("t5")->memoryrange.memId;
+    tensor2->memoryrange.memId = subGraph.GetTensor("t5")->memoryrange.memId;
 
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
@@ -89,14 +106,24 @@ TEST_F(AddAllocTest, TestAddAllocInplace) {
 TEST_F(AddAllocTest, TestAddAllocAssemble) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"};
-    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
-        MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB,
-        MemoryType::MEM_UB, MemoryType::MEM_UB};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
+        MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB,
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
     std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN,
         Opcode::OP_ASSEMBLE, Opcode::OP_ASSEMBLE, Opcode::OP_ADD, Opcode::OP_ADD};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7", "t8"}, {"t9", "t10"}};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1"},
+        {"t2"},
+        {"t3"},
+        {"t4"},
+        {"t5"},
+        {"t6"},
+        {"t7", "t8"},
+        {"t9", "t10"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t5"}, {"t6"}, {"t7"}, {"t8"}, {"t9"}, {"t9"}, {"t10"}, {"t11"}};
-    std::vector<std::string> opNames{"Copyin1", "Copyin2", "Copyin3", "Copyin4", "Assemble1", "Assemble2", "Add1", "Add2"};
+    std::vector<std::string> opNames{
+        "Copyin1", "Copyin2", "Copyin3", "Copyin4", "Assemble1", "Assemble2", "Add1", "Add2"};
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
@@ -104,11 +131,9 @@ TEST_F(AddAllocTest, TestAddAllocAssemble) {
 
     EXPECT_NE(subGraph.GetTensor("t9"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t9");
-    tensor1->memoryrange.memId =
-        subGraph.GetTensor("t5")->memoryrange.memId;
+    tensor1->memoryrange.memId = subGraph.GetTensor("t5")->memoryrange.memId;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
-    tensor2->memoryrange.memId =
-        subGraph.GetTensor("t5")->memoryrange.memId;
+    tensor2->memoryrange.memId = subGraph.GetTensor("t5")->memoryrange.memId;
 
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
@@ -120,9 +145,19 @@ TEST_F(AddAllocTest, TestAddAllocView) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
-        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
-    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}, {"t3"}, {"t5"}, {"t6"}, {"t4", "t7"}};
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB,
+        MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_VIEW, Opcode::OP_VIEW,
+        Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1"},
+        {"t2"},
+        {"t3"},
+        {"t3"},
+        {"t5"},
+        {"t6"},
+        {"t4", "t7"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"t8"}, {"t9"}};
     std::vector<std::string> opNames{"Copyin1", "Copyin2", "View1", "View2", "Add1", "Add2", "Add3"};
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
@@ -132,11 +167,9 @@ TEST_F(AddAllocTest, TestAddAllocView) {
 
     EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t5");
-    tensor1->memoryrange.memId =
-        subGraph.GetTensor("t3")->memoryrange.memId;
+    tensor1->memoryrange.memId = subGraph.GetTensor("t3")->memoryrange.memId;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
-    tensor2->memoryrange.memId =
-        subGraph.GetTensor("t3")->memoryrange.memId;
+    tensor2->memoryrange.memId = subGraph.GetTensor("t3")->memoryrange.memId;
 
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
@@ -148,9 +181,19 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemId) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
-        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
-    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}, {"t3"}, {"t5"}, {"t6"}, {"t4", "t7"}};
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB,
+        MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_VIEW, Opcode::OP_VIEW,
+        Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1"},
+        {"t2"},
+        {"t3"},
+        {"t3"},
+        {"t5"},
+        {"t6"},
+        {"t4", "t7"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"t8"}, {"t9"}};
     std::vector<std::string> opNames{"Copyin1", "Copyin2", "View1", "View2", "Add1", "Add2", "Add3"};
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
@@ -162,8 +205,7 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemId) {
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t5");
     tensor1->memoryrange.memId = -1;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
-    tensor2->memoryrange.memId =
-        subGraph.GetTensor("t3")->memoryrange.memId;
+    tensor2->memoryrange.memId = subGraph.GetTensor("t3")->memoryrange.memId;
 
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
@@ -174,9 +216,19 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemorymap) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
-        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
-    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}, {"t3"}, {"t5"}, {"t6"}, {"t4", "t7"}};
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB,
+        MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_VIEW, Opcode::OP_VIEW,
+        Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t1"},
+        {"t2"},
+        {"t3"},
+        {"t3"},
+        {"t5"},
+        {"t6"},
+        {"t4", "t7"}
+    };
     std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"t8"}, {"t9"}};
     std::vector<std::string> opNames{"Copyin1", "Copyin2", "View1", "View2", "Add1", "Add2", "Add3"};
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
@@ -188,8 +240,7 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemorymap) {
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t5");
     tensor1->memoryrange.memId = -1;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
-    tensor2->memoryrange.memId =
-        subGraph.GetTensor("t3")->memoryrange.memId;
+    tensor2->memoryrange.memId = subGraph.GetTensor("t3")->memoryrange.memId;
 
     AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);

@@ -17,8 +17,7 @@
 
 namespace npu::tile_fwk {
 Status DFSVisit(std::unordered_set<int> &visited, int preColor, std::unordered_map<int, int> &newColorMap,
-                std::vector<std::set<int>> &colorInGraph, std::vector<std::set<int>> &colorOutGraph)
-{
+    std::vector<std::set<int>> &colorInGraph, std::vector<std::set<int>> &colorOutGraph) {
     std::vector<int> visitStack{preColor};
     std::unordered_set<int> inStack;
     while (visitStack.size() > 0) {
@@ -52,8 +51,7 @@ Status DFSVisit(std::unordered_set<int> &visited, int preColor, std::unordered_m
     return SUCCESS;
 }
 
-Status ColorGraph::PreColorSort(Function &function)
-{
+Status ColorGraph::PreColorSort(Function &function) {
     int colorNum = function.GetTotalSubGraphCount();
     std::vector<std::set<int>> colorInGraph(colorNum);
     std::vector<std::set<int>> colorOutGraph(colorNum);

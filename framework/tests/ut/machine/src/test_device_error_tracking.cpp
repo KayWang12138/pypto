@@ -93,9 +93,7 @@ TEST(DeviceErrorTrackingTest, AicpuErrorCallBackOutputsCorrectInfo) {
     char kernelName[] = "test_kernel";
     exceptionInfo.expandInfo.u.aicoreInfo.exceptionArgs.exceptionKernelInfo.kernelName = kernelName;
 
-    std::string output = CaptureStdout([&]() {
-        AicpuErrorCallBack(&exceptionInfo);
-    });
+    std::string output = CaptureStdout([&]() { AicpuErrorCallBack(&exceptionInfo); });
 
     EXPECT_NE(output.find("task_id = 123, stream_id = 456"), std::string::npos);
     EXPECT_NE(output.find("Exception Type: exception aicore error"), std::string::npos);
@@ -104,9 +102,7 @@ TEST(DeviceErrorTrackingTest, AicpuErrorCallBackOutputsCorrectInfo) {
 }
 
 TEST(DeviceErrorTrackingTest, InitializeErrorCallbackExecutesNormally) {
-    std::string output = CaptureStdout([&]() {
-        InitializeErrorCallback();
-    });
+    std::string output = CaptureStdout([&]() { InitializeErrorCallback(); });
     SUCCEED() << "InitializeErrorCallback executed normally";
 }
 #endif

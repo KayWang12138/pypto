@@ -40,7 +40,9 @@ Status ReduceCopyMerge::RunOnFunction(Function &function) {
     ReduceCopyRunner runner;
     const double lowerBound = 0.1;
     const double upperBound = 10.0;
-    runner.mergeThresholds = {{lowerBound, upperBound}};
+    runner.mergeThresholds = {
+        {lowerBound, upperBound}
+    };
     runner.upperBound = function.paramConfigs_.sgPgUpperBound;
     if (runner.ReduceCopy(function) != SUCCESS) {
         return FAILED;
@@ -123,7 +125,7 @@ void DSU::ResetLink(int i) {
 }
 
 inline bool PathExistsDFS(int uDense, int targetDense, const std::vector<std::set<int>> &adj,
-        std::vector<bool> &visited, int startNodeDense, int ignoredNeighbor) {
+    std::vector<bool> &visited, int startNodeDense, int ignoredNeighbor) {
     visited[uDense] = true;
     for (int vDense : adj[uDense]) {
         if (uDense == startNodeDense && vDense == ignoredNeighbor) {
@@ -132,7 +134,7 @@ inline bool PathExistsDFS(int uDense, int targetDense, const std::vector<std::se
         if (vDense == targetDense) {
             return true;
         }
-        if(!visited[vDense]) {
+        if (!visited[vDense]) {
             if (PathExistsDFS(vDense, targetDense, adj, visited, startNodeDense, ignoredNeighbor)) {
                 return true;
             }
@@ -155,7 +157,7 @@ inline bool IsMixGraph(int AIVLatency, int AICLatency) {
 }
 
 inline bool IsValidMixGraph(int AIVLatency, int AICLatency, double aivFactorLowerbound, double aivFactorUpperbound) {
-    if (AICLatency <=0) {
+    if (AICLatency <= 0) {
         return false;
     } else {
         double aivFactor = static_cast<double>(AIVLatency) / AICLatency;
@@ -184,15 +186,18 @@ inline bool IsPairMergeable(DSU &dsu, int uRoot, int vRoot, int upperBound, doub
     if (AIVafter > upperBound || AICafter > upperBound) {
         return false;
     }
-    if ((IsValidMixGraph(AIVbefore1, AICbefore1, thresLower, thresUpper) || IsValidMixGraph(AIVbefore2, AICbefore2, thresLower, thresUpper)) &&
-            !IsValidMixGraph(AIVafter, AICafter, thresLower, thresUpper)) {
+    if ((IsValidMixGraph(AIVbefore1, AICbefore1, thresLower, thresUpper) ||
+            IsValidMixGraph(AIVbefore2, AICbefore2, thresLower, thresUpper)) &&
+        !IsValidMixGraph(AIVafter, AICafter, thresLower, thresUpper)) {
         return false;
     }
     return true;
 }
 
-inline void UpdateDSUForLowerBound(DSU &dsu, std::unordered_set<int> &updatedGraphId, const std::pair<double, double> &thres) {
-    APASS_LOG_INFO_F(Elements::Operation, "Checking mix result: AIV threshold lowerbound=%f, upperbound=%f.", thres.first, thres.second);
+inline void UpdateDSUForLowerBound(
+    DSU &dsu, std::unordered_set<int> &updatedGraphId, const std::pair<double, double> &thres) {
+    APASS_LOG_INFO_F(Elements::Operation, "Checking mix result: AIV threshold lowerbound=%f, upperbound=%f.",
+        thres.first, thres.second);
     std::unordered_set<int> cancelMergeRootColor;
     std::unordered_set<int> visitedRootColor;
     for (int i : updatedGraphId) {
@@ -208,11 +213,13 @@ inline void UpdateDSUForLowerBound(DSU &dsu, std::unordered_set<int> &updatedGra
             continue;
         }
         if (!IsValidMixGraph(AIVweight, AICweight, thres.first, thres.second)) {
-            APASS_LOG_INFO_F(Elements::Operation, "Found invalid mixGraph: AIC Latency=%d, AIV Latency=%d.", AICweight, AIVweight);
+            APASS_LOG_INFO_F(
+                Elements::Operation, "Found invalid mixGraph: AIC Latency=%d, AIV Latency=%d.", AICweight, AIVweight);
             cancelMergeRootColor.insert(rootColor);
             continue;
         }
-        APASS_LOG_INFO_F(Elements::Operation, "Found valid mixGraph: AIC Latency=%d, AIV Latency=%d.", AICweight, AIVweight);
+        APASS_LOG_INFO_F(
+            Elements::Operation, "Found valid mixGraph: AIC Latency=%d, AIV Latency=%d.", AICweight, AIVweight);
     }
     std::vector<int> cancelMergeColor;
     for (int i : updatedGraphId) {
@@ -268,10 +275,11 @@ void ReduceCopyRunner::BuildGraph(const OperationsViewer opOriList) {
     }
 }
 
-inline void GetCoreType(const OperationsViewer opOriList, std::vector<std::vector<size_t>> colorNode, std::map<std::pair<int,int>, std::set<int>>& originalEdges,
-        std::vector<OpCoreType>& colorCoreType, std::vector<bool>& isReshape) {
+inline void GetCoreType(const OperationsViewer opOriList, std::vector<std::vector<size_t>> colorNode,
+    std::map<std::pair<int, int>, std::set<int>> &originalEdges, std::vector<OpCoreType> &colorCoreType,
+    std::vector<bool> &isReshape) {
     std::vector<std::vector<int>> colorInGraph(colorNode.size()), colorOutGraph(colorNode.size());
-    for (const auto& edge : originalEdges) {
+    for (const auto &edge : originalEdges) {
         int u = std::get<0>(edge.first);
         int v = std::get<1>(edge.first);
         if (u != v) {
@@ -279,7 +287,7 @@ inline void GetCoreType(const OperationsViewer opOriList, std::vector<std::vecto
             colorInGraph[v].push_back(u);
         }
     }
-    for (size_t i = 0;  i< colorNode.size(); i++) {
+    for (size_t i = 0; i < colorNode.size(); i++) {
         colorCoreType[i] = OpCoreType::AIV;
         for (int32_t opIdx : colorNode[i]) {
             auto coreType = OpcodeManager::Inst().GetCoreType(opOriList[opIdx].GetOpcode());
@@ -288,8 +296,7 @@ inline void GetCoreType(const OperationsViewer opOriList, std::vector<std::vecto
                 break;
             }
         }
-        isReshape[i] = (colorNode[i].size() == 1 &&
-                        opOriList[colorNode[i][0]].GetOpcode() == Opcode::OP_RESHAPE);
+        isReshape[i] = (colorNode[i].size() == 1 && opOriList[colorNode[i][0]].GetOpcode() == Opcode::OP_RESHAPE);
     }
 }
 
@@ -298,7 +305,7 @@ Status ReduceCopyRunner::RemarkInternalSubgraphID(Function &func) {
     std::map<int, int> newColormap;
     newColormap[0] = 0;
     int currColor = 0;
-    for (int i=0; i<color; i++) {
+    for (int i = 0; i < color; i++) {
         auto newColor = dsu.Find(i);
         if (newColor == i) {
             newColormap[i] = currColor;
@@ -318,7 +325,8 @@ Status ReduceCopyRunner::RemarkInternalSubgraphID(Function &func) {
 Status ReduceCopyRunner::Init(Function &func) {
     for (auto &op : func.Operations()) {
         if (op.GetSubgraphID() == NOT_IN_SUBGRAPH) {
-            APASS_LOG_ERROR_F(Elements::Config, "Op %d does not belong to any subgraph before ReduceCopy.", op.GetOpMagic());
+            APASS_LOG_ERROR_F(
+                Elements::Config, "Op %d does not belong to any subgraph before ReduceCopy.", op.GetOpMagic());
             return FAILED;
         }
     }
@@ -347,10 +355,10 @@ Status ReduceCopyRunner::Init(Function &func) {
     return SUCCESS;
 }
 
-Status ReduceCopyRunner::MergePrepare(std::vector<std::tuple<int, int, size_t>> &candidates,
-        std::map<int, int> &rootToDense) {
+Status ReduceCopyRunner::MergePrepare(
+    std::vector<std::tuple<int, int, size_t>> &candidates, std::map<int, int> &rootToDense) {
     std::set<int> activeRootSet;
-    for (int i=0; i< color; i++) {
+    for (int i = 0; i < color; i++) {
         activeRootSet.insert(dsu.Find(i));
     }
     std::vector<int> activeRootVec(activeRootSet.begin(), activeRootSet.end());
@@ -375,7 +383,7 @@ Status ReduceCopyRunner::MergePrepare(std::vector<std::tuple<int, int, size_t>> 
             superGraphEdges[{uRoot, vRoot}].insert(edge.second.begin(), edge.second.end());
         }
     }
-    for (const auto& edge : superGraphEdges) {
+    for (const auto &edge : superGraphEdges) {
         int uRoot = std::get<0>(edge.first);
         int vRoot = std::get<1>(edge.first);
         size_t totalSize = 0;
@@ -384,7 +392,7 @@ Status ReduceCopyRunner::MergePrepare(std::vector<std::tuple<int, int, size_t>> 
         }
         candidates.emplace_back(uRoot, vRoot, totalSize);
     }
-    std::sort(candidates.begin(), candidates.end(), [](const auto& a, const auto& b) {
+    std::sort(candidates.begin(), candidates.end(), [](const auto &a, const auto &b) {
         const int sizeIdx = 2;
         return std::get<sizeIdx>(a) > std::get<sizeIdx>(b);
     });
@@ -392,9 +400,9 @@ Status ReduceCopyRunner::MergePrepare(std::vector<std::tuple<int, int, size_t>> 
     return SUCCESS;
 }
 
-Status ReduceCopyRunner::MergeLoop(std::vector<std::tuple<int, int, size_t>> &candidates, const std::pair<double, double> &thres,
-    bool &mergedInLoop, std::map<int, int> &rootToDense) {
-    for (const auto& candidate : candidates) {
+Status ReduceCopyRunner::MergeLoop(std::vector<std::tuple<int, int, size_t>> &candidates,
+    const std::pair<double, double> &thres, bool &mergedInLoop, std::map<int, int> &rootToDense) {
+    for (const auto &candidate : candidates) {
         int uRoot = dsu.Find(std::get<0>(candidate));
         int vRoot = dsu.Find(std::get<1>(candidate));
         if (uRoot == vRoot) {
@@ -462,7 +470,7 @@ Status ReduceCopyRunner::ReduceCopy(Function &func) {
             }
         }
         UpdateDSUForLowerBound(dsu, currMergedGraphId, mergeThresholds[mergeThresId]);
-        for (int i = 0; i < color; i ++) {
+        for (int i = 0; i < color; i++) {
             auto newColor = dsu.Find(i);
             if (newColor != i) {
                 mergedGraphId.insert(newColor);
@@ -474,4 +482,4 @@ Status ReduceCopyRunner::ReduceCopy(Function &func) {
     return SUCCESS;
 }
 
-}
+} // namespace npu::tile_fwk

@@ -25,14 +25,13 @@ struct SimpleTensorParam {
     int opMagic;
     int operandIdx;
 
-    SimpleTensorParam(LogicalTensorPtr t, int magic, int idx)
-        : tensor(t), opMagic(magic), operandIdx(idx) {}
+    SimpleTensorParam(LogicalTensorPtr t, int magic, int idx) : tensor(t), opMagic(magic), operandIdx(idx) {}
 };
 
 struct AnalyzerInput {
     std::vector<InternalComponentInfo> components;
-    Function* originalMixFunc;
-    AnalyzerInput(const std::vector<InternalComponentInfo> &comp, Function* func)
+    Function *originalMixFunc;
+    AnalyzerInput(const std::vector<InternalComponentInfo> &comp, Function *func)
         : components(comp), originalMixFunc(func) {}
 };
 
@@ -41,25 +40,23 @@ struct AnalyzerOutput {
     std::vector<InternalDependencyInfo> internalDeps;
     std::unordered_map<int, std::vector<SimpleTensorParam>> allIncasts;
     std::unordered_map<int, std::vector<SimpleTensorParam>> allOutcasts;
-    AnalyzerOutput(const SubgraphToFunction &subFunc,
-                const std::vector<InternalDependencyInfo> &deps,
-                const std::unordered_map<int, std::vector<SimpleTensorParam>> incasts,
-                const std::unordered_map<int, std::vector<SimpleTensorParam>> outcasts)
+    AnalyzerOutput(const SubgraphToFunction &subFunc, const std::vector<InternalDependencyInfo> &deps,
+        const std::unordered_map<int, std::vector<SimpleTensorParam>> incasts,
+        const std::unordered_map<int, std::vector<SimpleTensorParam>> outcasts)
         : subgraphToFunction(subFunc), internalDeps(deps), allIncasts(incasts), allOutcasts(outcasts) {}
 };
 
 class MixDependencyAnalyzer {
 public:
     // 记录直接外部依赖
-    void InitSubgraphToFunction(const std::vector<InternalComponentInfo>& components);
-    void InOutCastRecord(Function* originalMixFunc);
+    void InitSubgraphToFunction(const std::vector<InternalComponentInfo> &components);
+    void InOutCastRecord(Function *originalMixFunc);
     // 1.分析组件间直接依赖
-    std::unordered_map<int, std::set<int>> AnalyzeComponentDependencies(Function &mixFunc,
-        std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>>& crossComponentTensors);
-    Status ValidateCrossComponentDependencies(
-        const AnalyzerInput &input,
-        const std::unordered_map<int, std::set<int>>& directDeps,
-        const std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>>& crossComponentTensors);
+    std::unordered_map<int, std::set<int>> AnalyzeComponentDependencies(
+        Function &mixFunc, std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>> &crossComponentTensors);
+    Status ValidateCrossComponentDependencies(const AnalyzerInput &input,
+        const std::unordered_map<int, std::set<int>> &directDeps,
+        const std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>> &crossComponentTensors);
     // 2.计算依赖传递闭包
     void ComputeDependencyClosure(std::unordered_map<int, std::set<int>> &dependencies);
     // 3.提取外部依赖
@@ -75,7 +72,7 @@ public:
     // 最后转成控制边的依赖internalDeps
     // 先识别cube/vector, component先标上
     void CollectInternalDependencies(const std::unordered_map<int, std::set<int>> &dependencyClosure,
-                                    const std::vector<InternalComponentInfo> &components);
+        const std::vector<InternalComponentInfo> &components);
     // 6.消除冗余依赖
     // 将多余的依赖转换成普通的依赖
     // 可以优化一下，只消除了外部的
@@ -84,11 +81,12 @@ public:
 
     // 基于可达性移除冗余的外部依赖
     void EliminateRedundantOuterDeps(const std::vector<std::vector<bool>> &innerDeps,
-                                    std::unordered_map<int, std::vector<SimpleTensorParam>> &allTensors);
+        std::unordered_map<int, std::vector<SimpleTensorParam>> &allTensors);
     // 基于可达性移除冗余的内部依赖
     void EliminateRedundantInnerDeps(std::vector<std::vector<bool>> &innerDeps);
     // 外部接口
     Status ProcessDependencyAnalyzer(const AnalyzerInput &input, AnalyzerOutput &output);
+
 private:
     // 完成闭包信息的初始化处理
     void InitDependencies(std::unordered_map<int, std::set<int>> &dependencies);
@@ -106,9 +104,10 @@ private:
 
     void Reset();
     std::vector<std::vector<bool>> Transpose(const std::vector<std::vector<bool>> &matrix);
-    bool IsTensorInComponentIncasts(int compId, const LogicalTensorPtr& tensor) const;
-    bool CheckDirectionAndCollectValid(const std::vector<LogicalTensorPtr>& tensors, int src, int dst, bool& hasValid) const;
-    void LogIllegalBidirectionalDependency(int comp1, int comp2, const AnalyzerInput& input) const;
+    bool IsTensorInComponentIncasts(int compId, const LogicalTensorPtr &tensor) const;
+    bool CheckDirectionAndCollectValid(
+        const std::vector<LogicalTensorPtr> &tensors, int src, int dst, bool &hasValid) const;
+    void LogIllegalBidirectionalDependency(int comp1, int comp2, const AnalyzerInput &input) const;
     int maxComponent;
     SubgraphToFunction subgraphToFunction;
     std::vector<InternalDependencyInfo> internalDeps;

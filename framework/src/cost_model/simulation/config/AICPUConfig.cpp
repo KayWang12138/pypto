@@ -18,21 +18,20 @@
 using namespace std;
 
 namespace CostModel {
-AICPUConfig::AICPUConfig()
-{
+AICPUConfig::AICPUConfig() {
     Config::prefix = "AICPU";
     Config::dispatcher = {
-        {"completionCycles", [&](string v){ completionCycles = ParseInteger(v); }},
-        {"schedulerCycles", [&](string v){ schedulerCycles = ParseInteger(v); }},
-        {"resolveCycles", [&](string v){ resolveCycles = ParseInteger(v); }},
-        {"threadsNum", [&](string v){ threadsNum = ParseInteger(v); }},
+        {"completionCycles", [&](string v) { completionCycles = ParseInteger(v); }},
+        { "schedulerCycles",  [&](string v) { schedulerCycles = ParseInteger(v); }},
+        {   "resolveCycles",    [&](string v) { resolveCycles = ParseInteger(v); }},
+        {      "threadsNum",       [&](string v) { threadsNum = ParseInteger(v); }},
     };
 
     Config::recorder = {
-        {"completionCycles", [&](){ return "completionCycles = " + ParameterToStr(completionCycles); }},
-        {"schedulerCycles", [&](){ return "schedulerCycles = " + ParameterToStr(schedulerCycles); }},
-        {"resolveCycles", [&](){ return "resolveCycles = " + ParameterToStr(resolveCycles); }},
-        {"threadsNum", [&](){ return "threadsNum = " + ParameterToStr(threadsNum); }},
+        {"completionCycles", [&]() { return "completionCycles = " + ParameterToStr(completionCycles); }},
+        { "schedulerCycles",   [&]() { return "schedulerCycles = " + ParameterToStr(schedulerCycles); }},
+        {   "resolveCycles",       [&]() { return "resolveCycles = " + ParameterToStr(resolveCycles); }},
+        {      "threadsNum",             [&]() { return "threadsNum = " + ParameterToStr(threadsNum); }},
     };
 }
-}
+} // namespace CostModel

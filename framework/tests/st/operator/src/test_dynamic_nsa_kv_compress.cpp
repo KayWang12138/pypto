@@ -41,7 +41,6 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 
 template <typename T = npu::tile_fwk::bfloat16>
 void TestCmpKv(CmpAttnTile &tileConfig) {
-
     int paramsSize = 13;
     std::vector<int32_t> input_param(paramsSize);
     readInput<int32_t>(GetGoldenDir() + "/input_param.bin", input_param);
@@ -183,7 +182,6 @@ TEST_F(DynKVCmp, KVCmpBatch32bf16) {
 
 template <typename T = npu::tile_fwk::bfloat16>
 void TestAuxTensor() {
-
     int paramsSize = 13;
     std::vector<int32_t> input_param(paramsSize);
     readInput<int32_t>(GetGoldenDir() + "/input_param.bin", input_param);
@@ -205,8 +203,8 @@ void TestAuxTensor() {
             (void)bIdx;
             TileShape::Current().SetVecTile(1, auxVecLen);
             for (int i = 0; i < rs + rc - 1; i++) {
-                auto auxVector = npu::tile_fwk::Full(
-                    Element(dType, float(min(i + 1, rc) - max(i - rs, 0))), dType, {1, auxVecLen});
+                auto auxVector =
+                    npu::tile_fwk::Full(Element(dType, float(min(i + 1, rc) - max(i - rs, 0))), dType, {1, auxVecLen});
                 Assemble(auxVector, {i, 0}, auxTensor);
             }
         }
@@ -215,7 +213,7 @@ void TestAuxTensor() {
     auto auxTensorOutput = RawTensorData::CreateConstantTensor<T>(auxTensor, 0.0f);
     std::vector<RawTensorDataPtr> inputDataList = {};
     std::vector<RawTensorDataPtr> outputDataList = {auxTensorOutput};
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),inputDataList, outputDataList);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
 
     EXPECT_TRUE(resultCmp<T>(auxTensorGolden, (T *)auxTensorOutput->data(), 0.008f));
 }

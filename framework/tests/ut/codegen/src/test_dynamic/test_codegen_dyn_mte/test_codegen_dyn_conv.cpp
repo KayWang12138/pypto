@@ -63,40 +63,42 @@ Function *GetFunctionConv(const std::string &funcName) {
     return function;
 }
 
-void SetConvL1CopyInOpAttr(Operation &op, const bool &isConv3D, std::vector<int64_t> gmShape,
-    std::vector<int64_t> dstL1Shape) {
+void SetConvL1CopyInOpAttr(
+    Operation &op, const bool &isConv3D, std::vector<int64_t> gmShape, std::vector<int64_t> dstL1Shape) {
     std::vector<int64_t> offset = {0, 0, 0, 0};
     if (isConv3D) {
         offset = {0, 0, 0, 0, 0};
     }
-    auto copyAttr = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified(offset),
-        MemoryType::MEM_L1, OpImmediate::Specified(gmShape), OpImmediate::Specified(dstL1Shape),
-        OpImmediate::Specified(dstL1Shape));
+    auto copyAttr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset), MemoryType::MEM_L1,
+        OpImmediate::Specified(gmShape), OpImmediate::Specified(dstL1Shape), OpImmediate::Specified(dstL1Shape));
     op.SetOpAttribute(copyAttr);
 }
 
 std::string TestConvL1CopyInBody(const std::string &funcName, const std::vector<int64_t> &gmShape, bool isFmap = true,
     int64_t copyInMode = 3, DataType dtype = DataType::DT_FP16) {
-    std::map<DataType, int64_t> k0Map = {{DataType::DT_FP16, 16}, {DataType::DT_BF16, 16}, {DataType::DT_FP32, 8}};
+    std::map<DataType, int64_t> k0Map = {
+        {DataType::DT_FP16, 16},
+        {DataType::DT_BF16, 16},
+        {DataType::DT_FP32,  8}
+    };
     bool isConv3D = gmShape.size() == 5;
     auto function = GetFunctionConv(funcName);
     auto gmTensor = CreateConvTensor(*function, dtype, gmShape, MemoryType::MEM_DEVICE_DDR);
     std::vector<int64_t> dstL1Shape;
     if (isConv3D) {
         if (isFmap) {
-            dstL1Shape = {gmShape[0], gmShape[2], CeilDiv(gmShape[1], k0Map[dtype]), gmShape[3], gmShape[4],
-                          k0Map[dtype]};
+            dstL1Shape = {
+                gmShape[0], gmShape[2], CeilDiv(gmShape[1], k0Map[dtype]), gmShape[3], gmShape[4], k0Map[dtype]};
         } else {
             dstL1Shape = {CeilDiv(gmShape[1], k0Map[dtype]) * gmShape[2] * gmShape[3] * gmShape[4],
-                          CeilDiv(gmShape[0], N0), N0, k0Map[dtype]};
+                CeilDiv(gmShape[0], N0), N0, k0Map[dtype]};
         }
     } else {
         if (isFmap) {
             dstL1Shape = {gmShape[0], CeilDiv(gmShape[1], k0Map[dtype]), gmShape[2], gmShape[3], k0Map[dtype]};
         } else {
-            dstL1Shape = {CeilDiv(gmShape[1], k0Map[dtype]) * gmShape[2] * gmShape[3], CeilDiv(gmShape[0], N0), N0,
-                          k0Map[dtype]};
+            dstL1Shape = {
+                CeilDiv(gmShape[1], k0Map[dtype]) * gmShape[2] * gmShape[3], CeilDiv(gmShape[0], N0), N0, k0Map[dtype]};
         }
     }
     auto localTensor = CreateConvTensor(*function, dtype, dstL1Shape, MemoryType::MEM_L1);
@@ -164,7 +166,8 @@ std::string TestConvL0COutBody(const std::string &funcName, const std::vector<in
     op.SetAttribute("COPY_OUT_MODE", copyOutMode);
     op.SetAttribute("IS_CONV3D", isConv3D);
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified(offset), shapeImme, shapeImme, shapeImme));
+    op.SetOpAttribute(
+        std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified(offset), shapeImme, shapeImme, shapeImme));
 
     CodeGenCtx ctx;
     CodeGenCloudNPU codegen(ctx);
@@ -211,8 +214,14 @@ std::string TestConvLoad3DBody(const std::string &funcName, const bool &isConv3D
     auto function = GetFunctionConv(funcName);
 
     const std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L1, {16, 16}, dynValidShape});
-    auto l0Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0A, {16, 16}, dynValidShape});
+    auto l1Tensor = CreateLogicalTensor({
+        *function, DataType::DT_FP16, MemoryType::MEM_L1, {16, 16},
+           dynValidShape
+    });
+    auto l0Tensor = CreateLogicalTensor({
+        *function, DataType::DT_FP16, MemoryType::MEM_L0A, {16, 16},
+           dynValidShape
+    });
 
     std::vector<int64_t> offset = {0, 0};
     std::vector<SymbolicScalar> dynoffset = {0, 0};
@@ -253,8 +262,14 @@ std::string TestConvLoad2DBody(const std::string &funcName) {
     auto function = GetFunctionConv(funcName);
 
     const std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L1, {16, 16}, dynValidShape});
-    auto l0Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0B, {16, 16}, dynValidShape});
+    auto l1Tensor = CreateLogicalTensor({
+        *function, DataType::DT_FP16, MemoryType::MEM_L1, {16, 16},
+           dynValidShape
+    });
+    auto l0Tensor = CreateLogicalTensor({
+        *function, DataType::DT_FP16, MemoryType::MEM_L0B, {16, 16},
+           dynValidShape
+    });
 
     std::vector<int64_t> offset = {0, 0};
     std::vector<SymbolicScalar> dynoffset = {0, 0};

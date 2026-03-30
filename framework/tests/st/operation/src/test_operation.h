@@ -42,18 +42,14 @@ inline SymbolicScalar CeilDivSymbolicScalar(SymbolicScalar a, int b) {
     return (a + b - 1) / b;
 }
 
-using OpFunc = std::function<void(
-    const std::vector<Tensor>&,
-    std::vector<Tensor>&,
-    const OpFuncArgs*
-)>;
+using OpFunc = std::function<void(const std::vector<Tensor> &, std::vector<Tensor> &, const OpFuncArgs *)>;
 
 struct TestCaseDesc {
     std::vector<Tensor> inputTensors;
     std::vector<Tensor> outputTensors;
     std::vector<std::string> inputPaths;
     std::vector<std::string> goldenPaths;
-    const OpFuncArgs* args;
+    const OpFuncArgs *args;
     OpFunc opFunc;
     bool onBoard{true};
 };
@@ -79,20 +75,17 @@ struct MatmulTestCaseParam {
 
 class TestExecutor {
 public:
-    static void setGMNotClear() {
-        gmClearFlag = false;
-    }
-    static void runTest(const TestCaseDesc& testCase) {
+    static void setGMNotClear() { gmClearFlag = false; }
+    static void runTest(const TestCaseDesc &testCase) {
         init();
         verifyOpResults(testCase);
     }
 
 private:
     static inline bool gmClearFlag = true;
-    static void init() {
-    }
+    static void init() {}
 
-    static void verifyOpResults(const TestCaseDesc& testCase) {
+    static void verifyOpResults(const TestCaseDesc &testCase) {
         // 设置输入数据
         std::vector<RawTensorDataPtr> inputs;
         ASSERT_EQ(testCase.inputTensors.size(), testCase.inputPaths.size());
@@ -122,10 +115,12 @@ private:
                 } else {
                     switch (testCase.outputTensors[i].GetDataType()) {
                         case DataType::DT_FP32:
-                            outputs.push_back(RawTensorData::CreateConstantTensor<float>(testCase.outputTensors[i], 1.0));
+                            outputs.push_back(
+                                RawTensorData::CreateConstantTensor<float>(testCase.outputTensors[i], 1.0));
                             break;
                         case DataType::DT_INT32:
-                            outputs.push_back(RawTensorData::CreateConstantTensor<int32_t>(testCase.outputTensors[i], 1));
+                            outputs.push_back(
+                                RawTensorData::CreateConstantTensor<int32_t>(testCase.outputTensors[i], 1));
                             break;
                         default:
                             ASSERT_TRUE(false) << "no support dtype " << testCase.outputTensors[i].GetDataType();
@@ -149,67 +144,37 @@ private:
         readGoldenCmpType(testCase);
     }
 
-    static void readGoldenCmpType(const TestCaseDesc& testCase) {
+    static void readGoldenCmpType(const TestCaseDesc &testCase) {
         for (size_t i = 0; i < testCase.outputTensors.size(); ++i) {
-            auto& tensor = testCase.outputTensors[i];
+            auto &tensor = testCase.outputTensors[i];
             switch (tensor.GetDataType()) {
-                case DataType::DT_FP32:
-                    readGoldenCmp<float>(tensor, testCase.goldenPaths[i], i, 0.005f);
-                    break;
+                case DataType::DT_FP32: readGoldenCmp<float>(tensor, testCase.goldenPaths[i], i, 0.005f); break;
                 case DataType::DT_FP16:
                     readGoldenCmp<npu::tile_fwk::float16>(tensor, testCase.goldenPaths[i], i, 0.005f);
                     break;
                 case DataType::DT_BF16:
                     readGoldenCmp<npu::tile_fwk::bfloat16>(tensor, testCase.goldenPaths[i], i, 0.005f);
                     break;
-                case DataType::DT_INT8:
-                    readGoldenCmp<int8_t>(tensor, testCase.goldenPaths[i], i, 0);
-                    break;
-                case DataType::DT_BOOL:
-                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
-                    break;
-                case DataType::DT_INT16:
-                    readGoldenCmp<int16_t>(tensor, testCase.goldenPaths[i], i, 0);
-                    break;
-                case DataType::DT_INT32:
-                    readGoldenCmp<int32_t>(tensor, testCase.goldenPaths[i], i, 0);
-                    break;
-                case DataType::DT_INT64:
-                    readGoldenCmp<int64_t>(tensor, testCase.goldenPaths[i], i, 0);
-                    break;
-                case DataType::DT_UINT8:
-                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
-                    break;
-                case DataType::DT_UINT16:
-                    readGoldenCmp<uint16_t>(tensor, testCase.goldenPaths[i], i, 0);
-                    break;
-                case DataType::DT_UINT32:
-                    readGoldenCmp<uint32_t>(tensor, testCase.goldenPaths[i], i, 0);
-                    break;
-                case DataType::DT_UINT64:
-                    readGoldenCmp<uint64_t>(tensor, testCase.goldenPaths[i], i, 0);
-                    break;
-                case DataType::DT_HF8:
-                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
-                    break;
-                case DataType::DT_FP8E4M3:
-                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
-                    break;
-                case DataType::DT_FP8E5M2:
-                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
-                    break;
-                case DataType::DT_FP8E8M0:
-                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
-                    break;
-                default:
-                    ASSERT_TRUE(false) << "no support dtype " << tensor.GetDataType();
-                    break;
+                case DataType::DT_INT8: readGoldenCmp<int8_t>(tensor, testCase.goldenPaths[i], i, 0); break;
+                case DataType::DT_BOOL: readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0); break;
+                case DataType::DT_INT16: readGoldenCmp<int16_t>(tensor, testCase.goldenPaths[i], i, 0); break;
+                case DataType::DT_INT32: readGoldenCmp<int32_t>(tensor, testCase.goldenPaths[i], i, 0); break;
+                case DataType::DT_INT64: readGoldenCmp<int64_t>(tensor, testCase.goldenPaths[i], i, 0); break;
+                case DataType::DT_UINT8: readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0); break;
+                case DataType::DT_UINT16: readGoldenCmp<uint16_t>(tensor, testCase.goldenPaths[i], i, 0); break;
+                case DataType::DT_UINT32: readGoldenCmp<uint32_t>(tensor, testCase.goldenPaths[i], i, 0); break;
+                case DataType::DT_UINT64: readGoldenCmp<uint64_t>(tensor, testCase.goldenPaths[i], i, 0); break;
+                case DataType::DT_HF8: readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0); break;
+                case DataType::DT_FP8E4M3: readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0); break;
+                case DataType::DT_FP8E5M2: readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0); break;
+                case DataType::DT_FP8E8M0: readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0); break;
+                default: ASSERT_TRUE(false) << "no support dtype " << tensor.GetDataType(); break;
             }
         }
     }
 
-    template<typename T>
-    static void readGoldenCmp(const Tensor& tensor, const std::string& goldenPath, size_t index, T tolerance) {
+    template <typename T>
+    static void readGoldenCmp(const Tensor &tensor, const std::string &goldenPath, size_t index, T tolerance) {
         size_t elementCount = 1;
         for (int dim : tensor.GetShape()) {
             elementCount *= dim;
@@ -217,7 +182,7 @@ private:
         std::vector<T> goldenOutput(elementCount, 0);
         readInput<T>(goldenPath, goldenOutput);
         auto actualData = ProgramData::GetInstance().GetOutputData(index);
-        const T* actual = (T*)actualData->data();
+        const T *actual = (T *)actualData->data();
         int ret = resultCmp(goldenOutput, actual, tolerance);
         EXPECT_EQ(ret, true);
     }
@@ -225,7 +190,7 @@ private:
 
 class TestFlowVerifier {
 public:
-    static void runTest(const TestCaseDesc& testCase) {
+    static void runTest(const TestCaseDesc &testCase) {
         init();
         verifyOpResults(testCase);
     }
@@ -236,10 +201,10 @@ private:
         config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     }
 
-    static void verifyOpResults(const TestCaseDesc& testCase) {
+    static void verifyOpResults(const TestCaseDesc &testCase) {
         // 设置输出Tensor
         std::vector<RawTensorDataPtr> outputs;
-        for (const auto& tensor : testCase.outputTensors) {
+        for (const auto &tensor : testCase.outputTensors) {
             outputs.push_back(RawTensorData::CreateTensorZero(tensor));
         }
         ProgramData::GetInstance().AppendOutputs({outputs});
@@ -269,52 +234,28 @@ private:
         testCase.opFunc(testCase.inputTensors, nonConstOutputs, testCase.args);
     }
 
-    static void appendGoldenType(const TestCaseDesc& testCase) {
+    static void appendGoldenType(const TestCaseDesc &testCase) {
         for (size_t i = 0; i < testCase.outputTensors.size(); ++i) {
-            auto& tensor = testCase.outputTensors[i];
+            auto &tensor = testCase.outputTensors[i];
             switch (tensor.GetDataType()) {
-                case DataType::DT_FP32:
-                    appendGolden<float>(tensor, testCase.goldenPaths[i]);
-                    break;
-                case DataType::DT_FP16:
-                    appendGolden<npu::tile_fwk::float16>(tensor, testCase.goldenPaths[i]);
-                    break;
-                case DataType::DT_BF16:
-                    appendGolden<npu::tile_fwk::bfloat16>(tensor, testCase.goldenPaths[i]);
-                    break;
-                case DataType::DT_INT8:
-                    appendGolden<int8_t>(tensor, testCase.goldenPaths[i]);
-                    break;
-                case DataType::DT_INT16:
-                    appendGolden<int16_t>(tensor, testCase.goldenPaths[i]);
-                    break;
-                case DataType::DT_INT32:
-                    appendGolden<int32_t>(tensor, testCase.goldenPaths[i]);
-                    break;
-                case DataType::DT_INT64:
-                    appendGolden<int64_t>(tensor, testCase.goldenPaths[i]);
-                    break;
-                case DataType::DT_UINT8:
-                    appendGolden<uint8_t>(tensor, testCase.goldenPaths[i]);
-                    break;
-                case DataType::DT_UINT16:
-                    appendGolden<uint16_t>(tensor, testCase.goldenPaths[i]);
-                    break;
-                case DataType::DT_UINT32:
-                    appendGolden<uint32_t>(tensor, testCase.goldenPaths[i]);
-                    break;
-                case DataType::DT_UINT64:
-                    appendGolden<uint64_t>(tensor, testCase.goldenPaths[i]);
-                    break;
-                default:
-                    ASSERT_TRUE(false) << "no support dtype " << tensor.GetDataType();
-                    break;
+                case DataType::DT_FP32: appendGolden<float>(tensor, testCase.goldenPaths[i]); break;
+                case DataType::DT_FP16: appendGolden<npu::tile_fwk::float16>(tensor, testCase.goldenPaths[i]); break;
+                case DataType::DT_BF16: appendGolden<npu::tile_fwk::bfloat16>(tensor, testCase.goldenPaths[i]); break;
+                case DataType::DT_INT8: appendGolden<int8_t>(tensor, testCase.goldenPaths[i]); break;
+                case DataType::DT_INT16: appendGolden<int16_t>(tensor, testCase.goldenPaths[i]); break;
+                case DataType::DT_INT32: appendGolden<int32_t>(tensor, testCase.goldenPaths[i]); break;
+                case DataType::DT_INT64: appendGolden<int64_t>(tensor, testCase.goldenPaths[i]); break;
+                case DataType::DT_UINT8: appendGolden<uint8_t>(tensor, testCase.goldenPaths[i]); break;
+                case DataType::DT_UINT16: appendGolden<uint16_t>(tensor, testCase.goldenPaths[i]); break;
+                case DataType::DT_UINT32: appendGolden<uint32_t>(tensor, testCase.goldenPaths[i]); break;
+                case DataType::DT_UINT64: appendGolden<uint64_t>(tensor, testCase.goldenPaths[i]); break;
+                default: ASSERT_TRUE(false) << "no support dtype " << tensor.GetDataType(); break;
             }
         }
     }
 
-    template<typename T>
-    static void appendGolden(const Tensor& tensor, const std::string& goldenPath) {
+    template <typename T>
+    static void appendGolden(const Tensor &tensor, const std::string &goldenPath) {
         size_t elementCount = 1;
         for (int dim : tensor.GetShape()) {
             elementCount *= dim;
@@ -329,23 +270,23 @@ private:
 
 static DataType GetDataType(const std::string &name) {
     static const std::map<std::string, DataType> name_to_dtype = {
-        {  "int4",   DataType::DT_INT4},
-        {  "int8",   DataType::DT_INT8},
-        { "int16",  DataType::DT_INT16},
-        { "int32",  DataType::DT_INT32},
-        { "int64",  DataType::DT_INT64},
-        {   "fp8",    DataType::DT_FP8},
-        {  "fp16",   DataType::DT_FP16},
-        {  "fp32",   DataType::DT_FP32},
-        {  "bf16",   DataType::DT_BF16},
-        {   "hf4",    DataType::DT_HF4},
-        {   "hf8",    DataType::DT_HF8},
-        { "uint8",  DataType::DT_UINT8},
-        {"uint16", DataType::DT_UINT16},
-        {"uint32", DataType::DT_UINT32},
-        {"uint64", DataType::DT_UINT64},
-        {  "bool",   DataType::DT_BOOL},
-        {"double", DataType::DT_DOUBLE},
+        {   "int4",    DataType::DT_INT4},
+        {   "int8",    DataType::DT_INT8},
+        {  "int16",   DataType::DT_INT16},
+        {  "int32",   DataType::DT_INT32},
+        {  "int64",   DataType::DT_INT64},
+        {    "fp8",     DataType::DT_FP8},
+        {   "fp16",    DataType::DT_FP16},
+        {   "fp32",    DataType::DT_FP32},
+        {   "bf16",    DataType::DT_BF16},
+        {    "hf4",     DataType::DT_HF4},
+        {    "hf8",     DataType::DT_HF8},
+        {  "uint8",   DataType::DT_UINT8},
+        { "uint16",  DataType::DT_UINT16},
+        { "uint32",  DataType::DT_UINT32},
+        { "uint64",  DataType::DT_UINT64},
+        {   "bool",    DataType::DT_BOOL},
+        { "double",  DataType::DT_DOUBLE},
         {"fp8e4m3", DataType::DT_FP8E4M3},
         {"fp8e5m2", DataType::DT_FP8E5M2},
     };
@@ -496,12 +437,12 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
     }
     if (json_data.at("params").find("l0c2l1_params") != json_data.at("params").end()) {
         if (json_data.at("params").at("l0c2l1_params").find("is_l0c2l1_trans") !=
-                json_data.at("params").at("l0c2l1_params").end()) {
+            json_data.at("params").at("l0c2l1_params").end()) {
             param.l0c2l1IsTrans = GetValueByNameWithKey<bool>(json_data, "is_l0c2l1_trans", "l0c2l1_params");
-            param.enable_l0c2l1 =true;
+            param.enable_l0c2l1 = true;
         }
         if (json_data.at("params").at("l0c2l1_params").find("is_as_left_matrix") !=
-                json_data.at("params").at("l0c2l1_params").end()) {
+            json_data.at("params").at("l0c2l1_params").end()) {
             param.l0c2l1AsLeftMatrix = GetValueByNameWithKey<bool>(json_data, "is_as_left_matrix", "l0c2l1_params");
         }
     }

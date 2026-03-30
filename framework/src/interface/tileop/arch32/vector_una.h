@@ -61,12 +61,12 @@ TILEOP void T_UNA(__ubuf__ T *dst, __ubuf__ T *src) {
             }
         }
         if constexpr (remainAfterLoop) {
-            if(strideOverFlag){
+            if (strideOverFlag) {
                 for (unsigned j = 0; j < remainAfterLoop; j++) {
                     V_UNA_FUNC(dst + numLoop * REPEAT_MAX * DS + j * DS, src + numLoop * REPEAT_MAX * SS + j * SS, 1, 1,
                         1, 1, 1);
                 }
-            }else {
+            } else {
                 V_UNA_FUNC(dst + numLoop * REPEAT_MAX * DS, src + numLoop * REPEAT_MAX * SS, remainAfterLoop, 1, 1,
                     DS / nElemPerBlock, SS / nElemPerBlock);
             }
@@ -76,9 +76,7 @@ TILEOP void T_UNA(__ubuf__ T *dst, __ubuf__ T *src) {
 }
 
 // dim3
-template <typename T, unsigned T0, unsigned T1, unsigned T2,
-         unsigned DS0, unsigned DS1,
-         unsigned SS0, unsigned SS1>
+template <typename T, unsigned T0, unsigned T1, unsigned T2, unsigned DS0, unsigned DS1, unsigned SS0, unsigned SS1>
 TILEOP void T_UNA(__ubuf__ T *dst, __ubuf__ T *src) {
     static_assert((DS1 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((SS1 * sizeof(T)) % BLOCK_SIZE == 0);
@@ -90,9 +88,8 @@ TILEOP void T_UNA(__ubuf__ T *dst, __ubuf__ T *src) {
 }
 
 // dim4
-template <typename T, unsigned T0, unsigned T1, unsigned T2, unsigned T3,
-         unsigned DS0, unsigned DS1, unsigned DS2,
-         unsigned SS0, unsigned SS1, unsigned SS2>
+template <typename T, unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned DS0, unsigned DS1, unsigned DS2,
+    unsigned SS0, unsigned SS1, unsigned SS2>
 TILEOP void T_UNA(__ubuf__ T *dst, __ubuf__ T *src) {
     static_assert((DS2 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((SS2 * sizeof(T)) % BLOCK_SIZE == 0);

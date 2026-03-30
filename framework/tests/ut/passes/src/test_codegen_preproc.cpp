@@ -50,9 +50,11 @@ public:
 };
 
 TEST_F(CodegenPreprocTest, TestSaveGmTensorParamIdxToOp) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestSaveGmTensorParamIdxToOp", "TestSaveGmTensorParamIdxToOp", nullptr);
+    auto rootFuncPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestSaveGmTensorParamIdxToOp", "TestSaveGmTensorParamIdxToOp", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSaveGmTensorParamIdxToOpLeaf", "TestSaveGmTensorParamIdxToOpLeaf", rootFuncPtr.get());
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSaveGmTensorParamIdxToOpLeaf",
+        "TestSaveGmTensorParamIdxToOpLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     rootFuncPtr->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
@@ -96,9 +98,11 @@ TEST_F(CodegenPreprocTest, TestSaveGmTensorParamIdxToOp) {
 }
 
 TEST_F(CodegenPreprocTest, TestForceCombineAxis) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestForceCombineAxis", "TestForceCombineAxis", nullptr);
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestForceCombineAxis", "TestForceCombineAxis", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestForceCombineAxisLeaf", "TestForceCombineAxisLeaf", rootFuncPtr.get());
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestForceCombineAxisLeaf", "TestForceCombineAxisLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     rootFuncPtr->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);

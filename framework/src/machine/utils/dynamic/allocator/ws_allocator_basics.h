@@ -51,14 +51,16 @@ struct WsAllocation {
     operator bool() const { return ptr != 0; }
 
     template <typename T>
-    T *As() { return reinterpret_cast<T *>(ptr); }
+    T *As() {
+        return reinterpret_cast<T *>(ptr);
+    }
 
     template <typename T>
-    const T *As() const { return reinterpret_cast<const T *>(ptr); }
-
-    void Invalidate() {
-        ptr = 0;
+    const T *As() const {
+        return reinterpret_cast<const T *>(ptr);
     }
+
+    void Invalidate() { ptr = 0; }
 
     const char *GetCategoryName() const {
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
@@ -80,12 +82,9 @@ enum class WsAllocatorProperty {
 };
 inline constexpr const char *GetWsAllocatorPropertyName(WsAllocatorProperty property) {
     switch (property) {
-        case WsAllocatorProperty::TENSOR_MEM:
-            return "Tensordata";
-        case WsAllocatorProperty::METADATA_MEM:
-            return "Metadata";
-        default:
-            return "Undefined";
+        case WsAllocatorProperty::TENSOR_MEM: return "Tensordata";
+        case WsAllocatorProperty::METADATA_MEM: return "Metadata";
+        default: return "Undefined";
     }
 }
 enum class WsMemoryState {

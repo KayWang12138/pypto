@@ -39,31 +39,27 @@ public:
         return ns;
     }
 
-    virtual int64_t AicoreGetPhyIdx() {
-        return 0;
-    }
+    virtual int64_t AicoreGetPhyIdx() { return 0; }
 
-    virtual int AicoreGetCoreIdx() {
-        return 0;
-    }
+    virtual int AicoreGetCoreIdx() { return 0; }
 
-    virtual void AicoreSetCond(uint64_t cond) {
-        UNUSED(cond);
-    }
+    virtual void AicoreSetCond(uint64_t cond) { UNUSED(cond); }
 
-    virtual uint64_t AicoreGetData() {
-        return 0;
-    }
+    virtual uint64_t AicoreGetData() { return 0; }
 
-    virtual void AicoreCallSubFuncTask(uint64_t funcIdx, npu::tile_fwk::CoreFuncParam *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext) {
-        UNUSED(funcIdx); UNUSED(param); UNUSED(gmStackAddr); UNUSED(hcclContext);
+    virtual void AicoreCallSubFuncTask(
+        uint64_t funcIdx, npu::tile_fwk::CoreFuncParam *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext) {
+        UNUSED(funcIdx);
+        UNUSED(param);
+        UNUSED(gmStackAddr);
+        UNUSED(hcclContext);
     }
 };
 
 class ThreadAicoreInfo {
 public:
     ThreadAicoreInfo(std::shared_ptr<std::thread> thread, int phyIdx, int coreIdx)
-      : thread_(thread), phyIdx_(phyIdx), coreIdx_(coreIdx) {}
+        : thread_(thread), phyIdx_(phyIdx), coreIdx_(coreIdx) {}
 
     int GetPhyIdx() const { return phyIdx_; }
     int GetCoreIdx() const { return coreIdx_; }
@@ -73,6 +69,7 @@ public:
 
     uint64_t GetData() { return data_; }
     void SetData(uint64_t data) { data_ = data; }
+
 private:
     std::shared_ptr<std::thread> thread_;
     int phyIdx_{-1};
@@ -173,9 +170,7 @@ class AicoreEmulationManager {
 public:
     static AicoreEmulationManager &GetInstance();
 
-    AicoreEmulationManager() {
-        base_ = std::make_shared<AicoreEmulationBase>();
-    }
+    AicoreEmulationManager() { base_ = std::make_shared<AicoreEmulationBase>(); }
 
     void SetupAicoreEmulation(std::shared_ptr<AicoreEmulationBase> curr) { curr_ = curr; }
     void Reset() { curr_ = nullptr; }
@@ -187,12 +182,13 @@ public:
             return base_;
         }
     }
+
 private:
     std::shared_ptr<AicoreEmulationBase> base_;
     std::shared_ptr<AicoreEmulationBase> curr_;
 };
 
-}
+} // namespace npu::tile_fwk::machine
 
 #define dcci(...)
 #define dsb(...)
@@ -224,8 +220,10 @@ static inline uint64_t GetDataMainBase() {
     return mainBase;
 }
 
-static inline void CallSubFuncTask(uint64_t funcIdx, npu::tile_fwk::CoreFuncParam *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext) {
-    npu::tile_fwk::machine::AicoreEmulationManager::GetInstance().GetEmulation()->AicoreCallSubFuncTask(funcIdx, param, gmStackAddr, hcclContext);
+static inline void CallSubFuncTask(
+    uint64_t funcIdx, npu::tile_fwk::CoreFuncParam *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext) {
+    npu::tile_fwk::machine::AicoreEmulationManager::GetInstance().GetEmulation()->AicoreCallSubFuncTask(
+        funcIdx, param, gmStackAddr, hcclContext);
 }
 
 #define __HAS_SUB_FUNC__

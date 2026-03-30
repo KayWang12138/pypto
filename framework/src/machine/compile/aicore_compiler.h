@@ -21,6 +21,6 @@
 
 namespace npu::tile_fwk {
 int CompileAICoreKernel(std::map<uint64_t, Function *> &leafDict, dynamic::EncodeDevAscendFunctionParam &param,
-                        const std::string &ccePath, const std::string &funcHash, std::string &kernelPath);
+    const std::string &ccePath, const std::string &funcHash, std::string &kernelPath);
 }
-#endif //TILEFRAMEWORK_AICORE_COMPILER_H
+#endif // TILEFRAMEWORK_AICORE_COMPILER_H

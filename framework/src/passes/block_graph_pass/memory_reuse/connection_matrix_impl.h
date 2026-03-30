@@ -55,4 +55,4 @@ private:
 
     Function *func_;
 };
-}
+} // namespace npu::tile_fwk

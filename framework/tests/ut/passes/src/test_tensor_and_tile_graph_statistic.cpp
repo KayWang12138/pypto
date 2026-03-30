@@ -25,22 +25,22 @@
 using json = nlohmann::json;
 namespace npu::tile_fwk {
 
-using LogStrategy = std::function<void(Function&)>;
-void Strategy_PeakMemory(Function& func) {
+using LogStrategy = std::function<void(Function &)>;
+void Strategy_PeakMemory(Function &func) {
     func.SetFunctionType(FunctionType::DYNAMIC);
     json j;
     CalcOperatorInfo(func, j);
 }
 
-void Strategy_CreateDirFailed(Function& func) {
+void Strategy_CreateDirFailed(Function &func) {
     HealthCheckTileGraph(func, "/invalid/readonly/path", "");
 }
 
-void Strategy_OpenFileFailed(Function& func) {
+void Strategy_OpenFileFailed(Function &func) {
     HealthCheckTileGraph(func, "./", "");
 }
 
-void Strategy_AllRemainingLogs(Function& func) {
+void Strategy_AllRemainingLogs(Function &func) {
     HealthCheckTileGraph(func, "./", "test");
     HealthCheckTensorGraph(func, "./", "test");
 }

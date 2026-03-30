@@ -70,7 +70,7 @@ void TensorMap::Insert(std::shared_ptr<LogicalTensor> tobject, bool checkOverlap
 
     // Ensure we allow new tensor to overwrite old tensor with same size and shape
     if (inverseMap_.count(tobject->magic) > 0) {
-        auto& rt = inverseMap_[tobject->magic];
+        auto &rt = inverseMap_[tobject->magic];
         tensorList.erase(rt);
 
         std::vector<int> rtensorShape = tensor2shape(rt);
@@ -80,9 +80,9 @@ void TensorMap::Insert(std::shared_ptr<LogicalTensor> tobject, bool checkOverlap
 
     // method 1
     if (checkOverlap) {
-        if(belongTo.expandFunctionAccelerate){
+        if (belongTo.expandFunctionAccelerate) {
             auto match = Find(tobject);
-            for (auto it = match.begin(); it != match.end(); it ++) {
+            for (auto it = match.begin(); it != match.end(); it++) {
                 // 完全覆盖场景，最后一次写有效，前面的写全部要失效
                 if ((*it)->shape == tobject->shape && (*it)->offset == tobject->offset) {
                     tensorList.erase(*it);
@@ -170,8 +170,7 @@ void TensorMap::Reset() {
     overlapChecker_.clear();
 }
 
-int CalcOverlapSize(const std::shared_ptr<LogicalTensor> &pTensor,
-    const std::shared_ptr<LogicalTensor> &qTensor) {
+int CalcOverlapSize(const std::shared_ptr<LogicalTensor> &pTensor, const std::shared_ptr<LogicalTensor> &qTensor) {
     std::vector<int> overlapEdge;
     for (size_t dim = 0; dim < pTensor->offset.size(); dim++) {
         int pStart = pTensor->offset[dim];
@@ -191,11 +190,8 @@ int CalcOverlapSize(const std::shared_ptr<LogicalTensor> &pTensor,
 // For each dimension, treat it as a closed interval [offset, offset + shape - 1]. If any
 // dimension has no intersection, return NO_OVER_LAP; otherwise return PERFECTLY_MATCH,
 // COVERED (P covers Q), BE_COVERED (Q covers P), or PARTIAL_OVERLAP.
-OverlapStatus CalcOverlapByOffsetShape(const std::vector<int64_t>& pOffset,
-                                       const std::vector<int64_t>& pShape,
-                                       const std::vector<int64_t>& qOffset,
-                                       const std::vector<int64_t>& qShape) noexcept
-{
+OverlapStatus CalcOverlapByOffsetShape(const std::vector<int64_t> &pOffset, const std::vector<int64_t> &pShape,
+    const std::vector<int64_t> &qOffset, const std::vector<int64_t> &qShape) noexcept {
     // Check if tensors have same number of dimensions
     if (pOffset.size() != qOffset.size() || pShape.size() != qShape.size() || pOffset.size() != pShape.size()) {
         return OverlapStatus::NO_OVER_LAP;
@@ -212,9 +208,9 @@ OverlapStatus CalcOverlapByOffsetShape(const std::vector<int64_t>& pOffset,
         // Therefore, they overlap if: !(a + length_a <= b OR b + length_b <= a)
         // Which is equivalent to: a + length_a > b AND b + length_b > a
         const int64_t pStart = pOffset[dim];
-        const int64_t pEnd   = pStart + pShape[dim] - 1;
+        const int64_t pEnd = pStart + pShape[dim] - 1;
         const int64_t qStart = qOffset[dim];
-        const int64_t qEnd   = qStart + qShape[dim] - 1;
+        const int64_t qEnd = qStart + qShape[dim] - 1;
 
         if (pEnd < qStart || qEnd < pStart) {
             return OverlapStatus::NO_OVER_LAP;
@@ -236,11 +232,10 @@ OverlapStatus CalcOverlapByOffsetShape(const std::vector<int64_t>& pOffset,
     }
 }
 
-OverlapStatus CalcOverlap(const std::shared_ptr<LogicalTensor>& pTensor,
-                          const std::shared_ptr<LogicalTensor>& qTensor,
-                          bool loose)
-{
-    if (!pTensor || !qTensor) return OverlapStatus::NO_OVER_LAP;
+OverlapStatus CalcOverlap(
+    const std::shared_ptr<LogicalTensor> &pTensor, const std::shared_ptr<LogicalTensor> &qTensor, bool loose) {
+    if (!pTensor || !qTensor)
+        return OverlapStatus::NO_OVER_LAP;
 
     // Check if tensors have same raw tensor (memory space)
     if (!loose && pTensor->tensor->rawmagic != qTensor->tensor->rawmagic) {
@@ -303,13 +298,14 @@ std::vector<std::shared_ptr<LogicalTensor>> TensorMap::Find(std::shared_ptr<Logi
     auto it = tensorMap_.find(ttensor->tensor->rawmagic);
     if (it == tensorMap_.end()) {
         /* Root function does not belong to any other functions. */
-        if (!belongTo.HasParent() || belongTo.IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::EXECUTE_GRAPH)) {
+        if (!belongTo.HasParent() ||
+            belongTo.IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::EXECUTE_GRAPH)) {
             return {};
         }
         return belongTo.Parent().GetTensorMap().Find(ttensor);
     }
 
-    if(belongTo.expandFunctionAccelerate){
+    if (belongTo.expandFunctionAccelerate) {
         std::vector<int> tensorShape = tensor2shape(ttensor);
         int rawmagic = ttensor->tensor->rawmagic;
         result = overlapChecker_[rawmagic].Find(tensorShape);
@@ -325,6 +321,5 @@ std::vector<std::shared_ptr<LogicalTensor>> TensorMap::Find(std::shared_ptr<Logi
     return result;
 }
 
-void TensorMap::ValidCheck() const {
-}
+void TensorMap::ValidCheck() const {}
 } // namespace npu::tile_fwk

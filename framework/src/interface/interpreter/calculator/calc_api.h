@@ -75,8 +75,8 @@ struct CalcOps {
     void (*Reciprocal)(const TensorData &, const TensorData &);
     void (*Relu)(const TensorData &, const TensorData &);
     void (*Log1p)(const TensorData &, const TensorData &);
-    void (*Pad)(const TensorData &, const TensorData &, const Element&);
-    void (*FillPad)(const TensorData &, const TensorData &, const Element&);
+    void (*Pad)(const TensorData &, const TensorData &, const Element &);
+    void (*FillPad)(const TensorData &, const TensorData &, const Element &);
     void (*BitwiseNot)(const TensorData &, const TensorData &);
     void (*Abs)(const TensorData &, const TensorData &);
     void (*Brcb)(const TensorData &, const TensorData &);
@@ -151,7 +151,8 @@ struct CalcOps {
     void (*Expand)(const TensorData &, const TensorData &);
     void (*GatherElements)(const TensorData &, const TensorData &, const TensorData &, int);
     void (*GatherMask)(const TensorData &, const TensorData &, int);
-    void (*IndexAdd)(const TensorData &, const TensorData &, const TensorData &, const TensorData &, int, const Element &);
+    void (*IndexAdd)(
+        const TensorData &, const TensorData &, const TensorData &, const TensorData &, int, const Element &);
     void (*TriU)(const TensorData &, const TensorData &, int);
     void (*TriL)(const TensorData &, const TensorData &, int);
     void (*CumSum)(const TensorData &, const TensorData &, int);
@@ -164,17 +165,18 @@ struct CalcOps {
 
     void (*ReduceAcc)(const TensorData &, const std::vector<TensorData> &);
     void (*Copy)(const TensorData &, const TensorData &, bool);
-    void (*ScatterUpdate)(const TensorData &, const TensorData &, const TensorData &, const TensorData &, int, std::string, int);
+    void (*ScatterUpdate)(
+        const TensorData &, const TensorData &, const TensorData &, const TensorData &, int, std::string, int);
     void (*ScatterElement)(const TensorData &, const TensorData &, const TensorData &, const Element &, int, int);
-    void (*Scatter)(const TensorData &, const TensorData &, const TensorData &, const TensorData &,
-        int, int);
+    void (*Scatter)(const TensorData &, const TensorData &, const TensorData &, const TensorData &, int, int);
     void (*FormatND2NZ)(const TensorData &, const TensorData &);
     void (*FormatNZ2ND)(const TensorData &, const TensorData &);
     void (*QuantPreCompute)(const TensorData &, const TensorData &, const TensorData *, uint64_t, int);
     void (*MatMul)(const TensorData &, const TensorData &, const TensorData &, const TensorData *, MatMulParam &);
 
     void (*BitSort)(const TensorData &, const TensorData &, int64_t, bool, int64_t);
-    void (*TiledMrgSort)(const TensorData &, const TensorData &, const TensorData &, const TensorData &, const TensorData &, int, int);
+    void (*TiledMrgSort)(
+        const TensorData &, const TensorData &, const TensorData &, const TensorData &, const TensorData &, int, int);
     void (*Extract)(const TensorData &, const TensorData &, int, bool);
     void (*MrgSort)(const TensorData &, const TensorData &, int64_t, int64_t);
     void (*TopK)(const TensorData &, const TensorData &, const TensorData &, int, int, bool);
@@ -186,8 +188,7 @@ struct CalcOps {
     void (*Gather)(const TensorData &, const TensorData &, const TensorData &, int64_t);
     void (*GatherINUB)(
         const TensorData &, const TensorData &, const TensorData &, const TensorData &, int64_t, int64_t);
-    void (*GatherInL1)(
-        const TensorData &, const TensorData &, const TensorData &, const TensorData &, int64_t);
+    void (*GatherInL1)(const TensorData &, const TensorData &, const TensorData &, const TensorData &, int64_t);
     void (*BitwiseRightShift)(const TensorData &, const TensorData &, const TensorData &);
     void (*BitwiseLeftShift)(const TensorData &, const TensorData &, const TensorData &);
     void (*BitwiseRightShiftS)(const TensorData &, const TensorData &, const Element &);

@@ -86,17 +86,16 @@ public:
     }
 
     void SetCachePolicy(CachePolicy policy, bool value) {
-      cachePolicy_[static_cast<int>(policy)] = value;
-      if (value && (cachePolicy_[static_cast<int>(CachePolicy::PREFETCH)] ==
-          cachePolicy_[static_cast<int>(CachePolicy::NONE_CACHEABLE)])) {
-          FUNCTION_LOGW("Prefetch and none cacheable can not apply at same time, use the first config policy.");
-          cachePolicy_[static_cast<int>(policy)] = false;
-      }
+        cachePolicy_[static_cast<int>(policy)] = value;
+        if (value && (cachePolicy_[static_cast<int>(CachePolicy::PREFETCH)] ==
+                         cachePolicy_[static_cast<int>(CachePolicy::NONE_CACHEABLE)])) {
+            FUNCTION_LOGW("Prefetch and none cacheable can not apply at same time, use the first config policy.");
+            cachePolicy_[static_cast<int>(policy)] = false;
+        }
     }
 
-    bool GetCachePolicy(CachePolicy policy) const {
-      return cachePolicy_[static_cast<int>(policy)];
-    }
+    bool GetCachePolicy(CachePolicy policy) const { return cachePolicy_[static_cast<int>(policy)]; }
+
 private:
     bool isDummy_{false};
     int refCount_{0}; // 被 npu::tile_fwk::Tensor引用的次数，用于outcast自动推导

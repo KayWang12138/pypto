@@ -17,66 +17,66 @@
 
 namespace npu::tile_fwk {
 OpInfoManager &OpInfoManager::GetInstance() {
-  static OpInfoManager instance;
-  return instance;
+    static OpInfoManager instance;
+    return instance;
 }
 
 // need add check
 void OpInfoManager::SetOpTilingKey(uint64_t opTilingKey) {
-  opTilingKey_ = (opTilingKey & MAIN_KEY_MASK);
-  return;
+    opTilingKey_ = (opTilingKey & MAIN_KEY_MASK);
+    return;
 }
 
 uint64_t OpInfoManager::GetOpTilingKey() const {
-  return opTilingKey_;
+    return opTilingKey_;
 }
 
 // need check
 uint64_t OpInfoManager::GetNewSubTilingKey() {
-  std::lock_guard<std::mutex> lock(mtx_);
-  subTilingKey_++;
-  uint64_t cur_key = (subTilingKey_ << SUB_KEY_OFFSET) | opTilingKey_;
-  return cur_key;
+    std::lock_guard<std::mutex> lock(mtx_);
+    subTilingKey_++;
+    uint64_t cur_key = (subTilingKey_ << SUB_KEY_OFFSET) | opTilingKey_;
+    return cur_key;
 }
 
 uint64_t OpInfoManager::GetCurSubTilingKey() const {
-  uint64_t cur_key = (subTilingKey_ << SUB_KEY_OFFSET) | opTilingKey_;
-  return cur_key;
+    uint64_t cur_key = (subTilingKey_ << SUB_KEY_OFFSET) | opTilingKey_;
+    return cur_key;
 }
 
 void OpInfoManager::SetOpType(const std::string &opType) {
-  opType_ = opType;
-  return;
+    opType_ = opType;
+    return;
 }
 
 const std::string &OpInfoManager::GetOpType() const {
-  return opType_;
+    return opType_;
 }
 
-std::vector<char>& OpInfoManager::GetControlBuffer() {
-  return controlBuffer_;
+std::vector<char> &OpInfoManager::GetControlBuffer() {
+    return controlBuffer_;
 }
 
-std::vector<char>& OpInfoManager::GetCustomJson() {
-  return customJson_;
+std::vector<char> &OpInfoManager::GetCustomJson() {
+    return customJson_;
 }
 
 std::string &OpInfoManager::GetCustomOpJsonPath() {
-  return controlFlowSoPath_;
+    return controlFlowSoPath_;
 }
 
 void *OpInfoManager::GetControlBinHandle(const std::string &controlJsonPath) {
- if (controlBinHandle_.find(controlJsonPath) != controlBinHandle_.end()) {
-    return controlBinHandle_[controlJsonPath];
- }
- return nullptr;
+    if (controlBinHandle_.find(controlJsonPath) != controlBinHandle_.end()) {
+        return controlBinHandle_[controlJsonPath];
+    }
+    return nullptr;
 }
 
 void OpInfoManager::SetControlBinHandle(void *controlFlowBindHandle) {
-  controlBinHandle_[controlFlowSoPath_] = controlFlowBindHandle;
+    controlBinHandle_[controlFlowSoPath_] = controlFlowBindHandle;
 }
 
 std::string &OpInfoManager::GetOpFuncName() {
-  return funcName_;
+    return funcName_;
 }
-}
+} // namespace npu::tile_fwk

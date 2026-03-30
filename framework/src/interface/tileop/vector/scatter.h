@@ -41,8 +41,8 @@ TILEOP void TscatterElementS(T0 dst, T1 src1, Scalar src2) {
 
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
-    auto idxAddr = (__ubuf__ typename T1::Type*)((uint64_t)(src1.GetAddr()));
-    auto dstAddr = (__ubuf__ typename T0::Type*)((uint64_t)(dst.GetAddr()));
+    auto idxAddr = (__ubuf__ typename T1::Type *)((uint64_t)(src1.GetAddr()));
+    auto dstAddr = (__ubuf__ typename T0::Type *)((uint64_t)(dst.GetAddr()));
     for (LoopVar i = 0; i < n0IdxShape; ++i) {
         for (LoopVar j = 0; j < n1IdxShape; ++j) {
             for (LoopVar k = 0; k < n2IdxShape; ++k) {
@@ -65,11 +65,11 @@ TILEOP void TscatterElementS(T0 dst, T1 src1, Scalar src2) {
                         if constexpr (scatterMode == 0) {
                             dstAddr[dstOffset] = src2;
                         } else if constexpr (scatterMode == 1) {
-                            dstAddr[dstOffset] = static_cast<typename T0::Type>(static_cast<float>(src2) +
-                                static_cast<float>(dstAddr[dstOffset]));
+                            dstAddr[dstOffset] = static_cast<typename T0::Type>(
+                                static_cast<float>(src2) + static_cast<float>(dstAddr[dstOffset]));
                         } else {
-                            dstAddr[dstOffset] = static_cast<typename T0::Type>(static_cast<float>(src2) *
-                                static_cast<float>(dstAddr[dstOffset]));
+                            dstAddr[dstOffset] = static_cast<typename T0::Type>(
+                                static_cast<float>(src2) * static_cast<float>(dstAddr[dstOffset]));
                         }
                     }
                 }
@@ -118,11 +118,13 @@ TILEOP void Tscatter(T0 dst, T1 src1, T2 src2, T3 tmp) {
     /* A2 A3不支持vscatter指令，调用pto封装接口会导致性能劣化，因此pypto自行用scalar计算实现，A5正常调用pto接口 */
     constexpr bool scalarFlag = true;
 #else
-    constexpr bool scalarFlag = ((sizeof(typename T1::Type) == 8) || (scatterMode > 0) ||
-        (dstTypeSize == 2 && idxTypeSize == 4)) ? true : false;
+    constexpr bool scalarFlag =
+        ((sizeof(typename T1::Type) == 8) || (scatterMode > 0) || (dstTypeSize == 2 && idxTypeSize == 4)) ? true :
+                                                                                                            false;
 #endif
     constexpr auto dstTileShapeH = TileOp::GetOutterAxisMergeResult<shapeSize, typename T0::TileShape>();
-    using dstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileShapeH, dstTileW, pto::BLayout::RowMajor>;
+    using dstTileDefine =
+        pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileShapeH, dstTileW, pto::BLayout::RowMajor>;
     using idxTileDefine = pto::Tile<pto::TileType::Vec, typename T1::Type, 1, idxTileW, pto::BLayout::RowMajor, -1, -1>;
     using srcTileDefine = pto::Tile<pto::TileType::Vec, typename T2::Type, 1, srcTileW, pto::BLayout::RowMajor>;
     dstTileDefine dstTile;
@@ -133,10 +135,10 @@ TILEOP void Tscatter(T0 dst, T1 src1, T2 src2, T3 tmp) {
         set_flag(PIPE_V, PIPE_S, EVENT_ID7);
         wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     }
-    auto dstAddr = (__ubuf__ typename T0::Type*)((uint64_t)(dst.GetAddr()));
-    auto idxAddr = (__ubuf__ typename T1::Type*)((uint64_t)(src1.GetAddr()));
-    auto srcAddr = (__ubuf__ typename T2::Type*)((uint64_t)(src2.GetAddr()));
-    auto tmpAddr = (__ubuf__ typename T3::Type*)((uint64_t)(tmp.GetAddr()));
+    auto dstAddr = (__ubuf__ typename T0::Type *)((uint64_t)(dst.GetAddr()));
+    auto idxAddr = (__ubuf__ typename T1::Type *)((uint64_t)(src1.GetAddr()));
+    auto srcAddr = (__ubuf__ typename T2::Type *)((uint64_t)(src2.GetAddr()));
+    auto tmpAddr = (__ubuf__ typename T3::Type *)((uint64_t)(tmp.GetAddr()));
     typename T1::Type dstOffset = 0;
     for (LoopVar i = 0; i < idxShape0; ++i) {
         for (LoopVar j = 0; j < idxShape1; ++j) {

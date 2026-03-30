@@ -38,7 +38,7 @@ private:
     void InsertAssembleOp(Function &function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand);
     void InsertCopyOp(Function &function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand);
     Status InsertTensorCopy(Function &function);
-    void Init(Function& function);
+    void Init(Function &function);
     std::vector<std::pair<LogicalTensorPtr, Operation *>> FilterCopyScenes(
         const std::vector<std::pair<LogicalTensorPtr, Operation *>> &);
     std::map<LogicalTensorPtr, std::vector<std::pair<LogicalTensorPtr, Operation *>>> insertCopys_;

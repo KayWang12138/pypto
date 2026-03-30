@@ -18,17 +18,17 @@
 using namespace std;
 
 namespace CostModel {
-TraceConfig::TraceConfig()
-{
+TraceConfig::TraceConfig() {
     Config::prefix = "Trace";
     Config::dispatcher = {
-        {"countEventPrintInterval", [&](string v){ countEventPrintInterval = ParseInteger(v); }},
-        {"sysClockTicks", [&](string v){ sysClockTicks = ParseInteger(v); }},
+        {"countEventPrintInterval", [&](string v) { countEventPrintInterval = ParseInteger(v); }},
+        {          "sysClockTicks",           [&](string v) { sysClockTicks = ParseInteger(v); }},
     };
 
     Config::recorder = {
-        {"countEventPrintInterval", [&](){ return "countEventPrintInterval = " + ParameterToStr(countEventPrintInterval); }},
-        {"sysClockTicks", [&](){ return "sysClockTicks = " + ParameterToStr(sysClockTicks); }},
+        {"countEventPrintInterval",
+         [&]() { return "countEventPrintInterval = " + ParameterToStr(countEventPrintInterval); }       },
+        {          "sysClockTicks", [&]() { return "sysClockTicks = " + ParameterToStr(sysClockTicks); }},
     };
 }
-}
+} // namespace CostModel

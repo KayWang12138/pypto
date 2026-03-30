@@ -25,23 +25,24 @@ struct MoveFrontInfo {
     bool found;
 };
 
-inline void CopyVector(std::vector<int>& dst, const std::vector<int>& src) {
+inline void CopyVector(std::vector<int> &dst, const std::vector<int> &src) {
     dst.insert(dst.end(), src.begin(), src.end());
 }
 
-inline void CopyMap(std::unordered_map<int, size_t>& dst, const std::unordered_map<int, size_t>& src) {
+inline void CopyMap(std::unordered_map<int, size_t> &dst, const std::unordered_map<int, size_t> &src) {
     for (auto [a, b] : src) {
         dst[a] = b;
     }
 }
 
-void MoveFrontBuffer(RearrangeScheme &base, size_t sizeNeeded, MoveFrontInfo &moveInfo, size_t lStart, RearrangeScheme &newScheme) {
+void MoveFrontBuffer(
+    RearrangeScheme &base, size_t sizeNeeded, MoveFrontInfo &moveInfo, size_t lStart, RearrangeScheme &newScheme) {
     bool loopFlag = true;
     while (loopFlag) {
         int rMemId = base.memIds[moveInfo.r];
         size_t rMemOffset = base.moveFrom[rMemId];
         size_t rMemSize = base.memSizeMap[rMemId];
-        if ((moveInfo.moveToLeftStart + rMemSize) <= lStart) {  // 如果能提前，
+        if ((moveInfo.moveToLeftStart + rMemSize) <= lStart) { // 如果能提前，
             newScheme.moveTo[rMemId] = moveInfo.moveToLeftStart;
             moveInfo.moveToLeftStart += rMemSize;
             moveInfo.cost += rMemSize;
@@ -133,26 +134,28 @@ RearrangeScheme TryMoveFrontToBack(RearrangeScheme base, size_t sizeNeeded) {
     std::reverse(revertScheme.memIds.begin(), revertScheme.memIds.end());
     CopyMap(revertScheme.memSizeMap, base.memSizeMap);
     for (auto memId : base.memIds) {
-        revertScheme.moveFrom[memId] = CalcRevertOffset(base.start, base.end, base.moveFrom[memId], base.memSizeMap[memId]);
+        revertScheme.moveFrom[memId] =
+            CalcRevertOffset(base.start, base.end, base.moveFrom[memId], base.memSizeMap[memId]);
     }
     CopyMap(revertScheme.moveTo, revertScheme.moveFrom);
     RearrangeScheme newScheme = TryMoveBackToFront(revertScheme, sizeNeeded);
     if (newScheme.cost != INT_MAX) {
         std::reverse(newScheme.memIds.begin(), newScheme.memIds.end());
         for (auto memId : base.memIds) {
-            newScheme.moveFrom[memId] = CalcRevertOffset(newScheme.start, newScheme.end,
-                newScheme.moveFrom[memId], newScheme.memSizeMap[memId]);
-            newScheme.moveTo[memId] = CalcRevertOffset(newScheme.start, newScheme.end,
-                newScheme.moveTo[memId], newScheme.memSizeMap[memId]);
+            newScheme.moveFrom[memId] = CalcRevertOffset(
+                newScheme.start, newScheme.end, newScheme.moveFrom[memId], newScheme.memSizeMap[memId]);
+            newScheme.moveTo[memId] =
+                CalcRevertOffset(newScheme.start, newScheme.end, newScheme.moveTo[memId], newScheme.memSizeMap[memId]);
         }
     }
     return newScheme;
 }
 
-void GroupBubbles(std::vector<std::pair<size_t, size_t>> &bubbleGroups, size_t sizeNeeded, const std::vector<size_t> &bubbleSizeList, bool &failed) {
+void GroupBubbles(std::vector<std::pair<size_t, size_t>> &bubbleGroups, size_t sizeNeeded,
+    const std::vector<size_t> &bubbleSizeList, bool &failed) {
     // 将碎片分组，满足每组碎片大小的和 >= 需要分配的大小。
     size_t start = 0;
-    for (; start < bubbleSizeList.size(); start ++) {
+    for (; start < bubbleSizeList.size(); start++) {
         size_t end = start;
         size_t groupBubbleSize = 0;
         // 扩充group的右边界，使得其总大小 >= 需要分配的大小。
@@ -168,8 +171,9 @@ void GroupBubbles(std::vector<std::pair<size_t, size_t>> &bubbleGroups, size_t s
             groupBubbleSize -= bubbleSizeList[start];
             start += 1;
         }
-        if (start + 1 >= end) {    // 至少要选中两个气泡作为一组
-            APASS_LOG_WARN_F(Elements::Tensor, "Rerange buffer unexpected result: only choose one bubble for rearange.");
+        if (start + 1 >= end) { // 至少要选中两个气泡作为一组
+            APASS_LOG_WARN_F(
+                Elements::Tensor, "Rerange buffer unexpected result: only choose one bubble for rearange.");
             APASS_LOG_WARN_F(Elements::Tensor, "sizeNeeded : %zu.", sizeNeeded);
             failed = true;
             break;
@@ -179,7 +183,8 @@ void GroupBubbles(std::vector<std::pair<size_t, size_t>> &bubbleGroups, size_t s
     }
 }
 
-RearrangeScheme MoveScheme(BufferPool &bufferManager, const std::vector<std::pair<size_t, size_t>> &rearangeSpan, const std::vector<int> &memIds, size_t sizeNeeded) {
+RearrangeScheme MoveScheme(BufferPool &bufferManager, const std::vector<std::pair<size_t, size_t>> &rearangeSpan,
+    const std::vector<int> &memIds, size_t sizeNeeded) {
     RearrangeScheme bestScheme;
     for (auto [memStart, memEnd] : rearangeSpan) {
         // 获取基础Scheme
@@ -251,7 +256,7 @@ RearrangeScheme GetRearrangeScheme(BufferPool &bufferManager, size_t sizeNeeded)
         return bestScheme;
     }
 
-    std::vector<std::pair<size_t, size_t>> bubbleList;   // [(free_start, free_end), ...]
+    std::vector<std::pair<size_t, size_t>> bubbleList; // [(free_start, free_end), ...]
     std::vector<size_t> bubbleSizeList;
 
     size_t lastEnd = 0;
@@ -278,9 +283,8 @@ RearrangeScheme GetRearrangeScheme(BufferPool &bufferManager, size_t sizeNeeded)
     }
     std::vector<std::pair<size_t, size_t>> rearangeSpan;
     for (size_t g = 0; g < bubbleGroups.size(); g++) {
-        rearangeSpan.push_back(std::make_pair(
-                bubbleList[bubbleGroups[g].first].first,
-                bubbleList[bubbleGroups[g].second-1].second));
+        rearangeSpan.push_back(
+            std::make_pair(bubbleList[bubbleGroups[g].first].first, bubbleList[bubbleGroups[g].second - 1].second));
     }
     bestScheme = MoveScheme(bufferManager, rearangeSpan, memIds, sizeNeeded);
 

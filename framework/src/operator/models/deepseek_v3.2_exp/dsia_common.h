@@ -23,7 +23,7 @@
 
 namespace npu::tile_fwk {
 #define QUANT_DSIA_DEBUG 0 // 量化debug模式，用于打印中间输出结果
-#define DSIA_DEBUG 1 // 非量化debug模式，用于打印中间输出结果
+#define DSIA_DEBUG 1       // 非量化debug模式，用于打印中间输出结果
 
 constexpr int SCATTER_UPADATE_DIM = -2;
 constexpr int NUM_0 = 0;
@@ -58,10 +58,7 @@ constexpr float F_0 = 0.0;
 constexpr float F_NEGA_1 = -1.0;
 constexpr double DF_1E_20 = 1e-20;
 
-enum GateMode {
-    standard,
-    simple
-};
+enum GateMode { standard, simple };
 
 struct MlaTileConfig {
     int tileB = 8; // tileB is 8

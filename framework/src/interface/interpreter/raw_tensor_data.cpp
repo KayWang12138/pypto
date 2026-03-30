@@ -25,8 +25,8 @@ struct LogicalTensorDataHead {
     uint32_t padding[0x3] = {0};
 };
 
-
-std::string LogicalTensorData::DumpRange(int idxBegin, int idxEnd, const std::vector<ElementDump> *elementDumpList) const {
+std::string LogicalTensorData::DumpRange(
+    int idxBegin, int idxEnd, const std::vector<ElementDump> *elementDumpList) const {
     std::vector<bool> elementDiffPrevList(idxEnd - idxBegin, false);
 
     std::vector<std::string> elementList;
@@ -258,8 +258,8 @@ std::shared_ptr<LogicalTensorData> LogicalTensorData::Load(const std::string &fi
             }
             auto data = std::make_shared<RawTensorData>(static_cast<DataType>(head.dataType), shape);
             if (fread(data->data(), 1, data->size(), fdata) == data->size()) {
-                dataView = std::make_shared<LogicalTensorData>(
-                    data, shape, shape, std::vector<int64_t>(shape.size(), 0));
+                dataView =
+                    std::make_shared<LogicalTensorData>(data, shape, shape, std::vector<int64_t>(shape.size(), 0));
             }
         }
         fclose(fdata);
@@ -272,4 +272,4 @@ ProgramData &ProgramData::GetInstance() {
     return data;
 }
 
-}
+} // namespace npu::tile_fwk

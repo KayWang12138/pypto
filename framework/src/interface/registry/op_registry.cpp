@@ -29,8 +29,8 @@ OpImplRegister::~OpImplRegister() {}
 
 void OpImplRegister::AddImplFunc(const std::map<uint64_t, OpImplFunc> &implFuncMap) {
     for (const auto &iter : implFuncMap) {
-      ASSERT((iter.first & SUB_KEY_MASK) == 0) << "Config key only allow use low 52 bit!";
-      implFuncMap_.emplace(iter.first, iter.second);
+        ASSERT((iter.first & SUB_KEY_MASK) == 0) << "Config key only allow use low 52 bit!";
+        implFuncMap_.emplace(iter.first, iter.second);
     }
 }
 
@@ -108,4 +108,4 @@ OpImplRegistHelper &OpImplRegistHelper::ImplFunc(const uint64_t configKey, const
     }
     return *this;
 }
-}
+} // namespace npu::tile_fwk

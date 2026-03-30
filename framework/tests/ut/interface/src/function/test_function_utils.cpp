@@ -28,14 +28,12 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
 
-    static void TearDownTestCase() {
-        std::cout << "FunctionUtilsTest TearDownTestCase" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "FunctionUtilsTest TearDownTestCase" << std::endl; }
 
     void SetUp() override {
         std::cout << "FunctionUtilsTest SetUp" << std::endl;
         Program::GetInstance().Reset();
-            }
+    }
 
     void TearDown() override {
         std::cout << "FunctionUtilsTest TearDown" << std::endl;

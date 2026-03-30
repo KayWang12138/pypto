@@ -30,9 +30,9 @@ TEST(TestMemoryAttribute, MemorySizeTest) {
         { 256, 1024},
         {1024, 2048}
     };
-    std::vector<npu::tile_fwk::DataType> dtypes = {npu::tile_fwk::DT_INT4, npu::tile_fwk::DT_INT8, npu::tile_fwk::DT_INT16,
-        npu::tile_fwk::DT_INT32, npu::tile_fwk::DT_FP8, npu::tile_fwk::DT_FP16, npu::tile_fwk::DT_FP32, npu::tile_fwk::DT_BF16, npu::tile_fwk::DT_HF8,
-        npu::tile_fwk::DT_HF4};
+    std::vector<npu::tile_fwk::DataType> dtypes = {npu::tile_fwk::DT_INT4, npu::tile_fwk::DT_INT8,
+        npu::tile_fwk::DT_INT16, npu::tile_fwk::DT_INT32, npu::tile_fwk::DT_FP8, npu::tile_fwk::DT_FP16,
+        npu::tile_fwk::DT_FP32, npu::tile_fwk::DT_BF16, npu::tile_fwk::DT_HF8, npu::tile_fwk::DT_HF4};
     for (auto &tshape : tshapes) {
         for (auto dt : dtypes) {
             npu::tile_fwk::Tensor A(dt, tshape, "A_" + DataType2String(dt));

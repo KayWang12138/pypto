@@ -42,7 +42,8 @@ public:
 TEST_F(GetParamIdxTest, TestAdd) {
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootFuncPtr.get());
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
@@ -75,9 +76,9 @@ TEST_F(GetParamIdxTest, TestAdd) {
     copy_op2.SetIOpAttrOffset(0, 5);
     copy_op2.SetOpAttribute(copyin2Attr);
 
-    auto& add_op = currFunctionPtr->AddOperation(Opcode::OP_ADD, {ubTensor1, ubTensor2}, {ubTensor3});
-    (void) add_op;
-    auto& copy_out_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {outCast});
+    auto &add_op = currFunctionPtr->AddOperation(Opcode::OP_ADD, {ubTensor1, ubTensor2}, {ubTensor3});
+    (void)add_op;
+    auto &copy_out_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {outCast});
     copy_out_op.SetOOpAttrOffset(0, 11);
 
     currFunctionPtr->inCasts_.push_back(incast1);
@@ -93,8 +94,10 @@ TEST_F(GetParamIdxTest, TestAddExp) {
     auto rootGraphPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
     EXPECT_TRUE(rootGraphPtr != nullptr);
     rootGraphPtr->rootFunc_ = rootGraphPtr.get();
-    auto subGraphPtr0 = std::make_shared<Function>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootGraphPtr.get());
-    auto subGraphPtr1 = std::make_shared<Function>(Program::GetInstance(), "TestExpParams", "TestExpParams", rootGraphPtr.get());
+    auto subGraphPtr0 =
+        std::make_shared<Function>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootGraphPtr.get());
+    auto subGraphPtr1 =
+        std::make_shared<Function>(Program::GetInstance(), "TestExpParams", "TestExpParams", rootGraphPtr.get());
     rootGraphPtr->rootFunc_->programs_.emplace(subGraphPtr0->GetFuncMagic(), subGraphPtr0.get());
     rootGraphPtr->rootFunc_->programs_.emplace(subGraphPtr1->GetFuncMagic(), subGraphPtr1.get());
     // Prepare the graph
@@ -126,10 +129,10 @@ TEST_F(GetParamIdxTest, TestAddExp) {
     copy_op2.SetIOpAttrOffset(0, 5);
     copy_op2.SetOpAttribute(copyin2Attr);
 
-    auto& add_op = subGraphPtr0->AddOperation(Opcode::OP_ADD, {ubTensor1, ubTensor2}, {ubTensor3});
-    (void) add_op;
+    auto &add_op = subGraphPtr0->AddOperation(Opcode::OP_ADD, {ubTensor1, ubTensor2}, {ubTensor3});
+    (void)add_op;
     auto tmpCast = std::make_shared<LogicalTensor>(*subGraphPtr0, DT_FP32, shape);
-    auto& copy_out_op = subGraphPtr0->AddOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {tmpCast});
+    auto &copy_out_op = subGraphPtr0->AddOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {tmpCast});
     auto copyout1Attr = std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme);
     copy_out_op.SetOpAttribute(copyout1Attr);
     copy_out_op.SetOOpAttrOffset(0, 10);
@@ -146,9 +149,9 @@ TEST_F(GetParamIdxTest, TestAddExp) {
 
     auto ubTensor5 = std::make_shared<LogicalTensor>(*subGraphPtr1, DT_FP32, shape);
     auto &exp = subGraphPtr1->AddOperation(Opcode::OP_EXP, {ubTensor4}, {ubTensor5});
-    (void) exp;
+    (void)exp;
 
-    auto& copy_out_op1 = subGraphPtr1->AddOperation(Opcode::OP_COPY_OUT, {ubTensor5}, {outCast});
+    auto &copy_out_op1 = subGraphPtr1->AddOperation(Opcode::OP_COPY_OUT, {ubTensor5}, {outCast});
     copy_out_op1.SetOOpAttrOffset(0, 11);
 
     subGraphPtr0->inCasts_.push_back(incast1);

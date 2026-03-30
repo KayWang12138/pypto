@@ -49,8 +49,8 @@ struct DeviceStitchContext {
 
     static void CheckStitch(DynDeviceTask *dyntask);
 
-    uint64_t Stitch(DeviceSlotContext &slotContext, DevAscendFunctionDupped &nextDup, size_t devTaskId,
-                    size_t devNextIdx);
+    uint64_t Stitch(
+        DeviceSlotContext &slotContext, DevAscendFunctionDupped &nextDup, size_t devTaskId, size_t devNextIdx);
 
     void RecycleTensorWorkspace();
 
@@ -66,8 +66,8 @@ struct DeviceStitchContext {
         workspace_->VerifyStitchedListMemory(args, stitchedList_.data(), stitchedList_.size());
     }
 
-    static void PushBackTask(DevAscendFunctionDuppedStitchList &stitch, uint32_t coreTask,
-                             DeviceWorkspaceAllocator *workspace) {
+    static void PushBackTask(
+        DevAscendFunctionDuppedStitchList &stitch, uint32_t coreTask, DeviceWorkspaceAllocator *workspace) {
         stitch.PushBack(coreTask, [workspace] { return workspace->AllocateStitch(); });
     }
 
@@ -89,26 +89,23 @@ public:
 
     static std::string GetStitchKindName(StitchKind kind) {
         static std::unordered_map<StitchKind, std::string> stitchNameDict = {
-            {StitchKind::StitchDefault, "default"},
-            {StitchKind::StitchPartial, "partial"},
+            {  StitchKind::StitchDefault,   "default"},
+            {  StitchKind::StitchPartial,   "partial"},
             {StitchKind::StitchFullCover, "fullCover"},
-            {StitchKind::StitchReuse, "reuse"},
+            {    StitchKind::StitchReuse,     "reuse"},
         };
         return stitchNameDict.count(kind) == 0 ? "invalid stitch kind" : stitchNameDict.find(kind)->second;
     }
 
-    static void HandleOneStitch(
-            DevAscendFunctionDupped &producerDup, DevAscendFunctionDupped &consumerDup,
-            DevAscendFunctionDuppedStitchList &producerStitchList, size_t producerOperationIdx,
-            size_t consumerIdx, size_t consumerOperationIdx, DeviceWorkspaceAllocator *workspace,
-            StitchKind debugStitchKind, int debugSlotIdx);
+    static void HandleOneStitch(DevAscendFunctionDupped &producerDup, DevAscendFunctionDupped &consumerDup,
+        DevAscendFunctionDuppedStitchList &producerStitchList, size_t producerOperationIdx, size_t consumerIdx,
+        size_t consumerOperationIdx, DeviceWorkspaceAllocator *workspace, StitchKind debugStitchKind, int debugSlotIdx);
 
-    static void HandleOneStitch(
-            DevAscendFunctionDupped &producerDup, DevAscendFunctionDupped &consumerDup,
-            size_t producerOperationIdx, size_t consumerIdx, size_t consumerOperationIdx,
-            DeviceWorkspaceAllocator *workspace, StitchKind debugStitchKind, int debugSlotIdx);
+    static void HandleOneStitch(DevAscendFunctionDupped &producerDup, DevAscendFunctionDupped &consumerDup,
+        size_t producerOperationIdx, size_t consumerIdx, size_t consumerOperationIdx,
+        DeviceWorkspaceAllocator *workspace, StitchKind debugStitchKind, int debugSlotIdx);
 
-    template<typename T>
+    template <typename T>
     static inline std::string IntVecToStr(DevAscendFunctionDupped &dup, DevLocalVector<T> &vec) {
         std::stringstream ss;
         ss << "[";
@@ -131,13 +128,13 @@ public:
     }
 
     uint64_t PartialUpdateStitch(DevAscendFunctionDupped &nextDup, size_t devTaskId, size_t devNextIdx,
-        DeviceExecuteSlot& slot, int slotIdx, DevAscendFunctionIncast& incast);
+        DeviceExecuteSlot &slot, int slotIdx, DevAscendFunctionIncast &incast);
 
-    uint64_t FullCoverDefaultUpdateStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx, DeviceExecuteSlot& slot,
-        int slotIdx, DevAscendFunctionIncast& incast);
+    uint64_t FullCoverDefaultUpdateStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx, DeviceExecuteSlot &slot,
+        int slotIdx, DevAscendFunctionIncast &incast);
 
-    uint64_t FullCoverUpdateStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx, DeviceExecuteSlot& slot,
-        int slotIdx, DevAscendFunctionIncast& incast);
+    uint64_t FullCoverUpdateStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx, DeviceExecuteSlot &slot,
+        int slotIdx, DevAscendFunctionIncast &incast);
 
     void ReuseStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx);
 
@@ -147,8 +144,7 @@ public:
     static void DumpStitchInfo(DevAscendFunctionDupped *stitchedList, int stitchedSize);
 
 private:
-    static
-    bool MemOverlap(uint64_t ahead, uint64_t alength, uint64_t bhead, uint64_t blength) {
+    static bool MemOverlap(uint64_t ahead, uint64_t alength, uint64_t bhead, uint64_t blength) {
         return !(ahead + alength <= bhead || bhead + blength <= ahead);
     }
 
@@ -156,4 +152,4 @@ private:
         DevAscendFunctionDupped &prevDup, DevAscendFunctionDupped &currDup, size_t devCurrIdx,
         DeviceWorkspaceAllocator *workspace);
 };
-}
+} // namespace npu::tile_fwk::dynamic

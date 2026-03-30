@@ -20,7 +20,8 @@
 using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
-void GenAttentionCompute(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &gatingScore, Tensor &attentionOut, GenAttenTileShapeConfig &tileConfig) {
+void GenAttentionCompute(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &gatingScore,
+    Tensor &attentionOut, GenAttenTileShapeConfig &tileConfig) {
     int nDimSize = cmpAtten.GetShape()[2];
     int dDimSize = cmpAtten.GetShape()[3];
     int dGateDimSize = gatingScore.GetShape()[3];
@@ -71,10 +72,11 @@ void GenAttentionCompute(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, T
     }
 }
 
-void GenAttention(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &gatingScore, Tensor &attentionOut, GenAttenTileShapeConfig &tileConfig) {
+void GenAttention(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &gatingScore, Tensor &attentionOut,
+    GenAttenTileShapeConfig &tileConfig) {
     FUNCTION("main", {cmpAtten, selAtten, winAtten, gatingScore}, {attentionOut}) {
         GenAttentionCompute(cmpAtten, selAtten, winAtten, gatingScore, attentionOut, tileConfig);
-}
+    }
 }
 
-} // namespace tile_fwk
+} // namespace npu::tile_fwk

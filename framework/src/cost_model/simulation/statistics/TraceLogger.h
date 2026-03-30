@@ -41,7 +41,7 @@ using Json = nlohmann::json;
 
 struct Event {
     std::string name;
-    int id = -1;  // invalid -1
+    int id = -1; // invalid -1
     std::string catagory;
     std::string phase;
     std::string bp;
@@ -54,9 +54,11 @@ struct Event {
     Json ToFlowStartJson(int flowId) const;
     Json ToFlowEndJson(int flowId) const;
 
-    EventId GetEventID() const
-    {
-        return EventId{PTid{pid, tid}, id};
+    EventId GetEventID() const {
+        return EventId{
+            PTid{pid, tid},
+            id
+        };
     }
 
     std::string GetColor();
@@ -72,7 +74,7 @@ enum class CounterType {
 };
 
 struct CounterEvent {
-    int id = -1;  // invalid -1
+    int id = -1; // invalid -1
     std::string catagory;
     std::string phase;
     CounterType type;
@@ -83,9 +85,11 @@ struct CounterEvent {
 
     Json ToJson() const;
 
-    EventId GetEventID() const
-    {
-        return EventId{PTid{pid, tid}, id};
+    EventId GetEventID() const {
+        return EventId{
+            PTid{pid, tid},
+            id
+        };
     }
 };
 
@@ -112,9 +116,9 @@ struct Duration {
     int width = 30;
     int width2 = 20;
     void OutputContextSwitchTrace(std::ofstream &os, std::map<Pid, Process> &mProcesses,
-                                  std::map<PTid, Thread> &mThreads, const uint64_t sysClockTicks);
-    void OutputBeginEndTrace(std::ofstream &os, std::map<Pid, Process> &mProcesses,
-                             std::map<PTid, Thread> &mThreads, const uint64_t sysClockTicks);
+        std::map<PTid, Thread> &mThreads, const uint64_t sysClockTicks);
+    void OutputBeginEndTrace(std::ofstream &os, std::map<Pid, Process> &mProcesses, std::map<PTid, Thread> &mThreads,
+        const uint64_t sysClockTicks);
     Json ToJson();
 };
 
@@ -175,7 +179,7 @@ public:
 
     size_t topMachineViewPid = 1000;
     size_t reversedTidNum = 100; // For Queue Start tid
-    size_t coreTid = 1; // For MachineView tid
+    size_t coreTid = 1;          // For MachineView tid
     std::shared_ptr<CostModel::SimSys> sim = nullptr;
     int mEventIdPtr = 0;
     int mCounterEventIdPtr = 0;
@@ -200,21 +204,21 @@ public:
 
     // Get Queue Counter based on CountEvents.
     void GetTotalMachineQueueSize(TimeStamp interval);
-    void GetFunctionCacheSize(TimeStamp interval,
-                              const std::pair<const PTid, std::vector<CounterEvent>> &threadCounter);
+    void GetFunctionCacheSize(
+        TimeStamp interval, const std::pair<const PTid, std::vector<CounterEvent>> &threadCounter);
     void GetTotalFunctionCacheSize(TimeStamp interval);
     void GetCounters();
     void GetDeviceReadyQ();
     void OutEachMachineQueueSize(std::ofstream &os, const uint64_t sysClockTicks);
     void OutCounters(std::ofstream &os, std::vector<CounterEvent> &counterQ, std::string prefix, std::string suffix,
-                     const uint64_t sysClockTicks);
+        const uint64_t sysClockTicks);
     Json QSizeToJson(std::vector<CounterEvent> &counterQ);
     // Output Trace
     Json ToJson();
     void ToTrace(std::ofstream &os);
     void ToFilterTrace(std::ofstream &os, std::map<int, std::pair<std::string, std::vector<Json>>> &coreTasks);
     void ToPipeTrace(std::ofstream &os);
-    void ToCalendarGlobalJson(std::ofstream &osCalendar,
-                              std::map<int, std::pair<std::string, std::vector<Json>>> coreTasks);
+    void ToCalendarGlobalJson(
+        std::ofstream &osCalendar, std::map<int, std::pair<std::string, std::vector<Json>>> coreTasks);
 };
-}  // namespace CostModel
+} // namespace CostModel

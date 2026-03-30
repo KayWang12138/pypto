@@ -54,8 +54,7 @@
 #define F16_SUBNORMAL_FP32_EXP_BASE (FP32_EXP_BIAS - (F16_EXP_BIAS - 1))
 
 template <typename T, typename U>
-INLINE void SafeBitCast(T &dst, const U &src)
-{
+INLINE void SafeBitCast(T &dst, const U &src) {
     const unsigned char *srcBytes = reinterpret_cast<const unsigned char *>(&src);
     unsigned char *dstBytes = reinterpret_cast<unsigned char *>(&dst);
     for (std::size_t i = 0; i < sizeof(T); ++i) {
@@ -64,21 +63,18 @@ INLINE void SafeBitCast(T &dst, const U &src)
 }
 
 template <typename T, typename U>
-INLINE T SafeBitCast(const U &src)
-{
+INLINE T SafeBitCast(const U &src) {
     T dst;
     SafeBitCast(dst, src);
     return dst;
 }
 
-INLINE float DecodeBf16(uint16_t bits)
-{
+INLINE float DecodeBf16(uint16_t bits) {
     uint32_t u = static_cast<uint32_t>(bits) << BF16_TO_FP32_SHIFT;
     return SafeBitCast<float>(u);
 }
 
-INLINE float DecodeF16(uint16_t bits)
-{
+INLINE float DecodeF16(uint16_t bits) {
     uint16_t sign = static_cast<uint16_t>((bits & F16_SIGN_MASK) >> F16_SIGN_SHIFT);
     uint16_t exp = static_cast<uint16_t>((bits & F16_EXP_MASK) >> F16_EXP_SHIFT);
     uint16_t mant = static_cast<uint16_t>(bits & F16_MANT_MASK);
@@ -201,9 +197,7 @@ struct AicoreLogger {
         ctx.Print = __Print;
     }
 
-    __aicore__ __gm__ uint8_t *GetBuffer()  {
-        return data_ - sizeof(Remote);
-    }
+    __aicore__ __gm__ uint8_t *GetBuffer() { return data_ - sizeof(Remote); }
 
     __aicore__ void PrintInt(__gm__ const char **fmt, int64_t val) {
         auto curFmt = *fmt;
@@ -267,7 +261,7 @@ struct AicoreLogger {
 
     __aicore__ void Sync() {
 #ifndef __TILE_FWK_HOST__
-        int64_t delta = (int64_t)(&data_[remote_->head_ % size_]) & (CACHE_LINE_SIZE -1);
+        int64_t delta = (int64_t)(&data_[remote_->head_ % size_]) & (CACHE_LINE_SIZE - 1);
         int64_t off = remote_->head_ - delta;
         while (off < head_) {
             dcci(&data_[off % size_], SINGLE_CACHE_LINE, CACHELINE_OUT);
@@ -330,7 +324,12 @@ struct AicoreLogger {
                     n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), fv);
                     break;
                 }
-                default: if (n) { buf[0] = '?'; n = 1;} break;
+                default:
+                    if (n) {
+                        buf[0] = '?';
+                        n = 1;
+                    }
+                    break;
             }
             buf += n;
             size += n;
@@ -424,7 +423,8 @@ private:
         std::stringstream ss;
         while (off < head_) {
             auto c = Read<char>(off++);
-            if (c == '\0') break;
+            if (c == '\0')
+                break;
             ss << c;
         }
         return ss.str();
@@ -444,7 +444,7 @@ private:
         *p = val;
     }
 
-    template<typename T>
+    template <typename T>
     __aicore__ void Encode(NodeTy ty, const T *val, short valLen, __gm__ const char *fmt, int fmtLen) {
         Encode(ty);
 
@@ -473,9 +473,7 @@ private:
         return n;
     }
 
-    INLINE bool IsDigit(char c) {
-        return c >= '0' && c <= '9';
-    }
+    INLINE bool IsDigit(char c) { return c >= '0' && c <= '9'; }
 
 private:
     LogContext ctx;
@@ -489,8 +487,7 @@ private:
 #if defined(__TILE_FWK_AICORE__) && defined(TILEOP_UTILS_TUPLE_H)
 constexpr size_t AICORE_PRINT_SHAPE_MAX_DIMS = 6;
 template <size_t I, typename ShapeTuple>
-INLINE void __AiCoreFillShapeDims(int64_t (&d)[AICORE_PRINT_SHAPE_MAX_DIMS], const ShapeTuple &shape)
-{
+INLINE void __AiCoreFillShapeDims(int64_t (&d)[AICORE_PRINT_SHAPE_MAX_DIMS], const ShapeTuple &shape) {
     constexpr size_t n = Std::tuple_size<ShapeTuple>::value;
     constexpr size_t m = (n < AICORE_PRINT_SHAPE_MAX_DIMS) ? n : AICORE_PRINT_SHAPE_MAX_DIMS;
     if constexpr (I < m) {
@@ -500,8 +497,7 @@ INLINE void __AiCoreFillShapeDims(int64_t (&d)[AICORE_PRINT_SHAPE_MAX_DIMS], con
 }
 
 template <size_t N>
-INLINE void __AiCoreLogShapeDims(LogContext *ctx, const int64_t (&d)[6])
-{
+INLINE void __AiCoreLogShapeDims(LogContext *ctx, const int64_t (&d)[6]) {
     if constexpr (N == 1) {
         AiCoreLogF(ctx, "shape=[%ld]\n", d[0]);
     } else if constexpr (N == 2) {
@@ -518,8 +514,7 @@ INLINE void __AiCoreLogShapeDims(LogContext *ctx, const int64_t (&d)[6])
 }
 
 template <typename... Dims>
-INLINE void AiCorePrintShape(LogContext *ctx, const TileOp::Shape<Dims...> &shape)
-{
+INLINE void AiCorePrintShape(LogContext *ctx, const TileOp::Shape<Dims...> &shape) {
     constexpr size_t N = Std::tuple_size<TileOp::Shape<Dims...>>::value;
     if constexpr (N == 0 || N > AICORE_PRINT_SHAPE_MAX_DIMS) {
         return;
@@ -531,8 +526,7 @@ INLINE void AiCorePrintShape(LogContext *ctx, const TileOp::Shape<Dims...> &shap
 #endif
 
 template <typename T, typename PtrT>
-INLINE void __AiCorePrintTensorImpl(LogContext *ctx, PtrT data, int64_t end, int64_t begin = 0)
-{
+INLINE void __AiCorePrintTensorImpl(LogContext *ctx, PtrT data, int64_t end, int64_t begin = 0) {
     using ElemT = std::remove_cv_t<T>;
     AiCoreLogF(ctx, "tensor data, range=[%ld, %ld)\n", begin, end);
     for (int64_t i = begin; i < end; ++i) {
@@ -553,15 +547,13 @@ INLINE void __AiCorePrintTensorImpl(LogContext *ctx, PtrT data, int64_t end, int
 }
 
 template <typename T>
-INLINE void AiCorePrintGmTensor(LogContext *ctx, __gm__ const T *data, int64_t end, int64_t begin = 0)
-{
+INLINE void AiCorePrintGmTensor(LogContext *ctx, __gm__ const T *data, int64_t end, int64_t begin = 0) {
     __AiCorePrintTensorImpl<T>(ctx, data, end, begin);
 }
 
 #if IS_AICORE
 template <typename T>
-INLINE void AiCorePrintUbTensor(LogContext *ctx, __ubuf__ const T *data, int64_t end, int64_t begin = 0)
-{
+INLINE void AiCorePrintUbTensor(LogContext *ctx, __ubuf__ const T *data, int64_t end, int64_t begin = 0) {
     __AiCorePrintTensorImpl<T>(ctx, data, end, begin);
 }
 #endif

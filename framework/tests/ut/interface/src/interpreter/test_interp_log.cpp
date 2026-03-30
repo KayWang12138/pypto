@@ -84,8 +84,7 @@ TEST_F(InterpreterLogTest, ReshapeMismatchElementCount) {
     });
 
     // 仅校验 verify 日志：不应出现 FAILED
-    EXPECT_FALSE(VerifyLogContainsFailed(logOutput))
-        << "Expected no FAILED in verify log, captured: " << logOutput;
+    EXPECT_FALSE(VerifyLogContainsFailed(logOutput)) << "Expected no FAILED in verify log, captured: " << logOutput;
 }
 
 // 测试精度对比失败场景能否正确输出错误日志，并捕获日志进行校验
@@ -156,8 +155,7 @@ TEST_F(InterpreterLogTest, EmptyLoopStartEndZero) {
     });
 
     // 仅校验 verify 日志：不应出现 FAILED
-    EXPECT_FALSE(VerifyLogContainsFailed(logOutput))
-        << "Expected no FAILED in verify log, captured: " << logOutput;
+    EXPECT_FALSE(VerifyLogContainsFailed(logOutput)) << "Expected no FAILED in verify log, captured: " << logOutput;
 }
 
 } // namespace npu::tile_fwk

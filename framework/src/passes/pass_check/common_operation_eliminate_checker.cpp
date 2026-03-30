@@ -29,34 +29,30 @@ Status CommonOperationEliminateChecker::DoPreCheck(Function &function) {
         }
         if (op->GetOpAttribute() != nullptr) {
             size_t fromOffsetSize = -1;
-            if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(op->GetOpAttribute().get())) {
+            if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op->GetOpAttribute().get())) {
                 auto &fromOffset = viewOpAttribute->GetFromOffset();
                 fromOffsetSize = fromOffset.size();
-            }
-            else if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(op->GetOpAttribute().get())) {
+            } else if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute *>(op->GetOpAttribute().get())) {
                 if (copyOpAttribute->IsCopyOut()) {
                     continue;
                 }
                 auto [fromOffset, memType] = copyOpAttribute->GetCopyInAttr();
                 (void)memType;
                 fromOffsetSize = fromOffset.size();
-            }
-            else {
+            } else {
                 continue;
             }
-            auto& ioperands = op->GetIOperands();
+            auto &ioperands = op->GetIOperands();
             const int opMagic = op->GetOpMagic();
 
             if (ioperands.size() != 1) {
-                APASS_LOG_ERROR_F(Elements::Operation,
-                                 "View or Copy_In Operation %d with not one input operand.",
-                                 opMagic);
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "View or Copy_In Operation %d with not one input operand.", opMagic);
                 return FAILED;
             }
             if (ioperands.front()->offset.size() != fromOffsetSize) {
-                APASS_LOG_ERROR_F(Elements::Operation,
-                                 "View or Copy_In Operation %d with mismatch input offset shape.",
-                                 opMagic);
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "View or Copy_In Operation %d with mismatch input offset shape.", opMagic);
                 return FAILED;
             }
         }

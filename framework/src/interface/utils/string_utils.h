@@ -24,8 +24,8 @@
 
 namespace npu::tile_fwk {
 
-template<typename T>
-std::ostream& operator<<(std::ostream &os, const std::vector<T> &vec) {
+template <typename T>
+std::ostream &operator<<(std::ostream &os, const std::vector<T> &vec) {
     os << "[";
     for (auto iter = vec.begin(); iter != vec.end(); ++iter) {
         if (iter != vec.begin()) {
@@ -120,10 +120,10 @@ public:
         size_t offset = 0;
         while (offset < count) {
             size_t copyLen = std::min(count - offset, MAX_DATA_LEN);
-            auto err = memcpy_s(static_cast<char*>(dest) + offset, copyLen,
-                                   static_cast<const char*>(src) + offset, copyLen);
+            auto err =
+                memcpy_s(static_cast<char *>(dest) + offset, copyLen, static_cast<const char *>(src) + offset, copyLen);
             ASSERT(err == 0) << "errCode: " << err;
-            offset +=copyLen;
+            offset += copyLen;
         }
     }
 
@@ -134,9 +134,9 @@ public:
         size_t offset = 0;
         while (offset < count) {
             size_t copyLen = std::min(count - offset, MAX_DATA_LEN);
-            auto err = memset_s(static_cast<char*>(dest) + offset, copyLen, c, copyLen);
+            auto err = memset_s(static_cast<char *>(dest) + offset, copyLen, c, copyLen);
             ASSERT(err == 0) << "errCode: " << err;
-            offset +=copyLen;
+            offset += copyLen;
         }
     }
 
@@ -147,4 +147,4 @@ public:
         return ss.str();
     }
 };
-}
+} // namespace npu::tile_fwk

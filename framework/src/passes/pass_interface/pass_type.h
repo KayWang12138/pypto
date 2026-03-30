@@ -73,7 +73,7 @@ enum class PassName {
     NOT_DEFINED
 };
 
-inline constexpr const char *PassNameStr(PassName name){
+inline constexpr const char *PassNameStr(PassName name) {
     switch (name) {
         case PassName::LOOP_UNROLL: return "LoopUnroll";
         case PassName::REMOVE_REDUNDANT_RESHAPE: return "RemoveRedundantReshape";
@@ -120,13 +120,11 @@ inline constexpr const char *PassNameStr(PassName name){
         case PassName::TUNE_TILEOP_SEQ_FOR_VF: return "TuneTileOpSeqForVF";
         case PassName::TUNE_SYNC_FOR_VF: return "TuneSyncForVF";
         case PassName::NOT_DEFINED: return "NotDefined";
-        default:
-            ASSERT(false) << "[PassDependency][Manager][ERROR]: PassName not defined.";
-            return "Invalid";
+        default: ASSERT(false) << "[PassDependency][Manager][ERROR]: PassName not defined."; return "Invalid";
     }
 }
 
 inline std::ostream &operator<<(std::ostream &os, PassName name) {
     return os << PassNameStr(name);
 }
-} // PASSES_PASS_TYPE_H_
+} // namespace npu::tile_fwk

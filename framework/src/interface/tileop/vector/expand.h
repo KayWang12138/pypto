@@ -133,8 +133,9 @@ TILEOP void TExpand(T0 dst, T1 src) {
             for (LoopVar i = 0; i < dstShape1; ++i) {
                 for (LoopVar j = 0; j < dstShape2; j++) {
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + (srcOffset + j * srcTileH * srcTileW) * typeSize));
-                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstShape2 * dstTileH * dstTileW
-                                                                        + j * dstTileH * dstTileW) * typeSize));
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstShape2 * dstTileH * dstTileW +
+                                                                         j * dstTileH * dstTileW) *
+                                                                         typeSize));
                     pto::TMOV(dstTile, srcTile);
                 }
             }

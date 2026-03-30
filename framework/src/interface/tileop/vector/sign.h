@@ -20,8 +20,7 @@
 #include <type_traits>
 
 template <typename LastUse, typename T, typename DstTile, typename SrcTile>
-TILEOP void SignInt(DstTile dstTile, SrcTile srcTile)
-{
+TILEOP void SignInt(DstTile dstTile, SrcTile srcTile) {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     pto::TMINS(srcTile, srcTile, static_cast<T>(1));
@@ -32,8 +31,7 @@ TILEOP void SignInt(DstTile dstTile, SrcTile srcTile)
 }
 
 template <typename LastUse, typename T, typename DstTile, typename SrcTile>
-TILEOP void SignHalf(DstTile dstTile, SrcTile srcTile)
-{
+TILEOP void SignHalf(DstTile dstTile, SrcTile srcTile) {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     pto::TMINS(srcTile, srcTile, static_cast<T>(5.960464e-08f));
@@ -52,8 +50,7 @@ TILEOP void SignHalf(DstTile dstTile, SrcTile srcTile)
 }
 
 template <typename LastUse, typename T, typename DstTile, typename SrcTile, typename TmpTile>
-TILEOP void SignIntCast(DstTile dstTile, SrcTile srcTile, TmpTile tmpTile)
-{
+TILEOP void SignIntCast(DstTile dstTile, SrcTile srcTile, TmpTile tmpTile) {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     pto::TCVT(tmpTile, srcTile, pto::RoundMode::CAST_NONE);
@@ -80,8 +77,7 @@ TILEOP void SignIntCast(DstTile dstTile, SrcTile srcTile, TmpTile tmpTile)
 }
 
 template <typename LastUse, typename T, typename DstTile, typename SrcTile>
-TILEOP void SignFloat(DstTile dstTile, SrcTile srcTile)
-{
+TILEOP void SignFloat(DstTile dstTile, SrcTile srcTile) {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     pto::TMINS(srcTile, srcTile, static_cast<T>(1.1754943508222875e-38f));
@@ -104,8 +100,7 @@ TILEOP void SignFloat(DstTile dstTile, SrcTile srcTile)
 }
 
 template <typename LastUse, typename T, typename DstTile, typename SrcTile, typename TmpTile>
-TILEOP void SignImpl(DstTile dstTile, SrcTile srcTile, TmpTile tmpTile)
-{
+TILEOP void SignImpl(DstTile dstTile, SrcTile srcTile, TmpTile tmpTile) {
     if constexpr (std::is_same<T, int32_t>::value || std::is_same<T, int16_t>::value) {
         SignInt<LastUse, T, DstTile, SrcTile>(dstTile, srcTile);
     } else if constexpr (std::is_same<T, half>::value) {
@@ -161,8 +156,7 @@ TILEOP void TSign(T0 dst, T1 src, T3 tmp) {
         pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
     using SrcTile =
         pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-    using TmpTile =
-        pto::Tile<pto::TileType::Vec, half, srcTileH, tmpTileW, pto::BLayout::RowMajor, -1, -1>;
+    using TmpTile = pto::Tile<pto::TileType::Vec, half, srcTileH, tmpTileW, pto::BLayout::RowMajor, -1, -1>;
     DstTile dstTile(dstShape3, dstShape4);
     SrcTile srcTile(srcShape3, srcShape4);
     TmpTile tmpTile(srcShape3, srcShape4);

@@ -124,7 +124,8 @@ Status PassDependency::CheckSequenceDependency(
         if (index + i >= passes.size() || passes[index + i] != expectedPasses[i]) {
             actualPasses.assign(passes.begin() + index, passes.end());
             APASS_LOG_WARN_F(Elements::Manager,
-                "In strategy %s, %s has mismatched sequence dependencies. Expected ordered prefix starting at this pass: %s, but actual sequence from this pass onward "
+                "In strategy %s, %s has mismatched sequence dependencies. Expected ordered prefix starting at this "
+                "pass: %s, but actual sequence from this pass onward "
                 "is: %s.",
                 strategyName.c_str(), PassNameStr(passes[index]),
                 CommonUtils::ContainerToStr<std::vector<PassName>>(expectedPasses).c_str(),

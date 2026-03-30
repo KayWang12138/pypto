@@ -30,9 +30,10 @@ public:
     InternalParser(const std::string &archType) : archType_(archType) {}
     bool LoadInternalInfo();
     bool GetDataPath(std::vector<std::pair<MemoryType, MemoryType>> &dataPath);
+
 private:
     std::string archType_;
     std::map<std::string, std::string> data_;
 };
-}
-}
+} // namespace tile_fwk
+} // namespace npu

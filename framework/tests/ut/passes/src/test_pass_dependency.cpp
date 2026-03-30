@@ -50,15 +50,18 @@ TEST_F(TestPassDependency, TestCheckStrategyDependency) {
         PassName::REDUCE_COPY_MERGE, PassName::N_BUFFER_MERGE, PassName::L1_COPY_IN_REUSE_MERGE,
         PassName::INTRA_SUBGRAPH_ADAPTER, PassName::GENERATE_MOVE_OP};
     // GraphPartition前调用L1CopyInReuseMerge
-    std::vector<PassName> passesL1CopyBeforeGraphPartition = {PassName::DUPLICATE_OP, PassName::SPLIT_LARGE_FANOUT_TENSOR,
-        PassName::SPLIT_RESHAPE, PassName::SPLIT_K, PassName::L1_COPY_IN_REUSE_MERGE, PassName::GRAPH_PARTITION,
-        PassName::REDUCE_COPY_MERGE, PassName::N_BUFFER_MERGE, PassName::L1_COPY_IN_REUSE_MERGE,
-        PassName::INTRA_SUBGRAPH_ADAPTER, PassName::GENERATE_MOVE_OP};
+    std::vector<PassName> passesL1CopyBeforeGraphPartition = {PassName::DUPLICATE_OP,
+        PassName::SPLIT_LARGE_FANOUT_TENSOR, PassName::SPLIT_RESHAPE, PassName::SPLIT_K,
+        PassName::L1_COPY_IN_REUSE_MERGE, PassName::GRAPH_PARTITION, PassName::REDUCE_COPY_MERGE,
+        PassName::N_BUFFER_MERGE, PassName::L1_COPY_IN_REUSE_MERGE, PassName::INTRA_SUBGRAPH_ADAPTER,
+        PassName::GENERATE_MOVE_OP};
 
     EXPECT_EQ(passDependency.CheckStrategyDependency("normalPasses", normalPasses), SUCCESS);
     EXPECT_EQ(passDependency.CheckStrategyDependency("passesLessPreDependency", passesLessPreDependency), WARNING);
     EXPECT_EQ(passDependency.CheckStrategyDependency("passesConsecutiveDup", passesConsecutiveDup), WARNING);
-    EXPECT_EQ(passDependency.CheckStrategyDependency("passesL1CopyBeforeGraphPartition", passesL1CopyBeforeGraphPartition), WARNING);
+    EXPECT_EQ(
+        passDependency.CheckStrategyDependency("passesL1CopyBeforeGraphPartition", passesL1CopyBeforeGraphPartition),
+        WARNING);
 }
 
 TEST_F(TestPassDependency, TestStrategySequenceDependency) {

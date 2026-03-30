@@ -30,7 +30,7 @@ public:
         Update(args...);
     }
 
-    template<typename T>
+    template <typename T>
     T Get(int index) const;
 
     void Append(uint64_t hash) {
@@ -46,13 +46,19 @@ public:
 
     void Append(char32_t n) { this->push_back(n); }
 
-    template<typename T>
-    void Append(const std::vector<T> &v) { for (const auto &i : v) { this->Append(i); } }
+    template <typename T>
+    void Append(const std::vector<T> &v) {
+        for (const auto &i : v) {
+            this->Append(i);
+        }
+    }
 
     void Append(const std::string &s) { this->insert(this->end(), s.begin(), s.end()); }
 
-    template<typename T, T N>
-    void Append(const std::array<int, N> &v) { this->insert(this->end(), v.begin(), v.end()); }
+    template <typename T, T N>
+    void Append(const std::array<int, N> &v) {
+        this->insert(this->end(), v.begin(), v.end());
+    }
 
     template <typename T, T N>
     void Append(const std::array<int64_t, N> &v) {
@@ -80,4 +86,4 @@ public:
     }
 };
 
-}
+} // namespace npu::tile_fwk

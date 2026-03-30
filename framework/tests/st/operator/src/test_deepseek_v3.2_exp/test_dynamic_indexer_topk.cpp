@@ -47,7 +47,6 @@ static std::shared_ptr<RawTensorData> CreateTensorData(
 }
 
 void TestLightningIndexerTopkQuant(IndexerTile &tileConfig) {
-
     int paramsSize = 9;
     std::vector<int> input_param(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_params.bin", input_param);
@@ -111,9 +110,8 @@ void TestLightningIndexerTopkQuant(IndexerTile &tileConfig) {
     std::vector<RawTensorDataPtr> outputDataList = {topkResData, tmpData, topkValueData};
 
     FUNCTION("IndexerTopk", {query, key, qScale, kScale, weights, actSeq, blockTable}, {topkRes, tmpOut, topkValue}) {
-        LightningIndexerTopkImpl(query, key, true, &qScale, &kScale,
-            weights, actSeq, blockTable, topkRes, selectedCount, tileConfig, unrollList,
-            &tmpOut, &topkValue);
+        LightningIndexerTopkImpl(query, key, true, &qScale, &kScale, weights, actSeq, blockTable, topkRes,
+            selectedCount, tileConfig, unrollList, &tmpOut, &topkValue);
     }
 
     DevFuncRunner::Run(
@@ -132,11 +130,13 @@ TEST_F(DynamicIndexerTopk, indexer_topk_quant_4_b_1_s1_64k_s2) {
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 100 * 1024 * 1024); // mistake
     config::SetPassOption(SG_PG_LOWER_BOUND, 1024);
     config::SetPassOption(SG_PG_UPPER_BOUND, 1024 * 1024);
-    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 32}});
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{
+                                                     {-1, 32}
+    });
     config::SetPassOption(SG_PARALLEL_NUM, 2);
     config::SetRuntimeOption<uint8_t>(
         DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH) |
-                            static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH));
+                               static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH));
 
     config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, 128);
     config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, 128);

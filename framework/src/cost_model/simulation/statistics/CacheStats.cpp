@@ -16,8 +16,7 @@
 #include "cost_model/simulation/statistics/CacheStats.h"
 #include <iostream>
 
-void CacheStats::Reset()
-{
+void CacheStats::Reset() {
     totalInsertNum = 0;
     totalEvictNum = 0;
     totalQueryNum = 0;
@@ -28,8 +27,7 @@ void CacheStats::Reset()
     totalResponseLatency = 0;
 }
 
-void CacheStats::Report(std::string &name)
-{
+void CacheStats::Report(std::string &name) {
     rpt->ReportTitle(name + " Cache Statistics");
     rpt->ReportVal("Total Insert Count", totalInsertNum);
     rpt->ReportVal("Total Evict Count", totalEvictNum);

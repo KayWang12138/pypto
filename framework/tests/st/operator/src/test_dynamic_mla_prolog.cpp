@@ -39,13 +39,18 @@ struct TestShapeParams {
 };
 
 void PerformanceConfig() {
-    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
-    config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{3, 4}});
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{
+                                                     {-1, 4}
+    });
+    config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{
+                                                    {3, 4}
+    });
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 2 * 1024 * 1024);
 }
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(
+    Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> values(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, values);
@@ -60,7 +65,7 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
     return golden;
 }
 
-template <typename T = npu::tile_fwk::float16,  typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true,
+template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true,
     bool isSmooth = true, bool nz = true, bool usePrefetch = true>
 void TestDynamicMlaProlog(
     const TestShapeParams &params, const MlaTileConfig &tileConfig, std::string cacheMode = "PA_NZ") {
@@ -111,7 +116,7 @@ void TestDynamicMlaProlog(
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
     Tensor wDq(dTypeQuantA, wDqShape, "wDq", weightFormat);
     Tensor wUqQr(dTypeQuantB, wUqQrShape, "wUqQr", weightFormat);
-    if constexpr (usePrefetch) {  // TODO 放到接口实现里
+    if constexpr (usePrefetch) { // TODO 放到接口实现里
         wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
         wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
     }
@@ -166,9 +171,8 @@ void TestDynamicMlaProlog(
     auto outputQRopeData = RawTensorData::CreateConstantTensor<T>(outputQRope, 0.0);
 
     std::vector<RawTensorDataPtr> outputDataList = {outputQData, outputQRopeData, outKvCacheData, outKrCacheData};
-    std::vector<RawTensorDataPtr> inputDataList =
-        {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
-         kvCacheData, krCacheData};
+    std::vector<RawTensorDataPtr> inputDataList = {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData,
+        gammaCkvData, sinData, cosData, kvLenData, kvCacheData, krCacheData};
     MlaQuantInputs quantInputs;
     if (isQuantA) {
         auto scaleWDqData = CreateTensorData<float>(scaleWDq, scaleWDqShape, "/w_qa_scale.bin");
@@ -206,9 +210,9 @@ void TestDynamicMlaProlog(
         RawTensorData::CreateTensor<T>(outputKrCache, golden4),
     });
 
-    MlaProlog(dynamicX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, dynamicSin, dynamicCos, dynamicCacheIndex,
-        kvCache, krCache, quantInputs, tileConfig,
-        dynamicOutputQ, dynamicOutputQRope, outputKvCache, outputKrCache, 1e-5f, 1e-5f, cacheMode);
+    MlaProlog(dynamicX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, dynamicSin, dynamicCos, dynamicCacheIndex, kvCache,
+        krCache, quantInputs, tileConfig, dynamicOutputQ, dynamicOutputQRope, outputKvCache, outputKrCache, 1e-5f,
+        1e-5f, cacheMode);
 
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
@@ -514,7 +518,8 @@ TEST_F(MlaPrologSTest, b64_s1_pa_nd_bf16_quant) {
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(
+        params, tileConfig, cacheMode);
 }
 
 TEST_F(MlaPrologSTest, b64_s2_pa_nd_bf16_quant) {
@@ -524,7 +529,8 @@ TEST_F(MlaPrologSTest, b64_s2_pa_nd_bf16_quant) {
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(
+        params, tileConfig, cacheMode);
 }
 
 TEST_F(MlaPrologSTest, b96_s1_pa_nd_bf16_quant) {
@@ -534,7 +540,8 @@ TEST_F(MlaPrologSTest, b96_s1_pa_nd_bf16_quant) {
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(
+        params, tileConfig, cacheMode);
 }
 
 TEST_F(MlaPrologSTest, b96_s2_pa_nd_bf16_quant) {
@@ -544,7 +551,8 @@ TEST_F(MlaPrologSTest, b96_s2_pa_nd_bf16_quant) {
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, int8_t, false, true, true, false, true>(
+        params, tileConfig, cacheMode);
 }
 
 ////// fp16, no quant, weight nz, "PA_NZ"
@@ -555,7 +563,8 @@ TEST_F(MlaPrologSTest, b32_s1_pa_nz_fp16) {
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, true, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, true, true>(
+        params, tileConfig, cacheMode);
 }
 
 TEST_F(MlaPrologSTest, b32_s2_pa_nz_fp16) {
@@ -565,7 +574,8 @@ TEST_F(MlaPrologSTest, b32_s2_pa_nz_fp16) {
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, true, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, true, true>(
+        params, tileConfig, cacheMode);
 }
 
 ////// fp16, no quant, weight nd, "PA_BSND"
@@ -576,7 +586,8 @@ TEST_F(MlaPrologSTest, b32_s1_pa_nd_fp16) {
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, false, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, false, true>(
+        params, tileConfig, cacheMode);
 }
 
 TEST_F(MlaPrologSTest, b32_s2_pa_nd_fp16) {
@@ -586,7 +597,8 @@ TEST_F(MlaPrologSTest, b32_s2_pa_nd_fp16) {
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, false, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, false, true>(
+        params, tileConfig, cacheMode);
 }
 
 // small shape
@@ -597,7 +609,8 @@ TEST_F(MlaPrologSTest, b16_s2_pa_nd_fp16_small) {
     MlaTileConfig tileConfig = {16, 1};
 
     PerformanceConfig();
-    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, false, true>(params, tileConfig, cacheMode);
+    TestDynamicMlaProlog<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, false, false, true>(
+        params, tileConfig, cacheMode);
 }
 
 TEST_F(MlaPrologSTest, b16_s1_pa_nd_bf16_allquant) {

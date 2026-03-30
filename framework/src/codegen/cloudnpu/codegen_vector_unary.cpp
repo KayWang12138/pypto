@@ -74,9 +74,7 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
         templateParamList.emplace_back(lastUse);
     }
     templateParamList.emplace_back(std::to_string(modeEnum));
-    std::string satModeStr = (satModeEnum == 0) ?
-                            "pto::SaturationMode::ON" :
-                            "pto::SaturationMode::OFF";
+    std::string satModeStr = (satModeEnum == 0) ? "pto::SaturationMode::ON" : "pto::SaturationMode::OFF";
     templateParamList.emplace_back(satModeStr);
     oss << WrapParamByAngleBrackets(templateParamList);
     oss << WrapParamByParentheses({dstTensor, srcTensor});

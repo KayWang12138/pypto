@@ -53,9 +53,8 @@ void TestCodegenDynCumSumBody(int axis) {
     std::vector<int64_t> vecTileShape = {5, 9};
     std::vector<int64_t> shape{12, 14};
 
-    auto function = GenMockFuncDynUnary("CumSum", {shape, vecTileShape}, [axis](Tensor &input, Tensor &output) {
-        output = CumSum(input, axis);
-    });
+    auto function = GenMockFuncDynUnary(
+        "CumSum", {shape, vecTileShape}, [axis](Tensor &input, Tensor &output) { output = CumSum(input, axis); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

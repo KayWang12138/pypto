@@ -35,7 +35,6 @@ struct PReLUOpMetaData {
 
 static void PReLUOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         auto args = static_cast<const PReLUOpFuncArgs *>(opArgs);
 
@@ -56,8 +55,7 @@ static void PReLUOperationExeFunc2Dims(
                     {bIdx * firstViewShape, sIdx * secondViewShape});
 
                 auto weightViewShape = std::min(secondDim - sIdx * secondViewShape, secondViewShape);
-                auto tileTensor1 = View(inputs[1], {secondViewShape},
-                    {weightViewShape}, {sIdx * secondViewShape});
+                auto tileTensor1 = View(inputs[1], {secondViewShape}, {weightViewShape}, {sIdx * secondViewShape});
 
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = PReLU(tileTensor0, tileTensor1);
@@ -69,7 +67,6 @@ static void PReLUOperationExeFunc2Dims(
 
 static void PReLUOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         auto args = static_cast<const PReLUOpFuncArgs *>(opArgs);
 
@@ -95,8 +92,7 @@ static void PReLUOperationExeFunc3Dims(
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
 
                     auto weightViewShape = std::min(secondDim - sIdx * secondViewShape, secondViewShape);
-                    auto tileTensor1 = View(inputs[1], {secondViewShape},
-                        {weightViewShape}, {sIdx * secondViewShape});
+                    auto tileTensor1 = View(inputs[1], {secondViewShape}, {weightViewShape}, {sIdx * secondViewShape});
 
                     TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = PReLU(tileTensor0, tileTensor1);
@@ -109,7 +105,6 @@ static void PReLUOperationExeFunc3Dims(
 
 static void PReLUOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         auto args = static_cast<const PReLUOpFuncArgs *>(opArgs);
 
@@ -132,20 +127,25 @@ static void PReLUOperationExeFunc4Dims(
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
                     LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                        auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
-                                std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape, nIdx * fourthViewShape});
+                        auto tileTensor0 =
+                            View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                    std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                    nIdx * fourthViewShape});
 
                         auto weightViewShape = std::min(secondDim - sIdx * secondViewShape, secondViewShape);
-                        auto tileTensor1 = View(inputs[1], {secondViewShape},
-                            {weightViewShape}, {sIdx * secondViewShape});
+                        auto tileTensor1 =
+                            View(inputs[1], {secondViewShape}, {weightViewShape}, {sIdx * secondViewShape});
 
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = PReLU(tileTensor0, tileTensor1);
-                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape, nIdx * fourthViewShape}, outputs[0]);
+                        Assemble(res,
+                            {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                nIdx * fourthViewShape},
+                            outputs[0]);
                     }
                 }
             }

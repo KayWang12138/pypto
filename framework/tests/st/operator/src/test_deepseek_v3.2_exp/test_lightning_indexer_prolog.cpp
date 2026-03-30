@@ -35,12 +35,17 @@ class LightningIndexerPrologSTest : public npu::tile_fwk::stest::TestSuite_STest
 namespace {
 
 void PerformanceConfig() {
-    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
-    config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{
+                                                     {-1, 4}
+    });
+    config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{
+                                                    {NUM_3, NUM_4}
+    });
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 2 * 1024 * 1024);
 }
 
-static IndexerShapeParams ReadParams(const RopeTileShapeConfig &ropeTileConfigs, const IndexerTileShapeConfig &indexerConfigs, int tileBS) {
+static IndexerShapeParams ReadParams(
+    const RopeTileShapeConfig &ropeTileConfigs, const IndexerTileShapeConfig &indexerConfigs, int tileBS) {
     int paramsSize = 11;
     std::vector<int32_t> input_param(paramsSize);
     readInput<int32_t>(GetGoldenDir() + "/input_param.bin", input_param);
@@ -65,7 +70,8 @@ static IndexerShapeParams ReadParams(const RopeTileShapeConfig &ropeTileConfigs,
     std::cout << "s2=" << params.s2 << ", b=" << params.b << ", seq=" << params.seq << ", dim=" << params.dim
               << ", qLoraRank=" << params.qLoraRank << ", headDim=" << params.headDim << ", headNum=" << params.headNum
               << ", ropeHeadDim=" << params.ropeHeadDim << ", blockSize=" << params.blockSize
-              << ", blockNum=" << params.blockNum << ", nKV=" << params.nKV << ", tileBS=" << params.tileBS << std::endl;
+              << ", blockNum=" << params.blockNum << ", nKV=" << params.nKV << ", tileBS=" << params.tileBS
+              << std::endl;
 
     return params;
 }
@@ -122,7 +128,6 @@ IndexerPrologOutputGolden<T> PrepareIndexerPrologOutputsGolden(const IndexerProl
 
 template <typename T = npu::tile_fwk::bfloat16, bool nz = true>
 void TesLightningIndexerProlog(const IndexerShapeParams &params) {
-
     // inputs
     DataType dType = (std::is_same<T, npu::tile_fwk::bfloat16>::value) ? DT_BF16 : DT_FP16;
     int b = params.b;
@@ -175,20 +180,21 @@ void TesLightningIndexerProlog(const IndexerShapeParams &params) {
     EXPECT_TRUE(resultCmp<T>(outputGolden.weightGolden, (T *)outputData.weightData->data(), 0.003f));
     std::cout << "kCacheOut ======" << std::endl;
     // This is an inplace output
-    EXPECT_TRUE(resultCmp<T>(outputGolden.kCacheOutGolden, (T *)inputData.kCacheData->data(), 0.003f, 0, 1000, false, true, 0));
+    EXPECT_TRUE(
+        resultCmp<T>(outputGolden.kCacheOutGolden, (T *)inputData.kCacheData->data(), 0.003f, 0, 1000, false, true, 0));
 }
 
 TEST_F(LightningIndexerPrologSTest, bf16_indexer_prolog) {
     RopeTileShapeConfig ropeTileConfigs = {
         {128, 256},
-        { 32, 128, 128},
-        { 1, 64, 128, 128}
+        {32, 128, 128},
+        {1, 64, 128, 128}
     };
     IndexerTileShapeConfig indexerConfigs{
-        { 16, 16, 256, 256, 128, 128}, // c1TileShape
-        {1, 256, 128, 128 }, // v1TileShape
-        { 16, 16, 256, 256, 128, 128}, // c2TileShape
-        {1, 128, 128, 128 } // v2TileShape
+        {16, 16, 256, 256, 128, 128}, // c1TileShape
+        {1, 256, 128, 128}, // v1TileShape
+        {16, 16, 256, 256, 128, 128}, // c2TileShape
+        {1, 128, 128, 128}  // v2TileShape
     };
 
     auto params = ReadParams(ropeTileConfigs, indexerConfigs, -1);
@@ -199,14 +205,14 @@ TEST_F(LightningIndexerPrologSTest, bf16_indexer_prolog) {
 TEST_F_WITH_COST(LightningIndexerPrologSTest, b48_s1_1_s2_8k, 26) {
     RopeTileShapeConfig ropeTileConfigs = {
         {128, 256},
-        { 32, 128, 128},
-        { 1, 64, 128, 128}
+        {32, 128, 128},
+        {1, 64, 128, 128}
     };
     IndexerTileShapeConfig indexerConfigs{
-        { 16, 16, 256, 256, 128, 128}, // c1TileShape
-        { 1, 256, 128, 128 }, // v1TileShape
-        { 16, 16, 256, 256, 128, 128}, // c2TileShape
-        { 1, 128, 128, 128 } // v2TileShape
+        {16, 16, 256, 256, 128, 128}, // c1TileShape
+        {1, 256, 128, 128}, // v1TileShape
+        {16, 16, 256, 256, 128, 128}, // c2TileShape
+        {1, 128, 128, 128}  // v2TileShape
     };
     auto params = ReadParams(ropeTileConfigs, indexerConfigs, -1);
     PerformanceConfig();
@@ -216,33 +222,32 @@ TEST_F_WITH_COST(LightningIndexerPrologSTest, b48_s1_1_s2_8k, 26) {
 TEST_F(LightningIndexerPrologSTest, b2_s1_2_s2_2k) {
     RopeTileShapeConfig ropeTileConfigs = {
         {128, 256},
-        { 32, 128, 128},
-        { 16, 128, 128, 128}
+        {32, 128, 128},
+        {16, 128, 128, 128}
     };
     IndexerTileShapeConfig indexerConfigs{
-        { 32, 32, 256, 256, 128, 128}, // c1TileShape
-        {1, 256, 128, 128 }, // v1TileShape
-        { 32, 32, 256, 256, 128, 128}, // c2TileShape
-        {1, 128, 128, 128 } // v2TileShape
+        {32, 32, 256, 256, 128, 128}, // c1TileShape
+        {1, 256, 128, 128}, // v1TileShape
+        {32, 32, 256, 256, 128, 128}, // c2TileShape
+        {1, 128, 128, 128}  // v2TileShape
     };
     auto params = ReadParams(ropeTileConfigs, indexerConfigs, -1);
 
     PerformanceConfig();
     TesLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(params);
-
 }
 
 TEST_F(LightningIndexerPrologSTest, b35_s1_2_s2_8k) {
     RopeTileShapeConfig ropeTileConfigs = {
         {128, 256},
-        { 32, 128, 128},
-        { 16, 128, 128, 128}
+        {32, 128, 128},
+        {16, 128, 128, 128}
     };
     IndexerTileShapeConfig indexerConfigs{
-        { 32, 32, 256, 256, 128, 128}, // c1TileShape
-        {128, 256, 128, 128 }, // v1TileShape
-        { 32, 32, 256, 256, 128, 128}, // c2TileShape
-        {128, 128, 128, 128 } // v2TileShape
+        {32, 32, 256, 256, 128, 128}, // c1TileShape
+        {128, 256, 128, 128}, // v1TileShape
+        {32, 32, 256, 256, 128, 128}, // c2TileShape
+        {128, 128, 128, 128}  // v2TileShape
     };
     auto params = ReadParams(ropeTileConfigs, indexerConfigs, -1);
 
@@ -253,14 +258,14 @@ TEST_F(LightningIndexerPrologSTest, b35_s1_2_s2_8k) {
 TEST_F(LightningIndexerPrologSTest, b40_s1_4_s2_8k) {
     RopeTileShapeConfig ropeTileConfigs = {
         {128, 256},
-        { 32, 128, 128},
-        { 16, 128, 128, 128}
+        {32, 128, 128},
+        {16, 128, 128, 128}
     };
     IndexerTileShapeConfig indexerConfigs{
-        { 32, 32, 256, 256, 128, 128}, // c1TileShape
-        {128, 256, 128, 128 }, // v1TileShape
-        { 32, 32, 256, 256, 128, 128}, // c2TileShape
-        {128, 128, 128, 128 } // v2TileShape
+        {32, 32, 256, 256, 128, 128}, // c1TileShape
+        {128, 256, 128, 128}, // v1TileShape
+        {32, 32, 256, 256, 128, 128}, // c2TileShape
+        {128, 128, 128, 128}  // v2TileShape
     };
     auto params = ReadParams(ropeTileConfigs, indexerConfigs, 32);
 
@@ -271,14 +276,14 @@ TEST_F(LightningIndexerPrologSTest, b40_s1_4_s2_8k) {
 TEST_F_WITH_COST(LightningIndexerPrologSTest, b4_s1_1_s2_64k, 26) {
     RopeTileShapeConfig ropeTileConfigs = {
         {128, 256},
-        { 32, 128, 128},
-        { 1, 64, 128, 128}
+        {32, 128, 128},
+        {1, 64, 128, 128}
     };
     IndexerTileShapeConfig indexerConfigs{
-        { 16, 16, 256, 256, 128, 128}, // c1TileShape
-        {1, 256, 128, 128 }, // v1TileShape
-        { 16, 16, 256, 256, 128, 128}, // c2TileShape
-        {1, 128, 128, 128 } // v2TileShape
+        {16, 16, 256, 256, 128, 128}, // c1TileShape
+        {1, 256, 128, 128}, // v1TileShape
+        {16, 16, 256, 256, 128, 128}, // c2TileShape
+        {1, 128, 128, 128}  // v2TileShape
     };
     auto params = ReadParams(ropeTileConfigs, indexerConfigs, -1);
     PerformanceConfig();

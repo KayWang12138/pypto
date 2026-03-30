@@ -190,8 +190,10 @@ static void GatherElementOperationExeFunc4Dims(
                                     qIdx * forthViewShape});
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = GatherElements(tileTensor0, tileTensor1, args->axis_);
-                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                qIdx * forthViewShape}, outputs[0]);
+                        Assemble(res,
+                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                qIdx * forthViewShape},
+                            outputs[0]);
                     }
                 }
             }
@@ -226,30 +228,31 @@ static void GatherElementOperationExeFunc5Dims(
 
         // gather操作src axis轴不能切分 ，其他轴可正常切分，index和最终输出都可正常切分, 切分以index为准
         const int loop[] = {CeilDiv(idx_firstDim, firstViewShape), CeilDiv(idx_secondDim, secondViewShape),
-            CeilDiv(idx_thirdDim, thirdViewShape), CeilDiv(idx_forthDim, forthViewShape), CeilDiv(idx_fifthDim, fifthViewShape)};
+            CeilDiv(idx_thirdDim, thirdViewShape), CeilDiv(idx_forthDim, forthViewShape),
+            CeilDiv(idx_fifthDim, fifthViewShape)};
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loop[IDX_DIM2])) {
                     LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(loop[IDX_DIM3])) {
                         LOOP("LOOP_L4_rIdx", FunctionType::DYNAMIC_LOOP, rIdx, LoopRange(loop[IDX_DIM4])) {
-                            auto tileTensor0 =
-                                View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, forthViewShape, fifthViewShape},
-                                    {std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
-                                        std::min(src_secondDim - sIdx * secondViewShape, secondViewShape),
-                                        std::min(src_thirdDim - nIdx * thirdViewShape, thirdViewShape),
-                                        std::min(src_forthDim - qIdx * forthViewShape, forthViewShape),
-                                        std::min(src_fifthDim - rIdx * fifthViewShape, fifthViewShape)},
-                                    {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                        qIdx * forthViewShape, rIdx * fifthViewShape});
-                            auto tileTensor1 =
-                                View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape, forthViewShape, fifthViewShape},
-                                    {std::min(idx_firstDim - bIdx * firstViewShape, firstViewShape),
-                                        std::min(idx_secondDim - sIdx * secondViewShape, secondViewShape),
-                                        std::min(idx_thirdDim - nIdx * thirdViewShape, thirdViewShape),
-                                        std::min(idx_forthDim - qIdx * forthViewShape, forthViewShape),
-                                        std::min(idx_fifthDim - rIdx * fifthViewShape, fifthViewShape)},
-                                    {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                        qIdx * forthViewShape, rIdx * fifthViewShape});
+                            auto tileTensor0 = View(inputs[0],
+                                {firstViewShape, secondViewShape, thirdViewShape, forthViewShape, fifthViewShape},
+                                {std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(src_secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(src_thirdDim - nIdx * thirdViewShape, thirdViewShape),
+                                    std::min(src_forthDim - qIdx * forthViewShape, forthViewShape),
+                                    std::min(src_fifthDim - rIdx * fifthViewShape, fifthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                    qIdx * forthViewShape, rIdx * fifthViewShape});
+                            auto tileTensor1 = View(inputs[1],
+                                {firstViewShape, secondViewShape, thirdViewShape, forthViewShape, fifthViewShape},
+                                {std::min(idx_firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(idx_secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(idx_thirdDim - nIdx * thirdViewShape, thirdViewShape),
+                                    std::min(idx_forthDim - qIdx * forthViewShape, forthViewShape),
+                                    std::min(idx_fifthDim - rIdx * fifthViewShape, fifthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                    qIdx * forthViewShape, rIdx * fifthViewShape});
 
                             TileShape::Current().SetVecTile(args->tileShape_);
                             auto res = GatherElements(tileTensor0, tileTensor1, args->axis_);

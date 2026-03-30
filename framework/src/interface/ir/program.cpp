@@ -34,8 +34,8 @@ Program::Program(const std::vector<FunctionPtr> &functions, std::string name, Sp
     for (const auto &func : functions) {
         INTERNAL_CHECK(func) << "Program constructor encountered null function at " << span_.ToString();
         auto funcName = func->name_;
-        INTERNAL_CHECK(!funcName.empty()) << "Program constructor encountered empty function name at "
-                                          << span_.ToString();
+        INTERNAL_CHECK(!funcName.empty())
+            << "Program constructor encountered empty function name at " << span_.ToString();
         INTERNAL_CHECK(functionNames.find(funcName) == functionNames.end())
             << "Duplicate function name \"" << funcName << "\" at " << span_.ToString();
         functionNames.insert(funcName);

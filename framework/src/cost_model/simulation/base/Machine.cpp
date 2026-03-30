@@ -18,14 +18,12 @@
 
 namespace CostModel {
 
-void Machine::LoggerRecordTaskStart(std::string name, std::string hint)
-{
+void Machine::LoggerRecordTaskStart(std::string name, std::string hint) {
     GetSim()->LoggerRecordCoreStart(name, machineId, hint);
     GetSim()->GetLogger()->AddEventBegin(name, machineId, coreTid, GetSim()->GetCycles(), hint);
 }
 
-void Machine::LoggerRecordTaskEnd()
-{
+void Machine::LoggerRecordTaskEnd() {
     if (!GetSim()) {
         return;
     }
@@ -35,13 +33,11 @@ void Machine::LoggerRecordTaskEnd()
     GetSim()->GetLogger()->AddEventEnd(machineId, coreTid, sim->GetCycles());
 }
 
-void Machine::LoggerRecordPipe(std::string name, size_t pipeId)
-{
+void Machine::LoggerRecordPipe(std::string name, size_t pipeId) {
     GetSim()->GetLogger()->SetThreadName(name, machineId, pipeId + reversedTidNum);
 }
 
-void Machine::LoggerRecordTileOp(std::string name, size_t pipeId, size_t sTime, size_t eTime)
-{
+void Machine::LoggerRecordTileOp(std::string name, size_t pipeId, size_t sTime, size_t eTime) {
     LogData data;
     data.name = name;
     data.pid = machineId;
@@ -52,8 +48,7 @@ void Machine::LoggerRecordTileOp(std::string name, size_t pipeId, size_t sTime, 
     GetSim()->GetLogger()->AddDuration(data);
 }
 
-void Machine::SetQueueCounter()
-{
+void Machine::SetQueueCounter() {
     GetSim()->GetLogger()->SetThreadName("SubmissionQ", machineId, (queueSeq + coreTid));
     submissionQueue.SetCounterInfo(sim->GetLogger(), machineId, (queueSeq++) + coreTid);
 
@@ -73,17 +68,15 @@ void Machine::SetQueueCounter()
     functionCacheTid = (queueSeq++) + coreTid;
 
     ASSERT(queueSeq <= reversedTidNum) << "[SIMULATION]: Queue Counter thread id is conflict with reversedTidNum."
-        << " queueSeq=" << queueSeq << ", reversedTidNum=" << reversedTidNum;
+                                       << " queueSeq=" << queueSeq << ", reversedTidNum=" << reversedTidNum;
 }
-void Machine::SubmitTask(TaskPack task, uint64_t extraDelay)
-{
+void Machine::SubmitTask(TaskPack task, uint64_t extraDelay) {
     lastCycles = GetSim()->GetCycles();
     submissionQueue.Enqueue(task, extraDelay);
 }
 
-void Machine::ResponseData(CachePacket pkt, uint64_t extraDelay)
-{
+void Machine::ResponseData(CachePacket pkt, uint64_t extraDelay) {
     lastCycles = GetSim()->GetCycles();
     cacheRespQueue.Enqueue(pkt, extraDelay);
 }
-}
+} // namespace CostModel

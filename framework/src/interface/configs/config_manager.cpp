@@ -91,7 +91,7 @@ Status ConfigManager::Initialize() {
                 genJsonFile.close();
 
                 if (jsonConfig.contains("global_configs")) {
-                    const auto& genGlobal = jsonConfig["global_configs"];
+                    const auto &genGlobal = jsonConfig["global_configs"];
                     if (genGlobal.contains("platform_configs") && !genGlobal["platform_configs"].empty()) {
                         json_["global"]["platform"].update(genGlobal["platform_configs"]);
                     }
@@ -134,7 +134,7 @@ static std::string GetIpContext() {
         }
         if (ifa->ifa_addr->sa_family == AF_INET && strcmp(ifa->ifa_name, "lo") != 0) {
             tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
-            uint32_t ipInt = ntohl(*((uint32_t*)tmpAddrPtr));
+            uint32_t ipInt = ntohl(*((uint32_t *)tmpAddrPtr));
             std::ostringstream oss;
             oss << std::uppercase << std::hex << std::setw(8) << std::setfill('0') << ipInt;
             hexIp = oss.str();
@@ -161,7 +161,7 @@ static std::string CreateLogTopFolder() {
     timestamp << "_" << std::setw(NUM_SIX) << std::setfill('0') << us;
 
     std::string folderPath = "output";
-    const char* envDir = std::getenv("TILE_FWK_OUTPUT_DIR");
+    const char *envDir = std::getenv("TILE_FWK_OUTPUT_DIR");
     if (envDir != nullptr) {
         std::string envStr(envDir);
         if (!envStr.empty()) {
@@ -226,7 +226,7 @@ void ConfigManager::PassConfigsDebugInfo(
     auto *node = GetJsonNode(json_, {"global", "pass_strategies", strategy});
     if (!node) {
         FUNCTION_LOGI("[ConfigManager] Missing custom pass strategy < %s > configs. %s", strategy.c_str(),
-                    "You may add your own custom strategy configs in 'tile_fwk_config.json'.");
+            "You may add your own custom strategy configs in 'tile_fwk_config.json'.");
         return;
     }
 
@@ -243,33 +243,29 @@ void ConfigManager::PassConfigsDebugInfo(
         } else {
             FUNCTION_LOGI("[ConfigManager] Pass instance %s<%s> configs for pass strategy <%s> is missing. \
             You may add your own custom strategy configs in 'tile_fwk_config.json'.",
-            spaces.c_str(), identifier.c_str(), strategy.c_str());
+                spaces.c_str(), identifier.c_str(), strategy.c_str());
         }
     }
 }
 
 /* Helper Functions */
 static std::map<std::string, std::function<void(PassConfigs &, const nlohmann::json &)>> g_assignPassConfigFns = {
-    {                 KEY_PRINT_GRAPH,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.printGraph = node.get<bool>(); }},
-    {                 KEY_PRINT_PROGRAM,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.printProgram = node.get<bool>(); }},
-    {                 KEY_DUMP_GRAPH,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.dumpGraph = node.get<bool>(); }},
-    {                 KEY_DUMP_PASS_TIME_COST,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.dumpPassTimeCost = node.get<bool>(); }},
-    {                 KEY_PRE_CHECK,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.preCheck = node.get<bool>(); }},
-    {                 KEY_POST_CHECK,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.postCheck = node.get<bool>(); }},
-    {                 KEY_EXPECTED_VALUE_CHECK,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.expectedValueCheck = node.get<bool>(); }},
-    {                 KEY_DISABLE_PASS,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.disablePass = node.get<bool>(); }},
-    {                 KEY_HEALTH_CHECK,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.healthCheck = node.get<bool>(); }},
-    {                 KEY_RESUME_PARH,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.resumePath = node.get<std::string>(); }},
+    {         KEY_PRINT_GRAPH,[](PassConfigs &configs,         const nlohmann::json &node) { configs.printGraph = node.get<bool>(); }                              },
+    {       KEY_PRINT_PROGRAM,
+     [](PassConfigs &configs,       const nlohmann::json &node) { configs.printProgram = node.get<bool>(); }                          },
+    {          KEY_DUMP_GRAPH, [](PassConfigs &configs,          const nlohmann::json &node) { configs.dumpGraph = node.get<bool>(); }},
+    { KEY_DUMP_PASS_TIME_COST,
+     [](PassConfigs &configs,   const nlohmann::json &node) { configs.dumpPassTimeCost = node.get<bool>(); }                          },
+    {           KEY_PRE_CHECK, [](PassConfigs &configs,           const nlohmann::json &node) { configs.preCheck = node.get<bool>(); }},
+    {          KEY_POST_CHECK, [](PassConfigs &configs,          const nlohmann::json &node) { configs.postCheck = node.get<bool>(); }},
+    {KEY_EXPECTED_VALUE_CHECK,
+     [](PassConfigs &configs, const nlohmann::json &node) { configs.expectedValueCheck = node.get<bool>(); }                          },
+    {        KEY_DISABLE_PASS,
+     [](PassConfigs &configs,        const nlohmann::json &node) { configs.disablePass = node.get<bool>(); }                          },
+    {        KEY_HEALTH_CHECK,
+     [](PassConfigs &configs,        const nlohmann::json &node) { configs.healthCheck = node.get<bool>(); }                          },
+    {         KEY_RESUME_PARH,
+     [](PassConfigs &configs,  const nlohmann::json &node) { configs.resumePath = node.get<std::string>(); }                          },
 };
 
 static PassConfigs InternalGetPassConfigs(const nlohmann::json &root, const GlobalPassConfigs *globalConfigs) {
@@ -289,11 +285,14 @@ static PassConfigs InternalGetPassConfigs(const nlohmann::json &root, const Glob
     return configs;
 }
 
-static std::map<std::string, std::function<void(GlobalPassConfigs &, const nlohmann::json &)>> g_assignGlobalConfigFns = {
-    {    "enable_pass_configs",
-     [](GlobalPassConfigs &configs, const nlohmann::json &node) { configs.enablePassConfigs = node.get<bool>(); }},
-    {   "default_pass_configs",
-     [](GlobalPassConfigs &configs, const nlohmann::json &node) { configs.defaultPassConfigs = InternalGetPassConfigs(node, nullptr); }},
+static std::map<std::string, std::function<void(GlobalPassConfigs &, const nlohmann::json &)>> g_assignGlobalConfigFns =
+    {
+        { "enable_pass_configs",[](GlobalPassConfigs &configs,
+         const nlohmann::json &node) { configs.enablePassConfigs = node.get<bool>(); }},
+        {"default_pass_configs",
+         [](GlobalPassConfigs &configs,                                           const nlohmann::json &node) {
+                                           configs.defaultPassConfigs = InternalGetPassConfigs(node, nullptr);
+                                           }   },
 };
 
 static GlobalPassConfigs InternalGetGlobalConfigs(const nlohmann::json &globalCfg) {
@@ -310,13 +309,9 @@ struct RunDataDir {
     std::string path;
     std::string dName;
 
-    std::string montage() {
-        return path + "/" + dName;
-    }
+    std::string montage() { return path + "/" + dName; }
 
-    bool empty() {
-        return (path.empty() || dName.empty());
-    }
+    bool empty() { return (path.empty() || dName.empty()); }
 
     void Reset() {
         path.clear();
@@ -350,7 +345,6 @@ struct ConfigStorage {
     PrintOptions printOption;
 };
 
-
 namespace config {
 
 static ConfigStorage g_config;
@@ -370,7 +364,7 @@ FunctionType GetFunctionType() {
     return g_config.funcType;
 }
 
-void SetSemanticLabel(const std::string &label, const char *filename , int lineno) {
+void SetSemanticLabel(const std::string &label, const char *filename, int lineno) {
     g_config.semanticLabel = std::make_shared<SemanticLabel>(label, filename, lineno);
     FUNCTION_LOGD("Set semanticLabel[%s] successfully.", label.c_str());
 }
@@ -410,9 +404,8 @@ void SetRunDataOption(const std::string &key, const std::string &value) {
         CreateRunDataDir();
     }
     auto filename = g_config.rundataDir.montage() + "/rundata.json";
-    SaveFileSafe(filename, reinterpret_cast<uint8_t*>(dumpValue.data()), dumpValue.size());
+    SaveFileSafe(filename, reinterpret_cast<uint8_t *>(dumpValue.data()), dumpValue.size());
 }
-
 
 void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth) {
     g_config.printOption.edgeItems = edgeItems;

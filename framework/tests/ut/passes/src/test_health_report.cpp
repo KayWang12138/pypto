@@ -33,7 +33,8 @@ public:
         config::SetPassDefaultConfig(KEY_HEALTH_CHECK, true);
     }
 
-    void TearDown() override { config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);}
+    void TearDown() override { config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend); }
+
 protected:
     bool oriEnableAihacBackend = false;
 };
@@ -44,11 +45,11 @@ void TestLoopViewAssembleCopy(const Tensor &t0, const Tensor &t1, const Tensor &
             SymbolicScalar idx = GetTensorData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
 
-            Tensor qi(DT_FP32, {s, 2*s}, "qi");
+            Tensor qi(DT_FP32, {s, 2 * s}, "qi");
             Assemble(t1, {0, 0}, qi);
             Assemble(t0s, {0, s}, qi);
 
-            Tensor ki(DT_FP32, {s, 2*s}, "ki");
+            Tensor ki(DT_FP32, {s, 2 * s}, "ki");
             Assemble(t0s, {0, 0}, ki);
             Assemble(t1, {0, s}, ki);
 
@@ -66,8 +67,8 @@ TEST_F(HealthReportTest, TestDD) {
 
     int s = 32;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
-    Tensor t1(DT_FP32, {s, s}, "t1");  // [32, 32]
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [32*8, 32]
+    Tensor t1(DT_FP32, {s, s}, "t1");     // [32, 32]
     Tensor blockTable{
         DT_INT32, {n, 1},
          "blockTable"

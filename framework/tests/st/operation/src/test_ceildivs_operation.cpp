@@ -18,7 +18,8 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct CeilDivsOpFuncArgs : public OpFuncArgs {
-    CeilDivsOpFuncArgs(const Element &value, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
+    CeilDivsOpFuncArgs(
+        const Element &value, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
         : value_(value), viewShape_(viewShape), tileShape_(tileShape) {}
 
     Element value_;
@@ -136,7 +137,8 @@ class CeilDivsOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_A
 
 INSTANTIATE_TEST_SUITE_P(TestCeilDivs, CeilDivsOperationTest,
     ::testing::ValuesIn(GetOpMetaData<CeilDivsOpMetaData>(
-        {CeilDivsOperationExeFuncDoubleCut, CeilDivsOperationExeFuncTripleCut, CeilDivsOperationExeFuncQuadrupleCut}, "CeilDivs")));
+        {CeilDivsOperationExeFuncDoubleCut, CeilDivsOperationExeFuncTripleCut, CeilDivsOperationExeFuncQuadrupleCut},
+        "CeilDivs")));
 
 TEST_P(CeilDivsOperationTest, TestCeilDivs) {
     auto test_data = GetParam().test_data_;

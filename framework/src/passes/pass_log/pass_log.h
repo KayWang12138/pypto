@@ -24,29 +24,22 @@
 
 namespace npu::tile_fwk {
 
-std::string GetFormatBacktrace(const Operation& op);
+std::string GetFormatBacktrace(const Operation &op);
 
-std::string GetFormatBacktrace(const OperationPtr& op);
+std::string GetFormatBacktrace(const OperationPtr &op);
 
-std::string GetFormatBacktrace(const Operation* op);
+std::string GetFormatBacktrace(const Operation *op);
 
-enum class Elements {
-    Operation,
-    Tensor,
-    Function,
-    Graph,
-    Config,
-    Manager
-};
+enum class Elements { Operation, Tensor, Function, Graph, Config, Manager };
 
-inline const char* toString(Elements elem) {
-    static const std::unordered_map<Elements, const char*> passElementName = {
+inline const char *toString(Elements elem) {
+    static const std::unordered_map<Elements, const char *> passElementName = {
         {Elements::Operation, "Operation"},
-        {Elements::Tensor, "Tensor"},
-        {Elements::Function, "Function"},
-        {Elements::Graph, "Graph"},
-        {Elements::Config, "Config"},
-        {Elements::Manager, "Manager"}
+        {   Elements::Tensor,    "Tensor"},
+        { Elements::Function,  "Function"},
+        {    Elements::Graph,     "Graph"},
+        {   Elements::Config,    "Config"},
+        {  Elements::Manager,   "Manager"}
     };
 
     auto it = passElementName.find(elem);
@@ -55,7 +48,7 @@ inline const char* toString(Elements elem) {
 
 class ScopeTimer {
 public:
-    ScopeTimer(const char* moduleName, Elements opEnum, const char* tag)
+    ScopeTimer(const char *moduleName, Elements opEnum, const char *tag)
         : module_(moduleName), opEnum_(opEnum), tag_(tag) {}
 
     void Start() {
@@ -70,8 +63,8 @@ public:
             return;
         }
         ended_ = true;
-        auto us = std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::steady_clock::now() - start_).count();
+        auto us =
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_).count();
         PASS_LOGI("[%s][%s]: <========== end %s, cost time=%lld us.", module_, toString(opEnum_), tag_, (long long)us);
     }
 
@@ -82,28 +75,33 @@ public:
     }
 
 private:
-    const char* module_;
+    const char *module_;
     Elements opEnum_;
-    const char* tag_;
+    const char *tag_;
 
     bool started_{false};
     bool ended_{false};
     std::chrono::steady_clock::time_point start_;
 };
-}
+} // namespace npu::tile_fwk
 
-#define LOG_SCOPE_BEGIN(timerVar, opEnum, tag) \
+#define LOG_SCOPE_BEGIN(timerVar, opEnum, tag)     \
     ScopeTimer timerVar(MODULE_NAME, opEnum, tag); \
     timerVar.Start()
 
-#define LOG_SCOPE_END(timerVar) \
-    timerVar.End()
+#define LOG_SCOPE_END(timerVar) timerVar.End()
 
-#define APASS_LOG_DEBUG_F(opEnum, fmt, ...)   PYPTO_HOST_LOG(DLOG_DEBUG, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
-#define APASS_LOG_INFO_F(opEnum, fmt, ...)    PYPTO_HOST_LOG(DLOG_INFO, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
-#define APASS_LOG_WARN_F(opEnum, fmt, ...)    PYPTO_HOST_LOG(DLOG_WARN, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
-#define APASS_LOG_ERROR_F(opEnum, fmt, ...)   PYPTO_HOST_LOG(DLOG_ERROR, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
-#define APASS_LOG_ERROR_C(errCode, opEnum, fmt, ...)   PYPTO_HOST_LOGE(PASS, errCode, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
-#define APASS_LOG_EVENT_F(opEnum, fmt, ...)   PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
+#define APASS_LOG_DEBUG_F(opEnum, fmt, ...) \
+    PYPTO_HOST_LOG(DLOG_DEBUG, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
+#define APASS_LOG_INFO_F(opEnum, fmt, ...) \
+    PYPTO_HOST_LOG(DLOG_INFO, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
+#define APASS_LOG_WARN_F(opEnum, fmt, ...) \
+    PYPTO_HOST_LOG(DLOG_WARN, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
+#define APASS_LOG_ERROR_F(opEnum, fmt, ...) \
+    PYPTO_HOST_LOG(DLOG_ERROR, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
+#define APASS_LOG_ERROR_C(errCode, opEnum, fmt, ...) \
+    PYPTO_HOST_LOGE(PASS, errCode, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
+#define APASS_LOG_EVENT_F(opEnum, fmt, ...) \
+    PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
 
 #endif // PASSES_LOG_H

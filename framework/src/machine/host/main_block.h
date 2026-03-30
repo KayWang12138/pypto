@@ -38,18 +38,18 @@ public:
     void CollectCoaMainBlockConds(const std::vector<std::vector<SymbolicScalar>> &argList);
     SymbolicScalar BuildMainBlockExpression();
     static void Gencode(Function *function);
-    const std::vector<SymbolicScalar>& GetCondGroup() const;
-    const std::unordered_set<std::string>& GetCondStrSet() const;
-
+    const std::vector<SymbolicScalar> &GetCondGroup() const;
+    const std::unordered_set<std::string> &GetCondStrSet() const;
 
 private:
     void AddUniqueCondition(const SymbolicScalar &newCond);
     bool CheckShapeEquality(const Shape &shape, const std::vector<SymbolicScalar> &dynShape);
 
-    bool GetValidShapeFromCoa(const std::vector<SymbolicScalar> &argList,
-                                     Shape &shape, std::vector<SymbolicScalar> &dynValidShape);
+    bool GetValidShapeFromCoa(
+        const std::vector<SymbolicScalar> &argList, Shape &shape, std::vector<SymbolicScalar> &dynValidShape);
+
 private:
     std::vector<SymbolicScalar> mainBlockCondGroup_;
     std::unordered_set<std::string> mainBlockStrSet_;
 };
-}
+} // namespace npu::tile_fwk

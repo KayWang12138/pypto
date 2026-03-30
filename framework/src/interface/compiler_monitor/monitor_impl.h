@@ -22,7 +22,7 @@ class MonitorManager;
 
 class MonitorImpl {
 public:
-    explicit MonitorImpl(MonitorManager* manager);
+    explicit MonitorImpl(MonitorManager *manager);
     ~MonitorImpl();
 
     void Start();
@@ -34,7 +34,7 @@ private:
     void MonitorLoop();
     void PrintTotalTimeOut(double total_elapsed, int total_timeout_sec);
 
-    MonitorManager* manager_;
+    MonitorManager *manager_;
     std::unique_ptr<std::thread> thread_;
     std::mutex mutex_;
     std::condition_variable cv_;
@@ -42,4 +42,4 @@ private:
     std::atomic<bool> stage_start_flag_{false};
 };
 
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

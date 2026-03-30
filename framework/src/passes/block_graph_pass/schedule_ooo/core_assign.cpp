@@ -36,10 +36,11 @@ inline std::string ScheduleCoreTypeToString(ScheduleCoreType coreType) {
 
 inline std::string TargetCoreTypeToString(TargetCoreType coreType) {
     std::unordered_map<TargetCoreType, std::string> targetToString{
-        {TargetCoreType::AIC, "AIC"},
-        {TargetCoreType::AIV0, "AIV0"},
-        {TargetCoreType::AIV1, "AIV1"},
-        {TargetCoreType::UNKNOWN, "UNKNOWN"}};
+        {    TargetCoreType::AIC,     "AIC"},
+        {   TargetCoreType::AIV0,    "AIV0"},
+        {   TargetCoreType::AIV1,    "AIV1"},
+        {TargetCoreType::UNKNOWN, "UNKNOWN"}
+    };
     if (targetToString.count(coreType) > 0) {
         return targetToString[coreType];
     }
@@ -68,8 +69,8 @@ void TaskGraph::ApplyCandidate() {
 int TaskGraph::AddTask(const std::string &name, ScheduleCoreType coreType, int latency) {
     int newTaskIdx = static_cast<int>(tasks.size());
     tasks.emplace_back(name, newTaskIdx, coreType, latency);
-    APASS_LOG_DEBUG_F(Elements::Operation, "Create new taskNode with idx=%d and coreType=%s.",
-                      newTaskIdx, ScheduleCoreTypeToString(coreType).c_str());
+    APASS_LOG_DEBUG_F(Elements::Operation, "Create new taskNode with idx=%d and coreType=%s.", newTaskIdx,
+        ScheduleCoreTypeToString(coreType).c_str());
     return newTaskIdx;
 }
 
@@ -104,21 +105,23 @@ inline void UDSUnion(std::vector<int> &parent, int i, int j) {
 void TaskGraph::ClearSchedule() {
     makespan = -1;
     for (auto &task : tasks) {
-        task.targetCoreType  = TargetCoreType::UNKNOWN;
+        task.targetCoreType = TargetCoreType::UNKNOWN;
         task.startTime = 0;
         task.endTime = 0;
-        task.targetCoreTypeCandidate  = TargetCoreType::UNKNOWN;
+        task.targetCoreTypeCandidate = TargetCoreType::UNKNOWN;
         task.startTimeCandidate = 0;
         task.endTimeCandidate = 0;
     }
 }
 
 // 寻找时间槽不重叠情况下的最早执行时间
-void CoreScheduler::FindEarliestSlot(std::vector<std::pair<int, int>> &timeSlot, int earliestStart, int latency, int &currentIdx, std::pair<int, int> &currentInterval) {
+void CoreScheduler::FindEarliestSlot(std::vector<std::pair<int, int>> &timeSlot, int earliestStart, int latency,
+    int &currentIdx, std::pair<int, int> &currentInterval) {
     int currentEarliestStart = INT32_MAX;
     currentIdx = -1;
     currentInterval = std::make_pair(-1, -1);
-    APASS_LOG_DEBUG_F(Elements::Operation, "Try to find earliest slot with earliestStart=%d and latency=%d.", earliestStart, latency);
+    APASS_LOG_DEBUG_F(
+        Elements::Operation, "Try to find earliest slot with earliestStart=%d and latency=%d.", earliestStart, latency);
     for (int i = 0; i < static_cast<int>(timeSlot.size()); i++) {
         int validStart = std::max(timeSlot[i].first, earliestStart);
         if (timeSlot[i].second - validStart < latency) {
@@ -130,13 +133,16 @@ void CoreScheduler::FindEarliestSlot(std::vector<std::pair<int, int>> &timeSlot,
             currentIdx = i;
         }
     }
-    APASS_LOG_DEBUG_F(Elements::Operation, "The earliest slot is from %d to %d.", currentInterval.first, currentInterval.second);
+    APASS_LOG_DEBUG_F(
+        Elements::Operation, "The earliest slot is from %d to %d.", currentInterval.first, currentInterval.second);
 }
 
 // 更新空闲时间槽
-void CoreScheduler::UpdateInterval(std::vector<std::pair<int,int>> &timeSlot, int &insertIdx, std::pair<int,int> &insertInterval) {
+void CoreScheduler::UpdateInterval(
+    std::vector<std::pair<int, int>> &timeSlot, int &insertIdx, std::pair<int, int> &insertInterval) {
     auto origInterval = timeSlot[insertIdx];
-    APASS_LOG_DEBUG_F(Elements::Operation, "The original slot [%d, %d] is removed.", origInterval.first, origInterval.second);
+    APASS_LOG_DEBUG_F(
+        Elements::Operation, "The original slot [%d, %d] is removed.", origInterval.first, origInterval.second);
     timeSlot.erase(timeSlot.begin() + insertIdx);
     if (origInterval.first < insertInterval.first) {
         timeSlot.push_back(std::make_pair(origInterval.first, insertInterval.first));
@@ -144,7 +150,8 @@ void CoreScheduler::UpdateInterval(std::vector<std::pair<int,int>> &timeSlot, in
     }
     if (origInterval.second > insertInterval.second) {
         timeSlot.push_back(std::make_pair(insertInterval.second, origInterval.second));
-        APASS_LOG_DEBUG_F(Elements::Operation, "New slot [%d, %d] is added.", insertInterval.second, origInterval.second);
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "New slot [%d, %d] is added.", insertInterval.second, origInterval.second);
     }
 }
 
@@ -185,9 +192,15 @@ std::vector<int> CoreScheduler::GetDFSTopoSeq(TaskGraph &taskGraph) {
 // 基于最早完成时间和空闲时间槽的任务排布
 void CoreScheduler::EFTWithInsertSchedule(TaskGraph &taskGraph, std::vector<int> &topoSeq) {
     std::unordered_map<TargetCoreType, std::vector<std::pair<int, int>>> availTime;
-    availTime[TargetCoreType::AIC] = {{0, INT32_MAX}};
-    availTime[TargetCoreType::AIV0] = {{0, INT32_MAX}};
-    availTime[TargetCoreType::AIV1] = {{0, INT32_MAX}};
+    availTime[TargetCoreType::AIC] = {
+        {0, INT32_MAX}
+    };
+    availTime[TargetCoreType::AIV0] = {
+        {0, INT32_MAX}
+    };
+    availTime[TargetCoreType::AIV1] = {
+        {0, INT32_MAX}
+    };
     int currentIdx = -1;
     std::pair<int, int> currentInterval{-1, -1};
     for (int taskId : topoSeq) {
@@ -198,14 +211,17 @@ void CoreScheduler::EFTWithInsertSchedule(TaskGraph &taskGraph, std::vector<int>
         TargetCoreType evalCore = TargetCoreType::UNKNOWN;
         if (taskGraph.tasks[taskId].coreType == ScheduleCoreType::AIC) {
             evalCore = TargetCoreType::AIC;
-            FindEarliestSlot(availTime[evalCore], evalDepTimeStart, taskGraph.tasks[taskId].latency, currentIdx, currentInterval);
+            FindEarliestSlot(
+                availTime[evalCore], evalDepTimeStart, taskGraph.tasks[taskId].latency, currentIdx, currentInterval);
         } else {
             int currentIdxAIV0 = -1;
             std::pair<int, int> currentIntervalAIV0{-1, -1};
             int currentIdxAIV1 = -1;
             std::pair<int, int> currentIntervalAIV1{-1, -1};
-            FindEarliestSlot(availTime[TargetCoreType::AIV0], evalDepTimeStart, taskGraph.tasks[taskId].latency, currentIdxAIV0, currentIntervalAIV0);
-            FindEarliestSlot(availTime[TargetCoreType::AIV1], evalDepTimeStart, taskGraph.tasks[taskId].latency, currentIdxAIV1, currentIntervalAIV1);
+            FindEarliestSlot(availTime[TargetCoreType::AIV0], evalDepTimeStart, taskGraph.tasks[taskId].latency,
+                currentIdxAIV0, currentIntervalAIV0);
+            FindEarliestSlot(availTime[TargetCoreType::AIV1], evalDepTimeStart, taskGraph.tasks[taskId].latency,
+                currentIdxAIV1, currentIntervalAIV1);
             if (currentIntervalAIV0.first <= currentIntervalAIV1.first) {
                 evalCore = TargetCoreType::AIV0;
                 currentIdx = currentIdxAIV0;
@@ -227,8 +243,11 @@ void CoreScheduler::EFTWithInsertSchedule(TaskGraph &taskGraph, std::vector<int>
 
 // 基于最早完成时间的任务排布
 void CoreScheduler::EFTSchedule(TaskGraph &taskGraph, std::vector<int> &topoSeq) {
-    std::unordered_map<TargetCoreType, int> currentTime{{TargetCoreType::AIC, 0},
-        {TargetCoreType::AIV0, 0}, {TargetCoreType::AIV1, 0}};
+    std::unordered_map<TargetCoreType, int> currentTime{
+        { TargetCoreType::AIC, 0},
+        {TargetCoreType::AIV0, 0},
+        {TargetCoreType::AIV1, 0}
+    };
     for (int taskId : topoSeq) {
         int evalDepTimeStart = 0;
         for (int prevTaskId : taskGraph.tasks[taskId].inTasks) {
@@ -238,11 +257,13 @@ void CoreScheduler::EFTSchedule(TaskGraph &taskGraph, std::vector<int> &topoSeq)
         if (taskGraph.tasks[taskId].coreType == ScheduleCoreType::AIC) {
             evalCore = TargetCoreType::AIC;
         } else {
-            evalCore = currentTime[TargetCoreType::AIV0] <= currentTime[TargetCoreType::AIV1] ? TargetCoreType::AIV0 : TargetCoreType::AIV1;
+            evalCore = currentTime[TargetCoreType::AIV0] <= currentTime[TargetCoreType::AIV1] ? TargetCoreType::AIV0 :
+                                                                                                TargetCoreType::AIV1;
         }
         taskGraph.tasks[taskId].targetCoreTypeCandidate = evalCore;
         taskGraph.tasks[taskId].startTimeCandidate = std::max(evalDepTimeStart, currentTime[evalCore]);
-        taskGraph.tasks[taskId].endTimeCandidate = taskGraph.tasks[taskId].startTimeCandidate + taskGraph.tasks[taskId].latency;
+        taskGraph.tasks[taskId].endTimeCandidate =
+            taskGraph.tasks[taskId].startTimeCandidate + taskGraph.tasks[taskId].latency;
         currentTime[evalCore] = taskGraph.tasks[taskId].endTimeCandidate;
     }
     taskGraph.ApplyCandidate();
@@ -250,7 +271,8 @@ void CoreScheduler::EFTSchedule(TaskGraph &taskGraph, std::vector<int> &topoSeq)
 }
 
 // 对所有的拓扑序执行基于最早完成时间的任务排布
-void CoreScheduler::BruteForceScheduleRecursiveStep(std::vector<bool> &visited, int recursiveLevel, TaskGraph &taskGraph, std::vector<int> &topoList) {
+void CoreScheduler::BruteForceScheduleRecursiveStep(
+    std::vector<bool> &visited, int recursiveLevel, TaskGraph &taskGraph, std::vector<int> &topoList) {
     if (recursiveLevel >= static_cast<int>(taskGraph.tasks.size())) {
         EFTSchedule(taskGraph, topoList);
     }
@@ -296,9 +318,10 @@ void TaskSpliter::BuildSameLayerConnectionWithBack() {
         if (ALLOC_OPCODE.count(opList_[i]->GetOpcode()) == 0) {
             continue;
         }
-    ScheduleCoreType srcCoreType = opCoreTypes_[i];
-    APASS_LOG_DEBUG_F(Elements::Operation, "Found alloc op %s[%d].", opList_[i]->GetOpcodeStr().c_str(), opList_[i]->GetOpMagic());
-        for (auto & oop : opList_[i]->GetOOperands()) {
+        ScheduleCoreType srcCoreType = opCoreTypes_[i];
+        APASS_LOG_DEBUG_F(Elements::Operation, "Found alloc op %s[%d].", opList_[i]->GetOpcodeStr().c_str(),
+            opList_[i]->GetOpMagic());
+        for (auto &oop : opList_[i]->GetOOperands()) {
             for (auto &sameLayerOpPtr : oop->GetProducers()) {
                 int dstOpMagic = sameLayerOpPtr->GetOpMagic();
                 if (opMagicToIdx_.count(dstOpMagic) == 0) {
@@ -307,9 +330,10 @@ void TaskSpliter::BuildSameLayerConnectionWithBack() {
                 if (opCoreTypes_[opMagicToIdx_[dstOpMagic]] != srcCoreType) {
                     continue;
                 }
-            APASS_LOG_DEBUG_F(Elements::Operation, "-- add %s[%d] to same layer connection because of the alloc op.",
-                sameLayerOpPtr->GetOpcodeStr().c_str(), sameLayerOpPtr->GetOpMagic());
-            sameLayerConnection_.push_back({i, opMagicToIdx_[sameLayerOpPtr->GetOpMagic()]});
+                APASS_LOG_DEBUG_F(Elements::Operation,
+                    "-- add %s[%d] to same layer connection because of the alloc op.",
+                    sameLayerOpPtr->GetOpcodeStr().c_str(), sameLayerOpPtr->GetOpMagic());
+                sameLayerConnection_.push_back({i, opMagicToIdx_[sameLayerOpPtr->GetOpMagic()]});
             }
         }
     }
@@ -321,14 +345,16 @@ void TaskSpliter::BuildSameLayerConnectionWithFront() {
         if (ALLOC_OPCODE.count(opList_[i]->GetOpcode()) == 0) {
             continue;
         }
-        APASS_LOG_DEBUG_F(Elements::Operation, "Found alloc op %s[%d].", opList_[i]->GetOpcodeStr().c_str(), opList_[i]->GetOpMagic());
-        for (auto & oop : opList_[i]->GetOOperands()) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "Found alloc op %s[%d].", opList_[i]->GetOpcodeStr().c_str(),
+            opList_[i]->GetOpMagic());
+        for (auto &oop : opList_[i]->GetOOperands()) {
             for (auto &sameLayerOpPtr : oop->GetProducers()) {
                 int dstOpMagic = sameLayerOpPtr->GetOpMagic();
                 if (opMagicToIdx_.count(dstOpMagic) == 0) {
                     continue;
                 }
-                APASS_LOG_DEBUG_F(Elements::Operation, "-- add %s[%d] to same layer connection because of the alloc op.",
+                APASS_LOG_DEBUG_F(Elements::Operation,
+                    "-- add %s[%d] to same layer connection because of the alloc op.",
                     sameLayerOpPtr->GetOpcodeStr().c_str(), sameLayerOpPtr->GetOpMagic());
                 sameLayerConnection_.push_back({i, opMagicToIdx_[sameLayerOpPtr->GetOpMagic()]});
                 opCoreTypes_[i] = opCoreTypes_[opMagicToIdx_[dstOpMagic]];
@@ -345,14 +371,14 @@ void TaskSpliter::BuildOpGraph() {
     for (int i = 0; i < opNum; i++) {
         opMagicToIdx_[opList_[i]->GetOpMagic()] = i;
         opCoreTypes_[i] = OpcodeManager::Inst().GetCoreType(opList_[i]->GetOpcode()) == OpCoreType::AIC ?
-                         ScheduleCoreType::AIC : ScheduleCoreType::AIV;
+                              ScheduleCoreType::AIC :
+                              ScheduleCoreType::AIV;
     }
     for (int i = 0; i < opNum; i++) {
         if (opList_[i]->GetOpcode() == Opcode::OP_COPY_IN) {
             auto nextOp = *opList_[i]->ConsumerOps().begin();
             opCoreTypes_[i] = opCoreTypes_[opMagicToIdx_[nextOp->GetOpMagic()]];
-        }
-        else if (opList_[i]->GetOpcode() == Opcode::OP_COPY_OUT) {
+        } else if (opList_[i]->GetOpcode() == Opcode::OP_COPY_OUT) {
             auto prevOp = *opList_[i]->ProducerOps().begin();
             opCoreTypes_[i] = opCoreTypes_[opMagicToIdx_[prevOp->GetOpMagic()]];
         }
@@ -360,8 +386,8 @@ void TaskSpliter::BuildOpGraph() {
             bool isCube = opList_[i]->GetBoolAttribute(OpAttributeKey::isCube);
             opCoreTypes_[i] = isCube ? ScheduleCoreType::AIC : ScheduleCoreType::AIV;
         }
-        APASS_LOG_DEBUG_F(Elements::Operation, "Mark %s[%d] as %s core type.", opList_[i]->GetOpcodeStr().c_str(), opList_[i]->GetOpMagic(),
-            opCoreTypes_[i] == ScheduleCoreType::AIC ? "AIC" : "AIV");
+        APASS_LOG_DEBUG_F(Elements::Operation, "Mark %s[%d] as %s core type.", opList_[i]->GetOpcodeStr().c_str(),
+            opList_[i]->GetOpMagic(), opCoreTypes_[i] == ScheduleCoreType::AIC ? "AIC" : "AIV");
     }
     APASS_LOG_INFO_F(Elements::Operation, "Mark core type finished.");
     opInGraph_.resize(opNum);
@@ -416,8 +442,8 @@ void TaskSpliter::SplitGraph(const std::vector<Operation *> &opList) {
 
 // 将强连通分量展开，避免成环
 inline int FlattenSCC(std::vector<ScheduleCoreType> &clusterCoreTypes, std::vector<std::vector<int>> &sccResult,
-        std::unordered_map<int, int> &oldClusterIdToSCCId, std::unordered_map<int, std::vector<int>> &sccIdToNewClusters,
-        std::unordered_map<int, int> &oldClusterToNewCluster) {
+    std::unordered_map<int, int> &oldClusterIdToSCCId, std::unordered_map<int, std::vector<int>> &sccIdToNewClusters,
+    std::unordered_map<int, int> &oldClusterToNewCluster) {
     int currNewClusterIdx = 0;
     for (int sccId = 0; sccId < static_cast<int>(sccResult.size()); sccId++) {
         for (int clusterId : sccResult[sccId]) {
@@ -461,12 +487,15 @@ inline int FlattenSCC(std::vector<ScheduleCoreType> &clusterCoreTypes, std::vect
 
 // 将强连通分量展开，并构建新的连接图
 void TaskSpliter::CombineSCC(std::vector<int> &clusterIds, std::vector<ScheduleCoreType> &clusterCoreTypes,
-        std::vector<std::set<int>> &inGraph, std::vector<std::set<int>> &outGraph, std::vector<std::vector<int>> &sccResult) {
+    std::vector<std::set<int>> &inGraph, std::vector<std::set<int>> &outGraph,
+    std::vector<std::vector<int>> &sccResult) {
     std::unordered_map<int, int> oldClusterIdToSCCId;
     std::unordered_map<int, std::vector<int>> sccIdToNewClusters;
     std::unordered_map<int, int> oldClusterToNewCluster;
-    int newClusterNum = FlattenSCC(clusterCoreTypes, sccResult, oldClusterIdToSCCId, sccIdToNewClusters, oldClusterToNewCluster);
-    APASS_LOG_INFO_F(Elements::Operation, "Cluster num after flatten strongly connected components is %d.", newClusterNum);
+    int newClusterNum =
+        FlattenSCC(clusterCoreTypes, sccResult, oldClusterIdToSCCId, sccIdToNewClusters, oldClusterToNewCluster);
+    APASS_LOG_INFO_F(
+        Elements::Operation, "Cluster num after flatten strongly connected components is %d.", newClusterNum);
     std::set<std::pair<int, int>> sccConnection;
     for (size_t oldIdx = 0; oldIdx < inGraph.size(); oldIdx++) {
         int currSCC = oldClusterIdToSCCId[oldIdx];
@@ -496,8 +525,8 @@ void TaskSpliter::CombineSCC(std::vector<int> &clusterIds, std::vector<ScheduleC
 }
 
 // 获得有向图中所有强连通分量
-void StrongConnectionComponentFinder::Find(std::vector<std::set<int>> &inGraph,
-        std::vector<std::set<int>> &outGraph, std::vector<std::vector<int>> &sccResult) {
+void StrongConnectionComponentFinder::Find(std::vector<std::set<int>> &inGraph, std::vector<std::set<int>> &outGraph,
+    std::vector<std::vector<int>> &sccResult) {
     sccResult.clear();
     index_ = 0;
     dfn_.clear();
@@ -517,7 +546,8 @@ void StrongConnectionComponentFinder::Find(std::vector<std::set<int>> &inGraph,
 }
 
 // 递归使用TarJan算法获得强连通分量
-void StrongConnectionComponentFinder::TarJanAlg(int idx, std::vector<std::set<int>> &outGraph, std::vector<std::vector<int>> &sccResult) {
+void StrongConnectionComponentFinder::TarJanAlg(
+    int idx, std::vector<std::set<int>> &outGraph, std::vector<std::vector<int>> &sccResult) {
     index_++;
     dfn_[idx] = index_;
     low_[idx] = index_;
@@ -546,7 +576,7 @@ void StrongConnectionComponentFinder::TarJanAlg(int idx, std::vector<std::set<in
 
 // 获得taskNode的连接图
 void TaskSpliter::BuildInOutGraph(std::vector<std::set<int>> &inGraph, std::vector<std::set<int>> &outGraph,
-        std::vector<int> &clusterIds, int clusterNum) {
+    std::vector<int> &clusterIds, int clusterNum) {
     inGraph.clear();
     inGraph.resize(clusterNum);
     outGraph.clear();
@@ -585,8 +615,9 @@ TaskGraph TaskSpliter::BuildTaskGraph() {
 }
 
 // 判断op的ioperand为AIC类型且ooperand为AIV类型
-inline bool IsFromAICToAIV(Operation* op) {
-    const std::unordered_set<MemoryType> AICmem{MemoryType::MEM_L0C, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0B};
+inline bool IsFromAICToAIV(Operation *op) {
+    const std::unordered_set<MemoryType> AICmem{
+        MemoryType::MEM_L0C, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0B};
     const std::unordered_set<MemoryType> AIVmem{MemoryType::MEM_UB};
     for (auto iop : op->GetIOperands()) {
         if (AICmem.count(iop->GetMemoryTypeToBe()) == 0) {
@@ -598,13 +629,15 @@ inline bool IsFromAICToAIV(Operation* op) {
             return false;
         }
     }
-    APASS_LOG_DEBUG_F(Elements::Operation, "op %s[%d] is from AIC to AIV.", op->GetOpcodeStr().c_str(), op->GetOpMagic());
+    APASS_LOG_DEBUG_F(
+        Elements::Operation, "op %s[%d] is from AIC to AIV.", op->GetOpcodeStr().c_str(), op->GetOpMagic());
     return true;
 }
 
 // 判断op的ioperand为AIV类型且ooperand为AIC类型
-inline bool IsFromAIVToAIC(Operation* op) {
-    const std::unordered_set<MemoryType> AICmem{MemoryType::MEM_L0C, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0B};
+inline bool IsFromAIVToAIC(Operation *op) {
+    const std::unordered_set<MemoryType> AICmem{
+        MemoryType::MEM_L0C, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0B};
     const std::unordered_set<MemoryType> AIVmem{MemoryType::MEM_UB};
     for (auto iop : op->GetIOperands()) {
         if (AIVmem.count(iop->GetMemoryTypeToBe()) == 0) {
@@ -616,7 +649,8 @@ inline bool IsFromAIVToAIC(Operation* op) {
             return false;
         }
     }
-    APASS_LOG_DEBUG_F(Elements::Operation, "op %s[%d] is from AIV to AIC.", op->GetOpcodeStr().c_str(), op->GetOpMagic());
+    APASS_LOG_DEBUG_F(
+        Elements::Operation, "op %s[%d] is from AIV to AIC.", op->GetOpcodeStr().c_str(), op->GetOpMagic());
     return true;
 }
 
@@ -669,20 +703,22 @@ inline bool NoDepDeteched(const std::vector<int> &currOldTasks, int currTaskId, 
 // 根据taskNode在模拟泳道图中的位置和可达性，返回合并后的taskNode列表
 std::vector<std::vector<int>> TaskSpliter::FindMergeableTaskNodes() {
     std::vector<std::vector<int>> newTaskToOldTasks;
-    std::unordered_map<TargetCoreType, std::vector<int>> targetTypeToTasks{{TargetCoreType::AIC, {}},
-        {TargetCoreType::AIV0, {}}, {TargetCoreType::AIV1, {}}};
+    std::unordered_map<TargetCoreType, std::vector<int>> targetTypeToTasks{
+        { TargetCoreType::AIC, {}},
+        {TargetCoreType::AIV0, {}},
+        {TargetCoreType::AIV1, {}}
+    };
     DAGReachableJudger reachableJudger;
     reachableJudger.Build(inGraph_, outGraph_);
     for (int i = 0; i < static_cast<int>(taskGraph_.tasks.size()); i++) {
         targetTypeToTasks[taskGraph_.tasks[i].targetCoreType].push_back(i);
     }
     for (auto &tasksPair : targetTypeToTasks) {
-        std::sort(tasksPair.second.begin(), tasksPair.second.end(), [this](int i, int j) {
-            return taskGraph_.tasks[i].startTime < taskGraph_.tasks[j].startTime;
-        });
+        std::sort(tasksPair.second.begin(), tasksPair.second.end(),
+            [this](int i, int j) { return taskGraph_.tasks[i].startTime < taskGraph_.tasks[j].startTime; });
         std::vector<int> oldTasks;
         for (int currTaskId : tasksPair.second) {
-            if (oldTasks.empty() || NoDepDeteched(oldTasks, currTaskId, reachableJudger) ) {
+            if (oldTasks.empty() || NoDepDeteched(oldTasks, currTaskId, reachableJudger)) {
                 oldTasks.push_back(currTaskId);
             } else {
                 newTaskToOldTasks.push_back(oldTasks);
@@ -728,10 +764,16 @@ void TaskSpliter::MergeTask() {
 
 // 将属于同一个TargetCoreType的taskNode合并成一个taskNode
 void TaskSpliter::MergeTaskByTargetCoreType() {
-    std::unordered_map<TargetCoreType, std::vector<int>> targetTypeToTasks{{TargetCoreType::AIC, {}},
-        {TargetCoreType::AIV0, {}}, {TargetCoreType::AIV1, {}}};
-    std::unordered_map<TargetCoreType, ScheduleCoreType> targetTypeToScheduleType{{TargetCoreType::AIC, ScheduleCoreType::AIC},
-        {TargetCoreType::AIV0, ScheduleCoreType::AIV}, {TargetCoreType::AIV1, ScheduleCoreType::AIV}};
+    std::unordered_map<TargetCoreType, std::vector<int>> targetTypeToTasks{
+        { TargetCoreType::AIC, {}},
+        {TargetCoreType::AIV0, {}},
+        {TargetCoreType::AIV1, {}}
+    };
+    std::unordered_map<TargetCoreType, ScheduleCoreType> targetTypeToScheduleType{
+        { TargetCoreType::AIC, ScheduleCoreType::AIC},
+        {TargetCoreType::AIV0, ScheduleCoreType::AIV},
+        {TargetCoreType::AIV1, ScheduleCoreType::AIV}
+    };
     for (int i = 0; i < static_cast<int>(taskGraph_.tasks.size()); i++) {
         targetTypeToTasks[taskGraph_.tasks[i].targetCoreType].push_back(i);
     }
@@ -741,9 +783,8 @@ void TaskSpliter::MergeTaskByTargetCoreType() {
         if (tasksPair.second.size() == 0) {
             continue;
         }
-        std::sort(tasksPair.second.begin(), tasksPair.second.end(), [this](int i, int j) {
-            return taskGraph_.tasks[i].startTime < taskGraph_.tasks[j].startTime;
-        });
+        std::sort(tasksPair.second.begin(), tasksPair.second.end(),
+            [this](int i, int j) { return taskGraph_.tasks[i].startTime < taskGraph_.tasks[j].startTime; });
         int newTaskId = s.AddTask(std::to_string(newTaskIdx), targetTypeToScheduleType[tasksPair.first], 0);
         newTaskIdx++;
         s.tasks[newTaskId].targetCoreType = tasksPair.first;
@@ -760,10 +801,18 @@ void TaskSpliter::MergeTaskByTargetCoreType() {
 
 // 根据划分结果标记op的AIVCore与internalSubgraphID
 void TaskSpliter::MarkInternalSubgraphID() {
-    std::unordered_map<TargetCoreType, AIVCore> targetMap{{TargetCoreType::AIC, AIVCore::UNSPECIFIED},
-        {TargetCoreType::UNKNOWN, AIVCore::UNSPECIFIED}, {TargetCoreType::AIV0, AIVCore::AIV0}, {TargetCoreType::AIV1, AIVCore::AIV1}};
-    std::unordered_map<TargetCoreType, int> subGraphIdMap{{TargetCoreType::AIC, NEGATIVE_ONE},
-        {TargetCoreType::AIV0, NEGATIVE_ONE}, {TargetCoreType::AIV1, NEGATIVE_ONE}, {TargetCoreType::UNKNOWN, NEGATIVE_ONE}};
+    std::unordered_map<TargetCoreType, AIVCore> targetMap{
+        {    TargetCoreType::AIC, AIVCore::UNSPECIFIED},
+        {TargetCoreType::UNKNOWN, AIVCore::UNSPECIFIED},
+        {   TargetCoreType::AIV0,        AIVCore::AIV0},
+        {   TargetCoreType::AIV1,        AIVCore::AIV1}
+    };
+    std::unordered_map<TargetCoreType, int> subGraphIdMap{
+        {    TargetCoreType::AIC, NEGATIVE_ONE},
+        {   TargetCoreType::AIV0, NEGATIVE_ONE},
+        {   TargetCoreType::AIV1, NEGATIVE_ONE},
+        {TargetCoreType::UNKNOWN, NEGATIVE_ONE}
+    };
     int id = 0;
     for (auto &task : taskGraph_.tasks) {
         if (task.targetCoreType == TargetCoreType::UNKNOWN) {
@@ -786,12 +835,13 @@ void TaskSpliter::MarkInternalSubgraphID() {
 }
 
 // 将多个taskNode的opList在保持内部顺序的前提下合并成符合拓扑序的一个opList
-std::vector<Operation*> TaskSpliter::GetMergedOperations() {
-    std::priority_queue<std::pair<int, Operation*>, std::vector<std::pair<int, Operation*>>,
-                        std::greater<std::pair<int, Operation*>>> pQueue;
-    std::unordered_map<Operation*, int> opPriority;
-    std::unordered_map<Operation*, int> inLinkNum;
-    std::vector<Operation*> topoSeq;
+std::vector<Operation *> TaskSpliter::GetMergedOperations() {
+    std::priority_queue<std::pair<int, Operation *>, std::vector<std::pair<int, Operation *>>,
+        std::greater<std::pair<int, Operation *>>>
+        pQueue;
+    std::unordered_map<Operation *, int> opPriority;
+    std::unordered_map<Operation *, int> inLinkNum;
+    std::vector<Operation *> topoSeq;
     for (auto &task : taskGraph_.tasks) {
         for (size_t opIdx = 0; opIdx < task.opList_.size(); opIdx++) {
             Operation *opPtr = task.opList_[opIdx];
@@ -815,7 +865,6 @@ std::vector<Operation*> TaskSpliter::GetMergedOperations() {
     }
     return topoSeq;
 }
-
 
 DSUWithOrder::DSUWithOrder(int num) {
     parent.resize(num);

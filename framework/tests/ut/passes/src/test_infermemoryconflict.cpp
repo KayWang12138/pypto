@@ -62,7 +62,8 @@ public:
 };
 
 TEST_F(InferMemoryConflictTest, CheckRawShapeConflictInShapeNegative) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "CheckRawShapeTest", "CheckRawShapeTest", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "CheckRawShapeTest", "CheckRawShapeTest", nullptr);
     std::vector<int64_t> inShape = {-1, 4};
     std::vector<int64_t> outShape = {2, 4};
     std::shared_ptr<RawTensor> inRaw = std::make_shared<RawTensor>(DT_FP32, inShape);
@@ -76,7 +77,8 @@ TEST_F(InferMemoryConflictTest, CheckRawShapeConflictInShapeNegative) {
 }
 
 TEST_F(InferMemoryConflictTest, CheckRawShapeConflictOutShapeNegative) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "CheckRawShapeTest2", "CheckRawShapeTest2", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "CheckRawShapeTest2", "CheckRawShapeTest2", nullptr);
     std::vector<int64_t> inShape = {2, 4};
     std::vector<int64_t> outShape = {-1, 4};
     std::shared_ptr<RawTensor> inRaw = std::make_shared<RawTensor>(DT_FP32, inShape);
@@ -89,7 +91,8 @@ TEST_F(InferMemoryConflictTest, CheckRawShapeConflictOutShapeNegative) {
 }
 
 TEST_F(InferMemoryConflictTest, TestInit) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -136,12 +139,12 @@ Case 1:
 input->view->T1->reshape->T2->assemble->output
 */
 TEST_F(InferMemoryConflictTest, TestForwardPropagation1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     std::vector<int64_t> offset = {NUM_ZERO, NUM_ZERO};
     std::vector<int64_t> shape = {NUM_2, NUM_4};
-
 
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor1, offset, shape);
@@ -185,7 +188,8 @@ Case 3:
 input1->view->T1->reshape->T2->assemble->output
 */
 TEST_F(InferMemoryConflictTest, TestForwardPropagation2) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -233,7 +237,8 @@ Case 4:
 input->view->T->assemble->output(same memoryid)
 */
 TEST_F(InferMemoryConflictTest, TestForwardPropagation3) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -277,7 +282,8 @@ input->index_outcast->T1->assemble->output
 T0->
 */
 TEST_F(InferMemoryConflictTest, TestForwardPropagation4) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -324,7 +330,8 @@ input->index_outcast->T1->reshape->output
 T0->
 */
 TEST_F(InferMemoryConflictTest, TestForwardPropagation5) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -370,7 +377,8 @@ input1->view->T1->exp->T2->assemble->output
                          ->assemble->output
 */
 TEST_F(InferMemoryConflictTest, TestBackwardPropagation1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -427,7 +435,8 @@ Case 2:
 input1->view->T1->exp->T2->reshape->T3->assemble->output
 */
 TEST_F(InferMemoryConflictTest, TestBackwardPropagation2) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -481,7 +490,8 @@ input->view->T1->exp->T2->assemble->output1
                         ->assemble->output3(same symbol)
 */
 TEST_F(InferMemoryConflictTest, TestBackwardPropagation3) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -550,7 +560,8 @@ input->index_outcast->T1->assemble->output
 T0->
 */
 TEST_F(InferMemoryConflictTest, TestBackwardPropagation4) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -599,7 +610,8 @@ input->index_outcast->T1->reshape->output
 T0->
 */
 TEST_F(InferMemoryConflictTest, TestBackwardPropagation5) {
-    auto currFunctionPtr1 = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr1 =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr1 != nullptr);
     // Prepare the graph
 
@@ -647,7 +659,8 @@ Case 1:
 input1->view->T1->reshape->T2->assemble->output
 */
 TEST_F(InferMemoryConflictTest, TestBothPropagation1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -694,7 +707,8 @@ Case 2:
 input1->view->T1->reshape->T2->assemble->output
 */
 TEST_F(InferMemoryConflictTest, TestBothPropagation2) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -747,7 +761,8 @@ Case 2:
 input1->view->T1->reshape->T2->assemble->output
 */
 TEST_F(InferMemoryConflictTest, TestInsertCopys) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -787,8 +802,8 @@ TEST_F(InferMemoryConflictTest, TestInsertCopys) {
     EXPECT_EQ(status, SUCCESS);
 
     int cnt = 0;
-    Operation* copy1 = nullptr;
-    Operation* copy2 = nullptr;
+    Operation *copy1 = nullptr;
+    Operation *copy2 = nullptr;
     for (auto &op : currFunctionPtr->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_REGISTER_COPY) {
             if (*(op->GetOOperands().begin()) == T2) {
@@ -816,7 +831,8 @@ input1->view->T1->reshape->T2->assemble->output
 单链，存在地址冲突
 */
 TEST_F(InferMemoryConflictTest, STest1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -853,7 +869,7 @@ TEST_F(InferMemoryConflictTest, STest1) {
     EXPECT_EQ(status, SUCCESS);
 
     int cnt = 0;
-    Operation* copy = nullptr;
+    Operation *copy = nullptr;
     for (auto &op : currFunctionPtr->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_REGISTER_COPY) {
             copy = op;
@@ -876,7 +892,8 @@ input1->view->T1->index_outcast->T2->reshape->T3->exp->output
 单链，存在reshape
 */
 TEST_F(InferMemoryConflictTest, STest2) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -920,7 +937,7 @@ TEST_F(InferMemoryConflictTest, STest2) {
     EXPECT_EQ(status, SUCCESS);
 
     int cnt = 0;
-    Operation* copy = nullptr;
+    Operation *copy = nullptr;
     for (auto &op : currFunctionPtr->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_REGISTER_COPY) {
             copy = op;
@@ -944,7 +961,8 @@ input1->view->T1->exp->T2->assemble->output
 同一tensor assemble输出到不同outcast
 */
 TEST_F(InferMemoryConflictTest, STest3) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -992,7 +1010,7 @@ TEST_F(InferMemoryConflictTest, STest3) {
     EXPECT_EQ(status, SUCCESS);
 
     int cnt = 0;
-    Operation* copy = nullptr;
+    Operation *copy = nullptr;
     for (auto &op : currFunctionPtr->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_REGISTER_COPY) {
             copy = op;
@@ -1035,8 +1053,9 @@ TEST_F(InferMemoryConflictTest, STest4) {
         }
     }
     EXPECT_EQ(cnt, 0);
-    passManager.RegisterStrategy("InferMemoryConflictTestStrategy", {
-        {"InferMemoryConflict", PassName::INFER_MEMORY_CONFLICT},
+    passManager.RegisterStrategy(
+        "InferMemoryConflictTestStrategy", {
+                                               {"InferMemoryConflict", PassName::INFER_MEMORY_CONFLICT},
     });
     auto ret = passManager.RunPass(Program::GetInstance(), *func, "InferMemoryConflictTestStrategy");
     EXPECT_EQ(ret, SUCCESS);

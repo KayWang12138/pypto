@@ -86,21 +86,19 @@ void RunMatrixCostModel() {
     Tensor matB(DT_FP16, shapeB, "MatB", TileOpFormat::TILEOP_ND);
     Tensor matC(DT_FP32, shapeC, "MatC");
     config::SetBuildStatic(true);
-    FUNCTION("BATCHMATMUL", {matA, matB, matC})
-    {
+    FUNCTION("BATCHMATMUL", {matA, matB, matC}) {
         config::SetPassConfig("PVC2_OOO", "OoOSchedule", KEY_DISABLE_PASS, true);
         matC = npu::tile_fwk::Matrix::BatchMatmul(DT_FP32, matA, matB, false, false);
     }
 }
 
-void RunAttentionPostCostModel()
-{
+void RunAttentionPostCostModel() {
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     int b = 1;
     int n = 2;
     int s = 128;
     int d = 512;
-    int v_head =128;
+    int v_head = 128;
     int h = 256;
     std::vector<int64_t> inShape = {b, n, s, d}; // (b, n, s, d)
     Tensor attnPostIn(DT_FP32, inShape, "attnPostIn");
@@ -132,15 +130,13 @@ void RunAttentionPostCostModel()
     }
 }
 
-TEST_F(CostModelTest, TestAttentionPostAccuracy1)
-{
+TEST_F(CostModelTest, TestAttentionPostAccuracy1) {
     int accuracylevel = 1;
     config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     RunAttentionPostCostModel();
 }
 
-TEST_F(CostModelTest, TestAttentionPostAccuracyFromJson)
-{
+TEST_F(CostModelTest, TestAttentionPostAccuracyFromJson) {
     config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     RunAttentionPostCostModel();
 
@@ -153,8 +149,7 @@ TEST_F(CostModelTest, TestAttentionPostAccuracyFromJson)
     costModelAgent.TerminateCostModel();
 }
 
-TEST_F(CostModelTest, TestGenCalendarSchedule)
-{
+TEST_F(CostModelTest, TestGenCalendarSchedule) {
     int accuracylevel = 1;
     config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     std::vector<std::string> arg = config::GetSimConfig(KEY_ARGS, std::vector<std::string>{});
@@ -163,8 +158,7 @@ TEST_F(CostModelTest, TestGenCalendarSchedule)
     RunAttentionPostCostModel();
 }
 
-TEST_F(CostModelTest, TestAttentionPostCVMIXMode)
-{
+TEST_F(CostModelTest, TestAttentionPostCVMIXMode) {
     int accuracylevel = 1;
     config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     std::vector<std::string> arg = config::GetSimConfig(KEY_ARGS, std::vector<std::string>{});
@@ -173,8 +167,7 @@ TEST_F(CostModelTest, TestAttentionPostCVMIXMode)
     RunAttentionPostCostModel();
 }
 
-TEST_F(CostModelTest, TestAttentionPostSimulationSchedule)
-{
+TEST_F(CostModelTest, TestAttentionPostSimulationSchedule) {
     int accuracylevel = 1;
     config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     std::vector<std::string> arg;
@@ -185,16 +178,14 @@ TEST_F(CostModelTest, TestAttentionPostSimulationSchedule)
     RunAttentionPostCostModel();
 }
 
-TEST_F(CostModelTest, TestAttentionPostFunctional)
-{
+TEST_F(CostModelTest, TestAttentionPostFunctional) {
     int accuracylevel = 1;
     config::SetSimConfig(KEY_SIM_MODE, int(CostModel::SimMode::EMULATOR));
     config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     RunAttentionPostCostModel();
 }
 
-TEST_F(CostModelTest, TestErrorInput)
-{
+TEST_F(CostModelTest, TestErrorInput) {
     std::string name = "TEST";
     auto newFunc = std::make_shared<Function>(npu::tile_fwk::Program::GetInstance(), name, name, nullptr);
     std::vector<int64_t> shape = {1, 1};
@@ -205,8 +196,7 @@ TEST_F(CostModelTest, TestErrorInput)
     costModelAgent.SubmitToCostModel(newFunc.get());
 }
 
-TEST_F(CostModelTest, TestFixedLatencyTasks)
-{
+TEST_F(CostModelTest, TestFixedLatencyTasks) {
     std::string jsonPath("./config/fixed_task_topo.json");
     std::vector<std::string> arg = config::GetSimConfig(KEY_ARGS, std::vector<std::string>{});
     arg.emplace_back("Model.simulationFixedLatencyTask=true");
@@ -219,22 +209,19 @@ TEST_F(CostModelTest, TestFixedLatencyTasks)
     costModelAgent.TerminateCostModel();
 }
 
-TEST_F(CostModelTest, TestAttentionPostAccuracy2)
-{
+TEST_F(CostModelTest, TestAttentionPostAccuracy2) {
     int accuracylevel = 2;
     config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     RunAttentionPostCostModel();
 }
 
-TEST_F(CostModelTest, TestAttentionPostAccuracy3)
-{
+TEST_F(CostModelTest, TestAttentionPostAccuracy3) {
     int accuracylevel = 2;
     config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     RunMatrixCostModel();
 }
 
-TEST_F(CostModelTest, TestAttentionPostL2Cache)
-{
+TEST_F(CostModelTest, TestAttentionPostL2Cache) {
     int accuracylevel = 1;
     config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     std::vector<std::string> arg;
@@ -245,8 +232,7 @@ TEST_F(CostModelTest, TestAttentionPostL2Cache)
     RunAttentionPostCostModel();
 }
 
-TEST_F(CostModelTest, TestBuildBasedOnConfigs)
-{
+TEST_F(CostModelTest, TestBuildBasedOnConfigs) {
     std::string configPath("./config/test_config.conf");
     std::vector<std::string> configs;
     configs.push_back("--conf");
@@ -265,8 +251,7 @@ TEST_F(CostModelTest, TestBuildBasedOnConfigs)
     costModelAgent.costModel->BuildCostModel(configs);
 }
 
-TEST_F(CostModelTest, TestCoreMachineDeadlock)
-{
+TEST_F(CostModelTest, TestCoreMachineDeadlock) {
     int accuracylevel = 1;
     config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     std::vector<std::string> arg = config::GetSimConfig(KEY_ARGS, std::vector<std::string>{});
@@ -281,14 +266,12 @@ TEST_F(CostModelTest, TestCoreMachineDeadlock)
     RunAttentionPostCostModel();
 }
 
-TEST_F(CostModelTest, TestReplaceGMStr)
-{
+TEST_F(CostModelTest, TestReplaceGMStr) {
     std::string str = "abc";
     CostModel::PipeSimulatorUtils::ReplaceGMStr(str);
 }
 
-void RunCat()
-{
+void RunCat() {
     TileShape::Current().SetVecTile(16, 6, 6, 16);
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
@@ -304,8 +287,7 @@ void RunCat()
     }
 }
 
-TEST_F(CostModelTest, TestGlobalCalendar)
-{
+TEST_F(CostModelTest, TestGlobalCalendar) {
     std::string jsonPath("./config/global.calendar.json");
     std::string inputPath("./config/fixed_task_topo.json");
     CostModel::CalendarMode calendarMode = CostModel::CalendarMode::GLOBAL_COUNTER;
@@ -313,13 +295,12 @@ TEST_F(CostModelTest, TestGlobalCalendar)
     arg.emplace_back("Model.simulationFixedLatencyTask=true");
     arg.emplace_back("Model.fixedLatencyTaskInfoPath=" + inputPath);
     arg.emplace_back("Model.calendarFile=" + jsonPath);
-    arg.emplace_back("Model.calendarMode=" +  std::to_string(static_cast<int>(calendarMode)));
+    arg.emplace_back("Model.calendarMode=" + std::to_string(static_cast<int>(calendarMode)));
     config::SetSimConfig(KEY_ARGS, arg);
     RunCat();
 }
 
-TEST_F(CostModelTest, TestLeafFunctionMode)
-{
+TEST_F(CostModelTest, TestLeafFunctionMode) {
     config::SetSimConfig(KEY_SIM_MODE, int(CostModel::SimMode::LEAF_FUNCTION));
     config::SetSimConfig(KEY_ACCURACY_LEVEL, 1);
     std::vector<std::string> arg;
@@ -328,7 +309,6 @@ TEST_F(CostModelTest, TestLeafFunctionMode)
     config::SetSimConfig(KEY_ARGS, arg);
     RunAttentionPostCostModel();
 }
-
 
 class CostModelDynTest : public testing::Test {
 public:
@@ -352,16 +332,12 @@ public:
         ResetPVModelConfig();
     }
 
-    void EnablePVModel(int level)
-    {
+    void EnablePVModel(int level) {
         oriPvLevel = config::GetSimConfig(KEY_PV_LEVEL, 0);
         config::SetSimConfig(KEY_PV_LEVEL, level);
     }
 
-    void ResetPVModelConfig()
-    {
-        config::SetSimConfig(KEY_PV_LEVEL, oriPvLevel);
-    }
+    void ResetPVModelConfig() { config::SetSimConfig(KEY_PV_LEVEL, oriPvLevel); }
 
 protected:
     bool oriEnableAihacBackend = false;
@@ -375,11 +351,11 @@ void CostModelTestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Ten
             SymbolicScalar idx = GetTensorData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
 
-            Tensor qi(DT_FP32, {s, 2*s}, "qi");
+            Tensor qi(DT_FP32, {s, 2 * s}, "qi");
             Assemble(t1, {0, 0}, qi);
             Assemble(t0s, {0, s}, qi);
 
-            Tensor ki(DT_FP32, {s, 2*s}, "ki");
+            Tensor ki(DT_FP32, {s, 2 * s}, "ki");
             Assemble(t0s, {0, 0}, ki);
             Assemble(t1, {0, s}, ki);
 
@@ -403,8 +379,8 @@ TEST_F(CostModelDynTest, TestDD) {
 
     int s = 32;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
-    Tensor t1(DT_FP32, {s, s}, "t1");  // [32, 32]
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [32*8, 32]
+    Tensor t1(DT_FP32, {s, s}, "t1");     // [32, 32]
     Tensor blockTable{
         DT_INT32, {n, 1},
          "blockTable"
@@ -417,28 +393,24 @@ TEST_F(CostModelDynTest, TestDD) {
     pv->Codegen(func);
 }
 
-TEST_F(CostModelTest, TestUnknownArchType)
-{
+TEST_F(CostModelTest, TestUnknownArchType) {
     EXPECT_THROW(CostModel::PipeFactory::Create(CostModel::CorePipeType::PIPE_MTE_IN, "A0", 1), std::invalid_argument);
 }
 
-TEST_F(CostModelTest, TestCreateA5Cache)
-{
-    std::unique_ptr<CostModel::CacheMachineImpl> cacheImpl = CostModel::PipeFactory::CreateCache(CostModel::CacheType::L2CACHE, "A5");
+TEST_F(CostModelTest, TestCreateA5Cache) {
+    std::unique_ptr<CostModel::CacheMachineImpl> cacheImpl =
+        CostModel::PipeFactory::CreateCache(CostModel::CacheType::L2CACHE, "A5");
     CostModel::CachePacket packet;
     cacheImpl->Simulate(packet);
 }
 
-TEST_F(CostModelTest, TestA5ArchType)
-{
-    auto simulator =CostModel::PipeFactory::Create(CostModel::CorePipeType::PIPE_MTE_IN, "A5", 1);
+TEST_F(CostModelTest, TestA5ArchType) {
+    auto simulator = CostModel::PipeFactory::Create(CostModel::CorePipeType::PIPE_MTE_IN, "A5", 1);
     EXPECT_TRUE(simulator != nullptr);
 }
 
-
-TEST_F(CostModelTest, TestCoreMachineDeadlock2)
-{
-    CostModel::CoreMachine* coreMachine = new CostModel::CoreMachine(CostModel::MachineType::AIC);
+TEST_F(CostModelTest, TestCoreMachineDeadlock2) {
+    CostModel::CoreMachine *coreMachine = new CostModel::CoreMachine(CostModel::MachineType::AIC);
     std::set<int> unissuedTileMagics;
 
     coreMachine->sim = std::make_shared<CostModel::SimSys>();
@@ -482,13 +454,13 @@ TEST_F(CostModelTest, TestCoreMachineDeadlock2)
     // 调用AnalysisDeadlock方法
     try {
         coreMachine->AnalysisDeadlock(unissuedTileMagics);
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         EXPECT_TRUE(true); // 如果捕获到异常，测试通过
     }
 
     try {
         coreMachine->CheckDeadlock();
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         EXPECT_TRUE(true); // 如果捕获到异常，测试通过
     }
     delete coreMachine;
@@ -503,13 +475,26 @@ TEST_F(CostModelTest, TestScheduler) {
     std::vector<std::vector<int>> tileAllocSequence(static_cast<int>(CorePipeType::TOTAL_CORE_PIPE_TYPE));
 
     // 1. 创建节点
-    auto t10 = std::make_shared<CostModel::Tile>(); t10->magic = 10; t10->exeInfo.domCount = 5; t10->pipeType = CostModel::CorePipeType::PIPE_MTE1;
-    auto t11 = std::make_shared<CostModel::Tile>(); t11->magic = 11; t11->exeInfo.domCount = 1; t11->pipeType = CostModel::CorePipeType::PIPE_MTE1; // 更小的 domCount
+    auto t10 = std::make_shared<CostModel::Tile>();
+    t10->magic = 10;
+    t10->exeInfo.domCount = 5;
+    t10->pipeType = CostModel::CorePipeType::PIPE_MTE1;
+    auto t11 = std::make_shared<CostModel::Tile>();
+    t11->magic = 11;
+    t11->exeInfo.domCount = 1;
+    t11->pipeType = CostModel::CorePipeType::PIPE_MTE1; // 更小的 domCount
 
-    auto op100 = std::make_shared<CostModel::TileOp>(); op100->magic = 100; op100->pipeType = CorePipeType::PIPE_VECTOR_BMU;
+    auto op100 = std::make_shared<CostModel::TileOp>();
+    op100->magic = 100;
+    op100->pipeType = CorePipeType::PIPE_VECTOR_BMU;
 
-    auto t30 = std::make_shared<CostModel::Tile>(); t30->magic = 30; t30->exeInfo.isOutcast = true; t30->pipeType = CostModel::CorePipeType::PIPE_MTE1;
-    auto t40 = std::make_shared<CostModel::Tile>(); t40->magic = 40; t40->pipeType = CostModel::CorePipeType::PIPE_MTE1; // 无 consumer，视为 output
+    auto t30 = std::make_shared<CostModel::Tile>();
+    t30->magic = 30;
+    t30->exeInfo.isOutcast = true;
+    t30->pipeType = CostModel::CorePipeType::PIPE_MTE1;
+    auto t40 = std::make_shared<CostModel::Tile>();
+    t40->magic = 40;
+    t40->pipeType = CostModel::CorePipeType::PIPE_MTE1; // 无 consumer，视为 output
 
     // 2. 建立连接
     op100->iOperand = {t10, t11};
@@ -521,7 +506,10 @@ TEST_F(CostModelTest, TestScheduler) {
     t30->producers = {op100};
     t40->producers = {op100};
 
-    tiles[10] = t10; tiles[11] = t11; tiles[30] = t30; tiles[40] = t40;
+    tiles[10] = t10;
+    tiles[11] = t11;
+    tiles[30] = t30;
+    tiles[40] = t40;
     tileOps[100] = op100;
 
     // 3. 执行测试
@@ -531,7 +519,6 @@ TEST_F(CostModelTest, TestScheduler) {
 
     EXPECT_GT(op100->exeInfo.sequenceToIssue, -1);
     EXPECT_EQ(t10->exeInfo.copyOutIdx, t11->exeInfo.copyOutIdx);
-
 }
 
 TEST_F(CostModelTest, TestScheduler_EmptyInput) {
@@ -575,18 +562,18 @@ TEST_F(CostModelTest, TestGetPipeType_AssertOnMissingOpcode) {
 
     try {
         op.GetPipeType();
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
     }
 
     op.pipeType = CorePipeType::PIPE_UNKNOW;
 
-try {
+    try {
         op.GetAddress();
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
     }
     try {
         op.GetSize();
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
     }
 }
 
@@ -597,7 +584,7 @@ TEST_F(CostModelTest, TestCheckTileOp) {
     func->funcName = "TestFunc";
 
     auto op = std::make_shared<TileOp>();
-    op->opcode="ADD";
+    op->opcode = "ADD";
     op->iOperand = {}; // 触发第一个 if
     op->oOperand = {}; // 触发第二个 if
 
@@ -623,7 +610,6 @@ TEST_F(CostModelTest, TestCheckTile) {
     func->tiles.push_back(tile2);
 
     parser.CheckTile(func);
-
 }
 
 TEST_F(CostModelTest, TestParseInputFile) {
@@ -640,7 +626,6 @@ TEST_F(CostModelTest, TestParseInputFile) {
     parser.ParseTopoJson(path, deque);
     parser.ParseReplayInfoJson(path, map);
     parser.ParseJson(nullptr, path);
-
 }
 
 TEST_F(CostModelTest, TestJsonFErrororFormat) {
@@ -649,14 +634,15 @@ TEST_F(CostModelTest, TestJsonFErrororFormat) {
     CostModelAgent agent;
     try {
         agent.GetFunctionFromJson(path);
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
     }
-
 }
 
 TEST_F(CostModelTest, TestGetCyclesForPassA2A3) {
     const std::string opCode = "ADD";
-    std::vector<std::vector<int>> shape = {{1, 1, 1, 1}};
+    std::vector<std::vector<int>> shape = {
+        {1, 1, 1, 1}
+    };
     DataType dtype = DataType::DT_INT4;
     config::SetSimConfig(KEY_ACCURACY_LEVEL, 1);
     int64_t cycle = CostModel::GetCyclesForPass(opCode, shape, dtype);
@@ -665,7 +651,9 @@ TEST_F(CostModelTest, TestGetCyclesForPassA2A3) {
 
 TEST_F(CostModelTest, TestGetCyclesForPassA5) {
     const std::string opCode = "CAST";
-    std::vector<std::vector<int>> shape = {{1, 1, 1, 1}};
+    std::vector<std::vector<int>> shape = {
+        {1, 1, 1, 1}
+    };
     DataType dtype = DataType::DT_INT4;
     config::SetPlatformConfig("device_platform", "ASCEND_950PR_9579");
     config::SetSimConfig(KEY_ACCURACY_LEVEL, 1);
@@ -675,7 +663,9 @@ TEST_F(CostModelTest, TestGetCyclesForPassA5) {
 
 TEST_F(CostModelTest, TestGetCyclesForPassCopyIn) {
     const std::string opCode = "COPY_IN";
-    std::vector<std::vector<int>> shape = {{1, 1, 1, 1}};
+    std::vector<std::vector<int>> shape = {
+        {1, 1, 1, 1}
+    };
     DataType dtype = DataType::DT_INT4;
     config::SetPlatformConfig("device_platform", "ASCEND_950PR_9579");
     config::SetSimConfig(KEY_ACCURACY_LEVEL, 1);
@@ -685,7 +675,9 @@ TEST_F(CostModelTest, TestGetCyclesForPassCopyIn) {
 
 TEST_F(CostModelTest, TestGetCyclesForPassCopyOut) {
     const std::string opCode = "COPY_OUT";
-    std::vector<std::vector<int>> shape = {{1, 1, 1, 1}};
+    std::vector<std::vector<int>> shape = {
+        {1, 1, 1, 1}
+    };
     DataType dtype = DataType::DT_INT4;
     config::SetPlatformConfig("device_platform", "ASCEND_950PR_9579");
     config::SetSimConfig(KEY_ACCURACY_LEVEL, 1);
@@ -695,7 +687,9 @@ TEST_F(CostModelTest, TestGetCyclesForPassCopyOut) {
 
 TEST_F(CostModelTest, TestGetCyclesForPassSimulate) {
     const std::string opCode = "WHERE_TT";
-    std::vector<std::vector<int>> shape = {{1, 1, 1, 1}};
+    std::vector<std::vector<int>> shape = {
+        {1, 1, 1, 1}
+    };
     DataType dtype = DataType::DT_INT4;
     config::SetPlatformConfig("device_platform", "ASCEND_950PR_9579");
     config::SetSimConfig(KEY_ACCURACY_LEVEL, 1);
@@ -704,26 +698,23 @@ TEST_F(CostModelTest, TestGetCyclesForPassSimulate) {
 }
 
 TEST_F(CostModelTest, TestGetCyclesForPassSo) {
-    typedef int64_t (*GetCyclesForPassFunc)(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype);
+    typedef int64_t (*GetCyclesForPassFunc)(
+        const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype);
     const std::string opCode = "L1_TO_L0A";
-    std::vector<std::vector<int>> shape = {{1, 1, 1, 1}};
+    std::vector<std::vector<int>> shape = {
+        {1, 1, 1, 1}
+    };
     DataType dtype = DataType::DT_INT4;
     config::SetPlatformConfig("device_platform", "ASCEND_950PR_9579");
     config::SetSimConfig(KEY_ACCURACY_LEVEL, 1);
     std::string soPath = "libtile_fwk_simulation.so";
-    void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
-    EXPECT_NO_THROW(
-        if (!handle) {
-            throw std::runtime_error("can not load library: " + std::string(dlerror()));
-        }
-    );
+    void *handle = dlopen(soPath.c_str(), RTLD_LAZY);
+    EXPECT_NO_THROW(if (!handle) { throw std::runtime_error("can not load library: " + std::string(dlerror())); });
 
-    GetCyclesForPassFunc get_cycles_func = (GetCyclesForPassFunc) dlsym(handle, "GetCyclesForPass");
-    EXPECT_NO_THROW(
-        if (!get_cycles_func) {
-            throw std::runtime_error("Failed to find symbol GetCyclesForPass: " + std::string(dlerror()));
-        }
-    );
+    GetCyclesForPassFunc get_cycles_func = (GetCyclesForPassFunc)dlsym(handle, "GetCyclesForPass");
+    EXPECT_NO_THROW(if (!get_cycles_func) {
+        throw std::runtime_error("Failed to find symbol GetCyclesForPass: " + std::string(dlerror()));
+    });
     int64_t cycle = get_cycles_func(opCode, shape, dtype);
     EXPECT_GT(cycle, 0);
 }

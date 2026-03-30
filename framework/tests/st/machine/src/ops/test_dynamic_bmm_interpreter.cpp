@@ -30,7 +30,6 @@ class DynamicBatchMatmulInterpreterTest : public npu::tile_fwk::stest::TestSuite
 
 template <typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
 void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
-
     SetInterpreterConfig();
 
     int ka = k;
@@ -59,7 +58,7 @@ void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
     readInput<InputT>(dataPath + "/mat_b.bin", bData);
     readInput<OutputT>(dataPath + "/mat_c.bin", golden);
 
-     ProgramData::GetInstance().AppendInputs({
+    ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<InputT>(tensor_a, aData),
         RawTensorData::CreateTensor<InputT>(tensor_b, bData),
     });
@@ -86,7 +85,6 @@ void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
 
 template <typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
 void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, string dataPath) {
-
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
 
     int ka = k;
@@ -145,7 +143,7 @@ TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_ND_bf16) {
     int m = 64;
     int k = 128;
     int n = 384;
-    TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, false> (b, m, k, n, GetGoldenDir());
+    TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, false>(b, m, k, n, GetGoldenDir());
 }
 
 TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_Bt_ND_fp16) {
@@ -154,7 +152,7 @@ TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_Bt_ND_fp16) {
     int m = 2;
     int k = 320;
     int n = 512;
-    TestDynBatchMatmul<npu::tile_fwk::float16, float, true, false> (b, m, k, n, GetGoldenDir());
+    TestDynBatchMatmul<npu::tile_fwk::float16, float, true, false>(b, m, k, n, GetGoldenDir());
 }
 
 TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_NZ_bf16) {
@@ -163,7 +161,7 @@ TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_NZ_bf16) {
     int m = 16;
     int k = 512;
     int n = 128;
-    TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, true> (b, m, k, n, GetGoldenDir());
+    TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, true>(b, m, k, n, GetGoldenDir());
 }
 
 TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_Bt_NZ_fp16) {
@@ -172,7 +170,7 @@ TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_Bt_NZ_fp16) {
     int m = 96;
     int k = 128;
     int n = 256;
-    TestDynBatchMatmul<npu::tile_fwk::float16, float, true, true> (b, m, k, n, GetGoldenDir());
+    TestDynBatchMatmul<npu::tile_fwk::float16, float, true, true>(b, m, k, n, GetGoldenDir());
 }
 
 TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_ND_bf16_tile1) {
@@ -181,7 +179,7 @@ TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_ND_bf16_tile1) {
     int m = 1;
     int k = 576;
     int n = 512;
-    TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, false> (b, m, k, n, GetGoldenDir());
+    TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, false>(b, m, k, n, GetGoldenDir());
 }
 
 TEST_F(DynamicBatchMatmulInterpreterTest, bmm4D_A_B_NZ) {
@@ -191,16 +189,14 @@ TEST_F(DynamicBatchMatmulInterpreterTest, bmm4D_A_B_NZ) {
     vector<int> b2 = {4, 5};
     string indtype = "fp16";
     string outdtype = "fp16";
-    //ReadCSV(b, m, n, k, indtype, outdtype);
+    // ReadCSV(b, m, n, k, indtype, outdtype);
 
     if (indtype == "fp16") {
         TestDynBatchMatmul4D<npu::tile_fwk::float16, float, false, true>(b1, b2, m, k, n, GetGoldenDir());
-    }
-    else if (indtype == "bf16") {
+    } else if (indtype == "bf16") {
         TestDynBatchMatmul4D<npu::tile_fwk::bfloat16, float, false, true>(b1, b2, m, k, n, GetGoldenDir());
-    }
-    else if (indtype == "int8") {
+    } else if (indtype == "int8") {
         TestDynBatchMatmul4D<int8_t, int32_t, false, true>(b1, b2, m, k, n, GetGoldenDir());
     }
 }
-}// namespace
+} // namespace

@@ -19,23 +19,20 @@
 #include "cost_model/simulation/arch/PipeFactory.h"
 
 namespace CostModel {
-CacheMachine::CacheMachine(CacheType type, std::string aType)
-{
+CacheMachine::CacheMachine(CacheType type, std::string aType) {
     machineType = MachineType::CACHE;
     cacheType = type;
     cacheImpl = PipeFactory::CreateCache(CacheType::L2CACHE, aType);
 }
 
-void CacheMachine::Step()
-{
+void CacheMachine::Step() {
     RunAtBegin();
     ReceivePacket();
     ProcessMSHR();
     ProcessResp();
 }
 
-void CacheMachine::Build()
-{
+void CacheMachine::Build() {
     config.OverrideDefaultConfig(&sim->cfgs);
     stats = std::make_shared<CacheStats>(GetSim()->GetReporter());
     InitQueueDelay();
@@ -43,8 +40,7 @@ void CacheMachine::Build()
 
 void CacheMachine::Reset() {}
 
-void CacheMachine::Xfer()
-{
+void CacheMachine::Xfer() {
     StepQueue();
     lastCycles = GetSim()->GetCycles();
 
@@ -62,24 +58,20 @@ void CacheMachine::Xfer()
     GetSim()->UpdateNextCycles(nextCycles);
 }
 
-std::shared_ptr<SimSys> CacheMachine::GetSim()
-{
+std::shared_ptr<SimSys> CacheMachine::GetSim() {
     return sim;
 }
 
-void CacheMachine::Report()
-{
+void CacheMachine::Report() {
     std::string name = "L2";
     stats->Report(name);
 }
 
-void CacheMachine::RunAtBegin()
-{
+void CacheMachine::RunAtBegin() {
     nextCycles = INT_MAX;
 }
 
-void CacheMachine::InitQueueDelay()
-{
+void CacheMachine::InitQueueDelay() {
     submissionQueue.SetWriteDelay(0);
     submissionQueue.SetReadDelay(0);
     completionQueue.SetWriteDelay(0);
@@ -96,28 +88,24 @@ void CacheMachine::InitQueueDelay()
     dataRequestQueue.SetReadDelay(0);
 }
 
-void CacheMachine::StepQueue()
-{
+void CacheMachine::StepQueue() {
     uint64_t intervalCycles = GetSim()->GetCycles() - lastCycles;
     dataRequestQueue.UpdateIntervalCycles(intervalCycles);
     dataRequestQueue.Step();
 }
 
-uint64_t CacheMachine::GetQueueNextCycles()
-{
+uint64_t CacheMachine::GetQueueNextCycles() {
     uint64_t res = INT_MAX;
     uint64_t gCycles = GetSim()->GetCycles();
     res = std::min(res, gCycles + dataRequestQueue.GetMinWaitCycles());
     return res;
 }
 
-bool CacheMachine::IsTerminate()
-{
+bool CacheMachine::IsTerminate() {
     return (!executingTask && dataRequestQueue.IsTerminate() && responseQueue.empty());
 }
 
-void CacheMachine::ReceivePacket()
-{
+void CacheMachine::ReceivePacket() {
     if (dataRequestQueue.Empty() || executingTask) {
         return;
     }
@@ -143,8 +131,7 @@ void CacheMachine::ReceivePacket()
     }
 }
 
-void CacheMachine::ProcessMSHR()
-{
+void CacheMachine::ProcessMSHR() {
     auto curCycle = GetSim()->GetCycles();
     // Iterate through all misses.
     for (auto iter = misses.begin(), end = misses.end(); iter != end;) {
@@ -162,8 +149,7 @@ void CacheMachine::ProcessMSHR()
     }
 }
 
-void CacheMachine::ProcessResp()
-{
+void CacheMachine::ProcessResp() {
     auto curCycle = GetSim()->GetCycles();
     // Iterate through all misses.
     while (!responseQueue.empty() && responseQueue.front().second <= curCycle) {
@@ -178,8 +164,7 @@ void CacheMachine::ProcessResp()
     }
 }
 
-void CacheMachine::AddMSHR(const CachePacket &req, uint64_t curCycle)
-{
+void CacheMachine::AddMSHR(const CachePacket &req, uint64_t curCycle) {
     auto addr = req.addr;
     auto iter = misses.find(addr);
     if (iter != misses.end()) {
@@ -189,11 +174,10 @@ void CacheMachine::AddMSHR(const CachePacket &req, uint64_t curCycle)
 
     // Add new MSHR.
     misses.emplace(std::piecewise_construct, std::forward_as_tuple(addr),
-                   std::forward_as_tuple(addr, curCycle + config.l2MissExtraLatency, req));
+        std::forward_as_tuple(addr, curCycle + config.l2MissExtraLatency, req));
 }
 
-void CacheMachine::AllocateCache(uint64_t addr, uint64_t currentCycle)
-{
+void CacheMachine::AllocateCache(uint64_t addr, uint64_t currentCycle) {
     // Check if we have to evict.
     if (cache.size() >= config.l2Size / config.l2LineSize) {
         EvictLRU();
@@ -207,8 +191,7 @@ void CacheMachine::AllocateCache(uint64_t addr, uint64_t currentCycle)
     --entry.lruPos;
 }
 
-bool CacheMachine::AccessCache(uint64_t addr, uint64_t currentCycle)
-{
+bool CacheMachine::AccessCache(uint64_t addr, uint64_t currentCycle) {
     stats->totalQueryNum++;
     auto iter = cache.find(addr);
     if (iter == cache.end()) {
@@ -226,17 +209,15 @@ bool CacheMachine::AccessCache(uint64_t addr, uint64_t currentCycle)
     return true;
 }
 
-void CacheMachine::EvictLRU()
-{
+void CacheMachine::EvictLRU() {
     stats->totalInsertNum++;
     auto addr = lru.front();
     lru.pop_front();
     cache.erase(addr);
 }
 
-void CacheMachine::RequestData(CachePacket pkt, uint64_t extraDelay)
-{
+void CacheMachine::RequestData(CachePacket pkt, uint64_t extraDelay) {
     lastCycles = GetSim()->GetCycles();
     dataRequestQueue.Enqueue(pkt, extraDelay);
 }
-}
+} // namespace CostModel

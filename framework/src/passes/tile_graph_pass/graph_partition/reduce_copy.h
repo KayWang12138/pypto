@@ -28,7 +28,7 @@ namespace npu::tile_fwk {
 class DSU {
 public:
     DSU() = default;
-    DSU(int n, const std::vector<int>& nodeWeights, std::vector<OpCoreType> &colorCoreType);
+    DSU(int n, const std::vector<int> &nodeWeights, std::vector<OpCoreType> &colorCoreType);
     int Find(int i);
     void Union(int i, int j);
     std::pair<int, int> GetWeight(int i);
@@ -48,7 +48,7 @@ public:
     Status Init(Function &func);
     Status MergePrepare(std::vector<std::tuple<int, int, size_t>> &candidates, std::map<int, int> &rootToDense);
     Status MergeLoop(std::vector<std::tuple<int, int, size_t>> &candidates, const std::pair<double, double> &thres,
-    bool &mergedInLoop, std::map<int, int> &rootToDense);
+        bool &mergedInLoop, std::map<int, int> &rootToDense);
     Status RemarkInternalSubgraphID(Function &func);
     void BuildGraph(const OperationsViewer opOriList);
     void BuildGraphInner(const OperationsViewer &opOriList, int opIdx, int opColor);
@@ -70,14 +70,13 @@ public:
 
 class ReduceCopyMerge : public Pass {
 public:
-    ReduceCopyMerge() : Pass("ReduceCopyMerge") {
-        SetSupportedArches({NPUArch::DAV_3510});
-    }
+    ReduceCopyMerge() : Pass("ReduceCopyMerge") { SetSupportedArches({NPUArch::DAV_3510}); }
     ~ReduceCopyMerge() override = default;
+
 private:
     Status RunOnFunction(Function &function) override;
     Status PostCheck(Function &function) override;
 };
 
-}
+} // namespace npu::tile_fwk
 #endif

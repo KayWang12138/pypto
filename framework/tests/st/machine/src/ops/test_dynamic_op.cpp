@@ -30,7 +30,7 @@ TEST_F(DynamicOpTest, FullUnalign) {
 
     // [b*s,h]
     int sTile = 32;
-    int s = 50;  // dynamic
+    int s = 50; // dynamic
     int h = 128;
     std::vector<int64_t> shape = {s, h};
     Tensor output(DT_FP32, shape, "output");
@@ -40,8 +40,8 @@ TEST_F(DynamicOpTest, FullUnalign) {
         SymbolicScalar curSeq = GetTensorData(actSeqs, {0});
 
         LOOP("L0", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange((curSeq + sTile - 1) / sTile)) {
-            Tensor tmp = Full(Element(DataType::DT_FP32, 2.0f), DT_FP32, {sTile, h},
-                {std::min(curSeq - sIdx * sTile, sTile), h});
+            Tensor tmp = Full(
+                Element(DataType::DT_FP32, 2.0f), DT_FP32, {sTile, h}, {std::min(curSeq - sIdx * sTile, sTile), h});
             Assemble(tmp, {sIdx * sTile, 0}, output);
         }
     }

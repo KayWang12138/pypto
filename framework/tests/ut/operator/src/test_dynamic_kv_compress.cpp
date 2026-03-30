@@ -46,7 +46,7 @@ public:
 };
 
 template <typename T = npu::tile_fwk::float16>
-void UTestCmpKv(CmpAttnTile& tileConfig) {
+void UTestCmpKv(CmpAttnTile &tileConfig) {
     const int32_t blockSize = 128;
     const int32_t b = 32;
     const int32_t s1 = 2;

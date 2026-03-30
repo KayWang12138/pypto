@@ -47,8 +47,8 @@ public:
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
-    void SetMatMulAttr(ComputationalGraphBuilder &G, const std::string name,
-        bool isAtomic = false, const int nzFormat = 0) {
+    void SetMatMulAttr(
+        ComputationalGraphBuilder &G, const std::string name, bool isAtomic = false, const int nzFormat = 0) {
         auto op = G.GetOp(name);
         if (op == nullptr) {
             return;
@@ -64,7 +64,8 @@ public:
         op->SetAttribute(A_MUL_B_ACT_N, 0L);
     }
 
-    void SetMatmulMatrixSize(ComputationalGraphBuilder &G, const std::string name, const std::vector<int64_t> &matrixSize) {
+    void SetMatmulMatrixSize(
+        ComputationalGraphBuilder &G, const std::string name, const std::vector<int64_t> &matrixSize) {
         auto op = G.GetOp(name);
         op->SetAttribute(A_MUL_B_ACT_M, matrixSize[0]);
         op->SetAttribute(A_MUL_B_ACT_K, matrixSize[1]);
@@ -246,7 +247,10 @@ TEST_F(SplitKTest, TestReducAccSplitKOn) {
     G.AddOp(Opcode::OP_COPY_OUT, {"l0_c_1"}, {"mat_c_before_reduce_acc_1"}, "L0C_Copy_out_1");
     G.AddOp(Opcode::OP_COPY_OUT, {"l0_c_2"}, {"mat_c_before_reduce_acc_2"}, "L0C_Copy_out_2");
     G.AddOp(Opcode::OP_COPY_OUT, {"l0_c_3"}, {"mat_c_before_reduce_acc_3"}, "L0C_Copy_out_3");
-    G.AddOp(Opcode::OP_REDUCE_ACC, {"mat_c_before_reduce_acc_0", "mat_c_before_reduce_acc_1", "mat_c_before_reduce_acc_2", "mat_c_before_reduce_acc_3"}, {"mat_c_after_reduce_acc"}, "Reduce_Acc");
+    G.AddOp(Opcode::OP_REDUCE_ACC,
+        {"mat_c_before_reduce_acc_0", "mat_c_before_reduce_acc_1", "mat_c_before_reduce_acc_2",
+            "mat_c_before_reduce_acc_3"},
+        {"mat_c_after_reduce_acc"}, "Reduce_Acc");
     SetMatMulAttr(G, "A_MUL_B_0", false, 0);
     SetMatMulAttr(G, "A_MUL_B_1", false, 0);
     SetMatMulAttr(G, "A_MUL_B_2", false, 0);
@@ -258,8 +262,8 @@ TEST_F(SplitKTest, TestReducAccSplitKOn) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     int opReduceAccCount = 0;
-    for(auto &op : function->Operations()) {
-        if(op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
+    for (auto &op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
             opReduceAccCount++;
         }
     }
@@ -269,14 +273,13 @@ TEST_F(SplitKTest, TestReducAccSplitKOn) {
     passLocal.Run(*function, "", "", 0);
     // check after pass
     opReduceAccCount = 0;
-    for(auto &op : function->Operations()) {
-        if(op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
+    for (auto &op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
             opReduceAccCount++;
         }
     }
     EXPECT_EQ(opReduceAccCount, 0);
 }
-
 
 TEST_F(SplitKTest, TestReducAccSplitKOff) {
     ComputationalGraphBuilder G;
@@ -377,15 +380,16 @@ TEST_F(SplitKTest, TestReducAccSplitKOff) {
     SetMatMulAttr(G, "A_MUL_B_3", false, 0);
     // set incast and outcast
     G.SetInCast({"mat_a", "mat_b"});
-    G.SetOutCast({"mat_c_before_reduce_acc_0", "mat_c_before_reduce_acc_1", "mat_c_before_reduce_acc_2", "mat_c_before_reduce_acc_3"});
+    G.SetOutCast({"mat_c_before_reduce_acc_0", "mat_c_before_reduce_acc_1", "mat_c_before_reduce_acc_2",
+        "mat_c_before_reduce_acc_3"});
     // check before pass
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     int opReduceAccCount = 0;
     int opCountBefore = 0;
-    for(auto &op : function->Operations()) {
+    for (auto &op : function->Operations()) {
         opCountBefore++;
-        if(op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
+        if (op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
             opReduceAccCount++;
         }
     }
@@ -396,9 +400,9 @@ TEST_F(SplitKTest, TestReducAccSplitKOff) {
     // check after pass
     opReduceAccCount = 0;
     int opCountAfter = 0;
-    for(auto &op : function->Operations()) {
+    for (auto &op : function->Operations()) {
         opCountAfter++;
-        if(op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
+        if (op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
             opReduceAccCount++;
         }
     }
@@ -454,8 +458,8 @@ TEST_F(SplitKTest, TestReducAccInputLess) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     int opReduceAccCount = 0;
-    for(auto &op : function->Operations()) {
-        if(op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
+    for (auto &op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
             opReduceAccCount++;
         }
     }
@@ -467,8 +471,8 @@ TEST_F(SplitKTest, TestReducAccInputLess) {
     passLocal.Run(*function, "", "", 0);
     // check after pass
     opReduceAccCount = 0;
-    for(auto &op : function->Operations()) {
-        if(op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
+    for (auto &op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
             opReduceAccCount++;
         }
     }
@@ -574,7 +578,10 @@ TEST_F(SplitKTest, TestReducAccOutPutMore) {
     G.AddOp(Opcode::OP_COPY_OUT, {"l0_c_1"}, {"mat_c_before_reduce_acc_1"}, "L0C_Copy_out_1");
     G.AddOp(Opcode::OP_COPY_OUT, {"l0_c_2"}, {"mat_c_before_reduce_acc_2"}, "L0C_Copy_out_2");
     G.AddOp(Opcode::OP_COPY_OUT, {"l0_c_3"}, {"mat_c_before_reduce_acc_3"}, "L0C_Copy_out_3");
-    G.AddOp(Opcode::OP_REDUCE_ACC, {"mat_c_before_reduce_acc_0", "mat_c_before_reduce_acc_1", "mat_c_before_reduce_acc_2", "mat_c_before_reduce_acc_3"}, {"mat_c_after_reduce_acc_0", "mat_c_after_reduce_acc_1"}, "Reduce_Acc");
+    G.AddOp(Opcode::OP_REDUCE_ACC,
+        {"mat_c_before_reduce_acc_0", "mat_c_before_reduce_acc_1", "mat_c_before_reduce_acc_2",
+            "mat_c_before_reduce_acc_3"},
+        {"mat_c_after_reduce_acc_0", "mat_c_after_reduce_acc_1"}, "Reduce_Acc");
     SetMatMulAttr(G, "A_MUL_B_0", false, 0);
     SetMatMulAttr(G, "A_MUL_B_1", false, 0);
     SetMatMulAttr(G, "A_MUL_B_2", false, 0);
@@ -586,8 +593,8 @@ TEST_F(SplitKTest, TestReducAccOutPutMore) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     int opReduceAccCount = 0;
-    for(auto &op : function->Operations()) {
-        if(op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
+    for (auto &op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
             opReduceAccCount++;
         }
     }
@@ -735,8 +742,8 @@ TEST_F(SplitKTest, TestAnzBndL1) {
     // add op
     G.AddOp(Opcode::OP_COPY_IN, {"mat_a"}, {"l1_a"}, "L1_Copy_In_A");
     G.AddOp(Opcode::OP_COPY_IN, {"mat_b"}, {"l1_b"}, "L1_Copy_In_B");
-    G.AddOp(Opcode::OP_VIEW, {"l1_a"}, {"l1_a_0","l1_a_1"}, "A_OP_VIEW");
-    G.AddOp(Opcode::OP_VIEW, {"l1_b"}, {"l1_b_0","l1_b_1"}, "B_OP_VIEW");
+    G.AddOp(Opcode::OP_VIEW, {"l1_a"}, {"l1_a_0", "l1_a_1"}, "A_OP_VIEW");
+    G.AddOp(Opcode::OP_VIEW, {"l1_b"}, {"l1_b_0", "l1_b_1"}, "B_OP_VIEW");
     G.AddOp(Opcode::OP_L1_TO_L0A, {"l1_a_0"}, {"l0_a_0"}, "L1_To_L0A_0");
     G.AddOp(Opcode::OP_L1_TO_L0A, {"l1_a_1"}, {"l0_a_1"}, "L1_To_L0A_1");
     G.AddOp(Opcode::OP_L1_TO_L0B, {"l1_b_0"}, {"l0_b_0"}, "L1_To_L0B_0");
@@ -822,8 +829,8 @@ TEST_F(SplitKTest, TestAndBndCnz) {
     // add op
     G.AddOp(Opcode::OP_COPY_IN, {"mat_a"}, {"l1_a"}, "L1_Copy_In_A");
     G.AddOp(Opcode::OP_COPY_IN, {"mat_b"}, {"l1_b"}, "L1_Copy_In_B");
-    G.AddOp(Opcode::OP_VIEW, {"l1_a"}, {"l1_a_0","l1_a_1"}, "A_OP_VIEW");
-    G.AddOp(Opcode::OP_VIEW, {"l1_b"}, {"l1_b_0","l1_b_1"}, "B_OP_VIEW");
+    G.AddOp(Opcode::OP_VIEW, {"l1_a"}, {"l1_a_0", "l1_a_1"}, "A_OP_VIEW");
+    G.AddOp(Opcode::OP_VIEW, {"l1_b"}, {"l1_b_0", "l1_b_1"}, "B_OP_VIEW");
     G.AddOp(Opcode::OP_L1_TO_L0A, {"l1_a_0"}, {"l0_a_0"}, "L1_To_L0A_0");
     G.AddOp(Opcode::OP_L1_TO_L0A, {"l1_a_1"}, {"l0_a_1"}, "L1_To_L0A_1");
     G.AddOp(Opcode::OP_L1_TO_L0B, {"l1_b_0"}, {"l0_b_0"}, "L1_To_L0B_0");
@@ -913,26 +920,22 @@ TEST_F(SplitKTest, TestGatherOnL1) {
     // add op
     G.AddOp(Opcode::OP_COPY_IN, {"mat_a"}, {"mat_a_partial_0"}, "L1copyInA_0");
     auto L1copyInA_0 = G.GetOp("L1copyInA_0");
-    auto attrCopyInA_0 = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({256, 0}), MemoryType::MEM_L1,
+    auto attrCopyInA_0 = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({256, 0}), MemoryType::MEM_L1,
         OpImmediate::Specified(mat_a->GetShape()), OpImmediate::Specified(mat_a->tensor->GetRawShape()));
     L1copyInA_0->SetOpAttribute(attrCopyInA_0);
     G.AddOp(Opcode::OP_COPY_IN, {"mat_a"}, {"mat_a_partial_1"}, "L1copyInA_1");
     auto L1copyInA_1 = G.GetOp("L1copyInA_1");
-    auto attrCopyInA_1 = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({256, 64}), MemoryType::MEM_L1,
+    auto attrCopyInA_1 = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({256, 64}), MemoryType::MEM_L1,
         OpImmediate::Specified(mat_a->GetShape()), OpImmediate::Specified(mat_a->tensor->GetRawShape()));
     L1copyInA_1->SetOpAttribute(attrCopyInA_1);
     G.AddOp(Opcode::OP_COPY_IN, {"mat_a"}, {"mat_a_partial_2"}, "L1copyInA_2");
     auto L1copyInA_2 = G.GetOp("L1copyInA_2");
-    auto attrCopyInA_2 = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({512, 0}), MemoryType::MEM_L1,
+    auto attrCopyInA_2 = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({512, 0}), MemoryType::MEM_L1,
         OpImmediate::Specified(mat_a->GetShape()), OpImmediate::Specified(mat_a->tensor->GetRawShape()));
     L1copyInA_2->SetOpAttribute(attrCopyInA_2);
     G.AddOp(Opcode::OP_COPY_IN, {"mat_a"}, {"mat_a_partial_3"}, "L1copyInA_3");
     auto L1copyInA_3 = G.GetOp("L1copyInA_3");
-    auto attrCopyInA_3 = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({512, 64}), MemoryType::MEM_L1,
+    auto attrCopyInA_3 = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({512, 64}), MemoryType::MEM_L1,
         OpImmediate::Specified(mat_a->GetShape()), OpImmediate::Specified(mat_a->tensor->GetRawShape()));
     L1copyInA_3->SetOpAttribute(attrCopyInA_3);
 
@@ -955,8 +958,7 @@ TEST_F(SplitKTest, TestGatherOnL1) {
 
     G.AddOp(Opcode::OP_COPY_IN, {"mat_b"}, {"mat_b_L1"}, "L1_Copy_In_B");
     auto L1copyInB = G.GetOp("L1_Copy_In_B");
-    auto attrCopyInB = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({0, 0}), MemoryType::MEM_L1,
+    auto attrCopyInB = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MemoryType::MEM_L1,
         OpImmediate::Specified(mat_b->GetShape()), OpImmediate::Specified(mat_b->tensor->GetRawShape()));
     L1copyInB->SetOpAttribute(attrCopyInB);
 
@@ -968,8 +970,7 @@ TEST_F(SplitKTest, TestGatherOnL1) {
 
     G.AddOp(Opcode::OP_COPY_OUT, {"mat_c_L0"}, {"mat_c"}, "L0C_Copy_out");
     auto copyOutOp = G.GetOp("L0C_Copy_out");
-    auto attrCopyOut = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({0, 0}), MemoryType::MEM_L0C,
+    auto attrCopyOut = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MemoryType::MEM_L0C,
         OpImmediate::Specified(mat_c->GetShape()), OpImmediate::Specified(mat_c->tensor->GetRawShape()));
     copyOutOp->SetOpAttribute(attrCopyOut);
 

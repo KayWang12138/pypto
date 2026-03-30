@@ -19,7 +19,7 @@
 namespace npu::tile_fwk {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
 
-void static MergeAllFuncDupIocast(Function* func) {
+void static MergeAllFuncDupIocast(Function *func) {
     if (func == nullptr) {
         auto rootFunc = Program::GetInstance().GetFunctionByMagicName(PROGRAM_ENTRY_FUNCTION_NAME);
         if (rootFunc != nullptr) {
@@ -42,8 +42,7 @@ void static MergeAllFuncDupIocast(Function* func) {
     func->MergeFunctionDupIocast();
     // 2. remove useless view assemble op
     func->RemoveCallOpViewAssemble();
-    if (config::GetPassDefaultConfig(KEY_PRINT_GRAPH, false) &&
-        func->IsGraphType(GraphType::TENSOR_GRAPH)) {
+    if (config::GetPassDefaultConfig(KEY_PRINT_GRAPH, false) && func->IsGraphType(GraphType::TENSOR_GRAPH)) {
         func->DumpJsonFile(config::LogTensorGraphFolder() + "/" + func->GetRawName() + "_remove_dup.json");
         func->DumpFile(config::LogTensorGraphFolder() + "/" + func->GetRawName() + "_remove_dup.tifwkgr");
     }
@@ -55,17 +54,14 @@ void static MergeAllFuncDupIocast(Function* func) {
 
 void RecordFunc::RecordDynFuncInner(const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
     const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
-    const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs) {
+    const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>>
+        &inplaceArgs) {
     CHECK(FError::INVALID_TYPE, config::GetFunctionType() == FunctionType::DYNAMIC)
         << "Function graph type: " << GetFunctionTypeNameDict().Find(config::GetFunctionType());
 
 #if ENABLE_HIDDENLOOP
     recordLoopFunc_ = std::make_unique<RecordLoopFunc>(
-            funcName + "_loop",
-            FunctionType::DYNAMIC_LOOP,
-            funcName +"_unused_hidden_record_func_loop_idx",
-            LoopRange(1)
-        );
+        funcName + "_loop", FunctionType::DYNAMIC_LOOP, funcName + "_unused_hidden_record_func_loop_idx", LoopRange(1));
 #endif
 
     Program::GetInstance().BeginFunction(funcName, config::GetFunctionType());
@@ -108,8 +104,7 @@ RecordFunc::RecordFunc(const std::string &name) : funcName(FUNCTION_PREFIX + nam
     Program::GetInstance().BeginFunction(funcName, config::GetFunctionType());
 }
 
-RecordFunc::RecordFunc(const std::string &name,
-    const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs)
+RecordFunc::RecordFunc(const std::string &name, const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs)
     : funcName(FUNCTION_PREFIX + name) {
     // RecordFunc start with TENSOR_GRAPH
     ConfigManager::Instance().ResetLog();
@@ -117,14 +112,16 @@ RecordFunc::RecordFunc(const std::string &name,
     if (config::GetFunctionType() == FunctionType::DYNAMIC) {
         RecordDynFuncInner(explicitOpArgs, {}, {});
     } else {
-        Program::GetInstance().BeginFunction(funcName, config::GetFunctionType(), GraphType::TENSOR_GRAPH, explicitOpArgs);
+        Program::GetInstance().BeginFunction(
+            funcName, config::GetFunctionType(), GraphType::TENSOR_GRAPH, explicitOpArgs);
     }
 }
 
 RecordFunc::RecordFunc(const std::string &name,
     const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
     const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
-    const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs)
+    const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>>
+        &inplaceArgs)
     : funcName(FUNCTION_PREFIX + name) {
     ConfigManager::Instance().ResetLog();
     Program::GetInstance().GetTensorSlotManager()->SetRecording(true);
@@ -146,7 +143,7 @@ void RecordFunc::EndFunction() {
     }
 
     // might raise exception in EndFunction, force isEnd_ is always set
-    Defer clean([this](){
+    Defer clean([this]() {
         isEnd_ = true;
         Program::GetInstance().GetTensorSlotManager()->SetRecording(false);
     });
@@ -255,11 +252,14 @@ void RecordLoopFunc::BeginLoopFunction() {
     auto currentStep = CurUnrollTimes() == 1 ? loopRange_->Step() : loopRange_->Step() * CurUnrollTimes();
     if (rangeOfEaceUnroll_.empty()) {
         auto newRangeEnd = (UnrollTimesSize() == 1 ? loopRange_->End() : loopRange_->End() / currentStep * currentStep);
-        std::shared_ptr<LoopRange> newRange = std::make_shared<LoopRange>(loopRange_->Begin(), newRangeEnd, currentStep);
+        std::shared_ptr<LoopRange> newRange =
+            std::make_shared<LoopRange>(loopRange_->Begin(), newRangeEnd, currentStep);
         rangeOfEaceUnroll_.push_back(newRange);
     } else {
         auto prevRange = rangeOfEaceUnroll_.back();
-        auto newRangeEnd = (UnrollTimesSize() == 1 ? loopRange_->End() : prevRange->End() + (loopRange_->End() - prevRange->End()) / currentStep * currentStep);
+        auto newRangeEnd = (UnrollTimesSize() == 1 ?
+                                loopRange_->End() :
+                                prevRange->End() + (loopRange_->End() - prevRange->End()) / currentStep * currentStep);
         std::shared_ptr<LoopRange> newRange = std::make_shared<LoopRange>(prevRange->End(), newRangeEnd, currentStep);
         rangeOfEaceUnroll_.push_back(newRange);
     }
@@ -267,7 +267,8 @@ void RecordLoopFunc::BeginLoopFunction() {
     auto range = rangeOfEaceUnroll_.back();
     range->End().AsIntermediateVariable();
 
-    auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, parallel_);
+    auto attr =
+        std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, parallel_);
     currentLoopFunc_->SetDynloopAttribute(attr);
     currentLoopFunc_->SetSourceLocation(location_);
 }
@@ -279,8 +280,7 @@ void RecordLoopFunc::EndLoopFunction() {
 }
 
 bool RecordLoopFunc::MatchUnrollTimes(int unrollTimes) {
-    CHECK(FError::INVALID_VAL, unrollTimes > 0)
-        << "unrollTimes[" << unrollTimes << "] must larger than zero!";
+    CHECK(FError::INVALID_VAL, unrollTimes > 0) << "unrollTimes[" << unrollTimes << "] must larger than zero!";
     auto &curRlf = Program::GetInstance().GetLoopStack().back().get();
     curRlf.customUnrollTimes_.emplace(unrollTimes);
     if (!curRlf.hasManualUnroll_) {
@@ -347,7 +347,7 @@ bool RecordLoopFunc::Iterator::operator!=(const IteratorEnd &rhs) {
         return true;
     }
     FUNCTION_ASSERT(cur_ == rlf_.CurUnrollTimes())
-        <<  " cur_ = " << cur_ << ", rlf_.CurUnrollTimes() = " << rlf_.CurUnrollTimes();
+        << " cur_ = " << cur_ << ", rlf_.CurUnrollTimes() = " << rlf_.CurUnrollTimes();
     if (rlf_.IterationEnd()) {
         rlf_.EndLoopFunction();
         rlf_.NextUnrollTimes();
@@ -434,9 +434,15 @@ std::shared_ptr<DynloopFunctionAttribute> RecordLoopFunc::GetLoopAttr() {
     return currentLoopFunc_->GetDynloopAttribute();
 }
 
-const SymbolicScalar &RecordLoopFunc::LoopBegin() const { return loopRange_->Begin(); }
-const SymbolicScalar &RecordLoopFunc::LoopStep() const { return loopRange_->Step(); }
-const SymbolicScalar &RecordLoopFunc::LoopEnd() const { return loopRange_->End(); }
+const SymbolicScalar &RecordLoopFunc::LoopBegin() const {
+    return loopRange_->Begin();
+}
+const SymbolicScalar &RecordLoopFunc::LoopStep() const {
+    return loopRange_->Step();
+}
+const SymbolicScalar &RecordLoopFunc::LoopEnd() const {
+    return loopRange_->End();
+}
 
 RecordIfBranch::operator bool() const {
     bool cond = Program::GetInstance().GetLoopStack().back().get().Condition(cond_, file_, line_);
