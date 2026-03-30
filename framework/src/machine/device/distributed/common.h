@@ -28,9 +28,8 @@ namespace npu::tile_fwk::Distributed {
 constexpr uint64_t AICPU_TASK_ARRAY_SIZE = 1024;
 constexpr uint64_t AICPU_TASK_ARRAY_SIZE_MOD = AICPU_TASK_ARRAY_SIZE - 1;
 constexpr uint64_t OWNER_RANK_ID_INDEX = 0;
-constexpr uint64_t EXPAND_DIM_INDEX = 1;
-constexpr uint64_t SHMEM_DIM_ROW = 2;
-constexpr uint64_t SHMEM_DIM_COL = 3;
+constexpr uint64_t SHMEM_DIM_ROW = 1;
+constexpr uint64_t SHMEM_DIM_COL = 2;
 constexpr uint64_t ATTR_STRIDE_OFFSET = 1;
 constexpr uint64_t ATTR_TILEROW_OFFSET = 3;
 constexpr uint64_t ATTR_TILECOL_OFFSET = 4;
@@ -112,8 +111,8 @@ inline std::vector<uint32_t> GetCoaVector(const uint32_t baseIndex, const uint32
 }
 
 inline unsigned CalcLinearOffset(
-    unsigned GmShape1, unsigned GmShape2, unsigned Offset0, unsigned Offset1, unsigned Offset2) {
-    return Offset2 + Offset1 * GmShape2 + Offset0 * (GmShape1 * GmShape2);
+    unsigned GmShape1, unsigned Offset0, unsigned Offset1) {
+    return Offset1 + Offset0 * GmShape1;
 }
 
 inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode) {
