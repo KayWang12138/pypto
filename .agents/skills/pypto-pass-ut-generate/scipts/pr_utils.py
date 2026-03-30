@@ -300,7 +300,7 @@ def checkout_or_fetch_pr_branch(
         )
         
         if result.returncode == 0:
-            logger.info("本地分支 {local_branch} 已存在")
+            logger.info(f"本地分支 {local_branch} 已存在")
             
             result = subprocess.run(
                 ['git', 'log', '-1', '--format=%H', local_branch],
