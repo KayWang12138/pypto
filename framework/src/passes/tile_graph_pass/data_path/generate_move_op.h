@@ -56,6 +56,10 @@ private:
     Status CreateMoveOp(Function &function) const;
     void SetCopyAttr(Operation &op,ViewOpAttribute *viewOpAttribute) const;
     void SetL0C2L1CopyAttr(Operation &op, const Shape &realShape, const std::vector<OpImmediate> &fromOffset, const std::vector<OpImmediate> &toOffset) const;
+    void SetL0C2UBCopyAttr(Operation &op, const Shape &realShape, const std::vector<OpImmediate> &fromOffset, const std::vector<OpImmediate> &toOffset) const;
+    void SetUB2L1CopyAttr(Operation &op, const Shape &copyShape,
+    const std::vector<OpImmediate> &fromOffset,
+    const std::vector<OpImmediate> &toOffset) const;
     Status SetOpcodeByMemPath(Operation &op,MemoryType from,MemoryType to) const;
     bool HasSpecificConsumer(const Operation &op) const;
     void ConvertViewToCopyInWhenInputGm(Operation &op, ViewOpAttribute *viewOpAttribute) const;
@@ -67,7 +71,7 @@ private:
     Status ProcessL0AMX(Operation &op, ViewOpAttribute *viewOpAttribute) const;
     Status ProcessL0BMX(Operation &op, ViewOpAttribute *viewOpAttribute) const;
     Status ProcessDefault(Function &function, Operation &op, ViewOpAttribute *viewOpAttribute) const;
-    void CreateMoveOpForAssemble(Operation &op) const;
+    void CreateMoveOpForAssemble(Function &function, Operation &op) const;
     Status CreateMoveOpForConvert(Function &function, Operation &op) const;
     void ProcessUB2L1(Function &function, Operation &op) const;
     static int64_t PadUB(int64_t dim, int64_t padValue);
