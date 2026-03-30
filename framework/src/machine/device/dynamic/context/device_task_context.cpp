@@ -14,6 +14,7 @@
  */
 
 #include "machine/device/dynamic/context/device_task_context.h"
+#include "machine/device/dynamic/eslmodel_aicore_hal.h"
 
 namespace npu::tile_fwk::dynamic {
 namespace {
@@ -545,7 +546,6 @@ int DeviceTaskContext::BuildDeviceTaskDataAndReadyQueue(
     dyntask->cceBinary = devProg->GetCceBinary(0);
     dyntask->aicpuLeafBinary = devProg->GetAicpuLeafBinary(0);
     DeviceStitchContext::CheckStitch(dyntask);
-
     DEV_VERBOSE_DEBUG("Build ready queue");
     PerfBegin(PERF_EVT_READY_QUEUE);
     result = BuildReadyQueue(dyntask, devProg);
@@ -553,11 +553,9 @@ int DeviceTaskContext::BuildDeviceTaskDataAndReadyQueue(
         return DEVICE_MACHINE_ERROR;
     }
     PerfEnd(PERF_EVT_READY_QUEUE);
-
     PerfBegin(PERF_EVT_RESOLVE_EARLY);
     ResolveEarlyDepends(dyntask);
     PerfEnd(PERF_EVT_RESOLVE_EARLY);
-
     DEV_VERBOSE_DEBUG("Build func data");
     PerfBegin(PERF_EVT_CORE_FUNCDATA);
     result = BuildDynFuncData(dyntask, taskId, &dyntask->stitchedList[0], dyntask->stitchedList.size());
@@ -568,6 +566,8 @@ int DeviceTaskContext::BuildDeviceTaskDataAndReadyQueue(
     DEV_DEBUG("Finish build a new device task");
 
     DEV_IF_NONDEVICE { dyntask->DumpTopo(devProg->devArgs.enableVFFusion); }
+
+    DEV_IF_NONDEVICE { HandleEslModelTransmission(devProg, dyntask, dynFuncDataSize); }
 
 #if DEBUG_INFINITE_LIFETIME
     DEV_IF_DEVICE { dyntask->DumpTensorAddrInfo(workspace_->DumpTensorWsBaseAddr(), workspace_->DumpTensorWsSize()); }
