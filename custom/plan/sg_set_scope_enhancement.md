@@ -150,3 +150,23 @@
 1. 扩展 ConfigManager 支持 bool 数组的配置和读取
 2. 在配置层直接使用 bool 类型，消除转换开销
 3. 考虑使用结构体或命名参数替代 tuple，提升可读性
+
+## 阶段三：消除 int64_t 依赖 ✅ 已完成
+
+### 背景
+
+`sg_set_scope` 的 C++ 侧实现使用了 `vector<int64_t>`，而 Linux 上 `int64_t` 是 `long` 的别名，导致需要在 `config_manager_ng.cpp` 中额外添加 `SetOptionsNg<vector<long>>` 的显式模板实例化才能链接通过。为了消除平台依赖，将所有 `int64_t` 改为 `int`。
+
+### 修改内容
+
+| # | 文件 | 修改 |
+|---|------|------|
+| 1 | `expand_function.cpp` | `vector<int64_t>` → `vector<int>`，去掉 `static_cast<int64_t>` |
+| 2 | `function.cpp` | `GetPassOption<vector<int64_t>>` → `GetPassOption<vector<int>>`，去掉多余的 `static_cast<int>` |
+| 3 | `config_manager_ng.cpp` | 删除 `SetOptionsNg<vector<long>>` 显式实例化（已有 `SetOptionsNg<vector<int>>`） |
+
+### 设计决策
+
+- `ScopeInfo` 结构体字段本身已是 `int` 类型，C++ 侧无需 `int64_t` 的范围
+- 使用 `int` 后直接复用已有的 `SetOptionsNg<vector<int>>` 实例化，无需新增模板特化
+- 避免不同平台（Linux `int64_t`=long vs 其他平台 `int64_t`=long long）带来的链接问题
