@@ -25,11 +25,13 @@
 #include "machine/device/dynamic/aicore_prof_dav3510_pmu.h"
 
 typedef void* VOID_PTR;
-
+typedef int32_t (*ProfCommandHandle)(uint32_t type, void *data, uint32_t len);
+using PyptoProfGetFuncPtr = void(*)(void*);
 extern "C" {
 __attribute__((weak)) int32_t AdprofReportAdditionalInfo(uint32_t agingFlag, const VOID_PTR data, uint32_t length);
 #ifndef MSVP_PROF_API
 __attribute__((weak)) int32_t MsprofReportAdditionalInfo(uint32_t nonPersistantFlag, const VOID_PTR data, uint32_t length);
+__attribute__((weak)) int32_t MsprofRegisterCallback(uint32_t moduleId, ProfCommandHandle handle);
 #endif
 __attribute__((weak)) int32_t AdprofCheckFeatureIsOn(uint64_t feature);
 };
@@ -48,12 +50,39 @@ struct PyPtoMsprofAdditionalInfo { // for MsprofReportAdditionalInfo buffer data
     uint8_t data[232];
 };
 
+struct PyptoProfDataparam {
+    int32_t coreIdx;
+    uint32_t subGraphId;
+    uint32_t taskId;
+    const struct TaskStat *taskStat;
+};
+
+struct PyPtoMsprofCommandHandleParams {
+    uint32_t pathLen;
+    uint32_t storageLimit;  // MB
+    uint32_t profDataLen;
+    char path[1023 + 1];
+    char profData[4095 + 1];
+};
+
+struct PyPtoMsprofCommandHandle {
+    uint64_t profSwitch;
+    uint64_t profSwitchHi;
+    uint32_t devNums;
+    uint32_t devIdList[64];
+    uint32_t modelId;
+    uint32_t type;
+    uint32_t cacheFlag;
+    struct PyPtoMsprofCommandHandleParams params;
+};
+
 constexpr uint32_t PYPTO_MSPROF_REPORT_AICPU_LEVEL = 6000U;
 constexpr uint32_t PYPTO_MSPROF_REPORT_AICPU_NODE_TYPE = 10U; /* type info: DATA_PREPROCESS.AICPU */
 
 constexpr uint64_t PROF_TASK_TIME_L0 = 0x00000008ULL;
 constexpr uint64_t PROF_TASK_TIME_L1 = 0x00000010ULL;
 constexpr uint64_t PROF_TASK_TIME_L2 = 0x00000020ULL;
+constexpr uint64_t PROF_TASK_TIME_L3 = 0x00000040ULL;
 
 constexpr bool GLB_PMU_EN = true;
 constexpr bool USER_PMU_MODE_EN = (GLB_PMU_EN && true);
@@ -266,9 +295,11 @@ class AiCoreProf {
 public:
     explicit AiCoreProf(AiCoreManager &aicoreMng) : hostAicoreMng_(aicoreMng) {}
     ~AiCoreProf() {}
-
-    void ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs,
-        ProfConfig profConfig, ArchInfo archInfo = ArchInfo::DAV_2201);
+#ifdef __DEVICE__
+    static void RegDevProf();
+#endif
+    static int DevProfInit(uint32_t type, void *data, uint32_t len);
+    void ProfInit(DeviceArgs *deviceArgs);
     void ProfStart();
     void ProfGet(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
     void ProfGetSwitch(int64_t &flag) const;
@@ -288,7 +319,11 @@ public:
     void ProfStartPmu();
     void ProfStopPmu();
     void ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
-    
+    void GetIsOpenDevProf();
+    uint32_t GetCoreNum() {return static_cast<uint32_t>(coreNum_);}
+    static uint64_t devProfSwitch_;
+    static uint32_t devProfType_ ;
+    DeviceArgs *deviceArgs_;
 private:
     struct PmuCtrlAddrs {
         uint32_t *ctrl0Addr{nullptr};
