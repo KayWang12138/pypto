@@ -22,6 +22,10 @@
 #include "tilefwk/pypto_fwk_log.h"
 #include "machine/utils/machine_error.h"
 
+#ifdef __ESL_SIMULATION__
+#include "machine/runtime/esl_memory_utils.h"
+#endif
+
 struct process_sign {
     pid_t tgid;
     char sign[49];   // 49 is PROCESS_SIGN_LENGTH
@@ -219,15 +223,19 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     CheckDeviceId();
     DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
-    DeviceMemoryUtils devMemoryUtilis;
-    DeviceInitDistributedContext(devMemoryUtilis, dynAttr->commGroupNames, kArgs);
+#ifdef __ESL_SIMULATION__
+ 	EslModelMemoryUtils devMemory;
+#else 
+ 	DeviceMemoryUtils devMemory;
+#endif
+ 	DeviceInitDistributedContext(devMemory, dynAttr->commGroupNames, kArgs);
 
     HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
-    DeviceInitTilingData(devMemoryUtilis, kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
+    DeviceInitTilingData(devMemory, kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
     HOST_PERF_TRACE(TracePhase::RunDevInitTiling);
 
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
-    DeviceInitKernelInOuts(devMemoryUtilis, kArgs, inputList, outputList, dynAttr->disableL2List);
+    DeviceInitKernelInOuts(devMemory, kArgs, inputList, outputList, dynAttr->disableL2List);
 
     HOST_PERF_TRACE(TracePhase::RunDevInitInOutTensor);
 
@@ -274,22 +282,28 @@ int DeviceLauncher::DeviceRunOnce(Function *function, DevControlFlowCache* hostC
     auto aicoreStream = machine::GetRA()->GetStream();
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
-    DeviceMemoryUtils devMemoryUtilis(true);
-    std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(devMemoryUtilis, inputDataList, outputDataList);
+#ifdef __ESL_SIMULATION__
+    EslModelMemoryUtils devMemoryHugePage(true);
+    EslModelMemoryUtils devMemoryNotHugePage(false); 
+#else 
+    DeviceMemoryUtils devMemoryHugePage(true);
+    DeviceMemoryUtils devMemoryNotHugePage(false);
+#endif
+ 	std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(devMemoryHugePage, inputDataList, outputDataList);
 
-    DeviceMemoryUtils devMemory(false);
+    // DeviceMemoryUtils devMemory(false);
     uint8_t* devCtrlCache = nullptr;
     if (hostCtrlCache) {
-        devCtrlCache = devMemory.CopyToDev(reinterpret_cast<uint8_t *>(hostCtrlCache), hostCtrlCache->usedCacheSize, nullptr);
+        devCtrlCache = devMemoryNotHugePage.CopyToDev(reinterpret_cast<uint8_t *>(hostCtrlCache), hostCtrlCache->usedCacheSize, nullptr);
     }
 
     int rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList,
         aicpuStream, aicoreStream, true, nullptr, reinterpret_cast<DevControlFlowCache*>(devCtrlCache), config);
-    CopyFromDev(DeviceMemoryUtils(), outputDataList);
+    CopyFromDev(devMemoryNotHugePage, outputDataList);
     if (HasInplaceArgs(function) || outputDataList.size() == 0) {
-        CopyFromDev(DeviceMemoryUtils(), inputDataList);
+        CopyFromDev(devMemoryNotHugePage, inputDataList);
     }
-    devMemory.Free(devCtrlCache);
+    devMemoryNotHugePage.Free(devCtrlCache);
     return rc;
 #else
     (void)hostCtrlCache;
@@ -484,7 +498,11 @@ uint32_t GetProcessId() {
 
 void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
 #ifdef BUILD_WITH_CANN
+#ifdef __ESL_SIMULATION__
+ 	EslModelMemoryUtils().CopyFromDev((uint8_t *)hostTensor.GetAddr(), (uint8_t *)devTensor.GetAddr(), devTensor.GetDataSize());
+#else
     DeviceMemoryUtils().CopyFromDev((uint8_t *)hostTensor.GetAddr(), (uint8_t *)devTensor.GetAddr(), devTensor.GetDataSize());
+#endif
 #else
     (void)devTensor;
     (void)hostTensor;
@@ -493,7 +511,11 @@ void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTens
 
 void CopyHostToDev(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
 #ifdef BUILD_WITH_CANN
+#ifdef __ESL_SIMULATION__
+ 	EslModelMemoryUtils().CopyToDev((uint8_t *)devTensor.GetAddr(), (uint8_t *)hostTensor.GetAddr(), devTensor.GetDataSize());
+#else
     DeviceMemoryUtils().CopyToDev((uint8_t *)devTensor.GetAddr(), (uint8_t *)hostTensor.GetAddr(), devTensor.GetDataSize());
+#endif
 #else
     (void)devTensor;
     (void)hostTensor;
@@ -502,7 +524,11 @@ void CopyHostToDev(const DeviceTensorData &devTensor, DeviceTensorData &hostTens
 
 uint8_t* CopyHostToDev(uint8_t* data, uint64_t size) {
 #ifdef BUILD_WITH_CANN
+#ifdef __ESL_SIMULATION__
+ 	return EslModelMemoryUtils(false).CopyToDev((uint8_t *)data, size, nullptr);
+#else
     return DeviceMemoryUtils(false).CopyToDev((uint8_t *)data, size, nullptr);
+#endif
 #else
     (void)data;
     (void)size;
@@ -545,9 +571,15 @@ void DeviceLauncher::FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, Dev
     DeviceLauncherConfig config;
     CachedOperator cache;
     DeviceLauncherConfigFillDeviceInfo(config);
+#ifdef __ESL_SIMULATION__
+    EslModelMemoryUtils eslModelMemoryUtils;
+    DeviceInitTilingData(eslModelMemoryUtils, kargs, devProgData, nullptr, config, &cache);
+    DeviceInitDistributedContext(eslModelMemoryUtils, groupNames, kargs);
+#else
     DeviceMemoryUtils deviceMemoryUtils;
     DeviceInitTilingData(deviceMemoryUtils, kargs, devProgData, nullptr, config, &cache);
     DeviceInitDistributedContext(deviceMemoryUtils, groupNames, kargs);
+#endif
 #else
     (void)devProgData;
     (void)kargs;

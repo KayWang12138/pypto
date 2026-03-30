@@ -24,12 +24,17 @@
 #include "acl/acl_rt.h"
 #endif
 
+#ifdef __ESL_SIMULATION__
+#include "machine/runtime/esl_memory_utils.h"
+#else
+#include "machine/runtime/device_memory_utils.h"
+#endif
+
 #include "machine/runtime/device_launcher_binding.h"
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
 #include "machine/utils/dynamic/dev_tensor_creator.h"
 #include "machine/device/dynamic/device_common.h"
-#include "machine/runtime/device_memory_utils.h"
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
@@ -355,7 +360,11 @@ public:
         dataPtr += inputList.size();
         buildInouts(outputList, dataPtr, tensorIdx);
         if (devMem.IsDevice()) {
+#ifdef __ESL_SIMULATION__
+            kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data() + sizeof(AiCpuArgs));
+#else
             kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data());
+#endif
             kArgs.outputs = (int64_t *)allSize;
         } else {
             kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data() + sizeof(AiCpuArgs));
