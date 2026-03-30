@@ -693,7 +693,7 @@ void DeviceLauncher::UnregisterKernelBin(void *hdl) {
 void DeviceLauncher::SetDevPerfAddr([[maybe_unused]]const bool &debugEnable, [[maybe_unused]]const bool &isCaptureMode) {
 #ifdef BUILD_WITH_CANN
         auto &devRunner = DeviceRunner::Get();
-        if (debugEnable || devRunner.GetEnableDumpDevPref()) {
+        if (debugEnable || devRunner.GetEnableDumpDevPref() || (devRunner.GetHostProfInstance().GetProfType() == 1)) {
             if (isCaptureMode) {
                 ChangeCaptureModeRelax();
             }
