@@ -186,6 +186,9 @@ Operation::Operation(
         }
         SetSemanticLabel(config::GetSemanticLabel());
         location_ = SourceLocation::GetLocation();
+        if (location_ == nullptr) {
+            std::cout << "location_ nullptr:" << opmagic << ":" << GetOpcodeStr() << std::endl;
+        }
     }
 
     for (auto &input : GetIOperands()) {

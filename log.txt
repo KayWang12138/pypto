@@ -1,0 +1,29 @@
+未指定 -c 参数，跳过编译步骤，直接运行。
+正在启动脚本: /mnt/workspace/gitCode/cann/pypto2/examples/00_hello_world/hello_world.py
+
+============================================================
+PyPTO hello_world Example
+============================================================
+
+Running examples that require NPU hardware...
+(Make sure CANN environment is configured and NPU is available)
+
+Running Example hello_world::test_add_direct: hello_world
+Input0 shape: torch.Size([1, 4, 3, 64])
+Input1 shape: torch.Size([1, 4, 3, 64])
+Output shape: torch.Size([1, 4, 3, 64])
+Max difference: 1.932861
+
+Error: 
+Not equal to tolerance rtol=0.003, atol=0.003
+
+Mismatched elements: 636 / 768 (82.8%)
+Max absolute difference: 1.9328606
+Max relative difference: 21.46088
+ x: array([[[[1.704205, 0.479018, 1.732171, 0.807134, 1.020959, 1.109588,
+          0.164409, 1.628794, 1.044004, 0.483369, 1.209192, 1.187356,
+          1.304307, 0.885264, 0.512795, 1.134874, 1.285012, 1.007164,...
+ y: array([[[[1.704205, 0.479018, 1.732171, 0.807134, 1.020959, 1.109588,
+          0.164409, 1.628794, 1.044004, 0.483369, 1.209192, 1.187356,
+          1.304307, 0.885264, 0.512795, 1.134874, 1.285012, 1.007164,...
+[ERROR] 2026-03-30-10:28:20 (PID:3638076, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception
