@@ -13,6 +13,10 @@
  * \brief
  */
 
+#include <cmath>
+#include <limits>
+#include <numeric>
+
 #include "flow_verifier.h"
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/pypto_fwk_log.h"
@@ -22,6 +26,160 @@
 #include "interface/interpreter/verify_error.h"
 
 namespace npu::tile_fwk {
+
+namespace {
+
+// Scalar decode aligned with calculator/fp8_convert.cpp (E4M3, E5M2, E8M0).
+float DecodeFp8E4M3(uint8_t x)
+{
+    const int xi = static_cast<int>(x);
+    const float sign = (xi & 0x80) != 0 ? -1.0f : 1.0f;
+    const int expBits = (xi >> 3) & 0xF;
+    const int mantBits = xi & 0x7;
+    if (expBits == 0) {
+        return sign * (static_cast<float>(mantBits) / 8.0f) * (1.0f / 64.0f);
+    }
+    if (expBits >= 1 && expBits <= 14) {
+        const float expVal = static_cast<float>(expBits) - 7.0f;
+        const float mantVal = 1.0f + static_cast<float>(mantBits) / 8.0f;
+        return sign * std::pow(2.0f, expVal) * mantVal;
+    }
+    return sign * 240.0f;
+}
+
+float DecodeFp8E5M2(uint8_t x)
+{
+    const int xi = static_cast<int>(x);
+    const float sign = (xi & 0x80) != 0 ? -1.0f : 1.0f;
+    const int expBits = (xi >> 2) & 0x1F;
+    const int mantBits = xi & 0x3;
+    if (expBits == 0) {
+        return sign * (static_cast<float>(mantBits) / 4.0f) * (1.0f / 16384.0f);
+    }
+    if (expBits >= 1 && expBits <= 30) {
+        const float expVal = static_cast<float>(expBits) - 15.0f;
+        const float mantVal = 1.0f + static_cast<float>(mantBits) / 4.0f;
+        return sign * std::pow(2.0f, expVal) * mantVal;
+    }
+    if (mantBits == 0) {
+        return sign * std::numeric_limits<float>::infinity();
+    }
+    return std::numeric_limits<float>::quiet_NaN();
+}
+
+float DecodeFp8E8M0(uint8_t x)
+{
+    const int xi = static_cast<int>(x);
+    const float sign = (xi & 0x80) != 0 ? -1.0f : 1.0f;
+    const int expBits = xi & 0x7F;
+    const float expVal = static_cast<float>(expBits) - 63.0f;
+    return sign * std::pow(2.0f, expVal);
+}
+
+double Fp8StorageToDouble(uint8_t bits, DataType fmt)
+{
+    float v = 0.0f;
+    switch (fmt) {
+        case DT_FP8:
+        case DT_FP8E4M3:
+            v = DecodeFp8E4M3(bits);
+            break;
+        case DT_FP8E5M2:
+            v = DecodeFp8E5M2(bits);
+            break;
+        case DT_FP8E8M0:
+            v = DecodeFp8E8M0(bits);
+            break;
+        default:
+            ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
+            break;
+    }
+    return static_cast<double>(v);
+}
+
+void CompareFp8Data(FlowVerifier::CompareResult &compareResult, size_t count, int64_t offset,
+    const uint8_t *goldenValueList, const uint8_t *outputValueList, DataType fp8Format)
+{
+    for (size_t index = 0; index < count; index++) {
+        const double goldenValue = Fp8StorageToDouble(goldenValueList[index], fp8Format);
+        const double outputValue = Fp8StorageToDouble(outputValueList[index], fp8Format);
+        compareResult.goldenMax_ = std::max(compareResult.goldenMax_, goldenValue);
+        compareResult.outputMax_ = std::max(compareResult.outputMax_, outputValue);
+        compareResult.goldenMin_ = std::min(compareResult.goldenMin_, goldenValue);
+        compareResult.outputMin_ = std::min(compareResult.outputMin_, outputValue);
+        compareResult.goldenSum_ += goldenValue;
+        compareResult.outputSum_ += outputValue;
+        const double output_abs = std::abs(outputValue);
+        const double golden_abs = std::abs(goldenValue);
+        const double output_golden_sub_abs = std::abs(outputValue - goldenValue);
+        compareResult.goldenAbsSum_ += golden_abs;
+        compareResult.outputAbsSum_ += output_abs;
+        if (output_abs <= 0) {
+            compareResult.outputZero_++;
+        }
+        if (golden_abs <= 0) {
+            compareResult.goldenZero_++;
+        }
+        if (!std::isfinite(outputValue)) {
+            compareResult.outputInfnan_++;
+        }
+        if (!std::isfinite(goldenValue)) {
+            compareResult.goldenInfnan_++;
+        }
+        if (!std::isfinite(output_golden_sub_abs)) {
+            compareResult.infnanCnt_++;
+        }
+        const double output_golden_abs_add = output_abs + golden_abs;
+        if (output_golden_abs_add <= 0) {
+            compareResult.AppendZero();
+            continue;
+        }
+
+        const double relDiff = output_golden_sub_abs * 2 / output_golden_abs_add;
+        const double tol_attn = output_golden_abs_add * compareResult.GetRtol() / 2 + compareResult.GetAtol();
+        const double tol_fail = tol_attn * 128;
+        if (output_golden_sub_abs > tol_attn) {
+            compareResult.AppendError(true, offset + index, goldenValue, outputValue, output_golden_sub_abs, relDiff,
+                tol_attn);
+        }
+        if (output_golden_sub_abs > tol_fail) {
+            compareResult.AppendFail();
+        }
+    }
+}
+
+void CompareFp8DataRecursive(FlowVerifier::CompareResult &compareResult, size_t axis, int64_t goldenOffset,
+    int64_t outputOffset, const std::shared_ptr<LogicalTensorData> &goldenDataView,
+    const std::shared_ptr<LogicalTensorData> &outputDataView, DataType fp8Format)
+{
+    auto &validShape = goldenDataView->GetValidShape();
+    if (axis == validShape.size() - 1) {
+        CompareFp8Data(compareResult, validShape[axis], outputOffset, &goldenDataView->Get<uint8_t>(goldenOffset),
+            &outputDataView->Get<uint8_t>(outputOffset), fp8Format);
+    } else {
+        for (int i = 0; i < validShape[axis]; i++) {
+            const int nGoldenOffset = goldenOffset + goldenDataView->GetData()->GetStride()[axis] * i;
+            const int nOutputOffset = outputOffset + outputDataView->GetData()->GetStride()[axis] * i;
+            CompareFp8DataRecursive(compareResult, axis + 1, nGoldenOffset, nOutputOffset, goldenDataView,
+                outputDataView, fp8Format);
+        }
+    }
+}
+
+} // namespace
+
+FlowVerifier::CompareResult FlowVerifier::CompareFp8TensorData(
+    const std::shared_ptr<LogicalTensorData> &goldenDataView,
+    const std::shared_ptr<LogicalTensorData> &outputDataView,
+    DataType fp8Format, float rtol, float atol, int errorCountThreshold, int failNum)
+{
+    auto &validShape = goldenDataView->GetValidShape();
+    const auto size = std::accumulate(validShape.begin(), validShape.end(), 1, std::multiplies<>());
+    CompareResult compareResult(size, rtol, atol, errorCountThreshold, failNum, validShape);
+    CompareFp8DataRecursive(compareResult, 0, 0, 0, goldenDataView, outputDataView, fp8Format);
+    compareResult.UpdateErrorCountThreshold();
+    return compareResult;
+}
 
 FlowVerifier::CompareResult FlowVerifier::VerifyResult(
         const std::shared_ptr<LogicalTensorData> &goldenDataView,
@@ -46,6 +204,11 @@ FlowVerifier::CompareResult FlowVerifier::VerifyResult(
         case DT_UINT64: return CompareData<uint64_t, double>(goldenDataView, outputDataView, rtol, atol);
         case DT_DOUBLE: return CompareData<double, double>(goldenDataView, outputDataView, rtol, atol);
         case DT_BOOL: return CompareData<uint8_t, double>(goldenDataView, outputDataView, rtol, atol);
+        case DT_FP8:
+        case DT_FP8E4M3:
+        case DT_FP8E5M2:
+        case DT_FP8E8M0:
+            return CompareFp8TensorData(goldenDataView, outputDataView, goldenDataView->GetDataType(), rtol, atol);
         default:
             ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false);
             break;

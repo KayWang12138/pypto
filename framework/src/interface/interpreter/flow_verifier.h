@@ -419,6 +419,11 @@ public:
     void WriteException();
 
 private:
+    static CompareResult CompareFp8TensorData(
+        const std::shared_ptr<LogicalTensorData> &goldenDataView,
+        const std::shared_ptr<LogicalTensorData> &outputDataView,
+        DataType fp8Format, float rtol, float atol, int errorCountThreshold = 0, int failNum = 0);
+
     void UpdateInterpreterCache();
     void Initialize(
             Function *entry,
