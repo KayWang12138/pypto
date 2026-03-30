@@ -335,14 +335,13 @@ private:
     inline void TryBatchSendTask(CoreType type)
     {
         auto taskQueue = taskQueue_[(int)type];
-        
+
         // Checking free A cores
         if (freeACoreQueue_[(int)type]->empty() == false && taskQueue->empty() == false)
         {
             if (taskQueue->tryLock())
             {
-                // freeACoreQueue_[(int)type]->lock();
-
+                freeACoreQueue_[(int)type]->lock();
                 const size_t availableCores = freeACoreQueue_[(int)type]->size();
                 const auto taskSet = taskQueue->pop(availableCores);
                 const aicoreTask_t* taskData = taskSet.first;
@@ -357,7 +356,7 @@ private:
                     busyAPairQueue_[(int)type]->push(pair);
                 }
 
-                // freeACoreQueue_[(int)type]->unlock();   
+                freeACoreQueue_[(int)type]->unlock();   
                 taskQueue->unlock();   
             }
         }
@@ -367,8 +366,7 @@ private:
         {
             if (taskQueue->tryLock())
             {
-                // freeBPairQueue_[(int)type]->lock();
-
+                freeBPairQueue_[(int)type]->lock();
                 const size_t availableCores = freeBPairQueue_[(int)type]->size();
                 const auto taskSet = taskQueue->pop(availableCores);
                 const aicoreTask_t* taskData = taskSet.first;
@@ -383,7 +381,7 @@ private:
                     busyBPairQueue_[(int)type]->push(pair);
                 }
 
-                // freeBPairQueue_[(int)type]->unlock();
+                freeBPairQueue_[(int)type]->unlock();
                 taskQueue->unlock();
             }
         }
