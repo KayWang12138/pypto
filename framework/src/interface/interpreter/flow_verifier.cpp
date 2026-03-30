@@ -97,75 +97,6 @@ double Fp8StorageToDouble(uint8_t bits, DataType fmt)
     return static_cast<double>(v);
 }
 
-void CompareFp8Data(FlowVerifier::CompareResult &compareResult, size_t count, int64_t offset,
-    const uint8_t *goldenValueList, const uint8_t *outputValueList, DataType fp8Format)
-{
-    for (size_t index = 0; index < count; index++) {
-        const double goldenValue = Fp8StorageToDouble(goldenValueList[index], fp8Format);
-        const double outputValue = Fp8StorageToDouble(outputValueList[index], fp8Format);
-        compareResult.goldenMax_ = std::max(compareResult.goldenMax_, goldenValue);
-        compareResult.outputMax_ = std::max(compareResult.outputMax_, outputValue);
-        compareResult.goldenMin_ = std::min(compareResult.goldenMin_, goldenValue);
-        compareResult.outputMin_ = std::min(compareResult.outputMin_, outputValue);
-        compareResult.goldenSum_ += goldenValue;
-        compareResult.outputSum_ += outputValue;
-        const double output_abs = std::abs(outputValue);
-        const double golden_abs = std::abs(goldenValue);
-        const double output_golden_sub_abs = std::abs(outputValue - goldenValue);
-        compareResult.goldenAbsSum_ += golden_abs;
-        compareResult.outputAbsSum_ += output_abs;
-        if (output_abs <= 0) {
-            compareResult.outputZero_++;
-        }
-        if (golden_abs <= 0) {
-            compareResult.goldenZero_++;
-        }
-        if (!std::isfinite(outputValue)) {
-            compareResult.outputInfnan_++;
-        }
-        if (!std::isfinite(goldenValue)) {
-            compareResult.goldenInfnan_++;
-        }
-        if (!std::isfinite(output_golden_sub_abs)) {
-            compareResult.infnanCnt_++;
-        }
-        const double output_golden_abs_add = output_abs + golden_abs;
-        if (output_golden_abs_add <= 0) {
-            compareResult.AppendZero();
-            continue;
-        }
-
-        const double relDiff = output_golden_sub_abs * 2 / output_golden_abs_add;
-        const double tol_attn = output_golden_abs_add * compareResult.GetRtol() / 2 + compareResult.GetAtol();
-        const double tol_fail = tol_attn * 128;
-        if (output_golden_sub_abs > tol_attn) {
-            compareResult.AppendError(true, offset + index, goldenValue, outputValue, output_golden_sub_abs, relDiff,
-                tol_attn);
-        }
-        if (output_golden_sub_abs > tol_fail) {
-            compareResult.AppendFail();
-        }
-    }
-}
-
-void CompareFp8DataRecursive(FlowVerifier::CompareResult &compareResult, size_t axis, int64_t goldenOffset,
-    int64_t outputOffset, const std::shared_ptr<LogicalTensorData> &goldenDataView,
-    const std::shared_ptr<LogicalTensorData> &outputDataView, DataType fp8Format)
-{
-    auto &validShape = goldenDataView->GetValidShape();
-    if (axis == validShape.size() - 1) {
-        CompareFp8Data(compareResult, validShape[axis], outputOffset, &goldenDataView->Get<uint8_t>(goldenOffset),
-            &outputDataView->Get<uint8_t>(outputOffset), fp8Format);
-    } else {
-        for (int i = 0; i < validShape[axis]; i++) {
-            const int nGoldenOffset = goldenOffset + goldenDataView->GetData()->GetStride()[axis] * i;
-            const int nOutputOffset = outputOffset + outputDataView->GetData()->GetStride()[axis] * i;
-            CompareFp8DataRecursive(compareResult, axis + 1, nGoldenOffset, nOutputOffset, goldenDataView,
-                outputDataView, fp8Format);
-        }
-    }
-}
-
 } // namespace
 
 FlowVerifier::CompareResult FlowVerifier::CompareFp8TensorData(
@@ -176,7 +107,16 @@ FlowVerifier::CompareResult FlowVerifier::CompareFp8TensorData(
     auto &validShape = goldenDataView->GetValidShape();
     const auto size = std::accumulate(validShape.begin(), validShape.end(), 1, std::multiplies<>());
     CompareResult compareResult(size, rtol, atol, errorCountThreshold, failNum, validShape);
-    CompareFp8DataRecursive(compareResult, 0, 0, 0, goldenDataView, outputDataView, fp8Format);
+    CompareDataRecursiveWithLeaf(compareResult, 0, 0, 0, goldenDataView, outputDataView,
+        [&](CompareResult &cr, size_t lastCount, int64_t outOff, int64_t gOff,
+            const std::shared_ptr<LogicalTensorData> &gv, const std::shared_ptr<LogicalTensorData> &ov) {
+            const uint8_t *gp = &gv->Get<uint8_t>(gOff);
+            const uint8_t *op = &ov->Get<uint8_t>(gOff);
+            for (size_t i = 0; i < lastCount; i++) {
+                CompareScalarPair(cr, outOff + static_cast<int64_t>(i), Fp8StorageToDouble(gp[i], fp8Format),
+                    Fp8StorageToDouble(op[i], fp8Format));
+            }
+        });
     compareResult.UpdateErrorCountThreshold();
     return compareResult;
 }
