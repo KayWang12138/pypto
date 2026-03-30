@@ -2598,6 +2598,91 @@ def as_float(value):
     return value
 
 
+def random_golden_func(inputs: list, config: dict):
+    params = config.get("params", {})
+    rounds = params.get("rounds", 10)
+    if isinstance(rounds, str):
+        rounds = int(rounds)
+    
+    shape = params.get("shape", [1])
+    if isinstance(shape, str):
+        shape = parse_list_str(shape)
+    
+    key = params.get("key", 0)
+    if isinstance(key, str):
+        key = int(key)
+    
+    counter = params.get("counter", [0, 0])
+    if isinstance(counter, str):
+        counter = parse_list_str(counter)
+    
+    def multiply_high_low(a, b):
+        product = a * b
+        hi = (product >> 32) & 0xFFFFFFFF
+        lo = product & 0xFFFFFFFF
+        return lo, hi
+    
+    def philox_single_round(counter, key0, key1):
+        lo0, hi0 = multiply_high_low(0xD2511F53, counter[0])
+        lo1, hi1 = multiply_high_low(0xCD9E8D57, counter[2])
+        
+        return [
+            hi1 ^ counter[1] ^ key0,
+            lo1,
+            hi0 ^ counter[3] ^ key1,
+            lo0
+        ]
+    
+    def raise_key(key0, key1):
+        return (
+            (key0 + 0x9E3779B9) & 0xFFFFFFFF,
+            (key1 + 0xBB67AE85) & 0xFFFFFFFF
+        )
+    
+    total_elements = 1
+    for dim in shape:
+        total_elements *= dim
+    
+    result = np.zeros(total_elements, dtype=np.uint32)
+    key0 = key & 0xFFFFFFFF
+    key1 = (key >> 32) & 0xFFFFFFFF
+    
+    current_counter = [
+        counter[0] & 0xFFFFFFFF,
+        (counter[0] >> 32) & 0xFFFFFFFF,
+        counter[1] & 0xFFFFFFFF,
+        (counter[1] >> 32) & 0xFFFFFFFF
+    ]
+    
+    for i in range(0, total_elements, 4):
+        for _ in range(rounds):
+            current_counter = philox_single_round(current_counter, key0, key1)
+            key0, key1 = raise_key(key0, key1)
+        
+        for j in range(min(4, total_elements - i)):
+            result[i + j] = current_counter[j]
+        
+        current_counter[0] = (current_counter[0] + 1) & 0xFFFFFFFF
+        if current_counter[0] == 0:
+            current_counter[1] = (current_counter[1] + 1) & 0xFFFFFFFF
+            if current_counter[1] == 0:
+                current_counter[2] = (current_counter[2] + 1) & 0xFFFFFFFF
+                if current_counter[2] == 0:
+                    current_counter[3] = (current_counter[3] + 1) & 0xFFFFFFFF
+    
+    return [result.reshape(shape)]
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestRandom/RandomOperationTest.TestRandom",
+    ]
+)
+def gen_random_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Random", random_golden_func, output, case_index)
+
+
 def safe_tensor_conversion(arr):
     if isinstance(arr, np.ndarray) and arr.dtype == np.dtype('bfloat16'):
         return torch.tensor(arr.astype(np.float32), dtype=torch.bfloat16)
