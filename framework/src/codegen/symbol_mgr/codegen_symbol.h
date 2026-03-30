@@ -20,12 +20,12 @@
 #include <cstdint>
 #include <string>
 
-#include "interface/utils/id_gen.h"
 #include "tilefwk/error.h"
 #include "interface/utils/common.h"
 #include "interface/tensor/logical_tensor.h"
 #include "codegen/utils/codegen_utils.h"
 #include "codegen/utils/codegen_error.h"
+#include "symbol_id_gen.h"
 
 namespace npu::tile_fwk {
 const std::string TILE_TENSOR = "TileTensor";
@@ -179,9 +179,7 @@ struct TileTensorUsing {
     std::string GenName() const
     {
         std::ostringstream oss;
-        // e.g. "UBTileTensorFP32Dim2_0"
-        oss << BUFFER_TYPE_TO_PREFIX.at(bufType) << TILE_TENSOR << BriefDataType2String(dtype) << DIM << dim << "_"
-            << IdGen<IdType::CG_USING_NAME>::Inst().NewId();
+        oss << BUFFER_TYPE_TO_PREFIX.at(bufType) << TILE_TENSOR << BriefDataType2String(dtype) << DIM << dim << "_";
         return oss.str();
     }
 
@@ -264,13 +262,21 @@ public:
     std::string GenUsingList();
     std::string GenTileTensorDefList();
 
-    void OutForLoop()
-    {
+    std::string GenTensorName(BufferType bufType) {
+        return BUFFER_TYPE_TO_PREFIX_LC.at(bufType) + "Tensor_" +
+               std::to_string(idGenMgr_.NewId<SymbolIdType::CG_VAR_NAME>());
+    }
+
+    void OutForLoop() {
         tileTensorByMagicInLoop_.clear();
         tensorNameInLoopToFullDim_.clear();
     }
 
 private:
+    std::string GenTensorUsingName(const TileTensorUsing &tileTensorUsing) {
+        return tileTensorUsing.GenName() + std::to_string(idGenMgr_.NewId<SymbolIdType::CG_USING_NAME>());
+    }
+    
     std::shared_ptr<LogicalTensor> GetTensorByMagic(int magicNum) const;
     AllocKey CreateAllocKey(const std::shared_ptr<LogicalTensor>& tensor) const;
     AllocKey CreateAllocKey(int tensorMagicNum) const;
@@ -294,5 +300,6 @@ private:
     std::unordered_map<std::string, std::string> tensorNameInLoopToFullDim_;
     // <using type, TileTensorUsing>
     std::unordered_map<std::string, TileTensorUsing> tileTensorUsing_;
+    SymbolIdGenMgr idGenMgr_;
 };
 } // namespace npu::tile_fwk
