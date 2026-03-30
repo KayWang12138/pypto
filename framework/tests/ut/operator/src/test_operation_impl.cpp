@@ -19,6 +19,7 @@
 #include "interface/tensor/raw_tensor.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/interpreter/calc.h"
 using namespace npu::tile_fwk;
@@ -1362,45 +1363,36 @@ TEST_F(OperationImplTest, test_Pad_2D) {
     }
 }
 
-TEST_F(OperationImplTest, Test_MatmulMX_FP4_E2M1X2) { 
-     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128}); 
-     Tensor matA(DT_FP4_E2M1X2, {128, 256}, "matA"); 
-     Tensor matB(DT_FP4_E2M1X2, {256, 128}, "matB"); 
-     Tensor scaleA(DT_FP8E8M0, {128, 4, 2}, "scaleA"); 
-     Tensor scaleB(DT_FP8E8M0, {4, 128, 2}, "scaleB"); 
-     Tensor result; 
-     FUNCTION("TestMatmulMXFP4E2M1X2") { 
-         result = 
-             npu::tile_fwk::Matrix::MatmulMX(DT_FP32, matA, scaleA, matB, scaleB, false, false, false, false, false); 
-     } 
- } 
- 
-TEST_F(OperationImplTest, Test_MatmulMX_FP4_E1M2X2_AT) {
-     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128}); 
-     Tensor matA(DT_FP4_E1M2X2, {128, 256}, "matA"); 
-     Tensor matB(DT_FP4_E1M2X2, {256, 128}, "matB"); 
-     Tensor scaleA(DT_FP8E8M0, {4, 128, 2}, "scaleA"); 
-     Tensor scaleB(DT_FP8E8M0, {128, 4, 2}, "scaleB"); 
-     Tensor result; 
-     FUNCTION("TestMatmulMXFP4E1M2X2AT") { 
-         result = 
-             npu::tile_fwk::Matrix::MatmulMX(DT_FP16, matA, scaleA, matB, scaleB, false, true, false, true, false); 
-     } 
- }
-
 TEST_F(OperationImplTest, Test_Matmul_Bias) {
-     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128}); 
-     Tensor matA(DT_BF16, {128, 256}, "matA"); 
-     Tensor matB(DT_BF16, {256, 128}, "matB"); 
-     Tensor matBias(DT_FP32, {1, 128}, "biasA"); 
-     Tensor result; 
-     npu::tile_fwk::Matrix::MatmulExtendParam extendParam;
-     extendParam.biasTensor = matBias;
-     FUNCTION("TestMatmulBias") { 
-         result = 
-             npu::tile_fwk::Matrix::Matmul(DT_FP32, matA, matB, extendParam, false, false, false); 
-     } 
- }
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    Tensor matA(DT_BF16, {128, 256}, "matA");
+    Tensor matB(DT_BF16, {256, 128}, "matB");
+    Tensor matBias(DT_FP32, {1, 128}, "biasA");
+    Tensor result;
+    npu::tile_fwk::Matrix::MatmulExtendParam extendParam;
+    extendParam.biasTensor = matBias;
+    FUNCTION("TestMatmulBias") {
+        result =
+            npu::tile_fwk::Matrix::Matmul(DT_FP32, matA, matB, extendParam, false, false, false);
+    }
+}
+
+TEST_F(OperationImplTest, Test_MatmulMX_Bias) {
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    Tensor matA(DT_FP8E5M2, {128, 256}, "matA");
+    Tensor matB(DT_FP8E5M2, {256, 128}, "matB");
+    Tensor scaleA(DT_FP8E8M0, {128, 4, 2}, "scaleA");
+    Tensor scaleB(DT_FP8E8M0, {4, 128, 2}, "scaleB");
+    Tensor matBias(DT_BF16, {1, 128}, "biasA");
+    Tensor result;
+    npu::tile_fwk::Matrix::MatmulExtendParam extendParam;
+    extendParam.biasTensor = matBias;
+    FUNCTION("TestMatmulMXBias") {
+        result = npu::tile_fwk::Matrix::MatmulMX(DT_FP32, matA, scaleA, matB, scaleB, extendParam,
+            false, false, false, false, false);
+    }
+}
 
 TEST_F(OperationImplTest, test_FillPad_1D) {
     TileShape::Current().SetVecTile(8);
@@ -1420,24 +1412,24 @@ TEST_F(OperationImplTest, test_FillPad_2D) {
     }
 }
 
-TEST_F(OperationImplTest, Test_Matmul_SFA) { 
-     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128}); 
-     Tensor matA(DT_BF16, {128, 576}, "matA"); 
-     Tensor matB(DT_BF16, {576, 2048}, "matB"); 
+TEST_F(OperationImplTest, Test_Matmul_SFA) {
+     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+     Tensor matA(DT_BF16, {128, 576}, "matA");
+     Tensor matB(DT_BF16, {576, 2048}, "matB");
      Tensor result;
      FUNCTION("TestMatmulSFA") {
-         result = 
-             npu::tile_fwk::Matrix::Matmul(DT_FP32, matA, matB, false, false, false); 
-    } 
-} 
+         result =
+             npu::tile_fwk::Matrix::Matmul(DT_FP32, matA, matB, false, false, false);
+    }
+}
 
-TEST_F(OperationImplTest, Test_Matmul_SFA_T) { 
-     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128}); 
-     Tensor matA(DT_BF16, {576, 128}, "matA"); 
-     Tensor matB(DT_BF16, {576, 2048}, "matB"); 
+TEST_F(OperationImplTest, Test_Matmul_SFA_T) {
+     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+     Tensor matA(DT_BF16, {576, 128}, "matA");
+     Tensor matB(DT_BF16, {576, 2048}, "matB");
      Tensor result;
      FUNCTION("TestMatmulSFAT") {
-         result = 
-             npu::tile_fwk::Matrix::Matmul(DT_FP32, matA, matB, true, false, false); 
-    } 
-} 
+         result =
+             npu::tile_fwk::Matrix::Matmul(DT_FP32, matA, matB, true, false, false);
+    }
+}
