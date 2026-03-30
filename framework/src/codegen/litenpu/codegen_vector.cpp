@@ -192,7 +192,6 @@ std::string CodeGenOpLiteNPU::PrintUnaryTileTensor() const {
 
 
 std::string CodeGenOpLiteNPU::PrintUnary() const {
-    std::cout<<"********** debug message"<<isSupportLayout << std::endl;
     if (isSupportLayout) {
         return PrintUnaryTileTensor();
     }
@@ -203,15 +202,11 @@ std::string CodeGenOpLiteNPU::GenUnaryOp() const {
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
-    std::cout<<"*******debug message********"<<s0Var <<"***********"<<dVar<<std::endl;
-
     std::map<unsigned, std::reference_wrapper<std::string>> varsMap;
     // AppendLocalBufVarOffsetInOrder(dVar, s0Var);
     varsMap.insert(std::make_pair(0, std::ref(dVar)));
     varsMap.insert(std::make_pair(1, std::ref(s0Var)));
     AppendLocalBufferVarOffset(varsMap);
-
-    std::cout<<"*******debug message********"<<s0Var <<"***********"<<dVar<<std::endl;
 
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);

@@ -27,7 +27,7 @@
 using namespace npu::tile_fwk;
 
 
-class LiteNPUCodegenRsqrt : public testing::Test {
+class LiteNPUCodegenAbs : public testing::Test {
 public:
     static void TearDownTestCase() {}
 
@@ -43,485 +43,512 @@ public:
 };
 
 
-// FP16 用例
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_001) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_001
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_001) {
+    PROGRAM("EXP_fp16_001") {
         Tensor input(DataType::DT_FP16, {112}, "input");
         auto output = Tensor(DataType::DT_FP16, {112}, "output");
-        FUNCTION("RSQRT_fp16_001") {
+        FUNCTION("EXP_fp16_001") {
             TileShape::Current().SetVecTile({50});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_001");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_001");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_002) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_002
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_002) {
+    PROGRAM("EXP_fp16_002") {
         Tensor input(DataType::DT_FP16, {100}, "input");
         auto output = Tensor(DataType::DT_FP16, {100}, "output");
-        FUNCTION("RSQRT_fp16_002") {
+        FUNCTION("EXP_fp16_002") {
             TileShape::Current().SetVecTile({100});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_002");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_002");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_003) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_003
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_003) {
+    PROGRAM("EXP_fp16_003") {
         Tensor input(DataType::DT_FP16, {4, 128}, "input");
         auto output = Tensor(DataType::DT_FP16, {4, 128}, "output");
-        FUNCTION("RSQRT_fp16_003") {
+        FUNCTION("EXP_fp16_003") {
             TileShape::Current().SetVecTile({2, 32});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_003");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_003");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_004) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_004
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_004) {
+    PROGRAM("EXP_fp16_004") {
         Tensor input(DataType::DT_FP16, {4, 130}, "input");
         auto output = Tensor(DataType::DT_FP16, {4, 130}, "output");
-        FUNCTION("RSQRT_fp16_004") {
+        FUNCTION("EXP_fp16_004") {
             TileShape::Current().SetVecTile({1, 130});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_004");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_004");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_005) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_005
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_005) {
+    PROGRAM("EXP_fp16_005") {
         Tensor input(DataType::DT_FP16, {2, 4, 160}, "input");
         auto output = Tensor(DataType::DT_FP16, {2, 4, 160}, "output");
-        FUNCTION("RSQRT_fp16_005") {
+        FUNCTION("EXP_fp16_005") {
             TileShape::Current().SetVecTile({1, 2, 32});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_005");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_005");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_006) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_006
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_006) {
+    PROGRAM("EXP_fp16_006") {
         Tensor input(DataType::DT_FP16, {2, 4, 140}, "input");
         auto output = Tensor(DataType::DT_FP16, {2, 4, 140}, "output");
-        FUNCTION("RSQRT_fp16_006") {
+        FUNCTION("EXP_fp16_006") {
             TileShape::Current().SetVecTile({1, 2, 140});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_006");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_006");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_007) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_007
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_007) {
+    PROGRAM("EXP_fp16_007") {
         Tensor input(DataType::DT_FP16, {2, 5, 152}, "input");
         auto output = Tensor(DataType::DT_FP16, {2, 5, 152}, "output");
-        FUNCTION("RSQRT_fp16_007") {
+        FUNCTION("EXP_fp16_007") {
             TileShape::Current().SetVecTile({1, 5, 32});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_007");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_007");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_008) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_008
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_008) {
+    PROGRAM("EXP_fp16_008") {
         Tensor input(DataType::DT_FP16, {2, 3, 170}, "input");
         auto output = Tensor(DataType::DT_FP16, {2, 3, 170}, "output");
-        FUNCTION("RSQRT_fp16_008") {
+        FUNCTION("EXP_fp16_008") {
             TileShape::Current().SetVecTile({1, 3, 170});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_008");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_008");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_009) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_009
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_009) {
+    PROGRAM("EXP_fp16_009") {
         Tensor input(DataType::DT_FP16, {5, 2, 4, 176}, "input");
         auto output = Tensor(DataType::DT_FP16, {5, 2, 4, 176}, "output");
-        FUNCTION("RSQRT_fp16_009") {
+        FUNCTION("EXP_fp16_009") {
             TileShape::Current().SetVecTile({2, 1, 2, 16});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_009");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_009");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_010) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_010
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_010) {
+    PROGRAM("EXP_fp16_010") {
         Tensor input(DataType::DT_FP16, {5, 2, 4, 130}, "input");
         auto output = Tensor(DataType::DT_FP16, {5, 2, 4, 130}, "output");
-        FUNCTION("RSQRT_fp16_010") {
+        FUNCTION("EXP_fp16_010") {
             TileShape::Current().SetVecTile({1, 1, 1, 130});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_010");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_010");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_011) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_011
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_011) {
+    PROGRAM("EXP_fp16_011") {
         Tensor input(DataType::DT_FP16, {2, 3, 5, 134}, "input");
         auto output = Tensor(DataType::DT_FP16, {2, 3, 5, 134}, "output");
-        FUNCTION("RSQRT_fp16_011") {
+        FUNCTION("EXP_fp16_011") {
             TileShape::Current().SetVecTile({1, 1, 5, 32});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_011");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_011");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_012) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_012
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_012) {
+    PROGRAM("EXP_fp16_012") {
         Tensor input(DataType::DT_FP16, {4, 2, 6, 135}, "input");
         auto output = Tensor(DataType::DT_FP16, {4, 2, 6, 135}, "output");
-        FUNCTION("RSQRT_fp16_012") {
+        FUNCTION("EXP_fp16_012") {
             TileShape::Current().SetVecTile({2, 2, 3, 32});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_012");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_012");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_013) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_013
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_013) {
+    PROGRAM("EXP_fp16_013") {
         Tensor input(DataType::DT_FP16, {6, 2, 4, 130}, "input");
         auto output = Tensor(DataType::DT_FP16, {6, 2, 4, 130}, "output");
-        FUNCTION("RSQRT_fp16_013") {
+        FUNCTION("EXP_fp16_013") {
             TileShape::Current().SetVecTile({1, 1, 4, 130});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_013");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_013");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_014) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_014
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_014) {
+    PROGRAM("EXP_fp16_014") {
         Tensor input(DataType::DT_FP16, {3, 2, 3, 139}, "input");
         auto output = Tensor(DataType::DT_FP16, {3, 2, 3, 139}, "output");
-        FUNCTION("RSQRT_fp16_014") {
+        FUNCTION("EXP_fp16_014") {
             TileShape::Current().SetVecTile({1, 2, 1, 139});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_014");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_014");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_015) {
-    PROGRAM("RSQRT") {
+// Unary_fp16_015
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp16_015) {
+    PROGRAM("EXP_fp16_015") {
         Tensor input(DataType::DT_FP16, {6, 3, 5, 141}, "input");
         auto output = Tensor(DataType::DT_FP16, {6, 3, 5, 141}, "output");
-        FUNCTION("RSQRT_fp16_015") {
+        FUNCTION("EXP_fp16_015") {
             TileShape::Current().SetVecTile({3, 3, 5, 32});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp16_015");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp16_015");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-// FP32 用例
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_001) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_001
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_001) {
+    PROGRAM("EXP_fp32_001") {
         Tensor input(DataType::DT_FP32, {112}, "input");
         auto output = Tensor(DataType::DT_FP32, {112}, "output");
-        FUNCTION("RSQRT_fp32_001") {
+        FUNCTION("EXP_fp32_001") {
             TileShape::Current().SetVecTile({50});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_001");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_001");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_002) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_002
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_002) {
+    PROGRAM("EXP_fp32_002") {
         Tensor input(DataType::DT_FP32, {100}, "input");
         auto output = Tensor(DataType::DT_FP32, {100}, "output");
-        FUNCTION("RSQRT_fp32_002") {
+        FUNCTION("EXP_fp32_002") {
             TileShape::Current().SetVecTile({100});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_002");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_002");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_003) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_003
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_003) {
+    PROGRAM("EXP_fp32_003") {
         Tensor input(DataType::DT_FP32, {4, 128}, "input");
         auto output = Tensor(DataType::DT_FP32, {4, 128}, "output");
-        FUNCTION("RSQRT_fp32_003") {
+        FUNCTION("EXP_fp32_003") {
             TileShape::Current().SetVecTile({2, 32});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_003");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_003");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_004) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_004
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_004) {
+    PROGRAM("EXP_fp32_004") {
         Tensor input(DataType::DT_FP32, {4, 130}, "input");
         auto output = Tensor(DataType::DT_FP32, {4, 130}, "output");
-        FUNCTION("RSQRT_fp32_004") {
+        FUNCTION("EXP_fp32_004") {
             TileShape::Current().SetVecTile({1, 130});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_004");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_004");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_005) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_005
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_005) {
+    PROGRAM("EXP_fp32_005") {
         Tensor input(DataType::DT_FP32, {2, 4, 160}, "input");
         auto output = Tensor(DataType::DT_FP32, {2, 4, 160}, "output");
-        FUNCTION("RSQRT_fp32_005") {
+        FUNCTION("EXP_fp32_005") {
             TileShape::Current().SetVecTile({1, 2, 32});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_005");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_005");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_006) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_006
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_006) {
+    PROGRAM("EXP_fp32_006") {
         Tensor input(DataType::DT_FP32, {2, 4, 140}, "input");
         auto output = Tensor(DataType::DT_FP32, {2, 4, 140}, "output");
-        FUNCTION("RSQRT_fp32_006") {
+        FUNCTION("EXP_fp32_006") {
             TileShape::Current().SetVecTile({1, 2, 140});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_006");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_006");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_007) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_007
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_007) {
+    PROGRAM("EXP_fp32_007") {
         Tensor input(DataType::DT_FP32, {2, 5, 152}, "input");
         auto output = Tensor(DataType::DT_FP32, {2, 5, 152}, "output");
-        FUNCTION("RSQRT_fp32_007") {
+        FUNCTION("EXP_fp32_007") {
             TileShape::Current().SetVecTile({1, 5, 32});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_007");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_007");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_008) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_008
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_008) {
+    PROGRAM("EXP_fp32_008") {
         Tensor input(DataType::DT_FP32, {2, 3, 170}, "input");
         auto output = Tensor(DataType::DT_FP32, {2, 3, 170}, "output");
-        FUNCTION("RSQRT_fp32_008") {
+        FUNCTION("EXP_fp32_008") {
             TileShape::Current().SetVecTile({1, 3, 170});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_008");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_008");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_009) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_009
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_009) {
+    PROGRAM("EXP_fp32_009") {
         Tensor input(DataType::DT_FP32, {5, 2, 4, 176}, "input");
         auto output = Tensor(DataType::DT_FP32, {5, 2, 4, 176}, "output");
-        FUNCTION("RSQRT_fp32_009") {
+        FUNCTION("EXP_fp32_009") {
             TileShape::Current().SetVecTile({2, 1, 2, 16});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_009");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_009");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_010) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_010
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_010) {
+    PROGRAM("EXP_fp32_010") {
         Tensor input(DataType::DT_FP32, {5, 2, 4, 130}, "input");
         auto output = Tensor(DataType::DT_FP32, {5, 2, 4, 130}, "output");
-        FUNCTION("RSQRT_fp32_010") {
+        FUNCTION("EXP_fp32_010") {
             TileShape::Current().SetVecTile({1, 1, 1, 130});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_010");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_010");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_011) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_011
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_011) {
+    PROGRAM("EXP_fp32_011") {
         Tensor input(DataType::DT_FP32, {2, 3, 5, 134}, "input");
         auto output = Tensor(DataType::DT_FP32, {2, 3, 5, 134}, "output");
-        FUNCTION("RSQRT_fp32_011") {
+        FUNCTION("EXP_fp32_011") {
             TileShape::Current().SetVecTile({1, 1, 5, 32});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_011");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_011");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_012) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_012
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_012) {
+    PROGRAM("EXP_fp32_012") {
         Tensor input(DataType::DT_FP32, {4, 2, 6, 135}, "input");
         auto output = Tensor(DataType::DT_FP32, {4, 2, 6, 135}, "output");
-        FUNCTION("RSQRT_fp32_012") {
+        FUNCTION("EXP_fp32_012") {
             TileShape::Current().SetVecTile({2, 2, 3, 32});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_012");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_012");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_013) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_013
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_013) {
+    PROGRAM("EXP_fp32_013") {
         Tensor input(DataType::DT_FP32, {6, 2, 4, 130}, "input");
         auto output = Tensor(DataType::DT_FP32, {6, 2, 4, 130}, "output");
-        FUNCTION("RSQRT_fp32_013") {
+        FUNCTION("EXP_fp32_013") {
             TileShape::Current().SetVecTile({1, 1, 4, 130});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_013");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_013");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_014) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_014
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_014) {
+    PROGRAM("EXP_fp32_014") {
         Tensor input(DataType::DT_FP32, {3, 2, 3, 139}, "input");
         auto output = Tensor(DataType::DT_FP32, {3, 2, 3, 139}, "output");
-        FUNCTION("RSQRT_fp32_014") {
+        FUNCTION("EXP_fp32_014") {
             TileShape::Current().SetVecTile({1, 2, 1, 139});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_014");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_014");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_015) {
-    PROGRAM("RSQRT") {
+// Unary_fp32_015
+TEST_F(LiteNPUCodegenAbs, test_Abs_fp32_015) {
+    PROGRAM("EXP_fp32_015") {
         Tensor input(DataType::DT_FP32, {6, 3, 5, 141}, "input");
         auto output = Tensor(DataType::DT_FP32, {6, 3, 5, 141}, "output");
-        FUNCTION("RSQRT_fp32_015") {
+        FUNCTION("EXP_fp32_015") {
             TileShape::Current().SetVecTile({3, 3, 5, 32});
-            output = Rsqrt(input);
+            output = Abs(input);
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RSQRT_fp32_015");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "EXP_fp32_015");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
-
