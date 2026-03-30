@@ -202,6 +202,14 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
         (out->GetMemoryTypeOriginal() == MemoryType::MEM_UB || attrToType == MemoryType::MEM_UB)) {        
         inserter.UpdateTensorTobeMap(in, operation, MemoryType::MEM_L0C);
     }
+    if (in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
+        (out->GetMemoryTypeOriginal() == MemoryType::MEM_L1 || attrToType == MemoryType::MEM_L1)) {
+        if (inserter.FitUB2L1(in)) {
+            inserter.UpdateTensorTobeMap(in, operation, MemoryType::MEM_UB);
+        } else {
+            inserter.UpdateTensorTobeMap(in, operation, MemoryType::MEM_DEVICE_DDR);
+        }
+    }
     if (attrToType == MemoryType::MEM_UNKNOWN) {
         // 跳过前端没有指定mem类型的view
         return;
@@ -225,58 +233,85 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
 void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
     auto input = operation.iOperand.front();
     auto output = operation.oOperand.front();
-    if (input->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
-        return;
-    }
-    if (inserter.FitL0C2L1(input)) {
+    if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
+        if (inserter.FitL0C2L1(input)) {
+            for (const auto &consumerOp : output->GetConsumers()) {
+                auto consumerOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(consumerOp->GetOpAttribute());
+                // 大包搬运场景：assemble后接view且view的toAttr为L1
+                if (consumerOpAttribute && consumerOpAttribute->GetTo() != MemoryType::MEM_UNKNOWN) {
+                    if (consumerOpAttribute->GetTo() != MemoryType::MEM_L1) {
+                        return;
+                    }
+                } else {
+                    const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(consumerOp->GetOpcode());
+                    if (!inputsMemType.empty() && inputsMemType[0] != MemoryType::MEM_L1) {
+                        return;
+                    }
+                }
+            }
+            output->SetMemoryTypeOriginal(MemoryType::MEM_L1, true);
+            inserter.UpdateTensorTobeMap(input, operation, MemoryType::MEM_L0C);
+            for (const auto &consumerOp : output->GetConsumers()) {
+                inserter.UpdateTensorTobeMap(output, *consumerOp, MemoryType::MEM_L1);
+            }
+            APASS_LOG_DEBUG_F(Elements::Operation,
+                "Set assemble Op[%d]'s input[%d] tobeMap as MEM_L0C and output[%d] origin and tobeMap as MEM_L1.",
+                operation.GetOpMagic(), input->magic, output->magic);
+            return;
+        }
+        // 处理 L0C2UB 通路（小搬大）        
         for (const auto &consumerOp : output->GetConsumers()) {
             auto consumerOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(consumerOp->GetOpAttribute());
-            // 大包搬运场景：assemble后接view且view的toAttr为L1
+            // 大包搬运场景：assemble后接view且view的toAttr为UB
             if (consumerOpAttribute && consumerOpAttribute->GetTo() != MemoryType::MEM_UNKNOWN) {
-                if (consumerOpAttribute->GetTo() != MemoryType::MEM_L1) {
+                if (consumerOpAttribute->GetTo() != MemoryType::MEM_UB) {
                     return;
                 }
             } else {
                 const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(consumerOp->GetOpcode());
-                if (!inputsMemType.empty() && inputsMemType[0] != MemoryType::MEM_L1) {
+                if (!inputsMemType.empty() && inputsMemType[0] != MemoryType::MEM_UB) {
                     return;
                 }
             }
         }
-        output->SetMemoryTypeOriginal(MemoryType::MEM_L1, true);
+        output->SetMemoryTypeOriginal(MemoryType::MEM_UB, true);
         inserter.UpdateTensorTobeMap(input, operation, MemoryType::MEM_L0C);
         for (const auto &consumerOp : output->GetConsumers()) {
-            inserter.UpdateTensorTobeMap(output, *consumerOp, MemoryType::MEM_L1);
+            inserter.UpdateTensorTobeMap(output, *consumerOp, MemoryType::MEM_UB);
         }
         APASS_LOG_DEBUG_F(Elements::Operation,
-            "Set assemble Op[%d]'s input[%d] tobeMap as MEM_L0C and output[%d] origin and tobeMap as MEM_L1.",
+            "Set assemble Op[%d]'s input[%d] tobeMap as MEM_L0C and output[%d] origin and tobeMap as MEM_UB.",
             operation.GetOpMagic(), input->magic, output->magic);
         return;
     }
-    // 处理 L0C2UB 通路（小搬大）        
-    for (const auto &consumerOp : output->GetConsumers()) {
-        auto consumerOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(consumerOp->GetOpAttribute());
-        // 大包搬运场景：assemble后接view且view的toAttr为UB
-        if (consumerOpAttribute && consumerOpAttribute->GetTo() != MemoryType::MEM_UNKNOWN) {
-            if (consumerOpAttribute->GetTo() != MemoryType::MEM_UB) {
-                return;
+    if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+        if (inserter.FitUB2L1(input)) {
+            for (const auto &consumerOp : output->GetConsumers()) {
+                auto consumerOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(consumerOp->GetOpAttribute());
+                // 大包搬运场景：assemble后接view且view的toAttr为L1
+                if (consumerOpAttribute && consumerOpAttribute->GetTo() != MemoryType::MEM_UNKNOWN) {
+                    if (consumerOpAttribute->GetTo() != MemoryType::MEM_L1) {
+                        return;
+                    }
+                } else {
+                    const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(consumerOp->GetOpcode());
+                    if (!inputsMemType.empty() && inputsMemType[0] != MemoryType::MEM_L1) {
+                        return;
+                    }
+                }
             }
-        } else {
-            const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(consumerOp->GetOpcode());
-            if (!inputsMemType.empty() && inputsMemType[0] != MemoryType::MEM_UB) {
-                return;
+            output->SetMemoryTypeOriginal(MemoryType::MEM_L1, true);
+            inserter.UpdateTensorTobeMap(input, operation, MemoryType::MEM_UB);
+            for (const auto &consumerOp : output->GetConsumers()) {
+                inserter.UpdateTensorTobeMap(output, *consumerOp, MemoryType::MEM_L1);
             }
+            APASS_LOG_DEBUG_F(Elements::Operation,
+                "Set assemble Op[%d]'s input[%d] tobeMap as MEM_UB and output[%d] origin and tobeMap as MEM_L1.",
+                operation.GetOpMagic(), input->magic, output->magic);
+            return;
         }
-    }
-    output->SetMemoryTypeOriginal(MemoryType::MEM_UB, true);
-    inserter.UpdateTensorTobeMap(input, operation, MemoryType::MEM_L0C);
-    for (const auto &consumerOp : output->GetConsumers()) {
-        inserter.UpdateTensorTobeMap(output, *consumerOp, MemoryType::MEM_UB);
-    }
-    APASS_LOG_DEBUG_F(Elements::Operation,
-        "Set assemble Op[%d]'s input[%d] tobeMap as MEM_L0C and output[%d] origin and tobeMap as MEM_UB.",
-        operation.GetOpMagic(), input->magic, output->magic);
-    return;  
+    }   
+    return; 
 }
 
 void AssignMemoryType::AssignMemtypeForSplitReshape(
