@@ -129,7 +129,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
             if (opName == "BITWISEXOR" || opName == "COPYSIGN" || opName == "POW" || opName == "REM") {
                 std::vector<int64_t> tmpShape(resultTileInfo.shape);
                 auto alignSize = BLOCK_SIZE / BytesOf(result->Datatype());
-                tmpShape[resultTileInfo.shape.size() - 1] = 
+                tmpShape[resultTileInfo.shape.size() - 1] =
                     AlignUp(tmpShape[resultTileInfo.shape.size() - 1], alignSize);
                 auto tempTensor = std::make_shared<LogicalTensor>(function, result->Datatype(), tmpShape);
                 op = &function.AddOperation(
@@ -180,7 +180,7 @@ std::pair<std::vector<int64_t>, std::vector<int64_t>> GetBrcExpandShape(
     bool isInWhiteList = SUPPORT_BRCINLINE.count(GetBinaryOpNameCode<T>());
     bool isSupportDtype = (operand1->Datatype() == DT_FP32 || operand1->Datatype() == DT_FP16);
     bool isCombineAxisEnabled =
-    function.paramConfigs_.forceCombineAxis || (function.paramConfigs_.combineAxis && isInWhiteList);
+        function.paramConfigs_.forceCombineAxis || (function.paramConfigs_.combineAxis && isInWhiteList);
     if (isInWhiteList) {
         // Outer axis: handled by tileop loop with stride control, keep operand shape.
         if (shapeSize > 2) {
@@ -219,7 +219,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, Logica
     auto input1 = LogicalInput{operand1, tileInfo1};
     auto input2 = LogicalInput{operand2, tileInfo2};
     // 如果打开了forceCombineAxis要走进OP_XX_BRC，如果打开combineAxis要避免后续走OP_XX_BRC逻辑
-    bool withBrc = 
+    bool withBrc =
         (BrcAxisBinaryOp(operand1, operand2, 1) != -1)
         && function.paramConfigs_.forceCombineAxis && !function.paramConfigs_.combineAxis;
     TiledBinaryOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, withBrc);
@@ -286,16 +286,16 @@ void PReLUOperationOperandCheck(
     auto input = iOperand[0];
     auto weight = iOperand[1];
     
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, input->Datatype() == weight->Datatype()) 
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, input->Datatype() == weight->Datatype())
         << "The input and weight should have the same data type";
     
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, input->shape.size() >= 2 && input->shape.size() <= 4) 
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, input->shape.size() >= 2 && input->shape.size() <= 4)
         << "The input shape dimension should be in range [2, 4]";
     
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, weight->shape.size() == 1) 
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, weight->shape.size() == 1)
         << "The weight should be 1-dimensional";
     
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, weight->shape[0] == input->shape[1]) 
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, weight->shape[0] == input->shape[1])
         << "The weight size should equal to input's second dimension";
     
     int64_t inputSize = 1;

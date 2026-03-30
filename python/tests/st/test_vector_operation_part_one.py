@@ -749,6 +749,84 @@ def test_vector_operation_rowminsingle():
     pypto.runtime._device_fini()
 
 
+def test_vector_operation_rowargmaxsingle():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    dtype = pypto.DT_FP32
+    tiling = 32
+    n, m = tiling * 1, tiling * 1
+    shape = (n, m)
+    output_shape = (1, m)
+    view_shape = (n, 16)
+    tile_shape = (n, 8)
+    pypto.runtime._device_init()
+    a = pypto.tensor(shape, dtype, "ROWARGMAXSINGLE_TENSOR_a")
+    b = pypto.tensor(output_shape, pypto.DT_INT32, "ROWARGMAXSINGLE_TENSOR_b")
+    dim = 0
+
+    with pypto.function("ROWARGMAXSINGLE", a, b):
+        for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_ROWARGMAXSINGLE_L1", idx_name="s_idx"):
+            tile_a = pypto.view(a, [32, view_shape[1]],
+                [0, s_idx * view_shape[1]],
+                valid_shape=[pypto.symbolic_scalar(n),
+                (pypto.symbolic_scalar(m) -
+                s_idx * view_shape[1]).min(pypto.symbolic_scalar(view_shape[1]))])
+            pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+            tmp_a = pypto.tensor([1, view_shape[1]], pypto.DT_INT32)
+            tmp_a.move(pypto.argmax(tile_a, dim, True))
+            pypto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
+
+    a_tensor = torch.rand(shape, dtype=torch.float32) * 100
+    b_tensor = torch.zeros(output_shape, dtype=torch.int32)
+
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
+
+    expected = a_tensor.argmax(dim=dim, keepdim=True).reshape(output_shape)
+    assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
+    pypto.runtime._device_fini()
+
+
+def test_vector_operation_rowargminsingle():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    dtype = pypto.DT_FP32
+    tiling = 32
+    n, m = tiling * 1, tiling * 1
+    shape = (n, m)
+    output_shape = (1, m)
+    view_shape = (n, 16)
+    tile_shape = (n, 8)
+    pypto.runtime._device_init()
+    a = pypto.tensor(shape, dtype, "ROWARGMINSINGLE_TENSOR_a")
+    b = pypto.tensor(output_shape, pypto.DT_INT32, "ROWARGMINSINGLE_TENSOR_b")
+    dim = 0
+
+    with pypto.function("ROWARGMINSINGLE", a, b):
+        for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_ROWARGMINSINGLE_L1", idx_name="s_idx"):
+            tile_a = pypto.view(a, [32, view_shape[1]],
+                [0, s_idx * view_shape[1]],
+                valid_shape=[pypto.symbolic_scalar(n),
+                (pypto.symbolic_scalar(m) -
+                s_idx * view_shape[1]).min(pypto.symbolic_scalar(view_shape[1]))])
+            pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+            tmp_a = pypto.tensor([1, view_shape[1]], pypto.DT_INT32)
+            tmp_a.move(pypto.argmin(tile_a, dim, True))
+            pypto.assemble(tmp_a, [0, s_idx * view_shape[1]], b)
+
+    a_tensor = torch.rand(shape, dtype=torch.float32) * 100
+    b_tensor = torch.zeros(output_shape, dtype=torch.int32)
+
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
+
+    expected = a_tensor.argmin(dim=dim, keepdim=True).reshape(output_shape)
+    assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
+    pypto.runtime._device_fini()
+
+
 def test_tensor_operation_expand():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
