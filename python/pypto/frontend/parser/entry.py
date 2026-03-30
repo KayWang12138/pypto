@@ -17,6 +17,7 @@ including the parse function and JIT decorator.
 
 import inspect
 import os
+import time
 from typing import Any, Callable, Optional, Union
 from enum import IntEnum
 import itertools
@@ -678,9 +679,12 @@ class JitCallableWrapper:
     ) -> None:
         """Run kernel on NPU or CPU (SIM)."""
         if self._runtime_options.get("run_mode", None) == RunMode.NPU:
+            start_time = time.monotonic_ns()
             pypto_impl.LaunchKernelTorch(
-                self, _current_stream(), torch_tensors, tensor_defs
+                self, torch_tensors, tensor_defs
             )
+            end_time = time.monotonic_ns()
+            print(f"LaunchKernelTorch elapsed time: {(end_time - start_time) / 1000:.6f} us")
         else:
             pto_tensors = self._convert_tensors_with_metadata(
                 torch_tensors, tensor_defs
