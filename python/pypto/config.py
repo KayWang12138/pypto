@@ -59,7 +59,7 @@ def set_pass_options(*,
                      vec_nbuffer_setting: Optional[Dict[int, int]] = None,
                      cube_l1_reuse_setting: Optional[Dict[int, int]] = None,
                      cube_nbuffer_setting: Optional[Dict[int, int]] = None,
-                     sg_set_scope: Optional[int] = None,
+                     sg_set_scope: Optional[Union[int, tuple]] = None,
                      ) -> None:
     """
     Set pass options.
@@ -92,10 +92,44 @@ def set_pass_options(*,
         Merged graph parameter, used to configure
         the merging quantity of AIC subgraphs with the same structure.
     
-    sg_set_scope : int
+    sg_set_scope : Union[int, tuple]
         Merged graph parameter, used to manually control graph merging.
+        - If int: only set scopeid (backward compatible)
+        - If tuple: (scopeid, allow_parallel_merge, allow_cross_scope_merge, mix_id)
+          * scopeid: int, scope ID
+          * allow_parallel_merge: bool, enable parallel branch merging
+          * allow_cross_scope_merge: bool, allow supernode with scope to merge with others
+          * mix_id: int, reserved value for future use
     """
-    options_dict = {k: v for k, v in locals().items() if v is not None}
+    # 处理 sg_set_scope 参数
+    if sg_set_scope is not None:
+        if isinstance(sg_set_scope, int):
+            # 向后兼容：仅设置 scopeid
+            processed_sg_set_scope = [sg_set_scope, False, False, -1]
+        elif isinstance(sg_set_scope, (tuple, list)):
+            # 新格式：解析元组
+            if len(sg_set_scope) != 4:
+                raise ValueError(f"sg_set_scope must be a tuple of 4 elements, got {len(sg_set_scope)}")
+            if not isinstance(sg_set_scope[0], int):
+                raise ValueError(f"sg_set_scope[0] (scopeid) must be int, got {type(sg_set_scope[0])}")
+            if not isinstance(sg_set_scope[1], bool):
+                raise ValueError(f"sg_set_scope[1] (allow_parallel_merge) must be bool, got {type(sg_set_scope[1])}")
+            if not isinstance(sg_set_scope[2], bool):
+                raise ValueError(f"sg_set_scope[2] (allow_cross_scope_merge) must be bool, got {type(sg_set_scope[2])}")
+            if not isinstance(sg_set_scope[3], int):
+                raise ValueError(f"sg_set_scope[3] (mix_id) must be int, got {type(sg_set_scope[3])}")
+            processed_sg_set_scope = list(sg_set_scope)
+        else:
+            raise TypeError(f"sg_set_scope must be int or tuple, got {type(sg_set_scope)}")
+
+        # 将处理后的值放入 options_dict
+        locals_dict = {k: v for k, v in locals().items() if v is not None and k != 'sg_set_scope'}
+        locals_dict['sg_set_scope'] = processed_sg_set_scope
+    else:
+        locals_dict = {k: v for k, v in locals().items() if v is not None}
+
+    # 调用 set_options
+    options_dict = {k: v for k, v in locals_dict.items() if v is not None}
     set_options(pass_options=options_dict)
 
 

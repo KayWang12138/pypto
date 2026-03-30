@@ -164,6 +164,21 @@ Status IsomorphismGraphGroup::BuildGraphGroup(std::shared_ptr<OperationGraphInfo
     subVisitedNodeSet_.clear();
     subVisitedNodeSet_.insert(expandCandidate.begin(), expandCandidate.end());
     currentNodeSet.insert(expandCandidate.begin(), expandCandidate.end());
+
+    // 从所有候选节点获取 allowCrossScopeMerge，任一节点允许则该组允许
+    bool allowCrossScopeMerge = false;
+    for (int32_t nodeIdx : expandCandidate) {
+        for (int32_t opIdx : superNodeInfo->node2Op_[nodeIdx]) {
+            if (operationInfo->opList_[opIdx]->GetAllowCrossScopeMerge()) {
+                allowCrossScopeMerge = true;
+                break;
+            }
+        }
+        if (allowCrossScopeMerge) {
+            break;
+        }
+    }
+
     for (int32_t nodeIdx : expandCandidate) {
         if (InLinkCountDelete(nodeIdx, idxInLinkNum, zeroInQueue) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "In-link count delete failed.");
@@ -176,6 +191,7 @@ Status IsomorphismGraphGroup::BuildGraphGroup(std::shared_ptr<OperationGraphInfo
         }
         sgPtr->AddNode(nodeIdx);
         sgPtr->scopeId_ = superNodeInfo->nodeScope_[nodeIdx];
+        sgPtr->SetAllowCrossScopeMerge(allowCrossScopeMerge);  // 新增：设置跨 scope 合并开关
         isoGraphs_.push_back(sgPtr);
     }
     mergeable_ = superNodeInfo_->nodeMergeable_[expandCandidate[0]];
@@ -490,13 +506,22 @@ std::vector<int32_t> IsoPartitioner::GetCandidateMergeColors(int32_t currColor,
 
 bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor, bool nonIsoGraphsMerge) const
 {
+    // Scope 隔离检查：每个 group 独立判断——"有 scope 且不允许跨 scope → 拒绝合并"
+    // allowCrossScopeMerge=false（默认）：与原行为一致，有 scope 的 subgraph 不与其他 subgraph 合并
+    // allowCrossScopeMerge=true：允许该 subgraph 与任意其他 subgraph 合并（实现跨 scope 合并功能）
     for (auto graphPtr : isoSubGroups_[currColor]->isoGraphs_) {
-        if (graphPtr->scopeId_ != -1) {
+        if (graphPtr->scopeId_ != -1 && !graphPtr->GetAllowCrossScopeMerge()) {
+            APASS_LOG_INFO_F(Elements::Operation,
+                "Cannot merge: curr group has scopeId=%d with allowCrossScopeMerge=false.",
+                graphPtr->scopeId_);
             return false;
         }
     }
     for (auto graphPtr : isoSubGroups_[mergeColor]->isoGraphs_) {
-        if (graphPtr->scopeId_ != -1) {
+        if (graphPtr->scopeId_ != -1 && !graphPtr->GetAllowCrossScopeMerge()) {
+            APASS_LOG_INFO_F(Elements::Operation,
+                "Cannot merge: merge group has scopeId=%d with allowCrossScopeMerge=false.",
+                graphPtr->scopeId_);
             return false;
         }
     }
@@ -521,7 +546,7 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
                      currColor, isoSubGroups_[currColor]->GetSubGraph(0)->DumpStr().c_str(),
                      mergeColor, isoSubGroups_[mergeColor]->GetSubGraph(0)->DumpStr().c_str(), shouldMerge);
         return shouldMerge;
-    } 
+    }
     bool isSuitableForMerge = (currColorSize == mergeColorSize);
     isSuitableForMerge = isSuitableForMerge || (std::min(currColorSize, mergeColorSize) >= parallelNum_);
     isSuitableForMerge = isSuitableForMerge ||
@@ -530,7 +555,7 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
     isSuitableForMerge = coreTypeMergable && isSuitableForMerge && cycleMergable;
     APASS_LOG_DEBUG_F(Elements::Operation, "Try merge current group: %d [%s]\n\t with: %d [%s], is suitable for merge: %d.",
                  currColor, isoSubGroups_[currColor]->GetSubGraph(0)->DumpStr().c_str(),
-                 mergeColor, isoSubGroups_[mergeColor]->GetSubGraph(0)->DumpStr().c_str(), isSuitableForMerge);
+                  mergeColor, isoSubGroups_[mergeColor]->GetSubGraph(0)->DumpStr().c_str(), isSuitableForMerge);
     return isSuitableForMerge;
 }
 

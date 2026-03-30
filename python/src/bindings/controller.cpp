@@ -224,7 +224,12 @@ std::map<std::string, npu::tile_fwk::Any> ConvertPyDictToCppMap(const py::dict &
             py::list lst = py::cast<py::list>(value);
             if (lst.size() > 0) {
                 if (py::isinstance<py::int_>(lst[0])) {
-                    cpp_values[key] = value.cast<std::vector<int64_t>>();
+                    // 手动逐元素转换：sg_set_scope 包含 bool+int 混合类型，直接 cast 会失败
+                    std::vector<int64_t> intVec;
+                    for (auto elem : lst) {
+                        intVec.push_back(py::cast<int64_t>(elem));
+                    }
+                    cpp_values[key] = intVec;
                 } else if (py::isinstance<py::str>(lst[0])) {
                     cpp_values[key] = value.cast<std::vector<std::string>>();
                 } else if (py::isinstance<py::float_>(lst[0])) {
