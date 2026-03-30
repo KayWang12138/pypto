@@ -54,6 +54,26 @@ inline std::string GetLayoutType(BufferType bufType, int dim, bool isConst = fal
 // UBTileTensorFP32Dim2 ubTile_0((__ubuf__ float*)UB_S0_E16384, DimLayout2(Shape<int, int>(sym_18_dim_0, sym_18_dim_1),
 // Stride<int, int>(64, 1)));
 struct TileTensor {
+    TileTensor(bool pIsConstant, int pMagic, int pDim, DataType pDtype, BufferType pBufType, std::string pBufVar,
+        std::string pUsingType, std::string pTensorName, std::vector<std::string> pShape,
+        std::vector<std::string> pStride, std::vector<int64_t> pRawShape, std::vector<int64_t> pLocalBufOffset,
+        ShapeInLoop pShapeInLoop)
+        : isConstant(pIsConstant),
+          magic(pMagic),
+          dim(pDim),
+          dtype(pDtype),
+          bufType(pBufType),
+          bufVar(pBufVar),
+          usingType(pUsingType),
+          tensorName(pTensorName),
+          shape(pShape),
+          stride(pStride),
+          rawShape(pRawShape),
+          localBufOffset(pLocalBufOffset),
+          shapeInLoop(pShapeInLoop) {}
+    TileTensor() = default;
+    virtual ~TileTensor() = default;
+
     bool isConstant;
     int magic; // tensor magic numbuer
     int dim;
@@ -120,7 +140,7 @@ struct TileTensor {
         return WrapParamByParentheses(params);
     }
 
-    std::string ToString() const {
+    virtual std::string ToString() const {
         std::ostringstream oss;
         oss << usingType << " " << tensorName << GenInitParam() << STMT_END;
         return oss.str();
@@ -138,18 +158,18 @@ private:
 };
 
 struct TileTensorHash {
-    std::size_t operator()(const TileTensor &t) const noexcept {
+    std::size_t operator()(const std::shared_ptr<TileTensor>& tPtr) const noexcept {
         std::size_t seed = 0;
-        HashCombine(seed, t.dim);
-        HashCombine(seed, t.bufVar);
-        HashCombine(seed, ToUnderlying(t.dtype));
-        for (const auto &s : t.shape) {
+        HashCombine(seed, tPtr->dim);
+        HashCombine(seed, tPtr->bufVar);
+        HashCombine(seed, ToUnderlying(tPtr->dtype));
+        for (const auto &s : tPtr->shape) {
             HashCombine(seed, s);
         }
-        for (const auto &s : t.rawShape) {
+        for (const auto &s : tPtr->rawShape) {
             HashCombine(seed, s);
         }
-        for (const auto &s : t.localBufOffset) {
+        for (const auto &s : tPtr->localBufOffset) {
             HashCombine(seed, s);
         }
         return seed;
@@ -157,6 +177,17 @@ struct TileTensorHash {
 };
 
 struct TileTensorUsing {
+    TileTensorUsing(bool pIsConstant, DataType pDtype, BufferType pBufType, int pDim, std::vector<int64_t> pOriginShape,
+        std::vector<int64_t> pRawShape)
+        : isConstant(pIsConstant),
+          dtype(pDtype),
+          bufType(pBufType),
+          dim(pDim),
+          originShape(pOriginShape),
+          rawShape(pRawShape) {}
+    TileTensorUsing() = default;
+    virtual ~TileTensorUsing() = default;
+
     bool isConstant;
     DataType dtype;
     BufferType bufType;
@@ -179,7 +210,7 @@ struct TileTensorUsing {
 
     // dynamic shape: e.g. "TileTensor<__gm__ float, DynLayout4Dim, Hardware::GM>"
     // static shape: e.g. "TileTensor<float, LocalLayout4Dim<16, 16>, Hardware::UB>"
-    std::string ToString() const {
+    virtual std::string ToString() const {
         std::ostringstream ss;
         ss << TILE_TENSOR << "<";
         if (bufType == BUF_DDR) {
@@ -194,7 +225,7 @@ struct TileTensorUsing {
         return ss.str();
     }
 
-private:
+protected:
     constexpr static int SHAPE_KIND = 2; // origin shape; raw shape
     std::string GetLayoutParams() const {
         std::vector<int64_t> params;
@@ -238,8 +269,8 @@ public:
 
     static std::string FormatAllocKey(const AllocKey &key);
 
-    std::string AddTileTensorUsing(const TileTensorUsing &tileTensorUsing);
-    std::string AddTileTensor(const TileTensor &tileTensor);
+    std::string AddTileTensorUsing(const std::shared_ptr<TileTensorUsing> &tileTensorUsing);
+    std::string AddTileTensor(const std::shared_ptr<TileTensor> &tileTensor);
     std::vector<TileTensor> QueryTileTensorByMagic(int magic);
     std::vector<TileTensor> QueryTileTensorInLoopByMagic(int magic);
     void InsertTensorNameInLoopToFullDim(const std::string &tensorName, const std::string &fullDimTensorName);
@@ -260,7 +291,7 @@ private:
     std::shared_ptr<LogicalTensor> GetTensorByMagic(int magicNum) const;
     AllocKey CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const;
     AllocKey CreateAllocKey(int tensorMagicNum) const;
-    std::string FindUsingName(const TileTensorUsing &tileTensorUsing) const;
+    std::string FindUsingName(const std::shared_ptr<TileTensorUsing> &tileTensorUsing) const;
 
     // <AllocKey, buffer variable name>
     std::map<AllocKey, std::string> key2VariableName_;
@@ -269,16 +300,16 @@ private:
     // <tensor magic, LogicalTensor>
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> tensorMap_;
     // <TileTensor, tensorName>
-    std::unordered_map<TileTensor, std::string, TileTensorHash> tileTensor_;
+    std::unordered_map<std::shared_ptr<TileTensor>, std::string, TileTensorHash> tileTensor_;
     // When use forcing axis merging feature under TileTensor mode,
     // we may encounter a situation where Tensors with the same magic ID have different Shapes.
     // <tensor magic, TileTensor>
-    std::multimap<int, TileTensor> tileTensorByMagic_;
-    std::multimap<int, TileTensor> tileTensorByMagicInLoop_;
+    std::multimap<int, std::shared_ptr<TileTensor>> tileTensorByMagic_;
+    std::multimap<int, std::shared_ptr<TileTensor>> tileTensorByMagicInLoop_;
     // <tensorName in for loop, tensorName with full dim out of loop>
     // both key and value are from same tile operation
     std::unordered_map<std::string, std::string> tensorNameInLoopToFullDim_;
     // <using type, TileTensorUsing>
-    std::unordered_map<std::string, TileTensorUsing> tileTensorUsing_;
+    std::unordered_map<std::string, std::shared_ptr<TileTensorUsing>> tileTensorUsing_;
 };
 } // namespace npu::tile_fwk

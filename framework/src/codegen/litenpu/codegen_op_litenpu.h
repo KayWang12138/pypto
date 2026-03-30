@@ -20,6 +20,7 @@
 #include <unordered_set>
 
 #include "op_print_param_def.h"
+#include "tile_tensor_litenpu.h"
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
@@ -108,8 +109,6 @@ public:
     // // std::string GenMrgSortOp() const;
     // std::string GenExtractOp() const;
 
-    std::string GenParamsStr() const;
-
     // std::string GenDistOp() const;
     // std::string GetTemplateDType() const;
 
@@ -167,8 +166,11 @@ private:
 
     std::string QueryTileTensorNameByIdx(int paramIdx) const;
 
-    TileTensor BuildTileTensor(int paramIdx, const std::string& usingType);
-    
+    TileTensorLiteNPU BuildTileTensor(int paramIdx, const std::string& usingType);
+    void UpdateTileTensorShapeAndStride(
+        int paramIdx, TileTensor &tileTensor, bool isSpillToGm);
+    std::vector<std::string> BuildStride(const std::vector<int64_t> &input);
+
     std::vector<int64_t> GetTileShapeForMemTransfer(
         OperandType localType, std::vector<int64_t> gmShape, unsigned localIdx) const;
     std::string GenMemCopyVar(bool isCopyLocalToGM, bool isSpillToGm = false, unsigned uf = 0) const;
@@ -183,10 +185,6 @@ private:
     std::string GenGmParamVar(unsigned gmParamIdx) const;
 
     bool CombineAxis(std::vector<std::vector<int64_t> *> &shapes, bool secondLastAxis = false) const;
-
-    std::vector<std::string> GenGetParamMacroPacked(unsigned gmParamIdx, int dim, const std::string &prefix) const;
-
-    std::vector<std::string> GenParamIdxExprByIndex(unsigned gmParamIdx, int dim, const std::string &prefix) const;
 
     std::vector<std::string> GenSymbolicArgument(const std::vector<SymbolicScalar> &exprList) const;
 
@@ -215,7 +213,7 @@ private:
     std::string PrintIndexPut(const PrintIndexPutParam &param) const;
     std::string PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
 
-    std::string PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintVnchwconv() const;
     std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVnchwconvStatic(const PrintUnaryTmpBuffParam &param) const;
 
@@ -226,7 +224,7 @@ private:
     std::string PrintMemCopyWithL0CTileTensor(const PrintMemCopyWithL0CParam &param) const;
 
     std::pair<std::string, std::string> GetOuterInnerValueStr(
-        unsigned gmIdx, const std::vector<int64_t> &gmShape, bool isSpillingToGM = false) const;
+        const std::vector<int64_t> &gmShape, bool isSpillingToGM = false) const;
     std::string PrintMemCopyWithL1(const PrintMemCopyWithL1Param &param) const;
     // std::string PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL1Param &param) const;
 
@@ -256,9 +254,9 @@ private:
     // std::string PrintMrgSortDynamicUnaligned(const SortParam &param) const;
     // std::string PrintMrgSortStatic(const SortParam &param) const;
 
-    std::string PrintBinaryStatic(const PrintBinaryParam &param) const;
-    std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const;
-    std::string PrintBinary(const PrintBinaryParam &param) const;
+    // std::string PrintBinaryStatic(const PrintBinaryParam &param) const;
+    // std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const;
+    std::string PrintBinary() const;
     std::string PrintBinaryTileTensor() const;
     std::string PrintUnaryWithTmpTileTensor() const;
 
@@ -287,7 +285,7 @@ private:
     DynamicParamPackMTE PrepareDynamicShapeInfo(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool gmOffsetCond = true) const;
 
-    std::string PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintReduceLastAxis() const;
     std::string PrintReduceLastAxisTileTensor() const;
     const std::unordered_map<Opcode, std::function<std::string()>> opsGenMap_ = {
         // UB <-> GM

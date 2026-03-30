@@ -54,7 +54,6 @@ std::string CodeGenOpLiteNPU::PrintMatmulTileTensor(bool isAcc) const {
     return PrintMatmulTileTensor(isAcc, tensorWithMemType);
 }
 
-
 std::string CodeGenOpLiteNPU::GenCubeOp(bool zeroC) const {
     if (isSupportLayout) {
         return PrintMatmulTileTensor(!zeroC);
@@ -62,53 +61,12 @@ std::string CodeGenOpLiteNPU::GenCubeOp(bool zeroC) const {
     return "";
 }
 
-std::string CodeGenOpLiteNPU::GenCubeOpMatmul() const{
+std::string CodeGenOpLiteNPU::GenCubeOpMatmul() const {
     return GenCubeOp(true);
 }
 
-std::string CodeGenOpLiteNPU::GenCubeOpMatmulAcc() const{
+std::string CodeGenOpLiteNPU::GenCubeOpMatmulAcc() const {
     return GenCubeOp(false);
-}
-
-std::string CodeGenOpLiteNPU::GenParamsStr() const {
-    std::vector<std::string> params;
-    for (int i = 0; i < MAX_OPERANDS; i++) {
-        if (operand[i] == NULL_OPERAND) {
-            continue;
-        }
-
-        std::string dtypeStr = DataType2CCEStr(operandDtype[i]);
-        std::string prefix = GetAddrTypeByOperandType(operandType[i]);
-
-        // if (skipOperands.find(i) != skipOperands.end()) {
-        //     continue;
-        // }
-
-        if (operandType[i] == BUF_DDR) {
-            std::string var = GenGmParamVar(i);
-            std::ostringstream oss;
-            oss << "(" << prefix << " " << dtypeStr << "*)" << var;
-            params.emplace_back(oss.str());
-        } else {
-            std::string var = sm->QueryVarNameByTensorMagic(operandWithMagic[i]);
-
-            if (opCode != Opcode::OP_L1_TO_L0A && opCode != Opcode::OP_L1_TO_L0B && opCode != Opcode::OP_L1_TO_L0_BT &&
-                opCode != Opcode::OP_L1_TO_L0_AT) {
-                // 大包搬运场景下，L1搬运至L0不需要计算L1地址偏移
-                // 非大包搬运场景下，L1与L0数据大小一致，也不需要地址偏移
-                // 偏移计算仅用于L1_Copy_In 和 L1_Copy_Out
-                AppendLocalBufferVarOffset({
-                    {static_cast<unsigned>(i), std::ref(var)}
-                });
-            }
-
-            std::ostringstream oss;
-            CODEGEN_LOGD("GenParamsStr var: %s", var.c_str());
-            oss << "(" << prefix << " " << dtypeStr << "*)" << var;
-            params.emplace_back(oss.str());
-        }
-    }
-    return JoinString(params, ", ");
 }
 
 } // namespace npu::tile_fwk

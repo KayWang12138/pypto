@@ -606,10 +606,11 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
     tileOpName = iter->second; // update tileOpName from SUPPORT_TILETENSOR_OPS
 
     for (int i = 0; i < operandCnt; ++i) {
-        TileTensorUsing tileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],
-            operandType[i], static_cast<int>(rawShape[i].size()), originShape[i], rawShape[i]};
+        std::shared_ptr<TileTensorUsing> tileTensorUsing =
+            std::make_shared<TileTensorUsing>(TileTensorUsing{functionType == FunctionType::STATIC || isMainBlock,
+                operandDtype[i], operandType[i], static_cast<int>(rawShape[i].size()), originShape[i], rawShape[i]});
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
-        TileTensor tileTensor = BuildTileTensor(i, usingType);
+        std::shared_ptr<TileTensor> tileTensor = std::make_shared<TileTensor>(BuildTileTensor(i, usingType));
         std::string tensorName = sm->AddTileTensor(tileTensor);
         tensorNames_[i] = tensorName;
         CODEGEN_LOGI(
@@ -669,11 +670,12 @@ void CodeGenOpCloudNPU::UpdateLoopInfo() {
         CODEGEN_LOGI("shapeInLoop: loopDepth is %zu newOriginShape is %s, newRawShape is %s, newDynValidShape is %s",
             loopDepth, IntVecToStr(shapeInLoop.originShape).c_str(), IntVecToStr(shapeInLoop.rawShape).c_str(),
             IntVecToStr(shapeInLoop.dynamicValidShape).c_str());
-        TileTensorUsing tileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],
-            operandType[i], static_cast<int>(shapeInLoop.rawShape.size()), shapeInLoop.originShape,
-            shapeInLoop.rawShape};
+        std::shared_ptr<TileTensorUsing> tileTensorUsing = std::make_shared<TileTensorUsing>(
+            TileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i], operandType[i],
+                static_cast<int>(shapeInLoop.rawShape.size()), shapeInLoop.originShape, shapeInLoop.rawShape});
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
-        TileTensor tileTensor = BuildTileTensor(i, usingType, shapeInLoop);
+        std::shared_ptr<TileTensor> tileTensor =
+            std::make_shared<TileTensor>(BuildTileTensor(i, usingType, shapeInLoop));
         forBlkMgr_->AddTensorInLoopBody(tensorNames_[i], tileTensor);
     }
 }

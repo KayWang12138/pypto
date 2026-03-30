@@ -36,6 +36,7 @@ public:
     void SetUp() override {
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetBuildStatic(true);
     }
 
     void TearDown() override {}

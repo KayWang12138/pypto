@@ -495,22 +495,14 @@ void CodeGenLiteNPU::DoCompileCCE(const CompileInfo_LiteNPU &compileInfo, const 
                      << ccecCmd << "\n******** bisheng compiling cmd end ********\n";
 }
 
-std::string CodeGenLiteNPU::GetIncludePathByRelative() const {
-    std::string curExePath = GetCurRunningPath();
-    ALOG_INFO_F("curExePath is %s", curExePath.c_str());
-    std::string includePath = curExePath + "/../include/";
-    ALOG_INFO_F("includePath relative is %s", includePath.c_str());
-    return includePath;
-}
-
-std::string CodeGenLiteNPU::GetIncludePathByLib() const {
+std::string GetIncludePathByLibLiteNPU() {
     std::string libPath = GetCurrentSharedLibPath();
     if (libPath.empty()) {
         return "";
     }
 
-    std::string includePath = libPath + "/../../include/";
-    ALOG_INFO_F("includePath by lib is %s", includePath.c_str());
+    std::string includePath = libPath + "/include";
+    CODEGEN_LOGI("includePath by lib is %s", includePath.c_str());
 
     if (IsPathExist(includePath)) {
         return includePath;
@@ -519,42 +511,16 @@ std::string CodeGenLiteNPU::GetIncludePathByLib() const {
     return "";
 }
 
-std::string CodeGenLiteNPU::GetIncludePathByEnv() const {
-    const char *homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
-    if (homePath == nullptr) {
-        return "";
-    }
-
-    std::string includePath = std::string(homePath) + "/include/tile_fwk/";
-    if (IsPathExist(includePath)){
-        return includePath;
-    }
-
-    return "";
-}
-
 std::string CodeGenLiteNPU::GetIncludePathForCompileCCE() const {
     if (!ctx.IsIncludePathEmpty()) {
-        ALOG_INFO_F("include path from ctx is %s", ctx.includePath.c_str());
+        CODEGEN_LOGI("include path from ctx is %s", ctx.includePath.c_str());
         return ctx.includePath;
     }
 
-    std::string includePathByLib = GetIncludePathByLib();
-    ALOG_INFO_F("includePathByLib is %s", includePathByLib.c_str());
+    std::string includePathByLib = GetIncludePathByLibLiteNPU();
+    CODEGEN_LOGI("includePathByLib is %s", includePathByLib.c_str());
     if (!includePathByLib.empty()) {
         return includePathByLib;
-    }
-
-    std::string includePathByEnv = GetIncludePathByEnv();
-    ALOG_INFO_F("includePathByEnv is %s", includePathByEnv.c_str());
-    if (!includePathByEnv.empty()) {
-        return includePathByEnv;
-    }
-
-    std::string includePathByRel = GetIncludePathByRelative();
-    ALOG_INFO_F("includePathByRel is %s", includePathByRel.c_str());
-    if (!includePathByRel.empty()) {
-        return includePathByRel;
     }
 
     ASSERT(false) << "include path for compiling cce is unavailable";
@@ -610,6 +576,7 @@ void CodeGenLiteNPU::BuildArchOptions(std::ostringstream &oss, const CompileInfo
 void CodeGenLiteNPU::BuildIncludes(std::ostringstream &oss) const {
     // used for compiling cce
     std::string includePath = GetIncludePathForCompileCCE();
+
     oss << "-I" << includePath << "/tilefwk "
         << "-I" << includePath << "/tileop "
         << "-I" << includePath << "/tileop/arch32 "
