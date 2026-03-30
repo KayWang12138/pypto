@@ -284,6 +284,9 @@ public:
     void ProInitHandShake();
     bool ProfIsEnable() { return profLevel_ != PROF_LEVEL_OFF; }
 
+    /** Value written to device KernelArgs::taskEntry.reserved[0] at handshake (AiCoreProfLevel 0..3). */
+    int64_t GetDeviceHandshakeDotLevel() const { return static_cast<int64_t>(profLevel_); }
+
     void ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs);
     void ProfStartPmu();
     void ProfStopPmu();
