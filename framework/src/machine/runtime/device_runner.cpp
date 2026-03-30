@@ -39,6 +39,7 @@
 #include "machine/utils/machine_error.h"
 #include "machine/platform/platform_manager.h"
 #include "machine/runtime/device_error_tracking.h"
+#include "machine/device/dynamic/aicore_prof.h"
 #include "nlohmann/json.hpp"
 #include "dump_device_perf.h"
 #include "machine/host/perf_analysis.h"
@@ -491,7 +492,8 @@ void DeviceRunner::SetDebugEnable() {
 
 int DeviceRunner::RunPrepare() {
     int ret = 0;
-    if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL || ENABLE_PERF_TRACE == 1 || PMU_COLLECT == 1) {
+    if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL || ENABLE_PERF_TRACE == 1 ||
+        dynamic::ProfCheckLevel(dynamic::PROF_TASK_TIME_L2)) {
         for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
            auto preCoreShareadBufferAddr = (reinterpret_cast<uint8_t *>(args_.sharedBuffer +
                                             sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE;
@@ -663,14 +665,14 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
         g_IsNullLaunched = true;
     }
     #endif
+    lastLaunchToSubMachineConfig_ = kernelArgs->toSubMachineConfig;
+
     int rc = RunPrepare();
     if (rc < 0) {
         MACHINE_LOGE(HostLauncherErr::LAUNCH_PREPARE_FAILED, "Prepare failed.");
         return rc;
     }
     HOST_PERF_TRACE(TracePhase::RunDevKernelInitRunPrepare);
-
-    lastLaunchToSubMachineConfig_ = kernelArgs->toSubMachineConfig;
     blockDim_ = blockdim;
     aicpuNum_ = launchAicpuNum;
     // for dump perfInfo update device args
