@@ -105,6 +105,9 @@ int DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTa
     stitchContext.Init(devProg, workspace);
 
     taskContext.InitAllocator(devProg, workspace, startArgs);
+#ifdef __ESL_SIMULATION__
+ 	taskContext.InitBusWriteFunc();
+#endif
 
     workspace.SetupVector(symbolTable);
     symbolTable.resize(devProg->symbolTable.size());
