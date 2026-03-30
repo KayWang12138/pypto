@@ -37,8 +37,6 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
