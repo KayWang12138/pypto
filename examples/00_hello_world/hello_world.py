@@ -59,7 +59,10 @@ def create_add_kernel(shape: tuple, run_mode: str = "npu"):
         y: pypto.Tensor([...], pypto.DT_FP32),
         out: pypto.Tensor([...], pypto.DT_FP32),
     ):
+        x = pypto.view(x, [1, 4, 2, 64], [0,0,0,0])
+        y = pypto.view(y, [1, 4, 2, 64], [0,0,0,0])
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
+        pypto.set_pass_default_config(pypto.PassConfigKey.KEY_DUMP_GRAPH, True)
         out[:] = x + y
 
     return add_kernel
@@ -67,7 +70,7 @@ def create_add_kernel(shape: tuple, run_mode: str = "npu"):
 
 def test_add_direct(device_id=None, run_mode: str = "npu") -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    shape = (1, 4, 1, 64)
+    shape = (1, 4, 3, 64)
     #prepare data
     input_data0 = torch.rand(shape, dtype=torch.float, device=device)
     input_data1 = torch.rand(shape, dtype=torch.float, device=device)
