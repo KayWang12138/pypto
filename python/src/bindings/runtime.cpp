@@ -22,6 +22,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "acl/acl.h"
+#include "torch_npu/csrc/core/npu/NPUStream.h"
 #include "tilefwk/pypto_fwk_log.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/utils/op_info_manager.h"
@@ -49,7 +51,7 @@ void CopyToDev(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) 
 
 void SetVerifyData(const std::vector<DeviceTensorData> &inputs,
                    const std::vector<DeviceTensorData> &outputs,
-                   const std::vector<DeviceTensorData> &goldens) {
+    const std::vector<DeviceTensorData> &goldens) {
     ProgramData::GetInstance().Reset();
     for (size_t i = 0; i < inputs.size(); i++) {
         auto rawData = RawTensorData::CreateTensor(
@@ -66,7 +68,7 @@ void SetVerifyData(const std::vector<DeviceTensorData> &inputs,
             ProgramData::GetInstance().AppendGolden(nullptr);
         } else {
             auto rawData = RawTensorData::CreateTensor(
-            goldens[i].GetDataType(), goldens[i].GetShape(), (uint8_t *)goldens[i].GetAddr());
+                goldens[i].GetDataType(), goldens[i].GetShape(), (uint8_t *)goldens[i].GetAddr());
             ProgramData::GetInstance().AppendGolden(rawData);
         }
     }
@@ -245,7 +247,7 @@ std::string OperatorEnd(uintptr_t opAddr) {
 }
 
 int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputList,
-        const std::vector<DeviceTensorData> &outputList, [[maybe_unused]] bool isCapturing) {
+    const std::vector<DeviceTensorData> &outputList, [[maybe_unused]] bool isCapturing) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
     if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
         DeviceLauncherConfig config;
@@ -688,8 +690,8 @@ private:
 
     void InitConfigOptions(py::object &module) {
         auto options = module.attr("_runtime_options").cast<py::dict>();
-        if (options.contains("triple_stream_sched")) {	 
-            tripleStream = options["triple_stream_sched"].cast<bool>(); 
+        if (options.contains("triple_stream_sched")) {
+            tripleStream = options["triple_stream_sched"].cast<bool>();
         }
         if (options.contains("stitch_cfgcache_size")) {
             stitchCfgCacheSize = options["stitch_cfgcache_size"].cast<int64_t>();
@@ -820,12 +822,13 @@ static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensor
     return py::getattr(device, "index").cast<int>();
 }
 
-static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
+static void DoLaunch(py::object &module, int devId,
     std::vector<DeviceTensorData> &tensors,
     std::function<KernelBinary *(KernelModulePtr)> compile_fn) {
     DeviceGuard devGuard(devId);
 
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
+    aclrtStream aicoreStream = c10_npu::getCurrentNPUStream();
     aclmdlRI rtModel;
     DeviceLauncher::SaveStream(aicoreStream);
     DeviceLauncher::GetCaptureInfo(aicoreStream, rtModel);
@@ -866,7 +869,7 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
 
     DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
     HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
-    
+
     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
     HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
 
@@ -875,35 +878,32 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     HOST_PERF_EVT_END(EventPhase::LaunchKernel);
 }
 
-void LaunchKernelTorch(py::object &module, int64_t stream, py::sequence &torchTensors,
-                       py::sequence &tensorDefs) {
+void LaunchKernelTorch(py::object &module, py::sequence &torchTensors, py::sequence &tensorDefs) {
     HOST_PERF_TRACE_START();
     HOST_PERF_EVT_BEGIN(EventPhase::LaunchKernel);
-    auto aicoreStream = (aclrtStream)stream;
 
     ValidateInputs(torchTensors, tensorDefs);
 
     std::vector<DeviceTensorData> tensors;
     int devId = TorchTensorConverter::Convert(torchTensors, tensorDefs, tensors);
 
-    DoLaunch(module, aicoreStream, devId, tensors,
+    DoLaunch(module, devId, tensors,
         [&](KernelModulePtr km) { return km->CompileFromTorch(module, torchTensors, tensorDefs); });
 }
 
-void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
+void LaunchKernel(py::object &module, py::args &args) {
     HOST_PERF_TRACE_START();
     HOST_PERF_EVT_BEGIN(EventPhase::LaunchKernel);
-    auto aicoreStream = (aclrtStream)stream;
 
     std::vector<DeviceTensorData> tensors;
     auto devId = GetInputTensors(args, tensors);
 
-    DoLaunch(module, aicoreStream, devId, tensors,
+    DoLaunch(module, devId, tensors,
         [&](KernelModulePtr km) { return km->Compile(module, args); });
 }
 #else
-void LaunchKernel(py::object &, int64_t, py::args &) { }
-void LaunchKernelTorch(py::object &, int64_t, py::sequence &, py::sequence &) { }
+void LaunchKernel(py::object &, py::args &) { }
+void LaunchKernelTorch(py::object &, py::sequence &, py::sequence &) { }
 class KernelModule {
 public:
     KernelModule(py::object &) { }

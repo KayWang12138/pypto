@@ -26,6 +26,10 @@ pybind11_add_module(pypto_impl
             bindings/platform.cpp
 )
 target_include_directories(pypto_impl
+        SYSTEM PRIVATE
+            /opt/buildtools/Python-3.11.4/lib/python3.11/site-packages/torch/include/torch/csrc/api/include
+            /opt/buildtools/Python-3.11.4/lib/python3.11/site-packages/torch/include/
+            /opt/buildtools/Python-3.11.4/lib/python3.11/site-packages/torch_npu/include/
         PRIVATE
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment>>
@@ -50,6 +54,7 @@ target_link_libraries(pypto_impl
             c_sec
             intf_pub_cxx17
             tile_fwk_intf_pub
+            /opt/buildtools/Python-3.11.4/lib/python3.11/site-packages/torch_npu/lib/libtorch_npu.so
 )
 if (TARGET c_sec_shared)
     add_dependencies(pypto_impl c_sec_shared)
