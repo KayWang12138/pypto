@@ -110,9 +110,34 @@ def test_xxx():
 - 用例应该力求是最小可运行单元
 - 能够输出清晰的测试结果
 
+#### 步骤 4.5：验证测试用例写法正确性
+
+> ⚠️ **重要**：在执行复现测试前，必须先验证测试用例写法正确，避免因写法错误导致误判。
+
+**验证步骤**：
+
+1. **查阅官方示例**：
+   ```bash
+   # 查看相关算子的官方实现
+   ls examples/02_intermediate/operators/
+   ls examples/03_advanced/advanced_nn/
+   ls examples/02_intermediate/controlflow/
+   ```
+
+2. **核对 PyPTO 编程规范**（见下方"PyPTO测试用例编写规范"）：
+
+3. **编写对照测试**：
+   - 如果断裂点涉及某个 API，先编写一个使用该 API 的正确示例
+   - 运行对照测试，确认基本功能正常
+   - 如果对照测试失败，先排查环境问题
+
+4. **确认写法无误后，再执行复现测试**
+
+
 #### 步骤 5：执行复现测试
 
-运行测试用例，记录结果：
+在NPU上实际运行测试用例，记录结果：
+**必须确实上NPU运行！！注意使用空闲卡**
 
 | 结果 | 说明 |
 |------|------|
@@ -318,6 +343,45 @@ grep -r "关键词" .agents/skills/*/SKILL.md
 
 ---
 
+## PyPTO 测试用例编写规范
+
+编写测试用例前，**必须先阅读以下官方资料**：
+
+### 开发教程（必读）
+
+| 文档 | 路径 | 用途 |
+|------|------|------|
+| Tensor创建 | `docs/tutorials/development/tensor_creation.md` | tensor 定义、动态轴 |
+| Tensor操作 | `docs/tutorials/development/tensor_operation.md` | 基本操作、切片语法 |
+| Tiling配置 | `docs/tutorials/development/tiling.md` | TileShape 设置方法 |
+| 循环结构 | `docs/tutorials/development/loops.md` | loop、view/assemble 用法 |
+| 条件控制 | `docs/tutorials/development/conditions.md` | if/else、is_loop_begin/end |
+| 编译选项 | `docs/tutorials/development/compile.md` | 编译配置、动态shape |
+
+### 示例代码（按需查阅）
+
+| 示例 | 路径 | 用途 |
+|------|------|------|
+| Hello World | `examples/00_hello_world/` | 最简示例 |
+| 基本操作 | `examples/01_beginner/basic/` | kernel 基本结构 |
+| 计算操作 | `examples/01_beginner/compute/` | add/mul/matmul 等 |
+| Tiling配置 | `examples/01_beginner/tiling/` | TileShape 配置示例 |
+| 变换操作 | `examples/01_beginner/transform/` | view/assemble/reshape |
+| 算子实现 | `examples/02_intermediate/operators/` | softmax、activation 等 |
+| 控制流 | `examples/02_intermediate/controlflow/` | loop、condition、动态shape |
+| 高级网络 | `examples/03_advanced/advanced_nn/` | attention 等 |
+
+### API文档（查阅具体API）
+
+| 分类 | 路径 | 用途 |
+|------|------|------|
+| Operation | `docs/api/operation/` | 具体算子API参数和约束 |
+| Control Flow | `docs/api/controlflow/` | loop、condition API |
+| Config | `docs/api/config/` | set_vec/cube_tile_shapes 等 |
+| Others | `docs/api/others/pypto-from_torch.md` | torch tensor 转换 |
+
+---
+
 ## 检查清单
 
 - [ ] **阶段一**：断裂点筛选
@@ -327,6 +391,7 @@ grep -r "关键词" .agents/skills/*/SKILL.md
 - [ ] **阶段二**：复现测试
   - [ ] 创建复现工作目录
   - [ ] 编写最小复现用例
+  - [ ] **验证测试用例写法正确性**（查阅官方示例、核对编程规范）
   - [ ] 执行复现测试
   - [ ] 分析错误信息
 
