@@ -31,7 +31,7 @@ def _load_shared_libs():
     pkg_dir = pkg_dir if pkg_dir == cur_dir else cur_dir  # 适配 edit 模式
     lib_dir: Path = Path(pkg_dir, "lib")
     use_cann: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
-
+    print(use_cann)
     def _load_shared_lib(_desc: List[Any]):
         _name: str = _desc[0]
         _load: bool = _desc[1]
