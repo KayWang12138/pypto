@@ -723,13 +723,7 @@ void AssignMemoryType::ProcessL0C2UBSmallToLarge(Function &function) {
             APASS_LOG_DEBUG_F(Elements::Tensor, 
                 "Set tensor %d original memory type to DDR since not towards UB or not multiple dimensions.", 
                 oOperand->magic);
-        } else {
-            // 满足条件，设置为UB    
-            oOperand->SetMemoryTypeOriginal(MemoryType::MEM_UB, true);
-            APASS_LOG_DEBUG_F(Elements::Operation, 
-                "Set L0C->UB small to large for Assemble Op[%d], input tensor[%d] (L0C) -> output tensor[%d] (UB)",
-                op.GetOpMagic(), iOperand->magic, oOperand->magic);
-        }
+        } 
     }
 }
 
@@ -803,15 +797,7 @@ void AssignMemoryType::ProcessUB2L1SmallToLarge(Function &function) {
             }
             APASS_LOG_DEBUG_F(Elements::Tensor, 
                 "Set tensor %d to DDR since not towards L1 or not multiple dimensions.", oOperand->magic);
-        } else {
-            // 满足条件，设置为 L1
-            oOperand->SetMemoryTypeOriginal(MemoryType::MEM_L1, true);
-            inserter.UpdateTensorTobeMap(iOperand, op, MemoryType::MEM_UB);
-            
-            APASS_LOG_DEBUG_F(Elements::Operation, 
-                "Set UB->L1 small to large for Assemble Op[%d], input tensor[%d] (UB) -> output tensor[%d] (L1)",
-                op.GetOpMagic(), iOperand->magic, oOperand->magic);
-        }
+        } 
     }
 }
 
