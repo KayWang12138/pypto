@@ -193,7 +193,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemDataSet)
     uint32_t worldSize = 4;
 
     std::string functionName = "ShmemClearData";
-    Shape shmemDataShape = {1, 64, 256};
+    Shape shmemDataShape = {64, 256};
     FUNCTION(functionName + "Main", {predToken}, {out}) {
         TileShape::Current().SetVecTile({64, 256});
         auto shmemTensor = CreateShmemTensor(group, worldSize, DT_BF16, shmemDataShape);
