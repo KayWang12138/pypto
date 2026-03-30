@@ -42,63 +42,10 @@ void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
     uint64_t groupIndex = parameters[0];
     uint64_t memType = parameters[1];
     uint64_t slotSize = parameters[2];
-    calc::BindTensor(out, groupIndex, memType, slotSize);
+    const auto &groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
+    ASSERT(groupIndex < static_cast<uint64_t>(groupNames.size()));
+    const std::string &groupName = groupNames[groupIndex];
+    calc::BindTensor(out, groupName, memType, slotSize);
 }
 REGISTER_CALC_OP(OP_BIND_TENSOR, Opcode::OP_BIND_TENSOR, ExecuteOpBindTensor);
-
-void ExecuteOpShmemPut(ExecuteOperationContext *ctx) {
-    ASSERT(ctx->ioperandDataViewList->size() == 3);
-    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
-    auto in = ctx->ioperandDataViewList->at(0);
-    Distributed::ShmemPutAttr attr;
-    ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
-    int dstRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
-    calc::Put(in, dstRank);
-}
-REGISTER_CALC_OP(OP_SHMEM_PUT, Opcode::OP_SHMEM_PUT, ExecuteOpShmemPut);
-
-void ExecuteOpShmemGet(ExecuteOperationContext *ctx) {
-    ASSERT(ctx->ioperandDataViewList->size() == 2);
-    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
-    auto out = ctx->ooperandInplaceDataViewList->at(0);
-    Distributed::ShmemGetAttr attr;
-    ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
-    int srcRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
-    calc::Get(out, srcRank);
-}
-REGISTER_CALC_OP(OP_SHMEM_GET, Opcode::OP_SHMEM_GET, ExecuteOpShmemGet);
-
-void ExecuteOpShmemWaitUntil(ExecuteOperationContext *ctx) {
-    ASSERT(ctx->ioperandDataViewList->size() == 2);
-    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
-    auto out = ctx->ooperandInplaceDataViewList->at(0);
-    Distributed::ShmemWaitUntilAttr attr;
-    ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
-    int srcRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
-    calc::WaitUntil(srcRank);
-}
-REGISTER_CALC_OP(OP_SHMEM_WAIT_UNTIL, Opcode::OP_SHMEM_WAIT_UNTIL, ExecuteOpShmemWaitUntil);
-
-void ExecuteOpShmemSignal(ExecuteOperationContext *ctx) {
-    ASSERT(ctx->ioperandDataViewList->size() == 2);
-    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
-    auto out = ctx->ooperandInplaceDataViewList->at(0);
-    Distributed::ShmemWaitUntilAttr attr;
-    ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
-    int dstRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
-    calc::Signal(dstRank);
-}
-REGISTER_CALC_OP(OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_SIGNAL, ExecuteOpShmemSignal);
-
-void ExecuteOpShmemSet(ExecuteOperationContext *ctx) {
-    ASSERT(ctx->ioperandDataViewList->size() == 2);
-    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
-    auto out = ctx->ooperandInplaceDataViewList->at(0);
-    Distributed::ShmemSetAttr attr;
-    ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
-    int dstRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
-    calc::Set(dstRank);
-}
-REGISTER_CALC_OP(OP_SHMEM_SET, Opcode::OP_SHMEM_SET, ExecuteOpShmemSet);
-
 }
