@@ -311,7 +311,8 @@ TILEOP void TMoveND2NZ(T &dst, U &src) {
     using tileNDTensor = pto::Tile<pto::TileType::Vec, typename U::Type, staticNDH, staticNDW, pto::BLayout::RowMajor,
                                    staticNDH, staticNDW>;
     using tileNZTensor = pto::Tile<pto::TileType::Vec, typename T::Type, staticNZH, staticNZW, pto::BLayout::ColMajor,
-                                   staticNZH, staticNZW, pto::SLayout::RowMajor>;
+                                   staticNZH - 1, staticNZW, pto::SLayout::RowMajor, pto::TileConfig::fractalABSize,
+                                   pto::PadValue::Null, pto::CompactMode::RowPlusOne>;
     tileNDTensor srcTile;
     tileNZTensor dstTile;
     pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
