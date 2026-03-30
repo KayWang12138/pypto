@@ -64,7 +64,7 @@ using ShmemUbTile = pto::Tile<pto::TileType::Vec, T,
 // ---------------------------------------------------------------------------
 // Zero a shmem region; use PTO TEXPANDS instead of vector_dup for forward compatibility.
 // V→MTE3 sync ensures fill completes before TSTORE.
-template<typename T, uint32_t bufferEleNum, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2, uint32_t shmemTensorRawShape3>
+template<typename T, uint32_t bufferEleNum, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2>
 TILEOP void ShmemClear(__ubuf__ T* buffer, __gm__ T* shmemTensorAddr)
 {
     ShmemUbTile<T, 1, bufferEleNum> ubTile(1, bufferEleNum);
@@ -72,7 +72,7 @@ TILEOP void ShmemClear(__ubuf__ T* buffer, __gm__ T* shmemTensorAddr)
     pto::TEXPANDS(ubTile, static_cast<T>(0));
     PIPE_SYNC_EVENT(PIPE_V, PIPE_MTE3, EVENT_ID0);
 
-    constexpr uint32_t shmemTensorEleNum = shmemTensorRawShape1 * shmemTensorRawShape2 * shmemTensorRawShape3;
+    constexpr uint32_t shmemTensorEleNum = shmemTensorRawShape1 * shmemTensorRawShape2;
     constexpr uint32_t fullChunkCount = shmemTensorEleNum / bufferEleNum;
 
     for (int32_t i = 0; i < fullChunkCount; i++) {
@@ -116,24 +116,23 @@ TILEOP void ShmemClearFlag(__ubuf__ T* buffer, __gm__ T* shmemTensorAddr, uint32
     }
 }
 
-template<typename T, uint32_t shmemTensorRawShape0, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2,
+template<typename T, uint32_t shmemTensorRawShape0, uint32_t shmemTensorRawShape1,
     uint32_t bufferEleNum>
 TILEOP void ShmemSet(CoreFuncParam* param, __ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t shmemTensorOffset0,
-    uint32_t shmemTensorOffset1, uint32_t shmemTensorOffset2, uint32_t ownerRank, __gm__ int64_t *hcclContext)
+    uint32_t shmemTensorOffset1, uint32_t ownerRank, __gm__ int64_t *hcclContext)
 {
     __gm__ T* shmemTensorAddr = MapVirtualAddr<T>(hcclContext, shmemTensorBaseAddr, ownerRank) +
-        CalcLinearOffset(shmemTensorRawShape1, shmemTensorRawShape2, shmemTensorOffset0, shmemTensorOffset1,
-        shmemTensorOffset2);
-    ShmemClear<T, bufferEleNum, shmemTensorRawShape0, shmemTensorRawShape1, shmemTensorRawShape2>(buffer, shmemTensorAddr);
+        CalcLinearOffset(shmemTensorRawShape1, shmemTensorOffset0, shmemTensorOffset1);
+    ShmemClear<T, bufferEleNum, shmemTensorRawShape0, shmemTensorRawShape1>(buffer, shmemTensorAddr);
 }
 
-template<typename T, uint32_t worldSize, uint32_t signalMaxTileNum, uint32_t stride,
+template<typename T, uint32_t worldSize, uint32_t stride,
     uint32_t bufferEleNum>
 TILEOP void ShmemSet(CoreFuncParam* param, __ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t shmemTensorOffset0,
-    uint32_t shmemTensorOffset1, uint32_t shmemTensorOffset2, uint32_t shmemTensorOffset3, 
+    uint32_t shmemTensorOffset1, uint32_t shmemTensorOffset2,
     uint32_t shmemTensorRawShape0, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2,
-    uint32_t shmemTensorRawShape3, uint32_t shmemTensorShape0, uint32_t shmemTensorShape1,
-    uint32_t shmemTensorShape2, uint32_t shmemTensorShape3, uint32_t ownerRank, __gm__ int64_t *hcclContext)
+    uint32_t shmemTensorShape0, uint32_t shmemTensorShape1,
+    uint32_t shmemTensorShape2, uint32_t ownerRank, __gm__ int64_t *hcclContext)
 {
     uint32_t maxTileNume = static_cast<uint32_t>(GetVirtualMaxTileNum((uint64_t)shmemTensorBaseAddr));
 
@@ -354,8 +353,8 @@ template<typename NonShmemType, typename ShmemType, uint32_t tileRowShape, uint3
     uint32_t bufferColShape, uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
 TILEOP void ShmemPut(CoreFuncParam* param, __ubuf__ NonShmemType* buffer, __gm__ NonShmemType* nonShmemDataBaseAddr, __gm__ ShmemType* shmemDataBaseAddr,
     uint32_t nonShmemDataOffset0, uint32_t nonShmemDataOffset1, uint32_t nonShmemDataRawShape0,
-    uint32_t nonShmemDataRawShape1, uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, uint32_t shmemDataOffset2,
-    uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t shmemDataRawShape2, uint32_t shmemGetTensorDataOffset, uint32_t ownerRank, __gm__ int64_t *hcclContext)
+    uint32_t nonShmemDataRawShape1, uint32_t shmemDataOffset0, uint32_t shmemDataOffset1,
+    uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t shmemGetTensorDataOffset, uint32_t ownerRank, __gm__ int64_t *hcclContext)
 {
     (void)nonShmemDataRawShape0;
     (void)shmemDataRawShape0;
@@ -365,7 +364,7 @@ TILEOP void ShmemPut(CoreFuncParam* param, __ubuf__ NonShmemType* buffer, __gm__
     __gm__ NonShmemType* srcAddr = nonShmemDataBaseAddr + TileOp::CalcLinearOffset(nonShmemDataRawShape1,
         nonShmemDataOffset0, nonShmemDataOffset1);
     __gm__ ShmemType* dstAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, ownerRank) +
-        CalcLinearOffset(shmemDataRawShape1, shmemDataRawShape2, shmemDataOffset0, shmemDataOffset1, shmemDataOffset2);
+        CalcLinearOffset(shmemDataRawShape1, shmemDataOffset0, shmemDataOffset1);
     if constexpr (atomicType == AtomicType::ADD) {
         SetAttomicType<ShmemType>();
         set_atomic_add();
@@ -380,20 +379,20 @@ TILEOP void ShmemPut(CoreFuncParam* param, __ubuf__ NonShmemType* buffer, __gm__
 template<typename InShmemType, typename OutShmemType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape,
     uint32_t bufferColShape, uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
 TILEOP void ShmemPut(CoreFuncParam* param, __ubuf__ InShmemType* buffer, __gm__ InShmemType* inShmemDataBaseAddr, __gm__ OutShmemType* shmemDataBaseAddr,
-    uint32_t inShmemDataOffset0, uint32_t inShmemDataOffset1, uint32_t inShmemDataOffset2, uint32_t inShmemDataOffset3,
-    uint32_t inShmemDataRawShape0, uint32_t inShmemDataRawShape1, uint32_t inShmemDataRawShape2, uint32_t inShmemDataRawShape3,
-    uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, uint32_t shmemDataOffset2, uint32_t shmemDataOffset3,
-    uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t shmemDataRawShape2, uint32_t shmemDataRawShape3, __gm__ int64_t *hcclContext)
+    uint32_t inShmemDataOffset0, uint32_t inShmemDataOffset1, uint32_t inShmemDataOffset2,
+    uint32_t inShmemDataRawShape0, uint32_t inShmemDataRawShape1, uint32_t inShmemDataRawShape2,
+    uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, uint32_t shmemDataOffset2,
+    uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t shmemDataRawShape2, __gm__ int64_t *hcclContext)
 {
     (void)inShmemDataRawShape0;
     (void)shmemDataRawShape0;
     
     __gm__ InShmemType* inShmemDataAddr = 
         MapVirtualAddr<InShmemType>(hcclContext, inShmemDataBaseAddr, inShmemDataOffset0) + CalcLinearOffset(
-        inShmemDataRawShape2, inShmemDataRawShape3, inShmemDataOffset1, inShmemDataOffset2, inShmemDataOffset3);
+        inShmemDataRawShape2, inShmemDataOffset1, inShmemDataOffset2);
     __gm__ OutShmemType* shmemDataAddr = 
         MapVirtualAddr<OutShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) + CalcLinearOffset(
-        shmemDataRawShape2, shmemDataRawShape3, shmemDataOffset1, shmemDataOffset2, shmemDataOffset3);
+        shmemDataRawShape2, shmemDataOffset1, shmemDataOffset2);
     
     CopyGmToGm<OutShmemType, InShmemType, InShmemType, tileRowShape, tileColShape, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(
         shmemDataAddr, buffer, inShmemDataAddr);
@@ -402,15 +401,15 @@ TILEOP void ShmemPut(CoreFuncParam* param, __ubuf__ InShmemType* buffer, __gm__ 
 // Put UB directly to remote shmem GM.
 template<typename Type, uint32_t tileRowShape, uint32_t tileColShape, uint32_t dstStride, AtomicType atomicType>
 TILEOP void ShmemPutUb2Gm(CoreFuncParam* param, __ubuf__ Type* UBDataBaseAddr, __gm__ Type* shmemDataBaseAddr, uint32_t UBDataOffset0, uint32_t UBDataOffset1, uint32_t UBDataRawShape0,
-    uint32_t UBDataRawShape1, uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, uint32_t shmemDataOffset2,
-    uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t shmemDataRawShape2, uint32_t ownerRank, __gm__ int64_t *hcclContext)
+    uint32_t UBDataRawShape1, uint32_t shmemDataOffset0, uint32_t shmemDataOffset1,
+    uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t ownerRank, __gm__ int64_t *hcclContext)
 {
     (void)UBDataRawShape0;
     (void)shmemDataRawShape0;
     
     __ubuf__ Type* UBDataAddr = UBDataBaseAddr + TileOp::CalcLinearOffset(UBDataRawShape1, UBDataOffset0, UBDataOffset1);
     __gm__ Type* shmemDataAddr = MapVirtualAddr<Type>(hcclContext, shmemDataBaseAddr, ownerRank) +
-        CalcLinearOffset(shmemDataRawShape1, shmemDataRawShape2, shmemDataOffset0, shmemDataOffset1, shmemDataOffset2);
+        CalcLinearOffset(shmemDataRawShape1,shmemDataOffset0, shmemDataOffset1);
     
     PIPE_SYNC_EVENT(PIPE_S, PIPE_MTE3, EVENT_ID0);
     
@@ -429,19 +428,14 @@ TILEOP void ShmemPutUb2Gm(CoreFuncParam* param, __ubuf__ Type* UBDataBaseAddr, _
 // Signal: write value to remote ranks; S→MTE3 sync so scalar write is visible to TSTORE.
 template<int64_t value, int32_t stride, int32_t tileRowShape, int32_t tileColShape, AtomicType atomicType, bool notifyAll, uint32_t worldSize>
 TILEOP void ShmemSignal(CoreFuncParam* param, __ubuf__ int32_t* buffer, __gm__ int32_t* shmemSignalBaseAddr,
-    uint32_t shmemSignalOffset0, uint32_t shmemSignalOffset1, uint32_t shmemSignalOffset2, uint32_t shmemSignalOffset3,
-    uint32_t shmemSignalRawShape0, uint32_t shmemSignalRawShape1, uint32_t shmemSignalRawShape2, uint32_t shmemSignalRawShape3,
-    uint32_t shmemSignalShape0, uint32_t shmemSignalShape1, uint32_t shmemSignalShape2, uint32_t shmemSignalShape3, uint32_t ownerRank, __gm__ int64_t *hcclContext)
+    uint32_t shmemSignalOffset0, uint32_t shmemSignalOffset1, uint32_t shmemSignalOffset2,
+    uint32_t shmemSignalRawShape0, uint32_t shmemSignalRawShape1, uint32_t shmemSignalRawShape2,
+    uint32_t shmemSignalShape0, uint32_t shmemSignalShape1, uint32_t shmemSignalShape2, uint32_t ownerRank, __gm__ int64_t *hcclContext)
 {
-    (void)shmemSignalRawShape0;
-    (void)shmemSignalRawShape1;
-    (void)shmemSignalShape1;
-    (void)shmemSignalShape2;
-    
-    int32_t tileCols = CeilDiv(static_cast<int32_t>(shmemSignalRawShape3), tileColShape);
-    int32_t tileRows = CeilDiv(static_cast<int32_t>(shmemSignalRawShape2), tileRowShape);
-    int32_t tileRow = static_cast<int32_t>(shmemSignalOffset2) / tileRowShape;
-    int32_t tileCol = static_cast<int32_t>(shmemSignalOffset3) / tileColShape;
+    int32_t tileCols = CeilDiv(static_cast<int32_t>(shmemSignalRawShape2), tileColShape);
+    int32_t tileRows = CeilDiv(static_cast<int32_t>(shmemSignalRawShape1), tileRowShape);
+    int32_t tileRow = static_cast<int32_t>(shmemSignalOffset1) / tileRowShape;
+    int32_t tileCol = static_cast<int32_t>(shmemSignalOffset2) / tileColShape;
     int32_t tileIndex = tileRow * tileCols + tileCol;
     int32_t totalTileNum = tileRows * tileCols;
 
@@ -459,7 +453,7 @@ TILEOP void ShmemSignal(CoreFuncParam* param, __ubuf__ int32_t* buffer, __gm__ i
     uint32_t eRank =  notifyAll ? worldSize : sRank + 1;
     for (uint32_t rankId = sRank; rankId < eRank; rankId++) {
         __gm__ int32_t* shmemSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, rankId) +
-            CalcLinearOffset(shmemSignalRawShape1, totalTileNum, shmemSignalOffset0, shmemSignalOffset1, tileIndex) * stride;
+            CalcLinearOffset(totalTileNum, shmemSignalOffset0, tileIndex) * stride;
         ShmemGlobalTensor<int32_t, 1, signalColShape> signalGlobal(shmemSignalAddr, signalShape, signalStride);
         AtomicStore<atomicType>(signalGlobal, signalTile);
     }
@@ -470,8 +464,8 @@ template<typename NonShmemType, typename ShmemType, uint32_t tileRowShape, uint3
     uint32_t bufferColShape, uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
 TILEOP void ShmemGet(CoreFuncParam* param, __gm__ NonShmemType* nonShmemDataBaseAddr, __ubuf__ NonShmemType* buffer, __gm__ ShmemType* shmemDataBaseAddr,
     uint32_t nonShmemDataOffset0, uint32_t nonShmemDataOffset1, uint32_t nonShmemDataRawShape0,
-    uint32_t nonShmemDataRawShape1, uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, uint32_t shmemDataOffset2,
-    uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t shmemDataRawShape2, uint32_t ownerRank, __gm__ int64_t *hcclContext)
+    uint32_t nonShmemDataRawShape1, uint32_t shmemDataOffset0, uint32_t shmemDataOffset1,
+    uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t ownerRank, __gm__ int64_t *hcclContext)
 {
     (void)nonShmemDataRawShape0;
     (void)shmemDataRawShape0;
@@ -479,7 +473,7 @@ TILEOP void ShmemGet(CoreFuncParam* param, __gm__ NonShmemType* nonShmemDataBase
     __gm__ NonShmemType* nonShmemDataAddr = nonShmemDataBaseAddr + TileOp::CalcLinearOffset(nonShmemDataRawShape1,
         nonShmemDataOffset0, nonShmemDataOffset1);
     __gm__ ShmemType* shmemDataAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, ownerRank) +
-        CalcLinearOffset(shmemDataRawShape1, shmemDataRawShape2, shmemDataOffset0, shmemDataOffset1, shmemDataOffset2);
+        CalcLinearOffset(shmemDataRawShape1, shmemDataOffset0, shmemDataOffset1);
 
     if constexpr (std::is_same_v<NonShmemType, ShmemType> && atomicType == AtomicType::SET &&
         (bufferColShape >= tileColShape)) {
@@ -497,8 +491,8 @@ template<typename UBType, typename ShmemType, uint32_t tileRowShape, uint32_t ti
     uint32_t bufferColShape, uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
 TILEOP void ShmemGetGm2Ub(CoreFuncParam* param, __ubuf__ UBType* UBDataBaseAddr, __ubuf__ UBType* buffer, __gm__ ShmemType* shmemDataBaseAddr,
     uint32_t UBDataOffset0, uint32_t UBDataOffset1, uint32_t UBDataRawShape0, uint32_t UBDataRawShape1,
-    uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, uint32_t shmemDataOffset2, 
-    uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t shmemDataRawShape2, uint32_t ownerRank, __gm__ int64_t *hcclContext)
+    uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, 
+    uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t ownerRank, __gm__ int64_t *hcclContext)
 {
     (void)tileRowShape;
     (void)tileColShape;
@@ -507,7 +501,7 @@ TILEOP void ShmemGetGm2Ub(CoreFuncParam* param, __ubuf__ UBType* UBDataBaseAddr,
 
     __ubuf__ UBType* UBDataAddr = UBDataBaseAddr + TileOp::CalcLinearOffset(UBDataRawShape1, UBDataOffset0, UBDataOffset1);
     __gm__ ShmemType* shmemDataAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, ownerRank) +
-        CalcLinearOffset(shmemDataRawShape1, shmemDataRawShape2, shmemDataOffset0, shmemDataOffset1, shmemDataOffset2);
+        CalcLinearOffset(shmemDataRawShape1, shmemDataOffset0, shmemDataOffset1);
     
     CopyGmToUbBlock<UBType, ShmemType, bufferRowShape, bufferColShape, srcStride, dstStride>(UBDataAddr, buffer, shmemDataAddr);
 }
