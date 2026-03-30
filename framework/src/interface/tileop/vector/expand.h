@@ -42,6 +42,8 @@ TILEOP void TExpand(T0 dst, T1 src) {
     auto dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
 
     const auto srcLayout = src.GetLayout();
+    auto srcShape3 = srcLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    auto srcShape4 = srcLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
     auto srcStride0 = srcLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
     auto srcStride1 = srcLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
     auto srcStride2 = srcLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
