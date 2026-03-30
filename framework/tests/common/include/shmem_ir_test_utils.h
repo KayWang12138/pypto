@@ -77,7 +77,7 @@ inline std::string OpcodeName(Opcode code)
     if (code == Opcode::OP_SHMEM_SIGNAL)         return "OP_SHMEM_SIGNAL";
     if (code == Opcode::OP_SHMEM_WAIT_UNTIL)     return "OP_SHMEM_WAIT_UNTIL";
     if (code == Opcode::OP_SHMEM_GET)            return "OP_SHMEM_GET";
-    std::string n = pto::GetOpcodeName(static_cast<pto::Opcode>(code));
+    std::string n = OpcodeManager::Inst().GetOpcodeStr(code);
     if (!n.empty()) return n;
     return "OPCODE(" + std::to_string(static_cast<int>(code)) + ")";
 }
@@ -152,17 +152,23 @@ inline void VerifyOneShotCounts(const ShmemOpCounts& c, uint32_t worldSize)
     EXPECT_EQ(c.get, 1u) << "Expected 1 OP_SHMEM_GET op";
 }
 
-// OneShot grouped (v7): W*C puts/signals, ceil(C/k) waits, C gets.
+// OneShot chunked coarse-signaling (v7/v8 current impl):
+//   puts   = W*C
+//   signals= W      (one coarse signal per target rank)
+//   waits  = 1      (single coarse wait token, then cached)
+//   gets   = C
+//
+// chunksPerSignal is kept in the signature for call-site compatibility and
+// future fine-grained signaling implementations.
 inline void VerifyOneShotGroupedCounts(const ShmemOpCounts& c,
     uint32_t worldSize, uint32_t payloadChunkCount, uint32_t chunksPerSignal)
 {
     ASSERT_GT(payloadChunkCount, 0u);
     ASSERT_GT(chunksPerSignal, 0u);
-    uint32_t groupCount = (payloadChunkCount + chunksPerSignal - 1u) / chunksPerSignal;
-    uint32_t expectedScatter = worldSize * payloadChunkCount;
-    EXPECT_EQ(c.put, expectedScatter) << "Expected " << expectedScatter << " OP_SHMEM_PUT ops";
-    EXPECT_EQ(c.signal, expectedScatter) << "Expected " << expectedScatter << " OP_SHMEM_SIGNAL ops";
-    EXPECT_EQ(c.wait, groupCount) << "Expected " << groupCount << " OP_SHMEM_WAIT_UNTIL ops";
+    uint32_t expectedPut = worldSize * payloadChunkCount;
+    EXPECT_EQ(c.put, expectedPut) << "Expected " << expectedPut << " OP_SHMEM_PUT ops";
+    EXPECT_EQ(c.signal, worldSize) << "Expected " << worldSize << " OP_SHMEM_SIGNAL ops";
+    EXPECT_EQ(c.wait, 1u) << "Expected 1 OP_SHMEM_WAIT_UNTIL op";
     EXPECT_EQ(c.get, payloadChunkCount) << "Expected " << payloadChunkCount << " OP_SHMEM_GET ops";
 }
 
