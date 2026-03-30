@@ -486,36 +486,4 @@ inline void BindTensor(LogicalTensorDataPtr out, uint64_t groupIndex, uint64_t m
     TensorData oData = Trans(out);
     ops->BindTensor(oData, groupIndex, memType, slotSize);
 }
-
-inline void Get(LogicalTensorDataPtr out, int srcRank) {
-    CalcOps *ops = GetCalcOps();
-    ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
-    TensorData oData = Trans(out);
-    ops->Get(oData, srcRank);
-}
-
-inline void Put(LogicalTensorDataPtr in, int dstRank) {
-    CalcOps *ops = GetCalcOps();
-    ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
-    TensorData iData = Trans(in);
-    ops->Put(iData, dstRank);
-}
-
-inline void Signal(int dstRank) {
-    CalcOps *ops = GetCalcOps();
-    ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
-    ops->Signal(dstRank);
-}
-
-inline void WaitUntil(int srcRank) {
-    CalcOps *ops = GetCalcOps();
-    ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
-    ops->WaitUntil(srcRank);
-}
-
-inline void Set(int dstRank) {
-    CalcOps *ops = GetCalcOps();
-    ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
-    ops->Set(dstRank);
-}
 } // namespace npu::tile_fwk::calc

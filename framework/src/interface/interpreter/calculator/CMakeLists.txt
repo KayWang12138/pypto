@@ -63,6 +63,7 @@ target_include_directories(tile_fwk_calculator
         SYSTEM PRIVATE
             ${PY3_MOD_TORCH_ROOT_PATH}/include
             ${PY3_MOD_TORCH_ROOT_PATH}/include/torch/csrc/api/include
+            ${PY3_MOD_TORCH_ROOT_PATH}/include/torch/csrc/distributed
             $<$<BOOL:${PTO_FWK_SRC_ROOT}>:${PTO_FWK_SRC_ROOT}/framework/include>
             $<$<BOOL:${PTO_FWK_SRC_ROOT}>:${PTO_FWK_SRC_ROOT}/framework/src/>
             $<$<BOOL:${PTO_FWK_SRC_ROOT}>:${PTO_FWK_SRC_ROOT}/framework/src/interface>
