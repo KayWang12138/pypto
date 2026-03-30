@@ -230,10 +230,12 @@ void CodeGenOpLiteNPU::UpdateTileTensorInfo() {
     tileOpName = iter->second; // update tileOpName from SUPPORT_TILETENSOR_OPS
 
     for (int i = 0; i < operandCnt; ++i) {
-        TileTensorUsingLiteNPU tileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],
-            operandType[i], static_cast<int>(rawShape[i].size()), originShape[i], rawShape[i]};
+        std::shared_ptr<TileTensorUsingLiteNPU> tileTensorUsing = std::make_shared<TileTensorUsingLiteNPU>(
+            TileTensorUsingLiteNPU{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i], operandType[i],
+                static_cast<int>(rawShape[i].size()), originShape[i], rawShape[i]});
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
-        TileTensorLiteNPU tileTensor = BuildTileTensor(i, usingType);
+        std::shared_ptr<TileTensorLiteNPU> tileTensor =
+            std::make_shared<TileTensorLiteNPU>(BuildTileTensor(i, usingType));
         std::string tensorName = sm->AddTileTensor(tileTensor);
         tensorNames_[i] = tensorName;
         CODEGEN_LOGI(

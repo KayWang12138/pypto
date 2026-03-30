@@ -22,6 +22,13 @@
 
 namespace npu::tile_fwk {
 
+inline std::string GetLayoutTypeLiteNPU(int dim, bool isConst = false) {
+    std::string prefix = isConst ? "Static" : "Local";
+    std::ostringstream ss;
+    ss << prefix << LAYOUT << dim << DIM;
+    return ss.str();
+}
+
 // e.g.
 // UBTileTensorFP32Dim2 ubTile_0((__ubuf__ float*)UB_S0_E16384, DimLayout2(Shape<int, int>(sym_18_dim_0, sym_18_dim_1),
 // Stride<int, int>(64, 1)));
@@ -62,7 +69,6 @@ struct TileTensorLiteNPU : TileTensor {
     }
 
     std::string ToString() const override {
-        std::cout<<"called TileTensorLiteNPU ToString...\n";
         std::ostringstream oss;
         oss << usingType << " " << tensorName << GenInitParamLiteNPU() << STMT_END;
         return oss.str();
@@ -81,7 +87,7 @@ struct TileTensorUsingLiteNPU : TileTensorUsing {
         std::ostringstream ss;
         ss << TILE_TENSOR << "<";
         ss << DataType2CCEStr(dtype) << ", ";
-        ss << GetLayoutType(bufType, dim, isConstant);
+        ss << GetLayoutTypeLiteNPU(dim, isConstant);
         ss << GetLayoutParams();
         ss << ", " << SCOPE_NAMESPACE << "::" << BUFFER_TYPE_TO_PREFIX.at(bufType) << ">;\n";
         return ss.str();
