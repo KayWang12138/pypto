@@ -46,8 +46,6 @@ public:
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetHostConfig(KEY_STRATEGY, "LoopAxesPassTestStrategy");
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -121,12 +119,12 @@ TEST_F(TestCodegenForLoop, TestForLoop)
     // 定义第一个待检查的目标代码片段
     const std::string expect1 = R"(
         auto tileOffsets = TileOffset(idx0, idx1, idx2);
-        ubTensor_11_low2DimInLoop.SetAddr(ubTensor_11.GetLinearAddr(tileOffsets));
-        ubTensor_3_low2DimInLoop.SetAddr(ubTensor_3.GetLinearAddr(tileOffsets));
-        ubTensor_1_low2DimInLoop.SetAddr(ubTensor_1.GetLinearAddr(tileOffsets));
-        ubTensor_5_low2DimInLoop.SetAddr(ubTensor_5.GetLinearAddr(tileOffsets));
-        TAdd<LastUse3Dim<0, 0, 0>>(ubTensor_5_low2DimInLoop, ubTensor_1_low2DimInLoop, ubTensor_3_low2DimInLoop);
-        TSub<LastUse3Dim<0, 1, 1>>(ubTensor_11_low2DimInLoop, ubTensor_1_low2DimInLoop, ubTensor_3_low2DimInLoop);
+        ubTensor_10_low2DimInLoop.SetAddr(ubTensor_10.GetLinearAddr(tileOffsets));
+        ubTensor_2_low2DimInLoop.SetAddr(ubTensor_2.GetLinearAddr(tileOffsets));
+        ubTensor_0_low2DimInLoop.SetAddr(ubTensor_0.GetLinearAddr(tileOffsets));
+        ubTensor_4_low2DimInLoop.SetAddr(ubTensor_4.GetLinearAddr(tileOffsets));
+        TAdd<LastUse3Dim<0, 0, 0>>(ubTensor_4_low2DimInLoop, ubTensor_0_low2DimInLoop, ubTensor_2_low2DimInLoop);
+        TSub<LastUse3Dim<0, 1, 1>>(ubTensor_10_low2DimInLoop, ubTensor_0_low2DimInLoop, ubTensor_2_low2DimInLoop);
     }
   }
 })";
@@ -134,9 +132,9 @@ TEST_F(TestCodegenForLoop, TestForLoop)
 
     const std::string expect2 = R"(
         auto tileOffsets = TileOffset(idx0, idx1, idx2);
-        ubTensor_11_low2DimInLoop.SetAddr(ubTensor_11.GetLinearAddr(tileOffsets));
-        ubTensor_5_low2DimInLoop.SetAddr(ubTensor_5.GetLinearAddr(tileOffsets));
-        TMul<LastUse3Dim<0, 1, 1>>(ubTensor_5_low2DimInLoop, ubTensor_5_low2DimInLoop, ubTensor_11_low2DimInLoop);
+        ubTensor_10_low2DimInLoop.SetAddr(ubTensor_10.GetLinearAddr(tileOffsets));
+        ubTensor_4_low2DimInLoop.SetAddr(ubTensor_4.GetLinearAddr(tileOffsets));
+        TMul<LastUse3Dim<0, 1, 1>>(ubTensor_4_low2DimInLoop, ubTensor_4_low2DimInLoop, ubTensor_10_low2DimInLoop);
     }
   }
 })";

@@ -19,6 +19,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/operation/operation.h"
 #include "interface/program/program.h"
+#include "interface/utils/id_gen.h"
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
