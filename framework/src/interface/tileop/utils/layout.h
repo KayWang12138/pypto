@@ -317,6 +317,18 @@ __aicore__ inline constexpr bool JudgeValidShapeEqualTileShape() {
 }
 
 template <typename T0>
+__aicore__ inline constexpr bool JudgeValidShapeEqualTileShapeMX() {
+    if constexpr (T0::IsStaticLayout()) {
+        constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
+        if constexpr (shapeSize == 1 || shapeSize == 2 || shapeSize == 3) {
+            return true;
+        }
+        return false;
+    }
+    return false;
+}
+
+template <typename T0>
 __aicore__ constexpr bool IsConstContinous() {
     return JudgeValidShapeEqualTileShape<T0>();
 }
@@ -327,6 +339,19 @@ __aicore__ constexpr bool IsConstContinous() {
         return false;
     }
     return IsConstContinous<T1, Args...>();
+}
+
+template <typename T0>
+__aicore__ constexpr bool IsConstContinousMX() {
+    return JudgeValidShapeEqualTileShapeMX<T0>();
+}
+
+template <typename T0, typename T1, typename... Args>
+__aicore__ constexpr bool IsConstContinousMX() {
+    if constexpr (!JudgeValidShapeEqualTileShapeMX<T0>()) {
+        return false;
+    }
+    return IsConstContinousMX<T1, Args...>();
 }
 } // namespace TileOp
 
