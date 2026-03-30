@@ -58,8 +58,8 @@ Status Checker::CheckConsumerProducer(const LogicalTensorPtr &tensor) {
 }
 
 Status Checker::CheckValidOp(Function &function) {
-    for (const auto &op : function.Operations().DuplicatedOpList()) {
-        if (op == nullptr) {
+    for (const auto &ops : function.Operations().DuplicatedOpList()) {
+        if (ops == nullptr) {
             APASS_LOG_ERROR_C(FunctionErr::FUNCTION_GRAPH_STRUCTURE, Elements::Function, "Found null op in function.Operations().");
             return FAILED;
         }
