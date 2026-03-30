@@ -14,47 +14,14 @@
  */
 
 #pragma once
-
-#include <torch/torch.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <semaphore.h>
-#include <unistd.h>
-#include <cstdint>
 #include <string>
 
 namespace npu::tile_fwk {
 
-class CommManager {
-public:
-    static CommManager &getInstance() {
-        static CommManager instance;
-        return instance;
-    }
+int GetRankId(int);
+int GetRankId(std::string);
 
-    void InitControl(std::string name, int rank, int worldSize);
-
-    void InitData(std::string name, size_t slotSize);
-
-    void Put(const torch::Tensor &t, int dstRank);
-    void Signal(int dstRank);
-    void Wait(int srcRank);
-    torch::Tensor Get(int srcRank, at::IntArrayRef shape, torch::ScalarType dtype);
-
-    ~CommManager();
-
-private:
-    CommManager() = default;
-    int rank_ = -1;
-    int worldSize_ = -1;
-    size_t slotSize_ = 0;
-
-    sem_t *ctrlBase_ = nullptr;
-    uint8_t *dataBase_ = nullptr;
-
-    size_t ctrlShmSize_ = 0;
-    size_t dataShmSize_ = 0;
-    std::string ctrlName_, dataName_;
-};
+int GetWorldSize(int);
+int GetWorldSize(std::string);
 
 }
