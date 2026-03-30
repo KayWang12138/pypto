@@ -159,12 +159,8 @@ def my_kernel(
 - [ ] 输入输出数据类型是否一致
 - [ ] 中间计算是否需要更高精度
 - [ ] 是否存在隐式类型转换
-- [ ] **二元操作的两个操作数 dtype 是否相同**（重要）
 
-**依据参考**：
-- [pypto.mul API 文档](../../../docs/api/operation/pypto-mul.md)：约束说明第1条明确指出"input 和 other 类型应该相同"
-- [pypto.cast API 文档](../../../docs/api/operation/pypto-cast.md)：用于显式类型转换
-- 通用编程最佳实践。**注意：此检查项属于数值计算通用检查方法。**
+**依据参考**：通用编程最佳实践。**注意：此检查项属于数值计算通用检查方法。**
 
 **常见问题**：
 
@@ -172,31 +168,6 @@ def my_kernel(
 |-----|------|---------|
 | FP16 精度损失 | 大数值计算误差 | 使用 FP32 或调整计算顺序 |
 | 类型不匹配 | 计算结果异常 | 确保类型一致 |
-| **混合 dtype 二元操作** | **报错 `FC0000: The dtype of input tensors are not same`** | **使用 `pypto.cast()` 显式转换类型** |
-
-**⚠️ 重要：PyPTO 不支持隐式类型转换**
-
-PyPTO 的二元操作（`+`、`-`、`*`、`/`、`matmul` 等）严格要求两个输入 tensor 的 dtype 必须相同。与 PyTorch 不同，PyPTO 不会自动进行类型提升。
-
-**错误示例**：
-```python
-# ❌ 错误：BF16 与 FP32 直接相乘会报错
-mm_result = pypto.matmul(x, w, pypto.DT_FP32)  # 输出 FP32
-result = mm_result * gamma  # gamma 是 BF16，报错！
-```
-
-**正确写法**：
-```python
-# ✅ 正确：使用 pypto.cast 显式转换类型
-mm_result = pypto.matmul(x, w, pypto.DT_FP32)  # 输出 FP32
-gamma_fp32 = pypto.cast(gamma, pypto.DT_FP32)  # 将 gamma 转为 FP32
-result = mm_result * gamma_fp32  # 同类型相乘，正常工作
-```
-
-**最佳实践**：
-1. 在 kernel 设计阶段就规划好 dtype 流转
-2. 当 matmul 输出 FP32 后，后续操作要么全部使用 FP32，要么在操作前显式 cast
-3. 常见模式：BF16 输入 → matmul 输出 FP32 → cast 回 BF16 继续计算
 
 #### 1.2 Shape 定义检查
 
