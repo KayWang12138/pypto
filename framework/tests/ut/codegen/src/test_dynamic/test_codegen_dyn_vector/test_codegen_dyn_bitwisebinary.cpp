@@ -131,12 +131,12 @@ TEST_F(TestCodegenDynBitwiseBinary, BitwiseXorLayout) {
 }
 
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseAndsLayout) {
-const std::string expect = R"(TBitwiseAndS<LastUse2Dim<0, 1>, int16_t>(ubTensor_2, ubTensor_0, 2);)";
+const std::string expect = R"(TBitwiseAndS<LastUse2Dim<0, 1>, int16_t>(ubTensor_2, ubTensor_0, 2.0f);)";
     TestBitwiseScalarDynBody({32, 32}, {16, 16}, "BitwiseAnds", expect);
 }
 
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseOrsLayout) {
-    const std::string expect = R"(TBitwiseOrS<LastUse2Dim<0, 1>, int16_t>(ubTensor_2, ubTensor_0, 2);)";
+    const std::string expect = R"(TBitwiseOrS<LastUse2Dim<0, 1>, int16_t>(ubTensor_2, ubTensor_0, 2.0f);)";
     TestBitwiseScalarDynBody({32, 32}, {16, 16}, "BitwiseOrs", expect);
 }
 
