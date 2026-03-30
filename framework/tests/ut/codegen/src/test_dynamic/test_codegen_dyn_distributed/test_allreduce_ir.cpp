@@ -53,13 +53,13 @@ protected:
         config::Reset();
     }
 
-    void CreateShmemTensors(DataType shmemDataType, const Shape& shmemDataShape,
-                            Tensor& shmemData, Tensor& shmemSignal)
+    void CreateShmemHelper(uint32_t worldSize, DataType shmemDataType,
+                           const Shape& shmemDataShape, ShmemTensor& shmemTensor,
+                           const char* group = kGroup)
     {
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(kGroup, kWorldSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(kGroup, shmemData, shmemSignal);
+            CreateShmemTensor(group, worldSize, shmemDataType, shmemDataShape, shmemTensor);
         }
     }
 
@@ -80,9 +80,9 @@ protected:
 
         FUNCTION(funcTag, {in}, {out}) {
             TileShape::Current().SetVecTile({kRow, kCol});
-            Tensor shmemData, shmemSignal;
-            CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-            buildBody(in, kGroup, shmemData, shmemSignal, out);
+            ShmemTensor shmemTensor;
+            CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+            buildBody(in, shmemTensor, out);
         }
 
         auto ops = ExtractShmemOpcodes(funcTag);
@@ -99,9 +99,9 @@ protected:
 
         FUNCTION(funcTag, {in}, {out}) {
             TileShape::Current().SetVecTile({kRow, kCol});
-            Tensor shmemData, shmemSignal;
-            CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-            buildBody(in, kGroup, shmemData, shmemSignal, out);
+            ShmemTensor shmemTensor;
+            CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+            buildBody(in, shmemTensor, out);
         }
 
         auto ops = ExtractShmemOpcodes(funcTag);
@@ -126,9 +126,9 @@ protected:
 
         FUNCTION(funcTag, {in}, {out}) {
             TileShape::Current().SetVecTile({kRow, kCol});
-            Tensor shmemData, shmemSignal;
-            CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-            buildBody(in, kGroup, shmemData, shmemSignal, out);
+            ShmemTensor shmemTensor;
+            CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+            buildBody(in, shmemTensor, out);
         }
 
         return ExtractShmemOpcodes(funcTag);
@@ -145,9 +145,9 @@ protected:
 
         FUNCTION(funcTag, {in}, {out}) {
             TileShape::Current().SetVecTile({kRow, kCol});
-            Tensor shmemData, shmemSignal;
-            CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-            buildBody(in, kGroup, shmemData, shmemSignal, out);
+            ShmemTensor shmemTensor;
+            CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+            buildBody(in, shmemTensor, out);
         }
 
         return ExtractShmemOpcodes(funcTag);
@@ -161,17 +161,15 @@ protected:
 
 TEST_F(AllReduceIRTest, OneShotBase_IRStructure)
 {
-    RunOneShotIRTest("UT_IR_OS_BASE", [](Tensor& in, const char* group,
-                                          Tensor& sd, Tensor& ss, Tensor& out) {
-        OneShotAllReduce(in, in, group, sd, ss, out);
+    RunOneShotIRTest("UT_IR_OS_BASE", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        OneShotAllReduce(in, in, st, out);
     });
 }
 
 TEST_F(AllReduceIRTest, TwoShotBase_IRStructure)
 {
-    RunTwoShotIRTest("UT_IR_TS_BASE", [](Tensor& in, const char* group,
-                                          Tensor& sd, Tensor& ss, Tensor& out) {
-        TwoShotAllReduce(in, in, group, sd, ss, out);
+    RunTwoShotIRTest("UT_IR_TS_BASE", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        TwoShotAllReduce(in, in, st, out);
     });
 }
 
@@ -183,36 +181,32 @@ TEST_F(AllReduceIRTest, TwoShotBase_IRStructure)
 
 TEST_F(AllReduceIRTest, V2_IRStructure)
 {
-    RunOneShotIRTest("UT_IR_V2", [](Tensor& in, const char* group,
-                                     Tensor& sd, Tensor& ss, Tensor& out) {
-        OneShotAllReduce_v2(in, in, group, sd, ss, out);
+    RunOneShotIRTest("UT_IR_V2", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        OneShotAllReduce_v2(in, in, st, out);
     });
 }
 
 TEST_F(AllReduceIRTest, V3_IRStructure)
 {
-    RunOneShotIRTest("UT_IR_V3", [](Tensor& in, const char* group,
-                                     Tensor& sd, Tensor& ss, Tensor& out) {
-        OneShotAllReduce_v3(in, in, group, sd, ss, out);
+    RunOneShotIRTest("UT_IR_V3", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        OneShotAllReduce_v3(in, in, st, out);
     });
 }
 
 TEST_F(AllReduceIRTest, V4_IRStructure)
 {
-    RunOneShotIRTest("UT_IR_V4", [](Tensor& in, const char* group,
-                                     Tensor& sd, Tensor& ss, Tensor& out) {
-        OneShotAllReduce_v4(in, in, group, sd, ss, out);
+    RunOneShotIRTest("UT_IR_V4", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        OneShotAllReduce_v4(in, in, st, out);
     });
 }
 
 // v5 introduces the communicator object — Pull is the caller's job now.
 TEST_F(AllReduceIRTest, V5PlusPull_IRStructure)
 {
-    RunOneShotIRTest("UT_IR_V5", [](Tensor& in, const char* group,
-                                     Tensor& sd, Tensor& ss, Tensor& out) {
-        OneShotCommunicatorV2 comm(group, kWorldSize, ss);
-        auto waitToken = OneShotAllReduce_v5(in, in, sd, comm);
-        out = comm.Pull(waitToken, sd);
+    RunOneShotIRTest("UT_IR_V5", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        auto waitToken = OneShotAllReduce_v5(in, in, st);
+        OneShotCommunicatorV2 comm(st);
+        out = comm.Pull(waitToken, in.GetDataType());
     });
 }
 
@@ -220,12 +214,11 @@ TEST_F(AllReduceIRTest, V5PlusPull_IRStructure)
 // This is the most decomposed form — good for overlapping compute with comms.
 TEST_F(AllReduceIRTest, V6PlusPull_IRStructure)
 {
-    RunOneShotIRTest("UT_IR_V6", [](Tensor& in, const char* group,
-                                     Tensor& sd, Tensor& ss, Tensor& out) {
-        OneShotCommunicatorV2 comm(group, kWorldSize, ss);
-        OneShotAllReduce_v6(in, in, sd, comm);
+    RunOneShotIRTest("UT_IR_V6", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        OneShotCommunicatorV2 comm(st);
+        OneShotAllReduce_v6(in, in, st);
         auto waitToken = comm.Wait(in);
-        out = comm.Pull(waitToken, sd);
+        out = comm.Pull(waitToken, in.GetDataType());
     });
 }
 
@@ -236,13 +229,12 @@ TEST_F(AllReduceIRTest, V6LightPlusPull_IRStructure)
     Shape shmemDataShape{1, kRow, kCol};
     FUNCTION("UT_IR_V6_LIGHT", {in}, {out}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        CreateShmemSignalLight(kGroup, kWorldSize, shmemSignal);
-        OneShotCommunicatorV2 comm(kGroup, kWorldSize, shmemSignal);
-        OneShotAllReduce_v6_light(in, in, shmemData, comm);
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+        OneShotCommunicatorV2 comm(shmemTensor);
+        OneShotAllReduce_v6_light(in, in, shmemTensor);
         auto waitToken = comm.Wait(in);
-        out = comm.Pull(waitToken, shmemData);
+        out = comm.Pull(waitToken, in.GetDataType());
     }
 
     auto ops = ExtractShmemOpcodes("UT_IR_V6_LIGHT");
@@ -255,6 +247,7 @@ TEST_F(AllReduceIRTest, V7Grouped_IRStructure_KSweep)
     constexpr uint32_t payloadChunkCount = 8u;
     std::vector<uint32_t> kCandidates{1u, 2u, 4u, payloadChunkCount};
     for (uint32_t k : kCandidates) {
+        (void)k;
         Program::GetInstance().Reset();
         std::string tag = "UT_IR_V7_GROUPED_K" + std::to_string(k);
         Tensor in(DT_FP16, {kRow, kCol}, "in");
@@ -263,19 +256,14 @@ TEST_F(AllReduceIRTest, V7Grouped_IRStructure_KSweep)
 
         FUNCTION(tag.c_str(), {in}, {out}) {
             TileShape::Current().SetVecTile({kRow, kCol});
-            Tensor shmemData, shmemSignal;
-            CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-            OneShotCommunicatorV3 comm(kGroup, kWorldSize, shmemSignal, payloadChunkCount, k);
-            OneShotAllReduce_v7(in, in, shmemData, comm);
-            for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
-                auto waitToken = comm.WaitGroup(in, groupId);
-                uint32_t begin = comm.GroupBeginChunk(groupId);
-                uint32_t gSize = comm.GroupSize(groupId);
-                for (uint32_t local = 0; local < gSize; ++local) {
-                    uint32_t chunkId = begin + local;
-                    auto reducedChunk = comm.PullChunk(waitToken, shmemData, chunkId);
-                    Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
-                }
+            ShmemTensor shmemTensor;
+            CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+            OneShotCommunicatorV3 comm(shmemTensor, payloadChunkCount);
+            OneShotAllReduce_v7(in, in, comm);
+            for (uint32_t chunkId = 0; chunkId < comm.PayloadChunkCount(); ++chunkId) {
+                auto waitToken = comm.WaitChunk(in, chunkId);
+                auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
+                Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
             }
         }
 
@@ -289,25 +277,21 @@ TEST_F(AllReduceIRTest, V7Grouped_TailGroupThreshold_IRStructure)
 {
     constexpr uint32_t payloadChunkCount = 7u;
     constexpr uint32_t chunksPerSignal = 4u;
+    (void)chunksPerSignal;
     Tensor in(DT_FP16, {kRow, kCol}, "in");
     Tensor out(DT_FP16, {kRow, kCol}, "out");
     Shape shmemDataShape{1, kRow, kCol};
 
     FUNCTION("UT_IR_V7_GROUPED_TAIL", {in}, {out}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        OneShotCommunicatorV3 comm(kGroup, kWorldSize, shmemSignal, payloadChunkCount, chunksPerSignal);
-        OneShotAllReduce_v7(in, in, shmemData, comm);
-        for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
-            auto waitToken = comm.WaitGroup(in, groupId);
-            uint32_t begin = comm.GroupBeginChunk(groupId);
-            uint32_t gSize = comm.GroupSize(groupId);
-            for (uint32_t local = 0; local < gSize; ++local) {
-                uint32_t chunkId = begin + local;
-                auto reducedChunk = comm.PullChunk(waitToken, shmemData, chunkId);
-                Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
-            }
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+        OneShotCommunicatorV3 comm(shmemTensor, payloadChunkCount);
+        OneShotAllReduce_v7(in, in, comm);
+        for (uint32_t chunkId = 0; chunkId < comm.PayloadChunkCount(); ++chunkId) {
+            auto waitToken = comm.WaitChunk(in, chunkId);
+            auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
+            Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
         }
     }
 
@@ -315,7 +299,7 @@ TEST_F(AllReduceIRTest, V7Grouped_TailGroupThreshold_IRStructure)
     VerifyOneShotGroupedCounts(CountShmemOps(ops), kWorldSize, payloadChunkCount, chunksPerSignal);
 }
 
-// v8 policy-driven signaling: contiguous grouping should preserve grouped op counts.
+// v8 grouped signaling: contiguous grouping should preserve grouped op counts.
 TEST_F(AllReduceIRTest, V8SignalPlan_Contiguous_KSweep_IRStructure)
 {
     constexpr uint32_t payloadChunkCount = 8u;
@@ -329,17 +313,17 @@ TEST_F(AllReduceIRTest, V8SignalPlan_Contiguous_KSweep_IRStructure)
 
         FUNCTION(tag.c_str(), {in}, {out}) {
             TileShape::Current().SetVecTile({kRow, kCol});
-            Tensor shmemData, shmemSignal;
-            CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-            OneShotSignalPlan plan(payloadChunkCount, k, SignalGroupingMode::CONTIGUOUS);
-            OneShotCommunicatorV4 comm(kGroup, kWorldSize, shmemSignal, plan);
-            OneShotAllReduce_v8(in, in, shmemData, comm);
+            ShmemTensor shmemTensor;
+            CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+            OneShotCommunicatorV4 comm(shmemTensor, payloadChunkCount, k);
+            OneShotAllReduce_v8(in, in, comm);
             for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
                 auto waitToken = comm.WaitGroup(in, groupId);
+                uint32_t begin = comm.GroupBeginChunk(groupId);
                 uint32_t gSize = comm.GroupSize(groupId);
                 for (uint32_t local = 0; local < gSize; ++local) {
-                    uint32_t chunkId = comm.GroupChunkAt(groupId, local);
-                    auto reducedChunk = comm.PullChunk(waitToken, shmemData, chunkId);
+                    uint32_t chunkId = begin + local;
+                    auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
                     Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
                 }
             }
@@ -350,8 +334,8 @@ TEST_F(AllReduceIRTest, V8SignalPlan_Contiguous_KSweep_IRStructure)
     }
 }
 
-// v8 interleaved mapping: same control-op counts, different chunk->group mapping.
-TEST_F(AllReduceIRTest, V8SignalPlan_Interleaved_TailGroup_IRStructure)
+// v8 tail-group coverage: same control-op counts with non-divisible payload chunks.
+TEST_F(AllReduceIRTest, V8Grouped_TailGroup_IRStructure)
 {
     constexpr uint32_t payloadChunkCount = 7u;
     constexpr uint32_t chunksPerSignal = 4u;
@@ -361,17 +345,17 @@ TEST_F(AllReduceIRTest, V8SignalPlan_Interleaved_TailGroup_IRStructure)
 
     FUNCTION("UT_IR_V8_INTERLEAVED_TAIL", {in}, {out}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        OneShotSignalPlan plan(payloadChunkCount, chunksPerSignal, SignalGroupingMode::INTERLEAVED);
-        OneShotCommunicatorV4 comm(kGroup, kWorldSize, shmemSignal, plan);
-        OneShotAllReduce_v8(in, in, shmemData, comm);
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+        OneShotCommunicatorV4 comm(shmemTensor, payloadChunkCount, chunksPerSignal);
+        OneShotAllReduce_v8(in, in, comm);
         for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
             auto waitToken = comm.WaitGroup(in, groupId);
+            uint32_t begin = comm.GroupBeginChunk(groupId);
             uint32_t gSize = comm.GroupSize(groupId);
             for (uint32_t local = 0; local < gSize; ++local) {
-                uint32_t chunkId = comm.GroupChunkAt(groupId, local);
-                auto reducedChunk = comm.PullChunk(waitToken, shmemData, chunkId);
+                uint32_t chunkId = begin + local;
+                auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
                 Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
             }
         }
@@ -388,57 +372,42 @@ TEST_F(AllReduceIRTest, V8SignalPlan_Interleaved_TailGroup_IRStructure)
 
 TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
 {
-    auto irBase = BuildOneShotIR("UT_EQUIV_BASE", [](Tensor& in, const char* g,
-                                                      Tensor& sd, Tensor& ss, Tensor& out) {
-        OneShotAllReduce(in, in, g, sd, ss, out);
+    auto irBase = BuildOneShotIR("UT_EQUIV_BASE", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        OneShotAllReduce(in, in, st, out);
     }, false);
     VerifyOneShotCounts(CountShmemOps(irBase), kWorldSize);
 
-    auto irV2 = BuildOneShotIR("UT_EQUIV_V2", [](Tensor& in, const char* g,
-                                                   Tensor& sd, Tensor& ss, Tensor& out) {
-        OneShotAllReduce_v2(in, in, g, sd, ss, out);
+    auto irV2 = BuildOneShotIR("UT_EQUIV_V2", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        OneShotAllReduce_v2(in, in, st, out);
     });
 
-    auto irV3 = BuildOneShotIR("UT_EQUIV_V3", [](Tensor& in, const char* g,
-                                                   Tensor& sd, Tensor& ss, Tensor& out) {
-        OneShotAllReduce_v3(in, in, g, sd, ss, out);
+    auto irV3 = BuildOneShotIR("UT_EQUIV_V3", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        OneShotAllReduce_v3(in, in, st, out);
     });
 
-    auto irV4 = BuildOneShotIR("UT_EQUIV_V4", [](Tensor& in, const char* g,
-                                                   Tensor& sd, Tensor& ss, Tensor& out) {
-        OneShotAllReduce_v4(in, in, g, sd, ss, out);
+    auto irV4 = BuildOneShotIR("UT_EQUIV_V4", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        OneShotAllReduce_v4(in, in, st, out);
     });
 
-    auto irV5 = BuildOneShotIR("UT_EQUIV_V5", [](Tensor& in, const char* g,
-                                                   Tensor& sd, Tensor& ss, Tensor& out) {
-        OneShotCommunicatorV2 comm(g, kWorldSize, ss);
-        auto waitToken = OneShotAllReduce_v5(in, in, sd, comm);
-        out = comm.Pull(waitToken, sd);
+    auto irV5 = BuildOneShotIR("UT_EQUIV_V5", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        auto waitToken = OneShotAllReduce_v5(in, in, st);
+        OneShotCommunicatorV2 comm(st);
+        out = comm.Pull(waitToken, in.GetDataType());
     });
 
-    auto irV6 = BuildOneShotIR("UT_EQUIV_V6", [](Tensor& in, const char* g,
-                                                   Tensor& sd, Tensor& ss, Tensor& out) {
-        OneShotCommunicatorV2 comm(g, kWorldSize, ss);
-        OneShotAllReduce_v6(in, in, sd, comm);
+    auto irV6 = BuildOneShotIR("UT_EQUIV_V6", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        OneShotCommunicatorV2 comm(st);
+        OneShotAllReduce_v6(in, in, st);
         auto waitToken = comm.Wait(in);
-        out = comm.Pull(waitToken, sd);
+        out = comm.Pull(waitToken, in.GetDataType());
     });
 
-    Program::GetInstance().Reset();
-    Tensor inV6Light(DT_FP16, {kRow, kCol}, "in_v6_light");
-    Tensor outV6Light(DT_FP16, {kRow, kCol}, "out_v6_light");
-    Shape shmemDataShapeV6Light{1, kRow, kCol};
-    FUNCTION("UT_EQUIV_V6_LIGHT", {inV6Light}, {outV6Light}) {
-        TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(PromotedType(inV6Light.GetDataType()), shmemDataShapeV6Light, shmemData, shmemSignal);
-        CreateShmemSignalLight(kGroup, kWorldSize, shmemSignal);
-        OneShotCommunicatorV2 comm(kGroup, kWorldSize, shmemSignal);
-        OneShotAllReduce_v6_light(inV6Light, inV6Light, shmemData, comm);
-        auto waitToken = comm.Wait(inV6Light);
-        outV6Light = comm.Pull(waitToken, shmemData);
-    }
-    auto irV6Light = ExtractShmemOpcodes("UT_EQUIV_V6_LIGHT");
+    auto irV6Light = BuildOneShotIR("UT_EQUIV_V6_LIGHT", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        OneShotCommunicatorV2 comm(st);
+        OneShotAllReduce_v6_light(in, in, st);
+        auto waitToken = comm.Wait(in);
+        out = comm.Pull(waitToken, in.GetDataType());
+    });
     VerifyOneShotCounts(CountShmemOps(irV6Light), kWorldSize);
 
     EXPECT_EQ(irBase, irV2) << "OneShot base and v2 SHMEM opcode sequences differ";
@@ -455,34 +424,30 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
 
 TEST_F(AllReduceIRTest, TwoShot_V2_IRStructure)
 {
-    RunTwoShotIRTest("UT_IR_TS_V2", [](Tensor& in, const char* group,
-                                        Tensor& sd, Tensor& ss, Tensor& out) {
-        TwoShotAllReduce_v2(in, in, group, sd, ss, out);
+    RunTwoShotIRTest("UT_IR_TS_V2", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        TwoShotAllReduce_v2(in, in, st, out);
     });
 }
 
 TEST_F(AllReduceIRTest, TwoShot_V3_IRStructure)
 {
-    RunTwoShotIRTest("UT_IR_TS_V3", [](Tensor& in, const char* group,
-                                        Tensor& sd, Tensor& ss, Tensor& out) {
-        TwoShotAllReduce_v3(in, in, group, sd, ss, out);
+    RunTwoShotIRTest("UT_IR_TS_V3", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        TwoShotAllReduce_v3(in, in, st, out);
     });
 }
 
 TEST_F(AllReduceIRTest, TwoShot_V4_IRStructure)
 {
-    RunTwoShotIRTest("UT_IR_TS_V4", [](Tensor& in, const char* group,
-                                        Tensor& sd, Tensor& ss, Tensor& out) {
-        TwoShotAllReduce_v4(in, in, group, sd, ss, out);
+    RunTwoShotIRTest("UT_IR_TS_V4", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        TwoShotAllReduce_v4(in, in, st, out);
     });
 }
 
 TEST_F(AllReduceIRTest, TwoShot_V5_IRStructure)
 {
-    RunTwoShotIRTest("UT_IR_TS_V5", [](Tensor& in, const char* group,
-                                        Tensor& sd, Tensor& ss, Tensor& out) {
-        TwoShotCommunicatorV2 comm(group, kWorldSize, ss);
-        TwoShotAllReduce_v5(in, in, sd, comm, out);
+    RunTwoShotIRTest("UT_IR_TS_V5", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        TwoShotCommunicatorV2 comm(st);
+        TwoShotAllReduce_v5(in, in, comm, out);
     });
 }
 
@@ -495,9 +460,8 @@ TEST_F(AllReduceIRTest, TwoShot_AllVariants_ShmemOpcodeEquivalence)
 {
     // In UT simulation, TwoShot produces worldSize ops per type (not
     // worldSize^2 as on the accelerator).
-    auto irBase = BuildTwoShotIR("UT_TS_EQUIV_BASE", [](Tensor& in, const char* g,
-                                                         Tensor& sd, Tensor& ss, Tensor& out) {
-        TwoShotAllReduce(in, in, g, sd, ss, out);
+    auto irBase = BuildTwoShotIR("UT_TS_EQUIV_BASE", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        TwoShotAllReduce(in, in, st, out);
     }, false);
     {
         auto c = CountShmemOps(irBase);
@@ -507,25 +471,21 @@ TEST_F(AllReduceIRTest, TwoShot_AllVariants_ShmemOpcodeEquivalence)
         EXPECT_EQ(c.get, kWorldSize) << "Expected " << kWorldSize << " OP_SHMEM_GET ops";
     }
 
-    auto irV2 = BuildTwoShotIR("UT_TS_EQUIV_V2", [](Tensor& in, const char* g,
-                                                      Tensor& sd, Tensor& ss, Tensor& out) {
-        TwoShotAllReduce_v2(in, in, g, sd, ss, out);
+    auto irV2 = BuildTwoShotIR("UT_TS_EQUIV_V2", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        TwoShotAllReduce_v2(in, in, st, out);
     });
 
-    auto irV3 = BuildTwoShotIR("UT_TS_EQUIV_V3", [](Tensor& in, const char* g,
-                                                      Tensor& sd, Tensor& ss, Tensor& out) {
-        TwoShotAllReduce_v3(in, in, g, sd, ss, out);
+    auto irV3 = BuildTwoShotIR("UT_TS_EQUIV_V3", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        TwoShotAllReduce_v3(in, in, st, out);
     });
 
-    auto irV4 = BuildTwoShotIR("UT_TS_EQUIV_V4", [](Tensor& in, const char* g,
-                                                      Tensor& sd, Tensor& ss, Tensor& out) {
-        TwoShotAllReduce_v4(in, in, g, sd, ss, out);
+    auto irV4 = BuildTwoShotIR("UT_TS_EQUIV_V4", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        TwoShotAllReduce_v4(in, in, st, out);
     });
 
-    auto irV5 = BuildTwoShotIR("UT_TS_EQUIV_V5", [](Tensor& in, const char* g,
-                                                      Tensor& sd, Tensor& ss, Tensor& out) {
-        TwoShotCommunicatorV2 comm(g, kWorldSize, ss);
-        TwoShotAllReduce_v5(in, in, sd, comm, out);
+    auto irV5 = BuildTwoShotIR("UT_TS_EQUIV_V5", [](Tensor& in, ShmemTensor& st, Tensor& out) {
+        TwoShotCommunicatorV2 comm(st);
+        TwoShotAllReduce_v5(in, in, comm, out);
     });
 
     EXPECT_EQ(irBase, irV2) << "TwoShot base and v2 SHMEM opcode sequences differ";
@@ -562,14 +522,13 @@ protected:
         config::Reset();
     }
 
-    void CreateShmemTensors(uint32_t worldSize, DataType shmemDataType,
-                            const Shape& shmemDataShape,
-                            Tensor& shmemData, Tensor& shmemSignal)
+    void CreateShmemHelper(uint32_t worldSize, DataType shmemDataType,
+                           const Shape& shmemDataShape, ShmemTensor& shmemTensor)
     {
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(kGroup, worldSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(kGroup, shmemData, shmemSignal);
+            CreateShmemTensor(kGroup, static_cast<int64_t>(worldSize), shmemDataType,
+                              shmemDataShape, shmemTensor);
         }
     }
 
@@ -590,11 +549,11 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV5_IRStructure)
     Tensor out(DT_FP16, {kRow, kCol}, "out");
     FUNCTION(tag.c_str(), {in}, {out}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        OneShotCommunicatorV2 comm(kGroup, worldSize, shmemSignal);
-        auto waitToken = OneShotAllReduce_v5(in, in, shmemData, comm);
-        out = comm.Pull(waitToken, shmemData);
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+        auto waitToken = OneShotAllReduce_v5(in, in, shmemTensor);
+        OneShotCommunicatorV2 comm(shmemTensor);
+        out = comm.Pull(waitToken, in.GetDataType());
     }
 
     auto opsV5 = ExtractShmemOpcodes(tag);
@@ -606,9 +565,9 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV5_IRStructure)
     Tensor outBase(DT_FP16, {kRow, kCol}, "out_base");
     FUNCTION(baseTag.c_str(), {inBase}, {outBase}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        OneShotAllReduce(inBase, inBase, kGroup, shmemData, shmemSignal, outBase);
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemTensor);
+        OneShotAllReduce(inBase, inBase, shmemTensor, outBase);
     }
 
     auto opsBase = ExtractShmemOpcodes(baseTag);
@@ -625,12 +584,12 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV6_IRStructure)
     Tensor out(DT_FP16, {kRow, kCol}, "out");
     FUNCTION(tag.c_str(), {in}, {out}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        OneShotCommunicatorV2 comm(kGroup, worldSize, shmemSignal);
-        OneShotAllReduce_v6(in, in, shmemData, comm);
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+        OneShotCommunicatorV2 comm(shmemTensor);
+        OneShotAllReduce_v6(in, in, shmemTensor);
         auto waitToken = comm.Wait(in);
-        out = comm.Pull(waitToken, shmemData);
+        out = comm.Pull(waitToken, in.GetDataType());
     }
 
     auto opsV6 = ExtractShmemOpcodes(tag);
@@ -642,9 +601,9 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV6_IRStructure)
     Tensor outBase(DT_FP16, {kRow, kCol}, "out_base");
     FUNCTION(baseTag.c_str(), {inBase}, {outBase}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        OneShotAllReduce(inBase, inBase, kGroup, shmemData, shmemSignal, outBase);
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemTensor);
+        OneShotAllReduce(inBase, inBase, shmemTensor, outBase);
     }
 
     auto opsBase = ExtractShmemOpcodes(baseTag);
@@ -661,13 +620,12 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV6Light_IRStructure)
     Tensor out(DT_FP16, {kRow, kCol}, "out");
     FUNCTION(tag.c_str(), {in}, {out}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        CreateShmemSignalLight(kGroup, worldSize, shmemSignal);
-        OneShotCommunicatorV2 comm(kGroup, worldSize, shmemSignal);
-        OneShotAllReduce_v6_light(in, in, shmemData, comm);
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+        OneShotCommunicatorV2 comm(shmemTensor);
+        OneShotAllReduce_v6_light(in, in, shmemTensor);
         auto waitToken = comm.Wait(in);
-        out = comm.Pull(waitToken, shmemData);
+        out = comm.Pull(waitToken, in.GetDataType());
     }
 
     auto opsV6Light = ExtractShmemOpcodes(tag);
@@ -679,9 +637,9 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV6Light_IRStructure)
     Tensor outBase(DT_FP16, {kRow, kCol}, "out_base");
     FUNCTION(baseTag.c_str(), {inBase}, {outBase}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        OneShotAllReduce(inBase, inBase, kGroup, shmemData, shmemSignal, outBase);
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemTensor);
+        OneShotAllReduce(inBase, inBase, shmemTensor, outBase);
     }
 
     auto opsBase = ExtractShmemOpcodes(baseTag);
@@ -693,6 +651,7 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV7Grouped_IRStructure)
     uint32_t worldSize = W();
     constexpr uint32_t payloadChunkCount = 7u;
     constexpr uint32_t chunksPerSignal = 4u;
+    (void)chunksPerSignal;
     std::string tag = "UT_MR_OS_V7_GROUPED_W" + std::to_string(worldSize);
     Shape shmemDataShape{1, kRow, kCol};
 
@@ -700,19 +659,14 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV7Grouped_IRStructure)
     Tensor out(DT_FP16, {kRow, kCol}, "out");
     FUNCTION(tag.c_str(), {in}, {out}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        OneShotCommunicatorV3 comm(kGroup, worldSize, shmemSignal, payloadChunkCount, chunksPerSignal);
-        OneShotAllReduce_v7(in, in, shmemData, comm);
-        for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
-            auto waitToken = comm.WaitGroup(in, groupId);
-            uint32_t begin = comm.GroupBeginChunk(groupId);
-            uint32_t gSize = comm.GroupSize(groupId);
-            for (uint32_t local = 0; local < gSize; ++local) {
-                uint32_t chunkId = begin + local;
-                auto reducedChunk = comm.PullChunk(waitToken, shmemData, chunkId);
-                Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
-            }
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+        OneShotCommunicatorV3 comm(shmemTensor, payloadChunkCount);
+        OneShotAllReduce_v7(in, in, comm);
+        for (uint32_t chunkId = 0; chunkId < comm.PayloadChunkCount(); ++chunkId) {
+            auto waitToken = comm.WaitChunk(in, chunkId);
+            auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
+            Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
         }
     }
 
@@ -732,17 +686,17 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV8Grouped_IRStructure)
     Tensor out(DT_FP16, {kRow, kCol}, "out");
     FUNCTION(tag.c_str(), {in}, {out}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        OneShotSignalPlan plan(payloadChunkCount, chunksPerSignal, SignalGroupingMode::CONTIGUOUS);
-        OneShotCommunicatorV4 comm(kGroup, worldSize, shmemSignal, plan);
-        OneShotAllReduce_v8(in, in, shmemData, comm);
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+        OneShotCommunicatorV4 comm(shmemTensor, payloadChunkCount, chunksPerSignal);
+        OneShotAllReduce_v8(in, in, comm);
         for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
             auto waitToken = comm.WaitGroup(in, groupId);
+            uint32_t begin = comm.GroupBeginChunk(groupId);
             uint32_t gSize = comm.GroupSize(groupId);
             for (uint32_t local = 0; local < gSize; ++local) {
-                uint32_t chunkId = comm.GroupChunkAt(groupId, local);
-                auto reducedChunk = comm.PullChunk(waitToken, shmemData, chunkId);
+                uint32_t chunkId = begin + local;
+                auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
                 Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
             }
         }
@@ -763,10 +717,10 @@ TEST_P(AllReduceIRMultiRankTest, TwoShotV5_IRStructure)
     Tensor out(DT_FP16, {kRow, kCol}, "out");
     FUNCTION(tag.c_str(), {in}, {out}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        TwoShotCommunicatorV2 comm(kGroup, worldSize, shmemSignal);
-        TwoShotAllReduce_v5(in, in, shmemData, comm, out);
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+        TwoShotCommunicatorV2 comm(shmemTensor);
+        TwoShotAllReduce_v5(in, in, comm, out);
     }
 
     auto opsV5 = ExtractShmemOpcodes(tag);
@@ -782,9 +736,9 @@ TEST_P(AllReduceIRMultiRankTest, TwoShotV5_IRStructure)
     Tensor outBase(DT_FP16, {kRow, kCol}, "out_base");
     FUNCTION(baseTag.c_str(), {inBase}, {outBase}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        TwoShotAllReduce(inBase, inBase, kGroup, shmemData, shmemSignal, outBase);
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemTensor);
+        TwoShotAllReduce(inBase, inBase, shmemTensor, outBase);
     }
 
     auto opsBase = ExtractShmemOpcodes(baseTag);
@@ -826,14 +780,13 @@ protected:
         config::Reset();
     }
 
-    void CreateShmemTensors(uint32_t worldSize, DataType shmemDataType,
-                            const Shape& shmemDataShape,
-                            Tensor& shmemData, Tensor& shmemSignal)
+    void CreateShmemHelper(uint32_t worldSize, DataType shmemDataType,
+                           const Shape& shmemDataShape, ShmemTensor& shmemTensor)
     {
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(kGroup, worldSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(kGroup, shmemData, shmemSignal);
+            CreateShmemTensor(kGroup, static_cast<int64_t>(worldSize), shmemDataType,
+                              shmemDataShape, shmemTensor);
         }
     }
 
@@ -904,11 +857,11 @@ TEST_P(AllReduceCorrectnessTest, OneShotV5_Correctness)
     
     FUNCTION(tag.c_str(), {in}, {out}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, DT_FP32, shmemDataShape, shmemData, shmemSignal);
-        OneShotCommunicatorV2 comm(kGroup, worldSize, shmemSignal);
-        auto waitToken = OneShotAllReduce_v5(in, in, shmemData, comm);
-        out = comm.Pull(waitToken, shmemData);
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(worldSize, DT_FP32, shmemDataShape, shmemTensor);
+        auto waitToken = OneShotAllReduce_v5(in, in, shmemTensor);
+        OneShotCommunicatorV2 comm(shmemTensor);
+        out = comm.Pull(waitToken, in.GetDataType());
     }
 
     // Verify IR structure is correct
@@ -957,10 +910,10 @@ TEST_P(AllReduceCorrectnessTest, TwoShotV5_Correctness)
     
     FUNCTION(tag.c_str(), {in}, {out}) {
         TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(worldSize, DT_FP32, shmemDataShape, shmemData, shmemSignal);
-        TwoShotCommunicatorV2 comm(kGroup, worldSize, shmemSignal);
-        TwoShotAllReduce_v5(in, in, shmemData, comm, out);
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(worldSize, DT_FP32, shmemDataShape, shmemTensor);
+        TwoShotCommunicatorV2 comm(shmemTensor);
+        TwoShotAllReduce_v5(in, in, comm, out);
     }
 
     // Verify IR structure
@@ -986,35 +939,35 @@ TEST_P(AllReduceCorrectnessTest, OneShotVariants_ProduceSameResults)
         Program::GetInstance().Reset();
         Tensor in(DT_FP32, {kRow, kCol}, "in");
         Tensor out(DT_FP32, {kRow, kCol}, "out");
-        
+
         FUNCTION(name.c_str(), {in}, {out}) {
             TileShape::Current().SetVecTile({kRow, kCol});
-            Tensor shmemData, shmemSignal;
-            CreateShmemTensors(worldSize, DT_FP32, shmemDataShape, shmemData, shmemSignal);
-            buildFunc(in, kGroup, shmemData, shmemSignal, out, worldSize);
+            ShmemTensor shmemTensor;
+            CreateShmemHelper(worldSize, DT_FP32, shmemDataShape, shmemTensor);
+            buildFunc(in, shmemTensor, out);
         }
-        
+
         return ExtractShmemOpcodes(name);
     };
 
     auto opsBase = buildVariant("CORRECTNESS_BASE_W" + std::to_string(worldSize),
-        [](Tensor& in, const char* g, Tensor& sd, Tensor& ss, Tensor& out, uint32_t) {
-            OneShotAllReduce(in, in, g, sd, ss, out);
+        [](Tensor& in, ShmemTensor& st, Tensor& out) {
+            OneShotAllReduce(in, in, st, out);
         });
 
     auto opsV5 = buildVariant("CORRECTNESS_V5_W" + std::to_string(worldSize),
-        [](Tensor& in, const char* g, Tensor& sd, Tensor& ss, Tensor& out, uint32_t ws) {
-            OneShotCommunicatorV2 comm(g, ws, ss);
-            auto waitToken = OneShotAllReduce_v5(in, in, sd, comm);
-            out = comm.Pull(waitToken, sd);
+        [](Tensor& in, ShmemTensor& st, Tensor& out) {
+            auto waitToken = OneShotAllReduce_v5(in, in, st);
+            OneShotCommunicatorV2 comm(st);
+            out = comm.Pull(waitToken, in.GetDataType());
         });
 
     auto opsV6 = buildVariant("CORRECTNESS_V6_W" + std::to_string(worldSize),
-        [](Tensor& in, const char* g, Tensor& sd, Tensor& ss, Tensor& out, uint32_t ws) {
-            OneShotCommunicatorV2 comm(g, ws, ss);
-            OneShotAllReduce_v6(in, in, sd, comm);
+        [](Tensor& in, ShmemTensor& st, Tensor& out) {
+            OneShotCommunicatorV2 comm(st);
+            OneShotAllReduce_v6(in, in, st);
             auto waitToken = comm.Wait(in);
-            out = comm.Pull(waitToken, sd);
+            out = comm.Pull(waitToken, in.GetDataType());
         });
 
     EXPECT_EQ(opsBase, opsV5) << "Base and v5 should produce identical opcodes for worldSize=" << worldSize;

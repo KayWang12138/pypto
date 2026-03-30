@@ -522,49 +522,14 @@ struct MoeConfig {
 };
 void MoeDistributedDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
     Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
-void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
-void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out);
-Tensor ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize);
-Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData);
-Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal);
-void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize,
-    DistReduceType reduceType, Tensor& out);
-void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData, Tensor& shmemSignal,
-    DistReduceType reduceType, Tensor& out);
-void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
-void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out);
-void OneShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out);
-void OneShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out);
-void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out);
 // Forward declarations — full definitions in tilefwk/distributed_communicator.h
 class OneShotCommunicatorV2;
 class OneShotCommunicatorV3;
 class OneShotCommunicatorV4;
+class TwoShotCommunicator;
 class TwoShotCommunicatorV2;
-Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
-    OneShotCommunicatorV2& comm);
-void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
-    OneShotCommunicatorV2& comm);
-void OneShotAllReduce_v6_light(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
-    OneShotCommunicatorV2& comm);
-void OneShotAllReduce_v7(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
-    OneShotCommunicatorV3& comm);
-void OneShotAllReduce_v8(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
-    OneShotCommunicatorV4& comm);
-void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
-void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out);
-void TwoShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out);
-void TwoShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out);
-void TwoShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out);
+void OneShotAllReduce_v7(const Tensor& predToken, const Tensor& in, OneShotCommunicatorV3& comm);
+void OneShotAllReduce_v8(const Tensor& predToken, const Tensor& in, OneShotCommunicatorV4& comm);
 void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
     const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
     uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out);
@@ -598,7 +563,18 @@ void AllGather(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTens
 void ReduceScatter(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor,
     DistReduceType reduceType, Tensor& out);
 void OneShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out);
+void OneShotAllReduce_v2(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
+void OneShotAllReduce_v3(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
+void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
+Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor);
+void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor);
+void OneShotAllReduce_v6_light(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out);
+void TwoShotAllReduce_v2(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
+void TwoShotAllReduce_v3(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
+void TwoShotAllReduce_v4(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
+void OneShotAllReduce_v9(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out,
+    uint32_t payloadChunkCount, uint32_t chunksPerSignal);
 
 void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const char* group,
     uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& expandX,
@@ -606,25 +582,10 @@ void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const ch
 void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
     const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
     uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out);
-void CreateShmemData(const char* group, int64_t worldSize, DataType dataType,
-    const Shape& shape, Tensor& shmemTensor, uint64_t memType = 0);
-void CreateShmemSignal(const char* group, Tensor& shmemData, Tensor& shmemSignal);
-void CreateShmemSignalLight(const char* group, int64_t worldSize, Tensor& shmemSignal);
-Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemData,
-    AtomicType atomicType = AtomicType::SET);
-Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
- 	AtomicType atomicType = AtomicType::SET);
-Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicType atomicType = AtomicType::SET);
-Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t expectedSum, bool resetSignal = false);
-Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonShmemDataType = DataType::DT_BOTTOM,
-    AtomicType atomicType = AtomicType::SET);
-Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
-    AtomicType atomicType = AtomicType::SET);
-
 // TwoShotAllReduce_v5: Three-phase API with external TwoShotCommunicatorV2.
 // Uses separate Put(), Wait(), Pull() per chunk.
 void TwoShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
-    Tensor& shmemData, TwoShotCommunicatorV2& comm, Tensor& out);
+    TwoShotCommunicatorV2& comm, Tensor& out);
 
 } // namespace Distributed
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart);

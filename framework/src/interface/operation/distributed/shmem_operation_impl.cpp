@@ -29,6 +29,54 @@
 #include "interface/utils/distributed_error.h"
 
 namespace npu::tile_fwk::Distributed {
+void ValidateTensor(const Tensor& tensor, const std::string& tensorDesc,
+    const std::unordered_set<size_t>& allowedDims = {},
+    const std::unordered_set<DataType>& allowedTypes = {},
+    const std::unordered_set<TileOpFormat>& allowedFormats = {},
+    const Shape& expectShape = {});
+
+void ValidateShmemTensor(const ShmemTensor& t, bool hasData, bool hasSignal);
+
+// OneShotAllReduce_v9: SHMEM-only, chunked, tunable signal-to-data ratio, no Communicator class.
+// Arguments:
+//   predToken: dependency token
+//   in: input tensor (row x col)
+//   shmemTensor: shared memory tensor (1, row, col)
+//   out: output tensor (row x col)
+//   payloadChunkCount: number of chunks to split input rows
+//   chunksPerSignal: number of chunks per signal (signal-to-data ratio)
+void OneShotAllReduce_v9(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out,
+                         uint32_t payloadChunkCount, uint32_t chunksPerSignal)
+{
+    ValidateShmemTensor(shmemTensor, true, true);
+    ValidateTensor(predToken, "predToken", {2});
+    ValidateTensor(in, "in", {predToken.Dim()});
+    ASSERT(payloadChunkCount > 0) << "payloadChunkCount must be > 0";
+    ASSERT(chunksPerSignal > 0) << "chunksPerSignal must be > 0";
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, row, col});
+    ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
+    ASSERT(static_cast<int64_t>(payloadChunkCount) <= row)
+        << "payloadChunkCount must be <= row dimension (" << row << ")";
+    ASSERT(chunksPerSignal <= payloadChunkCount)
+        << "chunksPerSignal must be <= payloadChunkCount, but got "
+        << chunksPerSignal << " > " << payloadChunkCount;
+
+    OneShotCommunicatorV4 comm(shmemTensor, payloadChunkCount, chunksPerSignal);
+    OneShotAllReduce_v8(predToken, in, comm);
+
+    for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
+        auto waitToken = comm.WaitGroup(in, groupId);
+        uint32_t begin = comm.GroupBeginChunk(groupId);
+        uint32_t gSize = comm.GroupSize(groupId);
+        for (uint32_t local = 0; local < gSize; ++local) {
+            uint32_t chunkId = begin + local;
+            auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
+            Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
+        }
+    }
+}
 
 void ValidateGroup(const char* group)
 {
@@ -81,10 +129,10 @@ void ValidateShape(const Tensor& tensor, const std::string& tensorDesc, const Sh
 }
 
 void ValidateTensor(const Tensor& tensor, const std::string& tensorDesc,
-    const std::unordered_set<size_t>& allowedDims = {},
-    const std::unordered_set<DataType>& allowedTypes = {},
-    const std::unordered_set<TileOpFormat>& allowedFormats = {},
-    const Shape& expectShape = {})
+    const std::unordered_set<size_t>& allowedDims,
+    const std::unordered_set<DataType>& allowedTypes,
+    const std::unordered_set<TileOpFormat>& allowedFormats,
+    const Shape& expectShape)
 {
     ValidateDim(tensor, tensorDesc, allowedDims);
     ValidateDataType(tensor, tensorDesc, allowedTypes);
@@ -131,124 +179,7 @@ ShmemTensor CreateShmemTensor(const char* group, int64_t worldSize, DataType dat
     return t;
 }
 
-Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemData, AtomicType atomicType)
-{
-    std::unordered_set<DataType> allowedTypes = {DT_INT32, DT_FP32, DT_FP16, DT_BF16};
-    ValidateDataType(in, "Input tensor", allowedTypes);
-    ValidateDataType(shmemData, "Shmem data", allowedTypes);
-    ValidateShape(predToken, "PredToken", 2);
-    ValidateShape(in, "Input tensor", 2);
-    ValidateShape(shmemData, "Shmem data", 4);
-    ValidateFormat(in, "Input tensor");
-    ValidateFormat(shmemData, "Shmem data");
-    ValidateTilingSize(Opcode::OP_SHMEM_PUT, TileShape::Current().GetVecTile(), 2);
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
-    auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT,
-        {predToken.GetStorage(), in.GetStorage(), shmemData.GetStorage()}, {out});
-    ShmemPutAttr distOpAttr;
-    distOpAttr.atomicType = atomicType;
-    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-    return out;
-}
-
-Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
-    AtomicType atomicType)
-{
-    CHECK(in.GetDataType() == shmemDataTile.GetDataType());
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, barrierDummy.GetShape());
-    auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT_UB2GM,
-        {in.GetStorage(), shmemDataTile.GetStorage(), barrierDummy.GetStorage()}, {dummy});
-    ShmemPutAttr distOpAttr;
-    distOpAttr.atomicType = atomicType;
-    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-    return dummy;
-}
-
-Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicType atomicType)
-{
-    ValidateShape(predToken, "PredToken", 2);
-    ValidateShape(shmemSignal, "Shmem signal", 5);
-    ValidateTilingSize(Opcode::OP_SHMEM_SIGNAL, TileShape::Current().GetVecTile(), 2);
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
-    auto &op = function.AddOperation(Opcode::OP_SHMEM_SIGNAL, {predToken.GetStorage(), shmemSignal.GetStorage()},
-        {out});
-    ShmemSignalAttr distOpAttr;
-    distOpAttr.atomicType = atomicType;
-    distOpAttr.signalValue = 1;
-    distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
-    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-    return out;
-}
-
-Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonShmemDataType, AtomicType atomicType)
-{
-    ValidateDataType(shmemData, "Shmem data", {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
-    ValidateShape(predToken, "PredToken", 2);
-    ValidateShape(shmemData, "Shmem data", 4);
-    ValidateFormat(shmemData, "Shmem data");
-    ValidateTilingSize(Opcode::OP_SHMEM_GET, TileShape::Current().GetVecTile(), 2);
-    if (nonShmemDataType == DT_BOTTOM) {
-        nonShmemDataType = shmemData.GetDataType();
-    }
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    const auto& s = shmemData.GetShape();
-    Shape shape = (s.size() == 3)
-        ? Shape{s[1], s[2]} : Shape{s[2], s[3]};
-    auto out = std::make_shared<LogicalTensor>(function, nonShmemDataType, shape, shmemData.Format());
-    auto &op = function.AddOperation(Opcode::OP_SHMEM_GET, {predToken.GetStorage(), shmemData.GetStorage()},
-        {out});
-    ShmemGetAttr distOpAttr;
-    distOpAttr.atomicType = atomicType;
-    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-    return out;
-}
-
-Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType, AtomicType atomicType)
-{
-    ValidateTilingSize(Opcode::OP_SHMEM_GET_GM2UB, TileShape::Current().GetVecTile(), 2);
-    if (nonShmemDataType == DT_BOTTOM) {
-        nonShmemDataType = shmemDataTile.GetDataType();
-    }
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    Shape shape = {shmemDataTile.GetShape()[2], shmemDataTile.GetShape()[3]};
-    auto tempOutTile = std::make_shared<LogicalTensor>(function, nonShmemDataType, shape);
-    auto &op = function.AddOperation(Opcode::OP_SHMEM_GET_GM2UB, {dummy.GetStorage(), shmemDataTile.GetStorage()},
-        {tempOutTile});
-    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB,
-        OpImmediate::Specified({shmemDataTile.GetShape()[2], shmemDataTile.GetShape()[3]}),
-        OpImmediate::Specified({tempOutTile->shape[0], tempOutTile->shape[1]}),
-        OpImmediate::Specified(std::vector<SymbolicScalar>{shmemDataTile.GetValidShape()[2], shmemDataTile.GetValidShape()[3]})));
-    function.UpdateTensorDataUsage(op);
-    ShmemGetAttr distOpAttr;
-    distOpAttr.atomicType = atomicType;
-    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-    return tempOutTile;
-}
-
-Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t expectedSum, bool resetSignal)
-{
-    ValidateShape(predToken, "PredToken", 2);
-    ValidateShape(shmemSignal, "Shmem signal", 5);
-    ValidateTilingSize(Opcode::OP_SHMEM_WAIT_UNTIL, TileShape::Current().GetVecTile(), 2);
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
-    auto &op = function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {predToken.GetStorage(), shmemSignal.GetStorage()},
-        {out});
-    std::vector<int64_t> param = {static_cast<int64_t>(expectedSum),
-        static_cast<int64_t>(SHMEM_SIGNAL_STRIDE), static_cast<int64_t>(resetSignal)};
-    ShmemWaitUntilAttr distOpAttr;
-    distOpAttr.expectedSum = expectedSum;
-    distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
-    distOpAttr.resetSignal = resetSignal;
-    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-    return out;
-}
-
-void CreateShmemData(const char* group, int64_t worldSize, DataType dataType,
-    const Shape &shape, Tensor &shmemTensor, uint64_t memType)
+void CreateShmemTensor(const char* group, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor& t)
 {
     ValidateGroup(group);
 
@@ -287,20 +218,7 @@ ShmemTensor CreateShmemSignal(const char* group, int64_t worldSize)
     return t;
 }
 
-void CreateShmemSignalLight(const char* group, int64_t worldSize, Tensor& shmemSignal)
-{
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
-    Shape shmemShape{worldSize, worldSize, 1, 1, 1};
-    auto shmemTensorInner = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, shmemShape);
-    shmemSignal = shmemTensorInner;
-    Program::GetInstance().GetTensorSlotManager()->TensorWrite(shmemSignal, SlotProperty::SHMEM_TENSOR);
-    auto &op = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {shmemTensorInner});
-    op.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 0,
-        BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
-}
-
-Tensor ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize)
+void CreateShmemSignal(const char* group, int64_t worldSize, ShmemTensor& t)
 {
     ValidateGroup(group);
     t.group = std::string(group);
@@ -316,6 +234,8 @@ Tensor ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* gr
         BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
     ValidateShmemTensor(t, false, true);
 }
+
+
 
 template<typename OffsetType, bool HasValidShape = false>
 ShmemTensor ShmemViewImpl(const ShmemTensor& operand, const std::vector<int64_t>& shapes,
@@ -614,110 +534,7 @@ void OneShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& sh
     out = ShmemGet(shmemDataLocal, thisRank, waitUntilOut, in.GetDataType());
 }
 
-// PUT + signal in one call. Data and signal Views are passed inline by the caller.
-static void PutAndSignal(const Tensor& pred, const Tensor& input,
-    const Tensor& dataTile, const Tensor& signalTile)
-{
-    auto putOut = ShmemPut(pred, input, dataTile, AtomicType::ADD);
-    ShmemSignal(putOut, signalTile, AtomicType::ADD);
-}
-
-// Wait for all contributions + read the reduced result. Views passed inline by the caller.
-// Output dtype taken from pred (callers pass the input data tensor here).
-static Tensor WaitAndGet(const Tensor& pred, const Tensor& dataTile, const Tensor& signalTile,
-    uint32_t worldSize)
-{
-    auto waitOut = WaitUntil(pred, signalTile, worldSize);
-    return ShmemGet(waitOut, dataTile, pred.GetDataType());
-}
-
-// OneShotAllReduce_v2: Same algorithm and signature as OneShotAllReduce.
-//
-// Reduces repetition via:
-//   - viewData(rank)/viewSignal(rank) lambdas for the fixed shmem layout
-//   - PutAndSignal / WaitAndGet --> paired operations
-void OneShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out)
-{
-    int32_t row = in.GetShape(0);
-    int32_t col = in.GetShape(1);
-    SymbolicScalar thisRank = GetHcclRankId(group);
-    uint32_t worldSize = shmemData.GetShape()[0];
-
-    // Phase 1: Scatter — every rank puts its full input to all targets
-    for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
-        PutAndSignal(predToken, in,
-            View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, 0, 0, 0}),
-            View(shmemSignal, {1, 1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0, 0}));
-    }
-
-    // Phase 2: Wait & Gather — read this rank's fully-reduced result
-    out = WaitAndGet(in,
-        View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, 0, 0, 0}),
-        View(shmemSignal, {1, 1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, thisRank, 0, 0, 0}),
-        worldSize);
-}
-
-// OneShotAllReduce_v3: Uses an OneShotCommunicator to hide shmem layout details.
-//
-// Work rank IDs instead of raw View() calls.
-// Emitted IR is identical to OneShotAllReduce / OneShotAllReduce_v2.
-void OneShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* group,
-    Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
-{
-    OneShotCommunicator comm(group, shmemData, shmemSignal);
-
-    // Phase 1: Scatter to all ranks with atomic ADD
-    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
-        comm.Put(predToken, in, dynRankId, AtomicType::ADD);
-    }
-
-    // Phase 2: Gather — wait for all contributions, read reduced result
-    out = comm.WaitAndGet(in);
-}
-
-// OneShotAllReduce_v4: like v3 but with OneShotCommunicatorV2 and explicit data Views.
-// Same IR as v2/v3.
-void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* group,
-    Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
-{
-    int32_t row = in.GetShape(0);
-    int32_t col = in.GetShape(1);
-    OneShotCommunicatorV2 comm(group, static_cast<uint32_t>(shmemData.GetShape()[0]), shmemSignal);
-
-    // Phase 1: Scatter to all ranks with atomic ADD
-    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
-        auto dynRankView = View(shmemData, {1, 1, row, col},
-            std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
-        comm.Put(predToken, in, dynRankView, dynRankId, AtomicType::ADD);
-    }
-
-    // Phase 2: Gather — wait for all contributions, read reduced result
-    auto dataLocal = View(shmemData, {1, 1, row, col},
-        std::vector<SymbolicScalar>{comm.ThisRank(), 0, 0, 0});
-    out = comm.WaitAndGet(in, dataLocal);
-}
-
-// OneShotAllReduce_v5: like v4 but with external OneShotCommunicatorV2.
-Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in, Tensor& shmemData, OneShotCommunicatorV2& comm)
-{
-    int32_t row = in.GetShape(0);
-    int32_t col = in.GetShape(1);
-
-    // Phase 1: Scatter — broadcast input to all ranks with atomic ADD
-    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
-        // API: where: View, who: rank
-        auto dynRankView = View(shmemData, {1, 1, row, col},
-            std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
-        comm.Put(predToken, in, dynRankView, dynRankId, AtomicType::ADD);
-    }
-
-    // Phase 2: Wait — use predToken (not the Put output) to match base IR ordering
-    return comm.Wait(predToken);
-}
-
-void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out)
+void TwoShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out)
 {
     ValidateShmemTensor(shmemTensor, true, true);
     ValidateTensor(predToken, "predToken", {2});
@@ -726,7 +543,6 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
     int32_t rowPerRank = row / worldSize;
-    SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
     ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {worldSize, rowPerRank, col});
     ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
     for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
@@ -739,113 +555,205 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
         Assemble(tmp, {rowPerRank * dynRankId, 0}, out);
     }
 }
-// TwoShotAllReduce_v2: Same algorithm and signature as TwoShotAllReduce.
+
+// OneShotAllReduce_v2: Same algorithm and signature as OneShotAllReduce.
 //
-// Reduces repetition via views for the TwoShot shmem layout:
-//   - viewData(chunkId) / viewPutSignal(chunkId) / viewWaitSignal(chunkId)
-//   - inputChunk(chunkId) for input tiling
-void TwoShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* group,
-    Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
+// Mirrors the original's ShmemView/ShmemPut/ShmemSignal/ShmemWaitUntil/ShmemGet
+// pattern but names the shared tile view as a variable to reduce repetition.
+void OneShotAllReduce_v2(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out)
 {
+    ValidateShmemTensor(shmemTensor, true, true);
+    ValidateTensor(predToken, "predToken", {2});
+    ValidateTensor(in, "in", {predToken.Dim()});
+    uint32_t worldSize = shmemTensor.worldSize;
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
-    uint32_t worldSize = shmemData.GetShape()[0];
-    int32_t rowPerRank = row / worldSize;
-    SymbolicScalar thisRank = GetHcclRankId(group);
+    SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, row, col});
+    ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
+    auto shmemDataTile = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
 
-    auto viewData = [&](uint32_t dynRankId) {
-        return View(shmemData, {1, 1, rowPerRank, col},
-            std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0});
-    };
-    auto viewPutSignal = [&](uint32_t dynRankId) {
-        return View(shmemSignal, {static_cast<int64_t>(worldSize), 1, 1, rowPerRank, col},
-            std::vector<SymbolicScalar>{0, dynRankId, dynRankId, 0, 0});
-    };
-    auto viewWaitSignal = [&](uint32_t dynRankId) {
-        return View(shmemSignal, {1, 1, 1, rowPerRank, col},
-            std::vector<SymbolicScalar>{thisRank, dynRankId, dynRankId, 0, 0});
-    };
-    auto inputChunk = [&](uint32_t dynRankId) {
-        return View(in, {rowPerRank, col},
-            std::vector<SymbolicScalar>{rowPerRank * dynRankId, 0});
-    };
+    // Phase 1: Scatter — every rank puts its full input to all targets
+    for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
+        auto putOut = ShmemPut(in, shmemDataTile, dynRankId, AtomicType::ADD, predToken);
+        ShmemSignal(shmemDataTile, dynRankId, dynRankId, 1, AtomicType::ADD, putOut);
+    }
+
+    // Phase 2: Wait & Gather — read this rank's fully-reduced result
+    auto waitUntilOut = ShmemWaitUntil(shmemDataTile, thisRank, OpType::EQ, worldSize, true, in);
+    out = ShmemGet(shmemDataTile, thisRank, waitUntilOut, in.GetDataType());
+}
+
+// OneShotAllReduce_v3: Uses an OneShotCommunicator to hide shmem layout details.
+//
+// Works with rank IDs instead of raw ShmemView() calls.
+// Emitted IR is identical to OneShotAllReduce / OneShotAllReduce_v2.
+void OneShotAllReduce_v3(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out)
+{
+    ValidateShmemTensor(shmemTensor, true, true);
+    ValidateTensor(predToken, "predToken", {2});
+    ValidateTensor(in, "in", {predToken.Dim()});
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, in.GetShape(0), in.GetShape(1)});
+    ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
+    OneShotCommunicator comm(shmemTensor);
+
+    // Phase 1: Scatter to all ranks with atomic ADD
+    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
+        comm.Put(predToken, in, dynRankId, AtomicType::ADD);
+    }
+
+    // Phase 2: Gather — wait for all contributions, read reduced result
+    out = comm.WaitAndGet(in);
+}
+
+// OneShotAllReduce_v4: like v3 but with OneShotCommunicatorV2 (three-phase API).
+// Same IR as v2/v3.
+void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out)
+{
+    ValidateShmemTensor(shmemTensor, true, true);
+    ValidateTensor(predToken, "predToken", {2});
+    ValidateTensor(in, "in", {predToken.Dim()});
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, in.GetShape(0), in.GetShape(1)});
+    ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
+    OneShotCommunicatorV2 comm(shmemTensor);
+
+    // Phase 1: Scatter to all ranks with atomic ADD
+    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
+        comm.Put(predToken, in, dynRankId, AtomicType::ADD);
+    }
+
+    // Phase 2: Gather — wait for all contributions, read reduced result
+    out = comm.WaitAndGet(in);
+}
+
+// OneShotAllReduce_v5: scatter + wait; Pull is the caller's responsibility.
+// Enables overlap between scatter and local compute.
+Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor)
+{
+    ValidateShmemTensor(shmemTensor, true, true);
+    ValidateTensor(predToken, "predToken", {2});
+    ValidateTensor(in, "in", {predToken.Dim()});
+    uint32_t worldSize = shmemTensor.worldSize;
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, row, col});
+    auto shmemDataTile = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
+
+    // Phase 1: Scatter — broadcast input to all ranks with atomic ADD
+    for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
+        auto putOut = ShmemPut(in, shmemDataTile, dynRankId, AtomicType::ADD, predToken);
+        ShmemSignal(shmemDataTile, dynRankId, dynRankId, 1, AtomicType::ADD, putOut);
+    }
+
+    // Phase 2: Wait — use predToken (not the Put output) to match base IR ordering
+    return ShmemWaitUntil(shmemDataTile, thisRank, OpType::EQ, worldSize, true, predToken);
+}
+
+// TwoShotAllReduce_v2: Same AllReduce semantics as TwoShotAllReduce(ShmemTensor&).
+//
+// Inline implementation of the symmetric-memory two-shot protocol using the
+// canonical ShmemTensor API. Reduces repetition with a ShmemView helper:
+//   - dataTile view extracted once per iteration
+//   - inputChunk sliced directly from the input tensor
+void TwoShotAllReduce_v2(const Tensor& predToken, const Tensor& in,
+    ShmemTensor& shmemTensor, Tensor& out)
+{
+    ValidateShmemTensor(shmemTensor, true, true);
+    ValidateTensor(predToken, "predToken", {2});
+    ValidateTensor(in, "in", {predToken.Dim()});
+    uint32_t worldSize = shmemTensor.worldSize;
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    int32_t rowPerRank = row / static_cast<int32_t>(worldSize);
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()},
+        {static_cast<int64_t>(worldSize), rowPerRank, col});
+    ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
 
     for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
-        auto putOut = ShmemPut(predToken, inputChunk(dynRankId), viewData(dynRankId), AtomicType::ADD);
-        auto signalOut = ShmemSignal(putOut, viewPutSignal(dynRankId), AtomicType::ADD);
-        auto waitOut = WaitUntil(signalOut, viewWaitSignal(dynRankId), worldSize);
-        auto reduced = ShmemGet(waitOut, viewData(dynRankId), in.GetDataType());
-        Assemble(reduced, {rowPerRank * dynRankId, 0}, out);
+        auto dataTile = ShmemView(shmemTensor, {1, rowPerRank, col},
+            std::vector<SymbolicScalar>{0, 0, 0});
+        auto inChunk = View(in, {rowPerRank, col},
+            std::vector<SymbolicScalar>{static_cast<int32_t>(dynRankId) * rowPerRank, 0});
+        auto putOut = ShmemPut(inChunk, dataTile, dynRankId, AtomicType::ADD, predToken);
+        ShmemSignalAll(dataTile, dynRankId, 1, AtomicType::ADD, putOut);
+        auto waitOut = ShmemWaitUntil(dataTile, dynRankId, OpType::EQ,
+            static_cast<int32_t>(worldSize), true, in);
+        auto reduced = ShmemGet(dataTile, dynRankId, waitOut, in.GetDataType());
+        Assemble(reduced, {static_cast<int32_t>(dynRankId) * rowPerRank, 0}, out);
     }
 }
 
-// TwoShotAllReduce_v3: Uses a TwoShotCommunicator to hide shmem layout details.
+// TwoShotAllReduce_v3: Uses TwoShotCommunicator to hide shmem layout details.
 //
-// Works with chunk IDs instead of raw View() calls
-// for shmem data and signal buffers. Input chunking and Assemble remain
-// in the algorithm.
-void TwoShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* group,
-    Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
+// Works with chunk IDs instead of raw ShmemView() calls.
+// Input chunking and Assemble remain in the algorithm.
+void TwoShotAllReduce_v3(const Tensor& predToken, const Tensor& in,
+    ShmemTensor& shmemTensor, Tensor& out)
 {
-    TwoShotCommunicator comm(group, shmemData, shmemSignal);
-    int32_t rowPerRank = in.GetShape(0) / comm.WorldSize();
+    ValidateShmemTensor(shmemTensor, true, true);
+    ValidateTensor(predToken, "predToken", {2});
+    ValidateTensor(in, "in", {predToken.Dim()});
+    ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
+    TwoShotCommunicator comm(shmemTensor);
+    int32_t rowPerRank = in.GetShape(0) / static_cast<int32_t>(comm.WorldSize());
     int32_t col = in.GetShape(1);
 
     for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
         auto inChunk = View(in, {rowPerRank, col},
             std::vector<SymbolicScalar>{rowPerRank * dynRankId, 0});
-        auto signalOut = comm.Put(predToken, inChunk, dynRankId, AtomicType::ADD);
-        auto reduced = comm.WaitAndGet(signalOut, dynRankId, in.GetDataType());
+        comm.Put(predToken, inChunk, dynRankId, AtomicType::ADD);
+        auto reduced = comm.WaitAndGet(in, dynRankId, in.GetDataType());
         Assemble(reduced, {rowPerRank * dynRankId, 0}, out);
     }
 }
 
-// TwoShotAllReduce_v4: TwoShotCommunicatorV2 with explicit data Views.
+// TwoShotAllReduce_v4: TwoShotCommunicatorV2 with combined WaitAndGet per chunk.
 //
-// Data placement via explicit View() calls.
-// TwoShotCommunicatorV2 handles signal coordination and group metadata.
-// Uses combined WaitAndGet() per chunk (convenience method).
-void TwoShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* group,
-    Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
+// Uses the three-phase communicator but executes Wait+Pull as a single step
+// (WaitAndGet). Enables per-chunk dtype latching via Put().
+void TwoShotAllReduce_v4(const Tensor& predToken, const Tensor& in,
+    ShmemTensor& shmemTensor, Tensor& out)
 {
-    int32_t row = in.GetShape(0);
+    ValidateShmemTensor(shmemTensor, true, true);
+    ValidateTensor(predToken, "predToken", {2});
+    ValidateTensor(in, "in", {predToken.Dim()});
+    ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
+    TwoShotCommunicatorV2 comm(shmemTensor);
+    int32_t rowPerRank = in.GetShape(0) / static_cast<int32_t>(comm.WorldSize());
     int32_t col = in.GetShape(1);
-    int32_t rowPerRank = row / static_cast<int32_t>(shmemData.GetShape()[0]);
-    TwoShotCommunicatorV2 comm(group, static_cast<uint32_t>(shmemData.GetShape()[0]), shmemSignal);
 
     for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
         auto inChunk = View(in, {rowPerRank, col},
             std::vector<SymbolicScalar>{rowPerRank * dynRankId, 0});
-        auto dataView = View(shmemData, {1, 1, rowPerRank, col},
-            std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0});
-        auto signalOut = comm.Put(predToken, inChunk, dataView, dynRankId, AtomicType::ADD);
-        auto reduced = comm.WaitAndGet(signalOut, dataView, dynRankId);
+        comm.Put(predToken, inChunk, dynRankId, AtomicType::ADD);
+        auto reduced = comm.WaitAndGet(in, dynRankId);
         Assemble(reduced, {rowPerRank * dynRankId, 0}, out);
     }
 }
 
 // TwoShotAllReduce_v5: per-chunk Put/Wait/Pull with external TwoShotCommunicatorV2.
 void TwoShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
-    Tensor& shmemData, TwoShotCommunicatorV2& comm, Tensor& out)
+    TwoShotCommunicatorV2& comm, Tensor& out)
 {
-    int32_t row = in.GetShape(0);
+    ValidateTensor(predToken, "predToken", {2});
+    ValidateTensor(in, "in", {predToken.Dim()});
+    ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
+    int32_t rowPerRank = in.GetShape(0) / static_cast<int32_t>(comm.WorldSize());
     int32_t col = in.GetShape(1);
-    int32_t rowPerRank = row / comm.WorldSize();
 
     for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
         auto inChunk = View(in, {rowPerRank, col},
             std::vector<SymbolicScalar>{rowPerRank * dynRankId, 0});
-        auto dataView = View(shmemData, {1, 1, rowPerRank, col},
-            std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0});
 
         // Phase 1: Put — write chunk to shmem slot + signal all ranks
-        auto signalOut = comm.Put(predToken, inChunk, dataView, dynRankId, AtomicType::ADD);
+        comm.Put(predToken, inChunk, dynRankId, AtomicType::ADD);
 
-        // Phase 2: Wait — block until all contributions for this chunk have arrived
-        auto waitOut = comm.Wait(signalOut, dynRankId);
+        // Phase 2: Wait — dep is `in` (not signalOut) to match v2 blocked IR ordering
+        auto waitOut = comm.Wait(in, dynRankId);
 
         // Phase 3: Pull — read reduced chunk from shmem
-        auto reduced = comm.Pull(waitOut, dataView);
+        auto reduced = comm.Pull(waitOut, dynRankId);
         Assemble(reduced, {rowPerRank * dynRankId, 0}, out);
     }
 }
@@ -855,63 +763,104 @@ void TwoShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
 // predToken is used for Put() (scheduling the ShmemPut ops).
 // Wait and Pull are the caller's responsibility, enabling overlap
 // between scatter and local compute.
-void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, Tensor& shmemData, OneShotCommunicatorV2& comm)
+void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor)
 {
+    ValidateShmemTensor(shmemTensor, true, true);
+    ValidateTensor(predToken, "predToken", {2});
+    ValidateTensor(in, "in", {predToken.Dim()});
+    uint32_t worldSize = shmemTensor.worldSize;
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, row, col});
+    auto shmemDataTile = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
 
-    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
-        auto dynRankView = View(shmemData, {1, 1, row, col},
-            std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
-        comm.Put(predToken, in, dynRankView, dynRankId, AtomicType::ADD);
+    for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
+        auto putOut = ShmemPut(in, shmemDataTile, dynRankId, AtomicType::ADD, predToken);
+        ShmemSignal(shmemDataTile, dynRankId, dynRankId, 1, AtomicType::ADD, putOut);
     }
 }
 
 // OneShotAllReduce_v6_light: same coarse scatter cadence as v6.
-// Uses compact signal domains via CreateShmemSignalLight at setup time.
-void OneShotAllReduce_v6_light(const Tensor& predToken, const Tensor& in, Tensor& shmemData, OneShotCommunicatorV2& comm)
+// Signal compactness is controlled at ShmemTensor construction time.
+void OneShotAllReduce_v6_light(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor)
 {
+    ValidateShmemTensor(shmemTensor, true, true);
+    ValidateTensor(predToken, "predToken", {2});
+    ValidateTensor(in, "in", {predToken.Dim()});
+    uint32_t worldSize = shmemTensor.worldSize;
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, row, col});
+    auto shmemDataTile = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
 
-    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
-        auto dynRankView = View(shmemData, {1, 1, row, col},
-            std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
-        comm.Put(predToken, in, dynRankView, dynRankId, AtomicType::ADD);
+    for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
+        auto putOut = ShmemPut(in, shmemDataTile, dynRankId, AtomicType::ADD, predToken);
+        ShmemSignal(shmemDataTile, dynRankId, dynRankId, 1, AtomicType::ADD, putOut);
     }
 }
 
-// OneShotAllReduce_v7: scatter-only with grouped signaling.
-// Communicator controls chunking and chunk->signal-group mapping.
-void OneShotAllReduce_v7(const Tensor& predToken, const Tensor& in, Tensor& shmemData, OneShotCommunicatorV3& comm)
+// OneShotAllReduce_v7: chunked scatter with coarse per-rank signaling.
+//
+// Splits the input into payloadChunkCount chunks (OneShotCommunicatorV3
+// controls chunk geometry) and scatters each chunk to every rank with atomic
+// ADD.  A SINGLE ShmemSignal is fired on the FULL tile view after all chunks
+// for each rank are put, keeping the signal counter at the hardware-supported
+// full-tile address (sub-tile row offsets all resolve to the same tile_id and
+// cannot serve as independent per-chunk counters with the current framework).
+//
+// Comparison with v6: v7 exposes a chunked Put/Signal API that enables the
+// caller to observe chunk geometry and pipeline output assembly, while v6's
+// ShmemClearAndSignal API is monolithic.
+void OneShotAllReduce_v7(const Tensor& predToken, const Tensor& in, OneShotCommunicatorV3& comm)
 {
     int32_t col = in.GetShape(1);
+    // Phase 1: Scatter — put every chunk to every rank, then signal once per rank.
     for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
+        Tensor putOut = predToken;
         for (uint32_t chunkId = 0; chunkId < comm.PayloadChunkCount(); ++chunkId) {
             int32_t chunkRow = comm.ChunkStartRow(chunkId);
             int32_t chunkRows = comm.ChunkRows(chunkId);
-            auto inChunk = View(in, {chunkRows, col}, std::vector<SymbolicScalar>{chunkRow, 0});
-            auto dynRankView = View(shmemData, {1, 1, chunkRows, col},
-                std::vector<SymbolicScalar>{dynRankId, 0, chunkRow, 0});
-            comm.Put(predToken, inChunk, dynRankView, dynRankId, chunkId, AtomicType::ADD);
+            auto inChunk = View(in, {chunkRows, col},
+                std::vector<SymbolicScalar>{chunkRow, 0});
+            putOut = comm.Put(putOut, inChunk, dynRankId, chunkId, AtomicType::ADD);
         }
+        comm.Signal(putOut, dynRankId, AtomicType::ADD);
     }
 }
 
-// OneShotAllReduce_v8: scatter-only with policy-driven signal plan (v8).
-// The communicator owns chunk->group mapping and thresholds.
-void OneShotAllReduce_v8(const Tensor& predToken, const Tensor& in, Tensor& shmemData, OneShotCommunicatorV4& comm)
+// OneShotAllReduce_v8: grouped-scatter with coarse per-rank signaling.
+//
+// Uses OneShotCommunicatorV4, which organises payloadChunkCount chunks into
+// groups of chunksPerSignal (k).  The scatter loop mirrors v7 but is
+// structured in group-major order, making the group boundary explicit in the
+// IR for analysis and future per-group signal support.  A SINGLE ShmemSignal
+// is fired on the FULL tile view once all groups for each rank are put
+// (same coarse-wait constraint as v7: EQ-only ShmemWaitUntil cannot safely
+// track per-group thresholds without GE semantics).
+//
+// The key V4 value-add vs V7 is on the receiver side: WaitGroup exposes
+// group-level readiness tokens that map naturally to k-chunk output assembly
+// units, enabling tighter loop structures when k aligns to compute tile size.
+void OneShotAllReduce_v8(const Tensor& predToken, const Tensor& in, OneShotCommunicatorV4& comm)
 {
     int32_t col = in.GetShape(1);
+    // Phase 1: Scatter — group-major, put every chunk in every group to every rank,
+    // then fire ONE coarse signal after all groups for each rank.
     for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
-        for (uint32_t chunkId = 0; chunkId < comm.PayloadChunkCount(); ++chunkId) {
-            int32_t chunkRow = comm.ChunkStartRow(chunkId);
-            int32_t chunkRows = comm.ChunkRows(chunkId);
-            auto inChunk = View(in, {chunkRows, col}, std::vector<SymbolicScalar>{chunkRow, 0});
-            auto dynRankView = View(shmemData, {1, 1, chunkRows, col},
-                std::vector<SymbolicScalar>{dynRankId, 0, chunkRow, 0});
-            comm.PutWithSignal(predToken, inChunk, dynRankView, dynRankId, chunkId, AtomicType::ADD);
+        Tensor putOut = predToken;
+        for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
+            uint32_t begin = comm.GroupBeginChunk(groupId);
+            uint32_t gSize = comm.GroupSize(groupId);
+            for (uint32_t local = 0; local < gSize; ++local) {
+                uint32_t chunkId = begin + local;
+                int32_t chunkRow = comm.ChunkStartRow(chunkId);
+                int32_t chunkRows = comm.ChunkRows(chunkId);
+                auto inChunk = View(in, {chunkRows, col},
+                    std::vector<SymbolicScalar>{chunkRow, 0});
+                putOut = comm.Put(putOut, inChunk, dynRankId, chunkId, AtomicType::ADD);
+            }
         }
+        comm.Signal(putOut, dynRankId, AtomicType::ADD);
     }
 }
 

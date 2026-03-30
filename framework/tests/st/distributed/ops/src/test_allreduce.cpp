@@ -25,6 +25,23 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
+namespace {
+
+void InitAllReduceShmemTensor(const Tensor& in, const OpTestParam& testParam,
+    const Shape& shmemDataShape, ShmemTensor& shmemTensor)
+{
+    DataType shmemDataType = in.GetDataType();
+    if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+        shmemDataType = DT_FP32;
+    }
+    LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+        (void)index;
+        CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
+    }
+}
+
+} // namespace
+
 template<typename T>
 void TestAllReduce(OpTestParam &testParam, std::string &goldenDir)
 {
@@ -56,8 +73,6 @@ void TestAllReduce(OpTestParam &testParam, std::string &goldenDir)
     }
     FUNCTION("ALLREDUCE", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        Tensor shmemData;
-        Tensor shmemSignal;
         DataType shmemDataType = in.GetDataType();
         if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
             shmemDataType = DT_FP32;
@@ -117,21 +132,67 @@ void TestAllReduce_v2(OpTestParam &testParam, std::string &goldenDir)
     Shape shmemDataShape{1, row, col};
     FUNCTION("ALLREDUCE_V2", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        Tensor shmemData;
-        Tensor shmemSignal;
+        DataType shmemDataType = in.GetDataType();
+        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+            shmemDataType = DT_FP32;
+        }
+        ShmemTensor shmemTensor;
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
+        }
+        OneShotAllReduce_v2(in, in, shmemTensor, out);
+    }
+    // DumpAllIR("OneShot v2");
+    VerifyOneShotAllReduceIR("ALLREDUCE_V2", testParam.rankSize);
+    RunTest();
+    auto output = ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
+}
+
+// v9: SHMEM-only, chunked, tunable signal-to-data ratio, no Communicator class.
+template<typename T>
+void TestAllReduce_v9(OpTestParam &testParam, std::string &goldenDir)
+{
+    constexpr size_t paramsSize = 6;
+    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(goldenDir + "/params.bin");
+    (void)useTwoShot;
+    DataType dType = GetDataTypeNum(typeNum);
+
+    int32_t outSize = row * col;
+    Shape shape{row, col};
+    Tensor in(dType, shape, "in");
+    Tensor out(dType, shape, "out");
+
+    std::vector<T> inPtr = ReadToVector<T>(
+        goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(in, inPtr),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateTensorZero(out),
+    });
+
+    // Use one representative tuple per test case to keep runtime graph size stable.
+    uint32_t chunkCount = std::min<uint32_t>(static_cast<uint32_t>(row), 4u);
+    uint32_t chunksPerSignal = std::min<uint32_t>(chunkCount, 2u);
+
+    Shape shmemDataShape{1, row, col};
+    FUNCTION("ALLREDUCE_V9", {in}, {out}) {
+        TileShape::Current().SetVecTile({tileRow, tileCol});
+        ShmemTensor shmemTensor;
         DataType shmemDataType = in.GetDataType();
         if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
             shmemDataType = DT_FP32;
         }
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
         }
-        OneShotAllReduce_v2(in, in, testParam.group, shmemData, shmemSignal, out);
+
+        OneShotAllReduce_v9(in, in, shmemTensor, out, chunkCount, chunksPerSignal);
     }
-    // DumpAllIR("OneShot v2");
-    VerifyOneShotAllReduceIR("ALLREDUCE_V2", testParam.rankSize);
     RunTest();
     auto output = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
@@ -141,6 +202,10 @@ template void TestAllReduce_v2<int32_t>(OpTestParam &testParam, std::string &gol
 template void TestAllReduce_v2<float>(OpTestParam &testParam, std::string &goldenDir);
 template void TestAllReduce_v2<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce_v2<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
+template void TestAllReduce_v9<int32_t>(OpTestParam &testParam, std::string &goldenDir);
+template void TestAllReduce_v9<float>(OpTestParam &testParam, std::string &goldenDir);
+template void TestAllReduce_v9<float16>(OpTestParam &testParam, std::string& goldenDir);
+template void TestAllReduce_v9<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
 template<typename T>
 void TestAllReduce_v3(OpTestParam &testParam, std::string &goldenDir)
@@ -168,18 +233,16 @@ void TestAllReduce_v3(OpTestParam &testParam, std::string &goldenDir)
     Shape shmemDataShape{1, row, col};
     FUNCTION("ALLREDUCE_V3", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        Tensor shmemData;
-        Tensor shmemSignal;
         DataType shmemDataType = in.GetDataType();
         if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
             shmemDataType = DT_FP32;
         }
+        ShmemTensor shmemTensor;
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
         }
-        OneShotAllReduce_v3(in, in, testParam.group, shmemData, shmemSignal, out);
+        OneShotAllReduce_v3(in, in, shmemTensor, out);
     }
     VerifyOneShotAllReduceIR("ALLREDUCE_V3", testParam.rankSize);
     RunTest();
@@ -218,18 +281,16 @@ void TestAllReduce_v4(OpTestParam &testParam, std::string &goldenDir)
     Shape shmemDataShape{1, row, col};
     FUNCTION("ALLREDUCE_V4", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        Tensor shmemData;
-        Tensor shmemSignal;
         DataType shmemDataType = in.GetDataType();
         if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
             shmemDataType = DT_FP32;
         }
+        ShmemTensor shmemTensor;
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
         }
-        OneShotAllReduce_v4(in, in, testParam.group, shmemData, shmemSignal, out);
+        OneShotAllReduce_v4(in, in, shmemTensor, out);
     }
     VerifyOneShotAllReduceIR("ALLREDUCE_V4", testParam.rankSize);
     RunTest();
@@ -269,22 +330,20 @@ void TestAllReduce_v5(OpTestParam &testParam, std::string &goldenDir)
     Shape shmemDataShape{1, row, col};
     FUNCTION("ALLREDUCE_V5", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        Tensor shmemData;
-        Tensor shmemSignal;
         DataType shmemDataType = in.GetDataType();
         if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
             shmemDataType = DT_FP32;
         }
+        ShmemTensor shmemTensor;
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
         }
-        // OneShotCommunicatorV2 constructed externally, passed into v5
-        OneShotCommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
-        auto waitToken = OneShotAllReduce_v5(in, in, shmemData, comm);
+        auto waitToken = OneShotAllReduce_v5(in, in, shmemTensor);
         // Pull happens outside v5 — postprocessing by the caller
-        out = comm.Pull(waitToken, shmemData);
+        SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
+        auto shmemDataLocal = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
+        out = ShmemGet(shmemDataLocal, thisRank, waitToken, in.GetDataType());
     }
     VerifyOneShotAllReduceIR("ALLREDUCE_V5", testParam.rankSize);
     RunTest();
@@ -325,23 +384,23 @@ void TestAllReduce_v6(OpTestParam &testParam, std::string &goldenDir)
     Shape shmemDataShape{1, row, col};
     FUNCTION("ALLREDUCE_V6", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        Tensor shmemData;
-        Tensor shmemSignal;
         DataType shmemDataType = in.GetDataType();
         if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
             shmemDataType = DT_FP32;
         }
+        ShmemTensor shmemTensor;
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
         }
-        OneShotCommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
         // scatter only — fire off the Puts
-        OneShotAllReduce_v6(in, in, shmemData, comm);
+        OneShotAllReduce_v6(in, in, shmemTensor);
         // caller-side: block until all signals land, then read back
-        auto waitToken = comm.Wait(in);
-        out = comm.Pull(waitToken, shmemData);
+        SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
+        auto shmemDataLocal = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
+        auto waitToken = ShmemWaitUntil(shmemDataLocal, thisRank, OpType::EQ,
+            static_cast<int32_t>(shmemTensor.worldSize), true, in);
+        out = ShmemGet(shmemDataLocal, thisRank, waitToken, in.GetDataType());
     }
     VerifyOneShotAllReduceIR("ALLREDUCE_V6", testParam.rankSize);
     RunTest();
@@ -381,21 +440,21 @@ void TestAllReduce_v6_light(OpTestParam &testParam, std::string &goldenDir)
     Shape shmemDataShape{1, row, col};
     FUNCTION("ALLREDUCE_V6_LIGHT", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        Tensor shmemData;
-        Tensor shmemSignal;
         DataType shmemDataType = in.GetDataType();
         if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
             shmemDataType = DT_FP32;
         }
+        ShmemTensor shmemTensor;
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignalLight(testParam.group, testParam.rankSize, shmemSignal);
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
         }
-        OneShotCommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
-        OneShotAllReduce_v6_light(in, in, shmemData, comm);
-        auto waitToken = comm.Wait(in);
-        out = comm.Pull(waitToken, shmemData);
+        OneShotAllReduce_v6_light(in, in, shmemTensor);
+        SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
+        auto shmemDataLocal = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
+        auto waitToken = ShmemWaitUntil(shmemDataLocal, thisRank, OpType::EQ,
+            static_cast<int32_t>(shmemTensor.worldSize), true, in);
+        out = ShmemGet(shmemDataLocal, thisRank, waitToken, in.GetDataType());
     }
     VerifyOneShotAllReduceIR("ALLREDUCE_V6_LIGHT", testParam.rankSize);
     RunTest();
@@ -408,7 +467,9 @@ template void TestAllReduce_v6_light<float>(OpTestParam &testParam, std::string 
 template void TestAllReduce_v6_light<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce_v6_light<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
-// v7: grouped signaling with tunable chunksPerSignal (k).
+// v7: chunked scatter with coarse per-rank signaling (tunable payloadChunkCount).
+// Data movement is chunked; signaling uses one coarse signal per target rank and
+// receiver-side cached wait token semantics.
 template<typename T>
 void TestAllReduce_v7(OpTestParam &testParam, std::string &goldenDir)
 {
@@ -432,57 +493,29 @@ void TestAllReduce_v7(OpTestParam &testParam, std::string &goldenDir)
         RawTensorData::CreateTensorZero(out),
     });
 
-    // Use 7 chunks to guarantee a tail-group when k=4 (7 % 4 != 0).
+    // Keep a single payloadChunkCount in ST to avoid cross-iteration
+    // shmem clear/signal interactions under real NPU runtime.
     uint32_t payloadChunkCount = static_cast<uint32_t>(row >= 7 ? 7 : row);
-    ASSERT(payloadChunkCount > 0) << "payloadChunkCount must be > 0";
 
     Shape shmemDataShape{1, row, col};
     FUNCTION("ALLREDUCE_V7", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        Tensor shmemData;
-        Tensor shmemSignal;
+        ShmemTensor shmemTensor;
         DataType shmemDataType = in.GetDataType();
         if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
             shmemDataType = DT_FP32;
         }
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
         }
 
-        // k sweep: 1, 2, 4, C_payload.
-        std::vector<uint32_t> kCandidates{1u, 2u, 4u, payloadChunkCount};
-        std::vector<uint32_t> validK;
-        for (uint32_t k : kCandidates) {
-            if (k <= payloadChunkCount) {
-                validK.push_back(k);
-            }
-        }
-        for (size_t idx = 0; idx < validK.size(); ++idx) {
-            uint32_t k = validK[idx];
-
-            // Reset buffers between variants in the same test function.
-            auto resetData = ShmemDataSet(in, shmemData);
-            auto resetSignal = ShmemSignalSet(resetData, shmemSignal);
-
-            OneShotCommunicatorV3 comm(testParam.group, testParam.rankSize, shmemSignal, payloadChunkCount, k);
-            OneShotAllReduce_v7(resetSignal, in, shmemData, comm);
-
-            // Materialize full output only on last iteration, but always exercise grouped Wait/Pull.
-            bool materialize = (idx + 1 == validK.size());
-            for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
-                auto waitToken = comm.WaitGroup(in, groupId);
-                uint32_t begin = comm.GroupBeginChunk(groupId);
-                uint32_t gSize = comm.GroupSize(groupId);
-                for (uint32_t local = 0; local < gSize; ++local) {
-                    uint32_t chunkId = begin + local;
-                    auto reducedChunk = comm.PullChunk(waitToken, shmemData, chunkId);
-                    if (materialize) {
-                        Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
-                    }
-                }
-            }
+        OneShotCommunicatorV3 comm(shmemTensor, payloadChunkCount);
+        OneShotAllReduce_v7(in, in, comm);
+        for (uint32_t chunkId = 0; chunkId < comm.PayloadChunkCount(); ++chunkId) {
+            auto waitToken = comm.WaitChunk(in, chunkId);
+            auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
+            Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
         }
     }
     RunTest();
@@ -495,7 +528,9 @@ template void TestAllReduce_v7<float>(OpTestParam &testParam, std::string &golde
 template void TestAllReduce_v7<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce_v7<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
-// v8: policy-driven grouped signaling with contiguous/interleaved modes.
+// v8: chunked scatter with grouped assembly (tunable chunksPerSignal k).
+// Current signaling remains coarse per-rank; grouping controls receiver-side
+// chunk assembly cadence and loop structure.
 template<typename T>
 void TestAllReduce_v8(OpTestParam &testParam, std::string &goldenDir)
 {
@@ -519,59 +554,35 @@ void TestAllReduce_v8(OpTestParam &testParam, std::string &goldenDir)
         RawTensorData::CreateTensorZero(out),
     });
 
+    // 7 chunks guarantees a tail group when k=4 (7 % 4 != 0).
     uint32_t payloadChunkCount = static_cast<uint32_t>(row >= 7 ? 7 : row);
     ASSERT(payloadChunkCount > 0) << "payloadChunkCount must be > 0";
+    // Keep one stable grouping in ST to avoid cross-iteration shmem interactions.
+    uint32_t k = static_cast<uint32_t>(payloadChunkCount >= 4 ? 4 : payloadChunkCount);
 
     Shape shmemDataShape{1, row, col};
     FUNCTION("ALLREDUCE_V8", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        Tensor shmemData;
-        Tensor shmemSignal;
+        ShmemTensor shmemTensor;
         DataType shmemDataType = in.GetDataType();
         if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
             shmemDataType = DT_FP32;
         }
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
         }
 
-        std::vector<uint32_t> kCandidates{1u, 2u, 4u, payloadChunkCount};
-        std::vector<uint32_t> validK;
-        for (uint32_t k : kCandidates) {
-            if (k <= payloadChunkCount) {
-                validK.push_back(k);
-            }
-        }
-        std::vector<SignalGroupingMode> modes{
-            SignalGroupingMode::CONTIGUOUS,
-            SignalGroupingMode::INTERLEAVED
-        };
-        for (SignalGroupingMode mode : modes) {
-            for (size_t idx = 0; idx < validK.size(); ++idx) {
-                uint32_t k = validK[idx];
-
-                // Reset buffers between variants in the same test function.
-                auto resetData = ShmemDataSet(in, shmemData);
-                auto resetSignal = ShmemSignalSet(resetData, shmemSignal);
-
-                OneShotSignalPlan plan(payloadChunkCount, k, mode);
-                OneShotCommunicatorV4 comm(testParam.group, testParam.rankSize, shmemSignal, plan);
-                OneShotAllReduce_v8(resetSignal, in, shmemData, comm);
-
-                bool materialize = (mode == SignalGroupingMode::INTERLEAVED) && (idx + 1 == validK.size());
-                for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
-                    auto waitToken = comm.WaitGroup(in, groupId);
-                    uint32_t gSize = comm.GroupSize(groupId);
-                    for (uint32_t local = 0; local < gSize; ++local) {
-                        uint32_t chunkId = comm.GroupChunkAt(groupId, local);
-                        auto reducedChunk = comm.PullChunk(waitToken, shmemData, chunkId);
-                        if (materialize) {
-                            Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
-                        }
-                    }
-                }
+        OneShotCommunicatorV4 comm(shmemTensor, payloadChunkCount, k);
+        OneShotAllReduce_v8(in, in, comm);
+        for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
+            auto waitToken = comm.WaitGroup(in, groupId);
+            uint32_t begin = comm.GroupBeginChunk(groupId);
+            uint32_t gSize = comm.GroupSize(groupId);
+            for (uint32_t local = 0; local < gSize; ++local) {
+                uint32_t chunkId = begin + local;
+                auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
+                Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
             }
         }
     }
@@ -614,18 +625,9 @@ void TestAllReduce_TwoShot_v2(OpTestParam &testParam, std::string &goldenDir)
     Shape shmemDataShape{testParam.rankSize, rowPerRank, col};
     FUNCTION("TWOSHOT_V2", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        Tensor shmemData;
-        Tensor shmemSignal;
-        DataType shmemDataType = in.GetDataType();
-        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
-            shmemDataType = DT_FP32;
-        }
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
-        }
-        TwoShotAllReduce_v2(in, in, testParam.group, shmemData, shmemSignal, out);
+        ShmemTensor shmemTensor;
+        InitAllReduceShmemTensor(in, testParam, shmemDataShape, shmemTensor);
+        TwoShotAllReduce_v2(in, in, shmemTensor, out);
     }
     VerifyTwoShotAllReduceIR("TWOSHOT_V2", testParam.rankSize);
     RunTest();
@@ -666,18 +668,9 @@ void TestAllReduce_TwoShot_v3(OpTestParam &testParam, std::string &goldenDir)
     Shape shmemDataShape{testParam.rankSize, rowPerRank, col};
     FUNCTION("TWOSHOT_V3", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        Tensor shmemData;
-        Tensor shmemSignal;
-        DataType shmemDataType = in.GetDataType();
-        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
-            shmemDataType = DT_FP32;
-        }
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
-        }
-        TwoShotAllReduce_v3(in, in, testParam.group, shmemData, shmemSignal, out);
+        ShmemTensor shmemTensor;
+        InitAllReduceShmemTensor(in, testParam, shmemDataShape, shmemTensor);
+        TwoShotAllReduce_v3(in, in, shmemTensor, out);
     }
     VerifyTwoShotAllReduceIR("TWOSHOT_V3", testParam.rankSize);
     RunTest();
@@ -718,18 +711,9 @@ void TestAllReduce_TwoShot_v4(OpTestParam &testParam, std::string &goldenDir)
     Shape shmemDataShape{testParam.rankSize, rowPerRank, col};
     FUNCTION("TWOSHOT_V4", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        Tensor shmemData;
-        Tensor shmemSignal;
-        DataType shmemDataType = in.GetDataType();
-        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
-            shmemDataType = DT_FP32;
-        }
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
-        }
-        TwoShotAllReduce_v4(in, in, testParam.group, shmemData, shmemSignal, out);
+        ShmemTensor shmemTensor;
+        InitAllReduceShmemTensor(in, testParam, shmemDataShape, shmemTensor);
+        TwoShotAllReduce_v4(in, in, shmemTensor, out);
     }
     VerifyTwoShotAllReduceIR("TWOSHOT_V4", testParam.rankSize);
     RunTest();
@@ -770,19 +754,10 @@ void TestAllReduce_TwoShot_v5(OpTestParam &testParam, std::string &goldenDir)
     Shape shmemDataShape{testParam.rankSize, rowPerRank, col};
     FUNCTION("TWOSHOT_V5", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        Tensor shmemData;
-        Tensor shmemSignal;
-        DataType shmemDataType = in.GetDataType();
-        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
-            shmemDataType = DT_FP32;
-        }
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
-        }
-        TwoShotCommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
-        TwoShotAllReduce_v5(in, in, shmemData, comm, out);
+        ShmemTensor shmemTensor;
+        InitAllReduceShmemTensor(in, testParam, shmemDataShape, shmemTensor);
+        TwoShotCommunicatorV2 comm(shmemTensor);
+        TwoShotAllReduce_v5(in, in, comm, out);
     }
     VerifyTwoShotAllReduceIR("TWOSHOT_V5", testParam.rankSize);
     RunTest();
@@ -809,7 +784,7 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
     Shape shape{row, col};
     Shape shmemDataShape{1, row, col};
 
-    auto buildShmemSetup = [&](Tensor& in, Tensor& shmemData, Tensor& shmemSignal) {
+    auto buildShmemTensorSetup = [&](Tensor& in, ShmemTensor& shmemTensor) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
         DataType shmemDataType = in.GetDataType();
         if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
@@ -817,8 +792,7 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
         }
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
         }
     };
 
@@ -828,9 +802,9 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
         Tensor in(dType, shape, "in_base");
         Tensor out(dType, shape, "out_base");
         FUNCTION("IR_CHECK_BASE", {in}, {out}) {
-            Tensor shmemData, shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal);
-            OneShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
+            ShmemTensor shmemTensor;
+            buildShmemTensorSetup(in, shmemTensor);
+            OneShotAllReduce(in, in, shmemTensor, out);
         }
         irBase = ExtractShmemOpcodes("IR_CHECK_BASE");
         VerifyOneShotAllReduceIR("IR_CHECK_BASE", testParam.rankSize);
@@ -843,9 +817,9 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
         Tensor in(dType, shape, "in_v2");
         Tensor out(dType, shape, "out_v2");
         FUNCTION("IR_CHECK_V2", {in}, {out}) {
-            Tensor shmemData, shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal);
-            OneShotAllReduce_v2(in, in, testParam.group, shmemData, shmemSignal, out);
+            ShmemTensor shmemTensor;
+            buildShmemTensorSetup(in, shmemTensor);
+            OneShotAllReduce_v2(in, in, shmemTensor, out);
         }
         irV2 = ExtractShmemOpcodes("IR_CHECK_V2");
         VerifyOneShotAllReduceIR("IR_CHECK_V2", testParam.rankSize);
@@ -858,9 +832,9 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
         Tensor in(dType, shape, "in_v3");
         Tensor out(dType, shape, "out_v3");
         FUNCTION("IR_CHECK_V3", {in}, {out}) {
-            Tensor shmemData, shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal);
-            OneShotAllReduce_v3(in, in, testParam.group, shmemData, shmemSignal, out);
+            ShmemTensor shmemTensor;
+            buildShmemTensorSetup(in, shmemTensor);
+            OneShotAllReduce_v3(in, in, shmemTensor, out);
         }
         irV3 = ExtractShmemOpcodes("IR_CHECK_V3");
         VerifyOneShotAllReduceIR("IR_CHECK_V3", testParam.rankSize);
@@ -873,9 +847,9 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
         Tensor in(dType, shape, "in_v4");
         Tensor out(dType, shape, "out_v4");
         FUNCTION("IR_CHECK_V4", {in}, {out}) {
-            Tensor shmemData, shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal);
-            OneShotAllReduce_v4(in, in, testParam.group, shmemData, shmemSignal, out);
+            ShmemTensor shmemTensor;
+            buildShmemTensorSetup(in, shmemTensor);
+            OneShotAllReduce_v4(in, in, shmemTensor, out);
         }
         irV4 = ExtractShmemOpcodes("IR_CHECK_V4");
         VerifyOneShotAllReduceIR("IR_CHECK_V4", testParam.rankSize);
@@ -888,11 +862,12 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
         Tensor in(dType, shape, "in_v5");
         Tensor out(dType, shape, "out_v5");
         FUNCTION("IR_CHECK_V5", {in}, {out}) {
-            Tensor shmemData, shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal);
-            OneShotCommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
-            auto waitToken = OneShotAllReduce_v5(in, in, shmemData, comm);
-            out = comm.Pull(waitToken, shmemData);
+            ShmemTensor shmemTensor;
+            buildShmemTensorSetup(in, shmemTensor);
+            auto waitToken = OneShotAllReduce_v5(in, in, shmemTensor);
+            SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
+            auto shmemDataLocal = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
+            out = ShmemGet(shmemDataLocal, thisRank, waitToken, in.GetDataType());
         }
         irV5 = ExtractShmemOpcodes("IR_CHECK_V5");
         VerifyOneShotAllReduceIR("IR_CHECK_V5", testParam.rankSize);
@@ -905,12 +880,14 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
         Tensor in(dType, shape, "in_v6");
         Tensor out(dType, shape, "out_v6");
         FUNCTION("IR_CHECK_V6", {in}, {out}) {
-            Tensor shmemData, shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal);
-            OneShotCommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
-            OneShotAllReduce_v6(in, in, shmemData, comm);
-            auto waitToken = comm.Wait(in);
-            out = comm.Pull(waitToken, shmemData);
+            ShmemTensor shmemTensor;
+            buildShmemTensorSetup(in, shmemTensor);
+            OneShotAllReduce_v6(in, in, shmemTensor);
+            SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
+            auto shmemDataLocal = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
+            auto waitToken = ShmemWaitUntil(shmemDataLocal, thisRank, OpType::EQ,
+                static_cast<int32_t>(shmemTensor.worldSize), true, in);
+            out = ShmemGet(shmemDataLocal, thisRank, waitToken, in.GetDataType());
         }
         irV6 = ExtractShmemOpcodes("IR_CHECK_V6");
         VerifyOneShotAllReduceIR("IR_CHECK_V6", testParam.rankSize);
@@ -930,21 +907,14 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
         Tensor in(dType, shape, "in_v6_light");
         Tensor out(dType, shape, "out_v6_light");
         FUNCTION("IR_CHECK_V6_LIGHT", {in}, {out}) {
-            Tensor shmemData, shmemSignal;
-            TileShape::Current().SetVecTile({tileRow, tileCol});
-            DataType shmemDataType = in.GetDataType();
-            if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
-                shmemDataType = DT_FP32;
-            }
-            LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-                (void)index;
-                CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-                CreateShmemSignalLight(testParam.group, testParam.rankSize, shmemSignal);
-            }
-            OneShotCommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
-            OneShotAllReduce_v6_light(in, in, shmemData, comm);
-            auto waitToken = comm.Wait(in);
-            out = comm.Pull(waitToken, shmemData);
+            ShmemTensor shmemTensor;
+            buildShmemTensorSetup(in, shmemTensor);
+            OneShotAllReduce_v6_light(in, in, shmemTensor);
+            SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
+            auto shmemDataLocal = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
+            auto waitToken = ShmemWaitUntil(shmemDataLocal, thisRank, OpType::EQ,
+                static_cast<int32_t>(shmemTensor.worldSize), true, in);
+            out = ShmemGet(shmemDataLocal, thisRank, waitToken, in.GetDataType());
         }
         irV6Light = ExtractShmemOpcodes("IR_CHECK_V6_LIGHT");
         VerifyOneShotAllReduceIR("IR_CHECK_V6_LIGHT", testParam.rankSize);
@@ -972,7 +942,7 @@ void TestTwoShotAllReduceIREquivalence(OpTestParam &testParam, std::string &gold
     Shape shape{row, col};
     Shape shmemDataShape{testParam.rankSize, rowPerRank, col};
 
-    auto buildShmemSetup = [&](Tensor& in, Tensor& shmemData, Tensor& shmemSignal) {
+    auto buildShmemSetup = [&](Tensor& in, ShmemTensor& shmemTensor) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
         DataType shmemDataType = in.GetDataType();
         if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
@@ -980,8 +950,7 @@ void TestTwoShotAllReduceIREquivalence(OpTestParam &testParam, std::string &gold
         }
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
         }
     };
 
@@ -991,9 +960,9 @@ void TestTwoShotAllReduceIREquivalence(OpTestParam &testParam, std::string &gold
         Tensor in(dType, shape, "in_ts_base");
         Tensor out(dType, shape, "out_ts_base");
         FUNCTION("TS_IR_CHECK_BASE", {in}, {out}) {
-            Tensor shmemData, shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal);
-            TwoShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
+            ShmemTensor shmemTensor;
+            buildShmemSetup(in, shmemTensor);
+            TwoShotAllReduce(in, in, shmemTensor, out);
         }
         irBase = ExtractShmemOpcodes("TS_IR_CHECK_BASE");
         VerifyTwoShotAllReduceIR("TS_IR_CHECK_BASE", testParam.rankSize);
@@ -1006,9 +975,9 @@ void TestTwoShotAllReduceIREquivalence(OpTestParam &testParam, std::string &gold
         Tensor in(dType, shape, "in_ts_v2");
         Tensor out(dType, shape, "out_ts_v2");
         FUNCTION("TS_IR_CHECK_V2", {in}, {out}) {
-            Tensor shmemData, shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal);
-            TwoShotAllReduce_v2(in, in, testParam.group, shmemData, shmemSignal, out);
+            ShmemTensor shmemTensor;
+            buildShmemSetup(in, shmemTensor);
+            TwoShotAllReduce_v2(in, in, shmemTensor, out);
         }
         irV2 = ExtractShmemOpcodes("TS_IR_CHECK_V2");
         VerifyTwoShotAllReduceIR("TS_IR_CHECK_V2", testParam.rankSize);
@@ -1021,9 +990,9 @@ void TestTwoShotAllReduceIREquivalence(OpTestParam &testParam, std::string &gold
         Tensor in(dType, shape, "in_ts_v3");
         Tensor out(dType, shape, "out_ts_v3");
         FUNCTION("TS_IR_CHECK_V3", {in}, {out}) {
-            Tensor shmemData, shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal);
-            TwoShotAllReduce_v3(in, in, testParam.group, shmemData, shmemSignal, out);
+            ShmemTensor shmemTensor;
+            buildShmemSetup(in, shmemTensor);
+            TwoShotAllReduce_v3(in, in, shmemTensor, out);
         }
         irV3 = ExtractShmemOpcodes("TS_IR_CHECK_V3");
         VerifyTwoShotAllReduceIR("TS_IR_CHECK_V3", testParam.rankSize);
@@ -1036,9 +1005,9 @@ void TestTwoShotAllReduceIREquivalence(OpTestParam &testParam, std::string &gold
         Tensor in(dType, shape, "in_ts_v4");
         Tensor out(dType, shape, "out_ts_v4");
         FUNCTION("TS_IR_CHECK_V4", {in}, {out}) {
-            Tensor shmemData, shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal);
-            TwoShotAllReduce_v4(in, in, testParam.group, shmemData, shmemSignal, out);
+            ShmemTensor shmemTensor;
+            buildShmemSetup(in, shmemTensor);
+            TwoShotAllReduce_v4(in, in, shmemTensor, out);
         }
         irV4 = ExtractShmemOpcodes("TS_IR_CHECK_V4");
         VerifyTwoShotAllReduceIR("TS_IR_CHECK_V4", testParam.rankSize);
@@ -1051,10 +1020,10 @@ void TestTwoShotAllReduceIREquivalence(OpTestParam &testParam, std::string &gold
         Tensor in(dType, shape, "in_ts_v5");
         Tensor out(dType, shape, "out_ts_v5");
         FUNCTION("TS_IR_CHECK_V5", {in}, {out}) {
-            Tensor shmemData, shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal);
-            TwoShotCommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
-            TwoShotAllReduce_v5(in, in, shmemData, comm, out);
+            ShmemTensor shmemTensor;
+            buildShmemSetup(in, shmemTensor);
+            TwoShotCommunicatorV2 comm(shmemTensor);
+            TwoShotAllReduce_v5(in, in, comm, out);
         }
         irV5 = ExtractShmemOpcodes("TS_IR_CHECK_V5");
         VerifyTwoShotAllReduceIR("TS_IR_CHECK_V5", testParam.rankSize);
