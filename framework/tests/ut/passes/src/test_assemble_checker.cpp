@@ -239,6 +239,7 @@ TEST_F(TestAssembleChecker, TestAssembleOffsetShapeDimNotMatch) {
     ComputationalGraphBuilder G;
     TensorInfos inTensors = {
         {"in1", {2, 2}}
+    };
     TensorInfos outTensors = {
         {"out1", {8, 8}}
     };
