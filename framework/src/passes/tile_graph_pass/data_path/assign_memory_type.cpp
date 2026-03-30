@@ -659,10 +659,6 @@ void AssignMemoryType::ProcessLargeTileToSamllTile(Function &function) {
                 inserter.UpdateTensorTobeMap(iOperand, op, MEM_DEVICE_DDR);
                 continue;
             }
-            if (iOperand->GetMemoryTypeOriginal() == MEM_UB && oOperand->shape != iOperand->shape) {
-                inserter.UpdateTensorTobeMap(iOperand, op, MEM_DEVICE_DDR);
-                continue;
-            }
         }
     }
 }
