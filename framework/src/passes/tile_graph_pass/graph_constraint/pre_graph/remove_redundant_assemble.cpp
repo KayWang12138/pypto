@@ -589,6 +589,29 @@ bool RemoveRedundantAssemble::FindAssembleOut(Operation* con, int assembleOutMag
     return res;
 }
 
+bool FindAssembleInsertedCopy(Operation* con) {
+    if (con->GetOpcode() != Opcode::OP_COPY_IN && con->GetOpcode() != Opcode::OP_COPY_OUT) {
+        return false;
+    }
+    if (con->ConsumerOps().empty()) {
+        return false;
+    } else {
+        for (auto con1 : con->ConsumerOps()) {
+            if (con1->GetOpcode() != Opcode::OP_COPY_IN && con1->GetOpcode() != Opcode::OP_COPY_OUT) {
+                if (con1->ConsumerOps().empty()) {
+                    continue;
+                }
+                for (auto con2 : con1->ConsumerOps()) {
+                    if (con2->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+ 
 Status RemoveRedundantAssemble::HanldeForSingleAssemble(Function &function, LogicalTensorPtr input, LogicalTensorPtr output, Operation &op) const {
     auto producersBackup = input->GetProducers();
     auto &consumers = input->GetConsumers();
@@ -600,15 +623,17 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(Function &function, Logi
         }
     }
     bool hasSameOutput = false; 
+    bool oriIsAssemble = false; 
     for (auto &cons : consumers) {
         if (cons->GetOpcode() != Opcode::OP_ASSEMBLE) {
+            oriIsAssemble = FindAssembleInsertedCopy(cons);
             hasSameOutput = FindAssembleOut(cons, assembleOutMagic);
-            if (hasSameOutput) {
+            if (oriIsAssemble || hasSameOutput) {
                 break;
             }
         }
     }
-    if (!hasSameOutput) {
+    if (!oriIsAssemble && !hasSameOutput) {
         for (auto &cons : consumers) {
             if (cons->GetOpcode() != Opcode::OP_ASSEMBLE) {	 
                 APASS_LOG_DEBUG_F(Elements::Operation, "Change the connection relationship of non assemble op:[%d]. %s", 
