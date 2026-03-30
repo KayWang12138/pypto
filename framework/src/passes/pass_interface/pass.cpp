@@ -14,6 +14,7 @@
  */
 
 #include "passes/pass_interface/pass.h"
+#include <fstream>
 #include "tilefwk/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/function/function.h"
