@@ -193,7 +193,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemDataSet)
     uint32_t worldSize = 4;
 
     std::string functionName = "ShmemClearData";
-    Shape shmemDataShape = {1, 64, 256};
+    Shape shmemDataShape = {64, 256};
     FUNCTION(functionName + "Main", {predToken}, {out}) {
         TileShape::Current().SetVecTile({64, 256});
         auto shmemTensor = CreateShmemTensor(group, worldSize, DT_BF16, shmemDataShape);
@@ -210,7 +210,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemDataSet)
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TileOp::Distributed::ShmemSet<bfloat16_t, 1, 64, 256, 8192>)!!!";
+        R"!!!(TileOp::Distributed::ShmemSet<bfloat16_t, 64, 256, 8192>)!!!";
     CheckStringExist(expect, res);
 }
 
@@ -222,7 +222,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemSignalSet)
     uint32_t worldSize = 4;
 
     std::string functionName = "ShmemClearSignal";
-    Shape shmemDataShape = {1, 8, 256};
+    Shape shmemDataShape = {8, 256};
     FUNCTION(functionName + "Main", {predToken}, {out}) {
         TileShape::Current().SetVecTile({8, 256});
         auto shmemTensor = CreateShmemTensor(group, worldSize, DT_FP16, shmemDataShape);
@@ -239,7 +239,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemSignalSet)
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TileOp::Distributed::ShmemSet<int32_t, 4, 0, 8, 128>)!!!";
+        R"!!!(TileOp::Distributed::ShmemSet<int32_t, 4, 8, 128>)!!!";
     CheckStringExist(expect, res);
 }
 
@@ -280,7 +280,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
     std::string functionName = "ShmemLoad";
     FUNCTION(functionName + "Main", {predToken}, {out}) {
         TileShape::Current().SetVecTile({4, 64});
-        auto shmemTensor = CreateShmemTensor("hcom123", 4, DT_BF16, {1, 4, 64});
+        auto shmemTensor = CreateShmemTensor("hcom123", 4, DT_BF16, {4, 64});
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void) index;
             out = ShmemLoad(shmemTensor, 0, predToken);
@@ -307,7 +307,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemPutUb2Gm)
     std::string functionName = "ShmemPutUb2Gm";
     FUNCTION(functionName + "Main", {in, predToken}, {out}) {
         TileShape::Current().SetVecTile({row, col});
-        auto shmemTensor = CreateShmemTensor("hcom123", 4, DT_FP32, {1, row, col});
+        auto shmemTensor = CreateShmemTensor("hcom123", 4, DT_FP32, {row, col});
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void) index;
             out = ShmemStore(in, shmemTensor, 0, AtomicType::ADD, predToken);
