@@ -239,9 +239,7 @@ def download_coverage_report(url: str, output_dir: Optional[str] = None) -> Tupl
                     f.write(buffer)
                     downloaded += len(buffer)
                     if total_size:
-                        progress = int(downloaded * 100 / int(total_size))
-                        sys.stdout.write(f"\r下载进度: {progress}%")
-                        sys.stdout.flush()
+                        pass
         
         logger.info(f"\n✓ 覆盖率报告下载成功")
         
