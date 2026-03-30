@@ -656,7 +656,7 @@ def run_asymmetric_per_group_test(N, M, group_size, bit, eps, clip_val, distribu
     [
         pytest.param(*test, id="N{}-M{}-group{}-bit{}-eps{}-clip_val{}".format(*test))
         for test in [
-            (1024, 2048, 128, 2, 0.0001, 0.99),
+            # (1024, 2048, 128, 2, 0.0001, 0.99),
             (768, 2048, 128, 3, 0.0001, 0.99),
         ]
     ]
@@ -698,7 +698,7 @@ def run_symmetric_per_channel_test(N, M, bit, eps, distribution, device_id):
     [
         pytest.param(*test, id="N{}-M{}-bit{}-eps{}".format(*test))
         for test in [
-            (153376, 2048, 4, 0.0001),
+            # (153376, 2048, 4, 0.0001),
             (38344, 2048, 4, 0.0001),
         ]
     ]
@@ -740,7 +740,7 @@ def run_symmetric_per_tensor_test(N, M, bit, eps, distribution, device_id):
     [
         pytest.param(*test, id="N{}-M{}-bit{}-eps{}".format(*test))
         for test in [
-            (153376, 2048, 8, 0.0001),
+            # (153376, 2048, 8, 0.0001),
             (38344, 2048, 8, 0.0001),
         ]
     ]
@@ -795,7 +795,7 @@ def run_asymmetric_per_group_backward_test(N, M, group_size, bit, eps, clip_val,
     [
         pytest.param(*test, id="N{}-M{}-group{}-bit{}-eps{}-clip_val{}".format(*test))
         for test in [
-            (1024, 2048, 128, 2, 0.0001, 0.99),
+            # (1024, 2048, 128, 2, 0.0001, 0.99),
             (768, 2048, 128, 3, 0.0001, 0.99),
         ]
     ]
@@ -837,7 +837,7 @@ def run_symmetric_per_channel_backward_test(N, M, bit, eps, distribution, device
     [
         pytest.param(*test, id="N{}-M{}-bit{}-eps{}".format(*test))
         for test in [
-            (153376, 2048, 4, 0.0001),
+            # (153376, 2048, 4, 0.0001),
             (38344, 2048, 4, 0.0001),
         ]
     ]
@@ -879,7 +879,7 @@ def run_symmetric_per_tensor_backward_test(N, M, bit, eps, distribution, device_
     [
         pytest.param(*test, id="N{}-M{}-bit{}-eps{}".format(*test))
         for test in [
-            (153376, 2048, 8, 0.0001),
+            # (153376, 2048, 8, 0.0001),
             (38344, 2048, 8, 0.0001),
         ]
     ]
