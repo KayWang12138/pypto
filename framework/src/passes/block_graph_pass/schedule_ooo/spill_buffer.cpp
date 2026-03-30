@@ -563,7 +563,7 @@ Status OoOScheduler::UpdateCopyInMode(Operation &copyInOp) {
     return SUCCESS;
 }
 
-Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr &spillCopyout, int &bufLastUseOrder, bool &isFinish) {
+Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr &spillCopyout, int &bufLastUseOrder, bool &isFinish) {
     APASS_LOG_DEBUG_F(Elements::Operation, "Start to spill-out special L1 in A5.");
     auto spillIssue = spillInfo.spillIssue_;
     auto preTensor = spillIssue->tileOp.GetInputOperand(0);
@@ -606,7 +606,13 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr 
         APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill! %s", GetFormatBacktrace(spillIssue->tileOp).c_str());
         return FAILED;
     }
-    bufLastUseOrder = GetBufLastUseOrder(allocIssue, actualSpillTensor->memoryrange.memId);
+    auto spillIssueIt = std::find(newOperations_.begin(), newOperations_.end(), &(spillIssue->tileOp));
+    if (spillIssueIt != newOperations_.end()) {
+        size_t pos = std::distance(newOperations_.begin(), spillIssueIt);
+        newOperations_.insert(newOperations_.begin() + pos + 1, &(spillCopyout->tileOp));
+        APASS_LOG_DEBUG_F(Elements::Operation, "Insert op: %s.", spillCopyout->GetOpInfo().c_str());
+    }
+    bufLastUseOrder = spillIssue->execOrder;
     return SUCCESS;
 }
 
@@ -620,7 +626,7 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, s
     if (spillInfo.isSpecialL1_) {
         // actualSpillIssue 为 copy_in
         bool isFinish = false;
-        if (CreateSpecialL1Copyout(spillInfo, issue, spillCopyout, bufLastUseOrder, isFinish) != SUCCESS) {
+        if (CreateSpecialL1Copyout(spillInfo, spillCopyout, bufLastUseOrder, isFinish) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "SpecialL1 CreateSpillCopyout failed!");
             return FAILED;
         }
@@ -648,7 +654,7 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, s
     if (isGenSpill) {
         pcIdx++;
         numTotalIssues++;
-    } else {
+    } else if (std::find(newOperations_.begin(), newOperations_.end(), &(spillCopyout->tileOp)) == newOperations_.end()) {
         newOperations_.push_back(&(spillCopyout->tileOp));
         APASS_LOG_DEBUG_F(Elements::Operation, "Insert op: %s.", spillCopyout->GetOpInfo().c_str());
     }
