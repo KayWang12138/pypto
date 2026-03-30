@@ -167,7 +167,10 @@ private:
     std::string QueryTileTensorNameByIdx(int paramIdx) const;
 
     TileTensorLiteNPU BuildTileTensor(int paramIdx, const std::string& usingType);
-    
+    void UpdateTileTensorShapeAndStride(
+        int paramIdx, TileTensor &tileTensor, bool isSpillToGm);
+    std::vector<std::string> BuildStride(const std::vector<int64_t> &input);
+
     std::vector<int64_t> GetTileShapeForMemTransfer(
         OperandType localType, std::vector<int64_t> gmShape, unsigned localIdx) const;
     std::string GenMemCopyVar(bool isCopyLocalToGM, bool isSpillToGm = false, unsigned uf = 0) const;

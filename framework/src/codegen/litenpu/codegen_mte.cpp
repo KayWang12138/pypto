@@ -150,6 +150,7 @@ std::string CodeGenOpLiteNPU::PrintMemCopyWithL1TileTensor(const PrintMemCopyWit
     // if (param.isCopyLocalToGM) {
     //     return PrintMemCopyOutWithL1TileTensor(param);
     // }
+    // TODO...
     (void)param;
 
     return PrintMemCopyInWithL1TileTensor(param);
@@ -305,8 +306,7 @@ std::pair<std::string, std::string> CodeGenOpLiteNPU::GetOuterInnerValueStr(
 
     bool useStaticShape = functionType == FunctionType::STATIC || isSpillingToGM;
 
-    auto getValueStr = [useStaticShape](
-                           int64_t value, int64_t shapeValue) -> std::string {
+    auto getValueStr = [useStaticShape](int64_t value, int64_t shapeValue) -> std::string {
         if (value != 0) {
             return std::to_string(value);
         }
