@@ -47,6 +47,7 @@ def test_cce_file(cce_file, test_cmd, run_dir):
         logger.info("结果: 注释所有行后运行成功（无 error），此文件可能是问题文件")
         return True
 
+
 def print_usage():
     logger.info("用法: python3 test_cce_file.py <cce_file> <test_cmd> <run_dir>")
     logger.info("")

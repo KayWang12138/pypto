@@ -39,8 +39,9 @@ def get_cce_op(line_code_map):
     target_ops = {'set_flag', 'wait_flag', 'pipe_barrier', 'SUBKERNEL'}
     
     for idx, line in line_code_map.items():
-        if (line.startswith('T') and (('<' in line and '>' in line) or ('(' in line and ')' in line))) or \
-           any(op in line for op in target_ops):
+        is_t_op_with_brackets = line.startswith('T') and (('<' in line and '>' in line) or ('(' in line and ')' in line))
+        has_target_op = any(op in line for op in target_ops)
+        if is_t_op_with_brackets or has_target_op:
             cce_op[idx] = line
     
     return cce_op
@@ -146,7 +147,7 @@ def print_source_code_line(file_path, line_number):
         logger.info("-" * 80)
         for i in range(start, end):
             marker = ">>>" if i == line_number - 1 else "   "
-            logger.info("%s %4d: %s", marker, i+1, lines[i].rstrip())
+            logger.info("%s %4d: %s", marker, i + 1, lines[i].rstrip())
         logger.info("-" * 80)
     except Exception as e:
         logger.error("[ERROR] 无法读取源代码文件: %s", e)

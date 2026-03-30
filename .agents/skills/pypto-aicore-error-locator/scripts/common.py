@@ -174,7 +174,7 @@ def find_aicore_entry_h(pypto_path, logger):
     if os.path.exists(possible_paths):
         return possible_paths
     
-    for root, dirs, files in os.walk(pypto_path):
+    for root, _, files in os.walk(pypto_path):
         if "aicore_entry.h" in files:
             return os.path.join(root, "aicore_entry.h")
     

@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 
 def find_callsubfunctask_range(lines):
     callsub_idx = -1
-    for i in range(len(lines)):
-        if 'CallSubFuncTask' in lines[i]:
+    for i, line in enumerate(lines):
+        if 'CallSubFuncTask' in line:
             callsub_idx = i
             break
     
