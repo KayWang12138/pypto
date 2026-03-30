@@ -7,6 +7,17 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
+execute_process(
+    COMMAND ${Python3_EXECUTABLE} -c "import site; print(site.getsitepackages()[0])"
+    OUTPUT_VARIABLE PYTHON_SITE_PACKAGES
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+set(TORCH_INCLUDE_DIR "${PYTHON_SITE_PACKAGES}/torch/include")
+set(TORCH_API_INCLUDE_DIR "${TORCH_INCLUDE_DIR}/torch/csrc/api/include")
+set(TORCH_NPU_INCLUDE_DIR "${PYTHON_SITE_PACKAGES}/torch_npu/include")
+set(TORCH_NPU_LIB_DIR "${PYTHON_SITE_PACKAGES}/torch_npu/lib")
+set(TORCH_NPU_LIB "${TORCH_NPU_LIB_DIR}/libtorch_npu.so")
 
 pybind11_add_module(pypto_impl
         MODULE
@@ -26,6 +37,10 @@ pybind11_add_module(pypto_impl
             bindings/platform.cpp
 )
 target_include_directories(pypto_impl
+        SYSTEM PRIVATE
+            ${TORCH_API_INCLUDE_DIR}
+            ${TORCH_INCLUDE_DIR}
+            ${TORCH_NPU_INCLUDE_DIR}
         PRIVATE
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment>>
@@ -50,6 +65,7 @@ target_link_libraries(pypto_impl
             c_sec
             intf_pub_cxx17
             tile_fwk_intf_pub
+            ${TORCH_NPU_LIB}
 )
 if (TARGET c_sec_shared)
     add_dependencies(pypto_impl c_sec_shared)
