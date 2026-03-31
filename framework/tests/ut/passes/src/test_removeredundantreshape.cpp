@@ -391,7 +391,6 @@ TEST_F(TestRemoveRedundantReshapePass, ReshapeNoConsumer) {
     currFunctionPtr->outCasts_.push_back(outCast);
     RemoveRedundantReshape pass;
     Status ret = pass.PreCheck(*currFunctionPtr);
-
     EXPECT_EQ(ret, FAILED);
 }
 }
