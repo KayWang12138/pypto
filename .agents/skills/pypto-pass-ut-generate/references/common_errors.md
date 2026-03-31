@@ -117,7 +117,7 @@ function->Operations().size()
 
 **解决方案：** 检查所有 `Operations()` 的调用，确保只调用一次 `()`
 
-**相关章节：** [SKILL.md - 步骤 6](./SKILL.md#步骤-6创建-operation-及绑定-function-输入输出)
+**相关章节：** [SKILL.md - 步骤 6](../SKILL.md#步骤-6创建-operation-及绑定-function-输入输出)
 
 ---
 
@@ -137,7 +137,7 @@ op.GetOOperands()[0]->Datatype()
 
 **解决方案：** 使用英文输入法，仔细检查代码中的函数名
 
-**相关章节：** [SKILL.md - 注意事项](./SKILL.md#注意事项)
+**相关章节：** [SKILL.md - 注意事项](../SKILL.md#注意事项)
 
 ---
 
@@ -206,7 +206,7 @@ config::SetHostOption(COMPILE_STAGE, CS_TENSOR_GRAPH);
 - `tile_graph_pass`: `CS_TILE_GRAPH`
 - `block_graph_pass`: `CS_EXECUTE_GRAPH`
 
-**相关章节：** [SKILL.md - 步骤 2](./SKILL.md#步骤-2环境配置)
+**相关章节：** [SKILL.md - 步骤 2](../SKILL.md#步骤-2环境配置)
 
 ---
 
@@ -221,7 +221,7 @@ config::SetHostOption(COMPILE_STAGE, CS_TENSOR_GRAPH);
 2. 根据实际结果调整期望值
 3. 确保理解每个功能点会插入/删除多少操作
 
-**相关章节：** [SKILL.md - 步骤 7](./SKILL.md#步骤-7对业务功能进行校验)
+**相关章节：** [SKILL.md - 步骤 7](../SKILL.md#步骤-7对业务功能进行校验)
 
 ---
 
@@ -235,7 +235,7 @@ config::SetHostOption(COMPILE_STAGE, CS_TENSOR_GRAPH);
 
 **解决方案：** 在遍历操作时，检查每个操作输入输出的数据类型
 
-**相关章节：** [SKILL.md - 步骤 7](./SKILL.md#步骤-7对业务功能进行校验)
+**相关章节：** [SKILL.md - 步骤 7](../SKILL.md#步骤-7对业务功能进行校验)
 
 ---
 
@@ -249,7 +249,7 @@ config::SetHostOption(COMPILE_STAGE, CS_TENSOR_GRAPH);
 
 **解决方案：** 验证关键 Tensor 的消费者和生产者数量
 
-**相关章节：** [SKILL.md - 步骤 7](./SKILL.md#步骤-7对业务功能进行校验)
+**相关章节：** [SKILL.md - 步骤 7](../SKILL.md#步骤-7对业务功能进行校验)
 
 ---
 
@@ -266,7 +266,7 @@ config::SetHostOption(COMPILE_STAGE, CS_TENSOR_GRAPH);
 2. 为每个功能点设计至少一个测试用例
 3. 考虑边界情况（空图、无 Cast、冗余链等）
 
-**相关章节：** [SKILL.md - 步骤 9](./SKILL.md#步骤-9统计-ut-覆盖率)
+**相关章节：** [SKILL.md - 步骤 9](../SKILL.md#步骤-9统计-ut-覆盖率)
 
 ---
 
@@ -307,7 +307,7 @@ config::SetHostOption(COMPILE_STAGE, CS_TENSOR_GRAPH);
 
 **解决方案：** 确保每个测试用例开始前环境是干净的
 
-**相关章节：** [SKILL.md - 步骤 2](./SKILL.md#步骤-2环境配置)
+**相关章节：** [SKILL.md - 步骤 2](../SKILL.md#步骤-2环境配置)
 
 ---
 
@@ -341,7 +341,7 @@ auto tensor = std::make_shared<LogicalTensor>(...);  // 使用智能指针
 
 **解决方案：** 使用 `std::make_shared` 创建对象
 
-**相关章节：** [SKILL.md - 步骤 4](./SKILL.md#步骤-4构建-function)
+**相关章节：** [SKILL.md - 步骤 4](../SKILL.md#步骤-4构建-function)
 
 ---
 
@@ -361,7 +361,7 @@ Operation &op = function.AddOperation(...);  // 使用引用
 
 **解决方案：** 使用引用接收 `AddOperation` 的返回值
 
-**相关章节：** [SKILL.md - 步骤 6](./SKILL.md#步骤-6创建-operation-及绑定-function-输入输出)
+**相关章节：** [SKILL.md - 步骤 6](../SKILL.md#步骤-6创建-operation-及绑定-function-输入输出)
 
 ---
 
@@ -403,7 +403,7 @@ if (tensor1->GetShape() == tensor2->GetShape()) { ... }  // 使用 getter 方法
 
 **解决方案：** 使用 `GetShape()` 方法获取 shape
 
-**相关章节：** [SKILL.md - 步骤 5](./SKILL.md#步骤-5创建-tensor)
+**相关章节：** [SKILL.md - 步骤 5](../SKILL.md#步骤-5创建-tensor)
 
 ---
 
@@ -423,7 +423,7 @@ if (tensor->GetDatatype() == DataType::DT_FP32) { ... }  // 使用 GetDatatype()
 
 **解决方案：** 使用 `GetDatatype()` 方法
 
-**相关章节：** [SKILL.md - 步骤 5](./SKILL.md#步骤-5创建-tensor)
+**相关章节：** [SKILL.md - 步骤 5](../SKILL.md#步骤-5创建-tensor)
 
 ---
 
@@ -465,7 +465,7 @@ if (op.GetOpcode() == Opcode::OP_CAST) { ... }  // 使用 Opcode 命名空间
 
 **解决方案：** 使用 `Opcode::` 前缀访问枚举值
 
-**相关章节：** [SKILL.md - 步骤 6](./SKILL.md#步骤-6创建-operation-及绑定-function-输入输出)
+**相关章节：** [SKILL.md - 步骤 6](../SKILL.md#步骤-6创建-operation-及绑定-function-输入输出)
 
 ---
 
@@ -519,7 +519,7 @@ auto attr = op.GetOpAttribute().get();  // 获取原始指针
 
 **解决方案：** 使用 `get()` 方法获取原始指针或直接使用 `shared_ptr`
 
-**相关章节：** [SKILL.md - UT生成流程二 - 步骤 4](./SKILL.md#步骤-4使用-computationalgraphbuilder-构建-function)
+**相关章节：** [SKILL.md - UT生成流程二 - 步骤 4](../SKILL.md#步骤-4使用-computationalgraphbuilder-构建-function)
 
 ---
 
@@ -539,7 +539,7 @@ auto attr = dynamic_cast<ViewOpAttribute*>(op.GetOpAttribute().get());  // 正�
 
 **解决方案：** 先使用 `get()` 获取原始指针，再进行 `dynamic_cast`
 
-**相关章节：** [SKILL.md - UT生成流程二 - 步骤 4](./SKILL.md#步骤-4使用-computationalgraphbuilder-构建-function)
+**相关章节：** [SKILL.md - UT生成流程二 - 步骤 4](../SKILL.md#步骤-4使用-computationalgraphbuilder-构建-function)
 
 ---
 
