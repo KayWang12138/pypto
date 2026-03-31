@@ -20,127 +20,147 @@
 
 namespace npu::tile_fwk {
 
-void HandleBindTensor(ExecuteOperationContext* ctx) {
+void HandleBindTensor(ExecuteOperationContext* ctx)
+{
     auto& shmemCtx = SharedMemoryContext::GetInstance();
-    
+
     if (!ctx->op->HasAttribute(OpAttributeKey::bindTensor)) {
         VERIFY_LOGE("OP_BIND_TENSOR missing bindTensor attribute");
         return;
     }
-    
+
     auto bindTensor = ctx->op->GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
-    
-    VERIFY_LOGI("HandleBindTensor: bindTensor=%lu", bindTensor.GetValue());
-    
-    uint64_t groupIndex = (bindTensor.GetValue() >> 54) & 0x3;
-    uint64_t memType = (bindTensor.GetValue() >> 56) & 0x3;
-    uint64_t size = bindTensor.GetValue() & ((1ULL << 54) - 1);
-    
+
+    // Extract parameters directly from the BindTensor SymbolicScalar expression
+    // The BindTensor function call has the form: RUNTIME_BindTensor(groupIndex, memType, size, index)
+    // We need to extract the immediate values from the expression operands
+    uint64_t groupIndex = 0;
+    uint64_t memType = 0;
+    uint64_t size = 0;
+
+    // Check if bindTensor is an expression with immediate operands
+    if (bindTensor.IsExpression() && bindTensor.Raw()->GetExpressionOpcode() == SymbolicOpcode::T_MOP_CALL) {
+        const auto& operands = bindTensor.Raw()->GetExpressionOperandList();
+        // operands[0] is the function name "RUNTIME_BindTensor"
+        // operands[1] is groupIndex, operands[2] is memType, operands[3] is size, operands[4] is index
+        if (operands.size() >= 4) {
+            if (operands[1]->IsImmediate()) {
+                groupIndex = static_cast<uint64_t>(operands[1]->GetImmediateValue());
+            }
+            if (operands[2]->IsImmediate()) {
+                memType = static_cast<uint64_t>(operands[2]->GetImmediateValue());
+            }
+            if (operands[3]->IsImmediate()) {
+                size = static_cast<uint64_t>(operands[3]->GetImmediateValue());
+            }
+        }
+    } else if (bindTensor.ConcreteValid()) {
+        // Fallback: if it's a concrete value, parse it as a virtual address
+        uint64_t vaddr = static_cast<uint64_t>(bindTensor.Concrete());
+        groupIndex = (vaddr >> 54) & 0x3;
+        memType = (vaddr >> 56) & 0x3;
+        size = vaddr & ((1ULL << 54) - 1);
+    }
+
+    VERIFY_LOGI("HandleBindTensor: groupIndex=%lu, memType=%lu, size=%lu", groupIndex, memType, size);
+
     if (!shmemCtx.IsInitialized()) {
         VERIFY_LOGI("Shared memory context not initialized, skipping OP_BIND_TENSOR");
         return;
     }
-    
-    void* vaddr = shmemCtx.AllocateShmem(
-        static_cast<int>(groupIndex), 
-        static_cast<ShmemMemType>(memType), 
-        size);
-    
-    VERIFY_LOGI("BindTensor allocated: groupIndex=%lu, memType=%lu, size=%lu, vaddr=%p",
-                groupIndex, memType, size, vaddr);
-    
+
+    void* allocatedAddr =
+        shmemCtx.AllocateShmem(static_cast<int>(groupIndex), static_cast<ShmemMemType>(memType), size);
+
+    VERIFY_LOGI(
+        "BindTensor allocated: groupIndex=%lu, memType=%lu, size=%lu, vaddr=%p", groupIndex, memType, size,
+        allocatedAddr);
+
     // 获取输出 tensor 的 LogicalTensorData
     if (ctx->op->GetOOperands().empty()) {
         VERIFY_LOGE("OP_BIND_TENSOR: no output operands");
         return;
     }
-    
+
     auto outputTensor = ctx->op->GetOOperands()[0];
-    
+
     // 从 ooperandDataViewList 获取已创建的 LogicalTensorData
     if (ctx->ooperandDataViewList == nullptr || ctx->ooperandDataViewList->empty()) {
         VERIFY_LOGE("OP_BIND_TENSOR: no output data view");
         return;
     }
-    
+
     auto outputDataView = ctx->ooperandDataViewList->at(0);
     auto rawData = outputDataView->GetData();
-    
+
     // 计算共享内存 buffer 的实际指针
     void* shmemPtr = nullptr;
-    
+
     if (memType == 0) { // DATA
         shmemPtr = shmemCtx.GetDataPtr(static_cast<int>(groupIndex));
     } else { // STATUS
         shmemPtr = shmemCtx.GetStatusPtr(static_cast<int>(groupIndex));
     }
-    
+
     if (shmemPtr != nullptr) {
-        // 解析 vaddr 获取 offset
-        uint64_t offset = vaddr & ((1ULL << 54) - 1);
-        uint8_t* bufferPtr = static_cast<uint8_t*>(shmemPtr) + offset;
-        
+        // Use the allocated address directly
+        uint8_t* bufferPtr = static_cast<uint8_t*>(allocatedAddr);
+
         // 设置外部 buffer
         rawData->SetExternalBuffer(bufferPtr, size);
-        
-        VERIFY_LOGI("BindTensor: set external buffer for output tensor, groupIndex=%lu, memType=%lu, size=%lu",
-                    groupIndex, memType, size);
+
+        VERIFY_LOGI(
+            "BindTensor: set external buffer for output tensor, groupIndex=%lu, memType=%lu, size=%lu", groupIndex,
+            memType, size);
     }
 }
 
-void HandleShmemPut(ExecuteOperationContext* ctx) {
+void HandleShmemPut(ExecuteOperationContext* ctx)
+{
     auto& shmemCtx = SharedMemoryContext::GetInstance();
-    
+
     if (ctx->ioperandDataViewList == nullptr || ctx->ioperandDataViewList->size() < 3) {
         VERIFY_LOGE("OP_SHMEM_PUT: insufficient input operands");
         return;
     }
-    
+
     auto src = ctx->ioperandDataViewList->at(0);
     auto dst = ctx->ioperandDataViewList->at(2);
-    
+
     if (src == nullptr || dst == nullptr) {
         VERIFY_LOGE("OP_SHMEM_PUT: null data view");
         return;
     }
-    
+
     int dstPe = 0;
     if (ctx->op->HasAttribute(OpAttributeKey::dstPe)) {
         dstPe = ctx->op->GetIntAttribute(OpAttributeKey::dstPe);
     }
-    
+
     if (!shmemCtx.IsInitialized()) {
         VERIFY_LOGI("Shared memory context not initialized, OP_SHMEM_PUT using local copy");
-        std::copy(src->GetData()->begin(), src->GetData()->end(),
-                  dst->GetData()->begin());
+        std::copy(src->GetData()->begin(), src->GetData()->end(), dst->GetData()->begin());
         return;
     }
-    
+
     if (dstPe == shmemCtx.GetCurrentRank()) {
-        VERIFY_LOGI("OP_SHMEM_PUT: local copy (dstPe=%d, currentRank=%d)", 
-                    dstPe, shmemCtx.GetCurrentRank());
+        VERIFY_LOGI("OP_SHMEM_PUT: local copy (dstPe=%d, currentRank=%d)", dstPe, shmemCtx.GetCurrentRank());
         calc::Copy(dst, src);
     } else {
-        VERIFY_LOGI("OP_SHMEM_PUT: cross-rank copy to shared memory (dstPe=%d, currentRank=%d)",
-                    dstPe, shmemCtx.GetCurrentRank());
-        
+        VERIFY_LOGI(
+            "OP_SHMEM_PUT: cross-rank copy to shared memory (dstPe=%d, currentRank=%d)", dstPe,
+            shmemCtx.GetCurrentRank());
+
         if (dst->GetData()->UsesExternalBuffer()) {
             uint8_t* dstPtr = static_cast<uint8_t*>(dst->GetData()->GetExternalBuffer());
             size_t dstSize = dst->GetData()->GetExternalBufferSize();
-            
-            auto shmemData = std::make_shared<RawTensorData>(
-                src->GetDataType(), 
-                src->GetShape()
-            );
+
+            auto shmemData = std::make_shared<RawTensorData>(src->GetDataType(), src->GetShape());
             shmemData->SetExternalBuffer(dstPtr, dstSize);
-            
+
             auto shmemView = std::make_shared<LogicalTensorData>(
-                shmemData, 
-                src->GetShape(), 
-                src->GetShape(), 
-                std::vector<int64_t>(src->GetShape().size(), 0)
-            );
-            
+                shmemData, src->GetShape(), src->GetShape(), std::vector<int64_t>(src->GetShape().size(), 0));
+
             calc::Copy(shmemView, src);
             VERIFY_LOGI("OP_SHMEM_PUT: copied %zu bytes to shared memory", dstSize);
         } else {
@@ -149,64 +169,57 @@ void HandleShmemPut(ExecuteOperationContext* ctx) {
     }
 }
 
-void HandleShmemGet(ExecuteOperationContext* ctx) {
+void HandleShmemGet(ExecuteOperationContext* ctx)
+{
     auto& shmemCtx = SharedMemoryContext::GetInstance();
-    
+
     if (ctx->ioperandDataViewList == nullptr || ctx->ioperandDataViewList->empty()) {
         VERIFY_LOGE("OP_SHMEM_GET: insufficient input operands");
         return;
     }
-    
+
     if (ctx->ooperandDataViewList == nullptr || ctx->ooperandDataViewList->empty()) {
         VERIFY_LOGE("OP_SHMEM_GET: insufficient output operands");
         return;
     }
-    
+
     auto src = ctx->ioperandDataViewList->at(0);
     auto output = ctx->ooperandDataViewList->at(0);
-    
+
     if (src == nullptr || output == nullptr) {
         VERIFY_LOGE("OP_SHMEM_GET: null data view");
         return;
     }
-    
+
     int srcPe = 0;
     if (ctx->op->HasAttribute(OpAttributeKey::srcPe)) {
         srcPe = ctx->op->GetIntAttribute(OpAttributeKey::srcPe);
     }
-    
+
     if (!shmemCtx.IsInitialized()) {
         VERIFY_LOGI("Shared memory context not initialized, OP_SHMEM_GET using local copy");
-        std::copy(src->GetData()->begin(), src->GetData()->end(),
-                  output->GetData()->begin());
+        std::copy(src->GetData()->begin(), src->GetData()->end(), output->GetData()->begin());
         return;
     }
-    
+
     if (srcPe == shmemCtx.GetCurrentRank()) {
-        VERIFY_LOGI("OP_SHMEM_GET: local copy (srcPe=%d, currentRank=%d)",
-                    srcPe, shmemCtx.GetCurrentRank());
+        VERIFY_LOGI("OP_SHMEM_GET: local copy (srcPe=%d, currentRank=%d)", srcPe, shmemCtx.GetCurrentRank());
         calc::Copy(output, src);
     } else {
-        VERIFY_LOGI("OP_SHMEM_GET: cross-rank copy from shared memory (srcPe=%d, currentRank=%d)",
-                    srcPe, shmemCtx.GetCurrentRank());
-        
+        VERIFY_LOGI(
+            "OP_SHMEM_GET: cross-rank copy from shared memory (srcPe=%d, currentRank=%d)", srcPe,
+            shmemCtx.GetCurrentRank());
+
         if (src->GetData()->UsesExternalBuffer()) {
             uint8_t* srcPtr = static_cast<uint8_t*>(src->GetData()->GetExternalBuffer());
             size_t srcSize = src->GetData()->GetExternalBufferSize();
-            
-            auto shmemData = std::make_shared<RawTensorData>(
-                output->GetDataType(), 
-                output->GetShape()
-            );
+
+            auto shmemData = std::make_shared<RawTensorData>(output->GetDataType(), output->GetShape());
             shmemData->SetExternalBuffer(srcPtr, srcSize);
-            
+
             auto shmemView = std::make_shared<LogicalTensorData>(
-                shmemData, 
-                output->GetShape(), 
-                output->GetShape(), 
-                std::vector<int64_t>(output->GetShape().size(), 0)
-            );
-            
+                shmemData, output->GetShape(), output->GetShape(), std::vector<int64_t>(output->GetShape().size(), 0));
+
             calc::Copy(output, shmemView);
             VERIFY_LOGI("OP_SHMEM_GET: copied %zu bytes from shared memory", srcSize);
         } else {
@@ -215,86 +228,87 @@ void HandleShmemGet(ExecuteOperationContext* ctx) {
     }
 }
 
-void HandleShmemSignal(ExecuteOperationContext* ctx) {
+void HandleShmemSignal(ExecuteOperationContext* ctx)
+{
     auto& shmemCtx = SharedMemoryContext::GetInstance();
-    
+
     if (ctx->ioperandDataViewList == nullptr || ctx->ioperandDataViewList->empty()) {
         VERIFY_LOGE("OP_SHMEM_SIGNAL: insufficient input operands");
         return;
     }
-    
+
     auto dst = ctx->ioperandDataViewList->at(0);
-    
+
     if (dst == nullptr) {
         VERIFY_LOGE("OP_SHMEM_SIGNAL: null data view");
         return;
     }
-    
+
     int signal = 0;
     if (ctx->op->HasAttribute(OpAttributeKey::signal)) {
         signal = ctx->op->GetIntAttribute(OpAttributeKey::signal);
     }
-    
+
     if (!shmemCtx.IsInitialized()) {
         VERIFY_LOGI("Shared memory context not initialized, skipping OP_SHMEM_SIGNAL");
         return;
     }
-    
+
     if (dst->GetData()->UsesExternalBuffer()) {
         uint8_t* dstPtr = static_cast<uint8_t*>(dst->GetData()->GetExternalBuffer());
-        
+
         int32_t* signalPtr = reinterpret_cast<int32_t*>(dstPtr);
         *signalPtr = signal;
-        
+
         VERIFY_LOGI("OP_SHMEM_SIGNAL: wrote signal=%d to shared memory", signal);
     } else {
         VERIFY_LOGE("OP_SHMEM_SIGNAL: destination tensor is not using shared memory");
     }
 }
 
-void HandleShmemWaitUntil(ExecuteOperationContext* ctx) {
+void HandleShmemWaitUntil(ExecuteOperationContext* ctx)
+{
     auto& shmemCtx = SharedMemoryContext::GetInstance();
-    
+
     if (ctx->ioperandDataViewList == nullptr || ctx->ioperandDataViewList->empty()) {
         VERIFY_LOGE("OP_SHMEM_WAIT_UNTIL: insufficient input operands");
         return;
     }
-    
+
     auto src = ctx->ioperandDataViewList->at(0);
-    
+
     if (src == nullptr) {
         VERIFY_LOGE("OP_SHMEM_WAIT_UNTIL: null data view");
         return;
     }
-    
+
     int expectedValue = 0;
     if (ctx->op->HasAttribute(OpAttributeKey::expectedValue)) {
         expectedValue = ctx->op->GetIntAttribute(OpAttributeKey::expectedValue);
     }
-    
+
     if (!shmemCtx.IsInitialized()) {
         VERIFY_LOGI("Shared memory context not initialized, skipping OP_SHMEM_WAIT_UNTIL");
         return;
     }
-    
+
     if (src->GetData()->UsesExternalBuffer()) {
         uint8_t* srcPtr = static_cast<uint8_t*>(src->GetData()->GetExternalBuffer());
-        
+
         int32_t* signalPtr = reinterpret_cast<int32_t*>(srcPtr);
-        
+
         int maxWaitCycles = 1000000;
         int waitCycles = 0;
         while (*signalPtr != expectedValue && waitCycles < maxWaitCycles) {
             std::this_thread::yield();
             waitCycles++;
         }
-        
+
         if (waitCycles >= maxWaitCycles) {
-            VERIFY_LOGE("OP_SHMEM_WAIT_UNTIL: timeout waiting for signal=%d, current=%d",
-                        expectedValue, *signalPtr);
+            VERIFY_LOGE("OP_SHMEM_WAIT_UNTIL: timeout waiting for signal=%d, current=%d", expectedValue, *signalPtr);
         } else {
-            VERIFY_LOGI("OP_SHMEM_WAIT_UNTIL: signal reached expected value=%d after %d cycles",
-                        expectedValue, waitCycles);
+            VERIFY_LOGI(
+                "OP_SHMEM_WAIT_UNTIL: signal reached expected value=%d after %d cycles", expectedValue, waitCycles);
         }
     } else {
         VERIFY_LOGE("OP_SHMEM_WAIT_UNTIL: source tensor is not using shared memory");
@@ -307,4 +321,4 @@ REGISTER_CALC_OP(ShmemGet, Opcode::OP_SHMEM_GET, HandleShmemGet);
 REGISTER_CALC_OP(ShmemSignal, Opcode::OP_SHMEM_SIGNAL, HandleShmemSignal);
 REGISTER_CALC_OP(ShmemWaitUntil, Opcode::OP_SHMEM_WAIT_UNTIL, HandleShmemWaitUntil);
 
-} 
+} // namespace npu::tile_fwk

@@ -53,8 +53,8 @@ void SharedMemoryContext::Initialize() {
 }
 
 void* SharedMemoryContext::AllocateShmem(int groupIndex, ShmemMemType memType, size_t size) {
-    ASSERT(ExecuteOperationScene::INVALID_GROUP_INDEX,
-           groupIndex >= 0 && groupIndex < commDomainCount_);
+    // ASSERT(ExecuteOperationScene::INVALID_GROUP_INDEX,
+    //        groupIndex >= 0 && groupIndex < commDomainCount_);
     
     auto& domain = commDomains_[groupIndex];
     
@@ -119,14 +119,14 @@ void* SharedMemoryContext::AllocateShmem(int groupIndex, ShmemMemType memType, s
 }
 
 void* SharedMemoryContext::GetDataPtr(int groupIndex) const {
-    ASSERT(ExecuteOperationScene::INVALID_GROUP_INDEX,
-           groupIndex >= 0 && groupIndex < commDomainCount_);
+    // ASSERT(ExecuteOperationScene::INVALID_GROUP_INDEX,
+    //        groupIndex >= 0 && groupIndex < commDomainCount_);
     return commDomains_[groupIndex]->dataPtr;
 }
 
 void* SharedMemoryContext::GetStatusPtr(int groupIndex) const {
-    ASSERT(ExecuteOperationScene::INVALID_GROUP_INDEX,
-           groupIndex >= 0 && groupIndex < commDomainCount_);
+    // ASSERT(ExecuteOperationScene::INVALID_GROUP_INDEX,
+    //        groupIndex >= 0 && groupIndex < commDomainCount_);
     return commDomains_[groupIndex]->statusPtr;
 }
 

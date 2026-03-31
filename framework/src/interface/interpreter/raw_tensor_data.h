@@ -377,9 +377,6 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
 
     size_t GetDataSize() const { return nelem * elemSize_; }
 
-    void SetExternalBuffer(void* ptr, size_t size);
-    size_t GetExternalBufferSize() const;
-
     void SetExternalBuffer(void* ptr, size_t size) {
         externalBufferPtr_ = ptr;
         externalBufferSize_ = size;
