@@ -249,7 +249,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemSignalSet)
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
-    std::string expect = R"!!!(TileOp::Distributed::ShmemSet<int32_t, 1, 1024, 8, 4096>)!!!";
+    std::string expect = R"!!!(TileOp::Distributed::ShmemSet<int32_t, 4, 0, 8, 128>)!!!";
     CheckStringExist(expect, res);
 }
 
