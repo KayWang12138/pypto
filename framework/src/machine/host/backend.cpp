@@ -1077,12 +1077,6 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         }
     }
 
-    for (size_t index = 0; index < attr->symbolTable.GetSymbolTable().size(); index++) {
-        std::string name = attr->symbolTable.GetSymbolTable()[index];
-        if (symbolHandlerIndexDict.count(name)) {
-            attr->startArgsSymbolHandlerList.emplace_back(symbolHandlerIndexDict.find(name)->second, index);
-        }
-    }
     // save dev prog binary
     SetDyndevProgBinary(function);
 }

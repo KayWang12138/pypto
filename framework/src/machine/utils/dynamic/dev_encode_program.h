@@ -105,7 +105,6 @@ struct DevAscendProgram {
     DevRelocVector<uint64_t> startArgsInputTensorSlotIndexList;
     DevRelocVector<uint64_t> startArgsOutputTensorSlotIndexList;
     DevRelocVector<uint64_t> startArgsInputSymbolIndexList;
-    DevRelocVector<SymbolHandler> startArgsSymbolHandlerList;
     DevRelocVector<uint64_t> assembleSlotIndexList;
     DevRelocVector<uint64_t> outputInplaceSlotList;
     DevRelocVector<DevAscendProgramPartialUpdate> partialUpdateList;
@@ -132,7 +131,6 @@ struct DevAscendProgram {
      *      uint64_t startArgsInputTensorSlotIndexListData[]
      *      uint64_t startArgsOutputTensorSlotIndexListData[]
      *      uint64_t startArgsInputSymbolIndexListData[]
-     *      SymbolHandler startArgsSymbolHandlerListData[]
      *      uint64_t assembleSlotIndexList[]
      *      uint64_t outputInplaceSlotList[];
      *      DevAscendProgramPartialUpdate partialUpdateList[]
@@ -298,7 +296,6 @@ struct DevAscendProgram {
 
         RelocOffset(shift, offset, startArgsInputTensorSlotIndexList);
         RelocOffset(shift, offset, startArgsOutputTensorSlotIndexList);
-        RelocOffset(shift, offset, startArgsSymbolHandlerList);
         RelocOffset(shift, offset, startArgsInputSymbolIndexList);
         RelocOffset(shift, offset, assembleSlotIndexList);
         RelocOffset(shift, offset, outputInplaceSlotList);
@@ -492,8 +489,7 @@ private:
     void InitStartArgsABIParamList(
         uintdevptr_t& initOffset, const std::vector<int>& tStartArgsInputTensorSlotIndexList,
         const std::vector<int>& tStartArgsOutputTensorSlotIndexList,
-        const std::vector<int>& tStartArgsInputSymbolIndexList,
-        const std::vector<SymbolHandler>& tStartArgsSymbolHandlerList, const std::vector<int>& tAsembleSlotIndexList,
+        const std::vector<int>& tStartArgsInputSymbolIndexList, const std::vector<int>& tAsembleSlotIndexList,
         const std::vector<int>& tInplaceSlotIndexList, bool fillContent);
     void InitPartialUpdateSlot(
         uintdevptr_t& initOffset, const std::vector<std::vector<uint8_t>>& devEncodeListInput,
