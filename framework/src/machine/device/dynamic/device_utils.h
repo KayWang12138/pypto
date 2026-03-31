@@ -120,19 +120,19 @@ constexpr uint64_t PROF_DUMP_TIMEOUT_CYCLES = TIMEOUT_CYCLES;
     X(1, STAGE_STOP_AICORE)          \
     X(1, DEVICE_MACHINE_INIT_DYN)    \
     X(1, DEVICE_MACHINE_SERVER_DYN)  \
-    X3(1, STAGE_SCHEDULE)            \
-    X3(2, RUN_TASK)                  \
-    X3(3, POLLING_AICORES)           \
-    X3(3, RESOLVE_DEPENDENCE)        \
-    X3(3, SEND_AIC_TASK)             \
-    X3(3, SEND_AIV_TASK)             \
-    X3(3, WAIT_AICORE_FINISH)        \
-    X3(3, DISPATCH_TASK)             \
-    X3(2, SYNC_AICORE)               \
-    X3(1, TASK)                      \
-    X3(2, RECV_TASK)                 \
-    X3(2, SEND_TASK)                 \
-    X3(2, RESOLVE_DEP)               \
+    X5(1, STAGE_SCHEDULE)            \
+    X5(2, RUN_TASK)                  \
+    X5(3, POLLING_AICORES)           \
+    X5(3, RESOLVE_DEPENDENCE)        \
+    X5(3, SEND_AIC_TASK)             \
+    X5(3, SEND_AIV_TASK)             \
+    X5(3, WAIT_AICORE_FINISH)        \
+    X5(3, DISPATCH_TASK)             \
+    X5(2, SYNC_AICORE)               \
+    X5(1, TASK)                      \
+    X5(2, RECV_TASK)                 \
+    X5(2, SEND_TASK)                 \
+    X5(2, RESOLVE_DEP)               \
     X_L2(1, WSALLOC_CORE_A)          \
     X_L2(1, WSALLOC_CORE_D)          \
     X_L2(1, WSALLOC_CPU_A)           \
@@ -141,10 +141,12 @@ constexpr uint64_t PROF_DUMP_TIMEOUT_CYCLES = TIMEOUT_CYCLES;
     X_L2(1, WSRTALLOC_CPU_D)         \
     X(0, MAX)
 
-#define X3(a, b) \
+#define X5(a, b) \
     X(a, b)      \
     X(a, b##1)   \
-    X(a, b##2)
+    X(a, b##2)   \
+    X(a, b##3)   \
+    X(a, b##4)
 
 enum PerfEventType {
 #define X(ind, evt) PERF_EVT_##evt,

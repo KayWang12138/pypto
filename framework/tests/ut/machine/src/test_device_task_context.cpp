@@ -208,6 +208,40 @@ protected:
 
         EXPECT_EQ(lineCount, expectedLineCount);
     }
+
+    WrapInfoQueue* SetupWrapQueueForTest(
+        DynDeviceTask* dyntask, DeviceTaskContext& taskContext, CoreType coreType, uint32_t wrapVecId,
+        DevAscendFunction& devFunc, DevCceBinary* cceBinary, int* calleeList)
+    {
+        devFunc.wrapIdNum_ = 1;
+        dyntask->dynFuncDataCacheList[0].devFunc = &devFunc;
+        dyntask->dynFuncDataCacheListSize = 1;
+        dyntask->devTask.mixTaskData.wrapIdNum = 1;
+
+        dyntask->dynFuncDataCacheList[0].calleeList = calleeList;
+
+        cceBinary[0].coreType = static_cast<uint32_t>(coreType);
+        cceBinary[0].wrapVecId = wrapVecId;
+        cceBinary[0].mixResourceType = 0;
+        dyntask->cceBinary = cceBinary;
+
+        return taskContext.AllocWrapQueue(dyntask);
+    }
+
+    void SetupBasicTaskContext(
+        DeviceTaskContext& taskContext, DevStartArgsBase& startArgs, DevAscendProgram* devProg,
+        std::unique_ptr<DynDeviceTask>& dyntask, DeviceWorkspaceAllocator& workspace,
+        std::unique_ptr<uint8_t[]>& controlFlowCacheBuf, size_t kControlFlowCacheSize)
+    {
+        if (controlFlowCacheBuf != nullptr) {
+            devProg->controlFlowCache.cacheData =
+                DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
+            devProg->controlFlowCache.isRecording = true;
+        }
+        taskContext.InitAllocator(devProg, workspace, &startArgs);
+        dyntask = std::make_unique<DynDeviceTask>(workspace);
+        CreateMockDynDeviceTask(dyntask.get(), 100);
+    }
 };
 
 TEST_F(TestDeviceTaskContext, test_build_ready_queue_calls_wrap_functions)
@@ -238,9 +272,6 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_calls_wrap_functions)
 
     bool isNeedWrap = taskContext.IsNeedWrapProcess(dyntask.get(), &devProg);
     EXPECT_TRUE(isNeedWrap);
-
-    uint32_t* wrapTasklist = taskContext.AllocWrapTasklist(dyntask.get());
-    EXPECT_NE(wrapTasklist, nullptr);
 
     WrapInfoQueue* wrapQueue = taskContext.AllocWrapQueue(dyntask.get());
     EXPECT_NE(wrapQueue, nullptr);
@@ -832,4 +863,103 @@ TEST_F(TestDeviceTaskContext, test_dev_ascend_function_dupped_dump_topo)
         VerifyDumpTopoOutput(testFilePath, kOpCount);
     }
     std::remove(testFilePath.c_str());
+}
+
+TEST_F(TestDeviceTaskContext, test_process_wrap_queue_nullptr)
+{
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    DeviceWorkspaceAllocator workspace(&devProg);
+    std::unique_ptr<DynDeviceTask> dyntask;
+    std::unique_ptr<uint8_t[]> controlFlowCacheBuf;
+    SetupBasicTaskContext(taskContext, startArgs, &devProg, dyntask, workspace, controlFlowCacheBuf, 0);
+
+    taskContext.ProcessWrapQueue(dyntask.get(), 1, 0, 0, nullptr);
+}
+
+TEST_F(TestDeviceTaskContext, test_process_wrap_queue_update_existing_wrap)
+{
+    DevAscendProgram devProg;
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    DeviceWorkspaceAllocator workspace(&devProg);
+    std::unique_ptr<DynDeviceTask> dyntask;
+    constexpr size_t kControlFlowCacheSize = 64 * 1024;
+    auto controlFlowCacheBuf = std::make_unique<uint8_t[]>(kControlFlowCacheSize);
+    SetupBasicTaskContext(
+        taskContext, startArgs, &devProg, dyntask, workspace, controlFlowCacheBuf, kControlFlowCacheSize);
+
+    DevAscendFunction devFunc;
+    DevCceBinary cceBinary[1] = {};
+    int calleeList[1] = {0};
+    WrapInfoQueue* wrapQueue =
+        SetupWrapQueueForTest(dyntask.get(), taskContext, CoreType::AIC, 0, devFunc, cceBinary, calleeList);
+    ASSERT_NE(wrapQueue, nullptr);
+
+    taskContext.ProcessWrapQueue(dyntask.get(), 1, 0, 0, wrapQueue);
+    EXPECT_EQ(wrapQueue->tail, 1);
+
+    taskContext.ProcessWrapQueue(dyntask.get(), 1, 0, 0, wrapQueue);
+    EXPECT_EQ(wrapQueue->tail, 1);
+}
+
+TEST_F(TestDeviceTaskContext, test_process_wrap_queue_aiv0)
+{
+    DeviceTaskContext taskContext;
+    DevAscendProgram devProg;
+    DevStartArgsBase startArgs;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    DeviceWorkspaceAllocator workspace(&devProg);
+    std::unique_ptr<DynDeviceTask> dyntask;
+    constexpr size_t kControlFlowCacheSize = 64 * 1024;
+    auto controlFlowCacheBuf = std::make_unique<uint8_t[]>(kControlFlowCacheSize);
+    SetupBasicTaskContext(
+        taskContext, startArgs, &devProg, dyntask, workspace, controlFlowCacheBuf, kControlFlowCacheSize);
+
+    DevCceBinary cceBinary[1] = {};
+    DevAscendFunction devFunc;
+    int calleeList[1] = {0};
+    WrapInfoQueue* wrapQueue =
+        SetupWrapQueueForTest(dyntask.get(), taskContext, CoreType::AIV, 0, devFunc, cceBinary, calleeList);
+    ASSERT_NE(wrapQueue, nullptr);
+
+    taskContext.ProcessWrapQueue(dyntask.get(), 1, 0, 0, wrapQueue);
+
+    EXPECT_EQ(wrapQueue->tail, 1);
+    EXPECT_EQ(wrapQueue->elem[0].wrapId, 1);
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIC], AICORE_TASK_INIT);
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIV0], MakeTaskID(0, 0));
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIV1], AICORE_TASK_INIT);
+}
+
+TEST_F(TestDeviceTaskContext, test_process_wrap_queue_aiv1)
+{
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    DeviceWorkspaceAllocator workspace(&devProg);
+    std::unique_ptr<DynDeviceTask> dyntask;
+    constexpr size_t kControlFlowCacheSize = 64 * 1024;
+    auto controlFlowCacheBuf = std::make_unique<uint8_t[]>(kControlFlowCacheSize);
+    SetupBasicTaskContext(
+        taskContext, startArgs, &devProg, dyntask, workspace, controlFlowCacheBuf, kControlFlowCacheSize);
+
+    int calleeList[1] = {0};
+    DevAscendFunction devFunc;
+    DevCceBinary cceBinary[1] = {};
+    WrapInfoQueue* wrapQueue =
+        SetupWrapQueueForTest(dyntask.get(), taskContext, CoreType::AIV, 1, devFunc, cceBinary, calleeList);
+    ASSERT_NE(wrapQueue, nullptr);
+
+    taskContext.ProcessWrapQueue(dyntask.get(), 1, 0, 0, wrapQueue);
+
+    EXPECT_EQ(wrapQueue->tail, 1);
+    EXPECT_EQ(wrapQueue->elem[0].wrapId, 1);
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIC], AICORE_TASK_INIT);
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIV0], AICORE_TASK_INIT);
+    EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIV1], MakeTaskID(0, 0));
 }

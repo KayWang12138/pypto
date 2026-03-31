@@ -21,6 +21,7 @@
 #include "aicpu_perf.h"
 
 const uint64_t AICORE_TASK_INIT = 0xFFFFFFFF;
+const uint64_t AICORE_TASK_DISTRIBUTED = 0x7FFFFFFE;
 const uint64_t AICORE_TASK_STOP = 0x7FFFFFF0;
 const uint64_t AICORE_FUNC_STOP = 0x7FFFFFE0;
 const uint64_t AICORE_FIN_MASK = 0x80000000;

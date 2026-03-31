@@ -20,9 +20,9 @@ namespace npu::tile_fwk::dynamic {
 inline int32_t GetTaskIdx(uint32_t coreType, int32_t wrapVecId)
 {
     if (coreType == static_cast<uint32_t>(CoreType::AIC)) {
-        return 0;
+        return WRAP_IDX_AIC;
     } else {
-        return wrapVecId == 1 ? 2 : 1;
+        return wrapVecId == 1 ? WRAP_IDX_AIV1 : WRAP_IDX_AIV0;
     }
 }
 
@@ -50,9 +50,6 @@ void DeviceTaskContext::ProcessWrapQueue(
     // add new wrap id to wrapQueue
     WrapInfo* info = &wrapQueue->elem[wrapQueue->tail];
     info->wrapId = wrapId;
-    // info->aicCoreIdx = 0;
-    // info->aivCoreIdxZero = 0;
-    // info->aivCoreIdxOne = 0;
     info->mixResourceType = cceBinary[callList[opIndex]].mixResourceType;
 
     uint32_t taskIdx = GetTaskIdx(cceBinary[callList[opIndex]].coreType, cceBinary[callList[opIndex]].wrapVecId);
