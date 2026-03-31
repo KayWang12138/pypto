@@ -213,7 +213,7 @@ Status SplitReshape::UpdateDynShape(const std::shared_ptr<ReshapeOp> &reshapeOp,
     std::vector<int64_t> curOffset(dynShape.size(), 0);
     if (!offset.empty()) {
         curOffset = offset;
-    }     
+    }
     if (curOffset.size() != dynShape.size()) {
         APASS_LOG_ERROR_F(Elements::Tensor, "The dim of curOffset %s does not equal to dynShape %s.", GetStr(curOffset).c_str(), GetStr(dynShape).c_str());
         return FAILED;

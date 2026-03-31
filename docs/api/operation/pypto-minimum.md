@@ -71,4 +71,3 @@ out = pypto.minimum(a, b)
 输入数据b: [3, 1, 3]
 输出数据out: [0, 1, 3]
 ```
-

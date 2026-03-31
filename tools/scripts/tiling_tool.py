@@ -14,7 +14,7 @@ import json
 import re
 from itertools import product
 import shutil
-import os 
+import os
 import subprocess
 import csv
 import argparse
@@ -40,9 +40,9 @@ def is_good_tiling(tile, input_dt_bytes):
 
 def greatest_bit(x):
     n = 0
-    power = 1 
+    power = 1
     while power <= x:
-        power *= 2 
+        power *= 2
         n += 1
     return n - 1
 
@@ -71,7 +71,7 @@ def generate_tiles(shape, input_dt_bytes):
         if is_good_tiling([m, m_big, k, 2 * k_big, n, n_big], input_dt_bytes):
             num_of_variants += 1
             yield [m, m_big, k, 2 * k_big, n, n_big]
-        
+
         if is_good_tiling([m, m_big, k, k_big, n, 2 * n_big], input_dt_bytes):
             num_of_variants += 1
             yield [m, m_big, k, k_big, n, 2 * n_big]
@@ -85,7 +85,7 @@ def get_score_for_tiling(tile, mx_shape, input_type_size):
     m_dim = 0
     k_dim = 2
     n_dim = 4
-    
+
     m = tile[m_dim]
     k = tile[k_dim]
     n = tile[n_dim]
@@ -100,7 +100,7 @@ def get_score_for_tiling(tile, mx_shape, input_type_size):
     whole_n_score = 2
 
     score = 0
-    
+
     #If the tiling size = shape size -> the preferred option
     score = (score + whole_m_score) if tile[m_dim] == max(m, min_tile) else score
     score = (score + whole_k_score) if tile[k_dim] == max(k, min_tile) else score
@@ -108,7 +108,7 @@ def get_score_for_tiling(tile, mx_shape, input_type_size):
 
     #The more filled L0A, L0B, L0C is better
     utilization_l0a = (tile[m_dim] * tile[k_dim] * input_type_size) / L0A_SIZE
-    utilization_l0b = (tile[k_dim] * tile[n_dim] * input_type_size) / L0B_SIZE 
+    utilization_l0b = (tile[k_dim] * tile[n_dim] * input_type_size) / L0B_SIZE
     utilization_l0c = (tile[m_dim] * tile[n_dim] * OUTPUT_DT_BYTES) / L0C_SIZE
     score += min_tile * gmean([utilization_l0a, utilization_l0b, utilization_l0c])
 
@@ -147,7 +147,7 @@ def preproc_line_conf(line_conf):
             m = int(m)
             k = int(k)
             n = int(n)
- 
+
             dt_bytes = int(re.search(r"\d+", datatype).group(0)) // 8
             tiles = list(generate_tiles([m, k, n], input_dt_bytes=dt_bytes))
             best_tiles = get_best_k_tiles(tiles, [m, k, n], dt_bytes, best_k_tiles=5)
@@ -170,12 +170,12 @@ def check_json(json_config):
                 if name in param_names:
                     raise NameError(f"Name \"{name}\" in json config are same " \
                                     f"for lines {param_names['name']} and {line_conf['line']}")
-                param_names[name] = line_conf["line"] 
+                param_names[name] = line_conf["line"]
 
 
 def preproc_json(json_config):
     """
-    Replaces parameters that are set using strings  
+    Replaces parameters that are set using strings
     """
     check_json(json_config)
     for file_conf in json_config["files"]:
@@ -201,19 +201,19 @@ def parse_file_conf(lines_conf):
             result = line_conf["string"].format(**param_comb)
             string_param_comb.append([(line_conf["line"], result), param_comb])
         lines_comb.append(string_param_comb)
-    
+
     return list(product(*lines_comb))
 
 
 def generate_combinations(json_config):
     """
     Generates combinations for test
-    """       
+    """
     comb_inside_file = dict()
     for file_conf in json_config["files"]:
         path_to_file, lines_conf = list(file_conf.items())[0]
         comb_inside_file[path_to_file] = parse_file_conf(lines_conf)
-    
+
     for e in product(*comb_inside_file.values()):
         single_run_params = []
         single_param_values = []
@@ -229,7 +229,7 @@ def generate_combinations(json_config):
                 single_param_values.append(names)
                 num_lines[line] = string
 
-            d["lines"] = num_lines   
+            d["lines"] = num_lines
             single_run_params.append(d)
 
         yield single_run_params, single_param_values
@@ -248,7 +248,7 @@ def replace_line(file_path, line_num, new_content):
     with open(file_path, 'r') as file:
         lines = file.readlines()
         lines.insert(line_num + 1, new_content + "\n")
-        
+
     with open(file_path, "w") as file:
         file.writelines(lines)
 
@@ -256,8 +256,8 @@ def replace_line(file_path, line_num, new_content):
 def run_test(json_config, result_folder):
     test = json_config["test_name"]
 
-    device_number = json_config["device_number"]  
-    
+    device_number = json_config["device_number"]
+
     run_command = f"python build_ci.py -j=32 -s={test} --frontend=cpp -d={device_number} tools profiling" \
                 f" --prof_try_cnt={json_config['prof_try_cnt']} --prof_max_cnt={json_config['max_cnt']}" \
                 f" --prof_warn_up_cnt={json_config['warn_up_cnt']}"
@@ -268,7 +268,7 @@ def run_test(json_config, result_folder):
     with open(f"{result_folder}/result.log", "w") as f:
         test = subprocess.run(run_command.split(), stdout=f, stderr=subprocess.STDOUT, env=env)
     return test.returncode
-    
+
 
 def make_backup(original_file_path):
     shutil.copy(original_file_path, original_file_path + ".backup")
@@ -320,15 +320,15 @@ def measure_perf(json_config, run_params, result_folder):
 
     if test_result != 0:
         return None
-    
+
     time = get_execution_time(json_config["build_folder"])
     return time
 
 
 def sort_results(results):
-    def compare_function(x): 
+    def compare_function(x):
         return 1e6 if x[1] == "Error" else x[1] # set configs of error will be at the end
-        
+
     results_sorted_by_time = dict(sorted(results.items(), key=compare_function))
     return results_sorted_by_time
 
@@ -353,7 +353,7 @@ def save_to_csv(path_to_file, res_params):
             writer.writerow(p)
 
 
-def save_kernel_meta(build_folder, result_folder, pattern=".*"): 
+def save_kernel_meta(build_folder, result_folder, pattern=".*"):
     root_dir = build_folder + "/build/output/bin/output"
     src = get_newest_folder(root_dir) + "/kernel_aicore"
     dst = result_folder + "/kernel_aicore"
@@ -381,7 +381,7 @@ def getline_with_text(file, pattern):
         line_num = 1
         for line in f.readlines():
             if pattern in line:
-                return line_num 
+                return line_num
             line_num += 1
     return None
 
@@ -432,7 +432,7 @@ def parse_coverage(pattern):
     for line, path in answer:
         coverage_info.append({"line": line, "file": path})
 
-    return coverage_info 
+    return coverage_info
 
 
 def generate_json_by_coverage(test_name, device_number):
@@ -445,13 +445,13 @@ def generate_json_by_coverage(test_name, device_number):
 
     with open(log_path, "w") as f:
         test = subprocess.run(run_command.split(), stdout=f, stderr=subprocess.STDOUT, env=env)
-    
+
     cmd = ["find", "build", "-name", "*.gcda"]
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if not result.stdout.splitlines():
         raise RuntimeError(f".gcda files not generated! Please check logs: {log_path}")
-    
+
     cover_log = f"{os.getcwd()}/full_coverage.txt"
     for gcda_file in result.stdout.splitlines():
         with open(cover_log, "a+") as f:
@@ -484,7 +484,7 @@ def generate_json_by_coverage(test_name, device_number):
             files[filename] = [line_conf]
         else:
             files[filename].append(line_conf)
-    
+
     for i, _ in enumerate(vec_coverage):
         line_conf = dict()
         variable_name = "vectile_" + str(i)
@@ -504,9 +504,9 @@ def generate_json_by_coverage(test_name, device_number):
 
     if os.path.exists("full_coverage.txt"):
         os.remove("full_coverage.txt")
-        
+
     return files
-    
+
 
 def generate_json_by_semantic_label(test_name, device_number):
     print("WARNING!: SemanticLabels must be setted in source code in line after SetCubeTile/SetVecTile")
@@ -527,11 +527,11 @@ def generate_json_by_semantic_label(test_name, device_number):
 
     with open(generated_json_by_pass, "r") as f:
         tiles_json = json.load(f)
-    
+
     files = dict()
     for label, info in tiles_json.items():
         filename = info["filename"]
-    
+
         line_conf = dict()
 
         format_string = "TileShape::Current().SetVecTile({{ {var[0]}, {var[1]} }}, " \
@@ -542,20 +542,20 @@ def generate_json_by_semantic_label(test_name, device_number):
             "{{ {var[2]}, {var[3]} }}, {{ {var[4]}, {var[5]} }}, true);"
 
         line_conf["string"] = format_string.replace("var", label)
-        line_conf["line"] = info["line_num"] + 1 
+        line_conf["line"] = info["line_num"] + 1
         line_conf[label] = [info["tile"]]
 
         if info["filename"] not in files.keys():
             files[filename] = [line_conf]
         else:
             files[filename].append(line_conf)
-    
 
-    return files 
+
+    return files
 
 
 def generate_json_cpp(test_name, device_number):
-    choice = None 
+    choice = None
     while choice not in ("g", "s"):
         choice = input("Parse tiles from test with gcov or semantic labels? (g/s/help): ")
         if choice == "help":
@@ -572,7 +572,7 @@ def generate_json_cpp(test_name, device_number):
 
     if choice == "g":
         files = generate_json_by_coverage(test_name, device_number)
-            
+
     elif choice == "s":
         files = generate_json_by_semantic_label(test_name, device_number)
 
@@ -639,7 +639,7 @@ def generate_json_python(test_name, device_number):
             for i in range(len(info["tile"])):
                 format_string += f" {{{variable_name}[" + str(i) + "]},"
             format_string = format_string[:-2] + " }}, true);"
-        
+
         line_conf = dict()
         line_conf["line"] = info["line"]
         line_conf["string"] = format_string
@@ -669,7 +669,7 @@ def generate_json_python(test_name, device_number):
 
     with open("config.json", "w") as f:
         json.dump(json_config, f, ensure_ascii=False, indent=4)
-    
+
     print(f"Config saved: {os.path.abspath('config.json')}")
 
 
@@ -680,7 +680,7 @@ def main():
         'Generate config.json by command: \n\n' \
         'python tools/scripts/tiling_tool.py --test TESTCASE_NAME --frontend {cpp, python} -d DEVICE_NUMBER \n\n' \
         'To start the iteration: \n\n' \
-        'python tools/scripts/tiling_tool.py --json_path /path/to/config.json', 
+        'python tools/scripts/tiling_tool.py --json_path /path/to/config.json',
         formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument("-d",
@@ -691,28 +691,28 @@ def main():
                         help="testcase name",
                         type=str)
 
-    parser.add_argument("--frontend", 
+    parser.add_argument("--frontend",
                         help="Test frontend",
                         choices=["python", "cpp"])
 
-    parser.add_argument("--json_path", 
-                        help="path to config.json where described tiling configs", 
+    parser.add_argument("--json_path",
+                        help="path to config.json where described tiling configs",
                         type=str)
-    
+
     args = parser.parse_args()
 
     if args.json_path is None:
         if args.test is None:
             raise RuntimeError("Parameter --test not specified")
-        
+
         if args.frontend is None:
             raise RuntimeError("Parameter --frontend not specified")
-        
+
         if args.frontend == "cpp":
             generate_json_cpp(args.test, args.d)
         if args.frontend == "python":
             generate_json_python(args.test, args.d)
-   
+
         quit()
 
     with open(args.json_path) as f:
@@ -726,10 +726,10 @@ def main():
         now = datetime.datetime.now(datetime.timezone.utc)
         today_folder_name = now.strftime("%d_%b_%H_%M_%S")
 
-        os.makedirs(json_config["results_folder"], exist_ok=True)  
+        os.makedirs(json_config["results_folder"], exist_ok=True)
         result_folder_path = json_config["results_folder"] + "/" + today_folder_name
         os.makedirs(result_folder_path, exist_ok=True)
-        shutil.copy(args.json_path, result_folder_path) # copy config.json to folder with results 
+        shutil.copy(args.json_path, result_folder_path) # copy config.json to folder with results
 
         for run_params, param_values in generate_combinations(json_config):
             name = f"combination_{comb_id}"
@@ -737,13 +737,13 @@ def main():
 
             os.makedirs(combination_folder)
             save_run_params(name, run_params, combination_folder + "/combination_params.json")
-    
+
             run_result = measure_perf(json_config, run_params, combination_folder)
 
             run_result = "Error" if run_result is None else run_result
             results[f"combination_{comb_id}"] = run_result
             param_values.append({"time(us)": run_result})
-            
+
             param_val_flat = {"combination": f"combination_{comb_id}"}
             for d in param_values:
                 param_val_flat.update(d)
@@ -752,7 +752,7 @@ def main():
             if run_result != "Error":
                 copy_prof_logs(json_config["build_folder"], json_config["test_name"], combination_folder)
                 save_kernel_meta(json_config["build_folder"], combination_folder)
-          
+
             if comb_id >= json_config["save_best_k"]:
                 remove_worst_combination(result_folder_path, results)
 

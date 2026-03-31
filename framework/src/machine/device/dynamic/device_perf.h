@@ -221,7 +221,7 @@ struct PerfEvtMgr {
         MetricPerf* aicpuMetrics = nullptr;
         if (aicpuPerf_ > 0) {
             aicpuMetrics = (MetricPerf*)(aicpuPerf_ + (tid == 0 ? ctrlTurn_ : schTurn_) * sizeof(MetricPerf));
-        }        
+        }
         if (PerfTraceIsDevTask[type] && DEVTASK_PERF_ARRY_INDEX(type) < DEVTASK_PERF_TYPE_NUM) {
             auto &cnt = perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
             if (cnt < PERF_TRACE_COUNT_DEVTASK_MAX_NUM) {

@@ -373,16 +373,16 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_DiffShape) {
 TEST_F(TestGenerateMoveOpChecker, PostCheck_View_InputInvalid) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "PostCheckViewInputInvalid", "PostCheckViewInputInvalid", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    
+
     std::vector<int64_t> shape = {16, 16};
     auto in1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto in2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto out = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    
+
     auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {in1, in2}, {out});
     auto viewAttr = std::make_shared<ViewOpAttribute>(shape);
     viewOp.SetOpAttribute(viewAttr);
-    
+
     GenerateMoveOp generateMoveOp;
     Status postCheckStatus = generateMoveOp.PostCheck(*currFunctionPtr);
     EXPECT_EQ(postCheckStatus, FAILED);
@@ -391,16 +391,16 @@ TEST_F(TestGenerateMoveOpChecker, PostCheck_View_InputInvalid) {
 TEST_F(TestGenerateMoveOpChecker, PostCheck_View_OutputInvalid) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "PostCheckViewOutputInvalid", "PostCheckViewOutputInvalid", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    
+
     std::vector<int64_t> shape = {16, 16};
     auto in1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    
+
     auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {in1}, {out1, out2});
     auto viewAttr = std::make_shared<ViewOpAttribute>(shape);
     viewOp.SetOpAttribute(viewAttr);
-    
+
     GenerateMoveOp generateMoveOp;
     Status postCheckStatus = generateMoveOp.PostCheck(*currFunctionPtr);
     EXPECT_EQ(postCheckStatus, FAILED);
@@ -409,53 +409,53 @@ TEST_F(TestGenerateMoveOpChecker, PostCheck_View_OutputInvalid) {
 TEST_F(TestGenerateMoveOpChecker, PostCheck_DuplicateOp_Invalid) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "PostCheckDupInvalid", "PostCheckDupInvalid", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    
+
     std::vector<int64_t> shape = {16, 16};
     auto in1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    
+
     currFunctionPtr->AddOperation(Opcode::OP_DUPLICATE, {in1}, {out1});
-    
+
     GenerateMoveOp generateMoveOp;
     Status postCheckStatus = generateMoveOp.PostCheck(*currFunctionPtr);
-    
+
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
 TEST_F(TestGenerateMoveOpChecker, PostCheck_ConvertOp_Invalid) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "PostCheckConvertInvalid", "PostCheckConvertInvalid", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    
+
     std::vector<int64_t> shape = {16, 16};
     auto in1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    
+
     currFunctionPtr->AddOperation(Opcode::OP_CONVERT, {in1}, {out1});
-    
+
     GenerateMoveOp generateMoveOp;
     Status postCheckStatus = generateMoveOp.PostCheck(*currFunctionPtr);
-    
+
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
 TEST_F(TestGenerateMoveOpChecker, View_MemoryTypeMismatch) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "PostCheckViewMemMismatch", "PostCheckViewMemMismatch", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    
+
     std::vector<int64_t> shape = {16, 16};
     auto inTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
     inTensor->SetMemoryTypeOriginal(MEM_DEVICE_DDR);
     outTensor->SetMemoryTypeOriginal(MEM_UB);
-    
+
     auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inTensor}, {outTensor});
     auto viewAttr = std::make_shared<ViewOpAttribute>(shape);
     viewOp.SetOpAttribute(viewAttr);
-    
+
     GenerateMoveOp generateMoveOp;
     Status postCheckStatus = generateMoveOp.PostCheck(*currFunctionPtr);
-    
+
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
@@ -505,7 +505,7 @@ TEST_F(TestGenerateMoveOpChecker, ViewInputNullCheck) {
 
         GenerateMoveOp generateMoveOp;
         bool preCheck = generateMoveOp.PreCheck(*originFunction);
-        
+
         EXPECT_EQ(preCheck, true);
     }
 }
@@ -559,7 +559,7 @@ TEST_F(TestGenerateMoveOpChecker, ViewOutputNullCheck) {
 
         GenerateMoveOp generateMoveOp;
         bool preCheck = generateMoveOp.PreCheck(*originFunction);
-        
+
         EXPECT_EQ(preCheck, true);
     }
 }
@@ -585,7 +585,7 @@ TEST_F(TestGenerateMoveOpChecker, AssembleInputNullCheck) {
 
         FUNCTION("ASSEMBLE", {input_m, input_n, output}) {
             config::SetPassStrategy("GenerateMoveOpPassTestStrategy");
-            
+
             Assemble({{input_m, {0, 0}}, {input_n, {128, 0}}});
         }
 
@@ -604,7 +604,7 @@ TEST_F(TestGenerateMoveOpChecker, AssembleInputNullCheck) {
 
         GenerateMoveOp generateMoveOp;
         bool preCheck = generateMoveOp.PreCheck(*originFunction);
-        
+
         EXPECT_EQ(preCheck, true);
     }
 }
@@ -643,7 +643,7 @@ TEST_F(TestGenerateMoveOpChecker, AssembleOutputNullCheck) {
 
         GenerateMoveOp generateMoveOp;
         bool preCheck = generateMoveOp.PreCheck(*originFunction);
-        
+
         EXPECT_EQ(preCheck, true);
     }
 }
@@ -662,7 +662,7 @@ TEST_F(TestGenerateMoveOpChecker, ConvertOp_ShapeMismatch) {
     outTensor->SetMemoryTypeOriginal(MEM_UB);
 
     auto &convertOp = currFunctionPtr->AddOperation(Opcode::OP_CONVERT, {inTensor}, {outTensor});
-    
+
     auto convertAttr = std::make_shared<ConvertOpAttribute>(MEM_DEVICE_DDR, MEM_UB);
     convertOp.SetOpAttribute(convertAttr);
 
@@ -678,7 +678,7 @@ TEST_F(TestGenerateMoveOpChecker, ConvertOpAttributeNull) {
     auto currFunctionPtr =
         std::make_shared<Function>(Program::GetInstance(), "TestConvertAttrNull", "TestConvertAttrNull", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    
+
     std::vector<int64_t> shape = {16, 32};
     auto inTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);

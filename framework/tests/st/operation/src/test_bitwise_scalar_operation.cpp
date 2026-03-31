@@ -156,7 +156,7 @@ static void BitwiseScalarOpExeFunc4D(
     }
 }
 
-class BitwiseAndsOperationTest 
+class BitwiseAndsOperationTest
     : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<BitwiseScalarOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(
@@ -181,7 +181,7 @@ TEST_P(BitwiseAndsOperationTest, TestBitwiseAnds) {
     tile_fwk::test_operation::TestExecutor::runTest(testCase);
 }
 
-class BitwiseOrsOperationTest 
+class BitwiseOrsOperationTest
     : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<BitwiseScalarOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(
@@ -206,7 +206,7 @@ TEST_P(BitwiseOrsOperationTest, TestBitwiseOrs) {
     tile_fwk::test_operation::TestExecutor::runTest(testCase);
 }
 
-class BitwiseXorsOperationTest 
+class BitwiseXorsOperationTest
     : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<BitwiseScalarOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(

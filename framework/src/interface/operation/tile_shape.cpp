@@ -115,8 +115,8 @@ TileShape &TileShape::Current() {
     return instance;
 }
 
-void TileShape::SetConvTile(const Conv::TileL1Info &tileL1Info, 
-                            const Conv::TileL0Info &tileL0Info, 
+void TileShape::SetConvTile(const Conv::TileL1Info &tileL1Info,
+                            const Conv::TileL0Info &tileL0Info,
                             bool setL0Tile) {
     convTile = {tileL1Info, tileL0Info, setL0Tile};
     ConfigManagerNg::CurrentScope()->UpdateValue("conv_tile_shapes", convTile);

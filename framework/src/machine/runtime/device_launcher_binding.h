@@ -174,7 +174,7 @@ private:
     OperatorTensorPara BuildOperatorTensorPara(
             const std::vector<DeviceTensorData> &inputList,
             const std::vector<DeviceTensorData> &outputList) {
-        OperatorTensorPara para; 
+        OperatorTensorPara para;
         for (const auto& input : inputList) {
             para.inputTensorParaList.emplace_back(DevAscendTensorDataCreator::Create(0, input.GetShape()));
         }

@@ -657,7 +657,7 @@ void InitGraphBuilder (ComputationalGraphBuilder &G, std::vector<int64_t> tileSh
     // 1. 定义张量和操作
     std::vector<std::string> tensorNames = {"input", "view1_out", "view2_out", "add_out", "final_out"};
     std::vector<Opcode> opCodes = {
-        Opcode::OP_VIEW, 
+        Opcode::OP_VIEW,
         Opcode::OP_VIEW,
         Opcode::OP_ADD,
         Opcode::OP_ABS

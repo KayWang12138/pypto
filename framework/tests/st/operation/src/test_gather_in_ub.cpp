@@ -312,11 +312,10 @@ TEST_F(GatherInUBTest, gather_in_a_) {
 TEST_F(GatherInUBTest, gather_in_a) {
     using Config = PageAttentionTestConfig<int32_t, float16>;
     Config cfg;
-    cfg.topk_count = 512;      // topk 结果  
+    cfg.topk_count = 512;      // topk 结果
     cfg.num_logical_blocks = 8; // 逻辑块个数，
     cfg.num_buffer_tokens = 2048; // buffer token 维度（物理 token 容量）
     cfg.hidden_dim = 256;         // 隐藏维度大小
     cfg.block_size = 128;         // 每个块的 token 数
     BasicGatherTest(cfg);
 }
-

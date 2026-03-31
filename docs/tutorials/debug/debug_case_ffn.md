@@ -54,4 +54,3 @@ up_proj = pypto.matmul(hidden_states_quant, w13, pypto.DT_INT32)
 ```
 
 再次运行ffn\_shared\_expert\_quant算子测试用例，能够正常通过，问题解决。
-

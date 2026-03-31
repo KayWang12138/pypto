@@ -49,7 +49,7 @@ public:
     uint64_t currentHeartModulo = 0;
     std::map<MachineType, std::deque<uint64_t>> readyQueues;
     std::set<uint64_t> readySet; // For replay mode
-    
+
     TaskMap taskMap;
     std::deque<TaskMap> taskMapQueue;
     std::map<uint64_t, uint64_t> executingTaskMap;

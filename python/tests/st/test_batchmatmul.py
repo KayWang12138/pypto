@@ -85,8 +85,8 @@ def batchmatmul_3d_kernel(
                 b_view = b_tensor[:, :, n_idx * n_view: n_idx * n_view + n_view]
             out_view = pypto.matmul(a_view, b_view, a_trans=shape_info.a_trans, b_trans=shape_info.b_trans,
                                     out_dtype=shape_info.out_dtype)
-            out_tensor[:, 
-                        m_idx * m_view: m_idx * m_view + m_view, 
+            out_tensor[:,
+                        m_idx * m_view: m_idx * m_view + m_view,
                         n_idx * n_view: n_idx * n_view + n_view] = out_view
 
 
@@ -105,7 +105,7 @@ def batchmatmul_4d_kernel(
     n_view = shape_info.view_shape[1]
     m_loop = (m + m_view - 1) // m_view
     n_loop = (n + n_view - 1) // n_view
-    pypto.set_cube_tile_shapes(shape_info.m_tile_shape, shape_info.k_tile_shape, shape_info.n_tile_shape, 
+    pypto.set_cube_tile_shapes(shape_info.m_tile_shape, shape_info.k_tile_shape, shape_info.n_tile_shape,
                                 enable_split_k=shape_info.gm_acc)
     for m_idx in pypto.loop(0, m_loop, 1, name="LOOP_L0_mIdx", idx_name="m_idx"):
         for n_idx in pypto.loop(0, n_loop, 1, name="LOOP_L0_nIdx", idx_name="n_idx"):
@@ -119,8 +119,8 @@ def batchmatmul_4d_kernel(
                 b_view = b_tensor[:, :, :, n_idx * n_view: n_idx * n_view + n_view]
             out_view = pypto.matmul(a_view, b_view, a_trans=shape_info.a_trans, b_trans=shape_info.b_trans,
                                     out_dtype=shape_info.out_dtype)
-            out_tensor[:, :, 
-                        m_idx * m_view: m_idx * m_view + m_view, 
+            out_tensor[:, :,
+                        m_idx * m_view: m_idx * m_view + m_view,
                         n_idx * n_view: n_idx * n_view + n_view] = out_view
 
 
@@ -163,7 +163,7 @@ def test_bmm4d_with_mn_split():
     tile_n = 64
     m_view = 64
     n_view = 128
-    shape_info = ShapeConfig([b1, b2, m, k, n], [tile_m, tile_m], [tile_k, 2 * tile_k], [tile_n, tile_n], 
+    shape_info = ShapeConfig([b1, b2, m, k, n], [tile_m, tile_m], [tile_k, 2 * tile_k], [tile_n, tile_n],
                             [m_view, n_view], FP16, FP32, False, False, False, False, False, False)
     a_tensor = torch.rand([b1, b2, m, k], dtype=torch.float16, device=f'npu:{device_id}')
     b_tensor = torch.rand([b1, b2, k, n], dtype=torch.float16, device=f'npu:{device_id}')

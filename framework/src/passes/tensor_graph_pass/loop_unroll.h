@@ -47,18 +47,18 @@ private:
     std::vector<std::string> staticFuncNames_;
     std::shared_ptr<EvaluateSymbol> evaluateSymbol_;
     std::unordered_map<int, std::pair<LogicalTensorPtr, bool>> lastWriteMap_;
-    Function* topFunction_; 
+    Function* topFunction_;
     ScalarImmediateType EvaluateSymbolicScalar(const SymbolicScalar &ss) {
         return evaluateSymbol_->EvaluateSymbolicScalar(ss);
     }
-    
+
     Status RunOnFunction(Function &function) override;
 
     Status GetCallee(const Operation *callop, Function *&callFunc);
     std::vector<SymbolicScalar> ConvertToSymbolicScalar(std::vector<int64_t> staticShape);
     Status MapLocalTensorToGlobal(const LogicalTensors &localTensor, LogicalTensors &globalTensor,
         std::unordered_map<int, LogicalTensorPtr> tensorLocal2Global);
-    Status AddNewOperation(Operation *localOp, 
+    Status AddNewOperation(Operation *localOp,
         const std::unordered_map<int, LogicalTensorPtr> tensorLocal2Global,
         std::unordered_map<Operation *, std::vector<int64_t>> opDynOffsetMap,
         std::unordered_map<Operation *, std::vector<int64_t>> opDynShapeMap);
@@ -89,7 +89,7 @@ private:
     bool IsNoOverlapWAW(int slotIdx, LogicalTensorPtr tensor,
         std::unordered_map<Operation *, std::vector<int64_t>> opDynOffsetMap);
     bool IsTensorOverlap(std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> &tensors);
-    bool IsOverlapping(std::pair<std::vector<int64_t>, std::vector<int64_t>> tensor1, 
+    bool IsOverlapping(std::pair<std::vector<int64_t>, std::vector<int64_t>> tensor1,
         std::pair<std::vector<int64_t>, std::vector<int64_t>> tensor2);
     Status FindOutputGlobalTensor(int slotIdx, std::unordered_map<int, LogicalTensorPtr> &tensor2Global,
         std::set<LogicalTensorPtr> input2Global, LogicalTensorPtr tensor,

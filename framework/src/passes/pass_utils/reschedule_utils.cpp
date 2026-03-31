@@ -104,7 +104,7 @@ PipeType RescheduleUtils::GetOpPipeType(const Operation* op) {
         }
         if (srcMemType == MemoryType::MEM_L1) {
             return PipeType::PIPE_MTE3;
-        } 
+        }
     }
     return opcfg.pipeIdStart_;
 }

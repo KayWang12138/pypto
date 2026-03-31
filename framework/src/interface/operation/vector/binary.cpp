@@ -18,7 +18,7 @@
 #include "interface/utils/operator_tracer.h"
 #include "interface/configs/config_manager.h"
 #include "interface/utils/vector_error.h"
-#include "passes/tile_graph_pass/graph_constraint/axis_combine.h" 
+#include "passes/tile_graph_pass/graph_constraint/axis_combine.h"
 namespace npu::tile_fwk {
 
 std::vector<int64_t> BinaryOperationResultShape(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
@@ -129,7 +129,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
             if (opName == "BITWISEXOR" || opName == "COPYSIGN" || opName == "POW" || opName == "REM") {
                 std::vector<int64_t> tmpShape(resultTileInfo.shape);
                 auto alignSize = BLOCK_SIZE / BytesOf(result->Datatype());
-                tmpShape[resultTileInfo.shape.size() - 1] = 
+                tmpShape[resultTileInfo.shape.size() - 1] =
                     AlignUp(tmpShape[resultTileInfo.shape.size() - 1], alignSize);
                 auto tempTensor = std::make_shared<LogicalTensor>(function, result->Datatype(), tmpShape);
                 op = &function.AddOperation(
@@ -176,7 +176,7 @@ std::pair<std::vector<int64_t>, std::vector<int64_t>> GetBrcExpandShape(
     auto operand1Shape = result->shape;
     auto operand2Shape = result->shape;
     size_t shapeSize = result->shape.size();
-    
+
     bool isInWhiteList = SUPPORT_BRCINLINE.count(GetBinaryOpNameCode<T>());
     bool isSupportDtype = (operand1->Datatype() == DT_FP32 || operand1->Datatype() == DT_FP16);
     bool isCombineAxisEnabled =
@@ -219,7 +219,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, Logica
     auto input1 = LogicalInput{operand1, tileInfo1};
     auto input2 = LogicalInput{operand2, tileInfo2};
     // 如果打开了forceCombineAxis要走进OP_XX_BRC，如果打开combineAxis要避免后续走OP_XX_BRC逻辑
-    bool withBrc = 
+    bool withBrc =
         (BrcAxisBinaryOp(operand1, operand2, 1) != -1)
         && function.paramConfigs_.forceCombineAxis && !function.paramConfigs_.combineAxis;
     TiledBinaryOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, withBrc);
@@ -243,7 +243,7 @@ void TiledPReLUOperation(
         auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmpShape);
         auto &op = function.AddOperation(Opcode::OP_PRELU, {tile, weightTile}, {resultTile, tmpTensor});
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
-        
+
         size_t dimSize = input.tensor.GetShape().size();
         if (dimSize == 2) {
             std::vector<bool> dimMap({true, false});
@@ -252,7 +252,7 @@ void TiledPReLUOperation(
         return;
     }
     auto &vecTile = tileShape.GetVecTile();
-    
+
     for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
         input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
@@ -282,22 +282,22 @@ void PReLUOperationOperandCheck(
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand) {
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, iOperand.size() == 2) << "The input operand size should be 2";
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, oOperand.size() == 1) << "The output operand size should be 1";
-    
+
     auto input = iOperand[0];
     auto weight = iOperand[1];
-    
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, input->Datatype() == weight->Datatype()) 
+
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, input->Datatype() == weight->Datatype())
         << "The input and weight should have the same data type";
-    
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, input->shape.size() >= 2 && input->shape.size() <= 4) 
+
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, input->shape.size() >= 2 && input->shape.size() <= 4)
         << "The input shape dimension should be in range [2, 4]";
-    
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, weight->shape.size() == 1) 
+
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, weight->shape.size() == 1)
         << "The weight should be 1-dimensional";
-    
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, weight->shape[0] == input->shape[1]) 
+
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, weight->shape[0] == input->shape[1])
         << "The weight size should equal to input's second dimension";
-    
+
     int64_t inputSize = 1;
     for (size_t i = 0; i < input->shape.size(); ++i) {
         inputSize *= input->shape[i];
@@ -320,7 +320,7 @@ void PReLUOperationTileFunc(Function &function, const TileShape &tileShape,
 LogicalTensorPtr TensorPReLUOperation(Function &function, const Tensor &self, const Tensor &weight) {
     auto selfTensor = self.GetStorage();
     auto weightTensor = weight.GetStorage();
-    
+
     auto result = std::make_shared<LogicalTensor>(function, selfTensor->Datatype(), selfTensor->shape, selfTensor->GetDynValidShape());
     function.AddOperation(Opcode::OP_PRELU, {selfTensor, weightTensor}, {result});
     return result;
@@ -699,7 +699,7 @@ Tensor FloorDiv(const Tensor &self, const Element &other) {
             std::find(FLOORDIV_SUPPORT_TYPES.begin(), FLOORDIV_SUPPORT_TYPES.end(), self.GetDataType()) !=
                 FLOORDIV_SUPPORT_TYPES.end())
         << "FloorDiv only supports same data type for self and other! And it should be in DT_INT32.";
-    
+
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::FLOORDIV>, *Program::GetInstance().GetCurrentFunction(),
         self.GetStorage(), other);
 }

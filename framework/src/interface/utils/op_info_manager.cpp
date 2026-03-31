@@ -80,4 +80,3 @@ std::string &OpInfoManager::GetOpFuncName() {
   return funcName_;
 }
 }
-

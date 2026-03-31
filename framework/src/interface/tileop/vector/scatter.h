@@ -149,7 +149,7 @@ TILEOP void Tscatter(T0 dst, T1 src1, T2 src2, T3 tmp) {
                     for (LoopVar m = 0; m < idxShape4; ++m) {
                         typename T1::Type index =
                             *(idxAddr + i * idxStride0 + j * idxStride1 + k * idxStride2 + l * idxStride3 + m);
-                        typename T1::Type src2Offset = 
+                        typename T1::Type src2Offset =
                             i * srcStride0 + j * srcStride1 + k * srcStride2 + l * srcStride3 + m;
                         if constexpr (axis == 0) {
                             dstOffset = index * dstStride0 + j * dstStride1 + k * dstStride2 + l * dstStride3 + m;

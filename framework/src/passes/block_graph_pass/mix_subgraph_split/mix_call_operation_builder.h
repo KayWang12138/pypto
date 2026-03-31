@@ -104,7 +104,7 @@ private:
     bool FindOOpAttrOffsetFromActualOutcasts(const std::vector<std::shared_ptr<LogicalTensor>> &actualOutcasts,
                                              ExtractInfo& extractInfo,
                                              Function* originalMixFunc) const;
-    
+
     int GetOffsetFromOp(int opMagic, int operandIdx, Function& leafFunc, bool isOutput) const;
     int FindOriginalOffsetInMixFunction(LogicalTensorPtr tensor, Function* originalMixFunc) const;
     void SetCallOpAttribute(Function& leafFunc,

@@ -93,7 +93,7 @@ public:
     bool CrossCore(const MemoryType from, const MemoryType to) const;
 
     // 更新消费者并重连graph
-    void UpdateConsumerAndReconnect(std::shared_ptr<LogicalTensor> oldTensor, std::shared_ptr<LogicalTensor> newTensor, 
+    void UpdateConsumerAndReconnect(std::shared_ptr<LogicalTensor> oldTensor, std::shared_ptr<LogicalTensor> newTensor,
         Operation* op) const;
 
     // 合法性校验
@@ -108,25 +108,25 @@ public:
 
     // 检查tensor是否需要跳过
     bool SkipOperand(const std::shared_ptr<LogicalTensor> &oOperand, const std::vector<int> visitedTensor) const;
-    
+
     //检查tensor生产者是否都是assemble
     bool isAllProducerAssemble(const std::shared_ptr<LogicalTensor> &oOperand) const;
-    
+
     //检查tensor所有的消费者是否都有效
     bool isAllConsumersValid(const std::set<Operation *> &consumers) const;
-    
+
     //为每个存在内存冲突的消费者插入convert op
     void InsertConvertOpForEachConsumer(Function &function, const Operation &op, const std::shared_ptr<LogicalTensor> &oOperand,
-        std::set<Operation *> &consumers, std::vector<MemoryType> &paths); 
+        std::set<Operation *> &consumers, std::vector<MemoryType> &paths);
 
     //记录需要插入的convert op
     std::shared_ptr<LogicalTensor> RecordInsertConvertOp(const std::shared_ptr<LogicalTensor> &oOperand, const std::vector<MemoryType> &paths,
         Function &function,const Operation &op);
 
     //graph重连
-    void GraphReconnect(const std::shared_ptr<LogicalTensor> &oOperand, std::shared_ptr<LogicalTensor> output, 
+    void GraphReconnect(const std::shared_ptr<LogicalTensor> &oOperand, std::shared_ptr<LogicalTensor> output,
         const std::set<Operation *> &consumers,Function &function) const;
-    
+
     //cube级联场景
     bool IsNotValidDataType(const std::shared_ptr<LogicalTensor> &firstCVOutput) const;
 
@@ -144,6 +144,6 @@ public:
 static constexpr int MATMUL_DIM_NUM = 2;
 static constexpr int L0C2L1_DIM1_SHAPE_RESTICT = 16; // l0c2l1要求输入的外轴（第一轴）元素数量必须是16的倍数
 static constexpr int L0C2L1_DIM2_BYTE_RESTICT = 32; // l0c2l1要求输入的内轴（第二轴）必须是32Byte对齐
-} 
+}
 }// namespace npu::tile_fwk
 #endif // PASS_CONVERT_OP_INSERTER_H_

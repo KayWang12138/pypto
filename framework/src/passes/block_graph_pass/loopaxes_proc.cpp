@@ -71,7 +71,7 @@ bool NeedClearStatus(const Operation &op) {
             if (hasOneAxis) {
                 return true;
             }
-                                
+
         }
     }
 

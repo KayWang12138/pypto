@@ -65,8 +65,8 @@ private:
     void ReplaceRawTensor(Function &function, std::shared_ptr<LogicalTensor> logicalTensor,
         const std::shared_ptr<LogicalTensor> targetTensor, const Operation &op);
     void ProcessHub(Function &function, Operation &op);
-    void ProcessHubAssembleChain(Function &function, Operation &hubOp, 
-                                           Operation &assembleOp, 
+    void ProcessHubAssembleChain(Function &function, Operation &hubOp,
+                                           Operation &assembleOp,
                                            std::shared_ptr<LogicalTensor> hubInput,
                                            std::shared_ptr<LogicalTensor> hubOutput);
     Status RefactorViewConnectForInplace(Function &function);

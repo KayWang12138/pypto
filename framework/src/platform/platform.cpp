@@ -258,7 +258,7 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     if (internalParser.LoadInternalInfo()) {
         if (internalParser.GetDataPath(dataPath)) {
             GetDie().SetMemoryPath(dataPath);
-        } 
+        }
     }
 }
 

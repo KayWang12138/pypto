@@ -58,7 +58,7 @@ Status AutoCastChecker::DoPostCheck(Function &function) {
         bool supportBF16 = SupportBF16(op);
         bool supportFP16 = SupportFP16(op);
         const int opMagic = op->GetOpMagic();
-        
+
         auto iOperands = op->GetIOperands();
         for (const auto &iop : iOperands) {
             if (!supportBF16 && iop->Datatype() == DataType::DT_BF16) {

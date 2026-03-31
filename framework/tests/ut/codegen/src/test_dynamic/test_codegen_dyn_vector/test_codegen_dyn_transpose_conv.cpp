@@ -60,7 +60,7 @@ void TestDynVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t> outSh
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetUnderDynamicFunction(true);
-    
+
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});

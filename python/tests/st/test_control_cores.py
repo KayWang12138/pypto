@@ -82,7 +82,7 @@ def kernel_func(device_id):
         # get data and compare result
         d_data_inlist = [c for r in d_data_list[idx].cpu().tolist() for c in r]
         assert d_data_inlist == [k + idx] * len(d_data_inlist)
-    
+
     aic_count, aiv_count = count_core_types("./output")
 
     return aic_count, aiv_count
@@ -101,7 +101,7 @@ def test_rts_stream_control_cores():
     torch.npu.set_device(device_id)
     stream1 = torch.npu.current_stream()
     torch.npu.set_stream_limit(stream1, 8, 27)
-    
+
     aic_count, aiv_count = kernel_func(device_id)
 
 

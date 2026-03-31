@@ -238,8 +238,8 @@ void RemoveRedundantOp::RemoveViewAssembleForOutcast(Function &function, Logical
 void RemoveRedundantOp::ProcessPerfectMatch(
     Function &function, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor) {
     if (!IsValidViewAssemble(startTensor, endTensor)) {
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Not valid view-assemble case.");    
-        return; 
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Not valid view-assemble case.");
+        return;
     }
     // 图重连逻辑
     if (endTensor->GetConsumers().size() == 0) {
@@ -326,9 +326,9 @@ bool RemoveRedundantOp::IsValidViewAssemble(LogicalTensorPtr &startTensor, Logic
     // step2:排除assemble数据重排场景
     bool isDataRepalce = IsDataReplace(endTensor); // true表示assemble后数据重排布
     if (isDataRepalce) {
-        APASS_LOG_DEBUG_F(Elements::Tensor, 
+        APASS_LOG_DEBUG_F(Elements::Tensor,
             "OP_ASSEMBLE'S output endTensor[%d] is repalced comparing with startTesnor[%d].", startTensor->magic, endTensor->magic);
-        return false; 
+        return false;
     }
     return true;
 }

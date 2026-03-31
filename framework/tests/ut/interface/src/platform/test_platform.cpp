@@ -134,7 +134,7 @@ TEST_F(TestPlatform, AbnormalTest) {
 
     std::unordered_map<std::string, std::string> ccecVersion;
     EXPECT_FALSE(parser->GetCCECVersion(ccecVersion));
-    
+
     std::string iniPath = RealPath(GetCurrentSharedLibPath() + INI_PATH);
     EXPECT_TRUE(parser->Initialize(iniPath));
 
@@ -145,7 +145,7 @@ TEST_F(TestPlatform, AbnormalTest) {
     size_t testSize;
     EXPECT_FALSE(parser->GetSizeVal("none", "", testSize));
 
-    std::vector<std::pair<MemoryType, MemoryType>> dataPath; 
+    std::vector<std::pair<MemoryType, MemoryType>> dataPath;
     InternalParser internalParser1 = InternalParser("");
     EXPECT_TRUE(internalParser1.LoadInternalInfo());
     EXPECT_FALSE(internalParser1.GetDataPath(dataPath));
@@ -156,20 +156,20 @@ TEST_F(TestPlatform, AbnormalTest) {
 }
 
 TEST_F(TestPlatform, A5Stub) {
-    std::vector<std::pair<MemoryType, MemoryType>> dataPath; 
+    std::vector<std::pair<MemoryType, MemoryType>> dataPath;
     InternalParser parser = InternalParser("3510");
     EXPECT_TRUE(parser.LoadInternalInfo());
     EXPECT_TRUE(parser.GetDataPath(dataPath));
     Platform::Instance().GetDie().SetMemoryPath(dataPath);
 
     std::vector<MemoryType> path;
-    Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_L0C, MemoryType::MEM_UB, path); 
-    EXPECT_EQ(path.size(), Num2); 
-    path.clear(); 
-    Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_L1, MemoryType::MEM_UB, path); 
-    EXPECT_EQ(path.size(), Num2); 
-    path.clear(); 
-    Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_UB, MemoryType::MEM_L1, path); 
-    EXPECT_EQ(path.size(), Num2); 
+    Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_L0C, MemoryType::MEM_UB, path);
+    EXPECT_EQ(path.size(), Num2);
+    path.clear();
+    Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_L1, MemoryType::MEM_UB, path);
+    EXPECT_EQ(path.size(), Num2);
+    path.clear();
+    Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_UB, MemoryType::MEM_L1, path);
+    EXPECT_EQ(path.size(), Num2);
     path.clear();
 }

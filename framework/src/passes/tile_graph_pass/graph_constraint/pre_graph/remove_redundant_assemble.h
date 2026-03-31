@@ -47,4 +47,3 @@ private:
 };
 } // namespace npu::tile_fwk
 #endif // PASS_REMOVE_REDUNDANT_ASSEMBLE_H
-    

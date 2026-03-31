@@ -480,7 +480,7 @@ std::vector<int32_t> IsoPartitioner::GetCandidateMergeColors(int32_t currColor,
         if (nonIsoGraphsMerge && isoSubGroups_[candidate]->Size() == 1) {
             mergeColors.push_back(candidate);
             continue;
-        } 
+        }
         if (!nonIsoGraphsMerge && isoSubGroups_[candidate]->Size() > 1) {
             mergeColors.push_back(candidate);
         }
@@ -521,7 +521,7 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
                      currColor, isoSubGroups_[currColor]->GetSubGraph(0)->DumpStr().c_str(),
                      mergeColor, isoSubGroups_[mergeColor]->GetSubGraph(0)->DumpStr().c_str(), shouldMerge);
         return shouldMerge;
-    } 
+    }
     bool isSuitableForMerge = (currColorSize == mergeColorSize);
     isSuitableForMerge = isSuitableForMerge || (std::min(currColorSize, mergeColorSize) >= parallelNum_);
     isSuitableForMerge = isSuitableForMerge ||
@@ -718,7 +718,7 @@ Status IsoPartitioner::UpdatePartitionResult(Function &function)
     return SUCCESS;
 }
 
-Status IsoPartitioner::SetParameter(int32_t pgUpperBound, int32_t parallelNum, int32_t pgLowerBound, 
+Status IsoPartitioner::SetParameter(int32_t pgUpperBound, int32_t parallelNum, int32_t pgLowerBound,
                                     bool useReduceBalanceHash, bool skipPartition)
 {
     skipPartition_ = skipPartition;

@@ -740,7 +740,7 @@ struct FunctionInterpreter {
         auto ret = frame.AllocateDataView(tensor, offset, validShape, rawShape, dtype, inplaceTensor);
         return ret;
     }
- 
+
     std::shared_ptr<LogicalTensorData> AllocateDataView(FunctionFrame &frame,
         const std::shared_ptr<LogicalTensor> &tensor, const std::shared_ptr<LogicalTensor> &inplaceTensor = nullptr) {
         return AllocateDataView(frame, tensor, tensor->GetRawTensor()->GetDataType(), inplaceTensor);
@@ -1195,7 +1195,7 @@ struct FunctionInterpreter {
 
 private:
     void FillOperationBasicInfo(Operation *op, FunctionFrame *frame, std::vector<std::string> &opInfo);
-    void FillOperationOffsetInfo(Operation *op, FunctionFrame *frame, 
+    void FillOperationOffsetInfo(Operation *op, FunctionFrame *frame,
                                   const std::vector<SymbolicScalar> &linearArgList,
                                   std::vector<std::string> &opInfo);
     void FillOperationInputInfo(Operation *op, FunctionFrame *frame,
@@ -1213,7 +1213,7 @@ public:
     void DumpTensorBinary(
             const std::shared_ptr<LogicalTensorData> &dataView,
             std::string dumpTensorFileName, bool isRaw = false);
-    void DumpBinary(std::vector<int64_t> &shape, std::vector<int64_t> &stride, std::vector<int64_t> &offset, 
+    void DumpBinary(std::vector<int64_t> &shape, std::vector<int64_t> &stride, std::vector<int64_t> &offset,
             FILE *fdata, uint8_t *data, size_t dtypeSize);
     void DumpTensorList(
             const std::string &name,
@@ -1251,9 +1251,9 @@ public:
         struct timeval tv;
         gettimeofday(&tv, nullptr);
         auto ts =  tv.tv_sec * 1000000 + tv.tv_usec; // 1000000 is us per sec
- 
-        std::string fileName = std::to_string(frame->rootFuncIndex) + "~" + callopMagic  + GetLoopSymbolString(false) + "~" + std::to_string(frame->funcIndex) + "~" 
-                        + std::to_string(op->GetOpMagic()) + "~" + op->GetOpcodeStr() + "~" + std::to_string(tensor->GetRawTensor()->GetRawMagic()) + "~" + 
+
+        std::string fileName = std::to_string(frame->rootFuncIndex) + "~" + callopMagic  + GetLoopSymbolString(false) + "~" + std::to_string(frame->funcIndex) + "~"
+                        + std::to_string(op->GetOpMagic()) + "~" + op->GetOpcodeStr() + "~" + std::to_string(tensor->GetRawTensor()->GetRawMagic()) + "~" +
                         std::to_string(tensor->GetMagic()) + "~" + std::to_string(ts) + ".data";
         return fileName;
     }
@@ -1269,7 +1269,7 @@ public:
             }
             if(++count < loopCount) {
                 loop << "@";
-            } 
+            }
         }
         return loop.str();
     }
@@ -1313,7 +1313,7 @@ public:
         oss << "]";
         return oss.str();
     }
- 
+
     void WriteCsvRow(std::vector<std::string>& row, int& rowNum, FILE* file) {
         if (rowNum > 0) {
             row[0] = std::to_string(rowNum);

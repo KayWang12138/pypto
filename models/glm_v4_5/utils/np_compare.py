@@ -156,5 +156,3 @@ def _print_summary(abnormal_count, nan_count, exceed_tolerance_count, total_elem
     print(f"  - NaN 数量: {nan_count}")
     print(f"  - 超出容差数量: {exceed_tolerance_count}")
     print(f"异常比例: {abnormal_count / total_elements * 100:.4f}%")
-
-

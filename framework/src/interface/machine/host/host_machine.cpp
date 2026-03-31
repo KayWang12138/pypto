@@ -209,7 +209,7 @@ void HostMachine::SubTask(Function *function) {
     COMPILER_LOGI("Stashed function idx:%d begin compile, function name: %s .", function_done_idx,
         function->GetMagicName().c_str());
     MonitorManager::Instance().SetCurrentFunctionName(function->GetMagicName());
-    
+
     task->SetFunctionIndex(function_done_idx);
     MonitorManager::Instance().SetCurrentFunctionIndex(task->GetFunctionIndex());
     compileQueue_.Push(std::move(task));
@@ -289,7 +289,7 @@ std::string HostMachine::GetCacheKeyFromFunction(Function *function) {
 MachineTask *HostMachine::Compile(MachineTask *task) const {
     MachineTask *compileTask = task;
     if (compileTask == nullptr) {
-        if (curTask == nullptr) {   
+        if (curTask == nullptr) {
             MACHINE_LOGW("Compile task is null.");
             return nullptr;
         }

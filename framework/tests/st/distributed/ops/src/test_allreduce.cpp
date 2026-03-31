@@ -61,9 +61,9 @@ void TestAllReduce(OpTestParam &testParam, std::string &goldenDir)
             shmemDataType = DT_FP32;
         }
         ShmemTensor shmemTensor;
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) { 
-            (void)index; 
-            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor); 
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
         }
         if (useTwoShot) {
             TwoShotAllReduce(in, in, shmemTensor, out);
@@ -81,5 +81,5 @@ template void TestAllReduce<int32_t>(OpTestParam &testParam, std::string &golden
 template void TestAllReduce<float>(OpTestParam &testParam, std::string &goldenDir);
 template void TestAllReduce<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
-} // namespace Distributed 
+} // namespace Distributed
 } // namespace npu::tile_fwk

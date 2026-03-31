@@ -30,7 +30,7 @@ namespace CostModel
         virtual void Run(int esgId, int psgId) = 0;
     };
 
-    class DynPvModel 
+    class DynPvModel
     {
     public:
         virtual ~DynPvModel() = default;

@@ -85,7 +85,7 @@ def layernorm_golden(x: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor, e
     return normalized * gamma + beta
 
 
-def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, 
+def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor,
                    eps: float, hidden_size: int) -> pypto.Tensor:
     # Compute mean
     mean = pypto.sum(x, dim=-1, keepdim=True)

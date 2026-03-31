@@ -70,4 +70,3 @@ out3 = s3.max(2)
 输出数据out2: 13
 输出数据out3: RUNTIME_Max(x, 2)
 ```
-

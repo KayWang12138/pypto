@@ -141,7 +141,7 @@ int TorchTensorConverter::Convert(py::sequence &tensors, py::sequence &tensor_de
         if (!tensorDef.attr("status_dtype").is_none()) {
             dtype = t.GetDataType();
         }
-        
+
 
         tensors_data.emplace_back(dtype, dataPtr, shape, format);
 

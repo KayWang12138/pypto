@@ -78,7 +78,7 @@ public:
      */
     bool RegisterCall(const std::vector<SymbolicScalar>& args) {
         if (args.empty()) return false; // 空vector无意义
-        
+
         // 首次调用：记录vector长度，后续调用需保持长度一致
         if (callCount_ == 0) {
             vecLen_ = args.size();

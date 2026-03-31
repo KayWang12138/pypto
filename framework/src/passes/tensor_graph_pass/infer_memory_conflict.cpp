@@ -176,7 +176,7 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     auto input = op.GetIOperands().front();
     VecTile tileSize = op.GetTileShape().GetVecTile();
     if (input->GetShape().size() != tileSize.size()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s. %s", 
+        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s. %s",
                             op.GetOpcodeStr().c_str(), op.GetOpMagic(),
                             input->DumpType().c_str(), op.GetTileShape().ToString(TileType::VEC).c_str(), GetFormatBacktrace(op).c_str());
         return false;
@@ -254,7 +254,7 @@ bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
 
         // 2D转4D：[H, W] -> [1, 1, H, W]
         case (DIMENSIONS_2D << 4) | DIMENSIONS_4D: {
-            return outputShape[0] == 1 && 
+            return outputShape[0] == 1 &&
                    outputShape[1] == 1 &&
                    inputShape[0] == outputShape[2] &&
                    inputShape[1] == outputShape[3];

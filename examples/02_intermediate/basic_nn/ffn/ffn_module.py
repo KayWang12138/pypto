@@ -98,7 +98,7 @@ def gelu_torch(x):
 def swiglu_torch(gate, up):
     """PyTorch reference for SwiGLU."""
     swish = gate * torch.sigmoid(gate)
-    return swish * up   
+    return swish * up
 
 
 def ceil_div(a, b):
@@ -179,7 +179,7 @@ def swiglu_activation_core(gate: pypto.tensor, up: pypto.tensor) -> pypto.tensor
     return pypto.mul(swish, up)
 
 
-def dynamic_gelu_activation_core(output: pypto.tensor, hidden_states: pypto.tensor, 
+def dynamic_gelu_activation_core(output: pypto.tensor, hidden_states: pypto.tensor,
     gate_proj_weight: pypto.tensor, down_proj_weight: pypto.tensor, config: FFNConfig) -> None:
     hidden_size, intermediate_size = config.hidden_size, config.intermediate_size
     basic_batch = config.basic_batch
@@ -235,7 +235,7 @@ def ffn_activation_kernel(
 
     # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
     gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
-    
+
     if config.use_dynamic_shape == True and config.activation == "gelu":
         # Dynamic GELU activation
         dynamic_gelu_activation_core(output, hidden_states, gate_proj_weight, down_proj_weight, config)
@@ -248,13 +248,13 @@ def ffn_activation_kernel(
         activated = swiglu_activation_core(gate, up_proj_weight)
     elif config.activation == "relu":
         # ReLU activation
-        activated = relu_activation_core(gate) 
+        activated = relu_activation_core(gate)
     else:
         raise ValueError(f"Unsupported activation: {config.activation}")
 
     if config.use_dynamic_shape == False:
         result = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=False)
-        pypto.assemble(result, [0, 0], output)    
+        pypto.assemble(result, [0, 0], output)
 
 
 def test_ffn_static_gelu(device_id=None):
@@ -281,13 +281,13 @@ def test_ffn_static_gelu(device_id=None):
         run_mode=pypto.RunMode.NPU if global_run_mode == pypto.RunMode.NPU else pypto.RunMode.SIM
     )
 
-    hidden_states_torch = torch.randn(batch_size, hidden_size, 
+    hidden_states_torch = torch.randn(batch_size, hidden_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size, 
+    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
 
     print(f"Input shape: {hidden_states_torch.shape}")
@@ -332,15 +332,15 @@ def test_ffn_static_swiglu(device_id=None):
         run_mode=pypto.RunMode.NPU if global_run_mode == pypto.RunMode.NPU else pypto.RunMode.SIM
     )
     # Create PyTorch tensors
-    hidden_states_torch = torch.randn(batch_size, hidden_size, 
+    hidden_states_torch = torch.randn(batch_size, hidden_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size, 
+    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    
+
     # PyTorch reference computation
     gate_torch = torch.matmul(hidden_states_torch, gate_proj_weight_torch)
     up_torch = torch.matmul(hidden_states_torch, up_proj_weight_torch)
@@ -348,7 +348,7 @@ def test_ffn_static_swiglu(device_id=None):
     output_torch_ref = torch.matmul(activated_torch, down_proj_weight_torch)
     output = torch.empty(batch_size, hidden_size, dtype=dtype, device=device)
 
-    ffn_activation_kernel(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, 
+    ffn_activation_kernel(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch,
                           down_proj_weight_torch, output, config)
     print(f"Input shape: {hidden_states_torch.shape}")
     print(f"Gate weight shape: {gate_proj_weight_torch.shape}")
@@ -398,7 +398,7 @@ def test_ffn_dynamic_gelu(device_id: int = None, dynamic: bool = True):
         hidden_size, intermediate_size, dtype=dtype, device=device) / math.sqrt(batch_size)
     down_proj_weight_torch = torch.randn(
         intermediate_size, hidden_size, dtype=dtype, device=device) / math.sqrt(batch_size)
-    
+
     # PyTorch reference computation
     gate_torch = torch.matmul(hidden_states_torch, gate_proj_weight_torch)
     gate_activated_torch = gelu_torch(gate_torch.float()).to(dtype)
@@ -411,11 +411,11 @@ def test_ffn_dynamic_gelu(device_id: int = None, dynamic: bool = True):
     print(f"Output range: [{output_torch_ref.min().item():.4f}, {output_torch_ref.max().item():.4f}]")
 
     output = torch.empty(batch_size, hidden_size, dtype=dtype, device=device)
-    ffn_activation_kernel(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, 
+    ffn_activation_kernel(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch,
                           down_proj_weight_torch, output, config)
     if global_run_mode == pypto.RunMode.NPU:
         assert_allclose(output.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
-    
+
     print("✓ Dynamic FFN with GELU test completed")
     print()
 
@@ -447,20 +447,20 @@ def test_ffn_static_relu(device_id: int = None, dynamic: bool = True):
     # Create PyTorch tensors
     hidden_states_torch = torch.randn(batch_size, hidden_size,
                                       dtype=dtype, device=device) / math.sqrt(batch_size)
-    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size, 
+    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size,
                                         dtype=dtype, device=device) / math.sqrt(batch_size)
-    
+
     # PyTorch reference computation
     gate_torch = torch.matmul(hidden_states_torch, gate_proj_weight_torch)
     gate_activated_torch = torch.relu(gate_torch)
     output_torch_ref = torch.matmul(gate_activated_torch, down_proj_weight_torch)
 
     output = torch.empty(batch_size, hidden_size, dtype=dtype, device=device)
-    ffn_activation_kernel(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, 
+    ffn_activation_kernel(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch,
                           down_proj_weight_torch, output, config)
     max_diff = np.abs((output.cpu().numpy() - output_torch_ref.cpu().numpy())).max()
     print(f"Input shape: {hidden_states_torch.shape}")

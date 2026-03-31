@@ -16,4 +16,3 @@ view(self, shape: List[int], offsets: List[Union[int, SymbolicScalar]], *, valid
 ## 详细说明
 
 请参见[pypto.view](../operation/pypto-view.md)。
-

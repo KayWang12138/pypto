@@ -66,7 +66,7 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatchV2) {
     int32_t expandXRowShape = topK * rankSize < routingExpertNum ?
         static_cast<int32_t>(batchSize) * static_cast<int32_t>(topK) * rankSize :
         static_cast<int32_t>(batchSize) * routingExpertNum;
-    
+
     Shape xShape{batchSize, hiddenSize};
     Shape expertIdsShape{batchSize, topK};
     Shape expandXShape{expandXRowShape, hiddenSize};
@@ -105,7 +105,7 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatch) {
     int32_t expandXRowShape = topK * rankSize < routingExpertNum ?
         static_cast<int32_t>(bs) * static_cast<int32_t>(topK) * rankSize :
         static_cast<int32_t>(bs) * routingExpertNum;
-    
+
     Shape tokenTensorShape{bs, hiddenSize};
     Shape tokenExpertTableShape{bs, topK};
     Shape expandXShape{expandXRowShape, hiddenSize};

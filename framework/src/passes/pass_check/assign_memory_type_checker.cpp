@@ -60,8 +60,8 @@ Status AssignMemoryTypeChecker::CheckAmulBInputProducers(Operation &operation) {
     auto producerOps = operation.ProducerOps();
     for(auto &producerOp : producerOps) {
         auto producerOpcode = producerOp->GetOpcode();
-        if(producerOpcode != Opcode::OP_L1_TO_L0A && producerOpcode !=Opcode::OP_L1_TO_L0B && 
-           producerOpcode != Opcode::OP_L1_TO_L0_AT && producerOpcode !=Opcode::OP_L1_TO_L0_BT && 
+        if(producerOpcode != Opcode::OP_L1_TO_L0A && producerOpcode !=Opcode::OP_L1_TO_L0B &&
+           producerOpcode != Opcode::OP_L1_TO_L0_AT && producerOpcode !=Opcode::OP_L1_TO_L0_BT &&
            producerOpcode != Opcode::OP_VIEW && producerOpcode !=Opcode::OP_VEC_DUP) {
             APASS_LOG_ERROR_F(Elements::Operation, "Memory error, %s[%d] has invalid input producer; "
                 "Please check input producer %s[%d]. %s", operation.GetOpcodeStr().c_str(), operation.GetOpMagic(),
@@ -106,11 +106,11 @@ void AssignMemoryTypeChecker::CheckPattern(Operation *operation, std::queue<std:
 Status AssignMemoryTypeChecker::DoPostCheck(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start Postcheck for AssignMemoryType.");
     if (CheckTensorNotMemUnknown(function) == FAILED){
-        APASS_LOG_ERROR_F(Elements::Function, "Postcheck for AssignMemoryType failed since tensor has improper memoryType."); 
+        APASS_LOG_ERROR_F(Elements::Function, "Postcheck for AssignMemoryType failed since tensor has improper memoryType.");
         return FAILED;
     }
     if (CheckMoveOpReachable(function) == FAILED){
-        APASS_LOG_ERROR_F(Elements::Function, "Postcheck for AssignMemoryType failed since view/assemble has unreachable input-to-output memoryType."); 
+        APASS_LOG_ERROR_F(Elements::Function, "Postcheck for AssignMemoryType failed since view/assemble has unreachable input-to-output memoryType.");
         return FAILED;
     }
     APASS_LOG_INFO_F(Elements::Function, "End Postcheck for AssignMemoryType.");

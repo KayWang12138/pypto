@@ -29,7 +29,7 @@ void AlignCopyOutAttr(LogicalTensorPtr &resetDdr, Operation *copyOutOp) {
     if (resetDdr->GetProducers().size() == 1) {
         auto ddrResetCopyOut = *resetDdr->GetProducers().begin();
         if (ddrResetCopyOut->GetOpcode() != Opcode::OP_COPY_OUT) {
-            APASS_LOG_ERROR_F(Elements::Operation, "DDR reset Op requires to be OP_COPY_OUT, but %s[%d]; Please check the Opcode. %s", 
+            APASS_LOG_ERROR_F(Elements::Operation, "DDR reset Op requires to be OP_COPY_OUT, but %s[%d]; Please check the Opcode. %s",
                 ddrResetCopyOut->GetOpcodeStr().c_str(), ddrResetCopyOut->GetOpMagic(), GetFormatBacktrace(copyOutOp).c_str());
             return;
         }
@@ -179,7 +179,7 @@ Status CubeProcess::UpdateL0cDtype(Operation &op) {
         return SUCCESS;
     } else {
         APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has unsupport input dtypes (L0A: %s, L0B: %s), update L0C dtype Failed. %s",
-            op.GetOpcodeStr().c_str(), op.GetOpMagic(), 
+            op.GetOpcodeStr().c_str(), op.GetOpMagic(),
             BriefDataType2String(inputDtypes.first).c_str(),
             BriefDataType2String(inputDtypes.second).c_str(), GetFormatBacktrace(op).c_str());
         return FAILED;
@@ -301,7 +301,7 @@ Status CubeProcess::UpdateCubeOp(Function &function) {
         // l0CCopyOuts包含所有从L0C搬出的op
         std::vector<Operation *> l0CCopyOuts{};
         if (GetL0CCopyOuts(op, l0CCopyOuts) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Get CopyOuts for %s[%d] failed. %s", 
+            APASS_LOG_ERROR_F(Elements::Operation, "Get CopyOuts for %s[%d] failed. %s",
                 op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }

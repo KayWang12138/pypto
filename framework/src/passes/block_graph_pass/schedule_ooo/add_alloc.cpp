@@ -19,7 +19,7 @@
 #define MODULE_NAME "AddAlloc"
 
 namespace npu::tile_fwk {
-Status AddAlloc::GenTensorAllocMsgMap(Function &function, 
+Status AddAlloc::GenTensorAllocMsgMap(Function &function,
     std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
     for (auto& op : function.Operations(false).DuplicatedOpList()) {
         if (FindTensorAllocMsg(*op, tensorAllocMsgMap) != SUCCESS) {
@@ -98,7 +98,7 @@ Status AddAlloc::SetTensorAllocMsg(Operation &op, std::unordered_map<int, Tensor
     return SUCCESS;
 }
 
-Status AddAlloc::FindTensorAllocMsg(Operation &op, 
+Status AddAlloc::FindTensorAllocMsg(Operation &op,
     std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
     // 遍历所有节点，找到需要分配Alloc的tensor以及其第一次出现时候的位置
     if (SetTensorAllocMsg(op, tensorAllocMsgMap) != SUCCESS) {
@@ -123,14 +123,14 @@ Status AddAlloc::CreateAllocNode(const TensorAllocMsg& tensorAllocMsg, Function&
     if (iter != allocOpcodeMap.end()) {
         APASS_LOG_DEBUG_F(Elements::Tensor, "Create alloc node for memtype [%d]",
             static_cast<int>(tensorAllocMsg.memType));
-        if (tensorAllocMsg.producer.size() == 0) { 
+        if (tensorAllocMsg.producer.size() == 0) {
             APASS_LOG_ERROR_F(Elements::Tensor, "TensorAllocMsg's producer size cannot be 0.");
-            return FAILED; 
+            return FAILED;
         }
         Opcode allocOpcode = iter->second;
         if (GenAllocOpcode(allocOpcode, tensorAllocMsg, function)) {
             APASS_LOG_ERROR_F(Elements::Tensor, "GenAllocOpcode failed.");
-            return FAILED; 
+            return FAILED;
         }
     }
     return SUCCESS;

@@ -2339,7 +2339,7 @@ TILEOP void Trowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
 
 // [case1] params: [src0Shape0,src0Shape1], indices: [TShape0], axis: 0, output: [TShape0,TShape1]
 // [case2] params: [src0Shape0,src0Shape1], indices: [TShape0,TShape1], axis: 0, output: [TShape0,TShape1,TShape2]
-template <typename T, typename T2, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned src0Shape2, 
+template <typename T, typename T2, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned src0Shape2,
 unsigned dst0Shape2>
 TILEOP void TgatherFromUB_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1) {
     constexpr uint16_t lenBurst = (TShape2 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -2383,7 +2383,7 @@ TILEOP void TgatherElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1)
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
-template <typename T, typename T2, unsigned src1RawShape1, unsigned dstRawShape1, unsigned src1Shape0, 
+template <typename T, typename T2, unsigned src1RawShape1, unsigned dstRawShape1, unsigned src1Shape0,
          unsigned src1Shape1, unsigned axis>
 TILEOP void TscatterElementS(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, T src2) {
     for (int i = 0; i < src1Shape0; ++i) {
@@ -2640,8 +2640,8 @@ TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0) {
 }
 
 // dim4
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, 
-    unsigned srcRawShape1, unsigned srcRawShape2, unsigned srcRawShape3, 
+template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3,
+    unsigned srcRawShape1, unsigned srcRawShape2, unsigned srcRawShape3,
     unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3,
     unsigned tmpRawShape1, unsigned tmpRawShape2, unsigned tmpRawShape3,
     unsigned axis>
@@ -3169,13 +3169,13 @@ template <typename T, typename idxT, unsigned shape, unsigned mergeLength>
 TILEOP void CompSwapSteps(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ T *x, __ubuf__ idxT *xIdx) {
     constexpr uint32_t halfLength = mergeLength / 2;
     constexpr uint32_t oneLength = 256 / sizeof(T);
-    
+
     if constexpr (halfLength >= oneLength) {
         CompSwapCommon<T, idxT, shape, mergeLength>(y, yIdx, tmp, x, xIdx);
     } else {
         CompSwap32<T, idxT, shape>(y, yIdx, tmp, x, xIdx);
     }
-    
+
     if constexpr (halfLength > 32) {
         CompSwapSteps<T, idxT, shape, halfLength>(y, yIdx, tmp, x, xIdx);
     }
@@ -3278,10 +3278,10 @@ TILEOP void GenSortIndex(__ubuf__ idxT *idx, __ubuf__ T *tmp, int idxStart) {
 
     set_mask_count();
     set_vector_mask(0, 8);
-    #pragma unroll 
+    #pragma unroll
     for( int i=0; i<8; i++ )
     {
-        vector_dup(tmp+i*8, (float) float(i)*0.125f, 1, 1, 1, 1, (int64_t)0); 
+        vector_dup(tmp+i*8, (float) float(i)*0.125f, 1, 1, 1, 1, (int64_t)0);
     }
     pipe_barrier(PIPE_V);
     set_vector_mask(0, 64);
@@ -3291,13 +3291,13 @@ TILEOP void GenSortIndex(__ubuf__ idxT *idx, __ubuf__ T *tmp, int idxStart) {
     vmuls(tmp1, (__ubuf__ float*)idx, 8.0f, 1, 1, 1, 8, 8); //0,8,16,...,56  -- 8 elements
     vmuls(tmp, (__ubuf__ float*)idx, 64.0f, 1, 1, 1, 8, 8); //0,64,128,...,448 -- 8 elements
     set_mask_norm();
-    set_vector_mask((uint64_t)-1, (uint64_t)-1);  
-    pipe_barrier(PIPE_V);	
+    set_vector_mask((uint64_t)-1, (uint64_t)-1);
+    pipe_barrier(PIPE_V);
     vbrcb((__ubuf__ uint32_t *)(tmp), (__ubuf__ uint32_t *)(tmp), 1, 8, 1); //[0..0],[64..64],[128..128],...[448..448] -- 64 elements
     pipe_barrier(PIPE_V);
     vadd(tmp1, (__ubuf__ float*)tmp1, tmp, 1, 1, 0, 1, 8, 0, 8);  //[0, 8, 16,...504]
     pipe_barrier(PIPE_V);
-   
+
     vbrcb((__ubuf__ uint32_t *)(tmp), (__ubuf__ uint32_t *)(tmp1), 1, 8, 8); //[0..0],[8..8], [16..16],...[504..504], -- 64*8 = 512 elements
     pipe_barrier(PIPE_V);
     vadd((__ubuf__ float*) idx, (__ubuf__ float*) idx, tmp, 8, 1, 0, 1, 8, 0, 8);
@@ -3305,11 +3305,11 @@ TILEOP void GenSortIndex(__ubuf__ idxT *idx, __ubuf__ T *tmp, int idxStart) {
 
     vconv_f322s32r((__ubuf__ int32_t*) idx,(__ubuf__ float*) idx, 8, 1, 1, 8, 8); //[0....511]
 	pipe_barrier(PIPE_V);
-	
+
 	vadds((__ubuf__ int32_t*) idx, (__ubuf__ int32_t*) idx, idxStart*xShape1, 8, 1, 1, 8, 8);
 	pipe_barrier(PIPE_V);
-	
-    #pragma unroll 
+
+    #pragma unroll
     for( int i=1; i<xShape1/512; i++ )
     {
         vadds((__ubuf__ int32_t*) (idx+512*i), (__ubuf__ int32_t*) idx, 512*i, 8, 1, 1, 8, 8);

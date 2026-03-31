@@ -18,7 +18,7 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct VarOpFuncArgs : public OpFuncArgs {
-    VarOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> &tileShape, 
+    VarOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> &tileShape,
         const std::vector<int> &dim, float correction, bool keepDim)
         : viewShape_(viewShape), tileShape_(tileShape), dim_(dim), correction_(correction), keepDim_(keepDim) {
             dimReduceFlag_.resize(viewShape_.size(), false);
@@ -47,7 +47,7 @@ struct VarOpMetaData {
     nlohmann::json test_data_;
 };
 
-static void VarSetTileShapeBeforeAssemble(const std::vector<int64_t> &oriTileShape, const std::vector<int> &oriDim, 
+static void VarSetTileShapeBeforeAssemble(const std::vector<int64_t> &oriTileShape, const std::vector<int> &oriDim,
     bool keepDim, DataType dtype)
 {
     if (keepDim) {

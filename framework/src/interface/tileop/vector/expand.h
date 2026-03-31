@@ -24,7 +24,7 @@ template <typename LastUse = LastUse2Dim<0, 0>, unsigned axis, typename T0, type
 TILEOP void TExpand(T0 dst, T1 src) {
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
-    
+
     auto dstShape0 = dstLayout.template GetShapeDim<0, expectSize>();
     auto dstShape1 = dstLayout.template GetShapeDim<1, expectSize>();
     auto dstShape2 = dstLayout.template GetShapeDim<2, expectSize>();
@@ -101,7 +101,7 @@ TILEOP void TExpand(T0 dst, T1 src) {
         for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1;
-                auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1;    
+                auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1;
                 constexpr size_t minTileH = dstTileH > srcTileH ? srcTileH : dstTileH;
                 using dstTileDefine =
                     pto::Tile<pto::TileType::Vec, DstDtype, minTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
@@ -119,7 +119,7 @@ TILEOP void TExpand(T0 dst, T1 src) {
     } else if constexpr (axis == 0) {
         for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
             auto dstOffset = n0Index * dstStride0;
-            auto srcOffset = n0Index * srcStride0;    
+            auto srcOffset = n0Index * srcStride0;
             constexpr size_t minTileH = dstTileH > srcTileH ? srcTileH : dstTileH;
             using dstTileDefine =
                 pto::Tile<pto::TileType::Vec, DstDtype, minTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;

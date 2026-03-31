@@ -45,4 +45,3 @@ TEST_F(TestMainBlockLog, GetValidShapeFromCoa_EmptyArgList) {
     EXPECT_TRUE(shape.empty());
     EXPECT_TRUE(dynValidShape.empty());
 }
-

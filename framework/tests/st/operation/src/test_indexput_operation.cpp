@@ -157,7 +157,7 @@ static void IndexPut_OperationExeFunc4Dims(
         SymbolicScalar indicesFirstDim = inputs[2].GetShape()[0];
         SymbolicScalar maxIndices = std::max({indicesFirstDim, indicesSecondDim, indicesThirdDim, indicesForthDim});
         std::vector<SymbolicScalar> valuesNewOffsets(valuesShapes.size(), 0);
-        
+
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDiv(maxIndices, viewShape), 1)) {
             valuesValidShapes[0] = std::min(valuesShapes[0] - bIdx * viewShape, viewShape);
             valuesNewOffsets[0] = bIdx * viewShape;
@@ -181,7 +181,7 @@ class IndexPut_OperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_
 
 INSTANTIATE_TEST_SUITE_P(TestIndexPut_, IndexPut_OperationTest,
     ::testing::ValuesIn(GetOpMetaData<IndexPut_OpMetaData>(
-        {IndexPut_OperationExeFunc1Dims<IndexPut_OpFuncArgs>, IndexPut_OperationExeFunc2Dims<IndexPut_OpFuncArgs>, 
+        {IndexPut_OperationExeFunc1Dims<IndexPut_OpFuncArgs>, IndexPut_OperationExeFunc2Dims<IndexPut_OpFuncArgs>,
             IndexPut_OperationExeFunc3Dims<IndexPut_OpFuncArgs>, IndexPut_OperationExeFunc4Dims<IndexPut_OpFuncArgs>},
         "IndexPut_")));
 

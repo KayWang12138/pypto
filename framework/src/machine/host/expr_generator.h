@@ -98,7 +98,7 @@ public:
             out << "}\n\n"
                 << "} // namespace npu::tile_fwk\n";
             out.close();
-            controlFlowOss << std::setw(indent * TABSIZE) << ' ' 
+            controlFlowOss << std::setw(indent * TABSIZE) << ' '
                 << batch.functionName << "(ctx, symbolTable, runtimeCallList, startArgs, exprList" << devRootKey <<");\n";
             exprSrcFiles.emplace_back(filePath);
             exprHeaderOss << "void " << batch.functionName
@@ -110,7 +110,7 @@ public:
 private:
     void CalculateBatches() {
         size_t numBatches = (totalExprs_ + EXPRS_PER_BATCH - 1) / EXPRS_PER_BATCH;
-        
+
         for (size_t i = 0; i < numBatches; ++i) {
             ExprBatchInfo batch;
             batch.devRootKey = devRootKey_;

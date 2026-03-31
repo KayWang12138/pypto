@@ -176,7 +176,7 @@ Status BufferPool::Allocate(LocalBufferPtr tensor) {
             } else {
                 return SUCCESS;
             }
-        } 
+        }
     }
     for (auto &interval : freeIntervals) {
         if (interval.first < tensor->size) {
@@ -220,9 +220,9 @@ bool BufferPool::isAllocate(const int tensorId) {
 }
 
 Status BufferPool::Free(const int tensorId) {
-    if (bufferSlices.find(tensorId) == bufferSlices.end()) { 
-        APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%d] not in bufferSlices.", tensorId); 
-        return FAILED; 
+    if (bufferSlices.find(tensorId) == bufferSlices.end()) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%d] not in bufferSlices.", tensorId);
+        return FAILED;
     }
     APASS_LOG_DEBUG_F(Elements::Tensor, "    Free tensor[%d], range:[%lu, %lu]", tensorId,
         bufferSlices[tensorId].offset, bufferSlices[tensorId].size + bufferSlices[tensorId].offset);

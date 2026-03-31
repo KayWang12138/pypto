@@ -72,7 +72,7 @@ public:
     inline int32_t ExecuteFunc(void *args, const uint64_t funcKey) {
         auto func = GetTileFwkKernelFunc(funcKey);
         if (func == nullptr) {
-            DEV_ERROR(DevCommonErr::NULLPTR, "#sche.func.exec: kernel func[%lu] is invalid, cannot get from so %s", funcKey, pyptoServerSoName_.c_str()); 
+            DEV_ERROR(DevCommonErr::NULLPTR, "#sche.func.exec: kernel func[%lu] is invalid, cannot get from so %s", funcKey, pyptoServerSoName_.c_str());
             return -1;
         }
         return func(args);

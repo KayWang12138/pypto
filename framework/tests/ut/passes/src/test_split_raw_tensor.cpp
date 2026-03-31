@@ -73,7 +73,7 @@ TEST_F(SplitLargeLocalRawTest, TestSplitRawTensorCheceker) {
     G.GetOp("view2")->SetOpAttribute(std::make_shared<ViewOpAttribute>(shape2, MemoryType::MEM_UB));
     G.AddOp(Opcode::OP_ASSEMBLE, {"b"}, {"output"}, "assemble1");
     G.GetOp("assemble1")->SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, shape2));
-    
+
     G.SetInCast({"input"});
     G.SetOutCast({"output"});
 

@@ -80,7 +80,7 @@ TILEOP void SendToSharedExpert(CoreFuncParam* param, __gm__ int32_t *syncTensor,
     __gm__ CommContext *winContext = (__gm__ CommContext *)(hcclContext[groupIndex]);
     int32_t localUsrRankId = static_cast<int32_t>(winContext->rankId);
     int32_t rankSize = static_cast<int32_t>(winContext->rankNum);
-    
+
     constexpr int32_t hOutSize = axisH * sizeof(T);
     constexpr int32_t tokenQuantAlign32 = AlignUp<int32_t>(hOutSize, 32) / sizeof(int32_t);
     int32_t shareRankSize = 1; // 在前端赋值 shareRankCnt
@@ -169,10 +169,10 @@ TILEOP void CopyOutRecvTokenCnt(GM_ADDR outRecvTokenCntAddr, UB_ADDR recvTokenCn
     dataCopyParams.lenBurst = 1;
     dataCopyParams.srcStride = 0;
     dataCopyParams.dstStride = 0;
- 
+
     GM_ADDR outRecvTokenCntStartAddr = outRecvTokenCntAddr + tileIndex * 512; // 本 op 偏移地址, 间隔512B
     copy_ubuf_to_gm(outRecvTokenCntStartAddr, recvTokenCntAddr, dataCopyParams.sid, dataCopyParams.nBurst,
-        dataCopyParams.lenBurst, dataCopyParams.srcStride, dataCopyParams.dstStride); 
+        dataCopyParams.lenBurst, dataCopyParams.srcStride, dataCopyParams.dstStride);
     set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
     wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
 }
@@ -182,10 +182,10 @@ TILEOP void ConstructOutRecvTokenCnt(__gm__ T *out, __ubuf__ uint32_t *src0, __u
     __ubuf__ uint32_t *dst, uint32_t cnt, __gm__ int64_t *hcclContext, DispatchInfo &dispatchInfo)
 {
     GatherMaskAndSum(out, src0, src1, dst, MASK_SELECT_SEND_COUNT, cnt, hcclContext);
- 
+
     GM_ADDR outRecvTokenCntAddr = reinterpret_cast<GM_ADDR>(out);
     UB_ADDR recvTokenCntAddr = reinterpret_cast<UB_ADDR>(src1); // src1 复用为了 sum 最终的输出
- 
+
     CopyOutRecvTokenCnt(outRecvTokenCntAddr, recvTokenCntAddr, dispatchInfo.tileIndex, dispatchInfo.totalTileNum);
 }
 
@@ -205,7 +205,7 @@ TILEOP void MoeRankWaitFlag(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ uin
     ReadFlagV2<T>(src0, offset, cnt, hcclContext, shmemFlagBaseAddr, dispatchInfo);
     ConstructOutRecvTokenCnt<T>(out, src0, src1, dst, cnt, hcclContext, dispatchInfo);
 }
- 
+
 template <typename T>
 TILEOP void ShareRankWaitFlag(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ uint32_t *src1, __ubuf__ uint32_t *dst,
     __gm__ int64_t *hcclContext, uint32_t processRankSize, __gm__ int32_t *shmemFlagBaseAddr, DispatchInfo &dispatchInfo)
@@ -226,7 +226,7 @@ TILEOP void ShareRankWaitFlag(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ u
     }
     ClearFlagV2(reinterpret_cast<__ubuf__ int32_t *>(src0), offset, cnt, hcclContext, dispatchInfo, shmemFlagBaseAddr); // 暂时放在读完之后就清 flag
 }
- 
+
 // tileIndex 覆写为了 tileOpIndex 计数
 template<typename T, uint32_t tileIndex, uint32_t groupIndex, uint32_t shareRankCnt, uint32_t totalTileNum, int32_t rankShape, int32_t expertNum>
 TILEOP void FFNSched(CoreFuncParam* param, __gm__ T *out, __ubuf__ int32_t *buffer, __gm__ int32_t *dummy, __gm__ int32_t *shmemFlagBaseAddr,
@@ -234,7 +234,7 @@ TILEOP void FFNSched(CoreFuncParam* param, __gm__ T *out, __ubuf__ int32_t *buff
     uint32_t flagShmemShape0, uint32_t flagShmemShape1, uint32_t flagShmemShape2, uint32_t flagShmemShape3, __gm__ int64_t *hcclContext)
 {
     __gm__ CommContext *winContext = (__gm__ CommContext *)(hcclContext[groupIndex]);
-    DispatchInfo dispatchInfo = {tileIndex, groupIndex, 0, 0, rankShape, 
+    DispatchInfo dispatchInfo = {tileIndex, groupIndex, 0, 0, rankShape,
         static_cast<int32_t>(flagShmemOffset2), 0, 0, 0, 0, totalTileNum, shareRankCnt, expertNum,
         static_cast<int32_t>(winContext->rankNum), static_cast<int32_t>(flagShmemOffset1)};
 
@@ -263,7 +263,7 @@ TILEOP void ReadRecvTokenCnt(__ubuf__ uint32_t *recvTokenCnt, __gm__ uint32_t *s
     gmToUbParams.lenBurst = 1;
     gmToUbParams.srcStride = 512 / 32 - 1; // 每个tileOp间隔512B
     gmToUbParams.dstStride = 0;
- 
+
     GM_ADDR thisTileStartSrcAddr = reinterpret_cast<GM_ADDR>(src);
     set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
     wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
@@ -385,9 +385,9 @@ TILEOP void MoeRankWinCopyOut(__gm__ T *expandX, __gm__ uint32_t *validCnt, __ub
         uint32_t thisRankFlagOffset = dispatchInfo.expertIndex * rankSize * 512 + rankId * 512; // 当前 rank 在 flag 的偏移
         ReadFlagV2(flag, thisRankFlagOffset, 1, hcclContext, shmemFlagBaseAddr, dispatchInfo); // 每次读取一张卡的 flag, 512B, 存到 UB 是 32B
         uint32_t thisRankSendTokenCnt = flag[1]; // count 在 flag 第二个数
-        tokenCnt += thisRankSendTokenCnt; 
+        tokenCnt += thisRankSendTokenCnt;
         for (int i = 0; i < thisRankSendTokenCnt; i++) {
-            CopyGmToGm(thisRankOutAddr + i * dispatchInfo.colShape * sizeof(T), 
+            CopyGmToGm(thisRankOutAddr + i * dispatchInfo.colShape * sizeof(T),
             thisRankExpertTokenAddr + i * shmemLength * sizeof(T), token, gmToUbParams, ubToGmParams);
         }
     }
@@ -448,26 +448,26 @@ TILEOP void ShareRankWinCopyOut(__gm__ T *expandX, __ubuf__ uint8_t *buffer, uin
     // 每张卡在 win 区都占据完整大小，row，col，共享专家处理从 startIdx 开始的连续 64 个 token（处理 scale + 三元组）
     GM_ADDR thisRankWinTokenAddr = winTokenAddr + processMoeRankStartIdx * shmemDataRawShape2 * shmemDataRawShape3 * sizeof(T);
     GM_ADDR thisTileWinTokenAddr = thisRankWinTokenAddr + recvTokenOffset * shmemDataRawShape3 * sizeof(T);
- 
+
     uint32_t offset = 0;
     __ubuf__ T *token = reinterpret_cast<__ubuf__ T *>(buffer + offset);
     uint32_t tokenSize = dispatchInfo.colShape * sizeof(T);
     offset = offset + tokenSize;
- 
+
     DataCopyParams gmToUbParams;
     gmToUbParams.sid = 0;
     gmToUbParams.nBurst = 1; // 搬运次数，防止 UB 越界，也为了避免 UB 大小不固定
     gmToUbParams.lenBurst = dispatchInfo.colShape * sizeof(T) / 32; // x 实际 col 大小，不包括后面追加的东西
     gmToUbParams.srcStride = 0; // 前一个尾巴和下一个的开头，gap，这里根据 token 结构需要跳跃 7168+512
     gmToUbParams.dstStride = 0; // 前一个尾巴和下一个开头，gap
- 
+
     DataCopyParams ubToGmParams;
     ubToGmParams.sid = 0;
     ubToGmParams.nBurst = 1; // 搬运次数，
     ubToGmParams.lenBurst = dispatchInfo.colShape * sizeof(T) / 32; // col 就是 token 实际列宽
     ubToGmParams.srcStride = 0; // 前一个尾巴和下一个的开头，gap
     ubToGmParams.dstStride = 0; // 前一个尾巴和下一个开头，gap
- 
+
     GM_ADDR thisTileOutAddr = reinterpret_cast<GM_ADDR>(expandX);
     for (int i = 0; i < processTokenCnt; i++) {
         CopyGmToGm(thisTileOutAddr, thisTileWinTokenAddr, token, gmToUbParams, ubToGmParams);
@@ -482,7 +482,7 @@ TILEOP void ShareRankCopyOut(__gm__ T *expandX, __ubuf__ uint8_t *buffer, Dispat
     __gm__ int64_t *hcclContext, __gm__ T*shmemDataBaseAddr, uint32_t shmemDataRawShape2, uint32_t shmemDataRawShape3)
 {
     __gm__ CommContext *winContext = (__gm__ CommContext *)(hcclContext[dispatchInfo.groupIndex]);
- 
+
     // 理论上不需要切分 TileOp, 但是为了和 moe 专家切分保持一致，按照 token cnt 切分
     uint32_t vectorCnt = dispatchInfo.totalTileNum; // 理论上的核数，device 实际核数不是 48 也不影响
     // 每个共享专家处理的 moe 卡数
@@ -492,7 +492,7 @@ TILEOP void ShareRankCopyOut(__gm__ T *expandX, __ubuf__ uint8_t *buffer, Dispat
     uint32_t tailProcessTokenCnt = tokenCntRecvFromMoeRank / vectorCnt; // 尾块处理 token 个数
     uint32_t tileCnt = tokenCntRecvFromMoeRank % vectorCnt; // 整块个数
     uint32_t tileProcessTokenCnt = tailProcessTokenCnt + 1; // 整块处理 token 个数
- 
+
     uint32_t recvTokenOffset = 0; // 本 TileOp 处理的 token 的偏移
     uint32_t processTokenCnt = 0;
     if (dispatchInfo.tileIndex < tileCnt) {
@@ -526,7 +526,7 @@ TILEOP void FFNBatching(CoreFuncParam* param, __gm__ T *expandX, __gm__ int32_t 
 }
 
 template<typename T, uint32_t tileIndex, uint32_t groupIndex, uint32_t shareRankCnt, uint32_t totalTileNum, uint32_t rankShape, uint32_t axisH, uint32_t bs, uint32_t expandXRow>
-TILEOP void FFNCombineInfo(CoreFuncParam* param, __gm__ int32_t *combineInfo, __ubuf__ int32_t *buffer, __gm__ T *shmemDataBaseAddr, 
+TILEOP void FFNCombineInfo(CoreFuncParam* param, __gm__ int32_t *combineInfo, __ubuf__ int32_t *buffer, __gm__ T *shmemDataBaseAddr,
     __gm__ int32_t *shmemFlagBaseAddr, __gm__ int32_t *gmRecvTokenCnt, uint32_t shmemDataOffset0,
     uint32_t shmemDataOffset1, uint32_t shmemDataOffset2, uint32_t shmemDataOffset3, uint32_t shmemDataShape0,
     uint32_t shmemDataShape1, uint32_t shmemDataShape2, uint32_t shmemDataShape3, __gm__ int64_t *hcclContext)

@@ -505,19 +505,19 @@ TEST_F(CostModelTest, TestScheduler) {
     // 1. 创建节点
     auto t10 = std::make_shared<CostModel::Tile>(); t10->magic = 10; t10->exeInfo.domCount = 5; t10->pipeType = CostModel::CorePipeType::PIPE_MTE1;
     auto t11 = std::make_shared<CostModel::Tile>(); t11->magic = 11; t11->exeInfo.domCount = 1; t11->pipeType = CostModel::CorePipeType::PIPE_MTE1; // 更小的 domCount
-    
+
     auto op100 = std::make_shared<CostModel::TileOp>(); op100->magic = 100; op100->pipeType = CorePipeType::PIPE_VECTOR_BMU;
-    
+
     auto t30 = std::make_shared<CostModel::Tile>(); t30->magic = 30; t30->exeInfo.isOutcast = true; t30->pipeType = CostModel::CorePipeType::PIPE_MTE1;
     auto t40 = std::make_shared<CostModel::Tile>(); t40->magic = 40; t40->pipeType = CostModel::CorePipeType::PIPE_MTE1; // 无 consumer，视为 output
 
     // 2. 建立连接
     op100->iOperand = {t10, t11};
     op100->oOperand = {t30, t40};
-    
+
     t10->consumers = {op100};
     t11->consumers = {op100};
-    
+
     t30->producers = {op100};
     t40->producers = {op100};
 
@@ -528,10 +528,10 @@ TEST_F(CostModelTest, TestScheduler) {
     scheduler.SortTile(tiles, tileOps, tileAllocSequence);
 
     // 4. 验证日志覆盖和逻辑
-    
+
     EXPECT_GT(op100->exeInfo.sequenceToIssue, -1);
     EXPECT_EQ(t10->exeInfo.copyOutIdx, t11->exeInfo.copyOutIdx);
-    
+
 }
 
 TEST_F(CostModelTest, TestScheduler_EmptyInput) {
@@ -551,12 +551,12 @@ TEST_F(CostModelTest, TestRemoveBarrierCounter_LogCoverage) {
     std::vector<uint64_t> srcIds;
     for (uint64_t i = 1; i <= 11; ++i) {
         srcIds.push_back(i);
-        calendar.taskTopoInfo[i] = CalendarEntry{}; 
+        calendar.taskTopoInfo[i] = CalendarEntry{};
     }
 
     for (uint64_t j = 100; j < 110; ++j) {
         CalendarEntry info;
-        info.waitSrcTaskIds = srcIds; 
+        info.waitSrcTaskIds = srcIds;
         calendar.taskTopoInfo[j] = info;
     }
 
@@ -578,7 +578,7 @@ TEST_F(CostModelTest, TestGetPipeType_AssertOnMissingOpcode) {
     } catch (const std::exception& e) {
     }
 
-    op.pipeType = CorePipeType::PIPE_UNKNOW; 
+    op.pipeType = CorePipeType::PIPE_UNKNOW;
 
 try {
         op.GetAddress();
@@ -610,11 +610,11 @@ TEST_F(CostModelTest, TestCheckTile) {
     using namespace CostModel;
     ParseInput parser;
     auto func = std::make_shared<CostModel::Function>();
-    
+
     auto tile1 = std::make_shared<Tile>();
     tile1->magic = 101;
     tile1->producers = {};
-    
+
     auto tile2 = std::make_shared<Tile>();
     tile2->magic = 202;
     tile2->consumers = {};

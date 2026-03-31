@@ -111,13 +111,13 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, O
     return SUCCESS;
 }
 
-Status AxisCombine::Process(Function &function) {   
+Status AxisCombine::Process(Function &function) {
     for (auto &op : function.Operations()) {
         if (InsertCondition(op.GetOpcode()) && op.GetIOperands().size() == INPUT_SIZE) {
             if (AlignBroadCastOpInputs(function, op) != SUCCESS) {
                     APASS_LOG_ERROR_F(Elements::Operation, "operation %d's aligned faild. %s", op.GetOpMagic(), op.GetOpcodeStr().c_str());
                     return FAILED;
-            } 
+            }
         }
     }
     return SUCCESS;

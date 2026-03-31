@@ -80,4 +80,3 @@ public:
 };
 } // namespace npu::tile_fwk
 #endif // PASS_CUBE_PROCESS_H
-

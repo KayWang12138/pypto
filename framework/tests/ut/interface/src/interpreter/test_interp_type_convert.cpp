@@ -301,4 +301,3 @@ TEST_F(InterpTypeConvertTest, Fp8E5M2SpecialValues) {
     }
 }
 }
-

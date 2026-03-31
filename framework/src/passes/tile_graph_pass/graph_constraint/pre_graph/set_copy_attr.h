@@ -28,4 +28,3 @@ public:
 };
 } // namespace npu::tile_fwk
 #endif // PASS_SET_COPY_ATTR_H
-    

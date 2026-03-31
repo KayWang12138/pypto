@@ -157,9 +157,9 @@ void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
     ASSERT(ExecuteOperationScene::CTX_OUTPUT_VIEW_NULL, oopValid != nullptr);
     if (from == MemoryType::MEM_L0C) {
         if (iop->GetDataType() == DataType::DT_INT32 && oop->GetDataType() == DataType::DT_FP16) {
-            uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ? 
+            uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ?
                 ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;
-            int relu = (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ? 
+            int relu = (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ?
                 ctx->op->GetIntAttribute(Matrix::A_MUL_B_RELU_ATTR) : 0;
             LogicalTensorDataPtr scalePtr = nullptr;
             if (ctx->ioperandDataViewList->size() > 1) {

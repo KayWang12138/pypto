@@ -79,7 +79,7 @@ Status SrcDstBufferMergeImpl::Init(const std::vector<Operation *> &opList) {
         APASS_LOG_ERROR_F(Elements::Operation, "First op is null.");
         return FAILED;
     }
-    
+
     int opId = 0;
     for (auto &op : opList) {
         if (CheckOpValid(op, opId) != SUCCESS) {
@@ -100,7 +100,7 @@ bool SrcDstBufferMergeImpl::CheckIgnoreScene(const Operation &oriOps) {
     if (ignoreOps.count(oriOps.GetOpcode()) != 0) {
         return true;
     }
-    
+
     if (OpcodeManager::Inst().HasStaticAttribute(oriOps.GetOpcode(), OpAttributeKey::excludeBufferReuse)) {
         return true;
     }
@@ -238,7 +238,7 @@ bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation &ops, std::shared_ptr
         return false;
     }
     if (tensorMaxSize_[oOperand->memoryrange.memId] != tensorMaxSize_[iOperand->memoryrange.memId]) {
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Output tensor (memId=%d, size=%ld) != input tensor (memId=%d, size=%ld), op:%s[%d]", oOperand->memoryrange.memId, 
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Output tensor (memId=%d, size=%ld) != input tensor (memId=%d, size=%ld), op:%s[%d]", oOperand->memoryrange.memId,
             tensorMaxSize_[oOperand->memoryrange.memId], iOperand->memoryrange.memId, tensorMaxSize_[iOperand->memoryrange.memId], ops.GetOpcodeStr().c_str(), ops.GetOpMagic());
         return false;
     }
@@ -257,7 +257,7 @@ bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation &ops, std::shared_ptr
         APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] has more than 1 output.", ops.GetOpcodeStr().c_str(), ops.GetOpMagic());
         return false;
     }
-    APASS_LOG_DEBUG_F(Elements::Tensor, "Reusable, iOperand magic: %d, memId: %d ,datatype: %s, oOperand magic: %d, memId: %d datatype: %s, op:%s[%d]", iOperand->GetMagic(), iOperand->memoryrange.memId, 
+    APASS_LOG_DEBUG_F(Elements::Tensor, "Reusable, iOperand magic: %d, memId: %d ,datatype: %s, oOperand magic: %d, memId: %d datatype: %s, op:%s[%d]", iOperand->GetMagic(), iOperand->memoryrange.memId,
         DataType2String(iOperand->Datatype()).c_str(), oOperand->GetMagic(), oOperand->memoryrange.memId, DataType2String(oOperand->Datatype()).c_str(), ops.GetOpcodeStr().c_str(), ops.GetOpMagic());
     return true;
 }
@@ -367,7 +367,7 @@ Status SrcDstBufferMergeImpl::FindReuseableL0Tensor(const Operation& op, std::un
             continue;
         }
         if (tensorMaxSize_[inputTensor->memoryrange.memId] != tensorMaxSize_[needReplacedTensor->memoryrange.memId]) {
-            APASS_LOG_DEBUG_F(Elements::Tensor, "Matmul input tensor (memId=%d, size=%ld) != needReplaced tensor (memId=%d, size=%ld), op:%s[%d].", inputTensor->memoryrange.memId, 
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Matmul input tensor (memId=%d, size=%ld) != needReplaced tensor (memId=%d, size=%ld), op:%s[%d].", inputTensor->memoryrange.memId,
                 tensorMaxSize_[inputTensor->memoryrange.memId], needReplacedTensor->memoryrange.memId, tensorMaxSize_[needReplacedTensor->memoryrange.memId], op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return SUCCESS;
         }

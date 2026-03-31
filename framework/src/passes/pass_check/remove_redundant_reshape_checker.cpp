@@ -88,7 +88,7 @@ Status RemoveRedundantReshapeChecker::ProcessPostCheck(const Operation &op) {
     if (op.GetOpcode() == Opcode::OP_RESHAPE) {
         const auto in = op.iOperand.front();
         if (PostCheckReshape(in) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Postcheck of reshape op[%d] failed. %s", 
+            APASS_LOG_ERROR_F(Elements::Operation, "Postcheck of reshape op[%d] failed. %s",
             op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
@@ -102,7 +102,7 @@ bool CheckForConsecutiveReshape(const Operation *childOp){
             return true;
         }
     }
-    return false;   
+    return false;
 }
 
 // Postcheck for reshape

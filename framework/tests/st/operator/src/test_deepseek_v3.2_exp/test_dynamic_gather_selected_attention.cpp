@@ -50,11 +50,11 @@ void TestSa(SaTileShapeConfig& tileConfig) {
     int blockSize = input_param.at(8);
     int topk = input_param.at(9);
     int isKnQuant = input_param.at(10);
-    
+
     int maxBlockNumPerBatch = CeilDiv(maxKVSeq, blockSize);
     float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
-    std::cout << "====input param==== b sq nq nkv dn dr blockNum blockSize topk is_kn_quant: " 
-                << b << " " << sq << " " << nq << " " << nkv << " " << dn << " " << dr << " " << blockNum << " " 
+    std::cout << "====input param==== b sq nq nkv dn dr blockNum blockSize topk is_kn_quant: "
+                << b << " " << sq << " " << nq << " " << nkv << " " << dn << " " << dr << " " << blockNum << " "
                 << blockSize << " " << topk << " " << isKnQuant << std::endl;
     std::vector<int64_t> qNopeShape = {b * sq * nq, dn};
     std::vector<int64_t> qRopeShape = {b * sq * nq, dr};
@@ -89,7 +89,7 @@ void TestSa(SaTileShapeConfig& tileConfig) {
         readInput(GetGoldenDir() + "/atten_out.bin", golden);
 
         ProgramData::GetInstance().AppendInputs({
-            qNope.dataPtr, qRope.dataPtr, kNope2D.dataPtr, kRope2D.dataPtr, 
+            qNope.dataPtr, qRope.dataPtr, kNope2D.dataPtr, kRope2D.dataPtr,
             knScales.dataPtr, topKIndcies.dataPtr, blockTable.dataPtr, actSeqs.dataPtr
         });
         ProgramData::GetInstance().AppendOutputs({
@@ -110,7 +110,7 @@ void TestSa(SaTileShapeConfig& tileConfig) {
         readInput(GetGoldenDir() + "/atten_out.bin", golden);
 
         ProgramData::GetInstance().AppendInputs({
-            qNope.dataPtr, qRope.dataPtr, kNope2D.dataPtr, kRope2D.dataPtr, 
+            qNope.dataPtr, qRope.dataPtr, kNope2D.dataPtr, kRope2D.dataPtr,
             knScales.dataPtr, topKIndcies.dataPtr, blockTable.dataPtr, actSeqs.dataPtr
         });
         ProgramData::GetInstance().AppendOutputs({

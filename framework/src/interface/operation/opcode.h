@@ -582,7 +582,7 @@ const std::unordered_set<Opcode> UNARY_OPS{Opcode::OP_EXP, Opcode::OP_EXP2, Opco
     Opcode::OP_SIGN, Opcode::OP_ROWPRODLINE, Opcode::OP_SIGNBIT};
 
 const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{Opcode::OP_COMPACT, Opcode::OP_ROWSUM_SINGLE,
-    Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV, Opcode::OP_ROWARGMAX_SINGLE, 
+    Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV, Opcode::OP_ROWARGMAX_SINGLE,
     Opcode::OP_ROWARGMAXLINE, Opcode::OP_ROWARGMIN_SINGLE, Opcode::OP_ROWARGMINLINE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE,
     Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWPROD_SINGLE};
 
@@ -624,7 +624,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_L1_TO_L0_AT, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B, Opcode::OP_A_MUL_BT, Opcode::OP_AT_MUL_B,
     Opcode::OP_AT_MUL_BT, Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS, Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS,
     Opcode::OP_ROWSUMLINE, Opcode::OP_ROWARGMAXLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC, Opcode::OP_MUL_BRC,
-    Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC, Opcode::OP_GATHER, Opcode::OP_ROWARGMIN_SINGLE, Opcode::OP_ROWARGMINLINE, 
+    Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC, Opcode::OP_GATHER, Opcode::OP_ROWARGMIN_SINGLE, Opcode::OP_ROWARGMINLINE,
     Opcode::OP_HYPOT, Opcode::OP_S_ADDS, Opcode::OP_LRELU, Opcode::OP_REM, Opcode::OP_REMS, Opcode::OP_REMRS,
     Opcode::OP_S_SUBS, Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS, Opcode::OP_S_MINS, Opcode::OP_ROUND,
     Opcode::OP_BITSORT, Opcode::OP_MRGSORT, Opcode::OP_CMP, Opcode::OP_CMPS, Opcode::OP_EXTRACT, Opcode::OP_PRELU,

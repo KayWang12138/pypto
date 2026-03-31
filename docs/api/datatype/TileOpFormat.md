@@ -18,4 +18,3 @@ class TileOpFormat(enum.Enum):
      TILEOP_ND = ...  # N维Tensor，支持标准的多维数组操作
      TILEOP_NZ = ...  # 同 FRACTAL_NZ/NZ 是对一个Tensor最低两维（一个Tensor的所有维度，右侧为低维，左侧为高维）进行填充（pad）、拆分（reshape）和转置（transpose）操作后得到的格式
 ```
-

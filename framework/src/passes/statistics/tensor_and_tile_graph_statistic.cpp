@@ -401,7 +401,7 @@ void HealthCheckTensorGraph(Function &function, const std::string &reportPath, c
 
 void HealthCheckTileGraph(Function &function, const std::string &reportPath, const std::string &fileName) {
     json tileGraphReport;
-    
+
     // 1. 计算operation节点信息
     CalcOperatorInfo(function, tileGraphReport);
 

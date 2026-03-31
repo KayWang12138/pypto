@@ -42,7 +42,7 @@ private:
         return shmemDataType;
     }
 
-    std::string getTimeStamp() 
+    std::string getTimeStamp()
     {
         auto now = std::chrono::high_resolution_clock::now();
         auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());

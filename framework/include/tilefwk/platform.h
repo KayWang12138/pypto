@@ -100,9 +100,9 @@ class PlatformParser {
 public:
     PlatformParser() = default;
     virtual ~PlatformParser() = default;
-    
+
     virtual bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const = 0;
-    
+
     bool GetSizeVal(const std::string& column, const std::string& key, size_t& val) const;
     bool GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const;
     bool FilterCCECVersion(const std::string& key, std::string &coreType) const;
@@ -148,7 +148,7 @@ public:
 class AivCore : public Core{
 public:
     AivCore() { }
-    
+
     // [VectorCoreSpec]
     void SetVecFreq(int freq) { vec_freq_ = freq; }
     void SetVectorRegWidth(int width) { vector_reg_width_ = width; }
@@ -193,7 +193,7 @@ public:
         return ss.str();
     };
 private:
-    int cube_freq_ = 0; 
+    int cube_freq_ = 0;
     bool support_fixpipe_ = false;
 };
 
@@ -382,7 +382,7 @@ public:
         ss << "    \"VECTOR_CORE_NUM\" : " << vector_core_cnt_ << "\n";
         ss << "},\n";
         ss << "}\n";
-        return ss.str();   
+        return ss.str();
     }
 };
 
@@ -434,7 +434,7 @@ public:
 
     size_t GetClusterNum() const { return cluster_cnt_; }
     size_t GetHostNum() const { return host_cnt_; }
-   
+
     // Get下层参数
     Cluster& GetCluster() {return cluster_; }
     Host& GetHost() { return host_; }
@@ -443,7 +443,7 @@ public:
     CoreWrap& GetCoreWrap() { return GetDie().GetCoreWrap(); }
     AicCore& GetAICCore() { return GetCoreWrap().GetAICCore(); }
     AivCore& GetAIVCore() { return GetCoreWrap().GetAIVCore(); }
-    
+
     void SetMemoryLimit(const PlatformParser &parser);
     void LoadPlatformInfo(const PlatformParser &parser);
     void ObtainPlatformInfo();
@@ -462,7 +462,7 @@ public:
             constexpr size_t kLeftWrapLen  = std::char_traits<char>::length("{");
             constexpr size_t kRightWrapLen = std::char_traits<char>::length("}");
             if (child_dump.size() <= kLeftWrapLen + kRightWrapLen) {
-                return; 
+                return;
             }
             const size_t inner_len = child_dump.size() - kLeftWrapLen - kRightWrapLen;
             ss.write(child_dump.data() + kLeftWrapLen, static_cast<std::streamsize>(inner_len));

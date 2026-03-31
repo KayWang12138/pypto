@@ -385,7 +385,7 @@ public:
         (void)coretype;
         (void)oss;
         (void)aicpuIdx;
-#if ENABLE_PERF_TRACE 
+#if ENABLE_PERF_TRACE
         Metrics* metric =  GetMetrics(coreIdx);
         if (metric == nullptr) {
             return DEVICE_MACHINE_ERROR;
@@ -401,12 +401,12 @@ public:
                 if (curCycle == 0) {
                     break;
                 }
-                oss << "{\"name\":\"" << AicorePerfTraceName[type]; 
-                if (metric->perfTraceDevTaskId[turnNumIdx][type][cnt] != INVALID_DEV_TASK_ID) { 
-                    oss << "(" << metric->perfTraceDevTaskId[turnNumIdx][type][cnt] << ")"; 
+                oss << "{\"name\":\"" << AicorePerfTraceName[type];
+                if (metric->perfTraceDevTaskId[turnNumIdx][type][cnt] != INVALID_DEV_TASK_ID) {
+                    oss << "(" << metric->perfTraceDevTaskId[turnNumIdx][type][cnt] << ")";
                 }
-                oss << "\",\"end\":" << curCycle << "}" 
-                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[turnNumIdx][type] - 1)) ? "" : ","); 
+                oss << "\",\"end\":" << curCycle << "}"
+                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[turnNumIdx][type] - 1)) ? "" : ",");
             }
         }
         oss << "]}";

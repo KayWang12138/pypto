@@ -160,7 +160,7 @@ uint64_t TileOp::GetSize()
     } else if (IsWriteCache(pipeType)) {
         tile = oOperand[0];
     } else {
-        ASSERT(false) << "ErrCode: F" <<  static_cast<unsigned>(CostModel::ForwardSimErrorScene::INVALID_PIPE_TYPE)  
+        ASSERT(false) << "ErrCode: F" <<  static_cast<unsigned>(CostModel::ForwardSimErrorScene::INVALID_PIPE_TYPE)
                         << ",[SIMULATION]: " << "PipeType Unrecognized." << Dump() << CorePipeName(pipeType);
     }
     uint64_t shapeSize = 1;

@@ -138,7 +138,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
         } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && output->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             ReplaceDynUnalignedReshapeOpsForDDR(function, op);
         }
-    }   
+    }
     APASS_LOG_INFO_F(Elements::Function, "===> End ReplaceDynUnalignedReshapeOps.");
 }
 
@@ -186,7 +186,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForUB(Function &functi
                 OpImmediate::Specified(output->tensor->GetDynRawShape()), OpImmediate::Specified(output->GetDynValidShape())
             ));
 
-            APASS_LOG_INFO_F(Elements::Operation,"Reshape op %d is replaceed by reshapeCopyOutOp %d and reshapeCopyInOp %d.", 
+            APASS_LOG_INFO_F(Elements::Operation,"Reshape op %d is replaceed by reshapeCopyOutOp %d and reshapeCopyInOp %d.",
                 op.opmagic, reshapeCopyOutOp.opmagic, reshapeCopyInOp.opmagic);
             processedReshapeOps.insert(op.GetOpMagic());
             function.EraseOperations(true, false);
@@ -211,9 +211,9 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &funct
         } else if (!outDynValidShape[dim].IsImmediate()) {
             hasNonImmediate = true;
             break;
-        }    
+        }
     }
-    
+
     if (hasNonImmediate) {
         bool hasOtherBranch = false;
         std::vector<Operation *> copyOutOps = FindAllProducerCopyOuts(input, hasOtherBranch);
@@ -226,7 +226,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &funct
             return;
         }
         Operation *copyOutOp = copyOutOps.front();
-        
+
         std::vector<Operation *> copyInOps;
         bool hasViewOrAssemble = false;
         FindAllConsumerCopyIns(output, copyInOps, hasViewOrAssemble);
@@ -275,7 +275,7 @@ void RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function &function, Oper
             OpImmediate::Specified(copyOutOutput->tensor->GetDynRawShape()),
             OpImmediate::Specified(copyOutOutput->GetDynValidShape())
         ));
-        
+
         LogicalTensor newTensor2(function, copyOutOutput->Datatype(), copyOutOutput->GetShape());
         newTensor2.SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
         auto newTensor2Ptr = std::make_shared<LogicalTensor>(std::move(newTensor2));
@@ -311,7 +311,7 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(Function &function, Opera
                 }
             }
         }
-        
+
         if (copyInInputMemType == MemoryType::MEM_DEVICE_DDR) {
             if (copyInOutputMemType == MemoryType::MEM_UB && copyInShapeSame) {
                 copyInOp->SetOpCode(Opcode::OP_RESHAPE_COPY_IN);
@@ -329,7 +329,7 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(Function &function, Opera
                     OpImmediate::Specified(copyInInput->tensor->GetDynRawShape()),
                     OpImmediate::Specified(copyInInput->GetDynValidShape())
                 ));
-                
+
                 LogicalTensor newTensor2(function, copyInInput->Datatype(), copyInInput->GetShape());
                 newTensor2.SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
                 auto newTensor2Ptr = std::make_shared<LogicalTensor>(std::move(newTensor2));

@@ -72,7 +72,7 @@ public:
                 static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG), args[currentIndex].c_str());
         }
     }
-    
+
     void ParseArrays(const std::vector<std::string> &args, size_t &currentIndex)
     {
         auto arrayIt = paramArrays_.find(args[currentIndex]);

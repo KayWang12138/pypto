@@ -64,9 +64,9 @@ struct GlobalSplitRecord {
     std::vector<Function*> splitFunctions;     // 拆分后的子leafFunction
     std::vector<uint64_t> programIDs;          // 原始programID列表
     std::vector<InternalComponentInfo> components; // scope信息
-    uint64_t mixId;                           
-    std::shared_ptr<AnalyzerOutput> analyzerOutput; 
-    
+    uint64_t mixId;
+    std::shared_ptr<AnalyzerOutput> analyzerOutput;
+
     GlobalSplitRecord() : originalLeafFunc(nullptr), mixId(0) {}
     ~GlobalSplitRecord() = default;
     // 获取记录摘要信息
@@ -81,7 +81,7 @@ struct GlobalSplitRecord {
         ss << "}";
         return ss.str();
     }
-    
+
     // 检查记录是否有效
     bool IsValid() const {
         if (originalLeafFunc == nullptr) return false;
@@ -102,7 +102,7 @@ public:
 
     static void ResetGlobalState() {
         globalSplitRecords_.clear();
-        globalNextMixId_.store(0);    
+        globalNextMixId_.store(0);
     }
 
 private:
@@ -115,10 +115,10 @@ private:
     static std::unordered_map<FunctionHash, GlobalSplitRecord> globalSplitRecords_;
     // 当前处理的root function
     Function* currentRootFunc_ = nullptr;
-    
+
     void DisplayComponents(const std::vector<InternalComponentInfo>& components);
     Status GenNewFunctions(Function& rootFunc,
-                            Function* originalMixFunc, 
+                            Function* originalMixFunc,
                             const std::vector<InternalComponentInfo>& components,
                             const std::vector<uint64_t>& newProgramIDs,
                             SubgraphToFunction& subgraphToFunction,
@@ -158,12 +158,12 @@ private:
         const std::vector<Function*>& newFunctions,
         const std::unordered_map<int, std::vector<SimpleTensorParam>>& allIncasts,
         const std::unordered_map<int, std::vector<SimpleTensorParam>>& allOutcasts) const;
-    
+
     void ApplyIncastDependencies(
         Function* leafFunc,
         int componentId,
         const std::vector<SimpleTensorParam>& incastParams) const;
-        
+
     void ApplyOutcastDependencies(
         Function* leafFunc,
         int componentId,

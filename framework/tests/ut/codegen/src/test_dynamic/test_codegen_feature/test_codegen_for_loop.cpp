@@ -106,7 +106,7 @@ TEST_F(TestCodegenForLoop, TestForLoop) {
     LoopaxesProc lpPass;
     lpPass.RunOnFunction(*function);
     CodegenPreproc cpPass;
-    cpPass.RunOnFunction(*function); 
+    cpPass.RunOnFunction(*function);
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

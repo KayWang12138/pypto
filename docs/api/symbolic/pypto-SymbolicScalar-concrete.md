@@ -47,4 +47,3 @@ out2 = s2.concrete()
 输出数据out1: 10
 输出数据out2: 抛出异常 ValueError: Not concrete value
 ```
-

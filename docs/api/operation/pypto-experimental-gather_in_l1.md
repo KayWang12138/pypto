@@ -44,4 +44,3 @@ src = pypto.tensor([16, 32], pypto.DT_FP32, "tensor_src")
 offset = pypto.tensor([1, 32], pypto.DT_INT32, "tensor_offset")
 out = pypto.experimental.gather_in_l1(src , offset, 20, false, false)
 ```
-

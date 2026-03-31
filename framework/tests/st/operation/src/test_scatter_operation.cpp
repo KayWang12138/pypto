@@ -18,8 +18,8 @@
 using namespace tile_fwk::test_operation;
 namespace ScatterOperation {
 struct ScatterOpFuncArgs : public OpFuncArgs {
-    ScatterOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape, int axis, 
-        Element &value, ScatterMode reduce) : 
+    ScatterOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape, int axis,
+        Element &value, ScatterMode reduce) :
         viewShape_(viewShape), tileShape_(tileShape), axis_(axis), value_(value), reduce_(reduce) {}
 
     std::vector<int64_t> viewShape_;
@@ -207,7 +207,7 @@ class ScatterOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Ai
 
 INSTANTIATE_TEST_SUITE_P(TestScatter, ScatterOperationTest,
     ::testing::ValuesIn(GetOpMetaData<ScatterOpMetaData>(
-        {ScatterOperationExeFunc2Dims, ScatterOperationExeFunc3Dims, ScatterOperationExeFunc4Dims, 
+        {ScatterOperationExeFunc2Dims, ScatterOperationExeFunc3Dims, ScatterOperationExeFunc4Dims,
         ScatterOperationExeFunc2DimsNoReduceOp},
         "Scatter")));
 

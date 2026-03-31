@@ -50,7 +50,7 @@ Status InplaceProcess::PreCheck(Function &function) {
         auto tensorIn = op.GetIOperands().front();
         auto tensorOut = op.GetOOperands().front();
         if (tensorIn->GetMemoryTypeOriginal() != tensorOut->GetMemoryTypeOriginal()) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "unmatched input output memory type for reshape opmagic: %d, input mem type: %s, output mem type: %s; Please check the input ans output.", 
+            APASS_LOG_ERROR_F(Elements::Tensor, "unmatched input output memory type for reshape opmagic: %d, input mem type: %s, output mem type: %s; Please check the input ans output.",
                 op.opmagic,
                 MemoryTypeToString(tensorIn->GetMemoryTypeOriginal()).c_str(),
                 MemoryTypeToString(tensorOut->GetMemoryTypeOriginal()).c_str());
@@ -151,11 +151,11 @@ Status InplaceProcess::RunOnFunction(Function &function) {
 
 void InplaceProcess::ProcessHub(Function &function, Operation &op) {
     APASS_LOG_DEBUG_F(Elements::Operation, "Processing HUB node %d.", op.GetOpMagic());
-    
+
     // 获取 HUB 的输入和输出 tensor
     auto hubInput = op.GetIOperands()[0];   // HUB 的输入 tensor
     auto hubOutput = op.GetOOperands()[0];  // HUB 的输出 tensor
-    
+
     // 1. 查找 HUB 输出的所有消费者（应该是 ASSEMBLE 节点）
     auto consumers = hubOutput->GetConsumers();
     for (const auto consumer : consumers) {
@@ -180,8 +180,8 @@ void InplaceProcess::ProcessHub(Function &function, Operation &op) {
     }
 }
 
-void InplaceProcess::ProcessHubAssembleChain(Function &function, Operation &hubOp, 
-                                           Operation &assembleOp, 
+void InplaceProcess::ProcessHubAssembleChain(Function &function, Operation &hubOp,
+                                           Operation &assembleOp,
                                            std::shared_ptr<LogicalTensor> hubInput,
                                            std::shared_ptr<LogicalTensor> hubOutput) {
     auto assembleInput = assembleOp.GetIOperands()[0];
@@ -201,7 +201,7 @@ void InplaceProcess::ProcessHubAssembleChain(Function &function, Operation &hubO
     }
     if (!isExactOutcast) {
         APASS_LOG_WARN_F(Elements::Operation, "Assemble[%d] output is not exact outcast, skip HUB memory reuse processing.", assembleOp.GetOpMagic());
-        return;    
+        return;
     }
     APASS_LOG_INFO_F(Elements::Operation, "Found exact HUB-ASSEMBLE-OUTCAST chain: HUB[%d] -> ASSEMBLE[%d] -> OUTCAST[%d]",
                 hubOp.GetOpMagic(), assembleOp.GetOpMagic(), assembleOutput->GetMagic());
@@ -397,7 +397,7 @@ void InplaceProcess::ReplaceRawTensor(Function &function, std::shared_ptr<Logica
      */
     for (const auto &producerOp : logicalTensor->GetProducers()) {
         if (ProcessInplaceOp(function, *producerOp) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Processing inplace op %s[%d] failed after updating %s[%d]. %s", 
+            APASS_LOG_ERROR_F(Elements::Operation, "Processing inplace op %s[%d] failed after updating %s[%d]. %s",
                 producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(),
                 op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         }

@@ -108,7 +108,7 @@ static bool CanNotAlignShape(const std::vector<int64_t> &inShape, const std::vec
     return ret;
 }
 
-static void ProcessSplitAndMerge(size_t &a, size_t o, int64_t shapeSize, 
+static void ProcessSplitAndMerge(size_t &a, size_t o, int64_t shapeSize,
     ShapeStatus &inStatus, std::vector<int64_t> &alignedShape, std::vector<ShapeStatus> &alignedStatus) {
     /* input split, output merge */
     inStatus.axisType = AXIS_SPLIT;
@@ -118,7 +118,7 @@ static void ProcessSplitAndMerge(size_t &a, size_t o, int64_t shapeSize,
     alignedStatus.emplace_back(shapeSize, 0, AXIS_MERGE, std::vector<size_t>{o}, 0);
 }
 
-static void ProcessSplitAndKeep(size_t &a, size_t o, int64_t shapeSize, 
+static void ProcessSplitAndKeep(size_t &a, size_t o, int64_t shapeSize,
     ShapeStatus &inStatus, std::vector<int64_t> &alignedShape, std::vector<ShapeStatus> &alignedStatus) {
     /* input split, output keep */
     inStatus.axisType = AXIS_SPLIT;
@@ -128,7 +128,7 @@ static void ProcessSplitAndKeep(size_t &a, size_t o, int64_t shapeSize,
     alignedStatus.emplace_back(shapeSize, 0, AXIS_KEEP, std::vector<size_t>{o}, 0);
 }
 
-static void ProcessKeepAndMerge(size_t &a, size_t o, int64_t shapeSize, 
+static void ProcessKeepAndMerge(size_t &a, size_t o, int64_t shapeSize,
     ShapeStatus &inStatus, std::vector<int64_t> &alignedShape, std::vector<ShapeStatus> &alignedStatus) {
     /* input keep, output merge */
     inStatus.axisType = AXIS_KEEP;
@@ -138,7 +138,7 @@ static void ProcessKeepAndMerge(size_t &a, size_t o, int64_t shapeSize,
     alignedStatus.emplace_back(shapeSize, 0, AXIS_MERGE, std::vector<size_t>{o}, 0);
 }
 
-static void ProcessKeepAndKeep(size_t &a, size_t o, int64_t shapeSize, 
+static void ProcessKeepAndKeep(size_t &a, size_t o, int64_t shapeSize,
     ShapeStatus &inStatus, std::vector<int64_t> &alignedShape, std::vector<ShapeStatus> &alignedStatus) {
     /* input keep, output keep */
     inStatus.axisType = AXIS_KEEP;
@@ -272,7 +272,7 @@ static bool CheckMemoryCondition(const std::vector<size_t> &indexes, std::vector
     return true;
 }
 
-static Status HandleSplitLargeTileShape(std::vector<ShapeStatus> &inStatus, std::vector<size_t> alignedIndexes, 
+static Status HandleSplitLargeTileShape(std::vector<ShapeStatus> &inStatus, std::vector<size_t> alignedIndexes,
     int64_t &tileShape, std::vector<ShapeStatus> &alignedStatus) {
     int64_t tempShape = tileShape;
     for (auto i = alignedIndexes.begin(); i != alignedIndexes.end(); ++i) {
@@ -354,7 +354,7 @@ static Status DerivationAlignShapeTile(std::vector<ShapeStatus> &inStatus, std::
         if (!CheckMemoryCondition(alignedIndexes, alignedStatus)) {
             APASS_LOG_WARN_F(Elements::Tensor,
                 "The memory Layout can not be mapped: Tensor Shape:%s, TileShape:%s, AlignedShape:%s, Align TileShape:%s",
-                GetShapeStr(inStatus).c_str(), GetTileStr(inStatus).c_str(), GetShapeStr(alignedStatus).c_str(), 
+                GetShapeStr(inStatus).c_str(), GetTileStr(inStatus).c_str(), GetShapeStr(alignedStatus).c_str(),
                 GetTileStr(alignedStatus).c_str());
             return WARNING;
         }

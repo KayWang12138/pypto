@@ -636,14 +636,14 @@ void ConstructGraphForMatMulViewFormSuperNode(ComputationalGraphBuilder& G) {
     Shape shape = {16, 16};
     Shape viewShape {8, 16};
     std::vector<std::string> oriTensorNames{"matA1DDR", "matB1DDR", "matA1L1", "matB1L1", "matA1L0A", "matB1L0B", "matC1L0C"};
-    std::vector<MemoryType> oriTensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A, 
+    std::vector<MemoryType> oriTensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A,
         MemoryType::MEM_L0B, MemoryType::MEM_L0C};
     EXPECT_EQ(G.AddTensors(dataType, shape, oriTensorMemoryType, oriTensorNames, 0), true);
     std::vector<std::string> afterViewTensorNames{"viewC1L0C", "outcast1"};
     std::vector<MemoryType> afterViewTensorMemoryType{MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR};
     EXPECT_EQ(G.AddTensors(dataType, viewShape, afterViewTensorMemoryType, afterViewTensorNames, 0), true);
     // add operation
-    std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B, 
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B,
         Opcode::OP_A_MUL_B, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE};
     std::vector<std::string> opNames{"View1", "View2", "L1ToL0A1", "L1ToL0B1", "Mul1", "View3", "Assemble1"};
     std::vector<std::vector<std::string>> iOperands{{"matA1DDR"}, {"matB1DDR"}, {"matA1L1"}, {"matB1L1"}, {"matA1L0A","matB1L0B"}, {"matC1L0C"}, {"viewC1L0C"}};
@@ -672,18 +672,18 @@ void ConstructGraphForMatMulMultipleViewSuccessors(ComputationalGraphBuilder& G)
     Shape shape = {16, 16};
     Shape viewShape {8, 16};
     std::vector<std::string> oriTensorNames{"matA3DDR", "matB3DDR", "matA3L1", "matB3L1", "matA3L0A", "matB3L0B", "matC3L0C"};
-    std::vector<MemoryType> oriTensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_L1, 
+    std::vector<MemoryType> oriTensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_L1,
         MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_L0C};
     EXPECT_EQ(G.AddTensors(dataType, shape, oriTensorMemoryType, oriTensorNames, 0), true);
     std::vector<std::string> afterViewTensorNames{"viewC3L0C_1", "viewC3L0C_2", "outcast3"};
     std::vector<MemoryType> afterViewTensorMemoryType{MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR};
     EXPECT_EQ(G.AddTensors(dataType, viewShape, afterViewTensorMemoryType, afterViewTensorNames, 0), true);
-    std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B, 
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B,
         Opcode::OP_A_MUL_B, Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE};
     std::vector<std::string> opNames{"View1", "View2", "L1ToL0A3", "L1ToL0B3", "Mul3", "ViewL0C_1", "ViewL0C_2", "Assemble3"};
-    std::vector<std::vector<std::string>> iOperands{{"matA3DDR"}, {"matB3DDR"}, {"matA3L1"}, {"matB3L1"}, 
+    std::vector<std::vector<std::string>> iOperands{{"matA3DDR"}, {"matB3DDR"}, {"matA3L1"}, {"matB3L1"},
         {"matA3L0A","matB3L0B"}, {"matC3L0C"}, {"matC3L0C"}, {"viewC3L0C_1"}};
-    std::vector<std::vector<std::string>> oOperands{{"matA3L1"}, {"matB3L1"}, {"matA3L0A"}, {"matB3L0B"}, 
+    std::vector<std::vector<std::string>> oOperands{{"matA3L1"}, {"matB3L1"}, {"matA3L0A"}, {"matB3L0B"},
         {"matC3L0C"}, {"viewC3L0C_1"}, {"viewC3L0C_2"}, {"outcast3"}};
     EXPECT_EQ(G.AddOps(opCodes, iOperands, oOperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"matA3DDR", "matB3DDR"}), true);
@@ -711,18 +711,18 @@ void ConstructGraphForMatMulViewNonL0C(ComputationalGraphBuilder& G) {
     Shape shape = {16, 16};
     Shape viewShape {8, 16};
     std::vector<std::string> oriTensorNames{"matA4DDR", "matB4DDR", "matA4L1", "matB4L1", "matA4L0A", "matB4L0B", "matC4L0C"};
-    std::vector<MemoryType> oriTensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_L1, 
+    std::vector<MemoryType> oriTensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_L1,
         MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_L0C};
     EXPECT_EQ(G.AddTensors(dataType, shape, oriTensorMemoryType, oriTensorNames, 0), true);
     std::vector<std::string> afterViewTensorNames{"viewC4DDR", "viewC4L1", "outcast4"};
     std::vector<MemoryType> afterViewTensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_DEVICE_DDR};
     EXPECT_EQ(G.AddTensors(dataType, viewShape, afterViewTensorMemoryType, afterViewTensorNames, 0), true);
-    std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B, 
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B,
         Opcode::OP_A_MUL_B, Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE};
     std::vector<std::string> opNames{"View1", "View2", "L1ToL0A4", "L1ToL0B4", "Mul4", "ViewDDR", "ViewL1", "Assemble4"};
-    std::vector<std::vector<std::string>> iOperands{{"matA4DDR"}, {"matB4DDR"}, {"matA4L1"}, {"matB4L1"}, 
+    std::vector<std::vector<std::string>> iOperands{{"matA4DDR"}, {"matB4DDR"}, {"matA4L1"}, {"matB4L1"},
         {"matA4L0A","matB4L0B"}, {"matC4L0C"}, {"matC4L0C"}, {"viewC4L1"}};
-    std::vector<std::vector<std::string>> oOperands{{"matA4L1"}, {"matB4L1"}, {"matA4L0A"}, {"matB4L0B"}, 
+    std::vector<std::vector<std::string>> oOperands{{"matA4L1"}, {"matB4L1"}, {"matA4L0A"}, {"matB4L0B"},
         {"matC4L0C"}, {"viewC4DDR"}, {"viewC4L1"}, {"outcast4"}};
     EXPECT_EQ(G.AddOps(opCodes, iOperands, oOperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"matA4DDR", "matB4DDR"}), true);

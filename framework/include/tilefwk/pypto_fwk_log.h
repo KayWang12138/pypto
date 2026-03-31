@@ -131,7 +131,7 @@ private:
 
 #define PYPTO_HOST_LOGE(module, errCode, fmt, ...) \
     PYPTO_HOST_LOG(DLOG_ERROR, module, "ErrCode: F%05X! " fmt, static_cast<uint32_t>(errCode) & 0xFFFFF, ##__VA_ARGS__)
-     
+
 #define PYPTO_SIM_LOGE(module, errCode, fmt, ...) \
     PYPTO_SIM_LOG(DLOG_ERROR, module, "ErrCode: F%05X! " fmt, static_cast<uint32_t>(errCode) & 0xFFFFF, ##__VA_ARGS__)
 

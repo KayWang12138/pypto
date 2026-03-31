@@ -54,16 +54,16 @@ private:
     void Init();
     Status GetTensorDataDependencyInsert(Function &function);
     Status GetTensorDataDependencyClear(Function &function);
-       
+
     void DoHealthCheckAfter(Function &function, const std::string &folderPath) override;
-    
+
     Status ProcessSubgraph(Function& function, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList);
     Status ProcessCacheResult(const std::tuple<Function*, Operation*, bool>& result, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList, Operation& callOp);
     void SetSemanticLabel(const std::vector<std::shared_ptr<Operation>>& subgraph, Operation& callOp);
     void InitializeRootFunction(Function& function, Function& rootFunc);
     Status IslandToFunction(Function &function);
     void ConstructnList(Function &function);
-   
+
     // 与 subFuncInvokeInfos相关的函数
     void RecordIncastOutcast(Function &function);
     void RecordEsgIncast(Function &function, size_t i, size_t j, size_t k);
@@ -74,7 +74,7 @@ private:
     void InsertParameter(size_t i, Function& leafFunc);
     void ConstructParamMap(Function &function);
     void RecordOutcastInfo(Function &function, RecordInfo recordInfo, SubfuncInvokeInfoTy &iter);
-    
+
     // 符号化相关函数
     void ProcessInputOperands(Function& rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& iParamLoc) const;
     void ProcessOutputOperands(Function& rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& oParamLoc) const;
@@ -92,7 +92,7 @@ private:
     // 在子图生成前将View转成CopyIn用于coa记录，子图生成后转回View
     Status TransViewToCopyInBeforeGenSubgraph(Function &function);
     Status RecoverCopyInToViewAfterGenSubgraph(Function &function);
-    
+
     // 静态流程处理器
     StaticSubgraphProcessor staticProcessor_;
 

@@ -1174,7 +1174,7 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
     }
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
-    
+
     RunPassStra(*func, PassName::EXPAND_FUNCTION);
     CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeTwo, false, {}, reshapeShape, kSizeTwo, false, {}, kNumOne});
 
@@ -2113,21 +2113,21 @@ TEST_F(TestSplitReshapePass, TestCollectCopyOutWithCopyOutProducer) {
 
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     ubTensor->SetMemoryTypeOriginal(MemoryType::MEM_UB, false);
-    
+
     auto ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto ddrTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape);
     ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto ddrTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     ddrTensor2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto reshapeOutput = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeOutputShape);
 
     currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
-    
+
     auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ddrTensor}, {ddrTensor2});
     assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset));
-    
+
     auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ddrTensor2}, {reshapeOutput});
     std::vector<SymbolicScalar> validShape = {kNumTwo, kNumTwo, kNumTwo};
     reshapeOp.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);

@@ -78,7 +78,7 @@ inline CostModel::OperandType BufferNameToType(std::string &name)
         {"MEM_L0AMX", OperandType::BUF_L0AMX},
         {"MEM_L0BMX", OperandType::BUF_L0BMX},
     };
-    
+
     auto it = bufferMap.find(name);
     return (it != bufferMap.end()) ? it->second : OperandType::BUF_UNKNOWN;
 }

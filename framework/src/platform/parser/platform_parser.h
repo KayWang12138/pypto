@@ -34,7 +34,7 @@ public:
     bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const override;
 private:
     bool ReadINIFile(const std::string& filepath);
-    bool Initialize(const std::string &iniFilePath); 
+    bool Initialize(const std::string &iniFilePath);
     std::map<std::string, std::map<std::string, std::string>> data_;
 };
 
@@ -45,5 +45,5 @@ public:
     bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const override;
 };
 } // namespace tile_fwk
-} // namepsace npu 
+} // namepsace npu
 #endif

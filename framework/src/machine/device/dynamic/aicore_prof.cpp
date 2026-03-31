@@ -416,7 +416,7 @@ void AiCoreProf::ProgramPmuStartForCore(void *mapBase, int coreIdx, const PmuCtr
     *addrs.startCntCyc1Addr = 0x0;
     *addrs.stopCntCyc0Addr = 0xFFFFFFFF;
     *addrs.stopCntCyc1Addr = 0xFFFFFFFF;
-    
+
     *addrs.ctrl0Addr = cfg.ctrl0Val;
     if (cfg.ctrl1Offset != 0 && addrs.ctrl1Addr != nullptr) {
         *addrs.ctrl1Addr = cfg.ctrl1Val;
@@ -534,7 +534,7 @@ void AiCoreProf::FillPmuData(MsprofAicpuPyPtoPmuData &data, int32_t &coreIdx, ui
     if (archInfo_ == ArchInfo::DAV_3510) {
         data.pmuCnt8 = *(pmuCnt8Plain_[coreIdx]);
         data.pmuCnt9 = *(pmuCnt9Plain_[coreIdx]);
-    } 
+    }
     (void)subGraphId;
 }
 

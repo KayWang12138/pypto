@@ -129,7 +129,7 @@ public:
             localBufferMap_[memId] = std::make_shared<LocalBuffer>(
                 memId, oOperand->tensor->GetRawDataSize(), oOperand->GetMemoryTypeOriginal());
         } else {
-            localBufferMap_[memId]->size = 
+            localBufferMap_[memId]->size =
                 std::max(localBufferMap_[memId]->size, static_cast<uint64_t>(oOperand->tensor->GetRawDataSize()));
         }
         return SUCCESS;

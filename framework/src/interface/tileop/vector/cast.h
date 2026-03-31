@@ -53,7 +53,7 @@ TILEOP void TCast(T0 dst, T1 src) {
                 using TileDefineDst =
                     pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
                 using TileDefineSrc =
-                    pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;            
+                    pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
                 TileDefineDst dstTile(shape3, shape4);
                 TileDefineSrc srcTile(shape3, shape4);
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;

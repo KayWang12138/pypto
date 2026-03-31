@@ -44,7 +44,7 @@ struct RearrangeScheme {
     std::vector<std::pair<int, size_t>> orderedMoveTo;
 
     void PrintScheme() {
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Memory Rearange Scheme,  Span : [%lu, %lu], Cost : %lu", 
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Memory Rearange Scheme,  Span : [%lu, %lu], Cost : %lu",
             start, end, cost);
         for (auto memId : memIds) {
             if (moveFrom[memId] != moveTo[memId]) {

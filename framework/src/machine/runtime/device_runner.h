@@ -64,7 +64,7 @@ public:
     int DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId,
         DeviceKernelArgs *kernelArgs, int blockdim, int launchAicpuNum, bool isTripleStream);
     int DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream);
-    int DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId, 
+    int DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId,
         DeviceKernelArgs *kernelArgs, int blockdim = 25, int launchAicpuNum = 5, bool isTripleStream = true);
     void InitDynamicArgs(DeviceArgs &args);
     int RegisterKernelBin(void **hdl, std::vector<uint8_t> *funcBinBuf = nullptr);
@@ -129,7 +129,7 @@ private:
     bool isCapture_{false};
     bool initFlag_{false};
     bool enableDumpMachinePerfTrace_{false};
-    
+
     std::thread dumpThread_;
     std::atomic<bool> dumpThreadStopFlag_{false};
 };

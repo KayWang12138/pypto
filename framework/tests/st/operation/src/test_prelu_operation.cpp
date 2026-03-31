@@ -38,10 +38,10 @@ static void PReLUOperationExeFunc2Dims(
 
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         auto args = static_cast<const PReLUOpFuncArgs *>(opArgs);
-        
+
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
-        
+
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
 
@@ -54,11 +54,11 @@ static void PReLUOperationExeFunc2Dims(
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
-                
+
                 auto weightViewShape = std::min(secondDim - sIdx * secondViewShape, secondViewShape);
                 auto tileTensor1 = View(inputs[1], {secondViewShape},
                     {weightViewShape}, {sIdx * secondViewShape});
-                
+
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = PReLU(tileTensor0, tileTensor1);
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
@@ -72,11 +72,11 @@ static void PReLUOperationExeFunc3Dims(
 
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         auto args = static_cast<const PReLUOpFuncArgs *>(opArgs);
-        
+
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         SymbolicScalar thirdDim = inputs[0].GetShape()[2];
-        
+
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
@@ -93,11 +93,11 @@ static void PReLUOperationExeFunc3Dims(
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
-                    
+
                     auto weightViewShape = std::min(secondDim - sIdx * secondViewShape, secondViewShape);
                     auto tileTensor1 = View(inputs[1], {secondViewShape},
                         {weightViewShape}, {sIdx * secondViewShape});
-                    
+
                     TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = PReLU(tileTensor0, tileTensor1);
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
@@ -112,12 +112,12 @@ static void PReLUOperationExeFunc4Dims(
 
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         auto args = static_cast<const PReLUOpFuncArgs *>(opArgs);
-        
+
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         SymbolicScalar thirdDim = inputs[0].GetShape()[2];
         SymbolicScalar fourthDim = inputs[0].GetShape()[3];
-        
+
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
@@ -138,11 +138,11 @@ static void PReLUOperationExeFunc4Dims(
                                 std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
                                 std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
                             {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape, nIdx * fourthViewShape});
-                        
+
                         auto weightViewShape = std::min(secondDim - sIdx * secondViewShape, secondViewShape);
                         auto tileTensor1 = View(inputs[1], {secondViewShape},
                             {weightViewShape}, {sIdx * secondViewShape});
-                        
+
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = PReLU(tileTensor0, tileTensor1);
                         Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape, nIdx * fourthViewShape}, outputs[0]);

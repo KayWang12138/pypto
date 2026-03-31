@@ -148,11 +148,11 @@ num_q_blocks = SEQ_LEN_Q // Q_BLOCK_SIZE  # 4 次
 for q_block_idx in pypto.loop(num_q_blocks, name="LOOP_Q"):  # 4 次
     q_start = q_block_idx * Q_BLOCK_SIZE
     cur_q_size = pypto.min(Q_BLOCK_SIZE, SEQ_LEN_Q - q_start)
-    
+
     # ✅ 批量获取 16 个 query
     q_block = pypto.view(query, [Q_BLOCK_SIZE, HEAD_DIM], [q_start, 0],
                         valid_shape=[cur_q_size, HEAD_DIM])
-    
+
     for kv_block_idx in pypto.loop(num_kv_blocks, unroll_list=[4,2,1], name="LOOP_KV"):  # ✅ 可 unroll
         # ✅ Matmul M 轴 = 16
         scores = pypto.matmul(q_block, k_block, ...)  # ✅ [16, 128]

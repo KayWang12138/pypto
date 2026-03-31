@@ -22,7 +22,7 @@
 #include <shared_mutex>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <ifaddrs.h> 
+#include <ifaddrs.h>
 
 #include "tilefwk/pypto_fwk_log.h"
 #include "interface/utils/common.h"

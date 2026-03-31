@@ -43,9 +43,9 @@ using LocalBufferPtr = std::shared_ptr<LocalBuffer>;
 
 const std::unordered_set<Opcode> USE_LESS_OPS = {
     Opcode::OP_NOP,
-    Opcode::OP_RESHAPE, 
-    Opcode::OP_VIEW, 
-    Opcode::OP_ASSEMBLE, 
+    Opcode::OP_RESHAPE,
+    Opcode::OP_VIEW,
+    Opcode::OP_ASSEMBLE,
     Opcode::OP_SHMEM_WAIT_UNTIL,
     Opcode::OP_BIND_TENSOR,
     Opcode::OP_VIEW_TYPE,
@@ -243,7 +243,7 @@ private:
     Status SpillOnBlock();
     Status SpillOnCoreBlock(OpCoreType coreType, int idx, bool &didSpill);
     Status CheckAndUpdateLifecycle();
-    
+
     void InsertIssueEntries(IssueEntryPtr insertIssue);
     void UpdateIssueExecOrder();
     size_t ShapeCeilAlign(std::vector<int64_t> shape, DataType dtype);
@@ -257,7 +257,7 @@ private:
     Status SortOps();
     Status PriorDFS(std::unordered_map<Opcode, int> preNodePriority);
     int GetDepth(IssueEntryPtr issue);
-    Status DFSFromOutNode(std::vector<IssueEntryPtr> outNodeQueue, 
+    Status DFSFromOutNode(std::vector<IssueEntryPtr> outNodeQueue,
     std::unordered_map<Opcode, int> preNodePriority, std::map<IssueEntryPtr, bool> &visited);
     void DFSFromSingleNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool>& visited,
         std::vector<IssueEntryPtr>& newIssueEntries, std::unordered_map<Opcode, int> preNodePriority);
@@ -270,7 +270,7 @@ private:
     IssueEntryPtr FindNodeMinNumUnvisitedPreNode(
         std::map<IssueEntryPtr, bool> visited, std::vector<IssueEntryPtr> outNodeQueue);
     int GetNumUnvisitPreNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool>& visited);
-    void UpdatePreNodeQueue(std::unordered_set<IssueEntryPtr> &curr, 
+    void UpdatePreNodeQueue(std::unordered_set<IssueEntryPtr> &curr,
         std::unordered_set<IssueEntryPtr> &preNodeTotal, std::map<IssueEntryPtr, bool>& visited);
 
     Status RollBack(size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
@@ -283,7 +283,7 @@ private:
     void GetIssueIdx(IssueEntryPtr issue, size_t &index);
     void GetPreNode(size_t i, std::vector<IssueEntryPtr> curIssueEntries, size_t rollBackIndex,
     size_t backTraceIndex, std::set<size_t> &dependencyIndexList);
-    
+
     Status LayerBasedDFS(int layerDepth);
 
     void ReorderIssue(std::vector<size_t> &preIdx, std::vector<IssueEntryPtr> &curIssueEntries, size_t startIndex);
@@ -310,9 +310,9 @@ private:
     // gen spill
     Status GenSpillOp(size_t &pcIdx);
     Status GenBufferSpill(IssueEntryPtr allocIssue);
-    Status SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPtr issue, 
+    Status SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPtr issue,
         std::vector<int> &spillGroup, bool isGenSpill);
-    Status GetGroupNextUseOrder(std::vector<int> group, IssueEntryPtr allocIssue, 
+    Status GetGroupNextUseOrder(std::vector<int> group, IssueEntryPtr allocIssue,
         std::vector<int> &groupNextUseTime, std::unordered_map<int, size_t> &nextUseTimeCache, bool isGenSpill);
     IssueEntryPtr GetSpillIssue(IssueEntryPtr allocIssue, int memId, bool isGenSpill);
     bool CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue);
@@ -320,11 +320,11 @@ private:
     bool IsBelongSpillBlackList(IssueEntryPtr spillIssue, IssueEntryPtr issue);
     void FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntryPtr> &filterLtags);
     Status SpillAllBuffer(IssueEntryPtr allocIssue, size_t &pcIdx, bool isGenSpill, LocalBufferPtr allocBuffer);
-    Status SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int> spillGroup, size_t &pcIdx, 
+    Status SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int> spillGroup, size_t &pcIdx,
         LocalBufferPtr allocBuffer, bool isGenSpill);
     Status GetSpillInfo(IssueEntryPtr allocIssue, int spillMemId, bool isGenSpill, SpillInfo &spillInfo);
     Status GetSpillTensor(IssueEntryPtr spillIssue, int spillMemId, LogicalTensorPtr &spillTensor);
-    Status SpillBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, size_t &pcIdx, 
+    Status SpillBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, size_t &pcIdx,
         LocalBufferPtr allocBuffer, bool isGenSpill);
     Status SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, size_t &pcIdx, bool isGenSpill);
     Status CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr &spillCopyout, int &bufLastUseOrder, bool &isFinish);
@@ -349,14 +349,14 @@ private:
     int GetBufNextUseOrder(IssueEntryPtr issue, int curMemId);
     int GetBufLastUseOrder(IssueEntryPtr issue, int curMemId);
     IssueEntryPtr GetBufLastWriteIssue(IssueEntryPtr issue, int curMemId);
-    OoOSchedulerCheck::SpillInfo RecordSpillInfo(MemoryType bufferType, int memId, LocalBufferPtr allocIssue, 
+    OoOSchedulerCheck::SpillInfo RecordSpillInfo(MemoryType bufferType, int memId, LocalBufferPtr allocIssue,
         LogicalTensorPtr spillOutTensor, bool needCopyOut);
     bool HasEnoughBuffer(IssueEntryPtr allocIssue, MemoryType memType);
     bool CanAllocateAll(std::vector<LocalBufferPtr> tensors, MemoryType memType);
     int GetMemidAllocPriority(int memId);
     Status SpillAssembleBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, size_t &pcIdx,
         LocalBufferPtr allocBuffer, bool isGenSpill);
-    Status SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr assemble, 
+    Status SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr assemble,
         LogicalTensorPtr assembleTensor, bool &isFirst, bool isGenSpill);
     IssueEntryPtr UpdateIssueAttr(Operation &newOp, std::vector<int> memIds, IssueEntryPtr allocIssue, int &bufNextUseOrder, bool isGenSpill);
     Status FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vector<IssueEntryPtr> &assembleList);

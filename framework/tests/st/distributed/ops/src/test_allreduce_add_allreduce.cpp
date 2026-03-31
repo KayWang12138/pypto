@@ -77,9 +77,9 @@ void FuncAllReduceAddAllReduce(const Tensor& in, Tensor& out, const OpTestParam&
             shmemDataType = DT_FP32;
         }
         ShmemTensor shmemTensor;
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) { 
-            (void)index; 
-            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor); 
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
         }
         LoopAllReduce1(in, shmemTensor, allReduceOut, row, col);
         LoopAdd(allReduceOut, addOut);

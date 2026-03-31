@@ -94,7 +94,7 @@ bool ReplaceTensor::CheckReshapeConflict(const Operation& op, Function& function
     return false;
 }
 
-/* 
+/*
 用于校验a_mulacc_b节点的输入输出是否存在冲突
 */
 bool ReplaceTensor::CheckAMulAccBConflict(const Operation& op) {
@@ -119,7 +119,7 @@ Status ReplaceTensor::InplaceCheck(Function& function) {
         std::function<bool(size_t)> inputCountValidator;
         std::function<bool(size_t)> outputCountValidator;
     };
-    
+
     std::unordered_map<Opcode, OpValidator> opValidators = {
         {Opcode::OP_VIEW, {[this](const Operation& op) { return this->CheckAddrConflict(op); },
             nullptr,
@@ -149,8 +149,8 @@ Status ReplaceTensor::InplaceCheck(Function& function) {
         const auto& validator = it->second;
         size_t inputCount = op.GetInputOperandSize();
         size_t outputCount = op.GetOutputOperandSize();
-        bool checkFaild = !validator.inputCountValidator(inputCount) || 
-                          !validator.outputCountValidator(outputCount) || 
+        bool checkFaild = !validator.inputCountValidator(inputCount) ||
+                          !validator.outputCountValidator(outputCount) ||
                           (validator.validate && validator.validate(op)) ||
                           (validator.validateWithFunc && validator.validateWithFunc(op, function));
         if (checkFaild) {
@@ -199,7 +199,7 @@ Status ReplaceTensor::PreCheck(Function &function) {
         auto tensorIn = op.GetIOperands().front();
         auto tensorOut = op.GetOOperands().front();
         if (tensorIn->GetMemoryTypeOriginal() != tensorOut->GetMemoryTypeOriginal()) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "unmatched input output memory type for reshape opmagic: %d, input mem type: %s, output mem type: %s; Please check the input ans output.", 
+            APASS_LOG_ERROR_F(Elements::Tensor, "unmatched input output memory type for reshape opmagic: %d, input mem type: %s, output mem type: %s; Please check the input ans output.",
                 op.opmagic,
                 MemoryTypeToString(tensorIn->GetMemoryTypeOriginal()).c_str(),
                 MemoryTypeToString(tensorOut->GetMemoryTypeOriginal()).c_str());
@@ -247,10 +247,10 @@ Status ReplaceTensor::FindBaseTensor(Function &function, const std::unordered_ma
             if (baseTensor == nullptr) {
                 baseTensor = curTensor;
                 APASS_LOG_INFO_F(Elements::Tensor, "Set base Tensor %d", curTensor->GetMagic());
-            } else if (baseTensor->Symbol() != curTensor->Symbol() && 
-                       baseTensor->GetRawTensor()->memoryId != curTensor->GetRawTensor()->memoryId && 
+            } else if (baseTensor->Symbol() != curTensor->Symbol() &&
+                       baseTensor->GetRawTensor()->memoryId != curTensor->GetRawTensor()->memoryId &&
                        baseTensor->tensor->actualRawmagic != curTensor->tensor->actualRawmagic) {
-                APASS_LOG_ERROR_F(Elements::Tensor, "baseTensor %d and curTensor %d has conflict.", 
+                APASS_LOG_ERROR_F(Elements::Tensor, "baseTensor %d and curTensor %d has conflict.",
                                       baseTensor->GetMagic(), curTensor->GetMagic());
                 return FAILED;
             } else if (function.IsFromInCast(curTensor)) {
@@ -412,7 +412,7 @@ Status ReplaceTensor::ForwardCopyOut(Operation *op, LogicalTensorPtr &rootTensor
     if (function.IsFromInCast(inTensor) && function.IsFromOutCast(outTensor)) {
         APASS_LOG_INFO_F(Elements::Operation, "OP %s[%d] input tensor %d is Incast, output tensor %d is OutCast",
                             op->GetOpcodeStr().c_str(), op->GetOpMagic(), inTensor->GetMagic(), outTensor->GetMagic());
-                        return SUCCESS; 
+                        return SUCCESS;
     }
     if (!function.IsFromOutCast(outTensor)) {
         function.UpdateLinkMap(outTensor, inTensor);
@@ -685,7 +685,7 @@ Status ReplaceTensor::RefactorViewConnectForReplace(Function &function) {
     return SUCCESS;
 }
 
-void ReplaceTensor::ProcessHubAssembleOp(Function &function, Operation &hubOp, Operation &assembleOp, 
+void ReplaceTensor::ProcessHubAssembleOp(Function &function, Operation &hubOp, Operation &assembleOp,
                              std::shared_ptr<LogicalTensor> hubInput, std::shared_ptr<LogicalTensor> hubOutput) {
     auto assembleInput = assembleOp.GetIOperands()[0];
     auto assembleOutput = assembleOp.GetOOperands()[0];
@@ -704,7 +704,7 @@ void ReplaceTensor::ProcessHubAssembleOp(Function &function, Operation &hubOp, O
     }
     if (!isExactOutcast) {
         APASS_LOG_WARN_F(Elements::Operation, "Assemble[%d] output is not exact outcast, skip HUB memory reuse processing.", assembleOp.GetOpMagic());
-        return;    
+        return;
     }
     APASS_LOG_INFO_F(Elements::Operation, "Found exact HUB-ASSEMBLE-OUTCAST chain: HUB[%d] -> ASSEMBLE[%d] -> OUTCAST[%d]",
                 hubOp.GetOpMagic(), assembleOp.GetOpMagic(), assembleOutput->GetMagic());
@@ -872,7 +872,7 @@ void ReplaceTensor::InsertCopyDDROp(Function &function, Operation *needInsertCop
     if (memType == MemoryType::MEM_UB && !IsLastDim32BAligned(copyInOutputPtr)) {
         size_t lastIdx = copyInOutputPtr->shape.size() - 1;
         size_t paddingValue = GetPaddingValue(copyInOutputPtr); // 根据数据类型，判断需要pad到几个元素
-        
+
         // 保存rawshape
         copyInOutputPtr->oriShape = copyInOutputPtr->shape;
         copyInOutputPtr->tensor->oriRawshape = copyInOutputPtr->tensor->rawshape;

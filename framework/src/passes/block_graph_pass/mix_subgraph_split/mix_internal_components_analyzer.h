@@ -28,9 +28,9 @@ Status AnalyzeInternalComponents(Function& mixSubgraphFunc, std::vector<Internal
 
 private:
 // 前校验：校验所有非同步OP的subgraphId属性非空
-Status PreCheckSubGraphIDs(Function& mixSubgraphFunc) const; 
+Status PreCheckSubGraphIDs(Function& mixSubgraphFunc) const;
 // 后校验：校验所有OP的subgraphId属性非空
-Status PostCheckSubGraphIDs(Function& mixSubgraphFunc) const; 
+Status PostCheckSubGraphIDs(Function& mixSubgraphFunc) const;
 
 bool IsSyncOperation(Operation* op) const;
 
@@ -40,19 +40,19 @@ Status ProcessInternalSubgraphIDs(Function& mixSubgraphFunc,
 // 处理已分组op
 std::map<int, std::vector<Operation*>> GroupOperationsByExistingInternalID(Function& mixSubgraphFunc,
         std::vector<Operation*>& unassignedOps) const;
-// 处理未分组的op        
-void ProcessUnassignedOperations(std::vector<Operation*>& unassignedOps, 
+// 处理未分组的op
+void ProcessUnassignedOperations(std::vector<Operation*>& unassignedOps,
                                 std::map<int, std::vector<Operation*>>& componentsByInternalID,
                                 Function& mixSubgraphFunc) const;
 // 合并同步op
 bool MergeSyncOperation(Operation* op, std::map<int, std::vector<Operation*>>& componentsByInternalID,
-                        std::unordered_map<Operation*, int>& opToComponentMap, Function& mixSubgraphFunc) const; 
+                        std::unordered_map<Operation*, int>& opToComponentMap, Function& mixSubgraphFunc) const;
 
-bool MergeSyncPhase2(Operation* op, Function& mixSubgraphFunc, std::map<int, std::vector<Operation*>>& componentsByInternalID, 
+bool MergeSyncPhase2(Operation* op, Function& mixSubgraphFunc, std::map<int, std::vector<Operation*>>& componentsByInternalID,
                     std::unordered_map<Operation*, int>& opToComponentMap) const;
-bool MergeSyncPhase1(Operation* op, Function& mixSubgraphFunc, std::map<int, 
+bool MergeSyncPhase1(Operation* op, Function& mixSubgraphFunc, std::map<int,
                     std::vector<Operation*>>& componentsByInternalID, std::unordered_map<Operation*, int>& opToComponentMap) const;
-bool MergeSyncSrcDst(Operation* op, Operation* targetOp, std::map<int, std::vector<Operation*>>& componentsByInternalID, 
+bool MergeSyncSrcDst(Operation* op, Operation* targetOp, std::map<int, std::vector<Operation*>>& componentsByInternalID,
     std::unordered_map<Operation*, int>& opToComponentMap) const;
 
 // 搜索函数
@@ -72,7 +72,7 @@ bool CheckAllCubeAttrConsistent(const InternalComponentInfo& component) const;
 // 处理 AIVCore 属性
 Status DetermineComponentAIVCore(const std::vector<Operation*>& operations, ComponentType componentType, AIVCore& outAivCore) const;
 Status ProcessCubeScope(const std::vector<Operation*>& operations, int componentID) const;
-Status ProcessVecScope(const std::vector<Operation*>& operations, int componentID, AIVCore& outAivCore) const; 
+Status ProcessVecScope(const std::vector<Operation*>& operations, int componentID, AIVCore& outAivCore) const;
 Status CheckVecScopeAivCoreConsistant(const std::vector<Operation*>& operations, int componentID, AIVCore refAIVCore) const;
 // 校验函数：校验L0C_COPY_UB的消费者v_scope的AIVCore属性一致性
 Status CheckL0CCopyUBConsumerAIVCoreConsistency(Operation* copyOp, int componentID) const;

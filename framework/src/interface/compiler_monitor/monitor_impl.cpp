@@ -142,7 +142,7 @@ void MonitorImpl::MonitorLoop() {
         auto now = std::chrono::steady_clock::now();
         auto total_start = manager_->GetTotalStartTime();
         auto total_elapsed = std::chrono::duration<double>(now - total_start).count();
-        
+
         // 当总时间超过total_timeout_sec
         PrintTotalTimeOut(total_elapsed, total_timeout_sec);
 
@@ -150,7 +150,7 @@ void MonitorImpl::MonitorLoop() {
         std::unique_lock<std::mutex> lock(mutex_);
 
         // 修改等待条件：检查 stop_ 和 start_flag
-        cv_.wait_for(lock, wait_duration, [this] { return stop_.load() || !stage_start_flag_.load(); }); 
+        cv_.wait_for(lock, wait_duration, [this] { return stop_.load() || !stage_start_flag_.load(); });
         if (stop_.load()) {
             break;
         }

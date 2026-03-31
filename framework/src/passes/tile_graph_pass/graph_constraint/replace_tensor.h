@@ -131,12 +131,12 @@ private:
     std::unordered_map<LogicalTensorPtr, int> BuildTensorOrderIndexMap(Function &function);
     Status FindBaseTensor(Function &function, const std::unordered_map<LogicalTensorPtr, int> &tensorToOderIndex, LogicalTensors &group, LogicalTensorPtr &baseTensor);
     Status ProcessHubOp(Function &function);
-    void ProcessHubAssembleOp(Function &function, Operation &hubOp, Operation &assembleOp, 
+    void ProcessHubAssembleOp(Function &function, Operation &hubOp, Operation &assembleOp,
                              std::shared_ptr<LogicalTensor> hubInput, std::shared_ptr<LogicalTensor> hubOutput);
     LogicalTensorPtr FindReplaceSource(Function &function, Operation &op, std::unordered_map<Operation *, LogicalTensorPtr> &visited);
     Status RefactorViewConnectForReplace(Function &function);
     void UniteTensor(Function &function, UnionFind &uf);
-    
+
     Status AlignCopyInConsumer(std::shared_ptr<LogicalTensor> tensorGm) const;
     Status AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tensorGm) const;
     Status AdjustOffsetAndRawShape(LogicalTensorPtr &fromView, LogicalTensorPtr &toView) const;

@@ -65,5 +65,5 @@ Status InferDynShape::RunOnFunction(Function &function)
     APASS_LOG_INFO_F(Elements::Function, "===> End InferDynShape.");
     return SUCCESS;
 }
-} 
+}
 } // namespace npu::tile_fwk

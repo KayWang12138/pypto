@@ -370,7 +370,7 @@ TILEOP void TFloorDivS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
                         pto::TADD(src0Tile, tmp0DataTile, src0Tile); // rem
 
                         pto::TCMPS(tmp0MaskTile, src0Tile, 0, CmpMode::NE);
-                        pto::TAND(tmp0MaskTile, tmp1MaskTile, tmp0MaskTile); 
+                        pto::TAND(tmp0MaskTile, tmp1MaskTile, tmp0MaskTile);
                         pto::TADDS(src0Tile, dstTile, -1);
                         pto::TSEL(dstTile, tmp0MaskTile, src0Tile, dstTile, tmp1DataTile);
                     #endif

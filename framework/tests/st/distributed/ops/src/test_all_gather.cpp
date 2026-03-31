@@ -37,13 +37,13 @@ void TestAllGather(OpTestParam& testParam, std::string& goldenDir)
     Tensor out(dType, outShape, "out");
 
     std::vector<T> inPtr = ReadToVector<T>(goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
-    
+
     Shape shmemDataShape{testParam.rankSize, row, col};
     FUNCTION("ALLGATHER", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
         ShmemTensor shmemTensor;
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) { 
-             (void)index; 
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+             (void)index;
              CreateShmemTensor(testParam.group, testParam.rankSize, dType, shmemDataShape, shmemTensor);
          }
         AllGather(in, in, shmemTensor, out);

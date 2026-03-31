@@ -72,7 +72,7 @@ struct MemoryHelper {
             }
             std::shared_ptr<uint8_t> ptr(rawPtr, free);
             memset_s(rawPtr, totalSize, 0, totalSize);
-            
+
             devPtr = (uint8_t *)((((uint64_t)rawPtr) + alignSize - 1) / alignSize * alignSize);
             testAllocatePtrs_.push_back(ptr);
         } else {

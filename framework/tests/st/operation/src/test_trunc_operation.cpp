@@ -81,7 +81,7 @@ static void TruncOperationExeFunc3Dims(
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = Trunc(tileTensor); 
+                    auto res = Trunc(tileTensor);
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }

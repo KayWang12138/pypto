@@ -463,7 +463,7 @@ std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForward(Tensor hiddenS
 }
 
 // mm/bmm: bf16 in, bf16 out
-std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForwardCv(Tensor hiddenStates, Tensor attenMask, Tensor positionIds, 
+std::tuple<Tensor, Tensor>  DeepseekAttention::AtentionPreForwardCv(Tensor hiddenStates, Tensor attenMask, Tensor positionIds,
         Tensor cos, Tensor sin, Tensor kvLen, Tensor pastKeyStates, const RoPETileShapeConfig &ropeTileShapeConfig) {
     (void)attenMask;
     // hiddenStates: (b,s,h), attention_mask: (b,1,s,s2), positionIds: (b,s)
@@ -676,7 +676,7 @@ std::vector<Tensor> DeepseekAttention::MlaPrologFoward(Tensor hiddenStates, Tens
     return res;
 }
 
-Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2, 
+Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tensor ffnWeight1, Tensor ffnWeight2,
         Tensor ffnWeight3, int nRoutedExperts) {
     // x: (b*s, h), topkIds, topkWeight: (b*s, num_experts_per_tok)
     int bs = topkIds.GetShape(0);

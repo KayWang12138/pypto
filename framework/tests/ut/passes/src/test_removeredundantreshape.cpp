@@ -327,9 +327,9 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest5) {
 }
 
 /*
-inCast->reShape->ubTensor1->reShape->outCast  
+inCast->reShape->ubTensor1->reShape->outCast
 
-inCast->reShape->ubTensor1->reShape->outCast  
+inCast->reShape->ubTensor1->reShape->outCast
 */
 TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeContainNegativeOne) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantReshape", "TestRemoveRedundantReshape", nullptr);

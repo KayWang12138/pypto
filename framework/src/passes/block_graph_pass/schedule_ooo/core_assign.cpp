@@ -37,8 +37,8 @@ inline std::string ScheduleCoreTypeToString(ScheduleCoreType coreType) {
 inline std::string TargetCoreTypeToString(TargetCoreType coreType) {
     std::unordered_map<TargetCoreType, std::string> targetToString{
         {TargetCoreType::AIC, "AIC"},
-        {TargetCoreType::AIV0, "AIV0"}, 
-        {TargetCoreType::AIV1, "AIV1"}, 
+        {TargetCoreType::AIV0, "AIV0"},
+        {TargetCoreType::AIV1, "AIV1"},
         {TargetCoreType::UNKNOWN, "UNKNOWN"}};
     if (targetToString.count(coreType) > 0) {
         return targetToString[coreType];

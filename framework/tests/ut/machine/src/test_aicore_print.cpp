@@ -167,5 +167,3 @@ TEST(AiCorePrintUTest, AiCorePrintShape2D)
     EXPECT_NE(std::string::npos, buf.find("shape=[3,5]"));
 }
 #endif
-
-

@@ -25,7 +25,7 @@ class MergeViewAssembleUtils {
 public:
     MergeViewAssembleUtils() = default;
     ~MergeViewAssembleUtils() = default;
-    
+
     struct ViewOp {
         std::shared_ptr<LogicalTensor> input;
         std::shared_ptr<LogicalTensor> output;

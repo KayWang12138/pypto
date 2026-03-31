@@ -688,8 +688,8 @@ private:
 
     void InitConfigOptions(py::object &module) {
         auto options = module.attr("_runtime_options").cast<py::dict>();
-        if (options.contains("triple_stream_sched")) {	 
-            tripleStream = options["triple_stream_sched"].cast<bool>(); 
+        if (options.contains("triple_stream_sched")) {
+            tripleStream = options["triple_stream_sched"].cast<bool>();
         }
         if (options.contains("stitch_cfgcache_size")) {
             stitchCfgCacheSize = options["stitch_cfgcache_size"].cast<int64_t>();
@@ -866,7 +866,7 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
 
     DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
     HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
-    
+
     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
     HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
 

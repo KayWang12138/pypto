@@ -29,7 +29,7 @@
 #include "set_heuristic_tile_shapes.h"
 
 #define MODULE_NAME "SetHeuristicTileShapes"
- 
+
 using namespace npu::tile_fwk;
 using json = nlohmann::json;
 
@@ -38,14 +38,14 @@ Status SetHeuristicTileShapes::RunOnFunction(Function &function) {
     SetHeuristicTileShapesFunc(function);
     return SUCCESS;
 }
- 
+
 const std::unordered_map<DataType, int64_t> Latency{
     {DataType::DT_FP16, 200},
     {DataType::DT_FP32, 200},
     {DataType::DT_INT32, 0},
     {DataType::DT_INT16, 0}
 };
- 
+
 const std::unordered_map<DataType, int64_t> Parallelism{
     {DataType::DT_FP16, 64}, // 128B/cycle
     {DataType::DT_FP32, 32},
@@ -133,7 +133,7 @@ uint64_t GetLatency(DataType dtype) {
     }
     return iterDtype->second;
 }
- 
+
 uint64_t GetParallelism(DataType dtype) {
     auto iterDtype = Parallelism.find(dtype);
     if (iterDtype == Parallelism.end()) {
@@ -141,7 +141,7 @@ uint64_t GetParallelism(DataType dtype) {
     }
     return iterDtype->second;
 }
- 
+
 bool IsFloat(const std::shared_ptr<LogicalTensor> tensor) {
     auto dataType = tensor->Datatype();
     if ((dataType == DT_FP16) || (dataType == DT_FP32) || (dataType == DT_BF16)) {
@@ -149,7 +149,7 @@ bool IsFloat(const std::shared_ptr<LogicalTensor> tensor) {
     }
     return false;
 }
- 
+
 double CalculateGeometricMean(const std::vector<double>& vectorRatio) {
     double product = 1.0;
     for (double num : vectorRatio) {
@@ -157,14 +157,14 @@ double CalculateGeometricMean(const std::vector<double>& vectorRatio) {
     }
     return std::pow(product, 1.0 / vectorRatio.size());
 }
- 
+
 std::map<int, int> FordBellman(const std::vector<std::pair<int, int>> &edges, Function &function) {
     std::map<int, int> subgrDepthMap;
     for (auto &op : function.Operations()) {
         subgrDepthMap[op.GetOpMagic()] = INT_MAX;
     }
     subgrDepthMap[-1] = 0;
-    
+
     bool any = true;
     while (any == true) {
         any = false;
@@ -204,23 +204,23 @@ void FindScoreForCubeTiles(std::pair<std::vector<int64_t>, std::vector<DataType>
     int64_t M = shapeAndTypeInfo.first[M_DIM];
     int64_t K = shapeAndTypeInfo.first[K_DIM];
     int64_t N = shapeAndTypeInfo.first[N_DIM];
- 
+
     // Input types
     DataType inputType = shapeAndTypeInfo.second[M_DIM];
     DataType outputType = shapeAndTypeInfo.second[K_DIM];
     int64_t inputTypeSize = BytesOf(inputType);
     int64_t outputTypeSize = BytesOf(outputType);
- 
+
     uint64_t inputMKN = std::max(M, MIN_TILE) * std::max(K, MIN_TILE) * std::max(N, MIN_TILE);
     std::vector<double> vectorRatio = {0.f, 0.f, 0.f};
     for (auto & [tile, score] : setOfCubeTiles) {
         uint64_t mkn = tile[M_DIM] * tile[K_DIM] * tile[N_DIM];
- 
+
         // If the tiling size = shape size -> the preferred option
         score = (tile[M_DIM] == std::max(M, MIN_TILE)) ? (score + WHOLE_M_SCORE) : score;
         score = (tile[K_DIM] == std::max(K, MIN_TILE)) ? (score + WHOLE_K_SCORE) : score;
         score = (tile[N_DIM] == std::max(N, MIN_TILE)) ? (score + WHOLE_N_SCORE) : score;
- 
+
         // The more filled L0A, L0B, L0C is better
         double utilizationL0A = static_cast<double>((tile[M_DIM] * tile[K_DIM] * inputTypeSize)) / (L0A_MAX_SIZE / DOUBLE_BUFFER);
         double utilizationL0B = static_cast<double>((tile[K_DIM] * tile[N_DIM] * inputTypeSize)) / (L0B_MAX_SIZE / DOUBLE_BUFFER);
@@ -228,68 +228,68 @@ void FindScoreForCubeTiles(std::pair<std::vector<int64_t>, std::vector<DataType>
         vectorRatio = {utilizationL0A, utilizationL0B, utilizationL0C};
         double geomeanUtilizationL0 = CalculateGeometricMean(vectorRatio);
         score += WEIGHT_L0 * geomeanUtilizationL0;
- 
+
         // The closer the tasksRatio is to 1, the better
         double tasks = numOfMatmuls * (std::max(M, MIN_TILE) / static_cast<double>(tile[M_DIM])) * (std::max(N, MIN_TILE) / static_cast<double>(tile[N_DIM])) / (cubeL1Reuse * cubeNBuffer);
         double tasksRatioLess = (tasks < CUBE_CORES) ? (CUBE_CORES / tasks  - 1) : 0;
         double tasksRatioMore = (tasks > 2 * CUBE_CORES) ? (tasks / (2 * CUBE_CORES) - 1) : 0;
- 
+
         // Penalty for tasks < CUBE_CORES & tasks > 2 * CUBE_CORES
         score -= TASKS_CUBE_WEIGHT * (tasksRatioLess + tasksRatioMore);
- 
+
         // The more residualTasks the better
         int64_t residualTasks = (static_cast<int64_t>(std::ceil(tasks)) % static_cast<int64_t>(CUBE_CORES) == 0) ? static_cast<int64_t>(CUBE_CORES) : (static_cast<int64_t>(std::ceil(tasks)) % static_cast<int64_t>(CUBE_CORES));
         score += RESIDUAL_CUBE_TASKS_WEIGHT * residualTasks;
- 
+
         //The closer the ratio's is to 1, the better
         double ratioMK = (tile[M_DIM] > tile[K_DIM]) ? static_cast<double>((tile[M_DIM] / tile[K_DIM])) : static_cast<double>((tile[K_DIM] / tile[M_DIM]));
         double ratioKN = (tile[K_DIM] > tile[N_DIM]) ? static_cast<double>((tile[K_DIM] / tile[N_DIM])) : static_cast<double>((tile[N_DIM] / tile[K_DIM]));
         double ratioMN = (tile[M_DIM] > tile[N_DIM]) ? static_cast<double>((tile[M_DIM] / tile[N_DIM])) : static_cast<double>((tile[N_DIM] / tile[M_DIM]));
         vectorRatio = {ratioMK, ratioKN, ratioMN};
         double ratioMKN = CalculateGeometricMean(vectorRatio);
- 
+
         // Penalty for bad balance
         score -= BALANCE_WEIGHT * ratioMKN;
- 
+
         // Consider num of L1CopyIn cycles
         uint64_t numL1CopyInL1A = inputMKN / (mkn * cubeL1Reuse * cubeNBuffer); // Num of L1CopyIn instructions for A
         uint64_t numL1CopyInL1B = inputMKN / mkn; // Num of L1CopyIn instructions for B
- 
+
         uint64_t elePerRepeat = BYTES_PER_REPEAT / BytesOf(inputType);
         uint64_t parallelism = GetParallelism(inputType) == 0 ? 1 : GetParallelism(inputType);
         uint64_t cyclePerRepeat = elePerRepeat / parallelism;
         uint64_t latency = GetLatency(inputType);
- 
+
         uint64_t repeatCountL1A = (tile[M_DIM] * tile[K_DIM] * inputTypeSize - BYTES_PER_REPEAT) / BYTES_PER_REPEAT + 1;
         uint64_t repeatCountL1B = (tile[K_DIM] * tile[N_DIM] * inputTypeSize - BYTES_PER_REPEAT) / BYTES_PER_REPEAT + 1;
- 
+
         uint64_t cyclesL1A = numL1CopyInL1A * (latency + cyclePerRepeat * repeatCountL1A - 1);
         uint64_t cyclesL1B = numL1CopyInL1B * (latency + cyclePerRepeat * repeatCountL1B - 1);
- 
+
         // Overall cycles of L1CopyIn for {m, k, n} tiles (the less the better)
         double cyclesLog = std::log2(cyclesL1A + cyclesL1B);
- 
+
         // Penalty for large num of cycles
         score -= CYCLES_WEIGHT * cyclesLog;
     }
 }
- 
+
 void SetPossibleCubeTiles(std::pair<std::vector<int64_t>, std::vector<DataType>> shapeAndTypeInfo, std::map<std::vector<int64_t>, double>& setOfCubeTiles) {
     // Input shapes
     int64_t M = shapeAndTypeInfo.first[M_DIM];
     int64_t K = shapeAndTypeInfo.first[K_DIM];
     int64_t N = shapeAndTypeInfo.first[N_DIM];
- 
+
     // Input types
     DataType inputType = shapeAndTypeInfo.second[M_DIM];
     DataType outputType = shapeAndTypeInfo.second[K_DIM];
     int64_t inputTypeSize = BytesOf(inputType);
     int64_t outputTypeSize = BytesOf(outputType);
- 
+
     int64_t newM = static_cast<int64_t>(std::pow(NUM2, static_cast<int64_t>(std::ceil(std::log2(std::max(M, MIN_TILE))))));
     int64_t newK = static_cast<int64_t>(std::pow(NUM2, static_cast<int64_t>(std::ceil(std::log2(std::max(K, MIN_TILE))))));
     int64_t newN = static_cast<int64_t>(std::pow(NUM2, static_cast<int64_t>(std::ceil(std::log2(std::max(N, MIN_TILE))))));
- 
+
     for (int64_t m = MIN_TILE; m <= newM; m *= FACTOR) {
         m = m > std::max(M, MIN_TILE) ? std::max(M, MIN_TILE) : m;
         for (int64_t k = MIN_TILE; k <= newK; k *= FACTOR) {
@@ -301,15 +301,15 @@ void SetPossibleCubeTiles(std::pair<std::vector<int64_t>, std::vector<DataType>>
         }
     }
 }
- 
+
 std::vector<int64_t> FindAndSetCubeTileShapes(std::pair<std::vector<int64_t>, std::vector<DataType>> shapeAndTypeInfo, int64_t numOfMatmuls, int64_t cubeL1Reuse, int64_t cubeNBuffer) {
     // Define set of possible cube tiles
     std::map<std::vector<int64_t>, double> setOfCubeTiles;
     SetPossibleCubeTiles(shapeAndTypeInfo, setOfCubeTiles);
- 
+
     // Find score for each set of cube tiles
     FindScoreForCubeTiles(shapeAndTypeInfo, setOfCubeTiles, cubeL1Reuse, cubeNBuffer, numOfMatmuls);
- 
+
     // Find set of tiles with max Score
     double maxScore = -std::numeric_limits<double>::max();
     int64_t mFinal = 0;
@@ -323,7 +323,7 @@ std::vector<int64_t> FindAndSetCubeTileShapes(std::pair<std::vector<int64_t>, st
             maxScore = score;
         }
     }
- 
+
     std::vector<int64_t> resultCubeTiles;
     resultCubeTiles.push_back(mFinal);
     resultCubeTiles.push_back(kFinal);
@@ -425,7 +425,7 @@ void ReshapeTileSetting(Operation *opInit, Operation *opBase, Operation *opNew, 
     std::vector<int64_t> opBaseOutputShape = opBase->GetOOperands()[0]->shape;
     std::vector<int64_t> reshapeInfo(std::max(opBaseInputShape.size(), opBaseOutputShape.size()), 1);
     ReshapeInfoFilling(reshapeInfo, opBaseInputShape, opBaseOutputShape);
-    
+
     std::vector<int64_t> vectorTilesNew(inputDims, -1);
     if (reshapeInfo[reshapeInfo.size() - 1] == 1) {
         for (size_t i = 0; i < reshapeInfo.size(); i++) {
@@ -442,7 +442,7 @@ void ReshapeTileSetting(Operation *opInit, Operation *opBase, Operation *opNew, 
             }
         }
     }
-    
+
     for (size_t dim = 0; dim < inputDims; dim++) {
         if (vectorTilesNew[inputDims - 1 - dim] != -1) {
             continue;
@@ -453,14 +453,14 @@ void ReshapeTileSetting(Operation *opInit, Operation *opBase, Operation *opNew, 
         vectorTilesNew[inputDims - 1 - dim] = curTile;
         tileSize /= curTile;
     }
-    
+
     auto perm = isForward ? opNew->GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "shape") : opInit->GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "shape");
     VcnhwconvProcessing(opInit, opNew, vectorTilesNew, maxInputShape, perm, maxTypeSize, initTileSize, isForward, false);
     opNew->GetTileShapeForSetting().SetVecTile(vectorTilesNew);
 
-    if (!visitedBFS[opNew->GetOpMagic()]) {      
+    if (!visitedBFS[opNew->GetOpMagic()]) {
         queueBFS.push(opNew);
-    }  
+    }
     visitedBFS[opNew->GetOpMagic()] = true;
 }
 
@@ -491,7 +491,7 @@ void TileShapeSetting(Operation *opBase, Operation *opNew, std::vector<int64_t> 
     // Last Dim processing
     int64_t curTile = (iterUniqueDim != uniqueOps.end()) ? std::max(std::max(vectorTilesOld[outputDims - 1], BLOCK_SIZE / inputTypeSize), static_cast<int64_t>(std::pow(NUM2, static_cast<int64_t>(std::log2(std::min(maxInputShape[inputDims - 1], BYTES_PER_REPEAT / inputTypeSize))))))
                                                          : vectorTilesOld[outputDims - 1]; // For ops with InputShape = OutputShape just set previous tileShape
-    curTile = (maxInputShape[inputDims - 1] > curTile) ? std::max(std::gcd(curTile, maxInputShape[inputDims - 1]), BLOCK_SIZE / inputTypeSize) : curTile; // GCD for VIEW and ASSEMBLE ops 
+    curTile = (maxInputShape[inputDims - 1] > curTile) ? std::max(std::gcd(curTile, maxInputShape[inputDims - 1]), BLOCK_SIZE / inputTypeSize) : curTile; // GCD for VIEW and ASSEMBLE ops
     curTile = (iterLastDim != wholeLastDimOps.end()) ? std::max(std::max(curTile, maxInputShape[inputDims - 1]), BLOCK_SIZE / inputTypeSize) : curTile; // TileShape[lastDim] = InputShape[lastDim]
     curTile = ((iterRowDim != reduceOps.end()) && (maxInputShape[inputDims - 1] >= (UINT8MAX * BLOCK_SIZE / inputTypeSize))) ? std::min(static_cast<int64_t>(std::pow(NUM2, static_cast<int64_t>(std::log2(UINT8MAX * BLOCK_SIZE / inputTypeSize)))), curTile) : curTile; // Consider additional restriction for REDUCE ops
     curTile = std::min(tileSize, curTile); // UB overflow condition
@@ -524,11 +524,11 @@ void CubeDepsProcessing(Operation *cubeOp, Operation *opInit, Operation *opBase,
     int magicA = cubeOp->GetIOperands()[0]->magic;
     int magicB = cubeOp->GetIOperands()[1]->magic;
     int magicC = cubeOp->GetOOperands()[0]->magic;
-    
+
     std::vector<int64_t> vectorTilesA = {cubeTile.m[0], cubeTile.k[0]};
     std::vector<int64_t> vectorTilesB = {cubeTile.k[0], cubeTile.n[0]};
     std::vector<int64_t> vectorTilesC = {cubeTile.m[0], cubeTile.n[0]};
-    
+
     if (isFirst) {
         if ((opBase->GetOOperands()[0]->magic == magicA) || (opBase->GetOOperands()[0]->magic == magicB)) {
             if (opInit->GetOpcodeStr() == "At_MUL_B" || opInit->GetOpcodeStr() == "At_MUL_Bt") {
@@ -537,7 +537,7 @@ void CubeDepsProcessing(Operation *cubeOp, Operation *opInit, Operation *opBase,
             if (opInit->GetOpcodeStr() == "A_MUL_Bt" || opInit->GetOpcodeStr() == "At_MUL_Bt") {
                 std::reverse(vectorTilesB.begin(), vectorTilesB.end());
             }
-        
+
             vectorTilesCube = (vectorTilesA[1] > vectorTilesB[1]) ? vectorTilesA : vectorTilesB;
             opInit->GetTileShapeForSetting().SetVecTile(vectorTilesCube); // Set vector tiles for Matmuls
         }
@@ -546,7 +546,7 @@ void CubeDepsProcessing(Operation *cubeOp, Operation *opInit, Operation *opBase,
         if (opNew->GetIOperands()[0]->magic == magicC) {
             vectorTilesCube = vectorTilesC;
             opInit->GetTileShapeForSetting().SetVecTile(vectorTilesCube); // Set vector tiles for Matmuls
-        }         
+        }
     }
 }
 
@@ -557,9 +557,9 @@ bool Propagation(Operation *cubeOp, Operation *opInit, Operation *opBase, Operat
     }
 
     size_t inputsNum = opNew->GetIOperands().size();
-    size_t outputsNum = (isForward) ? opBase->GetIOperands().size() : opBase->GetOOperands().size(); 
+    size_t outputsNum = (isForward) ? opBase->GetIOperands().size() : opBase->GetOOperands().size();
     size_t inputDims = DimsCalculation(opNew, inputsNum, true);
-    size_t outputDims = DimsCalculation(opBase, outputsNum, isForward);             
+    size_t outputDims = DimsCalculation(opBase, outputsNum, isForward);
     int64_t inputTypeSize = BytesOf(opNew->GetIOperands()[0]->tensor->GetDataType());
     int64_t outputTypeSize = BytesOf(opNew->GetOOperands()[0]->tensor->GetDataType());
     int64_t maxTypeSize = std::max(inputTypeSize, outputTypeSize);
@@ -580,20 +580,20 @@ bool Propagation(Operation *cubeOp, Operation *opInit, Operation *opBase, Operat
         TransposeTileSetting(opInit, opBase, opNew, vectorTilesOld, maxInputShape, queueBFS, visitedBFS, maxTypeSize, tileSize, isForward);
         return true;
     }
-    
+
     if (opBase->GetOpcode() == Opcode::OP_RESHAPE) {
         ReshapeTileSetting(opInit, opBase, opNew, vectorTilesOld, maxInputShape, queueBFS, visitedBFS, inputDims, maxTypeSize, tileSize, isForward);
         return true;
     }
-    
+
     if (isReduce) {
         // Broadcast tiles from Reduce op directly
         auto iterRowDim = reduceOps.find(opBase->GetOpcode());
         if (iterRowDim != reduceOps.end()) {
             opNew->GetTileShapeForSetting().SetVecTile(vectorTilesOld);
-            if (!visitedBFS[opNew->GetOpMagic()]) {      
+            if (!visitedBFS[opNew->GetOpMagic()]) {
                 queueBFS.push(opNew);
-            }  
+            }
             visitedBFS[opNew->GetOpMagic()] = true;
             return true;
         }
@@ -651,31 +651,31 @@ void UniqueTilesFilling(Function &function, std::map<std::pair<std::vector<int64
 void SetHeuristicCubeTiles(Function &function, std::unordered_set<Operation *> cubeOperations) {
     std::map<std::pair<std::vector<int64_t>, std::vector<DataType>>, int64_t> uniqueTiles;
     std::pair<std::vector<int64_t>, std::vector<DataType>> curShapeAndType = {{0, 0, 0}, {DataType::DT_FP16, DataType::DT_FP16}}; // shapeM, shapeK, shapeN, InputType, OutputType
-    
+
     int64_t cubeL1Reuse = (function.paramConfigs_.cubeL1ReuseSetting.size() == 1 && function.paramConfigs_.cubeL1ReuseSetting.begin()->first == -1) ? function.paramConfigs_.cubeL1ReuseSetting.begin()->second : 1;
     int64_t cubeNBuffer = (function.paramConfigs_.cubeNBufferSetting.size() == 1 && function.paramConfigs_.cubeNBufferSetting.begin()->first == -1) ? function.paramConfigs_.cubeNBufferSetting.begin()->second : 1;
     int64_t shapeM = 0, shapeK = 0, shapeN = 0;
     UniqueTilesFilling(function, uniqueTiles, curShapeAndType, shapeM, shapeK, shapeN);
- 
+
     // Find and set heuristic cube tile shapes
     std::map<std::pair<std::vector<int64_t>, std::vector<DataType>>, std::vector<int64_t>> resultCubeTilesAndInfo;
     for (auto & [shapeAndTypeInfo, numOfMatmuls] : uniqueTiles) {
         std::vector<int64_t> resultCubeTiles = FindAndSetCubeTileShapes(shapeAndTypeInfo, numOfMatmuls, cubeL1Reuse, cubeNBuffer);
         resultCubeTilesAndInfo[shapeAndTypeInfo] = resultCubeTiles;
     }
- 
+
     std::array<int64_t, MAX_MDIM> m = {0, 0};
     std::array<int64_t, MAX_KDIM> k = {0, 0, 0};
     std::array<int64_t, MAX_NDIM> n = {0, 0};
- 
+
     for (auto &op : cubeOperations) {
         // Calculate ShapeAndType for each operation
         curShapeAndType = ShapeAndTypeSetting(op, shapeM, shapeN, shapeK);
- 
+
         m[0] = resultCubeTilesAndInfo[curShapeAndType][M_DIM];
         k[0] = resultCubeTilesAndInfo[curShapeAndType][K_DIM];
         n[0] = resultCubeTilesAndInfo[curShapeAndType][N_DIM];
- 
+
         // The algorithm calculates tiles for L0, let's assume that tiles for L1 are the same
         m[1] = m[0];
         k[1] = k[0];
@@ -695,7 +695,7 @@ std::vector<Operation *> FordBellman(Function &function, std::unordered_set<Oper
             edges.push_back({consumerOp->GetOpMagic(), op.GetOpMagic()});
         }
     }
-    
+
     // Create lastVertices
     std::vector<int> lastVertices;
     for (auto &op : function.Operations()) {
@@ -703,7 +703,7 @@ std::vector<Operation *> FordBellman(Function &function, std::unordered_set<Oper
             lastVertices.push_back(op.GetOpMagic());
         }
     }
-    
+
     // Define depth for each node using FordBellman algorithm
     for (size_t idx = 0; idx < lastVertices.size(); idx++) {
         edges.push_back({-1, lastVertices[idx]});
@@ -715,14 +715,14 @@ std::vector<Operation *> FordBellman(Function &function, std::unordered_set<Oper
     subgrDepthMap.erase(-1);
     edges.clear();
     lastVertices.clear();
-    
+
     // Sort cube operations by depth
     std::vector<std::pair<Operation *, int>> cubeTmpOperations;
     for (auto cubeOp : cubeOperations) {
         cubeTmpOperations.push_back(std::make_pair(cubeOp, subgrDepthMap[cubeOp->GetOpMagic()]));
     }
     std::sort(cubeTmpOperations.begin(), cubeTmpOperations.end(), [](const std::pair<Operation *, int> &x, const std::pair<Operation *, int> &y) {return x.second < y.second;});
-    
+
     std::vector<Operation *> cubeOrderedOperations;
     for (auto op : cubeTmpOperations) {
         cubeOrderedOperations.push_back(op.first);
@@ -735,9 +735,9 @@ bool DuplicateTileSetting(Operation *opInit, Operation *opNew, std::queue<Operat
     if (opNew->GetIOperands().size() == 0) {
         vectorTilesNew = opInit->GetTileShape().GetVecTile().tile;
         opNew->GetTileShapeForSetting().SetVecTile(vectorTilesNew);
-        if (!visitedBFS[opNew->GetOpMagic()]) {      
+        if (!visitedBFS[opNew->GetOpMagic()]) {
             queueBFS.push(opNew);
-        }  
+        }
         visitedBFS[opNew->GetOpMagic()] = true;
         return true;
     }
@@ -745,9 +745,9 @@ bool DuplicateTileSetting(Operation *opInit, Operation *opNew, std::queue<Operat
 }
 
 void UpdateBFS(Operation *op, std::queue<Operation *> &queueBFS, std::map<int, bool> &visitedBFS) {
-    if (!visitedBFS[op->GetOpMagic()]) {      
+    if (!visitedBFS[op->GetOpMagic()]) {
         queueBFS.push(op);
-    }  
+    }
     visitedBFS[op->GetOpMagic()] = true;
 }
 
@@ -768,7 +768,7 @@ void BackwardCubePropagation(std::vector<Operation *> cubeOrderedOperations, std
                 if (isContinue) {
                     continue;
                 }
-                
+
                 // Update queueBFS and visitedBFS
                 UpdateBFS(producerOp, queueBFS, visitedBFS);
             }
@@ -796,7 +796,7 @@ void ForwardCubePropagation(std::vector<Operation *> cubeOrderedOperations, std:
                 if (isContinue) {
                     continue;
                 }
-                
+
                 // Update queueBFS and visitedBFS
                 UpdateBFS(consumerOp, queueBFS, visitedBFS);
             }
@@ -854,7 +854,7 @@ void BackwardNoConsumersPropagation(std::vector<Operation *> noConsumersOperatio
                 if (isContinue) {
                     continue;
                 }
-                
+
                 // Call propagation
                 isContinue = Propagation(noConsumerOp, op, producerOp, producerOp, queueBFS, visitedBFS, false, false, false, false);
                 if (isContinue) {
@@ -896,7 +896,7 @@ void SetReduceTiles(std::vector<Operation *> reduceOrderedOperations) {
         ASSERT(reducedDim >= 0) << "Not found reduced dims";
         int64_t tileSize = MAX_TILE_SIZE / maxTypeSize;
         vectorTilesReduce.resize(inputDims);
-        
+
         // Reduce Dim processing
         int64_t curTile = std::max(maxInputShape[reducedDim], BLOCK_SIZE / inputTypeSize);
         curTile = (maxInputShape[reducedDim] >= (UINT8MAX * BLOCK_SIZE / inputTypeSize)) ? std::min(static_cast<int64_t>(std::pow(NUM2, static_cast<int64_t>(std::log2(UINT8MAX * BLOCK_SIZE / inputTypeSize)))), curTile) : curTile; // Consider additional restriction for REDUCE ops
@@ -932,7 +932,7 @@ void ForwardReducePropagation(std::vector<Operation *> reduceOrderedOperations, 
                 if (isContinue) {
                     continue;
                 }
-                    
+
                 // Update queueBFS and visitedBFS
                 UpdateBFS(consumerOp, queueBFS, visitedBFS);
             }
@@ -952,13 +952,13 @@ void BackwardReducePropagation(std::vector<Operation *> reduceOrderedOperations,
                 if (isContinue) {
                     continue;
                 }
-                
+
                 // Call propagation
                 isContinue = Propagation(reduceOp, op, producerOp, producerOp, queueBFS, visitedBFS, false, false, true, false);
                 if (isContinue) {
                     continue;
                 }
-                
+
                 // Update queueBFS and visitedBFS
                 UpdateBFS(producerOp, queueBFS, visitedBFS);
             }
@@ -971,23 +971,23 @@ void SetHeuristicVectorTiles(Function &function, std::unordered_set<Operation *>
     // Define cube operations oredered by depth
     std::map<int, int> subgrDepthMap;
     std::vector<Operation *> cubeOrderedOperations = FordBellman(function, cubeOperations, subgrDepthMap);
-    
+
     // Define auxiliary data structures
     std::queue<Operation *> queueBFS;
     std::map<int, bool> visitedBFS;
-    
+
     // 1. Backward propagation from CubeOps
     BackwardCubePropagation(cubeOrderedOperations, queueBFS, visitedBFS);
 
     // 2. Forward propagation from CubeOps
     ForwardCubePropagation(cubeOrderedOperations, queueBFS, visitedBFS);
-    
+
     // Need to set initial vector tiles for nodes without consumers
     std::vector<Operation *> noConsumersOperations = FillNoConsumersOperations(function);
-    
+
     // 3. Backward propagation from nodes without consumers
     BackwardNoConsumersPropagation(noConsumersOperations, queueBFS, visitedBFS);
-    
+
     // Sort reduce operations by depth
     std::unordered_set<Operation *> reduceOperations;
     std::vector<std::pair<Operation *, int>> reduceTmpOperations;
@@ -997,24 +997,24 @@ void SetHeuristicVectorTiles(Function &function, std::unordered_set<Operation *>
             reduceOperations.insert(&op);
         }
     }
-    
+
     for (auto reduceOp : reduceOperations) {
         reduceTmpOperations.push_back(std::make_pair(reduceOp, subgrDepthMap[reduceOp->GetOpMagic()]));
     }
     std::sort(reduceTmpOperations.begin(), reduceTmpOperations.end(), [](const std::pair<Operation *, int> &x, const std::pair<Operation *, int> &y) {return x.second < y.second;});
-    
+
     std::vector<Operation *> reduceOrderedOperations;
     for (auto op : reduceTmpOperations) {
         reduceOrderedOperations.push_back(op.first);
     }
     reduceTmpOperations.clear();
-    
+
     // Need to set initial vector tiles for ReduceOps
     SetReduceTiles(reduceOrderedOperations);
-    
+
     // 4. Forward propagation from ReduceOps
     ForwardReducePropagation(reduceOrderedOperations, queueBFS, visitedBFS);
-    
+
     // 5. Backward propagation from ReduceOps
     BackwardReducePropagation(reduceOrderedOperations, queueBFS, visitedBFS);
 }
@@ -1034,7 +1034,7 @@ void GenerateJsonForPython(Function &function){
             if(full_dump["file"].is_null()){
                 continue;
             }
-            
+
             if(op.GetCoreTypeStr() == "AIC"){
                 pythonJson[opIdName]["type"] = "CubeTile";
                 auto cubeShape = op.GetTileShape();
@@ -1093,12 +1093,12 @@ void GenerateJsonForSemanticLabels(Function &function){
             operIdx += 1;
         }
         graph_tiles << semanticJson.dump(4) << std::endl;
-    } 
+    }
 }
 
 void SetHeuristicTileShapes::SetHeuristicTileShapesFunc(Function &function) const {
     (void)function;
-    
+
     // Find all cube operations from all operations
     std::unordered_set<Operation *> cubeOperations;
     for (auto &op : function.Operations()) {
@@ -1106,12 +1106,12 @@ void SetHeuristicTileShapes::SetHeuristicTileShapesFunc(Function &function) cons
             cubeOperations.insert(&op);
         }
     }
-    
+
     #ifdef CUBE_TILES
     // Set heuristic cube tiles
     SetHeuristicCubeTiles(function, cubeOperations);
     #endif
-    
+
     #ifdef VECTOR_TILES
     // Define -1 tile shapes for non-cubes operations
     std::vector<int64_t> defTile = {-1};
@@ -1121,7 +1121,7 @@ void SetHeuristicTileShapes::SetHeuristicTileShapesFunc(Function &function) cons
 
     // Set heuristic vector tiles
     SetHeuristicVectorTiles(function, cubeOperations);
-    
+
     // Check that all tiles was defined by algorithm
     for (auto &op : function.Operations()) {
         ASSERT(op.GetTileShape().GetVecTile()[0] != -1) << "Not all tiles was set";
