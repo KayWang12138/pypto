@@ -162,22 +162,28 @@ Status ExpandFunction::Expandfunction(Function &function) const {
     return SUCCESS;
 }
 
-Status ExpandFunction::ExpandOperation(Function &function, Operation &op) const {
-    int scopeIdx = op.GetScopeId();
-    if (scopeIdx >= 0) { // scopeIdx < 0 means no need to merge
-        scopeMap_[scopeIdx].insert(op.GetCoreType());
-        if (!GraphUtils::IsCVMixPlatform() && scopeMap_[scopeIdx].find(CoreType::AIC) != scopeMap_[scopeIdx].end() &&
-            scopeMap_[scopeIdx].find(CoreType::AIV) != scopeMap_[scopeIdx].end()) {
-            APASS_LOG_ERROR_F(Elements::Function,
+Status ExpandFunction::ExpandOperation(Function &function, Operation &op) const{
+    const auto &info = op.GetScopeInfo();
+    if (info.scopeId >= 0) { // scopeIdx < 0 means no need to merge
+        scopeMap_[info.scopeId].insert(op.GetCoreType());
+        if (!GraphUtils::IsCVMixPlatform() && scopeMap_[info.scopeId].find(CoreType::AIC) != scopeMap_[info.scopeId].end() && 
+            scopeMap_[info.scopeId].find(CoreType::AIV) != scopeMap_[info.scopeId].end()) {
+            APASS_LOG_ERROR_F(Elements::Function, 
                 "Cannot mix cube and vector op on a CV seperate platform in function: %s, please check your setting: "
-                "sg_set_scope=%d",
-                function.GetRawName().c_str(), scopeIdx);
+                "sg_set_scope=%d", 
+                function.GetRawName().c_str(), info.scopeId);
             return FAILED;
         }
     }
-    config::SetPassOption(SG_SET_SCOPE, scopeIdx);
+    std::vector<int> scopeVec = {
+        static_cast<int>(info.scopeId),
+        static_cast<int>(info.allowParallelMerge),
+        static_cast<int>(info.allowCrossScopeMerge),
+        static_cast<int>(info.mixId)
+    };
+    config::SetPassOption(SG_SET_SCOPE, scopeVec);
     ExpandOperationInto(function, op.GetTileShape(), op.GetOpcode(), op.GetIOperands(), op.GetOOperands(), op);
-    config::SetPassOption(SG_SET_SCOPE, -1);
+    config::SetPassOption(SG_SET_SCOPE, std::vector<int>{-1, 0, 0, -1});
     return SUCCESS;
 }
 
