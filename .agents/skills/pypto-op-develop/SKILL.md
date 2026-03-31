@@ -53,8 +53,8 @@ description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需�
 
 | 文件 | 用途 | 加载时机 |
 |------|------|----------|
-| [references/test-template.py](references/test-template.py) | test 文件固定模板 | 生成 test_{op}.py 时读取 |
-| [references/impl-template.py](references/impl-template.py) | impl 文件固定模板 | 生成 {op}_impl.py 时读取 |
+| [templates/test-template.py](templates/test-template.py) | test 文件固定模板 | 生成 test_{op}.py 时读取 |
+| [templates/impl-template.py](templates/impl-template.py) | impl 文件固定模板 | 生成 {op}_impl.py 时读取 |
 | [references/execution-constraints.md](references/execution-constraints.md) | PyPTO 开发执行约束清单 | 进入实现阶段前必读；编码与自检时反复对照 |
 | [references/error-code-troubleshooting.md](references/error-code-troubleshooting.md) | 错误码排查流程与常见错误码速查 | 验证失败时按流程排查 |
 | [scripts/environment_prepare.sh](scripts/environment_prepare.sh) | 环境初始化脚本 | 环境准备阶段按需执行 |
@@ -107,8 +107,8 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 **生成顺序**：
 1. 根据输入信息，先梳理 API 映射、tiling 策略、loop 结构，确认可行后再进入实现
 2. 进入实现前，读取 `references/execution-constraints.md`，把框架级约束、基础类型约束、控制流约束和高频 operation 约束落实到本次实现
-3. 基于 `references/impl-template.py` 生成 `{op}_impl.py`
-4. 基于 `references/test-template.py` 生成 `test_{op}.py`（前置：`{op}_impl.py` 已生成）
+3. 基于 `templates/impl-template.py` 生成 `{op}_impl.py`
+4. 基于 `templates/test-template.py` 生成 `test_{op}.py`（前置：`{op}_impl.py` 已生成）
 5. 生成 `README.md`
 
 ⚠️ 实现代码与测试代码必须分离，禁止混写 golden / impl / test 到同一文件。
@@ -117,14 +117,14 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 
 #### 生成 {op}_impl.py
 
-PyPTO kernel 函数实现，基于固定模板 `references/impl-template.py` 生成。
+PyPTO kernel 函数实现，基于固定模板 `templates/impl-template.py` 生成。
 
 实现前必须逐项核对 `references/execution-constraints.md`，尤其是：输出写回、动态轴标注、Element 使用、TileShape、valid_shape、loop/cond、同图内读写回环。
 
 | 规范 | 说明 |
 |------|------|
 | 导出函数 | `{op}_wrapper(x: torch.Tensor) -> torch.Tensor` |
-| Kernel 装饰器 | `@pypto.frontend.jit` |
+| Kernel 装饰器 | `@pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})` |
 | Tensor 描述符 | `pypto.Tensor()` 或 `pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32)` |
 | Tiling 配置 | 必须调用 `pypto.set_vec_tile_shapes(...)` 或 `pypto.set_cube_tile_shapes(...)` |
 | 输出写回 | `output[:] = result` 或 `pypto.assemble(result, offset, output)` |
@@ -132,7 +132,7 @@ PyPTO kernel 函数实现，基于固定模板 `references/impl-template.py` 生
 
 #### 生成 test_{op}.py
 
-torch golden 函数精度对比测试，基于固定模板 `references/test-template.py` 生成。
+torch golden 函数精度对比测试，基于固定模板 `templates/test-template.py` 生成。
 
 **结构**：
 
@@ -148,7 +148,7 @@ torch golden 函数精度对比测试，基于固定模板 `references/test-temp
 | 规范 | 说明 |
 |------|------|
 | 精度对比 | 必须使用 `assert_allclose`，详见"三种状态标记约定" |
-| 容差 | 简单算子 `rtol=1e-3, atol=1e-3`；复杂算子 `rtol=3e-3, atol=3e-3` |
+| 容差 | 简单算子（逐元素）`rtol=1e-3, atol=1e-3`；复杂算子（归约/指数/矩阵）`rtol=3e-3, atol=3e-3` |
 | NPU 条件对比 | `if run_mode == "npu": assert_allclose(...)` |
 | 禁止手写对比 | `assert max_diff < tolerance` / `np.allclose()` 均禁止 |
 

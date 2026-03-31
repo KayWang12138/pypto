@@ -34,7 +34,12 @@ description: "对一个 skill 目录进行质量与最佳实践合规性评审�
    python3 scripts/validate_skill.py <skill-path>
    ```
 3. 捕获 JSON 输出 —— 一个 finding 对象数组 `findings_static`。
-4. 验证脚本是否成功退出。若失败，报告错误，并仅继续输出第 2 阶段结果。
+4. 验证脚本输出的字段完整性：
+   - 检查每个 finding 包含所有必需字段（rule_id/status/severity/dimension/message/evidence/suggested_fix）
+   - 缺失字段应补充默认值：
+     - PASS findings：suggested_fix = ""
+     - FAIL findings：必须提供非空的 suggested_fix（若脚本未提供，需在后续步骤补充）
+5. 验证脚本是否成功退出。若失败，报告错误，并仅继续输出第 2 阶段结果。
 
 ### 第 2 阶段：语义评审
 
@@ -77,7 +82,7 @@ description: "对一个 skill 目录进行质量与最佳实践合规性评审�
      --skill-path <skill-path> \
      --findings findings_merged.json
    ```
-   捕获 JSON 输出为 `score_result`。
+   将 JSON 输出保存为 `score_result.json` 文件。
 5. 按位置将 findings 聚合为问题：
    - **聚合键**：`file + line_range`（彼此相距 ±5 行内的 findings 合并为一个问题）
    - 每个问题记录所有匹配的 `rule_id` 值
@@ -96,6 +101,17 @@ description: "对一个 skill 目录进行质量与最佳实践合规性评审�
 9. 使用模板渲染最终报告，填充全部占位符。
 
 ## 输出
+
+### 必需产出文件
+
+评审完成后，必须产出以下文件：
+
+| 文件名 | 说明 | 生成阶段 |
+|--------|------|---------|
+| `findings_merged.json` | 合并后的完整 findings（静态 + 语义） | 第 3 阶段步骤 3 |
+| `score_result.json` | 评分脚本输出结果 | 第 3 阶段步骤 4 |
+
+### Markdown 评审报告
 
 直接向用户输出完整的 Markdown 评审报告。报告必须包含以下全部 6 个章节 —— 缺少任意章节都视为不完整。
 
