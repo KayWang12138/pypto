@@ -36,74 +36,6 @@
 
 using namespace npu::tile_fwk::dynamic;
 
-class TestPro : public testing::Test {
-public:
-    static void SetUpTestCase() {}
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override {}
-
-    void TearDown() override {}
-};
-
-TEST_F(TestPro, test_ini)
-{
-    std::unique_ptr<AicpuTaskManager> aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
-    std::unique_ptr<AiCoreManager> AiCoreManagerPtr = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
-    AiCoreManagerPtr->aicNum_ = 0;
-    AiCoreManagerPtr->aivNum_ = 1;
-    AiCoreManagerPtr->aivEnd_ = 1;
-    AiCoreManagerPtr->aicEnd_ = 0;
-    AiCoreManagerPtr->aicpuIdx_ = 0;
-    AiCoreProf prof(*AiCoreManagerPtr);
-
-    int64_t* oriRegAddrs_ = (int64_t*)malloc(sizeof(int64_t) * 1024 * 2);
-    int64_t* regAddrs_ = oriRegAddrs_ + 1024;
-    regAddrs_[0] = (int64_t)&regAddrs_[0];
-    std::cout << "oriRegAddrs_ " << oriRegAddrs_ << std::endl;
-    std::cout << "regAddrs_    " << regAddrs_ << std::endl;
-    ProfConfig profConfig;
-    prof.ProfInit(regAddrs_, regAddrs_, profConfig);
-    prof.ProfStart();
-
-    int32_t aicoreId = 0;
-    int32_t subgraphId = 0;
-    int32_t taskId = 0;
-    TaskStat* taskStat = new TaskStat();
-    taskStat->taskId = 0;
-    taskStat->execEnd = 1;
-    taskStat->execStart = 0;
-    taskStat->subGraphId = 0;
-
-    prof.ProInitHandShake();
-    prof.ProInitAiCpuTaskStat();
-    int threadIdx = 0;
-    AiCpuTaskStat* aiCpuStat = new AiCpuTaskStat();
-    AiCpuHandShakeSta handShakeSta;
-    aiCpuStat->taskId = 0;
-    aiCpuStat->execEnd = 1;
-    aiCpuStat->execStart = 0;
-    aiCpuStat->coreId = 0;
-    aiCpuStat->taskGetStart = 0;
-
-    for (int i = 0; i < 8; i++) {
-        prof.ProfGet(aicoreId, subgraphId, taskId, taskStat);
-        prof.ProfGetAiCpuTaskStat(threadIdx, aiCpuStat);
-        prof.ProGetHandShake(threadIdx, &handShakeSta);
-    }
-    prof.ProfStopHandShake();
-    prof.ProfStopAiCpuTaskStat();
-    int64_t flag = 0;
-    prof.ProfGetSwitch(flag);
-
-    prof.ProfStop();
-    prof.GetAiCpuTaskStat(taskId);
-    delete aiCpuStat;
-    delete taskStat;
-    free(oriRegAddrs_);
-}
-
 static void* AllocAligned(size_t alignment, size_t size)
 {
     void* ptr = nullptr;
@@ -116,84 +48,205 @@ static void* AllocAligned(size_t alignment, size_t size)
     return ptr;
 }
 
-TEST_F(TestPro, test_prof_start_pmu_dav2201)
-{
-    // Setup manager: keep one aicore managed
-    std::unique_ptr<AicpuTaskManager> aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
-    std::unique_ptr<AiCoreManager> aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
-    aicoreMng->aicNum_ = 1;
-    aicoreMng->aivNum_ = 0;
-    aicoreMng->aicStart_ = 0;
-    aicoreMng->aicEnd_ = 1;
-    aicoreMng->aicpuIdx_ = 0;
-    AiCoreProf prof(*aicoreMng);
+class TestPro : public testing::Test {
+public:
+    static void SetUpTestCase() {}
 
-    const uint32_t pageSize = static_cast<uint32_t>(sysconf(_SC_PAGESIZE));
-    // cover PMU register offsets up to about 0x2000+ for 2201
-    const size_t regBufSize = 0x6000;
-    uint8_t* regBuf = reinterpret_cast<uint8_t*>(AllocAligned(pageSize, regBufSize));
-    ASSERT_NE(regBuf, nullptr);
+    static void TearDownTestCase() {}
 
-    // choose an address within the first page so mapBase aligns to regBuf
-    void* addr = reinterpret_cast<void*>(regBuf + 0x100);
-
-    int64_t regAddrsArr[1024] = {0};
-    regAddrsArr[0] = reinterpret_cast<int64_t>(addr);
-
-    int64_t pmuEventAddrsArr[10] = {0};
-    for (int i = 0; i < 8; ++i) {
-        pmuEventAddrsArr[i] = i + 1;
+    void SetUp() override
+    {
     }
 
+    void TearDown() override
+    {
+    }
+
+protected:
+    std::unique_ptr<AicpuTaskManager> CreateAicpuTaskManager() { return std::make_unique<AicpuTaskManager>(); }
+
+    std::unique_ptr<AiCoreManager> CreateAiCoreManager(AicpuTaskManager* aicpuTaskPtr)
+    {
+        auto aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
+        aicoreMng->aicNum_ = 1;
+        aicoreMng->aivNum_ = 0;
+        aicoreMng->aicStart_ = 0;
+        aicoreMng->aicEnd_ = 1;
+        aicoreMng->aicpuIdx_ = 0;
+        return aicoreMng;
+    }
+
+    std::unique_ptr<PyPtoMsprofCommandHandle> CreateProfCommandHandle(uint64_t profSwitch = 0, uint32_t type = 0)
+    {
+        auto data = std::make_unique<PyPtoMsprofCommandHandle>();
+        data->profSwitch = profSwitch;
+        data->type = type;
+        return data;
+    }
+
+    struct PmuTestEnv {
+        std::unique_ptr<AicpuTaskManager> aicpuTaskPtr;
+        std::unique_ptr<AiCoreManager> aicoreMng;
+        std::unique_ptr<AiCoreProf> prof;
+        uint8_t* regBuf;
+        void* addr;
+        int64_t regAddrsArr[1024];
+        int64_t pmuEventAddrsArr[10];
+
+        PmuTestEnv(size_t regBufSize)
+        {
+            aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
+            aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
+            aicoreMng->aicNum_ = 1;
+            aicoreMng->aivNum_ = 0;
+            aicoreMng->aicStart_ = 0;
+            aicoreMng->aicEnd_ = 1;
+            aicoreMng->aicpuIdx_ = 0;
+
+            const uint32_t pageSize = static_cast<uint32_t>(sysconf(_SC_PAGESIZE));
+            regBuf = reinterpret_cast<uint8_t*>(AllocAligned(pageSize, regBufSize));
+            addr = reinterpret_cast<void*>(regBuf + 0x100);
+
+            memset_s(regAddrsArr, sizeof(regAddrsArr), 0, sizeof(regAddrsArr));
+            regAddrsArr[0] = reinterpret_cast<int64_t>(addr);
+
+            memset_s(pmuEventAddrsArr, sizeof(pmuEventAddrsArr), 0, sizeof(pmuEventAddrsArr));
+
+            prof = std::make_unique<AiCoreProf>(*aicoreMng);
+        }
+
+        ~PmuTestEnv()
+        {
+            if (regBuf != nullptr) {
+                free(regBuf);
+            }
+        }
+
+        void SetupPmuEvents(int eventCount)
+        {
+            for (int i = 0; i < eventCount; ++i) {
+                pmuEventAddrsArr[i] = i + 1;
+            }
+        }
+    };
+
+    struct BasicProfTestEnv {
+        std::unique_ptr<AicpuTaskManager> aicpuTaskPtr;
+        std::unique_ptr<AiCoreManager> aicoreMng;
+        std::unique_ptr<AiCoreProf> prof;
+        int64_t* oriRegAddrs;
+        int64_t* regAddrs;
+
+        BasicProfTestEnv()
+        {
+            aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
+            aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
+            aicoreMng->aicNum_ = 0;
+            aicoreMng->aivNum_ = 1;
+            aicoreMng->aivEnd_ = 1;
+            aicoreMng->aicEnd_ = 0;
+            aicoreMng->aicpuIdx_ = 0;
+            prof = std::make_unique<AiCoreProf>(*aicoreMng);
+
+            oriRegAddrs = reinterpret_cast<int64_t*>(malloc(sizeof(int64_t) * 1024 * 2));
+            regAddrs = oriRegAddrs + 1024;
+            regAddrs[0] = reinterpret_cast<int64_t>(regAddrs);
+        }
+
+        ~BasicProfTestEnv()
+        {
+            if (oriRegAddrs != nullptr) {
+                free(oriRegAddrs);
+            }
+        }
+
+        void RunProfTest(int iterations = 8)
+        {
+            ProfConfig profConfig;
+            std::unique_ptr<DeviceArgs> devArgs = std::make_unique<DeviceArgs>();
+            devArgs->corePmuRegAddr = reinterpret_cast<int64_t>(regAddrs);
+            prof->ProfInit(devArgs.get());
+            prof->ProfStart();
+
+            int32_t aicoreId = 0;
+            int32_t subgraphId = 0;
+            int32_t taskId = 0;
+            TaskStat* taskStat = new TaskStat();
+            taskStat->taskId = 0;
+            taskStat->execEnd = 1;
+            taskStat->execStart = 0;
+            taskStat->subGraphId = 0;
+
+            prof->ProInitHandShake();
+            prof->ProInitAiCpuTaskStat();
+            int threadIdx = 0;
+            AiCpuTaskStat* aiCpuStat = new AiCpuTaskStat();
+            AiCpuHandShakeSta handShakeSta;
+            aiCpuStat->taskId = 0;
+            aiCpuStat->execEnd = 1;
+            aiCpuStat->execStart = 0;
+            aiCpuStat->coreId = 0;
+            aiCpuStat->taskGetStart = 0;
+
+            for (int i = 0; i < iterations; i++) {
+                prof->ProfGet(aicoreId, subgraphId, taskId, taskStat);
+                prof->ProfGetAiCpuTaskStat(threadIdx, aiCpuStat);
+                prof->ProGetHandShake(threadIdx, &handShakeSta);
+            }
+            prof->ProfStopHandShake();
+            prof->ProfStopAiCpuTaskStat();
+            int64_t flag = 0;
+            prof->ProfGetSwitch(flag);
+
+            prof->ProfStop();
+            prof->GetAiCpuTaskStat(taskId);
+            delete aiCpuStat;
+            delete taskStat;
+        }
+    };
+};
+
+TEST_F(TestPro, test_ini)
+{
+    BasicProfTestEnv env;
+    env.RunProfTest();
+}
+
+TEST_F(TestPro, test_prof_start_pmu_dav2201)
+{
+    PmuTestEnv env(0x6000);
+    env.SetupPmuEvents(8);
+
     ProfConfig profConfig;
+    std::unique_ptr<DeviceArgs> devArgs = std::make_unique<DeviceArgs>();
     profConfig.Add(ProfConfig::AICORE_PMU);
-    prof.ProfInit(regAddrsArr, pmuEventAddrsArr, profConfig, ArchInfo::DAV_2201);
-    prof.ProfInitPmu(regAddrsArr, pmuEventAddrsArr);
-    prof.ProfStartPmu();
+    devArgs->toSubMachineConfig.profConfig = profConfig;
+    env.prof->ProfInit(devArgs.get());
+    env.prof->ProfInitPmu(env.regAddrsArr, env.pmuEventAddrsArr);
+    env.prof->ProfStartPmu();
     TaskStat taskStat;
     taskStat.seqNo = 1;
-    prof.ProfGetPmu(0, 0, 0, &taskStat);
-    prof.ProfStop();
-
-    free(regBuf);
+    env.prof->ProfGetPmu(0, 0, 0, &taskStat);
+    env.prof->ProfStop();
 }
 
 TEST_F(TestPro, test_prof_start_pmu_dav3510)
 {
-    std::unique_ptr<AicpuTaskManager> aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
-    std::unique_ptr<AiCoreManager> aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
-    aicoreMng->aicNum_ = 1;
-    aicoreMng->aivNum_ = 0;
-    aicoreMng->aicStart_ = 0;
-    aicoreMng->aicEnd_ = 1;
-    aicoreMng->aicpuIdx_ = 0;
-    AiCoreProf prof(*aicoreMng);
-
-    const uint32_t pageSize = static_cast<uint32_t>(sysconf(_SC_PAGESIZE));
-    // cover DAV_3510 PMU register offsets up to ~0x4300
-    const size_t regBufSize = 0x9000;
-    uint8_t* regBuf = reinterpret_cast<uint8_t*>(AllocAligned(pageSize, regBufSize));
-    ASSERT_NE(regBuf, nullptr);
-
-    void* addr = reinterpret_cast<void*>(regBuf + 0x100);
-
-    int64_t regAddrsArr[1024] = {0};
-    regAddrsArr[0] = reinterpret_cast<int64_t>(addr);
-
-    int64_t pmuEventAddrsArr[10] = {0};
-    for (int i = 0; i < 10; ++i) {
-        pmuEventAddrsArr[i] = i + 1;
-    }
+    PmuTestEnv env(0x9000);
+    env.SetupPmuEvents(10);
 
     ProfConfig profConfig;
+    std::unique_ptr<DeviceArgs> devArgs = std::make_unique<DeviceArgs>();
     profConfig.Add(ProfConfig::AICORE_PMU);
-    prof.ProfInit(regAddrsArr, pmuEventAddrsArr, profConfig, ArchInfo::DAV_3510);
-    prof.ProfInitPmu(regAddrsArr, pmuEventAddrsArr);
-    prof.ProfStartPmu();
+    devArgs->toSubMachineConfig.profConfig = profConfig;
+    devArgs->archInfo = ArchInfo::DAV_3510;
+    env.prof->ProfInit(devArgs.get());
+    env.prof->ProfInitPmu(env.regAddrsArr, env.pmuEventAddrsArr);
+    env.prof->ProfStartPmu();
     TaskStat taskStat;
     taskStat.seqNo = 1;
-    prof.ProfGetPmu(0, 0, 0, &taskStat);
-    prof.ProfStop();
-
-    free(regBuf);
+    env.prof->ProfGetPmu(0, 0, 0, &taskStat);
+    env.prof->ProfStop();
 }
+
+
