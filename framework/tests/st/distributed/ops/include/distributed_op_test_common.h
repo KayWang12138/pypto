@@ -120,7 +120,7 @@ bool CompareWithGolden(
 inline void RunTest()
 {
     DeviceLauncherConfig config;
-    config.runModel = false;
+    // config.runModel = false;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 }
 
