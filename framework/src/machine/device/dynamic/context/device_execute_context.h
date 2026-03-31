@@ -67,17 +67,6 @@ struct DeviceExecuteContext {
 
     bool DuppedRootUpdateAndCachedAllSubmitted();
 
-    static uint64_t GetInputShapeDimSize(DeviceExecuteContext* ctx, uint64_t inputIndex);
-    static uint64_t GetInputShapeDim(DeviceExecuteContext* ctx, uint64_t inputIndex, uint64_t n);
-    static int64_t GetInputDataInt32Dim1(DeviceExecuteContext* ctx, uint64_t inputIndex, uint64_t off0);
-    static int64_t GetInputDataInt32Dim2(DeviceExecuteContext* ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1);
-    static int64_t GetInputDataInt32Dim3(
-        DeviceExecuteContext* ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1, uint64_t off2);
-    static int64_t GetInputDataInt32Dim4(
-        DeviceExecuteContext* ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1, uint64_t off2, uint64_t off3);
-
-    static void* SymbolHandlerIdToHandler(SymbolHandlerId id);
-
     DeviceExecuteContext(DevStartArgs* startArgs);
 
     void ShowStats();
