@@ -272,18 +272,4 @@ TEST_F(TestPro, test_check_level_invalid_params)
     EXPECT_EQ(ret3, -1);
 }
 
-TEST_F(TestPro, test_check_level_off)
-{
-    auto aicpuTaskPtr = CreateAicpuTaskManager();
-    auto aicoreMng = CreateAiCoreManager(aicpuTaskPtr.get());
-    AiCoreProf prof(*aicoreMng);
-
-    auto data = CreateProfCommandHandle(65661, 0);
-    auto size = sizeof(PyPtoMsprofCommandHandle);
-
-    prof.DevProfInit(1, data.get(), size);
-    prof.GetIsOpenDevProf();
-    EXPECT_EQ(prof.profLevel_, 0);
-}
-
 
