@@ -36,18 +36,6 @@ bool DeviceExecuteContext::DuppedRootUpdateAndCachedAllSubmitted()
     return duppedRootCount == devProg->ctrlFlowCacheAnchor->rootTaskCount;
 }
 
-uint64_t DeviceExecuteContext::GetInputShapeDimSize(DeviceExecuteContext* ctx, uint64_t inputIndex)
-{
-    DevTensorData* input = &ctx->args->devTensorList[inputIndex];
-    return input->shape.dimSize;
-}
-
-uint64_t DeviceExecuteContext::GetInputShapeDim(DeviceExecuteContext* ctx, uint64_t inputIndex, uint64_t n)
-{
-    DevTensorData* input = &ctx->args->devTensorList[inputIndex];
-    return input->shape.dim[n];
-}
-
 int DeviceExecuteContext::RunInit(DevStartArgs* startArgs, PushTaskEntry tPushTask)
 {
     PerfBegin(PERF_EVT_CONTROL_FLOW_INIT);
