@@ -28,6 +28,7 @@
 namespace npu::tile_fwk {
 const std::unordered_map<size_t, size_t> BLOCK_PADDING_DIM = {{1, 32}, {2, 16}, {4, 8}, {8, 4}};
 
+// if Enum value change, please update RuntimeDTypeX macro in aikernel_runtime.h !!!
 enum DataType {
     DT_INT4 = 0,
     DT_INT8 = 1,
@@ -123,6 +124,17 @@ inline bool IsFloat(DataType t)
         return true;
     }
     return false;
+}
+
+inline bool IsInteger(DataType t)
+{
+    if ((t == DT_INT4) || (t == DT_INT8) || (t == DT_INT16) || (t == DT_INT32) || (t == DT_INT64)) {
+        return true;
+    }
+    if ((t == DT_UINT8) || (t == DT_UINT16) || (t == DT_UINT32) || (t == DT_UINT64)) {
+        return true;
+    }
+    return t == DT_BOOL;
 }
 
 inline std::string DataType2String(DataType t)
@@ -248,12 +260,10 @@ inline std::string DataType2CCEStr(DataType t)
             return "float";
         case DT_BF16:
             return "bfloat16_t";
-        case DT_HF8:
-            return "hifloat8_t";
         case DT_HF4:
             return "hfloat4";
-        case DT_BOOL:
-            return "bool";
+        case DT_HF8:
+            return "hifloat8_t";
         case DT_UINT8:
             return "uint8_t";
         case DT_UINT16:
@@ -262,10 +272,14 @@ inline std::string DataType2CCEStr(DataType t)
             return "uint32_t";
         case DT_UINT64:
             return "uint64_t";
-        case DT_FP8E4M3:
-            return "float8_e4m3_t";
+        case DT_BOOL:
+            return "bool";
+        case DT_DOUBLE:
+            return "double";
         case DT_FP8E5M2:
             return "float8_e5m2_t";
+        case DT_FP8E4M3:
+            return "float8_e4m3_t";
         case DT_FP8E8M0:
             return "float8_e8m0_t";
         case DT_FP4_E2M1X2:
