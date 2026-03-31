@@ -161,7 +161,7 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::Quantize(input, scale, otype, axis, zeroPoints);
         },
         py::arg("input"), py::arg("scale"), py::arg("otype"), py::arg("axis"),
-        py::arg("zero_points") = nullptr, "Tensor Quantize.");
+        py::arg("zero_points") = Tensor(), "Tensor Quantize.");
     m.def(
         "Add", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Add(self, other); },
         "Tensor add scalar.");
