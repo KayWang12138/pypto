@@ -369,6 +369,19 @@ bool ConvertInserter::FitL0C2L1(const LogicalTensorPtr& tensor)
            (shape[0] % L0C2L1_DIM1_SHAPE_RESTICT == 0) && (dim2Size % L0C2L1_DIM2_BYTE_RESTICT == 0);
 }
 
+// UB2L1 小搬大的格式检查
+bool ConvertInserter::FitUB2L1(const LogicalTensorPtr &tensor) const{
+    auto shape = tensor->GetShape();
+    if (shape.size() != MATMUL_DIM_NUM) {
+        return false;
+    }
+    // 检查外轴（第一轴）是否为 16 元素对齐
+    if (shape[0] % UB2L1_DIM0_ALIGN != 0) {
+        return false;
+    }
+    return true;
+}
+
 // 构造转换路径
 Status ConvertInserter::ProcessConvertPath(
     const Operation& op, const std::shared_ptr<LogicalTensor>& oOperand, MemoryType requiredMemoryType,
