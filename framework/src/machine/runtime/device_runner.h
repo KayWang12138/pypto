@@ -37,7 +37,7 @@
 constexpr int CORE_DEFAULT_NUM = 70;
 namespace npu::tile_fwk {
 struct FileLock {
-    FileLock() : fd(-1){};
+    FileLock() : fd(-1) {};
 
     bool Init(const char* path)
     {
@@ -90,6 +90,7 @@ public:
     bool GetEnableDumpDevPref() const;
     void StartMachinePerfTraceDumpThread();
     void StopMachinePerfTraceDumpThread();
+    void FinalDumpInForkedChild();
     int RunPreSync(rtStream_t scheStream, rtStream_t ctrlStream, rtStream_t aicoreStream);
 
 private:
