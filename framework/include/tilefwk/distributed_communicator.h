@@ -26,50 +26,6 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
-// OneShotCommunicator: wraps a ShmemTensor, exposes Put/WaitAndGet by rank ID.
-class OneShotCommunicator {
-public:
-    explicit OneShotCommunicator(ShmemTensor& shmemTensor)
-        : shmemTensor_(shmemTensor)
-        , worldSize_(static_cast<uint32_t>(shmemTensor.worldSize))
-        , thisRank_(GetHcclRankId(shmemTensor.group))
-        , row_(shmemTensor.data.GetShape()[1])
-        , col_(shmemTensor.data.GetShape()[2])
-    {}
-
-    OneShotCommunicator(const OneShotCommunicator&) = delete;
-    OneShotCommunicator& operator=(const OneShotCommunicator&) = delete;
-
-    uint32_t WorldSize() const { return worldSize_; }
-    SymbolicScalar ThisRank() const { return thisRank_; }
-
-    // Put + Signal: write data to targetRank's shmem slot, then signal it.
-    void Put(const Tensor& pred, const Tensor& input, uint32_t targetRank,
-        AtomicType atomicType) const
-    {
-        auto dataTile = ShmemView(shmemTensor_, {1, row_, col_}, std::vector<SymbolicScalar>{0, 0, 0});
-        auto putOut = ShmemPut(input, dataTile, targetRank, atomicType, pred);
-        ShmemSignal(dataTile, targetRank, targetRank, 1, atomicType, putOut);
-    }
-
-    // Fused WaitUntil + ShmemGet: block until all contributions arrive,
-    // then read the reduced result. Output dtype taken from input.
-    Tensor WaitAndGet(const Tensor& input) const
-    {
-        auto dataTile = ShmemView(shmemTensor_, {1, row_, col_}, std::vector<SymbolicScalar>{0, 0, 0});
-        auto waitOut = ShmemWaitUntil(dataTile, thisRank_, OpType::EQ,
-            static_cast<int32_t>(worldSize_), true, input);
-        return ShmemGet(dataTile, thisRank_, waitOut, input.GetDataType());
-    }
-
-private:
-    ShmemTensor& shmemTensor_;
-    uint32_t worldSize_;
-    SymbolicScalar thisRank_;
-    int32_t row_;
-    int32_t col_;
-};
-
 // OneShotCommunicatorV2: wraps a ShmemTensor, three-phase: Put() -> Wait() -> Pull().
 // WaitAndGet() combines Wait+Pull.
 class OneShotCommunicatorV2 {
@@ -263,20 +219,21 @@ private:
 // OneShotCommunicatorV4: grouped-scatter communicator wrapping ShmemTensor.
 //
 // Payload is split into payloadChunkCount chunks, logically organised into
-// contiguous groups of chunksPerSignal (k) chunks.  The sender puts chunks
-// group-by-group: Put() all k chunks, then Signal() once on the full tile
-// view for that target rank after each group.  The receiver calls WaitGroup()
-// which issues one ShmemWaitUntil on the first call (groupId == 0) and returns
-// a cached token for all subsequent groups.  Because all groups share the same
-// hardware counter (full-tile tile_id), coarse single-wait semantics apply —
+// contiguous groups of chunksPerSignal (k) chunks. The current OneShot
+// callers (v8/v9) iterate chunk puts in group-major order, then fire ONE
+// coarse Signal() on the full tile view after all groups for a target rank
+// have been written. The receiver calls WaitGroup(), which issues one
+// ShmemWaitUntil on the first call (groupId == 0) and returns a cached token
+// for all subsequent groups. Because all groups share the same hardware
+// counter (full-tile tile_id), coarse single-wait semantics apply —
 // independent per-group overlap requires a future per-group signal counter.
 //
 // Four-phase API:
 //   1) Put(pred, inChunk, targetRank, chunkId, atomicType)
 //        — ShmemPut on the chunk's row range; returns the put output token
 //   2) Signal(putToken, targetRank, atomicType)
-//        — ShmemSignal on the FULL tile view; call once after the last chunk
-//          of each group for a given targetRank
+//        — ShmemSignal on the FULL tile view; in the current v8/v9 path this
+//          is called once after all groups for a given targetRank
 //   3) WaitGroup(dep, groupId)
 //        — issues ShmemWaitUntil for groupId==0; returns cached token otherwise
 //   4) PullChunk(waitToken, chunkId, dtype)
@@ -346,8 +303,9 @@ public:
     }
 
     // Fire ONE coarse signal (over the full data tile) to targetRank.
-    // Call once per group, after all Put() calls for that group and targetRank,
-    // using the last Put's output token as pred.
+    // In the current v8/v9 path, callers invoke this once per targetRank,
+    // after all Put() calls for all groups of that rank, using the last Put's
+    // output token as pred.
     // Returns and caches the signal token so WaitGroup() can depend on it.
     Tensor Signal(const Tensor& pred, uint32_t targetRank, AtomicType atomicType) const
     {

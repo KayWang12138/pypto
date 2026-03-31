@@ -186,13 +186,6 @@ TEST_F(AllReduceIRTest, V2_IRStructure)
     });
 }
 
-TEST_F(AllReduceIRTest, V3_IRStructure)
-{
-    RunOneShotIRTest("UT_IR_V3", [](Tensor& in, ShmemTensor& st, Tensor& out) {
-        OneShotAllReduce_v3(in, in, st, out);
-    });
-}
-
 TEST_F(AllReduceIRTest, V4_IRStructure)
 {
     RunOneShotIRTest("UT_IR_V4", [](Tensor& in, ShmemTensor& st, Tensor& out) {
@@ -221,21 +214,6 @@ TEST_F(AllReduceIRTest, V6PlusPull_IRStructure)
         out = comm.Pull(waitToken, in.GetDataType());
     });
 }
-
-TEST_F(AllReduceIRTest, V6LightPlusPull_IRStructure)
-{
-    Tensor in(DT_FP16, {kRow, kCol}, "in");
-    Tensor out(DT_FP16, {kRow, kCol}, "out");
-    Shape shmemDataShape{1, kRow, kCol};
-    FUNCTION("UT_IR_V6_LIGHT", {in}, {out}) {
-        TileShape::Current().SetVecTile({kRow, kCol});
-        ShmemTensor shmemTensor;
-        CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
-        OneShotCommunicatorV2 comm(shmemTensor);
-        OneShotAllReduce_v6_light(in, in, shmemTensor);
-        auto waitToken = comm.Wait(in);
-        out = comm.Pull(waitToken, in.GetDataType());
-    }
 
     auto ops = ExtractShmemOpcodes("UT_IR_V6_LIGHT");
     VerifyOneShotCounts(CountShmemOps(ops), kWorldSize);
@@ -381,10 +359,6 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
         OneShotAllReduce_v2(in, in, st, out);
     });
 
-    auto irV3 = BuildOneShotIR("UT_EQUIV_V3", [](Tensor& in, ShmemTensor& st, Tensor& out) {
-        OneShotAllReduce_v3(in, in, st, out);
-    });
-
     auto irV4 = BuildOneShotIR("UT_EQUIV_V4", [](Tensor& in, ShmemTensor& st, Tensor& out) {
         OneShotAllReduce_v4(in, in, st, out);
     });
@@ -402,20 +376,10 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
         out = comm.Pull(waitToken, in.GetDataType());
     });
 
-    auto irV6Light = BuildOneShotIR("UT_EQUIV_V6_LIGHT", [](Tensor& in, ShmemTensor& st, Tensor& out) {
-        OneShotCommunicatorV2 comm(st);
-        OneShotAllReduce_v6_light(in, in, st);
-        auto waitToken = comm.Wait(in);
-        out = comm.Pull(waitToken, in.GetDataType());
-    });
-    VerifyOneShotCounts(CountShmemOps(irV6Light), kWorldSize);
-
     EXPECT_EQ(irBase, irV2) << "OneShot base and v2 SHMEM opcode sequences differ";
-    EXPECT_EQ(irBase, irV3) << "OneShot base and v3 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV4) << "OneShot base and v4 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV5) << "OneShot base and v5+Pull SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV6) << "OneShot base and v6+Pull SHMEM opcode sequences differ";
-    EXPECT_EQ(irBase, irV6Light) << "OneShot base and v6_light+Pull SHMEM opcode sequences differ";
 }
 
 // ===========================================================================
@@ -608,42 +572,6 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV6_IRStructure)
 
     auto opsBase = ExtractShmemOpcodes(baseTag);
     EXPECT_EQ(opsV6, opsBase) << "OneShot v6 and base differ at worldSize=" << worldSize;
-}
-
-TEST_P(AllReduceIRMultiRankTest, OneShotV6Light_IRStructure)
-{
-    uint32_t worldSize = W();
-    std::string tag = "UT_MR_OS_V6_LIGHT_W" + std::to_string(worldSize);
-    Shape shmemDataShape{1, kRow, kCol};
-
-    Tensor in(DT_FP16, {kRow, kCol}, "in");
-    Tensor out(DT_FP16, {kRow, kCol}, "out");
-    FUNCTION(tag.c_str(), {in}, {out}) {
-        TileShape::Current().SetVecTile({kRow, kCol});
-        ShmemTensor shmemTensor;
-        CreateShmemHelper(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
-        OneShotCommunicatorV2 comm(shmemTensor);
-        OneShotAllReduce_v6_light(in, in, shmemTensor);
-        auto waitToken = comm.Wait(in);
-        out = comm.Pull(waitToken, in.GetDataType());
-    }
-
-    auto opsV6Light = ExtractShmemOpcodes(tag);
-    VerifyOneShotCounts(CountShmemOps(opsV6Light), worldSize);
-
-    Program::GetInstance().Reset();
-    std::string baseTag = "UT_MR_OS_BASE_V6_LIGHT_W" + std::to_string(worldSize);
-    Tensor inBase(DT_FP16, {kRow, kCol}, "in_base");
-    Tensor outBase(DT_FP16, {kRow, kCol}, "out_base");
-    FUNCTION(baseTag.c_str(), {inBase}, {outBase}) {
-        TileShape::Current().SetVecTile({kRow, kCol});
-        ShmemTensor shmemTensor;
-        CreateShmemHelper(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemTensor);
-        OneShotAllReduce(inBase, inBase, shmemTensor, outBase);
-    }
-
-    auto opsBase = ExtractShmemOpcodes(baseTag);
-    EXPECT_EQ(opsV6Light, opsBase) << "OneShot v6_light and base differ at worldSize=" << worldSize;
 }
 
 TEST_P(AllReduceIRMultiRankTest, OneShotV7Grouped_IRStructure)
