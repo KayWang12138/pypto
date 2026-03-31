@@ -48,7 +48,7 @@ auto InitializeAicpuCode(
     int32_t expectedValue, uint32_t shmemSignalAttrOffset)
 {
     std::vector<uint32_t> shmemSignalShape = shmemSignalRawShape;
-    constexpr size_t codeSize = 26;
+    constexpr size_t codeSize = 27;
     uint32_t paramSizePerOperand = 2; // 每个 operand 都保存 dim 和 attrOffset，总共 2 个 param
     uint32_t oOperandNum = 1;
     uint32_t iOperandNum = 2;
@@ -61,7 +61,7 @@ auto InitializeAicpuCode(
     uint32_t predTokenAttrOffset = -1;
     uint32_t shmemSignalDim = 5;
     uint32_t shmemSignalShapeNum = shmemSignalDim * 2; // raw shape 存一份，shape 存一份，总共 2 份
-    uint32_t attrSize = 5;
+    uint32_t attrSize = 6;
     uint32_t resetSignal = 0;
     uint32_t initData[codeSize] = {
         opcode,
