@@ -182,10 +182,6 @@ private:
     Status CheckOpBufferSize(Operation *op);
     std::string DumpOpInfo(Operation &op);
     Status CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap);
-    Status InitDependencies();
-    void FindDependencies(Operation* op);
-    void AddDependency(Operation* preOp, Operation* postOp, bool isAlloc);
-    Status InitAllocDependencies(Operation* op, std::unordered_map<int, Operation*> &tensor2AllocOpMap);
     Status InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
     Status InitBufRefCount();
     void UpdateBufRefCount(Operation* op, LogicalTensorPtr tensor);

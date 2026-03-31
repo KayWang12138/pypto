@@ -320,7 +320,7 @@ TEST_F(ScheduleOoOTest, TestDependenciesTrue) {
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     std::rotate(ooOScheduler.orderedOps.begin(), ooOScheduler.orderedOps.begin() + 1, ooOScheduler.orderedOps.end());
-    res = ooOScheduler.InitDependencies();
+    res = ooOScheduler.depManager_.InitDependencies(ooOScheduler.orderedOps, false);
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -1327,7 +1327,7 @@ TEST_F(ScheduleOoOTest, TestHasEnoughBuffer) {
     OoOScheduler ooOScheduler(*function);
     ooOScheduler.orderedOps.push_back(op);
     ooOScheduler.opIsAllocMap[op] = true;
-    ooOScheduler.opSuccessorsMap[op] = std::unordered_set<Operation*>();
+    ooOScheduler.GetSuccessors(op).clear();
     bool res = ooOScheduler.HasEnoughBuffer(op, MemoryType::MEM_UB);
     EXPECT_EQ(res, false);
 }
@@ -1354,7 +1354,7 @@ TEST_F(ScheduleOoOTest, TestHasEnoughBufferAddMemId) {
     ooOScheduler.orderedOps.push_back(op);
     ooOScheduler.orderedOps.push_back(opCopyIn);
     ooOScheduler.opIsAllocMap[op] = true;
-    ooOScheduler.opSuccessorsMap[op].insert(opCopyIn);
+    ooOScheduler.GetSuccessors(op).insert(opCopyIn);
     ooOScheduler.opReqMemIdsMap[opCopyIn] = {1};
     EXPECT_EQ(ooOScheduler.InitLocalBuffer(tensor2, 1), SUCCESS);
     bool res = ooOScheduler.HasEnoughBuffer(op, MemoryType::MEM_UB);
@@ -1781,14 +1781,13 @@ TEST_F(ScheduleOoOTest, TestL1SpillBufferFailed) {
     res = oooSchedule.Init(opList);
     EXPECT_EQ(res, SUCCESS);
     Operation* ubCopyL1 = subGraph.GetOp("UB_COPY_L1");
-    Operation* alloc3 = subGraph.GetOp("L1_Alloc3");
     Operation* spillCopyout = nullptr;
 
     SpillInfo spillInfo;
     InitSpillInfo(spillInfo, 0, ubCopyL1);
     int num = 0;
     bool isFinish = false;
-    res = oooSchedule.CreateSpecialL1Copyout(spillInfo, alloc3, spillCopyout, num, isFinish);
+    res = oooSchedule.CreateSpecialL1Copyout(spillInfo, spillCopyout, num, isFinish);
     EXPECT_EQ(res, FAILED);
 }
 

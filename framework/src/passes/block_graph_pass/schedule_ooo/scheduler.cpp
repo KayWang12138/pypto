@@ -656,7 +656,7 @@ Status OoOScheduler::GenSpillSchedule() {
         return FAILED;
     }
     // 更新依赖关系
-    if (depManager_.InitDependencies(orderedOps) != SUCCESS) {
+    if (depManager_.InitDependencies(orderedOps, false) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
         return FAILED;
     }
@@ -765,7 +765,7 @@ Status OoOScheduler::InitLocalBuffer(LogicalTensorPtr oOperand, int memId) {
         localBufferMap[memId] = std::make_shared<LocalBuffer>(
             memId, oOperand->tensor->GetRawDataSize(), oOperand->GetMemoryTypeOriginal());
     } else {
-        localBufferMap[memId]->size = 
+        localBufferMap[memId]->size =
             std::max(localBufferMap[memId]->size, static_cast<uint64_t>(oOperand->tensor->GetRawDataSize()));
     }
     return SUCCESS;
@@ -862,8 +862,8 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
             continue;
         }
         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Alloc tensor[%d] size[%ld] exceeds %s size[%ld]! %s", 
-                op->GetOutputOperand(0)->GetMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(), 
+            APASS_LOG_ERROR_F(Elements::Operation, "Alloc tensor[%d] size[%ld] exceeds %s size[%ld]! %s",
+                op->GetOutputOperand(0)->GetMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(),
                 localMemorySize[buffer.first], GetFormatBacktrace(*op).c_str());
             APASS_LOG_ERROR_F(Elements::Operation, "Tensor[%d] producer info:", op->GetOutputOperand(0)->GetMagic());
             for (auto producer : op->GetOutputOperand(0)->GetProducers()) {
@@ -1032,7 +1032,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
         return FAILED;
     }
     // 初始化依赖关系
-    if (depManager_.InitDependencies(orderedOps) != SUCCESS) {
+    if (depManager_.InitDependencies(orderedOps, false) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
         return FAILED;
     }
