@@ -117,7 +117,7 @@ function->Operations().size()
 
 **解决方案：** 检查所有 `Operations()` 的调用，确保只调用一次 `()`
 
-**相关章节：** [SKILL.md - 步骤 6](../SKILL.md#步骤-6创建-operation-及绑定-function-输入输出)
+**相关章节：** [SKILL.md - 步骤 6](../SKILL.md#步骤-6创建operation及绑定function输入输出)
 
 ---
 
@@ -266,7 +266,7 @@ config::SetHostOption(COMPILE_STAGE, CS_TENSOR_GRAPH);
 2. 为每个功能点设计至少一个测试用例
 3. 考虑边界情况（空图、无 Cast、冗余链等）
 
-**相关章节：** [SKILL.md - 步骤 9](../SKILL.md#步骤-9统计-ut-覆盖率)
+**相关章节：** [SKILL.md - 步骤 9](../SKILL.md#步骤-9统计ut覆盖率)
 
 ---
 
@@ -341,7 +341,7 @@ auto tensor = std::make_shared<LogicalTensor>(...);  // 使用智能指针
 
 **解决方案：** 使用 `std::make_shared` 创建对象
 
-**相关章节：** [SKILL.md - 步骤 4](../SKILL.md#步骤-4构建-function)
+**相关章节：** [SKILL.md - 步骤 4](../SKILL.md#步骤-4构建function)
 
 ---
 
@@ -361,7 +361,7 @@ Operation &op = function.AddOperation(...);  // 使用引用
 
 **解决方案：** 使用引用接收 `AddOperation` 的返回值
 
-**相关章节：** [SKILL.md - 步骤 6](../SKILL.md#步骤-6创建-operation-及绑定-function-输入输出)
+**相关章节：** [SKILL.md - 步骤 6](../SKILL.md#步骤-6创建operation及绑定function输入输出)
 
 ---
 
@@ -403,7 +403,7 @@ if (tensor1->GetShape() == tensor2->GetShape()) { ... }  // 使用 getter 方法
 
 **解决方案：** 使用 `GetShape()` 方法获取 shape
 
-**相关章节：** [SKILL.md - 步骤 5](../SKILL.md#步骤-5创建-tensor)
+**相关章节：** [SKILL.md - 步骤 5](../SKILL.md#步骤-5创建tensor)
 
 ---
 
@@ -423,7 +423,7 @@ if (tensor->GetDatatype() == DataType::DT_FP32) { ... }  // 使用 GetDatatype()
 
 **解决方案：** 使用 `GetDatatype()` 方法
 
-**相关章节：** [SKILL.md - 步骤 5](../SKILL.md#步骤-5创建-tensor)
+**相关章节：** [SKILL.md - 步骤 5](../SKILL.md#步骤-5创建tensor)
 
 ---
 
@@ -465,7 +465,7 @@ if (op.GetOpcode() == Opcode::OP_CAST) { ... }  // 使用 Opcode 命名空间
 
 **解决方案：** 使用 `Opcode::` 前缀访问枚举值
 
-**相关章节：** [SKILL.md - 步骤 6](../SKILL.md#步骤-6创建-operation-及绑定-function-输入输出)
+**相关章节：** [SKILL.md - 步骤 6](../SKILL.md#步骤-6创建operation及绑定function输入输出)
 
 ---
 
@@ -519,7 +519,7 @@ auto attr = op.GetOpAttribute().get();  // 获取原始指针
 
 **解决方案：** 使用 `get()` 方法获取原始指针或直接使用 `shared_ptr`
 
-**相关章节：** [SKILL.md - UT生成流程二 - 步骤 4](../SKILL.md#步骤-4使用-computationalgraphbuilder-构建-function)
+**相关章节：** [SKILL.md - UT生成流程二 - 步骤 4](../SKILL.md#步骤-4构建function-1)
 
 ---
 
@@ -539,7 +539,7 @@ auto attr = dynamic_cast<ViewOpAttribute*>(op.GetOpAttribute().get());  // 正�
 
 **解决方案：** 先使用 `get()` 获取原始指针，再进行 `dynamic_cast`
 
-**相关章节：** [SKILL.md - UT生成流程二 - 步骤 4](../SKILL.md#步骤-4使用-computationalgraphbuilder-构建-function)
+**相关章节：** [SKILL.md - UT生成流程二 - 步骤 4](../SKILL.md#步骤-4构建function-1)
 
 ---
 
