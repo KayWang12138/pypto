@@ -228,23 +228,36 @@ INLINE __gm__ npu::tile_fwk::DevStartArgsBase* AiCoreRuntimeGetStartArgs(CoreFun
     return startArgs;
 }
 
+template <int mode, int64_t val>
 INLINE uint64_t GetTensorAddr(CoreFuncParam* ctx, int idx)
 {
     auto func = ctx->funcData;
     auto desc = &func->rawTensorDesc[ctx->opAttrs[idx]];
-    if (desc->location == npu::tile_fwk::RAW_TENSOR_LOCATION_LOCAL)
-        return func->workspaceAddr + desc->offsetOrIndex;
-    else
-        return func->rawTensorAddr[desc->offsetOrIndex] & RAW_TENSOR_ADDR_MASK;
+    if constexpr (mode == 2) {
+ 	    return func->workspaceAddr + desc->offsetOrIndex;
+ 	} else if constexpr (mode == 3) {
+ 	    return func->rawTensorAddr[desc->offsetOrIndex] & RAW_TENSOR_ADDR_MASK;
+ 	} else {
+ 	    return (desc->location == npu::tile_fwk::RAW_TENSOR_LOCATION_LOCAL) ?
+ 	            func->workspaceAddr + desc->offsetOrIndex :
+ 	            func->rawTensorAddr[desc->offsetOrIndex] & RAW_TENSOR_ADDR_MASK;
+ 	}
 }
 
+template <int mode, int64_t val>
 INLINE uint64_t GetCoa(CoreFuncParam* ctx, int idx)
 {
-    uint64_t val = ctx->opAttrs[idx];
-    if (SYM_IS_EXPR(val))
-        return ctx->exprTbl[SYM_VALUE(val)];
-    else
-        return SYM_VALUE(val);
+    if constexpr (mode == 1) {
+ 	    return val;
+ 	}
+ 	uint64_t val = ctx->opAttrs[idx];
+ 	if constexpr (mode == 2) {
+ 	    return ctx->exprTbl[SYM_VALUE(val)]
+ 	} else if constexpr (mode == 3) {
+ 	    return SYM_VALUE(val);
+ 	} else {
+ 	    return SYM_IS_EXPR(val) ? ctx->exprTbl[SYM_VALUE(val)] : SYM_VALUE(val);
+ 	}
 }
 
 INLINE
@@ -261,12 +274,12 @@ int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int6
 #define RUNTIME_GetViewValidShapeDim(validShape, viewOffset, viewShape) \
     RuntimeGetViewValidShapeDim(validShape, viewOffset, viewShape)
 
-#define GET_PARAM_ADDR(param, n, base) GetTensorAddr(param, base)
-
-#define GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx) GetCoa(param, ((base) + 1) + 0 * (dim) + idx)
-#define GET_PARAM_SHAPE_BY_IDX(param, n, base, dim, idx) GetCoa(param, ((base) + 1) + 1 * (dim) + idx)
-#define GET_PARAM_RAWSHAPE_BY_IDX(param, n, base, dim, idx) GetCoa(param, ((base) + 1) + 2 * (dim) + idx)
-#define GET_PARAM_VALID_SHAPE_BY_IDX(param, n, base, dim, idx) GetCoa(param, ((base) + 1) + 3 * (dim) + idx)
+#define GET_PARAM_ADDR(param, n, base) GetTensorAddr<0, 0>(param, base)
+ 	 
+#define GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx)         GetCoa<0, 0>(param, ((base) + 1) + 0 * (dim) + idx)
+#define GET_PARAM_SHAPE_BY_IDX(param, n, base, dim, idx)          GetCoa<0, 0>(param, ((base) + 1) + 1 * (dim) + idx)
+#define GET_PARAM_RAWSHAPE_BY_IDX(param, n, base, dim, idx)       GetCoa<0, 0>(param, ((base) + 1) + 2 * (dim) + idx)
+#define GET_PARAM_VALID_SHAPE_BY_IDX(param, n, base, dim, idx)    GetCoa<0, 0>(param, ((base) + 1) + 3 * (dim) + idx)
 
 #define GET_PARAM_ATTR_1(name, param, n, base) GET_PARAM_##name##_BY_IDX(param, n, base, 1, 0)
 #define GET_PARAM_ATTR_2(name, param, n, base) \
