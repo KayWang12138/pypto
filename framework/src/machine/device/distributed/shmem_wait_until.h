@@ -25,9 +25,6 @@
 #include "interface/utils/distributed_error.h"
 
 namespace npu::tile_fwk::Distributed {
-constexpr int32_t ATTR_STRIDE_OFFSET = 1;
-constexpr int32_t ATTR_TILEROW_OFFSET = 3;
-constexpr int32_t ATTR_TILECOL_OFFSET = 4;
 struct SignalTileOp {
     void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal)
     {
@@ -208,29 +205,29 @@ public:
         TensorInfo info = ShmemWaitUntilImpl::GetTensorInfo(taskId, aicpuCode);
         const int32_t expectedSum = info.expectedSum;
         const bool resetSignal = info.resetSignal;
-        int32_t stride = aicpuCode[paramInfo_.attrIndex + ATTR_STRIDE_OFFSET];
-        int32_t tileRowShape = aicpuCode[paramInfo_.attrIndex + ATTR_TILEROW_OFFSET];
-        int32_t tileColShape = aicpuCode[paramInfo_.attrIndex + ATTR_TILECOL_OFFSET];
 
-        int32_t tileCols = (paramInfo_.rawShapeCol + tileColShape - 1) / tileColShape;
-        int32_t tileRows = (paramInfo_.rawShapeRow + tileRowShape - 1) / tileRowShape;
-        int32_t tileRow = info.offset[SHMEM_DIM_ROW] / tileRowShape;
-        int32_t tileCol = info.offset[SHMEM_DIM_COL] / tileColShape;
+        int32_t tileCols = (paramInfo_.rawShapeCol + paramInfo_.tileShapeCol - 1) / paramInfo_.tileShapeCol;
+        int32_t tileRows = (paramInfo_.rawShapeRow + paramInfo_.tileShapeRow - 1) / paramInfo_.tileShapeRow;
+        int32_t tileRow = info.offset[SHMEM_DIM_ROW] / paramInfo_.tileShapeRow;
+        int32_t tileCol = info.offset[SHMEM_DIM_COL] / paramInfo_.tileShapeCol;
         int32_t tileIndex = tileRow * tileCols + tileCol;
         int32_t totalTileNum = tileRows * tileCols;
 
-        // info.offset[0]代表src的rankId=offset[0]的shmemSignal版图, info.offset[1]代表srcRankId, info.offset[2]代表row
-        // offset, info.offset[3]代表col offset
         DEV_DEBUG(
-            "ShmemWaitUntilImpl::EnqueueOp srcShmemSignalId=%u, srcRankId=%u, dimRow=%u, dimCol=%u, "
-            "tileShapeRow=%u, tileShapeCol=%u, rawShapeRow=%u, rawShapeCol=%u, tileIndex=%d, totalTileNum=%d",
-            info.offset[SRC_SHMEM_SIGNAL_ID], info.offset[SRC_RANK_ID], info.offset[SHMEM_DIM_ROW],
-            info.offset[SHMEM_DIM_COL], paramInfo_.tileShapeRow, paramInfo_.tileShapeCol, paramInfo_.rawShapeRow,
-            paramInfo_.rawShapeCol, tileIndex, totalTileNum);
+            "ShmemWaitUntilImpl::EnqueueOp logical rawShape=[%u, %u, %u],"
+            "logical tile=[%u, %u], logical offset=[%u, %u, %u], ownerRank=%u,"
+            "actual rawShape=[%u, %u, %d], actual offset=[%u, %u, %d], buffer maxTileNum=%u, bufferStride=%u",
+            paramInfo_.expandDimRawShape, paramInfo_.rawShapeRow, paramInfo_.rawShapeCol, paramInfo_.tileShapeRow,
+            paramInfo_.tileShapeCol, info.offset[EXPAND_DIM_INDEX], info.offset[SHMEM_DIM_ROW],
+            info.offset[SHMEM_DIM_COL], info.offset[OWNER_RANK_ID_INDEX], paramInfo_.rankNum,
+            paramInfo_.expandDimRawShape, totalTileNum, info.offset[OWNER_RANK_ID_INDEX], info.offset[EXPAND_DIM_INDEX],
+            tileIndex, paramInfo_.maxTileNum, paramInfo_.bufferStride);
 
-        int32_t* addr = reinterpret_cast<int32_t*>(info.rawAddr) +
-                        info.offset[SRC_SHMEM_SIGNAL_ID] * paramInfo_.rawRankShape * totalTileNum * stride +
-                        (info.offset[SRC_RANK_ID] * totalTileNum + tileIndex) * stride;
+        auto offset = CalcLinearOffset(
+                          paramInfo_.expandDimRawShape, totalTileNum, info.offset[OWNER_RANK_ID_INDEX],
+                          info.offset[EXPAND_DIM_INDEX], tileIndex) *
+                      paramInfo_.bufferStride;
+        int32_t* addr = reinterpret_cast<int32_t*>(info.rawAddr) + offset;
         return hashMap_.InsertTask(taskId, addr, expectedSum, resetSignal);
     }
 
