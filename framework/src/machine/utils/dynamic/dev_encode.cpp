@@ -2031,15 +2031,13 @@ void DevAscendProgram::InitDisableL2List(
 void DevAscendProgram::InitStartArgsABIParamList(
     uintdevptr_t& initOffset, const std::vector<int>& tStartArgsInputTensorSlotIndexList,
     const std::vector<int>& tStartArgsOutputTensorSlotIndexList, const std::vector<int>& tStartArgsInputSymbolIndexList,
-    const std::vector<SymbolHandler>& tStartArgsSymbolHandlerList, const std::vector<int>& tAsembleSlotIndexList,
-    const std::vector<int>& tInplaceSlotIndexList, bool fillContent)
+    const std::vector<int>& tAsembleSlotIndexList, const std::vector<int>& tInplaceSlotIndexList, bool fillContent)
 {
     this->startArgsInputTensorSlotIndexList.HostInitDataSizeOffset(
         initOffset, tStartArgsInputTensorSlotIndexList.size());
     this->startArgsOutputTensorSlotIndexList.HostInitDataSizeOffset(
         initOffset, tStartArgsOutputTensorSlotIndexList.size());
     this->startArgsInputSymbolIndexList.HostInitDataSizeOffset(initOffset, tStartArgsInputSymbolIndexList.size());
-    this->startArgsSymbolHandlerList.HostInitDataSizeOffset(initOffset, tStartArgsSymbolHandlerList.size());
     this->assembleSlotIndexList.HostInitDataSizeOffset(initOffset, tAsembleSlotIndexList.size());
     this->outputInplaceSlotList.HostInitDataSizeOffset(initOffset, tInplaceSlotIndexList.size());
 
@@ -2053,9 +2051,6 @@ void DevAscendProgram::InitStartArgsABIParamList(
         }
         for (size_t index = 0; index < tStartArgsInputSymbolIndexList.size(); index++) {
             this->startArgsInputSymbolIndexList[index] = tStartArgsInputSymbolIndexList[index];
-        }
-        for (size_t index = 0; index < tStartArgsSymbolHandlerList.size(); index++) {
-            this->startArgsSymbolHandlerList[index] = tStartArgsSymbolHandlerList[index];
         }
         for (size_t index = 0; index < tAsembleSlotIndexList.size(); index++) {
             this->assembleSlotIndexList[index] = tAsembleSlotIndexList[index];
@@ -2286,8 +2281,8 @@ struct EncodeDevAscendProgramInfo {
         devProg->InitCceCodeList(initOffset, dyndevAttr->cceCodeInfo, fillContent);
         devProg->InitStartArgsABIParamList(
             initOffset, dyndevAttr->inoutLink.inputSlotIndexList, dyndevAttr->inoutLink.outputSlotIndexList,
-            dyndevAttr->startArgsInputSymbolIndexList, dyndevAttr->startArgsSymbolHandlerList,
-            dyndevAttr->inoutLink.assembleSlotIndexList, dyndevAttr->inoutLink.inplaceSlotIndexList, fillContent);
+            dyndevAttr->startArgsInputSymbolIndexList, dyndevAttr->inoutLink.assembleSlotIndexList,
+            dyndevAttr->inoutLink.inplaceSlotIndexList, fillContent);
         devProg->InitPartialUpdateSlot(
             initOffset, dyndevAttr->devEncodeList, dyndevAttr->rootFuncKeyDict, dyndevAttr->slotRootIncastDict,
             dyndevAttr->slotRootOutcastDict, dyndevAttr->inoutLink.partialUpdateSlotIdexList, fillContent);

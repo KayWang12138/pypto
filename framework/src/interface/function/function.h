@@ -427,8 +427,6 @@ struct DyndevFunctionAttribute {
 
     std::vector<int> startArgsInputSymbolIndexList;
 
-    std::vector<SymbolHandler> startArgsSymbolHandlerList;
-
     std::vector<std::string> commGroupNames;
 
     SymbolicScalar maxDynamicAssembleOutcastMem;
