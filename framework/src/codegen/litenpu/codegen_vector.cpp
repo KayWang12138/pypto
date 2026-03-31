@@ -599,4 +599,115 @@ std::string CodeGenOpLiteNPU::GenWhereOp() const {
     return "";
 }
 
+std::string CodeGenOpLiteNPU::GenVectorScalarOp() const {
+    return GenVectorScalarOpByMode(VecScalMode::VEC_MODE);
+}
+
+std::string CodeGenOpLiteNPU::PrintBinaryScalarStatic(const PrintBinaryScalarParam &param) const {
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &src0DtypeStr = param.src0DtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &s0Var = param.s0Var;
+
+    std::vector dstShape = this->rawShape[0];
+    std::vector src0Shape = this->rawShape[1];
+
+    std::vector<int64_t> os0 = NormalizeShape(originShape[1], SHAPE_DIM3);
+    std::vector<int64_t> ss = NormalizeShape(src0Shape, SHAPE_DIM3);
+    std::vector<int64_t> ds = NormalizeShape(dstShape, SHAPE_DIM3);
+
+    std::ostringstream os;
+    std::vector<std::string> binScalParmList;
+    binScalParmList.emplace_back(dstDtypeStr);
+    int dimScalar = static_cast<int>(param.dim);
+    for (int i = SHAPE_DIM3 - dimScalar; i < SHAPE_DIM3; ++i) {
+        binScalParmList.emplace_back(std::to_string(os0[i]));
+    }
+    for (int i = SHAPE_DIM3 - dimScalar; i < SHAPE_DIM3; ++i) {
+        binScalParmList.emplace_back(std::to_string(ds[i]));
+    }
+    for (int i = SHAPE_DIM3 - dimScalar; i < SHAPE_DIM3; ++i) {
+        binScalParmList.emplace_back(std::to_string(ss[i]));
+    }
+    std::string templateParam = JoinString(binScalParmList, ", ");
+    templateParam += GenOpAttr();
+    binScalParmList.clear();
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src0 = "(__ubuf__ " + src0DtypeStr + "*)" + s0Var;
+    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
+    binScalParmList.emplace_back(dst);
+    binScalParmList.emplace_back(src0);
+    binScalParmList.emplace_back(scalarTmpBuffer);
+    std::string tiloOpCallParam = JoinString(binScalParmList, ", ");
+    os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+
+    return os.str();
+}
+
+std::string CodeGenOpLiteNPU::PrintVectorScalarTileTensor(const PrintUnaryParam &param) const {
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
+
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, scalarTmpBuffer};
+    std::vector<std::string> templateParamList;
+    std::ostringstream oss;
+    std::string lastUse = GetLastUse();
+    if (!lastUse.empty()) {
+        templateParamList.emplace_back(lastUse);
+    }
+    templateParamList.emplace_back(dstDtypeStr);
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets(templateParamList);
+    oss << WrapParamByParentheses(tileOpParamList);
+    oss << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpLiteNPU::PrintBinaryScalar(const PrintBinaryScalarParam &param) const {
+    return PrintBinaryScalarStatic(param);
+}
+
+std::string CodeGenOpLiteNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
+    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+
+    char buffer[BUFFER_SIZE_512] = "CG_ERROR";
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+
+    std::map<unsigned, std::reference_wrapper<std::string>> varsMap;
+    varsMap.insert(std::make_pair(0, std::ref(dVar)));
+    varsMap.insert(std::make_pair(1, std::ref(s0Var)));
+    AppendLocalBufferVarOffset(varsMap);
+
+    std::vector src0RawShape = this->rawShape[1];
+    std::vector dstRawShape = this->rawShape[0];
+    std::vector<int64_t> os0 = NormalizeShape(originShape[1], SHAPE_DIM4);
+    std::vector<int64_t> s0 = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
+
+    if (mode == VecScalMode::SCALAR_MODE) {
+        // Scalar op
+        return PrintBinaryScalar({s0Var, dVar, dstDtypeStr, dstDtypeStr, rawShape[0].size()});
+    }
+
+    if (opAttrs.count(OP_EMUOP_PREFIX + "opc")) {
+        // Hack: should be optimized to memory copy in pass
+        int emuopc = AnyCast<int64_t>(opAttrs.find(OP_EMUOP_PREFIX + "opc")->second);
+        if (emuopc == EMUOP_TENSOR_EXTRACT) {
+            int ret = sprintf_s(buffer, sizeof(buffer),
+                "RUNTIME_TensorExtract(/*type=*/%s, /*mem=*/__ubuf__, /*dst*/%s, /*src*/%s);\n", dstDtypeStr.c_str(),
+                dVar.c_str(), s0Var.c_str());
+            ASSERT(ret >= 0) << "GenVectorScalarOpByMode " << OpcodeManager::Inst().GetOpcodeStr(opCode) << " failed "
+                             << ret;
+            return buffer;
+        }
+    }
+
+    if (isSupportLayout) {
+        return PrintVectorScalarTileTensor({s0Var, dVar, dstDtypeStr, dstDtypeStr});
+    }
+    return buffer;
+}
 } // namespace npu::tile_fwk

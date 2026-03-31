@@ -41,11 +41,47 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(LiteNPUCodeGenMinimum, test_minimum) {
+TEST_F(LiteNPUCodeGenMinimum, test_minimum_001) {
     PROGRAM("MINIMUM_001") {
         TileShape::Current().SetVecTile({4, 4});
         Tensor input(DT_FP32, {8, 8}, "input");
         Tensor other(DT_FP32, {8, 8}, "other");
+        std::vector<int64_t> dstShape = {8, 8};
+        Tensor output;
+        FUNCTION("MINIMUM_001") {
+            output = Minimum(input, other);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MINIMUM_001");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMinimum, test_minimum_002) {
+    PROGRAM("MINIMUM_001") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor input(DT_FP32, {8, 8}, "input");
+        Tensor other(DT_FP32, {1, 8}, "other");
+        std::vector<int64_t> dstShape = {8, 8};
+        Tensor output;
+        FUNCTION("MINIMUM_001") {
+            output = Minimum(input, other);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MINIMUM_001");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMinimum, test_minimum_003) {
+    PROGRAM("MINIMUM_001") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor input(DT_FP32, {8, 8}, "input");
+        Element other(DT_FP32, 8.0);
         std::vector<int64_t> dstShape = {8, 8};
         Tensor output;
         FUNCTION("MINIMUM_001") {

@@ -61,6 +61,8 @@ public:
     std::string PrintMemCopyInWithL1TileTensor(const PrintMemCopyWithL1Param &param) const;
     std::string PrintMemCopyWithL1TileTensor(const PrintMemCopyWithL1Param &param) const;
 
+    std::string PrintVectorScalarTileTensor(const PrintUnaryParam &param) const;
+
     std::vector<std::string> GetGmOffsetForTileTensor(unsigned gmIdx, bool isSpillingToGM = false) const;
 
     std::string GenMemL1ToL0() const;
@@ -72,7 +74,7 @@ public:
     std::string GenUnaryOpWithTmpBuff() const;
 
     std::string GenBinaryOp() const;
-    // std::string GenVectorScalarOp() const;
+    std::string GenVectorScalarOp() const;
 
     std::string PrintMemL1ToL0TileTensor() const;
     std::string PrintMatmulTileTensor(bool isAcc) const;
@@ -106,8 +108,6 @@ public:
 
     std::string GenMemCopyCube(bool isLocalToGM, unsigned uf = 0) const;
     // std::string GenMemL1SpillIntoGM(const OpInfo &opInfo, bool isCopyL0CToGM, bool isCopyL1ToGM, unsigned uf) const;
-
-    // std::string GenBinaryWithBrc() const;
 
     // std::string GenBitSortOp() const;
     // // std::string GenMrgSortOp() const;
@@ -196,7 +196,7 @@ private:
 
     std::string GenMemUBTransfer(bool isCopyUBToGM) const;
     std::string PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam &param) const;
-    std::string GenVectorScalarOpByMode(bool isUseScalar) const;
+    std::string GenVectorScalarOpByMode(VecScalMode mode) const;
     std::string GenVectorScalarOpScalarMode() const;
     std::string GenCubeOp(bool zeroC) const;
 
@@ -343,6 +343,8 @@ private:
         // {                      Opcode::OP_SUBS,           [this]() { return GenVectorScalarOp(); }},
         // {                      Opcode::OP_MULS,           [this]() { return GenVectorScalarOp(); }},
         // {                      Opcode::OP_DIVS,           [this]() { return GenVectorScalarOp(); }},
+        {                      Opcode::OP_MAXS,           [this]() { return GenVectorScalarOp(); }},
+        {                      Opcode::OP_MINS,           [this]() { return GenVectorScalarOp(); }},
 
         // // binary op: vector scalar, scalar mode
         // {                    Opcode::OP_S_ADDS, [this]() { return GenVectorScalarOpScalarMode(); }},
