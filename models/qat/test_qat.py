@@ -677,7 +677,7 @@ def run_symmetric_per_channel_test(n, m, bit, eps, distribution, device_id):
     device = f"npu:{device_id}"
     seed = 33
     min_v = float(-2 ** (bit - 1))
-    max_v = float(2**(bit-1) - 1)
+    max_v = float(2 ** (bit - 1) - 1)
     weight_shape = (n, m)
     scale_shape = (n, 1)
     weight = create_input(weight_shape, torch.bfloat16, device, distribution, seed)
@@ -715,7 +715,7 @@ def run_symmetric_per_tensor_test(n, m, bit, eps, distribution, device_id):
     device = f"npu:{device_id}"
     seed = 33
     min_v = float(-2 ** (bit - 1))
-    max_v = float(2**(bit-1) - 1)
+    max_v = float(2 ** (bit - 1) - 1)
     weight_shape = (n, m)
     scale_shape = (1, 1)
     weight = create_input(weight_shape, torch.bfloat16, device, distribution, seed)
@@ -804,7 +804,7 @@ def run_symmetric_per_channel_backward_test(n, m, bit, eps, distribution, device
     device = f"npu:{device_id}"
     seed = 33
     min_v = float(-2 ** (bit - 1))
-    max_v = float(2**(bit-1) - 1)
+    max_v = float(2 ** (bit - 1) - 1)
     weight_shape = (n, m)
     scale_shape = (n, 1)
     weight = create_input(weight_shape, torch.bfloat16, device, distribution, seed).requires_grad_(True)
@@ -842,7 +842,7 @@ def run_symmetric_per_tensor_backward_test(n, m, bit, eps, distribution, device_
     device = f"npu:{device_id}"
     seed = 33
     min_v = float(-2 ** (bit - 1))
-    max_v = float(2**(bit-1) - 1)
+    max_v = float(2 ** (bit - 1) - 1)
     weight_shape = (n, m)
     scale_shape = (1, 1)
     weight = create_input(weight_shape, torch.bfloat16, device, distribution, seed).requires_grad_(True)

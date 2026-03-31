@@ -142,13 +142,14 @@ def ai_infra_qat_asymmetric_per_group_backward_kernel(
 ):
     group_size = grad_output.shape[1]
     num_groups = scale.shape[0]
+    unroll_list = [512, 256]
 
     pypto.experimental.set_operation_options(combine_axis=True)
     for g_offset, unroll_length in pypto.loop_unroll(
         0, num_groups, 1,
         name="LOOP_GROUPS",
         idx_name="g_offset",
-        unroll_list = [512, 256]
+        unroll_list=unroll_list
     ):
         tile_groups = unroll_length
         pypto.set_vec_tile_shapes(64, 128)
@@ -273,13 +274,14 @@ def ai_infra_qat_symmetric_per_channel_kernel(
 ):
     pypto.experimental.set_operation_options(combine_axis=True)
     n, m = weight.shape
+    unroll_list = [512, 32, 8]
     pypto.set_vec_tile_shapes(32, 512)
 
     for n_offset, unroll_length in pypto.loop_unroll(
         0, n, 1,
         name="LOOP_N_UNROLL",
         idx_name="n_offset",
-        unroll_list = [512, 32, 8]
+        unroll_list=unroll_list
     ):
         tile_n = unroll_length
 
@@ -331,6 +333,7 @@ def ai_infra_qat_symmetric_per_channel_backward_kernel(
 ):
 
     n, m = weight.shape
+    unroll_list = [512, 32, 8]
 
     tile_shapes_m = min(m, 4096)
     pypto.set_vec_tile_shapes(4, tile_shapes_m)
@@ -339,7 +342,7 @@ def ai_infra_qat_symmetric_per_channel_backward_kernel(
         0, n, 1,
         name="BACKWARD_LOOP_N_UNROLL",
         idx_name="n_offset",
-        unroll_list = [512, 32, 8]
+        unroll_list=unroll_list
     ):
         tile_n = unroll_length
 
@@ -486,7 +489,7 @@ def ai_infra_qat_symmetric_per_tensor_backward_kernel(
 ):
     pypto.experimental.set_operation_options(combine_axis=False)
     n, m = weight.shape
-
+    unroll_list=[512, 32, 8]
     tile_shapes_m = min(m, 4096)
     pypto.set_vec_tile_shapes(4, tile_shapes_m)
 
@@ -504,7 +507,7 @@ def ai_infra_qat_symmetric_per_tensor_backward_kernel(
         0, n, 1,
         name="BACKWARD_LOOP_N_UNROLL",
         idx_name="n_offset",
-        unroll_list=[512, 32, 8]
+        unroll_list=unroll_list
     ):
         tile_n = unroll_length
         grad_out_tile = pypto.view(grad_output, [tile_n, m], [n_offset, 0])
