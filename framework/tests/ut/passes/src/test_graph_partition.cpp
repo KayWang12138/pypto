@@ -304,32 +304,6 @@ TEST_F(GraphPartitionTest, TestOspParameter)
     EXPECT_EQ(partitioner.SetParameter(*function), SUCCESS);
 }
 
-TEST_F(GraphPartitionTest, TestEmptyGraph) 
-{
-    ComputationalGraphBuilder G;
-    Function* function = G.GetFunction();
-    EXPECT_EQ(function->Operations().size(), 0);
-
-    OspPartitioner partitioner(OspMode::SARKAR);
-
-    const int cycleUBFail = -1;
-    const int cycleUB = 100000;
-    const int cycleLBFail = -11;
-    const int cycleLB = 10000;
-
-    function->paramConfigs_.sgPgUpperBound = cycleUBFail;
-    function->paramConfigs_.sgPgLowerBound = cycleLB;
-    EXPECT_EQ(partitioner.SetParameter(*function), FAILED);
-
-    function->paramConfigs_.sgPgUpperBound = cycleUB;
-    function->paramConfigs_.sgPgLowerBound = cycleLBFail;
-    EXPECT_EQ(partitioner.SetParameter(*function), FAILED);
-
-    function->paramConfigs_.sgPgUpperBound = cycleUB;
-    function->paramConfigs_.sgPgLowerBound = cycleLB;
-    EXPECT_EQ(partitioner.SetParameter(*function), SUCCESS);
-}
-
 TEST_F(GraphPartitionTest, TestEmptyGraph)
 {
     ComputationalGraphBuilder G;
