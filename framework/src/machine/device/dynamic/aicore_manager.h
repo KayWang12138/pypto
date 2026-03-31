@@ -947,6 +947,7 @@ private:
 
     inline void DumpSchemaOperationInfo(int coreIdx, uint64_t taskId)
     {
+#ifdef ENABLE_DUMP_OPERATION
         uint64_t deviceTaskId = curTaskCtrl_->taskId;
         uint32_t funcId = FuncID(taskId);
         int rootIndex = GetRootIndex(taskId);
@@ -956,18 +957,18 @@ private:
         auto dynFuncData = GetDynFuncData(taskId);
         auto attrBase = &duppedData->GetSource()->GetOperationAttr(opIdx, 0);
 
-        DEV_TRACE_DEBUG(LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex), LActStart(coreIdx)));
+        DEV_TRACE_INFO(LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex), LActStart(coreIdx)));
         DEV_TRACE_DEBUG_SPLIT(LEvent(
             LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex), duppedData->GetSource()->SchemaGetCoa(opIdx)));
 
         auto iOperandSize = duppedData->GetSource()->GetOperationIOperandSize(opIdx);
-        DEV_TRACE_DEBUG(LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex), LActIncastCount(iOperandSize)));
+        DEV_TRACE_INFO(LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex), LActIncastCount(iOperandSize)));
         for (size_t i = 0; i < iOperandSize; i++) {
             auto iOperand = duppedData->GetSource()->GetOperationIOperand(opIdx, i);
             auto base = GetTensorAddr(dynFuncData, iOperand->rawIndex);
             auto size = duppedData->GetRawTensorDataSize(iOperand->rawIndex);
             auto opInfo = duppedData->GetSource()->GetOperationIOperandInfo(opIdx, i);
-            DEV_TRACE_DEBUG(LEvent(
+            DEV_TRACE_INFO(LEvent(
                 LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex),
                 LActIncast(
                     SchemaGetShape(dynFuncData, attrBase, opInfo), SchemaGetOffset(dynFuncData, attrBase, opInfo),
@@ -975,24 +976,25 @@ private:
         }
 
         auto oOperandSize = duppedData->GetSource()->GetOperationOOperandSize(opIdx);
-        DEV_TRACE_DEBUG(
+        DEV_TRACE_INFO(
             LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex), LActOutcastCount(oOperandSize)));
         for (size_t i = 0; i < oOperandSize; i++) {
             auto oOperand = duppedData->GetSource()->GetOperationOOperand(opIdx, i);
             auto base = GetTensorAddr(dynFuncData, oOperand->rawIndex);
             auto size = duppedData->GetRawTensorDataSize(oOperand->rawIndex);
             auto opInfo = duppedData->GetSource()->GetOperationOOperandInfo(opIdx, i);
-            DEV_TRACE_DEBUG(LEvent(
+            DEV_TRACE_INFO(LEvent(
                 LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex),
                 LActOutcast(
                     SchemaGetShape(dynFuncData, attrBase, opInfo), SchemaGetOffset(dynFuncData, attrBase, opInfo),
                     Range(base, base + size))));
         }
+#endif
     }
 
     inline void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask)
     {
-        DEV_IF_VERBOSE_DEBUG { DumpSchemaOperationInfo(coreIdx, newTask); }
+        DumpSchemaOperationInfo(coreIdx, newTask);
 
 #if ENABLE_TENSOR_DUMP
         // dump input tensor
