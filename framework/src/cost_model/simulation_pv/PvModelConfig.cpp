@@ -20,7 +20,8 @@
 #include "cost_model/simulation/utils/simulation_error.h"
 
 namespace CostModel {
-void PvModelSystemA2A3Config::Dump(std::string path) {
+void PvModelSystemA2A3Config::Dump(std::string path)
+{
     std::ofstream outFile(path);
 
     // 检查文件是否成功打开
@@ -112,7 +113,8 @@ title = "PV Config"
     return;
 }
 
-void PvModelSystemA5Config::Dump(std::string path) {
+void PvModelSystemA5Config::Dump(std::string path)
+{
     std::ofstream outFile(path);
 
     // 检查文件是否成功打开
@@ -1357,40 +1359,36 @@ title = "PV Config"
     return;
 }
 
-void PvModelCaseConfigBase::SetTitle(std::string title)
-{
-    title_ = title;
-}
+void PvModelCaseConfigBase::SetTitle(std::string title) { title_ = title; }
 
-void PvModelCaseConfigBase::SetCoreType(uint64_t coreType)
-{
-    subcoreId_ = coreType;
-}
+void PvModelCaseConfigBase::SetCoreType(uint64_t coreType) { subcoreId_ = coreType; }
 
-std::uint64_t PvModelCaseConfigBase::GetCoreType() 
-{
-    return subcoreId_;
-}
+std::uint64_t PvModelCaseConfigBase::GetCoreType() { return subcoreId_; }
 
-void PvModelCaseConfigBase::SetBin(uint64_t addr, std::string path) {
+void PvModelCaseConfigBase::SetBin(uint64_t addr, std::string path)
+{
     binAddr_ = addr;
     binPath_ = path;
 }
 
-void PvModelCaseConfigBase::AddInputArg(uint64_t addr, uint64_t size, std::string path) {
+void PvModelCaseConfigBase::AddInputArg(uint64_t addr, uint64_t size, std::string path)
+{
     inputArgs_.emplace_back(std::make_tuple(addr, size, path));
 }
 
-void PvModelCaseConfigBase::AddOutputArg(uint64_t addr, uint64_t size, std::string path) {
+void PvModelCaseConfigBase::AddOutputArg(uint64_t addr, uint64_t size, std::string path)
+{
     outputArgs_.emplace_back(std::make_tuple(addr, size, path));
 }
 
-void PvModelCaseConfig::Dump(std::string path) {
+void PvModelCaseConfig::Dump(std::string path)
+{
     std::fstream file(path, std::ios::out);
 
     if (!file.is_open()) {
-        SIMULATION_LOGE("ErrCode: F%u, [PVMODEL]open config file error: %s", 
-                    static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_OPEN_FAILED), path.c_str());
+        SIMULATION_LOGE(
+            "ErrCode: F%u, [PVMODEL]open config file error: %s",
+            static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_OPEN_FAILED), path.c_str());
         return;
     }
 
@@ -1405,29 +1403,34 @@ void PvModelCaseConfig::Dump(std::string path) {
 
     file << "[BIN]" << std::endl;
     file << "name = \"" << binPath_ << "\"" << std::endl;
-    file << "addr = " << "0x" << std::hex << binAddr_ << std::endl;
+    file << "addr = "
+         << "0x" << std::hex << binAddr_ << std::endl;
     file << std::endl;
 
     constexpr int pathIdx = 2;
     constexpr int addrIdx = 0;
     constexpr int sizeIdx = 1;
     int paraOffset = 0;
-    for (const auto &arg : inputArgs_) {
+    for (const auto& arg : inputArgs_) {
         file << "[[input_para_array]]" << std::endl;
         file << "name = \"" << std::get<pathIdx>(arg) << "\"" << std::endl;
-        file << "addr = " << "0x" << std::hex << std::get<addrIdx>(arg) << std::endl;
-        file << "size = " << "0x" << std::hex << std::get<sizeIdx>(arg) << std::endl;
+        file << "addr = "
+             << "0x" << std::hex << std::get<addrIdx>(arg) << std::endl;
+        file << "size = "
+             << "0x" << std::hex << std::get<sizeIdx>(arg) << std::endl;
         file << "valid = 1" << std::endl;
         file << "para_offset = " << std::dec << paraOffset << std::endl;
         paraOffset++;
         file << std::endl;
     }
 
-    for (const auto &arg : outputArgs_) {
+    for (const auto& arg : outputArgs_) {
         file << "[[output_para_array]]" << std::endl;
         file << "name = \"" << std::get<pathIdx>(arg) << "\"" << std::endl;
-        file << "addr = " << "0x" << std::hex << std::get<addrIdx>(arg) << std::endl;
-        file << "size = " << "0x" << std::hex << std::get<sizeIdx>(arg) << std::endl;
+        file << "addr = "
+             << "0x" << std::hex << std::get<addrIdx>(arg) << std::endl;
+        file << "size = "
+             << "0x" << std::hex << std::get<sizeIdx>(arg) << std::endl;
         file << "valid = 1" << std::endl;
         file << "para_offset = " << std::dec << paraOffset << std::endl;
         paraOffset++;

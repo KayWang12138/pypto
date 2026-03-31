@@ -21,7 +21,8 @@ static constexpr int NUM_64 = 64;
 static constexpr int NUM_128 = 128;
 
 Tensor FlashAttentionNew(
-    const Tensor &q, const Tensor &k, const Tensor &v, const Tensor &m, const Tensor &l, const AttentionDims &atDims) {
+    const Tensor& q, const Tensor& k, const Tensor& v, const Tensor& m, const Tensor& l, const AttentionDims& atDims)
+{
     (void)m;
     (void)l;
     int dim0 = q.GetShape()[0];
@@ -114,7 +115,7 @@ Tensor FlashAttentionNew(
     }
 
     std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation;
-    for (auto &[offset, tensor] : lastOi) {
+    for (auto& [offset, tensor] : lastOi) {
         aggregation.emplace_back(tensor, offset);
     }
 

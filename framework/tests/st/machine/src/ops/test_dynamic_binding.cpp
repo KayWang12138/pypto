@@ -31,19 +31,19 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         DeviceLauncherContext::Get().DeviceInit();
         rtSetDevice(GetDeviceIdByEnvVar());
-     }
-
-    void TearDown() override {
-        DeviceLauncherContext::Get().DeviceFini();
     }
+
+    void TearDown() override { DeviceLauncherContext::Get().DeviceFini(); }
 };
 
 namespace {
 
-TEST_F(DynamicBindingTest, TestDefaultCompute) {
+TEST_F(DynamicBindingTest, TestDefaultCompute)
+{
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(tiling32, tiling32);
     TileShape::Current().SetCubeTile({tiling32, tiling32}, {tiling32, tiling32}, {tiling32, tiling32});
@@ -76,8 +76,10 @@ TEST_F(DynamicBindingTest, TestDefaultCompute) {
         RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
-    FUNCTION("main", {inputA, inputB}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(m / tiling32)) {
+    FUNCTION("main", {inputA, inputB}, {output})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(m / tiling32))
+        {
             auto tmpA = View(inputA, {tiling32, tiling32}, {0, i * tiling32});
             auto tmpB = View(inputB, {tiling32, tiling32}, {0, i * tiling32});
             auto tmpO = Add(tmpA, tmpB);
@@ -88,11 +90,12 @@ TEST_F(DynamicBindingTest, TestDefaultCompute) {
 #ifdef BUILD_WITH_CANN
     EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (int32_t*)outputResult->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBindingTest, TestDeviceRunDataFromHost) {
+TEST_F(DynamicBindingTest, TestDeviceRunDataFromHost)
+{
     SetInterpreterConfig();
     int n = 2 * tiling32;
 
@@ -118,24 +121,24 @@ TEST_F(DynamicBindingTest, TestDeviceRunDataFromHost) {
     });
 
     TileShape::Current().SetVecTile(tiling32, tiling32);
-    FUNCTION("main", {input}, {output}) {
-        LOOP("s0", FunctionType::DYNAMIC_LOOP, k, LoopRange(10)) {
-            IF (k == 0) {
-                output = Add(input, input);
-            } ELSE {
-                output = Add(input, output);
-            }
+    FUNCTION("main", {input}, {output})
+    {
+        LOOP("s0", FunctionType::DYNAMIC_LOOP, k, LoopRange(10))
+        {
+            IF(k == 0) { output = Add(input, input); }
+            ELSE { output = Add(input, output); }
         }
     }
 
 #ifdef BUILD_WITH_CANN
     EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (int32_t*)outputResult->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBindingTest, TestDeviceCompute) {
+TEST_F(DynamicBindingTest, TestDeviceCompute)
+{
     SetInterpreterConfig();
     auto agent = RuntimeAgent::GetAgent();
     aclInit(nullptr);
@@ -146,9 +149,9 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
 
     int n = 1 * tiling32;
     int m = 2 * tiling32;
-    uint8_t *inputADevAddr = nullptr;
-    uint8_t *inputBDevAddr = nullptr;
-    uint8_t *outputDevAddr = nullptr;
+    uint8_t* inputADevAddr = nullptr;
+    uint8_t* inputBDevAddr = nullptr;
+    uint8_t* outputDevAddr = nullptr;
     agent->AllocDevAddr(&inputADevAddr, n * m * sizeof(int32_t));
     agent->AllocDevAddr(&inputBDevAddr, n * m * sizeof(int32_t));
     agent->AllocDevAddr(&outputDevAddr, n * m * sizeof(int32_t));
@@ -163,8 +166,8 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
         outputGolden[i] = i * 3;
     }
 
-    agent->CopyToDev(inputADevAddr, (uint8_t *)inputAData.data(), inputAData.size() * sizeof(int32_t));
-    agent->CopyToDev(inputBDevAddr, (uint8_t *)inputBData.data(), inputBData.size() * sizeof(int32_t));
+    agent->CopyToDev(inputADevAddr, (uint8_t*)inputAData.data(), inputAData.size() * sizeof(int32_t));
+    agent->CopyToDev(inputBDevAddr, (uint8_t*)inputBData.data(), inputBData.size() * sizeof(int32_t));
 
     Tensor inputA(DT_INT32, {n, m}, "inputA");
     Tensor inputB(DT_INT32, {n, m}, "inputB");
@@ -181,10 +184,12 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
         RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
-    ExportedOperator *op = ExportedOperatorBegin();
+    ExportedOperator* op = ExportedOperatorBegin();
 
-    FUNCTION("main", {inputA, inputB}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(m / tiling32)) {
+    FUNCTION("main", {inputA, inputB}, {output})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(m / tiling32))
+        {
             auto tmpA = View(inputA, {tiling32, tiling32}, {0, i * tiling32});
             auto tmpB = View(inputB, {tiling32, tiling32}, {0, i * tiling32});
             auto tmpO = Add(tmpA, tmpB);
@@ -204,11 +209,13 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
 
     auto aicpuStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetScheStream());
     auto aicoreStream = reinterpret_cast<DeviceStream>(machine::GetRA()->GetStream());
-    EXPECT_EQ(0, ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputList, outputList, aicpuStream, aicoreStream, true));
+    EXPECT_EQ(
+        0, ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(
+               op, inputList, outputList, aicpuStream, aicoreStream, true));
 
-    agent->CopyFromDev((uint8_t *)outputData.data(), outputDevAddr, outputData.size() * sizeof(int32_t));
+    agent->CopyFromDev((uint8_t*)outputData.data(), outputDevAddr, outputData.size() * sizeof(int32_t));
 
-    EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputData.data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (int32_t*)outputData.data(), 0.001f));
 }
 
-}
+} // namespace

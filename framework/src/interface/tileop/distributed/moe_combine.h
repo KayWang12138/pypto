@@ -11,7 +11,7 @@
 /*!
  * \file moe_combine.h
  * \brief
-*/
+ */
 
 #ifndef __DISTRIBUTED_COMBINE__
 #define __DISTRIBUTED_COMBINE__
@@ -22,25 +22,18 @@
 namespace TileOp::Distributed {
 template <typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape>
 TILEOP void MoeDistributedCombineSend(
-    CoreFuncParam* param,
-    __ubuf__ T* dataBuffer,
-    __ubuf__ int32_t* assistInfoForCombineBuffer,
-    __ubuf__ int32_t* signalBuffer,
-    __gm__ T* expandX,
-    __gm__ int32_t* assistInfoForCombine,
-    __ubuf__ int32_t* recvCounts,
-    __gm__ T* shmemDataBaseAddr,
-    __gm__ int32_t* shmemSignalBaseAddr,
-    uint64_t expandXOffset0,
-    uint64_t expandXOffset1,
-    __gm__ int64_t* hcclContext)
+    CoreFuncParam* param, __ubuf__ T* dataBuffer, __ubuf__ int32_t* assistInfoForCombineBuffer,
+    __ubuf__ int32_t* signalBuffer, __gm__ T* expandX, __gm__ int32_t* assistInfoForCombine,
+    __ubuf__ int32_t* recvCounts, __gm__ T* shmemDataBaseAddr, __gm__ int32_t* shmemSignalBaseAddr,
+    uint64_t expandXOffset0, uint64_t expandXOffset1, __gm__ int64_t* hcclContext)
 {
     signalBuffer[0] = 1;
     uint64_t maxRow = ((expandXOffset0 + rowShape) < recvCounts[0]) ? (expandXOffset0 + rowShape) : recvCounts[0];
     for (uint64_t row = expandXOffset0; row < maxRow; row++) {
         set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
         wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-        TileOp::UBCopyIn<int32_t, 1, 3, 8, 3>(assistInfoForCombineBuffer, assistInfoForCombine + MOE_COMBINE_INFO_NUM * row);
+        TileOp::UBCopyIn<int32_t, 1, 3, 8, 3>(
+            assistInfoForCombineBuffer, assistInfoForCombine + MOE_COMBINE_INFO_NUM * row);
 
         set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
         wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
@@ -50,14 +43,14 @@ TILEOP void MoeDistributedCombineSend(
 
         TileOp::UBCopyIn<T, 1, colShape, paddedColShape, colShape>(dataBuffer, expandX + colShape * row);
 
-        __gm__ T* winDataAddr = MapVirtualAddr<T>(hcclContext, shmemDataBaseAddr, rankId) +
-            colShape * (topK * tokenId + kOffset);
+        __gm__ T* winDataAddr =
+            MapVirtualAddr<T>(hcclContext, shmemDataBaseAddr, rankId) + colShape * (topK * tokenId + kOffset);
         set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
         wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
         TileOp::UBCopyOut<T, 1, colShape, colShape, paddedColShape>(winDataAddr, dataBuffer);
 
-        __gm__ int32_t* winSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, rankId) +
-            MOE_COMBINE_SIGNAL_OFFSET * tokenId;
+        __gm__ int32_t* winSignalAddr =
+            MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, rankId) + MOE_COMBINE_SIGNAL_OFFSET * tokenId;
         set_atomic_add();
         set_atomic_s32();
         pipe_barrier(PIPE_MTE3);
@@ -67,9 +60,7 @@ TILEOP void MoeDistributedCombineSend(
 }
 
 TILEOP void MoeDistributedCombineWaitSignal(
-    __gm__ int32_t* winSignalAddr,
-    __ubuf__ int32_t* signalBuffer,
-    int32_t expectedValue)
+    __gm__ int32_t* winSignalAddr, __ubuf__ int32_t* signalBuffer, int32_t expectedValue)
 {
     set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
     wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
@@ -82,15 +73,11 @@ TILEOP void MoeDistributedCombineWaitSignal(
 
 template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape>
 TILEOP void MoeDistributedCombineCompute(
-    __ubuf__ T* out,
-    __ubuf__ float* mulFp32Buffer,
-    __ubuf__ float* sumFp32Buffer,
-    __ubuf__ float* expertScales,
+    __ubuf__ T* out, __ubuf__ float* mulFp32Buffer, __ubuf__ float* sumFp32Buffer, __ubuf__ float* expertScales,
     __gm__ T* winDataAddr)
 {
     uint8_t repeat = static_cast<uint8_t>(
-        AlignUp<uint16_t>(sizeof(float) * paddedColShape, VECTOR_INSTRUCTION_BYTE_SIZE) / VECTOR_INSTRUCTION_BYTE_SIZE
-    );
+        AlignUp<uint16_t>(sizeof(float) * paddedColShape, VECTOR_INSTRUCTION_BYTE_SIZE) / VECTOR_INSTRUCTION_BYTE_SIZE);
 
     vector_dup(sumFp32Buffer, 0.0f, repeat, 1, 1, 8, 8);
 
@@ -114,35 +101,25 @@ TILEOP void MoeDistributedCombineCompute(
 
 template <typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape>
 TILEOP void MoeDistributedCombineReceive(
-    CoreFuncParam* param,
-    __gm__ T* out,
-    __ubuf__ float* mulFp32Buffer,
-    __ubuf__ float* sumFp32Buffer,
-    __ubuf__ T* outBuffer,
-    __ubuf__ float* expertScales,
-    __gm__ T* shmemDataBaseAddr,
-    __gm__ int32_t* shmemSignalBaseAddr,
-    uint64_t shmemDataOffset0,
-    uint64_t shmemDataOffset1,
-    uint64_t shmemDataOffset2,
-    uint64_t shmemDataOffset3,
-    int64_t rowOffset,
-    __gm__ int64_t* hcclContext)
+    CoreFuncParam* param, __gm__ T* out, __ubuf__ float* mulFp32Buffer, __ubuf__ float* sumFp32Buffer,
+    __ubuf__ T* outBuffer, __ubuf__ float* expertScales, __gm__ T* shmemDataBaseAddr,
+    __gm__ int32_t* shmemSignalBaseAddr, uint64_t shmemDataOffset0, uint64_t shmemDataOffset1,
+    uint64_t shmemDataOffset2, uint64_t shmemDataOffset3, int64_t rowOffset, __gm__ int64_t* hcclContext)
 {
     uint64_t thisRankId = shmemDataOffset0;
 
     for (uint64_t tokenId = rowOffset; tokenId < rowOffset + rowShape; tokenId++) {
-        __gm__ int32_t* winSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, thisRankId) +
-            MOE_COMBINE_SIGNAL_OFFSET * tokenId;
+        __gm__ int32_t* winSignalAddr =
+            MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, thisRankId) + MOE_COMBINE_SIGNAL_OFFSET * tokenId;
         __ubuf__ int32_t* signalBuffer = reinterpret_cast<__ubuf__ int32_t*>(outBuffer);
         MoeDistributedCombineWaitSignal(winSignalAddr, signalBuffer, topK);
 
-        constexpr uint32_t expertScalesColShape = AlignUp<uint32_t>(sizeof(float) * topK, COPY_BLOCK_BYTE_SIZE) /
-            sizeof(float);
-        __gm__ T* winDataAddr = MapVirtualAddr<T>(hcclContext, shmemDataBaseAddr, thisRankId) +
-            colShape * topK * tokenId;
-        MoeDistributedCombineCompute<T, topK, colShape, paddedColShape>(outBuffer, mulFp32Buffer,
-            sumFp32Buffer, expertScales + expertScalesColShape * tokenId, winDataAddr);
+        constexpr uint32_t expertScalesColShape =
+            AlignUp<uint32_t>(sizeof(float) * topK, COPY_BLOCK_BYTE_SIZE) / sizeof(float);
+        __gm__ T* winDataAddr =
+            MapVirtualAddr<T>(hcclContext, shmemDataBaseAddr, thisRankId) + colShape * topK * tokenId;
+        MoeDistributedCombineCompute<T, topK, colShape, paddedColShape>(
+            outBuffer, mulFp32Buffer, sumFp32Buffer, expertScales + expertScalesColShape * tokenId, winDataAddr);
 
         set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
         wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);

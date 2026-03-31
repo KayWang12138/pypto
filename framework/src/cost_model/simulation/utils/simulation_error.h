@@ -25,50 +25,42 @@ namespace CostModel {
 // =============================================================================
 
 enum class SimulationErrorCategory {
-    INTERNEL_ERROR      = 90000U, // 0: 内部错误
-    EXTERNAL_ERROR      = 91000U, // 1: 外部错误
-    FORWARD_SIM          = 92000U,  // 2: 前仿
-    POST_SIM           = 93000U, // 3: 后仿
-    PRECISION_SIM       = 94000U, // 4: 精度仿真
-    UNKNOWN              = 99000U, // 9: 未知/预留
+    INTERNEL_ERROR = 90000U, // 0: 内部错误
+    EXTERNAL_ERROR = 91000U, // 1: 外部错误
+    FORWARD_SIM = 92000U,    // 2: 前仿
+    POST_SIM = 93000U,       // 3: 后仿
+    PRECISION_SIM = 94000U,  // 4: 精度仿真
+    UNKNOWN = 99000U,        // 9: 未知/预留
 };
 
 // =============================================================================
 // 二、子流程：各 Category 下的 ErrorScene 枚举（枚举值即错误码 F9xxxx）
 // =============================================================================
 
-enum class InternelErrorScene : uint32_t {
-    UNKNOWN                   = 90099U
-};
+enum class InternelErrorScene : uint32_t { UNKNOWN = 90099U };
 
 enum class ExternalErrorScene : uint32_t {
-    INVALID_CONFIG                = 91001U,
-    CONFIG_OUT_OF_RANGE           = 91002U,
-    INVALID_CONFIG_NAME           = 91003U,
-    PERMISSION_CHECK_ERROR        = 91004U,
-    FILE_FORMAT_ERROR             = 91005U,
-    FILE_CONTENT_ERROR            = 91006U,
-    INVALID_PATH                  = 91007U,
-    FILE_OPEN_FAILED              = 91008U,
-    PYTHON_CMD_ERROR              = 91009U,
-    UNKNOWN                       = 91099U
+    INVALID_CONFIG = 91001U,
+    CONFIG_OUT_OF_RANGE = 91002U,
+    INVALID_CONFIG_NAME = 91003U,
+    PERMISSION_CHECK_ERROR = 91004U,
+    FILE_FORMAT_ERROR = 91005U,
+    FILE_CONTENT_ERROR = 91006U,
+    INVALID_PATH = 91007U,
+    FILE_OPEN_FAILED = 91008U,
+    PYTHON_CMD_ERROR = 91009U,
+    UNKNOWN = 91099U
 };
 
 enum class ForwardSimErrorScene : uint32_t {
-    INVALID_PIPE_TYPE    = 92001U,
-    INVALID_DATA_TYPE    = 92002U,
-    DEAD_LOCK            = 92003U,
-    FUNC_NOT_SUPPORT     = 92004U,
-    UNKNOWN              = 92099U
+    INVALID_PIPE_TYPE = 92001U,
+    INVALID_DATA_TYPE = 92002U,
+    DEAD_LOCK = 92003U,
+    FUNC_NOT_SUPPORT = 92004U,
+    UNKNOWN = 92099U
 };
 
-enum class PostSimErrorScene : uint32_t {
-    UNKNOWN              = 93099U
-};
+enum class PostSimErrorScene : uint32_t { UNKNOWN = 93099U };
 
-enum class PrecisionSimErrorScene : uint32_t {
-    NO_SO_EXISTS      = 94001U,
-    CANN_LOAD_FAILED  = 94002U,
-    UNKNOWN           = 94099U
-};
-}  // namespace npu::tile_fwk
+enum class PrecisionSimErrorScene : uint32_t { NO_SO_EXISTS = 94001U, CANN_LOAD_FAILED = 94002U, UNKNOWN = 94099U };
+} // namespace CostModel

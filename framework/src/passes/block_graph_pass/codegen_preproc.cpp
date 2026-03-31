@@ -30,20 +30,22 @@ namespace npu {
 namespace tile_fwk {
 const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "AXIS";
 // only save general gm input/output, not contain spill-out scene
-bool CodegenPreproc::IsNeedSave(const Operation &op) const {
+bool CodegenPreproc::IsNeedSave(const Operation& op) const
+{
     return OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) && (!op.IsNeedStackGM());
 }
 
 // only used in DYNAMIC_LOOP_PATH scene
-Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function &func) const {
+Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function& func) const
+{
     if (!func.IsUnderDynamicFunction()) {
         return SUCCESS;
     }
 
-    std::map<int, std::vector<Operation *>> gmParamInCallFunc;
-    for (auto &subProgram : func.rootFunc_->programs_) {
+    std::map<int, std::vector<Operation*>> gmParamInCallFunc;
+    for (auto& subProgram : func.rootFunc_->programs_) {
         gmParamInCallFunc.clear();
-        for (auto &op : subProgram.second->Operations(false)) {
+        for (auto& op : subProgram.second->Operations(false)) {
             if (IsNeedSave(op)) {
                 int coaIndex = IsCopyIn(op.GetOpcode()) ? op.GetIOpAttrOffset(0) : op.GetOOpAttrOffset(0);
                 gmParamInCallFunc[coaIndex].emplace_back(&op);
@@ -63,7 +65,8 @@ Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function &func) const {
                 gmParamInCallFunc[op.GetIOpAttrOffset(1)].emplace_back(&op);
             }
         }
-        APASS_LOG_INFO_F(Elements::Operation, "%d:%sgmParamInCallFunc size: %zu", __LINE__, __FUNCTION__, gmParamInCallFunc.size());
+        APASS_LOG_INFO_F(
+            Elements::Operation, "%d:%sgmParamInCallFunc size: %zu", __LINE__, __FUNCTION__, gmParamInCallFunc.size());
         int tensorParamIdx{0};
         for (auto param : gmParamInCallFunc) {
             for (auto op : param.second) {
@@ -75,17 +78,20 @@ Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function &func) const {
     return SUCCESS;
 }
 
-void CodegenPreproc::CombineTailAxis(std::vector<int64_t> &shape, size_t shapeSize) const {
+void CodegenPreproc::CombineTailAxis(std::vector<int64_t>& shape, size_t shapeSize) const
+{
     shape[shapeSize - 1] = shape[shapeSize - 1] * shape[shapeSize - NUM2];
     shape[shapeSize - NUM2] = 1;
 }
 
-void CodegenPreproc::CombineLastAxis(std::vector<SymbolicScalar> &shape, size_t shapeSize) const {
+void CodegenPreproc::CombineLastAxis(std::vector<SymbolicScalar>& shape, size_t shapeSize) const
+{
     shape[shapeSize - 1] = shape[shapeSize - 1] * shape[shapeSize - NUM2];
     shape[shapeSize - NUM2] = SymbolicScalar(1);
 }
 
-Status CodegenPreproc::ProcessAxis(Operation &op, std::vector<bool> attr, bool isInput) const {
+Status CodegenPreproc::ProcessAxis(Operation& op, std::vector<bool> attr, bool isInput) const
+{
     LogicalTensors operands = isInput ? op.GetIOperands() : op.GetOOperands();
     if (attr.size() < operands.size()) {
         for (size_t i = 0; i < operands.size() - attr.size(); ++i) {
@@ -93,7 +99,9 @@ Status CodegenPreproc::ProcessAxis(Operation &op, std::vector<bool> attr, bool i
         }
     }
     if (attr.size() != operands.size()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%d %s attr size(%zu) is not equal to operands size(%zu), ProcessAxis failed.", op.GetOpMagic(), op.GetOpcodeStr().c_str(), attr.size(), operands.size());
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "%d %s attr size(%zu) is not equal to operands size(%zu), ProcessAxis failed.",
+            op.GetOpMagic(), op.GetOpcodeStr().c_str(), attr.size(), operands.size());
         return FAILED;
     }
     for (size_t i = 0; i < operands.size(); ++i) {
@@ -110,15 +118,19 @@ Status CodegenPreproc::ProcessAxis(Operation &op, std::vector<bool> attr, bool i
     return SUCCESS;
 }
 
-Status CodegenPreproc::ForceCombineAxis(Function &func) const {
-    for (auto &subProgram : func.rootFunc_->programs_) {
-        for (auto &op : subProgram.second->Operations(false)) {
+Status CodegenPreproc::ForceCombineAxis(Function& func) const
+{
+    for (auto& subProgram : func.rootFunc_->programs_) {
+        for (auto& op : subProgram.second->Operations(false)) {
             if (op.HasAttr(OP_ATTR_PREFIX + "input_combine_axis")) {
                 std::vector<bool> attrIn;
                 op.GetAttr(OP_ATTR_PREFIX + "input_combine_axis", attrIn);
                 op.SetAttribute(OpAttributeKey::inputCombineAxisDone, true);
                 if (ProcessAxis(op, attrIn, true) != SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "ForceCombineAxis failed at function ProcessAxis(input) for subProgram(%lu).", subProgram.first);
+                    APASS_LOG_ERROR_F(
+                        Elements::Operation,
+                        "ForceCombineAxis failed at function ProcessAxis(input) for subProgram(%lu).",
+                        subProgram.first);
                     return FAILED;
                 }
                 if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
@@ -131,8 +143,10 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
                 std::vector<bool> attrOut;
                 op.GetAttr(OP_ATTR_PREFIX + "output_combine_axis", attrOut);
                 op.SetAttribute(OpAttributeKey::outputCombineAxisDone, true);
-                if (ProcessAxis(op, attrOut, false) !=SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "ForceCombineAxis failed at function ProcessAxis(out) for subProgram(%lu).", subProgram.first);
+                if (ProcessAxis(op, attrOut, false) != SUCCESS) {
+                    APASS_LOG_ERROR_F(
+                        Elements::Operation,
+                        "ForceCombineAxis failed at function ProcessAxis(out) for subProgram(%lu).", subProgram.first);
                     return FAILED;
                 }
                 if (op.GetOpcode() == Opcode::OP_COPY_IN) {
@@ -146,7 +160,8 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
     return SUCCESS;
 }
 
-inline bool IsUBCopy(Operation& op) {
+inline bool IsUBCopy(Operation& op)
+{
     if (IsCopyIn(op.GetOpcode())) {
         auto outTensor = *(op.GetOOperands().begin());
         if (outTensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
@@ -162,7 +177,8 @@ inline bool IsUBCopy(Operation& op) {
     return false;
 }
 
-bool ReduceNeedCombineAxis(const Operation &op) {
+bool ReduceNeedCombineAxis(const Operation& op)
+{
     if (OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
         return true;
     }
@@ -178,7 +194,8 @@ bool ReduceNeedCombineAxis(const Operation &op) {
     return false;
 }
 
-void CodegenPreproc::FixExpandDimForAxisCombine(Operation &op, int dimSize) const {
+void CodegenPreproc::FixExpandDimForAxisCombine(Operation& op, int dimSize) const
+{
     if (op.GetOpcode() == Opcode::OP_EXPAND) {
         int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
         if (axis == dimSize - NUM2) {
@@ -187,9 +204,11 @@ void CodegenPreproc::FixExpandDimForAxisCombine(Operation &op, int dimSize) cons
     }
 }
 
-inline bool SkipInputCombineOps3510(Operation& op) {
-    const std::unordered_set<Opcode> skipInputCombineOps3510 = {Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL,
-        Opcode::OP_DIV, Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_EXPANDEXPDIF};
+inline bool SkipInputCombineOps3510(Operation& op)
+{
+    const std::unordered_set<Opcode> skipInputCombineOps3510 = {
+        Opcode::OP_ADD,     Opcode::OP_SUB,     Opcode::OP_MUL,         Opcode::OP_DIV,
+        Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_EXPANDEXPDIF};
     if (skipInputCombineOps3510.count(op.GetOpcode()) == 0) {
         return false;
     }
@@ -201,10 +220,11 @@ inline bool SkipInputCombineOps3510(Operation& op) {
     return true;
 }
 
-Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
+Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function& func) const
+{
     const std::set<Opcode> skipInputCombineOps = {Opcode::OP_BRCB, Opcode::OP_EXPAND};
-    for (auto &subProgram : func.rootFunc_->programs_) {
-        for (auto &op : subProgram.second->Operations(false)) {
+    for (auto& subProgram : func.rootFunc_->programs_) {
+        for (auto& op : subProgram.second->Operations(false)) {
             if (OpcodeManager::Inst().GetCoreType(op.GetOpcode()) != OpCoreType::AIV && !IsUBCopy(op)) {
                 continue;
             }
@@ -238,19 +258,22 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
     return SUCCESS;
 }
 
-std::string CodegenPreproc::DumpOpList(Function &function) {
+std::string CodegenPreproc::DumpOpList(Function& function)
+{
     std::stringstream ss;
     int idx = 0;
-    for (auto &subProgram : function.rootFunc_->programs_) {
-        ss << "==================== OP_LIST Codegen_Preproc " << idx << " =====================" << "\n";
-        for (auto &op : subProgram.second->Operations(false)) {
+    for (auto& subProgram : function.rootFunc_->programs_) {
+        ss << "==================== OP_LIST Codegen_Preproc " << idx << " ====================="
+           << "\n";
+        for (auto& op : subProgram.second->Operations(false)) {
             if (!op.oOperand.empty()) {
                 bool needAlloc = false;
                 op.oOperand[0]->GetAttr(OpAttributeKey::needAlloc, needAlloc);
                 ss << op.GetOpcodeStr() << "[" << op.GetOpMagic() << "], needAlloc: " << static_cast<int>(needAlloc)
-                    << ", memId: " << op.oOperand[0]->memoryrange.memId << "\n";
+                   << ", memId: " << op.oOperand[0]->memoryrange.memId << "\n";
             } else {
-                ss << op.GetOpcodeStr() << "[" << op.GetOpMagic() << "]" << "\n";
+                ss << op.GetOpcodeStr() << "[" << op.GetOpMagic() << "]"
+                   << "\n";
             }
         }
         idx++;
@@ -258,11 +281,12 @@ std::string CodegenPreproc::DumpOpList(Function &function) {
     return ss.str();
 }
 
-void CodegenPreproc::SetNeedAllocAttr(Function &function) {
-    for (auto &subProgram : function.rootFunc_->programs_) {
+void CodegenPreproc::SetNeedAllocAttr(Function& function)
+{
+    for (auto& subProgram : function.rootFunc_->programs_) {
         std::unordered_set<int> appearedMemId;
-        for (auto &op : subProgram.second->Operations(false)) {
-            for (auto &outTensor : op.GetOOperands()) {
+        for (auto& op : subProgram.second->Operations(false)) {
+            for (auto& outTensor : op.GetOOperands()) {
                 if (outTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
                     continue;
                 }
@@ -277,23 +301,27 @@ void CodegenPreproc::SetNeedAllocAttr(Function &function) {
     APASS_LOG_DEBUG_F(Elements::Operation, "%s", DumpOpList(function).c_str());
 }
 
-Status CodegenPreproc::RunOnFunction(Function &function) {
+Status CodegenPreproc::RunOnFunction(Function& function)
+{
     combineAxis = function.paramConfigs_.combineAxis;
     forceCombineAxis = function.paramConfigs_.forceCombineAxis;
-    APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Start CodegenPreproc.");
-    for (auto &op : function.Operations()) {
+    APASS_LOG_INFO_F(
+        Elements::Operation, "===============================================================> Start CodegenPreproc.");
+    for (auto& op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
             op.SetOpCode(Opcode::OP_VIEW);
         }
     }
     if (SaveGmTensorParamIdxToOp(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "CodegenPreproc RunOnFunction failed at function SaveGmTensorParamIdxToOp.");
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "CodegenPreproc RunOnFunction failed at function SaveGmTensorParamIdxToOp.");
         return FAILED;
     }
 
     if (combineAxis) {
         if (ForceCombineAxisForAxisCombine(function) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CodegenPreproc RunOnFunction failed at function ForceCombineAxisForAxisCombine.");
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "CodegenPreproc RunOnFunction failed at function ForceCombineAxisForAxisCombine.");
             return FAILED;
         }
     } else {
@@ -304,7 +332,8 @@ Status CodegenPreproc::RunOnFunction(Function &function) {
     }
 
     SetNeedAllocAttr(function);
-    APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Finish CodegenPreproc.");
+    APASS_LOG_INFO_F(
+        Elements::Operation, "===============================================================> Finish CodegenPreproc.");
     return SUCCESS;
 }
 

@@ -26,8 +26,8 @@ namespace npu {
 namespace tile_fwk {
 class InferDisContinuousInputChecker : Checker {
 public:
-    Status DoPostCheck(Function &function) override;
+    Status DoPostCheck(Function& function) override;
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // INFER_DISCONTINUOUS_CHECKER_H
+#endif // INFER_DISCONTINUOUS_CHECKER_H

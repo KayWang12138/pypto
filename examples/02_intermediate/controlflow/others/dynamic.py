@@ -136,7 +136,7 @@ def test_dynamic_mul(device_id: int = None):
         x = torch.randn(bs, 128, dtype=torch.float16, device=device)
         result = torch.zeros(bs, 128, dtype=torch.float16, device=device)
         dynamic_mul_kernel(x, result, bs)
-        
+
 
         if global_run_mode == pypto.RunMode.NPU:
             torch.npu.synchronize()
@@ -176,7 +176,7 @@ def softmax_kernel(
     tile_b = 1
     bs_dyn, seqlen, head, dim = input_tensor.shape
     b_loop = bs_dyn // tile_b
-    
+
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
     for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
@@ -291,7 +291,7 @@ def attention_kernel(
         [cube_tiling, cube_tiling],
         [cube_tiling, cube_tiling])
 
-    
+
     bs_loop = (bs_dyn + tile - 1) // tile
 
     for bss_idx in pypto.loop(bs_loop):
@@ -417,7 +417,7 @@ def dynamic_add_kernel(
 
 
 
-    
+
 
 
 def test_dynamic_multi_dim(device_id: int = None):

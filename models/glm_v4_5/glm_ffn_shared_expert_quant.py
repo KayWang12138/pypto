@@ -293,7 +293,7 @@ def ffn_shared_expert_quant(
 @pytest.mark.soc("950", "910")
 def test_ffn_share() -> None:
     x_dtype = torch.bfloat16
-    # parameter config 
+    # parameter config
     s = 1
     intermediate_size = 192
     hidden_size = 5120

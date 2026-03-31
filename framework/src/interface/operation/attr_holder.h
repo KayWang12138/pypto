@@ -35,10 +35,11 @@ protected:
     std::map<std::string, npu::tile_fwk::Any> attributes;
 
 public:
-    const std::map<std::string, npu::tile_fwk::Any> &GetAllAttr() const { return attributes; }
-    std::map<std::string, npu::tile_fwk::Any> &GetAllAttr() { return attributes; }
+    const std::map<std::string, npu::tile_fwk::Any>& GetAllAttr() const { return attributes; }
+    std::map<std::string, npu::tile_fwk::Any>& GetAllAttr() { return attributes; }
 
-    bool HasAttr(const std::string &key) const {
+    bool HasAttr(const std::string& key) const
+    {
         if (key.empty()) {
             return false;
         }
@@ -47,13 +48,15 @@ public:
 
     // 设置属性值
     template <typename T>
-    void SetAttr(const std::string &key, const T &value) {
+    void SetAttr(const std::string& key, const T& value)
+    {
         static_assert(!std::is_same_v<T, int>);
         static_assert(!std::is_same_v<T, std::vector<int>>);
         attributes[key] = value;
     }
 
-    npu::tile_fwk::Any GetRawAttr(const std::string &key) const {
+    npu::tile_fwk::Any GetRawAttr(const std::string& key) const
+    {
         auto it = attributes.find(key);
         if (it != attributes.end()) {
             return it->second;
@@ -62,7 +65,8 @@ public:
     }
 
     template <typename T>
-    bool GetAttr(const std::string &key, T &value) const {
+    bool GetAttr(const std::string& key, T& value) const
+    {
         static_assert(!std::is_same_v<T, int>);
         static_assert(!std::is_same_v<T, std::vector<int>>);
         auto it = attributes.find(key);
@@ -80,7 +84,8 @@ public:
     }
 
     template <typename T>
-    T *GetAttr(const std::string &key) {
+    T* GetAttr(const std::string& key)
+    {
         auto it = attributes.find(key);
         if (it != attributes.end() && it->second.Type() == typeid(T)) {
             return AnyCast<T>(&it->second);
@@ -89,7 +94,8 @@ public:
     }
 
     // 移除属性
-    void RemoveAttr(const std::string &key) {
+    void RemoveAttr(const std::string& key)
+    {
         auto it = attributes.find(key);
         if (it != attributes.end()) {
             attributes.erase(it);
@@ -98,18 +104,20 @@ public:
         }
     }
 
-    void CopyAttrFrom(const AttrHolder &holder, const std::string &prefix) {
-        for (const auto &pair : holder.attributes) {
+    void CopyAttrFrom(const AttrHolder& holder, const std::string& prefix)
+    {
+        for (const auto& pair : holder.attributes) {
             if (StringUtils::StartsWith(pair.first, prefix)) {
                 attributes[pair.first] = pair.second;
             }
         }
     }
 
-    std::string DumpAttr() const {
+    std::string DumpAttr() const
+    {
         std::ostringstream oss;
         int index = 0;
-        for (auto &it : attributes) {
+        for (auto& it : attributes) {
             oss << ((index++ == 0) ? "" : " ");
             oss << "#" << it.first << "{" << DumpAttr(it.first) << "}";
         }
@@ -117,7 +125,8 @@ public:
     }
 
     // 打印所有属性
-    std::string DumpAttr(const std::string &key) const {
+    std::string DumpAttr(const std::string& key) const
+    {
         auto it = attributes.find(key);
         if (it == attributes.end()) {
             return "Invalid attribute key " + key;
@@ -126,7 +135,7 @@ public:
         std::string result;
         if (it->second.Type() == typeid(int64_t)) {
             result = std::to_string(npu::tile_fwk::AnyCast<int64_t>(it->second));
-        }  else if (it->second.Type() == typeid(float)) {
+        } else if (it->second.Type() == typeid(float)) {
             result = std::to_string(npu::tile_fwk::AnyCast<float>(it->second));
         } else if (it->second.Type() == typeid(double)) {
             result = std::to_string(npu::tile_fwk::AnyCast<double>(it->second));
@@ -134,7 +143,7 @@ public:
             result = npu::tile_fwk::AnyCast<std::string>(it->second);
         } else if (it->second.Type() == typeid(bool)) {
             result = std::to_string(npu::tile_fwk::AnyCast<bool>(it->second));
-        } else if (it->second.Type() == typeid(std::vector<int64_t>)){
+        } else if (it->second.Type() == typeid(std::vector<int64_t>)) {
             result = IntVecToStr(npu::tile_fwk::AnyCast<std::vector<int64_t>>(it->second));
         } else if (it->second.Type() == typeid(Element)) {
             auto tensorElement = npu::tile_fwk::AnyCast<Element>(it->second);
@@ -167,18 +176,20 @@ public:
         return result;
     }
 
-    nlohmann::json DumpAttrJson() const {
+    nlohmann::json DumpAttrJson() const
+    {
         nlohmann::json attrJson;
-        for (const auto &pair : attributes) {
+        for (const auto& pair : attributes) {
             attrJson[pair.first] = DumpAttr(pair.first);
         }
         return attrJson;
     }
 
-    nlohmann::json DumpAttrJson(const std::string &key) const {
+    nlohmann::json DumpAttrJson(const std::string& key) const
+    {
         auto iter = attributes.find(key);
         if (iter != attributes.end()) {
-            auto &second = iter->second;
+            auto& second = iter->second;
             try {
                 if (second.Type() == typeid(int64_t)) {
                     return nlohmann::json(npu::tile_fwk::AnyCast<int64_t>(second));
@@ -201,37 +212,38 @@ public:
                 } else {
                     return nlohmann::json("Unsupported type");
                 }
-            } catch (const std::bad_any_cast &) {
+            } catch (const std::bad_any_cast&) {
                 std::cout << "Bad any cast" << second.Type().name();
             }
         }
         return nlohmann::json();
     }
 
-    void LoadVecAttr(const std::string &key, const std::vector<nlohmann::json> &vec) {
+    void LoadVecAttr(const std::string& key, const std::vector<nlohmann::json>& vec)
+    {
         if (vec[0].is_string()) {
             std::vector<std::string> strVec;
-            for (const auto &j : vec) {
+            for (const auto& j : vec) {
                 strVec.emplace_back(j.get<std::string>());
             }
             SetAttr(key, strVec);
         } else if (vec[0].is_number()) {
             if (vec[0].is_number_integer()) {
                 std::vector<int64_t> intVec;
-                for (const auto &j : vec) {
+                for (const auto& j : vec) {
                     intVec.emplace_back(j.get<int64_t>());
                 }
                 SetAttr(key, intVec);
             } else {
                 std::vector<float> floatVec;
-                for (const auto &j : vec) {
+                for (const auto& j : vec) {
                     floatVec.emplace_back(j.get<float>());
                 }
                 SetAttr(key, floatVec);
             }
         } else if (vec[0].is_boolean()) {
             std::vector<bool> boolVec;
-            for (const auto &j : vec) {
+            for (const auto& j : vec) {
                 boolVec.emplace_back(j.get<bool>());
             }
             SetAttr(key, boolVec);
@@ -240,12 +252,13 @@ public:
         }
     }
 
-    void LoadAttrJson(const std::string &key, const nlohmann::json &attrJson) {
+    void LoadAttrJson(const std::string& key, const nlohmann::json& attrJson)
+    {
         try {
             if (attrJson.is_array()) {
                 // 处理数组
                 std::vector<nlohmann::json> vec;
-                for (const auto &elem : attrJson) {
+                for (const auto& elem : attrJson) {
                     vec.push_back(elem);
                 }
                 if (!vec.empty()) {

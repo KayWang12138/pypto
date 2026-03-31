@@ -23,10 +23,10 @@ from pypto.tensor import Tensor, ShmemTensor
 
 @op_wrapper
 def create_shmem_tensor(
-    group_name: str, 
+    group_name: str,
     n_pes: int,
     dtype: DataType,
-    shape: list[int], 
+    shape: list[int],
 ) -> ShmemTensor:
     """Creates a symmetric tensor in shared memory.
 
@@ -170,7 +170,7 @@ def shmem_put(
     tile = pypto.distributed.shmem_put(
         local_tensor,
         [0, 0, 0],
-        shmem_tensor, 
+        shmem_tensor,
         1,
         put_op=pypto.AtomicType.SET,
         pred=pred_token,
@@ -485,10 +485,10 @@ def my_symbolic_pe(group_name: str) -> SymbolicScalar:
     -------
     symbolic scalar
         Represents my_pe.
-    
+
     Examples
     --------
-       my_pe = pypto.distributed.my_symbolic_pe(group_name) 
+       my_pe = pypto.distributed.my_symbolic_pe(group_name)
     """
     return SymbolicScalar.from_base(pypto_impl.GetSymbolicScalarPeId(group_name))
 

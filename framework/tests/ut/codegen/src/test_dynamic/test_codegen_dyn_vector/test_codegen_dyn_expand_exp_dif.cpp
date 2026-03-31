@@ -31,7 +31,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
@@ -42,7 +43,8 @@ public:
     void TearDown() override {}
 };
 
-void TestExpandExpDif(const Shape &shape_x, const Shape &shape_y, const std::string &expect) {
+void TestExpandExpDif(const Shape& shape_x, const Shape& shape_y, const std::string& expect)
+{
     TileShape::Current().SetVecTile(shape_x);
     Tensor input_x(DT_FP32, shape_x, "input_x");
     Tensor input_y(DT_FP32, shape_y, "input_y");
@@ -50,8 +52,10 @@ void TestExpandExpDif(const Shape &shape_x, const Shape &shape_y, const std::str
 
     ConfigManager::Instance();
     std::string funcName = "TestExpandExpDif";
-    FUNCTION(funcName, {input_x, input_y, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input_x, input_y, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = ExpandExpDif(input_x, input_y);
         }
@@ -67,7 +71,8 @@ void TestExpandExpDif(const Shape &shape_x, const Shape &shape_y, const std::str
     CheckStringExist(expect, GetResultFromCpp(*function));
 }
 
-TEST_F(TestCodegenDynExpandExpDif, TestExpandExpDifLastAxis) {
+TEST_F(TestCodegenDynExpandExpDif, TestExpandExpDifLastAxis)
+{
     const Shape shape_x = {16, 128};
     const Shape shape_y = {16, 1};
     std::string expect =
@@ -75,7 +80,8 @@ TEST_F(TestCodegenDynExpandExpDif, TestExpandExpDifLastAxis) {
     TestExpandExpDif(shape_x, shape_y, expect);
 }
 
-TEST_F(TestCodegenDynExpandExpDif, TestExpandExpDifSecondaryLastAxis) {
+TEST_F(TestCodegenDynExpandExpDif, TestExpandExpDifSecondaryLastAxis)
+{
     const Shape shape_x = {16, 128};
     const Shape shape_y = {1, 128};
     std::string expect = R"!!!(TExpandExpDif(ubTensor_9, ubTensor_9, ubTensor_11);)!!!";

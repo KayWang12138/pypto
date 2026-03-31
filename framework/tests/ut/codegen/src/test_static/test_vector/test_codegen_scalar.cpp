@@ -40,7 +40,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetBuildStatic(true);
@@ -51,7 +52,8 @@ public:
     void TearDown() override {}
 };
 
-void TestQuant(std::vector<int64_t> &inputShape) {
+void TestQuant(std::vector<int64_t>& inputShape)
+{
     int shapeDim = inputShape.size();
     std::vector<int64_t> scaleShape(shapeDim, 0);
     for (int i = 0; i < shapeDim; i++) {
@@ -62,9 +64,15 @@ void TestQuant(std::vector<int64_t> &inputShape) {
 
     // depend on shapeDim
     switch (shapeDim) {
-        case DIM2: TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]); break;
-        case DIM3: TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[0], vecTileShape[1]); break;
-        case DIM4: TileShape::Current().SetVecTile(1, 1, vecTileShape[0], vecTileShape[1]); break;
+        case DIM2:
+            TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]);
+            break;
+        case DIM3:
+            TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[0], vecTileShape[1]);
+            break;
+        case DIM4:
+            TileShape::Current().SetVecTile(1, 1, vecTileShape[0], vecTileShape[1]);
+            break;
         default:
             ASSERT(GenCodeErr::TENSOR_DIM_UNSUPPORTED, shapeDim <= DIM4) << "unsupport dim " << shapeDim << " \n";
             break;
@@ -75,7 +83,8 @@ void TestQuant(std::vector<int64_t> &inputShape) {
     Tensor scaleDeQuant(DataType::DT_FP32, scaleShape, "scaleDeQuant");
 
     std::string funcName = "Quant";
-    FUNCTION(funcName, {input, output, scaleDeQuant}) {
+    FUNCTION(funcName, {input, output, scaleDeQuant})
+    {
         auto res = Quant(input);
         output = std::get<0>(res);
         scaleDeQuant = std::get<1>(res);
@@ -87,12 +96,14 @@ void TestQuant(std::vector<int64_t> &inputShape) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenScalar, TestQuant_32_1_7168) {
+TEST_F(TestCodegenScalar, TestQuant_32_1_7168)
+{
     std::vector<int64_t> inputShape = {32, 1, 7168};
     TestQuant(inputShape);
 }
 
-TEST_F(TestCodegenScalar, TestScalarOp) {
+TEST_F(TestCodegenScalar, TestScalarOp)
+{
     std::vector<int64_t> vecTileShape = {128, 128};
     int b = 2; // 32
     int s = 1; // 1, optimize set_tile
@@ -102,7 +113,8 @@ TEST_F(TestCodegenScalar, TestScalarOp) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, shape, "res");
     std::string funcName = "ScalarAddS";
-    FUNCTION(funcName, {input, output}) {
+    FUNCTION(funcName, {input, output})
+    {
         auto output_a = ScalarAddS(input, Element(DataType::DT_FP32, F_127), true);
         auto output_b = ScalarSubS(output_a, Element(DataType::DT_FP32, F_127), true);
         auto output_c = ScalarMulS(output_b, Element(DataType::DT_FP32, F_127), true);
@@ -115,14 +127,15 @@ TEST_F(TestCodegenScalar, TestScalarOp) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenScalar, TestPipeAll) {
+TEST_F(TestCodegenScalar, TestPipeAll)
+{
     auto function = GenMockFuncStatic("TestPipeAll");
     std::vector<int64_t> shape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto ddrTensor =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, dynValidShape});
     auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    Operation &syncOp = function->AddOperation(npu::tile_fwk::Opcode::OP_BAR_ALL, {ddrTensor}, {ubTensor});
+    Operation& syncOp = function->AddOperation(npu::tile_fwk::Opcode::OP_BAR_ALL, {ddrTensor}, {ubTensor});
     syncOp.syncQueue_ = {PipeType::PIPE_ALL, PipeType::PIPE_ALL, CoreType::AIV, CoreType::AIV, -1};
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
@@ -137,11 +150,12 @@ TEST_F(TestCodegenScalar, TestPipeAll) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenScalar, TestAicpuCallOp) {
+TEST_F(TestCodegenScalar, TestAicpuCallOp)
+{
     auto function = GenMockFuncStatic("TestAicpuCallOp");
     std::vector<int64_t> shape = {64, 64};
     auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    Operation &op = function->AddOperation(npu::tile_fwk::Opcode::OP_AICPU_CALL_AIV, {ubTensor}, {});
+    Operation& op = function->AddOperation(npu::tile_fwk::Opcode::OP_AICPU_CALL_AIV, {ubTensor}, {});
     op.SetAttribute(OpAttributeKey::aicpuCall, 0);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
@@ -156,14 +170,15 @@ TEST_F(TestCodegenScalar, TestAicpuCallOp) {
     EXPECT_EQ(res, expect);
 }
 
-void TestCVSyncBody(Opcode syncOpcode) {
+void TestCVSyncBody(Opcode syncOpcode)
+{
     auto function = GenMockFuncStatic("TestCVSyncBody");
     std::vector<int64_t> shape = {64, 64};
     const std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, shape, dynValidShape});
     auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L1, shape, dynValidShape});
 
-    auto &op = function->AddOperation(syncOpcode, {localTensor}, {localOutTensor});
+    auto& op = function->AddOperation(syncOpcode, {localTensor}, {localOutTensor});
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
@@ -184,11 +199,7 @@ void TestCVSyncBody(Opcode syncOpcode) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenScalar, InjectSyncSet) {
-    TestCVSyncBody(Opcode::OP_CV_SYNC_SRC);
-}
+TEST_F(TestCodegenScalar, InjectSyncSet) { TestCVSyncBody(Opcode::OP_CV_SYNC_SRC); }
 
-TEST_F(TestCodegenScalar, InjectSyncWait) {
-    TestCVSyncBody(Opcode::OP_CV_SYNC_DST);
-}
+TEST_F(TestCodegenScalar, InjectSyncWait) { TestCVSyncBody(Opcode::OP_CV_SYNC_DST); }
 } // namespace npu::tile_fwk

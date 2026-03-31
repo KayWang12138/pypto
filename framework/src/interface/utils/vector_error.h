@@ -20,17 +20,17 @@
 namespace npu::tile_fwk {
 
 enum class VectorErrorCode : uint32_t {
-    
+
     // FC0xxx: 参数错误
-    ERR_PARAM_INVALID             = 0xC0000U,  // 参数无效（shape、dtype、format等）
-    ERR_PARAM_DTYPE_UNSUPPORTED   = 0xC0001U,  // 不支持的数据类型
-    
+    ERR_PARAM_INVALID = 0xC0000U,           // 参数无效（shape、dtype、format等）
+    ERR_PARAM_DTYPE_UNSUPPORTED = 0xC0001U, // 不支持的数据类型
+
     // FC1xxx: 配置错误
-    ERR_CONFIG_TILE         = 0xC1000U,  // Tile 配置错误
-    ERR_CONFIG_ALIGNMENT    = 0xC1001U,  // 对齐错误（16B/32B/64元素）
-    
+    ERR_CONFIG_TILE = 0xC1000U,      // Tile 配置错误
+    ERR_CONFIG_ALIGNMENT = 0xC1001U, // 对齐错误（16B/32B/64元素）
+
     // FC2xxx: 运行时错误
-    ERR_RUNTIME_NULLPTR     = 0xC2000U,  // 空指针错误
-    ERR_RUNTIME_LOGIC       = 0xC2001U,  // 逻辑不变量错误
+    ERR_RUNTIME_NULLPTR = 0xC2000U, // 空指针错误
+    ERR_RUNTIME_LOGIC = 0xC2001U,   // 逻辑不变量错误
 };
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

@@ -23,9 +23,8 @@ public:
     SetCopyAttr() {}
     ~SetCopyAttr() = default;
 
-    void ProcessSpecialMTEOperation(Operation &op) const;
-    void ProcessMoveInOperation(Operation &op) const;
+    void ProcessSpecialMTEOperation(Operation& op) const;
+    void ProcessMoveInOperation(Operation& op) const;
 };
 } // namespace npu::tile_fwk
 #endif // PASS_SET_COPY_ATTR_H
-    

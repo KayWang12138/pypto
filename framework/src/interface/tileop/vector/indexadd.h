@@ -17,11 +17,14 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
-template <typename T0, typename T2, typename T3, typename dstTileDefine, typename tempTileDefine,
-    typename src1TileDefine, typename Scalar>
-TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstTile, tempTileDefine tempTile, src1TileDefine src1Tile,
-    Scalar alpha, __ubuf__ typename T0::Type *dstAddr, __ubuf__ bfloat16_t *tempAddr,
-    __ubuf__ typename T2::Type *src1Addr, size_t dstOffset, size_t src1Offset) {
+template <
+    typename T0, typename T2, typename T3, typename dstTileDefine, typename tempTileDefine, typename src1TileDefine,
+    typename Scalar>
+TILEOP void IndexAddNotLastAxisCompute(
+    dstTileDefine dstTile, tempTileDefine tempTile, src1TileDefine src1Tile, Scalar alpha,
+    __ubuf__ typename T0::Type* dstAddr, __ubuf__ bfloat16_t* tempAddr, __ubuf__ typename T2::Type* src1Addr,
+    size_t dstOffset, size_t src1Offset)
+{
     pto::TASSIGN(dstTile, (uint64_t)(dstAddr + dstOffset));
     pto::TASSIGN(src1Tile, (uint64_t)(src1Addr + src1Offset));
 
@@ -31,28 +34,28 @@ TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstTile, tempTileDefine tem
         wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
         if (abs(static_cast<float>(alpha) - 1) > TileOp::EPSILON) {
             pto::TMULS(src1Tile, src1Tile, alpha);
-            #ifdef __DAV_V220
+#ifdef __DAV_V220
             pipe_barrier(PIPE_V);
-            #endif
-            pto::TCVT(tempTile, src1Tile, pto::RoundMode::CAST_RINT); //fp32->bf16
-            #ifdef __DAV_V220
+#endif
+            pto::TCVT(tempTile, src1Tile, pto::RoundMode::CAST_RINT); // fp32->bf16
+#ifdef __DAV_V220
             pipe_barrier(PIPE_V);
-            #endif
-            pto::TCVT(src1Tile, tempTile, pto::RoundMode::CAST_NONE); //bf16->fp32
-            #ifdef __DAV_V220
+#endif
+            pto::TCVT(src1Tile, tempTile, pto::RoundMode::CAST_NONE); // bf16->fp32
+#ifdef __DAV_V220
             pipe_barrier(PIPE_V);
-            #endif
+#endif
         }
         pto::TADD(dstTile, dstTile, src1Tile);
         // 当alpha不为1或index为int32类型时，需要在每一步运算后转换为bf16类型
         if (Std::is_same_v<typename T3::Type, int32_t> || abs(static_cast<float>(alpha) - 1) > TileOp::EPSILON) {
-            #ifdef __DAV_V220
+#ifdef __DAV_V220
             pipe_barrier(PIPE_V);
-            #endif
+#endif
             pto::TCVT(tempTile, dstTile, pto::RoundMode::CAST_RINT); // fp32->bf16
-            #ifdef __DAV_V220
+#ifdef __DAV_V220
             pipe_barrier(PIPE_V);
-            #endif
+#endif
             pto::TCVT(dstTile, tempTile, pto::RoundMode::CAST_NONE); // bf16->fp32
         }
     } else {
@@ -60,21 +63,23 @@ TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstTile, tempTileDefine tem
         wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
         if (abs(static_cast<float>(alpha) - 1) > TileOp::EPSILON) {
             pto::TMULS(src1Tile, src1Tile, alpha);
-            #ifdef __DAV_V220
+#ifdef __DAV_V220
             pipe_barrier(PIPE_V);
-            #endif
+#endif
         }
         pto::TADD(dstTile, dstTile, src1Tile);
     }
 }
 
 template <typename T0, typename T2, typename T3, typename Scalar>
-TILEOP void IndexAddLastAxisCompute(T0 dst, T2 src1, T3 src2, Scalar alpha, size_t src1Shape0, size_t src1Shape1,
-    size_t src1Shape2, size_t src1Shape3, size_t src1Shape4, size_t dstStride0, size_t dstStride1, size_t dstStride2,
-    size_t dstStride3, size_t src1Stride0, size_t src1Stride1, size_t src1Stride2, size_t src1Stride3) {
-    auto dstAddr = (__ubuf__ typename T0::Type *)((uint64_t)(dst.GetAddr()));
-    auto src1Addr = (__ubuf__ typename T2::Type *)((uint64_t)(src1.GetAddr()));
-    auto idxAddr = (__ubuf__ typename T3::Type *)((uint64_t)(src2.GetAddr()));
+TILEOP void IndexAddLastAxisCompute(
+    T0 dst, T2 src1, T3 src2, Scalar alpha, size_t src1Shape0, size_t src1Shape1, size_t src1Shape2, size_t src1Shape3,
+    size_t src1Shape4, size_t dstStride0, size_t dstStride1, size_t dstStride2, size_t dstStride3, size_t src1Stride0,
+    size_t src1Stride1, size_t src1Stride2, size_t src1Stride3)
+{
+    auto dstAddr = (__ubuf__ typename T0::Type*)((uint64_t)(dst.GetAddr()));
+    auto src1Addr = (__ubuf__ typename T2::Type*)((uint64_t)(src1.GetAddr()));
+    auto idxAddr = (__ubuf__ typename T3::Type*)((uint64_t)(src2.GetAddr()));
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     uint64_t dstOffset = 0;
@@ -87,11 +92,9 @@ TILEOP void IndexAddLastAxisCompute(T0 dst, T2 src1, T3 src2, Scalar alpha, size
                         for (LoopVar idx = 0; idx < src1Shape4; ++idx) {
                             auto index = *(idxAddr + idx);
                             dstOffset = i * dstStride0 + j * dstStride1 + k * dstStride2 + l * dstStride3 + index;
-                            src1Offset =
-                                i * src1Stride0 + j * src1Stride1 + k * src1Stride2 + l * src1Stride3 + idx;
+                            src1Offset = i * src1Stride0 + j * src1Stride1 + k * src1Stride2 + l * src1Stride3 + idx;
                             if constexpr (Std::is_same_v<Scalar, half>) { // half
-                                float mulsResult =
-                                    static_cast<float>(src1Addr[src1Offset]) * static_cast<float>(alpha);
+                                float mulsResult = static_cast<float>(src1Addr[src1Offset]) * static_cast<float>(alpha);
                                 src1Addr[src1Offset] = static_cast<half>(mulsResult);
                             } else if constexpr (Std::is_same_v<Scalar, bfloat16_t>) { // bf16
                                 float mulsResult = src1Addr[src1Offset] * TileOp::Bf16ToFp32(alpha);
@@ -154,10 +157,11 @@ src2:index
 axis是泛化成5维后的值，实际值为 axis + shapeSize - 5
 */
 template <int axis, typename T0, typename T1, typename T2, typename T3, typename T4, typename Scalar>
-TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tempTensor, Scalar alpha) { // T0: tileTensor
-    constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;              // support 2-5
+TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tempTensor, Scalar alpha)
+{                                                                          // T0: tileTensor
+    constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value; // support 2-5
     const auto dstLayout = dst.GetLayout();
-    auto dstShape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>(); // validShape
+    auto dstShape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();  // validShape
     auto dstShape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
     auto dstShape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
     auto dstShape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
@@ -179,16 +183,17 @@ TILEOP void TIndexAdd(T0 dst, T1 src0, T2 src1, T3 src2, T4 tempTensor, Scalar a
     auto src1Stride2 = src1Layout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
     auto src1Stride3 = src1Layout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
 
-    auto dstAddr = (__ubuf__ typename T0::Type *)((uint64_t)(dst.GetAddr()));
-    auto tempAddr = (__ubuf__ typename T4::Type *)((uint64_t)(tempTensor.GetAddr()));
-    auto src1Addr = (__ubuf__ typename T2::Type *)((uint64_t)(src1.GetAddr()));
-    auto idxAddr = (__ubuf__ typename T3::Type *)((uint64_t)(src2.GetAddr()));
+    auto dstAddr = (__ubuf__ typename T0::Type*)((uint64_t)(dst.GetAddr()));
+    auto tempAddr = (__ubuf__ typename T4::Type*)((uint64_t)(tempTensor.GetAddr()));
+    auto src1Addr = (__ubuf__ typename T2::Type*)((uint64_t)(src1.GetAddr()));
+    auto idxAddr = (__ubuf__ typename T3::Type*)((uint64_t)(src2.GetAddr()));
     if (!dstShape0 || !dstShape1 || !dstShape2 || !dstShape3 || !dstShape4) {
         return;
     }
     if constexpr (axis == 4) { // 尾轴
-        IndexAddLastAxisCompute(dst, src1, src2, alpha, src1Shape0, src1Shape1, src1Shape2, src1Shape3, src1Shape4,
-            dstStride0, dstStride1, dstStride2, dstStride3, src1Stride0, src1Stride1, src1Stride2, src1Stride3);
+        IndexAddLastAxisCompute(
+            dst, src1, src2, alpha, src1Shape0, src1Shape1, src1Shape2, src1Shape3, src1Shape4, dstStride0, dstStride1,
+            dstStride2, dstStride3, src1Stride0, src1Stride1, src1Stride2, src1Stride3);
     } else {
         constexpr auto dstTileW =
             TileOp::GetAnyAxisMergeResult<axis + shapeSize - 3, shapeSize, typename T0::TileShape>();

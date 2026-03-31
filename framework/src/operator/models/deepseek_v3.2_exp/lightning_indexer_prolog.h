@@ -43,18 +43,18 @@ struct IndexerShapeParams {
 };
 
 struct IndexerPrologInput {
-    const Tensor &x;
-    const Tensor &qr;
-    const Tensor &qW;
-    const Tensor &kW;
-    const Tensor &projW;
-    const Tensor &lnW;
-    const Tensor &lnBias;
-    const Tensor &cos;
-    const Tensor &sin;
-    const Tensor &kCache;
-    const Tensor &kCacheIndex;
-    const Tensor &blockTable;
+    const Tensor& x;
+    const Tensor& qr;
+    const Tensor& qW;
+    const Tensor& kW;
+    const Tensor& projW;
+    const Tensor& lnW;
+    const Tensor& lnBias;
+    const Tensor& cos;
+    const Tensor& sin;
+    const Tensor& kCache;
+    const Tensor& kCacheIndex;
+    const Tensor& blockTable;
 };
 
 struct IndexerPrologInputData {
@@ -73,9 +73,9 @@ struct IndexerPrologInputData {
 };
 
 struct IndexerPrologOutput {
-    Tensor &query;
-    Tensor &weight;
-    Tensor &kCacheOut;
+    Tensor& query;
+    Tensor& weight;
+    Tensor& kCacheOut;
 };
 
 struct IndexerPrologOutputData {
@@ -91,10 +91,10 @@ struct IndexerPrologOutputGolden {
 };
 
 void LightningIndexerPrologCompute(
-    const IndexerPrologInput &inputs, IndexerPrologOutput &outputs, const IndexerShapeParams &params);
+    const IndexerPrologInput& inputs, IndexerPrologOutput& outputs, const IndexerShapeParams& params);
 
 void LightningIndexerProlog(
-    const IndexerPrologInput &inputs, IndexerPrologOutput &outputs, const IndexerShapeParams &params);
+    const IndexerPrologInput& inputs, IndexerPrologOutput& outputs, const IndexerShapeParams& params);
 
 } // namespace npu::tile_fwk
 

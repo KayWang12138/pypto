@@ -38,10 +38,13 @@ public:
     void TearDown() override {}
 };
 
-
-template <typename T = npu::tile_fwk::float16, bool splitReduceLastDim = true, bool splitK = false, bool nz = false, bool usePrefetch = false>
-void TestMlaPrologV2(std::vector<int> &params, bool isQuant = false, bool hasSmooth = false,
-        int blockSize = 128, std::string cacheMode = "BNSD") {
+template <
+    typename T = npu::tile_fwk::float16, bool splitReduceLastDim = true, bool splitK = false, bool nz = false,
+    bool usePrefetch = false>
+void TestMlaPrologV2(
+    std::vector<int>& params, bool isQuant = false, bool hasSmooth = false, int blockSize = 128,
+    std::string cacheMode = "BNSD")
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank
     int b = params[0];
     int s = params[1];
@@ -85,10 +88,10 @@ void TestMlaPrologV2(std::vector<int> &params, bool isQuant = false, bool hasSmo
         kr_cache_shape = {blockNum, blockSize, 1, qkRopeHeadDim};
     }
 
-
     ConfigManager::Instance();
-    PROGRAM("MlaProlog") {
-        Tensor x = Tensor(dType, x_shape, "x"); //32_1_7168
+    PROGRAM("MlaProlog")
+    {
+        Tensor x = Tensor(dType, x_shape, "x"); // 32_1_7168
         TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
         Tensor wDq = Tensor(dType, w_qa_shape, "wDq", weightFormat);
         Tensor wUqQr = Tensor(dTypeQuantIn, w_qb_shape, "wUqQr", weightFormat);
@@ -102,18 +105,17 @@ void TestMlaPrologV2(std::vector<int> &params, bool isQuant = false, bool hasSmo
         Tensor gammaCkv = Tensor(dType, gamma_ckv_shape, "gammaCkv");
         Tensor cos = Tensor(dType, cos_shape, "cos");
         Tensor sin = Tensor(dType, cos_shape, "sin");
-        Tensor kv_len = Tensor(DT_INT64, kv_len_shape, "kv_len");  // int64
+        Tensor kv_len = Tensor(DT_INT64, kv_len_shape, "kv_len"); // int64
         Tensor kv_cache = Tensor(dType, kv_cache_shape, "kv_cache");
         Tensor kr_cache = Tensor(dType, kr_cache_shape, "kr_cache");
         // output
         Tensor output_q = Tensor(dType, q_out_shape, "output_q");
         Tensor output_q_rope = Tensor(dType, q_rope_out_shape, "output_q_rope");
 
-
         RoPETileShapeConfigNew ropeConfig{
-            {b, 1, 64}, // (b,s,d)
-            {b, 1, 1, 64}, // Q (b,s,n,d)
-            {b, 1, 1, 64}, // K (b,s,1,d)
+            {b, 1, 64},      // (b,s,d)
+            {b, 1, 1, 64},   // Q (b,s,n,d)
+            {b, 1, 1, 64},   // K (b,s,1,d)
             {b, 1, 1, 32, 2} // (b,s,n,d//2,2)
         };
 
@@ -130,27 +132,32 @@ void TestMlaPrologV2(std::vector<int> &params, bool isQuant = false, bool hasSmo
                 smooth_cq.SetCachePolicy(CachePolicy::PREFETCH, true);
             }
             config::SetBuildStatic(true);
-            FUNCTION("MlaPrologUt",
-                {x, wDq, wUqQr, w_qb_scale, smooth_cq, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos,
-                 kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {
-                MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, kv_len, kv_cache, kr_cache,
-                    quantInputs, ropeConfig, output_q, output_q_rope, kv_cache, kr_cache, 1e-5f, 1e-5f, cacheMode,
-                    splitReduceLastDim,  splitK);
+            FUNCTION(
+                "MlaPrologUt", {x, wDq, wUqQr, w_qb_scale, smooth_cq, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, kv_len,
+                                kv_cache, kr_cache, output_q, output_q_rope})
+            {
+                MlaProlog(
+                    x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, kv_len, kv_cache, kr_cache, quantInputs,
+                    ropeConfig, output_q, output_q_rope, kv_cache, kr_cache, 1e-5f, 1e-5f, cacheMode,
+                    splitReduceLastDim, splitK);
             };
         } else {
             config::SetBuildStatic(true);
-            FUNCTION("MlaPrologUt",
-                {x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos,
-                 kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {
-                MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, kv_len, kv_cache, kr_cache,
-                    quantInputs, ropeConfig, output_q, output_q_rope, kv_cache, kr_cache, 1e-5f, 1e-5f, cacheMode,
-                    splitReduceLastDim,  splitK);
+            FUNCTION(
+                "MlaPrologUt", {x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, kv_len, kv_cache, kr_cache,
+                                output_q, output_q_rope})
+            {
+                MlaProlog(
+                    x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, kv_len, kv_cache, kr_cache, quantInputs,
+                    ropeConfig, output_q, output_q_rope, kv_cache, kr_cache, 1e-5f, 1e-5f, cacheMode,
+                    splitReduceLastDim, splitK);
             };
         }
     }
 }
 
-TEST_F(MlaPrologUtest, mla_ut_bf16_high_quant_smooth_nz_pa_bsnd) {  // b_n_s_s2_h_q_lora_rank
+TEST_F(MlaPrologUtest, mla_ut_bf16_high_quant_smooth_nz_pa_bsnd)
+{ // b_n_s_s2_h_q_lora_rank
     config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
     int b = 32;
     int s = 1;
@@ -171,6 +178,6 @@ TEST_F(MlaPrologUtest, mla_ut_bf16_high_quant_smooth_nz_pa_bsnd) {  // b_n_s_s2_
     const bool usePrefetch = false;
 
     std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank};
-    TestMlaPrologV2<npu::tile_fwk::bfloat16, splitReduceLastDim, splitK, nz, usePrefetch>(params, true, true,
-                                                                                 blockSize, cacheMode);
+    TestMlaPrologV2<npu::tile_fwk::bfloat16, splitReduceLastDim, splitK, nz, usePrefetch>(
+        params, true, true, blockSize, cacheMode);
 }

@@ -61,7 +61,8 @@ struct StackFrame {
      * \param programCounter Program counter value at this frame
      */
     StackFrame(std::string func, std::string file, int line, uintptr_t programCounter)
-        : function(std::move(func)), filename(std::move(file)), lineno(line), pc(programCounter) {}
+        : function(std::move(func)), filename(std::move(file)), lineno(line), pc(programCounter)
+    {}
 
     /**
      * \brief Formats the stack frame as a human-readable string
@@ -86,7 +87,7 @@ public:
      * \brief Get the singleton instance of Backtrace
      * \return Reference to the singleton Backtrace instance
      */
-    static Backtrace &GetInstance();
+    static Backtrace& GetInstance();
 
     /**
      * \brief Capture the current stack trace
@@ -107,7 +108,7 @@ public:
      * \return Multi-line string representation of the stack trace, with
      *         each frame on a separate line
      */
-    static std::string FormatStackTrace(const std::vector<StackFrame> &frames);
+    static std::string FormatStackTrace(const std::vector<StackFrame>& frames);
 
 public:
     /// Constructor (no initialization needed for execinfo-based implementation)
@@ -117,8 +118,8 @@ public:
     ~Backtrace() = default;
 
     // Prevent copying to maintain singleton pattern
-    Backtrace(const Backtrace &) = delete;
-    Backtrace &operator=(const Backtrace &) = delete;
+    Backtrace(const Backtrace&) = delete;
+    Backtrace& operator=(const Backtrace&) = delete;
 };
 
 /**
@@ -146,7 +147,8 @@ public:
      * \brief Constructs an Error with a message and captures the stack trace
      * \param message Error message describing what went wrong
      */
-    PYPTO_ALWAYS_INLINE explicit Error(const std::string &message) : std::runtime_error(message) {
+    PYPTO_ALWAYS_INLINE explicit Error(const std::string& message) : std::runtime_error(message)
+    {
         stackTrace_ = Backtrace::GetInstance().CaptureStackTrace();
     }
 
@@ -154,7 +156,7 @@ public:
      * \brief Get the raw stack trace frames
      * \return Const reference to the vector of captured stack frames
      */
-    [[nodiscard]] const std::vector<StackFrame> &GetStackTrace() const { return stackTrace_; }
+    [[nodiscard]] const std::vector<StackFrame>& GetStackTrace() const { return stackTrace_; }
 
     /**
      * \brief Get a formatted string representation of the stack trace
@@ -184,7 +186,7 @@ private:
  */
 class ValueError : public Error {
 public:
-    PYPTO_ALWAYS_INLINE explicit ValueError(const std::string &message) : Error(message) {}
+    PYPTO_ALWAYS_INLINE explicit ValueError(const std::string& message) : Error(message) {}
 };
 
 /**
@@ -199,7 +201,7 @@ public:
  */
 class TypeError : public Error {
 public:
-    PYPTO_ALWAYS_INLINE explicit TypeError(const std::string &message) : Error(message) {}
+    PYPTO_ALWAYS_INLINE explicit TypeError(const std::string& message) : Error(message) {}
 };
 
 /**
@@ -215,7 +217,7 @@ public:
  */
 class RuntimeError : public Error {
 public:
-    PYPTO_ALWAYS_INLINE explicit RuntimeError(const std::string &message) : Error(message) {}
+    PYPTO_ALWAYS_INLINE explicit RuntimeError(const std::string& message) : Error(message) {}
 };
 
 /**
@@ -230,7 +232,7 @@ public:
  */
 class NotImplementedError : public Error {
 public:
-    PYPTO_ALWAYS_INLINE explicit NotImplementedError(const std::string &message) : Error(message) {}
+    PYPTO_ALWAYS_INLINE explicit NotImplementedError(const std::string& message) : Error(message) {}
 };
 
 /**
@@ -245,7 +247,7 @@ public:
  */
 class IndexError : public Error {
 public:
-    PYPTO_ALWAYS_INLINE explicit IndexError(const std::string &message) : Error(message) {}
+    PYPTO_ALWAYS_INLINE explicit IndexError(const std::string& message) : Error(message) {}
 };
 
 /**
@@ -260,7 +262,7 @@ public:
  */
 class AssertionError : public Error {
 public:
-    PYPTO_ALWAYS_INLINE explicit AssertionError(const std::string &message) : Error(message) {}
+    PYPTO_ALWAYS_INLINE explicit AssertionError(const std::string& message) : Error(message) {}
 };
 
 /**
@@ -279,7 +281,7 @@ public:
  */
 class InternalError : public Error {
 public:
-    PYPTO_ALWAYS_INLINE explicit InternalError(const std::string &message) : Error(message) {}
+    PYPTO_ALWAYS_INLINE explicit InternalError(const std::string& message) : Error(message) {}
 };
 
 /**
@@ -315,7 +317,8 @@ struct Diagnostic {
      * \brief Construct a diagnostic with all fields
      */
     Diagnostic(DiagnosticSeverity sev, std::string rule, int code, std::string msg, ir::Span s)
-        : severity(sev), ruleName(std::move(rule)), errorCode(code), message(std::move(msg)), span(std::move(s)) {}
+        : severity(sev), ruleName(std::move(rule)), errorCode(code), message(std::move(msg)), span(std::move(s))
+    {}
 };
 
 /**
@@ -337,14 +340,15 @@ public:
      * \param report Formatted verification report
      * \param diagnostics Vector of all diagnostics (errors and warnings)
      */
-    PYPTO_ALWAYS_INLINE explicit VerificationError(const std::string &report, std::vector<Diagnostic> diagnostics)
-        : Error(report), diagnostics_(std::move(diagnostics)) {}
+    PYPTO_ALWAYS_INLINE explicit VerificationError(const std::string& report, std::vector<Diagnostic> diagnostics)
+        : Error(report), diagnostics_(std::move(diagnostics))
+    {}
 
     /**
      * \brief Get the diagnostics that caused this error
      * \return Const reference to vector of diagnostics
      */
-    [[nodiscard]] const std::vector<Diagnostic> &GetDiagnostics() const { return diagnostics_; }
+    [[nodiscard]] const std::vector<Diagnostic>& GetDiagnostics() const { return diagnostics_; }
 
 private:
     std::vector<Diagnostic> diagnostics_; ///< All diagnostics (errors and warnings)

@@ -32,7 +32,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
@@ -44,7 +45,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
+TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor)
+{
     auto function = GenMockFuncDyn("TestDynMatmulTileTensor");
 
     std::vector<int64_t> shape = {64, 64};
@@ -57,7 +59,7 @@ TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
     auto localOutTensor =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, shape, dynValidShape});
 
-    auto &op =
+    auto& op =
         function->AddOperation(Opcode::OP_A_MUL_B, {localTensorA, localTensorB, localTensorBias}, {localOutTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "has_bias", true);
 
@@ -74,7 +76,8 @@ TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor) {
+TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor)
+{
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
 
     auto function = GenMockFuncDyn("TestMatmulMXTileTensor");
@@ -91,7 +94,7 @@ TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor) {
     auto localOutTensor =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, mxShape, dynValidShape});
 
-    auto &op =
+    auto& op =
         function->AddOperation(Opcode::OP_A_MUL_B, {localTensorAMX, localTensorBMX, localTensorBias}, {localOutTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "has_bias", true);
 

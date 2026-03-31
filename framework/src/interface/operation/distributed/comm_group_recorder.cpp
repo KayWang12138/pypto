@@ -17,13 +17,13 @@
 
 namespace npu::tile_fwk {
 namespace Distributed {
-CommGroupRecorder &CommGroupRecorder::GetInstance()
+CommGroupRecorder& CommGroupRecorder::GetInstance()
 {
     static CommGroupRecorder instance_;
     return instance_;
 }
 
-uint32_t CommGroupRecorder::Input(const std::string &hcclGroupName)
+uint32_t CommGroupRecorder::Input(const std::string& hcclGroupName)
 {
     auto it = name2Index_.find(hcclGroupName);
     if (it != name2Index_.end()) {
@@ -40,9 +40,9 @@ uint32_t CommGroupRecorder::Input(const std::string &hcclGroupName)
 }
 
 // 获取所有 groupName 的列表（按 index 顺序）
-const std::vector<std::string> &CommGroupRecorder::Output() const { return index2Name_; }
+const std::vector<std::string>& CommGroupRecorder::Output() const { return index2Name_; }
 
-std::string CommGroupRecorder::PrintString(std::vector<std::string> &commGroups)
+std::string CommGroupRecorder::PrintString(std::vector<std::string>& commGroups)
 {
     std::ostringstream oss;
     oss << "distributed comm groups: [";

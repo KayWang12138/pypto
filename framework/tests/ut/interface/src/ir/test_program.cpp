@@ -32,7 +32,8 @@ namespace pypto {
 namespace ir {
 
 // Helper to create a simple function
-static FunctionPtr MakeSimpleFunction(const std::string &name) {
+static FunctionPtr MakeSimpleFunction(const std::string& name)
+{
     auto bodyVal = std::make_shared<ConstInt>(0, DataType::INT32, Span::Unknown());
     auto body = std::make_shared<EvalStmt>(bodyVal, Span::Unknown());
     std::vector<VarPtr> params;
@@ -46,7 +47,8 @@ class IRProgramTest : public testing::Test {};
 // Program Constructor Tests
 // ============================================================================
 
-TEST_F(IRProgramTest, TestProgramBasicConstruction) {
+TEST_F(IRProgramTest, TestProgramBasicConstruction)
+{
     auto func = MakeSimpleFunction("main");
     std::vector<FunctionPtr> funcs = {func};
     auto program = std::make_shared<Program>(funcs, "test_program", Span::Unknown());
@@ -55,7 +57,8 @@ TEST_F(IRProgramTest, TestProgramBasicConstruction) {
     ASSERT_EQ(program->functions_.size(), 1);
 }
 
-TEST_F(IRProgramTest, TestProgramMultipleFunctions) {
+TEST_F(IRProgramTest, TestProgramMultipleFunctions)
+{
     auto func1 = MakeSimpleFunction("func_a");
     auto func2 = MakeSimpleFunction("func_b");
     std::vector<FunctionPtr> funcs = {func1, func2};
@@ -64,7 +67,8 @@ TEST_F(IRProgramTest, TestProgramMultipleFunctions) {
     ASSERT_EQ(program->functions_.size(), 2);
 }
 
-TEST_F(IRProgramTest, TestProgramEmptyFunctions) {
+TEST_F(IRProgramTest, TestProgramEmptyFunctions)
+{
     std::vector<FunctionPtr> funcs;
     auto program = std::make_shared<Program>(funcs, "empty", Span::Unknown());
 
@@ -75,7 +79,8 @@ TEST_F(IRProgramTest, TestProgramEmptyFunctions) {
 // Program GetFunction Tests
 // ============================================================================
 
-TEST_F(IRProgramTest, TestGetFunctionByName) {
+TEST_F(IRProgramTest, TestGetFunctionByName)
+{
     auto func = MakeSimpleFunction("my_func");
     std::vector<FunctionPtr> funcs = {func};
     auto program = std::make_shared<Program>(funcs, "test", Span::Unknown());
@@ -85,7 +90,8 @@ TEST_F(IRProgramTest, TestGetFunctionByName) {
     ASSERT_EQ(found->name_, "my_func");
 }
 
-TEST_F(IRProgramTest, TestGetFunctionNotFound) {
+TEST_F(IRProgramTest, TestGetFunctionNotFound)
+{
     auto func = MakeSimpleFunction("existing");
     std::vector<FunctionPtr> funcs = {func};
     auto program = std::make_shared<Program>(funcs, "test", Span::Unknown());
@@ -98,7 +104,8 @@ TEST_F(IRProgramTest, TestGetFunctionNotFound) {
 // Program GetGlobalVar Tests
 // ============================================================================
 
-TEST_F(IRProgramTest, TestGetGlobalVarByName) {
+TEST_F(IRProgramTest, TestGetGlobalVarByName)
+{
     auto func = MakeSimpleFunction("my_func");
     std::vector<FunctionPtr> funcs = {func};
     auto program = std::make_shared<Program>(funcs, "test", Span::Unknown());
@@ -108,7 +115,8 @@ TEST_F(IRProgramTest, TestGetGlobalVarByName) {
     ASSERT_EQ(gv->name_, "my_func");
 }
 
-TEST_F(IRProgramTest, TestGetGlobalVarNotFound) {
+TEST_F(IRProgramTest, TestGetGlobalVarNotFound)
+{
     auto func = MakeSimpleFunction("existing");
     std::vector<FunctionPtr> funcs = {func};
     auto program = std::make_shared<Program>(funcs, "test", Span::Unknown());
@@ -121,7 +129,8 @@ TEST_F(IRProgramTest, TestGetGlobalVarNotFound) {
 // Program Validation Tests
 // ============================================================================
 
-TEST_F(IRProgramTest, TestProgramDuplicateFunctionNameThrows) {
+TEST_F(IRProgramTest, TestProgramDuplicateFunctionNameThrows)
+{
     auto func1 = MakeSimpleFunction("dup_name");
     auto func2 = MakeSimpleFunction("dup_name");
     std::vector<FunctionPtr> funcs = {func1, func2};

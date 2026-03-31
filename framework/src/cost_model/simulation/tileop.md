@@ -29,7 +29,7 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src0 shape dim0
 * TShape1: dst/src0 shape dim1
@@ -38,7 +38,7 @@ template parameters:
 * oriShape0: ?
 * oriShape1: ?
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src0: src0 ub buffer
 * src1: src1 ub buffer
@@ -76,7 +76,7 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src0 shape dim0
 * TShape1: dst/src0 shape dim1
@@ -85,7 +85,7 @@ template parameters:
 * oriShape0: ?
 * oriShape1: ?
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src0: src0 ub buffer
 * src1: src1 ub buffer
@@ -123,7 +123,7 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src0 shape dim0
 * TShape1: dst/src0 shape dim1
@@ -132,7 +132,7 @@ template parameters:
 * oriShape0: ?
 * oriShape1: ?
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src0: src0 ub buffer
 * src1: src1 ub buffer
@@ -170,7 +170,7 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src0 shape dim0
 * TShape1: dst/src0 shape dim1
@@ -179,7 +179,7 @@ template parameters:
 * oriShape0: ?
 * oriShape1: ?
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src0: src0 ub buffer
 * src1: src1 ub buffer
@@ -216,12 +216,12 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src shape dim0
 * TShape1: dst/src shape dim1
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src: src ub buffer
 
@@ -257,12 +257,12 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src shape dim0
 * TShape1: dst/src shape dim1
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src: src ub buffer
 
@@ -298,12 +298,12 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src shape dim0
 * TShape1: dst/src shape dim1
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src: src ub buffer
 
@@ -340,12 +340,12 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src shape dim0
 * TShape1: dst/src shape dim1
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src: src ub buffer
 
@@ -382,12 +382,12 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src shape dim0
 * TShape1: dst/src shape dim1
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src: src ub buffer
 
@@ -424,12 +424,12 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src shape dim0
 * TShape1: dst/src shape dim1
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src: src ub buffer
 
@@ -466,12 +466,12 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src shape dim0
 * TShape1: dst/src shape dim1
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src: src ub buffer
 
@@ -489,7 +489,7 @@ TileOp::Ttrunc<float, 64, 1>((__ubuf__ float *)UBId1Addr, (__ubuf__ float *)UBId
 #### Syntax
 
 template <typename T, unsigned TShape0, unsigned TShape1>
-TILEOP void Tadds(__ubuf__ T *dst, __ubuf__ T *src0, T src1) 
+TILEOP void Tadds(__ubuf__ T *dst, __ubuf__ T *src0, T src1)
 
 #### Function Description
 
@@ -507,12 +507,12 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src0 shape dim0
 * TShape1: dst/src0 shape dim1
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src0: src0 ub buffer
 * src1: src1 scalar value
@@ -531,7 +531,7 @@ TileOp::Tadds<float, 64, 1>((__ubuf__ float *)UBId1Addr, (__ubuf__ float *)UBId1
 #### Syntax
 
 template <typename T, unsigned TShape0, unsigned TShape1>
-TILEOP void Tsubs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) 
+TILEOP void Tsubs(__ubuf__ T *dst, __ubuf__ T *src0, T src1)
 
 #### Function Description
 
@@ -549,12 +549,12 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src0 shape dim0
 * TShape1: dst/src0 shape dim1
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src0: src0 ub buffer
 * src1: src1 scalar value
@@ -573,7 +573,7 @@ TileOp::Tsubs<float, 64, 1>((__ubuf__ float *)UBId1Addr, (__ubuf__ float *)UBId1
 #### Syntax
 
 template <typename T, unsigned TShape0, unsigned TShape1>
-TILEOP void Tmuls(__ubuf__ T *dst, __ubuf__ T *src0, T src1) 
+TILEOP void Tmuls(__ubuf__ T *dst, __ubuf__ T *src0, T src1)
 
 #### Function Description
 
@@ -591,12 +591,12 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src0 shape dim0
 * TShape1: dst/src0 shape dim1
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src0: src0 ub buffer
 * src1: src1 scalar value
@@ -615,7 +615,7 @@ TileOp::Tmuls<float, 64, 1>((__ubuf__ float *)UBId1Addr, (__ubuf__ float *)UBId1
 #### Syntax
 
 template <typename T, unsigned TShape0, unsigned TShape1>
-TILEOP void Tdivs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) 
+TILEOP void Tdivs(__ubuf__ T *dst, __ubuf__ T *src0, T src1)
 
 #### Function Description
 
@@ -633,12 +633,12 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src0 shape dim0
 * TShape1: dst/src0 shape dim1
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src0: src0 ub buffer
 * src1: src1 scalar value
@@ -657,7 +657,7 @@ TileOp::Tdivs<float, 64, 1>((__ubuf__ float *)UBId1Addr, (__ubuf__ float *)UBId1
 #### Syntax
 
 template <typename T, unsigned TShape0, unsigned TShape1>
-TILEOP void Tmins(__ubuf__ T *dst, __ubuf__ T *src0, T src1) 
+TILEOP void Tmins(__ubuf__ T *dst, __ubuf__ T *src0, T src1)
 
 #### Function Description
 
@@ -675,12 +675,12 @@ for (int i = 0; i < TShape0; i++) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dtype
 * TShape0: dst/src0 shape dim0
 * TShape1: dst/src0 shape dim1
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src0: src0 ub buffer
 * src1: src1 scalar value
@@ -700,7 +700,7 @@ TileOp::Tmins<float, 64, 1>((__ubuf__ float *)UBId1Addr, (__ubuf__ float *)UBId1
 
 template <typename T, typename T2, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned src0Shape0,
     unsigned src0Shape1, unsigned axis>
-TILEOP void Tgather(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1) 
+TILEOP void Tgather(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1)
 
 #### Function Description
 
@@ -719,7 +719,7 @@ for (int i = 0; i < TShape0; ++i) {
 
 #### Parameters
 
-template parameters: 
+template parameters:
 * T: dst/src0 dtype
 * T2: src1 dtype
 * TShape0: dst/src1 shape dim0
@@ -729,7 +729,7 @@ template parameters:
 * src0Shape1: src0 shape dim1
 * axis: reserved
 
-function parameters: 
+function parameters:
 * dst: dst ub buffer
 * src0: src0 ub buffer
 * src1: src1 ub buffer
@@ -742,4 +742,3 @@ function parameters:
 #### Demonstration
 
 TileOp::Tgather<float, int, 64, 64, 64, 64, 64, 0>((__ubuf__ float *)UBId1Addr, (__ubuf__ float *)UBId2Addr, (__ubuf__ int *)UBId3Addr);
-

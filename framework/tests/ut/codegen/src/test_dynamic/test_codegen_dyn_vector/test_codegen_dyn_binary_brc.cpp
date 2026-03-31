@@ -36,7 +36,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -47,7 +48,8 @@ public:
 };
 
 // mul (32, 512), (32, 1)
-TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
+TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic)
+{
     config::SetOperationOption(KEY_FORCE_COMBINE_AXIS, true);
     std::vector<int64_t> shape1 = {32, 512};
     std::vector<int64_t> shape2 = {32, 1};
@@ -58,8 +60,10 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
     ConfigManager::Instance();
 
     std::string funcName = "MUL_T";
-    FUNCTION(funcName, {input_a, input_b, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input_a, input_b, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             // add RowSumSingle to test brc case
             auto input_c = Sum(input_b, -1, true);
@@ -75,13 +79,14 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynBinaryBrc, TestAddBrcTileTensorDynamic) {
+TEST_F(TestCodegenDynBinaryBrc, TestAddBrcTileTensorDynamic)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     ConfigManager::Instance();
     auto function = GenMockFuncDyn("TestAddBrcTileTensorDynamic", {32, 256});
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
+    for (auto& subFunc : function->rootFunc_->programs_) {
+        for (auto& op : subFunc.second->Operations()) {
             if (op.GetOpcode() == Opcode::OP_ADD) {
                 op.SetAttribute(OpAttributeKey::brcbIdx, 1);
                 std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();

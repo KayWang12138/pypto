@@ -31,7 +31,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
@@ -41,7 +42,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynRemainderS, TestRemainderS) {
+TEST_F(TestCodegenDynRemainderS, TestRemainderS)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     constexpr const int S = 16;
     constexpr const int D = 32;
@@ -53,13 +55,16 @@ TEST_F(TestCodegenDynRemainderS, TestRemainderS) {
     Tensor output(DT_INT16, shape, "output");
     ConfigManager::Instance();
     std::string funcName = "RemainderS";
-    FUNCTION(funcName, {inputSrc, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {inputSrc, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Remainder(inputSrc, other);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
@@ -68,7 +73,8 @@ TEST_F(TestCodegenDynRemainderS, TestRemainderS) {
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestCodegenDynRemainderS, TestRemainderRS) {
+TEST_F(TestCodegenDynRemainderS, TestRemainderRS)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     constexpr const int S = 16;
     constexpr const int D = 32;
@@ -80,13 +86,16 @@ TEST_F(TestCodegenDynRemainderS, TestRemainderRS) {
     Tensor output(DT_FP32, shape, "output");
     ConfigManager::Instance();
     std::string funcName = "RemainderRS";
-    FUNCTION(funcName, {inputSrc, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {inputSrc, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Remainder(self, inputSrc);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});

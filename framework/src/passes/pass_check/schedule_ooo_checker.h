@@ -26,27 +26,30 @@ namespace npu {
 namespace tile_fwk {
 class OoOScheduleChecker : Checker {
 public:
-    void SetOriFunctions(const std::vector<Function *> &oriFunctions);
-    Status DoPreCheck(Function &function) override;
-    Status DoPostCheck(Function &function) override;
+    void SetOriFunctions(const std::vector<Function*>& oriFunctions);
+    Status DoPreCheck(Function& function) override;
+    Status DoPostCheck(Function& function) override;
+
 private:
     bool PreCheckTensorInfo(const LogicalTensorPtr tensor);
-    bool PreCheckOpInfo(const Operation *op);
-    bool PostCheckOpMagic(std::set<int> opSet, const Operation *op, const int programIdx);
-    bool PostCheckNewOpConnection(const std::vector<Operation *> opListBeforePass, const std::vector<int> opMagicListBeforePass, const Operation *op, const int programIdx);
-    bool PostCheckSpecialOp(const Operation *opBeforeIncast);
+    bool PreCheckOpInfo(const Operation* op);
+    bool PostCheckOpMagic(std::set<int> opSet, const Operation* op, const int programIdx);
+    bool PostCheckNewOpConnection(
+        const std::vector<Operation*> opListBeforePass, const std::vector<int> opMagicListBeforePass,
+        const Operation* op, const int programIdx);
+    bool PostCheckSpecialOp(const Operation* opBeforeIncast);
     bool PostCheckTensorMagic(std::set<int> tensorSet, const LogicalTensorPtr tensor, const int programIdx);
     bool PostCheckLocalTensor(const LogicalTensorPtr tensor, const int programIdx);
     bool PostCheckGlobalTensor(const LogicalTensorPtr tensor, const int programIdx);
     bool PostCheckDynValidShape(const LogicalTensorPtr tensor, const int programIdx);
     bool PostCheckNewTensor(std::pair<const int, Function*> program, const int programIdx);
-    Status PostCheckTensor(const LogicalTensorPtr &tensor, const std::set<int> &tensorSet, int programIdx);
-    Status PostCheckSubGraph(const std::pair<uint64_t, Function*> &program, int programIdx);
+    Status PostCheckTensor(const LogicalTensorPtr& tensor, const std::set<int>& tensorSet, int programIdx);
+    Status PostCheckSubGraph(const std::pair<uint64_t, Function*>& program, int programIdx);
 
-    std::vector<Function *> oriFunctions_;
+    std::vector<Function*> oriFunctions_;
     std::vector<std::unordered_set<LogicalTensorPtr>> tensorListBeforePass_;
     std::vector<std::unordered_set<LogicalTensorPtr>> tensorListAfterPass_;
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // SCHEDULE_OOO_CHECKER_H
+#endif // SCHEDULE_OOO_CHECKER_H

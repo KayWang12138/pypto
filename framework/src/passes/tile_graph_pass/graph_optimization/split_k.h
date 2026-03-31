@@ -37,9 +37,9 @@ public:
     SplitK() : Pass("SplitK") {}
     ~SplitK() override = default;
 
-    Status PreCheck(Function &function) override;
-    Status RunOnFunction(Function &function) override;
-    Status EliminateReduceAcc(Function &function);
+    Status PreCheck(Function& function) override;
+    Status RunOnFunction(Function& function) override;
+    Status EliminateReduceAcc(Function& function);
 };
-}
+} // namespace npu::tile_fwk
 #endif // CUBE_PROCESS_H
