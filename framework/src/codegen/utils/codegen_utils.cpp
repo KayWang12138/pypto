@@ -37,18 +37,25 @@ std::vector<int64_t> NormalizeShape(const std::vector<int64_t>& shapeVec, unsign
 
 std::string FormatFloat(const std::variant<int64_t, uint64_t, double>& v, DataType dtype, int precision)
 {
-    // 定义处理函数
     auto apply = [&](auto&& val) -> std::string {
         std::ostringstream oss;
         using T = std::decay_t<decltype(val)>;
         if constexpr (std::is_same_v<T, double>) {
-            if ((dtype == DataType::DT_FP32 || dtype == DataType::DT_FP16 || dtype == DataType::DT_BF16) &&
-                (std::isinf(val) || std::isnan(val))) {
-                FloatSpecVal fsv = {dtype, val};
-                oss << fsv.GetFsVarName() << ".f";
-                return oss.str();
+            if (dtype == DataType::DT_FP32 || dtype == DataType::DT_FP16 || dtype == DataType::DT_BF16) {
+                if (std::isinf(val) || std::isnan(val)) {
+                    FloatSpecVal fsv = {dtype, val};
+                    oss << fsv.GetFsVarName() << ".f";
+                    return oss.str();
+                } else if (dtype == DataType::DT_FP32) {
+                    oss << std::setprecision(precision) << val;
+                    std::string result = oss.str();
+                    std::string suffix = result.find('.') == std::string::npos ? ".0f" : "f";
+                    result += suffix;
+                    return result;
+                }
             }
         }
+
         oss << std::setprecision(precision) << val;
         return oss.str();
     };

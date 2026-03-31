@@ -64,7 +64,7 @@ TEST_F(TestCodegenDynRound, TestDynOpRound)
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TRound<float>(ubTensor_2, ubTensor_3, ubTensor_0, 10);
+        R"!!!(TRound<float>(ubTensor_2, ubTensor_3, ubTensor_0, 10.0f);
 )!!!";
     CheckStringExist(expect, res);
 }

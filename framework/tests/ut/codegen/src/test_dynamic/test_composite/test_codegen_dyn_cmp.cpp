@@ -106,7 +106,7 @@ TEST_F(TestCodegenDynCmp, TestDynOpCmpS)
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =
-        R"!!!(TileOp::DynCmps<float, 1, 64, 64, 1, 64, 64, 0, 0>((__ubuf__ uint8_t*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64, (__ubuf__ uint8_t*)UB_S0_E0, 1);
+        R"!!!(TileOp::DynCmps<float, 1, 64, 64, 1, 64, 64, 0, 0>((__ubuf__ uint8_t*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64, (__ubuf__ uint8_t*)UB_S0_E0, 1.0f);
 )!!!";
     EXPECT_EQ(res, expect);
 }

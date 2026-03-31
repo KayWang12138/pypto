@@ -73,7 +73,7 @@ TEST_F(TestCodegenDynRange, TestDynOpRange)
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =
-        R"!!!(TileOp::DynRange<float, 64>((__ubuf__ float*)UB_S0_E0, 64, 1, 2, ((int64_t)(0)));
+        R"!!!(TileOp::DynRange<float, 64>((__ubuf__ float*)UB_S0_E0, 64, 1.0f, 2.0f, ((int64_t)(0)));
 )!!!";
     EXPECT_EQ(res, expect);
 }

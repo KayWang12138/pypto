@@ -137,7 +137,7 @@ TEST_F(TestCodegenDynScalar, TestAddsTileTensor)
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    std::string expect = R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_0, ubTensor_0, 3);
+    std::string expect = R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_0, ubTensor_0, 3.0f);
 )!!!";
     CheckStringExist(expect, res);
 }
