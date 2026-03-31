@@ -72,7 +72,7 @@ cd -
 进入 `pypto_path`，修改以下配置：
 
 - **头文件**: 修改 `aicore_entry.h`
-  - 取消注释 2.1 中注释的行 （`#if ENABLE_AICORE_PRINT`（它的下一行是`CoreFuncParam`）行及相邻的后6行）
+  - 取消注释 2.1 中注释的行（`#if ENABLE_AICORE_PRINT`（它的下一行是`CoreFuncParam`）行及相邻的后6行）
 
 ---
 
