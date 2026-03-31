@@ -1036,6 +1036,7 @@ struct DevControlFlowCache {
 
             DynFuncHeader*& dynFuncDataListRef = dynTaskBase->dynFuncDataList;
             DynFuncHeader* dynFuncDataList = RelocControlFlowCachePointer(dynFuncDataListRef, relocCtrlCache);
+            relocProgram.Reloc(dynFuncDataList->cceBinary);
             DynFuncDataCache* dynFuncDataCacheList = dynTaskBase->dynFuncDataCacheList;
             DynFuncDataBackup* dynFuncDataBackupList = dynTaskBase->dynFuncDataBackupList;
             MixTaskDataReloc(relocCtrlCache, relocProgram, dynTaskBase, dynFuncDataList);
