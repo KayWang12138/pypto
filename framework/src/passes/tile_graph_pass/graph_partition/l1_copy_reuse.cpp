@@ -14,6 +14,7 @@
  */
 
 #include "l1_copy_reuse.h"
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
 inline std::vector<uint64_t> GetGMInputFeature(const Operation& op)
@@ -171,15 +172,14 @@ Status L1CopyInReuseRunner::MergeDupL1CopyIn(Function& func, std::vector<std::ve
             L1CopyInReuseRunner::TackleOp(i, oriList[i], replacedInputs, replacedOutputs);
         }
         // 重新连边
-        for (auto& replacedInput : replacedInputs) {
-            APASS_LOG_DEBUG_F(
-                Elements::Operation, "Relink op [%d] input [%d] to op [%d] output [%d].",
-                oriList[replacedInput[0]]->GetOpMagic(), replacedInput[1], oriList[replacedInput[2]]->GetOpMagic(),
-                replacedInput[3]);
-            FunctionUtils::RelinkOperationInput(
-                oriList[replacedInput[0]], replacedInput[1], oriList[replacedInput[2]], replacedInput[3]);
+        for (auto &replacedInput : replacedInputs) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "Relink op [%d] input [%d] to op [%d] output [%d].", 
+                            oriList[replacedInput[0]]->GetOpMagic(), replacedInput[1],
+                            oriList[replacedInput[2]]->GetOpMagic(), replacedInput[3]);
+            PassUtils::RelinkOperationInput(oriList[replacedInput[0]], replacedInput[1],
+                                            oriList[replacedInput[2]], replacedInput[3]);
         }
-        for (auto& replacedOutput : replacedOutputs) {
+        for (auto &replacedOutput : replacedOutputs) {
             auto rewriteOp = oriList[replacedOutput[0]];
             auto copyinOp = oriList[replacedOutput[2]];
             if (!func.TensorReuse(rewriteOp->GetOOperands()[replacedOutput[1]], copyinOp->GetOOperands()[0])) {

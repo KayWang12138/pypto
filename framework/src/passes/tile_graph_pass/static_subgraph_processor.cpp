@@ -16,6 +16,7 @@
 #include "passes/tile_graph_pass/static_subgraph_processor.h"
 #include "interface/configs/config_manager.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/pass_utils.h"
 
 #define MODULE_NAME "StaticSubgraphProcessor"
 
@@ -351,7 +352,7 @@ Status StaticSubgraphProcessor::SetESGGraphType(
         return SUCCESS;
     }
     esgGraphType = CoreType::MIX;
-    if (!GraphUtils::IsCVMixPlatform()) {
+    if (!PassUtils::IsCVMixPlatform()) {
         APASS_LOG_ERROR_F(Elements::Graph, "Get CoreType::MIX in C-V separate platform.");
         return FAILED;
     }

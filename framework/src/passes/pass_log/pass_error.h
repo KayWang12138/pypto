@@ -73,6 +73,7 @@ enum class ConfigErr : uint32_t {
 };
 
 // 前端传入Manager错误
-enum class ManagerErr : uint32_t {};
+enum class ManagerErr : uint32_t {
+};
 
-} // namespace npu::tile_fwk
+}  // namespace npu::tile_fwk

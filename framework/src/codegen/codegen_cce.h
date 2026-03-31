@@ -21,6 +21,7 @@
 
 #include "interface/operation/operation.h"
 #include "interface/machine/host/machine_task.h"
+#include "passes/pass_utils/pass_subfunc_utils.h"
 #include "codegen_common.h"
 
 namespace npu::tile_fwk {
