@@ -489,7 +489,7 @@ def ai_infra_qat_symmetric_per_tensor_backward_kernel(
 ):
     pypto.experimental.set_operation_options(combine_axis=False)
     n, m = weight.shape
-    unroll_list=[512, 32, 8]
+    unroll_list = [512, 32, 8]
     tile_shapes_m = min(m, 4096)
     pypto.set_vec_tile_shapes(4, tile_shapes_m)
 
