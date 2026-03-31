@@ -733,22 +733,20 @@ void DevAscendFunction::InitWrapInfo(uintdevptr_t& initOffset, const OrderedSet<
         return;
     }
     opWrapList_.HostInitDataSizeOffset(initOffset, callList.size());
-    opWrapTaskNumList_.HostInitDataSizeOffset(initOffset, callList.size());
 
     ONFILLCONTENT
     {
-        std::unordered_map<int, int> wrapTaskNumMap;
+        std::unordered_set<uint32_t> wrapTaskNumSet;
         for (size_t i = 0; i < callList.size(); i++) {
             auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
             if (callop->wrapId != -1) {
-                wrapTaskNumMap[callop->wrapId]++;
+                wrapTaskNumSet.insert(callop->wrapId);
             }
         }
-        wrapIdNum_ = wrapTaskNumMap.size();
+        wrapIdNum_ = wrapTaskNumSet.size();
         for (size_t i = 0; i < callList.size(); i++) {
             auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
             At(opWrapList_, i) = callop->wrapId;
-            At(opWrapTaskNumList_, i) = wrapTaskNumMap[callop->wrapId];
         }
     }
 }
@@ -1984,7 +1982,7 @@ void DevAscendProgram::InitCceCodeList(
             cceCodeList[index].psgId = cceInfo[index].psgId;
             cceCodeList[index].funcHash = cceInfo[index].funcHash;
             cceCodeList[index].wrapVecId = cceInfo[index].wrapVecId;
-            cceCodeList[index].mixResourceType = cceInfo[index].mixResourceType;
+            cceCodeList[index].mixResourceType = static_cast<uint8_t>(cceInfo[index].mixResourceType);
             auto dataLen = cceInfo[index].aicpuLeafCode.size();
             aicpuLeafCodeList[index].aicpuLeafCode.HostAssignRangeOffsetSize(aicpuLeafCodeDataList, offset, dataLen);
             (void)memcpy_s(
