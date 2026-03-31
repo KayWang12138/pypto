@@ -766,6 +766,23 @@ void ExecuteOpTopK(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_TOPK, Opcode::OP_TOPK, ExecuteOpTopK);
 
+void ExecuteOpQuantizeSym(ExecuteOperationContext *ctx) {
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &input = ctx->ioperandDataViewList->at(0);
+    auto &scale = ctx->ioperandDataViewList->at(1);
+    calc::Quantize(ret, input, scale, nullptr);
+}
+REGISTER_CALC_OP(OP_QUANTIZE_SYM, Opcode::OP_QUANTIZE_SYM, ExecuteOpQuantizeSym);
+
+void ExecuteOpQuantizeAsym(ExecuteOperationContext *ctx) {
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &input = ctx->ioperandDataViewList->at(0);
+    auto &scale = ctx->ioperandDataViewList->at(1);
+    auto &zeropoints = ctx->ioperandDataViewList->at(2);
+    calc::Quantize(ret, input, scale, zeropoints);
+}
+REGISTER_CALC_OP(OP_QUANTIZE_ASYM, Opcode::OP_QUANTIZE_ASYM, ExecuteOpQuantizeAsym);
+
 void ExecuteOpBitSort(ExecuteOperationContext *ctx) {
     ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
            ctx->ioperandDataViewList->size() == 1);
@@ -975,6 +992,4 @@ REGISTER_CALC_OP(OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISERIGHTSHIFTS, ExecuteOp
 REGISTER_CALC_OP(OP_BITWISELEFTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS, ExecuteOpBitwiseShiftScalar<Opcode::OP_BITWISELEFTSHIFTS>);
 REGISTER_CALC_OP(OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISERIGHTSHIFT, ExecuteOpBitwiseShiftScalar<Opcode::OP_SBITWISERIGHTSHIFT>);
 REGISTER_CALC_OP(OP_SBITWISELEFTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, ExecuteOpBitwiseShiftScalar<Opcode::OP_SBITWISELEFTSHIFT>);
-
-// TODO: Quantize/DeQuantize
 }
