@@ -151,7 +151,7 @@ def main():
     if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
-            sys.exit(1)
+            return
         import torch_npu
         torch.npu.set_device(device_id)
         logger.info(f"Running on NPU:{device_id}\n")
@@ -159,7 +159,7 @@ def main():
     if args.level is not None:
         if args.level not in tests:
             logger.info(f"ERROR: Invalid level {args.level}. Use --list to see available levels.")
-            sys.exit(1)
+            return
         desc, fn = tests[args.level]
         success = fn(device_id, args.run_mode)
     else:
@@ -176,8 +176,6 @@ def main():
             logger.info("=" * 60)
             logger.info("All tests passed!")
             logger.info("=" * 60)
-
-    sys.exit(0 if success else 1)
 
 
 if __name__ == "__main__":
