@@ -473,7 +473,10 @@ static void SetTensorParamAddr(Operation &op, std::shared_ptr<LogicalTensor> &te
         SymbolicScalar(static_cast<int64_t>(0)),
         SymbolicScalar(static_cast<int64_t>(GmTensorParamIdxInCallFunc)),
         SymbolicScalar(static_cast<int64_t>(gmParamIdx)));
-    tensor->SetAttr<SymbolicScalar>("paramAddr", paramAddr);
+    std::map<int, SymbolicScalar> paramAddrMap;
+    tensor->GetAttr<std::map<int, SymbolicScalar>>("paramAddr", paramAddrMap);
+    paramAddrMap[op.GetOpMagic()] = paramAddr;
+    tensor->SetAttr<std::map<int, SymbolicScalar>>("paramAddr", paramAddrMap);
     APASS_LOG_INFO_F(Elements::Operation, "BuildParamAddr: op [%d][%s], isConst=%d, GmTensorParamIdxInCallFunc=%d, gmParamIdx=%d.",
         op.GetOpMagic(), op.GetOpcodeStr().c_str(), isConst, GmTensorParamIdxInCallFunc, gmParamIdx);
 }
