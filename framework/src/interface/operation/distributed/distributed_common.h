@@ -32,6 +32,7 @@
 #include "interface/configs/config_manager.h"
 #include "distributed_expand.h"
 #include "tilefwk/comm_group_recorder.h"
+#include "interface/utils/distributed_error.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -43,13 +44,13 @@ constexpr int32_t DIST_INDEX_ONE = 1;
 constexpr int32_t DIST_INDEX_TWO = 2;
 constexpr uint16_t COPY_BLOCK_BYTE_SIZE = 32;
 constexpr uint16_t SAME_ADDR_BYTE_SIZE = 512;
+constexpr uint64_t SHMEM_SIZE_ALIGN = 512;
 constexpr int32_t ROUTED_EXPET_NUM = 160;
 constexpr int32_t FFN_TILE_SIZE = 8;
 constexpr int32_t AIV_NUM = 4;
 constexpr int32_t RECEIVE_CNT_OUT_ROW = 1024;
 constexpr int32_t RECEIVE_CNT_OUT_COL = 512;
 constexpr int32_t SHMEM_SIGNAL_STRIDE = 8;
-constexpr int32_t MAX_TILE_NUM = 1024;
 enum class TileIndex : size_t { HEAD_SHAPE, HEAD_NUM, TAIL_SHAPE };
 
 enum class AllReduceType {
@@ -171,7 +172,7 @@ struct ShmemWaitUntilAttr {
 };
 
 struct ShmemSetAttr {
-    int64_t setType = 0;
+    bool isSetData{true};
     Shape setBufferShape;
     SymbolicScalar ownerRank;
 };
@@ -250,6 +251,23 @@ inline bool checkValidConfig(const MoeConfig& moeConfig, std::string& assertResu
         return false;
     }
     return true;
+}
+
+inline int64_t GetTotalTileNum(const VecTile& tileShape, const Shape& dataShape)
+{
+    ASSERT(DistributedErrorCode::INVALID_TENSOR_DIM, tileShape.size() == 2)
+        << "Invalid dimensional: "
+        << " tileShape dim must be 2, but got dimensional=" << tileShape.size();
+    ASSERT(DistributedErrorCode::INVALID_TENSOR_DIM, dataShape.size() >= 2)
+        << "Invalid dimensional: "
+        << " dataShape dim must >= 2, but got dimensional=" << dataShape.size();
+    auto totalRowShape = dataShape[dataShape.size() - 2];
+    auto totalColShape = dataShape[dataShape.size() - 1];
+    auto tileRowShape = tileShape[0];
+    auto tileColShape = tileShape[1];
+    auto tileRowNum = totalRowShape / tileRowShape + (totalRowShape % tileRowShape == 0 ? 0 : 1);
+    auto tileColNum = totalColShape / tileColShape + (totalColShape % tileColShape == 0 ? 0 : 1);
+    return tileRowNum * tileColNum;
 }
 } // namespace Distributed
 } // namespace npu::tile_fwk
