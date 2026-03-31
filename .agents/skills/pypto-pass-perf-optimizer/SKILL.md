@@ -186,10 +186,10 @@ pip install ./build_out/pypto-*.whl --force-reinstall
 ```bash
 # 执行用户指定的算子脚本（日志自动落盘）
 # 使用超时控制，默认5分钟，超时后自动中断并继续后续步骤
-bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/run_with_timeout.sh 300 python3 {user_specified_script}.py
+bash scripts/run_with_timeout.sh 300 python3 {user_specified_script}.py
 
 # 自定义超时时间（例如10分钟）
-# bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/run_with_timeout.sh 600 python3 {user_specified_script}.py
+# bash scripts/run_with_timeout.sh 600 python3 {user_specified_script}.py
 
 # 不使用超时控制直接执行（不推荐，可能长时间等待）
 # python3 {user_specified_script}.py
@@ -210,7 +210,7 @@ bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/run_with_timeou
 latest_log=$(find $ASCEND_PROCESS_LOG_PATH/debug/plog -name "pypto-log-*.log" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -d' ' -f2-)
 echo "使用日志文件: $latest_log"
 
-python3 .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/parse_pass_perf.py -l $latest_log
+python3 scripts/parse_pass_perf.py -l $latest_log
 
 ```
 
@@ -239,7 +239,7 @@ pip install ./build_out/pypto-*.whl --force-reinstall
 ```bash
 # 生成火焰图（默认5分钟超时）
 # 参数：超时时间(秒) 输出目录 命令...
-bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/generate_flamegraph.sh \
+bash scripts/generate_flamegraph.sh \
     300 ./flamegraphs python3 {user_specified_script}.py
 
 # 火焰图将保存到 ./flamegraphs/flamegraph_{timestamp}.svg
@@ -308,7 +308,7 @@ google-chrome ./flamegraphs/flamegraph_*.svg
 
 ```bash
 # 使用 perf 采样
-bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/run_with_timeout.sh 300 \
+bash scripts/run_with_timeout.sh 300 \
     perf record -g -e cycles,instructions,cache-misses -- python3 {user_specified_script}.py
 
 # 查看报告
@@ -351,7 +351,7 @@ perf report
 
 ```bash
 # 使用超时控制执行内存分析，默认5分钟
-bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/run_with_timeout.sh 300 \
+bash scripts/run_with_timeout.sh 300 \
     valgrind --tool=massif -- python3 {user_specified_script}.py
 
 massif-visualizer massif.out.*
@@ -569,7 +569,7 @@ pip install ./build_out/pypto-*.whl --force-reinstall
 ```bash
 # 重新采集性能数据（日志自动落盘）
 # 使用超时控制，默认5分钟
-bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/run_with_timeout.sh 300 python3 {user_specified_script}.py
+bash scripts/run_with_timeout.sh 300 python3 {user_specified_script}.py
 
 # 日志文件位置：$ASCEND_PROCESS_LOG_PATH/debug/plog/pypto-log-*.log
 # 注意：每次运行会生成新的日志文件，可通过时间戳区分
@@ -579,7 +579,7 @@ latest_log=$(find $ASCEND_PROCESS_LOG_PATH/debug/plog -name "pypto-log-*.log" -t
 echo "最新日志文件: $latest_log"
 
 # 运行 Python 脚本对比
-python3 .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/parse_pass_perf.py \
+python3 scripts/parse_pass_perf.py \
     -l $latest_log
 ```
 
@@ -587,7 +587,7 @@ python3 .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/parse_pass_p
 
 ```bash
 # 生成优化后的火焰图和折叠数据
-bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/generate_flamegraph.sh \
+bash scripts/generate_flamegraph.sh \
     300 ./flamegraphs python3 {user_specified_script}.py
 
 # 这会生成新的文件，例如：
@@ -599,7 +599,7 @@ bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/generate_flameg
 
 ```bash
 # 对比优化前后的火焰图
-bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/compare_flamegraphs.sh \
+bash scripts/compare_flamegraphs.sh \
     ./flamegraphs/folded_20260313_143022.txt \
     ./flamegraphs/folded_20260313_150335.txt
 
@@ -631,7 +631,7 @@ bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/compare_flamegr
 ### 脚本位置
 
 ```
-.agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/parse_pass_perf.py
+scripts/parse_pass_perf.py
 ```
 
 ### 使用方法
@@ -676,13 +676,13 @@ python3 parse_pass_perf.py -l pypto-log-*.log --time-threshold 20
 
 ```bash
 # 设置超时时间为 10 分钟（600秒）
-bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/run_with_timeout.sh 600 python3 test.py
+bash scripts/run_with_timeout.sh 600 python3 test.py
 
 # 设置超时时间为 15 分钟（900秒）
-bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/run_with_timeout.sh 900 python3 test.py
+bash scripts/run_with_timeout.sh 900 python3 test.py
 
 # 设置超时时间为 2 分钟（120秒）
-bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/run_with_timeout.sh 120 python3 test.py
+bash scripts/run_with_timeout.sh 120 python3 test.py
 ```
 
 ### 适用场景
@@ -704,7 +704,7 @@ bash .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/run_with_timeou
 
 ### 超时控制脚本说明
 
-**脚本位置**: `.agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/run_with_timeout.sh`
+**脚本位置**: `scripts/run_with_timeout.sh`
 
 **参数说明**:
 ```bash
@@ -764,7 +764,7 @@ latest_log=$(find $ASCEND_PROCESS_LOG_PATH/debug/plog -name "pypto-log-*.log" -t
 echo "最新日志文件: $latest_log"
 
 # 直接使用最新日志文件进行分析
-python3 .agents/skills/pypto-pass/pypto-pass-perf-optimizer/scripts/parse_pass_perf.py -l $latest_log
+python3 scripts/parse_pass_perf.py -l $latest_log
 ```
 
 ### 处理拆分的日志文件

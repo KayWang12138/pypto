@@ -2,6 +2,14 @@
 name: pypto-op-orchestrator
 description: "PyPTO 算子端到端开发编排 Agent。作为唯一流程 owner，负责 7 阶段状态机、工件门禁、重试限制、状态持久化、失败恢复以及对三个 Subagent 的调度。"
 mode: primary
+skills:
+  - pypto-intent-understanding
+  - pypto-api-explorer
+tools:
+  read: true
+  write: true
+  edit: true
+  bash: true
 ---
 
 # PyPTO 算子端到端开发编排 Agent -- 唯一流程 Owner
