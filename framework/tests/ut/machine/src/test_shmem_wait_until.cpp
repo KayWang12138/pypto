@@ -46,7 +46,7 @@ auto InitializeAicpuCode(std::vector<uint32_t> shmemSignalRawShape, std::vector<
     uint32_t shmemSignalStride, int32_t expectedValue, uint32_t shmemSignalAttrOffset)
 {
     std::vector<uint32_t> shmemSignalShape = shmemSignalRawShape;
-    constexpr size_t codeSize = 26;
+    constexpr size_t codeSize = 27;
     uint32_t paramSizePerOperand = 2; // 每个 operand 都保存 dim 和 attrOffset，总共 2 个 param
     uint32_t oOperandNum = 1;
     uint32_t iOperandNum = 2;
@@ -59,14 +59,14 @@ auto InitializeAicpuCode(std::vector<uint32_t> shmemSignalRawShape, std::vector<
     uint32_t predTokenAttrOffset = -1;
     uint32_t shmemSignalDim = 5;
     uint32_t shmemSignalShapeNum = shmemSignalDim * 2; // raw shape 存一份，shape 存一份，总共 2 份
-    uint32_t attrSize = 5;
+    uint32_t attrSize = 6;
     uint32_t resetSignal = 0;
     uint32_t initData[codeSize] = {opcode, oOperandTotalParamNum, outDim, outAttrOffset, iOperandTotalParamNum,
         predTokenDim, predTokenAttrOffset, shmemSignalDim, shmemSignalAttrOffset, shmemSignalShapeNum,
         shmemSignalRawShape[0], shmemSignalRawShape[1], shmemSignalRawShape[2], shmemSignalRawShape[3],
         shmemSignalRawShape[4], shmemSignalShape[0], shmemSignalShape[1], shmemSignalShape[2], shmemSignalShape[3],
         shmemSignalShape[4], attrSize, static_cast<uint32_t>(expectedValue), shmemSignalStride, resetSignal,
-        tileShape[0], tileShape[1]};
+        tileShape[0], tileShape[1], 0 /* cmpType: 0 = EQ */};
     auto data = std::make_unique<int32_t[]>(codeSize);
     std::copy(initData, initData + codeSize, data.get());
     npu::tile_fwk::dynamic::DevRelocVector<int32_t> aicpuCode(codeSize, data.get());

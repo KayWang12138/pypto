@@ -172,6 +172,27 @@ inline void VerifyOneShotGroupedCounts(const ShmemOpCounts& c,
     EXPECT_EQ(c.get, payloadChunkCount) << "Expected " << payloadChunkCount << " OP_SHMEM_GET ops";
 }
 
+// OneShot chunked per-group GE signaling (v10):
+//   groups = ceil(C / k)
+//   puts   = W*C
+//   signals= W*groups  (one signal per group per target rank)
+//   waits  = groups    (fresh GE wait per group)
+//   gets   = C
+inline void VerifyOneShotGroupedGECounts(const ShmemOpCounts& c,
+    uint32_t worldSize, uint32_t payloadChunkCount, uint32_t chunksPerSignal)
+{
+    ASSERT_GT(payloadChunkCount, 0u);
+    ASSERT_GT(chunksPerSignal, 0u);
+    uint32_t groupCount = (payloadChunkCount + chunksPerSignal - 1u) / chunksPerSignal;
+    uint32_t expectedPut = worldSize * payloadChunkCount;
+    uint32_t expectedSignal = worldSize * groupCount;
+
+    EXPECT_EQ(c.put, expectedPut) << "Expected " << expectedPut << " OP_SHMEM_PUT ops";
+    EXPECT_EQ(c.signal, expectedSignal) << "Expected " << expectedSignal << " OP_SHMEM_SIGNAL ops";
+    EXPECT_EQ(c.wait, groupCount) << "Expected " << groupCount << " OP_SHMEM_WAIT_UNTIL ops";
+    EXPECT_EQ(c.get, payloadChunkCount) << "Expected " << payloadChunkCount << " OP_SHMEM_GET ops";
+}
+
 // TwoShot: W^2 of each op type (W chunks x W ops per chunk).
 inline void VerifyTwoShotCounts(const ShmemOpCounts& c, uint32_t worldSize)
 {

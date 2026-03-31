@@ -174,6 +174,9 @@ struct ShmemWaitUntilAttr {
     int64_t tileRowShape = 0;
     int64_t tileColShape = 0;
     SymbolicScalar ownerRank;
+    // cmpType: EQ = strict equality (legacy, clearSignal supported);
+    //          GE = monotonic threshold (clearSignal must be false).
+    OpType cmpType = OpType::EQ;
 };
 
 struct ShmemSetAttr {

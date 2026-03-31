@@ -343,6 +343,50 @@ TEST_F(AllReduceIRTest, V8Grouped_TailGroup_IRStructure)
     VerifyOneShotGroupedCounts(CountShmemOps(ops), kWorldSize, payloadChunkCount, chunksPerSignal);
 }
 
+// v10 per-group GE signaling: verify op-count model across k sweep.
+TEST_F(AllReduceIRTest, V10Grouped_GE_KSweep_IRStructure)
+{
+    constexpr uint32_t payloadChunkCount = 8u;
+    std::vector<uint32_t> kCandidates{1u, 2u, 4u, payloadChunkCount};
+    for (uint32_t k : kCandidates) {
+        Program::GetInstance().Reset();
+        std::string tag = "UT_IR_V10_GE_K" + std::to_string(k);
+        Tensor in(DT_FP16, {kRow, kCol}, "in");
+        Tensor out(DT_FP16, {kRow, kCol}, "out");
+        Shape shmemDataShape{1, kRow, kCol};
+
+        FUNCTION(tag.c_str(), {in}, {out}) {
+            TileShape::Current().SetVecTile({kRow, kCol});
+            ShmemTensor shmemTensor;
+            CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+            OneShotAllReduce_v10(in, in, shmemTensor, out, payloadChunkCount, k);
+        }
+
+        auto ops = ExtractShmemOpcodes(tag);
+        VerifyOneShotGroupedGECounts(CountShmemOps(ops), kWorldSize, payloadChunkCount, k);
+    }
+}
+
+// v10 tail-group coverage: non-divisible chunk grouping with GE waits.
+TEST_F(AllReduceIRTest, V10Grouped_GE_TailGroup_IRStructure)
+{
+    constexpr uint32_t payloadChunkCount = 7u;
+    constexpr uint32_t chunksPerSignal = 4u;
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    Shape shmemDataShape{1, kRow, kCol};
+
+    FUNCTION("UT_IR_V10_GE_TAIL", {in}, {out}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+        OneShotAllReduce_v10(in, in, shmemTensor, out, payloadChunkCount, chunksPerSignal);
+    }
+
+    auto ops = ExtractShmemOpcodes("UT_IR_V10_GE_TAIL");
+    VerifyOneShotGroupedGECounts(CountShmemOps(ops), kWorldSize, payloadChunkCount, chunksPerSignal);
+}
+
 // ===========================================================================
 // OneShot cross-variant IR equivalence (base as golden reference).
 // If any variant drifts here, something went wrong in the refactoring.
@@ -632,6 +676,27 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV8Grouped_IRStructure)
 
     auto opsV8 = ExtractShmemOpcodes(tag);
     VerifyOneShotGroupedCounts(CountShmemOps(opsV8), worldSize, payloadChunkCount, chunksPerSignal);
+}
+
+TEST_P(AllReduceIRMultiRankTest, OneShotV10Grouped_GE_IRStructure)
+{
+    uint32_t worldSize = W();
+    constexpr uint32_t payloadChunkCount = 7u;
+    constexpr uint32_t chunksPerSignal = 4u;
+    std::string tag = "UT_MR_OS_V10_GE_W" + std::to_string(worldSize);
+    Shape shmemDataShape{1, kRow, kCol};
+
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    FUNCTION(tag.c_str(), {in}, {out}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        ShmemTensor shmemTensor;
+        CreateShmemHelper(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
+        OneShotAllReduce_v10(in, in, shmemTensor, out, payloadChunkCount, chunksPerSignal);
+    }
+
+    auto opsV10 = ExtractShmemOpcodes(tag);
+    VerifyOneShotGroupedGECounts(CountShmemOps(opsV10), worldSize, payloadChunkCount, chunksPerSignal);
 }
 
 TEST_P(AllReduceIRMultiRankTest, TwoShotV5_IRStructure)

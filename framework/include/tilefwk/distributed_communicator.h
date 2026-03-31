@@ -26,11 +26,10 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
-// OneShotCommunicatorV2: wraps a ShmemTensor, three-phase: Put() -> Wait() -> Pull().
-// WaitAndGet() combines Wait+Pull.
-class OneShotCommunicatorV2 {
+// Shared state/helpers for OneShot communicators.
+class OneShotCommunicatorBase {
 public:
-    explicit OneShotCommunicatorV2(ShmemTensor& shmemTensor)
+    explicit OneShotCommunicatorBase(ShmemTensor& shmemTensor)
         : shmemTensor_(shmemTensor)
         , worldSize_(static_cast<uint32_t>(shmemTensor.worldSize))
         , thisRank_(GetHcclRankId(shmemTensor.group))
@@ -38,11 +37,89 @@ public:
         , col_(shmemTensor.data.GetShape()[2])
     {}
 
-    OneShotCommunicatorV2(const OneShotCommunicatorV2&) = delete;
-    OneShotCommunicatorV2& operator=(const OneShotCommunicatorV2&) = delete;
-
     uint32_t WorldSize() const { return worldSize_; }
     SymbolicScalar ThisRank() const { return thisRank_; }
+
+protected:
+    ShmemTensor& shmemTensor_;
+    uint32_t worldSize_;
+    SymbolicScalar thisRank_;
+    int32_t row_;
+    int32_t col_;
+};
+
+// Shared chunk geometry for chunked OneShot communicators (v3/v4/v5).
+class OneShotChunkedCommunicatorBase : public OneShotCommunicatorBase {
+public:
+    OneShotChunkedCommunicatorBase(ShmemTensor& shmemTensor, uint32_t payloadChunkCount)
+        : OneShotCommunicatorBase(shmemTensor)
+        , payloadChunkCount_(payloadChunkCount)
+    {
+        ASSERT(payloadChunkCount_ > 0) << "payloadChunkCount must be > 0";
+        ASSERT(static_cast<int64_t>(payloadChunkCount_) <= row_)
+            << "payloadChunkCount must be <= row dimension (" << row_ << ")";
+    }
+
+    uint32_t PayloadChunkCount() const { return payloadChunkCount_; }
+
+    int32_t ChunkStartRow(uint32_t chunkId) const
+    {
+        ASSERT(chunkId < payloadChunkCount_) << "chunkId out of range: " << chunkId;
+        return static_cast<int32_t>((static_cast<int64_t>(chunkId) * row_) / payloadChunkCount_);
+    }
+
+    int32_t ChunkRows(uint32_t chunkId) const
+    {
+        ASSERT(chunkId < payloadChunkCount_) << "chunkId out of range: " << chunkId;
+        int32_t start = ChunkStartRow(chunkId);
+        int32_t end = static_cast<int32_t>((static_cast<int64_t>(chunkId + 1) * row_) / payloadChunkCount_);
+        ASSERT(end > start) << "Empty chunk detected for chunkId " << chunkId;
+        return end - start;
+    }
+
+protected:
+    uint32_t payloadChunkCount_;
+};
+
+// Shared group geometry for grouped OneShot communicators (v4/v5).
+class OneShotGroupedCommunicatorBase : public OneShotChunkedCommunicatorBase {
+public:
+    OneShotGroupedCommunicatorBase(ShmemTensor& shmemTensor, uint32_t payloadChunkCount,
+        uint32_t chunksPerSignal)
+        : OneShotChunkedCommunicatorBase(shmemTensor, payloadChunkCount)
+        , chunksPerSignal_(chunksPerSignal)
+    {
+        ASSERT(chunksPerSignal_ > 0) << "chunksPerSignal must be > 0";
+    }
+
+    uint32_t ChunksPerSignal() const { return chunksPerSignal_; }
+    uint32_t SignalGroupCount() const
+    {
+        return (payloadChunkCount_ + chunksPerSignal_ - 1) / chunksPerSignal_;
+    }
+
+    uint32_t GroupBeginChunk(uint32_t groupId) const { return groupId * chunksPerSignal_; }
+    uint32_t GroupSize(uint32_t groupId) const
+    {
+        uint32_t begin = GroupBeginChunk(groupId);
+        uint32_t remaining = payloadChunkCount_ - begin;
+        return remaining < chunksPerSignal_ ? remaining : chunksPerSignal_;
+    }
+
+protected:
+    uint32_t chunksPerSignal_;
+};
+
+// OneShotCommunicatorV2: wraps a ShmemTensor, three-phase: Put() -> Wait() -> Pull().
+// WaitAndGet() combines Wait+Pull.
+class OneShotCommunicatorV2 : public OneShotCommunicatorBase {
+public:
+    explicit OneShotCommunicatorV2(ShmemTensor& shmemTensor)
+        : OneShotCommunicatorBase(shmemTensor)
+    {}
+
+    OneShotCommunicatorV2(const OneShotCommunicatorV2&) = delete;
+    OneShotCommunicatorV2& operator=(const OneShotCommunicatorV2&) = delete;
 
     // Put data to targetRank's shmem slot + signal.
     void Put(const Tensor& pred, const Tensor& input, uint32_t targetRank, AtomicType atomicType)
@@ -73,13 +150,6 @@ public:
         auto waitOut = Wait(input);
         return Pull(waitOut, input.GetDataType());
     }
-
-private:
-    ShmemTensor& shmemTensor_;
-    uint32_t worldSize_;
-    SymbolicScalar thisRank_;
-    int32_t row_;
-    int32_t col_;
 };
 
 // OneShotCommunicatorV3: chunked-scatter communicator wrapping ShmemTensor.
@@ -92,8 +162,9 @@ private:
 // independent per-chunk counters with the current framework.
 //
 // On the receiver side WaitChunk issues a single ShmemWaitUntil (on the full
-// view) for the first call and caches the resulting token; subsequent calls
-// for chunkId > 0 return the cached token without issuing another wait.
+// view) for the first call, which must use chunkId == 0, and caches the
+// resulting token; subsequent calls return the cached token without issuing
+// another wait.
 // PullChunk reads the requested chunk's row range via ShmemGet.
 //
 // Three-phase API:
@@ -103,31 +174,19 @@ private:
 //        — ShmemSignal on the FULL tile view (call once after all chunks for
 //          a given targetRank)
 //   3) WaitChunk(dep, chunkId)
-//        — issues ShmemWaitUntil for chunkId==0; returns cached token otherwise
+//        — first call must use chunkId==0 and issues ShmemWaitUntil;
+//          subsequent calls return the cached token
 //   4) PullChunk(waitToken, chunkId, dtype)
 //        — ShmemGet on the chunk's row range
-class OneShotCommunicatorV3 {
+class OneShotCommunicatorV3 : public OneShotChunkedCommunicatorBase {
 public:
     OneShotCommunicatorV3(ShmemTensor& shmemTensor, uint32_t payloadChunkCount)
-        : shmemTensor_(shmemTensor)
-        , worldSize_(static_cast<uint32_t>(shmemTensor.worldSize))
-        , thisRank_(GetHcclRankId(shmemTensor.group))
-        , row_(shmemTensor.data.GetShape()[1])
-        , col_(shmemTensor.data.GetShape()[2])
-        , payloadChunkCount_(payloadChunkCount)
+        : OneShotChunkedCommunicatorBase(shmemTensor, payloadChunkCount)
         , waitTokenSet_(false)
-    {
-        ASSERT(payloadChunkCount_ > 0) << "payloadChunkCount must be > 0";
-        ASSERT(static_cast<int64_t>(payloadChunkCount_) <= row_)
-            << "payloadChunkCount must be <= row dimension (" << row_ << ")";
-    }
+    {}
 
     OneShotCommunicatorV3(const OneShotCommunicatorV3&) = delete;
     OneShotCommunicatorV3& operator=(const OneShotCommunicatorV3&) = delete;
-
-    uint32_t WorldSize() const { return worldSize_; }
-    SymbolicScalar ThisRank() const { return thisRank_; }
-    uint32_t PayloadChunkCount() const { return payloadChunkCount_; }
 
     // Reset per-iteration mutable state so the communicator can be reused
     // across multiple iterations within the same FUNCTION body.
@@ -135,21 +194,6 @@ public:
     {
         waitTokenSet_ = false;
         lastSignalTokenSet_ = false;
-    }
-
-    int32_t ChunkStartRow(uint32_t chunkId) const
-    {
-        ASSERT(chunkId < payloadChunkCount_) << "chunkId out of range: " << chunkId;
-        return static_cast<int32_t>((static_cast<int64_t>(chunkId) * row_) / payloadChunkCount_);
-    }
-
-    int32_t ChunkRows(uint32_t chunkId) const
-    {
-        ASSERT(chunkId < payloadChunkCount_) << "chunkId out of range: " << chunkId;
-        int32_t start = ChunkStartRow(chunkId);
-        int32_t end = static_cast<int32_t>((static_cast<int64_t>(chunkId + 1) * row_) / payloadChunkCount_);
-        ASSERT(end > start) << "Empty chunk detected for chunkId " << chunkId;
-        return end - start;
     }
 
     // Put one chunk's data to targetRank's shmem slot (does NOT signal).
@@ -177,14 +221,16 @@ public:
     }
 
     // Wait for all worldSize ranks to complete their scatter to thisRank.
-    // For chunkId == 0: issues ShmemWaitUntil on the full tile and caches the
-    // result token.  For chunkId > 0: returns the cached token immediately.
+    // The first call must use chunkId == 0: it issues ShmemWaitUntil on the
+    // full tile and caches the result token. Subsequent calls return the
+    // cached token immediately.
     // This ensures every PullChunk call has a valid data-ready dependency while
     // issuing exactly one hardware wait per communicator instance.
     Tensor WaitChunk(const Tensor& dep, uint32_t chunkId) const
     {
-        (void)chunkId;
+        ASSERT(chunkId < payloadChunkCount_) << "chunkId out of range: " << chunkId;
         if (!waitTokenSet_) {
+            ASSERT(chunkId == 0) << "First WaitChunk() call must use chunkId == 0, but got " << chunkId;
             auto fullView = ShmemView(shmemTensor_, {1, row_, col_},
                 std::vector<SymbolicScalar>{0, 0, 0});
             const Tensor& actualDep = lastSignalTokenSet_ ? lastSignalToken_ : dep;
@@ -204,12 +250,6 @@ public:
     }
 
 private:
-    ShmemTensor& shmemTensor_;
-    uint32_t worldSize_;
-    SymbolicScalar thisRank_;
-    int32_t row_;
-    int32_t col_;
-    uint32_t payloadChunkCount_;
     mutable Tensor waitToken_;         // cached token from first WaitChunk call
     mutable bool waitTokenSet_;         // true once WaitChunk(0) has been called
     mutable Tensor lastSignalToken_;    // token returned by the last Signal() call
@@ -223,8 +263,8 @@ private:
 // callers (v8/v9) iterate chunk puts in group-major order, then fire ONE
 // coarse Signal() on the full tile view after all groups for a target rank
 // have been written. The receiver calls WaitGroup(), which issues one
-// ShmemWaitUntil on the first call (groupId == 0) and returns a cached token
-// for all subsequent groups. Because all groups share the same hardware
+// ShmemWaitUntil on the first call, which must use groupId == 0, and returns a
+// cached token for all subsequent groups. Because all groups share the same hardware
 // counter (full-tile tile_id), coarse single-wait semantics apply —
 // independent per-group overlap requires a future per-group signal counter.
 //
@@ -235,61 +275,27 @@ private:
 //        — ShmemSignal on the FULL tile view; in the current v8/v9 path this
 //          is called once after all groups for a given targetRank
 //   3) WaitGroup(dep, groupId)
-//        — issues ShmemWaitUntil for groupId==0; returns cached token otherwise
+//        — first call must use groupId==0 and issues ShmemWaitUntil;
+//          subsequent calls return the cached token
 //   4) PullChunk(waitToken, chunkId, dtype)
 //        — ShmemGet on the chunk's row range
-class OneShotCommunicatorV4 {
+class OneShotCommunicatorV4 : public OneShotGroupedCommunicatorBase {
 public:
     OneShotCommunicatorV4(ShmemTensor& shmemTensor, uint32_t payloadChunkCount,
         uint32_t chunksPerSignal)
-        : shmemTensor_(shmemTensor)
-        , worldSize_(static_cast<uint32_t>(shmemTensor.worldSize))
-        , thisRank_(GetHcclRankId(shmemTensor.group))
-        , row_(shmemTensor.data.GetShape()[1])
-        , col_(shmemTensor.data.GetShape()[2])
-        , payloadChunkCount_(payloadChunkCount)
-        , chunksPerSignal_(chunksPerSignal)
+        : OneShotGroupedCommunicatorBase(shmemTensor, payloadChunkCount, chunksPerSignal)
         , waitTokenSet_(false)
-    {
-        ASSERT(payloadChunkCount_ > 0) << "payloadChunkCount must be > 0";
-        ASSERT(chunksPerSignal_ > 0) << "chunksPerSignal must be > 0";
-        ASSERT(static_cast<int64_t>(payloadChunkCount_) <= row_)
-            << "payloadChunkCount must be <= row dimension (" << row_ << ")";
-    }
+    {}
 
     OneShotCommunicatorV4(const OneShotCommunicatorV4&) = delete;
     OneShotCommunicatorV4& operator=(const OneShotCommunicatorV4&) = delete;
 
-    uint32_t WorldSize() const { return worldSize_; }
-    SymbolicScalar ThisRank() const { return thisRank_; }
-    uint32_t PayloadChunkCount() const { return payloadChunkCount_; }
-    uint32_t ChunksPerSignal() const { return chunksPerSignal_; }
-    uint32_t SignalGroupCount() const
+    // Reset per-iteration mutable state so the communicator can be reused
+    // across multiple iterations within the same FUNCTION body.
+    void Reset() const
     {
-        return (payloadChunkCount_ + chunksPerSignal_ - 1) / chunksPerSignal_;
-    }
-
-    uint32_t GroupBeginChunk(uint32_t groupId) const { return groupId * chunksPerSignal_; }
-    uint32_t GroupSize(uint32_t groupId) const
-    {
-        uint32_t begin = GroupBeginChunk(groupId);
-        uint32_t remaining = payloadChunkCount_ - begin;
-        return remaining < chunksPerSignal_ ? remaining : chunksPerSignal_;
-    }
-
-    int32_t ChunkStartRow(uint32_t chunkId) const
-    {
-        ASSERT(chunkId < payloadChunkCount_) << "chunkId out of range: " << chunkId;
-        return static_cast<int32_t>((static_cast<int64_t>(chunkId) * row_) / payloadChunkCount_);
-    }
-
-    int32_t ChunkRows(uint32_t chunkId) const
-    {
-        ASSERT(chunkId < payloadChunkCount_) << "chunkId out of range: " << chunkId;
-        int32_t start = ChunkStartRow(chunkId);
-        int32_t end = static_cast<int32_t>((static_cast<int64_t>(chunkId + 1) * row_) / payloadChunkCount_);
-        ASSERT(end > start) << "Empty chunk detected for chunkId " << chunkId;
-        return end - start;
+        waitTokenSet_ = false;
+        lastSignalTokenSet_ = false;
     }
 
     // Put one chunk's data to targetRank's shmem slot (does NOT signal).
@@ -317,12 +323,14 @@ public:
     }
 
     // Wait for all worldSize ranks to complete their scatter to thisRank.
-    // For groupId == 0: issues ShmemWaitUntil on the full tile and caches the
-    // result token.  For groupId > 0: returns the cached token immediately.
+    // The first call must use groupId == 0: it issues ShmemWaitUntil on the
+    // full tile and caches the result token. Subsequent calls return the
+    // cached token immediately.
     Tensor WaitGroup(const Tensor& dep, uint32_t groupId) const
     {
         ASSERT(groupId < SignalGroupCount()) << "groupId out of range: " << groupId;
         if (!waitTokenSet_) {
+            ASSERT(groupId == 0) << "First WaitGroup() call must use groupId == 0, but got " << groupId;
             auto fullView = ShmemView(shmemTensor_, {1, row_, col_},
                 std::vector<SymbolicScalar>{0, 0, 0});
             const Tensor& actualDep = lastSignalTokenSet_ ? lastSignalToken_ : dep;
@@ -342,17 +350,75 @@ public:
     }
 
 private:
-    ShmemTensor& shmemTensor_;
-    uint32_t worldSize_;
-    SymbolicScalar thisRank_;
-    int32_t row_;
-    int32_t col_;
-    uint32_t payloadChunkCount_;
-    uint32_t chunksPerSignal_;
     mutable Tensor waitToken_;         // cached token from first WaitGroup call
     mutable bool waitTokenSet_;         // true once WaitGroup(0) has been called
     mutable Tensor lastSignalToken_;    // token returned by the last Signal() call
     mutable bool lastSignalTokenSet_ = false;  // true once Signal() has been called
+};
+
+// OneShotCommunicatorV5: per-group GE-semantics communicator for v10.
+//
+// Unlike V4 (one coarse Signal after all groups then EQ wait), V5 calls
+// SignalGroup() once per group per target rank (in ascending groupId order).
+// Each SignalGroup() atomically increments the target's full-tile counter by 1.
+// WaitGroup(G) issues a fresh ShmemWaitUntil with OpType::GE and threshold
+// (G+1)*worldSize every call — no caching is needed or performed.
+//
+// Correctness argument (pigeonhole): ordered per-group signaling ensures that
+// once the counter cross >= (G+1)*W the receiver knows all W senders have each
+// completed at least G+1 SignalGroup() calls, which are issued strictly after
+// the corresponding Put() calls for group G. clearSignal=false keeps the
+// counter monotonically increasing so later groups' waits remain valid.
+class OneShotCommunicatorV5 : public OneShotGroupedCommunicatorBase {
+public:
+    OneShotCommunicatorV5(ShmemTensor& shmemTensor, uint32_t payloadChunkCount,
+        uint32_t chunksPerSignal)
+        : OneShotGroupedCommunicatorBase(shmemTensor, payloadChunkCount, chunksPerSignal)
+    {}
+
+    OneShotCommunicatorV5(const OneShotCommunicatorV5&) = delete;
+    OneShotCommunicatorV5& operator=(const OneShotCommunicatorV5&) = delete;
+    // Put one chunk's data to targetRank's shmem slot (does NOT signal).
+    Tensor Put(const Tensor& pred, const Tensor& inChunk, uint32_t targetRank,
+        uint32_t chunkId, AtomicType atomicType) const
+    {
+        auto chunkView = ShmemView(shmemTensor_, {1, ChunkRows(chunkId), col_},
+            std::vector<SymbolicScalar>{0, ChunkStartRow(chunkId), 0});
+        return ShmemPut(inChunk, chunkView, targetRank, atomicType, pred);
+    }
+
+    // Signal targetRank after completing all Put()s for groupId.
+    // Atomically increments targetRank's full-tile counter by 1.
+    // Must be called in ascending groupId order: 0, 1, ..., SignalGroupCount()-1.
+    Tensor SignalGroup(const Tensor& pred, uint32_t targetRank,
+        uint32_t /*groupId*/, AtomicType atomicType) const
+    {
+        auto fullView = ShmemView(shmemTensor_, {1, row_, col_},
+            std::vector<SymbolicScalar>{0, 0, 0});
+        return ShmemSignal(fullView, targetRank, targetRank, 1, atomicType, pred);
+    }
+
+    // Wait until the local counter has reached (groupId+1)*worldSize.
+    // Issues a fresh ShmemWaitUntil every call (no caching).
+    // clearSignal=false: counter is monotonically increasing; later groups' waits remain valid.
+    Tensor WaitGroup(const Tensor& dep, uint32_t groupId) const
+    {
+        ASSERT(groupId < SignalGroupCount()) << "groupId out of range: " << groupId;
+        auto fullView = ShmemView(shmemTensor_, {1, row_, col_},
+            std::vector<SymbolicScalar>{0, 0, 0});
+        int32_t threshold = static_cast<int32_t>((groupId + 1) * worldSize_);
+        return ShmemWaitUntil(fullView, thisRank_, OpType::GE, threshold, false, dep);
+    }
+
+    // Read one reduced chunk after WaitGroup.
+    Tensor PullChunk(const Tensor& waitToken, uint32_t chunkId, DataType dtype) const
+    {
+        auto chunkView = ShmemView(shmemTensor_, {1, ChunkRows(chunkId), col_},
+            std::vector<SymbolicScalar>{0, ChunkStartRow(chunkId), 0});
+        return ShmemGet(chunkView, thisRank_, waitToken, dtype);
+    }
+
+private:
 };
 
 // TwoShotCommunicator: ShmemTensor-based engine for TwoShot AllReduce.

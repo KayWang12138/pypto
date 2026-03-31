@@ -28,12 +28,14 @@ namespace npu::tile_fwk::Distributed {
 constexpr int32_t ATTR_STRIDE_OFFSET = 1;
 constexpr int32_t ATTR_TILEROW_OFFSET = 3;
 constexpr int32_t ATTR_TILECOL_OFFSET = 4;
+constexpr int32_t ATTR_CMP_TYPE_OFFSET = 5;  // 0 = EQ (legacy), non-zero = GE
 struct SignalTileOp {
-    void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal) {
+    void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal, bool useGe = false) {
         taskId_ = taskId;
         addr_ = addr;
         expectedSum_ = expectedSum;
         resetSignal_ = resetSignal;
+        useGe_ = useGe;
     }
     bool PollCompleted() const;
 
@@ -42,6 +44,7 @@ struct SignalTileOp {
     int32_t* addr_{nullptr};
     int32_t expectedSum_{0};
     bool resetSignal_{false};
+    bool useGe_{false};  // true → poll with >=; false → poll with == (legacy)
     TaskStat* profData_{nullptr};
 };
 
@@ -57,19 +60,19 @@ public:
         return taskId & AICPU_TASK_ARRAY_SIZE_MOD;
     }
 
-    SignalTileOp* CreateTaskData(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
+    SignalTileOp* CreateTaskData(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal, bool useGe = false) {
         if (taskCount >= AICPU_TASK_ARRAY_SIZE) {
             DEV_ERROR(DistributedErrorCode::AICPU_TASK_NUM_EXCEED_LIMIT, "ctrl.task.pre.task.create#: taskCount=%u >= AICPU_TASK_ARRAY_SIZE=%lu", taskCount, AICPU_TASK_ARRAY_SIZE);
             return nullptr;
         }
         SignalTileOp* newTask = &taskArray[taskCount];
-        newTask->Init(taskId, addr, expectSum, resetSignal);
+        newTask->Init(taskId, addr, expectSum, resetSignal, useGe);
         taskCount++;
         return newTask;
     }
 
-    int32_t InsertTask(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
-        SignalTileOp* newTask = CreateTaskData(taskId, addr, expectSum, resetSignal);
+    int32_t InsertTask(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal, bool useGe = false) {
+        SignalTileOp* newTask = CreateTaskData(taskId, addr, expectSum, resetSignal, useGe);
         if (newTask == nullptr) {
             return dynamic::DEVICE_MACHINE_ERROR;
         }
@@ -196,6 +199,7 @@ public:
         TensorInfo info = ShmemWaitUntilImpl::GetTensorInfo(taskId, aicpuCode);
         const int32_t expectedSum = info.expectedSum;
         const bool resetSignal = info.resetSignal;
+        const bool useGe = (aicpuCode[paramInfo_.attrIndex + ATTR_CMP_TYPE_OFFSET] != 0);
         int32_t stride = aicpuCode[paramInfo_.attrIndex + ATTR_STRIDE_OFFSET];
         int32_t tileRowShape = aicpuCode[paramInfo_.attrIndex + ATTR_TILEROW_OFFSET];
         int32_t tileColShape = aicpuCode[paramInfo_.attrIndex + ATTR_TILECOL_OFFSET];
@@ -215,7 +219,7 @@ public:
 
         int32_t* addr = reinterpret_cast<int32_t*>(info.rawAddr) + info.offset[SRC_SHMEM_SIGNAL_ID] * paramInfo_.rawRankShape * totalTileNum * stride +
             (info.offset[SRC_RANK_ID] * totalTileNum + tileIndex) * stride;
-        return hashMap_.InsertTask(taskId, addr, expectedSum, resetSignal);
+        return hashMap_.InsertTask(taskId, addr, expectedSum, resetSignal, useGe);
     }
 
     int32_t PollCompleted(npu::tile_fwk::dynamic::AiCoreManager *aiCoreManager);

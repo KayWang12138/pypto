@@ -78,6 +78,76 @@ void OneShotAllReduce_v9(const Tensor& predToken, const Tensor& in, ShmemTensor&
     }
 }
 
+// OneShotAllReduce_v10: SHMEM-only, chunked, per-group GE-semantics signaling.
+//
+// Extends v9 with two behavioural changes that enable independent per-group
+// progress:
+//   1. Sender fires ONE ShmemSignal per group per target rank (not once at end).
+//      Signals accumulate monotonically in the full-tile counter.
+//   2. Receiver issues a fresh ShmemWaitUntil per group using GE semantics:
+//      WaitGroup(G) waits until counter >= (G+1)*worldSize.
+//      By ordered-signaling induction, this guarantees all W senders have
+//      completed at least group G before the receiver pulls group G's chunks.
+//
+// Correctness: since each sender signals after each of its groups in order,
+// the sum of all senders' contributions to a rank's counter reaching K*W means
+// all W senders have each sent at least K groups (pigeonhole, each contributes
+// ≤ K). The counter is NOT reset between groups (clearSignal=false).
+//
+// Constraint: the communicator should be used once per kernel invocation.
+//             Counter must be cleared (ShmemClearSignal) before reuse.
+void OneShotAllReduce_v10(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out,
+                          uint32_t payloadChunkCount, uint32_t chunksPerSignal)
+{
+    ValidateShmemTensor(shmemTensor, true, true);
+    ValidateTensor(predToken, "predToken", {2});
+    ValidateTensor(in, "in", {predToken.Dim()});
+    ASSERT(payloadChunkCount > 0) << "payloadChunkCount must be > 0";
+    ASSERT(chunksPerSignal > 0) << "chunksPerSignal must be > 0";
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, row, col});
+    ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
+    ASSERT(static_cast<int64_t>(payloadChunkCount) <= row)
+        << "payloadChunkCount must be <= row dimension (" << row << ")";
+    ASSERT(chunksPerSignal <= payloadChunkCount)
+        << "chunksPerSignal must be <= payloadChunkCount, but got "
+        << chunksPerSignal << " > " << payloadChunkCount;
+
+    OneShotCommunicatorV5 comm(shmemTensor, payloadChunkCount, chunksPerSignal);
+
+    // Phase 1: Scatter — group-major puts; signal AFTER each group per rank.
+    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
+        Tensor putOut = predToken;
+        for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
+            uint32_t begin = comm.GroupBeginChunk(groupId);
+            uint32_t gSize = comm.GroupSize(groupId);
+            for (uint32_t local = 0; local < gSize; ++local) {
+                uint32_t chunkId = begin + local;
+                int32_t chunkRow = comm.ChunkStartRow(chunkId);
+                int32_t chunkRows = comm.ChunkRows(chunkId);
+                auto inChunk = View(in, {chunkRows, col},
+                    std::vector<SymbolicScalar>{chunkRow, 0});
+                putOut = comm.Put(putOut, inChunk, dynRankId, chunkId, AtomicType::ADD);
+            }
+            // Signal after this group — increments the monotonic counter by 1.
+            putOut = comm.SignalGroup(putOut, dynRankId, groupId, AtomicType::ADD);
+        }
+    }
+
+    // Phase 2: Receive — independent GE wait and pull per group, no caching.
+    for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
+        auto waitToken = comm.WaitGroup(in, groupId);
+        uint32_t begin = comm.GroupBeginChunk(groupId);
+        uint32_t gSize = comm.GroupSize(groupId);
+        for (uint32_t local = 0; local < gSize; ++local) {
+            uint32_t chunkId = begin + local;
+            auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
+            Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
+        }
+    }
+}
+
 void ValidateGroup(const char* group)
 {
     ASSERT(DistributedErrorCode::INVALID_GROUP_NAME, group != nullptr) << "\"group\" cannot be nullptr";
@@ -406,12 +476,13 @@ Tensor ShmemSignalAll(const ShmemTensor& src, const SymbolicScalar &srcRank, int
 
 Tensor ShmemWaitUntil(const ShmemTensor& src, const SymbolicScalar &srcRank, OpType cmp, int32_t cmpValue, bool clearSignal, const Tensor &pred)
 {
-    ValidateOpType(cmp, {OpType::EQ});
+    ValidateOpType(cmp, {OpType::EQ, OpType::GE});
+    ASSERT(cmp != OpType::GE || !clearSignal)
+        << "ShmemWaitUntil: clearSignal must be false when using GE semantics";
     ValidateShmemTensor(src, false, true);
     ValidateTensor(pred, "pred", {2});
     ValidateTensor(src.signal, "src.signal", {4});
     ValidateTiling(Opcode::OP_SHMEM_WAIT_UNTIL, pred, "pred");
-    (void)cmp;
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape signalShape = src.signal.GetShape();
     signalShape[0] = 1;
@@ -426,6 +497,7 @@ Tensor ShmemWaitUntil(const ShmemTensor& src, const SymbolicScalar &srcRank, OpT
     distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
     distOpAttr.resetSignal = clearSignal;
     distOpAttr.ownerRank = GetHcclRankId(src.group);
+    distOpAttr.cmpType = cmp;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
 }
