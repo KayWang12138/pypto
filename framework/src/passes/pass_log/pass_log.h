@@ -16,13 +16,16 @@
 #ifndef PASS_LOG_H
 #define PASS_LOG_H
 
-#include <string>
 #include <chrono>
+#include <string>
+#include <unordered_map>
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk {
+
+class Pass;
 
 std::string GetFormatBacktrace(const Operation& op);
 
@@ -83,25 +86,33 @@ private:
     bool ended_{false};
     std::chrono::steady_clock::time_point start_;
 };
-} // namespace npu::tile_fwk
+
+class PassLogUtil {
+public:
+    PassLogUtil(Pass &pass, Function &function, size_t passIndex);
+    ~PassLogUtil();
+
+    PassLogUtil(const PassLogUtil &) = delete;
+    PassLogUtil &operator=(const PassLogUtil &) = delete;
+
+private:
+    std::string logFilePath_;
+    std::string logFolder_;
+};
+}
 
 #define LOG_SCOPE_BEGIN(timerVar, opEnum, tag)     \
     ScopeTimer timerVar(MODULE_NAME, opEnum, tag); \
     timerVar.Start()
 
-#define LOG_SCOPE_END(timerVar) timerVar.End()
+#define LOG_SCOPE_END(timerVar) \
+    timerVar.End()
 
-#define APASS_LOG_DEBUG_F(opEnum, fmt, ...) \
-    PYPTO_HOST_LOG(DLOG_DEBUG, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
-#define APASS_LOG_INFO_F(opEnum, fmt, ...) \
-    PYPTO_HOST_LOG(DLOG_INFO, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
-#define APASS_LOG_WARN_F(opEnum, fmt, ...) \
-    PYPTO_HOST_LOG(DLOG_WARN, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
-#define APASS_LOG_ERROR_F(opEnum, fmt, ...) \
-    PYPTO_HOST_LOG(DLOG_ERROR, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
-#define APASS_LOG_ERROR_C(errCode, opEnum, fmt, ...) \
-    PYPTO_HOST_LOGE(PASS, errCode, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
-#define APASS_LOG_EVENT_F(opEnum, fmt, ...) \
-    PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
+#define APASS_LOG_DEBUG_F(opEnum, fmt, ...)   PYPTO_HOST_LOG(DLOG_DEBUG, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
+#define APASS_LOG_INFO_F(opEnum, fmt, ...)    PYPTO_HOST_LOG(DLOG_INFO, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
+#define APASS_LOG_WARN_F(opEnum, fmt, ...)    PYPTO_HOST_LOG(DLOG_WARN, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
+#define APASS_LOG_ERROR_F(opEnum, fmt, ...)   PYPTO_HOST_LOG(DLOG_ERROR, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
+#define APASS_LOG_ERROR_C(errCode, opEnum, fmt, ...)   PYPTO_HOST_LOGE(PASS, errCode, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
+#define APASS_LOG_EVENT_F(opEnum, fmt, ...)   PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, PASS, "[%s.%s]:" fmt, MODULE_NAME, toString(opEnum), ##__VA_ARGS__)
 
 #endif // PASSES_LOG_H
