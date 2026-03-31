@@ -35,12 +35,13 @@ public:
     void SetUp() override {
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetBuildStatic(true);
     }
 
     void TearDown() override {}
 };
 
-TEST_F(LiteNPUCodeGenCompare, test_compare_eq) {
+TEST_F(LiteNPUCodeGenCompare, test_compare_eq_001) {
     PROGRAM("COMPARE_EQ") {
         TileShape::Current().SetVecTile({4, 4});
         Tensor input(DT_FP32, {8, 8}, "input");
@@ -57,11 +58,80 @@ TEST_F(LiteNPUCodeGenCompare, test_compare_eq) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenCompare, test_compare_ge) {
+TEST_F(LiteNPUCodeGenCompare, test_compare_eq_002) {
+    PROGRAM("COMPARE_EQ") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor input(DT_FP32, {8, 8}, "input");
+        Tensor other(DT_FP32, {8}, "other");
+        std::vector<int64_t> dstShape = {8, 8};
+        Tensor output;
+        FUNCTION("COMPARE_EQ") {
+            output = Compare(input, other, OpType::EQ, OutType::BOOL);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "COMPARE_EQ");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// 不能正确生成.cpp文件
+TEST_F(LiteNPUCodeGenCompare, test_compare_eq_003) {
+    PROGRAM("COMPARE_EQ") {
+        TileShape::Current().SetVecTile({4, 4, 4});
+        Tensor input(DT_FP32, {8, 8, 1}, "input");
+        Tensor other(DT_FP32, {1, 1, 8}, "other");
+        std::vector<int64_t> dstShape = {8, 8};
+        Tensor output;
+        FUNCTION("COMPARE_EQ") {
+            output = Compare(input, other, OpType::EQ, OutType::BOOL);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "COMPARE_EQ");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenCompare, test_compare_eq_004) {
+    PROGRAM("COMPARE_EQ") {
+        TileShape::Current().SetVecTile({4, 4, 4});
+        Tensor input(DT_FP32, {8, 8, 1}, "input");
+        Tensor other(DT_FP32, {1, 8, 8}, "other");
+        std::vector<int64_t> dstShape = {8, 8};
+        Tensor output;
+        FUNCTION("COMPARE_EQ") {
+            output = Compare(input, other, OpType::EQ, OutType::BOOL);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "COMPARE_EQ");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenCompare, test_compare_ge_001) {
     PROGRAM("COMPARE_GE") {
         TileShape::Current().SetVecTile({4, 4});
         Tensor input(DT_FP32, {8, 8}, "input");
-        Tensor other(DT_FP32, {8, 8}, "other");
+        Tensor other(DT_FP32, {1, 8}, "other");
+        std::vector<int64_t> dstShape = {8, 8};
+        Tensor output;
+        FUNCTION("COMPARE_GE") {
+            output = Compare(input, other, OpType::GE, OutType::BOOL);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "COMPARE_GE");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenCompare, test_compare_ge_002) {
+    PROGRAM("COMPARE_GE") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor input(DT_FP32, {8, 8}, "input");
+        Element other(DataType::DT_FP32, 1.0);
         std::vector<int64_t> dstShape = {8, 8};
         Tensor output;
         FUNCTION("COMPARE_GE") {

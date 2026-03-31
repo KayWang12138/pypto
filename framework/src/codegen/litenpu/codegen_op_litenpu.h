@@ -82,7 +82,11 @@ public:
     std::string GenCubeOpMatmul() const ;
     std::string GenCubeOpMatmulAcc() const ;
 
-    std::string GenCastOp() const ;
+    std::string PrintCmpTileTensor() const;
+
+    std::string GenCmpOp() const;
+    
+    std::string GenCastOp() const;
     // std::string GenPadOp() const ;
 
     std::string GenDupOp() const ;
@@ -113,6 +117,8 @@ public:
     // std::string GetTemplateDType() const;
 
     // std::string GenPoolOp() const;
+
+    std::string GenWhereOp() const;
 
     std::string GenOpCode() const override {
         auto iter = opsGenMap_.find(opCode);
@@ -212,6 +218,11 @@ private:
 
     std::string PrintIndexPut(const PrintIndexPutParam &param) const;
     std::string PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
+
+    WhereParam PrepareWhereParam() const;
+    void GetWhereVarAndType(std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const;
+    std::string PrintWhereOp(const WhereParam &param) const;
+    std::string PrintWhereOpTileTensor(const WhereParam &param) const;
 
     std::string PrintVnchwconv() const;
     std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam &param) const;
@@ -313,7 +324,8 @@ private:
         // {                       Opcode::OP_SUB,                 [this]() { return GenBinaryOp(); }},
         // {                       Opcode::OP_MUL,                 [this]() { return GenBinaryOp(); }},
         // {                       Opcode::OP_DIV,                 [this]() { return GenBinaryOp(); }},
-        // {                   Opcode::OP_MAXIMUM,                 [this]() { return GenBinaryOp(); }},
+        {                   Opcode::OP_MAXIMUM,                 [this]() { return GenBinaryOp(); }},
+        {                   Opcode::OP_MINIMUM,                 [this]() { return GenBinaryOp(); }},
         {                   Opcode::OP_PAIRSUM,                 [this]() { return GenBinaryOp(); }},
         {                   Opcode::OP_PAIRMAX,                 [this]() { return GenBinaryOp(); }},
         {                   Opcode::OP_PAIRMIN,                 [this]() { return GenBinaryOp(); }},
@@ -324,6 +336,7 @@ private:
         // {                   Opcode::OP_MUL_BRC,            [this]() { return GenBinaryWithBrc(); }},
         // {                   Opcode::OP_DIV_BRC,            [this]() { return GenBinaryWithBrc(); }},
         // {                   Opcode::OP_MAX_BRC,            [this]() { return GenBinaryWithBrc(); }},
+        // {                   Opcode::OP_MIN_BRC,            [this]() { return GenBinaryWithBrc(); }},
 
         // // binary op: vector scalar
         // {                      Opcode::OP_ADDS,           [this]() { return GenVectorScalarOp(); }},
@@ -420,6 +433,17 @@ private:
         // for performace optimization
         {                    Opcode::OP_PHASE1,              []() { return "SUBKERNEL_PHASE1\n"; }},
         {                    Opcode::OP_PHASE2,              []() { return "SUBKERNEL_PHASE2\n"; }},
+
+        // vector where
+        {                    Opcode::OP_WHERE_SS,              [this]() { return GenWhereOp(); }},
+        {                    Opcode::OP_WHERE_TS,              [this]() { return GenWhereOp(); }},
+        {                    Opcode::OP_WHERE_ST,              [this]() { return GenWhereOp(); }},
+        {                    Opcode::OP_WHERE_TT,              [this]() { return GenWhereOp(); }},
+        
+
+        // cmp op
+        {               Opcode::OP_CMP,                   [this]() { return GenCmpOp(); }},
+        {               Opcode::OP_CMPS,                   [this]() { return GenCmpOp(); }},
     };
 };
 

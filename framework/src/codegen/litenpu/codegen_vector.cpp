@@ -367,4 +367,236 @@ std::string CodeGenOpLiteNPU::PrintBinary() const {
 std::string CodeGenOpLiteNPU::GenBinaryOp() const {
     return PrintBinary();
 }
+
+std::string CodeGenOpLiteNPU::PrintCmpTileTensor() const {
+    enum class TensorIdx : int { dstIdx = 0, tmpIdx, src0Idx, src1Idx };
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(TensorIdx::dstIdx));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(TensorIdx::tmpIdx));
+    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(TensorIdx::src0Idx));
+    std::string src1Tensor = "";
+    if (opCode == Opcode::OP_CMP) {
+        src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(TensorIdx::src1Idx));
+    }
+
+    auto cmpOp = opAttrs.at(OP_ATTR_PREFIX + "cmp_operation");
+    auto mode = opAttrs.at(OP_ATTR_PREFIX + "cmp_mode");
+    std::string cmpOpVal = std::to_string(AnyCast<int64_t>(cmpOp));
+    std::string modeVal = std::to_string(AnyCast<int64_t>(mode));
+
+    std::vector<std::string> tileOpParamList = {dstTensor, src0Tensor, src1Tensor, tmpTensor};
+    std::vector<std::string> templateParamList = {cmpOpVal, modeVal};
+    if (opCode == Opcode::OP_CMPS) {
+        auto scalarAttr = opAttrs.at(OpAttributeKey::scalar);
+        auto scalarElement = AnyCast<Element>(scalarAttr);
+        auto scalarType = scalarElement.GetDataType();
+        if (scalarType == DataType::DT_FP16) {
+            templateParamList.emplace_back("half");
+        } else {
+            templateParamList.emplace_back("float");
+        }
+        tileOpParamList.erase(tileOpParamList.begin() + ID2);
+        tileOpParamList.emplace_back(FormatFloat(scalarElement.Cast<float>()));
+    }
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets(templateParamList);
+    oss << WrapParamByParentheses(tileOpParamList);
+    oss << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpLiteNPU::GenCmpOp() const {
+    if (isSupportLayout) {
+        return PrintCmpTileTensor();
+    }
+    return "";
+}
+
+void CodeGenOpLiteNPU::GetWhereVarAndType(
+    std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const {
+    varExpr.clear();
+    dataTypeExpr.clear();
+
+    const int paramCnt = 5;
+    varExpr.reserve(paramCnt);
+
+    varExpr.emplace_back(
+        sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::resIdx)])); // 0: dstVar
+    varExpr.emplace_back(
+        sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::tempIdx)])); // 1: tempVar
+    varExpr.emplace_back(
+        sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::condIdx)])); // 2: condVar
+
+    const int inValidIdx = -1;
+    int src0Idx = inValidIdx, src1Idx = inValidIdx;
+    if (opCode == Opcode::OP_WHERE_ST || opCode == Opcode::OP_WHERE_TS || opCode == Opcode::OP_WHERE_TT) {
+        // 3: src0Var
+        varExpr.emplace_back(sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::src0Idx)]));
+        src0Idx = varExpr.size() - 1;
+    }
+    if (opCode == Opcode::OP_WHERE_TT) {
+        // 4: src1Var
+        varExpr.emplace_back(sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::src1Idx)]));
+        src1Idx = varExpr.size() - 1;
+    }
+
+    std::map<unsigned, std::reference_wrapper<std::string>> varMap;
+    std::vector<unsigned> idxs = {
+        ToUnderlying(WhereOpIdx::resIdx), ToUnderlying(WhereOpIdx::tempIdx), ToUnderlying(WhereOpIdx::condIdx)};
+    for (unsigned i = 0; i < idxs.size(); ++i) {
+        varMap.emplace(idxs[i], std::ref(varExpr[i]));
+    }
+    if (src0Idx != inValidIdx) {
+        varMap.emplace(ToUnderlying(WhereOpIdx::src0Idx), std::ref(varExpr[src0Idx]));
+    }
+    if (src1Idx != inValidIdx) {
+        varMap.emplace(ToUnderlying(WhereOpIdx::src1Idx), std::ref(varExpr[src1Idx]));
+    }
+
+    AppendLocalBufferVarOffset(varMap);
+
+    dataTypeExpr = {DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::resIdx)]),
+        DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::tempIdx)]),
+        DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::condIdx)])};
+}
+
+WhereParam CodeGenOpLiteNPU::PrepareWhereParam() const {
+    std::vector<std::string> varExpr;
+    std::vector<std::string> dataTypeExpr;
+    GetWhereVarAndType(varExpr, dataTypeExpr);
+    std::vector<int64_t> ds = NormalizeShape(this->rawShape[ToUnderlying(WhereOpIdx::resIdx)], SHAPE_DIM4);
+    std::vector<int64_t> c0s = NormalizeShape(this->rawShape[ToUnderlying(WhereOpIdx::condIdx)], SHAPE_DIM4);
+    std::vector<int64_t> s0s = NormalizeShape(this->rawShape[ToUnderlying(WhereOpIdx::src0Idx)], SHAPE_DIM4);
+    std::vector<std::string> templateList;
+    templateList.emplace_back(dataTypeExpr[ToUnderlying(WhereOpIdx::resIdx)]);
+    templateList.emplace_back(dataTypeExpr[ToUnderlying(WhereOpIdx::condIdx)]);
+    templateList.emplace_back("/*DstRawShape*/");
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        templateList.emplace_back(std::to_string(ds[i]));
+    }
+    templateList.emplace_back("/*ConditionRawShape*/");
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        templateList.emplace_back(std::to_string(c0s[i]));
+    }
+    templateList.emplace_back("/*Src0RawShape*/");
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        templateList.emplace_back(std::to_string(s0s[i]));
+    }
+
+    std::vector<std::string> paramList;
+    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(WhereOpIdx::resIdx)] + "*)" +
+                           varExpr[ToUnderlying(WhereOpIdx::resIdx)]);
+    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(WhereOpIdx::tempIdx)] + "*)" +
+                           varExpr[ToUnderlying(WhereOpIdx::tempIdx)]);
+    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(WhereOpIdx::condIdx)] + "*)" +
+                           varExpr[ToUnderlying(WhereOpIdx::condIdx)]);
+    std::vector<std::string> dynParamList;
+    auto dynSrcShape = dynamicValidShape[ToUnderlying(WhereOpIdx::resIdx)];
+    FillIntVecWithDummyInHead<SymbolicScalar>(
+        dynSrcShape, SHAPE_DIM4 - dynamicValidShape[ToUnderlying(WhereOpIdx::resIdx)].size(), 1);
+    for (int i = 0; i < SHAPE_DIM4; i++) {
+        dynParamList.emplace_back(dynSrcShape[i].Dump());
+    }
+    WhereParam param{templateList, paramList, dynParamList, varExpr, dataTypeExpr};
+    return param;
+}
+
+std::string CodeGenOpLiteNPU::PrintWhereOp(const WhereParam &param) const {
+    std::vector<std::string> templateList = param.templateList;
+    std::vector<std::string> paramList = param.paramList;
+    std::vector<std::string> dynParamList = param.dynParamList;
+    std::vector<std::string> varExpr = param.varExpr;
+    std::vector<std::string> dataTypeExpr = param.dataTypeExpr;
+    std::string templateParam = JoinString(templateList, CONN_COMMA);
+    std::string funcParam = JoinString(paramList, CONN_COMMA);
+    std::string dynFuncParam = JoinString(dynParamList, CONN_COMMA);
+    std::vector<std::string> extList;
+
+    std::ostringstream os;
+    if (opCode == Opcode::OP_WHERE_SS) {
+        std::string src0Var = FormatFloat(extScalarVec[0].GetVariantData());
+        std::string src1Var = FormatFloat(extScalarVec[1].GetVariantData());
+        extList.emplace_back(dataTypeExpr[0] + "(" + src0Var + ")");
+        extList.emplace_back(dataTypeExpr[0] + "(" + src1Var + ")");
+        auto extParam = JoinString(extList, ", ");
+        os << tileOpName.c_str() << "<" << templateParam << ">"
+           << "(" << funcParam << ", " << extParam << ", " << dynFuncParam << ");\n";
+        return os.str();
+    } else if (opCode == Opcode::OP_WHERE_ST) {
+        std::string scalarVar = FormatFloat(extOperandVal.GetVariantData());
+        std::string src0Var = varExpr[ToUnderlying(WhereOpIdx::src0Idx)];
+        std::string src1DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::src0Idx)]);
+        extList.emplace_back(dataTypeExpr[0] + "(" + scalarVar + ")");
+        extList.emplace_back("(__ubuf__ " + src1DtypeStr + "*)" + src0Var);
+        auto extParam = JoinString(extList, ", ");
+        os << tileOpName.c_str() << "<" << templateParam << ">"
+           << "(" << funcParam << ", " << extParam << ", " << dynFuncParam << ");\n";
+        return os.str();
+    } else if (opCode == Opcode::OP_WHERE_TS) {
+        std::string scalarVar = FormatFloat(extOperandVal.GetVariantData());
+        std::string src0Var = varExpr[ToUnderlying(WhereOpIdx::src0Idx)];
+        std::string src0DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::src0Idx)]);
+        extList.emplace_back("(__ubuf__ " + src0DtypeStr + "*)" + src0Var);
+        extList.emplace_back(dataTypeExpr[0] + "(" + scalarVar + ")");
+        auto extParam = JoinString(extList, ", ");
+        os << tileOpName.c_str() << "<" << templateParam << ">"
+           << "(" << funcParam << ", " << extParam << ", " << dynFuncParam << ");\n";
+        return os.str();
+    } else { // opCode == Opcode::OP_WHERE_TT
+        std::string src0Var = varExpr[ToUnderlying(WhereOpIdx::src0Idx)];
+        std::string src0DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::src0Idx)]);
+        std::string src1Var = varExpr[ToUnderlying(WhereOpIdx::src1Idx)];
+        std::string src1DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::src1Idx)]);
+        extList.emplace_back("(__ubuf__ " + src0DtypeStr + "*)" + src0Var);
+        extList.emplace_back("(__ubuf__ " + src1DtypeStr + "*)" + src1Var);
+        auto extParam = JoinString(extList, ", ");
+        os << tileOpName.c_str() << "<" << templateParam << ">"
+           << "(" << funcParam << ", " << extParam << ", " << dynFuncParam << ");\n";
+        return os.str();
+    }
+}
+
+std::string CodeGenOpLiteNPU::PrintWhereOpTileTensor(const WhereParam &param) const {
+    std::vector<std::string> dataTypeExpr = param.dataTypeExpr;
+
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(WhereOpIdx::resIdx));
+    std::string tempTensor = QueryTileTensorNameByIdx(ToUnderlying(WhereOpIdx::tempIdx));
+    std::string condTensor = QueryTileTensorNameByIdx(ToUnderlying(WhereOpIdx::condIdx));
+    std::ostringstream oss;
+    oss << tileOpName << "(" << dstTensor << ", " << tempTensor << ", " << condTensor << ", ";
+    if (opCode == Opcode::OP_WHERE_TT) {
+        std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(WhereOpIdx::src0Idx));
+        std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(WhereOpIdx::src1Idx));
+        oss << src0Tensor << ", " << src1Tensor << ");\n";
+    }
+    if (opCode == Opcode::OP_WHERE_TS) {
+        std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(WhereOpIdx::src0Idx));
+        std::string scalarVar = FormatFloat(extOperandVal.GetVariantData());
+        oss << src0Tensor << ", " << dataTypeExpr[0] + "(" + scalarVar + ")" << ");\n";
+    }
+    if (opCode == Opcode::OP_WHERE_ST) {
+        std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(WhereOpIdx::src0Idx));
+        std::string scalarVar = FormatFloat(extOperandVal.GetVariantData());
+        oss << dataTypeExpr[0] + "(" + scalarVar + ")" << ", " << src0Tensor << ");\n";
+    }
+    if (opCode == Opcode::OP_WHERE_SS) {
+        std::string src0Var = FormatFloat(extScalarVec[0].GetVariantData());
+        std::string src1Var = FormatFloat(extScalarVec[1].GetVariantData());
+        std::vector<std::string> extList;
+        extList.emplace_back(dataTypeExpr[0] + "(" + src0Var + ")");
+        extList.emplace_back(dataTypeExpr[0] + "(" + src1Var + ")");
+        auto extParam = JoinString(extList, ", ");
+        oss << extParam << ");\n";
+    }
+    return oss.str();
+}
+
+std::string CodeGenOpLiteNPU::GenWhereOp() const {
+    WhereParam param = PrepareWhereParam();
+    if (isSupportLayout) {
+        return PrintWhereOpTileTensor(param);
+    }
+    return "";
+}
+
 } // namespace npu::tile_fwk
