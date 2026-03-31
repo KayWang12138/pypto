@@ -98,7 +98,7 @@ Status MergeViewAssembleUtils::AppendMergedViewOperations(Function& function)
             APASS_LOG_ERROR_F(Elements::Function, "Failed to create ViewOpAttribute.");
             return FAILED;
         }
-        auto &mergedViewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewOp.input}, {viewOp.output}, true, viewOp.sourceLocation);
+        auto& mergedViewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewOp.input}, {viewOp.output}, true, viewOp.sourceLocation);
         mergedViewOp.SetOpAttribute(attr);
         // 继承op_attr_copy_in_mode属性
         if (viewOp.hasCopyInMode) {
