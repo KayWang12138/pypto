@@ -706,7 +706,7 @@ bool RemoveRedundantAssemble::ForwardFindAssembleInsertedCopy(LogicalTensorPtr i
         auto copyOutput1 = con->GetOOperands()[0];
         if (copyOutput1->GetConsumers().size() == 1) {
             auto copyConsumer1 = *(copyOutput1->GetConsumers().begin());
-            if (copyConsumer1->GetOpcode() == Opcode::OP_COPY_IN || copyConsumer1->GetOpcode() == Opcode::OP_COPY_OUT) {
+            if (copyConsumer1->GetOpcode() != Opcode::OP_COPY_IN && copyConsumer1->GetOpcode() != Opcode::OP_COPY_OUT) {
                 continue;
             }
             auto copyOutput2 = copyConsumer1->GetOOperands()[0];
