@@ -17,7 +17,7 @@ description: PyPTO Pass 模块代码分析技能。用于分析 PyPTO pass的代
 
 - 解析输入文档中的pass模块相关资料（如果有的话）
 - 在项目中 framework/src/passes 中查找对应源代码
-- 结合文档和代码进行分析分析 （如果没有资料输入，直接分析代码）
+- 结合文档和代码进行分析（如果没有资料输入，直接分析代码）
 - 按照 Pass_Analysis_Template.md 模板格式输出结果
 
 ### 触发机制

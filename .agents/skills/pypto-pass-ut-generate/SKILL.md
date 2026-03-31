@@ -149,9 +149,9 @@ python3 scripts/ut_coverage.py --diff pr.diff --report ut_cov.tar.gz --json
 ### 步骤 1：分析业务
 
     根据用户描述的业务情况，分析相关业务：
-        （1）当描述为具体Pass的具体业务时，根据@.opencode/skills/pypto-pass/pypto-pass-module-analyzer/SKILL.md，分析业务场景，根据当前业务设计相应的UT用例，例如：设计Splitk这个Pass消除RedunceAcc功能的UT；
-        （2）当描述为模糊Pass业务时，根据@.opencode/skills/pypto-pass/pypto-pass-module-analyzer/SKILL.md，进行相关Pass业务总结，挑选出符合业务的Pass，分析业务场景，设计对应的UT用例，例如：请针对Pass中对于视图类Op，view、assemble处理的Pass设计对应的UT，验证功能实现；
-        （3）当描述为设计Pass的UT时，根据@.opencode/skills/pypto-pass/pypto-pass-module-analyzer/SKILL.md，进行相关Pass业务总结，分析业务场景，设计该Pass业务的UT用例，例如：针对Splitk这个Pass设计相关UT用例;
+        （1）当描述为具体Pass的具体业务时，根据pypto-pass-module-analyzer，分析业务场景，根据当前业务设计相应的UT用例，例如：设计Splitk这个Pass消除RedunceAcc功能的UT；
+        （2）当描述为模糊Pass业务时，根据pypto-pass-module-analyzer，进行相关Pass业务总结，挑选出符合业务的Pass，分析业务场景，设计对应的UT用例，例如：请针对Pass中对于视图类Op，view、assemble处理的Pass设计对应的UT，验证功能实现；
+        （3）当描述为设计Pass的UT时，根据pypto-pass-module-analyzer，进行相关Pass业务总结，分析业务场景，设计该Pass业务的UT用例，例如：针对Splitk这个Pass设计相关UT用例;
          (4) 当描述为设计PRxxxx的UT或者提供diff文件、ut覆盖率报告时，解析变更变更代码或者未覆盖到的代码行，进行相关Pass业务总结，分析业务场景，设计该Pass业务的UT用例，例如：针对PR01设计相关UT用例或者针对01.diff文件生成UT用例或者针对ut-report.tar.gz生成UT用例;
 
 ### 步骤 2：环境配置
