@@ -5,7 +5,7 @@ description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处�
 
 # PyPTO 算子开发工作流程
 
-本技能提供 PyPTO 算子开发的完整工作流程指导。正式端到端开发优先使用 `pypto-op-orchestrator`；本 Skill 适合手动串联相关 Skills。
+本技能提供 PyPTO 算子开发的完整工作流程指导，适合手动串联相关 Skills 完成端到端开发。
 
 ## 适用边界
 
