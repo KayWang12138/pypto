@@ -156,7 +156,10 @@ def main():
     logger.info("=" * 120)
     logger.info(f"FlashAttentionScoreGrad: AscendC vs PyPTO  |  N={N}, D={D}, BF16, BNSD layout")
     logger.info("=" * 120)
-    logger.info(f"{'Config':<16s} | {'AscendC min(ms)':>15s} {'avg(ms)':>10s} | {'PyPTO min(ms)':>15s} {'avg(ms)':>10s} | {'Ratio(AC/PT)':>12s} | {'AscendC TFLOPS':>14s} {'PyPTO TFLOPS':>14s}")
+    header = (f"{'Config':<16s} | {'AscendC min(ms)':>15s} {'avg(ms)':>10s} | "
+              f"{'PyPTO min(ms)':>15s} {'avg(ms)':>10s} | "
+              f"{'Ratio(AC/PT)':>12s} | {'AscendC TFLOPS':>14s} {'PyPTO TFLOPS':>14s}")
+    logger.info(header)
     logger.info("-" * 120)
 
     for name, B, S in configs:
@@ -188,7 +191,10 @@ def main():
                 logger.info(f"  PyPTO failed for {name}: {e}")
 
             ratio = pt_min / ac_min if ac_min > 0 and ac_min != float('inf') else float('inf')
-            logger.info(f"{name:<16s} | {ac_min:>14.3f}ms {ac_avg:>9.3f}ms | {pt_min:>14.3f}ms {pt_avg:>9.3f}ms | {ratio:>11.2f}x | {ac_tflops:>13.2f}T {pt_tflops:>13.2f}T")
+            row = (f"{name:<16s} | {ac_min:>14.3f}ms {ac_avg:>9.3f}ms | "
+                   f"{pt_min:>14.3f}ms {pt_avg:>9.3f}ms | "
+                   f"{ratio:>11.2f}x | {ac_tflops:>13.2f}T {pt_tflops:>13.2f}T")
+            logger.info(row)
 
         except Exception as e:
             logger.info(f"{name:<16s} | FAILED: {e}")
