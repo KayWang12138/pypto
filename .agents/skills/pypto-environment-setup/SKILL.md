@@ -103,8 +103,10 @@ source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
 ```
 
 #### 步骤 4.2：检查可用的 NPU 卡 (务必在加载cann环境后检查)
+
+调用 `pypto-op-develop` 技能中的空闲卡检测脚本：
 ```bash
-bash ${PYPTO_REPO}/.agents/skills/pypto-op-develop/scripts/list_idle_chip_ids.sh
+bash pypto-op-develop/scripts/list_idle_chip_ids.sh
 ```
 
 #### 步骤 4.3：设置环境变量

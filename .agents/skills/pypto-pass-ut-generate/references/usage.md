@@ -12,7 +12,7 @@
 ```
 pypto-pass-ut-generate/
 ├── SKILL.md                  # 主技能文档
-├── scipts/
+├── scripts/
 │   ├── pr_utils.py           # PR 处理工具（在线）
 │   ├── get_ut_status.py      # 快速获取 UT 状态
 │   ├── ut_coverage.py        # 覆盖率分析工具
@@ -28,40 +28,40 @@ pypto-pass-ut-generate/
 
 ```bash
 # 处理 PR（自动获取 diff 和覆盖率报告）
-python3 scipts/pr_utils.py 1894
+python3 scripts/pr_utils.py 1894
 
 # 快速获取 UT 状态
-python3 scipts/get_ut_status.py 2017
+python3 scripts/get_ut_status.py 2017
 ```
 
 ### 方式二：离线分析本地 diff 文件
 
 ```bash
 # 分析本地 diff 文件
-python3 scipts/ut_coverage.py --diff /path/to/pr.diff
+python3 scripts/ut_coverage.py --diff /path/to/pr.diff
 
 # 简短写法（文件在当前目录）
-python3 scipts/ut_coverage.py --diff pr.diff
+python3 scripts/ut_coverage.py --diff pr.diff
 ```
 
 ### 方式三：离线分析本地覆盖率报告
 
 ```bash
 # 解析本地覆盖率报告（.tar.gz 格式）
-python3 scipts/ut_coverage.py --report /path/to/ut_cov.tar.gz
+python3 scripts/ut_coverage.py --report /path/to/ut_cov.tar.gz
 
 # 简短写法（文件在当前目录）
-python3 scipts/ut_coverage.py --report ut_cov.tar.gz
+python3 scripts/ut_coverage.py --report ut_cov.tar.gz
 ```
 
 ### 方式四：离线综合分析
 
 ```bash
 # 同时分析 diff 和覆盖率文件
-python3 scipts/ut_coverage.py --diff /path/to/pr.diff --report /path/to/ut_cov.tar.gz
+python3 scripts/ut_coverage.py --diff /path/to/pr.diff --report /path/to/ut_cov.tar.gz
 
 # 输出 JSON 格式建议
-python3 scipts/ut_coverage.py --diff pr.diff --report ut_cov.tar.gz --json
+python3 scripts/ut_coverage.py --diff pr.diff --report ut_cov.tar.gz --json
 ```
 
 ## 工具输出
@@ -101,23 +101,23 @@ python3 scipts/ut_coverage.py --diff pr.diff --report ut_cov.tar.gz --json
 
 ```bash
 # 获取 PR diff 并分析
-python3 scipts/pr_utils.py 1894
+python3 scripts/pr_utils.py 1894
 
 # 快速获取 UT 状态
-python3 scipts/get_ut_status.py 2017
+python3 scripts/get_ut_status.py 2017
 ```
 
 ### 场景 3：离线分析本地文件
 
 ```bash
 # 分析本地 diff 文件
-python3 scipts/ut_coverage.py --diff /path/to/pr.diff
+python3 scripts/ut_coverage.py --diff /path/to/pr.diff
 
 # 分析本地覆盖率报告
-python3 scipts/ut_coverage.py --report /path/to/ut_cov.tar.gz
+python3 scripts/ut_coverage.py --report /path/to/ut_cov.tar.gz
 
 # 综合分析
-python3 scipts/ut_coverage.py --diff /path/to/pr.diff --report /path/to/ut_cov.tar.gz
+python3 scripts/ut_coverage.py --diff /path/to/pr.diff --report /path/to/ut_cov.tar.gz
 ```
 
 ## 环境变量

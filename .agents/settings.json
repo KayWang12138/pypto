@@ -1,9 +1,9 @@
 {
     "permissions": {
       "allow": [
-        "Skill(pypto-skill-creator)",
-        "Skill(pypto-operator-develop-workflow)",
-        "Skill(pypto-operator-perf-autotune)",
+        "Skill(pypto-op-workflow)",
+        "Skill(pypto-op-perf-autotuner)",
+        "Skill(pypto-skill-reviewer)",
         "Task(subagent_type=Explore)",
         "Task(subagent_type=Plan)",
         "WebSearch",
@@ -32,19 +32,7 @@
       "deny": [],
       "ask": []
     },
-    "hooks": {
-      "Stop": [
-        {
-          "matcher": "",
-          "hooks": [
-            {
-              "type": "command",
-              "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/session_stop_handle.py"
-            }
-          ]
-        }
-      ]
-    },
+    "hooks": {},
     "sandbox": {
       "enabled": false,
       "autoAllowBashIfSandboxed": false

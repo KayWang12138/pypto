@@ -1,7 +1,6 @@
 ---
 name: pypto-op-workflow
-description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理器自定义算子。在接到算子开发任务时使用，确保开发过程规范、高效、符合官方最佳实践。Triggers: 开发算子、算子开发流程、全流程开发、算子开发工作流、operator workflow。
-tag: [PyPTO, 算子开发]
+description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理器自定义算子。在接到算子开发任务时使用，确保开发过程规范、高效、符合官方最佳实践。Triggers: 开发算子、算子开发流程、全流程开发、算子开发工作流、operator workflow。"
 ---
 
 # PyPTO 算子开发工作流程
@@ -194,7 +193,7 @@ tag: [PyPTO, 算子开发]
 
 | 项目 | 说明 |
 |------|------|
-| **Skill** | `pypto-precision-debugger`（辅助：`pypto-binary-search-verify` / `pypto-binary-search-without-verify`） |
+| **Skill** | `pypto-precision-debugger`（辅助：`pypto-precision-verify` / `pypto-precision-binary-search`） |
 | **输入** | `{op}_impl.py` + `{op}_golden.py` + 精度失败的错误信息 |
 | **核心动作** | 基础检查（输入初始化 / tensor 连续性 / dtype）→ 内存排查（workspace / 内存重叠）→ 特性排除（unroll / 合轴 / submit_before_loop）→ 二分定位 → 修复 → 精度复验 |
 | **输出** | 修复后的 `{op}_impl.py`，精度复验通过 |
