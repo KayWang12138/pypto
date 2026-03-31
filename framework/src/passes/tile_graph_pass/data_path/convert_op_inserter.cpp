@@ -375,10 +375,6 @@ bool ConvertInserter::FitUB2L1(const LogicalTensorPtr &tensor) const{
     if (shape.size() != MATMUL_DIM_NUM) {
         return false;
     }
-    // 检查外轴（第一轴）是否为 16 元素对齐
-    if (shape[0] % UB2L1_DIM0_ALIGN != 0) {
-        return false;
-    }
     return true;
 }
 
