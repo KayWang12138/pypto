@@ -17,8 +17,22 @@ FlashAttentionScoreGrad Golden 参考实现
 置信度: ⭐⭐⭐⭐ (标准 Flash Attention backward 公式)
 """
 
+import logging
 import torch
 from typing import Tuple
+
+# Configure logger for the module
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.propagate = False
+formatter = logging.Formatter(
+    fmt='%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s',
+    datefmt='[%Y-%m-%d %H:%M:%S]'
+)
+handler = logging.StreamHandler()
+handler.setFormatter(formatter)
+logger.handlers.clear()
+logger.addHandler(handler)
 
 
 def flash_attention_score_grad_golden(
@@ -112,9 +126,9 @@ def _validate():
     """自动生成的验证函数"""
     import numpy as np
 
-    print("=" * 60)
-    print("flash_attention_score_grad_golden 验证报告")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("flash_attention_score_grad_golden 验证报告")
+    logger.info("=" * 60)
 
     test_cases = [
         {"name": "Level 0: 最小", "B": 1, "N": 1, "S": 16, "D": 64},
@@ -123,15 +137,15 @@ def _validate():
     ]
 
     for tc in test_cases:
-        print(f"\n--- {tc['name']} (B={tc['B']}, N={tc['N']}, S={tc['S']}, D={tc['D']}) ---")
+        logger.info(f"\n--- {tc['name']} (B={tc['B']}, N={tc['N']}, S={tc['S']}, D={tc['D']}) ---")
         q, k, v, dy, sm, ss, ao, scale = generate_forward_data(
             tc['B'], tc['N'], tc['S'], tc['D']
         )
         dQ, dK, dV = flash_attention_score_grad_golden(q, k, v, dy, sm, ss, ao, scale)
 
-        print(f"  dQ shape: {dQ.shape}, dtype: {dQ.dtype}")
-        print(f"  dK shape: {dK.shape}, dtype: {dK.dtype}")
-        print(f"  dV shape: {dV.shape}, dtype: {dV.dtype}")
+        logger.info(f"  dQ shape: {dQ.shape}, dtype: {dQ.dtype}")
+        logger.info(f"  dK shape: {dK.shape}, dtype: {dK.dtype}")
+        logger.info(f"  dV shape: {dV.shape}, dtype: {dV.dtype}")
 
         # 基本检查: shape 正确、无 NaN/Inf
         assert dQ.shape == q.shape, f"dQ shape mismatch: {dQ.shape} vs {q.shape}"
@@ -147,12 +161,12 @@ def _validate():
         # 值域检查
         for name, t in [("dQ", dQ), ("dK", dK), ("dV", dV)]:
             t_f = t.float()
-            print(f"  {name} range: [{t_f.min().item():.4f}, {t_f.max().item():.4f}]")
+            logger.info(f"  {name} range: [{t_f.min().item():.4f}, {t_f.max().item():.4f}]")
 
-        print("  ✓ Passed")
+        logger.info("  ✓ Passed")
 
     # 交叉验证: 用 PyTorch autograd 验证
-    print("\n--- 交叉验证: PyTorch autograd ---")
+    logger.info("\n--- 交叉验证: PyTorch autograd ---")
     B, N, S, D = 1, 2, 16, 32
     scale = 1.0 / (D ** 0.5)
     q = torch.randn(B, N, S, D, dtype=torch.float64, requires_grad=True)
@@ -185,14 +199,14 @@ def _validate():
 
     for name, grad_auto, grad_golden in [("dQ", q.grad, dQ_g), ("dK", k.grad, dK_g), ("dV", v.grad, dV_g)]:
         diff = (grad_auto.float() - grad_golden.float()).abs().max().item()
-        print(f"  {name} max diff vs autograd: {diff:.6e}")
+        logger.info(f"  {name} max diff vs autograd: {diff:.6e}")
         assert diff < 1e-4, f"{name} diff too large: {diff}"
 
-    print("  ✓ Autograd cross-validation passed")
+    logger.info("  ✓ Autograd cross-validation passed")
 
-    print("\n" + "=" * 60)
-    print("验证完成 - 所有测试通过")
-    print("=" * 60)
+    logger.info("\n" + "=" * 60)
+    logger.info("验证完成 - 所有测试通过")
+    logger.info("=" * 60)
 
 
 if __name__ == "__main__":

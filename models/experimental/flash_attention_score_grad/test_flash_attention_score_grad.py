@@ -10,9 +10,23 @@ FlashAttentionScoreGrad PyPTO 算子测试
 import os
 import sys
 import argparse
+import logging
 import torch
 import numpy as np
 from numpy.testing import assert_allclose
+
+# Configure logger for the module
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.propagate = False
+formatter = logging.Formatter(
+    fmt='%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s',
+    datefmt='[%Y-%m-%d %H:%M:%S]'
+)
+handler = logging.StreamHandler()
+handler.setFormatter(formatter)
+logger.handlers.clear()
+logger.addHandler(handler)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -26,27 +40,27 @@ from flash_attention_score_grad_impl import flash_attention_score_grad_wrapper
 def get_device_id():
     """从环境变量获取 TILE_FWK_DEVICE_ID。"""
     if "TILE_FWK_DEVICE_ID" not in os.environ:
-        print("Please set: export TILE_FWK_DEVICE_ID=0")
+        logger.info("Please set: export TILE_FWK_DEVICE_ID=0")
         return None
     try:
         return int(os.environ["TILE_FWK_DEVICE_ID"])
     except ValueError:
-        print(f"ERROR: TILE_FWK_DEVICE_ID must be int, got: {os.environ['TILE_FWK_DEVICE_ID']}")
+        logger.info(f"ERROR: TILE_FWK_DEVICE_ID must be int, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
 
 
 def run_test(name, B, N, S, D, device_id, run_mode="npu", rtol=1e-2, atol=2e-2):
     """运行单个测试用例。"""
-    print("=" * 60)
-    print(f"Test: {name} (B={B}, N={N}, S={S}, D={D})")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info(f"Test: {name} (B={B}, N={N}, S={S}, D={D})")
+    logger.info("=" * 60)
 
     device = f"npu:{device_id}" if run_mode == "npu" and device_id is not None else "cpu"
 
     q, k, v, dy, sm, ss, ao, scale = generate_forward_data(B, N, S, D, device=device)
 
-    print(f"  Q shape:  {q.shape}")
-    print(f"  scale:    {scale:.6f}")
+    logger.info(f"  Q shape:  {q.shape}")
+    logger.info(f"  scale:    {scale:.6f}")
 
     # PyPTO 实现
     dq, dk, dv = flash_attention_score_grad_wrapper(
@@ -56,9 +70,9 @@ def run_test(name, B, N, S, D, device_id, run_mode="npu", rtol=1e-2, atol=2e-2):
     # Golden 参考
     dq_g, dk_g, dv_g = flash_attention_score_grad_golden(q, k, v, dy, sm, ss, ao, scale)
 
-    print(f"  dQ shape: {dq.shape}")
-    print(f"  dK shape: {dk.shape}")
-    print(f"  dV shape: {dv.shape}")
+    logger.info(f"  dQ shape: {dq.shape}")
+    logger.info(f"  dK shape: {dk.shape}")
+    logger.info(f"  dV shape: {dv.shape}")
 
     # 精度对比
     results = []
@@ -66,7 +80,7 @@ def run_test(name, B, N, S, D, device_id, run_mode="npu", rtol=1e-2, atol=2e-2):
         impl_np = impl.float().cpu().numpy()
         golden_np = golden.float().cpu().numpy()
         max_diff = np.abs(impl_np - golden_np).max()
-        print(f"  {grad_name} max diff: {max_diff:.6e}")
+        logger.info(f"  {grad_name} max diff: {max_diff:.6e}")
         results.append((grad_name, impl_np, golden_np, max_diff))
 
     # 精度判定
@@ -74,11 +88,11 @@ def run_test(name, B, N, S, D, device_id, run_mode="npu", rtol=1e-2, atol=2e-2):
         for grad_name, impl_np, golden_np, _ in results:
             assert_allclose(impl_np, golden_np, rtol=rtol, atol=atol,
                             err_msg=f"{grad_name} precision check failed")
-        print(f"  [PRECISION_PASS]")
-        print(f"  ✓ {name} passed\n")
+        logger.info(f"  [PRECISION_PASS]")
+        logger.info(f"  ✓ {name} passed\n")
         return True
     except AssertionError as e:
-        print(f"  [PRECISION_FAIL] {e}", file=sys.stderr)
+        logger.error(f"  [PRECISION_FAIL] {e}")
         return False
 
 
@@ -116,14 +130,14 @@ def main():
     }
 
     if args.list:
-        print("\nAvailable test levels:")
+        logger.info("\nAvailable test levels:")
         for level, (desc, _) in tests.items():
-            print(f"  {level}: {desc}")
+            logger.info(f"  {level}: {desc}")
         return
 
-    print("\n" + "=" * 60)
-    print("FlashAttentionScoreGrad PyPTO Test")
-    print("=" * 60 + "\n")
+    logger.info("\n" + "=" * 60)
+    logger.info("FlashAttentionScoreGrad PyPTO Test")
+    logger.info("=" * 60 + "\n")
 
     device_id = None
     if args.run_mode == "npu":
@@ -132,11 +146,11 @@ def main():
             sys.exit(1)
         import torch_npu
         torch.npu.set_device(device_id)
-        print(f"Running on NPU:{device_id}\n")
+        logger.info(f"Running on NPU:{device_id}\n")
 
     if args.level is not None:
         if args.level not in tests:
-            print(f"ERROR: Invalid level {args.level}. Use --list to see available levels.")
+            logger.info(f"ERROR: Invalid level {args.level}. Use --list to see available levels.")
             sys.exit(1)
         desc, fn = tests[args.level]
         success = fn(device_id, args.run_mode)
@@ -151,9 +165,9 @@ def main():
 
         success = all_pass
         if all_pass:
-            print("=" * 60)
-            print("All tests passed!")
-            print("=" * 60)
+            logger.info("=" * 60)
+            logger.info("All tests passed!")
+            logger.info("=" * 60)
 
     sys.exit(0 if success else 1)
 
