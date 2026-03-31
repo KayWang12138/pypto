@@ -75,27 +75,20 @@ protected:
     virtual Status BuildHashValues();
 
     // BuildSuperNodeGraph helpers
-    inline bool L1CopyInCombine(
-        const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
+    bool L1CopyInCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
         std::vector<std::pair<int32_t, int32_t>>& mergePair);
-    inline bool ConvertCombine(
-        const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
+    bool ConvertCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
         std::vector<std::pair<int32_t, int32_t>>& mergePair);
-    inline bool AssembleCombine(
-        const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
+    bool AssembleCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
         std::vector<std::pair<int32_t, int32_t>>& mergePair);
-    inline bool CopyOutCombine(
-        const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
+    bool CopyOutCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
         std::vector<std::pair<int32_t, int32_t>>& mergePair, bool assembleScene);
-    inline bool CopyInCombine(
-        const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
+    bool CopyInCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
         std::vector<std::pair<int32_t, int32_t>>& mergePair);
-    inline bool MulAccCombine(
-        const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
+    bool MulAccCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
         std::vector<std::pair<int32_t, int32_t>>& mergePair);
-    inline bool AssembleToCopyoutScene(Operation* op);
-
-    inline bool ExpandCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList,
+    bool AssembleToCopyoutScene(Operation* op);
+    bool ExpandCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList,
                             int32_t i, std::vector<std::pair<int32_t, int32_t>>& mergePair);
 
     // BuildHashValues helpers
