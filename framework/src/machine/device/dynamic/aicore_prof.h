@@ -25,12 +25,13 @@
 #include "machine/device/dynamic/aicore_prof_dav3510_pmu.h"
 
 typedef void* VOID_PTR;
-
+typedef int32_t (*ProfCommandHandle)(uint32_t type, void *data, uint32_t len);
+using PyptoProfGetFuncPtr = void(*)(void*);
 extern "C" {
 __attribute__((weak)) int32_t AdprofReportAdditionalInfo(uint32_t agingFlag, const VOID_PTR data, uint32_t length);
 #ifndef MSVP_PROF_API
-__attribute__((weak)) int32_t MsprofReportAdditionalInfo(
-    uint32_t nonPersistantFlag, const VOID_PTR data, uint32_t length);
+__attribute__((weak)) int32_t MsprofReportAdditionalInfo(uint32_t nonPersistantFlag, const VOID_PTR data, uint32_t length);
+__attribute__((weak)) int32_t MsprofRegisterCallback(uint32_t moduleId, ProfCommandHandle handle);
 #endif
 __attribute__((weak)) int32_t AdprofCheckFeatureIsOn(uint64_t feature);
 };
@@ -39,6 +40,9 @@ typedef int32_t (*ProfReportAdditionalInfoFunc)(uint32_t agingFlag, const VOID_P
 
 namespace npu::tile_fwk::dynamic {
 class AiCoreManager;
+constexpr uint32_t PATH_SIZE = 1024;
+constexpr uint32_t PROF_DATA_SIZE = 4096;
+constexpr uint32_t DEVICE_ID_LIST_SIZE = 64;
 struct PyPtoMsprofAdditionalInfo { // for MsprofReportAdditionalInfo buffer data
     uint16_t magicNumber = 0x5A5AU;
     uint16_t level;
@@ -49,12 +53,39 @@ struct PyPtoMsprofAdditionalInfo { // for MsprofReportAdditionalInfo buffer data
     uint8_t data[232];
 };
 
+struct PyptoProfDataparam {
+    int32_t coreIdx;
+    uint32_t subGraphId;
+    uint32_t taskId;
+    const struct TaskStat *taskStat;
+};
+
+struct PyPtoMsprofCommandHandleParams {
+    uint32_t pathLen;
+    uint32_t storageLimit;  // MB
+    uint32_t profDataLen;
+    char path[PATH_SIZE];
+    char profData[PROF_DATA_SIZE];
+};
+
+struct PyPtoMsprofCommandHandle {
+    uint64_t profSwitch;
+    uint64_t profSwitchHi;
+    uint32_t devNums;
+    uint32_t devIdList[DEVICE_ID_LIST_SIZE];
+    uint32_t modelId;
+    uint32_t type;
+    uint32_t cacheFlag;
+    struct PyPtoMsprofCommandHandleParams params;
+};
+
 constexpr uint32_t PYPTO_MSPROF_REPORT_AICPU_LEVEL = 6000U;
 constexpr uint32_t PYPTO_MSPROF_REPORT_AICPU_NODE_TYPE = 10U; /* type info: DATA_PREPROCESS.AICPU */
 
 constexpr uint64_t PROF_TASK_TIME_L0 = 0x00000008ULL;
 constexpr uint64_t PROF_TASK_TIME_L1 = 0x00000010ULL;
 constexpr uint64_t PROF_TASK_TIME_L2 = 0x00000020ULL;
+constexpr uint64_t PROF_TASK_TIME_L3 = 0x00000040ULL;
 
 constexpr bool GLB_PMU_EN = true;
 constexpr bool USER_PMU_MODE_EN = (GLB_PMU_EN && true);
@@ -260,10 +291,14 @@ class AiCoreProf {
 public:
     explicit AiCoreProf(AiCoreManager& aicoreMng) : hostAicoreMng_(aicoreMng) {}
     ~AiCoreProf() {}
-
-    void ProfInit(
-        [[maybe_unused]] int64_t* regAddrs, [[maybe_unused]] int64_t* pmuEventAddrs, ProfConfig profConfig,
-        ArchInfo archInfo = ArchInfo::DAV_2201);
+#ifdef __DEVICE__
+    static void RegDevProf();
+    static int DevProfInit(uint32_t type, void *data, uint32_t len);
+    void GetIsOpenDevProf();
+    static uint64_t devProfSwitch_;
+    static uint32_t devProfType_ ;
+#endif
+    void ProfInit(DeviceArgs *deviceArgs);
     void ProfStart();
     void ProfGet(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat* taskStat);
     void ProfGetSwitch(int64_t& flag) const;
@@ -282,8 +317,7 @@ public:
     void ProfInitPmu(int64_t* regAddrs, int64_t* pmuEventAddrs);
     void ProfStartPmu();
     void ProfStopPmu();
-    void ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat* taskStat);
-
+    void ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
 private:
     struct PmuCtrlAddrs {
         uint32_t* ctrl0Addr{nullptr};
