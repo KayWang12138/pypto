@@ -28,7 +28,7 @@ void OptimizeSort::UpdatePreNodeQueue(std::unordered_set<Operation*> &curr,
     std::unordered_set<Operation*> &preNodeTotal, std::map<Operation*, bool>& visited) {
     std::unordered_set<Operation*> next;
     for (auto& curOp : curr) {
-        for (auto& preOp : inGraph[curOp]) {
+        for (auto& preOp : depManager_.GetPredecessors(curOp)) {
             if (!visited[preOp] && preNodeTotal.find(preOp) == preNodeTotal.end()) {
                 next.insert(preOp);
             }
@@ -43,7 +43,7 @@ void OptimizeSort::UpdatePreNodeQueue(std::unordered_set<Operation*> &curr,
 int OptimizeSort::GetNumUnvisitPreNode(Operation* op, std::map<Operation*, bool>& visited) {
     std::unordered_set<Operation*> preNodeTotal;
     std::unordered_set<Operation*> curr;
-    for (auto& preOp : inGraph[op]) {
+    for (auto& preOp : depManager_.GetPredecessors(op)) {
         if (!visited[preOp]) {
             curr.insert(preOp);
             preNodeTotal.insert(preOp);
@@ -87,7 +87,7 @@ int OptimizeSort::GetMaxDepthSimple(Operation* op) {
     }
 
     int maxDepth = 0;
-    for (const auto& pre : inGraph[op]) {
+    for (const auto& pre : depManager_.GetPredecessors(op)) {
         maxDepth = std::max(maxDepth, GetMaxDepthSimple(pre));
     }
 
@@ -99,7 +99,7 @@ int OptimizeSort::GetMaxDepthSimple(Operation* op) {
 void OptimizeSort::QueueNotReadyPreNode(Operation* curOp, std::map<Operation*, bool>& visited,
     std::unordered_map<Opcode, int> preNodePriority, std::deque<Operation*> &queue) {
     std::vector<Operation*> notReadyPreNode;
-    for (auto& preOp : inGraph[curOp]) {
+    for (auto& preOp : depManager_.GetPredecessors(curOp)) {
         if (!visited[preOp]) {
             notReadyPreNode.push_back(preOp);
         }
@@ -129,7 +129,7 @@ void OptimizeSort::ForwardDfs(Operation* curOp, std::vector<Operation*>& newOpLi
     std::map<Operation*, bool>& visited, std::unordered_map<Opcode, int> preNodePriority,
     std::deque<Operation*> &queue) {
     bool ready = true;
-    for (auto& preOp : inGraph[curOp]) {
+    for (auto& preOp : depManager_.GetPredecessors(curOp)) {
         if (!visited[preOp]) {
             ready = false;
             break;
@@ -230,8 +230,7 @@ void OptimizeSort::PromoteOps() {
         auto* op = operations[i];
         pos[op] = i;
         cls[op] = ClassifyPromoteOp(op);
-        auto it = inGraph.find(op);
-        indegree[op] = (it == inGraph.end()) ? 0 : it->second.size();
+        indegree[op] = depManager_.HasOp(op) ? depManager_.GetPredecessors(op).size() : 0;
     }
 
     std::priority_queue<Operation*, std::vector<Operation*>, PromoteCmp> ready(PromoteCmp{pos, cls});
@@ -247,10 +246,9 @@ void OptimizeSort::PromoteOps() {
         auto* cur = ready.top();
         ready.pop();
         reordered.push_back(cur);
-        auto it = outGraph.find(cur);
-        if (it == outGraph.end()) continue;
+        if (!depManager_.HasOp(cur)) continue;
 
-        for (auto* succ : it->second) {
+        for (auto* succ : depManager_.GetSuccessors(cur)) {
             if (--indegree[succ] == 0) ready.push(succ);
         }
     }
@@ -265,7 +263,7 @@ Status OptimizeSort::PriorDFS(std::unordered_map<Opcode, int> preNodePriority) {
     depthCache_.clear();
     for (size_t i = 0; i < operations.size(); i++) {
         visited[operations[i]] = false;
-        if (outGraph[operations[i]].empty()) {
+        if (depManager_.GetSuccessors(operations[i]).empty()) {
             outNodeQueue.emplace_back(operations[i]);
         }
     }
@@ -292,7 +290,7 @@ bool OptimizeSort::HasDependency(Operation* rollBackOp, Operation* backOp) {
         if (visited[op]) return false;
 
         visited[op] = true;
-        for (auto succOp : outGraph[op]) {
+        for (auto succOp : depManager_.GetSuccessors(op)) {
             if (dfs(succOp)) {
                 return true;
             }
@@ -324,7 +322,7 @@ void OptimizeSort::GetPreNode(size_t i, std::shared_ptr<std::vector<Operation*>>
     dependencyIndexList.insert(i);
     APASS_LOG_DEBUG_F(Elements::Operation, "dependencyIndexList push index: %zu, Op: %s",
         i, GetOpInfo((*curOpList)[i]).c_str());
-    for (auto preOp : inGraph[(*curOpList)[i]]) {
+    for (auto preOp : depManager_.GetPredecessors((*curOpList)[i])) {
         auto it = std::find(curOpList->begin() + rollBackIndex + 1, curOpList->begin() + backTraceIndex, preOp);
         if (it != curOpList->begin() + backTraceIndex) {
             auto index = std::distance(curOpList->begin(), it);
@@ -441,7 +439,7 @@ Status OptimizeSort::FindConsumerList(size_t consumerIndex, std::vector<size_t> 
     visitedOp_[(*curOpList)[consumerIndex]] = true;
     preOpList.push_back(consumerIndex);
     APASS_LOG_DEBUG_F(Elements::Operation, "unvisited consumer idx: %zu, op: %s", consumerIndex, GetOpInfo((*curOpList)[consumerIndex]).c_str());
-    for (auto op : inGraph[(*curOpList)[consumerIndex]]) {
+    for (auto op : depManager_.GetPredecessors((*curOpList)[consumerIndex])) {
         if (visitedOp_[op] == false) {
             size_t index;
             FindIndex(op, curOpList, index);
@@ -587,12 +585,12 @@ Status OptimizeSort::BacktraceOnMemoryExceeded(size_t &startIndex,
         APASS_LOG_DEBUG_F(Elements::Operation, "===>start to find unvisited consumer");
         APASS_LOG_DEBUG_F(Elements::Operation, "current index： %zu", startIndex);
         consumersGroup.clear();
-        GetConsumerGroup(outGraph[op], consumersGroup);
+        GetConsumerGroup(depManager_.GetSuccessors(op), consumersGroup);
         if (consumersGroup.empty()) {
             continue;
         }
         RecoverSymbol(startIndex, curOpList);
-        GetConsumerGroup(outGraph[op], consumersGroup);
+        GetConsumerGroup(depManager_.GetSuccessors(op), consumersGroup);
         APASS_LOG_DEBUG_F(Elements::Operation, "push %s to stack", GetOpInfo(op).c_str());
         curMemoryMap = recordBufferAllocate_[op];
         recordBufRefCount_[op] = bufRefCount_;
