@@ -371,7 +371,8 @@ bool ConvertInserter::FitL0C2L1(const LogicalTensorPtr& tensor)
 
 // 规避条件检测，检查op是否满足输入无表达式validShape。
 // 规避问题： L0C2L1的输入存在validShape时，即便输出同样存在validShape也会导致精度问题，此场景暂时走DDR规避。
-bool ConvertInserter::FitL0C2L1(const Operation &op){
+bool ConvertInserter::FitL0C2L1(const Operation& op)
+{
     for (const auto &input : op.GetIOperands()) {
         const auto &dynValidShape = input->GetDynValidShape();
         for (const auto &dim : dynValidShape) {
