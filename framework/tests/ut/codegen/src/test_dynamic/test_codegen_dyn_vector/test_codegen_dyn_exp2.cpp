@@ -31,15 +31,12 @@ namespace npu::tile_fwk {
 
 class TestCodegenDynExp2 : public ::testing::Test {
 public:
-    static void SetUpTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void SetUpTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
@@ -53,11 +50,11 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynExp2, TestDynOpExp2) {
+TEST_F(TestCodegenDynExp2, TestDynOpExp2)
+{
     std::vector<int64_t> shape = {64, 64};
-    auto function = GenMockFuncDynUnary("TestDynOpExp2", {shape}, [](Tensor &input, Tensor &output) {
-        output = Exp2(input);
-    });
+    auto function =
+        GenMockFuncDynUnary("TestDynOpExp2", {shape}, [](Tensor& input, Tensor& output) { output = Exp2(input); });
 
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});

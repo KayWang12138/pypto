@@ -13,11 +13,11 @@
  * \brief
  */
 
-
 #include <vector>
 #include "machine_utils.h"
 
-void GenAicpuOpInfoJson(Json &opConfigJson, const std::vector<AicpuOpConfig> &opConfigs) {
+void GenAicpuOpInfoJson(Json& opConfigJson, const std::vector<AicpuOpConfig>& opConfigs)
+{
     for (auto opConfig : opConfigs) {
         opConfigJson[opConfig.opType]["opInfo"]["computeCost"] = opConfig.computeCost;
         opConfigJson[opConfig.opType]["opInfo"]["engine"] = opConfig.engine;

@@ -405,5 +405,5 @@ def lightning_indexer_prolog_quant(
         pypto.set_vec_tile_shapes(128, head_num)
         weights = pypto.cast(pypto.matmul(x, w_proj_in, x_dtype), pypto.DT_FP32)
         weights = pypto.cast(pypto.cast(weights * (head_num ** -0.5), pypto.DT_BF16), pypto.DT_FP32)
-        weights = pypto.cast(weights * (head_dim ** -0.5), pypto.DT_BF16) 
+        weights = pypto.cast(weights * (head_dim ** -0.5), pypto.DT_BF16)
         pypto.assemble(weights, [t_idx, 0], weights_out)

@@ -25,7 +25,7 @@ class MergeViewAssembleUtils {
 public:
     MergeViewAssembleUtils() = default;
     ~MergeViewAssembleUtils() = default;
-    
+
     struct ViewOp {
         std::shared_ptr<LogicalTensor> input;
         std::shared_ptr<LogicalTensor> output;
@@ -33,8 +33,8 @@ public:
         std::vector<SymbolicScalar> dynOffset;
         std::vector<SymbolicScalar> dynValidShape;
         MemoryType toType = MemoryType::MEM_UNKNOWN;
-        bool hasCopyInMode;     // 是否有copy_in_mode属性
-        npu::tile_fwk::Any copyInModeValue;    // copy_in_mode属性值
+        bool hasCopyInMode;                 // 是否有copy_in_mode属性
+        npu::tile_fwk::Any copyInModeValue; // copy_in_mode属性值
     };
     struct AssembleOp {
         std::shared_ptr<LogicalTensor> input;
@@ -43,9 +43,9 @@ public:
         std::vector<SymbolicScalar> dynOffset;
     };
 
-    static Status MergeViewAssemble(Function &function);
+    static Status MergeViewAssemble(Function& function);
 
-    Status Process(Function &function);
+    Status Process(Function& function);
 
     // View chain processing methods
     /**
@@ -56,9 +56,9 @@ public:
      * @param chain the list of operations in the view chain.
      * @return Status indicating success or failed.
      */
-    Status MergeViewChain(Function &function, Operation &operation, std::vector<Operation *> &chain);
+    Status MergeViewChain(Function& function, Operation& operation, std::vector<Operation*>& chain);
 
-    void InitOperationChain(Operation &operation, std::vector<Operation *> &chain);
+    void InitOperationChain(Operation& operation, std::vector<Operation*>& chain);
 
     /**
      * @brief Process the consumer chain of a view.
@@ -69,13 +69,11 @@ public:
      * @param chainEnd a flag indicating whether the chain has ended.
      * @return Status indicating success or failed.
      */
-    Status ProcessConsumerChain(Function &function,
-                              const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
-                              std::vector<Operation *> &chain,
-                              bool &chainEnd);
+    Status ProcessConsumerChain(
+        Function& function, const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
+        std::vector<Operation*>& chain, bool& chainEnd);
 
-    Status ProcessChainEnd(Function &function,
-                         std::vector<Operation *> &chain);
+    Status ProcessChainEnd(Function& function, std::vector<Operation*>& chain);
 
     /**
      * @brief Calculate the merged offsets and dynamic vaildshapes for the chain of a view.
@@ -86,8 +84,9 @@ public:
      * @param newDynValidShape the calculated newDynValidShape.
      * @return Status indicating success or failed.
      */
-    Status CalculateMergedOffsets(const std::vector<Operation *> &chain, std::vector<int64_t> &newOffset,
-        std::vector<SymbolicScalar> &newDynOffset, std::vector<SymbolicScalar> &newDynValidShape);
+    Status CalculateMergedOffsets(
+        const std::vector<Operation*>& chain, std::vector<int64_t>& newOffset,
+        std::vector<SymbolicScalar>& newDynOffset, std::vector<SymbolicScalar>& newDynValidShape);
 
     /**
      * @brief Recode the merged offsets and dynamic vaildshapes for the chain of a view.
@@ -99,9 +98,10 @@ public:
      * @param newDynOffset the calculated newDynOffset.
      * @param newDynValidShape the calculated newDynValidShape.
      */
-    void RecordMergedViewOperation(Operation* lastViewOp, const std::shared_ptr<LogicalTensor> &startTensor,
-        const std::shared_ptr<LogicalTensor> &endTensor, const std::vector<int64_t> &newOffset,
-        const std::vector<SymbolicScalar> &newDynOffset, const std::vector<SymbolicScalar> &newDynValidShape);
+    void RecordMergedViewOperation(
+        Operation* lastViewOp, const std::shared_ptr<LogicalTensor>& startTensor,
+        const std::shared_ptr<LogicalTensor>& endTensor, const std::vector<int64_t>& newOffset,
+        const std::vector<SymbolicScalar>& newDynOffset, const std::vector<SymbolicScalar>& newDynValidShape);
 
     // Assemble chain processing methods
     /**
@@ -112,9 +112,9 @@ public:
      * @param chain the list of operations in the assemble chain.
      * @return Status indicating success or failed.
      */
-    Status MergeAssembleChain(Function &function, Operation &operation, std::vector<Operation *> &chain);
+    Status MergeAssembleChain(Function& function, Operation& operation, std::vector<Operation*>& chain);
 
-    void InitAssembleChain(Operation &operation, std::vector<Operation *> &chain);
+    void InitAssembleChain(Operation& operation, std::vector<Operation*>& chain);
 
     /**
      * @brief Process the consumer chain of a assemble.
@@ -126,39 +126,36 @@ public:
      * @param hasAssembleConsumer a flag indicating whether the assemble's consumer is empty.
      * @return Status indicating success or failed.
      */
-    Status ProcessAssembleConsumers(Function &function,
-                                  const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
-                                  std::vector<Operation *> &chain,
-                                  bool &chainEnd, bool& hasAssembleConsumer);
+    Status ProcessAssembleConsumers(
+        Function& function, const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
+        std::vector<Operation*>& chain, bool& chainEnd, bool& hasAssembleConsumer);
 
-    Status ProcessAssembleChainEnd(Function &function,
-                                 std::vector<Operation *> &chain,
-                                 Operation &operation);
+    Status ProcessAssembleChainEnd(Function& function, std::vector<Operation*>& chain, Operation& operation);
 
     std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> CalculateAssembleOffsets(
-        const std::vector<Operation *> &chain, size_t offsetSize);
+        const std::vector<Operation*>& chain, size_t offsetSize);
 
-    void RecordAssembleOperation(const std::shared_ptr<LogicalTensor> &input,
-        const std::shared_ptr<LogicalTensor> &output, const std::vector<int64_t> &offset,
-        const std::vector<SymbolicScalar> &dynOffset);
+    void RecordAssembleOperation(
+        const std::shared_ptr<LogicalTensor>& input, const std::shared_ptr<LogicalTensor>& output,
+        const std::vector<int64_t>& offset, const std::vector<SymbolicScalar>& dynOffset);
 
     // Common methods
     Status Initialize();
 
     // Processing methods
-    Status ProcessOperations(Function &function);
+    Status ProcessOperations(Function& function);
 
     // Operation appending methods
-    Status AppendMergedViewOperations(Function &function);
-    Status AppendMergedAssembleOperations(Function &function);
+    Status AppendMergedViewOperations(Function& function);
+    Status AppendMergedAssembleOperations(Function& function);
 
     // Cleanup methods
-    Status CleanUp(Function &function);
-    Status EraseRedundantAssemble(Function &function) const;
+    Status CleanUp(Function& function);
+    Status EraseRedundantAssemble(Function& function) const;
     std::unordered_set<int> visitedOp_;
     std::unordered_set<int> assembleWithoutAssembleConsumer_;
     std::vector<ViewOp> viewOpToAppend_;
     std::vector<AssembleOp> assembleOpToAppend_;
 };
-}
+} // namespace npu::tile_fwk
 #endif // PASS_MERGE_VIEW_ASSEMBLE_IMPL_H_

@@ -126,19 +126,19 @@ def scaled_dot_product_attention_kernel(
     kv_len = k.shape[2]
     scale = config.scale if config.scale is not None else (1.0 / (dim**0.5))
 
-    
+
     b_loop = (bs + tile - 1) // tile
 
     for bs_idx in pypto.loop(b_loop):
         b_offset = bs_idx * tile
         b_offset_end = pypto.min(b_offset + tile, bs)
-        q_view = pypto.view(q, [tile, head, q_len, dim], [b_offset, 0, 0, 0], 
+        q_view = pypto.view(q, [tile, head, q_len, dim], [b_offset, 0, 0, 0],
                             valid_shape=[b_offset_end - b_offset, head, q_len, dim]
         )
-        k_view = pypto.view(k, [tile, head, kv_len, dim], [b_offset, 0, 0, 0], 
+        k_view = pypto.view(k, [tile, head, kv_len, dim], [b_offset, 0, 0, 0],
                             valid_shape=[b_offset_end - b_offset, head, kv_len, dim]
         )
-        v_view = pypto.view(v, [tile, head, kv_len, dim], [b_offset, 0, 0, 0], 
+        v_view = pypto.view(v, [tile, head, kv_len, dim], [b_offset, 0, 0, 0],
                             valid_shape=[b_offset_end - b_offset, head, kv_len, dim]
         )
         pypto.set_vec_tile_shapes(1, 8, 16, 64)
@@ -189,7 +189,7 @@ def test_unordered_input_attention(device_id: int = None, dynamic: bool = True) 
 
 @pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})
 def op_unordered_input_kernel(
-        a: pypto.Tensor([], pypto.DT_FP32), 
+        a: pypto.Tensor([], pypto.DT_FP32),
         b: pypto.Tensor([], pypto.DT_FP32),
         out1: pypto.Tensor([], pypto.DT_FP32),
         out2: pypto.Tensor([], pypto.DT_FP32)):

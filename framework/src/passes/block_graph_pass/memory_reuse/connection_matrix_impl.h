@@ -22,30 +22,30 @@
 namespace npu::tile_fwk {
 class ConnectionMatrixImpl {
 public:
-    explicit ConnectionMatrixImpl(Function *func);
+    explicit ConnectionMatrixImpl(Function* func);
 
     ~ConnectionMatrixImpl();
 
-    bool IsConnected(const Operation &a, const Operation &b) const;
+    bool IsConnected(const Operation& a, const Operation& b) const;
 
     bool IsConnected(uint64_t indexA, uint64_t indexB) const;
 
-    void SetConnectivity(const std::unordered_set<Operation *> &producers, Operation &op);
+    void SetConnectivity(const std::unordered_set<Operation*>& producers, Operation& op);
 
-    void Generate(Function *func);
+    void Generate(Function* func);
 
-    uint64_t GetIndex(const Operation &op) const;
+    uint64_t GetIndex(const Operation& op) const;
 
-    const LargeBitmap &GetBitMap(const Operation &op) const;
+    const LargeBitmap& GetBitMap(const Operation& op) const;
 
-    const LargeBitmap &GetBitMap(uint64_t index) const;
+    const LargeBitmap& GetBitMap(uint64_t index) const;
 
 private:
     ConnectionMatrixImpl() = delete;
 
-    LargeBitmap &GetBitMap(const Operation &op);
+    LargeBitmap& GetBitMap(const Operation& op);
 
-    LargeBitmap &GetBitMap(uint64_t index);
+    LargeBitmap& GetBitMap(uint64_t index);
 
     size_t size_ = 0;
 
@@ -53,6 +53,6 @@ private:
 
     std::vector<LargeBitmap> bitMaps_;
 
-    Function *func_;
+    Function* func_;
 };
-}
+} // namespace npu::tile_fwk

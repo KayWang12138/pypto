@@ -19,35 +19,40 @@
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_interface/pass.h"
 
-
 namespace npu::tile_fwk {
 class SrcDstBufferMergeImpl {
 public:
     SrcDstBufferMergeImpl() = default;
     ~SrcDstBufferMergeImpl() = default;
-    Status Run(Function &func);
+    Status Run(Function& func);
 
 private:
-    void InitializeTensorMemorymap(Operation &op) const;
-    void InitTensorMaxSize(const LogicalTensorPtr &output);
-    void InitOpOutput(const Operation &op);
-    Status CheckOpValid(const Operation *op, int opId);
-    Status Init(const std::vector<Operation *> &opList);
-    bool CheckIgnoreScene(const Operation &oriOps);
-    Status CheckHasInplaced(const Operation &oriOps, const Operation &ops,
-        std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, bool &hasInplaced);
-    Status FindReplaced(const Operation &oriOps, const Operation &ops,
-        std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, bool& hasFound);
-    void NotFindReplacedProcess(const Operation &ops,
-        const std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors);
-    bool CheckAssembleReuse(const LogicalTensorPtr &outOperand);
-    bool CanSrcDstReuse(const Operation &ops, std::shared_ptr<LogicalTensor> iOperand, std::shared_ptr<LogicalTensor> oOperand);
+    void InitializeTensorMemorymap(Operation& op) const;
+    void InitTensorMaxSize(const LogicalTensorPtr& output);
+    void InitOpOutput(const Operation& op);
+    Status CheckOpValid(const Operation* op, int opId);
+    Status Init(const std::vector<Operation*>& opList);
+    bool CheckIgnoreScene(const Operation& oriOps);
+    Status CheckHasInplaced(
+        const Operation& oriOps, const Operation& ops,
+        std::unordered_map<int, std::shared_ptr<LogicalTensor>>& replacedTensors, bool& hasInplaced);
+    Status FindReplaced(
+        const Operation& oriOps, const Operation& ops,
+        std::unordered_map<int, std::shared_ptr<LogicalTensor>>& replacedTensors, bool& hasFound);
+    void NotFindReplacedProcess(
+        const Operation& ops, const std::unordered_map<int, std::shared_ptr<LogicalTensor>>& replacedTensors);
+    bool CheckAssembleReuse(const LogicalTensorPtr& outOperand);
+    bool CanSrcDstReuse(
+        const Operation& ops, std::shared_ptr<LogicalTensor> iOperand, std::shared_ptr<LogicalTensor> oOperand);
     bool IsL1ToL0Transfer(const Operation& op);
     bool IsL0CToL1Transfer(const Operation& op);
-    Status ProcessInplaceReuse(const Operation &oriOps, const Operation &ops, 
-        std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, bool& hasFound);
-    Status ProcessL0MemoryReuse(const Operation& op, std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, bool& hasFound);
-    Status FindReuseableL0Tensor(const Operation& op, std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, 
+    Status ProcessInplaceReuse(
+        const Operation& oriOps, const Operation& ops,
+        std::unordered_map<int, std::shared_ptr<LogicalTensor>>& replacedTensors, bool& hasFound);
+    Status ProcessL0MemoryReuse(
+        const Operation& op, std::unordered_map<int, std::shared_ptr<LogicalTensor>>& replacedTensors, bool& hasFound);
+    Status FindReuseableL0Tensor(
+        const Operation& op, std::unordered_map<int, std::shared_ptr<LogicalTensor>>& replacedTensors,
         LogicalTensorPtr needReplacedTensor, bool& hasFound);
 
     std::map<int, std::set<int>> tensorConsumers_;
@@ -60,13 +65,14 @@ public:
     SrcDstBufferMerge() : Pass("SrcDstBufferMerge") {}
 
 private:
-    Status RunOnFunction(Function &function) override {
+    Status RunOnFunction(Function& function) override
+    {
         SrcDstBufferMergeImpl merge;
         if (merge.Run(function) != SUCCESS) {
-			return SUCCESS;
-		}
+            return SUCCESS;
+        }
         return SUCCESS;
     }
 };
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk
 #endif // PASS_MERGE_SRC_DST_BUFFER_H

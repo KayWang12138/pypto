@@ -29,33 +29,33 @@ struct MockLogger {
     LogContext ctx{};
     std::string buffer;
 
-    static void PrintInt(LogContext *c, __gm__ const char ** /*fmt*/, int64_t val)
+    static void PrintInt(LogContext* c, __gm__ const char** /*fmt*/, int64_t val)
     {
-        auto self = reinterpret_cast<MockLogger *>(c);
+        auto self = reinterpret_cast<MockLogger*>(c);
         self->buffer += std::to_string(val);
     }
 
-    static void PrintFp32(LogContext *c, __gm__ const char ** /*fmt*/, float val)
+    static void PrintFp32(LogContext* c, __gm__ const char** /*fmt*/, float val)
     {
-        auto self = reinterpret_cast<MockLogger *>(c);
+        auto self = reinterpret_cast<MockLogger*>(c);
         self->buffer += std::to_string(val);
     }
 
-    static void PrintBf16(LogContext *c, __gm__ const char ** /*fmt*/, uint16_t rawBits)
+    static void PrintBf16(LogContext* c, __gm__ const char** /*fmt*/, uint16_t rawBits)
     {
-        auto self = reinterpret_cast<MockLogger *>(c);
+        auto self = reinterpret_cast<MockLogger*>(c);
         self->buffer += std::to_string(DecodeBf16(rawBits));
     }
 
-    static void PrintFp16(LogContext *c, __gm__ const char ** /*fmt*/, uint16_t rawBits)
+    static void PrintFp16(LogContext* c, __gm__ const char** /*fmt*/, uint16_t rawBits)
     {
-        auto self = reinterpret_cast<MockLogger *>(c);
+        auto self = reinterpret_cast<MockLogger*>(c);
         self->buffer += std::to_string(DecodeF16(rawBits));
     }
 
-    static void Print(LogContext *c, __gm__ const char *fmt)
+    static void Print(LogContext* c, __gm__ const char* fmt)
     {
-        auto self = reinterpret_cast<MockLogger *>(c);
+        auto self = reinterpret_cast<MockLogger*>(c);
         if (fmt != nullptr) {
             self->buffer += fmt;
         }
@@ -104,8 +104,7 @@ TEST(AiCorePrintUTest, PrintFp16DecodedValue)
     AiCoreLogF(&logger.ctx, "%f", v);
 
     // Expect that printed value is close to 1.5
-    EXPECT_NE(std::string::npos, logger.buffer.find("1.5"))
-        << "buffer: " << logger.buffer;
+    EXPECT_NE(std::string::npos, logger.buffer.find("1.5")) << "buffer: " << logger.buffer;
 }
 
 TEST(AiCorePrintUTest, PrintBf16DecodedValue)
@@ -119,16 +118,15 @@ TEST(AiCorePrintUTest, PrintBf16DecodedValue)
     AiCoreLogF(&logger.ctx, "%f", v);
 
     // Expect that printed value is close to 2.0
-    EXPECT_NE(std::string::npos, logger.buffer.find("2"))
-        << "buffer: " << logger.buffer;
+    EXPECT_NE(std::string::npos, logger.buffer.find("2")) << "buffer: " << logger.buffer;
 }
 
 TEST(AiCorePrintUTest, PrintIntAndFloat)
 {
     MockLogger logger;
-    const char *dummyFmt = "%d";
-    __gm__ const char *fmtPtr = dummyFmt;
-    __gm__ const char **fmt = &fmtPtr;
+    const char* dummyFmt = "%d";
+    __gm__ const char* fmtPtr = dummyFmt;
+    __gm__ const char** fmt = &fmtPtr;
 
     // Directly call through LogContext to make sure function pointers work.
     logger.ctx.PrintInt(&logger.ctx, fmt, 42);
@@ -148,7 +146,7 @@ TEST(AiCorePrintUTest, AiCorePrintGmTensorFloat)
 
     // The header text and numbers are all appended into buffer.
     // Just check that each value appears at least once.
-    std::string &buf = logger.buffer;
+    std::string& buf = logger.buffer;
     EXPECT_NE(std::string::npos, buf.find("1"));
     EXPECT_NE(std::string::npos, buf.find("2"));
     EXPECT_NE(std::string::npos, buf.find("3.5"));
@@ -162,10 +160,8 @@ TEST(AiCorePrintUTest, AiCorePrintShape2D)
 
     AiCorePrintShape(&logger.ctx, shape);
 
-    std::string &buf = logger.buffer;
+    std::string& buf = logger.buffer;
     // Expect formatted shape string: shape=[3,5]
     EXPECT_NE(std::string::npos, buf.find("shape=[3,5]"));
 }
 #endif
-
-

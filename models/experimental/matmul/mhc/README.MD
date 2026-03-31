@@ -66,16 +66,16 @@ def mhc_post_kernel(x: pypto.Tensor, h: pypto.Tensor, out: pypto.Tensor) -> None
     # 1. 扩展 x 到 [batch, num_streams, seq, dim]
     x_expanded = pypto.unsqueeze(x, dim=1)
     x1 = pypto.expand_clone(x_expanded, [batch, num_streams, seq, dim])
-    
+
     # 2. 扩展 h 到 [batch, num_streams, seq, dim]
     h_expanded = pypto.reshape(h, [1, num_streams, 1, 1])
     h1 = pypto.concat([h_expanded] * batch, dim=0)
     h2 = pypto.concat([h1] * seq, dim=-2)
     h3 = pypto.concat([h2] * dim, dim=-1)
-    
+
     # 3. 逐元素乘法
     out_expanded = pypto.mul(x1, h3)
-    
+
     # 4. 变形输出
     result = pypto.reshape(out_expanded, [batch * num_streams, seq, dim])
     pypto.assemble(result, [0, 0, 0], out)
@@ -88,16 +88,16 @@ def mhc_post_kernel(x: pypto.Tensor, h: pypto.Tensor, out: pypto.Tensor) -> None
 def mhc_pre_kernel(x: pypto.Tensor, h: pypto.Tensor, out: pypto.Tensor) -> None:
     # 1. 变形 x 到 [batch, num_streams, seq, dim]
     x_reshaped = pypto.reshape(x, [batch, num_streams, seq, dim])
-    
+
     # 2. 扩展 h 到 [batch, num_streams, seq, dim]
     h_expanded = pypto.reshape(h, [1, num_streams, 1, 1])
     h1 = pypto.concat([h_expanded] * batch, dim=0)
     h2 = pypto.concat([h1] * seq, dim=-2)
     h3 = pypto.concat([h2] * dim, dim=-1)
-    
+
     # 3. 逐元素乘法
     weighted = pypto.mul(x_reshaped, h3)
-    
+
     # 4. 在 num_streams 维度求和
     result = pypto.sum(weighted, dim=1)
     pypto.assemble(result, [0, 0, 0], out)
@@ -111,14 +111,14 @@ def mhc_res_kernel(x: pypto.Tensor, h: pypto.Tensor, out: pypto.Tensor) -> None:
     # 1. 变形 x 和 h
     x_reshaped = pypto.reshape(x, [batch, num_streams, 1, seq * dim])
     h_reshaped = pypto.reshape(h, [1, num_streams, num_streams, 1])
-    
+
     # 2. 广播到相同形状
     x_expanded = pypto.expand_clone(x_reshaped, [batch, num_streams, num_streams, seq * dim])
     h_expanded1 = pypto.expand_clone(h_reshaped, [batch, num_streams, num_streams, seq * dim])
-    
+
     # 3. 逐元素乘法
     weighted = pypto.mul(x_expanded, h_expanded1)
-    
+
     # 4. 在 num_streams 维度求和
     out_expanded = pypto.sum(weighted, 1, True)
     out1 = pypto.reshape(out_expanded, [batch * num_streams, seq, dim])

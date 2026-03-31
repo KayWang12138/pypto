@@ -32,7 +32,6 @@ id(self) -> int
 ## 调用示例
 
 ```python
-t = pypto.tensor((4, 4), pypto.DT_FP32) 
+t = pypto.tensor((4, 4), pypto.DT_FP32)
 print(t.id)  # 输出Tensor的ID
 ```
-

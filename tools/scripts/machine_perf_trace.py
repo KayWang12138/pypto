@@ -207,7 +207,7 @@ def gen_perfetto_command(input_file, output_file, input_kernel_file=None):
         with open(input_file, 'r', encoding='utf-8') as f:
             input_data = json.load(f)
         perfetto_data = convert_to_perfetto_format(input_data)
-        merge_aicpu_aicore_swim_lane(perfetto_data, input_kernel_file)       
+        merge_aicpu_aicore_swim_lane(perfetto_data, input_kernel_file)
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(perfetto_data, f, ensure_ascii=False, indent=2)
         print(f"Success to generate perfetto file: {output_file}")

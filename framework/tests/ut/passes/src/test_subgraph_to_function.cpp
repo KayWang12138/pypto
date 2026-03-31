@@ -41,7 +41,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -50,9 +51,10 @@ public:
     void TearDown() override {}
 };
 
-bool ArePsgHashesUnique(const Function &function) {
+bool ArePsgHashesUnique(const Function& function)
+{
     std::unordered_set<size_t> hashSet;
-    for (const auto &[psgId, program] : function.programs_) {
+    for (const auto& [psgId, program] : function.programs_) {
         (void)psgId;
         size_t hashValue = program->ComputeHash().GetHash();
         if (hashSet.find(hashValue) != hashSet.end()) {
@@ -63,9 +65,10 @@ bool ArePsgHashesUnique(const Function &function) {
     return true;
 }
 
-bool IsPSgToESgMapOneToOne(const std::multimap<int, int> &PSgToESgMap) {
+bool IsPSgToESgMapOneToOne(const std::multimap<int, int>& PSgToESgMap)
+{
     std::unordered_map<int, int> esgToPsgMap;
-    for (const auto &[psgId, esgId] : PSgToESgMap) {
+    for (const auto& [psgId, esgId] : PSgToESgMap) {
         if (esgToPsgMap.find(esgId) != esgToPsgMap.end()) {
             return false;
         }
@@ -74,7 +77,8 @@ bool IsPSgToESgMapOneToOne(const std::multimap<int, int> &PSgToESgMap) {
     return true;
 }
 
-std::multimap<int, int> GetPSgToESgMap(Function *rootFunc) {
+std::multimap<int, int> GetPSgToESgMap(Function* rootFunc)
+{
     std::multimap<int, int> PSgToESgMap;
 
     for (size_t i = 0; i < rootFunc->Operations().size(); i++) {
@@ -86,8 +90,10 @@ std::multimap<int, int> GetPSgToESgMap(Function *rootFunc) {
     return PSgToESgMap;
 }
 
-TEST_F(SubgraphToFunctionTest, DifferentOffset) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TILE_DifferentOffset", "TILE_DifferentOffset", nullptr);
+TEST_F(SubgraphToFunctionTest, DifferentOffset)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TILE_DifferentOffset", "TILE_DifferentOffset", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", "use_max_freq_label", true);
@@ -136,8 +142,9 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset) {
     tensor0->SetMagic(tensorMagic1);
     tensor0->subGraphID = subGraphID0;
 
-    auto &copyopin0 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {tensor0});
-    copyopin0.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({16, 0, 0}), MEM_UB, shape3Imme, shape3Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+    auto& copyopin0 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {tensor0});
+    copyopin0.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({16, 0, 0}), MEM_UB, shape3Imme, shape3Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyopin0.UpdateSubgraphID(subGraphID0);
     copyopin0.opmagic = opMagic0;
 
@@ -146,7 +153,7 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset) {
     tensor1->SetMagic(tensorMagic2);
     tensor1->subGraphID = subGraphID0;
 
-    auto &reshapeop = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {tensor0}, {tensor1});
+    auto& reshapeop = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {tensor0}, {tensor1});
     reshapeop.UpdateSubgraphID(subGraphID0);
     reshapeop.opmagic = opMagic1;
 
@@ -156,8 +163,9 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset) {
     input_tensor->isSubGraphBoundary = true;
     input_tensor->subGraphID = subGraphID0;
 
-    auto &copyoutop0 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {tensor1}, {input_tensor});
-    copyoutop0.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shape1Imme, shape1Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+    auto& copyoutop0 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {tensor1}, {input_tensor});
+    copyoutop0.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MEM_UB, OpImmediate::Specified({0, 0}), shape1Imme, shape1Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyoutop0.UpdateSubgraphID(subGraphID0);
     copyoutop0.opmagic = opMagic2;
 
@@ -173,13 +181,15 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset) {
     inner_tensor2->subGraphID = subGraphID2;
     inner_tensor2->SetMagic(tensorMagic5);
 
-    auto &copyopin1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor1});
-    copyopin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+    auto& copyopin1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor1});
+    copyopin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyopin1.UpdateSubgraphID(subGraphID1);
     copyopin1.opmagic = opMagic3;
 
-    auto &copyopin2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor2});
-    copyopin2.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 32}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+    auto& copyopin2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor2});
+    copyopin2.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 32}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyopin2.UpdateSubgraphID(subGraphID2);
     copyopin2.opmagic = opMagic4;
 
@@ -191,11 +201,11 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset) {
     result_tensor2->SetMemoryTypeBoth(MEM_UB);
     result_tensor2->subGraphID = subGraphID2;
     result_tensor2->SetMagic(tensorMagic7);
-    auto &expopin1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inner_tensor1}, {result_tensor1});
+    auto& expopin1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inner_tensor1}, {result_tensor1});
     expopin1.UpdateSubgraphID(subGraphID1);
     expopin1.opmagic = opMagic5;
 
-    auto &expopin2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inner_tensor2}, {result_tensor2});
+    auto& expopin2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inner_tensor2}, {result_tensor2});
     expopin2.UpdateSubgraphID(subGraphID2);
     expopin2.opmagic = opMagic6;
 
@@ -204,13 +214,15 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset) {
     output_tensor->SetMagic(tensorMagic8);
     output_tensor->isSubGraphBoundary = true;
 
-    auto &copyoutop1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor1}, {output_tensor});
-    copyoutop1.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+    auto& copyoutop1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor1}, {output_tensor});
+    copyoutop1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MEM_UB, OpImmediate::Specified({0, 0}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyoutop1.UpdateSubgraphID(subGraphID1);
     copyoutop1.opmagic = opMagic7;
 
-    auto &copyoutop2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor2}, {output_tensor});
-    copyoutop2.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 32}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+    auto& copyoutop2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor2}, {output_tensor});
+    copyoutop2.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MEM_UB, OpImmediate::Specified({0, 32}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyoutop2.UpdateSubgraphID(subGraphID2);
     copyoutop2.opmagic = opMagic8;
 
@@ -234,11 +246,11 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset) {
     // do the expect
     auto rootFunc = currFunctionPtr->rootFunc_;
     EXPECT_NE(rootFunc, nullptr);
-    const auto &PSgToESgMap = GetPSgToESgMap(rootFunc);
+    const auto& PSgToESgMap = GetPSgToESgMap(rootFunc);
 
     size_t originalSubgraphCount = currFunctionPtr->GetTotalSubGraphCount();
     std::unordered_set<int> uniquePSgIds;
-    for (const auto &pair : PSgToESgMap) {
+    for (const auto& pair : PSgToESgMap) {
         uniquePSgIds.insert(pair.first);
     }
     size_t mergedSubgraphCount = uniquePSgIds.size();
@@ -247,8 +259,10 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset) {
     EXPECT_TRUE(IsPSgToESgMapOneToOne(PSgToESgMap));
 }
 
-TEST_F(SubgraphToFunctionTest, SameOffset) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TILE_SameOffset", "TILE_SameOffset", nullptr);
+TEST_F(SubgraphToFunctionTest, SameOffset)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TILE_SameOffset", "TILE_SameOffset", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     Program::GetInstance().InsertFuncToFunctionMap("TILE_SameOffset", currFunctionPtr);
@@ -290,12 +304,14 @@ TEST_F(SubgraphToFunctionTest, SameOffset) {
     inner_tensor2->UpdateOffset({0, 0});
     inner_tensor2->subGraphID = subGraphID1;
     inner_tensor2->SetMagic(tensorMagic5);
-    auto &copyopin1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor1});
-    copyopin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+    auto& copyopin1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor1});
+    copyopin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyopin1.UpdateSubgraphID(subGraphID0);
     copyopin1.opmagic = opMagic3;
-    auto &copyopin2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor2});
-    copyopin2.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+    auto& copyopin2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor2});
+    copyopin2.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyopin2.UpdateSubgraphID(subGraphID1);
     copyopin2.opmagic = opMagic4;
 
@@ -307,10 +323,10 @@ TEST_F(SubgraphToFunctionTest, SameOffset) {
     result_tensor2->SetMemoryTypeBoth(MEM_UB);
     result_tensor2->subGraphID = subGraphID1;
     result_tensor2->SetMagic(tensorMagic7);
-    auto &expopin1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inner_tensor1}, {result_tensor1});
+    auto& expopin1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inner_tensor1}, {result_tensor1});
     expopin1.UpdateSubgraphID(subGraphID0);
     expopin1.opmagic = opMagic5;
-    auto &expopin2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inner_tensor2}, {result_tensor2});
+    auto& expopin2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inner_tensor2}, {result_tensor2});
     expopin2.UpdateSubgraphID(subGraphID1);
     expopin2.opmagic = opMagic6;
 
@@ -319,12 +335,14 @@ TEST_F(SubgraphToFunctionTest, SameOffset) {
     output_tensor->SetMagic(tensorMagic8);
     output_tensor->isSubGraphBoundary = true;
 
-    auto &copyoutop1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor1}, {output_tensor});
-    copyoutop1.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+    auto& copyoutop1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor1}, {output_tensor});
+    copyoutop1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MEM_UB, OpImmediate::Specified({0, 0}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyoutop1.UpdateSubgraphID(subGraphID0);
     copyoutop1.opmagic = opMagic7;
-    auto &copyoutop2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor2}, {output_tensor});
-    copyoutop2.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({16, 0}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
+    auto& copyoutop2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor2}, {output_tensor});
+    copyoutop2.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MEM_UB, OpImmediate::Specified({16, 0}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyoutop2.UpdateSubgraphID(subGraphID1);
     copyoutop2.opmagic = opMagic8;
 
@@ -356,10 +374,10 @@ TEST_F(SubgraphToFunctionTest, SameOffset) {
     // do the expect
     auto rootFunc = currFunctionPtr->rootFunc_;
     EXPECT_NE(rootFunc, nullptr);
-    const auto &PSgToESgMap = GetPSgToESgMap(rootFunc);
+    const auto& PSgToESgMap = GetPSgToESgMap(rootFunc);
 
     std::unordered_set<int> uniquePSgIds;
-    for (const auto &pair : PSgToESgMap) {
+    for (const auto& pair : PSgToESgMap) {
         uniquePSgIds.insert(pair.first);
     }
     size_t mergedSubgraphCount = uniquePSgIds.size();
@@ -399,26 +417,26 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     EXPECT_EQ(currentFunctionPtr->GetRawName(), "PROGRAM_ENTRY");
 
     auto batchMatmulFunc = Program::GetInstance().GetFunctionByRawName("TENSOR_BATCHMATMUL");
-    #ifndef PRIOR_SCHEDULING
+#ifndef PRIOR_SCHEDULING
     EXPECT_EQ(batchMatmulFunc->Operations().size(), 9);
-    #endif
+#endif
 
     ASSERT_NE(batchMatmulFunc->rootFunc_, nullptr);
     EXPECT_EQ(batchMatmulFunc->rootFunc_->Operations().size(), 4);
     EXPECT_EQ(batchMatmulFunc->rootFunc_->programs_.size(), 3);
-    auto &oriPrograms = batchMatmulFunc->rootFunc_->programs_;
+    auto& oriPrograms = batchMatmulFunc->rootFunc_->programs_;
     EXPECT_EQ(oriPrograms[0]->Operations().size(), 1);
-    #ifndef PRIOR_SCHEDULING
+#ifndef PRIOR_SCHEDULING
     EXPECT_EQ(oriPrograms[1]->Operations().size(), 8);
-    #endif
+#endif
     auto topoBefore = batchMatmulFunc->rootFunc_->topoInfo_;
-    auto &entrysBefore = topoBefore.GetTopology();
+    auto& entrysBefore = topoBefore.GetTopology();
     EXPECT_EQ(programJson["functions"].size(), 6);
     SubfuncInvokeInfoTy invokeInfo10000;
     SubfuncInvokeInfoTy invokeInfo10001;
     SubfuncInvokeInfoTy invokeInfo10002;
     SubfuncInvokeInfoTy invokeInfo10003;
-    for (auto &op : batchMatmulFunc->rootFunc_->Operations()) {
+    for (auto& op : batchMatmulFunc->rootFunc_->Operations()) {
         EXPECT_EQ(op.GetOpcode(), Opcode::OP_CALL);
         if (op.GetOpMagic() == 10000) {
             invokeInfo10000 = op.GetSubFuncInvokeInfo();
@@ -442,7 +460,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     ASSERT_NE(newCurrFuncPtr->rootFunc_, nullptr);
     EXPECT_EQ(newCurrFuncPtr->rootFunc_->Operations().size(), 4);
 
-    for (auto &op : newCurrFuncPtr->rootFunc_->Operations()) {
+    for (auto& op : newCurrFuncPtr->rootFunc_->Operations()) {
         EXPECT_EQ(op.GetOpcode(), Opcode::OP_CALL);
         if (op.GetOpMagic() == 10000) {
             auto callOpAttr = std::dynamic_pointer_cast<CallOpAttribute>(op.GetOpAttribute());
@@ -469,16 +487,16 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
         }
     }
     batchMatmulFunc = Program::GetInstance().GetFunctionByRawName("TENSOR_BATCHMATMUL");
-    #ifndef PRIOR_SCHEDULING
+#ifndef PRIOR_SCHEDULING
     EXPECT_EQ(batchMatmulFunc->Operations().size(), 9);
-    #endif
+#endif
     ASSERT_NE(batchMatmulFunc->rootFunc_, nullptr);
     EXPECT_EQ(batchMatmulFunc->rootFunc_->Operations().size(), 4);
     EXPECT_EQ(batchMatmulFunc->rootFunc_->programs_.size(), 3);
 
     // 校验Topo
-    auto &topo = newCurrFuncPtr->rootFunc_->topoInfo_;
-    auto &entrys = topo.GetTopology();
+    auto& topo = newCurrFuncPtr->rootFunc_->topoInfo_;
+    auto& entrys = topo.GetTopology();
     EXPECT_EQ(entrysBefore.size(), entrys.size());
 
     for (size_t i = 0; i < entrysBefore.size(); i++) {
@@ -488,14 +506,14 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     }
 
     // 校验rootFunc_->programs_
-    auto &programs = newCurrFuncPtr->rootFunc_->programs_;
+    auto& programs = newCurrFuncPtr->rootFunc_->programs_;
     ASSERT_EQ(programs.size(), 3);
     EXPECT_EQ(programs[0]->Operations().size(), 1);
-    #ifndef PRIOR_SCHEDULING
+#ifndef PRIOR_SCHEDULING
     EXPECT_EQ(programs[1]->Operations().size(), 8);
-    #endif
+#endif
     // 校验CopyInCopyoutAttribute
-    for (auto &op : programs[1]->Operations()) {
+    for (auto& op : programs[1]->Operations()) {
         if (op.GetOpcode() == Opcode::OP_COPY_IN) {
             auto copyInOpAttr = std::dynamic_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
             EXPECT_NE(copyInOpAttr, nullptr);
@@ -506,7 +524,6 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
             auto copyOutOpAttr = std::dynamic_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
             EXPECT_NE(copyOutOpAttr, nullptr);
         }
-
     }
     EXPECT_EQ(programs[2]->Operations().size(), 1);
 
@@ -516,22 +533,25 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     EXPECT_EQ(programJsonNew.dump(), programJson.dump());
 }
 
-TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1) {
+TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1)
+{
     int32_t shape0 = 4;
     int32_t shape1 = 32;
     int32_t k = 8;
     bool isLargest = true;
 
-    PROGRAM("TOPK") {
+    PROGRAM("TOPK")
+    {
         std::vector<int64_t> input_shape = {shape0, shape1};
         std::vector<int64_t> output_shape = {shape0, k};
         TileShape::Current().SetVecTile({shape0, shape1});
-        Tensor input_a(DT_FP32, input_shape, (uint8_t *)nullptr, "A");
-        auto output = std::make_tuple(Tensor(DT_FP32, output_shape, nullptr, "npu_val"),
-                                      Tensor(DT_FP32, output_shape, nullptr, "resDics"));
+        Tensor input_a(DT_FP32, input_shape, (uint8_t*)nullptr, "A");
+        auto output = std::make_tuple(
+            Tensor(DT_FP32, output_shape, nullptr, "npu_val"), Tensor(DT_FP32, output_shape, nullptr, "resDics"));
         config::SetPassConfig("PVC2_OOO", "OoOSchedule", KEY_DISABLE_PASS, true);
         config::SetBuildStatic(true);
-        FUNCTION("TOPK_T", {input_a, std::get<0>(output), std::get<1>(output)}) {
+        FUNCTION("TOPK_T", {input_a, std::get<0>(output), std::get<1>(output)})
+        {
             output = TopK(input_a, k, -1, isLargest);
         }
     }
@@ -544,27 +564,30 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1) {
     Program::GetInstance().LoadJson(programJsonNew);
     Json programJsonNewNew = Program::GetInstance().DumpJson();
 
-    #ifndef PRIOR_SCHEDULING
+#ifndef PRIOR_SCHEDULING
     EXPECT_EQ(programJsonNew.dump(), programJsonNewNew.dump());
-    #endif
+#endif
     config::SetHostOption(COMPILE_STAGE, CS_ALL_COMPLETE);
 }
 
-TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1_cov) {
+TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1_cov)
+{
     int32_t shape0 = 4;
     int32_t shape1 = 32;
     int32_t k = 8;
     bool isLargest = true;
 
-    PROGRAM("TOPK") {
+    PROGRAM("TOPK")
+    {
         std::vector<int64_t> input_shape = {shape0, shape1};
         std::vector<int64_t> output_shape = {shape0, k};
         TileShape::Current().SetVecTile({shape0, shape1});
-        Tensor input_a(DT_FP32, input_shape, (uint8_t *)nullptr, "A");
-        auto output = std::make_tuple(Tensor(DT_FP32, output_shape, nullptr, "npu_val"),
-                                      Tensor(DT_FP32, output_shape, nullptr, "resDics"));
+        Tensor input_a(DT_FP32, input_shape, (uint8_t*)nullptr, "A");
+        auto output = std::make_tuple(
+            Tensor(DT_FP32, output_shape, nullptr, "npu_val"), Tensor(DT_FP32, output_shape, nullptr, "resDics"));
         config::SetBuildStatic(true);
-        FUNCTION("TOPK_T", {input_a, std::get<0>(output), std::get<1>(output)}) {
+        FUNCTION("TOPK_T", {input_a, std::get<0>(output), std::get<1>(output)})
+        {
             output = TopK(input_a, k, -1, isLargest);
         }
     }
@@ -580,15 +603,16 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1_cov) {
     config::SetHostOption(COMPILE_STAGE, CS_ALL_COMPLETE);
 }
 
-TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
-    IfaTileShapeConfig tileConfig {
-        256, // block size
-        32,  // nTile
-        {256, 128}, // v0 tile for qkv-view-concat, q-S1D:(32,64), k/v-S2D:(256,64), merge 2D to copy
+TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2)
+{
+    IfaTileShapeConfig tileConfig{
+        256,                        // block size
+        32,                         // nTile
+        {256, 128},                 // v0 tile for qkv-view-concat, q-S1D:(32,64), k/v-S2D:(256,64), merge 2D to copy
         {32, 32, 64, 64, 256, 256}, // c1 tile for S1D@S2D
-        {32, 256}, // v1 tile for S1S2
+        {32, 256},                  // v1 tile for S1S2
         {32, 32, 64, 64, 256, 256}, // c2 tile for S1S2@S2D
-        {32, 256}, // v2 tile for S1D
+        {32, 256},                  // v2 tile for S1D
     };
 
     const int b = 4;
@@ -612,12 +636,13 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
     }
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
-    PROGRAM("PageAttentionStatic") {
-        Tensor qNope(DT_BF16, {b * sq * nq, dn}, (uint8_t *)nullptr, "qNope");
-        Tensor qRope(DT_BF16, {b * sq * nq, dr}, (uint8_t *)nullptr, "qRope");
-        Tensor kNopeCache(DT_BF16, {blockNum * blockSize * nkv, dn}, (uint8_t *)nullptr, "kNopeCache");
-        Tensor kRopeCache(DT_BF16, {blockNum * blockSize * nkv, dr}, (uint8_t *)nullptr, "kRope");
-        Tensor vNopeCache(DT_BF16, {blockNum * blockSize * nkv, dn}, (uint8_t *)nullptr, "vNopeCache");
+    PROGRAM("PageAttentionStatic")
+    {
+        Tensor qNope(DT_BF16, {b * sq * nq, dn}, (uint8_t*)nullptr, "qNope");
+        Tensor qRope(DT_BF16, {b * sq * nq, dr}, (uint8_t*)nullptr, "qRope");
+        Tensor kNopeCache(DT_BF16, {blockNum * blockSize * nkv, dn}, (uint8_t*)nullptr, "kNopeCache");
+        Tensor kRopeCache(DT_BF16, {blockNum * blockSize * nkv, dr}, (uint8_t*)nullptr, "kRope");
+        Tensor vNopeCache(DT_BF16, {blockNum * blockSize * nkv, dn}, (uint8_t*)nullptr, "vNopeCache");
 
         // blockTable: (b, maxBlockNumPerBatch)
         int maxSeqAllBatch = *(std::max_element(actSeqs.begin(), actSeqs.end()));
@@ -628,10 +653,11 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
 
         // 计算流程开始
         config::SetBuildStatic(true);
-        FUNCTION("IfaStatic",
-            {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, attentionOut}) {
-            IncreFlashAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, softmaxScale,
-                attentionOut, tileConfig);
+        FUNCTION("IfaStatic", {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, attentionOut})
+        {
+            IncreFlashAttention(
+                qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, softmaxScale, attentionOut,
+                tileConfig);
         }
     }
 
@@ -642,38 +668,29 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
     Program::GetInstance().LoadJson(programJsonNew);
     Json programJsonNewNew = Program::GetInstance().DumpJson();
 
-    #ifndef PRIOR_SCHEDULING
+#ifndef PRIOR_SCHEDULING
     EXPECT_EQ(programJsonNew.dump(), programJsonNewNew.dump());
-    #endif
+#endif
     config::SetHostOption(COMPILE_STAGE, CS_ALL_COMPLETE);
 }
 
 /*
-* input -> view1(01) -> view1_out -/
-*                                  add(03) -> add_out -> abc(04) -> final_out
-* input -> View2(01) -> view2_out -/
-*/
-void InitGraphBuilder (ComputationalGraphBuilder &G, std::vector<int64_t> tileShape) {
+ * input -> view1(01) -> view1_out -/
+ *                                  add(03) -> add_out -> abc(04) -> final_out
+ * input -> View2(01) -> view2_out -/
+ */
+void InitGraphBuilder(ComputationalGraphBuilder& G, std::vector<int64_t> tileShape)
+{
     // 1. 定义张量和操作
     std::vector<std::string> tensorNames = {"input", "view1_out", "view2_out", "add_out", "final_out"};
-    std::vector<Opcode> opCodes = {
-        Opcode::OP_VIEW, 
-        Opcode::OP_VIEW,
-        Opcode::OP_ADD,
-        Opcode::OP_ABS
-    };
+    std::vector<Opcode> opCodes = {Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_ADD, Opcode::OP_ABS};
     std::vector<std::vector<std::string>> ioperands = {
-        {"input"},          // view1
-        {"input"},          // view2 (确保与view1不同输出)
+        {"input"},                  // view1
+        {"input"},                  // view2 (确保与view1不同输出)
         {"view1_out", "view2_out"}, // add (两个不同输入)
-        {"add_out"}         // abs
+        {"add_out"}                 // abs
     };
-    std::vector<std::vector<std::string>> ooperands = {
-        {"view1_out"},
-        {"view2_out"},
-        {"add_out"},
-        {"final_out"}
-    };
+    std::vector<std::vector<std::string>> ooperands = {{"view1_out"}, {"view2_out"}, {"add_out"}, {"final_out"}};
     std::vector<std::string> opNames = {"view1", "view2", "add", "abs_final"};
 
     // 2. 添加张量和操作
@@ -698,7 +715,8 @@ void InitGraphBuilder (ComputationalGraphBuilder &G, std::vector<int64_t> tileSh
     }
 }
 
-TEST_F(SubgraphToFunctionTest, TestBasicSubgraphConversion) {
+TEST_F(SubgraphToFunctionTest, TestBasicSubgraphConversion)
+{
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     // 初始化
@@ -707,7 +725,7 @@ TEST_F(SubgraphToFunctionTest, TestBasicSubgraphConversion) {
     // 获取Function并执行子图转换Pass
     Function* function = G.GetFunction();
     ASSERT_NE(function, nullptr);
-    function->SetTotalSubGraphCount(1);  // 总子图数=1
+    function->SetTotalSubGraphCount(1); // 总子图数=1
 
     SubgraphToFunction pass;
     Status status = pass.RunOnFunction(*function);
@@ -721,43 +739,36 @@ TEST_F(SubgraphToFunctionTest, TestBasicSubgraphConversion) {
 
     // 检查子图调用信息
     const auto& topoInfo = rootFunc->topoInfo_;
-    EXPECT_EQ(topoInfo.topology_.size(), 1);  // 应有一个子图调用
+    EXPECT_EQ(topoInfo.topology_.size(), 1); // 应有一个子图调用
 
     // 检查子图内部操作（应保留VIEW+VIEW+ADD+ABS）
     auto leafFunc = rootFunc->programs_.begin()->second;
     EXPECT_EQ(leafFunc->Operations().size(), 4);
 }
 
-TEST_F(SubgraphToFunctionTest, MultiSubgraphDependencyWithMixedOps) {
+TEST_F(SubgraphToFunctionTest, MultiSubgraphDependencyWithMixedOps)
+{
     // 1. 构建包含3个子图的依赖链：AIC -> AIV -> AICPU
     ComputationalGraphBuilder G;
-    std::vector<std::string> tensorNames = {
-        "input", "aic_out", "aiv_out", "final_out"
-    };
+    std::vector<std::string> tensorNames = {"input", "aic_out", "aiv_out", "final_out"};
 
     // 定义操作类型（AIC/AIV/AICPU）
     std::vector<Opcode> opCodes = {
-        Opcode::OP_A_MUL_B,  // AIC 子图 (0)
+        Opcode::OP_A_MUL_B, // AIC 子图 (0)
         Opcode::OP_ADD,     // AIV 子图 (1)
         Opcode::OP_EXP      // AICPU 子图 (2)
     };
 
     // 输入输出张量关系（形成依赖链）
     std::vector<std::vector<std::string>> ioperands = {
-        {"input"},          // MATMUL (子图0)
-        {"aic_out"},        // ADD (子图1)
-        {"aiv_out"}         // EXP (子图2)
+        {"input"},   // MATMUL (子图0)
+        {"aic_out"}, // ADD (子图1)
+        {"aiv_out"}  // EXP (子图2)
     };
 
-    std::vector<std::vector<std::string>> ooperands = {
-        {"aic_out"},
-        {"aiv_out"},
-        {"final_out"}
-    };
+    std::vector<std::vector<std::string>> ooperands = {{"aic_out"}, {"aiv_out"}, {"final_out"}};
 
-    std::vector<std::string> opNames = {
-        "matmul_aic", "add_aiv", "exp_aicpu"
-    };
+    std::vector<std::string> opNames = {"matmul_aic", "add_aiv", "exp_aicpu"};
 
     // 2. 添加张量和操作
     EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames));
@@ -765,11 +776,11 @@ TEST_F(SubgraphToFunctionTest, MultiSubgraphDependencyWithMixedOps) {
 
     // 3. 显式设置子图ID和核心类型
     G.GetOp("matmul_aic")->UpdateSubgraphID(0);
-    G.GetOp("matmul_aic")->SetCoreType(CoreType::AIC);  // 标记为AIC操作
+    G.GetOp("matmul_aic")->SetCoreType(CoreType::AIC); // 标记为AIC操作
     G.GetOp("matmul_aic")->SetAttribute(OpAttributeKey::isCube, true);
 
     G.GetOp("add_aiv")->UpdateSubgraphID(1);
-    G.GetOp("add_aiv")->SetCoreType(CoreType::AIV);     // 标记为AIV操作
+    G.GetOp("add_aiv")->SetCoreType(CoreType::AIV); // 标记为AIV操作
 
     G.GetOp("exp_aicpu")->UpdateSubgraphID(2);
     G.GetOp("exp_aicpu")->SetCoreType(CoreType::AICPU); // 标记为AICPU操作
@@ -797,7 +808,7 @@ TEST_F(SubgraphToFunctionTest, MultiSubgraphDependencyWithMixedOps) {
     // 6. 获取Function并设置总子图数
     Function* function = G.GetFunction();
     ASSERT_NE(function, nullptr);
-    function->SetTotalSubGraphCount(3);  // 共3个子图
+    function->SetTotalSubGraphCount(3); // 共3个子图
 
     // 7. 执行子图转换Pass
     SubgraphToFunction pass;
@@ -809,21 +820,21 @@ TEST_F(SubgraphToFunctionTest, MultiSubgraphDependencyWithMixedOps) {
     ASSERT_NE(rootFunc, nullptr);
 
     // 8.1 验证子图数量
-    EXPECT_EQ(rootFunc->programs_.size(), 3);  // 应生成3个子图程序
+    EXPECT_EQ(rootFunc->programs_.size(), 3); // 应生成3个子图程序
 
     // 8.2 验证拓扑依赖关系
     const auto& topoInfo = rootFunc->topoInfo_;
-    EXPECT_EQ(topoInfo.topology_.size(), 3);  // 应有3个子图调用
+    EXPECT_EQ(topoInfo.topology_.size(), 3); // 应有3个子图调用
 
     // 检查依赖链：0 -> 1 -> 2
-    EXPECT_EQ(topoInfo.topology_[0].outGraph, std::unordered_set<int>{1});  // 子图0依赖子图1
-    EXPECT_EQ(topoInfo.topology_[1].outGraph, std::unordered_set<int>{2});  // 子图1依赖子图2
-    EXPECT_TRUE(topoInfo.topology_[2].outGraph.empty());                // 子图2无后继
+    EXPECT_EQ(topoInfo.topology_[0].outGraph, std::unordered_set<int>{1}); // 子图0依赖子图1
+    EXPECT_EQ(topoInfo.topology_[1].outGraph, std::unordered_set<int>{2}); // 子图1依赖子图2
+    EXPECT_TRUE(topoInfo.topology_[2].outGraph.empty());                   // 子图2无后继
 
     // 8.3 验证readyState计算
-    EXPECT_EQ(topoInfo.topology_[0].readyState, 0);   // 子图0无前驱，初始ready
-    EXPECT_EQ(topoInfo.topology_[1].readyState, -1);  // 子图1依赖子图0
-    EXPECT_EQ(topoInfo.topology_[2].readyState, -1);  // 子图2依赖子图1
+    EXPECT_EQ(topoInfo.topology_[0].readyState, 0);  // 子图0无前驱，初始ready
+    EXPECT_EQ(topoInfo.topology_[1].readyState, -1); // 子图1依赖子图0
+    EXPECT_EQ(topoInfo.topology_[2].readyState, -1); // 子图2依赖子图1
 
     // 8.4 验证子图类型分类
     const auto& callOps = rootFunc->Operations();
@@ -836,17 +847,18 @@ TEST_F(SubgraphToFunctionTest, MultiSubgraphDependencyWithMixedOps) {
         EXPECT_EQ(attr->invokeInfo_->GetGraphType(), expected);
     };
 
-    check_graph_type(0, CoreType::AIC);    // 子图0应为AIC
-    check_graph_type(1, CoreType::AIV);    // 子图1应为AIV
-    check_graph_type(2, CoreType::AICPU);  // 子图2应为AICPU
+    check_graph_type(0, CoreType::AIC);   // 子图0应为AIC
+    check_graph_type(1, CoreType::AIV);   // 子图1应为AIV
+    check_graph_type(2, CoreType::AICPU); // 子图2应为AICPU
 
     // 8.5 验证ready子图列表
-    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AIC), 1);    // 子图0应在AIC就绪列表
-    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AIV), 0);    // 子图1未就绪
-    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AICPU), 0);  // 子图2未就绪
+    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AIC), 1);   // 子图0应在AIC就绪列表
+    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AIV), 0);   // 子图1未就绪
+    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AICPU), 0); // 子图2未就绪
 }
 
-TEST_F(SubgraphToFunctionTest, EliminateRedundantEdges) {
+TEST_F(SubgraphToFunctionTest, EliminateRedundantEdges)
+{
     ComputationalGraphBuilder G;
 
     // 定义张量（需要更多张量来创建冗余路径）
@@ -862,20 +874,16 @@ TEST_F(SubgraphToFunctionTest, EliminateRedundantEdges) {
     };
 
     std::vector<std::vector<std::string>> ioperands{
-        {"t0", "t1"},  // ADD1_SG0
-        {"t2"},        // CONV_SG1
-        {"t2"},        // ABS_SG2
-        {"t3", "t4"},  // ADD2_SG3
-        {"t4", "t5"}   // MAX_SG4 (接收来自ADD和ABS的输入)
+        {"t0", "t1"}, // ADD1_SG0
+        {"t2"},       // CONV_SG1
+        {"t2"},       // ABS_SG2
+        {"t3", "t4"}, // ADD2_SG3
+        {"t4", "t5"}  // MAX_SG4 (接收来自ADD和ABS的输入)
     };
 
-    std::vector<std::vector<std::string>> ooperands{
-        {"t2"}, {"t3"}, {"t4"}, {"t5"}, {"t6"}
-    };
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}, {"t4"}, {"t5"}, {"t6"}};
 
-    std::vector<std::string> opNames{
-        "ADD1_SG0", "CONV_SG1", "ABS_SG2", "ADD2_SG3", "MAX_SG4"
-    };
+    std::vector<std::string> opNames{"ADD1_SG0", "CONV_SG1", "ABS_SG2", "ADD2_SG3", "MAX_SG4"};
 
     // 创建图和操作
     EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames));
@@ -894,7 +902,7 @@ TEST_F(SubgraphToFunctionTest, EliminateRedundantEdges) {
 
     Function* function = G.GetFunction();
     ASSERT_NE(function, nullptr);
-    function->SetTotalSubGraphCount(5);  // 共5个子图
+    function->SetTotalSubGraphCount(5); // 共5个子图
     // 2. 运行SubgraphToFunction pass
     SubgraphToFunction pass;
     pass.SetupStaticProcessor();
@@ -925,19 +933,18 @@ TEST_F(SubgraphToFunctionTest, EliminateRedundantEdges) {
     EXPECT_FALSE(found) << "Redundant edge not removed!";
 }
 
-TEST_F(SubgraphToFunctionTest, ReshapeDependencyHandling) {
+TEST_F(SubgraphToFunctionTest, ReshapeDependencyHandling)
+{
     ComputationalGraphBuilder G;
 
     // 1. 构建测试图：包含一个RESHAPE操作和其消费者
     std::vector<std::string> tensorNames{"t0", "t1", "t2"};
     std::vector<Opcode> opCodes{Opcode::OP_RESHAPE, Opcode::OP_ABS};
     std::vector<std::vector<std::string>> ioperands{
-        {"t0"},        // RESHAPE_SG0 (无输入子图)
-        {"t1"}         // ABS_SG1 (输入来自RESHAPE)
+        {"t0"}, // RESHAPE_SG0 (无输入子图)
+        {"t1"}  // ABS_SG1 (输入来自RESHAPE)
     };
-    std::vector<std::vector<std::string>> ooperands{
-        {"t1"}, {"t2"}
-    };
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t2"}};
     std::vector<std::string> opNames{"RESHAPE_SG0", "ABS_SG1"};
 
     EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames));
@@ -949,13 +956,13 @@ TEST_F(SubgraphToFunctionTest, ReshapeDependencyHandling) {
         ASSERT_NE(op, nullptr) << "Operation " << op_name << " not found!";
         op->UpdateSubgraphID(id);
     };
-    set_subgraph_id("RESHAPE_SG0", 0);  // RESHAPE单独子图且无输入子图
+    set_subgraph_id("RESHAPE_SG0", 0); // RESHAPE单独子图且无输入子图
     set_subgraph_id("ABS_SG1", 1);
 
     // 3. 构建函数并运行pass
     Function* function = G.GetFunction();
     ASSERT_NE(function, nullptr);
-    function->SetTotalSubGraphCount(2);  // 2个子图
+    function->SetTotalSubGraphCount(2); // 2个子图
 
     SubgraphToFunction pass;
     pass.SetupStaticProcessor(); // 初始化静态处理器
@@ -974,7 +981,7 @@ TEST_F(SubgraphToFunctionTest, ReshapeDependencyHandling) {
         << "RESHAPE subgraph should be marked when it has no input subgraph and single reshape op";
 
     EXPECT_TRUE(function->topoInfo_.GetSuccs(reshape_sgid).empty())
-    << "RESHAPE subgraph should have empty successors set";
+        << "RESHAPE subgraph should have empty successors set";
 
     int expected_out_degree = 0; // 根据实际图结构调整这个值
     bool found = false;
@@ -989,7 +996,8 @@ TEST_F(SubgraphToFunctionTest, ReshapeDependencyHandling) {
     EXPECT_TRUE(found) << "ABS_SG1 subgraph entry not found in topology";
 }
 
-TEST_F(SubgraphToFunctionTest, TransViewToCopyIn_ViewWithTwoOOperands_Fail) {
+TEST_F(SubgraphToFunctionTest, TransViewToCopyIn_ViewWithTwoOOperands_Fail)
+{
     ComputationalGraphBuilder G;
     std::vector<int64_t> shape = {16, 16};
     EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, shape, "v_in"));

@@ -16,4 +16,3 @@ exp(self) -> 'Tensor'
 ## 详细说明
 
 请参见[pypto.exp](../operation/pypto-exp.md)。
-

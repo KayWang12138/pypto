@@ -29,7 +29,7 @@ void CoreStats::Reset()
     intervalPipeUseCycles = std::map<int, uint64_t>();
 }
 
-void CoreStats::Report(std::string &name)
+void CoreStats::Report(std::string& name)
 {
     rpt->ReportTitle("CoreMachine " + name + " Statistics");
     rpt->ReportVal("Completed Packet Count", completedTaskNum);

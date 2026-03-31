@@ -28,22 +28,22 @@ graph TD
     Pass4 --> Pass5[Pass5]
     Pass5 --> Pass6[Pass6]
     Pass6 --> End([结束])
-    
+
     subgraph 阶段1
         Pass1
         Pass2
         Pass3
     end
-    
+
     subgraph 阶段2
         Pass4
         Pass5
     end
-    
+
     subgraph 阶段3
         Pass6
     end
-    
+
     style Start fill:#e1f5ff
     style End fill:#e1f5ff
 ```
@@ -78,12 +78,12 @@ stateDiagram-v2
     Processing --> Validated: Pass2验证
     Validated --> Optimized: Pass3优化
     Optimized --> [*]: 完成
-    
+
     note right of Processing
         处理中状态
         检查数据完整性
     end note
-    
+
     note right of Validated
         验证通过状态
         标记为可优化

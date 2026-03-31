@@ -31,7 +31,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestTensor, AssignWithData) {
+TEST_F(TestTensor, AssignWithData)
+{
     std::vector<int64_t> tshape = {100, 100};
     Tensor a(DT_FP32, tshape, "A");
     Tensor b(DT_FP32, tshape, "B");
@@ -76,7 +77,8 @@ TEST_F(TestTensor, AssignWithData) {
     }
 }
 
-TEST_F(TestTensor, AssignWithData2) {
+TEST_F(TestTensor, AssignWithData2)
+{
     std::vector<int64_t> tshape = {100, 100};
     Tensor b(DT_FP32, tshape, "B");
     auto ptr1 = std::make_unique<uint8_t>(0);
@@ -117,7 +119,8 @@ TEST_F(TestTensor, AssignWithData2) {
     }
 }
 
-TEST_F(TestTensor, GetShapeTest) {
+TEST_F(TestTensor, GetShapeTest)
+{
     std::vector<int64_t> tshape = {16, 32, 16, 64};
     std::vector<int64_t> kshape = {};
     Tensor a(DT_FP32, tshape, "A");
@@ -134,7 +137,8 @@ TEST_F(TestTensor, GetShapeTest) {
     }
 }
 
-TEST_F(TestTensor, GetCachePolicyTest) {
+TEST_F(TestTensor, GetCachePolicyTest)
+{
     std::vector<int64_t> tshape = {4, 4};
     Tensor t1(DT_FP32, tshape, "T1");
 
@@ -150,21 +154,24 @@ TEST_F(TestTensor, GetCachePolicyTest) {
     EXPECT_FALSE(t1.GetCachePolicy(CachePolicy::NONE_CACHEABLE));
 }
 
-TEST_F(TestTensor, RawTensorNegative) {
+TEST_F(TestTensor, RawTensorNegative)
+{
     RawTensor t(DT_INT8, {});
     t.SetRefCount(-2);
     t.AddRefCount(1);
     EXPECT_EQ(t.GetRefCount(), -1);
 }
 
-TEST_F(TestTensor, GetShapeNoDimensions) {
+TEST_F(TestTensor, GetShapeNoDimensions)
+{
     std::vector<int64_t> shape = {};
     Tensor a(DT_FP32, shape, "A");
 
     EXPECT_THROW(a.GetShape(0), std::exception);
 }
 
-TEST_F(TestTensor, GetShapeAxisOutOfRange) {
+TEST_F(TestTensor, GetShapeAxisOutOfRange)
+{
     std::vector<int64_t> shape = {16, 32, 16};
     Tensor a(DT_FP32, shape, "A");
 
@@ -172,12 +179,14 @@ TEST_F(TestTensor, GetShapeAxisOutOfRange) {
     EXPECT_THROW(a.GetShape(-10), std::exception);
 }
 
-TEST_F(TestTensor, InvalidShapeValue) {
+TEST_F(TestTensor, InvalidShapeValue)
+{
     std::vector<int64_t> shape = {-2, 16};
     EXPECT_THROW(Tensor(DT_FP32, shape, "A"), std::exception);
 }
 
-TEST_F(TestTensor, SelfAssignment) {
+TEST_F(TestTensor, SelfAssignment)
+{
     std::vector<int64_t> shape = {16, 16};
     Tensor a(DT_FP32, shape, "A");
     auto ptr = std::make_unique<uint8_t>(0);

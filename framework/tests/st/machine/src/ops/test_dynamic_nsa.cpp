@@ -21,7 +21,8 @@
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DyNsa : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
-    void SetUp() override {
+    void SetUp() override
+    {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
         config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, NUM_4}});
         config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});
@@ -32,7 +33,8 @@ class DyNsa : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
 
 namespace {
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName)
+{
     auto shape = tensor.GetShape();
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> values(capacity, 0);
@@ -41,7 +43,8 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 }
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName)
+{
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
@@ -49,7 +52,8 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
 }
 
 template <typename T = float16, typename outputT = float, bool nz = false>
-void TestNsa(const SimpleParams &params) {
+void TestNsa(const SimpleParams& params)
+{
     SetInterpreterConfig();
     int b = params.b;
     int s = params.s;
@@ -78,7 +82,10 @@ void TestNsa(const SimpleParams &params) {
     auto outputData = RawTensorData::CreateConstantTensor<outputT>(output, 0.0);
 
     ProgramData::GetInstance().AppendInputs({
-        xData, w1Data, w2Data, simW1Data,
+        xData,
+        w1Data,
+        w2Data,
+        simW1Data,
     });
 
     ProgramData::GetInstance().AppendOutputs({
@@ -94,11 +101,12 @@ void TestNsa(const SimpleParams &params) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData, w1Data, w2Data, simW1Data}, {outputData});
     std::cout << "======= GateScore ====== " << std::endl;
     EXPECT_TRUE(
-        resultCmp<outputT>(outputGolden, (outputT *)outputData->data(), 0.001f, NUM_16, 1000, false, false, NUM_16));
+        resultCmp<outputT>(outputGolden, (outputT*)outputData->data(), 0.001f, NUM_16, 1000, false, false, NUM_16));
 #endif
 }
 
-void TestView() {
+void TestView()
+{
     std::vector<int64_t> input_shape = {1, 128}, output_shape = {1, 16};
     Tensor input(DT_FP32, input_shape, "x");
     Tensor output(DT_FP32, output_shape, "output");
@@ -106,11 +114,13 @@ void TestView() {
     std::vector<float> outputGolden = getGoldenVec<float>(output_shape, "/output.bin");
     auto outputData = RawTensorData::CreateConstantTensor<float>(output, 0.0);
 
-    FUNCTION("main", {input}, {output}) {
+    FUNCTION("main", {input}, {output})
+    {
         int b = input.GetShape()[0];
         int tileB = b;
         SymbolicScalar bLoop = b / tileB;
-        LOOP("LOOP_topk3", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1)) {
+        LOOP("LOOP_topk3", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1))
+        {
             (void)sIdx;
             TileShape::Current().SetVecTile({1, 16});
             auto view0 = View(input, {1, 13}, {0, 1});
@@ -122,11 +132,12 @@ void TestView() {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData}, {outputData});
     std::cout << "trans0 ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<float>(outputGolden, (float *)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
+    EXPECT_TRUE(resultCmp<float>(outputGolden, (float*)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
 #endif
 }
 
-void TestAlignRead(bool isAlign) {
+void TestAlignRead(bool isAlign)
+{
     std::vector<int64_t> input_shape = {1, 128}, output_shape = {1, 3};
     Tensor input(DT_FP32, input_shape, "x");
     Tensor output(DT_FP32, output_shape, "output");
@@ -134,11 +145,13 @@ void TestAlignRead(bool isAlign) {
     std::vector<float> outputGolden = getGoldenVec<float>(output_shape, "/output.bin");
     auto outputData = RawTensorData::CreateConstantTensor<float>(output, 0.0);
 
-    FUNCTION("main", {input}, {output}) {
+    FUNCTION("main", {input}, {output})
+    {
         int b = input.GetShape()[0];
         int tileB = b;
         SymbolicScalar bLoop = b / tileB;
-        LOOP("LOOP_topk3", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1)) {
+        LOOP("LOOP_topk3", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1))
+        {
             (void)sIdx;
             TileShape::Current().SetVecTile({1, 128});
             auto view0 = View(input, {1, 128}, {0, 0});
@@ -160,11 +173,12 @@ void TestAlignRead(bool isAlign) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData}, {outputData});
     std::cout << "trans0 ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<float>(outputGolden, (float *)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
+    EXPECT_TRUE(resultCmp<float>(outputGolden, (float*)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
 #endif
 }
 
-void TestMultiLoopAlignRead() {
+void TestMultiLoopAlignRead()
+{
     std::vector<int64_t> input_shape = {1, 128}, output_shape = {1, 32}, middle_shape = {1, 128};
     Tensor input(DT_FP32, input_shape, "x");
     Tensor output(DT_FP32, output_shape, "output");
@@ -172,19 +186,22 @@ void TestMultiLoopAlignRead() {
     std::vector<float> outputGolden = getGoldenVec<float>(output_shape, "/output.bin");
     auto outputData = RawTensorData::CreateConstantTensor<float>(output, 0.0);
 
-    FUNCTION("main", {input}, {output}) {
+    FUNCTION("main", {input}, {output})
+    {
         int b = input.GetShape()[0];
         int tileB = b;
         SymbolicScalar bLoop = b / tileB;
         Tensor middle(DT_FP32, middle_shape, "middle");
-        LOOP("LOOP0", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1)) {
+        LOOP("LOOP0", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1))
+        {
             (void)sIdx;
             TileShape::Current().SetVecTile({1, 16});
             auto view0 = View(input, {1, 128}, {0, 0});
             auto adds_res = Add(view0, Element(DT_FP32, 0.0f));
             middle = adds_res;
         }
-        LOOP("LOOP1", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1)) {
+        LOOP("LOOP1", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1))
+        {
             (void)sIdx;
             TileShape::Current().SetVecTile({1, 16});
             auto view1 = View(middle, {1, 16}, {0, 1});
@@ -196,13 +213,15 @@ void TestMultiLoopAlignRead() {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData}, {outputData});
     std::cout << "trans0 ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<float>(outputGolden, (float *)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
+    EXPECT_TRUE(resultCmp<float>(outputGolden, (float*)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
 #endif
 }
 
-template <typename T = float16, typename wDtype = int8_t, bool splitK = false, bool nz = true, bool isSmooth = true,
+template <
+    typename T = float16, typename wDtype = int8_t, bool splitK = false, bool nz = true, bool isSmooth = true,
     bool usePrefetch = true>
-void TestGenslc(const SimpleParams &params, int topk_actual_len = 0, bool isGenSlc = false) {
+void TestGenslc(const SimpleParams& params, int topk_actual_len = 0, bool isGenSlc = false)
+{
     int n2 = params.n2;
     int n = params.n;
     int g = n / n2;
@@ -258,7 +277,8 @@ void TestGenslc(const SimpleParams &params, int topk_actual_len = 0, bool isGenS
     auto reduce1GoldenData = CreateTensorData<T>(reduce1, "/reduce1.bin");
     auto resGoldenData = CreateTensorData<float>(res, "/topk_indices.bin");
 
-    ProgramData::GetInstance().PrepareData({xData}, {trans0Data, reduce0Data, trans1Data, reduce1Data, resZeroData},
+    ProgramData::GetInstance().PrepareData(
+        {xData}, {trans0Data, reduce0Data, trans1Data, reduce1Data, resZeroData},
         {trans0GoldenData, reduce0GoldenData, trans1GoldenData, reduce1GoldenData, resGoldenData});
     if (isGenSlc) {
         GenSlc(x, trans0, reduce0, trans1, reduce1, topkInd, topkVal, res, tmp_s_slc);
@@ -267,30 +287,32 @@ void TestGenslc(const SimpleParams &params, int topk_actual_len = 0, bool isGenS
     }
 
 #ifdef BUILD_WITH_CANN
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),
-        {xData}, {trans0Data, reduce0Data, trans1Data, reduce1Data, topkIndData, topkValData, resZeroData});
+    DevFuncRunner::Run(
+        Program::GetInstance().GetLastFunction(), {xData},
+        {trans0Data, reduce0Data, trans1Data, reduce1Data, topkIndData, topkValData, resZeroData});
     if (isGenSlc) {
         std::cout << "trans0 ====== " << std::endl;
-        EXPECT_TRUE(resultCmp<T>(trans0Golden, (T *)trans0Data->data(), 0.008f, NUM_16));
+        EXPECT_TRUE(resultCmp<T>(trans0Golden, (T*)trans0Data->data(), 0.008f, NUM_16));
         std::cout << "reduce0 ====== " << std::endl;
-        EXPECT_TRUE(resultCmp<T>(reduce0Golden, (T *)reduce0Data->data(), 0.008f, NUM_16));
+        EXPECT_TRUE(resultCmp<T>(reduce0Golden, (T*)reduce0Data->data(), 0.008f, NUM_16));
         std::cout << "trans1 ====== " << std::endl;
-        EXPECT_TRUE(resultCmp<T>(trans1Golden, (T *)trans1Data->data(), 0.008f, 0));
+        EXPECT_TRUE(resultCmp<T>(trans1Golden, (T*)trans1Data->data(), 0.008f, 0));
         std::cout << "reduce1 ====== " << std::endl;
-        EXPECT_TRUE(resultCmp<T>(reduce1Golden, (T *)reduce1Data->data(), 0.008f, NUM_16, false, false, 128));
+        EXPECT_TRUE(resultCmp<T>(reduce1Golden, (T*)reduce1Data->data(), 0.008f, NUM_16, false, false, 128));
     }
 
     std::cout << "topkInd ====== " << std::endl;
     EXPECT_TRUE(
-        resultCmp<float>(topkIndicesGolden, (float *)topkIndData->data(), 0.008f, 32, NUM_16, false, false, NUM_20));
+        resultCmp<float>(topkIndicesGolden, (float*)topkIndData->data(), 0.008f, 32, NUM_16, false, false, NUM_20));
     std::cout << "Genslc ====== " << std::endl;
     EXPECT_TRUE(
-        resultCmp<float>(topkIndicesGolden, (float *)resZeroData->data(), 0.008f, 0, NUM_16, false, false, NUM_20));
+        resultCmp<float>(topkIndicesGolden, (float*)resZeroData->data(), 0.008f, 0, NUM_16, false, false, NUM_20));
 #endif
 }
 
 template <typename T = float16>
-void TestGenslcV2(const SimpleParams &params, int topk_actual_len = 0) {
+void TestGenslcV2(const SimpleParams& params, int topk_actual_len = 0)
+{
     int n = params.n;
     int s2 = params.s2;
     int windowStride = 16, windowSize = 32;
@@ -316,39 +338,42 @@ void TestGenslcV2(const SimpleParams &params, int topk_actual_len = 0) {
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData}, {resZeroData});
     EXPECT_TRUE(
-        resultCmp<float>(topkIndicesGolden, (float *)resZeroData->data(), 0.008f, 0, NUM_16, false, false, NUM_20));
+        resultCmp<float>(topkIndicesGolden, (float*)resZeroData->data(), 0.008f, 0, NUM_16, false, false, NUM_20));
 #endif
 }
 
-TEST_F(DyNsa, GateScore_b16_s1_fp) {
+TEST_F(DyNsa, GateScore_b16_s1_fp)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = NUM_16;
     TestNsa<float16>(params);
 }
 
-TEST_F(DyNsa, GateScore_b16_s1_bf) {
+TEST_F(DyNsa, GateScore_b16_s1_bf)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = NUM_16;
     TestNsa<bfloat16>(params);
 }
 
-TEST_F(DyNsa, GateScore_b32_s1_fp) {
-    TestNsa<float16>(SimpleParams::getHighParams());
-}
+TEST_F(DyNsa, GateScore_b32_s1_fp) { TestNsa<float16>(SimpleParams::getHighParams()); }
 
-TEST_F(DyNsa, GateScore_b32_s2_fp) {
+TEST_F(DyNsa, GateScore_b32_s2_fp)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.s = NUM2;
     TestNsa<float16>(params);
 }
 
-TEST_F(DyNsa, GateScore_b24_s1_fp) {
+TEST_F(DyNsa, GateScore_b24_s1_fp)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = NUM_24;
     TestNsa<float16>(params);
 }
 
-TEST_F(DyNsa, GateScore_b48_s2_fp) {
+TEST_F(DyNsa, GateScore_b48_s2_fp)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = NUM_48;
     params.s = NUM2;
@@ -356,46 +381,53 @@ TEST_F(DyNsa, GateScore_b48_s2_fp) {
 }
 
 // IMPORTANT
-TEST_F(DyNsa, GateScore_b32_s2_bf) {
+TEST_F(DyNsa, GateScore_b32_s2_bf)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.s = NUM2;
     TestNsa<bfloat16, float, true>(params);
 }
 
-TEST_F(DyNsa, GateScore_b48_s1_fp) {
+TEST_F(DyNsa, GateScore_b48_s1_fp)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = NUM_48;
     TestNsa<float16, float, true>(params);
 }
 
-TEST_F(DyNsa, gateScore_mini) {
+TEST_F(DyNsa, gateScore_mini)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.h = NUM_128;
     TestNsa<float16>(params);
 }
 
-TEST_F(DyNsa, gateScore_mini_batch16) {
+TEST_F(DyNsa, gateScore_mini_batch16)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.h = NUM_128;
     params.b = NUM_16;
     TestNsa<float16>(params);
 }
 
-TEST_F(DyNsa, gateScore_mini_mtp) {
+TEST_F(DyNsa, gateScore_mini_mtp)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.h = NUM_128;
     params.s = NUM_2;
     TestNsa<float16>(params);
 }
 
-TEST_F(DyNsa, gateScore_mini_mtp_bf16) {
+TEST_F(DyNsa, gateScore_mini_mtp_bf16)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.h = NUM_128;
     params.s = NUM_2;
     TestNsa<npu::tile_fwk::bfloat16>(params);
 }
 
-TEST_F(DyNsa, GenSlc_b1_s1_fp_8k) {
+TEST_F(DyNsa, GenSlc_b1_s1_fp_8k)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_8192;
@@ -404,7 +436,8 @@ TEST_F(DyNsa, GenSlc_b1_s1_fp_8k) {
     TestGenslc<float16>(params, params.s2, true);
 }
 
-TEST_F(DyNsa, GenSlc_b1_s1_fp_4k) {
+TEST_F(DyNsa, GenSlc_b1_s1_fp_4k)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_8192;
@@ -412,7 +445,8 @@ TEST_F(DyNsa, GenSlc_b1_s1_fp_4k) {
     TestGenslc<float16>(params, NUM_4096, true);
 }
 
-TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1) {
+TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_8192;
@@ -420,7 +454,8 @@ TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1) {
     TestGenslcV2<float16>(params, NUM_6144 + 1);
 }
 
-TEST_F(DyNsa, GenSlc_b1_s1_bf_1k1) {
+TEST_F(DyNsa, GenSlc_b1_s1_bf_1k1)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_8192;
@@ -428,7 +463,8 @@ TEST_F(DyNsa, GenSlc_b1_s1_bf_1k1) {
     TestGenslcV2<npu::tile_fwk::bfloat16>(params, NUM_1024 + 1);
 }
 
-TEST_F(DyNsa, GenSlc_b1_s1_fp_4k1) {
+TEST_F(DyNsa, GenSlc_b1_s1_fp_4k1)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_8192;
@@ -436,7 +472,8 @@ TEST_F(DyNsa, GenSlc_b1_s1_fp_4k1) {
     TestGenslc<float16>(params, NUM_4096 + 1, true);
 }
 
-TEST_F(DyNsa, GenTopk_b1_s1_fp_8k_dyn) {
+TEST_F(DyNsa, GenTopk_b1_s1_fp_8k_dyn)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_8192;
@@ -444,7 +481,8 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_8k_dyn) {
     TestGenslc<float16>(params, params.s2);
 }
 
-TEST_F(DyNsa, GenTopk_b1_s1_fp_4k_dyn) {
+TEST_F(DyNsa, GenTopk_b1_s1_fp_4k_dyn)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_4096;
@@ -452,7 +490,8 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_4k_dyn) {
     TestGenslc<float16>(params, params.s2);
 }
 
-TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1_dyn) {
+TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1_dyn)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_4096;
@@ -460,7 +499,8 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1_dyn) {
     TestGenslc<float16>(params, params.s2 + 1);
 }
 
-TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1_dyn) {
+TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1_dyn)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_6144;
@@ -468,7 +508,8 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1_dyn) {
     TestGenslc<float16>(params, params.s2 + 1);
 }
 
-TEST_F(DyNsa, GenTopk_b1_s1_fp_8k) {
+TEST_F(DyNsa, GenTopk_b1_s1_fp_8k)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_8192;
@@ -476,7 +517,8 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_8k) {
     TestGenslc<float16>(params, params.s2);
 }
 
-TEST_F(DyNsa, GenTopk_b1_s1_fp_4k) {
+TEST_F(DyNsa, GenTopk_b1_s1_fp_4k)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_4096;
@@ -484,7 +526,8 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_4k) {
     TestGenslc<float16>(params, params.s2);
 }
 
-TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1) {
+TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_4096;
@@ -492,7 +535,8 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1) {
     TestGenslc<float16>(params, params.s2 + 1);
 }
 
-TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1) {
+TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_8192;
@@ -500,20 +544,12 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1) {
     TestGenslc<float16>(params, NUM_6144 + 1);
 }
 
-TEST_F(DyNsa, TestView) {
-    TestView();
-}
+TEST_F(DyNsa, TestView) { TestView(); }
 
-TEST_F(DyNsa, TestAlignRead) {
-    TestAlignRead(true);
-}
+TEST_F(DyNsa, TestAlignRead) { TestAlignRead(true); }
 
-TEST_F(DyNsa, TestUnAlignRead) {
-    TestAlignRead(false);
-}
+TEST_F(DyNsa, TestUnAlignRead) { TestAlignRead(false); }
 
-TEST_F(DyNsa, TestMultiLoopAlignRead) {
-    TestMultiLoopAlignRead();
-}
+TEST_F(DyNsa, TestMultiLoopAlignRead) { TestMultiLoopAlignRead(); }
 
 } // namespace

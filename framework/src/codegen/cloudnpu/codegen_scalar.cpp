@@ -20,7 +20,8 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 
 namespace npu::tile_fwk {
-std::string CodeGenOpCloudNPU::GenBarrier() const {
+std::string CodeGenOpCloudNPU::GenBarrier() const
+{
     char buffer[256] = "CG_ERROR";
     auto pipeId1 = GetPipeId(syncQueue.pipeId_);
     int ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1, "pipe_barrier(%s);\n", pipeId1.c_str());
@@ -30,38 +31,44 @@ std::string CodeGenOpCloudNPU::GenBarrier() const {
     return buffer;
 }
 
-std::string CodeGenOpCloudNPU::GenSyncSetOp() const {
+std::string CodeGenOpCloudNPU::GenSyncSetOp() const
+{
     char buffer[256] = "CG_ERROR";
     auto pipeId1 = GetPipeId(syncQueue.pipeId_);
     auto pipeId2 = GetPipeId(syncQueue.trigPipeId_);
-    int ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1, "set_flag(%s, %s, EVENT_ID%d);\n", pipeId1.c_str(),
-        pipeId2.c_str(), syncQueue.eventId_);
+    int ret = snprintf_s(
+        buffer, sizeof(buffer), sizeof(buffer) - 1, "set_flag(%s, %s, EVENT_ID%d);\n", pipeId1.c_str(), pipeId2.c_str(),
+        syncQueue.eventId_);
     if (ret < 0) {
         CODEGEN_LOGI("genSyncSetOp snprintf_s failed %d", ret);
     }
     return buffer;
 }
 
-std::string CodeGenOpCloudNPU::GenSyncWaitOp() const {
+std::string CodeGenOpCloudNPU::GenSyncWaitOp() const
+{
     char buffer[256] = "CG_ERROR";
     auto pipeId1 = GetPipeId(syncQueue.pipeId_);
     auto pipeId2 = GetPipeId(syncQueue.trigPipeId_);
-    int ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1, "wait_flag(%s, %s, EVENT_ID%d);\n",
-        pipeId1.c_str(), pipeId2.c_str(), syncQueue.eventId_);
+    int ret = snprintf_s(
+        buffer, sizeof(buffer), sizeof(buffer) - 1, "wait_flag(%s, %s, EVENT_ID%d);\n", pipeId1.c_str(),
+        pipeId2.c_str(), syncQueue.eventId_);
     if (ret < 0) {
         CODEGEN_LOGI("genSyncWaitOp snprintf_s failed %d", ret);
     }
     return buffer;
 }
 
-std::string CodeGenOpCloudNPU::GenCVSyncSetOp() const {
+std::string CodeGenOpCloudNPU::GenCVSyncSetOp() const
+{
     auto pipeId = GetPipeId(syncQueue.pipeId_);
     std::ostringstream oss;
     oss << "set_intra_block(" << pipeId << ", " << std::to_string(syncQueue.eventId_) << ");\n";
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenCVSyncWaitOp() const {
+std::string CodeGenOpCloudNPU::GenCVSyncWaitOp() const
+{
     auto pipeId = GetPipeId(syncQueue.trigPipeId_);
     std::ostringstream oss;
     oss << "wait_intra_block(" << pipeId << ", " << std::to_string(syncQueue.eventId_) << ");\n";
@@ -72,7 +79,8 @@ static const std::unordered_map<int, std::string> aicpuCallNumDict = {
     {AICPU_CALL_NUM_COPYOUT_RESOLVE, "AICPU_CALL_NUM_COPYOUT_RESOLVE"},
 };
 
-std::string CodeGenOpCloudNPU::GenAicpuCallOp() const {
+std::string CodeGenOpCloudNPU::GenAicpuCallOp() const
+{
     ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OpAttributeKey::aicpuCall))
         << "OpAttributeKey::aicpuCall not found";
     uint32_t call = static_cast<uint32_t>(AnyCast<int64_t>(opAttrs.find(OpAttributeKey::aicpuCall)->second));

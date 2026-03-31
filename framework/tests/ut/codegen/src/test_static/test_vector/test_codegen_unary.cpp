@@ -33,7 +33,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetBuildStatic(true);
@@ -48,112 +49,114 @@ public:
 };
 
 void TestRowMaxSingleBody(
-    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name) {
+    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name)
+{
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
-    FUNCTION(name, {input_a, output}) {
-        output = Amax(input_a, -1, true);
-    }
+    FUNCTION(name, {input_a, output}) { output = Amax(input_a, -1, true); }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenUnary, RowMaxSingleDim2) {
-    TestRowMaxSingleBody({8, 128}, {8, 1}, {2, 64}, "ROWMAXSINGLE_DIM2");
-}
+TEST_F(TestCodegenUnary, RowMaxSingleDim2) { TestRowMaxSingleBody({8, 128}, {8, 1}, {2, 64}, "ROWMAXSINGLE_DIM2"); }
 
-TEST_F(TestCodegenUnary, RowMaxSingleDim3) {
+TEST_F(TestCodegenUnary, RowMaxSingleDim3)
+{
     TestRowMaxSingleBody({8, 4, 128}, {8, 4, 1}, {2, 1, 64}, "ROWMAXSINGLE_DIM3");
 }
 
-TEST_F(TestCodegenUnary, RowMaxSingleDim4) {
+TEST_F(TestCodegenUnary, RowMaxSingleDim4)
+{
     TestRowMaxSingleBody({8, 4, 4, 128}, {8, 4, 4, 1}, {2, 1, 1, 64}, "ROWMAXSINGLE_DIM4");
 }
 
 void TestRowSumSingleBody(
-    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name) {
+    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name)
+{
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
-    FUNCTION(name, {input_a, output}) {
-        output = Sum(input_a, -1, true);
-    }
+    FUNCTION(name, {input_a, output}) { output = Sum(input_a, -1, true); }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenUnary, RowSumSingleDim2) {
-    TestRowSumSingleBody({8, 128}, {8, 1}, {2, 64}, "ROWSUMSINGLE_DIM2");
-}
+TEST_F(TestCodegenUnary, RowSumSingleDim2) { TestRowSumSingleBody({8, 128}, {8, 1}, {2, 64}, "ROWSUMSINGLE_DIM2"); }
 
-TEST_F(TestCodegenUnary, RowSumSingleDim3) {
+TEST_F(TestCodegenUnary, RowSumSingleDim3)
+{
     TestRowSumSingleBody({8, 4, 128}, {8, 4, 1}, {2, 1, 64}, "ROWSUMSINGLE_DIM3");
 }
 
-TEST_F(TestCodegenUnary, RowSumSingleDim4) {
+TEST_F(TestCodegenUnary, RowSumSingleDim4)
+{
     TestRowSumSingleBody({8, 4, 4, 128}, {8, 4, 4, 1}, {2, 1, 1, 64}, "ROWSUMSINGLE_DIM4");
 }
 
-void TestTransposeVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t> outShape,
-    std::vector<int> transposeShape, std::vector<int64_t> tileShape, std::string name,
-    bool isSupportTileTensor = false) {
+void TestTransposeVnchwconvBody(
+    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int> transposeShape,
+    std::vector<int64_t> tileShape, std::string name, bool isSupportTileTensor = false)
+{
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     }
     TileShape::Current().SetVecTile(tileShape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, outShape, "output");
-    FUNCTION(name, {input, output}) {
-        output = Transpose(input, transposeShape);
-    }
+    FUNCTION(name, {input, output}) { output = Transpose(input, transposeShape); }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenUnary, TransposeVnchwconvDim2) {
+TEST_F(TestCodegenUnary, TransposeVnchwconvDim2)
+{
     TestTransposeVnchwconvBody({16, 32}, {32, 16}, {0, 1}, {16, 16}, "TRANSPOSE_VNCHWCONV_DIM2");
 }
 
-TEST_F(TestCodegenUnary, TransposeVnchwconvDim4) {
+TEST_F(TestCodegenUnary, TransposeVnchwconvDim4)
+{
     TestTransposeVnchwconvBody({1, 2, 32, 16}, {1, 2, 16, 32}, {3, 2}, {1, 1, 16, 16}, "TRANSPOSE_VNCHWCONV_DIM4");
 }
 
-TEST_F(TestCodegenUnary, TransposeVnchwconvDim5) {
+TEST_F(TestCodegenUnary, TransposeVnchwconvDim5)
+{
     TestTransposeVnchwconvBody(
         {1, 1, 2, 32, 16}, {1, 1, 2, 16, 32}, {3, 4}, {1, 1, 1, 16, 16}, "TRANSPOSE_VNCHWCONV_DIM5");
 }
 
-TEST_F(TestCodegenUnary, TransposeVnchwconvDim2TileTensor) {
+TEST_F(TestCodegenUnary, TransposeVnchwconvDim2TileTensor)
+{
     TestTransposeVnchwconvBody({16, 32}, {32, 16}, {0, 1}, {16, 16}, "TransposeVnchwconvDim2TileTensor", true);
 }
 
 void TestRowMaxExpandBody(
-    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name) {
+    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name)
+{
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
-    FUNCTION(name, {input_a, output}) {
-        output = RowMaxExpand(input_a);
-    }
+    FUNCTION(name, {input_a, output}) { output = RowMaxExpand(input_a); }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenUnary, RowMaxExpandDim2) {
+TEST_F(TestCodegenUnary, RowMaxExpandDim2)
+{
     TestRowMaxExpandBody({128, 64}, {128, 64}, {16, 16}, "ROWMAXEXPAND_DIM2");
 }
 
-Function &TestFullBody(
-    std::vector<int64_t> shape, std::vector<int64_t> tileShape, std::string name, bool isSupportTileTensor = false) {
+Function& TestFullBody(
+    std::vector<int64_t> shape, std::vector<int64_t> tileShape, std::string name, bool isSupportTileTensor = false)
+{
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     }
@@ -162,9 +165,7 @@ Function &TestFullBody(
     Tensor output(DT_FP32, shape, "C");
     Element value(DataType::DT_FP32, 2.0f);
     config::SetBuildStatic(true);
-    FUNCTION(name, {input_a, output}) {
-        output = Full(value, DT_FP32, shape, {});
-    }
+    FUNCTION(name, {input_a, output}) { output = Full(value, DT_FP32, shape, {}); }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -172,24 +173,25 @@ Function &TestFullBody(
     return *function;
 }
 
-TEST_F(TestCodegenUnary, FullDim2TileTensor) {
-    Function &func = TestFullBody({32, 32}, {16, 16}, "FULL_DIM2_TILETENSOR", true);
+TEST_F(TestCodegenUnary, FullDim2TileTensor)
+{
+    Function& func = TestFullBody({32, 32}, {16, 16}, "FULL_DIM2_TILETENSOR", true);
     std::string res = GetResultFromCpp(func);
     std::string expect = R"!!!(TVecDup<float>(ubTensor_1, 2);)!!!";
     CheckStringExist(expect, res);
 }
 
-Function &TestCastBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape,
-    std::string name, bool isSupportTileTensor = false) {
+Function& TestCastBody(
+    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name,
+    bool isSupportTileTensor = false)
+{
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     }
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_INT32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
-    FUNCTION(name, {input_a, output}) {
-        output = Cast(input_a, DT_FP32);
-    }
+    FUNCTION(name, {input_a, output}) { output = Cast(input_a, DT_FP32); }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -197,20 +199,21 @@ Function &TestCastBody(std::vector<int64_t> shape, std::vector<int64_t> outShape
     return *function;
 }
 
-TEST_F(TestCodegenUnary, CastDim1) {
-    TestCastBody({128}, {128}, {64}, "CastDim1");
-}
+TEST_F(TestCodegenUnary, CastDim1) { TestCastBody({128}, {128}, {64}, "CastDim1"); }
 
-TEST_F(TestCodegenUnary, CastDim1TileTensor) {
-    Function &func = TestCastBody({128}, {128}, {64}, "CastDim1TileTensor", true);
+TEST_F(TestCodegenUnary, CastDim1TileTensor)
+{
+    Function& func = TestCastBody({128}, {128}, {64}, "CastDim1TileTensor", true);
     std::string res = GetResultFromCpp(func);
     std::string expect = R"!!!(TCast<LastUse2Dim<0, 1>, 0, pto::SaturationMode::OFF>(ubTensor_3, ubTensor_1);
 )!!!";
     CheckStringExist(expect, res);
 }
 
-Function &TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape,
-    std::string name, bool isSupportTileTensor = false) {
+Function& TestExpandBody(
+    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name,
+    bool isSupportTileTensor = false)
+{
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     } else {
@@ -220,9 +223,7 @@ Function &TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outSha
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
 
-    FUNCTION(name, {input_a, output}) {
-        output = Expand(input_a, outShape);
-    }
+    FUNCTION(name, {input_a, output}) { output = Expand(input_a, outShape); }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -230,64 +231,61 @@ Function &TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outSha
     return *function;
 }
 
-TEST_F(TestCodegenUnary, ExpandDim2Axis0TileTensor) {
-    Function &func = TestExpandBody({1, 22}, {22, 22}, {2, 2}, "ExpandDim2Axis0TileTensor", true);
+TEST_F(TestCodegenUnary, ExpandDim2Axis0TileTensor)
+{
+    Function& func = TestExpandBody({1, 22}, {22, 22}, {2, 2}, "ExpandDim2Axis0TileTensor", true);
     std::string res = GetResultFromCpp(func);
     std::string expect = R"!!!(TExpand<LastUse2Dim<0, 1>, 2>(ubTensor_3, ubTensor_1);
 )!!!";
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestCodegenUnary, ExpandDim2Axis0) {
-    TestExpandBody({1, 22}, {22, 22}, {2, 2}, "ExpandDim2Axis0");
-}
+TEST_F(TestCodegenUnary, ExpandDim2Axis0) { TestExpandBody({1, 22}, {22, 22}, {2, 2}, "ExpandDim2Axis0"); }
 
-TEST_F(TestCodegenUnary, ExpandDim4Axis0) {
+TEST_F(TestCodegenUnary, ExpandDim4Axis0)
+{
     TestExpandBody({1, 22, 8, 17}, {4, 22, 8, 17}, {2, 16, 4, 8}, "ExpandDim4Axis0");
 }
 
-TEST_F(TestCodegenUnary, ExpandDim4Axis1) {
+TEST_F(TestCodegenUnary, ExpandDim4Axis1)
+{
     TestExpandBody({4, 1, 8, 17}, {4, 22, 8, 17}, {2, 16, 4, 8}, "ExpandDim4Axis1");
 }
 
-void TestRowSumBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape,
-    std::string name, unsigned axis) {
+void TestRowSumBody(
+    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name,
+    unsigned axis)
+{
     TileShape::Current().SetVecTile(tileShape);
 
     Tensor input_a(DataType::DT_FP32, shape, "A");
     Tensor output(DataType::DT_FP32, outShape, "C");
 
-    FUNCTION(name, {input_a, output}) {
-        output = Sum(input_a, axis, true);
-    }
+    FUNCTION(name, {input_a, output}) { output = Sum(input_a, axis, true); }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenUnary, RowSumDim4Axis2) {
+TEST_F(TestCodegenUnary, RowSumDim4Axis2)
+{
     TestRowSumBody({3, 2, 8, 255}, {3, 2, 1, 255}, {2, 8, 8, 255}, "ROWSUMAXIS2", 2);
 }
 
-TEST_F(TestCodegenUnary, RowSumDim3Axis1) {
-    TestRowSumBody({2, 8, 255}, {2, 1, 255}, {8, 8, 255}, "ROWSUMAXIS1", 1);
-}
+TEST_F(TestCodegenUnary, RowSumDim3Axis1) { TestRowSumBody({2, 8, 255}, {2, 1, 255}, {8, 8, 255}, "ROWSUMAXIS1", 1); }
 
-TEST_F(TestCodegenUnary, RowSumDim2Axis0) {
-    TestRowSumBody({8, 255}, {1, 255}, {8, 255}, "ROWSUMAXIS0", 0);
-}
+TEST_F(TestCodegenUnary, RowSumDim2Axis0) { TestRowSumBody({8, 255}, {1, 255}, {8, 255}, "ROWSUMAXIS0", 0); }
 
-TEST_F(TestCodegenUnary, TestVecDup) {
+TEST_F(TestCodegenUnary, TestVecDup)
+{
     std::vector<int64_t> shape{32, 1, 32};
     Element src(DataType::DT_INT32, static_cast<int64_t>(2));
     std::string funcName = "VECDUP";
     TileShape::Current().SetVecTile({16, 1, 16});
 
     Tensor output(DataType::DT_INT32, shape, "C");
-    FUNCTION(funcName, {output}) {
-        output = npu::tile_fwk::Full(src, DT_INT32, shape);
-    }
+    FUNCTION(funcName, {output}) { output = npu::tile_fwk::Full(src, DT_INT32, shape); }
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     npu::tile_fwk::CodeGenCtx ctx;
@@ -295,7 +293,8 @@ TEST_F(TestCodegenUnary, TestVecDup) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenUnary, TestVecDupUnaligned) {
+TEST_F(TestCodegenUnary, TestVecDupUnaligned)
+{
     std::vector<int64_t> shape{2, 2, 256, 7};
     Element src(DataType::DT_FP32, 2.0);
     TileShape::Current().SetVecTile({1, 1, 256, 16});
@@ -303,23 +302,22 @@ TEST_F(TestCodegenUnary, TestVecDupUnaligned) {
     Tensor output(DataType::DT_FP32, shape, "C");
 
     std::string funcName = "VECDUP_T";
-    FUNCTION(funcName, {output}) {
-        output = npu::tile_fwk::Full(src, DT_FP32, shape);
-    }
+    FUNCTION(funcName, {output}) { output = npu::tile_fwk::Full(src, DT_FP32, shape); }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenUnary, TestRowMaxLine) {
+TEST_F(TestCodegenUnary, TestRowMaxLine)
+{
     config::SetBuildStatic(true);
     std::vector<int64_t> shape = {2, 2, 64};
     auto function = GenMockFuncStatic("TestCVSyncBody", shape);
     auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
-    auto &op = function->AddOperation(Opcode::OP_ROWMAXLINE, {localTensorSrc}, {localTensorDst});
+    auto& op = function->AddOperation(Opcode::OP_ROWMAXLINE, {localTensorSrc}, {localTensorDst});
     op.SetAttribute(OP_ATTR_PREFIX + "AXIS", 1);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();

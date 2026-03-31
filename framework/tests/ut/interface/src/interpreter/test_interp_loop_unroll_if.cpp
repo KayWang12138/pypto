@@ -27,7 +27,8 @@ public:
 
     static void SetUpTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         if (!calc::IsVerifyEnabled()) {
             GTEST_SKIP() << "Verify not supported skip the verify test";
         }
@@ -40,9 +41,10 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(LoopUnrollIfTest, TestLoopUnrollWithIsLoopEnd) {
+TEST_F(LoopUnrollIfTest, TestLoopUnrollWithIsLoopEnd)
+{
     int s = 32;
-    int n = 5;  // Loop length
+    int n = 5; // Loop length
 
     Tensor accum(DT_FP32, {s, s}, "accum");
     Tensor output(DT_FP32, {s, s}, "output");
@@ -65,15 +67,20 @@ TEST_F(LoopUnrollIfTest, TestLoopUnrollWithIsLoopEnd) {
         RawTensorData::CreateTensor<float>(output, goldenData),
     });
 
-    FUNCTION("main", {accum}, {output}) {
+    FUNCTION("main", {accum}, {output})
+    {
         SymbolicScalar len(n);
         // LOOP with UnrollList [2, 1]
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(len), std::set<int>{2, 1}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(len), std::set<int>{2, 1})
+        {
             // IF ELSE with IsLoopEnd condition
-            IF(IsLoopEnd(i, len)) {
+            IF(IsLoopEnd(i, len))
+            {
                 // IF branch: when loop ends, add 1.0
                 accum = Add(accum, Element(DataType::DT_FP32, 1.0f));
-            } ELSE {
+            }
+            ELSE
+            {
                 // ELSE branch: when not loop end, add 2.0
                 accum = Add(accum, Element(DataType::DT_FP32, 2.0f));
             }

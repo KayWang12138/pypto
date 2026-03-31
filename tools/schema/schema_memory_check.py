@@ -54,15 +54,15 @@ class TraceRawTensorMemory:
             self._shape = []
         else:
             self._shape = shape
-    
+
     @property
     def memory_range(self) -> TraceMemoryRange:
         return self._memory_range
-    
+
     @memory_range.setter
     def memory_range(self, memory_range):
         self._memory_range = memory_range
-    
+
     @property
     def shape(self) -> list[int]:
         return self._shape
@@ -94,31 +94,31 @@ class TraceCopy:
     @property
     def raw_tensor(self) -> Optional[TraceRawTensorMemory]:
         return self._raw_tensor
-    
+
     @property
     def offset(self):
         return self._offset.copy()
-    
+
     @property
     def shape(self) -> List[int]:
         return self._shape.copy()
-    
+
     @property
     def is_atomic_add(self):
         return self._is_atomic_add
-    
+
     @offset.setter
     def offset(self, offset: List[int]):
         self._offset = offset.copy()
-    
+
     @shape.setter
     def shape(self, shape: List[int]):
         self._shape = shape.copy()
-    
+
     @is_atomic_add.setter
     def is_atomic_add(self, is_atomic_add: bool):
         self._is_atomic_add = is_atomic_add
-    
+
     @staticmethod
     def overlap(src: 'TraceCopy', dst: 'TraceCopy') -> bool:
         src_range = src.raw_tensor.memory_range
@@ -128,7 +128,7 @@ class TraceCopy:
             return False
         if dst_range.end <= src_range.begin:
             return False
-        
+
         if src_range != dst_range:
             raise ValueError("memory reuse must happen for full match.")
 
@@ -149,14 +149,14 @@ class TraceCopy:
 
 
 class TraceLeafTaskUid:
-    def __init__(self, device_task_index=-1, dup_index=-1, root_index=-1, 
+    def __init__(self, device_task_index=-1, dup_index=-1, root_index=-1,
                  operation_index=-1, leaf_index=-1):
         self._device_task_index = device_task_index
         self._dup_index = dup_index
         self._root_index = root_index
         self._operation_index = operation_index
         self._leaf_index = leaf_index
-    
+
     def __eq__(self, other) -> bool:
         if not isinstance(other, TraceLeafTaskUid):
             return False
@@ -165,11 +165,11 @@ class TraceLeafTaskUid:
                 self._root_index == other._root_index and
                 self._operation_index == other._operation_index and
                 self._leaf_index == other._leaf_index)
-    
+
     def __hash__(self) -> int:
         return hash((self._device_task_index, self._dup_index, self._root_index,
                      self._operation_index, self._leaf_index))
-    
+
     @property
     def device_task_index(self):
         return self._device_task_index
@@ -199,13 +199,13 @@ class TraceRootTaskUid:
         self._device_task_index = device_task_index
         self._dup_index = dup_index
         self._root_index = root_index
-    
+
     def __hash__(self):
         return hash((self._device_task_index, self._dup_index, self._root_index))
 
     def __eq__(self, other):
         if not isinstance(other, TraceRootTaskUid):
-            return False  
+            return False
         return (self._device_task_index == other._device_task_index and
                 self._dup_index == other._dup_index and
                 self._root_index == other._root_index)
@@ -226,7 +226,7 @@ class TraceRootTaskUid:
 class TraceDeviceTaskUid:
     def __init__(self, device_task_index: int = -1):
         self._device_task_index = device_task_index
-    
+
     def __eq__(self, other: 'TraceDeviceTaskUid') -> bool:
         if not isinstance(other, TraceDeviceTaskUid):
             return False
@@ -234,7 +234,7 @@ class TraceDeviceTaskUid:
 
     def __hash__(self) -> int:
         return hash(self._device_task_index)
-    
+
     @property
     def device_task_index(self) -> int:
         return self._device_task_index
@@ -249,7 +249,7 @@ class TraceCoa:
         if not isinstance(other, TraceCoa):
             return False
         return self._is_expr == other._is_expr and self._value == other._value
-    
+
     @property
     def value(self) -> int:
         return self._value
@@ -265,13 +265,13 @@ class TraceLeafTask:
         self._coa_list = []
         self._copy_in_list = []
         self._copy_out_list = []
-        self._pred_set = set() 
-        self._succ_set = set() 
+        self._pred_set = set()
+        self._succ_set = set()
 
     @property
     def uid(self) -> TraceLeafTaskUid:
         return self._uid
-    
+
     @uid.setter
     def uid(self, value):
         self._uid = value
@@ -313,9 +313,9 @@ class TraceLeafTask:
 
 class TraceRootTaskRawTensorDesc:
     def __init__(self, location: int = -1, offset_or_index: int = 0, size: int = 0):
-        self._location = location  
-        self._offset_or_index = offset_or_index  
-        self._size = size 
+        self._location = location
+        self._offset_or_index = offset_or_index
+        self._size = size
 
     @property
     def location(self) -> int:
@@ -334,12 +334,12 @@ class TraceRootTask:
     def __init__(self, uid=None):
         self._uid = uid if uid is not None else TraceRootTaskUid()
         self._tile_func = None
-        self._expr_list = []    
-        self._leaf_task_dict = {}  
-        self._incast_list = []     
-        self._outcast_list = []    
-        self._raw_tensor_desc_list = []  
-        self._workspace_memory_range = TraceMemoryRange()  
+        self._expr_list = []
+        self._leaf_task_dict = {}
+        self._incast_list = []
+        self._outcast_list = []
+        self._raw_tensor_desc_list = []
+        self._workspace_memory_range = TraceMemoryRange()
 
     @property
     def uid(self):
@@ -367,11 +367,11 @@ class TraceRootTask:
 
     @property
     def incast_list(self):
-        return self._incast_list  
+        return self._incast_list
 
     @incast_list.setter
     def incast_list(self, value):
-        self._incast_list = value  
+        self._incast_list = value
 
     @property
     def outcast_list(self):
@@ -379,7 +379,7 @@ class TraceRootTask:
 
     @outcast_list.setter
     def outcast_list(self, value):
-        self._outcast_list = value  
+        self._outcast_list = value
 
     @property
     def raw_tensor_desc_list(self):
@@ -398,8 +398,8 @@ class TraceDependGraph:
     def __init__(self, leaf_task_list=None, leaf_task_depend_index_dict=None, reach_dict=None):
         self._leaf_task_list = leaf_task_list if leaf_task_list is not None else []
         self._leaf_task_depend_index_dict = (
-            leaf_task_depend_index_dict 
-            if leaf_task_depend_index_dict is not None 
+            leaf_task_depend_index_dict
+            if leaf_task_depend_index_dict is not None
             else {}
         )
         self._reach_dict = reach_dict if reach_dict is not None else []
@@ -496,7 +496,7 @@ class TraceDeviceTask:
 
     @dataclass
     class RaceObjectParams:
-        race_check_ctx: "TraceDeviceTask.RaceCheckContext"  
+        race_check_ctx: "TraceDeviceTask.RaceCheckContext"
         src_idx: int
         dst_idx: int
         src_is_write: bool
@@ -514,7 +514,7 @@ class TraceDeviceTask:
     @root_task_dict.setter
     def root_task_dict(self, value):
         self._root_task_dict = value
-    
+
     @staticmethod
     def _create_race_object(params: RaceObjectParams):
         ctx = params.race_check_ctx
@@ -540,7 +540,7 @@ class TraceDeviceTask:
         for i in range(graph.leaf_task_size):
             self._build_reach_dict(graph, i, visit_dict)
         return graph
-    
+
     def check_race(self, graph):
         race_list = []
         leaf_task_size = graph.leaf_task_size
@@ -565,7 +565,7 @@ class TraceDeviceTask:
             default_race_kind=TraceRaceKind.RACE_READ_WRITE
         )
         self._check_copy_overlap_race(in_out_ctx)
-        
+
         out_in_ctx = self.CopyOverlapCheckContext(
             src_leaf_task=src_leaf_task,
             dst_leaf_task=dst_leaf_task,
@@ -577,7 +577,7 @@ class TraceDeviceTask:
             default_race_kind=TraceRaceKind.RACE_READ_WRITE
         )
         self._check_copy_overlap_race(out_in_ctx)
-        
+
         out_out_ctx = self.RaceCheckContext(
             src_leaf_task=src_leaf_task,
             dst_leaf_task=dst_leaf_task,
@@ -607,7 +607,7 @@ class TraceDeviceTask:
         for i, src_copy in enumerate(src_copy_out_list):
             for j, dst_copy in enumerate(dst_copy_out_list):
                 if TraceCopy.overlap(src_copy, dst_copy):
-                    race_kind = TraceRaceKind.RACE_WRITE_WRITE                    
+                    race_kind = TraceRaceKind.RACE_WRITE_WRITE
                     race_obj_params = self.RaceObjectParams(
                         race_check_ctx=ctx,
                         src_idx=i,
@@ -617,13 +617,13 @@ class TraceDeviceTask:
                         race_kind=race_kind
                     )
                     self._create_race_object(race_obj_params)
-    
+
     def _build_reach_dict(self, graph, depend_index, visit_dict):
         if visit_dict[depend_index]:
             return
         leaf_task = graph.leaf_task_list[depend_index]
         depend_index_dict = graph.leaf_task_depend_index_dict
-        reach_dict = graph.reach_dict 
+        reach_dict = graph.reach_dict
         for succ_uid in leaf_task.succ_set:
             if succ_uid not in depend_index_dict:
                 raise KeyError(f"succ_uid {succ_uid} not found in depend_index_dict")
@@ -649,7 +649,7 @@ class SchemaNode(list):
     @name.setter
     def name(self, new_name: str):
         self._name = new_name
-    
+
     @staticmethod
     def parse_schema(schema_input: Union[str, List[str]]) -> List['SchemaNode']:
         if isinstance(schema_input, str):
@@ -657,15 +657,15 @@ class SchemaNode(list):
             pos = schema.find(DEV_TRACE_PREFIX)
             if pos == -1:
                 return []
-            pos += len(DEV_TRACE_PREFIX)            
+            pos += len(DEV_TRACE_PREFIX)
             node_list = Parser(schema, pos).parse()
             return node_list
         elif isinstance(schema_input, list):
             schema_list = schema_input
             node_list = []
             for schema in schema_list:
-                child_list = SchemaNode.parse_schema(schema)  
-                node_list.extend(child_list) 
+                child_list = SchemaNode.parse_schema(schema)
+                node_list.extend(child_list)
             return node_list
         else:
             raise TypeError(f"schema_input must be str or list of str, got {type(schema_input)}")
@@ -675,7 +675,7 @@ class SchemaNode(list):
         node_dict = {}
 
         def build_schema_dict(dict_ref: Dict[str, List['SchemaNode']], node: 'SchemaNode'):
-            node_name = node.name 
+            node_name = node.name
             if node_name not in dict_ref:
                 dict_ref[node_name] = []
             dict_ref[node_name].append(node)
@@ -685,7 +685,7 @@ class SchemaNode(list):
         for node in node_list:
             build_schema_dict(node_dict, node)
         return node_dict
-    
+
     def at(self, index: int) -> 'SchemaNode':
         return self[index]
 
@@ -753,7 +753,7 @@ def load_trace_coa_list(node) -> list[TraceCoa]:
             raise ValueError("SchemaNode child node name is empty, failed to parse TraceCoa")
         if name.startswith('?'):
             try:
-                value = int(name[1:], 10) 
+                value = int(name[1:], 10)
             except ValueError as e:
                 raise ValueError(f"The part after '?' in child node name cannot be converted to an integer") from e
             coa_list.append(TraceCoa(value, is_expr=True))
@@ -860,20 +860,20 @@ ltask_loader_dict: Dict[str, Callable[[TraceLeafTask, SchemaNode], None]] = {
 
 class TraceExecution:
     def __init__(self):
-        self._leaf_task_dict = {}    
-        self._root_task_dict = {}    
-        self._device_task_dict = {}  
+        self._leaf_task_dict = {}
+        self._root_task_dict = {}
+        self._device_task_dict = {}
         self._workspace_spill_range = TraceMemoryRange()
 
         self._dev_root_list = OrderedDict()
         self._dev_leaf_list = OrderedDict()
-    
+
     @dataclass
     class SuccParseContext:
         succ_map: Dict[str, List[int]]
         uid_str_to_info: Dict[str, tuple]
         seq_taskid_to_uidstr: Dict[int, Dict[int, str]]
-        valid_uid_by_seq: Dict[int, Set[Any]]   
+        valid_uid_by_seq: Dict[int, Set[Any]]
 
     @property
     def leaf_task_dict(self):
@@ -899,14 +899,14 @@ class TraceExecution:
             if s_strip:
                 succ_list.append(int(s_strip))
         return succ_list
-    
+
     @staticmethod
     def _load_task_data(task, node_dict, loader_dict):
         for key, loader in loader_dict.items():
             if key in node_dict:
                 node = node_dict[key][0]
                 loader(task, node)
-    
+
     @staticmethod
     def _build_valid_uid_by_seq(valid_uid_list):
         valid_uid_by_seq = {}
@@ -916,11 +916,11 @@ class TraceExecution:
                 valid_uid_by_seq[seq_no] = set()
             valid_uid_by_seq[seq_no].add(uid)
         return valid_uid_by_seq
-    
+
     @staticmethod
     def _generate_uid_str(seq_no, dup_index, root_index, op_index, leaf_index):
         return f"{seq_no}_{dup_index}_{root_index}_{op_index}_{leaf_index}"
-    
+
     def get_leaf_task(self, luid):
         if luid in self._leaf_task_dict:
             return self._leaf_task_dict[luid]
@@ -961,7 +961,7 @@ class TraceExecution:
 
     def init_leaf_list(self, dev_leaf_list):
         self._dev_leaf_list = OrderedDict.fromkeys(dev_leaf_list)
-    
+
     def build_task_successor_dict(self, file_path):
         valid_uid_list = list(self._leaf_task_dict.keys())
         valid_uid_by_seq = self._build_valid_uid_by_seq(valid_uid_list)
@@ -1002,7 +1002,7 @@ class TraceExecution:
         )
         rtask = self.get_root_task(ruid)
         self._load_task_data(rtask, node_dict, rtask_loader_dict)
-    
+
     def _process_levents(self, node_dict):
         luid_node = node_dict["LUid"][0]
         luid = TraceLeafTaskUid(
@@ -1014,7 +1014,7 @@ class TraceExecution:
         )
         ltask = self.get_leaf_task(luid)
         self._load_task_data(ltask, node_dict, ltask_loader_dict)
-    
+
     def _parse_successor_file(self, file_path):
         seq_taskid_to_uidstr = {}
         uid_str_to_info = {}
@@ -1026,26 +1026,26 @@ class TraceExecution:
                 parts = line.split(',')
                 while len(parts) < 10:
                     parts.append("")
-                
+
                 seq_no = int(parts[0])
                 raw_taskid = int(parts[1])
                 root_index = int(parts[2])
                 leaf_index = int(parts[5])
                 dup_index = raw_taskid >> TASKID_TASK_BITS
                 op_index = raw_taskid & TASKID_TASK_MASK
-                
+
                 uid_str = self._generate_uid_str(seq_no, dup_index, root_index, op_index, leaf_index)
                 task_uid = TraceLeafTaskUid(seq_no, dup_index, root_index, op_index, leaf_index)
-                
+
                 if seq_no not in seq_taskid_to_uidstr:
                     seq_taskid_to_uidstr[seq_no] = {}
                 seq_taskid_to_uidstr[seq_no][raw_taskid] = uid_str
-                
+
                 uid_str_to_info[uid_str] = (seq_no, task_uid)
                 uid_map[uid_str] = task_uid
                 succ_list = self._parse_succ_list(parts)
                 succ_map[uid_str] = succ_list
-        
+
         return seq_taskid_to_uidstr, uid_str_to_info, uid_map, succ_map
 
     def _build_valid_uid_str_map(self, valid_uid_list):
@@ -1100,11 +1100,11 @@ class Parser:
 
     class Token:
         ID = 0
-        
+
         def __init__(self, kind: int, text: str = ""):
             self._kind = kind
             self._text = text
-        
+
         def __repr__(self):
             return f"Token(kind={self._kind}, text='{self._text}')"
 
@@ -1115,11 +1115,11 @@ class Parser:
         @property
         def text(self) -> str:
             return self._text
-        
+
         @kind.setter
         def kind(self, value: int) -> None:
             self._kind = value
-        
+
         @text.setter
         def text(self, value: str) -> None:
             self._text = value
@@ -1127,7 +1127,7 @@ class Parser:
 
     def tokenization(self):
         self._token_list.clear()
-        curr = ""  
+        curr = ""
         for idx in range(self._base, len(self._text)):
             char = self._text[idx]
             if char in ('#', ',', '[', ']', '{', '}'):
@@ -1195,14 +1195,14 @@ class Parser:
             self.move_next()
             node_list.append(self.parse_node())
         return node_list
-    
+
     def _parse_child_nodes_until_terminator(self, parent_node: SchemaNode, terminator: int):
         while True:
             child_node = self.parse_node()
             parent_node.append(child_node)
             current_kind = self.current().kind
             if current_kind == ord(','):
-                self.move_next()  
+                self.move_next()
             elif current_kind == terminator:
                 self.move_next()
                 break
@@ -1214,7 +1214,7 @@ class LoadTraceLog:
     def __init__(self, path: str):
         self.path = path
         self.trace_content_list: List[str] = []
-    
+
     @staticmethod
     def _clean_trace_content(line: str, trace_pos: int, strip_whitespace: bool) -> str:
         trace_content = (
@@ -1225,7 +1225,7 @@ class LoadTraceLog:
         if strip_whitespace:
             trace_content = trace_content.strip()
         return trace_content
-    
+
     def read_trace_lines(self, encoding: str = 'utf-8', strip_whitespace: bool = True) -> List[str]:
         self.trace_content_list.clear()
         if os.path.isfile(self.path):
@@ -1236,14 +1236,14 @@ class LoadTraceLog:
                 if os.path.isfile(file_path):
                     self.read_single_file(file_path, encoding, strip_whitespace)
         return self.trace_content_list
-   
+
     def read_single_file(self, file_path: str, encoding: str, strip_whitespace: bool) -> None:
-        try: 
+        try:
             with open(file_path, 'r', encoding=encoding, errors='ignore') as f:
                 self._parse_trace_lines(f, strip_whitespace)
         except Exception as e:
             raise RuntimeError("Failed to read file") from e
-    
+
     def _parse_trace_lines(self, file_handler, strip_whitespace: bool) -> None:
         for _, line in enumerate(file_handler, 1):
             trace_pos = line.find('#trace')
@@ -1259,7 +1259,7 @@ def check_leaf_race(device_log_path: str, topo_file_path: str):
     for line in log_lines:
         if 'coa' not in line and 'expr' not in line:
             trace_exec.load_trace(line)
-    
+
     res = trace_exec.build_task_successor_dict(topo_file_path)
 
     for key, value in res.items():
@@ -1275,11 +1275,11 @@ def check_leaf_race(device_log_path: str, topo_file_path: str):
         dtask_uid = TraceDeviceTaskUid(key.device_task_index)
         device_task = trace_exec.get_device_task(dtask_uid)
         device_task.root_task_dict[key] = value
-    
+
     for key, value in trace_exec.device_task_dict.items():
         dep_graph = value.build_depend_graph()
         race_list = value.check_race(dep_graph)
-        
+
         if len(race_list) > 0:
             for race in race_list:
                 src_task_id = race.src.leaf_task.uid.get_task_id()
@@ -1297,10 +1297,10 @@ def check_leaf_race(device_log_path: str, topo_file_path: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Schema trace log analysis",
-        formatter_class=argparse.RawTextHelpFormatter 
+        formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument(
-        "-d", "--device-log", 
+        "-d", "--device-log",
         dest="device_log_path",
         required=True,
         help="Path to device log"

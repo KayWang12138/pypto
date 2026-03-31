@@ -60,4 +60,3 @@ out = pypto.logical_not(a)
 输入数据x: [0 1 2 3 4]
 输出数据y: [True False False False False]
 ```
-

@@ -49,7 +49,7 @@ def pass_verify_print(*values, cond: Union[int, SymbolicScalar] = 1) -> None:
     >>> for idx in pypto.loop(10):
     ...     pass_verify_print("idx=", idx, cond=(idx > 0))
     """
-    from .. import pypto_impl as _impl 
+    from .. import pypto_impl as _impl
 
     fmt_parts: List[str] = []
     tensors: List[_impl.Tensor] = []
@@ -80,31 +80,31 @@ def _parse_format_string(
 ) -> Tuple[str, List[pypto_impl.SymbolicScalar]]:
     from .. import pypto_impl as _impl
     from .._utils import to_sym as _to_sym
-    
+
     pattern = re.compile(r'\$([a-zA-Z0-9_]+)')
-    
+
     scalars: List[_impl.SymbolicScalar] = []
     parts: List[str] = []
     last_pos = 0
-    
+
     for match in pattern.finditer(format_str):
         if match.start() > last_pos:
             parts.append(format_str[last_pos:match.start()])
-        
+
         placeholder_name = match.group(1)
-        
+
         if placeholder_name not in kwargs:
             raise KeyError(f"Placeholder '${placeholder_name}' not found in keyword arguments")
-        
+
         value = kwargs[placeholder_name]
         scalars.append(_to_sym(value))
         parts.append("{S}")
-        
+
         last_pos = match.end()
-    
+
     if last_pos < len(format_str):
         parts.append(format_str[last_pos:])
-    
+
     return "".join(parts), scalars
 
 

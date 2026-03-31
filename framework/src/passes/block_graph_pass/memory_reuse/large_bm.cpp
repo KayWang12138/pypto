@@ -23,15 +23,12 @@ namespace npu::tile_fwk {
 constexpr size_t BITS_EACH_VALUE = 64UL;
 constexpr size_t RIGHT_SHIFT_SIZE = 6UL;
 
-constexpr size_t AlignBitSize(size_t bitSize) {
-    return bitSize + BITS_EACH_VALUE - 1;
-}
+constexpr size_t AlignBitSize(size_t bitSize) { return bitSize + BITS_EACH_VALUE - 1; }
 
-constexpr size_t AlignArraySize(size_t bitSize) {
-    return AlignBitSize(bitSize) >> RIGHT_SHIFT_SIZE;
-}
+constexpr size_t AlignArraySize(size_t bitSize) { return AlignBitSize(bitSize) >> RIGHT_SHIFT_SIZE; }
 
-void LargeBitmap::ResizeBits(const size_t newSize) {
+void LargeBitmap::ResizeBits(const size_t newSize)
+{
     if (newSize < size_) {
         return;
     }
@@ -51,30 +48,27 @@ void LargeBitmap::ResizeBits(const size_t newSize) {
 }
 
 // Shifting right by 6 bits is equivalent to dividing by 64
-void LargeBitmap::ClearBit(const size_t bitIdx) {
+void LargeBitmap::ClearBit(const size_t bitIdx)
+{
     if (bitIdx >= size_) {
-        APASS_LOG_WARN_F(Elements::Function, "Func LargeBitmap::ClearBit bitIdx %zu is not valid, total size is %zu.",
-            bitIdx, size_);
+        APASS_LOG_WARN_F(
+            Elements::Function, "Func LargeBitmap::ClearBit bitIdx %zu is not valid, total size is %zu.", bitIdx,
+            size_);
         return;
     }
     bits_[bitIdx >> RIGHT_SHIFT_SIZE] &= ~(1UL << (bitIdx % BITS_EACH_VALUE));
 }
 
-LargeBitmap::LargeBitmap(const size_t &size) : size_(size), bits_(AlignArraySize(size), 0UL) {}
+LargeBitmap::LargeBitmap(const size_t& size) : size_(size), bits_(AlignArraySize(size), 0UL) {}
 
-bool LargeBitmap::operator==(const LargeBitmap &anotherBm) const {
-    return bits_ == anotherBm.bits_;
-}
+bool LargeBitmap::operator==(const LargeBitmap& anotherBm) const { return bits_ == anotherBm.bits_; }
 
-bool LargeBitmap::operator!=(const LargeBitmap &anotherBm) const {
-    return bits_ != anotherBm.bits_;
-}
+bool LargeBitmap::operator!=(const LargeBitmap& anotherBm) const { return bits_ != anotherBm.bits_; }
 
-void LargeBitmap::SetValues(const uint64_t &value) {
-    std::fill(bits_.begin(), bits_.end(), value);
-}
+void LargeBitmap::SetValues(const uint64_t& value) { std::fill(bits_.begin(), bits_.end(), value); }
 
-void LargeBitmap::SetBit(const size_t &index) {
+void LargeBitmap::SetBit(const size_t& index)
+{
     if (index >= size_) {
         APASS_LOG_WARN_F(Elements::Function, "Index %zu is not valid, total size is %zu.", index, size_);
         return;
@@ -82,7 +76,8 @@ void LargeBitmap::SetBit(const size_t &index) {
     bits_[index / BITS_EACH_VALUE] |= 1UL << (index % BITS_EACH_VALUE);
 }
 
-bool LargeBitmap::GetBit(const size_t &index) const {
+bool LargeBitmap::GetBit(const size_t& index) const
+{
     if (index >= size_) {
         APASS_LOG_WARN_F(Elements::Function, "Index %zu is not valid, total size is %zu.", index, size_);
         return false;
@@ -90,10 +85,11 @@ bool LargeBitmap::GetBit(const size_t &index) const {
     return static_cast<bool>(bits_[index / BITS_EACH_VALUE] & (1UL << (index % BITS_EACH_VALUE)));
 }
 
-void LargeBitmap::Or(const LargeBitmap &anotherBm) {
+void LargeBitmap::Or(const LargeBitmap& anotherBm)
+{
     size_t index = 0UL;
     const size_t anotherSize = anotherBm.bits_.size();
-    for (auto &bit : bits_) {
+    for (auto& bit : bits_) {
         if (index >= anotherSize) {
             return;
         }
@@ -102,10 +98,11 @@ void LargeBitmap::Or(const LargeBitmap &anotherBm) {
     }
 }
 
-void LargeBitmap::And(const LargeBitmap &anotherBm) {
+void LargeBitmap::And(const LargeBitmap& anotherBm)
+{
     size_t index = 0UL;
     const size_t anotherSize = anotherBm.bits_.size();
-    for (auto &bit : bits_) {
+    for (auto& bit : bits_) {
         if (index >= anotherSize) {
             return;
         }

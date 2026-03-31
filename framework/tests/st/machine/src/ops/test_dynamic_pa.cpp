@@ -31,7 +31,9 @@ using namespace npu::tile_fwk::dynamic;
 
 class DynamicPATest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-static void readBlockTableFromFile(const std::string& filename, int rows, int cols, std::vector<std::vector<int>> & blockTable) {
+static void readBlockTableFromFile(
+    const std::string& filename, int rows, int cols, std::vector<std::vector<int>>& blockTable)
+{
     std::ifstream inFile(filename, std::ios::binary);
     if (!inFile) {
         std::cerr << "Error opening file for reading!" << std::endl;
@@ -54,7 +56,8 @@ struct PaConfig {
     bool isImmediateSymScalar{false};
 };
 
-void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
+void testPa(PaTileShapeConfig& tileConfig, PaConfig config)
+{
     SetInterpreterConfig();
 
     std::vector<uint8_t> devProgBinary;
@@ -137,7 +140,7 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
             RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(vNopeCache, vNopeCacheData),
             RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qRope, qRopeData),
             RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kRopeCache, kRopeCacheData),
-            });
+        });
     }
 
     ProgramData::GetInstance().AppendOutputs({
@@ -148,29 +151,34 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
     });
 
     if (config.onlyBatchLoop) {
-        PageAttentionHighThroughput(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
+        PageAttentionHighThroughput(
+            qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
             tileConfig, config.maxUnrollTimes);
     } else {
-         if (!config.manualUnroll) {
+        if (!config.manualUnroll) {
             if (!config.isImmediateSymScalar) {
-                PageAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
-                    tileConfig, config.maxUnrollTimes, config.isNzFormat);
+                PageAttention(
+                    qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale,
+                    paOut, tileConfig, config.maxUnrollTimes, config.isNzFormat);
             } else {
-                PageAttentionWithImmScalar(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTableVector/*vector*/, seq/*vector*/, blockSize, softmaxScale, paOut,
-                    tileConfig, config.maxUnrollTimes, config.isNzFormat);
+                PageAttentionWithImmScalar(
+                    qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTableVector /*vector*/, seq /*vector*/,
+                    blockSize, softmaxScale, paOut, tileConfig, config.maxUnrollTimes, config.isNzFormat);
             }
         } else {
-            PageAttentionWithManualUnroll(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
+            PageAttentionWithManualUnroll(
+                qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
                 tileConfig, config.maxUnrollTimes);
         }
     }
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.0005f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.0005f));
 }
 
-TEST_F(DynamicPATest, dynamic_pa_low_lantency) {
+TEST_F(DynamicPATest, dynamic_pa_low_lantency)
+{
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
     const int blockSize = 128;
@@ -185,7 +193,8 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency) {
     testPa(tileConfig, config);
 }
 
-TEST_F(DynamicPATest, dynamic_pa_low_lantency_imm_scalar) {
+TEST_F(DynamicPATest, dynamic_pa_low_lantency_imm_scalar)
+{
     std::vector<std::string> funcName = {"TENSOR_main"};
     config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
     PaTileShapeConfig tileConfig;
@@ -203,7 +212,8 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_imm_scalar) {
     testPa(tileConfig, config);
 }
 
-TEST_F(DynamicPATest, dynamic_pa_low_lantency_unroll) {
+TEST_F(DynamicPATest, dynamic_pa_low_lantency_unroll)
+{
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
     const int blockSize = 128;
@@ -218,7 +228,8 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_unroll) {
     testPa(tileConfig, config);
 }
 
-TEST_F(DynamicPATest, dynamic_pa_low_lantency_manual_unroll) {
+TEST_F(DynamicPATest, dynamic_pa_low_lantency_manual_unroll)
+{
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
     const int blockSize = 128;
@@ -234,7 +245,8 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_manual_unroll) {
     testPa(tileConfig, config);
 }
 
-TEST_F(DynamicPATest, dynamic_pa_low_lantency_dyn_valid_shape) {
+TEST_F(DynamicPATest, dynamic_pa_low_lantency_dyn_valid_shape)
+{
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
     const int blockSize = 128;
@@ -248,7 +260,8 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_dyn_valid_shape) {
     testPa(tileConfig, config);
 }
 
-TEST_F(DynamicPATest, dynamic_pa_high_throughput_dview_large) {
+TEST_F(DynamicPATest, dynamic_pa_high_throughput_dview_large)
+{
     PaTileShapeConfig tileConfig;
     const int nTile = 128;
     tileConfig.headNumQTile = nTile;
@@ -261,7 +274,8 @@ TEST_F(DynamicPATest, dynamic_pa_high_throughput_dview_large) {
     testPa(tileConfig, config);
 }
 
-TEST_F(DynamicPATest, dynamic_pa_high_throughput_only_batch_loop) {
+TEST_F(DynamicPATest, dynamic_pa_high_throughput_only_batch_loop)
+{
     PaTileShapeConfig tileConfig;
     const int nTile = 128;
     tileConfig.headNumQTile = nTile;
@@ -275,7 +289,8 @@ TEST_F(DynamicPATest, dynamic_pa_high_throughput_only_batch_loop) {
     testPa(tileConfig, config);
 }
 
-TEST_F(DynamicPATest, dynamic_pa_high_throughput_dview_large_dyn_valid_shape) {
+TEST_F(DynamicPATest, dynamic_pa_high_throughput_dview_large_dyn_valid_shape)
+{
     PaTileShapeConfig tileConfig;
     const int nTile = 128;
     tileConfig.headNumQTile = nTile;
@@ -289,13 +304,14 @@ TEST_F(DynamicPATest, dynamic_pa_high_throughput_dview_large_dyn_valid_shape) {
     testPa(tileConfig, config);
 }
 
-TEST_F(DynamicPATest, dynamic_pa_noflash_unalign) {
+TEST_F(DynamicPATest, dynamic_pa_noflash_unalign)
+{
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
     const int blockSize = 128;
     tileConfig.headNumQTile = nTile;
     tileConfig.v0TileShape = {nTile, 128};
-    tileConfig.c1TileShape = {nTile, nTile, 64, 64, blockSize, blockSize}; // n, D, S2
+    tileConfig.c1TileShape = {nTile, nTile, 64, 64, blockSize, blockSize};   // n, D, S2
     tileConfig.v1TileShape = {nTile, 128};
     tileConfig.c2TileShape = {nTile, nTile, 128, 128, blockSize, blockSize}; // n, S2, D
     tileConfig.v2TileShape = {nTile, 128};
@@ -303,13 +319,14 @@ TEST_F(DynamicPATest, dynamic_pa_noflash_unalign) {
     testPa(tileConfig, config);
 }
 
-TEST_F(DynamicPATest, dynamic_pa_noflash) {
+TEST_F(DynamicPATest, dynamic_pa_noflash)
+{
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
     const int blockSize = 128;
     tileConfig.headNumQTile = nTile;
     tileConfig.v0TileShape = {nTile, 128};
-    tileConfig.c1TileShape = {nTile, nTile, 64, 64, blockSize, blockSize}; // n, D, S2
+    tileConfig.c1TileShape = {nTile, nTile, 64, 64, blockSize, blockSize};   // n, D, S2
     tileConfig.v1TileShape = {nTile, 128};
     tileConfig.c2TileShape = {nTile, nTile, 128, 128, blockSize, blockSize}; // n, S2, D
     tileConfig.v2TileShape = {nTile, 128};
@@ -317,13 +334,14 @@ TEST_F(DynamicPATest, dynamic_pa_noflash) {
     testPa(tileConfig, config);
 }
 
-TEST_F(DynamicPATest, dynamic_pa_low_lantency_dyn_unalign) {
+TEST_F(DynamicPATest, dynamic_pa_low_lantency_dyn_unalign)
+{
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
     const int blockSize = 128;
     tileConfig.headNumQTile = nTile;
     tileConfig.v0TileShape = {nTile, 128};
-    tileConfig.c1TileShape = {nTile, nTile, 64, 64, blockSize, blockSize}; // n, D, S2
+    tileConfig.c1TileShape = {nTile, nTile, 64, 64, blockSize, blockSize};   // n, D, S2
     tileConfig.v1TileShape = {nTile, 128};
     tileConfig.c2TileShape = {nTile, nTile, 128, 128, blockSize, blockSize}; // n, S2, D
     tileConfig.v2TileShape = {nTile, 128};
@@ -331,7 +349,8 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_dyn_unalign) {
     testPa(tileConfig, config);
 }
 
-TEST_F(DynamicPATest, dynamic_pa_high_throughput_dview_large_dyn_unalign) {
+TEST_F(DynamicPATest, dynamic_pa_high_throughput_dview_large_dyn_unalign)
+{
     PaTileShapeConfig tileConfig;
     const int nTile = 128;
     tileConfig.headNumQTile = nTile;

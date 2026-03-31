@@ -35,17 +35,17 @@
 namespace npu::tile_fwk::dynamic {
 
 struct EmulationMemoryUtils {
-
     EmulationMemoryUtils() {}
     ~EmulationMemoryUtils() = default;
     static bool IsDevice() { return false; }
-    uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
+    uint8_t* AllocDev(size_t size, uint8_t** cachedDevAddrHolder)
+    {
         (void)cachedDevAddrHolder;
         if (size == 0 || size > 0x500000000) {
             MACHINE_LOGE(DevCommonErr::PARAM_INVALID, "AllocDev failed: size=%zu", size);
             return nullptr;
         }
-        uint8_t *rawPtr = (uint8_t *)malloc(size);
+        uint8_t* rawPtr = (uint8_t*)malloc(size);
         if (rawPtr == nullptr) {
             return nullptr;
         }
@@ -54,15 +54,17 @@ struct EmulationMemoryUtils {
         return rawPtr;
     }
 
-    uint8_t *AllocZero(uint64_t size, uint8_t **cachedDevAddrHolder) {
+    uint8_t* AllocZero(uint64_t size, uint8_t** cachedDevAddrHolder)
+    {
         (void)cachedDevAddrHolder;
-        uint8_t *devPtr = AllocDev(size, nullptr);
+        uint8_t* devPtr = AllocDev(size, nullptr);
         memset_s(devPtr, size, 0, size);
         return devPtr;
     }
 
-    uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
-        uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
+    uint8_t* CopyToDev(uint8_t* data, uint64_t size, uint8_t** cachedDevAddrHolder)
+    {
+        uint8_t* devPtr = AllocDev(size, cachedDevAddrHolder);
         if (devPtr != nullptr) {
             memcpy_s(devPtr, size, data, size);
         }
@@ -70,61 +72,63 @@ struct EmulationMemoryUtils {
     }
 
     template <typename T>
-    T *CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder) {
+    T* CopyToDev(std::vector<T> data, uint8_t** cachedDevAddrHolder)
+    {
         (void)cachedDevAddrHolder;
-        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), nullptr);
+        return (T*)CopyToDev((uint8_t*)data.data(), data.size() * sizeof(T), nullptr);
     }
 
-    void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
-        memcpy_s(data, size, devPtr, size);
-    }
+    void CopyFromDev(uint8_t* data, uint8_t* devPtr, uint64_t size) { memcpy_s(data, size, devPtr, size); }
 
-    uint8_t *CopyToDev(RawTensorData &data) {
+    uint8_t* CopyToDev(RawTensorData& data)
+    {
         if (data.GetDevPtr() == nullptr) {
-            auto devAddr = CopyToDev((uint8_t *)data.data(), data.size(), nullptr);
+            auto devAddr = CopyToDev((uint8_t*)data.data(), data.size(), nullptr);
             data.SetDevPtr(devAddr);
         }
         return data.GetDevPtr();
     }
 
-    void CopyFromDev(RawTensorData &t) {
-        CopyFromDev(t.data(), t.GetDevPtr(), t.size());
-    }
+    void CopyFromDev(RawTensorData& t) { CopyFromDev(t.data(), t.GetDevPtr(), t.size()); }
 
-    uint64_t GetL2Offset() {
-        return 0;
-    }
+    uint64_t GetL2Offset() { return 0; }
+
 private:
-        std::vector<std::shared_ptr<uint8_t>> EmulationAllocatePtrs_;
+    std::vector<std::shared_ptr<uint8_t>> EmulationAllocatePtrs_;
 };
 
 class EmulationLauncher {
 public:
-    static int EmulationLaunchOnceWithHostTensorData(Function *function, const std::vector<DeviceTensorData> &inputList,
-        const std::vector<DeviceTensorData> &outputList, DevControlFlowCache* ctrlCache, EmulationMemoryUtils& memUtils, const DeviceLauncherConfig &config = DeviceLauncherConfig());
-    static int EmulationLaunchDeviceTensorData(Function *function, const std::vector<DeviceTensorData> &inputList,
-        const std::vector<DeviceTensorData> &outputList, const DeviceLauncherConfig &config = DeviceLauncherConfig());
-    static int EmulationRunOnce(Function *function, DevControlFlowCache* ctrlCache, const DeviceLauncherConfig &config = DeviceLauncherConfig());
-    static int EmulationBuildControlFlowCache(DeviceKernelArgs &kArgs);
-    static DevControlFlowCache* CreateHostCtrlFlowCache(DevAscendProgram *devProg, Function *function, EmulationMemoryUtils& memUtils);
+    static int EmulationLaunchOnceWithHostTensorData(
+        Function* function, const std::vector<DeviceTensorData>& inputList,
+        const std::vector<DeviceTensorData>& outputList, DevControlFlowCache* ctrlCache, EmulationMemoryUtils& memUtils,
+        const DeviceLauncherConfig& config = DeviceLauncherConfig());
+    static int EmulationLaunchDeviceTensorData(
+        Function* function, const std::vector<DeviceTensorData>& inputList,
+        const std::vector<DeviceTensorData>& outputList, const DeviceLauncherConfig& config = DeviceLauncherConfig());
+    static int EmulationRunOnce(
+        Function* function, DevControlFlowCache* ctrlCache,
+        const DeviceLauncherConfig& config = DeviceLauncherConfig());
+    static int EmulationBuildControlFlowCache(DeviceKernelArgs& kArgs);
+    static DevControlFlowCache* CreateHostCtrlFlowCache(
+        DevAscendProgram* devProg, Function* function, EmulationMemoryUtils& memUtils);
     static int BuildControlFlowCacheWithEmulationTensorData(
-            Function *function, const std::vector<DeviceTensorData> &inputList,
-            const std::vector<DeviceTensorData> &outputList,
-            CachedOperator *cachedOperator, DevControlFlowCache **outCtrlFlowCache, EmulationMemoryUtils& memUtils,
-            const DeviceLauncherConfig &config = DeviceLauncherConfig());
+        Function* function, const std::vector<DeviceTensorData>& inputList,
+        const std::vector<DeviceTensorData>& outputList, CachedOperator* cachedOperator,
+        DevControlFlowCache** outCtrlFlowCache, EmulationMemoryUtils& memUtils,
+        const DeviceLauncherConfig& config = DeviceLauncherConfig());
 
-#define CONTROL_FLOW_CACHE_BASE_ADDR                    0x100000000
-#define CONTROL_FLOW_CACHE_TENSOR_SIZE                  0x100000000
+#define CONTROL_FLOW_CACHE_BASE_ADDR 0x100000000
+#define CONTROL_FLOW_CACHE_TENSOR_SIZE 0x100000000
     static int BuildControlFlowCache(
-            Function *function,
-            EmulationMemoryUtils& memUtils,
-            const std::vector<DeviceTensorData> &inputList = {},
-            const std::vector<DeviceTensorData> &outputList = {}, DevControlFlowCache **outCtrlFlowCache = nullptr,
-            const DeviceLauncherConfig &config = DeviceLauncherConfig());
-    static int BuildControlFlowCache(Function *function, DevControlFlowCache **outCtrlFlowCache, EmulationMemoryUtils& memUtils,
-                                     const DeviceLauncherConfig &config = DeviceLauncherConfig());
+        Function* function, EmulationMemoryUtils& memUtils, const std::vector<DeviceTensorData>& inputList = {},
+        const std::vector<DeviceTensorData>& outputList = {}, DevControlFlowCache** outCtrlFlowCache = nullptr,
+        const DeviceLauncherConfig& config = DeviceLauncherConfig());
+    static int BuildControlFlowCache(
+        Function* function, DevControlFlowCache** outCtrlFlowCache, EmulationMemoryUtils& memUtils,
+        const DeviceLauncherConfig& config = DeviceLauncherConfig());
 };
 
-}
+} // namespace npu::tile_fwk::dynamic
 
-#endif//SRC_MACHINE_EMULATION_LAUNCHER_H
+#endif // SRC_MACHINE_EMULATION_LAUNCHER_H

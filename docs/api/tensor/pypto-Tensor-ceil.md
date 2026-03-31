@@ -17,4 +17,3 @@ ceil(self) -> 'Tensor'
 ## 详细说明
 
 请参见[pypto.ceil](../operation/pypto-ceil.md)。
-

@@ -49,4 +49,3 @@ PassConfigs 对象，该对象含有以下属性，属性只读：
 ```python
 pypto.get_pass_configs("PVC2_OOO", "ExpandFunction")
 ```
-

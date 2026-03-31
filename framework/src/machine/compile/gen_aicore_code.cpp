@@ -28,9 +28,10 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
     return KernelEntry(ffts_addr, inputs, outputs, workspace, tilingdata, cfgdata);
 }
 )!!!";
-}
+} // namespace
 
-bool GenAicoreSrcFile(const std::string &codeSrcPath, const std::string &funcHash) {
+bool GenAicoreSrcFile(const std::string& codeSrcPath, const std::string& funcHash)
+{
     std::string newSrcCode = kAicoreSrcCode;
     size_t pos = newSrcCode.find(kKernelEntryStr);
     while (pos != std::string::npos) {
@@ -42,4 +43,4 @@ bool GenAicoreSrcFile(const std::string &codeSrcPath, const std::string &funcHas
     }
     return !RealPath(codeSrcPath).empty();
 }
-}
+} // namespace npu::tile_fwk

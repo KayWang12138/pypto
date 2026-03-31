@@ -27,22 +27,25 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicNSATest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-void SetPreConfig() {
-}
+void SetPreConfig() {}
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName)
+{
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
     return golden;
 }
 
-template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false,
+template <
+    typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false,
     bool ci = false, bool debug = false>
-void TestNsa(const NSAV1SimpleParams &params, const MlaTileConfig &prologConfig,
-    WinAttenTileShapeConfig &winAttntileConfig, SATileShapeConfig &saTileConfig,
-    PostTileConfig &postConfig, CmpAttnTile &cmpTileConfig, float precision, std::string cacheMode = "PA_BSND") {
+void TestNsa(
+    const NSAV1SimpleParams& params, const MlaTileConfig& prologConfig, WinAttenTileShapeConfig& winAttntileConfig,
+    SATileShapeConfig& saTileConfig, PostTileConfig& postConfig, CmpAttnTile& cmpTileConfig, float precision,
+    std::string cacheMode = "PA_BSND")
+{
     (void)precision;
     SetPreConfig();
 
@@ -388,11 +391,31 @@ void TestNsa(const NSAV1SimpleParams &params, const MlaTileConfig &prologConfig,
     auto topkRes_v3 = RawTensorData::CreateConstantTensor<uint32_t>(topkRes, 0.0f);
     auto topkInputData = RawTensorData::CreateConstantTensor<float>(topkInput, 0.0f);
 
-    std::vector<RawTensorDataPtr> outputDataList = {/*outKvCacheData, outKrCacheData,*/
+    std::vector<RawTensorDataPtr> outputDataList = {
+        /*outKvCacheData, outKrCacheData,*/
         outputData, cmpAttn_v3, cmpSoftmax_v3, fullK_v3, cmpK_v3, topkRes_v3, topkInputData};
-    std::vector<RawTensorDataPtr> inputDataList = {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData,
-        gammaCkvData, sinData, cosData, kvLenData, kvCacheData, krCacheData, cmpKvCacheData_v3, cmpKrCacheData_v3,
-        blockTableData, cmpBlockTableData_v3, actSeqData_v3, actCmpSeqData_v3, wk1Data_v3, wk2Data_v3, cosData_v3,
+    std::vector<RawTensorDataPtr> inputDataList = {
+        xData,
+        wDqData,
+        wUqQrData,
+        wUkData,
+        wDkvKrData,
+        gammaCqData,
+        gammaCkvData,
+        sinData,
+        cosData,
+        kvLenData,
+        kvCacheData,
+        krCacheData,
+        cmpKvCacheData_v3,
+        cmpKrCacheData_v3,
+        blockTableData,
+        cmpBlockTableData_v3,
+        actSeqData_v3,
+        actCmpSeqData_v3,
+        wk1Data_v3,
+        wk2Data_v3,
+        cosData_v3,
         sinData_v3};
     MlaQuantInputs quantInputs;
     if (isQuant) {
@@ -409,21 +432,26 @@ void TestNsa(const NSAV1SimpleParams &params, const MlaTileConfig &prologConfig,
         inputDataList.emplace_back(nullptr); // quantInputs.smoothScalesCq
     }
     std::vector<RawTensorDataPtr> tmpInputDataList = {
-        topkIndicesData, /*kvNopeCacheData, kRopeCacheData,*/ kvCacheActSeqData, // genkvSlc
-        /*qNopeData, qRopeData, slcActSeqsData,*/                                                     // slcAtten
-        /*xData, */ gateW1Data, gateW2Data, gateSimW1Data,                                            // gatedScore
-        cmpAttenData, /*winAttenData,*/                                                               // genAttn
-        wUvData, woData,                                                                              // post
+        topkIndicesData,
+        /*kvNopeCacheData, kRopeCacheData,*/ kvCacheActSeqData, // genkvSlc
+        /*qNopeData, qRopeData, slcActSeqsData,*/               // slcAtten
+        /*xData, */ gateW1Data,
+        gateW2Data,
+        gateSimW1Data,    // gatedScore
+        cmpAttenData,
+        /*winAttenData,*/ // genAttn
+        wUvData,
+        woData,           // post
     };
     inputDataList.insert(inputDataList.end(), tmpInputDataList.begin(), tmpInputDataList.end());
 
-    QuantTensorWithData wUvQuant{
-        false, false, wUvScaleShape, smoothWUvShape, "wUvScale", "smoothWUv", "/w_uv_scale.bin", "/smooth_w_uv.bin"};
+    QuantTensorWithData wUvQuant{false,      false,       wUvScaleShape,     smoothWUvShape,
+                                 "wUvScale", "smoothWUv", "/w_uv_scale.bin", "/smooth_w_uv.bin"};
     CreateQuantTensorAndData(wUvQuant);
     inputDataList.emplace_back(wUvQuant.scale.dataPtr);
     inputDataList.emplace_back(wUvQuant.smooth.dataPtr);
-    QuantTensorWithData wOQuant{
-        isQuant, isSmooth, woScaleShape, smoothWoShape, "woScale", "smoothWo", "/w_o_scale.bin", "/smooth_w_o.bin"};
+    QuantTensorWithData wOQuant{isQuant,   isSmooth,   woScaleShape,     smoothWoShape,
+                                "woScale", "smoothWo", "/w_o_scale.bin", "/smooth_w_o.bin"};
     CreateQuantTensorAndData(wOQuant);
     inputDataList.emplace_back(wOQuant.scale.dataPtr);
     inputDataList.emplace_back(wOQuant.smooth.dataPtr);
@@ -431,13 +459,14 @@ void TestNsa(const NSAV1SimpleParams &params, const MlaTileConfig &prologConfig,
     PostTensors postTensors{
         wUv, wo, wUvQuant.scale.tensor, wUvQuant.smooth.tensor, wOQuant.scale.tensor, wOQuant.smooth.tensor};
     // 4. 计算接口
-    DynamicNsa(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache, quantInputs,
-        prologConfig, eps, eps, cacheMode, topkIndices, /*kvNopeCache, kRopeCache,*/ kvCacheActSeq,
-        blockTable, front, near, topk, slcBlockSize, blockSize,     // genKvSlc
-        /*qNope, qRope, slcActSeqs,*/ softmaxScale, saTileConfig,   // slcAttn
-        /*x, */ gateW1, gateW2, gateSimW1, GateMode::standard,      // gatedscore
-        cmpAtten, winSize, winAttntileConfig,                       // gen win
-        postTensors, postConfig,                                    // post
+    DynamicNsa(
+        x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache, quantInputs,
+        prologConfig, eps, eps, cacheMode, topkIndices, /*kvNopeCache, kRopeCache,*/ kvCacheActSeq, blockTable, front,
+        near, topk, slcBlockSize, blockSize,                      // genKvSlc
+        /*qNope, qRope, slcActSeqs,*/ softmaxScale, saTileConfig, // slcAttn
+        /*x, */ gateW1, gateW2, gateSimW1, GateMode::standard,    // gatedscore
+        cmpAtten, winSize, winAttntileConfig,                     // gen win
+        postTensors, postConfig,                                  // post
         outputKvCache, outputKrCache, postOut, cmpKvCache_v2, cmpKrCache_v2, cmpBlockTable_v2, actSeqLen_v2,
         actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpSoftmax, fullK, cmpK, firstRope,
         firstRopeInput, topkRes, topkInput, cmpBlockSize, cmpStride, cmpTileConfig, debug);
@@ -447,43 +476,45 @@ void TestNsa(const NSAV1SimpleParams &params, const MlaTileConfig &prologConfig,
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList); // output list
     if constexpr (!ci) {
         std::cout << "MlaProlog kv ====== " << std::endl;
-        EXPECT_TRUE(resultCmp<T>(golden3, (T *)outKvCacheData->data(), 0.003f));
+        EXPECT_TRUE(resultCmp<T>(golden3, (T*)outKvCacheData->data(), 0.003f));
         std::cout << "MlaProlog kr ====== " << std::endl;
-        EXPECT_TRUE(resultCmp<T>(golden4, (T *)outKrCacheData->data(), 0.003f));
+        EXPECT_TRUE(resultCmp<T>(golden4, (T*)outKrCacheData->data(), 0.003f));
 
         std::cout << "========================fullKCast==============================" << std::endl;
-        EXPECT_TRUE(resultCmp(fullKGolden, (T *)fullK_v3->data(), 0.05f, 16));
+        EXPECT_TRUE(resultCmp(fullKGolden, (T*)fullK_v3->data(), 0.05f, 16));
         std::cout << "=======================ropeOut===============================" << std::endl;
-        EXPECT_TRUE(resultCmp<T>(firstRopeGolden, (T *)firstRope_v3->data(), 0.05f, 16));
+        EXPECT_TRUE(resultCmp<T>(firstRopeGolden, (T*)firstRope_v3->data(), 0.05f, 16));
         std::cout << "========================kCmpCast==============================" << std::endl;
-        EXPECT_TRUE(resultCmp(kCmpGolden, (float *)cmpK_v3->data(), 0.05f, 16));
+        EXPECT_TRUE(resultCmp(kCmpGolden, (float*)cmpK_v3->data(), 0.05f, 16));
         std::cout << "=======================softmaxOut===============================" << std::endl;
-        EXPECT_TRUE(resultCmp(softmaxGolden, (float *)cmpSoftmax_v3->data(), 0.05f, 16));
+        EXPECT_TRUE(resultCmp(softmaxGolden, (float*)cmpSoftmax_v3->data(), 0.05f, 16));
         std::cout << "=======================attnOut===============================" << std::endl;
-        EXPECT_TRUE(resultCmp(attnGolden, (float *)cmpAttn_v3->data(), 0.05f, 16));
+        EXPECT_TRUE(resultCmp(attnGolden, (float*)cmpAttn_v3->data(), 0.05f, 16));
         std::cout << "=======================attn16Out===============================" << std::endl;
-        EXPECT_TRUE(resultCmp(attn16Golden, (T *)cmpAttn16_v3->data(), 0.005f, 100));
+        EXPECT_TRUE(resultCmp(attn16Golden, (T*)cmpAttn16_v3->data(), 0.005f, 100));
 
         std::cout << "=======================topkInput===============================" << std::endl;
         EXPECT_TRUE(resultCmp(
-            topkInputGolden, (float *)topkInputData->data(), 0.008f, 0, 16, false, false, topkInputGolden.size()));
+            topkInputGolden, (float*)topkInputData->data(), 0.008f, 0, 16, false, false, topkInputGolden.size()));
 
         std::cout << "=======================topkRes===============================" << std::endl;
         //    EXPECT_TRUE(resultCmp(topkIndicesGolden, (float *)topkRes_v3->data(), 0.05f, 0, 16, false, false, 20));
         EXPECT_TRUE(resultCmp(
-            topkIndicesGolden, (uint32_t *)topkRes_v3->data(), 0.008f, 0, 16, false, false, topkIndicesGolden.size()));
+            topkIndicesGolden, (uint32_t*)topkRes_v3->data(), 0.008f, 0, 16, false, false, topkIndicesGolden.size()));
 
         // std::cout << "attenOut ====== " << std::endl;
         // EXPECT_TRUE(resultCmp<T>(attenOutGolden, (T *)attenOutZeroData->data(), 0.05f));
         std::cout << "post out ====== " << std::endl;
-        EXPECT_TRUE(resultCmp<T>(postGolden, (T *)outputData->data(), 0.05f));
+        EXPECT_TRUE(resultCmp<T>(postGolden, (T*)outputData->data(), 0.05f));
     }
     std::cout << "post out ====== print" << std::endl;
-    EXPECT_TRUE(resultCmp<T>(postGolden, (T *)outputData->data(), 0.13f, int(0.05 * postGolden.size()), 1000, false, false, 128));
+    EXPECT_TRUE(resultCmp<T>(
+        postGolden, (T*)outputData->data(), 0.13f, int(0.05 * postGolden.size()), 1000, false, false, 128));
 #endif
 }
 
-TEST_F(DynamicNSATest, nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant) {
+TEST_F(DynamicNSATest, nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant)
+{
     NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
 
     int paramsSize = 7;
@@ -501,8 +532,8 @@ TEST_F(DynamicNSATest, nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant) {
 
     SATileShapeConfig saTileConfig;
     saTileConfig.kvSlcV0TileShape = {64, 256}; // slcBlockSize=64
-    const int gTile = 128;  // for gLoop split
-    const int sTile = 1024; // for s2Loop split
+    const int gTile = 128;                     // for gLoop split
+    const int sTile = 1024;                    // for s2Loop split
     saTileConfig.gTile = gTile;
     saTileConfig.sKvTile = sTile;
     saTileConfig.c1TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
@@ -516,12 +547,12 @@ TEST_F(DynamicNSATest, nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant) {
     winAttnTileConfig.vNopeTileShape = {NUM_16, NUM_256};
     winAttnTileConfig.vRopeTileShape = {NUM_128, NUM_64};
     winAttnTileConfig.outTileShape = {NUM_16, NUM_256};
-    winAttnTileConfig.c1TileShape = {
-        gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (winSize, dN+dR) -> (n1, s2Tile)
-    winAttnTileConfig.v1TileShape = {NUM_16, NUM_256};           // (n1, s2Tile)
-    winAttnTileConfig.c2TileShape = {
-        gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
-    winAttnTileConfig.v2TileShape = {NUM_16, NUM_256};           // (n1, d)
+    winAttnTileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64,
+                                     NUM_64,    NUM_128,   NUM_128}; // (n1, dN+dR) @ (winSize, dN+dR) -> (n1, s2Tile)
+    winAttnTileConfig.v1TileShape = {NUM_16, NUM_256};               // (n1, s2Tile)
+    winAttnTileConfig.c2TileShape = {gTileSize, gTileSize, NUM_128,
+                                     NUM_128,   NUM_128,   NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
+    winAttnTileConfig.v2TileShape = {NUM_16, NUM_256};               // (n1, d)
 
     int tileB = 16;
     if (params.b == 24) {
@@ -553,20 +584,21 @@ TEST_F(DynamicNSATest, nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant) {
 
     if (isQuant == 1) {
         if (isSmooth == 1) {
-            TestNsa<npu::tile_fwk::float16, int8_t, true>(params, prologConfig, winAttnTileConfig, saTileConfig,
-                postConfig, config, 0.06f, cacheMode);
+            TestNsa<npu::tile_fwk::float16, int8_t, true>(
+                params, prologConfig, winAttnTileConfig, saTileConfig, postConfig, config, 0.06f, cacheMode);
         } else {
-            TestNsa<npu::tile_fwk::float16, int8_t, false>(params, prologConfig, winAttnTileConfig, saTileConfig,
-                postConfig, config, 0.06f, cacheMode);
+            TestNsa<npu::tile_fwk::float16, int8_t, false>(
+                params, prologConfig, winAttnTileConfig, saTileConfig, postConfig, config, 0.06f, cacheMode);
         }
     } else {
-        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false>(params, prologConfig, winAttnTileConfig,
-            saTileConfig, postConfig, config, 0.02f, cacheMode);
+        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false>(
+            params, prologConfig, winAttnTileConfig, saTileConfig, postConfig, config, 0.02f, cacheMode);
     }
 }
 
 template <bool ci = false, bool debug = false>
-void test_common(NSAV1SimpleParams params) {
+void test_common(NSAV1SimpleParams params)
+{
     int paramsSize = 7;
     config::SetPassConfig("PVC2_OOO", "SplitReshape", KEY_DISABLE_PASS, true);
     std::vector<int> inputParams(paramsSize);
@@ -583,8 +615,8 @@ void test_common(NSAV1SimpleParams params) {
 
     SATileShapeConfig saTileConfig;
     saTileConfig.kvSlcV0TileShape = {64, 256}; // slcBlockSize=64
-    const int gTile = 128;  // for gLoop split
-    const int sTile = 1024; // for s2Loop split
+    const int gTile = 128;                     // for gLoop split
+    const int sTile = 1024;                    // for s2Loop split
     saTileConfig.gTile = gTile;
     saTileConfig.sKvTile = sTile;
     saTileConfig.c1TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
@@ -598,12 +630,12 @@ void test_common(NSAV1SimpleParams params) {
     winAttnTileConfig.vNopeTileShape = {NUM_16, NUM_256};
     winAttnTileConfig.vRopeTileShape = {NUM_128, NUM_64};
     winAttnTileConfig.outTileShape = {NUM_16, NUM_256};
-    winAttnTileConfig.c1TileShape = {
-        gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (winSize, dN+dR) -> (n1, s2Tile)
-    winAttnTileConfig.v1TileShape = {NUM_16, NUM_256};           // (n1, s2Tile)
-    winAttnTileConfig.c2TileShape = {
-        gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
-    winAttnTileConfig.v2TileShape = {NUM_16, NUM_256};           // (n1, d)
+    winAttnTileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64,
+                                     NUM_64,    NUM_128,   NUM_128}; // (n1, dN+dR) @ (winSize, dN+dR) -> (n1, s2Tile)
+    winAttnTileConfig.v1TileShape = {NUM_16, NUM_256};               // (n1, s2Tile)
+    winAttnTileConfig.c2TileShape = {gTileSize, gTileSize, NUM_128,
+                                     NUM_128,   NUM_128,   NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
+    winAttnTileConfig.v2TileShape = {NUM_16, NUM_256};               // (n1, d)
 
     int tileB = 16;
     if (params.b == 24) {
@@ -634,49 +666,56 @@ void test_common(NSAV1SimpleParams params) {
     std::string cacheMode = "PA_BSND";
     if (isQuant == 1) {
         if (isSmooth == 1) {
-            TestNsa<npu::tile_fwk::float16, int8_t, true, false, ci, debug>(params, prologConfig, winAttnTileConfig,
-                saTileConfig, postConfig, config, 0.06f, cacheMode);
+            TestNsa<npu::tile_fwk::float16, int8_t, true, false, ci, debug>(
+                params, prologConfig, winAttnTileConfig, saTileConfig, postConfig, config, 0.06f, cacheMode);
         } else {
-            TestNsa<npu::tile_fwk::float16, int8_t, false, false, ci, debug>(params, prologConfig, winAttnTileConfig,
-                saTileConfig, postConfig, config, 0.06f, cacheMode);
+            TestNsa<npu::tile_fwk::float16, int8_t, false, false, ci, debug>(
+                params, prologConfig, winAttnTileConfig, saTileConfig, postConfig, config, 0.06f, cacheMode);
         }
     } else {
-        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, ci, debug>(params, prologConfig,
-            winAttnTileConfig, saTileConfig, postConfig, config, 0.02f, cacheMode);
+        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, ci, debug>(
+            params, prologConfig, winAttnTileConfig, saTileConfig, postConfig, config, 0.02f, cacheMode);
     }
 }
 
-TEST_F(DynamicNSATest, nsa_b_16_s1_1_s2_8192_h_7168_fp16) {
+TEST_F(DynamicNSATest, nsa_b_16_s1_1_s2_8192_h_7168_fp16)
+{
     NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     test_common(params);
 }
 
-TEST_F(DynamicNSATest, s2_1024) {
+TEST_F(DynamicNSATest, s2_1024)
+{
     NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     test_common(params);
 }
 
-TEST_F(DynamicNSATest, s2_2048) {
+TEST_F(DynamicNSATest, s2_2048)
+{
     NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     test_common(params);
 }
 
-TEST_F(DynamicNSATest, s2_8192) {
+TEST_F(DynamicNSATest, s2_8192)
+{
     NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     test_common(params);
 }
 
-TEST_F(DynamicNSATest, s2_4096) {
+TEST_F(DynamicNSATest, s2_4096)
+{
     NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     test_common(params);
 }
 
-TEST_F(DynamicNSATest, mini) {
+TEST_F(DynamicNSATest, mini)
+{
     NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     test_common<true>(params);
 }
 
-TEST_F(DynamicNSATest, mini_debug) {
+TEST_F(DynamicNSATest, mini_debug)
+{
     NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
     test_common<true, true>(params);
 }

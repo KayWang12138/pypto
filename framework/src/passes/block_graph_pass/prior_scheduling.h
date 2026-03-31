@@ -13,24 +13,24 @@
  * \brief
  */
 
- #ifndef PASS_PRIOR_SCHEDULING_H_
- #define PASS_PRIOR_SCHEDULING_H_
-  
- #include "passes/pass_interface/pass.h"
- #include "tilefwk/tilefwk.h"
- #include "interface/inner/tilefwk.h"
- #include "interface/program/program.h"
- #include "interface/tensor/logical_tensor.h"
- 
- namespace npu::tile_fwk {
- class PriorScheduling : public Pass {
- public:
-     PriorScheduling() : Pass("PriorScheduling") {}
-     ~PriorScheduling() override = default;
-     Status RunOnFunction(Function &function) override;
- 
- private:
-     void PriorSchedulingFunc(Function &function) const;
- };
- }
- #endif // PASS_PRIOR_SCHEDULING_H_
+#ifndef PASS_PRIOR_SCHEDULING_H_
+#define PASS_PRIOR_SCHEDULING_H_
+
+#include "passes/pass_interface/pass.h"
+#include "tilefwk/tilefwk.h"
+#include "interface/inner/tilefwk.h"
+#include "interface/program/program.h"
+#include "interface/tensor/logical_tensor.h"
+
+namespace npu::tile_fwk {
+class PriorScheduling : public Pass {
+public:
+    PriorScheduling() : Pass("PriorScheduling") {}
+    ~PriorScheduling() override = default;
+    Status RunOnFunction(Function& function) override;
+
+private:
+    void PriorSchedulingFunc(Function& function) const;
+};
+} // namespace npu::tile_fwk
+#endif // PASS_PRIOR_SCHEDULING_H_

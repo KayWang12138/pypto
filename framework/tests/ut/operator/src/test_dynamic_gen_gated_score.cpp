@@ -37,8 +37,9 @@ public:
     void TearDown() override {}
 };
 
-void DynamicFunction(const std::string &funcName,
-    void (*execFunc)(const Tensor &x, const Tensor &, const Tensor &, Tensor &)) {
+void DynamicFunction(
+    const std::string& funcName, void (*execFunc)(const Tensor& x, const Tensor&, const Tensor&, Tensor&))
+{
     std::vector<int64_t> bnsh = {4, 128, 4, 7168};
 
     int64_t b = bnsh[0];
@@ -58,15 +59,15 @@ void DynamicFunction(const std::string &funcName,
     Tensor w2(dType, w2Shape, "w2");
     Tensor gatingScore(dType, gatingScoreShape, "gatingScore");
 
-    FUNCTION(funcName, {x, w1, w2}, {gatingScore}) {
-        execFunc(x, w1, w2, gatingScore);
-    }
+    FUNCTION(funcName, {x, w1, w2}, {gatingScore}) { execFunc(x, w1, w2, gatingScore); }
 }
 
-TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_plus_dyn) {
+TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_plus_dyn)
+{
     DynamicFunction("UTGENGATEDSCOREPLUS", GenGatedScoreComputePrefillPlus);
 }
 
-TEST_F_WITH_COST(DynamicGenGatedScoreUtest, utest_gen_gated_score_dyn, 58) {
+TEST_F_WITH_COST(DynamicGenGatedScoreUtest, utest_gen_gated_score_dyn, 58)
+{
     DynamicFunction("UTGENGATEDSCORE", GenGatedScoreComputePrefill);
 }

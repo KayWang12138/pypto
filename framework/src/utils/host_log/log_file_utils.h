@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -20,7 +20,8 @@
 #include <dirent.h>
 
 namespace npu::tile_fwk {
-inline std::string GetRealPath(const std::string &path) {
+inline std::string GetRealPath(const std::string& path)
+{
     if (path.empty()) {
         return "";
     }
@@ -42,11 +43,12 @@ inline std::string GetRealPath(const std::string &path) {
     return res;
 }
 
-bool CreateSingleLevelDir(const char *dirPath) {
+bool CreateSingleLevelDir(const char* dirPath)
+{
     std::string realPath = GetRealPath(dirPath);
     if (realPath.empty()) {
         int32_t ret = 0;
-        ret = mkdir(dirPath, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);  // 755
+        ret = mkdir(dirPath, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH); // 755
         if (ret != 0 && errno != EEXIST) {
             return false;
         }
@@ -54,7 +56,8 @@ bool CreateSingleLevelDir(const char *dirPath) {
     return true;
 }
 
-bool CreateMultiLevelDirectory(const std::string &directoryPath) {
+bool CreateMultiLevelDirectory(const std::string& directoryPath)
+{
     auto dirPathLen = directoryPath.length();
     if (dirPathLen >= PATH_MAX) {
         return false;
@@ -75,7 +78,8 @@ bool CreateMultiLevelDirectory(const std::string &directoryPath) {
     return CreateSingleLevelDir(directoryPath.c_str());
 }
 
-void RemoveFile(const std::string &path) {
+void RemoveFile(const std::string& path)
+{
     if (path.empty()) {
         return;
     }
@@ -89,13 +93,15 @@ void RemoveFile(const std::string &path) {
     (void)remove(path.c_str());
 }
 
-void LoadFileFromDir(const std::string &dirPath, const std::string &filePrefix, const std::string &fileSuffix,
-                     std::queue<std::string> &files) {
-    DIR *dir = opendir(dirPath.c_str());
+void LoadFileFromDir(
+    const std::string& dirPath, const std::string& filePrefix, const std::string& fileSuffix,
+    std::queue<std::string>& files)
+{
+    DIR* dir = opendir(dirPath.c_str());
     if (dir == nullptr) {
         return;
     }
-    struct dirent *dirp = nullptr;
+    struct dirent* dirp = nullptr;
     while ((dirp = readdir(dir)) != nullptr) {
         if (dirp->d_name[0] == '.') {
             continue;
@@ -111,4 +117,4 @@ void LoadFileFromDir(const std::string &dirPath, const std::string &filePrefix, 
     }
     closedir(dir);
 }
-}
+} // namespace npu::tile_fwk

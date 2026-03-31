@@ -17,63 +17,69 @@
 
 namespace CostModel {
 
-    TileState::TileStateKeyTy
-    TileState::TileKey(int rawMagic, OperandType bufType, std::vector<int> &shape, std::vector<int> &offset) {
-        TileState::TileStateKeyTy k(rawMagic, bufType, shape, offset);
-        return k;
+TileState::TileStateKeyTy TileState::TileKey(
+    int rawMagic, OperandType bufType, std::vector<int>& shape, std::vector<int>& offset)
+{
+    TileState::TileStateKeyTy k(rawMagic, bufType, shape, offset);
+    return k;
+}
+
+void TileState::Store(TileStateKeyTy& key, uint64_t value)
+{
+    if (store_.find(key) == store_.end()) {
+        store_[key] = std::make_shared<TileMetaData>();
     }
 
-    void TileState::Store(TileStateKeyTy &key, uint64_t value) {
-        if (store_.find(key) == store_.end()) {
-            store_[key] = std::make_shared<TileMetaData>();
-        }
+    store_[key]->Put(value);
 
-        store_[key]->Put(value);
+    if (storeMap_.find(key.rawMagic) == storeMap_.end()) {
+        storeMap_[key.rawMagic] = std::unordered_set<TileStateKeyTy, TileStateKeyHash>();
+    }
+    storeMap_[key.rawMagic].insert(key);
+}
 
-        if (storeMap_.find(key.rawMagic) == storeMap_.end()) {
-            storeMap_[key.rawMagic] = std::unordered_set<TileStateKeyTy, TileStateKeyHash>();
-        }
-        storeMap_[key.rawMagic].insert(key);
+void TileState::Ref(TileStateKeyTy& dst, TileStateKeyTy& src)
+{
+    if (store_.find(src) == store_.end()) {
+        constexpr uint64_t missingValue = 88888888;
+        store_[src] = std::make_shared<TileMetaData>();
+        store_[src]->Put(missingValue);
+    }
+    store_[dst] = store_[src];
+}
+
+static bool TileContains(const TileState::TileStateKeyTy& p, const TileState::TileStateKeyTy& t)
+{
+    if (p.bufType == t.bufType) {
+        return true;
+    }
+    return false;
+}
+
+uint64_t TileState::Load(TileStateKeyTy& key)
+{
+    if (store_.find(key) != store_.end()) {
+        return store_[key]->Value();
     }
 
-    void TileState::Ref(TileStateKeyTy &dst, TileStateKeyTy &src) {
-        if (store_.find(src) == store_.end()) {
-            constexpr uint64_t missingValue = 88888888;
-            store_[src] = std::make_shared<TileMetaData>();
-            store_[src]->Put(missingValue);
-        }
-        store_[dst] = store_[src];
-    }
-
-    static bool TileContains(const TileState::TileStateKeyTy &p, const TileState::TileStateKeyTy &t) {
-        if (p.bufType == t.bufType) {
-            return true;
-        }
-        return false;
-    }
-
-    uint64_t TileState::Load(TileStateKeyTy &key) {
-        if (store_.find(key) != store_.end()) {
-            return store_[key]->Value();
-        }
-
-        if (storeMap_.find(key.rawMagic) != storeMap_.end()) {
-            for (auto &s: storeMap_[key.rawMagic]) {
-                auto value = store_[s]->Value();
-                if (TileContains(s, key)) {
-                    Store(key, value);
-                    return value;
-                }
+    if (storeMap_.find(key.rawMagic) != storeMap_.end()) {
+        for (auto& s : storeMap_[key.rawMagic]) {
+            auto value = store_[s]->Value();
+            if (TileContains(s, key)) {
+                Store(key, value);
+                return value;
             }
         }
+    }
 
+    return 0;
+}
+
+size_t TileState::Order(TileStateKeyTy& key)
+{
+    if (store_.find(key) == store_.end()) {
         return 0;
     }
-
-    size_t TileState::Order(TileStateKeyTy &key) {
-        if (store_.find(key) == store_.end()) {
-            return 0;
-        }
-        return store_[key]->Order();
-    }
+    return store_[key]->Order();
 }
+} // namespace CostModel

@@ -40,18 +40,18 @@ def test_tensor_neg():
     """Test -tensor"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}')
     y_data = torch.zeros(shape, dtype=torch.float32, device=f'npu:{device_id}')
-    
+
     neg_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = -x_data.cpu()
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-5, atol=1e-5)
@@ -70,18 +70,18 @@ def test_tensor_pos():
     """Test +tensor"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}')
     y_data = torch.zeros(shape, dtype=torch.float32, device=f'npu:{device_id}')
-    
+
     pos_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = +x_data.cpu() + 1.0
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-5, atol=1e-5)
@@ -104,18 +104,18 @@ def test_tensor_rsub():
     """Test scalar - tensor"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}')
     y_data = torch.zeros(shape, dtype=torch.float32, device=f'npu:{device_id}')
-    
+
     rsub_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = 10.0 - x_data.cpu()
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-5, atol=1e-5)
@@ -134,18 +134,18 @@ def test_tensor_rmul():
     """Test scalar * tensor"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}')
     y_data = torch.zeros(shape, dtype=torch.float32, device=f'npu:{device_id}')
-    
+
     rmul_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = 5.0 * x_data.cpu()
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-5, atol=1e-5)
@@ -164,18 +164,18 @@ def test_tensor_rtruediv():
     """Test scalar / tensor"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}') + 10.0
     y_data = torch.zeros(shape, dtype=torch.float32, device=f'npu:{device_id}')
-    
+
     rtruediv_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = 100.0 / x_data.cpu()
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-4, atol=1e-4)
@@ -198,18 +198,18 @@ def test_tensor_floordiv():
     """Test tensor // scalar"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}') * 10
     y_data = torch.zeros(shape, dtype=torch.float32, device=f'npu:{device_id}')
-    
+
     floordiv_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = torch.floor(x_data.cpu() / 3.0)
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-5, atol=1e-5)
@@ -228,18 +228,18 @@ def test_tensor_mod():
     """Test tensor % scalar"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}') * 10
     y_data = torch.zeros(shape, dtype=torch.float32, device=f'npu:{device_id}')
-    
+
     mod_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = torch.remainder(x_data.cpu(), 7.0)
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-5, atol=1e-5)
@@ -258,18 +258,18 @@ def test_tensor_pow():
     """Test tensor ** scalar"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}')
     y_data = torch.zeros(shape, dtype=torch.float32, device=f'npu:{device_id}')
-    
+
     pow_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = torch.pow(x_data.cpu(), 2.0)
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-4, atol=1e-4)
@@ -292,18 +292,18 @@ def test_tensor_lt():
     """Test tensor < scalar"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}')
     y_data = torch.zeros(shape, dtype=torch.bool, device=f'npu:{device_id}')
-    
+
     lt_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = (x_data.cpu() < 0.5)
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-5, atol=1e-5)
@@ -322,18 +322,18 @@ def test_tensor_le():
     """Test tensor <= scalar"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}')
     y_data = torch.zeros(shape, dtype=torch.bool, device=f'npu:{device_id}')
-    
+
     le_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = (x_data.cpu() <= 0.5)
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-5, atol=1e-5)
@@ -352,18 +352,18 @@ def test_tensor_ge():
     """Test tensor >= scalar"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}')
     y_data = torch.zeros(shape, dtype=torch.bool, device=f'npu:{device_id}')
-    
+
     ge_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = (x_data.cpu() >= 0.5)
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-5, atol=1e-5)
@@ -382,19 +382,19 @@ def test_tensor_eq():
     """Test tensor == scalar"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}')
     x_data[0, 0] = 0.5
     y_data = torch.zeros(shape, dtype=torch.bool, device=f'npu:{device_id}')
-    
+
     eq_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = (x_data.cpu() == 0.5)
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-5, atol=1e-5)
@@ -413,19 +413,19 @@ def test_tensor_ne():
     """Test tensor != scalar"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}')
     x_data[0, 0] = 0.5
     y_data = torch.zeros(shape, dtype=torch.bool, device=f'npu:{device_id}')
-    
+
     ne_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = (x_data.cpu() != 0.5)
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-5, atol=1e-5)
@@ -450,18 +450,18 @@ def test_tanh_like_expression():
     """Test tanh-like expression using - operator"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}')
     y_data = torch.zeros(shape, dtype=torch.float32, device=f'npu:{device_id}')
-    
+
     tanh_like_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = torch.tanh(x_data.cpu())
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-4, atol=1e-4)
@@ -481,19 +481,19 @@ def test_combined_arithmetic():
     """Test combined arithmetic using operators"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}')
     z_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}')
     y_data = torch.zeros(shape, dtype=torch.float32, device=f'npu:{device_id}')
-    
+
     combined_arithmetic_kernel(x_data, z_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = 2.0 * x_data.cpu() - z_data.cpu() + (x_data.cpu() / 3.0)
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-4, atol=1e-4)
@@ -512,25 +512,25 @@ def test_complex_expression():
     """Test complex expression"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    
+
     tiling = 32
     n, m = tiling * 2, tiling * 2
     shape = (n, m)
-    
+
     x_data = torch.randn(shape, dtype=torch.float32, device=f'npu:{device_id}')
     y_data = torch.zeros(shape, dtype=torch.float32, device=f'npu:{device_id}')
-    
+
     complex_expression_kernel(x_data, y_data)
-    
+
     torch_npu.npu.synchronize()
-    
+
     expected = 100.0 - torch.remainder(torch.pow(x_data.cpu(), 2.0), 10.0)
     actual = y_data.cpu()
     assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-4, atol=1e-4)
 
 
 if __name__ == "__main__":
-    
+
     test_functions = [
         ("test_tensor_neg", test_tensor_neg),
         ("test_tensor_pos", test_tensor_pos),
@@ -549,10 +549,10 @@ if __name__ == "__main__":
         ("test_combined_arithmetic", test_combined_arithmetic),
         ("test_complex_expression", test_complex_expression),
     ]
-    
+
     passed = 0
     failed = 0
-    
+
     for name, func in test_functions:
         try:
             logging.info(f"\n>>> Running {name}...")
@@ -562,10 +562,10 @@ if __name__ == "__main__":
         except Exception as e:
             logging.info(f"    ✗ {name} FAILED: {e}")
             failed += 1
-    
+
     logging.info("\n" + "=" * 80)
     logging.info(f"Test Summary: {passed} passed, {failed} failed")
     logging.info("=" * 80)
-    
+
     if failed > 0:
         exit(1)

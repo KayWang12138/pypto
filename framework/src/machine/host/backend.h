@@ -17,87 +17,96 @@
 #include "interface/machine/host/machine_task.h"
 #include "interface/cache/function_cache.h"
 namespace npu::tile_fwk {
-MachineTask *GenCode(MachineTask *task, FunctionCache &cache);
+MachineTask* GenCode(MachineTask* task, FunctionCache& cache);
 
 struct Linker {
-    SymbolicSymbolTable &symbolTable_;
+    SymbolicSymbolTable& symbolTable_;
 
-    DyndevFunctionAttribute::FunctionGroup &funcGroup_;
-    DyndevFunctionAttribute::ExpressionTableDictGroup &exprTableDictGroup_;
+    DyndevFunctionAttribute::FunctionGroup& funcGroup_;
+    DyndevFunctionAttribute::ExpressionTableDictGroup& exprTableDictGroup_;
 
-    Linker(SymbolicSymbolTable &symbolTable,
-           DyndevFunctionAttribute::FunctionGroup &funcGroup,
-           DyndevFunctionAttribute::ExpressionTableDictGroup &exprTableDictGroup)
-        : symbolTable_(symbolTable), funcGroup_(funcGroup), exprTableDictGroup_(exprTableDictGroup) {}
+    Linker(
+        SymbolicSymbolTable& symbolTable, DyndevFunctionAttribute::FunctionGroup& funcGroup,
+        DyndevFunctionAttribute::ExpressionTableDictGroup& exprTableDictGroup)
+        : symbolTable_(symbolTable), funcGroup_(funcGroup), exprTableDictGroup_(exprTableDictGroup)
+    {}
 
-    void AddSymbol(SymbolicScalar &ss) {
-        symbolTable_.AddSymbol(ss);
+    void AddSymbol(SymbolicScalar& ss) { symbolTable_.AddSymbol(ss); }
+
+    const DyndevFunctionAttribute::ExpressionTableDictGroup& GetExpressionTableDictGroup() const
+    {
+        return exprTableDictGroup_;
     }
+    DyndevFunctionAttribute::ExpressionTableDictGroup& GetExpressionTableDictGroup() { return exprTableDictGroup_; }
 
-    const DyndevFunctionAttribute::ExpressionTableDictGroup &GetExpressionTableDictGroup() const { return exprTableDictGroup_; }
-    DyndevFunctionAttribute::ExpressionTableDictGroup &GetExpressionTableDictGroup() { return exprTableDictGroup_; }
-
-    static std::string GetTitle(Function *func) {
+    static std::string GetTitle(Function* func)
+    {
         std::string title = "name=" + func->GetRawName() + " hash=" + std::to_string(func->GetFunctionHash().GetHash());
         return title;
     }
 
-    void AddPrimaryExpressionForLoopBes(Function*func, const SymbolicScalar &ss) {
+    void AddPrimaryExpressionForLoopBes(Function* func, const SymbolicScalar& ss)
+    {
         AddSymbolFromExpression(ss);
 
         auto funcKey = funcGroup_.loopList.InsertAndGetIndex(func);
         std::string key = SymbolicExpressionTable::GetExprKeyLoopBes(funcKey);
 
-        auto &exprTable = exprTableDictGroup_.loopBesDict[func];
+        auto& exprTable = exprTableDictGroup_.loopBesDict[func];
         exprTable.AddPrimaryExpression(ss);
         exprTable.SetElementKeyOnce(key);
         exprTable.SetTitleOnce(GetTitle(func));
     }
 
-    void AddPrimaryExpressionForLoopPathCond(Function *func, const SymbolicScalar &ss) {
+    void AddPrimaryExpressionForLoopPathCond(Function* func, const SymbolicScalar& ss)
+    {
         AddSymbolFromExpression(ss);
 
         auto funcKey = funcGroup_.loopPathList.InsertAndGetIndex(func);
         auto condKey = funcGroup_.loopPathCondList[func].InsertAndGetIndex(ss.Raw());
         std::string key = SymbolicExpressionTable::GetExprKeyLoopPathCond(funcKey, condKey);
 
-        auto &exprTable = exprTableDictGroup_.loopPathCondDict[func][ss.Raw()];
+        auto& exprTable = exprTableDictGroup_.loopPathCondDict[func][ss.Raw()];
         exprTable.AddPrimaryExpression(ss);
         exprTable.SetElementKeyOnce(key);
         exprTable.SetTitleOnce(GetTitle(func));
     }
 
-    void AddPrimaryExpressionForDevRootCoa(Function *func, const SymbolicScalar &ss) {
+    void AddPrimaryExpressionForDevRootCoa(Function* func, const SymbolicScalar& ss)
+    {
         AddSymbolFromExpression(ss);
 
         auto funcKey = funcGroup_.devRootList.InsertAndGetIndex(func);
         std::string key = SymbolicExpressionTable::GetExprKeyDevRootCoa(funcKey);
 
-        auto &exprTable = exprTableDictGroup_.devRootCoaDict[func];
+        auto& exprTable = exprTableDictGroup_.devRootCoaDict[func];
         exprTable.AddPrimaryExpression(ss);
         exprTable.SetElementKeyOnce(key);
         exprTable.SetTitleOnce(GetTitle(func));
     }
 
-    void AddPrimaryExpressionForDevLeafOp(Function *func, Operation *op, const SymbolicScalar &ss) {
+    void AddPrimaryExpressionForDevLeafOp(Function* func, Operation* op, const SymbolicScalar& ss)
+    {
         AddSymbolFromExpression(ss);
 
         auto funcKey = funcGroup_.devLeafList.InsertAndGetIndex(func);
         auto opKey = funcGroup_.devLeafOpList[func].InsertAndGetIndex(op);
         std::string key = SymbolicExpressionTable::GetExprKeyDevLeafOp(funcKey, opKey);
 
-        auto &exprTable = exprTableDictGroup_.devLeafOpDict[func][op];
+        auto& exprTable = exprTableDictGroup_.devLeafOpDict[func][op];
         exprTable.AddPrimaryExpression(ss);
         exprTable.SetElementKeyOnce(key);
         exprTable.SetTitleOnce(GetTitle(func));
     }
 
-    void SetMainBlockExpressionForDevRootCoa(Function *func, const SymbolicScalar &ss) {
- 	    auto &exprTable = exprTableDictGroup_.devRootCoaDict[func];
- 	    exprTable.mainBlockScalar_ = ss;
- 	}
+    void SetMainBlockExpressionForDevRootCoa(Function* func, const SymbolicScalar& ss)
+    {
+        auto& exprTable = exprTableDictGroup_.devRootCoaDict[func];
+        exprTable.mainBlockScalar_ = ss;
+    }
 
-    SymbolicExpressionTable *LookupDevRootCoa(Function *func) {
+    SymbolicExpressionTable* LookupDevRootCoa(Function* func)
+    {
         if (exprTableDictGroup_.devRootCoaDict.count(func)) {
             return &exprTableDictGroup_.devRootCoaDict[func];
         } else {
@@ -105,14 +114,10 @@ struct Linker {
         }
     }
 
-    SymbolicSymbolTable *GetSymbolTable() {
-        return &symbolTable_;
-    }
+    SymbolicSymbolTable* GetSymbolTable() { return &symbolTable_; }
 
 private:
-    void AddSymbolFromExpression(const SymbolicScalar &ss) {
-        symbolTable_.AddSymbolFromExpression(ss);
-    }
+    void AddSymbolFromExpression(const SymbolicScalar& ss) { symbolTable_.AddSymbolFromExpression(ss); }
 };
 
 // Force link library compiler as nothing depends on it.
@@ -122,4 +127,4 @@ struct ValDependTensorMeta {
     std::unordered_map<std::string, bool> tensorNameToDependCore;
     std::unordered_map<RawSymbolicScalarPtr, bool> valDependMap;
 };
-}
+} // namespace npu::tile_fwk
