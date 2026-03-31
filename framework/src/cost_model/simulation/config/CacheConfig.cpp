@@ -22,19 +22,19 @@ CacheConfig::CacheConfig()
 {
     Config::prefix = "Cache";
     Config::dispatcher = {
-        {"l2InputPortNum", [&](string v){ l2InputPortNum = ParseInteger(v); }},
-        {"l2Size", [&](string v){ l2Size = ParseInteger(v); }},
-        {"l2LineSize", [&](string v){ l2LineSize = ParseInteger(v); }},
-        {"l2HitLatency", [&](string v){ l2HitLatency = ParseInteger(v); }},
-        {"l2MissExtraLatency", [&](string v){ l2MissExtraLatency = ParseInteger(v); }},
+        {"l2InputPortNum", [&](string v) { l2InputPortNum = ParseInteger(v); }},
+        {"l2Size", [&](string v) { l2Size = ParseInteger(v); }},
+        {"l2LineSize", [&](string v) { l2LineSize = ParseInteger(v); }},
+        {"l2HitLatency", [&](string v) { l2HitLatency = ParseInteger(v); }},
+        {"l2MissExtraLatency", [&](string v) { l2MissExtraLatency = ParseInteger(v); }},
     };
 
     Config::recorder = {
-        {"l2InputPortNum", [&](){ return "l2InputPortNum = " + ParameterToStr(l2InputPortNum); }},
-        {"l2Size", [&](){ return "l2Size = " + ParameterToStr(l2Size); }},
-        {"l2LineSize", [&](){ return "l2LineSize = " + ParameterToStr(l2LineSize); }},
-        {"l2HitLatency", [&](){ return "l2HitLatency = " + ParameterToStr(l2HitLatency); }},
-        {"l2MissExtraLatency", [&](){ return "l2MissExtraLatency = " + ParameterToStr(l2MissExtraLatency); }},
+        {"l2InputPortNum", [&]() { return "l2InputPortNum = " + ParameterToStr(l2InputPortNum); }},
+        {"l2Size", [&]() { return "l2Size = " + ParameterToStr(l2Size); }},
+        {"l2LineSize", [&]() { return "l2LineSize = " + ParameterToStr(l2LineSize); }},
+        {"l2HitLatency", [&]() { return "l2HitLatency = " + ParameterToStr(l2HitLatency); }},
+        {"l2MissExtraLatency", [&]() { return "l2MissExtraLatency = " + ParameterToStr(l2MissExtraLatency); }},
     };
 }
-}
+} // namespace CostModel

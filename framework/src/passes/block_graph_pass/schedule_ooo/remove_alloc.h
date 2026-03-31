@@ -33,15 +33,15 @@ public:
     ~RemoveAlloc() override = default;
 
 private:
-    Status RunOnFunction(Function &function) override {
+    Status RunOnFunction(Function& function) override
+    {
         APASS_LOG_INFO_F(Elements::Operation, "===> Start RemoveAlloc.");
         RemoveAllocCall(function);
         APASS_LOG_INFO_F(Elements::Operation, "===> End RemoveAlloc.");
         return SUCCESS;
     }
-    void RemoveAllocCall(Function &function) const;
+    void RemoveAllocCall(Function& function) const;
 };
-
 
 } // namespace npu::tile_fwk
 

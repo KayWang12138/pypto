@@ -210,7 +210,7 @@ def moe_fusion_kernel(
         pypto.set_vec_tile_shapes(view_first, num_expert_group, group_unit)  # (1,1,160)
         twm_reshape = pypto.reshape(twm_expand, [tile_batch, ne])
 
-        # logical_not 
+        # logical_not
         pypto.set_vec_tile_shapes(view_first, ne)
         twm_not = pypto.logical_not(twm_reshape)
 
@@ -435,12 +435,12 @@ def moe_fusion(
 ):
     if isinstance(hidden_states, FakeTensor):
         return
-    check_args(gate_weight, hidden_states, top_k, renormalize, topk_group, num_expert_group, 
+    check_args(gate_weight, hidden_states, top_k, renormalize, topk_group, num_expert_group,
                 e_score_bias, w13, w13_scale, w2, w2_scale)
 
     bs = hidden_states.shape[0]
     hidden_size = hidden_states.shape[1]
-    inputs = [hidden_states, gate_weight, e_score_bias, w13, w13_scale, 
+    inputs = [hidden_states, gate_weight, e_score_bias, w13, w13_scale,
                 w2, w2_scale, topk_weights, topk_ids, ffn_res]
 
     moe_fusion_kernel(*inputs, topk_group, num_expert_group)

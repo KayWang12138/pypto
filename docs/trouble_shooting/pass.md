@@ -48,7 +48,7 @@
 
    6. TENSOR_MEMORY_ALLOCATION
    ## 描述：Tensor的内存分配配置不合法
-   
+
 
    7. TENSOR_DYNAMIC_ATTR
    ## 描述：动态形状相关属性缺失或配置错误
@@ -76,7 +76,7 @@
    ## 描述：操作的opcode在当前上下文中不合法
    行为：
    - OP不合规
- 
+
 
    4. OP_PRODUCER_CONSUMER
    ## 描述：操作的输入输出依赖关系不完整
@@ -98,7 +98,7 @@
    ## 描述：操作序列中存在不允许的操作组合
    行为：
    - 存在不允许的OP或OP组合
- 
+
  **Function相关错误**：
    1. FUNCTION_GRAPH_STRUCTURE
    ## 描述：Function的图结构不完整或不合法

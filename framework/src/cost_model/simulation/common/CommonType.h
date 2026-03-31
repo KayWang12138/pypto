@@ -38,12 +38,7 @@ using setType = std::conditional<false, std::unordered_set<int>, std::set<int>>:
 #endif
 
 namespace CostModel {
-enum class SimMode {
-    NORMAL = 0,
-    EMULATOR,
-    LEAF_FUNCTION,
-    PV_MODEL
-};
+enum class SimMode { NORMAL = 0, EMULATOR, LEAF_FUNCTION, PV_MODEL };
 
 inline bool IsNeedInput(CostModel::SimMode simMode)
 {
@@ -54,36 +49,27 @@ inline bool IsNeedInput(CostModel::SimMode simMode)
     return false;
 }
 
-enum class PVModelLevel {
-    PV_NON = 0,
-    PV_UT,
-    PV_EXECUTE
-};
+enum class PVModelLevel { PV_NON = 0, PV_UT, PV_EXECUTE };
 
 enum class NodeType { LOCAL, INCAST, OUTCAST };
 
 using namespace npu::tile_fwk;
 
-inline CostModel::OperandType BufferNameToType(std::string &name)
+inline CostModel::OperandType BufferNameToType(std::string& name)
 {
     static const std::unordered_map<std::string, CostModel::OperandType> bufferMap = {
-        {"MEM_UB", OperandType::BUF_UB},
-        {"MEM_L1", OperandType::BUF_L1},
-        {"MEM_L0A", OperandType::BUF_L0A},
-        {"MEM_L0B", OperandType::BUF_L0B},
-        {"MEM_L0C", OperandType::BUF_L0C},
-        {"MEM_FIX", OperandType::BUF_FIX},
-        {"MEM_BT", OperandType::BUF_BT},
-        {"MEM_DEVICE_DDR", OperandType::BUF_DDR},
-        {"MEM_L0AMX", OperandType::BUF_L0AMX},
-        {"MEM_L0BMX", OperandType::BUF_L0BMX},
+        {"MEM_UB", OperandType::BUF_UB},       {"MEM_L1", OperandType::BUF_L1},
+        {"MEM_L0A", OperandType::BUF_L0A},     {"MEM_L0B", OperandType::BUF_L0B},
+        {"MEM_L0C", OperandType::BUF_L0C},     {"MEM_FIX", OperandType::BUF_FIX},
+        {"MEM_BT", OperandType::BUF_BT},       {"MEM_DEVICE_DDR", OperandType::BUF_DDR},
+        {"MEM_L0AMX", OperandType::BUF_L0AMX}, {"MEM_L0BMX", OperandType::BUF_L0BMX},
     };
-    
+
     auto it = bufferMap.find(name);
     return (it != bufferMap.end()) ? it->second : OperandType::BUF_UNKNOWN;
 }
 
-inline NodeType ToNodeType(std::string &type)
+inline NodeType ToNodeType(std::string& type)
 {
     if (type == "INCAST") {
         return NodeType::INCAST;
@@ -94,7 +80,7 @@ inline NodeType ToNodeType(std::string &type)
     }
 }
 
-inline DataType ToDataType(std::string &name)
+inline DataType ToDataType(std::string& name)
 {
     static std::unordered_map<std::string, DataType> type_map = {
         {"DT_INT4", DataType::DT_INT4},
@@ -118,14 +104,13 @@ inline DataType ToDataType(std::string &name)
         {"DT_FP8E4M3", DataType::DT_FP8E4M3},
         {"DT_FP8E8M0", DataType::DT_FP8E8M0},
         {"DT_FP4_E2M1X2", DataType::DT_FP4_E2M1X2},
-        {"DT_FP4_E1M2X2", DataType::DT_FP4_E1M2X2}
-    };
+        {"DT_FP4_E1M2X2", DataType::DT_FP4_E1M2X2}};
     auto it = type_map.find(name);
     if (it == type_map.end()) {
         std::cout << "Unrecognized DataType" << name << std::endl;
         return DataType::DT_FP16;
     }
-    return it -> second;
+    return it->second;
 }
 
 // CostModel
@@ -137,12 +122,12 @@ enum class CorePipeType {
     PIPE_CUBE_BMU_L0A,
     PIPE_CUBE_BMU_L0B,
     PIPE_CUBE_BMU_L0C,
-    PIPE_MTE_IN,  // FOR TILE_COPY_IN
-    PIPE_MTE1,    // FOR L1 TO L0A/B
+    PIPE_MTE_IN, // FOR TILE_COPY_IN
+    PIPE_MTE1,   // FOR L1 TO L0A/B
     PIPE_VECTOR_ALU,
     PIPE_CUBE,
-    PIPE_MTE_OUT,  // FOR TILE_COPY_OUT
-    PIPE_S, // FOR VIEW,ASSEMBLE,RESHAPE
+    PIPE_MTE_OUT, // FOR TILE_COPY_OUT
+    PIPE_S,       // FOR VIEW,ASSEMBLE,RESHAPE
     PIPE_CALL,
     PIPE_FIX,
     TOTAL_CORE_PIPE_TYPE
@@ -228,8 +213,7 @@ inline std::string CorePipeName(CorePipeType type)
     }
 }
 
-enum class MachineType { UNKNOWN, DEVICE, CPU, AIC, AIV, MIXAICORE, PIPE, CACHE, HUB,
-                         TOTAL_MACHINE_TYPE };
+enum class MachineType { UNKNOWN, DEVICE, CPU, AIC, AIV, MIXAICORE, PIPE, CACHE, HUB, TOTAL_MACHINE_TYPE };
 
 inline std::string MachineName(MachineType type)
 {
@@ -264,10 +248,7 @@ inline bool IsCoreMachine(MachineType type)
     return false;
 }
 
-inline bool IsCoreMachine(int type)
-{
-    return IsCoreMachine(static_cast<MachineType>(type));
-}
+inline bool IsCoreMachine(int type) { return IsCoreMachine(static_cast<MachineType>(type)); }
 
 // convert string to MachineType
 inline MachineType ToMachineType(const std::string& machineTypeStr)
@@ -368,7 +349,8 @@ public:
     uint64_t sCycles;
     uint64_t eCycles;
     ReplayTaskEntry(uint64_t seq, uint64_t id, uint64_t sTime, uint64_t eTime)
-    : seqNo(seq), taskId(id), sCycles(sTime), eCycles(eTime) {}
+        : seqNo(seq), taskId(id), sCycles(sTime), eCycles(eTime)
+    {}
 };
 
 class Task {
@@ -468,9 +450,6 @@ struct AICoreWorkLoadStatus {
         groups++;
     }
 
-    void AddMachineIndex(size_t index)
-    {
-        smtGroupIndexs[groups - 1].emplace_back(index);
-    }
+    void AddMachineIndex(size_t index) { smtGroupIndexs[groups - 1].emplace_back(index); }
 };
-}
+} // namespace CostModel

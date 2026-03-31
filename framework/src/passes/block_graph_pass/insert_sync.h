@@ -49,40 +49,39 @@ struct Interval {
 struct IntervalTreeNode {
     Interval interval;
     int max;
-    IntervalTreeNode *left;
-    IntervalTreeNode *right;
+    IntervalTreeNode* left;
+    IntervalTreeNode* right;
     explicit IntervalTreeNode(Interval i) : interval(i), max(i.end), left(nullptr), right(nullptr) {}
 };
 
 class RangeSearchTree {
 public:
-    ~RangeSearchTree() {
-        FreeTree();
-    }
+    ~RangeSearchTree() { FreeTree(); }
     void Insert(int left, int right, int idx);
     std::set<int> GetCovered(int left, int right);
 
 private:
     void FreeTree();
-    Status ProcessTreeNode(const Interval &interval, IntervalTreeNode *currPtr, std::vector<IntervalTreeNode*> &intervalStack);
-    Status InsertInterval(const Interval &interval);
-    void OverlapSearch(const Interval &interval, std::set<int> &result);
-    IntervalTreeNode *treeRoot = nullptr;
+    Status ProcessTreeNode(
+        const Interval& interval, IntervalTreeNode* currPtr, std::vector<IntervalTreeNode*>& intervalStack);
+    Status InsertInterval(const Interval& interval);
+    void OverlapSearch(const Interval& interval, std::set<int>& result);
+    IntervalTreeNode* treeRoot = nullptr;
 };
 
 class DataDependencySearcher {
 public:
-    std::set<int> Find(Operation *opWait);
-    void Insert(const Operation *opSet, int idx);
+    std::set<int> Find(Operation* opWait);
+    void Insert(const Operation* opSet, int idx);
     std::unordered_map<int, TileRange> ubTensorRangeMap;
 
 private:
-    void CheckRAWSearchTree(Operation *opWait, std::set<int> &res);
-    void CheckWAWSearchTree(Operation *opWait, std::set<int> &res);
-    void CheckWARSearchTree(Operation *opWait, std::set<int> &res);
-    void InsertWAWSearchTree(const Operation *opSet, int idx);
-    void InsertRAWSearchTree(const Operation *opSet, int idx);
-    void InsertWARSearchTree(const Operation *opSet, int idx);
+    void CheckRAWSearchTree(Operation* opWait, std::set<int>& res);
+    void CheckWAWSearchTree(Operation* opWait, std::set<int>& res);
+    void CheckWARSearchTree(Operation* opWait, std::set<int>& res);
+    void InsertWAWSearchTree(const Operation* opSet, int idx);
+    void InsertRAWSearchTree(const Operation* opSet, int idx);
+    void InsertWARSearchTree(const Operation* opSet, int idx);
 
     std::unordered_map<MemoryType, RangeSearchTree> wawSearchTree_;
     std::unordered_map<MemoryType, RangeSearchTree> warSearchTree_;
@@ -92,32 +91,46 @@ private:
 };
 
 using IndexOp = std::pair<uint64_t, std::reference_wrapper<Operation>>;
-enum class PipeSeq { AIC_MTE2 = 0, AIC_MTE1, AIC_M, AIC_FIX, AIV_MTE2, AIV_V, AIV_MTE3, AIC_MTE3, AIV_S, AIC_S, PIPE_END };
+enum class PipeSeq {
+    AIC_MTE2 = 0,
+    AIC_MTE1,
+    AIC_M,
+    AIC_FIX,
+    AIV_MTE2,
+    AIV_V,
+    AIV_MTE3,
+    AIC_MTE3,
+    AIV_S,
+    AIC_S,
+    PIPE_END
+};
 
 class PipeSync {
 public:
     PipeSync() { InitIssueQueue(); }
-    Status InsertSync(Function &function, std::vector<Operation *> &syncedOpLog);
-    void PhaseKernelProcess(Function &function, std::vector<Operation *> srcLog, std::vector<Operation *> &dstLog);
-    Status ProcessViewOrder(Operation &op, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap);
-    Status ProcessAssembleOrder(Operation &op, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap);
-    Status ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::vector<Operation *> &opListNew);
-    std::vector<Operation *> GetOriOpList() { return oriOpList_; }
-    std::unordered_map<Operation *, Operation *> setOpMap;
-    std::unordered_map<Operation *, Operation *> waitOpMap;
+    Status InsertSync(Function& function, std::vector<Operation*>& syncedOpLog);
+    void PhaseKernelProcess(Function& function, std::vector<Operation*> srcLog, std::vector<Operation*>& dstLog);
+    Status ProcessViewOrder(
+        Operation& op, std::vector<Operation*>& opLog, std::unordered_map<Operation*, Operation*>& changeMap);
+    Status ProcessAssembleOrder(
+        Operation& op, std::vector<Operation*>& opLog, std::unordered_map<Operation*, Operation*>& changeMap);
+    Status ProcessViewAssembleOrder(std::vector<Operation*>& opLog, std::vector<Operation*>& opListNew);
+    std::vector<Operation*> GetOriOpList() { return oriOpList_; }
+    std::unordered_map<Operation*, Operation*> setOpMap;
+    std::unordered_map<Operation*, Operation*> waitOpMap;
 
 private:
     friend class TuneTileOpSeqForVF;
     friend class TuneSyncForVF;
-    
+
     struct PipeCoreReal {
-        PipeCoreReal(PipeType p, CoreType c) :pipe(p), core(c) {}
+        PipeCoreReal(PipeType p, CoreType c) : pipe(p), core(c) {}
         PipeType pipe;
         CoreType core;
 
-        bool operator==(const PipeCoreReal &t) const { return (this->pipe == t.pipe && this->core == t.core); }
+        bool operator==(const PipeCoreReal& t) const { return (this->pipe == t.pipe && this->core == t.core); }
 
-        bool operator!=(const PipeCoreReal &t) const { return !(*this == t); }
+        bool operator!=(const PipeCoreReal& t) const { return !(*this == t); }
     };
 
     // 包含AIVCore类型的PipeCoreReal
@@ -128,15 +141,17 @@ private:
         CoreType core;
         AIVCore aivCore{AIVCore::UNSPECIFIED};
 
-        bool operator==(const PipeCoreRealEx &t) const {
+        bool operator==(const PipeCoreRealEx& t) const
+        {
             return (this->pipe == t.pipe && this->core == t.core && this->aivCore == t.aivCore);
         }
 
-        bool operator!=(const PipeCoreRealEx &t) const { return !(*this == t); }
+        bool operator!=(const PipeCoreRealEx& t) const { return !(*this == t); }
     };
 
     struct PipeCoreRealExCompare {
-        bool operator()(const PipeCoreRealEx &lhs, const PipeCoreRealEx &rhs) const {
+        bool operator()(const PipeCoreRealEx& lhs, const PipeCoreRealEx& rhs) const
+        {
             if (lhs.core != rhs.core) {
                 return static_cast<uint64_t>(lhs.core) < static_cast<uint64_t>(rhs.core);
             }
@@ -148,9 +163,12 @@ private:
     };
 
     struct PipeCoreRealCompare {
-        bool operator()(const PipeCoreReal &lhs, const PipeCoreReal &rhs) const {
-            return ((static_cast<uint64_t>(lhs.core) << LEFT_OFFSET2) | (static_cast<uint64_t>(lhs.pipe) << LEFT_OFFSET3))
-                 < ((static_cast<uint64_t>(rhs.core) << LEFT_OFFSET2) | (static_cast<uint64_t>(rhs.pipe) << LEFT_OFFSET3));
+        bool operator()(const PipeCoreReal& lhs, const PipeCoreReal& rhs) const
+        {
+            return ((static_cast<uint64_t>(lhs.core) << LEFT_OFFSET2) |
+                    (static_cast<uint64_t>(lhs.pipe) << LEFT_OFFSET3)) <
+                   ((static_cast<uint64_t>(rhs.core) << LEFT_OFFSET2) |
+                    (static_cast<uint64_t>(rhs.pipe) << LEFT_OFFSET3));
         }
     };
 
@@ -160,15 +178,23 @@ private:
         PipeType pipeEnd;
         CoreType core;
 
-        bool operator==(const PipeCore &t) const { return (this->pipeStart == t.pipeStart && this->pipeEnd == t.pipeEnd && this->core == t.core); }
+        bool operator==(const PipeCore& t) const
+        {
+            return (this->pipeStart == t.pipeStart && this->pipeEnd == t.pipeEnd && this->core == t.core);
+        }
 
-        bool operator!=(const PipeCore &t) const { return !(*this == t); }
+        bool operator!=(const PipeCore& t) const { return !(*this == t); }
     };
 
     struct PipeCoreCompare {
-        bool operator()(const PipeCore &lhs, const PipeCore &rhs) const {
-            return ((static_cast<uint64_t>(lhs.core) << LEFT_OFFSET4) | (static_cast<uint64_t>(lhs.pipeStart) << LEFT_OFFSET2) | (static_cast<uint64_t>(lhs.pipeEnd) << LEFT_OFFSET3))
-                 < ((static_cast<uint64_t>(rhs.core) << LEFT_OFFSET4) | (static_cast<uint64_t>(rhs.pipeStart) << LEFT_OFFSET2) | (static_cast<uint64_t>(rhs.pipeEnd) << LEFT_OFFSET3));
+        bool operator()(const PipeCore& lhs, const PipeCore& rhs) const
+        {
+            return ((static_cast<uint64_t>(lhs.core) << LEFT_OFFSET4) |
+                    (static_cast<uint64_t>(lhs.pipeStart) << LEFT_OFFSET2) |
+                    (static_cast<uint64_t>(lhs.pipeEnd) << LEFT_OFFSET3)) <
+                   ((static_cast<uint64_t>(rhs.core) << LEFT_OFFSET4) |
+                    (static_cast<uint64_t>(rhs.pipeStart) << LEFT_OFFSET2) |
+                    (static_cast<uint64_t>(rhs.pipeEnd) << LEFT_OFFSET3));
         }
     };
 
@@ -177,7 +203,8 @@ private:
     using CorePair = std::pair<CoreTypeDetail, CoreTypeDetail>;
 
     struct PipePairHash {
-        std::size_t operator()(const PipePair &pp) const noexcept {
+        std::size_t operator()(const PipePair& pp) const noexcept
+        {
             std::size_t res = 0;
             HashCombine(res, pp.first.pipe);
             HashCombine(res, pp.first.core);
@@ -188,7 +215,8 @@ private:
     };
 
     struct CorePairHash {
-        std::size_t operator()(const CorePair &pp) const noexcept {
+        std::size_t operator()(const CorePair& pp) const noexcept
+        {
             std::size_t res = 0;
             HashCombine(res, pp.first.first);
             HashCombine(res, pp.first.second);
@@ -199,7 +227,8 @@ private:
     };
 
     struct IndexVecHash {
-        std::size_t operator()(const std::pair<size_t, size_t> &pp) const noexcept {
+        std::size_t operator()(const std::pair<size_t, size_t>& pp) const noexcept
+        {
             std::size_t res = 0;
             HashCombine(res, pp.first);
             HashCombine(res, pp.second);
@@ -216,7 +245,7 @@ private:
 
         std::vector<size_t> setPipe;  // this op will set_flag for op in setPipe; 后
         std::vector<size_t> waitPipe; // this op will wait_flag for op in waitPipe; 前
-        std::string DumpDepOp(std::vector<Operation *> opLog = {});
+        std::string DumpDepOp(std::vector<Operation*> opLog = {});
     };
 
     struct IssueQueue {
@@ -224,7 +253,7 @@ private:
         PipeCoreReal selfPipeCore;
         size_t currOp{0};
         std::vector<size_t> ops;
-        std::string DumpIssueQueue(std::vector<Operation *> opLogPtr = {});
+        std::string DumpIssueQueue(std::vector<Operation*> opLogPtr = {});
     };
 
     struct PipeDepInfo {
@@ -253,55 +282,68 @@ private:
     std::string PipeSeqName(PipeSeq seq) const;
     PipeSeq GetPipeSeq(PipeCoreReal pipe);
     PipeCoreReal GetPipeFromSeq(PipeSeq seq);
-    Status PipeDispatch(const std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog);
-    Status AdjustCopyInCfg(TileOpCfg &opcfg, const Operation &op);
-    Status AdjustCopyOutCfg(TileOpCfg &opcfg, const Operation &op);
-    Status AdjustOpCfg(TileOpCfg &opcfg, const Operation &op);
+    Status PipeDispatch(const std::vector<Operation*> opLogPtr, std::vector<IndexOp>& syncedOpLog);
+    Status AdjustCopyInCfg(TileOpCfg& opcfg, const Operation& op);
+    Status AdjustCopyOutCfg(TileOpCfg& opcfg, const Operation& op);
+    Status AdjustOpCfg(TileOpCfg& opcfg, const Operation& op);
     void InitIssueQueue();
-    void EnqueueOp(DepOp &op, const std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog);
-    void RemoveOpDep(DepOp &setOp, DepOp &waitOp) const;
-    void AddPhaseOp1(Function &function, std::vector<Operation *> srcLog, std::vector<Operation *> &dstLog, size_t &i, size_t &prerun);
-    void AddPhaseOp2(Function &function, std::vector<Operation *> &dstLog, size_t &prerun);
-    Status AddOpDep(DepOp &setOp, DepOp &waitOp);
-    Status AdjustOpDep(DepOp &op, size_t waitOpIdx, IssueQueue &issueQ, bool &failedFlag);
-    Status HandleEventID(DepOp &op, IssueQueue &issueQ, IssueNum &issuenum, bool &deadlock, bool &res);
-    Status PopFromQueue(IssueQueue &issueQ, std::vector<size_t> &poped, bool &deadlock);
-    Status InjectWaitFlag(Function &function, size_t idx, std::vector<IndexOp> &syncedOpLog);
-    Status InjectSetFlag(Function &function, size_t idx, std::vector<IndexOp> &syncedOpLog);
-    Status InjectSync(Function &function, std::vector<Operation *> opLogPtr, size_t idx, std::vector<IndexOp> &syncedOpLog);
-    Status IssueOpPipeSeq(Function &function, std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog, bool &eventIdDeadlock, size_t &issued);
-    Status IssueSyncOp(Function &function, std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog, size_t &totalIssued, size_t &allIssued);
-    Status IssueOp(Function &function, std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog);
-    Status ProcessDeadLock(uint64_t &eventIdDeadlockEnterTimes, bool &eventIdDeadlock, std::vector<IndexOp> &syncedOpLog);
-    Status SynDependency(int maxOverlapDepIdx, const DataDepInfo &depInfo, const PipePair &pipePair, std::vector<IndexOp> &syncedOpLog);
-    Status GetDepInfo(std::vector<IndexOp> &syncedOpLog, const PipePair &pipePair, DataDepInfo &depInfo);
-    Status RelaxFakeDataDep(std::vector<IndexOp> &syncedOpLog);
-    bool CheckIssuedOp(const DepOp &op);
-    bool ConstructDepInfo(DataDepInfo &depInfo, std::vector<IndexOp> &syncedOpLog, int i);
-    bool FindDataDep(DataDepInfo &depInfo, std::vector<IndexOp> &syncedOpLog, int i);
-    bool FindMaxOverlap(DataDepInfo &depInfo, int &maxOverlapDepIdx);
-    bool GenSyncOp(PipeCoreReal set, PipeCoreReal wait, int eventId, bool isSet, Operation &op);
-    Status GetEventId(const PipePair &pp, size_t setIdx, size_t waitIdx, int &eventId);
-    bool HasFreeEventId(const PipePair &pp);
-    bool BufOverlap(const TileRange &range1, int magic1, const TileRange &range2, int magic2) const;
-    bool CheckWawDependency(const Operation &opSet, const Operation &opWait, size_t k, size_t idx);
-    bool CheckRawDependency(const Operation &opSet, const Operation &opWait, size_t k, size_t idx);
-    bool CheckWarDependency(const Operation &opSet, const Operation &opWait, size_t k, size_t idx);
-    bool HasDataDependency(const Operation &opSet, const Operation &opWait, size_t k, size_t idx);
-    void UpdateDep(DepOp &currOp, DepOp &prevOp);
-    bool IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector<Operation *> opLogPtr);
-    void FindDep(DepOp &op, const std::vector<Operation *> opLogPtr, size_t idx, DataDependencySearcher& dataDependencySearcher);
-    std::pair<CoreTypeDetail, CoreTypeDetail> GetCorePairDetail(const PipePair &pp, size_t setIdx, size_t waitIdx, bool &isAIV1);
+    void EnqueueOp(DepOp& op, const std::vector<Operation*> opLogPtr, std::vector<IndexOp>& syncedOpLog);
+    void RemoveOpDep(DepOp& setOp, DepOp& waitOp) const;
+    void AddPhaseOp1(
+        Function& function, std::vector<Operation*> srcLog, std::vector<Operation*>& dstLog, size_t& i, size_t& prerun);
+    void AddPhaseOp2(Function& function, std::vector<Operation*>& dstLog, size_t& prerun);
+    Status AddOpDep(DepOp& setOp, DepOp& waitOp);
+    Status AdjustOpDep(DepOp& op, size_t waitOpIdx, IssueQueue& issueQ, bool& failedFlag);
+    Status HandleEventID(DepOp& op, IssueQueue& issueQ, IssueNum& issuenum, bool& deadlock, bool& res);
+    Status PopFromQueue(IssueQueue& issueQ, std::vector<size_t>& poped, bool& deadlock);
+    Status InjectWaitFlag(Function& function, size_t idx, std::vector<IndexOp>& syncedOpLog);
+    Status InjectSetFlag(Function& function, size_t idx, std::vector<IndexOp>& syncedOpLog);
+    Status InjectSync(
+        Function& function, std::vector<Operation*> opLogPtr, size_t idx, std::vector<IndexOp>& syncedOpLog);
+    Status IssueOpPipeSeq(
+        Function& function, std::vector<Operation*> opLogPtr, std::vector<IndexOp>& syncedOpLog, bool& eventIdDeadlock,
+        size_t& issued);
+    Status IssueSyncOp(
+        Function& function, std::vector<Operation*> opLogPtr, std::vector<IndexOp>& syncedOpLog, size_t& totalIssued,
+        size_t& allIssued);
+    Status IssueOp(Function& function, std::vector<Operation*> opLogPtr, std::vector<IndexOp>& syncedOpLog);
+    Status ProcessDeadLock(
+        uint64_t& eventIdDeadlockEnterTimes, bool& eventIdDeadlock, std::vector<IndexOp>& syncedOpLog);
+    Status SynDependency(
+        int maxOverlapDepIdx, const DataDepInfo& depInfo, const PipePair& pipePair, std::vector<IndexOp>& syncedOpLog);
+    Status GetDepInfo(std::vector<IndexOp>& syncedOpLog, const PipePair& pipePair, DataDepInfo& depInfo);
+    Status RelaxFakeDataDep(std::vector<IndexOp>& syncedOpLog);
+    bool CheckIssuedOp(const DepOp& op);
+    bool ConstructDepInfo(DataDepInfo& depInfo, std::vector<IndexOp>& syncedOpLog, int i);
+    bool FindDataDep(DataDepInfo& depInfo, std::vector<IndexOp>& syncedOpLog, int i);
+    bool FindMaxOverlap(DataDepInfo& depInfo, int& maxOverlapDepIdx);
+    bool GenSyncOp(PipeCoreReal set, PipeCoreReal wait, int eventId, bool isSet, Operation& op);
+    Status GetEventId(const PipePair& pp, size_t setIdx, size_t waitIdx, int& eventId);
+    bool HasFreeEventId(const PipePair& pp);
+    bool BufOverlap(const TileRange& range1, int magic1, const TileRange& range2, int magic2) const;
+    bool CheckWawDependency(const Operation& opSet, const Operation& opWait, size_t k, size_t idx);
+    bool CheckRawDependency(const Operation& opSet, const Operation& opWait, size_t k, size_t idx);
+    bool CheckWarDependency(const Operation& opSet, const Operation& opWait, size_t k, size_t idx);
+    bool HasDataDependency(const Operation& opSet, const Operation& opWait, size_t k, size_t idx);
+    void UpdateDep(DepOp& currOp, DepOp& prevOp);
+    bool IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector<Operation*> opLogPtr);
+    void FindDep(
+        DepOp& op, const std::vector<Operation*> opLogPtr, size_t idx, DataDependencySearcher& dataDependencySearcher);
+    std::pair<CoreTypeDetail, CoreTypeDetail> GetCorePairDetail(
+        const PipePair& pp, size_t setIdx, size_t waitIdx, bool& isAIV1);
     void InitCVEventIdQ(bool isAIV1, CorePair corePair, CorePair corePairReverse);
-    std::deque<int> &GetFreeEventIdQueue(const PipePair &pp, size_t setIdx, size_t waitIdx, std::pair<CoreTypeDetail, CoreTypeDetail> &setWaitCoreType);
-    int GetSyncSrcLogIdx(std::vector<IndexOp> &syncedOpLog, int i);
-    int GetMaxEventId(const PipePair &pp);
-    Status ProcessView(std::vector<Operation *> &opLogNew, std::pair<Operation *, Operation *> pair);
-    Status ProcessAssemble(std::vector<Operation *> &opLogNew, std::pair<Operation *, Operation *> pair);
-    Status ProcessViewAssemble(std::vector<Operation *> &opLogNew, std::pair<Operation *, Operation *> pair);
-    Status ReorderViewAssemble(std::vector<Operation *> &opLog, std::vector<Operation *> &opListNew, const std::unordered_map<Operation *, Operation *> &changeMap);
+    std::deque<int>& GetFreeEventIdQueue(
+        const PipePair& pp, size_t setIdx, size_t waitIdx, std::pair<CoreTypeDetail, CoreTypeDetail>& setWaitCoreType);
+    int GetSyncSrcLogIdx(std::vector<IndexOp>& syncedOpLog, int i);
+    int GetMaxEventId(const PipePair& pp);
+    Status ProcessView(std::vector<Operation*>& opLogNew, std::pair<Operation*, Operation*> pair);
+    Status ProcessAssemble(std::vector<Operation*>& opLogNew, std::pair<Operation*, Operation*> pair);
+    Status ProcessViewAssemble(std::vector<Operation*>& opLogNew, std::pair<Operation*, Operation*> pair);
+    Status ReorderViewAssemble(
+        std::vector<Operation*>& opLog, std::vector<Operation*>& opListNew,
+        const std::unordered_map<Operation*, Operation*>& changeMap);
     std::string DumpLatestPipeDepMap();
-    void BuildTensorRangeMap(Operation *op);
+    void BuildTensorRangeMap(Operation* op);
 
     std::vector<DepOp> depOps_;
     // Cube: MTE2, MTE1, M, FIX, Vector: MTE2, V, MTE3
@@ -320,7 +362,7 @@ private:
     int minimalMergeOverlap{25};
     std::unordered_map<PipePair, std::vector<int>, PipePairHash> doublePipeOp; // pipepair, opmagic
     std::queue<size_t> orderedOpList_;
-    std::vector<Operation *> oriOpList_;
+    std::vector<Operation*> oriOpList_;
     std::unordered_map<int, TileRange> ubTensorRangeMap;
 };
 
@@ -331,11 +373,11 @@ public:
     void SetEnableDebug(bool enableDebug) { enableDebug_ = enableDebug; }
 
 private:
-    Status RunOnFunction(Function &function) override;
-    void InsertPipeAll(Function *subGraphFunc);
-    Status GenNewOpList(Function *subGraphFunc, std::vector<Operation *> &opListNew);
-    Status CheckNewOpListSeq(const std::vector<Operation *> &oriOpList, const std::vector<Operation *> &opListNew);
-    Status InsertSyncMainLoop(Function *subGraphFunc);
+    Status RunOnFunction(Function& function) override;
+    void InsertPipeAll(Function* subGraphFunc);
+    Status GenNewOpList(Function* subGraphFunc, std::vector<Operation*>& opListNew);
+    Status CheckNewOpListSeq(const std::vector<Operation*>& oriOpList, const std::vector<Operation*>& opListNew);
+    Status InsertSyncMainLoop(Function* subGraphFunc);
     bool enableDebug_{false};
 };
 } // namespace tile_fwk

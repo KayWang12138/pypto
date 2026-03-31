@@ -35,7 +35,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -48,25 +49,21 @@ public:
     void TearDown() override {}
 };
 
-void TestCodegenDynCumSumBody(int axis) {
+void TestCodegenDynCumSumBody(int axis)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     std::vector<int64_t> vecTileShape = {5, 9};
     std::vector<int64_t> shape{12, 14};
 
-    auto function = GenMockFuncDynUnary("CumSum", {shape, vecTileShape}, [axis](Tensor &input, Tensor &output) {
-        output = CumSum(input, axis);
-    });
+    auto function = GenMockFuncDynUnary(
+        "CumSum", {shape, vecTileShape}, [axis](Tensor& input, Tensor& output) { output = CumSum(input, axis); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynCumSum, test_CumSum_dim2_0) {
-    TestCodegenDynCumSumBody(0);
-}
+TEST_F(TestCodegenDynCumSum, test_CumSum_dim2_0) { TestCodegenDynCumSumBody(0); }
 
-TEST_F(TestCodegenDynCumSum, test_CumSum_dim2_1) {
-    TestCodegenDynCumSumBody(1);
-}
+TEST_F(TestCodegenDynCumSum, test_CumSum_dim2_1) { TestCodegenDynCumSumBody(1); }
 } // namespace npu::tile_fwk

@@ -17,7 +17,8 @@
 
 namespace npu {
 namespace tile_fwk {
-bool NeedInferShape(const Operation *op) {
+bool NeedInferShape(const Operation* op)
+{
     if (op->GetOOperands().empty()) {
         return false;
     }
@@ -27,10 +28,10 @@ bool NeedInferShape(const Operation *op) {
     return true;
 }
 
-void TopoProgramUtils::TopoProgram(const std::vector<Operation*>& opList,
-                                      const std::vector<std::vector<size_t>>& opInGraph,
-                                      const std::vector<std::vector<size_t>>& opOutGraph,
-                                      bool isParamIndex){
+void TopoProgramUtils::TopoProgram(
+    const std::vector<Operation*>& opList, const std::vector<std::vector<size_t>>& opInGraph,
+    const std::vector<std::vector<size_t>>& opOutGraph, bool isParamIndex)
+{
     std::queue<size_t> procOpQueue;
     std::vector<size_t> inDegree(opList.size(), 0);
     for (size_t j = 0; j < opInGraph.size(); ++j) {
@@ -57,5 +58,5 @@ void TopoProgramUtils::TopoProgram(const std::vector<Operation*>& opList,
         InferShapeRegistry::GetInstance().CallInferShapeFunc(opList[opIdx]);
     }
 }
-}
-}
+} // namespace tile_fwk
+} // namespace npu

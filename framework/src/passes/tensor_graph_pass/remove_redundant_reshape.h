@@ -24,12 +24,13 @@ class RemoveRedundantReshape : public Pass {
 public:
     RemoveRedundantReshape() : Pass("RemoveRedundantReshape") {}
     ~RemoveRedundantReshape() override = default;
+
 private:
-    Status DefaultEnabledPreCheck(Function &function) override;
-    Status PreCheck(Function &function) override;
-    Status PostCheck(Function &function) override;
-    Status RunOnFunction(Function &function) override;
-    Status RemoveReshape(Function &function) const;
+    Status DefaultEnabledPreCheck(Function& function) override;
+    Status PreCheck(Function& function) override;
+    Status PostCheck(Function& function) override;
+    Status RunOnFunction(Function& function) override;
+    Status RemoveReshape(Function& function) const;
 };
-}
+} // namespace npu::tile_fwk
 #endif // PASS_REMOVE_REDUNDEN_RESHAPE_H_

@@ -20,63 +20,75 @@
 
 namespace npu {
 namespace tile_fwk {
-Status AssignMemoryTypeChecker::DoPreCheck(Function &function) {
+Status AssignMemoryTypeChecker::DoPreCheck(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "===> Start Precheck for AssignMemoryType.");
     auto operations = function.Operations();
-    for(auto &operation : operations){
-        Operation *op_ptr = &operation;
-        //A_MUL_B操作输入tensor生产者校验
-        if(operation.GetOpcode() == Opcode::OP_A_MUL_B) {
+    for (auto& operation : operations) {
+        Operation* op_ptr = &operation;
+        // A_MUL_B操作输入tensor生产者校验
+        if (operation.GetOpcode() == Opcode::OP_A_MUL_B) {
             Status status = CheckAmulBInputProducers(operation);
-            if(status != SUCCESS) {
+            if (status != SUCCESS) {
                 return status;
             }
         }
-        //创建队列，包含当前操作和嵌套深度
-        std::queue<std::pair<Operation *, int>> opQueue;
-        std::unordered_set<Operation *> visited;
+        // 创建队列，包含当前操作和嵌套深度
+        std::queue<std::pair<Operation*, int>> opQueue;
+        std::unordered_set<Operation*> visited;
 
         opQueue.emplace(op_ptr, 1);
         visited.insert(op_ptr);
 
-        while(!opQueue.empty()){
-            auto[currentOp,depth] = opQueue.front();
+        while (!opQueue.empty()) {
+            auto [currentOp, depth] = opQueue.front();
             opQueue.pop();
 
-            //嵌套深度达到3失败
-            if(depth > 3){
-                APASS_LOG_WARN_F(Elements::Operation, "Over three view/assemble/reshape operations in sequence, currently reched %d; "
-                    "Potential suboptimal allocation around operation %d.", depth, currentOp->GetOpMagic());
+            // 嵌套深度达到3失败
+            if (depth > 3) {
+                APASS_LOG_WARN_F(
+                    Elements::Operation,
+                    "Over three view/assemble/reshape operations in sequence, currently reched %d; "
+                    "Potential suboptimal allocation around operation %d.",
+                    depth, currentOp->GetOpMagic());
                 return SUCCESS;
             }
-            CheckPattern(currentOp,opQueue,depth,visited);
+            CheckPattern(currentOp, opQueue, depth, visited);
         }
     }
     return SUCCESS;
 }
 
-Status AssignMemoryTypeChecker::CheckAmulBInputProducers(Operation &operation) {
+Status AssignMemoryTypeChecker::CheckAmulBInputProducers(Operation& operation)
+{
     auto inputs = operation.GetIOperands();
     auto producerOps = operation.ProducerOps();
-    for(auto &producerOp : producerOps) {
+    for (auto& producerOp : producerOps) {
         auto producerOpcode = producerOp->GetOpcode();
-        if(producerOpcode != Opcode::OP_L1_TO_L0A && producerOpcode !=Opcode::OP_L1_TO_L0B && 
-           producerOpcode != Opcode::OP_L1_TO_L0_AT && producerOpcode !=Opcode::OP_L1_TO_L0_BT && 
-           producerOpcode != Opcode::OP_VIEW && producerOpcode !=Opcode::OP_VEC_DUP) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Memory error, %s[%d] has invalid input producer; "
-                "Please check input producer %s[%d]. %s", operation.GetOpcodeStr().c_str(), operation.GetOpMagic(),
-                producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(), GetFormatBacktrace(operation).c_str());
+        if (producerOpcode != Opcode::OP_L1_TO_L0A && producerOpcode != Opcode::OP_L1_TO_L0B &&
+            producerOpcode != Opcode::OP_L1_TO_L0_AT && producerOpcode != Opcode::OP_L1_TO_L0_BT &&
+            producerOpcode != Opcode::OP_VIEW && producerOpcode != Opcode::OP_VEC_DUP) {
+            APASS_LOG_ERROR_F(
+                Elements::Operation,
+                "Memory error, %s[%d] has invalid input producer; "
+                "Please check input producer %s[%d]. %s",
+                operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), producerOp->GetOpcodeStr().c_str(),
+                producerOp->GetOpMagic(), GetFormatBacktrace(operation).c_str());
             return FAILED;
-           }
-        if(producerOpcode == Opcode::OP_VIEW) {
-            auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(producerOp->GetOpAttribute().get());
+        }
+        if (producerOpcode == Opcode::OP_VIEW) {
+            auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(producerOp->GetOpAttribute().get());
             MemoryType attrToType = viewOpAttribute->GetTo();
             if (attrToType != MemoryType::MEM_BT && attrToType != MemoryType::MEM_FIX_QUANT_PRE &&
                 attrToType != MemoryType::MEM_L0A && attrToType != MemoryType::MEM_L0B &&
                 attrToType != MemoryType::MEM_UNKNOWN) {
-                APASS_LOG_ERROR_F(Elements::Operation, "View attribute error, %s[%d] has invalid input OP_VIEW(toType: %d); "
-                    "Please check input view %s[%d]. %s", operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), attrToType,
-                    producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(), GetFormatBacktrace(operation).c_str());
+                APASS_LOG_ERROR_F(
+                    Elements::Operation,
+                    "View attribute error, %s[%d] has invalid input OP_VIEW(toType: %d); "
+                    "Please check input view %s[%d]. %s",
+                    operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), attrToType,
+                    producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(),
+                    GetFormatBacktrace(operation).c_str());
                 return FAILED;
             }
         }
@@ -84,16 +96,17 @@ Status AssignMemoryTypeChecker::CheckAmulBInputProducers(Operation &operation) {
     return SUCCESS;
 }
 
-//检查view/assemble/reshape的嵌套深度是否大于等于3
-void AssignMemoryTypeChecker::CheckPattern(Operation *operation, std::queue<std::pair<Operation *, int>> &opQueue,
-                                            int depth, std::unordered_set<Operation *> &visited) {
-    for(auto &tensor : operation->oOperand){
-        for(auto &consumerOp : tensor-> GetConsumers()){
-            if(consumerOp->GetOpcode() == Opcode::OP_VIEW ||
-                consumerOp->GetOpcode() == Opcode::OP_ASSEMBLE ||
-                consumerOp->GetOpcode() == Opcode::OP_RESHAPE){
+// 检查view/assemble/reshape的嵌套深度是否大于等于3
+void AssignMemoryTypeChecker::CheckPattern(
+    Operation* operation, std::queue<std::pair<Operation*, int>>& opQueue, int depth,
+    std::unordered_set<Operation*>& visited)
+{
+    for (auto& tensor : operation->oOperand) {
+        for (auto& consumerOp : tensor->GetConsumers()) {
+            if (consumerOp->GetOpcode() == Opcode::OP_VIEW || consumerOp->GetOpcode() == Opcode::OP_ASSEMBLE ||
+                consumerOp->GetOpcode() == Opcode::OP_RESHAPE) {
                 Operation* consumerOpPtr = consumerOp;
-                if(visited.find(consumerOpPtr) == visited.end()){
+                if (visited.find(consumerOpPtr) == visited.end()) {
                     opQueue.emplace(consumerOpPtr, depth + 1);
                     visited.insert(consumerOpPtr);
                     break;
@@ -103,23 +116,28 @@ void AssignMemoryTypeChecker::CheckPattern(Operation *operation, std::queue<std:
     }
 }
 
-Status AssignMemoryTypeChecker::DoPostCheck(Function &function) {
+Status AssignMemoryTypeChecker::DoPostCheck(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "===> Start Postcheck for AssignMemoryType.");
-    if (CheckTensorNotMemUnknown(function) == FAILED){
-        APASS_LOG_ERROR_F(Elements::Function, "Postcheck for AssignMemoryType failed since tensor has improper memoryType."); 
+    if (CheckTensorNotMemUnknown(function) == FAILED) {
+        APASS_LOG_ERROR_F(
+            Elements::Function, "Postcheck for AssignMemoryType failed since tensor has improper memoryType.");
         return FAILED;
     }
-    if (CheckMoveOpReachable(function) == FAILED){
-        APASS_LOG_ERROR_F(Elements::Function, "Postcheck for AssignMemoryType failed since view/assemble has unreachable input-to-output memoryType."); 
+    if (CheckMoveOpReachable(function) == FAILED) {
+        APASS_LOG_ERROR_F(
+            Elements::Function,
+            "Postcheck for AssignMemoryType failed since view/assemble has unreachable input-to-output memoryType.");
         return FAILED;
     }
     APASS_LOG_INFO_F(Elements::Function, "End Postcheck for AssignMemoryType.");
     return SUCCESS;
 }
 
-Status AssignMemoryTypeChecker::CheckTensorNotMemUnknown(Function &function) {
-    for (const auto &tMap : function.GetTensorMap().tensorMap_) {
-        for (const auto &tensor : tMap.second) {
+Status AssignMemoryTypeChecker::CheckTensorNotMemUnknown(Function& function)
+{
+    for (const auto& tMap : function.GetTensorMap().tensorMap_) {
+        for (const auto& tensor : tMap.second) {
             if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_UNKNOWN) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%d]'s memoryType is still unknown.", tensor->GetMagic());
                 return FAILED;
@@ -129,14 +147,15 @@ Status AssignMemoryTypeChecker::CheckTensorNotMemUnknown(Function &function) {
     return SUCCESS;
 }
 
-Status AssignMemoryTypeChecker::CheckMoveOpReachable(Function &function) {
+Status AssignMemoryTypeChecker::CheckMoveOpReachable(Function& function)
+{
     auto operations = function.Operations();
-    for (const auto &operation : operations) {
+    for (const auto& operation : operations) {
         if (OpcodeManager::Inst().GetOpCalcType(operation.GetOpcode()) != OpCalcType::MOVE_LOCAL) {
             continue;
         }
-        for (const auto &input : operation.GetIOperands()){
-            for (const auto &output : operation.GetOOperands()){
+        for (const auto& input : operation.GetIOperands()) {
+            for (const auto& output : operation.GetOOperands()) {
                 auto inMemType = input->GetMemoryTypeOriginal();
                 auto outMemType = output->GetMemoryTypeOriginal();
                 if (inMemType == outMemType) {
@@ -144,7 +163,8 @@ Status AssignMemoryTypeChecker::CheckMoveOpReachable(Function &function) {
                 }
                 std::pair<MemoryType, MemoryType> moveOpPath = {inMemType, outMemType};
                 if (ALL_DEFINED_PATHS.find(moveOpPath) == ALL_DEFINED_PATHS.end()) {
-                    APASS_LOG_ERROR_F(Elements::Tensor,
+                    APASS_LOG_ERROR_F(
+                        Elements::Tensor,
                         "OP[%d] has inputTensor[%d] with memoryType %s and "
                         "outputTensor[%d] with memoryType %s; The path is not reachable.",
                         operation.GetOpMagic(), input->GetMagic(), BriefMemoryTypeToString(inMemType).c_str(),

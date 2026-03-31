@@ -19,7 +19,8 @@
 #include "codegen/utils/codegen_utils.h"
 
 namespace npu::tile_fwk {
-std::string ForNode::Print() const {
+std::string ForNode::Print() const
+{
     std::ostringstream os;
     os << "for (";
     PrintInit(os);
@@ -29,15 +30,18 @@ std::string ForNode::Print() const {
     return os.str();
 }
 
-void ForNode::PrintInit(std::ostringstream &os) const {
+void ForNode::PrintInit(std::ostringstream& os) const
+{
     os << "uint16_t " << loopVar << " = " << SymbolicExpressionTable::BuildExpression(start) << SEMICOLON_BLANK;
 }
 
-void ForNode::PrintCond(std::ostringstream &os) const {
+void ForNode::PrintCond(std::ostringstream& os) const
+{
     os << loopVar << " < " << SymbolicExpressionTable::BuildExpression(extent) << SEMICOLON_BLANK;
 }
 
-void ForNode::PrintUpdate(std::ostringstream &os) const {
+void ForNode::PrintUpdate(std::ostringstream& os) const
+{
     if (step.ConcreteValid() && step.Concrete() == 1) {
         os << "++" << loopVar;
     } else {
@@ -45,7 +49,8 @@ void ForNode::PrintUpdate(std::ostringstream &os) const {
     }
 }
 
-void ForBlockManager::UpdateAxesList(const std::vector<SymbolicScalar> &axesList) {
+void ForBlockManager::UpdateAxesList(const std::vector<SymbolicScalar>& axesList)
+{
     axesList_ = axesList;
     FillIntVecWithDummyInHead<SymbolicScalar>(axesList_, MAX_LOOP_DEPTH - axesList.size(), 1);
     CODEGEN_LOGI("axesList_ after fill is : %s, ", IntVecToStr(axesList_).c_str());
@@ -56,7 +61,8 @@ void ForBlockManager::UpdateAxesList(const std::vector<SymbolicScalar> &axesList
     }
 }
 
-std::string ForBlockManager::Print() const {
+std::string ForBlockManager::Print() const
+{
     std::ostringstream os;
     PrintForHeader(os);
     PrintForBody(os);
@@ -64,51 +70,58 @@ std::string ForBlockManager::Print() const {
     return os.str();
 }
 
-void ForBlockManager::PrintForHeader(std::ostringstream &os) const {
+void ForBlockManager::PrintForHeader(std::ostringstream& os) const
+{
     for (size_t i = 0; i < MAX_LOOP_DEPTH; ++i) {
         PrintIndent(os, i);
         os << forNodes_[i].Print();
     }
 }
 
-void ForBlockManager::PrintForBody(std::ostringstream &os) const {
+void ForBlockManager::PrintForBody(std::ostringstream& os) const
+{
     PrintIndent(os, MAX_LOOP_DEPTH + 1);
     PrintOffsetDef(os);
     PrintSetAddrs(os);
     PrintTileOps(os);
 }
 
-void ForBlockManager::PrintForEnd(std::ostringstream &os) const {
+void ForBlockManager::PrintForEnd(std::ostringstream& os) const
+{
     for (size_t i = 0; i < MAX_LOOP_DEPTH; ++i) {
         PrintIndent(os, MAX_LOOP_DEPTH - i - 1);
         os << "}\n";
     }
 }
 
-void ForBlockManager::PrintOffsetDef(std::ostringstream &os) const {
+void ForBlockManager::PrintOffsetDef(std::ostringstream& os) const
+{
     os << "auto tileOffsets = TileOffset";
     std::vector<std::string> loopVars;
-    for (const auto &forNode : forNodes_) {
+    for (const auto& forNode : forNodes_) {
         loopVars.emplace_back(forNode.loopVar);
     }
     os << WrapParamByParentheses(loopVars) << STMT_END;
 }
 
-void ForBlockManager::PrintSetAddrs(std::ostringstream &os) const {
-    for (const auto &tensor : tensorNeedSetAddr_) {
+void ForBlockManager::PrintSetAddrs(std::ostringstream& os) const
+{
+    for (const auto& tensor : tensorNeedSetAddr_) {
         PrintIndent(os, MAX_LOOP_DEPTH + 1);
         PrintSetAddrSingle(os, tensor);
     }
 }
 
-void ForBlockManager::PrintSetAddrSingle(std::ostringstream &os, const std::string &tensor) const {
+void ForBlockManager::PrintSetAddrSingle(std::ostringstream& os, const std::string& tensor) const
+{
     std::string fullDimTensor;
     fullDimTensor = sm_->QueryTileTensorFullDimByTensorInLoop(tensor);
     os << tensor << ".SetAddr(" << fullDimTensor << ".GetLinearAddr(tileOffsets));\n";
 }
 
-void ForBlockManager::PrintTileOps(std::ostringstream &os) const {
-    for (const auto &tileOp : opList_) {
+void ForBlockManager::PrintTileOps(std::ostringstream& os) const
+{
+    for (const auto& tileOp : opList_) {
         CODEGEN_LOGI("tileOp is : %s", tileOp.c_str());
         PrintIndent(os, MAX_LOOP_DEPTH + 1);
         os << tileOp;

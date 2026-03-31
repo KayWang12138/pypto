@@ -24,12 +24,9 @@
 #include "machine/utils/device_log.h"
 #include "tilefwk/error.h"
 
-#define ALIGN_UP_PTR(ptr, al) \
-  (reinterpret_cast<decltype(ptr)>( \
-    ( \
-      reinterpret_cast<uintptr_t>(ptr) + static_cast<uintptr_t>((al) - 1) \
-    ) & ~static_cast<uintptr_t>((al) - 1) \
-  ))
+#define ALIGN_UP_PTR(ptr, al)         \
+    (reinterpret_cast<decltype(ptr)>( \
+        (reinterpret_cast<uintptr_t>(ptr) + static_cast<uintptr_t>((al)-1)) & ~static_cast<uintptr_t>((al)-1)))
 constexpr int64_t CACHE_LINE_SIZE = 64;
 constexpr int64_t INVALID_SLOT_ID = -1;
 
@@ -37,7 +34,8 @@ namespace npu::tile_fwk::dynamic {
 
 class SpinLock {
 public:
-    void lock() {
+    void lock()
+    {
         while (flag.test_and_set(std::memory_order_acquire))
             cpuRelax();
     }
@@ -57,25 +55,28 @@ struct Slot {
 
 class DeviceTaskSender {
 public:
-    void init(uint8_t *addr, int size) {
-        uint8_t *naddr = ALIGN_UP_PTR(addr, CACHE_LINE_SIZE);
-        nextSlot_ = reinterpret_cast<int32_t *>(naddr); // nextSlot_ takes a whole cache line
+    void init(uint8_t* addr, int size)
+    {
+        uint8_t* naddr = ALIGN_UP_PTR(addr, CACHE_LINE_SIZE);
+        nextSlot_ = reinterpret_cast<int32_t*>(naddr); // nextSlot_ takes a whole cache line
         size -= naddr - addr + CACHE_LINE_SIZE;
         nrSlot_ = size / sizeof(struct Slot);
         slots_ = reinterpret_cast<Slot*>(naddr + CACHE_LINE_SIZE);
-        ASSERT(nrSlot_ > 0 && "size too small")<<"nrSlot_= "<<nrSlot_<<", expected >0";
+        ASSERT(nrSlot_ > 0 && "size too small") << "nrSlot_= " << nrSlot_ << ", expected >0";
         DEV_DEBUG("nrSlot addr: nextSlot=%p, nrSlot=%ld\n", nextSlot_, nrSlot_);
 
         reset();
     }
 
-    void reset() {
+    void reset()
+    {
         SetNextSlot(INVALID_SLOT_ID);
         status_.resize(nrSlot_, 0);
         memset_s(slots_, nrSlot_ * sizeof(Slot), 0, nrSlot_ * sizeof(Slot));
     }
 
-    int send(int64_t taskId, int64_t taskData) {
+    int send(int64_t taskId, int64_t taskData)
+    {
         int slotId = INVALID_SLOT_ID;
         while (!trySend(taskId, taskData, slotId)) {
             cpuRelax();
@@ -83,7 +84,8 @@ public:
         return slotId;
     }
 
-    bool trySend(int64_t taskId, int64_t taskData, int &slot) {
+    bool trySend(int64_t taskId, int64_t taskData, int& slot)
+    {
         slot = *nextSlot_;
 
         // current still not read
@@ -100,8 +102,9 @@ public:
         return false;
     }
 
-    void sync(int slotId) {
-        ASSERT(slotId < nrSlot_)<<"slotId="<<slotId<<" >= nrSlot_="<<nrSlot_;
+    void sync(int slotId)
+    {
+        ASSERT(slotId < nrSlot_) << "slotId=" << slotId << " >= nrSlot_=" << nrSlot_;
         while (!trySync(slotId)) {
             cpuRelax();
         }
@@ -110,8 +113,9 @@ public:
         status_[slotId] = 0;
     }
 
-    bool trySync(int slotId) {
-        volatile int *status = &status_[slotId];
+    bool trySync(int slotId)
+    {
+        volatile int* status = &status_[slotId];
         if (*status == 0) {
             return true;
         }
@@ -119,7 +123,8 @@ public:
     }
 
 private:
-    int slotAlloc() {
+    int slotAlloc()
+    {
         std::lock_guard<SpinLock> lock(lock_);
         for (int i = 0; i < nrSlot_; i++) {
             if (status_[i] == 0) {
@@ -131,47 +136,52 @@ private:
         return -1;
     }
 
-    void sendTask(int32_t n, int64_t taskId, int64_t taskData) const {
+    void sendTask(int32_t n, int64_t taskId, int64_t taskData) const
+    {
         slots_[n].taskId = static_cast<uint64_t>(taskId);
         slots_[n].taskData = static_cast<uint64_t>(taskData);
         slots_[n].status = START;
         SetNextSlot(n);
     }
 
-    void SetNextSlot(int32_t slot) const {
+    void SetNextSlot(int32_t slot) const
+    {
         wmb();
         *nextSlot_ = slot;
     }
 
 private:
-    volatile int32_t *nextSlot_;
+    volatile int32_t* nextSlot_;
     SpinLock lock_;
-    Slot *slots_;
+    Slot* slots_;
     int64_t nrSlot_;
     std::vector<int> status_;
 };
 
 class DeviceTaskReceiver {
 public:
-    void init(uint8_t *addr, int size) {
-        uint8_t *naddr = ALIGN_UP_PTR(addr, CACHE_LINE_SIZE);
-        nextSlot_ = reinterpret_cast<int32_t *>(naddr); // nextSlot_ takes a whole cache line
+    void init(uint8_t* addr, int size)
+    {
+        uint8_t* naddr = ALIGN_UP_PTR(addr, CACHE_LINE_SIZE);
+        nextSlot_ = reinterpret_cast<int32_t*>(naddr); // nextSlot_ takes a whole cache line
         size -= naddr - addr + CACHE_LINE_SIZE;
         nrSlot_ = size / sizeof(struct Slot);
         slots_ = reinterpret_cast<Slot*>(naddr + CACHE_LINE_SIZE);
-        ASSERT(nrSlot_ > 0 && "size too small")<<", nrSlot_="<<nrSlot_<<", expected >0";
+        ASSERT(nrSlot_ > 0 && "size too small") << ", nrSlot_=" << nrSlot_ << ", expected >0";
         DEV_DEBUG("nrSlot addr: nextSlot=%p, nrSlot=%ld\n", nextSlot_, nrSlot_);
     }
 
-    void Finish(int64_t slot) {
-        ASSERT(slot < nrSlot_)<<"slot="<<slot<<" >= nrSlot_="<<nrSlot_;
+    void Finish(int64_t slot)
+    {
+        ASSERT(slot < nrSlot_) << "slot=" << slot << " >= nrSlot_=" << nrSlot_;
 
         DEV_DEBUG("fin: taskId=%lx, slot=%ld\n", slots_[slot].taskId, slot);
         std::lock_guard<SpinLock> lock(lock_);
         slots_[slot].status = FIN;
     }
 
-    int recv(int64_t &taskId, int64_t &taskData) {
+    int recv(int64_t& taskId, int64_t& taskData)
+    {
         int slot = INVALID_SLOT_ID;
         while (!TryRecv(taskId, taskData, slot)) {
             cpuRelax();
@@ -179,7 +189,8 @@ public:
         return slot;
     }
 
-    bool TryRecv(int64_t &taskId, int64_t &taskData, int &slot) {
+    bool TryRecv(int64_t& taskId, int64_t& taskData, int& slot)
+    {
         slot = *nextSlot_;
         if (slot == INVALID_SLOT_ID) {
             return false;
@@ -197,9 +208,9 @@ public:
     }
 
 private:
-    volatile int32_t *nextSlot_;
+    volatile int32_t* nextSlot_;
     SpinLock lock_;
-    Slot *slots_;
+    Slot* slots_;
     int64_t nrSlot_;
 };
-} // namespace npu::tile_fwk
+} // namespace npu::tile_fwk::dynamic

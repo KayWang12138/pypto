@@ -32,19 +32,19 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         DeviceLauncherContext::Get().DeviceInit();
         rtSetDevice(GetDeviceIdByEnvVar());
-     }
-
-    void TearDown() override {
-        DeviceLauncherContext::Get().DeviceFini();
     }
+
+    void TearDown() override { DeviceLauncherContext::Get().DeviceFini(); }
 };
 
 namespace {
 
-TEST_F(DynamicOutcastTensorTest, TensorAllocateIntermediate) {
+TEST_F(DynamicOutcastTensorTest, TensorAllocateIntermediate)
+{
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 100);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
@@ -78,24 +78,26 @@ TEST_F(DynamicOutcastTensorTest, TensorAllocateIntermediate) {
         RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
-    FUNCTION("main", {inputA, inputB}, {output}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, k, LoopRange(round)) {
+    FUNCTION("main", {inputA, inputB}, {output})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, k, LoopRange(round))
+        {
             Tensor mid(DT_INT32, {n, n}, "O");
-            LOOP("s0", FunctionType::DYNAMIC_LOOP, i, LoopRange(width)) {
-                LOOP("s1", FunctionType::DYNAMIC_LOOP, j, LoopRange(width)) {
+            LOOP("s0", FunctionType::DYNAMIC_LOOP, i, LoopRange(width))
+            {
+                LOOP("s1", FunctionType::DYNAMIC_LOOP, j, LoopRange(width))
+                {
                     Tensor t0 = View(inputA, {tiling, tiling}, {i * tiling, j * tiling});
                     Tensor t1 = View(inputB, {tiling, tiling}, {k * n + i * tiling, j * tiling});
                     Tensor ts = Add(t0, t1);
                     Assemble(ts, {i * tiling, j * tiling}, mid);
                 }
             }
-            LOOP("sum", FunctionType::DYNAMIC_LOOP, _, LoopRange(0x1)) {
+            LOOP("sum", FunctionType::DYNAMIC_LOOP, _, LoopRange(0x1))
+            {
                 (void)_;
-                IF (k == 0) {
-                    output = Add(mid, Element(DT_INT32, 0));
-                } ELSE {
-                    output = Add(output, mid);
-                }
+                IF(k == 0) { output = Add(mid, Element(DT_INT32, 0)); }
+                ELSE { output = Add(output, mid); }
             }
         }
     }
@@ -104,9 +106,9 @@ TEST_F(DynamicOutcastTensorTest, TensorAllocateIntermediate) {
     for (int k = 0; k < 0x1; k++) {
         EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
         auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-        EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+        EXPECT_TRUE(resultCmp(outputGolden, (int32_t*)outputResult->data(), 0.001f));
     }
 #endif
 }
 
-}
+} // namespace

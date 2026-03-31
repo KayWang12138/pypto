@@ -19,7 +19,7 @@
 
 using namespace npu::tile_fwk;
 
-namespace npu{
+namespace npu {
 namespace tile_fwk {
 const int NUM_8 = 8;
 const int NUM_16 = 16;
@@ -36,43 +36,48 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCheckerUtils, TestOpChecker) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestOpChecker", "TestOpChecker", nullptr);
+TEST_F(TestCheckerUtils, TestOpChecker)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestOpChecker", "TestOpChecker", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape1 = {NUM_32, NUM_16};
     std::vector<int64_t> shape2 = {NUM_16, NUM_8};
     std::vector<int64_t> shape3 = {NUM_32, NUM_8};
 
     Program::GetInstance().InsertFuncToFunctionMap("TestOpChecker", currFunctionPtr);
-    
+
     std::shared_ptr<LogicalTensor> incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     std::shared_ptr<LogicalTensor> incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     std::shared_ptr<LogicalTensor> L1A = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     std::shared_ptr<LogicalTensor> L1B = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    auto &viewA = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {incast1}, {L1A});
-    auto &viewB = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {incast2}, {L1B});
+    auto& viewA = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {incast1}, {L1A});
+    auto& viewB = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {incast2}, {L1B});
 
     std::shared_ptr<LogicalTensor> L0A = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     std::shared_ptr<LogicalTensor> L0B = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    auto &l1ToL0A = currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0A, {L1A}, {L0A});
-    auto &l1ToL0B = currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0B, {L1B}, {L0B});
-    
+    auto& l1ToL0A = currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0A, {L1A}, {L0A});
+    auto& l1ToL0B = currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0B, {L1B}, {L0B});
+
     std::shared_ptr<LogicalTensor> L0C = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
-    auto &aMulB = currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {L0A, L0B}, {L0C});
-    
+    auto& aMulB = currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {L0A, L0B}, {L0C});
+
     std::shared_ptr<LogicalTensor> outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
-    auto &copyout = currFunctionPtr->AddRawOperation(Opcode::OP_L0C_COPY_OUT, {L0C}, {outcast1});
+    auto& copyout = currFunctionPtr->AddRawOperation(Opcode::OP_L0C_COPY_OUT, {L0C}, {outcast1});
 
     EXPECT_TRUE(OpChecker::check(aMulB, OpChecker::CalcTypeChecker(OpCalcType::MATMUL)));
     EXPECT_FALSE(OpChecker::check(aMulB, OpChecker::CoreTypeChecker(OpCoreType::AIV)));
-    EXPECT_TRUE(OpChecker::check(l1ToL0A, OpChecker::CalcTypeChecker(OpCalcType::MOVE_LOCAL),
-        OpChecker::InputMemTypeChecker(MemoryType::MEM_L1), OpChecker::OutputMemTypeChecker({MemoryType::MEM_L0A, MemoryType::MEM_L0B})));
-    EXPECT_FALSE(OpChecker::check(l1ToL0B, OpChecker::CalcTypeChecker(OpCalcType::MOVE_LOCAL),
-        OpChecker::InputMemTypeChecker(MemoryType::MEM_L1), OpChecker::OutputMemTypeChecker(MemoryType::MEM_L0C)));
+    EXPECT_TRUE(OpChecker::check(
+        l1ToL0A, OpChecker::CalcTypeChecker(OpCalcType::MOVE_LOCAL), OpChecker::InputMemTypeChecker(MemoryType::MEM_L1),
+        OpChecker::OutputMemTypeChecker({MemoryType::MEM_L0A, MemoryType::MEM_L0B})));
+    EXPECT_FALSE(OpChecker::check(
+        l1ToL0B, OpChecker::CalcTypeChecker(OpCalcType::MOVE_LOCAL), OpChecker::InputMemTypeChecker(MemoryType::MEM_L1),
+        OpChecker::OutputMemTypeChecker(MemoryType::MEM_L0C)));
     EXPECT_TRUE(OpChecker::check(viewA, OpChecker::CalcTypeChecker(OpCalcType::MOVE_LOCAL)));
     EXPECT_FALSE(OpChecker::check(viewB, OpChecker::CalcTypeChecker(OpCalcType::MATMUL)));
-    EXPECT_TRUE(OpChecker::check(copyout, OpChecker::CalcTypeChecker(OpCalcType::MOVE_OUT),
-        OpChecker::InputMemTypeChecker(MemoryType::MEM_L0C), OpChecker::OutputMemTypeChecker({MemoryType::MEM_DEVICE_DDR})));
+    EXPECT_TRUE(OpChecker::check(
+        copyout, OpChecker::CalcTypeChecker(OpCalcType::MOVE_OUT), OpChecker::InputMemTypeChecker(MemoryType::MEM_L0C),
+        OpChecker::OutputMemTypeChecker({MemoryType::MEM_DEVICE_DDR})));
 }
 } // namespace tile_fwk
 } // namespace npu

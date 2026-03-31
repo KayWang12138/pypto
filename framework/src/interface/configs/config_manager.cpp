@@ -22,7 +22,7 @@
 #include <shared_mutex>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <ifaddrs.h> 
+#include <ifaddrs.h>
 
 #include "tilefwk/pypto_fwk_log.h"
 #include "interface/utils/common.h"
@@ -31,12 +31,13 @@
 namespace npu::tile_fwk {
 
 const std::string tilefwkConfigEnvName = "TILEFWK_CONFIG_PATH";
-static PassConfigs InternalGetPassConfigs(const nlohmann::json &root, const GlobalPassConfigs *globalConfigs);
-static GlobalPassConfigs InternalGetGlobalConfigs(const nlohmann::json &globalCfg);
+static PassConfigs InternalGetPassConfigs(const nlohmann::json& root, const GlobalPassConfigs* globalConfigs);
+static GlobalPassConfigs InternalGetGlobalConfigs(const nlohmann::json& globalCfg);
 
-static const nlohmann::json *GetJsonNode(const nlohmann::json &root, const std::vector<std::string> &keys) {
-    auto *curr = &root;
-    for (auto &&key : keys) {
+static const nlohmann::json* GetJsonNode(const nlohmann::json& root, const std::vector<std::string>& keys)
+{
+    auto* curr = &root;
+    for (auto&& key : keys) {
         if (auto it = curr->find(key); it != curr->end()) {
             curr = &*it;
         } else {
@@ -46,24 +47,26 @@ static const nlohmann::json *GetJsonNode(const nlohmann::json &root, const std::
     return curr;
 }
 
-static const nlohmann::json *GetJsonChild(const nlohmann::json &root, const std::string &key) {
+static const nlohmann::json* GetJsonChild(const nlohmann::json& root, const std::string& key)
+{
     return GetJsonNode(root, {key});
 }
 
-ConfigManager::ConfigManager() {
-    Initialize();
-}
+ConfigManager::ConfigManager() { Initialize(); }
 
-ConfigManager &ConfigManager::Instance() {
+ConfigManager& ConfigManager::Instance()
+{
     static ConfigManager instance;
     return instance;
 }
 
-const nlohmann::json *ConfigManager::GetJsonNode(const nlohmann::json &root, const std::vector<std::string> &keys) {
+const nlohmann::json* ConfigManager::GetJsonNode(const nlohmann::json& root, const std::vector<std::string>& keys)
+{
     return ::npu::tile_fwk::GetJsonNode(root, keys);
 }
 
-Status ConfigManager::Initialize() {
+Status ConfigManager::Initialize()
+{
     /* 环境变量优先生效 */
     std::string jsonFilePath = GetEnvVar(tilefwkConfigEnvName);
     if (jsonFilePath.empty()) {
@@ -79,13 +82,13 @@ Status ConfigManager::Initialize() {
     }
 
 #ifdef SRCPATH
-    constexpr const char *SRC_PATH = SRCPATH;
+    constexpr const char* SRC_PATH = SRCPATH;
     // update Json_ through genJson
     std::string genJsonPath = std::string(SRC_PATH) + "/framework/src/cost_model/simulation/scripts/";
     if (IsPathExist(genJsonPath)) {
         auto files = GetFiles(genJsonPath, "json");
         if (!files.empty()) {
-            for (const auto &file : files) {
+            for (const auto& file : files) {
                 std::ifstream genJsonFile(genJsonPath + file);
                 nlohmann::json jsonConfig = nlohmann::json::parse(genJsonFile);
                 genJsonFile.close();
@@ -106,23 +109,25 @@ Status ConfigManager::Initialize() {
 
     originJson_ = json_;
 
-    if (auto *node = GetJsonNode(json_, {"global", "pass"})) {
+    if (auto* node = GetJsonNode(json_, {"global", "pass"})) {
         globalPassConfigs_ = InternalGetGlobalConfigs(*node);
     }
 
     return SUCCESS;
 }
 
-void ConfigManager::RefreshGlobalPassCfg() {
-    if (auto *node = GetJsonNode(json_, {"global", "pass"})) {
+void ConfigManager::RefreshGlobalPassCfg()
+{
+    if (auto* node = GetJsonNode(json_, {"global", "pass"})) {
         globalPassConfigs_ = InternalGetGlobalConfigs(*node);
     }
 }
 
-static std::string GetIpContext() {
-    struct ifaddrs *ifAddrStruct = nullptr;
-    struct ifaddrs *ifa = nullptr;
-    void *tmpAddrPtr = nullptr;
+static std::string GetIpContext()
+{
+    struct ifaddrs* ifAddrStruct = nullptr;
+    struct ifaddrs* ifa = nullptr;
+    void* tmpAddrPtr = nullptr;
     std::string hexIp;
 
     if (getifaddrs(&ifAddrStruct) != 0) {
@@ -133,7 +138,7 @@ static std::string GetIpContext() {
             continue;
         }
         if (ifa->ifa_addr->sa_family == AF_INET && strcmp(ifa->ifa_name, "lo") != 0) {
-            tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+            tmpAddrPtr = &((struct sockaddr_in*)ifa->ifa_addr)->sin_addr;
             uint32_t ipInt = ntohl(*((uint32_t*)tmpAddrPtr));
             std::ostringstream oss;
             oss << std::uppercase << std::hex << std::setw(8) << std::setfill('0') << ipInt;
@@ -150,7 +155,8 @@ static std::string GetIpContext() {
     return "";
 }
 
-static std::string CreateLogTopFolder() {
+static std::string CreateLogTopFolder()
+{
     auto now = std::chrono::high_resolution_clock::now();
     auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     auto us = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count() % 1000000;
@@ -180,14 +186,16 @@ static std::string CreateLogTopFolder() {
     return folderPath;
 }
 
-const std::string &ConfigManager::LogTopFolder() {
+const std::string& ConfigManager::LogTopFolder()
+{
     if (globalConfigs_.logTopFolder.empty()) {
         globalConfigs_.logTopFolder = CreateLogTopFolder();
     }
     return globalConfigs_.logTopFolder;
 }
 
-const std::string &ConfigManager::LogTensorGraphFolder() {
+const std::string& ConfigManager::LogTensorGraphFolder()
+{
     if (globalConfigs_.logTensorGraphFolder.empty()) {
         globalConfigs_.logTensorGraphFolder = LogTopFolder() + "/TensorGraph";
         CreateDir(globalConfigs_.logTensorGraphFolder);
@@ -195,14 +203,16 @@ const std::string &ConfigManager::LogTensorGraphFolder() {
     return globalConfigs_.logTensorGraphFolder;
 }
 
-const std::string &ConfigManager::LogFile() {
+const std::string& ConfigManager::LogFile()
+{
     if (globalConfigs_.logFile.empty()) {
         globalConfigs_.logFile = LogTopFolder() + "/run.log";
     }
     return globalConfigs_.logFile;
 }
 
-void ConfigManager::ResetLog(const std::string &path) {
+void ConfigManager::ResetLog(const std::string& path)
+{
     std::string newLogFile;
     if (path.empty()) {
         globalConfigs_.logTopFolder = CreateLogTopFolder();
@@ -213,66 +223,66 @@ void ConfigManager::ResetLog(const std::string &path) {
     globalConfigs_.logFile = std::move(newLogFile);
 }
 
-PassConfigs ConfigManager::GetPassConfigs(const std::string &strategy, const std::string &identifier) const {
-    auto *node = GetJsonNode(json_, {"global", "pass_strategies", strategy, identifier});
+PassConfigs ConfigManager::GetPassConfigs(const std::string& strategy, const std::string& identifier) const
+{
+    auto* node = GetJsonNode(json_, {"global", "pass_strategies", strategy, identifier});
     if (!node) {
         return globalPassConfigs_.defaultPassConfigs;
     }
     return InternalGetPassConfigs(*node, &globalPassConfigs_);
 }
 
-void ConfigManager::PassConfigsDebugInfo(
-    const std::string &strategy, const std::vector<std::string> &identifiers) const {
-    auto *node = GetJsonNode(json_, {"global", "pass_strategies", strategy});
+void ConfigManager::PassConfigsDebugInfo(const std::string& strategy, const std::vector<std::string>& identifiers) const
+{
+    auto* node = GetJsonNode(json_, {"global", "pass_strategies", strategy});
     if (!node) {
-        FUNCTION_LOGI("[ConfigManager] Missing custom pass strategy < %s > configs. %s", strategy.c_str(),
-                    "You may add your own custom strategy configs in 'tile_fwk_config.json'.");
+        FUNCTION_LOGI(
+            "[ConfigManager] Missing custom pass strategy < %s > configs. %s", strategy.c_str(),
+            "You may add your own custom strategy configs in 'tile_fwk_config.json'.");
         return;
     }
 
     size_t maxLength = 0;
-    for (auto &&identifier : identifiers) {
+    for (auto&& identifier : identifiers) {
         maxLength = std::max(maxLength, identifier.size());
     }
 
     FUNCTION_LOGI("[ConfigManager] Strategy < %s > is found. Custom pass strategy will be used.", strategy.c_str());
-    for (auto &&identifier : identifiers) {
+    for (auto&& identifier : identifiers) {
         std::string spaces(maxLength - identifier.size(), ' ');
         if (node->find(identifier) != node->end()) {
             FUNCTION_LOGI("[ConfigManager] Pass instance %s<%s> configs loaded.", spaces.c_str(), identifier.c_str());
         } else {
-            FUNCTION_LOGI("[ConfigManager] Pass instance %s<%s> configs for pass strategy <%s> is missing. \
+            FUNCTION_LOGI(
+                "[ConfigManager] Pass instance %s<%s> configs for pass strategy <%s> is missing. \
             You may add your own custom strategy configs in 'tile_fwk_config.json'.",
-            spaces.c_str(), identifier.c_str(), strategy.c_str());
+                spaces.c_str(), identifier.c_str(), strategy.c_str());
         }
     }
 }
 
 /* Helper Functions */
-static std::map<std::string, std::function<void(PassConfigs &, const nlohmann::json &)>> g_assignPassConfigFns = {
-    {                 KEY_PRINT_GRAPH,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.printGraph = node.get<bool>(); }},
-    {                 KEY_PRINT_PROGRAM,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.printProgram = node.get<bool>(); }},
-    {                 KEY_DUMP_GRAPH,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.dumpGraph = node.get<bool>(); }},
-    {                 KEY_DUMP_PASS_TIME_COST,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.dumpPassTimeCost = node.get<bool>(); }},
-    {                 KEY_PRE_CHECK,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.preCheck = node.get<bool>(); }},
-    {                 KEY_POST_CHECK,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.postCheck = node.get<bool>(); }},
-    {                 KEY_EXPECTED_VALUE_CHECK,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.expectedValueCheck = node.get<bool>(); }},
-    {                 KEY_DISABLE_PASS,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.disablePass = node.get<bool>(); }},
-    {                 KEY_HEALTH_CHECK,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.healthCheck = node.get<bool>(); }},
-    {                 KEY_RESUME_PARH,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.resumePath = node.get<std::string>(); }},
+static std::map<std::string, std::function<void(PassConfigs&, const nlohmann::json&)>> g_assignPassConfigFns = {
+    {KEY_PRINT_GRAPH, [](PassConfigs& configs, const nlohmann::json& node) { configs.printGraph = node.get<bool>(); }},
+    {KEY_PRINT_PROGRAM,
+     [](PassConfigs& configs, const nlohmann::json& node) { configs.printProgram = node.get<bool>(); }},
+    {KEY_DUMP_GRAPH, [](PassConfigs& configs, const nlohmann::json& node) { configs.dumpGraph = node.get<bool>(); }},
+    {KEY_DUMP_PASS_TIME_COST,
+     [](PassConfigs& configs, const nlohmann::json& node) { configs.dumpPassTimeCost = node.get<bool>(); }},
+    {KEY_PRE_CHECK, [](PassConfigs& configs, const nlohmann::json& node) { configs.preCheck = node.get<bool>(); }},
+    {KEY_POST_CHECK, [](PassConfigs& configs, const nlohmann::json& node) { configs.postCheck = node.get<bool>(); }},
+    {KEY_EXPECTED_VALUE_CHECK,
+     [](PassConfigs& configs, const nlohmann::json& node) { configs.expectedValueCheck = node.get<bool>(); }},
+    {KEY_DISABLE_PASS,
+     [](PassConfigs& configs, const nlohmann::json& node) { configs.disablePass = node.get<bool>(); }},
+    {KEY_HEALTH_CHECK,
+     [](PassConfigs& configs, const nlohmann::json& node) { configs.healthCheck = node.get<bool>(); }},
+    {KEY_RESUME_PARH,
+     [](PassConfigs& configs, const nlohmann::json& node) { configs.resumePath = node.get<std::string>(); }},
 };
 
-static PassConfigs InternalGetPassConfigs(const nlohmann::json &root, const GlobalPassConfigs *globalConfigs) {
+static PassConfigs InternalGetPassConfigs(const nlohmann::json& root, const GlobalPassConfigs* globalConfigs)
+{
     PassConfigs configs;
     if (globalConfigs != nullptr) {
         if (!globalConfigs->enablePassConfigs) {
@@ -281,25 +291,28 @@ static PassConfigs InternalGetPassConfigs(const nlohmann::json &root, const Glob
         configs = globalConfigs->defaultPassConfigs;
     }
 
-    for (auto &&[key, assignFn] : g_assignPassConfigFns) {
-        if (auto *node = GetJsonChild(root, key)) {
+    for (auto&& [key, assignFn] : g_assignPassConfigFns) {
+        if (auto* node = GetJsonChild(root, key)) {
             assignFn(configs, *node);
         }
     }
     return configs;
 }
 
-static std::map<std::string, std::function<void(GlobalPassConfigs &, const nlohmann::json &)>> g_assignGlobalConfigFns = {
-    {    "enable_pass_configs",
-     [](GlobalPassConfigs &configs, const nlohmann::json &node) { configs.enablePassConfigs = node.get<bool>(); }},
-    {   "default_pass_configs",
-     [](GlobalPassConfigs &configs, const nlohmann::json &node) { configs.defaultPassConfigs = InternalGetPassConfigs(node, nullptr); }},
+static std::map<std::string, std::function<void(GlobalPassConfigs&, const nlohmann::json&)>> g_assignGlobalConfigFns = {
+    {"enable_pass_configs",
+     [](GlobalPassConfigs& configs, const nlohmann::json& node) { configs.enablePassConfigs = node.get<bool>(); }},
+    {"default_pass_configs",
+     [](GlobalPassConfigs& configs, const nlohmann::json& node) {
+         configs.defaultPassConfigs = InternalGetPassConfigs(node, nullptr);
+     }},
 };
 
-static GlobalPassConfigs InternalGetGlobalConfigs(const nlohmann::json &globalCfg) {
+static GlobalPassConfigs InternalGetGlobalConfigs(const nlohmann::json& globalCfg)
+{
     GlobalPassConfigs configs;
-    for (auto &&[key, assignFn] : g_assignGlobalConfigFns) {
-        if (auto *node = GetJsonChild(globalCfg, key)) {
+    for (auto&& [key, assignFn] : g_assignGlobalConfigFns) {
+        if (auto* node = GetJsonChild(globalCfg, key)) {
             assignFn(configs, *node);
         }
     }
@@ -310,15 +323,12 @@ struct RunDataDir {
     std::string path;
     std::string dName;
 
-    std::string montage() {
-        return path + "/" + dName;
-    }
+    std::string montage() { return path + "/" + dName; }
 
-    bool empty() {
-        return (path.empty() || dName.empty());
-    }
+    bool empty() { return (path.empty() || dName.empty()); }
 
-    void Reset() {
+    void Reset()
+    {
         path.clear();
         dName.clear();
     }
@@ -327,7 +337,8 @@ struct RunDataDir {
 struct ConfigStorage {
     ConfigStorage() { Init(); }
 
-    void Init() {
+    void Init()
+    {
         auto res = ConfigManager::Instance().GetPrintOptions();
         if (res != nullptr && res->is_object()) {
             printOption.edgeItems = res->value("edgeitems", printOption.edgeItems);
@@ -338,7 +349,8 @@ struct ConfigStorage {
         Reset();
     }
 
-    void Reset() {
+    void Reset()
+    {
         funcType = FunctionType::DYNAMIC;
         semanticLabel = nullptr;
         rundataDir.Reset();
@@ -350,45 +362,42 @@ struct ConfigStorage {
     PrintOptions printOption;
 };
 
-
 namespace config {
 
 static ConfigStorage g_config;
 std::shared_mutex g_rwlock;
 
-void Reset() {
+void Reset()
+{
     g_config.Reset();
     ConfigManagerNg::CurrentScope()->Clear();
 }
 
-void SetBuildStatic(bool isStatic) {
+void SetBuildStatic(bool isStatic)
+{
     g_config.funcType = isStatic ? FunctionType::STATIC : FunctionType::DYNAMIC;
     FUNCTION_LOGD("Set functionType[%s] successfully.", (isStatic ? "STATIC" : "DYNAMIC"));
 }
 
-FunctionType GetFunctionType() {
-    return g_config.funcType;
-}
+FunctionType GetFunctionType() { return g_config.funcType; }
 
-void SetSemanticLabel(const std::string &label, const char *filename , int lineno) {
+void SetSemanticLabel(const std::string& label, const char* filename, int lineno)
+{
     g_config.semanticLabel = std::make_shared<SemanticLabel>(label, filename, lineno);
     FUNCTION_LOGD("Set semanticLabel[%s] successfully.", label.c_str());
 }
 
-void SetSemanticLabel(std::shared_ptr<SemanticLabel> label) {
-    g_config.semanticLabel = label;
-}
+void SetSemanticLabel(std::shared_ptr<SemanticLabel> label) { g_config.semanticLabel = label; }
 
-std::shared_ptr<SemanticLabel> GetSemanticLabel() {
-    return g_config.semanticLabel;
-}
+std::shared_ptr<SemanticLabel> GetSemanticLabel() { return g_config.semanticLabel; }
 
 constexpr int LIMIT_DIR_NUM_BEFORE_CREATE = 127;
-constexpr const char *PREFIX_RUNDATA = "rundata_";
-constexpr const char *ENV_VAR_PYPTO_HOME = "PYPTO_HOME";
-constexpr const char *ENV_VAR_HOME = "HOME";
+constexpr const char* PREFIX_RUNDATA = "rundata_";
+constexpr const char* ENV_VAR_PYPTO_HOME = "PYPTO_HOME";
+constexpr const char* ENV_VAR_HOME = "HOME";
 
-void CreateRunDataDir() {
+void CreateRunDataDir()
+{
     std::string envStr = GetEnvVar(ENV_VAR_PYPTO_HOME);
     std::string dir = envStr.empty() ? (GetEnvVar(ENV_VAR_HOME) + "/.pypto") : envStr;
     g_config.rundataDir.path = dir + "/run";
@@ -401,7 +410,8 @@ void CreateRunDataDir() {
     ASSERT(res) << "Failed to create directory: " << g_config.rundataDir.montage();
 }
 
-void SetRunDataOption(const std::string &key, const std::string &value) {
+void SetRunDataOption(const std::string& key, const std::string& value)
+{
     static nlohmann::json j;
     std::shared_lock lock(g_rwlock);
     j[key] = value;
@@ -413,8 +423,8 @@ void SetRunDataOption(const std::string &key, const std::string &value) {
     SaveFileSafe(filename, reinterpret_cast<uint8_t*>(dumpValue.data()), dumpValue.size());
 }
 
-
-void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth) {
+void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth)
+{
     g_config.printOption.edgeItems = edgeItems;
     g_config.printOption.precision = precision;
     g_config.printOption.threshold = threshold;
@@ -422,9 +432,7 @@ void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth)
     FUNCTION_LOGD("Set print option [%d %d %d %d] successfully.", edgeItems, precision, threshold, linewidth);
 }
 
-PrintOptions &GetPrintOptions() {
-    return g_config.printOption;
-}
+PrintOptions& GetPrintOptions() { return g_config.printOption; }
 
 } // namespace config
 } // namespace npu::tile_fwk

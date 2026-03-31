@@ -48,4 +48,4 @@ struct ModelConfig : public Config {
     uint64_t calendarMode = 0;
     std::string calendarFile = "";
 };
-}
+} // namespace CostModel

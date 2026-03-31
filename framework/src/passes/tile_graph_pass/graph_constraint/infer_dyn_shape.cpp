@@ -23,12 +23,14 @@
 
 namespace npu {
 namespace tile_fwk {
-Status InferDynShape::PostCheck(Function &function) {
+Status InferDynShape::PostCheck(Function& function)
+{
     InferDynShapeChecker checker;
     return checker.DoPostCheck(function);
 }
 
-Status InferDynShape::InferShape(Function& function){
+Status InferDynShape::InferShape(Function& function)
+{
     size_t i = 0U;
     std::map<int, size_t> opMagic2Idx;
     std::vector<Operation*> opList = function.Operations().DuplicatedOpList();
@@ -52,7 +54,7 @@ Status InferDynShape::InferShape(Function& function){
     return SUCCESS;
 }
 
-Status InferDynShape::RunOnFunction(Function &function)
+Status InferDynShape::RunOnFunction(Function& function)
 {
     // 遍历每一个op，调用对应的infershape函数
     // 遍历顺序，按照入度解依赖
@@ -65,5 +67,5 @@ Status InferDynShape::RunOnFunction(Function &function)
     APASS_LOG_INFO_F(Elements::Function, "===> End InferDynShape.");
     return SUCCESS;
 }
-} 
-} // namespace npu::tile_fwk
+} // namespace tile_fwk
+} // namespace npu

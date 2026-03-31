@@ -93,4 +93,3 @@ def add_kernel(
 完整样例请参考：
 
 [condition.py](../../../examples/02_intermediate/controlflow/condition/condition.py)
-

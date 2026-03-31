@@ -24,10 +24,11 @@ namespace npu::tile_fwk {
 namespace {
 class ThreadSafeTaskQueue {
 public:
-    explicit ThreadSafeTaskQueue(const std::deque<Task> &v) { q = v; }
-    explicit ThreadSafeTaskQueue(std::deque<Task> &&v) { q = std::move(v); }
+    explicit ThreadSafeTaskQueue(const std::deque<Task>& v) { q = v; }
+    explicit ThreadSafeTaskQueue(std::deque<Task>&& v) { q = std::move(v); }
 
-    std::optional<Task> GetTask() {
+    std::optional<Task> GetTask()
+    {
         const std::lock_guard<std::mutex> taskLock(m);
 
         if (q.empty()) {
@@ -45,27 +46,29 @@ private:
     std::mutex m;
 };
 
-void TaskRunner(ThreadSafeTaskQueue &taskQueue) {
+void TaskRunner(ThreadSafeTaskQueue& taskQueue)
+{
     while (true) {
         auto taskMaybe = taskQueue.GetTask();
         if (!taskMaybe) {
             break;
         }
 
-        auto &task = taskMaybe.value();
+        auto& task = taskMaybe.value();
         task();
     }
 }
 }; // namespace
 
-void ParallelExecuteAndWait(unsigned threadNum, std::deque<Task> tasks) {
+void ParallelExecuteAndWait(unsigned threadNum, std::deque<Task> tasks)
+{
     if (threadNum == 0) {
         threadNum = 1;
     }
 
     if (threadNum == 1) {
         // no need to use extra thread if only one thread is needed
-        for (auto &task : tasks) {
+        for (auto& task : tasks) {
             task();
         }
 
@@ -79,7 +82,7 @@ void ParallelExecuteAndWait(unsigned threadNum, std::deque<Task> tasks) {
         threadPool.emplace_back(TaskRunner, std::ref(taskQueue));
     }
 
-    for (auto &tth : threadPool) {
+    for (auto& tth : threadPool) {
         tth.join();
     }
 }

@@ -21,27 +21,27 @@
 #include "tilefwk/file.h"
 
 namespace npu::tile_fwk {
-bool GetFileSize(const std::string &filePath, uint32_t &fileSize);
+bool GetFileSize(const std::string& filePath, uint32_t& fileSize);
 uint32_t GetFileSize(const std::string& filePath);
-bool CreateDir(const std::string &directoryPath);
+bool CreateDir(const std::string& directoryPath);
 bool DeleteDir(const std::string& directoryPath);
-bool CreateMultiLevelDir(const std::string &directoryPath);
-void DeleteFile(const std::string &path);
+bool CreateMultiLevelDir(const std::string& directoryPath);
+void DeleteFile(const std::string& path);
 bool ReadJsonFile(const std::string& file, nlohmann::json& jsonObj);
-bool ReadBytesFromFile(const std::string &filePath, std::vector<char> &buffer);
+bool ReadBytesFromFile(const std::string& filePath, std::vector<char>& buffer);
 std::vector<std::string> GetFiles(const std::string& path, const std::string& ext);
-void SaveFile(const std::string &filePath, const std::vector<uint8_t> &data);
-bool SaveFile(const std::string &filePath, const uint8_t *data, size_t size) __attribute__ ((warn_unused_result));
-void SaveFileSafe(const std::string &filePath, const uint8_t *data, size_t size);
-bool DumpFile(const char *data, const size_t size, const std::string &filePath);
-bool DumpFile(const std::vector<uint8_t> &data, const std::string &filePath);
-bool DumpFile(const std::string &text, const std::string &filePath);
-void Rename(const std::string &oldPath, const std::string &newPath);
-std::vector<uint8_t> LoadFile(const std::string &filePath);
-FILE* LockAndOpenFile(const std::string &lockFilePath);
-void UnlockAndCloseFile(FILE *fp);
-bool CopyFile(const std::string &srcPath, const std::string &dstPath);
+void SaveFile(const std::string& filePath, const std::vector<uint8_t>& data);
+bool SaveFile(const std::string& filePath, const uint8_t* data, size_t size) __attribute__((warn_unused_result));
+void SaveFileSafe(const std::string& filePath, const uint8_t* data, size_t size);
+bool DumpFile(const char* data, const size_t size, const std::string& filePath);
+bool DumpFile(const std::vector<uint8_t>& data, const std::string& filePath);
+bool DumpFile(const std::string& text, const std::string& filePath);
+void Rename(const std::string& oldPath, const std::string& newPath);
+std::vector<uint8_t> LoadFile(const std::string& filePath);
+FILE* LockAndOpenFile(const std::string& lockFilePath);
+void UnlockAndCloseFile(FILE* fp);
+bool CopyFile(const std::string& srcPath, const std::string& dstPath);
 std::string GetCurrentSharedLibPath();
 std::string GetCurRunningPath();
-void RemoveOldestDirs(const std::string &path, const std::string &prefix, int left);
-}
+void RemoveOldestDirs(const std::string& path, const std::string& prefix, int left);
+} // namespace npu::tile_fwk

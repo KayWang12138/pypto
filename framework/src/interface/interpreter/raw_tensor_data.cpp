@@ -25,8 +25,9 @@ struct LogicalTensorDataHead {
     uint32_t padding[0x3] = {0};
 };
 
-
-std::string LogicalTensorData::DumpRange(int idxBegin, int idxEnd, const std::vector<ElementDump> *elementDumpList) const {
+std::string LogicalTensorData::DumpRange(
+    int idxBegin, int idxEnd, const std::vector<ElementDump>* elementDumpList) const
+{
     std::vector<bool> elementDiffPrevList(idxEnd - idxBegin, false);
 
     std::vector<std::string> elementList;
@@ -70,7 +71,8 @@ std::string LogicalTensorData::DumpRange(int idxBegin, int idxEnd, const std::ve
     return oss.str();
 }
 
-std::string LogicalTensorData::DumpCoord(int row) const {
+std::string LogicalTensorData::DumpCoord(int row) const
+{
     std::ostringstream oss;
 
     std::vector<int> coord(GetShape().size() - 1);
@@ -89,7 +91,8 @@ std::string LogicalTensorData::DumpCoord(int row) const {
     return oss.str();
 }
 
-std::string LogicalTensorData::DumpData(int indent, const std::vector<ElementDump> *elementDumpList) const {
+std::string LogicalTensorData::DumpData(int indent, const std::vector<ElementDump>* elementDumpList) const
+{
     std::string space(indent, ' ');
 
     std::ostringstream oss;
@@ -126,8 +129,9 @@ std::string LogicalTensorData::DumpData(int indent, const std::vector<ElementDum
     return oss.str();
 }
 
-void LogicalTensorData::Save(const std::string &filepath) const {
-    FILE *fdata = fopen(filepath.c_str(), "wb");
+void LogicalTensorData::Save(const std::string& filepath) const
+{
+    FILE* fdata = fopen(filepath.c_str(), "wb");
     LogicalTensorDataHead head;
     head.dataType = GetDataType();
     head.dimension = GetShape().size();
@@ -140,29 +144,56 @@ void LogicalTensorData::Save(const std::string &filepath) const {
     int totalSize = GetSize();
 
     switch (GetDataType()) {
-        case DT_INT8: HandleSave<int8_t>(fdata, totalSize, rowSize); break;
-        case DT_INT16: HandleSave<int16_t>(fdata, totalSize, rowSize); break;
-        case DT_INT32: HandleSave<int32_t>(fdata, totalSize, rowSize); break;
-        case DT_INT64: HandleSave<int64_t>(fdata, totalSize, rowSize); break;
-        case DT_FP16: HandleSave<npu::tile_fwk::float16>(fdata, totalSize, rowSize); break;
-        case DT_FP32: HandleSave<float>(fdata, totalSize, rowSize); break;
-        case DT_BF16: HandleSave<npu::tile_fwk::bfloat16>(fdata, totalSize, rowSize); break;
-        case DT_UINT8: HandleSave<uint8_t>(fdata, totalSize, rowSize); break;
-        case DT_UINT16: HandleSave<uint16_t>(fdata, totalSize, rowSize); break;
-        case DT_UINT32: HandleSave<uint32_t>(fdata, totalSize, rowSize); break;
-        case DT_UINT64: HandleSave<uint64_t>(fdata, totalSize, rowSize); break;
-        case DT_DOUBLE: HandleSave<double>(fdata, totalSize, rowSize); break;
-        case DT_BOOL: HandleSave<bool>(fdata, totalSize, rowSize); break;
-        default: ASSERT(false); break;
+        case DT_INT8:
+            HandleSave<int8_t>(fdata, totalSize, rowSize);
+            break;
+        case DT_INT16:
+            HandleSave<int16_t>(fdata, totalSize, rowSize);
+            break;
+        case DT_INT32:
+            HandleSave<int32_t>(fdata, totalSize, rowSize);
+            break;
+        case DT_INT64:
+            HandleSave<int64_t>(fdata, totalSize, rowSize);
+            break;
+        case DT_FP16:
+            HandleSave<npu::tile_fwk::float16>(fdata, totalSize, rowSize);
+            break;
+        case DT_FP32:
+            HandleSave<float>(fdata, totalSize, rowSize);
+            break;
+        case DT_BF16:
+            HandleSave<npu::tile_fwk::bfloat16>(fdata, totalSize, rowSize);
+            break;
+        case DT_UINT8:
+            HandleSave<uint8_t>(fdata, totalSize, rowSize);
+            break;
+        case DT_UINT16:
+            HandleSave<uint16_t>(fdata, totalSize, rowSize);
+            break;
+        case DT_UINT32:
+            HandleSave<uint32_t>(fdata, totalSize, rowSize);
+            break;
+        case DT_UINT64:
+            HandleSave<uint64_t>(fdata, totalSize, rowSize);
+            break;
+        case DT_DOUBLE:
+            HandleSave<double>(fdata, totalSize, rowSize);
+            break;
+        case DT_BOOL:
+            HandleSave<bool>(fdata, totalSize, rowSize);
+            break;
+        default:
+            ASSERT(false);
+            break;
     }
     fclose(fdata);
 }
 
-void LogicalTensorData::SaveFile(const char *filepath) const {
-    return Save(filepath);
-}
+void LogicalTensorData::SaveFile(const char* filepath) const { return Save(filepath); }
 
-std::string LogicalTensorData::ToString(const PrintOptions *options) const {
+std::string LogicalTensorData::ToString(const PrintOptions* options) const
+{
     std::stringstream os;
     int64_t axes[0x8] = {0}; // max dim is 8
 
@@ -178,7 +209,7 @@ std::string LogicalTensorData::ToString(const PrintOptions *options) const {
 
     std::function<void(int dim)> printImpl;
     int ndim = shape_.size();
-    auto &shape = validShape_.empty() ? shape_ : validShape_;
+    auto& shape = validShape_.empty() ? shape_ : validShape_;
 
     auto repeat = [&](char c, int n) {
         for (int i = 0; i < n; i++) {
@@ -246,9 +277,10 @@ std::string LogicalTensorData::ToString(const PrintOptions *options) const {
     return os.str();
 }
 
-std::shared_ptr<LogicalTensorData> LogicalTensorData::Load(const std::string &filepath) {
+std::shared_ptr<LogicalTensorData> LogicalTensorData::Load(const std::string& filepath)
+{
     std::shared_ptr<LogicalTensorData> dataView = nullptr;
-    FILE *fdata = fopen(filepath.c_str(), "rb");
+    FILE* fdata = fopen(filepath.c_str(), "rb");
     if (fdata != nullptr) {
         LogicalTensorDataHead head;
         if (fread(&head, sizeof(head), 1, fdata) == 1) {
@@ -258,8 +290,8 @@ std::shared_ptr<LogicalTensorData> LogicalTensorData::Load(const std::string &fi
             }
             auto data = std::make_shared<RawTensorData>(static_cast<DataType>(head.dataType), shape);
             if (fread(data->data(), 1, data->size(), fdata) == data->size()) {
-                dataView = std::make_shared<LogicalTensorData>(
-                    data, shape, shape, std::vector<int64_t>(shape.size(), 0));
+                dataView =
+                    std::make_shared<LogicalTensorData>(data, shape, shape, std::vector<int64_t>(shape.size(), 0));
             }
         }
         fclose(fdata);
@@ -267,9 +299,10 @@ std::shared_ptr<LogicalTensorData> LogicalTensorData::Load(const std::string &fi
     return dataView;
 }
 
-ProgramData &ProgramData::GetInstance() {
+ProgramData& ProgramData::GetInstance()
+{
     static ProgramData data;
     return data;
 }
 
-}
+} // namespace npu::tile_fwk

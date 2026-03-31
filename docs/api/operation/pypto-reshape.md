@@ -83,4 +83,3 @@ for _ in pypto.loop(1, name="loop", idx_name="loop"):
             [3, 4]]
 输出数据y: [2, 3, 4, 5]
 ```
-

@@ -24,10 +24,10 @@ public:
     DeadOperationEliminator() = default;
     ~DeadOperationEliminator() = default;
 
-    void EliminateDeadOperationBackward(Function &function);
-    void EliminateOperation(Function &function, bool sorted = true);
-    void EliminateOperationAndNotSortAfterErase(Function &function, bool sorted = false);
-    static Status EliminateDeadOperation(Function &function);
+    void EliminateDeadOperationBackward(Function& function);
+    void EliminateOperation(Function& function, bool sorted = true);
+    void EliminateOperationAndNotSortAfterErase(Function& function, bool sorted = false);
+    static Status EliminateDeadOperation(Function& function);
 };
-}
+} // namespace npu::tile_fwk
 #endif // PASS_DEAD_OPERATION_ELIMINATE_H_

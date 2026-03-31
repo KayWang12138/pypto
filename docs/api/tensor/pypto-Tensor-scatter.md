@@ -16,4 +16,3 @@ scatter(self, dim: int, index: 'Tensor', src: float, *, reduce: str = None) -> '
 ## 详细说明
 
 请参见[pypto.scatter](../operation/pypto-scatter.md)。
-

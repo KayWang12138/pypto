@@ -18,9 +18,11 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct RangeOpFuncArgs : public OpFuncArgs {
-    RangeOpFuncArgs(const Element &start, const Element &end, const Element &step,
-        const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
-        : start_(start), end_(end), step_(step), viewShape_(viewShape), tileShape_(tileShape) {}
+    RangeOpFuncArgs(
+        const Element& start, const Element& end, const Element& step, const std::vector<int64_t>& viewShape,
+        const std::vector<int64_t> tileShape)
+        : start_(start), end_(end), step_(step), viewShape_(viewShape), tileShape_(tileShape)
+    {}
     Element start_;
     Element end_;
     Element step_;
@@ -29,22 +31,26 @@ struct RangeOpFuncArgs : public OpFuncArgs {
 };
 
 struct RangeOpMetaData {
-    explicit RangeOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
-        : opFunc_(opFunc), test_data_(test_data) {}
+    explicit RangeOpMetaData(const OpFunc& opFunc, const nlohmann::json& test_data)
+        : opFunc_(opFunc), test_data_(test_data)
+    {}
 
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
 static void RangeOperationExeFunc(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
-        auto args = static_cast<const RangeOpFuncArgs *>(opArgs);
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]})
+    {
+        auto args = static_cast<const RangeOpFuncArgs*>(opArgs);
         Element start = args->start_;
         Element end = args->end_;
         Element step = args->step_;
         int64_t bloop = 1;
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
             TileShape::Current().SetVecTile(args->tileShape_);
             auto res = Range(start, end, step);
             Assemble(res, {bIdx}, outputs[0]);
@@ -54,10 +60,12 @@ static void RangeOperationExeFunc(
 
 class RangeOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<RangeOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(TestRange, RangeOperationTest,
+INSTANTIATE_TEST_SUITE_P(
+    TestRange, RangeOperationTest,
     ::testing::ValuesIn(GetOpMetaData<RangeOpMetaData>({RangeOperationExeFunc}, "Range")));
 
-Element GetElementByType(DataType dataType, nlohmann::json test_data, string name) {
+Element GetElementByType(DataType dataType, nlohmann::json test_data, string name)
+{
     if (dataType == DT_FP32 || dataType == DT_BF16 || dataType == DT_FP16) {
         Element element(dataType, GetValueByName<float>(test_data, name));
         return element;
@@ -78,7 +86,8 @@ Element GetElementByType(DataType dataType, nlohmann::json test_data, string nam
     return element;
 }
 
-TEST_P(RangeOperationTest, TestRange) {
+TEST_P(RangeOperationTest, TestRange)
+{
     auto testCase = CreateTestCaseDesc<RangeOpMetaData>(GetParam(), nullptr);
     nlohmann::json test_data = GetParam().test_data_;
     Element start = GetElementByType(testCase.inputTensors[0].GetDataType(), test_data, "start");

@@ -34,44 +34,44 @@ namespace npu::tile_fwk::dynamic {
 
 class DelayedDumper {
 public:
-    void AddRootFuncDump(std::string name, std::map<std::pair<WsMemCategory, size_t>, uint32_t> memReqs) {
+    void AddRootFuncDump(std::string name, std::map<std::pair<WsMemCategory, size_t>, uint32_t> memReqs)
+    {
         if (stitchWindowDumpInfo_.size() < currWindowIdx_ + 1) {
             stitchWindowDumpInfo_.resize(currWindowIdx_ + 1);
         }
-        auto &dumpInfo = stitchWindowDumpInfo_[currWindowIdx_].rootFuncs[std::move(name)];
+        auto& dumpInfo = stitchWindowDumpInfo_[currWindowIdx_].rootFuncs[std::move(name)];
         dumpInfo.cnt++;
-        for (auto &&[key, value] : memReqs) {
+        for (auto&& [key, value] : memReqs) {
             dumpInfo.memReqCounter[key] += value;
         }
     }
 
-    void AddAicpuMemDump(const std::map<std::pair<WsMemCategory, size_t>, uint32_t> &memReqs) {
+    void AddAicpuMemDump(const std::map<std::pair<WsMemCategory, size_t>, uint32_t>& memReqs)
+    {
         if (stitchWindowDumpInfo_.size() < currWindowIdx_ + 1) {
             stitchWindowDumpInfo_.resize(currWindowIdx_ + 1);
         }
-        auto &windowInfo = stitchWindowDumpInfo_[currWindowIdx_];
-        for (auto &&[key, value] : memReqs) {
+        auto& windowInfo = stitchWindowDumpInfo_[currWindowIdx_];
+        for (auto&& [key, value] : memReqs) {
             windowInfo.aicpuMemInfo[key] += value;
         }
     }
 
-    void LogTensorMalloc(std::string name, WsAllocation allocation) {
+    void LogTensorMalloc(std::string name, WsAllocation allocation)
+    {
         if (stitchWindowDumpInfo_.size() < currWindowIdx_ + 1) {
             stitchWindowDumpInfo_.resize(currWindowIdx_ + 1);
         }
-        auto &dumpInfo = stitchWindowDumpInfo_[currWindowIdx_].rootFuncs[std::move(name)];
+        auto& dumpInfo = stitchWindowDumpInfo_[currWindowIdx_].rootFuncs[std::move(name)];
         dumpInfo.memReqCounter[std::make_pair(allocation.category_, allocation.rawMemReq_)]++;
     }
 
-    void Rewind() {
-        currWindowIdx_ = 0;
-    }
+    void Rewind() { currWindowIdx_ = 0; }
 
-    void MarkAsNewStitchWindow() {
-        currWindowIdx_++;
-    }
+    void MarkAsNewStitchWindow() { currWindowIdx_++; }
 
-    void DumpStitchWindowMemoryUsage() const {
+    void DumpStitchWindowMemoryUsage() const
+    {
         DEV_MEM_DUMP("Stitch Window Memory Usage:\n");
 
         auto rangeToString = [](size_t l, size_t r) {
@@ -83,7 +83,7 @@ public:
 
         SheetFormatter sheet({"Window Idx", "Root Func Name", "Root Func Cnt", "Mem Category", "Mem Req", "Alloc Num"});
         for (size_t i = 0; i < stitchWindowDumpInfo_.size(); i++) {
-            auto &windowInfo = stitchWindowDumpInfo_[i];
+            auto& windowInfo = stitchWindowDumpInfo_[i];
             if (windowInfo.rootFuncs.empty()) {
                 continue;
             }
@@ -97,20 +97,17 @@ public:
             }
 
             bool isFirstLine = true;
-            for (auto &&[rootFuncName, dumpInfo] : windowInfo.rootFuncs) {
+            for (auto&& [rootFuncName, dumpInfo] : windowInfo.rootFuncs) {
                 bool isFirstLine2 = true;
                 if (!isFirstLine) {
                     sheet.AddRowSeparator(1);
                 }
-                for (auto &&[memInfo, cnt] : dumpInfo.memReqCounter) {
+                for (auto&& [memInfo, cnt] : dumpInfo.memReqCounter) {
                     sheet.AddRow(
                         isFirstLine ? rangeToString(i, lastEqual) : std::string{},
                         isFirstLine2 ? rootFuncName : std::string{},
-                        isFirstLine2 ? sheet::Integer(dumpInfo.cnt) : std::string{},
-                        GetCategoryName(memInfo.first),
-                        memInfo.second,
-                        cnt
-                    );
+                        isFirstLine2 ? sheet::Integer(dumpInfo.cnt) : std::string{}, GetCategoryName(memInfo.first),
+                        memInfo.second, cnt);
                     isFirstLine = false;
                     isFirstLine2 = false;
                 }
@@ -121,15 +118,10 @@ public:
                     sheet.AddRowSeparator(1);
                 }
                 bool isFirstLine2 = true;
-                for (auto &&[memInfo, cnt] : windowInfo.aicpuMemInfo) {
+                for (auto&& [memInfo, cnt] : windowInfo.aicpuMemInfo) {
                     sheet.AddRow(
-                        isFirstLine ? rangeToString(i, lastEqual) : std::string{},
-                        isFirstLine2 ? "N/A (Metadata)" : "",
-                        isFirstLine2 ? "N/A" : "",
-                        GetCategoryName(memInfo.first),
-                        memInfo.second,
-                        cnt
-                    );
+                        isFirstLine ? rangeToString(i, lastEqual) : std::string{}, isFirstLine2 ? "N/A (Metadata)" : "",
+                        isFirstLine2 ? "N/A" : "", GetCategoryName(memInfo.first), memInfo.second, cnt);
                     isFirstLine = false;
                     isFirstLine2 = false;
                 }
@@ -138,7 +130,7 @@ public:
             i = lastEqual;
         }
         auto lines = sheet.DumpLines();
-        for (auto &&line : lines) {
+        for (auto&& line : lines) {
             DEV_MEM_DUMP("%s\n", line.c_str());
             (void)line;
         }
@@ -151,7 +143,8 @@ private:
         size_t cnt{0};
         MemReqCounter memReqCounter;
 
-        bool operator==(const RootFuncDumpInfo &oth) const {
+        bool operator==(const RootFuncDumpInfo& oth) const
+        {
             return cnt == oth.cnt && memReqCounter == oth.memReqCounter;
         }
     };
@@ -166,36 +159,34 @@ private:
 
 class WsAllocatorCounter {
 public:
-    void LogMalloc(WsAllocation allocation) {
+    void LogMalloc(WsAllocation allocation)
+    {
         memReqCounter_[std::make_pair(allocation.category_, allocation.rawMemReq_)]++;
         statistics_.totalMemReq += allocation.rawMemReq_;
     }
 
-    void LogDealloc(WsAllocation allocation) {
-        statistics_.totalMemReq -= allocation.rawMemReq_;
-    }
+    void LogDealloc(WsAllocation allocation) { statistics_.totalMemReq -= allocation.rawMemReq_; }
 
-    void Merge(const WsAllocatorCounter &oth) {
-        for (auto &&[key, value] : oth.memReqCounter_) {
+    void Merge(const WsAllocatorCounter& oth)
+    {
+        for (auto&& [key, value] : oth.memReqCounter_) {
             memReqCounter_[key] += value;
         }
         statistics_.totalMemReq += oth.statistics_.totalMemReq;
     }
 
-    size_t TotalMemReq() const {
-        return statistics_.totalMemReq;
-    }
+    size_t TotalMemReq() const { return statistics_.totalMemReq; }
 
-    void Reset() {
-        memReqCounter_.clear();
-    }
+    void Reset() { memReqCounter_.clear(); }
 
-    void DelayedDumpAsRootFuncAndReset(DelayedDumper &dumper, const char *rootFuncName) {
+    void DelayedDumpAsRootFuncAndReset(DelayedDumper& dumper, const char* rootFuncName)
+    {
         dumper.AddRootFuncDump(rootFuncName, std::move(memReqCounter_));
         memReqCounter_.clear();
     }
 
-    void DelayedDumpAsAicpuCounterAndReset(DelayedDumper &dumper) {
+    void DelayedDumpAsAicpuCounterAndReset(DelayedDumper& dumper)
+    {
         dumper.AddAicpuMemDump(memReqCounter_);
         memReqCounter_.clear();
     }
@@ -208,20 +199,20 @@ private:
     } statistics_;
 };
 
-#else // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL: ^^^ true / false vvv
+#else  // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL: ^^^ true / false vvv
 
 class DelayedDumper {
 public:
-    void AddRootFuncDump(std::string name, std::map<std::pair<WsMemCategory, size_t>, uint32_t> memReqs) {
+    void AddRootFuncDump(std::string name, std::map<std::pair<WsMemCategory, size_t>, uint32_t> memReqs)
+    {
         (void)name;
         (void)memReqs;
     }
 
-    void AddAicpuMemDump(const std::map<std::pair<WsMemCategory, size_t>, uint32_t> &memReqs) {
-        (void)memReqs;
-    }
+    void AddAicpuMemDump(const std::map<std::pair<WsMemCategory, size_t>, uint32_t>& memReqs) { (void)memReqs; }
 
-    void LogTensorMalloc(std::string name, WsAllocation allocation) {
+    void LogTensorMalloc(std::string name, WsAllocation allocation)
+    {
         (void)name;
         (void)allocation;
     }
@@ -235,30 +226,23 @@ public:
 
 class WsAllocatorCounter {
 public:
-    void LogMalloc(WsAllocation allocation) {
-        (void)allocation;
-    }
+    void LogMalloc(WsAllocation allocation) { (void)allocation; }
 
-    void LogDealloc(WsAllocation allocation) {
-        (void)allocation;
-    }
+    void LogDealloc(WsAllocation allocation) { (void)allocation; }
 
-    void Merge(const WsAllocatorCounter &oth) {
-        (void)oth;
-    }
+    void Merge(const WsAllocatorCounter& oth) { (void)oth; }
 
     size_t TotalMemReq() const { return 0; }
 
     void Reset() {}
 
-    void DelayedDumpAsRootFuncAndReset(DelayedDumper &dp, const char *rootFuncName) {
+    void DelayedDumpAsRootFuncAndReset(DelayedDumper& dp, const char* rootFuncName)
+    {
         (void)dp;
         (void)rootFuncName;
     }
 
-    void DelayedDumpAsAicpuCounterAndReset(DelayedDumper &dumper) {
-        (void)dumper;
-    }
+    void DelayedDumpAsAicpuCounterAndReset(DelayedDumper& dumper) { (void)dumper; }
 };
 
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL

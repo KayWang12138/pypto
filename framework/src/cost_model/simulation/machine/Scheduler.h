@@ -27,11 +27,12 @@ public:
     std::string sortTileAllocPolicy = "DOM_COUNT";
     std::vector<std::map<int, int>> pipeIssueOrders;
     std::vector<int> issueSequencePtr;
-    void MergeCopyOutGroup(int srcCopyOutIdx, int curCopyOutIdx, std::map<int, int> &copyOutSeq);
-    void TileInsertQueue(TilePtr tile, std::vector<std::vector<int>> &tileAllocSequence);
+    void MergeCopyOutGroup(int srcCopyOutIdx, int curCopyOutIdx, std::map<int, int>& copyOutSeq);
+    void TileInsertQueue(TilePtr tile, std::vector<std::vector<int>>& tileAllocSequence);
     void TileOpInsertQueue(TileOpPtr tileOp);
-    void SortTile(std::unordered_map<int, TilePtr> &tiles, std::unordered_map<int, TileOpPtr> &tileOps,
-                  std::vector<std::vector<int>> &tileAllocSequence);
+    void SortTile(
+        std::unordered_map<int, TilePtr>& tiles, std::unordered_map<int, TileOpPtr>& tileOps,
+        std::vector<std::vector<int>>& tileAllocSequence);
     std::shared_ptr<SimSys> GetSim();
 };
-}  // namespace CostModel
+} // namespace CostModel

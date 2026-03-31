@@ -18,13 +18,14 @@
 #include "interface/utils/id_gen.h"
 
 namespace npu::tile_fwk {
-class FunctionClone { //类名
+class FunctionClone { // 类名
 public:
-    FunctionClone(Function& rootFunc_, Function* originalMixFunc_) : rootFunc(rootFunc_), originalMixFunc(originalMixFunc_){}
+    FunctionClone(Function& rootFunc_, Function* originalMixFunc_)
+        : rootFunc(rootFunc_), originalMixFunc(originalMixFunc_)
+    {}
     ~FunctionClone() {}
 
-    Function* CloneFunctionByComponent(const InternalComponentInfo& component,
-                            uint64_t newProgramID, size_t idx = 0);
+    Function* CloneFunctionByComponent(const InternalComponentInfo& component, uint64_t newProgramID, size_t idx = 0);
     void CopyInferParamIndexInfo();
     void ProcessOperations(const InternalComponentInfo& component);
 
@@ -34,4 +35,4 @@ public:
     std::shared_ptr<Function> cloneFunc;
 };
 
-}
+} // namespace npu::tile_fwk

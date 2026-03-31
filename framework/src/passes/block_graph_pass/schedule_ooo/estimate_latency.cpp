@@ -13,14 +13,13 @@
  * \brief
  */
 
-
 #include "passes/block_graph_pass/schedule_ooo/estimate_latency.h"
-
 
 namespace npu::tile_fwk {
 
-void LatencyEstimator::LaunchReadyIssue() {
-    for (auto &op : taskList) {
+void LatencyEstimator::LaunchReadyIssue()
+{
+    for (auto& op : taskList) {
         if (USE_LESS_OPS2.find(op->GetOpcode()) != USE_LESS_OPS2.end() && inGraph[op].empty()) {
             auto type = RescheduleUtils::GetOpPipeType(op);
             opQueues[type].Insert(op);
@@ -33,7 +32,8 @@ void LatencyEstimator::LaunchReadyIssue() {
     }
 }
 
-Status LatencyEstimator::FreeBuffer(Operation* op) {
+Status LatencyEstimator::FreeBuffer(Operation* op)
+{
     for (auto tensor : GetInOutOperandCached(op)) {
         auto memId = tensor->memoryrange.memId;
         if (DelBufRefCount(memId) != SUCCESS) {
@@ -44,15 +44,20 @@ Status LatencyEstimator::FreeBuffer(Operation* op) {
             auto freeMemSize = localBufferMap_[memId]->size;
             if (spillblockMemIds.find(memId) == spillblockMemIds.end()) {
                 localMemoryCurrentSize[localBufferMap_[memId]->memType] += freeMemSize;
-                APASS_LOG_DEBUG_F(Elements::Operation, "FreeBuffer memType: %d, currentSize %ld, memId: %d, freeMemSize: %lu.",
-                    localBufferMap_[memId]->memType, static_cast<long>(localMemoryCurrentSize[localBufferMap_[memId]->memType]), memId, static_cast<unsigned long>(freeMemSize));
+                APASS_LOG_DEBUG_F(
+                    Elements::Operation, "FreeBuffer memType: %d, currentSize %ld, memId: %d, freeMemSize: %lu.",
+                    localBufferMap_[memId]->memType,
+                    static_cast<long>(localMemoryCurrentSize[localBufferMap_[memId]->memType]), memId,
+                    static_cast<unsigned long>(freeMemSize));
             } else {
-                APASS_LOG_DEBUG_F(Elements::Operation, "FreeBuffer memType: %d, memId: %d free in spillblock",
+                APASS_LOG_DEBUG_F(
+                    Elements::Operation, "FreeBuffer memType: %d, memId: %d free in spillblock",
                     localBufferMap_[memId]->memType, memId);
             }
 
-            if (localMemoryCurrentSize[localBufferMap_[memId]->memType] > localMemSize[localBufferMap_[memId]->memType]
-                || localMemoryCurrentSize[localBufferMap_[memId]->memType] < 0) {
+            if (localMemoryCurrentSize[localBufferMap_[memId]->memType] >
+                    localMemSize[localBufferMap_[memId]->memType] ||
+                localMemoryCurrentSize[localBufferMap_[memId]->memType] < 0) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Free tensor [%d] failed.", memId);
                 return FAILED;
             }
@@ -62,7 +67,8 @@ Status LatencyEstimator::FreeBuffer(Operation* op) {
     return SUCCESS;
 }
 
-Status LatencyEstimator::RetireOpAndAwakeSucc(Operation* op, uint64_t& commitCnt) {
+Status LatencyEstimator::RetireOpAndAwakeSucc(Operation* op, uint64_t& commitCnt)
+{
     commitCnt++;
     opRetiredInfo[op] = true;
     if (FreeBuffer(op) != SUCCESS) {
@@ -89,13 +95,14 @@ Status LatencyEstimator::RetireOpAndAwakeSucc(Operation* op, uint64_t& commitCnt
     return SUCCESS;
 }
 
-Status LatencyEstimator::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
+Status LatencyEstimator::RetireIssueStage(uint64_t& commitCnt, int& nextCycle)
+{
     for (auto& [pipeType, pipe] : opQueues) {
         (void)pipeType;
         if (!pipe.busy) {
             continue;
         }
-        if (pipe.curOpRetireCycle <= clock) {   // 如果该pipe内当前正在执行op，在clock的时刻已经执行完毕。
+        if (pipe.curOpRetireCycle <= clock) { // 如果该pipe内当前正在执行op，在clock的时刻已经执行完毕。
             Operation* op = pipe.curOp;
             pipe.busy = false;
             pipe.curOp = nullptr;
@@ -105,7 +112,8 @@ Status LatencyEstimator::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
                 return FAILED;
             }
         } else {
-            APASS_LOG_DEBUG_F(Elements::Operation, "EXECUTING[%d]: %s", pipe.curOpRetireCycle, GetOpInfo(pipe.curOp).c_str());
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "EXECUTING[%d]: %s", pipe.curOpRetireCycle, GetOpInfo(pipe.curOp).c_str());
             if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
                 nextCycle = pipe.curOpRetireCycle;
             }
@@ -114,7 +122,8 @@ Status LatencyEstimator::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
     return SUCCESS;
 }
 
-Status LatencyEstimator::ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType, OpQueue &pipe) {
+Status LatencyEstimator::ExecuteAllocIssue(uint64_t& commitCnt, MemoryType memType, OpQueue& pipe)
+{
     bool canAlloc = true;
     while (canAlloc) {
         if (pipe.Empty()) {
@@ -127,10 +136,12 @@ Status LatencyEstimator::ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memTy
         if (localMemoryCurrentSize[memType] >= static_cast<long int>(needMemSize)) {
             APASS_LOG_DEBUG_F(Elements::Operation, "ALLOCATE: %s.", GetOpInfo(op).c_str());
             localMemoryCurrentSize[memType] -= needMemSize;
-            APASS_LOG_DEBUG_F(Elements::Operation, "ExecuteAllocIssue memType: %d, currentSize %ld, memId: %d.", memType, static_cast<long>(localMemoryCurrentSize[memType]), memId);
-            if (localMemoryCurrentSize[memType] > localMemSize[memType] ||
-                localMemoryCurrentSize[memType] < 0) {
-                APASS_LOG_ERROR_F(Elements::Tensor, "Allocate Tensor[%d] failed.", GetInOutOperandCached(op)[0]->GetMagic());
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "ExecuteAllocIssue memType: %d, currentSize %ld, memId: %d.", memType,
+                static_cast<long>(localMemoryCurrentSize[memType]), memId);
+            if (localMemoryCurrentSize[memType] > localMemSize[memType] || localMemoryCurrentSize[memType] < 0) {
+                APASS_LOG_ERROR_F(
+                    Elements::Tensor, "Allocate Tensor[%d] failed.", GetInOutOperandCached(op)[0]->GetMagic());
                 return FAILED;
             }
             pipe.PopFront();
@@ -147,7 +158,8 @@ Status LatencyEstimator::ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memTy
     return SUCCESS;
 }
 
-Status LatencyEstimator::BufferAllocStage(uint64_t &commitCnt) {
+Status LatencyEstimator::BufferAllocStage(uint64_t& commitCnt)
+{
     for (auto& [memoryType, pipe] : allocIssueQueue) {
         if (pipe.Empty()) {
             continue;
@@ -161,9 +173,10 @@ Status LatencyEstimator::BufferAllocStage(uint64_t &commitCnt) {
     return SUCCESS;
 }
 
-Status LatencyEstimator::LaunchIssueStage(int& nextCycle) {
+Status LatencyEstimator::LaunchIssueStage(int& nextCycle)
+{
     // issue from all pipes
-    for (auto &[pipeType, pipe] : opQueues) {
+    for (auto& [pipeType, pipe] : opQueues) {
         (void)pipeType;
         if (pipe.Empty() || pipe.busy) {
             continue;
@@ -181,14 +194,16 @@ Status LatencyEstimator::LaunchIssueStage(int& nextCycle) {
     return SUCCESS;
 }
 
-Status LatencyEstimator::SpillOnBlock() {
+Status LatencyEstimator::SpillOnBlock()
+{
     MemoryType spillMemType;
     if (!allocIssueQueue[MemoryType::MEM_UB].Empty()) {
         spillMemType = MemoryType::MEM_UB;
     } else if (!allocIssueQueue[MemoryType::MEM_L1].Empty()) {
         spillMemType = MemoryType::MEM_L1;
     } else {
-        APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info.");
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info.");
         return FAILED;
     }
 
@@ -196,45 +211,47 @@ Status LatencyEstimator::SpillOnBlock() {
     size_t needMemSize = GetInOutOperandCached(op)[0]->MemorySize();
     spillblockMemIds.insert(GetInOutOperandCached(op)[0]->memoryrange.memId);
     localMemoryCurrentSize[spillMemType] += static_cast<long int>(needMemSize);
-    if (localMemoryCurrentSize[spillMemType] < 0 || localMemoryCurrentSize[spillMemType] > localMemSize[spillMemType]){
+    if (localMemoryCurrentSize[spillMemType] < 0 || localMemoryCurrentSize[spillMemType] > localMemSize[spillMemType]) {
         APASS_LOG_ERROR_F(Elements::Operation, "Buffer[%d] is valid. Please check", spillMemType);
         return FAILED;
     }
     return SUCCESS;
 }
 
-void LatencyEstimator::initLatencyEstimatorOpQueues(){
+void LatencyEstimator::initLatencyEstimatorOpQueues()
+{
     for (size_t i = 0; i <= static_cast<int>(PipeType::PIPE_FIX); i++) {
         opQueues[static_cast<PipeType>(i)] = OpQueue();
     }
 }
 
-void LatencyEstimator::InitMemWithoutAlloc() {
+void LatencyEstimator::InitMemWithoutAlloc()
+{
     std::unordered_set<int> memIds;
     std::unordered_map<int, Operation*> memIdAllocMap;
     bool needAddAlloc = false;
-    for (const auto &op : taskList) {
+    for (const auto& op : taskList) {
         if (IsOpAlloc(op)) {
             memIdAllocMap[op->GetOutputOperand(0)->memoryrange.memId] = op;
         }
-        for (auto &iOperand : op->GetIOperands()) {
+        for (auto& iOperand : op->GetIOperands()) {
             if (iOperand->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
                 memIds.insert(iOperand->memoryrange.memId);
             }
         }
-        for (auto &oOperand : op->GetOOperands()) {
+        for (auto& oOperand : op->GetOOperands()) {
             if (oOperand->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
                 memIds.insert(oOperand->memoryrange.memId);
             }
         }
     }
-    for (const auto &memId : memIds) {
+    for (const auto& memId : memIds) {
         if (memIdAllocMap.find(memId) != memIdAllocMap.end()) {
             continue;
         }
         APASS_LOG_INFO_F(Elements::Operation, "The alloc op of memId[%d] in other graph", memId);
         needAddAlloc = true;
-        for (const auto &op : operations) {
+        for (const auto& op : operations) {
             if (IsOpAlloc(op) && op->GetOutputOperand(0)->memoryrange.memId == memId) {
                 taskList.push_back(op);
                 APASS_LOG_INFO_F(Elements::Operation, "Add alloc op %s for memId[%d]", GetOpInfo(op).c_str(), memId);
@@ -252,7 +269,8 @@ void LatencyEstimator::InitMemWithoutAlloc() {
     }
 }
 
-Status LatencyEstimator::LatencyEstimatorMainLoop() {
+Status LatencyEstimator::LatencyEstimatorMainLoop()
+{
     initLatencyEstimatorOpQueues();
     LaunchReadyIssue();
     numTotalIssues = taskList.size();
@@ -260,13 +278,15 @@ Status LatencyEstimator::LatencyEstimatorMainLoop() {
     bool isAllRetired = false;
     while (!isAllRetired) {
         int nextCycleTime = -1;
-        // Retire Stage : 检查现有pipe中的op是否执行完。如果op执行完，则将op标记为retired状态，将可以被释放的buffer释放掉，并唤醒后续已经就绪的op。
+        // Retire Stage :
+        // 检查现有pipe中的op是否执行完。如果op执行完，则将op标记为retired状态，将可以被释放的buffer释放掉，并唤醒后续已经就绪的op。
         // 完毕后更新整个pipe的状态。
         if (RetireIssueStage(commitCount, nextCycleTime) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "RetireIssueStage failed.");
             return FAILED;
         }
-        // Buffer Allocation Stage : 分配buffer。对于所有类型的buffer，按顺序执行alloc指令，并激活后续已经就绪的op。不断执行alloc直到buffer被占满为止。
+        // Buffer Allocation Stage :
+        // 分配buffer。对于所有类型的buffer，按顺序执行alloc指令，并激活后续已经就绪的op。不断执行alloc直到buffer被占满为止。
         if (BufferAllocStage(commitCount) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "BufferAllocStage failed.");
             return FAILED;

@@ -25,20 +25,20 @@ enum class MachineStatus { START = 0, FINISH = 1, STOP = 2 };
 
 // aic aiv 已经ready的core function id队列
 struct ReadyCoreFunctionQueue {
-  uint32_t head;
-  uint32_t tail;
-  uint32_t capacity;
-  uint32_t* elem;
-  size_t lock;
+    uint32_t head;
+    uint32_t tail;
+    uint32_t capacity;
+    uint32_t* elem;
+    size_t lock;
 
-  uint64_t Size() { return tail - head;}
+    uint64_t Size() { return tail - head; }
 };
 
 struct StaticReadyCoreFunctionQueue {
-  uint64_t head;
-  uint64_t tail;
-  uint64_t* elem;
-  size_t lock;
+    uint64_t head;
+    uint64_t tail;
+    uint64_t* elem;
+    size_t lock;
 };
 
 struct WrapInfo {
@@ -46,68 +46,70 @@ struct WrapInfo {
     uint32_t aicCoreIdx;
     uint32_t aivCoreIdxZero;
     uint32_t aivCoreIdxOne;
-    uint32_t taskCnt {0};
+    uint32_t taskCnt{0};
     uint32_t mixResourceType;
     ReadyCoreFunctionQueue tasklist;
 };
 
 struct WrapInfoQueue {
-  uint32_t head;
-  uint32_t tail;
-  uint32_t capacity;
-  WrapInfo* elem;
-  size_t lock;
-  uint64_t Size() { return tail - head;}
+    uint32_t head;
+    uint32_t tail;
+    uint32_t capacity;
+    WrapInfo* elem;
+    size_t lock;
+    uint64_t Size() { return tail - head; }
 };
 
-inline void ReadyQueueLock(ReadyCoreFunctionQueue* rq) {
-  while (!__sync_bool_compare_and_swap(&rq->lock, 0, 1)) {
-  }
+inline void ReadyQueueLock(ReadyCoreFunctionQueue* rq)
+{
+    while (!__sync_bool_compare_and_swap(&rq->lock, 0, 1)) {
+    }
 }
 
-inline void ReadyQueueUnLock(ReadyCoreFunctionQueue* rq) {
-  while (!__sync_bool_compare_and_swap(&rq->lock, 1, 0)) {
-  }
+inline void ReadyQueueUnLock(ReadyCoreFunctionQueue* rq)
+{
+    while (!__sync_bool_compare_and_swap(&rq->lock, 1, 0)) {
+    }
 }
 
 enum class BinDataType {
-  READY_STATUS,          // CoreFunction ready_status(no need update)
-  READY_AIC_CORE_FUNC,   // ready aic CoreFunction id list(no need update)
-  READY_AIV_CORE_FUNC,   // ready aiv CoreFunction id list(no need update)
-  CACHE_HEADER,          // cache header
-  CCE_BIN,               // all cce bin
-  TOPO,                  // TOPO
-  INVOKE_OFFSET_TABLE,   // invoke offset
-  INVODE_TENSOR_INDEX,   // invoke tensor index
-  INVODE_TENSOR_INFO,    // invoke tensor
-  INVOKE_PARA_OFFSET,    // invoke para offset
-  CORE_FUNC_WS_ADDR,     // corefunc args
-  END
+    READY_STATUS,        // CoreFunction ready_status(no need update)
+    READY_AIC_CORE_FUNC, // ready aic CoreFunction id list(no need update)
+    READY_AIV_CORE_FUNC, // ready aiv CoreFunction id list(no need update)
+    CACHE_HEADER,        // cache header
+    CCE_BIN,             // all cce bin
+    TOPO,                // TOPO
+    INVOKE_OFFSET_TABLE, // invoke offset
+    INVODE_TENSOR_INDEX, // invoke tensor index
+    INVODE_TENSOR_INFO,  // invoke tensor
+    INVOKE_PARA_OFFSET,  // invoke para offset
+    CORE_FUNC_WS_ADDR,   // corefunc args
+    END
 };
-#pragma pack (8)
+#pragma pack(8)
 struct DeviceTaskBin {
     BaseArgs baseArgs;
-    DeviceTask deviceTask;        // initial task data
+    DeviceTask deviceTask; // initial task data
     uint64_t dataSize[static_cast<size_t>(BinDataType::END)];
     uint64_t dataOffset[static_cast<size_t>(BinDataType::END)];
     uint8_t data[0];
 };
-#pragma pack ()
+#pragma pack()
 
 constexpr int64_t DEVICE_QUEUE_SIZE = 512;
 #define DEVICE_TASK_STOP 0x7FFFFFFE
 
 struct DeviceKernelArgs {
-    int64_t *ctrlFlowCache{nullptr};
-    int64_t *inputs{nullptr};
-    int64_t *outputs{nullptr};
-    int64_t *workspace{nullptr};
-    int64_t *tilingdata{nullptr};
-    int64_t *cfgdata{nullptr};
-    int64_t *commContexts{nullptr};
+    int64_t* ctrlFlowCache{nullptr};
+    int64_t* inputs{nullptr};
+    int64_t* outputs{nullptr};
+    int64_t* workspace{nullptr};
+    int64_t* tilingdata{nullptr};
+    int64_t* cfgdata{nullptr};
+    int64_t* commContexts{nullptr};
     // following 4 paras need remove to binary
-    void *costmodeldata{nullptr};
-    void *aicoreModel{nullptr};
+    void* costmodeldata{nullptr};
+    void* aicoreModel{nullptr};
     uint64_t taskWastTime{0};
     uint8_t machineConfig;
     ToSubMachineConfig toSubMachineConfig;

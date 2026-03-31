@@ -23,7 +23,8 @@ const std::string comma = ",";
 const std::string direction = "->";
 
 // Thread-safe in C++11: static local initialization is guaranteed to be thread-safe
-std::string GetCurSharedLibPath() {
+std::string GetCurSharedLibPath()
+{
     static std::string curLibPath;
     if (!curLibPath.empty()) {
         return curLibPath;
@@ -40,7 +41,8 @@ std::string GetCurSharedLibPath() {
     return curLibPath;
 }
 
-std::vector<std::string> SplitByDelimiter(const std::string& str, const std::string& delimiter) {
+std::vector<std::string> SplitByDelimiter(const std::string& str, const std::string& delimiter)
+{
     std::vector<std::string> res;
     size_t start = 0;
     size_t pos = str.find(delimiter);
@@ -54,7 +56,8 @@ std::vector<std::string> SplitByDelimiter(const std::string& str, const std::str
 }
 
 // helper function
-MemoryType StringToMemoryType(const std::string& memType) {
+MemoryType StringToMemoryType(const std::string& memType)
+{
     static const std::unordered_map<std::string, MemoryType> memTypeMap = {
         {"MEM_DEVICE_DDR", MemoryType::MEM_DEVICE_DDR},
         {"MEM_L1", MemoryType::MEM_L1},
@@ -62,8 +65,7 @@ MemoryType StringToMemoryType(const std::string& memType) {
         {"MEM_L0B", MemoryType::MEM_L0B},
         {"MEM_L0C", MemoryType::MEM_L0C},
         {"MEM_UB", MemoryType::MEM_UB},
-        {"MEM_BT", MemoryType::MEM_BT}
-    };
+        {"MEM_BT", MemoryType::MEM_BT}};
     auto it = memTypeMap.find(memType);
     if (it != memTypeMap.end()) {
         return it->second;
@@ -71,7 +73,8 @@ MemoryType StringToMemoryType(const std::string& memType) {
     return MemoryType::MEM_UNKNOWN;
 }
 
-bool InternalParser::LoadInternalInfo() {
+bool InternalParser::LoadInternalInfo()
+{
     std::string internalFile = RealPath(GetCurSharedLibPath() + iniFile);
     PLATFORM_LOGD("Try to obtain internal info from [%s].", internalFile.c_str());
     if (!IsPathExist(internalFile)) {
@@ -114,7 +117,8 @@ bool InternalParser::LoadInternalInfo() {
     return true;
 }
 
-bool InternalParser::GetDataPath(std::vector<std::pair<MemoryType, MemoryType>> &dataPath) {
+bool InternalParser::GetDataPath(std::vector<std::pair<MemoryType, MemoryType>>& dataPath)
+{
     auto it = data_.find(paths);
     if (it == data_.end() || it->second.empty()) {
         return false;
@@ -132,8 +136,8 @@ bool InternalParser::GetDataPath(std::vector<std::pair<MemoryType, MemoryType>> 
         }
         dataPath.emplace_back(std::make_pair(StringToMemoryType(secondSplit[0]), StringToMemoryType(secondSplit[1])));
     }
-    return true; 
+    return true;
 }
- 
-}  // namespace tile_fwk
-}  // namespace npu
+
+} // namespace tile_fwk
+} // namespace npu

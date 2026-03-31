@@ -26,7 +26,8 @@ namespace {
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class ViewTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
-    void SetUp() override {
+    void SetUp() override
+    {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
         // 测试精度工具功能支持时，打开下面的注释
@@ -40,7 +41,8 @@ class ViewTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
 };
 
 template <typename T>
-auto ShapeSize(const std::vector<T> &shapes) {
+auto ShapeSize(const std::vector<T>& shapes)
+{
     T res = 1;
     for (auto v : shapes) {
         res *= v;
@@ -48,8 +50,9 @@ auto ShapeSize(const std::vector<T> &shapes) {
     return res;
 }
 
-template<typename T>
-void TestInnerView() {
+template <typename T>
+void TestInnerView()
+{
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> uniform(-10, 10);
@@ -72,7 +75,7 @@ void TestInnerView() {
 
     ASSERT(N % 5 == 0);
     int row = N / 5;
-    auto SimuResult = [&row](const std::vector<T> &a, const std::vector<T> &b) {
+    auto SimuResult = [&row](const std::vector<T>& a, const std::vector<T>& b) {
         ASSERT(a.size() == N * M);
         std::vector<T> out(N * M, -5.0f);
         for (int i = 0; i < row; i++) {
@@ -109,9 +112,11 @@ void TestInnerView() {
         RawTensorData::CreateTensor<T>(dst, dstGolden),
     });
 
-    FUNCTION("test", {a, b}, {dst}) {
+    FUNCTION("test", {a, b}, {dst})
+    {
         config::SetPassOption(PG_SKIP_PARTITION, true);
-        LOOP("loop1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(row)) {
+        LOOP("loop1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(row))
+        {
             TileShape::Current().SetVecTile(5, 2048);
             auto d = Add(a, b);
             TileShape::Current().SetVecTile(1, 2048);
@@ -130,9 +135,9 @@ void TestInnerView() {
     auto dstResult = ProgramData::GetInstance().GetOutputData(0);
     float eps = 1e-6f; // Compare results
     std::cout << "=======================dst===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(dstGolden, (T *)dstResult->data(), eps));
+    EXPECT_TRUE(resultCmp(dstGolden, (T*)dstResult->data(), eps));
     for (int i = 0; i < ShapeSize(dst.GetShape()); i++) {
-        auto actual = ((T *)dstResult->data())[i];
+        auto actual = ((T*)dstResult->data())[i];
         auto expect = dstGolden[i];
         if (fabs(actual - expect) > eps) {
             std::cout << i << ": actual: " << actual << ", expect: " << expect << std::endl;
@@ -141,8 +146,6 @@ void TestInnerView() {
 }
 
 // 测试核内view
-TEST_F(ViewTest, test_inner_view_fp32) {
-    TestInnerView<float>();
-}
+TEST_F(ViewTest, test_inner_view_fp32) { TestInnerView<float>(); }
 
 } // namespace

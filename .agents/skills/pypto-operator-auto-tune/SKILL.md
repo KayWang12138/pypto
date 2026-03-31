@@ -253,7 +253,7 @@ python3 custom/operator_name/operator.py --run-mode npu
    ```bash
    # 查看可用NPU卡
    npu-smi info
-   
+
    # 尝试其他卡
    export TILE_FWK_DEVICE_ID=1  # 或其他可用卡号
    python3 custom/operator_name/operator.py --run-mode npu
@@ -401,12 +401,12 @@ Read .agents/skills/pypto-operator-auto-tune/tune-incore/SKILL.md
   ├─ 检查任务粒度 → 增大TileShape
   ├─ 检查调度策略 → 使用L2亲和调度
   └─ 检查数据访问 → 优化内存布局
-  
+
 如果气泡率高 (>20%):
   ├─ 检查Stitch配置 → 增大stitch_function_max_num
   ├─ 检查任务依赖 → 使用合图优化
   └─ 检查循环展开 → 使用轴切块或loop_unroll
-  
+
 如果负载不均衡:
   ├─ 检查任务分配 → 调整TileShape
   └─ 检查调度策略 → 调整device_sched_mode

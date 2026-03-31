@@ -22,13 +22,16 @@
 template <typename T, int N>
 class SPSCQueue {
     constexpr static int ALIGN_SIZE = 512;
+
 public:
-    inline void Enqueue(const T &val) {
+    inline void Enqueue(const T& val)
+    {
         while (!TryEnqueue(val))
             ;
     }
 
-    inline bool TryEnqueue(const T &val) {
+    inline bool TryEnqueue(const T& val)
+    {
         auto tail = tail_.load(std::memory_order_relaxed);
         auto head = head_.load(std::memory_order_relaxed);
         if (tail - head == N) {
@@ -39,14 +42,16 @@ public:
         return true;
     }
 
-    inline T Dequeue() {
+    inline T Dequeue()
+    {
         T val;
         while (!TryDequeue(val))
             ;
         return val;
     }
 
-    inline bool TryDequeue(T &val) {
+    inline bool TryDequeue(T& val)
+    {
         auto head = head_.load(std::memory_order_relaxed);
         auto tail = tail_.load(std::memory_order_acquire);
         if (tail - head == 0) {
@@ -57,7 +62,8 @@ public:
         return true;
     }
 
-    inline bool FreeUntil(std::function<bool(const T&)> checker) {
+    inline bool FreeUntil(std::function<bool(const T&)> checker)
+    {
         bool checkerSucc = false;
         while (true) {
             auto head = head_.load(std::memory_order_relaxed);
@@ -77,11 +83,10 @@ public:
         return checkerSucc;
     }
 
-    inline bool IsEmpty() {
-        return (head_ == tail_);
-    }
-    
-    inline void ResetEmpty() {
+    inline bool IsEmpty() { return (head_ == tail_); }
+
+    inline void ResetEmpty()
+    {
         head_ = 0;
         tail_ = 0;
     }

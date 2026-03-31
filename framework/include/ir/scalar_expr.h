@@ -57,7 +57,8 @@ public:
      */
     [[nodiscard]] std::string TypeName() const override { return "ScalarExpr"; }
 
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ScalarExpr::dtype_, "dtype")));
     }
@@ -81,7 +82,8 @@ public:
      * \param span Source location
      */
     ConstInt(int64_t value, DataType dtype, Span span)
-        : Expr(std::move(span), std::make_shared<ScalarType>(dtype)), value_(value) {}
+        : Expr(std::move(span), std::make_shared<ScalarType>(dtype)), value_(value)
+    {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ConstInt; }
     [[nodiscard]] std::string TypeName() const override { return "ConstInt"; }
@@ -91,17 +93,19 @@ public:
      *
      * \return Tuple of field descriptors (value as USUAL field)
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ConstInt::value_, "value")));
     }
 
-    [[nodiscard]] DataType GetDtype() const {
+    [[nodiscard]] DataType GetDtype() const
+    {
         // Note: Must use dynamic_pointer_cast here because this header is included before
         // the TypePtr overload of As<> is defined in kind_traits.h
         auto scalarType = std::dynamic_pointer_cast<const ScalarType>(GetType());
-        INTERNAL_CHECK(scalarType) << "ConstInt is expected to have ScalarType type, but got "
-                                    << GetType()->TypeName() << " at " << span_.ToString();
+        INTERNAL_CHECK(scalarType) << "ConstInt is expected to have ScalarType type, but got " << GetType()->TypeName()
+                                   << " at " << span_.ToString();
         return scalarType->dtype_;
     }
 };
@@ -125,7 +129,8 @@ public:
      * \param span Source location
      */
     ConstFloat(double value, DataType dtype, Span span)
-        : Expr(std::move(span), std::make_shared<ScalarType>(dtype)), value_(value) {}
+        : Expr(std::move(span), std::make_shared<ScalarType>(dtype)), value_(value)
+    {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ConstFloat; }
     [[nodiscard]] std::string TypeName() const override { return "ConstFloat"; }
@@ -135,17 +140,19 @@ public:
      *
      * \return Tuple of field descriptors (value as USUAL field)
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ConstFloat::value_, "value")));
     }
 
-    [[nodiscard]] DataType GetDtype() const {
+    [[nodiscard]] DataType GetDtype() const
+    {
         // Note: Must use dynamic_pointer_cast here because this header is included before
         // the TypePtr overload of As<> is defined in kind_traits.h
         auto scalarType = std::dynamic_pointer_cast<const ScalarType>(GetType());
         INTERNAL_CHECK(scalarType) << "ConstFloat is expected to have ScalarType type, but got "
-                                    << GetType()->TypeName() << " at " << span_.ToString();
+                                   << GetType()->TypeName() << " at " << span_.ToString();
         return scalarType->dtype_;
     }
 };
@@ -168,7 +175,8 @@ public:
      * \param span Source location
      */
     ConstBool(bool value, Span span)
-        : Expr(std::move(span), std::make_shared<ScalarType>(DataType::BOOL)), value_(value) {}
+        : Expr(std::move(span), std::make_shared<ScalarType>(DataType::BOOL)), value_(value)
+    {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ConstBool; }
     [[nodiscard]] std::string TypeName() const override { return "ConstBool"; }
@@ -178,7 +186,8 @@ public:
      *
      * \return Tuple of field descriptors (value as USUAL field)
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ConstBool::value_, "value")));
     }
@@ -199,18 +208,19 @@ public:
     ExprPtr right_; // Right operand
 
     BinaryExpr(ExprPtr left, ExprPtr right, DataType dtype, Span span)
-        : Expr(std::move(span), std::make_shared<ScalarType>(dtype)),
-          left_(std::move(left)),
-          right_(std::move(right)) {}
+        : Expr(std::move(span), std::make_shared<ScalarType>(dtype)), left_(std::move(left)), right_(std::move(right))
+    {}
 
     /**
      * \brief Get field descriptors for reflection-based visitation
      *
      * \return Tuple of field descriptors (left and right as USUAL fields)
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
-            Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&BinaryExpr::left_, "left"),
+            Expr::GetFieldDescriptors(), std::make_tuple(
+                                             reflection::UsualField(&BinaryExpr::left_, "left"),
                                              reflection::UsualField(&BinaryExpr::right_, "right")));
     }
 };
@@ -220,20 +230,17 @@ using BinaryExprPtr = std::shared_ptr<const BinaryExpr>;
 // Macro to define binary expression node classes
 // Usage: DEFINE_BINARY_EXPR_NODE(Add, "Addition expression (left + right)")
 // NOLINTNEXTLINE(bugprone-macro-parentheses)
-#define DEFINE_BINARY_EXPR_NODE(OpName, Description)                                              \
-    /** \brief Description */                                                                     \
-    class OpName : public BinaryExpr {                                                            \
-    public:                                                                                       \
-        OpName(ExprPtr left, ExprPtr right, DataType dtype, Span span)                            \
-            : BinaryExpr(std::move(left), std::move(right), std::move(dtype), std::move(span)) {} \
-        [[nodiscard]] ObjectKind GetKind() const override {                                       \
-            return ObjectKind::OpName;                                                            \
-        }                                                                                         \
-        [[nodiscard]] std::string TypeName() const override {                                     \
-            return #OpName;                                                                       \
-        }                                                                                         \
-    };                                                                                            \
-                                                                                                  \
+#define DEFINE_BINARY_EXPR_NODE(OpName, Description)                                           \
+    /** \brief Description */                                                                  \
+    class OpName : public BinaryExpr {                                                         \
+    public:                                                                                    \
+        OpName(ExprPtr left, ExprPtr right, DataType dtype, Span span)                         \
+            : BinaryExpr(std::move(left), std::move(right), std::move(dtype), std::move(span)) \
+        {}                                                                                     \
+        [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::OpName; }       \
+        [[nodiscard]] std::string TypeName() const override { return #OpName; }                \
+    };                                                                                         \
+                                                                                               \
     using OpName##Ptr = std::shared_ptr<const OpName>;
 
 DEFINE_BINARY_EXPR_NODE(Add, "Addition expression (left + right)");
@@ -272,9 +279,11 @@ public:
     ExprPtr operand_; // Operand
 
     UnaryExpr(ExprPtr operand, DataType dtype, Span span)
-        : Expr(std::move(span), std::make_shared<ScalarType>(dtype)), operand_(std::move(operand)) {}
+        : Expr(std::move(span), std::make_shared<ScalarType>(dtype)), operand_(std::move(operand))
+    {}
 
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&UnaryExpr::operand_, "operand")));
     }
@@ -290,12 +299,8 @@ using UnaryExprPtr = std::shared_ptr<const UnaryExpr>;
     class OpName : public UnaryExpr {                                                                                 \
     public:                                                                                                           \
         OpName(ExprPtr operand, DataType dtype, Span span) : UnaryExpr(std::move(operand), dtype, std::move(span)) {} \
-        [[nodiscard]] ObjectKind GetKind() const override {                                                           \
-            return ObjectKind::OpName;                                                                                \
-        }                                                                                                             \
-        [[nodiscard]] std::string TypeName() const override {                                                         \
-            return #OpName;                                                                                           \
-        }                                                                                                             \
+        [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::OpName; }                              \
+        [[nodiscard]] std::string TypeName() const override { return #OpName; }                                       \
     };                                                                                                                \
                                                                                                                       \
     using OpName##Ptr = std::shared_ptr<const OpName>;

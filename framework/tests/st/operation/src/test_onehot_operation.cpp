@@ -18,8 +18,9 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct OneHotOpFuncArgs : public OpFuncArgs {
-    OneHotOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape, int numClasses)
-        : viewShape_(viewShape), tileShape_(tileShape), numClasses_(numClasses) {}
+    OneHotOpFuncArgs(const std::vector<int64_t>& viewShape, const std::vector<int64_t> tileShape, int numClasses)
+        : viewShape_(viewShape), tileShape_(tileShape), numClasses_(numClasses)
+    {}
 
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
@@ -27,17 +28,20 @@ struct OneHotOpFuncArgs : public OpFuncArgs {
 };
 
 struct OneHotOpMetaData {
-    explicit OneHotOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
-        : opFunc_(opFunc), test_data_(test_data) {}
+    explicit OneHotOpMetaData(const OpFunc& opFunc, const nlohmann::json& test_data)
+        : opFunc_(opFunc), test_data_(test_data)
+    {}
 
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
 static void OneHotOperationExeFunc2Dims(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        const struct OneHotOpFuncArgs *args = static_cast<const OneHotOpFuncArgs *>(opArgs);
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0]}, {outputs[0]})
+    {
+        const struct OneHotOpFuncArgs* args = static_cast<const OneHotOpFuncArgs*>(opArgs);
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = args->numClasses_;
         const int firstViewShape = args->viewShape_[0];
@@ -45,10 +49,12 @@ static void OneHotOperationExeFunc2Dims(
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor = View(inputs[0], {firstViewShape},
-                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape)},
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                auto tileTensor = View(
+                    inputs[0], {firstViewShape}, {std::min(firstDim - bIdx * firstViewShape, firstViewShape)},
                     {bIdx * firstViewShape});
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = OneHot(tileTensor, args->numClasses_);
@@ -59,9 +65,11 @@ static void OneHotOperationExeFunc2Dims(
 }
 
 static void OneHotOperationExeFunc3Dims(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        const struct OneHotOpFuncArgs *args = static_cast<const OneHotOpFuncArgs *>(opArgs);
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0]}, {outputs[0]})
+    {
+        const struct OneHotOpFuncArgs* args = static_cast<const OneHotOpFuncArgs*>(opArgs);
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         SymbolicScalar thirdDim = args->numClasses_;
@@ -72,12 +80,16 @@ static void OneHotOperationExeFunc3Dims(
         const int sloop = CeilDiv(secondDim, secondViewShape);
         const int nloop = CeilDiv(thirdDim, thirdViewShape);
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    auto tileTensor = View(inputs[0], {firstViewShape, secondViewShape},
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1))
+                {
+                    auto tileTensor = View(
+                        inputs[0], {firstViewShape, secondViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape});
                     TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = OneHot(tileTensor, args->numClasses_);
@@ -89,9 +101,11 @@ static void OneHotOperationExeFunc3Dims(
 }
 
 static void OneHotOperationExeFunc4Dims(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        auto args = static_cast<const OneHotOpFuncArgs *>(opArgs);
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0]}, {outputs[0]})
+    {
+        auto args = static_cast<const OneHotOpFuncArgs*>(opArgs);
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         SymbolicScalar thirdDim = inputs[0].GetShape()[2];
@@ -106,21 +120,26 @@ static void OneHotOperationExeFunc4Dims(
         const int mloop = CeilDiv(thirdDim, thirdViewShape);
         const int nloop = CeilDiv(fourthDim, fourthViewShape);
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
-                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                        Tensor tileTensor =
-                            View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
-                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                    std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape)},
-                                {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape});
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1))
+                {
+                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1))
+                    {
+                        Tensor tileTensor = View(
+                            inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                             std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape)},
+                            {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape});
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = OneHot(tileTensor, args->numClasses_);
-                        Assemble(res,
+                        Assemble(
+                            res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
-                                nIdx * fourthViewShape},
+                             nIdx * fourthViewShape},
                             outputs[0]);
                     }
                 }
@@ -131,11 +150,13 @@ static void OneHotOperationExeFunc4Dims(
 
 class OneHotOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<OneHotOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(TestOneHot, OneHotOperationTest,
+INSTANTIATE_TEST_SUITE_P(
+    TestOneHot, OneHotOperationTest,
     ::testing::ValuesIn(GetOpMetaData<OneHotOpMetaData>(
         {OneHotOperationExeFunc2Dims, OneHotOperationExeFunc3Dims, OneHotOperationExeFunc4Dims}, "OneHot")));
 
-TEST_P(OneHotOperationTest, TestOneHot) {
+TEST_P(OneHotOperationTest, TestOneHot)
+{
     auto test_data = GetParam().test_data_;
     int numClasses = GetValueByName<int>(test_data, "num_classes");
     auto args = OneHotOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), numClasses);
