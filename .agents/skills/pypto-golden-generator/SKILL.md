@@ -66,7 +66,7 @@ description: "当需要生成 golden 参考实现时使用此 skill。基于算�
                           └── 补充到规格信息中，继续生成
 ```
 
-典型配置采用 7 列格式（与 pypto-intent-understanding 和 pypto-op-design 统一）：
+典型配置采用 7 列格式（与 spec.md 和 design.md 统一）：
 
 | 配置名称 | 类型 | 优先级 | 参数 | 输入 Shape | 输出 Shape | 说明 |
 |----------|------|--------|------|------------|------------|------|

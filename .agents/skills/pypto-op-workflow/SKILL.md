@@ -12,13 +12,13 @@ description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处�
 ### 本 Skill 负责什么
 
 - 识别完整开发任务需要经过哪些阶段。
-- 指导用户或上层 Agent 以正确顺序调用相关 Skills。
+- 指导以正确顺序调用相关 Skills。
 - 强调工件依赖关系与推荐执行顺序。
 
 ### 本 Skill 不负责什么
 
-- 不维护 `.orchestrator_state.json`。
-- 不定义全局重试策略、恢复入口或 BLOCKED / SUCCESS 结束态。
+- 不维护外部状态文件。
+- 不定义全局重试策略、恢复入口或结束态。
 - 不替代 `pypto-op-develop`、`pypto-precision-debugger`、`pypto-operator-auto-tuner` 等阶段型 Skills 的细节职责。
 
 ## 核心原则
