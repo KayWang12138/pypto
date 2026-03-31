@@ -150,29 +150,6 @@ public:
             for (size_t i = 0; i < readyAivCoreFunctionQue->Size(); i++) availableVectorTaskQueue->push((uint32_t)readyAivCoreFunctionQue->GetBuffer()[i]);
             for (size_t i = 0; i < readyAicCoreFunctionQue->Size(); i++) availableCubeTaskQueue->push((uint32_t)readyAicCoreFunctionQue->GetBuffer()[i]);
 
-            // Allocating core queues
-            auto freeAVectorCoreQueue = new coreQueue_t();
-            auto freeACubeCoreQueue   = new coreQueue_t();
-            auto busyAVectorCoreQueue = new pairQueue_t();
-            auto busyACubeCoreQueue   = new pairQueue_t();
-            auto freeBVectorCoreQueue = new pairQueue_t();
-            auto freeBCubeCoreQueue   = new pairQueue_t();
-            auto busyBVectorCoreQueue = new pairQueue_t();
-            auto busyBCubeCoreQueue   = new pairQueue_t();
-
-            curDevTask_->freeAVectorCoreQueue = (uint64_t) freeAVectorCoreQueue;
-            curDevTask_->freeACubeCoreQueue   = (uint64_t) freeACubeCoreQueue  ;
-            curDevTask_->busyAVectorCoreQueue = (uint64_t) busyAVectorCoreQueue;
-            curDevTask_->busyACubeCoreQueue   = (uint64_t) busyACubeCoreQueue  ;
-            curDevTask_->freeBVectorCoreQueue = (uint64_t) freeBVectorCoreQueue;
-            curDevTask_->freeBCubeCoreQueue   = (uint64_t) freeBCubeCoreQueue  ;
-            curDevTask_->busyBVectorCoreQueue = (uint64_t) busyBVectorCoreQueue;
-            curDevTask_->busyBCubeCoreQueue   = (uint64_t) busyBCubeCoreQueue  ;
-
-            // Filling the free A  (fully available)queues
-            for (uint32_t i = 0; i < AIC_CORE_COUNT; i++) freeACubeCoreQueue->push(i);
-            for (uint32_t i = AIC_CORE_COUNT; i < AIC_CORE_COUNT + AIV_CORE_COUNT; i++) freeAVectorCoreQueue->push(i);
-
             // Setting task as initialized, allowing others to continue
             curDevTask_->isTaskInitialized = true;
         }
@@ -182,15 +159,6 @@ public:
 
         taskQueue_[(int)CoreType::AIV] = (taskQueue_t*)curDevTask_->availableVectorTaskQueue;
         taskQueue_[(int)CoreType::AIC] = (taskQueue_t*)curDevTask_->availableCubeTaskQueue;
-
-        // freeACoreQueue_[(int)CoreType::AIV] = (coreQueue_t*) curDevTask_->freeAVectorCoreQueue ;
-        // freeACoreQueue_[(int)CoreType::AIC] = (coreQueue_t*) curDevTask_->freeACubeCoreQueue   ;
-        // busyAPairQueue_[(int)CoreType::AIV] = (pairQueue_t*) curDevTask_->busyAVectorCoreQueue ;
-        // busyAPairQueue_[(int)CoreType::AIC] = (pairQueue_t*) curDevTask_->busyACubeCoreQueue   ;
-        // freeBPairQueue_[(int)CoreType::AIV] = (pairQueue_t*) curDevTask_->freeBVectorCoreQueue ;
-        // freeBPairQueue_[(int)CoreType::AIC] = (pairQueue_t*) curDevTask_->freeBCubeCoreQueue   ;
-        // busyBPairQueue_[(int)CoreType::AIV] = (pairQueue_t*) curDevTask_->busyBVectorCoreQueue ;
-        // busyBPairQueue_[(int)CoreType::AIC] = (pairQueue_t*) curDevTask_->busyBCubeCoreQueue   ;
 
         freeACoreQueue_[(int)CoreType::AIV] = new coreQueue_t();
         freeACoreQueue_[(int)CoreType::AIC] = new coreQueue_t();
@@ -427,10 +395,8 @@ private:
         batchFreeACoreCount_[(int)type] = 0;
         batchBusyAPairCount_[(int)type] = 0;
         batchFreeBPairCount_[(int)type] = 0;
-        batchBusyBPairCount_[(int)type] = 0;
 
         // Handling Busy A queue pairings
-        if (busyAPairQueue_[(int)type]->empty() == false)
         {
             size_t pairCount = busyAPairQueue_[(int)type]->size();
             for (size_t i = 0; i < pairCount; i++)
@@ -441,7 +407,6 @@ private:
         }
 
         // Handling Free B queue pairings
-        if (freeBPairQueue_[(int)type]->empty() == false)
         {
             size_t pairCount = freeBPairQueue_[(int)type]->size();
             for (size_t i = 0; i < pairCount; i++)
@@ -452,7 +417,6 @@ private:
         }
 
         // Handling Busy B queue pairings
-        if (busyBPairQueue_[(int)type]->empty() == false)
         {
             size_t pairCount = busyBPairQueue_[(int)type]->size();
             for (size_t i = 0; i < pairCount; i++)
@@ -484,7 +448,6 @@ private:
         if (batchFreeACoreCount_[(int)type] > 0) freeACoreQueue_[(int)type]->pushMany(batchFreeACores_[(int)type], batchFreeACoreCount_[(int)type]);
         if (batchBusyAPairCount_[(int)type] > 0) busyAPairQueue_[(int)type]->pushMany(batchBusyAPairs_[(int)type], batchBusyAPairCount_[(int)type]);
         if (batchFreeBPairCount_[(int)type] > 0) freeBPairQueue_[(int)type]->pushMany(batchFreeBPairs_[(int)type], batchFreeBPairCount_[(int)type]);
-        if (batchBusyBPairCount_[(int)type] > 0) busyBPairQueue_[(int)type]->pushMany(batchBusyBPairs_[(int)type], batchBusyBPairCount_[(int)type]);
     }
 
     inline void ResolveBusyAQueuePair(CoreType type, const aicorePair_t pair)
@@ -572,7 +535,7 @@ private:
 
             // Otherwise, set task B as task A and put it into the freeB queue to allow a new task B to be assigned to the core
             const auto newPair = encodePair(coreId, taskBId);
-            batchFreeBPairs_[(int)type][batchFreeBPairCount_[(int)type]++] = newPair;
+            freeBPairQueue_[(int)type]->push(newPair);
             return;
         }
         
@@ -700,11 +663,6 @@ private:
         aivStart_ += aicValidNum_;
         aivEnd_ += aicValidNum_;
 
-        // aicStart_ = 0;
-        // aicEnd_ = AIC_CORE_COUNT - 1;
-        // aivStart_ = AIC_CORE_COUNT;
-        // aivEnd_ = AIC_CORE_COUNT + AIV_CORE_COUNT - 1;
-
         aicoreHal_.SetMngCoreBlockId(aicStart_, aicEnd_, aivStart_, aivEnd_);
     }
 
@@ -777,12 +735,10 @@ private:
     size_t  batchFreeACoreCount_[AICORE_TYPE_NUM];
     size_t  batchBusyAPairCount_[AICORE_TYPE_NUM];
     size_t  batchFreeBPairCount_[AICORE_TYPE_NUM];
-    size_t  batchBusyBPairCount_[AICORE_TYPE_NUM];
 
     aicoreCore_t batchFreeACores_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
     aicorePair_t batchBusyAPairs_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
     aicorePair_t batchFreeBPairs_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
-    aicorePair_t batchBusyBPairs_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
 
     // Variable to scheduler lead and whether or not I am the lead
     bool isLeaderScheduler_;
