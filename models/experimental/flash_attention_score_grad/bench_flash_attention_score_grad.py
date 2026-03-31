@@ -9,8 +9,22 @@ FlashAttentionScoreGrad 性能测试
 import os
 import sys
 import time
+import logging
 import torch
 import argparse
+
+# Configure logger for the module
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.propagate = False
+formatter = logging.Formatter(
+    fmt='%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s',
+    datefmt='[%Y-%m-%d %H:%M:%S]'
+)
+handler = logging.StreamHandler()
+handler.setFormatter(formatter)
+logger.handlers.clear()
+logger.addHandler(handler)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -49,9 +63,9 @@ def bench(name, B, N, S, D, device_id, warmup=5, repeat=20):
     total_matmul_flops = B * N * 7 * 2 * S * S * D
     tflops = total_matmul_flops / (mn / 1000) / 1e12
 
-    print(f"  {name:30s}  B={B:2d} N={N:2d} S={S:4d} D={D:3d}  |  "
-          f"avg={avg:8.3f}ms  min={mn:8.3f}ms  max={mx:8.3f}ms  |  "
-          f"~{tflops:.2f} TFLOPS")
+    logger.info(f"  {name:30s}  B={B:2d} N={N:2d} S={S:4d} D={D:3d}  |  "
+                f"avg={avg:8.3f}ms  min={mn:8.3f}ms  max={mx:8.3f}ms  |  "
+                f"~{tflops:.2f} TFLOPS")
     return avg, mn
 
 
@@ -65,10 +79,10 @@ def main():
     import torch_npu
     torch.npu.set_device(device_id)
 
-    print("=" * 100)
-    print("FlashAttentionScoreGrad Performance Benchmark")
-    print(f"Device: NPU:{device_id}  Warmup: {args.warmup}  Repeat: {args.repeat}")
-    print("=" * 100)
+    logger.info("=" * 100)
+    logger.info("FlashAttentionScoreGrad Performance Benchmark")
+    logger.info(f"Device: NPU:{device_id}  Warmup: {args.warmup}  Repeat: {args.repeat}")
+    logger.info("=" * 100)
 
     configs = [
         ("S=128",   2, 8, 128,   64),
@@ -93,9 +107,9 @@ def main():
         try:
             bench(name, B, N, S, D, device_id, args.warmup, args.repeat)
         except Exception as e:
-            print(f"  {name:30s}  FAILED: {e}")
+            logger.info(f"  {name:30s}  FAILED: {e}")
 
-    print("=" * 100)
+    logger.info("=" * 100)
 
 
 if __name__ == "__main__":
