@@ -64,71 +64,41 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputShapeDim)
     EXPECT_EQ(ret, 3);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputDataInt32Dim1)
+template <typename T>
+void testGetInputData(DataType dtype, int dim)
 {
     EvaluateSymbol evaluator;
-    std::vector<int64_t> shape = {5};
-    auto rawData = std::make_shared<RawTensorData>(DataType::DT_INT32, shape);
+    std::vector<int64_t> shape(dim, 5);
+    auto rawData = std::make_shared<RawTensorData>(dtype, shape);
     for (int i = 0; i < 5; i++) {
-        rawData->Get<int32_t>(i) = i * 10;
+        rawData->Get<T>(i) = i * 10;
     }
     auto tensorData = std::make_shared<LogicalTensorData>(rawData);
     std::vector<std::shared_ptr<LogicalTensorData>> inputList = {tensorData};
     evaluator.InitInputDataViewList(inputList);
 
-    std::vector<ScalarImmediateType> dataList = {0, 2};
-    auto ret = evaluator.EvaluateSymbolicCall("RUNTIME_GetInputDataInt32Dim1", dataList, {});
+    std::vector<ScalarImmediateType> dataList = {0, (int64_t)dtype};
+    for (int i = 0; i < dim - 1; i++) {
+        dataList.emplace_back(0);
+    }
+    dataList.emplace_back(2);
+    auto ret = evaluator.EvaluateSymbolicCall("RUNTIME_GetInputData", dataList, {});
     EXPECT_EQ(ret, 20);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputDataInt32Dim2)
+TEST_F(TestSymbolicScalarEvaluate, GetInputData)
 {
-    EvaluateSymbol evaluator;
-    std::vector<int64_t> shape = {3, 4};
-    auto rawData = std::make_shared<RawTensorData>(DataType::DT_INT32, shape);
-    for (int i = 0; i < 12; i++) {
-        rawData->Get<int32_t>(i) = i * 5;
+    for (auto dim = 1; dim < 5; dim++) {
+        testGetInputData<int8_t>(DT_BOOL, dim);
+        testGetInputData<int8_t>(DT_INT8, dim);
+        testGetInputData<int16_t>(DT_INT16, dim);
+        testGetInputData<int32_t>(DT_INT32, dim);
+        testGetInputData<int64_t>(DT_INT64, dim);
+        testGetInputData<uint8_t>(DT_UINT8, dim);
+        testGetInputData<uint16_t>(DT_UINT16, dim);
+        testGetInputData<uint32_t>(DT_UINT32, dim);
+        testGetInputData<uint64_t>(DT_UINT64, dim);
     }
-    auto tensorData = std::make_shared<LogicalTensorData>(rawData);
-    std::vector<std::shared_ptr<LogicalTensorData>> inputList = {tensorData};
-    evaluator.InitInputDataViewList(inputList);
-
-    std::vector<ScalarImmediateType> dataParams = {0, 1, 2};
-    auto ret = evaluator.EvaluateSymbolicCall("RUNTIME_GetInputDataInt32Dim2", dataParams, {});
-    EXPECT_EQ(ret, 30);
-}
-
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputDataInt32Dim3)
-{
-    EvaluateSymbol evaluator;
-    std::vector<int64_t> shape = {2, 2, 2};
-    auto rawData = std::make_shared<RawTensorData>(DataType::DT_INT32, shape);
-    for (int i = 0; i < 8; i++) {
-        rawData->Get<int32_t>(i) = i * 3;
-    }
-    auto tensorData = std::make_shared<LogicalTensorData>(rawData);
-    std::vector<std::shared_ptr<LogicalTensorData>> inputList = {tensorData};
-    evaluator.InitInputDataViewList(inputList);
-
-    std::vector<ScalarImmediateType> dataParams = {0, 1, 0, 1};
-    auto ret = evaluator.EvaluateSymbolicCall("RUNTIME_GetInputDataInt32Dim3", dataParams, {});
-    EXPECT_EQ(ret, 15);
-}
-
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputDataInt32Dim4)
-{
-    EvaluateSymbol evaluator;
-    std::vector<int64_t> shape = {2, 2, 2, 2};
-    auto rawData = std::make_shared<RawTensorData>(DataType::DT_INT32, shape);
-    for (int i = 0; i < 16; i++) {
-        rawData->Get<int32_t>(i) = i * 2;
-    }
-    auto tensorData = std::make_shared<LogicalTensorData>(rawData);
-    std::vector<std::shared_ptr<LogicalTensorData>> inputList = {tensorData};
-    evaluator.InitInputDataViewList(inputList);
-
-    std::vector<ScalarImmediateType> dataParams = {0, 1, 0, 1, 0};
-    EXPECT_THROW(evaluator.EvaluateSymbolicCall("RUNTIME_GetInputDataInt32Dim4", dataParams, {}), std::exception);
 }
 
 TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeIsLoopBegin)
