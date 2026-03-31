@@ -357,13 +357,15 @@ private:
     inline void TryBatchSendTask(CoreType type)
     {
         auto taskQueue = taskQueue_[(int)type];
+        bool holdsTaskQueueLock = false;
 
         // Checking free A cores
         if (freeACoreQueue_[(int)type]->empty() == false && taskQueue->empty() == false)
         {
-            if (taskQueue->tryLock())
+            if (holdsTaskQueueLock == false) holdsTaskQueueLock = taskQueue->tryLock();
+
+            if (holdsTaskQueueLock == true)
             {
-                freeACoreQueue_[(int)type]->lock();
                 const size_t availableCores = freeACoreQueue_[(int)type]->size();
                 const auto taskSet = taskQueue->pop(availableCores);
                 const aicoreTask_t* taskData = taskSet.first;
@@ -377,18 +379,16 @@ private:
                     SendTaskToAiCore(type, core, task);
                     busyAPairQueue_[(int)type]->push(pair);
                 }
-
-                freeACoreQueue_[(int)type]->unlock();   
-                taskQueue->unlock();   
             }
         }
         
         // Checking free B cores
         if (freeBPairQueue_[(int)type]->empty() == false && taskQueue->empty() == false)
         {
-            if (taskQueue->tryLock())
+            if (holdsTaskQueueLock == false) holdsTaskQueueLock = taskQueue->tryLock();
+
+            if (holdsTaskQueueLock == true)
             {
-                freeBPairQueue_[(int)type]->lock();
                 const size_t availableCores = freeBPairQueue_[(int)type]->size();
                 const auto taskSet = taskQueue->pop(availableCores);
                 const aicoreTask_t* taskData = taskSet.first;
@@ -402,11 +402,10 @@ private:
                     SendTaskToAiCore(type, core, task);
                     busyBPairQueue_[(int)type]->push(pair);
                 }
-
-                freeBPairQueue_[(int)type]->unlock();
-                taskQueue->unlock();
             }
         }
+
+        if (holdsTaskQueueLock == true) taskQueue->unlock();
     }
 
     inline void DispatchAiCoreTask(CoreType type) {
@@ -433,45 +432,33 @@ private:
         // Handling Busy A queue pairings
         if (busyAPairQueue_[(int)type]->empty() == false)
         {
-            if (busyAPairQueue_[(int)type]->tryLock() == true)
+            size_t pairCount = busyAPairQueue_[(int)type]->size();
+            for (size_t i = 0; i < pairCount; i++)
             {
-                size_t pairCount = busyAPairQueue_[(int)type]->size();
-                for (size_t i = 0; i < pairCount; i++)
-                {
-                    const auto pair = busyAPairQueue_[(int)type]->pop();
-                    ResolveBusyAQueuePair(type, pair);
-                }
-                busyAPairQueue_[(int)type]->unlock();
+                const auto pair = busyAPairQueue_[(int)type]->pop();
+                ResolveBusyAQueuePair(type, pair);
             }
         }
 
         // Handling Free B queue pairings
         if (freeBPairQueue_[(int)type]->empty() == false)
         {
-            if (freeBPairQueue_[(int)type]->tryLock() == true)
+            size_t pairCount = freeBPairQueue_[(int)type]->size();
+            for (size_t i = 0; i < pairCount; i++)
             {
-                size_t pairCount = freeBPairQueue_[(int)type]->size();
-                for (size_t i = 0; i < pairCount; i++)
-                {
-                    const auto pair = freeBPairQueue_[(int)type]->pop();
-                    ResolveFreeBQueuePair(type, pair);
-                }
-                freeBPairQueue_[(int)type]->unlock();
+                const auto pair = freeBPairQueue_[(int)type]->pop();
+                ResolveFreeBQueuePair(type, pair);
             }
         }
 
         // Handling Busy B queue pairings
         if (busyBPairQueue_[(int)type]->empty() == false)
         {
-            if (busyBPairQueue_[(int)type]->tryLock() == true)
+            size_t pairCount = busyBPairQueue_[(int)type]->size();
+            for (size_t i = 0; i < pairCount; i++)
             {
-                size_t pairCount = busyBPairQueue_[(int)type]->size();
-                for (size_t i = 0; i < pairCount; i++)
-                {
-                    const auto pair = busyBPairQueue_[(int)type]->pop();
-                    ResolveBusyBQueuePair(type, pair);
-                }
-                busyBPairQueue_[(int)type]->unlock();
+                const auto pair = busyBPairQueue_[(int)type]->pop();
+                ResolveBusyBQueuePair(type, pair);
             }
         }
 
@@ -493,37 +480,11 @@ private:
             taskQueue->unlock();
         }
 
-        // Batch-pushing free A cores
-        if (batchFreeACoreCount_[(int)type] > 0)
-        {
-            freeACoreQueue_[(int)type]->lock();
-            freeACoreQueue_[(int)type]->pushMany(batchFreeACores_[(int)type], batchFreeACoreCount_[(int)type]);
-            freeACoreQueue_[(int)type]->unlock();
-        }
-
-        // Batch-pushing busy A cores
-        if (batchBusyAPairCount_[(int)type] > 0)
-        {
-            busyAPairQueue_[(int)type]->lock();
-            busyAPairQueue_[(int)type]->pushMany(batchBusyAPairs_[(int)type], batchBusyAPairCount_[(int)type]);
-            busyAPairQueue_[(int)type]->unlock();
-        }
-        
-        // Batch-pushing free B cores
-        if (batchFreeBPairCount_[(int)type] > 0)
-        {
-            freeBPairQueue_[(int)type]->lock();
-            freeBPairQueue_[(int)type]->pushMany(batchFreeBPairs_[(int)type], batchFreeBPairCount_[(int)type]);
-            freeBPairQueue_[(int)type]->unlock();
-        }
-
-        // Batch-pushing busy B cores
-        if (batchBusyBPairCount_[(int)type] > 0)
-        {
-            busyBPairQueue_[(int)type]->lock();
-            busyBPairQueue_[(int)type]->pushMany(batchBusyBPairs_[(int)type], batchBusyBPairCount_[(int)type]);
-            busyBPairQueue_[(int)type]->unlock();
-        }
+        // Batch-pushing cores
+        if (batchFreeACoreCount_[(int)type] > 0) freeACoreQueue_[(int)type]->pushMany(batchFreeACores_[(int)type], batchFreeACoreCount_[(int)type]);
+        if (batchBusyAPairCount_[(int)type] > 0) busyAPairQueue_[(int)type]->pushMany(batchBusyAPairs_[(int)type], batchBusyAPairCount_[(int)type]);
+        if (batchFreeBPairCount_[(int)type] > 0) freeBPairQueue_[(int)type]->pushMany(batchFreeBPairs_[(int)type], batchFreeBPairCount_[(int)type]);
+        if (batchBusyBPairCount_[(int)type] > 0) busyBPairQueue_[(int)type]->pushMany(batchBusyBPairs_[(int)type], batchBusyBPairCount_[(int)type]);
     }
 
     inline void ResolveBusyAQueuePair(CoreType type, const aicorePair_t pair)
