@@ -435,8 +435,6 @@ def shmem_clear_data(
 @op_wrapper
 def shmem_clear_signal(
     src: ShmemTensor,
-    shape: list[int] = None,
-    offsets: list[Union[int, SymbolicScalar]] = None,
     *,
     pred: list[Tensor] = None
 ) -> Tensor:
@@ -467,8 +465,6 @@ def shmem_clear_signal(
     )
     """
     dummy = __normalize_pred(pred)
-    if shape is not None and offsets is not None:
-        src = pypto_impl.ShmemView(src, shape, offsets)
     return pypto_impl.ShmemClearSignal(src, dummy)
 
 
