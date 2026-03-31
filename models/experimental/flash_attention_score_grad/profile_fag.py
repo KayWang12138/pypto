@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
 # coding: utf-8
 """采集性能数据 (生成泳道图)"""
-import os, sys, torch
+import os, sys, logging, torch
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Configure logger for the module
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.propagate = False
+formatter = logging.Formatter(
+    fmt='%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s',
+    datefmt='[%Y-%m-%d %H:%M:%S]'
+)
+handler = logging.StreamHandler()
+handler.setFormatter(formatter)
+logger.handlers.clear()
+logger.addHandler(handler)
 
 import pypto
 from flash_attention_score_grad_golden import generate_forward_data
@@ -152,11 +165,11 @@ if __name__ == "__main__":
     dv_flat = torch.empty_like(v_flat)
     batch_tensor = torch.zeros(B, dtype=torch.int32, device=device)
 
-    print(f"Running profile: B={B}, N={N}, S={S}, D={D}")
+    logger.info(f"Running profile: B={B}, N={N}, S={S}, D={D}")
     fag_kernel_profile(
         q_flat, k_flat, v_flat, dy_flat,
         sm_flat, ss_flat, ao_flat,
         dq_flat, dk_flat, dv_flat,
         batch_tensor, scale,
     )
-    print("Done. Check output/ for swimlane data.")
+    logger.info("Done. Check output/ for swimlane data.")
