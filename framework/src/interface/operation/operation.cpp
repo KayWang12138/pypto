@@ -817,6 +817,7 @@ Operation& Operation::CloneOperation(
     Function& func, const LogicalTensors& iOperandList, const LogicalTensors& oOperandList) const
 {
     Operation& op = func.AddRawOperation(opcode_, iOperandList, oOperandList);
+    op.SetScopeInfo(scopeInfo_);
     if (opAttribute_) {
         op.opAttribute_ = opAttribute_->Clone();
     }

@@ -356,6 +356,7 @@ public:
     ScopeInfo scopeInfo_;
     void SetScopeId(int scopeId) {scopeInfo_.scopeId = scopeId; };
     void SetScopeInfo(const ScopeInfo &info) { scopeInfo_ = info; };
+    const ScopeInfo &GetScopeInfo() const { return scopeInfo_; };
     int GetScopeId() const { return scopeInfo_.scopeId; };
     bool GetAllowParallelMerge() const { return scopeInfo_.allowParallelMerge; };
     bool GetAllowCrossScopeMerge() const { return scopeInfo_.allowCrossScopeMerge; };

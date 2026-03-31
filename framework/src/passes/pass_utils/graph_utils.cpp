@@ -59,7 +59,7 @@ Operation& GraphUtils::AddAssembleOperation(
 {
     auto& newOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {assemble.input}, {assemble.output});
     if (assemble.originOp != nullptr) {
-        newOp.SetScopeId(assemble.originOp->GetScopeId());
+        newOp.SetScopeInfo(assemble.originOp->GetScopeInfo());
         newOp.CopyAttrFrom(*assemble.originOp, "");
     }
     SetAssembleAttr(newOp, assemble);
@@ -73,7 +73,7 @@ Operation& GraphUtils::AddReshapeOperation(
 {
     auto& newOp = function.AddOperation(Opcode::OP_RESHAPE, {iOperand}, {oOperand});
     if (reshapeOp.originOpPtr != nullptr) {
-        newOp.SetScopeId(reshapeOp.originOpPtr->GetScopeId());
+        newOp.SetScopeInfo(reshapeOp.originOpPtr->GetScopeInfo());
         newOp.CopyAttrFrom(*reshapeOp.originOpPtr, "");
     }
     if (outDynShape.empty()) {
