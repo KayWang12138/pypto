@@ -697,7 +697,7 @@ Status OoOScheduler::GenSpillSchedule()
         return FAILED;
     }
     // 更新依赖关系
-    if (depManager_.InitDependencies(orderedOps) != SUCCESS) {
+    if (depManager_.InitDependencies(orderedOps, false) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
         return FAILED;
     }
@@ -921,8 +921,7 @@ Status OoOScheduler::CheckOpBufferSize(Operation* op)
             continue;
         }
         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
-            APASS_LOG_ERROR_F(
-                Elements::Operation, "Alloc tensor[%d] size[%ld] exceeds %s size[%ld]! %s",
+            APASS_LOG_ERROR_F(Elements::Operation, "Alloc tensor[%d] size[%ld] exceeds %s size[%ld]! %s",
                 op->GetOutputOperand(0)->GetMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(),
                 localMemorySize[buffer.first], GetFormatBacktrace(*op).c_str());
             APASS_LOG_ERROR_F(Elements::Operation, "Tensor[%d] producer info:", op->GetOutputOperand(0)->GetMagic());
@@ -1098,7 +1097,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
         return FAILED;
     }
     // 初始化依赖关系
-    if (depManager_.InitDependencies(orderedOps) != SUCCESS) {
+    if (depManager_.InitDependencies(orderedOps, false) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
         return FAILED;
     }

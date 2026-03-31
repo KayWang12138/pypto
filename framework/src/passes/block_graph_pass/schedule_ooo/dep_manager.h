@@ -43,31 +43,32 @@ public:
 
     void AddAllocDependency(Operation *preOp, Operation *postOp);
 
-    Status InitAllocDependencies(Operation* op, std::unordered_map<int, Operation*> &tensor2AllocOpMap);
+    Status InitAllocDependencies(Operation *op, std::unordered_map<int, Operation *> &tensor2AllocOpMap);
 
     bool RemoveDependency(Operation *preOp, Operation *postOp);
+
+    int InsertSuccessor(Operation *op, Operation *succ);
+    int RemoveSuccessor(Operation *op, Operation *succ);
+    int InsertPredecessor(Operation *op, Operation *pred);
+    int RemovePredecessor(Operation *op, Operation *pred);
 
     std::unordered_set<Operation *> &GetSuccessors(Operation *op);
     std::unordered_set<Operation *> &GetPredecessors(Operation *op);
     bool HasOp(Operation *op) const;
 
-    Status TransferSuccessorsByMemId(Operation *opA, Operation *opB, int memId,
-        const std::function<bool(Operation *)> &isRetired,
-        const std::function<const std::vector<int> &(Operation *)> &getReqMemIds);
-
-    void ReplaceAllocPredecessor(const std::vector<Operation *> &ops, int memId, Operation *newPre,
-        const std::function<bool(Operation *)> &isRetired,
-        const std::function<const std::vector<int> &(Operation *)> &getReqMemIds);
-
     std::string PrintOp(Operation *op);
 
     Operation *SkipViewChain(Operation *start, bool followProducers);
 
-    void FindDependencies(Operation *op);
+    void FindDependencies(Operation *op, bool needView);
+    void InitOpConsumerAndProducer(const std::vector<Operation *> &ops);
 
-    Status InitDependencies(const std::vector<Operation *> &ops);
+    Status InitDependencies(const std::vector<Operation *> &ops, bool needView);
 
     void PrintDependencies(const std::vector<Operation *> &ops);
+
+    std::unordered_map<Operation *, std::unordered_set<Operation *>> opConsumers;
+    std::unordered_map<Operation *, std::unordered_set<Operation *>> opProducers;
 
 private:
     void Clear();

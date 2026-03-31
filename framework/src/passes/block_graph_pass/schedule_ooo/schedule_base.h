@@ -60,8 +60,6 @@ public:
     std::unordered_map<MemoryType, int64_t> localMemSize; //内存剩余情况
     std::unordered_map<MemoryType, int64_t> localMemoryCurrentSize;
     std::unordered_map<int, LocalBufferPtr> localBufferMap_; //memid:local
-    std::unordered_map<Operation*, std::unordered_set<Operation*>> opConsumers;
-    std::unordered_map<Operation*, std::unordered_set<Operation*>> opProducers;
     std::unordered_map<Operation*, LogicalTensors> inOutOperandsCache_;
 
     //  初始依赖的list序列
@@ -92,27 +90,7 @@ public:
         return cacheIt->second;
     }
 
-    void InitOpConsumerAndProducer() {
-        std::unordered_set<Operation*> operationList;
-        for (auto op : operations) {
-            operationList.insert(op);
-        }
-        for (auto op : operations) {
-            for (auto consumer : op->ConsumerOps()) {
-                if (operationList.find(consumer) != operationList.end()) {
-                    opConsumers[op].insert(consumer);
-                }
-            }
-            for (auto producer : op->ProducerOps()) {
-                if (operationList.find(producer) != operationList.end()) {
-                    opProducers[op].insert(producer);
-                }
-            }
-        }
-    }
-
-    Status InitLocalBuffer(LogicalTensorPtr oOperand, int memId)
-    {
+    Status InitLocalBuffer(LogicalTensorPtr oOperand, int memId) {
         if (oOperand->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
             return SUCCESS;
         }
@@ -357,7 +335,6 @@ public:
         localMemSize = CommonUtils::GetLocalMemorySize();
  	    localMemoryCurrentSize = localMemSize;
         operations = opList;
-        InitOpConsumerAndProducer();
         for (auto& op : operations) {
             if (CheckOpBufferSize(op) != SUCCESS) {
                 APASS_LOG_ERROR_F(
@@ -368,7 +345,7 @@ public:
         }
         InitBufRefCount();
         // 构建依赖关系
-        if (depManager_.InitDependencies(operations) != SUCCESS) {
+        if (depManager_.InitDependencies(operations, true) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
             return FAILED;
         }

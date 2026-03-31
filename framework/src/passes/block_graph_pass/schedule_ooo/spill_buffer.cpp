@@ -234,17 +234,24 @@ void OoOScheduler::UpdateTensorInputForView(Operation& op, Operation* spillSrcOp
 
 // 新增：基于Operation*的版本
 Status OoOScheduler::UpdateReloadIssueDepend(Operation* reloadCopyin, Operation* spillOp, int spillMemId) {
-    if (depManager_.TransferSuccessorsByMemId( spillOp, reloadCopyin, spillMemId, [this](Operation *op) { return opIsRetiredMap[op]; },
-        [this](Operation *op) -> const std::vector<int> & { return opReqMemIdsMap[op]; }) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "UpdateReloadIssueDepend failed.");
-        return FAILED;
-    }
-    if (reloadCopyin->GetOutputOperand(0) == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s cannot find oOperand[0]. %s", GetOpInfo(reloadCopyin).c_str(), GetFormatBacktrace(*reloadCopyin).c_str());
-        return FAILED;
-    }
-    for (auto &succOp : GetSuccessors(reloadCopyin)) {
-        UpdateTensorInputFor(succOp, spillOp, reloadCopyin->GetOutputOperand(0));
+    auto& successors = GetSuccessors(spillOp);
+    for (auto succOp : successors) {
+        if (!opIsRetiredMap[succOp]) {
+            auto& reqMemIds = opReqMemIdsMap[succOp];
+            if (std::count(reqMemIds.begin(), reqMemIds.end(), spillMemId) > 0) {
+                depManager_.InsertSuccessor(reloadCopyin, succOp);
+                if (depManager_.RemovePredecessor(succOp, spillOp) == 0) {
+                    APASS_LOG_ERROR_F(Elements::Operation, "Erase op %s failed. %s", GetOpInfo(spillOp).c_str(), GetFormatBacktrace(*spillOp).c_str());
+                    return FAILED;
+                }
+                depManager_.InsertPredecessor(succOp, reloadCopyin);
+                if (reloadCopyin->GetOutputOperand(0) == nullptr) {
+                    APASS_LOG_ERROR_F(Elements::Operation, "%s cannot find oOperand[0]. %s", GetOpInfo(reloadCopyin).c_str(), GetFormatBacktrace(*reloadCopyin).c_str());
+                    return FAILED;
+                }
+                UpdateTensorInputFor(succOp, spillOp, reloadCopyin->GetOutputOperand(0));
+            }
+        }
     }
     return SUCCESS;
 }
@@ -299,9 +306,22 @@ Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* re
     if (UpdateRemainOpBufId(spillMemId, opReqMemIdsMap[reloadAlloc][0])) {
         return FAILED;
     }
-    depManager_.ReplaceAllocPredecessor(
-        orderedOps, spillMemId, reloadAlloc, [this](Operation *op) { return opIsRetiredMap[op]; },
-        [this](Operation *op) -> const std::vector<int> & { return opReqMemIdsMap[op]; });
+    for (auto& op : orderedOps) {
+        if (opIsRetiredMap[op] || opIsAllocMap[op]) {
+            continue;
+        }
+        auto predecessors = GetSuccessors(op);
+        for (auto predOp : predecessors) {
+            if (opIsAllocMap[predOp]) {
+                auto& predReqMemIds = opReqMemIdsMap[predOp];
+                if (std::find(predReqMemIds.begin(), predReqMemIds.end(), spillMemId) != predReqMemIds.end()) {
+                    depManager_.RemovePredecessor(op, predOp);
+                    depManager_.InsertPredecessor(op, reloadAlloc);
+                }
+            }
+        }
+    }
+
     numTotalIssues += TWO_ISSUE;
     return SUCCESS;
 }
@@ -383,18 +403,18 @@ Status OoOScheduler::UpdateReshapeDependAndBuf(Operation* allocOp, SpillInfo &sp
         return FAILED;
     }
     bufRefCount_[reshapeTensor->memoryrange.memId] = 0;
-    for (auto op : orderedOps) {
+    for (auto op: orderedOps) {
         if (opIsRetiredMap[op]) {
             continue;
         }
-        auto &reqMemIds = opReqMemIdsMap[op];
+        auto& reqMemIds = opReqMemIdsMap[op];
         for (auto memId : reqMemIds) {
             if (memId == reshapeTensor->memoryrange.memId) {
                 bufRefCount_[reshapeTensor->memoryrange.memId]++;
             }
         }
     }
-    depManager_.InitDependencies(orderedOps);
+    depManager_.InitDependencies(orderedOps, false);
     return SUCCESS;
 }
 
@@ -958,7 +978,7 @@ Status OoOScheduler::UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr a
             }
         }
     }
-    depManager_.InitDependencies(orderedOps);
+    depManager_.InitDependencies(orderedOps, false);
     return SUCCESS;
 }
 
