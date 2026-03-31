@@ -1160,7 +1160,8 @@ void ConstructL0C2L1GraphWithNonImmediateValidShape(std::shared_ptr<Function>& c
 TEST_F(AssignMemoryTypeTest, TestL0C2L1WithNonImmediateValidShape)
 {
     auto currFunctionPtr = std::make_shared<Function>(
-        Program::GetInstance(), "TestL0C2L1WithNonImmediateValidShape", "TestL0C2L1WithNonImmediateValidShape", nullptr);
+        Program::GetInstance(), "TestL0C2L1WithNonImmediateValidShape",
+        "TestL0C2L1WithNonImmediateValidShape", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     Program::GetInstance().InsertFuncToFunctionMap("TestL0C2L1WithNonImmediateValidShape", currFunctionPtr);
 
@@ -1168,9 +1169,7 @@ TEST_F(AssignMemoryTypeTest, TestL0C2L1WithNonImmediateValidShape)
 
     AssignMemoryType assignMemoryType;
     assignMemoryType.PreCheck(*currFunctionPtr);
-    currFunctionPtr->DumpJsonFile("./config/pass/json/assignMemoryType_TestL0C2L1WithNonImmediateValidShape_before.json");
     assignMemoryType.RunOnFunction(*currFunctionPtr);
-    currFunctionPtr->DumpJsonFile("./config/pass/json/assignMemoryType_TestL0C2L1WithNonImmediateValidShape_after.json");
     assignMemoryType.PostCheck(*currFunctionPtr);
 
     int l0c2l1Count = 0;
