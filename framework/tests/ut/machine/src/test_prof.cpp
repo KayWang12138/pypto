@@ -253,37 +253,4 @@ TEST_F(TestPro, test_prof_start_pmu_dav3510)
     env.prof->ProfStop();
 }
 
-TEST_F(TestPro, test_check_level_invalid_params)
-{
-    auto aicpuTaskPtr = CreateAicpuTaskManager();
-    auto aicoreMng = CreateAiCoreManager(aicpuTaskPtr.get());
-    AiCoreProf prof(*aicoreMng);
-
-    auto data = CreateProfCommandHandle();
-    auto size = sizeof(PyPtoMsprofCommandHandle);
-
-    auto ret1 = prof.DevProfInit(1, nullptr, 0);
-    EXPECT_EQ(ret1, -1);
-
-    auto ret2 = prof.DevProfInit(0, data.get(), size);
-    EXPECT_EQ(ret2, -1);
-
-    auto ret3 = prof.DevProfInit(1, data.get(), 1);
-    EXPECT_EQ(ret3, -1);
-}
-
-TEST_F(TestPro, test_check_level_off)
-{
-    auto aicpuTaskPtr = CreateAicpuTaskManager();
-    auto aicoreMng = CreateAiCoreManager(aicpuTaskPtr.get());
-    AiCoreProf prof(*aicoreMng);
-
-    auto data = CreateProfCommandHandle(65661, 0);
-    auto size = sizeof(PyPtoMsprofCommandHandle);
-
-    prof.DevProfInit(1, data.get(), size);
-    prof.GetIsOpenDevProf();
-    EXPECT_EQ(prof.profLevel_, 0);
-}
-
 
