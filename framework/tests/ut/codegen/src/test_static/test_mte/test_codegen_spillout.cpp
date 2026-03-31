@@ -43,8 +43,6 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
         TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
     }
 
@@ -106,13 +104,13 @@ TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor)
     CodeGenOpCloudNPU cop(opCtx);
 
     std::string res = symbolManager->GenTileTensorDefList();
-    std::string expect = R"!!!(UBTileTensorFP32Dim2_2 ubTensor_2((uint64_t)UB_S0_E0_T);
-GMTileTensorFP32Dim2_1 gmTensor_1((__gm__ float*)((__gm__ uint8_t*)GMStackBase + 16), DynLayout2Dim(Shape2Dim(64, 64), Stride2Dim(64, 1)));
+    std::string expect = R"!!!(UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)UB_S0_E0_T);
+GMTileTensorFP32Dim2_0 gmTensor_0((__gm__ float*)((__gm__ uint8_t*)GMStackBase + 16), DynLayout2Dim(Shape2Dim(64, 64), Stride2Dim(64, 1)));
 )!!!";
     EXPECT_EQ(res, expect);
 
     res = cop.GenOpCode();
-    expect = R"!!!(TStore(gmTensor_1, ubTensor_2, Coord2Dim(0, 0));
+    expect = R"!!!(TStore(gmTensor_0, ubTensor_1, Coord2Dim(0, 0));
 )!!!";
     EXPECT_EQ(res, expect);
 }

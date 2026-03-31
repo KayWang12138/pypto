@@ -129,7 +129,7 @@ std::string SymbolManager::AddTileTensorUsing(const TileTensorUsing& tileTensorU
         CODEGEN_LOGI("found tensorUsingType %s", tensorUsingType.c_str());
         return tensorUsingType;
     }
-    tensorUsingType = tileTensorUsing.GenName();
+    tensorUsingType = GenTensorUsingName(tileTensorUsing);
     CODEGEN_LOGI("Add tensorUsingType %s", tensorUsingType.c_str());
     tileTensorUsing_.insert({tensorUsingType, tileTensorUsing});
     CODEGEN_LOGI("insert tensorUsingType %s = %s", tensorUsingType.c_str(), tileTensorUsing.ToString().c_str());

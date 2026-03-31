@@ -20,10 +20,12 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
+#include "interface/utils/id_gen.h"
 #include "tilefwk/data_type.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 
@@ -42,8 +44,6 @@ public:
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
