@@ -1865,8 +1865,8 @@ def quantize(
         Shape: [..., row, col], 2-4 dimensions supported.
     scale : Tensor
         Scaling factor. dtype must be DT_FP32.
-        When axis=-1: shape is [..., row, 1]
-        When axis=-2: shape is [..., 1, col]
+        When axis=-1: shape is [..., row]
+        When axis=-2: shape is [..., col]
     otype : DataType
         Output data type. DT_INT8 for symmetric, DT_UINT8 for asymmetric.
     axis : int
@@ -1882,8 +1882,8 @@ def quantize(
     Examples
     --------
     >>> x = pypto.tensor([3, 4], pypto.DT_FP32)
-    >>> scale = pypto.tensor([3, 1], pypto.DT_FP32)
-    >>> zero_points = pypto.tensor([3, 1], pypto.DT_FP32)
+    >>> scale = pypto.tensor([3], pypto.DT_FP32)
+    >>> zero_points = pypto.tensor([3], pypto.DT_FP32)
     >>>
     >>> # Symmetric quantization: fp32 -> int8
     >>> y1 = pypto.quantize(x, scale, pypto.DT_INT8, -1)
@@ -1891,4 +1891,6 @@ def quantize(
     >>> # Asymmetric quantization: fp32 -> uint8
     >>> y2 = pypto.quantize(x, scale, pypto.DT_UINT8, -1, zero_points)
     """
+    if zero_points is None:
+        zero_points = pypto_impl.Tensor()
     return pypto_impl.Quantize(input, scale, otype, axis, zero_points)
