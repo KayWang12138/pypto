@@ -596,7 +596,10 @@ void TiledCastOperation(
     if (cur == static_cast<int>(input.tensor.GetShape().size())) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        auto& op = function.AddOperation(GetCastOpName<T>(), {tile}, {resultTile});
+        std::vector<int64_t> tmpShape = resultTile->GetShape();
+        tmpShape[1] = AlignUp(tmpShape[1], BytesOf(DT_INT32));
+ 	    auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_INT32, tmpShape);        
+        auto &op = function.AddOperation(GetCastOpName<T>(), {tile}, {resultTile, tmpTensor});
         op.SetAttribute(OP_ATTR_PREFIX + "mode", mode);
         op.SetAttribute(OP_ATTR_PREFIX + "satmode", static_cast<int64_t>(satmode));
         return;
