@@ -64,7 +64,9 @@ TEST_F(TestPro, test_ini)
     std::cout << "oriRegAddrs_ " << oriRegAddrs_ << std::endl;
     std::cout << "regAddrs_    " << regAddrs_ << std::endl;
     ProfConfig profConfig;
-    prof.ProfInit(regAddrs_, regAddrs_, profConfig);
+    std::unique_ptr<DeviceArgs> devArgs = std::make_unique<DeviceArgs>();
+    devArgs->corePmuRegAddr = (int64_t)(regAddrs_);
+    prof.ProfInit(devArgs.get());
     prof.ProfStart();
 
     int32_t aicoreId = 0;
@@ -146,8 +148,10 @@ TEST_F(TestPro, test_prof_start_pmu_dav2201)
     }
 
     ProfConfig profConfig;
+    std::unique_ptr<DeviceArgs> devArgs = std::make_unique<DeviceArgs>();
     profConfig.Add(ProfConfig::AICORE_PMU);
-    prof.ProfInit(regAddrsArr, pmuEventAddrsArr, profConfig, ArchInfo::DAV_2201);
+    devArgs->toSubMachineConfig.profConfig = profConfig;
+    prof.ProfInit(devArgs.get());
     prof.ProfInitPmu(regAddrsArr, pmuEventAddrsArr);
     prof.ProfStartPmu();
     TaskStat taskStat;
@@ -186,8 +190,11 @@ TEST_F(TestPro, test_prof_start_pmu_dav3510)
     }
 
     ProfConfig profConfig;
+    std::unique_ptr<DeviceArgs> devArgs = std::make_unique<DeviceArgs>();
     profConfig.Add(ProfConfig::AICORE_PMU);
-    prof.ProfInit(regAddrsArr, pmuEventAddrsArr, profConfig, ArchInfo::DAV_3510);
+    devArgs->toSubMachineConfig.profConfig = profConfig;
+    devArgs->archInfo = ArchInfo::DAV_3510;
+    prof.ProfInit(devArgs.get());
     prof.ProfInitPmu(regAddrsArr, pmuEventAddrsArr);
     prof.ProfStartPmu();
     TaskStat taskStat;
@@ -196,4 +203,74 @@ TEST_F(TestPro, test_prof_start_pmu_dav3510)
     prof.ProfStop();
 
     free(regBuf);
+}
+
+TEST_F(TestPro, test_check_level) {
+    std::unique_ptr<AicpuTaskManager> aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
+    std::unique_ptr<AiCoreManager> aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
+    aicoreMng->aicNum_ = 1;
+    aicoreMng->aivNum_ = 0;
+    aicoreMng->aicStart_ = 0;
+    aicoreMng->aicEnd_ = 1;
+    aicoreMng->aicpuIdx_ = 0;
+    AiCoreProf prof(*aicoreMng);
+    auto ret = prof.DevProfInit(1, nullptr, 0);
+    EXPECT_EQ(ret, -1);
+    std::unique_ptr<PyPtoMsprofCommandHandle> data = std::make_unique<PyPtoMsprofCommandHandle>();
+    prof.DevProfInit(0, data.get(), 1);
+    EXPECT_EQ(ret, -1);
+}
+
+TEST_F(TestPro, test_check_level_off) {
+    std::unique_ptr<AicpuTaskManager> aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
+    std::unique_ptr<AiCoreManager> aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
+    aicoreMng->aicNum_ = 1;
+    aicoreMng->aivNum_ = 0;
+    aicoreMng->aicStart_ = 0;
+    aicoreMng->aicEnd_ = 1;
+    aicoreMng->aicpuIdx_ = 0;
+    AiCoreProf prof(*aicoreMng);
+    std::unique_ptr<PyPtoMsprofCommandHandle> data = std::make_unique<PyPtoMsprofCommandHandle>();
+    data->profSwitch = 65661;
+    auto size = sizeof(PyPtoMsprofCommandHandle);
+    data->type = 0;
+    prof.DevProfInit(1, data.get(), size);
+    prof.GetIsOpenDevProf();
+    EXPECT_EQ(prof.profLevel_, 0);
+}
+
+TEST_F(TestPro, test_check_level_l2) {
+    std::unique_ptr<AicpuTaskManager> aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
+    std::unique_ptr<AiCoreManager> aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
+    aicoreMng->aicNum_ = 1;
+    aicoreMng->aivNum_ = 0;
+    aicoreMng->aicStart_ = 0;
+    aicoreMng->aicEnd_ = 1;
+    aicoreMng->aicpuIdx_ = 0;
+    AiCoreProf prof(*aicoreMng);
+    std::unique_ptr<PyPtoMsprofCommandHandle> data = std::make_unique<PyPtoMsprofCommandHandle>();
+    data->profSwitch = 65661;
+    auto size = sizeof(PyPtoMsprofCommandHandle);
+    data->type = 1;
+    prof.DevProfInit(1, data.get(), size);
+    prof.GetIsOpenDevProf();
+    EXPECT_EQ(prof.profLevel_, 3);
+}
+
+TEST_F(TestPro, test_check_level_l3) {
+    std::unique_ptr<AicpuTaskManager> aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
+    std::unique_ptr<AiCoreManager> aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
+    aicoreMng->aicNum_ = 1;
+    aicoreMng->aivNum_ = 0;
+    aicoreMng->aicStart_ = 0;
+    aicoreMng->aicEnd_ = 1;
+    aicoreMng->aicpuIdx_ = 0;
+    AiCoreProf prof(*aicoreMng);
+    std::unique_ptr<PyPtoMsprofCommandHandle> data = std::make_unique<PyPtoMsprofCommandHandle>();
+    auto size = sizeof(PyPtoMsprofCommandHandle);
+    data->type = 1;
+    data->profSwitch = 65597;
+    prof.DevProfInit(1, data.get(), size);
+    prof.GetIsOpenDevProf();
+    EXPECT_EQ(prof.profLevel_, 2);
 }
