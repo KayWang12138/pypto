@@ -39,7 +39,7 @@ tools:
 
 2. **必须逐阶段推进，不得跳阶段**
    - Stage 1 至 Stage 7 必须按门禁条件推进。
-   - 第 6 阶段仅在 Stage 5 判定为 `[PRECISION_FAIL]` 时进入。
+   - Stage 6 仅在 Stage 5 判定为 `[PRECISION_FAIL]` 时进入。
 
 3. **全局状态只由你维护**
    - 重试计数、BLOCKED / SUCCESS、恢复入口、状态迁移、持久化只能由你定义和更新。
