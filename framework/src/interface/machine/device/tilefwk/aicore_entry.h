@@ -35,6 +35,7 @@ namespace npu::tile_fwk {
 */
 #define PROF_DFX_HOST_PREPARE_MEMORY_MODE 1
 __gm__ static bool g_is_open_dump_perf_trace_data = false;
+__gm__ static bool g_is_enable_vf_fusion = true;
 } // namespace npu::tile_fwk
 // device switch head file end
 
@@ -78,6 +79,7 @@ struct ExecuteContext {
     int32_t blockIdx;
     uint32_t seqNo{0};
     __gm__ DynFuncData* funcDataList{nullptr};
+    __gm__ DynFuncBin* cceBinary{nullptr};
     uint64_t lastTaskFinishCycle{0};
 #if ENABLE_AICORE_PRINT
     AicoreLogger logger;
@@ -322,9 +324,14 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext* ctx, uint32_t taskId)
 #else
     CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, nullptr};
 #endif
+    int64_t gmStackAddr = funcData->stackWorkSpaceAddr + ctx->blockIdx * funcData->stackWorkSpaceSize;
+    int index = g_is_enable_vf_fusion ? (opAttrs[0] + 1) / 2 : opAttrs[0];
+    if (ctx->cceBinary[index].mixResourceType != 0) {
+        gmStackAddr = funcData->stackWorkSpaceAddr + get_block_idx() * funcData->stackWorkSpaceSize;
+    }
     CallSubFuncTask(
         opAttrs[0] + funcData->exprTbl[0], &param,
-        funcData->stackWorkSpaceAddr + ctx->blockIdx * funcData->stackWorkSpaceSize,
+        gmStackAddr,
         (__gm__ int64_t*)funcData->startArgs->commContexts);
     SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
     PipeSync();
@@ -349,6 +356,7 @@ INLINE void InitCtx(ExecuteContext* ctx, __gm__ Metrics* metric, uint64_t coreFu
     ctx->seqNo = header->seqNo;
     PerfTraceRecord(ctx->seqNo, metric, PERF_TRACE_CORE_DEV_TASK_RCV_MODEL, ctx->args);
     ctx->funcDataList = (__gm__ npu::tile_fwk::DynFuncData*)(header + 1);
+    ctx->cceBinary = (__gm__ npu::tile_fwk::DynFuncBin*)(header->cceBinary);
     ctx->lastTaskFinishCycle = 0;
 #if ENABLE_AICORE_PRINT
     auto buffer = reinterpret_cast<__gm__ uint8_t*>(ctx->args->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX]);
@@ -402,6 +410,7 @@ INLINE void KernelEntry(
     __gm__ KernelArgs* args = (__gm__ KernelArgs*)(devArgs->sharedBuffer + blockIdx * SHARED_BUFFER_SIZE);
     __gm__ Metrics* metric = (__gm__ Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     npu::tile_fwk::g_is_open_dump_perf_trace_data = ((__gm__ DevDfxArgs*)devArgs->devDfxArgAddr)->isOpenPerfTrace;
+    npu::tile_fwk::g_is_enable_vf_fusion = devArgs->enableVFFusion;
     PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_BEGIN, args);
     bool isFirstTask = true;
     SetStatus(args, STAGE_HANDSHAKE_START);
