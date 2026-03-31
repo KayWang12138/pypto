@@ -159,8 +159,11 @@ void DependencyManager::ReplaceAllocPredecessor(const std::vector<Operation *> &
     }
 }
 
-void DependencyManager::Print(
-    const std::vector<Operation *> &ops, const std::function<std::string(Operation *)> &getInfoFn) const {
+std::string DependencyManager::PrintOp(Operation *op) {
+    return op->GetOpcodeStr() + "[" + std::to_string(op->GetOpMagic()) + "]";
+}
+
+void DependencyManager::PrintDependencies(const std::vector<Operation *> &ops) {
     if (static_cast<int>(LoggerManager::GetManager().level) > static_cast<int>(LoggerLevel::DEBUG)) {
         return;
     }
@@ -168,26 +171,17 @@ void DependencyManager::Print(
         if (inGraph_.find(op) == inGraph_.end() || outGraph_.find(op) == outGraph_.end()) {
             continue;
         }
-        APASS_LOG_DEBUG_F(Elements::Operation, "%s", getInfoFn(op).c_str());
+        APASS_LOG_DEBUG_F(Elements::Operation, "%s", PrintOp(op).c_str());
         for (const auto &preOp : inGraph_.at(op)) {
             APASS_LOG_DEBUG_F(Elements::Operation, "    |--- Predecessors:");
-            APASS_LOG_DEBUG_F(Elements::Operation, "        |--- %s", getInfoFn(preOp).c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "        |--- %s", PrintOp(preOp).c_str());
         }
         for (const auto &succOp : outGraph_.at(op)) {
             APASS_LOG_DEBUG_F(Elements::Operation, "    |--- Successors:");
-            APASS_LOG_DEBUG_F(Elements::Operation, "        |--- %s", getInfoFn(succOp).c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "        |--- %s", PrintOp(succOp).c_str());
         }
         APASS_LOG_DEBUG_F(Elements::Operation, "\n");
     }
-}
-
-void DependencyManager::PrintDependencies(const std::vector<Operation *> &ops) {
-    auto getInfoFn = [](Operation *op) -> std::string {
-        if (op == nullptr)
-            return "nullptr";
-        return op->GetOpcodeStr() + "[" + std::to_string(op->GetOpMagic()) + "]";
-    };
-    Print(ops, getInfoFn);
 }
 
 Operation *DependencyManager::SkipViewChain(Operation *start, bool followProducers) {
@@ -210,6 +204,20 @@ Operation *DependencyManager::SkipViewChain(Operation *start, bool followProduce
         }
     }
     return lastView;
+}
+
+Status DependencyManager::InitAllocDependencies(Operation* op, std::unordered_map<int, Operation*> &tensor2AllocOpMap) {
+    for (auto &tensor : op->GetOOperands()) {
+        int memId = tensor->memoryrange.memId;
+        if (tensor->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
+            if (tensor2AllocOpMap.find(memId) == tensor2AllocOpMap.end()) {
+                APASS_LOG_ERROR_F(Elements::Operation, "Tensor[%d] must have alloc. magic: %d, op: %s", memId, tensor->GetMagic(), PrintOp(op).c_str());
+                return FAILED;
+            }
+            AddAllocDependency(tensor2AllocOpMap[memId], op);
+        }
+    }
+    return SUCCESS;
 }
 
 void DependencyManager::FindDependencies(Operation *op) {
@@ -282,15 +290,9 @@ Status DependencyManager::InitDependencies(const std::vector<Operation *> &ops) 
     for (const auto &op : ops) {
         if (!IsOpAlloc(op)) {
             FindDependencies(op);
-            for (auto &tensor : op->GetOOperands()) {
-                int memId = tensor->memoryrange.memId;
-                if (tensor->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
-                    if (tensor2AllocOpMap.find(memId) == tensor2AllocOpMap.end()) {
-                        APASS_LOG_ERROR_F(Elements::Operation, "Tensor[%d] must have alloc.", memId);
-                        return FAILED;
-                    }
-                    AddAllocDependency(tensor2AllocOpMap[memId], op);
-                }
+            if (InitAllocDependencies(op, tensor2AllocOpMap) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "InitAllocDependencies failed.");
+                return FAILED;
             }
         }
     }

@@ -52,6 +52,25 @@ inline bool IsMixGraph(const std::vector<Operation*> &operations) {
     return false;
 }
 
+Operation* OoOScheduler::SkipViewChain(Operation* start, bool followProducers) {
+    if (start == nullptr) return nullptr;
+    Operation* op = start;
+    Operation* lastView = nullptr;
+    while (op != nullptr && IsViewOp(*op)) {
+        lastView = op;
+        if (followProducers) {
+            const auto& nextOps = op->GetInputOperand(0)->GetProducers();
+            if (nextOps.size() != 1) break;
+            op = *nextOps.begin();
+        } else {
+            const auto& nextOps = op->GetOutputOperand(0)->GetConsumers();
+            if (nextOps.size() != 1) break;
+            op = *nextOps.begin();
+        }
+    }
+    return lastView;
+}
+
 int OoOScheduler::GetOOperandIdx(Operation* op, int curMemId) {
     for (size_t i = 0; i < op->GetOOperands().size(); i++) {
         if (op->GetOOperands()[i]->memoryrange.memId == curMemId) {
@@ -438,7 +457,7 @@ Status OoOScheduler::RetireOpAndAwakeSucc(Operation* op, uint64_t& commitCnt) {
         return FAILED;
     }
 
-    auto& successors = opSuccessorsMap[op];
+    auto& successors = GetSuccessors(op);
     auto& coreLocation = opCoreLocationMap[op];
     for (auto succOp : successors) {
         if (opIsRetiredMap[succOp]) {
