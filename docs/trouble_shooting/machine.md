@@ -186,12 +186,12 @@ workspace_tensor = torch.empty(workspace_size * 10, dtype=torch.uint8, device=de
 （1）打开VERBOSE日志
 `framework/src/machine/utils/device_switch.h`
 ```cpp
-#define ENABLE_COMPILE_VERBOSE_LOG 1
+#define ENABLE_DUMP_OPERATION 1
 ```
 
 （2）打开DEBUG日志，指定日志落盘路径
 ```bash
-export ASCEND_GLOBAL_LOG_LEVEL=0
+export ASCEND_GLOBAL_LOG_LEVEL=1
 export ASCEND_PROCESS_LOG_PATH=./my_log
 ```
 
