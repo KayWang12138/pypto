@@ -73,13 +73,17 @@ enum class ExecuteOperationScene : uint32_t {
     EMPTY_VALIDSHAPE          = 0xB200BU, // logiclTensor的validShape为空
 
     // OP_VIEW_TYPE 专属错误
-    VIEWTYPE_BYTES_MISMATCH        = 0xB200CU, // OP_VIEW_TYPE：输入/输出底层字节数不一致
+    VIEWTYPE_BYTES_MISMATCH        = 0xB200CU, // OP_VIEW_TYPE：输入输入/输出底层字节数不一致
     // CUBE MatMul / Copy 专属错误
-    AMULACC_ACC_DTYPE_UNSUPPORTED  = 0xB200DU, // OP_A_MULACC_B：lhs=int8 & acc=fp32 的组合不受支持
+    AMULACC_ACC_DTYPE_UNSUPPORTED  = 0xB200DU, // OP_A_MULACC_B：lhs=int8 & acc=fp32 的组合不支持
     L0C_TO_L1_SHAPE_NOT_2D         = 0xB200EU, // OP_L0C_TO_L1：输入/输出 shape 不是 2D
 
     // ExecuteOperation 通用兜底错误：运行期抛出的 std::exception 统一归此
     RUNTIME_EXCEPTION              = 0xB200FU,
+
+    // 共享内存相关错误
+    INVALID_GROUP_INDEX       = 0xB20001U, // 无效的通信域索引
+    SHMEM_OUT_OF_MEMORY       = 0xB20002U, // 共享内存超出限制
 };
 
 

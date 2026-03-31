@@ -272,4 +272,21 @@ ProgramData &ProgramData::GetInstance() {
     return data;
 }
 
+void RawTensorData::SetExternalBuffer(void* ptr, size_t size) {
+    externalBufferPtr_ = ptr;
+    externalBufferSize_ = size;
+}
+
+bool RawTensorData::UsesExternalBuffer() const {
+    return externalBufferPtr_ != nullptr;
+}
+
+void* RawTensorData::GetExternalBuffer() const {
+    return externalBufferPtr_;
+}
+
+size_t RawTensorData::GetExternalBufferSize() const {
+    return externalBufferSize_;
+}
+
 }
