@@ -109,6 +109,12 @@ void CodeGenCloudNPU::GenFuncBodyBefore(
 
 void CodeGenCloudNPU::GenFuncEnd(std::ostringstream& oss) const { oss << "}\n"; }
 
+bool IsNeedSkipOp(const Operation& op)
+{
+    Opcode opcode = op.GetOpcode();
+    return SKIP_OPCODE_FOR_CODEGEN.find(opcode) != SKIP_OPCODE_FOR_CODEGEN.end();
+}
+
 void CodeGenCloudNPU::GenFuncBody(Function& subFunc, Function& topFunc, std::ostringstream& oss) const
 {
     OperationsViewer operationList = subFunc.Operations(false);
@@ -133,8 +139,7 @@ void CodeGenCloudNPU::GenFuncBody(Function& subFunc, Function& topFunc, std::ost
     for (const auto& op : operationList) {
         CODEGEN_LOGI(
             "======================== Op CodeGenNPU Start ========================\nGen OP IS: %s", op.Dump().c_str());
-        Opcode opcode = op.GetOpcode();
-        if (SKIP_OPCODE_FOR_CODEGEN.find(opcode) != SKIP_OPCODE_FOR_CODEGEN.end()) {
+        if (IsNeedSkipOp(op)) {
             CODEGEN_LOGI("ignore this op\n------------------------ Op CodeGenNPU Finish -----------------------");
             continue;
         }
