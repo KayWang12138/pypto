@@ -3,7 +3,7 @@
 通过 AI 代理与专家技能，自动完成昇腾 NPU 算子开发全流程：
 
 ```
-需求分析 → API探索 → Golden生成 → 设计方案 → 编码实现 → 精度验证 → 性能调优 → PR提交
+需求分析 → API 探索 → Golden 生成 → 设计方案 → 代码实现 → 精度验证 → 性能调优 → PR 提交
 ```
 
 本仓库为 [OpenCode](https://opencode.ai) 预配置了项目规范（AGENTS.md）、专家技能（Skills）和协作代理（Agents），开箱即用。
@@ -68,7 +68,7 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 开发一个 sinh 算子，数学公式是 (e^x - e^(-x)) / 2
 ```
 
-> **提示**：Orchestrator 会自动编排 7 阶段状态机：需求理解 → API探索 → Golden生成 → 设计方案 → 代码实现 → 精度修复 → 性能调优
+> **提示**：Orchestrator 会自动编排 7 阶段状态机：需求理解 → API 探索 → Golden 生成 → 设计方案 → 代码实现 → 精度修复 → 性能调优
 
 ---
 
@@ -82,7 +82,7 @@ Claude Code 使用不同的目录结构，需要先迁移项目配置：
 # 1. 创建 Claude Code 目录结构
 mkdir -p .claude/skills .claude/agents
 
-# 2. 重命名项目指令文件
+# 2. 复制项目指令文件
 cp AGENTS.md CLAUDE.md
 
 # 3. 复制 Skills 到 Claude Code 目录
@@ -347,6 +347,40 @@ Stage 7: 性能调优 → PerfTuner Subagent
 **适用场景**：识别 PyPTO 框架或文档不完善导致的断裂点，产出可转化为 Issue 的报告
 
 **断裂点类型**：文档类（D1-D6）、API/框架类（A1-A5）、错误信息类（E1-E4）、行为模式类（C1-C6）
+
+---
+
+### Pass 分析与优化
+
+#### `pypto-pass-error-fixer` — Pass 模块错误诊断与修复
+
+**适用场景**：Pass 模块抛出错误，需要从问题定位到修复验证的完整排查流程
+
+**工作流程**：错误定位 → 原因分析 → 问题修复 → 验证确认
+
+#### `pypto-pass-module-analyzer` — Pass 模块代码分析
+
+**适用场景**：需要理解 PyPTO Pass 中某个模块的代码、功能和设计
+
+**你会得到**：Pass 模块分析文档，包含接口描述、功能说明与特殊场景分析
+
+#### `pypto-pass-perf-optimizer` — Pass 编译性能优化
+
+**适用场景**：Pass 编译耗时过长，需要分析和优化编译性能
+
+**你会得到**：性能分析报告 + 优化方案 + 验证步骤
+
+#### `pypto-pass-ut-generate` — Pass 单元测试生成
+
+**适用场景**：需要根据 Pass 业务描述生成对应的单元测试用例（UT）
+
+**你会得到**：基于 GTest 框架的 UT 用例，含环境配置、图构建、Pass 执行与结果校验
+
+#### `pypto-pass-workflow-analyzer` — Pass 业务流分析
+
+**适用场景**：需要理解某个业务场景中 Pass 各模块的执行顺序、依赖关系与数据流转
+
+**你会得到**：业务流分析文档，包含模块职责、执行顺序、数据流转说明
 
 ---
 

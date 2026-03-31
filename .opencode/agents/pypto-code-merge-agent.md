@@ -9,12 +9,8 @@ skills:
 tools:
   bash: true
   read: true
-  write: false
-  edit: false
-  glob: true
-  grep: true
-  skill: true
-  question: true
+  write: true
+  edit: true
   gitcode_list_repositories: true
   gitcode_list_pull_requests: true
   gitcode_get_pull_request: true

@@ -1,6 +1,6 @@
 ---
 name: tune-incore
-description: PyPTO算子核内性能调优技能。通过分析单task的实现指令及operation，完成核内的性能调优，包括指令级优化、核内流水优化、特殊Shape处理等。当用户需要进行核内性能调优、单task耗时分析、指令级优化时使用此技能。触发词：核内性能调优、单task优化、指令级优化、核内流水、Operation实现优化。
+description: PyPTO 算子核内性能调优技能。通过分析单 task 的实现指令及 operation，完成核内的性能调优，包括指令级优化、核内流水优化、特殊 Shape 处理等。当用户需要进行核内性能调优、单 task 耗时分析、指令级优化时使用此技能。触发词：核内性能调优、单 task 优化、指令级优化、核内流水、Operation 实现优化。
 ---
 
 # PyPTO 算子核内性能调优

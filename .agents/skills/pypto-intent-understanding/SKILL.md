@@ -1,6 +1,6 @@
 ---
 name: pypto-intent-understanding
-description: "PyPTO 算子需求意图理解。将用户的自然语言算子描述转化为结构化需求文档。当用户描述要开发、实现、创建某个算子时触发，例如：'开发一个sinh算子'、'实现gelu'、'参考PyTorch的F.scaled_dot_product_attention'、'根据论文实现算子'、'创建自定义算子'"
+description: "PyPTO 算子需求意图理解。将用户的自然语言算子描述转化为结构化需求文档。当用户描述要开发、实现、创建某个算子时触发，例如：'开发一个 sinh 算子'、'实现 gelu'、'参考 PyTorch 的 F.scaled_dot_product_attention'、'根据论文实现算子'、'创建自定义算子'"
 ---
 
 # PyPTO 算子需求意图理解

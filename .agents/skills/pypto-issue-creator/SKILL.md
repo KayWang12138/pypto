@@ -1,6 +1,6 @@
 ---
 name: pypto-issue-creator
-description: 基于会话上下文智能创建 GitCode Issue。支持5种类型：Bug Report（报错/异常/失败/精度问题）、Feature Request（新功能/优化）、Documentation（文档问题）、Question（使用问题）、Task（开发任务）。触发词：创建issue、提交issue、反馈问题、报告bug、功能请求、文档问题、提问、咨询、创建任务、跟踪任务。
+description: 基于会话上下文智能创建 GitCode Issue。支持 5 种类型：Bug Report（报错/异常/失败/精度问题）、Feature Request（新功能/优化）、Documentation（文档问题）、Question（使用问题）、Task（开发任务）。触发词：创建issue、提交issue、反馈问题、报告bug、功能请求、文档问题、提问、咨询、创建任务、跟踪任务。
 ---
 
 # PyPTO Issue Creator
