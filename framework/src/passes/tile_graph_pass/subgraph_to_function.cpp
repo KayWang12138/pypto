@@ -191,8 +191,8 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     auto& op = *nLIST[i][j];
-     if (op.HasAttribute(OpAttributeKey::inplaceIdx) &&
-         (op.GetOpcode() != Opcode::OP_COPY_OUT && op.GetOpcode() != Opcode::OP_INDEX_PUT)) {
+    if (op.HasAttribute(OpAttributeKey::inplaceIdx) &&
+        (op.GetOpcode() != Opcode::OP_COPY_OUT && op.GetOpcode() != Opcode::OP_INDEX_PUT)) {
         return;
     }
     if (function.IsFromOutCast(oOperand) || function.IsFromInCast(oOperand)) {
