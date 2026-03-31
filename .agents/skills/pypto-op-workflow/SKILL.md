@@ -19,7 +19,7 @@ description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处�
 
 - 不维护 `.orchestrator_state.json`。
 - 不定义全局重试策略、恢复入口或 BLOCKED / SUCCESS 结束态。
-- 不替代 `pypto-op-develop`、`pypto-precision-debugger`、`pypto-op-perf-autotuner` 等阶段型 Skills 的细节职责。
+- 不替代 `pypto-op-develop`、`pypto-precision-debugger`、`pypto-operator-auto-tuner` 等阶段型 Skills 的细节职责。
 
 ## 核心原则
 
@@ -45,7 +45,7 @@ description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处�
 5. **实现、精度修复、性能调优职责分离**
    - `pypto-op-develop` 只负责代码实现与测试入口生成。
    - `pypto-precision-debugger` 只负责精度问题定位与修复。
-   - `pypto-op-perf-autotuner` 只在精度通过后进入。
+   - `pypto-operator-auto-tuner` 只在精度通过后进入。
 
 ## 执行流程总览
 
