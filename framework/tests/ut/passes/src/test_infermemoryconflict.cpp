@@ -51,7 +51,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -61,8 +62,10 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(InferMemoryConflictTest, CheckRawShapeConflictInShapeNegative) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "CheckRawShapeTest", "CheckRawShapeTest", nullptr);
+TEST_F(InferMemoryConflictTest, CheckRawShapeConflictInShapeNegative)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "CheckRawShapeTest", "CheckRawShapeTest", nullptr);
     std::vector<int64_t> inShape = {-1, 4};
     std::vector<int64_t> outShape = {2, 4};
     std::shared_ptr<RawTensor> inRaw = std::make_shared<RawTensor>(DT_FP32, inShape);
@@ -75,8 +78,10 @@ TEST_F(InferMemoryConflictTest, CheckRawShapeConflictInShapeNegative) {
     EXPECT_TRUE(pass.CheckRawShapeConflict(inTensor, outTensor, nullptr));
 }
 
-TEST_F(InferMemoryConflictTest, CheckRawShapeConflictOutShapeNegative) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "CheckRawShapeTest2", "CheckRawShapeTest2", nullptr);
+TEST_F(InferMemoryConflictTest, CheckRawShapeConflictOutShapeNegative)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "CheckRawShapeTest2", "CheckRawShapeTest2", nullptr);
     std::vector<int64_t> inShape = {2, 4};
     std::vector<int64_t> outShape = {-1, 4};
     std::shared_ptr<RawTensor> inRaw = std::make_shared<RawTensor>(DT_FP32, inShape);
@@ -88,8 +93,10 @@ TEST_F(InferMemoryConflictTest, CheckRawShapeConflictOutShapeNegative) {
     EXPECT_TRUE(pass.CheckRawShapeConflict(inTensor, outTensor, nullptr));
 }
 
-TEST_F(InferMemoryConflictTest, TestInit) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, TestInit)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -108,11 +115,11 @@ TEST_F(InferMemoryConflictTest, TestInit) {
     currFunctionPtr->inCasts_.push_back(input2);
     currFunctionPtr->outCasts_.push_back(output);
 
-    auto &assembleOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor});
+    auto& assembleOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor});
     auto assembleAttr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assembleOp1.SetOpAttribute(assembleAttr1);
 
-    auto &assembleOp2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor});
+    auto& assembleOp2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor});
     auto assembleAttr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assembleOp2.SetOpAttribute(assembleAttr2);
 
@@ -135,13 +142,14 @@ TEST_F(InferMemoryConflictTest, TestInit) {
 Case 1:
 input->view->T1->reshape->T2->assemble->output
 */
-TEST_F(InferMemoryConflictTest, TestForwardPropagation1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, TestForwardPropagation1)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     std::vector<int64_t> offset = {NUM_ZERO, NUM_ZERO};
     std::vector<int64_t> shape = {NUM_2, NUM_4};
-
 
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor1, offset, shape);
@@ -163,11 +171,11 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation1) {
 
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
 
-    auto &assembleOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
+    auto& assembleOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
     auto assembleAttr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assembleOp1.SetOpAttribute(assembleAttr1);
 
-    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
+    auto& viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
     auto viewAttr = std::make_shared<ViewOpAttribute>(offset);
     viewOp.SetOpAttribute(viewAttr);
 
@@ -184,8 +192,10 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation1) {
 Case 3:
 input1->view->T1->reshape->T2->assemble->output
 */
-TEST_F(InferMemoryConflictTest, TestForwardPropagation2) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, TestForwardPropagation2)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -210,14 +220,14 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation2) {
     currFunctionPtr->inCasts_.push_back(input);
     currFunctionPtr->outCasts_.push_back(output);
 
-    auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
+    auto& assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assembleOp.SetOpAttribute(assembleAttr);
 
-    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
+    auto& viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
     auto viewAttr1 = std::make_shared<ViewOpAttribute>(offset1);
     viewOp1.SetOpAttribute(viewAttr1);
-    auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
+    auto& reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
 
     InferMemoryConflict pass;
     auto passStatus = pass.Init(*currFunctionPtr);
@@ -232,8 +242,10 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation2) {
 Case 4:
 input->view->T->assemble->output(same memoryid)
 */
-TEST_F(InferMemoryConflictTest, TestForwardPropagation3) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, TestForwardPropagation3)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -254,11 +266,11 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation3) {
     currFunctionPtr->inCasts_.push_back(input);
     currFunctionPtr->outCasts_.push_back(output);
 
-    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T});
+    auto& viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T});
     auto viewAttr1 = std::make_shared<ViewOpAttribute>(offset);
     viewOp1.SetOpAttribute(viewAttr1);
 
-    auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T}, {output});
+    auto& assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assembleOp.SetOpAttribute(assembleAttr);
 
@@ -276,8 +288,10 @@ T2->
 input->index_outcast->T1->assemble->output
 T0->
 */
-TEST_F(InferMemoryConflictTest, TestForwardPropagation4) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, TestForwardPropagation4)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -305,7 +319,7 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation4) {
     currFunctionPtr->inCasts_.push_back(input);
     currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {tensor0, tensor2, input}, {tensor1});
 
-    auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {tensor1}, {output});
+    auto& assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {tensor1}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assembleOp.SetOpAttribute(assembleAttr);
 
@@ -323,8 +337,10 @@ T2->
 input->index_outcast->T1->reshape->output
 T0->
 */
-TEST_F(InferMemoryConflictTest, TestForwardPropagation5) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, TestForwardPropagation5)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -353,7 +369,7 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation5) {
 
     currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {logicalTensor0, logicalTensor2, input}, {logicalTensor1});
 
-    auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {logicalTensor1}, {output});
+    auto& reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {logicalTensor1}, {output});
 
     InferMemoryConflict pass;
     auto status = pass.Init(*currFunctionPtr);
@@ -369,8 +385,10 @@ Case 1:
 input1->view->T1->exp->T2->assemble->output
                          ->assemble->output
 */
-TEST_F(InferMemoryConflictTest, TestBackwardPropagation1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, TestBackwardPropagation1)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -399,17 +417,17 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation1) {
     currFunctionPtr->outCasts_.push_back(output1);
     currFunctionPtr->outCasts_.push_back(output2);
 
-    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
+    auto& viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
     auto viewAttr = std::make_shared<ViewOpAttribute>(offset1);
     viewOp.SetOpAttribute(viewAttr);
 
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {T1}, {T2});
 
-    auto &assembleOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output1});
+    auto& assembleOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output1});
     auto assembleAttr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assembleOp1.SetOpAttribute(assembleAttr1);
 
-    auto &assembleOp2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output2});
+    auto& assembleOp2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output2});
     auto assembleAttr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assembleOp2.SetOpAttribute(assembleAttr2);
 
@@ -426,8 +444,10 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation1) {
 Case 2:
 input1->view->T1->exp->T2->reshape->T3->assemble->output
 */
-TEST_F(InferMemoryConflictTest, TestBackwardPropagation2) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, TestBackwardPropagation2)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -453,15 +473,15 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation2) {
     currFunctionPtr->inCasts_.push_back(input);
     currFunctionPtr->outCasts_.push_back(output);
 
-    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
+    auto& viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
     auto viewAttr1 = std::make_shared<ViewOpAttribute>(offset1);
     viewOp1.SetOpAttribute(viewAttr1);
 
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {T1}, {T2});
 
-    auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T2}, {T3});
+    auto& reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T2}, {T3});
 
-    auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T3}, {output});
+    auto& assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T3}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assembleOp.SetOpAttribute(assembleAttr);
 
@@ -480,8 +500,10 @@ input->view->T1->exp->T2->assemble->output1
                         ->assemble->output2(same memoryId)
                         ->assemble->output3(same symbol)
 */
-TEST_F(InferMemoryConflictTest, TestBackwardPropagation3) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, TestBackwardPropagation3)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -516,21 +538,21 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation3) {
     currFunctionPtr->outCasts_.push_back(output2);
     currFunctionPtr->outCasts_.push_back(output3);
 
-    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
+    auto& viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
     auto viewAttr1 = std::make_shared<ViewOpAttribute>(offset1);
     viewOp1.SetOpAttribute(viewAttr1);
 
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {T1}, {T2});
 
-    auto &assembleOp2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output1});
+    auto& assembleOp2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output1});
     auto assembleAttr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assembleOp2.SetOpAttribute(assembleAttr2);
 
-    auto &assembleOp3 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output2});
+    auto& assembleOp3 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output2});
     auto assembleAttr3 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assembleOp3.SetOpAttribute(assembleAttr3);
 
-    auto &assembleOp4 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output3});
+    auto& assembleOp4 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output3});
     auto assembleAttr4 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset3);
     assembleOp4.SetOpAttribute(assembleAttr4);
 
@@ -549,8 +571,10 @@ T2->
 input->index_outcast->T1->assemble->output
 T0->
 */
-TEST_F(InferMemoryConflictTest, TestBackwardPropagation4) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, TestBackwardPropagation4)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -579,7 +603,7 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation4) {
 
     currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {T0, T2, input}, {T1});
 
-    auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T1}, {output1});
+    auto& assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T1}, {output1});
     auto assembleAttr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assembleOp.SetOpAttribute(assembleAttr1);
 
@@ -598,8 +622,10 @@ T2->
 input->index_outcast->T1->reshape->output
 T0->
 */
-TEST_F(InferMemoryConflictTest, TestBackwardPropagation5) {
-    auto currFunctionPtr1 = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, TestBackwardPropagation5)
+{
+    auto currFunctionPtr1 =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr1 != nullptr);
     // Prepare the graph
 
@@ -631,7 +657,7 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation5) {
 
     currFunctionPtr1->AddOperation(Opcode::OP_INDEX_OUTCAST, {T0, T2, input}, {T1});
 
-    auto &reshapeOp1 = currFunctionPtr1->AddOperation(Opcode::OP_RESHAPE, {T1}, {output});
+    auto& reshapeOp1 = currFunctionPtr1->AddOperation(Opcode::OP_RESHAPE, {T1}, {output});
 
     InferMemoryConflict testPass;
     auto status = testPass.Init(*currFunctionPtr1);
@@ -646,8 +672,10 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation5) {
 Case 1:
 input1->view->T1->reshape->T2->assemble->output
 */
-TEST_F(InferMemoryConflictTest, TestBothPropagation1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, TestBothPropagation1)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -668,13 +696,13 @@ TEST_F(InferMemoryConflictTest, TestBothPropagation1) {
     currFunctionPtr->inCasts_.push_back(input);
     currFunctionPtr->outCasts_.push_back(output);
 
-    auto &viewOperation = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
+    auto& viewOperation = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
     auto viewAttr = std::make_shared<ViewOpAttribute>(offset);
     viewOperation.SetOpAttribute(viewAttr);
 
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
 
-    auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
+    auto& assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assembleOp.SetOpAttribute(assembleAttr);
 
@@ -693,8 +721,10 @@ TEST_F(InferMemoryConflictTest, TestBothPropagation1) {
 Case 2:
 input1->view->T1->reshape->T2->assemble->output
 */
-TEST_F(InferMemoryConflictTest, TestBothPropagation2) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, TestBothPropagation2)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -720,13 +750,13 @@ TEST_F(InferMemoryConflictTest, TestBothPropagation2) {
     currFunctionPtr->inCasts_.push_back(input);
     currFunctionPtr->outCasts_.push_back(output1);
 
-    auto &viewOp2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
+    auto& viewOp2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
     auto viewAttr2 = std::make_shared<ViewOpAttribute>(offset1);
     viewOp2.SetOpAttribute(viewAttr2);
 
-    auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
+    auto& reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
 
-    auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output1});
+    auto& assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output1});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assembleOp.SetOpAttribute(assembleAttr);
 
@@ -746,8 +776,10 @@ TEST_F(InferMemoryConflictTest, TestBothPropagation2) {
 Case 2:
 input1->view->T1->reshape->T2->assemble->output
 */
-TEST_F(InferMemoryConflictTest, TestInsertCopys) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, TestInsertCopys)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -770,13 +802,13 @@ TEST_F(InferMemoryConflictTest, TestInsertCopys) {
     currFunctionPtr->outCasts_.push_back(output);
     ddrRawTensor2->memoryId = 1;
 
-    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
+    auto& viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
     auto viewAttr1 = std::make_shared<ViewOpAttribute>(offset3);
     viewOp1.SetOpAttribute(viewAttr1);
 
-    auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
+    auto& reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
 
-    auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
+    auto& assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assembleOp.SetOpAttribute(assembleAttr);
 
@@ -789,7 +821,7 @@ TEST_F(InferMemoryConflictTest, TestInsertCopys) {
     int cnt = 0;
     Operation* copy1 = nullptr;
     Operation* copy2 = nullptr;
-    for (auto &op : currFunctionPtr->Operations().DuplicatedOpList()) {
+    for (auto& op : currFunctionPtr->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_REGISTER_COPY) {
             if (*(op->GetOOperands().begin()) == T2) {
                 copy2 = op;
@@ -815,8 +847,10 @@ STest1
 input1->view->T1->reshape->T2->assemble->output
 单链，存在地址冲突
 */
-TEST_F(InferMemoryConflictTest, STest1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, STest1)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -838,13 +872,13 @@ TEST_F(InferMemoryConflictTest, STest1) {
     currFunctionPtr->inCasts_.push_back(input);
     currFunctionPtr->outCasts_.push_back(output);
 
-    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
+    auto& viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
     auto viewAttr = std::make_shared<ViewOpAttribute>(offset);
     viewOp.SetOpAttribute(viewAttr);
 
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
 
-    auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
+    auto& assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assembleOp.SetOpAttribute(assembleAttr);
 
@@ -854,7 +888,7 @@ TEST_F(InferMemoryConflictTest, STest1) {
 
     int cnt = 0;
     Operation* copy = nullptr;
-    for (auto &op : currFunctionPtr->Operations().DuplicatedOpList()) {
+    for (auto& op : currFunctionPtr->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_REGISTER_COPY) {
             copy = op;
             cnt += 1;
@@ -875,8 +909,10 @@ STest2
 input1->view->T1->index_outcast->T2->reshape->T3->exp->output
 单链，存在reshape
 */
-TEST_F(InferMemoryConflictTest, STest2) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, STest2)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -906,13 +942,13 @@ TEST_F(InferMemoryConflictTest, STest2) {
     currFunctionPtr->inCasts_.push_back(input);
     currFunctionPtr->outCasts_.push_back(output);
 
-    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
+    auto& viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
     auto viewAttr1 = std::make_shared<ViewOpAttribute>(offset1);
     viewOp1.SetOpAttribute(viewAttr1);
 
     currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {T4, T5, T1}, {T2});
 
-    auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T2}, {T3});
+    auto& reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T2}, {T3});
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {T3}, {output});
 
     InferMemoryConflict pass;
@@ -921,7 +957,7 @@ TEST_F(InferMemoryConflictTest, STest2) {
 
     int cnt = 0;
     Operation* copy = nullptr;
-    for (auto &op : currFunctionPtr->Operations().DuplicatedOpList()) {
+    for (auto& op : currFunctionPtr->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_REGISTER_COPY) {
             copy = op;
             cnt += 1;
@@ -943,8 +979,10 @@ input1->view->T1->exp->T2->assemble->output
                          ->assemble->output
 同一tensor assemble输出到不同outcast
 */
-TEST_F(InferMemoryConflictTest, STest3) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+TEST_F(InferMemoryConflictTest, STest3)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
@@ -973,17 +1011,17 @@ TEST_F(InferMemoryConflictTest, STest3) {
     currFunctionPtr->outCasts_.push_back(output1);
     currFunctionPtr->outCasts_.push_back(output2);
 
-    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
+    auto& viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
     auto viewAttr1 = std::make_shared<ViewOpAttribute>(offset1);
     viewOp1.SetOpAttribute(viewAttr1);
 
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {T1}, {T2});
 
-    auto &assembleOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output1});
+    auto& assembleOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output1});
     auto assembleAttr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assembleOp1.SetOpAttribute(assembleAttr1);
 
-    auto &assembleOp2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output2});
+    auto& assembleOp2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output2});
     auto assembleAttr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assembleOp2.SetOpAttribute(assembleAttr2);
 
@@ -993,7 +1031,7 @@ TEST_F(InferMemoryConflictTest, STest3) {
 
     int cnt = 0;
     Operation* copy = nullptr;
-    for (auto &op : currFunctionPtr->Operations().DuplicatedOpList()) {
+    for (auto& op : currFunctionPtr->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_REGISTER_COPY) {
             copy = op;
             cnt += 1;
@@ -1014,20 +1052,22 @@ STest4
 view->reshape->matmul
 优化场景不插入 registery copy
 */
-TEST_F(InferMemoryConflictTest, STest4) {
-    PassManager &passManager = PassManager::Instance();
+TEST_F(InferMemoryConflictTest, STest4)
+{
+    PassManager& passManager = PassManager::Instance();
     Tensor in0(DT_FP32, Shape{3, 128, 64}, "in0");
     Tensor in1(DT_FP32, Shape{3, 64, 256}, "in1");
     Tensor out(DT_FP32, Shape{128, 256}, "out");
     TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_128, NUM_128});
-    FUNCTION("InferMemoryConflictTest") {
+    FUNCTION("InferMemoryConflictTest")
+    {
         auto a = View(in0, Shape{1, 128, 64}, {0, 0, 0});
         auto b = View(in1, Shape{1, 64, 256}, {0, 0, 0});
         auto a0 = Reshape(a, Shape{128, 64});
         auto b0 = Reshape(b, Shape{64, 256});
         out = Matrix::Matmul(DataType::DT_FP32, a0, b0, false, false);
     }
-    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_InferMemoryConflictTest");
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_InferMemoryConflictTest");
     int cnt = 0;
     for (auto e : func->Operations().DuplicatedOpList()) {
         if (e->GetOpcode() == Opcode::OP_REGISTER_COPY) {
@@ -1035,9 +1075,10 @@ TEST_F(InferMemoryConflictTest, STest4) {
         }
     }
     EXPECT_EQ(cnt, 0);
-    passManager.RegisterStrategy("InferMemoryConflictTestStrategy", {
-        {"InferMemoryConflict", PassName::INFER_MEMORY_CONFLICT},
-    });
+    passManager.RegisterStrategy(
+        "InferMemoryConflictTestStrategy", {
+                                               {"InferMemoryConflict", PassName::INFER_MEMORY_CONFLICT},
+                                           });
     auto ret = passManager.RunPass(Program::GetInstance(), *func, "InferMemoryConflictTestStrategy");
     EXPECT_EQ(ret, SUCCESS);
 
@@ -1058,7 +1099,8 @@ t1 -> VIEW -> t2 -> VIEW -> t3 -> RESHAPE -> t4
                                                 +-> A_MUL_B -> o2
        t6   ----------------------------------|
 */
-TEST_F(InferMemoryConflictTest, STest5) {
+TEST_F(InferMemoryConflictTest, STest5)
+{
     ComputationalGraphBuilder G;
     // add tensor
     G.AddTensor(DataType::DT_FP32, {-1, -1, 128}, "t1");
@@ -1086,7 +1128,7 @@ TEST_F(InferMemoryConflictTest, STest5) {
     EXPECT_EQ(status, SUCCESS);
 
     int cnt = 0;
-    for (auto &op : currFunctionPtr->Operations().DuplicatedOpList()) {
+    for (auto& op : currFunctionPtr->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_REGISTER_COPY) {
             cnt += 1;
         }

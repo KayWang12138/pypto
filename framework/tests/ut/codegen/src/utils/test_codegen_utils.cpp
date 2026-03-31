@@ -21,7 +21,8 @@
 #include "interface/inner/tilefwk.h"
 
 namespace npu::tile_fwk {
-std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info) {
+std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo& info)
+{
     if (info.memType == MemoryType::MEM_DEVICE_DDR) {
         std::shared_ptr<RawTensor> ddrRawTensor =
             std::make_shared<RawTensor>(info.dType, info.shape, TileOpFormat::TILEOP_ND, info.tensorName, info.magic);
@@ -54,8 +55,9 @@ std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info
     return localTensor;
 }
 
-std::string GetResultFromCpp(const Function &function) {
-    const auto &subFunc = function.rootFunc_->programs_[0];
+std::string GetResultFromCpp(const Function& function)
+{
+    const auto& subFunc = function.rootFunc_->programs_[0];
     auto leafFuncAttr = subFunc->GetLeafFuncAttribute();
     ASSERT(FwkErr::INVALID_FUNCTION, leafFuncAttr != nullptr) << "can not find leaf func attribute";
     std::string binPath = leafFuncAttr->binPath;
@@ -66,20 +68,24 @@ std::string GetResultFromCpp(const Function &function) {
     return res;
 }
 
-void CheckStringExist(const std::string &target, const std::string &content) {
+void CheckStringExist(const std::string& target, const std::string& content)
+{
     bool res = content.find(target) != std::string::npos;
     EXPECT_TRUE(res) << "target: \n" << target << "\n\n ---- not found in content ---- \n\n" << content << std::endl;
 }
 
-Function *GenMockFuncDyn(const std::string &funcName, const std::vector<int64_t> &shape) {
+Function* GenMockFuncDyn(const std::string& funcName, const std::vector<int64_t>& shape)
+{
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    FUNCTION(funcName, {inputA, inputB}, {output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {inputA, inputB}, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Add(inputA, inputB);
         }
@@ -90,31 +96,34 @@ Function *GenMockFuncDyn(const std::string &funcName, const std::vector<int64_t>
     return function;
 }
 
-Function *GenMockFuncStatic(const std::string &funcName, const std::vector<int64_t> &shape) {
+Function* GenMockFuncStatic(const std::string& funcName, const std::vector<int64_t>& shape)
+{
     TileShape::Current().SetVecTile(shape);
 
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
+    FUNCTION(funcName, {inputA, inputB, output}) { output = Add(inputA, inputB); }
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     return function;
 }
 
-std::shared_ptr<LogicalTensor> CreateConvTensor(Function &function, const DataType &dtype,
-    const std::vector<int64_t> &shape, const MemoryType &memType, const bool &isCopyIn) {
+std::shared_ptr<LogicalTensor> CreateConvTensor(
+    Function& function, const DataType& dtype, const std::vector<int64_t>& shape, const MemoryType& memType,
+    const bool& isCopyIn)
+{
     std::shared_ptr<LogicalTensor> tensorPtr = nullptr;
     if (isCopyIn) {
         if (memType == MemoryType::MEM_DEVICE_DDR) {
-            tensorPtr = std::make_shared<LogicalTensor>(function, dtype, shape, SymbolicScalar::FromConcrete(shape),
-                TileOpFormat::TILEOP_ND, "GmTensor", NodeType::INCAST);
+            tensorPtr = std::make_shared<LogicalTensor>(
+                function, dtype, shape, SymbolicScalar::FromConcrete(shape), TileOpFormat::TILEOP_ND, "GmTensor",
+                NodeType::INCAST);
         } else {
-            tensorPtr = std::make_shared<LogicalTensor>(function, dtype, shape, SymbolicScalar::FromConcrete(shape),
-                TileOpFormat::TILEOP_NZ, "L1Tensor", NodeType::LOCAL);
+            tensorPtr = std::make_shared<LogicalTensor>(
+                function, dtype, shape, SymbolicScalar::FromConcrete(shape), TileOpFormat::TILEOP_NZ, "L1Tensor",
+                NodeType::LOCAL);
             tensorPtr->UpdateSubgraphID(0);
             tensorPtr->SetAttr(OpAttributeKey::needAlloc, true);
             tensorPtr->memoryrange.memId = 0;
@@ -123,11 +132,13 @@ std::shared_ptr<LogicalTensor> CreateConvTensor(Function &function, const DataTy
         }
     } else {
         if (memType == MemoryType::MEM_DEVICE_DDR) {
-            tensorPtr = std::make_shared<LogicalTensor>(function, dtype, shape, SymbolicScalar::FromConcrete(shape),
-                TileOpFormat::TILEOP_ND, "GmTensor", NodeType::OUTCAST);
+            tensorPtr = std::make_shared<LogicalTensor>(
+                function, dtype, shape, SymbolicScalar::FromConcrete(shape), TileOpFormat::TILEOP_ND, "GmTensor",
+                NodeType::OUTCAST);
         } else {
-            tensorPtr = std::make_shared<LogicalTensor>(function, dtype, shape, SymbolicScalar::FromConcrete(shape),
-                TileOpFormat::TILEOP_NZ, "L0CTensor", NodeType::LOCAL);
+            tensorPtr = std::make_shared<LogicalTensor>(
+                function, dtype, shape, SymbolicScalar::FromConcrete(shape), TileOpFormat::TILEOP_NZ, "L0CTensor",
+                NodeType::LOCAL);
             tensorPtr->UpdateSubgraphID(0);
             tensorPtr->SetAttr(OpAttributeKey::needAlloc, true);
             tensorPtr->memoryrange.memId = 0;

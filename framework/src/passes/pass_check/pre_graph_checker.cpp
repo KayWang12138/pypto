@@ -20,16 +20,19 @@
 
 namespace npu {
 namespace tile_fwk {
-Status PreGraphProcessChecker::DoPreCheck(Function &function) {
+Status PreGraphProcessChecker::DoPreCheck(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "PreCheck for PreGraph.");
     if (!function.LoopCheck().empty()) {
         APASS_LOG_ERROR_F(Elements::Function, "Loopcheck failed before PreGraph.");
         return FAILED;
     }
-    for (auto &op : function.Operations()) {
+    for (auto& op : function.Operations()) {
         // 校验是否切分
         if (op.GetSubgraphID() == NOT_IN_SUBGRAPH) {
-            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] is not partitioned. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "%s[%d] is not partitioned. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(),
+                GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if ((op.GetOpcode() != Opcode::OP_ASSEMBLE) && (op.GetOpcode() != Opcode::OP_VIEW) &&
@@ -38,22 +41,26 @@ Status PreGraphProcessChecker::DoPreCheck(Function &function) {
         }
         if ((op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1)) {
             // 校验非空单输入单输出
-            APASS_LOG_ERROR_F(Elements::Operation, "Invalid %s[%d], input num: %zu, output num: %zu .%s",
-                op.GetOpcodeStr().c_str(), op.opmagic, op.GetIOperands().size(), op.GetOOperands().size(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "Invalid %s[%d], input num: %zu, output num: %zu .%s", op.GetOpcodeStr().c_str(),
+                op.opmagic, op.GetIOperands().size(), op.GetOOperands().size(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         auto tensorIn = op.GetIOperands().front();
         auto tensorOut = op.GetOOperands().front();
         if ((tensorIn == nullptr) || (tensorIn == nullptr)) {
             // 校验输入输出非空
-            APASS_LOG_ERROR_F(Elements::Operation, "Invalid %s[%d], has nullptr input/output. %s",
-                op.GetOpcodeStr().c_str(), op.opmagic, GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "Invalid %s[%d], has nullptr input/output. %s", op.GetOpcodeStr().c_str(),
+                op.opmagic, GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (tensorIn->GetMemoryTypeOriginal() != tensorOut->GetMemoryTypeOriginal()) {
             // 校验输入输出mem类型相同
-            APASS_LOG_ERROR_F(Elements::Tensor, "Unmatched input output memory type for %s[%d], input mem type: "
-                         "%s, output mem type: %s",
+            APASS_LOG_ERROR_F(
+                Elements::Tensor,
+                "Unmatched input output memory type for %s[%d], input mem type: "
+                "%s, output mem type: %s",
                 op.GetOpcodeStr().c_str(), op.opmagic, MemoryTypeToString(tensorIn->GetMemoryTypeOriginal()).c_str(),
                 MemoryTypeToString(tensorOut->GetMemoryTypeOriginal()).c_str());
             return FAILED;
@@ -62,7 +69,8 @@ Status PreGraphProcessChecker::DoPreCheck(Function &function) {
     return SUCCESS;
 }
 
-Status PreGraphProcessChecker::DoPostCheck(Function &function) {
+Status PreGraphProcessChecker::DoPostCheck(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "PostCheck for PreGraph.");
     // 检测是否成环
     if (!function.LoopCheck().empty()) {
@@ -70,12 +78,12 @@ Status PreGraphProcessChecker::DoPostCheck(Function &function) {
         return FAILED;
     }
     std::unordered_set<std::shared_ptr<LogicalTensor>> checkedTensors;
-    for (auto &op : function.Operations()) {
+    for (auto& op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE && PostCheckReshape(op) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "PostCheckReshape failed. %s", GetFormatBacktrace(op).c_str());
             return FAILED;
         }
-        for (const std::shared_ptr<LogicalTensor> &inputTensor : op.GetIOperands()) {
+        for (const std::shared_ptr<LogicalTensor>& inputTensor : op.GetIOperands()) {
             if (checkedTensors.count(inputTensor) > 0) {
                 continue;
             }
@@ -85,7 +93,7 @@ Status PreGraphProcessChecker::DoPostCheck(Function &function) {
                 return FAILED;
             }
         }
-        for (const std::shared_ptr<LogicalTensor> &outputTensor : op.GetOOperands()) {
+        for (const std::shared_ptr<LogicalTensor>& outputTensor : op.GetOOperands()) {
             if (checkedTensors.count(outputTensor) > 0) {
                 continue;
             }
@@ -99,34 +107,41 @@ Status PreGraphProcessChecker::DoPostCheck(Function &function) {
     return SUCCESS;
 }
 
-Status PreGraphProcessChecker::PostCheckHelpFunc(const LogicalTensor &singleTensor) {
+Status PreGraphProcessChecker::PostCheckHelpFunc(const LogicalTensor& singleTensor)
+{
     if (singleTensor.subGraphID == NOT_IN_SUBGRAPH) {
         // tensor 的子图编号是否被设置过
-        APASS_LOG_ERROR_F(Elements::Graph, "Tensor magic: %d, its subgraph id should not be %d.", singleTensor.GetMagic(), NOT_IN_SUBGRAPH);
+        APASS_LOG_ERROR_F(
+            Elements::Graph, "Tensor magic: %d, its subgraph id should not be %d.", singleTensor.GetMagic(),
+            NOT_IN_SUBGRAPH);
         return FAILED;
     }
     if (singleTensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
         singleTensor.isSubGraphBoundary == false) {
         // gm tensor 是否被标记为boundary
-        APASS_LOG_WARN_F(Elements::Tensor, "Tensor magic: %d, when memory type is DDR, this tensor should be subgraph boundary.",
+        APASS_LOG_WARN_F(
+            Elements::Tensor, "Tensor magic: %d, when memory type is DDR, this tensor should be subgraph boundary.",
             singleTensor.GetMagic());
     }
     if (singleTensor.GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
         (singleTensor.Datatype() != DataType::DT_FP32 && singleTensor.Datatype() != DataType::DT_INT32)) {
         // L0C tensor 数据类型是否为FP32或INT32
-        APASS_LOG_ERROR_F(Elements::Tensor, "Tensor magic: %d, when memory type is L0C, this tensor should be fp32 or int32.",
+        APASS_LOG_ERROR_F(
+            Elements::Tensor, "Tensor magic: %d, when memory type is L0C, this tensor should be fp32 or int32.",
             singleTensor.GetMagic());
         return FAILED;
     }
     if (singleTensor.MemorySize() < 1 && !singleTensor.IsDummy()) {
         // 是否存在 dummy tensor
-        APASS_LOG_INFO_F(Elements::Tensor, "Tensor magic: %d, its memory size %zu should be over than 0, but not.",
+        APASS_LOG_INFO_F(
+            Elements::Tensor, "Tensor magic: %d, its memory size %zu should be over than 0, but not.",
             singleTensor.GetMagic(), singleTensor.MemorySize());
     }
     return SUCCESS;
 }
 
-Status PreGraphProcessChecker::PostCheckReshape(const Operation &op) {
+Status PreGraphProcessChecker::PostCheckReshape(const Operation& op)
+{
     auto reshapeIn = op.GetIOperands().front();
     auto reshapeOut = op.GetOOperands().front();
 
@@ -137,17 +152,22 @@ Status PreGraphProcessChecker::PostCheckReshape(const Operation &op) {
         auto outSubgraphId = reshapeIn->GetSubgraphID();
         if (opSubgraphId != inputSubgraphId || opSubgraphId != outSubgraphId) {
             // local buffer 上的reshape，输入/输出/op的子图编号相同
-            APASS_LOG_ERROR_F(Elements::Operation, "OP_RESHAPE[%d], op subGraphId: %d, input subGraphId: %d, output subGraphId: %d, %s",
-                op.GetOpMagic(), opSubgraphId, inputSubgraphId, outSubgraphId, GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation,
+                "OP_RESHAPE[%d], op subGraphId: %d, input subGraphId: %d, output subGraphId: %d, %s", op.GetOpMagic(),
+                opSubgraphId, inputSubgraphId, outSubgraphId, GetFormatBacktrace(op).c_str());
             return FAILED;
         }
 
         // Debug Print
-        APASS_LOG_DEBUG_F(Elements::Operation, "Check done, input magic %d (raw %d), output magic %d (raw %d)", reshapeIn->magic,
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "Check done, input magic %d (raw %d), output magic %d (raw %d)", reshapeIn->magic,
             reshapeIn->GetRawMagic(), reshapeOut->magic, reshapeOut->GetRawMagic());
         auto childOp = *(reshapeOut->GetConsumers().begin());
-        APASS_LOG_DEBUG_F(Elements::Operation, "Child op: %s, opmagic: %d", childOp->GetOpcodeStr().c_str(), childOp->opmagic);
-        APASS_LOG_DEBUG_F(Elements::Operation, "Child op output magic %d (raw %d)", childOp->GetOOperands()[0]->magic,
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "Child op: %s, opmagic: %d", childOp->GetOpcodeStr().c_str(), childOp->opmagic);
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "Child op output magic %d (raw %d)", childOp->GetOOperands()[0]->magic,
             childOp->GetOOperands()[0]->GetRawMagic());
     }
     return SUCCESS;

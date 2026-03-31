@@ -36,7 +36,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
@@ -47,10 +48,10 @@ public:
     void TearDown() override {}
 };
 
-void TestBitwiseTensorDynBody(const std::vector<int64_t> &shape,
-                          const std::vector<int64_t> &tile_shape,
-                          const std::string &name,
-                          const std::string &expect) {
+void TestBitwiseTensorDynBody(
+    const std::vector<int64_t>& shape, const std::vector<int64_t>& tile_shape, const std::string& name,
+    const std::string& expect)
+{
     // 设置Tile形状
     TileShape::Current().SetVecTile(tile_shape);
 
@@ -58,10 +59,12 @@ void TestBitwiseTensorDynBody(const std::vector<int64_t> &shape,
     Tensor input_b(DT_INT16, shape, "B");
     Tensor output(DT_INT16, shape, "C");
 
-    FUNCTION(name, {input_a, input_b}, {output}) {
-        LOOP(name, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(name, {input_a, input_b}, {output})
+    {
+        LOOP(name, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
-             if (name == "BitwiseAnd") {
+            if (name == "BitwiseAnd") {
                 output = BitwiseAnd(input_a, input_b);
             } else if (name == "BitwiseOr") {
                 output = BitwiseOr(input_a, input_b);
@@ -71,7 +74,8 @@ void TestBitwiseTensorDynBody(const std::vector<int64_t> &shape,
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -81,10 +85,10 @@ void TestBitwiseTensorDynBody(const std::vector<int64_t> &shape,
     CheckStringExist(expect, res);
 }
 
-void TestBitwiseScalarDynBody(const std::vector<int64_t> &shape,
-                          const std::vector<int64_t> &tile_shape,
-                          const std::string &name,
-                          const std::string &expect) {
+void TestBitwiseScalarDynBody(
+    const std::vector<int64_t>& shape, const std::vector<int64_t>& tile_shape, const std::string& name,
+    const std::string& expect)
+{
     // 设置Tile形状
     TileShape::Current().SetVecTile(tile_shape);
 
@@ -92,8 +96,10 @@ void TestBitwiseScalarDynBody(const std::vector<int64_t> &shape,
     Tensor output(DT_INT16, shape, "B");
     Element scalar_element(DT_INT16, static_cast<int16_t>(2));
 
-    FUNCTION(name, {input_a}, {output}) {
-        LOOP(name, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(name, {input_a}, {output})
+    {
+        LOOP(name, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             if (name == "BitwiseAnds") {
                 output = BitwiseAnd(input_a, scalar_element);
@@ -105,7 +111,8 @@ void TestBitwiseScalarDynBody(const std::vector<int64_t> &shape,
         }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -115,32 +122,38 @@ void TestBitwiseScalarDynBody(const std::vector<int64_t> &shape,
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestCodegenDynBitwiseBinary, BitwiseAndLayout) {
+TEST_F(TestCodegenDynBitwiseBinary, BitwiseAndLayout)
+{
     const std::string expect = R"(TBitwiseAnd<LastUse3Dim<0, 1, 1>>(ubTensor_0, ubTensor_0, ubTensor_2);)";
     TestBitwiseTensorDynBody({32, 32}, {16, 16}, "BitwiseAnd", expect);
 }
 
-TEST_F(TestCodegenDynBitwiseBinary, BitwiseOrLayout) {
+TEST_F(TestCodegenDynBitwiseBinary, BitwiseOrLayout)
+{
     const std::string expect = R"(TBitwiseOr<LastUse3Dim<0, 1, 1>>(ubTensor_0, ubTensor_0, ubTensor_2);)";
     TestBitwiseTensorDynBody({32, 32}, {16, 16}, "BitwiseOr", expect);
 }
 
-TEST_F(TestCodegenDynBitwiseBinary, BitwiseXorLayout) {
+TEST_F(TestCodegenDynBitwiseBinary, BitwiseXorLayout)
+{
     const std::string expect = R"(TBitwiseXor(ubTensor_0, ubTensor_0, ubTensor_2, ubTensor_5);)";
     TestBitwiseTensorDynBody({32, 32}, {16, 16}, "BitwiseXor", expect);
 }
 
-TEST_F(TestCodegenDynBitwiseBinary, BitwiseAndsLayout) {
-const std::string expect = R"(TBitwiseAndS<LastUse2Dim<0, 1>, int16_t>(ubTensor_2, ubTensor_0, 2);)";
+TEST_F(TestCodegenDynBitwiseBinary, BitwiseAndsLayout)
+{
+    const std::string expect = R"(TBitwiseAndS<LastUse2Dim<0, 1>, int16_t>(ubTensor_2, ubTensor_0, 2);)";
     TestBitwiseScalarDynBody({32, 32}, {16, 16}, "BitwiseAnds", expect);
 }
 
-TEST_F(TestCodegenDynBitwiseBinary, BitwiseOrsLayout) {
+TEST_F(TestCodegenDynBitwiseBinary, BitwiseOrsLayout)
+{
     const std::string expect = R"(TBitwiseOrS<LastUse2Dim<0, 1>, int16_t>(ubTensor_2, ubTensor_0, 2);)";
     TestBitwiseScalarDynBody({32, 32}, {16, 16}, "BitwiseOrs", expect);
 }
 
-TEST_F(TestCodegenDynBitwiseBinary, BitwiseXorsLayout) {
+TEST_F(TestCodegenDynBitwiseBinary, BitwiseXorsLayout)
+{
     const std::string expect = R"(TBitwiseXorS(ubTensor_2, ubTensor_0, 2, ubTensor_3);)";
     TestBitwiseScalarDynBody({32, 32}, {16, 16}, "BitwiseXors", expect);
 }

@@ -21,18 +21,21 @@
 
 class TestCostManager {
 public:
-    static TestCostManager& Instance() {
+    static TestCostManager& Instance()
+    {
         static TestCostManager instance;
         return instance;
     }
 
-    void RegisterCost(const std::string& suiteName, const std::string& testName, double costSeconds) {
+    void RegisterCost(const std::string& suiteName, const std::string& testName, double costSeconds)
+    {
         std::string fullName = suiteName + "." + testName;
         costMap_[fullName] = costSeconds;
     }
 
     // 获取测试用例耗时（无则返回0.0）
-    double GetCost(const std::string& fullName) const {
+    double GetCost(const std::string& fullName) const
+    {
         auto it = costMap_.find(fullName);
         return it != costMap_.end() ? it->second : 0.0;
     }
@@ -49,30 +52,29 @@ private:
     std::unordered_map<std::string, double> costMap_;
 };
 
+#define TEST_WITH_COST(TestCaseName, TestName, CostSeconds)                              \
+    static bool g_##TestCaseName##_##TestName##_cost_registered = []() {                 \
+        TestCostManager::Instance().RegisterCost(#TestCaseName, #TestName, CostSeconds); \
+        return true;                                                                     \
+    }();                                                                                 \
+    TEST(TestCaseName, TestName)
 
-#define TEST_WITH_COST(TestCaseName, TestName, CostSeconds)                          \
-static bool g_##TestCaseName##_##TestName##_cost_registered = []() {                 \
-    TestCostManager::Instance().RegisterCost(#TestCaseName, #TestName, CostSeconds); \
-    return true;                                                                     \
-}();                                                                                 \
-TEST(TestCaseName, TestName)
+#define TEST_F_WITH_COST(TestFixtureClass, TestName, CostSeconds)                            \
+    static bool g_##TestFixtureClass##_##TestName##_cost_registered = []() {                 \
+        TestCostManager::Instance().RegisterCost(#TestFixtureClass, #TestName, CostSeconds); \
+        return true;                                                                         \
+    }();                                                                                     \
+    TEST_F(TestFixtureClass, TestName)
 
-#define TEST_F_WITH_COST(TestFixtureClass, TestName, CostSeconds)                           \
-static bool g_##TestFixtureClass##_##TestName##_cost_registered = []() {                    \
-    TestCostManager::Instance().RegisterCost(#TestFixtureClass, #TestName, CostSeconds);    \
-    return true;                                                                            \
-}();                                                                                        \
-TEST_F(TestFixtureClass, TestName)
+#define TEST_P_WITH_COST(TestFixtureClass, TestName, CostSeconds)                            \
+    static bool g_##TestFixtureClass##_##TestName##_cost_registered = []() {                 \
+        TestCostManager::Instance().RegisterCost(#TestFixtureClass, #TestName, CostSeconds); \
+        return true;                                                                         \
+    }();                                                                                     \
+    TEST_P(TestFixtureClass, TestName)
 
-#define TEST_P_WITH_COST(TestFixtureClass, TestName, CostSeconds)                           \
-static bool g_##TestFixtureClass##_##TestName##_cost_registered = []() {                    \
-    TestCostManager::Instance().RegisterCost(#TestFixtureClass, #TestName, CostSeconds);    \
-    return true;                                                                            \
-}();                                                                                        \
-TEST_P(TestFixtureClass, TestName)
-
-
-inline void ListTestsWithMetadata() {
+inline void ListTestsWithMetadata()
+{
     const testing::UnitTest& unitTest = *testing::UnitTest::GetInstance();
 
     // 遍历所有测试套件

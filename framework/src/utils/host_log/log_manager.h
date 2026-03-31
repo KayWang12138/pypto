@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -22,14 +22,7 @@
 #include <fstream>
 
 namespace npu::tile_fwk {
-enum class LogLevel {
-    DEBUG = 0,
-    INFO = 1,
-    WARN = 2,
-    ERROR = 3,
-    EVENT = 4,
-    NONE = 5
-};
+enum class LogLevel { DEBUG = 0, INFO = 1, WARN = 2, ERROR = 3, EVENT = 4, NONE = 5 };
 constexpr size_t MAX_LOG_FILES_NUM = 10;
 constexpr size_t MAX_MSG_LENGTH = 1024;
 struct LogMsg {
@@ -42,31 +35,34 @@ struct LogAttr {
 };
 class LogManager {
 public:
-    static LogManager &Instance();
+    static LogManager& Instance();
     bool CheckLevel(const LogLevel logLevel) const;
-    void Record(const LogLevel logLevel, const char *fmt, va_list list);
+    void Record(const LogLevel logLevel, const char* fmt, va_list list);
     void EnableHostLog() { attr_.isDevice = false; }
-    void EnableDeviceLog(const int32_t deviceId = 0) {
+    void EnableDeviceLog(const int32_t deviceId = 0)
+    {
         attr_.isDevice = true;
         attr_.deviceId = deviceId;
     }
+
 private:
     LogManager();
     ~LogManager();
     void SetLogLevel(const LogLevel logLevel);
-    static void ConstructMessage(const LogLevel logLevel, const char *fmt, va_list list, LogMsg &logMsg);
-    static void ConstructMsgHeader(const LogLevel logLevel, LogMsg &logMsg);
-    static void ConstructMsgTail(LogMsg &logMsg);
-    void WriteMessage(const LogMsg &logMsg);
-    void WriteToStdOut(const LogMsg &logMsg);
-    void WriteToFile(const LogMsg &logMsg);
+    static void ConstructMessage(const LogLevel logLevel, const char* fmt, va_list list, LogMsg& logMsg);
+    static void ConstructMsgHeader(const LogLevel logLevel, LogMsg& logMsg);
+    static void ConstructMsgTail(LogMsg& logMsg);
+    void WriteMessage(const LogMsg& logMsg);
+    void WriteToStdOut(const LogMsg& logMsg);
+    void WriteToFile(const LogMsg& logMsg);
     void CreateAndOpenNewLogFile();
-    void AddNewLogFile(const std::string &newLogFileName);
-    static void CheckAndCloseLogFile(std::ofstream &currentFileStream);
+    void AddNewLogFile(const std::string& newLogFileName);
+    static void CheckAndCloseLogFile(std::ofstream& currentFileStream);
     const std::string& GetLogDir() const { return attr_.isDevice ? deviceLogDir_ : hostLogDir_; }
     std::ofstream& GetCurrentFileStream() { return attr_.isDevice ? devFileStream_ : hostFileStream_; }
     std::queue<std::string>& GetLogFilesQueue() { return attr_.isDevice ? devLogFiles_ : hostLogFiles_; }
     const std::queue<std::string>& GetLogFilesQueue() const { return attr_.isDevice ? devLogFiles_ : hostLogFiles_; }
+
 private:
     LogLevel level_{LogLevel::ERROR};
     bool enableEvent_{false};
@@ -81,4 +77,4 @@ private:
     std::mutex writeMutex_;
     LogAttr attr_;
 };
-}
+} // namespace npu::tile_fwk

@@ -21,7 +21,8 @@
 
 #define OP_TILE_OP_EXPAND TExpand
 template <typename LastUse = LastUse2Dim<0, 0>, unsigned axis, typename T0, typename T1>
-TILEOP void TExpand(T0 dst, T1 src) {
+TILEOP void TExpand(T0 dst, T1 src)
+{
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
 
@@ -133,8 +134,10 @@ TILEOP void TExpand(T0 dst, T1 src) {
             for (LoopVar i = 0; i < dstShape1; ++i) {
                 for (LoopVar j = 0; j < dstShape2; j++) {
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + (srcOffset + j * srcTileH * srcTileW) * typeSize));
-                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstShape2 * dstTileH * dstTileW
-                                                                        + j * dstTileH * dstTileW) * typeSize));
+                    pto::TASSIGN(
+                        dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstShape2 * dstTileH * dstTileW +
+                                                             j * dstTileH * dstTileW) *
+                                                                typeSize));
                     pto::TMOV(dstTile, srcTile);
                 }
             }

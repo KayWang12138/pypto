@@ -16,7 +16,7 @@
 #ifndef PASS_SET_HEURISTIC_TILE_SHAPES_H_
 #define PASS_SET_HEURISTIC_TILE_SHAPES_H_
 
-#define CUBE_TILES // comment to disable
+#define CUBE_TILES   // comment to disable
 #define VECTOR_TILES // comment to disable
 
 #include "tilefwk/platform.h"
@@ -62,12 +62,12 @@ constexpr double RESIDUAL_VECTOR_TASKS_WEIGHT = 2;
 
 class SetHeuristicTileShapes : public Pass {
 public:
-   SetHeuristicTileShapes() : Pass("SetHeuristicTileShapes") {}
-   ~SetHeuristicTileShapes() override = default;
-   Status RunOnFunction(Function &function) override;
+    SetHeuristicTileShapes() : Pass("SetHeuristicTileShapes") {}
+    ~SetHeuristicTileShapes() override = default;
+    Status RunOnFunction(Function& function) override;
 
 private:
-   void SetHeuristicTileShapesFunc(Function &function) const;
+    void SetHeuristicTileShapesFunc(Function& function) const;
 };
-}
+} // namespace npu::tile_fwk
 #endif // PASS_SET_HEURISTIC_TILE_SHAPES_H_

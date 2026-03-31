@@ -22,12 +22,14 @@ protected:
     static constexpr size_t TEST_MEM_SIZE = 1024 * 1024; // 1MB test memory
     static constexpr uint32_t SLAB_ALIGN_SIZE = 4096;    // 4KB slab size
 
-    void SetUp() override {
+    void SetUp() override
+    {
         testMemory = malloc(TEST_MEM_SIZE);
         allocator.Init(testMemory, TEST_MEM_SIZE, SLAB_ALIGN_SIZE);
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         free(testMemory);
         testMemory = nullptr;
     }
@@ -36,14 +38,16 @@ protected:
     SlabWsAllocator allocator;
 };
 
-TEST_F(SlabWsAllocatorTest, Initialization) {
+TEST_F(SlabWsAllocatorTest, Initialization)
+{
     EXPECT_NE(testMemory, nullptr);
     EXPECT_TRUE(allocator.RegistCache(0, 64));
     EXPECT_TRUE(allocator.RegistCache(1, 128));
     EXPECT_TRUE(allocator.RegistCache(2, 256));
 }
 
-TEST_F(SlabWsAllocatorTest, CacheRegistration) {
+TEST_F(SlabWsAllocatorTest, CacheRegistration)
+{
     EXPECT_TRUE(allocator.RegistCache(0, 64));
     EXPECT_TRUE(allocator.RegistCache(1, 128));
     EXPECT_TRUE(allocator.RegistCache(2, 256));
@@ -57,7 +61,8 @@ TEST_F(SlabWsAllocatorTest, CacheRegistration) {
     EXPECT_FALSE(allocator.RegistCache(SLAB_ALLOCATOR_MAX_CACHES, 64));
 }
 
-TEST_F(SlabWsAllocatorTest, BasicAllocation) {
+TEST_F(SlabWsAllocatorTest, BasicAllocation)
+{
     allocator.RegistCache(0, 64);
     allocator.RegistCache(1, 128);
 
@@ -69,7 +74,8 @@ TEST_F(SlabWsAllocatorTest, BasicAllocation) {
     EXPECT_NE(obj1, obj2);
 }
 
-TEST_F(SlabWsAllocatorTest, MultipleAllocationsSameCache) {
+TEST_F(SlabWsAllocatorTest, MultipleAllocationsSameCache)
+{
     const int NUM_ALLOCS = 10;
     allocator.RegistCache(0, 64);
 
@@ -86,7 +92,8 @@ TEST_F(SlabWsAllocatorTest, MultipleAllocationsSameCache) {
     }
 }
 
-TEST_F(SlabWsAllocatorTest, StageAllocationTracking) {
+TEST_F(SlabWsAllocatorTest, StageAllocationTracking)
+{
     allocator.RegistCache(0, 64);
     allocator.RegistCache(1, 128);
 
@@ -138,14 +145,15 @@ TEST_F(SlabWsAllocatorTest, StageAllocationTracking) {
     uint32_t offset = 8;
     allocInfo = allocator.PopStageAllocMem(false, 0);
     EXPECT_EQ(allocInfo.heads[0], (uint8_t*)tailalloc - offset);
-    EXPECT_EQ(allocInfo.tails[0],  (uint8_t*)tailalloc - offset);
+    EXPECT_EQ(allocInfo.tails[0], (uint8_t*)tailalloc - offset);
 
     allocInfo = allocator.PopStageAllocMem(false, 0);
     EXPECT_EQ(allocInfo.heads[0], nullptr);
     EXPECT_EQ(allocInfo.tails[0], nullptr);
 }
 
-TEST_F(SlabWsAllocatorTest, BatchFreeing) {
+TEST_F(SlabWsAllocatorTest, BatchFreeing)
+{
     allocator.RegistCache(0, 64);
 
     void* obj1 = allocator.Alloc(0);
@@ -162,7 +170,8 @@ TEST_F(SlabWsAllocatorTest, BatchFreeing) {
     EXPECT_EQ(obj2, obj4);
 }
 
-TEST_F(SlabWsAllocatorTest, MixedCacheAllocations) {
+TEST_F(SlabWsAllocatorTest, MixedCacheAllocations)
+{
     allocator.RegistCache(0, 64);
     allocator.RegistCache(1, 128);
     allocator.RegistCache(2, 256);
@@ -188,7 +197,8 @@ TEST_F(SlabWsAllocatorTest, MixedCacheAllocations) {
     EXPECT_NE(large2, nullptr);
 }
 
-TEST_F(SlabWsAllocatorTest, ExistCacheCheck) {
+TEST_F(SlabWsAllocatorTest, ExistCacheCheck)
+{
     allocator.RegistCache(0, 64);
     allocator.RegistCache(1, 128);
 
@@ -199,14 +209,16 @@ TEST_F(SlabWsAllocatorTest, ExistCacheCheck) {
     EXPECT_FALSE(allocator.ExistCache(SLAB_ALLOCATOR_MAX_CACHES, 64));
 }
 
-TEST_F(SlabWsAllocatorTest, InvalidAllocation) {
+TEST_F(SlabWsAllocatorTest, InvalidAllocation)
+{
     EXPECT_EQ(allocator.Alloc(0), nullptr);
 
     allocator.RegistCache(0, 64);
     EXPECT_EQ(allocator.Alloc(SLAB_ALLOCATOR_MAX_CACHES), nullptr);
 }
 
-TEST_F(SlabWsAllocatorTest, MemoryExhaustion) {
+TEST_F(SlabWsAllocatorTest, MemoryExhaustion)
+{
     allocator.RegistCache(0, 64);
 
     const size_t SLAB_USABLE_SIZE = SLAB_ALIGN_SIZE - sizeof(SlabWsAllocator::SlabHeader);
@@ -226,7 +238,8 @@ TEST_F(SlabWsAllocatorTest, MemoryExhaustion) {
     EXPECT_EQ(successfulAllocs, MAX_ALLOCS);
 }
 
-TEST_F(SlabWsAllocatorTest, PartialBatchFreeing) {
+TEST_F(SlabWsAllocatorTest, PartialBatchFreeing)
+{
     allocator.RegistCache(0, 64);
     allocator.RegistCache(1, 128);
 
@@ -246,8 +259,8 @@ TEST_F(SlabWsAllocatorTest, PartialBatchFreeing) {
     EXPECT_NE(obj2, obj5);
 }
 
-TEST_F(SlabWsAllocatorTest, EmptyBatchFreeing) {
-
+TEST_F(SlabWsAllocatorTest, EmptyBatchFreeing)
+{
     auto emptyInfo = allocator.PopStageAllocMem(false, 0);
 
     allocator.FreeStageAllocMem(emptyInfo);
@@ -260,7 +273,8 @@ TEST_F(SlabWsAllocatorTest, EmptyBatchFreeing) {
     EXPECT_NE(obj, nullptr);
 }
 
-TEST_F(SlabWsAllocatorTest, LazySlabAllocation) {
+TEST_F(SlabWsAllocatorTest, LazySlabAllocation)
+{
     allocator.RegistCache(0, 64);
 
     void* obj1 = allocator.Alloc(0);
@@ -270,7 +284,8 @@ TEST_F(SlabWsAllocatorTest, LazySlabAllocation) {
     EXPECT_NE(obj2, nullptr);
 }
 
-TEST_F(SlabWsAllocatorTest, SlabReuseAfterFree) {
+TEST_F(SlabWsAllocatorTest, SlabReuseAfterFree)
+{
     allocator.RegistCache(0, 64);
 
     void* obj1 = allocator.Alloc(0);
@@ -286,14 +301,14 @@ TEST_F(SlabWsAllocatorTest, SlabReuseAfterFree) {
     EXPECT_EQ(obj2, obj4);
 }
 
-TEST_F(SlabWsAllocatorTest, MultipleAllocationBatches) {
+TEST_F(SlabWsAllocatorTest, MultipleAllocationBatches)
+{
     allocator.RegistCache(0, 64);
 
     const int NUM_BATCHES = 5;
     const int ALLOCS_PER_BATCH = 10;
 
     for (int batch = 0; batch < NUM_BATCHES; ++batch) {
-
         for (int i = 0; i < ALLOCS_PER_BATCH; ++i) {
             void* obj = allocator.Alloc(0);
             EXPECT_NE(obj, nullptr);
@@ -307,7 +322,8 @@ TEST_F(SlabWsAllocatorTest, MultipleAllocationBatches) {
     EXPECT_NE(finalObj, nullptr);
 }
 
-TEST_F(SlabWsAllocatorTest, LargeObjectAllocation) {
+TEST_F(SlabWsAllocatorTest, LargeObjectAllocation)
+{
     const uint32_t largeObjSize = SLAB_ALIGN_SIZE - sizeof(SlabWsAllocator::SlabHeader) - sizeof(void*);
     allocator.RegistCache(0, largeObjSize);
 
@@ -322,13 +338,15 @@ TEST_F(SlabWsAllocatorTest, LargeObjectAllocation) {
     EXPECT_NE(slab1, slab2);
 }
 
-TEST_F(SlabWsAllocatorTest, CacheWithZeroSize) {
+TEST_F(SlabWsAllocatorTest, CacheWithZeroSize)
+{
     EXPECT_FALSE(allocator.RegistCache(0, 0));
 
     EXPECT_TRUE(allocator.RegistCache(0, 64));
 }
 
-TEST_F(SlabWsAllocatorTest, AlignmentHandling) {
+TEST_F(SlabWsAllocatorTest, AlignmentHandling)
+{
     const uint32_t nonPowerOfTwoAlign = 3000;
     void* altMemory = malloc(TEST_MEM_SIZE);
     SlabWsAllocator altAllocator;

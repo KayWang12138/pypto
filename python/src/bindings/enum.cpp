@@ -18,7 +18,8 @@
 using namespace npu::tile_fwk;
 
 namespace pypto {
-void bind_enum(py::module &m){
+void bind_enum(py::module& m)
+{
     py::enum_<DataType>(m, "DataType")
         .value("DT_INT4", DataType::DT_INT4)
         .value("DT_INT8", DataType::DT_INT8)
@@ -62,9 +63,7 @@ void bind_enum(py::module &m){
         .value("MAX_NUM", CachePolicy::MAX_NUM)
         .export_values();
 
-    py::enum_<ReduceMode>(m, "ReduceMode")
-        .value("ATOMIC_ADD", ReduceMode::ATOMIC_ADD)
-        .export_values();
+    py::enum_<ReduceMode>(m, "ReduceMode").value("ATOMIC_ADD", ReduceMode::ATOMIC_ADD).export_values();
 
     py::enum_<ScatterMode>(m, "ScatterMode")
         .value("NONE", ScatterMode::NONE)
@@ -137,10 +136,7 @@ void bind_enum(py::module &m){
         .value("GE", OpType::GE)
         .export_values();
 
-    py::enum_<OutType>(m, "OutType")
-        .value("BOOL", OutType::BOOL)
-        .value("BIT", OutType::BIT)
-        .export_values();
+    py::enum_<OutType>(m, "OutType").value("BOOL", OutType::BOOL).value("BIT", OutType::BIT).export_values();
 
     py::enum_<Matrix::ReLuType>(m, "ReLuType")
         .value("NO_RELU", Matrix::ReLuType::NoReLu)
@@ -169,4 +165,4 @@ void bind_enum(py::module &m){
         .value("ADD", Distributed::AtomicType::ADD)
         .export_values();
 }
-}
+} // namespace pypto

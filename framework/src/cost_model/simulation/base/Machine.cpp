@@ -73,7 +73,7 @@ void Machine::SetQueueCounter()
     functionCacheTid = (queueSeq++) + coreTid;
 
     ASSERT(queueSeq <= reversedTidNum) << "[SIMULATION]: Queue Counter thread id is conflict with reversedTidNum."
-        << " queueSeq=" << queueSeq << ", reversedTidNum=" << reversedTidNum;
+                                       << " queueSeq=" << queueSeq << ", reversedTidNum=" << reversedTidNum;
 }
 void Machine::SubmitTask(TaskPack task, uint64_t extraDelay)
 {
@@ -86,4 +86,4 @@ void Machine::ResponseData(CachePacket pkt, uint64_t extraDelay)
     lastCycles = GetSim()->GetCycles();
     cacheRespQueue.Enqueue(pkt, extraDelay);
 }
-}
+} // namespace CostModel

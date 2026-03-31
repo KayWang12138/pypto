@@ -28,8 +28,8 @@ class SimSys;
 class Machine : public SimObj {
 public:
     /* \brief Unique id of each machine. */
-    std::size_t machineId = 0;  // Process ID
-    std::size_t coreTid = 1;    // Thread ID of the entire view of the machine.
+    std::size_t machineId = 0; // Process ID
+    std::size_t coreTid = 1;   // Thread ID of the entire view of the machine.
     std::size_t queueSeq = 1;
     std::size_t reversedTidNum = 100;
     std::size_t functionCacheTid = 0;
@@ -67,16 +67,13 @@ public:
     virtual bool IsTerminate() = 0;
     Machine() : SimObj() {}
     ~Machine() override = default;
-    void SetMachineExecuting(bool enable)
-    {
-        executingTask = enable;
-    }
+    void SetMachineExecuting(bool enable) { executingTask = enable; }
     void LoggerRecordTaskStart(std::string name, std::string hint = "");
     void LoggerRecordTaskEnd();
     void LoggerRecordPipe(std::string name, size_t pipeId);
     void LoggerRecordTileOp(std::string name, size_t pipeId, size_t sTime, size_t eTime);
-    virtual void SetQueueCounter();  // Called after the sim pointer is initialized
+    virtual void SetQueueCounter(); // Called after the sim pointer is initialized
     void SubmitTask(TaskPack task, uint64_t extraDelay = 0);
     void ResponseData(CachePacket pkt, uint64_t extraDelay = 0);
 };
-}  // namespace CostModel
+} // namespace CostModel

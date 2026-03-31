@@ -41,9 +41,8 @@ enum class MachineScheduleConfig {
 
 namespace config {
 
-
 template <typename T>
-void SetOptionsNg(const std::string &key, const T &value);
+void SetOptionsNg(const std::string& key, const T& value);
 
 /**
  * \brief Set pass options
@@ -58,7 +57,8 @@ void SetOptionsNg(const std::string &key, const T &value);
  * \param value config option value
  */
 template <typename T>
-void SetPassOption(const std::string &key, const T &value) {
+void SetPassOption(const std::string& key, const T& value)
+{
     SetOptionsNg("pass." + key, value);
 }
 
@@ -69,7 +69,8 @@ void SetPassOption(const std::string &key, const T &value) {
  * \param value config option value
  */
 template <typename T>
-void SetCodeGenOption(const std::string &key, const T &value) {
+void SetCodeGenOption(const std::string& key, const T& value)
+{
     SetOptionsNg("codegen." + key, value);
 }
 
@@ -80,7 +81,8 @@ void SetCodeGenOption(const std::string &key, const T &value) {
  * \param value config option value
  */
 template <typename T>
-void SetRuntimeOption(const std::string &key, const T &value) {
+void SetRuntimeOption(const std::string& key, const T& value)
+{
     SetOptionsNg("runtime." + key, value);
 }
 
@@ -91,7 +93,8 @@ void SetRuntimeOption(const std::string &key, const T &value) {
  * \param value config option value
  */
 template <typename T>
-void SetHostOption(const std::string &key, const T &value) {
+void SetHostOption(const std::string& key, const T& value)
+{
     SetOptionsNg("host." + key, value);
 }
 
@@ -102,7 +105,8 @@ void SetHostOption(const std::string &key, const T &value) {
  * \param value config option value
  */
 template <typename T>
-void SetVerifyOption(const std::string &key, const T &value) {
+void SetVerifyOption(const std::string& key, const T& value)
+{
     SetOptionsNg("verify." + key, value);
 }
 
@@ -113,7 +117,8 @@ void SetVerifyOption(const std::string &key, const T &value) {
  * \param value config option value
  */
 template <typename T>
-void SetOperationOption(const std::string &key, const T &value) {
+void SetOperationOption(const std::string& key, const T& value)
+{
     SetOptionsNg("operation." + key, value);
 }
 
@@ -133,8 +138,7 @@ void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth)
  * \param label semantic label
  * \note label will be attached to subsequent operations
  */
-void SetSemanticLabel(const std::string &label, const char *filename = __builtin_FILE(),
-                      int lineno = __builtin_LINE());
+void SetSemanticLabel(const std::string& label, const char* filename = __builtin_FILE(), int lineno = __builtin_LINE());
 
 /**
  * \brief Set the Build static function or not

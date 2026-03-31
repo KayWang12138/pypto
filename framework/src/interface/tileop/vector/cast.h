@@ -20,8 +20,11 @@
 #include "utils/tile_tensor.h"
 
 #define OP_TILE_OP_CAST TCast
-template <typename LastUse = LastUse2Dim<0, 0>, unsigned Mode, pto::SaturationMode satmode = pto::SaturationMode::OFF, typename T0, typename T1>
-TILEOP void TCast(T0 dst, T1 src) {
+template <
+    typename LastUse = LastUse2Dim<0, 0>, unsigned Mode, pto::SaturationMode satmode = pto::SaturationMode::OFF,
+    typename T0, typename T1>
+TILEOP void TCast(T0 dst, T1 src)
+{
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();

@@ -39,7 +39,8 @@ const std::string l1Size = "l1_size";
 const std::string ubSize = "ub_size";
 const std::string aic = "AIC";
 const std::string aiv = "AIV";
-const std::string INI_PATH = "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini";
+const std::string INI_PATH =
+    "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini";
 
 class TestPlatform : public testing::Test {
 public:
@@ -49,7 +50,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestPlatform, TestParser) {
+TEST_F(TestPlatform, TestParser)
+{
     const size_t expectAICoreCnt = 28UL;
     const size_t expectCubeCoreCnt = 28UL;
     const size_t expectVectorCoreCnt = 56UL;
@@ -98,7 +100,8 @@ TEST_F(TestPlatform, TestParser) {
     EXPECT_EQ(memoryLimit, expectubSize);
 }
 
-TEST_F(TestPlatform, TestObtainPlatformInfo) {
+TEST_F(TestPlatform, TestObtainPlatformInfo)
+{
     const size_t expectAICoreCnt = 24UL;
     const size_t expectCubeCoreCnt = 24UL;
     const size_t expectVectorCoreCnt = 48UL;
@@ -128,7 +131,8 @@ TEST_F(TestPlatform, TestObtainPlatformInfo) {
     EXPECT_EQ(paths.size(), 2UL);
 }
 
-TEST_F(TestPlatform, AbnormalTest) {
+TEST_F(TestPlatform, AbnormalTest)
+{
     std::unique_ptr<INIParser> parser = std::make_unique<INIParser>();
     EXPECT_FALSE(parser->Initialize(""));
 
@@ -155,7 +159,8 @@ TEST_F(TestPlatform, AbnormalTest) {
     EXPECT_TRUE(internalParser2.GetDataPath(dataPath));
 }
 
-TEST_F(TestPlatform, A5Stub) {
+TEST_F(TestPlatform, A5Stub)
+{
     std::vector<std::pair<MemoryType, MemoryType>> dataPath;
     InternalParser parser = InternalParser("3510");
     EXPECT_TRUE(parser.LoadInternalInfo());

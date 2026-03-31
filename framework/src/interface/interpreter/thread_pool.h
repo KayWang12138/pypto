@@ -27,31 +27,31 @@ namespace util {
 
 class ThreadPool {
     struct Task {
-        Task() {};
-        Task(void *ctx, void (*entry)(void *)) : ctx_(ctx), entry_(entry) {}
+        Task(){};
+        Task(void* ctx, void (*entry)(void*)) : ctx_(ctx), entry_(entry) {}
 
-        void Run() {
-            entry_(ctx_);
-        }
+        void Run() { entry_(ctx_); }
 
-        bool Empty() const {
-            return ctx_ == nullptr && entry_ == nullptr;
-        }
+        bool Empty() const { return ctx_ == nullptr && entry_ == nullptr; }
+
     private:
-        void *ctx_ = nullptr;
-        void (*entry_)(void *ctx) = nullptr;
+        void* ctx_ = nullptr;
+        void (*entry_)(void* ctx) = nullptr;
     };
 
     struct TaskQueue {
-        bool Empty() {
+        bool Empty()
+        {
             std::lock_guard<std::mutex> guard(taskListMutex_);
             return taskList_.empty();
         };
-        void Push(const Task &t) {
+        void Push(const Task& t)
+        {
             std::lock_guard<std::mutex> guard(taskListMutex_);
             taskList_.push_back(t);
         }
-        Task Pop() {
+        Task Pop()
+        {
             std::lock_guard<std::mutex> guard(taskListMutex_);
             Task t;
             if (!taskList_.empty()) {
@@ -60,10 +60,12 @@ class ThreadPool {
             }
             return t;
         }
+
     private:
         std::deque<Task> taskList_;
         std::mutex taskListMutex_;
     };
+
 private:
     enum class State {
         T_STARTING,
@@ -71,36 +73,32 @@ private:
         T_RUNNING,
         T_JOINING,
     };
+
 public:
-    ThreadPool(int threadCount) : threadCount_(threadCount), stateList_(threadCount_) {
+    ThreadPool(int threadCount) : threadCount_(threadCount), stateList_(threadCount_)
+    {
         for (int i = 0; i < threadCount; i++) {
             stateList_[i] = static_cast<int>(State::T_STARTING);
         }
         for (int i = 0; i < threadCount; i++) {
-            threadList_.emplace_back([this, i](){
-                this->Run(i);
-            });
+            threadList_.emplace_back([this, i]() { this->Run(i); });
         }
     }
-    ~ThreadPool() {
+    ~ThreadPool()
+    {
         Stop();
         for (int i = 0; i < threadCount_; i++) {
             threadList_[i].join();
         }
     }
-    void SubmitTask(void *ctx, void (*entry)(void *ctx)) {
-        taskQueue_.Push(Task(ctx, entry));
-    }
+    void SubmitTask(void* ctx, void (*entry)(void* ctx)) { taskQueue_.Push(Task(ctx, entry)); }
 
-    void NotifyAll() {
-        taskReadyNotifier_.notify_all();
-    }
+    void NotifyAll() { taskReadyNotifier_.notify_all(); }
 
-    static void Yield() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(0));
-    }
+    static void Yield() { std::this_thread::sleep_for(std::chrono::milliseconds(0)); }
 
-    void WaitForAll() {
+    void WaitForAll()
+    {
         waiting_ = true;
         while (!taskQueue_.Empty()) {
             Yield();
@@ -113,7 +111,8 @@ public:
         waiting_ = false;
     }
 
-    void Stop() {
+    void Stop()
+    {
         waiting_ = true;
         stopped_ = true;
         while (!taskQueue_.Empty()) {
@@ -130,7 +129,8 @@ public:
     int GetThreadCount() const { return threadCount_; }
 
 private:
-    void Run(int threadIndex) {
+    void Run(int threadIndex)
+    {
         stateList_[threadIndex] = static_cast<int>(State::T_STARTING);
         while (!stopped_) {
             stateList_[threadIndex] = static_cast<int>(State::T_WAITING);

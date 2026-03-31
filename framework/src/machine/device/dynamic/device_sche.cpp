@@ -32,28 +32,29 @@ namespace {
 
 DynMachineManager g_machine_mgr;
 
-void SigAct(int signum, siginfo_t* info, void* act) {
-    g_machine_mgr.SigAct(signum, info, act);
-}
+void SigAct(int signum, siginfo_t* info, void* act) { g_machine_mgr.SigAct(signum, info, act); }
 
-}
+} // namespace
 
-extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerInit(void *targ);
+extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerInit(void* targ);
 
-extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServer(void *targ);
+extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServer(void* targ);
 
-extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServerInit(void *targ) {
+extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServerInit(void* targ)
+{
     (void)targ;
     return 0;
 }
 
-extern "C" __attribute__((visibility("default"))) int StaticTileFwkBackendKernelServer(void *targ) {
+extern "C" __attribute__((visibility("default"))) int StaticTileFwkBackendKernelServer(void* targ)
+{
     (void)targ;
     return 0;
 }
 
-extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServer(void *targ) {
-    DeviceKernelArgs *kargs = (DeviceKernelArgs *)targ;
-    DynMachineManager::KernelCtrlEntry entry = { SigAct, PyptoKernelCtrlServerInit, PyptoKernelCtrlServer };
+extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServer(void* targ)
+{
+    DeviceKernelArgs* kargs = (DeviceKernelArgs*)targ;
+    DynMachineManager::KernelCtrlEntry entry = {SigAct, PyptoKernelCtrlServerInit, PyptoKernelCtrlServer};
     return g_machine_mgr.Entry(kargs, entry);
 }

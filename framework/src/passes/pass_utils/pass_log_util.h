@@ -29,11 +29,11 @@ namespace npu::tile_fwk {
  */
 class PassLogUtil {
 public:
-    PassLogUtil(Pass &pass, Function &function, size_t passIndex);
+    PassLogUtil(Pass& pass, Function& function, size_t passIndex);
     ~PassLogUtil();
 
-    PassLogUtil(const PassLogUtil &) = delete;
-    PassLogUtil &operator=(const PassLogUtil &) = delete;
+    PassLogUtil(const PassLogUtil&) = delete;
+    PassLogUtil& operator=(const PassLogUtil&) = delete;
 
 private:
     std::string originLogOutPath_;

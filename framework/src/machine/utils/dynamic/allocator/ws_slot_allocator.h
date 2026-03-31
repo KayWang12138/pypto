@@ -27,14 +27,16 @@ public:
     using uintdevptr_t = uint64_t;
 
     struct BlockHeader {
-        BlockHeader *listNext;
+        BlockHeader* listNext;
         uintdevptr_t ptr;
     };
 
 public:
     // [workspaceAddr, workspaceAddr + workspaceSize)
     // -> [root function internal workspace | slot pool]
-    void InitTensorAllocator(uintdevptr_t workspaceAddr, size_t slotNum, uint64_t slotStandardMemReq, WsMetadataAllocator &allocator) {
+    void InitTensorAllocator(
+        uintdevptr_t workspaceAddr, size_t slotNum, uint64_t slotStandardMemReq, WsMetadataAllocator& allocator)
+    {
         workspaceAddr_ = workspaceAddr;
         slotNum_ = slotNum;
         slotStandardMemReq_ = slotStandardMemReq;
@@ -43,24 +45,24 @@ public:
 
         allocator_ = &allocator;
         allocation_ = allocator_->Allocate<BlockHeader>(slotNum_, WsMemCategory::WS_SLOT_MEM_BLOCK);
-        BlockHeader *arr = allocation_.As<BlockHeader>();
+        BlockHeader* arr = allocation_.As<BlockHeader>();
         for (size_t i = 0; i < slotNum_; i++) {
             arr[i].ptr = workspaceAddr_ + i * slotStandardMemReq_;
             InsertList(arr + i, freeListHeader_);
         }
     }
 
-    BlockHeader *GetBlockHeaderBase() { return allocation_.As<BlockHeader>(); }
+    BlockHeader* GetBlockHeaderBase() { return allocation_.As<BlockHeader>(); }
 
-    bool IsValidSlotMemRequirement(uint64_t memReq) const {
-        return memReq <= slotStandardMemReq_;
-    }
+    bool IsValidSlotMemRequirement(uint64_t memReq) const { return memReq <= slotStandardMemReq_; }
 
-    WsAllocation Allocate() {
-        DEV_ASSERT_MSG(WsErr::WORKSPACE_INIT_RESOURCE_ERROR, freeListHeader_ != nullptr,
-            "Available slot: %zu/%zu", availableSlots_, slotNum_);
+    WsAllocation Allocate()
+    {
+        DEV_ASSERT_MSG(
+            WsErr::WORKSPACE_INIT_RESOURCE_ERROR, freeListHeader_ != nullptr, "Available slot: %zu/%zu",
+            availableSlots_, slotNum_);
 
-        BlockHeader *node = freeListHeader_;
+        BlockHeader* node = freeListHeader_;
         freeListHeader_ = freeListHeader_->listNext;
 
         WsAllocation allocation;
@@ -83,7 +85,8 @@ public:
     /* allocate at most n elements, and store the result into allocateList.
      * Return false if out of memory.
      */
-    bool Allocate(int n, WsAllocation *allocateList) {
+    bool Allocate(int n, WsAllocation* allocateList)
+    {
         for (int i = 0; i < n; i++) {
             allocateList[i] = Allocate();
             if (allocateList[i].ptr == 0) {
@@ -96,13 +99,17 @@ public:
         return true;
     }
 
-    void Deallocate(uintdevptr_t ptr) {
-        DEV_ASSERT_MSG(WsErr::WS_TENSOR_ADDRESS_OUT_OF_RANGE, workspaceAddr_ <= ptr && ptr < workspaceAddr_ + slotNum_ * slotStandardMemReq_,
+    void Deallocate(uintdevptr_t ptr)
+    {
+        DEV_ASSERT_MSG(
+            WsErr::WS_TENSOR_ADDRESS_OUT_OF_RANGE,
+            workspaceAddr_ <= ptr && ptr < workspaceAddr_ + slotNum_ * slotStandardMemReq_,
             "Pointer to deallocate is out of range");
-        DEV_ASSERT_MSG(WsErr::WORKSPACE_INIT_RESOURCE_ERROR, notInUseHeaders_ != nullptr,
+        DEV_ASSERT_MSG(
+            WsErr::WORKSPACE_INIT_RESOURCE_ERROR, notInUseHeaders_ != nullptr,
             "Blocks are all free, there shouldn't be any deallocation request.");
 
-        BlockHeader *node = notInUseHeaders_;
+        BlockHeader* node = notInUseHeaders_;
         notInUseHeaders_ = notInUseHeaders_->listNext;
 
         node->ptr = ptr;
@@ -111,33 +118,33 @@ public:
         availableSlots_++;
     }
 
-    size_t AvailableSlots() const {
-        return availableSlots_;
-    }
+    size_t AvailableSlots() const { return availableSlots_; }
 
-    uint64_t SlotByteSize() const {
-        return slotStandardMemReq_;
-    }
+    uint64_t SlotByteSize() const { return slotStandardMemReq_; }
 
-    void DumpMemoryUsage(const char *hint) const {
+    void DumpMemoryUsage(const char* hint) const
+    {
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
         DEV_MEM_DUMP("Slot tensor memory usage (%s)\n", hint);
-        DEV_MEM_DUMP("            Memory pool size: %10lu bytes (%zu x %lu bytes)\n",
-            slotNum_ * slotStandardMemReq_, slotNum_, slotStandardMemReq_);
-        DEV_MEM_DUMP("    Total memory requirement: %10lu bytes (%zu x %lu bytes)\n",
+        DEV_MEM_DUMP(
+            "            Memory pool size: %10lu bytes (%zu x %lu bytes)\n", slotNum_ * slotStandardMemReq_, slotNum_,
+            slotStandardMemReq_);
+        DEV_MEM_DUMP(
+            "    Total memory requirement: %10lu bytes (%zu x %lu bytes)\n",
             dfx_.historicalAllocated_ * slotStandardMemReq_, dfx_.historicalAllocated_, slotStandardMemReq_);
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
         (void)hint;
     }
 
 private:
-    void InsertList(BlockHeader *node, BlockHeader *&listHead) {
+    void InsertList(BlockHeader* node, BlockHeader*& listHead)
+    {
         node->listNext = listHead;
         listHead = node;
     }
 
 private:
-    WsMetadataAllocator *allocator_{nullptr};
+    WsMetadataAllocator* allocator_{nullptr};
     WsAllocation allocation_;
 
     size_t availableSlots_{0};
@@ -145,8 +152,8 @@ private:
     uint64_t slotStandardMemReq_{0};
 
     uintdevptr_t workspaceAddr_{0};
-    BlockHeader *freeListHeader_{nullptr};
-    BlockHeader *notInUseHeaders_{nullptr};
+    BlockHeader* freeListHeader_{nullptr};
+    BlockHeader* notInUseHeaders_{nullptr};
 
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
     struct DfxInfo {

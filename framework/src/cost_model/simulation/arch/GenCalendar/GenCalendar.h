@@ -79,7 +79,7 @@ public:
     uint64_t autoIncTag = 1 << offset;
 
     GenCalendar() = default;
-    void InitTaskTopoInfo(TaskMap &taskMap);
+    void InitTaskTopoInfo(TaskMap& taskMap);
     void InitAICore(uint64_t machineId);
     void LogTaskComplete(uint64_t taskId, uint64_t machineId, uint64_t sTime, uint64_t eTime);
     void StatWatiTime(uint64_t taskId, uint64_t machineId);
@@ -88,11 +88,11 @@ public:
     void GenTaskDependency(uint64_t taskId);
     void GenCounterDepencency();
     void CheckRedundantDependency();
-    void PrintTask(CalendarEntry &entry, std::ofstream &os);
-    void PrintStat(std::ofstream &os);
-    void OutputCalendar(std::ofstream &os);
-    void GenCalendarCpp(std::string &path);
+    void PrintTask(CalendarEntry& entry, std::ofstream& os);
+    void PrintStat(std::ofstream& os);
+    void OutputCalendar(std::ofstream& os);
+    void GenCalendarCpp(std::string& path);
 
     void RemoveBarrierCounter();
 };
-}
+} // namespace CostModel

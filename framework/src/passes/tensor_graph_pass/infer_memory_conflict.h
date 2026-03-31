@@ -33,28 +33,31 @@ public:
     ~InferMemoryConflict() override = default;
 
 private:
-    Status RunOnFunction(Function &function) override;
+    Status RunOnFunction(Function& function) override;
     Status Init(Function& function);
-    Status ForwardPropagation(Function &function);
-    Status UpdateForwardTensor(Function &function, const LogicalTensorPtr &curTensor, Operation* consumer, std::queue<LogicalTensorPtr> &curTensors);
-    Status BackwardPropagation(Function &function);
-    Status UpdateBackwardTensor(const LogicalTensorPtr &curTensor, Operation* producer, std::queue<LogicalTensorPtr> &curTensors);
-    Status InsertPrecededCopys(Function &function);
-    Status InsertPostCopys(Function &function);
+    Status ForwardPropagation(Function& function);
+    Status UpdateForwardTensor(
+        Function& function, const LogicalTensorPtr& curTensor, Operation* consumer,
+        std::queue<LogicalTensorPtr>& curTensors);
+    Status BackwardPropagation(Function& function);
+    Status UpdateBackwardTensor(
+        const LogicalTensorPtr& curTensor, Operation* producer, std::queue<LogicalTensorPtr>& curTensors);
+    Status InsertPrecededCopys(Function& function);
+    Status InsertPostCopys(Function& function);
     Status InsertCopys(Function& function);
-    Status ObtainReshapeTile(Operation &op, Shape &inTileShape, Shape &outTileShape);
-    Status InferTileShape(Operation &op, const LogicalTensorPtr &tensor, TileShape parentTile, Shape &reshapeTile);
-    Status SetDefaultShape(const LogicalTensorPtr &tensor, std::vector<int64_t> &defaultTile);
+    Status ObtainReshapeTile(Operation& op, Shape& inTileShape, Shape& outTileShape);
+    Status InferTileShape(Operation& op, const LogicalTensorPtr& tensor, TileShape parentTile, Shape& reshapeTile);
+    Status SetDefaultShape(const LogicalTensorPtr& tensor, std::vector<int64_t>& defaultTile);
 
-    TileShape ObtainTileShape(const std::unordered_set<Operation *> &origOp);
+    TileShape ObtainTileShape(const std::unordered_set<Operation*>& origOp);
 
-    bool CheckTransmit(Operation &curOp);
-    bool CheckConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor);
+    bool CheckTransmit(Operation& curOp);
+    bool CheckConflict(const LogicalTensorPtr& inTensor, const LogicalTensorPtr& outTensor);
     bool CheckRawShapeConflict(
-        const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor, const Operation *reshapeOp);
-    bool IsValidTileShape(const Operation &op) const;
-    bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOut);
-    bool MatMulPattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOut);
+        const LogicalTensorPtr& inTensor, const LogicalTensorPtr& outTensor, const Operation* reshapeOp);
+    bool IsValidTileShape(const Operation& op) const;
+    bool MatchReshapePattern(const LogicalTensorPtr& reshapeInput, const LogicalTensorPtr& reshapeOut);
+    bool MatMulPattern(const LogicalTensorPtr& reshapeInput, const LogicalTensorPtr& reshapeOut);
 
     std::set<Operation*> preregcopys;
     std::set<Operation*> postregcopys;

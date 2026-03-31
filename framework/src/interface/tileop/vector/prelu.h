@@ -21,7 +21,8 @@
 
 #define OP_TILE_OP_PRELU TPrelu
 template <unsigned axis, typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1, typename T2, typename T3>
-TILEOP void TPRelu(T0 dst, T1 src, T2 weight, T3 tmp) {
+TILEOP void TPRelu(T0 dst, T1 src, T2 weight, T3 tmp)
+{
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
     const auto srcLayout = src.GetLayout();
@@ -72,8 +73,7 @@ TILEOP void TPRelu(T0 dst, T1 src, T2 weight, T3 tmp) {
             pto::Tile<pto::TileType::Vec, typename T0::Type, 1, dstTileW, pto::BLayout::RowMajor, -1, -1>;
         using SrcTileDefine =
             pto::Tile<pto::TileType::Vec, typename T1::Type, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-        using TmpTileDefine =
-            pto::Tile<pto::TileType::Vec, uint8_t, 1, tmpTileW, pto::BLayout::RowMajor, -1, -1>;
+        using TmpTileDefine = pto::Tile<pto::TileType::Vec, uint8_t, 1, tmpTileW, pto::BLayout::RowMajor, -1, -1>;
         DstTileDefine dstTile(1, dstShape4);
         SrcTileDefine srcTile(1, srcShape4);
         TmpTileDefine tmpTile(1, tmpShape);
@@ -98,7 +98,7 @@ TILEOP void TPRelu(T0 dst, T1 src, T2 weight, T3 tmp) {
             pto::Tile<pto::TileType::Vec, typename T1::Type, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
         DstTileDefine dstTile(1, dstShape4);
         SrcTileDefine srcTile(1, srcShape4);
-        auto weightAddr = (__ubuf__ typename T2::Type *)((uint64_t)(weight.GetAddr()));
+        auto weightAddr = (__ubuf__ typename T2::Type*)((uint64_t)(weight.GetAddr()));
         set_flag(PIPE_V, PIPE_S, EVENT_ID3);
         wait_flag(PIPE_V, PIPE_S, EVENT_ID3);
 
@@ -123,7 +123,7 @@ TILEOP void TPRelu(T0 dst, T1 src, T2 weight, T3 tmp) {
 
         DstTileDefine dstTile(dstShape3, dstShape4);
         SrcTileDefine srcTile(srcShape3, srcShape4);
-        auto weightAddr = (__ubuf__ typename T2::Type *)((uint64_t)(weight.GetAddr()));
+        auto weightAddr = (__ubuf__ typename T2::Type*)((uint64_t)(weight.GetAddr()));
         set_flag(PIPE_V, PIPE_S, EVENT_ID2);
         wait_flag(PIPE_V, PIPE_S, EVENT_ID2);
 

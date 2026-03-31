@@ -32,9 +32,10 @@ public:
         bool isFree;
         std::string regionType; // "heap", "stack", "data"
         MemoryBlock(uintptr_t addr, size_t sz, bool free, const std::string& type)
-            : startAddr(addr), size(sz), isFree(free), regionType(type) {}
+            : startAddr(addr), size(sz), isFree(free), regionType(type)
+        {}
     };
-    static SoftMemory &Instance()
+    static SoftMemory& Instance()
     {
         static SoftMemory softMemory;
         return softMemory;
@@ -125,15 +126,14 @@ public:
         // 使用首次适应算法
 
         // 按地址排序内存块
-        std::sort(memoryBlocks.begin(), memoryBlocks.end(),
-            [](const MemoryBlock& a, const MemoryBlock& b) {
-                return a.startAddr < b.startAddr;
-            });
+        std::sort(memoryBlocks.begin(), memoryBlocks.end(), [](const MemoryBlock& a, const MemoryBlock& b) {
+            return a.startAddr < b.startAddr;
+        });
 
         // 寻找合适的空闲区域
         for (size_t i = 0; i < memoryBlocks.size() - 1; ++i) {
             uintptr_t gapStart = memoryBlocks[i].startAddr + memoryBlocks[i].size;
-            uintptr_t gapEnd = memoryBlocks[i+1].startAddr;
+            uintptr_t gapEnd = memoryBlocks[i + 1].startAddr;
             size_t gapSize = gapEnd - gapStart;
 
             if (gapSize >= size) {
@@ -185,17 +185,14 @@ public:
 
         // 按地址排序内存块
         std::vector<MemoryBlock> sorted_blocks = memoryBlocks;
-        std::sort(sorted_blocks.begin(), sorted_blocks.end(),
-            [](const MemoryBlock& a, const MemoryBlock& b) {
-                return a.startAddr < b.startAddr;
-            });
+        std::sort(sorted_blocks.begin(), sorted_blocks.end(), [](const MemoryBlock& a, const MemoryBlock& b) {
+            return a.startAddr < b.startAddr;
+        });
 
         for (const auto& block : sorted_blocks) {
-            std::cout << "0x" << std::hex << block.startAddr << " - 0x"
-                        << (block.startAddr + block.size) << " ("
-                        << std::dec << block.size << " bytes) "
-                        << block.regionType
-                        << (block.isFree ? " [FREE]" : " [USED]") << "\n";
+            std::cout << "0x" << std::hex << block.startAddr << " - 0x" << (block.startAddr + block.size) << " ("
+                      << std::dec << block.size << " bytes) " << block.regionType
+                      << (block.isFree ? " [FREE]" : " [USED]") << "\n";
         }
 
         std::cout << "--------------------------------------------------\n";
@@ -204,10 +201,8 @@ public:
         std::cout << "--------------------------------------------------\n";
     }
 
-    void Enable()
-    {
-        enable = true;
-    }
+    void Enable() { enable = true; }
+
 private:
     std::map<uintptr_t, std::vector<uint8_t>> memoryMap;
     std::vector<MemoryBlock> memoryBlocks;
@@ -217,4 +212,4 @@ private:
     uintptr_t stackEnd;
     bool enable = false;
 };
-}
+} // namespace CostModel

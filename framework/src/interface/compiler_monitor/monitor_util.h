@@ -17,7 +17,8 @@
 
 namespace npu::tile_fwk {
 
-inline std::string FormatElapsed(double seconds) {
+inline std::string FormatElapsed(double seconds)
+{
     if (seconds < 60.0) {
         std::ostringstream oss;
         oss << std::fixed << std::setprecision(1) << seconds << "s";
@@ -39,4 +40,4 @@ inline std::string FormatElapsed(double seconds) {
     return oss.str();
 }
 
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

@@ -10,8 +10,8 @@
 
 /*!
  * \file test_mix_subgraph_split.cpp
-  * \brief Unit test for mixSubgraphSplit
-  * */
+ * \brief Unit test for mixSubgraphSplit
+ * */
 #include <gtest/gtest.h>
 #include "passes/block_graph_pass/mix_subgraph_split.h"
 #include "computational_graph_builder.h"
@@ -25,11 +25,11 @@ constexpr int MS_NUM10005 = 10005;
 
 // 辅助函数声明
 namespace test_utils {
-    void VerifyBasicChecks(Status status, Function& rootFunc);
-    void VerifyProgramProperties(Function& rootFunc);
-    void VerifyCallOpsAfterSplit(Function& rootFunc);
-    void VerifyScopeTypes(Function& rootFunc, int expectedCubeCount, int expectedVectorCount);
-    void VerifyCleanup(Function& rootFunc, Function* originalMixFunc, Operation* originalCallOp);
+void VerifyBasicChecks(Status status, Function& rootFunc);
+void VerifyProgramProperties(Function& rootFunc);
+void VerifyCallOpsAfterSplit(Function& rootFunc);
+void VerifyScopeTypes(Function& rootFunc, int expectedCubeCount, int expectedVectorCount);
+void VerifyCleanup(Function& rootFunc, Function* originalMixFunc, Operation* originalCallOp);
 } // namespace test_utils
 
 class MixSubgraphSplitTest : public ::testing::Test {
@@ -38,21 +38,22 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
-    void TearDown() override {
-        MixSubgraphSplit::ResetGlobalState();
-    }
+    void TearDown() override { MixSubgraphSplit::ResetGlobalState(); }
+
 protected:
     // 单个辅助函数：构建Mix子图的所有内容
-    std::shared_ptr<Function> BuildMixFunction(Function* rootFunc, std::vector<int64_t>& tensorShape) {
-        auto mixFuncPtr = std::make_shared<Function>(
-            Program::GetInstance(), "mix_func_illegal", "mix_func_illegal", rootFunc);
+    std::shared_ptr<Function> BuildMixFunction(Function* rootFunc, std::vector<int64_t>& tensorShape)
+    {
+        auto mixFuncPtr =
+            std::make_shared<Function>(Program::GetInstance(), "mix_func_illegal", "mix_func_illegal", rootFunc);
         mixFuncPtr->SetGraphType(GraphType::BLOCK_GRAPH);
         mixFuncPtr->SetFunctionType(FunctionType::STATIC);
 
@@ -78,23 +79,23 @@ protected:
 
         // Component 1 (CUBE)
         auto& copyout1 = mixFuncPtr->AddRawOperation(Opcode::OP_COPY_OUT, {inputTensor}, {tensor1});
-        copyout1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            MemoryType::MEM_UB, offsetImme, shapeImme, shapeImme, emptyVec));
+        copyout1.SetOpAttribute(
+            std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB, offsetImme, shapeImme, shapeImme, emptyVec));
         copyout1.SetOOpAttrOffset(0, 0);
         copyout1.UpdateInternalSubgraphID(1);
         copyout1.SetAttr(OpAttributeKey::isCube, true);
 
         auto& copyin3 = mixFuncPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {outputTensor});
-        copyin3.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec));
+        copyin3.SetOpAttribute(
+            std::make_shared<CopyOpAttribute>(offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec));
         copyin3.SetIOpAttrOffset(0, 0);
         copyin3.UpdateInternalSubgraphID(1);
         copyin3.SetAttr(OpAttributeKey::isCube, true);
 
         // Component 0 (VECTOR)
         auto& copyin2 = mixFuncPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor2});
-        copyin2.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec));
+        copyin2.SetOpAttribute(
+            std::make_shared<CopyOpAttribute>(offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec));
         copyin2.SetIOpAttrOffset(0, 0);
         copyin2.UpdateInternalSubgraphID(0);
         copyin2.SetAIVCore(AIVCore::AIV0);
@@ -105,19 +106,20 @@ protected:
 
 // 辅助函数实现
 namespace test_utils {
-void VerifyBasicChecks(Status status, Function& rootFunc) {
+void VerifyBasicChecks(Status status, Function& rootFunc)
+{
     // 状态验证
     ASSERT_EQ(status, SUCCESS) << "MixSubgraphSplit should succeed";
     // program数量验证
     auto& programs = rootFunc.programs_;
-    EXPECT_EQ(programs.size(), 2)
-        << "Should have 2 programs after split (originally 1 Mix, split to 2 leaves)";
+    EXPECT_EQ(programs.size(), 2) << "Should have 2 programs after split (originally 1 Mix, split to 2 leaves)";
     // ID连续性验证
     EXPECT_NE(programs.find(0), programs.end()) << "Should have program ID 0";
     EXPECT_NE(programs.find(1), programs.end()) << "Should have program ID 1";
 }
 
-void VerifyProgramProperties(Function& rootFunc) {
+void VerifyProgramProperties(Function& rootFunc)
+{
     auto& programs = rootFunc.programs_;
     for (const auto& [progId, func] : programs) {
         ASSERT_NE(func, nullptr) << "Function should not be null";
@@ -129,22 +131,20 @@ void VerifyProgramProperties(Function& rootFunc) {
         EXPECT_EQ(func->GetFunctionType(), FunctionType::STATIC);
         EXPECT_EQ(func->GetGraphType(), GraphType::BLOCK_GRAPH);
         // 验证programID一致性
-        EXPECT_EQ(func->GetProgramId(), progId)
-            << "Function's program ID should match map key";
+        EXPECT_EQ(func->GetProgramId(), progId) << "Function's program ID should match map key";
         // 验证LeafFuncAttribute
         auto leafAttr = func->GetLeafFuncAttribute();
         ASSERT_NE(leafAttr, nullptr) << "LeafFuncAttribute should be set";
         EXPECT_NE(leafAttr->mixId, static_cast<uint64_t>(-1)) << "mixId should be assigned";
-        EXPECT_NE(leafAttr->mixResourceType, MixResourceType::UNKNOWN)
-            << "mixResourceType should be set";
+        EXPECT_NE(leafAttr->mixResourceType, MixResourceType::UNKNOWN) << "mixResourceType should be set";
     }
 }
 
-void VerifyCallOpsAfterSplit(Function& rootFunc) {
+void VerifyCallOpsAfterSplit(Function& rootFunc)
+{
     // callOp数量验证
     auto newCallOps = rootFunc.GetCallopList();
-    EXPECT_EQ(newCallOps.size(), 2)
-        << "Should have 2 call ops after split (1 original * 2 components)";
+    EXPECT_EQ(newCallOps.size(), 2) << "Should have 2 call ops after split (1 original * 2 components)";
     // callOp属性验证
     auto& programs = rootFunc.programs_;
     for (auto* newCallOp : newCallOps) {
@@ -156,22 +156,20 @@ void VerifyCallOpsAfterSplit(Function& rootFunc) {
 
         if (newCallAttr && newCallAttr->invokeInfo_) {
             uint64_t progId = newCallAttr->invokeInfo_->GetProgramId();
-            EXPECT_TRUE(progId == 0 || progId == 1)
-                << "CallOp's program ID should be 0 or 1, got: " << progId;
+            EXPECT_TRUE(progId == 0 || progId == 1) << "CallOp's program ID should be 0 or 1, got: " << progId;
 
             // 验证对应函数存在
             auto it = programs.find(progId);
-            EXPECT_NE(it, programs.end())
-                << "CallOp references non-existent program ID: " << progId;
+            EXPECT_NE(it, programs.end()) << "CallOp references non-existent program ID: " << progId;
 
             // 验证wrapId设置
-            EXPECT_NE(newCallAttr->wrapId, static_cast<uint64_t>(-1))
-                << "wrapId should be set";
+            EXPECT_NE(newCallAttr->wrapId, static_cast<uint64_t>(-1)) << "wrapId should be set";
         }
     }
 }
 
-void VerifyScopeTypes(Function& rootFunc, int expectedCubeCount, int expectedVectorCount) {
+void VerifyScopeTypes(Function& rootFunc, int expectedCubeCount, int expectedVectorCount)
+{
     // scope类型验证
     auto& programs = rootFunc.programs_;
     int cubeCount = 0;
@@ -193,7 +191,8 @@ void VerifyScopeTypes(Function& rootFunc, int expectedCubeCount, int expectedVec
     EXPECT_EQ(vectorCount, expectedVectorCount) << "Vector component count mismatch";
 }
 
-void VerifyCleanup(Function& rootFunc, Function* originalMixFunc, Operation* originalCallOp) {
+void VerifyCleanup(Function& rootFunc, Function* originalMixFunc, Operation* originalCallOp)
+{
     auto& programs = rootFunc.programs_;
     // 原始Mix子图验证
     bool originalMixFuncStillExists = false;
@@ -235,8 +234,8 @@ void VerifyCleanup(Function& rootFunc, Function* originalMixFunc, Operation* ori
 // 在测试类定义之后，测试用例之前，先定义所有辅助函数
 
 // 辅助函数1：验证结果
-void VerifyBasicSplitResult(Status status, Function& rootFunc,
-                           Function* originalMixFunc, Operation* originalCallOp) {
+void VerifyBasicSplitResult(Status status, Function& rootFunc, Function* originalMixFunc, Operation* originalCallOp)
+{
     using namespace test_utils;
     VerifyBasicChecks(status, rootFunc);
     VerifyProgramProperties(rootFunc);
@@ -246,9 +245,9 @@ void VerifyBasicSplitResult(Status status, Function& rootFunc,
 }
 
 // 辅助函数2：创建CallOp
-Operation& CreateCallOp(std::shared_ptr<Function>& rootFuncPtr,
-                       const uint64_t mixProgramId,
-                       const FunctionHash& mixFuncHash) {
+Operation& CreateCallOp(
+    std::shared_ptr<Function>& rootFuncPtr, const uint64_t mixProgramId, const FunctionHash& mixFuncHash)
+{
     std::vector<int64_t> tensorShape = {MS_NUM16, MS_NUM16};
 
     auto callInTensor1 = std::make_shared<LogicalTensor>(*rootFuncPtr, DT_FP32, tensorShape);
@@ -256,9 +255,8 @@ Operation& CreateCallOp(std::shared_ptr<Function>& rootFuncPtr,
     auto callInTensor3 = std::make_shared<LogicalTensor>(*rootFuncPtr, DT_FP32, tensorShape);
     auto callOutTensor = std::make_shared<LogicalTensor>(*rootFuncPtr, DT_FP32, tensorShape);
 
-    auto& callOp = rootFuncPtr->AddRawOperation(Opcode::OP_CALL,
-        {callInTensor1, callInTensor2, callInTensor3},
-        {callOutTensor});
+    auto& callOp =
+        rootFuncPtr->AddRawOperation(Opcode::OP_CALL, {callInTensor1, callInTensor2, callInTensor3}, {callOutTensor});
 
     auto callAttr = std::make_shared<CallOpAttribute>();
     auto invokeInfo = std::make_shared<SubfuncInvokeInfoTy>();
@@ -280,9 +278,10 @@ Operation& CreateCallOp(std::shared_ptr<Function>& rootFuncPtr,
 }
 
 // 辅助函数3：创建Vector scope
-void CreateVectorScope(std::shared_ptr<Function>& mixFuncPtr,
-                      std::shared_ptr<LogicalTensor>& incast3,
-                      std::shared_ptr<LogicalTensor>& outcast1) {
+void CreateVectorScope(
+    std::shared_ptr<Function>& mixFuncPtr, std::shared_ptr<LogicalTensor>& incast3,
+    std::shared_ptr<LogicalTensor>& outcast1)
+{
     std::vector<int64_t> tensorShape = {MS_NUM16, MS_NUM16};
 
     // 获取cubeTensor3（最后一个cube操作的输出）
@@ -308,17 +307,18 @@ void CreateVectorScope(std::shared_ptr<Function>& mixFuncPtr,
     vectorSqrt.SetAIVCore(AIVCore::AIV0);
 
     auto& vectorCopyOut = mixFuncPtr->AddRawOperation(Opcode::OP_COPY_OUT, {vectorTensor2}, {outcast1});
-    vectorCopyOut.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        MemoryType::MEM_UB, offsetImme, shapeImme, shapeImme, emptyVec));
+    vectorCopyOut.SetOpAttribute(
+        std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB, offsetImme, shapeImme, shapeImme, emptyVec));
     vectorCopyOut.SetOOpAttrOffset(0, 0);
     vectorCopyOut.UpdateInternalSubgraphID(1);
     vectorCopyOut.SetAIVCore(AIVCore::AIV0);
 }
 
 // 辅助函数4：创建Cube scope
-void CreateCubeScope(std::shared_ptr<Function>& mixFuncPtr,
-                     std::shared_ptr<LogicalTensor>& incast1,
-                     std::shared_ptr<LogicalTensor>& incast2) {
+void CreateCubeScope(
+    std::shared_ptr<Function>& mixFuncPtr, std::shared_ptr<LogicalTensor>& incast1,
+    std::shared_ptr<LogicalTensor>& incast2)
+{
     std::vector<int64_t> tensorShape = {MS_NUM16, MS_NUM16};
     auto cubeTensor1 = std::make_shared<LogicalTensor>(*mixFuncPtr, DT_FP32, tensorShape);
     auto cubeTensor2 = std::make_shared<LogicalTensor>(*mixFuncPtr, DT_FP32, tensorShape);
@@ -331,15 +331,15 @@ void CreateCubeScope(std::shared_ptr<Function>& mixFuncPtr,
 
     // Cube scope op（internalSubgraphID=0）
     auto& cubeCopyIn1 = mixFuncPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {cubeTensor1});
-    cubeCopyIn1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec));
+    cubeCopyIn1.SetOpAttribute(
+        std::make_shared<CopyOpAttribute>(offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec));
     cubeCopyIn1.SetIOpAttrOffset(0, 0);
     cubeCopyIn1.UpdateInternalSubgraphID(0);
     cubeCopyIn1.SetAttr(OpAttributeKey::isCube, true);
 
     auto& cubeCopyIn2 = mixFuncPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast2}, {cubeTensor2});
-    cubeCopyIn2.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec));
+    cubeCopyIn2.SetOpAttribute(
+        std::make_shared<CopyOpAttribute>(offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec));
     cubeCopyIn2.SetIOpAttrOffset(0, 0);
     cubeCopyIn2.UpdateInternalSubgraphID(0);
     cubeCopyIn2.SetAttr(OpAttributeKey::isCube, true);
@@ -350,8 +350,8 @@ void CreateCubeScope(std::shared_ptr<Function>& mixFuncPtr,
 }
 
 // 辅助函数5：设置Mix子图结构
-void SetupMixSubgraphStructure(std::shared_ptr<Function>& mixFuncPtr,
-                               FunctionHash& mixFuncHash) {
+void SetupMixSubgraphStructure(std::shared_ptr<Function>& mixFuncPtr, FunctionHash& mixFuncHash)
+{
     std::vector<int64_t> tensorShape = {MS_NUM16, MS_NUM16};
 
     // 创建incast和outcast
@@ -378,10 +378,10 @@ void SetupMixSubgraphStructure(std::shared_ptr<Function>& mixFuncPtr,
 }
 
 // 辅助函数6：创建Mix子图
-std::shared_ptr<Function> CreateMixSubgraph(std::shared_ptr<Function>& rootFuncPtr,
-                                           FunctionHash& mixFuncHash) {
-    auto mixFuncPtr = std::make_shared<Function>(
-        Program::GetInstance(), "test_mix_func", "test_mix_func", rootFuncPtr.get());
+std::shared_ptr<Function> CreateMixSubgraph(std::shared_ptr<Function>& rootFuncPtr, FunctionHash& mixFuncHash)
+{
+    auto mixFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "test_mix_func", "test_mix_func", rootFuncPtr.get());
     mixFuncPtr->SetGraphType(GraphType::BLOCK_GRAPH);
     mixFuncPtr->SetFunctionType(FunctionType::STATIC);
 
@@ -396,14 +396,15 @@ std::shared_ptr<Function> CreateMixSubgraph(std::shared_ptr<Function>& rootFuncP
 }
 
 // 辅助函数7：创建根函数
-std::shared_ptr<Function> CreateTestRootFunction() {
-    auto rootFuncPtr = std::make_shared<Function>(
-        Program::GetInstance(), "test_root", "test_root", nullptr);
+std::shared_ptr<Function> CreateTestRootFunction()
+{
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "test_root", "test_root", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     return rootFuncPtr;
 }
 
-TEST_F(MixSubgraphSplitTest, TestSingleMixSubgraphBasicSplit) {
+TEST_F(MixSubgraphSplitTest, TestSingleMixSubgraphBasicSplit)
+{
     // 1. 创建测试场景
     auto rootFuncPtr = CreateTestRootFunction();
 
@@ -423,10 +424,9 @@ TEST_F(MixSubgraphSplitTest, TestSingleMixSubgraphBasicSplit) {
 }
 
 // 辅助函数1：为非Mix子图创建callOp（这个函数会被CreateNonMixFunctions调用，所以要放在前面）
-void CreateCallOpForNonMix(std::shared_ptr<Function>& rootFuncPtr,
-                          uint64_t programIdx,
-                          FunctionHash hash,
-                          const std::vector<int64_t>& shape) {
+void CreateCallOpForNonMix(
+    std::shared_ptr<Function>& rootFuncPtr, uint64_t programIdx, FunctionHash hash, const std::vector<int64_t>& shape)
+{
     auto callInTensor = std::make_shared<LogicalTensor>(*rootFuncPtr, DT_FP32, shape);
     auto callOutTensor = std::make_shared<LogicalTensor>(*rootFuncPtr, DT_FP32, shape);
 
@@ -449,14 +449,13 @@ void CreateCallOpForNonMix(std::shared_ptr<Function>& rootFuncPtr,
 }
 
 // 辅助函数2：创建非Mix子图（这个函数调用CreateCallOpForNonMix）
-void CreateNonMixFunctions(std::shared_ptr<Function>& rootFuncPtr,
-                          std::vector<std::shared_ptr<Function>>& nonMixFunctions,
-                          const std::vector<uint64_t>& nonMixProgramIds) {
+void CreateNonMixFunctions(
+    std::shared_ptr<Function>& rootFuncPtr, std::vector<std::shared_ptr<Function>>& nonMixFunctions,
+    const std::vector<uint64_t>& nonMixProgramIds)
+{
     for (int i = 0; i < 2; i++) {
         auto nonMixFunc = std::make_shared<Function>(
-            Program::GetInstance(),
-            "test_non_mix_" + std::to_string(i),
-            "test_non_mix_" + std::to_string(i),
+            Program::GetInstance(), "test_non_mix_" + std::to_string(i), "test_non_mix_" + std::to_string(i),
             rootFuncPtr.get());
         nonMixFunc->SetGraphType(GraphType::BLOCK_GRAPH);
         nonMixFunc->SetFunctionType(FunctionType::STATIC);
@@ -476,18 +475,18 @@ void CreateNonMixFunctions(std::shared_ptr<Function>& rootFuncPtr,
         std::vector<int64_t> offsetVec = {0, 0};
         auto offsetImme = OpImmediate::Specified(offsetVec);
         std::vector<OpImmediate> emptyVec;
-        auto copyInAttr = std::make_shared<CopyOpAttribute>(
-            offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec);
+        auto copyInAttr =
+            std::make_shared<CopyOpAttribute>(offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec);
         copyInOp.SetOpAttribute(copyInAttr);
 
         auto internalTensor2 = std::make_shared<LogicalTensor>(*nonMixFunc, DT_FP32, shape);
         auto& expOp = nonMixFunc->AddRawOperation(Opcode::OP_EXP, {internalTensor1}, {internalTensor2});
-        (void) expOp;
+        (void)expOp;
         auto& copyOutOp = nonMixFunc->AddRawOperation(Opcode::OP_COPY_OUT, {internalTensor2}, {outcastTensor});
         copyOutOp.SetOOpAttrOffset(0, 0);
 
-        auto copyOutAttr = std::make_shared<CopyOpAttribute>(
-            MemoryType::MEM_UB, offsetImme, shapeImme, shapeImme, emptyVec);
+        auto copyOutAttr =
+            std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB, offsetImme, shapeImme, shapeImme, emptyVec);
         copyOutOp.SetOpAttribute(copyOutAttr);
 
         nonMixFunc->ComputeHash();
@@ -501,11 +500,10 @@ void CreateNonMixFunctions(std::shared_ptr<Function>& rootFuncPtr,
     }
 }
 
-void CreateCallOpsForMixFunction(std::shared_ptr<Function>& rootFuncPtr,
-                                uint64_t programIdx,
-                                FunctionHash hash,
-                                const std::vector<int64_t>& shape,
-                                int mixIdx) {
+void CreateCallOpsForMixFunction(
+    std::shared_ptr<Function>& rootFuncPtr, uint64_t programIdx, FunctionHash hash, const std::vector<int64_t>& shape,
+    int mixIdx)
+{
     int callOpCount = (mixIdx % 2 == 0) ? 1 : 2;
 
     for (int callIdx = 0; callIdx < callOpCount; callIdx++) {
@@ -513,9 +511,7 @@ void CreateCallOpsForMixFunction(std::shared_ptr<Function>& rootFuncPtr,
         auto callInTensor2 = std::make_shared<LogicalTensor>(*rootFuncPtr, DT_FP32, shape);
         auto callOutTensor = std::make_shared<LogicalTensor>(*rootFuncPtr, DT_FP32, shape);
 
-        auto& callOp = rootFuncPtr->AddRawOperation(Opcode::OP_CALL,
-            {callInTensor1, callInTensor2},
-            {callOutTensor});
+        auto& callOp = rootFuncPtr->AddRawOperation(Opcode::OP_CALL, {callInTensor1, callInTensor2}, {callOutTensor});
 
         auto callAttr = std::make_shared<CallOpAttribute>();
         auto invokeInfo = std::make_shared<SubfuncInvokeInfoTy>();
@@ -536,9 +532,8 @@ void CreateCallOpsForMixFunction(std::shared_ptr<Function>& rootFuncPtr,
 }
 
 // 辅助函数4：创建额外的scope（这个函数会被CreateMixFunctions调用）
-void CreateAdditionalScopes(std::shared_ptr<Function>& mixFunc,
-                           int componentCount,
-                           const std::vector<int64_t>& shape) {
+void CreateAdditionalScopes(std::shared_ptr<Function>& mixFunc, int componentCount, const std::vector<int64_t>& shape)
+{
     // 获取最后一个tensor
     auto operations = mixFunc->Operations(false);
     auto lastTensor = operations.back().GetOOperands()[0];
@@ -568,8 +563,8 @@ void CreateAdditionalScopes(std::shared_ptr<Function>& mixFunc,
     std::vector<int64_t> offsetVec = {0, 0};
     auto offsetImme = OpImmediate::Specified(offsetVec);
     std::vector<OpImmediate> emptyVec;
-    auto copyOutAttr = std::make_shared<CopyOpAttribute>(
-        MemoryType::MEM_UB, offsetImme, shapeImme, shapeImme, emptyVec);
+    auto copyOutAttr =
+        std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB, offsetImme, shapeImme, shapeImme, emptyVec);
     copyOut.SetOpAttribute(copyOutAttr);
 
     if ((componentCount - 1) % 2 == 0) {
@@ -579,13 +574,14 @@ void CreateAdditionalScopes(std::shared_ptr<Function>& mixFunc,
     }
 }
 
-void CreateMixFunctions(std::shared_ptr<Function>& rootFuncPtr,
-                       std::vector<std::shared_ptr<Function>>& mixFunctions,
-                       const std::vector<uint64_t>& mixProgramIds,
-                       const std::vector<int>& componentCounts) {
+void CreateMixFunctions(
+    std::shared_ptr<Function>& rootFuncPtr, std::vector<std::shared_ptr<Function>>& mixFunctions,
+    const std::vector<uint64_t>& mixProgramIds, const std::vector<int>& componentCounts)
+{
     for (int mixIdx = 0; mixIdx < 3; mixIdx++) {
-        auto mixFunc = std::make_shared<Function>(Program::GetInstance(),"test_mix_" + std::to_string(mixIdx),
-            "test_mix_" + std::to_string(mixIdx), rootFuncPtr.get());
+        auto mixFunc = std::make_shared<Function>(
+            Program::GetInstance(), "test_mix_" + std::to_string(mixIdx), "test_mix_" + std::to_string(mixIdx),
+            rootFuncPtr.get());
         mixFunc->SetGraphType(GraphType::BLOCK_GRAPH);
         mixFunc->SetFunctionType(FunctionType::STATIC);
 
@@ -613,14 +609,16 @@ void CreateMixFunctions(std::shared_ptr<Function>& rootFuncPtr,
         copyIn1.UpdateInternalSubgraphID(0);
         copyIn1.SetIOpAttrOffset(0, 0);
         copyIn1.SetAttr(OpAttributeKey::isCube, true);
-        auto copyIn1Attr = std::make_shared<CopyOpAttribute>(offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec);
+        auto copyIn1Attr =
+            std::make_shared<CopyOpAttribute>(offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec);
         copyIn1.SetOpAttribute(copyIn1Attr);
 
         auto& copyIn2 = mixFunc->AddRawOperation(Opcode::OP_COPY_IN, {incast2}, {cubeTensor2});
         copyIn2.UpdateInternalSubgraphID(0);
         copyIn2.SetIOpAttrOffset(0, 0);
         copyIn2.SetAttr(OpAttributeKey::isCube, true);
-        auto copyIn2Attr = std::make_shared<CopyOpAttribute>(offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec);
+        auto copyIn2Attr =
+            std::make_shared<CopyOpAttribute>(offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec);
         copyIn2.SetOpAttribute(copyIn2Attr);
 
         auto& cubeMul = mixFunc->AddRawOperation(Opcode::OP_A_MUL_B, {cubeTensor1, cubeTensor2}, {cubeTensor3});
@@ -646,21 +644,21 @@ void CreateMixFunctions(std::shared_ptr<Function>& rootFuncPtr,
 }
 
 // 辅助函数6：验证多个Mix子图拆分结果（最后定义，因为它不调用其他辅助函数）
-void VerifyMultipleMixSplitResults(std::shared_ptr<Function>& rootFuncPtr,
-                                  Status status,
-                                  const std::vector<std::shared_ptr<Function>>& mixFunctions,
-                                  const std::vector<std::shared_ptr<Function>>& nonMixFunctions,
-                                  const std::vector<int>& componentCounts) {
+void VerifyMultipleMixSplitResults(
+    std::shared_ptr<Function>& rootFuncPtr, Status status, const std::vector<std::shared_ptr<Function>>& mixFunctions,
+    const std::vector<std::shared_ptr<Function>>& nonMixFunctions, const std::vector<int>& componentCounts)
+{
     EXPECT_EQ(status, SUCCESS) << "Multiple mix subgraphs split should succeed";
 
     // 计算预期的新子图总数
-    size_t expectedNewProgramCount = 2;  // 2个非Mix子图保留
+    size_t expectedNewProgramCount = 2;   // 2个非Mix子图保留
     for (int count : componentCounts) {
-        expectedNewProgramCount += count;  // 每个Mix子图的scope数
+        expectedNewProgramCount += count; // 每个Mix子图的scope数
     }
 
     auto& programs = rootFuncPtr->programs_;
-    EXPECT_EQ(programs.size(), expectedNewProgramCount) << "Program count mismatch. Expected: " << expectedNewProgramCount << ", Actual: " << programs.size();
+    EXPECT_EQ(programs.size(), expectedNewProgramCount)
+        << "Program count mismatch. Expected: " << expectedNewProgramCount << ", Actual: " << programs.size();
 
     // ID连续性验证
     uint64_t expectedMaxId = expectedNewProgramCount - 1;
@@ -691,12 +689,14 @@ void VerifyMultipleMixSplitResults(std::shared_ptr<Function>& rootFuncPtr,
         }
     }
 
-    EXPECT_EQ(totalSplitFunctions, 2 + 3 + 4) << "Should have " << (2+3+4) << " split functions from 3 mix subgraphs";
+    EXPECT_EQ(totalSplitFunctions, 2 + 3 + 4)
+        << "Should have " << (2 + 3 + 4) << " split functions from 3 mix subgraphs";
 
     // callOp数量验证
     auto newCallOps = rootFuncPtr->GetCallopList();
     size_t expectedNewCallOpCount = 2 * 1 + 1 * 2 + 2 * 3 + 1 * 4;
-    EXPECT_EQ(newCallOps.size(), expectedNewCallOpCount) << "CallOp count mismatch. Expected: " << expectedNewCallOpCount << ", Actual: " << newCallOps.size();
+    EXPECT_EQ(newCallOps.size(), expectedNewCallOpCount)
+        << "CallOp count mismatch. Expected: " << expectedNewCallOpCount << ", Actual: " << newCallOps.size();
 
     // 资源清理验证
     for (const auto& mixFunc : mixFunctions) {
@@ -715,10 +715,11 @@ void VerifyMultipleMixSplitResults(std::shared_ptr<Function>& rootFuncPtr,
 /**
  * 测试多个Mix子图拆分处理
  */
-TEST_F(MixSubgraphSplitTest, TestMultipleMixSubgraphsSplit) {
+TEST_F(MixSubgraphSplitTest, TestMultipleMixSubgraphsSplit)
+{
     // 1. 创建rootFunction
-    auto rootFuncPtr = std::make_shared<Function>(
-        Program::GetInstance(), "test_root_multi", "test_root_multi", nullptr);
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "test_root_multi", "test_root_multi", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
 
     // 2. 创建3个Mix子图和2个非Mix子图
@@ -745,16 +746,19 @@ TEST_F(MixSubgraphSplitTest, TestMultipleMixSubgraphsSplit) {
 /**
  * 测试rootFunction无Mix子图时的处理逻辑
  */
-TEST_F(MixSubgraphSplitTest, TestNoMixSubgraphScenario) {
+TEST_F(MixSubgraphSplitTest, TestNoMixSubgraphScenario)
+{
     // 1. 创建仅包含非Mix子图的rootFunction
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "test_root_no_mix", "test_root_no_mix", nullptr);
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "test_root_no_mix", "test_root_no_mix", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     // 2. 创建3个普通（非Mix）子图
     std::vector<std::shared_ptr<Function>> nonMixFunctions;
     std::vector<uint64_t> programIds = {10, 20, 30};
     for (int i = 0; i < 3; i++) {
-        auto func = std::make_shared<Function>(Program::GetInstance(), "test_func_" + std::to_string(i),
-            "test_func_" + std::to_string(i), rootFuncPtr.get());
+        auto func = std::make_shared<Function>(
+            Program::GetInstance(), "test_func_" + std::to_string(i), "test_func_" + std::to_string(i),
+            rootFuncPtr.get());
         func->SetGraphType(GraphType::BLOCK_GRAPH);
         func->SetFunctionType(FunctionType::STATIC);
         // 创建简单op（无internalSubgraphID标记）
@@ -764,14 +768,14 @@ TEST_F(MixSubgraphSplitTest, TestNoMixSubgraphScenario) {
         func->inCasts_.push_back(inputTensor);
         func->outCasts_.push_back(outputTensor);
         auto& expOp = func->AddRawOperation(Opcode::OP_EXP, {inputTensor}, {outputTensor});
-        (void) expOp;
+        (void)expOp;
         func->ComputeHash();
         FunctionHash hash = func->GetFunctionHash();
         Program::GetInstance().GetFunctionCache().Insert(hash, *func);
 
         rootFuncPtr->programs_[programIds[i]] = func.get();
         nonMixFunctions.push_back(func);
-         // 创建callOp
+        // 创建callOp
         auto& callOp = rootFuncPtr->AddRawOperation(Opcode::OP_CALL, {}, {});
         auto callAttr = std::make_shared<CallOpAttribute>();
         auto invokeInfo = std::make_shared<SubfuncInvokeInfoTy>();
@@ -780,11 +784,11 @@ TEST_F(MixSubgraphSplitTest, TestNoMixSubgraphScenario) {
         callAttr->invokeInfo_ = invokeInfo;
         callOp.SetOpAttribute(callAttr);
     }
-      // 3. 记录原始状态
+    // 3. 记录原始状态
     auto originalPrograms = rootFuncPtr->programs_;
     auto originalCallOps = rootFuncPtr->GetCallopList();
-    size_t originalProgramCount = originalPrograms.size();  // 应该为3
-    size_t originalCallOpCount = originalCallOps.size();    // 应该为3
+    size_t originalProgramCount = originalPrograms.size(); // 应该为3
+    size_t originalCallOpCount = originalCallOps.size();   // 应该为3
     // 4. 执行拆分（应该提前退出）
     MixSubgraphSplit splitter;
     Status status = splitter.RunOnFunction(*rootFuncPtr);
@@ -804,17 +808,17 @@ TEST_F(MixSubgraphSplitTest, TestNoMixSubgraphScenario) {
 }
 
 // 辅助函数：创建外部Mix子图
-void CreateExternalMixFunction(std::shared_ptr<Function>& externalRootFuncPtr,
-                              std::shared_ptr<Function>& externalMixFuncPtr) {
+void CreateExternalMixFunction(
+    std::shared_ptr<Function>& externalRootFuncPtr, std::shared_ptr<Function>& externalMixFuncPtr)
+{
     // 创建外部root function
-    externalRootFuncPtr = std::make_shared<Function>(
-        Program::GetInstance(), "external_root", "external_root", nullptr);
+    externalRootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "external_root", "external_root", nullptr);
     externalRootFuncPtr->rootFunc_ = externalRootFuncPtr.get();
 
     // 创建Mix子图
     const uint64_t externalMixProgramId = 999;
-    externalMixFuncPtr = std::make_shared<Function>(
-        Program::GetInstance(), "external_mix", "external_mix", externalRootFuncPtr.get());
+    externalMixFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "external_mix", "external_mix", externalRootFuncPtr.get());
     externalMixFuncPtr->SetGraphType(GraphType::BLOCK_GRAPH);
     externalMixFuncPtr->SetFunctionType(FunctionType::STATIC);
 
@@ -854,12 +858,10 @@ void CreateExternalMixFunction(std::shared_ptr<Function>& externalRootFuncPtr,
 }
 
 // 辅助函数：验证跨function调用结果
-void VerifyCrossFunctionResults(MixSubgraphSplit& splitter,
-                               std::shared_ptr<Function>& rootFuncPtr,
-                               std::shared_ptr<Function>& externalRootFuncPtr,
-                               std::shared_ptr<Function>& externalMixFuncPtr,
-                               Operation* crossCallOp,
-                               Status status) {
+void VerifyCrossFunctionResults(
+    MixSubgraphSplit& splitter, std::shared_ptr<Function>& rootFuncPtr, std::shared_ptr<Function>& externalRootFuncPtr,
+    std::shared_ptr<Function>& externalMixFuncPtr, Operation* crossCallOp, Status status)
+{
     EXPECT_EQ(status, FAILED) << "Fresh external mix function without preceding processing should fail";
 
     // 9.1 验证Mix子图识别
@@ -878,14 +880,11 @@ void VerifyCrossFunctionResults(MixSubgraphSplit& splitter,
 
     // 9.4 验证原始外部Mix子图状态不变
     // 外部Mix子图不应该被修改
-    EXPECT_EQ(externalRootFuncPtr->programs_.size(), 1)
-        << "External root function's programs should remain unchanged";
+    EXPECT_EQ(externalRootFuncPtr->programs_.size(), 1) << "External root function's programs should remain unchanged";
 
     auto it = externalRootFuncPtr->programs_.find(999);
-    EXPECT_NE(it, externalRootFuncPtr->programs_.end())
-        << "External mix function should still exist in external root";
-    EXPECT_EQ(it->second, externalMixFuncPtr.get())
-        << "External mix function pointer should be unchanged";
+    EXPECT_NE(it, externalRootFuncPtr->programs_.end()) << "External mix function should still exist in external root";
+    EXPECT_EQ(it->second, externalMixFuncPtr.get()) << "External mix function pointer should be unchanged";
 
     // 9.5 验证原始的callOp仍然存在
     bool originalCallOpExists = false;
@@ -901,10 +900,11 @@ void VerifyCrossFunctionResults(MixSubgraphSplit& splitter,
 /**
  * 测试Mix子图为跨function调用时的特殊处理
  */
-TEST_F(MixSubgraphSplitTest, TestCrossFunctionMixSubgraph) {
+TEST_F(MixSubgraphSplitTest, TestCrossFunctionMixSubgraph)
+{
     // 1. 创建场景：Mix子图不在当前rootFunc的programs中
-    auto rootFuncPtr = std::make_shared<Function>(
-        Program::GetInstance(), "test_root_cross", "test_root_cross", nullptr);
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "test_root_cross", "test_root_cross", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
 
     // 2. 创建外部Mix子图（保持为shared_ptr，避免析构）
@@ -928,30 +928,30 @@ TEST_F(MixSubgraphSplitTest, TestCrossFunctionMixSubgraph) {
     Status status = splitter.RunOnFunction(*rootFuncPtr);
 
     // 6. 验证结果
-    VerifyCrossFunctionResults(splitter, rootFuncPtr, externalRootFuncPtr,
-                              externalMixFuncPtr, &crossCallOp, status);
+    VerifyCrossFunctionResults(splitter, rootFuncPtr, externalRootFuncPtr, externalMixFuncPtr, &crossCallOp, status);
 }
 
-TEST_F(MixSubgraphSplitTest, TestDependOperand) {
+TEST_F(MixSubgraphSplitTest, TestDependOperand)
+{
     // Build Graph
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
-        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
-    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN,
-        Opcode::OP_COPY_IN, Opcode::OP_ADD};
+                                           MemoryType::MEM_UB,         MemoryType::MEM_UB,         MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC,
+                                Opcode::OP_COPY_IN,  Opcode::OP_COPY_IN,  Opcode::OP_ADD};
     std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {"t1"}, {"t2"}, {"t4", "t5"}};
     std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t3", "t4"}, {"t5"}, {"t6"}};
     std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Copyin1", "Copyin2", "Add1"};
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
-    Function *function = subGraph.GetFunction();
+    Function* function = subGraph.GetFunction();
 
     // Add and check depend operand
-    Operation *copyin2 = subGraph.GetOp("Copyin2");
+    Operation* copyin2 = subGraph.GetOp("Copyin2");
     std::shared_ptr<LogicalTensor> tensor4 = subGraph.GetTensor("t4");
     copyin2->AddDependOperand(tensor4);
-    Operation *add1 = subGraph.GetOp("Add1");
+    Operation* add1 = subGraph.GetOp("Add1");
     std::shared_ptr<LogicalTensor> tensor3 = subGraph.GetTensor("t3");
     add1->AddDependOperand(tensor3);
     EXPECT_EQ(copyin2->GetDependOperands().front()->GetMagic(), MS_NUM3);
@@ -968,7 +968,7 @@ TEST_F(MixSubgraphSplitTest, TestDependOperand) {
 
     // Sort Operations
     function->SortOperations();
-    Operation *alloc2 = subGraph.GetOp("Alloc2");
+    Operation* alloc2 = subGraph.GetOp("Alloc2");
     auto sortedOpList = function->Operations().DuplicatedOpList();
     auto alloc2Iter = std::find(sortedOpList.begin(), sortedOpList.end(), alloc2);
     auto copyin2Iter = std::find(sortedOpList.begin(), sortedOpList.end(), copyin2);
@@ -980,7 +980,7 @@ TEST_F(MixSubgraphSplitTest, TestDependOperand) {
     tensor4->RemoveDependOp(copyin2);
     tensor3->RemoveDependOp(add1);
 
-    //Sort Operations
+    // Sort Operations
     function->SortOperations();
     auto sortedOpList2 = function->Operations().DuplicatedOpList();
     auto alloc2Iter2 = std::find(sortedOpList2.begin(), sortedOpList2.end(), alloc2);
@@ -995,10 +995,10 @@ TEST_F(MixSubgraphSplitTest, TestDependOperand) {
     EXPECT_EQ(tensor4->GetDependOps().size(), 0);
 }
 
-TEST_F(MixSubgraphSplitTest, TestDependencyAnalyzerFailed) {
+TEST_F(MixSubgraphSplitTest, TestDependencyAnalyzerFailed)
+{
     // ==================== 创建root function ====================
-    auto rootFuncPtr = std::make_shared<Function>(
-        Program::GetInstance(), "test_root", "test_root", nullptr);
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "test_root", "test_root", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     // ==================== 创建Mix子图 ====================
     uint64_t mixProgramId = 0;

@@ -34,7 +34,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -44,7 +45,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynVdup, TestDynVdupUnaligned) {
+TEST_F(TestCodegenDynVdup, TestDynVdupUnaligned)
+{
     std::vector<int64_t> shape{2, 256, 7};
     Element src(DataType::DT_FP32, 2.0);
 
@@ -53,8 +55,10 @@ TEST_F(TestCodegenDynVdup, TestDynVdupUnaligned) {
     Tensor output(DataType::DT_FP32, shape, "C");
     std::string funcName = "TestDynVdupUnaligned";
 
-    FUNCTION(funcName, {output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = npu::tile_fwk::Full(src, DataType::DT_FP32, shape);
         }

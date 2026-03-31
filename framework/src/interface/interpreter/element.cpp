@@ -21,25 +21,27 @@ namespace npu::tile_fwk {
 
 constexpr double D_EPSILON = 1e-9;
 
-#define ELEMENT_CAST(ast2Type, type, calcType)       \
-    template <>                                      \
-    type Element::Cast<type>() const {               \
-        type result{0};                              \
-        if (IsSigned()) {                            \
-            result = static_cast<type>(data_.sData); \
-        } else if (IsUnsigned()) {                   \
-            result = static_cast<type>(data_.uData); \
-        } else if (IsFloat()) {                      \
-            result = static_cast<type>(data_.fData); \
-        } else {                                     \
+#define ELEMENT_CAST(ast2Type, type, calcType)                  \
+    template <>                                                 \
+    type Element::Cast<type>() const                            \
+    {                                                           \
+        type result{0};                                         \
+        if (IsSigned()) {                                       \
+            result = static_cast<type>(data_.sData);            \
+        } else if (IsUnsigned()) {                              \
+            result = static_cast<type>(data_.uData);            \
+        } else if (IsFloat()) {                                 \
+            result = static_cast<type>(data_.fData);            \
+        } else {                                                \
             ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, false); \
-        }                                            \
-        return result;                               \
+        }                                                       \
+        return result;                                          \
     }
 
 // custom cast of bool type
 template <>
-bool Element::Cast<bool>() const {
+bool Element::Cast<bool>() const
+{
     if (IsSigned()) {
         return data_.sData != 0;
     } else if (IsUnsigned()) {
@@ -54,7 +56,6 @@ bool Element::Cast<bool>() const {
 
 DISPATCH_DATA_TYPE(ELEMENT_CAST);
 
-
 #define CALC_ADD(lhs, rhs) ((lhs) + (rhs))
 #define CALC_SUB(lhs, rhs) ((lhs) - (rhs))
 #define CALC_MUL(lhs, rhs) ((lhs) * (rhs))
@@ -67,7 +68,8 @@ DISPATCH_DATA_TYPE(ELEMENT_CAST);
 #define CALC_GT(lhs, rhs) ((lhs) > (rhs))
 #define CALC_GE(lhs, rhs) ((lhs) >= (rhs))
 
-Json ToJson(const Element &elem) {
+Json ToJson(const Element& elem)
+{
     Json j;
     j["data_type"] = static_cast<int>(elem.GetDataType());
 
@@ -83,7 +85,8 @@ Json ToJson(const Element &elem) {
     return j;
 }
 
-Element parseElement(const Json &j) {
+Element parseElement(const Json& j)
+{
     if (!j.contains("data_type") || !j.contains("value")) {
         throw std::invalid_argument("Invalid JSON: Missing required fields");
     }
@@ -100,30 +103,33 @@ Element parseElement(const Json &j) {
     throw std::runtime_error("Unsupported value type in JSON");
 }
 
-uint64_t Element::Abs(uint64_t value1, uint64_t value2) const {
+uint64_t Element::Abs(uint64_t value1, uint64_t value2) const
+{
     if (value1 < value2) {
         return value2 - value1;
     }
     return value1 - value2;
 }
 
-int64_t Element::Abs(int64_t value1, int64_t value2) const {
+int64_t Element::Abs(int64_t value1, int64_t value2) const
+{
     if (value1 < value2) {
         return value2 - value1;
     }
     return value1 - value2;
 }
 
-double Element::Abs(double value1, double value2) const {
+double Element::Abs(double value1, double value2) const
+{
     if (value1 < value2) {
         return value2 - value1;
     }
     return value1 - value2;
 }
 
-Element Element::operator+(const Element &rhs) const {
-    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
-           GetDataType() == rhs.GetDataType());
+Element Element::operator+(const Element& rhs) const
+{
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return Element(GetDataType(), CALC_ADD(GetSignedData(), rhs.GetSignedData()));
     } else if (IsUnsigned()) {
@@ -136,9 +142,9 @@ Element Element::operator+(const Element &rhs) const {
     return Element();
 }
 
-Element Element::operator-(const Element &rhs) const {
-    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
-           GetDataType() == rhs.GetDataType());
+Element Element::operator-(const Element& rhs) const
+{
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return Element(GetDataType(), CALC_SUB(GetSignedData(), rhs.GetSignedData()));
     } else if (IsUnsigned()) {
@@ -151,9 +157,9 @@ Element Element::operator-(const Element &rhs) const {
     return Element();
 }
 
-Element Element::operator*(const Element &rhs) const {
-    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
-           GetDataType() == rhs.GetDataType());
+Element Element::operator*(const Element& rhs) const
+{
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return Element(GetDataType(), CALC_MUL(GetSignedData(), rhs.GetSignedData()));
     } else if (IsUnsigned()) {
@@ -166,9 +172,9 @@ Element Element::operator*(const Element &rhs) const {
     return Element();
 }
 
-Element Element::operator/(const Element &rhs) const {
-    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
-           GetDataType() == rhs.GetDataType());
+Element Element::operator/(const Element& rhs) const
+{
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return Element(GetDataType(), CALC_DIV(GetSignedData(), rhs.GetSignedData()));
     } else if (IsUnsigned()) {
@@ -181,9 +187,9 @@ Element Element::operator/(const Element &rhs) const {
     return Element();
 }
 
-Element Element::operator%(const Element &rhs) const {
-    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
-           GetDataType() == rhs.GetDataType());
+Element Element::operator%(const Element& rhs) const
+{
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return Element(GetDataType(), CALC_MOD(GetSignedData(), rhs.GetSignedData()));
     } else if (IsUnsigned()) {
@@ -194,9 +200,9 @@ Element Element::operator%(const Element &rhs) const {
     return Element();
 }
 
-bool Element::operator==(const Element &rhs) const {
-    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
-           GetDataType() == rhs.GetDataType());
+bool Element::operator==(const Element& rhs) const
+{
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return CALC_EQ(GetSignedData(), rhs.GetSignedData());
     } else if (IsUnsigned()) {
@@ -209,9 +215,9 @@ bool Element::operator==(const Element &rhs) const {
     return false;
 }
 
-bool Element::operator!=(const Element &rhs) const {
-    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
-           GetDataType() == rhs.GetDataType());
+bool Element::operator!=(const Element& rhs) const
+{
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return CALC_NE(GetSignedData(), rhs.GetSignedData());
     } else if (IsUnsigned()) {
@@ -224,9 +230,9 @@ bool Element::operator!=(const Element &rhs) const {
     return false;
 }
 
-bool Element::operator<(const Element &rhs) const {
-    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
-           GetDataType() == rhs.GetDataType());
+bool Element::operator<(const Element& rhs) const
+{
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return CALC_LT(GetSignedData(), rhs.GetSignedData());
     } else if (IsUnsigned()) {
@@ -239,9 +245,9 @@ bool Element::operator<(const Element &rhs) const {
     return false;
 }
 
-bool Element::operator<=(const Element &rhs) const {
-    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
-           GetDataType() == rhs.GetDataType());
+bool Element::operator<=(const Element& rhs) const
+{
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return CALC_LE(GetSignedData(), rhs.GetSignedData());
     } else if (IsUnsigned()) {
@@ -254,9 +260,9 @@ bool Element::operator<=(const Element &rhs) const {
     return false;
 }
 
-bool Element::operator>(const Element &rhs) const {
-    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
-           GetDataType() == rhs.GetDataType());
+bool Element::operator>(const Element& rhs) const
+{
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return CALC_GT(GetSignedData(), rhs.GetSignedData());
     } else if (IsUnsigned()) {
@@ -269,9 +275,9 @@ bool Element::operator>(const Element &rhs) const {
     return false;
 }
 
-bool Element::operator>=(const Element &rhs) const {
-    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE,
-           GetDataType() == rhs.GetDataType());
+bool Element::operator>=(const Element& rhs) const
+{
+    ASSERT(ElementScene::INVALID_ELEMENT_DTYPE, GetDataType() == rhs.GetDataType());
     if (IsSigned()) {
         return CALC_GE(GetSignedData(), rhs.GetSignedData());
     } else if (IsUnsigned()) {
@@ -284,7 +290,8 @@ bool Element::operator>=(const Element &rhs) const {
     return false;
 }
 
-std::vector<int> ConvElementVecToIntVec(const std::vector<Element> &input) {
+std::vector<int> ConvElementVecToIntVec(const std::vector<Element>& input)
+{
     std::vector<int> res;
     res.resize(input.size());
     for (size_t i = 0; i < input.size(); ++i) {
@@ -293,7 +300,8 @@ std::vector<int> ConvElementVecToIntVec(const std::vector<Element> &input) {
     return res;
 }
 
-std::vector<float> ConvElementVecToFloatVec(const std::vector<Element> &input) {
+std::vector<float> ConvElementVecToFloatVec(const std::vector<Element>& input)
+{
     std::vector<float> res(input.size());
     for (size_t i = 0; i < input.size(); ++i) {
         res[i] = input[i].Cast<float>();

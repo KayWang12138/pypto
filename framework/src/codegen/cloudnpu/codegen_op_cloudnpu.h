@@ -38,15 +38,17 @@ namespace npu::tile_fwk {
 struct CodeGenOpCloudNPUCtx : public CodeGenOpCtx {
     std::shared_ptr<ForBlockManager> forBlockManager{nullptr};
 
-    CodeGenOpCloudNPUCtx(std::shared_ptr<SymbolManager> sm, Function &tf, Function &sf, const Operation &op,
-        const std::map<int, int> &lto = {}, bool isMainBlk = false, bool isDynAligned = false,
+    CodeGenOpCloudNPUCtx(
+        std::shared_ptr<SymbolManager> sm, Function& tf, Function& sf, const Operation& op,
+        const std::map<int, int>& lto = {}, bool isMainBlk = false, bool isDynAligned = false,
         std::shared_ptr<ForBlockManager> fbm = nullptr)
-        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk, isDynAligned), forBlockManager(std::move(fbm)) {}
+        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk, isDynAligned), forBlockManager(std::move(fbm))
+    {}
 };
 
 class CodeGenOpCloudNPU : public CodeGenOp {
 public:
-    explicit CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx);
+    explicit CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx& ctx);
 
     ~CodeGenOpCloudNPU() override = default;
 
@@ -108,7 +110,7 @@ public:
 
     std::string GenRangeOp() const;
     std::string PrintRangeTileTensor(
-        const std::string &startVal, const std::string &stepVal, const std::string &tileIdxExpr) const;
+        const std::string& startVal, const std::string& stepVal, const std::string& tileIdxExpr) const;
     std::string GenL0CToUBTileTensor() const;
 
     std::string GenScatterElementSOp() const;
@@ -137,7 +139,7 @@ public:
     std::string GenMrgSortOp() const;
     std::string GenExtractOp() const;
     std::string GenTiledMrgSortOp() const;
-    std::string GenSortOpWithParams(const std::set<int> &idx) const;
+    std::string GenSortOpWithParams(const std::set<int>& idx) const;
     std::string GenSortOp() const;
     std::string GenCompareAndSwapOp() const;
     std::string GenMergeOp() const;
@@ -149,7 +151,7 @@ public:
     std::string GenTwoTileMrgSort() const;
     std::string GenExtractSingleOp() const;
 
-    std::string GenParamsStr(const std::unordered_set<int32_t> &skipOperands = {}) const;
+    std::string GenParamsStr(const std::unordered_set<int32_t>& skipOperands = {}) const;
 
     std::string GenDistOp() const;
     std::string GetTemplateDType() const;
@@ -172,7 +174,7 @@ public:
 
 private:
     TileTensor QueryTileTensorByIdx(int paramIdx) const;
-    std::string InsertOpComment(const std::string &tileOpSourceCode) const;
+    std::string InsertOpComment(const std::string& tileOpSourceCode) const;
 
     std::string GenTemplateParamsForPutAndGet() const;
     std::string GenTemplateParamsForPutUb2Gm() const;
@@ -205,17 +207,19 @@ private:
     bool ShouldSkipProcInLoop(int paramIdx);
 
     template <typename T = int64_t>
-    std::vector<T> GetShapeInLoop(const std::vector<T> &input) {
+    std::vector<T> GetShapeInLoop(const std::vector<T>& input)
+    {
         ASSERT(OperErr::TENSOR_DIM_EXCEEDED, input.size() > SHAPE_DIM2)
             << "input size " << input.size() << " is less than 2";
         std::vector<T> reservedShapeExceptLoopAxes = {*(input.rbegin() + 1), input.back()};
         return reservedShapeExceptLoopAxes;
     }
 
-    int GetCacheModeFlag(const std::string &cacheMode) const;
+    int GetCacheModeFlag(const std::string& cacheMode) const;
 
     template <typename T>
-    bool GetAttr(const std::string &key, T &value) const {
+    bool GetAttr(const std::string& key, T& value) const
+    {
         auto it = opAttrs.find(key);
         if (it == opAttrs.end()) {
             CODEGEN_LOGI("can not find key: %s in opAttrs", key.c_str());
@@ -225,13 +229,15 @@ private:
             value = AnyCast<T>(it->second);
             return true;
         }
-        CODEGEN_LOGE_E(GenCodeErr::DATA_TYPE_MISMATCHED, "Type of attribute %s from PASS is mismatch: %s != %s",
-            key.c_str(), it->second.Type().name(), typeid(T).name());
+        CODEGEN_LOGE_E(
+            GenCodeErr::DATA_TYPE_MISMATCHED, "Type of attribute %s from PASS is mismatch: %s != %s", key.c_str(),
+            it->second.Type().name(), typeid(T).name());
         return false;
     }
 
     template <typename T = int64_t>
-    std::vector<T> GetVectorIntAttribute(const std::string &key) const {
+    std::vector<T> GetVectorIntAttribute(const std::string& key) const
+    {
         ASSERT(GenCodeErr::DATA_TYPE_UNSUPPORTED, std::is_integral_v<T>) << "T must be integral type";
         std::vector<int64_t> val;
         GetAttr(key, val);
@@ -239,7 +245,7 @@ private:
             return val;
         }
         std::vector<T> ret;
-        for (auto &x : val) {
+        for (auto& x : val) {
             ret.emplace_back(static_cast<T>(x));
         }
         return ret;
@@ -247,35 +253,36 @@ private:
 
     std::string GetLastUse() const;
 
-    TileTensor BuildTileTensor(int paramIdx, const std::string &usingType, const ShapeInLoop &shapeInLoop = {});
+    TileTensor BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop = {});
     void UpdateTileTensorShapeAndStride(
-        int paramIdx, TileTensor &tileTensor, bool isSpillToGm, const ShapeInLoop &shapeInLoop = {});
-    std::vector<std::string> BuildStride(const std::vector<int64_t> &input);
+        int paramIdx, TileTensor& tileTensor, bool isSpillToGm, const ShapeInLoop& shapeInLoop = {});
+    std::vector<std::string> BuildStride(const std::vector<int64_t>& input);
 
     std::string GenMemCopyVar(bool isCopyLocalToGM, bool isSpillToGm = false, unsigned uf = 0) const;
 
-    std::string GenGMAddrExprWithOffset(const std::string &addrExpr) const;
+    std::string GenGMAddrExprWithOffset(const std::string& addrExpr) const;
 
     // Add offset of local buffer variable when the variable is generated by spliting from "view" operation.
     template <typename T = std::string, typename... Args>
-    void AppendLocalBufVarOffsetInOrder(Args &...args) const {
+    void AppendLocalBufVarOffsetInOrder(Args&... args) const
+    {
         tempVarsMap.clear();
         tempKey = 0;
         AppendLocalBufVarOffsetInOrderImpl<T>(args...);
     }
 
-    void AppendLocalBufferVarOffset(const std::map<unsigned, std::reference_wrapper<std::string>> &vars) const;
+    void AppendLocalBufferVarOffset(const std::map<unsigned, std::reference_wrapper<std::string>>& vars) const;
 
     // get start offset in total block
     SymbolicScalar GetOperandStartOffset(int operandIdx) const;
 
     std::string GenGmParamVar(unsigned gmParamIdx) const;
 
-    std::vector<std::string> GenGetParamMacroPacked(unsigned gmParamIdx, int dim, const std::string &prefix) const;
+    std::vector<std::string> GenGetParamMacroPacked(unsigned gmParamIdx, int dim, const std::string& prefix) const;
 
-    std::vector<std::string> GenParamIdxExprByIndex(unsigned gmParamIdx, int dim, const std::string &prefix) const;
+    std::vector<std::string> GenParamIdxExprByIndex(unsigned gmParamIdx, int dim, const std::string& prefix) const;
 
-    std::vector<std::string> GenSymbolicArgument(const std::vector<SymbolicScalar> &exprList) const;
+    std::vector<std::string> GenSymbolicArgument(const std::vector<SymbolicScalar>& exprList) const;
 
     std::string GenMemUBTransfer(bool isCopyUBToGM) const;
     std::string GenVectorScalarOpByMode(VecScalMode mode) const;
@@ -287,116 +294,118 @@ private:
     std::string GenPreluOp() const;
     std::string GenPadOp() const;
 
-    std::string PrintDupOp(const PrintDupOpParam &param) const;
-    std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
-    std::string PrintDupOpStatic(const PrintDupOpParam &param) const;
-    std::string PrintDupTileTensor(const PrintDupOpParam &param) const;
+    std::string PrintDupOp(const PrintDupOpParam& param) const;
+    std::string PrintDupOpDynUnaligned(const PrintDupOpParam& param) const;
+    std::string PrintDupOpStatic(const PrintDupOpParam& param) const;
+    std::string PrintDupTileTensor(const PrintDupOpParam& param) const;
 
-    std::string PrintRowMaxline(const PrintUnaryParam &param) const;
+    std::string PrintRowMaxline(const PrintUnaryParam& param) const;
     std::string PrintRowMaxlineTileTensor() const;
-    std::string PrintRowMaxlineDynamicUnaligned(const PrintUnaryParam &param) const;
-    std::string PrintRowMaxlineStatic(const PrintUnaryParam &param) const;
+    std::string PrintRowMaxlineDynamicUnaligned(const PrintUnaryParam& param) const;
+    std::string PrintRowMaxlineStatic(const PrintUnaryParam& param) const;
 
-    std::string PrintReduceEx(const PrintUnaryParam &param) const;
-    std::string PrintReduceExStatic(const PrintUnaryParam &param) const;
+    std::string PrintReduceEx(const PrintUnaryParam& param) const;
+    std::string PrintReduceExStatic(const PrintUnaryParam& param) const;
 
-    std::string PrintReduceSum(const PrintUnaryParam &param) const;
-    std::string PrintReduceSumStatic(const PrintUnaryParam &param) const;
+    std::string PrintReduceSum(const PrintUnaryParam& param) const;
+    std::string PrintReduceSumStatic(const PrintUnaryParam& param) const;
 
-    std::string PrintVcopy(const PrintUnaryParam &param) const;
-    std::string PrintVcopyStatic(const PrintUnaryParam &param) const;
+    std::string PrintVcopy(const PrintUnaryParam& param) const;
+    std::string PrintVcopyStatic(const PrintUnaryParam& param) const;
 
-    std::string PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const;
-    std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam &param) const;
-    std::string PrintVnchwconvStatic(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintVnchwconv(const PrintUnaryTmpBuffParam& param) const;
+    std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam& param) const;
+    std::string PrintVnchwconvStatic(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintUnaryWithTmpTileTensor() const;
 
-    std::string PrintCompact(const PrintUnaryTmpBuffParam &param) const;
-    std::string PrintCompactStatic(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintCompact(const PrintUnaryTmpBuffParam& param) const;
+    std::string PrintCompactStatic(const PrintUnaryTmpBuffParam& param) const;
 
     std::vector<std::string> GeTileOpParamForNormalCopyTileTensor(
-        unsigned gmIdx, const std::string &gmVarName, bool isSpillingToGM) const;
-    std::string PrintMemCopyWithL0C(const PrintMemCopyWithL0CParam &param) const;
-    std::string PrintMemCopyWithL0CStatic(const PrintMemCopyWithL0CParam &param) const;
-    std::string PrintMemCopyWithL0CDynamic(const PrintMemCopyWithL0CParam &param) const;
-    std::string PrintL0CCopyOutDynamicUnalign(const PrintMemCopyWithL0CParam &param,
-        std::vector<std::string> &gmShapeExpr, std::vector<std::string> &gmOffsetExpr) const;
-    std::string PrintMemCopyWithL0CTileTensor(const PrintMemCopyWithL0CParam &param) const;
+        unsigned gmIdx, const std::string& gmVarName, bool isSpillingToGM) const;
+    std::string PrintMemCopyWithL0C(const PrintMemCopyWithL0CParam& param) const;
+    std::string PrintMemCopyWithL0CStatic(const PrintMemCopyWithL0CParam& param) const;
+    std::string PrintMemCopyWithL0CDynamic(const PrintMemCopyWithL0CParam& param) const;
+    std::string PrintL0CCopyOutDynamicUnalign(
+        const PrintMemCopyWithL0CParam& param, std::vector<std::string>& gmShapeExpr,
+        std::vector<std::string>& gmOffsetExpr) const;
+    std::string PrintMemCopyWithL0CTileTensor(const PrintMemCopyWithL0CParam& param) const;
 
     std::pair<std::string, std::string> GetOuterInnerValueStr(
-        unsigned gmIdx, const std::vector<int64_t> &gmShape, bool isSpillingToGM = false) const;
-    std::string PrintMemCopyWithL1(const PrintMemCopyWithL1Param &param) const;
-    std::string PrintMemCopyWithL1Static(const PrintMemCopyWithL1Param &param) const;
-    std::string PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL1Param &param) const;
-    std::string PrintMemCopyWithL1TileTensor(const PrintMemCopyWithL1Param &param) const;
-    std::string PrintMemCopyInWithL1TileTensor(const PrintMemCopyWithL1Param &param) const;
-    std::string PrintMemCopyOutWithL1TileTensor(const PrintMemCopyWithL1Param &param) const;
+        unsigned gmIdx, const std::vector<int64_t>& gmShape, bool isSpillingToGM = false) const;
+    std::string PrintMemCopyWithL1(const PrintMemCopyWithL1Param& param) const;
+    std::string PrintMemCopyWithL1Static(const PrintMemCopyWithL1Param& param) const;
+    std::string PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL1Param& param) const;
+    std::string PrintMemCopyWithL1TileTensor(const PrintMemCopyWithL1Param& param) const;
+    std::string PrintMemCopyInWithL1TileTensor(const PrintMemCopyWithL1Param& param) const;
+    std::string PrintMemCopyOutWithL1TileTensor(const PrintMemCopyWithL1Param& param) const;
 
-    std::string PrintMemCopyWithUB(PrintMemCopyWithUBParam &param) const;
-    std::string PrintMemCopyWithUBStatic(const PrintMemCopyWithUBParam &param) const;
-    std::string PrintMemCopyWithUBDynamic(const PrintMemCopyWithUBParam &param) const;
-    std::string PrintMemCopyWithUBDynamicSupportUnaligned(const PrintMemCopyWithUBParam &param) const;
-    std::string PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam &param) const;
+    std::string PrintMemCopyWithUB(PrintMemCopyWithUBParam& param) const;
+    std::string PrintMemCopyWithUBStatic(const PrintMemCopyWithUBParam& param) const;
+    std::string PrintMemCopyWithUBDynamic(const PrintMemCopyWithUBParam& param) const;
+    std::string PrintMemCopyWithUBDynamicSupportUnaligned(const PrintMemCopyWithUBParam& param) const;
+    std::string PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam& param) const;
     std::vector<std::string> GetGmOffsetForTileTensor(unsigned gmIdx, bool isSpillingToGM = false) const;
 
-    std::string PrintGather(const PrintGatherParam &param) const;
-    std::string PrintGatherDynamicUnaligned(const PrintGatherParam &param) const;
-    std::string PrintGatherStatic(const PrintGatherParam &param) const;
+    std::string PrintGather(const PrintGatherParam& param) const;
+    std::string PrintGatherDynamicUnaligned(const PrintGatherParam& param) const;
+    std::string PrintGatherStatic(const PrintGatherParam& param) const;
 
-    std::string PrintBinaryScalar(const PrintBinaryScalarParam &param) const;
-    std::string PrintBinaryScalarDynamicUnaligned(const PrintBinaryScalarParam &param) const;
-    std::string PrintBinaryScalarStatic(const PrintBinaryScalarParam &param) const;
+    std::string PrintBinaryScalar(const PrintBinaryScalarParam& param) const;
+    std::string PrintBinaryScalarDynamicUnaligned(const PrintBinaryScalarParam& param) const;
+    std::string PrintBinaryScalarStatic(const PrintBinaryScalarParam& param) const;
 
-    std::string PrintUnary(const PrintUnaryParam &param) const;
+    std::string PrintUnary(const PrintUnaryParam& param) const;
     std::string PrintUnaryTileTensor() const;
-    std::string PrintUnaryDynamicUnaligned(const PrintUnaryParam &param) const;
-    std::string PrintUnaryStatic(const PrintUnaryParam &param) const;
+    std::string PrintUnaryDynamicUnaligned(const PrintUnaryParam& param) const;
+    std::string PrintUnaryStatic(const PrintUnaryParam& param) const;
 
     std::string PrintBitwiseNot() const;
 
     SortParam PrepareSortParam() const;
     TiledSortParam PrepareTiledSortParam() const;
     std::string PrintTileSortTileTensor() const;
-    std::string PrintTiledSortDynamicUnaligned(const TiledSortParam &param) const;
-    std::string PrintTiledMrgSortDynamicUnaligned(const TiledSortParam &param) const;
-    std::string PrintSortDynamicUnaligned(const SortParam &param) const;
-    std::string PrintSortStatic(const SortParam &param) const;
+    std::string PrintTiledSortDynamicUnaligned(const TiledSortParam& param) const;
+    std::string PrintTiledMrgSortDynamicUnaligned(const TiledSortParam& param) const;
+    std::string PrintSortDynamicUnaligned(const SortParam& param) const;
+    std::string PrintSortStatic(const SortParam& param) const;
     std::string PrintSortTileTensor() const;
-    std::string PrintBitSortDynamicUnaligned(const SortParam &param) const;
-    std::string PrintBitSortStatic(const SortParam &param) const;
-    std::string PrintMrgSortDynamicUnaligned(const SortParam &param) const;
-    std::string PrintMrgSortStatic(const SortParam &param) const;
+    std::string PrintBitSortDynamicUnaligned(const SortParam& param) const;
+    std::string PrintBitSortStatic(const SortParam& param) const;
+    std::string PrintMrgSortDynamicUnaligned(const SortParam& param) const;
+    std::string PrintMrgSortStatic(const SortParam& param) const;
     std::string PrintSortUBDynamicUnaligned(bool containDstType) const;
 
-    std::string PrintBinaryStatic(const PrintBinaryParam &param) const;
-    std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const;
+    std::string PrintBinaryStatic(const PrintBinaryParam& param) const;
+    std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam& param) const;
     std::string PrintBinaryTileTensor() const;
-    std::string PrintBinary(const PrintBinaryParam &param) const;
+    std::string PrintBinary(const PrintBinaryParam& param) const;
 
-    std::string PrintBinaryBrcStatic(const PrintBinaryBrcParam &param) const;
-    std::string PrintBinaryBrcDynamicUnaligned(const PrintBinaryBrcParam &param) const;
-    std::string PrintBinaryBrc(const PrintBinaryBrcParam &param) const;
+    std::string PrintBinaryBrcStatic(const PrintBinaryBrcParam& param) const;
+    std::string PrintBinaryBrcDynamicUnaligned(const PrintBinaryBrcParam& param) const;
+    std::string PrintBinaryBrc(const PrintBinaryBrcParam& param) const;
 
-    std::string PrintTransposeDataMove(const PrintTransposeDataMoveParam &param) const;
-    std::string PrintTransposeDataMoveLayout(const PrintTransposeDataMoveParam &param) const;
-    std::string PrintTransposeDataMoveStatic(const PrintTransposeDataMoveParam &param) const;
-    std::string PrintTransposeDataMoveDynamic(const PrintTransposeDataMoveParam &param) const;
-    std::string PrintTransposeDataMoveDynamicUnaligned(const PrintTransposeDataMoveParam &param) const;
+    std::string PrintTransposeDataMove(const PrintTransposeDataMoveParam& param) const;
+    std::string PrintTransposeDataMoveLayout(const PrintTransposeDataMoveParam& param) const;
+    std::string PrintTransposeDataMoveStatic(const PrintTransposeDataMoveParam& param) const;
+    std::string PrintTransposeDataMoveDynamic(const PrintTransposeDataMoveParam& param) const;
+    std::string PrintTransposeDataMoveDynamicUnaligned(const PrintTransposeDataMoveParam& param) const;
 
-    std::string PrintGatherElementDynamicUnaligned(const PrintGatherEleParam &param) const;
-    std::string PrintGatherElementStatic(const PrintGatherEleParam &param) const;
-    std::string PrintGatherElementTileTensor(const PrintGatherEleParam &param) const;
+    std::string PrintGatherElementDynamicUnaligned(const PrintGatherEleParam& param) const;
+    std::string PrintGatherElementStatic(const PrintGatherEleParam& param) const;
+    std::string PrintGatherElementTileTensor(const PrintGatherEleParam& param) const;
 
-    std::string PrintIndexOutCast(const PrintIndexOutCastParam &param) const;
-    std::string PrintIndexOutCastStatic(const PrintIndexOutCastParam &param) const;
-    std::string PrintIndexOutCastDynamic(const PrintIndexOutCastParam &param) const;
-    std::string PrintIndexOutCastDynamicUnaligned(const PrintIndexOutCastParam &param) const;
+    std::string PrintIndexOutCast(const PrintIndexOutCastParam& param) const;
+    std::string PrintIndexOutCastStatic(const PrintIndexOutCastParam& param) const;
+    std::string PrintIndexOutCastDynamic(const PrintIndexOutCastParam& param) const;
+    std::string PrintIndexOutCastDynamicUnaligned(const PrintIndexOutCastParam& param) const;
 
-    std::string PrintExpandDynamicUnaligned(const PrintUnaryParam &param, int expandAxis) const;
+    std::string PrintExpandDynamicUnaligned(const PrintUnaryParam& param, int expandAxis) const;
     std::string PrintExpandLayout(int expandAxis) const;
-    std::string PrintExpand(const std::string &s0Var, const std::string &dVar, const std::string &srcDtypeStr,
-        const std::string &dstDtypeStr) const;
-    std::string PrintOneHot(const PrintUnaryParam &param) const;
+    std::string PrintExpand(
+        const std::string& s0Var, const std::string& dVar, const std::string& srcDtypeStr,
+        const std::string& dstDtypeStr) const;
+    std::string PrintOneHot(const PrintUnaryParam& param) const;
     std::string PrintOneHotLayout() const;
     std::string PrintExpm1() const;
     std::string PrintExpm1Layout() const;
@@ -408,55 +417,55 @@ private:
     DynamicParamPackMTE PrepareDynamicShapeInfoForMTE(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isGmSpill = false) const;
 
-    std::string PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const;
-    std::string PrintReduceLastAxisDynamicUnalign(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintReduceLastAxis(const PrintUnaryTmpBuffParam& param) const;
+    std::string PrintReduceLastAxisDynamicUnalign(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintReduceLastAxisTileTensor() const;
 
-    std::string PrintRowSumline(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintRowSumline(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintRowSumlineTileTensor() const;
-    std::string PrintRowSumlineDynamicUnaligned(const PrintUnaryTmpBuffParam &param) const;
-    std::string PrintRowSumlineStatic(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintRowSumlineDynamicUnaligned(const PrintUnaryTmpBuffParam& param) const;
+    std::string PrintRowSumlineStatic(const PrintUnaryTmpBuffParam& param) const;
 
-    std::string PrintIsFinite([[maybe_unused]] const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintIsFinite([[maybe_unused]] const PrintUnaryTmpBuffParam& param) const;
 
     std::string PrintExtractStatic() const;
     std::string PrintExtractDynamicUnaligned() const;
     std::string PrintExtractTileTensor() const;
 
-    std::string PrintCastDynamicUnaligned(const PrintUnaryParam &param) const;
+    std::string PrintCastDynamicUnaligned(const PrintUnaryParam& param) const;
     std::string PrintCastTileTensor() const;
-    std::string PrintReduceCombine(const PrintUnaryTmpBuffParam &param) const;
-    std::string PrintVectorScalarTileTensor(const PrintUnaryParam &param) const;
-    std::string PrintVectorScalarOpDynamicUnalign(const PrintUnaryParam &param) const;
+    std::string PrintReduceCombine(const PrintUnaryTmpBuffParam& param) const;
+    std::string PrintVectorScalarTileTensor(const PrintUnaryParam& param) const;
+    std::string PrintVectorScalarOpDynamicUnalign(const PrintUnaryParam& param) const;
     std::string PrintMemL1ToL0TileTensor() const;
     std::string PrintMatmulTileTensor(bool isAcc) const;
     std::string PrintMatmulTileTensor(
-        bool isAcc, std::unordered_map<OperandType, std::string> &tensorWithMemType) const;
+        bool isAcc, std::unordered_map<OperandType, std::string>& tensorWithMemType) const;
     std::string PrintTmove() const;
     std::string PrintL0CToL1TileTensor() const;
 
-    std::string PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const;
-    std::string PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam &param) const;
-    std::string PrintScatterElementSTileTensor(const PrintScatterElemParam &param) const;
-    std::string PrintScatterOpDynamicUnaligned(const PrintScatterParam &param) const;
-    std::string PrintScatterTileTensor(const PrintScatterParam &param) const;
+    std::string PrintScatterElementSOpStatic(const PrintScatterElemParam& param) const;
+    std::string PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam& param) const;
+    std::string PrintScatterElementSTileTensor(const PrintScatterElemParam& param) const;
+    std::string PrintScatterOpDynamicUnaligned(const PrintScatterParam& param) const;
+    std::string PrintScatterTileTensor(const PrintScatterParam& param) const;
 
-    std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const;
-    std::string PrintIndexAddTileTensor(const PrintIndexAddParam &param) const;
+    std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam& param) const;
+    std::string PrintIndexAddTileTensor(const PrintIndexAddParam& param) const;
 
-    std::string PrintIndexPut(const PrintIndexPutParam &param) const;
+    std::string PrintIndexPut(const PrintIndexPutParam& param) const;
     std::string PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
-    std::string PrintIndexPutDynamicUnaligned(const PrintIndexPutParam &param) const;
+    std::string PrintIndexPutDynamicUnaligned(const PrintIndexPutParam& param) const;
 
-    std::string PrintTriULTileTensor(const std::string &diagonal, bool isUpper) const;
+    std::string PrintTriULTileTensor(const std::string& diagonal, bool isUpper) const;
 
-    std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const;
+    std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam& param) const;
     std::string PrintCumOperationTileTensor(int axis, bool is_sum) const;
 
     WhereParam PrepareWhereParam() const;
-    void GetWhereVarAndType(std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const;
-    std::string PrintWhereOp(const WhereParam &param) const;
-    std::string PrintWhereOpTileTensor(const WhereParam &param) const;
+    void GetWhereVarAndType(std::vector<std::string>& varExpr, std::vector<std::string>& dataTypeExpr) const;
+    std::string PrintWhereOp(const WhereParam& param) const;
+    std::string PrintWhereOpTileTensor(const WhereParam& param) const;
 
     std::string PrintCmpTileTensor() const;
     std::string PrintHypotTileTensor() const;
@@ -474,15 +483,17 @@ private:
     void InitPerfOpsMap();
     void InitAICPUOpsMap();
 
-    std::string PrintCoord(size_t dim, const std::string &coord) const;
+    std::string PrintCoord(size_t dim, const std::string& coord) const;
     std::pair<std::string, std::string> PrintDstSrcCoordFromAttr() const;
-    std::string PrintTensorForCopyBetweenGM(unsigned operandIdx, unsigned gmIdx, const std::string &gmVarName) const;
+    std::string PrintTensorForCopyBetweenGM(unsigned operandIdx, unsigned gmIdx, const std::string& gmVarName) const;
     template <typename T>
-    void FillParamWithFullInput(std::vector<std::string> &paramList, const std::vector<T> &input) const {
+    void FillParamWithFullInput(std::vector<std::string>& paramList, const std::vector<T>& input) const
+    {
         FillParamWithInput(paramList, input, 0, input.size());
     }
     template <typename T>
-    void FillParamWithInputExceptFirst(std::vector<std::string> &paramList, const std::vector<T> &input) const {
+    void FillParamWithInputExceptFirst(std::vector<std::string>& paramList, const std::vector<T>& input) const
+    {
         FillParamWithInput(paramList, input, 1, input.size());
     }
 
@@ -520,7 +531,8 @@ private:
     mutable std::map<unsigned, std::reference_wrapper<std::string>> tempVarsMap;
     mutable unsigned tempKey = 0;
     template <typename T>
-    void AppendLocalBufVarOffsetInOrderImpl() const {
+    void AppendLocalBufVarOffsetInOrderImpl() const
+    {
         if (!tempVarsMap.empty()) {
             AppendLocalBufferVarOffset(tempVarsMap);
             tempVarsMap.clear();
@@ -529,7 +541,8 @@ private:
     }
 
     template <typename T, typename FirstArg, typename... RestArgs>
-    void AppendLocalBufVarOffsetInOrderImpl(FirstArg &first_arg, RestArgs &...rest_args) const {
+    void AppendLocalBufVarOffsetInOrderImpl(FirstArg& first_arg, RestArgs&... rest_args) const
+    {
         bool isValidDType = std::is_same_v<std::remove_reference_t<FirstArg>, T>;
         ASSERT(GenCodeErr::DATA_TYPE_UNSUPPORTED, isValidDType) << "All arguments must be T (default: std::string)!";
         tempVarsMap.emplace(tempKey++, std::ref(first_arg));

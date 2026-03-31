@@ -49,4 +49,4 @@ enum class DistributedErrorCode : uint32_t {
     INVALID_GROUP_INDEX = 0xA3004,
     NULLPTR = 0xA3005,
 };
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

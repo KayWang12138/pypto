@@ -47,7 +47,8 @@ struct TileTensor {
     __aicore__ inline Shape GetShape() { return layout_.GetShape(); }
     __aicore__ inline Stride GetStride() { return layout_.GetStride(); }
 
-    __aicore__ inline uint64_t GetLinearAddr(const TileOffset &offsets = TileOffset(0, 0, 0)) {
+    __aicore__ inline uint64_t GetLinearAddr(const TileOffset& offsets = TileOffset(0, 0, 0))
+    {
         size_t offset = Std::get<DIM_1ST>(offsets) * layout_.template GetStrideDim<DIM_1ST, MAX_DIMS>();
         offset += Std::get<DIM_2ND>(offsets) * layout_.template GetStrideDim<DIM_2ND, MAX_DIMS>();
         offset += Std::get<DIM_3RD>(offsets) * layout_.template GetStrideDim<DIM_3RD, MAX_DIMS>();
@@ -69,11 +70,11 @@ struct TileTensor<T, LA, Hardware::GM> {
     static constexpr Hardware FORMAT = Hardware::GM;
 
     __aicore__ inline TileTensor() {}
-    __aicore__ inline TileTensor(T *addr, LA layout) : addr_(addr), layout_(layout) {}
-    __aicore__ inline TileTensor(T *addr, Shape shape) : addr_(addr), layout_(LA(shape)) {}
+    __aicore__ inline TileTensor(T* addr, LA layout) : addr_(addr), layout_(layout) {}
+    __aicore__ inline TileTensor(T* addr, Shape shape) : addr_(addr), layout_(LA(shape)) {}
 
-    __aicore__ inline TileTensor(T *addr) : addr_(addr) {}
-    __aicore__ inline T *GetAddr() { return addr_; }
+    __aicore__ inline TileTensor(T* addr) : addr_(addr) {}
+    __aicore__ inline T* GetAddr() { return addr_; }
     __aicore__ inline LA GetLayout() { return layout_; }
     __aicore__ inline const LA GetLayout() const { return layout_; }
     __aicore__ inline static constexpr bool IsStaticLayout() { return LayoutType::IsStaticLayout(); }
@@ -82,7 +83,7 @@ struct TileTensor<T, LA, Hardware::GM> {
     __aicore__ inline Stride GetStride() { return layout_.GetStride(); }
 
 private:
-    T *addr_;
+    T* addr_;
     LA layout_;
 };
 
@@ -96,7 +97,8 @@ struct TensorTileInfo {
 };
 
 template <typename T, typename LA, Hardware FMT = Hardware::UB>
-TILEOP TileTensor<T, LA, FMT> MakeTensor(__ubuf__ T *addr, LA layout) {
+TILEOP TileTensor<T, LA, FMT> MakeTensor(__ubuf__ T* addr, LA layout)
+{
     return TileTensor<T, LA, FMT>(addr, layout);
 }
 #endif // TILEOP_UTILS_TILE_TENSOR_H
