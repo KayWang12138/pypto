@@ -290,16 +290,16 @@ GMTileTensorFP32Dim2_1 gmTensor_3((__gm__ float*)GET_PARAM_ADDR(param, 0, 1), Dy
 UBTileTensorFP32Dim2_0 ubTensor_2((uint64_t)UB_S16384_E32768_T, (Shape2Dim(sym_77_dim_0, sym_77_dim_1)));
 GMTileTensorFP32Dim2_1 gmTensor_1((__gm__ float*)GET_PARAM_ADDR(param, 1, 10), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 1, 10)), Stride2Dim(GET_PARAM_STRIDE_2(param, 1, 10))));
 UBTileTensorFP32Dim2_0 ubTensor_0((uint64_t)UB_S0_E16384_T, (Shape2Dim(sym_76_dim_0, sym_76_dim_1)));
-SUBKERNEL_PHASE1
-TLoad(ubTensor_0, gmTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 1))));
-TLoad(ubTensor_2, gmTensor_3, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 1))));
-SUBKERNEL_PHASE2
-set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-TAdd<LastUse3Dim<0, 1, 1>>(ubTensor_0, ubTensor_0, ubTensor_2);
-set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TStore(gmTensor_7, ubTensor_0, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 1))));
+SUBKERNEL_PHASE1 // [opMagic:10031]
+TLoad(ubTensor_0, gmTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 1)))); // [opMagic:10021]
+TLoad(ubTensor_2, gmTensor_3, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 1)))); // [opMagic:10019]
+SUBKERNEL_PHASE2 // [opMagic:10032]
+set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0); // [opMagic:10027]
+wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0); // [opMagic:10028]
+TAdd<LastUse3Dim<0, 1, 1>>(ubTensor_0, ubTensor_0, ubTensor_2); // [opMagic:10012]
+set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0); // [opMagic:10029]
+wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0); // [opMagic:10030]
+TStore(gmTensor_7, ubTensor_0, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 1)))); // [opMagic:10024]
 }
 )!!!";
 #else

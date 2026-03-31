@@ -130,18 +130,18 @@ GMTileTensorFP32Dim4_1 gmTensor_3((__gm__ float*)((__gm__ GMTensorInfo*)(param) 
 UBTileTensorFP32Dim4_0 ubTensor_2((uint64_t)UB_S1024_E2048_T);
 GMTileTensorFP32Dim4_1 gmTensor_1((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
 UBTileTensorFP32Dim4_0 ubTensor_0((uint64_t)UB_S0_E1024_T);
-SUBKERNEL_PHASE1
-TLoad(ubTensor_0, gmTensor_1, Coord4Dim(0, 0, 0, 0));
-TLoad(ubTensor_2, gmTensor_3, Coord4Dim(0, 0, 0, 0));
-SUBKERNEL_PHASE2
-set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-TAdd<LastUse3Dim<0, 0, 1>>(ubTensor_2, ubTensor_0, ubTensor_2);
-pipe_barrier(PIPE_V);
-TMul<LastUse3Dim<0, 1, 1>>(ubTensor_2, ubTensor_0, ubTensor_2);
-set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TStore(gmTensor_10, ubTensor_2, Coord4Dim(0, 0, 0, 0));
+SUBKERNEL_PHASE1 // [opMagic:10019]
+TLoad(ubTensor_0, gmTensor_1, Coord4Dim(0, 0, 0, 0)); // [opMagic:10010]
+TLoad(ubTensor_2, gmTensor_3, Coord4Dim(0, 0, 0, 0)); // [opMagic:10005]
+SUBKERNEL_PHASE2 // [opMagic:10020]
+set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0); // [opMagic:10013]
+wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0); // [opMagic:10014]
+TAdd<LastUse3Dim<0, 0, 1>>(ubTensor_2, ubTensor_0, ubTensor_2); // [opMagic:10007]
+pipe_barrier(PIPE_V); // [opMagic:10016]
+TMul<LastUse3Dim<0, 1, 1>>(ubTensor_2, ubTensor_0, ubTensor_2); // [opMagic:10008]
+set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0); // [opMagic:10017]
+wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0); // [opMagic:10018]
+TStore(gmTensor_10, ubTensor_2, Coord4Dim(0, 0, 0, 0)); // [opMagic:10009]
 }
 )!!!";
     CheckStringExist(expect, res);
