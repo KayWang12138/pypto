@@ -393,7 +393,6 @@ private:
         batchReadyTaskCount_[(int)CoreType::AIC] = 0;
         batchReadyTaskCount_[(int)CoreType::AIV] = 0;
         batchFreeACoreCount_[(int)type] = 0;
-        batchBusyAPairCount_[(int)type] = 0;
         batchFreeBPairCount_[(int)type] = 0;
 
         // Handling Busy A queue pairings
@@ -446,7 +445,6 @@ private:
 
         // Batch-pushing cores
         if (batchFreeACoreCount_[(int)type] > 0) freeACoreQueue_[(int)type]->pushMany(batchFreeACores_[(int)type], batchFreeACoreCount_[(int)type]);
-        if (batchBusyAPairCount_[(int)type] > 0) busyAPairQueue_[(int)type]->pushMany(batchBusyAPairs_[(int)type], batchBusyAPairCount_[(int)type]);
         if (batchFreeBPairCount_[(int)type] > 0) freeBPairQueue_[(int)type]->pushMany(batchFreeBPairs_[(int)type], batchFreeBPairCount_[(int)type]);
     }
 
@@ -733,7 +731,6 @@ private:
     size_t batchReadyTaskCount_[AICORE_TYPE_NUM];
 
     size_t  batchFreeACoreCount_[AICORE_TYPE_NUM];
-    size_t  batchBusyAPairCount_[AICORE_TYPE_NUM];
     size_t  batchFreeBPairCount_[AICORE_TYPE_NUM];
 
     aicoreCore_t batchFreeACores_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
