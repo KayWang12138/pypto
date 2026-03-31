@@ -394,6 +394,6 @@ python3 scripts/analyze_perf.py output/output_20260214_152549_401503_511667
 
 ## 参考资料
 
-- [性能调优文档](../../docs/tutorials/debug/performance.md)
-- [Matmul 高性能编程](../../docs/tutorials/debug/matmul_performance_guide.md)
-- [性能优化案例](../../docs/tutorials/debug/performance_case_quantindexerprolog.md)
+- [性能调优文档](../../../docs/tutorials/debug/performance.md)
+- [Matmul 高性能编程](../../../docs/tutorials/debug/matmul_performance_guide.md)
+- [性能优化案例](../../../docs/tutorials/debug/performance_case_quantindexerprolog.md)

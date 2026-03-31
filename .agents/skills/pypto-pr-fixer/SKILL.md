@@ -57,6 +57,7 @@ pull_number: 1276
 
 10. 同步 upstream（检查 + rebase）
 11. 委托 pypto-pr-creator 完成 commit + push
+```
 
 ## 评论获取与分类
 
