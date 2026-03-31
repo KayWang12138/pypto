@@ -245,10 +245,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& funct
         }
         if (copyOutOps.size() != 1) {
             if (copyOutOps.size() > 1) {
-                APASS_LOG_WARN_F(
-                    Elements::Operation, "GM op_reshape[%d] has multiple producer copy_outs. 
-                    Unsupported scenario may cause percision issue; 
-                    Consider adjusting preceding vec_tile to avoid multiple copy_outs.", op.GetOpMagic());
+                APASS_LOG_WARN_F(Elements::Operation, "Do not follow reshape[%d] on GM after multiple copyouts.", op.GetOpMagic());
             }
             return;
         }
