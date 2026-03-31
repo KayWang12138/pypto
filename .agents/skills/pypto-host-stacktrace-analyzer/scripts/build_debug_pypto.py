@@ -142,7 +142,7 @@ class DebugPyptoBuilder:
 def main():
     parser = argparse.ArgumentParser(description='编译Debug版本PyPTO')
     parser.add_argument('-p', '--pypto-root', help='PyPTO项目根目录（默认：当前目录）')
-    parser.add_argument('-t', '--timeout', type=int, default=600, help='编译超时时间（秒，默认：600）')
+    parser.add_argument('-t', '--timeout', type=int, default=1200, help='编译超时时间（秒，默认：1200）')
     parser.add_argument('--skip-check', action='store_true', help='跳过前提条件检查')
 
     args = parser.parse_args()

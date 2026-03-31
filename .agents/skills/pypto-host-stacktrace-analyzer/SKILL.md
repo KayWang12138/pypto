@@ -1,7 +1,6 @@
 ---
 name: pypto-host-stacktrace-analyzer
-description: 分析 host 侧捕获异常后的堆栈信息，通过地址到源码行映射和符号解析，定位问题代码位置。支持 Python traceback、C++ stack trace 和混合堆栈的自动识别与分析。支持编译Debug版本PyPTO包并定位具体代码行。
-Triggers: "堆栈分析"、"堆栈反汇编"、"分析堆栈信息"、"地址到源码行"、"stack trace"、"backtrace"
+description: 分析 host 侧捕获异常后的堆栈信息，通过地址到源码行映射和符号解析，定位问题代码位置。支持 Python traceback、C++ stack trace 和混合堆栈的自动识别与分析。支持编译Debug版本PyPTO包并定位具体代码行。Triggers："堆栈分析"、"堆栈反汇编"、"分析堆栈信息"、"地址到源码行"、"stack trace"、"backtrace"
 ---
 
 # 堆栈信息分析器
