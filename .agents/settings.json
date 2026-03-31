@@ -2,7 +2,7 @@
     "permissions": {
       "allow": [
         "Skill(pypto-op-workflow)",
-        "Skill(pypto-op-perf-autotuner)",
+        "Skill(pypto-operator-auto-tuner)",
         "Skill(pypto-skill-reviewer)",
         "Task(subagent_type=Explore)",
         "Task(subagent_type=Plan)",

@@ -8,7 +8,7 @@ license: 完整条款见 LICENSE.txt
 
 ## 概述
 
-本技能用于分析如何根据用户描述生成对应的Pass侧单元测试用例（UT），结合pypto-pass-module-analyzer/SKILL.md技能分析Pass业务，帮助设计相关单元测试用例（UT）。
+本技能用于分析如何根据用户描述生成对应的Pass侧单元测试用例（UT），结合调用 `pypto-pass-module-analyzer` 技能分析 Pass 业务，帮助设计相关单元测试用例（UT）。
 
 ## 目录结构
 
