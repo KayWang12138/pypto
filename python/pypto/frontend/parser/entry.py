@@ -17,6 +17,7 @@ including the parse function and JIT decorator.
 
 import inspect
 import os
+import time
 from typing import Any, Callable, Optional, Union
 from enum import IntEnum
 import itertools
@@ -128,13 +129,13 @@ def _pto_to_tensor_data(
     return datas
 
 
-def _current_stream():
+def get_current_stream():
     """Retrieve current NPU stream (0 if torch.npu is not present)"""
     npu = getattr(torch, 'npu', None)
     if npu:
-        return npu.current_stream().npu_stream
+        return npu.current_stream()
     else:
-        return 0
+        return None
 
 
 class JitCallableWrapper:
@@ -299,6 +300,7 @@ class JitCallableWrapper:
         self._cached_signature = self._get_signature()
         self._cached_non_tensor_defaults: dict[str, Any] = self._extract_non_tensor_defaults()
         self._cache_hashes: tuple = self._compute_cache_hashes()
+        self._current_stream = None
 
         # Copy metadata from the original function
         if hasattr(original_func, "__name__"):
@@ -333,6 +335,8 @@ class JitCallableWrapper:
         in_tensors, non_tensor_values, input_tensor_defs = self._parse_call_args(
             args, kwargs
         )
+        if self._current_stream is None:
+            self._current_stream = get_current_stream()
         self._get_or_create_kmodule(non_tensor_values)
         self._resolve_device(in_tensors)
         if self._debug_options is not None:
@@ -678,9 +682,12 @@ class JitCallableWrapper:
     ) -> None:
         """Run kernel on NPU or CPU (SIM)."""
         if self._runtime_options.get("run_mode", None) == RunMode.NPU:
+            start_time = time.monotonic_ns()
             pypto_impl.LaunchKernelTorch(
-                self, _current_stream(), torch_tensors, tensor_defs
+                self, 0 if self._current_stream is None else self._current_stream.npu_stream, torch_tensors, tensor_defs
             )
+            end_time = time.monotonic_ns()
+            print(f"LaunchKernelTorch elapsed time: {(end_time - start_time) / 1000:.6f} us")
         else:
             pto_tensors = self._convert_tensors_with_metadata(
                 torch_tensors, tensor_defs
