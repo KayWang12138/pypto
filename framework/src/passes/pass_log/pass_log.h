@@ -16,8 +16,9 @@
 #ifndef PASS_LOG_H
 #define PASS_LOG_H
 
-#include <string>
 #include <chrono>
+#include <string>
+#include <unordered_map>
 #include "interface/utils/log.h"
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
@@ -30,6 +31,8 @@
     } while (false)
 
 namespace npu::tile_fwk {
+
+class Pass;
 
 std::string GetFormatBacktrace(const Operation& op);
 
@@ -96,6 +99,20 @@ private:
     bool started_{false};
     bool ended_{false};
     std::chrono::steady_clock::time_point start_;
+};
+
+class PassLogUtil {
+public:
+    PassLogUtil(Pass &pass, Function &function, size_t passIndex);
+    ~PassLogUtil();
+
+    PassLogUtil(const PassLogUtil &) = delete;
+    PassLogUtil &operator=(const PassLogUtil &) = delete;
+
+private:
+    std::string originLogOutPath_;
+    std::string logFilePath_;
+    std::string logFolder_;
 };
 
 }

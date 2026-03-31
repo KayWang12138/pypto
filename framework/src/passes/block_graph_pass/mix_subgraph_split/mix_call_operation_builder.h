@@ -16,6 +16,7 @@
 #ifndef MIX_CALL_OPERATION_BUILDER_H
 #define MIX_CALL_OPERATION_BUILDER_H
 
+#include "passes/pass_utils/pass_subfunc_utils.h"
 #include "passes/block_graph_pass/mix_subgraph_split/mix_subgraph_split_utils.h"
 
 namespace npu {

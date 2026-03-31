@@ -27,6 +27,7 @@
 #include "interface/utils/common.h"
 
 namespace npu::tile_fwk {
+
 inline int64_t CalcShapeSizeFunc (const std::vector<int64_t>& shape)
 {
     int64_t size = 1;
@@ -44,7 +45,7 @@ struct InvokeParaOffset {
     uint64_t rawShapeSize{0};
     int rawMagic{0};
     std::string rawSymbol{""};
-    int opOriginArgsSeq{INVALID_IN_OUT_INDEX}; // map origin args seq no
+    int opOriginArgsSeq{-1}; // map origin args seq no
     int funcitonMagic{-1};
     int8_t ioIndex{-1};
     int8_t paramType{-1};

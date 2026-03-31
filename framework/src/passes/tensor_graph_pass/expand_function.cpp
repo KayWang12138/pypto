@@ -27,6 +27,7 @@
 #include "passes/pass_check/expand_function_checker.h"
 #include "passes/statistics/tensor_and_tile_graph_statistic.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/pass_utils.h"
 #include "passes/pass_utils/graph_utils.h"
 
 #define MODULE_NAME "ExpandFunction"
@@ -166,7 +167,7 @@ Status ExpandFunction::ExpandOperation(Function &function, Operation &op) const 
     int scopeIdx = op.GetScopeId();
     if (scopeIdx >= 0) { // scopeIdx < 0 means no need to merge
         scopeMap_[scopeIdx].insert(op.GetCoreType());
-        if (!GraphUtils::IsCVMixPlatform() && scopeMap_[scopeIdx].find(CoreType::AIC) != scopeMap_[scopeIdx].end() &&
+        if (!PassUtils::IsCVMixPlatform() && scopeMap_[scopeIdx].find(CoreType::AIC) != scopeMap_[scopeIdx].end() &&
             scopeMap_[scopeIdx].find(CoreType::AIV) != scopeMap_[scopeIdx].end()) {
             APASS_LOG_ERROR_F(Elements::Function,
                 "Cannot mix cube and vector op on a CV seperate platform in function: %s, please check your setting: "

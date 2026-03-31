@@ -13,7 +13,10 @@
  * \brief
  */
 
-#include <iostream>
+#include <sstream>
+#include "interface/configs/config_manager.h"
+#include "interface/utils/file_utils.h"
+#include "passes/pass_interface/pass.h"
 #include "passes/pass_log/pass_log.h"
 
 namespace npu::tile_fwk {
@@ -44,6 +47,23 @@ namespace npu::tile_fwk {
             return "";
         }
         return GetFormatBacktrace(*op);
+    }
+
+    PassLogUtil::PassLogUtil(Pass &pass, Function &function, size_t passIndex) {
+        originLogOutPath_ = config::LogFile();
+        logFolder_ = pass.LogFolder(config::LogTopFolder(), passIndex);
+        logFilePath_ = logFolder_ + "/" + (pass.GetName() + function.GetMagicName() + ".log");
+        LoggerManager::FileLoggerReplace(originLogOutPath_, logFilePath_, true);
+    }
+
+    PassLogUtil::~PassLogUtil() {
+        LoggerManager::FileLoggerReplace(logFilePath_, originLogOutPath_, true);
+        if (!logFolder_.empty()) {
+            auto files = GetFiles(logFolder_, "");
+            if (files.empty()) {
+                (void)DeleteDir(logFolder_);
+            }
+        }
     }
 
 }

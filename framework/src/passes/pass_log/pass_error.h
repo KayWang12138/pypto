@@ -77,4 +77,3 @@ enum class ManagerErr : uint32_t {
 };
 
 }  // namespace npu::tile_fwk
-

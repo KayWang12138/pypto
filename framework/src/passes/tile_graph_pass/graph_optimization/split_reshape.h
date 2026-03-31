@@ -19,7 +19,7 @@
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/configs/config_manager.h"
-#include "passes/pass_utils/pass_common_defs.h"
+#include "passes/pass_interface/pass_common_defs.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_check/split_reshape_checker.h"

@@ -16,6 +16,7 @@
 #ifndef MIX_DEPENDENCY_ANALYZER_H
 #define MIX_DEPENDENCY_ANALYZER_H
 
+#include "passes/pass_utils/pass_subfunc_utils.h"
 #include "passes/block_graph_pass/mix_subgraph_split/mix_subgraph_split_utils.h"
 
 namespace npu {
