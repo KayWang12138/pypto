@@ -42,8 +42,6 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -139,7 +137,7 @@ TEST_F(TestCodegenDynScalar, TestAddsTileTensor)
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    std::string expect = R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_7, ubTensor_7, 3);
+    std::string expect = R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_0, ubTensor_0, 3);
 )!!!";
     CheckStringExist(expect, res);
 }
