@@ -14,12 +14,13 @@ FlashAttentionScoreGrad 性能测试
 测量 NPU 上的 kernel 执行时间，包含预热和多次迭代取平均。
 """
 
+import argparse
+import logging
 import os
 import sys
 import time
-import logging
+
 import torch
-import argparse
 
 # Configure logger for the module
 logger = logging.getLogger(__name__)

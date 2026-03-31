@@ -9,8 +9,19 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """采集性能数据 (生成泳道图)"""
-import os, sys, logging, torch
+import logging
+import os
+import sys
+
+import torch
+import pypto
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from flash_attention_score_grad_golden import generate_forward_data
+from flash_attention_score_grad_impl import (
+    NUM_HEADS, HEAD_DIM, S_TILE, compute_tile,
+    flash_attention_score_grad_wrapper,
+)
 
 # Configure logger for the module
 logger = logging.getLogger(__name__)
@@ -25,12 +36,6 @@ handler.setFormatter(formatter)
 logger.handlers.clear()
 logger.addHandler(handler)
 
-import pypto
-from flash_attention_score_grad_golden import generate_forward_data
-from flash_attention_score_grad_impl import (
-    NUM_HEADS, HEAD_DIM, S_TILE, compute_tile,
-    flash_attention_score_grad_wrapper,
-)
 
 # 重新定义带 debug_options 的 kernel (仅用于采集)
 @pypto.frontend.jit(

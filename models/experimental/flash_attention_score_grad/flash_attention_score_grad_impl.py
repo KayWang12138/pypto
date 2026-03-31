@@ -30,6 +30,11 @@ HEAD_DIM = 64
 S_TILE = 128  # 优化: 64 → 128
 
 
+# Note: 变量命名遵循 Flash Attention 论文数学符号:
+#   D_i = rowsum(dY * attention_out) - 行向量 D 的第 i 个元素
+#   S_ij = Q_i @ K_j^T * scale - 注意力分数矩阵的第 (i,j) 个元素
+#   P_ij = softmax(S_ij) - 概率矩阵的第 (i,j) 个元素
+# pylint: disable-next=too-many-arguments,invalid-name
 def compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, D_i,
                  actual_s1, actual_s2, scale_value, c_tile, v_tile_s, v_tile_d, s_tile_size):
     """计算一个 (s1_tile, s2_tile) 块的 P_ij 和 dS_ij。"""
