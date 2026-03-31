@@ -33,7 +33,7 @@ S_TILE = 128  # 优化: 64 → 128
 def compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, D_i,
                  actual_s1, actual_s2, scale_value, c_tile, v_tile_s, v_tile_d, s_tile_size):
     """计算一个 (s1_tile, s2_tile) 块的 P_ij 和 dS_ij。"""
-    # S_ij = Q_i @ K_j^T * scale
+    # 计算公式S_ij = Q_i @ K_j^T * scale
     pypto.set_vec_tile_shapes(v_tile_s[0], v_tile_s[1])
     pypto.set_cube_tile_shapes(c_tile[0], c_tile[1], c_tile[2])
     S_ij = pypto.matmul(q_i, k_j, pypto.DT_FP32, b_trans=True)
@@ -45,14 +45,14 @@ def compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, D_i,
     P_ij = pypto.exp(pypto.sub(S_ij, smax_i))
     P_ij = pypto.div(P_ij, ssum_i)
 
-    # dP_ij = dY_i @ V_j^T
+    # 计算公式dP_ij = dY_i @ V_j^T
     pypto.set_vec_tile_shapes(v_tile_s[0], v_tile_s[1])
     pypto.set_cube_tile_shapes(c_tile[0], c_tile[1], c_tile[2])
     dP_ij = pypto.matmul(dy_i, v_j, pypto.DT_FP32, b_trans=True)
     dP_ij = pypto.view(dP_ij, [s_tile_size, s_tile_size], [0, 0],
                        valid_shape=[actual_s1, actual_s2])
 
-    # dS_ij = P_ij * (dP_ij - D_i)
+    # 计算公式：dS_ij = P_ij * (dP_ij - D_i)
     pypto.set_vec_tile_shapes(v_tile_s[0], v_tile_s[1])
     dS_ij = pypto.mul(P_ij, pypto.sub(dP_ij, D_i))
 
