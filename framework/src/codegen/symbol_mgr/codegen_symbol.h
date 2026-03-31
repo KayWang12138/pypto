@@ -43,7 +43,8 @@ struct ShapeInLoop {
     std::vector<SymbolicScalar> dynamicValidShape;
 };
 
-inline std::string GetLayoutType(BufferType bufType, int dim, bool isConst = false) {
+inline std::string GetLayoutType(BufferType bufType, int dim, bool isConst = false)
+{
     std::string prefix = bufType == BUF_DDR ? "Dyn" : isConst ? "Static" : "Local";
     std::ostringstream ss;
     ss << prefix << LAYOUT << dim << DIM;
@@ -68,7 +69,8 @@ struct TileTensor {
     std::vector<int64_t> localBufOffset;
     ShapeInLoop shapeInLoop;
 
-    bool operator==(const TileTensor &other) const {
+    bool operator==(const TileTensor& other) const
+    {
         return dim == other.dim && bufVar == other.bufVar && shape == other.shape && dtype == other.dtype &&
                localBufOffset == other.localBufOffset && rawShape == other.rawShape;
     }
@@ -77,7 +79,8 @@ struct TileTensor {
         ((__ubuf__ float*)UB_S0_E16384,
         Layout2Dim(Shape2Dim<int, int>(sym_18_dim_0, sym_18_dim_1), Stride2Dim<int, int>(64, 1)));
     */
-    std::string GenInitParam() const {
+    std::string GenInitParam() const
+    {
         std::ostringstream oss;
         std::vector<std::string> params;
         // ddr: e.g. (__gm__ float*)GET_PARAM_ADDR(...)
@@ -120,14 +123,16 @@ struct TileTensor {
         return WrapParamByParentheses(params);
     }
 
-    std::string ToString() const {
+    std::string ToString() const
+    {
         std::ostringstream oss;
         oss << usingType << " " << tensorName << GenInitParam() << STMT_END;
         return oss.str();
     }
 
 private:
-    std::string GenLayoutParam(const std::string &paramName, const std::vector<std::string> &paramValue) const {
+    std::string GenLayoutParam(const std::string& paramName, const std::vector<std::string>& paramValue) const
+    {
         std::ostringstream oss;
         oss << paramName << dim << DIM;
         oss << WrapParamByParentheses(paramValue);
@@ -138,18 +143,19 @@ private:
 };
 
 struct TileTensorHash {
-    std::size_t operator()(const TileTensor &t) const noexcept {
+    std::size_t operator()(const TileTensor& t) const noexcept
+    {
         std::size_t seed = 0;
         HashCombine(seed, t.dim);
         HashCombine(seed, t.bufVar);
         HashCombine(seed, ToUnderlying(t.dtype));
-        for (const auto &s : t.shape) {
+        for (const auto& s : t.shape) {
             HashCombine(seed, s);
         }
-        for (const auto &s : t.rawShape) {
+        for (const auto& s : t.rawShape) {
             HashCombine(seed, s);
         }
-        for (const auto &s : t.localBufOffset) {
+        for (const auto& s : t.localBufOffset) {
             HashCombine(seed, s);
         }
         return seed;
@@ -164,12 +170,14 @@ struct TileTensorUsing {
     std::vector<int64_t> originShape; // only used for static shape
     std::vector<int64_t> rawShape;
 
-    bool operator==(const TileTensorUsing &other) const {
+    bool operator==(const TileTensorUsing& other) const
+    {
         bool baseCompare = dtype == other.dtype && bufType == other.bufType && rawShape == other.rawShape;
         return isConstant ? baseCompare && originShape == other.originShape : baseCompare;
     }
 
-    std::string GenName() const {
+    std::string GenName() const
+    {
         std::ostringstream oss;
         // e.g. "UBTileTensorFP32Dim2_0"
         oss << BUFFER_TYPE_TO_PREFIX.at(bufType) << TILE_TENSOR << BriefDataType2String(dtype) << DIM << dim << "_"
@@ -179,7 +187,8 @@ struct TileTensorUsing {
 
     // dynamic shape: e.g. "TileTensor<__gm__ float, DynLayout4Dim, Hardware::GM>"
     // static shape: e.g. "TileTensor<float, LocalLayout4Dim<16, 16>, Hardware::UB>"
-    std::string ToString() const {
+    std::string ToString() const
+    {
         std::ostringstream ss;
         ss << TILE_TENSOR << "<";
         if (bufType == BUF_DDR) {
@@ -196,7 +205,8 @@ struct TileTensorUsing {
 
 private:
     constexpr static int SHAPE_KIND = 2; // origin shape; raw shape
-    std::string GetLayoutParams() const {
+    std::string GetLayoutParams() const
+    {
         std::vector<int64_t> params;
         params.reserve(dim * SHAPE_KIND);
         if (isConstant) {
@@ -214,17 +224,18 @@ public:
 
     using AllocRecord = std::pair<uint64_t /*AllocaAddr*/, unsigned /*AllocaSize*/>;
 
-    virtual std::string QueryVariableName(const AllocKey &key);
-    std::string QueryVariableNameTileTensor(const AllocKey &key);
+    virtual std::string QueryVariableName(const AllocKey& key);
+    std::string QueryVariableNameTileTensor(const AllocKey& key);
     std::string QueryVarNameByTensorMagic(int magic, bool isTileTensor = false);
-    SymbolManager(SymbolManager &other) = delete;
+    SymbolManager(SymbolManager& other) = delete;
 
-    void operator=(const SymbolManager &other) = delete;
+    void operator=(const SymbolManager& other) = delete;
 
     bool BindAddrWithVariableName(
-        const AllocKey &key, const std::string &varName, const std::string &varNameTileTensor);
+        const AllocKey& key, const std::string& varName, const std::string& varNameTileTensor);
 
-    void AddToTensorMap(int magicNum, const std::shared_ptr<LogicalTensor> &tensor) {
+    void AddToTensorMap(int magicNum, const std::shared_ptr<LogicalTensor>& tensor)
+    {
         auto res = tensorMap_.insert({magicNum, tensor});
         if (!res.second) {
             ASSERT(GenCodeErr::TENSOR_MAGIC_CONFLICT, tensor == tensorMap_[magicNum])
@@ -236,33 +247,34 @@ public:
         }
     }
 
-    static std::string FormatAllocKey(const AllocKey &key);
+    static std::string FormatAllocKey(const AllocKey& key);
 
-    std::string AddTileTensorUsing(const TileTensorUsing &tileTensorUsing);
-    std::string AddTileTensor(const TileTensor &tileTensor);
+    std::string AddTileTensorUsing(const TileTensorUsing& tileTensorUsing);
+    std::string AddTileTensor(const TileTensor& tileTensor);
     std::vector<TileTensor> QueryTileTensorByMagic(int magic);
     std::vector<TileTensor> QueryTileTensorInLoopByMagic(int magic);
-    void InsertTensorNameInLoopToFullDim(const std::string &tensorName, const std::string &fullDimTensorName);
-    std::string QueryTileTensorFullDimByTensorInLoop(const std::string &tensorName);
+    void InsertTensorNameInLoopToFullDim(const std::string& tensorName, const std::string& fullDimTensorName);
+    std::string QueryTileTensorFullDimByTensorInLoop(const std::string& tensorName);
     // To be compatible with GM Tensor in Static Function Type like same ddr magic number with different parmaIdx &
     // 'GMStackBase' e.g. ((__gm__ GMTensorInfo*)param + 1), ((__gm__ GMTensorInfo*)param + 2)
-    const TileTensor &QueryTileTensorByBufVar(const std::string &bufVarName);
-    std::string QueryTileTensorNameByBufVar(const std::string &bufVarName);
-    std::string QueryTileTensorTypeByBufVar(const std::string &bufVarName);
+    const TileTensor& QueryTileTensorByBufVar(const std::string& bufVarName);
+    std::string QueryTileTensorNameByBufVar(const std::string& bufVarName);
+    std::string QueryTileTensorTypeByBufVar(const std::string& bufVarName);
 
     std::string GenUsingList();
     std::string GenTileTensorDefList();
 
-    void OutForLoop() {
+    void OutForLoop()
+    {
         tileTensorByMagicInLoop_.clear();
         tensorNameInLoopToFullDim_.clear();
     }
 
 private:
     std::shared_ptr<LogicalTensor> GetTensorByMagic(int magicNum) const;
-    AllocKey CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const;
+    AllocKey CreateAllocKey(const std::shared_ptr<LogicalTensor>& tensor) const;
     AllocKey CreateAllocKey(int tensorMagicNum) const;
-    std::string FindUsingName(const TileTensorUsing &tileTensorUsing) const;
+    std::string FindUsingName(const TileTensorUsing& tileTensorUsing) const;
 
     // <AllocKey, buffer variable name>
     std::map<AllocKey, std::string> key2VariableName_;

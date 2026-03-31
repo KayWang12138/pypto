@@ -36,7 +36,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetBuildStatic(true);
@@ -49,7 +50,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenRowSumLine, TestOperationRowSumLineTileTensor) {
+TEST_F(TestCodegenRowSumLine, TestOperationRowSumLineTileTensor)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     int shape0 = 6;
     int shape1 = 1;
@@ -63,9 +65,7 @@ TEST_F(TestCodegenRowSumLine, TestOperationRowSumLineTileTensor) {
     Tensor output(DataType::DT_FP32, outshape, "C");
 
     std::string funcName = "Reduce3dimMoe_TILERENSOR";
-    FUNCTION(funcName, {input_a, output}) {
-        output = Sum(input_a, 1, true);
-    }
+    FUNCTION(funcName, {input_a, output}) { output = Sum(input_a, 1, true); }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
 
     npu::tile_fwk::CodeGenCtx ctx;

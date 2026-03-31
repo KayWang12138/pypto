@@ -34,7 +34,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -44,7 +45,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynCmp, TestDynOpCmp) {
+TEST_F(TestCodegenDynCmp, TestDynOpCmp)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
 
     auto function = GenMockFuncDyn("TestDynOpCmp");
@@ -58,7 +60,7 @@ TEST_F(TestCodegenDynCmp, TestDynOpCmp) {
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = function->AddOperation(
+    auto& op = function->AddOperation(
         Opcode::OP_CMP, {localTensorInput1, localTensorInput2}, {localTensorRes, localTensorTmp});
     op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", 0);
     op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", 0);
@@ -76,7 +78,8 @@ TEST_F(TestCodegenDynCmp, TestDynOpCmp) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynCmp, TestDynOpCmpS) {
+TEST_F(TestCodegenDynCmp, TestDynOpCmpS)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
 
     auto function = GenMockFuncDyn("TestDynOpCmpS");
@@ -90,7 +93,7 @@ TEST_F(TestCodegenDynCmp, TestDynOpCmpS) {
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = function->AddOperation(Opcode::OP_CMPS, {localTensorInput1}, {localTensorRes, localTensorTmp});
+    auto& op = function->AddOperation(Opcode::OP_CMPS, {localTensorInput1}, {localTensorRes, localTensorTmp});
     op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", 0);
     op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", 0);
     op.SetAttribute(OpAttributeKey::scalar, scalaVal);
@@ -108,7 +111,8 @@ TEST_F(TestCodegenDynCmp, TestDynOpCmpS) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynCmp, CmpTileTensor) {
+TEST_F(TestCodegenDynCmp, CmpTileTensor)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
 
@@ -124,7 +128,7 @@ TEST_F(TestCodegenDynCmp, CmpTileTensor) {
     std::vector<SymbolicScalar> dynoffset = {0, 0};
     localTensor->UpdateOffset(TensorOffset(offset, dynoffset));
 
-    auto &op = function->AddOperation(Opcode::OP_CMP, {localTensor, localTensor}, {localOutTensor, localOutTensor});
+    auto& op = function->AddOperation(Opcode::OP_CMP, {localTensor, localTensor}, {localOutTensor, localOutTensor});
     int64_t cmpParam = 0;
     op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", cmpParam);
     op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", cmpParam);

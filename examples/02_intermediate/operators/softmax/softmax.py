@@ -117,7 +117,7 @@ def test_softmax(device_id: int = None, dynamic: bool = True) -> None:
     softmax_kernel(x, y) # default dim: -1
     golden = torch.softmax(x, dim=-1).cpu()
     y = y.cpu()
-    
+
     max_diff = np.abs(y.numpy() - golden.numpy()).max()
     print(f"Input shape: {x.shape}")
     print(f"Output shape: {y.shape}")

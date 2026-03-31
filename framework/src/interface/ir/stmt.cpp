@@ -19,10 +19,11 @@
 namespace pypto {
 namespace ir {
 
-OpStmts::OpStmts(std::vector<StmtPtr> stmts, Span span) : Stmt(std::move(span)), stmts_(std::move(stmts)) {
+OpStmts::OpStmts(std::vector<StmtPtr> stmts, Span span) : Stmt(std::move(span)), stmts_(std::move(stmts))
+{
     // Validate that all statements are AssignStmt or EvalStmt
     for (size_t i = 0; i < stmts_.size(); ++i) {
-        const auto &stmt = stmts_[i];
+        const auto& stmt = stmts_[i];
         INTERNAL_CHECK(stmt) << "OpStmts has null statement at index " << i << " at " << span_.ToString();
         auto kind = stmt->GetKind();
         INTERNAL_CHECK(kind == ObjectKind::AssignStmt || kind == ObjectKind::EvalStmt)

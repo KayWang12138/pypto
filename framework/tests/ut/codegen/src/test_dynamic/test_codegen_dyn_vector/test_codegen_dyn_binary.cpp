@@ -38,7 +38,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -52,10 +53,11 @@ public:
     void TearDown() override {}
 };
 
-void TestAddDynBody(const std::string &name, bool isNeedCalcMinForBinaryOperands = false) {
+void TestAddDynBody(const std::string& name, bool isNeedCalcMinForBinaryOperands = false)
+{
     auto function = GenMockFuncDyn(name);
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
+    for (auto& subFunc : function->rootFunc_->programs_) {
+        for (auto& op : subFunc.second->Operations()) {
             if (op.GetOpcode() == Opcode::OP_ADD && isNeedCalcMinForBinaryOperands) {
                 op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
             }
@@ -66,16 +68,16 @@ void TestAddDynBody(const std::string &name, bool isNeedCalcMinForBinaryOperands
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynBinary, TestCodegenAddDim2) {
-    TestAddDynBody("TestCodegenAddDim2");
-}
+TEST_F(TestCodegenDynBinary, TestCodegenAddDim2) { TestAddDynBody("TestCodegenAddDim2"); }
 
-TEST_F(TestCodegenDynBinary, TestCodegenAddDim2SrcNotSameShape) {
+TEST_F(TestCodegenDynBinary, TestCodegenAddDim2SrcNotSameShape)
+{
     TestAddDynBody("TestCodegenAddDim2SrcNotSameShape", true);
 }
 
 void TestAddSDynBody(
-    const std::string &testName, float scalar, bool isSupportTileTensor, const std::vector<std::string> &expect) {
+    const std::string& testName, float scalar, bool isSupportTileTensor, const std::vector<std::string>& expect)
+{
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     }
@@ -88,8 +90,10 @@ void TestAddSDynBody(
     ConfigManager::Instance();
 
     std::string funcName = testName;
-    FUNCTION(funcName, {input_a, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input_a, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Add(input_a, value);
         }
@@ -104,37 +108,45 @@ void TestAddSDynBody(
     codeGen.GenCode(*function, {});
 
     const std::string res = GetResultFromCpp(*function);
-    for (auto &e : expect) {
+    for (auto& e : expect) {
         CheckStringExist(e, res);
     }
 }
 
-TEST_F(TestCodegenDynBinary, TestAddSDynamic) {
+TEST_F(TestCodegenDynBinary, TestAddSDynamic)
+{
     std::vector<std::string> expect = {
         R"!!!(TileOp::DynTadds_<float, /*DS*/ 1, 64, 64, /*S0S*/ 1, 64, 64>((__ubuf__ float*)UB_S0_E16384, (__ubuf__ float*)UB_S0_E16384, (float)1.5, 1, 1, sym_5_dim_0, sym_5_dim_1);
 )!!!"};
     TestAddSDynBody("TestAddsDynamic", 1.5, false, expect);
 }
 
-TEST_F(TestCodegenDynBinary, TestAddSTileTensorInfPos) {
-    std::vector<std::string> expect = {R"!!!(union {float f; uint32_t u;} float_inf_pos = {.u = 0x7F800000};)!!!",
+TEST_F(TestCodegenDynBinary, TestAddSTileTensorInfPos)
+{
+    std::vector<std::string> expect = {
+        R"!!!(union {float f; uint32_t u;} float_inf_pos = {.u = 0x7F800000};)!!!",
         R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_1, ubTensor_1, float_inf_pos.f);)!!!"};
     TestAddSDynBody("TestAddSTileTensorInfPos", 1.0f / 0.0f, true, expect);
 }
 
-TEST_F(TestCodegenDynBinary, TestAddSTileTensorInfNeg) {
-    std::vector<std::string> expect = {R"!!!(union {float f; uint32_t u;} float_inf_neg = {.u = 0xFF800000};)!!!",
+TEST_F(TestCodegenDynBinary, TestAddSTileTensorInfNeg)
+{
+    std::vector<std::string> expect = {
+        R"!!!(union {float f; uint32_t u;} float_inf_neg = {.u = 0xFF800000};)!!!",
         R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_1, ubTensor_1, float_inf_neg.f);)!!!"};
     TestAddSDynBody("TestAddSTileTensorInfNeg", -1.0f / 0.0f, true, expect);
 }
 
-TEST_F(TestCodegenDynBinary, TestAddSTileTensorNAN) {
-    std::vector<std::string> expect = {R"!!!(union {float f; uint32_t u;} float_nan = {.u = 0x7FC00000};)!!!",
+TEST_F(TestCodegenDynBinary, TestAddSTileTensorNAN)
+{
+    std::vector<std::string> expect = {
+        R"!!!(union {float f; uint32_t u;} float_nan = {.u = 0x7FC00000};)!!!",
         R"!!!(TAddS<LastUse2Dim<0, 1>, float>(ubTensor_1, ubTensor_1, float_nan.f);)!!!"};
     TestAddSDynBody("TestAddSTileTensorNAN", 0.0f / 0.0f, true, expect);
 }
 
-TEST_F(TestCodegenDynBinary, TestGatherEle) {
+TEST_F(TestCodegenDynBinary, TestGatherEle)
+{
     constexpr const int32_t nRoutedExperts = 256;
     constexpr const int32_t numExpertsPerTopk = 8;
     constexpr const int32_t S = 1;
@@ -148,8 +160,10 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
     Tensor outputTensor(DT_FP32, outputShape, "output_tensor");
 
     std::string funcName = "GATHER_ELEMET_T";
-    FUNCTION(funcName, {inputScores, inputTmpScores, outputTensor}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {inputScores, inputTmpScores, outputTensor})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             outputTensor = GatherElements(inputTmpScores, inputScores, 1); // [b*s,8]
         }
@@ -163,7 +177,8 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor) {
+TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
 
@@ -180,8 +195,10 @@ TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor) {
     Tensor outputTensor(DT_FP32, outputShape, "output_tensor");
 
     std::string funcName = "GATHER_ELEMET_TILETENSOR";
-    FUNCTION(funcName, {inputScores, inputTmpScores, outputTensor}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {inputScores, inputTmpScores, outputTensor})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             outputTensor = GatherElements(inputTmpScores, inputScores, 1); // [b*s,8]
         }
@@ -200,7 +217,8 @@ TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor) {
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestCodegenDynBinary, AddUnalignTileTensor) {
+TEST_F(TestCodegenDynBinary, AddUnalignTileTensor)
+{
     TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
 
@@ -216,8 +234,10 @@ TEST_F(TestCodegenDynBinary, AddUnalignTileTensor) {
     Tensor out(DT_FP32, outShape, "out");
 
     std::string loopName = "L0_TILETENSOR";
-    FUNCTION("main", {input1, input2, curSeq}, {out}) {
-        LOOP(loopName, FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+    FUNCTION("main", {input1, input2, curSeq}, {out})
+    {
+        LOOP(loopName, FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b))
+        {
             auto seq = GetTensorData(curSeq, {batchId, 0});
             Tensor intput11 = View(input1, {sq, d}, {seq, d}, {batchId, 0});
             Tensor intput22 = View(input2, {sq, d}, {seq, d}, {batchId, 0});
@@ -325,7 +345,8 @@ TStore(gmTensor_8, ubTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestCodegenDynBinary, TestAddTileTensor) {
+TEST_F(TestCodegenDynBinary, TestAddTileTensor)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
 
     auto function = GenMockFuncDyn("TestAddTileTensor");
@@ -339,7 +360,7 @@ TEST_F(TestCodegenDynBinary, TestAddTileTensor) {
     auto localOutTensor =
         CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_UB, addShape, dynValidShape});
 
-    auto &op = function->AddOperation(Opcode::OP_ADD, {localTensorA, localTensorB}, {localOutTensor});
+    auto& op = function->AddOperation(Opcode::OP_ADD, {localTensorA, localTensorB}, {localOutTensor});
     std::vector<int> initVec(addShape.size(), false);
     op.SetAttribute(OpAttributeKey::lastUse, initVec);
 

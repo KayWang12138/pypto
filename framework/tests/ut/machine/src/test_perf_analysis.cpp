@@ -15,14 +15,12 @@
 namespace npu::tile_fwk {
 class PerfAnalysisTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        PerfAnalysis::Get().Reset();
-    }
+    void SetUp() override { PerfAnalysis::Get().Reset(); }
 
-    void TearDown() override {
-    }
+    void TearDown() override {}
 
-    void BusyWait(uint64_t microseconds) {
+    void BusyWait(uint64_t microseconds)
+    {
         auto start = std::chrono::high_resolution_clock::now();
         auto now = std::chrono::high_resolution_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - start).count();
@@ -33,13 +31,15 @@ protected:
     }
 };
 
-TEST_F(PerfAnalysisTest, SingletonPattern) {
+TEST_F(PerfAnalysisTest, SingletonPattern)
+{
     PerfAnalysis& instance1 = PerfAnalysis::Get();
     PerfAnalysis& instance2 = PerfAnalysis::Get();
     EXPECT_EQ(&instance1, &instance2);
 }
 
-TEST_F(PerfAnalysisTest, TraceBasicFunctionality) {
+TEST_F(PerfAnalysisTest, TraceBasicFunctionality)
+{
     auto& perf = PerfAnalysis::Get();
     perf.Trace(TracePhase::RunDeviceInit);
     BusyWait(1000);
@@ -54,7 +54,8 @@ TEST_F(PerfAnalysisTest, TraceBasicFunctionality) {
     EXPECT_GT(totalTimeUs, 0);
 }
 
-TEST_F(PerfAnalysisTest, EventBasicFunctionality) {
+TEST_F(PerfAnalysisTest, EventBasicFunctionality)
+{
     auto& perf = PerfAnalysis::Get();
     perf.EventBegin(EventPhase::BuildCtrlFlowCache);
     BusyWait(2000);
@@ -62,4 +63,4 @@ TEST_F(PerfAnalysisTest, EventBasicFunctionality) {
     uint64_t eventTimeUs = perf.GetEventTotalTimeUs();
     EXPECT_GE(eventTimeUs, 2000);
 }
-}
+} // namespace npu::tile_fwk

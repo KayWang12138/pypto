@@ -28,15 +28,16 @@
 
 namespace npu::tile_fwk {
 
-Status AssignMemoryType::RunOnFunction(Function &function) {
+Status AssignMemoryType::RunOnFunction(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "===> Start AssignMemoryType.");
-    for (auto &op : function.Operations()) {
+    for (auto& op : function.Operations()) {
         RunOnOperation(op);
     }
-    for (auto &op : function.Operations()) {
+    for (auto& op : function.Operations()) {
         AssignMoveOp(op);
     }
-    for (auto &incast : function.inCasts_) {
+    for (auto& incast : function.inCasts_) {
         /*
         设置INCAST的memory type为DDR
         将INCAST的每个consumer加到其tobeMap中，tobe=DDR
@@ -45,11 +46,11 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
                 \--> op3 --> tensor3 -->
         */
         incast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-        for (const auto &consumerOp : incast->GetConsumers()) {
+        for (const auto& consumerOp : incast->GetConsumers()) {
             inserter.UpdateTensorTobeMap(incast, *consumerOp, MemoryType::MEM_DEVICE_DDR);
         }
     }
-    for (auto &outcast : function.outCasts_) {
+    for (auto& outcast : function.outCasts_) {
         /*
         设置OUTCAST的memory type为DDR，因为OCAST没有consumer，所以tobeMap为空
         op --> tensor --> op1 -->\
@@ -60,7 +61,7 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
     }
     AssignMemUnknown(function);
     bool infoBufferSize = false;
-    for (auto &op : function.Operations()) {
+    for (auto& op : function.Operations()) {
         AssignSpecialOpMemtype(op, infoBufferSize);
     }
     if (infoBufferSize) {
@@ -68,8 +69,9 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
             static_cast<size_t>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * UB_THRESHOLD);
         const size_t L1_SIZE_THRESHOLD =
             static_cast<size_t>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1) * L1_THRESHOLD);
-        APASS_LOG_INFO_F(Elements::Operation, "UB buffer size threshold %zu, L1 buffer size threshold %zu.",
-            UB_SIZE_THRESHOLD, L1_SIZE_THRESHOLD);
+        APASS_LOG_INFO_F(
+            Elements::Operation, "UB buffer size threshold %zu, L1 buffer size threshold %zu.", UB_SIZE_THRESHOLD,
+            L1_SIZE_THRESHOLD);
     }
     // 处理cube级联场景tile等大约束
     ProcesSmallTileToLargeTile(function);
@@ -84,29 +86,28 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
-Status AssignMemoryType::PreCheck(Function &function) {
-    return checker.DoPreCheck(function);
-}
+Status AssignMemoryType::PreCheck(Function& function) { return checker.DoPreCheck(function); }
 
-Status AssignMemoryType::PostCheck(Function &function) {
-    return checker.DoPostCheck(function);
-}
+Status AssignMemoryType::PostCheck(Function& function) { return checker.DoPostCheck(function); }
 
-void AssignMemoryType::RunOnOperation(Operation &operation) {
-    APASS_LOG_DEBUG_F(Elements::Function, "--- AssignMemoryType::RunOnOperation %s[%d] ---",
-        operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
+void AssignMemoryType::RunOnOperation(Operation& operation)
+{
+    APASS_LOG_DEBUG_F(
+        Elements::Function, "--- AssignMemoryType::RunOnOperation %s[%d] ---", operation.GetOpcodeStr().c_str(),
+        operation.GetOpMagic());
     auto opcode = operation.GetOpcode();
-    const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(opcode);
+    const auto& inputsMemType = OpcodeManager::Inst().GetInputsMemType(opcode);
     for (size_t i = 0; i < operation.iOperand.size(); ++i) {
-        auto &tensor = operation.iOperand[i];
+        auto& tensor = operation.iOperand[i];
         if (i >= inputsMemType.size()) {
-            APASS_LOG_INFO_F(Elements::Operation,"%s[%d] input %zu magic %d mem original is NOT Defined in opcode.cpp.",
+            APASS_LOG_INFO_F(
+                Elements::Operation, "%s[%d] input %zu magic %d mem original is NOT Defined in opcode.cpp.",
                 operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), i, tensor->magic);
             continue;
         }
-        APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d] input %d mem original %s --> %s.",
-            operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), tensor->magic,
-            BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "%s[%d] input %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
+            operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
             BriefMemoryTypeToString(inputsMemType[i]).c_str());
         if (OpChecker::check(operation, OpChecker::CalcTypeChecker(OpCalcType::MATMUL))) {
             // 对A_MUL_B的输入tensor的mem设置做特殊处理
@@ -116,24 +117,25 @@ void AssignMemoryType::RunOnOperation(Operation &operation) {
         tensor->SetMemoryTypeOriginal(inputsMemType[i]); // 如果tensor之前做为oOperand被设置过, 那么这里不生效
         inserter.UpdateTensorTobeMap(tensor, operation, inputsMemType[i]);
     }
-    const auto &outputsMemType = OpcodeManager::Inst().GetOutputsMemType(opcode);
+    const auto& outputsMemType = OpcodeManager::Inst().GetOutputsMemType(opcode);
     for (size_t i = 0; i < operation.oOperand.size(); ++i) {
-        auto &tensor = operation.oOperand[i];
+        auto& tensor = operation.oOperand[i];
         if (outputsMemType.size() > 0) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d] output %d mem original %s --> %s.",
-                operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), tensor->magic,
-                BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "%s[%d] output %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
+                operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
                 BriefMemoryTypeToString(outputsMemType[i]).c_str());
             tensor->SetMemoryTypeOriginal(outputsMemType[i]);
-            for (const auto &consumerOp : tensor->GetConsumers()) {
+            for (const auto& consumerOp : tensor->GetConsumers()) {
                 inserter.UpdateTensorTobeMap(tensor, *consumerOp, outputsMemType[i]);
             }
             continue;
         }
         tensor->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN);
-        for (const auto &consumerOp : tensor->GetConsumers()) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Set for Unknown Op's consumer %s[%d].",
-                consumerOp->GetOpcodeStr().c_str(), consumerOp->GetOpMagic());
+        for (const auto& consumerOp : tensor->GetConsumers()) {
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "Set for Unknown Op's consumer %s[%d].", consumerOp->GetOpcodeStr().c_str(),
+                consumerOp->GetOpMagic());
             inserter.UpdateTensorTobeMap(tensor, *consumerOp, MemoryType::MEM_UNKNOWN);
         }
     }
@@ -144,31 +146,34 @@ void AssignMemoryType::RunOnOperation(Operation &operation) {
         ProcessAssemblewithSpecificMem(operation);
     }
 }
-void AssignMemoryType::ProcessAmulBInput(Operation &operation, LogicalTensorPtr &tensor) {
+void AssignMemoryType::ProcessAmulBInput(Operation& operation, LogicalTensorPtr& tensor)
+{
     /*
     operation: OP_A_MUL_B or OP_A_MULACC_B
     tensor: an input of OP_A_MUL_B
     */
-    auto &producerOps = tensor->GetProducers();
-    for (const auto &producerOp : producerOps) {
+    auto& producerOps = tensor->GetProducers();
+    for (const auto& producerOp : producerOps) {
         auto producerOpcode = producerOp->GetOpcode();
         if (OpChecker::check(producerOp, OpChecker::CalcTypeChecker(OpCalcType::MATMUL))) {
             tensor->SetMemoryTypeOriginal(MemoryType::MEM_L0C, true);
             inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_L0C);
             continue;
         } else if (producerOpcode == Opcode::OP_VIEW) {
-            auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(producerOp->GetOpAttribute().get());
+            auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(producerOp->GetOpAttribute().get());
             MemoryType attrToType = viewOpAttribute->GetTo();
             tensor->SetMemoryTypeOriginal(attrToType, true);
             inserter.UpdateTensorTobeMap(tensor, operation, attrToType);
             continue;
-        } else if (OpChecker::check(producerOp, OpChecker::CalcTypeChecker(OpCalcType::MOVE_LOCAL),
+        } else if (OpChecker::check(
+                       producerOp, OpChecker::CalcTypeChecker(OpCalcType::MOVE_LOCAL),
                        OpChecker::InputMemTypeChecker(MemoryType::MEM_L1),
                        OpChecker::OutputMemTypeChecker(MemoryType::MEM_L0A))) {
             tensor->SetMemoryTypeOriginal(MemoryType::MEM_L0A, true);
             inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_L0A);
             continue;
-        } else if (OpChecker::check(producerOp, OpChecker::CalcTypeChecker(OpCalcType::MOVE_LOCAL),
+        } else if (OpChecker::check(
+                       producerOp, OpChecker::CalcTypeChecker(OpCalcType::MOVE_LOCAL),
                        OpChecker::InputMemTypeChecker(MemoryType::MEM_L1),
                        OpChecker::OutputMemTypeChecker(MemoryType::MEM_L0B))) {
             tensor->SetMemoryTypeOriginal(MemoryType::MEM_L0B, true);
@@ -180,8 +185,9 @@ void AssignMemoryType::ProcessAmulBInput(Operation &operation, LogicalTensorPtr 
     }
 }
 
-void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
-    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
+void AssignMemoryType::ProcessViewwithSpecificMem(Operation& operation)
+{
+    auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(operation.GetOpAttribute().get());
     MemoryType attrToType = viewOpAttribute->GetTo();
     auto out = operation.GetOOperands().front();
     auto in = operation.iOperand.front();
@@ -200,12 +206,12 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     }
     // 将view的输出tensor的memory ori和tobe类型设置为view上指定的mem类型
     out->SetMemoryTypeOriginal(attrToType, true);
-    for (auto &consumerOp : out->GetConsumers()) {
+    for (auto& consumerOp : out->GetConsumers()) {
         inserter.UpdateTensorTobeMap(out, *consumerOp, attrToType);
     }
     if (attrToType == MemoryType::MEM_L1) {
         auto producerOps = operation.ProducerOps();
-        for (const auto &producerOp : producerOps) {
+        for (const auto& producerOp : producerOps) {
             if (producerOp->GetOpcode() == Opcode::OP_VIEW) {
                 in->SetMemoryTypeOriginal(attrToType, true);
                 inserter.UpdateTensorTobeMap(in, operation, attrToType);
@@ -214,7 +220,8 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     }
 }
 // 适配L0C2L1: assemble的输入来源时l0c且输出预期l1时，不再插convert而是assemble后续转为l0c2l1
-void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
+void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation& operation)
+{
     auto input = operation.iOperand.front();
     auto output = operation.oOperand.front();
     if (input->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
@@ -223,7 +230,7 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
     if (!inserter.FitL0C2L1(input)) {
         return;
     }
-    for (const auto &consumerOp : output->GetConsumers()) {
+    for (const auto& consumerOp : output->GetConsumers()) {
         auto consumerOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(consumerOp->GetOpAttribute());
         // 大包搬运场景：assemble后接view且view的toAttr为L1
         if (consumerOpAttribute && consumerOpAttribute->GetTo() != MemoryType::MEM_UNKNOWN) {
@@ -231,7 +238,7 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
                 return;
             }
         } else {
-            const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(consumerOp->GetOpcode());
+            const auto& inputsMemType = OpcodeManager::Inst().GetInputsMemType(consumerOp->GetOpcode());
             if (!inputsMemType.empty() && inputsMemType[0] != MemoryType::MEM_L1) {
                 return;
             }
@@ -239,29 +246,31 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
     }
     output->SetMemoryTypeOriginal(MemoryType::MEM_L1, true);
     inserter.UpdateTensorTobeMap(input, operation, MemoryType::MEM_L0C);
-    for (const auto &consumerOp : output->GetConsumers()) {
+    for (const auto& consumerOp : output->GetConsumers()) {
         inserter.UpdateTensorTobeMap(output, *consumerOp, MemoryType::MEM_L1);
     }
-    APASS_LOG_DEBUG_F(Elements::Operation,
+    APASS_LOG_DEBUG_F(
+        Elements::Operation,
         "Set assemble Op[%d]'s input[%d] tobeMap as MEM_L0C and output[%d] origin and tobeMap as MEM_L1.",
         operation.GetOpMagic(), input->magic, output->magic);
 }
 
 void AssignMemoryType::AssignMemtypeForSplitReshape(
-    Operation &op, const LogicalTensorPtr &input, const LogicalTensorPtr &output) {
+    Operation& op, const LogicalTensorPtr& input, const LogicalTensorPtr& output)
+{
     const int UB_SIZE_THRESHOLD =
         static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * UB_THRESHOLD);
     // 如果reshape前序是Assemble后接View，是SplitReshape处理的Reshape
-    auto &producers = input->GetProducers();
-    auto &consumers = output->GetConsumers();
-    Operation *producer = *producers.begin();
-    Operation *consumer = *consumers.begin();
+    auto& producers = input->GetProducers();
+    auto& consumers = output->GetConsumers();
+    Operation* producer = *producers.begin();
+    Operation* consumer = *consumers.begin();
     if (producer != nullptr && consumer != nullptr && producer->GetOpcode() == Opcode::OP_ASSEMBLE &&
         consumer->GetOpcode() == Opcode::OP_VIEW) {
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
             output->GetMemoryTypeOriginal() == MemoryType::MEM_UB && input->GetDataSize() <= UB_SIZE_THRESHOLD) {
             inserter.UpdateTensorTobeMap(input, op, MemoryType::MEM_UB);
-            for (const auto &consumerOp : output->GetConsumers()) {
+            for (const auto& consumerOp : output->GetConsumers()) {
                 if (consumerOp->oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
                     inserter.UpdateTensorTobeMap(output, *consumerOp, MemoryType::MEM_UB);
                 }
@@ -270,25 +279,28 @@ void AssignMemoryType::AssignMemtypeForSplitReshape(
     }
 }
 
-void AssignMemoryType::AssignOpReshapeMemtype(Operation &op) {
+void AssignMemoryType::AssignOpReshapeMemtype(Operation& op)
+{
     if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_RESHAPE) {
-        auto &input = op.iOperand.front();
-        auto &output = op.oOperand.front();
+        auto& input = op.iOperand.front();
+        auto& output = op.oOperand.front();
         AssignMemtypeForSplitReshape(op, input, output);
         auto inputMemType = inserter.GetMemoryTypeFromTensorTobeMap(input, op);
         if (inputMemType != output->GetMemoryTypeOriginal()) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "OP_RESHAPE[%d] input: %s, output: %s.", op.opmagic,
-                PrintTensorMem(input).c_str(), PrintTensorMem(output).c_str());
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "OP_RESHAPE[%d] input: %s, output: %s.", op.opmagic, PrintTensorMem(input).c_str(),
+                PrintTensorMem(output).c_str());
             inserter.UpdateTensorTobeMap(input, op, MemoryType::MEM_DEVICE_DDR);
             output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
         }
     }
 }
 
-void AssignMemoryType::AssignOpViewTypeMemtype(Operation &op) {
+void AssignMemoryType::AssignOpViewTypeMemtype(Operation& op)
+{
     if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_VIEW_TYPE) {
-        auto &viewTypeIn = op.iOperand.front();
-        auto &viewTypeOut = op.oOperand.front();
+        auto& viewTypeIn = op.iOperand.front();
+        auto& viewTypeOut = op.oOperand.front();
         auto inputMemType = inserter.GetMemoryTypeFromTensorTobeMap(viewTypeIn, op);
         auto outTobeMem = inserter.GetTobeDefault(viewTypeOut);
         auto prod = *(viewTypeIn->GetProducers().begin());
@@ -298,7 +310,8 @@ void AssignMemoryType::AssignOpViewTypeMemtype(Operation &op) {
             return;
         }
         if (inputMemType != viewTypeOut->GetMemoryTypeOriginal()) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "OP_RESHAPE[%d] input: %s, output: %s.", op.opmagic,
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "OP_RESHAPE[%d] input: %s, output: %s.", op.opmagic,
                 PrintTensorMem(viewTypeIn).c_str(), PrintTensorMem(viewTypeOut).c_str());
             inserter.UpdateTensorTobeMap(viewTypeIn, op, MemoryType::MEM_DEVICE_DDR);
             viewTypeOut->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
@@ -306,10 +319,11 @@ void AssignMemoryType::AssignOpViewTypeMemtype(Operation &op) {
     }
 }
 
-void AssignMemoryType::AssignOpNopMemtype(Operation &op) {
+void AssignMemoryType::AssignOpNopMemtype(Operation& op)
+{
     if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_NOP) {
-        auto &input = op.iOperand.front();
-        auto &output = op.oOperand.front();
+        auto& input = op.iOperand.front();
+        auto& output = op.oOperand.front();
         if (input->GetMemoryTypeToBe() != output->GetMemoryTypeOriginal()) {
             input->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
             output->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
@@ -321,7 +335,8 @@ void AssignMemoryType::AssignOpNopMemtype(Operation &op) {
     }
 }
 
-void AssignMemoryType::AssignSpecialOpMemtype(Operation &op, bool &infoBufferSize) {
+void AssignMemoryType::AssignSpecialOpMemtype(Operation& op, bool& infoBufferSize)
+{
     AssignOpReshapeMemtype(op);
     AssignOpViewTypeMemtype(op);
     AssignOpNopMemtype(op);
@@ -330,7 +345,7 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op, bool &infoBufferSiz
         reduce acc 输入数量不确定，由Ksplit决定
         每个输入都为DDR
         */
-        for (auto &input : op.GetIOperands()) {
+        for (auto& input : op.GetIOperands()) {
             inserter.UpdateTensorTobeMap(input, op, MemoryType::MEM_DEVICE_DDR);
         }
     }
@@ -343,13 +358,13 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op, bool &infoBufferSiz
         after:
         Incast --> COMM_WAIT_FLAG -->Gm
         */
-        for (auto &output : op.GetOOperands()) {
+        for (auto& output : op.GetOOperands()) {
             output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
         }
     }
 
     if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_ASSEMBLE) {
-        auto &output = op.oOperand.front();
+        auto& output = op.oOperand.front();
         if (output->GetMemoryTypeOriginal() == npu::tile_fwk::MEM_L1 &&
             output->GetMemoryTypeToBe() == npu::tile_fwk::MEM_DEVICE_DDR) {
             output->SetMemoryTypeBoth(output->GetMemoryTypeOriginal(), true);
@@ -359,7 +374,8 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op, bool &infoBufferSiz
     }
 }
 
-void AssignMemoryType::UpdateOverSizedLocalBuffer(Operation &operation) {
+void AssignMemoryType::UpdateOverSizedLocalBuffer(Operation& operation)
+{
     const int UB_SIZE_THRESHOLD =
         static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * UB_THRESHOLD);
     const int L1_SIZE_THRESHOLD =
@@ -370,12 +386,14 @@ void AssignMemoryType::UpdateOverSizedLocalBuffer(Operation &operation) {
     if (((memType == MemoryType::MEM_UB) && (assembleOut->GetDataSize() > UB_SIZE_THRESHOLD)) ||
         ((memType == MemoryType::MEM_L1) && (assembleOut->GetDataSize() > L1_SIZE_THRESHOLD))) {
         assembleOut->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-        APASS_LOG_INFO_F(Elements::Operation, "%s[%d] output %d is oversized, set as MEM_DEVICE_DDR.",
+        APASS_LOG_INFO_F(
+            Elements::Operation, "%s[%d] output %d is oversized, set as MEM_DEVICE_DDR.",
             operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), assembleOut->magic);
     }
 }
 
-std::string AssignMemoryType::PrintTensorMem(std::shared_ptr<LogicalTensor> &tensor) const {
+std::string AssignMemoryType::PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const
+{
     std::ostringstream oss;
     oss << "tensor magic: " << tensor->magic;
     oss << " original: " << BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal());
@@ -383,7 +401,8 @@ std::string AssignMemoryType::PrintTensorMem(std::shared_ptr<LogicalTensor> &ten
     return oss.str();
 }
 
-void AssignMemoryType::AssignMoveOp(Operation &operation) {
+void AssignMemoryType::AssignMoveOp(Operation& operation)
+{
     auto opcode = operation.GetOpcode();
     switch (opcode) {
         case Opcode::OP_ASSEMBLE: {
@@ -394,11 +413,13 @@ void AssignMemoryType::AssignMoveOp(Operation &operation) {
             AssignMoveOpForView(operation);
             break;
         }
-        default: break;
+        default:
+            break;
     }
 }
 
-int64_t AssignMemoryType::CalcLineOffset(const Shape &shape, const Offset &offset) {
+int64_t AssignMemoryType::CalcLineOffset(const Shape& shape, const Offset& offset)
+{
     if (shape.size() != offset.size()) {
         return -1;
     }
@@ -416,18 +437,19 @@ int64_t AssignMemoryType::CalcLineOffset(const Shape &shape, const Offset &offse
     return lineOffset;
 }
 
-void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
+void AssignMemoryType::AssignMoveOpForAssemble(Operation& operation)
+{
     /*
     op --> tensor1 --> assemble --> tensor2
     op是常规Op(output mem类型在opcode.cpp中有定义)，tensor1 的 mem original 已经被刷新好
     将tensor2 的mem origianl 刷新为tensor1 的original
     */
     for (size_t i = 0; i < operation.oOperand.size(); ++i) {
-        auto &tensor = operation.oOperand[i];
+        auto& tensor = operation.oOperand[i];
         bool hasDdr = false;
         // Only change original type
         MemoryType fromType = inserter.GetMemoryTypeFromTensorTobeMap(operation.iOperand.front(), operation);
-        for (const auto &outputProducer : tensor->GetProducers()) {
+        for (const auto& outputProducer : tensor->GetProducers()) {
             if (fromType != MEM_DEVICE_DDR && outputProducer->iOperand.front()->GetMemoryTypeOriginal() != fromType) {
                 fromType = MEM_DEVICE_DDR;
             }
@@ -443,18 +465,22 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
 
             int64_t lineOffset = CalcLineOffset(tensor->GetRawTensor()->rawshape, opAttr->GetToOffset());
             if (lineOffset == -1) {
-                APASS_LOG_WARN_F(Elements::Operation, "Op[%d]'s offset size and Tensor[%d]'s rawshape size is not equal.", outputProducer->GetOpMagic(), tensor->GetMagic());
+                APASS_LOG_WARN_F(
+                    Elements::Operation, "Op[%d]'s offset size and Tensor[%d]'s rawshape size is not equal.",
+                    outputProducer->GetOpMagic(), tensor->GetMagic());
                 continue;
             }
             int64_t tensorBytes = static_cast<int64_t>(BytesOf(tensor->Datatype()));
             int64_t byteOffset = tensorBytes * lineOffset;
 
-            APASS_LOG_DEBUG_F(Elements::Tensor,"Op's input tensor, lineOffset is %ld, tensorBytes is %ld, byteOffset is %ld.",
+            APASS_LOG_DEBUG_F(
+                Elements::Tensor, "Op's input tensor, lineOffset is %ld, tensorBytes is %ld, byteOffset is %ld.",
                 static_cast<long>(lineOffset), static_cast<long>(tensorBytes), static_cast<long>(byteOffset));
             // 对齐检查，根据assemble的offset和assemble输出tensor的rawshape计算线性offset，如果非32B对齐，则将assemble输出tensor推导为DDR类型
             static constexpr int UB_ALIGN_BYTES = 32;
             if (byteOffset % UB_ALIGN_BYTES != 0) {
-                APASS_LOG_DEBUG_F(Elements::Tensor, "Set op %d 's output original memoryType to DDR.", outputProducer->GetOpMagic());
+                APASS_LOG_DEBUG_F(
+                    Elements::Tensor, "Set op %d 's output original memoryType to DDR.", outputProducer->GetOpMagic());
                 hasDdr = true;
                 break;
             }
@@ -464,27 +490,30 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
         }
         if (operation.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
             tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-            APASS_LOG_DEBUG_F(Elements::Operation,
-                "%s[%d] skip setting since input origin MEM_L0C and output origin MEM_L1",
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "%s[%d] skip setting since input origin MEM_L0C and output origin MEM_L1",
                 operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
             continue;
         }
         tensor->SetMemoryTypeOriginal(fromType, true);
         auto assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(operation.GetOpAttribute());
         assembleOpAttribute->SetFromType(fromType);
-        APASS_LOG_DEBUG_F(Elements::Operation, "Set %s[%d]'s output %d originial memoryType %s --> %s during AssignMoveOpForAssemble.",
+        APASS_LOG_DEBUG_F(
+            Elements::Operation,
+            "Set %s[%d]'s output %d originial memoryType %s --> %s during AssignMoveOpForAssemble.",
             operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), tensor->magic,
             BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
             BriefMemoryTypeToString(fromType).c_str());
     }
 }
-void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
+void AssignMemoryType::AssignMoveOpForView(Operation& operation)
+{
     /*
     tensor1 --> view --> tensor2 --> op
     op是常规Op(output mem类型在opcode.cpp中有定义)，tensor2 的 mem original 已经被刷新好
     将tensor1 的 tobeMap 做更新
     */
-    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
+    auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(operation.GetOpAttribute().get());
     MemoryType attrToType = viewOpAttribute->GetTo();
     bool isExplicitMemType = (attrToType != MemoryType::MEM_UNKNOWN);
     if (isExplicitMemType) {
@@ -499,7 +528,7 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
     auto viewOffset = viewOpAttribute->GetFromOffset();
     bool unaligned = ((BytesOf(outputTensor->Datatype()) * viewOffset.back()) % 32 != 0);
     for (size_t i = 0; i < operation.iOperand.size(); ++i) {
-        auto &tensor = operation.iOperand[i];
+        auto& tensor = operation.iOperand[i];
         MemoryType toType = operation.oOperand.front()->GetMemoryTypeOriginal();
         // 尝试在view的输出original未知而输入original已知时进行内存复用，将输出的original刷为与输入相同
         // 当出现内存未对齐时，需要插搬运到DDR则不进行复用；当出现输入为L0C时，L0C到L0C无意义，也不进行复用，同时避免出现DDR->L0C
@@ -518,9 +547,10 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
             viewOpAttribute->SetToType(outputTensor->GetMemoryTypeOriginal());
             continue;
         }
-        APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d] input %d mem original %s --> %s.",
-            operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), tensor->magic,
-            BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(), BriefMemoryTypeToString(toType).c_str());
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "%s[%d] input %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
+            operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
+            BriefMemoryTypeToString(toType).c_str());
         inserter.UpdateTensorTobeMap(tensor, operation, toType);
         viewOpAttribute->SetToType(toType);
     }
@@ -530,30 +560,31 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
     }
 }
 
-void AssignMemoryType::AssignMemUnknown(Function &function) {
+void AssignMemoryType::AssignMemUnknown(Function& function)
+{
     std::unordered_set<LogicalTensorPtr> inputOperandVisited;
     std::unordered_set<LogicalTensorPtr> outputOperandVisited;
-    for (auto &op : function.Operations()) {
-        for (auto &i : op.iOperand) {
+    for (auto& op : function.Operations()) {
+        for (auto& i : op.iOperand) {
             if (inputOperandVisited.count(i) > 0) {
                 continue;
             }
             inputOperandVisited.insert(i);
             if (i->GetMemoryTypeOriginal() == MemoryType::MEM_UNKNOWN) {
                 MemoryType fromType = MemoryType::MEM_DEVICE_DDR;
-                std::map<MemoryType, std::set<Operation *>> localTobeMap = inserter.GetRequiredTobe(i);
+                std::map<MemoryType, std::set<Operation*>> localTobeMap = inserter.GetRequiredTobe(i);
                 if (localTobeMap.size() == 1 && localTobeMap.begin()->first != MemoryType::MEM_UNKNOWN) {
                     fromType = localTobeMap.begin()->first;
                 }
-                APASS_LOG_DEBUG_F(Elements::Operation,
-                    "%s[%d] iOperand %d mem original is UNKNOWN, force setting as %s.", op.GetOpcodeStr().c_str(),
-                    op.GetOpMagic(), i->magic, BriefMemoryTypeToString(fromType).c_str());
+                APASS_LOG_DEBUG_F(
+                    Elements::Operation, "%s[%d] iOperand %d mem original is UNKNOWN, force setting as %s.",
+                    op.GetOpcodeStr().c_str(), op.GetOpMagic(), i->magic, BriefMemoryTypeToString(fromType).c_str());
                 i->SetMemoryTypeOriginal(fromType);
                 inserter.UpdateTensorTobeMap(i, op, fromType);
             }
             inserter.UpdateTensorTobeMapUnknown(i, i->GetMemoryTypeOriginal());
         }
-        for (auto &o : op.oOperand) {
+        for (auto& o : op.oOperand) {
             if (outputOperandVisited.count(o) > 0) {
                 continue;
             }
@@ -564,15 +595,15 @@ void AssignMemoryType::AssignMemUnknown(Function &function) {
                 或者图上op的输出数量超过了opcode.cpp中的定义，目前仅有OP_REDUCE_ACC，已有特殊处理
                 */
                 MemoryType fromType = MemoryType::MEM_DEVICE_DDR;
-                std::map<MemoryType, std::set<Operation *>> localTobeMap = inserter.GetRequiredTobe(o);
+                std::map<MemoryType, std::set<Operation*>> localTobeMap = inserter.GetRequiredTobe(o);
                 if (localTobeMap.size() == 1 && localTobeMap.begin()->first != MemoryType::MEM_UNKNOWN) {
                     fromType = localTobeMap.begin()->first;
                 }
-                APASS_LOG_DEBUG_F(Elements::Operation,
-                    "%s[%d] oOperand %d mem original is UNKNOWN, force setting as %s.", op.GetOpcodeStr().c_str(),
-                    op.GetOpMagic(), o->magic, BriefMemoryTypeToString(fromType).c_str());
+                APASS_LOG_DEBUG_F(
+                    Elements::Operation, "%s[%d] oOperand %d mem original is UNKNOWN, force setting as %s.",
+                    op.GetOpcodeStr().c_str(), op.GetOpMagic(), o->magic, BriefMemoryTypeToString(fromType).c_str());
                 o->SetMemoryTypeOriginal(fromType);
-                for (const auto &consumerOp : o->GetConsumers()) {
+                for (const auto& consumerOp : o->GetConsumers()) {
                     inserter.UpdateTensorTobeMap(o, *consumerOp, fromType);
                 }
             }
@@ -580,9 +611,10 @@ void AssignMemoryType::AssignMemUnknown(Function &function) {
         }
     }
 }
-void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
+void AssignMemoryType::ProcesSmallTileToLargeTile(Function& function)
+{
     // CASE1:处理cube级联场景小搬大
-    for (auto &op : function.Operations()) {
+    for (auto& op : function.Operations()) {
         auto opcode = op.GetOpcode();
         if (opcode != Opcode::OP_ASSEMBLE) {
             continue;
@@ -594,15 +626,15 @@ void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
         }
         bool isToL1 = true;
         auto toBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
-        for (const auto &pair : toBeMap) {
-            const auto &toBeType = pair.second;
+        for (const auto& pair : toBeMap) {
+            const auto& toBeType = pair.second;
             if (toBeType != MemoryType::MEM_L1) {
                 isToL1 = false;
                 break;
             }
         }
         bool isConsumerOutputMultiple = true;
-        for (auto &consumerOp : oOperand->GetConsumers()) {
+        for (auto& consumerOp : oOperand->GetConsumers()) {
             if (consumerOp->GetOpcode() == Opcode::OP_VIEW &&
                 !IsDimMultiple(consumerOp->GetOOperands().front()->GetShape(), iOperand->GetShape())) {
                 isConsumerOutputMultiple = false;
@@ -611,27 +643,29 @@ void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
         }
         if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()) || !isConsumerOutputMultiple) {
             oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
-            const auto &tensorToBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
-            for (const auto &[consumerOp, memoryType] : tensorToBeMap) {
+            const auto& tensorToBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
+            for (const auto& [consumerOp, memoryType] : tensorToBeMap) {
                 if (memoryType == MemoryType::MEM_L0C) {
                     inserter.UpdateTensorTobeMap(oOperand, *consumerOp, MemoryType::MEM_DEVICE_DDR);
                 }
             }
-            APASS_LOG_DEBUG_F(Elements::Tensor,
+            APASS_LOG_DEBUG_F(
+                Elements::Tensor,
                 "Set tensor %d original memory type "
                 "to DDR since not towards L1 or not multipule dimensions.",
                 oOperand->magic);
         }
     }
 }
-void AssignMemoryType::ProcessLargeTileToSamllTile(Function &function) {
+void AssignMemoryType::ProcessLargeTileToSamllTile(Function& function)
+{
     // CASE2:处理cube级联产经大搬小
-    for (auto &op : function.Operations()) {
+    for (auto& op : function.Operations()) {
         auto opcode = op.GetOpcode();
         if (opcode != Opcode::OP_VIEW) {
             continue;
         }
-        auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+        auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(op.GetOpAttribute().get());
         MemoryType attrToType = viewOpAttribute->GetTo();
         if (attrToType == MEM_L1) {
             auto iOperand = op.GetIOperands().front();
@@ -653,7 +687,8 @@ void AssignMemoryType::ProcessLargeTileToSamllTile(Function &function) {
     @param shape1为第一个矩阵，shape2为第二个矩阵。
     @return 如果第一个矩阵是第二个的正整数倍，则返回true；否则返回false。
 */
-bool AssignMemoryType::IsDimMultiple(const Shape &shape1, const Shape &shape2) {
+bool AssignMemoryType::IsDimMultiple(const Shape& shape1, const Shape& shape2)
+{
     if (shape1.size() != shape2.size()) {
         return false;
     }

@@ -24,8 +24,8 @@ class Any {
 private:
     struct Base {
         virtual ~Base() = default;
-        virtual Base *Clone() const = 0;
-        virtual const std::type_info &Type() const noexcept = 0;
+        virtual Base* Clone() const = 0;
+        virtual const std::type_info& Type() const noexcept = 0;
     };
 
     template <typename T>
@@ -33,34 +33,38 @@ private:
         T value_;
 
         template <typename U>
-        Derived(U &&value) : value_(std::forward<U>(value)) {}
+        Derived(U&& value) : value_(std::forward<U>(value))
+        {}
 
-        Base *Clone() const override { return new Derived(value_); }
-        const std::type_info &Type() const noexcept override { return typeid(T); }
+        Base* Clone() const override { return new Derived(value_); }
+        const std::type_info& Type() const noexcept override { return typeid(T); }
     };
 
-    Base *ptr_ = nullptr;
+    Base* ptr_ = nullptr;
 
 public:
     Any() noexcept = default;
 
-    Any(const Any &other) : ptr_(other.ptr_ ? other.ptr_->Clone() : nullptr) {}
+    Any(const Any& other) : ptr_(other.ptr_ ? other.ptr_->Clone() : nullptr) {}
 
-    Any(Any &&other) noexcept : ptr_(other.ptr_) { other.ptr_ = nullptr; }
+    Any(Any&& other) noexcept : ptr_(other.ptr_) { other.ptr_ = nullptr; }
 
     template <typename T, typename = std::enable_if_t<!std::is_same<std::decay_t<T>, Any>::value>>
-    Any(T &&value) : ptr_(new Derived<std::decay_t<T>>(std::forward<T>(value))) {}
+    Any(T&& value) : ptr_(new Derived<std::decay_t<T>>(std::forward<T>(value)))
+    {}
 
     ~Any() { delete ptr_; }
 
-    Any &operator=(const Any &other) {
+    Any& operator=(const Any& other)
+    {
         if (this != &other) {
             Any(other).Swap(*this);
         }
         return *this;
     }
 
-    Any &operator=(Any &&other) noexcept {
+    Any& operator=(Any&& other) noexcept
+    {
         if (this != &other) {
             other.Swap(*this);
         }
@@ -68,48 +72,53 @@ public:
     }
 
     template <typename T, typename = std::enable_if_t<!std::is_same<std::decay_t<T>, Any>::value>>
-    Any &operator=(T &&value) {
+    Any& operator=(T&& value)
+    {
         Any(std::forward<T>(value)).Swap(*this);
         return *this;
     }
 
-    void Reset() noexcept {
+    void Reset() noexcept
+    {
         delete ptr_;
         ptr_ = nullptr;
     }
 
-    void Swap(Any &other) noexcept { std::swap(ptr_, other.ptr_); }
+    void Swap(Any& other) noexcept { std::swap(ptr_, other.ptr_); }
 
     bool HasValue() const noexcept { return ptr_ != nullptr; }
 
-    const std::type_info &Type() const noexcept { return ptr_ ? ptr_->Type() : typeid(void); }
+    const std::type_info& Type() const noexcept { return ptr_ ? ptr_->Type() : typeid(void); }
 
     template <typename T>
-    friend T *AnyCast(Any *any) noexcept;
+    friend T* AnyCast(Any* any) noexcept;
 
     template <typename T>
-    friend const T *AnyCast(const Any *any) noexcept;
+    friend const T* AnyCast(const Any* any) noexcept;
 };
 
 template <typename T>
-T *AnyCast(Any *any) noexcept {
+T* AnyCast(Any* any) noexcept
+{
     if (!any || any->Type() != typeid(T)) {
         return nullptr;
     }
-    return &static_cast<Any::Derived<T> *>(any->ptr_)->value_;
+    return &static_cast<Any::Derived<T>*>(any->ptr_)->value_;
 }
 
 template <typename T>
-const T *AnyCast(const Any *any) noexcept {
+const T* AnyCast(const Any* any) noexcept
+{
     if (!any || any->Type() != typeid(T)) {
         return nullptr;
     }
 
-    return &static_cast<const Any::Derived<T> *>(any->ptr_)->value_;
+    return &static_cast<const Any::Derived<T>*>(any->ptr_)->value_;
 }
 
 template <typename T>
-T AnyCast(const Any &any) {
+T AnyCast(const Any& any)
+{
     using U = std::remove_cv_t<std::remove_reference_t<T>>;
     auto p = AnyCast<U>(&any);
     if (!p) {
@@ -120,7 +129,8 @@ T AnyCast(const Any &any) {
 }
 
 template <typename T>
-T AnyCast(Any &any) {
+T AnyCast(Any& any)
+{
     using U = std::remove_cv_t<std::remove_reference_t<T>>;
     auto p = AnyCast<U>(&any);
     if (!p) {
@@ -131,7 +141,8 @@ T AnyCast(Any &any) {
 }
 
 template <typename T>
-T AnyCast(Any &&any) {
+T AnyCast(Any&& any)
+{
     using U = std::remove_cv_t<std::remove_reference_t<T>>;
     auto p = AnyCast<U>(&any);
     if (!p) {

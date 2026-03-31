@@ -22,7 +22,7 @@ def get_format(tensor):
         raise TypeError("input type error")
     if not tensor.is_contiguous():
         raise TypeError("input type error")
-    
+
     tile_op_format = TileOpFormat.ND.value
     if tensor.device.type == "npu":
         import torch_npu

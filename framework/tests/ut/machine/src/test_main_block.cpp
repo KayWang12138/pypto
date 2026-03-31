@@ -28,13 +28,12 @@ using namespace npu::tile_fwk;
 
 class TestMainBlockLog : public testing::Test {
 public:
-    void SetUp() override {
-        Program::GetInstance().Reset();
-    }
+    void SetUp() override { Program::GetInstance().Reset(); }
     void TearDown() override {}
 };
 
-TEST_F(TestMainBlockLog, GetValidShapeFromCoa_EmptyArgList) {
+TEST_F(TestMainBlockLog, GetValidShapeFromCoa_EmptyArgList)
+{
     MainBlockCondBulider builder;
     std::vector<SymbolicScalar> emptyArgList;
     Shape shape;
@@ -45,4 +44,3 @@ TEST_F(TestMainBlockLog, GetValidShapeFromCoa_EmptyArgList) {
     EXPECT_TRUE(shape.empty());
     EXPECT_TRUE(dynValidShape.empty());
 }
-

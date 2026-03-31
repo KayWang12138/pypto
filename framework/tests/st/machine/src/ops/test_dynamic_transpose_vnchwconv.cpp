@@ -24,7 +24,8 @@
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicTransposeTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
-TEST_F(DynamicTransposeTest, TestDynamicVnchwconv) {
+TEST_F(DynamicTransposeTest, TestDynamicVnchwconv)
+{
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(64, 64);
 
@@ -58,8 +59,10 @@ TEST_F(DynamicTransposeTest, TestDynamicVnchwconv) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FUNCTION("main", {q, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
+    FUNCTION("main", {q, actSeqs}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq)))
+        {
             SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0});
 
             Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
@@ -73,5 +76,5 @@ TEST_F(DynamicTransposeTest, TestDynamicVnchwconv) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 }

@@ -27,7 +27,7 @@ class CodegenPreproc : public Pass {
 public:
     CodegenPreproc() : Pass("CodegenPreproc") {}
     ~CodegenPreproc() override = default;
-    Status RunOnFunction(Function &function) override;
+    Status RunOnFunction(Function& function) override;
 
 private:
     /*
@@ -36,17 +36,17 @@ private:
      * [gm1 addr|gm2 offset0|gm2 offset1|...|gm2 tile shape0|gm2 tile shape1|...|gm2 raw shape0|gm2 raw shape1|...] ...
      * so addr is always the first param of this gm tensor
      */
-    Status SaveGmTensorParamIdxToOp(Function &func) const;
+    Status SaveGmTensorParamIdxToOp(Function& func) const;
     // force combine axis
-    Status ForceCombineAxis(Function &func) const;
-    Status ForceCombineAxisForAxisCombine(Function &func) const;
-    bool IsNeedSave(const Operation &op) const;
-    void CombineTailAxis(std::vector<int64_t> &shape, size_t shapeSize) const;
-    void CombineLastAxis(std::vector<SymbolicScalar> &shape, size_t shapeSize) const;
-    Status ProcessAxis(Operation &op, std::vector<bool> attr, bool isInput) const;
-    void SetNeedAllocAttr(Function &function);
-    void FixExpandDimForAxisCombine(Operation &op, int dimSize) const;
-    std::string DumpOpList(Function &function);
+    Status ForceCombineAxis(Function& func) const;
+    Status ForceCombineAxisForAxisCombine(Function& func) const;
+    bool IsNeedSave(const Operation& op) const;
+    void CombineTailAxis(std::vector<int64_t>& shape, size_t shapeSize) const;
+    void CombineLastAxis(std::vector<SymbolicScalar>& shape, size_t shapeSize) const;
+    Status ProcessAxis(Operation& op, std::vector<bool> attr, bool isInput) const;
+    void SetNeedAllocAttr(Function& function);
+    void FixExpandDimForAxisCombine(Operation& op, int dimSize) const;
+    std::string DumpOpList(Function& function);
     bool combineAxis{false};
     bool forceCombineAxis{false};
 };

@@ -19,8 +19,9 @@
 #define MODULE_NAME "AddAlloc"
 
 namespace npu::tile_fwk {
-Status AddAlloc::GenTensorAllocMsgMap(Function &function, 
-    std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
+Status AddAlloc::GenTensorAllocMsgMap(
+    Function& function, std::unordered_map<int, TensorAllocMsg>& tensorAllocMsgMap) const
+{
     for (auto& op : function.Operations(false).DuplicatedOpList()) {
         if (FindTensorAllocMsg(*op, tensorAllocMsgMap) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "FindTensorAllocMsg failed.");
@@ -30,7 +31,8 @@ Status AddAlloc::GenTensorAllocMsgMap(Function &function,
     return SUCCESS;
 }
 
-Status AddAlloc::GenAllocNode(Function &function) {
+Status AddAlloc::GenAllocNode(Function& function)
+{
     std::unordered_map<int, TensorAllocMsg> tensorAllocMsgMap;
     if (GenTensorAllocMsgMap(function, tensorAllocMsgMap) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Tensor, "GenTensorAllocMsgMap failed.");
@@ -38,20 +40,20 @@ Status AddAlloc::GenAllocNode(Function &function) {
     }
     for (auto& tensorAllocMsg : tensorAllocMsgMap) {
         if (tensorAllocMsg.second.isAllocated == false) {
-            APASS_LOG_DEBUG_F(Elements::Tensor, "Create alloc node for tensor [%d]",
-                tensorAllocMsg.first);
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Create alloc node for tensor [%d]", tensorAllocMsg.first);
             CreateAllocNode(tensorAllocMsg.second, function);
         }
     }
     return SUCCESS;
 }
 
-Status AddAlloc::AddAndCheckAlloc(Function &function) {
+Status AddAlloc::AddAndCheckAlloc(Function& function)
+{
     if (GenAllocNode(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Tensor, "GenAllocNode failed.");
         return FAILED;
     }
-    std::vector<Operation *> newOperations;
+    std::vector<Operation*> newOperations;
     for (auto& op : function.Operations(false).DuplicatedOpList()) {
         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
             newOperations.insert(newOperations.begin(), op);
@@ -63,7 +65,8 @@ Status AddAlloc::AddAndCheckAlloc(Function &function) {
     return SUCCESS;
 }
 
-TensorAllocMsg AddAlloc::ConstructTensorAllocMsg(Operation &op, size_t i, int memId) const {
+TensorAllocMsg AddAlloc::ConstructTensorAllocMsg(Operation& op, size_t i, int memId) const
+{
     TensorAllocMsg tensorAllocMsg;
     tensorAllocMsg.producer.push_back(std::ref(op));
     tensorAllocMsg.memType = op.GetOutputOperand(i)->GetMemoryTypeOriginal();
@@ -71,10 +74,14 @@ TensorAllocMsg AddAlloc::ConstructTensorAllocMsg(Operation &op, size_t i, int me
     return tensorAllocMsg;
 }
 
-Status AddAlloc::UpdateTensorAllocMsg(Operation &op, size_t i, std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
+Status AddAlloc::UpdateTensorAllocMsg(
+    Operation& op, size_t i, std::unordered_map<int, TensorAllocMsg>& tensorAllocMsgMap) const
+{
     auto memId = op.GetOutputOperand(i)->memoryrange.memId;
     if (memId == -1) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Get memId in memoryrange failed, op:%d, operand: %zu.%s", op.GetOpMagic(), i, GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_F(
+            Elements::Tensor, "Get memId in memoryrange failed, op:%d, operand: %zu.%s", op.GetOpMagic(), i,
+            GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (tensorAllocMsgMap.find(memId) == tensorAllocMsgMap.end()) {
@@ -85,7 +92,8 @@ Status AddAlloc::UpdateTensorAllocMsg(Operation &op, size_t i, std::unordered_ma
     return SUCCESS;
 }
 
-Status AddAlloc::SetTensorAllocMsg(Operation &op, std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
+Status AddAlloc::SetTensorAllocMsg(Operation& op, std::unordered_map<int, TensorAllocMsg>& tensorAllocMsgMap) const
+{
     for (size_t i = 0; i < op.GetOOperands().size(); i++) {
         if (op.GetOutputOperand(i)->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
             continue;
@@ -98,8 +106,8 @@ Status AddAlloc::SetTensorAllocMsg(Operation &op, std::unordered_map<int, Tensor
     return SUCCESS;
 }
 
-Status AddAlloc::FindTensorAllocMsg(Operation &op, 
-    std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
+Status AddAlloc::FindTensorAllocMsg(Operation& op, std::unordered_map<int, TensorAllocMsg>& tensorAllocMsgMap) const
+{
     // 遍历所有节点，找到需要分配Alloc的tensor以及其第一次出现时候的位置
     if (SetTensorAllocMsg(op, tensorAllocMsgMap) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Tensor, "SetTensorAllocMsg failed.");
@@ -108,8 +116,9 @@ Status AddAlloc::FindTensorAllocMsg(Operation &op,
     return SUCCESS;
 }
 
-Status AddAlloc::GenAllocOpcode(const Opcode &allocOpcode, const TensorAllocMsg& tensorAllocMsg, Function& function) {
-    for (auto &oOperand : tensorAllocMsg.producer[0].get().GetOOperands()) {
+Status AddAlloc::GenAllocOpcode(const Opcode& allocOpcode, const TensorAllocMsg& tensorAllocMsg, Function& function)
+{
+    for (auto& oOperand : tensorAllocMsg.producer[0].get().GetOOperands()) {
         if (oOperand->memoryrange.memId != tensorAllocMsg.memId) {
             continue;
         }
@@ -118,21 +127,22 @@ Status AddAlloc::GenAllocOpcode(const Opcode &allocOpcode, const TensorAllocMsg&
     return SUCCESS;
 }
 
-Status AddAlloc::CreateAllocNode(const TensorAllocMsg& tensorAllocMsg, Function& function) {
+Status AddAlloc::CreateAllocNode(const TensorAllocMsg& tensorAllocMsg, Function& function)
+{
     auto iter = allocOpcodeMap.find(tensorAllocMsg.memType);
     if (iter != allocOpcodeMap.end()) {
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Create alloc node for memtype [%d]",
-            static_cast<int>(tensorAllocMsg.memType));
-        if (tensorAllocMsg.producer.size() == 0) { 
+        APASS_LOG_DEBUG_F(
+            Elements::Tensor, "Create alloc node for memtype [%d]", static_cast<int>(tensorAllocMsg.memType));
+        if (tensorAllocMsg.producer.size() == 0) {
             APASS_LOG_ERROR_F(Elements::Tensor, "TensorAllocMsg's producer size cannot be 0.");
-            return FAILED; 
+            return FAILED;
         }
         Opcode allocOpcode = iter->second;
         if (GenAllocOpcode(allocOpcode, tensorAllocMsg, function)) {
             APASS_LOG_ERROR_F(Elements::Tensor, "GenAllocOpcode failed.");
-            return FAILED; 
+            return FAILED;
         }
     }
     return SUCCESS;
 }
-}
+} // namespace npu::tile_fwk

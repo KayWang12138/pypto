@@ -23,8 +23,10 @@ namespace npu::tile_fwk {
 /**
  * @brief Hypot
  */
-void TiledHypotOperationImpl(Function &function, const TileShape &tileShape, size_t cur, Input &input1,
-    Input &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo) {
+void TiledHypotOperationImpl(
+    Function& function, const TileShape& tileShape, size_t cur, Input& input1, Input& input2,
+    const LogicalTensorPtr& result, TileInfo& resultTileInfo)
+{
     if (cur == result->shape.size()) {
         auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto inputTile2 = input2.tensor.GetStorage()->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
@@ -43,7 +45,7 @@ void TiledHypotOperationImpl(Function &function, const TileShape &tileShape, siz
         function.AddOperation(Opcode::OP_HYPOT, {inputTile1, inputTile2}, {resultTile, tmp_tensor});
         return;
     }
-    auto &vecTile = tileShape.GetVecTile();
+    auto& vecTile = tileShape.GetVecTile();
     int64_t step = vecTile[cur];
     for (int i = 0; i < result->shape[cur]; i += step) {
         resultTileInfo.offset[cur] = i;
@@ -56,10 +58,11 @@ void TiledHypotOperationImpl(Function &function, const TileShape &tileShape, siz
     }
 }
 
-void TiledHypotOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1,
-    LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
-    
-    auto broadcastOperand = [&](LogicalTensorPtr&operand,LogicalTensorPtr&other) {
+void TiledHypotOperation(
+    Function& function, const TileShape& tileShape, LogicalTensorPtr operand1, LogicalTensorPtr operand2,
+    const LogicalTensorPtr& result)
+{
+    auto broadcastOperand = [&](LogicalTensorPtr& operand, LogicalTensorPtr& other) {
         auto dstShape = result->shape;
         if (operand->shape == dstShape) {
             return;
@@ -76,14 +79,15 @@ void TiledHypotOperation(Function &function, const TileShape &tileShape, Logical
     TileInfo tileInfo1(result->shape.size(), result->offset.size());
     TileInfo tileInfo2(result->shape.size(), result->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
-    
+
     auto input1 = Input{operand1, tileInfo1};
     auto input2 = Input{operand2, tileInfo2};
 
     TiledHypotOperationImpl(function, tileShape, 0, input1, input2, result, resultTileInfo);
 }
 
-LogicalTensorPtr TensorHypotOperation(Function &function, const Tensor &self, const Tensor &other) {
+LogicalTensorPtr TensorHypotOperation(Function& function, const Tensor& self, const Tensor& other)
+{
     auto operandT1 = self.GetStorage();
     auto operandT2 = other.GetStorage();
 
@@ -94,7 +98,7 @@ LogicalTensorPtr TensorHypotOperation(Function &function, const Tensor &self, co
     }
 
     std::vector<int64_t> resultShape = BinaryOperationResultShape(operandT1, operandT2);
-    
+
     std::vector<SymbolicScalar> resultValidShape;
     if (!operandT1->GetDynValidShape().empty() && !operandT2->GetDynValidShape().empty()) {
         for (size_t i = 0; i < resultShape.size(); ++i) {
@@ -110,13 +114,16 @@ LogicalTensorPtr TensorHypotOperation(Function &function, const Tensor &self, co
     return result;
 }
 
-Tensor Hypot(const Tensor &self, const Tensor &other) {
+Tensor Hypot(const Tensor& self, const Tensor& other)
+{
     DECLARE_TRACER();
     RETURN_CALL(HypotOperation, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
-void HypotOperationTileFunc(Function &function, const TileShape &tileShape,
-    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, [[maybe_unused]] const Operation &op) {
+void HypotOperationTileFunc(
+    Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
+    const std::vector<LogicalTensorPtr>& oOperand, [[maybe_unused]] const Operation& op)
+{
     BinaryOperationOperandCheck(iOperand, oOperand);
     TiledHypotOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
 }

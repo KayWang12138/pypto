@@ -200,7 +200,7 @@ python3 scipts/ut_coverage.py --diff pr.diff --report ut_cov.tar.gz --json
 ### 步骤 4：构建function
 
     构建整张计算图function，利用智能指针进行创建，并在创建后判断是否为空。若用户未明确指定参数，则belongTo为新建Program实例，funcMagicName和funcRawName均为TestXXX，XXX为pass名字，parentFunc为空指针。
-    
+
     详细的信息如下：
         Function类常用构造函数：
 ```cpp
@@ -224,7 +224,7 @@ python3 scipts/ut_coverage.py --diff pr.diff --report ut_cov.tar.gz --json
     LogicalTensor类常用构造函数：
         LogicalTensor(Function &function, DataType t, Shape tshape, TileOpFormat tformat = TileOpFormat::TILEOP_ND, std::string tname = "",
         NodeType tnodetype = NodeType::LOCAL);
-    
+
     详细LogicalTensor类信息，请参考：pypto/framework/src/interface/tensor/logical_tensor.h
 
 ### 步骤 6：创建Operation及绑定function输入输出
@@ -280,7 +280,7 @@ python3 scipts/ut_coverage.py --diff pr.diff --report ut_cov.tar.gz --json
         python3 build_ci.py -c -u=xxx.* --gcov -j=24 -f=cpp
     xxx为该测试用例类的名字,xx为测试用例
     执行结束时,会在build/路径下，生成cov_result 目录，打开index.html观察对应pass的UT覆盖率情况，若覆盖率<=80%，则针对未覆盖的业务，重复以上步骤，进行该Pass UT补充。
-    
+
 ## UT生成流程二
 
 ### 步骤 1：分析业务

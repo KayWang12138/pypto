@@ -24,7 +24,8 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-TEST_F(DynamicTest, TestPartial) {
+TEST_F(DynamicTest, TestPartial)
+{
     SetInterpreterConfig();
 
     TileShape::Current().SetVecTile(16, 16);
@@ -69,16 +70,19 @@ TEST_F(DynamicTest, TestPartial) {
         RawTensorData::CreateTensor<float>(out, goldenData),
     });
 
-    FUNCTION("main", {q, seq}, {out}) {
+    FUNCTION("main", {q, seq}, {out})
+    {
         Tensor mid(vType, midShape, "mid");
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (blockSize))) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (blockSize)))
+        {
             Tensor block = View(q, {blockSize, blockSize}, {batchId * blockSize, 0});
             SymbolicScalar curSeq = GetTensorData(seq, {batchId});
             config::SetSemanticLabel("add");
             Tensor add = Add(block, block);
             Assemble(add, {curSeq * blockSize, 0}, mid);
         }
-        LOOP("SUM", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
+        LOOP("SUM", FunctionType::DYNAMIC_LOOP, _, LoopRange(1))
+        {
             (void)_;
             config::SetSemanticLabel("adds");
             out = Add(mid, Element(DT_FP32, 1.0f));

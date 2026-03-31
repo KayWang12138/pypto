@@ -40,7 +40,7 @@ def compute_add_without_cache(
 
 
 def test_use_cache_false_compiles_twice():
-    """Test that use_cache=False causes recompilation each time.""" 
+    """Test that use_cache=False causes recompilation each time."""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     tiling = 32

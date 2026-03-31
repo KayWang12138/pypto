@@ -47,24 +47,26 @@ class RemoveUnalignedReshape : public Pass {
 public:
     RemoveUnalignedReshape() : Pass("RemoveUnalignedReshape") {}
     ~RemoveUnalignedReshape() override = default;
-    Status RunOnFunction(Function &function) override;
+    Status RunOnFunction(Function& function) override;
 
 private:
-    void CollectReshapeOps(Function &function);
-    void ReplaceDynUnalignedReshapeOps(Function &function);
-    void ReplaceDynUnalignedReshapeOpsForUB(Function &function, Operation &op);
-    void ReplaceDynUnalignedReshapeOpsForDDR(Function &function, Operation &op);
-    void ProcessCopyOutOfDDRReshape(Function &function, Operation &op, Operation *copyOutOp);
-    void ProcessCopyInOfDDRReshape(Function &function, Operation &op, std::vector<Operation *> &copyInOps);
+    void CollectReshapeOps(Function& function);
+    void ReplaceDynUnalignedReshapeOps(Function& function);
+    void ReplaceDynUnalignedReshapeOpsForUB(Function& function, Operation& op);
+    void ReplaceDynUnalignedReshapeOpsForDDR(Function& function, Operation& op);
+    void ProcessCopyOutOfDDRReshape(Function& function, Operation& op, Operation* copyOutOp);
+    void ProcessCopyInOfDDRReshape(Function& function, Operation& op, std::vector<Operation*>& copyInOps);
     std::unordered_set<int> processedReshapeOps;
-    std::vector<Operation *> FindAllProducerCopyOuts(LogicalTensorPtr tensor, bool &hasOtherBranch);
-    void FindAllConsumerCopyIns(LogicalTensorPtr tensor, std::vector<Operation *> &copyInOps, bool &hasViewOrAssemble);
-    bool CheckUnaligned(Operation &op);
-    LogicalTensorPtr InsertIOTensor(Function &function, Operation &op, std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> &rawIO, LogicalTensorPtr &ioTensor);
+    std::vector<Operation*> FindAllProducerCopyOuts(LogicalTensorPtr tensor, bool& hasOtherBranch);
+    void FindAllConsumerCopyIns(LogicalTensorPtr tensor, std::vector<Operation*>& copyInOps, bool& hasViewOrAssemble);
+    bool CheckUnaligned(Operation& op);
+    LogicalTensorPtr InsertIOTensor(
+        Function& function, Operation& op, std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>>& rawIO,
+        LogicalTensorPtr& ioTensor);
     std::vector<CopyOutOpMemUnalign> copyOuts;
     std::vector<CopyInOpMemUnalign> copyIns;
     std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> reshapeRawOutputs;
     std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> reshapeRawInputs;
 };
-} // namespace
+} // namespace npu::tile_fwk
 #endif // PASS_REMOVE_UNALIGNED_RESHAPE_OP_H_

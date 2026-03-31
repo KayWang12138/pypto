@@ -21,15 +21,17 @@
 
 namespace npu {
 namespace tile_fwk {
-Status SplitRawTensorChecker::DoPostCheck(Function &function) {
+Status SplitRawTensorChecker::DoPostCheck(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "===> Start PostCheck for SplitRawTensor.");
-    for (const auto &tMap : function.GetTensorMap().tensorMap_) {
-        for (const auto &logicalTensor : tMap.second) {
+    for (const auto& tMap : function.GetTensorMap().tensorMap_) {
+        for (const auto& logicalTensor : tMap.second) {
             if (function.IsFromOutCast(logicalTensor) || function.IsFromInCast(logicalTensor)) {
                 continue;
             }
             if ((logicalTensor->GetShape() != logicalTensor->tensor->GetRawShape())) {
-                APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%d]'s shape(%s) is differ from its rawShape(%s).",
+                APASS_LOG_ERROR_F(
+                    Elements::Tensor, "Tensor[%d]'s shape(%s) is differ from its rawShape(%s).",
                     logicalTensor->GetMagic(), CommonUtils::ContainerToStr(logicalTensor->GetShape()).c_str(),
                     CommonUtils::ContainerToStr(logicalTensor->tensor->GetRawShape()).c_str());
                 return FAILED;

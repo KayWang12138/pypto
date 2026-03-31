@@ -21,22 +21,24 @@
 
 #include <cmath>
 
-TILEOP void SyncV() {
+TILEOP void SyncV()
+{
 #ifdef __DAV_V220
     pipe_barrier(PIPE_V);
 #endif
 }
 
-
-template<typename DType>
-TILEOP constexpr bool IsIntegralType() {
+template <typename DType>
+TILEOP constexpr bool IsIntegralType()
+{
     return std::is_same_v<DType, int32_t> || std::is_same_v<DType, uint32_t> || std::is_same_v<DType, int8_t> ||
            std::is_same_v<DType, uint8_t> || std::is_same_v<DType, int16_t> || std::is_same_v<DType, uint16_t> ||
            std::is_same_v<DType, int64_t> || std::is_same_v<DType, uint64_t>;
 }
 
 template <UnaryOp op, typename LastUse, typename T0, typename T1>
-TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
+TILEOP void UnaryComputeImpl(T0 dst, T1 src)
+{
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     if constexpr (op == UnaryOp::EXP) {
@@ -78,7 +80,9 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
 }
 
 template <typename T, typename HalfTileDefineSrc, typename TileDefineDst, typename B16TileDefineSrc>
-TILEOP void IsFiniteCalcImpl(TileDefineDst dst, B16TileDefineSrc src, B16TileDefineSrc bufferB16, HalfTileDefineSrc bufferFP16) {
+TILEOP void IsFiniteCalcImpl(
+    TileDefineDst dst, B16TileDefineSrc src, B16TileDefineSrc bufferB16, HalfTileDefineSrc bufferFP16)
+{
     int16_t mask = 0;
     if constexpr (std::is_same_v<T, bfloat16_t>) {
         mask = 0x7F80;
@@ -97,8 +101,9 @@ TILEOP void IsFiniteCalcImpl(TileDefineDst dst, B16TileDefineSrc src, B16TileDef
     SyncV();
 }
 
-template<typename T, typename HalfTileDefineSrc, bool CombineAxis, typename TileDefineDst, typename B16TileDefineSrc>
-TILEOP void IsFiniteComputeImpl(TileDefineDst dst, B16TileDefineSrc src, HalfTileDefineSrc buffer) {
+template <typename T, typename HalfTileDefineSrc, bool CombineAxis, typename TileDefineDst, typename B16TileDefineSrc>
+TILEOP void IsFiniteComputeImpl(TileDefineDst dst, B16TileDefineSrc src, HalfTileDefineSrc buffer)
+{
     if constexpr (!CombineAxis) {
         HalfTileDefineSrc bufferFP16(src.GetValidRow(), src.GetValidCol());
         pto::TASSIGN(bufferFP16, reinterpret_cast<std::uintptr_t>(buffer.data()));
@@ -115,7 +120,8 @@ TILEOP void IsFiniteComputeImpl(TileDefineDst dst, B16TileDefineSrc src, HalfTil
 }
 
 template <UnaryOp op, typename LastUse, typename T0, typename T1>
-TILEOP void UnaryCompute(T0 dst, T1 src) {
+TILEOP void UnaryCompute(T0 dst, T1 src)
+{
     if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
         auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
         auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
@@ -145,7 +151,8 @@ TILEOP void UnaryCompute(T0 dst, T1 src) {
 
 #define OP_TILE_OP_EXP TExp
 template <typename LastUse, typename T0, typename T1>
-TILEOP void BrcbCompute(T0 dst, T1 src) {
+TILEOP void BrcbCompute(T0 dst, T1 src)
+{
     const auto dstLayout = dst.GetLayout();
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
     auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
@@ -163,9 +170,9 @@ TILEOP void BrcbCompute(T0 dst, T1 src) {
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, DIM_4TH, MAX_DIMS>();
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, DIM_5TH, MAX_DIMS>();
 
-    using DstTileDefine =pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor>;
-    using SrcTileDefine = typename std::conditional<(srcTileW == 1), 
-        pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::ColMajor>,
+    using DstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor>;
+    using SrcTileDefine = typename std::conditional<
+        (srcTileW == 1), pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::ColMajor>,
         pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileW, srcTileH, pto::BLayout::ColMajor>>::type;
 
     SrcTileDefine srcTile;
@@ -184,37 +191,44 @@ TILEOP void BrcbCompute(T0 dst, T1 src) {
 }
 
 template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
-TILEOP void TExp(T0 dst, T1 src) {
+TILEOP void TExp(T0 dst, T1 src)
+{
     UnaryCompute<UnaryOp::EXP, LastUse>(dst, src);
 }
 
 #define OP_TILE_OP_RSQRT TRsqrt
 template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
-TILEOP void TRsqrt(T0 dst, T1 src) {
+TILEOP void TRsqrt(T0 dst, T1 src)
+{
     UnaryCompute<UnaryOp::RSQRT, LastUse>(dst, src);
 }
 
 #define OP_TILE_OP_SQRT TSqrt
 template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
-TILEOP void TSqrt(T0 dst, T1 src) {
+TILEOP void TSqrt(T0 dst, T1 src)
+{
     UnaryCompute<UnaryOp::SQRT, LastUse>(dst, src);
 }
 
 template <typename DstTileTensor, typename SrcTileTensor, typename BufferTileTensor>
-TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buffer) {
-    using DstType = std::conditional_t<std::is_same_v<typename DstTileTensor::Type, bool>, uint8_t, typename DstTileTensor::Type>;
+TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buffer)
+{
+    using DstType =
+        std::conditional_t<std::is_same_v<typename DstTileTensor::Type, bool>, uint8_t, typename DstTileTensor::Type>;
     using SrcType = typename SrcTileTensor::Type;
 
     constexpr size_t tileSrcH = GetMergedAxisIfNeed<SrcTileTensor, true>();
     constexpr size_t tileSrcW = TileOp::GetTensorTileShapeDim<SrcTileTensor, DIM_5TH, MAX_DIMS>();
     constexpr size_t tileDstH = GetMergedAxisIfNeed<DstTileTensor, true>();
     constexpr size_t tileDstW = TileOp::GetTensorTileShapeDim<DstTileTensor, DIM_5TH, MAX_DIMS>();
-    
+
     constexpr int validH = GetValidHeight<SrcTileTensor, true>();
     constexpr int validW = GetValidWidth<SrcTileTensor>();
 
     if constexpr (IsIntegralType<SrcType>()) {
-        using TileDefineDst = pto::Tile<pto::TileType::Vec, int16_t, tileDstH, (tileDstW + 1) / 2, pto::BLayout::RowMajor, validH, (validW + 1) / 2>;
+        using TileDefineDst = pto::Tile<
+            pto::TileType::Vec, int16_t, tileDstH, (tileDstW + 1) / 2, pto::BLayout::RowMajor, validH,
+            (validW + 1) / 2>;
         TileDefineDst dstTile;
         pto::TASSIGN(dstTile, dst.GetAddr());
         int16_t mask = 0x0101;
@@ -225,9 +239,14 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
         return;
     }
 
-    using TileDefineDst = pto::Tile<pto::TileType::Vec, DstType, tileDstH, tileDstW, pto::BLayout::RowMajor, validH, validW>;
-    using HalfTileDefineSrc = pto::Tile<pto::TileType::Vec, half, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(half), pto::BLayout::RowMajor, validH, validW>;
-    using B16TileDefineSrc = pto::Tile<pto::TileType::Vec, int16_t, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(int16_t), pto::BLayout::RowMajor, validH, validW>;
+    using TileDefineDst =
+        pto::Tile<pto::TileType::Vec, DstType, tileDstH, tileDstW, pto::BLayout::RowMajor, validH, validW>;
+    using HalfTileDefineSrc = pto::Tile<
+        pto::TileType::Vec, half, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(half), pto::BLayout::RowMajor, validH,
+        validW>;
+    using B16TileDefineSrc = pto::Tile<
+        pto::TileType::Vec, int16_t, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(int16_t), pto::BLayout::RowMajor,
+        validH, validW>;
 
     HalfTileDefineSrc bufferTile;
     TileDefineDst dstTile;
@@ -237,7 +256,8 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
     pto::TASSIGN(srcTile, src.GetAddr());
 
     if constexpr (std::is_same_v<SrcType, float>) {
-        using FP32TileDefineSrc = pto::Tile<pto::TileType::Vec, float, tileSrcH, tileSrcW, pto::BLayout::RowMajor, validH, validW>;
+        using FP32TileDefineSrc =
+            pto::Tile<pto::TileType::Vec, float, tileSrcH, tileSrcW, pto::BLayout::RowMajor, validH, validW>;
         FP32TileDefineSrc srcFP32;
         HalfTileDefineSrc srcFP16;
         pto::TASSIGN(srcFP32, src.GetAddr());
@@ -250,8 +270,10 @@ TILEOP void TIsFiniteCombineAxis(DstTileTensor dst, SrcTileTensor src, BufferTil
 }
 
 template <typename DstTileTensor, typename SrcTileTensor>
-TILEOP void TIsFinite4Integral(DstTileTensor dst, SrcTileTensor src) {
-    using DstType = std::conditional_t<std::is_same_v<typename DstTileTensor::Type, bool>, uint8_t, typename DstTileTensor::Type>;
+TILEOP void TIsFinite4Integral(DstTileTensor dst, SrcTileTensor src)
+{
+    using DstType =
+        std::conditional_t<std::is_same_v<typename DstTileTensor::Type, bool>, uint8_t, typename DstTileTensor::Type>;
     using SrcType = typename SrcTileTensor::Type;
     constexpr size_t tileSrcH = GetMergedAxisIfNeed<SrcTileTensor, false>();
     constexpr size_t tileSrcW = TileOp::GetTensorTileShapeDim<SrcTileTensor, DIM_5TH, MAX_DIMS>();
@@ -261,7 +283,8 @@ TILEOP void TIsFinite4Integral(DstTileTensor dst, SrcTileTensor src) {
     int validH = src.GetLayout().template GetShapeDim<DIM_4TH, MAX_DIMS>();
     int validW = src.GetLayout().template GetShapeDim<DIM_5TH, MAX_DIMS>();
 
-    using TileDefineDst = pto::Tile<pto::TileType::Vec, int16_t, tileDstH, tileDstW / 2, pto::BLayout::RowMajor, -1, -1>;
+    using TileDefineDst =
+        pto::Tile<pto::TileType::Vec, int16_t, tileDstH, tileDstW / 2, pto::BLayout::RowMajor, -1, -1>;
     TileDefineDst dstTile(validH, (validW + 1) / 2);
     pto::TASSIGN(dstTile, dst.GetAddr());
     const auto dstLayout = dst.GetLayout();
@@ -285,7 +308,8 @@ TILEOP void TIsFinite4Integral(DstTileTensor dst, SrcTileTensor src) {
 }
 
 template <typename DstTileTensor, typename SrcTileTensor, typename BufferTileTensor>
-TILEOP void TIsFinite4Floats(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buffer) {
+TILEOP void TIsFinite4Floats(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buffer)
+{
     using SrcType = typename SrcTileTensor::Type;
     using DstType =
         std::conditional_t<std::is_same_v<typename DstTileTensor::Type, bool>, uint8_t, typename DstTileTensor::Type>;
@@ -298,10 +322,11 @@ TILEOP void TIsFinite4Floats(DstTileTensor dst, SrcTileTensor src, BufferTileTen
     int validW = src.GetLayout().template GetShapeDim<DIM_5TH, MAX_DIMS>();
 
     using TileDefineDst = pto::Tile<pto::TileType::Vec, DstType, tileDstH, tileDstW, pto::BLayout::RowMajor, -1, -1>;
-    using HalfTileDefineSrc = pto::Tile<pto::TileType::Vec, half, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(half),
-        pto::BLayout::RowMajor, -1, -1>;
-    using B16TileDefineSrc = pto::Tile<pto::TileType::Vec, int16_t, tileSrcH,
-        tileSrcW * sizeof(SrcType) / sizeof(int16_t), pto::BLayout::RowMajor, -1, -1>;
+    using HalfTileDefineSrc = pto::Tile<
+        pto::TileType::Vec, half, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(half), pto::BLayout::RowMajor, -1, -1>;
+    using B16TileDefineSrc = pto::Tile<
+        pto::TileType::Vec, int16_t, tileSrcH, tileSrcW * sizeof(SrcType) / sizeof(int16_t), pto::BLayout::RowMajor, -1,
+        -1>;
 
     HalfTileDefineSrc bufferTile(validH, validW);
     pto::TASSIGN(bufferTile, buffer.GetAddr());
@@ -337,7 +362,8 @@ TILEOP void TIsFinite4Floats(DstTileTensor dst, SrcTileTensor src, BufferTileTen
 
 #define OP_TILE_OP_ISFINITE TIsFinite
 template <typename DstTileTensor, typename SrcTileTensor, typename BufferTileTensor>
-TILEOP void TIsFinite(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buffer) {
+TILEOP void TIsFinite(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buffer)
+{
     if constexpr (TileOp::IsConstContinous<DstTileTensor, SrcTileTensor>()) {
         TIsFiniteCombineAxis(dst, src, buffer);
         return;
@@ -354,35 +380,41 @@ TILEOP void TIsFinite(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buf
 
 #define OP_TILE_OP_BRCB Tbrcb
 template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
-TILEOP void Tbrcb(T0 dst, T1 src) {
+TILEOP void Tbrcb(T0 dst, T1 src)
+{
     BrcbCompute<LastUse>(dst, src);
 }
 
 #define OP_TILE_OP_ABS TAbs
 template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
-TILEOP void TAbs(T0 dst, T1 src) {
+TILEOP void TAbs(T0 dst, T1 src)
+{
     UnaryCompute<UnaryOp::ABS, LastUse>(dst, src);
 }
 
 #define OP_TILE_OP_BITWISENOT TBitwiseNot
 template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
-TILEOP void TBitwiseNot(T0 dst, T1 src) {
+TILEOP void TBitwiseNot(T0 dst, T1 src)
+{
     UnaryCompute<UnaryOp::BITWISENOT, LastUse>(dst, src);
 }
 
 #define OP_TILE_OP_LOG TLog
 template <typename T0, typename T1>
-TILEOP void TLog(T0 dst, T1 src) {
+TILEOP void TLog(T0 dst, T1 src)
+{
     UnaryCompute<UnaryOp::LN, LastUse2Dim<0, 0>>(dst, src);
 }
 
 template <typename Ttemp, typename T0, typename T1>
-TILEOP void CeilComputeImpl(T0 dst, T1 src) {
+TILEOP void CeilComputeImpl(T0 dst, T1 src)
+{
     pto::TCVT(dst, src, pto::RoundMode::CAST_CEIL);
 }
 #define OP_TILE_OP_CEIL TCEIL
 template <typename T0, typename T1>
-TILEOP void TCeil(T0 dst, T1 src) {
+TILEOP void TCeil(T0 dst, T1 src)
+{
     if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
         auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
         auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
@@ -413,12 +445,14 @@ TILEOP void TCeil(T0 dst, T1 src) {
 }
 
 template <typename Ttemp, typename T0, typename T1>
-TILEOP void FloorComputeImpl(T0 dst, T1 src) {
+TILEOP void FloorComputeImpl(T0 dst, T1 src)
+{
     pto::TCVT(dst, src, pto::RoundMode::CAST_FLOOR);
 }
 #define OP_TILE_OP_FLOOR TFLOOR
 template <typename T0, typename T1>
-TILEOP void TFloor(T0 dst, T1 src) {
+TILEOP void TFloor(T0 dst, T1 src)
+{
     if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
         auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
         auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
@@ -449,12 +483,14 @@ TILEOP void TFloor(T0 dst, T1 src) {
 }
 
 template <typename Ttemp, typename T0, typename T1>
-TILEOP void TruncComputeImpl(T0 dst, T1 src) {
+TILEOP void TruncComputeImpl(T0 dst, T1 src)
+{
     pto::TCVT(dst, src, pto::RoundMode::CAST_TRUNC);
 }
 #define OP_TILE_OP_TRUNC TTRUNC
 template <typename T0, typename T1>
-TILEOP void TTrunc(T0 dst, T1 src) {
+TILEOP void TTrunc(T0 dst, T1 src)
+{
     if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
         auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
         auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
@@ -486,7 +522,8 @@ TILEOP void TTrunc(T0 dst, T1 src) {
 
 #define OP_TILE_OP_EXP2 TExp2
 template <typename T0, typename T1, typename T2, typename T3>
-TILEOP void TExp2(T0 dst, T1 tmp, T2 tmp2, T3 src) {
+TILEOP void TExp2(T0 dst, T1 tmp, T2 tmp2, T3 src)
+{
     const auto dstLayout = dst.GetLayout();
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
     auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
@@ -539,8 +576,8 @@ TILEOP void TExp2(T0 dst, T1 tmp, T2 tmp2, T3 src) {
 #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
 #endif
-                    if constexpr (std::is_same_v<typename T3::Type, half> ||
-                                  std::is_same_v<typename T3::Type, bfloat16_t>) {
+                    if constexpr (
+                        std::is_same_v<typename T3::Type, half> || std::is_same_v<typename T3::Type, bfloat16_t>) {
                         pto::TEXP(tmpTile2.Data(), tmpTile.Data());
 #ifdef __DAV_V220
                         pipe_barrier(PIPE_V);
@@ -557,7 +594,8 @@ TILEOP void TExp2(T0 dst, T1 tmp, T2 tmp2, T3 src) {
 
 #define OP_TILE_OP_ROUND TRound
 template <typename Scalar, typename T0, typename T1, typename T2>
-TILEOP void TRound(T0 dst, T1 tmp, T2 src, Scalar powDecimals) {
+TILEOP void TRound(T0 dst, T1 tmp, T2 src, Scalar powDecimals)
+{
     const auto dstLayout = dst.GetLayout();
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
     auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
@@ -610,7 +648,8 @@ TILEOP void TRound(T0 dst, T1 tmp, T2 src, Scalar powDecimals) {
 
 #define OP_TILE_OP_EXPM1 TExpm1
 template <typename T0, typename T1, typename T2>
-TILEOP void TExpm1(T0 dst, T1 tmp, T2 src) {
+TILEOP void TExpm1(T0 dst, T1 tmp, T2 src)
+{
     const auto dstLayout = dst.GetLayout();
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
     auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
@@ -642,8 +681,8 @@ TILEOP void TExpm1(T0 dst, T1 tmp, T2 src) {
 #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
 #endif
-                    if constexpr (std::is_same_v<typename T2::Type, half> ||
-                                  std::is_same_v<typename T2::Type, bfloat16_t>) {
+                    if constexpr (
+                        std::is_same_v<typename T2::Type, half> || std::is_same_v<typename T2::Type, bfloat16_t>) {
                         pto::TADDS(tmpTile.Data(), tmpTile.Data(), -1.0f);
 #ifdef __DAV_V220
                         pipe_barrier(PIPE_V);
@@ -660,13 +699,15 @@ TILEOP void TExpm1(T0 dst, T1 tmp, T2 src) {
 
 #define OP_TILE_OP_RECIPROCAL TReciprocal
 template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
-TILEOP void TReciprocal(T0 dst, T1 src) {
+TILEOP void TReciprocal(T0 dst, T1 src)
+{
     UnaryCompute<UnaryOp::RECIPROCAL, LastUse>(dst, src);
 }
 
 #define OP_TILE_OP_RELU TRelu
 template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
-TILEOP void TRelu(T0 dst, T1 src) {
+TILEOP void TRelu(T0 dst, T1 src)
+{
     UnaryCompute<UnaryOp::RELU, LastUse>(dst, src);
 }
 #endif

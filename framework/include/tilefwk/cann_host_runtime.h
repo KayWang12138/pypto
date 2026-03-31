@@ -20,29 +20,30 @@
 
 namespace npu {
 namespace tile_fwk {
-using GetSocVerFunc = int (*)(char *, const uint32_t);
-using GetSocSpecFunc = int (*)(const char *, const char *, char *, const uint32_t);
-using GetAiCpuCntFunc = int (*)(uint32_t *);
+using GetSocVerFunc = int (*)(char*, const uint32_t);
+using GetSocSpecFunc = int (*)(const char*, const char*, char*, const uint32_t);
+using GetAiCpuCntFunc = int (*)(uint32_t*);
 
 class CannHostRuntime {
 public:
     static CannHostRuntime& Instance();
     bool GetSocVersion(std::string& socVersion);
     bool GetSocSpec(const std::string& column, const std::string& key, std::string& val);
-    bool GetAICPUCnt(size_t &aiCpuCnt);
+    bool GetAICPUCnt(size_t& aiCpuCnt);
 
     CannHostRuntime(const CannHostRuntime&) = delete;
     CannHostRuntime& operator=(const CannHostRuntime&) = delete;
+
 private:
     CannHostRuntime();
     ~CannHostRuntime();
-    void *GetSymbol(const std::string &sym);
+    void* GetSymbol(const std::string& sym);
 
     GetSocVerFunc socVerFunc_ = nullptr;
     GetSocSpecFunc socSpecFunc_ = nullptr;
     GetAiCpuCntFunc aiCpuCntFunc_ = nullptr;
-    void *handleDep_ = nullptr;	 
-    void *handle_ = nullptr;
+    void* handleDep_ = nullptr;
+    void* handle_ = nullptr;
 };
-}  // namespace tile_fwk
-}  // namespace npu
+} // namespace tile_fwk
+} // namespace npu

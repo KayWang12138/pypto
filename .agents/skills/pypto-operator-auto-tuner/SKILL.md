@@ -1,5 +1,5 @@
 ---
-name: pypto-operator-auto-tune
+name: pypto-operator-auto-tuner
 description: PyPTO算子性能分析和自动调优技能。用于对生成及新开发的算子进行性能分析及自动调优，包括算子用例执行及精度校验、性能数据采集及分析、分步骤性能调优和生成性能分析报告。当用户需要分析PyPTO算子性能、进行性能调优、生成性能报告时使用此技能。触发词：算子性能调优、性能分析、自动调优、性能优化、泳道图分析。
 ---
 
@@ -23,8 +23,8 @@ description: PyPTO算子性能分析和自动调优技能。用于对生成及�
 2. ✅ **每次验证精度**：每次调优修改后，必须重新验证精度（不要怕麻烦！）
 3. ❌ **精度失败不修复**：
    - 首轮失败：不进行修复，可以换卡尝试，多次失败让用户确认
-   - 调优修改导致失败：立即回退修改，记录失败原因，尝试其他优化方案
-   - ⚠️ 精度问题是算子实现问题，不是调优能解决的
+   - 调优修改导致失败：可以进行简单分析后，如果不能解决，则回退修改，记录失败原因，尝试其他优化方案
+   - ⚠️ 精度问题是算子实现问题，不是调优能解决的，可以尝试，但不强制解决
 
 **详细处理流程**：见步骤 1.4（精度校验）和步骤 4.3（迭代调优流程）
 
@@ -36,7 +36,7 @@ description: PyPTO算子性能分析和自动调优技能。用于对生成及�
 2. 精度通过后，立即测试性能
 3. **不要**全部改完再测
 4. 对比修改前后的性能数据
-5. 如果性能回退或者执行超时等异常情况，回退修改，记录失败，尝试其他方案
+5. 如果性能回退或者执行超时等异常情况，尝试修改，如果不能解决，则回退修改，记录失败，尝试其他方案
 6. 重复上述过程直到达到目标性能
 
 **⚠️ 注意：当长时间无法达到性能目标，或者识别没有调优空间时，可以尝试重新设计算子**
@@ -58,6 +58,10 @@ description: PyPTO算子性能分析和自动调优技能。用于对生成及�
 2. 以文档 / 资料库为依据
 遇到问题查官方文档、权威资料、经典案例。
 3. 遇到不清晰的接口，不确定使用方法时，主动查询api接口文档
+
+**资料库**
+1. [高性能编程实践](../../../models/) -- 介绍了很多高性能的编程案例，可以参考其中的高性能写法进行优化
+2. [api接口文档](../../../docs/api/) -- 介绍了整个 pypto 仓库的所有接口及调优参数使用说明
 
 ### 5. 进度可视化原则
 
@@ -253,7 +257,7 @@ python3 custom/operator_name/operator.py --run-mode npu
    ```bash
    # 查看可用NPU卡
    npu-smi info
-   
+
    # 尝试其他卡
    export TILE_FWK_DEVICE_ID=1  # 或其他可用卡号
    python3 custom/operator_name/operator.py --run-mode npu
@@ -314,7 +318,7 @@ python3 custom/operator_name/operator.py --run-mode npu
 使用 `perf-analyzer` 子技能，分析性能数据，生成性能报告和优化建议。
 ```bash
 # 加载性能分析技能
-Read .agents/skills/pypto-operator-auto-tune/perf-analyzer/SKILL.md
+Read .agents/skills/pypto-operator-auto-tuner/perf-analyzer/SKILL.md
 ```
 
 ### 3.2 查看性能报告
@@ -379,13 +383,13 @@ Read .agents/skills/pypto-operator-auto-tune/perf-analyzer/SKILL.md
 
 ```bash
 # 第1步：加载开箱性能调优指南
-Read .agents/skills/pypto-operator-auto-tune/tune-frontend/SKILL.md
+Read .agents/skills/pypto-operator-auto-tuner/tune-frontend/SKILL.md
 
 # 第2步：加载深度性能调优指南
-Read .agents/skills/pypto-operator-auto-tune/tune-swimlane/SKILL.md
+Read .agents/skills/pypto-operator-auto-tuner/tune-swimlane/SKILL.md
 
 # 第3步：加载核内性能调优指南
-Read .agents/skills/pypto-operator-auto-tune/tune-incore/SKILL.md
+Read .agents/skills/pypto-operator-auto-tuner/tune-incore/SKILL.md
 ```
 
 ### 4.2 性能问题诊断
@@ -401,12 +405,12 @@ Read .agents/skills/pypto-operator-auto-tune/tune-incore/SKILL.md
   ├─ 检查任务粒度 → 增大TileShape
   ├─ 检查调度策略 → 使用L2亲和调度
   └─ 检查数据访问 → 优化内存布局
-  
+
 如果气泡率高 (>20%):
   ├─ 检查Stitch配置 → 增大stitch_function_max_num
   ├─ 检查任务依赖 → 使用合图优化
   └─ 检查循环展开 → 使用轴切块或loop_unroll
-  
+
 如果负载不均衡:
   ├─ 检查任务分配 → 调整TileShape
   └─ 检查调度策略 → 调整device_sched_mode
@@ -428,7 +432,7 @@ Read .agents/skills/pypto-operator-auto-tune/tune-incore/SKILL.md
 │  3. 验证精度 ⭐                   │
 │     ├─ 运行测试用例               │
 │     ├─ 验证用例是否通过        │
-│     └─ 失败则立即回退修改         │
+│     └─ 失败，尝试解决，不行则回退修改  │
 │                                  │
 │  4. 测试性能                      │
 │     ├─ 采集性能数据               │
@@ -454,13 +458,13 @@ Read .agents/skills/pypto-operator-auto-tune/tune-incore/SKILL.md
 **⚠️ 重要：每次修改都要验证精度，不要怕麻烦！**
 
 **⚠️ 精度验证失败处理**：
-- **修改导致失败**：立即回退修改，记录失败原因，尝试其他优化方案
+- **修改导致失败**：尝试解决，不行则回退修改，记录失败原因，尝试其他优化方案
 - **不要尝试修复精度问题**，精度问题是算子实现问题，不是调优能解决的
 
 **关键原则**：
 1. 每次只修改一个优化点
 2. 修改后立即测试性能和精度
-3. 精度失败则回退修改
+3. 精度失败，尝试解决，不行的话，则回退修改
 4. 性能回退则尝试其他优化点
 5. **每个阶段独立迭代**，完成后再进入下一阶段
 
@@ -524,7 +528,7 @@ Read .agents/skills/pypto-operator-auto-tune/tune-incore/SKILL.md
 
 - 失败轮次: 第X轮
 - 当前优化: [优化内容]
-- 处理: 立即回退修改
+- 处理: 尝试解决，但未生效，回退修改
 
 Todo更新: 标记当前优化为❌
 ```
@@ -629,13 +633,14 @@ Todo更新: 标记当前优化为❌
 **正确做法**：
 - **每次修改都要验证精度，不要怕麻烦！**
 - 即使是小改动，也要验证精度
-- 精度失败立即回退
+- 精度失败，不要立即回退，要进行简单分析尝试后，如果还是不能解决，则回退
 
 ---
 
 ## 参考资料
 
 ### 子技能
+- [perf-analyzer](perf-analyzer/SKILL.md) - 性能分析
 - [tune-frontend](tune-frontend/SKILL.md) - 开箱性能调优
 - [tune-swimlane](tune-swimlane/SKILL.md) - 深度性能调优
 - [tune-incore](tune-incore/SKILL.md) - 核内性能调优
@@ -645,4 +650,5 @@ Todo更新: 标记当前优化为❌
 - [Matmul 高性能编程](../../../docs/tutorials/debug/matmul_performance_guide.md)
 - [性能优化案例](../../../docs/tutorials/debug/performance_case_quantindexerprolog.md)
 - [性能调优报告模板](./perf-analyzer/templates/performance_report_template.md)
+- [高性能编程实践](../../../models/)
 - [api接口文档](../../../docs/api/)

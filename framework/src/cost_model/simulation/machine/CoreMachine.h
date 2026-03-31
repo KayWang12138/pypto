@@ -37,10 +37,7 @@ public:
     CorePipeType iqType = CorePipeType::TOTAL_CORE_PIPE_TYPE;
     std::deque<int> readyQueue;
 
-    ReadyQueue(CorePipeType type, int id) : iqId(id), iqType(type)
-    {
-        readyQueue.clear();
-    };
+    ReadyQueue(CorePipeType type, int id) : iqId(id), iqType(type) { readyQueue.clear(); };
 
     void Insert(int idx);
     bool Empty() const;
@@ -77,7 +74,7 @@ public:
     std::unordered_map<int, TilePtr> tiles;
     std::unordered_map<int, TileOpPtr> tileOps;
     std::vector<std::vector<int>> tileAllocSequence;
-    bool                                coreNextNeedStep = false;
+    bool coreNextNeedStep = false;
 
     // local stat
     std::unordered_map<CostModel::CorePipeType, uint64_t> leafPipeExecuteTime;
@@ -101,19 +98,19 @@ public:
     explicit CoreMachine(MachineType type);
     void RunAtBegin();
     void RunAtEnd();
-    bool CalendarCountReady(const TaskPack &packetHead);
-    void ProcessDeviceTaskPacket(const TaskPack &packet);
+    bool CalendarCountReady(const TaskPack& packetHead);
+    void ProcessDeviceTaskPacket(const TaskPack& packet);
     void ReceivePacket();
     void InitCore();
     void GenDependence(FunctionPtr func);
     void SortTileAndTileOp(FunctionPtr func);
-    void MarkTileAlloc(std::vector<int> &sequence); // process tile that buffer type is UNKNOW and DDR.
+    void MarkTileAlloc(std::vector<int>& sequence); // process tile that buffer type is UNKNOW and DDR.
     void Dispatch();
-    void SelectPipeToIssue(int qId, int &pipeSelect, int &pipeIndexSelect, int &freeNum);
+    void SelectPipeToIssue(int qId, int& pipeSelect, int& pipeIndexSelect, int& freeNum);
     void IssueTileOp();
     void RetirePipeCompletion(std::shared_ptr<PipeMachine> pipeMachine, int magic);
     void RetireTileOp();
-    void AnalysisDeadlock(std::set<int> &unissuedTileMagics);
+    void AnalysisDeadlock(std::set<int>& unissuedTileMagics);
     void CheckDeadlock();
     void PushCompletion(uint64_t taskId);
     void InitBufferSize();
@@ -140,6 +137,6 @@ public:
     void StepQueue() override;
     bool IsTerminate() override;
     uint64_t GetQueueNextCycles();
-    void SetTileState(std::shared_ptr<TileState> &state);
+    void SetTileState(std::shared_ptr<TileState>& state);
 };
-}  // namespace CostModel
+} // namespace CostModel

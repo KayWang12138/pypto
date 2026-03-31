@@ -44,7 +44,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -58,14 +59,15 @@ public:
 };
 
 struct TestContext {
-    Function *function;
+    Function* function;
     std::shared_ptr<LogicalTensor> localTensor;
     std::shared_ptr<LogicalTensor> localOutTensor;
     std::shared_ptr<LogicalTensor> localTmpTensor;
-    Operation *op;
+    Operation* op;
 };
 
-std::string generateCodeForOp(TestContext &tc) {
+std::string generateCodeForOp(TestContext& tc)
+{
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
@@ -75,7 +77,8 @@ std::string generateCodeForOp(TestContext &tc) {
     return cop.GenOpCode();
 }
 
-TestContext prepareSortParamForUT(Opcode opcode) {
+TestContext prepareSortParamForUT(Opcode opcode)
+{
     auto function = GenMockFuncDyn(OpcodeManager::Inst().GetOpcodeStr(opcode));
     std::vector<int64_t> shape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
@@ -92,17 +95,18 @@ TestContext prepareSortParamForUT(Opcode opcode) {
     param.localOutTensor = localOutTensor;
     param.localTmpTensor = localTmpTensor;
     if (opcode == Opcode::OP_BITSORT || opcode == Opcode::OP_MRGSORT) {
-        auto &op = function->AddOperation(opcode, {localTensor}, {localOutTensor, localTmpTensor});
+        auto& op = function->AddOperation(opcode, {localTensor}, {localOutTensor, localTmpTensor});
         param.op = &op;
     } else {
-        auto &op = function->AddOperation(opcode, {localTensor}, {localOutTensor});
+        auto& op = function->AddOperation(opcode, {localTensor}, {localOutTensor});
         param.op = &op;
     }
 
     return param;
 }
 
-TEST_F(TestCodegenDynSort, TestDynBitSort) {
+TEST_F(TestCodegenDynSort, TestDynBitSort)
+{
     auto param = prepareSortParamForUT(Opcode::OP_BITSORT);
     param.op->SetAttribute(OP_ATTR_PREFIX + "axis", 1);
     param.op->SetAttribute(OP_ATTR_PREFIX + "order", 1);
@@ -114,7 +118,8 @@ TEST_F(TestCodegenDynSort, TestDynBitSort) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynSort, TestDynMrgSort) {
+TEST_F(TestCodegenDynSort, TestDynMrgSort)
+{
     auto param = prepareSortParamForUT(Opcode::OP_MRGSORT);
     param.op->SetAttribute(OP_ATTR_PREFIX + "axis", 1);
     param.op->SetAttribute(OP_ATTR_PREFIX + "order", 1);
@@ -127,7 +132,8 @@ TEST_F(TestCodegenDynSort, TestDynMrgSort) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynSort, TestDynExtract) {
+TEST_F(TestCodegenDynSort, TestDynExtract)
+{
     auto param = prepareSortParamForUT(Opcode::OP_EXTRACT);
     param.op->SetAttribute(OP_ATTR_PREFIX + "kvalue", 1);
     param.op->SetAttribute(OP_ATTR_PREFIX + "mode", 1);
@@ -140,7 +146,8 @@ TEST_F(TestCodegenDynSort, TestDynExtract) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynSort, TestDynTiledMgrSort) {
+TEST_F(TestCodegenDynSort, TestDynTiledMgrSort)
+{
     std::vector<int64_t> shape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto function = GenMockFuncDyn("TestDynTiledMgrSort");
@@ -156,8 +163,9 @@ TEST_F(TestCodegenDynSort, TestDynTiledMgrSort) {
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = function->AddOperation(Opcode::OP_TILEDMRGSORT,
-        {localTensorInput1, localTensorInput2, localTensorInput3, localTensorInput3}, {localTensorRes, localTensorTmp});
+    auto& op = function->AddOperation(
+        Opcode::OP_TILEDMRGSORT, {localTensorInput1, localTensorInput2, localTensorInput3, localTensorInput3},
+        {localTensorRes, localTensorTmp});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", 0);
     op.SetAttribute(OpAttributeKey::scalar, scalaVal);
 
@@ -174,9 +182,10 @@ TEST_F(TestCodegenDynSort, TestDynTiledMgrSort) {
     EXPECT_EQ(res, expect);
 }
 
-Operation &GetTopkOp(Function *function, Opcode opCode, const LogicalTensors &tensors) {
+Operation& GetTopkOp(Function* function, Opcode opCode, const LogicalTensors& tensors)
+{
     if (opCode == Opcode::OP_TOPK_SORT) {
-        auto &op = function->AddOperation(
+        auto& op = function->AddOperation(
             opCode, {tensors[TOPK_OP_Y_IDX]}, {tensors[TOPK_OP_TMP_IDX], tensors[TOPK_OP_X_IDX]});
         op.SetAttribute(OP_ATTR_PREFIX + "axis", 0);
         SymbolicScalar startIdx(1);
@@ -184,11 +193,12 @@ Operation &GetTopkOp(Function *function, Opcode opCode, const LogicalTensors &te
         return op;
     }
 
-    auto &op = function->AddOperation(opCode, {tensors[TOPK_OP_X_IDX]}, {tensors[TOPK_OP_Y_IDX]});
+    auto& op = function->AddOperation(opCode, {tensors[TOPK_OP_X_IDX]}, {tensors[TOPK_OP_Y_IDX]});
     return op;
 }
 
-void TestTopkBody(Opcode opCode, const std::string &expect) {
+void TestTopkBody(Opcode opCode, const std::string& expect)
+{
     std::vector<int64_t> shape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto function = GenMockFuncDyn("TestDynTopkSort");
@@ -196,7 +206,7 @@ void TestTopkBody(Opcode opCode, const std::string &expect) {
     auto tmpVar = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto xVar = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = GetTopkOp(function, opCode, {xVar, yVar, tmpVar});
+    auto& op = GetTopkOp(function, opCode, {xVar, yVar, tmpVar});
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
@@ -208,28 +218,32 @@ void TestTopkBody(Opcode opCode, const std::string &expect) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynSort, TestDynTopkSort) {
+TEST_F(TestCodegenDynSort, TestDynTopkSort)
+{
     std::string expect =
         R"!!!(TileOp::DynTopKSort<float, 64, 64>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1);
 )!!!";
     TestTopkBody(Opcode::OP_TOPK_SORT, expect);
 }
 
-TEST_F(TestCodegenDynSort, TestDynTopkMerge) {
+TEST_F(TestCodegenDynSort, TestDynTopkMerge)
+{
     std::string expect =
         R"!!!(TileOp::DynTopKMerge<float, 64, 32>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0);
 )!!!";
     TestTopkBody(Opcode::OP_TOPK_MERGE, expect);
 }
 
-TEST_F(TestCodegenDynSort, TestDynTopkExract) {
+TEST_F(TestCodegenDynSort, TestDynTopkExract)
+{
     std::string expect =
         R"!!!(TileOp::DynTopKExtract<float, float, 64, 64, 64, 32>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0);
 )!!!";
     TestTopkBody(Opcode::OP_TOPK_EXTRACT, expect);
 }
 
-TEST_F(TestCodegenDynSort, TestDynTwoTileMrgSort) {
+TEST_F(TestCodegenDynSort, TestDynTwoTileMrgSort)
+{
     auto param = prepareSortParamForUT(Opcode::OP_TWOTILEMRGSORT);
     param.op->SetAttribute(OP_ATTR_PREFIX + "firstshape", 32);
 
@@ -240,7 +254,8 @@ TEST_F(TestCodegenDynSort, TestDynTwoTileMrgSort) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynSort, TestDynExtractSingle) {
+TEST_F(TestCodegenDynSort, TestDynExtractSingle)
+{
     auto param = prepareSortParamForUT(Opcode::OP_EXTRACT_SINGLE);
     param.op->SetAttribute(OP_ATTR_PREFIX + "order", 1);
     param.op->SetAttribute(OP_ATTR_PREFIX + "maskmode", 0);

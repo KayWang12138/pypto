@@ -19,6 +19,6 @@
 
 namespace npu::tile_fwk {
 
-bool TileFwkAiCpuCompile(const std::string &opType, const std::string &dumpPath);
+bool TileFwkAiCpuCompile(const std::string& opType, const std::string& dumpPath);
 }
 #endif

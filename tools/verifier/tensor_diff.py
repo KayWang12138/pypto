@@ -39,7 +39,7 @@ class TensorComparator:
                 logging.FileHandler("app.log", encoding="utf-8")
             ]
         )
-    
+
     @staticmethod
     def save_info_to_csv(d_detail, csv_path, topk, mode):
         os.makedirs(os.path.dirname(os.path.abspath(csv_path)), exist_ok=True)
@@ -81,7 +81,7 @@ class TensorComparator:
         else:
             df.to_csv(csv_path, index=False, encoding='utf-8-sig')
             logging.info(f"数据已保存到: {csv_path}")
-    
+
     @staticmethod
     def check_isclose(a, b, config: IsCloseConfig = IsCloseConfig()):
         rtol, atol, calc_dtype, shape, is_ignore_bothzero, is_detail, fail_factor, is_extra = config
@@ -112,7 +112,7 @@ class TensorComparator:
         if cnt_out_pass < 0:
             raise ValueError(f'cnt_out_pass > 0: {cnt_out_pass}')
         if is_ignore_bothzero:
-            cnt_picked = cnt_all - cnt_out_bothzero    
+            cnt_picked = cnt_all - cnt_out_bothzero
             if (cnt_all - cnt_out_bothzero) != (cnt_out_warn + cnt_out_pass):
                 raise ValueError(f'(cnt_all - cnt_out_bothzero) == (cnt_out_warn + cnt_out_pass)')
         else:
@@ -123,7 +123,7 @@ class TensorComparator:
         tol_cnt = tol_cnt_raw = int(cnt_picked * min(rtol, atol))
         if tol_cnt_raw == 0:
             # tol_cnt is zero, adjust to small value
-            tol_cnt = min(16, int(cnt_picked**0.5) // 2)                            
+            tol_cnt = min(16, int(cnt_picked**0.5) // 2)
 
         if not is_detail:
             const_empty_arg = torch.tensor([], dtype=torch.int64)
@@ -146,14 +146,14 @@ class TensorComparator:
             arg_fail_raw = torch.argwhere(mask_fail.reshape(to_shape))
             arg_infnan_raw = torch.argwhere(mask_infnan.reshape(to_shape))
 
-            data_warn_info_list = (arg_warn, arg_warn_raw, aa.take(arg_warn), bb.take(arg_warn), 
+            data_warn_info_list = (arg_warn, arg_warn_raw, aa.take(arg_warn), bb.take(arg_warn),
                                     ab_ad.take(arg_warn), ab_rd.take(arg_warn), tol_warn.take(arg_warn))
             data_fail_info_list = (arg_fail, arg_fail_raw, aa.take(arg_fail), bb.take(arg_fail), ab_ad.take(arg_fail),
                                      ab_rd.take(arg_fail), tol_fail.take(arg_warn))
-            data_infnan_info_list = (arg_infnan, arg_infnan_raw, aa.take(arg_infnan), bb.take(arg_infnan), 
+            data_infnan_info_list = (arg_infnan, arg_infnan_raw, aa.take(arg_infnan), bb.take(arg_infnan),
                                         ab_ad.take(arg_infnan), ab_rd.take(arg_infnan), arg_infnan)
             valid_ab_rd = ab_rd[~torch.isnan(ab_rd)]
-            
+
             def safe_topk_mean(tensor, k):
                 if tensor.numel() == 0:
                     return float('nan')

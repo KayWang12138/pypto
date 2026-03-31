@@ -320,11 +320,11 @@ def fmod(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 def lrelu(other: Tensor, negative_slope: Union[float, Element] = 0.01) -> Tensor:
     """
     Returns a new tensor with the Leaky Rectified Linear Unit (LReLU) function applied element-wise.
-    
+
     The function is defined as:
     y = x if x >= 0
     y = negative_slope * x if x < 0
-    
+
     Parameters
     ----------
     a : Tensor
@@ -755,7 +755,7 @@ def abs(a: Tensor) -> Tensor:
 def reciprocal(a: Tensor) -> Tensor:
     """
     Returns a new tensor with the reciprocal of the elements of input
-    
+
     Parameters
     ----------
     input : Tensor
@@ -781,10 +781,10 @@ def reciprocal(a: Tensor) -> Tensor:
 def relu(a: Tensor) -> Tensor:
     """
     Returns a new tensor with the rectified linear unit function applied element-wise.
-    
+
     The function is defined as:
     y = max(0, x)
-    
+
     Parameters
     ----------
     input : Tensor
@@ -1075,7 +1075,7 @@ def sqrt(input: Tensor) -> Tensor:
 def neg(a: Tensor) -> Tensor:
     """
     Returns a new tensor with the negative of the elements of input.
-    
+
     Parameters
     ----------
     input : Tensor
@@ -1295,7 +1295,7 @@ def cumsum(
         The tensor after calculating the cumulative sum.
     Examples
     ---------
-    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
     dim = 0
     out = pypto.cumsum(x, dim)
     Input  x : [[0 1 2],
@@ -1323,7 +1323,7 @@ def cumprod(
         The tensor after calculating the cumulative prod.
     Examples
     ---------
-    x = pypto.tensor([2, 3], pypto.data_type.DT_FP32) 
+    x = pypto.tensor([2, 3], pypto.data_type.DT_FP32)
     dim = 0
     out = pypto.cumprod(x, dim)
     Input  x : [[0 1 2],
@@ -1466,7 +1466,7 @@ def triu(
     diagonal: SymInt = 0
 ) -> Tensor:
     """
-    Return the upper traingular part of a matrix or a banch of matrices `input`, the other elements of 
+    Return the upper traingular part of a matrix or a banch of matrices `input`, the other elements of
     the result are set to 0.
     Parameters
     ---------
@@ -1478,7 +1478,7 @@ def triu(
         The tensor after calculation.
     Examples
     ---------
-    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32)
     diagonal = 0
     out = pypto.triu(x, diagonal)
     Input  x : [[1 2 3],
@@ -1511,7 +1511,7 @@ def tril(
         The tensor after calculation.
     Examples
     ---------
-    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32)
     diagonal = 0
     out = pypto.tril(x, diagonal)
     Input  x : [[1 2 3],
@@ -1566,7 +1566,7 @@ def isfinite(self: Tensor) -> Tensor:
     --------
     self: Tensor
         The input tensor
-    
+
     Examples
     --------
     self = pypto.tensor([3, 3], pypto.data_type.DT_FP32)
@@ -1627,8 +1627,8 @@ def gcd(
         The tensor after calculating the greatest common divisor of the corresponding elements of input and other.
     Examples
     ---------
-    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
-    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
+    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
     out = pypto.gcd(x, y)
     Input  x : [[1 1 2],
                 [3 4 5]]
@@ -1682,9 +1682,9 @@ def var(
 
 @overload
 def var(
-    input: Tensor, 
+    input: Tensor,
     dim: Union[int, List[int], Tuple[int]] = None,
-    *, 
+    *,
     correction: float = 1,
     keepdim: bool = False
 ) -> Tensor:
@@ -1716,7 +1716,7 @@ def var(
 
     Input  x:[[1., 2., 3.],
               [4., 5., 6.]]
-    Output y:[[1.], 
+    Output y:[[1.],
               [1.]]
     """
     ...
@@ -1724,7 +1724,7 @@ def var(
 
 @op_wrapper
 def var(
-    input: Tensor, 
+    input: Tensor,
     dim: Union[int, List[int], Tuple[int]] = None,
     correction: float = 1,
     keepdim: bool = False
@@ -1757,7 +1757,7 @@ def var(
 
     Input  x:[[1., 2., 3.],
               [4., 5., 6.]]
-    Output y:[[1.], 
+    Output y:[[1.],
               [1.]]
     """
     inner_dim = None
@@ -1791,8 +1791,8 @@ def ceil_div(
         The tensor after calculating the ceiling division of the corresponding elements of self and other.
     Examples
     ---------
-    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
-    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
+    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
     out = pypto.ceildiv(x, y)
     Input  x : [[1 6 6],
                 [4 6 6]]
@@ -1824,8 +1824,8 @@ def floor_div(
         The tensor containing the floor division results of the corresponding elements in `input` and `other`.
     Examples
     ---------
-    x = pypto.tensor([2, 3], pypto.DT_INT32) 
-    y = pypto.tensor([2, 3], pypto.DT_INT32) 
+    x = pypto.tensor([2, 3], pypto.DT_INT32)
+    y = pypto.tensor([2, 3], pypto.DT_INT32)
     out = pypto.floor_div(x, y)
     Input  x : [[1 6 6],
                 [4 6 6]]
@@ -1844,7 +1844,7 @@ def floor_div(
 def argmax(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
     """
     Returns the index of the maximum value in a tensor along a given dimension.
-    
+
     Parameters
     ----------
     input : Tensor
@@ -1853,17 +1853,17 @@ def argmax(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
         The dimension along which to find the maximum value. Default is -1 (last dimension).
     keepdim : bool, optional
         Whether the output tensor has dim retained. Default is False.
-    
+
     Returns
     -------
     Tensor
         A new tensor containing the indices of the maximum values.
-    
+
     Examples
     --------
     x = pypto.tensor([[1, 3, 2], [4, 1, 5]], pypto.DT_FP32)
     y = pypto.argmax(x, dim=1)
-    
+
     Input x:  [[1.0, 3.0, 2.0],
               [4.0, 1.0, 5.0]]
     Output y: [1, 2]
@@ -1875,7 +1875,7 @@ def argmax(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
 def argmin(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
     """
     Returns the index of the minimum value in a tensor along a given dimension.
-    
+
     Parameters
     ----------
     input : Tensor
@@ -1884,17 +1884,17 @@ def argmin(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
         The dimension along which to find the minimum value. Default is -1 (last dimension).
     keepdim : bool, optional
         Whether the output tensor has dim retained. Default is False.
-    
+
     Returns
     -------
     Tensor
         A new tensor containing the indices of the minimum values.
-    
+
     Examples
     --------
     x = pypto.tensor([[1, 3, 2], [4, 1, 5]], pypto.DT_FP32)
     y = pypto.argmin(x, dim=1)
-    
+
     Input x:  [[1.0, 3.0, 2.0],
               [4.0, 1.0, 5.0]]
     Output y: [0, 1]
@@ -1906,10 +1906,10 @@ def argmin(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
 def prelu(self: Tensor, weight: Tensor) -> Tensor:
     """
     Applies the element-wise parametric rectified linear unit (PReLU) function.
-    
+
     The function is defined as:
     f(x) = max(0, x) + weight * min(0, x)
-    
+
     Parameters
     ----------
     input : Tensor
@@ -1917,18 +1917,18 @@ def prelu(self: Tensor, weight: Tensor) -> Tensor:
     weight : Tensor
         The learnable parameter tensor. For a 4D input tensor, weight should be a 1D tensor
         with size equal to the number of channels (second dimension).
-    
+
     Returns
     -------
     Tensor
         A new tensor containing the element-wise PReLU activation results.
-    
+
     Examples
     --------
     x = pypto.tensor([-1.0, 2.0, -0.5, 3.0], dtype="float32")
     weight = pypto.tensor([0.25], dtype="float32")
     y = pypto.prelu(x, weight)
-    
+
     Input x:  [-1.0, 2.0, -0.5, 3.0]
     Weight:   [0.25]
     Output y: [-0.25, 2.0, -0.125, 3.0]

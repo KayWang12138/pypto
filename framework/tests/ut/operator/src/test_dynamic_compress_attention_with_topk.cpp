@@ -25,12 +25,11 @@
 
 using namespace npu::tile_fwk;
 
-class CmpAttnTopk : public testing::Test {
-};
+class CmpAttnTopk : public testing::Test {};
 
 template <typename T = npu::tile_fwk::bfloat16>
-void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig, std::vector<int> input_param, std::vector<int> actSeqLen) {
-
+void TestCmpAttnTopk(CmpAttnTopkTile& tileConfig, std::vector<int> input_param, std::vector<int> actSeqLen)
+{
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
         dType = DT_BF16;
@@ -92,15 +91,18 @@ void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig, std::vector<int> input_param, 
     std::vector<float> attnGolden(b * s1 * n1 * dn, 0.0);
     std::vector<int32_t> topkGolden(b * s1 * topk, 0);
 
-    FUNCTION("CompressAttentionWithTopK",
-        {qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor}, {cmpAttn, topkRes}) {
-        CompressAttentionWithTopK(qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor, cmpAttn,
-            topkRes, blockSize, cmpBlockSize, cmpStride, slcBlockSize, softmaxScale, n1, topk, front, near, tileConfig);
+    FUNCTION(
+        "CompressAttentionWithTopK", {qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor},
+        {cmpAttn, topkRes})
+    {
+        CompressAttentionWithTopK(
+            qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor, cmpAttn, topkRes, blockSize,
+            cmpBlockSize, cmpStride, slcBlockSize, softmaxScale, n1, topk, front, near, tileConfig);
     }
 }
 
-void CommonTestConfig() {
-
+void CommonTestConfig()
+{
     CmpAttnTopkTile config;
     config.topkTile = {1, 1, 128};
     config.cmpTile.c1Tile = {128, 128, 128, 128, 128, 128};
@@ -114,6 +116,4 @@ void CommonTestConfig() {
     TestCmpAttnTopk<npu::tile_fwk::bfloat16>(config, inputParam, actSeqLen);
 }
 
-TEST_F(CmpAttnTopk, cmp_attn_with_topk_singleop_bf16) {
-    CommonTestConfig();
-}
+TEST_F(CmpAttnTopk, cmp_attn_with_topk_singleop_bf16) { CommonTestConfig(); }
