@@ -177,6 +177,9 @@ struct CalcOps {
     void (*QuantPreCompute)(const TensorData &, const TensorData &, const TensorData *, uint64_t, int);
     void (*MatMul)(const TensorData &, const TensorData &, const TensorData &, const TensorData *, MatMulParam &);
 
+    void (*Quantize)(const TensorData &, const TensorData &, const TensorData &, uint64_t, int, const TensorData &);
+    // TODO: DeQuantize
+
     void (*BitSort)(const TensorData &, const TensorData &, int64_t, bool, int64_t);
     void (*TiledMrgSort)(const TensorData &, const TensorData &, const TensorData &, const TensorData &, const TensorData &, int, int);
     void (*Extract)(const TensorData &, const TensorData &, int, bool);
