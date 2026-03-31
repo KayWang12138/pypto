@@ -175,7 +175,7 @@ void OoOScheduler::ReplaceTensorMemId(IssueEntryPtr& issue, int oldMemId, int ne
 Status OoOScheduler::UpdateRemainOpBufId(int oldMemId, int newMemId)
 {
     if (bufRefCount_.find(oldMemId) == bufRefCount_.end()) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "bufRefCount cannot find Tensor[%d].", oldMemId);
+        APASS_LOG_ERROR_F(Elements::Tensor, "bufRefCount cannot find Tensor[%d]. ", oldMemId);
         return FAILED;
     }
     bufRefCount_[newMemId] = bufRefCount_[oldMemId] + TWO_ISSUE;
@@ -490,8 +490,11 @@ Status OoOScheduler::SpillInBuffer(
     }
     reloadAlloc = reloadIssues.first;
     reloadCopyin = reloadIssues.second;
-    if (UpdateReloadIssueInfo(reloadAlloc, reloadCopyin, spillInfo.spillIssue_, spillInfo.spillMemId_, allocIssue) !=
-        SUCCESS) {
+    if (UpdateReloadIssueInfo(reloadAlloc, reloadCopyin, spillInfo.spillIssue_, spillInfo.spillMemId_,
+        allocIssue) != SUCCESS) {
+        reloadIssues.first->tileOp.SetAsDeleted();
+        reloadIssues.second->tileOp.SetAsDeleted();
+        function_.EraseOperations();
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateReloadIssueInfo failed!");
         return FAILED;
     }
@@ -1088,6 +1091,10 @@ void OoOScheduler::FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntry
 bool OoOScheduler::CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue)
 {
     auto& spillOp = spillIssue->tileOp;
+    if (!spillOp.GetInputOperand(0)) {
+        APASS_LOG_WARN_F(Elements::Tensor, "CheckMachineAndL1: spillOp %s has no inputOperand.", spillIssue->GetOpInfo().c_str());
+        return false;
+    }
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 &&
         allocIssue->tileOp.GetOpcodeStr().find("L1_ALLOC") != std::string::npos &&
         spillOp.GetOpcodeStr().find("COPY_IN") == std::string::npos &&
@@ -1326,9 +1333,8 @@ Status OoOScheduler::SpillAllBuffer(
             return FAILED;
         }
 
-        if (!CheckMachineAndL1(spillIssue, allocIssue) || !CheckParallelL0C2L1(spillIssue) ||
-            IsViewOp(spillIssue->tileOp) || spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE ||
-            spillIssue->tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos) {
+        if (spillIssue->tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos || !CheckMachineAndL1(spillIssue, allocIssue) || !CheckParallelL0C2L1(spillIssue) ||
+            IsViewOp(spillIssue->tileOp) || spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
             continue;
         }
 
