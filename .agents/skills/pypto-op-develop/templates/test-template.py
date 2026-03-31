@@ -75,6 +75,7 @@ def test_{op}_level0(device_id=None, run_mode="npu"):
             golden.cpu().numpy(),
             rtol=1e-3, atol=1e-3,
         )
+        print("[PRECISION_PASS]")
 
     print("  ✓ Passed\n")
 
@@ -104,6 +105,7 @@ def test_{op}_level1(device_id=None, run_mode="npu"):
             golden.cpu().numpy(),
             rtol=1e-3, atol=1e-3,
         )
+        print("[PRECISION_PASS]")
 
     print("  ✓ Passed\n")
 

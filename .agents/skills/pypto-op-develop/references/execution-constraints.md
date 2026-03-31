@@ -5,7 +5,7 @@
 - PyTorch 集成支持单算子模式（eager）和图捕获模式（aclgraph）；`@pypto.frontend.jit` 默认按单算子模式执行。
 - JIT kernel 不支持返回值；结果必须写回输出参数。
 - 可用的输出写回方式包括 `out[:] = ...`、`out.move(...)`、`pypto.assemble(..., out)`；`out = ...` 只会绑定局部变量，不会修改出参。
-- JIT 函数中的张量参数必须写成 `pypto.Tensor([...], dtype)` 类型注解。
+- JIT 函数中的张量参数可写成 `pypto.Tensor`（让框架自动推断 shape 和 dtype）或 `pypto.Tensor([shape], dtype)`（显式指定）；**注意**：`pypto.Tensor()` 空括号形式在类型注解中不支持，仅用于 Tensor 构造函数。
 - JIT 函数中张量参数在前，非张量参数在后。
 - 动态轴必须在类型注解中标成 `pypto.DYNAMIC` 或 `pypto.DYN`。
 - 标成 `pypto.DYNAMIC` 的轴变化时无需重编译；标成 `pypto.STATIC` 的轴变化会触发重编译。
@@ -114,7 +114,7 @@
 ### 4.6 归约 / 排序
 
 - `sum / amax / amin / topk`：除了 `dim/keepdim`，还要检查 TileShape、尾轴对齐和 UB 限制。
-- `sum`：只支持 `DT_FP32`；`keepdim=False` 后先重设 TileShape。
+- `sum`：支持 `DT_FP32/DT_INT32/DT_INT16`；`keepdim=False` 后先重设 TileShape。
 - `amax / amin`：只支持 `DT_FP16/DT_BF16/DT_FP32` 和 2-4 维；TileShape 受 `64KB`、尾轴 `32B` 对齐、次尾轴 `<=255` 约束。
 - `topk`：只支持 `DT_FP32`，且只支持最后一个维度；要求 `k <= TileShape[-1]`，尾轴满足 `32B` 对齐和 `<22KB`。
 

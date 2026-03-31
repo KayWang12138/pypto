@@ -11,8 +11,28 @@
   - 参考 examples/ 中的 kernel 实现风格（activation、softmax、layer_norm 等）。
 """
 
+import sys
 import pypto
 import torch
+
+
+def _peek_run_mode_from_argv(default: str = "npu") -> str:
+    """从命令行参数获取 run_mode，供装饰器使用。"""
+    for idx, arg in enumerate(sys.argv):
+        if arg == "--run_mode" and idx + 1 < len(sys.argv):
+            value = sys.argv[idx + 1]
+            if value in ("npu", "sim"):
+                return value
+        if arg.startswith("--run_mode="):
+            value = arg.split("=", 1)[1]
+            if value in ("npu", "sim"):
+                return value
+    return default
+
+
+global_run_mode = pypto.RunMode.NPU
+if _peek_run_mode_from_argv("npu") == "sim":
+    global_run_mode = pypto.RunMode.SIM
 
 # ─────────────────────────────────────────────
 # 1. 核心计算函数（可选，复杂算子拆分用）
@@ -43,16 +63,17 @@ def {op}_core(x: pypto.Tensor) -> pypto.Tensor:
 # 2. JIT Kernel
 # ─────────────────────────────────────────────
 
-@pypto.frontend.jit
+@pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})
 def {op}_kernel(
-    input_tensor: pypto.Tensor(),
-    output_tensor: pypto.Tensor(),
+    input_tensor: pypto.Tensor,
+    output_tensor: pypto.Tensor,
 ):
     """PyPTO jit kernel。
 
     根据 design.md 实现。
-    - Tensor 描述符使用 pypto.Tensor()（shape 自动推断）或
-      pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32)（显式指定）。
+    - Tensor 描述符使用 `pypto.Tensor`（让框架自动推断 shape 和 dtype）或
+      `pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32)`（显式指定）。
+    - **注意**：`pypto.Tensor()` 空括号形式在类型注解中不支持。
     - 必须配置 tiling：pypto.set_vec_tile_shapes(...) 或 pypto.set_cube_tile_shapes(...)。
     - 输出写回使用 output_tensor[:] = result 或 pypto.assemble(result, offset, output_tensor)。
     """
