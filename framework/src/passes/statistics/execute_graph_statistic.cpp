@@ -17,7 +17,7 @@
 #include <fstream>
 #include <queue>
 #include <unordered_set>
-#include "interface/utils/log.h"
+
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "SubgraphToFunction"

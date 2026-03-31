@@ -135,6 +135,8 @@ void bind_operation(py::module &m) {
     m.def("Signbit", [](const Tensor &self) { return npu::tile_fwk::Signbit(self); }, "Tensor signbit.");
     m.def("Ceil", [](const Tensor &self) { return npu::tile_fwk::Ceil(self); }, "Tensor ceil.");
     m.def("Floor", [](const Tensor &self) { return npu::tile_fwk::Floor(self); }, "Tensor floor.");
+    m.def("FloorDiv", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::FloorDiv(self, other); });
+    m.def("FloorDiv", [](const Tensor &self, const Element &other) { return npu::tile_fwk::FloorDiv(self, other); });
     m.def("Trunc", [](const Tensor &self) { return npu::tile_fwk::Trunc(self); }, "Tensor trunc.");
     m.def("BitwiseNot", [](const Tensor &self) { return npu::tile_fwk::BitwiseNot(self); }, "Tensor bitwisenot.");
     m.def("Neg", [](const Tensor &self) { return npu::tile_fwk::Neg(self); }, "Tensor neg.");
@@ -366,6 +368,7 @@ void bind_operation(py::module &m) {
         "Cat", [](const std::vector<Tensor> &tensors, int axis) { return npu::tile_fwk::Cat(tensors, axis); },
         "Tensor concat.");
     m.def("cumsum", [](const Tensor &input, int axis) { return npu::tile_fwk::CumSum(input, axis); }, "Tensor cumsum.");
+    m.def("cumprod", [](const Tensor &input, int axis) { return npu::tile_fwk::CumProd(input, axis); }, "Tensor cumprod.");
     m.def(
         "TriU",
         [](const Tensor &input, const SymbolicScalar &diagonal) { return npu::tile_fwk::TriU(input, diagonal); },

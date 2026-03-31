@@ -49,8 +49,7 @@ public:
                          const std::vector<InternalComponentInfo>& components,
                          const std::vector<uint64_t>& newProgramIDs,
                          SubgraphToFunction& subgraphToFunction,
-                         std::vector<Function*>& newFunctions,
-                         const std::vector<InternalDependencyInfo>& internalDeps);
+                         std::vector<Function*>& newFunctions);
 private:
     // 在root function中创建call op
     Status CreateCallOpInRootFunction(Function& rootFunc,
@@ -117,14 +116,6 @@ private:
                             uint64_t componentIndex,
                             SubgraphToFunction& subgraphToFunction,
                             CallOpCreationInfo& info);
-    // 内部依赖处理相关函数
-    void ProcessAllInternalDependencies(Function& rootFunc,
-                                        const std::vector<CallOpCreationInfo>& callOpInfos,
-                                        const std::vector<InternalDependencyInfo>& internalDeps) const;
-    void ProcessInternalDependenciesForWrap(Function& rootFunc,
-                                            const std::vector<const CallOpCreationInfo*>& infos,
-                                            const std::vector<InternalDependencyInfo>& internalDeps,
-                                            uint64_t wrapId) const;
 
     uint64_t nextWrapId_;
 };

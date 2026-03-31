@@ -1307,6 +1307,34 @@ def cumsum(
 
 
 @op_wrapper
+def cumprod(
+    input: Tensor,
+    dim: int
+) -> Tensor:
+    """
+    This function returns the cumulative prod over a given axis.
+    Parameters
+    ---------
+    input: Tensor
+        tensor to be calculated.
+    dim : int
+        specified dimension.
+    out: Tensor
+        The tensor after calculating the cumulative prod.
+    Examples
+    ---------
+    x = pypto.tensor([2, 3], pypto.data_type.DT_FP32) 
+    dim = 0
+    out = pypto.cumprod(x, dim)
+    Input  x : [[0 1 2],
+                [3 4 5]]
+    Output out:[[0 1 2],
+                [0 4 10]]
+    """
+    return pypto_impl.cumprod(input, dim)
+
+
+@op_wrapper
 def bitwise_right_shift(
     input: Union[Tensor, int], other: Union[Tensor, int]) -> Tensor:
     """Computes the element-wise bitwise right shift of `input` and `other`.
@@ -1777,6 +1805,39 @@ def ceil_div(
         return pypto_impl.CeilDiv(self, other)
     else:
         return pypto_impl.CeilDiv(self, pypto_impl.Element(self.dtype, other))
+
+
+@op_wrapper
+def floor_div(
+    input: Tensor,
+    other: Union[Tensor, int],
+) -> Tensor:
+    """
+    Calculate the floor division of two tensors.
+    Parameters
+    ---------
+    input: Tensor
+        The dividend tensor.
+    other: Tensor or int
+        The divisor tensor or scalar.
+    out: Tensor
+        The tensor containing the floor division results of the corresponding elements in `input` and `other`.
+    Examples
+    ---------
+    x = pypto.tensor([2, 3], pypto.DT_INT32) 
+    y = pypto.tensor([2, 3], pypto.DT_INT32) 
+    out = pypto.floor_div(x, y)
+    Input  x : [[1 6 6],
+                [4 6 6]]
+           y : [[1 1 2],
+                [3 4 5]]
+    Output out:[[1 6 3],
+                [1 1 1]]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.FloorDiv(input, other)
+    else:
+        return pypto_impl.FloorDiv(input, pypto_impl.Element(input.dtype, other))
 
 
 @op_wrapper

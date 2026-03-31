@@ -59,7 +59,11 @@ struct TaskInfo {
     uint64_t taskId;
     TaskInfo(int idx, uint64_t id) : coreIdx(idx), taskId(id) {}
 };
-
+struct ResolveTaskContext {
+    uint32_t finishIds{0};
+    uint32_t resolveIndexBase{0};
+    int finishCoreIdx{0};
+};
 class AiCoreManager {
 public:
     explicit AiCoreManager(AicpuTaskManager &aicpuTaskManager) : aicpuTaskManager_(aicpuTaskManager), aicoreProf_(*this){};
@@ -338,7 +342,7 @@ public:
         DeviceTaskCtrl *taskCtrl = nullptr;
         taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
         if constexpr (IsDeviceMode()) {
-            ret = HandShake();
+            ret = HandShake(devStartArgs);
             PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 DEV_ERROR(SchedErr::HANDSHAKE_TIMEOUT, "#sche.handshake.error: hand shake timeout.");
@@ -348,7 +352,6 @@ public:
                 }
                 return ret;
             }
-            devStartArgs->syncFlag = 1;
             aicoreProf_.ProfStart();
         }
         DEV_DEBUG("Schedule run start succ");
@@ -947,9 +950,12 @@ private:
     inline int32_t ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd) {
         int32_t ret = DEVICE_MACHINE_OK;
         PerfMtBegin(static_cast<int>(PERF_EVT_RESOLVE_DEPENDENCE), aicpuIdx_);
+        ResolveTaskContext resolveCtx[MAX_MANAGER_AIV_NUM];
+        uint32_t finishCnt = 0;
         for (int i = coreIdxStart; i < coreIdxEnd; i++) {
             if ((runningIds_[i] != AICORE_TASK_INIT || pendingIds_[i] != AICORE_TASK_INIT)) {
-                ret = ResolveByRegVal(type, i);
+                // release finish core
+                ret = ReleaseCoreByRegVal(type, i, resolveCtx, finishCnt);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
                     return ret;
                 }
@@ -963,6 +969,23 @@ private:
                     }
                 }
             }
+        }
+
+        if (!enableL2CacheSch_) {
+            // send task to available core
+            ReadyCoreFunctionQueue* readyQue = (type == CoreType::AIC) ? readyAicCoreFunctionQue_ : readyAivCoreFunctionQue_;
+            if (wrapManager_.GetIsMixarch()) {
+                ReadyCoreFunctionQueue* dieReadyQue  = (type == CoreType::AIC) ?  readyDieAicFunctionQue_ : readyDieAivFunctionQue_;
+                if (dieReadyQue != readyQue) {
+                    TryBatchSendTask(type, dieReadyQue, coreIdxStart, coreIdxEnd);
+                }
+            }
+            TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
+        }
+
+        // resolve resolveCtx
+        for (uint32_t i = 0; i < finishCnt; i++) {
+            ret = ResolveDepWithDfx(type, resolveCtx[i].finishCoreIdx, resolveCtx[i].finishIds, resolveCtx[i].resolveIndexBase);
         }
 
         ret = BatchPushReadyQueue();
@@ -1051,13 +1074,21 @@ private:
         return aicpuCallCode & 0xffff;
     }
 
-    inline int32_t ResolveByRegVal(CoreType type, int coreIdx) {
+    inline void RecordResolveTask(ResolveTaskContext* ctx, uint32_t& finishCnt, int coreIdx, uint32_t taskId, int indexBase) {
+        ctx[finishCnt].finishIds = taskId;
+        ctx[finishCnt].resolveIndexBase = indexBase;
+        ctx[finishCnt].finishCoreIdx = coreIdx;
+        finishCnt++;
+    }
+
+    inline int32_t ReleaseCoreByRegVal(CoreType type, int coreIdx, ResolveTaskContext* ctx, uint32_t& finishCnt) {
         int32_t ret = DEVICE_MACHINE_OK;
         uint64_t finTaskRegVal = aicoreHal_.GetFinishedTask(coreIdx);
         [[maybe_unused]] uint32_t aicpuCallCode = finTaskRegVal >> 32;
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
         DEV_VERBOSE_DEBUG("reslove task core index: %d, finishtaskid:%x, finishstate: %u.", coreIdx, finTaskId, finTaskState);
+
 #if SCHEDULE_USE_PENDING_AND_RUNING_SWITCH
         auto &pendingIdRef = pendingIds_[coreIdx];
         auto &pendingResolveIndexBaseRef = pendingResolveIndexList_[coreIdx];
@@ -1079,16 +1110,10 @@ private:
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
             if (runningIdValue != AICORE_TASK_INIT) {
-                ret = ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
-                if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                    return ret;
-                }
+                RecordResolveTask(ctx, finishCnt, coreIdx, runningIdValue, runningResolveIndexBaseValue);
             }
-            ret = ResolveDepWithDfx(type, coreIdx, pendingIdValue, pendingResolveIndexBaseValue);
+            RecordResolveTask(ctx, finishCnt, coreIdx, pendingIdValue, pendingResolveIndexBaseValue);
             wrapManager_.UpdateFinishIdForMixCore(finTaskId);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
         } else if (unlikely(finTaskId == pendingIdRef && aicpuCallCode != 0)) {
             // pending task is copyout, reolve both running and pending task.
             DEV_VERBOSE_DEBUG("Pending Copyout: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
@@ -1105,10 +1130,7 @@ private:
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
             if (runningIdValueCopyout != AICORE_TASK_INIT) {
-                ret = ResolveDepWithDfx(type, coreIdx, runningIdValueCopyout, runningResolveIndexBaseValueCopyout);
-                if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                    return ret;
-                }
+                RecordResolveTask(ctx, finishCnt, coreIdx, runningIdValueCopyout, runningResolveIndexBaseValueCopyout);
             }
             ret = ResolveCopyOutDepDyn(copyOutResolveCounter, pendingIdValue, pendingResolveIndexBaseValue);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -1130,10 +1152,7 @@ private:
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
             if (runningIdValueAck != AICORE_TASK_INIT) {
-                ret = ResolveDepWithDfx(type, coreIdx, runningIdValueAck, runningResolveIndexBaseValueAck);
-                if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                    return ret;
-                }
+                RecordResolveTask(ctx, finishCnt, coreIdx, runningIdValueAck, runningResolveIndexBaseValueAck);
             }
         } else if (finTaskId == runningIdRef && finTaskState == TASK_FIN_STATE) {
             // running task is finished, resolve running task. Pending task is unmodified
@@ -1145,10 +1164,7 @@ private:
             if (pendingIdRef == AICORE_TASK_INIT) {
                 context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
             }
-            ret = ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
+            RecordResolveTask(ctx, finishCnt, coreIdx, runningIdValue, runningResolveIndexBaseValue);
         } else if (unlikely(finTaskId == runningIdRef && aicpuCallCode != 0)) {
             // running task is copyout, resolve running task. Pending task is unmodified
             DEV_VERBOSE_DEBUG("Running copyout: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
@@ -1561,7 +1577,7 @@ private:
         }
     }
 
-    inline int HandShakeByGmWithPreSendTask() {
+    inline int HandShakeByGmWithPreSendTask(DevStartArgs *devStartArgs) {
         int handShakeNum = 0;
         int mngAicoreNum = aicEnd_ - aicStart_ + aivEnd_ - aivStart_;
         bool handFlag[MAX_AICORE_NUM] = {false};
@@ -1570,6 +1586,7 @@ private:
         bool needSendAiv = false;
         bool aicAllSuccess = false;
         bool aivAllSuccess = false;
+        bool needSetSync = true;
         int aicSucessCnt = 0;
         int aivSucessCnt = 0;
         int aicTreshold = 4;
@@ -1594,6 +1611,11 @@ private:
                 }
             }
             aicAllSuccess = curIterAllAicSuccess;
+
+            if (unlikely(needSetSync && (handShakeNum > 0))) {
+                devStartArgs->syncFlag = 1;
+                needSetSync = false;
+            }
 
             if (needSendAic && aicSucessCnt >= aicTreshold) {
                 __sync_synchronize(); // sync  REG_SPR_FAST_PATH_ENABLE
@@ -1623,7 +1645,7 @@ private:
                 aivSucessCnt = 0;
             }
 
-            if (GetCycles() - start_cycles > HAND_SHAKE_TIMEOUT) {
+            if (unlikely(GetCycles() - start_cycles > HAND_SHAKE_TIMEOUT)) {
                 DumpAicoreStatusWhenTimeout(handFlag);
                 DEV_ERROR(SchedErr::HANDSHAKE_TIMEOUT, "#sche.handshake.timeout: HandShakeByGmWithPreSendTask timeout notHandshakeNum=%d.", mngAicoreNum - handShakeNum);
                 return DEVICE_MACHINE_ERROR;
@@ -1634,9 +1656,9 @@ private:
         return DEVICE_MACHINE_OK;
     }
 
-    inline int HandShake() {
+    inline int HandShake(DevStartArgs *devStartArgs) {
         DEV_INFO("aicpu[%d] handshake start.", aicpuIdx_);
-        int rc = HandShakeByGmWithPreSendTask();
+        int rc = HandShakeByGmWithPreSendTask(devStartArgs);
         if (rc != DEVICE_MACHINE_OK) {
             DEV_ERROR(SchedErr::HANDSHAKE_TIMEOUT, "#sche.handshake.presend: Aicpu[%d] handshake failed.", aicpuIdx_);
             return rc;

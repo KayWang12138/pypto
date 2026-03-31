@@ -94,10 +94,10 @@ def lightning_indexer_golden(
 
 @pypto.frontend.jit
 def lightning_indexer_kernel(
-    query: pypto.Tensor((BATCH_SIZE, SEQ_LEN_Q, NUM_HEADS, HEAD_DIM), pypto.DT_BF16),
-    key: pypto.Tensor((BATCH_SIZE, SEQ_LEN_KV, NUM_HEADS, HEAD_DIM), pypto.DT_BF16),
-    weights: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, 1), pypto.DT_BF16),
-    indices: pypto.Tensor((BATCH_SIZE, SEQ_LEN_Q, NUM_HEADS, TOPK), pypto.DT_INT32),
+    query: pypto.Tensor([pypto.DYNAMIC, SEQ_LEN_Q, NUM_HEADS, HEAD_DIM], pypto.DT_BF16),
+    key: pypto.Tensor([pypto.DYNAMIC, SEQ_LEN_KV, NUM_HEADS, HEAD_DIM], pypto.DT_BF16),
+    weights: pypto.Tensor([pypto.DYNAMIC, NUM_HEADS, SEQ_LEN_Q, 1], pypto.DT_BF16),
+    indices: pypto.Tensor([pypto.DYNAMIC, SEQ_LEN_Q, NUM_HEADS, TOPK], pypto.DT_INT32),
 ):
     """
     LightningIndexer kernel implementation.
@@ -112,28 +112,48 @@ def lightning_indexer_kernel(
     Output shape:
         indices: [B, Sq, N, topk]
     """
+    batch_size = query.shape[0]
+    batch_tile = 1
+    
     pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
     pypto.set_vec_tile_shapes(1, 1, SEQ_LEN_Q, HEAD_DIM)
     
-    query_t = pypto.transpose(query, 1, 2)
-    key_t = pypto.transpose(key, 1, 2)
+    batch_loop = (batch_size + batch_tile - 1) // batch_tile
     
-    scores = pypto.matmul(query_t, key_t, out_dtype=pypto.DT_BF16, b_trans=True)
-    
-    pypto.set_vec_tile_shapes(1, 1, SEQ_LEN_Q, SEQ_LEN_KV)
-    scores_relu = pypto.relu(scores)
-    
-    weighted_scores = pypto.mul(scores_relu, weights)
-    
-    weighted_scores_fp32 = pypto.cast(weighted_scores, pypto.DT_FP32)
-    
-    _, topk_indices = pypto.topk(weighted_scores_fp32, TOPK, dim=-1, largest=True)
-    
-    indices_t = pypto.cast(topk_indices, pypto.DT_INT32)
-    indices.move(pypto.transpose(indices_t, 1, 2))
+    for batch_idx in pypto.loop(batch_loop, name="LOOP_BATCH", idx_name="batch_idx"):
+        act_batch_tile = (batch_size - batch_idx * batch_tile).min(batch_tile)
+        
+        query_tile = pypto.view(query, [batch_tile, SEQ_LEN_Q, NUM_HEADS, HEAD_DIM], 
+                                [batch_idx * batch_tile, 0, 0, 0],
+                                valid_shape=[act_batch_tile, SEQ_LEN_Q, NUM_HEADS, HEAD_DIM])
+        key_tile = pypto.view(key, [batch_tile, SEQ_LEN_KV, NUM_HEADS, HEAD_DIM],
+                             [batch_idx * batch_tile, 0, 0, 0],
+                             valid_shape=[act_batch_tile, SEQ_LEN_KV, NUM_HEADS, HEAD_DIM])
+        weights_tile = pypto.view(weights, [batch_tile, NUM_HEADS, SEQ_LEN_Q, 1],
+                                  [batch_idx * batch_tile, 0, 0, 0],
+                                  valid_shape=[act_batch_tile, NUM_HEADS, SEQ_LEN_Q, 1])
+        
+        query_t = pypto.transpose(query_tile, 1, 2)
+        key_t = pypto.transpose(key_tile, 1, 2)
+        
+        scores = pypto.matmul(query_t, key_t, out_dtype=pypto.DT_BF16, b_trans=True)
+        
+        pypto.set_vec_tile_shapes(1, 1, SEQ_LEN_Q, SEQ_LEN_KV)
+        scores_relu = pypto.relu(scores)
+        
+        weighted_scores = pypto.mul(scores_relu, weights_tile)
+        
+        weighted_scores_fp32 = pypto.cast(weighted_scores, pypto.DT_FP32)
+        
+        _, topk_indices = pypto.topk(weighted_scores_fp32, TOPK, dim=-1, largest=True)
+        
+        indices_t = pypto.cast(topk_indices, pypto.DT_INT32)
+        indices_tile = pypto.transpose(indices_t, 1, 2)
+        
+        indices[batch_idx * batch_tile:, 0:, 0:, 0:] = indices_tile
 
 
-def test_lightning_indexer(device_id=None, run_mode: str = "npu") -> None:
+def test_lightning_indexer(device_id=None, run_mode: str = "npu", batch_size: int = BATCH_SIZE) -> None:
     """Test LightningIndexer function."""
     logging.info("=" * 60)
     logging.info("Test: LightningIndexer")
@@ -141,13 +161,13 @@ def test_lightning_indexer(device_id=None, run_mode: str = "npu") -> None:
     
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
-    query = torch.randn(BATCH_SIZE, SEQ_LEN_Q, NUM_HEADS, HEAD_DIM, dtype=torch.bfloat16, device=device)
-    key = torch.randn(BATCH_SIZE, SEQ_LEN_KV, NUM_HEADS, HEAD_DIM, dtype=torch.bfloat16, device=device)
-    weights_raw = torch.randn(BATCH_SIZE, SEQ_LEN_Q, NUM_HEADS, dtype=torch.bfloat16, device=device)
+    query = torch.randn(batch_size, SEQ_LEN_Q, NUM_HEADS, HEAD_DIM, dtype=torch.bfloat16, device=device)
+    key = torch.randn(batch_size, SEQ_LEN_KV, NUM_HEADS, HEAD_DIM, dtype=torch.bfloat16, device=device)
+    weights_raw = torch.randn(batch_size, SEQ_LEN_Q, NUM_HEADS, dtype=torch.bfloat16, device=device)
     
     weights = weights_raw.transpose(1, 2).unsqueeze(-1).contiguous()
     
-    indices = torch.empty(BATCH_SIZE, SEQ_LEN_Q, NUM_HEADS, TOPK, dtype=torch.int32, device=device)
+    indices = torch.empty(batch_size, SEQ_LEN_Q, NUM_HEADS, TOPK, dtype=torch.int32, device=device)
     
     lightning_indexer_kernel(query, key, weights, indices)
     
@@ -190,6 +210,13 @@ def main():
         choices=["npu"],
         help='Run mode, currently only support npu.'
     )
+    parser.add_argument(
+        '--batch_size',
+        type=int,
+        nargs='?',
+        default=1,
+        help='Batch size for testing (supports dynamic batch size).'
+    )
     args = parser.parse_args()
 
     logging.info("\n" + "=" * 60)
@@ -207,7 +234,7 @@ def main():
         logging.info("Make sure CANN environment is configured and NPU is available\n")
 
     try:
-        test_lightning_indexer(device_id, args.run_mode)
+        test_lightning_indexer(device_id, args.run_mode, args.batch_size)
     except Exception as e:
         logging.info(f"\nError: {e}")
         raise

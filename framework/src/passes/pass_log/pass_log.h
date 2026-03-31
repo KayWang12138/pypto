@@ -19,16 +19,9 @@
 #include <chrono>
 #include <string>
 #include <unordered_map>
-#include "interface/utils/log.h"
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
 #include "tilefwk/pypto_fwk_log.h"
-
-#define APASS_LOG_F(lvl, MODULE_NAME, opName, fmt, args...)                        \
-    do {                                                                        \
-        ALOG_F(lvl, \
-        "[%s][%s][" #lvl "]: " fmt, MODULE_NAME, opName, ##args);       \
-    } while (false)
 
 namespace npu::tile_fwk {
 
@@ -72,7 +65,7 @@ public:
         started_ = true;
         ended_ = false;
         start_ = std::chrono::steady_clock::now();
-        APASS_LOG_F(INFO, module_, toString(opEnum_), "==========> start %s.", tag_);
+        PASS_LOGI("[%s][%s]: ==========> start %s.", module_, toString(opEnum_), tag_);
     }
 
     void End() {
@@ -82,7 +75,7 @@ public:
         ended_ = true;
         auto us = std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now() - start_).count();
-        APASS_LOG_F(INFO, module_, toString(opEnum_), "<========== end %s, cost time=%lld us.", tag_, (long long)us);
+        PASS_LOGI("[%s][%s]: <========== end %s, cost time=%lld us.", module_, toString(opEnum_), tag_, (long long)us);
     }
 
     ~ScopeTimer() {
@@ -110,11 +103,9 @@ public:
     PassLogUtil &operator=(const PassLogUtil &) = delete;
 
 private:
-    std::string originLogOutPath_;
     std::string logFilePath_;
     std::string logFolder_;
 };
-
 }
 
 #define LOG_SCOPE_BEGIN(timerVar, opEnum, tag) \

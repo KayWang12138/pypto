@@ -143,6 +143,8 @@ Tensor Ceil(const Tensor &self);
 Tensor CeilDiv(const Tensor &self, const Tensor &other);
 Tensor CeilDiv(const Tensor &self, const Element &other);
 Tensor Floor(const Tensor &self);
+Tensor FloorDiv(const Tensor &self, const Tensor &other);
+Tensor FloorDiv(const Tensor &self, const Element &other);
 Tensor Trunc(const Tensor &self);
 Tensor Reciprocal(const Tensor &operand);
 Tensor Abs(const Tensor &self);
@@ -184,6 +186,8 @@ Tensor RowMaxExpand(const Tensor &operand);
 
 Tensor Sum(const Tensor &self, int axis = -1, bool keepDim=false);
 Tensor Amax(const Tensor &self, int axis = -1, bool keepDim=false);
+Tensor ArgMax(const Tensor &self, int axis = -1, bool keepDim=false);
+Tensor ArgMin(const Tensor &self, int axis = -1, bool keepDim=false);
 Tensor Amin(const Tensor &self, int axis = -1, bool keepDim=false);
 Tensor Prod(const Tensor &self, int axis = -1, bool keepDim=false);
 
@@ -311,6 +315,7 @@ Tensor ScalarMulS(const Tensor &operand, const Element &value, bool reverseOpera
 Tensor ScalarSub(const Tensor &operand1, const Tensor &operand2);
 Tensor ScalarDiv(const Tensor &operand1, const Tensor &operand2);
 Tensor CumSum(const Tensor &input, const int &axis);
+Tensor CumProd(const Tensor &input, const int &axis);
 Tensor Gcd(const Tensor &input, const Tensor &other);
 Tensor Gcd(const Tensor &input, const Element &other);
 Tensor TriU(const Tensor &input, const SymbolicScalar &diagonal);

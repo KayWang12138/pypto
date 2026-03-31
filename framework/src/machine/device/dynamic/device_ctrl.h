@@ -71,7 +71,7 @@ public:
 
     int AllocNewTaskCtrl() {
         uint32_t &taskCtrlIndex = devStartArgs_->devCtrlState.taskCtrlIndex;
-        START_TIMEOUT_CHECK();
+        TIMEOUT_CHECK_START();
         while (true) {
             if (taskCtrlIndex == MAX_DEVICE_TASK_NUM)
                 taskCtrlIndex = 0;
@@ -79,7 +79,7 @@ public:
                 return taskCtrlIndex++;
             }
             taskCtrlIndex++;
-            CHECK_TIMEOUT_AND_RESET(TIMEOUT_ONE_MINUTE, CtrlErr::CTRL_ALLOC_TIMEOUT, "Alloc new task ctrl over 1 min.");
+            TIMEOUT_CHECK_AND_RESET(TIMEOUT_ONE_MINUTE, CtrlErr::CTRL_ALLOC_TIMEOUT, "Alloc new task ctrl over 1 min.");
         }
     }
 
@@ -163,6 +163,9 @@ public:
          * However, it should be moved into the execute context. */
         devProg->ctrlFlowCacheAnchor = devCtrlFlowCache;
         if (devCtrlFlowCache->deviceTaskCount == 0) {
+            if (!firstInit) {
+                devProg->ResetRerun(); // Clean the dirty data of cell match table from the last launch
+            }
             DEV_INFO("ControlFlowCache: cache have no devtask , ignore it");
             return;
         }
