@@ -1339,30 +1339,21 @@ void IndexAdd(const TensorData &out, const TensorData &self, const TensorData &s
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
-static void Quantize(const TensorData &out, const TensorData &input, const TensorData &scale,
-                     uint64_t dtype, int axis, const TensorData &zeroPoints) {
+static void Quantize(const TensorData &out, const TensorData &input, const TensorData &scale, const TensorData &zeroPoints) {
     auto tout = From(out);
     auto tinput = From(input);
     auto tscale = From(scale);
 
-    // Normalize axis to positive index
-    int inputRank = tinput.second.sizes().size();
-    int normalizedAxis = axis;
-    if (axis < 0) {
-        normalizedAxis = inputRank + axis;
-    }
-
+    int inputRank = tinput.second.dim();
+    int normalizedAxis = inputRank - 1;
+    
     // Broadcast scale to match input shape based on axis
-    // axis=-1 (last dim): scale shape is [..., row, 1] → broadcast to [..., row, col]
-    // axis=-2 (second last): scale shape is [..., 1, col] → broadcast to [..., row, col]
     auto scaleTensor = tscale.second;
-    if (tscale.second.sizes() != tinput.second.sizes()) {
-        // Create expand shape based on axis
-        std::vector<int64_t> expandShape(tinput.second.sizes().begin(), tinput.second.sizes().end());
-        scaleTensor = tscale.second.expand(expandShape);
+    while (scaleTensor.dim() < inputRank) {
+        scaleTensor = scaleTensor.unsqueeze(normalizedAxis);
     }
+    scaleTensor = scaleTensor.expand_as(tinput.second);
 
-    // Perform scaling
     auto scaled = tinput.second * scaleTensor;
 
     // Apply zero_points for asymmetric quantization
@@ -1371,32 +1362,23 @@ static void Quantize(const TensorData &out, const TensorData &input, const Tenso
         auto zeroPointsTensor = tzeroPoints.second;
 
         // Broadcast zero_points based on axis (same as scale)
-        if (tzeroPoints.second.sizes() != tinput.second.sizes()) {
-            std::vector<int64_t> expandShape(tinput.second.sizes().begin(), tinput.second.sizes().end());
-            zeroPointsTensor = tzeroPoints.second.expand(expandShape);
+        while (zeroPointsTensor.dim() < inputRank) {
+            zeroPointsTensor = zeroPointsTensor.unsqueeze(normalizedAxis);
         }
+        zeroPointsTensor = zeroPointsTensor.expand_as(tinput.second);
 
         scaled = scaled + zeroPointsTensor;
     }
 
-    // Round to nearest integer
     auto rounded = torch::round(scaled);
 
-    // Convert to output dtype
-    DataType outputType = static_cast<DataType>(dtype);
-    auto toutType = FromDataType(outputType);
-
-    // For asymmetric quantization (UINT8), clamp to [0, 255]
-    // For symmetric quantization (INT8), clamp to [-128, 127]
-    if (outputType == DT_UINT8) {
+    if (out.dtype == DT_UINT8) {
         rounded = torch::clamp(rounded, 0, 255);
-    } else if (outputType == DT_INT8) {
+    } else if (out.dtype == DT_INT8) {
         rounded = torch::clamp(rounded, -128, 127);
     }
 
-    // Convert to target type
-    auto result = rounded.to(toutType);
-    ToOperand(result, tout.first, out.dtype);
+    ToOperand(rounded, tout.first, out.dtype);
 }
 
 void TriU(const TensorData &out, const TensorData &in, int diagonal) {
