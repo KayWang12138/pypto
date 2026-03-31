@@ -446,7 +446,12 @@ std::string CodeGenOpCloudNPU::GenGmParamVar(unsigned gmParamIdx) const
         std::ostringstream os;
         os << "GET_PARAM_ADDR(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
            << paramLocation[gmParamIdx] << ")";
-        return os.str();
+        SymbolicScalar addr;
+        bool ret = GetTensorAttr(gmParamIdx, "paramAddr", addr);
+        ASSERT(OperErr::ATTRIBUTE_INVALID, ret)
+            << "paramAddr is not found!! gmParamIdx: " << gmParamIdx << ", op: " << originalOp.Dump();
+        std::string gmParamVar = SymbolicExpressionTable::BuildExpression(addr);
+        return gmParamVar;
     }
 
     auto paramLoc = paramLocation[gmParamIdx];
