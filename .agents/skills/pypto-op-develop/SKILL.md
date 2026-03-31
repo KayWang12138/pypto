@@ -275,7 +275,7 @@ if __name__ == "__main__":
 - `[PRECISION_FAIL]`: 精度验证失败（数值不匹配）
 - 无标记 + exit ≠ 0: 功能问题（代码崩溃、逻辑错误等）
 
-`assert_allclose` 抛出的 `AssertionError` 包含 `Not equal to tolerance` 关键字，orchestrator 据此区分"运行失败"和"精度失败"。
+`assert_allclose` 抛出的 `AssertionError` 包含 `Not equal to tolerance` 关键字，调用方据此区分"运行失败"和"精度失败"。
 
 ---
 
