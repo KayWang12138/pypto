@@ -200,6 +200,13 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
     # 指定路径安装
     source ${install_path}/ascend-toolkit/set_env.sh
     ```
+## 按照pre-commit tools (可选)
+
+```bash
+pip install pre-commit
+# cd /path/to/pypto
+pre-commit install
+```
 
 ## 安装PyPTO Toolkit插件（可选）
 
