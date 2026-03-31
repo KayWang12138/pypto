@@ -726,7 +726,7 @@ void DeviceLauncher::SetDevPerfAddr(
 {
 #ifdef BUILD_WITH_CANN
     auto& devRunner = DeviceRunner::Get();
-    if (debugEnable || devRunner.GetEnableDumpDevPref()) {
+    if (debugEnable || devRunner.GetEnableDumpDevPref() || devRunner.GetHostProfInstance().GetProfType() == 1) {
         if (isCaptureMode) {
             ChangeCaptureModeRelax();
         }
