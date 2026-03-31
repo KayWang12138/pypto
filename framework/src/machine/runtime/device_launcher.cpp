@@ -768,9 +768,9 @@ int DeviceLauncher::LaunchAicpuKernel(
         auto startTime = MsprofSysCycleTime();
         args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
         ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 2, &rtArgs, nullptr, ctrlStream,
+            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, ctrlStream,
             RT_KERNEL_USE_SPECIAL_TIMEOUT);
-        devRunner.ReportHostProfInfo(ctrlStream, startTime, 2, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+        devRunner.ReportHostProfInfo(ctrlStream, startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU, false);
         if (ret != RT_ERROR_NONE) {
             return ret;
         }
