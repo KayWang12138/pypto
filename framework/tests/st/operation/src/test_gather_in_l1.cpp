@@ -48,7 +48,8 @@ struct PageAttentionTestConfig {
 
 // ----------------- 基础打印工具 -----------------
 template <typename T>
-void print_1d(const std::vector<T> &v, const std::string &name, int max_print = 32) {
+void print_1d(const std::vector<T>& v, const std::string& name, int max_print = 32)
+{
     std::cout << name << " (size=" << v.size() << "): ";
     int n = std::min<int>(v.size(), max_print);
     for (int i = 0; i < n; ++i) {
@@ -62,7 +63,8 @@ void print_1d(const std::vector<T> &v, const std::string &name, int max_print = 
 }
 
 template <typename T>
-void print_2d(const std::vector<T> &v, int rows, int cols, const std::string &name, int max_rows = 8) {
+void print_2d(const std::vector<T>& v, int rows, int cols, const std::string& name, int max_rows = 8)
+{
     std::cout << name << " (" << rows << "x" << cols << "):\n";
     int r_limit = std::min(rows, max_rows);
     for (int r = 0; r < r_limit; ++r) {
@@ -81,7 +83,8 @@ void print_2d(const std::vector<T> &v, int rows, int cols, const std::string &na
 
 // ----------------- 参数合法性检查 -----------------
 template <typename Config>
-bool validate_config(const Config &cfg, std::string &err) {
+bool validate_config(const Config& cfg, std::string& err)
+{
     if (cfg.topk_count <= 0 || cfg.num_logical_blocks <= 0 || cfg.num_buffer_tokens <= 0 || cfg.hidden_dim <= 0 ||
         cfg.block_size <= 0) {
         err = "topk_count, num_logical_blocks, num_buffer_tokens, hidden_dim, block_size 都必须为正整数";
@@ -114,7 +117,8 @@ bool validate_config(const Config &cfg, std::string &err) {
 
 // ----------------- 构造 buffer[num_buffer_tokens, hidden_dim] -----------------
 template <typename Config>
-std::vector<typename Config::DataType> make_buffer(const Config &cfg) {
+std::vector<typename Config::DataType> make_buffer(const Config& cfg)
+{
     using DataType = typename Config::DataType;
     std::vector<DataType> buffer(cfg.num_buffer_tokens * cfg.hidden_dim);
 
@@ -133,7 +137,8 @@ std::vector<typename Config::DataType> make_buffer(const Config &cfg) {
 // 实际网络中，除了前缀或者swap，一般逻辑和物理都是一一对应的，单轮对话中也不会出现多个逻辑映射同一个物理块。
 // 但是模拟过程中，这个并不影响功能
 template <typename Config>
-std::vector<typename Config::IndexType> make_page_table(const Config &cfg, uint32_t seed = 42) {
+std::vector<typename Config::IndexType> make_page_table(const Config& cfg, uint32_t seed = 42)
+{
     using IndexType = typename Config::IndexType;
 
     int num_physical_blocks = static_cast<int>(std::ceil(cfg.num_buffer_tokens / cfg.block_size));
@@ -151,7 +156,8 @@ std::vector<typename Config::IndexType> make_page_table(const Config &cfg, uint3
 // 使用 Config::IndexType，代表逻辑 token id 类型
 // 与网络不符的，实际网络中topk的应该不会重复
 template <typename Config>
-std::vector<typename Config::IndexType> make_topk_indices(const Config &cfg, uint32_t seed = 123) {
+std::vector<typename Config::IndexType> make_topk_indices(const Config& cfg, uint32_t seed = 123)
+{
     using IndexType = typename Config::IndexType;
 
     int total_logical_tokens = cfg.num_logical_blocks * cfg.block_size;
@@ -167,8 +173,10 @@ std::vector<typename Config::IndexType> make_topk_indices(const Config &cfg, uin
 
 // ----------------- 逻辑 index -> 物理 index 的核心函数 -----------------
 template <typename Config>
-typename Config::IndexType compute_physical_index(typename Config::IndexType logical_index,
-    const std::vector<typename Config::IndexType> &page_table, const Config &cfg) {
+typename Config::IndexType compute_physical_index(
+    typename Config::IndexType logical_index, const std::vector<typename Config::IndexType>& page_table,
+    const Config& cfg)
+{
     using IndexType = typename Config::IndexType;
 
     IndexType logical_block_id = logical_index / static_cast<IndexType>(cfg.block_size);
@@ -184,9 +192,11 @@ typename Config::IndexType compute_physical_index(typename Config::IndexType log
 // buffer         : [num_buffer_tokens, hidden_dim] -> size = num_buffer_tokens * hidden_dim
 // 输出 result    : [topk_count, hidden_dim] -> size = topk_count * hidden_dim
 template <typename Config>
-void gather_golden(const std::vector<typename Config::IndexType> &topk_indices,
-    const std::vector<typename Config::IndexType> &page_table, const std::vector<typename Config::DataType> &buffer,
-    const Config &cfg, std::vector<typename Config::DataType> &result, bool isTrans) {
+void gather_golden(
+    const std::vector<typename Config::IndexType>& topk_indices,
+    const std::vector<typename Config::IndexType>& page_table, const std::vector<typename Config::DataType>& buffer,
+    const Config& cfg, std::vector<typename Config::DataType>& result, bool isTrans)
+{
     using IndexType = typename Config::IndexType;
     // using DataType = typename Config::DataType;
 
@@ -244,29 +254,29 @@ struct NSASimpleParams {
 };
 
 class GatherInL1Test : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
-    void SetUp() override {
+    void SetUp() override
+    {
         TestSuite_STest_Ops_Aihac::SetUp();
         rtSetDevice(GetDeviceIdByEnvVar());
     }
-    void TearDown() override {
+    void TearDown() override
+    {
         config::SetHostOption(COMPILE_STAGE, 0);
         TestSuite_STest_Ops_Aihac::TearDown();
     }
 };
 
-template<typename Config>
-void ProgramSetting(Tensor &src, std::vector<typename Config::DataType> &srcData,
-    Tensor &offsets, std::vector<typename Config::IndexType> &offsetsData,
-    Tensor &unit, std::vector<float16> &unitData,
-    Tensor &pageTable, std::vector<typename Config::IndexType> &pageTableData,
-    Tensor &dst, Tensor golden, std::vector<typename Config::DataType> &goldenData,
-    bool verify) {
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<float16>(src, srcData),
-        RawTensorData::CreateTensor<int32_t>(offsets, offsetsData),
-        RawTensorData::CreateTensor<float16>(unit, unitData),
-        RawTensorData::CreateTensor<int32_t>(pageTable, pageTableData)
-    });
+template <typename Config>
+void ProgramSetting(
+    Tensor& src, std::vector<typename Config::DataType>& srcData, Tensor& offsets,
+    std::vector<typename Config::IndexType>& offsetsData, Tensor& unit, std::vector<float16>& unitData,
+    Tensor& pageTable, std::vector<typename Config::IndexType>& pageTableData, Tensor& dst, Tensor golden,
+    std::vector<typename Config::DataType>& goldenData, bool verify)
+{
+    ProgramData::GetInstance().AppendInputs(
+        {RawTensorData::CreateTensor<float16>(src, srcData), RawTensorData::CreateTensor<int32_t>(offsets, offsetsData),
+         RawTensorData::CreateTensor<float16>(unit, unitData),
+         RawTensorData::CreateTensor<int32_t>(pageTable, pageTableData)});
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float16>(dst, 0),
     });
@@ -277,12 +287,15 @@ void ProgramSetting(Tensor &src, std::vector<typename Config::DataType> &srcData
     }
 }
 
-template<typename Config>
-void GatherInL1Function(const Tensor &src, const Tensor &offsets, const Tensor &unit,
-    const Tensor &pageTable, Tensor &dst, std::vector<typename Config::DataType> goldenData,
-    Config &cfg, bool isB, bool isTrans){
-    FUNCTION("test", {src, offsets, unit, pageTable}, {dst}) {
-        LOOP("LOOP", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1)) {
+template <typename Config>
+void GatherInL1Function(
+    const Tensor& src, const Tensor& offsets, const Tensor& unit, const Tensor& pageTable, Tensor& dst,
+    std::vector<typename Config::DataType> goldenData, Config& cfg, bool isB, bool isTrans)
+{
+    FUNCTION("test", {src, offsets, unit, pageTable}, {dst})
+    {
+        LOOP("LOOP", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1))
+        {
             (void)sIdx;
             TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {128, 128});
 
@@ -295,18 +308,22 @@ void GatherInL1Function(const Tensor &src, const Tensor &offsets, const Tensor &
 
             if (!isB) {
                 if (!isTrans) {
-                    auto a = experimental::GatherInL1<false, false>(dynSrc, dynOffsets, pageTable, cfg.block_size, cfg.hidden_dim);
+                    auto a = experimental::GatherInL1<false, false>(
+                        dynSrc, dynOffsets, pageTable, cfg.block_size, cfg.hidden_dim);
                     dst = Matrix::Matmul(DT_FP16, a, dynUnit);
                 } else {
-                    auto a = experimental::GatherInL1<false, true>(dynSrc, dynOffsets, pageTable, cfg.block_size, cfg.hidden_dim);
+                    auto a = experimental::GatherInL1<false, true>(
+                        dynSrc, dynOffsets, pageTable, cfg.block_size, cfg.hidden_dim);
                     dst = Matrix::Matmul(DT_FP16, a, dynUnit, true, false);
                 }
             } else {
                 if (!isTrans) {
-                    auto b = experimental::GatherInL1<true, false>(dynSrc, dynOffsets, pageTable, cfg.block_size, cfg.hidden_dim);
+                    auto b = experimental::GatherInL1<true, false>(
+                        dynSrc, dynOffsets, pageTable, cfg.block_size, cfg.hidden_dim);
                     dst = Matrix::Matmul(DT_FP16, dynUnit, b, false, false);
                 } else {
-                    auto b = experimental::GatherInL1<true, true>(dynSrc, dynOffsets, pageTable, cfg.block_size, cfg.hidden_dim);
+                    auto b = experimental::GatherInL1<true, true>(
+                        dynSrc, dynOffsets, pageTable, cfg.block_size, cfg.hidden_dim);
                     dst = Matrix::Matmul(DT_FP16, dynUnit, b, false, true);
                 }
             }
@@ -320,20 +337,22 @@ void GatherInL1Function(const Tensor &src, const Tensor &offsets, const Tensor &
     int curErrorPrintNum = 0;
     float eps = 1e-6f;
     for (size_t i = 0; i < goldenData.size(); i++) {
-        auto actual = ((float16 *)out->data())[i];
+        auto actual = ((float16*)out->data())[i];
         auto expect = goldenData[i];
         if (fabs(actual - expect) > eps && curErrorPrintNum < maxErrorPrintNum) {
             std::cout << i << ": output: " << actual << "; expect: " << expect << std::endl;
             curErrorPrintNum++;
         }
     }
-    EXPECT_TRUE(resultCmp(goldenData, (float16 *)out->data(), eps));
+    EXPECT_TRUE(resultCmp(goldenData, (float16*)out->data(), eps));
 }
 
-template<typename Config>
-void GatherInL1Execute(const Shape &srcShapes, const Shape &offsetsShapes, const Shape &pageTableShapes,
-    const Shape &dstShapes, const Shape &unitShape, bool verify, Config &cfg, bool isB, bool isTrans) {
-    auto TotalSize = [](const Shape &shapes) {
+template <typename Config>
+void GatherInL1Execute(
+    const Shape& srcShapes, const Shape& offsetsShapes, const Shape& pageTableShapes, const Shape& dstShapes,
+    const Shape& unitShape, bool verify, Config& cfg, bool isB, bool isTrans)
+{
+    auto TotalSize = [](const Shape& shapes) {
         size_t res = 1;
         for (auto v : shapes) {
             res *= v;
@@ -350,27 +369,28 @@ void GatherInL1Execute(const Shape &srcShapes, const Shape &offsetsShapes, const
     std::string err;
     if (!validate_config<Config>(cfg, err)) {
         std::cerr << "配置非法: " << err << "\n";
-        return ;
+        return;
     }
     auto srcData = make_buffer<Config>(cfg);
     auto offsetsData = make_topk_indices<Config>(cfg, /*seed=*/123);
     auto pageTableData = make_page_table<Config>(cfg, /*seed=*/42);
     std::vector<float16> unitData(TotalSize(unit.GetShape()));
     ASSERT(unit.GetShape()[0] == unit.GetShape()[1]);
-    for (int64_t i=0; i < unit.GetShape()[0]; i++) {
+    for (int64_t i = 0; i < unit.GetShape()[0]; i++) {
         unitData[i * unit.GetShape()[1] + i] = 1;
     }
     // 4. 用 pageattention 逻辑做 gather，生成 golden 结果
     std::vector<typename Config::DataType> goldenData;
     gather_golden<Config>(offsetsData, pageTableData, srcData, cfg, goldenData, isTrans);
     std::cout << "simu finished" << std::endl;
-    ProgramSetting<Config>(src, srcData, offsets, offsetsData, unit, unitData,
-        pageTable, pageTableData, dst, golden, goldenData, verify);
+    ProgramSetting<Config>(
+        src, srcData, offsets, offsetsData, unit, unitData, pageTable, pageTableData, dst, golden, goldenData, verify);
     GatherInL1Function<Config>(src, offsets, unit, pageTable, dst, goldenData, cfg, isB, isTrans);
 }
 
-template<typename Config>
-void BasicGatherTest(Config &cfg, bool isB, bool isTrans, bool verify) {
+template <typename Config>
+void BasicGatherTest(Config& cfg, bool isB, bool isTrans, bool verify)
+{
     if (verify) {
         config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
         config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
@@ -398,14 +418,14 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans, bool verify) {
         }
     }
 
-    GatherInL1Execute(srcShapes, offsetsShapes, pageTableShapes, dstShapes, unitShape,
-        verify, cfg, isB, isTrans);
+    GatherInL1Execute(srcShapes, offsetsShapes, pageTableShapes, dstShapes, unitShape, verify, cfg, isB, isTrans);
 }
 
-TEST_F(GatherInL1Test, gather_in_a) {
+TEST_F(GatherInL1Test, gather_in_a)
+{
     using Config = PageAttentionTestConfig<int32_t, float16>;
     Config cfg;
-    cfg.topk_count = 8;         //topk结果
+    cfg.topk_count = 8;         // topk结果
     cfg.num_logical_blocks = 3; // 逻辑块个数
     cfg.num_buffer_tokens = 32; // buffer token 维度（物理 token 容量）
     cfg.hidden_dim = 4;         // 隐藏维度大小
@@ -413,13 +433,14 @@ TEST_F(GatherInL1Test, gather_in_a) {
     BasicGatherTest(cfg, false, false, false);
 }
 
-TEST_F(GatherInL1Test, gather_in_a_verify) {
+TEST_F(GatherInL1Test, gather_in_a_verify)
+{
     using Config = PageAttentionTestConfig<int32_t, float16>;
     Config cfg;
-    cfg.topk_count = 8;         //topk结果
+    cfg.topk_count = 8;         // topk结果
     cfg.num_logical_blocks = 4; // 逻辑块个数
     cfg.num_buffer_tokens = 64; // buffer token 维度（物理 token 容量）
-    cfg.hidden_dim = 34;         // 隐藏维度大小
-    cfg.block_size = 34;         // 每个块的 token 数
+    cfg.hidden_dim = 34;        // 隐藏维度大小
+    cfg.block_size = 34;        // 每个块的 token 数
     BasicGatherTest(cfg, false, false, true);
 }

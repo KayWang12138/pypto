@@ -31,7 +31,8 @@ using namespace npu::tile_fwk::dynamic;
 class CmpAttnTopk : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName)
+{
     auto shape = tensor.GetShape();
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> values(capacity, 0);
@@ -40,8 +41,8 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 }
 
 template <typename T = npu::tile_fwk::bfloat16>
-void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig) {
-
+void TestCmpAttnTopk(CmpAttnTopkTile& tileConfig)
+{
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
         dType = DT_BF16;
@@ -124,14 +125,17 @@ void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig) {
     auto cmpAttnData = RawTensorData::CreateConstantTensor<float>(cmpAttn, 0.0f);
     auto topkResData = RawTensorData::CreateConstantTensor<int32_t>(topkRes, 0);
 
-    std::vector<RawTensorDataPtr> inputDataList = {
-        qNopeData, qRopeData, cmpKvCacheData, cmpKrCacheData, cmpBlockTableData, actSeqData, auxData};
+    std::vector<RawTensorDataPtr> inputDataList = {qNopeData,         qRopeData,  cmpKvCacheData, cmpKrCacheData,
+                                                   cmpBlockTableData, actSeqData, auxData};
     std::vector<RawTensorDataPtr> outputDataList = {cmpAttnData, topkResData};
 
-    FUNCTION("CompressAttentionWithTopK",
-        {qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor}, {cmpAttn, topkRes}) {
-        CompressAttentionWithTopK(qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor, cmpAttn,
-            topkRes, blockSize, cmpBlockSize, cmpStride, slcBlockSize, softmaxScale, n1, topk, front, near, tileConfig);
+    FUNCTION(
+        "CompressAttentionWithTopK", {qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor},
+        {cmpAttn, topkRes})
+    {
+        CompressAttentionWithTopK(
+            qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor, cmpAttn, topkRes, blockSize,
+            cmpBlockSize, cmpStride, slcBlockSize, softmaxScale, n1, topk, front, near, tileConfig);
     }
 
     auto funcop = Program::GetInstance().GetLastFunction();
@@ -141,13 +145,13 @@ void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig) {
 
     float eps = 3e-3f; // Compare results
     std::cout << "=======================attnOut===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(attnGolden, (float *)cmpAttnData->data(), eps, 100));
+    EXPECT_TRUE(resultCmp(attnGolden, (float*)cmpAttnData->data(), eps, 100));
     std::cout << "=======================topkRes===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(topkGolden, (int32_t *)topkResData->data(), 0, 0, 3, false, false, 128));
+    EXPECT_TRUE(resultCmp(topkGolden, (int32_t*)topkResData->data(), 0, 0, 3, false, false, 128));
 }
 
-void CommonTestConfig() {
-
+void CommonTestConfig()
+{
     CmpAttnTopkTile config;
     config.topkTile = {1, 1, 128};
     config.cmpTile.c1Tile = {128, 128, 128, 128, 128, 128};
@@ -158,6 +162,4 @@ void CommonTestConfig() {
     TestCmpAttnTopk<npu::tile_fwk::bfloat16>(config);
 }
 
-TEST_F(CmpAttnTopk, cmp_attn_with_topk_singleop_bf16) {
-    CommonTestConfig();
-}
+TEST_F(CmpAttnTopk, cmp_attn_with_topk_singleop_bf16) { CommonTestConfig(); }

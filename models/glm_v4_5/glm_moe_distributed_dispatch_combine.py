@@ -919,7 +919,7 @@ def moe_distributed_dispatch_combine(
     out_golden = operands.out_golden
     out_golden = out_golden.to(f'npu:{physical_device_id}')
     out = create_tensor_on_npu(out_golden, physical_device_id)
-    
+
     kernel = moe_distributed_combine_kernel(moe_case=moe_case, group_name=groups[0])
     kernel(expand_x_actual, assist_info_for_combine, recv_counts_actual, expert_scales, out)
 

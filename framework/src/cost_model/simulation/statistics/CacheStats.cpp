@@ -28,7 +28,7 @@ void CacheStats::Reset()
     totalResponseLatency = 0;
 }
 
-void CacheStats::Report(std::string &name)
+void CacheStats::Report(std::string& name)
 {
     rpt->ReportTitle(name + " Cache Statistics");
     rpt->ReportVal("Total Insert Count", totalInsertNum);

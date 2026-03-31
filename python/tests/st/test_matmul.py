@@ -127,7 +127,7 @@ def bmm_kernel_with_no_mn_split(
     out_tensor: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
     shape_info: ShapeConfig,
 ):
-    pypto.set_cube_tile_shapes(shape_info.m_tile_shape, shape_info.k_tile_shape, shape_info.n_tile_shape, 
+    pypto.set_cube_tile_shapes(shape_info.m_tile_shape, shape_info.k_tile_shape, shape_info.n_tile_shape,
                                enable_split_k=shape_info.gm_acc)
     result = pypto.matmul(a_tensor, b_tensor, a_trans=shape_info.a_trans, b_trans=shape_info.b_trans,
                           out_dtype=shape_info.out_dtype)

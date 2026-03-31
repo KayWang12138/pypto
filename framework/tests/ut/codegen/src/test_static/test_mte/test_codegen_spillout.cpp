@@ -35,7 +35,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetBuildStatic(true);
@@ -50,15 +51,17 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenSpillOut, UBSpillOut) {
+TEST_F(TestCodegenSpillOut, UBSpillOut)
+{
     auto function = GenMockFuncStatic("UBSpillOut");
     std::vector<int64_t> shape = {64, 64};
     const std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto ddrTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "UBSpillOut",
-        SYMBOL_STACK_BASE, dynValidShape});
+    auto ddrTensor = CreateLogicalTensor(
+        {*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "UBSpillOut", SYMBOL_STACK_BASE,
+         dynValidShape});
     auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
-    auto &op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
+    auto& op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
     auto shapeImme = OpImmediate::Specified(shape);
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
 
@@ -77,17 +80,19 @@ TEST_F(TestCodegenSpillOut, UBSpillOut) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor) {
+TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
 
     auto function = GenMockFuncStatic("UBSpillOutTileTensor");
     std::vector<int64_t> shape = {64, 64};
     const std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto ddrTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape,
-        "UBSpillOutTileTensor", SYMBOL_STACK_BASE, dynValidShape});
+    auto ddrTensor = CreateLogicalTensor(
+        {*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "UBSpillOutTileTensor", SYMBOL_STACK_BASE,
+         dynValidShape});
     auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
-    auto &op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
+    auto& op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
     auto shapeImme = OpImmediate::Specified(shape);
     op.SetOpAttribute(
         std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({16, 16}), shapeImme, shapeImme));
@@ -112,15 +117,17 @@ GMTileTensorFP32Dim2_1 gmTensor_1((__gm__ float*)((__gm__ uint8_t*)GMStackBase +
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenSpillOut, L1SpillOut) {
+TEST_F(TestCodegenSpillOut, L1SpillOut)
+{
     auto function = GenMockFuncStatic("L1SpillOut");
     std::vector<int64_t> shape = {64, 64};
     const std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto ddrTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "L1SpillOut",
-        SYMBOL_STACK_BASE, dynValidShape});
+    auto ddrTensor = CreateLogicalTensor(
+        {*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "L1SpillOut", SYMBOL_STACK_BASE,
+         dynValidShape});
     auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L1, shape, dynValidShape});
 
-    auto &op = function->AddOperation(Opcode::OP_L1_COPY_OUT, {l1Tensor}, {ddrTensor});
+    auto& op = function->AddOperation(Opcode::OP_L1_COPY_OUT, {l1Tensor}, {ddrTensor});
     auto shapeImme = OpImmediate::Specified(shape);
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
 

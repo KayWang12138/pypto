@@ -23,7 +23,7 @@
 
 namespace npu::tile_fwk {
 #define QUANT_DSIA_DEBUG 0 // 量化debug模式，用于打印中间输出结果
-#define DSIA_DEBUG 1 // 非量化debug模式，用于打印中间输出结果
+#define DSIA_DEBUG 1       // 非量化debug模式，用于打印中间输出结果
 
 constexpr int SCATTER_UPADATE_DIM = -2;
 constexpr int NUM_0 = 0;
@@ -58,10 +58,7 @@ constexpr float F_0 = 0.0;
 constexpr float F_NEGA_1 = -1.0;
 constexpr double DF_1E_20 = 1e-20;
 
-enum GateMode {
-    standard,
-    simple
-};
+enum GateMode { standard, simple };
 
 struct MlaTileConfig {
     int tileB = 8; // tileB is 8
@@ -70,7 +67,7 @@ struct MlaTileConfig {
 };
 
 struct SaTileShapeConfig {
-    int gTile; // 仅支持因子切分
+    int gTile;                                   // 仅支持因子切分
     int sKvTile;
     std::array<int, TILE_CUBE_DIMS> c1TileShape; // (m, M), (k, K), (n, N)
     std::array<int, TILE_VEC_DIMS> v1TileShape;
@@ -138,7 +135,8 @@ struct DSIASimpleParams {
     IndexerTile indexTileCfg;
     IndexerTileShapeConfig indexerTileConfigs;
     RopeTileShapeConfig ropeTileConfigs;
-    static DSIASimpleParams getCommonParams() {
+    static DSIASimpleParams getCommonParams()
+    {
         DSIASimpleParams params;
         params.h = NUM_7168;
         params.q_lora_rank = NUM_1536;
@@ -165,7 +163,8 @@ struct DSIASimpleParams {
         return params;
     }
 
-    static DSIASimpleParams getDecodeParams() {
+    static DSIASimpleParams getDecodeParams()
+    {
         DSIASimpleParams params = getCommonParams();
         params.b = NUM_32;
         params.s1 = NUM_1;
@@ -175,7 +174,8 @@ struct DSIASimpleParams {
         return params;
     }
 
-    static DSIASimpleParams getMTPParams() {
+    static DSIASimpleParams getMTPParams()
+    {
         DSIASimpleParams params = getCommonParams();
         params.b = NUM_32;
         params.s1 = NUM_2;

@@ -14,7 +14,7 @@
 ## 注意事项
 
 - **PyPTO Tensor 不支持 `.to()` 方法**：PyPTO Tensor 没有 `.to(dtype)` 方法，必须使用 `pypto.cast(tensor, dtype)` 进行数据类型转换
-  
+
 
 在了解精度转换规则之前，需要先了解浮点数的表示方式和二进制的舍入规则：
 
@@ -82,7 +82,7 @@
 ## 函数原型
 
 ```python
-cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE, 
+cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE,
      satmode: SaturationMode = SaturationMode.OFF) -> Tensor
 ```
 
@@ -157,10 +157,10 @@ y = pypto.cast(x, pypto.DT_FP16)
 # 示例 1：FP16 转 INT8，使用饱和模式防止溢出
 x = pypto.tensor([300.0, -300.0, 50.0], pypto.DT_FP16)
 y = pypto.cast(x, pypto.DT_INT8, satmode=pypto.SaturationMode.ON)
-# 输出：[127, -128, 50] 
+# 输出：[127, -128, 50]
 
 # 示例 2：FP16 转 INT8，使用饱和模式防止溢出
 x = pypto.tensor([300.0, -300.0, 50.0], pypto.DT_FP16)
 y = pypto.cast(x, pypto.DT_INT8, satmode=pypto.SaturationMode.OFF)
-# 输出：[44, -44, 50] 
+# 输出：[44, -44, 50]
 ```

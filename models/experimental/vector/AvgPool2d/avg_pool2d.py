@@ -94,13 +94,13 @@ def get_device_id():
 def calculate_pool2d_params(config: AvgPool2DConfig) -> PoolParams:
     """
     Calculate pooling parameters including output dimensions and padding values.
-    
+
     Args:
         config: AvgPool2DConfig containing shape, kernel_size, stride, and padding_mode
-    
+
     Returns:
         PoolParams: Dataclass containing all pooling parameters
-    
+
     Raises:
         ValueError: If padding_mode is invalid
     """
@@ -126,7 +126,7 @@ def calculate_pool2d_params(config: AvgPool2DConfig) -> PoolParams:
 
     out_h = (in_h + t_pad + b_pad - k_h) // s_h + 1
     out_w = (in_w + l_pad + r_pad - k_w) // s_w + 1
-    
+
     return PoolParams(
         batch_size=batch_size,
         channels=channels,
@@ -148,15 +148,15 @@ def calculate_pool2d_params(config: AvgPool2DConfig) -> PoolParams:
 def avg_pool_2d(config: AvgPool2DConfig):
     """
     Create avg_pool_2d kernel based on configuration.
-    
+
     Args:
         config: AvgPool2DConfig containing all parameters for the pooling operation
-    
+
     Returns:
         Compiled kernel function
     """
     params = calculate_pool2d_params(config)
-    
+
     batch_size = params.batch_size
     channels = params.channels
     in_h = params.in_h
@@ -183,9 +183,9 @@ def avg_pool_2d(config: AvgPool2DConfig):
     else:
         raise ValueError(f"Invalid run_mode: {config.run_mode}. Must be 'npu' or 'sim'")
 
-    @pypto.frontend.jit(pass_options={"vec_nbuffer_setting": {-1: 2, 0: 8}}, 
-                        runtime_options={"run_mode": mode, "stitch_function_num_initial": 128, 
-                        "stitch_function_outcast_memory": 1024, "stitch_function_inner_memory": 1024}, 
+    @pypto.frontend.jit(pass_options={"vec_nbuffer_setting": {-1: 2, 0: 8}},
+                        runtime_options={"run_mode": mode, "stitch_function_num_initial": 128,
+                        "stitch_function_outcast_memory": 1024, "stitch_function_inner_memory": 1024},
                         debug_options=dict(runtime_debug_mode=1, compile_debug_mode=1))
     def avg_pool_2d_kernel(
         input_tensor: pypto.Tensor((batch_size, channels, in_h, in_w), pypto.DT_FP32),
@@ -196,7 +196,7 @@ def avg_pool_2d(config: AvgPool2DConfig):
         input_reshaped = pypto.reshape(input_tensor, [batch_size * channels, in_h, in_w], inplace=True)
         output_tmp = pypto.tensor((bc_total, out_h, out_w), pypto.DT_FP32)
 
-        for bc_idx, unroll_length in pypto.loop_unroll(0, bc_total, 1, name="LOOP_BC", 
+        for bc_idx, unroll_length in pypto.loop_unroll(0, bc_total, 1, name="LOOP_BC",
                                                        idx_name="bc_idx", unroll_list=[8, 4, 2, 1]):
             input_cur = input_reshaped[bc_idx: bc_idx + unroll_length, :, :]
             for oh in range(out_h):
@@ -214,7 +214,7 @@ def avg_pool_2d(config: AvgPool2DConfig):
                     input_single_row = None
 
                 input_single_row_1 = pypto.sum(input_single_row, 1, keepdim=True)
-                
+
                 for ow in range(out_w):
                     w_start = ow * s_w - l_pad
                     w_end = w_start + k_w
@@ -241,20 +241,20 @@ def avg_pool_2d(config: AvgPool2DConfig):
 def avg_pool_2d_golden(x, kernel_size, stride, padding_mode):
     """
     Compute golden output using numpy (equivalent to tf.compat.v1.nn.avg_pool).
-    
+
     Args:
         x: Input tensor (input_n, input_c, input_h, input_w)
         kernel_size: (k_h, k_w)
         stride: (s_h, s_w)
         padding_mode: 'VALID' or 'SAME'
-    
+
     Returns:
         Output tensor (input_n, input_c, out_h, out_w)
     """
     input_n, input_c, input_h, input_w = x.shape
     k_h, k_w = kernel_size
     s_h, s_w = stride
-    
+
     if padding_mode == 'VALID':
         t_pad = b_pad = l_pad = r_pad = 0
     elif padding_mode == 'SAME':
@@ -268,32 +268,32 @@ def avg_pool_2d_golden(x, kernel_size, stride, padding_mode):
         r_pad = pad_w - l_pad
     else:
         raise ValueError(f"Invalid padding_mode: {padding_mode}")
-    
+
     out_h = (input_h + t_pad + b_pad - k_h) // s_h + 1
     out_w = (input_w + l_pad + r_pad - k_w) // s_w + 1
-    
+
     x_padded = np.pad(x, ((0, 0), (0, 0), (t_pad, b_pad), (l_pad, r_pad)), mode='constant', constant_values=0)
-    
+
     output = np.zeros((input_n, input_c, out_h, out_w), dtype=x.dtype)
-    
+
     for oh in range(out_h):
         h_start = oh * s_h
         h_end = h_start + k_h
-        
+
         for ow in range(out_w):
             w_start = ow * s_w
             w_end = w_start + k_w
-            
+
             window = x_padded[:, :, h_start:h_end, w_start:w_end]
             output[:, :, oh, ow] = np.mean(window, axis=(2, 3))
-    
+
     return output
 
 
 def test_avg_pool_2d_single(config: TestConfig):
     """
     Single test case for avg_pool_2d
-    
+
     Args:
         config: TestConfig containing all test parameters
     """
@@ -304,8 +304,8 @@ def test_avg_pool_2d_single(config: TestConfig):
     x = torch.from_numpy(x_np).to(device)
 
     params = calculate_pool2d_params(config)
-    
-    y = torch.empty((params.batch_size, params.channels, params.out_h, params.out_w), 
+
+    y = torch.empty((params.batch_size, params.channels, params.out_h, params.out_w),
                     dtype=torch.float32, device=device)
     avg_pool_2d(config)(x, y)
     y = y.cpu().numpy()
@@ -317,7 +317,7 @@ def test_avg_pool_2d_single(config: TestConfig):
         assert_allclose(y, golden_output, rtol=1e-3, atol=1e-3)
     else:
         assert_allclose(y, golden_output, rtol=1e-3, atol=1e-3)
-    
+
     logger.info(
         f"✓ test_avg_pool_2d ({config.padding_mode}) passed: "
         f"shape={config.shape}, kernel={config.kernel_size}, stride={stride}"
@@ -330,7 +330,7 @@ def test_avg_pool_2d_all():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     import torch_npu
     torch_npu.npu.set_device(device_id)
-    
+
     test_configs = [
         TestConfig(
             shape=(2, 3, 6, 6),
@@ -351,10 +351,10 @@ def test_avg_pool_2d_all():
             dynamic=True
         )
     ]
-    
+
     for test_config in test_configs:
         test_avg_pool_2d_single(test_config)
-    
+
     logger.info("All avg_pool_2d tests passed!")
 
 

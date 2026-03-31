@@ -26,7 +26,7 @@ verify_options = {"enable_pass_verify": True,
                     verify_options=verify_options
                     )
 def add_dyn_kernel(
-        x: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16), 
+        x: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
         y: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
         out: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16)):
     first_dim, second_dim = x.shape
@@ -76,7 +76,7 @@ def test_verify_dyn():
                     verify_options=verify_options
                     )
 def cmp_where_kenrel(
-        a: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16), 
+        a: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
         out: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP32)):
 
     for _ in pypto.loop(1):
@@ -105,7 +105,7 @@ def test_verify_where():
 
 @pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.NPU})
 def cmp_where_kenrel2(
-        a: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16), 
+        a: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
         out: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP32)):
 
     for _ in pypto.loop(1):

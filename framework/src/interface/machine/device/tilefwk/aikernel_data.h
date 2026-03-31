@@ -34,7 +34,8 @@ struct DevShape {
     int dim[DEV_SHAPE_DIM_MAX];
 
 #ifdef __TILE_FWK_HOST__
-    int64_t GetSize() const {
+    int64_t GetSize() const
+    {
         int64_t size = 1;
         for (int idx = 0; idx < dimSize; idx++) {
             size *= dim[idx];
@@ -42,7 +43,8 @@ struct DevShape {
         return size;
     }
 
-    bool Equal(const DevShape &s) const {
+    bool Equal(const DevShape& s) const
+    {
         if (dimSize != s.dimSize) {
             return false;
         }
@@ -62,20 +64,20 @@ struct DevTensorData {
 };
 
 struct DevStartArgsBase {
-    __gm__ DevTensorData *devTensorList;
+    __gm__ DevTensorData* devTensorList;
     uint64_t inputTensorSize;
     uint64_t outputTensorSize;
-    __gm__ int64_t *commContexts;
+    __gm__ int64_t* commContexts;
     uint64_t commGroupNum;
     std::atomic<uint64_t> syncFlag{0}; // sche and ctrl soft sync flag
 #ifdef __TILE_FWK_HOST__
     int GetInputTensorSize() const { return inputTensorSize; }
-    const DevTensorData &GetInputTensor(int index) const { return devTensorList[index]; }
-    DevTensorData &GetInputTensor(int index) { return devTensorList[index]; }
+    const DevTensorData& GetInputTensor(int index) const { return devTensorList[index]; }
+    DevTensorData& GetInputTensor(int index) { return devTensorList[index]; }
 
     int GetOutputTensorSize() const { return outputTensorSize; }
-    const DevTensorData &GetOutputTensor(int index) const { return devTensorList[index + inputTensorSize]; }
-    DevTensorData &GetOutputTensor(int index) { return devTensorList[index + inputTensorSize]; }
+    const DevTensorData& GetOutputTensor(int index) const { return devTensorList[index + inputTensorSize]; }
+    DevTensorData& GetOutputTensor(int index) { return devTensorList[index + inputTensorSize]; }
 #endif
 };
 
@@ -85,75 +87,63 @@ struct DevRawTensorDesc {
 };
 
 struct DynFuncData {
-    uint64_t exprNum;               // static
-    __gm__ uint64_t *opAttrs;       // static
-    __gm__ int32_t *opAtrrOffsets;  // static
-    __gm__ uint64_t *exprTbl;       // dyn
-    __gm__ DevRawTensorDesc *rawTensorDesc;
-    __gm__ uint64_t *rawTensorAddr;
+    uint64_t exprNum;              // static
+    __gm__ uint64_t* opAttrs;      // static
+    __gm__ int32_t* opAtrrOffsets; // static
+    __gm__ uint64_t* exprTbl;      // dyn
+    __gm__ DevRawTensorDesc* rawTensorDesc;
+    __gm__ uint64_t* rawTensorAddr;
     uint64_t opAttrSize;
     uint64_t rawTensorDescSize;
     uint64_t rawTensorAddrSize;
     uint64_t workspaceAddr;
     uint64_t stackWorkSpaceAddr;
     uint64_t stackWorkSpaceSize;
-    __gm__ DevStartArgsBase *startArgs;
+    __gm__ DevStartArgsBase* startArgs;
 };
 
 struct DynFuncBin {
     uint32_t coreType;
     uint32_t psgId;
     uint64_t funcHash;
-    int32_t wrapVecId {-1};
-    uint32_t mixResourceType {0};
+    int32_t wrapVecId{-1};
+    uint32_t mixResourceType{0};
 };
 
 struct DynFuncHeader {
     uint64_t seqNo;
     uint32_t funcNum;
     uint32_t funcSize;
-    __gm__ DynFuncBin *cceBinary;
+    __gm__ DynFuncBin* cceBinary;
 
-    INLINE uint64_t GetIndex() {
-        return seqNo;
-    }
+    INLINE uint64_t GetIndex() { return seqNo; }
 
-    INLINE DynFuncData &At(int index) {
-        return (reinterpret_cast<DynFuncData *>(this + 1))[index];
-    }
-    INLINE uint32_t Size() {
-        return funcNum;
-    }
+    INLINE DynFuncData& At(int index) { return (reinterpret_cast<DynFuncData*>(this + 1))[index]; }
+    INLINE uint32_t Size() { return funcNum; }
 };
 
 struct CoreFuncParam {
-    __gm__ npu::tile_fwk::DynFuncData *funcData;
-    __gm__ uint64_t *opAttrs;
-    __gm__ uint64_t *exprTbl;
+    __gm__ npu::tile_fwk::DynFuncData* funcData;
+    __gm__ uint64_t* opAttrs;
+    __gm__ uint64_t* exprTbl;
     uint32_t taskId;
-    LogContext *ctx;
+    LogContext* ctx;
 };
 
-#define TASKID_TASK_BITS                        20
-#define TASKID_TASK_MASK                        ((1 << TASKID_TASK_BITS) - 1)
+#define TASKID_TASK_BITS 20
+#define TASKID_TASK_MASK ((1 << TASKID_TASK_BITS) - 1)
 
-#define TASKID_FUNC_BITS                        11
-#define TASKID_FUNC_MASK                        ((1 << TASKID_FUNC_BITS) - 1)
+#define TASKID_FUNC_BITS 11
+#define TASKID_FUNC_MASK ((1 << TASKID_FUNC_BITS) - 1)
 
-#define TASKID_SHIFT32                          32
+#define TASKID_SHIFT32 32
 
-INLINE uint32_t FuncID(uint32_t taskId) {
-    return taskId >> TASKID_TASK_BITS;
-}
+INLINE uint32_t FuncID(uint32_t taskId) { return taskId >> TASKID_TASK_BITS; }
 
-INLINE uint32_t TaskID(uint32_t taskId) {
-    return taskId & TASKID_TASK_MASK;
-}
+INLINE uint32_t TaskID(uint32_t taskId) { return taskId & TASKID_TASK_MASK; }
 
-INLINE uint32_t MakeTaskID(uint32_t rootId, uint32_t leafId) {
-    return (rootId << TASKID_TASK_BITS) | leafId;
-}
+INLINE uint32_t MakeTaskID(uint32_t rootId, uint32_t leafId) { return (rootId << TASKID_TASK_BITS) | leafId; }
 
-}
+} // namespace npu::tile_fwk
 
 #endif

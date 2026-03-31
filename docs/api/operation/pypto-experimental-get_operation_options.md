@@ -34,4 +34,3 @@ get_operation_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]
 ```python
 pypto.get_operation_options()
 ```
-

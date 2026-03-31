@@ -26,41 +26,43 @@ using json = nlohmann::json;
 namespace npu::tile_fwk {
 
 using LogStrategy = std::function<void(Function&)>;
-void Strategy_PeakMemory(Function& func) {
+void Strategy_PeakMemory(Function& func)
+{
     func.SetFunctionType(FunctionType::DYNAMIC);
     json j;
     CalcOperatorInfo(func, j);
 }
 
-void Strategy_CreateDirFailed(Function& func) {
-    HealthCheckTileGraph(func, "/invalid/readonly/path", "");
-}
+void Strategy_CreateDirFailed(Function& func) { HealthCheckTileGraph(func, "/invalid/readonly/path", ""); }
 
-void Strategy_OpenFileFailed(Function& func) {
-    HealthCheckTileGraph(func, "./", "");
-}
+void Strategy_OpenFileFailed(Function& func) { HealthCheckTileGraph(func, "./", ""); }
 
-void Strategy_AllRemainingLogs(Function& func) {
+void Strategy_AllRemainingLogs(Function& func)
+{
     HealthCheckTileGraph(func, "./", "test");
     HealthCheckTensorGraph(func, "./", "test");
 }
 
-TEST(AllLogsCover, LOG01_PeakMemory) {
+TEST(AllLogsCover, LOG01_PeakMemory)
+{
     auto func = std::make_shared<Function>(Program::GetInstance(), "test", "test", nullptr);
     Strategy_PeakMemory(*func);
 }
 
-TEST(AllLogsCover, LOG02_CreateDirFailed) {
+TEST(AllLogsCover, LOG02_CreateDirFailed)
+{
     auto func = std::make_shared<Function>(Program::GetInstance(), "test", "test", nullptr);
     Strategy_CreateDirFailed(*func);
 }
 
-TEST(AllLogsCover, LOG03_OpenFileFailed) {
+TEST(AllLogsCover, LOG03_OpenFileFailed)
+{
     auto func = std::make_shared<Function>(Program::GetInstance(), "test", "test", nullptr);
     Strategy_OpenFileFailed(*func);
 }
 
-TEST(AllLogsCover, LOG04_TO_12_ALL) {
+TEST(AllLogsCover, LOG04_TO_12_ALL)
+{
     auto func = std::make_shared<Function>(Program::GetInstance(), "test", "test", nullptr);
     Strategy_AllRemainingLogs(*func);
 }

@@ -69,4 +69,3 @@ out = pypto.le(a, b)
 输入数据b: [2.0 2.0 2.0]
 输出数据out: [True, True, False]
 ```
-

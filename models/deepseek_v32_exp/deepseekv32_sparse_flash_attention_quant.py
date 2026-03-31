@@ -429,7 +429,7 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
     kv_act_seqs_npu = kv_act_seqs.npu()
     pto_inputs = [q_nope_npu, q_rope_npu, kn_npu, kr_npu, kn_scales_npu, topk_indices_npu, block_table_npu,
                   kv_act_seqs_npu]
-    
+
     calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
     calc_attention_out_npu = calc_attention_out.npu()
     pto_outputs = [calc_attention_out_npu]

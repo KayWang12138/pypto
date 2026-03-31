@@ -30,6 +30,6 @@ public:
     ~RemoveUndrivenView() override = default;
 
 private:
-    Status RunOnFunction(Function &function) override;
+    Status RunOnFunction(Function& function) override;
 };
 } // namespace npu::tile_fwk

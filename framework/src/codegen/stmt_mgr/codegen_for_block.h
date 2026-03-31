@@ -32,25 +32,25 @@ struct ForNode {
     SymbolicScalar step;
 
     std::string Print() const;
-    void PrintInit(std::ostringstream &os) const;
-    void PrintCond(std::ostringstream &os) const;
-    void PrintUpdate(std::ostringstream &os) const;
+    void PrintInit(std::ostringstream& os) const;
+    void PrintCond(std::ostringstream& os) const;
+    void PrintUpdate(std::ostringstream& os) const;
 };
 
 class ForBlockManager {
 public:
-    explicit ForBlockManager(const std::shared_ptr<SymbolManager> &symbolManager) : sm_(symbolManager) {
+    explicit ForBlockManager(const std::shared_ptr<SymbolManager>& symbolManager) : sm_(symbolManager)
+    {
         forNodes_.reserve(MAX_LOOP_DEPTH);
     };
     ~ForBlockManager() = default;
 
-    void UpdateAxesList(const std::vector<SymbolicScalar> &axesList);
+    void UpdateAxesList(const std::vector<SymbolicScalar>& axesList);
 
-    void LoopStart() {
-        isInLoop_ = true;
-    }
+    void LoopStart() { isInLoop_ = true; }
 
-    void OutLoop() {
+    void OutLoop()
+    {
         sm_->OutForLoop();
         axesList_.clear();
         forNodes_.clear();
@@ -62,14 +62,16 @@ public:
 
     bool IsInLoop() { return isInLoop_; }
 
-    void AddTensorInLoopBody(const std::string& tensorFullDim, const TileTensor &tileTensor) {
+    void AddTensorInLoopBody(const std::string& tensorFullDim, const TileTensor& tileTensor)
+    {
         CODEGEN_LOGI("AddTensorInLoopBody : %s", tileTensor.tensorName.c_str());
         std::string tensorNameInLoop = sm_->AddTileTensor(tileTensor);
         sm_->InsertTensorNameInLoopToFullDim(tensorNameInLoop, tensorFullDim);
         tensorNeedSetAddr_.insert(tensorNameInLoop);
     }
 
-    void AddOpInLoopBody(std::string &op) {
+    void AddOpInLoopBody(std::string& op)
+    {
         CODEGEN_LOGI("AddOpInLoopBody add op : %s", op.c_str());
         opList_.emplace_back(op);
     }
@@ -77,13 +79,13 @@ public:
     std::string Print() const;
 
 private:
-    void PrintForHeader(std::ostringstream &os) const;
-    void PrintForBody(std::ostringstream &os) const;
-    void PrintForEnd(std::ostringstream &os) const;
-    void PrintOffsetDef(std::ostringstream &os) const;
-    void PrintSetAddrs(std::ostringstream &os) const;
-    void PrintSetAddrSingle(std::ostringstream &os, const std::string &tensor) const;
-    void PrintTileOps(std::ostringstream &os) const;
+    void PrintForHeader(std::ostringstream& os) const;
+    void PrintForBody(std::ostringstream& os) const;
+    void PrintForEnd(std::ostringstream& os) const;
+    void PrintOffsetDef(std::ostringstream& os) const;
+    void PrintSetAddrs(std::ostringstream& os) const;
+    void PrintSetAddrSingle(std::ostringstream& os, const std::string& tensor) const;
+    void PrintTileOps(std::ostringstream& os) const;
 
     std::shared_ptr<SymbolManager> sm_;
     std::vector<SymbolicScalar> axesList_;

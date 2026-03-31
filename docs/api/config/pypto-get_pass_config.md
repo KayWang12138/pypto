@@ -40,4 +40,3 @@ key仅能传入限定的枚举值。
 ```python
 pypto.get_pass_config("PVC2_OOO", "ExpandFunction", pypto.PassConfigKey.KEY_DUMP_GRAPH, False)
 ```
-

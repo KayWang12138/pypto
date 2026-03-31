@@ -334,7 +334,7 @@ class TestCaseLoader:
             test_cases = self.__process_file_to_json(self._path, self._json_path, cur_index)
             all_test_cases.extend(test_cases)
         return all_test_cases
-    
+
     def __process_file_to_json(self, file_path: str, json_path: str, cur_index: int) -> List[dict]:
         data_frame = FileReader(file_path, self._op, self._index_range, self._json_path).run()
         if data_frame is None or len(data_frame) == 0:

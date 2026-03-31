@@ -28,11 +28,11 @@
 #include "interface/compiler_monitor/monitor_stage_scope.h"
 
 extern "C" {
-using RunPassFunc = int (*)(npu::tile_fwk::Program &, npu::tile_fwk::Function &, const std::string &);
-using GetResumePathFunc = std::string (*)(const std::string &);
-using ExecuteFunc = int (*)(npu::tile_fwk::MachineTask *, npu::tile_fwk::FunctionCache &);
+using RunPassFunc = int (*)(npu::tile_fwk::Program&, npu::tile_fwk::Function&, const std::string&);
+using GetResumePathFunc = std::string (*)(const std::string&);
+using ExecuteFunc = int (*)(npu::tile_fwk::MachineTask*, npu::tile_fwk::FunctionCache&);
 using PlatformFunc = std::string (*)();
-using MatchCacheFunc = bool (*)(const std::string &);
+using MatchCacheFunc = bool (*)(const std::string&);
 using InitFunc = int (*)();
 
 struct Backend {
@@ -43,12 +43,14 @@ struct Backend {
     PlatformFunc platform;
     MatchCacheFunc matchCache;
 
-    static Backend &GetBackend() {
+    static Backend& GetBackend()
+    {
         static Backend backend;
         return backend;
     }
 
-    ~Backend() {
+    ~Backend()
+    {
         if (compilerHandle != nullptr) {
             dlclose(compilerHandle);
         }
@@ -58,7 +60,8 @@ struct Backend {
     }
 
 private:
-    Backend() {
+    Backend()
+    {
         progHandle = dlopen(nullptr, RTLD_LAZY | RTLD_NOLOAD);
         compilerHandle = dlopen("libtile_fwk_compiler.so", RTLD_LAZY | RTLD_NOLOAD);
         simuHandle = dlopen("libtile_fwk_simulator.so", RTLD_LAZY | RTLD_NOLOAD);
@@ -75,8 +78,9 @@ private:
         }
     }
 
-    void *GetSymbol(void *handle, const char *sym) {
-        void *ptr = nullptr;
+    void* GetSymbol(void* handle, const char* sym)
+    {
+        void* ptr = nullptr;
         if (handle != nullptr) {
             ptr = dlsym(handle, sym);
         }
@@ -86,29 +90,26 @@ private:
         return ptr;
     }
 
-    void *progHandle;
-    void *compilerHandle;
-    void *simuHandle;
+    void* progHandle;
+    void* compilerHandle;
+    void* simuHandle;
 };
 }
 
 namespace npu::tile_fwk {
 namespace {
-enum class StashType {
-    Function = 0,
-    ProgramConfig,
-    InternalConfig,
-    ConfigJson
-};
+enum class StashType { Function = 0, ProgramConfig, InternalConfig, ConfigJson };
 }
 
-HostMachine& HostMachine::GetInstance() {
+HostMachine& HostMachine::GetInstance()
+{
     static HostMachine sHostMachine;
     return sHostMachine;
 }
 
 /* 支持模式转换 */
-bool HostMachine::Init(const HostMachineMode mode) {
+bool HostMachine::Init(const HostMachineMode mode)
+{
     if (initialized_.load() && mode == mode_) {
         MACHINE_LOGD("HostMachine is already initialized.");
         return true;
@@ -122,7 +123,8 @@ bool HostMachine::Init(const HostMachineMode mode) {
     return true;
 }
 
-void HostMachine::Destroy() {
+void HostMachine::Destroy()
+{
     if (mode_ == HostMachineMode::SERVER) {
         WaitTaskFinish();
         DestroyThread();
@@ -135,7 +137,8 @@ void HostMachine::Destroy() {
     MACHINE_LOGD("HostMachine is destroying...");
 }
 
-void HostMachine::InitThread() {
+void HostMachine::InitThread()
+{
     if (!compileThreads_.empty()) {
         return;
     }
@@ -148,21 +151,22 @@ void HostMachine::InitThread() {
     }
 }
 
-void HostMachine::DestroyThread() {
-    auto notifyThread = [](std::mutex &mutex, std::condition_variable &cv) {
+void HostMachine::DestroyThread()
+{
+    auto notifyThread = [](std::mutex& mutex, std::condition_variable& cv) {
         std::unique_lock<std::mutex> lock(mutex);
         cv.notify_all();
     };
     stopFlag_.store(true);
     notifyThread(compileQueueMutex_, compileQueueCv_);
-    for (auto &thread : compileThreads_) {
+    for (auto& thread : compileThreads_) {
         if (thread.joinable()) {
             thread.join();
         }
     }
 
     notifyThread(agentQueueMutex_, agentQueueCv_);
-    for (auto &thread : agentThreads_) {
+    for (auto& thread : agentThreads_) {
         if (thread.joinable()) {
             thread.join();
         }
@@ -172,13 +176,15 @@ void HostMachine::DestroyThread() {
     agentThreads_.clear();
 }
 
-void HostMachine::CompileFunction(Function* func) const {
-    auto &backend = Backend::GetBackend();
+void HostMachine::CompileFunction(Function* func) const
+{
+    auto& backend = Backend::GetBackend();
     if (!func->HasCallOperation() && backend.runPass) {
         MACHINE_LOGI("RunPass function %s", func->GetMagicName().c_str());
         ASSERT(backend.runPass(Program::GetInstance(), *func, config::GetPassStrategy())) << "Run pass failed.";
     }
-    if (func->IsFunctionType(FunctionType::DYNAMIC) || func->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
+    if (func->IsFunctionType(FunctionType::DYNAMIC) ||
+        func->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         auto path = config::GetAbsoluteTopFolder() + "/program.json";
         Program::GetInstance().DumpJsonFile(path);
         config::SetRunDataOption(KEY_PROGRAM_PATH, path);
@@ -188,7 +194,8 @@ void HostMachine::CompileFunction(Function* func) const {
     }
 }
 
-void HostMachine::SubTask(Function *function) {
+void HostMachine::SubTask(Function* function)
+{
     if (mode_ == HostMachineMode::API) {
         if (curTask != nullptr) {
             MACHINE_LOGW("CurTask is already running.");
@@ -206,27 +213,29 @@ void HostMachine::SubTask(Function *function) {
     std::lock_guard<std::mutex> lock(compileQueueMutex_);
     auto task = std::make_unique<MachineTask>(curTaskId_++, function);
     int function_done_idx = MonitorManager::Instance().GetAndIncrementNextFunctionIndex();
-    COMPILER_LOGI("Stashed function idx:%d begin compile, function name: %s .", function_done_idx,
+    COMPILER_LOGI(
+        "Stashed function idx:%d begin compile, function name: %s .", function_done_idx,
         function->GetMagicName().c_str());
     MonitorManager::Instance().SetCurrentFunctionName(function->GetMagicName());
-    
+
     task->SetFunctionIndex(function_done_idx);
     MonitorManager::Instance().SetCurrentFunctionIndex(task->GetFunctionIndex());
     compileQueue_.Push(std::move(task));
     compileQueueCv_.notify_one(); // 通知编译线程
 }
 
-void HostMachine::WaitTaskFinish() {
+void HostMachine::WaitTaskFinish()
+{
     while (curTaskId_ != finishQueue_.Size()) {
         usleep(1000); // sleep 1000 us
-    } // wait all task finish
+    }                 // wait all task finish
     MACHINE_LOGD("Finish all host machine task count: %lu.", curTaskId_.load());
 
     /* reset counter */
     curTaskId_ = 0;
     while (!finishQueue_.Empty()) {
         auto task = finishQueue_.Pop();
-        auto &error = task->Error();
+        auto& error = task->Error();
         if (!error.empty()) {
             finishQueue_.Clear();
             throw std::runtime_error(error);
@@ -234,22 +243,24 @@ void HostMachine::WaitTaskFinish() {
     }
 }
 
-void HostMachine::StashTask(Function* function) {
+void HostMachine::StashTask(Function* function)
+{
     if (function == nullptr) {
         return;
     }
 
     std::lock_guard<std::mutex> lock(stashQueueMutex_);
-    stashedFuncQueue_.Push(std::make_tuple(function,
-        config::Duplicate(),
-        ConfigManager::Instance().GetInternalConfig(),
+    stashedFuncQueue_.Push(std::make_tuple(
+        function, config::Duplicate(), ConfigManager::Instance().GetInternalConfig(),
         ConfigManager::Instance().GetJsonData()));
     MonitorManager::Instance().SetTotalFunctionCount(static_cast<int>(stashedFuncQueue_.Size()));
-    COMPILER_LOGI("Stashed function queue size:%lu, push function: %s .", stashedFuncQueue_.Size(),
+    COMPILER_LOGI(
+        "Stashed function queue size:%lu, push function: %s .", stashedFuncQueue_.Size(),
         function->GetMagicName().c_str());
 }
 
-void HostMachine::SubAllStashedTask() {
+void HostMachine::SubAllStashedTask()
+{
     std::lock_guard<std::mutex> lock(stashQueueMutex_);
     const size_t totalStashed = stashedFuncQueue_.Size();
     if (totalStashed > 0) {
@@ -266,11 +277,10 @@ void HostMachine::SubAllStashedTask() {
     }
 }
 
-void HostMachine::ClearStashFuncQueue() {
-    stashedFuncQueue_.Clear();
-}
+void HostMachine::ClearStashFuncQueue() { stashedFuncQueue_.Clear(); }
 
-std::string HostMachine::GetCacheKeyFromFunction(Function *function) {
+std::string HostMachine::GetCacheKeyFromFunction(Function* function)
+{
     std::string cacheKey;
     if (function == nullptr) {
         return cacheKey;
@@ -278,25 +288,26 @@ std::string HostMachine::GetCacheKeyFromFunction(Function *function) {
     if (function->BelongTo().GetLastFunction() != nullptr &&
         function->BelongTo().GetLastFunction()->GetFunctionType() == FunctionType::DYNAMIC) {
         cacheKey = function->BelongTo().GetLastFunction()->GetFunctionHash().Data();
-        OpInfoManager::GetInstance().GetOpFuncName() = function->BelongTo().GetLastFunction()->GetMagicName() +
-                                                        cacheKey;
+        OpInfoManager::GetInstance().GetOpFuncName() =
+            function->BelongTo().GetLastFunction()->GetMagicName() + cacheKey;
     } else {
         cacheKey = function->GetFunctionHash().Data();
     }
     return cacheKey;
 }
 
-MachineTask *HostMachine::Compile(MachineTask *task) const {
-    MachineTask *compileTask = task;
+MachineTask* HostMachine::Compile(MachineTask* task) const
+{
+    MachineTask* compileTask = task;
     if (compileTask == nullptr) {
-        if (curTask == nullptr) {   
+        if (curTask == nullptr) {
             MACHINE_LOGW("Compile task is null.");
             return nullptr;
         }
         compileTask = curTask;
     }
     std::string jsonPath;
-    auto &backend = Backend::GetBackend();
+    auto& backend = Backend::GetBackend();
     if (backend.getResumePath) {
         jsonPath = backend.getResumePath(config::GetPassStrategy());
     }
@@ -307,11 +318,11 @@ MachineTask *HostMachine::Compile(MachineTask *task) const {
         Json jsonData;
         try {
             file >> jsonData;
-        } catch (const std::exception &e) {
+        } catch (const std::exception& e) {
             ASSERT(false) << "Json file: " << jsonPath << " parsing error: " << e.what();
         }
         Program::GetInstance().LoadJson(jsonData);
-        Function *func = Program::GetInstance().GetCurrentFunction();
+        Function* func = Program::GetInstance().GetCurrentFunction();
 
         CompileFunction(func);
         compileTask->SetFunction(func);
@@ -328,13 +339,15 @@ MachineTask *HostMachine::Compile(MachineTask *task) const {
     return compileTask;
 }
 
-void HostMachine::PushAgentQueue(std::unique_ptr<MachineTask> task) {
+void HostMachine::PushAgentQueue(std::unique_ptr<MachineTask> task)
+{
     std::lock_guard<std::mutex> lock(agentQueueMutex_);
     agentQueue_.Push(std::move(task));
     agentQueueCv_.notify_one(); // 通知代理线程
 }
 
-void HostMachine::CompileThreadFunc() {
+void HostMachine::CompileThreadFunc()
+{
     while (!stopFlag_.load()) {
         std::unique_ptr<MachineTask> task;
         std::unique_lock<std::mutex> lock(compileQueueMutex_);
@@ -348,7 +361,7 @@ void HostMachine::CompileThreadFunc() {
         try {
             MonitorStageScope passScope("Pass");
             (void)Compile(task.get());
-        } catch (const Error &e) {
+        } catch (const Error& e) {
             task->SetError(e.what());
             PushFinishQueue(std::move(task));
             return;
@@ -358,12 +371,14 @@ void HostMachine::CompileThreadFunc() {
     }
 }
 
-void HostMachine::PushFinishQueue(std::unique_ptr<MachineTask> task) {
+void HostMachine::PushFinishQueue(std::unique_ptr<MachineTask> task)
+{
     COMPILER_LOGI("Stashed function idx:%d finish compile. \n", task->GetFunctionIndex());
     finishQueue_.Push(std::move(task));
 }
 
-void HostMachine::AgentThreadFunc() {
+void HostMachine::AgentThreadFunc()
+{
     while (!stopFlag_.load()) {
         std::unique_ptr<MachineTask> task;
         std::unique_lock<std::mutex> lock(agentQueueMutex_);
@@ -375,8 +390,8 @@ void HostMachine::AgentThreadFunc() {
         lock.unlock();
 
         try {
-            auto &cache = Program::GetInstance().GetFunctionCache();
-            auto &backend = Backend::GetBackend();
+            auto& cache = Program::GetInstance().GetFunctionCache();
+            auto& backend = Backend::GetBackend();
             if (backend.simuExecute && config::GetPlatformConfig(KEY_ENABLE_COST_MODEL, true)) {
                 MACHINE_LOGI("Simulate function %s", task->GetFunction()->GetMagicName().c_str());
                 backend.simuExecute(task.get(), cache);
@@ -385,7 +400,7 @@ void HostMachine::AgentThreadFunc() {
                 MACHINE_LOGI("Compile function %s", task->GetFunction()->GetMagicName().c_str());
                 backend.execute(task.get(), cache);
             }
-        } catch (const std::exception &e) {
+        } catch (const std::exception& e) {
             task->SetError(std::move(e.what()));
         }
         PushFinishQueue(std::move(task));

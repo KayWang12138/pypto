@@ -458,7 +458,7 @@ class JitCallableWrapper:
         """
         if not pypto.get_verify_options().get("enable_pass_verify"):
             return
-        
+
         # Compile and load calculator
         mgr = BuildOnlineManager()
         mgr.build_and_load_calculator()
@@ -770,7 +770,7 @@ class JitCallableWrapper:
                 return False
             qualname = func.__qualname__
             return '<locals>' not in qualname and '.' not in qualname
-        
+
         if is_defined_globally(self._original_func):
             name = self._original_func.__name__
             _loop_idx_generator = next(self._global_func_idx_generator)

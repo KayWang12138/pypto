@@ -16,4 +16,3 @@ maximum(self, other: 'Tensor') -> 'Tensor'
 ## 详细说明
 
 请参见[pypto.maximum](../operation/pypto-maximum.md)。
-

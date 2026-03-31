@@ -26,7 +26,7 @@ namespace npu::tile_fwk {
 
 class LogicalTensor;
 class SymbolicScalar;
-using BinDataPtr = uint8_t *;
+using BinDataPtr = uint8_t*;
 using Shape = std::vector<int64_t>;
 using Offset = std::vector<int64_t>;
 using Stride = std::vector<int64_t>;
@@ -59,7 +59,7 @@ public:
      * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
      * \attention : The parameters dataType and shape are required parameters.
      */
-    Tensor(DataType dataType, const Shape &shape, std::string name = "", TileOpFormat format = TileOpFormat::TILEOP_ND);
+    Tensor(DataType dataType, const Shape& shape, std::string name = "", TileOpFormat format = TileOpFormat::TILEOP_ND);
 
     /**
      * \brief Construct a new Tensor object with 6 input parameters
@@ -71,9 +71,11 @@ public:
      * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
      * \attention : The parameters dataType,shape,dataPtr and name are required parameters.
      */
-    Tensor(DataType dataType, const Shape &shape, uint8_t *dataPtr, std::string name,
+    Tensor(
+        DataType dataType, const Shape& shape, uint8_t* dataPtr, std::string name,
         TileOpFormat format = TileOpFormat::TILEOP_ND)
-        : Tensor(dataType, shape, name, format) {
+        : Tensor(dataType, shape, name, format)
+    {
         SetData(dataPtr);
     }
 
@@ -85,7 +87,8 @@ public:
      * \param name : Name of the tensor.
      * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
      */
-    Tensor(DataType dataType, std::vector<SymbolicScalar> shape, std::string name = "",
+    Tensor(
+        DataType dataType, std::vector<SymbolicScalar> shape, std::string name = "",
         TileOpFormat format = TileOpFormat::TILEOP_ND);
 
     /**
@@ -101,9 +104,11 @@ public:
      * Tensor t2(DT_FP32, {GetInputShapeDim(t1, 0), 32}) // shape same as t1
      * \endcode
      */
-    Tensor(DataType t, std::initializer_list<SymbolicScalar> shape, std::string name = "",
+    Tensor(
+        DataType t, std::initializer_list<SymbolicScalar> shape, std::string name = "",
         TileOpFormat format = TileOpFormat::TILEOP_ND)
-        : Tensor(t, std::vector<SymbolicScalar>(shape), name, format) {}
+        : Tensor(t, std::vector<SymbolicScalar>(shape), name, format)
+    {}
 
     /**
      * \brief Overload the assignment operator to assign the value of another Tensor object to the current Tensor
@@ -112,7 +117,7 @@ public:
      * \param rhs : A constant reference to another Tensor object.
      * \return Tensor& : A reference to the current Tensor object.
      */
-    Tensor &operator=(const Tensor &rhs);
+    Tensor& operator=(const Tensor& rhs);
 
     /**
      * \brief Move assignment operator.
@@ -121,21 +126,21 @@ public:
      * \return Tensor& : A reference to the current Tensor object.
      * \attention : The noexcept declaration indicates that the function will not throw exceptions.
      */
-    Tensor &operator=(Tensor &&rhs) noexcept;
+    Tensor& operator=(Tensor&& rhs) noexcept;
 
     /**
      * \brief Construct a new Tensor object by copying another Tensor object.
      *
      * \param rhs : A constant reference to another Tensor object.
      */
-    Tensor(const Tensor &rhs);
+    Tensor(const Tensor& rhs);
 
     /**
      * \brief Construct a new Tensor object by moving another Tensor object.
      *
      * \param rhs : Rvalue reference to another Tensor object.
      */
-    Tensor(Tensor &&rhs);
+    Tensor(Tensor&& rhs);
 
     /**
      * \brief Overload the * operator to access the LogicalTensor object.
@@ -143,14 +148,14 @@ public:
      * \return const LogicalTensor& : A reference to the LogicalTensor object.
      * \attention : The const keyword indicates that the function does not modify the object.
      */
-    const LogicalTensor &operator*() const;
+    const LogicalTensor& operator*() const;
 
     /**
      * \brief Overload the * operator to access the LogicalTensor object.
      *
      * \return LogicalTensor& : A reference to the LogicalTensor object.
      */
-    LogicalTensor &operator*();
+    LogicalTensor& operator*();
 
     /**
      * \brief Get the const Storage object.
@@ -159,7 +164,7 @@ public:
      * \return const std::shared_ptr<LogicalTensor>& : A constant reference to the storage_ object.
      * \attention : The const keyword indicates that the function does not modify the object.
      */
-    const std::shared_ptr<LogicalTensor> &GetStorage(bool readSlot = true) const;
+    const std::shared_ptr<LogicalTensor>& GetStorage(bool readSlot = true) const;
 
     /**
      * \brief Get the Storage object.
@@ -167,7 +172,7 @@ public:
      * \param readSlot : This parameter indicates whether slot reading is required. The default value is true.
      * \return std::shared_ptr<LogicalTensor>& : A reference to the storage_ object.
      */
-    std::shared_ptr<LogicalTensor> &GetStorage(bool readSlot = true);
+    std::shared_ptr<LogicalTensor>& GetStorage(bool readSlot = true);
 
     /**
      * \brief Set tensor cache policy.
@@ -179,14 +184,14 @@ public:
      *              NO_CACHEABLE will only effect function input and output.
      *              Two policy can not apply in one tensor.
      */
-     void SetCachePolicy(CachePolicy policy, bool value);
+    void SetCachePolicy(CachePolicy policy, bool value);
 
     /**
-    * \brief Get tensor cache policy.
-    *
-    * \param policy : CachePolicy enum.
-    * \return bool : policy value.
-    */
+     * \brief Get tensor cache policy.
+     *
+     * \param policy : CachePolicy enum.
+     * \return bool : policy value.
+     */
     bool GetCachePolicy(CachePolicy policy) const;
 
     /**
@@ -201,7 +206,7 @@ public:
      *
      * \return const Shape & : A constant reference to the shape of the tensor.
      */
-    const Shape &GetShape() const;
+    const Shape& GetShape() const;
 
     /**
      * \brief Get the shape information of the specified axis of Tensor.
@@ -211,13 +216,12 @@ public:
      */
     int32_t GetShape(int axis) const;
 
-
     /**
      * \brief Get the valid shape of the tensor.
      *
      * \return std::vector<SymbolicScalar> : The valid shape of the tensor.
      */
-    std::vector<SymbolicScalar> &GetValidShape() const;
+    std::vector<SymbolicScalar>& GetValidShape() const;
 
     /**
      * \brief Get the format of the tensor.
@@ -252,7 +256,7 @@ public:
      *
      * \param name : The name of the tensor.
      */
-    void SetName(const std::string &name) const;
+    void SetName(const std::string& name) const;
 
     /**
      * \brief Get the name of Tensor.
@@ -266,7 +270,7 @@ public:
      */
     uint64_t Dim() const;
 
-     /**
+    /**
      * \brief Check if the tensor is empty.
      *
      * \return true : If the tensor is empty.
@@ -287,9 +291,9 @@ private:
  * @param n dimension index
  * @return SymbolicScalar : size of a special dimension of tensor
  */
-SymbolicScalar GetInputShape(const Tensor &t, int n);
+SymbolicScalar GetInputShape(const Tensor& t, int n);
 
-const std::vector<SymbolicScalar> &GetInputShape(const Tensor &tensor);
+const std::vector<SymbolicScalar>& GetInputShape(const Tensor& tensor);
 
 /**
  * @brief Get the Input Data of a  tensor
@@ -298,7 +302,7 @@ const std::vector<SymbolicScalar> &GetInputShape(const Tensor &tensor);
  * @param offset positional shift applied to the each axis of the tensor
  * @return SymbolicScalar
  */
-SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> &offset);
+SymbolicScalar GetTensorData(const Tensor& t, const std::vector<SymbolicScalar>& offset);
 
 /**
  * @brief Determines if the current iteration is the start of loop
@@ -307,7 +311,7 @@ SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> 
  * @param begin begin loop index
  * @return SymbolicScalar : expression to determine if currently at loop start
  */
-SymbolicScalar IsLoopBegin(const SymbolicScalar &symbol, const SymbolicScalar &begin);
+SymbolicScalar IsLoopBegin(const SymbolicScalar& symbol, const SymbolicScalar& begin);
 
 /**
  * @brief Determines if the current iteration is the end of loop
@@ -316,7 +320,7 @@ SymbolicScalar IsLoopBegin(const SymbolicScalar &symbol, const SymbolicScalar &b
  * @param end end loop index
  * @return SymbolicScalar : expression to determine if currently at loop start
  */
-SymbolicScalar IsLoopEnd(const SymbolicScalar &symbol, const SymbolicScalar &end);
+SymbolicScalar IsLoopEnd(const SymbolicScalar& symbol, const SymbolicScalar& end);
 
-void SetTensorData(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &dst);
+void SetTensorData(const SymbolicScalar& v, const std::vector<SymbolicScalar>& off, Tensor& dst);
 } // namespace npu::tile_fwk

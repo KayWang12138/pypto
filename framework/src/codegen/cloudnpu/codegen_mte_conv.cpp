@@ -22,7 +22,8 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
-std::string CodeGenOpCloudNPU::GetConvCopyInMode() const {
+std::string CodeGenOpCloudNPU::GetConvCopyInMode() const
+{
     int64_t copyInMode = -1;
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyInMode, copyInMode);
     ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret) << "GenMemL1CopyInConv get CopyInMode failed.";
@@ -33,7 +34,8 @@ std::string CodeGenOpCloudNPU::GetConvCopyInMode() const {
     return CopyInModeToString(static_cast<Matrix::CopyInMode>(copyInMode));
 }
 
-std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
+std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const
+{
     std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::SRC0_IDX));
     std::string srcTensor = sm->QueryTileTensorNameByBufVar(gmVarName);
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
@@ -76,9 +78,19 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
         srcShapeW = srcShape[ID3];
     }
 
-    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, std::to_string(offsetN), std::to_string(offsetC),
-        std::to_string(offsetD), std::to_string(offsetH), std::to_string(offsetW), std::to_string(srcShapeN),
-        std::to_string(srcShapeC), std::to_string(srcShapeD), std::to_string(srcShapeH), std::to_string(srcShapeW)};
+    std::vector<std::string> tileOpParamList = {
+        dstTensor,
+        srcTensor,
+        std::to_string(offsetN),
+        std::to_string(offsetC),
+        std::to_string(offsetD),
+        std::to_string(offsetH),
+        std::to_string(offsetW),
+        std::to_string(srcShapeN),
+        std::to_string(srcShapeC),
+        std::to_string(srcShapeD),
+        std::to_string(srcShapeH),
+        std::to_string(srcShapeW)};
 
     std::ostringstream oss;
     oss << tileOpName << WrapParamByAngleBrackets({copyInModeStr, std::to_string(isConv3D), std::to_string(isFmap)});
@@ -86,7 +98,8 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GetConvCopyOutMode() const {
+std::string CodeGenOpCloudNPU::GetConvCopyOutMode() const
+{
     int64_t copyOutMode = -1;
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyOutMode, copyOutMode);
     ASSERT(ConvCodenGenError::CODEGEN_GET_ATTR_FAILED, ret) << "GenMemL1CopyOutConv get CopyOutMode failed.";
@@ -98,7 +111,8 @@ std::string CodeGenOpCloudNPU::GetConvCopyOutMode() const {
     return CopyOutModeToString(static_cast<Matrix::CopyOutMode>(copyOutMode));
 }
 
-std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
+std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const
+{
     std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::DST_IDX));
     std::string dstTensor = sm->QueryTileTensorNameByBufVar(gmVarName);
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
@@ -130,8 +144,15 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
         offsetH = dynOffset[ID2].Concrete();
         offsetW = dynOffset[ID3].Concrete();
     }
-    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, std::to_string(offsetN), std::to_string(offsetC),
-        std::to_string(offsetD), std::to_string(offsetH), std::to_string(offsetW), std::to_string(realM),
+    std::vector<std::string> tileOpParamList = {
+        dstTensor,
+        srcTensor,
+        std::to_string(offsetN),
+        std::to_string(offsetC),
+        std::to_string(offsetD),
+        std::to_string(offsetH),
+        std::to_string(offsetW),
+        std::to_string(realM),
         std::to_string(realN)};
 
     std::ostringstream oss;
@@ -140,7 +161,8 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
+std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const
+{
     std::vector<std::variant<std::string, uint8_t, uint16_t, int, int64_t>> paramList;
 
     std::string dstVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
@@ -201,7 +223,8 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
+std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const
+{
     std::vector<std::variant<std::string, uint16_t, int, int64_t>> paramList;
 
     std::string dstVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));

@@ -29,7 +29,8 @@ typedef void* VOID_PTR;
 extern "C" {
 __attribute__((weak)) int32_t AdprofReportAdditionalInfo(uint32_t agingFlag, const VOID_PTR data, uint32_t length);
 #ifndef MSVP_PROF_API
-__attribute__((weak)) int32_t MsprofReportAdditionalInfo(uint32_t nonPersistantFlag, const VOID_PTR data, uint32_t length);
+__attribute__((weak)) int32_t MsprofReportAdditionalInfo(
+    uint32_t nonPersistantFlag, const VOID_PTR data, uint32_t length);
 #endif
 __attribute__((weak)) int32_t AdprofCheckFeatureIsOn(uint64_t feature);
 };
@@ -108,7 +109,6 @@ typedef enum AiCoreRegister {
     PMU_STOP_CNT_CYC_1 = 0x2AC,
 } AiCoreRegister;
 
-
 struct ArchPmuConfig {
     std::vector<uint32_t> pmuCntIdxOffsets;
     std::vector<uint32_t> pmuCntOffsets;
@@ -125,29 +125,35 @@ struct ArchPmuConfig {
 };
 
 inline const std::map<ArchInfo, ArchPmuConfig> kArchPmuConfigs = {
-    {ArchInfo::DAV_2201, {
-        {PMU_CNT0_IDX, PMU_CNT1_IDX, PMU_CNT2_IDX, PMU_CNT3_IDX, PMU_CNT4_IDX, PMU_CNT5_IDX, PMU_CNT6_IDX, PMU_CNT7_IDX},
-        {PMU_CNT0, PMU_CNT1, PMU_CNT2, PMU_CNT3, PMU_CNT4, PMU_CNT5, PMU_CNT6, PMU_CNT7},
-        PMU_CNT_TOTAL0, PMU_CNT_TOTAL1,
-        PMU_CTRL_0, 0,
-        PMU_START_CNT_CYC_0, PMU_START_CNT_CYC_1,
-        PMU_STOP_CNT_CYC_0, PMU_STOP_CNT_CYC_1,
-        GLB_PMU_EN + (USER_PMU_MODE_EN << 1) + (SAMPLE_PMU_MODE_EN << NUM_TWO_PMU), 0
-    }},
-    {ArchInfo::DAV_3510, {
-        {DAV_3510::PMU_CNT0_IDX, DAV_3510::PMU_CNT1_IDX, DAV_3510::PMU_CNT2_IDX, DAV_3510::PMU_CNT3_IDX,
-         DAV_3510::PMU_CNT4_IDX, DAV_3510::PMU_CNT5_IDX, DAV_3510::PMU_CNT6_IDX, DAV_3510::PMU_CNT7_IDX,
-         DAV_3510::PMU_CNT8_IDX, DAV_3510::PMU_CNT9_IDX},
-        {DAV_3510::PMU_CNT0, DAV_3510::PMU_CNT1, DAV_3510::PMU_CNT2, DAV_3510::PMU_CNT3,
-         DAV_3510::PMU_CNT4, DAV_3510::PMU_CNT5, DAV_3510::PMU_CNT6, DAV_3510::PMU_CNT7,
-         DAV_3510::PMU_CNT8, DAV_3510::PMU_CNT9},
-        DAV_3510::PMU_CNT_TOTAL0, DAV_3510::PMU_CNT_TOTAL1,
-        DAV_3510::PMU_CTRL_0, DAV_3510::PMU_CTRL_1,
-        DAV_3510::PMU_START_CNT_CYC_0, DAV_3510::PMU_START_CNT_CYC_1,
-        DAV_3510::PMU_STOP_CNT_CYC_0, DAV_3510::PMU_STOP_CNT_CYC_1,
-        USER_PMU_MODE_EN + (SAMPLE_PMU_MODE_EN << 1), GLB_PMU_EN
-    }}
-};
+    {ArchInfo::DAV_2201,
+     {{PMU_CNT0_IDX, PMU_CNT1_IDX, PMU_CNT2_IDX, PMU_CNT3_IDX, PMU_CNT4_IDX, PMU_CNT5_IDX, PMU_CNT6_IDX, PMU_CNT7_IDX},
+      {PMU_CNT0, PMU_CNT1, PMU_CNT2, PMU_CNT3, PMU_CNT4, PMU_CNT5, PMU_CNT6, PMU_CNT7},
+      PMU_CNT_TOTAL0,
+      PMU_CNT_TOTAL1,
+      PMU_CTRL_0,
+      0,
+      PMU_START_CNT_CYC_0,
+      PMU_START_CNT_CYC_1,
+      PMU_STOP_CNT_CYC_0,
+      PMU_STOP_CNT_CYC_1,
+      GLB_PMU_EN + (USER_PMU_MODE_EN << 1) + (SAMPLE_PMU_MODE_EN << NUM_TWO_PMU),
+      0}},
+    {ArchInfo::DAV_3510,
+     {{DAV_3510::PMU_CNT0_IDX, DAV_3510::PMU_CNT1_IDX, DAV_3510::PMU_CNT2_IDX, DAV_3510::PMU_CNT3_IDX,
+       DAV_3510::PMU_CNT4_IDX, DAV_3510::PMU_CNT5_IDX, DAV_3510::PMU_CNT6_IDX, DAV_3510::PMU_CNT7_IDX,
+       DAV_3510::PMU_CNT8_IDX, DAV_3510::PMU_CNT9_IDX},
+      {DAV_3510::PMU_CNT0, DAV_3510::PMU_CNT1, DAV_3510::PMU_CNT2, DAV_3510::PMU_CNT3, DAV_3510::PMU_CNT4,
+       DAV_3510::PMU_CNT5, DAV_3510::PMU_CNT6, DAV_3510::PMU_CNT7, DAV_3510::PMU_CNT8, DAV_3510::PMU_CNT9},
+      DAV_3510::PMU_CNT_TOTAL0,
+      DAV_3510::PMU_CNT_TOTAL1,
+      DAV_3510::PMU_CTRL_0,
+      DAV_3510::PMU_CTRL_1,
+      DAV_3510::PMU_START_CNT_CYC_0,
+      DAV_3510::PMU_START_CNT_CYC_1,
+      DAV_3510::PMU_STOP_CNT_CYC_0,
+      DAV_3510::PMU_STOP_CNT_CYC_1,
+      USER_PMU_MODE_EN + (SAMPLE_PMU_MODE_EN << 1),
+      GLB_PMU_EN}}};
 
 typedef enum AiCorePmuEvent {
     VEC_BUSY_CYCLE = 0x8,
@@ -182,25 +188,13 @@ typedef enum AiCorePmuEvent {
 } AiCorePmuEvent;
 
 const uint16_t AIV_EVENT_LIST[MAX_PMU_CNT] = {
-    MTE3_BUSY_CYCLE,
-    L2_WR_HIT_CNT,
-    L2_WR_MISS_ALLOC_CNT,
-    MTE2_BUSY_CYCLE,
-    L2_R0_HIT_CNT,
-    L2_R0_MISS_ALLOC_CNT,
-    L2_R1_HIT_CNT,
-    L2_R0_MISS_ALLOC_CNT,
+    MTE3_BUSY_CYCLE, L2_WR_HIT_CNT,        L2_WR_MISS_ALLOC_CNT, MTE2_BUSY_CYCLE,
+    L2_R0_HIT_CNT,   L2_R0_MISS_ALLOC_CNT, L2_R1_HIT_CNT,        L2_R0_MISS_ALLOC_CNT,
 };
 
 const uint16_t AIC_EVENT_LIST[MAX_PMU_CNT] = {
-    FIXP_BUSY_CYCLE,
-    L2_WR_HIT_CNT,
-    L2_WR_MISS_ALLOC_CNT,
-    MTE2_BUSY_CYCLE,
-    L2_R0_HIT_CNT,
-    L2_R0_MISS_ALLOC_CNT,
-    L2_R1_HIT_CNT,
-    L2_R0_MISS_ALLOC_CNT,
+    FIXP_BUSY_CYCLE, L2_WR_HIT_CNT,        L2_WR_MISS_ALLOC_CNT, MTE2_BUSY_CYCLE,
+    L2_R0_HIT_CNT,   L2_R0_MISS_ALLOC_CNT, L2_R1_HIT_CNT,        L2_R0_MISS_ALLOC_CNT,
 };
 
 struct MsprofAicpuPyPtoPmuData {
@@ -230,7 +224,7 @@ struct MsprofAicpuPyPtoLogData {
 
 struct MsprofAicpuPyPtoHead {
     uint16_t magicNumber = 0x6BD3U;
-    uint16_t coreId   : 7;
+    uint16_t coreId : 7;
     uint16_t coreType : 3;
     uint16_t dataType : 6;
     uint32_t taskId;
@@ -264,82 +258,84 @@ AiCoreProfLevel CreateProfLevel(ProfConfig profConfig);
 
 class AiCoreProf {
 public:
-    explicit AiCoreProf(AiCoreManager &aicoreMng) : hostAicoreMng_(aicoreMng) {}
+    explicit AiCoreProf(AiCoreManager& aicoreMng) : hostAicoreMng_(aicoreMng) {}
     ~AiCoreProf() {}
 
-    void ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs,
-        ProfConfig profConfig, ArchInfo archInfo = ArchInfo::DAV_2201);
+    void ProfInit(
+        [[maybe_unused]] int64_t* regAddrs, [[maybe_unused]] int64_t* pmuEventAddrs, ProfConfig profConfig,
+        ArchInfo archInfo = ArchInfo::DAV_2201);
     void ProfStart();
-    void ProfGet(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
-    void ProfGetSwitch(int64_t &flag) const;
+    void ProfGet(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat* taskStat);
+    void ProfGetSwitch(int64_t& flag) const;
     void ProfStop();
     void ProfStopHandShake();
-    void ProGetHandShake(int &threadIdx, const struct AiCpuHandShakeSta *handShakeStat);
-    void AsmCntvc(uint64_t &cntvct) const;
-    void SetAiCpuTaskStat(const uint32_t &taskId, struct AiCpuTaskStat &aiCpuTaskStat);
-    struct AiCpuTaskStat GetAiCpuTaskStat(const uint32_t &taskId);
-    void ProfGetAiCpuTaskStat(int &threadIdx, struct AiCpuTaskStat *aiCpuStat);
+    void ProGetHandShake(int& threadIdx, const struct AiCpuHandShakeSta* handShakeStat);
+    void AsmCntvc(uint64_t& cntvct) const;
+    void SetAiCpuTaskStat(const uint32_t& taskId, struct AiCpuTaskStat& aiCpuTaskStat);
+    struct AiCpuTaskStat GetAiCpuTaskStat(const uint32_t& taskId);
+    void ProfGetAiCpuTaskStat(int& threadIdx, struct AiCpuTaskStat* aiCpuStat);
     void ProfStopAiCpuTaskStat();
     void ProInitAiCpuTaskStat();
     void ProInitHandShake();
     bool ProfIsEnable() { return profLevel_ != PROF_LEVEL_OFF; }
 
-    void ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs);
+    void ProfInitPmu(int64_t* regAddrs, int64_t* pmuEventAddrs);
     void ProfStartPmu();
     void ProfStopPmu();
-    void ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
-    
+    void ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat* taskStat);
+
 private:
     struct PmuCtrlAddrs {
-        uint32_t *ctrl0Addr{nullptr};
-        uint32_t *ctrl1Addr{nullptr};
-        uint32_t *startCntCyc0Addr{nullptr};
-        uint32_t *startCntCyc1Addr{nullptr};
-        uint32_t *stopCntCyc0Addr{nullptr};
-        uint32_t *stopCntCyc1Addr{nullptr};
+        uint32_t* ctrl0Addr{nullptr};
+        uint32_t* ctrl1Addr{nullptr};
+        uint32_t* startCntCyc0Addr{nullptr};
+        uint32_t* startCntCyc1Addr{nullptr};
+        uint32_t* stopCntCyc0Addr{nullptr};
+        uint32_t* stopCntCyc1Addr{nullptr};
     };
     inline void ProfInitLog();
     inline void ProfStopLog();
-    inline void ProfGetLog(int32_t coreIdx, const struct TaskStat *taskStat);
+    inline void ProfGetLog(int32_t coreIdx, const struct TaskStat* taskStat);
     void ReadPmuCounters(const int32_t coreIdx) const;
-    void SetPmuEvents(void *mapBase, const int32_t coreIdx) const;
-    PmuCtrlAddrs InitPmuRegAddrsForCore(void *addr, void *mapBase, int coreIdx);
-    void ProgramPmuStartForCore(void *mapBase, int coreIdx, const PmuCtrlAddrs &addrs);
-    void FillPmuData(MsprofAicpuPyPtoPmuData &data, int32_t &coreIdx, uint32_t &subGraphId, uint32_t &taskId,
-        const struct TaskStat *taskStat) const;
+    void SetPmuEvents(void* mapBase, const int32_t coreIdx) const;
+    PmuCtrlAddrs InitPmuRegAddrsForCore(void* addr, void* mapBase, int coreIdx);
+    void ProgramPmuStartForCore(void* mapBase, int coreIdx, const PmuCtrlAddrs& addrs);
+    void FillPmuData(
+        MsprofAicpuPyPtoPmuData& data, int32_t& coreIdx, uint32_t& subGraphId, uint32_t& taskId,
+        const struct TaskStat* taskStat) const;
     uint64_t ProfGetCurCpuTimestamp();
 
 private:
     int32_t coreNum_ = 0;
     AiCoreProfLevel profLevel_ = PROF_LEVEL_OFF;
     uint64_t taskCnt_ = 0;
-    int64_t *regAddrs_{nullptr};
-    int64_t *pmuEventAddrs_{nullptr};
+    int64_t* regAddrs_{nullptr};
+    int64_t* pmuEventAddrs_{nullptr};
     ProfReportAdditionalInfoFunc profReportAdditionalInfoFunc_{nullptr};
     ArchInfo archInfo_{ArchInfo::DAV_2201};
 
     // PMU_CNT0 ~ PMU_CNT7 共计8个cnt寄存器,32位寄存器,用来获取对应读数,单位为cycle
-    std::vector<volatile uint32_t *> pmuCnt0Plain_;
-    std::vector<volatile uint32_t *> pmuCnt1Plain_;
-    std::vector<volatile uint32_t *> pmuCnt2Plain_;
-    std::vector<volatile uint32_t *> pmuCnt3Plain_;
-    std::vector<volatile uint32_t *> pmuCnt4Plain_;
-    std::vector<volatile uint32_t *> pmuCnt5Plain_;
-    std::vector<volatile uint32_t *> pmuCnt6Plain_;
-    std::vector<volatile uint32_t *> pmuCnt7Plain_;
-    std::vector<volatile uint32_t *> pmuCntTotal0Plain_;
-    std::vector<volatile uint32_t *> pmuCntTotal1Plain_;
+    std::vector<volatile uint32_t*> pmuCnt0Plain_;
+    std::vector<volatile uint32_t*> pmuCnt1Plain_;
+    std::vector<volatile uint32_t*> pmuCnt2Plain_;
+    std::vector<volatile uint32_t*> pmuCnt3Plain_;
+    std::vector<volatile uint32_t*> pmuCnt4Plain_;
+    std::vector<volatile uint32_t*> pmuCnt5Plain_;
+    std::vector<volatile uint32_t*> pmuCnt6Plain_;
+    std::vector<volatile uint32_t*> pmuCnt7Plain_;
+    std::vector<volatile uint32_t*> pmuCntTotal0Plain_;
+    std::vector<volatile uint32_t*> pmuCntTotal1Plain_;
 
-    std::vector<volatile uint32_t *> pmuCnt8Plain_;
-    std::vector<volatile uint32_t *> pmuCnt9Plain_;
+    std::vector<volatile uint32_t*> pmuCnt8Plain_;
+    std::vector<volatile uint32_t*> pmuCnt9Plain_;
     // pmu data
     uint32_t pmuDataMaxNum_ = 3;
     uint32_t pmuMsgSize_ = 0;
     uint32_t pmuDataSize_ = 0;
     uint32_t pmuHeadSize_ = 0;
     std::vector<PyPtoMsprofAdditionalInfo> pmuMsg_;
-    std::vector<MsprofAicpuPyPtoPmuHead *> pmuHead_;
-    std::vector<MsprofAicpuPyPtoPmuData *> pmuData_;
+    std::vector<MsprofAicpuPyPtoPmuHead*> pmuHead_;
+    std::vector<MsprofAicpuPyPtoPmuData*> pmuData_;
 
     // log data
     uint32_t logDataMaxNum_ = 8;
@@ -347,8 +343,8 @@ private:
     uint32_t logDataSize_ = 0;
     uint32_t logHeadSize_ = 0;
     std::vector<PyPtoMsprofAdditionalInfo> logMsg_;
-    std::vector<MsprofAicpuPyPtoLogHead *> logHead_;
-    std::vector<MsprofAicpuPyPtoLogData *> logData_;
+    std::vector<MsprofAicpuPyPtoLogHead*> logHead_;
+    std::vector<MsprofAicpuPyPtoLogData*> logData_;
 
     // handshake data
     const uint32_t handkShakeMaxNum_ = 8;
@@ -356,20 +352,20 @@ private:
     uint32_t handShakeDataSize_{0};
     uint32_t handkShakeHeadSize_{0};
     std::vector<PyPtoMsprofAdditionalInfo> HandShakeMsg_;
-    std::vector<MsprofAicpuHandShakeHead *> HandShakeHead_;
-    std::vector<AiCpuHandShakeSta *> handShakeData_;
+    std::vector<MsprofAicpuHandShakeHead*> HandShakeHead_;
+    std::vector<AiCpuHandShakeSta*> handShakeData_;
     // AiCputStat data
     const uint32_t aiCpuStatMaxNum_ = 6;
     uint32_t aiCpuStatMsgSize_{0};
     uint32_t aiCpuStatDataSize_{0};
     uint32_t aiCpuStatHeadSize_{0};
     std::vector<PyPtoMsprofAdditionalInfo> aiCpuStatMsg_;
-    std::vector<MsprofAicpuHandShakeHead *> aiCpuStatHead_;
-    std::vector<AiCpuTaskStat *> aiCpuStatData_;
+    std::vector<MsprofAicpuHandShakeHead*> aiCpuStatHead_;
+    std::vector<AiCpuTaskStat*> aiCpuStatData_;
 
     std::map<uint32_t, AiCpuTaskStat> aiCpuStatMap_;
 
-    AiCoreManager &hostAicoreMng_;
+    AiCoreManager& hostAicoreMng_;
 };
-}
+} // namespace npu::tile_fwk::dynamic
 #endif

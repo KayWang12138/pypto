@@ -35,7 +35,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -49,10 +50,11 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynCalcInteger, TestDynOpCeil) {
+TEST_F(TestCodegenDynCalcInteger, TestDynOpCeil)
+{
     MockFuncDynUnaryConf config;
     auto function =
-        GenMockFuncDynUnary("TestDynOpCeil", config, [](Tensor &input, Tensor &output) { output = Ceil(input); });
+        GenMockFuncDynUnary("TestDynOpCeil", config, [](Tensor& input, Tensor& output) { output = Ceil(input); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -64,10 +66,11 @@ TEST_F(TestCodegenDynCalcInteger, TestDynOpCeil) {
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestCodegenDynCalcInteger, TestDynOpFloor) {
+TEST_F(TestCodegenDynCalcInteger, TestDynOpFloor)
+{
     MockFuncDynUnaryConf config;
     auto function =
-        GenMockFuncDynUnary("TestDynOpFloor", config, [](Tensor &input, Tensor &output) { output = Floor(input); });
+        GenMockFuncDynUnary("TestDynOpFloor", config, [](Tensor& input, Tensor& output) { output = Floor(input); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -79,10 +82,11 @@ TEST_F(TestCodegenDynCalcInteger, TestDynOpFloor) {
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestCodegenDynCalcInteger, TestDynOpTrunc) {
+TEST_F(TestCodegenDynCalcInteger, TestDynOpTrunc)
+{
     MockFuncDynUnaryConf config;
     auto function =
-        GenMockFuncDynUnary("TestDynOpTrunc", config, [](Tensor &input, Tensor &output) { output = Trunc(input); });
+        GenMockFuncDynUnary("TestDynOpTrunc", config, [](Tensor& input, Tensor& output) { output = Trunc(input); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

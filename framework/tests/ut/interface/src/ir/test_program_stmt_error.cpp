@@ -33,18 +33,15 @@
 namespace pypto {
 namespace ir {
 
-static Span TestSpan() {
-    return Span("test.py", 1, 0);
-}
-static TypePtr Int32Type() {
-    return std::make_shared<ScalarType>(DataType::INT32);
-}
+static Span TestSpan() { return Span("test.py", 1, 0); }
+static TypePtr Int32Type() { return std::make_shared<ScalarType>(DataType::INT32); }
 
 // ============================================================================
 // Program Tests (program.cpp)
 // ============================================================================
 
-TEST(ProgramTest, ConstructFromFunctionVector) {
+TEST(ProgramTest, ConstructFromFunctionVector)
+{
     auto span = TestSpan();
     auto intType = Int32Type();
     auto x = std::make_shared<Var>("x", intType, span);
@@ -57,7 +54,8 @@ TEST(ProgramTest, ConstructFromFunctionVector) {
     ASSERT_EQ(prog->functions_.size(), 1u);
 }
 
-TEST(ProgramTest, ConstructFromMultipleFunctions) {
+TEST(ProgramTest, ConstructFromMultipleFunctions)
+{
     auto span = TestSpan();
     auto intType = Int32Type();
     auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
@@ -69,7 +67,8 @@ TEST(ProgramTest, ConstructFromMultipleFunctions) {
     ASSERT_EQ(prog->functions_.size(), 2u);
 }
 
-TEST(ProgramTest, GetFunctionByName) {
+TEST(ProgramTest, GetFunctionByName)
+{
     auto span = TestSpan();
     auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
     auto func = std::make_shared<Function>("my_func", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, span);
@@ -83,7 +82,8 @@ TEST(ProgramTest, GetFunctionByName) {
     ASSERT_EQ(notFound, nullptr);
 }
 
-TEST(ProgramTest, GetGlobalVarByName) {
+TEST(ProgramTest, GetGlobalVarByName)
+{
     auto span = TestSpan();
     auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
     auto func = std::make_shared<Function>("my_func", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, span);
@@ -97,7 +97,8 @@ TEST(ProgramTest, GetGlobalVarByName) {
     ASSERT_EQ(notFound, nullptr);
 }
 
-TEST(ProgramTest, ProgramKindAndTypeName) {
+TEST(ProgramTest, ProgramKindAndTypeName)
+{
     auto span = TestSpan();
     auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
     auto func = std::make_shared<Function>("f", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, span);
@@ -111,7 +112,8 @@ TEST(ProgramTest, ProgramKindAndTypeName) {
 // Core / Span Tests (core.cpp)
 // ============================================================================
 
-TEST(SpanTest, Construction) {
+TEST(SpanTest, Construction)
+{
     Span span("file.py", 10, 5);
     ASSERT_EQ(span.filename_, "file.py");
     ASSERT_EQ(span.beginLine_, 10);
@@ -120,13 +122,15 @@ TEST(SpanTest, Construction) {
     ASSERT_EQ(span.endColumn_, -1);
 }
 
-TEST(SpanTest, ConstructionWithEndPos) {
+TEST(SpanTest, ConstructionWithEndPos)
+{
     Span span("file.py", 10, 5, 20, 15);
     ASSERT_EQ(span.endLine_, 20);
     ASSERT_EQ(span.endColumn_, 15);
 }
 
-TEST(SpanTest, ToString) {
+TEST(SpanTest, ToString)
+{
     Span span("file.py", 10, 5);
     auto str = span.ToString();
     ASSERT_NE(str.find("file.py"), std::string::npos);
@@ -134,22 +138,26 @@ TEST(SpanTest, ToString) {
     ASSERT_NE(str.find("5"), std::string::npos);
 }
 
-TEST(SpanTest, IsValidTrue) {
+TEST(SpanTest, IsValidTrue)
+{
     Span span("file.py", 1, 1);
     ASSERT_TRUE(span.IsValid());
 }
 
-TEST(SpanTest, IsValidWithEndPos) {
+TEST(SpanTest, IsValidWithEndPos)
+{
     Span span("file.py", 1, 1, 5, 10);
     ASSERT_TRUE(span.IsValid());
 }
 
-TEST(SpanTest, IsValidFalseNegativeLine) {
+TEST(SpanTest, IsValidFalseNegativeLine)
+{
     Span span("file.py", -1, -1, -1, -1);
     ASSERT_FALSE(span.IsValid());
 }
 
-TEST(SpanTest, UnknownSpan) {
+TEST(SpanTest, UnknownSpan)
+{
     auto span = Span::Unknown();
     ASSERT_FALSE(span.IsValid());
     ASSERT_TRUE(span.filename_.empty());
@@ -159,7 +167,8 @@ TEST(SpanTest, UnknownSpan) {
 // Expr Tests (expr.cpp)
 // ============================================================================
 
-TEST(ExprTest, MakeTupleConstruction) {
+TEST(ExprTest, MakeTupleConstruction)
+{
     auto span = TestSpan();
     auto intType = Int32Type();
     auto x = std::make_shared<Var>("x", intType, span);
@@ -175,7 +184,8 @@ TEST(ExprTest, MakeTupleConstruction) {
     ASSERT_EQ(tupleType->types_.size(), 2u);
 }
 
-TEST(ExprTest, TupleGetItemExpr) {
+TEST(ExprTest, TupleGetItemExpr)
+{
     auto span = TestSpan();
     auto intType = Int32Type();
     auto floatType = std::make_shared<ScalarType>(DataType::FP32);
@@ -193,7 +203,8 @@ TEST(ExprTest, TupleGetItemExpr) {
     ASSERT_EQ(ResultType->dtype_, DataType::INT32);
 }
 
-TEST(ExprTest, TupleGetItemSecondElement) {
+TEST(ExprTest, TupleGetItemSecondElement)
+{
     auto span = TestSpan();
     auto intType = Int32Type();
     auto floatType = std::make_shared<ScalarType>(DataType::FP32);
@@ -212,7 +223,8 @@ TEST(ExprTest, TupleGetItemSecondElement) {
 // Stmt Tests (stmt.cpp)
 // ============================================================================
 
-TEST(StmtTest, OpStmtsWithAssignAndEval) {
+TEST(StmtTest, OpStmtsWithAssignAndEval)
+{
     auto span = TestSpan();
     auto x = std::make_shared<Var>("x", Int32Type(), span);
     auto one = std::make_shared<ConstInt>(1, DataType::INT32, span);
@@ -226,14 +238,16 @@ TEST(StmtTest, OpStmtsWithAssignAndEval) {
     ASSERT_EQ(opStmts->TypeName(), "OpStmts");
 }
 
-TEST(StmtTest, OpStmtsRejectsInvalidStmt) {
+TEST(StmtTest, OpStmtsRejectsInvalidStmt)
+{
     auto span = TestSpan();
     auto ret = std::make_shared<ReturnStmt>(span);
     // ReturnStmt is not AssignStmt or EvalStmt, should throw
     ASSERT_THROW(std::make_shared<OpStmts>(std::vector<StmtPtr>{ret}, span), InternalError);
 }
 
-TEST(StmtTest, OpStmtsEmpty) {
+TEST(StmtTest, OpStmtsEmpty)
+{
     auto span = TestSpan();
     auto opStmts = std::make_shared<OpStmts>(std::vector<StmtPtr>{}, span);
     ASSERT_NE(opStmts, nullptr);
@@ -244,46 +258,51 @@ TEST(StmtTest, OpStmtsEmpty) {
 // Error Tests (error.cpp)
 // ============================================================================
 
-TEST(ErrorTest, RuntimeErrorConstruction) {
+TEST(ErrorTest, RuntimeErrorConstruction)
+{
     try {
         throw RuntimeError("test error message");
-    } catch (const RuntimeError &e) {
+    } catch (const RuntimeError& e) {
         std::string msg = e.what();
         ASSERT_NE(msg.find("test error message"), std::string::npos);
     }
 }
 
-TEST(ErrorTest, ValueErrorConstruction) {
+TEST(ErrorTest, ValueErrorConstruction)
+{
     try {
         throw ValueError("value error");
-    } catch (const ValueError &e) {
+    } catch (const ValueError& e) {
         std::string msg = e.what();
         ASSERT_NE(msg.find("value error"), std::string::npos);
     }
 }
 
-TEST(ErrorTest, InternalErrorConstruction) {
+TEST(ErrorTest, InternalErrorConstruction)
+{
     try {
         throw InternalError("internal error");
-    } catch (const InternalError &e) {
+    } catch (const InternalError& e) {
         std::string msg = e.what();
         ASSERT_NE(msg.find("internal error"), std::string::npos);
     }
 }
 
-TEST(ErrorTest, ErrorGetFullMessage) {
+TEST(ErrorTest, ErrorGetFullMessage)
+{
     try {
         throw RuntimeError("test full message");
-    } catch (const Error &e) {
+    } catch (const Error& e) {
         auto fullMsg = e.GetFullMessage();
         ASSERT_NE(fullMsg.find("test full message"), std::string::npos);
     }
 }
 
-TEST(ErrorTest, ErrorGetFormattedStackTrace) {
+TEST(ErrorTest, ErrorGetFormattedStackTrace)
+{
     try {
         throw RuntimeError("stack trace test");
-    } catch (const Error &e) {
+    } catch (const Error& e) {
         // GetFormattedStackTrace should not crash
         auto trace = e.GetFormattedStackTrace();
         // trace may be empty in release builds
@@ -295,7 +314,8 @@ TEST(ErrorTest, ErrorGetFormattedStackTrace) {
 // MemRef Tests (memref.cpp)
 // ============================================================================
 
-TEST(MemRefTest, Construction) {
+TEST(MemRefTest, Construction)
+{
     auto span = TestSpan();
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, span);
     auto memref = std::make_shared<MemRef>(MemorySpace::UB, addr, 1024, 0, span);
@@ -307,7 +327,8 @@ TEST(MemRefTest, Construction) {
     ASSERT_EQ(memref->GetKind(), ObjectKind::MemRef);
 }
 
-TEST(MemRefTest, MemorySpaceToString) {
+TEST(MemRefTest, MemorySpaceToString)
+{
     ASSERT_EQ(MemorySpaceToString(MemorySpace::DDR), "DDR");
     ASSERT_EQ(MemorySpaceToString(MemorySpace::UB), "UB");
     ASSERT_EQ(MemorySpaceToString(MemorySpace::L1), "L1");
@@ -316,7 +337,8 @@ TEST(MemRefTest, MemorySpaceToString) {
     ASSERT_EQ(MemorySpaceToString(MemorySpace::L0C), "L0C");
 }
 
-TEST(MemRefTest, NameContainsMemorySpace) {
+TEST(MemRefTest, NameContainsMemorySpace)
+{
     auto span = TestSpan();
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, span);
     auto memref = std::make_shared<MemRef>(MemorySpace::L1, addr, 512, 1, span);
@@ -324,7 +346,8 @@ TEST(MemRefTest, NameContainsMemorySpace) {
     ASSERT_NE(memref->name_.find("l1"), std::string::npos);
 }
 
-TEST(MemRefTest, DifferentMemorySpaces) {
+TEST(MemRefTest, DifferentMemorySpaces)
+{
     auto span = TestSpan();
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, span);
 

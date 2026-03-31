@@ -779,7 +779,7 @@ def gen_log1p_op_golden(case_name: str, output: Path, case_index: int = None) ->
         input_dtype = inputs[0].dtype
         if input_dtype == np.float16:
             inputs[0].astype(np.float32)
-        
+
         output = [np.log1p(inputs[0])]
         if input_dtype == np.float16:
             output = [output[0].astype(np.float16)]
@@ -997,13 +997,13 @@ def gen_fillpad_op_golden(case_name: str, output: Path, case_index: int = None) 
         elif pad_value_type == "max":
             pad_value = np.inf
         elif pad_value_type == "custom":
-            pad_value = config.get("params", {}).get("pad_value", 0.0)            
+            pad_value = config.get("params", {}).get("pad_value", 0.0)
         else:
             pad_value = 0.0
-        
+
         input_tensor = inputs[0]
         result = np.full(output_shape, pad_value, dtype=input_tensor.dtype)
-        
+
         ndim = len(input_shape)
         if ndim == 1:
             result[:valid_shape[0]] = input_tensor[:valid_shape[0]]
@@ -1017,7 +1017,7 @@ def gen_fillpad_op_golden(case_name: str, output: Path, case_index: int = None) 
             result[:valid_shape[0], :valid_shape[1], :valid_shape[2], :valid_shape[3]] = (
                 input_tensor[:valid_shape[0], :valid_shape[1], :valid_shape[2], :valid_shape[3]]
             )
-        
+
         return [result]
 
     logging.debug("Case(%s), Golden creating...", case_name)
@@ -1110,14 +1110,14 @@ def gen_prelu_op_golden(case_name: str, output: Path, case_index: int = None) ->
         x = inputs[0]
         weight = inputs[1]
         is_bfloat16 = x.dtype == bfloat16
-        
+
         if is_bfloat16:
             x_tensor = torch.from_numpy(x.astype(np.float32)).to(torch.bfloat16)
             weight_tensor = torch.from_numpy(weight.astype(np.float32)).to(torch.bfloat16)
         else:
             x_tensor = torch.from_numpy(x)
             weight_tensor = torch.from_numpy(weight)
-        
+
         result_tensor = F.prelu(x_tensor, weight_tensor)
 
         return [to_numpy(result_tensor)]
@@ -2075,7 +2075,7 @@ def gen_gathermask_op_golden(
             return [output.numpy()]
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("GatherMask", golden_func, output, case_index)
-        
+
 
 def cumsum_golden_func(inputs: list, config: dict):
     params = config.get("params")
@@ -2855,7 +2855,7 @@ def gen_isfinite_golden(case_name: str, output: Path, case_index: int = None) ->
     ) -> List[np.ndarray]:
         result = torch.isfinite(from_numpy(inputs[0]))
         return [to_numpy(result)]
-    
+
     logging.debug(f"Generating golden files of {case_name} ...")
     return gen_op_golden("IsFinite", generate_wrapper, output, case_index)
 
@@ -2871,7 +2871,7 @@ def gen_ceil_div_golden(case_name: str, output: Path, case_index: int = None) ->
     ) -> List[np.ndarray]:
         result = torch.ceil(torch.div(from_numpy(inputs[0]), from_numpy(inputs[1])))
         return [to_numpy(result)]
-    
+
     logging.debug(f"Generating golden files of {case_name} ...")
     return gen_op_golden("CeilDiv", generate_wrapper, output, case_index)
 
@@ -2890,7 +2890,7 @@ def gen_ceil_divs_golden(case_name: str, output: Path, case_index: int = None) -
         scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
         result = torch.ceil(torch.div(from_numpy(inputs[0]), scalar))
         return [to_numpy(result)]
-    
+
     logging.debug(f"Generating golden files of {case_name} ...")
     return gen_op_golden("CeilDivs", generate_wrapper, output, case_index)
 
@@ -2909,7 +2909,7 @@ def gen_floor_div_golden(case_name: str, output: Path, case_index: int = None) -
         result = torch.floor_divide(tensor0, tensor1)
         result = result.cpu()
         return [to_numpy(result)]
-    
+
     logging.debug(f"Generating golden files of {case_name} ...")
     return gen_op_golden("FloorDiv", generate_wrapper, output, case_index)
 
@@ -2931,7 +2931,7 @@ def gen_floor_divs_golden(case_name: str, output: Path, case_index: int = None) 
         result = torch.floor_divide(tensor0, tensor1)
         result = result.cpu()
         return [to_numpy(result)]
-    
+
     logging.debug(f"Generating golden files of {case_name} ...")
     return gen_op_golden("FloorDivs", generate_wrapper, output, case_index)
 

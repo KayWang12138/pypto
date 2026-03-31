@@ -18,20 +18,23 @@ namespace npu {
 namespace tile_fwk {
 const std::unordered_set<Opcode> whiteList{Opcode::OP_RESHAPE, Opcode::OP_VEC_DUP};
 
-void AxisCombineMarker::Run(Function &function) {
+void AxisCombineMarker::Run(Function& function)
+{
     Init(function);
     ForwardVisit();
     BackwardVisit();
 }
 
-bool AxisCombineMarker::IsTensorEnableAxisCombine(LogicalTensorPtr tensor) {
+bool AxisCombineMarker::IsTensorEnableAxisCombine(LogicalTensorPtr tensor)
+{
     if (tensorStatus_.find(tensor) != tensorStatus_.end() && tensorStatus_[tensor] == AxisReorderStatus::ENABLE) {
         return true;
     }
     return false;
 }
 
-void AxisCombineMarker::Init(Function &function) {
+void AxisCombineMarker::Init(Function& function)
+{
     size_t i = 0U;
     std::map<int, size_t> opMagic2Idx;
     opList_ = function.Operations().DuplicatedOpList();
@@ -52,7 +55,8 @@ void AxisCombineMarker::Init(Function &function) {
     }
 }
 
-void UpdateCopyinStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
+void UpdateCopyinStatus(Operation* op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus>& tensorStatus)
+{
     auto inputTensor = op->GetIOperands()[0];
     auto outputTensor = op->GetOOperands()[0];
     if (outputTensor->GetShape().back() != 1) {
@@ -67,7 +71,8 @@ void UpdateCopyinStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axis
     return;
 }
 
-void UpdateViewStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
+void UpdateViewStatus(Operation* op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus>& tensorStatus)
+{
     auto inputTensor = op->GetIOperands()[0];
     auto outputTensor = op->GetOOperands()[0];
     if (inputTensor->GetShape().back() != outputTensor->GetShape().back()) {
@@ -88,17 +93,18 @@ void UpdateViewStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisRe
         return;
     }
     tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;
-    tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;  // DDR场景，不涉及。
+    tensorStatus[outputTensor] = AxisReorderStatus::DISABLE; // DDR场景，不涉及。
 }
 
-void UpdateAssembleStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
+void UpdateAssembleStatus(Operation* op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus>& tensorStatus)
+{
     auto inputTensor = op->GetIOperands()[0];
     auto outputTensor = op->GetOOperands()[0];
     if (tensorStatus.find(inputTensor) != tensorStatus.end()) {
         if (tensorStatus[inputTensor] == AxisReorderStatus::ENABLE) {
             if (inputTensor->GetShape().back() != outputTensor->GetShape().back()) {
                 tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
-                tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;  // 如果尾轴有assemble，那么不能支持合轴
+                tensorStatus[inputTensor] = AxisReorderStatus::DISABLE; // 如果尾轴有assemble，那么不能支持合轴
             } else {
                 tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
             }
@@ -110,7 +116,8 @@ void UpdateAssembleStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Ax
     // 正向推导不应该存在assemble输入没被访问过的场景
 }
 
-void UpdateExpandStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
+void UpdateExpandStatus(Operation* op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus>& tensorStatus)
+{
     auto inputTensor = op->GetIOperands()[0];
     auto outputTensor = op->GetOOperands()[0];
     if (tensorStatus[inputTensor] == AxisReorderStatus::ENABLE) {
@@ -136,7 +143,8 @@ void UpdateExpandStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axis
     tensorStatus[outputTensor] = AxisReorderStatus::UNKNOWN;
 }
 
-void UpdateReduceStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
+void UpdateReduceStatus(Operation* op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus>& tensorStatus)
+{
     // 最后两根轴不发生reduce，并且尾轴为1。那么支持交换轴，如果倒数第二根轴发生reduce，不支持。尾轴reduce，需不需要交换轴要看后继节点
     auto inputTensor = op->GetIOperands()[0];
     auto outputTensor = op->GetOOperands()[0];
@@ -156,7 +164,8 @@ void UpdateReduceStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axis
     tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
 }
 
-void UpdateElewiseStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
+void UpdateElewiseStatus(Operation* op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus>& tensorStatus)
+{
     auto outputTensor = op->GetOOperands()[0];
     for (auto inputTensor : op->GetIOperands()) {
         if (tensorStatus[inputTensor] == AxisReorderStatus::UNKNOWN && inputTensor->GetShape().back() == 1) {
@@ -168,7 +177,8 @@ void UpdateElewiseStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axi
         return;
     }
     for (auto inputTensor : op->GetIOperands()) {
-        if (tensorStatus.find(inputTensor) != tensorStatus.end() && tensorStatus[inputTensor] == AxisReorderStatus::DISABLE) {
+        if (tensorStatus.find(inputTensor) != tensorStatus.end() &&
+            tensorStatus[inputTensor] == AxisReorderStatus::DISABLE) {
             tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
             return;
         }
@@ -176,7 +186,8 @@ void UpdateElewiseStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axi
     tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
 }
 
-void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
+void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx)
+{
     auto op = opList_[opIdx];
     auto outputTensor = op->GetOOperands()[0];
     if (outputTensor->GetShape().back() != outputTensor->GetRawTensor()->GetRawShape().back()) {
@@ -217,13 +228,14 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
     tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;
 }
 
-void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx) {
+void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx)
+{
     auto op = opList_[opIdx];
     auto outputTensor = op->GetOOperands()[0];
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
         OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST ||
         ((op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE) &&
-          outputTensor->GetShape().back() == op->GetIOperands()[0]->GetShape().back())) {
+         outputTensor->GetShape().back() == op->GetIOperands()[0]->GetShape().back())) {
         if (tensorStatus_[outputTensor] == AxisReorderStatus::DISABLE) {
             for (auto inputTensor : op->GetIOperands()) {
                 tensorStatus_[inputTensor] = AxisReorderStatus::DISABLE;
@@ -297,5 +309,5 @@ void AxisCombineMarker::BackwardVisit()
         }
     }
 }
-}
-}
+} // namespace tile_fwk
+} // namespace npu

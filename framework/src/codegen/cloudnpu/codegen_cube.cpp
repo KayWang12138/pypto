@@ -20,7 +20,8 @@
 
 namespace npu::tile_fwk {
 std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(
-    bool isAcc, std::unordered_map<OperandType, std::string> &tensorWithMemType) const {
+    bool isAcc, std::unordered_map<OperandType, std::string>& tensorWithMemType) const
+{
     std::ostringstream oss;
     bool hasBias = tensorWithMemType.count(OperandType::BUF_BT);
     int64_t transModeNum = 0;
@@ -32,8 +33,9 @@ std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(
     } else if (transMode == TransMode::CAST_ROUND) {
         transModeStr = "TransMode::CAST_ROUND";
     }
-    std::vector<std::string> paramList = {tensorWithMemType[OperandType::BUF_L0C],
-        tensorWithMemType[OperandType::BUF_L0A], tensorWithMemType[OperandType::BUF_L0B]};
+    std::vector<std::string> paramList = {
+        tensorWithMemType[OperandType::BUF_L0C], tensorWithMemType[OperandType::BUF_L0A],
+        tensorWithMemType[OperandType::BUF_L0B]};
     oss << tileOpName;
     if (hasBias) {
         paramList.emplace_back(tensorWithMemType[OperandType::BUF_BT]);
@@ -46,7 +48,8 @@ std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(bool isAcc) const {
+std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(bool isAcc) const
+{
     std::unordered_map<OperandType, std::string> tensorWithMemType;
     for (int i = 0; i < operandCnt; i++) {
         tensorWithMemType.emplace(operandType[i], QueryTileTensorNameByIdx(i));
@@ -57,9 +60,10 @@ std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(bool isAcc) const {
         return PrintMatmulTileTensor(isAcc, tensorWithMemType);
     }
     std::ostringstream oss;
-    std::vector<std::string> mxParamList = {tensorWithMemType[OperandType::BUF_L0C],
-        tensorWithMemType[OperandType::BUF_L0A], tensorWithMemType[OperandType::BUF_L0AMX],
-        tensorWithMemType[OperandType::BUF_L0B], tensorWithMemType[OperandType::BUF_L0BMX]};
+    std::vector<std::string> mxParamList = {
+        tensorWithMemType[OperandType::BUF_L0C], tensorWithMemType[OperandType::BUF_L0A],
+        tensorWithMemType[OperandType::BUF_L0AMX], tensorWithMemType[OperandType::BUF_L0B],
+        tensorWithMemType[OperandType::BUF_L0BMX]};
     oss << "MatmulMX";
     if (hasBias) {
         mxParamList.emplace_back(tensorWithMemType[OperandType::BUF_BT]);
@@ -71,7 +75,8 @@ std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(bool isAcc) const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
+std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const
+{
     if (isSupportLayout) {
         return PrintMatmulTileTensor(!zeroC);
     }
@@ -111,7 +116,7 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
             << SymbolicExpressionTable::BuildExpression(nSymbol) << ", " << (zeroC ? "true" : "false") << ", " << uf
             << ", " << SymbolicExpressionTable::BuildExpression(l0cShapeDyn[ID0]) << ", "
             << SymbolicExpressionTable::BuildExpression(l0cShapeDyn[ID1]) << ");\n";
-    } else { // static function
+    } else {                               // static function
         int64_t m = originShape[ID0][ID0];
         int64_t k = originShape[ID1][ID1]; // NEXTNEXT assume A is not transposed for now
         int64_t n = originShape[ID0][ID1];
@@ -126,15 +131,12 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenCubeOpMatmul() const {
-    return GenCubeOp(true);
-}
+std::string CodeGenOpCloudNPU::GenCubeOpMatmul() const { return GenCubeOp(true); }
 
-std::string CodeGenOpCloudNPU::GenCubeOpMatmulAcc() const {
-    return GenCubeOp(false);
-}
+std::string CodeGenOpCloudNPU::GenCubeOpMatmulAcc() const { return GenCubeOp(false); }
 
-std::string CodeGenOpCloudNPU::GenParamsStr(const std::unordered_set<int32_t> &skipOperands) const {
+std::string CodeGenOpCloudNPU::GenParamsStr(const std::unordered_set<int32_t>& skipOperands) const
+{
     std::vector<std::string> params;
     for (int i = 0; i < MAX_OPERANDS; i++) {
         if (operand[i] == NULL_OPERAND) {
@@ -161,9 +163,7 @@ std::string CodeGenOpCloudNPU::GenParamsStr(const std::unordered_set<int32_t> &s
                 // 大包搬运场景下，L1搬运至L0不需要计算L1地址偏移
                 // 非大包搬运场景下，L1与L0数据大小一致，也不需要地址偏移
                 // 偏移计算仅用于L1_Copy_In 和 L1_Copy_Out
-                AppendLocalBufferVarOffset({
-                    {static_cast<unsigned>(i), std::ref(var)}
-                });
+                AppendLocalBufferVarOffset({{static_cast<unsigned>(i), std::ref(var)}});
             }
 
             std::ostringstream oss;

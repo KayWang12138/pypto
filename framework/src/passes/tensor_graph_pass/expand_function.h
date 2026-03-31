@@ -26,18 +26,19 @@ class ExpandFunction : public Pass {
 public:
     ExpandFunction() : Pass("ExpandFunction") {}
     ~ExpandFunction() override = default;
-    Status DefaultEnabledPreCheck(Function &function) override;
-    Status PostCheck(Function &function) override;
+    Status DefaultEnabledPreCheck(Function& function) override;
+    Status PostCheck(Function& function) override;
+
 private:
-    Status RunOnFunction(Function &function) override;
-    Status Expandfunction(Function &function) const;
-    Status ExpandOperation(Function &function, Operation &op) const;
-    Status ClearIOOperand(const std::vector<OperationPtr> &tensorOperations) const;
-    void ProcessForNotExpandOp(Function &function, Operation &op) const;
-    void DoHealthCheckBefore(Function &function, const std::string &folderPath) override;
+    Status RunOnFunction(Function& function) override;
+    Status Expandfunction(Function& function) const;
+    Status ExpandOperation(Function& function, Operation& op) const;
+    Status ClearIOOperand(const std::vector<OperationPtr>& tensorOperations) const;
+    void ProcessForNotExpandOp(Function& function, Operation& op) const;
+    void DoHealthCheckBefore(Function& function, const std::string& folderPath) override;
 
     mutable std::unordered_map<int, std::unordered_set<CoreType>> scopeMap_;
     static const std::unordered_set<Opcode> kNotNeedExpandOps;
 };
-}
+} // namespace npu::tile_fwk
 #endif // PASS_EXPAND_FUNCTION_H_

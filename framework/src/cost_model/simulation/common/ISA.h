@@ -32,7 +32,7 @@ namespace CostModel {
 
 constexpr uint64_t RAW_MAGIC_MAX_SIZE = 1024 * 1024;
 
-const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE {
+const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE{
     // Unary Vector
     {"EXP", CorePipeType::PIPE_VECTOR_ALU},
     {"NEG", CorePipeType::PIPE_VECTOR_ALU},
@@ -273,8 +273,7 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE {
     {"COMP_SWAP", CorePipeType::PIPE_VECTOR_ALU},
     {"MERGE", CorePipeType::PIPE_VECTOR_ALU},
 
-    {"UNKNOWN", CorePipeType::PIPE_UNKNOW}
-};
+    {"UNKNOWN", CorePipeType::PIPE_UNKNOW}};
 
 struct ExecuteInfo {
     int exePipeId = -1;
@@ -348,7 +347,7 @@ public:
     std::vector<std::vector<uint64_t>> tileData;
 
     explicit Tile() {}
-    explicit Tile(const std::string &str);
+    explicit Tile(const std::string& str);
     void GetPipeType();
     void Print();
     std::string Dump();
@@ -377,7 +376,7 @@ public:
     std::vector<TilePtr> iOperand;
     std::vector<TilePtr> oOperand;
 
-    npu::tile_fwk::Operation *operation{};
+    npu::tile_fwk::Operation* operation{};
     FunctionPtr funcPtr = nullptr;
 
     explicit TileOp() = default;
@@ -395,14 +394,13 @@ public:
 
 class Subgraph {};
 
-
-class FunctionInvokeInfo
-{
+class FunctionInvokeInfo {
 public:
     std::unordered_set<int> args;
     std::unordered_map<int, TilePtr> binds;
 
-    TilePtr Bind(int magic) {
+    TilePtr Bind(int magic)
+    {
         if (binds.count(magic)) {
             return binds[magic];
         }
@@ -415,7 +413,7 @@ public:
     int magic = -1;
     int pSgId = -1; // SubgraphId
     CostModel::MachineType machineType;
-    npu::tile_fwk::Function *parentFunction;
+    npu::tile_fwk::Function* parentFunction;
     uint64_t functionHash = -1;
     std::string funcName = "";
     std::vector<TileOpPtr> tileOps;
@@ -441,7 +439,7 @@ public:
     // TILEOP sequence from ooo pass. <magic, seq>
     std::unordered_map<int, uint64_t> opSequenceAfterOOO_;
     std::vector<int> opMagicSequence;
-    void GetOpSequeceAfterOOO(int opmagic, uint64_t &index);
+    void GetOpSequeceAfterOOO(int opmagic, uint64_t& index);
 
     // semanticLabels
     std::string semanticLabels;
@@ -456,4 +454,4 @@ public:
     uint64_t GetOpRelativeReadyCycle(TileOpPtr tileOp, uint64_t newBaseCycle);
     void CalculateRelativeCycle(uint64_t newBaseCycle, double proportion);
 };
-}  // namespace CostModel
+} // namespace CostModel

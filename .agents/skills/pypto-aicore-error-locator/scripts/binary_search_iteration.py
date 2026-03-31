@@ -150,7 +150,7 @@ def main():
         error_in_t=error_in_t
     )
     new_left, new_right, problem_line = binary_search_iteration(params)
-    
+
     if new_left is not None:
         logger.info(f"NEXT_LEFT {new_left}")
         logger.info(f"NEXT_RIGHT {new_right}")
