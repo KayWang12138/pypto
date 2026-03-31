@@ -64,7 +64,9 @@ TEST_F(TestPro, test_ini)
     std::cout << "oriRegAddrs_ " << oriRegAddrs_ << std::endl;
     std::cout << "regAddrs_    " << regAddrs_ << std::endl;
     ProfConfig profConfig;
-    prof.ProfInit(regAddrs_, regAddrs_, profConfig);
+    std::unique_ptr<DeviceArgs> devArgs = std::make_unique<DeviceArgs>();
+    devArgs->corePmuRegAddr = (int64_t)(regAddrs_);
+    prof.ProfInit(devArgs.get());
     prof.ProfStart();
 
     int32_t aicoreId = 0;
@@ -146,8 +148,10 @@ TEST_F(TestPro, test_prof_start_pmu_dav2201)
     }
 
     ProfConfig profConfig;
+    std::unique_ptr<DeviceArgs> devArgs = std::make_unique<DeviceArgs>();
     profConfig.Add(ProfConfig::AICORE_PMU);
-    prof.ProfInit(regAddrsArr, pmuEventAddrsArr, profConfig, ArchInfo::DAV_2201);
+    devArgs->toSubMachineConfig.profConfig = profConfig;
+    prof.ProfInit(devArgs.get());
     prof.ProfInitPmu(regAddrsArr, pmuEventAddrsArr);
     prof.ProfStartPmu();
     TaskStat taskStat;
@@ -186,8 +190,11 @@ TEST_F(TestPro, test_prof_start_pmu_dav3510)
     }
 
     ProfConfig profConfig;
+    std::unique_ptr<DeviceArgs> devArgs = std::make_unique<DeviceArgs>();
     profConfig.Add(ProfConfig::AICORE_PMU);
-    prof.ProfInit(regAddrsArr, pmuEventAddrsArr, profConfig, ArchInfo::DAV_3510);
+    devArgs->toSubMachineConfig.profConfig = profConfig;
+    devArgs->archInfo = ArchInfo::DAV_3510;
+    prof.ProfInit(devArgs.get());
     prof.ProfInitPmu(regAddrsArr, pmuEventAddrsArr);
     prof.ProfStartPmu();
     TaskStat taskStat;
@@ -197,3 +204,4 @@ TEST_F(TestPro, test_prof_start_pmu_dav3510)
 
     free(regBuf);
 }
+
