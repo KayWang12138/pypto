@@ -126,7 +126,7 @@ operator/                          # 算子名称目录
 **修正**：
 ```bash
 # 用 -w 参数指定工作目录
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py -w /path/to/operator -v
+python3 scripts/verify_binary_search.py -w /path/to/operator -v
 ```
 
 ### 2. 数据类型读取问题
@@ -187,7 +187,7 @@ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.p
 
 ```bash
 # 量化场景推荐容差：rtol=0.0078125, atol=0.0001
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py \
+python3 scripts/verify_binary_search.py \
     --rtol 0.0078125 \
     --atol 0.001 \
     -v
@@ -229,7 +229,7 @@ python3 test_operator.py
 
 ```bash
 # 使用通用工具（推荐）
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py -v
+python3 scripts/verify_binary_search.py -v
 ```
 
 ### 步骤 4：分析对比结果
@@ -259,7 +259,7 @@ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.p
 使用绘图脚本可视化精度变化：
 ```bash
 # 指定 operator_verify_result.log 文件路径（在operator目录下）
-python3 .agents/skills/pypto-binary-search-verify/scripts/plot_accuracy.py /path/to/operator/operator_verify_result.log
+python3 scripts/plot_accuracy.py /path/to/operator/operator_verify_result.log
 ```
 
 ### 步骤 6：定位并修复
@@ -324,19 +324,19 @@ rm -rf output/output_*
 
 ```bash
 # 自动检测并对比所有检查点
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py
+python3 scripts/verify_binary_search.py
 
 # 列出所有检查点
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py --list
+python3 scripts/verify_binary_search.py --list
 
 # 显示详细对比
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py --verbose
+python3 scripts/verify_binary_search.py --verbose
 
 # 指定工作目录
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py -w /path/to/operator -v
+python3 scripts/verify_binary_search.py -w /path/to/operator -v
 
 # 指定 golden 文件所在目录（当 golden 文件保存在独立文件夹时使用，推荐）
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py -w /path/to/operator -g /path/to/operator/golden_data -v
+python3 scripts/verify_binary_search.py -w /path/to/operator -g /path/to/operator/golden_data -v
 
 ```
 

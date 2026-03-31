@@ -15,7 +15,7 @@ license: 完整条款见 LICENSE.txt
 ```
 pypto-pass-ut-generate/
 ├── SKILL.md                  # 主技能文档
-├── scipts/                   # 脚本工具目录
+├── scripts/                   # 脚本工具目录
 │   ├── common_utils.py       # 公共工具函数
 │   ├── pr_utils.py           # PR 处理工具（完整功能）
 │   ├── get_ut_status.py    # 简化版 UT 状态获取
@@ -71,8 +71,8 @@ pypto-pass-ut-generate/
 **适用情况**：PR 已有部分 UT，需要补充未覆盖的代码
 
 **执行步骤**：
-1. 使用 `scipts/get_ut_status.py` 快速获取 UT 状态
-2. 使用 `scipts/pr_utils.py` 处理 PR，获取 diff 和覆盖率报告
+1. 使用 `scripts/get_ut_status.py` 快速获取 UT 状态
+2. 使用 `scripts/pr_utils.py` 处理 PR，获取 diff 和覆盖率报告
 3. 分析未覆盖的代码行
 4. 针对未覆盖行设计 UT 用例
 5. 验证编译和覆盖率
@@ -80,10 +80,10 @@ pypto-pass-ut-generate/
 **示例**：
 ```bash
 # 快速获取 UT 状态
-python3 scipts/get_ut_status.py 2017
+python3 scripts/get_ut_status.py 2017
 
 # 完整处理 PR
-python3 scipts/pr_utils.py 2017
+python3 scripts/pr_utils.py 2017
 ```
 
 ### 场景三：离线分析本地 diff 文件
@@ -91,7 +91,7 @@ python3 scipts/pr_utils.py 2017
 **适用情况**：用户指定本地 diff 文件，需要离线分析
 
 **执行步骤**：
-1. 使用 `scipts/ut_coverage.py` 解析用户指定的本地 diff 文件
+1. 使用 `scripts/ut_coverage.py` 解析用户指定的本地 diff 文件
 2. 提取变更的 Pass 文件和代码行
 3. 分析变更代码的业务逻辑
 4. 生成 UT 设计建议
@@ -100,10 +100,10 @@ python3 scipts/pr_utils.py 2017
 **示例**：
 ```bash
 # 解析本地 diff 文件
-python3 scipts/ut_coverage.py --diff /path/to/pr.diff
+python3 scripts/ut_coverage.py --diff /path/to/pr.diff
 
 # 简短写法（文件在当前目录）
-python3 scipts/ut_coverage.py --diff pr.diff
+python3 scripts/ut_coverage.py --diff pr.diff
 ```
 
 ### 场景四：离线分析本地覆盖率报告
@@ -119,10 +119,10 @@ python3 scipts/ut_coverage.py --diff pr.diff
 **示例**：
 ```bash
 # 解析本地覆盖率报告
-python3 scipts/ut_coverage.py --report /path/to/ut_cov.tar.gz
+python3 scripts/ut_coverage.py --report /path/to/ut_cov.tar.gz
 
 # 简短写法（文件在当前目录）
-python3 scipts/ut_coverage.py --report ut_cov.tar.gz
+python3 scripts/ut_coverage.py --report ut_cov.tar.gz
 ```
 
 ### 场景五：离线综合分析
@@ -138,10 +138,10 @@ python3 scipts/ut_coverage.py --report ut_cov.tar.gz
 **示例**：
 ```bash
 # 综合分析（同时指定 diff 和覆盖率文件）
-python3 scipts/ut_coverage.py --diff /path/to/pr.diff --report /path/to/ut_cov.tar.gz
+python3 scripts/ut_coverage.py --diff /path/to/pr.diff --report /path/to/ut_cov.tar.gz
 
 # 输出 JSON 格式建议
-python3 scipts/ut_coverage.py --diff pr.diff --report ut_cov.tar.gz --json
+python3 scripts/ut_coverage.py --diff pr.diff --report ut_cov.tar.gz --json
 ```
 
 ## UT生成流程一
@@ -338,7 +338,7 @@ python3 scipts/ut_coverage.py --diff pr.diff --report ut_cov.tar.gz --json
 使用示例：
 ```bash
 # 在线处理 PR
-python3 scipts/pr_utils.py 1894
+python3 scripts/pr_utils.py 1894
 ```
 
 ### ut_coverage.py - 覆盖率分析工具
@@ -353,16 +353,16 @@ python3 scipts/pr_utils.py 1894
 使用示例：
 ```bash
 # 解析本地 diff 文件
-python3 scipts/ut_coverage.py --diff /path/to/pr.diff
+python3 scripts/ut_coverage.py --diff /path/to/pr.diff
 
 # 解析本地覆盖率报告（.tar.gz 格式）
-python3 scipts/ut_coverage.py --report /path/to/ut_cov.tar.gz
+python3 scripts/ut_coverage.py --report /path/to/ut_cov.tar.gz
 
 # 综合分析（同时指定 diff 和覆盖率文件）
-python3 scipts/ut_coverage.py --diff /path/to/pr.diff --report /path/to/ut_cov.tar.gz
+python3 scripts/ut_coverage.py --diff /path/to/pr.diff --report /path/to/ut_cov.tar.gz
 
 # 输出 JSON 格式建议
-python3 scipts/ut_coverage.py --diff pr.diff --report ut_cov.tar.gz --json
+python3 scripts/ut_coverage.py --diff pr.diff --report ut_cov.tar.gz --json
 ```
 
 详见 [references/usage.md](references/usage.md)

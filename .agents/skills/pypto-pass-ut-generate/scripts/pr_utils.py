@@ -1076,7 +1076,7 @@ def process_offline_ut_report(report_file: str) -> Dict:
         result['report_content'] = report_content
 
         if report_file.endswith('.html') or '<html' in report_content.lower():
-            from scipts.ut_coverage import parse_coverage_html, find_low_coverage_files
+            from scripts.ut_coverage import parse_coverage_html, find_low_coverage_files
             result['coverage_info'] = parse_coverage_html(report_content)
             result['low_coverage_files'] = find_low_coverage_files(result['coverage_info'], 80.0)
         else:
@@ -1135,7 +1135,7 @@ def analyze_offline_files(
         if result['report_result'] and result['report_result']['success']:
             logger.info("\n[3] 关联分析...")
 
-            from scipts.ut_coverage import (
+            from scripts.ut_coverage import (
                 correlate_coverage_with_diff,
                 generate_ut_design_suggestions
             )
