@@ -131,7 +131,7 @@ std::string TestLogicalBody(Opcode opcode)
 TEST_F(TestCodegenDynLogical, LogicalAndTileTensor)
 {
     std::string res = TestLogicalBody(Opcode::OP_LOGICALAND);
-    std::string expect = R"!!!(TLogicalAnd(ubTensor_9, ubTensor_9, ubTensor_9, ubTensor_9);
+    std::string expect = R"!!!(TLogicalAnd(ubTensor_0, ubTensor_0, ubTensor_0, ubTensor_0);
 )!!!";
     EXPECT_EQ(res, expect);
 }
@@ -139,7 +139,7 @@ TEST_F(TestCodegenDynLogical, LogicalAndTileTensor)
 TEST_F(TestCodegenDynLogical, LogicalNotTileTensor)
 {
     std::string res = TestLogicalBody(Opcode::OP_LOGICALNOT);
-    std::string expect = R"!!!(TLogicalNot(ubTensor_9, ubTensor_9, ubTensor_9);
+    std::string expect = R"!!!(TLogicalNot(ubTensor_0, ubTensor_0, ubTensor_0);
 )!!!";
     EXPECT_EQ(res, expect);
 }
