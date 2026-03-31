@@ -113,6 +113,10 @@ void SyncStreams(rtStream_t aicpuStream, rtStream_t aicoreStream, bool useSyncFl
         MACHINE_LOGI("StreamWaitEvent failed rc=%d", rc);
     }
 }
+
+void PerfStop() {
+    DeviceRunner::Get().StopMachinePerfTraceDumpThread();
+}
 } // namespace
 
 DeviceRunner& DeviceRunner::Get()
@@ -822,6 +826,7 @@ int DeviceRunner::Init(void)
     }
     InitAicpuServer();
     StartMachinePerfTraceDumpThread();
+    std::atexit(PerfStop);
     return 0;
 }
 
@@ -872,7 +877,7 @@ void DeviceRunner::MachinePerfTraceDumpThread()
 DeviceRunner::~DeviceRunner()
 {
     MACHINE_LOGD("Start to cleanup perfData");
-    StopMachinePerfTraceDumpThread();
+    // StopMachinePerfTraceDumpThread();
     for (size_t i = 0; i < perfData_.size(); i++) {
         if (perfData_[i] != nullptr) {
             rtFree(perfData_[i]);
