@@ -24,8 +24,7 @@
 
 #### 精度验证与调试
 - `pypto-precision-debugger`：定位并修复精度问题
-- `pypto-binary-search-verify`：verify-based 精度定位
-- `pypto-binary-search-without-verify`：checkpoint-based 精度定位
+- `pypto-precision`：精度对比与定位，支持文件保存和二分对比两种方法
 - `pypto-aicore-error-locator`：定位 aicore error 的问题文件和代码行
 
 #### 性能分析
