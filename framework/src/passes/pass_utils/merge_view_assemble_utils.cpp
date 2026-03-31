@@ -65,6 +65,34 @@ Status MergeViewAssembleUtils::ProcessOperations(Function& function)
         }
         Status processStatus = SUCCESS;
         std::vector<Operation*> chain;
+        if (op.GetOpcode() == Opcode::OP_L0C_COPY_OUT_CONV) {
+            auto consumers = function.FindConsumers(op);
+            for (auto &currentOp : consumers) {
+                std::vector<int64_t> newOffset;
+                std::vector<SymbolicScalar> newDynOffset;
+                if (currentOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                    auto currentAssembleAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(currentOp->GetOpAttribute());
+                    if (currentAssembleAttr->GetFrom() == MemoryType::MEM_UNKNOWN) {
+                        // std::vector<SymbolicScalar> newDynValidShape;
+                        newOffset = currentAssembleAttr->GetToOffset();
+                        newDynOffset = currentAssembleAttr->GetToDynOffset();
+                        // if (!currentViewAttr->GetToDynValidShape().empty()) {
+                        //     newDynValidShape = currentViewAttr->GetToDynValidShape();
+                        // }
+                        auto opAttr = std::dynamic_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+                        std::vector<OpImmediate> dstResGmOffsetImmediate = opAttr->GetToOffset();
+                        std::vector<SymbolicScalar> dstResGmOffsetScalar = OpImmediate::ToSpecified(dstResGmOffsetImmediate);
+                        auto ret = TensorOffset::Add(OpImmediate::ToSpecified(OpImmediate::Specified(TensorOffset(newOffset, newDynOffset))), dstResGmOffsetScalar);
+                        // if (!ret.empty()) {
+                        //     newOffset = ret[0];
+                        //     newDynOffset = ret[1];
+                        // }
+                        opAttr->SetToOffset(OpImmediate::Specified(ret));
+                        op.SetOpAttribute(opAttr);
+                    }
+                }
+            }
+        }
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             processStatus = MergeViewChain(function, op, chain);
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
