@@ -664,6 +664,50 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(Function &function, Logi
     return SUCCESS;
 }
 
+bool RemoveRedundantAssemble::ForwardFindAssembleInsertedCopy(LogicalTensorPtr input) const {
+    for (auto &con : input->GetConsumers()) {
+        if (con->GetOpcode() != Opcode::OP_COPY_IN && con->GetOpcode() != Opcode::OP_COPY_OUT) {
+            continue;
+        }
+        auto copyOutput1 = con->GetOOperands()[0];
+        if (copyOutput1->GetConsumers().size() == 1) {
+            auto copyConsumer1 = *(copyOutput1->GetConsumers().begin());
+            if (copyConsumer1->GetOpcode() == Opcode::OP_COPY_IN || copyConsumer1->GetOpcode() == Opcode::OP_COPY_OUT) {
+                auto copyOutput2 = copyConsumer1->GetOOperands()[0];
+                if (copyOutput2->GetConsumers().size() == 1) {
+                    auto copyConsumer2 = *(copyOutput2->GetConsumers().begin());
+                    if (copyConsumer2->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool RemoveRedundantAssemble::BackwardFindAssembleInsertedCopy(LogicalTensorPtr input) const {
+    for (auto &pro : input->GetProducers()) {
+        if (pro->GetOpcode() != Opcode::OP_COPY_IN && pro->GetOpcode() != Opcode::OP_COPY_OUT) {
+            continue;
+        }
+        auto copyInput1 = pro->GetIOperands()[0];
+        if (copyInput1->GetProducers().size() == 1) {
+            auto copyProducer = *(copyInput1->GetProducers().begin());
+            if (copyProducer->GetOpcode() == Opcode::OP_COPY_IN || copyProducer->GetOpcode() == Opcode::OP_COPY_OUT) {
+                auto copyInput2 = copyProducer->GetIOperands()[0];
+                for (auto copyConsumer : copyInput2->GetConsumers()) {
+                    if (copyConsumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    return false;    
+}
+ 
+
 /*
     Producer1 -->
                  \
@@ -694,7 +738,9 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) cons
                 op.GetOpcodeStr().c_str(), op.GetOpMagic(), concurrentAssembles.size());
             HanldeForMultiAssemble(function, concurrentAssembles);
         } else {
-            if (HanldeForSingleAssemble(function, input, output, op) != SUCCESS) return FAILED;
+            if (!ForwardFindAssembleInsertedCopy(input) && !BackwardFindAssembleInsertedCopy(input)) {
+                if (HanldeForSingleAssemble(function, input, output, op) != SUCCESS) return FAILED;
+            }
         }
     }
     if (ProcessView(function) != SUCCESS) {

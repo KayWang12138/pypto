@@ -24,6 +24,7 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "passes/tile_graph_pass/graph_constraint/pre_graph/pre_graph.h"
+#include "passes/tile_graph_pass/graph_constraint/replace_tensor.h"
 #include "ut_json/ut_json_tool.h"
 #include "computational_graph_builder.h"
 #define private public
@@ -1484,6 +1485,53 @@ TEST_F(PreGraphTest, MutiConsumerDeleteSingleAssemble) {
     preGraph.Run(*function, "", "", 0);
     // check after pass
     EXPECT_EQ(function->Operations().size(), operationSize - 1);
+}
+
+/*
+MutiConsumerDeleteSingleAssemble
+inCast{32,16}->copyin->ubTensor{32,16}->copyout->ddrTensor{32,16}->Assemble->outCast1{32,32}
+                                                                 ->Assemble->outCast2{32,16}
+inCast{32,16}->copyin->ubTensor{32,16}->copyout->ddrTensor{32,16}->Assemble->outCast1{32,32}
+                                                                 ->copyin->ubTensor->copyout->ddrTensor->Assemble->outCast2{32,16}
+*/
+TEST_F(PreGraphTest, MutiConsumerNotDeleteSingleAssemble) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "MutiConsumerNotDeleteSingleAssemble", "MutiConsumerNotDeleteSingleAssemble", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("MutiConsumerNotDeleteSingleAssemble", currFunctionPtr);
+    Shape shape = {32, 16};
+    Shape assembleShape = {32, 32};
+
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    inCast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto ddrTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ddrTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto outCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, assembleShape);
+    outCast1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    outCast2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {inCast}, {ubTensor});
+    currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
+    auto &assembleOp1 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {ddrTensor}, {outCast1});
+    assembleOp1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+    auto &assembleOp2 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {ddrTensor}, {outCast2});
+    assembleOp2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+
+    currFunctionPtr->inCasts_.push_back(inCast);
+    currFunctionPtr->outCasts_.push_back(outCast1);
+    currFunctionPtr->outCasts_.push_back(outCast2);
+
+    // 调用replaceTensor 为Assemble插op
+    ReplaceTensor replaceTensor;
+    EXPECT_EQ(replaceTensor.RunOnFunction(*currFunctionPtr), SUCCESS);
+    int opSize = currFunctionPtr->Operations().size();
+    // 校验删除Assemble逻辑
+    PreGraphProcess preGraph;
+    EXPECT_EQ(preGraph.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(currFunctionPtr->Operations().size(), opSize);
+
 }
 } // namespace tile_fwk
 } // namespace npu
