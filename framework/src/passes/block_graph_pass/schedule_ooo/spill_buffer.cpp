@@ -1091,6 +1091,10 @@ void OoOScheduler::FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntry
 bool OoOScheduler::CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue)
 {
     auto& spillOp = spillIssue->tileOp;
+    if (!spillOp.GetInputOperand(0)) {
+        APASS_LOG_WARN_F(Elements::Tensor, "CheckMachineAndL1: spillOp %s has no inputOperand.", spillIssue->GetOpInfo().c_str());
+        return false;
+    }
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 &&
         allocIssue->tileOp.GetOpcodeStr().find("L1_ALLOC") != std::string::npos &&
         spillOp.GetOpcodeStr().find("COPY_IN") == std::string::npos &&
