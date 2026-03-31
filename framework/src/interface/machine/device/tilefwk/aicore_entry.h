@@ -78,6 +78,7 @@ struct ExecuteContext {
     int32_t blockIdx;
     uint32_t seqNo{0};
     __gm__ DynFuncData* funcDataList{nullptr};
+    __gm__ DynFuncBin* cceBinary;
     uint64_t lastTaskFinishCycle{0};
 #if ENABLE_AICORE_PRINT
     AicoreLogger logger;
@@ -322,9 +323,13 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext* ctx, uint32_t taskId)
 #else
     CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, nullptr};
 #endif
+    int64_t gmStackAddr = funcData->stackWorkSpaceAddr + ctx->blockIdx * funcData->stackWorkSpaceSize;
+    if (ctx->cceBinary[opAttrs[0]]->mixResourceType != 0) {
+        gmStackAddr = funcData->stackWorkSpaceAddr + get_block_idx() * funcData->stackWorkSpaceSize;
+    }
     CallSubFuncTask(
         opAttrs[0] + funcData->exprTbl[0], &param,
-        funcData->stackWorkSpaceAddr + ctx->blockIdx * funcData->stackWorkSpaceSize,
+        gmStackAddr,
         (__gm__ int64_t*)funcData->startArgs->commContexts);
     SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
     PipeSync();
