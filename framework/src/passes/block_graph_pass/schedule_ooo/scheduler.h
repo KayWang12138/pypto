@@ -22,6 +22,7 @@
 #include "passes/pass_utils/reschedule_utils.h"
 #include "passes/pass_check/schedule_ooo_checker.h"
 #include "passes/block_graph_pass/schedule_ooo/buffer_pool.h"
+#include "passes/block_graph_pass/schedule_ooo/dep_manager.h"
 #include "passes/statistics/ooo_schedule_statistic.h"
 
 namespace npu::tile_fwk {
@@ -29,12 +30,6 @@ namespace npu::tile_fwk {
 inline int BytesPerElement(DataType dataType) { return BytesOf(dataType); }
 
 inline uint64_t CeilAlign(uint64_t a, int b) { return ((a + b - 1) / b) * b; }
-
-inline bool IsViewOp(const Operation& op)
-{
-    const auto opc = op.GetOpcode();
-    return opc == Opcode::OP_VIEW || opc == Opcode::OP_VIEW_TYPE;
-}
 
 using LocalBufferPtr = std::shared_ptr<LocalBuffer>;
 
@@ -115,9 +110,9 @@ private:
     std::unordered_map<Operation*, bool> opIsRetiredMap;
     std::unordered_map<Operation*, std::vector<Operation*>> opViewOpsMap;
     std::unordered_map<Operation*, std::pair<OpCoreType, int>> opCoreLocationMap;
-    std::unordered_map<Operation*, std::unordered_set<Operation*>> opPredecessorsMap;
-    std::unordered_map<Operation*, std::unordered_set<Operation*>> opSuccessorsMap;
     std::unordered_map<Operation*, std::vector<int>> opReqMemIdsMap;
+
+    DependencyManager depManager_;
 
     std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS;
 
@@ -200,8 +195,7 @@ private:
     size_t ShapeCeilAlign(std::vector<int64_t> shape, DataType dtype);
     Status DelBufRefCount(const int memId);
     void UpdateBufferUsage(MemoryType bufferType, int memId, bool isFree);
-    void PrintOpList(std::vector<Operation*> operations);
-    void PrintDependencies();
+    void PrintOpList(std::vector<Operation *> operations);
     Status PrintSpillFailedInfo(Operation* allocOp, bool isGenSpill);
 
     // gen spill
@@ -244,7 +238,6 @@ private:
     Status FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vector<Operation*> &assembleOps);
     Status SpillOnBlock();
     Status SpillOnCoreBlock(OpCoreType coreType, int idx, bool &didSpill);
-    Operation* SkipViewChain(Operation* start, bool followProducers);
 
     // 新增：插入Operation到orderedOps
     void InsertOrdered(Operation* insertOp);
@@ -287,7 +280,7 @@ private:
     Status FindMoveFromTensor(Operation &occupyOp, int oldMemId, MemoryType memType, bool &rearrangeUBBF16, LogicalTensorPtr &moveFromTensor);
     Status GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor, LogicalTensorPtr &moveFromTensor);
 
-// ============ 辅助函数：获取Operation属性 ============
+    // ============ 辅助函数：获取Operation属性 ============
     int GetExecOrder(Operation* op) const { return opExecOrderMap.at(op); }
     PipeType GetPipeType(Operation* op) const { return opPipeTypeMap.at(op); }
     bool IsAlloc(Operation* op) const { return opIsAllocMap.at(op); }
@@ -295,8 +288,8 @@ private:
     std::pair<OpCoreType, int>& GetCoreLocation(Operation* op) { return opCoreLocationMap[op]; }
     const std::pair<OpCoreType, int>& GetCoreLocation(Operation* op) const { return opCoreLocationMap.at(op); }
     std::vector<Operation*>& GetViewOps(Operation* op) { return opViewOpsMap[op]; }
-    std::unordered_set<Operation*>& GetPredecessors(Operation* op) { return opPredecessorsMap[op]; }
-    std::unordered_set<Operation*>& GetSuccessors(Operation* op) { return opSuccessorsMap[op]; }
+    std::unordered_set<Operation *> &GetPredecessors(Operation *op) { return depManager_.GetPredecessors(op); }
+    std::unordered_set<Operation *> &GetSuccessors(Operation *op) { return depManager_.GetSuccessors(op); }
     std::vector<int>& GetReqMemIds(Operation* op) { return opReqMemIdsMap[op]; }
 
     // 辅助函数：设置Operation属性
