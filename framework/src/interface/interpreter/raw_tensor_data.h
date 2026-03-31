@@ -360,6 +360,11 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
     void SetDevPtr(uint8_t* ptr) { devPtr_ = ptr; }
     uint8_t* GetDevPtr() { return devPtr_; }
 
+    bool IsSharedMemory() const { return isSharedMemory_; }
+    int GetGroupIndex() const { return groupIndex_; }
+    int GetMemType() const { return memType_; }
+    size_t GetShmemOffset() const { return shmemOffset_; }
+
     void ToFile(const std::string& path) const
     {
         std::ofstream ofile(path, std::ios::out | std::ios::binary);
@@ -372,6 +377,18 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
 
     size_t GetDataSize() const { return nelem * elemSize_; }
 
+    void SetExternalBuffer(void* ptr, size_t size);
+    size_t GetExternalBufferSize() const;
+
+    void SetExternalBuffer(void* ptr, size_t size) {
+        externalBufferPtr_ = ptr;
+        externalBufferSize_ = size;
+    }
+
+    bool UsesExternalBuffer() const { return externalBufferPtr_ != nullptr; }
+    void* GetExternalBuffer() const { return externalBufferPtr_; }
+    size_t GetExternalBufferSize() const { return externalBufferSize_; }
+
 private:
     uint8_t* devPtr_{nullptr};
     DataType dataType_;
@@ -379,6 +396,14 @@ private:
     Stride stride_;
     size_t nelem;
     size_t elemSize_;
+
+    bool isSharedMemory_{false};
+    int groupIndex_{-1};
+    int memType_{0};
+    size_t shmemOffset_{0};
+    void* shmemPtr_{nullptr};
+    void* externalBufferPtr_{nullptr};
+    size_t externalBufferSize_{0};
 };
 
 using RawTensorDataPtr = std::shared_ptr<RawTensorData>;
