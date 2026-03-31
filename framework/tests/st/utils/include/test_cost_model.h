@@ -203,23 +203,29 @@ private:
     {
         (void)kArgs;
         InitTilingData(kArgs, true);
-        constexpr int threadNum = 6;
+        constexpr int threadNum = dynamic::MAX_LAUNCH_SCHEDULE_AICPU_NUM + dynamic::MAX_CONTROL_FLOW_AICPU_NUM;
         std::thread aicpus[threadNum];
         std::atomic<int> idx{0};
-        for (int i = 0; i < threadNum; i++) {
-            aicpus[i] = std::thread([&]() {
-                int tidx = idx++;
-                cpu_set_t cpuset;
-                CPU_ZERO(&cpuset);
-                CPU_SET(tidx, &cpuset);
-                constexpr int nameLen = 64;
-                char name[nameLen];
-                sprintf_s(name, sizeof(name), "aicput%d", tidx);
-                pthread_setname_np(pthread_self(), name);
-                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-                auto rc = DynTileFwkBackendKernelServer(kArgs);
-                EXPECT_EQ(rc, 0);
-            });
+
+        auto threadFun = [&](uint32_t runMode) {
+            int tidx = idx++;
+            cpu_set_t cpuset;
+            CPU_ZERO(&cpuset);
+            CPU_SET(tidx, &cpuset);
+            constexpr int nameLen = 64;
+            char name[nameLen];
+            sprintf_s(name, sizeof(name), "aicput%d", tidx);
+            pthread_setname_np(pthread_self(), name);
+            pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+            DeviceKernelArgs *localArgs = kArgs;
+            localArgs->parameter.runMode = runMode;
+            auto rc = DynTileFwkBackendKernelServer(localArgs);
+            EXPECT_EQ(rc, 0);
+        };
+
+        aicpus[0] = std::thread(threadFun, RUN_SPLITTED_STREAM_CTRL);
+        for (int i = 1; i < threadNum; i++) {
+            aicpus[i] = std::thread(threadFun, RUN_SPLITTED_STREAM_SCHE);
         }
 
         for (int i = 0; i < threadNum; i++) {
