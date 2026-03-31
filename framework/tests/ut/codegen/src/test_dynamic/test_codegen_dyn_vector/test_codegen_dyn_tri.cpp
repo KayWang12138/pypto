@@ -70,7 +70,7 @@ TEST_F(TestCodegenDynTri, TestTriU)
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    std::string expect = R"!!!(TTriUL<1>(ubTensor_8, ubTensor_6, (int)((RUNTIME_COA_GET_PARAM(37))));
+    std::string expect = R"!!!(TTriUL<1>(ubTensor_2, ubTensor_0, (int)((RUNTIME_COA_GET_PARAM(37))));
 )!!!";
     CheckStringExist(expect, res);
 }

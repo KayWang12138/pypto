@@ -44,8 +44,6 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -152,7 +150,7 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowProdLine)
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    const std::string expect = R"(TRowProdLine<3>(ubTensor_39, ubTensor_36);)";
+    const std::string expect = R"(TRowProdLine<3>(ubTensor_17, ubTensor_14);)";
     CheckStringExist(expect, res);
 }
 
@@ -195,7 +193,7 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowProdSingleTileTensor)
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    const std::string expect = R"(TRowProdSingle<LastUse3Dim<0, 0, 1>>(ubTensor_20, ubTensor_17, ubTensor_21);)";
+    const std::string expect = R"(TRowProdSingle<LastUse3Dim<0, 0, 1>>(ubTensor_7, ubTensor_4, ubTensor_8);)";
     CheckStringExist(expect, res);
 }
 
@@ -230,7 +228,7 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowArgMaxLine)
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    const std::string expect = R"(TRowArgMaxLine<3>(ubTensor_10, ubTensor_8, ubTensor_11);)";
+    const std::string expect = R"(TRowArgMaxLine<3>(ubTensor_2, ubTensor_0, ubTensor_3);)";
     CheckStringExist(expect, res);
 }
 
@@ -273,7 +271,7 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowArgMaxSingleTileTensor)
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    const std::string expect = R"(TRowArgMaxSingle(ubTensor_10, ubTensor_8, ubTensor_11);)";
+    const std::string expect = R"(TRowArgMaxSingle(ubTensor_2, ubTensor_0, ubTensor_3);)";
     CheckStringExist(expect, res);
 }
 
@@ -308,7 +306,7 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowArgMinLine)
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    const std::string expect = R"(TRowArgMinLine<3>(ubTensor_10, ubTensor_8, ubTensor_11);)";
+    const std::string expect = R"(TRowArgMinLine<3>(ubTensor_2, ubTensor_0, ubTensor_3);)";
     CheckStringExist(expect, res);
 }
 
@@ -351,7 +349,7 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowArgMinSingleTileTensor)
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    const std::string expect = R"(TRowArgMinSingle(ubTensor_10, ubTensor_8, ubTensor_11);)";
+    const std::string expect = R"(TRowArgMinSingle(ubTensor_2, ubTensor_0, ubTensor_3);)";
     CheckStringExist(expect, res);
 }
 } // namespace npu::tile_fwk

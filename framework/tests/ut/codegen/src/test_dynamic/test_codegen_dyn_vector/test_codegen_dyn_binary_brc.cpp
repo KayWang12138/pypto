@@ -96,7 +96,7 @@ TEST_F(TestCodegenDynBinaryBrc, TestAddBrcTileTensorDynamic)
                 CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
                 std::string res = cop.GenOpCode();
                 std::string expect =
-                    R"!!!(TAdd<LastUse3Dim<0, 1, 1>, TileOp::BroadcastOperand::LEFT_OPERAND>(ubTensor_9, ubTensor_9, ubTensor_11);
+                    R"!!!(TAdd<LastUse3Dim<0, 1, 1>, TileOp::BroadcastOperand::LEFT_OPERAND>(ubTensor_0, ubTensor_0, ubTensor_2);
 )!!!";
                 EXPECT_EQ(res, expect);
                 break;
