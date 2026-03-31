@@ -162,6 +162,7 @@ AGENTS.md 是 OpenCode 的项目级自定义指令文件。当你在本仓库中
 | `pypto-op-analyst` | Subagent | Golden 生成与 Design 设计分析（上下文隔离） |
 | `pypto-op-developer` | Subagent | 代码实现与精度修复（上下文隔离） |
 | `pypto-op-perftuner` | Subagent | 性能分析与调优（上下文隔离） |
+| `pypto-code-merge-agent` | Subagent | 代码变更到 PR 提交的自动化流程 |
 
 **Orchestrator 状态机**：
 
@@ -266,13 +267,13 @@ Stage 7: 性能调优 → PerfTuner Subagent
 
 **常见问题**：workspace 不足、循环展开问题、合轴问题、并行执行问题、valid_shape 错误
 
-#### `pypto-binary-search-verify` — 二分精度定位（Verify 模式）
+#### `pypto-precision-verify` — 二分精度定位（Verify 模式）
 
 **适用场景**：利用精度工具通过二分查找定位算子精度问题
 
 **核心原理**：通过 `pass_verify_save` 在循环中条件性保存中间结果，对比精度
 
-#### `pypto-binary-search-without-verify` — 二分精度定位（Checkpoint 模式）
+#### `pypto-precision-binary-search` — 二分精度定位（Checkpoint 模式）
 
 **适用场景**：通过在 kernel 函数中添加检查点 tensor 进行原地修改，对比中间结果精度
 

@@ -314,7 +314,7 @@ python3 custom/operator_name/operator.py --run-mode npu
 使用 `perf-analyzer` 子技能，分析性能数据，生成性能报告和优化建议。
 ```bash
 # 加载性能分析技能
-Read .agents/skills/pypto-operator-auto-tune/perf-analyzer/SKILL.md
+Read perf-analyzer/SKILL.md
 ```
 
 ### 3.2 查看性能报告
@@ -379,13 +379,13 @@ Read .agents/skills/pypto-operator-auto-tune/perf-analyzer/SKILL.md
 
 ```bash
 # 第1步：加载开箱性能调优指南
-Read .agents/skills/pypto-operator-auto-tune/tune-frontend/SKILL.md
+Read tune-frontend/SKILL.md
 
 # 第2步：加载深度性能调优指南
-Read .agents/skills/pypto-operator-auto-tune/tune-swimlane/SKILL.md
+Read tune-swimlane/SKILL.md
 
 # 第3步：加载核内性能调优指南
-Read .agents/skills/pypto-operator-auto-tune/tune-incore/SKILL.md
+Read tune-incore/SKILL.md
 ```
 
 ### 4.2 性能问题诊断

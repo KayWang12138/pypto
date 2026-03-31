@@ -29,7 +29,7 @@ description: 分析 PyPTO 算子的性能指标。用于分析 PyPTO 算子的�
 
 示例：
 ```bash
-python3 .agents/skills/pypto-operator-auto-tune/perf-analyzer/scripts/analyze_perf.py <output_dir>
+python3 scripts/analyze_perf.py <output_dir>
 ```
 
 ### 步骤 1：定位性能数据文件
@@ -146,7 +146,7 @@ AicoreTime = 核心总工作时间 - 总等待时间
 
 ### 步骤 6：生成性能分析报告
 
-性能分析报告模板：".agents/skills/pypto-operator-auto-tune/perf-analyzer/templates/performance_report_template.md"
+性能分析报告模板："templates/performance_report_template.md"
 性能分析报告应包含以下内容：
 
 #### 6.1 核心性能指标
