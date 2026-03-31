@@ -98,6 +98,28 @@ TILEOP void ShmemClear(__ubuf__ T* buffer, __gm__ T* shmemTensorAddr)
     }
 }
 
+template <typename T, uint32_t bufferEleNum>
+TILEOP void ShmemClearFlag(
+    __ubuf__ T* buffer, __gm__ T* shmemTensorAddr, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2,
+    uint32_t shmemTensorRawShape3)
+{
+    ShmemUbTile<T, 1, bufferEleNum> ubTile(1, bufferEleNum);
+    pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(buffer));
+    pto::TEXPANDS(ubTile, static_cast<T>(0));
+    PIPE_SYNC_EVENT(PIPE_V, PIPE_MTE3, EVENT_ID0);
+
+    const uint32_t shmemTensorEleNum = shmemTensorRawShape1 * shmemTensorRawShape2 * shmemTensorRawShape3;
+    const uint32_t fullChunkCount = shmemTensorEleNum / bufferEleNum;
+
+    for (int32_t i = 0; i < fullChunkCount; i++) {
+        __gm__ T* dstAddr = shmemTensorAddr + bufferEleNum * i;
+        ShapeDyn shape = MakeShape(1, bufferEleNum);
+        StrideDyn strideDyn = MakeStride(1, bufferEleNum);
+        ShmemGlobalTensor<T, 1, bufferEleNum> gmTensor(dstAddr, shape, strideDyn);
+        pto::TSTORE<decltype(ubTile), decltype(gmTensor), pto::AtomicType::AtomicNone>(gmTensor, ubTile);
+    }
+}
+
 template <
     typename T, uint32_t shmemTensorRawShape0, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2,
     uint32_t bufferEleNum>
@@ -113,7 +135,7 @@ TILEOP void ShmemSet(
         buffer, shmemTensorAddr);
 }
 
-template <typename T, uint32_t worldSize, uint32_t stride, uint32_t signalMaxTileNum, uint32_t bufferEleNum>
+template <typename T, uint32_t worldSize, uint32_t signalMaxTileNum, uint32_t stride, uint32_t bufferEleNum>
 TILEOP void ShmemSet(
     CoreFuncParam* param, __ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t shmemTensorOffset0,
     uint32_t shmemTensorOffset1, uint32_t shmemTensorOffset2, uint32_t shmemTensorOffset3,
@@ -121,18 +143,11 @@ TILEOP void ShmemSet(
     uint32_t shmemTensorRawShape3, uint32_t shmemTensorShape0, uint32_t shmemTensorShape1, uint32_t shmemTensorShape2,
     uint32_t shmemTensorShape3, uint32_t ownerRank, __gm__ int64_t* hcclContext)
 {
-    uint32_t colTileNum = CeilDiv(shmemTensorRawShape3, shmemTensorShape3);
-    uint32_t rowTileNum = CeilDiv(shmemTensorRawShape2, shmemTensorShape2);
-    uint32_t tileIndex =
-        (shmemTensorOffset2 / shmemTensorShape2) * colTileNum + (shmemTensorOffset3 / shmemTensorShape3);
-    int32_t totalTileNum = rowTileNum * colTileNum;
+    uint32_t maxTileNume = static_cast<uint32_t>(GetVirtualMaxTileNum((uint64_t)shmemTensorBaseAddr));
 
-    __gm__ T* shmemTensorAddr =
-        MapVirtualAddr<T>(hcclContext, shmemTensorBaseAddr, ownerRank) +
-        CalcLinearOffset(shmemTensorRawShape1, totalTileNum, shmemTensorOffset0, shmemTensorOffset1, tileIndex) *
-            stride;
+    __gm__ T* shmemTensorAddr = MapVirtualAddr<T>(hcclContext, shmemTensorBaseAddr, ownerRank);
 
-    ShmemClear<T, bufferEleNum, worldSize, signalMaxTileNum, stride>(buffer, shmemTensorAddr);
+    ShmemClearFlag<T, bufferEleNum>(buffer, shmemTensorAddr, worldSize, maxTileNume, stride);
 }
 
 // ---------------------------------------------------------------------------

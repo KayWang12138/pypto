@@ -19,8 +19,8 @@
 
 #define RUNTIME_GetHcclRankId(groupIndex) ((TileOp::CommContext*)(startArgs->commContexts[groupIndex]))->rankId
 
-#define RUNTIME_BindTensor(groupIndex, memType, size, index)                                                     \
-    [&](void* ctx, uint64_t tgroupIndex, uint64_t tmemType, uint64_t tsize) -> uint64_t {                        \
-        uint64_t param[] = {tgroupIndex, tmemType, tsize};                                                       \
+#define RUNTIME_BindTensor(groupIndex, memType, size, maxTileNum, index)                                         \
+    [&](void* ctx, uint64_t tgroupIndex, uint64_t tmemType, uint64_t tsize, uint64_t tmaxTileNum) -> uint64_t {  \
+        uint64_t param[] = {tgroupIndex, tmemType, tsize, tmaxTileNum};                                          \
         return (uint64_t)runtimeCallList[RuntimeCallStage::T_RUNTIME_CALL_SHMEM_ALLOC](ctx, (uint64_t)(&param)); \
-    }(ctx, groupIndex, memType, size)
+    }(ctx, groupIndex, memType, size, maxTileNum)

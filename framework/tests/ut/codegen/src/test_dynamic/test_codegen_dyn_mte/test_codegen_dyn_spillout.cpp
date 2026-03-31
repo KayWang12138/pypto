@@ -123,11 +123,11 @@ TEST_F(TestCodegenDynSpillOut, L1SpillTileTensor)
     codegen.GenCode(*function, {});
     const std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TStore<TStoreConfig<CopyOutMode::NZ2ND, 0, 0>>(gmTensor_18, l1Tensor_19, Coord2Dim(0, 0));)!!!";
+        R"!!!(TStore<TStoreConfig<CopyOutMode::NZ2ND, 0, 0>>(gmTensor_9, l1Tensor_10, Coord2Dim(0, 0));)!!!";
     CheckStringExist(expect, res);
 
     expect =
-        R"!!!(TLoad<CopyInMode::ND2ND, PaddingMode::NO_PADDING>(l1Tensor_19, gmTensor_18, Coord2Dim(0, 0), 64, 64);)!!!";
+        R"!!!(TLoad<CopyInMode::ND2ND, PaddingMode::NO_PADDING>(l1Tensor_10, gmTensor_9, Coord2Dim(0, 0), 64, 64);)!!!";
     CheckStringExist(expect, res);
 }
 } // namespace npu::tile_fwk

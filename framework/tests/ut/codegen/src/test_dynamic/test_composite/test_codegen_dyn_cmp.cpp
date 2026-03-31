@@ -142,7 +142,7 @@ TEST_F(TestCodegenDynCmp, CmpTileTensor)
 
     std::string res = cop.GenOpCode();
     std::string expect =
-        R"!!!(TCompare<0, 0>(ubTensor_9, ubTensor_9, ubTensor_9, ubTensor_9);
+        R"!!!(TCompare<0, 0>(ubTensor_0, ubTensor_0, ubTensor_0, ubTensor_0);
 )!!!";
     EXPECT_EQ(res, expect);
 }

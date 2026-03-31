@@ -17,6 +17,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdlib>
+#include "aicore_constants.h"
 #include "device_utils.h"
 #include "machine/utils/dynamic/spsc_queue.h"
 #include "machine/utils/dynamic/dev_workspace.h"
@@ -49,6 +50,7 @@ inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum, 
 const int DEVICE_MAX_AICPU_NUM = 7;
 const uint16_t AICPU_EXECUTE_TIMEOUT = 1080; // 18min
 
+const uint8_t INVALID_COREIDX_POSITION = 0xff;
 struct SchduleContext {
     uint64_t waitTaskCnt_[AICORE_TYPE_NUM]{0, 0};
     uint32_t corePendReadyCnt_[AICORE_TYPE_NUM]{0, 0};
@@ -60,6 +62,18 @@ struct SchduleContext {
     uint32_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
     uint32_t readyCount[AICORE_TYPE_NUM]{0, 0};
     uint32_t sendCnt_[AICORE_TYPE_NUM]{0, 0};
+
+    uint8_t coreIdxPosition_[MAX_AICORE_NUM]{0}; // used to record core's position in runReadyCoreIdx_
+    bool wrapCoreAvail_[MAX_AICORE_NUM]{true};   // used to check coreIdx is used by wrap_manager
+
+    SchduleContext()
+    {
+        auto size = sizeof(coreIdxPosition_);
+        auto ret = memset_s(wrapCoreAvail_, size, 1, size);
+        if (ret != 0) {
+            DEV_ERROR(DevCommonErr::MEMCPY_FAILED, "#sche.init: wrapCoreAvail_ init failed: %d", ret);
+        }
+    }
 };
 
 } // namespace npu::tile_fwk::dynamic

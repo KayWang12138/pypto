@@ -107,7 +107,7 @@ struct DynFuncBin {
     uint32_t psgId;
     uint64_t funcHash;
     int32_t wrapVecId{-1};
-    uint32_t mixResourceType{0};
+    uint8_t mixResourceType{0};
 };
 
 struct DynFuncHeader {

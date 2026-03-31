@@ -1,5 +1,5 @@
 ---
-name: pypto-op-perf-analyzer
+name: perf-analyzer
 description: 分析 PyPTO 算子的性能指标。用于分析 PyPTO 算子的性能指标，从性能数据文件中提取关键指标，计算性能评级，并提供性能瓶颈分析和优化建议。
 ---
 
@@ -18,6 +18,19 @@ description: 分析 PyPTO 算子的性能指标。用于分析 PyPTO 算子的�
 - 获取性能优化建议
 
 ## 工作流程
+
+## 步骤 0：数据提取方法
+
+使用技能中的性能分析脚本自动生成报告：
+
+**重要提示**
+性能分析脚本 `analyze_perf.py` 的位置在 `pypto-operator-auto-tuner/perf-analyzer/scripts/analyze_perf.py`
+性能数据目录位于**算子目录**下的 `output/` 目录中
+
+示例：
+```bash
+python3 scripts/analyze_perf.py <output_dir>
+```
 
 ### 步骤 1：定位性能数据文件
 
@@ -60,7 +73,7 @@ AicoreTime = 核心总工作时间 - 总等待时间
 核心利用率 = AicoreTime / (AicoreTime + 等待总时间) × 100%
 ```
 
-#### 3.2 气泡等待率
+#### 3.2 气泡率
 
 ```
 气泡率 = 等待调度时间 / (AicoreTime + 等待调度时间) × 100%
@@ -97,7 +110,7 @@ AicoreTime = 核心总工作时间 - 总等待时间
 **高气泡率（>10%）可能原因：**
 - 任务粒度过小
 - 调度策略不当
-- stitch 参数过小
+- stich参数过小
 
 **分析要点：**
 - 识别气泡率最高的核心
@@ -133,6 +146,7 @@ AicoreTime = 核心总工作时间 - 总等待时间
 
 ### 步骤 6：生成性能分析报告
 
+性能分析报告模板："templates/performance_report_template.md"
 性能分析报告应包含以下内容：
 
 #### 6.1 核心性能指标
@@ -162,155 +176,6 @@ AicoreTime = 核心总工作时间 - 总等待时间
 - 瓶颈原因分析
 - 影响程度评估
 
-#### 6.5 性能优化建议
-
-按优先级分类的优化建议：
-- 高优先级优化
-- 中优先级优化
-- 低优先级优化
-
-## 数据提取方法
-
-使用技能中的性能分析脚本自动生成报告：
-
-```bash
-python3 scripts/analyze_perf.py <output_dir>
-```
-
-示例：
-```bash
-python3 scripts/analyze_perf.py output/output_20260214_152549_401503_511667
-```
-
-## 性能优化建议库
-
-**⚠️ 重要提示**：优先采用高优先级的优化建议。
-
-### 优化建议：气泡率高
-
-**症状：** 气泡率 > 20%
-
-**可能原因：**
-- 任务粒度过小
-- 调度策略不当
-- stitch 参数过小
-
-**优化建议：**
-1. **Stitch 调优（优先级高）**
-   ```python
-   @pypto.frontend.jit(
-      runtime_options={"stitch_function_max_num": 128}
-   )
-   ```
-
-2. **对于循环类任务动态轴范围较广时开启loop_unroll（优先级高）**
-   ```python
-   for idx in pypto.loop(A.shape[0] // 64, unroll_list=[8, 4, 2, 1], name="A", idx_name='b'):
-       offset = idx * s2_tile
-   ```
-
-   **参数说明：**
-   - `loop_count`: 循环迭代次数
-   - `unroll_list`: 展开因子列表，按优先级从高到低排列
-   - `[8, 4, 2, 1]`: 常用配置，适应性强
-   - `[16, 8, 4, 2, 1]`: 适用于更大循环
-   - `[4, 2, 1]`: 适用于较小循环
-   - `name`: 循环名称（用于调试）
-   - `idx_name`: 循环索引变量名
-
-   **⚠️ 重要原则：**
-   - **loop_unroll 必须放在最内层循环！**
-   - **不要在外层循环使用 unroll_list**
-   - **循环迭代次数应足够大（建议 > 8）**
-
-   **优化案例对比：**
-
-   **原始代码（无优化）：**
-   ```python
-   for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx"):
-      for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
-         for n2_idx in pypto.loop(n2_sym, name="LOOP_n2", idx_name="n2_idx"):
-               for g_idx in pypto.loop(g_loop, name="LOOP_g", idx_name="g_idx"):
-                  for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx"):
-                     # 计算逻辑
-   ```
-
-   **优化后代码（添加 loop_unroll）：**
-   ```python
-   for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx="b_idx"):
-      for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
-         for n2_idx in pypto.loop(n2_sym, name="LOOP_n2", idx_name="n2_idx"):
-               for g_idx in pypto.loop(g_loop, name="LOOP_g", idx_name="g_idx"):
-                  # 最内层循环添加 unroll_list
-                  for s2_idx in pypto.loop(s2_loop, unroll_list=[8, 4, 2, 1], name="LOOP_s2", idx_name="s2_idx"):
-                     # 计算逻辑
-   ```
-
-3. **调整任务粒度**
-   - 增大 loop 的 tile size
-   - 减少 loop 层级
-
-4. **优化调度策略**
-    ```python
-    @pypto.frontend.jit(runtime_options={"device_sched_mode": 1})
-    ```
-
-5. **使用 L1Reuse 优化**
-   ```python
-   pypto.set_pass_options(cube_l1_reuse_setting={0: 8})
-   ```
-
-### 优化建议 2：核心利用率低
-
-**症状：** 核心利用率 < 30%
-
-**可能原因：**
-- 等待时间过长
-- 任务调度不均衡
-- 内存访问冲突
-
-**优化建议：**
-
-1. **使用 L2 亲和调度**
-    ```python
-    @pypto.frontend.jit(runtime_options={"device_sched_mode": 1})
-    ```
-
-2. **调整 Tilesize 增大算术强度**
-   ```python
-   # Cube Tilesize
-   pypto.set_cube_tile_shapes([128, 128], [128, 512], [128, 128])
-   ```
-
-3. **启用 CubeNBuffer 合并同构子图**
-   ```python
-   pypto.set_pass_options(cube_nbuffer_setting={0: 8})
-   ```
-
-### 优化建议 3：核心负载不均衡
-
-**症状：** AicoreTime差异 > 20%
-
-**可能原因：**
-- 任务分配不均
-- 任务执行时间差异大
-
-**优化建议：**
-
-1. **调整任务分配策略**
-   - 使用更均匀的任务切分
-   - 避免某些核心任务过多
-
-2. **优化任务粒度**
-   - 调整 tile size 使任务更均匀
-
-3. **调整任务执行顺序**
-   - 使用 sg_set_scope 合并子图
-   ```python
-   pypto.set_pass_options(sg_set_scope=1)
-   # ... 操作 ...
-   pypto.set_pass_options(sg_set_scope=-1)
-   ```
 
 ## 性能分析报告模板
 
@@ -391,9 +256,3 @@ python3 scripts/analyze_perf.py output/output_20260214_152549_401503_511667
 
 可在 https://ui.perfetto.dev/ 上传泳道图文件进行可视化分析。
 ```
-
-## 参考资料
-
-- [性能调优文档](../../../docs/tutorials/debug/performance.md)
-- [Matmul 高性能编程](../../../docs/tutorials/debug/matmul_performance_guide.md)
-- [性能优化案例](../../../docs/tutorials/debug/performance_case_quantindexerprolog.md)
