@@ -21,50 +21,50 @@
 #include <tuple>
 
 namespace CostModel {
-    class PvModelCaseConfigBase {
-    protected:
-        using ArgPack = std::tuple<uint64_t, uint64_t, std::string>;
+class PvModelCaseConfigBase {
+protected:
+    using ArgPack = std::tuple<uint64_t, uint64_t, std::string>;
 
-        std::string title_;
-        uint64_t binAddr_;
-        std::string binPath_;
-        std::vector<ArgPack> inputArgs_;
-        std::vector<ArgPack> outputArgs_;
+    std::string title_;
+    uint64_t binAddr_;
+    std::string binPath_;
+    std::vector<ArgPack> inputArgs_;
+    std::vector<ArgPack> outputArgs_;
 
-    public:
-        virtual ~PvModelCaseConfigBase() = default;
-        PvModelCaseConfigBase() = default;
-        void SetTitle(std::string title);
-        void SetCoreType(uint64_t coreType);
-        std::uint64_t GetCoreType();
-        void SetBin(uint64_t addr, std::string path);
-        void AddInputArg(uint64_t addr, uint64_t size, std::string path);
-        void AddOutputArg(uint64_t addr, uint64_t size, std::string path);
-        virtual void Dump(std::string path) = 0;
-        uint64_t subcoreId_;
-    };
+public:
+    virtual ~PvModelCaseConfigBase() = default;
+    PvModelCaseConfigBase() = default;
+    void SetTitle(std::string title);
+    void SetCoreType(uint64_t coreType);
+    std::uint64_t GetCoreType();
+    void SetBin(uint64_t addr, std::string path);
+    void AddInputArg(uint64_t addr, uint64_t size, std::string path);
+    void AddOutputArg(uint64_t addr, uint64_t size, std::string path);
+    virtual void Dump(std::string path) = 0;
+    uint64_t subcoreId_;
+};
 
-    class PvModelSystemConfig {
-    public:
-        virtual void Dump(std::string) {};
-        virtual ~PvModelSystemConfig() = default;
-    };
+class PvModelSystemConfig {
+public:
+    virtual void Dump(std::string){};
+    virtual ~PvModelSystemConfig() = default;
+};
 
-    class PvModelSystemA2A3Config : public PvModelSystemConfig {
-    public:
-        PvModelSystemA2A3Config() = default;
-        void Dump(std::string path);
-    };
+class PvModelSystemA2A3Config : public PvModelSystemConfig {
+public:
+    PvModelSystemA2A3Config() = default;
+    void Dump(std::string path);
+};
 
-    class PvModelSystemA5Config : public PvModelSystemConfig {
-    public:
-        PvModelSystemA5Config() = default;
-        void Dump(std::string path);
-    };
+class PvModelSystemA5Config : public PvModelSystemConfig {
+public:
+    PvModelSystemA5Config() = default;
+    void Dump(std::string path);
+};
 
-    class PvModelCaseConfig : public PvModelCaseConfigBase {
-    public:
-        PvModelCaseConfig() = default;
-        void Dump(std::string path);
-    };
+class PvModelCaseConfig : public PvModelCaseConfigBase {
+public:
+    PvModelCaseConfig() = default;
+    void Dump(std::string path);
+};
 } // namespace CostModel

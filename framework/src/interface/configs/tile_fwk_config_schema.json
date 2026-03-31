@@ -981,9 +981,9 @@
                                 "zh": "PVC2_OOO调度策略。",
                                 "en": "PVC2_OOO Pass Scheduling Strategy."
                             },
-                            "properties": {     
+                            "properties": {
                             }
-                        }   
+                        }
                     }
                 }
             }

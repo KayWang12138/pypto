@@ -21,9 +21,10 @@
 
 namespace npu {
 namespace tile_fwk {
-bool TuneTileOpSeqForVF::IsGroupMergeable(PipeSync &ps, size_t left, size_t k, int groupNum) {
+bool TuneTileOpSeqForVF::IsGroupMergeable(PipeSync& ps, size_t left, size_t k, int groupNum)
+{
     size_t tempIdx = left;
-    for (auto &groupOp : mergedOps[groupNum]) {
+    for (auto& groupOp : mergedOps[groupNum]) {
         if (ps.HasDataDependency(*groupOp, *opList_[k], --tempIdx, k)) {
             return false;
         }
@@ -31,14 +32,17 @@ bool TuneTileOpSeqForVF::IsGroupMergeable(PipeSync &ps, size_t left, size_t k, i
     return true;
 }
 
-bool TuneTileOpSeqForVF::IsMergeable(std::unordered_set<Operation *> &moveFrontOp, size_t left, size_t right, PipeSync &ps, int groupNum) {
+bool TuneTileOpSeqForVF::IsMergeable(
+    std::unordered_set<Operation*>& moveFrontOp, size_t left, size_t right, PipeSync& ps, int groupNum)
+{
     for (size_t k = left + 1; k < right; k++) {
         if (opList_[k]->GetOpcode() == Opcode::OP_VIEW || opList_[k]->GetOpcode() == Opcode::OP_ASSEMBLE ||
             opList_[k]->GetOpcode() == Opcode::OP_NOP || opList_[k]->GetOpcode() == Opcode::OP_HUB) {
             continue;
         }
         // 如果该op和vecTileop0和vecTileop1都存在依赖关系，则不能融合
-        if (ps.HasDataDependency(*opList_[left], *opList_[k], left, k) && ps.HasDataDependency(*opList_[k], *opList_[right], k, right)) {
+        if (ps.HasDataDependency(*opList_[left], *opList_[k], left, k) &&
+            ps.HasDataDependency(*opList_[k], *opList_[right], k, right)) {
             return false;
         }
         // vecTileop0 op(set) vecTileop1(wait) 这种情况下两个vecTileop中间的op需要前移
@@ -64,9 +68,11 @@ bool TuneTileOpSeqForVF::IsMergeable(std::unordered_set<Operation *> &moveFrontO
     return true;
 }
 
-void TuneTileOpSeqForVF::MoveOpsForMerge(const std::unordered_set<Operation *> &moveFrontOp, size_t left, size_t right, int groupNum) {
-    std::vector<Operation *> moveLeft;
-    std::vector<Operation *> moveRight;
+void TuneTileOpSeqForVF::MoveOpsForMerge(
+    const std::unordered_set<Operation*>& moveFrontOp, size_t left, size_t right, int groupNum)
+{
+    std::vector<Operation*> moveLeft;
+    std::vector<Operation*> moveRight;
     for (size_t k = left + 1; k < right; k++) {
         if (moveFrontOp.count(opList_[k])) {
             moveLeft.emplace_back(opList_[k]);
@@ -90,8 +96,11 @@ void TuneTileOpSeqForVF::MoveOpsForMerge(const std::unordered_set<Operation *> &
     opList_.insert(insertPosL, moveLeft.begin(), moveLeft.end());
 }
 
-void TuneTileOpSeqForVF::CollectGroupIndices(std::vector<Operation *> &group, std::vector<size_t> &ubCopyIndices, std::vector<size_t> &nonUbCopyIndices, std::vector<size_t> &groupIndices) {
-    for (auto *op : group) {
+void TuneTileOpSeqForVF::CollectGroupIndices(
+    std::vector<Operation*>& group, std::vector<size_t>& ubCopyIndices, std::vector<size_t>& nonUbCopyIndices,
+    std::vector<size_t>& groupIndices)
+{
+    for (auto* op : group) {
         auto it = std::find(opList_.begin(), opList_.end(), op);
         if (it == opList_.end()) {
             continue;
@@ -111,7 +120,10 @@ void TuneTileOpSeqForVF::CollectGroupIndices(std::vector<Operation *> &group, st
 }
 
 // return 0表示需要前移，return 1表示需要后移， return 2表示不能移动
-void TuneTileOpSeqForVF::JudgeNeedMoveUbCopy(PipeSync &ps, size_t ubCopyIdx, std::vector<size_t> &nonUbCopyIndices, std::vector<size_t> &needMoveFront, std::vector<size_t> &needMoveBack) {
+void TuneTileOpSeqForVF::JudgeNeedMoveUbCopy(
+    PipeSync& ps, size_t ubCopyIdx, std::vector<size_t>& nonUbCopyIndices, std::vector<size_t>& needMoveFront,
+    std::vector<size_t>& needMoveBack)
+{
     size_t minIdx = nonUbCopyIndices.front();
     size_t maxIdx = nonUbCopyIndices.back();
     // 判断ubCopyOp是否能前移
@@ -122,7 +134,7 @@ void TuneTileOpSeqForVF::JudgeNeedMoveUbCopy(PipeSync &ps, size_t ubCopyIdx, std
             if (it == needMoveFront.end()) {
                 canMoveFront = false;
                 break;
-            } 
+            }
         }
     }
     if (canMoveFront) {
@@ -133,7 +145,7 @@ void TuneTileOpSeqForVF::JudgeNeedMoveUbCopy(PipeSync &ps, size_t ubCopyIdx, std
     for (size_t i = ubCopyIdx + 1; i <= maxIdx; i++) {
         if (ps.HasDataDependency(*opList_[ubCopyIdx], *opList_[i], ubCopyIdx, i)) {
             auto it = std::find(needMoveBack.begin(), needMoveBack.end(), i);
-            if (it ==needMoveBack.end()) {
+            if (it == needMoveBack.end()) {
                 canMoveBack = false;
                 break;
             }
@@ -144,7 +156,10 @@ void TuneTileOpSeqForVF::JudgeNeedMoveUbCopy(PipeSync &ps, size_t ubCopyIdx, std
     }
 }
 
-void TuneTileOpSeqForVF::MoveUbCopyOp(const std::vector<size_t> &needMoveFront, const std::vector<size_t> &needMoveBack, const std::vector<size_t> &nonUbCopyIndices) {
+void TuneTileOpSeqForVF::MoveUbCopyOp(
+    const std::vector<size_t>& needMoveFront, const std::vector<size_t>& needMoveBack,
+    const std::vector<size_t>& nonUbCopyIndices)
+{
     if (needMoveFront.empty() && needMoveBack.empty()) {
         return;
     }
@@ -152,8 +167,8 @@ void TuneTileOpSeqForVF::MoveUbCopyOp(const std::vector<size_t> &needMoveFront, 
     size_t maxIdx = nonUbCopyIndices.back();
 
     // 收集需要移动的 op
-    std::vector<Operation *> needMoveFrontOp;
-    std::vector<Operation *> needMoveBackOp;
+    std::vector<Operation*> needMoveFrontOp;
+    std::vector<Operation*> needMoveBackOp;
     std::unordered_set<size_t> moveIdxSet;
     for (auto idx : needMoveFront) {
         needMoveFrontOp.emplace_back(opList_[idx]);
@@ -165,11 +180,11 @@ void TuneTileOpSeqForVF::MoveUbCopyOp(const std::vector<size_t> &needMoveFront, 
     }
 
     // 构建新的 opList，跳过需要移动的 op
-    std::vector<Operation *> newOpList;
+    std::vector<Operation*> newOpList;
     for (size_t i = 0; i < opList_.size(); i++) {
         if (i == minIdx) {
             // 在 minIdx 前插入需要前移的 op
-            for (auto *op : needMoveFrontOp) {
+            for (auto* op : needMoveFrontOp) {
                 newOpList.emplace_back(op);
             }
         }
@@ -178,7 +193,7 @@ void TuneTileOpSeqForVF::MoveUbCopyOp(const std::vector<size_t> &needMoveFront, 
         }
         if (i == maxIdx) {
             // 在 maxIdx 后插入需要后移的 op
-            for (auto *op : needMoveBackOp) {
+            for (auto* op : needMoveBackOp) {
                 newOpList.emplace_back(op);
             }
         }
@@ -186,7 +201,8 @@ void TuneTileOpSeqForVF::MoveUbCopyOp(const std::vector<size_t> &needMoveFront, 
     opList_ = std::move(newOpList);
 }
 
-void TuneTileOpSeqForVF::ProcessGroupUbCopyOrder(PipeSync &ps, std::vector<Operation *> &group) {
+void TuneTileOpSeqForVF::ProcessGroupUbCopyOrder(PipeSync& ps, std::vector<Operation*>& group)
+{
     std::vector<size_t> ubCopyIndices;
     std::vector<size_t> nonUbCopyIndices;
     std::vector<size_t> groupIndices;
@@ -194,7 +210,7 @@ void TuneTileOpSeqForVF::ProcessGroupUbCopyOrder(PipeSync &ps, std::vector<Opera
     if (ubCopyIndices.empty() || nonUbCopyIndices.empty()) {
         return;
     }
-    
+
     // 对group中的所有UB_COPY_ND2NZ, 判断其需要前移还是后移还是不能移动
     std::vector<size_t> needMoveFront;
     std::vector<size_t> needMoveBack;
@@ -202,16 +218,18 @@ void TuneTileOpSeqForVF::ProcessGroupUbCopyOrder(PipeSync &ps, std::vector<Opera
         JudgeNeedMoveUbCopy(ps, ubIdx, nonUbCopyIndices, needMoveFront, needMoveBack);
     }
     // 根据判断结果对其进行移动
-    MoveUbCopyOp(needMoveFront, needMoveBack, nonUbCopyIndices);   
+    MoveUbCopyOp(needMoveFront, needMoveBack, nonUbCopyIndices);
 }
 
-void TuneTileOpSeqForVF::AdjustUbCopyNd2NzOrder(PipeSync &ps) {
-    for (auto &group : mergedOps) {
+void TuneTileOpSeqForVF::AdjustUbCopyNd2NzOrder(PipeSync& ps)
+{
+    for (auto& group : mergedOps) {
         ProcessGroupUbCopyOrder(ps, group);
     }
 }
 
-void TuneTileOpSeqForVF::FindPipeVIdx(std::vector<size_t> &pipeVIdx, AIVCore coreType) {
+void TuneTileOpSeqForVF::FindPipeVIdx(std::vector<size_t>& pipeVIdx, AIVCore coreType)
+{
     PipeSync ps;
     for (size_t i = 0; i < opList_.size(); i++) {
         if (opList_[i]->GetOpcode() == Opcode::OP_VEC_DUP) {
@@ -225,7 +243,8 @@ void TuneTileOpSeqForVF::FindPipeVIdx(std::vector<size_t> &pipeVIdx, AIVCore cor
     }
 }
 
-void TuneTileOpSeqForVF::ChangeOpSeq(PipeSync &ps, bool isAIV1) {
+void TuneTileOpSeqForVF::ChangeOpSeq(PipeSync& ps, bool isAIV1)
+{
     AIVCore coreType;
     if (!isAIV1) {
         coreType = AIVCore::AIV0;
@@ -243,9 +262,11 @@ void TuneTileOpSeqForVF::ChangeOpSeq(PipeSync &ps, bool isAIV1) {
     for (size_t idx = 0; idx + 1 < pipeVIdx.size(); idx++) {
         size_t left = pipeVIdx[idx];
         size_t right = pipeVIdx[idx + 1];
-        APASS_LOG_DEBUG_F(Elements::Operation, "Try to merge %d %s and %d %s", opList_[left]->GetOpMagic(), opList_[left]->GetOpcodeStr().c_str(),
-            opList_[right]->GetOpMagic(), opList_[right]->GetOpcodeStr().c_str());
-        
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "Try to merge %d %s and %d %s", opList_[left]->GetOpMagic(),
+            opList_[left]->GetOpcodeStr().c_str(), opList_[right]->GetOpMagic(),
+            opList_[right]->GetOpcodeStr().c_str());
+
         // 先看vecTileop0是否已经在mergedOps中
         int groupNum = -1;
         for (size_t i = 0; i < mergedOps.size(); i++) {
@@ -257,7 +278,7 @@ void TuneTileOpSeqForVF::ChangeOpSeq(PipeSync &ps, bool isAIV1) {
             }
         }
 
-        std::unordered_set<Operation *> moveFrontOp;
+        std::unordered_set<Operation*> moveFrontOp;
         if (!IsMergeable(moveFrontOp, left, right, ps, groupNum)) {
             continue;
         }
@@ -266,7 +287,7 @@ void TuneTileOpSeqForVF::ChangeOpSeq(PipeSync &ps, bool isAIV1) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Need merge.");
         if (groupNum == -1) {
             // 将vecTileop0和vecTileop1添加到mergedOps中
-            std::vector<Operation *> newOp = {opList_[left], opList_[right]};
+            std::vector<Operation*> newOp = {opList_[left], opList_[right]};
             mergedOps.emplace_back(newOp);
             groupNum = mergedOps.size() - 1;
         } else {
@@ -284,19 +305,21 @@ void TuneTileOpSeqForVF::ChangeOpSeq(PipeSync &ps, bool isAIV1) {
     AdjustUbCopyNd2NzOrder(ps);
 }
 
-Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
+Status TuneTileOpSeqForVF::RunOnFunction(Function& function)
+{
     if (!config::GetPassGlobalConfig(KEY_ENABLE_VF, false)) {
         APASS_LOG_DEBUG_F(Elements::Function, "TuneTileOpSeqForVF is skipped for ENABLE_VF is false.");
         return SUCCESS;
     }
     size_t funcId = 0;
-    for (auto &program : function.rootFunc_->programs_) {
-        std::vector<Operation *> opList(program.second->Operations(false).DuplicatedOpList());
+    for (auto& program : function.rootFunc_->programs_) {
+        std::vector<Operation*> opList(program.second->Operations(false).DuplicatedOpList());
         opList_ = opList;
         PipeSync ps;
         APASS_LOG_DEBUG_F(Elements::Function, "=======================function %zu ======================", funcId);
-        for (const auto &op : opList_) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Input Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+        for (const auto& op : opList_) {
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "Input Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
             ps.BuildTensorRangeMap(op);
             auto opcfg = OpcodeManager::Inst().GetTileOpCfg(op->GetOpcode());
             if (opcfg.pipeIdStart_ != PipeType::PIPE_V) {
@@ -307,7 +330,9 @@ Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
             }
             // 假定：pipe_V的op的AIV类型只能是AIV0或AIV1
             if (op->GetAIVCore() != AIVCore::AIV0 && op->GetAIVCore() != AIVCore::AIV1) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Pipe_V op %d %s AIV type is neither AIV0 nor AIV1, RunOnFunction failed.", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "Pipe_V op %d %s AIV type is neither AIV0 nor AIV1, RunOnFunction failed.",
+                    op->GetOpMagic(), op->GetOpcodeStr().c_str());
                 return FAILED;
             }
         }
@@ -317,8 +342,9 @@ Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
         // 将调整后的oplist刷新到function中去
         program.second->ScheduleBy(opList_, true);
         APASS_LOG_DEBUG_F(Elements::Function, "---------------------------------------------------");
-        for (const auto &op : opList_) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Output Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+        for (const auto& op : opList_) {
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "Output Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
         }
         funcId++;
 

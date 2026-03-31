@@ -26,7 +26,7 @@
 namespace CostModel {
 using namespace std;
 
-int CostModelInterface::BuildCostModel(std::vector<std::string> &inputConfigs)
+int CostModelInterface::BuildCostModel(std::vector<std::string>& inputConfigs)
 {
     // Get Input Config Parameter
     CostModel::ParseArgs argParser;
@@ -53,7 +53,7 @@ int CostModelInterface::BuildCostModel(std::vector<std::string> &inputConfigs)
 
     argParser.Parse(inputConfigs);
 
-    for (auto &path : configFilePath) {
+    for (auto& path : configFilePath) {
         std::vector<std::string> conf;
         if (path.find(".json") != std::string::npos) {
             parser.ParseJsonConfig(path, conf);
@@ -65,7 +65,7 @@ int CostModelInterface::BuildCostModel(std::vector<std::string> &inputConfigs)
 
     if (!configs.empty()) {
         SIMULATION_LOGW("Override configurations:");
-        for (auto &cfg : configs) {
+        for (auto& cfg : configs) {
             SIMULATION_LOGW("%s", cfg.c_str());
         }
     }
@@ -96,14 +96,15 @@ int CostModelInterface::BuildCostModel(std::vector<std::string> &inputConfigs)
         sim->config.aicpuMachineNumber = 1;
         sim->config.cubeMachineNumberPerAICPU = 1;
         sim->config.vecMachineNumberPerAICPU = 1;
-        sim->config.coreMachineNumberPerAICPU = sim->config.cubeMachineNumberPerAICPU + sim->config.vecMachineNumberPerAICPU;
+        sim->config.coreMachineNumberPerAICPU =
+            sim->config.cubeMachineNumberPerAICPU + sim->config.vecMachineNumberPerAICPU;
         sim->BuildSystem();
     }
     return 0;
 }
 
-void CostModelInterface::GetInput(std::vector<npu::tile_fwk::Function *> &inputFuncs, bool topoFromRootFunc,
-                               std::string &startFuncName)
+void CostModelInterface::GetInput(
+    std::vector<npu::tile_fwk::Function*>& inputFuncs, bool topoFromRootFunc, std::string& startFuncName)
 {
     if (IsNeedInput(sim->mode)) {
         if (!startFuncName.empty()) {
@@ -125,13 +126,13 @@ void CostModelInterface::GetInput(std::vector<npu::tile_fwk::Function *> &inputF
     }
 }
 
-void CostModelInterface::Submit(std::vector<npu::tile_fwk::Function *> &inputFuncs, bool topoFromRootFunc,
-                             std::string startFuncName)
+void CostModelInterface::Submit(
+    std::vector<npu::tile_fwk::Function*>& inputFuncs, bool topoFromRootFunc, std::string startFuncName)
 {
     GetInput(inputFuncs, topoFromRootFunc, startFuncName);
 }
 
-void CostModelInterface::SubmitSingleFunction(npu::tile_fwk::Function *func)
+void CostModelInterface::SubmitSingleFunction(npu::tile_fwk::Function* func)
 {
     parser.ParseSingleFunction(sim, func);
     sim->InitCoreTask();
@@ -150,7 +151,7 @@ void CostModelInterface::RunPerformance()
 {
     // Simulation System Work
     auto start = std::chrono::high_resolution_clock::now();
-    for (auto &device : sim->machineGroup[static_cast<int>(MachineType::DEVICE)]) {
+    for (auto& device : sim->machineGroup[static_cast<int>(MachineType::DEVICE)]) {
         device->LoggerRecordTaskStart("Start Device Machine ");
     }
 
@@ -160,15 +161,16 @@ void CostModelInterface::RunPerformance()
         terminate = sim->IsTerminate() || sim->IsDeadlock();
     }
     sim->globalCycles = sim->lastSimulationCycles;
-    for (auto &device : sim->machineGroup[static_cast<int>(MachineType::DEVICE)]) {
+    for (auto& device : sim->machineGroup[static_cast<int>(MachineType::DEVICE)]) {
         device->LoggerRecordTaskEnd();
     }
 
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
     if (sim->IsDeadlock()) {
-        SIMULATION_LOGE("ErrCode: F%u, Simulation is deadlock at cycle %lu !!!!!!!!!", 
-                        static_cast<unsigned>(CostModel::ForwardSimErrorScene::DEAD_LOCK), sim->globalCycles);
+        SIMULATION_LOGE(
+            "ErrCode: F%u, Simulation is deadlock at cycle %lu !!!!!!!!!",
+            static_cast<unsigned>(CostModel::ForwardSimErrorScene::DEAD_LOCK), sim->globalCycles);
     }
     SIMULATION_LOGW("CostModel Simulation Runtime: %ld(s)", duration.count());
 }
@@ -189,7 +191,7 @@ void CostModelInterface::Report()
         sim->OutputPerfettoTrace();
         sim->OutputLogForSwimLane();
         sim->OutputCalendarScheduleCpp();
-    }  else if (sim->mode == SimMode::LEAF_FUNCTION) {
+    } else if (sim->mode == SimMode::LEAF_FUNCTION) {
         sim->OutputTrace();
         sim->OutputPerfettoTrace();
         sim->DumpFunctionExecuteTime();
@@ -202,4 +204,4 @@ void CostModelInterface::Report()
         throw std::invalid_argument("Simulation Deadlock Error");
     }
 }
-}
+} // namespace CostModel

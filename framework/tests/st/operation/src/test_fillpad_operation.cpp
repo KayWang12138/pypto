@@ -18,8 +18,9 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct FillPadOpFuncArgs : public OpFuncArgs {
-    FillPadOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape, float padValue)
-        : viewShape_(viewShape), tileShape_(tileShape), padValue_(padValue) {}
+    FillPadOpFuncArgs(const std::vector<int64_t>& viewShape, const std::vector<int64_t> tileShape, float padValue)
+        : viewShape_(viewShape), tileShape_(tileShape), padValue_(padValue)
+    {}
 
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
@@ -27,21 +28,25 @@ struct FillPadOpFuncArgs : public OpFuncArgs {
 };
 
 struct FillPadOpMetaData {
-    explicit FillPadOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
-        : opFunc_(opFunc), test_data_(test_data) {}
+    explicit FillPadOpMetaData(const OpFunc& opFunc, const nlohmann::json& test_data)
+        : opFunc_(opFunc), test_data_(test_data)
+    {}
 
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
 static void FillPadOperationExeFunc1Dims(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0]}, {outputs[0]})
+    {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
-        const struct FillPadOpFuncArgs *args = static_cast<const FillPadOpFuncArgs *>(opArgs);
+        const struct FillPadOpFuncArgs* args = static_cast<const FillPadOpFuncArgs*>(opArgs);
         const int firstViewShape = inputs[0].GetShape()[0];
         const int bloop = CeilDiv(firstDim, firstViewShape);
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
             auto tileTensor = View(
                 inputs[0], {firstViewShape}, SymbolicScalar::FromConcrete(args->viewShape_), {bIdx * firstViewShape});
             TileShape::Current().SetVecTile(args->tileShape_);
@@ -52,19 +57,24 @@ static void FillPadOperationExeFunc1Dims(
 }
 
 static void FillPadOperationExeFunc2Dims(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0]}, {outputs[0]})
+    {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
-        const struct FillPadOpFuncArgs *args = static_cast<const FillPadOpFuncArgs *>(opArgs);
+        const struct FillPadOpFuncArgs* args = static_cast<const FillPadOpFuncArgs*>(opArgs);
         const int firstViewShape = inputs[0].GetShape()[0];
         const int secondViewShape = inputs[0].GetShape()[1];
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor = View(inputs[0], {firstViewShape, secondViewShape},
-                    SymbolicScalar::FromConcrete(args->viewShape_), {bIdx * firstViewShape, sIdx * secondViewShape});
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                auto tileTensor = View(
+                    inputs[0], {firstViewShape, secondViewShape}, SymbolicScalar::FromConcrete(args->viewShape_),
+                    {bIdx * firstViewShape, sIdx * secondViewShape});
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = FillPad(tileTensor, "constant", args->padValue_);
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
@@ -75,11 +85,13 @@ static void FillPadOperationExeFunc2Dims(
 
 class FillPadOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<FillPadOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(TestFillPad, FillPadOperationTest,
+INSTANTIATE_TEST_SUITE_P(
+    TestFillPad, FillPadOperationTest,
     ::testing::ValuesIn(
         GetOpMetaData<FillPadOpMetaData>({FillPadOperationExeFunc2Dims, FillPadOperationExeFunc1Dims}, "FillPad")));
 
-TEST_P(FillPadOperationTest, TestFillPad) {
+TEST_P(FillPadOperationTest, TestFillPad)
+{
     auto test_data = GetParam().test_data_;
     std::string padValueType = GetValueByName<std::string>(test_data, "pad_value_type");
     float padValue = 0.0f;

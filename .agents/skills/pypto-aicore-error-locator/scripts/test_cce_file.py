@@ -27,35 +27,35 @@ logger = logging.getLogger(__name__)
 
 def test_cce_file(cce_file, test_cmd, run_dir):
     logger.info(f"测试 CCE 文件: {cce_file}")
-    
+
     backup_file = cce_file + ".bak"
     shutil.copy(cce_file, backup_file)
     cce_lines = read_file(cce_file)
     original_lines = cce_lines.copy()
-    
+
     cce_lines = comment_special_lines(cce_lines)
-    
+
     commentable_lines = get_commentable_lines(cce_lines)
     logger.info(f"可注释的行数: {len(commentable_lines)}")
-    
+
     if not commentable_lines:
         logger.info("错误：没有可注释的行")
         write_file(cce_file, original_lines)
         os.remove(backup_file)
         return False, None
-    
+
     logger.info("注释所有可注释的行...")
     current_lines = cce_lines.copy()
     current_lines = comment_lines(current_lines, commentable_lines)
-    
+
     write_file(cce_file, current_lines)
     logger.info("运行测试...")
     returncode, output = run_test(test_cmd, run_dir)
     error_exists = has_error(returncode, output)
-    
+
     write_file(cce_file, original_lines)
     os.remove(backup_file)
-    
+
     if error_exists:
         print_error_info(output, logger)
         logger.info("结果: 注释所有行后仍有 error，此文件可能不是问题文件")
@@ -78,26 +78,26 @@ def main():
     if len(sys.argv) < 4:
         print_usage()
         sys.exit(1)
-    
+
     cce_file = sys.argv[1]
     test_cmd = sys.argv[2]
     run_dir = sys.argv[3]
-    
+
     cce_file = os.path.abspath(cce_file)
     run_dir = os.path.abspath(run_dir)
-    
+
     valid, error_msg = validate_path(cce_file, "CCE 文件")
     if not valid:
         logger.info(error_msg)
         sys.exit(1)
-    
+
     valid, error_msg = validate_path(run_dir, "运行目录")
     if not valid:
         logger.info(error_msg)
         sys.exit(1)
-    
+
     is_problem_file, _ = test_cce_file(cce_file, test_cmd, run_dir)
-    
+
     if is_problem_file:
         logger.info("\n此文件可能是问题文件")
         logger.info(cce_file)

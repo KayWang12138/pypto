@@ -345,7 +345,7 @@ def outer_kernel(
 ):
     pypto.set_vec_tile_shapes(1, 1, 16, 32)
     inner_add(a, b, out)  # Inlined during parsing
-    
+
 ```
 
 **What the parser does:**
@@ -450,4 +450,3 @@ self.context.add(var_name, value)
 The PTO Frontend provides a powerful and extensible system for parsing Python code into optimized tensor computation IR. By understanding the architecture, key concepts, and existing extension mechanisms documented here, developers can effectively work with, maintain, and debug the frontend parser.
 
 For questions or issues, please refer to the source code documentation, test cases, or reach out to the PTO development team.
-

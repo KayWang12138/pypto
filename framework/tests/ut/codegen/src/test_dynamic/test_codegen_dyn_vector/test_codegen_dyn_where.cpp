@@ -34,7 +34,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -44,7 +45,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynWhere, TestDynOpWhere) {
+TEST_F(TestCodegenDynWhere, TestDynOpWhere)
+{
     auto function = GenMockFuncDyn("TestDynOpWhere");
 
     std::vector<int64_t> shape = {64, 64};
@@ -58,7 +60,7 @@ TEST_F(TestCodegenDynWhere, TestDynOpWhere) {
     auto localTensorSrc1 =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = function->AddOperation(
+    auto& op = function->AddOperation(
         Opcode::OP_WHERE_TT, {localTensorCond, localTensorSrc0, localTensorSrc1}, {localTensorRes, localTensorTmp});
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();

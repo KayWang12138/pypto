@@ -23,11 +23,12 @@
 #define MODULE_NAME "CommonOperationEliminate"
 
 namespace npu::tile_fwk {
-static std::unordered_map<uint64_t, std::pair<LogicalTensorPtr, std::vector<Operation *>>> hashCache;
-void SortedProducer(std::vector<Operation *> &sortedProducers) {
-    std::sort(sortedProducers.begin(), sortedProducers.end(), [](const Operation *op1, const Operation *op2) {
-        const auto &iOp1 = op1->GetIOperands();
-        const auto &iOp2 = op2->GetIOperands();
+static std::unordered_map<uint64_t, std::pair<LogicalTensorPtr, std::vector<Operation*>>> hashCache;
+void SortedProducer(std::vector<Operation*>& sortedProducers)
+{
+    std::sort(sortedProducers.begin(), sortedProducers.end(), [](const Operation* op1, const Operation* op2) {
+        const auto& iOp1 = op1->GetIOperands();
+        const auto& iOp2 = op2->GetIOperands();
         size_t minLen = std::min(iOp1.size(), iOp2.size());
         for (size_t i = 0; i < minLen; ++i) {
             LogicalTensorPtr ptr1 = iOp1[i];
@@ -40,25 +41,27 @@ void SortedProducer(std::vector<Operation *> &sortedProducers) {
             return iOp1.size() < iOp2.size();
         }
         std::stringstream ss1, ss2;
-        for (const auto &attr : OpcodeManager::Inst().GetAttrs(op1->GetOpcode())) {
+        for (const auto& attr : OpcodeManager::Inst().GetAttrs(op1->GetOpcode())) {
             ss1 << " attr: [" << attr << " : " << op1->DumpAttr(attr) << "]";
         }
-        for (const auto &attr : OpcodeManager::Inst().GetAttrs(op2->GetOpcode())) {
+        for (const auto& attr : OpcodeManager::Inst().GetAttrs(op2->GetOpcode())) {
             ss2 << " attr: [" << attr << " : " << op2->DumpAttr(attr) << "]";
         }
         return ss1.str() < ss2.str();
     });
 }
 
-void CollectProducerInfo(const std::vector<Operation *> &sortedProducers, const LogicalTensorPtr &curTensor,
-    std::vector<std::string> &opStrList, std::stringstream &ss) {
-    for (const auto &op : sortedProducers) {
+void CollectProducerInfo(
+    const std::vector<Operation*>& sortedProducers, const LogicalTensorPtr& curTensor,
+    std::vector<std::string>& opStrList, std::stringstream& ss)
+{
+    for (const auto& op : sortedProducers) {
         if (op == nullptr) {
             continue;
         }
         ss.str(""), ss.clear();
         ss << op->GetOpcodeStr(true);
-        for (const auto &iOperands : op->GetIOperands()) {
+        for (const auto& iOperands : op->GetIOperands()) {
             if (iOperands == nullptr || iOperands->tensor == nullptr) {
                 continue;
             }
@@ -88,39 +91,42 @@ void CollectProducerInfo(const std::vector<Operation *> &sortedProducers, const 
         if (!op->DumpAttr().empty()) {
             ss << " " << op->DumpAttr();
         }
-        for (const auto &attr : OpcodeManager::Inst().GetAttrs(op->GetOpcode())) {
+        for (const auto& attr : OpcodeManager::Inst().GetAttrs(op->GetOpcode())) {
             ss << " attr: [" << attr << " : " << op->DumpAttr(attr) << "]";
         }
         ss << "id" << op->GetSubgraphID();
         opStrList.emplace_back(ss.str());
     }
     ss.str(""), ss.clear();
-    for (const auto &str : opStrList) {
+    for (const auto& str : opStrList) {
         ss << str;
     }
 }
 
-unsigned long ComputeHash(const std::vector<Operation *> &producers, LogicalTensorPtr curTensor) {
+unsigned long ComputeHash(const std::vector<Operation*>& producers, LogicalTensorPtr curTensor)
+{
     std::vector<std::string> opStrList;
     std::stringstream ss;
-    std::vector<Operation *> sortedProducers = producers;
+    std::vector<Operation*> sortedProducers = producers;
     SortedProducer(sortedProducers);
     CollectProducerInfo(sortedProducers, curTensor, opStrList, ss);
     std::hash<std::string> hasher;
     return hasher(ss.str());
 }
 
-Status CommonOperationEliminate::RunOnFunction(Function &function) {
+Status CommonOperationEliminate::RunOnFunction(Function& function)
+{
     std::vector<LogicalTensorPtr> sequence;
     auto tensorProducerMap = GetTensorProducers(function, sequence);
-    std::unordered_set<Operation *> cacheProducers;
-    for (auto &orderedTensor : sequence) {
-        auto &producerGroup = tensorProducerMap[orderedTensor];
+    std::unordered_set<Operation*> cacheProducers;
+    for (auto& orderedTensor : sequence) {
+        auto& producerGroup = tensorProducerMap[orderedTensor];
         if (producerGroup.empty() || !TensorProducersMerge(orderedTensor, cacheProducers, tensorProducerMap)) {
             continue;
         }
         for (auto op : producerGroup) {
-            if (op == nullptr) continue;
+            if (op == nullptr)
+                continue;
             if (!cacheProducers.count(op)) {
                 APASS_LOG_DEBUG_F(Elements::Operation, "Operation[%d] was set as deleted.", op->GetOpMagic());
                 op->SetAsDeleted();
@@ -136,29 +142,32 @@ Status CommonOperationEliminate::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
-Status CommonOperationEliminate::PreCheck(Function &function) {
+Status CommonOperationEliminate::PreCheck(Function& function)
+{
     CommonOperationEliminateChecker checker;
     return checker.DoPreCheck(function);
 }
 
-std::unordered_map<LogicalTensorPtr, std::vector<Operation *>> CommonOperationEliminate::GetTensorProducers(
-    Function &function, std::vector<LogicalTensorPtr> &sequence) {
-    std::unordered_map<LogicalTensorPtr, std::vector<Operation *>> tensorProducerMap;
+std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> CommonOperationEliminate::GetTensorProducers(
+    Function& function, std::vector<LogicalTensorPtr>& sequence)
+{
+    std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> tensorProducerMap;
     std::unordered_set<int> visitedTensors;
     auto allOps = function.Operations(true).DuplicatedOpList();
-    for (const auto &op : allOps) {
+    for (const auto& op : allOps) {
         if (op == nullptr) {
             continue;
         }
-        auto &outputTensors = op->GetOOperands();
-        for (const auto &tensor : outputTensors) {
+        auto& outputTensors = op->GetOOperands();
+        for (const auto& tensor : outputTensors) {
             if (tensor == nullptr || visitedTensors.count(tensor->GetMagic())) {
                 continue;
             }
             visitedTensors.insert(tensor->GetMagic());
-            for (const auto &pro : tensor->GetProducers()) {
+            for (const auto& pro : tensor->GetProducers()) {
                 if (pro == nullptr) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "Producer operation nullptr for Tensor[%d].", tensor->GetMagic());
+                    APASS_LOG_ERROR_F(
+                        Elements::Operation, "Producer operation nullptr for Tensor[%d].", tensor->GetMagic());
                     continue;
                 }
                 if (tensorProducerMap.count(tensor) == 0) {
@@ -171,16 +180,17 @@ std::unordered_map<LogicalTensorPtr, std::vector<Operation *>> CommonOperationEl
     return tensorProducerMap;
 }
 
-std::pair<LogicalTensorPtr, std::vector<Operation *>> CommonOperationEliminate::TensorHashExist(
-    const LogicalTensorPtr orderedTensor, std::unordered_set<Operation *> &cacheProducers,
-    const std::unordered_map<LogicalTensorPtr, std::vector<Operation *>> &tensorProducerMap) {
-    const std::vector<Operation *> &producers = tensorProducerMap.find(orderedTensor)->second;
+std::pair<LogicalTensorPtr, std::vector<Operation*>> CommonOperationEliminate::TensorHashExist(
+    const LogicalTensorPtr orderedTensor, std::unordered_set<Operation*>& cacheProducers,
+    const std::unordered_map<LogicalTensorPtr, std::vector<Operation*>>& tensorProducerMap)
+{
+    const std::vector<Operation*>& producers = tensorProducerMap.find(orderedTensor)->second;
     for (auto operation : producers) {
         if (operation == nullptr) {
             continue;
         }
-        auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(operation->GetOpcode());
-        auto &outputsMemType = OpcodeManager::Inst().GetOutputsMemType(operation->GetOpcode());
+        auto& inputsMemType = OpcodeManager::Inst().GetInputsMemType(operation->GetOpcode());
+        auto& outputsMemType = OpcodeManager::Inst().GetOutputsMemType(operation->GetOpcode());
         OpCalcType opCalcType = OpcodeManager::Inst().GetOpCalcType(operation->GetOpcode());
         bool inputCheck = inputsMemType.size() == 1 && inputsMemType[0] == MemoryType::MEM_L1;
         bool calcTypeCheck = opCalcType == OpCalcType::MOVE_LOCAL || opCalcType == OpCalcType::MOVE_IN;
@@ -214,16 +224,20 @@ std::pair<LogicalTensorPtr, std::vector<Operation *>> CommonOperationEliminate::
     return {nullptr, {}};
 }
 
-void CommonOperationEliminate::UpdateView(ViewOpAttribute *viewOpAttribute,
-    const std::shared_ptr<LogicalTensor> oldtensor, const std::shared_ptr<LogicalTensor> newtensor) const {
-    auto &fromOffset = viewOpAttribute->GetFromOffset();
+void CommonOperationEliminate::UpdateView(
+    ViewOpAttribute* viewOpAttribute, const std::shared_ptr<LogicalTensor> oldtensor,
+    const std::shared_ptr<LogicalTensor> newtensor) const
+{
+    auto& fromOffset = viewOpAttribute->GetFromOffset();
     for (size_t j = 0; j < fromOffset.size(); j++) {
         fromOffset[j] -= oldtensor->offset[j] - newtensor->offset[j];
     }
 }
 
-void CommonOperationEliminate::UpdateCopy(CopyOpAttribute *copyOpAttribute,
-    const std::shared_ptr<LogicalTensor> oldtensor, const std::shared_ptr<LogicalTensor> newtensor) const {
+void CommonOperationEliminate::UpdateCopy(
+    CopyOpAttribute* copyOpAttribute, const std::shared_ptr<LogicalTensor> oldtensor,
+    const std::shared_ptr<LogicalTensor> newtensor) const
+{
     if (!copyOpAttribute->IsCopyOut()) {
         auto [fromOffset, memType] = copyOpAttribute->GetCopyInAttr();
         (void)memType;
@@ -234,9 +248,10 @@ void CommonOperationEliminate::UpdateCopy(CopyOpAttribute *copyOpAttribute,
     }
 }
 
-void CommonOperationEliminate::UpdateConnection(LogicalTensorPtr oldtensor, LogicalTensorPtr newtensor) {
+void CommonOperationEliminate::UpdateConnection(LogicalTensorPtr oldtensor, LogicalTensorPtr newtensor)
+{
     auto consumers = oldtensor->GetConsumers();
-    for (auto &cur : consumers) {
+    for (auto& cur : consumers) {
         if (cur == nullptr) {
             continue;
         }
@@ -246,12 +261,12 @@ void CommonOperationEliminate::UpdateConnection(LogicalTensorPtr oldtensor, Logi
             continue;
         }
         if (cur->GetOpcode() == Opcode::OP_VIEW) {
-            if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(attptr)) {
+            if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(attptr)) {
                 UpdateView(viewOpAttribute, oldtensor, newtensor);
                 continue;
             }
         } else if (cur->GetOpcode() == Opcode::OP_COPY_IN) {
-            if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute *>(attptr)) {
+            if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(attptr)) {
                 UpdateCopy(copyOpAttribute, oldtensor, newtensor);
                 continue;
             }
@@ -259,10 +274,11 @@ void CommonOperationEliminate::UpdateConnection(LogicalTensorPtr oldtensor, Logi
     }
 }
 
-bool CommonOperationEliminate::TensorProducersMerge(const LogicalTensorPtr orderedTensor,
-    std::unordered_set<Operation *> &cacheProducers,
-    const std::unordered_map<LogicalTensorPtr, std::vector<Operation *>> &tensorProducerMap) {
-    auto &producers = tensorProducerMap.at(orderedTensor);
+bool CommonOperationEliminate::TensorProducersMerge(
+    const LogicalTensorPtr orderedTensor, std::unordered_set<Operation*>& cacheProducers,
+    const std::unordered_map<LogicalTensorPtr, std::vector<Operation*>>& tensorProducerMap)
+{
+    auto& producers = tensorProducerMap.at(orderedTensor);
     if (producers.empty()) {
         return false;
     }
@@ -295,8 +311,9 @@ bool CommonOperationEliminate::TensorProducersMerge(const LogicalTensorPtr order
     }
     UpdateConnection(oldtensor, newtensor);
     oldtensor->GetConsumers().clear();
-    APASS_LOG_DEBUG_F(Elements::Operation,
-        "In CommonOperationEliminate, Tensor[%d] and producersgroup are marked as redundant.", oldtensor->GetMagic());
+    APASS_LOG_DEBUG_F(
+        Elements::Operation, "In CommonOperationEliminate, Tensor[%d] and producersgroup are marked as redundant.",
+        oldtensor->GetMagic());
     return true;
 }
 } // namespace npu::tile_fwk

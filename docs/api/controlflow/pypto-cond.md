@@ -53,4 +53,3 @@ def kernel():
         if pypto.is_loop_end(s2_idx, bn_per_batch):
             ...
 ```
-

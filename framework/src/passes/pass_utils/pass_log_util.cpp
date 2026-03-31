@@ -20,13 +20,15 @@
 
 namespace npu::tile_fwk {
 
-PassLogUtil::PassLogUtil(Pass &pass, Function &function, size_t passIndex) {
+PassLogUtil::PassLogUtil(Pass& pass, Function& function, size_t passIndex)
+{
     originLogOutPath_ = config::LogFile();
     logFolder_ = pass.LogFolder(config::LogTopFolder(), passIndex);
     logFilePath_ = logFolder_ + "/" + (pass.GetName() + function.GetMagicName() + ".log");
 }
 
-PassLogUtil::~PassLogUtil() {
+PassLogUtil::~PassLogUtil()
+{
     if (!logFolder_.empty()) {
         auto files = GetFiles(logFolder_, "");
         if (files.empty()) {

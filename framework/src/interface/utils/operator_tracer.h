@@ -34,12 +34,14 @@ private:
 };
 
 struct OperatorTracer {
-    OperatorTracer(const void *lr) : loc(lr) {
+    OperatorTracer(const void* lr) : loc(lr)
+    {
         if (IsCheckerEnabled()) {
             checker.PreCheck();
         }
     }
-    ~OperatorTracer() {
+    ~OperatorTracer()
+    {
         if (IsCheckerEnabled())
             checker.PostCheck();
     }

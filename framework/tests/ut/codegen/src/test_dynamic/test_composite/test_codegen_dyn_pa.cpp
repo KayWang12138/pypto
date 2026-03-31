@@ -32,7 +32,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -42,8 +43,8 @@ public:
     void TearDown() override {}
 };
 
-void testPa(PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1) {
-
+void testPa(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1)
+{
     int b = 4;
     int sq = 1;
     int nq = 32;
@@ -72,10 +73,11 @@ void testPa(PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1) {
     Tensor actSeqs(DT_INT32, {b}, "actSeqs");
     Tensor paOut(DT_FP32, {b * nq * sq, dn}, "paOut");
 
-    PageAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
+    PageAttention(
+        qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
         tileConfig, maxUnrollTimes);
 
-    for (auto &ele : Program::GetInstance().GetFunctionMap()) {
+    for (auto& ele : Program::GetInstance().GetFunctionMap()) {
         bool isRootExist = ele.second.get()->rootFunc_ != nullptr;
         if (isRootExist) {
             npu::tile_fwk::CodeGenCtx ctx;
@@ -85,7 +87,8 @@ void testPa(PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1) {
     }
 }
 
-TEST_F(TestCodegenDynPa, PaHighThroughputDviewLargeDynamicValidShape) {
+TEST_F(TestCodegenDynPa, PaHighThroughputDviewLargeDynamicValidShape)
+{
     PaTileShapeConfig tileConfig;
     const int nTile = 128;
     tileConfig.headNumQTile = nTile;

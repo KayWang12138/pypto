@@ -104,4 +104,3 @@ pypto.matmul(a, b, pypto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=Fals
  extend_params = {'scale_tensor': scale_tensor, 'relu_type': pypto.ReLuType.RELU}
  pypto.matmul(a, b, pypto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
 ```
-

@@ -32,7 +32,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -48,7 +49,8 @@ public:
 constexpr const int GATHER_SHAPE0 = 16;
 constexpr const int GATHER_SHAPE1 = 32;
 
-Function &testGatherEle(bool isSupportTileTensor, string funcName) {
+Function& testGatherEle(bool isSupportTileTensor, string funcName)
+{
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     } else {
@@ -67,7 +69,8 @@ Function &testGatherEle(bool isSupportTileTensor, string funcName) {
     Tensor outputTensor(DT_FP32, outputShape, "output_tensor");
 
     config::SetBuildStatic(true);
-    FUNCTION(funcName, {inputScores, inputTmpScores, outputTensor}) {
+    FUNCTION(funcName, {inputScores, inputTmpScores, outputTensor})
+    {
         auto topkIdx = std::get<1>(TopK(inputScores, numExpertsPerTopk, -1));      // [b*s,256]->[b*s,8]
         auto topkWeight = GatherElements(inputTmpScores, topkIdx, 1);              // [b*s,8]
         auto topkWeightSum = Sum(topkWeight, 1, true);                             // [b*s,8]->[b*s,1]
@@ -80,16 +83,15 @@ Function &testGatherEle(bool isSupportTileTensor, string funcName) {
     codeGen.GenCode(*function, {});
     return *function;
 }
-TEST_F(TestCodegenGather, TestGatherEle) {
-    testGatherEle(false, "GATHER_ELEMET_T");
-}
+TEST_F(TestCodegenGather, TestGatherEle) { testGatherEle(false, "GATHER_ELEMET_T"); }
 
-TEST_F(TestCodegenGather, TestGatherEleTileTensor) {
-    Function &func = testGatherEle(true, "GATHER_ELEMET_TILETENSOR");
+TEST_F(TestCodegenGather, TestGatherEleTileTensor)
+{
+    Function& func = testGatherEle(true, "GATHER_ELEMET_TILETENSOR");
     std::string res = GetResultFromCpp(func);
     std::string expect = R"!!!(TgatherElement<4>(ubTensor_13, ubTensor_6, ubTensor_11, ubTensor_14);
 )!!!";
-    CheckStringExist(expect, res);  
+    CheckStringExist(expect, res);
 }
 
 } // namespace npu::tile_fwk

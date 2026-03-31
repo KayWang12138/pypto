@@ -29,18 +29,21 @@ public:
     void TearDown() override { std::cout << "TestProgram TearDown" << std::endl; }
 };
 
-TEST_F(TestProgram, AddOperationWithoutActiveFunction) {
+TEST_F(TestProgram, AddOperationWithoutActiveFunction)
+{
     std::vector<int64_t> shape = {16, 16};
     Tensor input(DT_FP32, shape, "input");
 
     EXPECT_THROW(Add(input, input), std::exception);
 }
 
-TEST_F(TestProgram, GetFunctionByMagicNotFound) {
+TEST_F(TestProgram, GetFunctionByMagicNotFound)
+{
     auto func = Program::GetInstance().GetFunctionByMagic(999999);
     EXPECT_EQ(func, nullptr);
 }
 
-TEST_F(TestProgram, DumpJsonFileInvalidPath) {
+TEST_F(TestProgram, DumpJsonFileInvalidPath)
+{
     EXPECT_THROW(Program::GetInstance().DumpJsonFile("/invalid/path/that/does/not/exist.json"), std::exception);
 }

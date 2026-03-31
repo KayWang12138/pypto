@@ -21,9 +21,9 @@
 
 namespace npu::tile_fwk {
 #ifdef PROCESSOR_SUBPATH
-    constexpr const char *CONFIG_SUBPATH = PROCESSOR_SUBPATH;
+constexpr const char* CONFIG_SUBPATH = PROCESSOR_SUBPATH;
 #else
-    constexpr const char *CONFIG_SUBPATH = "";
+constexpr const char* CONFIG_SUBPATH = "";
 #endif
 namespace {
 const int64_t INVALID_ITEM_VALUE = -1;
@@ -34,53 +34,59 @@ const std::string AICORE_INTRINSIC_DTYPE_MAP = "AICoreintrinsicDtypeMap";
 const std::string VECTORCORE_INTRINSIC_DTYPE_MAP = "VectorCoreintrinsicDtypeMap";
 const std::string INTRIC_PREFIX = "Intrinsic_";
 const size_t FUNC_POS = 2;
-}
+} // namespace
 
-const std::map<PlatformManager::PmIntItem,
-      std::tuple<std::string, std::string, PlatformManager::PmItemParseFunc>> PlatformManager::kPmIntItemParseFuncMap {
-    {PlatformManager::PmIntItem::AICORE_CNT, {"SoCInfo", "ai_core_cnt", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::VECCORE_CNT, {"SoCInfo", "vector_core_cnt", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICPU_CNT, {"SoCInfo", "ai_cpu_cnt", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::MEMORY_SIZE, {"SoCInfo", "memory_size", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::L2_TYPE, {"SoCInfo", "l2_type", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::L2_SIZE, {"SoCInfo", "l2_size", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::L2_PAGE_NUM, {"SoCInfo", "l2PageNum", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_CUBE_FREQ, {"AICoreSpec", "cube_freq", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_L0A_SIZE, {"AICoreSpec", "l0_a_size", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_L0B_SIZE, {"AICoreSpec", "l0_b_size", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_L0C_SIZE, {"AICoreSpec", "l0_c_size", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_L1_SIZE, {"AICoreSpec", "l1_size", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_UB_SIZE, {"AICoreSpec", "ub_size", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_UB_BLOCK_SIZE, {"AICoreSpec", "ubblock_size", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_UB_BANK_SIZE, {"AICoreSpec", "ubbank_size", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_UB_BANK_NUM, {"AICoreSpec", "ubbank_num", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_UB_BANK_GROUP_NUM, {"AICoreSpec", "ubbank_group_num", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_DDR_RATE, {"AICoreMemoryRates", "ddr_rate", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_DDR_READ_RATE, {"AICoreMemoryRates", "ddr_read_rate", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_DDR_WRITE_RATE, {"AICoreMemoryRates", "ddr_write_rate", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_L2_RATE, {"AICoreMemoryRates", "l2_rate", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_L2_READ_RATE, {"AICoreMemoryRates", "l2_read_rate", &PlatformManager::ParseIntValue}},
-    {PlatformManager::PmIntItem::AICORE_L2_WRITE_RATE, {"AICoreMemoryRates", "l2_write_rate", &PlatformManager::ParseIntValue}}
-};
+const std::map<PlatformManager::PmIntItem, std::tuple<std::string, std::string, PlatformManager::PmItemParseFunc>>
+    PlatformManager::kPmIntItemParseFuncMap{
+        {PlatformManager::PmIntItem::AICORE_CNT, {"SoCInfo", "ai_core_cnt", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::VECCORE_CNT, {"SoCInfo", "vector_core_cnt", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICPU_CNT, {"SoCInfo", "ai_cpu_cnt", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::MEMORY_SIZE, {"SoCInfo", "memory_size", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::L2_TYPE, {"SoCInfo", "l2_type", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::L2_SIZE, {"SoCInfo", "l2_size", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::L2_PAGE_NUM, {"SoCInfo", "l2PageNum", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_CUBE_FREQ, {"AICoreSpec", "cube_freq", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_L0A_SIZE, {"AICoreSpec", "l0_a_size", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_L0B_SIZE, {"AICoreSpec", "l0_b_size", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_L0C_SIZE, {"AICoreSpec", "l0_c_size", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_L1_SIZE, {"AICoreSpec", "l1_size", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_UB_SIZE, {"AICoreSpec", "ub_size", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_UB_BLOCK_SIZE,
+         {"AICoreSpec", "ubblock_size", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_UB_BANK_SIZE,
+         {"AICoreSpec", "ubbank_size", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_UB_BANK_NUM, {"AICoreSpec", "ubbank_num", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_UB_BANK_GROUP_NUM,
+         {"AICoreSpec", "ubbank_group_num", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_DDR_RATE,
+         {"AICoreMemoryRates", "ddr_rate", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_DDR_READ_RATE,
+         {"AICoreMemoryRates", "ddr_read_rate", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_DDR_WRITE_RATE,
+         {"AICoreMemoryRates", "ddr_write_rate", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_L2_RATE, {"AICoreMemoryRates", "l2_rate", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_L2_READ_RATE,
+         {"AICoreMemoryRates", "l2_read_rate", &PlatformManager::ParseIntValue}},
+        {PlatformManager::PmIntItem::AICORE_L2_WRITE_RATE,
+         {"AICoreMemoryRates", "l2_write_rate", &PlatformManager::ParseIntValue}}};
 
-const std::map<PlatformManager::PmStrItem, std::tuple<std::string, std::string>> PlatformManager::kPmStrItemMap {
+const std::map<PlatformManager::PmStrItem, std::tuple<std::string, std::string>> PlatformManager::kPmStrItemMap{
     {PlatformManager::PmStrItem::SOC_VERSION, {"version", "SoC_version"}},
     {PlatformManager::PmStrItem::SHORT_SOC_VERSION, {"version", "Short_SoC_version"}},
-    {PlatformManager::PmStrItem::AIC_VERSION, {"version", "AIC_version"}}
-};
+    {PlatformManager::PmStrItem::AIC_VERSION, {"version", "AIC_version"}}};
 
 PlatformManager::PlatformManager() : isInit_(false) {}
 
-PlatformManager::~PlatformManager() {
-    Reset();
-}
+PlatformManager::~PlatformManager() { Reset(); }
 
-PlatformManager& PlatformManager::Instance() {
+PlatformManager& PlatformManager::Instance()
+{
     static PlatformManager platformManager;
     return platformManager;
 }
 
-bool PlatformManager::Initialize(const std::string &socVersion) {
+bool PlatformManager::Initialize(const std::string& socVersion)
+{
     if (isInit_) {
         return true;
     }
@@ -90,7 +96,7 @@ bool PlatformManager::Initialize(const std::string &socVersion) {
         return false;
     }
     // get platform file path
-    const char *envPath = std::getenv(HOME_PATH_ENV_NAME.c_str());
+    const char* envPath = std::getenv(HOME_PATH_ENV_NAME.c_str());
     if (envPath == nullptr) {
         MACHINE_LOGW("Failed to get Env[%s].", HOME_PATH_ENV_NAME.c_str());
         return false;
@@ -122,8 +128,9 @@ bool PlatformManager::Initialize(const std::string &socVersion) {
     return true;
 }
 
-bool PlatformManager::ReadFileContent(const std::string &filePath,
-                                      std::map<std::string, std::map<std::string, std::string>> &contentMap) {
+bool PlatformManager::ReadFileContent(
+    const std::string& filePath, std::map<std::string, std::map<std::string, std::string>>& contentMap)
+{
     std::ifstream ifs(filePath);
     if (!ifs.is_open()) {
         return false;
@@ -175,8 +182,9 @@ bool PlatformManager::ReadFileContent(const std::string &filePath,
     return true;
 }
 
-void PlatformManager::ParseStrItem(const std::map<std::string, std::map<std::string, std::string>> &contentMap) {
-    for (const auto &item : kPmStrItemMap) {
+void PlatformManager::ParseStrItem(const std::map<std::string, std::map<std::string, std::string>>& contentMap)
+{
+    for (const auto& item : kPmStrItemMap) {
         auto iterFirstLayer = contentMap.find(std::get<0>(item.second));
         if (iterFirstLayer == contentMap.end()) {
             continue;
@@ -186,14 +194,16 @@ void PlatformManager::ParseStrItem(const std::map<std::string, std::map<std::str
             continue;
         }
         pmStrItemArray_[static_cast<size_t>(item.first)] = iterSecondLayer->second;
-        MACHINE_LOGI("[%s] [%s] is [%s].", std::get<0>(item.second).c_str(), std::get<1>(item.second).c_str(),
-                     pmStrItemArray_[static_cast<size_t>(item.first)].c_str());
+        MACHINE_LOGI(
+            "[%s] [%s] is [%s].", std::get<0>(item.second).c_str(), std::get<1>(item.second).c_str(),
+            pmStrItemArray_[static_cast<size_t>(item.first)].c_str());
     }
 }
 
-void PlatformManager::ParseIntItem(const std::map<std::string, std::map<std::string, std::string>> &contentMap) {
+void PlatformManager::ParseIntItem(const std::map<std::string, std::map<std::string, std::string>>& contentMap)
+{
     pmIntItemArray_.fill(INVALID_ITEM_VALUE);
-    for (const auto &item : kPmIntItemParseFuncMap) {
+    for (const auto& item : kPmIntItemParseFuncMap) {
         auto iterFirstLayer = contentMap.find(std::get<0>(item.second));
         if (iterFirstLayer == contentMap.end()) {
             continue;
@@ -203,12 +213,14 @@ void PlatformManager::ParseIntItem(const std::map<std::string, std::map<std::str
             continue;
         }
         pmIntItemArray_[static_cast<size_t>(item.first)] = std::get<FUNC_POS>(item.second)(iterSecondLayer->second);
-        MACHINE_LOGI("[%s] [%s] is [%ld].", std::get<0>(item.second).c_str(), std::get<1>(item.second).c_str(),
-                     static_cast<long>(pmIntItemArray_[static_cast<size_t>(item.first)]));
+        MACHINE_LOGI(
+            "[%s] [%s] is [%ld].", std::get<0>(item.second).c_str(), std::get<1>(item.second).c_str(),
+            static_cast<long>(pmIntItemArray_[static_cast<size_t>(item.first)]));
     }
 }
 
-void PlatformManager::ParseInstrDtypeMap(std::map<std::string, std::map<std::string, std::string>> &contentMap) {
+void PlatformManager::ParseInstrDtypeMap(std::map<std::string, std::map<std::string, std::string>>& contentMap)
+{
     auto iter = contentMap.find(AICORE_INTRINSIC_DTYPE_MAP);
     if (iter != contentMap.end()) {
         MappingInstrDtypeMap(iter->second, aiCoreIntrinsicDtypeMap_);
@@ -219,9 +231,11 @@ void PlatformManager::ParseInstrDtypeMap(std::map<std::string, std::map<std::str
     }
 }
 
-void PlatformManager::MappingInstrDtypeMap(const std::map<std::string, std::string> &contentMap,
-                                           std::map<std::string, std::vector<std::string>> &instrDtypeMap) {
-    for (const auto &item : contentMap) {
+void PlatformManager::MappingInstrDtypeMap(
+    const std::map<std::string, std::string>& contentMap,
+    std::map<std::string, std::vector<std::string>>& instrDtypeMap)
+{
+    for (const auto& item : contentMap) {
         if (item.second.empty()) {
             continue;
         }
@@ -232,15 +246,14 @@ void PlatformManager::MappingInstrDtypeMap(const std::map<std::string, std::stri
         }
         instrDtypeMap.emplace(
             item.second.substr(intrcPos + INTRIC_PREFIX.size(), sepPos - intrcPos - INTRIC_PREFIX.size()),
-                               StringUtils::Split(item.second.substr(sepPos + 1), ","));
+            StringUtils::Split(item.second.substr(sepPos + 1), ","));
     }
 }
 
-void PlatformManager::Finalize() {
-    Reset();
-}
+void PlatformManager::Finalize() { Reset(); }
 
-bool PlatformManager::GetAiCoreIntrinsicDtype(const std::string &intrinsic, std::vector<std::string> &dtypeVec) const {
+bool PlatformManager::GetAiCoreIntrinsicDtype(const std::string& intrinsic, std::vector<std::string>& dtypeVec) const
+{
     if (intrinsic.empty()) {
         return false;
     }
@@ -252,7 +265,9 @@ bool PlatformManager::GetAiCoreIntrinsicDtype(const std::string &intrinsic, std:
     return true;
 }
 
-bool PlatformManager::GetVectorCoreIntrinsicDtype(const std::string &intrinsic, std::vector<std::string> &dtypeVec) const {
+bool PlatformManager::GetVectorCoreIntrinsicDtype(
+    const std::string& intrinsic, std::vector<std::string>& dtypeVec) const
+{
     if (intrinsic.empty()) {
         return false;
     }
@@ -264,13 +279,15 @@ bool PlatformManager::GetVectorCoreIntrinsicDtype(const std::string &intrinsic, 
     return true;
 }
 
-void PlatformManager::Reset() {
+void PlatformManager::Reset()
+{
     pmIntItemArray_.fill(INVALID_ITEM_VALUE);
     pmStrItemArray_.fill("");
     isInit_ = false;
 }
 
-int64_t PlatformManager::ParseIntValue(const std::string &value) {
+int64_t PlatformManager::ParseIntValue(const std::string& value)
+{
     if (value.empty()) {
         return INVALID_ITEM_VALUE;
     }
@@ -283,4 +300,4 @@ int64_t PlatformManager::ParseIntValue(const std::string &value) {
         return INVALID_ITEM_VALUE;
     }
 }
-}
+} // namespace npu::tile_fwk

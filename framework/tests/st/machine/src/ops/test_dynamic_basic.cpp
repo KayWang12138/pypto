@@ -31,7 +31,8 @@ using namespace npu::tile_fwk::dynamic;
 
 class DynamicBasicTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
 public:
-    void SetUp() override {
+    void SetUp() override
+    {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
         TileShape::Current().SetVecTile(32, 32);
         TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
@@ -40,12 +41,13 @@ public:
 };
 
 namespace {
-    // Constants to replace magic numbers
-    constexpr int LOOP_COUNT = 8;
-    constexpr int CONDITION_THRESHOLD = 6;
-}
+// Constants to replace magic numbers
+constexpr int LOOP_COUNT = 8;
+constexpr int CONDITION_THRESHOLD = 6;
+} // namespace
 
-TEST_F(DynamicBasicTest, TestHybridLoopIf2) {
+TEST_F(DynamicBasicTest, TestHybridLoopIf2)
+{
     int s = 32;
     int n = 1;
     int m = 1;
@@ -67,14 +69,19 @@ TEST_F(DynamicBasicTest, TestHybridLoopIf2) {
         RawTensorData::CreateConstantTensor<float>(out, 0),
     });
 
-    //clc
-    FUNCTION("main", {t0, t1, t2, t3, t4}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT)) {
+    // clc
+    FUNCTION("main", {t0, t1, t2, t3, t4}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT))
+        {
             auto r0 = Add(t0, t1);
             r0 = Mul(r0, t1); // +t0, +t1
-            IF(i < CONDITION_THRESHOLD) {
+            IF(i < CONDITION_THRESHOLD)
+            {
                 r0 = Sub(r0, t2); // +t2 * 6
-            } ELSE {
+            }
+            ELSE
+            {
                 r0 = Sub(r0, t3); // +t3 * 8
             }
             out = Add(r0, t4);
@@ -86,7 +93,8 @@ TEST_F(DynamicBasicTest, TestHybridLoopIf2) {
     // EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.004f));
 }
 
-TEST_F(DynamicBasicTest, TestHybridLoopIfWithTernary) {
+TEST_F(DynamicBasicTest, TestHybridLoopIfWithTernary)
+{
     constexpr int LOOP_COUNT_INNER = 4;
     int s = 32;
     Tensor t0(DT_FP32, {s, s}, "t0");
@@ -103,18 +111,16 @@ TEST_F(DynamicBasicTest, TestHybridLoopIfWithTernary) {
         RawTensorData::CreateConstantTensor<float>(out, 0),
     });
 
-    //clc
-    FUNCTION("main", {t0, t1, t2}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT_INNER)) {
+    // clc
+    FUNCTION("main", {t0, t1, t2}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT_INNER))
+        {
             auto temp = Add(t0, t0);
             SymbolicScalar s_min = std::ternary(i < 2, i, i + 1);
 
-            IF(s_min == i){
-                temp = Add(temp, t1);
-            }
-            ELSE IF(s_min == i + 1){
-                temp = Add(temp, t2);
-            }
+            IF(s_min == i) { temp = Add(temp, t1); }
+            ELSE IF(s_min == i + 1) { temp = Add(temp, t2); }
             Assemble(temp, {i * s, 0}, out);
         }
     }
@@ -127,20 +133,23 @@ TEST_F(DynamicBasicTest, TestHybridLoopIfWithTernary) {
     golden1.insert(golden1.end(), golden2.begin(), golden2.end());
     golden1.insert(golden1.end(), golden3.begin(), golden3.end());
     golden1.insert(golden1.end(), golden4.begin(), golden4.end());
-    EXPECT_TRUE(resultCmp(golden1, (float *)outs->data(), 0.004f));
+    EXPECT_TRUE(resultCmp(golden1, (float*)outs->data(), 0.004f));
 }
 
-void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &blockTable, Tensor &out, int s) {
-    FUNCTION("main", {t0, t1, blockTable}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s)) {
+void TestLoopViewAssemble(const Tensor& t0, const Tensor& t1, const Tensor& blockTable, Tensor& out, int s)
+{
+    FUNCTION("main", {t0, t1, blockTable}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s))
+        {
             SymbolicScalar idx = GetTensorData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
 
-            Tensor qi(DT_FP32, {s, 2*s}, "qi");
+            Tensor qi(DT_FP32, {s, 2 * s}, "qi");
             Assemble(t1, {0, 0}, qi);
             Assemble(t0s, {0, s}, qi);
 
-            Tensor ki(DT_FP32, {s, 2*s}, "ki");
+            Tensor ki(DT_FP32, {s, 2 * s}, "ki");
             Assemble(t0s, {0, 0}, ki);
             Assemble(t1, {0, s}, ki);
 
@@ -152,7 +161,8 @@ void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &bloc
 }
 
 #if ENABLE_HIDDENLOOP
-TEST_F(DynamicBasicTest, HiddenLoopConditionMixed) {
+TEST_F(DynamicBasicTest, HiddenLoopConditionMixed)
+{
     int s = 32;
     int n = 1;
     int m = 1;
@@ -174,41 +184,47 @@ TEST_F(DynamicBasicTest, HiddenLoopConditionMixed) {
         RawTensorData::CreateConstantTensor<float>(out, 0),
     });
 
-    FUNCTION("main", {t0, t1, t2, t3, t4}, {out}) {
+    FUNCTION("main", {t0, t1, t2, t3, t4}, {out})
+    {
         // LOOP("L0", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
         //     (void)_;
         //     LOOP("L01",FunctionType::DYNAMIC_LOOP,idx1,LoopRange(1)){
         //         (void)idx1;
-                out = Add(t0,t1);
+        out = Add(t0, t1);
+        // }
+        IF(SymbolicScalar(0) < CONDITION_THRESHOLD)
+        {
+            // LOOP("L02",FunctionType::DYNAMIC_LOOP,idx3,LoopRange(1)){
+            //     (void)idx3;
+            t3 = Add(t1, t2);
             // }
-            IF(SymbolicScalar(0) < CONDITION_THRESHOLD){
-                // LOOP("L02",FunctionType::DYNAMIC_LOOP,idx3,LoopRange(1)){
-                //     (void)idx3;
-                    t3 = Add(t1,t2);
-                // }
-                LOOP("L03",FunctionType::DYNAMIC_LOOP,idx4,LoopRange(LOOP_COUNT)){
-                    (void)idx4;
-                    t4 = Sub(t4,t3);
-                }
-            }ELSE{
-                // LOOP("L04",FunctionType::DYNAMIC_LOOP,idx5,LoopRange(1)){
-                //     (void)idx5;
-                    out = Sub(out,t4);
-                // }
+            LOOP("L03", FunctionType::DYNAMIC_LOOP, idx4, LoopRange(LOOP_COUNT))
+            {
+                (void)idx4;
+                t4 = Sub(t4, t3);
             }
-            // LOOP("L05",FunctionType::DYNAMIC_LOOP,idx6,LoopRange(1)){
-            //     (void)idx6;
-                out = Add(t3,t4);
+        }
+        ELSE
+        {
+            // LOOP("L04",FunctionType::DYNAMIC_LOOP,idx5,LoopRange(1)){
+            //     (void)idx5;
+            out = Sub(out, t4);
             // }
+        }
+        // LOOP("L05",FunctionType::DYNAMIC_LOOP,idx6,LoopRange(1)){
+        //     (void)idx6;
+        out = Add(t3, t4);
+        // }
         // }
     }
-    std::vector<float> golden(n * s * m * s,-300.0f);
+    std::vector<float> golden(n * s * m * s, -300.0f);
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 }
 
-TEST_F(DynamicBasicTest, HiddenLoopConditionMixedMulLoops) {
+TEST_F(DynamicBasicTest, HiddenLoopConditionMixedMulLoops)
+{
     int s = 32;
     int n = 1;
     int m = 1;
@@ -230,53 +246,51 @@ TEST_F(DynamicBasicTest, HiddenLoopConditionMixedMulLoops) {
         RawTensorData::CreateConstantTensor<float>(out, 0),
     });
     Tensor t0_temp;
-    FUNCTION("Main", {t0, t1, t2, t3, t4}, {out}) {
+    FUNCTION("Main", {t0, t1, t2, t3, t4}, {out})
+    {
         // LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
         //    (void)i;
-            // LOOP("L01", FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
-            //     (void)j;
-                IF(SymbolicScalar(0) < CONDITION_THRESHOLD) {
-                    t0_temp = Add(t1, t1);
-                } ELSE {
-                    t0_temp = Add(t2, t2);
-                }
-                t0_temp = Add(t0_temp,Element(DT_FP32,1.0f));
-            // }
-            LOOP("L02", FunctionType::DYNAMIC_LOOP, k, LoopRange(2)) {
-                (void)k;
-                t3 = Mul(t3, t2);
-            }
-            // LOOP("L03", FunctionType::DYNAMIC_LOOP, l, LoopRange(1)) {
-            //      (void)l;
-                out = Sub(t3, t0_temp);
-           // }
-            LOOP("L04", FunctionType::DYNAMIC_LOOP, h, LoopRange(2)) {
-                (void)h;
-                t0_temp = Mul(t0_temp, t2);
-            }
-            // LOOP("L05", FunctionType::DYNAMIC_LOOP, q, LoopRange(1)) {
-            //     (void)q;
-                out = Add(out,t0_temp);
-            //}
-       //}
+        // LOOP("L01", FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
+        //     (void)j;
+        IF(SymbolicScalar(0) < CONDITION_THRESHOLD) { t0_temp = Add(t1, t1); }
+        ELSE { t0_temp = Add(t2, t2); }
+        t0_temp = Add(t0_temp, Element(DT_FP32, 1.0f));
+        // }
+        LOOP("L02", FunctionType::DYNAMIC_LOOP, k, LoopRange(2))
+        {
+            (void)k;
+            t3 = Mul(t3, t2);
+        }
+        // LOOP("L03", FunctionType::DYNAMIC_LOOP, l, LoopRange(1)) {
+        //      (void)l;
+        out = Sub(t3, t0_temp);
+        // }
+        LOOP("L04", FunctionType::DYNAMIC_LOOP, h, LoopRange(2))
+        {
+            (void)h;
+            t0_temp = Mul(t0_temp, t2);
+        }
+        // LOOP("L05", FunctionType::DYNAMIC_LOOP, q, LoopRange(1)) {
+        //     (void)q;
+        out = Add(out, t0_temp);
+        //}
+        //}
     }
-    std::vector<float> golden(n * s * m * s,72859.0f);//显示计算结果
+    std::vector<float> golden(n * s * m * s, 72859.0f); // 显示计算结果
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 }
 #endif
 
-TEST_F(DynamicBasicTest, TestDD) {
+TEST_F(DynamicBasicTest, TestDD)
+{
     SetInterpreterConfig();
     int s = 32;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
-    Tensor t1(DT_FP32, {s, s}, "t1");  // [32, 32]
-    Tensor blockTable{
-        DT_INT32, {n, 1},
-         "blockTable"
-    };
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [32*8, 32]
+    Tensor t1(DT_FP32, {s, s}, "t1");     // [32, 32]
+    Tensor blockTable{DT_INT32, {n, 1}, "blockTable"};
     Tensor out(DT_FP32, {n * s, s}, "out");
 
     std::vector<int> tblData;
@@ -286,9 +300,8 @@ TEST_F(DynamicBasicTest, TestDD) {
     std::vector<float> golden(n * s * s, 128.0f);
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
-        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
-        RawTensorData::CreateTensor<int>(blockTable, tblData),  // value: [0,1,2,...,7]
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0), RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+        RawTensorData::CreateTensor<int>(blockTable, tblData), // value: [0,1,2,...,7]
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
@@ -302,11 +315,12 @@ TEST_F(DynamicBasicTest, TestDD) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestHUB) {
+TEST_F(DynamicBasicTest, TestHUB)
+{
     int dim0 = 128;
     int tileSizeSmall = 32;
     int tileSizeLarge = 64;
@@ -314,15 +328,18 @@ TEST_F(DynamicBasicTest, TestHUB) {
     Tensor t0(DT_FP32, {dim0}, "t0");
     Tensor t1(DT_FP32, {dim0}, "t1");
     Tensor t2(DT_FP32, {dim0}, "t2");
-    FUNCTION("main", {t0}, {t2}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx0, LoopRange(1)) {
+    FUNCTION("main", {t0}, {t2})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx0, LoopRange(1))
+        {
             (void)idx0;
             TileShape::Current().SetVecTile(tileSizeSmall);
             auto tmp = Abs(t0);
             TileShape::Current().SetVecTile(tileSizeLarge);
             t1 = Hub(tmp);
         }
-        LOOP("L1", FunctionType::DYNAMIC_LOOP, idx1, LoopRange(1)) {
+        LOOP("L1", FunctionType::DYNAMIC_LOOP, idx1, LoopRange(1))
+        {
             (void)idx1;
             TileShape::Current().SetVecTile(tileSizeLarge);
             t2 = Add(t1, t1);
@@ -338,15 +355,16 @@ TEST_F(DynamicBasicTest, TestHUB) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(dim0, 2.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestTT) {
+TEST_F(DynamicBasicTest, TestTT)
+{
     int s = 64;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [64 * 8, 64]
-    Tensor t1(DT_FP32, {n * s, s}, "t1");  // [64 * 8, 64]
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [64 * 8, 64]
+    Tensor t1(DT_FP32, {n * s, s}, "t1"); // [64 * 8, 64]
     Tensor out(DT_FP32, {n * s, s}, "out");
 
     std::vector<std::string> funcName = {"TENSOR_main"};
@@ -359,8 +377,10 @@ TEST_F(DynamicBasicTest, TestTT) {
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
 
-    FUNCTION("main", {t0, t1}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(8)) {
+    FUNCTION("main", {t0, t1}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(8))
+        {
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
             Tensor t1s = View(t1, {s, s}, {idx * s, 0});
             Tensor o = Add(t0s, t1s);
@@ -372,15 +392,16 @@ TEST_F(DynamicBasicTest, TestTT) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(n * s * s, 3.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestLocalTensor) {
+TEST_F(DynamicBasicTest, TestLocalTensor)
+{
     int s = 64;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [64 * 8, 64]
-    Tensor t1(DT_FP32, {n * s, s}, "t1");  // [64 * 8, 64]
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [64 * 8, 64]
+    Tensor t1(DT_FP32, {n * s, s}, "t1"); // [64 * 8, 64]
     Tensor out(DT_FP32, {n * s, s}, "out");
 
     std::vector<std::string> funcName = {"TENSOR_main"};
@@ -394,13 +415,17 @@ TEST_F(DynamicBasicTest, TestLocalTensor) {
     });
 
     Tensor t0s;
-    FUNCTION("main", {t0, t1}, {out}) {
-        LOOP("loopOut", FunctionType::DYNAMIC_LOOP, loopOut, LoopRange(1)) {
+    FUNCTION("main", {t0, t1}, {out})
+    {
+        LOOP("loopOut", FunctionType::DYNAMIC_LOOP, loopOut, LoopRange(1))
+        {
             Tensor o;
-            LOOP("loopMiddle", FunctionType::DYNAMIC_LOOP, loopMiddle, LoopRange(1)) {
+            LOOP("loopMiddle", FunctionType::DYNAMIC_LOOP, loopMiddle, LoopRange(1))
+            {
                 (void)loopOut;
                 (void)loopMiddle;
-                LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(n)) {
+                LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(n))
+                {
                     t0s = View(t0, {s, s}, {idx * s, 0});
                     Tensor t1s = View(t1, {s, s}, {idx * s, 0});
                     o = Add(t0s, t1s);
@@ -414,15 +439,16 @@ TEST_F(DynamicBasicTest, TestLocalTensor) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(n * s * s, 3.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestLocalTempTensor) {
+TEST_F(DynamicBasicTest, TestLocalTempTensor)
+{
     int s = 64;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [64 * 8, 64]
-    Tensor t1(DT_FP32, {n * s, s}, "t1");  // [64 * 8, 64]
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [64 * 8, 64]
+    Tensor t1(DT_FP32, {n * s, s}, "t1"); // [64 * 8, 64]
     Tensor out(DT_FP32, {n * s, s}, "out");
 
     std::vector<std::string> funcName = {"TENSOR_main"};
@@ -436,20 +462,26 @@ TEST_F(DynamicBasicTest, TestLocalTempTensor) {
     });
 
     Tensor t0s;
-    FUNCTION("main", {t0, t1}, {out}) {
-        LOOP("loopOut", FunctionType::DYNAMIC_LOOP, loopOut, LoopRange(1)) {
-            LOOP("loopMiddle", FunctionType::DYNAMIC_LOOP, loopMiddle, LoopRange(1)) {
+    FUNCTION("main", {t0, t1}, {out})
+    {
+        LOOP("loopOut", FunctionType::DYNAMIC_LOOP, loopOut, LoopRange(1))
+        {
+            LOOP("loopMiddle", FunctionType::DYNAMIC_LOOP, loopMiddle, LoopRange(1))
+            {
                 (void)loopOut;
                 (void)loopMiddle;
-                LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(n)) {
-                    Tensor o(DT_FP32, {s, s}, "tempO");  // temp tensor
-                    LOOP("LoopLeaf1", FunctionType::DYNAMIC_LOOP, leaf1, LoopRange(1)) {
+                LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(n))
+                {
+                    Tensor o(DT_FP32, {s, s}, "tempO"); // temp tensor
+                    LOOP("LoopLeaf1", FunctionType::DYNAMIC_LOOP, leaf1, LoopRange(1))
+                    {
                         (void)leaf1;
                         t0s = View(t0, {s, s}, {idx * s, 0});
                         Tensor t1s = View(t1, {s, s}, {idx * s, 0});
                         o = Add(t0s, t1s);
                     }
-                    LOOP("LoopLeaf2", FunctionType::DYNAMIC_LOOP, leaf2, LoopRange(1)) {
+                    LOOP("LoopLeaf2", FunctionType::DYNAMIC_LOOP, leaf2, LoopRange(1))
+                    {
                         (void)leaf2;
                         o = Add(o, Element(DT_FP32, 0.0f));
                         Assemble(o, {idx * s, 0}, out);
@@ -463,25 +495,25 @@ TEST_F(DynamicBasicTest, TestLocalTempTensor) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(n * s * s, 3.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestCheckPointRestore) {
+TEST_F(DynamicBasicTest, TestCheckPointRestore)
+{
     int s = 16;
     Tensor t;
     Tensor t0(DT_FP32, {s, s}, "t0");
 
-    FUNCTION("main", {t}, {t0}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
-            IF(idx == 0) {
-                t0 = Full(Element(DT_FP32, 1.0f), DT_FP32, {s, s});
-            }
-            ELSE {
-                t0 = Full(Element(DT_FP32, 2.0f), DT_FP32, {s, s});
-            }
+    FUNCTION("main", {t}, {t0})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1))
+        {
+            IF(idx == 0) { t0 = Full(Element(DT_FP32, 1.0f), DT_FP32, {s, s}); }
+            ELSE { t0 = Full(Element(DT_FP32, 2.0f), DT_FP32, {s, s}); }
         }
-        LOOP("L1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
+        LOOP("L1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1))
+        {
             (void)idx;
             t0 = Full(Element(DT_FP32, 1.0f), DT_FP32, {s, s});
         }
@@ -489,26 +521,32 @@ TEST_F(DynamicBasicTest, TestCheckPointRestore) {
     EXPECT_EQ(t0.GetStorage()->tensor->GetRefCount(), 1);
 }
 
-TEST_F(DynamicBasicTest, TestSlotId) {
+TEST_F(DynamicBasicTest, TestSlotId)
+{
     int s = 16;
     int id[2] = {0};
     Tensor t(DT_FP32, {s, s}, "t0");
     Tensor out(DT_FP32, {s, s}, "out");
 
-    FUNCTION("main", {t}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
+    FUNCTION("main", {t}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1))
+        {
             (void)idx;
             Tensor t0(DT_FP32, {s, s}, "t1");
-            LOOP("L00", FunctionType::DYNAMIC_LOOP, idx1, LoopRange(1)) {
+            LOOP("L00", FunctionType::DYNAMIC_LOOP, idx1, LoopRange(1))
+            {
                 (void)idx1;
                 t0 = Add(t, t);
             }
             id[0] = t0.Id();
         }
-        LOOP("L1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
+        LOOP("L1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1))
+        {
             (void)idx;
             Tensor t1(DT_FP32, {s, s}, "t1");
-            LOOP("L10", FunctionType::DYNAMIC_LOOP, idx1, LoopRange(1)) {
+            LOOP("L10", FunctionType::DYNAMIC_LOOP, idx1, LoopRange(1))
+            {
                 (void)idx1;
                 t1 = Add(t, t);
             }
@@ -518,11 +556,12 @@ TEST_F(DynamicBasicTest, TestSlotId) {
     EXPECT_NE(id[0], id[1]);
 }
 
-TEST_F(DynamicBasicTest, DynamicRawShape) {
+TEST_F(DynamicBasicTest, DynamicRawShape)
+{
     SetInterpreterConfig();
     int s = 32;
     Tensor t0(DT_FP32, {-1, s}, "t0"); // [32*8, 32]
-    Tensor t1(DT_FP32, {s, s}, "t1");              // [32, 32]
+    Tensor t1(DT_FP32, {s, s}, "t1");  // [32, 32]
     Tensor out(DT_FP32, {-1, s}, "out");
 
     int n = 8;
@@ -542,8 +581,10 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
         RawTensorData::CreateTensor<float>(out0, golden),
     });
 
-    FUNCTION("main", {t0, t1}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(GetInputShape(out, 0) / s)) {
+    FUNCTION("main", {t0, t1}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(GetInputShape(out, 0) / s))
+        {
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
             Tensor t2 = Matrix::Matmul(DataType::DT_FP32, t0s, t1, false, true);
             Assemble(t2, {idx * s, 0}, out);
@@ -553,20 +594,23 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
+TEST_F(DynamicBasicTest, DynamicRawShapeUnalign)
+{
     int s = 32;
     Tensor t0(DT_FP32, {-1, s}, "t0"); // [32*8, 32]
     Tensor out(DT_FP32, {-1, s}, "out");
 
-    FUNCTION("main", {t0}, {out}) {
+    FUNCTION("main", {t0}, {out})
+    {
         auto shape0 = GetInputShape(t0, 0);
         auto t1 = Tensor(t0.GetDataType(), {shape0, s});
         auto loop1 = (shape0 + s - 1) / s;
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(loop1)) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(loop1))
+        {
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
             auto t = Add(t0s, Element(DT_FP32, 3.0));
             Assemble(t, {idx * s, 0}, t1);
@@ -574,7 +618,8 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
 
         // check t1 use dynshape from t0
         auto loop2 = (GetInputShape(t1, 0) + s - 1) / s;
-        LOOP("L1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(loop2), {}, true) {
+        LOOP("L1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(loop2), {}, true)
+        {
             Tensor t1s = View(t1, {s, s}, {idx * s, 0});
             auto t = Sub(t1s, Element(DT_FP32, 1.0));
             Assemble(t, {idx * s, 0}, out);
@@ -598,15 +643,17 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
     EXPECT_EQ(eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem), s0 * s * BytesOf(arg0.GetDataType()));
 }
 
-
-TEST_F(DynamicBasicTest, TestInplace) {
+TEST_F(DynamicBasicTest, TestInplace)
+{
     Tensor t0(DT_FP32, {32, 32}, "t0");
     Tensor t1(DT_FP32, {32, 32}, "t1");
     Tensor t2(DT_FP32, {32, 32}, "t2");
     Tensor t3(DT_FP32, {32, 32}, "t3");
 
-    FUNCTION("main", {t0, t1}, {t3}, {{t2, t0}}) {
-        LOOP("l0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION("main", {t0, t1}, {t3}, {{t2, t0}})
+    {
+        LOOP("l0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             UNUSED(i);
             t3 = Add(t0, t1);
             Assemble(t3, {0, 0}, t2);
@@ -625,23 +672,23 @@ TEST_F(DynamicBasicTest, TestInplace) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(32 * 32, 3.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetInputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestStaticUnderDynDev) {
+TEST_F(DynamicBasicTest, TestStaticUnderDynDev)
+{
     SetInterpreterConfig();
     int s = 32;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
-    Tensor t1(DT_FP32, {n * s, s}, "t1");  // [32, 32]
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [32*8, 32]
+    Tensor t1(DT_FP32, {n * s, s}, "t1"); // [32, 32]
     Tensor out(DT_FP32, {n * s, s}, "out");
     std::vector<float> golden(n * s, 1.0f);
-    FUNCTION("main", {t0, t1}, {out}) {
+    FUNCTION("main", {t0, t1}, {out})
+    {
         config::SetBuildStatic(true);
-        FUNCTION("S0") {
-            out = Sub(t1, t0);
-        }
+        FUNCTION("S0") { out = Sub(t1, t0); }
     }
 
     ProgramData::GetInstance().AppendInputs({
@@ -658,24 +705,24 @@ TEST_F(DynamicBasicTest, TestStaticUnderDynDev) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestStaticLoop) {
+TEST_F(DynamicBasicTest, TestStaticLoop)
+{
     SetInterpreterConfig();
     int s = 32;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
-    Tensor t1(DT_FP32, {n * s, s}, "t1");  // [32, 32]
-    Tensor t2(DT_FP32, {s, s}, "t2");  // [32, 32]
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [32*8, 32]
+    Tensor t1(DT_FP32, {n * s, s}, "t1"); // [32, 32]
+    Tensor t2(DT_FP32, {s, s}, "t2");     // [32, 32]
     Tensor out(DT_FP32, {n * s, s}, "out");
     std::vector<float> outGolden(n * s, 4.0f);
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
-        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
-        RawTensorData::CreateConstantTensor<float>(t2, 3.0),  // value: [0,1,2,...,7]
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0), RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+        RawTensorData::CreateConstantTensor<float>(t2, 3.0), // value: [0,1,2,...,7]
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
@@ -684,13 +731,13 @@ TEST_F(DynamicBasicTest, TestStaticLoop) {
         RawTensorData::CreateTensor<float>(out, outGolden),
     });
 
-    FUNCTION("main", {t0, t1, t2}, {out}) {
+    FUNCTION("main", {t0, t1, t2}, {out})
+    {
         Tensor s0Out;
         config::SetBuildStatic(true);
-        FUNCTION("S0") {
-            s0Out = Sub(t1, t0);
-        }
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT)) {
+        FUNCTION("S0") { s0Out = Sub(t1, t0); }
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT))
+        {
             Tensor t0s = View(s0Out, {s, s}, {i * s, 0});
             Tensor t3 = Add(t0s, t2);
             Assemble(t3, {i * s, 0}, out);
@@ -700,11 +747,12 @@ TEST_F(DynamicBasicTest, TestStaticLoop) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outGolden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outGolden, (float*)outs->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
+TEST_F(DynamicBasicTest, TestInnerLoopOrder)
+{
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(512, 512);
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
@@ -737,21 +785,26 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
         RawTensorData::CreateTensor<float>(output, golden),
     });
 
-    FUNCTION("main", {inputA, inputB}, {output}) {
-        LOOP("Outer", FunctionType::DYNAMIC_LOOP, i, LoopRange(tileNum)) {
+    FUNCTION("main", {inputA, inputB}, {output})
+    {
+        LOOP("Outer", FunctionType::DYNAMIC_LOOP, i, LoopRange(tileNum))
+        {
             Tensor tileB(DT_FP32, {1, vecLen}, "tileB");
-            LOOP("Inner", FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
+            LOOP("Inner", FunctionType::DYNAMIC_LOOP, j, LoopRange(1))
+            {
                 (void)j;
                 auto tile = View(inputB, {1, vecLen}, {i, 0});
                 tileB = Mul(tile, Element(DataType::DT_FP32, 2.0));
             }
 
-            LOOP("Inner2", FunctionType::DYNAMIC_LOOP, k, LoopRange(loopNum)) {
+            LOOP("Inner2", FunctionType::DYNAMIC_LOOP, k, LoopRange(loopNum))
+            {
                 auto tileA = View(inputA, {1, vecLen}, {k, 0});
                 tileB = Add(tileA, tileB);
             }
 
-            LOOP("Inner3", FunctionType::DYNAMIC_LOOP, l, LoopRange(1)) {
+            LOOP("Inner3", FunctionType::DYNAMIC_LOOP, l, LoopRange(1))
+            {
                 (void)l;
                 tileB = Mul(tileB, Element(DataType::DT_FP32, 3.0));
                 Assemble(tileB, {i, 0}, output);
@@ -765,18 +818,16 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.005f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.005f));
 }
 
-TEST_F(DynamicBasicTest, TestDeviceMachineOnModel) {
+TEST_F(DynamicBasicTest, TestDeviceMachineOnModel)
+{
     int s = 32;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
-    Tensor t1(DT_FP32, {s, s}, "t1");  // [32, 32]
-    Tensor blockTable{
-        DT_INT32, {n, 1},
-         "blockTable"
-    };
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [32*8, 32]
+    Tensor t1(DT_FP32, {s, s}, "t1");     // [32, 32]
+    Tensor blockTable{DT_INT32, {n, 1}, "blockTable"};
     Tensor out(DT_FP32, {n * s, s}, "out");
     TestLoopViewAssemble(t0, t1, blockTable, out, s);
 
@@ -785,9 +836,8 @@ TEST_F(DynamicBasicTest, TestDeviceMachineOnModel) {
         tblData.push_back(i);
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
-        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
-        RawTensorData::CreateTensor<int>(blockTable, tblData),  // value: [0,1,2,...,7]
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0), RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+        RawTensorData::CreateTensor<int>(blockTable, tblData), // value: [0,1,2,...,7]
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
@@ -808,16 +858,14 @@ TEST_F(DynamicBasicTest, TestDeviceMachineOnModel) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {false, 1, 3});
 }
 
-TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
+TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard)
+{
     SetInterpreterConfig();
     int s = 32;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
-    Tensor t1(DT_FP32, {s, s}, "t1");  // [32, 32]
-    Tensor blockTable{
-        DT_INT32, {n, 1},
-         "blockTable"
-    };
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [32*8, 32]
+    Tensor t1(DT_FP32, {s, s}, "t1");     // [32, 32]
+    Tensor blockTable{DT_INT32, {n, 1}, "blockTable"};
     Tensor out(DT_FP32, {n * s, s}, "out");
 
     std::vector<int> tblData;
@@ -827,9 +875,8 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
     std::vector<float> golden(n * s * s, 128.0f);
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
-        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
-        RawTensorData::CreateTensor<int>(blockTable, tblData),  // value: [0,1,2,...,7]
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0), RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+        RawTensorData::CreateTensor<int>(blockTable, tblData), // value: [0,1,2,...,7]
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
@@ -843,19 +890,17 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {true, 15, 4});
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard1) {
+TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard1)
+{
     int s = 32;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
-    Tensor t1(DT_FP32, {s, s}, "t1");  // [32, 32]
-    Tensor blockTable{
-            DT_INT32, {n, 1},
-            "blockTable"
-    };
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [32*8, 32]
+    Tensor t1(DT_FP32, {s, s}, "t1");     // [32, 32]
+    Tensor blockTable{DT_INT32, {n, 1}, "blockTable"};
     Tensor out(DT_FP32, {n * s, s}, "out");
     TestLoopViewAssemble(t0, t1, blockTable, out, s);
 
@@ -864,9 +909,8 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard1) {
         tblData.push_back(i);
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
-        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
-        RawTensorData::CreateTensor<int>(blockTable, tblData),  // value: [0,1,2,...,7]
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0), RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+        RawTensorData::CreateTensor<int>(blockTable, tblData), // value: [0,1,2,...,7]
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
@@ -876,15 +920,16 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard1) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {true, 7, 3});
     auto outs1 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     std::vector<float> golden(n * s * s, 128.0f);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs1->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs1->data(), 0.001f));
 #endif
 }
 
 namespace DynamicTest {
 
-TEST_F(DynamicBasicTest, TestLoopIfWithRank456) {
+TEST_F(DynamicBasicTest, TestLoopIfWithRank456)
+{
     SetInterpreterConfig();
-    TileShape::Current().SetVecTile(32, 32);   //设置Tileshape大小为32*32
+    TileShape::Current().SetVecTile(32, 32); // 设置Tileshape大小为32*32
     std::vector<std::string> funcName = {"TENSOR_main"};
     config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
 
@@ -907,20 +952,22 @@ TEST_F(DynamicBasicTest, TestLoopIfWithRank456) {
     });
 
     // Direct implementation of the function logic within the test
-    FUNCTION("main", {t0, r0}, {out}) {
+    FUNCTION("main", {t0, r0}, {out})
+    {
         constexpr int LOOP_LENGTH = 10;
         npu::tile_fwk::SymbolicScalar len(LOOP_LENGTH);
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(len)) {
-            IF(i==0) {
-                IF(i==len-1) {
-                    r0 = Add(r0, Element(DataType::DT_FP32, 1.0));
-                } ELSE {
-                    r0 = Add(r0, Element(DataType::DT_FP32, 2.0));
-                }
-            } ELSE {
-                IF(i==len-1) {
-                    r0 = Add(r0, Element(DataType::DT_FP32, 0.0));
-                } ELSE {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(len))
+        {
+            IF(i == 0)
+            {
+                IF(i == len - 1) { r0 = Add(r0, Element(DataType::DT_FP32, 1.0)); }
+                ELSE { r0 = Add(r0, Element(DataType::DT_FP32, 2.0)); }
+            }
+            ELSE
+            {
+                IF(i == len - 1) { r0 = Add(r0, Element(DataType::DT_FP32, 0.0)); }
+                ELSE
+                {
                     Tensor t0v = View(t0, {s, s}, {s * i, 0});
                     r0 = Add(t0v, r0);
                 }
@@ -929,18 +976,20 @@ TEST_F(DynamicBasicTest, TestLoopIfWithRank456) {
         }
 
         config::SetBuildStatic(true);
-        FUNCTION("S1") {
-            out = Add(r0, Element(DataType::DT_FP32, 2.0));  //静态function中增加2.0的偏移量
+        FUNCTION("S1")
+        {
+            out = Add(r0, Element(DataType::DT_FP32, 2.0)); // 静态function中增加2.0的偏移量
         }
     }
-    #ifdef BUILD_WITH_CANN
+#ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
-    #endif
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
+#endif
 }
 
-TEST_F(DynamicBasicTest, TestTensorExtract) {
+TEST_F(DynamicBasicTest, TestTensorExtract)
+{
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
@@ -963,8 +1012,10 @@ TEST_F(DynamicBasicTest, TestTensorExtract) {
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
     });
 
-    FUNCTION("main", {inputA}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION("main", {inputA}, {output})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             Tensor t0 = Add(inputA, Element(DT_INT32, (int64_t)2));
             output = TensorExtract(t0, {row, col});
@@ -974,11 +1025,12 @@ TEST_F(DynamicBasicTest, TestTensorExtract) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_EQ(row * n + col + 0x2, *(int32_t *)outputResult->data());
+    EXPECT_EQ(row * n + col + 0x2, *(int32_t*)outputResult->data());
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestGetTensorData) {
+TEST_F(DynamicBasicTest, TestGetTensorData)
+{
     SetInterpreterConfig();
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -1011,12 +1063,14 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
         RawTensorData::CreateTensor<float>(output, outputGolden),
     });
 
-    FUNCTION("main", {inputA, inputC}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION("main", {inputA, inputC}, {output})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             Tensor t0 = Add(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
-            SymbolicScalar v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
-            SymbolicScalar v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
+            SymbolicScalar v0 = GetTensorData(t0, {0, 1});          // t0[0, 1] -> 0 * n + 1 + 2 -> 3
+            SymbolicScalar v1 = GetTensorData(t0, {0, 2});          // t0[0, 2] -> 0 * n + 2 + 2 -> 4
             auto t2 = View(inputC, {n, n}, {0, v0 * n});
             auto t3 = View(inputC, {n, n}, {0, v1 * n});
             output = Mul(t2, t3);
@@ -1026,11 +1080,12 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outputGolden, (float *)outputResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (float*)outputResult->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
+TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction)
+{
     SetInterpreterConfig();
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -1078,18 +1133,21 @@ TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
         RawTensorData::CreateTensor<int32_t>(outsum, outsumGolden),
     });
 
-    FUNCTION("main", {inputA, inputC}, {output, outsum}) {
+    FUNCTION("main", {inputA, inputC}, {output, outsum})
+    {
         SymbolicScalar v0;
         SymbolicScalar v1;
         SymbolicScalar v2;
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             auto t0 = Add(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
-            v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
-            v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
+            v0 = GetTensorData(t0, {0, 1});                       // t0[0, 1] -> 0 * n + 1 + 2 -> 3
+            v1 = GetTensorData(t0, {0, 2});                       // t0[0, 2] -> 0 * n + 2 + 2 -> 4
             v2 = v0 + v1 + GetTensorData(inputA, {0, 1});
         }
-        LOOP("Step1", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+        LOOP("Step1", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             auto t2 = View(inputC, {n, n}, {0, v0 * n});
             auto t3 = View(inputC, {n, n}, {0, v1 * n});
@@ -1107,13 +1165,14 @@ TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outputGolden, (float *)outputResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (float*)outputResult->data(), 0.001f));
     auto outsumResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(1);
-    EXPECT_TRUE(resultCmp(outsumGolden, (int32_t *)outsumResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outsumGolden, (int32_t*)outsumResult->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
+TEST_F(DynamicBasicTest, TestGetTensorDataUnalign)
+{
     SetInterpreterConfig();
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -1166,33 +1225,37 @@ TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
         RawTensorData::CreateTensor<float>(output, outputGolden),
     });
 
-    FUNCTION("main", {inputA, inputC1, inputC2}, {output}) {
+    FUNCTION("main", {inputA, inputC1, inputC2}, {output})
+    {
         SymbolicScalar v0;
         SymbolicScalar v1;
         SymbolicScalar v2;
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             auto t0 = Add(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
-            v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
-            v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
+            v0 = GetTensorData(t0, {0, 1});                       // t0[0, 1] -> 0 * n + 1 + 2 -> 3
+            v1 = GetTensorData(t0, {0, 2});                       // t0[0, 2] -> 0 * n + 2 + 2 -> 4
             v2 = v0 + v1 + GetTensorData(inputA, {0, 1});
         }
-        LOOP("Step1", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+        LOOP("Step1", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             auto t2 = View(inputC1, {n, n}, {v0, v1}, {0, v0Data * n}); // 16 x 16 / 3 x 4, 3
             auto t3 = View(inputC2, {n, n}, {v0, v1}, {0, v1Data * n}); // 16 x 16 / 3 x 4, 5
-            output = Mul(t2, t3); // 16 x 16 / 3 x 5, 12
+            output = Mul(t2, t3);                                       // 16 x 16 / 3 x 5, 12
         }
     }
 
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outputGolden, (float *)outputResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (float*)outputResult->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
+TEST_F(DynamicBasicTest, TestGetTensorDataExpr)
+{
     SetInterpreterConfig();
     int tiling = 32;
     config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
@@ -1227,14 +1290,16 @@ TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
         RawTensorData::CreateTensor<float>(output, outputGolden),
     });
 
-    FUNCTION("main", {inputA, inputC}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION("main", {inputA, inputC}, {output})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
-            Tensor t0 = Add(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
-            SymbolicScalar v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] + 2 -> 0 * n + 1 + 2 -> 3
-            SymbolicScalar v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] + 2 -> 0 * n + 2 + 2 -> 4
-            SymbolicScalar v2 = GetTensorData(inputA, {0, 1}); // inputA[0, 1] -> 1
-            SymbolicScalar v3 = GetTensorData(inputA, {0, 2}); // inputA[0, 2] -> 2
+            Tensor t0 = Add(inputA, Element(DT_INT32, (int64_t)2));     // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
+            SymbolicScalar v0 = GetTensorData(t0, {0, 1});              // t0[0, 1] + 2 -> 0 * n + 1 + 2 -> 3
+            SymbolicScalar v1 = GetTensorData(t0, {0, 2});              // t0[0, 2] + 2 -> 0 * n + 2 + 2 -> 4
+            SymbolicScalar v2 = GetTensorData(inputA, {0, 1});          // inputA[0, 1] -> 1
+            SymbolicScalar v3 = GetTensorData(inputA, {0, 2});          // inputA[0, 2] -> 2
             auto t2 = View(inputC, {n, n}, {0, (v0 + v2 + i / i) * n}); // {0, (3 + 1 + 1) * n} -> {0, 5 * n}
             auto t3 = View(inputC, {n, n}, {0, (v1 + v3 + i / i) * n}); // {0, (4 + 2 + 1) * n} -> {0, 7 * n}
             output = Mul(t2, t3);
@@ -1244,12 +1309,12 @@ TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outputGolden, (float *)outputResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (float*)outputResult->data(), 0.001f));
 #endif
 }
 
-
-TEST_F(DynamicBasicTest, TestVectorDup) {
+TEST_F(DynamicBasicTest, TestVectorDup)
+{
     SetInterpreterConfig();
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -1259,8 +1324,7 @@ TEST_F(DynamicBasicTest, TestVectorDup) {
     Tensor output(DT_FP32, {n, n}, "output");
     std::vector<int32_t> outputGolden(n * n, 50);
 
-    ProgramData::GetInstance().AppendInputs({
-    });
+    ProgramData::GetInstance().AppendInputs({});
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
     });
@@ -1268,8 +1332,10 @@ TEST_F(DynamicBasicTest, TestVectorDup) {
         RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
-    FUNCTION("main", {}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION("main", {}, {output})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             SymbolicScalar v = 20;
             output = Full(v + 30, DT_INT32, {n, n});
@@ -1279,11 +1345,12 @@ TEST_F(DynamicBasicTest, TestVectorDup) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (int32_t*)outputResult->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestTensorInsert) {
+TEST_F(DynamicBasicTest, TestTensorInsert)
+{
     SetInterpreterConfig();
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -1293,8 +1360,7 @@ TEST_F(DynamicBasicTest, TestTensorInsert) {
     Tensor output(DT_INT32, {n}, "output");
     std::vector<int32_t> outputGolden(n, 20);
 
-    ProgramData::GetInstance().AppendInputs({
-    });
+    ProgramData::GetInstance().AppendInputs({});
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
     });
@@ -1302,8 +1368,10 @@ TEST_F(DynamicBasicTest, TestTensorInsert) {
         RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
-    FUNCTION("main", {}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
+    FUNCTION("main", {}, {output})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n))
+        {
             auto tmp = Full(20, DT_INT32, {1});
             TensorInsert(tmp, {i}, output);
         }
@@ -1312,11 +1380,12 @@ TEST_F(DynamicBasicTest, TestTensorInsert) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (int32_t*)outputResult->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestSetTensorData) {
+TEST_F(DynamicBasicTest, TestSetTensorData)
+{
     SetInterpreterConfig();
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -1326,8 +1395,7 @@ TEST_F(DynamicBasicTest, TestSetTensorData) {
     Tensor output(DT_INT32, {n}, "output");
     std::vector<int32_t> outputGolden(n, 30);
 
-    ProgramData::GetInstance().AppendInputs({
-    });
+    ProgramData::GetInstance().AppendInputs({});
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
     });
@@ -1335,20 +1403,20 @@ TEST_F(DynamicBasicTest, TestSetTensorData) {
         RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
-    FUNCTION("main", {}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
-            SetTensorData(30, {i / 2 * 2 + i % 2}, output);
-        }
+    FUNCTION("main", {}, {output})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) { SetTensorData(30, {i / 2 * 2 + i % 2}, output); }
     }
 
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (int32_t*)outputResult->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
+TEST_F(DynamicBasicTest, TestSetTensorDataExpr)
+{
     SetInterpreterConfig();
 
     int tiling = 32;
@@ -1361,8 +1429,7 @@ TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
         outputGolden[i] = i;
     }
 
-    ProgramData::GetInstance().AppendInputs({
-    });
+    ProgramData::GetInstance().AppendInputs({});
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
     });
@@ -1370,9 +1437,12 @@ TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
         RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
-    FUNCTION("main", {}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
-            LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
+    FUNCTION("main", {}, {output})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n))
+        {
+            LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n))
+            {
                 for (int k = 0; k < n; k++) {
                     SetTensorData(i * tiling * tiling + j * tiling + k, {i, j, k}, output);
                 }
@@ -1383,11 +1453,12 @@ TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (int32_t*)outputResult->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestGetTensorDataAndDup) {
+TEST_F(DynamicBasicTest, TestGetTensorDataAndDup)
+{
     SetInterpreterConfig();
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling, tiling);
@@ -1414,8 +1485,10 @@ TEST_F(DynamicBasicTest, TestGetTensorDataAndDup) {
         RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
-    FUNCTION("main", {input}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION("main", {input}, {output})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             auto add = Add(input, input);
             auto s = GetTensorData(add, {row, col});
@@ -1426,11 +1499,12 @@ TEST_F(DynamicBasicTest, TestGetTensorDataAndDup) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (int32_t*)outputResult->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestGetAndSetTensorDataExpr) {
+TEST_F(DynamicBasicTest, TestGetAndSetTensorDataExpr)
+{
     SetInterpreterConfig();
 
     int tiling = 32;
@@ -1455,9 +1529,12 @@ TEST_F(DynamicBasicTest, TestGetAndSetTensorDataExpr) {
         RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
-    FUNCTION("main", {input}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
-            LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
+    FUNCTION("main", {input}, {output})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n))
+        {
+            LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n))
+            {
                 auto add = Add(input, input);
                 for (int k = 0; k < n; k++) {
                     SymbolicScalar s = GetTensorData(add, {i, j, k});
@@ -1470,11 +1547,12 @@ TEST_F(DynamicBasicTest, TestGetAndSetTensorDataExpr) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (int32_t*)outputResult->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestSelectAttention) {
+TEST_F(DynamicBasicTest, TestSelectAttention)
+{
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling, tiling);
 
@@ -1528,21 +1606,25 @@ TEST_F(DynamicBasicTest, TestSelectAttention) {
     });
 
     int topk = 16;
-    FUNCTION("main", {input, table, c0, c1}, {output}) {
+    FUNCTION("main", {input, table, c0, c1}, {output})
+    {
         Tensor index;
-        LOOP("Idx", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+        LOOP("Idx", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             index = Add(input, input);
             index = Sub(index, input);
         }
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n), {}, true) {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n), {}, true)
+        {
             (void)i;
             Tensor r0(dtype, {n, n * n}, "r0");
             Tensor r1(dtype, {n, n * n}, "r1");
-            LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(0, n, topk), {}, true) {
+            LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(0, n, topk), {}, true)
+            {
                 (void)j;
                 for (int k = 0; k < topk; k++) {
-                    SymbolicScalar s = GetTensorData(index, {i, j + k}); // index[i, j + k] -> j + k
+                    SymbolicScalar s = GetTensorData(index, {i, j + k});       // index[i, j + k] -> j + k
                     SymbolicScalar slcBlockIdx = GetTensorData(table, {i, s}); // table[i, s] -> s
                     auto k0 = View(c0, {n, n}, {0, s * n});
                     auto k1 = View(c1, {n, n}, {0, slcBlockIdx * n});
@@ -1553,21 +1635,20 @@ TEST_F(DynamicBasicTest, TestSelectAttention) {
                     Assemble(k1v, {0, slcBlockIdx * n}, r1);
                 }
             }
-            LOOP("Step2", FunctionType::DYNAMIC_LOOP, j, LoopRange(n), {}, true) {
-                LOOP("loop1", FunctionType::DYNAMIC_LOOP, _, LoopRange(1), {}, true) {
+            LOOP("Step2", FunctionType::DYNAMIC_LOOP, j, LoopRange(n), {}, true)
+            {
+                LOOP("loop1", FunctionType::DYNAMIC_LOOP, _, LoopRange(1), {}, true)
+                {
                     (void)_;
                     auto matmul = Matrix::Matmul(DataType::DT_FP32, r0, r1, false, true);
                     auto d1 = Div(matmul, Element(dtype, (float)n));
                     auto d2 = Div(d1, Element(dtype, (float)n));
-                    IF (i == 0) {
-                        IF (j == 0) {
-                            output = d2;
-                        } ELSE {
-                            output = Add(output, d2);
-                        }
-                    } ELSE {
-                        output = Add(output, d2);
+                    IF(i == 0)
+                    {
+                        IF(j == 0) { output = d2; }
+                        ELSE { output = Add(output, d2); }
                     }
+                    ELSE { output = Add(output, d2); }
                 }
             }
         }
@@ -1576,11 +1657,12 @@ TEST_F(DynamicBasicTest, TestSelectAttention) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outputGolden, (float *)outputResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (float*)outputResult->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestGetTensorDataSymbolicValue) {
+TEST_F(DynamicBasicTest, TestGetTensorDataSymbolicValue)
+{
     config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
     int n = 4;
     int loopCount = 4;
@@ -1604,23 +1686,26 @@ TEST_F(DynamicBasicTest, TestGetTensorDataSymbolicValue) {
     ProgramData::GetInstance().AppendGoldens({
         RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
-    FUNCTION("main", {loopList}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(loopCount)) {
+    FUNCTION("main", {loopList}, {output})
+    {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(loopCount))
+        {
             Tensor doubleLoopList(DT_INT32, {1, loopCount}, "doubleLoopList");
             doubleLoopList = Add(loopList, loopList);
             SymbolicScalar idxs = GetTensorData(doubleLoopList, {0, i});
             auto result2 = Full(idxs, DT_INT32, {1, 1});
-            Assemble(result2, {0 , i}, output);
+            Assemble(result2, {0, i}, output);
         }
     }
 #ifdef ENABLE_BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(outputGolden, (int32_t*)outputResult->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicBasicTest, DuplicateName) {
+TEST_F(DynamicBasicTest, DuplicateName)
+{
     Tensor t0(DT_FP32, {32, 32}, "t0");
     Tensor out(DT_FP32, {64, 64}, "out");
 
@@ -1631,17 +1716,19 @@ TEST_F(DynamicBasicTest, DuplicateName) {
     ProgramData::GetInstance().PrepareData({t0Data}, {outData}, {golden});
 
     auto dupTile = [&](std::vector<int64_t> offset, bool isAdd) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(2)) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(2))
+        {
             (void)i;
             auto v = isAdd ? Add(t0, t0) : Sub(t0, t0);
             Assemble(v, SymbolicScalar::FromConcrete(offset), out);
         }
     };
-    FUNCTION("main", {t0}, {out}) {
+    FUNCTION("main", {t0}, {out})
+    {
         dupTile({0, 0}, true);
         dupTile({0, 32}, true);
         dupTile({32, 0}, false);
         dupTile({32, 32}, false);
     }
 }
-}
+} // namespace DynamicTest

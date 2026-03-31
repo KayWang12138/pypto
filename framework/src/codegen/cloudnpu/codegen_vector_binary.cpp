@@ -19,37 +19,54 @@
 #include "codegen/utils/codegen_utils.h"
 
 namespace npu::tile_fwk {
-std::string GetBrcbOprandIdxStr(int64_t brcbOperandIdx) {
+std::string GetBrcbOprandIdxStr(int64_t brcbOperandIdx)
+{
     CODEGEN_LOGI("input brcbOperandIdx is %ld", static_cast<long>(brcbOperandIdx));
     std::string ret = "TileOp::";
     switch (brcbOperandIdx) {
-        case ToUnderlying(BroadcastOperand::NONE): ret.append("BroadcastOperand::NONE"); break;
-        case ToUnderlying(BroadcastOperand::LEFT_OPERAND): ret.append("BroadcastOperand::LEFT_OPERAND"); break;
-        case ToUnderlying(BroadcastOperand::RIGHT_OPERAND): ret.append("BroadcastOperand::RIGHT_OPERAND"); break;
-        default: ret.append("BroadcastOperand::NONE");
+        case ToUnderlying(BroadcastOperand::NONE):
+            ret.append("BroadcastOperand::NONE");
+            break;
+        case ToUnderlying(BroadcastOperand::LEFT_OPERAND):
+            ret.append("BroadcastOperand::LEFT_OPERAND");
+            break;
+        case ToUnderlying(BroadcastOperand::RIGHT_OPERAND):
+            ret.append("BroadcastOperand::RIGHT_OPERAND");
+            break;
+        default:
+            ret.append("BroadcastOperand::NONE");
     }
     return ret;
 }
 
-std::string GetPenuBrcOprandIdxStr(int64_t PenuBrcbOperandIdx) {
+std::string GetPenuBrcOprandIdxStr(int64_t PenuBrcbOperandIdx)
+{
     CODEGEN_LOGI("input PenuBrcbOperandIdx is %ld", static_cast<long>(PenuBrcbOperandIdx));
     std::string ret = "TileOp::";
     switch (PenuBrcbOperandIdx) {
-        case ToUnderlying(PenuBroadcastOperand::NONE): ret.append("PenuBroadcastOperand::NONE"); break;
-        case ToUnderlying(PenuBroadcastOperand::LEFT_OPERAND): ret.append("PenuBroadcastOperand::LEFT_OPERAND"); break;
-        case ToUnderlying(PenuBroadcastOperand::RIGHT_OPERAND): ret.append("PenuBroadcastOperand::RIGHT_OPERAND"); break;
-        default: ret.append("PenuBroadcastOperand::NONE");
+        case ToUnderlying(PenuBroadcastOperand::NONE):
+            ret.append("PenuBroadcastOperand::NONE");
+            break;
+        case ToUnderlying(PenuBroadcastOperand::LEFT_OPERAND):
+            ret.append("PenuBroadcastOperand::LEFT_OPERAND");
+            break;
+        case ToUnderlying(PenuBroadcastOperand::RIGHT_OPERAND):
+            ret.append("PenuBroadcastOperand::RIGHT_OPERAND");
+            break;
+        default:
+            ret.append("PenuBroadcastOperand::NONE");
     }
     return ret;
 }
 
-std::string CodeGenOpCloudNPU::PrintBinaryStatic(const PrintBinaryParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &src0DtypeStr = param.src0DtypeStr;
-    const std::string &src1DtypeStr = param.src1DtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
-    const std::string &s1Var = param.s1Var;
+std::string CodeGenOpCloudNPU::PrintBinaryStatic(const PrintBinaryParam& param) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& src0DtypeStr = param.src0DtypeStr;
+    const std::string& src1DtypeStr = param.src1DtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
+    const std::string& s1Var = param.s1Var;
 
     std::vector<int64_t> os0 = NormalizeShape(originShape[ID1], SHAPE_DIM4);
     std::vector<int64_t> os1 = NormalizeShape(originShape[ID2], SHAPE_DIM4);
@@ -94,17 +111,19 @@ std::string CodeGenOpCloudNPU::PrintBinaryStatic(const PrintBinaryParam &param) 
     paramList.emplace_back(src0);
     paramList.emplace_back(src1);
     std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
-    os << tileOpName.c_str() << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    os << tileOpName.c_str() << "_<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &src0DtypeStr = param.src0DtypeStr;
-    const std::string &src1DtypeStr = param.src1DtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
-    const std::string &s1Var = param.s1Var;
+std::string CodeGenOpCloudNPU::PrintBinaryDynamicUnaligned(const PrintBinaryParam& param) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& src0DtypeStr = param.src0DtypeStr;
+    const std::string& src1DtypeStr = param.src1DtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
+    const std::string& s1Var = param.s1Var;
 
     std::vector<int64_t> s0 = NormalizeShape(rawShape[ID1], SHAPE_DIM4);
     std::vector<int64_t> s1 = NormalizeShape(rawShape[ID2], SHAPE_DIM4);
@@ -151,11 +170,13 @@ std::string CodeGenOpCloudNPU::PrintBinaryDynamicUnaligned(const PrintBinaryPara
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
     }
     std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
-    os << tileOpName.c_str() << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    os << tileOpName.c_str() << "_<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintBinaryTileTensor() const {
+std::string CodeGenOpCloudNPU::PrintBinaryTileTensor() const
+{
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
@@ -188,7 +209,8 @@ std::string CodeGenOpCloudNPU::PrintBinaryTileTensor() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintBinary(const PrintBinaryParam &param) const {
+std::string CodeGenOpCloudNPU::PrintBinary(const PrintBinaryParam& param) const
+{
     if (isSupportLayout) {
         return PrintBinaryTileTensor();
     }
@@ -198,7 +220,8 @@ std::string CodeGenOpCloudNPU::PrintBinary(const PrintBinaryParam &param) const 
     return PrintBinaryStatic(param);
 }
 
-std::string CodeGenOpCloudNPU::GenBinaryOp() const {
+std::string CodeGenOpCloudNPU::GenBinaryOp() const
+{
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
@@ -226,7 +249,8 @@ std::string CodeGenOpCloudNPU::GenBinaryOp() const {
     return PrintBinary({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
 }
 
-std::string CodeGenOpCloudNPU::GenBinaryOpWithTmp() const {
+std::string CodeGenOpCloudNPU::GenBinaryOpWithTmp() const
+{
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
     std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
     std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
@@ -238,7 +262,8 @@ std::string CodeGenOpCloudNPU::GenBinaryOpWithTmp() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenVectorScalarOpWithTmp() const {
+std::string CodeGenOpCloudNPU::GenVectorScalarOpWithTmp() const
+{
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
     std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
@@ -247,7 +272,7 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpWithTmp() const {
         srcScalar = FormatFloat(extOperandVal.Cast<float>());
     } else if (extOperandVal.IsUnsigned() || extOperandVal.IsSigned()) {
         srcScalar = std::visit(
-            [](const auto &val) -> std::string { return std::to_string(val); }, extOperandVal.GetVariantData());
+            [](const auto& val) -> std::string { return std::to_string(val); }, extOperandVal.GetVariantData());
     }
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, srcScalar, tmpTensor};
 
@@ -256,7 +281,8 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpWithTmp() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenRemainderSOp() const {
+std::string CodeGenOpCloudNPU::GenRemainderSOp() const
+{
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
     std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
@@ -270,15 +296,16 @@ std::string CodeGenOpCloudNPU::GenRemainderSOp() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintBinaryBrcStatic(const PrintBinaryBrcParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &src0DtypeStr = param.src0DtypeStr;
-    const std::string &src1DtypeStr = param.src1DtypeStr;
-    const std::string &tmpDtypeStr = param.tmpDtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
-    const std::string &s1Var = param.s1Var;
-    const std::string &tmpVar = param.tmpVar;
+std::string CodeGenOpCloudNPU::PrintBinaryBrcStatic(const PrintBinaryBrcParam& param) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& src0DtypeStr = param.src0DtypeStr;
+    const std::string& src1DtypeStr = param.src1DtypeStr;
+    const std::string& tmpDtypeStr = param.tmpDtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
+    const std::string& s1Var = param.s1Var;
+    const std::string& tmpVar = param.tmpVar;
 
     std::vector<int64_t> os0 = NormalizeShape(originShape[ID2], SHAPE_DIM4);
     std::vector<int64_t> s0 = NormalizeShape(rawShape[ID2], SHAPE_DIM4);
@@ -314,20 +341,22 @@ std::string CodeGenOpCloudNPU::PrintBinaryBrcStatic(const PrintBinaryBrcParam &p
     brcParamList.emplace_back(tmp);
 
     std::string tiloOpCallParam = JoinString(brcParamList, ", ");
-    os << tileOpName.c_str() << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    os << tileOpName.c_str() << "_<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
 
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintBinaryBrcDynamicUnaligned(const PrintBinaryBrcParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &src0DtypeStr = param.src0DtypeStr;
-    const std::string &src1DtypeStr = param.src1DtypeStr;
-    const std::string &tmpDtypeStr = param.tmpDtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
-    const std::string &s1Var = param.s1Var;
-    const std::string &tmpVar = param.tmpVar;
+std::string CodeGenOpCloudNPU::PrintBinaryBrcDynamicUnaligned(const PrintBinaryBrcParam& param) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& src0DtypeStr = param.src0DtypeStr;
+    const std::string& src1DtypeStr = param.src1DtypeStr;
+    const std::string& tmpDtypeStr = param.tmpDtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
+    const std::string& s1Var = param.s1Var;
+    const std::string& tmpVar = param.tmpVar;
 
     std::vector<int64_t> os0 = NormalizeShape(originShape[ID2], SHAPE_DIM4);
     std::vector<int64_t> s0 = NormalizeShape(rawShape[ID2], SHAPE_DIM4);
@@ -367,19 +396,22 @@ std::string CodeGenOpCloudNPU::PrintBinaryBrcDynamicUnaligned(const PrintBinaryB
     }
 
     std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
-    os << tileOpName.c_str() << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    os << tileOpName.c_str() << "_<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
 
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintBinaryBrc(const PrintBinaryBrcParam &param) const {
+std::string CodeGenOpCloudNPU::PrintBinaryBrc(const PrintBinaryBrcParam& param) const
+{
     if (isDynamicFunction) {
         return PrintBinaryBrcDynamicUnaligned(param);
     }
     return PrintBinaryBrcStatic(param);
 }
 
-std::string CodeGenOpCloudNPU::GenBinaryWithBrc() const {
+std::string CodeGenOpCloudNPU::GenBinaryWithBrc() const
+{
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
@@ -406,19 +438,19 @@ std::string CodeGenOpCloudNPU::GenBinaryWithBrc() const {
     return buffer;
 }
 
-std::string CodeGenOpCloudNPU::GenVectorScalarOp() const {
-    return GenVectorScalarOpByMode(VecScalMode::VEC_MODE);
-}
+std::string CodeGenOpCloudNPU::GenVectorScalarOp() const { return GenVectorScalarOpByMode(VecScalMode::VEC_MODE); }
 
-std::string CodeGenOpCloudNPU::GenVectorScalarOpScalarMode() const {
+std::string CodeGenOpCloudNPU::GenVectorScalarOpScalarMode() const
+{
     return GenVectorScalarOpByMode(VecScalMode::SCALAR_MODE);
 }
 
-std::string CodeGenOpCloudNPU::PrintBinaryScalarStatic(const PrintBinaryScalarParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &src0DtypeStr = param.src0DtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
+std::string CodeGenOpCloudNPU::PrintBinaryScalarStatic(const PrintBinaryScalarParam& param) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& src0DtypeStr = param.src0DtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
 
     std::vector dstShape = rawShape[0];
     std::vector src0Shape = rawShape[1];
@@ -450,16 +482,18 @@ std::string CodeGenOpCloudNPU::PrintBinaryScalarStatic(const PrintBinaryScalarPa
     binScalParmList.emplace_back(src0);
     binScalParmList.emplace_back(scalarTmpBuffer);
     std::string tiloOpCallParam = JoinString(binScalParmList, ", ");
-    os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    os << tileOpName.c_str() << "<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
 
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintBinaryScalarDynamicUnaligned(const PrintBinaryScalarParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &src0DtypeStr = param.src0DtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
+std::string CodeGenOpCloudNPU::PrintBinaryScalarDynamicUnaligned(const PrintBinaryScalarParam& param) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& src0DtypeStr = param.src0DtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
 
     std::vector dstShape = rawShape[0];
     std::vector src0Shape = rawShape[1];
@@ -496,13 +530,15 @@ std::string CodeGenOpCloudNPU::PrintBinaryScalarDynamicUnaligned(const PrintBina
     }
     std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
 
-    os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    os << tileOpName.c_str() << "<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
 
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor(const PrintUnaryParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
+std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor(const PrintUnaryParam& param) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
@@ -522,18 +558,20 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor(const PrintUnaryParam
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintBinaryScalar(const PrintBinaryScalarParam &param) const {
+std::string CodeGenOpCloudNPU::PrintBinaryScalar(const PrintBinaryScalarParam& param) const
+{
     if (isDynamicFunction) {
         return PrintBinaryScalarDynamicUnaligned(param);
     }
     return PrintBinaryScalarStatic(param);
 }
 
-std::string CodeGenOpCloudNPU::PrintVectorScalarOpDynamicUnalign(const PrintUnaryParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
+std::string CodeGenOpCloudNPU::PrintVectorScalarOpDynamicUnalign(const PrintUnaryParam& param) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& srcDtypeStr = param.srcDtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
 
     auto newDynSrcValidShape = dynamicValidShape[1];
     FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcValidShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
@@ -566,11 +604,13 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarOpDynamicUnalign(const PrintUnar
     }
 
     std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
-    oss << tileOpName << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    oss << tileOpName << "_<" << templateParam << ">"
+        << "(" << tiloOpCallParam << ");\n";
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
+std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const
+{
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
@@ -594,9 +634,9 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
         // Hack: should be optimized to memory copy in pass
         int emuopc = AnyCast<int64_t>(opAttrs.find(OP_EMUOP_PREFIX + "opc")->second);
         if (emuopc == EMUOP_TENSOR_EXTRACT) {
-            int ret = sprintf_s(buffer, sizeof(buffer),
-                "RUNTIME_TensorExtract(/*type=*/%s, /*mem=*/__ubuf__, /*dst*/%s, /*src*/%s);\n", dstDtypeStr.c_str(),
-                dVar.c_str(), s0Var.c_str());
+            int ret = sprintf_s(
+                buffer, sizeof(buffer), "RUNTIME_TensorExtract(/*type=*/%s, /*mem=*/__ubuf__, /*dst*/%s, /*src*/%s);\n",
+                dstDtypeStr.c_str(), dVar.c_str(), s0Var.c_str());
             ASSERT(GenCodeErr::PRINT_FAILED, ret >= 0) << "Gen " << opCodeStr << ":EMUOP_TENSOR_EXTRACT failed " << ret;
             return buffer;
         }
@@ -611,7 +651,8 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
     }
 
     std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
-    int ret = sprintf_s(buffer, sizeof(buffer),
+    int ret = sprintf_s(
+        buffer, sizeof(buffer),
         "%s_<%s, %d, %d, %d, %d, /*DS*/ %d, %d, %d, /*S0S*/ %d, %d, %d>"
         "((__ubuf__ %s*)%s, (__ubuf__ %s*)%s, (%s)%s);\n",
         tileOpName.c_str(), dstDtypeStr.c_str(), os0[ID0], os0[ID1], os0[ID2], os0[ID3], ds[ID1], ds[ID2], ds[ID3],

@@ -13,7 +13,6 @@
  * \brief
  */
 
-
 #include "interface/utils/string_utils.h"
 #include "interface/utils/common.h"
 
@@ -22,10 +21,11 @@
 #include "machine/device/tilefwk/aicpu_common.h"
 struct AicoreTest : UnitTestBase {};
 
-TEST_F(AicoreTest, InitGoodbye) {
+TEST_F(AicoreTest, InitGoodbye)
+{
     KernelSharedBuffer sharedBuffer[0x1];
     memset_s(sharedBuffer, sizeof(sharedBuffer), 0, sizeof(sharedBuffer));
-    KernelArgs *args = reinterpret_cast<KernelArgs *>(&sharedBuffer);
+    KernelArgs* args = reinterpret_cast<KernelArgs*>(&sharedBuffer);
     args->waveBufferCpuToCore[0] = AICORE_SAY_GOODBYE;
 
     DeviceArgs devArgs;
@@ -42,10 +42,11 @@ TEST_F(AicoreTest, InitGoodbye) {
 class MemoryEmulation {
 public:
     MemoryEmulation(int aicpuCount, int aicCount, int aivCount)
-      : aicpuCount_(aicpuCount), aicCount_(aicCount), aivCount_(aivCount) {
-    }
+        : aicpuCount_(aicpuCount), aicCount_(aicCount), aivCount_(aivCount)
+    {}
 
-    void Setup() {
+    void Setup()
+    {
         int sharedBufferSize = (aicCount_ + aivCount_) * sizeof(KernelSharedBuffer);
         sharedBuffer_.resize(aicCount_ + aivCount_);
         memset_s(sharedBuffer_.data(), sharedBufferSize, 0, sharedBufferSize);
@@ -53,11 +54,12 @@ public:
         memset_s(printBuffer_.data(), printBuffer_.size(), 0, printBuffer_.size());
     }
 
-    KernelSharedBuffer *GetSharedBuffer() { return sharedBuffer_.data(); }
-    uint8_t *GetPrintBuffer(int idx) { return printBuffer_.data() + idx * PRINT_BUFFER_SIZE; }
+    KernelSharedBuffer* GetSharedBuffer() { return sharedBuffer_.data(); }
+    uint8_t* GetPrintBuffer(int idx) { return printBuffer_.data() + idx * PRINT_BUFFER_SIZE; }
     int GetAicpuCount() const { return aicpuCount_; }
     int GetAicCount() const { return aicCount_; }
     int GetAivCount() const { return aivCount_; }
+
 private:
     int aicpuCount_;
     int aicCount_;
@@ -67,37 +69,42 @@ private:
 };
 
 struct MultipleCore : ThreadAicoreEmulation {
-    MultipleCore(std::shared_ptr<MemoryEmulation> memory_)
-        : memory(memory_) {
+    MultipleCore(std::shared_ptr<MemoryEmulation> memory_) : memory(memory_)
+    {
         memset_s(&devArgs, sizeof(devArgs), 0, sizeof(devArgs));
         devArgs.sharedBuffer = (uint64_t)(uintptr_t)memory->GetSharedBuffer();
         devDfxArgs = std::make_unique<DevDfxArgs>();
         devArgs.devDfxArgAddr = (uint64_t)(uintptr_t)devDfxArgs.get();
-        KernelSharedBuffer *buffer = memory->GetSharedBuffer();
+        KernelSharedBuffer* buffer = memory->GetSharedBuffer();
         for (int i = 0; i < memory->GetAicCount() + memory->GetAivCount(); i++) {
             buffer[i].args.shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = (uintptr_t)memory->GetPrintBuffer(i);
             buffer[i].args.shakeBufferCpuToCore[SHAK_BUF_PRINT_BUFFER_INDEX] = (uintptr_t)memory->GetPrintBuffer(i);
         }
     }
 
-    void WaitAndStartKernelEntry() {
+    void WaitAndStartKernelEntry()
+    {
         while (GetAicoreInfoByThread() == nullptr) {
             std::this_thread::sleep_for(std::chrono::seconds(0));
         }
         KernelEntry(0, 0, 0, 0, 0, (uint64_t)(uintptr_t)&devArgs);
     }
 
-    static void StartKernelEntry(std::shared_ptr<MultipleCore> aicore) {
-        aicore->WaitAndStartKernelEntry();
-    }
+    static void StartKernelEntry(std::shared_ptr<MultipleCore> aicore) { aicore->WaitAndStartKernelEntry(); }
 
-    virtual void AicoreCallSubFuncTask(uint64_t funcIdx, CoreFuncParam *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext) override {
-        UNUSED(funcIdx); UNUSED(param); UNUSED(gmStackAddr); UNUSED(hcclContext);
+    virtual void AicoreCallSubFuncTask(
+        uint64_t funcIdx, CoreFuncParam* param, int64_t gmStackAddr, __gm__ int64_t* hcclContext) override
+    {
+        UNUSED(funcIdx);
+        UNUSED(param);
+        UNUSED(gmStackAddr);
+        UNUSED(hcclContext);
         std::lock_guard<std::mutex> guard(traceMutex);
         traceList.emplace_back(GetAicoreInfoByThread()->GetCoreIdx(), funcIdx, *param);
     }
 
-    void MainLoop() {
+    void MainLoop()
+    {
         const int rootCount = 0x2;
         const int attrCount = 0x100;
         const int leafCount = 0x40;
@@ -113,7 +120,7 @@ struct MultipleCore : ThreadAicoreEmulation {
         }
 
         dynFuncDataList.resize(sizeof(DynFuncHeader) + sizeof(DynFuncData) * rootCount);
-        DynFuncHeader *dataList = reinterpret_cast<DynFuncHeader *>(dynFuncDataList.data());
+        DynFuncHeader* dataList = reinterpret_cast<DynFuncHeader*>(dynFuncDataList.data());
         dataList->funcNum = rootCount;
         dataList->seqNo = 0;
         for (size_t k = 0; k < dataList->funcNum; k++) {
@@ -123,7 +130,7 @@ struct MultipleCore : ThreadAicoreEmulation {
             dataList->At(k).exprTbl = reinterpret_cast<uint64_t*>(devFuncExprTbl.data());
         }
 
-        KernelSharedBuffer *buffer = memory->GetSharedBuffer();
+        KernelSharedBuffer* buffer = memory->GetSharedBuffer();
         for (int i = 0; i < memory->GetAicCount() + memory->GetAivCount(); i++) {
             buffer[i].args.shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = (uintptr_t)dataList;
             buffer[i].args.shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = (uintptr_t)memory->GetPrintBuffer(i);
@@ -149,7 +156,8 @@ struct MultipleCore : ThreadAicoreEmulation {
         }
     }
 
-    DynFuncHeader *GetDataList() { return reinterpret_cast<DynFuncHeader *>(dynFuncDataList.data()); }
+    DynFuncHeader* GetDataList() { return reinterpret_cast<DynFuncHeader*>(dynFuncDataList.data()); }
+
 public:
     std::shared_ptr<MemoryEmulation> memory;
     DeviceArgs devArgs;
@@ -170,7 +178,8 @@ public:
     std::vector<Trace> traceList;
 };
 
-TEST_F(AicoreTest, MultipleCore) {
+TEST_F(AicoreTest, MultipleCore)
+{
     const int aicpuCount = 0x4;
     const int aicCount = 0x0;
     const int aivCount = 0x4;
@@ -191,7 +200,7 @@ TEST_F(AicoreTest, MultipleCore) {
         threadList[i]->join();
     }
 
-    KernelSharedBuffer *buffer = memory->GetSharedBuffer();
+    KernelSharedBuffer* buffer = memory->GetSharedBuffer();
     for (int i = 0; i < memory->GetAicCount() + memory->GetAivCount(); i++) {
         // normal exit
         EXPECT_EQ(buffer[i].args.shakeBuffer[2], STAGE_GET_NEXT_TASK_STOP);

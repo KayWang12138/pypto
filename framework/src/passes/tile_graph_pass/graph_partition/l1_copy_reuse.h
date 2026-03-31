@@ -37,38 +37,43 @@
 
 namespace npu::tile_fwk {
 class L1CopyInReuseRunner {
-  public:
-    explicit L1CopyInReuseRunner(const std::vector<std::vector<int>> &inGraph1) : inGraph_(inGraph1) {}
+public:
+    explicit L1CopyInReuseRunner(const std::vector<std::vector<int>>& inGraph1) : inGraph_(inGraph1) {}
     ~L1CopyInReuseRunner() {}
-    Status Run(Function &func, int color, std::vector<std::vector<int>> &colorNode);
-  private:
-    void GetOpHash(std::vector<uint64_t> &hashList, const std::string op, int idx);
-    void GetColorHash(const OperationsViewer &opOriList, std::vector<uint64_t> &hashColor);
-    int GetMaxInColor(const std::vector<int> &nodes, const OperationsViewer &opOriList, int curColor);
-    Status MergeDupL1CopyIn(Function &func, std::vector<std::vector<int>> &colorNode, int color);
-    void MergeProcessIdUpdate(Function &func, std::vector<std::vector<int>> &colorNode, int color);
-    std::vector<int> GetOpInputFeature(const OperationsViewer &opOriList,
-                                      const int opIdx, const int ioperandIdx);
-    void RemoveUselessViews(Function &func) const;
-    Status GetDuplicateOps(std::vector<Operation *> &opOriList, const std::vector<int> &opIdx);
-    void TackleOp(int i, Operation *op, std::vector<std::vector<int>> &replacedInputs,
-                        std::vector<std::vector<int>> &replacedOutputs);
-    Status Phase1(Function &func, int color, std::vector<std::vector<int>> &colorNode,
-                  std::vector<int> &colorCopyIn, std::vector<uint64_t> &hashColor);
-    void GetL1ReuseOpOrder(std::vector<std::pair<int, int>> &opOrder,
-                    std::map<uint64_t, int> &mgRem, std::vector<int> &numLRList, std::vector<uint64_t> &hashColor, int color);
-    bool GetMergedL1(int maxInColor, std::vector<int> &mergedNum, int maxMergeNum, int &tmpColor, int i,
-                    std::map<std::vector<uint64_t>, int> &l1InputList, std::vector<uint64_t> &vec, std::vector<int> &colorCopyIn,
-                    std::map<uint64_t, int> &mgRem, uint64_t idx);
-    Status L1MergeProcess(OperationsViewer &opOriList, std::vector<std::vector<int>> &colorNode,
-                          std::vector<uint64_t> &hashColor, std::vector<int> &colorCopyIn,
-                          std::map<std::vector<uint64_t>, int> &l1InputList, int &tmpColor,
-                          std::vector<int> &mergedNum, int &i);
-    void CubeMergeProcess(std::vector<std::vector<int>> &colorNode, OperationsViewer &opOriList,
-                          std::vector<int> &hashMergeNum, std::vector<int> &colorCopyIn);
-    Status SetNumLR(std::vector<int> &numLRList);
-    Status SetNumDB(std::vector<int> &numDBList);
-    const std::vector<std::vector<int>> &inGraph_;
+    Status Run(Function& func, int color, std::vector<std::vector<int>>& colorNode);
+
+private:
+    void GetOpHash(std::vector<uint64_t>& hashList, const std::string op, int idx);
+    void GetColorHash(const OperationsViewer& opOriList, std::vector<uint64_t>& hashColor);
+    int GetMaxInColor(const std::vector<int>& nodes, const OperationsViewer& opOriList, int curColor);
+    Status MergeDupL1CopyIn(Function& func, std::vector<std::vector<int>>& colorNode, int color);
+    void MergeProcessIdUpdate(Function& func, std::vector<std::vector<int>>& colorNode, int color);
+    std::vector<int> GetOpInputFeature(const OperationsViewer& opOriList, const int opIdx, const int ioperandIdx);
+    void RemoveUselessViews(Function& func) const;
+    Status GetDuplicateOps(std::vector<Operation*>& opOriList, const std::vector<int>& opIdx);
+    void TackleOp(
+        int i, Operation* op, std::vector<std::vector<int>>& replacedInputs,
+        std::vector<std::vector<int>>& replacedOutputs);
+    Status Phase1(
+        Function& func, int color, std::vector<std::vector<int>>& colorNode, std::vector<int>& colorCopyIn,
+        std::vector<uint64_t>& hashColor);
+    void GetL1ReuseOpOrder(
+        std::vector<std::pair<int, int>>& opOrder, std::map<uint64_t, int>& mgRem, std::vector<int>& numLRList,
+        std::vector<uint64_t>& hashColor, int color);
+    bool GetMergedL1(
+        int maxInColor, std::vector<int>& mergedNum, int maxMergeNum, int& tmpColor, int i,
+        std::map<std::vector<uint64_t>, int>& l1InputList, std::vector<uint64_t>& vec, std::vector<int>& colorCopyIn,
+        std::map<uint64_t, int>& mgRem, uint64_t idx);
+    Status L1MergeProcess(
+        OperationsViewer& opOriList, std::vector<std::vector<int>>& colorNode, std::vector<uint64_t>& hashColor,
+        std::vector<int>& colorCopyIn, std::map<std::vector<uint64_t>, int>& l1InputList, int& tmpColor,
+        std::vector<int>& mergedNum, int& i);
+    void CubeMergeProcess(
+        std::vector<std::vector<int>>& colorNode, OperationsViewer& opOriList, std::vector<int>& hashMergeNum,
+        std::vector<int>& colorCopyIn);
+    Status SetNumLR(std::vector<int>& numLRList);
+    Status SetNumDB(std::vector<int>& numDBList);
+    const std::vector<std::vector<int>>& inGraph_;
     std::unordered_map<int, int> replacedCopyMap_;
     std::unordered_map<int, int> tensormagic2Op_;
     std::unordered_map<uint64_t, std::vector<int>> hashMap_;
@@ -86,20 +91,21 @@ public:
     ~L1CopyInReuseMerge() override = default;
 
 private:
-    Status InitColorNode(Function &func, std::vector<std::vector<int>> &colorNode) const;
-    Status CheckOpListValid(Function &func) const;
-    Status L1CopyInReuse(Function &func) const;
-    Status RunOnFunction(Function &function) override {
+    Status InitColorNode(Function& func, std::vector<std::vector<int>>& colorNode) const;
+    Status CheckOpListValid(Function& func) const;
+    Status L1CopyInReuse(Function& func) const;
+    Status RunOnFunction(Function& function) override
+    {
         APASS_LOG_INFO_F(Elements::Operation, "===> Start L1CopyInReuseMerge.");
         if (L1CopyInReuse(function) == FAILED) {
-          return FAILED;
+            return FAILED;
         }
         DeadOperationEliminator eliminator;
         eliminator.EliminateDeadOperationBackward(function);
         APASS_LOG_INFO_F(Elements::Operation, "===> Finish L1CopyInReuseMerge.");
         return SUCCESS;
     }
-    void DoHealthCheckAfter(Function &function, const std::string &folderPath) override;
+    void DoHealthCheckAfter(Function& function, const std::string& folderPath) override;
 };
 } // namespace npu::tile_fwk
 #endif // PASS_L1_COPY_REUSE_H_

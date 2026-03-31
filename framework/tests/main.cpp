@@ -28,9 +28,10 @@
 #if defined(BUILD_WITH_CANN) && defined(ENABLE_STEST)
 #include "runtime/dev.h"
 
-bool CheckDeviceConsistency() {
+bool CheckDeviceConsistency()
+{
     /* 获取实际生效的 DeviceId */
-    int32_t rtDevId = -1;  // -1 表示无效 DeviceId
+    int32_t rtDevId = -1; // -1 表示无效 DeviceId
     int32_t getDeviceResult = rtGetDevice(&rtDevId);
     if (getDeviceResult != RT_ERROR_NONE) {
         std::cout << "Error: Can't get deviceId" << std::endl;
@@ -39,7 +40,7 @@ bool CheckDeviceConsistency() {
 
     /* 获取环境变量中设置的 DeviceId */
     int32_t envDevId = 0;
-    const char *devIdPtr = getenv("TILE_FWK_DEVICE_ID");
+    const char* devIdPtr = getenv("TILE_FWK_DEVICE_ID");
     if (devIdPtr != nullptr) {
         envDevId = std::stoi(devIdPtr);
     }
@@ -53,9 +54,7 @@ bool CheckDeviceConsistency() {
 
 #else
 
-bool CheckDeviceConsistency() {
-    return true;
-}
+bool CheckDeviceConsistency() { return true; }
 
 #endif
 
@@ -63,9 +62,7 @@ class TestExecutionCounter : public testing::EmptyTestEventListener {
 public:
     uint64_t executed_count = 0;
 
-    void OnTestStart(const testing::TestInfo&) override {
-        executed_count++;
-    }
+    void OnTestStart(const testing::TestInfo&) override { executed_count++; }
 };
 
 class CpuAffinityManager {
@@ -76,7 +73,8 @@ public:
     CpuAffinityManager(const CpuAffinityManager&) = delete;
     CpuAffinityManager& operator=(const CpuAffinityManager&) = delete;
 
-    static void GetProcessAffinity(std::vector<int>& cores, bool printDetail = false) {
+    static void GetProcessAffinity(std::vector<int>& cores, bool printDetail = false)
+    {
         cores.clear();
         cpu_set_t cpuSet;
         CPU_ZERO(&cpuSet);
@@ -99,14 +97,16 @@ public:
             return;
         }
         if (cores.size() == cpuCount) {
-            return;  // 未单独设置 CPU 亲和性时, 所有核都会被设置到
+            return; // 未单独设置 CPU 亲和性时, 所有核都会被设置到
         }
         int firstCore = cores.front();
         int lastCore = cores.back();
-        std::cout << "Note: CPU Affinity, CpuNum=" << cpuCount << ", Cores: " << firstCore << "~" << lastCore << std::endl;
+        std::cout << "Note: CPU Affinity, CpuNum=" << cpuCount << ", Cores: " << firstCore << "~" << lastCore
+                  << std::endl;
     }
 
-    static bool SetProcessAffinity(const std::vector<int>& cores) {
+    static bool SetProcessAffinity(const std::vector<int>& cores)
+    {
         unsigned int cpuCount = getCpuCoreCount();
         if (cpuCount == 0) {
             return false;
@@ -138,7 +138,8 @@ public:
         return true;
     }
 
-    static bool SetProcessAffinityFromEnv(const std::string &envName) {
+    static bool SetProcessAffinityFromEnv(const std::string& envName)
+    {
         const char* envStr = std::getenv(envName.c_str());
         if (envStr == nullptr) {
             std::cerr << "Environment variable " << envName << " is not set" << std::endl;
@@ -155,7 +156,8 @@ public:
     }
 
 private:
-    static unsigned int getCpuCoreCount() {
+    static unsigned int getCpuCoreCount()
+    {
         unsigned int cpuCount = std::thread::hardware_concurrency();
         if (cpuCount == 0) {
             // 兜底: 使用系统调用
@@ -167,11 +169,12 @@ private:
         return cpuCount;
     }
 
-    static bool stringToInt(const std::string& str, int& outVal) {
+    static bool stringToInt(const std::string& str, int& outVal)
+    {
         try {
             size_t pos;
             outVal = std::stoi(str, &pos);
-            return pos == str.length();  // 确保整个字符串都是数字（避免"12a"这类非法值）
+            return pos == str.length(); // 确保整个字符串都是数字（避免"12a"这类非法值）
         } catch (const std::invalid_argument&) {
             return false;
         } catch (const std::out_of_range&) {
@@ -179,7 +182,8 @@ private:
         }
     }
 
-    static std::vector<std::string> splitString(const std::string& str, char delimiter) {
+    static std::vector<std::string> splitString(const std::string& str, char delimiter)
+    {
         std::vector<std::string> tokens;
         std::string token;
         std::istringstream tokenStream(str);
@@ -191,7 +195,8 @@ private:
         return tokens;
     }
 
-    static bool parseAndValidateCores(const std::string& envValue, std::vector<int>& outCores) {
+    static bool parseAndValidateCores(const std::string& envValue, std::vector<int>& outCores)
+    {
         outCores.clear();
         std::vector<std::string> coreStrList = splitString(envValue, ';');
 
@@ -208,7 +213,8 @@ private:
         return true;
     }
 
-    static std::vector<int> cpuSetToCoreList(const cpu_set_t& cpuSet) {
+    static std::vector<int> cpuSetToCoreList(const cpu_set_t& cpuSet)
+    {
         std::vector<int> coreList;
         unsigned int cpuCount = getCpuCoreCount();
         if (cpuCount == 0) {
@@ -225,20 +231,17 @@ private:
     }
 };
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     // 查询 CPU 亲和性设置
     std::vector<int> cores;
     CpuAffinityManager::GetProcessAffinity(cores, true);
 
     // 特殊参数场景判断
-    auto isListMetasFunc = [](const std::string& arg) {
-        return arg == "--gtest_list_tests_with_meta";
-    };
+    auto isListMetasFunc = [](const std::string& arg) { return arg == "--gtest_list_tests_with_meta"; };
     bool isListMetas = (std::find_if(argv + 1, argv + argc, isListMetasFunc) != argv + argc);
 
-    auto isListTestsFunc = [](const std::string& arg) {
-        return arg == "--gtest_list_tests";
-    };
+    auto isListTestsFunc = [](const std::string& arg) { return arg == "--gtest_list_tests"; };
     bool isListTests = (std::find_if(argv + 1, argv + argc, isListTestsFunc) != argv + argc);
 
     // 初始化 GTest
@@ -263,8 +266,8 @@ int main(int argc, char** argv) {
         return ret;
     }
     if (counter.executed_count == 0) {
-        std::cout << "Error: Can't get any case to run when using " << testing::GTEST_FLAG(filter)
-                  << " to filter." << std::endl;
+        std::cout << "Error: Can't get any case to run when using " << testing::GTEST_FLAG(filter) << " to filter."
+                  << std::endl;
         ret = ret == 0 ? 1 : ret;
     }
     ret = CheckDeviceConsistency() ? ret : 1;

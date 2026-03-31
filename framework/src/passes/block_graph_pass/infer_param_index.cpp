@@ -10,7 +10,7 @@
 
 /*!
  * \file infer_param_index.cpp
-* \brief
+ * \brief
  */
 
 #include <queue>
@@ -38,15 +38,16 @@ std::string InferParamIndex::DumpParamIndex(const std::map<std::string, DynParam
     return ss.str();
 }
 
-Status InferParamIndex::ResetOutputDynValidShape(const Operation &op) {
+Status InferParamIndex::ResetOutputDynValidShape(const Operation& op)
+{
     std::vector<SymbolicScalar> validShape;
-    const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND, Opcode::OP_RESHAPE,Opcode::OP_GATHER,
-        Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1};
+    const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND,       Opcode::OP_RESHAPE,
+                                           Opcode::OP_GATHER,  Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1};
     for (auto outOperand : op.GetOOperands()) {
         if (OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) || specifiedOps.count(op.GetOpcode())) {
             for (size_t dimIdx = 0U; dimIdx < outOperand->GetShape().size(); ++dimIdx) {
-                validShape.push_back(SymbolicScalar("sym_" +  std::to_string(outOperand->GetMagic()) +
-                                                    "_dim_" + std::to_string(dimIdx)));
+                validShape.push_back(
+                    SymbolicScalar("sym_" + std::to_string(outOperand->GetMagic()) + "_dim_" + std::to_string(dimIdx)));
             }
         }
         if (op.GetOpcode() != Opcode::OP_ASSEMBLE) { // Assemble的oOperand保持validShape不变
@@ -56,8 +57,9 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation &op) {
     return SUCCESS;
 }
 
-Status InferParamIndex::ResetViewDynValidShape(const Operation &op) {
-    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+Status InferParamIndex::ResetViewDynValidShape(const Operation& op)
+{
+    auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(op.GetOpAttribute().get());
     if (viewOpAttribute == nullptr) {
         return SUCCESS;
     }
@@ -76,8 +78,9 @@ Status InferParamIndex::ResetViewDynValidShape(const Operation &op) {
     return SUCCESS;
 }
 
-Status InferParamIndex::ResetAssembleDynValidShape(const Operation &op) {
-    auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
+Status InferParamIndex::ResetAssembleDynValidShape(const Operation& op)
+{
+    auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute*>(op.GetOpAttribute().get());
     if (assembleOpAttribute != nullptr) {
         auto emptyValidShape = std::vector<SymbolicScalar>();
         assembleOpAttribute->SetFromDynValidShape(emptyValidShape);
@@ -85,22 +88,33 @@ Status InferParamIndex::ResetAssembleDynValidShape(const Operation &op) {
     return SUCCESS;
 }
 
-Status InferParamIndex::ResetDynValidShape(Function& function) {
-    for (auto &op : function.Operations(false)) {
+Status InferParamIndex::ResetDynValidShape(Function& function)
+{
+    for (auto& op : function.Operations(false)) {
         if (ResetOutputDynValidShape(op) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Fail to reset the output operand shape of operation %d in function %s. Please check whether the shape is valid in your input graph.%s", op.GetOpMagic(), function.GetRawName().c_str(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation,
+                "Fail to reset the output operand shape of operation %d in function %s. Please check whether the shape "
+                "is valid in your input graph.%s",
+                op.GetOpMagic(), function.GetRawName().c_str(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         // 清空view和assemble的属性中的dynvalidshape，以便后续重新推导符号化的dynvalidshape
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             if (ResetViewDynValidShape(op) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Fail to reset the output operand shape of VIEW operation %d in function %s. %s", op.GetOpMagic(), function.GetRawName().c_str(), GetFormatBacktrace(op).c_str());
+                APASS_LOG_ERROR_F(
+                    Elements::Operation,
+                    "Fail to reset the output operand shape of VIEW operation %d in function %s. %s", op.GetOpMagic(),
+                    function.GetRawName().c_str(), GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
         }
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             if (ResetAssembleDynValidShape(op) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Fail to reset the output operand shape of ASSEMBLE operation %d in function %s. %s", op.GetOpMagic(), function.GetRawName().c_str(), GetFormatBacktrace(op).c_str());
+                APASS_LOG_ERROR_F(
+                    Elements::Operation,
+                    "Fail to reset the output operand shape of ASSEMBLE operation %d in function %s. %s",
+                    op.GetOpMagic(), function.GetRawName().c_str(), GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
         }
@@ -108,13 +122,16 @@ Status InferParamIndex::ResetDynValidShape(Function& function) {
     return SUCCESS;
 }
 
-Status InferParamIndex::InferShape(Function &function)
+Status InferParamIndex::InferShape(Function& function)
 {
     size_t i = 0U;
     std::map<int, size_t> opMagic2Idx;
     std::vector<Operation*> opList = function.Operations(false).DuplicatedOpList();
     if (opList.empty()) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "There is no operation in function %s. Please check the operation list of the input graph", function.GetRawName().c_str());
+        APASS_LOG_ERROR_F(
+            Elements::Tensor,
+            "There is no operation in function %s. Please check the operation list of the input graph",
+            function.GetRawName().c_str());
         return FAILED;
     }
     for (auto op : opList) {
@@ -134,8 +151,11 @@ Status InferParamIndex::InferShape(Function &function)
     return SUCCESS;
 }
 
-Status InferParamIndex::UpdateValidShape(Function &subFunc, std::map<int, std::vector<SymbolicScalar>> &addr2ValidShape, std::map<int, std::vector<SymbolicScalar>> &addr2ValidShapeSpecified) {
-    for (auto &op : subFunc.Operations(false)) {
+Status InferParamIndex::UpdateValidShape(
+    Function& subFunc, std::map<int, std::vector<SymbolicScalar>>& addr2ValidShape,
+    std::map<int, std::vector<SymbolicScalar>>& addr2ValidShapeSpecified)
+{
+    for (auto& op : subFunc.Operations(false)) {
         int tensorBaseAddrCoaIndex = IsCopyIn(op.GetOpcode()) ? op.GetIOpAttrOffset(0) : op.GetOOpAttrOffset(0);
         if (tensorBaseAddrCoaIndex == -1) {
             continue;
@@ -145,7 +165,8 @@ Status InferParamIndex::UpdateValidShape(Function &subFunc, std::map<int, std::v
             if (IsCopyIn(op.GetOpcode())) {
                 auto attr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
                 if (attr->GetToDynValidShape().size() != 0 && attr->GetToDynValidShape()[0].IsSpecified()) {
-                    addr2ValidShapeSpecified[tensorBaseAddrCoaIndex] = OpImmediate::ToSpecified(attr->GetToDynValidShape());
+                    addr2ValidShapeSpecified[tensorBaseAddrCoaIndex] =
+                        OpImmediate::ToSpecified(attr->GetToDynValidShape());
                 }
             }
         }
@@ -153,7 +174,10 @@ Status InferParamIndex::UpdateValidShape(Function &subFunc, std::map<int, std::v
     return SUCCESS;
 }
 
-Status InferParamIndex::SetSubValidShape(Function &subFunc, std::map<int, std::vector<SymbolicScalar>> &addr2ValidShape, std::map<int, std::vector<SymbolicScalar>> &addr2ValidShapeSpecified) {
+Status InferParamIndex::SetSubValidShape(
+    Function& subFunc, std::map<int, std::vector<SymbolicScalar>>& addr2ValidShape,
+    std::map<int, std::vector<SymbolicScalar>>& addr2ValidShapeSpecified)
+{
     std::set<std::string> visitedSymbol;
     int tensorIndex{0};
     for (auto validShape : addr2ValidShape) {
@@ -171,8 +195,14 @@ Status InferParamIndex::SetSubValidShape(Function &subFunc, std::map<int, std::v
                 dynDim = addr2ValidShapeSpecified[tensorBaseAddrCoaIndex][dimIdx];
             }
             auto paramInfo = DynParamInfo{
-                static_cast<int>(validShape.second.size()), tensorIndex, tensorBaseAddrCoaIndex, DynParamInfoType::VALID_SHAPE,
-                dimIdx, dynDim, false, ""};
+                static_cast<int>(validShape.second.size()),
+                tensorIndex,
+                tensorBaseAddrCoaIndex,
+                DynParamInfoType::VALID_SHAPE,
+                dimIdx,
+                dynDim,
+                false,
+                ""};
             subFunc.InsertDynParam(dim.Dump(), paramInfo);
             dimIdx++;
         }
@@ -181,11 +211,13 @@ Status InferParamIndex::SetSubValidShape(Function &subFunc, std::map<int, std::v
     return SUCCESS;
 }
 
-Status InferParamIndex::UpdateParamIndex(Function &function) {
-    for (auto &subProgram : function.rootFunc_->programs_) {
-        auto &subFunc = *subProgram.second;
+Status InferParamIndex::UpdateParamIndex(Function& function)
+{
+    for (auto& subProgram : function.rootFunc_->programs_) {
+        auto& subFunc = *subProgram.second;
         if (ResetDynValidShape(subFunc) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "ResetDynValidShape failed; Please check the ResetDynValidShape method.");
+            APASS_LOG_ERROR_F(
+                Elements::Function, "ResetDynValidShape failed; Please check the ResetDynValidShape method.");
             return FAILED;
         }
         if (InferShape(subFunc) != SUCCESS) {
@@ -196,19 +228,27 @@ Status InferParamIndex::UpdateParamIndex(Function &function) {
         std::map<int, std::vector<SymbolicScalar>> addr2ValidShape;
         std::map<int, std::vector<SymbolicScalar>> addr2ValidShapeSpecified;
         if (UpdateValidShape(subFunc, addr2ValidShape, addr2ValidShapeSpecified) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "Update valid shape for the function %s failed. Please check above for more information.", function.GetRawName().c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Function,
+                "Update valid shape for the function %s failed. Please check above for more information.",
+                function.GetRawName().c_str());
             return FAILED;
         }
         if (SetSubValidShape(subFunc, addr2ValidShape, addr2ValidShapeSpecified) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "Update valid shape for the function %s failed. Please check above for more information.", function.GetRawName().c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Function,
+                "Update valid shape for the function %s failed. Please check above for more information.",
+                function.GetRawName().c_str());
             return FAILED;
         }
-        APASS_LOG_DEBUG_F(Elements::Function, "Print function after update: %s\n", DumpParamIndex(subFunc.GetDynParamTable()).c_str());
+        APASS_LOG_DEBUG_F(
+            Elements::Function, "Print function after update: %s\n",
+            DumpParamIndex(subFunc.GetDynParamTable()).c_str());
     }
     return SUCCESS;
 }
 
-Status InferParamIndex::RunOnFunction(Function &function)
+Status InferParamIndex::RunOnFunction(Function& function)
 {
     APASS_LOG_INFO_F(Elements::Function, "===> Start InferParamIndex.");
     if (UpdateParamIndex(function) != SUCCESS) {
@@ -218,5 +258,5 @@ Status InferParamIndex::RunOnFunction(Function &function)
     APASS_LOG_INFO_F(Elements::Function, "===> End InferParamIndex By Sequential Execution.");
     return SUCCESS;
 }
-}  // namespace tile_fwk
-}  // namespace npu
+} // namespace tile_fwk
+} // namespace npu

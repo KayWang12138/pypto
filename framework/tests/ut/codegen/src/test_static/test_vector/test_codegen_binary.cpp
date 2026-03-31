@@ -34,7 +34,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetBuildStatic(true);
@@ -48,12 +49,13 @@ public:
     void TearDown() override {}
 };
 
-void TestAddBody(std::vector<int64_t> shape, std::string name, bool withBrc = false) {
+void TestAddBody(std::vector<int64_t> shape, std::string name, bool withBrc = false)
+{
     auto function = GenMockFuncStatic(name, shape);
 
     if (withBrc) {
-        for (auto &subProgram : function->rootFunc_->programs_) {
-            for (auto &op : subProgram.second->Operations(false)) {
+        for (auto& subProgram : function->rootFunc_->programs_) {
+            for (auto& op : subProgram.second->Operations(false)) {
                 if (op.GetOpcode() == Opcode::OP_ADD) {
                     op.SetAttribute(OpAttributeKey::brcbIdx, 0);
                 }
@@ -65,46 +67,34 @@ void TestAddBody(std::vector<int64_t> shape, std::string name, bool withBrc = fa
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenBinary, TestCodegenAddDim2) {
-    TestAddBody({64, 64}, "ADD_DIM2", true);
-}
+TEST_F(TestCodegenBinary, TestCodegenAddDim2) { TestAddBody({64, 64}, "ADD_DIM2", true); }
 
-TEST_F(TestCodegenBinary, TestCodegenAddDim3) {
-    TestAddBody({8, 8, 8}, "ADD_DIM3");
-}
+TEST_F(TestCodegenBinary, TestCodegenAddDim3) { TestAddBody({8, 8, 8}, "ADD_DIM3"); }
 
-TEST_F(TestCodegenBinary, TestCodegenAddDim4) {
-    TestAddBody({2, 2, 16, 16}, "ADD_DIM4");
-}
+TEST_F(TestCodegenBinary, TestCodegenAddDim4) { TestAddBody({2, 2, 16, 16}, "ADD_DIM4"); }
 
-void TestAddSBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, std::string name) {
+void TestAddSBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, std::string name)
+{
     TileShape::Current().SetVecTile(tile_shape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, shape, "C");
     Element value(DataType::DT_FP32, 1.5);
 
-    FUNCTION(name, {input_a, output}) {
-        output = Add(input_a, value);
-    }
+    FUNCTION(name, {input_a, output}) { output = Add(input_a, value); }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenBinary, TestCodegenAddSDim2) {
-    TestAddSBody({19, 90}, {8, 128}, "ADD_DIM2");
-}
+TEST_F(TestCodegenBinary, TestCodegenAddSDim2) { TestAddSBody({19, 90}, {8, 128}, "ADD_DIM2"); }
 
-TEST_F(TestCodegenBinary, TestCodegenAddSDim3) {
-    TestAddSBody({5, 19, 90}, {8, 8, 128}, "ADD_DIM3");
-}
+TEST_F(TestCodegenBinary, TestCodegenAddSDim3) { TestAddSBody({5, 19, 90}, {8, 8, 128}, "ADD_DIM3"); }
 
-TEST_F(TestCodegenBinary, TestCodegenAddSDim4) {
-    TestAddSBody({2, 2, 20, 20}, {1, 1, 8, 8}, "ADD_DIM4");
-}
+TEST_F(TestCodegenBinary, TestCodegenAddSDim4) { TestAddSBody({2, 2, 20, 20}, {1, 1, 8, 8}, "ADD_DIM4"); }
 
-TEST_F(TestCodegenBinary, TestCodegenAddMulDim4TileTensor) {
+TEST_F(TestCodegenBinary, TestCodegenAddMulDim4TileTensor)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
 
     TileShape::Current().SetVecTile(1, 1, 16, 16);
@@ -114,7 +104,8 @@ TEST_F(TestCodegenBinary, TestCodegenAddMulDim4TileTensor) {
     Tensor output(DT_FP32, shape, "OUT");
 
     std::string name = "AddMulDim4_TILETENSOR";
-    FUNCTION(name, {input_a, input_b, output}) {
+    FUNCTION(name, {input_a, input_b, output})
+    {
         Tensor tmp_c(DT_FP32, shape, "TEMP_C");
         tmp_c = Add(input_a, input_b);
         output = Mul(input_a, tmp_c);

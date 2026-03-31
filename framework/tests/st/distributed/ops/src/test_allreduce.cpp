@@ -23,8 +23,8 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
-template<typename T>
-void TestAllReduce(OpTestParam &testParam, std::string &goldenDir)
+template <typename T>
+void TestAllReduce(OpTestParam& testParam, std::string& goldenDir)
 {
     constexpr size_t paramsSize = 6;
     auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(goldenDir + "/params.bin");
@@ -36,8 +36,8 @@ void TestAllReduce(OpTestParam &testParam, std::string &goldenDir)
     Tensor in(dType, shape, "in");
     Tensor out(dType, shape, "out");
 
-    std::vector<T> inPtr = ReadToVector<T>(
-        goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+    std::vector<T> inPtr =
+        ReadToVector<T>(goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<T>(in, inPtr),
@@ -52,7 +52,8 @@ void TestAllReduce(OpTestParam &testParam, std::string &goldenDir)
         rowPerRank /= testParam.rankSize;
         shmemDataShape = {testParam.rankSize, rowPerRank, col};
     }
-    FUNCTION("ALLREDUCE", {in}, {out}) {
+    FUNCTION("ALLREDUCE", {in}, {out})
+    {
         TileShape::Current().SetVecTile({tileRow, tileCol});
         Tensor shmemData;
         Tensor shmemSignal;
@@ -61,9 +62,10 @@ void TestAllReduce(OpTestParam &testParam, std::string &goldenDir)
             shmemDataType = DT_FP32;
         }
         ShmemTensor shmemTensor;
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) { 
-            (void)index; 
-            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor); 
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1))
+        {
+            (void)index;
+            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
         }
         if (useTwoShot) {
             TwoShotAllReduce(in, in, shmemTensor, out);
@@ -73,13 +75,13 @@ void TestAllReduce(OpTestParam &testParam, std::string &goldenDir)
     }
     RunTest();
     auto output = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
-
+    EXPECT_TRUE(
+        CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
 }
 
-template void TestAllReduce<int32_t>(OpTestParam &testParam, std::string &goldenDir);
-template void TestAllReduce<float>(OpTestParam &testParam, std::string &goldenDir);
-template void TestAllReduce<float16>(OpTestParam &testParam, std::string& goldenDir);
-template void TestAllReduce<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
-} // namespace Distributed 
+template void TestAllReduce<int32_t>(OpTestParam& testParam, std::string& goldenDir);
+template void TestAllReduce<float>(OpTestParam& testParam, std::string& goldenDir);
+template void TestAllReduce<float16>(OpTestParam& testParam, std::string& goldenDir);
+template void TestAllReduce<bfloat16>(OpTestParam& testParam, std::string& goldenDir);
+} // namespace Distributed
 } // namespace npu::tile_fwk

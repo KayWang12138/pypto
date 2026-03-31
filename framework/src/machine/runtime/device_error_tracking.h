@@ -17,8 +17,8 @@
 #define DEVICE_ERROR_TRACKING_H
 
 namespace npu::tile_fwk {
-    const char* getExceptionTypeName(rtExceptionExpandType_t type);
-    void AicpuErrorCallBack(aclrtExceptionInfo *exceptionInfo);
-    void InitializeErrorCallback();
-}
+const char* getExceptionTypeName(rtExceptionExpandType_t type);
+void AicpuErrorCallBack(aclrtExceptionInfo* exceptionInfo);
+void InitializeErrorCallback();
+} // namespace npu::tile_fwk
 #endif

@@ -44,20 +44,20 @@ Online Softmax 通过分块计算，避免存储完整的 attention matrix：
 for each block in K/V:
     # 1. 计算 attention scores
     scores = Q @ K_block^T / sqrt(d) + mask
-    
+
     # 2. 更新最大值
     new_max = max(running_max, block_max)
-    
+
     # 3. 调整之前的累积值
     correction = exp(running_max - new_max)
     running_sum *= correction
     running_output *= correction
-    
+
     # 4. 累积当前块
     exp_scores = exp(scores - new_max)
     running_sum += sum(exp_scores)
     running_output += exp_scores @ V_block
-    
+
     # 5. 更新状态
     running_max = new_max
 

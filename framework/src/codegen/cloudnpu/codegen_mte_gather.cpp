@@ -21,7 +21,8 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
-std::string CodeGenOpCloudNPU::PrintGatherInL1TileTensor() const {
+std::string CodeGenOpCloudNPU::PrintGatherInL1TileTensor() const
+{
     std::string srcVar = sm->QueryTileTensorNameByBufVar(GenGmParamVar(ID1));
     std::string offsetsVar = sm->QueryTileTensorNameByBufVar(GenGmParamVar(ID2));
     std::string blockTableVar = sm->QueryTileTensorNameByBufVar(GenGmParamVar(ID3));
@@ -51,7 +52,8 @@ std::string CodeGenOpCloudNPU::PrintGatherInL1TileTensor() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenGatherInL1() const {
+std::string CodeGenOpCloudNPU::GenGatherInL1() const
+{
     if (isSupportLayout) {
         return PrintGatherInL1TileTensor();
     }
@@ -100,7 +102,8 @@ std::string CodeGenOpCloudNPU::GenGatherInL1() const {
     auto blockTableGMStride = GenParamIdxExprByIndex(ID3, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
     auto blockTableStartOffsets = GenParamIdxExprByIndex(ID3, SHAPE_DIM2, PREFIX_STR_OFFSET);
 
-    auto ret = sprintf_s(buffer, sizeof(buffer),
+    auto ret = sprintf_s(
+        buffer, sizeof(buffer),
         "%s<%s, %s, %s, %lld, %lld, %lld, %lld>((__cbuf__ %s *)%s, %s, %s, (__gm__ %s *)%s, %lld, (__gm__ %s *)%s, "
         "(__gm__ %s *)%s, %s, %s, %s, %s, %s);\n",
         tileOpName.c_str(), dstDtypeStr.c_str(), offsetsDtypeStr.c_str(), blockTableDtypeStr.c_str(), dstRawShapes[ID0],
@@ -124,9 +127,7 @@ std::string CodeGenOpCloudNPU::GenGatherInL1() const {
  * axis 2
  *
  */
-inline int NormalizeAxis(int axis, int paramDim) {
-    return axis + (SHAPE_DIM4 - paramDim);
-}
+inline int NormalizeAxis(int axis, int paramDim) { return axis + (SHAPE_DIM4 - paramDim); }
 /**
  * 归一化的 gather 参数维度
  * example:
@@ -145,7 +146,8 @@ inline int NormalizeAxis(int axis, int paramDim) {
  * 3. 重新拼装处 result 形状
  */
 template <typename T>
-void NormalizeGatherShape(std::vector<T> &rawShape, const int paramDim, const int indicesDim, const int axis) {
+void NormalizeGatherShape(std::vector<T>& rawShape, const int paramDim, const int indicesDim, const int axis)
+{
     bool isValidDType = (std::is_same_v<T, int64_t> || std::is_same_v<T, SymbolicScalar>);
     ASSERT(GenCodeErr::DATA_TYPE_UNSUPPORTED, isValidDType) << "T must be int64_t or SymbolicScalar";
     std::vector<T> paramShape{};
@@ -166,13 +168,15 @@ void NormalizeGatherShape(std::vector<T> &rawShape, const int paramDim, const in
     rawShape.erase(rawShape.begin() + normalizedAxis);
     rawShape.insert(rawShape.begin() + normalizedAxis, indicesShape.begin(), indicesShape.end());
 }
-void HelpNormalize(std::vector<size_t> &index, int axis, int paramDim) {
+void HelpNormalize(std::vector<size_t>& index, int axis, int paramDim)
+{
     size_t delNum = NUM4 - paramDim;
     index.erase(index.begin() + delNum);
     axis = NormalizeAxis(axis, paramDim);
     index.insert(index.begin() + axis, delNum);
 }
-std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned() const {
+std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned() const
+{
     std::vector dstShape = rawShape[0];
     std::vector src0Shape = rawShape[1];
 
@@ -199,7 +203,8 @@ std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned() const {
     paramList.emplace_back(paramDtypeStr);
     paramList.emplace_back(indicesDtypeStr);
     paramList.emplace_back(std::to_string(NormalizeAxis(axis, paramDim)));
-    std::transform(normalizedOutputRawShapes.begin() + 1, normalizedOutputRawShapes.end(), back_inserter(paramList),
+    std::transform(
+        normalizedOutputRawShapes.begin() + 1, normalizedOutputRawShapes.end(), back_inserter(paramList),
         [](int x) { return std::to_string(x); });
 
     std::string templateParam = JoinString(paramList, ", ");
@@ -216,8 +221,9 @@ std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned() const {
     paramList.emplace_back(indicesParamStr);
     NormalizeGatherShape<SymbolicScalar>(outputValidShapes, paramDim, indicesDim, axis);
 
-    std::transform(outputValidShapes.begin(), outputValidShapes.end(), back_inserter(paramList),
-        [](SymbolicScalar x) { return SymbolicExpressionTable::BuildExpression(x); });
+    std::transform(outputValidShapes.begin(), outputValidShapes.end(), back_inserter(paramList), [](SymbolicScalar x) {
+        return SymbolicExpressionTable::BuildExpression(x);
+    });
 
     auto paramGMStride = GenParamIdxExprByIndex(paramIndex, paramDim, PREFIX_STR_RAW_SHAPE);
     auto paramStartOffsets = GenParamIdxExprByIndex(paramIndex, paramDim, PREFIX_STR_OFFSET);
@@ -240,7 +246,8 @@ std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned() const {
 
     return os.str();
 }
-std::string CodeGenOpCloudNPU::PrintGatherLayout() const {
+std::string CodeGenOpCloudNPU::PrintGatherLayout() const
+{
     // constexpr int paramIndex = 0;
     // constexpr int indicesIndex = 1;
     auto outputRawShapes = rawShape[ID0];
@@ -278,7 +285,8 @@ std::string CodeGenOpCloudNPU::PrintGatherLayout() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenGatherOp() const {
+std::string CodeGenOpCloudNPU::GenGatherOp() const
+{
     if (isSupportLayout) {
         return PrintGatherLayout();
     }
@@ -289,7 +297,8 @@ std::string CodeGenOpCloudNPU::GenGatherOp() const {
     return "";
 }
 
-std::string CodeGenOpCloudNPU::PrintGatherInUBLayout() const {
+std::string CodeGenOpCloudNPU::PrintGatherInUBLayout() const
+{
     constexpr int paramIndex = 1;
     constexpr int indicesIndex = 2;
     constexpr int blockTableIndex = 3;
@@ -318,13 +327,14 @@ std::string CodeGenOpCloudNPU::PrintGatherInUBLayout() const {
     paramList.emplace_back(std::to_string(blockSize));
     std::string templateParam = JoinString(paramList, CONN_COMMA);
 
-    std::vector<std::string> tileOpParamList = {
-        outputTensor, paramTensor, indicesTensor, pageTableTensor, coord4Param, coord4Indices, coord4BlockTable};
+    std::vector<std::string> tileOpParamList = {outputTensor, paramTensor,   indicesTensor,   pageTableTensor,
+                                                coord4Param,  coord4Indices, coord4BlockTable};
     std::ostringstream oss;
     oss << tileOpName << "<" << templateParam << ">" << WrapParamByParentheses(tileOpParamList) << STMT_END;
     return oss.str();
 }
-std::string CodeGenOpCloudNPU::PrintGatherInUBDynamicUnaligned() const {
+std::string CodeGenOpCloudNPU::PrintGatherInUBDynamicUnaligned() const
+{
     std::vector dstShape = rawShape[0];
     std::vector src0Shape = rawShape[1];
 
@@ -399,7 +409,8 @@ std::string CodeGenOpCloudNPU::PrintGatherInUBDynamicUnaligned() const {
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::GenGatherInUB() const {
+std::string CodeGenOpCloudNPU::GenGatherInUB() const
+{
     if (isSupportLayout) {
         return PrintGatherInUBLayout();
     }

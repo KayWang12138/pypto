@@ -27,7 +27,7 @@ using CoreFuncParam = npu::tile_fwk::CoreFuncParam;
 #define CACHELINE_SIZE_FOR_B32 128
 #define CACHELINE_SIZE_FOR_B64 64
 #define DEFAULT_TOTAL_BLOCK_NUM 75
-#define DEBUG_OFFSET_FOR_B64 DEFAULT_TOTAL_BLOCK_NUM *CACHELINE_SIZE_FOR_B64 / sizeof(int64_t)
+#define DEBUG_OFFSET_FOR_B64 DEFAULT_TOTAL_BLOCK_NUM* CACHELINE_SIZE_FOR_B64 / sizeof(int64_t)
 #define DEBUG_SIZE_PER_CORE (1 * 1024 * 1024)
 #define PAD_LIMIT 512
 
@@ -35,7 +35,7 @@ const int SHAKE_SAY_HELLO = 100;
 const int SHAKE_HELLO_ACK = 200;
 
 struct RealizedVar {
-    __gm__ void *Addr;
+    __gm__ void* Addr;
     int64_t offset0; // NEXTNEXT: should divide by TILESIZE or not? E.g . 128 or 128/128
     int64_t offset1;
 };
@@ -46,7 +46,7 @@ struct GMTensorInfo {
 
 template <typename T>
 struct IOCastInfo {
-    __gm__ T *Addr;
+    __gm__ T* Addr;
     int64_t Size;
 };
 
@@ -77,7 +77,8 @@ struct RingBuffer {
 };
 
 template <typename T, unsigned SIZE>
-INLINE void InitRingBuffer(RingBuffer<T, SIZE> *Q) {
+INLINE void InitRingBuffer(RingBuffer<T, SIZE>* Q)
+{
     Q->front = 0;
     Q->rear = 0;
     Q->MAX_SIZE = SIZE;
@@ -85,7 +86,8 @@ INLINE void InitRingBuffer(RingBuffer<T, SIZE> *Q) {
 
 // Enqueue:
 template <typename T, unsigned SIZE>
-INLINE bool EnQueue(volatile __gm__ RingBuffer<T, SIZE> *Q, T value) {
+INLINE bool EnQueue(volatile __gm__ RingBuffer<T, SIZE>* Q, T value)
+{
     dcci(Q, ENTIRE_DATA_CACHE, CACHELINE_OUT);
     if (Q->rear - Q->front == Q->MAX_SIZE) {
         return false;
@@ -99,7 +101,8 @@ INLINE bool EnQueue(volatile __gm__ RingBuffer<T, SIZE> *Q, T value) {
 
 // Enqueue:
 template <typename T, unsigned SIZE>
-INLINE bool EnQueuePrivate(volatile RingBuffer<T, SIZE> *Q, T value) {
+INLINE bool EnQueuePrivate(volatile RingBuffer<T, SIZE>* Q, T value)
+{
     if ((Q->rear + 1) % Q->MAX_SIZE == Q->front) {
         return false;
     }
@@ -111,7 +114,8 @@ INLINE bool EnQueuePrivate(volatile RingBuffer<T, SIZE> *Q, T value) {
 
 // EnQueueLocalToGM:
 template <typename T, unsigned SIZE>
-INLINE bool EnQueueLocalToGM(volatile __gm__ RingBuffer<T, SIZE> *Q, T value) {
+INLINE bool EnQueueLocalToGM(volatile __gm__ RingBuffer<T, SIZE>* Q, T value)
+{
     if ((Q->rear + 1) % Q->MAX_SIZE == Q->front) {
         return false;
     }
@@ -124,7 +128,8 @@ INLINE bool EnQueueLocalToGM(volatile __gm__ RingBuffer<T, SIZE> *Q, T value) {
 
 // dequeue:
 template <typename T, unsigned SIZE>
-INLINE bool DeQueue(volatile __gm__ RingBuffer<T, SIZE> *Q, T &value) {
+INLINE bool DeQueue(volatile __gm__ RingBuffer<T, SIZE>* Q, T& value)
+{
     dcci(Q, ENTIRE_DATA_CACHE, CACHELINE_OUT);
     if (Q->front == Q->rear) {
         return false;
@@ -138,65 +143,74 @@ INLINE bool DeQueue(volatile __gm__ RingBuffer<T, SIZE> *Q, T &value) {
 
 // dequeue:
 template <typename T, unsigned SIZE>
-INLINE volatile T *DeQueuePrivate(volatile RingBuffer<T, SIZE> *Q) {
+INLINE volatile T* DeQueuePrivate(volatile RingBuffer<T, SIZE>* Q)
+{
     if (Q->front == Q->rear) {
         return nullptr;
     }
-    volatile T *ret = &(Q->elements[Q->front]);
+    volatile T* ret = &(Q->elements[Q->front]);
     Q->front = (Q->front + 1) % Q->MAX_SIZE;
     return ret;
 }
 
 // Peek:
 template <typename T, unsigned SIZE>
-INLINE __gm__ T *Peek(volatile __gm__ RingBuffer<T, SIZE> *Q) {
+INLINE __gm__ T* Peek(volatile __gm__ RingBuffer<T, SIZE>* Q)
+{
     if (Q->front == Q->rear) {
         return nullptr;
     }
-    __gm__ T *ret = &(Q->elements[Q->front]);
+    __gm__ T* ret = &(Q->elements[Q->front]);
     return ret;
 }
 
 // dequeue:
 template <typename T, unsigned SIZE>
-INLINE T *PeekPrivate(volatile RingBuffer<T, SIZE> *Q) {
+INLINE T* PeekPrivate(volatile RingBuffer<T, SIZE>* Q)
+{
     if (Q->front == Q->rear) {
         return nullptr;
     }
-    T *ret = &(Q->elements[Q->front]);
+    T* ret = &(Q->elements[Q->front]);
     return ret;
 }
 
 template <typename T, unsigned SIZE>
-INLINE bool IsFull(volatile __gm__ RingBuffer<T, SIZE> *Q) {
+INLINE bool IsFull(volatile __gm__ RingBuffer<T, SIZE>* Q)
+{
     dcci(Q, ENTIRE_DATA_CACHE, CACHELINE_OUT);
     return (Q->rear - Q->front) == Q->MAX_SIZE;
 }
 
 template <typename T, unsigned SIZE>
-INLINE bool IsFullPrivate(volatile RingBuffer<T, SIZE> *Q) {
+INLINE bool IsFullPrivate(volatile RingBuffer<T, SIZE>* Q)
+{
     return (Q->rear + 1) % Q->MAX_SIZE == Q->front;
 }
 
 template <typename T, unsigned SIZE>
-INLINE bool IsEmpty(volatile __gm__ RingBuffer<T, SIZE> *Q) {
+INLINE bool IsEmpty(volatile __gm__ RingBuffer<T, SIZE>* Q)
+{
     dcci(Q, 0);
     return Q->front == Q->rear;
 }
 
 template <typename T, unsigned SIZE>
-INLINE bool IsEmptyPrivate(volatile RingBuffer<T, SIZE> *Q) {
+INLINE bool IsEmptyPrivate(volatile RingBuffer<T, SIZE>* Q)
+{
     return Q->front == Q->rear;
 }
 
 template <typename T, unsigned SIZE>
-INLINE uint64_t GetLength(volatile __gm__ RingBuffer<T, SIZE> *Q) {
+INLINE uint64_t GetLength(volatile __gm__ RingBuffer<T, SIZE>* Q)
+{
     dcci(Q, 0);
     return (Q->rear - Q->front + Q->MAX_SIZE) % Q->MAX_SIZE;
 }
 
 template <typename T, unsigned SIZE>
-INLINE uint64_t GetLengthPrivate(volatile RingBuffer<T, SIZE> *Q) {
+INLINE uint64_t GetLengthPrivate(volatile RingBuffer<T, SIZE>* Q)
+{
     return (Q->rear - Q->front + Q->MAX_SIZE) % Q->MAX_SIZE;
 }
 
@@ -207,22 +221,25 @@ INLINE uint64_t GetLengthPrivate(volatile RingBuffer<T, SIZE> *Q) {
 
 #define RAW_TENSOR_ADDR_MASK ((1UL << 63) - 1)
 
-INLINE __gm__ npu::tile_fwk::DevStartArgsBase *AiCoreRuntimeGetStartArgs(CoreFuncParam *param) {
+INLINE __gm__ npu::tile_fwk::DevStartArgsBase* AiCoreRuntimeGetStartArgs(CoreFuncParam* param)
+{
     auto func = param->funcData;
     auto startArgs = func->startArgs;
     return startArgs;
 }
 
-INLINE uint64_t GetTensorAddr(CoreFuncParam *ctx, int idx) {
+INLINE uint64_t GetTensorAddr(CoreFuncParam* ctx, int idx)
+{
     auto func = ctx->funcData;
     auto desc = &func->rawTensorDesc[ctx->opAttrs[idx]];
     if (desc->location == npu::tile_fwk::RAW_TENSOR_LOCATION_LOCAL)
         return func->workspaceAddr + desc->offsetOrIndex;
     else
-        return func->rawTensorAddr[desc->offsetOrIndex] & RAW_TENSOR_ADDR_MASK ;
+        return func->rawTensorAddr[desc->offsetOrIndex] & RAW_TENSOR_ADDR_MASK;
 }
 
-INLINE uint64_t GetCoa(CoreFuncParam *ctx, int idx) {
+INLINE uint64_t GetCoa(CoreFuncParam* ctx, int idx)
+{
     uint64_t val = ctx->opAttrs[idx];
     if (SYM_IS_EXPR(val))
         return ctx->exprTbl[SYM_VALUE(val)];
@@ -231,7 +248,8 @@ INLINE uint64_t GetCoa(CoreFuncParam *ctx, int idx) {
 }
 
 INLINE
-int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int64_t viewshape) {
+int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int64_t viewshape)
+{
     validshape -= viewOffset;
     if (validshape > viewshape)
         validshape = viewshape;
@@ -240,24 +258,29 @@ int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int6
     return validshape;
 }
 
-#define RUNTIME_GetViewValidShapeDim(validShape, viewOffset, viewShape) RuntimeGetViewValidShapeDim(validShape, viewOffset, viewShape)
+#define RUNTIME_GetViewValidShapeDim(validShape, viewOffset, viewShape) \
+    RuntimeGetViewValidShapeDim(validShape, viewOffset, viewShape)
 
 #define GET_PARAM_ADDR(param, n, base) GetTensorAddr(param, base)
 
-#define GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx)         GetCoa(param, ((base) + 1) + 0 * (dim) + idx)
-#define GET_PARAM_SHAPE_BY_IDX(param, n, base, dim, idx)          GetCoa(param, ((base) + 1) + 1 * (dim) + idx)
-#define GET_PARAM_RAWSHAPE_BY_IDX(param, n, base, dim, idx)       GetCoa(param, ((base) + 1) + 2 * (dim) + idx)
-#define GET_PARAM_VALID_SHAPE_BY_IDX(param, n, base, dim, idx)    GetCoa(param, ((base) + 1) + 3 * (dim) + idx)
+#define GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx) GetCoa(param, ((base) + 1) + 0 * (dim) + idx)
+#define GET_PARAM_SHAPE_BY_IDX(param, n, base, dim, idx) GetCoa(param, ((base) + 1) + 1 * (dim) + idx)
+#define GET_PARAM_RAWSHAPE_BY_IDX(param, n, base, dim, idx) GetCoa(param, ((base) + 1) + 2 * (dim) + idx)
+#define GET_PARAM_VALID_SHAPE_BY_IDX(param, n, base, dim, idx) GetCoa(param, ((base) + 1) + 3 * (dim) + idx)
 
-#define GET_PARAM_ATTR_1(name, param, n, base)  GET_PARAM_##name##_BY_IDX(param, n, base, 1, 0)
-#define GET_PARAM_ATTR_2(name, param, n, base)  GET_PARAM_##name##_BY_IDX(param, n, base, 2, 0), GET_PARAM_##name##_BY_IDX(param, n, base, 2, 1)
-#define GET_PARAM_ATTR_3(name, param, n, base)  GET_PARAM_##name##_BY_IDX(param, n, base, 3, 0), GET_PARAM_##name##_BY_IDX(param, n, base, 3, 1), \
-                                                  GET_PARAM_##name##_BY_IDX(param, n, base, 3, 2)
-#define GET_PARAM_ATTR_4(name, param, n, base)  GET_PARAM_##name##_BY_IDX(param, n, base, 4, 0), GET_PARAM_##name##_BY_IDX(param, n, base, 4, 1), \
-                                                  GET_PARAM_##name##_BY_IDX(param, n, base, 4, 2), GET_PARAM_##name##_BY_IDX(param, n, base, 4, 3)
-#define GET_PARAM_ATTR_5(name, param, n, base)  GET_PARAM_##name##_BY_IDX(param, n, base, 5, 0), GET_PARAM_##name##_BY_IDX(param, n, base, 5, 1), \
-                                                  GET_PARAM_##name##_BY_IDX(param, n, base, 5, 2), GET_PARAM_##name##_BY_IDX(param, n, base, 5, 3), \
-                                                  GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4)
+#define GET_PARAM_ATTR_1(name, param, n, base) GET_PARAM_##name##_BY_IDX(param, n, base, 1, 0)
+#define GET_PARAM_ATTR_2(name, param, n, base) \
+    GET_PARAM_##name##_BY_IDX(param, n, base, 2, 0), GET_PARAM_##name##_BY_IDX(param, n, base, 2, 1)
+#define GET_PARAM_ATTR_3(name, param, n, base)                                                        \
+    GET_PARAM_##name##_BY_IDX(param, n, base, 3, 0), GET_PARAM_##name##_BY_IDX(param, n, base, 3, 1), \
+        GET_PARAM_##name##_BY_IDX(param, n, base, 3, 2)
+#define GET_PARAM_ATTR_4(name, param, n, base)                                                        \
+    GET_PARAM_##name##_BY_IDX(param, n, base, 4, 0), GET_PARAM_##name##_BY_IDX(param, n, base, 4, 1), \
+        GET_PARAM_##name##_BY_IDX(param, n, base, 4, 2), GET_PARAM_##name##_BY_IDX(param, n, base, 4, 3)
+#define GET_PARAM_ATTR_5(name, param, n, base)                                                            \
+    GET_PARAM_##name##_BY_IDX(param, n, base, 5, 0), GET_PARAM_##name##_BY_IDX(param, n, base, 5, 1),     \
+        GET_PARAM_##name##_BY_IDX(param, n, base, 5, 2), GET_PARAM_##name##_BY_IDX(param, n, base, 5, 3), \
+        GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4)
 
 #define GET_PARAM_ATTR_2_STRIDE(name, param, n, base) GET_PARAM_##name##_BY_IDX(param, n, base, 2, 1), 1
 #define GET_PARAM_ATTR_3_STRIDE(name, param, n, base)                                                  \
@@ -277,118 +300,120 @@ int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int6
         GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4), 1
 
 #define GET_PARAM_OFFSET_1(param, n, base) GET_PARAM_ATTR_1(OFFSET, param, n, base)
-#define GET_PARAM_SHAPE_1(param, n, base)  GET_PARAM_ATTR_1(SHAPE, param, n, base)
+#define GET_PARAM_SHAPE_1(param, n, base) GET_PARAM_ATTR_1(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_1(param, n, base) GET_PARAM_ATTR_1(RAWSHAPE, param, n, base)
 #define GET_PARAM_STRIDE_1(param, n, base) 1
 
 #define GET_PARAM_OFFSET_2(param, n, base) GET_PARAM_ATTR_2(OFFSET, param, n, base)
-#define GET_PARAM_SHAPE_2(param, n, base)  GET_PARAM_ATTR_2(SHAPE, param, n, base)
+#define GET_PARAM_SHAPE_2(param, n, base) GET_PARAM_ATTR_2(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_2(param, n, base) GET_PARAM_ATTR_2(RAWSHAPE, param, n, base)
 #define GET_PARAM_STRIDE_2(param, n, base) GET_PARAM_ATTR_2_STRIDE(RAWSHAPE, param, n, base)
 
 #define GET_PARAM_OFFSET_3(param, n, base) GET_PARAM_ATTR_3(OFFSET, param, n, base)
-#define GET_PARAM_SHAPE_3(param, n, base)  GET_PARAM_ATTR_3(SHAPE, param, n, base)
+#define GET_PARAM_SHAPE_3(param, n, base) GET_PARAM_ATTR_3(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_3(param, n, base) GET_PARAM_ATTR_3(RAWSHAPE, param, n, base)
 #define GET_PARAM_STRIDE_3(param, n, base) GET_PARAM_ATTR_3_STRIDE(RAWSHAPE, param, n, base)
 
 #define GET_PARAM_OFFSET_4(param, n, base) GET_PARAM_ATTR_4(OFFSET, param, n, base)
-#define GET_PARAM_SHAPE_4(param, n, base)  GET_PARAM_ATTR_4(SHAPE, param, n, base)
+#define GET_PARAM_SHAPE_4(param, n, base) GET_PARAM_ATTR_4(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_4(param, n, base) GET_PARAM_ATTR_4(RAWSHAPE, param, n, base)
 #define GET_PARAM_STRIDE_4(param, n, base) GET_PARAM_ATTR_4_STRIDE(RAWSHAPE, param, n, base)
 
 #define GET_PARAM_OFFSET_5(param, n, base) GET_PARAM_ATTR_5(OFFSET, param, n, base)
-#define GET_PARAM_SHAPE_5(param, n, base)  GET_PARAM_ATTR_5(SHAPE, param, n, base)
+#define GET_PARAM_SHAPE_5(param, n, base) GET_PARAM_ATTR_5(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_5(param, n, base) GET_PARAM_ATTR_5(RAWSHAPE, param, n, base)
 #define GET_PARAM_STRIDE_5(param, n, base) GET_PARAM_ATTR_5_STRIDE(RAWSHAPE, param, n, base)
 
-INLINE uint64_t RUNTIME_Min(uint64_t input1, uint64_t input2) {
-    return input1 < input2 ? input1 : input2;
-}
+INLINE uint64_t RUNTIME_Min(uint64_t input1, uint64_t input2) { return input1 < input2 ? input1 : input2; }
 
-INLINE uint64_t RUNTIME_Max(uint64_t input1, uint64_t input2) {
-    return input1 > input2 ? input1 : input2;
-}
+INLINE uint64_t RUNTIME_Max(uint64_t input1, uint64_t input2) { return input1 > input2 ? input1 : input2; }
 
-INLINE uint64_t RUNTIME_Eq(uint64_t input1, uint64_t input2) {
-    return input1 == input2;
-}
+INLINE uint64_t RUNTIME_Eq(uint64_t input1, uint64_t input2) { return input1 == input2; }
 
-INLINE uint64_t RUNTIME_Ne(uint64_t input1, uint64_t input2) {
-    return input1 != input2;
-}
+INLINE uint64_t RUNTIME_Ne(uint64_t input1, uint64_t input2) { return input1 != input2; }
 
-INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
+INLINE uint32_t GetTensorDataInt32(CoreFuncParam* ctx, uint64_t address)
+{
     UNUSED(ctx);
-    dcci((__gm__ uint32_t *)address, ENTIRE_DATA_CACHE, CACHELINE_OUT);
-    return *(__gm__ uint32_t *)(address);
+    dcci((__gm__ uint32_t*)address, ENTIRE_DATA_CACHE, CACHELINE_OUT);
+    return *(__gm__ uint32_t*)(address);
 }
-#define RUNTIME_GetTensorDataInt32Dim1(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
-#define RUNTIME_GetTensorDataInt32Dim2(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
-#define RUNTIME_GetTensorDataInt32Dim3(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
-#define RUNTIME_GetTensorDataInt32Dim4(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
-#define RUNTIME_GetTensorDataInt32Dim5(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
+#define RUNTIME_GetTensorDataInt32Dim1(index, ioType, ioTypeIndex, address, ...) GetTensorDataInt32(param, address)
+#define RUNTIME_GetTensorDataInt32Dim2(index, ioType, ioTypeIndex, address, ...) GetTensorDataInt32(param, address)
+#define RUNTIME_GetTensorDataInt32Dim3(index, ioType, ioTypeIndex, address, ...) GetTensorDataInt32(param, address)
+#define RUNTIME_GetTensorDataInt32Dim4(index, ioType, ioTypeIndex, address, ...) GetTensorDataInt32(param, address)
+#define RUNTIME_GetTensorDataInt32Dim5(index, ioType, ioTypeIndex, address, ...) GetTensorDataInt32(param, address)
 
-#define RUNTIME_COA_GET_PARAM_OFFSET(dim, base, idx)                                GET_PARAM_OFFSET_BY_IDX(param, 0, base, dim, idx)
-#define RUNTIME_COA_GET_PARAM_VALID_SHAPE(dim, base, idx)                           GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, base, dim, idx)
-#define RUNTIME_COA_GET_PARAM_ADDR(_, idx)                                          GET_PARAM_ADDR(param, _, idx)
-#define RUNTIME_COA_GET_PARAM(idx)                                                  GetCoa(param, idx)
+#define RUNTIME_COA_GET_PARAM_OFFSET(dim, base, idx) GET_PARAM_OFFSET_BY_IDX(param, 0, base, dim, idx)
+#define RUNTIME_COA_GET_PARAM_VALID_SHAPE(dim, base, idx) GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, base, dim, idx)
+#define RUNTIME_COA_GET_PARAM_ADDR(_, idx) GET_PARAM_ADDR(param, _, idx)
+#define RUNTIME_COA_GET_PARAM(idx) GetCoa(param, idx)
 
-#define RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST_0(value, dim, base, idx)           RUNTIME_COA_GET_PARAM_OFFSET(dim, base, idx)
-#define RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST_1(value, dim, base, idx)           value
-#define RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST(isConst, value, dim, base, idx)    RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST_##isConst(value, dim, base, idx)
+#define RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST_0(value, dim, base, idx) RUNTIME_COA_GET_PARAM_OFFSET(dim, base, idx)
+#define RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST_1(value, dim, base, idx) value
+#define RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST(isConst, value, dim, base, idx) \
+    RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST_##isConst(value, dim, base, idx)
 
-#define RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST_0(value, dim, base, idx)           RUNTIME_COA_GET_PARAM_VALID_SHAPE(dim, base, idx)
-#define RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST_1(value, dim, base, idx)           value
-#define RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST(isConst, value, dim, base, idx)    RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST_##isConst(value, dim, base, idx)
+#define RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST_0(value, dim, base, idx) \
+    RUNTIME_COA_GET_PARAM_VALID_SHAPE(dim, base, idx)
+#define RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST_1(value, dim, base, idx) value
+#define RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST(isConst, value, dim, base, idx) \
+    RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST_##isConst(value, dim, base, idx)
 
-#define RUNTIME_COA_GET_PARAM_MAYBE_CONST_0(value, idx)           RUNTIME_COA_GET_PARAM(idx)
-#define RUNTIME_COA_GET_PARAM_MAYBE_CONST_1(value, idx)           value
-#define RUNTIME_COA_GET_PARAM_MAYBE_CONST(isConst, value, idx)    RUNTIME_COA_GET_PARAM_MAYBE_CONST_##isConst(value, idx)
+#define RUNTIME_COA_GET_PARAM_MAYBE_CONST_0(value, idx) RUNTIME_COA_GET_PARAM(idx)
+#define RUNTIME_COA_GET_PARAM_MAYBE_CONST_1(value, idx) value
+#define RUNTIME_COA_GET_PARAM_MAYBE_CONST(isConst, value, idx) RUNTIME_COA_GET_PARAM_MAYBE_CONST_##isConst(value, idx)
 
 #define RUNTIME_TensorExtract(type, mem, dst, src) \
-    do { \
-        pipe_barrier(PIPE_ALL); \
-        *(mem type *)(dst) = *(mem type *)(src); \
-        pipe_barrier(PIPE_ALL); \
-    } while(0)
+    do {                                           \
+        pipe_barrier(PIPE_ALL);                    \
+        *(mem type*)(dst) = *(mem type*)(src);     \
+        pipe_barrier(PIPE_ALL);                    \
+    } while (0)
 
-#define RT_float32          float
-#define RT_int64            int64_t
-#define RT_int32            int32_t
-#define RT_uint64           uint64_t
-#define RT_uint32           uint32_t
-#define RT_UB               __ubuf__
+#define RT_float32 float
+#define RT_int64 int64_t
+#define RT_int32 int32_t
+#define RT_uint64 uint64_t
+#define RT_uint32 uint32_t
+#define RT_UB __ubuf__
 
-#define RT_FUNCTION(name)                                   extern "C" [aicore] void name(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam)
-#define RT_OPERATION(opcode, ...)                           RT_OPERATION_##opcode(__VA_ARGS__)
-#define RT_OPERATION_MACRO(opcode, ...)                     RT_OPERATION_MACRO_##opcode(__VA_ARGS__)
-#define RT_DECL_TYPE_TILE(name, primType, space, dim, ...)  using name = TileTensor<RT_##primType, LocalLayout##dim##Dim<__VA_ARGS__>, Hardware::space>;
-#define RT_DECL_TYPE_TENSOR(name, primType, dim)            using name = TileTensor<__gm__ RT_##primType, DynLayout##dim##Dim, Hardware::GM>;
-#define RT_DECL_VALUE_SCALAR(name, primType)                RT_##primType name;
-#define RT_DECL_VALUE_TILE(name, defType)                   defType name;
-#define RT_DECL_VALUE_TENSOR(name, defType)                 defType name;
+#define RT_FUNCTION(name)         \
+    extern "C"[aicore] void name( \
+        CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t* hcclContext, __gm__ GMTensorInfo* oriAddrParam)
+#define RT_OPERATION(opcode, ...) RT_OPERATION_##opcode(__VA_ARGS__)
+#define RT_OPERATION_MACRO(opcode, ...) RT_OPERATION_MACRO_##opcode(__VA_ARGS__)
+#define RT_DECL_TYPE_TILE(name, primType, space, dim, ...) \
+    using name = TileTensor<RT_##primType, LocalLayout##dim##Dim<__VA_ARGS__>, Hardware::space>;
+#define RT_DECL_TYPE_TENSOR(name, primType, dim) \
+    using name = TileTensor<__gm__ RT_##primType, DynLayout##dim##Dim, Hardware::GM>;
+#define RT_DECL_VALUE_SCALAR(name, primType) RT_##primType name;
+#define RT_DECL_VALUE_TILE(name, defType) defType name;
+#define RT_DECL_VALUE_TENSOR(name, defType) defType name;
 
-#define RT_INIT_ADDR(name, primType, space, addr, size)     RT_##primType RT_##space *name##_AS = (RT_##primType RT_##space *)get_imm(addr);\
-                                                            RT_##primType *name = (RT_##primType *)get_imm((addr));
+#define RT_INIT_ADDR(name, primType, space, addr, size)                             \
+    RT_##primType RT_##space* name##_AS = (RT_##primType RT_##space*)get_imm(addr); \
+    RT_##primType* name = (RT_##primType*)get_imm((addr));
 
-#define RT_INIT_VALUE_TILE(name, defType, addr, dim, ...) name = defType((uint64_t)(addr), Shape##dim##Dim(__VA_ARGS__));
+#define RT_INIT_VALUE_TILE(name, defType, addr, dim, ...) \
+    name = defType((uint64_t)(addr), Shape##dim##Dim(__VA_ARGS__));
 
-#define RT_INIT_VALUE_TENSOR_1(shape0) \
-        DynLayout1Dim(Shape1Dim((shape0)), \
-                      Stride1Dim(1))
-#define RT_INIT_VALUE_TENSOR_2(shape0, shape1) \
-        DynLayout2Dim(Shape2Dim((shape0), (shape1)), \
-                      Stride2Dim((shape1), 1))
+#define RT_INIT_VALUE_TENSOR_1(shape0) DynLayout1Dim(Shape1Dim((shape0)), Stride1Dim(1))
+#define RT_INIT_VALUE_TENSOR_2(shape0, shape1) DynLayout2Dim(Shape2Dim((shape0), (shape1)), Stride2Dim((shape1), 1))
 #define RT_INIT_VALUE_TENSOR_3(shape0, shape1, shape2) \
-        DynLayout3Dim(Shape3Dim((shape0), (shape1), (shape2)), \
-                      Stride3Dim((shape1) * (shape2), (shape2), 1))
+    DynLayout3Dim(Shape3Dim((shape0), (shape1), (shape2)), Stride3Dim((shape1) * (shape2), (shape2), 1))
 #define RT_INIT_VALUE_TENSOR_4(shape0, shape1, shape2, shape3) \
-        DynLayout4Dim(Shape4Dim((shape0), (shape1), (shape2), (shape3)), \
-                      Stride4Dim((shape1) * (shape2) * (shape3), (shape2) * (shape3), (shape3), 1))
-#define RT_INIT_VALUE_TENSOR_5(shape0, shape1, shape2, shape3, shape4) \
-        DynLayout5Dim(Shape5Dim((shape0), (shape1), (shape2), (shape3), (shape4)), \
-                      Stride5Dim((shape1) * (shape2) * (shape3) * (shape4), (shape2) * (shape3) * (shape4), (shape3) * (shape4), (shape4), 1))
-#define RT_INIT_VALUE_TENSOR(name, defType, primType, addr, dim, ...) name = defType((__gm__ RT_##primType *)(addr), RT_INIT_VALUE_TENSOR_##dim(__VA_ARGS__));
+    DynLayout4Dim(                                             \
+        Shape4Dim((shape0), (shape1), (shape2), (shape3)),     \
+        Stride4Dim((shape1) * (shape2) * (shape3), (shape2) * (shape3), (shape3), 1))
+#define RT_INIT_VALUE_TENSOR_5(shape0, shape1, shape2, shape3, shape4)                                                \
+    DynLayout5Dim(                                                                                                    \
+        Shape5Dim((shape0), (shape1), (shape2), (shape3), (shape4)),                                                  \
+        Stride5Dim(                                                                                                   \
+            (shape1) * (shape2) * (shape3) * (shape4), (shape2) * (shape3) * (shape4), (shape3) * (shape4), (shape4), \
+            1))
+#define RT_INIT_VALUE_TENSOR(name, defType, primType, addr, dim, ...) \
+    name = defType((__gm__ RT_##primType*)(addr), RT_INIT_VALUE_TENSOR_##dim(__VA_ARGS__));
 
 #define RT_STMT_OP()
 #define RT_STMT_IF()
@@ -401,23 +426,25 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
 #define RT_LOOP_ASSIGN()
 #define RT_IF_ASSIGN()
 
-#define RT_OPERATION_OP_SCALAR_CALL_3(ret, arg0, arg1, arg2, callee)                ret = callee(arg0, arg1, arg2);
-#define RT_OPERATION_OP_SCALAR_CALL_5(ret, arg0, arg1, arg2, arg3, arg4, callee)    ret = callee(arg0, arg1, arg2, arg3, arg4);
+#define RT_OPERATION_OP_SCALAR_CALL_3(ret, arg0, arg1, arg2, callee) ret = callee(arg0, arg1, arg2);
+#define RT_OPERATION_OP_SCALAR_CALL_5(ret, arg0, arg1, arg2, arg3, arg4, callee) \
+    ret = callee(arg0, arg1, arg2, arg3, arg4);
 
-#define RT_OPERATION_OP_SCALAR_CALL_3_RETVOID(ret, arg0, arg1, arg2, callee)        callee(arg0, arg1, arg2);
+#define RT_OPERATION_OP_SCALAR_CALL_3_RETVOID(ret, arg0, arg1, arg2, callee) callee(arg0, arg1, arg2);
 
-#define RT_OPERATION_MACRO_OP_SCALAR_CALL_3(arg0, arg1, arg2, callee)               callee(arg0, arg1, arg2)
-#define RT_OPERATION_MACRO_OP_SCALAR_CALL_5(arg0, arg1, arg2, arg3, arg4, callee)   callee(arg0, arg1, arg2, arg3, arg4)
+#define RT_OPERATION_MACRO_OP_SCALAR_CALL_3(arg0, arg1, arg2, callee) callee(arg0, arg1, arg2)
+#define RT_OPERATION_MACRO_OP_SCALAR_CALL_5(arg0, arg1, arg2, arg3, arg4, callee) callee(arg0, arg1, arg2, arg3, arg4)
 
-#define RT_OPERATION_MACRO_OP_SCALAR_CALL_3_RETVOID(arg0, arg1, arg2, callee)       callee(arg0, arg1, arg2)
+#define RT_OPERATION_MACRO_OP_SCALAR_CALL_3_RETVOID(arg0, arg1, arg2, callee) callee(arg0, arg1, arg2)
 
-#define RT_OPERATION_OP_SCALAR_ASSIGN(ret, arg)                                     ret = (arg);
+#define RT_OPERATION_OP_SCALAR_ASSIGN(ret, arg) ret = (arg);
 
-#define RT_OPERATION_MACRO_OP_SCALAR_ASSIGN(arg)                                    (arg)
+#define RT_OPERATION_MACRO_OP_SCALAR_ASSIGN(arg) (arg)
 
-#define RT_OPERATION_OP_UB_COPY_IN(dst, src, off0, off1)                            TLoad((dst), (src), Coord2Dim((off0), (off1)));
-#define RT_OPERATION_OP_ADD(dst, src0, src1, combineAxis, reverse)                  TAdd((dst), (src0), (src1));
-#define RT_OPERATION_OP_UB_COPY_OUT(dst, src, off0, off1)                           TStore((dst), (src), Coord2Dim((off0), (off1)));
+#define RT_OPERATION_OP_UB_COPY_IN(dst, src, off0, off1) TLoad((dst), (src), Coord2Dim((off0), (off1)));
+#define RT_OPERATION_OP_ADD(dst, src0, src1, combineAxis, reverse) TAdd((dst), (src0), (src1));
+#define RT_OPERATION_OP_UB_COPY_OUT(dst, src, off0, off1) TStore((dst), (src), Coord2Dim((off0), (off1)));
 
-#define RUNTIME_GetHcclRankId(groupIndex) ((TileOp::CommContext *)(RuntimeGetStartArgs()->commContexts[groupIndex]))->rankId
+#define RUNTIME_GetHcclRankId(groupIndex) \
+    ((TileOp::CommContext*)(RuntimeGetStartArgs()->commContexts[groupIndex]))->rankId
 #endif // AST_RUNTIME_H

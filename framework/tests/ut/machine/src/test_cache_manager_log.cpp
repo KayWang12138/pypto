@@ -34,22 +34,23 @@ const std::string CM_TEST_TMP_DIR = "/tmp/test_cache_manager_log";
 
 class TestCacheManagerLog : public testing::Test {
 public:
-    static void SetUpTestCase() {
-        CreateMultiLevelDir(CM_TEST_TMP_DIR);
-    }
+    static void SetUpTestCase() { CreateMultiLevelDir(CM_TEST_TMP_DIR); }
 
-    static void TearDownTestCase() {
+    static void TearDownTestCase()
+    {
         std::string cmd = "rm -rf " + CM_TEST_TMP_DIR;
         [[maybe_unused]] int ret = system(cmd.c_str());
     }
 
-    void SetUp() override {
-        const char *env = std::getenv("HOME");
+    void SetUp() override
+    {
+        const char* env = std::getenv("HOME");
         origHome_ = env ? std::string(env) : "";
         hasHome_ = (env != nullptr);
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         if (hasHome_) {
             setenv("HOME", origHome_.c_str(), 1);
         } else {
@@ -63,7 +64,8 @@ private:
     bool hasHome_ = false;
 };
 
-TEST_F(TestCacheManagerLog, Initialize_HomeEnvNotSet) {
+TEST_F(TestCacheManagerLog, Initialize_HomeEnvNotSet)
+{
     config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, true);
     unsetenv("HOME");
 
@@ -72,7 +74,8 @@ TEST_F(TestCacheManagerLog, Initialize_HomeEnvNotSet) {
     EXPECT_FALSE(result);
 }
 
-TEST_F(TestCacheManagerLog, Initialize_CreateCacheDirFails) {
+TEST_F(TestCacheManagerLog, Initialize_CreateCacheDirFails)
+{
     config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, true);
     setenv("HOME", "/proc", 1);
 
@@ -81,7 +84,8 @@ TEST_F(TestCacheManagerLog, Initialize_CreateCacheDirFails) {
     EXPECT_FALSE(result);
 }
 
-TEST_F(TestCacheManagerLog, SaveTaskFile_FilesAlreadyExist) {
+TEST_F(TestCacheManagerLog, SaveTaskFile_FilesAlreadyExist)
+{
     CacheManager cm;
     cm.cacheMode_ = CacheMode::Enable;
     cm.isInit_ = true;
@@ -99,7 +103,7 @@ TEST_F(TestCacheManagerLog, SaveTaskFile_FilesAlreadyExist) {
     std::ofstream(soFile).close();
     std::ofstream(jsonFile).close();
 
-    auto machineTask = std::make_shared<MachineTask>(1, reinterpret_cast<Function *>(0x1234));
+    auto machineTask = std::make_shared<MachineTask>(1, reinterpret_cast<Function*>(0x1234));
     machineTask->SetCacheKey(cacheKey);
     cm.SaveTaskFile(cacheKey, machineTask->GetFunction());
 

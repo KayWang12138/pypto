@@ -20,20 +20,19 @@
 namespace npu::tile_fwk {
 
 template <Opcode opcode>
-void ExecuteOpBinary(ExecuteOperationContext *ctx) {
+void ExecuteOpBinary(ExecuteOperationContext* ctx)
+{
     if (opcode == Opcode::OP_ADD_BRC || opcode == Opcode::OP_SUB_BRC || opcode == Opcode::OP_MUL_BRC ||
         opcode == Opcode::OP_DIV_BRC) {
-        ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-               ctx->ooperandInplaceDataViewList->size() == SIZE_TWO);
-    } else if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_COPYSIGN || opcode == Opcode::OP_POW ||
-               opcode == Opcode::OP_FLOORDIV || opcode == Opcode::OP_REM) {
+        ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == SIZE_TWO);
+    } else if (
+        opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_COPYSIGN || opcode == Opcode::OP_POW ||
+        opcode == Opcode::OP_FLOORDIV || opcode == Opcode::OP_REM) {
         ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     } else {
-        ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-               ctx->ooperandInplaceDataViewList->size() == 1);
+        ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
     }
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == SIZE_TWO);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == SIZE_TWO);
     auto ret = ctx->ooperandInplaceDataViewList->at(0);
     auto tlhs = ctx->ioperandDataViewList->at(0);
     auto lhs = tlhs;
@@ -41,10 +40,10 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
     auto rhs = trhs;
     auto lhsTensor = ctx->op->GetIOperands()[0];
     auto rhsTensor = ctx->op->GetIOperands()[1];
-    bool lhsFromBrcb = !lhsTensor->GetProducers().empty() &&
-        (*lhsTensor->GetProducers().begin())->GetOpcode() == Opcode::OP_BRCB;
-    bool rhsFromBrcb = !rhsTensor->GetProducers().empty() &&
-        (*rhsTensor->GetProducers().begin())->GetOpcode() == Opcode::OP_BRCB;
+    bool lhsFromBrcb =
+        !lhsTensor->GetProducers().empty() && (*lhsTensor->GetProducers().begin())->GetOpcode() == Opcode::OP_BRCB;
+    bool rhsFromBrcb =
+        !rhsTensor->GetProducers().empty() && (*rhsTensor->GetProducers().begin())->GetOpcode() == Opcode::OP_BRCB;
 
     if (lhsFromBrcb) {
         lhs = tlhs->View({tlhs->GetShape()[0], 1}, tlhs->GetOffset());
@@ -53,9 +52,11 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
     }
 
     if (lhsFromBrcb || rhsFromBrcb) {
-        VERIFY_LOGW("AxisCombine: detected by BRCB, opcode=%s lhsFromBrcb=%d rhsFromBrcb=%d",
-            ctx->op->GetOpcodeStr().c_str(), static_cast<int>(lhsFromBrcb), static_cast<int>(rhsFromBrcb));
-        VERIFY_LOGW("AxisCombine: lhs(shape=%s validShape=%s offset=%s) rhs(shape=%s validShape=%s offset=%s)",
+        VERIFY_LOGW(
+            "AxisCombine: detected by BRCB, opcode=%s lhsFromBrcb=%d rhsFromBrcb=%d", ctx->op->GetOpcodeStr().c_str(),
+            static_cast<int>(lhsFromBrcb), static_cast<int>(rhsFromBrcb));
+        VERIFY_LOGW(
+            "AxisCombine: lhs(shape=%s validShape=%s offset=%s) rhs(shape=%s validShape=%s offset=%s)",
             IntVecToStr(lhs->GetShape()).c_str(), IntVecToStr(lhs->GetValidShape()).c_str(),
             IntVecToStr(lhs->GetOffset()).c_str(), IntVecToStr(rhs->GetShape()).c_str(),
             IntVecToStr(rhs->GetValidShape()).c_str(), IntVecToStr(rhs->GetOffset()).c_str());
@@ -69,31 +70,80 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
     }
 
     switch (opcode) {
-        case Opcode::OP_ADD: calc::Add(ret, lhs, rhs); break;
-        case Opcode::OP_ADD_BRC: calc::Add(ret, lhs, rhs); break;
-        case Opcode::OP_PAIRSUM: calc::PairSum(ret, lhs, rhs); break;
-        case Opcode::OP_PAIRPROD: calc::PairProd(ret, lhs, rhs); break;
-        case Opcode::OP_SUB: calc::Sub(ret, lhs, rhs); break;
-        case Opcode::OP_SUB_BRC: calc::Sub(ret, lhs, rhs); break;
-        case Opcode::OP_MUL: calc::Mul(ret, lhs, rhs); break;
-        case Opcode::OP_MUL_BRC: calc::Mul(ret, lhs, rhs); break;
-        case Opcode::OP_DIV: calc::Div(ret, lhs, rhs); break;
-        case Opcode::OP_DIV_BRC: calc::Div(ret, lhs, rhs); break;
-        case Opcode::OP_FLOORDIV: calc::FloorDiv(ret, lhs, rhs); break;
-        case Opcode::OP_POW: calc::Pow(ret, lhs, rhs); break;
-        case Opcode::OP_REM: calc::Remainder(ret, lhs, rhs); break;
-        case Opcode::OP_S_MAX: calc::Max(ret, lhs, rhs); break;
-        case Opcode::OP_PAIRMAX: calc::PairMax(ret, lhs, rhs); break;
-        case Opcode::OP_PAIRMIN: calc::PairMin(ret, lhs, rhs); break;
-        case Opcode::OP_S_MIN: calc::Min(ret, lhs, rhs); break;
-        case Opcode::OP_BITWISEAND: calc::BitwiseAnd(ret, lhs, rhs); break;
-        case Opcode::OP_BITWISEOR: calc::BitwiseOr(ret, lhs, rhs); break;
-        case Opcode::OP_BITWISEXOR: calc::BitwiseXor(ret, lhs, rhs); break;
-        case Opcode::OP_EXPANDEXPDIF: calc::ExpandExpDif(ret, lhs, rhs); break;
-        case Opcode::OP_COPYSIGN: calc::CopySign(ret, lhs, rhs); break;
-        case Opcode::OP_GCD: calc::Gcd(ret, lhs, rhs); break;
-        case Opcode::OP_GCD_BRC: calc::Gcd(ret, lhs, rhs); break;
-        default: ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false);
+        case Opcode::OP_ADD:
+            calc::Add(ret, lhs, rhs);
+            break;
+        case Opcode::OP_ADD_BRC:
+            calc::Add(ret, lhs, rhs);
+            break;
+        case Opcode::OP_PAIRSUM:
+            calc::PairSum(ret, lhs, rhs);
+            break;
+        case Opcode::OP_PAIRPROD:
+            calc::PairProd(ret, lhs, rhs);
+            break;
+        case Opcode::OP_SUB:
+            calc::Sub(ret, lhs, rhs);
+            break;
+        case Opcode::OP_SUB_BRC:
+            calc::Sub(ret, lhs, rhs);
+            break;
+        case Opcode::OP_MUL:
+            calc::Mul(ret, lhs, rhs);
+            break;
+        case Opcode::OP_MUL_BRC:
+            calc::Mul(ret, lhs, rhs);
+            break;
+        case Opcode::OP_DIV:
+            calc::Div(ret, lhs, rhs);
+            break;
+        case Opcode::OP_DIV_BRC:
+            calc::Div(ret, lhs, rhs);
+            break;
+        case Opcode::OP_FLOORDIV:
+            calc::FloorDiv(ret, lhs, rhs);
+            break;
+        case Opcode::OP_POW:
+            calc::Pow(ret, lhs, rhs);
+            break;
+        case Opcode::OP_REM:
+            calc::Remainder(ret, lhs, rhs);
+            break;
+        case Opcode::OP_S_MAX:
+            calc::Max(ret, lhs, rhs);
+            break;
+        case Opcode::OP_PAIRMAX:
+            calc::PairMax(ret, lhs, rhs);
+            break;
+        case Opcode::OP_PAIRMIN:
+            calc::PairMin(ret, lhs, rhs);
+            break;
+        case Opcode::OP_S_MIN:
+            calc::Min(ret, lhs, rhs);
+            break;
+        case Opcode::OP_BITWISEAND:
+            calc::BitwiseAnd(ret, lhs, rhs);
+            break;
+        case Opcode::OP_BITWISEOR:
+            calc::BitwiseOr(ret, lhs, rhs);
+            break;
+        case Opcode::OP_BITWISEXOR:
+            calc::BitwiseXor(ret, lhs, rhs);
+            break;
+        case Opcode::OP_EXPANDEXPDIF:
+            calc::ExpandExpDif(ret, lhs, rhs);
+            break;
+        case Opcode::OP_COPYSIGN:
+            calc::CopySign(ret, lhs, rhs);
+            break;
+        case Opcode::OP_GCD:
+            calc::Gcd(ret, lhs, rhs);
+            break;
+        case Opcode::OP_GCD_BRC:
+            calc::Gcd(ret, lhs, rhs);
+            break;
+        default:
+            ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false);
     }
 }
 REGISTER_CALC_OP(OP_ADD, Opcode::OP_ADD, ExecuteOpBinary<Opcode::OP_ADD>);
@@ -127,11 +177,10 @@ REGISTER_CALC_OP(OP_COPYSIGN, Opcode::OP_COPYSIGN, ExecuteOpBinary<Opcode::OP_CO
 REGISTER_CALC_OP(OP_GCD, Opcode::OP_GCD, ExecuteOpBinary<Opcode::OP_GCD>);
 REGISTER_CALC_OP(OP_GCD_BRC, Opcode::OP_GCD_BRC, ExecuteOpBinary<Opcode::OP_GCD_BRC>);
 
-void ExecuteOpFmod(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == SIZE_TWO);
+void ExecuteOpFmod(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == SIZE_TWO);
     auto ret = ctx->ooperandInplaceDataViewList->at(0);
     auto lhs = ctx->ioperandDataViewList->at(0);
     auto rhs = ctx->ioperandDataViewList->at(1);
@@ -139,32 +188,31 @@ void ExecuteOpFmod(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_MOD, Opcode::OP_MOD, ExecuteOpFmod);
 
-void ExecuteOpFmods(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto &lhs = ctx->ioperandDataViewList->at(0);
+void ExecuteOpFmods(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& lhs = ctx->ioperandDataViewList->at(0);
     auto element = Element(DT_FP32, 0.0f);
     ctx->op->GetAttr(OpAttributeKey::scalar, element);
     calc::FmodS(ret, lhs, element);
 }
 REGISTER_CALC_OP(OP_MODS, Opcode::OP_MODS, ExecuteOpFmods);
 
-void ExecuteOpVecDup(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 0);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+void ExecuteOpVecDup(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 0);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
     auto element = Element(DT_FP32, 0.0f);
     ctx->op->GetAttr(OpAttributeKey::scalar, element);
     calc::ExpandS(ret, element);
 }
 REGISTER_CALC_OP(OP_VEC_DUP, Opcode::OP_VEC_DUP, ExecuteOpVecDup);
 
-void ExecuteOpWhereTT(ExecuteOperationContext *ctx) {
+void ExecuteOpWhereTT(ExecuteOperationContext* ctx)
+{
     auto result = ctx->ooperandInplaceDataViewList->at(0);
     auto condition = ctx->ioperandDataViewList->at(0);
     auto input = ctx->ioperandDataViewList->at(1);
@@ -173,7 +221,8 @@ void ExecuteOpWhereTT(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_WHERE_TT, Opcode::OP_WHERE_TT, ExecuteOpWhereTT);
 
-void ExecuteOpWhereTS(ExecuteOperationContext *ctx) {
+void ExecuteOpWhereTS(ExecuteOperationContext* ctx)
+{
     auto result = ctx->ooperandInplaceDataViewList->at(0);
     auto condition = ctx->ioperandDataViewList->at(0);
     auto input = ctx->ioperandDataViewList->at(1);
@@ -183,7 +232,8 @@ void ExecuteOpWhereTS(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_WHERE_TS, Opcode::OP_WHERE_TS, ExecuteOpWhereTS);
 
-void ExecuteOpWhereST(ExecuteOperationContext *ctx) {
+void ExecuteOpWhereST(ExecuteOperationContext* ctx)
+{
     auto result = ctx->ooperandInplaceDataViewList->at(0);
     auto condition = ctx->ioperandDataViewList->at(0);
     auto other = ctx->ioperandDataViewList->at(1);
@@ -193,7 +243,8 @@ void ExecuteOpWhereST(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_WHERE_ST, Opcode::OP_WHERE_ST, ExecuteOpWhereST);
 
-void ExecuteOpWhereSS(ExecuteOperationContext *ctx) {
+void ExecuteOpWhereSS(ExecuteOperationContext* ctx)
+{
     auto result = ctx->ooperandInplaceDataViewList->at(0);
     auto condition = ctx->ioperandDataViewList->at(0);
     auto scalars = ctx->op->GetVectorElementAttribute(OpAttributeKey::vectorScalar);
@@ -204,11 +255,10 @@ void ExecuteOpWhereSS(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_WHERE_SS, Opcode::OP_WHERE_SS, ExecuteOpWhereSS);
 
 template <Opcode opcode>
-void ExecuteOpReduce(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
+void ExecuteOpReduce(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop = ctx->ioperandDataViewList->at(0);
     int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
@@ -219,21 +269,44 @@ void ExecuteOpReduce(ExecuteOperationContext *ctx) {
     }
 
     switch (opcode) {
-        case Opcode::OP_ROWSUM_SINGLE: calc::RowSumSingle(oop, iop, axis); break;
-        case Opcode::OP_ROWMAX_SINGLE: calc::RowMaxSingle(oop, iop, axis); break;
-        case Opcode::OP_ROWMIN_SINGLE: calc::RowMinSingle(oop, iop, axis); break;
-        case Opcode::OP_ROWPROD_SINGLE: calc::RowProdSingle(oop, iop, axis); break;
-        case Opcode::OP_ROWARGMAX_SINGLE: calc::RowArgMaxSingle(oop, iop, axis); break;
-        case Opcode::OP_ROWARGMIN_SINGLE: calc::RowArgMinSingle(oop, iop, axis); break;
-        case Opcode::OP_ROWSUMLINE: calc::RowSumExpand(oop, iop, axis); break;
-        case Opcode::OP_ROWMAXLINE: calc::RowMaxLine(oop, iop, axis); break;
-        case Opcode::OP_ROWMINLINE: calc::RowMinLine(oop, iop, axis); break;
-        case Opcode::OP_ROWPRODLINE: calc::RowProdLine(oop, iop, axis); break;
-        case Opcode::OP_ROWARGMAXLINE: calc::RowArgMaxLine(oop, iop, axis); break;
-        case Opcode::OP_ROWARGMINLINE: calc::RowArgMinLine(oop, iop, axis); break;
+        case Opcode::OP_ROWSUM_SINGLE:
+            calc::RowSumSingle(oop, iop, axis);
+            break;
+        case Opcode::OP_ROWMAX_SINGLE:
+            calc::RowMaxSingle(oop, iop, axis);
+            break;
+        case Opcode::OP_ROWMIN_SINGLE:
+            calc::RowMinSingle(oop, iop, axis);
+            break;
+        case Opcode::OP_ROWPROD_SINGLE:
+            calc::RowProdSingle(oop, iop, axis);
+            break;
+        case Opcode::OP_ROWARGMAX_SINGLE:
+            calc::RowArgMaxSingle(oop, iop, axis);
+            break;
+        case Opcode::OP_ROWARGMIN_SINGLE:
+            calc::RowArgMinSingle(oop, iop, axis);
+            break;
+        case Opcode::OP_ROWSUMLINE:
+            calc::RowSumExpand(oop, iop, axis);
+            break;
+        case Opcode::OP_ROWMAXLINE:
+            calc::RowMaxLine(oop, iop, axis);
+            break;
+        case Opcode::OP_ROWMINLINE:
+            calc::RowMinLine(oop, iop, axis);
+            break;
+        case Opcode::OP_ROWPRODLINE:
+            calc::RowProdLine(oop, iop, axis);
+            break;
+        case Opcode::OP_ROWARGMAXLINE:
+            calc::RowArgMaxLine(oop, iop, axis);
+            break;
+        case Opcode::OP_ROWARGMINLINE:
+            calc::RowArgMinLine(oop, iop, axis);
+            break;
         default:
-            ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false)
-                << "opcode not support" << ctx->op->GetOpcodeStr();
+            ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false) << "opcode not support" << ctx->op->GetOpcodeStr();
     }
 }
 REGISTER_CALC_OP(OP_ROWSUM_SINGLE, Opcode::OP_ROWSUM_SINGLE, ExecuteOpReduce<Opcode::OP_ROWSUM_SINGLE>);
@@ -249,41 +322,66 @@ REGISTER_CALC_OP(OP_ROWARGMIN_SINGLE, Opcode::OP_ROWARGMIN_SINGLE, ExecuteOpRedu
 REGISTER_CALC_OP(OP_ROWARGMAXLINE, Opcode::OP_ROWARGMAXLINE, ExecuteOpReduce<Opcode::OP_ROWARGMAXLINE>);
 REGISTER_CALC_OP(OP_ROWARGMINLINE, Opcode::OP_ROWARGMINLINE, ExecuteOpReduce<Opcode::OP_ROWARGMINLINE>);
 
-void ExecuteOpCast(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto &iop = ctx->ioperandDataViewList->at(0);
+void ExecuteOpCast(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& iop = ctx->ioperandDataViewList->at(0);
     CastMode mode = static_cast<CastMode>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "mode"));
     calc::Cast(ret, iop, mode);
 }
 REGISTER_CALC_OP(OP_CAST, Opcode::OP_CAST, ExecuteOpCast);
 
 template <Opcode opcode>
-void ExecuteOpUnary(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto &iop = ctx->ioperandDataViewList->at(0);
+void ExecuteOpUnary(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& iop = ctx->ioperandDataViewList->at(0);
     switch (opcode) {
-        case Opcode::OP_EXP: calc::Exp(ret, iop); break;
-        case Opcode::OP_NEG: calc::Neg(ret, iop); break;
-        case Opcode::OP_SIGN: calc::Sign(ret, iop); break;
-        case Opcode::OP_SIGNBIT: calc::Signbit(ret, iop); break;
-        case Opcode::OP_RSQRT: calc::Rsqrt(ret, iop); break;
-        case Opcode::OP_SQRT: calc::Sqrt(ret, iop); break;
-        case Opcode::OP_RECIPROCAL: calc::Reciprocal(ret, iop); break;
-        case Opcode::OP_RELU: calc::Relu(ret, iop); break;
-        case Opcode::OP_BITWISENOT: calc::BitwiseNot(ret, iop); break;
-        case Opcode::OP_ABS: calc::Abs(ret, iop); break;
-        case Opcode::OP_BRCB: calc::Brcb(ret, iop); break;
-        case Opcode::OP_LN: calc::Ln(ret, iop); break;
-        case Opcode::OP_ISFINITE: calc::IsFinite(ret, iop); break;
-        default: ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false);
+        case Opcode::OP_EXP:
+            calc::Exp(ret, iop);
+            break;
+        case Opcode::OP_NEG:
+            calc::Neg(ret, iop);
+            break;
+        case Opcode::OP_SIGN:
+            calc::Sign(ret, iop);
+            break;
+        case Opcode::OP_SIGNBIT:
+            calc::Signbit(ret, iop);
+            break;
+        case Opcode::OP_RSQRT:
+            calc::Rsqrt(ret, iop);
+            break;
+        case Opcode::OP_SQRT:
+            calc::Sqrt(ret, iop);
+            break;
+        case Opcode::OP_RECIPROCAL:
+            calc::Reciprocal(ret, iop);
+            break;
+        case Opcode::OP_RELU:
+            calc::Relu(ret, iop);
+            break;
+        case Opcode::OP_BITWISENOT:
+            calc::BitwiseNot(ret, iop);
+            break;
+        case Opcode::OP_ABS:
+            calc::Abs(ret, iop);
+            break;
+        case Opcode::OP_BRCB:
+            calc::Brcb(ret, iop);
+            break;
+        case Opcode::OP_LN:
+            calc::Ln(ret, iop);
+            break;
+        case Opcode::OP_ISFINITE:
+            calc::IsFinite(ret, iop);
+            break;
+        default:
+            ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false);
     }
 }
 REGISTER_CALC_OP(OP_EXP, Opcode::OP_EXP, ExecuteOpUnary<Opcode::OP_EXP>);
@@ -300,56 +398,51 @@ REGISTER_CALC_OP(OP_BRCB, Opcode::OP_BRCB, ExecuteOpUnary<Opcode::OP_BRCB>);
 REGISTER_CALC_OP(OP_LN, Opcode::OP_LN, ExecuteOpUnary<Opcode::OP_LN>);
 REGISTER_CALC_OP(OP_ISFINITE, Opcode::OP_ISFINITE, ExecuteOpUnary<Opcode::OP_ISFINITE>);
 
-void ExecuteOpCeil(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto &iop = ctx->ioperandDataViewList->at(0);
+void ExecuteOpCeil(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& iop = ctx->ioperandDataViewList->at(0);
     calc::Ceil(ret, iop);
 }
 REGISTER_CALC_OP(OP_CEIL, Opcode::OP_CEIL, ExecuteOpCeil);
 
-void ExecuteOpFloor(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto &iop = ctx->ioperandDataViewList->at(0);
+void ExecuteOpFloor(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& iop = ctx->ioperandDataViewList->at(0);
     calc::Floor(ret, iop);
 }
 REGISTER_CALC_OP(OP_FLOOR, Opcode::OP_FLOOR, ExecuteOpFloor);
 
-void ExecuteOpTrunc(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto &iop = ctx->ioperandDataViewList->at(0);
+void ExecuteOpTrunc(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& iop = ctx->ioperandDataViewList->at(0);
     calc::Trunc(ret, iop);
 }
 REGISTER_CALC_OP(OP_TRUNC, Opcode::OP_TRUNC, ExecuteOpTrunc);
 
-void ExecuteOpExp2(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto &iop = ctx->ioperandDataViewList->at(0);
+void ExecuteOpExp2(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& iop = ctx->ioperandDataViewList->at(0);
     calc::Exp2(ret, iop);
 }
 REGISTER_CALC_OP(OP_EXP2, Opcode::OP_EXP2, ExecuteOpExp2);
 
-void ExecuteOpPad(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    
+void ExecuteOpPad(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop_input = ctx->ioperandDataViewList->at(0);
     auto element = Element(DT_FP32, 0.0f);
@@ -358,12 +451,11 @@ void ExecuteOpPad(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_PAD, Opcode::OP_PAD, ExecuteOpPad);
 
-void ExecuteOpFillPad(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    
+void ExecuteOpFillPad(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop_input = ctx->ioperandDataViewList->at(0);
     auto element = Element(DT_FP32, 0.0f);
@@ -372,59 +464,54 @@ void ExecuteOpFillPad(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_FILLPAD, Opcode::OP_FILLPAD, ExecuteOpFillPad);
 
-void ExecuteOpRound(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &output = ctx->ooperandInplaceDataViewList->at(0);
-    auto &input = ctx->ioperandDataViewList->at(0);
+void ExecuteOpRound(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& output = ctx->ooperandInplaceDataViewList->at(0);
+    auto& input = ctx->ioperandDataViewList->at(0);
 
     int decimals = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "decimals");
     calc::Round(output, input, decimals);
 }
 REGISTER_CALC_OP(OP_ROUND, Opcode::OP_ROUND, ExecuteOpRound);
 
-void ExecuteOpExpm1(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &output = ctx->ooperandInplaceDataViewList->at(0);
-    auto &input = ctx->ioperandDataViewList->at(0);
+void ExecuteOpExpm1(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& output = ctx->ooperandInplaceDataViewList->at(0);
+    auto& input = ctx->ioperandDataViewList->at(0);
 
     calc::Expm1(output, input);
 }
 REGISTER_CALC_OP(OP_EXPM1, Opcode::OP_EXPM1, ExecuteOpExpm1);
 
-void ExecuteOpOneHot(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto &iop = ctx->ioperandDataViewList->at(0);
+void ExecuteOpOneHot(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& iop = ctx->ioperandDataViewList->at(0);
     int numClasses = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "numClasses");
     calc::OneHot(ret, iop, numClasses);
 }
 REGISTER_CALC_OP(OP_ONEHOT, Opcode::OP_ONEHOT, ExecuteOpOneHot);
 
-void ExecuteOpExpand(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
+void ExecuteOpExpand(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop = ctx->ioperandDataViewList->at(0);
     calc::Expand(oop, iop);
 }
 REGISTER_CALC_OP(OP_EXPAND, Opcode::OP_EXPAND, ExecuteOpExpand);
 
-void ExecuteOpTransposeMoveOut(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
+void ExecuteOpTransposeMoveOut(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop = ctx->ioperandDataViewList->at(0);
 
@@ -439,7 +526,8 @@ void ExecuteOpTransposeMoveOut(ExecuteOperationContext *ctx) {
             auto oopCopy = std::make_shared<LogicalTensorData>(oop->GetData(), iopShape, toOffset);
             return calc::Transpose(oopCopy, iop, axises[0], axises[1]);
         } else {
-            std::vector<int64_t> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetFromOffset());
+            std::vector<int64_t> fromOffset =
+                ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetFromOffset());
             std::vector<int64_t> oopShape = oop->GetShape();
             std::swap(oopShape[axises[0]], oopShape[axises[1]]);
             auto iopCopy = std::make_shared<LogicalTensorData>(iop->GetData(), oopShape, fromOffset);
@@ -451,11 +539,10 @@ void ExecuteOpTransposeMoveOut(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, ExecuteOpTransposeMoveOut);
 REGISTER_CALC_OP(OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEIN, ExecuteOpTransposeMoveOut);
 
-void ExecuteOpTranspose(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
+void ExecuteOpTranspose(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop = ctx->ioperandDataViewList->at(0);
     auto axises = ctx->op->GetVectorIntAttribute(OP_ATTR_PREFIX + "shape");
@@ -463,18 +550,18 @@ void ExecuteOpTranspose(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV, ExecuteOpTranspose);
 
-void ExecuteOpLogicalNot(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
+void ExecuteOpLogicalNot(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop = ctx->ioperandDataViewList->at(0);
     calc::LogicalNot(oop, iop);
 }
 REGISTER_CALC_OP(OP_LOGICALNOT, Opcode::OP_LOGICALNOT, ExecuteOpLogicalNot);
 
-void ExecuteOpLogicalAnd(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == SIZE_TWO);
+void ExecuteOpLogicalAnd(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == SIZE_TWO);
     auto ret = ctx->ooperandInplaceDataViewList->at(0);
     auto lhs = ctx->ioperandDataViewList->at(0);
     auto rhs = ctx->ioperandDataViewList->at(1);
@@ -482,9 +569,9 @@ void ExecuteOpLogicalAnd(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_LOGICALAND, Opcode::OP_LOGICALAND, ExecuteOpLogicalAnd);
 
-void ExecuteOpIndexOutcast(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == SIZE_THREE);
+void ExecuteOpIndexOutcast(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == SIZE_THREE);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto src = ctx->ioperandDataViewList->at(0);
     auto index = ctx->ioperandDataViewList->at(1);
@@ -495,7 +582,9 @@ void ExecuteOpIndexOutcast(ExecuteOperationContext *ctx) {
     auto actualOop = std::make_shared<LogicalTensorData>(dst->GetData());
     if (dst->GetSize() != oop->GetSize()) {
         VERIFY_EVENT("%s", ctx->op->Dump().c_str());
-        VERIFY_EVENT("dst validShape: %s ---> oop validShape: %s", IntVecToStr(dst->GetShape()).c_str(), IntVecToStr(oop->GetShape()).c_str());
+        VERIFY_EVENT(
+            "dst validShape: %s ---> oop validShape: %s", IntVecToStr(dst->GetShape()).c_str(),
+            IntVecToStr(oop->GetShape()).c_str());
         VERIFY_EVENT("IndexOutcast: oop validShape is not equal to dst validShape");
         calc::ScatterUpdate(actualOop, src, index, dst, axis, cacheMode, blockSize);
     } else {
@@ -504,9 +593,9 @@ void ExecuteOpIndexOutcast(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, ExecuteOpIndexOutcast);
 
-void ExecuteOpScatterElement(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == SIZE_TWO);
+void ExecuteOpScatterElement(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == SIZE_TWO);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto self = ctx->ioperandDataViewList->at(0);
     auto indices = ctx->ioperandDataViewList->at(1);
@@ -519,9 +608,9 @@ void ExecuteOpScatterElement(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ExecuteOpScatterElement);
 
-void ExecuteOpScatter(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == SIZE_THREE);
+void ExecuteOpScatter(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == SIZE_THREE);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto self = ctx->ioperandDataViewList->at(0);
     auto indices = ctx->ioperandDataViewList->at(1);
@@ -534,7 +623,8 @@ void ExecuteOpScatter(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_SCATTER, Opcode::OP_SCATTER, ExecuteOpScatter);
 
 template <typename T, DataType dataType>
-Element GetEndBySize(Element start, Element size, Element step) {
+Element GetEndBySize(Element start, Element size, Element step)
+{
     T startValue;
     T stepValue;
     if (dataType == DT_INT32 || dataType == DT_INT64) {
@@ -549,7 +639,8 @@ Element GetEndBySize(Element start, Element size, Element step) {
     return end;
 }
 
-void ExecuteOpRange(ExecuteOperationContext *ctx) {
+void ExecuteOpRange(ExecuteOperationContext* ctx)
+{
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto start = ctx->op->GetElementAttribute(OP_ATTR_PREFIX + "START");
     auto size = ctx->op->GetElementAttribute(OP_ATTR_PREFIX + "SIZE");
@@ -578,49 +669,43 @@ void ExecuteOpRange(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_RANGE, Opcode::OP_RANGE, ExecuteOpRange);
 
-void ExecuteOpLog1p(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto &iop = ctx->ioperandDataViewList->at(0);
+void ExecuteOpLog1p(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& iop = ctx->ioperandDataViewList->at(0);
     calc::Log1p(ret, iop);
 }
 REGISTER_CALC_OP(OP_LOG1P, Opcode::OP_LOG1P, ExecuteOpLog1p);
 
-void ExecuteOpCompare(ExecuteOperationContext *ctx) {
+void ExecuteOpCompare(ExecuteOperationContext* ctx)
+{
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop_self = ctx->ioperandDataViewList->at(0);
     auto iop_other = ctx->ioperandDataViewList->at(1);
-    auto operation = static_cast<CmpOperationType>(
-        ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation")
-    );
-    auto mode = static_cast<CmpModeType>(
-        ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode")
-    );
+    auto operation = static_cast<CmpOperationType>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<CmpModeType>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
     calc::Compare(oop, iop_self, iop_other, operation, mode);
 }
 REGISTER_CALC_OP(OP_CMP, Opcode::OP_CMP, ExecuteOpCompare);
 
-void ExecuteOpCmps(ExecuteOperationContext *ctx) {
+void ExecuteOpCmps(ExecuteOperationContext* ctx)
+{
     ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop_self = ctx->ioperandDataViewList->at(0);
     auto element = Element(DT_FP32, 0.0f);
     ctx->op->GetAttr(OpAttributeKey::scalar, element);
-    
-    auto operation = static_cast<CmpOperationType>(
-        ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation")
-    );
-    auto mode = static_cast<CmpModeType>(
-        ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode")
-    );
+
+    auto operation = static_cast<CmpOperationType>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<CmpModeType>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
     calc::Cmps(oop, iop_self, element, operation, mode);
 }
 REGISTER_CALC_OP(OP_CMPS, Opcode::OP_CMPS, ExecuteOpCmps);
 
-void ExecuteOpHypot(ExecuteOperationContext *ctx) {
+void ExecuteOpHypot(ExecuteOperationContext* ctx)
+{
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop_self = ctx->ioperandDataViewList->at(0);
     auto iop_other = ctx->ioperandDataViewList->at(1);
@@ -628,7 +713,8 @@ void ExecuteOpHypot(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_HYPOT, Opcode::OP_HYPOT, ExecuteOpHypot);
 
-void ExecuteOpPReLU(ExecuteOperationContext *ctx) {
+void ExecuteOpPReLU(ExecuteOperationContext* ctx)
+{
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop_self = ctx->ioperandDataViewList->at(0);
     auto iop_weight = ctx->ioperandDataViewList->at(1);
@@ -636,9 +722,9 @@ void ExecuteOpPReLU(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_PRELU, Opcode::OP_PRELU, ExecuteOpPReLU);
 
-void ExecuteOpExtract(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
+void ExecuteOpExtract(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto src = ctx->ioperandDataViewList->at(0);
     auto maskMode = ctx->op->GetIntAttribute("op_attr_makeMode");
@@ -648,7 +734,8 @@ void ExecuteOpExtract(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_EXTRACT, Opcode::OP_EXTRACT, ExecuteOpExtract);
 REGISTER_CALC_OP(OP_EXTRACT_SINGLE, Opcode::OP_EXTRACT_SINGLE, ExecuteOpExtract);
 
-void ExecuteOpGather(ExecuteOperationContext *ctx) {
+void ExecuteOpGather(ExecuteOperationContext* ctx)
+{
     auto output = ctx->ooperandInplaceDataViewList->at(0);
     auto parmas = ctx->ioperandDataViewList->at(0);
     auto indices = ctx->ioperandDataViewList->at(1);
@@ -656,7 +743,8 @@ void ExecuteOpGather(ExecuteOperationContext *ctx) {
     calc::Gather(output, parmas, indices, axis);
 }
 REGISTER_CALC_OP(OP_GATHER, Opcode::OP_GATHER, ExecuteOpGather);
-void ExecuteOpGatherINUB(ExecuteOperationContext *ctx) {
+void ExecuteOpGatherINUB(ExecuteOperationContext* ctx)
+{
     auto output = ctx->ooperandInplaceDataViewList->at(0);
     auto parmas = ctx->ioperandDataViewList->at(0);
     auto indices = ctx->ioperandDataViewList->at(1);
@@ -666,15 +754,14 @@ void ExecuteOpGatherINUB(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_UB, ExecuteOpGatherINUB);
 
-void ExecuteOpIndexAdd(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == SIZE_THREE);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto &self = ctx->ioperandDataViewList->at(0);
-    auto &src = ctx->ioperandDataViewList->at(1);
-    auto &indices = ctx->ioperandDataViewList->at(2);
+void ExecuteOpIndexAdd(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == SIZE_THREE);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& self = ctx->ioperandDataViewList->at(0);
+    auto& src = ctx->ioperandDataViewList->at(1);
+    auto& indices = ctx->ioperandDataViewList->at(2);
     auto alpha = Element(DT_FP32, 1.0);
     if (ctx->op->HasAttribute(OpAttributeKey::scalar)) {
         alpha = ctx->op->GetElementAttribute(OpAttributeKey::scalar);
@@ -684,13 +771,12 @@ void ExecuteOpIndexAdd(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, ExecuteOpIndexAdd);
 
-void ExecuteOpTri(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &output = ctx->ooperandInplaceDataViewList->at(0);
-    auto &input = ctx->ioperandDataViewList->at(0);
+void ExecuteOpTri(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& output = ctx->ooperandInplaceDataViewList->at(0);
+    auto& input = ctx->ioperandDataViewList->at(0);
 
     // dynScalar 存的是 SymbolicScalar，需用 GetSymbolicScalarAttribute + EvaluateSymbolicScalar 取整型值
     SymbolicScalar diaSym = ctx->op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
@@ -700,35 +786,34 @@ void ExecuteOpTri(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_TRIUL, Opcode::OP_TRIUL, ExecuteOpTri);
 
-void ExecuteOpCumSum(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &output = ctx->ooperandInplaceDataViewList->at(0);
-    auto &input = ctx->ioperandDataViewList->at(0);
+void ExecuteOpCumSum(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& output = ctx->ooperandInplaceDataViewList->at(0);
+    auto& input = ctx->ioperandDataViewList->at(0);
 
     int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
     calc::CumSum(output, input, axis);
 }
 REGISTER_CALC_OP(OP_CUM_SUM, Opcode::OP_CUM_SUM, ExecuteOpCumSum);
 
-void ExecuteOpCumProd(ExecuteOperationContext *ctx) {
+void ExecuteOpCumProd(ExecuteOperationContext* ctx)
+{
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() == 1);
-    auto &output = ctx->ooperandInplaceDataViewList->at(0);
-    auto &input = ctx->ioperandDataViewList->at(0);
+    auto& output = ctx->ooperandInplaceDataViewList->at(0);
+    auto& input = ctx->ioperandDataViewList->at(0);
 
     int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
     calc::CumProd(output, input, axis);
 }
 REGISTER_CALC_OP(OP_CUM_PROD, Opcode::OP_CUM_PROD, ExecuteOpCumProd);
 
-void ExecuteOpIndexPut(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() <= SIZE_SIX);
+void ExecuteOpIndexPut(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() <= SIZE_SIX);
     auto out = ctx->ooperandInplaceDataViewList->at(0);
     auto self = ctx->ioperandDataViewList->at(0);
     auto values = ctx->ioperandDataViewList->at(1);
@@ -742,9 +827,9 @@ void ExecuteOpIndexPut(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_INDEX_PUT, Opcode::OP_INDEX_PUT, ExecuteOpIndexPut);
 
-void ExecuteOpMrgSort(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
+void ExecuteOpMrgSort(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto src = ctx->ioperandDataViewList->at(0);
     auto topk_axis = ctx->op->GetIntAttribute("op_attr_axis");
@@ -753,14 +838,16 @@ void ExecuteOpMrgSort(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_MRGSORT, Opcode::OP_MRGSORT, ExecuteOpMrgSort);
 
-void ExecuteOpTwoTileMrgSort(ExecuteOperationContext *ctx) {
+void ExecuteOpTwoTileMrgSort(ExecuteOperationContext* ctx)
+{
     auto src = ctx->ioperandDataViewList->at(0);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     calc::TwoTileMrgSort(oop, src);
 }
 REGISTER_CALC_OP(OP_TWOTILEMRGSORT, Opcode::OP_TWOTILEMRGSORT, ExecuteOpTwoTileMrgSort);
 
-void ExecuteOpSort(ExecuteOperationContext *ctx) {
+void ExecuteOpSort(ExecuteOperationContext* ctx)
+{
     auto src = ctx->ioperandDataViewList->at(0);
     auto value = ctx->ooperandInplaceDataViewList->at(0);
     auto index = ctx->ooperandInplaceDataViewList->at(1);
@@ -770,9 +857,9 @@ void ExecuteOpSort(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_SORT_UB, Opcode::OP_SORT_UB, ExecuteOpSort);
 
-void ExecuteOpTopK(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
+void ExecuteOpTopK(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     auto outValue = ctx->ooperandInplaceDataViewList->at(0);
     auto outIndex = ctx->ooperandInplaceDataViewList->at(1);
     auto src = ctx->ioperandDataViewList->at(0);
@@ -783,9 +870,9 @@ void ExecuteOpTopK(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_TOPK, Opcode::OP_TOPK, ExecuteOpTopK);
 
-void ExecuteOpBitSort(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
+void ExecuteOpBitSort(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto src = ctx->ioperandDataViewList->at(0);
     auto topk_axis = ctx->op->GetIntAttribute("op_attr_axis");
@@ -795,9 +882,9 @@ void ExecuteOpBitSort(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_BITSORT, Opcode::OP_BITSORT, ExecuteOpBitSort);
 
-void ExecuteOpTiledMrgSort(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == SIZE_FOUR);
+void ExecuteOpTiledMrgSort(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == SIZE_FOUR);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto src1 = ctx->ioperandDataViewList->at(0);
     auto src2 = ctx->ioperandDataViewList->at(1);
@@ -809,11 +896,12 @@ void ExecuteOpTiledMrgSort(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_TILEDMRGSORT, Opcode::OP_TILEDMRGSORT, ExecuteOpTiledMrgSort);
 
-void ExecuteOpTopkSort(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 2);  // value + temp
+void ExecuteOpTopkSort(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    ASSERT(
+        ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
+        ctx->ooperandInplaceDataViewList->size() == 2); // value + temp
 
     auto iop = ctx->ioperandDataViewList->at(0);
     auto oop_value = ctx->ooperandInplaceDataViewList->at(0);
@@ -825,11 +913,10 @@ void ExecuteOpTopkSort(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_TOPK_SORT, Opcode::OP_TOPK_SORT, ExecuteOpTopkSort);
 
-void ExecuteOpTopkMerge(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
+void ExecuteOpTopkMerge(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
 
     auto iop = ctx->ioperandDataViewList->at(0);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
@@ -840,11 +927,10 @@ void ExecuteOpTopkMerge(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_TOPK_MERGE, Opcode::OP_TOPK_MERGE, ExecuteOpTopkMerge);
 
-void ExecuteOpTopkExtract(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
+void ExecuteOpTopkExtract(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
 
     auto iop = ctx->ioperandDataViewList->at(0);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
@@ -856,49 +942,81 @@ void ExecuteOpTopkExtract(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_TOPK_EXTRACT, Opcode::OP_TOPK_EXTRACT, ExecuteOpTopkExtract);
 
-void ExecuteOpReduceAcc(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+void ExecuteOpReduceAcc(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
     calc::ReduceAcc(ret, *ctx->ioperandDataViewList);
 }
 REGISTER_CALC_OP(OP_REDUCE_ACC, Opcode::OP_REDUCE_ACC, ExecuteOpReduceAcc);
 
 template <Opcode opcode>
-void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
+void ExecuteOpBinaryScalar(ExecuteOperationContext* ctx)
+{
     if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_REMRS || opcode == Opcode::OP_FLOORDIVS ||
         opcode == Opcode::OP_REMS) {
         ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     } else {
-        ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-               ctx->ooperandInplaceDataViewList->size() == 1);
+        ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
     }
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto &lhs = ctx->ioperandDataViewList->at(0);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& lhs = ctx->ioperandDataViewList->at(0);
     auto element = Element(DT_FP32, 0.0f);
     ctx->op->GetAttr(OpAttributeKey::scalar, element);
     bool reverse = ctx->op->GetBoolAttribute(OP_ATTR_PREFIX + "reverseOperand");
 
     switch (opcode) {
-        case Opcode::OP_ADDS: calc::AddS(ret, lhs, element); break;
-        case Opcode::OP_SUBS: calc::SubS(ret, lhs, element, reverse); break;
-        case Opcode::OP_MULS: calc::MulS(ret, lhs, element); break;
-        case Opcode::OP_MAXS: calc::MaxS(ret, lhs, element); break;
-        case Opcode::OP_MINS: calc::MinS(ret, lhs, element); break;
-        case Opcode::OP_DIVS: calc::DivS(ret, lhs, element, reverse); break;
-        case Opcode::OP_FLOORDIVS: calc::FloorDivS(ret, lhs, element, reverse); break;
-        case Opcode::OP_REMS: calc::RemainderS(ret, lhs, element, reverse); break;
-        case Opcode::OP_REMRS: calc::RemainderRS(ret, lhs, element, reverse); break;
-        case Opcode::OP_S_MAXS: calc::MaxS(ret, lhs, element); break;
-        case Opcode::OP_S_MINS: calc::MinS(ret, lhs, element);  break;
-        case Opcode::OP_LRELU: calc::LReLU(ret, lhs, element); break;
-        case Opcode::OP_BITWISEANDS: calc::BitwiseAndS(ret, lhs, element); break;
-        case Opcode::OP_BITWISEORS: calc::BitwiseOrS(ret, lhs, element); break;
-        case Opcode::OP_BITWISEXORS: calc::BitwiseXorS(ret, lhs, element); break;
-        case Opcode::OP_GCDS: calc::GcdS(ret, lhs, element); break;
-        default: ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false);
+        case Opcode::OP_ADDS:
+            calc::AddS(ret, lhs, element);
+            break;
+        case Opcode::OP_SUBS:
+            calc::SubS(ret, lhs, element, reverse);
+            break;
+        case Opcode::OP_MULS:
+            calc::MulS(ret, lhs, element);
+            break;
+        case Opcode::OP_MAXS:
+            calc::MaxS(ret, lhs, element);
+            break;
+        case Opcode::OP_MINS:
+            calc::MinS(ret, lhs, element);
+            break;
+        case Opcode::OP_DIVS:
+            calc::DivS(ret, lhs, element, reverse);
+            break;
+        case Opcode::OP_FLOORDIVS:
+            calc::FloorDivS(ret, lhs, element, reverse);
+            break;
+        case Opcode::OP_REMS:
+            calc::RemainderS(ret, lhs, element, reverse);
+            break;
+        case Opcode::OP_REMRS:
+            calc::RemainderRS(ret, lhs, element, reverse);
+            break;
+        case Opcode::OP_S_MAXS:
+            calc::MaxS(ret, lhs, element);
+            break;
+        case Opcode::OP_S_MINS:
+            calc::MinS(ret, lhs, element);
+            break;
+        case Opcode::OP_LRELU:
+            calc::LReLU(ret, lhs, element);
+            break;
+        case Opcode::OP_BITWISEANDS:
+            calc::BitwiseAndS(ret, lhs, element);
+            break;
+        case Opcode::OP_BITWISEORS:
+            calc::BitwiseOrS(ret, lhs, element);
+            break;
+        case Opcode::OP_BITWISEXORS:
+            calc::BitwiseXorS(ret, lhs, element);
+            break;
+        case Opcode::OP_GCDS:
+            calc::GcdS(ret, lhs, element);
+            break;
+        default:
+            ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false);
     }
 }
 REGISTER_CALC_OP(OP_ADDS, Opcode::OP_ADDS, ExecuteOpBinaryScalar<Opcode::OP_ADDS>);
@@ -922,26 +1040,24 @@ REGISTER_CALC_OP(OP_S_DIVS, Opcode::OP_S_DIVS, ExecuteOpBinaryScalar<Opcode::OP_
 REGISTER_CALC_OP(OP_S_MAXS, Opcode::OP_S_MAXS, ExecuteOpBinaryScalar<Opcode::OP_S_MAXS>);
 REGISTER_CALC_OP(OP_S_MINS, Opcode::OP_S_MINS, ExecuteOpBinaryScalar<Opcode::OP_S_MINS>);
 
-void ExecuteOpGatherElement(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == SIZE_TWO);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto &params = ctx->ioperandDataViewList->at(0);
-    auto &indices = ctx->ioperandDataViewList->at(1);
+void ExecuteOpGatherElement(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == SIZE_TWO);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& params = ctx->ioperandDataViewList->at(0);
+    auto& indices = ctx->ioperandDataViewList->at(1);
     int axis = ctx->op->GetIntAttribute("op_attr_axis");
     calc::GatherElements(ret, params, indices, axis);
 }
 REGISTER_CALC_OP(OP_GATHER_ELEMENT, Opcode::OP_GATHER_ELEMENT, ExecuteOpGatherElement);
 
-void ExecuteOpGatherMask(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == 1);
-    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto &self = ctx->ioperandDataViewList->at(0);
+void ExecuteOpGatherMask(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto& self = ctx->ioperandDataViewList->at(0);
     int patternMode = ctx->op->GetIntAttribute("op_attr_patternMode");
     calc::GatherMask(ret, self, patternMode);
 }
@@ -949,24 +1065,29 @@ REGISTER_CALC_OP(OP_GATHER_MASK, Opcode::OP_GATHER_MASK, ExecuteOpGatherMask);
 REGISTER_CALC_OP(OP_GATHER_MASK_BUILDIN, Opcode::OP_GATHER_MASK_BUILDIN, ExecuteOpGatherMask);
 
 template <Opcode opcode>
-void ExecuteOpBitwiseShift(ExecuteOperationContext *ctx) {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
-           ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
-    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH,
-           ctx->ioperandDataViewList->size() == SIZE_TWO);
+void ExecuteOpBitwiseShift(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == SIZE_TWO);
     auto ret = ctx->ooperandInplaceDataViewList->at(0);
     auto lhs = ctx->ioperandDataViewList->at(0);
     auto rhs = ctx->ioperandDataViewList->at(1);
 
     switch (opcode) {
-        case Opcode::OP_BITWISERIGHTSHIFT: calc::BitwiseRightShift(ret, lhs, rhs); break;
-        case Opcode::OP_BITWISELEFTSHIFT: calc::BitwiseLeftShift(ret, lhs, rhs); break;
-        default: ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false);
+        case Opcode::OP_BITWISERIGHTSHIFT:
+            calc::BitwiseRightShift(ret, lhs, rhs);
+            break;
+        case Opcode::OP_BITWISELEFTSHIFT:
+            calc::BitwiseLeftShift(ret, lhs, rhs);
+            break;
+        default:
+            ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false);
     }
 }
 
 template <Opcode opcode>
-void ExecuteOpBitwiseShiftScalar(ExecuteOperationContext *ctx) {
+void ExecuteOpBitwiseShiftScalar(ExecuteOperationContext* ctx)
+{
     if (opcode == Opcode::OP_SBITWISERIGHTSHIFT || opcode == Opcode::OP_SBITWISELEFTSHIFT) {
         ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     } else {
@@ -979,17 +1100,31 @@ void ExecuteOpBitwiseShiftScalar(ExecuteOperationContext *ctx) {
     ctx->op->GetAttr(OpAttributeKey::scalar, element);
 
     switch (opcode) {
-        case Opcode::OP_BITWISERIGHTSHIFTS: calc::BitwiseRightShiftS(ret, lhs, element); break;
-        case Opcode::OP_BITWISELEFTSHIFTS: calc::BitwiseLeftShiftS(ret, lhs, element); break;
-        case Opcode::OP_SBITWISERIGHTSHIFT: calc::SBitwiseRightShift(ret, element, lhs); break;
-        case Opcode::OP_SBITWISELEFTSHIFT: calc::SBitwiseLeftShift(ret, element, lhs); break;
-        default: ASSERT(false);
+        case Opcode::OP_BITWISERIGHTSHIFTS:
+            calc::BitwiseRightShiftS(ret, lhs, element);
+            break;
+        case Opcode::OP_BITWISELEFTSHIFTS:
+            calc::BitwiseLeftShiftS(ret, lhs, element);
+            break;
+        case Opcode::OP_SBITWISERIGHTSHIFT:
+            calc::SBitwiseRightShift(ret, element, lhs);
+            break;
+        case Opcode::OP_SBITWISELEFTSHIFT:
+            calc::SBitwiseLeftShift(ret, element, lhs);
+            break;
+        default:
+            ASSERT(false);
     }
 }
-REGISTER_CALC_OP(OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISERIGHTSHIFT, ExecuteOpBitwiseShift<Opcode::OP_BITWISERIGHTSHIFT>);
+REGISTER_CALC_OP(
+    OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISERIGHTSHIFT, ExecuteOpBitwiseShift<Opcode::OP_BITWISERIGHTSHIFT>);
 REGISTER_CALC_OP(OP_BITWISELEFTSHIFT, Opcode::OP_BITWISELEFTSHIFT, ExecuteOpBitwiseShift<Opcode::OP_BITWISELEFTSHIFT>);
-REGISTER_CALC_OP(OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISERIGHTSHIFTS, ExecuteOpBitwiseShiftScalar<Opcode::OP_BITWISERIGHTSHIFTS>);
-REGISTER_CALC_OP(OP_BITWISELEFTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS, ExecuteOpBitwiseShiftScalar<Opcode::OP_BITWISELEFTSHIFTS>);
-REGISTER_CALC_OP(OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISERIGHTSHIFT, ExecuteOpBitwiseShiftScalar<Opcode::OP_SBITWISERIGHTSHIFT>);
-REGISTER_CALC_OP(OP_SBITWISELEFTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, ExecuteOpBitwiseShiftScalar<Opcode::OP_SBITWISELEFTSHIFT>);
-}
+REGISTER_CALC_OP(
+    OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISERIGHTSHIFTS, ExecuteOpBitwiseShiftScalar<Opcode::OP_BITWISERIGHTSHIFTS>);
+REGISTER_CALC_OP(
+    OP_BITWISELEFTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS, ExecuteOpBitwiseShiftScalar<Opcode::OP_BITWISELEFTSHIFTS>);
+REGISTER_CALC_OP(
+    OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISERIGHTSHIFT, ExecuteOpBitwiseShiftScalar<Opcode::OP_SBITWISERIGHTSHIFT>);
+REGISTER_CALC_OP(
+    OP_SBITWISELEFTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, ExecuteOpBitwiseShiftScalar<Opcode::OP_SBITWISELEFTSHIFT>);
+} // namespace npu::tile_fwk

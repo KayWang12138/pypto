@@ -14,7 +14,7 @@
 ## 函数原型
 
 ```python
-prod(input: Tensor,  dim: int, keepdim: bool = False) -> Tensor: 
+prod(input: Tensor,  dim: int, keepdim: bool = False) -> Tensor:
 ```
 
 ## 参数说明
@@ -61,9 +61,8 @@ y = pypto.prod(x, -1, True)
 结果示例如下：
 
 ```
-输入数据 x: [[1.0 2.0 3.0], 
+输入数据 x: [[1.0 2.0 3.0],
              [1.0 2.0 3.0]]
 输出数据 y: [[6.0],
              [6.0]]
 ```
-

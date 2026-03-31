@@ -24,10 +24,11 @@ const std::string PLATFORM_INFO_RELATIVE_PATH = "/configs/A2A3.ini";
 const uint32_t PLATFORM_FAILED = 0xFFFFFFFF;
 const uint32_t PLATFORM_SUCCESS = 0;
 
-std::string SimulationPlatform::GetCurrentSharedLibPath() {
+std::string SimulationPlatform::GetCurrentSharedLibPath()
+{
     std::string currentLibPath;
     Dl_info info;
-    if (dladdr(reinterpret_cast<void *>(&GetCurrentSharedLibPath), &info)) {
+    if (dladdr(reinterpret_cast<void*>(&GetCurrentSharedLibPath), &info)) {
         currentLibPath = std::string(info.dli_fname);
         int32_t pos = currentLibPath.rfind('/');
         if (pos >= 0) {
@@ -37,7 +38,8 @@ std::string SimulationPlatform::GetCurrentSharedLibPath() {
     return currentLibPath;
 }
 
-bool SimulationPlatform::GetCostModelPlatformRealPath(std::string &realPath) {
+bool SimulationPlatform::GetCostModelPlatformRealPath(std::string& realPath)
+{
     realPath = RealPath(GetCurrentSharedLibPath() + PLATFORM_INFO_RELATIVE_PATH);
     if (realPath.empty()) {
         return false;

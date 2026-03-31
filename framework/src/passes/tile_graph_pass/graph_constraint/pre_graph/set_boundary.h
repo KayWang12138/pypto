@@ -23,9 +23,8 @@ public:
     SetBoundary() {}
     ~SetBoundary() = default;
 
-    void InsertTemporaryCopyIn(Function &function, Operation &op) const;
-    void SetTensorBoundary(Function &function) const;
+    void InsertTemporaryCopyIn(Function& function, Operation& op) const;
+    void SetTensorBoundary(Function& function) const;
 };
 } // namespace npu::tile_fwk
 #endif // PASS_SET_BOUNDARY_H
-    

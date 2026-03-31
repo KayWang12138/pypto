@@ -12,7 +12,7 @@
 
 ### AIC ERROR/The aicore execution is abnormal
 
-1. **注释 CallSubFuncTask 及相关代码排除 machine 框架调度问题**  
+1. **注释 CallSubFuncTask 及相关代码排除 machine 框架调度问题**
 
 `framework/src/interface/machine/device/tilefwk/aicore_entry.h`
 
@@ -56,7 +56,7 @@
 
 重新编译安装，运行验证，若问题仍然复现， 则说明是 machine 调度框架的问题，停止后续步骤。若问题不复现，将上述修改恢复，继续后续步骤
 
-2. **启用追踪日志**  
+2. **启用追踪日志**
 
 `framework/src/interface/configs/tile_fwk_config.json`
 ```cpp
@@ -76,7 +76,7 @@
 
 重新编译安装
 
-3. **清理日志并运行测试**  
+3. **清理日志并运行测试**
 
 （1）清理日志
 ```bash
@@ -92,36 +92,36 @@ export ASCEND_PROCESS_LOG_PATH=./my_log
 
 （3）执行用例
 
-4. **分析追踪日志并定位 CCE 文件**  
+4. **分析追踪日志并定位 CCE 文件**
 
 （1）查找 trace 日志、分析缺失 leaf index 并定位问题 CCE 文件
 ```bash
 python3 .agents/skills/pypto-aicore-error-locator/scripts/analyze_trace.py ./my_log run_path/kernel_aicore
 ```
-结果说明：此脚本会给出问题CCE文件路径，若输出多个问题CCE文件，需要验证哪个CCE文件才是问题CCE文件，执行第二步，若只输出一个CCE文件，需要check该CCE文件是否是问题文件，执行第二步  
+结果说明：此脚本会给出问题CCE文件路径，若输出多个问题CCE文件，需要验证哪个CCE文件才是问题CCE文件，执行第二步，若只输出一个CCE文件，需要check该CCE文件是否是问题文件，执行第二步
 
 （2）测试验证 CCE 文件
 ```bash
 python3 .agents/skills/pypto-aicore-error-locator/scripts/test_cce_file.py <cce_file> test_cmd run_path
 ```
-结果说明：此脚本会给出判断，明确输入的CCE文件是否为问题文件  
+结果说明：此脚本会给出判断，明确输入的CCE文件是否为问题文件
 
 注：run_path为运行目录路径，test_cmd为运行测试命令
 
-5. **二分查找定位CCE文件问题代码行**  
+5. **二分查找定位CCE文件问题代码行**
 
-（1）check错误是否在 T 操作中  
+（1）check错误是否在 T 操作中
 
 ```bash
 python3 .agents/skills/pypto-aicore-error-locator/scripts/determine_error_scope.py <cce_file> test_cmd run_path
 ```
-结果说明：此脚本会将所有的操作行（例如TLoad、TMatmul等）全部注释，进行测试，若不复现现象，则说明问题出现在操作行，输出ERROR_IN_T为True，否则ERROR_IN_T为False  
+结果说明：此脚本会将所有的操作行（例如TLoad、TMatmul等）全部注释，进行测试，若不复现现象，则说明问题出现在操作行，输出ERROR_IN_T为True，否则ERROR_IN_T为False
 
 （2）获取二分查找初始范围
 ```bash
 python3 .agents/skills/pypto-aicore-error-locator/scripts/get_commentable_range.py <cce_file> ERROR_IN_T
 ```
-结果说明：此脚本根据ERROR_IN_T的值给出二分查找的范围left值和right值，若ERROR_IN_T为True，则排查范围为全部操作行，若ERROR_IN_T为False，则排查范围为除了同步行的所有行  
+结果说明：此脚本根据ERROR_IN_T的值给出二分查找的范围left值和right值，若ERROR_IN_T为True，则排查范围为全部操作行，若ERROR_IN_T为False，则排查范围为除了同步行的所有行
 
 （3）执行二分查找迭代，直到找到CCE文件问题代码行
 
@@ -311,4 +311,3 @@ python3 tools/schema/schema_memory_check.py -d /path/to/my_log/debug/device-8/ -
 4. **查日志上下文**：结合同线程前后日志（如 “Schedule run init succ” 之后、AbnormalStop 相关）确认是首次握手失败还是运行中异常。
 
 **关联 Skill**：[pypto-environment-setup](../../.agents/skills/pypto-environment-setup/SKILL.md)（环境与 NPU 设备诊断、`npu-smi`、驱动与编译运行）
-

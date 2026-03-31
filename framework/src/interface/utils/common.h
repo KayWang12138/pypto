@@ -101,7 +101,8 @@ inline constexpr uint64_t GIBI = UINT64_C(1024) * 1024 * 1024;
 
 constexpr const int INVALID_LOOP_GROUPID = -1;
 
-inline int64_t AlignUp(int64_t value, int64_t alignment) {
+inline int64_t AlignUp(int64_t value, int64_t alignment)
+{
     if (alignment == 0) {
         return value;
     }
@@ -109,22 +110,26 @@ inline int64_t AlignUp(int64_t value, int64_t alignment) {
 }
 
 template <typename T, typename = std::enable_if_t<std::is_enum_v<T>>>
-inline constexpr std::underlying_type_t<T> ToUnderlying(T value) {
+inline constexpr std::underlying_type_t<T> ToUnderlying(T value)
+{
     return static_cast<std::underlying_type_t<T>>(value);
 }
 
 template <typename T>
-inline void HashCombine(std::size_t &seed, const T &val) __NO_UBSAN {
+inline void HashCombine(std::size_t& seed, const T& val) __NO_UBSAN
+{
     seed ^= std::hash<T>()(val) + 0x9e3779b9 + (seed << 0x6) + (seed >> 0x2);
 }
 
 template <typename T>
-inline void HashVal(size_t &seed, const T &val) {
+inline void HashVal(size_t& seed, const T& val)
+{
     HashCombine(seed, val);
 }
 
 template <typename T, typename... Args>
-inline void HashVal(size_t &seed, const T &val, const Args &...args) {
+inline void HashVal(size_t& seed, const T& val, const Args&... args)
+{
     HashCombine(seed, val);
     HashVal(seed, args...);
 }
@@ -151,20 +156,12 @@ enum OperandType {
     TOTAL_BUF_TYPE,
 };
 
-inline std::string OperandTypeToStr(OperandType t) {
+inline std::string OperandTypeToStr(OperandType t)
+{
     static std::map<OperandType, std::string> strMap = {
-        {   BUF_UB,        "UB"},
-        {   BUF_L1,        "L1"},
-        {  BUF_L0A,       "L0A"},
-        {  BUF_L0B,       "L0B"},
-        {  BUF_L0C,       "L0C"},
-        {  BUF_FIX,       "FIX"},
-        {  BUF_DDR,       "DDR"},
-        {  BUF_REG,       "REG"},
-        {   SCALAR,    "SCALAR"},
-        {   BUF_BT, "BiasTable"},
-        {BUF_L0AMX,    "L0A_MX"},
-        {BUF_L0BMX,    "L0B_MX"},
+        {BUF_UB, "UB"},     {BUF_L1, "L1"},        {BUF_L0A, "L0A"},      {BUF_L0B, "L0B"},
+        {BUF_L0C, "L0C"},   {BUF_FIX, "FIX"},      {BUF_DDR, "DDR"},      {BUF_REG, "REG"},
+        {SCALAR, "SCALAR"}, {BUF_BT, "BiasTable"}, {BUF_L0AMX, "L0A_MX"}, {BUF_L0BMX, "L0B_MX"},
     };
 
     if (strMap.count(t)) {
@@ -202,12 +199,12 @@ enum IQType {
 
 // hardware pipeline
 enum PipeType {
-    PIPE_S = 0, // Scalar Pipe
-    PIPE_V,     // Vector Pipe, including{VectorOP write UB,  L0C->UB write}
-    PIPE_M,     // Matrix Pipe, including{}
-    PIPE_MTE1,  // L1->L0{A,B}
-    PIPE_MTE2,  // OUT ->{L1, L0{A,B}, UB}
-    PIPE_MTE3,  // UB ->{OUT,L1}
+    PIPE_S = 0,    // Scalar Pipe
+    PIPE_V,        // Vector Pipe, including{VectorOP write UB,  L0C->UB write}
+    PIPE_M,        // Matrix Pipe, including{}
+    PIPE_MTE1,     // L1->L0{A,B}
+    PIPE_MTE2,     // OUT ->{L1, L0{A,B}, UB}
+    PIPE_MTE3,     // UB ->{OUT,L1}
     PIPE_ALL,
     PIPE_MTE4 = 7, // MOV_UB_TO_OUT
     PIPE_MTE5 = 8, // MOV_OUT_TO_UB
@@ -218,7 +215,8 @@ enum PipeType {
 enum class CoreType { AIV = 0, AIC = 1, MIX = 2, AICPU = 3, HUB = 4, GMATOMIC = 5, INVALID = 20 };
 
 template <typename T>
-inline std::string IntVecToStr(const std::vector<T> &shape) {
+inline std::string IntVecToStr(const std::vector<T>& shape)
+{
     std::stringstream ss;
     ss << "[";
 
@@ -233,7 +231,8 @@ inline std::string IntVecToStr(const std::vector<T> &shape) {
     return ss.str();
 }
 
-inline std::string SymbolicVecToStr(const std::vector<SymbolicScalar> &a) {
+inline std::string SymbolicVecToStr(const std::vector<SymbolicScalar>& a)
+{
     std::stringstream ss;
     ss << "[";
 
@@ -253,7 +252,8 @@ constexpr int ParamLocTensor = 0;
 constexpr int ParamLocIncast = 1;
 constexpr int ParamLocOutcast = 2;
 
-inline std::string ParamLocToStr(uint32_t loc) {
+inline std::string ParamLocToStr(uint32_t loc)
+{
     std::stringstream ss;
     auto type = loc >> ParamLocOffset;
     auto index = loc & ((1 << ParamLocOffset) - 1);
@@ -264,8 +264,9 @@ inline std::string ParamLocToStr(uint32_t loc) {
 template <typename T>
 class BiMap {
 public:
-    BiMap(const std::initializer_list<std::pair<T, std::string>> &init) {
-        for (const auto &[i, s] : init) {
+    BiMap(const std::initializer_list<std::pair<T, std::string>>& init)
+    {
+        for (const auto& [i, s] : init) {
             type2strDict[i] = s;
             str2typeDict[s] = i;
         }
@@ -273,9 +274,10 @@ public:
 
     bool Count(T key) const { return type2strDict.count(key); }
 
-    bool Count(const std::string &key) const { return str2typeDict.count(key); }
+    bool Count(const std::string& key) const { return str2typeDict.count(key); }
 
-    const std::string &Find(T key, const std::string &defaultValue = "") const {
+    const std::string& Find(T key, const std::string& defaultValue = "") const
+    {
         if (type2strDict.count(key)) {
             return type2strDict.find(key)->second;
         } else {
@@ -283,7 +285,8 @@ public:
         }
     }
 
-    T Find(const std::string &key, T defaultValue) const {
+    T Find(const std::string& key, T defaultValue) const
+    {
         if (str2typeDict.count(key)) {
             return str2typeDict.find(key)->second;
         } else {
@@ -296,42 +299,41 @@ private:
     std::unordered_map<std::string, T> str2typeDict;
 };
 
-inline const BiMap<CoreType> &GetCoreTypeDict() {
-    static BiMap<CoreType> dict{
-        {
-         {CoreType::AIV, "AIV"},
-         {CoreType::AIC, "AIC"},
-         {CoreType::MIX, "MIX"},
-         {CoreType::AICPU, "AICPU"},
-         {CoreType::HUB, "HUB"},
-         {CoreType::GMATOMIC, "GMATOMIC"},
-         }
-    };
+inline const BiMap<CoreType>& GetCoreTypeDict()
+{
+    static BiMap<CoreType> dict{{
+        {CoreType::AIV, "AIV"},
+        {CoreType::AIC, "AIC"},
+        {CoreType::MIX, "MIX"},
+        {CoreType::AICPU, "AICPU"},
+        {CoreType::HUB, "HUB"},
+        {CoreType::GMATOMIC, "GMATOMIC"},
+    }};
     return dict;
 };
 
-inline const BiMap<PipeType> &GetPipeTypeDict() {
-    static BiMap<PipeType> dict{
-        {
-         {PipeType::PIPE_S, "PIPE_S"},
-         {PipeType::PIPE_V, "PIPE_V"},
-         {PipeType::PIPE_M, "PIPE_M"},
-         {PipeType::PIPE_MTE1, "PIPE_MTE1"},
-         {PipeType::PIPE_MTE2, "PIPE_MTE2"},
-         {PipeType::PIPE_MTE3, "PIPE_MTE3"},
-         {PipeType::PIPE_ALL, "PIPE_ALL"},
-         {PipeType::PIPE_MTE4, "PIPE_MTE4"},
-         {PipeType::PIPE_MTE5, "PIPE_MTE5"},
-         {PipeType::PIPE_V2, "PIPE_V2"},
-         {PipeType::PIPE_FIX, "PIPE_FIX"},
-         }
-    };
+inline const BiMap<PipeType>& GetPipeTypeDict()
+{
+    static BiMap<PipeType> dict{{
+        {PipeType::PIPE_S, "PIPE_S"},
+        {PipeType::PIPE_V, "PIPE_V"},
+        {PipeType::PIPE_M, "PIPE_M"},
+        {PipeType::PIPE_MTE1, "PIPE_MTE1"},
+        {PipeType::PIPE_MTE2, "PIPE_MTE2"},
+        {PipeType::PIPE_MTE3, "PIPE_MTE3"},
+        {PipeType::PIPE_ALL, "PIPE_ALL"},
+        {PipeType::PIPE_MTE4, "PIPE_MTE4"},
+        {PipeType::PIPE_MTE5, "PIPE_MTE5"},
+        {PipeType::PIPE_V2, "PIPE_V2"},
+        {PipeType::PIPE_FIX, "PIPE_FIX"},
+    }};
     return dict;
 };
 
 template <typename T>
 struct OrderedSet : std::unordered_map<T, int> {
-    bool Insert(const T &data) {
+    bool Insert(const T& data)
+    {
         if (this->count(data) == 0) {
             this->insert(std::make_pair(data, this->size()));
             order.push_back(data);
@@ -341,7 +343,8 @@ struct OrderedSet : std::unordered_map<T, int> {
         return false;
     }
 
-    int InsertAndGetIndex(const T &data) {
+    int InsertAndGetIndex(const T& data)
+    {
         Insert(data);
         return GetIndex(data);
     }
@@ -353,15 +356,17 @@ struct OrderedSet : std::unordered_map<T, int> {
     typename std::vector<OrderElementType>::const_iterator begin() const { return order.begin(); }
     typename std::vector<OrderElementType>::const_iterator end() const { return order.end(); }
 
-    const T &operator[](int index) const { return order[index]; }
-    T &operator[](int index) { return order[index]; }
+    const T& operator[](int index) const { return order[index]; }
+    T& operator[](int index) { return order[index]; }
 
-    bool HasData(const T &data) const {
-        return this->find(data) != static_cast<const std::unordered_map<T, int> &>(*this).end();
+    bool HasData(const T& data) const
+    {
+        return this->find(data) != static_cast<const std::unordered_map<T, int>&>(*this).end();
     }
-    int GetIndex(const T &data) const { return this->find(data)->second; }
+    int GetIndex(const T& data) const { return this->find(data)->second; }
 
-    void Remove(const std::vector<T> &items) {
+    void Remove(const std::vector<T>& items)
+    {
         bool removed = false;
         for (size_t i = 0; i < items.size(); i++) {
             if (this->count(items[i])) {
@@ -371,7 +376,7 @@ struct OrderedSet : std::unordered_map<T, int> {
         }
         if (removed) {
             std::vector<T> newOrder;
-            for (auto &[key, val] : dynamic_cast<std::unordered_map<T, int> &>(*this)) {
+            for (auto& [key, val] : dynamic_cast<std::unordered_map<T, int>&>(*this)) {
                 val = newOrder.size();
                 newOrder.push_back(key);
             }
@@ -379,22 +384,24 @@ struct OrderedSet : std::unordered_map<T, int> {
         }
     }
 
-    void Clear() {
+    void Clear()
+    {
         order.clear();
         this->clear();
     }
 
-    bool operator==(const OrderedSet &rhs) {
+    bool operator==(const OrderedSet& rhs)
+    {
         if (order.size() != rhs.size())
             return false;
-        for (auto &x : rhs.order) {
+        for (auto& x : rhs.order) {
             if (this->count(x) == 0)
                 return false;
         }
         return true;
     }
 
-    const std::vector<OrderElementType> &GetOrder() const { return order; }
+    const std::vector<OrderElementType>& GetOrder() const { return order; }
 
     std::vector<OrderElementType> order;
 };
@@ -408,7 +415,8 @@ struct OrderedMap {
     typename std::vector<OrderElementType>::const_iterator begin() const { return orderData.begin(); }
     typename std::vector<OrderElementType>::const_iterator end() const { return orderData.end(); }
 
-    T &operator[](const Key &key) {
+    T& operator[](const Key& key)
+    {
         if (!orderDict.count(key)) {
             int size = orderDict.size();
             orderDict[key] = size;
@@ -421,74 +429,91 @@ struct OrderedMap {
     std::vector<OrderElementType> orderData;
 };
 
-inline const BiMap<QueueType> &GetQueueNameDict() {
-    static BiMap<QueueType> dict{
-        {
-         {QUEUE_MTE_IN, "MTE_IN"},
-         {QUEUE_MTE_OUT, "MTE_OUT"},
-         {QUEUE_MTE_BETWEEN, "MTE_BETW"},
-         {QUEUE_VECTOR, "VECTOR"},
-         {QUEUE_CUBE, "CUBE"},
-         }
-    };
+inline const BiMap<QueueType>& GetQueueNameDict()
+{
+    static BiMap<QueueType> dict{{
+        {QUEUE_MTE_IN, "MTE_IN"},
+        {QUEUE_MTE_OUT, "MTE_OUT"},
+        {QUEUE_MTE_BETWEEN, "MTE_BETW"},
+        {QUEUE_VECTOR, "VECTOR"},
+        {QUEUE_CUBE, "CUBE"},
+    }};
     return dict;
 }
 
-inline std::string QueueName(QueueType qt, const std::string &defaultValue = "ILLEGAL") {
+inline std::string QueueName(QueueType qt, const std::string& defaultValue = "ILLEGAL")
+{
     return GetQueueNameDict().Find(qt, defaultValue);
 }
 
-inline QueueType QueueGetType(const std::string &name, QueueType defaultValue = QUEUE_INVALID) {
+inline QueueType QueueGetType(const std::string& name, QueueType defaultValue = QUEUE_INVALID)
+{
     return GetQueueNameDict().Find(name, defaultValue);
 }
 
-inline std::string IQName(IQType qt) {
+inline std::string IQName(IQType qt)
+{
     switch (qt) {
-        case IQ_VECTOR_BMU: return "VECTOR_BMU";
-        case IQ_CUBE_BMU_L1: return "CUBE_BMU_L1";
-        case IQ_CUBE_BMU_L0A: return "CUBE_BMU_L0A";
-        case IQ_CUBE_BMU_L0B: return "CUBE_BMU_L0B";
-        case IQ_CUBE_BMU_L0C: return "CUBE_BMU_L0C";
-        case IQ_CUBE_BMU_FIX: return "CUBE_BMU_FIX";
-        case IQ_MTE1: return "MTE1";
-        case IQ_MTE2: return "MTE2";
-        case IQ_VECTOR_ALU: return "VECTOR_ALU";
-        case IQ_CUBE_ALU: return "CUBE";
-        case IQ_MTE3: return "MTE3";
-        case IQ_MTE_FIXP: return "MTE_FIXP";
-        default: return "ILLEGAL";
+        case IQ_VECTOR_BMU:
+            return "VECTOR_BMU";
+        case IQ_CUBE_BMU_L1:
+            return "CUBE_BMU_L1";
+        case IQ_CUBE_BMU_L0A:
+            return "CUBE_BMU_L0A";
+        case IQ_CUBE_BMU_L0B:
+            return "CUBE_BMU_L0B";
+        case IQ_CUBE_BMU_L0C:
+            return "CUBE_BMU_L0C";
+        case IQ_CUBE_BMU_FIX:
+            return "CUBE_BMU_FIX";
+        case IQ_MTE1:
+            return "MTE1";
+        case IQ_MTE2:
+            return "MTE2";
+        case IQ_VECTOR_ALU:
+            return "VECTOR_ALU";
+        case IQ_CUBE_ALU:
+            return "CUBE";
+        case IQ_MTE3:
+            return "MTE3";
+        case IQ_MTE_FIXP:
+            return "MTE_FIXP";
+        default:
+            return "ILLEGAL";
     }
 }
 
-inline const BiMap<OperandType> &GetBufferNameDict() {
-    static BiMap<OperandType> dict{
-        {
-         {BUF_UB, "UB"},
-         {BUF_L1, "L1"},
-         {BUF_L0A, "L0A"},
-         {BUF_L0B, "L0B"},
-         {BUF_L0C, "L0C"},
-         {BUF_FIX, "FIX"},
-         {BUF_DDR, "DDR"},
-         {BUF_REG, "REG"},
-         {SCALAR, "SCALAR"},
-         {BUF_BT, "BT"},
-         }
-    };
+inline const BiMap<OperandType>& GetBufferNameDict()
+{
+    static BiMap<OperandType> dict{{
+        {BUF_UB, "UB"},
+        {BUF_L1, "L1"},
+        {BUF_L0A, "L0A"},
+        {BUF_L0B, "L0B"},
+        {BUF_L0C, "L0C"},
+        {BUF_FIX, "FIX"},
+        {BUF_DDR, "DDR"},
+        {BUF_REG, "REG"},
+        {SCALAR, "SCALAR"},
+        {BUF_BT, "BT"},
+    }};
     return dict;
 }
 
-inline std::string BufferName(OperandType buffer, const std::string &defaultValue = "UNKNOWN") {
+inline std::string BufferName(OperandType buffer, const std::string& defaultValue = "UNKNOWN")
+{
     return GetBufferNameDict().Find(buffer, defaultValue);
 }
 
-inline OperandType BufferGetType(const std::string &name, OperandType defaultValue = BUF_UNKNOWN) {
+inline OperandType BufferGetType(const std::string& name, OperandType defaultValue = BUF_UNKNOWN)
+{
     return GetBufferNameDict().Find(name, defaultValue);
 }
 constexpr const int SHAPE_DIM_NUM_2 = 2;
 constexpr const int SHAPE_DIM_NUM_3 = 3;
 constexpr const int SHAPE_DIM_NUM_4 = 4;
-inline std::string ShapeStrCompact(const std::vector<int> &shape) {
+inline std::string ShapeStrCompact(const std::vector<int>& shape)
+{
     char shapeBuffer[SHAPE_BUFFER_MAX_SIZE];
     if (shape.size() == 0) {
         shapeBuffer[0] = '\0';
@@ -499,10 +524,12 @@ inline std::string ShapeStrCompact(const std::vector<int> &shape) {
     } else if (shape.size() == SHAPE_DIM3) {
         sprintf_s(shapeBuffer, SHAPE_BUFFER_MAX_SIZE, "[%d,%d,%d]", shape[0], shape[1], shape[SHAPE_DIM_NUM_2]);
     } else if (shape.size() == SHAPE_DIM4) {
-        sprintf_s(shapeBuffer, SHAPE_BUFFER_MAX_SIZE, "[%d,%d,%d,%d]", shape[0], shape[1], shape[SHAPE_DIM_NUM_2],
+        sprintf_s(
+            shapeBuffer, SHAPE_BUFFER_MAX_SIZE, "[%d,%d,%d,%d]", shape[0], shape[1], shape[SHAPE_DIM_NUM_2],
             shape[SHAPE_DIM_NUM_3]);
     } else if (shape.size() == SHAPE_DIM5) {
-        sprintf_s(shapeBuffer, SHAPE_BUFFER_MAX_SIZE, "[%d,%d,%d,%d,%d]", shape[0], shape[1], shape[SHAPE_DIM_NUM_2],
+        sprintf_s(
+            shapeBuffer, SHAPE_BUFFER_MAX_SIZE, "[%d,%d,%d,%d,%d]", shape[0], shape[1], shape[SHAPE_DIM_NUM_2],
             shape[SHAPE_DIM_NUM_3], shape[SHAPE_DIM_NUM_4]);
     } else {
         ASSERT(0) << "cannot support tensor shape of more than 4 dims";
@@ -512,15 +539,17 @@ inline std::string ShapeStrCompact(const std::vector<int> &shape) {
 }
 
 // 辅助函数：去除字符串两端空格
-inline std::string Trim(const std::string &str) {
+inline std::string Trim(const std::string& str)
+{
     size_t start = str.find_first_not_of(" \t\n\r");
     size_t end = str.find_last_not_of(" \t\n\r");
     return (start == std::string::npos) ? "" : str.substr(start, end - start + 1);
 }
 
 // 通用环境变量获取函数
-inline std::string GetEnvVar(const std::string &varName, bool trim = true, bool toLower = false) {
-    const char *rawValue = std::getenv(varName.c_str());
+inline std::string GetEnvVar(const std::string& varName, bool trim = true, bool toLower = false)
+{
+    const char* rawValue = std::getenv(varName.c_str());
     const size_t envVarMaxSize = 1024UL * 1024UL;
     if (rawValue == nullptr || (strnlen(rawValue, envVarMaxSize) >= envVarMaxSize)) {
         return "";
@@ -536,7 +565,8 @@ inline std::string GetEnvVar(const std::string &varName, bool trim = true, bool 
 }
 
 // 判断环境变量 PTO_DATADUMP_ENABLE 是否为 true
-inline bool IsPtoDataDumpEnabled() {
+inline bool IsPtoDataDumpEnabled()
+{
     static const bool result = []() {
         std::string value = GetEnvVar("PTO_DATADUMP_ENABLE", true, true);
         return (value == "true");
@@ -546,26 +576,19 @@ inline bool IsPtoDataDumpEnabled() {
 }
 
 // 向上取整除法
-inline int CeilDiv(int a, int b) {
-    return (a + (b - 1)) / b;
-}
+inline int CeilDiv(int a, int b) { return (a + (b - 1)) / b; }
 
 // 向下取整除法
-inline int FloorDiv(int a, int b) {
-    return a / b;
-}
+inline int FloorDiv(int a, int b) { return a / b; }
 
 // 求最小值
-inline int Min(int a, int b) {
-    return (a < b) ? a : b;
-}
+inline int Min(int a, int b) { return (a < b) ? a : b; }
 
 // 求最大值
-inline int Max(int a, int b) {
-    return (a > b) ? a : b;
-}
+inline int Max(int a, int b) { return (a > b) ? a : b; }
 
-inline std::set<int> PowersOf2(int n) {
+inline std::set<int> PowersOf2(int n)
+{
     std::set<int> result;
     ASSERT(n > 0) << "n: " << n;
     int power = 0;
@@ -594,7 +617,8 @@ struct TimeStamp {
     uint64_t Duration() { return CurrentTime() - startTime; }
     void Reset() { startTime = CurrentTime(); }
 
-    static uint64_t CurrentTime() {
+    static uint64_t CurrentTime()
+    {
         struct timeval tv;
         gettimeofday(&tv, nullptr);
         return tv.tv_sec * 1000000 + tv.tv_usec; // 1000000 is us per sec
@@ -605,7 +629,8 @@ private:
 };
 
 template <typename T>
-inline bool HasNegativeNum(const std::vector<T> &vec) {
+inline bool HasNegativeNum(const std::vector<T>& vec)
+{
     return std::any_of(vec.begin(), vec.end(), [](T num) { return num < 0; });
 }
 
@@ -617,17 +642,8 @@ const std::string A_MUL_B_COPY_IN_MODE = OP_ATTR_PREFIX + "copy_in_mode";
 
 enum class CopyInMode : int64_t { ND2ND = 0, ND2NZ = 1, NZ2NZ = 2, DN2NZ = 3 };
 
-enum class CopyOutMode : int64_t {
-    NZ2ND = 0,
-    NZ2NZ = 1,
-    ND2ND = 2,
-    NZ2DN = 3
-};
+enum class CopyOutMode : int64_t { NZ2ND = 0, NZ2NZ = 1, ND2ND = 2, NZ2DN = 3 };
 
-enum class PaddingMode : int64_t {
-    NO_PADDING = 0,
-    PADDING_OUTER = 1,
-    PADDING_INNER = 2
-};
+enum class PaddingMode : int64_t { NO_PADDING = 0, PADDING_OUTER = 1, PADDING_INNER = 2 };
 } // namespace Matrix
 } // namespace npu::tile_fwk

@@ -31,15 +31,16 @@
 #include "test_dev_func_runner.h"
 namespace {
 int capacity;
-PyObject *pFunc;
-PyObject *pModule;
-}
+PyObject* pFunc;
+PyObject* pModule;
+} // namespace
 
 using namespace npu::tile_fwk;
 
 class TransposeDebugTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-int python(std::string goldenPath, std::string goldenName, std::string caseName) {
+int python(std::string goldenPath, std::string goldenName, std::string caseName)
+{
     // 1️⃣ 初始化 Python 解释器
     Py_Initialize();
 
@@ -49,7 +50,7 @@ int python(std::string goldenPath, std::string goldenName, std::string caseName)
     // 3️⃣ 导入 Python 脚本
     PyObject* sysPath = PySys_GetObject("path");
     PyList_Append(sysPath, PyUnicode_FromString(goldenPath.c_str()));
-    pModule = PyImport_ImportModule(goldenName.c_str());  // 加载 script.py
+    pModule = PyImport_ImportModule(goldenName.c_str()); // 加载 script.py
     if (!pModule) {
         std::cerr << "Failed to load script.py\n";
         Py_Finalize();
@@ -69,13 +70,13 @@ int python(std::string goldenPath, std::string goldenName, std::string caseName)
     return 0;
 }
 
-int finishPython(PyObject* args){
-
-    PyObject* pValue = PyObject_CallObject(pFunc, args);  // 执行 add(10, 20)
+int finishPython(PyObject* args)
+{
+    PyObject* pValue = PyObject_CallObject(pFunc, args); // 执行 add(10, 20)
 
     if (pValue) {
         long result = PyLong_AsLong(pValue);
-        std::cout << "Result from Python: " << result << std::endl;  // 输出 30
+        std::cout << "Result from Python: " << result << std::endl; // 输出 30
         Py_DECREF(pValue);
     } else {
         std::cerr << "Function call failed!\n";
@@ -92,26 +93,28 @@ int finishPython(PyObject* args){
     return 0;
 }
 
-void TransposePre(uint8_t** out_ptr, uint64_t* outsize) {
+void TransposePre(uint8_t** out_ptr, uint64_t* outsize)
+{
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     *outsize = capacity * sizeof(float);
     *out_ptr = allocDevAddr(*outsize);
 }
 
-void TransposePost(uint8_t* outputGmAddr, uint64_t outputSize) {
+void TransposePost(uint8_t* outputGmAddr, uint64_t outputSize)
+{
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
     std::vector<float> input(capacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outputGmAddr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)outputGmAddr, outputSize);
     readInput("res.bin", golden);
     readInput("input.bin", input);
     int ret = resultCmp(golden, res, 0.001f, 64);
     EXPECT_EQ(ret, true);
 }
 
-
-TEST_F(TransposeDebugTest, TestTranspose_BNSD_BSND) {
+TEST_F(TransposeDebugTest, TestTranspose_BNSD_BSND)
+{
     int b = 2;
     int n = 32;
     int s = 16;
@@ -120,26 +123,26 @@ TEST_F(TransposeDebugTest, TestTranspose_BNSD_BSND) {
     std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNSD_BSND");
-    PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(1, 16, 16, 16);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("BNSD_BSND", {input, output}) {
-            output = Transpose(input, {1, 2});
-        }
+        FUNCTION("BNSD_BSND", {input, output}) { output = Transpose(input, {1, 2}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
-TEST_F(TransposeDebugTest, TestTranspose_ABC_BAC) {
+TEST_F(TransposeDebugTest, TestTranspose_ABC_BAC)
+{
     int bs = 128;
     int n = 2;
     int d = 128;
@@ -147,83 +150,83 @@ TEST_F(TransposeDebugTest, TestTranspose_ABC_BAC) {
     std::vector<int64_t> resShape{bs, n, d};
     capacity = bs * n * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_ABC_BAC");
-    PyObject *args = PyTuple_Pack(3, PyLong_FromLong(bs), PyLong_FromLong(n), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(3, PyLong_FromLong(bs), PyLong_FromLong(n), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(32, 1, 128);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("ABC_BAC", {input, output}) {
-            output = Transpose(input, {0, 1});
-        }
+        FUNCTION("ABC_BAC", {input, output}) { output = Transpose(input, {0, 1}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
-TEST_F(TransposeDebugTest, TestTranspose_BNSD2_BNS2D_small) {
+TEST_F(TransposeDebugTest, TestTranspose_BNSD2_BNS2D_small)
+{
     int b = 2;
     int n = 4;
     int s = 32;
     int d = 64;
-    std::vector<int64_t> shape{b, n, s, d/2, 2};
-    std::vector<int64_t> resShape{b, n, s, 2, d/2};
+    std::vector<int64_t> shape{b, n, s, d / 2, 2};
+    std::vector<int64_t> resShape{b, n, s, 2, d / 2};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNSD2_BNS2D_small");
-    PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(1, 2, 32, 32, 2);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("BNSD2_BNS2D_small", {input, output}) {
-            output = Transpose(input, {3, 4});
-        }
+        FUNCTION("BNSD2_BNS2D_small", {input, output}) { output = Transpose(input, {3, 4}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
-TEST_F(TransposeDebugTest, TestTranspose_ROPE_5D) {
+TEST_F(TransposeDebugTest, TestTranspose_ROPE_5D)
+{
     int b = 4;
     int n = 64;
     int s = 1;
     int d = 64;
-    std::vector<int64_t> shape{b, n, s, d/2, 2};
-    std::vector<int64_t> resShape{b, n, s, 2, d/2};
+    std::vector<int64_t> shape{b, n, s, d / 2, 2};
+    std::vector<int64_t> resShape{b, n, s, 2, d / 2};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNSD2_BNS2D_small");
-    PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(1, 2, 1, 32, 2);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("ROPE_5D", {input, output}) {
-            output = Transpose(input, {3, 4});
-        }
+        FUNCTION("ROPE_5D", {input, output}) { output = Transpose(input, {3, 4}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
 // ok
-TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_0) {
+TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_0)
+{
     int bs = 32;
     int n = 32;
     int d = 64;
@@ -231,26 +234,26 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_0) {
     std::vector<int64_t> resShape{bs, n, d};
     capacity = bs * n * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_ABC_BAC");
-    PyObject *args = PyTuple_Pack(3, PyLong_FromLong(bs), PyLong_FromLong(n), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(3, PyLong_FromLong(bs), PyLong_FromLong(n), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(4, 4, 64);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("MLA_3D_0", {input, output}) {
-            output = Transpose(input, {0, 1});
-        }
+        FUNCTION("MLA_3D_0", {input, output}) { output = Transpose(input, {0, 1}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
-TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_1) {
+TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_1)
+{
     int bs = 32;
     int n = 32;
     int d = 512;
@@ -258,26 +261,26 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_1) {
     std::vector<int64_t> resShape{bs, n, d};
     capacity = bs * n * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_ABC_BAC");
-    PyObject *args = PyTuple_Pack(3, PyLong_FromLong(bs), PyLong_FromLong(n), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(3, PyLong_FromLong(bs), PyLong_FromLong(n), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(2, 2, 512);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("MLA_3D_1", {input, output}) {
-            output = Transpose(input, {0, 1});
-        }
+        FUNCTION("MLA_3D_1", {input, output}) { output = Transpose(input, {0, 1}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
-TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_0) {
+TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_0)
+{
     int b = 32;
     int n = 1;
     int s = 32;
@@ -286,26 +289,26 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_0) {
     std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNSD_BSND");
-    PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(1, 1, 32, 512);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("MLA_4D_0", {input, output}) {
-            output = Transpose(input, {1, 2});
-        }
+        FUNCTION("MLA_4D_0", {input, output}) { output = Transpose(input, {1, 2}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
-TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_1) {
+TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_1)
+{
     int b = 32;
     int n = 1;
     int s = 32;
@@ -314,26 +317,26 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_1) {
     std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNSD_BSND");
-    PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(1, 1, 32, 64);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("MLA_4D_1", {input, output}) {
-            output = Transpose(input, {1, 2});
-        }
+        FUNCTION("MLA_4D_1", {input, output}) { output = Transpose(input, {1, 2}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
-TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_2) {
+TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_2)
+{
     int b = 32;
     int n = 1;
     int s = 32;
@@ -342,26 +345,26 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_2) {
     std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNSD_BSND");
-    PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(1, 1, 32, 64);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("MLA_4D_2", {input, output}) {
-            output = Transpose(input, {1, 2});
-        }
+        FUNCTION("MLA_4D_2", {input, output}) { output = Transpose(input, {1, 2}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
-TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_3) {
+TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_3)
+{
     int b = 32;
     int n = 1;
     int s = 1;
@@ -370,18 +373,20 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_3) {
     std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_ADD_DEBUG_BNSD_BSND");
-    PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         // TileShape::Current().SetVecTile(1, 1, 32, 64);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("MLA_4D_3", {input, output}) {
+        FUNCTION("MLA_4D_3", {input, output})
+        {
             TileShape::Current().SetVecTile(8, 1, 1, 8);
             output = Add(input, input);
             output = Transpose(output, {1, 2});
@@ -391,7 +396,8 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_3) {
     TransposePost(out_ptr, outSize);
 }
 
-TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_4) {
+TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_4)
+{
     int b = 32;
     int n = 1;
     int s = 1;
@@ -400,18 +406,20 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_4) {
     std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_ADD_DEBUG_BNSD_BSND");
-    PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(1, 1, 32, 512);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("MLA_4D_4", {input, output}) {
+        FUNCTION("MLA_4D_4", {input, output})
+        {
             TileShape::Current().SetVecTile(8, 1, 1, 128);
             output = Add(input, input);
             output = Transpose(output, {1, 2});
@@ -422,7 +430,8 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_4) {
 }
 
 // error
-TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_5) {
+TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_5)
+{
     int b = 32;
     int n = 1;
     int s = 256;
@@ -431,26 +440,26 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_5) {
     std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNDS_BNSD");
-    PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(1, 1, 16, d);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("MLA_4D_5", {input, output}) {
-            output = Transpose(input, {2, 3});
-        }
+        FUNCTION("MLA_4D_5", {input, output}) { output = Transpose(input, {2, 3}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
-TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_50) {
+TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_50)
+{
     int b = 1;
     int n = 1;
     int s = 128;
@@ -459,26 +468,26 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_50) {
     std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNDS_BNSD");
-    PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(1, 1, s, d);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("MLA_4D_50", {input, output}) {
-            output = Transpose(input, {2, 3});
-        }
+        FUNCTION("MLA_4D_50", {input, output}) { output = Transpose(input, {2, 3}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
-TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_51) {
+TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_51)
+{
     int b = 1;
     int n = 1;
     int s = 256;
@@ -487,27 +496,27 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_51) {
     std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNDS_BNSD");
-    PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(1, 1, 16, d);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, "res");
         config::SetBuildStatic(true);
-        FUNCTION("MLA_4D_51", {input, output}) {
-            output = Transpose(input, {2, 3});
-        }
+        FUNCTION("MLA_4D_51", {input, output}) { output = Transpose(input, {2, 3}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
 // ok
-TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_6) {
+TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_6)
+{
     int b = 32;
     int n = 32;
     int s = 1;
@@ -516,28 +525,28 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_6) {
     std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNSD_BSND");
-    PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         //  1,1,1,512 ok
         TileShape::Current().SetVecTile(4, 4, 1, 512);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("MLA_4D_6", {input, output}) {
-            output = Transpose(input, {1, 2});
-        }
+        FUNCTION("MLA_4D_6", {input, output}) { output = Transpose(input, {1, 2}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
-//ok
-TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_2) {
+// ok
+TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_2)
+{
     int bs = 32;
     int n = 32;
     int d = 128;
@@ -545,26 +554,26 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_2) {
     std::vector<int64_t> resShape{bs, n, d};
     capacity = bs * n * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_ABC_BAC");
-    PyObject *args = PyTuple_Pack(3, PyLong_FromLong(bs), PyLong_FromLong(n), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(3, PyLong_FromLong(bs), PyLong_FromLong(n), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(2, 2, 128);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("MLA_3D_2", {input, output}) {
-            output = Transpose(input, {0, 1});
-        }
+        FUNCTION("MLA_3D_2", {input, output}) { output = Transpose(input, {0, 1}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
-TEST_F(TransposeDebugTest, TestTranspose_BNDS_BNSD) {
+TEST_F(TransposeDebugTest, TestTranspose_BNDS_BNSD)
+{
     int b = 2;
     int n = 32;
     int s = 32;
@@ -573,20 +582,19 @@ TEST_F(TransposeDebugTest, TestTranspose_BNDS_BNSD) {
     std::vector<int64_t> resShape{b, n, d, s};
     capacity = b * n * s * d;
     python("../tests/script/golden/op", "transpose_operator", "TestTranspose_DEBUG_BNDS_BNSD");
-    PyObject *args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
+    PyObject* args = PyTuple_Pack(4, PyLong_FromLong(b), PyLong_FromLong(n), PyLong_FromLong(s), PyLong_FromLong(d));
     finishPython(args);
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         TileShape::Current().SetVecTile(1, 16, 16, 16);
-        void *input_ptr = readToDev("input.bin", capacity);
-        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        void* input_ptr = readToDev("input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t*)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         config::SetBuildStatic(true);
-        FUNCTION("BNDS_BNSD", {input, output}) {
-            output = Transpose(input, {2, 3});
-        }
+        FUNCTION("BNDS_BNSD", {input, output}) { output = Transpose(input, {2, 3}); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
