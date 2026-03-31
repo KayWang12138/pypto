@@ -208,54 +208,6 @@ template void TestAllReduce_v9<float16>(OpTestParam &testParam, std::string& gol
 template void TestAllReduce_v9<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
 template<typename T>
-void TestAllReduce_v3(OpTestParam &testParam, std::string &goldenDir)
-{
-    constexpr size_t paramsSize = 6;
-    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(goldenDir + "/params.bin");
-    (void)useTwoShot; // v3 is always one-shot
-    DataType dType = GetDataTypeNum(typeNum);
-
-    int32_t outSize = row * col;
-
-    Shape shape{row, col};
-    Tensor in(dType, shape, "in");
-    Tensor out(dType, shape, "out");
-
-    std::vector<T> inPtr = ReadToVector<T>(
-        goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
-
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<T>(in, inPtr),
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateTensorZero(out),
-    });
-    Shape shmemDataShape{1, row, col};
-    FUNCTION("ALLREDUCE_V3", {in}, {out}) {
-        TileShape::Current().SetVecTile({tileRow, tileCol});
-        DataType shmemDataType = in.GetDataType();
-        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
-            shmemDataType = DT_FP32;
-        }
-        ShmemTensor shmemTensor;
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void)index;
-            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
-        }
-        OneShotAllReduce_v3(in, in, shmemTensor, out);
-    }
-    VerifyOneShotAllReduceIR("ALLREDUCE_V3", testParam.rankSize);
-    RunTest();
-    auto output = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
-}
-
-template void TestAllReduce_v3<int32_t>(OpTestParam &testParam, std::string &goldenDir);
-template void TestAllReduce_v3<float>(OpTestParam &testParam, std::string &goldenDir);
-template void TestAllReduce_v3<float16>(OpTestParam &testParam, std::string& goldenDir);
-template void TestAllReduce_v3<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
-
-template<typename T>
 void TestAllReduce_v4(OpTestParam &testParam, std::string &goldenDir)
 {
     constexpr size_t paramsSize = 6;
@@ -412,60 +364,6 @@ template void TestAllReduce_v6<int32_t>(OpTestParam &testParam, std::string &gol
 template void TestAllReduce_v6<float>(OpTestParam &testParam, std::string &goldenDir);
 template void TestAllReduce_v6<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce_v6<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
-
-// v6_light: same v6 coarse signaling cadence with compact signal domain shape.
-template<typename T>
-void TestAllReduce_v6_light(OpTestParam &testParam, std::string &goldenDir)
-{
-    constexpr size_t paramsSize = 6;
-    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(goldenDir + "/params.bin");
-    (void)useTwoShot; // v6_light is always one-shot
-    DataType dType = GetDataTypeNum(typeNum);
-
-    int32_t outSize = row * col;
-
-    Shape shape{row, col};
-    Tensor in(dType, shape, "in");
-    Tensor out(dType, shape, "out");
-
-    std::vector<T> inPtr = ReadToVector<T>(
-        goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
-
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<T>(in, inPtr),
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateTensorZero(out),
-    });
-    Shape shmemDataShape{1, row, col};
-    FUNCTION("ALLREDUCE_V6_LIGHT", {in}, {out}) {
-        TileShape::Current().SetVecTile({tileRow, tileCol});
-        DataType shmemDataType = in.GetDataType();
-        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
-            shmemDataType = DT_FP32;
-        }
-        ShmemTensor shmemTensor;
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void)index;
-            CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
-        }
-        OneShotAllReduce_v6_light(in, in, shmemTensor);
-        SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
-        auto shmemDataLocal = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
-        auto waitToken = ShmemWaitUntil(shmemDataLocal, thisRank, OpType::EQ,
-            static_cast<int32_t>(shmemTensor.worldSize), true, in);
-        out = ShmemGet(shmemDataLocal, thisRank, waitToken, in.GetDataType());
-    }
-    VerifyOneShotAllReduceIR("ALLREDUCE_V6_LIGHT", testParam.rankSize);
-    RunTest();
-    auto output = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
-}
-
-template void TestAllReduce_v6_light<int32_t>(OpTestParam &testParam, std::string &goldenDir);
-template void TestAllReduce_v6_light<float>(OpTestParam &testParam, std::string &goldenDir);
-template void TestAllReduce_v6_light<float16>(OpTestParam &testParam, std::string& goldenDir);
-template void TestAllReduce_v6_light<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
 // v7: chunked scatter with coarse per-rank signaling (tunable payloadChunkCount).
 // Data movement is chunked; signaling uses one coarse signal per target rank and
@@ -825,21 +723,6 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
         VerifyOneShotAllReduceIR("IR_CHECK_V2", testParam.rankSize);
     }
 
-    // ── v3 ──
-    std::vector<Opcode> irV3;
-    {
-        Program::GetInstance().Reset();
-        Tensor in(dType, shape, "in_v3");
-        Tensor out(dType, shape, "out_v3");
-        FUNCTION("IR_CHECK_V3", {in}, {out}) {
-            ShmemTensor shmemTensor;
-            buildShmemTensorSetup(in, shmemTensor);
-            OneShotAllReduce_v3(in, in, shmemTensor, out);
-        }
-        irV3 = ExtractShmemOpcodes("IR_CHECK_V3");
-        VerifyOneShotAllReduceIR("IR_CHECK_V3", testParam.rankSize);
-    }
-
     // ── v4 ──
     std::vector<Opcode> irV4;
     {
@@ -895,31 +778,9 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
 
     // ── Cross-variant equivalence: all must match the base (golden) ──
     EXPECT_EQ(irBase, irV2) << "OneShot base and v2 SHMEM opcode sequences differ";
-    EXPECT_EQ(irBase, irV3) << "OneShot base and v3 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV4) << "OneShot base and v4 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV5) << "OneShot base and v5+Pull SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV6) << "OneShot base and v6+Pull SHMEM opcode sequences differ";
-
-    // ── v6_light: same coarse cadence with compact signal shape ──
-    std::vector<Opcode> irV6Light;
-    {
-        Program::GetInstance().Reset();
-        Tensor in(dType, shape, "in_v6_light");
-        Tensor out(dType, shape, "out_v6_light");
-        FUNCTION("IR_CHECK_V6_LIGHT", {in}, {out}) {
-            ShmemTensor shmemTensor;
-            buildShmemTensorSetup(in, shmemTensor);
-            OneShotAllReduce_v6_light(in, in, shmemTensor);
-            SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
-            auto shmemDataLocal = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
-            auto waitToken = ShmemWaitUntil(shmemDataLocal, thisRank, OpType::EQ,
-                static_cast<int32_t>(shmemTensor.worldSize), true, in);
-            out = ShmemGet(shmemDataLocal, thisRank, waitToken, in.GetDataType());
-        }
-        irV6Light = ExtractShmemOpcodes("IR_CHECK_V6_LIGHT");
-        VerifyOneShotAllReduceIR("IR_CHECK_V6_LIGHT", testParam.rankSize);
-    }
-    EXPECT_EQ(irBase, irV6Light) << "OneShot base and v6_light+Pull SHMEM opcode sequences differ";
 }
 
 template void TestAllReduceIREquivalence<int32_t>(OpTestParam &testParam, std::string &goldenDir);

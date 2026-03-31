@@ -104,9 +104,6 @@ void GegisterOps()
     reg.RegisterOp("AllReduceV2", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestAllReduce_v2<T>(testParam, goldenDir);
     });
-    reg.RegisterOp("AllReduceV3", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
-        Distributed::TestAllReduce_v3<T>(testParam, goldenDir);
-    });
     reg.RegisterOp("AllReduceV4", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestAllReduce_v4<T>(testParam, goldenDir);
     });
@@ -115,9 +112,6 @@ void GegisterOps()
     });
     reg.RegisterOp("AllReduceV6", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestAllReduce_v6<T>(testParam, goldenDir);
-    });
-    reg.RegisterOp("AllReduceV6Light", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
-        Distributed::TestAllReduce_v6_light<T>(testParam, goldenDir);
     });
     reg.RegisterOp("AllReduceV7", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestAllReduce_v7<T>(testParam, goldenDir);

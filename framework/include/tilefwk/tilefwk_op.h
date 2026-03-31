@@ -564,11 +564,9 @@ void ReduceScatter(const Tensor& predToken, const Tensor& in, ShmemTensor& shmem
     DistReduceType reduceType, Tensor& out);
 void OneShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out);
 void OneShotAllReduce_v2(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
-void OneShotAllReduce_v3(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
 void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
 Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor);
 void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor);
-void OneShotAllReduce_v6_light(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out);
 void TwoShotAllReduce_v2(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
 void TwoShotAllReduce_v3(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);

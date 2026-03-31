@@ -584,29 +584,7 @@ void OneShotAllReduce_v2(const Tensor& predToken, const Tensor& in, ShmemTensor&
     out = ShmemGet(shmemDataTile, thisRank, waitUntilOut, in.GetDataType());
 }
 
-// OneShotAllReduce_v3: Uses an OneShotCommunicator to hide shmem layout details.
-//
-// Works with rank IDs instead of raw ShmemView() calls.
-// Emitted IR is identical to OneShotAllReduce / OneShotAllReduce_v2.
-void OneShotAllReduce_v3(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out)
-{
-    ValidateShmemTensor(shmemTensor, true, true);
-    ValidateTensor(predToken, "predToken", {2});
-    ValidateTensor(in, "in", {predToken.Dim()});
-    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, in.GetShape(0), in.GetShape(1)});
-    ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
-    OneShotCommunicator comm(shmemTensor);
-
-    // Phase 1: Scatter to all ranks with atomic ADD
-    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
-        comm.Put(predToken, in, dynRankId, AtomicType::ADD);
-    }
-
-    // Phase 2: Gather — wait for all contributions, read reduced result
-    out = comm.WaitAndGet(in);
-}
-
-// OneShotAllReduce_v4: like v3 but with OneShotCommunicatorV2 (three-phase API).
+// OneShotAllReduce_v4: OneShotCommunicatorV2 with three-phase API (Put + Wait + Pull).
 // Same IR as v2/v3.
 void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out)
 {
@@ -764,25 +742,6 @@ void TwoShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
 // Wait and Pull are the caller's responsibility, enabling overlap
 // between scatter and local compute.
 void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor)
-{
-    ValidateShmemTensor(shmemTensor, true, true);
-    ValidateTensor(predToken, "predToken", {2});
-    ValidateTensor(in, "in", {predToken.Dim()});
-    uint32_t worldSize = shmemTensor.worldSize;
-    int32_t row = in.GetShape(0);
-    int32_t col = in.GetShape(1);
-    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, row, col});
-    auto shmemDataTile = ShmemView(shmemTensor, {1, row, col}, std::vector<SymbolicScalar>{0, 0, 0});
-
-    for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
-        auto putOut = ShmemPut(in, shmemDataTile, dynRankId, AtomicType::ADD, predToken);
-        ShmemSignal(shmemDataTile, dynRankId, dynRankId, 1, AtomicType::ADD, putOut);
-    }
-}
-
-// OneShotAllReduce_v6_light: same coarse scatter cadence as v6.
-// Signal compactness is controlled at ShmemTensor construction time.
-void OneShotAllReduce_v6_light(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor)
 {
     ValidateShmemTensor(shmemTensor, true, true);
     ValidateTensor(predToken, "predToken", {2});
