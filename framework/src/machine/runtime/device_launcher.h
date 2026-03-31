@@ -194,13 +194,13 @@ public:
         int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum());
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
         devProg->devArgs.maxAicpuNum = aiCpuNum;
-        config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
         if (devProg->devArgs.archInfo == ArchInfo::DAV_3510) {
-            devProg->devArgs.nrAicpu =
+            config.aicpuNum =
                 GetAiCpuNumForDav3510(static_cast<uint32_t>(aiCpuNum), devProg->devArgs.scheCpuNum, config);
         } else {
-            devProg->devArgs.nrAicpu = config.aicpuNum;
+            config.aicpuNum = devProg->devArgs.scheCpuNum + 2;  // 2 : ensure cluster success
         }
+        devProg->devArgs.nrAicpu = config.aicpuNum;
 
 #ifdef BUILD_WITH_CANN
         if (IsPtoDataDumpEnabled()) { // dump tensor
