@@ -357,7 +357,7 @@ Json Operation::DumpJson(bool dumpTensor) const
     }
     opDump["ioperands"] = ioperandsDump;
     opDump["ooperands"] = ooperandsDump;
-    opDump["opcode"] = GetOpcodeStr();
+    opDump["opcode"] = "[" + std::to_string(GetScopeId()) + "]" + GetOpcodeStr();
     opDump["latency"] = GetLatency();
 
     if (IsCall()) {
