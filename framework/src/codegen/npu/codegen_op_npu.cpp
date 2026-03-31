@@ -441,13 +441,15 @@ SymbolicScalar CodeGenOpNPU::GetOperandStartOffset(int operandIdx) const
 std::string CodeGenOpNPU::GenGmParamVar(unsigned gmParamIdx) const
 {
     if (isUnderDynamicFunction) {
-        std::ostringstream os;
-        os << "GET_PARAM_ADDR(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
-           << paramLocation[gmParamIdx] << ")";
-        SymbolicScalar addr;
-        bool ret = GetTensorAttr(gmParamIdx, "paramAddr", addr);
-        ASSERT(OperErr::ATTRIBUTE_INVALID, ret)
-            << "paramAddr is not found!! gmParamIdx: " << gmParamIdx << ", op: " << originalOp.Dump();
+        std::map<int, SymbolicScalar> addrs;
+ 	    bool ret = GetTensorAttr(gmParamIdx, "paramAddr", addrs);
+ 	    ASSERT(OperErr::ATTRIBUTE_INVALID, ret)
+ 	        << "paramAddr is not found!! gmParamIdx: " << gmParamIdx << ", op: " << originalOp.Dump();
+ 	    auto iter = addrs.find(originalOp.GetOpMagic());
+ 	    ASSERT(OperErr::ATTRIBUTE_INVALID, iter != addrs.end())
+ 	        << "add is not found by opMagic: " << originalOp.GetOpMagic() << ", gmParamIdx: " << gmParamIdx
+ 	        << ", op: " << originalOp.Dump();
+ 	    auto addr = iter->second;
         std::string gmParamVar = SymbolicExpressionTable::BuildExpression(addr);
         return gmParamVar;
     }
