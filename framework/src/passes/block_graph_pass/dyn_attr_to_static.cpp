@@ -131,21 +131,20 @@ struct CoaInfo {
 };
 
 struct IsConstMetric {
-    int isConst = 1;
+    int isConst = 3;
     int attrValue = -1;
 
-    void MarkNotConst() { isConst = 0; }
-    int GetIsConst() { return isConst; }
-    int GetAttrValue() { return attrValue; }
-    bool TryInitAndCheckEqual(int newValue)
-    {
+    void MarkNotConst() {isConst = 2;}
+    int GetIsConst() {return isConst;}
+    int GetAttrValue() {return attrValue;}
+    bool TryInitAndCheckEqual(int newValue) {
         if (attrValue == -1) {
             attrValue = newValue;
             return true;
         }
 
         if (newValue < 0 || newValue != attrValue) {
-            isConst = 0;
+            isConst = 2;
             return false;
         }
         return true;
@@ -450,6 +449,8 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
                 return FAILED;
             }
         }
+        // Set paramAddr attribute for DDR tensors
+        BuildParamAddr(op);
     }
 
     // 3. 为dynParam的赋值刷新coa宏
@@ -458,7 +459,91 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
     return SUCCESS;
 }
 
-Status DynAttrToStatic::RunOnFunction(Function& function)
+// Helper function to set paramAddr attribute for a tensor
+static void SetTensorParamAddr(Operation &op, std::shared_ptr<LogicalTensor> &tensor,
+    int GmTensorParamIdxInCallFunc, int gmParamIdx)
+{
+    if (gmParamIdx < 0) {
+        return;
+    }
+    int rawMagic = tensor->GetRawMagic();
+    int isConst = (rawMagic == SYMBOL_STACK_BASE) ? 2 : 3;
+    SymbolicScalar paramAddr = GET_PARAM_ADDR_MACRO(
+        SymbolicScalar(static_cast<int64_t>(isConst)),
+        SymbolicScalar(static_cast<int64_t>(0)),
+        SymbolicScalar(static_cast<int64_t>(GmTensorParamIdxInCallFunc)),
+        SymbolicScalar(static_cast<int64_t>(gmParamIdx)));
+    tensor->SetAttr<SymbolicScalar>("paramAddr", paramAddr);
+    APASS_LOG_INFO_F(Elements::Operation, "BuildParamAddr: op [%d][%s], isConst=%d, GmTensorParamIdxInCallFunc=%d, gmParamIdx=%d.",
+        op.GetOpMagic(), op.GetOpcodeStr().c_str(), isConst, GmTensorParamIdxInCallFunc, gmParamIdx);
+}
+
+// Handle GATHER_IN_L1 and GATHER_IN_UB operations
+static void HandleGatherInOp(Operation &op) {
+    int ioAttrOffset = 0;
+    int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
+    for (size_t i = 0; i < op.oOperand.size(); ++i) {
+        auto &tensor = op.oOperand[i];
+        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetIOpAttrOffset(ioAttrOffset++));
+        }
+    }
+    for (size_t i = 0; i < op.iOperand.size(); ++i) {
+        auto &tensor = op.iOperand[i];
+        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetIOpAttrOffset(ioAttrOffset++));
+        }
+    }
+}
+
+// Handle GATHER operation
+static void HandleGatherOp(Operation &op) {
+    int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
+    for (size_t i = 0; i < op.iOperand.size() && i < 2; ++i) {
+        auto &tensor = op.iOperand[i];
+        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetIOpAttrOffset(i));
+        }
+    }
+}
+
+// Handle CopyIn operation
+static void HandleCopyInOp(Operation &op) {
+    if (!op.iOperand.empty()) {
+        int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
+        auto &tensor = op.iOperand[0];
+        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetIOpAttrOffset(0));
+        }
+    }
+}
+
+// Handle CopyOut operation
+static void HandleCopyOutOp(Operation &op) {
+    if (!op.oOperand.empty()) {
+        int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
+        auto &tensor = op.oOperand[0];
+        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0));
+        }
+    }
+}
+
+void DynAttrToStatic::BuildParamAddr(Operation &op) {
+    Opcode opcode = op.GetOpcode();
+    if (opcode == Opcode::OP_GATHER_IN_L1 || opcode == Opcode::OP_GATHER_IN_UB) {
+        HandleGatherInOp(op);
+    } else if (opcode == Opcode::OP_GATHER) {
+        HandleGatherOp(op);
+    } else if (OpcodeManager::Inst().IsCopyIn(opcode)) {
+        HandleCopyInOp(op);
+    } else if (OpcodeManager::Inst().IsCopyOut(opcode)) {
+        HandleCopyOutOp(op);
+    }
+}
+
+
+Status DynAttrToStatic::RunOnFunction(Function &function)
 {
     APASS_LOG_INFO_F(Elements::Operation, "==============> Start DynAttrToStatic.");
     // 1. 遍历所有rootFunc，找到每个leaf的所有caller，生成leaf2Caller map
