@@ -19,7 +19,8 @@
 
 namespace npu::tile_fwk {
 
-static std::string DumpShapeVec(const std::vector<int64_t> &shape) {
+static std::string DumpShapeVec(const std::vector<int64_t>& shape)
+{
     std::stringstream ss;
     ss << "[";
     for (size_t i = 0; i < shape.size(); ++i) {
@@ -32,7 +33,8 @@ static std::string DumpShapeVec(const std::vector<int64_t> &shape) {
     return ss.str();
 }
 
-static std::string DumpSymbolicVec(const std::vector<SymbolicScalar> &symbols) {
+static std::string DumpSymbolicVec(const std::vector<SymbolicScalar>& symbols)
+{
     std::stringstream ss;
     ss << "[";
     for (size_t i = 0; i < symbols.size(); ++i) {
@@ -45,7 +47,8 @@ static std::string DumpSymbolicVec(const std::vector<SymbolicScalar> &symbols) {
     return ss.str();
 }
 
-void LogTensorList(const char *role, Operation *op, const LogicalTensors &tensors) {
+void LogTensorList(const char* role, Operation* op, const LogicalTensors& tensors)
+{
     for (size_t i = 0; i < tensors.size(); ++i) {
         auto tensor = tensors[i];
         if (tensor == nullptr) {
@@ -55,29 +58,24 @@ void LogTensorList(const char *role, Operation *op, const LogicalTensors &tensor
         auto offsetStr = DumpShapeVec(tensor->offset);
         auto dynValidShapeStr = DumpSymbolicVec(tensor->GetDynValidShape());
         auto dynOffsetStr = DumpSymbolicVec(tensor->GetDynOffset());
-        VERIFY_LOGE_FULL_E(ExecuteOperationScene::RUNTIME_EXCEPTION,
+        VERIFY_LOGE_FULL_E(
+            ExecuteOperationScene::RUNTIME_EXCEPTION,
             "ExecuteOperation error: op %s (magic=%d) %s[%zu] tensorMagic=%d, "
             "shape=%s, offset=%s, dynValidShape=%s, dynOffset=%s",
-            op->GetOpcodeStr().c_str(),
-            op->GetOpMagic(),
-            role,
-            i,
-            tensor->magic,
-            shapeStr.c_str(),
-            offsetStr.c_str(),
-            dynValidShapeStr.c_str(),
-            dynOffsetStr.c_str());
+            op->GetOpcodeStr().c_str(), op->GetOpMagic(), role, i, tensor->magic, shapeStr.c_str(), offsetStr.c_str(),
+            dynValidShapeStr.c_str(), dynOffsetStr.c_str());
     }
 }
 
-static int64_t GetAsParameterCoaIndex(const RawSymbolicScalarPtr &value) {
+static int64_t GetAsParameterCoaIndex(const RawSymbolicScalarPtr& value)
+{
     if (value->IsExpressionCall("RUNTIME_COA_GET_PARAM_OFFSET")) {
-        auto &operands = value->GetExpressionOperandList();
+        auto& operands = value->GetExpressionOperandList();
         auto base = operands[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_COA_INDEX]->GetImmediateValue();
         auto dimIdx = operands[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_DIM_INDEX]->GetImmediateValue();
         return base + COA_INDEX_DIM_BASE + dimIdx;
     } else if (value->IsExpressionCall("RUNTIME_COA_GET_PARAM_VALID_SHAPE")) {
-        auto &operands = value->GetExpressionOperandList();
+        auto& operands = value->GetExpressionOperandList();
         auto dim = operands[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_DIM_SIZE_INDEX]->GetImmediateValue();
         auto base = operands[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_COA_INDEX]->GetImmediateValue();
         auto dimIdx = operands[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_DIM_INDEX]->GetImmediateValue();
@@ -87,9 +85,10 @@ static int64_t GetAsParameterCoaIndex(const RawSymbolicScalarPtr &value) {
 }
 
 std::vector<int64_t> OperationInterpreter::EvaluateOpImmediate(
-    FunctionFrame *frame, const std::vector<OpImmediate> &opImmList) {
+    FunctionFrame* frame, const std::vector<OpImmediate>& opImmList)
+{
     std::vector<int64_t> result;
-    for (auto &opImm : opImmList) {
+    for (auto& opImm : opImmList) {
         int64_t res = 0;
         if (opImm.IsSpecified()) {
             auto opImmValue = opImm.GetSpecifiedValue();
@@ -110,7 +109,8 @@ std::vector<int64_t> OperationInterpreter::EvaluateOpImmediate(
     return result;
 }
 
-void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
+void OperationInterpreter::ExecuteOperation(ExecuteOperationContext* ctx)
+{
     auto iOperands = OperationInterpreter::GetValidDataView(*ctx->ioperandDataViewList);
     auto oOperands = OperationInterpreter::GetValidDataView(*ctx->ooperandInplaceDataViewList);
     if (ctx->op->GetOpcode() == Opcode::OP_RESHAPE) {
@@ -120,8 +120,8 @@ void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
     ExecuteOperationContext ctxValid = {ctx->frame, this, ctx->op, &iOperands, {}, &oOperands};
     try {
         OperationInterpreter::CallOperationInterpreterFunc(&ctxValid);
-    } catch (std::exception &e) {
-        auto *op = ctx->op;
+    } catch (std::exception& e) {
+        auto* op = ctx->op;
         if (op != nullptr) {
             // 打印当前 op 输入 / 输出的动态信息，便于排查执行错误
             LogTensorList("input", op, op->GetIOperands());
@@ -134,13 +134,14 @@ void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
         if (pos != std::string::npos) {
             errMsg = errMsg.substr(0, pos);
         }
-        throw std::runtime_error(std::to_string(ctx->frame->rootFuncHash) + ", " + std::to_string(ctx->frame->funcHash)
-                                + ", " + std::to_string(op->GetOpMagic()) + ", " + op->GetOpcodeStr()
-                                + "OpError\n" + ctx->Dump() + errMsg);
+        throw std::runtime_error(
+            std::to_string(ctx->frame->rootFuncHash) + ", " + std::to_string(ctx->frame->funcHash) + ", " +
+            std::to_string(op->GetOpMagic()) + ", " + op->GetOpcodeStr() + "OpError\n" + ctx->Dump() + errMsg);
     }
 }
 
-std::string ExecuteOperationContext::Dump() const {
+std::string ExecuteOperationContext::Dump() const
+{
     std::stringstream ss;
     ss << "func: " << frame->func->GetRawName() << "\n";
 
@@ -149,7 +150,7 @@ std::string ExecuteOperationContext::Dump() const {
         ss << "lineno: " << loc->GetLineno() << "\n";
     }
 
-    auto printType = [&](auto &viewList) {
+    auto printType = [&](auto& viewList) {
         for (size_t i = 0; i < viewList.size(); i++) {
             if (i != 0)
                 ss << ", ";
@@ -164,4 +165,4 @@ std::string ExecuteOperationContext::Dump() const {
     ss << "\n";
     return ss.str();
 }
-}
+} // namespace npu::tile_fwk

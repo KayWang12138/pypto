@@ -36,4 +36,3 @@ as_variable(self) -> None
 s = pypto.SymbolicScalar("x")
 s.as_variable()  # 标记为中间变量
 ```
-

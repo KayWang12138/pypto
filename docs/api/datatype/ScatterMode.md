@@ -19,4 +19,3 @@ class ScatterMode(enum.Enum):
      ADD = ...      # 加法模式
      MULTIPLY = ... # 乘法模式
 ```
-

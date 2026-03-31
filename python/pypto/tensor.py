@@ -53,9 +53,9 @@ class Tensor:
         self.status_dtype = dtype
         ndtype = dtype if dtype is not None else pypto.DT_FP32
         # format显式配置标记
-        self.explict_format = format is not None
+        self.explicit_format = format is not None
         #format没有显式传递用默认值
-        if not self.explict_format:
+        if not self.explicit_format:
             format = TileOpFormat.TILEOP_ND
         if shape is None:
             nshape = []
@@ -800,6 +800,14 @@ class Tensor:
         return pypto.amin(self, dim, keepdim)
 
     @source_location
+    def argmax(self, dim: int, keepdim: bool = False) -> 'Tensor':
+        return pypto.argmax(self, dim, keepdim)
+
+    @source_location
+    def argmin(self, dim: int, keepdim: bool = False) -> 'Tensor':
+        return pypto.argmin(self, dim, keepdim)
+
+    @source_location
     def sum(self, dim: int, keepdim: bool = False) -> 'Tensor':
         return pypto.sum(self, dim, keepdim)
 
@@ -860,6 +868,10 @@ class Tensor:
     @source_location
     def cumsum(self: 'Tensor', dim: int) -> 'Tensor':
         return pypto.cumsum(self, dim)
+
+    @source_location
+    def cumprod(self: 'Tensor', dim: int) -> 'Tensor':
+        return pypto.cumprod(self, dim)
 
     @source_location
     def gcd(self: 'Tensor', other: 'Tensor | int') -> 'Tensor':

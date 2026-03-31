@@ -223,7 +223,7 @@ def scatter_2dim_tensor_proc(scatter_para, is_inplace):
                     pypto.scatter_(view_tensor_self, scatter_para.axis, view_tensor_index, view_tensor_src)
                     tmp_dst_tensor.move(view_tensor_self)
                 else:
-                    tmp_dst_tensor.move(pypto.scatter(view_tensor_self, scatter_para.axis, view_tensor_index, 
+                    tmp_dst_tensor.move(pypto.scatter(view_tensor_self, scatter_para.axis, view_tensor_index,
                         view_tensor_src))
                 pypto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
 
@@ -322,7 +322,7 @@ def test_scatter_tensor_add_onboard():
                         (pypto.symbolic_scalar(self_shape[1]) -
                         s_idx * view_shape[1]).min(pypto.symbolic_scalar(view_shape[1]))])
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                tmp_tensor.move(pypto.scatter(view_tensor_self, axis, view_tensor_index, view_tensor_src, 
+                tmp_tensor.move(pypto.scatter(view_tensor_self, axis, view_tensor_index, view_tensor_src,
                     reduce=reduce))
                 pypto.assemble(tmp_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
 

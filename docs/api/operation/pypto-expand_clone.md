@@ -92,4 +92,3 @@ out2 = pypto.expand_clone(a, [4,8], valid_shape = [pypto.symbolic_scalar(4), pyp
                 [1, 2, 3, 4, 5, 6, 7, 8],
                 [1, 2, 3, 4, 5, 6, 7, 8]]
 ```
-

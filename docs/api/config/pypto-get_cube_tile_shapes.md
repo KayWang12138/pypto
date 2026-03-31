@@ -34,4 +34,3 @@ void
 ```python
 pypto.get_cube_tile_shapes()
 ```
-

@@ -41,7 +41,7 @@ logger.addHandler(handler)
 class AttentionConfig:
     """
     Configuration parameters for attention computation.
-    
+
     Attributes:
         b: Batch size
         s1: Query sequence length
@@ -75,15 +75,15 @@ class AttentionConfig:
 def gen_block_table(atten_cfg: AttentionConfig, device: str):
     """
     Generate a block table for paged KV cache.
-    
+
     The block table maps logical block indices to physical block indices,
     enabling non-contiguous memory access patterns. This is essential for
     efficient memory management in autoregressive generation.
-    
+
     Args:
         atten_cfg: Attention configuration containing sequence lengths and block settings
         device: Device to create tensors on (e.g., 'npu:0', 'cpu')
-    
+
     Returns:
         torch: Block table tensor of shape [batch_size, max_blocks_per_query]
                Contains physical block indices, or -1 for invalid blocks
@@ -112,7 +112,7 @@ def gen_block_table(atten_cfg: AttentionConfig, device: str):
     # Create all block indices and randomly permute them
     # This simulates non-contiguous physical memory allocation
     block_idx_list = torch.arange(0, block_num, dtype=torch.int32)
-    block_idx_list = block_idx_list[torch.randperm(block_idx_list.size(0))] 
+    block_idx_list = block_idx_list[torch.randperm(block_idx_list.size(0))]
 
     # Create block table
     block_table = torch.full(block_table_shape, -1, dtype=torch.int32, device=device)
@@ -129,18 +129,18 @@ def gen_block_table(atten_cfg: AttentionConfig, device: str):
 def kv_cache_concat(k_cache, v_cache, block_table, atten_cfg, device: str):
     """
     Concatenate KV cache blocks into contiguous tensors.
-    
+
     This function reconstructs the full KV tensors from paged blocks
     using the block table. This is primarily used for reference/golden
     computation and verification.
-    
+
     Args:
         k_cache: Key cache tensor of shape [num_blocks, n2, block_size, kv_d]
         v_cache: Value cache tensor of shape [num_blocks, n2, block_size, kv_d]
         block_table: Block table mapping logical to physical indices
         atten_cfg: Attention configuration
         device: Device for output tensors
-    
+
     Returns:
         tuple: (k, v) where:
             - k: Contiguous key tensor of shape [b, n2, kv_max, kv_d]
@@ -159,7 +159,7 @@ def kv_cache_concat(k_cache, v_cache, block_table, atten_cfg, device: str):
         kv_actual_seqs_cpu = kv_actual_seqs.cpu()
     else:
         kv_actual_seqs_cpu = kv_actual_seqs
-    
+
     # Calculate maximum sequence length (padded to block size)
     kv_act_seq_max = torch.max(kv_actual_seqs_cpu).item()
     kv_max = math.ceil(kv_act_seq_max / block_size) * block_size
@@ -167,7 +167,7 @@ def kv_cache_concat(k_cache, v_cache, block_table, atten_cfg, device: str):
     # Initializes output tensors
     k = torch.zeros([b, n2, kv_max, kv_lora_rank], dtype=dtype, device=device)
     v = torch.zeros([b, n2, kv_max, rope_dim], dtype=dtype, device=device)
-    
+
     # Reconstruct tensors by following block table
     for b_idx in range(b):
         block_list = block_table[b_idx]
@@ -219,11 +219,11 @@ def get_env_device_id():
 def get_device(device_id: int = None, run_mode: str = "npu"):
     """
     Get the appropriate device string for computation.
-    
+
     Args:
         device_id: Explicit device ID (optional)
         run_mode: Execution mode - "npu" for hardware, "sim" for simulation
-    
+
     Returns:
         str: Device string (e.g., "npu:0" or "cpu")
     """
@@ -231,7 +231,7 @@ def get_device(device_id: int = None, run_mode: str = "npu"):
         cue_device_id = device_id
     else:
         cue_device_id = get_env_device_id()
-    
+
     device = f"npu:{cue_device_id}" if (run_mode == "npu" and cue_device_id is not None) else "cpu"
     return device
 
@@ -239,17 +239,17 @@ def get_device(device_id: int = None, run_mode: str = "npu"):
 def get_base_params(case_name: str):
     """
     Get base parameters for predefined test cases.
-    
+
     This function maps case names to their corresponding parameter sets.
     Case names follow the pattern: {batch_size}b{sequence_length}k
     For example: "1b16k" means batch_size=1, sequence_length=16*1024
-    
+
     Args:
         case_name: Name of the test case
-    
+
     Returns:
         dict: Dictionary containing parameters (b, s2, s1, d, n1, n2)
-    
+
     Raises:
         Exception: If case_name is not recognized
     """
@@ -282,13 +282,13 @@ def get_base_params(case_name: str):
 def get_ifa_atten_cfg(device: str, case_name: str):
     """
     Get attention configuration for a test case.
-    
+
     This function creates a complete AttentionConfig for a given test case.
-    
+
     Args:
         device: Device to create tensors on
         case_name: Name of the test case
-    
+
     Returns:
         AttentionConfig: Configured attention parameters
     """
@@ -313,10 +313,10 @@ def get_ifa_atten_cfg(device: str, case_name: str):
     kv_actual_seqs = torch.tensor([s2] * b, dtype=torch.int32, device=device)
 
     # Create attention configuration
-    atten_cfg = AttentionConfig(b=b, s1=s1, s2=s2, n1=n1, n2=n2, q_d=d, kv_d=d, 
-                                block_size=block_size, 
-                                max_num_blocks_per_query=max_num_blocks_per_query, 
-                                softmax_scale=softmax_scale, kv_actual_seqs=kv_actual_seqs, 
+    atten_cfg = AttentionConfig(b=b, s1=s1, s2=s2, n1=n1, n2=n2, q_d=d, kv_d=d,
+                                block_size=block_size,
+                                max_num_blocks_per_query=max_num_blocks_per_query,
+                                softmax_scale=softmax_scale, kv_actual_seqs=kv_actual_seqs,
                                 block_table_batch=block_table_batch, kv_num_blocks=kv_num_blocks)
     return atten_cfg
 
@@ -324,11 +324,11 @@ def get_ifa_atten_cfg(device: str, case_name: str):
 def gen_qkv(atten_cfg: AttentionConfig, device: str):
     """
     Generate random query, key, and value tensors.
-    
+
     Args:
         atten_cfg: Attention configuration
         device: Device to create tensors
-    
+
     Returns:
         tuple: (q, k, v) where:
             - q: Query tensor of shape [b*s1, n1, q_d]
@@ -360,13 +360,13 @@ def gen_qkv(atten_cfg: AttentionConfig, device: str):
 def gen_ifa_golden(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, atten_cfg: AttentionConfig):
     """
     Generate golden (reference) output using PyTorch.
-    
+
     Args:
         q: Query tensor of shape [b*s1, n1, d]
         k: Key tensor of shape [kv_num_blocks, n2, block_size, kv_d]
         v: Value tensor of shape [kv_num_blocks, n2, block_size, kv_d]
         atten_cfg: Attention configuration
-    
+
     Returns:
         torch: Attention output tensor of shape [b*s1, n1, d]
     """
@@ -394,7 +394,7 @@ def gen_ifa_golden(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, atten_cfg:
                 q_bs = q[b_idx * s1 + s1_idx]
                 k_bs = k[b_idx, n2_idx:n2_idx + 1, :seq_len].reshape(seq_len, d)
                 v_bs = v[b_idx, n2_idx:n2_idx + 1, :seq_len].reshape(seq_len, d)
-                
+
                 # First matrix multiplication: Q x K^T
                 qk_bmm_res = torch.matmul(q_bs, k_bs.transpose(1, 0))
                 qk_ele_res = qk_bmm_res * softmax_scale
@@ -413,13 +413,13 @@ def gen_ifa_golden(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, atten_cfg:
 def do_test_incre_flash_attention(case_name: str):
     """
     Test the incremental flash attention implementation.
-    
+
     This function runs a complete test for a given case:
     1. Generate test data
     2. Compute golden (reference) output using PyTorch
     3. Compute output using PyPTO IFA
     4. Compare results
-    
+
     Args:
         case_name: Name of the test case (e.g., "1b16k", "8b8k")
     """
@@ -456,14 +456,14 @@ def do_test_incre_flash_attention(case_name: str):
     assert_allclose(np.array(ifa_golden.cpu().flatten().tolist()),
                     np.array(ifa_pypto_out.cpu().flatten().tolist()),
                     rtol=0.0078125, atol=0.0001)
- 
+
 
 def main():
     logger.info("\n")
     logger.info("=" * 60)
     logger.info("PyPTO incre_flash_attention Example")
     logger.info("=" * 60 + "\n")
-    
+
     # test incre_flash_attention kvs 16k
     test_incre_flash_attention_1b16k()
     test_incre_flash_attention_2b16k()

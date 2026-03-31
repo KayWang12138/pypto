@@ -32,34 +32,38 @@ namespace npu::tile_fwk {
 constexpr int COMMENT_PREFIX_LENGTH = 2;
 
 template <typename T>
-inline void FillIntVecWithDummyInHead(std::vector<T> &input, unsigned padNum, T dummy) {
+inline void FillIntVecWithDummyInHead(std::vector<T>& input, unsigned padNum, T dummy)
+{
     for (unsigned i = 0; i < padNum; ++i) {
         input.insert(input.begin(), dummy);
     }
 }
 
 // only recogonize /* as comment prefix
-inline bool StartWithComment(const std::string &str) {
+inline bool StartWithComment(const std::string& str)
+{
     return str.size() >= COMMENT_PREFIX_LENGTH && str[0] == '/' && str[1] == '*';
 }
 template <typename T>
-std::enable_if_t<std::is_arithmetic_v<T>, std::string> ToStringHelper(const T &value) {
+std::enable_if_t<std::is_arithmetic_v<T>, std::string> ToStringHelper(const T& value)
+{
     return std::to_string(value);
 }
-inline std::string ToStringHelper(const std::string &value) {
-    return value;
-}
+inline std::string ToStringHelper(const std::string& value) { return value; }
 template <typename... Ts>
-std::string ToStringHelper(const std::variant<Ts...> &value) {
-    return std::visit([](const auto &arg) { return ToStringHelper(arg); }, value);
+std::string ToStringHelper(const std::variant<Ts...>& value)
+{
+    return std::visit([](const auto& arg) { return ToStringHelper(arg); }, value);
 }
 
-inline std::string ToStringHelper(const SymbolicScalar &value) {
+inline std::string ToStringHelper(const SymbolicScalar& value)
+{
     return SymbolicExpressionTable::BuildExpression(value);
 }
 
 template <typename T = std::string>
-std::string JoinString(const std::vector<T> &params, const std::string &sep) {
+std::string JoinString(const std::vector<T>& params, const std::string& sep)
+{
     std::ostringstream oss;
 
     for (size_t i = 0; i < params.size(); ++i) {
@@ -82,57 +86,64 @@ std::string JoinString(const std::vector<T> &params, const std::string &sep) {
 
 template <typename T = std::string>
 std::string PrintParams(
-    const std::pair<std::string, std::string> &delimiter, const std::vector<T> &params, const std::string &conj) {
+    const std::pair<std::string, std::string>& delimiter, const std::vector<T>& params, const std::string& conj)
+{
     std::ostringstream oss;
     oss << delimiter.first << JoinString<T>(params, conj) << delimiter.second;
     return oss.str();
 }
 
 template <typename T = std::string>
-std::string WrapParamByParentheses(const std::vector<T> &params) {
+std::string WrapParamByParentheses(const std::vector<T>& params)
+{
     return PrintParams(DELIMITER_PARENTHESES, params, CONN_COMMA);
 }
 
 template <typename T = std::string>
-std::string WrapParamByAngleBrackets(const std::vector<T> &params) {
+std::string WrapParamByAngleBrackets(const std::vector<T>& params)
+{
     return PrintParams(DELIMITER_ANGLE_BRACKETS, params, CONN_COMMA);
 }
 
-std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsigned dim);
+std::vector<int64_t> NormalizeShape(const std::vector<int64_t>& shapeVec, unsigned dim);
 std::string FormatFloat(
-    const std::variant<int64_t, uint64_t, double> &v, DataType dtype = DataType::DT_FP32, int precision = 9);
+    const std::variant<int64_t, uint64_t, double>& v, DataType dtype = DataType::DT_FP32, int precision = 9);
 
-std::string GetTypeForB16B32(const DataType &dtype);
+std::string GetTypeForB16B32(const DataType& dtype);
 
-inline std::string GetPipeId(PipeType queue) {
+inline std::string GetPipeId(PipeType queue)
+{
     auto res = PIPE_ID.find(queue);
     ASSERT(GenCodeErr::PIPE_ID_NOT_FOUND, res != PIPE_ID.end()) << "can not find pipe id: " << ToUnderlying(queue);
     return res->second;
 }
 
-inline std::string GetTileOpName(Opcode opCode) {
-    const auto &opCfg = OpcodeManager::Inst().GetTileOpCfg(opCode);
+inline std::string GetTileOpName(Opcode opCode)
+{
+    const auto& opCfg = OpcodeManager::Inst().GetTileOpCfg(opCode);
     return opCfg.tileOpCode_;
 }
 
 std::string GetAddrTypeByOperandType(OperandType type);
 
-int64_t CalcLinearOffset(const std::vector<int64_t> &shape, const std::vector<int64_t> &offset);
+int64_t CalcLinearOffset(const std::vector<int64_t>& shape, const std::vector<int64_t>& offset);
 
 template <typename T>
-void FillParamWithInput(std::vector<std::string> &paramList, const std::vector<T> &input, int start, int count) {
+void FillParamWithInput(std::vector<std::string>& paramList, const std::vector<T>& input, int start, int count)
+{
     for (int i = start; i < count; ++i) {
         paramList.emplace_back(ToStringHelper(input[i]));
     }
 }
 
-void PrintIndent(std::ostringstream &os, int scopeLevel);
+void PrintIndent(std::ostringstream& os, int scopeLevel);
 
 struct FloatSpecVal {
     DataType dtype; // fp32 or fp16
     double value;
 
-    bool operator<(const FloatSpecVal &other) const {
+    bool operator<(const FloatSpecVal& other) const
+    {
         if (dtype != other.dtype) {
             return ToUnderlying(dtype) < ToUnderlying(other.dtype);
         }
@@ -146,20 +157,19 @@ struct FloatSpecVal {
         return value < other.value;
     }
 
-    std::string GetFsVarName() const {
+    std::string GetFsVarName() const
+    {
         std::string fsType = std::isinf(value) ? (std::signbit(value) ? "inf_neg" : "inf_pos") : "nan";
         std::string fsVarName = DataType2CCEStr(dtype) + "_" + fsType;
         return fsVarName;
     }
 
-    std::string GetFsValueStr() const {
+    std::string GetFsValueStr() const
+    {
         static const std::map<std::pair<DataType, bool>, std::string> infMap = {
-            {{DataType::DT_FP16, false}, FP16_INF_POS},
-            { {DataType::DT_FP16, true}, FP16_INF_NEG},
-            {{DataType::DT_FP32, false}, FP32_INF_POS},
-            { {DataType::DT_FP32, true}, FP32_INF_NEG},
-            {{DataType::DT_BF16, false}, BF16_INF_POS},
-            { {DataType::DT_BF16, true}, BF16_INF_NEG},
+            {{DataType::DT_FP16, false}, FP16_INF_POS}, {{DataType::DT_FP16, true}, FP16_INF_NEG},
+            {{DataType::DT_FP32, false}, FP32_INF_POS}, {{DataType::DT_FP32, true}, FP32_INF_NEG},
+            {{DataType::DT_BF16, false}, BF16_INF_POS}, {{DataType::DT_BF16, true}, BF16_INF_NEG},
         };
         static const std::map<DataType, std::string> nanMap = {
             {DataType::DT_FP16, FP16_NAN},

@@ -227,5 +227,3 @@ def _gen_pto_tensor(input_tensors):
         torch_tensors.append(torch_tensor)
         pto_tensors.append(pto_tensor)
     return pto_tensors, torch_tensors
-
-

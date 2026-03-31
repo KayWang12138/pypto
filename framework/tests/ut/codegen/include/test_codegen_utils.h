@@ -24,49 +24,52 @@
 namespace npu::tile_fwk {
 const constexpr int DummyFuncMagic = 1;
 struct LogicalTensorInfo {
-    LogicalTensorInfo(Function &func, DataType dataType, MemoryType memoryType, const std::vector<int64_t> &tShape)
-        : function(func), dType(dataType), memType(memoryType), shape(tShape) {};
+    LogicalTensorInfo(Function& func, DataType dataType, MemoryType memoryType, const std::vector<int64_t>& tShape)
+        : function(func), dType(dataType), memType(memoryType), shape(tShape){};
     LogicalTensorInfo(
-        Function &func, DataType dataType, MemoryType memoryType, const std::vector<int64_t> &tShape, std::string tName)
-        : function(func), dType(dataType), memType(memoryType), shape(tShape), tensorName(std::move(tName)) {};
-    LogicalTensorInfo(Function &func, DataType dataType, MemoryType memoryType, const std::vector<int64_t> &tShape,
-        const std::vector<SymbolicScalar> &dynShape)
-        : function(func), dType(dataType), memType(memoryType), shape(tShape), dynValidShape(dynShape) {};
-    LogicalTensorInfo(Function &func, DataType dataType, MemoryType memoryType, const std::vector<int64_t> &tShape,
-        int magicVal, const std::vector<SymbolicScalar> &dynShape)
+        Function& func, DataType dataType, MemoryType memoryType, const std::vector<int64_t>& tShape, std::string tName)
+        : function(func), dType(dataType), memType(memoryType), shape(tShape), tensorName(std::move(tName)){};
+    LogicalTensorInfo(
+        Function& func, DataType dataType, MemoryType memoryType, const std::vector<int64_t>& tShape,
+        const std::vector<SymbolicScalar>& dynShape)
+        : function(func), dType(dataType), memType(memoryType), shape(tShape), dynValidShape(dynShape){};
+    LogicalTensorInfo(
+        Function& func, DataType dataType, MemoryType memoryType, const std::vector<int64_t>& tShape, int magicVal,
+        const std::vector<SymbolicScalar>& dynShape)
         : function(func),
           dType(dataType),
           memType(memoryType),
           shape(tShape),
           magic(magicVal),
-          dynValidShape(dynShape) {};
-    LogicalTensorInfo(Function &func, DataType dataType, MemoryType memoryType, const std::vector<int64_t> &tShape,
-        std::string tName, int magicVal, const std::vector<SymbolicScalar> &dynShape)
+          dynValidShape(dynShape){};
+    LogicalTensorInfo(
+        Function& func, DataType dataType, MemoryType memoryType, const std::vector<int64_t>& tShape, std::string tName,
+        int magicVal, const std::vector<SymbolicScalar>& dynShape)
         : function(func),
           dType(dataType),
           memType(memoryType),
           shape(tShape),
           tensorName(std::move(tName)),
           magic(magicVal),
-          dynValidShape(dynShape) {};
+          dynValidShape(dynShape){};
 
-    Function &function;
+    Function& function;
     DataType dType;
     MemoryType memType;
-    const std::vector<int64_t> &shape;
+    const std::vector<int64_t>& shape;
     const std::string tensorName;
     int magic = -1;
     std::vector<SymbolicScalar> dynValidShape;
 };
 
-std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info);
+std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo& info);
 
-std::string GetResultFromCpp(const Function &function);
+std::string GetResultFromCpp(const Function& function);
 
-void CheckStringExist(const std::string &expect, const std::string &result);
+void CheckStringExist(const std::string& expect, const std::string& result);
 
-Function *GenMockFuncDyn(const std::string &funcName, const std::vector<int64_t> &shape = {64, 64});
-Function *GenMockFuncStatic(const std::string &funcName, const std::vector<int64_t> &shape = {64, 64});
+Function* GenMockFuncDyn(const std::string& funcName, const std::vector<int64_t>& shape = {64, 64});
+Function* GenMockFuncStatic(const std::string& funcName, const std::vector<int64_t>& shape = {64, 64});
 
 struct MockFuncDynUnaryConf {
     std::vector<int64_t> shape = {64, 64};
@@ -75,14 +78,17 @@ struct MockFuncDynUnaryConf {
 };
 
 template <typename OpFunc>
-Function *GenMockFuncDynUnary(const std::string &funcName, const MockFuncDynUnaryConf &config, OpFunc opFunc) {
+Function* GenMockFuncDynUnary(const std::string& funcName, const MockFuncDynUnaryConf& config, OpFunc opFunc)
+{
     auto tileShape = config.tileShape.empty() ? config.shape : config.tileShape;
     TileShape::Current().SetVecTile(tileShape);
     Tensor input(config.dtype, config.shape, "input");
     Tensor output(config.dtype, config.shape, "output");
 
-    FUNCTION(funcName, {input}, {output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input}, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             opFunc(input, output);
         }
@@ -103,15 +109,18 @@ struct MockFuncDynBinaryConf {
 };
 
 template <typename OpFunc>
-Function *GenMockFuncDynBinary(const std::string &funcName, const MockFuncDynBinaryConf &config, OpFunc opFunc) {
+Function* GenMockFuncDynBinary(const std::string& funcName, const MockFuncDynBinaryConf& config, OpFunc opFunc)
+{
     auto tileShape = config.tileShape.empty() ? config.outputShape : config.tileShape;
     TileShape::Current().SetVecTile(tileShape);
     Tensor inputA(config.dtype, config.shapeA, "inputA");
     Tensor inputB(config.dtype, config.shapeB, "inputB");
     Tensor output(config.dtype, config.outputShape, "output");
 
-    FUNCTION(funcName, {inputA, inputB}, {output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {inputA, inputB}, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             opFunc(inputA, inputB, output);
         }
@@ -123,9 +132,9 @@ Function *GenMockFuncDynBinary(const std::string &funcName, const MockFuncDynBin
     return function;
 }
 
-
-std::shared_ptr<LogicalTensor> CreateConvTensor(Function &function, const DataType &dtype,
-    const std::vector<int64_t> &shape, const MemoryType &memType, const bool &isCopyIn = true);
+std::shared_ptr<LogicalTensor> CreateConvTensor(
+    Function& function, const DataType& dtype, const std::vector<int64_t>& shape, const MemoryType& memType,
+    const bool& isCopyIn = true);
 
 } // namespace npu::tile_fwk
 

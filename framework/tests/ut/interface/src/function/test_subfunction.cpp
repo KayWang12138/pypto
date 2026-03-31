@@ -22,24 +22,17 @@ using namespace npu::tile_fwk;
 
 class SubFunctionTest : public testing::Test {
 public:
-    static void SetUpTestCase() {
-        std::cout << "SubFunctionTest SetUpTestCase" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "SubFunctionTest SetUpTestCase" << std::endl; }
 
-    static void TearDownTestCase() {
-        std::cout << "SubFunctionTest TearDownTestCase" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "SubFunctionTest TearDownTestCase" << std::endl; }
 
-    void SetUp() override {
-        std::cout << "SubFunctionTest SetUp" << std::endl;
-    }
+    void SetUp() override { std::cout << "SubFunctionTest SetUp" << std::endl; }
 
-    void TearDown() override {
-        std::cout << "SubFunctionTest TearDown" << std::endl;
-    }
+    void TearDown() override { std::cout << "SubFunctionTest TearDown" << std::endl; }
 };
 
-TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_PrintInvokeInfo) {
+TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_PrintInvokeInfo)
+{
     SubfuncInvokeInfoTy subfuncInvokeInfo;
 
     subfuncInvokeInfo.RecordTensorArg(0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
@@ -59,7 +52,8 @@ TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_PrintInvokeInfo) {
     subfuncInvokeInfo.PrintInvokeInfo("extra_info");
 }
 
-TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_PrettyPrintInvokeInfo1) {
+TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_PrettyPrintInvokeInfo1)
+{
     SubfuncInvokeInfoTy subfuncInvokeInfo;
 
     subfuncInvokeInfo.RecordTensorArg(0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
@@ -79,7 +73,8 @@ TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_PrettyPrintInvokeInfo1) {
     subfuncInvokeInfo.PrettyPrintInvokeInfo(123);
 }
 
-TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_DumpInvokeInfo1) {
+TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_DumpInvokeInfo1)
+{
     SubfuncInvokeInfoTy subfuncInvokeInfo;
 
     subfuncInvokeInfo.RecordTensorArg(0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
@@ -100,7 +95,8 @@ TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_DumpInvokeInfo1) {
     subfuncInvokeInfo.DumpInvokeInfo(0, invokeParamVec.data());
 }
 
-TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_LookupInvokeArgs1) {
+TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_LookupInvokeArgs1)
+{
     SubfuncInvokeInfoTy subfuncInvokeInfo;
 
     subfuncInvokeInfo.RecordTensorArg(0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
@@ -123,7 +119,8 @@ TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_LookupInvokeArgs1) {
     EXPECT_EQ(subfuncInvokeInfo.LookupInvokeArgs(0x20000000), tp1);
 }
 
-TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_Print1) {
+TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_Print1)
+{
     SubfuncInvokeInfoTy subfuncInvokeInfo;
 
     subfuncInvokeInfo.RecordTensorArg(0, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, false, nullptr, 10);
@@ -142,7 +139,8 @@ TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_Print1) {
     EXPECT_EQ(subfuncInvokeInfo.GetGraphType(), CoreType::AIC);
 }
 
-TEST_F(SubFunctionTest, SubfuncTopologyInfoTy_TopoSort) {
+TEST_F(SubFunctionTest, SubfuncTopologyInfoTy_TopoSort)
+{
     SubfuncTopologyInfoTy subfuncTopoInfo;
     int esgId = 0;
     subfuncTopoInfo.AddEntry(esgId, 0, {esgId++});
@@ -156,7 +154,8 @@ TEST_F(SubFunctionTest, SubfuncTopologyInfoTy_TopoSort) {
     EXPECT_EQ(subfuncTopoInfo.IsEsgReady(1), true);
 }
 
-TEST_F(SubFunctionTest, SubfuncTopologyInfoTy_Print) {
+TEST_F(SubFunctionTest, SubfuncTopologyInfoTy_Print)
+{
     SubfuncTopologyInfoTy subfuncTopoInfo;
     int esgId = 0;
     subfuncTopoInfo.AddEntry(esgId, 0, {esgId++});
@@ -169,7 +168,8 @@ TEST_F(SubFunctionTest, SubfuncTopologyInfoTy_Print) {
     subfuncTopoInfo.Print();
 }
 
-TEST_F(SubFunctionTest, SubfuncTopologyInfoTy_DumpEachEntryInfo) {
+TEST_F(SubFunctionTest, SubfuncTopologyInfoTy_DumpEachEntryInfo)
+{
     SubfuncTopologyInfoTy subfuncTopoInfo;
     int esgId = 0;
     subfuncTopoInfo.AddEntry(esgId, 0, {esgId++});

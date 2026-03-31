@@ -18,15 +18,14 @@
 #include <climits>
 #include <iostream>
 
-void DeviceStats::Report(std::string &name)
+void DeviceStats::Report(std::string& name)
 {
     rpt->ReportTitle("DeviceMachine " + name + " Statistics");
     rpt->ReportVal("Total Submit Tasks", totalSubmitNum);
     rpt->ReportValAndPct("  |--Cube Tasks", cubeSubmitNum, totalSubmitNum);
     rpt->ReportValAndPct("  |--Vector Tasks", vectorSubmitNum, totalSubmitNum);
 
-    float avgTaskExecuteCycle = ((totalSubmitNum != 0) ?
-                                (float(totalTaskExecuteCycles) / totalSubmitNum) : float(0.0));
+    float avgTaskExecuteCycle = ((totalSubmitNum != 0) ? (float(totalTaskExecuteCycles) / totalSubmitNum) : float(0.0));
     rpt->ReportVal("Average Task Cycles", avgTaskExecuteCycle);
     rpt->ReportVal("  |--Max Task Cycles", maxTaskExecuteCycles);
     rpt->ReportVal("  |--Min Task Cycles", minTaskExecuteCycles);

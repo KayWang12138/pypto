@@ -21,7 +21,7 @@
 #include "machine/utils/dynamic/dev_encode_types.h"
 
 namespace npu::tile_fwk::dynamic {
-    class AiCoreManager;
+class AiCoreManager;
 }
 
 namespace npu::tile_fwk::Distributed {
@@ -56,29 +56,34 @@ struct AicpuParamInfo {
     uint32_t tileShapeCol{0};
 };
 
-inline uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end) {
+inline uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end)
+{
     return (((val) >> (start)) & ((1UL << ((end) - (start) + 1UL)) - 1UL));
 }
 
-inline uint64_t GetVirtualAddrOffset(uint64_t val) {
+inline uint64_t GetVirtualAddrOffset(uint64_t val)
+{
     constexpr uint64_t offsetStart = 0UL;
     constexpr uint64_t offsetEnd = 53UL;
     return GetVirtualAddrBist(val, offsetStart, offsetEnd);
 }
 
-inline uint64_t GetVirtualAddrGroupIndex(uint64_t val) {
+inline uint64_t GetVirtualAddrGroupIndex(uint64_t val)
+{
     constexpr uint64_t groupIndexStart = 54UL;
     constexpr uint64_t groupIndexEnd = 55UL;
     return GetVirtualAddrBist(val, groupIndexStart, groupIndexEnd);
 }
 
-inline uint64_t GetVirtualAddrMemType(uint64_t val) {
+inline uint64_t GetVirtualAddrMemType(uint64_t val)
+{
     constexpr uint64_t memTypeStart = 56UL;
     constexpr uint64_t memTypeEnd = 57UL;
     return GetVirtualAddrBist(val, memTypeStart, memTypeEnd);
 }
 
-inline uint64_t GetCoa(const uint32_t index, uint64_t* opAttrs, uint64_t* expressionTable) {
+inline uint64_t GetCoa(const uint32_t index, uint64_t* opAttrs, uint64_t* expressionTable)
+{
     constexpr uint64_t valueLength = 63;
     constexpr uint64_t valueMask = (1UL << valueLength) - 1;
     const uint64_t encodedValue = opAttrs[index];
@@ -87,8 +92,9 @@ inline uint64_t GetCoa(const uint32_t index, uint64_t* opAttrs, uint64_t* expres
     return isExpression ? expressionTable[decodedValue] : decodedValue;
 }
 
-inline std::vector<uint32_t> GetCoaVector(const uint32_t baseIndex, const uint32_t dim, uint64_t* opAttrs,
-    uint64_t* expressionTable) {
+inline std::vector<uint32_t> GetCoaVector(
+    const uint32_t baseIndex, const uint32_t dim, uint64_t* opAttrs, uint64_t* expressionTable)
+{
     std::vector<uint32_t> vec(dim);
     for (uint32_t i = 0; i < dim; ++i) {
         vec[i] = GetCoa(baseIndex + i, opAttrs, expressionTable);
@@ -96,7 +102,8 @@ inline std::vector<uint32_t> GetCoaVector(const uint32_t baseIndex, const uint32
     return vec;
 }
 
-inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode) {
+inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVector<int32_t>& aicpuCode)
+{
     AicpuParamInfo paramInfo;
     int index = 1; // aicpuCode[0]表示OpCode，paraminfo索引从1起
     paramInfo.outIndex = index + 1;
@@ -106,16 +113,22 @@ inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVect
 
     index = index + aicpuCode[index] + 1;
     paramInfo.rawShapeIndex = index + 1;
-    paramInfo.rawRankShape = aicpuCode[paramInfo.rawShapeIndex + 1]; // ShmemSignal RawShape[ranksize, ranksize, ranksize, row, col], 2表示rankShape的值
-    paramInfo.rawShapeRow = aicpuCode[paramInfo.rawShapeIndex + 2]; // ShmemSignal RawShape[ranksize, ranksize, ranksize, row, col], 3表示row的值
-    paramInfo.rawShapeCol = aicpuCode[paramInfo.rawShapeIndex + 3]; // ShmemSignal RawShape[ranksize, ranksize, ranksize, row, col], 4表示col的值
-    paramInfo.tileShapeIndex = paramInfo.rawShapeIndex + aicpuCode[index] / 2; // 存储了signal_dim * 2个参数, tieShape往后偏移dim位
-    paramInfo.tileShapeRow = aicpuCode[paramInfo.tileShapeIndex + 2]; // ShmemSignal Shape[ranksize, ranksize, ranksize, row, col], 3表示row的值
-    paramInfo.tileShapeCol = aicpuCode[paramInfo.tileShapeIndex + 3]; // ShmemSignal Shape[ranksize, ranksize, ranksize, row, col], 4表示col的值
+    paramInfo.rawRankShape = aicpuCode[paramInfo.rawShapeIndex + 1]; // ShmemSignal RawShape[ranksize, ranksize,
+                                                                     // ranksize, row, col], 2表示rankShape的值
+    paramInfo.rawShapeRow = aicpuCode[paramInfo.rawShapeIndex + 2];  // ShmemSignal RawShape[ranksize, ranksize,
+                                                                     // ranksize, row, col], 3表示row的值
+    paramInfo.rawShapeCol = aicpuCode[paramInfo.rawShapeIndex + 3];  // ShmemSignal RawShape[ranksize, ranksize,
+                                                                     // ranksize, row, col], 4表示col的值
+    paramInfo.tileShapeIndex =
+        paramInfo.rawShapeIndex + aicpuCode[index] / 2; // 存储了signal_dim * 2个参数, tieShape往后偏移dim位
+    paramInfo.tileShapeRow = aicpuCode[paramInfo.tileShapeIndex + 2]; // ShmemSignal Shape[ranksize, ranksize, ranksize,
+                                                                      // row, col], 3表示row的值
+    paramInfo.tileShapeCol = aicpuCode[paramInfo.tileShapeIndex + 3]; // ShmemSignal Shape[ranksize, ranksize, ranksize,
+                                                                      // row, col], 4表示col的值
     index = index + aicpuCode[index] + 1;
     if (index + 1 < static_cast<int32_t>(aicpuCode.size())) {
         paramInfo.attrIndex = index + 1;
     }
     return paramInfo;
 }
-}
+} // namespace npu::tile_fwk::Distributed

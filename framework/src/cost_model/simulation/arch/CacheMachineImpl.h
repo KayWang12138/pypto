@@ -19,12 +19,10 @@
 #include "cost_model/simulation/common/Packet.h"
 #include "cost_model/simulation/common/ISA.h"
 
-namespace CostModel
-{
-    class CacheMachineImpl
-    {
-    public:
-        virtual ~CacheMachineImpl() = default;
-        virtual uint64_t Simulate(const CachePacket& packet) = 0;
-    };
+namespace CostModel {
+class CacheMachineImpl {
+public:
+    virtual ~CacheMachineImpl() = default;
+    virtual uint64_t Simulate(const CachePacket& packet) = 0;
+};
 } // namespace CostModel

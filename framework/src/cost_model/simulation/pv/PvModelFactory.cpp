@@ -16,46 +16,45 @@
 #include <dlfcn.h>
 #include "PvModelFactory.h"
 
-namespace CostModel
+namespace CostModel {
+std::shared_ptr<PvModel> PvModelFactory::Create()
 {
-    std::shared_ptr<PvModel> PvModelFactory::Create()
-    {
-        std::string arch = "A2A3";
-        std::string soPath = "libtile_fwk_simulation_pv.so";
-        void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
-        if (!handle) {
-            throw std::runtime_error("can not load library");
-        }
-
-        // 获取工厂函数符号
-        using CreateFunc = std::shared_ptr<PvModel>(*)();
-        std::string funcName = "CreatePvModelImpl" + arch;
-        auto createFunc = (CreateFunc)(dlsym(handle, funcName.c_str()));
-
-        // 创建对象并返回
-        return createFunc();
+    std::string arch = "A2A3";
+    std::string soPath = "libtile_fwk_simulation_pv.so";
+    void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
+    if (!handle) {
+        throw std::runtime_error("can not load library");
     }
 
-    std::shared_ptr<DynPvModel> PvModelFactory::CreateDyn()
-    {
-        std::string soPath = "libtile_fwk_simulation_pv.so";
-        void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
-        if (!handle) {
-            throw std::runtime_error("can not load library: ");
-        }
+    // 获取工厂函数符号
+    using CreateFunc = std::shared_ptr<PvModel> (*)();
+    std::string funcName = "CreatePvModelImpl" + arch;
+    auto createFunc = (CreateFunc)(dlsym(handle, funcName.c_str()));
 
-        // 获取工厂函数符号
-        using CreateFunc = std::shared_ptr<DynPvModel>(*)();
-        npu::tile_fwk::NPUArch platform_ = npu::tile_fwk::Platform::Instance().GetSoc().GetNPUArch();
-        std::string funcName;
-        if (platform_ == npu::tile_fwk::NPUArch::DAV_2201) {
-            funcName = "CreateDynPvModelImplA2A3";
-        } else {
-            funcName = "CreateDynPvModelImplA5";
-        }
-        auto createFunc = (CreateFunc)(dlsym(handle, funcName.c_str()));
-
-        // 创建对象并返回
-        return createFunc();
-    }
+    // 创建对象并返回
+    return createFunc();
 }
+
+std::shared_ptr<DynPvModel> PvModelFactory::CreateDyn()
+{
+    std::string soPath = "libtile_fwk_simulation_pv.so";
+    void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
+    if (!handle) {
+        throw std::runtime_error("can not load library: ");
+    }
+
+    // 获取工厂函数符号
+    using CreateFunc = std::shared_ptr<DynPvModel> (*)();
+    npu::tile_fwk::NPUArch platform_ = npu::tile_fwk::Platform::Instance().GetSoc().GetNPUArch();
+    std::string funcName;
+    if (platform_ == npu::tile_fwk::NPUArch::DAV_2201) {
+        funcName = "CreateDynPvModelImplA2A3";
+    } else {
+        funcName = "CreateDynPvModelImplA5";
+    }
+    auto createFunc = (CreateFunc)(dlsym(handle, funcName.c_str()));
+
+    // 创建对象并返回
+    return createFunc();
+}
+} // namespace CostModel

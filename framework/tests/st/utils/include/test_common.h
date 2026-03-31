@@ -17,70 +17,47 @@
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
+#include <fstream>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "machine/runtime/runtime.h"
-#include "tilefwk/tilefwk_op.h"
-#include "interface/tensor/float.h"
 #include "interface/tensor/logical_tensor.h"
 #include "cost_model/simulation/pv/PvData.h"
 #include "cost_model/simulation/emulator/SoftMemory.h"
 #include "interface/configs/config_manager.h"
+#include "test_common_types.h"
 
 using namespace npu::tile_fwk;
 using Json = nlohmann::json;
 using namespace std;
 
-const std::string TEST_TILE_OP_PATH = "framework/tests/st/interface/tile_op/src/";
-
-enum CpyMode { FULL, DIAG };
-
-template <typename T>
-DataType GetAstDtype() {
-    DataType astDtype = DataType::DT_BOTTOM;
-    if constexpr (std::is_same<T, npu::tile_fwk::float16>::value) {
-        astDtype = DataType::DT_FP16;
-    }
-    if constexpr (std::is_same<T, float>::value) {
-        astDtype = DataType::DT_FP32;
-    }
-    if constexpr (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
-        astDtype = DataType::DT_BF16;
-    }
-    if constexpr (std::is_same<T, int8_t>::value) {
-        astDtype = DT_INT8;
-    }
-    if constexpr (std::is_same<T, int32_t>::value) {
-        astDtype = DT_INT32;
-    }
-    EXPECT_NE(astDtype, DT_BOTTOM);
-    return astDtype;
-}
-
 template <typename T = float>
-static void readInput(std::string filename, vector<T> &inputData) {
+static void readInput(std::string filename, vector<T>& inputData)
+{
     ifstream input_file(filename, ios::binary);
     if (!input_file) {
         std::cerr << "Failed to open file for writing input data! filename:" << filename;
         ASSERT(false);
     }
-    input_file.read((char *)inputData.data(), inputData.size() * sizeof(T));
+    input_file.read((char*)inputData.data(), inputData.size() * sizeof(T));
     input_file.close();
 }
 
 template <typename T>
-static void writeInput(std::string filename, vector<T> outData) {
+static void writeInput(std::string filename, vector<T> outData)
+{
     std::ofstream ascendOutFile(filename, std::ios::out | std::ios::binary);
     if (!ascendOutFile) {
         std::cerr << "Can not open out file!" << std::endl;
     }
-    ascendOutFile.write((char *)outData.data(), outData.size() * sizeof(T));
+    ascendOutFile.write((char*)outData.data(), outData.size() * sizeof(T));
     ascendOutFile.close();
 }
 
 [[maybe_unused]] static void copyOutDataForGolden(
-    vector<float> &outData, vector<float> &outDataVal, std::vector<int> &shape, CpyMode mode) {
+    vector<float>& outData, vector<float>& outDataVal, std::vector<int>& shape, CpyMode mode)
+{
     vector<float>::iterator itr = outData.begin();
 
     if (mode == DIAG) {
@@ -112,8 +89,10 @@ static void writeInput(std::string filename, vector<T> outData) {
 }
 
 template <typename T = float>
-static bool resultCmpUnary(const vector<T> &x, const vector<T> &outDataValExp, const vector<T> &outDataValAct,
-    float eps, size_t threshold = 1, bool printAll = false, bool printErr = false) {
+static bool resultCmpUnary(
+    const vector<T>& x, const vector<T>& outDataValExp, const vector<T>& outDataValAct, float eps, size_t threshold = 1,
+    bool printAll = false, bool printErr = false)
+{
     if (outDataValExp.size() != outDataValAct.size()) {
         std::cout << "out size is not eq, golden: " << outDataValExp.size() << ", act: " << outDataValAct.size()
                   << std::endl;
@@ -172,8 +151,10 @@ static bool resultCmpUnary(const vector<T> &x, const vector<T> &outDataValExp, c
 }
 
 template <typename Ts, typename Td>
-static bool resultCmpCast(const vector<Ts> &x, const vector<Td> &outDataValExp, const vector<Td> &outDataValAct,
-    float eps, size_t threshold = 1, bool printAll = false, bool printErr = false) {
+static bool resultCmpCast(
+    const vector<Ts>& x, const vector<Td>& outDataValExp, const vector<Td>& outDataValAct, float eps,
+    size_t threshold = 1, bool printAll = false, bool printErr = false)
+{
     if (outDataValExp.size() != outDataValAct.size()) {
         std::cout << "out size is not eq, golden: " << outDataValExp.size() << ", act: " << outDataValAct.size()
                   << std::endl;
@@ -232,8 +213,9 @@ static bool resultCmpCast(const vector<Ts> &x, const vector<Td> &outDataValExp, 
 }
 
 template <typename T>
-static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outDataValAct, size_t selectedCount,
-    float ratio) {
+static bool resultCmp4TopK(
+    const std::vector<T>& outDataValExp, const T* outDataValAct, size_t selectedCount, float ratio)
+{
     size_t data_size = outDataValExp.size();
     bool precision = true;
 
@@ -251,20 +233,20 @@ static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outData
 
         if (expVal != actVal) {
             if (part_result_dict.find(part_index) == part_result_dict.end()) {
-                part_result_dict[part_index] = { {}, {} };
+                part_result_dict[part_index] = {{}, {}};
             }
             part_result_dict[part_index].first.push_back(expVal);
             part_result_dict[part_index].second.push_back(actVal);
         }
 
         if (idx % selectedCount == 0) {
-            all_result_dict[part_index] = { {}, {} };
+            all_result_dict[part_index] = {{}, {}};
         }
         all_result_dict[part_index].first.push_back(expVal);
         all_result_dict[part_index].second.push_back(actVal);
     }
 
-    for (const auto& [idx_index, result_pair]: part_result_dict) {
+    for (const auto& [idx_index, result_pair] : part_result_dict) {
         (void)idx_index;
         std::vector<T> exp_list = result_pair.first;
         std::vector<T> act_list = result_pair.second;
@@ -274,7 +256,7 @@ static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outData
 
         size_t error_count = 0;
         std::vector<T> error_list;
-        for (T tok_id: exp_list) {
+        for (T tok_id : exp_list) {
             if (std::find(act_list.begin(), act_list.end(), tok_id) == act_list.end()) {
                 error_count++;
                 error_list.push_back(tok_id);
@@ -292,18 +274,28 @@ static bool resultCmp4TopK(const std::vector<T>& outDataValExp, const T* outData
                 if (it != exp_list_ori.end()) {
                     pos_idx = std::distance(exp_list_ori.begin(), it);
                 }
-                std::cout << "err idx: " << pos_idx << ", exp->" << expValue << ", act->" << act_list_ori[pos_idx] << std::endl;
+                std::cout << "err idx: " << pos_idx << ", exp->" << expValue << ", act->" << act_list_ori[pos_idx]
+                          << std::endl;
             }
             // break;
         }
     }
-    std::cout << "result is " << (precision ? "\033[32m""PASS""\033[0m" : "\033[31m""FAILED""\033[0m") << std::endl;
+    std::cout << "result is "
+              << (precision ? "\033[32m"
+                              "PASS"
+                              "\033[0m" :
+                              "\033[31m"
+                              "FAILED"
+                              "\033[0m")
+              << std::endl;
     return precision;
 }
 
 template <typename T = float>
-static bool resultCmp(const T* outDataValExp, const T *outDataValAct, size_t eSize, float eps, size_t threshold = 0,
-    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0) {
+static bool resultCmp(
+    const T* outDataValExp, const T* outDataValAct, size_t eSize, float eps, size_t threshold = 0,
+    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0)
+{
     //
     threshold = threshold == 0 ? static_cast<int>(eSize * eps) : threshold;
 
@@ -379,8 +371,10 @@ static bool resultCmp(const T* outDataValExp, const T *outDataValAct, size_t eSi
 }
 
 template <typename T = float>
-static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, float eps, size_t threshold = 0,
-    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0) {
+static bool resultCmp(
+    const vector<T>& outDataValExp, const T* outDataValAct, float eps, size_t threshold = 0,
+    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0)
+{
     //
     threshold = threshold == 0 ? static_cast<int>(outDataValExp.size() * eps) : threshold;
 
@@ -457,14 +451,16 @@ static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, fl
 }
 
 template <typename T = float>
-static bool resultCmpPrint(const vector<T> &outDataValExp, const T *outDataValAct, float eps, size_t testNum = 0) {
-    return resultCmp(outDataValExp, outDataValAct,eps,8,1000,false,false,testNum);
+static bool resultCmpPrint(const vector<T>& outDataValExp, const T* outDataValAct, float eps, size_t testNum = 0)
+{
+    return resultCmp(outDataValExp, outDataValAct, eps, 8, 1000, false, false, testNum);
 }
 
 template <typename T = float>
-static bool resultCmpAbsDelta(const vector<T> &outDataValExp, const T *outDataValAct, float absDelta, size_t threshold = 0,
-    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0) {
-
+static bool resultCmpAbsDelta(
+    const vector<T>& outDataValExp, const T* outDataValAct, float absDelta, size_t threshold = 0,
+    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0)
+{
     float maxDiff = 0;
     float maxDiffRatio = 0;
     size_t zeroCount = 0;
@@ -490,8 +486,8 @@ static bool resultCmpAbsDelta(const vector<T> &outDataValExp, const T *outDataVa
         }
 
         if ((printAll) || (eErr && printErr) || (testNum > 0)) {
-            std::cout << "abs diff threshold: " << absDelta << ", idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal
-                      << ", diff->" << diff << ", diff ratio->" << relRatio << ", zero count->" << zeroCount
+            std::cout << "abs diff threshold: " << absDelta << ", idx: " << eIdx << ", exp->" << expVal << ", act->"
+                      << actVal << ", diff->" << diff << ", diff ratio->" << relRatio << ", zero count->" << zeroCount
                       << ", zero threshold->" << zeroCountThreshold << std::endl;
         }
         rst = !((errCount > threshold || zeroCount > zeroCountThreshold));
@@ -525,8 +521,8 @@ static bool resultCmpAbsDelta(const vector<T> &outDataValExp, const T *outDataVa
         }
 
         if (eErr) {
-            std::cout << "abs diff threshold: " << absDelta << ", idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal
-                      << ", diff->" << diff << ", diff ratio->" << relRatio << ", zero count->" << zeroCount
+            std::cout << "abs diff threshold: " << absDelta << ", idx: " << eIdx << ", exp->" << expVal << ", act->"
+                      << actVal << ", diff->" << diff << ", diff ratio->" << relRatio << ", zero count->" << zeroCount
                       << ", zero threshold->" << zeroCountThreshold << std::endl;
         }
         rst = !((errCount > threshold || zeroCount > zeroCountThreshold));
@@ -538,8 +534,10 @@ static bool resultCmpAbsDelta(const vector<T> &outDataValExp, const T *outDataVa
 }
 
 template <typename T = float>
-static bool resultCmp(const vector<T> &outDataValExp, const vector<T> &outDataValAct, float eps, size_t threshold = 0,
-    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0) {
+static bool resultCmp(
+    const vector<T>& outDataValExp, const vector<T>& outDataValAct, float eps, size_t threshold = 0,
+    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0)
+{
     if (outDataValExp.size() != outDataValAct.size()) {
         std::cout << "out size is not eq, golden: " << outDataValExp.size() << ", act: " << outDataValAct.size()
                   << std::endl;
@@ -550,16 +548,17 @@ static bool resultCmp(const vector<T> &outDataValExp, const vector<T> &outDataVa
 }
 
 template <class T = float>
-void *readToDev(const std::string &path, int size) {
+void* readToDev(const std::string& path, int size)
+{
     size_t bytes = size * sizeof(T);
     std::vector<uint8_t> data(bytes);
     readInput(path, data);
 
-    uint8_t *devPtr = nullptr;
+    uint8_t* devPtr = nullptr;
     machine::GetRA()->AllocDevAddr(&devPtr, bytes);
     if (devPtr == nullptr) {
         std::cout << "rtMalloc failed" << std::endl;
-        devPtr = reinterpret_cast<uint8_t *>(CostModel::SoftMemory::Instance().AllocateData(bytes, data));
+        devPtr = reinterpret_cast<uint8_t*>(CostModel::SoftMemory::Instance().AllocateData(bytes, data));
         if (devPtr == nullptr) {
             std::cout << "SoftMemory rtMalloc failed" << std::endl;
             return nullptr;
@@ -576,13 +575,14 @@ void *readToDev(const std::string &path, int size) {
     return devPtr;
 }
 
-[[maybe_unused]] static uint8_t *allocDevAddr(uint64_t size) {
-    uint8_t *devPtr = nullptr;
+[[maybe_unused]] static uint8_t* allocDevAddr(uint64_t size)
+{
+    uint8_t* devPtr = nullptr;
     machine::GetRA()->AllocDevAddr(&devPtr, size);
     if (devPtr == nullptr) {
         std::cout << "allocDevAddr rtMalloc failed" << std::endl;
         std::vector<uint8_t> data(size);
-        devPtr = reinterpret_cast<uint8_t *>(CostModel::SoftMemory::Instance().AllocateData(size, data));
+        devPtr = reinterpret_cast<uint8_t*>(CostModel::SoftMemory::Instance().AllocateData(size, data));
         if (devPtr == nullptr) {
             std::cout << "SoftMemory rtMalloc failed" << std::endl;
             return nullptr;
@@ -596,70 +596,12 @@ void *readToDev(const std::string &path, int size) {
     return devPtr;
 }
 
-struct GMTensorInfoTest {
-    float *Addr{nullptr};
-    int64_t offset0{-1}; // TBD: should divide by TILESIZE or not? E.g . 128 or 128/128
-    int64_t offset1{-1}; // TBD: should divide by TILESIZE or not? E.g . 128 or 128/128
-};
-
-struct InvokeEntryTest {
-    int64_t SubGraphProgramId{-1};
-    GMTensorInfoTest GMTensor[2];
-};
-
-using IfaTestParam = std::unordered_map<std::string, int>;
-
-/* low latency params config */
-inline IfaTestParam lowLatencyParams = {
-    {            "b",   4},
-    {           "nq",  32},
-    {           "s2", 256},
-    {"timethreshold",  55},
-};
-
-inline IfaTileShapeConfig lowLatencyTileParams{
-    256, // block size
-    32, // nTile
-    {256, 128}, // v0 tile for qkv-view-concat, q-S1D:(32,64), k/v-S2D:(256,64), merge 2D to copy
-    {32, 32, 256, 256, 128, 128}, // c1 tile for S1D@S2D
-    {32, 256}, // v1 tile for S1S2
-    {32, 32, 256, 256, 128, 128}, // c2 tile for S1S2@S2D
-    {32, 256}, // v2 tile for S1D
-};
-
-/* hight throughput params param config */
-inline IfaTestParam hightThroughputParams = {
-    {            "b",   32},
-    {           "nq",  128},
-    {           "s2", 4096},
-    {"timethreshold",  280},
-};
-
-inline IfaTileShapeConfig hightThroughputTileParams{
-    512, // block size
-    128, // nTile
-    {256, 128}, // v0 tile for qkv-view-concat, q-S1D:(32,64), k/v-S2D:(256,64), merge 2D to copy
-    {128, 128, 128, 256, 128, 128}, // c1 tile for S1D@S2D
-    {32, 256}, // v1 tile for S1S2
-    {128, 128, 128, 256, 128, 128}, // c2 tile for S1S2@S2D
-    {32, 256}, // v2 tile for S1D
-};
-
-struct GraphInvokeInfoTest {
-    int64_t GraphInvokeCount{0};
-    InvokeEntryTest GraphInvokeList[40];
-};
-
-[[maybe_unused]] static std::string ParamLocToString(const int64_t &ParamLoc) {
-    return std::to_string(ParamLoc >> 28) + ":" + std::to_string((ParamLoc >> 16) & 0xFFF) + ":" +
-           std::to_string(ParamLoc & 0xFFFF);
-}
-
-[[maybe_unused]] static std::string GetGoldenDir() {
-    const testing::TestInfo *testInfo = testing::UnitTest::GetInstance()->current_test_info();
+[[maybe_unused]] static std::string GetGoldenDir()
+{
+    const testing::TestInfo* testInfo = testing::UnitTest::GetInstance()->current_test_info();
     std::string fullName = std::string(testInfo->test_suite_name()) + "." + testInfo->name();
     // 先读取 TILE_FWK_STEST_GOLDEN_PATH 环境变量, 否则使用当前目录
-    char *path = getenv("TILE_FWK_STEST_GOLDEN_PATH");
+    char* path = getenv("TILE_FWK_STEST_GOLDEN_PATH");
     std::string fullPath;
     if (path == nullptr) {
         fullPath = "./golden";
@@ -670,25 +612,8 @@ struct GraphInvokeInfoTest {
     return fullPath;
 }
 
-inline int calcOffset(std::vector<int> shape, std::vector<int> offset) {
-    int base = 1;
-    int res = 0;
-    for (int i = shape.size() - 1; i >= 0; i--) {
-        res += offset[i] * base;
-        base *= shape[i];
-    }
-    return res;
-}
-
-inline int GetDeviceIdByEnvVar() {
-    const char *devIdPtr = getenv("TILE_FWK_DEVICE_ID");
-    if (devIdPtr != nullptr) {
-        return std::stoi(devIdPtr);
-    }
-    return 0;
-}
-
-inline void SetInterpreterConfig(){
+inline void SetInterpreterConfig()
+{
 // 通过build_ci.py --enable_interpreter_config使能
 #ifdef ENABLE_STEST_INTERPRETER_CONFIG
     // config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);

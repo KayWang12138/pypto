@@ -28,7 +28,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         npu::tile_fwk::Program::GetInstance().Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
@@ -36,8 +37,8 @@ public:
     void TearDown() override {}
 };
 
-TEST(RuntimeTest, Runtime01) {
+TEST(RuntimeTest, Runtime01)
+{
     std::cout << "start to test runtime" << std::endl;
     machine::GetRA()->MapAiCoreReg();
 }
-

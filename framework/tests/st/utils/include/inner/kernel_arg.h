@@ -32,26 +32,29 @@ struct ArgInfo {
 
 class KernelArg {
 public:
-    bool IsOpArgs(std::shared_ptr<RawTensor> tensor) {
+    bool IsOpArgs(std::shared_ptr<RawTensor> tensor)
+    {
         // if (op_args_.empty()) {
         //     return true;
         // }
         return op_args_.find(tensor->rawmagic) != op_args_.end();
     }
 
-    std::vector<std::string> GetOpArgName() {
+    std::vector<std::string> GetOpArgName()
+    {
         std::vector<std::string> res;
-        for (const auto &ele : op_args_) {
+        for (const auto& ele : op_args_) {
             res.emplace_back(ele.second.name);
         }
         return res;
     }
 
-    void SetOpArgs(std::vector<std::shared_ptr<LogicalTensor>> tensors) {
+    void SetOpArgs(std::vector<std::shared_ptr<LogicalTensor>> tensors)
+    {
         for (auto tensor : tensors) {
             int magic = tensor->tensor->rawmagic;
             if (IsOpArgs(tensor->tensor)) {
-                auto &arg = op_args_[magic];
+                auto& arg = op_args_[magic];
                 assert(tensor.GetStorage()->Symbol() == arg.name);
                 assert(tensor->offset == arg.offset);
             } else {
@@ -61,8 +64,9 @@ public:
         }
     }
 
-    std::string GetOpArgName(std::shared_ptr<RawTensor> tensor) {
-        for ([[maybe_unused]] const auto &ele : op_args_) {
+    std::string GetOpArgName(std::shared_ptr<RawTensor> tensor)
+    {
+        for ([[maybe_unused]] const auto& ele : op_args_) {
             if (op_args_.find(tensor->rawmagic) != op_args_.end()) {
                 return op_args_[tensor->rawmagic].name;
             }
@@ -76,7 +80,8 @@ private:
     std::map<int, ArgInfo> op_args_; // op input/output args
 };
 
-inline KernelArg &GetKernelArg() {
+inline KernelArg& GetKernelArg()
+{
     static KernelArg ka;
     return ka;
 }

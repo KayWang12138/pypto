@@ -39,7 +39,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetBuildStatic(true);
@@ -58,7 +59,8 @@ struct TopKParams {
     int32_t k;
     bool isLargest;
 };
-void TopKOnBoardFunc(TopKParams &params) {
+void TopKOnBoardFunc(TopKParams& params)
+{
     config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 1}});
 
     int32_t shape0 = params.shape0;
@@ -73,7 +75,8 @@ void TopKOnBoardFunc(TopKParams &params) {
     auto output = std::make_tuple(
         Tensor(DataType::DT_FP32, output_shape, "npu_val"), Tensor(DataType::DT_FP32, output_shape, "resDics"));
 
-    FUNCTION("TOPK_T_TILETENSOR", {input_a, std::get<0>(output), std::get<1>(output)}) {
+    FUNCTION("TOPK_T_TILETENSOR", {input_a, std::get<0>(output), std::get<1>(output)})
+    {
         output = TopK(input_a, k, -1, isLargest);
     }
 
@@ -138,7 +141,8 @@ TStore(gmTensor_15, ubTensor_11, Coord2Dim(0, 0));
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestCodegenSort, TestTopKTileTensor) {
+TEST_F(TestCodegenSort, TestTopKTileTensor)
+{
     TopKParams params;
     params.shape0 = 128;
     params.shape1 = 32;

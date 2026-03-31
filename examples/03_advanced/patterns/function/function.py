@@ -118,8 +118,8 @@ def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, eps
 
 @pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})
 def layer_norm_kernel(
-    x: pypto.Tensor(), 
-    gamma: pypto.Tensor(), 
+    x: pypto.Tensor(),
+    gamma: pypto.Tensor(),
     beta: pypto.Tensor(),
     out: pypto.Tensor()):
     """Layer Normalization."""
@@ -132,7 +132,7 @@ def layer_norm_kernel(
 @pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})
 def linear_projection_kernel(
     x: pypto.Tensor(),
-    weight: pypto.Tensor(), 
+    weight: pypto.Tensor(),
     out: pypto.Tensor()):
 
     bias = None
@@ -164,19 +164,19 @@ def gelu_activation_kernel(
 # Function 4: Residual Connection
 @pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})
 def residual_add_kernel(
-        x: pypto.tensor(), 
+        x: pypto.tensor(),
         residual: pypto.tensor(),
         out: pypto.tensor()):
     pypto.set_vec_tile_shapes(64, 128)
     out[:] = pypto.add(x, residual)
 
-    
+
 # Function 5: Attention (simplified)
 @pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})
 def attention_kernel(
-        q: pypto.tensor(), 
-        k: pypto.tensor(), 
-        v: pypto.tensor(), 
+        q: pypto.tensor(),
+        k: pypto.tensor(),
+        v: pypto.tensor(),
         out: pypto.tensor()):
     pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
 
@@ -522,4 +522,3 @@ Examples:
 
 if __name__ == "__main__":
     main()
-

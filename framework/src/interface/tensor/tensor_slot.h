@@ -36,34 +36,32 @@ enum class SlotProperty : uint32_t {
 struct TensorSlot {
 public:
     TensorSlot() {}
-    TensorSlot(int64_t id, const void *slot) : id_(id), slot_(slot) {}
+    TensorSlot(int64_t id, const void* slot) : id_(id), slot_(slot) {}
 
-    const void *GetSlot() const { return slot_; }
+    const void* GetSlot() const { return slot_; }
     int64_t GetId() const { return id_; }
 
     std::string GetSymbolName() const;
 
     std::shared_ptr<LogicalTensor> GetSlotValue() const;
-    void SetSlotValue(const std::shared_ptr<LogicalTensor> &value) const;
+    void SetSlotValue(const std::shared_ptr<LogicalTensor>& value) const;
 
     std::string Dump() const;
-    std::string DumpHead(const std::string &name) const;
+    std::string DumpHead(const std::string& name) const;
 
-    bool operator==(const TensorSlot &oth) const { return id_ == oth.id_; }
+    bool operator==(const TensorSlot& oth) const { return id_ == oth.id_; }
 
-    static TensorSlot CreateTensor(const Tensor &tensor) { return TensorSlot(tensor.Id(), &tensor); }
+    static TensorSlot CreateTensor(const Tensor& tensor) { return TensorSlot(tensor.Id(), &tensor); }
 
 private:
     int64_t id_{-1};
-    const void *slot_{nullptr};
+    const void* slot_{nullptr};
 };
 } // namespace npu::tile_fwk
 
 template <>
 struct std::hash<npu::tile_fwk::TensorSlot> {
-    std::size_t operator()(const npu::tile_fwk::TensorSlot &t) const {
-        return std::hash<int64_t>()(t.GetId());
-    }
+    std::size_t operator()(const npu::tile_fwk::TensorSlot& t) const { return std::hash<int64_t>()(t.GetId()); }
 };
 
 namespace npu::tile_fwk {
@@ -74,23 +72,26 @@ struct TensorSlotAccess {
 public:
     TensorSlotAccess() {}
 
-    const std::shared_ptr<LogicalTensor> &GetFirstReadTensor() const { return firstReadTensor_; }
+    const std::shared_ptr<LogicalTensor>& GetFirstReadTensor() const { return firstReadTensor_; }
     std::shared_ptr<LogicalTensor> GetFirstReadTensor() { return firstReadTensor_; }
 
-    const std::shared_ptr<LogicalTensor> &GetLastWriteTensor() const { return lastWriteTensor_; }
+    const std::shared_ptr<LogicalTensor>& GetLastWriteTensor() const { return lastWriteTensor_; }
     std::shared_ptr<LogicalTensor> GetLastWriteTensor() { return lastWriteTensor_; }
 
-    void Read(const std::shared_ptr<LogicalTensor> &tensor) {
+    void Read(const std::shared_ptr<LogicalTensor>& tensor)
+    {
         if (!written_) {
             firstReadTensor_ = tensor;
         }
     }
-    void Write(const std::shared_ptr<LogicalTensor> &tensor) {
+    void Write(const std::shared_ptr<LogicalTensor>& tensor)
+    {
         written_ = true;
         lastWriteTensor_ = tensor;
     }
 
-    std::string Dump() const {
+    std::string Dump() const
+    {
         std::ostringstream oss;
         oss << "<" << (written_ ? 'W' : ' ') << ","
             << (firstReadTensor_ ? firstReadTensor_->Dump() : std::string("noread")) << ","
@@ -127,7 +128,7 @@ struct IncastOutcastSlot {
 };
 
 struct TensorSlotScope {
-    Function *tensorFunc = nullptr;
+    Function* tensorFunc = nullptr;
     std::unordered_map<TensorSlot, TensorSlotAccess> accessRecord;
 
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> incastToInArgumentDict;
@@ -139,8 +140,10 @@ struct TensorSlotScope {
     std::vector<std::unordered_set<TensorSlot>> oriIncastReadSlotSet;
     std::vector<std::unordered_set<TensorSlot>> oriOutcastWriteSlotSet;
 
-    std::unordered_map<std::shared_ptr<LogicalTensor>, std::unordered_set<std::shared_ptr<LogicalTensor>>> incastToInOriginalDict;
-    std::unordered_map<std::shared_ptr<LogicalTensor>, std::unordered_set<std::shared_ptr<LogicalTensor>>> outcastToOutOriginalDict;
+    std::unordered_map<std::shared_ptr<LogicalTensor>, std::unordered_set<std::shared_ptr<LogicalTensor>>>
+        incastToInOriginalDict;
+    std::unordered_map<std::shared_ptr<LogicalTensor>, std::unordered_set<std::shared_ptr<LogicalTensor>>>
+        outcastToOutOriginalDict;
 
     std::unordered_map<LogicalTensorPtr, int> partialUpdateOutcastDict;
 
@@ -149,16 +152,16 @@ struct TensorSlotScope {
     IncastOutcastSlot ioslot;
     IncastOutcastSlot originalIocastsSlot;
 
-    explicit TensorSlotScope(Function *tfunc) : tensorFunc(tfunc) {}
-    TensorSlotScope(TensorSlotScope &&scope) = default;
-    TensorSlotScope &operator=(TensorSlotScope &&scope) = default;
+    explicit TensorSlotScope(Function* tfunc) : tensorFunc(tfunc) {}
+    TensorSlotScope(TensorSlotScope&& scope) = default;
+    TensorSlotScope& operator=(TensorSlotScope&& scope) = default;
 
-    std::unordered_set<TensorSlot> LookupIncastReadFrom(const std::shared_ptr<LogicalTensor> &tensor) const;
-    std::unordered_set<TensorSlot> LookupOutcastWriteTo(const std::shared_ptr<LogicalTensor> &tensor) const;
+    std::unordered_set<TensorSlot> LookupIncastReadFrom(const std::shared_ptr<LogicalTensor>& tensor) const;
+    std::unordered_set<TensorSlot> LookupOutcastWriteTo(const std::shared_ptr<LogicalTensor>& tensor) const;
     std::unordered_set<TensorSlot> LoopupArgSlot(std::shared_ptr<RawTensor> tensor);
 
     void BuildSlotSet();
-    void BuildIncastOutcastSlot(const std::unordered_map<TensorSlot, int> &slotIndexDict);
+    void BuildIncastOutcastSlot(const std::unordered_map<TensorSlot, int>& slotIndexDict);
     std::string Dump() const;
 };
 
@@ -166,7 +169,7 @@ struct IncastOutcastLink {
     explicit IncastOutcastLink(int slotNum = 0) : totalSlot(slotNum) {}
 
     int totalSlot;
-    std::unordered_map<Function *, IncastOutcastSlot> ioslotDict;
+    std::unordered_map<Function*, IncastOutcastSlot> ioslotDict;
 
     std::vector<int> inputSlotIndexList;
     std::vector<int> outputSlotIndexList;
@@ -177,7 +180,8 @@ struct IncastOutcastLink {
 
     std::vector<RuntimeSlotKindSet> runtimeSlotKindSetList;
 
-    void UpdateRuntimeSlotKindSetList() {
+    void UpdateRuntimeSlotKindSetList()
+    {
         runtimeSlotKindSetList.resize(totalSlot);
         for (int inputSlotIndex : inputSlotIndexList) {
             runtimeSlotKindSetList[inputSlotIndex].Add(RuntimeSlotKind::INPUT);
@@ -201,17 +205,17 @@ struct SlotInfo {
 
 struct TensorSlotCheckpoint {
     std::unordered_map<TensorSlot, SlotInfo> slotDict;
-    std::unordered_map<std::shared_ptr<LogicalTensor>, std::set<Operation *, LogicalTensor::CompareOp>> producerDict;
-    std::unordered_map<std::shared_ptr<LogicalTensor>, std::set<Operation *, LogicalTensor::CompareOp>> consumerDict;
+    std::unordered_map<std::shared_ptr<LogicalTensor>, std::set<Operation*, LogicalTensor::CompareOp>> producerDict;
+    std::unordered_map<std::shared_ptr<LogicalTensor>, std::set<Operation*, LogicalTensor::CompareOp>> consumerDict;
 };
 
 struct TensorSlotUsage {
-    Function *construct{nullptr};
-    Function *destruct{nullptr};
-    Function *readFirst{nullptr};
-    Function *readLast{nullptr};
-    Function *writeFirst{nullptr};
-    Function *writeLast{nullptr};
+    Function* construct{nullptr};
+    Function* destruct{nullptr};
+    Function* readFirst{nullptr};
+    Function* readLast{nullptr};
+    Function* writeFirst{nullptr};
+    Function* writeLast{nullptr};
 };
 
 struct TensorSlotManager {
@@ -247,53 +251,54 @@ struct TensorSlotManager {
     std::unordered_set<TensorSlot> recycleSlotSet;
 
     void SetRecording(bool isRecording);
-    void BeginScope(Function *tensorFunc);
+    void BeginScope(Function* tensorFunc);
     std::shared_ptr<TensorSlotScope> EndScope();
     void ConnectSlot(std::shared_ptr<TensorSlotScope> scope);
 
-    void TensorSlotRead(const TensorSlot &slot, const std::shared_ptr<LogicalTensor> &tensor);
-    void TensorSlotWrite(const TensorSlot &slot, const std::shared_ptr<LogicalTensor> &tensor);
-    void TensorSlotConstruct(const TensorSlot &slot);
-    void TensorSlotDestruct(const TensorSlot &slot);
+    void TensorSlotRead(const TensorSlot& slot, const std::shared_ptr<LogicalTensor>& tensor);
+    void TensorSlotWrite(const TensorSlot& slot, const std::shared_ptr<LogicalTensor>& tensor);
+    void TensorSlotConstruct(const TensorSlot& slot);
+    void TensorSlotDestruct(const TensorSlot& slot);
 
-    void TensorRead(const Tensor &tensor);
-    void TensorWrite(const Tensor &tensor, SlotProperty property = SlotProperty::NONE);
-    void TensorConstruct(const Tensor &tensor);
-    void TensorDestruct(const Tensor &tensor);
+    void TensorRead(const Tensor& tensor);
+    void TensorWrite(const Tensor& tensor, SlotProperty property = SlotProperty::NONE);
+    void TensorConstruct(const Tensor& tensor);
+    void TensorDestruct(const Tensor& tensor);
 
-    void TensorSymbol(const Tensor &tensor, const std::string &symbolName);
+    void TensorSymbol(const Tensor& tensor, const std::string& symbolName);
 
-    TensorSlotUsage &GetTensorSlotUsage(const TensorSlot &slot);
+    TensorSlotUsage& GetTensorSlotUsage(const TensorSlot& slot);
 
-    std::vector<int> LookupSlotIndex(const std::vector<std::reference_wrapper<Tensor>> &tensorList);
-    std::vector<int> LookupSlotIndexConst(const std::vector<std::reference_wrapper<const Tensor>> &tensorList);
-    std::vector<int> LookupSlotIndexBySymbol(const std::vector<std::string> &symbolNameList);
+    std::vector<int> LookupSlotIndex(const std::vector<std::reference_wrapper<Tensor>>& tensorList);
+    std::vector<int> LookupSlotIndexConst(const std::vector<std::reference_wrapper<const Tensor>>& tensorList);
+    std::vector<int> LookupSlotIndexBySymbol(const std::vector<std::string>& symbolNameList);
 
-    void MarkInput(const Tensor &tensor);
-    void MarkOutput(const Tensor &tensor);
-    void MarkInplace(const Tensor &out , const Tensor &in);
+    void MarkInput(const Tensor& tensor);
+    void MarkOutput(const Tensor& tensor);
+    void MarkInplace(const Tensor& out, const Tensor& in);
 
-    const std::vector<std::string> &GetInputNameList() const { return inputNameList; }
-    const std::vector<std::string> &GetOutputNameList() const { return outputNameList; }
+    const std::vector<std::string>& GetInputNameList() const { return inputNameList; }
+    const std::vector<std::string>& GetOutputNameList() const { return outputNameList; }
 
-    int GetInputIndex(const Tensor &tensor);
-    int GetOutputIndex(const Tensor &tensor);
-    int GetSlotIndex(const Tensor &tensor);
+    int GetInputIndex(const Tensor& tensor);
+    int GetOutputIndex(const Tensor& tensor);
+    int GetSlotIndex(const Tensor& tensor);
 
     void Checkpoint();
     void Restore();
 
     void UpdateReshapeInplaceSlots(IncastOutcastLink& link);
-    void SetSameSlot(const Tensor &operand, const Tensor &dst);
-    IncastOutcastLink BuildIncastOutcastLink(const std::string &rawname = "");
+    void SetSameSlot(const Tensor& operand, const Tensor& dst);
+    IncastOutcastLink BuildIncastOutcastLink(const std::string& rawname = "");
 
-    static bool HasSameSlot(const std::vector<int> &slots1, const std::vector<int> &slots2);
+    static bool HasSameSlot(const std::vector<int>& slots1, const std::vector<int>& slots2);
 
     std::string Dump() const;
+
 private:
-    void LogOperation(const TensorSlot &slot, const std::string &op);
-    void InsertLiveSlot(const TensorSlot &slot);
-    void TensorSlotRecycle(const TensorSlot &slot);
+    void LogOperation(const TensorSlot& slot, const std::string& op);
+    void InsertLiveSlot(const TensorSlot& slot);
+    void TensorSlotRecycle(const TensorSlot& slot);
     bool isRecording_{false};
 };
 } // namespace npu::tile_fwk

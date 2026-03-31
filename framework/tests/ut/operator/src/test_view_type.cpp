@@ -29,21 +29,17 @@ using namespace npu::tile_fwk;
 
 class ViewTypeUtest : public testing::Test {
 public:
-    static void SetUpTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void SetUpTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
     void SetUp() override { Program::GetInstance().Reset(); }
 
     void TearDown() override {}
 };
 
-TEST_F(ViewTypeUtest, add0_test) {
-
+TEST_F(ViewTypeUtest, add0_test)
+{
     int64_t m = 4;
     int64_t k = 32;
     int64_t n = 1024;
@@ -58,11 +54,11 @@ TEST_F(ViewTypeUtest, add0_test) {
     Tensor x(originDtype, xShape, "x");
     Tensor result(dstDtype, resultShape, "result");
 
-    ViewTypeFunc(x, result, dstDtype);  
+    ViewTypeFunc(x, result, dstDtype);
 }
 
-TEST_F(ViewTypeUtest, quant_test) {
-
+TEST_F(ViewTypeUtest, quant_test)
+{
     int64_t m = 64;
     int64_t k = 1;
     int64_t n = 512;
@@ -78,8 +74,8 @@ TEST_F(ViewTypeUtest, quant_test) {
     ViewTypeQuantTestFunc(x, result);
 }
 
-TEST_F(ViewTypeUtest, dequant_test) {
-
+TEST_F(ViewTypeUtest, dequant_test)
+{
     int64_t m = 2048;
     int64_t k = 1;
     int64_t n = 656;

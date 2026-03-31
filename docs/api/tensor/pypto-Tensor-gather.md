@@ -16,4 +16,3 @@ gather(self, dim: int, index: 'Tensor') -> 'Tensor'
 ## 详细说明
 
 请参见[pypto.gather](../operation/pypto-gather.md)。
-

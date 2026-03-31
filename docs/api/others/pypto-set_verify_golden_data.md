@@ -42,4 +42,3 @@ void：Set方法无返回值。设置操作成功即生效。
 set_verify_golden_data(goldens=[None, None, golden_out0])
 set_verify_golden_data([real_in0, real_in1, real_out0], [None, None, golden_out0])
 ```
-

@@ -16,4 +16,3 @@ assemble(self, input: 'Tensor', offsets: List[Union[int, SymbolicScalar]]) -> No
 ## 详细说明
 
 请参见[pypto.assemble](../operation/pypto-assemble.md)。
-

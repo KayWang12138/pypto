@@ -33,11 +33,10 @@
 #include "machine/device/dynamic/aicore_manager.h"
 #include "machine/device/tilefwk/aicpu_common.h"
 
- using namespace npu::tile_fwk;
+using namespace npu::tile_fwk;
 class TestDeviceRunner : public testing::Test {
 public:
-    static void SetUpTestCase() {
-    }
+    static void SetUpTestCase() {}
 
     static void TearDownTestCase() {}
 
@@ -46,7 +45,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestDeviceRunner, test_device_runner_get_task_time) {
+TEST_F(TestDeviceRunner, test_device_runner_get_task_time)
+{
     // auto runner = npu::tile_fwk::DeviceRunner::Get();
     npu::tile_fwk::DeviceRunner runner;
     std::uint64_t tastWastTime = 0;
@@ -54,7 +54,8 @@ TEST_F(TestDeviceRunner, test_device_runner_get_task_time) {
     runner.GetTasksTime();
 }
 
-TEST_F(TestDeviceRunner, test_set_pmu_event) {
+TEST_F(TestDeviceRunner, test_set_pmu_event)
+{
     // auto runner = npu::tile_fwk::DeviceRunner::Get();
     std::vector<int64_t> pmuEvtType;
     for (int i = 0; i < 9; i++) {
@@ -67,19 +68,22 @@ TEST_F(TestDeviceRunner, test_set_pmu_event) {
     }
 }
 
-TEST_F(TestDeviceRunner, test_ini_device_runner) {
+TEST_F(TestDeviceRunner, test_ini_device_runner)
+{
     npu::tile_fwk::DeviceRunner runner;
     runner.Init();
 }
 
-TEST_F(TestDeviceRunner, test_ini_device_args_arch32) {
+TEST_F(TestDeviceRunner, test_ini_device_args_arch32)
+{
     DeviceArgs args_;
     args_.archInfo = ArchInfo::DAV_2201;
     npu::tile_fwk::DeviceRunner runner;
     runner.InitDeviceArgs(args_);
 }
 
-TEST_F(TestDeviceRunner, test_ini_device_args_arch35) {
+TEST_F(TestDeviceRunner, test_ini_device_args_arch35)
+{
     Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
     DeviceArgs args_;
     args_.archInfo = ArchInfo::DAV_3510;
@@ -88,9 +92,12 @@ TEST_F(TestDeviceRunner, test_ini_device_args_arch35) {
     Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
 }
 
-TEST_F(TestDeviceRunner, test_ini_proflevel) {
-    std::unique_ptr<npu::tile_fwk::dynamic::AicpuTaskManager> aicpuTaskPtr = std::make_unique<npu::tile_fwk::dynamic::AicpuTaskManager>();
-    std::unique_ptr<npu::tile_fwk::dynamic::AiCoreManager> AiCoreManagerPtr = std::make_unique<npu::tile_fwk::dynamic::AiCoreManager>(*aicpuTaskPtr);
+TEST_F(TestDeviceRunner, test_ini_proflevel)
+{
+    std::unique_ptr<npu::tile_fwk::dynamic::AicpuTaskManager> aicpuTaskPtr =
+        std::make_unique<npu::tile_fwk::dynamic::AicpuTaskManager>();
+    std::unique_ptr<npu::tile_fwk::dynamic::AiCoreManager> AiCoreManagerPtr =
+        std::make_unique<npu::tile_fwk::dynamic::AiCoreManager>(*aicpuTaskPtr);
     AiCoreManagerPtr->aicNum_ = 0;
     AiCoreManagerPtr->aivNum_ = 1;
     AiCoreManagerPtr->aivStart_ = 0;
@@ -99,11 +106,11 @@ TEST_F(TestDeviceRunner, test_ini_proflevel) {
     AiCoreManagerPtr->aicEnd_ = 0;
     AiCoreManagerPtr->aicpuIdx_ = 0;
     npu::tile_fwk::dynamic::AiCoreProf prof(*AiCoreManagerPtr);
-    int64_t *oriRegAddrs_ = (int64_t *)malloc(sizeof(int64_t) * 1024 * 2);
-    int64_t *regAddrs_ = oriRegAddrs_ + 1024;
+    int64_t* oriRegAddrs_ = (int64_t*)malloc(sizeof(int64_t) * 1024 * 2);
+    int64_t* regAddrs_ = oriRegAddrs_ + 1024;
     regAddrs_[0] = (int64_t)&regAddrs_[0];
     ToSubMachineConfig toSubMachineConfig;
-    AdprofReportAdditionalInfo(0,0,0);
+    AdprofReportAdditionalInfo(0, 0, 0);
     toSubMachineConfig.profConfig.Add(ProfConfig::OFF);
     prof.ProfInit(regAddrs_, regAddrs_, toSubMachineConfig.profConfig);
     toSubMachineConfig.profConfig.Remove(ProfConfig::OFF);
@@ -119,11 +126,11 @@ TEST_F(TestDeviceRunner, test_ini_proflevel) {
     int32_t aicoreId = 0;
     int32_t subgraphId = 0;
     int32_t taskId = 0;
-    TaskStat *taskStat = new TaskStat{1,0,0,0,1,1};
+    TaskStat* taskStat = new TaskStat{1, 0, 0, 0, 1, 1};
     prof.ProInitHandShake();
     prof.ProInitAiCpuTaskStat();
     int threadIdx = 0;
-    npu::tile_fwk::dynamic::AiCpuTaskStat *aiCpuStat = new npu::tile_fwk::dynamic::AiCpuTaskStat{0,0,0,0,1};
+    npu::tile_fwk::dynamic::AiCpuTaskStat* aiCpuStat = new npu::tile_fwk::dynamic::AiCpuTaskStat{0, 0, 0, 0, 1};
     npu::tile_fwk::dynamic::AiCpuHandShakeSta handShakeSta;
     prof.ProfGet(aicoreId, subgraphId, taskId, taskStat);
     prof.ProfGetAiCpuTaskStat(threadIdx, aiCpuStat);
@@ -138,9 +145,12 @@ TEST_F(TestDeviceRunner, test_ini_proflevel) {
     free(oriRegAddrs_);
 }
 
-TEST_F(TestDeviceRunner, test_create_proflevel) {
-    std::unique_ptr<npu::tile_fwk::dynamic::AicpuTaskManager> aicpuTaskPtr = std::make_unique<npu::tile_fwk::dynamic::AicpuTaskManager>();
-    std::unique_ptr<npu::tile_fwk::dynamic::AiCoreManager> AiCoreManagerPtr = std::make_unique<npu::tile_fwk::dynamic::AiCoreManager>(*aicpuTaskPtr);
+TEST_F(TestDeviceRunner, test_create_proflevel)
+{
+    std::unique_ptr<npu::tile_fwk::dynamic::AicpuTaskManager> aicpuTaskPtr =
+        std::make_unique<npu::tile_fwk::dynamic::AicpuTaskManager>();
+    std::unique_ptr<npu::tile_fwk::dynamic::AiCoreManager> AiCoreManagerPtr =
+        std::make_unique<npu::tile_fwk::dynamic::AiCoreManager>(*aicpuTaskPtr);
     npu::tile_fwk::dynamic::AiCoreProf prof(*AiCoreManagerPtr);
 
     ProfConfig config0;
@@ -168,7 +178,7 @@ TEST_F(TestDeviceRunner, test_create_proflevel) {
     ProfConfig config6 = ProfConfig::AICPU_FUNC | ProfConfig::AICORE_TIME;
     config6.Remove(ProfConfig::AICPU_FUNC);
     EXPECT_EQ(config6.value, ProfConfig::AICORE_TIME);
-    
+
     config6.Remove(ProfConfig::AICORE_TIME);
     EXPECT_EQ(config6.value, 0);
 

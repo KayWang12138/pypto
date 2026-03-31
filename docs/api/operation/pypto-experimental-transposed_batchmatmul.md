@@ -48,4 +48,3 @@ c = pypto.experimental.transposed_batchmatmul(a, b, pypto.DT_FP16)
 
 # 输出张量 c 的形状为 (16, 2, 64)
 ```
-

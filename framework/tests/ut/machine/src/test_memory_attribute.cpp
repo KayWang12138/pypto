@@ -19,21 +19,15 @@
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
 
-TEST(TestMemoryAttribute, MemorySizeTest) {
-    std::vector<std::vector<int64_t>> tshapes = {
-        {   1,    1},
-        {   1,   10},
-        {   5,   10},
-        {  32,   64},
-        { 100,  100},
-        { 255,  255},
-        { 256, 1024},
-        {1024, 2048}
-    };
-    std::vector<npu::tile_fwk::DataType> dtypes = {npu::tile_fwk::DT_INT4, npu::tile_fwk::DT_INT8, npu::tile_fwk::DT_INT16,
-        npu::tile_fwk::DT_INT32, npu::tile_fwk::DT_FP8, npu::tile_fwk::DT_FP16, npu::tile_fwk::DT_FP32, npu::tile_fwk::DT_BF16, npu::tile_fwk::DT_HF8,
-        npu::tile_fwk::DT_HF4};
-    for (auto &tshape : tshapes) {
+TEST(TestMemoryAttribute, MemorySizeTest)
+{
+    std::vector<std::vector<int64_t>> tshapes = {{1, 1},     {1, 10},    {5, 10},     {32, 64},
+                                                 {100, 100}, {255, 255}, {256, 1024}, {1024, 2048}};
+    std::vector<npu::tile_fwk::DataType> dtypes = {
+        npu::tile_fwk::DT_INT4, npu::tile_fwk::DT_INT8, npu::tile_fwk::DT_INT16, npu::tile_fwk::DT_INT32,
+        npu::tile_fwk::DT_FP8,  npu::tile_fwk::DT_FP16, npu::tile_fwk::DT_FP32,  npu::tile_fwk::DT_BF16,
+        npu::tile_fwk::DT_HF8,  npu::tile_fwk::DT_HF4};
+    for (auto& tshape : tshapes) {
         for (auto dt : dtypes) {
             npu::tile_fwk::Tensor A(dt, tshape, "A_" + DataType2String(dt));
             A.GetStorage()->SetMemoryTypeToBe(npu::tile_fwk::MEM_UB);

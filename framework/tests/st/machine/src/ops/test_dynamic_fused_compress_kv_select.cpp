@@ -30,7 +30,8 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicCmpKvSel : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName)
+{
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
@@ -38,7 +39,8 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
 }
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName)
+{
     auto shape = tensor.GetShape();
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> values(capacity, 0);
@@ -47,8 +49,8 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 }
 
 template <typename T = npu::tile_fwk::bfloat16>
-void TestCmpKvSel(CmpAttnTile &tileConfig) {
-
+void TestCmpKvSel(CmpAttnTile& tileConfig)
+{
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
         dType = DT_BF16;
@@ -158,7 +160,6 @@ void TestCmpKvSel(CmpAttnTile &tileConfig) {
     auto cosData_v3 = CreateTensorData<T>(mlpCos_v2, "/mlp_cos_compress.bin");
     auto sinData_v3 = CreateTensorData<T>(mlpSin_v2, "/mlp_sin_compress.bin");
 
-
     auto cmpAttn_v3 = RawTensorData::CreateConstantTensor<float>(cmpAttn, 0.0f);
     auto cmpAttn16_v3 = RawTensorData::CreateConstantTensor<T>(cmpAttn16, 0.0f);
     auto cmpSoftmax_v3 = RawTensorData::CreateConstantTensor<float>(cmpSoftmax, 0.0f);
@@ -169,37 +170,40 @@ void TestCmpKvSel(CmpAttnTile &tileConfig) {
     auto topkRes_v3 = RawTensorData::CreateConstantTensor<uint32_t>(topkRes, 0.0f);
     auto topkInputData = RawTensorData::CreateConstantTensor<float>(topkInput, 0.0f);
 
-
     std::vector<RawTensorDataPtr> inputDataList = {
-        qNopeData_v3, qRopeData_v3, kvCacheData_v3, krCacheData_v3, cmpKvCacheData_v3, cmpKrCacheData_v3, blockTableData_v3,
-        cmpBlockTableData_v3, actSeqData_v3, actCmpSeqData_v3, wk1Data_v3, wk2Data_v3, cosData_v3, sinData_v3};
-    std::vector<RawTensorDataPtr> outputDataList =
-        {cmpAttn_v3, cmpAttn16_v3, cmpSoftmax_v3, fullK_v3, cmpK_v3, firstRope_v3, firstRopeInput_v3, topkRes_v3, topkInputData};
+        qNopeData_v3,      qRopeData_v3,      kvCacheData_v3,       krCacheData_v3, cmpKvCacheData_v3,
+        cmpKrCacheData_v3, blockTableData_v3, cmpBlockTableData_v3, actSeqData_v3,  actCmpSeqData_v3,
+        wk1Data_v3,        wk2Data_v3,        cosData_v3,           sinData_v3};
+    std::vector<RawTensorDataPtr> outputDataList = {cmpAttn_v3,        cmpAttn16_v3, cmpSoftmax_v3,
+                                                    fullK_v3,          cmpK_v3,      firstRope_v3,
+                                                    firstRopeInput_v3, topkRes_v3,   topkInputData};
 
-    FusedCompressKvSelect(qNope_v2, qRope_v2, kvCache_v2, krCache_v2, cmpKvCache_v2, cmpKrCache_v2, blockTable_v2,
-        cmpBlockTable_v2, actSeqLen_v2, actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpAttn16,
-        cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput,topkRes, topkInput, blockSize, cmpBlockSize, cmpStride, softmaxScale, n1, n2, tileConfig);
+    FusedCompressKvSelect(
+        qNope_v2, qRope_v2, kvCache_v2, krCache_v2, cmpKvCache_v2, cmpKrCache_v2, blockTable_v2, cmpBlockTable_v2,
+        actSeqLen_v2, actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpAttn16, cmpSoftmax,
+        fullK, cmpK, firstRope, firstRopeInput, topkRes, topkInput, blockSize, cmpBlockSize, cmpStride, softmaxScale,
+        n1, n2, tileConfig);
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
 
     std::cout << "========================fullKCast==============================" << std::endl;
-    EXPECT_TRUE(resultCmp(fullKGolden, (T *)fullK_v3->data(), 0.005f));
+    EXPECT_TRUE(resultCmp(fullKGolden, (T*)fullK_v3->data(), 0.005f));
     std::cout << "=======================ropeOut===============================" << std::endl;
-    EXPECT_TRUE(resultCmp<T>(firstRopeGolden, (T *)firstRope_v3->data(), 0.005f));
+    EXPECT_TRUE(resultCmp<T>(firstRopeGolden, (T*)firstRope_v3->data(), 0.005f));
     std::cout << "========================kCmpCast==============================" << std::endl;
-    EXPECT_TRUE(resultCmp(kCmpGolden, (float *)cmpK_v3->data(), 0.005f, 50));
+    EXPECT_TRUE(resultCmp(kCmpGolden, (float*)cmpK_v3->data(), 0.005f, 50));
     std::cout << "=======================softmaxOut===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(softmaxGolden, (float *)cmpSoftmax_v3->data(), 0.00001f, 50));
+    EXPECT_TRUE(resultCmp(softmaxGolden, (float*)cmpSoftmax_v3->data(), 0.00001f, 50));
     std::cout << "=======================attnOut===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(attnGolden, (float *)cmpAttn_v3->data(), 0.005f, 100));
+    EXPECT_TRUE(resultCmp(attnGolden, (float*)cmpAttn_v3->data(), 0.005f, 100));
     std::cout << "=======================attn16Out===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(attn16Golden, (T *)cmpAttn16_v3->data(), 0.005f, 100));
+    EXPECT_TRUE(resultCmp(attn16Golden, (T*)cmpAttn16_v3->data(), 0.005f, 100));
     std::cout << "=======================topkRes===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(topkIndicesGolden, (uint32_t *)topkRes_v3->data(), 0.008f, 0, 16, false, false, 32));
-
+    EXPECT_TRUE(resultCmp(topkIndicesGolden, (uint32_t*)topkRes_v3->data(), 0.008f, 0, 16, false, false, 32));
 }
 
-TEST_F(DynamicCmpKvSel, dynamic_NSA_case_no_flash) {
+TEST_F(DynamicCmpKvSel, dynamic_NSA_case_no_flash)
+{
     // // 精度工具
     // config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
     // config::SetVerifyOption(KEY_VERIFY_PASS, true);
@@ -222,14 +226,14 @@ TEST_F(DynamicCmpKvSel, dynamic_NSA_case_no_flash) {
     config.mlpCmpTile.v2TileShape = {1, 1, 128};                  // (1, n2, d)
     // CmpAttn
     config.attnTile.c1TileShape = {16, 16, 128, 128, 128, 128}; // (g, effSeq)
-    config.attnTile.v1TileShape = {16, 128};                     // (g, effSeq)
+    config.attnTile.v1TileShape = {16, 128};                    // (g, effSeq)
     config.attnTile.c2TileShape = {16, 16, 128, 128, 128, 128}; // (g, dN)
 
     TestCmpKvSel<npu::tile_fwk::float16>(config);
 }
 
-TEST_F(DynamicCmpKvSel, debug_dynamic_NSA_case_no_flash) {
-
+TEST_F(DynamicCmpKvSel, debug_dynamic_NSA_case_no_flash)
+{
     CmpAttnTile config;
     // Block concat tile
     config.castTile = {128, 64}; // {blockSize, n2 * d}
@@ -246,7 +250,7 @@ TEST_F(DynamicCmpKvSel, debug_dynamic_NSA_case_no_flash) {
     config.mlpCmpTile.v2TileShape = {1, 1, 128};                  // (1, n2, d)
     // CmpAttn
     config.attnTile.c1TileShape = {16, 16, 128, 128, 128, 128}; // (g, effSeq)
-    config.attnTile.v1TileShape = {16, 128};                     // (g, effSeq)
+    config.attnTile.v1TileShape = {16, 128};                    // (g, effSeq)
     config.attnTile.c2TileShape = {16, 16, 128, 128, 128, 128}; // (g, dN)
 
     TestCmpKvSel<npu::tile_fwk::float16>(config);

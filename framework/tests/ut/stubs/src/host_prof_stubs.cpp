@@ -19,38 +19,41 @@
 #include "log_types.h"
 #include "prof_common.h"
 
-uint64_t MsprofSysCycleTime() {
-  return 1;
+uint64_t MsprofSysCycleTime() { return 1; }
+
+int32_t MsprofRegisterCallback(uint32_t moduleId, ProfCommandHandle handle)
+{
+    (void)moduleId;
+    (void)handle;
+    return 0;
 }
 
-int32_t MsprofRegisterCallback(uint32_t moduleId, ProfCommandHandle handle) {
-  (void)moduleId;
-  (void)handle;
-  return 0;
+int32_t MsprofReportApi(uint32_t agingFlag, const MsprofApi* api)
+{
+    (void)agingFlag;
+    (void)api;
+    return 0;
 }
 
-int32_t MsprofReportApi(uint32_t agingFlag, const MsprofApi *api) {
-  (void)agingFlag;
-  (void)api;
-  return 0;
- }
-
-int32_t MsprofReportAdditionalInfo(uint32_t agingFlag, const VOID_PTR data, uint32_t length) {
-  (void)agingFlag;
-  (void)data;
-  (void)length;
-  return 0;
+int32_t MsprofReportAdditionalInfo(uint32_t agingFlag, const VOID_PTR data, uint32_t length)
+{
+    (void)agingFlag;
+    (void)data;
+    (void)length;
+    return 0;
 }
 
-int32_t MsprofReportCompactInfo(uint32_t agingFlag, const VOID_PTR data, uint32_t length) {
-  (void)agingFlag;
-  (void)data;
-  (void)length;
-  return 0;
+int32_t MsprofReportCompactInfo(uint32_t agingFlag, const VOID_PTR data, uint32_t length)
+{
+    (void)agingFlag;
+    (void)data;
+    (void)length;
+    return 0;
 }
 
-uint64_t MsprofGetHashId(const char *hashInfo, size_t length) {
-  (void)hashInfo;
-  (void)length;
-  return 0;
+uint64_t MsprofGetHashId(const char* hashInfo, size_t length)
+{
+    (void)hashInfo;
+    (void)length;
+    return 0;
 }

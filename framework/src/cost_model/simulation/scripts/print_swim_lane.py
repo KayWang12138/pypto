@@ -81,7 +81,7 @@ def plot_workflow(ndata, task_ids, labels, core_type):
 def prepare_workflow_data(infile):
     with open(infile) as file:
         jdata = json.load(file)
-    
+
     fdata = list(filter(lambda x: x["tasks"], jdata))
     # 如果全部为空，直接返回空场景
     if not fdata:

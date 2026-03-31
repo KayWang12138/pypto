@@ -46,8 +46,8 @@ struct MatrixInputs {
     static constexpr bool isCNz = T_CNz;
 };
 
-template <typename T_inputDtype, typename T_outputDtype, typename T_biasDtype, typename T_scaleDtype,
-    typename T_matrixInputs>
+template <
+    typename T_inputDtype, typename T_outputDtype, typename T_biasDtype, typename T_scaleDtype, typename T_matrixInputs>
 struct MatmulImpl {
     using inputDtype = T_inputDtype;
     using outputDtype = T_outputDtype;
@@ -76,7 +76,8 @@ struct SplitFuncParam {
     Tensor tensor_c;
 };
 
-inline SymbolicScalar CeilDivSymbolicScalar(SymbolicScalar a, int64_t b) {
+inline SymbolicScalar CeilDivSymbolicScalar(SymbolicScalar a, int64_t b)
+{
     if (b == 0) {
         return a;
     }
@@ -84,7 +85,8 @@ inline SymbolicScalar CeilDivSymbolicScalar(SymbolicScalar a, int64_t b) {
 }
 
 template <typename dtype>
-Tensor constructMatmulTensor(const std::vector<int64_t> &shape, const string &name, bool isNz) {
+Tensor constructMatmulTensor(const std::vector<int64_t>& shape, const string& name, bool isNz)
+{
     auto dataType = GetAstDtype<dtype>();
     if (isNz) {
         return Tensor(dataType, shape, name, TileOpFormat::TILEOP_NZ);
@@ -92,8 +94,9 @@ Tensor constructMatmulTensor(const std::vector<int64_t> &shape, const string &na
     return Tensor(dataType, shape, name);
 }
 
-BiasScaleShapeTuple GetBiasAndScaleShape(const SplitFuncParam &splitFuncParam) {
-    const auto parseTensor = [](const Tensor &tensor) {
+BiasScaleShapeTuple GetBiasAndScaleShape(const SplitFuncParam& splitFuncParam)
+{
+    const auto parseTensor = [](const Tensor& tensor) {
         const std::vector<int64_t> shape = tensor.GetStorage() ? tensor.GetShape() : std::vector<int64_t>{};
         const std::vector<SymbolicScalar> validShape =
             shape.empty() ? std::vector<SymbolicScalar>{} : std::vector<SymbolicScalar>{shape[0], shape[1]};
@@ -106,7 +109,8 @@ BiasScaleShapeTuple GetBiasAndScaleShape(const SplitFuncParam &splitFuncParam) {
 }
 
 void SetMatmulExtendParams(
-    SplitFuncParam &splitFuncParam, BiasScaleShapeTuple biasScaleShapeTuple, Matrix::MatmulExtendParam &extendParam) {
+    SplitFuncParam& splitFuncParam, BiasScaleShapeTuple biasScaleShapeTuple, Matrix::MatmulExtendParam& extendParam)
+{
     const auto [biasShape, biasValidShape, scaleShape, scaleValidShape] = biasScaleShapeTuple;
 
     if (splitFuncParam.param.biasTensor.GetStorage() != nullptr) {
@@ -122,18 +126,22 @@ void SetMatmulExtendParams(
 
 // 扩展bias和scale接口
 template <typename outputDtype, bool transA, bool transB, bool isCNz>
-static void NonSplitFuncWithBiasAndScale(SplitFuncParam &splitFuncParam) {
-    const auto &aShape = splitFuncParam.tensor_a.GetShape();
+static void NonSplitFuncWithBiasAndScale(SplitFuncParam& splitFuncParam)
+{
+    const auto& aShape = splitFuncParam.tensor_a.GetShape();
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1]};
-    const auto &bShape = splitFuncParam.tensor_b.GetShape();
+    const auto& bShape = splitFuncParam.tensor_b.GetShape();
     std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1]};
     const BiasScaleShapeTuple biasScaleShapeTuple = GetBiasAndScaleShape(splitFuncParam);
 
-    FUNCTION("testNoSplit",
+    FUNCTION(
+        "testNoSplit",
         {splitFuncParam.tensor_a, splitFuncParam.tensor_b, splitFuncParam.param.biasTensor,
-            splitFuncParam.param.scaleTensor},
-        {splitFuncParam.tensor_c}) {
-        LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
+         splitFuncParam.param.scaleTensor},
+        {splitFuncParam.tensor_c})
+    {
+        LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1))
+        {
             Tensor dyn_a = View(splitFuncParam.tensor_a, aShape, aValidShape, {mIdx, 0});
             Tensor dyn_b = View(splitFuncParam.tensor_b, bShape, bValidShape, {0, 0});
             Matrix::MatmulExtendParam extendParam;
@@ -145,22 +153,27 @@ static void NonSplitFuncWithBiasAndScale(SplitFuncParam &splitFuncParam) {
 }
 
 template <typename outputDtype, bool transA, bool transB, bool isCNz>
-static void NonSplitFunc(SplitFuncParam &splitFuncParam) {
+static void NonSplitFunc(SplitFuncParam& splitFuncParam)
+{
     if (splitFuncParam.param.biasTensor.GetStorage() != nullptr ||
-        splitFuncParam.param.scaleTensor.GetStorage() != nullptr || fabs(splitFuncParam.param.scaleValue - 0) > EPSILON) {
+        splitFuncParam.param.scaleTensor.GetStorage() != nullptr ||
+        fabs(splitFuncParam.param.scaleValue - 0) > EPSILON) {
         NonSplitFuncWithBiasAndScale<outputDtype, transA, transB, isCNz>(splitFuncParam);
         return;
     }
-    const auto &aShape = splitFuncParam.tensor_a.GetShape();
+    const auto& aShape = splitFuncParam.tensor_a.GetShape();
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1]};
-    const auto &bShape = splitFuncParam.tensor_b.GetShape();
+    const auto& bShape = splitFuncParam.tensor_b.GetShape();
     std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1]};
 
-    FUNCTION("testNoSplit",
+    FUNCTION(
+        "testNoSplit",
         {splitFuncParam.tensor_a, splitFuncParam.tensor_b, splitFuncParam.param.biasTensor,
-            splitFuncParam.param.scaleTensor},
-        {splitFuncParam.tensor_c}) {
-        LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
+         splitFuncParam.param.scaleTensor},
+        {splitFuncParam.tensor_c})
+    {
+        LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1))
+        {
             Tensor dyn_a = View(splitFuncParam.tensor_a, aShape, aValidShape, {mIdx, 0});
             Tensor dyn_b = View(splitFuncParam.tensor_b, bShape, bValidShape, {0, 0});
             splitFuncParam.tensor_c = Matrix::Matmul(GetAstDtype<outputDtype>(), dyn_a, dyn_b, transA, transB, isCNz);
@@ -169,25 +182,32 @@ static void NonSplitFunc(SplitFuncParam &splitFuncParam) {
 }
 
 template <typename outputDtype, bool transA, bool transB, bool isCNz>
-static void MSplitFunc(SplitFuncParam &splitFuncParam) {
-    const auto &aShape = splitFuncParam.tensor_a.GetShape();
+static void MSplitFunc(SplitFuncParam& splitFuncParam)
+{
+    const auto& aShape = splitFuncParam.tensor_a.GetShape();
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1]};
-    const auto &bShape = splitFuncParam.tensor_b.GetShape();
+    const auto& bShape = splitFuncParam.tensor_b.GetShape();
     std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1]};
-    const std::vector<int64_t> &viewShape = splitFuncParam.viewShape;
+    const std::vector<int64_t>& viewShape = splitFuncParam.viewShape;
 
-    FUNCTION("testMSplit",
+    FUNCTION(
+        "testMSplit",
         {splitFuncParam.tensor_a, splitFuncParam.tensor_b, splitFuncParam.param.biasTensor,
-            splitFuncParam.param.scaleTensor},
-        {splitFuncParam.tensor_c}) {
-        LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx,
-            LoopRange(0, CeilDivSymbolicScalar(transA ? aShape[1] : aShape[0], viewShape[0]), 1)) {
+         splitFuncParam.param.scaleTensor},
+        {splitFuncParam.tensor_c})
+    {
+        LOOP(
+            "mLoop", FunctionType::DYNAMIC_LOOP, mIdx,
+            LoopRange(0, CeilDivSymbolicScalar(transA ? aShape[1] : aShape[0], viewShape[0]), 1))
+        {
             Tensor dyn_a;
             if (transA) {
-                dyn_a = View(splitFuncParam.tensor_a, {aShape[0], viewShape[0]},
+                dyn_a = View(
+                    splitFuncParam.tensor_a, {aShape[0], viewShape[0]},
                     {aShape[0], std::min(aShape[1] - viewShape[0] * mIdx, viewShape[0])}, {0, mIdx * viewShape[0]});
             } else {
-                dyn_a = View(splitFuncParam.tensor_a, {viewShape[0], aShape[1]},
+                dyn_a = View(
+                    splitFuncParam.tensor_a, {viewShape[0], aShape[1]},
                     {std::min(aShape[0] - viewShape[0] * mIdx, viewShape[0]), aShape[1]}, {mIdx * viewShape[0], 0});
             }
             Tensor dyn_b = View(splitFuncParam.tensor_b, bShape, bValidShape, {0, 0});
@@ -198,26 +218,33 @@ static void MSplitFunc(SplitFuncParam &splitFuncParam) {
 }
 
 template <typename outputDtype, bool transA, bool transB, bool isCNz>
-static void NSplitFunc(SplitFuncParam &splitFuncParam) {
-    const auto &aShape = splitFuncParam.tensor_a.GetShape();
+static void NSplitFunc(SplitFuncParam& splitFuncParam)
+{
+    const auto& aShape = splitFuncParam.tensor_a.GetShape();
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1]};
-    const auto &bShape = splitFuncParam.tensor_b.GetShape();
+    const auto& bShape = splitFuncParam.tensor_b.GetShape();
     std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1]};
-    const std::vector<int64_t> &viewShape = splitFuncParam.viewShape;
+    const std::vector<int64_t>& viewShape = splitFuncParam.viewShape;
 
-    FUNCTION("testNSplit",
+    FUNCTION(
+        "testNSplit",
         {splitFuncParam.tensor_a, splitFuncParam.tensor_b, splitFuncParam.param.biasTensor,
-            splitFuncParam.param.scaleTensor},
-        {splitFuncParam.tensor_c}) {
-        LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx,
-            LoopRange(0, CeilDivSymbolicScalar(transB ? bShape[0] : bShape[1], viewShape[1]), 1)) {
+         splitFuncParam.param.scaleTensor},
+        {splitFuncParam.tensor_c})
+    {
+        LOOP(
+            "nLoop", FunctionType::DYNAMIC_LOOP, nIdx,
+            LoopRange(0, CeilDivSymbolicScalar(transB ? bShape[0] : bShape[1], viewShape[1]), 1))
+        {
             Tensor dyn_a = View(splitFuncParam.tensor_a, aShape, aValidShape, {0, 0});
             Tensor dyn_b;
             if (!transB) {
-                dyn_b = View(splitFuncParam.tensor_b, {bShape[0], viewShape[1]},
+                dyn_b = View(
+                    splitFuncParam.tensor_b, {bShape[0], viewShape[1]},
                     {bShape[0], std::min(bShape[1] - viewShape[1] * nIdx, viewShape[1])}, {0, nIdx * viewShape[1]});
             } else {
-                dyn_b = View(splitFuncParam.tensor_b, {viewShape[1], bShape[1]},
+                dyn_b = View(
+                    splitFuncParam.tensor_b, {viewShape[1], bShape[1]},
                     {std::min(bShape[0] - viewShape[1] * nIdx, viewShape[1]), bShape[1]}, {nIdx * viewShape[1], 0});
             }
             Tensor res = Matrix::Matmul(GetAstDtype<outputDtype>(), dyn_a, dyn_b, transA, transB, isCNz);
@@ -227,35 +254,46 @@ static void NSplitFunc(SplitFuncParam &splitFuncParam) {
 }
 
 template <typename outputDtype, bool transA, bool transB, bool isCNz>
-static void MNSplitFunc(SplitFuncParam &splitFuncParam) {
-    const auto &aShape = splitFuncParam.tensor_a.GetShape();
+static void MNSplitFunc(SplitFuncParam& splitFuncParam)
+{
+    const auto& aShape = splitFuncParam.tensor_a.GetShape();
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1]};
-    const auto &bShape = splitFuncParam.tensor_b.GetShape();
+    const auto& bShape = splitFuncParam.tensor_b.GetShape();
     std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1]};
-    const std::vector<int64_t> &viewShape = splitFuncParam.viewShape;
+    const std::vector<int64_t>& viewShape = splitFuncParam.viewShape;
 
-    FUNCTION("testMNSplit",
+    FUNCTION(
+        "testMNSplit",
         {splitFuncParam.tensor_a, splitFuncParam.tensor_b, splitFuncParam.param.biasTensor,
-            splitFuncParam.param.scaleTensor},
-        {splitFuncParam.tensor_c}) {
-        LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx,
-            LoopRange(0, CeilDivSymbolicScalar(transA ? aShape[1] : aShape[0], viewShape[0]), 1)) {
-            LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx,
-                LoopRange(0, CeilDivSymbolicScalar(transB ? bShape[0] : bShape[1], viewShape[1]), 1)) {
+         splitFuncParam.param.scaleTensor},
+        {splitFuncParam.tensor_c})
+    {
+        LOOP(
+            "mLoop", FunctionType::DYNAMIC_LOOP, mIdx,
+            LoopRange(0, CeilDivSymbolicScalar(transA ? aShape[1] : aShape[0], viewShape[0]), 1))
+        {
+            LOOP(
+                "nLoop", FunctionType::DYNAMIC_LOOP, nIdx,
+                LoopRange(0, CeilDivSymbolicScalar(transB ? bShape[0] : bShape[1], viewShape[1]), 1))
+            {
                 Tensor dyn_a;
                 if (transA) {
-                    dyn_a = View(splitFuncParam.tensor_a, {aShape[0], viewShape[0]},
+                    dyn_a = View(
+                        splitFuncParam.tensor_a, {aShape[0], viewShape[0]},
                         {aShape[0], std::min(aShape[1] - viewShape[0] * mIdx, viewShape[0])}, {0, mIdx * viewShape[0]});
                 } else {
-                    dyn_a = View(splitFuncParam.tensor_a, {viewShape[0], aShape[1]},
+                    dyn_a = View(
+                        splitFuncParam.tensor_a, {viewShape[0], aShape[1]},
                         {std::min(aShape[0] - viewShape[0] * mIdx, viewShape[0]), aShape[1]}, {mIdx * viewShape[0], 0});
                 }
                 Tensor dyn_b;
                 if (!transB) {
-                    dyn_b = View(splitFuncParam.tensor_b, {bShape[0], viewShape[1]},
+                    dyn_b = View(
+                        splitFuncParam.tensor_b, {bShape[0], viewShape[1]},
                         {bShape[0], std::min(bShape[1] - viewShape[1] * nIdx, viewShape[1])}, {0, nIdx * viewShape[1]});
                 } else {
-                    dyn_b = View(splitFuncParam.tensor_b, {viewShape[1], bShape[1]},
+                    dyn_b = View(
+                        splitFuncParam.tensor_b, {viewShape[1], bShape[1]},
                         {std::min(bShape[0] - viewShape[1] * nIdx, viewShape[1]), bShape[1]}, {nIdx * viewShape[1], 0});
                 }
                 Tensor res = Matrix::Matmul(GetAstDtype<outputDtype>(), dyn_a, dyn_b, transA, transB, isCNz);
@@ -266,7 +304,8 @@ static void MNSplitFunc(SplitFuncParam &splitFuncParam) {
 }
 
 template <typename MatmulImplType>
-void TestDynMatmul(MatrixOpParams &opParams) {
+void TestDynMatmul(MatrixOpParams& opParams)
+{
     SetInterpreterConfig();
 
     if (opParams.mmShape.size() != MM_SHAPE_SIZE || opParams.viewShape.size() != MM_VIEW_SHAPE_SIZE) {
@@ -340,8 +379,8 @@ void TestDynMatmul(MatrixOpParams &opParams) {
     float scaleValue = (opParams.quant_mode == QUANT_PERTENSOR) ? opParams.scaleValue : 0.0f;
     Matrix::ReLuType reluType = (opParams.relu_type == NO_RELU) ? Matrix::ReLuType::NoReLu : Matrix::ReLuType::ReLu;
     SplitFuncParam funcParam = {
-        Matrix::MatmulExtendParam(tensor_bias, tensor_scale, scaleValue, reluType),
-        opParams.viewShape, tensor_a, tensor_b, tensor_c};
+        Matrix::MatmulExtendParam(tensor_bias, tensor_scale, scaleValue, reluType), opParams.viewShape, tensor_a,
+        tensor_b, tensor_c};
 
     if (viewM > 0 && viewN > 0) {
         MNSplitFunc<outputDtype, MatmulImplType::cfg::transA, MatmulImplType::cfg::transB, MatmulImplType::cfg::isCNz>(
@@ -360,11 +399,12 @@ void TestDynMatmul(MatrixOpParams &opParams) {
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (outputDtype *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (outputDtype*)outs->data(), 0.001f));
 }
 
 // intput:fp16 output:fp16 bias:fp16
-TEST_F(DynamicMatmulTest, mm_A_Bt_ND_fp16_BIAS) {
+TEST_F(DynamicMatmulTest, mm_A_Bt_ND_fp16_BIAS)
+{
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int64_t m = 128;
     int64_t k = 257;
@@ -372,17 +412,16 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_ND_fp16_BIAS) {
     bool isBNz = false;
     bool isANz = false;
     std::vector<int64_t> viewShape = {-1, -1};
-    MatrixOpParams opParams = {
-        true, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
-    using TestMatmulType = MatmulImpl<npu::tile_fwk::float16, npu::tile_fwk::float16, npu::tile_fwk::float16, float,
+    MatrixOpParams opParams = {true, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
+    using TestMatmulType = MatmulImpl<
+        npu::tile_fwk::float16, npu::tile_fwk::float16, npu::tile_fwk::float16, float,
         MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
 // intput:fp16 output:fp32 bias:fp32
-TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_fp16_BIAS) {
+TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_fp16_BIAS)
+{
     int64_t m = 1;
     int64_t k = 512;
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
@@ -390,16 +429,14 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_fp16_BIAS) {
     bool isANz = false;
     bool isBNz = true;
     std::vector<int64_t> viewShape = {-1, -1};
-    MatrixOpParams opParams = {
-        true, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {true, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType = MatmulImpl<npu::tile_fwk::float16, float, float, float, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
 // intput:fp32 output:fp32 bias:fp32
-TEST_F(DynamicMatmulTest, mm_A_B_NZ_fp32_BIAS) {
+TEST_F(DynamicMatmulTest, mm_A_B_NZ_fp32_BIAS)
+{
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int64_t m = 16;
     int64_t k = 32;
@@ -407,16 +444,14 @@ TEST_F(DynamicMatmulTest, mm_A_B_NZ_fp32_BIAS) {
     bool isANz = false;
     bool isBNz = true;
     std::vector<int64_t> viewShape = {-1, -1};
-    MatrixOpParams opParams = {
-        true, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {true, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType = MatmulImpl<float, float, float, float, MatrixInputs<false, false, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
 // intput:int8 output:int32 bias:int32
-TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8_BIAS) {
+TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8_BIAS)
+{
     int64_t m = 1;
     int64_t k = 512;
     int64_t n = 256;
@@ -424,15 +459,13 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8_BIAS) {
     bool isANz = false;
     std::vector<int64_t> viewShape = {-1, -1};
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    MatrixOpParams opParams = {
-        true, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {true, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType = MatmulImpl<int8_t, int32_t, int32_t, float, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
-TEST_F(DynamicMatmulTest, mm_A_B_ND_bf16_BIAS) {
+TEST_F(DynamicMatmulTest, mm_A_B_ND_bf16_BIAS)
+{
     TileShape::Current().SetCubeTile({64, 64}, {256, 256}, {128, 128});
     int64_t m = 129;
     int64_t k = 257;
@@ -440,16 +473,14 @@ TEST_F(DynamicMatmulTest, mm_A_B_ND_bf16_BIAS) {
     bool isANz = false;
     bool isBNz = false;
     std::vector<int64_t> viewShape = {-1, -1};
-    MatrixOpParams opParams = {
-        true, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {true, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType = MatmulImpl<npu::tile_fwk::float16, float, float, float, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
 // PERCHANNEL
-TEST_F(DynamicMatmulTest, mm_A_Bt_ND_int8_channel) {
+TEST_F(DynamicMatmulTest, mm_A_Bt_ND_int8_channel)
+{
     TileShape::Current().SetCubeTile({32, 32}, {512, 512}, {32, 32});
     int64_t m = 240;
     int64_t k = 512;
@@ -457,16 +488,14 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_ND_int8_channel) {
     bool isBNz = false;
     bool isANz = false;
     std::vector<int64_t> viewShape = {-1, -1};
-    MatrixOpParams opParams = {
-        false, QUANT_PERCHANNEL, RELU, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {false, QUANT_PERCHANNEL, RELU, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType =
         MatmulImpl<int8_t, npu::tile_fwk::float16, float, uint64_t, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
-TEST_F(DynamicMatmulTest, mm_A_B_NZ_int8_tensor) {
+TEST_F(DynamicMatmulTest, mm_A_B_NZ_int8_tensor)
+{
     int64_t m = 16;
     int64_t k = 32;
     int64_t n = 512;
@@ -474,15 +503,13 @@ TEST_F(DynamicMatmulTest, mm_A_B_NZ_int8_tensor) {
     bool isBNz = true;
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {512, 512});
     std::vector<int64_t> viewShape = {-1, -1};
-    MatrixOpParams opParams = {
-        false, QUANT_PERTENSOR, RELU, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 2.0f
-    };
+    MatrixOpParams opParams = {false, QUANT_PERTENSOR, RELU, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 2.0f};
     using TestMatmulType = MatmulImpl<int8_t, npu::tile_fwk::float16, float, float, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
-TEST_F(DynamicMatmulTest, mm_A_Bt_ND_fp16) {
+TEST_F(DynamicMatmulTest, mm_A_Bt_ND_fp16)
+{
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int64_t m = 128;
     int64_t k = 257;
@@ -490,16 +517,14 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_ND_fp16) {
     bool isANz = false;
     bool isBNz = false;
     std::vector<int64_t> viewShape = {-1, 256};
-    MatrixOpParams opParams = {
-        false, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {false, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType =
         MatmulImpl<npu::tile_fwk::float16, float, npu::tile_fwk::float16, float, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
-TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_fp16) {
+TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_fp16)
+{
     int64_t m = 1;
     int64_t k = 512;
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
@@ -507,15 +532,13 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_fp16) {
     bool isANz = false;
     bool isBNz = true;
     std::vector<int64_t> viewShape = {-1, -1};
-    MatrixOpParams opParams = {
-        false, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {false, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType = MatmulImpl<npu::tile_fwk::float16, float, float, float, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
-TEST_F(DynamicMatmulTest, mm_A_B_NZ_fp32) {
+TEST_F(DynamicMatmulTest, mm_A_B_NZ_fp32)
+{
     int64_t m = 16;
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int64_t k = 32;
@@ -523,15 +546,13 @@ TEST_F(DynamicMatmulTest, mm_A_B_NZ_fp32) {
     bool isANz = false;
     bool isBNz = true;
     std::vector<int64_t> viewShape = {-1, -1};
-    MatrixOpParams opParams = {
-        false, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {false, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType = MatmulImpl<float, float, float, float, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
-TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8) {
+TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8)
+{
     int64_t m = 1;
     int64_t k = 512;
     int64_t n = 256;
@@ -539,15 +560,13 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8) {
     bool isBNz = true;
     std::vector<int64_t> viewShape = {-1, -1};
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    MatrixOpParams opParams = {
-        false, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {false, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType = MatmulImpl<int8_t, int32_t, int32_t, float, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
-TEST_F(DynamicMatmulTest, mm_A_B_ND_bf16) {
+TEST_F(DynamicMatmulTest, mm_A_B_ND_bf16)
+{
     int64_t m = 128;
     int64_t k = 256;
     int64_t n = 512;
@@ -555,15 +574,13 @@ TEST_F(DynamicMatmulTest, mm_A_B_ND_bf16) {
     bool isBNz = false;
     std::vector<int64_t> viewShape = {-1, -1};
     TileShape::Current().SetCubeTile({64, 64}, {256, 256}, {128, 128});
-    MatrixOpParams opParams = {
-        false, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {false, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType = MatmulImpl<npu::tile_fwk::float16, float, float, float, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
-TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8_tile4) {
+TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8_tile4)
+{
     TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {32, 32});
     int64_t m = 1;
     int64_t k = 512;
@@ -571,16 +588,14 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8_tile4) {
     bool isANz = false;
     bool isBNz = true;
     std::vector<int64_t> viewShape = {-1, -1};
-    MatrixOpParams opParams = {
-        false, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {false, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType =
         MatmulImpl<npu::tile_fwk::float16, float, npu::tile_fwk::float16, float, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
-TEST_F(DynamicMatmulTest, mm_A_ND_B_ND_C_NZ) {
+TEST_F(DynamicMatmulTest, mm_A_ND_B_ND_C_NZ)
+{
     int64_t m = 16;
     int64_t k = 192;
     int64_t n = 128;
@@ -588,16 +603,14 @@ TEST_F(DynamicMatmulTest, mm_A_ND_B_ND_C_NZ) {
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     bool isBNz = false;
     std::vector<int64_t> viewShape = {-1, -1};
-    MatrixOpParams opParams = {
-        false, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {false, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType =
         MatmulImpl<npu::tile_fwk::float16, float, npu::tile_fwk::float16, float, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
-TEST_F(DynamicMatmulTest, mm_AT_B_ANZ_BND_bf16) {
+TEST_F(DynamicMatmulTest, mm_AT_B_ANZ_BND_bf16)
+{
     int64_t m = 128;
     int64_t k = 256;
     int64_t n = 512;
@@ -605,33 +618,29 @@ TEST_F(DynamicMatmulTest, mm_AT_B_ANZ_BND_bf16) {
     bool isANz = true;
     bool isBNz = false;
     std::vector<int64_t> viewShape = {-1, -1};
-    MatrixOpParams opParams = {
-        false, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {false, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType =
         MatmulImpl<npu::tile_fwk::float16, float, npu::tile_fwk::float16, float, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
-TEST_F(DynamicMatmulTest, mm_AT_BT_AND_BND_bf16) {
+TEST_F(DynamicMatmulTest, mm_AT_BT_AND_BND_bf16)
+{
     int64_t m = 128;
     int64_t k = 256;
     bool isBNz = false;
     int64_t n = 512;
     bool isANz = false;
     std::vector<int64_t> viewShape = {-1, -1};
-    MatrixOpParams opParams = {
-        false, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {false, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     using TestMatmulType =
         MatmulImpl<npu::tile_fwk::float16, float, npu::tile_fwk::float16, float, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
-TEST_F(DynamicMatmulTest, mm_AT_B_AND_BND_fp32_UNALIGN) {
+TEST_F(DynamicMatmulTest, mm_AT_B_AND_BND_fp32_UNALIGN)
+{
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int64_t m = 127;
     int64_t k = 255;
@@ -639,16 +648,14 @@ TEST_F(DynamicMatmulTest, mm_AT_B_AND_BND_fp32_UNALIGN) {
     int64_t n = 511;
     bool isANz = false;
     std::vector<int64_t> viewShape = {-1, -1};
-    MatrixOpParams opParams = {
-        false, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {false, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType =
         MatmulImpl<npu::tile_fwk::float16, float, npu::tile_fwk::float16, float, MatrixInputs<false, true, false>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
-TEST_F(DynamicMatmulTest, mm_AT_BT_AND_BND_fp32) {
+TEST_F(DynamicMatmulTest, mm_AT_BT_AND_BND_fp32)
+{
     int64_t m = 128;
     int64_t k = 256;
     int64_t n = 512;
@@ -656,16 +663,14 @@ TEST_F(DynamicMatmulTest, mm_AT_BT_AND_BND_fp32) {
     bool isANz = false;
     bool isBNz = false;
     std::vector<int64_t> viewShape = {-1, -1};
-    MatrixOpParams opParams = {
-        false, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {false, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType =
         MatmulImpl<npu::tile_fwk::float16, float, npu::tile_fwk::float16, float, MatrixInputs<true, true, true>>;
     TestDynMatmul<TestMatmulType>(opParams);
 }
 
-TEST_F(DynamicMatmulTest, test1_fp32) {
+TEST_F(DynamicMatmulTest, test1_fp32)
+{
     int64_t m = 128;
     int64_t k = 256;
     int64_t n = 513;
@@ -673,10 +678,7 @@ TEST_F(DynamicMatmulTest, test1_fp32) {
     bool isBNz = false;
     std::vector<int64_t> viewShape = {32, 32};
     TileShape::Current().SetCubeTile({256, 256}, {64, 64}, {64, 64});
-    MatrixOpParams opParams = {
-        false, 0, 0, {m, k, n},
-           isANz, isBNz, viewShape, GetGoldenDir(), 0.0f
-    };
+    MatrixOpParams opParams = {false, 0, 0, {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir(), 0.0f};
     using TestMatmulType =
         MatmulImpl<npu::tile_fwk::float16, float, npu::tile_fwk::float16, float, MatrixInputs<true, false, true>>;
     TestDynMatmul<TestMatmulType>(opParams);
