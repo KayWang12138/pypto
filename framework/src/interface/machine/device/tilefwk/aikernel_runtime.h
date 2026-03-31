@@ -59,29 +59,57 @@ __always_inline void WaitAicoreStart([[maybe_unused]] npu::tile_fwk::DevStartArg
 
 #define RuntimeGetInputShapeDimSize(input) ((input)->shape.dimSize)
 #define RuntimeGetInputShapeDim(input, n) ((input)->shape.dim[(n)])
-#define RuntimeGetInputDataInt32Dim1(input, off0) (((int32_t*)(input)->address)[(off0)])
-#define RuntimeGetInputDataInt32Dim2(input, off0, off1) \
-    (((int32_t*)(input)->address)[(off0) * (input)->shape.dim[1] + (off1)])
-#define RuntimeGetInputDataInt32Dim3(input, off0, off1, off2) \
-    (((int32_t*)(input)->address)                             \
-         [(off0) * (input)->shape.dim[1] * (input)->shape.dim[2] + (off1) * (input)->shape.dim[2] + (off2)])
-#define RuntimeGetInputDataInt32Dim4(input, off0, off1, off2, off3)                                              \
-    (((int32_t*)(input)->address)                                                                                \
-         [(((off0) * (input)->shape.dim[1] + (off1)) * (input)->shape.dim[2] + (off2)) * (input)->shape.dim[3] + \
-          (off3)])
-
 #define RUNTIME_GetInputShapeDimSize(inputIndex) \
     RuntimeGetInputShapeDimSize(&(RuntimeGetStartArgs())->devTensorList[(inputIndex)])
 #define RUNTIME_GetInputShapeDim(inputIndex, n) \
     RuntimeGetInputShapeDim(&(RuntimeGetStartArgs())->devTensorList[(inputIndex)], (n))
-#define RUNTIME_GetInputDataInt32Dim1(inputIndex, off0) \
-    RuntimeGetInputDataInt32Dim1(&(RuntimeGetStartArgs())->devTensorList[(inputIndex)], (off0))
-#define RUNTIME_GetInputDataInt32Dim2(inputIndex, off0, off1) \
-    RuntimeGetInputDataInt32Dim2(&(RuntimeGetStartArgs())->devTensorList[(inputIndex)], (off0), (off1))
-#define RUNTIME_GetInputDataInt32Dim3(inputIndex, off0, off1, off2) \
-    RuntimeGetInputDataInt32Dim3(&(RuntimeGetStartArgs())->devTensorList[(inputIndex)], (off0), (off1), (off2))
-#define RUNTIME_GetInputDataInt32Dim4(inputIndex, off0, off1, off2, off3) \
-    RuntimeGetInputDataInt32Dim4(&(RuntimeGetStartArgs())->devTensorList[(inputIndex)], (off0), (off1), (off2), (off3))
+
+#define RuntimeDType1 int8_t    // DT_INT8
+#define RuntimeDType2 int16_t   // DT_INT16
+#define RuntimeDType3 int32_t   // DT_INT32
+#define RuntimeDType4 int64_t   // DT_INT64
+#define RuntimeDType11 uint8_t  // DT_UINT8
+#define RuntimeDType12 uint16_t // DT_UINT16
+#define RuntimeDType13 uint32_t // DT_UINT32
+#define RuntimeDType14 uint64_t // DT_UINT64
+#define RuntimeDType15 int8_t   // DT_BOOL
+
+#define RuntimeDTypeX(x) RuntimeDType##x
+
+template <typename T>
+INLINE T RUNTIMEGetInputData(__gm__ npu::tile_fwk::DevTensorData* input, int64_t off0)
+{
+    return ((T*)input->address)[off0];
+}
+
+template <typename T>
+INLINE T RUNTIMEGetInputData(__gm__ npu::tile_fwk::DevTensorData* input, int64_t off0, int64_t off1)
+{
+    int64_t off = input->shape.dim[1] * off0 + off1;
+    return ((T*)input->address)[off];
+}
+
+template <typename T>
+INLINE T RUNTIMEGetInputData(__gm__ npu::tile_fwk::DevTensorData* input, int64_t off0, int64_t off1, int64_t off2)
+{
+    int64_t off = input->shape.dim[1] * off0 + off1;
+    off = off * input->shape.dim[2] + off2;
+    return ((T*)input->address)[off];
+}
+
+template <typename T>
+INLINE T
+RUNTIMEGetInputData(__gm__ npu::tile_fwk::DevTensorData* input, int64_t off0, int64_t off1, int64_t off2, int64_t off3)
+{
+    int64_t off = input->shape.dim[1] * off0 + off1;
+    off = off * input->shape.dim[2] + off2;
+    off = off * input->shape.dim[3] + off3;
+    return ((T*)input->address)[off];
+}
+
+#define RUNTIME_GetInputData(index, dtype, ...) \
+    RUNTIMEGetInputData<RuntimeDTypeX(dtype)>(&(RuntimeGetStartArgs())->devTensorList[(index)], __VA_ARGS__)
+
 #define RUNTIME_GetSymbol(idx) RuntimeGetSymbol(idx)
 
 #endif
