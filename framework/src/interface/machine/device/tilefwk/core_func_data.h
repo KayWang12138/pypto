@@ -134,10 +134,20 @@ struct DeviceTask {
     L2PreInfo l2Info;
     uint64_t costModelData;           // costmodel仿真时长
     uint64_t aicoreModel;             // costmodel aicore功能模型
+    
     uint64_t availableVectorTaskQueue; // A queue containing the available tasks to be scheduled into vector cores
     uint64_t availableCubeTaskQueue; // A queue containing the available tasks to be scheduled into vector cube cores
-    uint64_t availableVectorCoreQueue; // A queue containing the available vector cores
-    uint64_t availableCubeCoreQueue; // A queue containing the available cube cores
+    
+    // Core queues
+    uint64_t freeAVectorCoreQueue;
+    uint64_t freeACubeCoreQueue; 
+    uint64_t busyAVectorCoreQueue;
+    uint64_t busyACubeCoreQueue; 
+    uint64_t freeBVectorCoreQueue;
+    uint64_t freeBCubeCoreQueue; 
+    uint64_t busyBVectorCoreQueue;
+    uint64_t busyBCubeCoreQueue; 
+
     uint64_t runningPairQueue; // A queue containing the currently running core/task pairings
     volatile bool isTaskInitialized; // A flag to indicate the kernel has been properly initialized by the lead AICPU scheduler
 };

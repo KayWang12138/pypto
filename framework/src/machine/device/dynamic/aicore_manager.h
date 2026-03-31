@@ -151,12 +151,27 @@ public:
             for (size_t i = 0; i < readyAicCoreFunctionQue->Size(); i++) availableCubeTaskQueue->push((uint32_t)readyAicCoreFunctionQue->GetBuffer()[i]);
 
             // Allocating core queues
-            // auto availableVectorCoreQueue = new coreQueue_t(AIV_CORE_COUNT);
-            // auto availableCubeCoreQueue = new coreQueue_t(AIC_CORE_COUNT);
-            // curDevTask_->availableVectorCoreQueue = (uint64_t) availableVectorCoreQueue;
-            // curDevTask_->availableCubeCoreQueue = (uint64_t) availableCubeCoreQueue;
-            // for (uint32_t i = AIC_CORE_COUNT; i < AIC_CORE_COUNT + AIV_CORE_COUNT; i++) availableVectorCoreQueue->push(i);
-            // for (uint32_t i = 0; i < AIC_CORE_COUNT; i++) availableCubeCoreQueue->push(i);
+            auto freeAVectorCoreQueue = new coreQueue_t();
+            auto freeACubeCoreQueue   = new coreQueue_t();
+            auto busyAVectorCoreQueue = new pairQueue_t();
+            auto busyACubeCoreQueue   = new pairQueue_t();
+            auto freeBVectorCoreQueue = new pairQueue_t();
+            auto freeBCubeCoreQueue   = new pairQueue_t();
+            auto busyBVectorCoreQueue = new pairQueue_t();
+            auto busyBCubeCoreQueue   = new pairQueue_t();
+
+            curDevTask_->freeAVectorCoreQueue = (uint64_t) freeAVectorCoreQueue;
+            curDevTask_->freeACubeCoreQueue   = (uint64_t) freeACubeCoreQueue  ;
+            curDevTask_->busyAVectorCoreQueue = (uint64_t) busyAVectorCoreQueue;
+            curDevTask_->busyACubeCoreQueue   = (uint64_t) busyACubeCoreQueue  ;
+            curDevTask_->freeBVectorCoreQueue = (uint64_t) freeBVectorCoreQueue;
+            curDevTask_->freeBCubeCoreQueue   = (uint64_t) freeBCubeCoreQueue  ;
+            curDevTask_->busyBVectorCoreQueue = (uint64_t) busyBVectorCoreQueue;
+            curDevTask_->busyBCubeCoreQueue   = (uint64_t) busyBCubeCoreQueue  ;
+
+            // Filling the free A  (fully available)queues
+            for (uint32_t i = 0; i < AIC_CORE_COUNT; i++) freeACubeCoreQueue->push(i);
+            for (uint32_t i = AIC_CORE_COUNT; i < AIC_CORE_COUNT + AIV_CORE_COUNT; i++) freeAVectorCoreQueue->push(i);
 
             // Setting task as initialized, allowing others to continue
             curDevTask_->isTaskInitialized = true;
@@ -167,6 +182,15 @@ public:
 
         taskQueue_[(int)CoreType::AIV] = (taskQueue_t*)curDevTask_->availableVectorTaskQueue;
         taskQueue_[(int)CoreType::AIC] = (taskQueue_t*)curDevTask_->availableCubeTaskQueue;
+
+        // freeACoreQueue_[(int)CoreType::AIV] = (coreQueue_t*) curDevTask_->freeAVectorCoreQueue ;
+        // freeACoreQueue_[(int)CoreType::AIC] = (coreQueue_t*) curDevTask_->freeACubeCoreQueue   ;
+        // busyAPairQueue_[(int)CoreType::AIV] = (pairQueue_t*) curDevTask_->busyAVectorCoreQueue ;
+        // busyAPairQueue_[(int)CoreType::AIC] = (pairQueue_t*) curDevTask_->busyACubeCoreQueue   ;
+        // freeBPairQueue_[(int)CoreType::AIV] = (pairQueue_t*) curDevTask_->freeBVectorCoreQueue ;
+        // freeBPairQueue_[(int)CoreType::AIC] = (pairQueue_t*) curDevTask_->freeBCubeCoreQueue   ;
+        // busyBPairQueue_[(int)CoreType::AIV] = (pairQueue_t*) curDevTask_->busyBVectorCoreQueue ;
+        // busyBPairQueue_[(int)CoreType::AIC] = (pairQueue_t*) curDevTask_->busyBCubeCoreQueue   ;
 
         freeACoreQueue_[(int)CoreType::AIV] = new coreQueue_t();
         freeACoreQueue_[(int)CoreType::AIC] = new coreQueue_t();
@@ -210,6 +234,8 @@ public:
         readyAICPUsBarrierPtr->fetch_add(1);
         while (readyAICPUsBarrierPtr->load() < AICPU_SCHEDULERS) { }
 
+        // if (isLeaderScheduler_ == false) return;
+
         const auto t0 = std::chrono::high_resolution_clock::now();
 
         ExecuteTask(taskCtrl);
@@ -218,7 +244,7 @@ public:
         const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(tf - t0).count();
         DEV_ERROR(0, "[AICPU %d] Running Time: %ldns", aicpuIdx_, ns);
 
-        NormalStop();
+        if (isLeaderScheduler_ == true) NormalStop();
     }
 
     inline void ExecuteTask(DeviceTaskCtrl *taskCtrl) {
@@ -298,11 +324,20 @@ public:
     inline void RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         Init(threadIdx, deviceArgs, schedIdx);
         DeviceTaskCtrl *taskCtrl = nullptr;
+
+        // Getting variable controlling who is the scheduler lead. The first to arrive here should take the lead so that this starts as fast as possible
+        auto leadSchedulerId = (std::atomic<uint32_t>*) &deviceArgs->leadSchedulerId;
+        
+        // Putting myself as leader, if nobody has done it yet
+        uint32_t expectedValue = AICPU_LEAD_SCHEDULER_NULL;
+        isLeaderScheduler_ = leadSchedulerId->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
+
+
         prefetchedTaskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
-        if constexpr (IsDeviceMode()) {
-            HandShake();
-            devStartArgs->syncFlag = 1;
-        }
+
+        HandShake();
+        devStartArgs->syncFlag = 1;
+
         while (true) {
             taskCtrl = preFetchSuccess_ ? preFetchNextDevTaskCtrl_ : prefetchedTaskQueue_->Dequeue();
             if (taskCtrl == nullptr) {
@@ -664,14 +699,6 @@ private:
         validGetPgMask_ = deviceArgs->validGetPgMask;
         isSendStop = false;
         deviceArgs_ = deviceArgs;
-
-        // Getting variable controlling who is the scheduler lead. The first to arrive here should take the lead so that this starts as fast as possible
-        auto leadSchedulerId = (std::atomic<uint32_t>*) &deviceArgs->leadSchedulerId;
-        
-        // Putting myself as leader, if nobody has done it yet
-        uint32_t expectedValue = AICPU_LEAD_SCHEDULER_NULL;
-        isLeaderScheduler_ = leadSchedulerId->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
-
         UpdateAiCoreBlockIndexSection();
         aicoreHal_.MapRegistersForAllCores(aicNum_);
         preFetchSuccess_ = false;
@@ -680,48 +707,20 @@ private:
 
     inline void HandShake() {
         int handShakeNum = 0;
-        int mngAicoreNum = aicEnd_ - aicStart_ + aivEnd_ - aivStart_;
+        int aiStart = 0;
+        int aiEnd = TOTAL_CORE_COUNT;
+        int mngAicoreNum = aiEnd - aiStart;
         bool handFlag[MAX_AICORE_NUM] = {false};
-        uint64_t start_cycles = GetCycles();
-        bool aicAllSuccess = false;
-        bool aivAllSuccess = false;
-        int aicSucessCnt = 0;
-        int aivSucessCnt = 0;
         
         while (handShakeNum < mngAicoreNum) {
-            bool curIterAllAicSuccess = true;
-            bool curIterAllAivSuccess = true;
-            for (int i = aicEnd_ - 1; (!aicAllSuccess) && i >= aicStart_; i--) {
+            for (int i = aiStart; i < aiEnd; i++) {
                 if (handFlag[i]) {
                     continue;
                 }
                 if (aicoreHal_.TryHandShakeByGm(i, dotStatus_)) {
                     handShakeNum++;
-                    aicSucessCnt++;
                     handFlag[i] = true;
-                } else {
-                    curIterAllAicSuccess = false;
-                }
-            }
-            aicAllSuccess = curIterAllAicSuccess;
-
-            for (int i = aivEnd_ - 1; (!aivAllSuccess) && i >= aivStart_; i--) {
-                if (handFlag[i]) {
-                    continue;
-                }
-                if (aicoreHal_.TryHandShakeByGm(i, dotStatus_)) {
-                    handShakeNum++;
-                    aivSucessCnt++;
-                    handFlag[i] = true;
-                } else {
-                    curIterAllAivSuccess = false;
-                }
-            }
-            aivAllSuccess = curIterAllAivSuccess;
-
-            if (GetCycles() - start_cycles > HAND_SHAKE_TIMEOUT) {
-                DEV_ERROR(0, "HandShakeByGmWithPreSendTask timeout notHandshakeNum=%d.", mngAicoreNum - handShakeNum);
-                return;
+                } 
             }
         }
     }
@@ -739,6 +738,11 @@ private:
         f(AIV_NUM_PER_AI_CORE * aicValidNum_, schedIdx_, aicpuNum_, aivStart_, aivEnd_);
         aivStart_ += aicValidNum_;
         aivEnd_ += aicValidNum_;
+
+        // aicStart_ = 0;
+        // aicEnd_ = AIC_CORE_COUNT - 1;
+        // aivStart_ = AIC_CORE_COUNT;
+        // aivEnd_ = AIC_CORE_COUNT + AIV_CORE_COUNT - 1;
 
         aicoreHal_.SetMngCoreBlockId(aicStart_, aicEnd_, aivStart_, aivEnd_);
     }
@@ -758,12 +762,10 @@ private:
 
     inline void NormalStop() {
         DEV_INFO("aicore manager[%d] try normal stop.", aicpuIdx_);
-        ForEachManageAicore([this](auto coreIdx) { aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1) ; });
+        for (size_t i = 0; i < TOTAL_CORE_COUNT; i++) aicoreHal_.SetReadyQueue(i, AICORE_TASK_STOP + 1) ;
         /* write to MAINBASE reg must be done before close 0x18 */
         __sync_synchronize();
-        ForEachManageAicore([this](auto coreIdx) {
-            aicoreHal_.ResetShakeBuf(coreIdx);
-        });
+        for (size_t i = 0; i < TOTAL_CORE_COUNT; i++) aicoreHal_.ResetShakeBuf(i);
         DEV_INFO("aicore manager[%d] normal stopped.", aicpuIdx_);
     }
 
