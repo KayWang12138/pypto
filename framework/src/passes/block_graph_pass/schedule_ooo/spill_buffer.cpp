@@ -235,15 +235,18 @@ void OoOScheduler::UpdateTensorInputForView(Operation& op, Operation* spillSrcOp
 // 新增：基于Operation*的版本
 Status OoOScheduler::UpdateReloadIssueDepend(Operation* reloadCopyin, Operation* spillOp, int spillMemId) {
     if (depManager_.TransferSuccessorsByMemId( spillOp, reloadCopyin, spillMemId, [this](Operation *op) { return opIsRetiredMap[op]; },
-        [this](Operation *op) -> const std::vector<int> & { return opReqMemIdsMap[op]; } != SUCCESS) {
-
+        [this](Operation *op) -> const std::vector<int> & { return opReqMemIdsMap[op]; }) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "UpdateReloadIssueDepend failed.");
+        return FAILED;
     }
-    if
     if (reloadCopyin->GetOutputOperand(0) == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation, "%s cannot find oOperand[0]. %s", GetOpInfo(reloadCopyin).c_str(), GetFormatBacktrace(*reloadCopyin).c_str());
         return FAILED;
     }
-    UpdateTensorInputFor(succOp, spillOp, reloadCopyin->GetOutputOperand(0));
+    for (auto &succOp : GetSuccessors(reloadCopyin)) {
+        UpdateTensorInputFor(succOp, spillOp, reloadCopyin->GetOutputOperand(0));
+    }
+    return SUCCESS;
 }
 
 // 新增：插入Operation到orderedOps
@@ -391,7 +394,7 @@ Status OoOScheduler::UpdateReshapeDependAndBuf(Operation* allocOp, SpillInfo &sp
             }
         }
     }
-    InitDependencies();
+    depManager_.InitDependencies(orderedOps);
     return SUCCESS;
 }
 
@@ -425,7 +428,7 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation*
     auto spillAllocOpPtr = UpdateIssueAttr(spillAllocOp, {reshapeTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
     // 创建 copyin
     Operation* preOp = nullptr;
-    auto& predecessors = opPredecessorsMap[spillInfo.spillOp_];
+    auto& predecessors = GetPredecessors(spillInfo.spillOp_);
     for (auto predOp : predecessors) {
         if (!opIsAllocMap[predOp]) {
             preOp = predOp;
@@ -522,6 +525,9 @@ Status OoOScheduler::SpillInBuffer(SpillInfo &spillInfo, Operation* allocOp, Mem
     reloadCopyin = reloadOps.second;
     if (UpdateReloadIssueInfo(reloadAlloc, reloadCopyin, spillInfo.spillOp_, spillInfo.spillMemId_,
         allocOp) != SUCCESS) {
+        reloadOps.first->SetAsDeleted();
+        reloadOps.second->SetAsDeleted();
+        function_.EraseOperations();
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateReloadIssueInfo failed!");
         return FAILED;
     }
@@ -641,7 +647,7 @@ Status OoOScheduler::UpdateCopyInMode(Operation& copyInOp)
     return SUCCESS;
 }
 
-Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* allocOp, Operation* &spillCopyoutOp, int &bufLastUseOrder, bool &isFinish) {
+Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &spillCopyoutOp, int &bufLastUseOrder, bool &isFinish) {
     APASS_LOG_DEBUG_F(Elements::Operation, "Start to spill-out special L1 in A5.");
     auto spillOp = spillInfo.spillOp_;
     auto preTensor = spillOp->GetInputOperand(0);
@@ -684,7 +690,13 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* all
         APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill! %s", GetFormatBacktrace(*spillOp).c_str());
         return FAILED;
     }
-    bufLastUseOrder = GetBufLastUseOrder(allocOp, actualSpillTensor->memoryrange.memId);
+    auto spillOpIt = std::find(newOperations_.begin(), newOperations_.end(), spillOp);
+    if (spillOpIt != newOperations_.end()) {
+        size_t pos = std::distance(newOperations_.begin(), spillOpIt);
+        newOperations_.insert(newOperations_.begin() + pos + 1, spillCopyoutOp);
+        APASS_LOG_DEBUG_F(Elements::Operation, "Insert op: %s.", GetOpInfo(spillCopyoutOp).c_str());
+    }
+    bufLastUseOrder = opExecOrderMap[spillOp];
     return SUCCESS;
 }
 
@@ -698,7 +710,7 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, Operation* op, size_t 
     if (spillInfo.isSpecialL1_) {
         // actualSpillOp 为 copy_in
         bool isFinish = false;
-        if (CreateSpecialL1Copyout(spillInfo, op, spillCopyoutOp, bufLastUseOrder, isFinish) != SUCCESS) {
+        if (CreateSpecialL1Copyout(spillInfo, spillCopyoutOp, bufLastUseOrder, isFinish) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "SpecialL1 CreateSpillCopyout failed!");
             return FAILED;
         }
@@ -726,7 +738,7 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, Operation* op, size_t 
     if (isGenSpill) {
         pcIdx++;
         numTotalIssues++;
-    } else {
+    } else if (std::find(newOperations_.begin(), newOperations_.end(), spillCopyoutOp) == newOperations_.end()) {
         newOperations_.push_back(spillCopyoutOp);
         APASS_LOG_DEBUG_F(Elements::Operation, "Insert op: %s.", GetOpInfo(spillCopyoutOp).c_str());
     }
@@ -946,7 +958,7 @@ Status OoOScheduler::UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr a
             }
         }
     }
-    InitDependencies();
+    depManager_.InitDependencies(orderedOps);
     return SUCCESS;
 }
 
@@ -1071,6 +1083,10 @@ void OoOScheduler::FindFilterLtags(Operation* allocOp, std::set<Operation*> &fil
 }
 
 bool OoOScheduler::CheckMachineAndL1(Operation* spillOp, Operation* allocOp) {
+    if (!spillOp->GetInputOperand(0)) {
+        APASS_LOG_WARN_F(Elements::Tensor, "CheckMachineAndL1: spillOp %s has no inputOperand.", GetOpInfo(spillOp).c_str());
+        return false;
+    }
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocOp->GetOpcodeStr().find("L1_ALLOC") != std::string::npos &&
         spillOp->GetOpcodeStr().find("COPY_IN") == std::string::npos && spillOp->GetOpcodeStr().find("RESHAPE") == std::string::npos &&
         spillOp->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_UB &&
@@ -1292,8 +1308,8 @@ Status OoOScheduler::SpillAllBuffer(Operation* allocOp, size_t &pcIdx, bool isGe
             return FAILED;
         }
 
-        if (!CheckMachineAndL1(spillOp, allocOp) || !CheckParallelL0C2L1(spillOp) || IsViewOp(*spillOp) ||
-            spillOp->GetOpcode() == Opcode::OP_ASSEMBLE || spillOp->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+        if (spillOp->GetOpcodeStr().find("ALLOC") != std::string::npos || !CheckMachineAndL1(spillOp, allocOp) || !CheckParallelL0C2L1(spillOp) ||
+            IsViewOp(*spillOp) || spillOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
             continue;
         }
 

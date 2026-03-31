@@ -57,21 +57,21 @@ public:
     ~ScheduleBase() {}
 
     std::unordered_map<int, int> bufRefCount_;
-    std::unordered_map<MemoryType, int64_t> localMemSize; // 内存剩余情况
+    std::unordered_map<MemoryType, int64_t> localMemSize; //内存剩余情况
     std::unordered_map<MemoryType, int64_t> localMemoryCurrentSize;
-    std::unordered_map<int, LocalBufferPtr> localBufferMap_; // memid:local
-    std::unordered_map<Operation *, std::unordered_set<Operation *>> opConsumers;
-    std::unordered_map<Operation *, std::unordered_set<Operation *>> opProducers;
-    std::unordered_map<Operation *, LogicalTensors> inOutOperandsCache_;
+    std::unordered_map<int, LocalBufferPtr> localBufferMap_; //memid:local
+    std::unordered_map<Operation*, std::unordered_set<Operation*>> opConsumers;
+    std::unordered_map<Operation*, std::unordered_set<Operation*>> opProducers;
+    std::unordered_map<Operation*, LogicalTensors> inOutOperandsCache_;
 
     //  初始依赖的list序列
-    std::vector<Operation *> operations;
+    std::vector<Operation*> operations;
 
 protected:
     DependencyManager depManager_;
 
 public:
-    const LogicalTensors &GetInOutOperandCached(Operation *op) {
+    const LogicalTensors& GetInOutOperandCached(Operation* op) {
         auto it = inOutOperandsCache_.find(op);
         if (it != inOutOperandsCache_.end())
             return it->second;
@@ -93,7 +93,7 @@ public:
     }
 
     void InitOpConsumerAndProducer() {
-        std::unordered_set<Operation *> operationList;
+        std::unordered_set<Operation*> operationList;
         for (auto op : operations) {
             operationList.insert(op);
         }
@@ -302,7 +302,7 @@ public:
         return SUCCESS;
     }
 
-    void UpdateAllocMap(Operation *op, std::map<int, Operation *> &tensorAllocMap) {
+    void UpdateAllocMap(Operation* op, std::map<int, Operation*> &tensorAllocMap) {
         for (auto outTensor : op->GetOOperands()) {
             if (outTensor->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
                 continue;
@@ -352,13 +352,13 @@ public:
         return SUCCESS;
     }
 
-    Status Init(std::vector<Operation *> &opList) {
+    Status Init(std::vector<Operation*> &opList) {
         // 初始化芯片各buffer大小
         localMemSize = CommonUtils::GetLocalMemorySize();
-        localMemoryCurrentSize = localMemSize;
+ 	    localMemoryCurrentSize = localMemSize;
         operations = opList;
         InitOpConsumerAndProducer();
-        for (auto &op : operations) {
+        for (auto& op : operations) {
             if (CheckOpBufferSize(op) != SUCCESS) {
                 APASS_LOG_ERROR_F(
                     Elements::Operation, "%s[%d] checkOpBufferSize failed! %s", op->GetOpcodeStr().c_str(),
@@ -388,11 +388,17 @@ struct OpQueue {
     OpQueue() {}
     ~OpQueue() {}
 
-    void Insert(Operation *op) { queue.push_back(op); }
+    void Insert(Operation* op) {
+        queue.push_back(op);
+    }
 
-    bool Empty() { return queue.empty(); }
+    bool Empty() {
+        return queue.empty();
+    }
 
-    Operation *Front() { return queue[0]; }
+    Operation* Front() {
+        return queue[0];
+    }
 
     Operation* PopFront()
     {

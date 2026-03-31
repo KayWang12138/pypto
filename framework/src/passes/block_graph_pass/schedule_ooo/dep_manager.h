@@ -43,6 +43,8 @@ public:
 
     void AddAllocDependency(Operation *preOp, Operation *postOp);
 
+    Status InitAllocDependencies(Operation* op, std::unordered_map<int, Operation*> &tensor2AllocOpMap);
+
     bool RemoveDependency(Operation *preOp, Operation *postOp);
 
     std::unordered_set<Operation *> &GetSuccessors(Operation *op);
@@ -57,7 +59,7 @@ public:
         const std::function<bool(Operation *)> &isRetired,
         const std::function<const std::vector<int> &(Operation *)> &getReqMemIds);
 
-    void Print(const std::vector<Operation *> &ops, const std::function<std::string(Operation *)> &getInfoFn) const;
+    std::string PrintOp(Operation *op);
 
     Operation *SkipViewChain(Operation *start, bool followProducers);
 
