@@ -29,7 +29,7 @@ void TiledHypotOperationImpl(Function &function, const TileShape &tileShape, siz
         auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto inputTile2 = input2.tensor.GetStorage()->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        size_t element_size = sizeof(float); 
+        size_t element_size = sizeof(float);
         int64_t num_elements = 1;
         if (!resultTileInfo.shape.empty()) {
             num_elements = resultTileInfo.shape.back();

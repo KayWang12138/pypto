@@ -932,7 +932,7 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                     dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape));
                 }
             }
-                for (auto &shape: oOperand[0]->GetDynValidShape()) {
+            for (auto &shape : oOperand[0]->GetDynValidShape()) {
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape));
             }
         } break;
@@ -949,7 +949,7 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                     dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape));
                 }
             }
-                for (auto &shape: iOperand[0]->GetDynValidShape()) {
+            for (auto &shape : iOperand[0]->GetDynValidShape()) {
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape));
             }
         } break;
@@ -960,12 +960,12 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
             if (copyAttr != nullptr) {
                 for (auto &offset : copyAttr->GetFromOffset()) {
                     if (offset.IsSpecified()) {
-                            dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
+                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
                     }
                 }
                 for (auto &shape : copyAttr->GetToDynValidShape()) {
                     if (shape.IsSpecified()) {
-                            dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
                     }
                 }
             }
