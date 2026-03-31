@@ -122,6 +122,7 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function& function, 
             SetValidShapeForExpand(expand, otherTensor);
             expand.UpdateSubgraphID(op.GetSubgraphID());
             UpdateOperand(op, idx, srcTensor, alignedTensor, inputTensor);
+            continue;
         } else if (!isDAV3510) {
             if (AlignedIfNeed(alignedShape.back(), padValue) != SUCCESS) {
                 return FAILED;
@@ -130,8 +131,8 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function& function, 
             auto& brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
             brcb.UpdateSubgraphID(op.GetSubgraphID());
             UpdateOperand(op, idx, srcTensor, alignedTensor, inputTensor);
-            op.SetAttribute(OpAttributeKey::brcbIdx, static_cast<int64_t>(idx + 1));
         }
+        op.SetAttribute(OpAttributeKey::brcbIdx, static_cast<int64_t>(idx + 1));
     }
     return SUCCESS;
 }
