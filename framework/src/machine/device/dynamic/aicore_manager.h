@@ -357,6 +357,8 @@ private:
     inline void TryBatchSendTask(CoreType type)
     {
         auto taskQueue = taskQueue_[(int)type];
+        batchBusyAPairCount_[(int)type] = 0;
+        batchBusyBPairCount_[(int)type] = 0;
 
         // Checking free A cores
         if (freeACoreQueue_[(int)type]->empty() == false && taskQueue->empty() == false)
@@ -375,11 +377,19 @@ private:
                     const auto task = taskData[i];
                     const auto pair = encodePair(core, task);
                     SendTaskToAiCore(type, core, task);
-                    busyAPairQueue_[(int)type]->push(pair);
+                    batchBusyAPairs_[(int)type][batchBusyAPairCount_[(int)type]++] = pair;
                 }
 
                 freeACoreQueue_[(int)type]->unlock();   
                 taskQueue->unlock();   
+
+                // Batch-pushing busy A cores
+                if (batchBusyAPairCount_[(int)type] > 0)
+                {
+                    busyAPairQueue_[(int)type]->lock();
+                    busyAPairQueue_[(int)type]->pushMany(batchBusyAPairs_[(int)type], batchBusyAPairCount_[(int)type]);
+                    busyAPairQueue_[(int)type]->unlock();
+                }
             }
         }
         
@@ -400,11 +410,19 @@ private:
                     const auto core = decodePairCore(pair);
                     const auto task = taskData[i];
                     SendTaskToAiCore(type, core, task);
-                    busyBPairQueue_[(int)type]->push(pair);
+                    batchBusyBPairs_[(int)type][batchBusyBPairCount_[(int)type]++] = pair;
                 }
 
                 freeBPairQueue_[(int)type]->unlock();
                 taskQueue->unlock();
+
+                // Batch-pushing busy A cores
+                if (batchBusyBPairCount_[(int)type] > 0)
+                {
+                    busyBPairQueue_[(int)type]->lock();
+                    busyBPairQueue_[(int)type]->pushMany(batchBusyBPairs_[(int)type], batchBusyBPairCount_[(int)type]);
+                    busyBPairQueue_[(int)type]->unlock();
+                }
             }
         }
     }
