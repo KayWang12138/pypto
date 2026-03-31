@@ -203,30 +203,3 @@ TEST_F(TestPro, test_prof_start_pmu_dav3510) {
     free(regBuf);
 }
 
-// TEST_F(TestPro, test_check_level) {
-//     std::unique_ptr<AicpuTaskManager> aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
-//     std::unique_ptr<AiCoreManager> aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
-//     aicoreMng->aicNum_ = 1;
-//     aicoreMng->aivNum_ = 0;
-//     aicoreMng->aicStart_ = 0;
-//     aicoreMng->aicEnd_ = 1;
-//     aicoreMng->aicpuIdx_ = 0;
-//     AiCoreProf prof(*aicoreMng);
-//     prof.DevProfInit(1, nullptr, 0);
-//     std::unique_ptr<PyPtoMsprofCommandHandle> data = std::make_unique<PyPtoMsprofCommandHandle>();
-//     prof.DevProfInit(0, data.get(), 1);
-//     data->profSwitch = 65661;
-//     auto size = sizeof(PyPtoMsprofCommandHandle);
-//     data->type = 0;
-//     prof.DevProfInit(1, data.get(), size);
-//     prof.GetIsOpenDevProf();
-//     EXPECT_EQ(prof.profLevel_, 0);
-//     data->type = 1;
-//     prof.DevProfInit(1, data.get(), size);
-//     prof.GetIsOpenDevProf();
-//     EXPECT_EQ(prof.profLevel_, 3);
-//     data->profSwitch = 65597;
-//     prof.DevProfInit(1, data.get(), size);
-//     prof.GetIsOpenDevProf();
-//     EXPECT_EQ(prof.profLevel_, 2);
-// }
