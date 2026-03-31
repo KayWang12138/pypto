@@ -243,10 +243,9 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& funct
                 Elements::Operation, "There are other branches between reshape[%d] and copyins.", op.GetOpMagic());
             return;
         }
-        if (copyOutOps.size() != 1) {
-            if (copyOutOps.size() > 1) {
-                APASS_LOG_WARN_F(Elements::Operation, "Do not follow reshape[%d] on GM after multiple copyouts.", op.GetOpMagic());
-            }
+        if (copyOutOps.size() != 1) {	 
+            APASS_LOG_WARN_F(	 
+                Elements::Operation, "Do not follow reshape[%d] on GM after multiple copyouts.", op.GetOpMagic());
             return;
         }
         Operation* copyOutOp = copyOutOps.front();
