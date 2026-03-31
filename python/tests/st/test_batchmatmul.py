@@ -380,5 +380,5 @@ def test_batchmatmul_pypto_vs_torch_multi_size_perf():
     print(f"Torch: {avg_torch_t*1000:.2f} ms | {avg_torch_m:.1f} MB")
     print(f"PyPTO: {avg_pypto_t*1000:.2f} ms | {avg_pypto_m:.1f} MB")
     if avg_pypto_t > 0:
-        print(f"Speedup(Torch/PyPTO): {avg_torch_t / avg_pypto_t:.2f}x")
+        print(f"Speedup(PyPTO speed / Torch speed): {avg_torch_t / avg_pypto_t:.2f}x")
     print("=" * 90)
