@@ -22,10 +22,10 @@ def test_print_options():
 
 
 def test_pass_option():
-    # int
+    # int - sg_set_scope现在返回数组格式 [scopeId, 0, 0, -1]
     pypto.set_pass_options(sg_set_scope=48)
     pass_option = pypto.get_pass_options()
-    assert pass_option["sg_set_scope"] == 48
+    assert pass_option["sg_set_scope"] == [48, 0, 0, -1]
     # map
     pypto.set_pass_options(cube_nbuffer_setting={3: 4})
     pass_option = pypto.get_pass_options()
