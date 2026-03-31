@@ -370,6 +370,9 @@ Tensor ArgMax(const Tensor& self, int axis, bool keepDim)
     ValidateReductionAxis(self, axis);
 
     auto resultShape = self.GetShape();
+    auto vecTile = TileShape::Current().GetVecTile();
+    ASSERT(VectorErrorCode::ERR_CONFIG_TILE, vecTile[axis] >= resultShape[axis])
+        << "ArgMax Op does not support reduce axis splitting!";
     resultShape[axis] = 1;
 
     Tensor result(DataType::DT_INT32, resultShape);
@@ -385,6 +388,9 @@ Tensor ArgMin(const Tensor& self, int axis, bool keepDim)
     ValidateReductionAxis(self, axis);
 
     auto resultShape = self.GetShape();
+    auto vecTile = TileShape::Current().GetVecTile();
+    ASSERT(VectorErrorCode::ERR_CONFIG_TILE, vecTile[axis] >= resultShape[axis])
+        << "ArgMin Op does not support reduce axis splitting!";
     resultShape[axis] = 1;
 
     Tensor result(DataType::DT_INT32, resultShape);
